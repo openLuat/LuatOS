@@ -51,8 +51,7 @@ local available = {
     [socket.LWIP_ETH] = connection_states.DISCONNECTED,
     [socket.LWIP_GP] = connection_states.DISCONNECTED,
     [socket.LWIP_USER1] = connection_states.DISCONNECTED,
-    [socket.LWIP_GP_GW] = connection_states.DISCONNECTED,
-    [socket.LWIP_USER0] = connection_states.DISCONNECTED
+    [socket.LWIP_GP_GW] = connection_states.DISCONNECTED
 }
 -- 当前使用的网卡
 local current_active = nil
@@ -64,8 +63,7 @@ local function type_to_string(net_type)
         [socket.LWIP_ETH] = "Ethernet",
         [socket.LWIP_GP] = "4G",
         [socket.LWIP_USER1] = "8101SPIETH",
-        [socket.LWIP_GP_GW] = "airlink_4G",
-        [socket.LWIP_USER0] = "airlink_4G"
+        [socket.LWIP_GP_GW] = "airlink_4G"
     }
     return type_map[net_type] or "Unknown"
 end
@@ -163,7 +161,7 @@ local function ping_request(adaptertest)
                 icmp.ping(adaptertest, wifi_ping_ip)
             end
         end
-        if adaptertest == socket.LWIP_GP or adaptertest == socket.LWIP_GP_GW or adaptertest == socket.LWIP_USER0 then
+        if adaptertest == socket.LWIP_GP or adaptertest == socket.LWIP_GP_GW then
             if eth_ping_ip ~= nil then
                 icmp.setup(adaptertest)
                 icmp.ping(adaptertest, eth_ping_ip)

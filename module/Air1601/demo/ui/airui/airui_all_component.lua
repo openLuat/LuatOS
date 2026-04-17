@@ -281,12 +281,13 @@ function airui_all_component.create_ui()
         placeholder = "请输入文本...",
         max_len = 100,
         size = 16,
+        keyboard = keyboard1,
     })
 
     -- 创建键盘
     local keyboard1 = airui.keyboard({
-        x = 200,
-        y = 400,
+        x = 0,
+        y = 0,
         w = 600,
         h = 200,
         mode = "text",

@@ -355,6 +355,11 @@ function exsip.stop()
         sipclient.stop()
     end
 
+    local timeout = 1000
+    while g_started and timeout > 0 do
+        sys.wait(10)
+        timeout = timeout - 10
+    end
     g_started = false
     g_current_call = nil
     log_info("stopped")

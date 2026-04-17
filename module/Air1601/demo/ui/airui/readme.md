@@ -30,13 +30,13 @@
 4. airui_image.lua - 图片组件演示页面
 5. airui_container.lua- 容器组件演示页面
 6. airui_bar.lua - （动态）进度条组件演示页面
+7. airui_qrcode.lua- 二维码组件演示页面
 
 ### 2.3 交互组件演示
 1. airui_switch.lua -开关组件演示页面
 2. airui_dropdown.lua - 下拉框组件演示页面
 3. airui_input.lua - 输入框组件演示页面
 4. airui_msgbox.lua - 消息框组件演示页面
-5. airui_game.lua- 俄罗斯方块游戏演示页面
 
 ### 2.4 布局与高级组件演示
 1. airui_table_page.lua - 表格组件演示页面

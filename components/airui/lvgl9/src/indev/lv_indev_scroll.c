@@ -11,7 +11,6 @@
 #include "lv_indev.h"
 #include "lv_indev_private.h"
 #include "lv_indev_scroll.h"
-#include "../widgets/tabview/lv_tabview.h"
 
 /*********************
  *      DEFINES
@@ -519,40 +518,6 @@ static int32_t find_snap_point_x(const lv_obj_t * obj, int32_t min, int32_t max,
     lv_scroll_snap_t align = lv_obj_get_scroll_snap_x(obj);
     if(align == LV_SCROLL_SNAP_NONE) return LV_COORD_MAX;
 
-    const lv_obj_t * parent = lv_obj_get_parent(obj);
-    if(align == LV_SCROLL_SNAP_CENTER && parent && lv_obj_has_class(parent, &lv_tabview_class)) {
-        uint32_t tab_count = lv_tabview_get_tab_count((lv_obj_t *)parent);
-        uint32_t active = lv_tabview_get_tab_active((lv_obj_t *)parent);
-        uint32_t threshold_ratio = lv_tabview_get_swipe_threshold_ratio((lv_obj_t *)parent);
-        int32_t page_w = lv_obj_get_content_width((lv_obj_t *)obj);
-        int32_t gap = lv_obj_get_style_pad_column((lv_obj_t *)obj, LV_PART_MAIN);
-        int32_t step = page_w + gap;
-
-        if(tab_count > 0 && active < tab_count && step > 0) {
-            bool rtl = lv_obj_get_style_base_dir((lv_obj_t *)parent, LV_PART_MAIN) == LV_BASE_DIR_RTL;
-            int32_t target = rtl ? -(int32_t)(active * step) : (int32_t)(active * step);
-            int32_t imagined = lv_obj_get_scroll_x((lv_obj_t *)obj) + ofs;
-            int32_t delta = imagined - target;
-            int32_t threshold = (step * (int32_t)threshold_ratio) / 100;
-
-            if(active + 1 < tab_count) {
-                if((!rtl && delta >= threshold) || (rtl && delta <= -threshold)) {
-                    int32_t next = rtl ? -(int32_t)((active + 1) * step) : (int32_t)((active + 1) * step);
-                    return imagined - next;
-                }
-            }
-
-            if(active > 0) {
-                if((!rtl && delta <= -threshold) || (rtl && delta >= threshold)) {
-                    int32_t prev = rtl ? -(int32_t)((active - 1) * step) : (int32_t)((active - 1) * step);
-                    return imagined - prev;
-                }
-            }
-
-            return imagined - target;
-        }
-    }
-
     int32_t dist = LV_COORD_MAX;
 
     int32_t pad_left = lv_obj_get_style_pad_left(obj, LV_PART_MAIN);
@@ -608,35 +573,6 @@ static int32_t find_snap_point_y(const lv_obj_t * obj, int32_t min, int32_t max,
 {
     lv_scroll_snap_t align = lv_obj_get_scroll_snap_y(obj);
     if(align == LV_SCROLL_SNAP_NONE) return LV_COORD_MAX;
-
-    const lv_obj_t * parent = lv_obj_get_parent(obj);
-    if(align == LV_SCROLL_SNAP_CENTER && parent && lv_obj_has_class(parent, &lv_tabview_class)) {
-        uint32_t tab_count = lv_tabview_get_tab_count((lv_obj_t *)parent);
-        uint32_t active = lv_tabview_get_tab_active((lv_obj_t *)parent);
-        uint32_t threshold_ratio = lv_tabview_get_swipe_threshold_ratio((lv_obj_t *)parent);
-        int32_t page_h = lv_obj_get_content_height((lv_obj_t *)obj);
-        int32_t gap = lv_obj_get_style_pad_row((lv_obj_t *)obj, LV_PART_MAIN);
-        int32_t step = page_h + gap;
-
-        if(tab_count > 0 && active < tab_count && step > 0) {
-            int32_t target = (int32_t)(active * step);
-            int32_t imagined = lv_obj_get_scroll_y((lv_obj_t *)obj) + ofs;
-            int32_t delta = imagined - target;
-            int32_t threshold = (step * (int32_t)threshold_ratio) / 100;
-
-            if(active + 1 < tab_count && delta >= threshold) {
-                int32_t next = (int32_t)((active + 1) * step);
-                return imagined - next;
-            }
-
-            if(active > 0 && delta <= -threshold) {
-                int32_t prev = (int32_t)((active - 1) * step);
-                return imagined - prev;
-            }
-
-            return imagined - target;
-        }
-    }
 
     int32_t dist = LV_COORD_MAX;
 

@@ -19,7 +19,6 @@
  *      DEFINES
  *********************/
 #define MY_CLASS (&lv_tabview_class)
-#define LV_TABVIEW_DEF_SWIPE_THRESHOLD_RATIO 50
 
 /**********************
  *      TYPEDEFS
@@ -236,21 +235,6 @@ void lv_tabview_set_tab_bar_size(lv_obj_t * obj, int32_t size)
     }
 }
 
-void lv_tabview_set_swipe_threshold_ratio(lv_obj_t * obj, uint8_t ratio)
-{
-    LV_ASSERT_OBJ(obj, MY_CLASS);
-    lv_tabview_t * tabview = (lv_tabview_t *)obj;
-    if(ratio > 100) ratio = 100;
-    tabview->swipe_threshold_ratio = ratio;
-}
-
-uint8_t lv_tabview_get_swipe_threshold_ratio(lv_obj_t * obj)
-{
-    LV_ASSERT_OBJ(obj, MY_CLASS);
-    lv_tabview_t * tabview = (lv_tabview_t *)obj;
-    return tabview->swipe_threshold_ratio;
-}
-
 uint32_t lv_tabview_get_tab_active(lv_obj_t * obj)
 {
     LV_ASSERT_OBJ(obj, MY_CLASS);
@@ -291,7 +275,6 @@ static void lv_tabview_constructor(const lv_obj_class_t * class_p, lv_obj_t * ob
     LV_UNUSED(class_p);
     lv_tabview_t * tabview = (lv_tabview_t *)obj;
     tabview->tab_pos = LV_DIR_NONE;  /*Invalid value to apply the default TOP direction correctly*/
-    tabview->swipe_threshold_ratio = LV_TABVIEW_DEF_SWIPE_THRESHOLD_RATIO;
 
     lv_obj_set_size(obj, LV_PCT(100), LV_PCT(100));
 
@@ -366,19 +349,16 @@ static void cont_scroll_end_event_cb(lv_event_t * e)
 
         lv_point_t p;
         lv_obj_get_scroll_end(cont, &p);
-        uint32_t threshold_ratio = tv_obj->swipe_threshold_ratio;
 
         int32_t t;
         if((tv_obj->tab_pos & LV_DIR_VER) != 0) {
             int32_t w = lv_obj_get_content_width(cont);
-            int32_t threshold = (w * (int32_t)threshold_ratio) / 100;
-            if(lv_obj_get_style_base_dir(tv, LV_PART_MAIN) == LV_BASE_DIR_RTL)  t = -(p.x - threshold) / w;
-            else t = (p.x + threshold) / w;
+            if(lv_obj_get_style_base_dir(tv, LV_PART_MAIN) == LV_BASE_DIR_RTL)  t = -(p.x - w / 2) / w;
+            else t = (p.x + w / 2) / w;
         }
         else {
             int32_t h = lv_obj_get_content_height(cont);
-            int32_t threshold = (h * (int32_t)threshold_ratio) / 100;
-            t = (p.y + threshold) / h;
+            t = (p.y + h / 2) / h;
         }
 
         if(t < 0) t = 0;

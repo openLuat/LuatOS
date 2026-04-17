@@ -713,8 +713,8 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
     }
 
     parent = airui_marshal_parent(L, idx);
-    requested_width = (lv_coord_t)airui_marshal_integer(L, idx, "w", 160);
-    requested_height = (lv_coord_t)airui_marshal_integer(L, idx, "h", 120);
+    requested_width = (lv_coord_t)airui_marshal_floor_integer(L, idx, "w", 160);
+    requested_height = (lv_coord_t)airui_marshal_floor_integer(L, idx, "h", 120);
 
     /* 首版直接复用 lv_image 作为显示载体，减少自定义 widget 成本。 */
     video = lv_image_create(parent);
@@ -722,7 +722,7 @@ lv_obj_t *airui_video_create_from_config(void *L, int idx)
         return NULL;
     }
 
-    lv_obj_set_pos(video, airui_marshal_integer(L, idx, "x", 0), airui_marshal_integer(L, idx, "y", 0));
+    lv_obj_set_pos(video, airui_marshal_floor_integer(L, idx, "x", 0), airui_marshal_floor_integer(L, idx, "y", 0));
     lv_obj_set_size(video, requested_width, requested_height);
     /* 嵌入式场景暂不支持缩放，inner align 使用居中避免进入 contain 缩放路径。 */
     lv_image_set_inner_align(video, LV_IMAGE_ALIGN_CENTER);

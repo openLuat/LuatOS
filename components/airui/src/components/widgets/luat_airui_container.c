@@ -35,10 +35,10 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
 
     // 解析布局与样式配置
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 100);
-    int h = airui_marshal_integer(L, idx, "h", 100);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 100);
+    int h = airui_marshal_floor_integer(L, idx, "h", 100);
     int color_value = airui_marshal_integer(L, idx, "color", -1);
     int color_opacity = airui_marshal_integer(L, idx, "color_opacity", LV_OPA_COVER);
     int radius = airui_marshal_integer(L, idx, "radius", 0);

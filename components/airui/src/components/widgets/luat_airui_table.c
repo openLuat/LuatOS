@@ -128,10 +128,10 @@ lv_obj_t *airui_table_create_from_config(void *L, int idx)
 
     // 读取配置项
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 200);
-    int h = airui_marshal_integer(L, idx, "h", 120);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 200);
+    int h = airui_marshal_floor_integer(L, idx, "h", 120);
     int rows = airui_marshal_integer(L, idx, "rows", 4);
     int cols = airui_marshal_integer(L, idx, "cols", 3);
     if (rows < 1) rows = 1;

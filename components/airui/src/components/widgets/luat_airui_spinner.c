@@ -54,10 +54,10 @@ lv_obj_t *airui_spinner_create_from_config(void *L, int idx)
     }
 
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 40);
-    int h = airui_marshal_integer(L, idx, "h", 40);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 40);
+    int h = airui_marshal_floor_integer(L, idx, "h", 40);
     int duration = airui_marshal_integer(L, idx, "duration", 1000);
     int arc_angle = airui_marshal_integer(L, idx, "arc_angle", 200);
 

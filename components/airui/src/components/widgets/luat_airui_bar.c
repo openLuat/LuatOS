@@ -60,10 +60,10 @@ lv_obj_t *airui_bar_create_from_config(void *L, int idx)
 
     // 1. 解析配置参数
     lv_obj_t *parent = airui_marshal_parent(L, idx); // 父对象（容器等）
-    int x = airui_marshal_integer(L, idx, "x", 0);   // X 坐标
-    int y = airui_marshal_integer(L, idx, "y", 0);   // Y 坐标
-    int w = airui_marshal_integer(L, idx, "w", 200); // 宽度
-    int h = airui_marshal_integer(L, idx, "h", 20);  // 高度
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);   // X 坐标
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);   // Y 坐标
+    int w = airui_marshal_floor_integer(L, idx, "w", 200); // 宽度
+    int h = airui_marshal_floor_integer(L, idx, "h", 20);  // 高度
     int min = airui_marshal_integer(L, idx, "min", 0); // 最小值
     int max = airui_marshal_integer(L, idx, "max", 100); // 最大值
     if (max < min) {

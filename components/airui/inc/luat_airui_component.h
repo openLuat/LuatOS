@@ -303,6 +303,16 @@ void airui_component_release_callbacks(airui_component_meta_t *meta, void *L);
  * @return 整数值
  */
 int airui_marshal_integer(void *L, int idx, const char *key, int default_value);
+
+/**
+ * 从配置表读取整数字段，并向下取整
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param default_value 默认值
+ * @return 整数值
+ */
+int airui_marshal_floor_integer(void *L, int idx, const char *key, int default_value);
 /**
  * 获取表字段的长度（仅支持数组）
  */

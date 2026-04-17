@@ -55,10 +55,10 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx)
     
     // 读取配置
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 100);
-    int h = airui_marshal_integer(L, idx, "h", 100);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 100);
+    int h = airui_marshal_floor_integer(L, idx, "h", 100);
     const char *src = airui_marshal_string(L, idx, "src", NULL);
 
     // 创建 Image 对象

@@ -68,10 +68,10 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     }
 
     // 解析布局相关字段
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", ctx->width > 0 ? ctx->width - x : 200);
-    int h = airui_marshal_integer(L, idx, "h", 120);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", ctx->width > 0 ? ctx->width - x : 200);
+    int h = airui_marshal_floor_integer(L, idx, "h", 120);
     int max_len = airui_marshal_integer(L, idx, "max_len", 256);
     const char *text = airui_marshal_string(L, idx, "text", NULL);
     const char *placeholder = airui_marshal_string(L, idx, "placeholder", NULL);

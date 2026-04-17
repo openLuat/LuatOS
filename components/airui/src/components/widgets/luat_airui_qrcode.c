@@ -48,8 +48,8 @@ lv_obj_t *airui_qrcode_create_from_config(void *L, int idx)
     }
 
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
     int size = airui_marshal_integer(L, idx, "size", 160);
     const char *data = airui_marshal_string(L, idx, "data", NULL);
     bool quiet_zone = airui_marshal_bool(L, idx, "quiet_zone", true);

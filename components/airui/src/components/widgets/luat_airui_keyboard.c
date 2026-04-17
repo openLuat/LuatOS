@@ -958,10 +958,10 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
         parent = lv_scr_act();
     }
 
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0); // 键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
-    int w = airui_marshal_integer(L, idx, "w", 300);
-    int h = airui_marshal_integer(L, idx, "h", 160);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0); // 键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
+    int w = airui_marshal_floor_integer(L, idx, "w", 300);
+    int h = airui_marshal_floor_integer(L, idx, "h", 160);
     const char *mode = airui_marshal_string(L, idx, "mode", "text");
     bool popovers = airui_marshal_bool(L, idx, "popovers", true);
     bool auto_hide = airui_marshal_bool(L, idx, "auto_hide", false);

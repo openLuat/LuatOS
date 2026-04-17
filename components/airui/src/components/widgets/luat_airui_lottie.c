@@ -69,10 +69,10 @@ lv_obj_t *airui_lottie_create_from_config(void *L, int idx)
 
     // 计算控件正确的父对象和位置尺寸
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 100);
-    int h = airui_marshal_integer(L, idx, "h", 100);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 100);
+    int h = airui_marshal_floor_integer(L, idx, "h", 100);
 
     // 创建 LVGL 对象并设置几何参数
     lv_obj_t *lottie = lv_lottie_create(parent);

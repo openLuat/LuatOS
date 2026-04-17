@@ -386,10 +386,10 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
 
     // 读取基础配置项
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 320);
-    int h = airui_marshal_integer(L, idx, "h", 200);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 320);
+    int h = airui_marshal_floor_integer(L, idx, "h", 200);
     int tabbar_pos = airui_marshal_integer(L, idx, "tabbar_pos", LV_DIR_TOP);
     int active = airui_marshal_integer(L, idx, "active", 0);
     int tab_font_size = airui_marshal_integer(L, idx, "tab_font_size", 0);

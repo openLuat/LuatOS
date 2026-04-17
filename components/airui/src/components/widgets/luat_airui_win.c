@@ -116,10 +116,10 @@ lv_obj_t *airui_win_create_from_config(void *L, int idx)
     
     // 读取配置
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 400);
-    int h = airui_marshal_integer(L, idx, "h", 300);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 400);
+    int h = airui_marshal_floor_integer(L, idx, "h", 300);
     const char *title = airui_marshal_string(L, idx, "title", NULL);
     bool close_btn = airui_marshal_bool(L, idx, "close_btn", false);
     bool auto_center = airui_marshal_bool(L, idx, "auto_center", false);

@@ -45,9 +45,9 @@ local audio_configs = {
 local function sip_callback(event, arg1, arg2, arg3)
     if event == "register" then
         local status, data = arg1, arg2
-        if status == "ok" then
+        if status then
             log.info("sip", "注册成功，有效期:", data.expires)
-        elseif status == "failed" then
+        else
             log.error("sip", "注册失败")
         end
     elseif event == "ready" then

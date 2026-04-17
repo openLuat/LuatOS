@@ -157,10 +157,10 @@ local function sip_event_handler(event, action, payload)
 
     if event == "register" then
         if action == "ok" then
-            emit_callback("register", "ok", payload)
+            emit_callback("register", true, payload)
             emit_callback("ready")
-        elseif action == "failed" then
-            emit_callback("register", "failed", payload)
+        else
+            emit_callback("register", false, payload)
         end
     elseif event == "call" then
         if action == "incoming" then

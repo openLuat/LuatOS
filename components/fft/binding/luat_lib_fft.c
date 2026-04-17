@@ -113,89 +113,215 @@ static void fft_args_cleanup(fft_args_t* a)
 static int fft_parse_args(lua_State* L, fft_args_t* a)
 {
     memset(a, 0, sizeof(*a));
+    
+    // 参数数量检查
+    int top = lua_gettop(L);
+    if (top < 5) {
+        LLOGE("fft_parse_args: insufficient arguments, expected at least 5, got %d", top);
+        return luaL_error(L, "fft requires at least 5 arguments: real, imag, N, Wc, Ws");
+    }
+    
+    // 参数3: N - 必须是整数
+    if (!lua_isinteger(L, 3)) {
+        LLOGE("fft_parse_args: parameter N must be integer, got %s", lua_typename(L, lua_type(L, 3)));
+        return luaL_error(L, "N must be integer");
+    }
+    
     a->N = luaL_checkinteger(L, 3);
-    if (a->N <= 1 || (a->N & (a->N - 1)))
+    
+    // N的范围检查
+    if (a->N <= 1) {
+        LLOGE("fft_parse_args: N must be greater than 1, got %d", a->N);
+        return luaL_error(L, "N must be greater than 1");
+    }
+    
+    // N必须是2的幂次
+    if (a->N & (a->N - 1)) {
+        LLOGE("fft_parse_args: N must be power of 2, got %d", a->N);
         return luaL_error(L, "N must be power of 2");
+    }
+    
+    // N上限检查（防止内存溢出）
+    if (a->N > 65536) {
+        LLOGE("fft_parse_args: N exceeds maximum allowed value 65536, got %d", a->N);
+        return luaL_error(L, "N must not exceed 65536");
+    }
 
     int N = a->N;
     luat_zbuff_t* zb;
 
-    // real
-    zb = (luat_zbuff_t*)luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
-    if (zb) {
+    // 参数1: real - 必须是zbuff或table，不能为nil
+    int real_type = lua_type(L, 1);
+    if (real_type == LUA_TNIL) {
+        LLOGE("fft_parse_args: real parameter cannot be nil");
+        return luaL_error(L, "real must be zbuff or table, not nil");
+    }
+    if (real_type != LUA_TTABLE) {
+        zb = (luat_zbuff_t*)luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
+        if (!zb) {
+            LLOGE("fft_parse_args: real parameter must be zbuff or table, got %s", 
+                  lua_typename(L, real_type));
+            return luaL_error(L, "real must be zbuff or table");
+        }
         a->r = (float*)zb->addr;
-    } else if (lua_isnil(L, 1)) {
-        // 当 real 为 nil 时，分配内存并初始化为 0
-        a->r = luat_heap_malloc(sizeof(float) * N);
-        a->r_free = 1;
-        if (!a->r) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
-        memset(a->r, 0, sizeof(float) * N);
     } else {
+        // table类型
         a->r = luat_heap_malloc(sizeof(float) * N);
         a->r_free = 1;
-        if (!a->r) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        if (!a->r) { 
+            LLOGE("fft_parse_args: failed to allocate memory for real (size=%zu)", 
+                  sizeof(float) * N);
+            fft_args_cleanup(a); 
+            return luaL_error(L, "no memory"); 
+        }
         if (read_lua_array_float(L, 1, a->r, N)) {
-            fft_args_cleanup(a); return luaL_error(L, "real must be number array or zbuff");
+            LLOGE("fft_parse_args: failed to read real array, table must contain %d numbers", N);
+            fft_args_cleanup(a); 
+            return luaL_error(L, "real table must contain %d numbers", N);
         }
     }
-    // imag
-    zb = (luat_zbuff_t*)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE);
-    if (zb) {
+    // 参数2: imag - 必须是zbuff、table或nil
+    int imag_type = lua_type(L, 2);
+    if (imag_type != LUA_TNIL && imag_type != LUA_TTABLE) {
+        zb = (luat_zbuff_t*)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE);
+        if (!zb) {
+            LLOGE("fft_parse_args: imag parameter must be zbuff, table or nil, got %s", 
+                  lua_typename(L, imag_type));
+            fft_args_cleanup(a);
+            return luaL_error(L, "imag must be zbuff, table or nil");
+        }
         a->im = (float*)zb->addr;
-    } else if (lua_isnil(L, 2)) {
+    } else if (imag_type == LUA_TNIL) {
         // 当 imag 为 nil 时，分配内存并初始化为 0
         a->im = luat_heap_malloc(sizeof(float) * N);
         a->im_free = 1;
-        if (!a->im) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        if (!a->im) { 
+            LLOGE("fft_parse_args: failed to allocate memory for imag (size=%zu)", 
+                  sizeof(float) * N);
+            fft_args_cleanup(a); 
+            return luaL_error(L, "no memory"); 
+        }
         memset(a->im, 0, sizeof(float) * N);
     } else {
+        // table类型
         a->im = luat_heap_malloc(sizeof(float) * N);
         a->im_free = 1;
-        if (!a->im) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        if (!a->im) { 
+            LLOGE("fft_parse_args: failed to allocate memory for imag (size=%zu)", 
+                  sizeof(float) * N);
+            fft_args_cleanup(a); 
+            return luaL_error(L, "no memory"); 
+        }
         if (read_lua_array_float(L, 2, a->im, N)) {
-            fft_args_cleanup(a); return luaL_error(L, "imag must be number array or zbuff");
+            LLOGE("fft_parse_args: failed to read imag array, table must contain %d numbers", N);
+            fft_args_cleanup(a); 
+            return luaL_error(L, "imag table must contain %d numbers", N);
         }
     }
-    // Wc
-    zb = (luat_zbuff_t*)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE);
-    if (zb) {
+    
+    // 参数4: Wc - 必须是zbuff或table
+    int wc_type = lua_type(L, 4);
+    if (wc_type != LUA_TTABLE) {
+        zb = (luat_zbuff_t*)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE);
+        if (!zb) {
+            LLOGE("fft_parse_args: Wc parameter must be zbuff or table, got %s", 
+                  lua_typename(L, wc_type));
+            fft_args_cleanup(a);
+            return luaL_error(L, "Wc must be zbuff or table");
+        }
         a->Wc = (float*)zb->addr;
     } else {
         a->Wc = luat_heap_malloc(sizeof(float) * (N / 2));
         a->wc_free = 1;
-        if (!a->Wc) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        if (!a->Wc) { 
+            LLOGE("fft_parse_args: failed to allocate memory for Wc (size=%zu)", 
+                  sizeof(float) * (N / 2));
+            fft_args_cleanup(a); 
+            return luaL_error(L, "no memory"); 
+        }
         if (read_lua_array_float(L, 4, a->Wc, N / 2)) {
-            fft_args_cleanup(a); return luaL_error(L, "W_real must be number array or zbuff");
+            LLOGE("fft_parse_args: failed to read Wc array, table must contain %d numbers", N / 2);
+            fft_args_cleanup(a); 
+            return luaL_error(L, "Wc table must contain %d numbers", N / 2);
         }
     }
-    // Ws
-    zb = (luat_zbuff_t*)luaL_testudata(L, 5, LUAT_ZBUFF_TYPE);
-    if (zb) {
+    
+    // 参数5: Ws - 必须是zbuff或table
+    int ws_type = lua_type(L, 5);
+    if (ws_type != LUA_TTABLE) {
+        zb = (luat_zbuff_t*)luaL_testudata(L, 5, LUAT_ZBUFF_TYPE);
+        if (!zb) {
+            LLOGE("fft_parse_args: Ws parameter must be zbuff or table, got %s", 
+                  lua_typename(L, ws_type));
+            fft_args_cleanup(a);
+            return luaL_error(L, "Ws must be zbuff or table");
+        }
         a->Ws = (float*)zb->addr;
     } else {
         a->Ws = luat_heap_malloc(sizeof(float) * (N / 2));
         a->ws_free = 1;
-        if (!a->Ws) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        if (!a->Ws) { 
+            LLOGE("fft_parse_args: failed to allocate memory for Ws (size=%zu)", 
+                  sizeof(float) * (N / 2));
+            fft_args_cleanup(a); 
+            return luaL_error(L, "no memory"); 
+        }
         if (read_lua_array_float(L, 5, a->Ws, N / 2)) {
-            fft_args_cleanup(a); return luaL_error(L, "W_imag must be number array or zbuff");
+            LLOGE("fft_parse_args: failed to read Ws array, table must contain %d numbers", N / 2);
+            fft_args_cleanup(a); 
+            return luaL_error(L, "Ws table must contain %d numbers", N / 2);
         }
     }
 
     // 读取 opts 参数
     const char* core = "f32";
     const char* input_format = "f32";
-    if (lua_gettop(L) >= 6 && lua_istable(L, 6)) {
+    if (top >= 6) {
+        if (!lua_istable(L, 6)) {
+            LLOGE("fft_parse_args: opts parameter must be table, got %s", 
+                  lua_typename(L, lua_type(L, 6)));
+            fft_args_cleanup(a);
+            return luaL_error(L, "opts must be table");
+        }
         lua_getfield(L, 6, "core");
-        if (!lua_isnil(L, -1))
+        if (!lua_isnil(L, -1)) {
+            if (!lua_isstring(L, -1)) {
+                LLOGE("fft_parse_args: opts.core must be string, got %s", 
+                      lua_typename(L, lua_type(L, -1)));
+                lua_pop(L, 1);
+                fft_args_cleanup(a);
+                return luaL_error(L, "opts.core must be string");
+            }
             core = luaL_checkstring(L, -1);
+        }
         lua_pop(L, 1);
+        
         lua_getfield(L, 6, "input_format");
-        if (!lua_isnil(L, -1))
+        if (!lua_isnil(L, -1)) {
+            if (!lua_isstring(L, -1)) {
+                LLOGE("fft_parse_args: opts.input_format must be string, got %s", 
+                      lua_typename(L, lua_type(L, -1)));
+                lua_pop(L, 1);
+                fft_args_cleanup(a);
+                return luaL_error(L, "opts.input_format must be string");
+            }
             input_format = luaL_checkstring(L, -1);
+        }
         lua_pop(L, 1);
     }
+    
+    // 验证core参数值
+    if (core && strcmp(core, "f32") != 0 && strcmp(core, "q15") != 0) {
+        LLOGE("fft_parse_args: invalid core value '%s', must be 'f32' or 'q15'", core);
+        fft_args_cleanup(a);
+        return luaL_error(L, "opts.core must be 'f32' or 'q15'");
+    }
+    
     a->use_q15 = (core && strcmp(core, "q15") == 0);
     a->input_fmt = parse_input_format(input_format);
+    
+    LLOGD("fft_parse_args: success - N=%d, use_q15=%d, input_fmt=%d", 
+          a->N, a->use_q15, a->input_fmt);
     return 0;
 }
 
@@ -347,7 +473,11 @@ fft.run(real_i16, imag_i16, N, Wc_q15, Ws_q15, {core="q15", input_format="u12"})
 static int l_fft_run(lua_State* L)
 {
     fft_args_t a;
-    fft_parse_args(L, &a);
+    int parse_ret = fft_parse_args(L, &a);
+    if (parse_ret != 0) {
+        LLOGE("fft.run: parameter parsing failed, error code: %d", parse_ret);
+        return luaL_error(L, "fft.run: invalid parameters");
+    }
 
     int N = a.N;
     int integer_input = (a.input_fmt != INPUT_FMT_F32);
@@ -417,8 +547,12 @@ static int l_fft_run(lua_State* L)
 static int l_fft_ifft(lua_State* L)
 {
     fft_args_t a;
-    fft_parse_args(L, &a);
-
+    int parse_ret = fft_parse_args(L, &a);
+    if (parse_ret != 0) {
+        LLOGE("fft.ifft: parameter parsing failed, error code: %d", parse_ret);
+        return luaL_error(L, "fft.ifft: invalid parameters");
+    }
+    
     int N = a.N;
     int integer_input = (a.input_fmt != INPUT_FMT_F32);
 

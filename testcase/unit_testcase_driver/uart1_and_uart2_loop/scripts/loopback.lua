@@ -15,8 +15,8 @@ if platform == "Air8000" then
     -- Air8000引脚配置
     pins.setup(17, "UART1_RXD")
     pins.setup(16, "UART1_TXD")
-    pins.setup(41, "UART2_RXD")
-    pins.setup(40, "UART2_TXD")
+    pins.setup(25, "UART3_RXD")
+    pins.setup(26, "UART3_TXD")
     pins.setup(48, "UART11_RX")
     pins.setup(49, "UART11_TX")
     pins.setup(60, "UART12_TX")
@@ -25,10 +25,10 @@ if platform == "Air8000" then
     -- Air8000: 测试两组UART配对
     uart_pairs = {
         {
-            name = "UART1-UART2",
+            name = "UART1-UART3",
             first = {id = 1, module = uart_first},
-            second = {id = 2, module = uart_second},
-            test_data = "Hello UART Loopback!\r\n"
+            second = {id = 3, module = uart_second},
+            test_data = "Hello UART1-UART3 Loopback!\r\n"
         },
         {
             name = "UART11-UART12",

@@ -179,7 +179,12 @@ function libfota2.request(cbFnc, opts)
         end
         -- 补齐firmware_name参数
         if not opts.firmware_name then
-            opts.firmware_name = _G.PROJECT .. "_LuatOS-SoC_" .. rtos.bsp()
+            local bsp = rtos.bsp()
+            -- 如bsp包含'-', 就截取'-'前面的部分, 例如"air105-evb"就取"air105"
+            if bsp:find("-") then
+                bsp = bsp:sub(1, bsp:find("-") - 1)
+            end
+            opts.firmware_name = _G.PROJECT .. "_LuatOS-SoC_" .. bsp
         end
         -- 补齐imei参数
         if not opts.imei then

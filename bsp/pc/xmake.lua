@@ -216,6 +216,11 @@ target("luatos-lua")
     add_includedirs(luatos.."components/coremark",{public = true})
     add_files(luatos.."components/coremark/*.c")
 
+    -- memprof: Lua memory profiler
+    add_includedirs(luatos.."components/memprof/include",{public = true})
+    add_files(luatos.."components/memprof/src/*.c")
+    add_files(luatos.."components/memprof/binding/*.c")
+
     -- sqlite3
     -- add_includedirs(luatos.."components/sqlite3/include",{public = true})
     -- add_files(luatos.."components/sqlite3/src/*.c")

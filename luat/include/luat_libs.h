@@ -248,5 +248,7 @@ LUAMOD_API int luaopen_gba(lua_State *L);
 /** VoIP库 */
 LUAMOD_API int luaopen_voip( lua_State *L );
 
+/** memprof Lua内存分析库 */
+LUAMOD_API int luaopen_memprof(lua_State *L);
 
 #endif

@@ -323,14 +323,4 @@ void sys_check_core_locking(void);
 #define LWIP_ASSERT_CORE_LOCKED()  sys_check_core_locking()
 #endif
 
-/* Prevent arch.h from emitting "typedef int ssize_t" on 64-bit PC builds.
- * arch/cc.h sets LWIP_NO_LIMITS_H=1 to skip limits.h; without SSIZE_MAX
- * arch.h falls back to "typedef int ssize_t" which conflicts with stdio.h's
- * "long ssize_t" on 64-bit Linux.  Defining SSIZE_MAX here causes arch.h to
- * take the #ifdef branch that checks LWIP_NO_UNISTD_H (already 1 in cc.h)
- * and skips both unistd.h and the conflicting typedef entirely. */
-#ifndef SSIZE_MAX
-#define SSIZE_MAX INT_MAX
-#endif
-
 #endif /* LWIP_LWIPOPTS_H */

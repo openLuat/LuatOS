@@ -365,20 +365,8 @@ static const rotable_Reg_t reg_http[] =
 	{ NULL,             ROREG_INT(0)}
 };
 
-static const rotable_Reg_t reg_http_emtry[] =
-{
-	{ NULL,             ROREG_INT(0)}
-};
-
 LUAMOD_API int luaopen_http( lua_State *L ) {
-#ifdef LUAT_USE_NETWORK
     luat_newlib2(L, reg_http);
-#else
-    luat_newlib2(L, reg_http_emtry);
-	LLOGE("reg_http require network enable!!");
-#endif
-    lua_pushvalue(L, -1);
-    lua_setglobal(L, "http2"); 
     return 1;
 }
 

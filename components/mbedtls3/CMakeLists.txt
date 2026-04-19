@@ -40,12 +40,12 @@ cmake_policy(SET CMP0012 NEW)
 if(TEST_CPP)
     project("Mbed TLS"
         LANGUAGES C CXX
-        VERSION 3.6.5
+        VERSION 3.6.6
     )
 else()
     project("Mbed TLS"
         LANGUAGES C
-        VERSION 3.6.5
+        VERSION 3.6.6
     )
 endif()
 
@@ -352,7 +352,29 @@ if(ENABLE_TESTING OR ENABLE_PROGRAMS)
          ${CMAKE_CURRENT_SOURCE_DIR}/framework/tests/src/*.c
          ${CMAKE_CURRENT_SOURCE_DIR}/framework/tests/src/drivers/*.c)
     add_library(mbedtls_test OBJECT ${MBEDTLS_TEST_FILES})
+
     if(GEN_FILES)
+        add_custom_command(
+            OUTPUT
+                ${CMAKE_CURRENT_BINARY_DIR}/tests/include/test/psa_test_wrappers.h
+                ${CMAKE_CURRENT_BINARY_DIR}/tests/src/psa_test_wrappers.c
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                ${CMAKE_CURRENT_BINARY_DIR}/tests/include/test
+                ${CMAKE_CURRENT_BINARY_DIR}/tests/src
+            COMMAND
+                "${MBEDTLS_PYTHON_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/framework/scripts/generate_psa_wrappers.py"
+                "--output-h" "${CMAKE_CURRENT_BINARY_DIR}/tests/include/test/psa_test_wrappers.h"
+                "--output-c" "${CMAKE_CURRENT_BINARY_DIR}/tests/src/psa_test_wrappers.c"
+            DEPENDS
+                ${CMAKE_CURRENT_SOURCE_DIR}/framework/scripts/generate_psa_wrappers.py
+        )
+        add_custom_target(psa_test_wrappers
+            DEPENDS
+                ${CMAKE_CURRENT_BINARY_DIR}/tests/include/test/psa_test_wrappers.h
+                ${CMAKE_CURRENT_BINARY_DIR}/tests/src/psa_test_wrappers.c)
+        add_dependencies(mbedtls_test psa_test_wrappers)
+
         add_custom_command(
             OUTPUT
                 ${CMAKE_CURRENT_BINARY_DIR}/tests/include/test/test_keys.h
@@ -367,6 +389,8 @@ if(ENABLE_TESTING OR ENABLE_PROGRAMS)
         )
         add_custom_target(test_keys_header
             DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tests/include/test/test_keys.h)
+        add_dependencies(mbedtls_test test_keys_header)
+
         add_custom_command(
             OUTPUT
                 ${CMAKE_CURRENT_BINARY_DIR}/tests/include/test/test_certs.h
@@ -382,8 +406,9 @@ if(ENABLE_TESTING OR ENABLE_PROGRAMS)
                 ${CMAKE_CURRENT_SOURCE_DIR}/framework/scripts/generate_test_cert_macros.py
         )
         add_custom_target(test_certs_header DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tests/include/test/test_certs.h)
-        add_dependencies(mbedtls_test test_keys_header test_certs_header)
+        add_dependencies(mbedtls_test test_certs_header)
     endif()
+
     target_include_directories(mbedtls_test
         PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/tests/include
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/framework/tests/include
@@ -443,9 +468,9 @@ if(ENABLE_TESTING)
         # 2. Run the relevant tests for the part of the code you're interested in.
         #    For the reference coverage measurement, see
         #    tests/scripts/basic-build-test.sh
-        # 3. Run scripts/lcov.sh to generate an HTML report.
+        # 3. Run ${MBEDTLS_FRAMEWORK_DIR}/scripts/lcov.sh to generate an HTML report.
         ADD_CUSTOM_TARGET(lcov
-            COMMAND scripts/lcov.sh
+            COMMAND ${MBEDTLS_FRAMEWORK_DIR}/scripts/lcov.sh
         )
 
         ADD_CUSTOM_TARGET(memcheck
@@ -476,7 +501,7 @@ if(NOT DISABLE_PACKAGE_CONFIG_AND_INSTALL)
     write_basic_package_version_file(
         "cmake/MbedTLSConfigVersion.cmake"
             COMPATIBILITY SameMajorVersion
-            VERSION 3.6.5)
+            VERSION 3.6.6)
 
     install(
         FILES "${CMAKE_CURRENT_BINARY_DIR}/cmake/MbedTLSConfig.cmake"

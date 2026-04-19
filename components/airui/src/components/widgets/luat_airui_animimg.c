@@ -43,10 +43,10 @@ lv_obj_t *airui_animimg_create_from_config(void *L, int idx)
     }
 
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 100);
-    int h = airui_marshal_integer(L, idx, "h", 100);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 100);
+    int h = airui_marshal_floor_integer(L, idx, "h", 100);
     uint32_t duration = (uint32_t)airui_marshal_integer(L, idx, "duration", 300);
     bool loop = airui_marshal_bool(L, idx, "loop", true);
     bool auto_play = airui_marshal_bool(L, idx, "auto_play", true);
@@ -399,18 +399,14 @@ int airui_animimg_set_src(lv_obj_t *animimg, void *L, int idx)
 
 int airui_animimg_destroy(lv_obj_t *animimg)
 {
-    airui_component_meta_t *meta;
-
     if (animimg == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    meta = airui_component_meta_get(animimg);
-    if (meta == NULL) {
+    if (!lv_obj_is_valid(animimg)) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    airui_component_meta_free(meta);
     lv_obj_delete(animimg);
     return AIRUI_OK;
 }

@@ -128,10 +128,10 @@ lv_obj_t *airui_table_create_from_config(void *L, int idx)
 
     // 读取配置项
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 200);
-    int h = airui_marshal_integer(L, idx, "h", 120);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 200);
+    int h = airui_marshal_floor_integer(L, idx, "h", 120);
     int rows = airui_marshal_integer(L, idx, "rows", 4);
     int cols = airui_marshal_integer(L, idx, "cols", 3);
     if (rows < 1) rows = 1;
@@ -153,12 +153,12 @@ lv_obj_t *airui_table_create_from_config(void *L, int idx)
     lv_obj_set_pos(table, x, y);
     lv_obj_set_size(table, w, h);
     // 默认 padding 与边框
-    lv_obj_set_style_pad_all(table, 6, (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
-    lv_obj_set_style_border_width(table, 1, (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+    lv_obj_set_style_pad_all(table, 6, ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
+    lv_obj_set_style_border_width(table, 1, ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
     // 设置边框颜色
     lv_color_t border_color;
     if (airui_marshal_color(L_state, idx, "border_color", &border_color)) {
-        lv_obj_set_style_border_color(table, border_color, (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+        lv_obj_set_style_border_color(table, border_color, ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
     }
 
     lua_getfield(L_state, idx, "style");
@@ -950,55 +950,55 @@ int airui_table_set_style(lv_obj_t *table, void *L, int idx)
     }
 
     if (airui_marshal_integer_opt(L_state, idx, "bg_color", &value)) {
-        lv_obj_set_style_bg_color(table, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(table, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "bg_opa", &value)) {
-        lv_obj_set_style_bg_opa(table, airui_marshal_opacity(value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(table, airui_marshal_opacity(value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
-        lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "border_width", &value)) {
-        lv_obj_set_style_border_width(table, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(table, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "radius", &value)) {
-        lv_obj_set_style_radius(table, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_radius(table, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
 
     if (airui_marshal_integer_opt(L_state, idx, "cell_bg_color", &value)) {
-        lv_obj_set_style_bg_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(table, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "cell_bg_opa", &value)) {
-        lv_obj_set_style_bg_opa(table, airui_marshal_opacity(value), LV_PART_ITEMS | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(table, airui_marshal_opacity(value), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "cell_border_color", &value)) {
-        lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "cell_border_width", &value)) {
-        lv_obj_set_style_border_width(table, value < 0 ? 0 : value, LV_PART_ITEMS | LV_STATE_DEFAULT);
-        lv_obj_set_style_border_width(table, value < 0 ? 0 : value, LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_style_border_width(table, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(table, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "cell_text_color", &value)) {
-        lv_obj_set_style_text_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_color(table, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "cell_text_align", &value)) {
         if (value == (int)LV_TEXT_ALIGN_LEFT || value == (int)LV_TEXT_ALIGN_CENTER || value == (int)LV_TEXT_ALIGN_RIGHT) {
-            lv_obj_set_style_text_align(table, (lv_text_align_t)value, LV_PART_ITEMS | LV_STATE_DEFAULT);
-            lv_obj_set_style_text_align(table, (lv_text_align_t)value, LV_PART_ITEMS | LV_STATE_PRESSED);
+            lv_obj_set_style_text_align(table, (lv_text_align_t)value, (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_align(table, (lv_text_align_t)value, (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_PRESSED);
         }
     }
 
     if (airui_marshal_integer_opt(L_state, idx, "selected_cell_bg_color", &value)) {
-        lv_obj_set_style_bg_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(table, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "selected_cell_bg_opa", &value)) {
-        lv_obj_set_style_bg_opa(table, airui_marshal_opacity(value), LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_style_bg_opa(table, airui_marshal_opacity(value), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "selected_cell_border_color", &value)) {
-        lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "selected_cell_text_color", &value)) {
-        lv_obj_set_style_text_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_style_text_color(table, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "cell_font_size", &value) && value > 0) {
         airui_table_data_t *data = airui_table_ensure_data(table);
@@ -1006,9 +1006,9 @@ int airui_table_set_style(lv_obj_t *table, void *L, int idx)
             data->cell_font_size = (uint16_t)value;
         }
         (void)airui_text_font_apply_hzfont(table, value,
-            (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_DEFAULT));
+            ((lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT));
         (void)airui_text_font_apply_hzfont(table, value,
-            (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_PRESSED));
+            ((lv_style_selector_t)LV_PART_ITEMS | LV_STATE_PRESSED));
     }
 
     {
@@ -1140,7 +1140,7 @@ int airui_table_set_border_color(lv_obj_t *table, lv_color_t color)
     if (table == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
-    lv_obj_set_style_border_color(table, color, (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+    lv_obj_set_style_border_color(table, color, ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
     return AIRUI_OK;
 }
 

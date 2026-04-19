@@ -30,13 +30,13 @@
 4. airui_image.lua - 图片组件演示页面
 5. airui_container.lua- 容器组件演示页面
 6. airui_bar.lua - （动态）进度条组件演示页面
+7. airui_qrcode.lua- 二维码组件演示页面
 
 ### 2.3 交互组件演示
 1. airui_switch.lua -开关组件演示页面
 2. airui_dropdown.lua - 下拉框组件演示页面
 3. airui_input.lua - 输入框组件演示页面
 4. airui_msgbox.lua - 消息框组件演示页面
-5. airui_game.lua- 俄罗斯方块游戏演示页面
 
 ### 2.4 布局与高级组件演示
 1. airui_table_page.lua - 表格组件演示页面
@@ -70,7 +70,7 @@
 
 4、lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件
 
-准备好软件环境之后，接下来查看 [Air1101 开发板使用说明](https://docs.openluat.com/air1601/product/file/Air1101%E5%BC%80%E5%8F%91%E6%9D%BF%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E260227.pdf)，将本篇文章中演示使用的项目文件烧录到 Air1101 开发板中，烧录固件及脚本请参考[如何使用 Luatools 烧录软件](https://docs.openluat.com/air1601/luatos/common/download/)。
+准备好软件环境之后，接下来查看 [Air1601 开发板使用说明](https://docs.openluat.com/air1601/product/shouce/#air1601_2)，将本篇文章中演示使用的项目文件烧录到 Air1601 开发板中，烧录固件及脚本请参考[如何使用 Luatools 烧录软件](https://docs.openluat.com/air1601/luatos/common/download/)。
 
 ### 5.2  **API 介绍**
 

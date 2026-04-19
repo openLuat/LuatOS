@@ -96,10 +96,10 @@ lv_obj_t *airui_dropdown_create_from_config(void *L, int idx) {
 
     // 读取配置（父对象、位置尺寸、默认选中）
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 140);
-    int h = airui_marshal_integer(L, idx, "h", 40);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 140);
+    int h = airui_marshal_floor_integer(L, idx, "h", 40);
     int default_index = airui_marshal_integer(L, idx, "default_index", -1);
     airui_text_font_state_t font_state;
 
@@ -114,11 +114,11 @@ lv_obj_t *airui_dropdown_create_from_config(void *L, int idx) {
     airui_text_font_read_config(&font_state, L, idx);
     if (font_state.prefer_hzfont && font_state.hzfont_size > 0) {
         (void)airui_text_font_apply_hzfont(dropdown, font_state.hzfont_size,
-            (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+            ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
         lv_obj_t *list = lv_dropdown_get_list(dropdown);
         if (list != NULL) {
             (void)airui_text_font_apply_hzfont(list, font_state.hzfont_size,
-                (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
         }
     }
 

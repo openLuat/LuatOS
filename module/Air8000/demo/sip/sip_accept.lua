@@ -19,13 +19,16 @@ local sip_accept = {}
 
 
 local SIP_CONFIG = {
-    sip_server_addr = "xxx.xxx.xxx.xxx",
-    sip_server_port = xxxx,
-    sip_domain = "xxx.xxx.xxx.xxx",
-    sip_username = "xxxx",
-    sip_password = "xxxxxxxx",
-    sip_transport = exsip.TRANSPORT_TCP
+    sip_server_addr = "180.152.6.34",
+    sip_server_port = 8910,
+    sip_domain = "180.152.6.34",
+    sip_username = "100001",
+    sip_password = "Mm123..",
+    -- sip_transport = exsip.TRANSPORT_TCP,
+    sip_transport = exsip.TRANSPORT_UDP,
+    auto_answer = true
 }
+
 
 local audio_configs = {
     model = "es8311",
@@ -39,53 +42,58 @@ local audio_configs = {
     pa_on_level = 1
 }
 
-local function sip_callback(event_type, arg1, arg2, arg3)
-    if event_type == "register" then
+local function sip_callback(event, arg1, arg2, arg3)
+    if event == "register" then
         local status, data = arg1, arg2
-        if status == "ok" then
+        if status then
             log.info("sip", "注册成功，有效期:", data.expires)
-        elseif status == "failed" then
+        else
             log.error("sip", "注册失败")
         end
-    elseif event_type == "ready" then
+    elseif event == "ready" then
         log.info("sip", "SIP 服务已就绪")
-    elseif event_type == "call" then
-        local event, data = arg1, arg2
-        if event == "incoming" then
+    elseif event == "call" then
+        local sub_event, data = arg1, arg2
+        if sub_event == "incoming" then
             log.info("sip", "来电:", data.from)
-        elseif event == "ringing" then
+            local call_result = exsip.get_current_call()
+            if call_result then
+                log.info("来电号码:", call_result.from)
+            end
+            exsip.answer()
+        elseif sub_event == "ringing" then
             log.info("sip", "对方响铃中")
-        elseif event == "connected" then
+        elseif sub_event == "connected" then
             log.info("sip", "通话已建立")
-        elseif event == "ended" then
+        elseif sub_event == "ended" then
             log.info("sip", "通话已结束")
         end
-    elseif event_type == "media" then
-        local event, session = arg1, arg2
-        if event == "ready" then
+    elseif event == "media" then
+        local sub_event, session = arg1, arg2
+        if sub_event == "ready" then
             log.info("sip", "媒体通道就绪", session.remote_ip .. ":" .. session.remote_port)
-        elseif event == "stop" then
+        elseif sub_event == "stop" then
             log.info("sip", "媒体通道已关闭")
         end
-    elseif event_type == "message" then
-        local event, data = arg1, arg2
-        if event == "rx" then
+    elseif event == "message" then
+        local sub_event, data = arg1, arg2
+        if sub_event == "rx" then
             log.info("sip", "收到消息:", data.from, data.body)
-        elseif event == "sent" then
+        elseif sub_event == "sent" then
             log.info("sip", "消息已发送到:", data.to)
         end
-    elseif event_type == "voip" then
-        local event, data = arg1, arg2
-        if event == "state" then
+    elseif event == "voip" then
+        local sub_event, data = arg1, arg2
+        if sub_event == "state" then
             log.info("voip", "状态:", data)
-        elseif event == "stats" then
+        elseif sub_event == "stats" then
             log.info("voip", "统计 - 发送:", data.tx_packets,
                 "接收:", data.rx_packets,
                 "丢失:", data.rx_lost)
-        elseif event == "error" then
+        elseif sub_event == "error" then
             log.error("voip", "错误:", data)
         end
-    elseif event_type == "error" then
+    elseif event == "error" then
         local action, payload = arg1, arg2
         log.error("sip", "错误:", action, payload.event, payload.param)
     end
@@ -119,13 +127,13 @@ function sip_accept.init()
             end
         end
 
-        --单击boot键，接听电话
+        --单击boot键，拨打号码
         gpio.setup(0, function()
-            local state = exsip.accept()
+            local state = exsip.dial(100000)
             if state then
-                log.info("exsip", "接听成功")
+                log.info("exsip", "拨号成功")
             else
-                log.warn("exsip", "接听失败")
+                log.warn("exsip", "拨号失败")
             end
         end, gpio.PULLDOWN, gpio.RISING)
 

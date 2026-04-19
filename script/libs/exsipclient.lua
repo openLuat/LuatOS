@@ -400,6 +400,39 @@ local function build_message(state, msg, auth)
     })
 end
 
+-- 构造 OPTIONS 请求，用于 UDP NAT 保活 Ping。
+-- 每次发送使用独立 Call-ID 和独立 options_cseq，不与 REGISTER 事务混淆。
+local function build_options(state)
+    local uri = "sip:" .. state.sip_domain
+    local from_to = string.format("<sip:%s@%s>", state.sip_username, state.sip_domain)
+    state.options_cseq = (state.options_cseq or 0) + 1
+    return build_request({
+        method = "OPTIONS",
+        uri = uri,
+        via_ctx = {
+            transport = state.sip_transport,
+            local_ip = state.local_ip,
+            local_port = state.local_port,
+            branch = gen_token("br")
+        },
+        headers = {
+            {"From", string.format("%s;tag=%s", from_to, gen_token("tag"))},
+            {"To", string.format("<%s>", uri)},
+            {"Call-ID", gen_token("opt") .. "@luatos"},
+            {"CSeq", string.format("%d OPTIONS", state.options_cseq)},
+            {"Accept", "application/sdp"},
+            {"Allow", "INVITE, ACK, CANCEL, BYE, OPTIONS, MESSAGE"}
+        },
+        contact_ctx = {
+            user = state.sip_username,
+            local_ip = state.local_ip,
+            local_port = state.local_port,
+            transport = state.sip_transport
+        },
+        user_agent = "LuatOS-SIP"
+    })
+end
+
 -- SIP 主任务。
 --
 -- 职责：
@@ -453,6 +486,14 @@ local function sip_task(opts)
         -- 当前正在进行的 MESSAGE 事务。
         msg_tx = nil, -- 正在发送的 MESSAGE
 
+        -- UDP NAT 保活（OPTIONS Ping），TCP 模式下不使用。
+        options_cseq = 0,
+        options_timer = nil,
+        options_pending = false,
+        options_fail_count = 0,
+        options_interval = tonumber(opts.options_interval) or 25000,
+        options_max_fail = tonumber(opts.options_max_fail) or 3,
+
         -- 媒体协商结果缓存。
         -- SIP 层不会直接收发 RTP，但会把最终协商好的参数保存于此，
         -- 然后通过 event_callback("media", "ready", payload) 交给外部媒体模块。
@@ -464,6 +505,28 @@ local function sip_task(opts)
             session = nil
         }
     }
+
+    local function copy_headers(headers)
+        local out = {}
+        for k, v in pairs(headers or {}) do
+            out[k] = v
+        end
+        return out
+    end
+
+    -- 避免相同媒体参数的重复 ready 把上层音频引擎再次启动一遍。
+    local function same_media_session(current, next_session)
+        if not current or not next_session then
+            return false
+        end
+        return tostring(current.call_id or "") == tostring(next_session.call_id or "") and
+                   tostring(current.remote_ip or "") == tostring(next_session.remote_ip or "") and
+                   tonumber(current.remote_port or 0) == tonumber(next_session.remote_port or 0) and
+                   tostring(current.codec or "") == tostring(next_session.codec or "") and
+                   tonumber(current.ptime or 0) == tonumber(next_session.ptime or 0) and
+                   tonumber(current.local_rtp_port or 0) == tonumber(next_session.local_rtp_port or 0) and
+                   tostring(current.remote_direction or "") == tostring(next_session.remote_direction or "")
+    end
 
     -- 当本地 SDP 和远端 SDP 都齐备后，整理出媒体会话描述并通知上层。
     -- SIP 层只负责“协商结果”，不直接创建 RTP socket 或音频线程。
@@ -491,6 +554,11 @@ local function sip_task(opts)
         })
         if not session then
             log.warn("sip", "no common media codec")
+            return
+        end
+        -- 某些设备会在通话建立后发 re-INVITE/重复 ACK；媒体未变化时不再重复通知上层。
+        if state.media.active and same_media_session(state.media.session, session) then
+            state.media.session = session
             return
         end
         log.info("JQsip", "media session ready", session)
@@ -526,12 +594,18 @@ local function sip_task(opts)
         net_send_on(state.netc, data)
     end
 
-    -- 停止注册续租定时器。
+    -- 停止注册续租定时器，同时停止 UDP OPTIONS 保活定时器。
     local function stop_reg_timer()
         if state.reg_timer then
             sys.timerStop(state.reg_timer)
             state.reg_timer = nil
         end
+        if state.options_timer then
+            sys.timerStop(state.options_timer)
+            state.options_timer = nil
+        end
+        state.options_pending = false
+        state.options_fail_count = 0
     end
 
     -- 按过期时间安排下一次 REGISTER 续租。
@@ -557,6 +631,38 @@ local function sip_task(opts)
             end
         end, delay_s * 1000)
         log.info("sip", "next register in", delay_s, "sec")
+    end
+
+    -- 启动 UDP OPTIONS 保活定时器（仅 UDP 模式下调用）。
+    -- 每隔 options_interval ms 发一次 OPTIONS，连续 options_max_fail 次无响应则主动触发断线重连。
+    local start_options_keepalive
+    start_options_keepalive = function()
+        if state.options_timer then
+            return
+        end
+        local function do_options_ping()
+            if not state.netc or not state.online then
+                state.options_timer = nil
+                return
+            end
+            if state.options_pending then
+                state.options_fail_count = state.options_fail_count + 1
+                log.warn("sip", "OPTIONS no reply, fail_count", state.options_fail_count)
+                if state.options_fail_count >= state.options_max_fail then
+                    log.warn("sip", "OPTIONS keepalive timeout, reconnecting")
+                    state.options_timer = nil
+                    sys.publish(TOPIC_DISCONNECT)
+                    return
+                end
+            end
+            state.options_pending = true
+            local req = build_options(state)
+            log.info("sip", "send OPTIONS ping")
+            net_send(req)
+            state.options_timer = sys.timerStart(do_options_ping, state.options_interval)
+        end
+        state.options_timer = sys.timerStart(do_options_ping, state.options_interval)
+        log.info("sip", "UDP OPTIONS keepalive started, interval", state.options_interval, "ms")
     end
 
     -- 收到 REGISTER 的 401/407 后，构造带 Digest 的重试请求。
@@ -847,6 +953,37 @@ local function sip_task(opts)
             end
 
             local function handle_invite_request(req_headers, req_uri, body, rip, remote_port)
+                local invite_cseq = cseq_number(req_headers["cseq"]) or 1
+                local dialog = state.dialog
+
+                if dialog and dialog.direction == "in" and dialog.call_id == req_headers["call-id"] then
+                    local resp_headers = copy_headers(req_headers)
+                    resp_headers["to"] = dialog.to
+
+                    -- 已答但尚未收到 ACK 时，同 CSeq 的 INVITE 视为 UDP 重传，直接重发 200 OK。
+                    if not dialog.established and invite_cseq == dialog.invite_cseq then
+                        local resp_body = dialog.local_sdp or build_sdp(state, "sendrecv")
+                        dialog.local_sdp = resp_body
+                        net_send_on(netc, build_response(state, resp_headers, 200, "OK", nil, resp_body))
+                        return
+                    end
+
+                    local dialog_to_tag = header_tag_value(dialog.to)
+                    local req_to_tag = header_tag_value(req_headers["to"])
+                    -- 已建立来电对话内的 INVITE 按 re-INVITE 处理，不再抛成新的 incoming。
+                    if dialog.established and dialog_to_tag and req_to_tag == dialog_to_tag then
+                        local resp_body = build_sdp(state, "sendrecv")
+                        dialog.local_sdp = resp_body
+                        dialog.remote_uri = req_uri or dialog.remote_uri
+                        dialog.remote_ip = rip or dialog.remote_ip
+                        dialog.remote_sdp_raw = body
+                        dialog.remote_sdp = parse_sdp(body)
+                        dialog.pending_reinvite_cseq = invite_cseq
+                        net_send_on(netc, build_response(state, resp_headers, 200, "OK", nil, resp_body))
+                        return
+                    end
+                end
+
                 local local_tag = gen_token("tag")
                 local to_hdr = ensure_to_has_tag(req_headers["to"], local_tag)
                 req_headers["to"] = to_hdr
@@ -878,7 +1015,20 @@ local function sip_task(opts)
             end
 
             local function handle_ack_request(req_headers)
+                local ack_cseq = cseq_number(req_headers["cseq"]) or 0
                 if state.dialog and state.dialog.direction == "in" and state.dialog.call_id == req_headers["call-id"] then
+                    -- re-INVITE 的 ACK 只用于完成媒体更新，不应再次触发 established。
+                    if state.dialog.pending_reinvite_cseq and ack_cseq == state.dialog.pending_reinvite_cseq then
+                        state.dialog.pending_reinvite_cseq = nil
+                        maybe_start_media(state.dialog, "incoming_reinvite_ack")
+                        return
+                    end
+                    if state.dialog.established then
+                        return
+                    end
+                    if ack_cseq ~= (state.dialog.invite_cseq or 0) then
+                        return
+                    end
                     state.dialog.established = true
                     state.incoming_invite = nil
                     maybe_start_media(state.dialog, "incoming_ack")
@@ -955,6 +1105,12 @@ local function sip_task(opts)
                     handle_cancel_request(req_headers)
                 elseif method == "MESSAGE" then
                     handle_message_request(req_headers, body)
+                elseif method == "OPTIONS" then
+                    -- 回应服务端发来的 OPTIONS 探活，避免被标记为不可达。
+                    net_send_on(netc, build_response(state, req_headers, 200, "OK", {
+                        {"Allow", "INVITE, ACK, CANCEL, BYE, OPTIONS, MESSAGE"},
+                        {"Accept", "application/sdp"}
+                    }, ""))
                 else
                     net_send_on(netc, build_response(state, req_headers, 501, "Not Implemented", nil, ""))
                 end
@@ -971,6 +1127,9 @@ local function sip_task(opts)
                     end
                     state.online = true
                     schedule_reregister(tonumber(exp) or state.expires)
+                    if state.sip_transport == "udp" then
+                        start_options_keepalive()
+                    end
                     emit_register("ok", {
                         expires = tonumber(exp) or state.expires,
                         headers = headers
@@ -1001,6 +1160,21 @@ local function sip_task(opts)
 
             local function handle_invite_response(code, reason, headers, body, rip)
                 local function handle_invite_auth_challenge()
+                    if not state.dialog then
+                        return
+                    end
+
+                    local ack_dialog = {
+                        remote_uri = state.dialog.remote_uri,
+                        from = state.dialog.from,
+                        to = headers["to"] or state.dialog.to,
+                        call_id = state.dialog.call_id,
+                        invite_cseq = state.dialog.invite_cseq,
+                        invite_branch = state.dialog.invite_branch
+                    }
+
+                    net_send_on(netc, build_ack_non2xx(state, ack_dialog))
+
                     return retry_transaction_auth(code, headers, {
                         tx = state.dialog,
                         method = "INVITE",
@@ -1147,11 +1321,14 @@ local function sip_task(opts)
                 local call_id = headers["call-id"]
                 local cseq = headers["cseq"]
                 local cseq_m = cseq_method(cseq)
-
-                if call_id and call_id:find(state.call_id, 1, true) then
+                if cseq_m == "OPTIONS" then
+                    -- OPTIONS 响应：任意响应均视为保活成功，重置失败计数。
+                    state.options_pending = false
+                    state.options_fail_count = 0
+                    return
+                elseif call_id and call_id:find(state.call_id, 1, true) then
                     handle_register_response(code, headers)
-                elseif state.dialog and state.dialog.direction == "out" and call_id == state.dialog.call_id and cseq_m ==
-                    "INVITE" then
+                elseif state.dialog and state.dialog.direction == "out" and call_id == state.dialog.call_id and cseq_m == "INVITE" then
                     handle_invite_response(code, reason, headers, body, rip)
                 elseif state.dialog and call_id == state.dialog.call_id and (cseq_m == "BYE" or cseq_m == "CANCEL") then
                     handle_dialog_teardown_response(code)

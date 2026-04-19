@@ -199,7 +199,7 @@ __AIRLINK_CODE_IN_RAM__ static void start_spi_trans(void) {
     memset(s_txbuff, 0, TEST_BUFF_SIZE);
     airlink_queue_item_t item = {0};
     // print_tm("准备执行luat_airlink_cmd_recv_simple");
-    luat_airlink_cmd_recv_simple(&item);
+    luat_airlink_cmd_recv_for_mode(LUAT_AIRLINK_MODE_SPI_SLAVE, &item);
     // LLOGD("执行完luat_airlink_cmd_recv_simple cmd %p len %d", item.cmd, item.len);
     if (item.len > 0 && item.cmd != NULL) {
         // LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);
@@ -238,6 +238,7 @@ __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
 
     // 注册上下文
     luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_SPI_SLAVE, on_newdata_notify, link_data_cb, device_info_update_cb);
+    luat_airlink_slot_register(LUAT_AIRLINK_MODE_SPI_SLAVE, on_newdata_notify);
 
     // 告知已经就绪
     self_ready = 1;

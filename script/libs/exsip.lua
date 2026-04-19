@@ -157,10 +157,10 @@ local function sip_event_handler(event, action, payload)
 
     if event == "register" then
         if action == "ok" then
-            emit_callback("register", "ok", payload)
+            emit_callback("register", true, payload)
             emit_callback("ready")
-        elseif action == "failed" then
-            emit_callback("register", "failed", payload)
+        else
+            emit_callback("register", false, payload)
         end
     elseif event == "call" then
         if action == "incoming" then
@@ -355,6 +355,11 @@ function exsip.stop()
         sipclient.stop()
     end
 
+    local timeout = 1000
+    while g_started and timeout > 0 do
+        sys.wait(10)
+        timeout = timeout - 10
+    end
     g_started = false
     g_current_call = nil
     log_info("stopped")

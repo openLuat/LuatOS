@@ -138,50 +138,6 @@ int luat_airlink_result_send(uint8_t* buff, size_t len);
 void luat_airlink_print_mac_pkg(uint8_t* buff, uint16_t len);
 void luat_airlink_hexdump(const char* tag, uint8_t* buff, uint16_t len);
 
-typedef struct luat_airlink_dev_wifi_info {
-    uint8_t sta_mac[6];
-    uint8_t ap_mac[6];
-    uint8_t bt_mac[6];
-    uint8_t sta_state;
-    uint8_t ap_state;
-    uint8_t reserved[32]; // 预留的空位
-    uint8_t version[4];
-    uint8_t fw_type[2];
-    uint8_t unique_id_len;
-    uint8_t unique_id[24];
-
-    // 2025.5.29 新增
-    uint8_t sta_ap_bssid[6]; // AP的MAC地址(BSSID)
-    int32_t sta_ap_rssi;     // AP信号强度
-    uint8_t sta_ap_channel;  // AP所属的通道
-}luat_airlink_dev_wifi_info_t;
-
-typedef struct luat_airlink_dev_cat_info {
-    uint8_t ipv4[4];
-    uint8_t ipv6[16];
-    uint8_t cat_state;
-    uint8_t sim_state;
-    uint8_t imei[16];
-    uint8_t iccid[20];
-    uint8_t imsi[16];
-    uint8_t reserved[32]; // 预留的空位
-    uint8_t version[4];
-    uint8_t fw_type[4];
-    uint8_t unique_id_len;
-    uint8_t unique_id[32];
-}luat_airlink_dev_wifi_cat_t;
-
-typedef struct luat_airlink_dev_info
-{
-    uint8_t tp;
-    union
-    {
-        luat_airlink_dev_wifi_info_t wifi;
-        luat_airlink_dev_wifi_cat_t cat1;
-    };
-}luat_airlink_dev_info_t;
-
-
 typedef struct luat_airlink_spi_conf
 {
     uint8_t spi_id;
@@ -221,102 +177,9 @@ enum {
     LUAT_AIRLINK_CONF_IRQ_TIMEOUT,
 };
 
-// GPIO 操作, 临时放这里
-#include "luat_gpio.h"
-int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio);
-int luat_airlink_drv_gpio_set(int pin, int level);
-int luat_airlink_drv_gpio_open(luat_gpio_cfg_t* gpio);
-
-// WLAN, 也就是wifi
-#include "luat_wlan.h"
-typedef void (*luat_airlink_wlan_evt_cb)(void *arg, luat_event_module_t event_module, int event_id, void *event_data);
-int luat_airlink_wlan_event_callback(void *arg, luat_event_module_t event_module, int event_id, void *event_data);
-
-int luat_airlink_drv_wlan_init(luat_wlan_config_t *conf);
-
-int luat_airlink_drv_wlan_mode(luat_wlan_config_t *conf);
-
-int luat_airlink_drv_wlan_ready(void);
-
-int luat_airlink_drv_wlan_connect(luat_wlan_conninfo_t* info);
-
-int luat_airlink_drv_wlan_disconnect(void);
-
-int luat_airlink_drv_wlan_scan(void);
-
-int luat_airlink_drv_wlan_scan_get_result(luat_wlan_scan_result_t *results, size_t ap_limit);
-
-int luat_airlink_drv_wlan_set_station_ip(luat_wlan_station_info_t *info);
-
-int luat_airlink_drv_wlan_smartconfig_start(int tp);
-
-int luat_airlink_drv_wlan_smartconfig_stop(void);
-
-// 数据类
-int luat_airlink_drv_wlan_get_mac(int id, char* mac);
-int luat_airlink_drv_wlan_set_mac(int id, const char* mac);
-
-int luat_airlink_drv_wlan_get_ip(int type, char* data);
-
-const char* luat_airlink_drv_wlan_get_hostname(int id);
-
-int luat_airlink_drv_wlan_set_hostname(int id, const char* hostname);
-
-// 设置和获取省电模式
-int luat_airlink_drv_wlan_set_ps(int mode);
-
-int luat_airlink_drv_wlan_get_ps(void);
-
-int luat_airlink_drv_wlan_get_ap_bssid(char* buff);
-
-int luat_airlink_drv_wlan_get_ap_rssi(void);
-
-int luat_airlink_drv_wlan_get_ap_gateway(char* buff);
-
-
-// AP类
-int luat_airlink_drv_wlan_ap_start(luat_wlan_apinfo_t *apinfo);
-int luat_airlink_drv_wlan_ap_stop(void);
-
-
-// uart参数
-#include "luat_uart.h"
-int luat_airlink_drv_uart_setup(luat_uart_t* uart);
-int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length);
-int luat_airlink_drv_uart_read(int uart_id, void* buffer, size_t length);
-int luat_airlink_drv_uart_close(int uart_id);
-
-// mobile类
-#if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
-#include "luat_mobile.h"
-typedef void (*luat_airlink_mobile_evt_cb)(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr);
-int luat_airlink_mobile_event_callback(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr);
-#endif
-
 extern uint32_t g_airlink_debug;
 
-int luat_airlink_syspub_addstring(const char* str, size_t len, uint8_t *dst, uint32_t limit);
-int luat_airlink_syspub_addfloat32(const float val, uint8_t *dst, uint32_t limit);
-int luat_airlink_syspub_addint32(const int32_t val, uint8_t *dst, uint32_t limit);
-int luat_airlink_syspub_addnil(uint8_t *dst, uint32_t limit);
-int luat_airlink_syspub_addbool(const uint8_t b, uint8_t *dst, uint32_t limit);
-
-int luat_airlink_syspub_send(uint8_t* buff, size_t len);
-
-struct luat_airlink_result_reg;
-typedef void (*airlink_result_exec)(struct luat_airlink_result_reg *reg, luat_airlink_cmd_t* cmd);
-
-typedef struct luat_airlink_result_reg
-{
-    uint64_t tm;
-    uint64_t id;
-    void* userdata;
-    void* userdata2;
-    airlink_result_exec exec;
-    airlink_result_exec cleanup;
-}luat_airlink_result_reg_t;
-
-int luat_airlink_result_reg(luat_airlink_result_reg_t* reg);
+void luat_airlink_ip2br_init(void);
 
 typedef struct luat_airlink_irq_ctx
 {
@@ -334,10 +197,6 @@ int luat_airlink_has_wifi(void);
 
 uint32_t luat_airlink_sversion(void);
 
-extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
-
-
-
 void luat_airlink_current_mode_set(int mode);
 int luat_airlink_current_mode_get(void);
 
@@ -353,4 +212,19 @@ int luat_airlink_current_mode_get(void);
 #endif
 #endif
 
-#endif
+// =====================================================================
+// 子功能头文件 (按需单独 include, 或通过本文件统一引入)
+// =====================================================================
+
+#include "luat_airlink_devinfo.h"
+#include "luat_airlink_result.h"
+#include "luat_airlink_transport.h"
+#include "luat_airlink_rpc.h"
+
+#include "luat_airlink_drv_gpio.h"
+#include "luat_airlink_drv_uart.h"
+#include "luat_airlink_drv_wlan.h"
+#include "luat_airlink_drv_pm.h"
+#include "luat_airlink_drv_mobile.h"
+
+#endif /* LUAT_AIRLINK_H */

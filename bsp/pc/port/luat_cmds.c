@@ -872,8 +872,11 @@ static int luat_cmd_expand_dependencies(luat_dep_ctx_t *ctx, luat_dep_file_t *fi
 		}
 		if (ret)
 		{
-			LLOGE("依赖缺失 %s <- %s", file->deps[i].value, from_name ? from_name : file->name);
-			return -1;
+			/* Module not found as a Lua file — it may be a C built-in (e.g. require("memprof")).
+			 * Treat as a non-fatal warning and continue: if the module truly does not exist the
+			 * Lua VM will raise an error at runtime. */
+			LLOGW("依赖未找到(可能是C内置模块) %s <- %s", file->deps[i].value, from_name ? from_name : file->name);
+			continue;
 		}
 		if (pack_file && luat_cmd_mark_required(ctx, pack_file, file->name))
 		{

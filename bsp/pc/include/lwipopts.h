@@ -323,5 +323,4 @@ void sys_check_core_locking(void);
 #define LWIP_ASSERT_CORE_LOCKED()  sys_check_core_locking()
 #endif
 
-
 #endif /* LWIP_LWIPOPTS_H */

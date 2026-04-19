@@ -406,16 +406,7 @@ static int l_table_auto_marquee_scroll_control(lua_State *L) {
  * tbl:destroy()
  */
 static int l_table_destroy(lua_State *L) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_TABLE_MT);
-    if (ud != NULL && ud->obj != NULL) {
-        airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
-        if (meta != NULL) {
-            airui_component_meta_free(meta);
-        }
-        lv_obj_delete(ud->obj);
-        ud->obj = NULL;
-    }
-    return 0;
+    return airui_component_destroy_userdata(L, 1, AIRUI_TABLE_MT);
 }
 
 static void airui_table_fill_row_from_lua(lua_State *L, lv_obj_t *table, int row, int idx) {

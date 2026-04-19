@@ -7,7 +7,7 @@
 
 #include "stdint.h"
 
-#define LUAT_BSP_VERSION "V2025"
+#define LUAT_BSP_VERSION "V2026"
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
 #define LUAT_USE_CMDLINE_ARGS 1
 // 启用64位虚拟机
@@ -42,6 +42,8 @@
 #define LUAT_USE_AIRLINK 1
 #define LUAT_USE_AIRLINK_SPI_MASTER 1
 #define LUAT_USE_AIRLINK_UART 1
+#define LUAT_USE_AIRLINK_RPC 1
+#define LUAT_USE_AIRLINK_MULTI_TRANSPORT 1
 
 // #define LV_HOR_RES_MAX          (2000)
 // #define LV_VER_RES_MAX          (2000)
@@ -146,11 +148,15 @@
 
 #define LUAT_USE_MREPORT 1
 
+#define LUAT_USE_MEMPROF 1
+
 #define LUAT_USE_H264_DECODER 1
 
 #define LUAT_USE_VIDEOPLAYER 1
 // videoplayer软解依赖TJPGD, 需在GUI块外启用
 #define LUAT_USE_TJPGD
+
+#define LUAT_USE_WEBP 1
 
 //--------------------------------------------------
 // mGBA GBA模拟器

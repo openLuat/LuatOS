@@ -39,6 +39,12 @@
  * @int config.bar_group_gap 柱状图分组间距，默认 2
  * @int config.bar_series_gap 柱状图组内序列间距，默认 2
  * @int config.bar_radius 柱状图圆角，默认 0
+ * @int config.bg_color 图表背景色（Hex），可选
+ * @int config.bg_opa 图表背景透明度，0-255，可选
+ * @int config.border_color 图表边框颜色（Hex），可选
+ * @int config.border_width 图表边框宽度，可选
+ * @int config.grid_color 网格线颜色（Hex），可选
+ * @int config.grid_opa 网格线透明度，0-255，可选
  * @userdata config.parent 父对象，默认当前屏幕
  * @return userdata Chart 对象
  */
@@ -424,16 +430,7 @@ static int l_chart_set_y_axis(lua_State *L)
  */
 static int l_chart_destroy(lua_State *L)
 {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_CHART_MT);
-    if (ud != NULL && ud->obj != NULL) {
-        airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
-        if (meta != NULL) {
-            airui_component_meta_free(meta);
-        }
-        lv_obj_delete(ud->obj);
-        ud->obj = NULL;
-    }
-    return 0;
+    return airui_component_destroy_userdata(L, 1, AIRUI_CHART_MT);
 }
 
 void airui_register_chart_meta(lua_State *L)

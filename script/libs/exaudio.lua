@@ -1,10 +1,14 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 1.5
-@date    2026.3.10
+@version 1.6
+@date    2026.4.16
 @author  拓毅恒
 @updates
+    v1.6 2026.4.16
+        1. 新增DAC模式支持，适配Air8101等使用内置DAC的模组，支持"es8311"(I2S+外部Codec)和"dac"(内置DAC)两种类型
+        2. 优化参数检查逻辑，根据model自动选择初始化方式
+        3. 根据model自动选择流式数据写入方式：DAC模式直接audio.write，I2S模式使用队列+回调
     v1.5 2026.3.10
         1. 修改录音缓冲区使用逻辑，每次写完数据都清空缓冲区数据，释放内存，避免最后一段录音数据异常
     v1.4 2026.2.14
@@ -67,7 +71,7 @@ end
 
 -- 默认配置参数
 local audio_setup_param = {
-    model = "es8311",         -- dac类型: "es8311"
+    model = "es8311",    -- 编解码器类型: "es8311" 或 "dac"(内置DAC)
     i2c_id = 0,               -- i2c_id: 0,1
     pa_ctrl = 0,              -- 音频放大器电源控制管脚
     dac_ctrl = 0,             -- 音频编解码芯片电源控制管脚
@@ -85,7 +89,11 @@ local audio_setup_param = {
     i2s_sample = 16000,     -- I2S采样率
     bits_per_sample = 16,     -- I2S采样位深
     i2s_comm_format = i2s.MODE_LSB, -- I2S通信格式: MODE_I2S, MODE_LSB, MODE_MSB
-    i2s_framebit = 16       -- I2S通道位宽
+    i2s_framebit = 16,       -- I2S通道位宽
+    
+    -- DAC硬件配置参数
+    dac_ch = 0,               -- DAC通道号
+    dac_chl = 0               -- DAC通道选择: 0=AUD_LN, 1=AUD_LP, 2=双通道
 }
 
 local audio_play_param = {
@@ -269,17 +277,12 @@ local function start_next_play()
             audio_play_param.channels
         )
 
-        if playConfigs.signed_or_unsigned ~= nil then
-            audio_play_param.signed_or_unsigned = playConfigs.signed_or_unsigned
-        end
-
         audio.start(
             MULTIMEDIA_ID, 
             audio.PCM, 
             audio_play_param.channels, 
             playConfigs.sampling_rate, 
-            playConfigs.sampling_depth, 
-            audio_play_param.signed_or_unsigned
+            playConfigs.sampling_depth
         )
 
         -- 发送初始数据（使用计算出的缓冲区大小）
@@ -323,7 +326,11 @@ local function audio_callback(id, event, point)
     --         "RECORD_DONE:", audio.RECORD_DONE)
 
     if event == audio.MORE_DATA then
-        audio.write(MULTIMEDIA_ID,audio_stream_queue_pop())
+        -- 从队列取出数据并写入
+        local data = audio_stream_queue_pop()
+        if data then
+            audio.write(MULTIMEDIA_ID, data)
+        end
     elseif event == audio.DONE then
         if type(audio_play_param.cbfnc) == "function" then
             audio_play_param.cbfnc(exaudio.PLAY_DONE)
@@ -386,60 +393,90 @@ end
 
 -- 音频硬件初始化
 local function audio_setup()
-    -- I2C配置
-    if not i2c.setup(audio_setup_param.i2c_id, i2c.FAST) then
-        log.error("I2C初始化失败")
-        return false
+    -- 根据model选择初始化方式
+    if audio_setup_param.model == "dac" then
+        -- DAC模式初始化
+        log.info("exaudio.setup", "使用DAC模式初始化")
+        
+        -- 配置音频通道
+        audio.config(
+            MULTIMEDIA_ID, 
+            audio_setup_param.pa_ctrl,      -- PA控制引脚
+            audio_setup_param.pa_on_level,  -- PA打开电平
+            0,                              -- dac_delay: 固定为0
+            audio_setup_param.pa_delay      -- PA延时
+        )
+        
+        -- 设置总线为DAC模式
+        audio.setBus(
+            MULTIMEDIA_ID, 
+            audio.BUS_DAC,
+            {
+                dacid = audio_setup_param.dac_ch
+            }
+        )
+        
+        log.info("exaudio.setup", "DAC通道已设置为:"..audio_setup_param.dac_ch)
+    else
+        -- I2S模式初始化
+        log.info("exaudio.setup", "使用I2S模式初始化, model:"..audio_setup_param.model)
+        
+        -- I2C配置
+        if not i2c.setup(audio_setup_param.i2c_id, i2c.FAST) then
+            log.error("I2C初始化失败")
+            return false
+        end
+        -- 初始化I2S
+        local I2S_channel_format = audio_setup_param.channels == 2 and i2s.STEREO or i2s.MONO_R
+
+        local result, data = i2s.setup(
+            I2S_ID,  -- I2S的通道号
+            audio_setup_param.i2s_mode,  -- I2S主从模式
+            audio_setup_param.i2s_sample,  -- I2S采样率
+            audio_setup_param.bits_per_sample,  -- I2S采样位深
+            I2S_channel_format, -- 声道
+            audio_setup_param.i2s_comm_format, -- I2S通讯格式
+            audio_setup_param.i2s_framebit  -- I2S通道位宽
+        )
+
+        if not result then
+            log.error("I2S设置失败")
+            return false
+        end
+        -- 配置音频通道
+        audio.config(
+            MULTIMEDIA_ID, 
+            audio_setup_param.pa_ctrl, 
+            audio_setup_param.pa_on_level, 
+            audio_setup_param.dac_delay, 
+            audio_setup_param.pa_delay, 
+            audio_setup_param.dac_ctrl, 
+            1,  -- power_on_level
+            audio_setup_param.dac_time_delay
+        )
+        -- 设置总线
+        audio.setBus(
+            MULTIMEDIA_ID, 
+            audio.BUS_I2S,
+            {
+                chip = audio_setup_param.model,
+                i2cid = audio_setup_param.i2c_id,
+                i2sid = I2S_ID
+                -- voltage = audio.VOLTAGE_1800
+            }
+        )
+
+        -- 检查芯片连接
+        if audio_setup_param.model == "es8311" and not read_es8311_id() then
+            log.error("ES8311通讯失败，请检查硬件")
+            return false
+        end
     end
-    -- 初始化I2S
-    local I2S_channel_format = audio_setup_param.channels == 2 and i2s.STEREO or i2s.MONO_R
-
-    local result, data = i2s.setup(
-        I2S_ID,  -- I2S的通道号
-        audio_setup_param.i2s_mode,  -- I2S主从模式
-        audio_setup_param.i2s_sample,  -- I2S采样率
-        audio_setup_param.bits_per_sample,  -- I2S采样位深
-        I2S_channel_format, -- 声道
-        audio_setup_param.i2s_comm_format, -- I2S通讯格式
-        audio_setup_param.i2s_framebit  -- I2S通道位宽
-    )
-
-    if not result then
-        log.error("I2S设置失败")
-        return false
-    end
-    -- 配置音频通道
-    audio.config(
-        MULTIMEDIA_ID, 
-        audio_setup_param.pa_ctrl, 
-        audio_setup_param.pa_on_level, 
-        audio_setup_param.dac_delay, 
-        audio_setup_param.pa_delay, 
-        audio_setup_param.dac_ctrl, 
-        1,  -- power_on_level
-        audio_setup_param.dac_time_delay
-    )
-    -- 设置总线
-    audio.setBus(
-        MULTIMEDIA_ID, 
-        audio.BUS_I2S,
-        {
-            chip = audio_setup_param.model,
-            i2cid = audio_setup_param.i2c_id,
-            i2sid = I2S_ID
-            -- voltage = audio.VOLTAGE_1800
-        }
-    )
-
 
     -- 设置音量
     audio.vol(MULTIMEDIA_ID, voice_vol)
-    audio.micVol(MULTIMEDIA_ID, mic_vol)
-    
-    -- 检查芯片连接
-    if audio_setup_param.model == "es8311" and not read_es8311_id() then
-        log.error("ES8311通讯失败，请检查硬件")
-        return false
+    if audio.micVol then
+        audio.micVol(MULTIMEDIA_ID, mic_vol)
     end
 
     -- 注册回调
@@ -475,18 +512,43 @@ function exaudio.setup(audioConfigs)
         log.error("配置参数必须为table类型")
         return false
     end
-    -- 检查codec型号
-    if not audioConfigs.model or (audioConfigs.model ~= "es8311") then
-        log.error("请指定正确的codec型号(es8311)")
-        return false
+    
+    -- 检查编解码器型号
+    if audioConfigs.model then
+        if audioConfigs.model ~= "es8311" and audioConfigs.model ~= "dac" then
+            log.error("请指定正确的model: es8311 或 dac")
+            return false
+        end
+        audio_setup_param.model = audioConfigs.model
     end
-    audio_setup_param.model = audioConfigs.model
-    -- 针对ES8311的特殊检查
-    if audioConfigs.model == "es8311" then
+    
+    -- 根据model进行参数检查
+    if audio_setup_param.model == "dac" then
+        -- DAC模式
+        if audioConfigs.dac_ch ~= nil then
+            audio_setup_param.dac_ch = audioConfigs.dac_ch
+        end
+        if audioConfigs.dac_chl ~= nil then
+            audio_setup_param.dac_chl = audioConfigs.dac_chl
+        end
+        log.info("exaudio.setup", "DAC模式 - 通道:"..audio_setup_param.dac_ch..", 声道:"..audio_setup_param.channels)
+    else
+        -- I2S模式
+        if not audio_setup_param.model or (audio_setup_param.model ~= "es8311") then
+            log.error("请指定正确的model(es8311)")
+            return false
+        end
+        -- 针对ES8311的特殊检查
         if not check_param(audioConfigs.i2c_id, "number", "i2c_id") then
             return false
         end
         audio_setup_param.i2c_id = audioConfigs.i2c_id
+
+        -- 检查功率放大器控制管脚
+        if audioConfigs.dac_ctrl == nil then
+            log.warn("dac_ctrl(音频编解码控制管脚)是控制pop 音的重要管脚,建议硬件设计加上")
+        end
+        audio_setup_param.dac_ctrl = audioConfigs.dac_ctrl
     end
 
     -- 检查功率放大器控制管脚
@@ -494,13 +556,6 @@ function exaudio.setup(audioConfigs)
         log.warn("pa_ctrl(功率放大器控制管脚)是控制pop 音的重要管脚,建议硬件设计加上")
     end
     audio_setup_param.pa_ctrl = audioConfigs.pa_ctrl
-
-    -- 检查功率放大器控制管脚
-    if audioConfigs.dac_ctrl == nil then
-        log.warn("dac_ctrl(音频编解码控制管脚)是控制pop 音的重要管脚,建议硬件设计加上")
-    end
-    audio_setup_param.dac_ctrl = audioConfigs.dac_ctrl
-
 
     -- 处理可选参数
     local optional_params = {
@@ -510,10 +565,12 @@ function exaudio.setup(audioConfigs)
         {name = "bits_per_sample", type = "number"},
         {name = "pa_on_level", type = "number"},
         {name = "channels", type = "number"},
-        {name = "i2s_sample", type = "number"},      -- 新增：I2S采样率
-        {name = "i2s_framebit", type = "number"},     -- 新增：I2S通道位宽
-        {name = "i2s_mode", type = "number"},            -- 新增：I2S模式
-        {name = "i2s_comm_format", type = "number"}       -- 新增：I2S通信格式
+        {name = "i2s_sample", type = "number"},      -- I2S采样率
+        {name = "i2s_framebit", type = "number"},     -- I2S通道位宽
+        {name = "i2s_mode", type = "number"},         -- I2S模式
+        {name = "i2s_comm_format", type = "number"},  -- I2S通信格式
+        {name = "dac_ch", type = "number"},           -- DAC通道
+        {name = "dac_chl", type = "number"}           -- DAC通道选择
     }
 
     for _, param in ipairs(optional_params) do
@@ -593,8 +650,15 @@ end
 
 -- 模块接口：流式播放数据写入
 function exaudio.play_stream_write(data)
-    audio_stream_queue_push(data)
-    return true
+    -- 根据model选择写入方式
+    if audio_setup_param.model == "dac" then
+        -- DAC模式：直接写入
+        return audio.write(MULTIMEDIA_ID, data)
+    else
+        -- I2S模式：推入队列，由audio.MORE_DATA回调处理
+        audio_stream_queue_push(data)
+        return true
+    end
 end
 
 -- 模块接口：停止播放

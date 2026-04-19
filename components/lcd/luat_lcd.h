@@ -198,6 +198,9 @@ int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t
 int lcd_jpeg_info_default(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height);
 int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y);
 int lcd_jpeg_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info);
+int lcd_webp_info_default(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height);
+int lcd_draw_webp_default(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y);
+int lcd_webp_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info);
 
 // 以下为luatos内部实现通用接口
 // 以下为 weak函数 可bsp单独适配硬件加速或其他接口适配等功能,默认指向上方xxx_default函数
@@ -208,6 +211,9 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
 int lcd_jpeg_info(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height);
 int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y);
 int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info);
+int lcd_webp_info(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height);
+int lcd_draw_webp(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y);
+int lcd_webp_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info);
 // 以下为非 weak 函数
 luat_lcd_conf_t* luat_lcd_get_default(void);
 const char* luat_lcd_name(luat_lcd_conf_t* conf);

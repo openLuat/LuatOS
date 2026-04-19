@@ -383,10 +383,10 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
 
     // 读取基础配置项
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 320);
-    int h = airui_marshal_integer(L, idx, "h", 200);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 320);
+    int h = airui_marshal_floor_integer(L, idx, "h", 200);
     int tabbar_pos = airui_marshal_integer(L, idx, "tabbar_pos", LV_DIR_TOP);
     int active = airui_marshal_integer(L, idx, "active", 0);
     int tab_font_size = airui_marshal_integer(L, idx, "tab_font_size", 0);
@@ -440,6 +440,9 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
             name = default_name;
         }
         lv_obj_t *page = lv_tabview_add_tab(tabview, name);
+        if (page != NULL && airui_component_meta_get(page) == NULL) {
+            (void)airui_component_meta_alloc(ctx, page, AIRUI_COMPONENT_CONTAINER);
+        }
         if (data->page_style_used) {
             airui_tabview_apply_page_style(page, &page_style);
         }
@@ -456,12 +459,12 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
         lv_obj_t *tab_bar = lv_tabview_get_tab_bar(tabview);
         if (tab_bar != NULL) {
             (void)airui_text_font_apply_hzfont(tab_bar, tab_font_size,
-                (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
             for (uint32_t i = 0; i < airui_tabview_get_page_count_internal(tabview); i++) {
                 lv_obj_t *tab_btn = lv_tabview_get_tab_button(tabview, (int32_t)i);
                 if (tab_btn != NULL) {
                     (void)airui_text_font_apply_hzfont(tab_btn, tab_font_size,
-                        (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                        ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
                 }
             }
         }
@@ -505,6 +508,15 @@ lv_obj_t *airui_tabview_add_tab(lv_obj_t *tabview, const char *title)
     }
 
     airui_component_meta_t *meta = airui_component_meta_get(tabview);
+    airui_component_meta_t *page_meta = airui_component_meta_get(page);
+    if (page_meta == NULL) {
+        page_meta = airui_component_meta_alloc(meta != NULL ? meta->ctx : NULL, page, AIRUI_COMPONENT_CONTAINER);
+        if (page_meta == NULL) {
+            lv_obj_delete(page);
+            return NULL;
+        }
+    }
+
     if (meta != NULL && meta->user_data != NULL) {
         airui_tabview_data_t *data = (airui_tabview_data_t *)meta->user_data;
         if (data->page_style_used) {
@@ -514,7 +526,7 @@ lv_obj_t *airui_tabview_add_tab(lv_obj_t *tabview, const char *title)
             lv_obj_t *tab_btn = lv_tabview_get_tab_button(tabview, -1);
             if (tab_btn != NULL) {
                 (void)airui_text_font_apply_hzfont(tab_btn, data->tab_font_size,
-                    (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                    ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
             }
         }
         if (data->switch_mode == AIRUI_TABVIEW_SWITCH_MODE_JUMP) {

@@ -40,38 +40,25 @@
 
 #include "lua.h"
 #include "lauxlib.h"
-#include <stdlib.h>
-
 
 #include "luat_base.h"
 #include "luat_mem.h"
 
-#define LIB_NAME                "iconv"
-#define LIB_VERSION             LIB_NAME " r5"
 #define ICONV_TYPENAME          "iconv_t"
 
 #define LUAT_LOG_TAG "iconv"
 #include "luat_log.h"
 
-/* Emulates lua_(un)boxpointer from Lua 5.0 (don't exists on Lua 5.1) */
 #define boxptr(L, p)   (*(void**)(lua_newuserdata(L, sizeof(void*))) = (p))
 #define unboxptr(L, i) (*(void**)(lua_touserdata(L, i)))
-
-/* Table assumed on top */
-#define tblseticons(L, c, v)    \
-    lua_pushliteral(L, c);      \
-    lua_pushnumber(L, v);       \
-    lua_settable(L, -3);
-
-
 
 #define ERROR_NO_MEMORY     1
 #define ERROR_INVALID       2
 #define ERROR_INCOMPLETE    3
 #define ERROR_UNKNOWN       4
 
-#if 1
 #include "iconv.h"
+#include "prv_iconv.h"
 
 static void push_iconv_t(lua_State *L, iconv_t cd) {
     boxptr(L, cd);
@@ -141,9 +128,7 @@ static int Liconv(lua_State *L) {
         return 2;
     }
     outbufs = outbuf;
-    // LLOGD("转换前的各种参数 ibleft %d obleft %d", ibleft, obleft);
     ret = iconv_convert(cd, &inbuf, &ibleft, &outbuf, &obleft);
-    // LLOGD("转换后的各种参数 ibleft %d obleft %d", ibleft, obleft);
     if (ret == 0) {
         lua_pushlstring(L, outbufs, obsize - obleft);
     }
@@ -156,42 +141,6 @@ static int Liconv(lua_State *L) {
 }
 
 
-
-#ifdef HAS_ICONVLIST /* a GNU extension? */
-
-static int push_one(unsigned int cnt, char *names[], void *data) {
-    lua_State *L = (lua_State*) data;
-    int n = (int) lua_tonumber(L, -1);
-    int i;
-
-    /* Stack: <tbl> n */
-    lua_remove(L, -1);
-    for (i = 0; i < cnt; i++) {
-        /* Stack> <tbl> */
-        lua_pushnumber(L, n++);
-        lua_pushstring(L, names[i]);
-        /* Stack: <tbl> n <str> */
-        lua_settable(L, -3);
-    }
-    lua_pushnumber(L, n);
-    /* Stack: <tbl> n */
-    return 0;
-}
-
-
-static int Liconvlist(lua_State *L) {
-    lua_newtable(L);
-    lua_pushnumber(L, 1);
-
-    /* Stack:   <tbl> 1 */
-    iconvlist(push_one, (void*) L);
-
-    /* Stack:   <tbl> n */
-    lua_remove(L, -1);
-    return 1;
-}
-
-#endif
 
 /*
 关闭字符编码转换
@@ -212,15 +161,140 @@ static int Liconv_close(lua_State *L) {
     return 1;
 }
 
-// #include "rotable.h"
 #include "rotable2.h"
+
+/*
+GB2312编码字符串转UTF8编码（快捷函数）
+@api iconv.gb2utf8(str)
+@string 待转换的GB2312编码字符串
+@return string 成功返回UTF8编码字符串，失败返回nil
+@usage
+local utf8str = iconv.gb2utf8("\xC4\xE3\xBA\xC3")  -- 你好
+log.info("iconv", "gb2utf8", utf8str)
+*/
+static int l_iconv_gb2utf8(lua_State *L) {
+    size_t in_len = 0;
+    const char *in = luaL_checklstring(L, 1, &in_len);
+
+    if (in_len == 0) {
+        lua_pushlstring(L, "", 0);
+        return 1;
+    }
+
+    /* Step 1: GB2312 → UCS2 (little-endian)
+       Worst case: N single-byte ASCII chars → N UCS2 chars → N*2 bytes */
+    size_t ucs2_size = in_len * 2;
+    char *ucs2_buf = (char *)luat_heap_malloc(ucs2_size);
+    if (!ucs2_buf) {
+        LLOGE("oom ucs2 buf");
+        return 0;
+    }
+
+    char *in_ptr = (char *)in;
+    char *ucs2_ptr = ucs2_buf;
+    size_t in_left = in_len;
+    size_t ucs2_left = ucs2_size;
+    iconv_gb2312_to_ucs2(&in_ptr, &in_left, &ucs2_ptr, &ucs2_left);
+    size_t ucs2_len = ucs2_size - ucs2_left;
+
+    if (ucs2_len == 0) {
+        luat_heap_free(ucs2_buf);
+        lua_pushlstring(L, "", 0);
+        return 1;
+    }
+
+    /* Step 2: UCS2 → UTF8
+       Worst case: each UCS2 CJK char (0x800-0xFFFF) → 3 bytes UTF8 */
+    size_t utf8_size = (ucs2_len / 2) * 3 + 1;
+    char *utf8_buf = (char *)luat_heap_malloc(utf8_size);
+    if (!utf8_buf) {
+        luat_heap_free(ucs2_buf);
+        LLOGE("oom utf8 buf");
+        return 0;
+    }
+
+    char *ucs2_src = ucs2_buf;
+    char *utf8_ptr = utf8_buf;
+    size_t ucs2_src_left = ucs2_len;
+    size_t utf8_left = utf8_size;
+    iconv_ucs2_to_utf8(&ucs2_src, &ucs2_src_left, &utf8_ptr, &utf8_left);
+    size_t utf8_len = utf8_size - utf8_left;
+
+    luat_heap_free(ucs2_buf);
+    lua_pushlstring(L, utf8_buf, utf8_len);
+    luat_heap_free(utf8_buf);
+    return 1;
+}
+
+/*
+UTF8编码字符串转GB2312编码（快捷函数）
+@api iconv.utf82gb(str)
+@string 待转换的UTF8编码字符串
+@return string 成功返回GB2312编码字符串，失败返回nil
+@usage
+local gbstr = iconv.utf82gb("\xE4\xBD\xA0\xE5\xA5\xBD")  -- 你好
+log.info("iconv", "utf82gb", gbstr:toHex())
+*/
+static int l_iconv_utf82gb(lua_State *L) {
+    size_t in_len = 0;
+    const char *in = luaL_checklstring(L, 1, &in_len);
+
+    if (in_len == 0) {
+        lua_pushlstring(L, "", 0);
+        return 1;
+    }
+
+    /* Step 1: UTF8 → UCS2 (little-endian)
+       Worst case: N single-byte ASCII chars → N UCS2 chars → N*2 bytes */
+    size_t ucs2_size = in_len * 2;
+    char *ucs2_buf = (char *)luat_heap_malloc(ucs2_size);
+    if (!ucs2_buf) {
+        LLOGE("oom ucs2 buf");
+        return 0;
+    }
+
+    char *in_ptr = (char *)in;
+    char *ucs2_ptr = ucs2_buf;
+    size_t in_left = in_len;
+    size_t ucs2_left = ucs2_size;
+    iconv_utf8_to_ucs2(&in_ptr, &in_left, &ucs2_ptr, &ucs2_left);
+    size_t ucs2_len = ucs2_size - ucs2_left;
+
+    if (ucs2_len == 0) {
+        luat_heap_free(ucs2_buf);
+        lua_pushlstring(L, "", 0);
+        return 1;
+    }
+
+    /* Step 2: UCS2 → GB2312
+       Each UCS2 char → at most 2 bytes GB2312 */
+    size_t gb_size = ucs2_len;
+    char *gb_buf = (char *)luat_heap_malloc(gb_size);
+    if (!gb_buf) {
+        luat_heap_free(ucs2_buf);
+        LLOGE("oom gb2312 buf");
+        return 0;
+    }
+
+    char *ucs2_src = ucs2_buf;
+    char *gb_ptr = gb_buf;
+    size_t ucs2_src_left = ucs2_len;
+    size_t gb_left = gb_size;
+    iconv_ucs2_to_gb2312(&ucs2_src, &ucs2_src_left, &gb_ptr, &gb_left);
+    size_t gb_len = gb_size - gb_left;
+
+    luat_heap_free(ucs2_buf);
+    lua_pushlstring(L, gb_buf, gb_len);
+    luat_heap_free(gb_buf);
+    return 1;
+}
+
 static const rotable_Reg_t inconvFuncs[] = {
     { "open",   ROREG_FUNC(Liconv_open)},
     { "new",    ROREG_FUNC(Liconv_open)},
     { "iconv",  ROREG_FUNC(Liconv)},
-#ifdef HAS_ICONVLIST
-    { "list",   ROREG_FUNC(Liconvlist)},
-#endif
+    //{ "gb2utf8", ROREG_FUNC(l_iconv_gb2utf8)},
+    //{ "utf82gb", ROREG_FUNC(l_iconv_utf82gb)},
     { "ERROR_NO_MEMORY",  ROREG_INT(ERROR_NO_MEMORY)},
     { "ERROR_INVALID",    ROREG_INT(ERROR_INVALID)},
     { "ERROR_INCOMPLETE", ROREG_INT(ERROR_INCOMPLETE)},
@@ -228,22 +302,8 @@ static const rotable_Reg_t inconvFuncs[] = {
     { NULL, ROREG_INT(0)}
 };
 
-
-// static const rotable_Reg iconvMT[] = {
-//     { "__gc", Liconv_close , 0},
-//     { NULL, NULL, NULL}
-// };
-
-
 LUAMOD_API int luaopen_iconv(lua_State *L) {
     luat_newlib2(L, inconvFuncs);
-
-    // luaL_newmetatable(L, ICONV_TYPENAME);
-    // lua_pushliteral(L, "__index");
-    // rotable_newidx(L, iconvMT);
-    // lua_settable(L, -3);
-    // lua_pop(L, 1);
-
 
     luaL_newmetatable(L, ICONV_TYPENAME);
     lua_pushliteral(L, "__index");
@@ -256,10 +316,3 @@ LUAMOD_API int luaopen_iconv(lua_State *L) {
 
     return 1;
 }
-
-#else
-#include "rotable.h"
-static const rotable_Reg iconvMT[] = {
-    { NULL, NULL, NULL}
-};
-#endif

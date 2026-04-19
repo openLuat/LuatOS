@@ -23,7 +23,9 @@ require("airui_tabview")
 require("airui_win")
 require("airui_switch_page")
 require("airui_hzfont")
-require("airui_game")
+--require("airui_game")
+require("airui_chart")
+require("airui_qrcode")
 require("airui_all_component")
 
 -- 当前显示的页面
@@ -56,7 +58,7 @@ local pages = {
     win = "airui_win",                      -- 窗口演示
     airui_switch_page = "airui_switch_page", -- 页面切换演示
     hzfont = "airui_hzfont",                -- 矢量字体演示
-    game = "airui_game",                    -- 游戏演示
+    qrcode = "airui_qrcode",                    -- 二维码演示
     all_component = "airui_all_component",  -- 所有组件演示
 }
 

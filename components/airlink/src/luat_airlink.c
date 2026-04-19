@@ -27,6 +27,14 @@
 luat_rtos_queue_t airlink_cmd_queue;
 luat_rtos_queue_t airlink_ippkg_queue;
 
+// Per-transport 槽位 (indexed by mode: 0=SPI_SLAVE, 1=SPI_MASTER, 2=UART)
+static luat_airlink_transport_slot_t g_transport_slots[LUAT_AIRLINK_MAX_TRANSPORTS];
+#ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
+// adapter_id → mode 绑定表 (0xFF = 未绑定)
+static uint8_t g_adapter_transport_binding[LUAT_AIRLINK_MAX_ADAPTERS];
+static uint8_t g_adapter_binding_inited = 0;
+#endif
+
 extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
 extern int luat_airlink_start_uart(void);
@@ -205,13 +213,23 @@ int luat_airlink_init(void)
 int luat_airlink_start(int id)
 {
     int ret = -255;
-    if (airlink_cmd_queue == NULL)
-    {
-        luat_rtos_queue_create(&airlink_cmd_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
+    if (id < 0 || id >= LUAT_AIRLINK_MAX_TRANSPORTS) {
+        LLOGE("airlink_start: 无效 mode %d", id);
+        return -1;
     }
-    if (airlink_ippkg_queue == NULL)
-    {
-        luat_rtos_queue_create(&airlink_ippkg_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
+    // 在 slot 中创建独立的队列 (multi-transport 支持)
+    if (g_transport_slots[id].cmd_queue == NULL) {
+        luat_rtos_queue_create(&g_transport_slots[id].cmd_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
+    }
+    if (g_transport_slots[id].ippkg_queue == NULL) {
+        luat_rtos_queue_create(&g_transport_slots[id].ippkg_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
+    }
+    // 向后兼容: 若全局队列还未初始化, 指向第一个启动的 mode 的 slot 队列
+    if (airlink_cmd_queue == NULL) {
+        airlink_cmd_queue   = g_transport_slots[id].cmd_queue;
+    }
+    if (airlink_ippkg_queue == NULL) {
+        airlink_ippkg_queue = g_transport_slots[id].ippkg_queue;
     }
     // 初始化 pause 信号量，持久化创建一次，初始为空用于阻塞等待
     luat_airlink_pause_init();
@@ -477,7 +495,27 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
     item.cmd->cmd = 0x100;
     item.cmd->len = len + 1;
     item.cmd->data[0] = adapter_id;
+#ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
+    // 若 adapter 已绑定到指定 transport slot, 路由到对应 slot 的 ippkg_queue
+    if (!g_adapter_binding_inited) {
+        memset(g_adapter_transport_binding, 0xFF, sizeof(g_adapter_transport_binding));
+        g_adapter_binding_inited = 1;
+    }
+    uint8_t bound_mode = (adapter_id < LUAT_AIRLINK_MAX_ADAPTERS)
+                         ? g_adapter_transport_binding[adapter_id] : 0xFF;
+    if (bound_mode != 0xFF && bound_mode < LUAT_AIRLINK_MAX_TRANSPORTS
+        && g_transport_slots[bound_mode].active
+        && g_transport_slots[bound_mode].ippkg_queue != NULL) {
+        ret = luat_rtos_queue_send(g_transport_slots[bound_mode].ippkg_queue, &item, 0, 0);
+        if (ret == 0 && g_transport_slots[bound_mode].notify_cb) {
+            g_transport_slots[bound_mode].notify_cb();
+        }
+    } else {
+        ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_IPPKG, &item);
+    }
+#else
     ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_IPPKG, &item);
+#endif
     if (ret != 0) {
         luat_heap_free(item.cmd);
         LLOGD("发送消息失败 长度 %d ret %d", len, ret);
@@ -499,21 +537,143 @@ int luat_airlink_cmd_recv_simple(airlink_queue_item_t *cmd)
     if (ret > 0)
     {
         ret = luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_CMD, &item, 0);
+        memcpy(cmd, &item, sizeof(airlink_queue_item_t));
+        return ret;
     }
-    else
+
+    ret = luat_airlink_queue_get_cnt(LUAT_AIRLINK_QUEUE_IPPKG);
+    if (ret <= 0)
     {
-        ret = luat_airlink_queue_get_cnt(LUAT_AIRLINK_QUEUE_IPPKG);
-        // LLOGD("待发送IPPKG队列长度 %d", ret);
-        if (ret > 0)
-        {
-            ret = luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_IPPKG, &item, 0);
-            // LLOGD("从队列获取到IP数据包 %d %p", item.len, item.cmd);
-            // luat_airlink_hexdump("从队列获取到IP数据包", item.cmd->data + 1, item.len - 1);
-        }
+        memcpy(cmd, &item, sizeof(airlink_queue_item_t));
+        return -1;
     }
+
+    ret = luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_IPPKG, &item, 0);
     memcpy(cmd, &item, sizeof(airlink_queue_item_t));
+    return ret;
+}
+
+static int luat_airlink_try_recv_queue_item(luat_rtos_queue_t queue, airlink_queue_item_t *item) {
+    size_t cnt = 0;
+    if (queue == NULL) {
+        return -1;
+    }
+    if (luat_rtos_queue_get_cnt(queue, &cnt) != 0 || cnt == 0) {
+        return -1;
+    }
+    return luat_rtos_queue_recv(queue, item, 0, 0);
+}
+
+// ============================================================
+// Per-transport slot 管理 (multi-transport 支持)
+// ============================================================
+
+int luat_airlink_slot_register(uint8_t mode, luat_airlink_newdata_notify_cb notify_cb) {
+    if (mode >= LUAT_AIRLINK_MAX_TRANSPORTS) {
+        LLOGE("slot_register: 无效 mode %d", mode);
+        return -1;
+    }
+    g_transport_slots[mode].notify_cb = notify_cb;
+    g_transport_slots[mode].active    = 1;
     return 0;
 }
+
+int luat_airlink_slot_unregister(uint8_t mode) {
+    if (mode >= LUAT_AIRLINK_MAX_TRANSPORTS) {
+        return -1;
+    }
+    g_transport_slots[mode].notify_cb = NULL;
+    g_transport_slots[mode].active    = 0;
+    return 0;
+}
+
+// 从指定 mode 的 slot 队列中读取下一个待发送项 (CMD 优先于 IPPKG)
+// 未启用 LUAT_USE_AIRLINK_MULTI_TRANSPORT 时自动回落到全局队列
+int luat_airlink_cmd_recv_for_mode(uint8_t mode, airlink_queue_item_t* cmd) {
+    airlink_queue_item_t item = {0};
+    int ret = -1;
+    if (cmd == NULL) {
+        return -1;
+    }
+    if (mode >= LUAT_AIRLINK_MAX_TRANSPORTS) {
+        LLOGE("cmd_recv_for_mode: 无效 mode %d", mode);
+        memcpy(cmd, &item, sizeof(item));
+        return -1;
+    }
+#ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
+    luat_rtos_queue_t cq = g_transport_slots[mode].cmd_queue;
+    luat_rtos_queue_t iq = g_transport_slots[mode].ippkg_queue;
+    ret = luat_airlink_try_recv_queue_item(cq, &item);
+    if (ret != 0) {
+        luat_airlink_try_recv_queue_item(iq, &item);
+    }
+    memcpy(cmd, &item, sizeof(item));
+    return 0;
+#else
+    // 回落: 使用全局队列 (单 transport 模式)
+    ret = luat_airlink_try_recv_queue_item(airlink_cmd_queue, &item);
+    if (ret != 0) {
+        ret = luat_airlink_try_recv_queue_item(airlink_ippkg_queue, &item);
+    }
+    memcpy(cmd, &item, sizeof(item));
+    return ret;
+#endif
+
+}
+
+// 向指定 mode 的 CMD 队列发送命令, 并触发其 notify_cb
+int luat_airlink_send2transport(luat_airlink_cmd_t* cmd, uint8_t mode) {
+    if (mode >= LUAT_AIRLINK_MAX_TRANSPORTS) {
+        LLOGE("send2transport: 无效 mode %d", mode);
+        return -1;
+    }
+    luat_rtos_queue_t cq = g_transport_slots[mode].cmd_queue;
+    if (cq == NULL) {
+        LLOGE("send2transport: mode %d 无 cmd_queue", mode);
+        return -2;
+    }
+    airlink_queue_item_t item = {0};
+    item.len = cmd->len + sizeof(luat_airlink_cmd_t);
+    item.cmd = luat_airlink_cmd_new(cmd->cmd, cmd->len);
+    if (item.cmd == NULL) {
+        LLOGE("send2transport: 内存不足");
+        return -3;
+    }
+    memcpy(item.cmd->data, cmd->data, cmd->len);
+    int ret = luat_rtos_queue_send(cq, &item, 0, 0);
+    if (ret != 0) {
+        luat_airlink_cmd_free(item.cmd);
+        LLOGE("send2transport: mode %d 队列已满 ret %d", mode, ret);
+        return -4;
+    }
+    luat_airlink_newdata_notify_cb cb = g_transport_slots[mode].notify_cb;
+    if (cb) cb();
+    return 0;
+}
+
+// ============================================================
+// Adapter → transport 绑定管理 (仅 LUAT_USE_AIRLINK_MULTI_TRANSPORT)
+// ============================================================
+
+#ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
+int luat_airlink_bind_adapter_transport(uint8_t adapter_id, uint8_t mode) {
+    if (!g_adapter_binding_inited) {
+        memset(g_adapter_transport_binding, 0xFF, sizeof(g_adapter_transport_binding));
+        g_adapter_binding_inited = 1;
+    }
+    if (adapter_id >= LUAT_AIRLINK_MAX_ADAPTERS) {
+        LLOGE("bind_adapter: adapter_id %d 超出范围", adapter_id);
+        return -1;
+    }
+    if (mode >= LUAT_AIRLINK_MAX_TRANSPORTS) {
+        LLOGE("bind_adapter: mode %d 无效", mode);
+        return -2;
+    }
+    g_adapter_transport_binding[adapter_id] = mode;
+    LLOGD("adapter %d 绑定到 mode %d", adapter_id, mode);
+    return 0;
+}
+#endif
 
 void luat_airlink_print_mac_pkg(uint8_t* buff, uint16_t len) {
     if (len < 24 || len > 1600) {
@@ -717,6 +877,24 @@ int luat_airlink_result_reg(luat_airlink_result_reg_t* reg) {
     }
     luat_rtos_mutex_unlock(reg_mutex);
     return -1;
+}
+
+// 注销 result slot (用于超时清理).
+// 返回 0: 成功清理 (slot 被我们占有); -1: slot 已被对端应答消费 (需调用方延迟释放 ctx)
+int luat_airlink_result_unreg(uint64_t id) {
+    if (reg_mutex == NULL) {
+        return -1;
+    }
+    luat_rtos_mutex_lock(reg_mutex, 1000);
+    for (size_t i = 0; i < 64; i++) {
+        if (regs[i].tm != 0 && memcmp(&regs[i].id, &id, 8) == 0) {
+            memset(&regs[i], 0, sizeof(luat_airlink_result_reg_t));
+            luat_rtos_mutex_unlock(reg_mutex);
+            return 0;
+        }
+    }
+    luat_rtos_mutex_unlock(reg_mutex);
+    return -1; // 未找到: slot 已被消费 (callback 正在或已执行)
 }
 
 int luat_airlink_cmd_exec_result(luat_airlink_cmd_t* cmd, void* userdata) {

@@ -38,6 +38,44 @@ int airui_marshal_integer(void *L, int idx, const char *key, int default_value)
 }
 
 /**
+ * 从配置表读取整数字段，并向下取整
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param default_value 默认值
+ * @return 整数值
+ */
+int airui_marshal_floor_integer(void *L, int idx, const char *key, int default_value)
+{
+    if (L == NULL || key == NULL) {
+        return default_value;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    lua_getfield(L_state, idx, key);
+
+    if (lua_type(L_state, -1) == LUA_TNUMBER) {
+        int value = default_value;
+        if (lua_isinteger(L_state, -1)) {
+            value = (int)lua_tointeger(L_state, -1);
+        }
+        else {
+            lua_Number number_value = lua_tonumber(L_state, -1);
+            int truncated = (int)number_value;
+            if ((lua_Number)truncated > number_value) {
+                truncated -= 1;
+            }
+            value = truncated;
+        }
+        lua_pop(L_state, 1);
+        return value;
+    }
+
+    lua_pop(L_state, 1);
+    return default_value;
+}
+
+/**
  * 从配置表读取整数字段, 不存在则保持返回false，而不是返回默认值
  * 一般用于style样式表设置中，某些字段可能不存在，则保持返回false
  * @param L Lua 状态
@@ -177,10 +215,8 @@ lv_obj_t *airui_marshal_parent(void *L, int idx)
     
     lv_obj_t *parent = NULL;
     if (lua_type(L_state, -1) == LUA_TUSERDATA) {
-        // 从 userdata 结构体中获取 LVGL 对象指针
-        // userdata 是 airui_component_ud_t 结构体，需要访问其 obj 字段
         airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L_state, -1);
-        parent = (ud != NULL) ? ud->obj : NULL;
+        parent = airui_component_userdata_obj(ud);
     }
     lua_pop(L_state, 1);
 

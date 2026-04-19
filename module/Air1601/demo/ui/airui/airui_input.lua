@@ -74,6 +74,18 @@ function airui_input.create_ui()
     local right_column_x = 522
     local y_offset = 10
     local section_height = 120
+    
+    -- 创建键盘
+    local keyboard = airui.keyboard({
+        x = 0,
+        y = 0,
+        w = 724,
+        h = 220,
+        mode = "text",
+        -- target = number_input,
+        auto_hide = true,
+    })
+    
 
     -- 示例1: 基本输入框（左列）
     airui.label({
@@ -96,6 +108,7 @@ function airui_input.create_ui()
         placeholder = "请输入文本内容...",
         max_len = 100,
         size = 16,
+        keyboard = keyboard,
     })
 
     -- 示例2: 带默认值的输入框（右列）
@@ -119,6 +132,8 @@ function airui_input.create_ui()
         placeholder = "请输入...",
         max_len = 80,
         size = 16,
+        keyboard = keyboard,
+        
     })
 
     y_offset = y_offset + section_height
@@ -144,6 +159,7 @@ function airui_input.create_ui()
         placeholder = "请输入多行文本内容...\n支持换行输入",
         max_len = 200,
         size = 16,
+        keyboard = keyboard,
     })
 
     -- 示例4: 数字输入框（右列）
@@ -167,6 +183,7 @@ function airui_input.create_ui()
         placeholder = "请输入数字...",
         max_len = 20,
         size = 16,
+        keyboard = keyboard,
     })
 
     y_offset = y_offset + 160
@@ -213,6 +230,7 @@ function airui_input.create_ui()
         placeholder = "请输入姓名",
         max_len = 20,
         size = 16,
+        keyboard = keyboard,       
     })
 
     -- 邮箱输入
@@ -236,6 +254,7 @@ function airui_input.create_ui()
         placeholder = "请输入邮箱地址",
         max_len = 50,
         size = 16,
+        keyboard = keyboard,        
     })
 
     -- 电话输入
@@ -257,6 +276,7 @@ function airui_input.create_ui()
         h = 40,
         text = "",
         placeholder = "请输入电话号码",
+        keyboard = keyboard,
         max_len = 20,
         size = 16,
     })
@@ -332,6 +352,7 @@ function airui_input.create_ui()
         placeholder = "请输入...",
         max_len = 100,
         size = 16,
+        keyboard = keyboard,       
     })
 
     -- 控制按钮区域
@@ -438,9 +459,9 @@ function airui_input.create_ui()
     })
 
     -- 创建键盘
-    local keyboard1 = airui.keyboard({
-        x = 150,
-        y = 350,
+    --[[local keyboard1 = airui.keyboard({
+        x = 0,
+        y = 0,
         w = 724,
         h = 220,
         mode = "text",
@@ -450,8 +471,8 @@ function airui_input.create_ui()
     table.insert(keyboards, keyboard1)
 
     local keyboard2 = airui.keyboard({
-        x = 150,
-        y = 350,
+        x = 0,
+        y = 0,
         w = 724,
         h = 220,
         mode = "text",
@@ -461,8 +482,8 @@ function airui_input.create_ui()
     table.insert(keyboards, keyboard2)
 
     local keyboard3 = airui.keyboard({
-        x = 150,
-        y = 350,
+        x = 0,
+        y = 0,
         w = 724,
         h = 220,
         mode = "number",
@@ -473,8 +494,8 @@ function airui_input.create_ui()
     table.insert(keyboards, keyboard3)
 
     local keyboard4 = airui.keyboard({
-        x = 150,
-        y = 350,
+        x = 0,
+        y = 0,
         w = 724,
         h = 220,
         mode = "text",
@@ -484,15 +505,15 @@ function airui_input.create_ui()
     table.insert(keyboards, keyboard4)
 
     local keyboard5 = airui.keyboard({
-        x = 150,
-        y = 350,
+        x = 0,
+        y = 0,
         w = 724,
         h = 220,
         mode = "text",
         target = control_input,
         auto_hide = true,
     })
-    table.insert(keyboards, keyboard5)
+    table.insert(keyboards, keyboard5)]]
 
     -- 底部信息
     airui.label({

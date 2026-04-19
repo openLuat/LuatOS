@@ -153,20 +153,13 @@ static int l_textarea_get_keyboard(lua_State *L) {
  * Textarea:destroy（手动销毁）
  */
 static int l_textarea_destroy(lua_State *L) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_TEXTAREA_MT);
-    if (ud != NULL && ud->obj != NULL) {
-        airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
-        if (meta != NULL) {
-            if (meta->user_data != NULL) {
-                luat_heap_free(meta->user_data);
-                meta->user_data = NULL;
-            }
-            airui_component_meta_free(meta);
-        }
-        lv_obj_delete(ud->obj);
-        ud->obj = NULL;
+    lv_obj_t *textarea = airui_check_component(L, 1, AIRUI_TEXTAREA_MT);
+    airui_component_meta_t *meta = airui_component_meta_get(textarea);
+    if (meta != NULL && meta->user_data != NULL) {
+        luat_heap_free(meta->user_data);
+        meta->user_data = NULL;
     }
-    return 0;
+    return airui_component_destroy_userdata(L, 1, AIRUI_TEXTAREA_MT);
 }
 
 /**

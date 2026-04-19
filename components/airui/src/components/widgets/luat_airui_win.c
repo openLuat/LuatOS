@@ -39,7 +39,7 @@ static void airui_win_apply_header_font(airui_win_data_t *win_data)
     }
     if (win_data->close_btn != NULL) {
         (void)airui_text_font_apply_hzfont(win_data->close_btn, win_data->header_font.hzfont_size,
-            (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+            ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
     }
 }
 
@@ -116,10 +116,10 @@ lv_obj_t *airui_win_create_from_config(void *L, int idx)
     
     // 读取配置
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 400);
-    int h = airui_marshal_integer(L, idx, "h", 300);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 400);
+    int h = airui_marshal_floor_integer(L, idx, "h", 300);
     const char *title = airui_marshal_string(L, idx, "title", NULL);
     bool close_btn = airui_marshal_bool(L, idx, "close_btn", false);
     bool auto_center = airui_marshal_bool(L, idx, "auto_center", false);
@@ -299,45 +299,45 @@ int airui_win_set_style(lv_obj_t *win, void *L, int idx)
     int value = 0;
 
     if (airui_marshal_integer_opt(L_state, idx, "bg_color", &value)) {
-        lv_obj_set_style_bg_color(win, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(win, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "bg_opa", &value)) {
-        lv_obj_set_style_bg_opa(win, airui_marshal_opacity(value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(win, airui_marshal_opacity(value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
-        lv_obj_set_style_border_color(win, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_color(win, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "border_width", &value)) {
-        lv_obj_set_style_border_width(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(win, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "radius", &value)) {
-        lv_obj_set_style_radius(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_radius(win, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pad", &value)) {
-        lv_obj_set_style_pad_all(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_all(win, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pad_top", &value)) {
-        lv_obj_set_style_pad_top(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_top(win, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pad_bottom", &value)) {
-        lv_obj_set_style_pad_bottom(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_bottom(win, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pad_left", &value)) {
-        lv_obj_set_style_pad_left(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_left(win, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pad_right", &value)) {
-        lv_obj_set_style_pad_right(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_right(win, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
 
     if (header != NULL) {
         if (airui_marshal_integer_opt(L_state, idx, "header_bg_color", &value)) {
-            lv_obj_set_style_bg_color(header, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(header, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (airui_marshal_integer_opt(L_state, idx, "header_bg_opa", &value)) {
-            lv_obj_set_style_bg_opa(header, airui_marshal_opacity(value), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(header, airui_marshal_opacity(value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (airui_marshal_integer_opt(L_state, idx, "header_pad", &value)) {
-            lv_obj_set_style_pad_all(header, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_all(header, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (airui_marshal_integer_opt(L_state, idx, "header_height", &value)) {
             lv_obj_set_height(header, value < 0 ? 0 : value);
@@ -351,47 +351,47 @@ int airui_win_set_style(lv_obj_t *win, void *L, int idx)
 
     if (content != NULL) {
         if (airui_marshal_integer_opt(L_state, idx, "content_bg_color", &value)) {
-            lv_obj_set_style_bg_color(content, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(content, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (airui_marshal_integer_opt(L_state, idx, "content_bg_opa", &value)) {
-            lv_obj_set_style_bg_opa(content, airui_marshal_opacity(value), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(content, airui_marshal_opacity(value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (airui_marshal_integer_opt(L_state, idx, "content_pad", &value)) {
-            lv_obj_set_style_pad_all(content, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_all(content, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         win_data->content = content;
     }
 
     if (title_label != NULL) {
         if (airui_marshal_integer_opt(L_state, idx, "title_text_color", &value)) {
-            lv_obj_set_style_text_color(title_label, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_color(title_label, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (airui_marshal_integer_opt(L_state, idx, "title_align", &value)) {
             lv_text_align_t align = LV_TEXT_ALIGN_LEFT;
             if (value == (int)LV_TEXT_ALIGN_LEFT || value == (int)LV_TEXT_ALIGN_CENTER || value == (int)LV_TEXT_ALIGN_RIGHT) {
                 align = (lv_text_align_t)value;
             }
-            lv_obj_set_style_text_align(title_label, align, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_align(title_label, align, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
     }
 
     if (close_btn != NULL) {
         if (airui_marshal_integer_opt(L_state, idx, "close_btn_bg_color", &value)) {
-            lv_obj_set_style_bg_color(close_btn, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(close_btn, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (airui_marshal_integer_opt(L_state, idx, "close_btn_bg_opa", &value)) {
-            lv_obj_set_style_bg_opa(close_btn, airui_marshal_opacity(value), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(close_btn, airui_marshal_opacity(value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (airui_marshal_integer_opt(L_state, idx, "close_btn_radius", &value)) {
-            lv_obj_set_style_radius(close_btn, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(close_btn, value < 0 ? 0 : value, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (airui_marshal_integer_opt(L_state, idx, "close_btn_text_color", &value)) {
-            lv_obj_set_style_text_color(close_btn, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_color(close_btn, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
             uint32_t child_cnt = lv_obj_get_child_cnt(close_btn);
             uint32_t i = 0;
             for (i = 0; i < child_cnt; i++) {
                 lv_obj_t *child = lv_obj_get_child(close_btn, i);
-                lv_obj_set_style_text_color(child, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_text_color(child, lv_color_hex((uint32_t)value), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
             }
         }
     }

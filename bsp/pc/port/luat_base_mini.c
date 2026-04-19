@@ -121,6 +121,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_COREMARK
   {"coremark", luaopen_coremark},
 #endif
+#ifdef LUAT_USE_MEMPROF
+  {"memprof", luaopen_memprof},
+#endif
 #ifdef LUAT_USE_NDK
   {"ndk", luaopen_ndk},
 #endif

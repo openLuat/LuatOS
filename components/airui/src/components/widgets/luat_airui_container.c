@@ -35,10 +35,10 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
 
     // 解析布局与样式配置
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 100);
-    int h = airui_marshal_integer(L, idx, "h", 100);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 100);
+    int h = airui_marshal_floor_integer(L, idx, "h", 100);
     int color_value = airui_marshal_integer(L, idx, "color", -1);
     int color_opacity = airui_marshal_integer(L, idx, "color_opacity", LV_OPA_COVER);
     int radius = airui_marshal_integer(L, idx, "radius", 0);
@@ -53,22 +53,23 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
     // 设置位置、大小与默认样式
     lv_obj_set_pos(container, x, y);
     lv_obj_set_size(container, w, h);
-    lv_obj_set_style_border_width(container, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(container, radius, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_style_selector_t main_default = (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT;
+    lv_obj_set_style_border_width(container, 0, main_default);
+    lv_obj_set_style_radius(container, radius, main_default);
     // 屏幕默认存在 padding，清掉内边距让 (0,0) 真正对齐
-    lv_obj_set_style_pad_all(container, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(container, 0, main_default);
 
     // 设置背景颜色或透明度
     if (color_value >= 0) {
         airui_container_set_color(container, (uint32_t)color_value, color_opacity);
     } else {
-        lv_obj_set_style_bg_opa(container, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(container, LV_OPA_TRANSP, main_default);
     }
 
     if (border_color_value >= 0 && border_width > 0) {
         airui_container_set_border_color(container, (uint32_t)border_color_value, border_width);
     } else {
-        lv_obj_set_style_border_width(container, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(container, 0, main_default);
     }
 
     airui_component_meta_t *meta = airui_component_meta_alloc(
@@ -97,10 +98,10 @@ int airui_container_set_color(lv_obj_t *container, uint32_t color_value, int opa
     }
 
     // 设置背景颜色与透明度
+    lv_style_selector_t main_default = (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT;
     lv_color_t bg_color = lv_color_hex(color_value);
-    lv_obj_set_style_bg_color(container, bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(container, airui_marshal_opacity(opacity),
-        LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(container, bg_color, main_default);
+    lv_obj_set_style_bg_opa(container, airui_marshal_opacity(opacity), main_default);
 
     return AIRUI_OK;
 }
@@ -114,12 +115,13 @@ int airui_container_set_border_color(lv_obj_t *container, uint32_t color_value, 
         return AIRUI_ERR_INVALID_PARAM;
     }
 
+    lv_style_selector_t main_default = (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT;
     lv_color_t border_color = lv_color_hex(color_value);
     int border_width = width > 0 ? width : 0;
-    lv_obj_set_style_border_width(container, border_width, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(container, border_width, main_default);
     if (border_width > 0) {
-        lv_obj_set_style_border_color(container, border_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_border_opa(container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_color(container, border_color, main_default);
+        lv_obj_set_style_border_opa(container, LV_OPA_COVER, main_default);
     }
 
     return AIRUI_OK;

@@ -53,10 +53,10 @@ lv_obj_t *airui_button_create_from_config(void *L, int idx)
     
     // 读取配置
     lv_obj_t *parent = airui_marshal_parent(L, idx);
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", 100);
-    int h = airui_marshal_integer(L, idx, "h", 40);
+    int x = airui_marshal_floor_integer(L, idx, "x", 0);
+    int y = airui_marshal_floor_integer(L, idx, "y", 0);
+    int w = airui_marshal_floor_integer(L, idx, "w", 100);
+    int h = airui_marshal_floor_integer(L, idx, "h", 40);
     const char *text = airui_marshal_string(L, idx, "text", NULL);
     
     // 创建 Button 对象
@@ -151,6 +151,48 @@ int airui_button_set_text(lv_obj_t *btn, const char *text)
     return AIRUI_OK;
 }
 
+// 获取按钮文本
+const char *airui_button_get_text(lv_obj_t *btn)
+{
+    airui_button_data_t *data;
+    lv_obj_t *label = NULL;
+
+    if (btn == NULL) {
+        return NULL;
+    }
+
+    data = airui_button_get_data(btn);
+    if (data != NULL && data->text_label != NULL) {
+        label = data->text_label;
+    }
+    else if (lv_obj_get_child_cnt(btn) > 0) {
+        label = lv_obj_get_child(btn, 0);
+    }
+
+    if (label == NULL) {
+        return NULL;
+    }
+
+    return lv_label_get_text(label);
+}
+
+// 设置按钮失活状态
+int airui_button_set_disabled(lv_obj_t *btn, bool disabled)
+{
+    if (btn == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (disabled) {
+        lv_obj_add_state(btn, LV_STATE_DISABLED);
+    }
+    else {
+        lv_obj_clear_state(btn, LV_STATE_DISABLED);
+    }
+
+    return AIRUI_OK;
+}
+
 /**
  * 设置 Button 点击回调
  * @param btn Button 对象指针
@@ -209,51 +251,51 @@ int airui_button_set_style(lv_obj_t *btn, void *L, int idx)
 
     if (airui_marshal_integer_opt(L_state, idx, "bg_color", &value)) {
         lv_obj_set_style_bg_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "bg_opa", &value)) {
         lv_obj_set_style_bg_opa(btn, airui_marshal_opacity(value),
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
         lv_obj_set_style_border_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "border_width", &value)) {
         lv_obj_set_style_border_width(btn, value < 0 ? 0 : value,
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "radius", &value)) {
         lv_obj_set_style_radius(btn, value < 0 ? 0 : value,
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pad", &value)) {
         lv_obj_set_style_pad_all(btn, value < 0 ? 0 : value,
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "text_color", &value)) {
         lv_obj_set_style_text_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pressed_bg_color", &value)) {
         lv_obj_set_style_bg_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_PRESSED);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pressed_bg_opa", &value)) {
         lv_obj_set_style_bg_opa(btn, airui_marshal_opacity(value),
-            LV_PART_MAIN | LV_STATE_PRESSED);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pressed_text_color", &value)) {
         lv_obj_set_style_text_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_PRESSED);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "focus_outline_color", &value)) {
         lv_obj_set_style_outline_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_FOCUS_KEY);
     }
     if (airui_marshal_integer_opt(L_state, idx, "focus_outline_width", &value)) {
         lv_obj_set_style_outline_width(btn, value < 0 ? 0 : value,
-            LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_FOCUS_KEY);
     }
 
     return AIRUI_OK;
@@ -273,17 +315,24 @@ static void airui_button_apply_default_style(lv_obj_t *btn)
     lv_color_t normal_bg = lv_color_make(0xff, 0xff, 0xff);
     lv_color_t pressed_bg = lv_color_make(0xe5, 0xed, 0xff);
     lv_color_t text_color = lv_color_make(0x11, 0x2b, 0x63);
+    lv_color_t disabled_border_color = lv_color_make(0xc4, 0xc9, 0xd4);
+    lv_color_t disabled_bg = lv_color_make(0xee, 0xf1, 0xf5);
+    lv_color_t disabled_text_color = lv_color_make(0x8a, 0x93, 0xa5);
 
-    lv_obj_set_style_border_color(btn, border_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(btn, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(btn, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(btn, normal_bg, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(btn, pressed_bg, LV_PART_MAIN | LV_STATE_PRESSED);
-    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_PRESSED);
-    lv_obj_set_style_text_color(btn, text_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_outline_width(btn, 2, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
-    lv_obj_set_style_outline_color(btn, focus_border_color, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_border_color(btn, border_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(btn, 2, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(btn, 10, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(btn, normal_bg, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(btn, pressed_bg, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_text_color(btn, text_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(btn, disabled_border_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DISABLED);
+    lv_obj_set_style_bg_color(btn, disabled_bg, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DISABLED);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DISABLED);
+    lv_obj_set_style_text_color(btn, disabled_text_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DISABLED);
+    lv_obj_set_style_outline_width(btn, 2, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_outline_color(btn, focus_border_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_FOCUS_KEY);
 }
 
 static void airui_button_warn_stype_deprecated(void)

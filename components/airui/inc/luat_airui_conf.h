@@ -17,16 +17,30 @@
 // 通用设置
 
 /** AIRUI 库版本号 */
-#define AIRUI_VERSION "1.1.5"
+#define AIRUI_VERSION "1.1.6"
 
 /** AIRUI 自动刷新周期，单位：毫秒 */
 #define AIRUI_REFRESH_PERIOD_MS 33
+
+/** 刷新消息重试超时时间, 当前设计下刷新消息有时会发生丢失，需要支持画面刷新重试 */
+#define AIRUI_REFRESH_RETRY_TIMEOUT_MS 200U
+
+/* -------------------------------------- 通用可选配置 -------------------------------------- */
+
+// 显示缓冲占整屏字节数的分母，默认值为2，表示每个显示缓冲分配半屏大小，双缓冲时总计占用一整屏字节数。
+#ifdef LUAT_USE_AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR
+    #define AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR LUAT_USE_AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR
+#else
+    #define AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR 2U
+#endif
 
 /*=================
  * PLATFORM CONFIGURATION
  *=================*/
 
 #if defined(LUAT_USE_AIRUI_SDL2)
+
+
     /* SDL2 平台配置 */
     #define LV_USE_OS   LV_OS_NONE  /* SDL2 平台可能不需要 OSAL */
 
@@ -61,10 +75,6 @@
     // #define LV_FONT_DEFAULT &lv_font_misans_20
     #define LV_FONT_DEFAULT &lv_font_misans_14
 
-    // 打开XML支持
-    #define LV_USE_XML 1
-    #define LV_USE_OBJ_NAME 1
-
     // 打开拼音输入法
     #define LV_USE_IME_PINYIN 1
     #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
@@ -87,10 +97,6 @@
     // #define LV_USE_PARALLEL_DRAW_DEBUG  0    // 开启并行绘制调试
 
     #define LV_COLOR_DEPTH 16
-
-    /* 图片缓存配置 */
-    #define LV_CACHE_DEF_SIZE (1024 * 1024)          /* 1024KB */
-    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 16        /* 16个图片头缓存 */
 
     // 使用自定义堆（Lua堆）
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
@@ -127,12 +133,16 @@
         #define LV_FONT_DEFAULT &lv_font_misans_16
     #endif
 
-    // 打开XML支持
-    #ifdef LUAT_USE_AIRUI_XML
-        #define LV_USE_XML 1
-        #define LV_USE_OBJ_NAME 1
+    // 图片缓存配置 
+    #ifdef LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
+        // 使用自定义img缓存大小
+        #define LV_CACHE_DEF_SIZE LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
+    #else
+        // 使用默认img缓存大小
+        #define LV_CACHE_DEF_SIZE (1024 * 1024)          /* 1024KB */
     #endif
-    
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 64        /* 64个图片头缓存 */
+
 #else
     /* 默认配置（如果未定义平台） */
     /* 使用 lv_conf.h 中的默认值，这里不需要重新定义 */

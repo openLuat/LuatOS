@@ -98,7 +98,7 @@ void airui_text_font_apply_to_obj(lv_obj_t *text_obj, airui_text_font_state_t *s
     if (state->prefer_hzfont) {
         if (hzfont != NULL) {
             state->use_hzfont = true;
-            lv_obj_set_style_text_font(text_obj, hzfont, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(text_obj, hzfont, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         else {
             state->use_hzfont = false;
@@ -109,7 +109,7 @@ void airui_text_font_apply_to_obj(lv_obj_t *text_obj, airui_text_font_state_t *s
     if (!state->prefer_hzfont) {
         theme_font = lv_theme_get_font_normal(text_obj);
         if (theme_font != NULL) {
-            lv_obj_set_style_text_font(text_obj, theme_font, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(text_obj, theme_font, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
             state->use_hzfont = (hzfont != NULL && theme_font == hzfont);
         }
         else {
@@ -121,7 +121,7 @@ void airui_text_font_apply_to_obj(lv_obj_t *text_obj, airui_text_font_state_t *s
         state->prefer_hzfont = true;
         state->use_hzfont = true;
         (void)airui_text_font_apply_hzfont(text_obj, state->hzfont_size,
-            (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+            ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
         airui_text_font_refresh_layout(text_obj, state);
     }
 }

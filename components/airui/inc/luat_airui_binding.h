@@ -7,6 +7,7 @@
 #ifndef LUAT_AIRUI_BINDING_H
 #define LUAT_AIRUI_BINDING_H
 
+#include <stdint.h>
 #include "lua.h"
 #include "lauxlib.h"
 #include "lvgl9/src/core/lv_obj.h"
@@ -15,9 +16,16 @@
 extern "C" {
 #endif
 
+// 组件引用结构体
+typedef struct airui_component_ref {
+    lv_obj_t *obj;
+    uint8_t alive;
+    uint32_t id;
+} airui_component_ref_t;
+
 // 组件 userdata 结构（所有组件共享）
 typedef struct {
-    lv_obj_t *obj;
+    airui_component_ref_t *ref;
 } airui_component_ud_t;
 
 /**
@@ -36,6 +44,15 @@ void airui_push_component_userdata(lua_State *L, lv_obj_t *obj, const char *mt);
  * @return LVGL 对象指针，失败时抛出错误
  */
 lv_obj_t *airui_check_component(lua_State *L, int index, const char *mt);
+
+// 获取组件对象
+lv_obj_t *airui_component_userdata_obj(airui_component_ud_t *ud);
+
+// 无效化组件引用
+void airui_component_invalidate_ref(airui_component_ref_t *ref);
+
+// 销毁组件 userdata
+int airui_component_destroy_userdata(lua_State *L, int index, const char *mt);
 
 #ifdef __cplusplus
 }

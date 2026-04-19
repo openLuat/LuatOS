@@ -560,7 +560,175 @@ static int l_airlink_sversion(lua_State *L) {
     return 1;
 }
 
-#include "rotable2.h"
+// ============================================================
+// 多出口绑定 & RPC Lua 绑定
+// ============================================================
+
+#ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
+//@api airlink.bindTransport(adapter_id, mode)
+//@int  adapter_id  网络适配器ID (0=wifi, 1=4G 等, 对应 luat_netdrv_get 的 id)
+//@int  mode        目标传输 mode (airlink.MODE_SPI_SLAVE / MODE_SPI_MASTER / MODE_UART)
+//@return bool 成功返回 true, 失败返回 false
+//@usage
+// -- wifi(0) 走 UART, 4G(1) 走 SPI Master
+// airlink.bindTransport(0, airlink.MODE_UART)
+// airlink.bindTransport(1, airlink.MODE_SPI_MASTER)
+static int l_airlink_bind_transport(lua_State* L) {
+    uint8_t adapter_id = (uint8_t)luaL_checkinteger(L, 1);
+    uint8_t mode       = (uint8_t)luaL_checkinteger(L, 2);
+    int ret = luat_airlink_bind_adapter_transport(adapter_id, mode);
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+#endif
+
+#ifdef LUAT_USE_AIRLINK_RPC
+
+//@api airlink.rpcRegister(rpc_id, func)
+//@int      rpc_id  RPC 功能号 (uint16_t)
+//@function func    处理函数, 原型: function(rpc_id, req_data) return resp_data end
+//                  req_data 为 string 或 nil; resp_data 为 string 或 nil
+//@return bool 成功返回 true, 失败返回 false
+//@usage
+// airlink.rpcRegister(0x0001, function(rpc_id, req)
+//     log.info("rpc", "收到请求", rpc_id, req)
+//     return "response"
+// end)
+static int l_airlink_rpc_handler(uint16_t rpc_id,
+                                  const uint8_t* req, uint16_t req_len,
+                                  uint8_t* resp, uint16_t resp_size, uint16_t* resp_len,
+                                  void* userdata);
+
+// Lua 函数引用表 (rpc_id → lua ref), 简单数组实现
+#define MAX_LUA_RPC_HANDLERS 32
+static struct {
+    uint16_t rpc_id;
+    int lua_ref;
+    uint8_t active;
+} s_lua_rpc_handlers[MAX_LUA_RPC_HANDLERS];
+static lua_State* s_lua_rpc_L = NULL;
+
+static int l_airlink_rpc_handler(uint16_t rpc_id,
+                                   const uint8_t* req, uint16_t req_len,
+                                   uint8_t* resp, uint16_t resp_size, uint16_t* resp_len,
+                                   void* userdata) {
+    (void)userdata;
+    *resp_len = 0;
+    if (s_lua_rpc_L == NULL) return -1;
+    lua_State* L = s_lua_rpc_L;
+
+    // 查找 lua_ref
+    int ref = LUA_NOREF;
+    for (int i = 0; i < MAX_LUA_RPC_HANDLERS; i++) {
+        if (s_lua_rpc_handlers[i].active && s_lua_rpc_handlers[i].rpc_id == rpc_id) {
+            ref = s_lua_rpc_handlers[i].lua_ref;
+            break;
+        }
+    }
+    if (ref == LUA_NOREF) return -404;
+
+    lua_rawgeti(L, LUA_REGISTRYINDEX, ref);  // push function
+    lua_pushinteger(L, rpc_id);               // arg1: rpc_id
+    if (req && req_len > 0) {
+        lua_pushlstring(L, (const char*)req, req_len); // arg2: req as string
+    } else {
+        lua_pushnil(L);
+    }
+    if (lua_pcall(L, 2, 1, 0) != LUA_OK) {
+        LLOGE("airlink rpc lua call error: %s", lua_tostring(L, -1));
+        lua_pop(L, 1);
+        return -1;
+    }
+    // 取返回值
+    if (lua_isstring(L, -1)) {
+        size_t rlen = 0;
+        const char* rdata = lua_tolstring(L, -1, &rlen);
+        if (rlen > resp_size) rlen = resp_size;
+        if (rdata && rlen > 0) {
+            memcpy(resp, rdata, rlen);
+            *resp_len = (uint16_t)rlen;
+        }
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+
+static int l_airlink_rpc_register(lua_State* L) {
+    uint16_t rpc_id = (uint16_t)luaL_checkinteger(L, 1);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+
+    // 保存 Lua 状态指针 (线程共享)
+    s_lua_rpc_L = L;
+
+    // 找空槽或已有同 rpc_id 的槽
+    int slot = -1;
+    for (int i = 0; i < MAX_LUA_RPC_HANDLERS; i++) {
+        if (s_lua_rpc_handlers[i].active && s_lua_rpc_handlers[i].rpc_id == rpc_id) {
+            // 取消旧引用
+            luaL_unref(L, LUA_REGISTRYINDEX, s_lua_rpc_handlers[i].lua_ref);
+            slot = i;
+            break;
+        }
+        if (slot == -1 && !s_lua_rpc_handlers[i].active) {
+            slot = i;
+        }
+    }
+    if (slot == -1) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    lua_pushvalue(L, 2);  // 复制函数到栈顶
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    s_lua_rpc_handlers[slot].rpc_id  = rpc_id;
+    s_lua_rpc_handlers[slot].lua_ref = ref;
+    s_lua_rpc_handlers[slot].active  = 1;
+
+    // 注册 C 层 handler (l_airlink_rpc_handler)
+    luat_airlink_rpc_register(rpc_id, l_airlink_rpc_handler, NULL);
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+//@api airlink.rpc(mode, rpc_id, req_data, timeout_ms)
+//@int    mode        目标传输 mode
+//@int    rpc_id      RPC 功能号
+//@string req_data    请求数据 (string 或 nil)
+//@int    timeout_ms  超时毫秒数 (默认 3000)
+//@return bool,string 成功返回 true+响应数据, 失败/超时返回 false+错误信息
+//@usage
+// local ok, resp = airlink.rpc(airlink.MODE_UART, 0x0001, "hello", 3000)
+// if ok then log.info("rpc", "响应:", resp) end
+static int l_airlink_rpc(lua_State* L) {
+    uint8_t  mode      = (uint8_t)luaL_checkinteger(L, 1);
+    uint16_t rpc_id    = (uint16_t)luaL_checkinteger(L, 2);
+    size_t   req_len   = 0;
+    const uint8_t* req = NULL;
+    if (lua_isstring(L, 3)) {
+        req = (const uint8_t*)lua_tolstring(L, 3, &req_len);
+    }
+    uint32_t timeout_ms = (uint32_t)luaL_optinteger(L, 4, 3000);
+
+    uint8_t resp_buf[512];
+    uint16_t resp_len = 0;
+    int ret = luat_airlink_rpc(mode, rpc_id, req, (uint16_t)req_len,
+                                resp_buf, sizeof(resp_buf), &resp_len, timeout_ms);
+    if (ret == 0) {
+        lua_pushboolean(L, 1);
+        lua_pushlstring(L, (const char*)resp_buf, resp_len);
+    } else if (ret == -1) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "timeout");
+    } else {
+        lua_pushboolean(L, 0);
+        lua_pushinteger(L, ret);
+    }
+    return 2;
+}
+
+#endif /* LUAT_USE_AIRLINK_RPC */
+
 static const rotable_Reg_t reg_airlink[] =
 {
     { "init" ,         ROREG_FUNC(l_airlink_init )},
@@ -589,6 +757,19 @@ static const rotable_Reg_t reg_airlink[] =
     { "sfota_write",   ROREG_FUNC(l_airlink_sfota_write )},
 
     { "debug",         ROREG_FUNC(l_airlink_debug )},
+
+#ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
+    // 多出口绑定
+    //@const bindTransport function 绑定 adapter 到指定 transport
+    { "bindTransport", ROREG_FUNC(l_airlink_bind_transport )},
+#endif
+
+#ifdef LUAT_USE_AIRLINK_RPC
+    //@const rpcRegister function 注册 RPC 服务端处理函数
+    { "rpcRegister",   ROREG_FUNC(l_airlink_rpc_register )},
+    //@const rpc function 同步调用对端 RPC
+    { "rpc",           ROREG_FUNC(l_airlink_rpc )},
+#endif
 
     //@const MODE_SPI_SLAVE number airlink.start参数, SPI从机模式
     { "MODE_SPI_SLAVE",    ROREG_INT(LUAT_AIRLINK_MODE_SPI_SLAVE) },

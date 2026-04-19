@@ -318,10 +318,12 @@ static void luat_mreport_wifi(cJSON* mreport_data) {
     sprintf_(mac, "%02x:%02x:%02x:%02x:%02x:%02x", ap_mac[0], ap_mac[1], ap_mac[2], ap_mac[3], ap_mac[4], ap_mac[5]);
     cJSON_AddStringToObject(mreport_data, "wifi_ap_mac", mac);
 
+    #ifdef LUAT_USE_BLE
     luat_bluetooth_get_mac(NULL, bt_mac);
     luat_bluetooth_mac_swap(bt_mac);
     sprintf_(mac, "%02x:%02x:%02x:%02x:%02x:%02x", bt_mac[0], bt_mac[1], bt_mac[2], bt_mac[3], bt_mac[4], bt_mac[5]);
-    cJSON_AddStringToObject(mreport_data, "wifi_bt_mac", mac);
+    cJSON_AddStringToObject(mreport_data, "bt_mac", mac);
+    #endif
     
     // wifi connect ap bssid/rssi/channel
     char sta_ip_addr[16] = {0};

@@ -504,5 +504,87 @@ function iconv_tests.test_unsupported_charset()
     log.info("✓ 测试通过: 完全不支持的字符集返回nil")
 end
 
+-- ===================== iconv.gb2utf8 / iconv.utf82gb 快捷API测试 =====================
+
+-- "你好" GB2312: C4E3 BAC3 → UTF8: E4BDA0 E5A5BD
+function iconv_tests.test_gb2utf8_basic()
+    if iconv.gb2utf8 == nil then return end  -- 如果没有这个快捷API，就跳过测试
+    local gb = string.char(0xC4, 0xE3, 0xBA, 0xC3)  -- 你好 GB2312
+    local result = iconv.gb2utf8(gb)
+    assert(result ~= nil, "gb2utf8返回nil，可能OOM")
+    assert(#result == 6, string.format("你好 UTF8应为6字节，实际是%d字节", #result))
+    local hex = string.format("%02X%02X%02X%02X%02X%02X",
+        result:byte(1), result:byte(2), result:byte(3),
+        result:byte(4), result:byte(5), result:byte(6))
+    assert(hex == "E4BDA0E5A5BD", string.format(
+        "你好 GB2312→UTF8失败: 预期E4BDA0E5A5BD, 实际%s", hex))
+    log.info("✓ 测试通过: 你好 GB2312(C4E3BAC3) → UTF8(E4BDA0E5A5BD)")
+end
+
+-- "你好" UTF8: E4BDA0 E5A5BD → GB2312: C4E3 BAC3
+function iconv_tests.test_utf82gb_basic()
+    if iconv.gb2utf8 == nil then return end  -- 如果没有这个快捷API，就跳过测试
+    local utf8 = string.char(0xE4, 0xBD, 0xA0, 0xE5, 0xA5, 0xBD)  -- 你好 UTF8
+    local result = iconv.utf82gb(utf8)
+    assert(result ~= nil, "utf82gb返回nil，可能OOM")
+    assert(#result == 4, string.format("你好 GB2312应为4字节，实际是%d字节", #result))
+    local hex = string.format("%02X%02X%02X%02X",
+        result:byte(1), result:byte(2), result:byte(3), result:byte(4))
+    assert(hex == "C4E3BAC3", string.format(
+        "你好 UTF8→GB2312失败: 预期C4E3BAC3, 实际%s", hex))
+    log.info("✓ 测试通过: 你好 UTF8(E4BDA0E5A5BD) → GB2312(C4E3BAC3)")
+end
+
+-- 双向往返：GB2312 → UTF8 → GB2312 应等于原文
+function iconv_tests.test_gb2utf8_roundtrip()
+    if iconv.gb2utf8 == nil then return end  -- 如果没有这个快捷API，就跳过测试
+    local gb_orig = string.char(0xC4, 0xE3, 0xBA, 0xC3)  -- 你好 GB2312
+    local utf8 = iconv.gb2utf8(gb_orig)
+    assert(utf8 ~= nil, "gb2utf8返回nil")
+    local gb_back = iconv.utf82gb(utf8)
+    assert(gb_back ~= nil, "utf82gb返回nil")
+    assert(gb_back == gb_orig, string.format(
+        "往返转换不等: 原始%s, 还原%s",
+        gb_orig:gsub(".", function(c) return string.format("%02X", c:byte()) end),
+        gb_back:gsub(".", function(c) return string.format("%02X", c:byte()) end)))
+    log.info("✓ 测试通过: GB2312 → UTF8 → GB2312 往返一致")
+end
+
+-- ASCII字符在两个方向应原样通过
+function iconv_tests.test_gb2utf8_ascii()
+    if iconv.gb2utf8 == nil then return end  -- 如果没有这个快捷API，就跳过测试
+    local ascii = "Hello"
+    local r1 = iconv.gb2utf8(ascii)
+    assert(r1 == ascii, string.format("ASCII gb2utf8失败: 预期%s, 实际%s", ascii, r1))
+    local r2 = iconv.utf82gb(ascii)
+    assert(r2 == ascii, string.format("ASCII utf82gb失败: 预期%s, 实际%s", ascii, r2))
+    log.info("✓ 测试通过: ASCII字符直接通过两个快捷API")
+end
+
+-- 空字符串应返回空字符串
+function iconv_tests.test_gb2utf8_empty()
+    if iconv.gb2utf8 == nil then return end  -- 如果没有这个快捷API，就跳过测试
+    local r1 = iconv.gb2utf8("")
+    assert(r1 == "", string.format("gb2utf8空串应返回空串, 实际长度%d", #(r1 or "")))
+    local r2 = iconv.utf82gb("")
+    assert(r2 == "", string.format("utf82gb空串应返回空串, 实际长度%d", #(r2 or "")))
+    log.info("✓ 测试通过: 空字符串两个快捷API均返回空字符串")
+end
+
+-- 含符号的字符串：【。GB2312: A1BE A1A3 → UTF8: E38090 E38082
+function iconv_tests.test_gb2utf8_symbol()
+    if iconv.gb2utf8 == nil then return end  -- 如果没有这个快捷API，就跳过测试
+    local gb = string.char(0xA1, 0xBE, 0xA1, 0xA3)  -- 【。GB2312
+    local result = iconv.gb2utf8(gb)
+    assert(result ~= nil, "gb2utf8返回nil")
+    assert(#result == 6, string.format("【。UTF8应为6字节，实际%d字节", #result))
+    local hex = string.format("%02X%02X%02X%02X%02X%02X",
+        result:byte(1), result:byte(2), result:byte(3),
+        result:byte(4), result:byte(5), result:byte(6))
+    assert(hex == "E38090E38082", string.format(
+        "【。GB2312→UTF8失败: 预期E38090E38082, 实际%s", hex))
+    log.info("✓ 测试通过: 【。GB2312(A1BEA1A3) → UTF8(E38090E38082)")
+end
+
 return iconv_tests
 

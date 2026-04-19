@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_airlink.h"
+#include "luat_airlink_devinfo.h"
 
 #include "luat_rtos.h"
 #include "luat_network_adapter.h"
@@ -41,8 +42,6 @@ static int pin_rdy_state;
 // static uint8_t g_sys_need_reboot;
 static int is_irq_mode;
 static uint32_t irq_counter; // 中断计数
-
-extern luat_airlink_dev_info_t g_airlink_self_dev_info;
 
 static uint8_t basic_info[512];
 static inline luat_airlink_dev_info_t * self_devinfo(void) {
@@ -209,7 +208,7 @@ __AIRLINK_CODE_IN_RAM__ static void start_spi_trans(void) {
     }
     else {
         // LLOGD("填充PING数据");
-        memcpy(basic_info + sizeof(luat_airlink_cmd_t), &g_airlink_self_dev_info, sizeof(g_airlink_self_dev_info));
+        memcpy(basic_info + sizeof(luat_airlink_cmd_t), luat_airlink_self_dev_info_ptr(), sizeof(luat_airlink_dev_info_t));
         luat_airlink_data_pack(basic_info, sizeof(basic_info), s_txbuff);
     }
     luat_spi_slave_transfer(SLAVE_SPI_ID, (const char*)s_txbuff, (char*)s_rxbuff, TEST_BUFF_SIZE);

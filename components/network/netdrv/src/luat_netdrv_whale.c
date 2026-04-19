@@ -28,8 +28,6 @@ extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, cons
 #define luat_netdrv_etharp_output ulwip_etharp_output
 #endif
 
-extern luat_airlink_dev_info_t g_airlink_self_dev_info;
-
 static err_t luat_netif_init(struct netif *netif);
 static err_t netif_output(struct netif *netif, struct pbuf *p);
 

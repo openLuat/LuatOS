@@ -58,18 +58,20 @@ static int add_bytes(luat_zbuff_t *buff, const char *source, size_t len)
         SET_POINT_##n(buff, point, color); \
         break
 //更改某点的颜色
-#define set_framebuffer_point(buff, point, color) \
-    switch (buff->bit)                            \
-    {                                             \
-        SET_POINT_CASE(1, (point), (color));      \
-        SET_POINT_CASE(4, (point), (color));      \
-        SET_POINT_CASE(8, (point), (color));      \
-        SET_POINT_CASE(16, (point), (color));     \
-        SET_POINT_CASE(24, (point), (color));     \
-        SET_POINT_CASE(32, (point), (color));     \
-    default:                                      \
-        break;                                    \
+static void set_framebuffer_point(luat_zbuff_t *buff, uint32_t point, uint32_t color)
+{
+    switch (buff->bit)
+    {
+        SET_POINT_CASE(1, point, color);
+        SET_POINT_CASE(4, point, color);
+        SET_POINT_CASE(8, point, color);
+        SET_POINT_CASE(16, point, color);
+        SET_POINT_CASE(24, point, color);
+        SET_POINT_CASE(32, point, color);
+    default:
+        break;
     }
+}
 
 #define GET_POINT_1(buff, point) (buff->addr[point / 8] >> (7 - point % 8)) % 2
 #define GET_POINT_4(buff, point) (buff->addr[point / 2] >> ((point % 2) ? 0 : 4)) % 0x10
@@ -629,28 +631,79 @@ done:
 local data = buff:readI8()
 local data = buff:readU32()
 */
-#define zread(n, t, f)                                       \
-    static int l_zbuff_read_##n(lua_State *L)                \
-    {                                                        \
-        luat_zbuff_t *buff = tozbuff(L);                      \
-        if (buff->len - buff->cursor < sizeof(t))            \
-            return 0;                                        \
-        t tmp;                                              \
-        memcpy(&tmp, buff->addr + buff->cursor, sizeof(t));  \
-        lua_push##f(L, tmp);                                 \
-        buff->cursor += sizeof(t);                           \
-        return 1;                                            \
+#define ZBUFF_TYPE_I8   0
+#define ZBUFF_TYPE_U8   1
+#define ZBUFF_TYPE_I16  2
+#define ZBUFF_TYPE_U16  3
+#define ZBUFF_TYPE_I32  4
+#define ZBUFF_TYPE_U32  5
+#define ZBUFF_TYPE_I64  6
+#define ZBUFF_TYPE_U64  7
+#define ZBUFF_TYPE_F32  8
+#define ZBUFF_TYPE_F64  9
+
+static const uint8_t zbuff_type_sizes[] = {1, 1, 2, 2, 4, 4, 8, 8, 4, 8};
+
+static int zbuff_read_impl(lua_State *L, int type_id)
+{
+    luat_zbuff_t *buff = tozbuff(L);
+    uint8_t sz = zbuff_type_sizes[type_id];
+    if (buff->len - buff->cursor < sz) return 0;
+    const uint8_t *p = buff->addr + buff->cursor;
+    switch (type_id) {
+    case ZBUFF_TYPE_I8:  { int8_t   v; memcpy(&v, p, sz); lua_pushinteger(L, v); break; }
+    case ZBUFF_TYPE_U8:  { uint8_t  v; memcpy(&v, p, sz); lua_pushinteger(L, v); break; }
+    case ZBUFF_TYPE_I16: { int16_t  v; memcpy(&v, p, sz); lua_pushinteger(L, v); break; }
+    case ZBUFF_TYPE_U16: { uint16_t v; memcpy(&v, p, sz); lua_pushinteger(L, v); break; }
+    case ZBUFF_TYPE_I32: { int32_t  v; memcpy(&v, p, sz); lua_pushinteger(L, v); break; }
+    case ZBUFF_TYPE_U32: { uint32_t v; memcpy(&v, p, sz); lua_pushinteger(L, v); break; }
+    case ZBUFF_TYPE_I64: { int64_t  v; memcpy(&v, p, sz); lua_pushinteger(L, v); break; }
+    case ZBUFF_TYPE_U64: { uint64_t v; memcpy(&v, p, sz); lua_pushinteger(L, v); break; }
+    case ZBUFF_TYPE_F32: { float    v; memcpy(&v, p, sz); lua_pushnumber(L, v);  break; }
+    case ZBUFF_TYPE_F64: { double   v; memcpy(&v, p, sz); lua_pushnumber(L, v);  break; }
+    default: return 0;
     }
-zread(i8, int8_t, integer);
-zread(u8, uint8_t, integer);
-zread(i16, int16_t, integer);
-zread(u16, uint16_t, integer);
-zread(i32, int32_t, integer);
-zread(u32, uint32_t, integer);
-zread(i64, int64_t, integer);
-zread(u64, uint64_t, integer);
-zread(f32, float, number);
-zread(f64, double, number);
+    buff->cursor += sz;
+    return 1;
+}
+
+static int zbuff_write_impl(lua_State *L, int type_id)
+{
+    luat_zbuff_t *buff = tozbuff(L);
+    uint8_t sz = zbuff_type_sizes[type_id];
+    if (buff->len - buff->cursor < sz) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    uint8_t *p = buff->addr + buff->cursor;
+    switch (type_id) {
+    case ZBUFF_TYPE_I8:  { int8_t   v = (int8_t)luaL_checkinteger(L, 2);  memcpy(p, &v, sz); break; }
+    case ZBUFF_TYPE_U8:  { uint8_t  v = (uint8_t)luaL_checkinteger(L, 2); memcpy(p, &v, sz); break; }
+    case ZBUFF_TYPE_I16: { int16_t  v = (int16_t)luaL_checkinteger(L, 2); memcpy(p, &v, sz); break; }
+    case ZBUFF_TYPE_U16: { uint16_t v = (uint16_t)luaL_checkinteger(L, 2);memcpy(p, &v, sz); break; }
+    case ZBUFF_TYPE_I32: { int32_t  v = (int32_t)luaL_checkinteger(L, 2); memcpy(p, &v, sz); break; }
+    case ZBUFF_TYPE_U32: { uint32_t v = (uint32_t)luaL_checkinteger(L, 2);memcpy(p, &v, sz); break; }
+    case ZBUFF_TYPE_I64: { int64_t  v = (int64_t)luaL_checkinteger(L, 2); memcpy(p, &v, sz); break; }
+    case ZBUFF_TYPE_U64: { uint64_t v = (uint64_t)luaL_checkinteger(L, 2);memcpy(p, &v, sz); break; }
+    case ZBUFF_TYPE_F32: { float    v = (float)luaL_checknumber(L, 2);    memcpy(p, &v, sz); break; }
+    case ZBUFF_TYPE_F64: { double   v = (double)luaL_checknumber(L, 2);   memcpy(p, &v, sz); break; }
+    default: lua_pushinteger(L, 0); return 1;
+    }
+    buff->cursor += sz;
+    lua_pushinteger(L, sz);
+    return 1;
+}
+
+static int l_zbuff_read_i8(lua_State *L)  { return zbuff_read_impl(L, ZBUFF_TYPE_I8);  }
+static int l_zbuff_read_u8(lua_State *L)  { return zbuff_read_impl(L, ZBUFF_TYPE_U8);  }
+static int l_zbuff_read_i16(lua_State *L) { return zbuff_read_impl(L, ZBUFF_TYPE_I16); }
+static int l_zbuff_read_u16(lua_State *L) { return zbuff_read_impl(L, ZBUFF_TYPE_U16); }
+static int l_zbuff_read_i32(lua_State *L) { return zbuff_read_impl(L, ZBUFF_TYPE_I32); }
+static int l_zbuff_read_u32(lua_State *L) { return zbuff_read_impl(L, ZBUFF_TYPE_U32); }
+static int l_zbuff_read_i64(lua_State *L) { return zbuff_read_impl(L, ZBUFF_TYPE_I64); }
+static int l_zbuff_read_u64(lua_State *L) { return zbuff_read_impl(L, ZBUFF_TYPE_U64); }
+static int l_zbuff_read_f32(lua_State *L) { return zbuff_read_impl(L, ZBUFF_TYPE_F32); }
+static int l_zbuff_read_f64(lua_State *L) { return zbuff_read_impl(L, ZBUFF_TYPE_F64); }
 
 /**
 写入一个指定类型的数据（从当前指针位置开始；执行后指针会向后移动）
@@ -662,31 +715,16 @@ zread(f64, double, number);
 local len = buff:writeI8(10)
 local len = buff:writeU32(1024)
 */
-#define zwrite(n, t, f)                                               \
-    static int l_zbuff_write_##n(lua_State *L)                        \
-    {                                                                 \
-        luat_zbuff_t *buff = tozbuff(L);                                \
-        if (buff->len - buff->cursor < sizeof(t))                     \
-        {                                                             \
-            lua_pushinteger(L, 0);                                    \
-            return 1;                                                 \
-        }                                                             \
-        t tmp =   (t)luaL_check##f(L, 2);                             \
-        memcpy(buff->addr + buff->cursor, &(tmp), sizeof(t));            \
-        buff->cursor += sizeof(t);                                    \
-        lua_pushinteger(L, sizeof(t));                                \
-        return 1;                                                     \
-    }
-zwrite(i8, int8_t, integer);
-zwrite(u8, uint8_t, integer);
-zwrite(i16, int16_t, integer);
-zwrite(u16, uint16_t, integer);
-zwrite(i32, int32_t, integer);
-zwrite(u32, uint32_t, integer);
-zwrite(i64, int64_t, integer);
-zwrite(u64, uint64_t, integer);
-zwrite(f32, float, number);
-zwrite(f64, double, number);
+static int l_zbuff_write_i8(lua_State *L)  { return zbuff_write_impl(L, ZBUFF_TYPE_I8);  }
+static int l_zbuff_write_u8(lua_State *L)  { return zbuff_write_impl(L, ZBUFF_TYPE_U8);  }
+static int l_zbuff_write_i16(lua_State *L) { return zbuff_write_impl(L, ZBUFF_TYPE_I16); }
+static int l_zbuff_write_u16(lua_State *L) { return zbuff_write_impl(L, ZBUFF_TYPE_U16); }
+static int l_zbuff_write_i32(lua_State *L) { return zbuff_write_impl(L, ZBUFF_TYPE_I32); }
+static int l_zbuff_write_u32(lua_State *L) { return zbuff_write_impl(L, ZBUFF_TYPE_U32); }
+static int l_zbuff_write_i64(lua_State *L) { return zbuff_write_impl(L, ZBUFF_TYPE_I64); }
+static int l_zbuff_write_u64(lua_State *L) { return zbuff_write_impl(L, ZBUFF_TYPE_U64); }
+static int l_zbuff_write_f32(lua_State *L) { return zbuff_write_impl(L, ZBUFF_TYPE_F32); }
+static int l_zbuff_write_f64(lua_State *L) { return zbuff_write_impl(L, ZBUFF_TYPE_F64); }
 
 /**
 按起始位置和长度取出数据（与当前指针位置无关；执行后指针位置不变）
@@ -897,25 +935,25 @@ static int l_zbuff_draw_rectangle(lua_State *L)
 rerult = buff:drawCircle(15,5,3,0xC)
 rerult = buff:drawCircle(15,5,3,0xC,true)
  */
-#define DRAW_CIRCLE_ALL(buff, xc, yc, x, y, c)                                \
-    {                                                                          \
-        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
-            set_framebuffer_point(buff, (xc + x) + (yc + y) * buff->width, c); \
-        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
-            set_framebuffer_point(buff, (xc - x) + (yc + y) * buff->width, c); \
-        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
-            set_framebuffer_point(buff, (xc + x) + (yc - y) * buff->width, c); \
-        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
-            set_framebuffer_point(buff, (xc - x) + (yc - y) * buff->width, c); \
-        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
-            set_framebuffer_point(buff, (xc + y) + (yc + x) * buff->width, c); \
-        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
-            set_framebuffer_point(buff, (xc - y) + (yc + x) * buff->width, c); \
-        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
-            set_framebuffer_point(buff, (xc + y) + (yc - x) * buff->width, c); \
-        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
-            set_framebuffer_point(buff, (xc - y) + (yc - x) * buff->width, c); \
-    }
+static void draw_circle_all(luat_zbuff_t *buff, int32_t xc, int32_t yc, int32_t x, int32_t y, uint32_t c)
+{
+    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
+        set_framebuffer_point(buff, (xc + x) + (yc + y) * buff->width, c);
+    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
+        set_framebuffer_point(buff, (xc - x) + (yc + y) * buff->width, c);
+    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
+        set_framebuffer_point(buff, (xc + x) + (yc - y) * buff->width, c);
+    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
+        set_framebuffer_point(buff, (xc - x) + (yc - y) * buff->width, c);
+    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
+        set_framebuffer_point(buff, (xc + y) + (yc + x) * buff->width, c);
+    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
+        set_framebuffer_point(buff, (xc - y) + (yc + x) * buff->width, c);
+    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
+        set_framebuffer_point(buff, (xc + y) + (yc - x) * buff->width, c);
+    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
+        set_framebuffer_point(buff, (xc - y) + (yc - x) * buff->width, c);
+}
 static int l_zbuff_draw_circle(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
@@ -939,11 +977,11 @@ static int l_zbuff_draw_circle(lua_State *L)
         if (fill)
         {
             for (yi = x; yi <= y; yi++)
-                DRAW_CIRCLE_ALL(buff, xc, yc, x, yi, color);
+                draw_circle_all(buff, xc, yc, x, yi, color);
         }
         else
         {
-            DRAW_CIRCLE_ALL(buff, xc, yc, x, y, color);
+            draw_circle_all(buff, xc, yc, x, y, color);
         }
         if (d < 0)
         {

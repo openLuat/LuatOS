@@ -309,15 +309,15 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 }
 
 LUAT_WEAK int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type){
-    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);  // 获取音频配置
     if (audio_conf){
-        if (bus_type == LUAT_AUDIO_BUS_I2S){
+        if (bus_type == LUAT_AUDIO_BUS_I2S || bus_type == LUAT_AUDIO_BUS_DAC){
             audio_conf->codec_conf.multimedia_id = multimedia_id;
-            audio_conf->bus_type = LUAT_AUDIO_BUS_I2S;
+            audio_conf->bus_type = bus_type;
             return 0;
         }
     }
-    return -1;
+    return -1;  // 配置无效或不支持的总线类型
 }
 
 LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t mode){

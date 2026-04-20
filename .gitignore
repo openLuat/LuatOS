@@ -112,3 +112,5 @@ openspec/*
 components/h264/test/test_h264
 testcase/ctx.json
 bsp/pc/pclogs/
+bsp/pc/fskv.bin
+bsp/pc/otp.bin

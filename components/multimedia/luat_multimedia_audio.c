@@ -3,6 +3,7 @@
 #ifdef LUAT_USE_DRV_GPIO
 #include "luat/drv_gpio.h"
 #endif
+#include "luat_dac.h"
 #include "luat_i2s.h"
 #include "luat_audio.h"
 #include "luat_multimedia.h"
@@ -58,6 +59,12 @@ LUAT_WEAK int luat_audio_start_raw(uint8_t multimedia_id, uint8_t audio_format, 
             luat_i2s_modify(audio_conf->codec_conf.i2s_id,i2s_conf->channel_format,i2s_conf->data_bits, i2s_conf->sample_rate);
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,sample_rate);
             luat_audio_pa(multimedia_id,1,0);
+        }else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
+            luat_dac_config_t* config = luat_dac_get_config(multimedia_id);
+            config->samp_rate = sample_rate;
+            config->bits = bits_per_sample;
+            // bk_aud_dac_set_samp_rate(sample_rate);
+            luat_dac_setup(audio_conf->codec_conf.dac_id, config);
         }
     }
     return 0;

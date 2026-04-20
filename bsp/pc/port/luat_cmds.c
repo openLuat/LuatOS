@@ -30,6 +30,8 @@ int cfg_norun;
 int cfg_noexit;
 // PC 模拟器默认开启依赖裁剪; 如需回退到旧行为, 用 --dep_strip=0 关闭
 int cfg_dep_strip = 1;
+// 是否已通过 --llt= / --ldb= 等方式预加载了项目文件(含 main.lua)
+static int cfg_has_preload = 0;
 
 static void *check_file_path_depth(const char *path, int depth);
 void *check_file_path(const char *path);
@@ -365,12 +367,32 @@ static int luat_cmd_append_file(luat_dep_ctx_t *ctx, const char *path)
 
 static int luat_cmd_collect_path(luat_dep_ctx_t *ctx, const char *path, int depth)
 {
-	if (strlen(path) < 4 || strlen(path) >= 512)
+	size_t plen = strlen(path);
+	if (plen == 0 || plen >= 512)
 	{
-		LLOGD("文件长度不对劲 %d %s", strlen(path), path);
+		LLOGD("文件长度不对劲 %d %s", plen, path);
 		return -1;
 	}
-	if (!memcmp(path + strlen(path) - 1, "/", 1) || !memcmp(path + strlen(path) - 1, "\\", 1))
+	// 若路径不以 / 或 \ 结尾, 先尝试 opendir 检测是否为目录
+	char last = path[plen - 1];
+	if (last != '/' && last != '\\')
+	{
+		DIR *dp_probe = opendir(path);
+		if (dp_probe != NULL)
+		{
+			closedir(dp_probe);
+			// 补上尾斜杠后递归
+			char pathbuf[512] = {0};
+#ifdef LUA_USE_WINDOWS
+			snprintf(pathbuf, sizeof(pathbuf), "%s\\", path);
+#else
+			snprintf(pathbuf, sizeof(pathbuf), "%s/", path);
+#endif
+			return luat_cmd_collect_path(ctx, pathbuf, depth);
+		}
+		return luat_cmd_append_file(ctx, path);
+	}
+	if (!memcmp(path + plen - 1, "/", 1) || !memcmp(path + plen - 1, "\\", 1))
 	{
 		// 目录模式: 这里只收集候选文件, 不立即 add_onefile, 方便后面统一算闭包
 		DIR *dp;
@@ -430,7 +452,7 @@ static int luat_cmd_collect_path(luat_dep_ctx_t *ctx, const char *path, int dept
 		closedir(dp);
 		return 0;
 	}
-	return luat_cmd_append_file(ctx, path);
+	return 0;
 }
 
 static luat_dep_file_t *luat_cmd_find_file_by_name(luat_dep_ctx_t *ctx, const char *name)
@@ -993,7 +1015,7 @@ static int is_opts(const char *key, const char *arg)
 
 int luat_cmd_parse(int argc, char **argv)
 {
-	const char **input_paths = NULL;
+	char **input_paths = NULL;
 	size_t input_count = 0;
 	size_t input_capacity = 0;
 	if (cmdline_argc == 1)
@@ -1012,6 +1034,7 @@ int luat_cmd_parse(int argc, char **argv)
 				LLOGE("加载luadb镜像失败");
 				return -1;
 			}
+			cfg_has_preload = 1;
 			continue;
 		}
 		if (is_opts("--ldb=", arg))
@@ -1021,24 +1044,27 @@ int luat_cmd_parse(int argc, char **argv)
 				LLOGE("加载luadb镜像失败");
 				return -1;
 			}
+			cfg_has_preload = 1;
 			continue;
 		}
-		// 加载LuaTools项目文件直接启动
+		// 加载LuaTools项目文件: 始终收集路径到 input_paths, 策略在循环后统一决定
 		if (is_opts("--load_luatools=", arg))
 		{
-			if (luat_cmd_load_luatools(arg + strlen("--load_luatools=")))
+			const char *ini = arg + strlen("--load_luatools=");
+			if (luat_cmd_collect_luatools_paths(ini, &input_paths, &input_count, &input_capacity))
 			{
-				LLOGE("加载luatools项目文件失败");
-				return -1;
+				LLOGE("收集luatools项目路径失败");
+				goto cleanup_err;
 			}
 			continue;
 		}
 		if (is_opts("--llt=", arg))
 		{
-			if (luat_cmd_load_luatools(arg + strlen("--llt=")))
+			const char *ini = arg + strlen("--llt=");
+			if (luat_cmd_collect_luatools_paths(ini, &input_paths, &input_count, &input_capacity))
 			{
-				LLOGE("加载luatools项目文件失败");
-				return -1;
+				LLOGE("收集luatools项目路径失败");
+				goto cleanup_err;
 			}
 			continue;
 		}
@@ -1093,9 +1119,9 @@ int luat_cmd_parse(int argc, char **argv)
 			continue;
 		}
 
-		if (is_opts("--noexit=", arg))
+		if (!strcmp("--noexit", arg) || is_opts("--noexit=", arg))
 		{
-			if (!strcmp("--noexit=1", arg)) {
+			if (!strcmp("--noexit", arg) || !strcmp("--noexit=1", arg)) {
 				cfg_noexit = 1;
 			}
 			continue;
@@ -1117,42 +1143,65 @@ int luat_cmd_parse(int argc, char **argv)
 		{
 			continue;
 		}
-		if (cfg_dep_strip)
+		// 位置参数: 始终收集到 input_paths, 策略在循环后统一决定
+		if (input_count + 1 > input_capacity)
 		{
-			// 默认开启依赖裁剪时, 把所有输入路径先缓存起来, 最后统一分析并打包
-			if (input_count + 1 > input_capacity)
+			size_t next_capacity = input_capacity == 0 ? 4 : input_capacity * 2;
+			char **next_paths = realloc(input_paths, next_capacity * sizeof(char *));
+			if (next_paths == NULL)
 			{
-				size_t next_capacity = input_capacity == 0 ? 4 : input_capacity * 2;
-				const char **next_paths = realloc(input_paths, next_capacity * sizeof(const char *));
-				if (next_paths == NULL)
-				{
-					free(input_paths);
-					LLOGE("内存不足, 无法缓存待分析路径");
-					return -1;
-				}
-				input_paths = next_paths;
-				input_capacity = next_capacity;
+				LLOGE("内存不足, 无法缓存待分析路径");
+				goto cleanup_err;
 			}
-			input_paths[input_count++] = arg;
-			continue;
+			input_paths = next_paths;
+			input_capacity = next_capacity;
 		}
-		if (check_file_path(arg) == NULL)
+		char *dup = strdup(arg);
+		if (dup == NULL)
 		{
-			free(input_paths);
-			return -1;
+			LLOGE("内存不足, strdup路径失败");
+			goto cleanup_err;
 		}
+		input_paths[input_count++] = dup;
 	}
 
-	if (cfg_dep_strip && input_count > 0)
+	if (input_count > 0)
 	{
-		// 统一分析 main.lua 的静态依赖闭包, 只打入命中的脚本和全部资源文件
-		if (luat_cmd_pack_with_dep_strip(input_paths, input_count))
+		if (cfg_has_preload)
 		{
-			free(input_paths);
-			return -1;
+			// --ldb= 预加载了二进制 luadb, input_paths 作为补充库目录, 全量添加
+			LLOGI("检测到预加载项目, 位置路径作为补充库全量添加 (共 %d 个路径)", (int)input_count);
+			for (size_t i = 0; i < input_count; i++)
+			{
+				if (check_file_path(input_paths[i]) == NULL)
+				{
+					goto cleanup_err;
+				}
+			}
+		}
+		else if (cfg_dep_strip)
+		{
+			// 统一分析 main.lua 的静态依赖闭包, 只打入命中的脚本和全部资源文件
+			if (luat_cmd_pack_with_dep_strip((const char **)input_paths, input_count))
+			{
+				goto cleanup_err;
+			}
+		}
+		else
+		{
+			// dep_strip=0: 全量添加所有收集到的路径
+			for (size_t i = 0; i < input_count; i++)
+			{
+				if (check_file_path(input_paths[i]) == NULL)
+				{
+					goto cleanup_err;
+				}
+			}
 		}
 	}
+	for (size_t i = 0; i < input_count; i++) free(input_paths[i]);
 	free(input_paths);
+	input_paths = NULL;
 
 	if (luadb_dump_path[0]) {
 		LLOGD("导出luadb数据到 %s 大小 %d", luadb_dump_path, luadb_ctx.offset);
@@ -1170,6 +1219,11 @@ int luat_cmd_parse(int argc, char **argv)
 	}
 
 	return 0;
+
+cleanup_err:
+	for (size_t i = 0; i < input_count; i++) free(input_paths[i]);
+	free(input_paths);
+	return -1;
 }
 
 static int luat_cmd_load_luadb(const char *path)
@@ -1279,6 +1333,111 @@ static int luat_cmd_load_luatools(const char *path)
 		ptr++;
 	}
 	return 0;
+}
+
+// 解析 LuaTools INI 文件, 将其中的文件路径收集到 paths 数组中(不立即打包), 供依赖分析使用
+static int luat_cmd_collect_luatools_paths(const char *ini_path, char ***ppaths, size_t *pcount, size_t *pcapacity)
+{
+	long len = 0;
+	FILE *f = fopen(ini_path, "rb");
+	if (!f)
+	{
+		LLOGE("无法打开luatools项目文件 %s", ini_path);
+		return -1;
+	}
+	fseek(f, 0, SEEK_END);
+	len = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	char *buf = malloc(len + 1);
+	if (buf == NULL)
+	{
+		fclose(f);
+		LLOGE("luatools项目文件太大,内存放不下 %s", ini_path);
+		return -1;
+	}
+	fread(buf, len, 1, f);
+	fclose(f);
+	buf[len] = 0;
+
+	char *cur = buf;
+	char *line_start = cur;
+	char dirline[512] = {0};
+	char rpath[1024] = {0};
+	int ret = 0;
+
+	while (cur[0] != 0)
+	{
+		if (cur[0] == '\r' || cur[0] == '\n')
+		{
+			if (line_start != cur)
+			{
+				cur[0] = 0;
+				size_t retlen = strlen(line_start);
+				if (!strcmp("[info]", line_start))
+				{
+					/* skip */
+				}
+				else if (retlen > 5)
+				{
+					if (line_start[0] == '[' && line_start[retlen - 1] == ']')
+					{
+						memcpy(dirline, line_start + 1, retlen - 2);
+						dirline[retlen - 2] = 0;
+					}
+					else if (dirline[0])
+					{
+						// 找到 '=' 或 ' ' 截断, 取文件名部分
+						for (size_t i = 0; i < retlen; i++)
+						{
+							if (line_start[i] == ' ' || line_start[i] == '=')
+							{
+								line_start[i] = 0;
+								memset(rpath, 0, sizeof(rpath));
+								size_t dlen = strlen(dirline);
+								memcpy(rpath, dirline, dlen);
+#ifdef LUA_USE_WINDOWS
+								rpath[dlen] = '\\';
+#else
+								rpath[dlen] = '/';
+#endif
+								memcpy(rpath + dlen + 1, line_start, strlen(line_start));
+								LLOGI("收集文件 %s", rpath);
+								// 追加 strdup 到 paths 数组
+								if (*pcount + 1 > *pcapacity)
+								{
+									size_t next_cap = *pcapacity == 0 ? 16 : *pcapacity * 2;
+									char **next = realloc(*ppaths, next_cap * sizeof(char *));
+									if (next == NULL)
+									{
+										LLOGE("内存不足, 无法收集INI路径");
+										ret = -1;
+										goto done;
+									}
+									*ppaths = next;
+									*pcapacity = next_cap;
+								}
+								char *dup = strdup(rpath);
+								if (dup == NULL)
+								{
+									LLOGE("内存不足, strdup失败");
+									ret = -1;
+									goto done;
+								}
+								(*ppaths)[(*pcount)++] = dup;
+								break;
+							}
+						}
+					}
+				}
+			}
+			line_start = cur + 1;
+		}
+		cur++;
+	}
+
+done:
+	free(buf);
+	return ret;
 }
 
 typedef struct luac_ctx
@@ -1437,13 +1596,35 @@ void *check_file_path(const char *path)
 
 static void *check_file_path_depth(const char *path, int depth)
 {
-	if (strlen(path) < 4 || strlen(path) >= 512)
+	size_t plen = strlen(path);
+	if (plen == 0 || plen >= 512)
 	{
-		LLOGD("文件长度不对劲 %d %s", strlen(path), path);
+		LLOGD("文件长度不对劲 %d %s", plen, path);
 		return NULL;
 	}
-	// 目录模式
-	if (!memcmp(path + strlen(path) - 1, "/", 1) || !memcmp(path + strlen(path) - 1, "\\", 1))
+	// 若路径不以 / 或 \ 结尾, 先尝试 opendir 检测是否为目录
+	char last = path[plen - 1];
+	if (last != '/' && last != '\\')
+	{
+		DIR *dp_probe = opendir(path);
+		if (dp_probe != NULL)
+		{
+			closedir(dp_probe);
+			// 补上尾斜杠后递归
+			char pathbuf[512] = {0};
+#ifdef LUA_USE_WINDOWS
+			snprintf(pathbuf, sizeof(pathbuf), "%s\\", path);
+#else
+			snprintf(pathbuf, sizeof(pathbuf), "%s/", path);
+#endif
+			return check_file_path_depth(pathbuf, depth);
+		}
+		if (add_onefile(path))
+			return NULL;
+		return luadb_ptr;
+	}
+	// 目录模式 (last == '/' 或 '\\')
+	else
 	{
 		DIR *dp;
 		struct dirent *ep;
@@ -1513,15 +1694,6 @@ static void *check_file_path_depth(const char *path, int depth)
 			return NULL;
 		}
 	}
-	else
-	{
-		if (add_onefile(path))
-		{
-			return NULL;
-		}
-		return luadb_ptr;
-	}
-	// return NULL;
 }
 
 // 加载并分析文件

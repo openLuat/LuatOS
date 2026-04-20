@@ -44,6 +44,7 @@ static int l_airui_set_rotation(lua_State *L);
 static int l_airui_get_rotation(lua_State *L);
 static int l_airui_status(lua_State *L);
 static int l_airui_indev_bind_touch(lua_State *L);
+static int l_airui_indev_bind_touch_deprecated(lua_State *L);
 static int l_airui_device_bind_keypad(lua_State *L);
 static int l_airui_keyboard_enable_system(lua_State *L);
 static int l_airui_touch_subscribe(lua_State *L);
@@ -157,7 +158,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"debug", ROREG_FUNC(l_airui_debug)},
     {"version", ROREG_FUNC(l_airui_version)},
     // 废弃api接口说明，当前保持兼容，todo：后续2.0版本将删除
-    {"indev_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)}, // 废弃，使用 airui.device_bind_touch 替代
+    {"indev_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch_deprecated)}, // 废弃，使用 airui.device_bind_touch 替代
     // 组件注册
     {"button", ROREG_FUNC(airui_button_create)},
     {"label", ROREG_FUNC(airui_label_create)},
@@ -339,12 +340,8 @@ static int l_airui_refresh(lua_State *L) {
         return 0;
     }
     
-    // 执行 LVGL 定时器处理（处理重绘、动画、事件等）
-    // lv_timer_handler();
-    int version = AIRUI_VERSION;
-    LLOGW("airui refresh 接口在版本 %s 已废弃，改为自动刷新", version);
-
-    return 0;
+    return luaL_error(L,
+        "airui.refresh() 已在 AirUI 1.2.0 后移除；AirUI 已改为自动刷新，请删除该调用");
 }
 
 /**
@@ -513,6 +510,12 @@ static int l_airui_indev_bind_touch(lua_State *L) {
     lua_pushboolean(L, 0);
     return 1;
 #endif
+}
+
+static int l_airui_indev_bind_touch_deprecated(lua_State *L) {
+    (void)L;
+    return luaL_error(L,
+        "airui.indev_bind_touch() 已在 AirUI 1.2.0 后移除；请改用 airui.device_bind_touch(...)");
 }
 
 #if defined(LUAT_USE_AIRUI_LUATOS)

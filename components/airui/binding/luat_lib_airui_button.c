@@ -153,11 +153,9 @@ static int l_button_set_style(lua_State *L) {
  * @return nil
  */
 static int l_button_set_stype(lua_State *L) {
-    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
     luaL_checktype(L, 2, LUA_TTABLE);
-    LLOGW("button stype 接口已废弃，请改用 style；该接口将在 1.2.0 版本后移除，当前版本 %s", AIRUI_VERSION);
-    airui_button_set_style(btn, L, 2);
-    return 0;
+    return luaL_error(L,
+        "button:set_stype() 已在 AirUI 1.2.0 后移除；请改用 button:set_style(...)");
 }
 
 /**

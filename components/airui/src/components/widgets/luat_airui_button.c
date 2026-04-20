@@ -21,7 +21,6 @@
 #include "luat_log.h"
 
 static void airui_button_apply_default_style(lv_obj_t *btn);
-static void airui_button_warn_stype_deprecated(void);
 static airui_button_data_t *airui_button_get_data(lv_obj_t *btn);
 static lv_obj_t *airui_button_ensure_label(lv_obj_t *btn, airui_button_data_t *data);
 
@@ -79,8 +78,11 @@ lv_obj_t *airui_button_create_from_config(void *L, int idx)
 
     lua_getfield(L_state, idx, "stype");
     if (lua_type(L_state, -1) == LUA_TTABLE) {
-        airui_button_warn_stype_deprecated();
-        airui_button_set_style(btn, L_state, lua_gettop(L_state));
+        lua_pop(L_state, 1);
+        lv_obj_delete(btn);
+        luaL_error(L_state,
+            "airui.button({ stype = ... }) 已在 AirUI 1.2.0 后移除；请改用 style = {...}");
+        return NULL;
     }
     lua_pop(L_state, 1);
     
@@ -303,8 +305,10 @@ int airui_button_set_style(lv_obj_t *btn, void *L, int idx)
 
 int airui_button_set_stype(lv_obj_t *btn, void *L, int idx)
 {
-    airui_button_warn_stype_deprecated();
-    return airui_button_set_style(btn, L, idx);
+    (void)btn;
+    (void)idx;
+    return luaL_error((lua_State *)L,
+        "button:set_stype() 已在 AirUI 1.2.0 后移除；请改用 button:set_style(...)");
 }
 
 // 应用默认样式
@@ -333,11 +337,6 @@ static void airui_button_apply_default_style(lv_obj_t *btn)
     lv_obj_set_style_text_color(btn, disabled_text_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DISABLED);
     lv_obj_set_style_outline_width(btn, 2, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_FOCUS_KEY);
     lv_obj_set_style_outline_color(btn, focus_border_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_FOCUS_KEY);
-}
-
-static void airui_button_warn_stype_deprecated(void)
-{
-    LLOGW("button stype 接口已废弃，请改用 style；该接口将在 1.2.0 版本后移除，当前版本 %s", AIRUI_VERSION);
 }
 
 static airui_button_data_t *airui_button_get_data(lv_obj_t *btn)

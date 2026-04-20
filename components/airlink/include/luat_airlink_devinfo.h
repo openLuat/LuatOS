@@ -53,6 +53,20 @@ typedef struct luat_airlink_dev_info
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
 // =====================================================================
+// 自身设备信息访问 API
+// 规则: 不得直接访问全局变量, 须通过以下接口操作
+// =====================================================================
+
+// 获取自身设备信息的可写指针, 修改后须调用 luat_airlink_self_dev_info_notify
+luat_airlink_dev_info_t* luat_airlink_self_dev_info_ptr(void);
+
+// 修改完毕后调用: 记录最后修改时间并通知对端
+void luat_airlink_self_dev_info_notify(void);
+
+// 获取最后修改时间 (ms), 用于判断是否需要重新发送给对端设备
+uint64_t luat_airlink_self_dev_info_get_mtime(void);
+
+// =====================================================================
 // syspub — 系统发布数据构建 API
 // =====================================================================
 

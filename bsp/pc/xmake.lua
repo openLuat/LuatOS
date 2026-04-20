@@ -60,7 +60,7 @@ end
 if is_host("windows") then
     add_defines("LUAT_USE_WINDOWS")
     add_defines("_CRT_SECURE_NO_WARNINGS")
-    add_cflags("/utf-8")
+    add_cxflags("/utf-8")
     add_includedirs("win32/include")
     add_files("win32/src/**.c")
 elseif is_host("linux") then
@@ -479,11 +479,9 @@ target("luatos-lua")
         remove_files(luatos.."components/airui/lvgl9/src/draw/vg_lite/**.c")
         remove_files(luatos.."components/airui/lvgl9/src/draw/sdl/**.c")
         remove_files(luatos.."components/airui/lvgl9/src/draw/espressif/**.c")
-        -- remove_files(luatos.."components/airui/lvgl9/src/draw/convert/**.c")
-        remove_files(luatos.."components/airui/lvgl9/src/libs/**/*.cpp")
         
         -- 3. 库：排除不需要的库（可选功能）
-        -- remove_files(luatos.."components/airui/lvgl9/src/libs/**/*.c")
+        -- remove_files(luatos.."components/airui/lvgl9/src/libs/**.cpp")
         
         -- AIRUI 架构配置
         -- 1. 公共头文件

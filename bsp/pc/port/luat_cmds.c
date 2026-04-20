@@ -326,7 +326,7 @@ static int luat_cmd_append_file(luat_dep_ctx_t *ctx, const char *path)
 	{
 		// 现有 PC 模拟器会把目录结构抹平成 basename, 所以这里必须提前拦截重名
 		LLOGE("依赖裁剪模式下不允许重名文件 %s", name);
-		return -1;
+		return 0;
 	}
 	if (ctx->count + 1 > ctx->capacity)
 	{

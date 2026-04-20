@@ -68,6 +68,12 @@ exsip.DEFAULT_RTP_PORT = 40000
 -- 默认注册有效期（秒）
 exsip.DEFAULT_EXPIRES = 600
 
+-- 网络适配器（需要 socket 库支持）
+-- socket.LWIP_GP = 4G（默认）
+-- socket.LWIP_STA = WiFi
+-- socket.LWIP_ETH = 以太网
+-- nil = 使用系统默认网卡
+
 
 local sipclient = nil
 local g_config = nil
@@ -84,7 +90,8 @@ local default_config = {
     codecs = { exsip.CODEC_PCMU, exsip.CODEC_PCMA },
     ptime = 20,
     auto_answer = false,
-    delay_auto_answer = 0
+    delay_auto_answer = 0,
+    adapter = nil  -- nil = 使用系统默认网卡
 }
 
 
@@ -251,6 +258,7 @@ end
 @number config.ptime 打包时长（毫秒），默认 20
 @boolean config.auto_answer 是否自动接听，默认 false
 @number config.delay_auto_answer 自动接听延迟（秒），默认 0
+@number config.adapter 网络适配器，nil=使用系统默认，socket.LWIP_GP=4G，socket.LWIP_STA=WiFi，socket.LWIP_ETH=以太网
 @return boolean 成功返回 true，失败返回 false
 @usage
 exsip.init({
@@ -259,7 +267,8 @@ exsip.init({
     sip_domain = "192.168.1.100",
     sip_username = "1001",
     sip_password = "123456",
-    auto_answer = false
+    auto_answer = false,
+    adapter = nil  -- 使用系统默认网卡
 })
 ]]
 function exsip.init(config)
@@ -325,6 +334,7 @@ function exsip.start()
         sip_username = g_config.sip_username,
         sip_password = g_config.sip_password,
         sip_transport = g_config.sip_transport,
+        adapter = g_config.adapter,
         rtp_port = g_config.rtp_port,
         expires = g_config.expires,
         codecs = g_config.codecs,

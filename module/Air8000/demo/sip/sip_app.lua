@@ -1,22 +1,19 @@
-
 --[[
-@module  sip_accept
-@summary SIP/VoIP 电话接听功能模块
+@module  sip_app
+@summary SIP/VoIP 电话功能模块
 @version 1.0
 @date    2026.04.15
 @usage
 本模块包含SIP/VoIP电话的所有功能实现：
 - SIP配置
-- 音频配置
 - 事件回调处理
 - 主业务逻辑
 ]]
 
 local exsip = require "exsip"
-local exaudio = require "exaudio"
+local audio_drv = require "audio_drv"
 
-local sip_accept = {}
-
+local sip_app = {}
 
 local SIP_CONFIG = {
     sip_server_addr = "180.152.6.34",
@@ -26,20 +23,13 @@ local SIP_CONFIG = {
     sip_password = "Mm123..",
     -- sip_transport = exsip.TRANSPORT_TCP,
     sip_transport = exsip.TRANSPORT_UDP,
-    auto_answer = true
-}
-
-
-local audio_configs = {
-    model = "es8311",
-    i2c_id = 0,
-    pa_ctrl = 162,
-    dac_ctrl = 164,
-    dac_delay = 6,
-    pa_delay = 100,
-    dac_time_delay = 100,
-    bits_per_sample = 16,
-    pa_on_level = 1
+    auto_answer = true,
+    --4G
+    -- adapter = nil,
+    --WIFI
+    -- adapter = socket.LWIP_STA,
+    --以太网
+    adapter = socket.LWIP_ETH,
 }
 
 local function sip_callback(event, arg1, arg2, arg3)
@@ -99,17 +89,17 @@ local function sip_callback(event, arg1, arg2, arg3)
     end
 end
 
-function sip_accept.init()
+function sip_app.init()
     exsip.on(sip_callback)
 
     sys.taskInit(function()
-        gpio.setup(147, 1)
+        if not (rtos and rtos.bsp and rtos.bsp() and rtos.bsp():find("PC")) then
+            gpio.setup(147, 1)
+        end
         sys.wait(3000)
 
-        if exaudio.setup(audio_configs) then
-            log.info("audio_drv", "exaudio.setup初始化成功")
-        else
-            log.error("audio_drv", "exaudio.setup初始化失败")
+        if audio_drv.init() then
+            log.info("sip_app", "音频驱动初始化成功")
         end
 
         if SIP_CONFIG.sip_server_addr == "xxx.xxx.xxx.xxx" then
@@ -117,27 +107,39 @@ function sip_accept.init()
             return
         end
 
-        sys.waitUntil("IP_READY")
-        log.info("sip", "网络已就绪")
-
-        if exsip.init(SIP_CONFIG) then
-            log.info("sip", "配置完成")
-            if exsip.start() then
-                log.info("sip", "正在启动...")
-            end
+        log.info("sip", "检查网络状态...")
+        if socket.adapter(SIP_CONFIG.adapter) then
+            log.info("sip", "网络已就绪（已连接）")
+        else
+            log.info("sip", "等待网络连接...")
+            sys.waitUntil("IP_READY")
+            log.info("sip", "网络已就绪")
         end
 
-        --单击boot键，拨打号码
-        gpio.setup(0, function()
-            local state = exsip.dial(100000)
-            if state then
-                log.info("exsip", "拨号成功")
+        log.info("sip", "开始初始化 SIP...")
+        if exsip.init(SIP_CONFIG) then
+            log.info("sip", "配置完成，开始启动 SIP...")
+            if exsip.start() then
+                log.info("sip", "启动完成，等待注册...")
             else
-                log.warn("exsip", "拨号失败")
+                log.error("sip", "启动失败")
             end
-        end, gpio.PULLDOWN, gpio.RISING)
+        else
+            log.error("sip", "初始化失败")
+        end
+
+        if not (rtos and rtos.bsp and rtos.bsp() and rtos.bsp():find("PC")) then
+            gpio.setup(0, function()
+                local state = exsip.dial(100000)
+                if state then
+                    log.info("exsip", "拨号成功!!!!!!!")
+                else
+                    log.warn("exsip", "拨号失败")
+                end
+            end, gpio.PULLDOWN, gpio.RISING)
+        end
 
     end)
 end
 
-return sip_accept
+return sip_app

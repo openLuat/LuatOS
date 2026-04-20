@@ -49,8 +49,16 @@ log.info("main", PROJECT, VERSION)
 
 
 -- 加载SIP电话应用模块
-local sip_accept = require "sip_accept"
-sip_accept.init()
+local sip_app = require "sip_app"
+sip_app.init()
+
+-- 开启4G网络
+-- require "netdrv_4g"
+--wifi网络
+-- require "netdrv_wifi"
+-- 开启以太网
+require "netdrv_eth_wan"
+
 
 
 -- 用户代码已结束---------------------------------------------

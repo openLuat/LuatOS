@@ -14,7 +14,7 @@
 #include "luat_mem.h"
 #include "luat_voip_core.h"
 #include "rotable2.h"
-
+#include "luat_network_adapter.h"
 #define LUAT_LOG_TAG "voip"
 #include "luat_log.h"
 
@@ -100,6 +100,11 @@ static int l_voip_start(lua_State *L)
     /* stats_interval */
     lua_getfield(L, 1, "stats_interval");
     cfg.stats_interval_ms = (uint32_t)luaL_optinteger(L, -1, VOIP_STATS_INTERVAL_DEFAULT);
+    lua_pop(L, 1);
+
+    /* adapter */
+    lua_getfield(L, 1, "adapter");
+    cfg.adapter = (int)luaL_optinteger(L, -1, network_get_last_register_adapter());
     lua_pop(L, 1);
 
     /* 基本校验 */

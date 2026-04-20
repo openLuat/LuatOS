@@ -560,7 +560,9 @@ static int voip_session_start(voip_ctx_t *ctx)
     voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, sample_rate, ptime);
 
     {
-        int adapter_index = network_get_last_register_adapter();
+
+
+        int adapter_index = ctx->config.adapter;
         luat_ip_addr_t remote_ip = {0};
         network_ctrl_t *netc;
         int ret;

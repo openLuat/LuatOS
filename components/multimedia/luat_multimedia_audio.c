@@ -82,6 +82,9 @@ LUAT_WEAK int luat_audio_write_raw(uint8_t multimedia_id, uint8_t *data, uint32_
                 }
                 luat_rtos_task_sleep(1);
             }
+        }else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
+            luat_dac_config_t* dac_config = luat_dac_get_config(audio_conf->codec_conf.dac_id);
+            luat_dac_write(dac_config->dac_chl, data, len);
         }
     }
     return 0;

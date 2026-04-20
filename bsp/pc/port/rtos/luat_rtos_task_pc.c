@@ -31,10 +31,15 @@ LUAT_RET luat_wait_event_from_task(void *task_handle, uint32_t wait_event_id, lu
     return luat_rtos_event_recv(task_handle, wait_event_id, out_event, call_back, ms);
 }
 
+// 兼容老的legacy层调用
 void *luat_get_current_task(void) {
     return g_current_task;
 }
 
+// 支持新的standard层调用
+luat_rtos_task_handle luat_rtos_get_current_handle(void) {
+    return luat_get_current_task();
+}
 static void rtos_task(void* args) {
     utask_t* task = (utask_t*)args;
     g_current_task = task;

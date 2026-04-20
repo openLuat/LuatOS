@@ -1726,15 +1726,16 @@ static int l_lcd_drawxbm(lua_State *L){
     return 1;
 }
 
-#ifdef LUAT_USE_TJPGD
+#if defined(LUAT_USE_TJPGD) || defined(LUAT_USE_WEBP)
 /*
-显示图片,当前只支持jpg,jpeg
+显示图片,支持jpg,jpeg,webp
 @api lcd.showImage(x, y, file)
 @int X坐标
 @int y坐标
 @string 文件路径
 @usage
 lcd.showImage(0,0,"/luadb/logo.jpg")
+lcd.showImage(0,0,"/luadb/logo.webp")
 */
 int l_lcd_showimage(lua_State *L) {
     if (lcd_dft_conf == NULL) {
@@ -1746,9 +1747,14 @@ int l_lcd_showimage(lua_State *L) {
     int x = luaL_checkinteger(L, 1);
     int y = luaL_checkinteger(L, 2);
     const char* input_file = luaL_checklstring(L, 3, &size);
-    if (memcmp(input_file+size-4, ".jpg", 5) == 0 || memcmp(input_file+size-4, ".JPG", 5) == 0 || memcmp(input_file+size-5, ".jpeg", 6) == 0 || memcmp(input_file+size-5, ".JPEG", 6) == 0){
+    if (size >= 4 && (memcmp(input_file+size-4, ".jpg", 4) == 0 || memcmp(input_file+size-4, ".JPG", 4) == 0 || (size >= 5 && (memcmp(input_file+size-5, ".jpeg", 5) == 0 || memcmp(input_file+size-5, ".JPEG", 5) == 0)))){
         ret = lcd_draw_jpeg(lcd_dft_conf, input_file, x, y);
         lua_pushboolean(L, ret == 0 ? 1 : 0);
+#ifdef LUAT_USE_WEBP
+    } else if (size >= 5 && (memcmp(input_file+size-5, ".webp", 5) == 0 || memcmp(input_file+size-5, ".WEBP", 5) == 0)) {
+        ret = lcd_draw_webp(lcd_dft_conf, input_file, x, y);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+#endif
     } else{
         LLOGE("input_file not support");
         lua_pushboolean(L, 0);

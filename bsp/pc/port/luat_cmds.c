@@ -872,8 +872,11 @@ static int luat_cmd_expand_dependencies(luat_dep_ctx_t *ctx, luat_dep_file_t *fi
 		}
 		if (ret)
 		{
-			LLOGE("依赖缺失 %s <- %s", file->deps[i].value, from_name ? from_name : file->name);
-			return -1;
+			/* Module not found as a Lua file — it may be a C built-in (e.g. require("memprof")).
+			 * Treat as a non-fatal warning and continue: if the module truly does not exist the
+			 * Lua VM will raise an error at runtime. */
+			LLOGW("依赖未找到(可能是C内置模块) %s <- %s", file->deps[i].value, from_name ? from_name : file->name);
+			continue;
 		}
 		if (pack_file && luat_cmd_mark_required(ctx, pack_file, file->name))
 		{
@@ -967,10 +970,13 @@ static int luat_cmd_pack_with_dep_strip(const char **paths, size_t count)
 		else
 		{
 			ctx.skipped_lua_count++;
-			LLOGD("剔除未引用脚本 %s", ctx.files[i].name);
+			//LLOGD("剔除未引用脚本 %s", ctx.files[i].name);
 		}
 	}
-	LLOGI("依赖裁剪完成, 文件总数 %d, 剔除脚本 %d", (int)ctx.count, (int)ctx.skipped_lua_count);
+	if (ctx.skipped_lua_count > 0)
+	{
+		LLOGI("依赖裁剪完成, 文件总数 %d, 剔除脚本 %d", (int)ctx.count, (int)ctx.skipped_lua_count);
+	}
 done:
 	luat_cmd_free_dep_ctx(&ctx);
 	return ret;
@@ -1237,7 +1243,7 @@ static int luat_cmd_load_luatools(const char *path)
 				{
 					if (ret[0] == '[' && ret[retlen - 1] == ']')
 					{
-						LLOGD("目录行 %s", ret);
+						//LLOGD("目录行 %s", ret);
 						memcpy(dirline, ret + 1, retlen - 2);
 						dirline[retlen - 2] = 0x00;
 					}

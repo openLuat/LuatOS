@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_airlink.h"
+#include "luat_airlink_devinfo.h"
 
 #include "luat_rtos.h"
 #include "luat_debug.h"
@@ -39,7 +40,6 @@
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
 extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
-extern luat_airlink_dev_info_t g_airlink_self_dev_info;
 
 static uint8_t basic_info[sizeof(luat_airlink_dev_info_t) + 64];
 typedef struct
@@ -274,7 +274,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             size_t len = item.len;
             uint8_t *txbuff = g_airlink_uart.s_txbuff;
             if (item.len == 0 || item.cmd == NULL) {
-                memcpy(basic_info + sizeof(luat_airlink_cmd_t), &g_airlink_self_dev_info, sizeof(g_airlink_self_dev_info));
+                memcpy(basic_info + sizeof(luat_airlink_cmd_t), luat_airlink_self_dev_info_ptr(), sizeof(luat_airlink_dev_info_t));
                 luat_airlink_data_pack(basic_info, 128, pbuff);
                 LLOGE("uart_transfer_task send basic info %d", sizeof(basic_info));
                 len = 128;

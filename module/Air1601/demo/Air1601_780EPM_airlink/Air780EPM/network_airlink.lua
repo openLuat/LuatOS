@@ -28,10 +28,10 @@ local function init_airlink_net()
     airlink.start(airlink.MODE_UART)
     -- 创建桥接网络设备。
     log.info("创建桥接网络设备")
-    netdrv.setup(socket.LWIP_USER0, netdrv.WHALE)
+    netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
     -- 配置IPv4地址。
     log.info("配置IPv4地址", "192.168.111.2", "255.255.255.0", "192.168.111.1")
-    netdrv.ipv4(socket.LWIP_USER0, "192.168.111.2", "255.255.255.0", "192.168.111.1")
+    netdrv.ipv4(socket.LWIP_GP_GW, "192.168.111.2", "255.255.255.0", "192.168.111.1")
     -- 延时100毫秒。
     sys.wait(100)
     -- 等待网络就绪，默认事件主题为IP_READY，设置超时时间为10秒。
@@ -39,14 +39,14 @@ local function init_airlink_net()
     -- 配置网络地址端口转换（NAPT），此处使用4G网络作为主网关出口。
     netdrv.napt(socket.LWIP_GP)
     -- 设置DNS代理。
-    dnsproxy.setup(socket.LWIP_USER0, socket.LWIP_GP)
-    log.info("网卡", netdrv.ready(socket.LWIP_USER0))
+    dnsproxy.setup(socket.LWIP_GP_GW, socket.LWIP_GP)
+    log.info("网卡", netdrv.ready(socket.LWIP_GP_GW))
 end
 
 local function ping_test()
     while true do
         -- 必须指定使用哪个网卡
-        netdrv.ping(socket.LWIP_USER0, "192.168.111.1")
+        netdrv.ping(socket.LWIP_GP_GW, "192.168.111.1")
         -- local res = sys.waitUntil("PING_RESULT", 3000)
         -- if not res then
         --     log.info("ping超时")
@@ -57,7 +57,7 @@ end
 local function ping_res(id, time, dst)
     log.info("ping", id, time, dst); -- 获取到响应结果，id为网卡id，也就是调用netdrv.ping时填写的网卡的常量值，time为请求到响应的时间，dst为目标IP也就是调用netdrv.ping时填写的ip
 end
-sys.taskInit(ping_test)
+-- sys.taskInit(ping_test)
 sys.subscribe("PING_RESULT", ping_res)
 
 -- Air780EPM发送数据信息给Air1601。

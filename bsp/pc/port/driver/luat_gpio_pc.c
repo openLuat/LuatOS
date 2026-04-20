@@ -10,8 +10,6 @@
 #include "luat_ch347_pc.h"
 #endif
 
-#include "luat_ztt.h"
-
 #define LUAT_LOG_TAG "gpio"
 #include "luat_log.h"
 
@@ -24,14 +22,6 @@ int luat_gpio_setup(luat_gpio_t *gpio){
     if (gpio->pin >= 128)
         return -1;
     memcpy(&gpio_confs[gpio->pin], gpio, sizeof(luat_gpio_t));
-
-    luat_ztt_t* ztt = ztt_create("gpio");
-    ztt_add(ztt, "action", "setup", strlen("setup"));
-    ztt_addf(ztt, "pin", "%d", gpio->pin);
-    ztt_addf(ztt, "mode", "%d", gpio->mode);
-    ztt_addf(ztt, "pull", "%d", gpio->pull);
-    ztt_addf(ztt, "irq", "%d", gpio->irq);
-    ztt_commit(ztt);
 
     #ifdef LUAT_USE_WINDOWS
     if(!g_ch3470_DevIsOpened)
@@ -52,12 +42,6 @@ int luat_gpio_set(int pin, int level)
     if (pin < 0 || pin >= 128)
         return -1;
     gpio_levels[pin] = level == 0 ? 0 : 1;
-
-    luat_ztt_t* ztt = ztt_create("gpio");
-    ztt_add(ztt, "action", "set", strlen("set"));
-    ztt_addf(ztt, "pin", "%d", pin);
-    ztt_addf(ztt, "level", "%d", level);
-    ztt_commit(ztt);
 
     #ifdef LUAT_USE_WINDOWS
     if(g_ch3470_DevIsOpened) {
@@ -86,11 +70,6 @@ int luat_gpio_get(int pin)
     if (pin < 0 || pin >= 128)
         return -1;
 
-    luat_ztt_t* ztt = ztt_create("gpio");
-    ztt_add(ztt, "action", "get", strlen("get"));
-    ztt_addf(ztt, "pin", "%d", pin);
-    ztt_commit(ztt);
-
     #ifdef LUAT_USE_WINDOWS
     if(g_ch3470_DevIsOpened && (pin >=0 && pin <= 7)) {
         return luat_ch347_gpio_get(pin);
@@ -110,11 +89,6 @@ void luat_gpio_close(int pin)
 {
     if (pin < 0 || pin >= 128)
         return;
-
-    luat_ztt_t* ztt = ztt_create("gpio");
-    ztt_add(ztt, "action", "close", strlen("close"));
-    ztt_addf(ztt, "pin", "%d", pin);
-    ztt_commit(ztt);
 
     memset(&gpio_confs[pin], 0, sizeof(luat_gpio_t));
     gpio_confs[pin].mode = LUAT_GPIO_INPUT;

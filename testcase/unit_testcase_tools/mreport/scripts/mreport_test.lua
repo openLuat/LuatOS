@@ -30,7 +30,9 @@ end
 function mreport_tests.test_mreport_adapter_id_no_panic()
     log.info("mreport_tests", "检查 netdrv.mreport(adapter_id) 调用稳定性")
     local adapter_id = 0
-    if socket and socket.LWIP_GP then
+    if rtos and rtos.bsp() == "Air8101" then
+        adapter_id = socket.LIWP_STA
+    elseif socket and socket.LWIP_GP then
         adapter_id = socket.LWIP_GP
     end
 

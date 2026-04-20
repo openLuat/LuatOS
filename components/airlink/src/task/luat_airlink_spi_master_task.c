@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_airlink.h"
+#include "luat_airlink_devinfo.h"
 
 #include "luat_rtos.h"
 #include "luat_debug.h"
@@ -44,7 +45,7 @@ static luat_rtos_task_handle spi_task_handle;
 static luat_rtos_task_handle spi_irq_task_handle;
 
 #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
-extern luat_airlink_dev_info_t g_airlink_self_dev_info;
+// luat_airlink_self_dev_info_ptr() 提供访问, 无需extern
 #endif
 static uint8_t basic_info[256];
 
@@ -406,7 +407,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     {
         // LLOGD("填充PING数据");
         #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
-        memcpy(basic_info + sizeof(luat_airlink_cmd_t), &g_airlink_self_dev_info, sizeof(g_airlink_self_dev_info));
+        memcpy(basic_info + sizeof(luat_airlink_cmd_t), luat_airlink_self_dev_info_ptr(), sizeof(luat_airlink_dev_info_t));
         #endif
         luat_airlink_data_pack(basic_info, sizeof(basic_info), txbuff);
         queue_emtry_counter ++;

@@ -25,9 +25,9 @@ local function init_airlink_net()
     airlink.init()
     airlink.config(airlink.CONF_UART_ID, uartid)
     airlink.start(airlink.MODE_UART)
-    netdrv.setup(socket.LWIP_USER0, netdrv.WHALE)
-    netdrv.ipv4(socket.LWIP_USER0, "192.168.111.1", "255.255.255.0", "192.168.111.2")
-    log.info("桥接网络设备", netdrv.link(socket.LWIP_USER0))
+    netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
+    netdrv.ipv4(socket.LWIP_GP_GW, "192.168.111.1", "255.255.255.0", "192.168.111.2")
+    log.info("桥接网络设备", netdrv.link(socket.LWIP_GP_GW))
 end
 
 -- Air1601发送数据信息给Air780EPM。
@@ -48,7 +48,7 @@ end
 -- local function ping_test()
 --  while true do
 --         -- 必须指定使用哪个网卡
---         netdrv.ping(socket.LWIP_USER0, "192.168.111.2")
+--         netdrv.ping(socket.LWIP_GP_GW, "192.168.111.2")
 --         -- local res = sys.waitUntil("PING_RESULT", 3000)
 --         -- if not res then
 --         --     log.info("ping超时")
@@ -67,12 +67,12 @@ local function http_get_test()
     while true do
         sys.wait(10000)
         -- 本功能在2025.9.3
-        log.info("网卡状态", netdrv.ready(socket.LWIP_USER0))
+        log.info("网卡状态", netdrv.ready(socket.LWIP_GP_GW))
         -- 发起一个HTTP GET请求。
         log.info("发起HTTP GET请求", "https://httpbin.air32.cn/bytes/2048")
         local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {
             timeout = 9000,
-            adapter = socket.LWIP_USER0
+            adapter = socket.LWIP_GP_GW
         }).wait()
 
         -- 打印HTTP请求的结果，包括响应码code和响应体长度#body。

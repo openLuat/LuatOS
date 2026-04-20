@@ -60,7 +60,7 @@ end
 if is_host("windows") then
     add_defines("LUAT_USE_WINDOWS")
     add_defines("_CRT_SECURE_NO_WARNINGS")
-    add_cflags("/utf-8")
+    add_cxflags("/utf-8")
     add_includedirs("win32/include")
     add_files("win32/src/**.c")
 elseif is_host("linux") then
@@ -215,6 +215,11 @@ target("luatos-lua")
     -- coremark
     add_includedirs(luatos.."components/coremark",{public = true})
     add_files(luatos.."components/coremark/*.c")
+
+    -- memprof: Lua memory profiler
+    add_includedirs(luatos.."components/memprof/include",{public = true})
+    add_files(luatos.."components/memprof/src/*.c")
+    add_files(luatos.."components/memprof/binding/*.c")
 
     -- sqlite3
     -- add_includedirs(luatos.."components/sqlite3/include",{public = true})
@@ -373,6 +378,14 @@ target("luatos-lua")
     add_files(luatos.."components/videoplayer/src/*.c")
     add_files(luatos.."components/videoplayer/binding/*.c")
 
+    -- 添加 libwebp (仅解码器, 无SIMD, 无线程)
+    add_defines("LUAT_USE_WEBP=1")
+    add_includedirs(luatos.."components/libwebp")
+    add_includedirs(luatos.."components/libwebp/include")
+    add_thirdparty_files(luatos.."components/libwebp/src/dec/*.c")
+    add_thirdparty_files(luatos.."components/libwebp/src/dsp/*.c")
+    add_thirdparty_files(luatos.."components/libwebp/src/utils/*.c")
+
     if true then
         -- lwip & zlink
         local lwip_path = luatos .. "components/network/lwip22/"
@@ -457,19 +470,18 @@ target("luatos-lua")
         remove_files(luatos.."components/airui/lvgl9/src/drivers/**/*.cpp")
         
         -- 2. 硬件加速绘制引擎（只保留软件渲染 SW）
-        remove_files(luatos.."components/airui/lvgl9/src/draw/dma2d/**/*.c")
-        remove_files(luatos.."components/airui/lvgl9/src/draw/eve/**/*.c")
-        remove_files(luatos.."components/airui/lvgl9/src/draw/nema_gfx/**/*.c")
-        remove_files(luatos.."components/airui/lvgl9/src/draw/nxp/**/*.c")
-        remove_files(luatos.."components/airui/lvgl9/src/draw/opengles/**/*.c")
-        remove_files(luatos.."components/airui/lvgl9/src/draw/renesas/**/*.c")
-        remove_files(luatos.."components/airui/lvgl9/src/draw/vg_lite/**/*.c")
-        remove_files(luatos.."components/airui/lvgl9/src/draw/sdl/**/*.c")
-        remove_files(luatos.."components/airui/lvgl9/src/draw/espressif/**/*.c")
-        remove_files(luatos.."components/airui/lvgl9/src/draw/convert/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/dma2d/**.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/eve/**.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/nema_gfx/**.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/nxp/**.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/opengles/**.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/renesas/**.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/vg_lite/**.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/sdl/**.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/espressif/**.c")
         
         -- 3. 库：排除不需要的库（可选功能）
-        -- remove_files(luatos.."components/airui/lvgl9/src/libs/**/*.c")
+        -- remove_files(luatos.."components/airui/lvgl9/src/libs/**.cpp")
         
         -- AIRUI 架构配置
         -- 1. 公共头文件

@@ -163,9 +163,13 @@ static void voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_t
     state->clock_rate = clock_rate ? clock_rate : VOIP_SAMPLE_RATE_DEFAULT;
     state->ptime = ptime ? ptime : VOIP_FRAME_MS_DEFAULT;
     state->samples_per_packet = (uint16_t)(state->clock_rate * state->ptime / 1000);
-    state->seq = (uint16_t)(rand() & 0xFFFF);
-    state->timestamp = (uint32_t)(rand() & 0x7FFFFFFF);
-    state->ssrc = (uint32_t)(rand() & 0x7FFFFFFF);
+    PV_Union uPV;
+	luat_crypto_trng((char *)uPV.u8, 4);
+    state->seq = (uint16_t)(uPV.u32 & 0xFFFF);
+	luat_crypto_trng((char *)uPV.u8, 4);
+    state->timestamp = (uint32_t)(uPV.u32 & 0x7FFFFFFF);
+	luat_crypto_trng((char *)uPV.u8, 4);
+    state->ssrc = (uint32_t)(uPV.u32 & 0x7FFFFFFF);
     if (state->ssrc == 0) {
         state->ssrc = 1;
     }

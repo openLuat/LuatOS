@@ -213,11 +213,10 @@ function excamera.open(camera_param)
                 -- USB或DVP摄像头使用传入的分辨率参数
                 h, w = camera_param.sensor_height, camera_param.sensor_width
             end
-
             -- 创建ZBUFF内存缓冲区，用于存储图像数据
             -- 参数1: 缓冲区大小（宽*高*2，2字节/像素）
             -- 参数2: 对齐方式
-            camera_buff = zbuff.create(h * w * 2, 0)
+            camera_buff = zbuff.create(1, 0)
             if camera_buff == nil then
                 -- 缓冲区创建失败
                 log.info("ZBUFF创建失败")
@@ -447,15 +446,20 @@ function excamera.close(remain_zbuff)
         sys.wait(10)
     end
     -- 如果使用了内存缓冲区，释放相关资源
-    if type(path) == "userdata" and not remain_zbuff then
+    if type(path) == "userdata"  then
+        if  remain_zbuff then
+            path:resize(0)
+            path:seek(0)
+        else
         -- 置空缓冲区引用，便于垃圾回收
         camera_buff:free()
         camera_buff = nil
         path = nil
         -- 记录当前系统剩余内存情况
         log.info("剩余内存", rtos.meminfo("sys"))
+        end
     end
-    cam_pwr_wifi, cam_pwdn_wifi , cam_light_wifi , camera_id = nil, nil, nil, nil
+    cam_pwr_wifi, cam_pwdn_wifi, cam_light_wifi, camera_id = nil, nil, nil, nil
 end
 
 return excamera

@@ -1,5 +1,6 @@
 #include "luat_base.h"
 #include "luat_airlink.h"
+#include "luat_airlink_devinfo.h"
 
 #if defined(LUAT_USE_AIRLINK_EXEC_WLAN)
 #include "luat_wlan.h"
@@ -8,15 +9,11 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
-extern luat_airlink_dev_info_t g_airlink_self_dev_info;
 extern luat_airlink_wlan_evt_cb g_airlink_wlan_evt_cb;
 extern int luat_airlink_drv_wlan_scan_result_cb(void);
 
-static AIRLINK_DEV_INFO_UPDATE_CB send_devinfo_update_evt = NULL;
-
 #if defined(LUAT_USE_AIRLINK_EXEC_WLAN)
 int wifi_evt_handler(void *arg, luat_event_module_t event_module, int event_id, void *event_data) {
-    send_devinfo_update_evt = luat_airlink_mode_dev_info_update_cb_get();
     luat_wifi_event_sta_disconnected_t *sta_disconnected;
 	luat_wifi_event_sta_connected_t *sta_connected;
 	luat_wifi_event_ap_disconnected_t *ap_disconnected;
@@ -33,14 +30,11 @@ int wifi_evt_handler(void *arg, luat_event_module_t event_module, int event_id, 
     case LUAT_WLAN_EVENT_WIFI_SCAN_DONE:
         LLOGD("scan done");
         luat_airlink_drv_wlan_scan_result_cb();
-        if (send_devinfo_update_evt)
-        {
-            send_devinfo_update_evt();
-        }
+        luat_airlink_self_dev_info_notify();
         break;
     case LUAT_WLAN_EVENT_WIFI_STA_CONNECTED:
         // // 通知主机
-        g_airlink_self_dev_info.wifi.sta_state = 1;
+        luat_airlink_self_dev_info_ptr()->wifi.sta_state = 1;
         sta_connected = (luat_wifi_event_sta_connected_t *)event_data;
         LLOGD("STA connected %s", sta_connected->ssid);
 
@@ -61,20 +55,14 @@ int wifi_evt_handler(void *arg, luat_event_module_t event_module, int event_id, 
         remain -= ret;
 
         luat_airlink_syspub_send(buff, ptr - buff);
-        if (send_devinfo_update_evt)
-        {
-            send_devinfo_update_evt();
-        }
+        luat_airlink_self_dev_info_notify();
         break;
 
     case LUAT_WLAN_EVENT_WIFI_STA_DISCONNECTED:
-        g_airlink_self_dev_info.wifi.sta_state = 0;
+        luat_airlink_self_dev_info_ptr()->wifi.sta_state = 0;
         sta_disconnected = (luat_wifi_event_sta_disconnected_t *)event_data;
         if (sta_disconnected->disconnect_reason > 0) {
-            if (send_devinfo_update_evt)
-            {
-                send_devinfo_update_evt();
-            }
+            luat_airlink_self_dev_info_notify();
             return 0; // reason == 0 的时候不需要发消息
         }
         LLOGD("STA disconnected, reason(%d) is_local %d", sta_disconnected->disconnect_reason, sta_disconnected->local_generated); 
@@ -89,10 +77,7 @@ int wifi_evt_handler(void *arg, luat_event_module_t event_module, int event_id, 
         ptr += ret;
         remain -= ret;
         luat_airlink_syspub_send(buff, ptr - buff);
-        if (send_devinfo_update_evt)
-        {
-            send_devinfo_update_evt();
-        }
+        luat_airlink_self_dev_info_notify();
         break;
     case LUAT_WLAN_EVENT_WIFI_AP_CONNECTED:
         ap_connected = (luat_wifi_event_ap_connected_t *)event_data;
@@ -111,10 +96,7 @@ int wifi_evt_handler(void *arg, luat_event_module_t event_module, int event_id, 
         remain -= ret;
         
         luat_airlink_syspub_send(buff, ptr - buff);
-        if (send_devinfo_update_evt)
-        {
-            send_devinfo_update_evt();
-        }
+        luat_airlink_self_dev_info_notify();
         break;
     case LUAT_WLAN_EVENT_WIFI_AP_DISCONNECTED:
         ap_disconnected = (luat_wifi_event_ap_disconnected_t *)event_data;
@@ -133,18 +115,12 @@ int wifi_evt_handler(void *arg, luat_event_module_t event_module, int event_id, 
         remain -= ret;
 
         luat_airlink_syspub_send(buff, ptr - buff);
-        if (send_devinfo_update_evt)
-        {
-            send_devinfo_update_evt();
-        }
+        luat_airlink_self_dev_info_notify();
         break;
     case LUAT_WLAN_EVENT_WIFI_NETWORK_FOUND:
         network_found = (luat_wifi_event_network_found_t *)event_data;
         LLOGD(" target AP: %s, bssid %p found", network_found->ssid, network_found->bssid);
-        if (send_devinfo_update_evt)
-        {
-            send_devinfo_update_evt();
-        }
+        luat_airlink_self_dev_info_notify();
         break;
     }
     return 0;
@@ -152,23 +128,17 @@ int wifi_evt_handler(void *arg, luat_event_module_t event_module, int event_id, 
 
 void luat_bk72xx_update_ap(uint8_t state) {
     LLOGI("AP状态变化 %d", state);
-    g_airlink_self_dev_info.wifi.ap_state = state;
-    if (send_devinfo_update_evt)
-    {
-        send_devinfo_update_evt();
-    }
+    luat_airlink_self_dev_info_ptr()->wifi.ap_state = state;
+    luat_airlink_self_dev_info_notify();
 }
 
 void luat_airlink_devinfo_init(AIRLINK_DEV_INFO_UPDATE_CB cb) 
 {
-    // send_devinfo_update_evt = cb;
-    g_airlink_self_dev_info.tp = 0x01;
+    luat_airlink_dev_info_t *devinfo = luat_airlink_self_dev_info_ptr();
+    devinfo->tp = 0x01;
     uint32_t fw_version = 21;
-    memcpy(g_airlink_self_dev_info.wifi.version, &fw_version, sizeof(uint32_t));   // 版本
+    memcpy(devinfo->wifi.version, &fw_version, sizeof(uint32_t));   // 版本
     g_airlink_wlan_evt_cb = wifi_evt_handler;
-    if (send_devinfo_update_evt)
-    {
-        send_devinfo_update_evt();
-    }
+    luat_airlink_self_dev_info_notify();
 }
 #endif

@@ -71,14 +71,19 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,lib
                 local query = ""
                 local firmware_name = _G.PROJECT.. "_" .. rtos.firmware()
                 local version = _G.VERSION
+                local bsp = rtos.bsp()
+                -- 如bsp包含'-', 就截取'-'前面的部分, 例如"air105-evb"就取"air105"
+                if bsp:find("-") then
+                    bsp = bsp:sub(1, bsp:find("-") - 1)
+                end
                 if mobile then
                     query = "imei=" .. mobile.imei()
                     version = rtos.version():sub(2) .. "." ..  x .. "." .. z
-                    firmware_name = _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp()
+                    firmware_name = _G.PROJECT.. "_LuatOS-SoC_" .. bsp
                 elseif wlan and wlan.getMac then
                     query = "mac=" .. wlan.getMac()
                     version = rtos.version():sub(2) .. "." ..  x .. "." .. z
-                    firmware_name = _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp()
+                    firmware_name = _G.PROJECT.. "_LuatOS-SoC_" .. bsp
                 else
                     query = "uid=" .. mcu.unique_id():toHex()
                 end

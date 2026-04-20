@@ -8,6 +8,7 @@
 #include "wireguard/wireguard.h"
 #include "luat_netdrv.h"
 #include "lwip/netif.h"
+#include "lwip/tcpip.h"
 #include "luat_mem.h"
 #include "lwip/ip.h"
 #include "lwip/ip_addr.h"

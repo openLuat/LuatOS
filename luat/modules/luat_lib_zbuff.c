@@ -730,7 +730,7 @@ static int l_zbuff_write_f64(lua_State *L) { return zbuff_write_impl(L, ZBUFF_TY
 按起始位置和长度取出数据（与当前指针位置无关；执行后指针位置不变）
 @api buff:toStr(offset,length)
 @int 数据的起始位置（起始位置为0）,默认值也是0
-@int 数据的长度,默认是全部数据
+@int 数据的长度,默认是全部数据，注意当length为负数时，属于不规范的行为,会返回空字符串
 @return string 读出来的数据
 @usage
 local s = buff:toStr(0,5)--读取开头的五个字节数据
@@ -746,6 +746,7 @@ static int l_zbuff_toStr(lua_State *L)
     int len = luaL_optinteger(L, 3, buff->len);
     if (len < 0)
     {
+        LLOGW("zbuff:toStr length cannot be negative");
         lua_pushlstring(L, "", 0);
         return 1;
     }   

@@ -138,7 +138,8 @@ local function start_voip_engine(session)
         sample_rate = tonumber(session.sample_rate) or 8000,
         jitter_depth = 3,
         multimedia_id = 0,
-        stats_interval = 5000
+        stats_interval = 5000,
+        adapter = g_config.adapter
     })
 
     if ok then

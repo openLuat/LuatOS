@@ -50,7 +50,6 @@ local function sip_callback(event, arg1, arg2, arg3)
             if call_result then
                 log.info("来电号码:", call_result.from)
             end
-            exsip.answer()
         elseif sub_event == "ringing" then
             log.info("sip", "对方响铃中")
         elseif sub_event == "connected" then

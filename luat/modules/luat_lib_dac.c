@@ -11,6 +11,7 @@
 #include "luat_base.h"
 #include "luat_dac.h"
 #include "luat_fs.h"
+#include "luat_zbuff.h"
 #include "luat_mem.h"
 #include "luat_msgbus.h"
 #define LUAT_LOG_TAG "dac"
@@ -81,7 +82,7 @@ static int l_dac_write(lua_State *L) {
     size_t len;
     int ch;
     uint8_t value;
-
+    luat_zbuff_t *tx_buff;
     ch = luaL_checkinteger(L, 1);
     if (lua_isinteger(L, 2)) {
         value = luaL_checkinteger(L, 2);
@@ -89,7 +90,9 @@ static int l_dac_write(lua_State *L) {
         len = 1;
     }
     else if (lua_isuserdata(L, 2)) {
-        return 0; // TODO 支持zbuff
+    	tx_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    	buff = tx_buff->addr;
+    	len = tx_buff->used;
     }
     else if (lua_isstring(L, 2)) {
         buff = (uint8_t*)luaL_checklstring(L, 2, &len);

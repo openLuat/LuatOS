@@ -8,7 +8,7 @@
     v1.6 2026.4.16
         1. 新增DAC模式支持，适配Air8101等使用内置DAC的模组，支持"es8311"(I2S+外部Codec)和"dac"(内置DAC)两种类型
         2. 优化参数检查逻辑，根据model自动选择初始化方式
-        3. 根据model自动选择流式数据写入方式：DAC模式直接audio.write，I2S模式使用队列+回调
+        3. 流式播放统一使用队列+回调机制，通过audio.MORE_DATA事件驱动数据写入
     v1.5 2026.3.10
         1. 修改录音缓冲区使用逻辑，每次写完数据都清空缓冲区数据，释放内存，避免最后一段录音数据异常
     v1.4 2026.2.14
@@ -650,15 +650,9 @@ end
 
 -- 模块接口：流式播放数据写入
 function exaudio.play_stream_write(data)
-    -- 根据model选择写入方式
-    if audio_setup_param.model == "dac" then
-        -- DAC模式：直接写入
-        return audio.write(MULTIMEDIA_ID, data)
-    else
-        -- I2S模式：推入队列，由audio.MORE_DATA回调处理
-        audio_stream_queue_push(data)
-        return true
-    end
+    -- 插入队列，由audio.MORE_DATA回调处理
+    audio_stream_queue_push(data)
+    return true
 end
 
 -- 模块接口：停止播放

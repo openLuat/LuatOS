@@ -211,9 +211,10 @@ local function capture_func()
         if save_method ~= "ZBUFF" then
             os.remove(spi_camera_param.save_path)
         end
-        data = nil
         -- 关闭摄像头，释放资源
-        excamera.close()
+        -- 使用ZBUFF存储方式时，close传入true后，excamera内部创建的ZBUFF会缩减至0字节，放出内存但是不释放ZBUFF，便于下次拍照时调用；
+        -- 重复申请和释放ZBUFF会导致垃圾内存堆积，影响系统内存；
+        excamera.close(true)
         -- 关闭外设分组
         exmux.close("i2c1")
     end

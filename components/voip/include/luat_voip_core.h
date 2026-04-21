@@ -40,16 +40,16 @@ typedef enum {
 
 /* 用户传入的配置 */
 typedef struct {
+    voip_codec_type_t codec;
+    uint32_t stats_interval_ms;
+    uint32_t sample_rate;       /* default 8000 */
+    int      adapter;
     char     remote_ip[VOIP_MAX_IP_LEN];
     uint16_t remote_port;
     uint16_t local_port;
-    voip_codec_type_t codec;
-    uint16_t ptime;             /* ms, default 20 */
-    uint32_t sample_rate;       /* default 8000 */
-    uint8_t  multimedia_id;     /* audio device id */
-
     uint16_t jitter_depth;
-    uint32_t stats_interval_ms;
+    uint16_t ptime;             /* ms, default 20 */
+    uint8_t  multimedia_id;     /* audio device id */
 } voip_config_t;
 
 /* ======================== 状态 ======================== */

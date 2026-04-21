@@ -3,6 +3,7 @@
 #ifdef LUAT_USE_DRV_GPIO
 #include "luat/drv_gpio.h"
 #endif
+#include "luat_dac.h"
 #include "luat_i2s.h"
 #include "luat_audio.h"
 #include "luat_multimedia.h"
@@ -58,6 +59,12 @@ LUAT_WEAK int luat_audio_start_raw(uint8_t multimedia_id, uint8_t audio_format, 
             luat_i2s_modify(audio_conf->codec_conf.i2s_id,i2s_conf->channel_format,i2s_conf->data_bits, i2s_conf->sample_rate);
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,sample_rate);
             luat_audio_pa(multimedia_id,1,0);
+        }else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
+            luat_dac_config_t* config = luat_dac_get_config(multimedia_id);
+            config->samp_rate = sample_rate;
+            config->bits = bits_per_sample;
+            // bk_aud_dac_set_samp_rate(sample_rate);
+            luat_dac_setup(audio_conf->codec_conf.dac_id, config);
         }
     }
     return 0;
@@ -75,6 +82,9 @@ LUAT_WEAK int luat_audio_write_raw(uint8_t multimedia_id, uint8_t *data, uint32_
                 }
                 luat_rtos_task_sleep(1);
             }
+        }else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
+            luat_dac_config_t* dac_config = luat_dac_get_config(audio_conf->codec_conf.dac_id);
+            luat_dac_write(dac_config->dac_chl, data, len);
         }
     }
     return 0;
@@ -309,15 +319,15 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 }
 
 LUAT_WEAK int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type){
-    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);  // 获取音频配置
     if (audio_conf){
-        if (bus_type == LUAT_AUDIO_BUS_I2S){
+        if (bus_type == LUAT_AUDIO_BUS_I2S || bus_type == LUAT_AUDIO_BUS_DAC){
             audio_conf->codec_conf.multimedia_id = multimedia_id;
-            audio_conf->bus_type = LUAT_AUDIO_BUS_I2S;
+            audio_conf->bus_type = bus_type;
             return 0;
         }
     }
-    return -1;
+    return -1;  // 配置无效或不支持的总线类型
 }
 
 LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t mode){

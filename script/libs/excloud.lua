@@ -2182,7 +2182,10 @@ function excloud.open()
             return false, "Socket config failed"
         end
 
-        socket.debug(connection, true)
+        if config and config.debug then
+            log.info("[excloud]TCP调试模式已启用")
+            socket.debug(connection, true)
+        end
 
         -- 设置连接超时定时器
         connect_timeout_timer = sys.timerStart(function()

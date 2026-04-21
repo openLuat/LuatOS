@@ -217,6 +217,9 @@ LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
         }
         if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,sleep_mode);
         return vol;
+    }else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
+        luat_dac_set_vol(audio_conf->codec_conf.dac_id, vol);
+        return vol;
     }
     return -1;
 }

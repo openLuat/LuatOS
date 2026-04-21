@@ -104,7 +104,7 @@ static int l_voip_start(lua_State *L)
 
     /* adapter */
     lua_getfield(L, 1, "adapter");
-    cfg.adapter = (int)luaL_optinteger(L, -1, network_get_last_register_adapter());
+    cfg.adapter = (int)luaL_optinteger(L, -1, network_register_get_default());
     lua_pop(L, 1);
 
     /* 基本校验 */

@@ -79,9 +79,12 @@ local audio_play_param ={
 ---------------------------------
 ---通过BOOT 按键增大音量---
 ---------------------------------
-local volume_number = 50 
+local volume_number = 50
 local function add_volume()
     volume_number = volume_number + 20
+    if volume_number > 100 then
+        volume_number = 100
+    end
     log.info("增大音量",volume_number)
     exaudio.vol(volume_number)
 end
@@ -95,6 +98,9 @@ gpio.debounce(0, 200, 1)
 
 local function down_volume()
     volume_number = volume_number - 15
+    if volume_number < 0 then
+        volume_number = 0
+    end
     log.info("减小音量",volume_number)
     exaudio.vol(volume_number)
 end
@@ -131,7 +137,7 @@ local function audio_get_data()
         end
 
         exaudio.play_stream_write(read_data)  -- 流式写入音频数据
-        sys.wait(20)                   -- 写数据需要留出事件给其他task 运行代码
+        sys.wait(20)                   -- 写数据需要留出时间给其他task 运行代码
     end
 end
 

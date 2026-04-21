@@ -212,4 +212,7 @@ LUAMOD_API int luaopen_dac( lua_State *L ) {
 LUAT_WEAK int luat_dac_data_prepare(uint32_t ch, uint8_t* buff, size_t size) {return -1;}
 LUAT_WEAK int luat_dac_out(uint32_t ch, uint32_t value) {return -1;}
 LUAT_WEAK int luat_dac_write_loop(uint32_t ch, uint8_t* buff, size_t size) {return -1;}
+
+LUAT_WEAK int luat_dac_set_vol(uint32_t ch, uint8_t vol) {return -1;}
+
 #endif

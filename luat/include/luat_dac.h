@@ -57,6 +57,7 @@ int luat_dac_write(uint32_t ch, uint8_t* buff, size_t size);
 int luat_dac_write_loop(uint32_t ch, uint8_t* buff, size_t size);
 int luat_dac_buffer_loop(uint32_t ch, uint8_t* buff, uint32_t one_buffer_len, uint32_t buffer_num);
 int luat_dac_close(uint32_t ch);
+int luat_dac_set_vol(uint32_t ch, uint8_t vol);
 
 luat_dac_config_t *luat_dac_get_config(uint32_t ch);
 

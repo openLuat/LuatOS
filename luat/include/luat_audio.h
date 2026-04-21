@@ -450,4 +450,7 @@ int luat_audio_inter_amr_coder_decode(void *handle, uint16_t *pcm_buf, const uin
 void luat_audio_inter_amr_coder_deinit(void *handle);
 
 int luat_audio_end_raw(uint8_t multimedia_id);
+
+int luat_adc_set_vol(uint32_t ch, uint8_t vol);
+
 #endif

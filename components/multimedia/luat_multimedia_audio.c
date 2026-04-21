@@ -11,6 +11,9 @@
 #define LUAT_LOG_TAG "audio"
 #include "luat_log.h"
 
+static luat_rtos_queue_t audio_queue_handle;
+static luat_rtos_task_handle audio_task_handle;
+
 LUAT_WEAK luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id){
     return NULL;
 }
@@ -287,6 +290,28 @@ LUAT_WEAK int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_cod
     return -1;
 }
 
+static void luat_audio_task(void *param){
+    OS_EVENT audio_event;
+    while (1){
+        int ret = luat_rtos_queue_recv(audio_queue_handle, &audio_event, sizeof(OS_EVENT), LUAT_WAIT_FOREVER);
+        // LLOGD("rtos_pop_from_queue ret:%d",ret);
+        // LLOGD("audio_event ret:%d Param1:%d Param2:%d Param3:%d ",
+        //     audio_event.ID, audio_event.Param1, audio_event.Param2, audio_event.Param3);
+        if (ret == 0){
+            switch (audio_event.ID)
+            {
+            case AUDIO_EVENT_RUN_FUNCTION:{
+                CBDataFun_t CB = (CBDataFun_t)(audio_event.Param1);
+                CB(audio_event.Param2, audio_event.Param3);
+                break;
+            }
+            default:
+                break;
+            }
+        }
+    }
+}
+
 LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_vol){
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf == NULL) return -1;
@@ -325,8 +350,16 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 
         }
         audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
-        return 0;
+    }else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
+
+    }else{
+        LLOGE("unsupported bus type %d", audio_conf->bus_type);
+        return -1;
     }
+
+    luat_rtos_queue_create(&audio_queue_handle, 10, sizeof(OS_EVENT));
+    luat_rtos_task_create(&audio_task_handle, 1024*12, 50, "audio_thread", luat_audio_task, NULL, 0);
+
 	return 0;
 }
 
@@ -467,7 +500,13 @@ LUAT_WEAK void luat_audio_power_keep_ctrl_by_bsp(uint8_t on_off)
 
 LUAT_WEAK void luat_audio_run_callback_in_task(void *api, uint8_t *data, uint32_t len)
 {
-	;
+    OS_EVENT audio_event = {
+        .ID = AUDIO_EVENT_RUN_FUNCTION,
+        .Param1 = api,
+        .Param2 = data,
+        .Param3 = len,
+    };
+    luat_rtos_queue_send(audio_queue_handle, &audio_event, sizeof(OS_EVENT), 0);
 }
 
 LUAT_WEAK void luat_audio_setup_record_callback(uint8_t multimedia_id, void* callback, void *param)

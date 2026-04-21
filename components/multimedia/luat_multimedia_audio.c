@@ -237,6 +237,9 @@ LUAT_WEAK uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol){
             if (sleep_mode) luat_audio_pm_request(multimedia_id,sleep_mode);
             audio_conf->last_mic_vol = vol;
             return vol;
+        }else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
+            luat_adc_set_vol(audio_conf->codec_conf.adc_id, vol);
+            return vol;
         }
     }
     return -1;
@@ -466,4 +469,4 @@ LUAT_WEAK void luat_audio_setup_record_callback(uint8_t multimedia_id, void* cal
 	return ;
 }
 
-
+LUAT_WEAK int luat_adc_set_vol(uint32_t ch, uint8_t vol) {return -1;}

@@ -143,7 +143,7 @@ end
 local function stop_playback()
     if is_playing then
         log.info("停止播放")
-        exaudio.play_stop(audio_play_param)
+        exaudio.play_stop({type = 0})
         is_playing = false
     end
 end

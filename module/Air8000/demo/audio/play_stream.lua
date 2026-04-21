@@ -1,9 +1,9 @@
 --[[
 @module  play_stream
 @summary 流式播放
-@version 1.1
-@date    2026.01.11
-@author  王世豪
+@version 1.2
+@date    2026.04.21
+@author  拓毅恒
 @usage
 
 注意：
@@ -113,6 +113,9 @@ gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
 ---------模拟获取音频task---------
 ---------------------------------
 local function audio_get_data()
+    -- 等待播放初始化完成
+    sys.waitUntil("AUDIO_READY")
+    
     log.info("开始流式获取音频数据")
     local file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
 
@@ -153,6 +156,9 @@ local function audio_task()
     if exaudio.setup(audio_setup_param) then
         exaudio.play_start(audio_play_param)
         log.info("播放状态",exaudio.is_end())
+        sys.publish("AUDIO_READY")  -- 通知数据task可以开始读取数据
+    else
+        log.error("流式播放启动失败")
     end
 end
 

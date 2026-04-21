@@ -51,6 +51,8 @@ typedef struct {
 } luat_dac_config_t;
 
 int luat_dac_setup(uint32_t ch, luat_dac_config_t* config);
+int luat_dac_data_prepare(uint32_t ch, uint8_t* buff, size_t size);
+int luat_dac_out(uint32_t ch, uint32_t value);
 int luat_dac_write(uint32_t ch, uint8_t* buff, size_t size);
 int luat_dac_write_loop(uint32_t ch, uint8_t* buff, size_t size);
 int luat_dac_buffer_loop(uint32_t ch, uint8_t* buff, uint32_t one_buffer_len, uint32_t buffer_num);

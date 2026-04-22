@@ -30,7 +30,9 @@
 
 1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
+2.内核固件文件（底层 core 固件文件）：
+
+本demo开发测试时使用的固件为[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/)，本demo对固件版本没有什么特殊要求，所以你如果要测试本demo时，可以直接使用最新版本的内核固件；如果发现最新版本的内核固件测试有问题，可以使用我们开发本demo时使用的内核固件版本来对比测试。
 
 ## 演示核心步骤
 

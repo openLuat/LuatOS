@@ -605,10 +605,11 @@ int luat_airlink_cmd_recv_for_mode(uint8_t mode, airlink_queue_item_t* cmd) {
     luat_rtos_queue_t iq = g_transport_slots[mode].ippkg_queue;
     ret = luat_airlink_try_recv_queue_item(cq, &item);
     if (ret != 0) {
-        luat_airlink_try_recv_queue_item(iq, &item);
+        ret = luat_airlink_try_recv_queue_item(iq, &item);
+        // LLOGD("cmd_recv_for_mode: 从 mode %d 的 IPPKG 队列读取数据", mode);
     }
     memcpy(cmd, &item, sizeof(item));
-    return 0;
+    return ret;
 #else
     // 回落: 使用全局队列 (单 transport 模式)
     ret = luat_airlink_try_recv_queue_item(airlink_cmd_queue, &item);

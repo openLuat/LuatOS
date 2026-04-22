@@ -36,11 +36,11 @@ typedef struct luat_airlink_cmd
 }luat_airlink_cmd_t;
 
 typedef struct airlink_flags {
-    uint8_t mem_is_high: 1;
-    uint8_t queue_cmd: 1; // 用于指示命令包的队列是否还有数据
-    uint8_t queue_ip: 1; // 用于ip包的队列是否还有数据
-    uint8_t irq_ready: 1; // 是否切换到IRQ模式
-    uint8_t irq_pin: 4;   // 中断管脚号, 这是传给SLAVE的, 从 GPIO12(GPIO140)开始算
+    uint32_t mem_is_high: 1;
+    uint32_t queue_cmd: 1; // 用于指示命令包的队列是否还有数据
+    uint32_t queue_ip: 1; // 用于ip包的队列是否还有数据
+    uint32_t irq_ready: 1; // 是否切换到IRQ模式
+    uint32_t irq_pin: 4;   // 中断管脚号, 这是传给SLAVE的, 从 GPIO12(GPIO140)开始算
     uint32_t reserved: 24; // 保留位, 用于扩展
 }airlink_flags_t;
 

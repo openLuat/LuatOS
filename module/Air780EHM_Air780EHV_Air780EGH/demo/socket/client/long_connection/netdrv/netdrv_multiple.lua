@@ -67,7 +67,7 @@ local function netdrv_multiple_task_func()
                     -- 3V3管脚是作为LDO 3.3V输出，供测试用的，仅在使用DCDC供电时有输出，默认打开，无需控制
                     -- 供电使能GPIO
                     pwrpin = nil,
-                    -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
+                    -- 设置的多个"已经IP READY，但是还没有ping通"网卡，循环执行ping动作的间隔（单位毫秒，可选）
                     -- 如果没有传入此参数，exnetif会使用默认值10秒
                     ping_time = 3000,
 
@@ -78,7 +78,11 @@ local function netdrv_multiple_task_func()
 
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                     tp = netdrv.CH390,
-                    opts = {spi=0, cs=8}
+                    opts = {spi=0, cs=8},
+
+                    -- INT中断引脚，使用中断模式提高响应速度并降低功耗
+                    -- 若不填此参数，默认不使用中断模式而是使用轮询模式
+                    irq = 21  
                 }
             },
 

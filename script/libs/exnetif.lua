@@ -283,6 +283,11 @@ local function setup_eth(config)
         -- socket.LWIP_ETH 网络适配器编号
         -- netdrv.CH390外挂CH390
         -- SPI ID 1, 片选 GPIO12
+        -- 如果配置了irq中断引脚,添加到opts中
+        if config.irq then
+            config.opts.irq = config.irq
+            log.info("netdrv", "使用中断模式, irq引脚:", config.irq)
+        end
         if netdrv.setup(socket.LWIP_ETH, config.tp, config.opts) == false then
             log.error("以太网初始化失败")
             if config.pwrpin then
@@ -351,6 +356,11 @@ local function setup_eth_user1(config)
     -- socket.LWIP_ETH 网络适配器编号
     -- netdrv.CH390外挂CH390
     -- SPI ID 1, 片选 GPIO12
+    -- 如果配置了irq中断引脚,添加到opts中
+    if config.irq then
+        config.opts.irq = config.irq
+        log.info("netdrv", "使用中断模式, irq引脚:", config.irq)
+    end
     if netdrv.setup(socket.LWIP_USER1, config.tp, config.opts) == false then
         log.error("以太网初始化失败")
         if config.pwrpin then
@@ -583,6 +593,8 @@ exnetif.set_priority_order({
                                             -- 定时ping将会影响模块功耗，使用低功耗模式的话可以适当延迟间隔时间
             tp = netdrv.CH390,              -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
             opts = { spi = 1, cs = 12 },    -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+            irq = 19,                       -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度并降低功耗
+                                            -- 使用CH390H时，推荐将IRQ引脚连接到模组的GPIO，启用中断模式
             static_ip = {                   -- 静态ip配置(选填参数)，不填写则使用dhcp获取ip
                 ipv4 = "192.168.5.100",     -- ip地址(string)
                 mark = "255.255.255.0",     -- 子网掩码(string)
@@ -621,6 +633,7 @@ exnetif.set_priority_order({
                 pwrpin = 13, -- 供电使能引脚(number)
                 tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                 opts = {spi = 0, cs = 15}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+                irq = 18,                   -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度并降低功耗
                 static_ip = {                   -- 静态ip配置(选填参数)，不填写则使用dhcp获取ip
                     ipv4 = "192.168.5.100",     -- ip地址(string)
                     mark = "255.255.255.0",     -- 子网掩码(string)
@@ -806,10 +819,12 @@ end
             ethpower_en = 20,-- 以太网模块的pwrpin引脚(gpio编号)
             tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
             opts = {spi = 0, cs = 8}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+            irq = 19,               -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度并降低功耗
             main_adapter = {
                 ethpower_en = 21,-- 以太网模块的pwrpin引脚(gpio编号)
                 tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-                opts = {spi = 1, cs = 12}
+                opts = {spi = 1, cs = 12},
+                irq = 20            -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度并降低功耗
             }
         }) then
     -- wifi_sta提供网络开启wifi_ap热点供设备上网
@@ -839,6 +854,7 @@ end
     exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, {
         tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
         opts = { spi = 1, cs = 12},      -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+        irq = 19,                        -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度并降低功耗
         ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
         adapter_addr = "192.168.5.1",    -- adapter网卡的ip地址(选填),需要自定义ip和网关ip时填写
         adapter_gw= { 192, 168, 5, 1 },   -- adapter网卡的网关地址(选填),需要自定义ip和网关ip时填写
@@ -850,6 +866,7 @@ end
         main_adapter={
             tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
             opts = { spi = 1, cs = 12},      -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+            irq = 20,                        -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度并降低功耗
             ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
         }
     })
@@ -857,6 +874,7 @@ end
     exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_STA, {
         tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
         opts = { spi = 1, cs = 12},      -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+        irq = 19,                        -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度并降低功耗
         ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
         main_adapter = {
             ssid = "test",                -- 提供网络的网卡开启参数
@@ -902,6 +920,11 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
                 return false
             end
             -- 初始化指定netdrv设备,
+            -- 如果配置了irq中断引脚,添加到opts中
+            if other_configs.main_adapter.irq then
+                other_configs.main_adapter.opts.irq = other_configs.main_adapter.irq
+                log.info("netdrv", "使用中断模式, irq引脚:", other_configs.main_adapter.irq)
+            end
             local success =
                 netdrv.setup(socket.LWIP_ETH, other_configs.main_adapter.tp, other_configs.main_adapter.opts)
             if not success then
@@ -957,6 +980,11 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         -- socket.LWIP_ETH 网络适配器编号
         -- netdrv.CH390外挂CH390
         -- SPI ID 1, 片选 GPIO12
+        -- 如果配置了irq中断引脚,添加到opts中
+        if other_configs.main_adapter.irq then
+            other_configs.main_adapter.opts.irq = other_configs.main_adapter.irq
+            log.info("netdrv", "使用中断模式, irq引脚:", other_configs.main_adapter.irq)
+        end
         if netdrv.setup(socket.LWIP_USER1, other_configs.main_adapter.tp, other_configs.main_adapter.opts) == false then
             log.error("以太网初始化失败")
             if other_configs.main_adapter.ethpower_en then
@@ -1033,6 +1061,11 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         end
         -- 初始化以太网，Air8000 指定使用 CH390 芯片。
         log.info("netdrv", "初始化以太网", other_configs.tp, other_configs.opts)
+        -- 如果配置了irq中断引脚,添加到opts中
+        if other_configs.irq then
+            other_configs.opts.irq = other_configs.irq
+            log.info("netdrv", "使用中断模式, irq引脚:", other_configs.irq)
+        end
         if netdrv.setup(socket.LWIP_ETH, other_configs.tp, other_configs.opts) == false then
             log.error("初始化以太网失败")
             if other_configs.ethpower_en then
@@ -1131,6 +1164,11 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         end
         -- 初始化以太网，Air8000 指定使用 CH390 芯片。
         log.info("netdrv", "初始化以太网", other_configs.tp, other_configs.opts)
+        -- 如果配置了irq中断引脚,添加到opts中
+        if other_configs.irq then
+            other_configs.opts.irq = other_configs.irq
+            log.info("netdrv", "使用中断模式, irq引脚:", other_configs.irq)
+        end
         if netdrv.setup(socket.LWIP_USER1, other_configs.tp, other_configs.opts) == false then
             log.error("初始化以太网失败")
             if other_configs.ethpower_en then

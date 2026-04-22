@@ -44,7 +44,7 @@
 
 1、 Luatools下载调试工具
 
-2、[Air1601 V1010版本固件](https://docs.openluat.com/air1601/luatos/firmware/)（理论上，2026年4月16日之后发布的固件都可以）
+2、[Air1601 V1012版本固件](https://docs.openluat.com/air1601/luatos/firmware/)（理论上，2026年4月17日之后发布的固件都可以）
 
 3、 脚本文件：
    main.lua

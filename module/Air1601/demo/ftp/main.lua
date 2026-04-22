@@ -64,17 +64,7 @@ require"netdrv_device"
 
 
 --加载ftp_up_download功能模块
--- require "ftp_up_download"
-
-local function test()
-    local unique_id = mcu.unique_id()
---     unique_id = unique_id:toHex()
-    log.info("test", unique_id)
-end
-
-sys.taskInit(test)
-
-
+require "ftp_up_download"
 
 
 -- 启动系统调度（必须放在最后）

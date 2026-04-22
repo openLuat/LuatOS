@@ -39,7 +39,7 @@
 
 1、Luatools下载调试工具
 
-2、Air1601固件[Air1601 版本固件](https://docs.openluat.com/air1601/luatos/firmware/)
+2、[Air1601 V1012版本固件](https://docs.openluat.com/air1601/luatos/firmware/)（理论上，2026年4月17日之后发布的固件都可以）
 
 ## 演示核心步骤
 
@@ -71,7 +71,7 @@
 
 5、确保你的电脑或手机连接到同一WiFi网络
 
-6、在浏览器中输入设备的IP地址（如[http://192.168.1.100](https://gitee.com/link?target=http%3A%2F%2F192.168.1.100)），访问Web控制界面
+6、在浏览器中输入设备的IP地址（如[http://192.168.1.100](https://192.168.1.100)），访问Web控制界面
 
 ## Web控制界面功能
 

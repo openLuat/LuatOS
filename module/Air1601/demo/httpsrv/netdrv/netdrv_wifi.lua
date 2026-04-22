@@ -27,6 +27,8 @@ local function ip_ready_func(ip, adapter)
         socket.setDNS(adapter, 2, "114.114.114.114")
 
         log.info("netdrv_wifi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_STA))
+        -- STA模式联网成功后发布CREATE_OK事件，通知http服务器启动
+        sys.publish("CREATE_OK")
     end
 end
 

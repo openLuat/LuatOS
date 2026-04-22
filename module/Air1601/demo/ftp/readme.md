@@ -22,8 +22,6 @@
 
 6、 主函数循环运行以下流程： 登录服务器、用 ftp.command 操作 ftp 服务器目录以及文件上传下载处理后关闭服务器。
 
-   
-
 ## 演示硬件环境
 
 ![](https://docs.openLuat.com/cdn/image/1601-tcp.jpg)
@@ -57,7 +55,7 @@
    local server_username = "ftp_user" -- 服务器登陆用户名   
    local server_password = "3QujbiMG" -- 服务器登陆密码
 
-3、 固件版本：LuatOS-SoC_V2014_Air8000_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air8000/luatos/firmware/](https://docs.openluat.com/air8000/luatos/firmware/)
+3、 [Air1601 V1012版本固件](https://docs.openluat.com/air1601/luatos/firmware/)（理论上，2026年4月17日之后发布的固件都可以）
 
 4、 脚本文件：
    main.lua

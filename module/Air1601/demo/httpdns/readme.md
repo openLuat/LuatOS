@@ -46,7 +46,7 @@ HTTPDNS的主要功能特性：
 
 1、Luatools下载调试工具
 
-2、[Air1601 固件](https://docs.openluat.com/air1601/luatos/firmware/)
+2、[Air1601 V1012版本固件](https://docs.openluat.com/air1601/luatos/firmware/)（理论上，2026年4月17日之后发布的固件都可以）
 
 ## 演示核心步骤
 

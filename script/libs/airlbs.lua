@@ -133,17 +133,24 @@ function airlbs.request(param)
     local project_key = param.project_key
     local nonce = crypto.trng(6)
     local hmac_data
+    local muid
     local mac1 = netdrv.mac(socket.LWIP_STA)
-    local mac = "M01" .. mac1 
+    local mac
     log.info("mac", mac)
     log.info("硬件型号", rtos.bsp())
     if bsp == "Air8101" then
-        local muid =  mcu.muid() or ""
-        log.info("muid", muid)
+        muid =  mcu.muid() or ""
+        if muid ~= "" then
+            mac = "MAC" .. mac1 
+        else
+            mac = "M01" .. mac1 
+            muid = crypto.sha256(mac):sub(1,32)
+        end
+        log.info("muid", muid,mac)
         hmac_data = crypto.hmac_sha1(project_id .. mac .. muid .. timestamp .. nonce, project_key)
     else
         local imei = mobile and mobile.imei() or ""
-        local muid = mobile and mobile.muid() or ""
+        muid = mobile and mobile.muid() or ""
         hmac_data = crypto.hmac_sha1(project_id .. imei .. muid .. timestamp .. nonce, project_key)
     end
     -- log.debug(lib_name,"hmac_sha1", hmac_data)
@@ -178,7 +185,6 @@ function airlbs.request(param)
     local lbs_jdata = json.encode(lbs_data)
     log.info("扫描出的数据",lbs_jdata)
     if bsp == "Air8101" then
-        local muid =  mcu.muid() or ""
         udp_buff:write(string.char(auth_type) .. project_id .. mac .. muid ..  timestamp .. nonce .. hmac_data:fromHex() .. string.char(lbs_data_type) .. lbs_jdata)
     else
         local imei = mobile and mobile.imei() or ""
@@ -190,7 +196,7 @@ function airlbs.request(param)
 
     while 1 do
         local result, tp, data = sys.waitUntil(lib_topic, param.timeout or airlbs_timeout)
-        log.info("定位请求的结果", result, "超时时间", tp, data)
+        log.info("定位请求的结果", result, "超时时间", tp, data,json.encode(data))
         if not result then
             return false, "timeout"
         elseif tp == location_data then
@@ -229,6 +235,77 @@ function airlbs.request(param)
         end
     end
 
+end
+
+--[[
+获取地址信息
+@api airlbs.get_address(lat, lng, param)
+@param number 纬度
+@param number 经度
+@param table 参数 timeout:超时时间,单位毫秒 默认10000 adapter: 网络适配器id,可选,默认是平台自带的网络协议栈
+@return bool 成功返回true,失败会返回false
+@return string 成功返回地址信息,失败返回错误信息
+@usage
+--注意:函数内因使用了http.request阻塞接口，所以api需要在协程中使用
+
+local airlbs = require "airlbs"
+
+sys.taskInit(function()
+    -- 等待网络就绪
+    sys.waitUntil("IP_READY")
+    -- 获取地址信息
+    local result, address = airlbs.get_address(lat, lng)
+    if result then
+        log.info("airlbs.get_address", address)
+    else
+        log.info("airlbs.get_address失败", address)
+    end
+end)
+]]
+function airlbs.get_address(lat, lng, param)
+    if not lat or not lng then
+        log.error(lib_name, "lat or lng is nil")
+        return false, "lat or lng is nil"
+    end
+    
+    local device_id, muid
+    if bsp == "Air8101" then
+        -- WIFI 设备，使用 MAC 地址
+        local mac1 = netdrv.mac(socket.LWIP_STA)
+        muid = mcu.muid() or ""
+        if muid ~= "" then
+            device_id = "MAC" .. mac1 
+        else
+            device_id = "M01" .. mac1 
+            muid = crypto.sha256(device_id):sub(1,32)
+        end
+        log.info(lib_name, "Using WIFI device ID:", device_id, "muid:", muid)
+    else
+        -- 4G 设备，使用 IMEI
+        device_id = mobile and mobile.imei() or ""
+        muid = mobile and mobile.muid() or ""
+        log.info(lib_name, "Using 4G device ID:", device_id)
+    end
+    
+    local url = string.format("http://iot.openluat.com/api/open/device_get_address?imei=%s&muid=%s&lat=%f&lon=%f", 
+        device_id, muid, lat, lng)
+        log.info(lib_name, "请求地址:", url)
+    
+    local timeout = (param and param.timeout) or 10000
+    local code, headers, body = http.request("GET", url, nil, nil, {timeout=timeout}).wait()
+    
+    if code == 200 then
+        log.info(lib_name, "获取地址成功, 响应体:", body)
+        local podata = json.decode(body)
+        if podata.address then
+            return true, podata.address
+        else
+            return false, "获取地址失败"
+        end
+    else
+        log.error(lib_name, "获取地址失败, 状态码:", code, "响应体:", body)
+        return false, "网络请求失败"
+    end
 end
 
 return airlbs

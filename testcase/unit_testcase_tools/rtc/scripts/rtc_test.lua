@@ -251,18 +251,18 @@ function rtc_test.test_rtc_timezone_comprehensive()
     log.info("rtc_test", string.format("非4倍数时区%d测试成功", invalid_tz))
 
     -- 测试string类型参数
-    local result, err = pcall(rtc.timezone, "32")
-    assert(result ~= true, "rtc.timezone传入string类型时区参数测试失败")
+    local result = rtc.timezone("32")
+    assert(result == false, "rtc.timezone传入string类型时区参数测试失败")
     log.info("rtc_test", "rtc.timezone传入string类型时区参数测试成功")
 
     -- 测试nil参数
-    local result, err = pcall(rtc.timezone, nil)
-    assert(result ~= true, "rtc.timezone传入nil参数测试失败")
-    log.info("rtc_test", "rtc.timezone传入nil参数测试失败 ")
+    local result = rtc.timezone(nil)
+    assert(result == false, "rtc.timezone传入nil参数测试失败")
+    log.info("rtc_test", "rtc.timezone传入nil参数测试成功")
 
     -- 测试boolean类型参数
-    local result, err = pcall(rtc.timezone, true)
-    assert(result ~= true, "rtc.timezone传入boolean类型时区参数测试失败")
+    local result = rtc.timezone(true)
+    assert(result == false, "rtc.timezone传入boolean类型时区参数测试失败")
     log.info("rtc_test", "rtc.timezone传入boolean类型时区参数测试成功")
 
     log.info("rtc_test", "===== rtc.timezone函数完整测试完成 =====")

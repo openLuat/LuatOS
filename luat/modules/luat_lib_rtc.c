@@ -452,6 +452,11 @@ static int l_rtc_timezone(lua_State *L){
             return 1;
         }
         timezone = luaL_checkinteger(L, 1);
+        // 校验范围：-48 ~ 48，且必须是4的倍数
+        if (timezone < -48 || timezone > 48 || timezone % 4 != 0) {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
         timezone = luat_rtc_timezone(&timezone);
     }
     else {

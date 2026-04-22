@@ -232,23 +232,23 @@ function rtc_test.test_rtc_timezone_comprehensive()
     -- 测试超出范围的时区值（>48）
     local invalid_tz = 52
     local set_result = rtc.timezone(invalid_tz)
-    assert(set_result == invalid_tz,
-        string.format("测试超范围时区设置测试失败: 预期%d设置失败", invalid_tz))
-    log.info("rtc_test", string.format("超范围时区%d被测试成功", invalid_tz))
+    assert(set_result == false,
+        string.format("测试超范围时区设置测试失败: 预期false, 实际%s", tostring(set_result)))
+    log.info("rtc_test", string.format("超范围时区%d被拒绝测试成功", invalid_tz))
 
     -- 测试超出范围的时区值（<-48）
     local invalid_tz = -52
     local set_result = rtc.timezone(invalid_tz)
-    assert(set_result == invalid_tz,
-        string.format("超范围时区设置测试失败: 预期%d设置失败", invalid_tz))
-    log.info("rtc_test", string.format("超范围时区%d测试成功", invalid_tz))
+    assert(set_result == false,
+        string.format("超范围时区设置测试失败: 预期false, 实际%s", tostring(set_result)))
+    log.info("rtc_test", string.format("超范围时区%d被拒绝测试成功", invalid_tz))
 
     -- 测试非4的倍数的时区值
     local invalid_tz = 30
     local set_result = rtc.timezone(invalid_tz)
-    assert(set_result == invalid_tz,
-        string.format("非4倍数时区设置测试失败: 预期%d测试失败", invalid_tz))
-    log.info("rtc_test", string.format("非4倍数时区%d测试成功", invalid_tz))
+    assert(set_result == false,
+        string.format("非4倍数时区设置测试失败: 预期false, 实际%s", tostring(set_result)))
+    log.info("rtc_test", string.format("非4倍数时区%d被拒绝测试成功", invalid_tz))
 
     -- 测试string类型参数
     local result = rtc.timezone("32")

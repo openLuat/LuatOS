@@ -23,6 +23,11 @@
 
 #include "g711_codec/g711_codec.h"
 
+#ifdef LUAT_USE_VOIP_AEC
+#include "speex/speex_echo.h"
+#include "speex/speex_preprocess.h"
+#endif
+
 #include <string.h>
 #include <stdlib.h>
 
@@ -54,6 +59,9 @@ static int  voip_runtime_init(voip_ctx_t *ctx);
 static void voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime);
 static int  voip_pack_rtp_packet(voip_rtp_tx_state_t *state, const uint8_t *payload, uint16_t payload_len, uint8_t *out_buf, uint16_t out_max_len, uint16_t *out_len);
 static int  voip_parse_rtp_packet(const uint8_t *data, uint16_t len, voip_rtp_parsed_t *out);
+static int  voip_aec_init(voip_ctx_t *ctx);
+static void voip_aec_cleanup(voip_ctx_t *ctx);
+static const int16_t *voip_prepare_tx_pcm(voip_ctx_t *ctx, const int16_t *mic_pcm);
 
 /* ======================== Lua 回调桥接 ======================== */
 
@@ -148,10 +156,105 @@ static int voip_pop_play_frame(voip_ctx_t *ctx, int16_t *out)
 static void voip_fill_play_slot(voip_ctx_t *ctx, uint8_t slot_idx)
 {
     if (!ctx->duplex_play_buf || slot_idx >= ctx->play_slot_count) return;
-    voip_pop_play_frame(ctx, ctx->duplex_play_buf + slot_idx * ctx->frame_samples);
+    int16_t *play_frame = ctx->duplex_play_buf + slot_idx * ctx->frame_samples;
+    voip_pop_play_frame(ctx, play_frame);
+#ifdef LUAT_USE_VOIP_AEC
+    if (ctx->aec_ready && ctx->aec_echo) {
+        speex_echo_playback((SpeexEchoState *)ctx->aec_echo, play_frame);
+    }
+#endif
     if (ctx->trace_on) {
         LLOGD("fill play slot %u", slot_idx);
     }
+}
+
+static int voip_aec_init(voip_ctx_t *ctx)
+{
+#ifdef LUAT_USE_VOIP_AEC
+    int sample_rate;
+    int tail_samples;
+    int denoise = 1;
+    int agc = 0;
+    int noise_suppress = -20;
+    int echo_suppress = -40;
+    int echo_suppress_active = -15;
+
+    if (!ctx->config.aec_enable) {
+        return 0;
+    }
+
+    sample_rate = ctx->config.sample_rate ? (int)ctx->config.sample_rate : VOIP_SAMPLE_RATE_DEFAULT;
+    tail_samples = (sample_rate * (ctx->config.aec_tail_ms ? ctx->config.aec_tail_ms : 120)) / 1000;
+    if (tail_samples < (int)ctx->frame_samples * 2) {
+        tail_samples = ctx->frame_samples * 2;
+    }
+
+    ctx->aec_echo = speex_echo_state_init((int)ctx->frame_samples, tail_samples);
+    if (!ctx->aec_echo) {
+        LLOGE("aec echo init failed");
+        return -1;
+    }
+    speex_echo_ctl((SpeexEchoState *)ctx->aec_echo, SPEEX_ECHO_SET_SAMPLING_RATE, &sample_rate);
+
+    if (ctx->config.aec_denoise) {
+        ctx->aec_preprocess = speex_preprocess_state_init((int)ctx->frame_samples, sample_rate);
+        if (!ctx->aec_preprocess) {
+            LLOGE("aec preprocess init failed");
+            speex_echo_state_destroy((SpeexEchoState *)ctx->aec_echo);
+            ctx->aec_echo = NULL;
+            return -1;
+        }
+        speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_ECHO_STATE, ctx->aec_echo);
+        speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_DENOISE, &denoise);
+        speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_AGC, &agc);
+        speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noise_suppress);
+        speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_ECHO_SUPPRESS, &echo_suppress);
+        speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_ECHO_SUPPRESS_ACTIVE, &echo_suppress_active);
+    }
+
+    ctx->aec_ready = 1;
+    LLOGI("aec ready frame=%u tail_ms=%u denoise=%u", ctx->frame_samples, ctx->config.aec_tail_ms ? ctx->config.aec_tail_ms : 120, ctx->config.aec_denoise ? 1 : 0);
+    return 0;
+#else
+    if (ctx->config.aec_enable) {
+        LLOGW("aec requested but speexdsp is not enabled in build");
+    }
+    (void)ctx;
+    return 0;
+#endif
+}
+
+static void voip_aec_cleanup(voip_ctx_t *ctx)
+{
+#ifdef LUAT_USE_VOIP_AEC
+    if (ctx->aec_preprocess) {
+        speex_preprocess_state_destroy((SpeexPreprocessState *)ctx->aec_preprocess);
+        ctx->aec_preprocess = NULL;
+    }
+    if (ctx->aec_echo) {
+        speex_echo_state_destroy((SpeexEchoState *)ctx->aec_echo);
+        ctx->aec_echo = NULL;
+    }
+#else
+    (void)ctx;
+#endif
+    ctx->aec_ready = 0;
+}
+
+static const int16_t *voip_prepare_tx_pcm(voip_ctx_t *ctx, const int16_t *mic_pcm)
+{
+#ifdef LUAT_USE_VOIP_AEC
+    if (ctx->aec_ready && ctx->aec_echo && ctx->aec_out_buf && mic_pcm) {
+        speex_echo_capture((SpeexEchoState *)ctx->aec_echo, mic_pcm, ctx->aec_out_buf);
+        if (ctx->aec_preprocess) {
+            speex_preprocess_run((SpeexPreprocessState *)ctx->aec_preprocess, ctx->aec_out_buf);
+        }
+        return ctx->aec_out_buf;
+    }
+#else
+    (void)ctx;
+#endif
+    return mic_pcm;
 }
 
 static void voip_rtp_tx_state_init(voip_rtp_tx_state_t *state, uint8_t payload_type, uint32_t clock_rate, uint16_t ptime)
@@ -263,12 +366,14 @@ static void voip_do_tx(voip_ctx_t *ctx, const int16_t *mic_pcm)
 {
     if (!ctx->netc) return;
     int16_t *pcm = ctx->tx_pcm_buf;
+    const int16_t *tx_pcm;
 
     if (!mic_pcm) {
         return;
     }
 
-    memcpy(pcm, mic_pcm, ctx->frame_bytes);
+    tx_pcm = voip_prepare_tx_pcm(ctx, mic_pcm);
+    memcpy(pcm, tx_pcm, ctx->frame_bytes);
 
     /* G.711 编码 */
     uint32_t out_len = 0;
@@ -370,6 +475,9 @@ static int voip_alloc_buffers(voip_ctx_t *ctx)
     ctx->rtp_packet_buf = (uint8_t *)luat_heap_calloc(1, VOIP_RTP_HEADER_LEN + fs);
     ctx->rx_pcm_buf     = (int16_t *)luat_heap_calloc(1, fb);
     ctx->duplex_play_buf = (int16_t *)luat_heap_calloc(1, fb * ctx->play_slot_count);
+    if (ctx->config.aec_enable) {
+        ctx->aec_out_buf = (int16_t *)luat_heap_calloc(1, fb);
+    }
     ctx->udp_rx_buf_size = VOIP_RTP_HEADER_LEN + fs + 64; /* 余量 */
     ctx->udp_rx_buf     = (uint8_t *)luat_heap_calloc(1, ctx->udp_rx_buf_size);
 
@@ -378,7 +486,7 @@ static int voip_alloc_buffers(voip_ctx_t *ctx)
     }
 
     if (!ctx->tx_pcm_buf || !ctx->tx_g711_buf || !ctx->rtp_packet_buf ||
-        !ctx->rx_pcm_buf || !ctx->duplex_play_buf || !ctx->udp_rx_buf) {
+        !ctx->rx_pcm_buf || !ctx->duplex_play_buf || (ctx->config.aec_enable && !ctx->aec_out_buf) || !ctx->udp_rx_buf) {
         return -1;
     }
 
@@ -464,6 +572,7 @@ static void voip_free_buffers(voip_ctx_t *ctx)
     if (ctx->rtp_packet_buf)  { luat_heap_free(ctx->rtp_packet_buf);  ctx->rtp_packet_buf = NULL; }
     if (ctx->rx_pcm_buf)      { luat_heap_free(ctx->rx_pcm_buf);      ctx->rx_pcm_buf = NULL; }
     if (ctx->duplex_play_buf) { luat_heap_free(ctx->duplex_play_buf); ctx->duplex_play_buf = NULL; }
+    if (ctx->aec_out_buf)     { luat_heap_free(ctx->aec_out_buf);     ctx->aec_out_buf = NULL; }
     if (ctx->udp_rx_buf)      { luat_heap_free(ctx->udp_rx_buf);      ctx->udp_rx_buf = NULL; }
     for (uint8_t index = 0; index < VOIP_MIC_SLOT_COUNT; index++) {
         if (ctx->mic_buf[index]) {
@@ -493,6 +602,9 @@ static void voip_cleanup(voip_ctx_t *ctx)
     if (ctx->encoder) { g711_encoder_destroy(ctx->encoder); ctx->encoder = NULL; }
     if (ctx->decoder) { g711_decoder_destroy(ctx->decoder); ctx->decoder = NULL; }
 
+    /* 释放 AEC */
+    voip_aec_cleanup(ctx);
+
     /* 释放 JB */
     if (ctx->jb) { voip_jb_destroy(ctx->jb); ctx->jb = NULL; }
 
@@ -510,6 +622,7 @@ static void voip_reset_session_state(voip_ctx_t *ctx)
     ctx->last_completed_slot = ctx->play_slot_count - 1;
     ctx->trace_on = 0;
     ctx->dropped_mic_events = 0;
+    ctx->aec_ready = 0;
     memset(ctx->mic_generation, 0, sizeof(ctx->mic_generation));
     memset(&ctx->stats, 0, sizeof(ctx->stats));
 }
@@ -555,6 +668,10 @@ static int voip_session_start(voip_ctx_t *ctx)
             LLOGE("jitter buffer create failed");
             goto start_failed;
         }
+    }
+
+    if (voip_aec_init(ctx) != 0) {
+        goto start_failed;
     }
 
     voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, sample_rate, ptime);

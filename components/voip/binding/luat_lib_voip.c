@@ -37,6 +37,9 @@ voip.start({
     jitter_depth= 3,
     multimedia_id = 0,
     stats_interval = 5000,      -- 统计回调间隔 ms, 0=不回调
+    aec = true,
+    aec_denoise = true,
+    aec_tail = 120,
 })
 */
 static int l_voip_start(lua_State *L)
@@ -100,6 +103,21 @@ static int l_voip_start(lua_State *L)
     /* stats_interval */
     lua_getfield(L, 1, "stats_interval");
     cfg.stats_interval_ms = (uint32_t)luaL_optinteger(L, -1, VOIP_STATS_INTERVAL_DEFAULT);
+    lua_pop(L, 1);
+
+    /* aec */
+    lua_getfield(L, 1, "aec");
+    cfg.aec_enable = lua_toboolean(L, -1) ? 1 : 0;
+    lua_pop(L, 1);
+
+    /* aec_denoise */
+    lua_getfield(L, 1, "aec_denoise");
+    cfg.aec_denoise = lua_isboolean(L, -1) ? (lua_toboolean(L, -1) ? 1 : 0) : cfg.aec_enable;
+    lua_pop(L, 1);
+
+    /* aec_tail */
+    lua_getfield(L, 1, "aec_tail");
+    cfg.aec_tail_ms = (uint16_t)luaL_optinteger(L, -1, 120);
     lua_pop(L, 1);
 
     /* adapter */

@@ -152,6 +152,8 @@ static void unpack_data(uint8_t* buff, size_t len)
         // LLOGD("luat_airlink_current_mode_get is UNKNOW, set to UART");
         luat_airlink_current_mode_set(LUAT_AIRLINK_MODE_UART);
     }
+    // 更新最后通讯时间戳，用于airlink.ready()判断
+    g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
     // LLOGD("luat_airlink data unpacked, len: %d, data: %p", link->len, link->data);
     luat_airlink_on_data_recv(link->data, link->len);
 }

@@ -289,7 +289,6 @@ function airlbs.get_address(lat, lng, param)
     
     local url = string.format("http://iot.openluat.com/api/open/device_get_address?imei=%s&muid=%s&lat=%f&lon=%f", 
         device_id, muid, lat, lng)
-        log.info(lib_name, "请求地址:", url)
     
     local timeout = (param and param.timeout) or 10000
     local code, headers, body = http.request("GET", url, nil, nil, {timeout=timeout}).wait()

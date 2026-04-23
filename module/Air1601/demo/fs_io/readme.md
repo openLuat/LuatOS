@@ -1,6 +1,6 @@
 ## **功能模块介绍**
 
-本 Demo 演示了在Air8000内置Flash文件系统中的完整操作流程，覆盖了从文件系统读写到高级文件操作的完整功能链。项目分为两个核心模块：
+本 Demo 演示了在Air1601内置Flash文件系统中的完整操作流程，覆盖了从文件系统读写到高级文件操作的完整功能链。项目分为两个核心模块：
 
 1、main.lua：主程序入口 <br> 
 2、flash_fs_io.lua：内置Flash文件系统的操作测试流程模块，实现文件系统管理、文件操作和目录管理功能。<br> 
@@ -61,7 +61,7 @@
 
 1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
+2.内核固件文件（底层 core 固件文件）：[Air1601 V1012 正式版](https://docs.openluat.com/air1601/luatos/firmware/1601_version/) ；
 
 ## **演示核心步骤**
 

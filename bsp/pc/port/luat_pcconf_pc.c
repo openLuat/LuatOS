@@ -17,17 +17,11 @@ extern uv_loop_t *main_loop;
 extern const luat_uart_drv_opts_t* uart_drvs[];
 extern const luat_uart_drv_opts_t uart_udp;
 extern const luat_uart_drv_opts_t uart_win32;
+extern const luat_uart_drv_opts_t uart_linux;
 
 int luat_uart_initial_win32();
 
 void luat_pcconf_init(void) {
-    #ifdef LUAT_USE_LVGL
-    
-    #endif
-
-    // memcpy(g_pcconf.mcu_unique_id, "LuatOS@PC", strlen("LuatOS@PC"));
-    // g_pcconf.mcu_unique_id_len = strlen("LuatOS@PC");
-    
     #ifdef LUA_USE_WINDOWS
     // LLOGD("执行uart_win32初始化");
     if (luat_uart_initial_win32() == 0) {
@@ -37,6 +31,12 @@ void luat_pcconf_init(void) {
         }
         // LLOGD("执行uart_win32初始化成功, 驱动已注册 %p", uart_drvs[1]);
         return;
+    }
+    #endif
+    #ifdef LUA_USE_LINUX
+    for (size_t i = 0; i < 128; i++)
+    {
+        uart_drvs[i] = &uart_linux;
     }
     #endif
     for (size_t i = 0; i < 128; i++)

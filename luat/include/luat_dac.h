@@ -33,24 +33,34 @@ typedef enum {
 
 typedef enum {
     LUAT_DAC_EVENT_TX_DONE,
+	LUAT_DAC_EVENT_TX_ONE_BLOCK_DONE,
     LUAT_DAC_EVENT_TX_ERR,
 } luat_dac_event_t;
 
 typedef struct {
+	union
+	{
+		luat_dac_samp_t samp_rate;
+		uint32_t sampling_rate;
+	};
 	luat_dac_chl_t dac_chl;
-	luat_dac_samp_t samp_rate;
     luat_dac_bits_t bits;
-	uint32_t work_mode;
     uint32_t cb_tx_len;                                     // 接收触发回调数据长度
     int (*luat_dac_event_callback)(uint8_t id, luat_dac_event_t event, uint32_t tx_len, void *param); // 回调函数
     void *userdata;                                         // 用户数据
 } luat_dac_config_t;
 
-int luat_dac_setup(uint32_t ch, luat_dac_config_t* config);
-int luat_dac_write(uint32_t ch, uint8_t* buff, size_t size);
-int luat_dac_close(uint32_t ch);
+int luat_dac_setup(uint32_t id, luat_dac_config_t* config);
+int luat_dac_data_prepare(uint32_t id, uint8_t* buff, size_t size);
+int luat_dac_out(uint32_t id, uint32_t value);
+int luat_dac_write(uint32_t id, uint8_t* buff, size_t size);
+int luat_dac_write_loop(uint32_t id, uint8_t* buff, size_t size);
+int luat_dac_buffer_loop(uint32_t id, uint8_t* buff, uint32_t one_buffer_len, uint32_t buffer_num);
+int luat_dac_close(uint32_t id);
+int luat_dac_set_vol(uint32_t id, uint8_t vol);
+int luat_dac_modify(uint8_t id,uint8_t dac_chl,uint8_t data_bits,uint32_t sample_rate);
 
-luat_dac_config_t *luat_dac_get_config(uint32_t ch);
+luat_dac_config_t *luat_dac_get_config(uint32_t id);
 
 #endif
 

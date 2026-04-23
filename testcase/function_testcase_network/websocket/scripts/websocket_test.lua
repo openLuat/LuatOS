@@ -95,13 +95,7 @@ end
 
 -- WebSocket客户端创建测试
 function websocket_tests.test_WebsocketCreate_adapterNumber()
-    local adapter
-    if rtos.bsp() == "Air8101" then
-        adapter = socket.LWIP_STA
-    else
-        adapter = socket.LWIP_GP
-    end
-    local wsc = websocket.create(adapter, "ws://echo.airtun.air32.cn/ws/echo")
+    local wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
     assert(wsc ~= nil, "WebSocket 客户端创建失败了")
     assert(type(wsc) == "userdata", string.format("返回值类型应该为userdata,实际是%s:", type(wsc)))
     wsc:close()

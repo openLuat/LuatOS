@@ -1179,6 +1179,7 @@ function modbus:read_internal(config)
         else
             -- 解析响应数据；
             parsed_data = parse_tcp_response(response, config, function_code, transaction_id)
+            parsed_data.raw_response = response
         end
     elseif config.raw_request then
         -- 发送请求并等待响应；
@@ -1223,6 +1224,7 @@ function modbus:write_internal(config)
         else
             -- 解析响应数据；
             parsed_data = parse_tcp_response(response, config, function_code, transaction_id)
+            parsed_data.raw_response = response
         end
     elseif config.raw_request then
         -- 发送请求并等待响应；

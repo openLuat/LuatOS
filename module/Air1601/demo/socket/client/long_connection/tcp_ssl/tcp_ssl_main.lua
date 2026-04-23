@@ -25,7 +25,7 @@ local tcp_ssl_sender = require "tcp_ssl_sender"
 -- 点击 打开TCP SSL 按钮，会创建一个TCP SSL server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "115.120.239.161"
-local SERVER_PORT = 22676  
+local SERVER_PORT = 22938   
 
 -- tcp_ssl_main的任务名
 local TASK_NAME = tcp_ssl_sender.TASK_NAME

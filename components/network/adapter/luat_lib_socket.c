@@ -628,10 +628,12 @@ static int l_socket_tx(lua_State *L)
 		else
 		{
 			char *name = luat_heap_malloc(ip_len + 1);
-			memcpy(name, ip, ip_len);
-			name[ip_len] = 0;
-			network_string_to_ipv6(name, &ip_addr);
-			free(name);
+			if (name) {
+				memcpy(name, ip, ip_len);
+				name[ip_len] = 0;
+				network_string_to_ipv6(name, &ip_addr);
+				luat_heap_free(name);
+			}
 		}
 	}
 	uint32_t tx_len;

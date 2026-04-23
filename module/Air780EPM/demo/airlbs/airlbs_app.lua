@@ -24,6 +24,8 @@ local timeout = 10 -- 扫描基站/wifi 做 基站/wifi定位 的超时时间，
 --  以下项目密钥和id请根据实际项目进行修改，https://iot.openluat.com/lbs/bs 在此网址中我的项目下
 local airlbs_project_id = "此处换成自己的项目id"
 local airlbs_project_key = "此处换成自己的项目key"
+local lat , lng = nil, nil
+
 
 --多基站定位
 local function airlbs_multi_cells_task_func()
@@ -99,13 +101,21 @@ local function airlbs_multi_cells_wifi_task_func()
         if result then
             local data_str = json.encode(data)
             log.info("airlbs多基站+多wifi定位返回的经纬度数据为", data_str)-- 解析经纬度
-            local lat = data_str:match("\"lat\":([0-9.-]+)")-- 匹配lat
+            lat = data_str:match("\"lat\":([0-9.-]+)")-- 匹配lat
             log.info("airlbs", "lat", lat)-- 打印lat
-            local lng = data_str:match("\"lng\":([0-9.-]+)")-- 匹配lng
+            lng = data_str:match("\"lng\":([0-9.-]+)")-- 匹配lng
             log.info("airlbs", "lng", lng)-- 打印lng
         else        
             log.warn("请检查project_id和project_key")-- 打印提示信息
         end
+        --获取具体地址
+        local result, address = airlbs.get_address(lat, lng)
+        if result then
+            log.info("airlbs.get_address", address)
+        else
+            log.info("airlbs.get_address失败", address)
+        end
+        
         sys.wait(60000) 
         -- 循环60S一次基站+wifi定位，此处设置定位请求间隔为60S非必须，请求频率可根据自己所购买的套餐进行计算，超过频次的定位请求均会返回定位失败。返回错误码，不包含位置信息。
     end

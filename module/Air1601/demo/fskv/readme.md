@@ -30,7 +30,7 @@
 
 1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
+2.内核固件文件（底层 core 固件文件）：[点此链接下载](https://docs.openluat.com/air1601/luatos/firmware/1601_version/) ；
 
 ## 演示核心步骤：
 

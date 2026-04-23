@@ -70,6 +70,12 @@ enum{
 #include "c_common.h"
 #endif
 
+enum {
+    AUDIO_EVENT_RUN_FUNCTION = 1, 
+    AUDIO_EVENT_ERCORD_CB = 2,
+    AUDIO_EVENT_PLAY_FILE = 3,
+};
+
 typedef struct luat_multimedia_codec {
     void* ctx;
     const luat_codec_opts_t* ops;

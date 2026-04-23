@@ -18,7 +18,7 @@
 
 ## 演示硬件环境
 
-[](https://docs.openluat.com/air8000/luatos/app/image/netdrv_multi.jpg)
+![](https://docs.openluat.com/air8000/luatos/app/image/netdrv_multi.jpg)
 
 1、Air8000开发板一块+手机sim卡一张+4g天线一根：
 

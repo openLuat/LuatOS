@@ -1,14 +1,16 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 1.6
-@date    2026.4.16
+@version 1.7
+@date    2026.4.22
 @author  拓毅恒
 @updates
+    v1.7 2026.4.22
+        1. 新增多文件播放时的音频参数一致性检查，连续播放多个音频时添加限制，避免格式不同导致播放异常
     v1.6 2026.4.16
         1. 新增DAC模式支持，适配Air8101等使用内置DAC的模组，支持"es8311"(I2S+外部Codec)和"dac"(内置DAC)两种类型
         2. 优化参数检查逻辑，根据model自动选择初始化方式
-        3. 根据model自动选择流式数据写入方式：DAC模式直接audio.write，I2S模式使用队列+回调
+        3. 流式播放统一使用队列+回调机制，通过audio.MORE_DATA事件驱动数据写入
     v1.5 2026.3.10
         1. 修改录音缓冲区使用逻辑，每次写完数据都清空缓冲区数据，释放内存，避免最后一段录音数据异常
     v1.4 2026.2.14
@@ -232,6 +234,77 @@ local function start_next_play()
                     log.error("播放列表元素必须为字符串路径")
                     return false
                 end
+            end
+            -- 多文件播放时检查音频参数一致性
+            if #playConfigs.content > 1 then
+                -- 根据文件扩展名获取codec类型
+                local function get_codec_type(file_path)
+                    local ext = file_path:match("%.([^.]+)$")
+                    if ext then
+                        ext = ext:lower()
+                        if ext == "mp3" then
+                            return codec.MP3
+                        elseif ext == "amr" then
+                            return codec.AMR
+                        end
+                    end
+                    return nil
+                end
+                
+                local codec_type = get_codec_type(playConfigs.content[1])
+                if not codec_type then
+                    log.error("无法识别第一个音频文件格式:", playConfigs.content[1])
+                    return false
+                end
+                
+                -- 创建临时decoder用于获取音频信息
+                local coder = codec.create(codec_type, true)
+                if not coder then
+                    log.error("无法创建codec decoder, 类型:", codec_type)
+                    return false
+                end
+                local result, audio_format, num_channels, sample_rate, bits_per_sample, is_signed = codec.info(coder, playConfigs.content[1])
+                if not result then
+                    log.error("无法获取第一个音频文件信息:", playConfigs.content[1])
+                    codec.release(coder)
+                    return false
+                end
+                for i = 2, #playConfigs.content do
+                    local codec_type2 = get_codec_type(playConfigs.content[i])
+                    if codec_type2 ~= codec_type then
+                        log.error("多文件播放要求格式一致，文件", playConfigs.content[i], 
+                            "格式与第一个文件格式不同")
+                        codec.release(coder)
+                        return false
+                    end
+                    local result2, audio_format2, num_channels2, sample_rate2, bits_per_sample2, is_signed2 = codec.info(coder, playConfigs.content[i])
+                    if not result2 then
+                        log.error("无法获取音频文件信息:", playConfigs.content[i])
+                        codec.release(coder)
+                        return false
+                    end
+                    if sample_rate2 ~= sample_rate then
+                        log.error("多文件播放要求采样率一致，文件", playConfigs.content[i], 
+                            "采样率", sample_rate2, "与第一个文件采样率", sample_rate, "不同")
+                        codec.release(coder)
+                        return false
+                    end
+                    if num_channels2 ~= num_channels then
+                        log.error("多文件播放要求声道数一致，文件", playConfigs.content[i],
+                            "声道数", num_channels2, "与第一个文件声道数", num_channels, "不同")
+                        codec.release(coder)
+                        return false
+                    end
+                    if bits_per_sample2 ~= bits_per_sample then
+                        log.error("多文件播放要求采样位深一致，文件", playConfigs.content[i],
+                            "位深", bits_per_sample2, "与第一个文件位深", bits_per_sample, "不同")
+                        codec.release(coder)
+                        return false
+                    end
+                end
+                codec.release(coder)
+                log.info("多文件播放参数检查通过，采样率:", sample_rate,
+                    "声道数:", num_channels, "位深:", bits_per_sample)
             end
         elseif content_type ~= "string" then
             log.error("文件播放content必须为字符串或路径表")
@@ -650,15 +723,9 @@ end
 
 -- 模块接口：流式播放数据写入
 function exaudio.play_stream_write(data)
-    -- 根据model选择写入方式
-    if audio_setup_param.model == "dac" then
-        -- DAC模式：直接写入
-        return audio.write(MULTIMEDIA_ID, data)
-    else
-        -- I2S模式：推入队列，由audio.MORE_DATA回调处理
-        audio_stream_queue_push(data)
-        return true
-    end
+    -- 插入队列，由audio.MORE_DATA回调处理
+    audio_stream_queue_push(data)
+    return true
 end
 
 -- 模块接口：停止播放

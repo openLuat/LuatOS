@@ -261,9 +261,9 @@ local B_7 = {"lcd", "u8g2", "adc", "crypto", "errDump", "fota", "fskv", "gpio", 
              "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins", "pm", "pwm", "rtc", "rtos",
              "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
 
-local B_8 = {"lcd",  "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv", "io", "json", "log","iperf","websocket", "fastlz",
-             "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins", "pm", "pwm", "rtc", "rtos",
-             "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
+local B_8 = {"lcd", "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv", "io", "json", "log", "iperf",
+             "websocket", "fastlz", "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins", "pm",
+             "pwm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
 local B_size = {
     [1] = {
         fs_size = 168,
@@ -306,13 +306,13 @@ local C_1 = {"bit64", "adc", "airlink", "fft", "protobuf", "iconv", "rsa", "xxte
              "hmeta", "http", "httpsrv", "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz",
              "mqtt", "netdrv", "os", "pack", "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus",
              "uart", "wdt", "websocket", "wlan", "zbuff", "libgnss", "sfud", "ymodem", "eink", "u8g2", "codec", "audio",
-            "i2s"}
+             "i2s"}
 
-local C_2 = {"bit64", "adc", "airlink", "camera", "fatfs", "fft", "hzfont", "can", "pins", "ble", "fastlz", "lcd", "lf",
-             "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv",
-             "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack",
-             "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket",
-             "wlan", "zbuff", "codec", "audio", "i2s"}
+local C_2 = {"bit64", "adc", "airlink", "camera", "fatfs", "hzfont", "can", "pins", "ble", "fastlz", "lcd", "lf", "otp",
+             "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv", "i2c", "io",
+             "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack", "pwm", "pm",
+             "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "zbuff",
+             "codec", "audio", "i2s"}
 
 local C_4 = {"bit64", "adc", "airlink", "airui", "hzfont", "camera", "fatfs", "can", "pins", "ble", "fastlz", "lcd",
              "lf", "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv",
@@ -320,10 +320,16 @@ local C_4 = {"bit64", "adc", "airlink", "airui", "hzfont", "camera", "fatfs", "c
              "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket",
              "wlan", "zbuff", "codec", "audio", "i2s"}
 
-local C_5 = {"bit64", "adc", "airui", "hzfont", "can", "crypto", "errDump", "fastlz", "fota", "fskv", "ftp",
-             "gpio", "http", "httpsrv", "hzfont", "i2c", "io", "json", "lcd", "little_flash", "log", "mcu", "miniz",
-             "mqtt", "netdrv", "os", "otp", "pack", "pins", "pm", "pwm", "rtc", "rtos", "socket", "spi", "string",
-             "sys", "sysplus", "tp", "uart", "websocket", "wdt", "wlan", "zbuff"}
+local C_5 = {"bit64", "adc", "airui", "hzfont", "can", "crypto", "errDump", "fastlz", "fota", "fskv", "ftp", "gpio",
+             "http", "httpsrv", "i2c", "io", "json", "lcd", "little_flash", "log", "mcu", "miniz", "mqtt", "netdrv",
+             "os", "otp", "pack", "pins", "pm", "pwm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "tp",
+             "uart", "websocket", "wdt", "wlan", "zbuff"}
+
+local C_6 = {"bit64", "adc", "airlink", "airui", "audio", "camera", "hzfont", "can", "crypto", "errDump", "fastlz",
+             "fota", "fskv", "ftp", "gpio", "lf", "ble", "i2s", "codec", "fatfs", "gmssl", "iconv", "iotauth", "iperf",
+             "lora2", "protobuf", "http", "httpsrv", "i2c", "io", "json", "lcd", "little_flash", "log", "mcu", "miniz",
+             "mqtt", "netdrv", "rsa", "xxtea", "os", "otp", "pack", "pins", "pm", "pwm", "rtc", "rtos", "socket", "spi",
+             "string", "sys", "sysplus", "tp", "uart", "websocket", "wdt", "wlan", "zbuff", "hmeta", "audio.tts"}
 
 local C_size = {
     [1] = {
@@ -340,6 +346,10 @@ local C_size = {
     },
     [5] = {
         fs_size = 2488,
+        script_size = 512
+    },
+    [6] = {
+        fs_size = 4096,
         script_size = 512
     }
 }
@@ -490,6 +500,8 @@ local function getConfigByCore()
             config_table = C_4
         elseif table_name == "C_5" then
             config_table = C_5
+        elseif table_name == "C_6" then
+            config_table = C_6
         else
             log.error("未知的配置表名:", table_name)
         end
@@ -509,47 +521,51 @@ local function module_size(core_number, is_ec718hm, is_ec718pm)
     local _, total_blocks, used_blocks, block_size = io.fsstat("/")
     local fs_size = (total_blocks * block_size) / 1024
     local script_size = (total_blocks1 * block_size1) / 1024
+
+    -- 获取期望值
     if is_ec718hm or string.find(rtos_bsp, "Air8000") then
-        -- EC718HM 系列使用 A_size 表
         if A_size[core_number] then
             expected_fs_size = A_size[core_number].fs_size
             expected_script_size = A_size[core_number].script_size
-            log.info("使用A_size配置表，版本:", core_number)
         else
-            log.warn("A_size表中未找到版本", core_number, "的配置")
+            log.info("A_size表中未找到固件 %s 的配置", core_number)
         end
     elseif is_ec718pm then
-        -- EC718PM 系列使用 B_size 表
         if B_size[core_number] then
             expected_fs_size = B_size[core_number].fs_size
             expected_script_size = B_size[core_number].script_size
-            log.info("使用B_size配置表，版本:", core_number)
         else
-            log.warn("B_size表中未找到版本", core_number, "的配置")
+            log.info("B_size表中未找到固件 %s 的配置", core_number)
         end
     else
         if C_size[core_number] then
             expected_fs_size = C_size[core_number].fs_size
             expected_script_size = C_size[core_number].script_size
-            log.info("使用C_size配置表，版本:", core_number)
         else
-            log.warn("C_size表中未找到版本", core_number, "的配置")
+            log.info("C_size表中未找到固件 %s 的配置", core_number)
         end
     end
 
-    assert(fs_size == expected_fs_size,
-        string.format("%s_%s固件文件系统区大小不符合预期：理论是 %dKB，实际是 %dKB", rtos_bsp,
-            core_number, expected_fs_size, fs_size))
+    -- 检查文件系统大小
+    if fs_size ~= expected_fs_size then
+        return false,
+            string.format("%s_%s固件文件系统区大小不符合预期：理论是 %dKB，实际是 %dKB", rtos_bsp,
+                core_number, expected_fs_size, fs_size)
+    end
 
-    assert(script_size == expected_script_size,
-        string.format("%s_%s固件脚本区大小不符合预期：理论是 %dKB，实际是 %dKB", rtos_bsp,
-            core_number, expected_script_size, script_size))
+    -- 检查脚本区大小
+    if script_size ~= expected_script_size then
+        return false,
+            string.format("%s_%s固件脚本区大小不符合预期：理论是 %dKB，实际是 %dKB", rtos_bsp,
+                core_number, expected_script_size, script_size)
+    end
+
     log.info("脚本区/fs区大小符合预期")
+    return true, nil
 end
 
--- 检查是否有多余库
+-- 检查是否有多余库（修改为返回错误信息，而不是直接assert）
 local function getActualLibs(current_config)
-
     local actualLibs = {}
     for _, libName in ipairs(B) do
         if A[libName] ~= nil then
@@ -576,28 +592,35 @@ local function getActualLibs(current_config)
 
     if #extra_libs == 0 then
         log.info(rtos_bsp .. "_" .. core_value .. "固件" .. "要求的所有库都存在")
+        return true, nil
     else
         -- 构建详细的错误信息
         local extra_msg = rtos_bsp .. "_" .. core_value .. "固件" .. "多余以下" .. #extra_libs .. "个库:\n"
         for i, element in ipairs(extra_libs) do
             extra_msg = extra_msg .. "  " .. i .. ". " .. element .. "\n"
         end
-        assert(false, extra_msg)
+        return false, extra_msg
     end
-
 end
 
 function check_core.test_mouble_check()
 
+    -- 收集所有错误信息
+    local errors = {}
     -- 获取当前固件的配置表
     local current_config, core_number, config_table_name, is_ec718hm, is_ec718pm = getConfigByCore()
-    module_size(core_number, is_ec718hm, is_ec718pm)
+    -- 1. 检查分区大小
+    local size_success, size_error = module_size(core_number, is_ec718hm, is_ec718pm)
+    if not size_success then
+        table.insert(errors, size_error)
+    end
+
     log.info("开始固件核心库检查")
+
     -- 第一步：A与B对比，找出所有缺失的库
     log.info("第一步：检查所有可能库（B表）...")
     local allMissing = findMissingElements(A, B)
 
-    -- 在过滤缺失列表后进行处理：
     -- 第二步：过滤缺失列表，只保留在当前固件中应该存在的库
     log.info("第二步：根据固件配置过滤缺失库...")
     local actualMissing = filterMissingByFirmware(allMissing, current_config)
@@ -644,34 +667,45 @@ function check_core.test_mouble_check()
             table.insert(finalMissing, libName)
         end
     end
-
-    -- 第四步：根据固件定义只有air8000有ble,其余固件没有
-
+--缺失库检查
     if is_ec718hm then
         log.info("当前检查的模块为", rtos_bsp)
         if #finalMissing == 1 and finalMissing[1] == "ble" then
             log.info("检测到" .. rtos_bsp .. "的设备，仅缺失ble库，忽略并视为通过检查")
             log.info(rtos_bsp .. "_" .. core_value .. "固件" .. "要求的所有库都存在")
         else
-            assert(false, string.format(rtos_bsp .. "设备异常缺失库: %s", table.concat(finalMissing, ", ")))
+            local missing_msg = rtos_bsp .. "_" .. core_value .. "固件" .. "缺少以下" .. #finalMissing ..
+                                    "个库:\n"
+            for i, element in ipairs(finalMissing) do
+                missing_msg = missing_msg .. "  " .. i .. ". " .. element .. "\n"
+            end
+            table.insert(errors, missing_msg)
         end
     else
-        log.info("当前检查的模块为", rtos_bsp)
-        if #finalMissing == 0 then
-            log.info(rtos_bsp .. "_" .. core_value .. "固件" .. "要求的所有库都存在")
-        else
-            -- 构建详细的错误信息
-            local error_msg = rtos_bsp .. "_" .. core_value .. "固件" .. "缺失以下" .. #finalMissing ..
-                                  "个库:\n"
+        if #finalMissing > 0 then
+            local missing_msg = rtos_bsp .. "_" .. core_value .. "固件" .. "缺少以下" .. #finalMissing ..
+                                    "个库:\n"
             for i, element in ipairs(finalMissing) do
-                error_msg = error_msg .. "  " .. i .. ". " .. element .. "\n"
+                missing_msg = missing_msg .. "  " .. i .. ". " .. element .. "\n"
             end
-            assert(false, error_msg)
+            table.insert(errors, missing_msg)
+        else
+            log.info(rtos_bsp .. "_" .. core_value .. "固件" .. "要求的所有库都存在")
         end
-
     end
-    -- 检查是否有多余库
-    getActualLibs(current_config)
+
+    -- 2. 检查多余库（现在返回状态和错误信息）
+    local success, extra_msg = getActualLibs(current_config)
+    if not success then
+        table.insert(errors, extra_msg)
+    end
+
+    -- 3. 统一报告所有错误
+    if #errors > 0 then
+        assert(false, string.format("固件检查失败:\n%s", table.concat(errors, "\n")))
+    end
+
     log.info("✓ 库检查完成")
 end
+
 return check_core

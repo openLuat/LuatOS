@@ -20,14 +20,14 @@
 
 -- 根据自己的项目需求，只需要require以下四种中的一种即可；
 
--- 加载“WIFI STA网卡”驱动模块
+-- 加载“WIFI STA网卡”驱动模块(注意：当前netdrv_wifi还不能使用)
 -- require "netdrv_wifi"
 
 -- 加载“通过spi外挂CH390H芯片的以太网卡”驱动模块
-require "netdrv_eth_spi"
+-- require "netdrv_eth_spi"
 
 -- 加载“通过uart外挂4G模组的4G网卡”驱动模块
--- require "netdrv_4g"
+require "netdrv_4g"
 
 -- 加载“可以配置优先级的多种网卡”驱动模块
 -- require "netdrv_multiple"

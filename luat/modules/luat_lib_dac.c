@@ -11,6 +11,7 @@
 #include "luat_base.h"
 #include "luat_dac.h"
 #include "luat_fs.h"
+#include "luat_zbuff.h"
 #include "luat_mem.h"
 #include "luat_msgbus.h"
 #define LUAT_LOG_TAG "dac"
@@ -28,7 +29,8 @@ int l_dac_handler(lua_State *L, void* ptr) {
         lua_geti(L, LUA_REGISTRYINDEX, l_dac_cb);
         lua_pushinteger(L, msg->arg1);
         lua_pushinteger(L, msg->arg2);
-        lua_call(L, 2, 0);
+        lua_pushinteger(L, (uint32_t)msg->ptr);
+        lua_call(L, 3, 0);
     }
     // 给rtos.recv方法返回个空数据
     lua_pushinteger(L, 0);
@@ -63,10 +65,31 @@ static int l_dac_open(lua_State *L) {
 }
 
 /*
+对波形数据预处理，一般是将音频的有符号数据转成DAC需要的无符号数据
+@api dac.prepare(ch, buff)
+@int 通道编号,例如0
+@zbuff 输出波形数据，输出长度为zbuff:used()
+@return boolean true 成功返回true,否则返回false
+*/
+static int l_dac_prepare(lua_State *L) {
+    int ch, ret;
+    luat_zbuff_t *tx_buff;
+    ret = -1;
+    ch = luaL_checkinteger(L, 1);
+    if (lua_isuserdata(L, 2)) {
+    	tx_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    	ret = luat_dac_data_prepare(ch, tx_buff->addr, tx_buff->used);
+    }
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
 从指定DAC通道输出一段波形,或者单个值
 @api dac.write(ch, data)
 @int 通道编号,例如0
-@string 若输出固定值,可以填数值, 若输出波形,填string
+@int/string/zbuff 若输出固定值,可以填数值, 若输出波形,填string或者zbuff, 如果填zbuff, 输出长度为zbuff:used()
+@boolean 是否循环输出波形，true循环，false单次输出，留空是false，如果输出固定值，本参数无效
 @return boolean true 成功返回true,否则返回false
 @return int 底层返回值,调试用
 @usage
@@ -79,25 +102,38 @@ dac.close(0)
 static int l_dac_write(lua_State *L) {
     uint8_t* buff;
     size_t len;
-    int ch;
-    uint8_t value;
-
+    int ch, ret;
+    uint32_t value;
+    uint8_t is_loop = 0;
+    luat_zbuff_t *tx_buff;
     ch = luaL_checkinteger(L, 1);
+    if (lua_isboolean(L, 3)) {
+    	is_loop = lua_toboolean(L, 3);
+    }
     if (lua_isinteger(L, 2)) {
         value = luaL_checkinteger(L, 2);
         buff = &value;
-        len = 1;
+        len = 4;
+        ret = luat_dac_out(ch, value);
     }
     else if (lua_isuserdata(L, 2)) {
-        return 0; // TODO 支持zbuff
+    	tx_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    	buff = tx_buff->addr;
+    	len = tx_buff->used;
     }
     else if (lua_isstring(L, 2)) {
         buff = (uint8_t*)luaL_checklstring(L, 2, &len);
     }
     else {
-        return 0;
+        lua_pushboolean(L, 0);
+        lua_pushinteger(L, -10);
+        return 2;
     }
-    int ret = luat_dac_write(ch, buff, len);
+    if (is_loop) {
+    	ret = luat_dac_write_loop(ch, buff, len);
+    } else {
+    	ret = luat_dac_write(ch, buff, len);
+    }
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     lua_pushinteger(L, ret);
     return 2;
@@ -130,17 +166,15 @@ static int l_dac_close(lua_State *L) {
 @function 回调方法
 @return nil 无返回值
 @usage
-dac.on(function(ch, event, param1, param2, param3)
-    log.info("dac", ch, event, param1, param2, param3)
+dac.on(function(ch, event, param)
+    log.info("dac", ch, event, param)
 end)
---回调参数有5个
-1、ch 0:左声道, 1:右声道
+--回调参数有3个
+1、ch
 2、event
-3、param1,
-4、param2,
-5、param3,
+3、param,
 event类型含义及后续param含义
-1、dac.TX_DONE 发送完成
+1、dac.TX_DONE 发送完成，param为总长度
 
 */
 static int l_dac_on(lua_State *L) {
@@ -161,11 +195,13 @@ static int l_dac_on(lua_State *L) {
 static const rotable_Reg_t reg_dac[] =
 {
     { "open" ,       ROREG_FUNC(l_dac_open)},
+	{ "prepare",	 ROREG_FUNC(l_dac_prepare)},
     { "write" ,      ROREG_FUNC(l_dac_write)},
     { "close" ,      ROREG_FUNC(l_dac_close)},
 	{ "on" ,       	 ROREG_FUNC(l_dac_on)},
 	//@const HOST number USB主机模式
     { "TX_DONE",     ROREG_INT(LUAT_DAC_EVENT_TX_DONE)},
+	{ "TX_PART",     ROREG_INT(LUAT_DAC_EVENT_TX_ONE_BLOCK_DONE)},
 	{ NULL,          ROREG_INT(0) }
 };
 
@@ -173,5 +209,11 @@ LUAMOD_API int luaopen_dac( lua_State *L ) {
     luat_newlib2(L, reg_dac);
     return 1;
 }
+LUAT_WEAK int luat_dac_data_prepare(uint32_t ch, uint8_t* buff, size_t size) {return -1;}
+LUAT_WEAK int luat_dac_out(uint32_t ch, uint32_t value) {return -1;}
+LUAT_WEAK int luat_dac_write_loop(uint32_t ch, uint8_t* buff, size_t size) {return -1;}
+
+LUAT_WEAK int luat_dac_set_vol(uint32_t ch, uint8_t vol) {return -1;}
+LUAT_WEAK int luat_dac_modify(uint8_t id,uint8_t dac_chl,uint8_t data_bits,uint32_t sample_rate){return -1;}
 
 #endif

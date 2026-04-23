@@ -1,9 +1,9 @@
 --[[
 @module  play_stream
 @summary 流式播放
-@version 1.1
-@date    2026.01.11
-@author  王世豪
+@version 1.2
+@date    2026.04.21
+@author  拓毅恒
 @usage
 
 注意：
@@ -75,9 +75,12 @@ local audio_play_param ={
 ---------------------------------
 ---通过BOOT 按键增大音量---
 ---------------------------------
-local volume_number = 50 
+local volume_number = 50
 local function add_volume()
     volume_number = volume_number + 20
+    if volume_number > 100 then
+        volume_number = 100
+    end
     log.info("增大音量",volume_number)
     exaudio.vol(volume_number)
 end
@@ -91,6 +94,9 @@ gpio.debounce(0, 200, 1)
 
 local function down_volume()
     volume_number = volume_number - 15
+    if volume_number < 0 then
+        volume_number = 0
+    end
     log.info("减小音量",volume_number)
     exaudio.vol(volume_number)
 end
@@ -103,6 +109,9 @@ gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
 ---------模拟获取音频task---------
 ---------------------------------
 local function audio_get_data()
+    -- 等待播放初始化完成
+    sys.waitUntil("AUDIO_READY")
+    
     log.info("开始流式获取音频数据")
     local file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
 
@@ -127,7 +136,7 @@ local function audio_get_data()
         end
 
         exaudio.play_stream_write(read_data)  -- 流式写入音频数据
-        sys.wait(20)                   -- 写数据需要留出事件给其他task 运行代码
+        sys.wait(20)                   -- 写数据需要留出时间给其他task 运行代码
     end
 end
 
@@ -143,6 +152,9 @@ local function audio_task()
     if exaudio.setup(audio_setup_param) then
         exaudio.play_start(audio_play_param)
         log.info("播放状态",exaudio.is_end())
+        sys.publish("AUDIO_READY")  -- 通知数据task可以开始读取数据
+    else
+        log.error("流式播放启动失败")
     end
 end
 

@@ -8,9 +8,9 @@
 1. 详细逻辑请看ftp_up_download.lua文件
 2. netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
    (1) netdrv_4g：4G网卡
-   (2) netdrv_wifi：WIFI STA网卡
+   (2) netdrv_wifi：WIFI STA网卡(注意：当前netdrv_wifi还不能使用)
    (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级(注意：当前netdrv_wifi还不能使用)
 ]]
 
 
@@ -64,17 +64,7 @@ require"netdrv_device"
 
 
 --加载ftp_up_download功能模块
--- require "ftp_up_download"
-
-local function test()
-    local unique_id = mcu.unique_id()
---     unique_id = unique_id:toHex()
-    log.info("test", unique_id)
-end
-
-sys.taskInit(test)
-
-
+require "ftp_up_download"
 
 
 -- 启动系统调度（必须放在最后）

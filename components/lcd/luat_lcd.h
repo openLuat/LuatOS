@@ -68,6 +68,11 @@ enum{
     LUAT_LCD_ACC_HW_ALL = 0xFF,
 };
 
+enum{
+	LUAT_LCD_RGB_PCLK_FALLING = 0x00,
+    LUAT_LCD_RGB_PCLK_RISING  = 0x01,
+};
+
 typedef struct
 {
 	uint8_t write_4line_cmd;  //address 1线 data4线
@@ -102,7 +107,7 @@ typedef struct luat_lcd_conf {
         };
         uint8_t acc_hw;
     };
-    uint8_t reserved;
+    uint8_t pclk;
     int16_t w;
     int16_t h;
     uint16_t hbp;

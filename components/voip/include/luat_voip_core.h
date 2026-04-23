@@ -40,16 +40,19 @@ typedef enum {
 
 /* 用户传入的配置 */
 typedef struct {
+    voip_codec_type_t codec;
+    uint32_t stats_interval_ms;
+    uint32_t sample_rate;       /* default 8000 */
+    int      adapter;
     char     remote_ip[VOIP_MAX_IP_LEN];
     uint16_t remote_port;
     uint16_t local_port;
-    voip_codec_type_t codec;
-    uint16_t ptime;             /* ms, default 20 */
-    uint32_t sample_rate;       /* default 8000 */
-    uint8_t  multimedia_id;     /* audio device id */
-
     uint16_t jitter_depth;
-    uint32_t stats_interval_ms;
+    uint16_t ptime;             /* ms, default 20 */
+    uint8_t  multimedia_id;     /* audio device id */
+    uint8_t  aec_enable;
+    uint8_t  aec_denoise;
+    uint16_t aec_tail_ms;
 } voip_config_t;
 
 /* ======================== 状态 ======================== */
@@ -172,6 +175,12 @@ typedef struct {
     voip_audio_backend_t audio_backend;
     uint32_t mic_generation[VOIP_MIC_SLOT_COUNT];
     uint32_t dropped_mic_events;
+
+    /* AEC */
+    void *aec_echo;
+    void *aec_preprocess;
+    int16_t *aec_out_buf;
+    uint8_t aec_ready;
 
     /* Lua 回调引用 */
     int cb_state_ref;   /* LUA_REGISTRYINDEX ref for state callback */

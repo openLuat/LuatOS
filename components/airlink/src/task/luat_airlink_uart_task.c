@@ -152,6 +152,8 @@ static void unpack_data(uint8_t* buff, size_t len)
         // LLOGD("luat_airlink_current_mode_get is UNKNOW, set to UART");
         luat_airlink_current_mode_set(LUAT_AIRLINK_MODE_UART);
     }
+    // 更新最后通讯时间戳，用于airlink.ready()判断
+    g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
     // LLOGD("luat_airlink data unpacked, len: %d, data: %p", link->len, link->data);
     luat_airlink_on_data_recv(link->data, link->len);
 }
@@ -185,7 +187,7 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
             offset++;
         }
         if (offset >= g_airlink_uart.rxoffset) {
-            LLOGW("没有找到包头, 清空当前数据, 等待下次数据 %d", g_airlink_uart.rxoffset);
+            //LLOGD("没有找到包头, 清空当前数据, 等待下次数据 %d", g_airlink_uart.rxoffset);
             g_airlink_uart.rxoffset = 0;
             return;
         }
@@ -206,7 +208,7 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
                 end_offset++;
                 if(end_offset > 4096){
                     g_airlink_uart.rxoffset = 0;
-                    LLOGD("缓存数据超4k，仍未找到包尾，丢弃数据");
+                    LLOGE("缓存数据超4k，仍未找到包尾，丢弃数据");
                     break;
                 }
             }

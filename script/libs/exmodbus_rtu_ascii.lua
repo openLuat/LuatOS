@@ -1017,6 +1017,7 @@ function modbus:read_internal(config)
             else
                 -- 解析响应数据；
                 parsed_data = parse_rtu_response(response, config, function_code)
+                parsed_data.raw_response = response
             end
 
         -- 用户传入原始请求帧；
@@ -1077,6 +1078,7 @@ function modbus:write_internal(config)
             else
                 -- 解析响应数据；
                 parsed_data = parse_rtu_response(response, config, function_code)
+                parsed_data.raw_response = response
             end
 
         -- 用户传入原始请求帧；

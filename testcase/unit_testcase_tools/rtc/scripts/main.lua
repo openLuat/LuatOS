@@ -13,6 +13,10 @@ rtc_test = require("rtc_test")
 
 
 sys.taskInit(function()
+    if mobile then
+        mobile.syncTime(false) 
+        mobile.flymode(0,false)
+    end
     -- 第一个参数, 是整个测试的名称
     -- 第二个参数, 是一个表数组, 每个表包含 testTable 和 testcase 字段
     --   testTable - 包含测试函数的表, 也就是模块, 其中的所有 test_ 开头的函数都会被执行

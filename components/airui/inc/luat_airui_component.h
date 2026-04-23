@@ -165,6 +165,7 @@ typedef struct {
     bool show_progress_text;
     bool progress_text_color_set;
     lv_color_t progress_text_color;
+    uint16_t progress_text_font_size;
     char progress_text_format[32];
 } airui_bar_data_t;
 
@@ -469,6 +470,7 @@ int airui_bar_set_bg_color(lv_obj_t *bar, lv_color_t color); //设置背景颜�
 int airui_bar_get_value(lv_obj_t *bar); //获取当前值
 int airui_bar_set_progress_text_format(lv_obj_t *bar, const char *format); //设置进度文字格式
 int airui_bar_set_progress_text_color(lv_obj_t *bar, lv_color_t color); //设置进度文字颜色
+int airui_bar_set_progress_text_font_size(lv_obj_t *bar, int font_size); //设置进度文字字号
 
 /**
  * Spinner 组件创建

@@ -32,7 +32,7 @@
 
 1、Luatools下载调试工具
 
-2、[Air780EPM V2016版本固件）](https://docs.openluat.com/air780epm/luatos/firmware/version/)
+2、[Air8000 V2016版本固件](https://docs.openluat.com/air8000/luatos/firmware/)
 
 ## 演示操作步骤
 

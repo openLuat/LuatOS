@@ -34,18 +34,17 @@ end
 # pragma warning(disable: 4127) /* const in if condition */
 #endif
 
-#define PB_STATIC_API
-#include "pb.h"
-
-PB_NS_BEGIN
-
-
 #define LUA_LIB
 #include "luat_base.h"
 #include "luat_mem.h"
 
 #define LUAT_LOG_TAG "protobuf"
 #include "luat_log.h"
+
+#define PB_STATIC_API
+#include "luat_lib_pb.h"
+
+PB_NS_BEGIN
 
 
 // #include <stdio.h>
@@ -1641,7 +1640,8 @@ static void lpbE_encode(lpb_Env *e, const pb_Type *t, int idx) {
     if (1) {
         const pb_Field *f = NULL;
         while (pb_nextfield(t, &f)) {
-            if (lua53_getfield(L, idx, (const char*)f->name) != LUA_TNIL)
+            int lua_r = lua53_getfield(L, idx, (const char*)f->name);
+            if (lua_r != LUA_TNIL)
                 lpb_encode_onefield(e, t, f, -1);
             lua_pop(L, 1);
         }

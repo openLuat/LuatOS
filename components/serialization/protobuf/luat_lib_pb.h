@@ -46,6 +46,15 @@ void* luat_heap_malloc(size_t len);
 void* luat_heap_realloc(void* ptr, size_t len);
 void luat_heap_free(void* ptr);
 
+/* Define PB_DEBUG_LOG before including pb.h to enable internal debug tracing.
+ * Example:
+ *   #define PB_DEBUG_LOG(fmt, ...) LLOGI(fmt, ##__VA_ARGS__)
+ *   #include "pb.h"
+ */
+#ifndef PB_DEBUG_LOG
+#  define PB_DEBUG_LOG(fmt, ...) ((void)0)
+#endif
+
 #define os_malloc luat_heap_malloc
 #define os_realloc luat_heap_realloc
 static inline void os_free(void* ptr) {
@@ -705,7 +714,11 @@ PB_API char *pb_prepbuffsize(pb_Buffer *b, size_t len) {
         while (newsize < PB_MAX_SIZET/2 && newsize < expected)
             newsize += newsize >> 1;
         if (newsize < expected) return NULL;
-        if ((newp = (char*)os_realloc(oldp, newsize)) == NULL) return NULL;
+        if ((newp = (char*)os_realloc(oldp, newsize)) == NULL) {
+            PB_DEBUG_LOG("pb_prepbuffsize: os_realloc(%p,%u) FAILED b->size=%u len=%u",
+                oldp, (unsigned)newsize, (unsigned)b->size, (unsigned)len);
+            return NULL;
+        }
         if (!pb_onheap(b)) memcpy(newp, pb_buffer(b), b->size);
         b->heap         = 1;
         b->u.h.buff     = newp;
@@ -810,7 +823,11 @@ PB_API void *pb_poolalloc(pb_Pool *pool) {
     if (obj == NULL) {
         size_t objsize = pool->obj_size, offset;
         void *newpage = os_malloc(PB_POOLSIZE);
-        if (newpage == NULL) return NULL;
+        if (newpage == NULL) {
+            PB_DEBUG_LOG("pb_poolalloc: os_malloc(%d) FAILED obj_size=%d",
+                PB_POOLSIZE, (int)pool->obj_size);
+            return NULL;
+        }
         offset = ((PB_POOLSIZE - sizeof(void*)) / objsize - 1) * objsize;
         for (; offset > 0; offset -= objsize) {
             void **entry = (void**)((char*)newpage + offset);
@@ -886,7 +903,11 @@ PB_API size_t pb_resizetable(pb_Table *t, size_t size) {
     nt.size     = newsize;
     nt.lastfree = nt.entry_size * newsize;
     nt.hash     = (pb_Entry*)os_malloc(nt.lastfree);
-    if (nt.hash == NULL) return 0;
+    if (nt.hash == NULL) {
+        PB_DEBUG_LOG("pb_resizetable: os_malloc(%u) FAILED newsize=%u entry_size=%u",
+            (unsigned)nt.lastfree, (unsigned)newsize, (unsigned)t->entry_size);
+        return 0;
+    }
     memset(nt.hash, 0, nt.lastfree);
     for (i = 0; i < rawsize; i += t->entry_size) {
         pb_Entry *olde = (pb_Entry*)((char*)t->hash + i);
@@ -920,23 +941,32 @@ PB_API pb_Entry *pb_settable(pb_Table *t, pb_Key key) {
 }
 
 PB_API int pb_nextentry(const pb_Table *t, const pb_Entry **pentry) {
+    /* Read bitfields into locals. GCC with optimization on ARM can mis-cache
+     * bitfield reads through a const pointer, causing entry_size to appear 0
+     * inside the loop even when the struct data is correct. Reading once into
+     * a plain local prevents this misoptimization. */
+    size_t es = t->entry_size;
     size_t i = *pentry ? pbT_offset(*pentry, t->hash) : 0;
-    size_t size = (size_t)t->size*t->entry_size;
+    size_t size = (size_t)t->size * es;
+    PB_DEBUG_LOG("pb_nextentry: t=%p size=%u es=%u sz=%u has_zero=%u pentry=%p",
+        (void*)t, (unsigned)t->size, (unsigned)es,
+        (unsigned)size, (unsigned)t->has_zero, (void*)*pentry);
     if (*pentry == NULL && t->has_zero) {
         *pentry = t->hash;
         return 1;
     }
-    while (i += t->entry_size, i < size) {
+    while (i += es, i < size) {
         pb_Entry *entry = pbT_index(t->hash, i);
+        PB_DEBUG_LOG("pb_nextentry: i=%u key=%d", (unsigned)i, (int)entry->key);
         if (entry->key != 0) {
             *pentry = entry;
             return 1;
         }
     }
+    PB_DEBUG_LOG("pb_nextentry: exhausted i=%u size=%u", (unsigned)i, (unsigned)size);
     *pentry = NULL;
     return 0;
 }
-
 
 /* name table */
 
@@ -1178,15 +1208,24 @@ PB_API int pb_nexttype(const pb_State *S, const pb_Type **ptype) {
         if (*ptype != NULL)
             e = (pb_TypeEntry*)pb_gettable(&S->types, (pb_Key)(*ptype)->name);
         while (pb_nextentry(&S->types, (const pb_Entry**)&e))
-            if ((*ptype = e->value) != NULL && !(*ptype)->is_dead)
+            if ( e && (*ptype = e->value) != NULL && !(*ptype)->is_dead)
                 return 1;
     }
     *ptype = NULL;
     return 0;
 }
 
+#if defined(__GNUC__)
+#pragma GCC push_options
+#pragma GCC optimize ("O1")
+#endif
 PB_API int pb_nextfield(const pb_Type *t, const pb_Field **pfield) {
-    const pb_FieldEntry *e = NULL;
+    /* GCC -Os on ARM miscompiles this function: it reuses the stack slot that
+     * holds the 'pfield' argument as the local variable 'e', without zeroing
+     * it first. As a result 'e' starts non-NULL (pointing at pfield itself),
+     * pb_nextentry computes a garbage offset, and no fields are returned.
+     * Force O1 to avoid this misoptimization. */
+    pb_FieldEntry *e = NULL;
     if (t != NULL) {
         if (*pfield != NULL)
             e = (pb_FieldEntry*)pb_gettable(&t->field_tags, (*pfield)->number);
@@ -1197,6 +1236,9 @@ PB_API int pb_nextfield(const pb_Type *t, const pb_Field **pfield) {
     *pfield = NULL;
     return 0;
 }
+#if defined(__GNUC__)
+#pragma GCC pop_options
+#endif
 
 
 /* new type/field */
@@ -1647,7 +1689,14 @@ static int pbL_loadField(pb_State *S, pbL_FieldInfo *info, pb_Loader *L, pb_Type
         pbCE(ft = pb_newtype(S, pb_newname(S, info->type_name, NULL)));
     if (t == NULL)
         pbCE(t = pb_newtype(S, pb_newname(S, info->extendee, NULL)));
-    pbCE(f = pb_newfield(S, t, pb_newname(S, info->name, NULL), info->number));
+    f = pb_newfield(S, t, pb_newname(S, info->name, NULL), info->number);
+    if (f == NULL) PB_DEBUG_LOG("pb_loadField: pb_newfield FAILED field='%s'#%d in type='%s'",
+        info->name.p ? info->name.p : "?", (int)info->number,
+        t ? (t->name ? (const char*)t->name : "?") : "null");
+    pbCE(f);
+    PB_DEBUG_LOG("pb_loadField: OK '%s'#%d tags: size=%u entry_size=%u",
+        info->name.p ? info->name.p : "?", (int)info->number,
+        (unsigned)t->field_tags.size, (unsigned)t->field_tags.entry_size);
     f->default_value = pb_newname(S, info->default_value, NULL);
     f->type      = ft;
     if ((f->oneof_idx = info->oneof_index)) ++t->oneof_field;
@@ -1665,6 +1714,10 @@ static int pbL_loadType(pb_State *S, pbL_TypeInfo *info, pb_Loader *L) {
     pb_Type *t;
     pbC(pbL_prefixname(S, info->name, &curr, L, &name));
     pbCM(t = pb_newtype(S, name));
+    PB_DEBUG_LOG("pb_loadType: registering '%s' with %d fields %d nested",
+        name ? (const char*)name : "?",
+        (int)pbL_count(info->field),
+        (int)pbL_count(info->nested_type));
     t->is_map = info->is_map, t->is_proto3 = L->is_proto3;
     for (i = 0, count = pbL_count(info->oneof_decl); i < count; ++i) {
         pb_OneofEntry *e = (pb_OneofEntry*)pb_settable(&t->oneof_index, i+1);
@@ -1673,6 +1726,10 @@ static int pbL_loadType(pb_State *S, pbL_TypeInfo *info, pb_Loader *L) {
     }
     for (i = 0, count = pbL_count(info->field); i < count; ++i)
         pbC(pbL_loadField(S, &info->field[i], L, t));
+    PB_DEBUG_LOG("pb_loadType: DONE '%s' field_tags: size=%u entry_size=%u | types: size=%u entry_size=%u",
+        name ? (const char*)name : "?",
+        (unsigned)t->field_tags.size, (unsigned)t->field_tags.entry_size,
+        (unsigned)S->types.size, (unsigned)S->types.entry_size);
     for (i = 0, count = pbL_count(info->extension); i < count; ++i)
         pbC(pbL_loadField(S, &info->extension[i], L, NULL));
     for (i = 0, count = pbL_count(info->enum_type); i < count; ++i)

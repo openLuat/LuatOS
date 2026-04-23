@@ -41,6 +41,9 @@
 #define LUAT_SMS_SHORT_MSG_PDU_SIZE (140)
 #define LUAT_SMS_LONG_MSG_PDU_SIZE (134)
 
+#define LUAT_SMS_SHORT_MSG_7BIT_CHARS (160)  /* GSM 7-bit 短短信最大字符数 (septets) */
+#define LUAT_SMS_LONG_MSG_7BIT_CHARS  (153)  /* GSM 7-bit 长短信每段最大字符数 (septets) */
+
 
 #define LUAT_SMS_CODE_7BIT 0
 #define LUAT_SMS_CODE_8BIT 4
@@ -136,6 +139,8 @@ typedef struct
     uint8_t maxNum;             // 短信最大条数， 长短信用
     uint8_t seqNum;             // 当前短信序号
     uint8_t refNum;
+    uint8_t dcs;           // DCS 编码类型: LUAT_SMS_CODE_7BIT(0) 或 LUAT_SMS_CODE_UCS2(8)
+    size_t  udl;                // TP-UDL 字段值; 0 则从 payload_len 自动推导
 }luat_sms_pdu_packet_t;
 
 /**
@@ -187,6 +192,36 @@ uint16_t luat_sms_decode_7bit_data(uint8_t *src, uint16_t src_len, uint8_t *dst,
 int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data, int pdu_len);
 
 int luat_sms_set_debug(bool debug);
+
+/**
+ * @brief 检查字符串能否用 GSM 7-bit 编码(仅支持 ASCII 子集)
+ * @param str  输入字符串
+ * @param len  字符串字节长度
+ * @return 所需 septet 总数, 或 -1(含不可编码字符)
+ */
+int luat_sms_check_7bit(const char *str, size_t len);
+
+/**
+ * @brief 将 ASCII 字符串编码为 GSM 7-bit unpacked septet 数组(每字符 1 字节)
+ * @param str      输入字符串
+ * @param len      输入字节长度
+ * @param dst      输出 septet 数组
+ * @param dst_len  输出缓冲区大小
+ * @return septet 总数, 或 -1(失败)
+ */
+int luat_sms_encode_7bit_septets(const char *str, size_t len, uint8_t *dst, size_t dst_len);
+
+/**
+ * @brief 将 GSM 7-bit unpacked septet 数组压缩为字节流
+ * @param septets     输入 septet 数组
+ * @param char_count  septet 数量
+ * @param packed      输出字节缓冲区
+ * @param packed_size 输出缓冲区大小
+ * @param bit_offset  首个 septet 的比特偏移(0=无偏移, 1=长短信 UDH 后的填充位)
+ * @return 输出字节数, 或 -1(失败)
+ */
+int luat_sms_pack_7bit(const uint8_t *septets, size_t char_count,
+                       uint8_t *packed, size_t packed_size, size_t bit_offset);
 
 /**@}*/
 #endif

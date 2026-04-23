@@ -42,7 +42,7 @@ end
 #include "luat_log.h"
 
 #define PB_STATIC_API
-#include "pb.h"
+#include "luat_lib_pb.h"
 
 PB_NS_BEGIN
 

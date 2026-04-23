@@ -249,4 +249,107 @@ function httpplus_test.test_httpplus_post_multipart_file_with_number_form()
     assert(tonumber(data.form.count) == 12345, "数字类型表单值回显不一致")
 end
 
+-- 流式下载：is_big_file 模式，验证 callback 接收数据且 resp.body 为 nil
+function httpplus_test.test_httpplus_stream_download()
+    log.info("httpplus_test", "流式下载测试")
+    local total_received = 0
+    local chunk_count = 0
+    local code, resp = httpplus.request({
+        url = urlbase .. "/stream-bytes/10240",
+        is_big_file = true,
+        callback = function(total_len, recv_len, recv_data, userdata)
+            total_received = total_received + recv_len
+            chunk_count = chunk_count + 1
+        end,
+        timeout = 30
+    })
+    assert(code == 200, "预期 200, 实际 " .. tostring(code))
+    assert(total_received == 10240, string.format("预期接收 10240 字节, 实际 %d", total_received))
+    assert(chunk_count > 0, "预期至少接收一个数据块")
+    assert(resp.body == nil, "is_big_file 模式下 resp.body 应为 nil")
+end
+
+-- 流式下载：HTTPS chunked 模式，验证分块接收
+function httpplus_test.test_httpplus_stream_download_https_chunked()
+    log.info("httpplus_test", "HTTPS chunked 流式下载测试")
+    local total_received = 0
+    local is_chunked = false
+    local code, resp = httpplus.request({
+        url = "https://httpbin.air32.cn/stream/50",
+        is_big_file = true,
+        callback = function(total_len, recv_len, recv_data, userdata)
+            total_received = total_received + recv_len
+            if total_len == 0 then
+                is_chunked = true
+            end
+        end,
+        timeout = 30
+    })
+    assert(code == 200, "预期 200, 实际 " .. tostring(code))
+    assert(total_received > 0, string.format("预期接收数据, 实际 %d", total_received))
+    assert(is_chunked, "预期 chunked 传输模式")
+    assert(resp.body == nil, "is_big_file 模式下 resp.body 应为 nil")
+end
+
+-- 文件下载：dst 参数，验证文件写入
+function httpplus_test.test_httpplus_file_download()
+    log.info("httpplus_test", "文件下载测试")
+    local download_path = "/httpplus_download_test.bin"
+    local total_received = 0
+    local code, resp = httpplus.request({
+        url = urlbase .. "/bytes/2048",
+        dst = download_path,
+        callback = function(total_len, recv_len, recv_data, userdata)
+            total_received = total_received + recv_len
+        end,
+        timeout = 30
+    })
+    assert(code == 200, "预期 200, 实际 " .. tostring(code))
+    assert(total_received == 2048, string.format("预期接收 2048 字节, 实际 %d", total_received))
+    local file_data = io.readFile(download_path)
+    assert(file_data and #file_data == 2048, string.format("预期文件大小 2048, 实际 %d", file_data and #file_data or 0))
+    assert(resp.body == nil, "dst 模式下 resp.body 应为 nil")
+end
+
+-- 文件下载：HTTPS 模式
+function httpplus_test.test_httpplus_file_download_https()
+    log.info("httpplus_test", "HTTPS 文件下载测试")
+    local download_path = "/httpplus_download_https_test.bin"
+    local total_received = 0
+    local code, resp = httpplus.request({
+        url = "https://httpbin.air32.cn/bytes/1024",
+        dst = download_path,
+        callback = function(total_len, recv_len, recv_data, userdata)
+            total_received = total_received + recv_len
+        end,
+        timeout = 30
+    })
+    assert(code == 200, "预期 200, 实际 " .. tostring(code))
+    assert(total_received == 1024, string.format("预期接收 1024 字节, 实际 %d", total_received))
+    local file_data = io.readFile(download_path)
+    assert(file_data and #file_data == 1024, string.format("预期文件大小 1024, 实际 %d", file_data and #file_data or 0))
+end
+
+-- 文件下载：无效路径，预期失败
+function httpplus_test.test_httpplus_file_download_invalid_path()
+    local code = httpplus.request({
+        url = urlbase .. "/bytes/100",
+        dst = "/nonexistent_dir_12345/file.bin",
+        timeout = 10
+    })
+    assert(code == -106, string.format("预期 -106, 实际 %d", code))
+end
+
+-- is_big_file 模式：缺少 callback，预期失败
+function httpplus_test.test_httpplus_big_file_without_callback()
+    local code = httpplus.request({
+        url = urlbase .. "/bytes/100",
+        is_big_file = true,
+        timeout = 10
+    })
+    assert(code == -105, string.format("预期 -105, 实际 %d", code))
+end
+
+
+
 return httpplus_test

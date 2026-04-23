@@ -106,6 +106,7 @@ self_docs/
 # cursor编程相关文件
 .cursor/*
 openspec/*
+.codex
 
 # MCP server
 .chroma_code/

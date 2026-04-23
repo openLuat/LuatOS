@@ -43,10 +43,16 @@
 #include <limits.h>
 
 void* luat_heap_malloc(size_t len);
-void  luat_heap_free_pb(void* ptr);
+void* luat_heap_realloc(void* ptr, size_t len);
+void luat_heap_free(void* ptr);
 
 #define os_malloc luat_heap_malloc
-#define os_free luat_heap_free_pb
+#define os_realloc luat_heap_realloc
+static inline void os_free(void* ptr) {
+    if(ptr) {
+        luat_heap_free(ptr);
+    }
+}
 
 PB_NS_BEGIN
 
@@ -699,7 +705,7 @@ PB_API char *pb_prepbuffsize(pb_Buffer *b, size_t len) {
         while (newsize < PB_MAX_SIZET/2 && newsize < expected)
             newsize += newsize >> 1;
         if (newsize < expected) return NULL;
-        if ((newp = (char*)realloc(oldp, newsize)) == NULL) return NULL;
+        if ((newp = (char*)os_realloc(oldp, newsize)) == NULL) return NULL;
         if (!pb_onheap(b)) memcpy(newp, pb_buffer(b), b->size);
         b->heap         = 1;
         b->u.h.buff     = newp;
@@ -1389,7 +1395,7 @@ static int pbL_grow(void **pp, size_t objs) {
         size_t used = (h ? h->count : 0);
         size_t size = used + 4, nsize = size + (size >> 1);
         nh = nsize < size ? NULL :
-            (pb_ArrayHeader*)realloc(h, sizeof(pb_ArrayHeader)+nsize*objs);
+            (pb_ArrayHeader*)os_realloc(h, sizeof(pb_ArrayHeader)+nsize*objs);
         if (nh == NULL) return PB_ENOMEM;
         nh->count    = (unsigned)used;
         nh->capacity = (unsigned)nsize;

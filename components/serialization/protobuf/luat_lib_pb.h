@@ -940,10 +940,6 @@ PB_API pb_Entry *pb_settable(pb_Table *t, pb_Key key) {
     return pbT_newkey(t, key);
 }
 
-#if defined(__GNUC__)
-#pragma GCC push_options
-#pragma GCC optimize ("O1")
-#endif
 PB_API int pb_nextentry(const pb_Table *t, const pb_Entry **pentry) {
     /* Read bitfields into locals. GCC with optimization on ARM can mis-cache
      * bitfield reads through a const pointer, causing entry_size to appear 0
@@ -971,9 +967,6 @@ PB_API int pb_nextentry(const pb_Table *t, const pb_Entry **pentry) {
     *pentry = NULL;
     return 0;
 }
-#if defined(__GNUC__)
-#pragma GCC pop_options
-#endif
 
 /* name table */
 
@@ -1222,8 +1215,17 @@ PB_API int pb_nexttype(const pb_State *S, const pb_Type **ptype) {
     return 0;
 }
 
+#if defined(__GNUC__)
+#pragma GCC push_options
+#pragma GCC optimize ("O1")
+#endif
 PB_API int pb_nextfield(const pb_Type *t, const pb_Field **pfield) {
-    const pb_FieldEntry *e = NULL;
+    /* GCC -Os on ARM miscompiles this function: it reuses the stack slot that
+     * holds the 'pfield' argument as the local variable 'e', without zeroing
+     * it first. As a result 'e' starts non-NULL (pointing at pfield itself),
+     * pb_nextentry computes a garbage offset, and no fields are returned.
+     * Force O1 to avoid this misoptimization. */
+    pb_FieldEntry *e = NULL;
     if (t != NULL) {
         if (*pfield != NULL)
             e = (pb_FieldEntry*)pb_gettable(&t->field_tags, (*pfield)->number);
@@ -1234,6 +1236,9 @@ PB_API int pb_nextfield(const pb_Type *t, const pb_Field **pfield) {
     *pfield = NULL;
     return 0;
 }
+#if defined(__GNUC__)
+#pragma GCC pop_options
+#endif
 
 
 /* new type/field */

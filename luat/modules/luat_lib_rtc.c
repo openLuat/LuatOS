@@ -88,8 +88,8 @@ static int is_valid_second(int second) {
  * @return int 1-有效，0-无效
  */
 static int is_valid_year(int year) {
-    // 允许合理的年份范围，避免极端值
-    return (year >= 1970 && year <= 2100);
+    // 允许更灵活的年份范围，以适应不同的基准年设置
+    return (year >= 1900 && year <= 2200);
 }
 
 /**
@@ -152,13 +152,27 @@ static int l_rtc_set(lua_State *L){
     if (!lua_istable(L, 1)) {
     	if (lua_isinteger(L, 1))
     	{
-    		uint32_t tamp = lua_tointeger(L, 1);
+    		int64_t tamp64 = lua_tointeger(L, 1);
+    		// val为0时无效，返回false，testcase中测试
+    		if (tamp64 == 0) {
+    		    LLOGW("rtc time invalid timestamp: 0");
+    		    lua_pushboolean(L, 0);
+    		    return 1;
+    		}
+    		// 验证时间戳：必须是正数且在合理范围内
+    		if (tamp64 < 0 || tamp64 > 0xFFFFFFFFLL) {
+    		    LLOGW("rtc time invalid timestamp: %lld", tamp64);
+    		    lua_pushboolean(L, 0);
+    		    return 1;
+    		}
+    		uint32_t tamp = (uint32_t)tamp64;
     	    luat_rtc_set_tamp32(tamp);
     	    lua_pushboolean(L, 1);
     	    return 1;
     	}
-        LLOGW("rtc time need table");
-        return 0;
+        LLOGW("rtc time need table or integer");
+        lua_pushboolean(L, 0);
+        return 1;
     }
     lua_settop(L, 1);
 
@@ -229,7 +243,9 @@ static int l_rtc_set(lua_State *L){
         return 1;
     }
 
-    tblock.tm_year -= Base_year;
+    // 转换为标准C库tm结构格式：tm_year是相对于1900年的年份偏移
+    // 用户传入的是绝对年份（如2025），需要转换为相对于1900年的值
+    tblock.tm_year -= 1900;
     tblock.tm_mon -= 1;
 
     ret = luat_rtc_set(&tblock);
@@ -254,7 +270,9 @@ static int l_rtc_get(lua_State *L){
         return 0;
     }
 
-    tblock.tm_year += Base_year;
+    // 从标准C库tm结构转换：tm_year是相对于1900年的年份偏移
+    // 转换为绝对年份返回给用户
+    tblock.tm_year += 1900;
     tblock.tm_mon += 1;
 
 
@@ -370,7 +388,7 @@ static int l_rtc_timer_start(lua_State *L){
         return 0;
     }
 
-    tblock.tm_year -= Base_year;
+    tblock.tm_year -= 1900;
     tblock.tm_mon -= 1;
 
     ret = luat_rtc_timer_start(id, &tblock);
@@ -397,7 +415,14 @@ static int l_rtc_timer_stop(lua_State *L){
 }
 
 static int l_rtc_set_base_year(lua_State *L){
-    Base_year = luaL_checkinteger(L, 1);
+    int year = luaL_checkinteger(L, 1);
+    // 对基准年进行合理验证
+    if (year < 1900 || year > 2050) {
+        LLOGW("rtc invalid base year: %d", year);
+        luaL_error(L, "invalid base year");
+        return 0;
+    }
+    Base_year = year;
     return 0;
 }
 
@@ -419,8 +444,19 @@ rtc.timezone(-16)
 */
 static int l_rtc_timezone(lua_State *L){
     int timezone = 0;
-    if (lua_isinteger(L, 1)) {
+    // 有参数时必须是整数，否则返回false
+    if (lua_gettop(L) > 0) {
+        if (!lua_isinteger(L, 1)) {
+            LLOGW("rtc timezone invalid parameter type");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
         timezone = luaL_checkinteger(L, 1);
+        // 校验范围：-48 ~ 48，且必须是4的倍数
+        if (timezone < -48 || timezone > 48 || timezone % 4 != 0) {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
         timezone = luat_rtc_timezone(&timezone);
     }
     else {

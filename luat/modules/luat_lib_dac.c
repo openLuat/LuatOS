@@ -214,5 +214,6 @@ LUAT_WEAK int luat_dac_out(uint32_t ch, uint32_t value) {return -1;}
 LUAT_WEAK int luat_dac_write_loop(uint32_t ch, uint8_t* buff, size_t size) {return -1;}
 
 LUAT_WEAK int luat_dac_set_vol(uint32_t ch, uint8_t vol) {return -1;}
+LUAT_WEAK int luat_dac_modify(uint8_t id,uint8_t dac_chl,uint8_t data_bits,uint32_t sample_rate){return -1;}
 
 #endif

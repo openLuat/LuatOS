@@ -62,11 +62,11 @@ local function send_aircloud_data()
     --     data_type = excloud.DATA_TYPES.ASCII, -- 数据类型：ASCII字符串
     --     value = mobile.imei() or "" -- 设备IMEI（4G模块）
     -- }, 
-    {
-        field_meaning = excloud.FIELD_MEANINGS.VOLTAGE, -- 字段含义：电压
-        data_type = excloud.DATA_TYPES.INTEGER, -- 数据类型：整数
-        value = vabt_vaule() -- vbat电压值
-    }, 
+    -- {
+    --     field_meaning = excloud.FIELD_MEANINGS.VOLTAGE, -- 字段含义：电压
+    --     data_type = excloud.DATA_TYPES.INTEGER, -- 数据类型：整数
+    --     value = vabt_vaule() -- vbat电压值
+    -- }, 
     {
         field_meaning = 0, -- 自定义数据，使用0作为field_meaning
         data_type = excloud.DATA_TYPES.UNICODE, -- 数据类型：Unicode字符串

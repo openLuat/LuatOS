@@ -10,6 +10,8 @@
 
 直接使用Air1601开发板硬件测试即可；
 
+注意：当前netdrv_wifi还不能使用
+
 本文件没有对外接口，直接在其他功能模块中require "netdrv_multiple"就可以加载运行；
 ]]
 

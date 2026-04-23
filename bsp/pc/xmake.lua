@@ -386,6 +386,11 @@ target("luatos-lua")
     add_thirdparty_files(luatos.."components/libwebp/src/dsp/*.c")
     add_thirdparty_files(luatos.."components/libwebp/src/utils/*.c")
 
+    -- nanopb
+    add_includedirs(luatos.."components/nanopb/include",{public = true})
+    add_files(luatos.."components/nanopb/src/*.c")
+    -- add_files(luatos.."components/nanopb/binding/*.c")
+
     if true then
         -- lwip & zlink
         local lwip_path = luatos .. "components/network/lwip22/"

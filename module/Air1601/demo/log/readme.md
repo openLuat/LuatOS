@@ -2,7 +2,7 @@
 
 1、main.lua：主程序入口，负责初始化系统环境；
 
-2、log_test.lua：日志功能测试模块，演示Air8101的日志输出功能；
+2、log_test.lua：日志功能测试模块，演示Air1601的日志输出功能；
 
 ## 演示功能概述
 
@@ -40,7 +40,9 @@ log.setLevel("SILENT")： 静默所有日志，即禁止日志有任何内容输
 
 1. 烧录工具：[Luatools 下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-2. 内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc]((https://gitee.com/openLuat/LuatOS/releases/tag/v1004.air1601.release))；
+2. 内核固件文件（底层 core 固件文件）：
+
+   本demo开发测试时使用的固件为[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/)，本demo对固件版本没有什么特殊要求，所以你如果要测试本demo时，可以直接使用最新版本的内核固件；如果发现最新版本的内核固件测试有问题，可以使用我们开发本demo时使用的内核固件版本来对比测试。
 
 3. .luatos 需要的脚本和资源文件
 

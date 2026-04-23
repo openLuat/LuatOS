@@ -25,7 +25,7 @@ local udp_client_sender = require "udp_client_sender"
 -- 点击 打开UDP 按钮，会创建一个UDP server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "115.120.239.161"
-local SERVER_PORT = 22816
+local SERVER_PORT = 23625
 
 -- udp_client_main的任务名
 local TASK_NAME = udp_client_sender.TASK_NAME

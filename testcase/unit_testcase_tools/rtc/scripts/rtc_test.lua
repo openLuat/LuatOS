@@ -232,37 +232,37 @@ function rtc_test.test_rtc_timezone_comprehensive()
     -- 测试超出范围的时区值（>48）
     local invalid_tz = 52
     local set_result = rtc.timezone(invalid_tz)
-    assert(set_result == invalid_tz,
-        string.format("测试超范围时区设置测试失败: 预期%d设置失败", invalid_tz))
-    log.info("rtc_test", string.format("超范围时区%d被测试成功", invalid_tz))
+    assert(set_result == false,
+        string.format("测试超范围时区设置测试失败: 预期false, 实际%s", tostring(set_result)))
+    log.info("rtc_test", string.format("超范围时区%d被拒绝测试成功", invalid_tz))
 
     -- 测试超出范围的时区值（<-48）
     local invalid_tz = -52
     local set_result = rtc.timezone(invalid_tz)
-    assert(set_result == invalid_tz,
-        string.format("超范围时区设置测试失败: 预期%d设置失败", invalid_tz))
-    log.info("rtc_test", string.format("超范围时区%d测试成功", invalid_tz))
+    assert(set_result == false,
+        string.format("超范围时区设置测试失败: 预期false, 实际%s", tostring(set_result)))
+    log.info("rtc_test", string.format("超范围时区%d被拒绝测试成功", invalid_tz))
 
     -- 测试非4的倍数的时区值
     local invalid_tz = 30
     local set_result = rtc.timezone(invalid_tz)
-    assert(set_result == invalid_tz,
-        string.format("非4倍数时区设置测试失败: 预期%d测试失败", invalid_tz))
-    log.info("rtc_test", string.format("非4倍数时区%d测试成功", invalid_tz))
+    assert(set_result == false,
+        string.format("非4倍数时区设置测试失败: 预期false, 实际%s", tostring(set_result)))
+    log.info("rtc_test", string.format("非4倍数时区%d被拒绝测试成功", invalid_tz))
 
     -- 测试string类型参数
-    local result, err = pcall(rtc.timezone, "32")
-    assert(result ~= true, "rtc.timezone传入string类型时区参数测试失败")
+    local result = rtc.timezone("32")
+    assert(result == false, "rtc.timezone传入string类型时区参数测试失败")
     log.info("rtc_test", "rtc.timezone传入string类型时区参数测试成功")
 
     -- 测试nil参数
-    local result, err = pcall(rtc.timezone, nil)
-    assert(result ~= true, "rtc.timezone传入nil参数测试失败")
-    log.info("rtc_test", "rtc.timezone传入nil参数测试失败 ")
+    local result = rtc.timezone(nil)
+    assert(result == false, "rtc.timezone传入nil参数测试失败")
+    log.info("rtc_test", "rtc.timezone传入nil参数测试成功")
 
     -- 测试boolean类型参数
-    local result, err = pcall(rtc.timezone, true)
-    assert(result ~= true, "rtc.timezone传入boolean类型时区参数测试失败")
+    local result = rtc.timezone(true)
+    assert(result == false, "rtc.timezone传入boolean类型时区参数测试失败")
     log.info("rtc_test", "rtc.timezone传入boolean类型时区参数测试成功")
 
     log.info("rtc_test", "===== rtc.timezone函数完整测试完成 =====")

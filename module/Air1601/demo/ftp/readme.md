@@ -2,7 +2,7 @@
 
 1、main.lua：主程序入口；
 
-2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单wifi网卡，单spi以太网卡，多网卡)中的任何一种网卡；
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单wifi网卡，单spi以太网卡，多网卡)中的任何一种网卡；(注意：当前netdrv_wifi还不能使用)
 
 3、netdrv文件夹：四种网卡，单4g网卡、单wifi网卡，、单spi以太网卡、多网卡，供netdrv_device.lua加载配置；
 
@@ -68,8 +68,6 @@
 
 5、 pc 系统 win11（win10 及以上）
 
-   
-
 ## 演示核心步骤
 
 1、搭建好硬件环境
@@ -78,11 +76,11 @@
 
 * 如果需要单4G网卡，打开require "netdrv_4g"，其余注释掉
 
-* 如果需要单WIFI STA网卡，打开require "netdrv_wifi"，其余注释掉；同时netdrv_wifi.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
+* 如果需要单WIFI STA网卡，打开require "netdrv_wifi"，其余注释掉；同时netdrv_wifi.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi(注意：当前netdrv_wifi还不能使用)
 
 * 如果需要以太网卡，打开require "netdrv_eth_spi"，其余注释掉
 
-* 如果需要多网卡，打开require "netdrv_multiple"，其余注释掉；同时netdrv_multiple.lua中的ssid = "茶室-降功耗,找合宙!", password = "Air123456", 修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
+* 如果需要多网卡，打开require "netdrv_multiple"，其余注释掉；同时netdrv_multiple.lua中的ssid = "茶室-降功耗,找合宙!", password = "Air123456", 修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi(注意：当前netdrv_wifi还不能使用)
 
 3、如果是自己的ftp服务器，脚本代码ftp_up_download.lua中，在config表中按自己的服务器IP，端口号，用户名，密码修改参数。
 

@@ -377,10 +377,11 @@ static int l_airlink_config(lua_State *L) {
         g_airlink_spi_conf.speed = value;
         break;
     case LUAT_AIRLINK_CONF_UART_ID:
-        if (value < 0 || value > 3) {
-            LLOGE("无效的UART %d, 只能是0~3", value);
-            return 0;
-        }
+        // if (value < 0 || value > 3) {
+        //     LLOGE("无效的UART %d, 只能是0~3", value);
+        //     return 0;
+        // }
+        LLOGD("配置UART ID为 %d", value);
         g_airlink_spi_conf.uart_id = value;
         break;
     default:

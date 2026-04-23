@@ -8,9 +8,11 @@
 
 4、netdrv_4g.lua：4g网络模块
 
-5、netdrv_eth_wan.lua：“通过SPI外挂CH390H芯片的以太网卡”驱动模块（WAN模式）
+5、netdrv_wifi.lua：wifi网络模块
 
-6、netdrv_multiple.lua：多网卡（4G网卡、WIFI STA网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块
+6、netdrv_eth_spi.lua：“通过SPI外挂CH390H芯片的以太网卡”驱动模块
+
+7、netdrv_multiple.lua：多网卡（4G网卡、WIFI STA网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块
 
 
 ## 演示功能概述

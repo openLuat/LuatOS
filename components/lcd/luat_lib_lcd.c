@@ -358,7 +358,13 @@ static int l_lcd_init(lua_State* L) {
                 conf->vfp = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
-            
+
+            lua_pushstring(L, "pclk");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->pclk = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
             lua_pushstring(L, "pin_clk");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->lcd_clk_pin = luaL_checkinteger(L, -1);
@@ -2374,6 +2380,10 @@ static const rotable_Reg_t reg_lcd[] =
     //@const ACC_HW_ALL 所有硬件加速
     {"ACC_HW_ALL", ROREG_INT(LUAT_LCD_ACC_HW_ALL)},
 
+    //@const PCLK_FALLING PCLK下降沿
+    {"PCLK_FALLING", ROREG_INT(LUAT_LCD_RGB_PCLK_FALLING)},
+    //@const PCLK_RISING PCLK上升沿
+    {"PCLK_RISING", ROREG_INT(LUAT_LCD_RGB_PCLK_RISING)},
 	{NULL, ROREG_INT(0)}
 };
 

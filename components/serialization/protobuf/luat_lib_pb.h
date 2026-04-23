@@ -1138,16 +1138,28 @@ PB_API void pb_init(pb_State *S) {
     pb_initpool(&S->fieldpool, sizeof(pb_Field));
 }
 
+#if 0
+#pragma GCC push_options
+#pragma GCC optimize ("O1")
+#endif
 PB_API void pb_free(pb_State *S) {
-    const pb_TypeEntry *te = NULL;
+    /* Use const pb_Entry* as iterator state (no strict-aliasing cast);
+     * cast to pb_TypeEntry* inside loop body only. Pragma O1 guards against
+     * GCC -Os ARM stack-slot aliasing (Pattern 2: simple NULL init). */
+    const pb_Entry *e = NULL;
     if (S == NULL) return;
-    while (pb_nextentry(&S->types, (const pb_Entry**)&te))
+    while (pb_nextentry(&S->types, &e)) {
+        pb_TypeEntry *te = (pb_TypeEntry*)e;
         if (te->value != NULL) pb_deltype(S, te->value);
+    }
     pb_freetable(&S->types);
     pb_freepool(&S->typepool);
     pb_freepool(&S->fieldpool);
     pbN_free(S);
 }
+#if 0
+#pragma GCC pop_options
+#endif
 
 PB_API const pb_Type *pb_type(const pb_State *S, const pb_Name *tname) {
     pb_TypeEntry *te = NULL;
@@ -1174,7 +1186,14 @@ static int comp_field(const void* a, const void* b) {
     return (*(const pb_Field**)a)->number - (*(const pb_Field**)b)->number;
 }
 
+#if 0
+#pragma GCC push_options
+#pragma GCC optimize ("O1")
+#endif
 PB_API pb_Field** pb_sortfield(pb_Type* t) {
+    /* Local 'f' starts NULL and is passed as iterator state to pb_nextfield via
+     * &f. GCC -Os on ARM may alias this stack slot to the saved 't' argument,
+     * causing iteration to start from a garbage position. Force O1. */
     if (!t->field_sort && t->field_count) {
         int index = 0;
         unsigned int i = 0;
@@ -1195,6 +1214,9 @@ PB_API pb_Field** pb_sortfield(pb_Type* t) {
 
     return t->field_sort;
 }
+#if 0
+#pragma GCC pop_options
+#endif
 
 PB_API const pb_Name *pb_oneofname(const pb_Type *t, int idx) {
     pb_OneofEntry *oe = NULL;
@@ -1203,42 +1225,42 @@ PB_API const pb_Name *pb_oneofname(const pb_Type *t, int idx) {
 }
 
 PB_API int pb_nexttype(const pb_State *S, const pb_Type **ptype) {
-    const pb_TypeEntry *e = NULL;
-    if (S != NULL) {
-        if (*ptype != NULL)
-            e = (pb_TypeEntry*)pb_gettable(&S->types, (pb_Key)(*ptype)->name);
-        while (pb_nextentry(&S->types, (const pb_Entry**)&e))
-            if ( e && (*ptype = e->value) != NULL && !(*ptype)->is_dead)
-                return 1;
+    /* Same two-fix pattern as pb_nextfield: use const pb_Entry* as iterator
+     * state (no strict-aliasing cast), ternary init (no ARM -Os stack aliasing). */
+    if (S == NULL) { *ptype = NULL; return 0; }
+    const pb_TypeEntry *_te = (*ptype != NULL) ?
+        (const pb_TypeEntry*)pb_gettable(&S->types, (pb_Key)(*ptype)->name) : NULL;
+    const pb_Entry *ent = _te ? &_te->entry : NULL;
+    while (pb_nextentry(&S->types, &ent)) {
+        const pb_TypeEntry *e = (const pb_TypeEntry*)ent;
+        if ((*ptype = e->value) != NULL && !(*ptype)->is_dead)
+            return 1;
     }
     *ptype = NULL;
     return 0;
 }
 
-#if defined(__GNUC__)
-#pragma GCC push_options
-#pragma GCC optimize ("O1")
-#endif
 PB_API int pb_nextfield(const pb_Type *t, const pb_Field **pfield) {
-    /* GCC -Os on ARM miscompiles this function: it reuses the stack slot that
-     * holds the 'pfield' argument as the local variable 'e', without zeroing
-     * it first. As a result 'e' starts non-NULL (pointing at pfield itself),
-     * pb_nextentry computes a garbage offset, and no fields are returned.
-     * Force O1 to avoid this misoptimization. */
-    pb_FieldEntry *e = NULL;
-    if (t != NULL) {
-        if (*pfield != NULL)
-            e = (pb_FieldEntry*)pb_gettable(&t->field_tags, (*pfield)->number);
-        while (pb_nextentry(&t->field_tags, (const pb_Entry**)&e))
-            if ((*pfield = e->value) != NULL)
-                return 1;
+    /* Two fixes combined:
+     * 1. strict-aliasing: use const pb_Entry* as iterator state (matching
+     *    pb_nextentry's type), cast to pb_FieldEntry* only inside the loop body.
+     *    The old (const pb_Entry**)&e cast where e is pb_FieldEntry* violates
+     *    C strict-aliasing rules and causes misoptimization with -fstrict-aliasing.
+     * 2. GCC -Os ARM stack-slot aliasing: ternary initialization forces the
+     *    compiler to compute and store a fresh value, preventing the optimizer
+     *    from reusing the stack slot holding the 'pfield' argument. */
+    if (t == NULL) { *pfield = NULL; return 0; }
+    const pb_FieldEntry *_fe = (*pfield != NULL) ?
+        (const pb_FieldEntry*)pb_gettable(&t->field_tags, (*pfield)->number) : NULL;
+    const pb_Entry *ent = _fe ? &_fe->entry : NULL;
+    while (pb_nextentry(&t->field_tags, &ent)) {
+        const pb_FieldEntry *e = (const pb_FieldEntry*)ent;
+        if ((*pfield = e->value) != NULL)
+            return 1;
     }
     *pfield = NULL;
     return 0;
 }
-#if defined(__GNUC__)
-#pragma GCC pop_options
-#endif
 
 
 /* new type/field */
@@ -1284,11 +1306,19 @@ PB_API void pb_delsort(pb_Type *t) {
     }
 }
 
+#if 0
+#pragma GCC push_options
+#pragma GCC optimize ("O1")
+#endif
 PB_API void pb_deltype(pb_State *S, pb_Type *t) {
-    pb_FieldEntry *nf = NULL;
-    pb_OneofEntry *ne = NULL;
+    /* Use single const pb_Entry* for all three loops (pb_nextentry resets it to
+     * NULL on exhaustion, so it is safe to reuse across consecutive loops over
+     * different tables). Cast to concrete type inside each loop body.
+     * Pragma O1 guards against GCC -Os ARM stack-slot aliasing (Pattern 2). */
+    const pb_Entry *e = NULL;
     if (S == NULL || t == NULL) return;
-    while (pb_nextentry(&t->field_names, (const pb_Entry**)&nf)) {
+    while (pb_nextentry(&t->field_names, &e)) {
+        const pb_FieldEntry *nf = (const pb_FieldEntry*)e;
         if (nf->value != NULL) {
             pb_FieldEntry *of = (pb_FieldEntry*)pb_gettable(
                     &t->field_tags, nf->value->number);
@@ -1297,10 +1327,14 @@ PB_API void pb_deltype(pb_State *S, pb_Type *t) {
             pbT_freefield(S, nf->value);
         }
     }
-    while (pb_nextentry(&t->field_tags, (const pb_Entry**)&nf))
+    while (pb_nextentry(&t->field_tags, &e)) {
+        const pb_FieldEntry *nf = (const pb_FieldEntry*)e;
         if (nf->value != NULL) pbT_freefield(S, nf->value);
-    while (pb_nextentry(&t->oneof_index, (const pb_Entry**)&ne))
+    }
+    while (pb_nextentry(&t->oneof_index, &e)) {
+        const pb_OneofEntry *ne = (const pb_OneofEntry*)e;
         pb_delname(S, ne->name);
+    }
     pb_freetable(&t->field_tags);
     pb_freetable(&t->field_names);
     pb_freetable(&t->oneof_index);
@@ -1310,6 +1344,9 @@ PB_API void pb_deltype(pb_State *S, pb_Type *t) {
     /*pb_delname(S, t->name); */
     /*pb_poolfree(&S->typepool, t); */
 }
+#if 0
+#pragma GCC pop_options
+#endif
 
 PB_API pb_Field *pb_newfield(pb_State *S, pb_Type *t, pb_Name *fname, int32_t number) {
     pb_FieldEntry *nf, *tf;

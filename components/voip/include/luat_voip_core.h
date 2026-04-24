@@ -88,6 +88,7 @@ enum {
     VOIP_EVENT_STOP,
     VOIP_EVENT_RX_DATA,     /* UDP 收到数据 */
     VOIP_EVENT_MIC_DATA,    /* I2S 采集到数据 */
+    VOIP_EVENT_SPK_DONE,    /* DAC 播放完成一帧 */
     VOIP_EVENT_STATS_TICK,  /* 统计输出定时器 */
 };
 

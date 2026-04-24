@@ -12,9 +12,11 @@
 
 6、record_pcm_file.lua：流式录音到文件功能模块，演示PCM格式音频录制；
 
-7、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
+7、http_pcm_stream_play.lua：HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡；
 
-8、test.pcm：用于测试PCM流式播放的示例音频文件；
+8、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
+
+9、test.pcm：用于测试PCM流式播放的示例音频文件；
 
 **注意:目前不支持录音和放音同时进行**
 
@@ -124,6 +126,7 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 ├── play_stream.lua       # 流式音频播放功能模块，支持PCM格式流式播放
 ├── record_amr_file.lua   # 录音到文件功能模块，支持AMR格式录音
 ├── record_pcm_file.lua   # 流式录音到文件功能模块，支持PCM格式录音
+├── http_pcm_stream_play.lua # HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式
 ├── sample-6s.mp3         # 示例音频文件，用于播放测试
 ├── test.pcm              # 示例PCM音频文件，用于流式播放测试
 └── 10.amr                # 示例AMR音频文件，用于播放测试
@@ -327,6 +330,54 @@ I/user.mem.sys 3200560 478380 485708
 I/user.播放完成
 ```
 
+### 6、HTTP下载音频文件播放功能（http_pcm_stream_play.lua）
+
+1. 搭建好硬件环境
+2. 搭配AirAUDIO_1000音频板测试，需将AirAUDIO_1000音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+3. 打开main.lua，确保保留`require "http_pcm_stream_play"`这一行
+4. 修改`http_pcm_stream_play.lua`中的`AUDIO_URL`变量，设置为要下载的音频文件URL（支持PCM/MP3/AMR格式，自动识别）
+5. 将代码下载到开发板并运行
+6. **演示效果**：通过HTTP下载音频文件并播放，自动识别音频格式，支持SD卡存储，文件大于200KB时必须使用SD卡
+
+**运行结果示例：**
+
+```lua
+I/user.http_pcm_stream_play 音频系统初始化
+I/user.http_pcm_stream_play 开始挂载SD卡
+I/user.http_pcm_stream_play SD卡挂载成功 挂载路径: /sd
+I/user.http_pcm_stream_play SD卡空间信息 {"free_sectors":31106560,"total_kb":15554016,"free_kb":15553280,"total_sectors":31108032}
+I/user.http_pcm_stream_play 等待网络就绪...
+I/user.http_pcm_stream_play 网络已就绪
+I/user.http_pcm_stream_play 音量设置: 70
+I/user.http_pcm_stream_play 音频硬件初始化成功
+I/user.http_pcm_stream_play 存储路径: /sd (SD卡)
+I/user.http_pcm_stream_play 按键功能说明：
+I/user.http_pcm_stream_play 1. Power键: 开始HTTP下载并播放音频
+I/user.http_pcm_stream_play 2. Boot键: 停止播放
+I/user.http_pcm_stream_play 3. 音频URL: http://airtest.openluat.com:2900/download/10.amr
+I/user.http_pcm_stream_play 4. 音频格式: amr
+
+# 空闲时按Power键开始下载并播放
+I/user.http_pcm_stream_play 按下POWERKEY键
+I/user.http_pcm_stream_play 开始HTTP下载并播放 amr
+I/user.http_pcm_stream_play 启动HTTP下载播放任务
+I/user.http_pcm_stream_play 音频格式: amr URL: http://airtest.openluat.com:2900/download/10.amr
+I/user.http_pcm_stream_play 临时文件路径: /sd/tmp_http_audio.amr (SD卡)
+I/user.http_pcm_stream_play 获取文件大小...
+I/user.http_pcm_stream_play 下载进度: 0 / 678
+I/user.http_pcm_stream_play 下载进度: 678 / 678
+I/user.http_pcm_stream_play HTTP下载完成，文件大小: 678
+I/user.http_pcm_stream_play AMR 使用文件播放
+I/user.http_pcm_stream_play 播放已启动
+I/user.http_pcm_stream_play 播放完成
+I/user.http_pcm_stream_play 临时文件已删除
+```
+
+**注意事项：**
+- 音频格式根据URL后缀自动识别（.pcm/.mp3/.amr）
+- PCM格式使用流式播放，MP3/AMR格式使用文件播放
+- 文件大于200KB且SD卡未挂载时会提示"文件过大，请用SD卡下载"
+- 播放完成后自动删除临时文件
 
 ## **异常处理**
 

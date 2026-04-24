@@ -55,6 +55,10 @@
    Conference on Acoustics, Speech, and Signal Processing, 2004.
 */
 
+#ifndef EXPORT
+#define EXPORT
+#endif
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif

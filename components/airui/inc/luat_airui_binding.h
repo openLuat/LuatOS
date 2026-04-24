@@ -54,6 +54,9 @@ void airui_component_invalidate_ref(airui_component_ref_t *ref);
 // 销毁组件 userdata
 int airui_component_destroy_userdata(lua_State *L, int index, const char *mt);
 
+// 检查组件是否被销毁
+int airui_component_is_destroyed(lua_State *L);
+
 #ifdef __cplusplus
 }
 #endif

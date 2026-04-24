@@ -15,7 +15,7 @@
 #include "luat_bget.h"
 
 #define LUAT_HEAP_SRAM_SIZE (2*1024*1024)
-#define LUAT_HEAP_PSRAM_SIZE (8*1024*1024)
+#define LUAT_HEAP_PSRAM_SIZE (16*1024*1024)
 
 static void* psram_ptr;
 static luat_bget_t psram_bget;

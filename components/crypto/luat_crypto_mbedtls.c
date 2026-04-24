@@ -476,6 +476,339 @@ int luat_crypto_cipher_suites(const char** list, size_t* len) {
  * @param slen 加密密钥长度
  * @return 0成功
  */
+/* ============================================================
+ * PK 签名 / 验签实现 (基于 mbedtls pk 系列 API)
+ * 支持 RSA、ECDSA 等所有 mbedtls pk 支持的算法
+ * 自动识别 PEM（检测 "-----" 前缀）和 DER 二进制格式
+ * ============================================================ */
+#if defined(MBEDTLS_PK_C) && defined(MBEDTLS_PK_PARSE_C)
+#include "mbedtls/pk.h"
+
+/* 简单 RNG 回调：优先使用平台 TRNG，回退到 rand() */
+static int luat_pk_rng_cb(void *ctx, unsigned char *output, size_t len) {
+    (void)ctx;
+    if (luat_crypto_trng((char *)output, len) == 0)
+        return 0;
+    /* fallback */
+    for (size_t i = 0; i < len; i++)
+        output[i] = (unsigned char)rand();
+    return 0;
+}
+
+/* 判断是否为 PEM 格式（以 "-----" 开头且末尾含 '\0'） */
+static int luat_pk_is_pem(const uint8_t *data, size_t len) {
+    return (len > 5 && memcmp(data, "-----", 5) == 0);
+}
+
+/* 申请一块含 NUL 终止的 PEM 缓冲区（PEM 解析需要 '\0'）*/
+static uint8_t *luat_pk_dup_pem(const uint8_t *data, size_t len) {
+    uint8_t *buf = (uint8_t *)luat_heap_malloc(len + 1);
+    if (buf) {
+        memcpy(buf, data, len);
+        buf[len] = '\0';
+    }
+    return buf;
+}
+
+int luat_crypto_pk_sign(int md_type,
+                        const uint8_t *hash, size_t hash_len,
+                        const uint8_t *privkey, size_t privkey_len,
+                        const char *password, size_t pwd_len,
+                        uint8_t **sig_out, size_t *sig_len_out)
+{
+    int ret = -1;
+    mbedtls_pk_context pk;
+    uint8_t *pem_buf = NULL;
+
+    *sig_out = NULL;
+    *sig_len_out = 0;
+
+    mbedtls_pk_init(&pk);
+
+    /* 解析私钥 */
+    if (luat_pk_is_pem(privkey, privkey_len)) {
+        pem_buf = luat_pk_dup_pem(privkey, privkey_len);
+        if (!pem_buf) goto cleanup;
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+        ret = mbedtls_pk_parse_key(&pk, pem_buf, privkey_len + 1,
+                                   (const uint8_t *)password, pwd_len,
+                                   luat_pk_rng_cb, NULL);
+#else
+        ret = mbedtls_pk_parse_key(&pk, pem_buf, privkey_len + 1,
+                                   (const uint8_t *)password, pwd_len);
+#endif
+        luat_heap_free(pem_buf);
+        pem_buf = NULL;
+    } else {
+        /* DER 格式 */
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+        ret = mbedtls_pk_parse_key(&pk, privkey, privkey_len,
+                                   (const uint8_t *)password, pwd_len,
+                                   luat_pk_rng_cb, NULL);
+#else
+        ret = mbedtls_pk_parse_key(&pk, privkey, privkey_len,
+                                   (const uint8_t *)password, pwd_len);
+#endif
+    }
+    if (ret != 0) {
+        LLOGE("pk_sign: parse privkey failed -0x%04x", -ret);
+        goto cleanup;
+    }
+
+    /* 分配签名缓冲区 */
+    size_t sig_max = MBEDTLS_PK_SIGNATURE_MAX_SIZE;
+    if (sig_max == 0) sig_max = 1024; /* 防御性回退 */
+    *sig_out = (uint8_t *)luat_heap_malloc(sig_max);
+    if (!*sig_out) {
+        ret = -1;
+        goto cleanup;
+    }
+
+    /* 执行签名 */
+    size_t sig_len = 0;
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+    ret = mbedtls_pk_sign(&pk, (mbedtls_md_type_t)md_type, hash, hash_len,
+                          *sig_out, sig_max, &sig_len,
+                          luat_pk_rng_cb, NULL);
+#else
+    ret = mbedtls_pk_sign(&pk, (mbedtls_md_type_t)md_type, hash, hash_len,
+                          *sig_out, &sig_len,
+                          luat_pk_rng_cb, NULL);
+#endif
+    if (ret != 0) {
+        LLOGE("pk_sign: sign failed -0x%04x", -ret);
+        luat_heap_free(*sig_out);
+        *sig_out = NULL;
+    } else {
+        *sig_len_out = sig_len;
+    }
+
+cleanup:
+    mbedtls_pk_free(&pk);
+    return ret;
+}
+
+int luat_crypto_pk_verify(int md_type,
+                          const uint8_t *hash, size_t hash_len,
+                          const uint8_t *pubkey, size_t pubkey_len,
+                          const uint8_t *sig, size_t sig_len)
+{
+    int ret = -1;
+    mbedtls_pk_context pk;
+    uint8_t *pem_buf = NULL;
+
+    mbedtls_pk_init(&pk);
+
+    /* 解析公钥 */
+    if (luat_pk_is_pem(pubkey, pubkey_len)) {
+        pem_buf = luat_pk_dup_pem(pubkey, pubkey_len);
+        if (!pem_buf) goto cleanup;
+        ret = mbedtls_pk_parse_public_key(&pk, pem_buf, pubkey_len + 1);
+        luat_heap_free(pem_buf);
+        pem_buf = NULL;
+    } else {
+        /* DER 格式 */
+        ret = mbedtls_pk_parse_public_key(&pk, pubkey, pubkey_len);
+    }
+    if (ret != 0) {
+        LLOGE("pk_verify: parse pubkey failed -0x%04x", -ret);
+        goto cleanup;
+    }
+
+    ret = mbedtls_pk_verify(&pk, (mbedtls_md_type_t)md_type, hash, hash_len, sig, sig_len);
+    if (ret != 0) {
+        LLOGD("pk_verify: verify failed -0x%04x", -ret);
+    }
+
+cleanup:
+    mbedtls_pk_free(&pk);
+    return ret;
+}
+
+const char *luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_private)
+{
+    int ret;
+    mbedtls_pk_context pk;
+    uint8_t *pem_buf = NULL;
+    const char *type_str = NULL;
+
+    mbedtls_pk_init(&pk);
+
+    if (luat_pk_is_pem(key, key_len)) {
+        pem_buf = luat_pk_dup_pem(key, key_len);
+        if (!pem_buf) goto done;
+        if (is_private) {
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+            ret = mbedtls_pk_parse_key(&pk, pem_buf, key_len + 1,
+                                       NULL, 0, luat_pk_rng_cb, NULL);
+#else
+            ret = mbedtls_pk_parse_key(&pk, pem_buf, key_len + 1, NULL, 0);
+#endif
+        } else {
+            ret = mbedtls_pk_parse_public_key(&pk, pem_buf, key_len + 1);
+        }
+        luat_heap_free(pem_buf);
+        pem_buf = NULL;
+    } else {
+        if (is_private) {
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+            ret = mbedtls_pk_parse_key(&pk, key, key_len,
+                                       NULL, 0, luat_pk_rng_cb, NULL);
+#else
+            ret = mbedtls_pk_parse_key(&pk, key, key_len, NULL, 0);
+#endif
+        } else {
+            ret = mbedtls_pk_parse_public_key(&pk, key, key_len);
+        }
+    }
+
+    if (ret == 0) {
+        switch (mbedtls_pk_get_type(&pk)) {
+            case MBEDTLS_PK_RSA:      type_str = "rsa";     break;
+            case MBEDTLS_PK_ECKEY:    type_str = "ec";      break;
+            case MBEDTLS_PK_ECKEY_DH: type_str = "ec_dh";   break;
+            case MBEDTLS_PK_ECDSA:    type_str = "ecdsa";   break;
+            case MBEDTLS_PK_OPAQUE:   type_str = "opaque";  break;
+            default:                  type_str = "unknown";  break;
+        }
+    }
+
+done:
+    mbedtls_pk_free(&pk);
+    return type_str;
+}
+
+#if defined(MBEDTLS_PK_WRITE_C) && defined(MBEDTLS_GENPRIME)
+#include "mbedtls/rsa.h"
+#include "mbedtls/ecp.h"
+
+/* 将ECP曲线名称字符串转换为mbedtls group id */
+static mbedtls_ecp_group_id luat_pk_curve_from_name(const char *name) {
+    if (!name || name[0] == '\0') return MBEDTLS_ECP_DP_SECP256R1; /* 默认P-256 */
+    if (strcmp(name, "P-256") == 0 || strcmp(name, "secp256r1") == 0) return MBEDTLS_ECP_DP_SECP256R1;
+    if (strcmp(name, "P-384") == 0 || strcmp(name, "secp384r1") == 0) return MBEDTLS_ECP_DP_SECP384R1;
+    if (strcmp(name, "P-521") == 0 || strcmp(name, "secp521r1") == 0) return MBEDTLS_ECP_DP_SECP521R1;
+    return MBEDTLS_ECP_DP_SECP256R1;
+}
+
+int luat_crypto_pk_generate(const char *key_type,
+                            const char *param,
+                            uint8_t **priv_pem, size_t *priv_len,
+                            uint8_t **pub_pem,  size_t *pub_len) {
+    if (!key_type || !priv_pem || !priv_len || !pub_pem || !pub_len) return -1;
+    *priv_pem = NULL; *pub_pem = NULL; *priv_len = 0; *pub_len = 0;
+
+    mbedtls_pk_context pk;
+    mbedtls_pk_init(&pk);
+
+    int ret = -1;
+    /* PEM 缓冲区, 4096 对 RSA-4096 足够; EC 只需几百字节 */
+    const size_t BUF_SIZE = 4096;
+    uint8_t *priv_buf = (uint8_t *)luat_heap_malloc(BUF_SIZE);
+    uint8_t *pub_buf  = (uint8_t *)luat_heap_malloc(BUF_SIZE);
+    if (!priv_buf || !pub_buf) { ret = -2; goto done; }
+
+    if (strcmp(key_type, "rsa") == 0) {
+        int bits = 2048;
+        if (param && param[0]) bits = atoi(param);
+        if (bits < 512) bits = 512;
+        if (bits > 8192) bits = 8192;
+
+        ret = mbedtls_pk_setup(&pk, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
+        if (ret != 0) goto done;
+
+        ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(pk), luat_pk_rng_cb, NULL, bits, 65537);
+        if (ret != 0) goto done;
+
+    } else if (strcmp(key_type, "ec") == 0 || strcmp(key_type, "ecdsa") == 0) {
+        mbedtls_ecp_group_id gid = luat_pk_curve_from_name(param);
+
+        ret = mbedtls_pk_setup(&pk, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY));
+        if (ret != 0) goto done;
+
+        ret = mbedtls_ecp_gen_key(gid, mbedtls_pk_ec(pk), luat_pk_rng_cb, NULL);
+        if (ret != 0) goto done;
+
+    } else {
+        ret = -3; /* 不支持的密钥类型 */
+        goto done;
+    }
+
+    ret = mbedtls_pk_write_key_pem(&pk, priv_buf, BUF_SIZE);
+    if (ret != 0) goto done;
+
+    ret = mbedtls_pk_write_pubkey_pem(&pk, pub_buf, BUF_SIZE);
+    if (ret != 0) goto done;
+
+    /* 成功: 将结果复制到精确大小的缓冲区 */
+    {
+        size_t pl = strlen((char *)priv_buf);
+        size_t ql = strlen((char *)pub_buf);
+        uint8_t *pp = (uint8_t *)luat_heap_malloc(pl + 1);
+        uint8_t *qp = (uint8_t *)luat_heap_malloc(ql + 1);
+        if (!pp || !qp) {
+            luat_heap_free(pp); luat_heap_free(qp);
+            ret = -2; goto done;
+        }
+        memcpy(pp, priv_buf, pl + 1);
+        memcpy(qp, pub_buf,  ql + 1);
+        *priv_pem = pp; *priv_len = pl;
+        *pub_pem  = qp; *pub_len  = ql;
+        ret = 0;
+    }
+
+done:
+    luat_heap_free(priv_buf);
+    luat_heap_free(pub_buf);
+    mbedtls_pk_free(&pk);
+    return ret;
+}
+
+#else
+int luat_crypto_pk_generate(const char *key_type,
+                            const char *param,
+                            uint8_t **priv_pem, size_t *priv_len,
+                            uint8_t **pub_pem,  size_t *pub_len) {
+    (void)key_type; (void)param;
+    (void)priv_pem; (void)priv_len; (void)pub_pem; (void)pub_len;
+    return -1;
+}
+#endif /* MBEDTLS_PK_WRITE_C && MBEDTLS_GENPRIME */
+
+#else
+/* 无 mbedtls pk 支持时提供空实现 */
+int luat_crypto_pk_sign(int md_type,
+                        const uint8_t *hash, size_t hash_len,
+                        const uint8_t *privkey, size_t privkey_len,
+                        const char *password, size_t pwd_len,
+                        uint8_t **sig_out, size_t *sig_len_out) {
+    (void)md_type; (void)hash; (void)hash_len;
+    (void)privkey; (void)privkey_len; (void)password; (void)pwd_len;
+    *sig_out = NULL; *sig_len_out = 0;
+    return -1;
+}
+int luat_crypto_pk_verify(int md_type,
+                          const uint8_t *hash, size_t hash_len,
+                          const uint8_t *pubkey, size_t pubkey_len,
+                          const uint8_t *sig, size_t sig_len) {
+    (void)md_type; (void)hash; (void)hash_len;
+    (void)pubkey; (void)pubkey_len; (void)sig; (void)sig_len;
+    return -1;
+}
+const char *luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_private) {
+    (void)key; (void)key_len; (void)is_private;
+    return NULL;
+}
+int luat_crypto_pk_generate(const char *key_type,
+                            const char *param,
+                            uint8_t **priv_pem, size_t *priv_len,
+                            uint8_t **pub_pem,  size_t *pub_len) {
+    (void)key_type; (void)param;
+    (void)priv_pem; (void)priv_len; (void)pub_pem; (void)pub_len;
+    return -1;
+}
+#endif /* MBEDTLS_PK_C && MBEDTLS_PK_PARSE_C */
+
 int luat_crypto_base64_encode( unsigned char *dst, size_t dlen, size_t *olen, const unsigned char *src, size_t slen )
 {
     mbedtls_base64_encode(dst, dlen, olen, src, slen);

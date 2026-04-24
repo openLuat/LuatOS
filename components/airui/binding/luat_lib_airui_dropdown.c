@@ -148,6 +148,7 @@ void airui_register_dropdown_meta(lua_State *L)
         {"get_value", l_dropdown_get_value},
         {"set_on_change", l_dropdown_set_on_change},
         {"destroy", l_dropdown_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

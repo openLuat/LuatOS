@@ -131,6 +131,45 @@ void airui_touch_unsubscribe(airui_ctx_t *ctx, void *L) {
     ctx->touch_last_timestamp = 0;
 }
 
+// 触摸事件坐标转换为逻辑坐标
+static void airui_touch_map_to_logical(airui_ctx_t *ctx, lv_coord_t *x, lv_coord_t *y) {
+    if (ctx == NULL || x == NULL || y == NULL || ctx->display == NULL) {
+        return;
+    }
+
+    int32_t mapped_x = *x;
+    int32_t mapped_y = *y;
+
+    switch (lv_display_get_rotation(ctx->display)) {
+        case LV_DISPLAY_ROTATION_180:
+        case LV_DISPLAY_ROTATION_270:
+            mapped_x = (int32_t)ctx->native_width - mapped_x - 1;
+            mapped_y = (int32_t)ctx->native_height - mapped_y - 1;
+            break;
+        case LV_DISPLAY_ROTATION_0:
+        case LV_DISPLAY_ROTATION_90:
+        default:
+            break;
+    }
+
+    switch (lv_display_get_rotation(ctx->display)) {
+        case LV_DISPLAY_ROTATION_90:
+        case LV_DISPLAY_ROTATION_270: {
+            int32_t tmp = mapped_y;
+            mapped_y = mapped_x;
+            mapped_x = (int32_t)ctx->native_height - tmp - 1;
+            break;
+        }
+        case LV_DISPLAY_ROTATION_0:
+        case LV_DISPLAY_ROTATION_180:
+        default:
+            break;
+    }
+
+    *x = (lv_coord_t)mapped_x;
+    *y = (lv_coord_t)mapped_y;
+}
+
 // 通知触摸事件
 void airui_touch_notify(airui_ctx_t *ctx, airui_touch_state_t state, lv_coord_t x, lv_coord_t y, uint8_t track_id, uint32_t timestamp) {
     lua_State *L_state;
@@ -143,6 +182,9 @@ void airui_touch_notify(airui_ctx_t *ctx, airui_touch_state_t state, lv_coord_t 
     if (ctx->touch_callback_ref <= 0) {
         return;
     }
+
+    // 与 LVGL pointer 处理保持一致，订阅回调也返回旋转后的逻辑坐标。
+    airui_touch_map_to_logical(ctx, &x, &y);
 
     ctx->touch_last_state = state;
     ctx->touch_last_point.x = x;
@@ -241,4 +283,3 @@ void airui_keypad_notify(airui_ctx_t *ctx, uint32_t key, bool pressed, uint32_t 
         lua_pop(L_state, 1);
     }
 }
-

@@ -19,6 +19,8 @@ typedef struct utask
     uint16_t event_cout;
 }utask_t;
 
+static __declspec(thread) utask_t* g_current_task = NULL;
+
 
 
 LUAT_RET luat_send_event_to_task(void *task_handle, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3) {
@@ -29,15 +31,21 @@ LUAT_RET luat_wait_event_from_task(void *task_handle, uint32_t wait_event_id, lu
     return luat_rtos_event_recv(task_handle, wait_event_id, out_event, call_back, ms);
 }
 
-// void *luat_get_current_task(void) {
-//     LLOGE("调用了luat_get_current_task,但未实现");
-//     return NULL;
-// }
+// 兼容老的legacy层调用
+void *luat_get_current_task(void) {
+    return g_current_task;
+}
 
+// 支持新的standard层调用
+luat_rtos_task_handle luat_rtos_get_current_handle(void) {
+    return luat_get_current_task();
+}
 static void rtos_task(void* args) {
     utask_t* task = (utask_t*)args;
+    g_current_task = task;
 
     task->task_fun(task->user_data);
+    g_current_task = NULL;
 }
 
 int luat_rtos_task_create(luat_rtos_task_handle *task_handle, uint32_t stack_size, uint8_t priority, const char *task_name, luat_rtos_task_entry task_fun, void* user_data, uint16_t event_cout) {

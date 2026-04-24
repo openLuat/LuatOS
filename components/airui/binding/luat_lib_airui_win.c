@@ -191,6 +191,7 @@ void airui_register_win_meta(lua_State *L) {
         {"add_content", l_win_add_content}, // 添加内容,当前也支持通过组件设置parent为win来添加内容,todo：后续1.1版本可以移除
         {"destroy", l_win_destroy}, // 销毁窗口
         {"close", l_win_close}, // 关闭窗口, 当前和destroy功能有点重复
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
     

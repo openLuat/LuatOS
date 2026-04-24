@@ -177,6 +177,7 @@ void airui_register_textarea_meta(lua_State *L) {
         {"attach_keyboard", l_textarea_attach_keyboard},
         {"get_keyboard", l_textarea_get_keyboard},
         {"destroy", l_textarea_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

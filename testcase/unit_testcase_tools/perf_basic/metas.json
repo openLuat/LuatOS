@@ -1,0 +1,14 @@
+{
+    "timeout": 600,
+    "model": {
+        "air780epm": [1],
+        "air780ehm": [101],
+        "air8000": [101],
+        "air8101": [101],
+        "air1601": [101],
+        "air1602": [101]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "性能综合测试：哈希/RSA/ECC/FFT/编解码/JSON/压缩/SM国密/纯Lua基准"
+}

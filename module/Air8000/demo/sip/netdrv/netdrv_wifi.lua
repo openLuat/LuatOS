@@ -27,6 +27,7 @@ local function ip_ready_func(ip, adapter)
         socket.setDNS(adapter, 2, "114.114.114.114")
 
         log.info("netdrv_wifi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_STA))
+        sys.publish("NETDRV_NETWORK_STATUS", true, adapter)
     end
 end
 
@@ -72,7 +73,7 @@ local function netdrv_wifi_task_func()
     exnetif.set_priority_order({
         {
             WIFI = {
-                ssid = "茶室-降功耗,找合宙!", 
+                ssid = "admin-降功耗，找合宙！",
                 password = "Air123456"
             }
         }

@@ -6,7 +6,7 @@
 @author  李源龙
 @usage
 本demo演示的核心功能为：
-用Air8000核心板利用xmodem协议，将模块内的文件从串口发送到对端
+用Air1601开发板利用xmodem协议，将模块内的文件从串口发送到对端
 主要提供了两种方式：
 1、文件存到脚本区里面，通过xmodem协议，把脚本区文件发给对端
 2、通过http下载文件到文件系统区，通过xmodem协议，把文件系统区文件发给对端
@@ -60,6 +60,7 @@ log.info("main", PROJECT, VERSION)
 
 -- 加载网络驱动设备功能模块
 require "netdrv_device"
+
 -- 加载xmodem_demo模块
 require "xmodem_demo"
 

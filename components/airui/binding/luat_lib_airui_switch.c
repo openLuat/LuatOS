@@ -122,6 +122,7 @@ void airui_register_switch_meta(lua_State *L)
         {"get_state", l_switch_get_state},
         {"set_on_change", l_switch_set_on_change},
         {"destroy", l_switch_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

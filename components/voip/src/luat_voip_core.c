@@ -18,10 +18,19 @@
 #include "luat_msgbus.h"
 #include "luat_network_adapter.h"
 #include "luat_audio.h"
-#include "luat_i2s.h"
-#include "luat_rtp.h"
 
+#include "luat_rtp.h"
+#include "luat_conf_bsp.h"
 #include "g711_codec/g711_codec.h"
+#include "luat_crypto.h"
+
+#ifdef LUAT_USE_DAC
+#include "luat_dac.h"
+#endif
+
+#ifdef LUAT_USE_I2S
+#include "luat_i2s.h"
+#endif
 
 #ifdef LUAT_USE_VOIP_AEC
 #include "speex/speex_echo.h"
@@ -133,7 +142,9 @@ static int voip_i2s_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx_data, uin
             }
 
             generation = ++ctx->mic_generation[mic_idx];
-            ctx->last_completed_slot = (ctx->last_completed_slot + 1) % ctx->play_slot_count;
+            if(ctx->audio_backend == VOIP_AUDIO_BACKEND_DUPLEX) {
+                ctx->last_completed_slot = (ctx->last_completed_slot + 1) % ctx->play_slot_count;
+            }
             luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_MIC_DATA, mic_idx, ctx->last_completed_slot, generation, 0);
             ctx->mic_write_idx = (ctx->mic_write_idx + 1) % VOIP_MIC_SLOT_COUNT;
         }
@@ -141,6 +152,20 @@ static int voip_i2s_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx_data, uin
 
     return 0;
 }
+
+#if defined(LUAT_USE_DAC)
+static int voip_dac_play_cb(uint8_t id, luat_dac_event_t event, uint32_t tx_len, void *param)
+{
+    if (event == LUAT_DAC_EVENT_TX_ONE_BLOCK_DONE) {
+        voip_ctx_t *ctx = (voip_ctx_t *)param;
+        if (ctx->state != VOIP_STATE_RUNNING) {
+            return 0;
+        }
+        luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_SPK_DONE, 0, 0, 0, 0);
+    }
+    return 0;
+}
+#endif
 static int voip_pop_play_frame(voip_ctx_t *ctx, int16_t *out)
 {
     int got = voip_jb_pop(ctx->jb, out);
@@ -506,38 +531,56 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
         LLOGE("audio config not found");
         return -1;
     }
-
-    luat_i2s_conf_t *i2s = luat_i2s_get_config((uint8_t)audio_conf->codec_conf.i2s_id);
-    if (!i2s) {
-        LLOGE("i2s config not found");
-        return -1;
-    }
-
-    if (luat_i2s_save_old_config(audio_conf->codec_conf.i2s_id) == 0) {
-        ctx->i2s_config_saved = 1;
-    }
-
-    i2s->is_full_duplex = 1;
-    i2s->cb_rx_len = ctx->frame_bytes;
-    i2s->luat_i2s_event_callback = voip_i2s_cb;
-
-    /* 预填充静音，不从 JB pop，避免在 JB 未就绪时推进 expected_seq */
     memset(ctx->duplex_play_buf, 0, ctx->frame_bytes * ctx->play_slot_count);
-
-    if (luat_audio_record_and_play(ctx->config.multimedia_id,
-                                   sample_rate,
-                                   (const uint8_t *)ctx->duplex_play_buf,
-                                   ctx->frame_bytes,
-                                   ctx->play_slot_count) != 0) {
-        LLOGE("start duplex audio failed");
-        if (ctx->i2s_config_saved) {
-            luat_i2s_load_old_config(audio_conf->codec_conf.i2s_id);
-            ctx->i2s_config_saved = 0;
+    if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
+        luat_i2s_conf_t *i2s = luat_i2s_get_config((uint8_t)audio_conf->codec_conf.i2s_id);
+        if (!i2s) {
+            LLOGE("i2s config not found");
+            return -1;
         }
+
+        if (luat_i2s_save_old_config(audio_conf->codec_conf.i2s_id) == 0) {
+            ctx->i2s_config_saved = 1;
+        }
+
+        i2s->is_full_duplex = 1;
+        i2s->cb_rx_len = ctx->frame_bytes;
+        i2s->luat_i2s_event_callback = voip_i2s_cb;
+
+        /* 预填充静音，不从 JB pop，避免在 JB 未就绪时推进 expected_seq */
+        ctx->audio_backend = VOIP_AUDIO_BACKEND_DUPLEX;
+        if (luat_audio_record_and_play(ctx->config.multimedia_id, sample_rate, (const uint8_t *)ctx->duplex_play_buf, ctx->frame_bytes, ctx->play_slot_count) != 0) {
+            LLOGE("start duplex audio failed");
+            if (ctx->i2s_config_saved) {
+                luat_i2s_load_old_config(audio_conf->codec_conf.i2s_id);
+                ctx->i2s_config_saved = 0;
+            }
+            return -1;
+        }
+    } else if (audio_conf->bus_type == LUAT_AUDIO_BUS_DAC) {
+#if defined(LUAT_USE_DAC)
+        ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
+        luat_audio_record_set_callback(voip_i2s_cb);
+        if (luat_audio_record_and_play(ctx->config.multimedia_id, sample_rate, (const uint8_t *)ctx->duplex_play_buf, ctx->frame_bytes, ctx->play_slot_count) != 0) {
+            LLOGE("start duplex audio failed");
+            return -1;
+        }
+         luat_dac_config_t config = {
+            .dac_chl = LUAT_DAC_CHL_L,
+            .bits = LUAT_DAC_BITS_16,
+            .samp_rate = sample_rate,
+            .luat_dac_event_callback = voip_dac_play_cb,
+            .userdata = ctx
+         };
+        luat_dac_setup(0, &config);
+        luat_dac_buffer_loop(ctx->config.multimedia_id, ctx->duplex_play_buf, ctx->frame_bytes, ctx->play_slot_count);
+#else
+        LLOGE("DAC bus type not supported in this build");
         return -1;
+#endif
     }
 
-    ctx->audio_backend = VOIP_AUDIO_BACKEND_DUPLEX;
+
     ctx->audio_started = 1;
     ctx->last_completed_slot = ctx->play_slot_count - 1;
     if (ctx->trace_on) {
@@ -550,17 +593,21 @@ static void voip_stop_audio(voip_ctx_t *ctx)
 {
     if (!ctx->audio_started) return;
 
-    if (ctx->audio_backend == VOIP_AUDIO_BACKEND_DUPLEX) {
-        luat_audio_record_stop(ctx->config.multimedia_id);
-        if (ctx->i2s_config_saved) {
-            luat_audio_conf_t *audio_conf = luat_audio_get_config(ctx->config.multimedia_id);
-            if (audio_conf) {
-                luat_i2s_load_old_config(audio_conf->codec_conf.i2s_id);
-            }
-            ctx->i2s_config_saved = 0;
-        }
+    luat_audio_conf_t *audio_conf = luat_audio_get_config(ctx->config.multimedia_id);
+    if(!audio_conf) {
+        return;
     }
 
+    luat_audio_record_stop(ctx->config.multimedia_id);
+
+    if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
+        luat_i2s_load_old_config(audio_conf->codec_conf.i2s_id);
+        ctx->i2s_config_saved = 0;
+    } else {
+#if defined(LUAT_USE_DAC)
+        luat_dac_close(0);
+#endif
+    }
     ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
     ctx->audio_started = 0;
 }
@@ -821,6 +868,13 @@ static void voip_task_entry(void *param)
             if (ctx->audio_backend == VOIP_AUDIO_BACKEND_DUPLEX) {
                 voip_fill_play_slot(ctx, (uint8_t)event.param2);
             }
+            break;
+        case VOIP_EVENT_SPK_DONE:
+            if (ctx->state != VOIP_STATE_RUNNING) {
+                break;
+            }
+            ctx->last_completed_slot = (ctx->last_completed_slot + 1) % ctx->play_slot_count;
+            voip_fill_play_slot(ctx, ctx->last_completed_slot);
             break;
 
         case VOIP_EVENT_RX_DATA:

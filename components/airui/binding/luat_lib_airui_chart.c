@@ -452,6 +452,7 @@ void airui_register_chart_meta(lua_State *L)
         {"set_x_axis", l_chart_set_x_axis},
         {"set_y_axis", l_chart_set_y_axis},
         {"destroy", l_chart_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

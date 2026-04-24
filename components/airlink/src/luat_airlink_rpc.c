@@ -250,7 +250,7 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
 /* nanopb typed RPC layer                                               */
 /* ------------------------------------------------------------------ */
 
-#define NB_ENC_BUF_SIZE  768  // nanopb encode/decode 临时缓冲区大小 (UartRpcRequest 最大 518 字节)
+#define NB_ENC_BUF_SIZE  1500  // nanopb encode/decode 临时缓冲区大小 (UartRpcRequest 最大 518 字节, 预留余量)
 
 static luat_airlink_rpc_nb_reg_t s_nb_regs[LUAT_AIRLINK_RPC_MAX_HANDLERS];
 static luat_rtos_mutex_t s_nb_reg_mutex = NULL;

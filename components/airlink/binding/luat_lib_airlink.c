@@ -963,6 +963,45 @@ static int l_airlink_test_nanopb_wlan(lua_State* L) {
         }
     }
 
+    // step 5: wlan connect (PC mock 返回 0 → OK)
+    {
+        drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
+        drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;
+        req.which_payload = drv_wlan_WlanRpcRequest_connect_tag;
+        strncpy(req.payload.connect.ssid, "TestSSID", sizeof(req.payload.connect.ssid) - 1);
+        req.payload.connect.has_password = true;
+        strncpy(req.payload.connect.password, "testpass", sizeof(req.payload.connect.password) - 1);
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_WLAN,
+            drv_wlan_WlanRpcRequest_fields,  &req,
+            drv_wlan_WlanRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -13; goto done_wlan; }
+        if (resp.which_payload != drv_wlan_WlanRpcResponse_connect_tag) { rc = -14; goto done_wlan; }
+        if (!resp.payload.connect.result.has_code ||
+            resp.payload.connect.result.code != drv_wlan_WlanResultCode_WLAN_RES_OK) {
+            rc = -15; goto done_wlan;
+        }
+    }
+
+    // step 6: wlan disconnect (PC mock 返回 0 → OK)
+    {
+        drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
+        drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;
+        req.which_payload = drv_wlan_WlanRpcRequest_disconnect_tag;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_WLAN,
+            drv_wlan_WlanRpcRequest_fields,  &req,
+            drv_wlan_WlanRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -16; goto done_wlan; }
+        if (resp.which_payload != drv_wlan_WlanRpcResponse_disconnect_tag) { rc = -17; goto done_wlan; }
+        if (!resp.payload.disconnect.result.has_code ||
+            resp.payload.disconnect.result.code != drv_wlan_WlanResultCode_WLAN_RES_OK) {
+            rc = -18; goto done_wlan;
+        }
+    }
+
 done_wlan:
     lua_pushinteger(L, rc);
     return 1;

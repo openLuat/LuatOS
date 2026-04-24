@@ -415,9 +415,8 @@ EXIT_TASK:
     }
 #endif
 #ifdef LUAT_USE_DAC
-    /* Stop DMA first, then free the DMA buffer (order is critical) */
+    /* Only free ping-pong buffer; DAC stays initialized for next file */
     if (audio_conf && audio_conf->bus_type == LUAT_AUDIO_BUS_DAC) {
-        luat_dac_close(audio_conf->codec_conf.dac_id);
         luat_audio_dac_loop_cleanup(&g_dac_loop_ctx[multimedia_id]);
     }
 #endif
@@ -436,8 +435,77 @@ LUAT_WEAK luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id){
     return NULL;
 }
 
+typedef struct {
+    uint8_t multimedia_id;
+    uint8_t error_stop;
+    uint32_t files_num;
+    /* paths[] follow immediately: files_num * (LUAT_AUDIO_PLAY_PATH_MAX + 1) bytes */
+} luat_audio_play_multi_ctx_t;
+
 LUAT_WEAK int luat_audio_play_multi_files(uint8_t multimedia_id, uData_t *info, uint32_t files_num, uint8_t error_stop){
-    return -1;
+    luat_audio_conf_t *audio_conf = luat_audio_get_config(multimedia_id);
+    luat_audio_play_state_t *play_state = luat_audio_get_play_state(multimedia_id);
+    luat_audio_play_multi_ctx_t *multi_ctx;
+    OS_EVENT audio_event = {0};
+    char *paths_base;
+    uint32_t i;
+
+    if (!audio_conf || !play_state) {
+        return -1;
+    }
+    if (!info || files_num == 0) {
+        return luat_audio_play_stop(multimedia_id);
+    }
+
+    if (play_state->playing || play_state->task_running) {
+        luat_audio_play_stop(multimedia_id);
+        for (i = 0; i < 500 && (play_state->playing || play_state->task_running); i++) {
+            luat_rtos_task_sleep(2);
+        }
+        if (play_state->playing || play_state->task_running) {
+            return -1;
+        }
+    }
+
+    multi_ctx = luat_heap_malloc(sizeof(luat_audio_play_multi_ctx_t) +
+                                 files_num * (LUAT_AUDIO_PLAY_PATH_MAX + 1));
+    if (!multi_ctx) {
+        return -1;
+    }
+    multi_ctx->multimedia_id = multimedia_id;
+    multi_ctx->error_stop    = error_stop;
+    multi_ctx->files_num     = files_num;
+
+    paths_base = (char *)(multi_ctx + 1);
+    for (i = 0; i < files_num; i++) {
+        char *dst = paths_base + i * (LUAT_AUDIO_PLAY_PATH_MAX + 1);
+        const uint8_t *src = NULL;
+        size_t src_len = 0;
+        if (info[i].Type == UDATA_TYPE_OPAQUE || info[i].Type == UDATA_TYPE_STRING) {
+            src     = info[i].value.asBuffer.buffer;
+            src_len = info[i].value.asBuffer.length;
+        }
+        if (src && src_len > 0) {
+            size_t cpy = src_len > LUAT_AUDIO_PLAY_PATH_MAX ? LUAT_AUDIO_PLAY_PATH_MAX : src_len;
+            memcpy(dst, src, cpy);
+            dst[cpy] = '\0';
+        } else {
+            dst[0] = '\0';
+        }
+    }
+
+    play_state->stop_requested = 0;
+    play_state->playing        = 1;
+    play_state->last_error     = 1;
+
+    audio_event.ID     = AUDIO_EVENT_PLAY_MULTI_FILES;
+    audio_event.Param1 = (size_t)multi_ctx;
+    if (luat_rtos_queue_send(audio_queue_handle, &audio_event, sizeof(OS_EVENT), 0) != 0) {
+        play_state->playing = 0;
+        luat_heap_free(multi_ctx);
+        return -1;
+    }
+    return 0;
 }
 
 
@@ -557,14 +625,7 @@ LUAT_WEAK int luat_audio_start_raw(uint8_t multimedia_id, uint8_t audio_format, 
         }
 #ifdef LUAT_USE_DAC
         else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
-            // luat_dac_config_t config;
-            // luat_dac_config_t* config_old = luat_dac_get_config(multimedia_id);
-            // memcpy(&config, config_old, sizeof(luat_dac_config_t));
-            // config.dac_chl = num_channels;
-            // config.samp_rate = sample_rate;
-            // config.bits = bits_per_sample;
-            // luat_dac_setup(audio_conf->codec_conf.dac_id, &config);
-            luat_dac_modify(multimedia_id,num_channels,bits_per_sample,sample_rate);
+            luat_dac_modify(audio_conf->codec_conf.dac_id, num_channels, bits_per_sample, sample_rate);
         }
 #endif
     }
@@ -600,12 +661,7 @@ LUAT_WEAK int luat_audio_stop_raw(uint8_t multimedia_id){
         if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
             return luat_i2s_close(audio_conf->codec_conf.i2s_id);
         }
-#ifdef LUAT_USE_DAC
-        else if (audio_conf->bus_type == LUAT_AUDIO_BUS_DAC) {
-            luat_dac_close(audio_conf->codec_conf.dac_id);
-            return 0;
-        }
-#endif
+        /* DAC: initialized once by luat_audio_init, kept open across files */
     }
     return -1;
 }
@@ -818,6 +874,38 @@ static void luat_audio_task(void *param){
                     luat_heap_free(play_ctx);
                 }
                 break;
+            case AUDIO_EVENT_PLAY_MULTI_FILES: {
+                luat_audio_play_multi_ctx_t *multi_ctx = (luat_audio_play_multi_ctx_t *)audio_event.Param1;
+                if (multi_ctx) {
+                    uint8_t mid         = multi_ctx->multimedia_id;
+                    uint8_t error_stop  = multi_ctx->error_stop;
+                    uint32_t files_num  = multi_ctx->files_num;
+                    char *paths_base    = (char *)(multi_ctx + 1);
+                    luat_audio_play_state_t *ps = luat_audio_get_play_state(mid);
+                    uint32_t fi;
+
+                    for (fi = 0; fi < files_num; fi++) {
+                        const char *p = paths_base + fi * (LUAT_AUDIO_PLAY_PATH_MAX + 1);
+                        if (!p[0]) {
+                            if (error_stop) break;
+                            continue;
+                        }
+                        /* Keep playing=1 across files so is_finish() stays correct */
+                        if (ps) ps->playing = 1;
+                        int file_ret = luat_audio_do_play_file(mid, p);
+                        /* do_play_file resets playing/task_running/stop_requested at EXIT_TASK */
+                        if (file_ret != 0 && error_stop) break;
+                    }
+                    if (ps) {
+                        ps->playing        = 0;
+                        ps->task_running   = 0;
+                        ps->stop_requested = 0;
+                    }
+                    luat_audio_post_done_event(mid);
+                    luat_heap_free(multi_ctx);
+                }
+                break;
+            }
             default:
                 break;
             }

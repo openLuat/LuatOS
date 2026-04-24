@@ -26,6 +26,7 @@ typedef enum {
 } airui_image_type_t;
 
 static airui_image_type_t airui_image_get_type(const char *src);
+static lv_image_align_t airui_image_parse_fit(const char *fit);
 
 /**
  * 从配置表创建 Image 组件
@@ -60,6 +61,7 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx)
     int w = airui_marshal_floor_integer(L, idx, "w", 100);
     int h = airui_marshal_floor_integer(L, idx, "h", 100);
     const char *src = airui_marshal_string(L, idx, "src", NULL);
+    const char *fit = airui_marshal_string(L, idx, "fit", NULL);
 
     // 创建 Image 对象
     lv_obj_t *img = lv_image_create(parent);
@@ -91,6 +93,10 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx)
     // 读取 zoom（缩放比例，256 = 100%）
     int zoom = airui_marshal_integer(L, idx, "zoom", 256);
     lv_image_set_scale(img, zoom);
+
+    if (fit != NULL && fit[0] != '\0') {
+        lv_image_set_inner_align(img, airui_image_parse_fit(fit));
+    }
     
     // 读取 opacity（透明度，0-255）
     int opacity = airui_marshal_integer(L, idx, "opacity", 255);
@@ -183,6 +189,22 @@ int airui_image_set_zoom(lv_obj_t *img, int zoom)
 }
 
 /**
+ * 设置 Image 图片内容适配模式
+ * @param img Image 对象指针
+ * @param fit 图片内容适配模式，可选 center/contain/cover/stretch
+ * @return 0 成功，<0 失败
+ */
+int airui_image_set_fit(lv_obj_t *img, const char *fit)
+{
+    if (img == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_image_set_inner_align(img, airui_image_parse_fit(fit));
+    return AIRUI_OK;
+}
+
+/**
  * 设置 Image 透明度
  * @param img Image 对象指针
  * @param opacity 透明度，0-255
@@ -210,4 +232,15 @@ static airui_image_type_t airui_image_get_type(const char *src)
     if (strcmp(dot, ".jpeg") == 0) return AIRUI_IMAGE_TYPE_JPG;
     if (strcmp(dot, ".png") == 0) return AIRUI_IMAGE_TYPE_PNG;
     return AIRUI_IMAGE_TYPE_UNKNOWN;
+}
+
+static lv_image_align_t airui_image_parse_fit(const char *fit)
+{
+    if (fit == NULL || fit[0] == '\0') return LV_IMAGE_ALIGN_CENTER;
+    if (strcmp(fit, "center") == 0) return LV_IMAGE_ALIGN_CENTER;
+    if (strcmp(fit, "contain") == 0) return LV_IMAGE_ALIGN_CONTAIN;
+    if (strcmp(fit, "cover") == 0) return LV_IMAGE_ALIGN_COVER;
+    if (strcmp(fit, "stretch") == 0) return LV_IMAGE_ALIGN_STRETCH;
+    LLOGW("unknown image fit: %s, fallback to center", fit);
+    return LV_IMAGE_ALIGN_CENTER;
 }

@@ -1249,8 +1249,10 @@ function exnetif.close(type, adapter)
                 gpio.set(eth_cfg[adapter].pwrpin, 0)
                 gpio.close(eth_cfg[adapter].pwrpin)
             end
-            -- 关闭spi
-            spi.close(eth_cfg[adapter].opts.spi)
+            if eth_cfg[adapter].opts and eth_cfg[adapter].opts.spi then
+                -- 关闭spi
+                spi.close(eth_cfg[adapter].opts.spi)
+            end
             netdrv.ctrl(adapter, netdrv.CTRL_UPDOWN, 0)
             available[adapter] = connection_states.STOPED
         elseif adapter == socket.LWIP_STA then

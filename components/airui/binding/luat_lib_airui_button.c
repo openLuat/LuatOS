@@ -248,6 +248,7 @@ void airui_register_button_meta(lua_State *L) {
         {"move", l_button_move},
         {"focus", l_button_focus},
         {"destroy", l_button_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
     

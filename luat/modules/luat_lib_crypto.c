@@ -951,6 +951,132 @@ static int l_crypto_crc_file(lua_State *L) {
 }
 
 
+/**
+使用非对称密钥签名 (RSA/EC 等, 自动识别密钥类型)
+@api crypto.pk_sign(md_type, hash, privkey, password)
+@int    hash算法类型常量, 例如 crypto.MD_SHA256
+@string 待签名的hash原始字节(非hex), 长度须与hash算法输出匹配
+@string 私钥数据, 支持PEM格式(-----BEGIN...)和DER二进制两种
+@string 私钥密码, 可选, 默认为空
+@return string 签名结果(原始字节), 失败返回nil
+@usage
+-- RSA 签名示例
+local hash = crypto.sha256("hello world"):fromHex()
+local sig = crypto.pk_sign(crypto.MD_SHA256, hash, privkey_pem)
+log.info("pk", "sign len", sig and #sig or 0)
+
+-- EC 签名示例 (公钥为 SPKI 格式 "-----BEGIN PUBLIC KEY-----")
+local hash = crypto.sha256("hello world"):fromHex()
+local sig = crypto.pk_sign(crypto.MD_SHA256, hash, ec_privkey_pem)
+log.info("pk", "ec sign len", sig and #sig or 0)
+ */
+static int l_crypto_pk_sign(lua_State *L) {
+    int md_type = luaL_checkinteger(L, 1);
+    size_t hash_len, key_len, pwd_len = 0;
+    const uint8_t *hash  = (const uint8_t *)luaL_checklstring(L, 2, &hash_len);
+    const uint8_t *key   = (const uint8_t *)luaL_checklstring(L, 3, &key_len);
+    const char *password = NULL;
+    if (lua_type(L, 4) == LUA_TSTRING) {
+        password = luaL_checklstring(L, 4, &pwd_len);
+    }
+    uint8_t *sig = NULL;
+    size_t sig_len = 0;
+    int ret = luat_crypto_pk_sign(md_type, hash, hash_len,
+                                   key, key_len,
+                                   password, pwd_len,
+                                   &sig, &sig_len);
+    if (ret == 0 && sig != NULL) {
+        lua_pushlstring(L, (const char *)sig, sig_len);
+        luat_heap_free(sig);
+        return 1;
+    }
+    return 0;
+}
+
+/**
+使用非对称公钥验签 (RSA/EC 等, 自动识别密钥类型)
+@api crypto.pk_verify(md_type, hash, pubkey, signature)
+@int    hash算法类型常量, 例如 crypto.MD_SHA256
+@string 待验证的hash原始字节(非hex)
+@string 公钥数据, 支持PEM格式(-----BEGIN...)和DER二进制两种
+  RSA: 支持 "-----BEGIN RSA PUBLIC KEY-----" 和 "-----BEGIN PUBLIC KEY-----"
+  EC:  使用 "-----BEGIN PUBLIC KEY-----" (SPKI格式)
+@string 签名数据(原始字节)
+@return boolean 验签成功返回true, 失败返回false
+@usage
+-- RSA 验签示例
+local hash = crypto.sha256("hello world"):fromHex()
+local ok = crypto.pk_verify(crypto.MD_SHA256, hash, pubkey_pem, sig)
+log.info("pk", "verify", ok)
+ */
+static int l_crypto_pk_verify(lua_State *L) {
+    int md_type = luaL_checkinteger(L, 1);
+    size_t hash_len, key_len, sig_len;
+    const uint8_t *hash = (const uint8_t *)luaL_checklstring(L, 2, &hash_len);
+    const uint8_t *key  = (const uint8_t *)luaL_checklstring(L, 3, &key_len);
+    const uint8_t *sig  = (const uint8_t *)luaL_checklstring(L, 4, &sig_len);
+    int ret = luat_crypto_pk_verify(md_type, hash, hash_len,
+                                     key, key_len,
+                                     sig, sig_len);
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+
+/**
+获取密钥类型字符串
+@api crypto.pk_type(key, is_private)
+@string 密钥数据, 支持PEM格式和DER二进制格式
+@boolean 是否为私钥, true=私钥, false/nil=公钥
+@return string 类型字符串("rsa"/"ec"/"ecdsa"/"ec_dh"等), 解析失败返回nil
+@usage
+local ktype = crypto.pk_type(pubkey_pem)            -- 公钥
+local ktype = crypto.pk_type(privkey_pem, true)     -- 私钥
+log.info("pk", "key type", ktype)
+ */
+static int l_crypto_pk_type(lua_State *L) {
+    size_t key_len;
+    const uint8_t *key  = (const uint8_t *)luaL_checklstring(L, 1, &key_len);
+    int is_private = lua_toboolean(L, 2);
+    const char *type_str = luat_crypto_pk_type(key, key_len, is_private);
+    if (type_str) {
+        lua_pushstring(L, type_str);
+        return 1;
+    }
+    return 0;
+}
+
+/*
+@api crypto.pk_generate(key_type, param)
+@string key_type  密钥类型: "rsa" 或 "ec"
+@string param     RSA时为位数字符串(如"2048"), EC时为曲线名(如"P-256"/"P-384"/"P-521"), 可省略使用默认值
+@return string 私钥PEM字符串(成功时), 失败返回nil
+@return string 公钥PEM字符串(成功时), 失败返回nil
+@usage
+-- 生成 RSA-2048 密钥对
+local priv, pub = crypto.pk_generate("rsa", "2048")
+-- 生成 EC P-256 密钥对
+local priv, pub = crypto.pk_generate("ec", "P-256")
+*/
+static int l_crypto_pk_generate(lua_State *L) {
+    const char *key_type = luaL_checkstring(L, 1);
+    const char *param    = luaL_optstring(L, 2, "");
+    uint8_t *priv_pem = NULL, *pub_pem = NULL;
+    size_t   priv_len = 0,    pub_len  = 0;
+    int ret = luat_crypto_pk_generate(key_type, param,
+                                      &priv_pem, &priv_len,
+                                      &pub_pem,  &pub_len);
+    if (ret == 0 && priv_pem && pub_pem) {
+        lua_pushlstring(L, (const char *)priv_pem, priv_len);
+        lua_pushlstring(L, (const char *)pub_pem,  pub_len);
+        luat_heap_free(priv_pem);
+        luat_heap_free(pub_pem);
+        return 2;
+    }
+    luat_heap_free(priv_pem);
+    luat_heap_free(pub_pem);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_crypto[] =
 {
@@ -979,10 +1105,29 @@ static const rotable_Reg_t reg_crypto[] =
     { "md_file",        ROREG_FUNC(l_crypto_md_file)},
     { "md",             ROREG_FUNC(l_crypto_md)},
     { "checksum",       ROREG_FUNC(l_crypt_checksum)},
-    { "crc_file",       ROREG_FUNC(l_crypto_crc_file)},
     { "hash_init",      ROREG_FUNC(l_crypt_hash_init)},
     { "hash_update",    ROREG_FUNC(l_crypt_hash_update)},
     { "hash_finish",    ROREG_FUNC(l_crypt_hash_finish)},
+    { "crc_file",       ROREG_FUNC(l_crypto_crc_file)},
+    #if !defined(TYPE_EC718PM) && !defined(LUAT_USE_CRYPTO_LITE)
+    { "pk_sign",        ROREG_FUNC(l_crypto_pk_sign)},
+    { "pk_verify",      ROREG_FUNC(l_crypto_pk_verify)},
+    { "pk_type",        ROREG_FUNC(l_crypto_pk_type)},
+    { "pk_generate",    ROREG_FUNC(l_crypto_pk_generate)},
+
+    //@const MD_MD5 int MD5哈希类型常量,用于pk_sign/pk_verify
+    { "MD_MD5",         ROREG_INT(LUAT_CRYPTO_MD_MD5)},
+    //@const MD_SHA1 int SHA1哈希类型常量,用于pk_sign/pk_verify
+    { "MD_SHA1",        ROREG_INT(LUAT_CRYPTO_MD_SHA1)},
+    //@const MD_SHA224 int SHA224哈希类型常量,用于pk_sign/pk_verify
+    { "MD_SHA224",      ROREG_INT(LUAT_CRYPTO_MD_SHA224)},
+    //@const MD_SHA256 int SHA256哈希类型常量,用于pk_sign/pk_verify
+    { "MD_SHA256",      ROREG_INT(LUAT_CRYPTO_MD_SHA256)},
+    //@const MD_SHA384 int SHA384哈希类型常量,用于pk_sign/pk_verify
+    { "MD_SHA384",      ROREG_INT(LUAT_CRYPTO_MD_SHA384)},
+    //@const MD_SHA512 int SHA512哈希类型常量,用于pk_sign/pk_verify
+    { "MD_SHA512",      ROREG_INT(LUAT_CRYPTO_MD_SHA512)},
+    #endif
 
 	{ NULL,             ROREG_INT(0) }
 };

@@ -25,6 +25,48 @@ static luat_rtos_task_handle audio_task_handle;
 #define LUAT_AUDIO_TASK_STACK_SIZE (1024 * 12)
 #define LUAT_AUDIO_TASK_PRIORITY 50
 
+#ifdef LUAT_USE_DAC
+#define LUAT_AUDIO_DAC_BLOCK_NUM 4
+
+typedef struct {
+    luat_rtos_semaphore_t block_sem;
+    uint8_t *buffer;
+    uint32_t block_size;
+    uint32_t buffer_num;
+    uint32_t next_block_idx;
+} luat_audio_dac_loop_ctx_t;
+
+static luat_audio_dac_loop_ctx_t g_dac_loop_ctx[LUAT_AUDIO_MAX_DEVICE_COUNT];
+
+static int luat_audio_dac_block_done_cb(uint8_t id, luat_dac_event_t event, uint32_t tx_len, void *param)
+{
+    (void)id; (void)tx_len;
+    luat_audio_dac_loop_ctx_t *ctx = (luat_audio_dac_loop_ctx_t *)param;
+    if (ctx && ctx->block_sem) {
+        if (event == LUAT_DAC_EVENT_TX_ONE_BLOCK_DONE || event == LUAT_DAC_EVENT_TX_DONE) {
+            luat_rtos_semaphore_release(ctx->block_sem);
+        }
+    }
+    return 0;
+}
+
+static void luat_audio_dac_loop_cleanup(luat_audio_dac_loop_ctx_t *ctx)
+{
+    if (!ctx) return;
+    if (ctx->buffer) {
+        luat_heap_free(ctx->buffer);
+        ctx->buffer = NULL;
+    }
+    if (ctx->block_sem) {
+        luat_rtos_semaphore_delete(ctx->block_sem);
+        ctx->block_sem = NULL;
+    }
+    ctx->block_size = 0;
+    ctx->buffer_num = 0;
+    ctx->next_block_idx = 0;
+}
+#endif /* LUAT_USE_DAC */
+
 typedef struct lua_State lua_State;
 
 static void luat_audio_task(void *param);
@@ -244,28 +286,115 @@ static int luat_audio_do_play_file(uint8_t multimedia_id, const char *path) {
     LLOGE("audio decode path requires __LUATOS__");
     goto EXIT_TASK;
 #else
-    out_buff.type = LUAT_HEAP_SRAM;
-    out_buff.len = LUAT_AUDIO_DECODE_OUT_SIZE;
-    out_buff.addr = luat_heap_malloc(out_buff.len);
-    if (!out_buff.addr) {
-        LLOGE("audio decode buffer alloc failed");
-        goto EXIT_TASK;
-    }
+#ifdef LUAT_USE_DAC
+    if (audio_conf->bus_type == LUAT_AUDIO_BUS_DAC) {
+        /* Ping-pong async write:
+         * Decode into buf[0], start async DMA (ONESHOT, exact decoded size, no padding).
+         * While DMA plays buf[0], decode into buf[1].
+         * On TX_DONE semaphore: start DMA on buf[1], decode into buf[0]. Repeat.
+         * This avoids the zero-padding speed/artifact issue of fixed-size buffer_loop. */
+        luat_audio_dac_loop_ctx_t *dac_ctx = &g_dac_loop_ctx[multimedia_id];
+        luat_dac_config_t *dac_cfg;
+        int decode_ok;
+        uint8_t cur_idx;
 
-    while (!play_state->stop_requested) {
-        out_buff.used = 0;
-        if (!coder.ops->decode_file_data(&coder, &out_buff, LUAT_AUDIO_DECODE_MIN_OUTPUT)) {
-            break;
-        }
-        if (out_buff.used == 0) {
-            continue;
-        }
-        if (luat_audio_write_raw(multimedia_id, out_buff.addr, (uint32_t)out_buff.used) != 0) {
-            LLOGE("audio write raw failed");
+        dac_ctx->block_size = LUAT_AUDIO_DECODE_OUT_SIZE;
+        dac_ctx->buffer_num = 2;
+        dac_ctx->next_block_idx = 0;
+        dac_ctx->buffer = NULL;
+        dac_ctx->block_sem = NULL;
+
+        dac_ctx->buffer = luat_heap_malloc(dac_ctx->block_size * 2);
+        if (!dac_ctx->buffer) {
+            LLOGE("dac pingpong buffer alloc failed");
             goto EXIT_TASK;
         }
+
+        if (luat_rtos_semaphore_create(&dac_ctx->block_sem, 0) != 0) {
+            LLOGE("dac pingpong semaphore create failed");
+            luat_audio_dac_loop_cleanup(dac_ctx);
+            goto EXIT_TASK;
+        }
+
+        /* Register TX_DONE callback so async luat_dac_write signals decode task */
+        dac_cfg = luat_dac_get_config(audio_conf->codec_conf.dac_id);
+        dac_cfg->luat_dac_event_callback = luat_audio_dac_block_done_cb;
+        dac_cfg->userdata = dac_ctx;
+
+        /* Pre-fill buf[0] and start first DMA */
+        out_buff.addr = dac_ctx->buffer;
+        out_buff.len  = dac_ctx->block_size;
+        out_buff.used = 0;
+        decode_ok = coder.ops->decode_file_data(&coder, &out_buff, LUAT_AUDIO_DECODE_MIN_OUTPUT);
+        cur_idx = 0;
+
+        if (decode_ok && out_buff.used > 0) {
+            /* luat_dac_write with callback registered is async: copies data then returns */
+            if (luat_dac_write(audio_conf->codec_conf.dac_id,
+                               dac_ctx->buffer, out_buff.used) != 0) {
+                LLOGE("dac write failed");
+                luat_audio_dac_loop_cleanup(dac_ctx);
+                goto EXIT_TASK;
+            }
+
+            while (!play_state->stop_requested) {
+                /* Decode into the OTHER buffer while DMA plays current */
+                uint8_t next_idx = 1 - cur_idx;
+                out_buff.addr = dac_ctx->buffer + (uint32_t)next_idx * dac_ctx->block_size;
+                out_buff.len  = dac_ctx->block_size;
+                out_buff.used = 0;
+                decode_ok = coder.ops->decode_file_data(&coder, &out_buff, LUAT_AUDIO_DECODE_MIN_OUTPUT);
+
+                /* Wait for current DMA to finish (TX_DONE fires when ONESHOT completes) */
+                if (luat_rtos_semaphore_take(dac_ctx->block_sem, 5000) != 0) {
+                    LLOGE("dac tx timeout");
+                    break;
+                }
+                if (play_state->stop_requested) break;
+                if (!decode_ok || out_buff.used == 0) break;
+
+                /* Start DMA on next buffer with exact decoded byte count — no padding */
+                if (luat_dac_write(audio_conf->codec_conf.dac_id,
+                                   out_buff.addr, out_buff.used) != 0) {
+                    LLOGE("dac write failed");
+                    break;
+                }
+                cur_idx = next_idx;
+            }
+
+            /* Wait for the last buffer to finish playing */
+            if (!play_state->stop_requested) {
+                luat_rtos_semaphore_take(dac_ctx->block_sem, 5000);
+            }
+        }
+
+        out_buff.addr = NULL; /* prevent double-free in EXIT_TASK */
+    } else
+#endif /* LUAT_USE_DAC */
+    {
+        out_buff.type = LUAT_HEAP_SRAM;
+        out_buff.len = LUAT_AUDIO_DECODE_OUT_SIZE;
+        out_buff.addr = luat_heap_malloc(out_buff.len);
+        if (!out_buff.addr) {
+            LLOGE("audio decode buffer alloc failed");
+            goto EXIT_TASK;
+        }
+
+        while (!play_state->stop_requested) {
+            out_buff.used = 0;
+            if (!coder.ops->decode_file_data(&coder, &out_buff, LUAT_AUDIO_DECODE_MIN_OUTPUT)) {
+                break;
+            }
+            if (out_buff.used == 0) {
+                continue;
+            }
+            if (luat_audio_write_raw(multimedia_id, out_buff.addr, (uint32_t)out_buff.used) != 0) {
+                LLOGE("audio write raw failed");
+                goto EXIT_TASK;
+            }
+        }
     }
-#endif
+#endif /* __LUATOS__ */
 
     if (play_state->stop_requested) {
         play_state->last_error = -1;
@@ -285,6 +414,12 @@ EXIT_TASK:
         out_buff.addr = NULL;
     }
 #endif
+#ifdef LUAT_USE_DAC
+    /* Only free ping-pong buffer; DAC stays initialized for next file */
+    if (audio_conf && audio_conf->bus_type == LUAT_AUDIO_BUS_DAC) {
+        luat_audio_dac_loop_cleanup(&g_dac_loop_ctx[multimedia_id]);
+    }
+#endif
     luat_audio_release_decoder(&coder);
     luat_audio_stop_raw(multimedia_id);
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S && restore_sleep_mode != LUAT_AUDIO_PM_RESUME) {
@@ -300,8 +435,77 @@ LUAT_WEAK luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id){
     return NULL;
 }
 
+typedef struct {
+    uint8_t multimedia_id;
+    uint8_t error_stop;
+    uint32_t files_num;
+    /* paths[] follow immediately: files_num * (LUAT_AUDIO_PLAY_PATH_MAX + 1) bytes */
+} luat_audio_play_multi_ctx_t;
+
 LUAT_WEAK int luat_audio_play_multi_files(uint8_t multimedia_id, uData_t *info, uint32_t files_num, uint8_t error_stop){
-    return -1;
+    luat_audio_conf_t *audio_conf = luat_audio_get_config(multimedia_id);
+    luat_audio_play_state_t *play_state = luat_audio_get_play_state(multimedia_id);
+    luat_audio_play_multi_ctx_t *multi_ctx;
+    OS_EVENT audio_event = {0};
+    char *paths_base;
+    uint32_t i;
+
+    if (!audio_conf || !play_state) {
+        return -1;
+    }
+    if (!info || files_num == 0) {
+        return luat_audio_play_stop(multimedia_id);
+    }
+
+    if (play_state->playing || play_state->task_running) {
+        luat_audio_play_stop(multimedia_id);
+        for (i = 0; i < 500 && (play_state->playing || play_state->task_running); i++) {
+            luat_rtos_task_sleep(2);
+        }
+        if (play_state->playing || play_state->task_running) {
+            return -1;
+        }
+    }
+
+    multi_ctx = luat_heap_malloc(sizeof(luat_audio_play_multi_ctx_t) +
+                                 files_num * (LUAT_AUDIO_PLAY_PATH_MAX + 1));
+    if (!multi_ctx) {
+        return -1;
+    }
+    multi_ctx->multimedia_id = multimedia_id;
+    multi_ctx->error_stop    = error_stop;
+    multi_ctx->files_num     = files_num;
+
+    paths_base = (char *)(multi_ctx + 1);
+    for (i = 0; i < files_num; i++) {
+        char *dst = paths_base + i * (LUAT_AUDIO_PLAY_PATH_MAX + 1);
+        const uint8_t *src = NULL;
+        size_t src_len = 0;
+        if (info[i].Type == UDATA_TYPE_OPAQUE || info[i].Type == UDATA_TYPE_STRING) {
+            src     = info[i].value.asBuffer.buffer;
+            src_len = info[i].value.asBuffer.length;
+        }
+        if (src && src_len > 0) {
+            size_t cpy = src_len > LUAT_AUDIO_PLAY_PATH_MAX ? LUAT_AUDIO_PLAY_PATH_MAX : src_len;
+            memcpy(dst, src, cpy);
+            dst[cpy] = '\0';
+        } else {
+            dst[0] = '\0';
+        }
+    }
+
+    play_state->stop_requested = 0;
+    play_state->playing        = 1;
+    play_state->last_error     = 1;
+
+    audio_event.ID     = AUDIO_EVENT_PLAY_MULTI_FILES;
+    audio_event.Param1 = (size_t)multi_ctx;
+    if (luat_rtos_queue_send(audio_queue_handle, &audio_event, sizeof(OS_EVENT), 0) != 0) {
+        play_state->playing = 0;
+        luat_heap_free(multi_ctx);
+        return -1;
+    }
+    return 0;
 }
 
 
@@ -310,12 +514,12 @@ LUAT_WEAK int luat_audio_play_file(uint8_t multimedia_id, const char *path){
     luat_audio_play_state_t *play_state = luat_audio_get_play_state(multimedia_id);
     luat_audio_play_ctx_t *play_ctx;
     OS_EVENT audio_event = {0};
-    LLOGD("audio play file %d: %s", multimedia_id, path);
-    LLOGD("audio play file %d: %p, %p", multimedia_id, audio_conf, play_state);
+    // LLOGD("audio play file %d: %s", multimedia_id, path);
+    // LLOGD("audio play file %d: %p, %p", multimedia_id, audio_conf, play_state);
     if (!audio_conf || !play_state || !path || !path[0]) {
         return -1;
     }
-    LLOGD("audio play file %d: %d, %d", multimedia_id, play_state->playing, play_state->task_running);
+    // LLOGD("audio play file %d: %d, %d", multimedia_id, play_state->playing, play_state->task_running);
     if (play_state->playing || play_state->task_running) {
         luat_audio_play_stop(multimedia_id);
         for (uint32_t i = 0; i < 500 && (play_state->playing || play_state->task_running); i++) {
@@ -421,13 +625,7 @@ LUAT_WEAK int luat_audio_start_raw(uint8_t multimedia_id, uint8_t audio_format, 
         }
 #ifdef LUAT_USE_DAC
         else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
-            luat_dac_config_t config;
-            luat_dac_config_t* config_old = luat_dac_get_config(multimedia_id);
-            memcpy(&config, config_old, sizeof(luat_dac_config_t));
-            config.dac_chl = num_channels;
-            config.samp_rate = sample_rate;
-            config.bits = bits_per_sample;
-            luat_dac_setup(audio_conf->codec_conf.dac_id, &config);
+            luat_dac_modify(audio_conf->codec_conf.dac_id, num_channels, bits_per_sample, sample_rate);
         }
 #endif
     }
@@ -463,6 +661,7 @@ LUAT_WEAK int luat_audio_stop_raw(uint8_t multimedia_id){
         if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
             return luat_i2s_close(audio_conf->codec_conf.i2s_id);
         }
+        /* DAC: initialized once by luat_audio_init, kept open across files */
     }
     return -1;
 }
@@ -675,6 +874,38 @@ static void luat_audio_task(void *param){
                     luat_heap_free(play_ctx);
                 }
                 break;
+            case AUDIO_EVENT_PLAY_MULTI_FILES: {
+                luat_audio_play_multi_ctx_t *multi_ctx = (luat_audio_play_multi_ctx_t *)audio_event.Param1;
+                if (multi_ctx) {
+                    uint8_t mid         = multi_ctx->multimedia_id;
+                    uint8_t error_stop  = multi_ctx->error_stop;
+                    uint32_t files_num  = multi_ctx->files_num;
+                    char *paths_base    = (char *)(multi_ctx + 1);
+                    luat_audio_play_state_t *ps = luat_audio_get_play_state(mid);
+                    uint32_t fi;
+
+                    for (fi = 0; fi < files_num; fi++) {
+                        const char *p = paths_base + fi * (LUAT_AUDIO_PLAY_PATH_MAX + 1);
+                        if (!p[0]) {
+                            if (error_stop) break;
+                            continue;
+                        }
+                        /* Keep playing=1 across files so is_finish() stays correct */
+                        if (ps) ps->playing = 1;
+                        int file_ret = luat_audio_do_play_file(mid, p);
+                        /* do_play_file resets playing/task_running/stop_requested at EXIT_TASK */
+                        if (file_ret != 0 && error_stop) break;
+                    }
+                    if (ps) {
+                        ps->playing        = 0;
+                        ps->task_running   = 0;
+                        ps->stop_requested = 0;
+                    }
+                    luat_audio_post_done_event(mid);
+                    luat_heap_free(multi_ctx);
+                }
+                break;
+            }
             default:
                 break;
             }
@@ -721,9 +952,17 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 
         }
         audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
-    }else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
-
-    }else{
+    }
+#ifdef LUAT_USE_DAC
+    else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
+        luat_dac_config_t* dac_config = luat_dac_get_config(audio_conf->codec_conf.dac_id);
+        dac_config->samp_rate = LUAT_DAC_SAMP_16000;
+        dac_config->bits = LUAT_DAC_BITS_16;
+        dac_config->dac_chl = LUAT_DAC_CHL_L;
+        luat_dac_setup(audio_conf->codec_conf.dac_id, dac_config);
+    }
+#endif
+    else{
         LLOGE("unsupported bus type %d", audio_conf->bus_type);
         return -1;
     }

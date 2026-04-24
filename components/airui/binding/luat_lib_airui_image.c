@@ -33,6 +33,11 @@
  * @table config.pivot 旋转中心点，可选，格式 {x=0, y=0}
  * @int config.rotation 旋转角度，可选，0.1 度单位，900 = 90.0 度
  * @int config.zoom 缩放比例，默认 256（100%）
+ * @string config.fit 图片内容适配模式，默认 center。(center/contain/cover/stretch)
+ * @li center：不自动缩放，只居中显示原图；
+ * @li contain：等比缩放，完整显示整张图，可能留空边；
+ * @li cover：等比缩放并铺满控件，可能裁剪；
+ * @li stretch：非等比拉伸填满控件，可能变形
  * @int config.opacity 透明度，默认 255（不透明），范围 0-255
  * @function config.on_click 点击回调函数，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
@@ -119,6 +124,23 @@ static int l_image_set_zoom(lua_State *L) {
 }
 
 /**
+ * Image:set_fit(fit)
+ * @api image:set_fit(fit)
+ * @string fit 图片内容适配模式。
+ * @li center：不自动缩放，只居中显示原图；
+ * @li contain：等比缩放，完整显示整张图，可能留空边；
+ * @li cover：等比缩放并铺满控件，可能裁剪；
+ * @li stretch：非等比拉伸填满控件，可能变形
+ * @return nil
+ */
+static int l_image_set_fit(lua_State *L) {
+    lv_obj_t *img = airui_check_component(L, 1, AIRUI_IMAGE_MT);
+    const char *fit = luaL_checkstring(L, 2);
+    airui_image_set_fit(img, fit);
+    return 0;
+}
+
+/**
  * Image:set_opacity(opacity)
  * @api image:set_opacity(opacity)
  * @int opacity 透明度，0-255
@@ -201,11 +223,13 @@ void airui_register_image_meta(lua_State *L) {
         {"set_pivot", l_image_set_pivot},
         {"set_rotation", l_image_set_rotation},
         {"set_zoom", l_image_set_zoom},
+        {"set_fit", l_image_set_fit},
         {"set_opacity", l_image_set_opacity},
         {"get_pos", l_image_get_pos},
         {"set_pos", l_image_set_pos},
         {"move", l_image_move},
         {"destroy", l_image_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
     

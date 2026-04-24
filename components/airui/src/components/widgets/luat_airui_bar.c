@@ -27,6 +27,7 @@ static airui_bar_data_t *airui_bar_get_data(lv_obj_t *bar);
 static void airui_bar_create_progress_label(lv_obj_t *bar, airui_bar_data_t *data);
 static void airui_bar_update_progress_text(lv_obj_t *bar);
 static void airui_bar_set_label_visibility(airui_bar_data_t *data, bool visible);
+static void airui_bar_apply_progress_text_font(lv_obj_t *label, airui_bar_data_t *data);
 
 /**
  * 通过 Lua config 创建 Bar 组件
@@ -146,6 +147,10 @@ lv_obj_t *airui_bar_create_from_config(void *L, int idx)
     if (airui_marshal_color(L, idx, "progress_text_color", &progress_color)) {
         airui_bar_set_progress_text_color(bar, progress_color);
     }
+    int progress_font_size = airui_marshal_integer(L, idx, "progress_text_font_size", 0);
+    if (progress_font_size > 0) {
+        airui_bar_set_progress_text_font_size(bar, progress_font_size);
+    }
 
     // 返回创建成功的 Bar
     return bar;
@@ -234,6 +239,7 @@ static airui_bar_data_t *airui_bar_alloc_data(void)
     memset(data, 0, sizeof(airui_bar_data_t));
     data->show_progress_text = false;
     data->progress_text_color = lv_color_make(0xff, 0xff, 0xff);
+    data->progress_text_font_size = 0;
     data->progress_text_format[0] = '\0';
     data->progress_text_format[sizeof(data->progress_text_format) - 1] = '\0';
     return data;
@@ -269,6 +275,21 @@ static void airui_bar_create_progress_label(lv_obj_t *bar, airui_bar_data_t *dat
     lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_center(label);
     lv_obj_set_style_text_color(label, data->progress_text_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    airui_bar_apply_progress_text_font(label, data);
+}
+
+// Apply progress text font.
+static void airui_bar_apply_progress_text_font(lv_obj_t *label, airui_bar_data_t *data)
+{
+    if (label == NULL || data == NULL || data->progress_text_font_size == 0) {
+        return;
+    }
+    (void)airui_text_font_apply_hzfont(label, data->progress_text_font_size,
+        ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
+    lv_obj_refresh_self_size(label);
+    lv_obj_mark_layout_as_dirty(label);
+    lv_obj_update_layout(label);
+    lv_obj_invalidate(label);
 }
 
 // 设置进度文字 label 可见性
@@ -346,6 +367,30 @@ int airui_bar_set_progress_text_color(lv_obj_t *bar, lv_color_t color)
     data->progress_text_color_set = true;
     if (data->progress_label != NULL) {
         lv_obj_set_style_text_color(data->progress_label, color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    return AIRUI_OK;
+}
+
+// 设置进度文字字号
+int airui_bar_set_progress_text_font_size(lv_obj_t *bar, int font_size)
+{
+    airui_bar_data_t *data = airui_bar_get_data(bar);
+    if (data == NULL || font_size <= 0) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    data->progress_text_font_size = (uint16_t)font_size;
+    if (data->progress_label != NULL) {
+        int ret = airui_text_font_apply_hzfont(data->progress_label, font_size,
+            ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
+        if (ret != AIRUI_OK) {
+            return ret;
+        }
+        lv_obj_refresh_self_size(data->progress_label);
+        lv_obj_mark_layout_as_dirty(data->progress_label);
+        lv_obj_update_layout(data->progress_label);
+        lv_obj_center(data->progress_label);
+        lv_obj_invalidate(data->progress_label);
     }
     return AIRUI_OK;
 }

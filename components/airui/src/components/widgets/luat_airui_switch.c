@@ -112,6 +112,11 @@ int airui_switch_set_state(lv_obj_t *sw, bool checked)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
+    bool current = (lv_obj_get_state(sw) & LV_STATE_CHECKED) != 0;
+    if (current == checked) {
+        return AIRUI_OK;
+    }
+
     if (checked) {
         lv_obj_add_state(sw, LV_STATE_CHECKED);
     } else {

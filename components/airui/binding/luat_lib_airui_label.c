@@ -254,6 +254,7 @@ void airui_register_label_meta(lua_State *L) {
         {"set_pos", l_label_set_pos},
         {"move", l_label_move},
         {"destroy", l_label_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
     

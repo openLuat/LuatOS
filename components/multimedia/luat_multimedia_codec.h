@@ -74,6 +74,7 @@ enum {
     AUDIO_EVENT_RUN_FUNCTION = 1, 
     AUDIO_EVENT_ERCORD_CB = 2,
     AUDIO_EVENT_PLAY_FILE = 3,
+    AUDIO_EVENT_PLAY_MULTI_FILES = 4,
 };
 
 typedef struct luat_multimedia_codec {

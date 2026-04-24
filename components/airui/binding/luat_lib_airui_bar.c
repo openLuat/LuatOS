@@ -116,6 +116,23 @@ static int l_bar_set_progress_text_color(lua_State *L) {
 }
 
 /**
+ * Bar:set_progress_text_font_size(size)
+ * @api bar:set_progress_text_font_size(size)
+ * @int size progress text font size, hzfont only
+ * @return nil
+ */
+static int l_bar_set_progress_text_font_size(lua_State *L) {
+    lv_obj_t *bar = airui_check_component(L, 1, AIRUI_BAR_MT);
+    int font_size = (int)luaL_checkinteger(L, 2);
+    if (font_size <= 0) {
+        luaL_error(L, "font_size must be positive");
+        return 0;
+    }
+    airui_bar_set_progress_text_font_size(bar, font_size);
+    return 0;
+}
+
+/**
  * Bar:set_range(min, max)
  * @api bar:set_range(min, max)
  * @int min 最小值
@@ -172,10 +189,12 @@ void airui_register_bar_meta(lua_State *L) {
         {"get_value", l_bar_get_value},
         {"set_progress_text_format", l_bar_set_progress_text_format},
         {"set_progress_text_color", l_bar_set_progress_text_color},
+        {"set_progress_text_font_size", l_bar_set_progress_text_font_size},
         {"set_range", l_bar_set_range},
         {"set_indicator_color", l_bar_set_indicator_color},
         {"set_bg_color", l_bar_set_bg_color},
         {"destroy", l_bar_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

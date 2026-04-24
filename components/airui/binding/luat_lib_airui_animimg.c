@@ -135,6 +135,7 @@ void airui_register_animimg_meta(lua_State *L)
         {"stop", l_animimg_stop},
         {"set_src", l_animimg_set_src},
         {"destroy", l_animimg_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

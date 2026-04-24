@@ -10,6 +10,14 @@
 
 #define LUAT_CRYPTO_AES_PAD_ZERO 1
 #define LUAT_CRYPTO_AES_PAD_5 2
+
+/* MD type constants — 与 MBEDTLS_MD_* 枚举值一致 */
+#define LUAT_CRYPTO_MD_MD5    0x03
+#define LUAT_CRYPTO_MD_SHA1   0x05
+#define LUAT_CRYPTO_MD_SHA224 0x08
+#define LUAT_CRYPTO_MD_SHA256 0x09
+#define LUAT_CRYPTO_MD_SHA384 0x0a
+#define LUAT_CRYPTO_MD_SHA512 0x0b
 #define LUAT_CRYPTO_AES_PAD_7 3
 
 typedef struct
@@ -179,4 +187,64 @@ uint32_t luat_crc32(const void *data, uint32_t len, uint32_t start, uint32_t pol
 uint16_t luat_crc16_modbus( const uint8_t *buf, uint32_t len);
 
 uint8_t luat_crc7(const uint8_t* message, int length, uint8_t CRCPoly, uint8_t CRC);
+
+/**
+ * @brief 使用PK私钥签名(支持RSA/EC等, 自动识别PEM或DER格式)
+ * @param md_type  hash算法类型, 取 MBEDTLS_MD_* 枚举值, 例如 MBEDTLS_MD_SHA256(=6)
+ * @param hash     已计算好的hash值
+ * @param hash_len hash长度
+ * @param privkey  私钥数据(PEM或DER二进制)
+ * @param privkey_len 私钥数据长度
+ * @param password 私钥密码(加密PEM时使用), 可为NULL
+ * @param pwd_len  密码长度
+ * @param sig_out  输出: 堆上分配的签名数据, 调用方负责释放
+ * @param sig_len_out 输出: 签名数据长度
+ * @return 0成功, 非0失败
+ */
+int luat_crypto_pk_sign(int md_type,
+                        const uint8_t *hash, size_t hash_len,
+                        const uint8_t *privkey, size_t privkey_len,
+                        const char *password, size_t pwd_len,
+                        uint8_t **sig_out, size_t *sig_len_out);
+
+/**
+ * @brief 使用PK公钥验签(支持RSA/EC等, 自动识别PEM或DER格式)
+ * @param md_type  hash算法类型, 取 MBEDTLS_MD_* 枚举值, 例如 MBEDTLS_MD_SHA256(=6)
+ * @param hash     已计算好的hash值
+ * @param hash_len hash长度
+ * @param pubkey   公钥数据(PEM或DER二进制)
+ * @param pubkey_len 公钥数据长度
+ * @param sig      签名数据
+ * @param sig_len  签名长度
+ * @return 0验签成功, 非0失败
+ */
+int luat_crypto_pk_verify(int md_type,
+                          const uint8_t *hash, size_t hash_len,
+                          const uint8_t *pubkey, size_t pubkey_len,
+                          const uint8_t *sig, size_t sig_len);
+
+/**
+ * @brief 获取密钥类型字符串("rsa"/"ec"/"ecdsa"等)
+ * @param key       密钥数据(PEM或DER二进制)
+ * @param key_len   密钥数据长度
+ * @param is_private 1=私钥, 0=公钥
+ * @return 类型字符串(静态常量), 失败返回NULL
+ */
+const char* luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_private);
+
+/**
+ * @brief 生成密钥对(RSA或EC), 以PEM格式输出
+ * @param key_type    "rsa" 或 "ec"
+ * @param param       RSA时为位数(1024/2048/4096), EC时为曲线名("P-256"/"P-384"/"P-521")
+ * @param priv_pem    输出: 堆上分配的私钥PEM字符串(含NUL), 调用方负责释放
+ * @param priv_len    输出: 私钥PEM长度(不含NUL)
+ * @param pub_pem     输出: 堆上分配的公钥PEM字符串(含NUL), 调用方负责释放
+ * @param pub_len     输出: 公钥PEM长度(不含NUL)
+ * @return 0成功, 非0失败
+ */
+int luat_crypto_pk_generate(const char *key_type,
+                            const char *param,
+                            uint8_t **priv_pem, size_t *priv_len,
+                            uint8_t **pub_pem,  size_t *pub_len);
+
 #endif

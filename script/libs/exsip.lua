@@ -78,6 +78,7 @@ exsip.DEFAULT_EXPIRES = 600
 local sipclient = nil
 local g_config = nil
 local g_started = false
+local g_registered = false
 local g_callbacks = {}
 local g_current_call = nil
 
@@ -139,7 +140,8 @@ local function start_voip_engine(session)
         jitter_depth = 3,   --抖动缓冲深度，单位为包，默认值为3，建议值为3-5，过大可能增加通话延迟，过小可能增加丢包率
         multimedia_id = 0,  --多媒体ID
         stats_interval = 5000,  --统计信息上报间隔
-        adapter = g_config.adapter
+        -- 使用当前默认网卡，支持多网融合自动切换
+        adapter = socket.dft()
     })
 
     if ok then
@@ -165,9 +167,11 @@ local function sip_event_handler(event, action, payload)
 
     if event == "register" then
         if action == "ok" then
+            g_registered = true
             emit_callback("register", true, payload)
             emit_callback("ready")
         else
+            g_registered = false
             emit_callback("register", false, payload)
         end
     elseif event == "call" then
@@ -216,6 +220,13 @@ local function sip_event_handler(event, action, payload)
                 to = payload.to
             })
         end
+    elseif event == "lifecycle" then
+        log_info("lifecycle:", action)
+        if action == "offline" then
+            -- SIP 离线时，停止 voip 引擎，让下次重连时使用新网卡
+            stop_voip_engine()
+        end
+        emit_callback("lifecycle", action, payload)
     elseif event == "error" then
         log_error("error:", action, payload.event, payload.param)
         emit_callback("error", action, payload)
@@ -273,6 +284,7 @@ exsip.init({
 })
 ]]
 function exsip.init(config)
+    log_info("exsip.init called, config type:", type(config), "config:", config)
     if not config or type(config) ~= "table" then
         log_error("config must be a table")
         return false
@@ -335,7 +347,7 @@ function exsip.start()
         sip_username = g_config.sip_username,
         sip_password = g_config.sip_password,
         sip_transport = g_config.sip_transport,
-        adapter = g_config.adapter,
+        -- adapter 不设置，让 exsipclient 自动使用 socket.dft()
         rtp_port = g_config.rtp_port,
         expires = g_config.expires,
         codecs = g_config.codecs,
@@ -390,6 +402,11 @@ function exsip.dial(target)
         return false
     end
 
+    if not g_registered then
+        log_error("not registered, waiting for registration")
+        return false
+    end
+
     if not sipclient or not sipclient.call then
         log_error("sipclient.call not available")
         return false
@@ -398,6 +415,19 @@ function exsip.dial(target)
     sipclient.call(target)
     log_info("calling:", target)
     return true
+end
+
+--[[
+检查是否已注册成功。
+@api exsip.isRegistered()
+@return boolean 已注册返回 true，否则返回 false
+@usage
+if exsip.isRegistered() then
+    exsip.dial("1002")
+end
+]]
+function exsip.isRegistered()
+    return g_registered and g_started
 end
 
 --[[

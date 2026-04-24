@@ -103,6 +103,7 @@ void airui_register_spinner_meta(lua_State *L)
         {"set_style", l_spinner_set_style},
         {"set_anim_params", l_spinner_set_anim_params},
         {"destroy", l_spinner_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

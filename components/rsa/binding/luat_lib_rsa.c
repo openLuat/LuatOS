@@ -48,8 +48,6 @@ end
 
 #include "mbedtls/rsa.h"
 #include "mbedtls/pk.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
 #include "mbedtls/md.h"
 
 static int myrand( void *rng_state, unsigned char *output, size_t len ) {
@@ -166,26 +164,16 @@ local ret = rsa.verify((io.readFile("/luadb/public.pem")), rsa.MD_SHA1, hash, si
 log.info("rsa", "verify", ret)
 */
 static int l_rsa_verify(lua_State* L) {
-    int ret = 0;
-    size_t hash_len = 0;
-    size_t sig_len = 0;
-    size_t keylen = 0;
-
+    size_t keylen, hash_len, sig_len;
     const char* key =  luaL_checklstring(L,  1, &keylen);
-    mbedtls_md_type_t md = luaL_checkinteger(L, 2);
+    int md = luaL_checkinteger(L, 2);
     const char* hash = luaL_checklstring(L, 3, &hash_len);
     const char* sig =  luaL_checklstring(L,  4, &sig_len);
 
-    mbedtls_pk_context ctx_pk;
-    mbedtls_pk_init(&ctx_pk);
-    ret = mbedtls_pk_parse_public_key(&ctx_pk, (const unsigned char*)key, keylen + 1);
-    if (ret) {
-        mbedtls_pk_free(&ctx_pk);
-        LLOGW("bad public key %04X", -ret);
-        return 0;
-    }
-
-    ret = mbedtls_pk_verify(&ctx_pk, md, (const unsigned char*)hash, hash_len, (const unsigned char*)sig, sig_len);
+    int ret = luat_crypto_pk_verify(md,
+                                    (const uint8_t *)hash, hash_len,
+                                    (const uint8_t *)key,  keylen,
+                                    (const uint8_t *)sig,  sig_len);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -204,44 +192,25 @@ local sig = rsa.sign((io.readFile("/luadb/privkey.pem")), rsa.MD_SHA1, hash, "")
 log.info("rsa", "sign", sig and #sig or 0, sig and sig:toHex() or "")
 */
 static int l_rsa_sign(lua_State* L) {
-    int ret = 0;
-    size_t pwdlen = 0;
-    size_t hash_len = 0;
-    size_t sig_len = 0;
-    size_t keylen = 0;
-
-    char sig[MBEDTLS_PK_SIGNATURE_MAX_SIZE] = {0};
-
-    const char* key =  luaL_checklstring(L,  1, &keylen);
-    mbedtls_md_type_t md = luaL_checkinteger(L, 2);
+    size_t keylen, hash_len, pwdlen = 0;
+    const char* key  = luaL_checklstring(L, 1, &keylen);
+    int md           = luaL_checkinteger(L, 2);
     const char* hash = luaL_checklstring(L, 3, &hash_len);
-    const char* pwd = luaL_optlstring(L, 4, "", &pwdlen);
+    const char* pwd  = luaL_optlstring(L, 4, "", &pwdlen);
 
-    mbedtls_pk_context ctx_pk;
-    mbedtls_pk_init(&ctx_pk);
-    ret = mbedtls_pk_parse_key(&ctx_pk, (const unsigned char*)key, keylen + 1, (const unsigned char*)pwd, pwdlen
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
-    , myrand, NULL
-#endif
-    );
-    if (ret) {
-        mbedtls_pk_free(&ctx_pk);
-        LLOGW("bad private key %04X", -ret);
-        return 0;
+    uint8_t *sig = NULL;
+    size_t sig_len = 0;
+    int ret = luat_crypto_pk_sign(md,
+                                  (const uint8_t *)hash, hash_len,
+                                  (const uint8_t *)key,  keylen,
+                                  pwd, pwdlen,
+                                  &sig, &sig_len);
+    if (ret == 0 && sig) {
+        lua_pushlstring(L, (const char *)sig, sig_len);
+        luat_heap_free(sig);
+        return 1;
     }
-    ret = mbedtls_pk_sign(&ctx_pk, md, (const unsigned char*)hash, hash_len, (unsigned char*)sig, 
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
-    MBEDTLS_PK_SIGNATURE_MAX_SIZE,
-#endif 
-    &sig_len, myrand, NULL);
-    mbedtls_pk_free(&ctx_pk);
-
-    if (ret) {
-        LLOGW("mbedtls_pk_sign %04X", -ret);
-        return 0;
-    }
-    lua_pushlstring(L, sig, sig_len);
-    return 1;
+    return 0;
 }
 
 #include "rotable2.h"
@@ -254,13 +223,13 @@ static const rotable_Reg_t reg_rsa[] =
     { "sign",            ROREG_FUNC(l_rsa_sign)},
 
     //@const MD_MD5 MD5模式,用于签名和验签
-    { "MD_MD5",          ROREG_INT(MBEDTLS_MD_MD5)},
+    { "MD_MD5",          ROREG_INT(LUAT_CRYPTO_MD_MD5)},
     //@const MD_SHA1 SHA1模式,用于签名和验签
-    { "MD_SHA1",         ROREG_INT(MBEDTLS_MD_SHA1)},
+    { "MD_SHA1",         ROREG_INT(LUAT_CRYPTO_MD_SHA1)},
     //@const MD_SHA224 SHA224模式,用于签名和验签
-    { "MD_SHA224",       ROREG_INT(MBEDTLS_MD_SHA224)},
+    { "MD_SHA224",       ROREG_INT(LUAT_CRYPTO_MD_SHA224)},
     //@const MD_SHA256 SHA256模式,用于签名和验签
-    { "MD_SHA256",       ROREG_INT(MBEDTLS_MD_SHA256)},
+    { "MD_SHA256",       ROREG_INT(LUAT_CRYPTO_MD_SHA256)},
 	{ NULL,              ROREG_INT(0) }
 };
 

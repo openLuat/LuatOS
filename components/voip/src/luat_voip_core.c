@@ -18,12 +18,19 @@
 #include "luat_msgbus.h"
 #include "luat_network_adapter.h"
 #include "luat_audio.h"
-#include "luat_i2s.h"
+
 #include "luat_rtp.h"
 #include "luat_conf_bsp.h"
 #include "g711_codec/g711_codec.h"
 #include "luat_crypto.h"
+
+#ifdef LUAT_USE_DAC
 #include "luat_dac.h"
+#endif
+
+#ifdef LUAT_USE_I2S
+#include "luat_i2s.h"
+#endif
 
 #ifdef LUAT_USE_VOIP_AEC
 #include "speex/speex_echo.h"
@@ -525,7 +532,6 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
     }
     memset(ctx->duplex_play_buf, 0, ctx->frame_bytes * ctx->play_slot_count);
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
-
         luat_i2s_conf_t *i2s = luat_i2s_get_config((uint8_t)audio_conf->codec_conf.i2s_id);
         if (!i2s) {
             LLOGE("i2s config not found");
@@ -551,6 +557,7 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
             return -1;
         }
     } else if (audio_conf->bus_type == LUAT_AUDIO_BUS_DAC) {
+#if defined(LUAT_USE_DAC)
         ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
         luat_audio_record_set_callbac(voip_i2s_cb);
         if (luat_audio_record_and_play(ctx->config.multimedia_id, sample_rate, (const uint8_t *)ctx->duplex_play_buf, ctx->frame_bytes, ctx->play_slot_count) != 0) {
@@ -566,6 +573,10 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
          };
         luat_dac_setup(0, &config);
         luat_dac_buffer_loop(ctx->config.multimedia_id, ctx->duplex_play_buf, ctx->frame_bytes, ctx->play_slot_count);
+#else
+        LLOGE("DAC bus type not supported in this build");
+        return -1;
+#endif
     }
 
 
@@ -592,7 +603,9 @@ static void voip_stop_audio(voip_ctx_t *ctx)
         luat_i2s_load_old_config(audio_conf->codec_conf.i2s_id);
         ctx->i2s_config_saved = 0;
     } else {
+#if defined(LUAT_USE_DAC)
         luat_dac_close(0);
+#endif
     }
     ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
     ctx->audio_started = 0;

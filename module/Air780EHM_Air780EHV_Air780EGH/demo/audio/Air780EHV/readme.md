@@ -12,7 +12,7 @@
 
 6、record_pcm_file.lua：流式录音到文件功能模块，演示PCM格式音频录制；
 
-7、http_pcm_stream_play.lua：HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡；
+7、http_download_play.lua：HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡；
 
 8、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
 
@@ -126,7 +126,7 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 ├── play_stream.lua       # 流式音频播放功能模块，支持PCM格式流式播放
 ├── record_amr_file.lua   # 录音到文件功能模块，支持AMR格式录音
 ├── record_pcm_file.lua   # 流式录音到文件功能模块，支持PCM格式录音
-├── http_pcm_stream_play.lua # HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式
+├── http_download_play.lua # HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式
 ├── sample-6s.mp3         # 示例音频文件，用于播放测试
 ├── test.pcm              # 示例PCM音频文件，用于流式播放测试
 └── 10.amr                # 示例AMR音频文件，用于播放测试
@@ -330,12 +330,12 @@ I/user.mem.sys 3200560 478380 485708
 I/user.播放完成
 ```
 
-### 6、HTTP下载音频文件播放功能（http_pcm_stream_play.lua）
+### 6、HTTP下载音频文件播放功能（http_download_play.lua）
 
 1. 搭建好硬件环境
 2. 搭配AirAUDIO_1000音频板测试，需将AirAUDIO_1000音频板中PA开关拨到OFF，让软件控制PA，避免pop音
-3. 打开main.lua，确保保留`require "http_pcm_stream_play"`这一行
-4. 修改`http_pcm_stream_play.lua`中的`AUDIO_URL`变量，设置为要下载的音频文件URL（支持PCM/MP3/AMR格式，自动识别）
+3. 打开main.lua，确保保留`require "http_download_play"`这一行
+4. 修改`http_download_play.lua`中的`AUDIO_URL`变量，设置为要下载的音频文件URL（支持PCM/MP3/AMR格式，自动识别）
 5. 将代码下载到开发板并运行
 6. **演示效果**：通过HTTP下载音频文件并播放，自动识别音频格式，支持SD卡存储，文件大于200KB时必须使用SD卡
 

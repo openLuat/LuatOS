@@ -1,5 +1,5 @@
 --[[
-@module  http_pcm_stream_play
+@module  http_download_play
 @summary HTTP下载音频文件播放
 @version 1.0
 @date    2026.04.24

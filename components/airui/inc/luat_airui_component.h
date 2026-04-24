@@ -535,6 +535,7 @@ int airui_image_set_src(lv_obj_t *img, const char *src); //设置图片源
 int airui_image_set_pivot(lv_obj_t *img, int x, int y); //设置旋转中心点
 int airui_image_set_rotation(lv_obj_t *img, int rotation); //设置旋转角度，0.1度单位
 int airui_image_set_zoom(lv_obj_t *img, int zoom); //设置缩放比例
+int airui_image_set_fit(lv_obj_t *img, const char *fit); //设置图片内容适配模式：center/contain/cover/stretch
 int airui_image_set_opacity(lv_obj_t *img, int opacity); //设置透明度
 
 /**

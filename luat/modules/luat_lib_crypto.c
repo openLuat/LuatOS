@@ -14,6 +14,7 @@
 #include <time.h>
 #include "luat_zbuff.h"
 #include "luat_str.h"
+#include "luat_fs.h"
 
 #define LUAT_LOG_TAG "crypto"
 #define LUAT_CRYPTO_TYPE "crypto"
@@ -854,6 +855,102 @@ static int l_crypt_checksum(lua_State *L) {
     return 1;
 }
 
+/**
+计算文件的CRC校验值
+@api crypto.crc_file(mode, path, ...)
+@string CRC模式, "crc32" 计算crc32, "crc8" 计算crc8, "crc16_modbus" 计算modbus crc16, 其他值作为crc16的method参数(IBM/MAXIM/USB/MODBUS/CCITT/CCITT-FALSE/X25/XMODEM/DNP/USER-DEFINED)
+@string 文件路径
+@return int CRC值,若文件不存在则无返回值
+@usage
+-- 计算文件的CRC32
+local crc = crypto.crc_file("crc32", "/luadb/test.bin")
+-- 计算文件的CRC32,自定义参数
+local crc = crypto.crc_file("crc32", "/luadb/test.bin", 0xFFFFFFFF, 0x04C11DB7, 0xFFFFFFFF)
+-- 计算文件的CRC16 MODBUS
+local crc = crypto.crc_file("crc16_modbus", "/luadb/test.bin")
+-- 计算文件的CRC16 IBM
+local crc = crypto.crc_file("IBM", "/luadb/test.bin")
+-- 计算文件的CRC8
+local crc = crypto.crc_file("crc8", "/luadb/test.bin")
+ */
+static int l_crypto_crc_file(lua_State *L) {
+    const char *mode = luaL_checkstring(L, 1);
+    size_t path_size = 0;
+    const char *path = luaL_checklstring(L, 2, &path_size);
+    if (path_size < 2)
+        return 0;
+
+    FILE *fd = luat_fs_fopen(path, "rb");
+    if (fd == NULL) {
+        LLOGI("no such file %s", path);
+        return 0;
+    }
+
+    uint8_t buff[512];
+    int len = 0;
+
+    if (strcmp(mode, "crc32") == 0 || strcmp(mode, "CRC32") == 0) {
+        uint32_t start = (uint32_t)luaL_optinteger(L, 3, 0xffffffff);
+        uint32_t poly  = (uint32_t)luaL_optinteger(L, 4, 0x04C11DB7);
+        uint32_t end   = (uint32_t)luaL_optinteger(L, 5, 0xffffffff);
+        uint32_t crc = start;
+        while ((len = (int)luat_fs_fread(buff, 1, sizeof(buff), fd)) > 0) {
+            crc = luat_crc32(buff, (uint32_t)len, crc, poly);
+        }
+        luat_fs_fclose(fd);
+        lua_pushinteger(L, (lua_Integer)(crc ^ end));
+    } else if (strcmp(mode, "crc8") == 0 || strcmp(mode, "CRC8") == 0) {
+        uint8_t start      = (uint8_t)luaL_optinteger(L, 3, 0x00);
+        uint8_t poly       = (uint8_t)luaL_optinteger(L, 4, 0x07);
+        uint8_t is_reverse = (uint8_t)luaL_optinteger(L, 5, 0);
+        uint8_t crc = start;
+        while ((len = (int)luat_fs_fread(buff, 1, sizeof(buff), fd)) > 0) {
+            crc = luat_crc8(buff, (uint32_t)len, crc, poly, is_reverse);
+        }
+        luat_fs_fclose(fd);
+        lua_pushinteger(L, crc);
+    } else {
+        // CRC16: "crc16_modbus" maps to MODBUS params, others match crc16method_table
+        uint16_t poly_default    = 0x0000;
+        uint16_t initial_default = 0x0000;
+        uint16_t finally_default = 0x0000;
+        uint8_t  in_reverse      = 0;
+        uint8_t  out_reverse     = 0;
+        // "crc16_modbus" is equivalent to "MODBUS" in the table
+        const char *lookup = (strcmp(mode, "crc16_modbus") == 0 || strcmp(mode, "CRC16_MODBUS") == 0) ? "MODBUS" : mode;
+        for (int i = 0; i < (int)(sizeof(crc16method_table)/sizeof(crc16method_table[0])); i++) {
+            if (strcmp(crc16method_table[i].name, lookup) == 0) {
+                poly_default    = crc16method_table[i].crc16_polynomial;
+                initial_default = crc16method_table[i].initial_value;
+                finally_default = crc16method_table[i].finally_data;
+                in_reverse      = crc16method_table[i].input_reverse;
+                out_reverse     = crc16method_table[i].output_reverse;
+                break;
+            }
+        }
+        uint16_t poly      = (uint16_t)luaL_optnumber(L, 3, poly_default);
+        uint16_t initial   = (uint16_t)luaL_optnumber(L, 4, initial_default);
+        uint16_t finally   = (uint16_t)luaL_optnumber(L, 5, finally_default);
+        uint8_t  inReverse = (uint8_t) luaL_optnumber(L, 6, in_reverse);
+        uint8_t  outReverse= (uint8_t) luaL_optnumber(L, 7, out_reverse);
+        // Process file in chunks; pass final=0 each iteration, apply XOR at the end
+        uint16_t crc = initial;
+        while ((len = (int)luat_fs_fread(buff, 1, sizeof(buff), fd)) > 0) {
+            crc = luat_crc16(buff, (uint32_t)len, crc, 0x0000, poly, inReverse);
+        }
+        luat_fs_fclose(fd);
+        crc ^= finally;
+        if (outReverse) {
+            uint16_t out = 0;
+            InvertUint16(&out, &crc);
+            crc = out;
+        }
+        lua_pushinteger(L, crc);
+    }
+    return 1;
+}
+
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_crypto[] =
 {
@@ -882,6 +979,7 @@ static const rotable_Reg_t reg_crypto[] =
     { "md_file",        ROREG_FUNC(l_crypto_md_file)},
     { "md",             ROREG_FUNC(l_crypto_md)},
     { "checksum",       ROREG_FUNC(l_crypt_checksum)},
+    { "crc_file",       ROREG_FUNC(l_crypto_crc_file)},
     { "hash_init",      ROREG_FUNC(l_crypt_hash_init)},
     { "hash_update",    ROREG_FUNC(l_crypt_hash_update)},
     { "hash_finish",    ROREG_FUNC(l_crypt_hash_finish)},

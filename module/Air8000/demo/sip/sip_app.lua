@@ -8,12 +8,17 @@
 - SIP配置
 - 事件回调处理
 - 主业务逻辑
+
+本模块被 require 时自动执行初始化
 ]]
 
 local exsip = require "exsip"
 local audio_drv = require "audio_drv"
 
 local sip_app = {}
+
+local g_sip_started = false
+local g_first_initialized = false
 
 local SIP_CONFIG = {
     sip_server_addr = "180.152.6.34",
@@ -24,20 +29,36 @@ local SIP_CONFIG = {
     -- sip_transport = exsip.TRANSPORT_TCP,
     sip_transport = exsip.TRANSPORT_UDP,
     auto_answer = true,
-    --4G
-    -- adapter = nil,
-    --WIFI
-    -- adapter = socket.LWIP_STA,
-    --以太网
-    adapter = socket.LWIP_ETH,
 }
+
+local function start_sip_service()
+    if g_sip_started then
+        log.info("sip", "SIP 服务已在运行，先停止")
+        exsip.stop()
+        g_sip_started = false
+        sys.wait(500)
+    end
+
+    log.info("sip", "开始初始化 SIP...")
+    if exsip.init(SIP_CONFIG) then
+        log.info("sip", "配置完成，开始启动 SIP...")
+        if exsip.start() then
+            log.info("sip", "启动完成，等待注册...")
+            g_sip_started = true
+        else
+            log.error("sip", "启动失败")
+        end
+    else
+        log.error("sip", "初始化失败")
+    end
+end
 
 local function sip_callback(event, arg1, arg2, arg3)
     if event == "register" then
         local status, data = arg1, arg2
-        if status then
-            log.info("sip", "注册成功，有效期:", data.expires)
-        else
+        if status == "ok" then
+            log.info("sip", "注册成功，有效期:", data.expires, "SIP响应头:", data.headers)
+        elseif status == "failed" then
             log.error("sip", "注册失败")
         end
     elseif event == "ready" then
@@ -45,31 +66,27 @@ local function sip_callback(event, arg1, arg2, arg3)
     elseif event == "call" then
         local sub_event, data = arg1, arg2
         if sub_event == "incoming" then
-            log.info("sip", "来电:", data.from)
-            local call_result = exsip.get_current_call()
-            if call_result then
-                log.info("来电号码:", call_result.from)
-            end
+            log.info("sip", "来电:", data.from,data.call_id,data.uri,data.headers,body,data.remote_sdp)
         elseif sub_event == "ringing" then
             log.info("sip", "对方响铃中")
         elseif sub_event == "connected" then
             log.info("sip", "通话已建立")
         elseif sub_event == "ended" then
-            log.info("sip", "通话已结束")
+            log.info("sip", "通话已结束，结束原因为：",data.reason,"通话对象：",data.dialog)
         end
     elseif event == "media" then
         local sub_event, session = arg1, arg2
         if sub_event == "ready" then
             log.info("sip", "媒体通道就绪", session.remote_ip .. ":" .. session.remote_port)
         elseif sub_event == "stop" then
-            log.info("sip", "媒体通道已关闭")
+            log.info("sip", "媒体通道已关闭，关闭原因：",session.reason)
         end
     elseif event == "message" then
         local sub_event, data = arg1, arg2
         if sub_event == "rx" then
             log.info("sip", "收到消息:", data.from, data.body)
         elseif sub_event == "sent" then
-            log.info("sip", "消息已发送到:", data.to)
+            log.info("sip", "消息已发送到:", data.to,"消息内容为：",data.body)
         end
     elseif event == "voip" then
         local sub_event, data = arg1, arg2
@@ -88,57 +105,56 @@ local function sip_callback(event, arg1, arg2, arg3)
     end
 end
 
+
+local function gpio_dial_callback()
+    local state = exsip.dial(100000)
+    if state then
+        log.info("exsip", "拨号成功")
+    else
+        log.warn("exsip", "拨号失败")
+    end
+end
+local function gpio_hangup_callback()
+    local state = exsip.hangUp()
+    if state then
+        log.info("exsip", "挂断成功")
+    else
+        log.warn("exsip", "挂断失败")
+    end
+end
+
+local function sip_init_task()
+
+    if audio_drv.init() then
+        log.info("sip_app", "音频驱动初始化成功")
+    end
+
+    if SIP_CONFIG.sip_server_addr == "xxx.xxx.xxx.xxx" then
+        log.error("sip", "请先配置 SIP 服务器地址和账号密码")
+        return
+    end
+
+    log.info("sip", "检查网络状态...")
+    if socket.adapter(SIP_CONFIG.adapter) then
+        log.info("sip", "网络已就绪（已连接）")
+    else
+        log.info("sip", "等待网络连接...")
+        sys.waitUntil("IP_READY")
+        log.info("sip", "网络已就绪")
+    end
+
+    start_sip_service()
+
+    gpio.setup(0, gpio_dial_callback, gpio.PULLDOWN, gpio.RISING)
+    gpio.setup(gpio.PWR_KEY, gpio_hangup_callback, gpio.PULLUP, gpio.FALLING)
+end
+
 function sip_app.init()
     exsip.on(sip_callback)
-
-    sys.taskInit(function()
-        if not (rtos and rtos.bsp and rtos.bsp() and rtos.bsp():find("PC")) then
-            gpio.setup(147, 1)
-        end
-        sys.wait(3000)
-
-        if audio_drv.init() then
-            log.info("sip_app", "音频驱动初始化成功")
-        end
-
-        if SIP_CONFIG.sip_server_addr == "xxx.xxx.xxx.xxx" then
-            log.error("sip", "请先配置 SIP 服务器地址和账号密码")
-            return
-        end
-
-        log.info("sip", "检查网络状态...")
-        if socket.adapter(SIP_CONFIG.adapter) then
-            log.info("sip", "网络已就绪（已连接）")
-        else
-            log.info("sip", "等待网络连接...")
-            sys.waitUntil("IP_READY")
-            log.info("sip", "网络已就绪")
-        end
-
-        log.info("sip", "开始初始化 SIP...")
-        if exsip.init(SIP_CONFIG) then
-            log.info("sip", "配置完成，开始启动 SIP...")
-            if exsip.start() then
-                log.info("sip", "启动完成，等待注册...")
-            else
-                log.error("sip", "启动失败")
-            end
-        else
-            log.error("sip", "初始化失败")
-        end
-
-        if not (rtos and rtos.bsp and rtos.bsp() and rtos.bsp():find("PC")) then
-            gpio.setup(0, function()
-                local state = exsip.dial(100000)
-                if state then
-                    log.info("exsip", "拨号成功!!!!!!!")
-                else
-                    log.warn("exsip", "拨号失败")
-                end
-            end, gpio.PULLDOWN, gpio.RISING)
-        end
-
-    end)
+    sys.taskInit(sip_init_task)
 end
+
+-- 模块被 require 时自动执行初始化
+sip_app.init()
 
 return sip_app

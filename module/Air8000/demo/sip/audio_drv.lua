@@ -28,7 +28,10 @@ function audio_drv.init()
         log.info("audio_drv", "PC 模拟器，跳过音频初始化")
         return true
     end
+
+    gpio.setup(147, 1)     -- 8000开发板，打开I2C总线，扫描音频芯片
     
+    --初始化音频设备
     if exaudio.setup(audio_configs) then
         log.info("audio_drv", "exaudio.setup初始化成功")
         return true

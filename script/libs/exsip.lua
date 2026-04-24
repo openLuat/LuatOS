@@ -134,11 +134,11 @@ local function start_voip_engine(session)
         remote_port = tonumber(session.remote_port) or 10000,
         local_port = tonumber(session.local_rtp_port) or 0,
         codec = codec,
-        ptime = tonumber(session.ptime) or 20,
-        sample_rate = tonumber(session.sample_rate) or 8000,
-        jitter_depth = 3,
-        multimedia_id = 0,
-        stats_interval = 5000,
+        ptime = tonumber(session.ptime) or 20,  -- 打包时长，单位毫秒
+        sample_rate = tonumber(session.sample_rate) or 8000,    -- 采样率，单位Hz，默认8000
+        jitter_depth = 3,   --抖动缓冲深度，单位为包，默认值为3，建议值为3-5，过大可能增加通话延迟，过小可能增加丢包率
+        multimedia_id = 0,  --多媒体ID
+        stats_interval = 5000,  --统计信息上报间隔
         adapter = g_config.adapter
     })
 

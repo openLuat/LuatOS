@@ -10,6 +10,8 @@
 2、连接WIFI路由器；
 3、和WIFI路由器之间的连接状态发生变化时，在日志中进行打印；
 
+注意：当前netdrv_wifi还不能使用
+
 本文件没有对外接口，直接在其他功能模块中require "netdrv_wifi"就可以加载运行；
 ]]
 
@@ -83,3 +85,4 @@ end
 -- 在处理函数中调用exnetif.set_priority_order设置网卡优先级
 -- 因为exnetif.set_priority_order要求必须在task中被调用，所以此处启动一个task
 sys.taskInit(netdrv_wifi_task_func)
+

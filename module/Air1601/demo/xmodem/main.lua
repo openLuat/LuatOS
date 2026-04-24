@@ -1,18 +1,19 @@
 --[[
 @module  main
-@summary LuatOS SIP/VoIP 电话应用入口，负责加载功能模块
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2026.04.15
+@date    2025.10.14
+@author  李源龙
 @usage
 本demo演示的核心功能为：
-1. 使用 exsip.lua 封装库实现 SIP/VoIP 电话功能
-2. 音频设备初始化与控制
-3. SIP 事件回调处理
-4. 按键接听电话
+用Air8000核心板利用xmodem协议，将模块内的文件从串口发送到对端
+主要提供了两种方式：
+1、文件存到脚本区里面，通过xmodem协议，把脚本区文件发给对端
+2、通过http下载文件到文件系统区，通过xmodem协议，把文件系统区文件发给对端
 
-模块加载顺序：
-1. 加载 sip_app 主业务模块
+更多说明参考本目录下的readme.md文件
 ]]
+
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -24,12 +25,14 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-
-PROJECT = "sip_demo_simple"
+PROJECT = "xmodem_demo"
 VERSION = "001.999.000"
+
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
+
+
 
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
@@ -42,17 +45,23 @@ log.info("main", PROJECT, VERSION)
 
 
 -- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
--- 可以使用合宙iot.openluat.com平台进行远程升级
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
 
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
 -- 加载网络驱动设备功能模块
 require "netdrv_device"
-
--- 加载SIP电话应用模块
-require "sip_app"
-
+-- 加载xmodem_demo模块
+require "xmodem_demo"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -952,13 +952,17 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 
         }
         audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
-    }else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
+    }
+#ifdef LUAT_USE_DAC
+    else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
         luat_dac_config_t* dac_config = luat_dac_get_config(audio_conf->codec_conf.dac_id);
         dac_config->samp_rate = LUAT_DAC_SAMP_16000;
         dac_config->bits = LUAT_DAC_BITS_16;
         dac_config->dac_chl = LUAT_DAC_CHL_L;
         luat_dac_setup(audio_conf->codec_conf.dac_id, dac_config);
-    }else{
+    }
+#endif
+    else{
         LLOGE("unsupported bus type %d", audio_conf->bus_type);
         return -1;
     }

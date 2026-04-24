@@ -1,9 +1,9 @@
 --[[
 @module  tp_drv
-@summary 触摸面板驱动模块，基于tp核心库(Air1601版本)
+@summary 触摸面板驱动模块，基于tp核心库
 @version 1.0
-@date    2026.03.16
-@author  孙志鹏
+@date    2025.12.1
+@author  江访
 @usage
 本模块为触摸面板驱动功能模块，主要功能包括：
 1、初始化GT911触摸控制器；
@@ -17,8 +17,6 @@
 
 
 --[[
-touch事件回调函数；
-
 初始化触摸面板驱动；
 
 @api tp_drv.init()
@@ -50,14 +48,13 @@ else
 end
 
 local function tp_drv_init()
-    -- 初始化软件I2C，接口i2c.createSoft(scl, sda, delay)
-     -- 初始化复位引脚GPIO4，先拉低再关闭，确保不被拉高
     gpio.setup(rst_pin, 0) -- 设置GPIO4为输出模式，输出低电平
 
-    gpio.close(rst_pin) -- 关闭GPIO4功能，恢复高阻态
+    gpio.close(rst_pin)    -- 关闭GPIO4功能，恢复高阻态
     if not is_soft_i2c then
         i2c.setup(port, i2c.SLOW)
     end
+
     -- 此处触摸IC数据读取使用的是软件I2C接口
     -- 参数说明：
     -- "gt911": 触摸控制器型号
@@ -66,7 +63,8 @@ local function tp_drv_init()
     -- pin_int: 中断引脚编号
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
-    result = tp.init("gt911", {
+
+    local result = tp.init("gt911", {
         port = port,
         pin_rst = rst_pin,
         pin_int = int_pin,
@@ -77,12 +75,19 @@ local function tp_drv_init()
 
     log.info("tp.init", result)
 
-    if not result then
-        log.error("ui_main", "触摸初始化失败")
-        return result
-    else
+    if rtos.bsp() ~= "PC" then
         -- 绑定触摸设备到AirUI输入设备
-        return airui.device_bind_touch(result)
+        airui.device_bind_touch(result)
+
+        -- 在PC模拟器上启用系统键盘输入
+        airui.keyboard_enable_system(true)
+    else
+        if not result then
+            log.error("ui_main", "触摸初始化失败")
+        else
+            -- 绑定触摸设备到AirUI输入设备
+            airui.device_bind_touch(result)
+        end
     end
 end
 

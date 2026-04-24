@@ -54,7 +54,7 @@
     #define LV_COLOR_DEPTH 16
 
     /* 图片缓存配置 */
-    #define LV_CACHE_DEF_SIZE (2 * 1024 * 1024)     /* 2MB */
+    #define LV_CACHE_DEF_SIZE (4 * 1024 * 1024)     /* 4MB */
     #define LV_IMAGE_HEADER_CACHE_DEF_CNT 32        /* 32个图片头缓存 */
 
     #define LV_USE_LOG 1

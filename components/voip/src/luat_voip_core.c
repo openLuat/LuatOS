@@ -22,6 +22,7 @@
 #include "luat_rtp.h"
 #include "luat_conf_bsp.h"
 #include "g711_codec/g711_codec.h"
+#include "luat_crypto.h"
 
 #ifdef LUAT_USE_VOIP_AEC
 #include "speex/speex_echo.h"

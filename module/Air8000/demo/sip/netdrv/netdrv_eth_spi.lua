@@ -29,6 +29,7 @@ local function ip_ready_func(ip, adapter)
         socket.setDNS(adapter, 2, "114.114.114.114")
 
         log.info("netdrv_eth_spi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_ETH))
+        sys.publish("NETDRV_NETWORK_STATUS", true, adapter)
     end
 end
 

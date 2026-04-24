@@ -9,6 +9,83 @@
 
 static bool sms_debug_enable = 0;
 
+/*
+ * ASCII 到 GSM7 的正向映射表，索引为 ASCII 码 (0x00-0x7F)。
+ * 0xFF = 不可编码。
+ * (val & 0x80) != 0 表示扩展字符，需 2 个 septet (ESC + 低 7 位为扩展表索引)。
+ * 其余值为 GSM7 basic 字符码。
+ */
+static const uint8_t ascii_to_gsm7[128] = {
+/*00*/ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, /* 0x00-0x07 */
+/*08*/ 0xFF, 0xFF, 0x0A, 0xFF, 0xFF, 0x0D, 0xFF, 0xFF, /* 0x08-0x0F  LF CR */
+/*10*/ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, /* 0x10-0x17 */
+/*18*/ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, /* 0x18-0x1F */
+/*20*/ 0x20, 0x21, 0x22, 0x23, 0x02, 0x25, 0x26, 0x27, /* SP ! " # $ % & ' */
+/*28*/ 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, /* ( ) * + , - . / */
+/*30*/ 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, /* 0-7 */
+/*38*/ 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, /* 8 9 : ; < = > ? */
+/*40*/ 0x00, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, /* @ A B C D E F G */
+/*48*/ 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, /* H I J K L M N O */
+/*50*/ 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, /* P Q R S T U V W */
+/*58*/ 0x58, 0x59, 0x5A, 0x80|0x3C, 0x80|0x2F, 0x80|0x3E, 0x80|0x14, 0x11, /* X Y Z [ \ ] ^ _ */
+/*60*/ 0xFF, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, /* ` a b c d e f g */
+/*68*/ 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, /* h i j k l m n o */
+/*70*/ 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, /* p q r s t u v w */
+/*78*/ 0x78, 0x79, 0x7A, 0x80|0x28, 0x80|0x40, 0x80|0x29, 0x80|0x3D, 0xFF  /* x y z { | } ~ DEL */
+};
+
+int luat_sms_check_7bit(const char *str, size_t len)
+{
+    int septets = 0;
+    for (size_t i = 0; i < len; i++) {
+        uint8_t c = (uint8_t)str[i];
+        if (c >= 0x80) return -1;
+        uint8_t gsm = ascii_to_gsm7[c];
+        if (gsm == 0xFF) return -1;
+        septets += (gsm & 0x80) ? 2 : 1;  /* 扩展字符占 2 个 septet */
+    }
+    return septets;
+}
+
+int luat_sms_encode_7bit_septets(const char *str, size_t len, uint8_t *dst, size_t dst_len)
+{
+    int out = 0;
+    for (size_t i = 0; i < len; i++) {
+        uint8_t c = (uint8_t)str[i];
+        if (c >= 0x80) return -1;
+        uint8_t gsm = ascii_to_gsm7[c];
+        if (gsm == 0xFF) return -1;
+        if (gsm & 0x80) {
+            if (out + 2 > (int)dst_len) return -1;
+            dst[out++] = 0x1B;          /* ESC */
+            dst[out++] = gsm & 0x7F;    /* 扩展表索引 */
+        } else {
+            if (out + 1 > (int)dst_len) return -1;
+            dst[out++] = gsm;
+        }
+    }
+    return out;
+}
+
+int luat_sms_pack_7bit(const uint8_t *septets, size_t char_count, uint8_t *packed, size_t packed_size, size_t bit_offset)
+{
+    size_t total_bits = bit_offset + char_count * 7;
+    size_t byte_count = (total_bits + 7) / 8;
+    if (byte_count > packed_size) return -1;
+    memset(packed, 0, byte_count);
+    for (size_t i = 0; i < char_count; i++) {
+        uint8_t val = septets[i] & 0x7F;
+        size_t bit_pos  = bit_offset + i * 7;
+        size_t byte_idx = bit_pos / 8;
+        size_t bit_idx  = bit_pos % 8;
+        packed[byte_idx] |= (uint8_t)(val << bit_idx);
+        if (bit_idx + 7 > 8) {
+            packed[byte_idx + 1] |= (uint8_t)(val >> (8 - bit_idx));
+        }
+    }
+    return (int)byte_count;
+}
+
 static int hex2int(char c)
 {
     if (c >= '0' && c <= '9')
@@ -560,15 +637,15 @@ int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet)
     }
 
     packet->pdu_buf[pos++] = 0x00;
-    packet->pdu_buf[pos++] = 0x08;
+    packet->pdu_buf[pos++] = packet->dcs;
     if(packet->maxNum == 1)
     {
-        packet->pdu_buf[pos++] = packet->payload_len;
+        packet->pdu_buf[pos++] = packet->udl ? (uint8_t)packet->udl : (uint8_t)packet->payload_len;
         memcpy(packet->pdu_buf + pos, packet->payload_buf, packet->payload_len);
         pos += packet->payload_len;
         return pos;
     }
-    packet->pdu_buf[pos++] = packet->payload_len + 6;
+    packet->pdu_buf[pos++] = packet->udl ? (uint8_t)packet->udl : (uint8_t)(packet->payload_len + 6);
 
     // 长短信
     // UDHI

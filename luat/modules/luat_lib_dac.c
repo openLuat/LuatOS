@@ -209,11 +209,19 @@ LUAMOD_API int luaopen_dac( lua_State *L ) {
     luat_newlib2(L, reg_dac);
     return 1;
 }
-LUAT_WEAK int luat_dac_data_prepare(uint32_t ch, uint8_t* buff, size_t size) {return -1;}
-LUAT_WEAK int luat_dac_out(uint32_t ch, uint32_t value) {return -1;}
-LUAT_WEAK int luat_dac_write_loop(uint32_t ch, uint8_t* buff, size_t size) {return -1;}
+LUAT_WEAK int luat_dac_data_prepare(uint32_t id, uint8_t* buff, size_t size) {
+	uint16_t *v = (uint16_t *)buff;
+	uint32_t len = size >> 1;
+	for(uint32_t i = 0; i < len; i++){
+		v[i] ^= 0x8000;
+	}
+	return 0;
+}
 
-LUAT_WEAK int luat_dac_set_vol(uint32_t ch, uint8_t vol) {return -1;}
+LUAT_WEAK int luat_dac_out(uint32_t id, uint32_t value) {return -1;}
+LUAT_WEAK int luat_dac_write_loop(uint32_t id, uint8_t* buff, size_t size) {return -1;}
+
+LUAT_WEAK int luat_dac_set_vol(uint32_t id, uint8_t vol) {return -1;}
 LUAT_WEAK int luat_dac_modify(uint8_t id,uint8_t dac_chl,uint8_t data_bits,uint32_t sample_rate){return -1;}
 
 #endif

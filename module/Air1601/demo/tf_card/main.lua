@@ -5,15 +5,25 @@
 @date    2026.04.21
 @author  陈媛媛
 @usage
-1. 详细逻辑请看ntp_test.lua文件
-2. netdrv_device：配置连接外网使用的网卡，目前支持以下五种选择（五选一）
+本 Demo 完整覆盖了 TF 卡操作的核心到高级流程，HTTP下载功能包括：
+1. 基础操作：
+   netdrv_device：配置连接外网使用的网卡，目前支持以下五种选择（五选一）
    (1) netdrv_4g：4G网卡
    (2) netdrv_wifi：WIFI STA网卡
    (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
    (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
    (5) netdrv_pc：pc模拟器上的网卡
+2. 挂载及文件操作：
+   - 文件系统挂载/卸载
+   - TF卡空间信息查询
+   - 文件创建/读写/追加
+   - 目录创建/删除
+   - 文件重命名/删除
+   - 文件存在性检查与大小获取
+3. 下载功能：
+   - 网络检测与HTTP文件下载
+更多说明参考本目录下的readme.md文件
 ]]
-
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -60,13 +70,9 @@ log.info("main", PROJECT, VERSION)
 
 
 
---联网说明：当使用 HTTP 下载或者上传功能时，需先完成联网配置。
---需引入网卡驱动相关文件， 网卡驱动文件获取链接：https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/ntp
--- netdrv_device.lua文件：网卡驱动设备配置文件，可配置使用 netdrv 文件夹内的五种网卡；
--- netdrv文件夹： 支持单 4G 网卡、单 WIFI 网卡、单 SPI 以太网卡、多网卡、PC 模拟器上的网卡中的任意一种；
-
+--联网说明：
 -- 如果只测试TF卡操作，不需要联网，请注释掉下面的网络相关模块
--- 如果需要HTTP下载/上传时，请取消注释网络相关模块
+-- 如果需要 HTTP 下载或者上传功能时，需先完成联网配置，请取消注释网络相关模块
 -- 加载网络驱动设备功能模块，在netdrv_device.lua文件中修改自己使用的联网方式
 -- require"netdrv_device"
 

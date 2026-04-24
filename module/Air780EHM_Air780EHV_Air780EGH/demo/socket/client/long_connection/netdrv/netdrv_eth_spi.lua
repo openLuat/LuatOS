@@ -21,7 +21,7 @@ Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
 | 83/SPI0CS       | CSS               |
 | 84/SPI0MISO     | SDO               |
 | 85/SPI0MOSI     | SDI               |
-| 107/GPIO21      | INT               |
+| 22/GPIO1      | INT               |
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_eth_spi"就可以加载运行；
 ]]
@@ -71,14 +71,14 @@ local function netdrv_eth_spi_task_func()
 -- 核心板的VDD 3V3管脚对AirETH_1000配件板进行供电；3V3管脚是作为LDO 3.3V输出，供测试用的，仅在使用DCDC供电时有输出，默认打开，无需控制
 -- 使用spi0，片选引脚使用GPIO8
 -- 如果使用的硬件和以上描述的环境不同，根据自己的硬件配置修改以下参数
--- INT中断引脚，使用中断模式提高响应速度并降低功耗，此参数为可选参数，若不填默认不使用中断模式而是使用轮询模式
+-- INT中断引脚，使用中断模式提高响应速度，此参数为可选参数，若不填默认不使用中断模式而是使用轮询模式
     exnetif.set_priority_order({
         {
             ETHERNET = {
                 pwrpin = nil,
                 tp = netdrv.CH390,
                 opts = {spi = 0, cs = 8},
-                irq = 21  
+                irq = 1 
             }
         }
     })

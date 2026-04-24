@@ -109,7 +109,10 @@ local function airlbs_multi_cells_wifi_task_func()
             log.warn("请检查project_id和project_key")-- 打印提示信息
         end
         --获取具体地址
-        local result, address = airlbs.get_address(lat, lng)
+        local result, address = airlbs.get_address({
+            lat = lat,
+            lng = lng
+        })
         if result then
             log.info("airlbs.get_address", address)
         else

@@ -305,7 +305,7 @@ void luat_sms_send_cb(int ret)
         luat_sms_send_done(0);
         return;
     }
-    LLOGD("long sms callback seqNum = %d", g_s_sms_pdu_packet.seqNum);
+    LLOGD("seqNum = %d", g_s_sms_pdu_packet.seqNum);
     // 全部短信发送完成
     if (g_s_sms_pdu_packet.seqNum == g_s_sms_pdu_packet.maxNum) {
         luat_sms_send_done(1);
@@ -314,18 +314,27 @@ void luat_sms_send_cb(int ret)
 
     // 长短信继续发送
     g_s_sms_pdu_packet.seqNum++;
-    uint8_t packet_len = g_s_sms_send.payload_len - (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE;
-    uint32_t addr = g_s_sms_send.payload + (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE;
-    // 最后一包
-    if (packet_len <= LUAT_SMS_LONG_MSG_PDU_SIZE) {
-        memcpy(g_s_sms_pdu_packet.payload_buf, (void *)addr, packet_len);
-        g_s_sms_pdu_packet.payload_len = packet_len;
+    if (g_s_sms_pdu_packet.dcs == LUAT_SMS_CODE_7BIT) {
+        /* 7-bit 续发 */
+        size_t septet_offset = (size_t)(g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_7BIT_CHARS;
+        size_t remaining = g_s_sms_send.payload_len - septet_offset;
+        size_t seg_chars = remaining < LUAT_SMS_LONG_MSG_7BIT_CHARS ? remaining : LUAT_SMS_LONG_MSG_7BIT_CHARS;
+        int packed = luat_sms_pack_7bit(g_s_sms_send.payload + septet_offset, seg_chars, g_s_sms_pdu_packet.payload_buf, sizeof(g_s_sms_pdu_packet.payload_buf), 1);
+        if (packed < 0) {
+            luat_sms_send_done(0);
+            return;
+        }
+        g_s_sms_pdu_packet.payload_len = (size_t)packed;
+        g_s_sms_pdu_packet.udl = 7 + seg_chars;
     } else {
-        // 继续发送
-        memcpy(g_s_sms_pdu_packet.payload_buf, (void *)addr, LUAT_SMS_LONG_MSG_PDU_SIZE);
-        g_s_sms_pdu_packet.payload_len = LUAT_SMS_LONG_MSG_PDU_SIZE;
+        /* UCS2 续发 */
+        size_t byte_offset = (size_t)(g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE;
+        size_t remaining = g_s_sms_send.payload_len - byte_offset;
+        size_t seg_bytes = remaining < LUAT_SMS_LONG_MSG_PDU_SIZE ? remaining : LUAT_SMS_LONG_MSG_PDU_SIZE;
+        memcpy(g_s_sms_pdu_packet.payload_buf, g_s_sms_send.payload + byte_offset, seg_bytes);
+        g_s_sms_pdu_packet.payload_len = seg_bytes;
+        g_s_sms_pdu_packet.udl = seg_bytes + 6;
     }
-    
     int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
     ret = luat_sms_send_msg_v2(g_s_sms_pdu_packet.pdu_buf, len);
     // 发送失败
@@ -333,6 +342,89 @@ void luat_sms_send_cb(int ret)
         luat_sms_send_done(0);
     }
     return;
+}
+
+/*
+ * 公共编码+打包辅助函数，供 l_sms_send 和 l_long_sms_send 共用。
+ * 执行编码（7-bit 或 UCS2）并填充 g_s_sms_send 和 g_s_sms_pdu_packet。
+ * 成功返回 0；失败返回 -1，此时两个全局结构体均已重置为 0。
+ */
+static int sms_encode_and_pack(const char *payload, size_t payload_len)
+{
+    uint8_t *sms_buf = NULL;
+    size_t outlen = 0;
+    int is_7bit = 0;
+
+    memset(&g_s_sms_send, 0x00, sizeof(long_sms_send_t));
+    memset(&g_s_sms_pdu_packet, 0x00, sizeof(luat_sms_pdu_packet_t));
+
+    sms_buf = (uint8_t *)luat_heap_malloc(payload_len * 3);
+    if (sms_buf == NULL) {
+        LLOGE("out of memory");
+        return -1;
+    }
+    memset(sms_buf, 0x00, payload_len * 3);
+
+    int septet_count = luat_sms_check_7bit(payload, payload_len);
+    if (septet_count >= 0) {
+        /* 可以用 GSM 7-bit 编码 */
+        is_7bit = 1;
+        int n = luat_sms_encode_7bit_septets(payload, payload_len, sms_buf, payload_len * 2 + 2);
+        if (n < 0) {
+            LLOGE("7bit encode fail");
+            luat_heap_free(sms_buf);
+            return -1;
+        }
+        outlen = (size_t)n;
+        g_s_sms_pdu_packet.dcs = LUAT_SMS_CODE_7BIT;
+    } else {
+        /* 回落到 UCS2 编码 */
+        int ret = luat_str_utf8_to_ucs2(payload, payload_len, sms_buf, payload_len * 3, &outlen);
+        if (ret) {
+            LLOGE("utf8 to ucs2 fail");
+            luat_heap_free(sms_buf);
+            return -1;
+        }
+        g_s_sms_pdu_packet.dcs = LUAT_SMS_CODE_UCS2;
+    }
+
+    if (g_s_sms_pdu_packet.dcs == LUAT_SMS_CODE_7BIT) {
+        if (outlen <= LUAT_SMS_SHORT_MSG_7BIT_CHARS) {
+            /* 7-bit 短短信 */
+            g_s_sms_pdu_packet.maxNum = 1;
+            int packed = luat_sms_pack_7bit(sms_buf, outlen, g_s_sms_pdu_packet.payload_buf, sizeof(g_s_sms_pdu_packet.payload_buf), 0);
+            g_s_sms_pdu_packet.payload_len = (size_t)packed;
+            g_s_sms_pdu_packet.udl = outlen;
+        } else {
+            /* 7-bit 长短信 */
+            ref_idx = (ref_idx + 1) % 255;
+            g_s_sms_pdu_packet.maxNum = (outlen + LUAT_SMS_LONG_MSG_7BIT_CHARS - 1) / LUAT_SMS_LONG_MSG_7BIT_CHARS;
+            g_s_sms_pdu_packet.refNum = ref_idx;
+            int packed = luat_sms_pack_7bit(sms_buf, LUAT_SMS_LONG_MSG_7BIT_CHARS, g_s_sms_pdu_packet.payload_buf, sizeof(g_s_sms_pdu_packet.payload_buf), 1);
+            g_s_sms_pdu_packet.payload_len = (size_t)packed;
+            g_s_sms_pdu_packet.udl = 7 + LUAT_SMS_LONG_MSG_7BIT_CHARS;
+        }
+    } else {
+        if (outlen <= LUAT_SMS_SHORT_MSG_PDU_SIZE) {
+            /* UCS2 短短信 */
+            g_s_sms_pdu_packet.maxNum = 1;
+            memcpy(g_s_sms_pdu_packet.payload_buf, sms_buf, outlen);
+            g_s_sms_pdu_packet.payload_len = outlen;
+            g_s_sms_pdu_packet.udl = outlen;
+        } else {
+            /* UCS2 长短信 */
+            ref_idx = (ref_idx + 1) % 255;
+            g_s_sms_pdu_packet.maxNum = (outlen + LUAT_SMS_LONG_MSG_PDU_SIZE - 1) / LUAT_SMS_LONG_MSG_PDU_SIZE;
+            g_s_sms_pdu_packet.refNum = ref_idx;
+            memcpy(g_s_sms_pdu_packet.payload_buf, sms_buf, LUAT_SMS_LONG_MSG_PDU_SIZE);
+            g_s_sms_pdu_packet.payload_len = LUAT_SMS_LONG_MSG_PDU_SIZE;
+            g_s_sms_pdu_packet.udl = LUAT_SMS_LONG_MSG_PDU_SIZE + 6;
+        }
+    }
+
+    g_s_sms_send.payload = sms_buf;
+    g_s_sms_send.payload_len = outlen;
+    return 0;
 }
 
 /*
@@ -360,57 +452,24 @@ static int l_sms_send(lua_State *L) {
     if (lua_isboolean(L, 3) && !lua_toboolean(L, 3)) {
         auto_phone = 0;
     }
-    
-    int ret = 0;
 
     // 当前有其他地方在发送短信
     if (g_s_sms_pdu_packet.maxNum) {
         LLOGE("sms is busy");
         return 0;
     }
-
     if (payload_len == 0) {
         LLOGE("sms is empty");
         return 0;
     }
-    
     if (phone_len < 3 || phone_len > 29) {
         LLOGE("phone is too short or too long!! %d", phone_len);
         return 0;
     }
 
-    size_t outlen = 0;
-    uint8_t *ucs2_buf = NULL;
-    ucs2_buf = (uint8_t *)luat_heap_malloc(payload_len * 3);
-    if (ucs2_buf == NULL)
-    {
-        LLOGE("out of memory");
-        return 0;
-    }
-    memset(ucs2_buf, 0x00, payload_len * 3);
-
-    ret = luat_str_utf8_to_ucs2(payload, payload_len, ucs2_buf, payload_len * 3, &outlen);
-
-    if (ret) {
-        LLOGE("utf82ucs2 encode fail");
-        goto SMS_FAIL;
-    }
-
-    memset(&g_s_sms_send, 0x00, sizeof(long_sms_send_t));
-    memset(&g_s_sms_pdu_packet, 0x00, sizeof(luat_sms_pdu_packet_t));
-
-    // 短短信
-    if (outlen <= LUAT_SMS_SHORT_MSG_PDU_SIZE) {
-        g_s_sms_pdu_packet.maxNum = 1;
-        memcpy(g_s_sms_pdu_packet.payload_buf, ucs2_buf , outlen);
-        g_s_sms_pdu_packet.payload_len = outlen;
-    } else {
-        // 长短信
-        ref_idx = (ref_idx + 1) % 255;
-        g_s_sms_pdu_packet.maxNum = (outlen + LUAT_SMS_LONG_MSG_PDU_SIZE - 1) / LUAT_SMS_LONG_MSG_PDU_SIZE;
-        g_s_sms_pdu_packet.refNum = ref_idx;
-        memcpy(g_s_sms_pdu_packet.payload_buf, ucs2_buf , LUAT_SMS_LONG_MSG_PDU_SIZE);
-        g_s_sms_pdu_packet.payload_len = LUAT_SMS_LONG_MSG_PDU_SIZE;
+    if (sms_encode_and_pack(payload, payload_len) < 0) {
+        lua_pushboolean(L, 0);
+        return 1;
     }
 
     g_s_sms_pdu_packet.auto_phone = auto_phone;
@@ -418,23 +477,20 @@ static int l_sms_send(lua_State *L) {
     g_s_sms_pdu_packet.phone = phone;
     g_s_sms_pdu_packet.seqNum = 1;
 
-    g_s_sms_send.payload = ucs2_buf;
-    g_s_sms_send.payload_len = outlen;
-
     int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
     LLOGD("pdu len %d", len);
-    ret = luat_sms_send_msg_v2(g_s_sms_pdu_packet.pdu_buf, len);
+    int ret = luat_sms_send_msg_v2(g_s_sms_pdu_packet.pdu_buf, len);
     if (!ret) {
-        lua_pushboolean(L, ret == 0);
+        lua_pushboolean(L, 1);
         return 1;
     }
-SMS_FAIL:
-    g_s_sms_pdu_packet.maxNum = 0;
-    g_s_sms_send.payload = NULL;
-    if(ucs2_buf != NULL) {
-        luat_heap_free(ucs2_buf);
+    // 发送失败，释放已分配的 payload
+    if (g_s_sms_send.payload != NULL) {
+        luat_heap_free(g_s_sms_send.payload);
+        g_s_sms_send.payload = NULL;
     }
-    lua_pushboolean(L, ret == 0);
+    g_s_sms_pdu_packet.maxNum = 0;
+    lua_pushboolean(L, 0);
     return 1;
 }
 
@@ -456,104 +512,60 @@ end)
 static int l_long_sms_send(lua_State *L) {
     size_t phone_len = 0;
     size_t payload_len = 0;
-    uint8_t *ucs2_buf = NULL;
     const char* phone = luaL_checklstring(L, 1, &phone_len);
     const char* payload = luaL_checklstring(L, 2, &payload_len);
     int auto_phone = 1;
     if (lua_isboolean(L, 3) && !lua_toboolean(L, 3)) {
         auto_phone = 0;
     }
+
     // 当前有其他地方在发送短信
     if (g_s_sms_pdu_packet.maxNum) {
         LLOGE("sms is busy");
         lua_pushboolean(L, 0);
-        luat_pushcwait_error(L,1);
+        luat_pushcwait_error(L, 1);
         return 1;
     }
-
     // 当前有其他地方在用sms.sendLong发送短信
     if (long_sms_send_idp) {
         lua_pushboolean(L, 0);
-        luat_pushcwait_error(L,1);
+        luat_pushcwait_error(L, 1);
         return 1;
     }
-
     if (payload_len == 0) {
         LLOGE("sms is empty");
         goto SMS_FAIL;
     }
-
     if (phone_len < 3 || phone_len > 29) {
         LLOGE("phone is too short or too long!! %d", phone_len);
         goto SMS_FAIL;
     }
 
-    size_t outlen = 0;
-    ucs2_buf = (uint8_t *)luat_heap_malloc(payload_len * 3);
-    if (ucs2_buf == NULL)
-    {
-        LLOGE("out of memory");
+    if (sms_encode_and_pack(payload, payload_len) < 0) {
         goto SMS_FAIL;
-    }
-
-    memset(ucs2_buf, 0x00, payload_len * 3);
-
-    int ret = luat_str_utf8_to_ucs2(payload, payload_len, ucs2_buf, payload_len * 3, &outlen);
-
-    if (ret) {
-        LLOGE("utf8 to ucs2 fail ret");
-        goto SMS_FAIL;
-    }
-
-    memset(&g_s_sms_send, 0x00, sizeof(long_sms_send_t));
-    memset(&g_s_sms_pdu_packet, 0x00, sizeof(luat_sms_pdu_packet_t));
-
-
-    // 短短信
-    if (outlen <= LUAT_SMS_SHORT_MSG_PDU_SIZE) {
-        g_s_sms_pdu_packet.maxNum = 1;
-        memcpy(g_s_sms_pdu_packet.payload_buf, ucs2_buf , outlen);
-        g_s_sms_pdu_packet.payload_len = outlen;
-    } else {
-        // 长短信
-        ref_idx = (ref_idx + 1) % 255;
-        g_s_sms_pdu_packet.maxNum = (outlen + LUAT_SMS_LONG_MSG_PDU_SIZE - 1) / LUAT_SMS_LONG_MSG_PDU_SIZE;
-        g_s_sms_pdu_packet.refNum = ref_idx;
-        memcpy(g_s_sms_pdu_packet.payload_buf, ucs2_buf , LUAT_SMS_LONG_MSG_PDU_SIZE);
-        g_s_sms_pdu_packet.payload_len = LUAT_SMS_LONG_MSG_PDU_SIZE;
     }
 
     long_sms_send_idp = luat_pushcwait(L);
-    
+
     g_s_sms_pdu_packet.auto_phone = auto_phone;
     g_s_sms_pdu_packet.phone_len = phone_len;
     g_s_sms_pdu_packet.phone = phone;
     g_s_sms_pdu_packet.seqNum = 1;
 
-    g_s_sms_send.payload = ucs2_buf;
-    g_s_sms_send.payload_len = outlen;
-
-    char buf[400] = {0};
-    char tmp[3] = {0};
-
-    int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
-    LLOGE("pdu len %d", len);
-    for (int i = 0; i < len; i++)
     {
-        sprintf(tmp, "%02X", g_s_sms_pdu_packet.pdu_buf[i]);
-        strcat(buf, tmp);
-    }
-    LLOGE("pdu buf %s", buf);
-    ret = luat_sms_send_msg_v2(g_s_sms_pdu_packet.pdu_buf, len);
-    if (!ret) {
-        return 1;
+        int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
+        LLOGD("pdu len %d", len);
+        int ret = luat_sms_send_msg_v2(g_s_sms_pdu_packet.pdu_buf, len);
+        if (!ret) {
+            return 1;
+        }
     }
 SMS_FAIL:
     long_sms_send_idp = 0;
     g_s_sms_pdu_packet.maxNum = 0;
-    g_s_sms_send.payload = NULL;
-    if(ucs2_buf != NULL) {
-        luat_heap_free(ucs2_buf);
+    if (g_s_sms_send.payload != NULL) {
+        luat_heap_free(g_s_sms_send.payload);
+        g_s_sms_send.payload = NULL;
     }
     lua_pushboolean(L, 0);
     luat_pushcwait_error(L, 1);

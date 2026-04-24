@@ -170,7 +170,18 @@ static void record_run(uint8_t *data, uint32_t len)
 
 }
 
-int luat_audio_record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
+void luat_audio_record_set_callbac(luat_audio_record_cb_t* cb) {
+    g_s_record.record_callback = cb;
+}
+
+int luat_audio_record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param) {
+    if (g_s_record.record_callback) {
+        return g_s_record.record_callback(id, event, rx_data, rx_len, param);
+    }
+    return luat_audio_record_cb_default(id, event, rx_data, rx_len, param);
+}
+
+int luat_audio_record_cb_default(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
 {
 	switch(event)
 	{

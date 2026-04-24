@@ -212,6 +212,28 @@ local function decode_udp_remote_ip(remote_ip)
     return nil
 end
 
+-- 从 Contact 头中提取 URI，优先匹配 <...> 形式，否则回退到裸 URI。
+-- 从 Contact 头中提取 Remote Target URI。
+-- RFC 3261 §12.1 要求对话内后续请求（BYE/ACK/re-INVITE）的 Request-URI
+-- 必须使用对端在 INVITE/200 OK 中携带的 Contact URI，而非原始 AOR。
+local function contact_uri(contact_header)
+    if not contact_header then return nil end
+    local uri = contact_header:match("<([^>]+)>")
+    if uri then return uri end
+    return contact_header:match("(sip:[^;%s>]+)")
+end
+
+-- 从 Record-Route 头中提取有序的 URI 列表（每项为裸 URI 字符串）。
+local function parse_route_set(rr_header)
+    if not rr_header or rr_header == "" then return {} end
+    local routes = {}
+    for entry in rr_header:gmatch("[^,]+") do
+        local uri = entry:match("<([^>]+)>")
+        if uri then routes[#routes + 1] = uri end
+    end
+    return routes
+end
+
 local function extract_auth_challenge(headers)
     local www = headers["www-authenticate"] or headers["proxy-authenticate"]
     local www_params = parse_www_authenticate(www)
@@ -269,7 +291,19 @@ local function build_response(state, req_headers, code, reason, extra_headers, b
 end
 
 -- 2xx INVITE 的 ACK 属于新事务，因此这里使用新的 branch。
+-- Route 头与 BYE 逻辑一致：若存在路由集，必须在 From 之前依序写入，
+-- 确保 ACK 经由与 INVITE 相同的代理链路到达对端（RFC 3261 §13.2.2.4）。
 local function build_ack(state, dialog)
+    local hdrs = {}
+    if dialog.route_set and #dialog.route_set > 0 then
+        for _, uri in ipairs(dialog.route_set) do
+            hdrs[#hdrs + 1] = {"Route", "<" .. uri .. ">"}
+        end
+    end
+    hdrs[#hdrs + 1] = {"From",    dialog.from}
+    hdrs[#hdrs + 1] = {"To",      dialog.to}
+    hdrs[#hdrs + 1] = {"Call-ID", dialog.call_id}
+    hdrs[#hdrs + 1] = {"CSeq",    string.format("%d ACK", dialog.invite_cseq)}
     return build_request({
         method = "ACK",
         uri = dialog.remote_uri,
@@ -279,8 +313,7 @@ local function build_ack(state, dialog)
             local_port = state.local_port,
             branch = gen_token("br")
         },
-        headers = {{"From", dialog.from}, {"To", dialog.to}, {"Call-ID", dialog.call_id},
-                   {"CSeq", string.format("%d ACK", dialog.invite_cseq)}}
+        headers = hdrs
     })
 end
 
@@ -303,6 +336,28 @@ end
 -- BYE 用于结束已经建立的对话。
 local function build_bye(state, dialog)
     dialog.cseq = (dialog.cseq or dialog.invite_cseq or 1) + 1
+    -- 来电方向（UAS）发送 BYE 时，From/To 需与 UAC 视角一致：
+    --   bye_from = 本端身份（INVITE 的 To + local_tag）
+    --   bye_to   = 对端身份（INVITE 的 From）
+    -- 外呼方向（UAC）bye_from/bye_to 未设置，直接沿用 dialog.from/to。
+    local bye_from = dialog.bye_from or dialog.from
+    local bye_to   = dialog.bye_to   or dialog.to
+
+    -- Route 头必须按路由集顺序放在 From 之前（RFC 3261 §8.1.1）。
+    local hdrs = {}
+    if dialog.route_set and #dialog.route_set > 0 then
+        for _, uri in ipairs(dialog.route_set) do
+            hdrs[#hdrs + 1] = {"Route", "<" .. uri .. ">"}
+        end
+    end
+    hdrs[#hdrs + 1] = {"From",    bye_from}
+    hdrs[#hdrs + 1] = {"To",      bye_to}
+    hdrs[#hdrs + 1] = {"Call-ID", dialog.call_id}
+    hdrs[#hdrs + 1] = {"CSeq",    string.format("%d BYE", dialog.cseq)}
+
+    log.info("sip", "BYE uri", dialog.remote_uri,
+             "from", bye_from, "to", bye_to,
+             "routes", dialog.route_set and #dialog.route_set or 0)
     return build_request({
         method = "BYE",
         uri = dialog.remote_uri,
@@ -312,8 +367,7 @@ local function build_bye(state, dialog)
             local_port = state.local_port,
             branch = gen_token("br")
         },
-        headers = {{"From", dialog.from}, {"To", dialog.to}, {"Call-ID", dialog.call_id},
-                   {"CSeq", string.format("%d BYE", dialog.cseq)}}
+        headers = hdrs
     })
 end
 
@@ -743,18 +797,31 @@ local function sip_task(opts)
             return
         end
 
+        -- UAS 路由集 = INVITE 中 Record-Route 的逆序（RFC 3261 §12.1.1）
+        local inv_rr = parse_route_set(inv.headers["record-route"])
+        local uas_route_set = {}
+        for i = #inv_rr, 1, -1 do uas_route_set[#uas_route_set + 1] = inv_rr[i] end
+
         local dialog = {
             direction = "in",
             call_id = inv.headers["call-id"],
+            -- 保留原始 From/To 供 build_response 和 handle_bye_request 使用
             from = inv.headers["from"],
             to = ensure_to_has_tag(inv.headers["to"], inv.local_tag),
-            remote_uri = inv.uri,
+            -- UAS 发送 BYE 时，From/To 需交换（RFC 3261 §12.2.2）：
+            -- bye_from = 本端身份 = INVITE 的 To + local_tag
+            -- bye_to   = 对端身份 = INVITE 的 From
+            bye_from = ensure_to_has_tag(inv.headers["to"], inv.local_tag),
+            bye_to = inv.headers["from"],
+            -- Remote target = 主叫的 Contact URI（非 INVITE 的 Request-URI）
+            remote_uri = contact_uri(inv.headers["contact"]) or inv.uri,
             remote_ip = inv.remote_ip,
             invite_cseq = cseq_number(inv.headers["cseq"]) or 1,
             established = false,
             cseq = cseq_number(inv.headers["cseq"]) or 1,
             remote_sdp = inv.remote_sdp,
-            remote_sdp_raw = inv.body
+            remote_sdp_raw = inv.body,
+            route_set = uas_route_set
         }
         state.dialog = dialog
 
@@ -1205,6 +1272,13 @@ local function sip_task(opts)
                     if to_hdr then
                         state.dialog.to = to_hdr
                     end
+                    -- UAC: 使用 200 OK 的 Contact 更新 remote_uri（RFC 3261 §12.1.2）
+                    local remote_contact = contact_uri(headers["contact"])
+                    if remote_contact then
+                        state.dialog.remote_uri = remote_contact
+                    end
+                    -- UAC: 路由集 = 200 OK 中 Record-Route 的原序（RFC 3261 §12.1.2）
+                    state.dialog.route_set = parse_route_set(headers["record-route"])
                     state.dialog.remote_ip = rip
                     state.dialog.remote_sdp_raw = body
                     state.dialog.remote_sdp = parse_sdp(body)

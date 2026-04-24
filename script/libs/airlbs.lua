@@ -134,11 +134,12 @@ function airlbs.request(param)
     local nonce = crypto.trng(6)
     local hmac_data
     local muid
-    local mac1 = netdrv.mac(socket.LWIP_STA)
+    local mac1
     local mac
     log.info("mac", mac)
     log.info("硬件型号", rtos.bsp())
     if bsp == "Air8101" then
+        mac1 = netdrv.mac(socket.LWIP_STA)
         muid =  mcu.muid() or ""
         if muid ~= "" then
             mac = "MAC" .. mac1 
@@ -262,10 +263,10 @@ sys.taskInit(function()
     end
 end)
 ]]
-function airlbs.get_address(lat, lng, param)
-    if not lat or not lng then
-        log.error(lib_name, "lat or lng is nil")
-        return false, "lat or lng is nil"
+function airlbs.get_address(param)
+    if not param or not param.lat or not param.lng then
+        log.error(lib_name, "param, lat or lng is nil")
+        return false, "param, lat or lng is nil"
     end
     
     local device_id, muid
@@ -279,7 +280,7 @@ function airlbs.get_address(lat, lng, param)
             device_id = "M01" .. mac1 
             muid = crypto.sha256(device_id):sub(1,32)
         end
-        log.info(lib_name, "Using WIFI device ID:", device_id, "muid:", muid)
+        log.info(lib_name, "Using WIFI device ID:", device_id)
     else
         -- 4G 设备，使用 IMEI
         device_id = mobile and mobile.imei() or ""
@@ -288,7 +289,7 @@ function airlbs.get_address(lat, lng, param)
     end
     
     local url = string.format("http://iot.openluat.com/api/open/device_get_address?imei=%s&muid=%s&lat=%f&lon=%f", 
-        device_id, muid, lat, lng)
+        device_id, muid, param.lat, param.lng)
     
     local timeout = (param and param.timeout) or 10000
     local code, headers, body = http.request("GET", url, nil, nil, {timeout=timeout}).wait()

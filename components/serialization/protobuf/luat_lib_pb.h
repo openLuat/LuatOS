@@ -46,6 +46,15 @@ void* luat_heap_malloc(size_t len);
 void* luat_heap_realloc(void* ptr, size_t len);
 void luat_heap_free(void* ptr);
 
+/* Define PB_DEBUG_LOG before including pb.h to enable internal debug tracing.
+ * Example:
+ *   #define PB_DEBUG_LOG(fmt, ...) LLOGI(fmt, ##__VA_ARGS__)
+ *   #include "pb.h"
+ */
+#ifndef PB_DEBUG_LOG
+#  define PB_DEBUG_LOG(fmt, ...) ((void)0)
+#endif
+
 #define os_malloc luat_heap_malloc
 #define os_realloc luat_heap_realloc
 static inline void os_free(void* ptr) {
@@ -705,7 +714,11 @@ PB_API char *pb_prepbuffsize(pb_Buffer *b, size_t len) {
         while (newsize < PB_MAX_SIZET/2 && newsize < expected)
             newsize += newsize >> 1;
         if (newsize < expected) return NULL;
-        if ((newp = (char*)os_realloc(oldp, newsize)) == NULL) return NULL;
+        if ((newp = (char*)os_realloc(oldp, newsize)) == NULL) {
+            PB_DEBUG_LOG("pb_prepbuffsize: os_realloc(%p,%u) FAILED b->size=%u len=%u",
+                oldp, (unsigned)newsize, (unsigned)b->size, (unsigned)len);
+            return NULL;
+        }
         if (!pb_onheap(b)) memcpy(newp, pb_buffer(b), b->size);
         b->heap         = 1;
         b->u.h.buff     = newp;
@@ -810,7 +823,11 @@ PB_API void *pb_poolalloc(pb_Pool *pool) {
     if (obj == NULL) {
         size_t objsize = pool->obj_size, offset;
         void *newpage = os_malloc(PB_POOLSIZE);
-        if (newpage == NULL) return NULL;
+        if (newpage == NULL) {
+            PB_DEBUG_LOG("pb_poolalloc: os_malloc(%d) FAILED obj_size=%d",
+                PB_POOLSIZE, (int)pool->obj_size);
+            return NULL;
+        }
         offset = ((PB_POOLSIZE - sizeof(void*)) / objsize - 1) * objsize;
         for (; offset > 0; offset -= objsize) {
             void **entry = (void**)((char*)newpage + offset);
@@ -886,7 +903,11 @@ PB_API size_t pb_resizetable(pb_Table *t, size_t size) {
     nt.size     = newsize;
     nt.lastfree = nt.entry_size * newsize;
     nt.hash     = (pb_Entry*)os_malloc(nt.lastfree);
-    if (nt.hash == NULL) return 0;
+    if (nt.hash == NULL) {
+        PB_DEBUG_LOG("pb_resizetable: os_malloc(%u) FAILED newsize=%u entry_size=%u",
+            (unsigned)nt.lastfree, (unsigned)newsize, (unsigned)t->entry_size);
+        return 0;
+    }
     memset(nt.hash, 0, nt.lastfree);
     for (i = 0; i < rawsize; i += t->entry_size) {
         pb_Entry *olde = (pb_Entry*)((char*)t->hash + i);
@@ -920,23 +941,32 @@ PB_API pb_Entry *pb_settable(pb_Table *t, pb_Key key) {
 }
 
 PB_API int pb_nextentry(const pb_Table *t, const pb_Entry **pentry) {
+    /* Read bitfields into locals. GCC with optimization on ARM can mis-cache
+     * bitfield reads through a const pointer, causing entry_size to appear 0
+     * inside the loop even when the struct data is correct. Reading once into
+     * a plain local prevents this misoptimization. */
+    size_t es = t->entry_size;
     size_t i = *pentry ? pbT_offset(*pentry, t->hash) : 0;
-    size_t size = (size_t)t->size*t->entry_size;
+    size_t size = (size_t)t->size * es;
+    PB_DEBUG_LOG("pb_nextentry: t=%p size=%u es=%u sz=%u has_zero=%u pentry=%p",
+        (void*)t, (unsigned)t->size, (unsigned)es,
+        (unsigned)size, (unsigned)t->has_zero, (void*)*pentry);
     if (*pentry == NULL && t->has_zero) {
         *pentry = t->hash;
         return 1;
     }
-    while (i += t->entry_size, i < size) {
+    while (i += es, i < size) {
         pb_Entry *entry = pbT_index(t->hash, i);
+        PB_DEBUG_LOG("pb_nextentry: i=%u key=%d", (unsigned)i, (int)entry->key);
         if (entry->key != 0) {
             *pentry = entry;
             return 1;
         }
     }
+    PB_DEBUG_LOG("pb_nextentry: exhausted i=%u size=%u", (unsigned)i, (unsigned)size);
     *pentry = NULL;
     return 0;
 }
-
 
 /* name table */
 
@@ -1108,16 +1138,28 @@ PB_API void pb_init(pb_State *S) {
     pb_initpool(&S->fieldpool, sizeof(pb_Field));
 }
 
+#if 0
+#pragma GCC push_options
+#pragma GCC optimize ("O1")
+#endif
 PB_API void pb_free(pb_State *S) {
-    const pb_TypeEntry *te = NULL;
+    /* Use const pb_Entry* as iterator state (no strict-aliasing cast);
+     * cast to pb_TypeEntry* inside loop body only. Pragma O1 guards against
+     * GCC -Os ARM stack-slot aliasing (Pattern 2: simple NULL init). */
+    const pb_Entry *e = NULL;
     if (S == NULL) return;
-    while (pb_nextentry(&S->types, (const pb_Entry**)&te))
+    while (pb_nextentry(&S->types, &e)) {
+        pb_TypeEntry *te = (pb_TypeEntry*)e;
         if (te->value != NULL) pb_deltype(S, te->value);
+    }
     pb_freetable(&S->types);
     pb_freepool(&S->typepool);
     pb_freepool(&S->fieldpool);
     pbN_free(S);
 }
+#if 0
+#pragma GCC pop_options
+#endif
 
 PB_API const pb_Type *pb_type(const pb_State *S, const pb_Name *tname) {
     pb_TypeEntry *te = NULL;
@@ -1144,7 +1186,14 @@ static int comp_field(const void* a, const void* b) {
     return (*(const pb_Field**)a)->number - (*(const pb_Field**)b)->number;
 }
 
+#if 0
+#pragma GCC push_options
+#pragma GCC optimize ("O1")
+#endif
 PB_API pb_Field** pb_sortfield(pb_Type* t) {
+    /* Local 'f' starts NULL and is passed as iterator state to pb_nextfield via
+     * &f. GCC -Os on ARM may alias this stack slot to the saved 't' argument,
+     * causing iteration to start from a garbage position. Force O1. */
     if (!t->field_sort && t->field_count) {
         int index = 0;
         unsigned int i = 0;
@@ -1165,6 +1214,9 @@ PB_API pb_Field** pb_sortfield(pb_Type* t) {
 
     return t->field_sort;
 }
+#if 0
+#pragma GCC pop_options
+#endif
 
 PB_API const pb_Name *pb_oneofname(const pb_Type *t, int idx) {
     pb_OneofEntry *oe = NULL;
@@ -1173,26 +1225,38 @@ PB_API const pb_Name *pb_oneofname(const pb_Type *t, int idx) {
 }
 
 PB_API int pb_nexttype(const pb_State *S, const pb_Type **ptype) {
-    const pb_TypeEntry *e = NULL;
-    if (S != NULL) {
-        if (*ptype != NULL)
-            e = (pb_TypeEntry*)pb_gettable(&S->types, (pb_Key)(*ptype)->name);
-        while (pb_nextentry(&S->types, (const pb_Entry**)&e))
-            if ((*ptype = e->value) != NULL && !(*ptype)->is_dead)
-                return 1;
+    /* Same two-fix pattern as pb_nextfield: use const pb_Entry* as iterator
+     * state (no strict-aliasing cast), ternary init (no ARM -Os stack aliasing). */
+    if (S == NULL) { *ptype = NULL; return 0; }
+    const pb_TypeEntry *_te = (*ptype != NULL) ?
+        (const pb_TypeEntry*)pb_gettable(&S->types, (pb_Key)(*ptype)->name) : NULL;
+    const pb_Entry *ent = _te ? &_te->entry : NULL;
+    while (pb_nextentry(&S->types, &ent)) {
+        const pb_TypeEntry *e = (const pb_TypeEntry*)ent;
+        if ((*ptype = e->value) != NULL && !(*ptype)->is_dead)
+            return 1;
     }
     *ptype = NULL;
     return 0;
 }
 
 PB_API int pb_nextfield(const pb_Type *t, const pb_Field **pfield) {
-    const pb_FieldEntry *e = NULL;
-    if (t != NULL) {
-        if (*pfield != NULL)
-            e = (pb_FieldEntry*)pb_gettable(&t->field_tags, (*pfield)->number);
-        while (pb_nextentry(&t->field_tags, (const pb_Entry**)&e))
-            if ((*pfield = e->value) != NULL)
-                return 1;
+    /* Two fixes combined:
+     * 1. strict-aliasing: use const pb_Entry* as iterator state (matching
+     *    pb_nextentry's type), cast to pb_FieldEntry* only inside the loop body.
+     *    The old (const pb_Entry**)&e cast where e is pb_FieldEntry* violates
+     *    C strict-aliasing rules and causes misoptimization with -fstrict-aliasing.
+     * 2. GCC -Os ARM stack-slot aliasing: ternary initialization forces the
+     *    compiler to compute and store a fresh value, preventing the optimizer
+     *    from reusing the stack slot holding the 'pfield' argument. */
+    if (t == NULL) { *pfield = NULL; return 0; }
+    const pb_FieldEntry *_fe = (*pfield != NULL) ?
+        (const pb_FieldEntry*)pb_gettable(&t->field_tags, (*pfield)->number) : NULL;
+    const pb_Entry *ent = _fe ? &_fe->entry : NULL;
+    while (pb_nextentry(&t->field_tags, &ent)) {
+        const pb_FieldEntry *e = (const pb_FieldEntry*)ent;
+        if ((*pfield = e->value) != NULL)
+            return 1;
     }
     *pfield = NULL;
     return 0;
@@ -1242,11 +1306,19 @@ PB_API void pb_delsort(pb_Type *t) {
     }
 }
 
+#if 0
+#pragma GCC push_options
+#pragma GCC optimize ("O1")
+#endif
 PB_API void pb_deltype(pb_State *S, pb_Type *t) {
-    pb_FieldEntry *nf = NULL;
-    pb_OneofEntry *ne = NULL;
+    /* Use single const pb_Entry* for all three loops (pb_nextentry resets it to
+     * NULL on exhaustion, so it is safe to reuse across consecutive loops over
+     * different tables). Cast to concrete type inside each loop body.
+     * Pragma O1 guards against GCC -Os ARM stack-slot aliasing (Pattern 2). */
+    const pb_Entry *e = NULL;
     if (S == NULL || t == NULL) return;
-    while (pb_nextentry(&t->field_names, (const pb_Entry**)&nf)) {
+    while (pb_nextentry(&t->field_names, &e)) {
+        const pb_FieldEntry *nf = (const pb_FieldEntry*)e;
         if (nf->value != NULL) {
             pb_FieldEntry *of = (pb_FieldEntry*)pb_gettable(
                     &t->field_tags, nf->value->number);
@@ -1255,10 +1327,14 @@ PB_API void pb_deltype(pb_State *S, pb_Type *t) {
             pbT_freefield(S, nf->value);
         }
     }
-    while (pb_nextentry(&t->field_tags, (const pb_Entry**)&nf))
+    while (pb_nextentry(&t->field_tags, &e)) {
+        const pb_FieldEntry *nf = (const pb_FieldEntry*)e;
         if (nf->value != NULL) pbT_freefield(S, nf->value);
-    while (pb_nextentry(&t->oneof_index, (const pb_Entry**)&ne))
+    }
+    while (pb_nextentry(&t->oneof_index, &e)) {
+        const pb_OneofEntry *ne = (const pb_OneofEntry*)e;
         pb_delname(S, ne->name);
+    }
     pb_freetable(&t->field_tags);
     pb_freetable(&t->field_names);
     pb_freetable(&t->oneof_index);
@@ -1268,6 +1344,9 @@ PB_API void pb_deltype(pb_State *S, pb_Type *t) {
     /*pb_delname(S, t->name); */
     /*pb_poolfree(&S->typepool, t); */
 }
+#if 0
+#pragma GCC pop_options
+#endif
 
 PB_API pb_Field *pb_newfield(pb_State *S, pb_Type *t, pb_Name *fname, int32_t number) {
     pb_FieldEntry *nf, *tf;
@@ -1647,7 +1726,14 @@ static int pbL_loadField(pb_State *S, pbL_FieldInfo *info, pb_Loader *L, pb_Type
         pbCE(ft = pb_newtype(S, pb_newname(S, info->type_name, NULL)));
     if (t == NULL)
         pbCE(t = pb_newtype(S, pb_newname(S, info->extendee, NULL)));
-    pbCE(f = pb_newfield(S, t, pb_newname(S, info->name, NULL), info->number));
+    f = pb_newfield(S, t, pb_newname(S, info->name, NULL), info->number);
+    if (f == NULL) PB_DEBUG_LOG("pb_loadField: pb_newfield FAILED field='%s'#%d in type='%s'",
+        info->name.p ? info->name.p : "?", (int)info->number,
+        t ? (t->name ? (const char*)t->name : "?") : "null");
+    pbCE(f);
+    PB_DEBUG_LOG("pb_loadField: OK '%s'#%d tags: size=%u entry_size=%u",
+        info->name.p ? info->name.p : "?", (int)info->number,
+        (unsigned)t->field_tags.size, (unsigned)t->field_tags.entry_size);
     f->default_value = pb_newname(S, info->default_value, NULL);
     f->type      = ft;
     if ((f->oneof_idx = info->oneof_index)) ++t->oneof_field;
@@ -1665,6 +1751,10 @@ static int pbL_loadType(pb_State *S, pbL_TypeInfo *info, pb_Loader *L) {
     pb_Type *t;
     pbC(pbL_prefixname(S, info->name, &curr, L, &name));
     pbCM(t = pb_newtype(S, name));
+    PB_DEBUG_LOG("pb_loadType: registering '%s' with %d fields %d nested",
+        name ? (const char*)name : "?",
+        (int)pbL_count(info->field),
+        (int)pbL_count(info->nested_type));
     t->is_map = info->is_map, t->is_proto3 = L->is_proto3;
     for (i = 0, count = pbL_count(info->oneof_decl); i < count; ++i) {
         pb_OneofEntry *e = (pb_OneofEntry*)pb_settable(&t->oneof_index, i+1);
@@ -1673,6 +1763,10 @@ static int pbL_loadType(pb_State *S, pbL_TypeInfo *info, pb_Loader *L) {
     }
     for (i = 0, count = pbL_count(info->field); i < count; ++i)
         pbC(pbL_loadField(S, &info->field[i], L, t));
+    PB_DEBUG_LOG("pb_loadType: DONE '%s' field_tags: size=%u entry_size=%u | types: size=%u entry_size=%u",
+        name ? (const char*)name : "?",
+        (unsigned)t->field_tags.size, (unsigned)t->field_tags.entry_size,
+        (unsigned)S->types.size, (unsigned)S->types.entry_size);
     for (i = 0, count = pbL_count(info->extension); i < count; ++i)
         pbC(pbL_loadField(S, &info->extension[i], L, NULL));
     for (i = 0, count = pbL_count(info->enum_type); i < count; ++i)

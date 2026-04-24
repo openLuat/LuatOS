@@ -1,4 +1,3 @@
-
 --[[
 @module  main
 @summary LuatOS SIP/VoIP 电话应用入口，负责加载功能模块
@@ -43,21 +42,16 @@ log.info("main", PROJECT, VERSION)
 
 
 -- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
--- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 可以使用合宙iot.openluat.com平台进行远程升级
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
 
--- 加载SIP电话应用模块
-local sip_app = require "sip_app"
-sip_app.init()
+-- 加载网络驱动设备功能模块
+require "netdrv_device"
 
--- 开启4G网络
--- require "netdrv_4g"
---wifi网络
--- require "netdrv_wifi"
--- 开启以太网
-require "netdrv_eth_wan"
+-- 加载SIP电话应用模块
+require "sip_app"
 
 
 -- 用户代码已结束---------------------------------------------

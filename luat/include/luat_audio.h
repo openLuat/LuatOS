@@ -118,6 +118,9 @@ typedef struct {
 	uint32_t work_mode;
 } luat_mic_config_t; // 板载adc配置结构体
 
+
+typedef int (*luat_audio_record_cb_t)(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param);
+
 typedef struct{
 //	luat_rtos_task_handle task_handle;
 	FILE* fd;
@@ -140,10 +143,15 @@ typedef struct{
 	uint8_t wait_stop;
     luat_record_channel_t channelCnt;
     luat_mic_config_t mic_config;
+	luat_audio_record_cb_t record_callback;	// 录音回调函数，用户可以通过luat_audio_record_set_callbac设置自己的回调函数来替换默认的回调函数
 }luat_record_ctrl_t;
 
 // 临时处理,luat_record_ctrl_t结构体后期迁移至luat_audio_conf_t中,随后废弃此接口
 luat_record_ctrl_t *luat_audio_get_record_config(uint8_t multimedia_id);
+
+int luat_audio_record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param);
+int luat_audio_record_cb_default(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param);
+void luat_audio_record_set_callbac(luat_audio_record_cb_t* cb);
 
 #endif
 
@@ -442,7 +450,7 @@ void luat_audio_power_keep_ctrl_by_bsp(uint8_t on_off);
  */
 void luat_audio_run_callback_in_task(void *api, uint8_t *data, uint32_t len);
 
-void luat_audio_setup_record_callback(uint8_t multimedia_id, void* callback, void *param);
+// void luat_audio_setup_record_callback(uint8_t multimedia_id, void* callback, void *param);
 
 void *luat_audio_inter_amr_coder_init(uint8_t is_wb, uint8_t quality);
 int luat_audio_inter_amr_coder_encode(void *handle, const uint16_t *pcm_buf, uint8_t *amr_buf, uint8_t *amr_len);

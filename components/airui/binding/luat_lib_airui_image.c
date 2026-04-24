@@ -206,6 +206,7 @@ void airui_register_image_meta(lua_State *L) {
         {"set_pos", l_image_set_pos},
         {"move", l_image_move},
         {"destroy", l_image_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
     

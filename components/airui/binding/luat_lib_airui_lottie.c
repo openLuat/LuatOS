@@ -196,6 +196,7 @@ void airui_register_lottie_meta(lua_State *L)
         {"set_loop", l_lottie_set_loop},
         {"set_progress", l_lottie_set_progress},
         {"destroy", l_lottie_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

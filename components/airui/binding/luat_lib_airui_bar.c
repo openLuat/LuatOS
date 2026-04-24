@@ -194,6 +194,7 @@ void airui_register_bar_meta(lua_State *L) {
         {"set_indicator_color", l_bar_set_indicator_color},
         {"set_bg_color", l_bar_set_bg_color},
         {"destroy", l_bar_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

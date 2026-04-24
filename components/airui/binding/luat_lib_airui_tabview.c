@@ -207,6 +207,7 @@ void airui_register_tabview_meta(lua_State *L) {
         {"remove_tab", l_tabview_remove_tab},
         {"set_on_change", l_tabview_set_on_change},
         {"destroy", l_tabview_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

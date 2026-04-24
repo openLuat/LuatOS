@@ -196,6 +196,7 @@ void airui_register_keyboard_meta(lua_State *L) {
         {"set_bg_color", l_keyboard_set_bg_color},
         {"get_target", l_keyboard_get_target},
         {"destroy", l_keyboard_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

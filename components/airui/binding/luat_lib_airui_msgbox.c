@@ -158,6 +158,7 @@ void airui_register_msgbox_meta(lua_State *L)
         {"set_on_action", l_msgbox_set_on_action}, // 设置按钮点击回调
         {"release", l_msgbox_release}, // 释放 Msgbox 组件, todo： 后续1.1版本可以移除，和destroy功能重复
         {"destroy", l_msgbox_destroy}, // 销毁 Msgbox 组件
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

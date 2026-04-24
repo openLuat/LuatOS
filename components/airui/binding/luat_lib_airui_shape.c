@@ -279,6 +279,7 @@ void airui_register_shape_meta(lua_State *L)
         {"set_pos", l_shape_set_pos},
         {"move", l_shape_move},
         {"destroy", l_shape_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

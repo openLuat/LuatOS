@@ -118,6 +118,7 @@ void airui_register_video_meta(lua_State *L)
         {"pause", l_video_pause},
         {"stop", l_video_stop},
         {"destroy", l_video_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

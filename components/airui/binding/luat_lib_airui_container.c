@@ -207,6 +207,7 @@ void airui_register_container_meta(lua_State *L) {
         {"hide", l_container_hide},
         {"open", l_container_open},
         {"destroy", l_container_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

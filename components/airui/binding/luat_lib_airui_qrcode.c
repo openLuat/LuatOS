@@ -137,6 +137,7 @@ void airui_register_qrcode_meta(lua_State *L)
         {"set_colors", l_qrcode_set_colors},
         {"set_quiet_zone", l_qrcode_set_quiet_zone},
         {"destroy", l_qrcode_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

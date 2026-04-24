@@ -80,3 +80,20 @@ int airui_component_destroy_userdata(lua_State *L, int index, const char *mt) {
     lv_obj_delete(obj);
     return 0;
 }
+
+// 检查组件是否被销毁
+int airui_component_is_destroyed(lua_State *L) {
+    airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L, 1);
+    lv_obj_t *obj = airui_component_userdata_obj(ud);
+
+    if (obj == NULL || !lv_obj_is_valid(obj)) {
+        if (ud != NULL && ud->ref != NULL) {
+            airui_component_invalidate_ref(ud->ref);
+        }
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+
+    lua_pushboolean(L, 0);
+    return 1;
+}

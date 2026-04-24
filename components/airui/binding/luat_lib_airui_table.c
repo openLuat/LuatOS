@@ -491,6 +491,7 @@ void airui_register_table_meta(lua_State *L) {
         {"auto_jump_scroll_control", l_table_auto_jump_scroll_control},
         {"auto_marquee_scroll_control", l_table_auto_marquee_scroll_control},
         {"destroy", l_table_destroy},
+        {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
 

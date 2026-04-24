@@ -18,7 +18,8 @@ local exvib= require "exvib"
 
 local exaudio = require "exaudio"
 local audio_config = require "audio_config"
-local lbsLoc = require"lbsLoc"
+local lbsLoc2 = require"lbsLoc2"
+local airlbs = require "airlbs"
 local dtulib = require "dtulib"
 
 local dtu
@@ -36,10 +37,84 @@ local recvBuff, writeBuff = {{}, {}, {}, {},{},{}}, {{}, {}, {}, {},{},{}}
 local netready
 
 
+
 -- 保存获取的基站坐标
 function driver.setLocation(lat, lng)
     lbs.lat, lbs.lng = lat, lng
     log.info("基站定位请求的结果:", lat, lng)
+end
+
+-- airlbs配置数据存储键名
+local AirlbsConfigKey = "airlbs_config"
+
+-- 默认airlbs配置
+local default_airlbs_config = {
+    project_id = "",
+    project_key = "",
+    timeout = 10000
+}
+
+-- 加载airlbs配置
+local function load_airlbs_config()
+    -- 初始化fskv存储系统
+    local result = fskv.init()
+    if not result then
+        log.error("load_airlbs_config", "fskv初始化失败，使用默认配置")
+        return default_airlbs_config
+    end
+    
+    -- 尝试从fskv加载配置
+    local config_data = fskv.get(AirlbsConfigKey)
+    if not config_data then
+        log.info("load_airlbs_config", "未找到配置文件，使用默认配置")
+        return default_airlbs_config
+    end
+    
+    -- 解析配置数据
+    local config = json.decode(config_data)
+    if not config then
+        log.error("load_airlbs_config", "配置文件解析失败，使用默认配置")
+        return default_airlbs_config
+    end
+    
+    -- 合并配置（确保所有字段都存在）
+    local merged_config = {}
+    merged_config.project_id = config.project_id or default_airlbs_config.project_id
+    merged_config.project_key = config.project_key or default_airlbs_config.project_key
+    merged_config.timeout = config.timeout or default_airlbs_config.timeout
+    
+    log.info("load_airlbs_config", "配置加载成功")
+    return merged_config
+end
+
+-- 保存airlbs配置
+local function save_airlbs_config(config)
+    -- 初始化fskv存储系统
+    local result = fskv.init()
+    if not result then
+        log.error("save_airlbs_config", "fskv初始化失败")
+        return false
+    end
+    
+    -- 保存配置
+    local config_str = json.encode(config)
+    local save_result = fskv.set(AirlbsConfigKey, config_str)
+    
+    if save_result then
+        log.info("save_airlbs_config", "配置保存成功")
+        return true
+    else
+        log.error("save_airlbs_config", "配置保存失败")
+        return false
+    end
+end
+
+-- 获取当前airlbs配置
+local function get_current_airlbs_config()
+    if not _G.airlbs_config then
+        _G.airlbs_config = load_airlbs_config()
+    end
+    return _G.airlbs_config
 end
 
 
@@ -139,15 +214,183 @@ cmd.rrpc = {
     ["getproject"] = function(t) return "rrpc,getproject," .. _G.PROJECT end,
     ["getcorever"] = function(t) return "rrpc,getcorever," .. rtos.version() end,
     ["getlocation"] = function(t) return "rrpc,location," .. (lbs.lat or 0) .. "," .. (lbs.lng or 0) end,
-    ["getreallocation"] = function(t)
-        lbsLoc.request(function(result, lat, lng, addr,time,locType)
-            if result then
+    ["setairlbsconfig"] = function(t)
+        if #t < 2 then
+            return "rrpc,setairlbsconfig,ERROR,参数不足"
+        end
+        
+        local config = {
+            project_id = t[1],
+            project_key = t[2],
+            timeout = tonumber(t[3]) or 50000
+        }
+        
+        local save_result = save_airlbs_config(config)
+        if save_result then
+            -- 更新全局配置
+            _G.airlbs_config = config
+            return "rrpc,setairlbsconfig,OK," .. config.project_id .. "," .. config.project_key .. "," .. config.timeout
+        else
+            return "rrpc,setairlbsconfig,ERROR,保存失败"
+        end
+    end,
+    ["getairlbsconfig"] = function(t)
+        local config = get_current_airlbs_config()
+        return "rrpc,getairlbsconfig,OK," .. config.project_id .. "," .. config.project_key .. "," .. config.timeout
+    end,
+    ["getreallocation"] = function(t, source_info)
+        log.info("getreallocation called with source_info:", source_info)
+        
+        -- 启动一个task来处理定位
+        sys.taskInit(function()
+            while not socket.adapter(socket.dft()) do
+                log.warn("lbsloc2_task_func", "wait IP_READY", socket.dft())
+                -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
+                -- 或者等待1秒超时退出阻塞等待状态;
+                -- 注意：此处的1000毫秒超时不要修改的更长；
+                -- 因为当使用exnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改默认使用的网卡
+                -- 当exnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
+                -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
+                sys.waitUntil("IP_READY", 1000)
+            end
+            -- 首先进行基站扫描
+            mobile.reqCellInfo(15)--进行基站扫描，超时时间为15s
+            sys.waitUntil("CELL_INFO_UPDATE", 3000)--等到扫描成功，超时时间3S
+            
+            -- 然后请求定位
+            -- 直接请求定位
+            local lat, lng, t = lbsLoc2.request(5000)
+            if lat and lng then
                 lbs.lat, lbs.lng = lat, lng
-                log.info("定位类型,基站定位成功返回0", locType)
+                log.info("基站定位请求的结果:", lat, lng)
                 driver.setLocation(lat, lng)
             end
+            
+            -- 定位完成后发送响应
+            local response = "rrpc,getreallocation," .. (lbs.lat or 0) .. "," .. (lbs.lng or 0)
+            log.info("Sending location response:", response)
+            
+            -- 根据来源信息发送响应
+            if source_info then
+                if source_info.type == "uart" then
+                    -- 串口来源，发送到对应的串口
+                    write(source_info.uid, response)
+                elseif source_info.type == "network" then
+                    -- 传递两个参数，第一个参数用于判断cid，类似于GPSCID_的处理方式
+                    sys.publish("NET_SENT_RDY_" .. source_info.uid, "CID_" .. source_info.cid, response)
+                else
+                    log.warn("Unknown source type")
+                end
+            else
+                log.warn("getreallocation: No source information available")
+            end
         end)
-        return "rrpc,getreallocation," .. (lbs.lat or 0) .. "," .. (lbs.lng or 0)
+        
+        -- 不立即返回，异步响应将通过 NET_SENT_RDY 事件发送
+        return nil
+    end,
+    ["getairlbslocation"] = function(t, source_info)
+        log.info("getairlbslocation called with source_info:", source_info)
+        
+        -- 启动一个task来处理定位
+        sys.taskInit(function()
+            -- 获取配置
+            local config = get_current_airlbs_config()
+            while not socket.adapter(socket.dft()) do
+                log.warn("lbsloc2_task_func", "wait IP_READY", socket.dft())
+                -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
+                -- 或者等待1秒超时退出阻塞等待状态;
+                -- 注意：此处的1000毫秒超时不要修改的更长；
+                -- 因为当使用exnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改默认使用的网卡
+                -- 当exnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
+                -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
+                sys.waitUntil("IP_READY", 1000)
+            end
+            
+            -- socket.sntp() --进行NTP授时
+            -- sys.waitUntil("NTP_UPDATE", 1000)
+            if not config.project_id or config.project_id == "" or not config.project_key or config.project_key == "" then
+                local response = "rrpc,getairlbslocation,ERROR,未配置项目信息"
+                log.info("Sending location response:", response)
+                
+                if source_info then
+                    if source_info.type == "uart" then
+                        write(source_info.uid, response)
+                    elseif source_info.type == "network" then
+                        -- 传递两个参数，第一个参数用于判断cid，类似于GPSCID_的处理方式
+                        sys.publish("NET_SENT_RDY_" .. source_info.uid, "CID_" .. source_info.cid, response)
+                    else
+                        log.warn("Unknown source type")
+                    end
+                end
+                return
+            end
+            
+            -- 准备定位参数
+            local param = {
+                project_id = config.project_id,
+                project_key = config.project_key,
+                timeout = config.timeout
+            }
+            
+            -- 检查是否需要wifi定位
+            local use_wifi = false
+            if t and #t > 0 and t[1] == "1" then
+                use_wifi = true
+                -- 扫描wifi
+                if wlan then
+                    wlan.init()
+                    wlan.scan()
+                    sys.waitUntil("WLAN_SCAN_DONE", 5000)
+                    local wifi_info = wlan.scanResult()
+                    if wifi_info and #wifi_info > 0 then
+                        param.wifi_info = wifi_info
+                        log.info("WiFi扫描到", #wifi_info, "个热点")
+                    end
+                end
+            end
+            
+            -- 请求定位
+            log.info("airlbs定位请求参数:", json.encode(param))
+            local result, data = airlbs.request(param)
+            
+            if result then
+                lbs.lat, lbs.lng = data.lat, data.lng
+                log.info("airlbs定位成功:", data.lat, data.lng)
+                driver.setLocation(data.lat, data.lng)
+                
+                local response = "rrpc,getairlbslocation,OK," .. data.lat .. "," .. data.lng
+                log.info("Sending location response:", response)
+                
+                if source_info then
+                    if source_info.type == "uart" then
+                        write(source_info.uid, response)
+                    elseif source_info.type == "network" then
+                        -- 传递两个参数，第一个参数用于判断cid，类似于GPSCID_的处理方式
+                        sys.publish("NET_SENT_RDY_" .. source_info.uid, "CID_" .. source_info.cid, response)
+                    else
+                        log.warn("Unknown source type")
+                    end
+                end
+            else
+                local response = "rrpc,getairlbslocation,ERROR," .. (data or "定位失败")
+                log.error("airlbs定位失败:", data)
+                
+                if source_info then
+                    if source_info.type == "uart" then
+                        write(source_info.uid, response)
+                    elseif source_info.type == "network" then
+                        -- 传递两个参数，第一个参数用于判断cid，类似于GPSCID_的处理方式
+                        sys.publish("NET_SENT_RDY_" .. source_info.uid, "CID_" .. source_info.cid, response)
+                    else
+                        log.warn("Unknown source type")
+                    end
+                end
+            end
+        end)
+        
+        -- 不立即返回，异步响应将通过 NET_SENT_RDY 事件发送
+        return nil
     end,
     ["gettime"] = function(t)
         local t = os.date("*t")
@@ -243,7 +486,24 @@ local function read(uid, idx)
     
     -- DTU的参数配置
     if s:sub(1, 7) == "config," or s:sub(1, 5) == "rrpc," then
-        return write(uid, create.userapi(s))
+        -- 对于 getreallocation 和 getairlbslocation 指令，我们需要传递来源信息（串口）给 userapi，以便异步响应
+        if s:find("getreallocation") or s:find("getairlbslocation") then
+            local result = create.userapi(s, {
+                type = "uart",
+                uid = uid
+            })
+            if result then
+                return write(uid, result)
+            else
+                log.info("read: Command will be handled asynchronously")
+                return nil -- 不立即写入，异步响应将通过 NET_SENT_RDY 事件发送
+            end
+        else
+            local result = create.userapi(s)
+            if result then
+                return write(uid, result)
+            end
+        end
     end
   -- 正常透传模式
     log.info("这个里面的内容是",dtu.plate == 1 and mobile.imei() .. s or s)

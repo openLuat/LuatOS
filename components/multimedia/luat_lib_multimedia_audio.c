@@ -170,7 +170,7 @@ static void record_run(uint8_t *data, uint32_t len)
 
 }
 
-void luat_audio_record_set_callbac(luat_audio_record_cb_t* cb) {
+void luat_audio_record_set_callback(luat_audio_record_cb_t* cb) {
     g_s_record.record_callback = cb;
 }
 

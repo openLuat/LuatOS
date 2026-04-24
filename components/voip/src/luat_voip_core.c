@@ -153,7 +153,7 @@ static int voip_i2s_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx_data, uin
     return 0;
 }
 
-
+#if defined(LUAT_USE_DAC)
 static int voip_dac_play_cb(uint8_t id, luat_dac_event_t event, uint32_t tx_len, void *param)
 {
     if (event == LUAT_DAC_EVENT_TX_ONE_BLOCK_DONE) {
@@ -165,6 +165,7 @@ static int voip_dac_play_cb(uint8_t id, luat_dac_event_t event, uint32_t tx_len,
     }
     return 0;
 }
+#endif
 static int voip_pop_play_frame(voip_ctx_t *ctx, int16_t *out)
 {
     int got = voip_jb_pop(ctx->jb, out);
@@ -559,7 +560,7 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
     } else if (audio_conf->bus_type == LUAT_AUDIO_BUS_DAC) {
 #if defined(LUAT_USE_DAC)
         ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
-        luat_audio_record_set_callbac(voip_i2s_cb);
+        luat_audio_record_set_callback(voip_i2s_cb);
         if (luat_audio_record_and_play(ctx->config.multimedia_id, sample_rate, (const uint8_t *)ctx->duplex_play_buf, ctx->frame_bytes, ctx->play_slot_count) != 0) {
             LLOGE("start duplex audio failed");
             return -1;

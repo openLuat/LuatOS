@@ -1,0 +1,8 @@
+syntax = "proto2";
+
+import "nanopb.proto";
+
+// SdataNotify: fire-and-forget raw data send from master to slave (RPC ID 0x0500)
+message SdataNotify {
+    required bytes data = 1 [(nanopb).max_size = 1400];
+}

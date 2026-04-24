@@ -5,6 +5,9 @@
  */
 
 #include "luat_base.h"
+
+#ifdef LUAT_USE_AIRLINK_RPC
+
 #include "luat_airlink_rpc.h"
 #include "luat_wlan.h"
 #include "drv_wlan.pb.h"
@@ -123,14 +126,16 @@ static int wlan_rpc_handler(uint16_t rpc_id,
     return 0;
 }
 
-void luat_airlink_wlan_rpc_exec_register(void) {
-    luat_airlink_rpc_nb_register(
-        AIRLINK_RPC_ID_WLAN,
-        drv_wlan_WlanRpcRequest_fields,  sizeof(drv_wlan_WlanRpcRequest),
-        drv_wlan_WlanRpcResponse_fields, sizeof(drv_wlan_WlanRpcResponse),
-        wlan_rpc_handler,
-        NULL,
-        NULL
-    );
-    LLOGD("WLAN RPC handler 已注册, rpc_id=0x%04X", AIRLINK_RPC_ID_WLAN);
-}
+const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_reg = {
+    .rpc_id         = AIRLINK_RPC_ID_WLAN,
+    .active         = 1,
+    .req_desc       = drv_wlan_WlanRpcRequest_fields,
+    .req_size       = sizeof(drv_wlan_WlanRpcRequest),
+    .resp_desc      = drv_wlan_WlanRpcResponse_fields,
+    .resp_size      = sizeof(drv_wlan_WlanRpcResponse),
+    .handler        = wlan_rpc_handler,
+    .notify_handler = NULL,
+    .userdata       = NULL,
+};
+
+#endif /* LUAT_USE_AIRLINK_RPC */

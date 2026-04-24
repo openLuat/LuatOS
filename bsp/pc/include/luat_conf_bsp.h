@@ -45,6 +45,13 @@
 #define LUAT_USE_AIRLINK_RPC 1
 #define LUAT_USE_AIRLINK_MULTI_TRANSPORT 1
 #define LUAT_USE_AIRLINK_EXEC_SDATA 1
+#define LUAT_USE_AIRLINK_LOOPBACK 1
+// Per-handler feature macros for the compile-time static RPC handler table
+#define LUAT_USE_AIRLINK_RPC_GPIO  1
+#define LUAT_USE_AIRLINK_RPC_UART  1
+#define LUAT_USE_AIRLINK_RPC_WLAN  1
+#define LUAT_USE_AIRLINK_RPC_PM    1
+#define LUAT_USE_AIRLINK_RPC_SDATA 1
 
 // #define LV_HOR_RES_MAX          (2000)
 // #define LV_VER_RES_MAX          (2000)

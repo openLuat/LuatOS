@@ -27,12 +27,6 @@
 // airlink_cmd_queue 在 luat_airlink_start() 中初始化后与 g_transport_slots[LOOPBACK].cmd_queue 相同
 extern luat_rtos_queue_t airlink_cmd_queue;
 
-// 从其他文件导入的 RPC handler 注册函数
-extern void luat_airlink_gpio_rpc_exec_register(void);
-extern void luat_airlink_uart_rpc_exec_register(void);
-extern void luat_airlink_wlan_rpc_exec_register(void);
-extern void luat_airlink_pm_rpc_exec_register(void);
-
 static luat_rtos_task_handle s_loopback_slave_handle = NULL;
 
 static int loopback_slave_task(void* param) {
@@ -62,11 +56,7 @@ int luat_airlink_start_loopback(void) {
     // 注册 transport slot (notify_cb=NULL, 不再需要信号量唤醒)
     luat_airlink_slot_register(LUAT_AIRLINK_MODE_LOOPBACK, NULL);
 
-    // 注册各模块 nanopb RPC exec handler
-    luat_airlink_gpio_rpc_exec_register();
-    luat_airlink_uart_rpc_exec_register();
-    luat_airlink_wlan_rpc_exec_register();
-    luat_airlink_pm_rpc_exec_register();
+    // 各模块 nanopb RPC exec handler 已通过静态表自动注册，无需手动调用
 
     // 启动 slave task
     if (s_loopback_slave_handle == NULL) {

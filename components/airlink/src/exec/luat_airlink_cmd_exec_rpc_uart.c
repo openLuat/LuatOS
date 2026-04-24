@@ -6,6 +6,9 @@
  */
 
 #include "luat_base.h"
+
+#ifdef LUAT_USE_AIRLINK_RPC
+
 #include "luat_airlink_rpc.h"
 #include "luat_uart.h"
 #include "drv_uart.pb.h"
@@ -89,14 +92,16 @@ static int uart_rpc_handler(uint16_t rpc_id,
     return 0;
 }
 
-void luat_airlink_uart_rpc_exec_register(void) {
-    luat_airlink_rpc_nb_register(
-        AIRLINK_RPC_ID_UART,
-        drv_uart_UartRpcRequest_fields,  sizeof(drv_uart_UartRpcRequest),
-        drv_uart_UartRpcResponse_fields, sizeof(drv_uart_UartRpcResponse),
-        uart_rpc_handler,
-        NULL,
-        NULL
-    );
-    LLOGD("UART RPC handler 已注册, rpc_id=0x%04X", AIRLINK_RPC_ID_UART);
-}
+const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_uart_reg = {
+    .rpc_id         = AIRLINK_RPC_ID_UART,
+    .active         = 1,
+    .req_desc       = drv_uart_UartRpcRequest_fields,
+    .req_size       = sizeof(drv_uart_UartRpcRequest),
+    .resp_desc      = drv_uart_UartRpcResponse_fields,
+    .resp_size      = sizeof(drv_uart_UartRpcResponse),
+    .handler        = uart_rpc_handler,
+    .notify_handler = NULL,
+    .userdata       = NULL,
+};
+
+#endif /* LUAT_USE_AIRLINK_RPC */

@@ -252,12 +252,17 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
 
 #define NB_ENC_BUF_SIZE  1500  // nanopb encode/decode 临时缓冲区大小 (UartRpcRequest 最大 518 字节, 预留余量)
 
-static luat_airlink_rpc_nb_reg_t s_nb_regs[LUAT_AIRLINK_RPC_MAX_HANDLERS];
-static luat_rtos_mutex_t s_nb_reg_mutex = NULL;
+// 静态处理表 (由 luat_airlink_rpc_nb_table.c 汇编，按宏控制哪些模块启用)
+extern const luat_airlink_rpc_nb_reg_t* const luat_airlink_rpc_nb_static_table[];
+extern const size_t luat_airlink_rpc_nb_static_count;
 
-static void nb_reg_init(void) {
-    if (s_nb_reg_mutex == NULL) {
-        luat_rtos_mutex_create(&s_nb_reg_mutex);
+// 动态注册表 (供 Lua 侧动态注册，最多 LUAT_AIRLINK_RPC_MAX_HANDLERS 项)
+static luat_airlink_rpc_nb_reg_t s_nb_dyn_regs[LUAT_AIRLINK_RPC_MAX_HANDLERS];
+static luat_rtos_mutex_t s_nb_dyn_mutex = NULL;
+
+static void nb_dyn_init(void) {
+    if (s_nb_dyn_mutex == NULL) {
+        luat_rtos_mutex_create(&s_nb_dyn_mutex);
     }
 }
 
@@ -267,52 +272,52 @@ int luat_airlink_rpc_nb_register(uint16_t rpc_id,
                                   luat_airlink_rpc_nb_handler_t handler,
                                   luat_airlink_rpc_nb_notify_handler_t notify_handler,
                                   void* userdata) {
-    nb_reg_init();
-    luat_rtos_mutex_lock(s_nb_reg_mutex, 1000);
+    nb_dyn_init();
+    luat_rtos_mutex_lock(s_nb_dyn_mutex, 1000);
     for (int i = 0; i < LUAT_AIRLINK_RPC_MAX_HANDLERS; i++) {
-        if (s_nb_regs[i].active && s_nb_regs[i].rpc_id == rpc_id) {
-            s_nb_regs[i].req_desc       = req_desc;
-            s_nb_regs[i].req_size       = req_size;
-            s_nb_regs[i].resp_desc      = resp_desc;
-            s_nb_regs[i].resp_size      = resp_size;
-            s_nb_regs[i].handler        = handler;
-            s_nb_regs[i].notify_handler = notify_handler;
-            s_nb_regs[i].userdata       = userdata;
-            luat_rtos_mutex_unlock(s_nb_reg_mutex);
+        if (s_nb_dyn_regs[i].active && s_nb_dyn_regs[i].rpc_id == rpc_id) {
+            s_nb_dyn_regs[i].req_desc       = req_desc;
+            s_nb_dyn_regs[i].req_size       = req_size;
+            s_nb_dyn_regs[i].resp_desc      = resp_desc;
+            s_nb_dyn_regs[i].resp_size      = resp_size;
+            s_nb_dyn_regs[i].handler        = handler;
+            s_nb_dyn_regs[i].notify_handler = notify_handler;
+            s_nb_dyn_regs[i].userdata       = userdata;
+            luat_rtos_mutex_unlock(s_nb_dyn_mutex);
             return 0;
         }
     }
     for (int i = 0; i < LUAT_AIRLINK_RPC_MAX_HANDLERS; i++) {
-        if (!s_nb_regs[i].active) {
-            s_nb_regs[i].rpc_id         = rpc_id;
-            s_nb_regs[i].req_desc       = req_desc;
-            s_nb_regs[i].req_size       = req_size;
-            s_nb_regs[i].resp_desc      = resp_desc;
-            s_nb_regs[i].resp_size      = resp_size;
-            s_nb_regs[i].handler        = handler;
-            s_nb_regs[i].notify_handler = notify_handler;
-            s_nb_regs[i].userdata       = userdata;
-            s_nb_regs[i].active         = 1;
-            luat_rtos_mutex_unlock(s_nb_reg_mutex);
+        if (!s_nb_dyn_regs[i].active) {
+            s_nb_dyn_regs[i].rpc_id         = rpc_id;
+            s_nb_dyn_regs[i].req_desc       = req_desc;
+            s_nb_dyn_regs[i].req_size       = req_size;
+            s_nb_dyn_regs[i].resp_desc      = resp_desc;
+            s_nb_dyn_regs[i].resp_size      = resp_size;
+            s_nb_dyn_regs[i].handler        = handler;
+            s_nb_dyn_regs[i].notify_handler = notify_handler;
+            s_nb_dyn_regs[i].userdata       = userdata;
+            s_nb_dyn_regs[i].active         = 1;
+            luat_rtos_mutex_unlock(s_nb_dyn_mutex);
             return 0;
         }
     }
-    luat_rtos_mutex_unlock(s_nb_reg_mutex);
+    luat_rtos_mutex_unlock(s_nb_dyn_mutex);
     LLOGE("rpc_nb_register: 注册表已满");
     return -1;
 }
 
 int luat_airlink_rpc_nb_unregister(uint16_t rpc_id) {
-    nb_reg_init();
-    luat_rtos_mutex_lock(s_nb_reg_mutex, 1000);
+    nb_dyn_init();
+    luat_rtos_mutex_lock(s_nb_dyn_mutex, 1000);
     for (int i = 0; i < LUAT_AIRLINK_RPC_MAX_HANDLERS; i++) {
-        if (s_nb_regs[i].active && s_nb_regs[i].rpc_id == rpc_id) {
-            memset(&s_nb_regs[i], 0, sizeof(luat_airlink_rpc_nb_reg_t));
-            luat_rtos_mutex_unlock(s_nb_reg_mutex);
+        if (s_nb_dyn_regs[i].active && s_nb_dyn_regs[i].rpc_id == rpc_id) {
+            memset(&s_nb_dyn_regs[i], 0, sizeof(luat_airlink_rpc_nb_reg_t));
+            luat_rtos_mutex_unlock(s_nb_dyn_mutex);
             return 0;
         }
     }
-    luat_rtos_mutex_unlock(s_nb_reg_mutex);
+    luat_rtos_mutex_unlock(s_nb_dyn_mutex);
     return -1;
 }
 
@@ -320,18 +325,30 @@ int luat_airlink_rpc_nb_unregister(uint16_t rpc_id) {
 int luat_airlink_rpc_nb_dispatch(uint16_t rpc_id, uint8_t msg_type,
                                   const uint8_t* req_bytes, uint16_t req_len,
                                   uint8_t* resp_bytes, uint16_t resp_size, uint16_t* resp_len) {
-    nb_reg_init();
-    luat_rtos_mutex_lock(s_nb_reg_mutex, 1000);
     luat_airlink_rpc_nb_reg_t entry = {0};
     int found = 0;
-    for (int i = 0; i < LUAT_AIRLINK_RPC_MAX_HANDLERS; i++) {
-        if (s_nb_regs[i].active && s_nb_regs[i].rpc_id == rpc_id) {
-            entry = s_nb_regs[i];
+    // 1. 先搜静态表（无锁，编译期确定）
+    for (size_t i = 0; i < luat_airlink_rpc_nb_static_count; i++) {
+        if (luat_airlink_rpc_nb_static_table[i]->active &&
+            luat_airlink_rpc_nb_static_table[i]->rpc_id == rpc_id) {
+            entry = *luat_airlink_rpc_nb_static_table[i];
             found = 1;
             break;
         }
     }
-    luat_rtos_mutex_unlock(s_nb_reg_mutex);
+    // 2. 再搜动态表（需加锁）
+    if (!found) {
+        nb_dyn_init();
+        luat_rtos_mutex_lock(s_nb_dyn_mutex, 1000);
+        for (int i = 0; i < LUAT_AIRLINK_RPC_MAX_HANDLERS; i++) {
+            if (s_nb_dyn_regs[i].active && s_nb_dyn_regs[i].rpc_id == rpc_id) {
+                entry = s_nb_dyn_regs[i];
+                found = 1;
+                break;
+            }
+        }
+        luat_rtos_mutex_unlock(s_nb_dyn_mutex);
+    }
 
     if (!found) return -404;
 

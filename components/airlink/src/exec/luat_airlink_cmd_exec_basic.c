@@ -104,6 +104,20 @@ int luat_airlink_cmd_exec_sdata(luat_airlink_cmd_t *cmd, void *userdata)
     luat_msgbus_put(&msg, 0);
     return 0;
 }
+
+int luat_airlink_cmd_exec_sdata_data(const uint8_t* data, size_t len) {
+    rtos_msg_t msg = {0};
+    msg.handler = sdata_cb;
+    msg.ptr = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, len);
+    if (msg.ptr == NULL) {
+        LLOGE("sdata_data malloc fail!!! %zu", len);
+        return -1;
+    }
+    memcpy(msg.ptr, data, len);
+    msg.arg1 = (int)len;
+    luat_msgbus_put(&msg, 0);
+    return 0;
+}
 #endif
 
 int luat_airlink_cmd_exec_notify_log(luat_airlink_cmd_t *cmd, void *userdata) {

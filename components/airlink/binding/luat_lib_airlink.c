@@ -180,6 +180,54 @@ static int l_airlink_slave_reboot(lua_State *L) {
     return 0;
 }
 
+#ifdef LUAT_USE_AIRLINK_RPC
+#include "luat_airlink_rpc.h"
+#include "drv_sdata.pb.h"
+#define AIRLINK_SDATA_CHUNK 1400
+
+/* 客户端 sdata 发送: RPC 模式走 nb_notify 分块, 否则走原始 cmd 0x20 */
+int luat_airlink_sdata_send(const void* data, size_t len) {
+    int mode = luat_airlink_current_mode_get();
+    if (luat_airlink_peer_rpc_supported() && mode >= 0) {
+        const uint8_t* ptr = (const uint8_t*)data;
+        size_t remaining = len;
+        while (remaining > 0) {
+            size_t chunk = (remaining > AIRLINK_SDATA_CHUNK) ? AIRLINK_SDATA_CHUNK : remaining;
+            SdataNotify notify = SdataNotify_init_zero;
+            notify.data.size = (pb_size_t)chunk;
+            memcpy(notify.data.bytes, ptr, chunk);
+            int rc = luat_airlink_rpc_nb_notify((uint8_t)mode, 0x0500,
+                                                SdataNotify_fields, &notify);
+            if (rc != 0) return rc;
+            ptr       += chunk;
+            remaining -= chunk;
+        }
+        return 0;
+    }
+    if (len > 1500) return -1;
+    luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    if (!cmd) return -2;
+    cmd->cmd = 0x20;
+    cmd->len = (uint16_t)len;
+    memcpy(cmd->data, data, len);
+    luat_airlink_send2slave(cmd);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    return 0;
+}
+#else
+static int luat_airlink_sdata_send(const void* data, size_t len) {
+    if (len > 1500) return -1;
+    luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    if (!cmd) return -2;
+    cmd->cmd = 0x20;
+    cmd->len = (uint16_t)len;
+    memcpy(cmd->data, data, len);
+    luat_airlink_send2slave(cmd);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    return 0;
+}
+#endif
+
 /*
 发送自定义数据
 @api airlink.sdata(data)
@@ -196,7 +244,6 @@ static int l_airlink_sdata(lua_State *L) {
         data = luaL_checklstring(L, 1, &len);
     }
     else if (lua_isuserdata(L, 1)) {
-        // zbuff
         luat_zbuff_t* buff = tozbuff(L);
         data = (const char*)buff->addr;
         len = buff->used;
@@ -205,18 +252,8 @@ static int l_airlink_sdata(lua_State *L) {
         LLOGE("无效的参数,只能是字符串或者zbuff");
         return 0;
     }
-    if (len > 1500) {
-        LLOGE("无效的数据长度,最大1500字节");
-        return 0;
-    }
-    luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
-    if (cmd == NULL) return 0;
-    cmd->cmd = 0x20;
-    cmd->len = len;
-    memcpy(cmd->data, data, len);
-    luat_airlink_send2slave(cmd);
-    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
-    lua_pushboolean(L, 1);
+    int rc = luat_airlink_sdata_send(data, len);
+    lua_pushboolean(L, rc == 0);
     return 1;
 }
 

@@ -5,6 +5,9 @@
  */
 
 #include "luat_base.h"
+
+#ifdef LUAT_USE_AIRLINK_RPC
+
 #include "luat_airlink_rpc.h"
 #include "luat_pm.h"
 #include "drv_pm.pb.h"
@@ -71,14 +74,16 @@ static int pm_rpc_handler(uint16_t rpc_id,
     return 0;
 }
 
-void luat_airlink_pm_rpc_exec_register(void) {
-    luat_airlink_rpc_nb_register(
-        AIRLINK_RPC_ID_PM,
-        drv_pm_PmRpcRequest_fields,  sizeof(drv_pm_PmRpcRequest),
-        drv_pm_PmRpcResponse_fields, sizeof(drv_pm_PmRpcResponse),
-        pm_rpc_handler,
-        NULL,
-        NULL
-    );
-    LLOGD("PM RPC handler 已注册, rpc_id=0x%04X", AIRLINK_RPC_ID_PM);
-}
+const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_pm_reg = {
+    .rpc_id         = AIRLINK_RPC_ID_PM,
+    .active         = 1,
+    .req_desc       = drv_pm_PmRpcRequest_fields,
+    .req_size       = sizeof(drv_pm_PmRpcRequest),
+    .resp_desc      = drv_pm_PmRpcResponse_fields,
+    .resp_size      = sizeof(drv_pm_PmRpcResponse),
+    .handler        = pm_rpc_handler,
+    .notify_handler = NULL,
+    .userdata       = NULL,
+};
+
+#endif /* LUAT_USE_AIRLINK_RPC */

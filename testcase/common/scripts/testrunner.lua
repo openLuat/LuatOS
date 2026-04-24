@@ -114,6 +114,11 @@ local function initNetwork()
     log.info("testrunner", "开始初始化网络连接...")
 
     netready.exec(ctx, ctx.timeout)
+
+    if ctx.status_url == nil and ctx.report_url == nil then
+        log.warn("testrunner", "状态 URL 和报告 URL 均未配置，测试结果将不会被上报")
+        return true
+    end
     
     -- 等待 IP_READY 事件，表示网络已就绪, 这里默认就等半分钟吧，半分钟且三次重试
     local result

@@ -7,7 +7,7 @@
 // 多出口支持：per-transport 槽位 + adapter-to-transport 绑定
 // =====================================================================
 
-#define LUAT_AIRLINK_MAX_TRANSPORTS  3   // slot 总数 (0=SPI_SLAVE, 1=SPI_MASTER, 2=UART)
+#define LUAT_AIRLINK_MAX_TRANSPORTS  4   // slot 总数 (0=SPI_SLAVE, 1=SPI_MASTER, 2=UART, 3=LOOPBACK)
 #define LUAT_AIRLINK_MAX_ADAPTERS   16   // adapter-to-transport 绑定表大小
 
 typedef struct luat_airlink_transport_slot {

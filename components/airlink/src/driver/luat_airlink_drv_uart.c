@@ -73,68 +73,63 @@ int luat_airlink_drv_uart_setup(luat_uart_t* conf) {
 
 int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
     int mode = luat_airlink_current_mode_get();
-    if (luat_airlink_peer_rpc_supported() && mode >= 0 && length <= UART_WRITE_RPC_MAX) {
-        drv_uart_UartRpcRequest  req  = drv_uart_UartRpcRequest_init_zero;
-        drv_uart_UartRpcResponse resp = drv_uart_UartRpcResponse_init_zero;
-        req.which_payload         = drv_uart_UartRpcRequest_write_tag;
-        req.payload.write.id      = (uint32_t)uart_id;
-        req.payload.write.data.size = (pb_size_t)length;
-        memcpy(req.payload.write.data.bytes, data, length);
-        int rc = luat_airlink_rpc_nb_call((uint8_t)mode, AIRLINK_DRV_RPC_ID_UART,
-                                          drv_uart_UartRpcRequest_fields,  &req,
-                                          drv_uart_UartRpcResponse_fields, &resp,
-                                          2000);
-        if (rc != 0) return rc;
-        if (resp.which_payload != drv_uart_UartRpcResponse_write_tag) return -10;
-        if (resp.payload.write.result.has_code &&
-            resp.payload.write.result.code != drv_uart_UartResultCode_UART_RES_OK) {
-            return (int)resp.payload.write.result.os_errno;
-        }
-        return resp.payload.write.has_bytes_written ? (int)resp.payload.write.bytes_written
-                                                    : (int)length;
-    }
-    // --- raw byte path (also used for length > UART_WRITE_RPC_MAX) ---
-    if(length <= 1536) {
-        // LLOGD("执行uart write %d %p %d", uart_id, data, length);
-        uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
-        size_t total_len = length + sizeof(luat_airlink_cmd_t) + 8 + 1;
-        airlink_queue_item_t item = {.len = total_len};
-        luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x401, length + 1 + 8);
-        if (cmd == NULL) {
-            LLOGE("内存分配失败!!");
-            return 0;
-        }
-        memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
-        uint8_t tmp = (uint8_t)uart_id;
-        memcpy(cmd->data + 8, &tmp, 1);
-        memcpy(cmd->data + 9, data, length);
-        item.cmd = cmd;
-        int ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-        return ret == 0 ? length : 0;
-    } else {
-        // 如果数据长度大于1536，分段发送
-        size_t segment_size = 1535;  // 使用1535避免无限递归
-        const char* segment_data = (const char*)data;
+    if (luat_airlink_peer_rpc_supported() && mode >= 0) {
+        // 始终走 nb_call，按 UART_WRITE_RPC_MAX 分段循环
+        const uint8_t* ptr = (const uint8_t*)data;
         size_t remaining = length;
-        size_t sent_total = 0;
-
+        int sent_total = 0;
         while (remaining > 0) {
-            size_t current_segment = (remaining > segment_size) ? segment_size : remaining;
-
-            int ret = luat_airlink_drv_uart_write(uart_id, (void*)segment_data, current_segment);
-            if (ret <= 0) {
-                return sent_total;
-            }
-            sent_total += ret;
-            segment_data += ret;
-            remaining -= ret;
-
-            if (ret < current_segment) {
+            size_t chunk = (remaining > UART_WRITE_RPC_MAX) ? UART_WRITE_RPC_MAX : remaining;
+            drv_uart_UartRpcRequest  req  = drv_uart_UartRpcRequest_init_zero;
+            drv_uart_UartRpcResponse resp = drv_uart_UartRpcResponse_init_zero;
+            req.which_payload           = drv_uart_UartRpcRequest_write_tag;
+            req.payload.write.id        = (uint32_t)uart_id;
+            req.payload.write.data.size = (pb_size_t)chunk;
+            memcpy(req.payload.write.data.bytes, ptr, chunk);
+            int rc = luat_airlink_rpc_nb_call((uint8_t)mode, AIRLINK_DRV_RPC_ID_UART,
+                                              drv_uart_UartRpcRequest_fields,  &req,
+                                              drv_uart_UartRpcResponse_fields, &resp,
+                                              2000);
+            if (rc != 0) return sent_total > 0 ? sent_total : rc;
+            if (resp.which_payload != drv_uart_UartRpcResponse_write_tag) break;
+            if (resp.payload.write.result.has_code &&
+                resp.payload.write.result.code != drv_uart_UartResultCode_UART_RES_OK) {
                 break;
             }
+            int written = resp.payload.write.has_bytes_written
+                        ? (int)resp.payload.write.bytes_written
+                        : (int)chunk;
+            sent_total += written;
+            ptr       += chunk;
+            remaining -= chunk;
+            if (written < (int)chunk) break; // short write — stop
         }
-
         return sent_total;
+    }
+    // --- raw byte path (非 RPC 模式) ---
+    // 按 1535 字节分段，避免单次过大
+    {
+        size_t segment_size = 1535;
+        const uint8_t* segment_data = (const uint8_t*)data;
+        size_t remaining = length;
+        size_t sent_total = 0;
+        while (remaining > 0) {
+            size_t chunk = (remaining > segment_size) ? segment_size : remaining;
+            uint64_t next_id = luat_airlink_get_next_cmd_id();
+            luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x401, chunk + 1 + 8);
+            if (!cmd) { LLOGE("内存分配失败!!"); return (int)sent_total; }
+            memcpy(cmd->data,     &next_id,   8);
+            uint8_t tmp = (uint8_t)uart_id;
+            memcpy(cmd->data + 8, &tmp,        1);
+            memcpy(cmd->data + 9,  segment_data, chunk);
+            airlink_queue_item_t item = {.len = sizeof(luat_airlink_cmd_t) + chunk + 9, .cmd = cmd};
+            int ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+            if (ret != 0) return (int)sent_total;
+            sent_total    += chunk;
+            segment_data  += chunk;
+            remaining     -= chunk;
+        }
+        return (int)sent_total;
     }
 }
 

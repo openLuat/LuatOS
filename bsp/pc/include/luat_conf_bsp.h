@@ -52,6 +52,7 @@
 #define LUAT_USE_AIRLINK_RPC_WLAN  1
 #define LUAT_USE_AIRLINK_RPC_PM    1
 #define LUAT_USE_AIRLINK_RPC_SDATA 1
+#define LUAT_USE_AIRLINK_RPC_BLUETOOTH 1
 
 // #define LV_HOR_RES_MAX          (2000)
 // #define LV_VER_RES_MAX          (2000)

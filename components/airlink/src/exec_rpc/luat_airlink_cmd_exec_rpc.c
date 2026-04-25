@@ -22,10 +22,6 @@
 #include "luat_log.h"
 
 // 声明 dispatch 函数 (在 luat_airlink_rpc.c 中实现)
-extern int luat_airlink_rpc_dispatch(uint16_t rpc_id,
-                                      const uint8_t* req, uint16_t req_len,
-                                      uint8_t* resp, uint16_t resp_size, uint16_t* resp_len);
-
 extern int luat_airlink_rpc_nb_dispatch(uint16_t rpc_id, uint8_t msg_type,
                                          const uint8_t* req_bytes, uint16_t req_len,
                                          uint8_t* resp_bytes, uint16_t resp_size, uint16_t* resp_len);
@@ -51,17 +47,22 @@ int luat_airlink_cmd_exec_rpc(luat_airlink_cmd_t* cmd, void* userdata) {
     uint16_t req_len = (cmd->len > RPC_WIRE_HDR_LEN)
                        ? (uint16_t)(cmd->len - RPC_WIRE_HDR_LEN) : 0;
 
+    uint64_t start_tick = luat_mcu_tick64_ms();
+    
+    LLOGD("rpc exec: rpc_id=0x%04X msg_type=%d req_len=%d pkgid=0x%llx", 
+          rpc_id, msg_type, req_len, req_pkgid);
+
     // NOTIFY: 传给 notify_handler，不发任何响应
     if (msg_type == AIRLINK_RPC_MSG_TYPE_NOTIFY) {
         uint16_t dummy_len = 0;
-        // 先尝试 nanopb typed 表
         int rc = luat_airlink_rpc_nb_dispatch(rpc_id, msg_type,
                                                req_payload, req_len,
                                                NULL, 0, &dummy_len);
         if (rc == -404) {
-            // 再尝试 raw 表 (notify 无 response，raw handler 返回值忽略)
-            luat_airlink_rpc_dispatch(rpc_id, req_payload, req_len,
-                                      NULL, 0, &dummy_len);
+            LLOGW("rpc exec: 未找到 rpc_id=0x%04X 的 notify handler", rpc_id);
+        } else {
+            uint64_t elapsed = luat_mcu_tick64_ms() - start_tick;
+            LLOGD("rpc exec: notify handled (took %llums rc=%d)", elapsed, rc);
         }
         return 0;
     }
@@ -80,28 +81,26 @@ int luat_airlink_cmd_exec_rpc(luat_airlink_cmd_t* cmd, void* userdata) {
 
     uint16_t resp_len    = 0;
     uint8_t* resp_payload = resp_buf + 10;
-    int rc = -404;
 
-    // 先尝试 nanopb typed 表
-    rc = luat_airlink_rpc_nb_dispatch(rpc_id, msg_type,
-                                       req_payload, req_len,
-                                       resp_payload, RPC_RESP_BUF_SIZE, &resp_len);
-    if (rc == -404) {
-        // 再尝试原始字节表
-        resp_len = 0;
-        rc = luat_airlink_rpc_dispatch(rpc_id, req_payload, req_len,
-                                        resp_payload, RPC_RESP_BUF_SIZE, &resp_len);
-    }
+    int rc = luat_airlink_rpc_nb_dispatch(rpc_id, msg_type,
+                                           req_payload, req_len,
+                                           resp_payload, RPC_RESP_BUF_SIZE, &resp_len);
 
     memcpy(resp_buf, &req_pkgid, 8);
     int16_t result_code = (int16_t)rc;
     memcpy(resp_buf + 8, &result_code, 2);
 
+    uint64_t elapsed = luat_mcu_tick64_ms() - start_tick;
+    
     if (rc != 0) {
         resp_len = 0;
         if (rc == -404) {
-            LLOGW("rpc exec: 未找到 rpc_id=0x%04X 的 handler", rpc_id);
+            LLOGW("rpc exec: 未找到 rpc_id=0x%04X 的 handler (took %llums)", rpc_id, elapsed);
+        } else {
+            LLOGE("rpc exec: handler failed rc=%d resp_len=%d (took %llums)", rc, resp_len, elapsed);
         }
+    } else {
+        LLOGD("rpc exec: request handled resp_len=%d (took %llums)", resp_len, elapsed);
     }
 
     luat_airlink_result_send(resp_buf, (size_t)(10 + resp_len));

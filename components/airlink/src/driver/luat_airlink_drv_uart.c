@@ -25,6 +25,7 @@ int l_uart_handler(lua_State *L, void* ptr);
 
 
 int luat_airlink_drv_uart_setup(luat_uart_t* conf) {
+    #ifdef LUAT_USE_AIRLINK_RPC_UART
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_uart_UartRpcRequest  req  = drv_uart_UartRpcRequest_init_zero;
@@ -53,6 +54,7 @@ int luat_airlink_drv_uart_setup(luat_uart_t* conf) {
         }
         return 0;
     }
+    #endif
     // --- raw byte path ---
     // LLOGD("执行uart setup %d baud_rate %d", conf->id, conf->baud_rate);
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
@@ -72,6 +74,7 @@ int luat_airlink_drv_uart_setup(luat_uart_t* conf) {
 }
 
 int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
+    #ifdef LUAT_USE_AIRLINK_RPC_UART
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         // 始终走 nb_call，按 UART_WRITE_RPC_MAX 分段循环
@@ -106,6 +109,7 @@ int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
         }
         return sent_total;
     }
+    #endif
     // --- raw byte path (非 RPC 模式) ---
     // 按 1535 字节分段，避免单次过大
     {
@@ -134,6 +138,7 @@ int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
 }
 
 int luat_airlink_drv_uart_close(int uart_id) {
+    #ifdef LUAT_USE_AIRLINK_RPC_UART
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_uart_UartRpcRequest  req  = drv_uart_UartRpcRequest_init_zero;
@@ -152,6 +157,7 @@ int luat_airlink_drv_uart_close(int uart_id) {
         }
         return 0;
     }
+    #endif
     // --- raw byte path ---
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {

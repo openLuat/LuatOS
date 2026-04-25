@@ -29,6 +29,7 @@ static int pm_result_check(bool has_code, drv_pm_PmResultCode code, int32_t os_e
 }
 
 int luat_airlink_drv_pm_request(int mode) {
+    #ifdef LUAT_USE_AIRLINK_RPC_PM
     int airlink_mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && airlink_mode >= 0) {
         drv_pm_PmRpcRequest  req  = drv_pm_PmRpcRequest_init_zero;
@@ -45,6 +46,7 @@ int luat_airlink_drv_pm_request(int mode) {
                                resp.payload.pm_request.result.code,
                                resp.payload.pm_request.result.os_errno);
     }
+    #endif
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = sizeof(uint8_t) + sizeof(luat_airlink_cmd_t) + 8
@@ -62,6 +64,7 @@ int luat_airlink_drv_pm_request(int mode) {
 }
 
 int luat_airlink_drv_pm_power_ctrl(int id, uint8_t val) {
+    #ifdef LUAT_USE_AIRLINK_RPC_PM
     int airlink_mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && airlink_mode >= 0) {
         drv_pm_PmRpcRequest  req  = drv_pm_PmRpcRequest_init_zero;
@@ -79,6 +82,7 @@ int luat_airlink_drv_pm_power_ctrl(int id, uint8_t val) {
                                resp.payload.power_ctrl.result.code,
                                resp.payload.power_ctrl.result.os_errno);
     }
+    #endif
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = 5 + sizeof(luat_airlink_cmd_t) + 8
@@ -96,6 +100,7 @@ int luat_airlink_drv_pm_power_ctrl(int id, uint8_t val) {
 }
 
 int luat_airlink_drv_pm_wakeup_pin(int pin, int val) {
+    #ifdef LUAT_USE_AIRLINK_RPC_UART
     int airlink_mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && airlink_mode >= 0) {
         drv_pm_PmRpcRequest  req  = drv_pm_PmRpcRequest_init_zero;
@@ -113,6 +118,7 @@ int luat_airlink_drv_pm_wakeup_pin(int pin, int val) {
                                resp.payload.wakeup_pin.result.code,
                                resp.payload.wakeup_pin.result.os_errno);
     }
+    #endif
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = 5 + sizeof(luat_airlink_cmd_t) + 8

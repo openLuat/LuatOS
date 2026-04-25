@@ -101,6 +101,7 @@ int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio) {
 }
 
 int luat_airlink_drv_gpio_open(luat_gpio_cfg_t* gpio) {
+    #ifdef LUAT_USE_AIRLINK_RPC_GPIO
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_gpio_GpioRpcRequest  req  = drv_gpio_GpioRpcRequest_init_zero;
@@ -119,6 +120,7 @@ int luat_airlink_drv_gpio_open(luat_gpio_cfg_t* gpio) {
         }
         return 0;
     }
+    #endif
     // raw byte path: new API → falls back to luat_airlink_drv_gpio_setup via legacy struct
     luat_gpio_t legacy = {0};
     legacy.pin  = gpio->pin;
@@ -129,6 +131,7 @@ int luat_airlink_drv_gpio_open(luat_gpio_cfg_t* gpio) {
 }
 
 int luat_airlink_drv_gpio_set(int pin, int level) {
+    #ifdef LUAT_USE_AIRLINK_RPC_GPIO
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_gpio_GpioRpcRequest req = drv_gpio_GpioRpcRequest_init_zero;
@@ -139,6 +142,7 @@ int luat_airlink_drv_gpio_set(int pin, int level) {
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_GPIO,
                                           drv_gpio_GpioRpcRequest_fields, &req);
     }
+    #endif
     // --- raw byte path (original) ---
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
@@ -169,7 +173,7 @@ int luat_airlink_drv_gpio_get(int pin, int* val) {
         *val = 0;
         return 0;
     }
-
+    #ifdef LUAT_USE_AIRLINK_RPC_GPIO
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_gpio_GpioRpcRequest  req  = drv_gpio_GpioRpcRequest_init_zero;
@@ -199,6 +203,7 @@ int luat_airlink_drv_gpio_get(int pin, int* val) {
              : 0;
         return 0;
     }
+    #endif
 
     // --- raw byte path (original) ---
     uint32_t version;

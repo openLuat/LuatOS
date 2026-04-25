@@ -15,9 +15,9 @@
 #include "luat_mem.h"
 
 #include "drv_bluetooth.pb.h"
-#include "luat_drv_ble.h"
 #include "luat_ble.h"
 #include "luat_bt.h"
+#include "luat_drv_ble.h"
 
 #define LUAT_LOG_TAG "airlink.drv.bt"
 #include "luat_log.h"
@@ -26,6 +26,10 @@
 #define LLOGD(...)
 
 #define AIRLINK_DRV_RPC_ID_BT  0x0600
+
+#ifndef ENOMEM
+#define ENOMEM 12
+#endif
 
 /* 用户通过 luat_airlink_drv_ble_init 注册的 BLE 事件回调 */
 static luat_ble_cb_t s_ble_rpc_cb = NULL;
@@ -219,7 +223,7 @@ int luat_airlink_drv_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb) {
         }
         return 0;
     }
-    luat_drv_bt_task_start();
+    // luat_drv_bt_task_start();
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_INIT, NULL, 0);
 }
 

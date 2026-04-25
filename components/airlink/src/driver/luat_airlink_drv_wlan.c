@@ -30,6 +30,7 @@ static int wlan_result_check(bool has_code, drv_wlan_WlanResultCode code, int32_
 }
 
 int luat_airlink_drv_wlan_init(luat_wlan_config_t* args) {
+    #ifdef LUAT_USE_AIRLINK_RPC_WLAN
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
@@ -49,6 +50,7 @@ int luat_airlink_drv_wlan_init(luat_wlan_config_t* args) {
                                  resp.payload.init.result.code,
                                  resp.payload.init.result.os_errno);
     }
+    #endif
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = sizeof(luat_airlink_cmd_t) + 8
@@ -64,6 +66,7 @@ int luat_airlink_drv_wlan_init(luat_wlan_config_t* args) {
 }
 
 int luat_airlink_drv_wlan_ap_start(luat_wlan_apinfo_t* info) {
+    #ifdef LUAT_USE_AIRLINK_RPC_WLAN
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
@@ -99,6 +102,7 @@ int luat_airlink_drv_wlan_ap_start(luat_wlan_apinfo_t* info) {
                                  resp.payload.ap_start.result.code,
                                  resp.payload.ap_start.result.os_errno);
     }
+    #endif
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = sizeof(luat_wlan_apinfo_t) + sizeof(luat_airlink_cmd_t) + 8
@@ -116,6 +120,7 @@ int luat_airlink_drv_wlan_ap_start(luat_wlan_apinfo_t* info) {
 
 
 int luat_airlink_drv_wlan_ap_stop(void) {
+    #ifdef LUAT_USE_AIRLINK_RPC_WLAN
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
@@ -131,6 +136,7 @@ int luat_airlink_drv_wlan_ap_stop(void) {
                                  resp.payload.ap_stop.result.code,
                                  resp.payload.ap_stop.result.os_errno);
     }
+    #endif
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = sizeof(luat_airlink_cmd_t) + 8
@@ -146,6 +152,7 @@ int luat_airlink_drv_wlan_ap_stop(void) {
 }
 
 int luat_airlink_drv_wlan_connect(luat_wlan_conninfo_t* info) {
+    #ifdef LUAT_USE_AIRLINK_RPC_WLAN
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
@@ -183,6 +190,7 @@ int luat_airlink_drv_wlan_connect(luat_wlan_conninfo_t* info) {
                                  resp.payload.connect.result.code,
                                  resp.payload.connect.result.os_errno);
     }
+    #endif
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = sizeof(luat_wlan_conninfo_t) + sizeof(luat_airlink_cmd_t) + 8
@@ -199,6 +207,7 @@ int luat_airlink_drv_wlan_connect(luat_wlan_conninfo_t* info) {
 }
 
 int luat_airlink_drv_wlan_disconnect(void) {
+    #ifdef LUAT_USE_AIRLINK_RPC_WLAN
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
@@ -214,6 +223,7 @@ int luat_airlink_drv_wlan_disconnect(void) {
                                  resp.payload.disconnect.result.code,
                                  resp.payload.disconnect.result.os_errno);
     }
+    #endif
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = sizeof(luat_airlink_cmd_t) + 8
@@ -229,6 +239,7 @@ int luat_airlink_drv_wlan_disconnect(void) {
 }
 
 int luat_airlink_drv_wlan_scan(void) {
+    #ifdef LUAT_USE_AIRLINK_RPC_WLAN
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
@@ -244,6 +255,7 @@ int luat_airlink_drv_wlan_scan(void) {
                                  resp.payload.scan.result.code,
                                  resp.payload.scan.result.os_errno);
     }
+    #endif
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = sizeof(luat_airlink_cmd_t) + 8

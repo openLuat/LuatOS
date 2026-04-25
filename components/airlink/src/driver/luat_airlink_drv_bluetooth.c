@@ -31,6 +31,8 @@
 #define ENOMEM 12
 #endif
 
+#ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
+
 /* 用户通过 luat_airlink_drv_ble_init 注册的 BLE 事件回调 */
 static luat_ble_cb_t s_ble_rpc_cb = NULL;
 
@@ -152,6 +154,8 @@ static void ble_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void* 
 typedef void (*ble_rpc_notify_fn_t)(uint16_t rpc_id, const void* msg, void* userdata);
 extern void luat_airlink_rpc_ble_set_notify_fn(ble_rpc_notify_fn_t fn);
 
+#endif /* LUAT_USE_AIRLINK_RPC_BLUETOOTH */
+
 /* ---------- raw byte path helper ---------- */
 
 static int ble_raw_send(uint16_t cmd_id, const void* data, uint16_t data_len) {
@@ -202,6 +206,7 @@ int luat_airlink_drv_bluetooth_init(luat_bluetooth_t* luat_bluetooth) {
 
 int luat_airlink_drv_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     s_ble_rpc_cb = luat_ble_cb;
     /* 注册事件接收分发函数到 exec_rpc 侧 */
     luat_airlink_rpc_ble_set_notify_fn(ble_rpc_notify_dispatch);
@@ -223,12 +228,14 @@ int luat_airlink_drv_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb) {
         }
         return 0;
     }
+    #endif
     // luat_drv_bt_task_start();
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_INIT, NULL, 0);
 }
 
 int luat_airlink_drv_ble_deinit(luat_ble_t* luat_ble) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest  req  = drv_bluetooth_BleRpcRequest_init_zero;
@@ -240,11 +247,13 @@ int luat_airlink_drv_ble_deinit(luat_ble_t* luat_ble) {
                                            2000);
         return rc;
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_DEINIT, NULL, 0);
 }
 
 int luat_airlink_drv_ble_set_name(luat_ble_t* luat_ble, char* name, uint8_t len) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -255,11 +264,13 @@ int luat_airlink_drv_ble_set_name(luat_ble_t* luat_ble, char* name, uint8_t len)
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_SET_NAME, name, len);
 }
 
 int luat_airlink_drv_ble_set_max_mtu(luat_ble_t* luat_ble, uint16_t max_mtu) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -268,11 +279,13 @@ int luat_airlink_drv_ble_set_max_mtu(luat_ble_t* luat_ble, uint16_t max_mtu) {
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_SET_NAME, &max_mtu, 2);
 }
 
 int luat_airlink_drv_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_cfg_t* adv_cfg) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest  req  = drv_bluetooth_BleRpcRequest_init_zero;
@@ -298,12 +311,14 @@ int luat_airlink_drv_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_c
                                          drv_bluetooth_BleRpcResponse_fields, &resp,
                                          2000);
     }
+    #endif
     size_t cfg_len = adv_cfg ? sizeof(luat_ble_adv_cfg_t) : 0;
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_ADV_CREATE, adv_cfg, (uint16_t)cfg_len);
 }
 
 int luat_airlink_drv_ble_set_adv_data(luat_ble_t* luat_ble, uint8_t* adv_buff, uint8_t adv_len) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -314,11 +329,13 @@ int luat_airlink_drv_ble_set_adv_data(luat_ble_t* luat_ble, uint8_t* adv_buff, u
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_ADV_SET_DATA, adv_buff, adv_len);
 }
 
 int luat_airlink_drv_ble_set_scan_rsp_data(luat_ble_t* luat_ble, uint8_t* rsp_data, uint8_t rsp_len) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -329,11 +346,13 @@ int luat_airlink_drv_ble_set_scan_rsp_data(luat_ble_t* luat_ble, uint8_t* rsp_da
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_ADV_SET_SCAN_RSP_DATA, rsp_data, rsp_len);
 }
 
 int luat_airlink_drv_ble_start_advertising(luat_ble_t* luat_ble) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -341,11 +360,13 @@ int luat_airlink_drv_ble_start_advertising(luat_ble_t* luat_ble) {
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_ADV_START, NULL, 0);
 }
 
 int luat_airlink_drv_ble_stop_advertising(luat_ble_t* luat_ble) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -353,11 +374,13 @@ int luat_airlink_drv_ble_stop_advertising(luat_ble_t* luat_ble) {
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_ADV_STOP, NULL, 0);
 }
 
 int luat_airlink_drv_ble_delete_advertising(luat_ble_t* luat_ble) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -365,11 +388,13 @@ int luat_airlink_drv_ble_delete_advertising(luat_ble_t* luat_ble) {
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_ADV_DELETE, NULL, 0);
 }
 
 int luat_airlink_drv_ble_create_gatt(luat_ble_t* luat_ble, luat_ble_gatt_service_t* luat_ble_gatt_service) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest  req  = drv_bluetooth_BleRpcRequest_init_zero;
@@ -389,6 +414,7 @@ int luat_airlink_drv_ble_create_gatt(luat_ble_t* luat_ble, luat_ble_gatt_service
                                          drv_bluetooth_BleRpcResponse_fields, &resp,
                                          3000);
     }
+    #endif
     /* raw path: pack gatt into msg data */
     size_t gatt_len = 0;
     luat_ble_gatt_pack(luat_ble_gatt_service, NULL, &gatt_len);
@@ -413,6 +439,7 @@ int luat_airlink_drv_ble_read_response_value(luat_ble_t* luat_ble, uint8_t conn_
                                               uint16_t service_id, uint16_t att_handle,
                                               uint8_t* data, uint32_t len) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -426,6 +453,7 @@ int luat_airlink_drv_ble_read_response_value(luat_ble_t* luat_ble, uint8_t conn_
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     size_t total = 1 + 2 + 2 + len;
     uint8_t* buf = (uint8_t*)luat_heap_malloc(total);
     if (!buf) return -ENOMEM;
@@ -442,6 +470,7 @@ int luat_airlink_drv_ble_write_notify_value(luat_ble_t* luat_ble, uint8_t conn_i
                                              uint16_t service_id, uint16_t att_handle,
                                              uint8_t* data, uint16_t len) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -455,6 +484,7 @@ int luat_airlink_drv_ble_write_notify_value(luat_ble_t* luat_ble, uint8_t conn_i
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     size_t total = 1 + 2 + 2 + len;
     uint8_t* buf = (uint8_t*)luat_heap_malloc(total);
     if (!buf) return -ENOMEM;
@@ -469,6 +499,7 @@ int luat_airlink_drv_ble_write_notify_value(luat_ble_t* luat_ble, uint8_t conn_i
 
 int luat_airlink_drv_ble_create_scanning(luat_ble_t* luat_ble, luat_ble_scan_cfg_t* scan_cfg) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest  req  = drv_bluetooth_BleRpcRequest_init_zero;
@@ -490,12 +521,14 @@ int luat_airlink_drv_ble_create_scanning(luat_ble_t* luat_ble, luat_ble_scan_cfg
                                          drv_bluetooth_BleRpcResponse_fields, &resp,
                                          2000);
     }
+    #endif
     size_t cfg_len = scan_cfg ? sizeof(luat_ble_scan_cfg_t) : 0;
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_SCAN_CREATE, scan_cfg, (uint16_t)cfg_len);
 }
 
 int luat_airlink_drv_ble_start_scanning(luat_ble_t* luat_ble) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -503,11 +536,13 @@ int luat_airlink_drv_ble_start_scanning(luat_ble_t* luat_ble) {
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_SCAN_START, NULL, 0);
 }
 
 int luat_airlink_drv_ble_stop_scanning(luat_ble_t* luat_ble) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -515,11 +550,13 @@ int luat_airlink_drv_ble_stop_scanning(luat_ble_t* luat_ble) {
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_SCAN_STOP, NULL, 0);
 }
 
 int luat_airlink_drv_ble_delete_scanning(luat_ble_t* luat_ble) {
     (void)luat_ble;
+    #ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
         drv_bluetooth_BleRpcRequest req = drv_bluetooth_BleRpcRequest_init_zero;
@@ -527,5 +564,6 @@ int luat_airlink_drv_ble_delete_scanning(luat_ble_t* luat_ble) {
         return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_BT,
                                            drv_bluetooth_BleRpcRequest_fields, &req);
     }
+    #endif
     return ble_raw_send(LUAT_DRV_BT_CMD_BLE_SCAN_DELETE, NULL, 0);
 }

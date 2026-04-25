@@ -312,6 +312,42 @@ Before reporting task completion, verify:
 
 - **`drv_sdata.pb.c` is generated into `include/` by the nanopb generator** — after running `nanopb_generator.exe --output-dir=../include`, manually copy/move the `.pb.c` file to `src/` so the build system compiles it. The `.pb.h` stays in `include/`.
 
+### Git 换行符污染（CRLF vs LF）
+
+**症状**：`git diff master HEAD` 显示某些文件"像整个被重写了一样"——`driver/` 和 `drv/` 目录尤其明显，实际上内容几乎没变。
+
+**根因**：master 分支文件使用 LF（Unix 换行），但在 Windows 上编辑并提交后变成 CRLF。git 逐行比对时每行结尾字节不同，所有行都显示为"删除+新增"。
+
+**快速诊断**：
+```powershell
+# 检查 git 对象的原始换行符（用 cmd 重定向避免 PowerShell 自动转换）
+$hash = git rev-parse "master:path/to/file.c"
+cmd /c "git cat-file blob $hash > $env:TEMP\check.bin"
+$bytes = [System.IO.File]::ReadAllBytes("$env:TEMP\check.bin")
+"CR count: $(($bytes | ?{$_-eq13}).Count)"   # 0=LF, >0=CRLF
+```
+
+**根治方案**：
+
+1. 在仓库根目录创建 `.gitattributes`（已创建），对源文件强制 `eol=lf`
+2. 精准转换「master=LF、branch=CRLF」的文件，跳过「master=CRLF」的文件（避免引入新 phantom diff）：
+   ```powershell
+   # 只转换 master=LF 的文件
+   git diff --name-only master HEAD | ForEach-Object {
+       $mHash = git rev-parse "master:$_" 2>$null
+       if ($mHash) {
+           cmd /c "git cat-file blob $mHash > $env:TEMP\m.bin"
+           $cr = ([IO.File]::ReadAllBytes("$env:TEMP\m.bin") | ?{$_-eq13}).Count
+           if ($cr -eq 0) { $_ }  # master=LF，需要修正
+       }
+   }
+   ```
+3. 对筛选出的文件做 CRLF→LF 转换后 `git add`，和 `.gitattributes` 一起提交。
+
+**注意**：`git add --renormalize .` 会全量规范化，若 master 本身有 CRLF 文件则会反向引入新的 phantom diff，**不要无脑用**。务必精准筛选后再操作。
+
+**预防**：`.gitattributes` 已提交到仓库，后续 `git add` 会自动强制 LF，无需手动处理。
+
 ### Debug Records
 - `bsp/pc/docs/debug_tcp_listen.md` — TCP listen/accept implementation and crash debugging
 

@@ -136,3 +136,7 @@ int luat_gpio_ctrl(int pin, LUAT_GPIO_CTRL_CMD_E cmd, int param) {
     if (pin < 0 || pin >= 128) return -1;
     return 0;
 }
+
+int luat_gpio_driver_yhm27xx(uint32_t pin, uint8_t chip_id, uint8_t reg, uint8_t is_read, uint8_t *data) {
+    return -1;
+}

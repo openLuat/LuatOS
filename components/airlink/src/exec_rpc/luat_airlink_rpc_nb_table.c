@@ -11,43 +11,43 @@
 
 #include "luat_airlink_rpc.h"
 
-#ifdef LUAT_USE_AIRLINK_RPC_GPIO
+#ifdef LUAT_USE_AIRLINK_EXEC_GPIO
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_gpio_reg;
 #endif
-#ifdef LUAT_USE_AIRLINK_RPC_UART
+#ifdef LUAT_USE_AIRLINK_EXEC_UART
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_uart_reg;
 #endif
-#ifdef LUAT_USE_AIRLINK_RPC_WLAN
+#ifdef LUAT_USE_AIRLINK_EXEC_WLAN
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_reg;
 #endif
-#ifdef LUAT_USE_AIRLINK_RPC_PM
+#ifdef LUAT_USE_AIRLINK_EXEC_PM
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_pm_reg;
 #endif
-#ifdef LUAT_USE_AIRLINK_RPC_SDATA
+#ifdef LUAT_USE_AIRLINK_EXEC_SDATA
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_sdata_reg;
 #endif
-#ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
+#ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_bluetooth_reg;
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_bluetooth_event_reg;
 #endif
 
 const luat_airlink_rpc_nb_reg_t* const luat_airlink_rpc_nb_static_table[] = {
-#ifdef LUAT_USE_AIRLINK_RPC_GPIO
+#ifdef LUAT_USE_AIRLINK_EXEC_GPIO
     &luat_airlink_rpc_gpio_reg,
 #endif
-#ifdef LUAT_USE_AIRLINK_RPC_UART
+#ifdef LUAT_USE_AIRLINK_EXEC_UART
     &luat_airlink_rpc_uart_reg,
 #endif
-#ifdef LUAT_USE_AIRLINK_RPC_WLAN
+#ifdef LUAT_USE_AIRLINK_EXEC_WLAN
     &luat_airlink_rpc_wlan_reg,
 #endif
-#ifdef LUAT_USE_AIRLINK_RPC_PM
+#ifdef LUAT_USE_AIRLINK_EXEC_PM
     &luat_airlink_rpc_pm_reg,
 #endif
-#ifdef LUAT_USE_AIRLINK_RPC_SDATA
+#ifdef LUAT_USE_AIRLINK_EXEC_SDATA
     &luat_airlink_rpc_sdata_reg,
 #endif
-#ifdef LUAT_USE_AIRLINK_RPC_BLUETOOTH
+#ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
     &luat_airlink_rpc_bluetooth_reg,
     &luat_airlink_rpc_bluetooth_event_reg,
 #endif

@@ -6,7 +6,7 @@
 
 #include "luat_base.h"
 
-#ifdef LUAT_USE_AIRLINK_RPC
+#ifdef LUAT_USE_AIRLINK_EXEC_WLAN
 
 #include "luat_airlink_rpc.h"
 #include "luat_wlan.h"
@@ -138,4 +138,4 @@ const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_reg = {
     .userdata       = NULL,
 };
 
-#endif /* LUAT_USE_AIRLINK_RPC */
+#endif /* LUAT_USE_AIRLINK_EXEC_WLAN */

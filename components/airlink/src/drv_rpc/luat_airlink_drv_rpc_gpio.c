@@ -1,6 +1,6 @@
 #include "luat_base.h"
 
-#ifdef LUAT_USE_AIRLINK_RPC_GPIO
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_GPIO)
 
 #include "luat_airlink.h"
 #include "luat_airlink_rpc.h"

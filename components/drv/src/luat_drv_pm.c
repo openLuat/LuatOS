@@ -1,4 +1,5 @@
 #include "luat_base.h"
+#if defined(LUAT_USE_DRV_PM)
 #include "luat_gpio.h"
 #include "luat_mem.h"
 #include "luat_airlink.h"
@@ -24,7 +25,7 @@ int luat_drv_pm_request(int chip, int mode) {
         return luat_pm_request(mode);
     }
     else {
-        #ifdef LUAT_USE_AIRLINK_RPC_PM
+        #ifdef LUAT_USE_AIRLINK_RPC
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_pm_request(mode);
         #endif
@@ -56,7 +57,7 @@ int luat_drv_pm_power_ctrl(int chip, int id, uint8_t val) {
             else {
                 s_wifi_sleep = 1;
                 if (luat_airlink_sversion() >= 18) {
-                    #ifdef LUAT_USE_AIRLINK_RPC_PM
+                    #ifdef LUAT_USE_AIRLINK_RPC
                     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
                         luat_airlink_drv_rpc_pm_power_ctrl(id, 3);
                     else
@@ -64,7 +65,7 @@ int luat_drv_pm_power_ctrl(int chip, int id, uint8_t val) {
                         luat_airlink_drv_pm_power_ctrl(id, 3);
                 }
                 else {
-                    #ifdef LUAT_USE_AIRLINK_RPC_PM
+                    #ifdef LUAT_USE_AIRLINK_RPC
                     if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
                         luat_airlink_drv_rpc_pm_power_ctrl(id, val);
                     else
@@ -80,7 +81,7 @@ int luat_drv_pm_power_ctrl(int chip, int id, uint8_t val) {
         return luat_pm_power_ctrl(id, val);
     }
     else {
-        #ifdef LUAT_USE_AIRLINK_RPC_PM
+        #ifdef LUAT_USE_AIRLINK_RPC
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_pm_power_ctrl(id, val);
         #endif
@@ -94,10 +95,12 @@ int luat_drv_pm_wakeup_pin(int chip, int pin, int val) {
     }
     else {
         pin -= 128;
-        #ifdef LUAT_USE_AIRLINK_RPC_PM
+        #ifdef LUAT_USE_AIRLINK_RPC
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_pm_wakeup_pin(pin, val);
         #endif
         return luat_airlink_drv_pm_wakeup_pin(pin, val);
     }
 }
+
+#endif /* LUAT_USE_DRV_PM */

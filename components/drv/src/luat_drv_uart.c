@@ -1,4 +1,5 @@
 #include "luat_base.h"
+#if defined(LUAT_USE_DRV_UART)
 #include "luat_gpio.h"
 #include "luat_mem.h"
 #include "luat/drv_gpio.h"
@@ -15,7 +16,7 @@ int luat_drv_uart_setup(luat_uart_t* uart) {
         if (uart->pin485 != 255 && uart->pin485 >= 128) {
             uart->pin485 -= 128;
         }
-        #ifdef LUAT_USE_AIRLINK_RPC_UART
+        #ifdef LUAT_USE_AIRLINK_RPC
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_uart_setup(uart);
         #endif
@@ -28,7 +29,7 @@ int luat_drv_uart_setup(luat_uart_t* uart) {
 
 int luat_drv_uart_write(int uart_id, void* data, size_t length) {
     if (uart_id >= 10 && uart_id <= 19) {
-        #ifdef LUAT_USE_AIRLINK_RPC_UART
+        #ifdef LUAT_USE_AIRLINK_RPC
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_uart_write(uart_id, data, length);
         #endif
@@ -50,7 +51,7 @@ int luat_drv_uart_read(int uart_id, void* buffer, size_t length) {
 
 int luat_drv_uart_close(int uart_id) {
     if (uart_id >= 10 && uart_id <= 19) {
-        #ifdef LUAT_USE_AIRLINK_RPC_UART
+        #ifdef LUAT_USE_AIRLINK_RPC
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_uart_close(uart_id);
         #endif
@@ -60,3 +61,5 @@ int luat_drv_uart_close(int uart_id) {
         return luat_uart_close(uart_id);
     }
 }
+
+#endif /* LUAT_USE_DRV_UART */

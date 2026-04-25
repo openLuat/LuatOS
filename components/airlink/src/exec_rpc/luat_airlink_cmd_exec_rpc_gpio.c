@@ -7,7 +7,7 @@
 
 #include "luat_base.h"
 
-#ifdef LUAT_USE_AIRLINK_RPC
+#ifdef LUAT_USE_AIRLINK_EXEC_GPIO
 
 #include "luat_airlink_rpc.h"
 #include "luat_gpio.h"
@@ -142,4 +142,4 @@ const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_gpio_reg = {
     .userdata       = NULL,
 };
 
-#endif /* LUAT_USE_AIRLINK_RPC */
+#endif /* LUAT_USE_AIRLINK_EXEC_GPIO */

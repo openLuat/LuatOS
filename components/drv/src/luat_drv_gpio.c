@@ -1,4 +1,5 @@
 #include "luat_base.h"
+#if defined(LUAT_USE_DRV_GPIO)
 #include "luat_gpio.h"
 #include "luat_mem.h"
 #include "luat/drv_gpio.h"
@@ -23,7 +24,7 @@ int luat_drv_gpio_open(luat_gpio_cfg_t* gpio) {
         return luat_gpio_open(gpio);
     }
     else {
-        #ifdef LUAT_USE_AIRLINK_RPC_GPIO
+        #if defined(LUAT_USE_AIRLINK_RPC)
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_gpio_open(gpio);
         #endif
@@ -39,7 +40,7 @@ int luat_drv_gpio_set(int pin, int level) {
         return luat_gpio_set(pin, level);
     }
     else {
-        #ifdef LUAT_USE_AIRLINK_RPC_GPIO
+        #if defined(LUAT_USE_AIRLINK_RPC)
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_gpio_set(pin, level);
         #endif
@@ -60,7 +61,7 @@ int luat_drv_gpio_setup(luat_gpio_t* gpio) {
         return luat_gpio_setup(gpio);
     }
     else {
-        #ifdef LUAT_USE_AIRLINK_RPC_GPIO
+        #if defined(LUAT_USE_AIRLINK_RPC)
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_gpio_setup(gpio);
         #endif
@@ -78,7 +79,7 @@ int luat_drv_gpio_get(int pin, int* val) {
         return 0;
     }
     else {
-        #ifdef LUAT_USE_AIRLINK_RPC_GPIO
+        #if defined(LUAT_USE_AIRLINK_RPC)
         if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
             return luat_airlink_drv_rpc_gpio_get(pin, val);
         #endif
@@ -99,3 +100,5 @@ int luat_drv_gpio_driver_yhm27xx(uint32_t Pin, uint8_t ChipID, uint8_t RegAddres
 int luat_drv_gpio_driver_yhm27xx_reqinfo(uint8_t Pin, uint8_t ChipID) {
     return luat_airlink_drv_gpio_driver_yhm27xx_reqinfo(Pin, ChipID);
 }
+
+#endif /* LUAT_USE_DRV_GPIO */

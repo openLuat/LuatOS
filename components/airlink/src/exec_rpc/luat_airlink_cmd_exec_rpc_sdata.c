@@ -19,7 +19,7 @@
 
 extern int luat_airlink_cmd_exec_sdata_data(const uint8_t* data, size_t len);
 
-#ifdef LUAT_USE_AIRLINK_RPC_SDATA
+#ifdef LUAT_USE_AIRLINK_EXEC_SDATA
 
 static int sdata_rpc_notify_handler(uint16_t rpc_id, const void* msg_raw, void* userdata) {
     (void)rpc_id; (void)userdata;
@@ -39,5 +39,5 @@ const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_sdata_reg = {
     .userdata       = NULL,
 };
 
-#endif /* LUAT_USE_AIRLINK_RPC_SDATA */
+#endif /* LUAT_USE_AIRLINK_EXEC_SDATA */
 #endif /* LUAT_USE_AIRLINK_RPC */

@@ -593,19 +593,6 @@ int luat_wlan_scan_nonblock(luat_wifiscan_set_info_t *set_info) {
     return -1;
 }
 
-// =====================================
-// Airlink WLAN stubs for PC build
-// =====================================
-#ifdef LUAT_USE_AIRLINK
-#include "luat_airlink.h"
-
-int luat_airlink_cmd_exec_wlan_scan_result_cb(luat_airlink_cmd_t* cmd, void* userdata) {
-    (void)cmd;
-    (void)userdata;
-    return 0;
-}
-#endif
-
 // ============================================================
 // Native mode (Windows) - controlled by LUAT_USE_WLAN_NATIVE
 // ============================================================

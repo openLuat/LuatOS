@@ -439,6 +439,7 @@ target("luatos-lua")
 
         -- 添加蓝牙
         add_includedirs(luatos .. "components/bluetooth/include")
+        add_files(luatos .. "components/bluetooth/drv/luat_drv_ble_gatt.c")
     else
         add_includedirs(luatos .. "components/network/lwip/include")
         add_includedirs("lwip/include")    

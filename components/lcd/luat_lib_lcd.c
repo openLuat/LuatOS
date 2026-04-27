@@ -577,7 +577,7 @@ lcd.cmd(0x21)
 */
 static int l_lcd_write_cmd(lua_State* L) {
 	uint8_t param;
-	uint32_t param_len = 0;
+	size_t param_len = 0;
 	const uint8_t *data = NULL;
 	if (lua_isinteger(L, 2))
 	{

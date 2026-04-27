@@ -1,0 +1,19 @@
+
+# LCD 驱动模块
+
+1、LuatOS支持lcd核心库，lcd核心库是一个功能丰富的显示屏控制核心库，支持多种接口类型的 LCD 屏幕，包括 SPI、QSPI、RGB 等。该核心库提供了显示屏初始化、图形绘制、文本显示、图像处理、屏幕休眠、唤醒等功能；
+
+2、使用lcd核心库开发的demo项目可以参考以下demo：
+
+Air1601开发板+1024*600 分辨率横屏 5 寸 LCD+ 触摸面板：支持airui各种组件、支持矢量字体、支持触摸控制
+
+- 代码：[Air1601/demo/ui/airui](https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/ui/airui)
+- 文档：[lcd核心库在Air1601+5 寸 LCD上的应用](https://docs.openluat.com/air1601/luatos/app/multimedia/ui/airui/)
+
+在这个demo中，lcd核心库的应用，详见如下所示脚本文件：
+
+- lcd_drv.lua - LCD显示驱动模块，基于lcd核心库
+
+airui 是基于 LVGL 9.4 版本进行图形层封装的 LuatOS 核心库，把常用组件、事件管理、输入和基础视觉主题封装为更易上手的 Lua 接口，便于在支持 LuatOS 的设备和 PC 上统一开发。
+
+建议使用airui来开发显示界面，airui demo参考：[Air1601/demo/ui/airui](https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/ui/airui)

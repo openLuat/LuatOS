@@ -8,12 +8,12 @@
 
 ## 目录说明
 
-* demo  [演示代码](demo/)
-* project  [案例代码](project/)
+* demo  演示代码
+* project  案例代码
 
 ## 固件说明
 
-[Air1601固件版本说明](https://docs.openluat.com/air1601/luatos/firmware/)
+[Air1602固件版本说明](https://docs.openluat.com/air1601/luatos/)
 
 ## demo使用说明
 

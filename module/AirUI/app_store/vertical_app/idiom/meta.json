@@ -1,0 +1,23 @@
+{
+  "app_name_cn": "成语填空",
+  "app_name_en": "idiom",
+  "version": "1.0.0",
+  "publish_time": "2026-04-07 10:00:00",
+  "category": "游戏",
+  "description": "一个简单的成语填空游戏，玩家需要从选项中选择正确的汉字填空，测试对成语的掌握程度",
+  "resolution": "480x800",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 37,
+  "origin_size_kb": 60
+}

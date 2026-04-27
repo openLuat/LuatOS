@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>智能健康体检一体机</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #eef2f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', 'Roboto', 'Noto Sans', system-ui, 'Microsoft YaHei', sans-serif;
+        }
+
+        .device {
+            width: 600px;
+            height: 1024px;
+            background: #ffffff;
+            border-radius: 32px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            background: inherit;
+        }
+
+        .page.hidden {
+            transform: translateX(100%);
+            pointer-events: none;
+        }
+
+        /* ========== 首页样式 ========== */
+        .home-page {
+            background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2MDAgMTAyNCIgd2lkdGg9IjYwMCIgaGVpZ2h0PSIxMDI0Ij48cmVjdCB3aWR0aD0iNjAwIiBoZWlnaHQ9IjEwMjQiIGZpbGw9IiM0QThDRkYiLz48Y2lyY2xlIGN4PSIzMDAiIGN5PSI1MDAiIHI9IjE1MCIgZmlsbD0iI0ZGRkZGRiIgZmlsbC1vcGFjaXR5PSIwLjEiLz48Y2lyY2xlIGN4PSIzMDAiIGN5PSI1MDAiIHI9IjEwMCIgZmlsbD0iI0ZGRkZGRiIgZmlsbC1vcGFjaXR5PSIwLjEiLz48cGF0aCBkPSJNMjAwIDYwMEw0MDAgNjAwTDM1MCA3MDBMMjUwIDcwMFoiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC4xIi8+PC9zdmc+') no-repeat center center;
+            background-size: cover;
+            justify-content: space-between;
+        }
+        .home-top-bar {
+            padding: 20px 24px;
+            text-align: right;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .home-footer {
+            padding: 30px;
+            text-align: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(4px);
+        }
+        .home-click-area {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        /* 通用顶栏 - 亮蓝色 */
+        .top-bar {
+            height: 64px;
+            background: #5ba3d9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            color: white;
+            flex-shrink: 0;
+        }
+        .exit-btn {
+            background: rgba(255,255,255,0.25);
+            border: none;
+            padding: 8px 20px;
+            border-radius: 24px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .exit-btn:active { background: rgba(255,255,255,0.4); }
+        .page-title {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            background: #f0f4f8;
+        }
+
+        /* 菜单样式 */
+        .menu-grid {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            height: 100%;
+        }
+        .menu-row {
+            display: flex;
+            gap: 60px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .menu-item {
+            text-align: center;
+            cursor: pointer;
+            width: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .menu-icon {
+            width: 120px;
+            height: 120px;
+            background: #e0f0ff;
+            border-radius: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .menu-icon span { font-size: 56px; }
+        .menu-icon-large {
+            width: 160px;
+            height: 160px;
+            background: #e0f0ff;
+            border-radius: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .menu-icon-large span { font-size: 76px; }
+        .menu-btn {
+            background: #5ba3d9;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        /* 大图标样式 */
+        .big-icon {
+            text-align: center;
+            margin: 60px auto;
+        }
+        .circle-icon {
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8bcbff, #5ba3d9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(91,163,217,0.3);
+        }
+        .circle-icon span { font-size: 90px; }
+        .guide-text {
+            font-size: 20px;
+            color: #5ba3d9;
+            font-weight: bold;
+        }
+
+        /* 数据行 */
+        .data-row {
+            background: white;
+            border-radius: 20px;
+            padding: 18px 24px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            border-left: 6px solid #5ba3d9;
+        }
+        .data-label { font-weight: bold; color: #5ba3d9; }
+        .data-value { color: #333; }
+        .analysis-orange { color: #ff8c42; font-weight: bold; }
+        .analysis-green { color: #4caf50; font-weight: bold; }
+        .analysis-red { color: #ff4444; font-weight: bold; }
+
+        /* 弹窗样式 */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            width: 450px;
+            background: white;
+            border-radius: 28px;
+            overflow: hidden;
+        }
+        .modal-header {
+            background: #5ba3d9;
+            color: white;
+            padding: 16px 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .modal-body {
+            padding: 24px;
+        }
+        .input-row {
+            margin-bottom: 24px;
+        }
+        .input-row label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .input-row input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 12px;
+            font-size: 16px;
+        }
+        .gender-buttons {
+            display: flex;
+            gap: 20px;
+        }
+        .gender-btn {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 30px;
+            text-align: center;
+            cursor: pointer;
+            background: #f5f5f5;
+            font-size: 16px;
+        }
+        .gender-btn.selected {
+            background: #5ba3d9;
+            color: white;
+            border-color: #5ba3d9;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 16px;
+            margin-top: 24px;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .btn-confirm { background: #5ba3d9; color: white; }
+        .btn-skip { background: #ccc; color: #333; }
+
+        /* 报告页面 */
+        .report-section {
+            margin-bottom: 30px;
+        }
+        .report-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #5ba3d9;
+            margin-bottom: 16px;
+            padding-left: 8px;
+        }
+        .report-grid-3col {
+            display: grid;
+            grid-template-columns: 100px 1fr 1fr;
+            gap: 16px;
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .report-icon {
+            text-align: center;
+        }
+        .report-icon span { font-size: 48px; }
+        .report-icon div {
+            font-size: 14px;
+            color: #5ba3d9;
+            margin-top: 8px;
+        }
+        .report-col {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .report-col-right {
+            text-align: right;
+        }
+        .report-row {
+            line-height: 1.4;
+            font-size: 15px;
+        }
+        .report-label {
+            font-weight: bold;
+            color: #5ba3d9;
+        }
+        .footer-bar {
+            background: #5ba3d9;
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            min-height: 160px;
+        }
+        .qr-code {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        .qr-placeholder {
+            width: 80px;
+            height: 80px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #5ba3d9;
+            font-size: 14px;
+            border-radius: 16px;
+        }
+        .qr-text {
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .bottom-buttons {
+            display: flex;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .action-btn {
+            flex: 1;
+            background: #5ba3d9;
+            border: none;
+            padding: 14px;
+            border-radius: 40px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .action-btn.secondary {
+            background: #ccc;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+<div class="device" id="app">
+    <!-- 首页 -->
+    <div class="page home-page" id="pageHome">
+        <div class="home-top-bar" id="datetimeDisplay"></div>
+        <div class="home-click-area" id="homeClickArea"></div>
+        <div class="home-footer">欢迎使用智能健康体检一体机，请站上设备开始体检</div>
+    </div>
+
+    <!-- 菜单界面 -->
+    <div class="page hidden" id="pageMenu">
+        <div class="top-bar">
+            <button class="exit-btn" id="menuExitBtn">退出[120s]</button>
+            <div class="page-title">健康体检</div>
+            <div style="width:80px"></div>
+        </div>
+        <div class="content-area">
+            <div class="menu-grid">
+                <div class="menu-row">
+                    <div class="menu-item" id="bmiItem">
+                        <div class="menu-icon"><span>⚖️</span></div>
+                        <button class="menu-btn">身高体重</button>
+                    </div>
+                    <div class="menu-item" id="bodyItem">
+                        <div class="menu-icon"><span>🧪</span></div>
+                        <button class="menu-btn">人体成分</button>
+                    </div>
+                </div>
+                <div class="menu-row">
+                    <div class="menu-item" id="fullMeasureItem">
+                        <div class="menu-icon-large"><span>🔄</span></div>
+                        <button class="menu-btn">全部顺序测量</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 身高体重引导 -->
+    <div class="page hidden" id="pageStatureGuide">
+        <div class="top-bar">
+            <button class="exit-btn" id="statureGuideExit">退出</button>
+            <div class="page-title">身高体重</div>
+            <div style="width:80px"></div>
+        </div>
+        <div class="content-area">
+            <div class="big-icon" id="startMeasureBtn">
+                <div class="circle-icon"><span>🧍</span></div>
+                <div class="guide-text">请站到测量识别区，然后站稳、站直、平视前方</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 身高体重结果 -->
+    <div class="page hidden" id="pageStatureResult">
+        <div class="top-bar">
+            <button class="exit-btn" id="statureResultExit">退出[120s]</button>
+            <div class="page-title">身高体重</div>
+            <div style="width:80px"></div>
+        </div>
+        <div class="content-area">
+            <div id="statureData"></div>
+            <div class="bottom-buttons">
+                <button class="action-btn secondary" id="reMeasureBtn">重新测量</button>
+                <button class="action-btn" id="nextToBodyBtn">下一项</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 人体成分引导 -->
+    <div class="page hidden" id="pageBodyGuide">
+        <div class="top-bar">
+            <button class="exit-btn" id="bodyGuideExit">退出[120s]</button>
+            <div class="page-title">人体成分</div>
+            <div style="width:80px"></div>
+        </div>
+        <div class="content-area">
+            <div class="big-icon" id="startBodyMeasureBtn">
+                <div class="circle-icon"><span>✋</span></div>
+                <div class="guide-text">请握住把手，手臂伸直，不要晃动</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 人体成分结果 -->
+    <div class="page hidden" id="pageBodyResult">
+        <div class="top-bar">
+            <button class="exit-btn" id="bodyResultExit">退出[120s]</button>
+            <div class="page-title">人体成分</div>
+            <div style="width:80px"></div>
+        </div>
+        <div class="content-area">
+            <div id="bodyData"></div>
+            <div class="bottom-buttons">
+                <button class="action-btn secondary" id="reBodyMeasureBtn">重新测量</button>
+                <button class="action-btn" id="viewReportBtn">查看报告</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 报告 -->
+    <div class="page hidden" id="pageReport">
+        <div class="top-bar">
+            <button class="exit-btn" id="reportExit">退出[120s]</button>
+            <div class="page-title">检测报告</div>
+            <div style="font-size:14px;" id="userInfoTop"></div>
+        </div>
+        <div class="content-area" style="padding-bottom:0;">
+            <div class="report-section">
+                <div class="report-title">📊 体质指数</div>
+                <div class="report-grid-3col" id="reportBmiGrid"></div>
+            </div>
+            <div class="report-section">
+                <div class="report-title">🧬 人体成分</div>
+                <div class="report-grid-3col" id="reportBodyGrid"></div>
+            </div>
+        </div>
+        <div class="footer-bar">
+            <div class="qr-code">
+                <div class="qr-placeholder">📱 扫码</div>
+                <div class="qr-text">微信扫码 报告直达手机</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 全局变量
+    let currentPage = null;
+    let bmiData = { height: 0, weight: 0, bmi: 0, analysis: '', color: '' };
+    let bodyData = { tz: 0, tzw: 0, bmr: 0, analysis1: '', analysis2: '', analysis3: '', color1: '', color2: '', color3: '' };
+    let userGender = null;
+    let userAge = null;
+    let countdownInterval = null;
+    let isFullMeasuring = false;
+    let fullMeasureStep = 0; // 0:未开始,1:等待身高体重触发,2:等待人体成分触发
+
+    const pages = {
+        home: document.getElementById('pageHome'),
+        menu: document.getElementById('pageMenu'),
+        statureGuide: document.getElementById('pageStatureGuide'),
+        statureResult: document.getElementById('pageStatureResult'),
+        bodyGuide: document.getElementById('pageBodyGuide'),
+        bodyResult: document.getElementById('pageBodyResult'),
+        report: document.getElementById('pageReport')
+    };
+
+    function showPage(pageName) {
+        for (let key in pages) pages[key].classList.add('hidden');
+        pages[pageName].classList.remove('hidden');
+        currentPage = pageName;
+        if (pageName !== 'home') startCountdown(120);
+        else stopCountdown();
+    }
+
+    function stopCountdown() {
+        if (countdownInterval) clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+
+    function startCountdown(seconds) {
+        stopCountdown();
+        let remaining = seconds;
+        const exitBtns = document.querySelectorAll('.exit-btn');
+        function updateBtn() {
+            exitBtns.forEach(btn => {
+                if (btn.textContent.includes('退出')) {
+                    btn.textContent = `退出[${remaining}s]`;
+                }
+            });
+        }
+        updateBtn();
+        countdownInterval = setInterval(() => {
+            remaining--;
+            if (remaining <= 0) {
+                stopCountdown();
+                if (currentPage === 'menu') showPage('home');
+                else if (currentPage === 'statureResult') showPage('home');
+                else if (currentPage === 'bodyGuide') showPage('menu');
+                else if (currentPage === 'bodyResult') showPage('home');
+                else if (currentPage === 'report') showPage('home');
+                else showPage('home');
+                isFullMeasuring = false;
+                fullMeasureStep = 0;
+            } else {
+                updateBtn();
+            }
+        }, 1000);
+    }
+
+    function randomRange(min, max) {
+        return (Math.random() * (max - min) + min).toFixed(1);
+    }
+
+    function doStatureMeasure(callback) {
+        let height = parseFloat(randomRange(160, 200));
+        let weight = parseFloat(randomRange(50, 90));
+        let bmi = weight / ((height/100) * (height/100));
+        bmi = parseFloat(bmi.toFixed(1));
+        let analysis = '';
+        let color = '';
+        if (bmi < 18.5) { analysis = '偏瘦'; color = '#ffcc00'; }
+        else if (bmi < 24.9) { analysis = '正常'; color = '#4caf50'; }
+        else { analysis = '偏重'; color = '#ff4444'; }
+        bmiData = { height, weight, bmi, analysis, color };
+        renderStatureResult();
+        if (callback) callback();
+    }
+
+    function renderStatureResult() {
+        const container = document.getElementById('statureData');
+        container.innerHTML = `
+            <div class="data-row"><span class="data-label">身高：</span><span class="data-value">${bmiData.height} cm</span></div>
+            <div class="data-row"><span class="data-label">体重：</span><span class="data-value">${bmiData.weight} kg</span></div>
+            <div class="data-row"><span class="data-label">BMI：</span><span class="data-value">${bmiData.bmi}</span></div>
+            <div class="data-row"><span class="data-label">健康分析：</span><span class="data-value" style="color:${bmiData.color};">您的体重${bmiData.analysis}</span></div>
+        `;
+    }
+
+    function getColorClass(value) {
+        if (value === '偏低') return 'analysis-orange';
+        if (value === '正常') return 'analysis-green';
+        if (value === '偏高') return 'analysis-red';
+        return '';
+    }
+
+    function doBodyMeasure() {
+        let tz = parseFloat(randomRange(5, 30));
+        let weight = bmiData.weight || 70;
+        let tzw = parseFloat((weight * tz / 100).toFixed(1));
+        let bmr = parseFloat(randomRange(1000, 2000));
+        let analysis1 = '', analysis3 = '';
+        if (userGender === '男') {
+            if (tz < 15) analysis1 = '偏低';
+            else if (tz <= 18) analysis1 = '正常';
+            else analysis1 = '偏高';
+            if (bmr < 1400) analysis3 = '偏低';
+            else if (bmr <= 1800) analysis3 = '正常';
+            else analysis3 = '偏高';
+        } else {
+            if (tz < 20) analysis1 = '偏低';
+            else if (tz <= 25) analysis1 = '正常';
+            else analysis1 = '偏高';
+            if (bmr < 1200) analysis3 = '偏低';
+            else if (bmr <= 1500) analysis3 = '正常';
+            else analysis3 = '偏高';
+        }
+        bodyData = { 
+            tz, tzw, bmr, 
+            analysis1, analysis2: analysis1, analysis3,
+            color1: getColorClass(analysis1),
+            color2: getColorClass(analysis1),
+            color3: getColorClass(analysis3)
+        };
+        renderBodyResult();
+    }
+
+    function renderBodyResult() {
+        const container = document.getElementById('bodyData');
+        container.innerHTML = `
+            <div class="data-row"><span class="data-label">体脂率：</span><span class="data-value">${bodyData.tz} %</span></div>
+            <div class="data-row"><span class="data-label">体脂肪量：</span><span class="data-value">${bodyData.tzw} kg</span></div>
+            <div class="data-row"><span class="data-label">基础代谢：</span><span class="data-value">${bodyData.bmr} Kcal</span></div>
+            <div class="data-row"><span class="data-label">健康分析：</span><span class="data-value">您的体脂率<span class="${bodyData.color1}">${bodyData.analysis1}</span>，体脂肪量<span class="${bodyData.color2}">${bodyData.analysis2}</span>，基础代谢<span class="${bodyData.color3}">${bodyData.analysis3}</span></span></div>
+        `;
+    }
+
+    function showUserInfoModal(callback) {
+        const modalDiv = document.createElement('div');
+        modalDiv.className = 'modal';
+        modalDiv.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">完善用户信息</div>
+                <div class="modal-body">
+                    <div class="input-row">
+                        <label>年龄</label>
+                        <input type="number" id="modalAge" placeholder="请输入年龄" value="30">
+                    </div>
+                    <div class="input-row">
+                        <label>性别</label>
+                        <div class="gender-buttons">
+                            <div class="gender-btn" data-gender="男">男</div>
+                            <div class="gender-btn" data-gender="女">女</div>
+                        </div>
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="modal-btn btn-confirm" id="modalConfirm">确认</button>
+                        <button class="modal-btn btn-skip" id="modalSkip">跳过</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalDiv);
+        let selectedGender = null;
+        document.querySelectorAll('.gender-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selectedGender = btn.getAttribute('data-gender');
+            });
+        });
+        document.getElementById('modalConfirm').addEventListener('click', () => {
+            const age = parseInt(document.getElementById('modalAge').value);
+            if (age >= 10 && age <= 120 && selectedGender) {
+                userAge = age;
+                userGender = selectedGender;
+                modalDiv.remove();
+                if (callback) callback();
+            } else {
+                alert('请正确填写年龄(10-120)并选择性别');
+            }
+        });
+        document.getElementById('modalSkip').addEventListener('click', () => {
+            modalDiv.remove();
+            if (callback) callback();
+        });
+    }
+
+    function showReport() {
+        const normalBmiRange = '正常BMI范围：18.5~24.0';
+        const bmiAnalysisText = bmiData.analysis || '正常';
+        document.getElementById('reportBmiGrid').innerHTML = `
+            <div class="report-icon">
+                <span>📄</span>
+                <div>体质指数</div>
+            </div>
+            <div class="report-col">
+                <div class="report-row"><span class="report-label">身高：</span>${bmiData.height} cm</div>
+                <div class="report-row"><span class="report-label">体重：</span>${bmiData.weight} kg</div>
+                <div class="report-row"><span class="report-label">BMI：</span>${bmiData.bmi}</div>
+                <div class="report-row">${normalBmiRange}</div>
+            </div>
+            <div class="report-col report-col-right">
+                <div class="report-row"></div>
+                <div class="report-row"></div>
+                <div class="report-row" style="color:${bmiData.color};">${bmiAnalysisText}</div>
+                <div class="report-row"></div>
+            </div>
+        `;
+        
+        const genderText = userGender === '男' ? '成年男性' : '成年女性';
+        const normalRange = userGender === '男' ? '15.0~18.0%' : '20.0~25.0%';
+        document.getElementById('reportBodyGrid').innerHTML = `
+            <div class="report-icon">
+                <span>📄</span>
+                <div>人体成分</div>
+            </div>
+            <div class="report-col">
+                <div class="report-row"><span class="report-label">体脂率：</span>${bodyData.tz} %</div>
+                <div class="report-row"><span class="report-label">体脂肪量：</span>${bodyData.tzw} kg</div>
+                <div class="report-row"><span class="report-label">基础代谢：</span>${bodyData.bmr} Kcal</div>
+                <div class="report-row">${genderText}体脂率正常范围：${normalRange}</div>
+            </div>
+            <div class="report-col report-col-right">
+                <div class="report-row ${bodyData.color1}">${bodyData.analysis1}</div>
+                <div class="report-row ${bodyData.color2}">${bodyData.analysis2}</div>
+                <div class="report-row ${bodyData.color3}">${bodyData.analysis3}</div>
+                <div class="report-row"></div>
+            </div>
+        `;
+        document.getElementById('userInfoTop').innerHTML = `${userGender || ''} ${userAge || ''}岁`;
+        showPage('report');
+        if (isFullMeasuring) {
+            isFullMeasuring = false;
+            fullMeasureStep = 0;
+        }
+    }
+
+    // 统一的下一项处理函数：先检查用户信息，再跳转到人体成分引导页
+    function handleNextItem() {
+        if (userGender && userAge) {
+            showPage('bodyGuide');
+        } else {
+            showUserInfoModal(() => {
+                showPage('bodyGuide');
+            });
+        }
+    }
+
+    // 顺序测量完整流程
+    function startFullMeasurement() {
+        isFullMeasuring = true;
+        fullMeasureStep = 1;
+        showPage('statureGuide');
+    }
+
+    // 事件绑定
+    document.getElementById('homeClickArea').addEventListener('click', () => showPage('menu'));
+    document.getElementById('menuExitBtn').addEventListener('click', () => showPage('home'));
+    document.getElementById('bmiItem').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        showPage('statureGuide');
+    });
+    document.getElementById('bodyItem').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        handleNextItem();
+    });
+    document.getElementById('fullMeasureItem').addEventListener('click', startFullMeasurement);
+    
+    document.getElementById('statureGuideExit').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        showPage('menu');
+    });
+    
+    document.getElementById('startMeasureBtn').addEventListener('click', () => {
+        doStatureMeasure(() => {
+            showPage('statureResult');
+            if (isFullMeasuring && fullMeasureStep === 1) {
+                fullMeasureStep = 2;
+                setTimeout(() => {
+                    if (currentPage === 'statureResult' && isFullMeasuring && fullMeasureStep === 2) {
+                        // 全部顺序测量完成后，调用统一的下一项处理函数
+                        handleNextItem();
+                    }
+                }, 2000);
+            }
+        });
+    });
+    
+    document.getElementById('statureResultExit').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        showPage('menu');
+    });
+    document.getElementById('reMeasureBtn').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        showPage('statureGuide');
+    });
+    // 身高体重结果页的“下一项”按钮
+    document.getElementById('nextToBodyBtn').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        handleNextItem();
+    });
+    
+    document.getElementById('bodyGuideExit').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        showPage('menu');
+    });
+    
+    document.getElementById('startBodyMeasureBtn').addEventListener('click', () => {
+        // 确保用户信息存在（如果跳过弹窗可能为空，再检查一次）
+        if (!userGender || !userAge) {
+            showUserInfoModal(() => {
+                doBodyMeasure();
+                showPage('bodyResult');
+                if (isFullMeasuring && fullMeasureStep === 2) {
+                    setTimeout(() => {
+                        if (currentPage === 'bodyResult' && isFullMeasuring) {
+                            showReport();
+                        }
+                    }, 2000);
+                }
+            });
+        } else {
+            doBodyMeasure();
+            showPage('bodyResult');
+            if (isFullMeasuring && fullMeasureStep === 2) {
+                setTimeout(() => {
+                    if (currentPage === 'bodyResult' && isFullMeasuring) {
+                        showReport();
+                    }
+                }, 2000);
+            }
+        }
+    });
+    
+    document.getElementById('bodyResultExit').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        showPage('home');
+    });
+    document.getElementById('reBodyMeasureBtn').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        handleNextItem();
+    });
+    document.getElementById('viewReportBtn').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        showReport();
+    });
+    document.getElementById('reportExit').addEventListener('click', () => {
+        isFullMeasuring = false;
+        fullMeasureStep = 0;
+        showPage('home');
+    });
+
+    function updateTime() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth()+1;
+        const day = now.getDate();
+        const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+        const weekday = weekdays[now.getDay()];
+        const timeStr = now.toLocaleTimeString('zh-CN');
+        const temp = '24°C';
+        document.getElementById('datetimeDisplay').innerHTML = `${year}/${month}/${day} ${timeStr} ${weekday} ${temp}`;
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+    showPage('home');
+</script>
+</body>
+</html>

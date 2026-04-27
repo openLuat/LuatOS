@@ -1,0 +1,24 @@
+{
+  "app_name_cn": "连连看",
+  "app_name_en": "lianliankan",
+  "version": "0.2.0",
+  "publish_time": "2026-04-13 21:00:00",
+  "category": "游戏",
+  "description": "连连看，支持倒计时、提示、重排和多关卡挑战",
+  "resolution": "480x800",
+  "display_zoom":"adaptive",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 180,
+  "origin_size_kb": 520
+}

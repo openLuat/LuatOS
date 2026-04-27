@@ -1,0 +1,23 @@
+{
+  "app_name_cn": "Socket-s",
+  "app_name_en": "socket-server",
+  "version": "1.0.0",
+  "publish_time": "2026-04-08 12:00:00",
+  "category": "工具",
+  "description": "Socket Server管理工具，支持TCP/UDP服务器管理、数据收发及日志显示",
+  "resolution": "480x800",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 102,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 100,
+  "origin_size_kb": 150
+}

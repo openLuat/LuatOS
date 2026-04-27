@@ -70,6 +70,7 @@ require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音
 -- require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
 -- require "record_amr_file"        -- 录音到文件（AMR格式）
 -- require "record_pcm_file"        -- 录音到文件（PCM格式）
+-- require "http_download_play"     -- HTTP下载音频文件播放，支持MP3/AMR/PCM格式，自动识别，支持SD卡存储
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

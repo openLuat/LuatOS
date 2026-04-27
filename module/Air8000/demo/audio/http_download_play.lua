@@ -69,16 +69,19 @@ local AUDIO_URL = "http://airtest.openluat.com:2900/download/sample-6s.mp3"  -- 
 -- local AUDIO_URL = "http://airtest.openluat.com:2900/download/test.pcm"
 
 -- SD卡配置参数
-local sd_spi_id = 0            -- SPI接口编号
-local sd_cs_pin = 16           -- 片选引脚 核心板cs为8 开发板cs为16 按照自己的硬件选择
+local sd_spi_id = 1            -- SPI接口编号
+local sd_cs_pin = 20           -- 片选引脚 核心板cs为8 开发板cs为16 按照自己的硬件选择
 local sd_mount_path = "/sd"    -- SD卡挂载路径
 
 -- 硬件配置参数
 local audio_setup_param = {
     model = "es8311",          -- 音频编解码芯片类型
     i2c_id = 0,                -- I2C接口编号
-    pa_ctrl = gpio.AUDIOPA_EN, -- 音频放大器控制引脚
-    dac_ctrl = 20,             -- 音频编解码芯片控制引脚
+    pa_ctrl = 162,             -- 音频放大器控制引脚
+    dac_ctrl = 164,            -- 音频编解码芯片控制引脚
+    -- Air8000核心板配置pa_ctrl 和dac_ctrl 
+    -- pa_ctrl = 17,            -- 音频放大器电源控制管脚
+    -- dac_ctrl = 16,           -- 音频编解码芯片电源控制管脚 
 
     -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
     dac_delay = set_dac_delay, -- DAC启动前冗余时间
@@ -292,10 +295,10 @@ end
 local function mount_sd_card()
     log.info("http_pcm_stream_play", "开始挂载SD卡")
 
-    -- 打开ch390供电脚（使用开发板需要打开此注释）
-    gpio.setup(20, 1, gpio.PULLUP)
-    -- 上拉ch390使用spi的cs引脚避免干扰（使用开发板需要打开此注释）
-    gpio.setup(8, 1)
+    -- 打开ch390供电脚（使用8000开发板需要打开此注释）
+    gpio.setup(140, 1, gpio.PULLUP) 
+    --上拉ch390使用spi的cs引脚避免干扰（使用8000开发板需要打开此注释）
+    gpio.setup(12,1)
 
     -- 初始化SPI接口
     spi.setup(sd_spi_id, nil, 0, 0, 400 * 1000)

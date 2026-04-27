@@ -7,7 +7,7 @@
 @usage
 
 注意：
-如果搭配AirAUDIO_1000 音频板测试，需将AirAUDIO_1000 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
 
 HTTP下载音频文件播放演示程序，按键功能：
 1. Power键：开始HTTP下载并播放，停止播放
@@ -76,9 +76,9 @@ local sd_mount_path = "/sd"    -- SD卡挂载路径
 -- 硬件配置参数
 local audio_setup_param = {
     model = "es8311",          -- 音频编解码芯片类型
-    i2c_id = 0,                -- I2C接口编号
-    pa_ctrl = gpio.AUDIOPA_EN, -- 音频放大器控制引脚
-    dac_ctrl = 20,             -- 音频编解码芯片控制引脚
+    i2c_id = 1,                -- I2C接口编号
+    pa_ctrl = 26, -- 音频放大器控制引脚
+    dac_ctrl = 2,             -- 音频编解码芯片控制引脚
 
     -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
     dac_delay = set_dac_delay, -- DAC启动前冗余时间

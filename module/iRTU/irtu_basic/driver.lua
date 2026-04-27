@@ -222,7 +222,7 @@ cmd.rrpc = {
         local config = {
             project_id = t[1],
             project_key = t[2],
-            timeout = tonumber(t[3]) or 50000
+            timeout = tonumber(t[3]) or 10000
         }
         
         local save_result = save_airlbs_config(config)

@@ -36,7 +36,7 @@ static lf_err_t little_flash_wait_busy(const little_flash_t *lf, uint32_t timeou
     lf_err_t result = LF_ERR_OK;
     size_t retry_times = lf->chip_info.retry_times;
     int32_t timeout_us;
-    volatile uint8_t status;
+    uint8_t status;
     do{
         timeout_us = (int32_t)timeout;
         do{
@@ -201,7 +201,7 @@ lf_err_t little_flash_sfdp_probe(little_flash_t *lf){
         LF_WARNING("Table Revision %d.%d parameter_length %d is too short", sfdp.parameter_major_rev, sfdp.parameter_minor_rev,sfdp.parameter_length);
         return LF_ERR_SFDP_PARAMETER;
     }
-    little_flash_sfdp_read(lf, sfdp.parameter_pointer, &sfdp.pt, sizeof(little_flash_sfdp_pt_t));
+    little_flash_sfdp_read(lf, sfdp.parameter_pointer, (uint8_t *)&sfdp.pt, sizeof(little_flash_sfdp_pt_t));
 
     //      [1] = 0xE5    0x20    0xF1    0xFF
     //      [2] = 0xFF    0xFF    0xFF    0x07
@@ -278,7 +278,7 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
     uint8_t recv_data[4]={0};
     result = lf->spi.transfer(lf,(uint8_t[]){LF_CMD_JEDEC_ID}, 1, recv_data, sizeof(recv_data));
     if(result) return result;
-    // LF_DEBUG("recv_data [0]:0x%02X [1]:0x%02X [2]:0x%02X [3]:0x%02X",recv_data[0],recv_data[1],recv_data[2],recv_data[3]);
+    // LF_DEBUG("JEDEC recv_data: %02X %02X %02X %02X", recv_data[0], recv_data[1], recv_data[2], recv_data[3]);
 
     // nor flash?
     manufacturer_id = recv_data[0];

@@ -77,12 +77,10 @@ local function netdrv_multiple_task_func()
                     -- ping_ip = "填入可靠的并且可以ping通的ip地址",
 
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-                    tp = netdrv.CH390,
-                    opts = {spi=0, cs=8},
-
                     -- INT中断引脚，使用中断模式提高响应速度
                     -- 若不填此参数，默认不使用中断模式而是使用轮询模式
-                    irq = 1  
+                    tp = netdrv.CH390,
+                    opts = {spi=0, cs=8,irq = 1 }
                 }
             },
 

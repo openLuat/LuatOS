@@ -283,11 +283,7 @@ local function setup_eth(config)
         -- socket.LWIP_ETH 网络适配器编号
         -- netdrv.CH390外挂CH390
         -- SPI ID 1, 片选 GPIO12
-        -- 如果配置了irq中断引脚,添加到opts中
-        if config.irq then
-            config.opts.irq = config.irq
-            log.info("netdrv", "使用中断模式, irq引脚:", config.irq)
-        end
+        -- 在opts中配置irq中断引脚,例如 opts = {spi = 1, cs = 12, irq = 19}
         if netdrv.setup(socket.LWIP_ETH, config.tp, config.opts) == false then
             log.error("以太网初始化失败")
             if config.pwrpin then
@@ -356,11 +352,7 @@ local function setup_eth_user1(config)
     -- socket.LWIP_ETH 网络适配器编号
     -- netdrv.CH390外挂CH390
     -- SPI ID 1, 片选 GPIO12
-    -- 如果配置了irq中断引脚,添加到opts中
-    if config.irq then
-        config.opts.irq = config.irq
-        log.info("netdrv", "使用中断模式, irq引脚:", config.irq)
-    end
+    -- 在opts中配置irq中断引脚,例如 opts = {spi = 1, cs = 12, irq = 19}
     if netdrv.setup(socket.LWIP_USER1, config.tp, config.opts) == false then
         log.error("以太网初始化失败")
         if config.pwrpin then
@@ -592,8 +584,7 @@ exnetif.set_priority_order({
             ping_time = 10000,              -- 填写ping_ip且未ping通时的检测间隔(ms, 可选,默认为10秒)
                                             -- 定时ping将会影响模块功耗，使用低功耗模式的话可以适当延迟间隔时间
             tp = netdrv.CH390,              -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-            opts = { spi = 1, cs = 12 },    -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
-            irq = 19,                       -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度
+            opts = { spi = 1, cs = 12, irq = 19 }, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。irq为中断引脚(选填参数)，配置后可使用中断模式提高响应速度
                                             -- 使用CH390H时，推荐将IRQ引脚连接到模组的GPIO，启用中断模式
             static_ip = {                   -- 静态ip配置(选填参数)，不填写则使用dhcp获取ip
                 ipv4 = "192.168.5.100",     -- ip地址(string)
@@ -632,8 +623,7 @@ exnetif.set_priority_order({
             ETHUSER1 = { -- 以太网配置
                 pwrpin = 13, -- 供电使能引脚(number)
                 tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-                opts = {spi = 0, cs = 15}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
-                irq = 18,                   -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度
+                opts = {spi = 0, cs = 15, irq = 18}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。irq为中断引脚(选填参数)，配置后可使用中断模式提高响应速度
                 static_ip = {                   -- 静态ip配置(选填参数)，不填写则使用dhcp获取ip
                     ipv4 = "192.168.5.100",     -- ip地址(string)
                     mark = "255.255.255.0",     -- 子网掩码(string)
@@ -818,13 +808,11 @@ end
     exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_USER1, {
             ethpower_en = 20,-- 以太网模块的pwrpin引脚(gpio编号)
             tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-            opts = {spi = 0, cs = 8}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
-            irq = 19,               -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度
+            opts = {spi = 0, cs = 8, irq = 19}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。irq为中断引脚(选填参数)，配置后可使用中断模式提高响应速度
             main_adapter = {
                 ethpower_en = 21,-- 以太网模块的pwrpin引脚(gpio编号)
                 tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-                opts = {spi = 1, cs = 12},
-                irq = 20            -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度
+                opts = {spi = 1, cs = 12, irq = 20} -- irq为中断引脚(选填参数)，配置后可使用中断模式提高响应速度
             }
         }) then
     -- wifi_sta提供网络开启wifi_ap热点供设备上网
@@ -853,8 +841,7 @@ end
     })
     exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, {
         tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-        opts = { spi = 1, cs = 12},      -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
-        irq = 19,                        -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度
+        opts = { spi = 1, cs = 12, irq = 19}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。irq为中断引脚(选填参数)，配置后可使用中断模式提高响应速度
         ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
         adapter_addr = "192.168.5.1",    -- adapter网卡的ip地址(选填),需要自定义ip和网关ip时填写
         adapter_gw= { 192, 168, 5, 1 },   -- adapter网卡的网关地址(选填),需要自定义ip和网关ip时填写
@@ -865,16 +852,14 @@ end
         password = "password123",        -- WiFi密码(string)，网卡包含wifi时填写
         main_adapter={
             tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-            opts = { spi = 1, cs = 12},      -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
-            irq = 20,                        -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度
+            opts = { spi = 1, cs = 12, irq = 20}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。irq为中断引脚(选填参数)，配置后可使用中断模式提高响应速度
             ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
         }
     })
     -- WIFI提供网络供以太网设备上网
     exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_STA, {
         tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-        opts = { spi = 1, cs = 12},      -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
-        irq = 19,                        -- 中断引脚(选填参数)，配置后可使用中断模式提高响应速度
+        opts = { spi = 1, cs = 12, irq = 19}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。irq为中断引脚(选填参数)，配置后可使用中断模式提高响应速度
         ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
         main_adapter = {
             ssid = "test",                -- 提供网络的网卡开启参数

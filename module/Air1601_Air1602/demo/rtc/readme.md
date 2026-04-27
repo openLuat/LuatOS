@@ -10,6 +10,8 @@
 
 2、第二种场景演示：连接上网络后，等待 NTP 授时后每秒打印更新后的东八区本地时间与 UTC 时间。
 
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
+
 ![](https://docs.openluat.com/air1601/luatos/common/download/image/download.jpg)
 
 1、Air1601开发板一块

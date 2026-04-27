@@ -77,8 +77,7 @@ local function netdrv_eth_spi_task_func()
             ETHERNET = {
                 pwrpin = nil,
                 tp = netdrv.CH390,
-                opts = {spi = 0, cs = 8},
-                irq = 1 
+                opts = {spi = 0, cs = 8,irq = 1}
             }
         }
     })

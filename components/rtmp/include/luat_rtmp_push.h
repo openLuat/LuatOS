@@ -22,7 +22,7 @@
 #define __LUAT_RTMP_PUSH_H__
 
 #include "luat_base.h"
-#include "lwip/tcp.h"
+#include "luat_network_adapter.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -160,7 +160,7 @@ typedef struct {
     uint16_t port;                  /**< 连接端口 */
     
     /** ============ TCP连接状态 ============ */
-    struct tcp_pcb *pcb;            /**< lwip TCP控制块 */
+    network_ctrl_t *netc;             /**< 网络控制器 */
     rtmp_state_t state;             /**< 当前连接状态 */
     uint32_t last_activity_time;    /**< 最后活动时间戳 */
     int8_t handshake_state;            /**< 握手状态: 0=发送C0C1, 1=等待S0S1, 2=发送C2, 3=完成 */
@@ -220,23 +220,24 @@ typedef struct {
 /* ======================== 核心接口函数 ======================== */
 
 /**
- * 创建RTMP推流上下文
- * 
- * 分配并初始化RTMP上下文结构体,为后续的RTMP连接做准备。
- * 
- * @return 返回RTMP上下文指针,失败返回NULL
+ * 初始化RTMP推流上下文
+ *
+ * 初始化已分配的RTMP上下文结构体,为后续的RTMP连接做准备。
+ *
+ * @param ctx RTMP上下文指针(已分配)
+ * @return 返回RTMP_OK表示成功,其他值表示失败
  */
-rtmp_ctx_t* rtmp_create(void);
+int rtmp_init(rtmp_ctx_t *ctx);
 
 /**
- * 销毁RTMP推流上下文
- * 
+ * 反初始化RTMP推流上下文
+ *
  * 释放所有由RTMP上下文占用的资源,包括内存缓冲区和TCP连接。
- * 
+ *
  * @param ctx RTMP上下文指针
  * @return 返回RTMP_OK表示成功
  */
-int rtmp_destroy(rtmp_ctx_t *ctx);
+int rtmp_deinit(rtmp_ctx_t *ctx);
 
 /**
  * 设置RTMP服务器URL

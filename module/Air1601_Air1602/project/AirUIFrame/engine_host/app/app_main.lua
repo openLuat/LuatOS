@@ -25,9 +25,6 @@ gpio.setup(55, 1)
 -- else
 --     require "airlink_mobile_info"
 -- end
-if rtos.bsp() ~= "PC" then
-    socket.dft(socket.LWIP_STA)
-end
 
 require "netdrv_device"
 -- 加载 wifi_app 主模块

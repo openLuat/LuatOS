@@ -70,6 +70,10 @@ require "app_main"
 -- 引入UI主模块
 require "ui_main"
 
+if rtos.bsp() ~= "PC" then
+    socket.dft(socket.LWIP_STA)
+end
+
 -- 用户代码已结束
 -- 结尾总是这一句
 sys.run()

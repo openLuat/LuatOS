@@ -863,10 +863,77 @@ local function on_list_updated(apps, page_info)
                 end
             else
                 app.installed = false
-            end
         end
     end
+end
     render_apps(apps, has_more)
+end
+
+local function on_progress(aid, percent, status_text)
+    if progress_bar and progress_label then
+        progress_bar:set_value(percent)
+        progress_label:set_text(status_text or string.format("下载进度 %d%%", percent))
+        if percent >= 100 then
+            progress_label:set_text("解压完成，请稍候...")
+        end
+    end
+end
+
+local function on_action_done(aid, action, success)
+    close_progress_dialog()
+
+    if success then
+        local app_name = nil
+        local installed_apps = exapp.list_installed()
+        if installed_apps[aid] then
+            app_name = installed_apps[aid].cn_name or installed_apps[aid].name
+        end
+
+        local apps, more = exapp.get_current_list()
+        if apps then
+            local idx = nil
+            for i, app in ipairs(apps) do
+                if tostring(app.aid) == aid then
+                    idx = i
+                    break
+                end
+            end
+
+            if idx then
+                if action == "install" then
+                    apps[idx].installed = true
+                    apps[idx].has_update = false
+                elseif action == "update" then
+                    apps[idx].has_update = false
+                    apps[idx].installed = true
+                elseif action == "uninstall" then
+                    apps[idx].installed = false
+                end
+            end
+
+            render_apps(apps, more)
+        end
+
+        show_success_toast(action, app_name)
+
+        local key = tostring(aid)
+        if action == "install" and success then
+            local_installed_ids[key] = true
+        elseif action == "uninstall" and success then
+            local_installed_ids[key] = false
+        end
+    end
+end
+
+local function on_error(msg)
+    close_progress_dialog()
+    local msgbox = airui.msgbox({
+        title = "错误",
+        text = msg,
+        buttons = { "确定" },
+        on_action = function(self, label) self:hide() end
+    })
+    msgbox:show()
 end
 
 -------------------------------------------------------------------------------

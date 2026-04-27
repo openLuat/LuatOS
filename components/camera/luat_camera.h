@@ -239,6 +239,9 @@ int luat_usb_camera_stream_get_config_resolution_num(uint8_t app_id, uint8_t for
 
 int luat_usb_camera_stream_get_config_info(uint8_t app_id, uint8_t format_index, uint8_t resolution_index, uint8_t *fps, uint16_t *w, uint16_t *h);
 
+int luat_usb_camera_stream_set_min_data_len(uint8_t app_id, uint32_t min_data_len);
+
+int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t jump_frame_cnt);
 extern int32_t g_camera_log_level;
 /** @}*/
 #endif

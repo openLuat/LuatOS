@@ -1,1 +1,1 @@
-Air1601 LuatOS固件版本下载地址: https://docs.openluat.com/air1601/luatos/firmware/1601_version/
+Air160/Air1602 LuatOS固件版本下载地址: https://docs.openluat.com/air1601/luatos/firmware/1601_version/

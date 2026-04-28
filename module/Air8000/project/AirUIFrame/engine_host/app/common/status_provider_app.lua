@@ -213,6 +213,7 @@ local function init()
     elseif rtos.bsp() ~= "Air8101" then
         sim_present = mobile.simPin() or false
     else
+        sim_present = mobile.simPin() or false
         local info = wlan.getInfo()
         if info and info.ssid then
             wifi_connected = true
@@ -226,6 +227,12 @@ local function init()
 
     mobile_timer = sys.timerLoopStart(update_mobile_signal, 2000)
     update_mobile_signal()
+
+    sys.subscribe("REQUEST_STATUS_REFRESH", function()
+        sys.publish("STATUS_TIME_UPDATED", current_time, current_date, current_weekday)
+        sys.publish("STATUS_SIGNAL_UPDATED", mobile_signal_level)
+        sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
+    end)
 end
 init()
 

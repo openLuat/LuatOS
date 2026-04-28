@@ -12,7 +12,13 @@ local page_label = nil
 local tabview = nil
 local current_tab_index = 0
 
-local StatusProvider = require "status_provider_app"
+local status_cache = {
+    time = "08:00",
+    date = "1970-01-01",
+    weekday = "星期四",
+    mobile_level = -1,
+    wifi_level = 0
+}
 
 local builtin_apps = {
     { name = "设置", win = "SETTINGS", icon = "/luadb/settings.png" },
@@ -38,6 +44,7 @@ local builtin_y = 0
 local builtin_btn_w = 80
 local builtin_btn_spacing = 20
 
+local time_timer = nil
 local external_apps_cache = {}
 local page_grids = {}
 
@@ -390,26 +397,28 @@ local function load_external_apps()
     refresh_app_pages()
 end
 
-local function update_time_date()
+local function update_time_date(time_str, date_str, weekday_str)
+    if time_str then status_cache.time = time_str end
+    if date_str then status_cache.date = date_str end
+    if weekday_str then status_cache.weekday = weekday_str end
     if not date_label then return end
-    local time_str = StatusProvider.get_time()
-    local date_str = StatusProvider.get_date()
-    local weekday_str = StatusProvider.get_weekday()
     if big_time_label then
-        big_time_label:set_text(time_str)
+        big_time_label:set_text(status_cache.time)
     end
-    date_label:set_text(date_str .. " " .. weekday_str)
+    date_label:set_text(status_cache.date .. " " .. status_cache.weekday)
 end
 
-local function update_wifi_icon()
-    local level = StatusProvider.get_wifi_signal_level() or 0
+local function update_wifi_icon(level)
+    if level == nil then return end
+    status_cache.wifi_level = level
     if not wifi_img then return end
     local img_name = "wifixinhao" .. level .. ".png"
     wifi_img:set_src("/luadb/" .. img_name)
 end
 
-local function update_mobile_icon()
-    local level = StatusProvider.get_signal_level() or -1
+local function update_mobile_icon(level)
+    if level == nil then return end
+    status_cache.mobile_level = level
     if not mobile_img then return end
     local img_index
     if level == -1 then
@@ -423,16 +432,16 @@ local function update_mobile_icon()
     mobile_img:set_src("/luadb/" .. img_name)
 end
 
-local function on_status_time_updated()
-    update_time_date()
+local function on_status_time_updated(current_time, current_date, current_weekday)
+    update_time_date(current_time, current_date, current_weekday)
 end
 
-local function on_status_wifi_updated()
-    update_wifi_icon()
+local function on_status_wifi_updated(level)
+    update_wifi_icon(level)
 end
 
-local function on_status_mobile_updated()
-    update_mobile_icon()
+local function on_status_mobile_updated(level)
+    update_mobile_icon(level)
 end
 
 local function on_create()
@@ -532,21 +541,28 @@ local function on_create()
     end)
 
     load_external_apps()
-    update_time_date()
-    update_wifi_icon()
-    update_mobile_icon()
+    update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
+    update_wifi_icon(status_cache.wifi_level)
+    update_mobile_icon(status_cache.mobile_level)
 
-    sys.timerLoopStart(update_time_date, 1000)
+    time_timer = sys.timerLoopStart(function()
+        update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
+    end, 1000)
     sys.subscribe("STATUS_TIME_UPDATED", on_status_time_updated)
     sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_mobile_updated)
     sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.subscribe("APP_STORE_INSTALLED_UPDATED", function()
         load_external_apps()
     end)
+
+    sys.publish("REQUEST_STATUS_REFRESH")
 end
 
 local function on_destroy()
-    sys.timerStop(update_time_date)
+    if time_timer then
+        sys.timerStop(time_timer)
+        time_timer = nil
+    end
     sys.unsubscribe("STATUS_TIME_UPDATED", on_status_time_updated)
     sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_mobile_updated)
     sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
@@ -557,9 +573,9 @@ local function on_destroy()
 end
 
 local function on_get_focus()
-    update_time_date()
-    update_wifi_icon()
-    update_mobile_icon()
+    update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
+    update_wifi_icon(status_cache.wifi_level)
+    update_mobile_icon(status_cache.mobile_level)
     load_external_apps()
 end
 

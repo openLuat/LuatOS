@@ -82,7 +82,7 @@ local function saved_list_create_ui()
         parent = title_bar,
         text = "已保存的网络",
         x = 60, y = 14,
-        w = SCREEN_W -20, h = 40,
+        w = SCREEN_W -60, h = 40,
         font_size = 32,
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_LEFT,

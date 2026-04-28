@@ -7,6 +7,7 @@
 
 local BASE_URL = "http://speed.cloudflare.com"
 local is_testing = false
+local network_connected = false
 
 local function measure_latency_and_jitter()
     local rtts = {}
@@ -101,20 +102,38 @@ end
 
 local function run_speed_test_task()
     if is_testing then return end
+
+    if not network_connected then
+        sys.publish("SPDTEST_STATUS", "当前未连接网络")
+        return
+    end
+
     is_testing = true
     sys.publish("SPDTEST_STARTED")
 
     sys.publish("SPDTEST_STATUS", "测延迟 & 抖动...")
     sys.wait(100)
     local ping, jitter = measure_latency_and_jitter()
+    if not network_connected then
+        is_testing = false
+        return
+    end
 
     sys.publish("SPDTEST_STATUS", "测试下载速度...")
     sys.wait(100)
     local download = measure_download()
+    if not network_connected then
+        is_testing = false
+        return
+    end
 
     sys.publish("SPDTEST_STATUS", "测试上传速度...")
     sys.wait(100)
     local upload = measure_upload()
+    if not network_connected then
+        is_testing = false
+        return
+    end
 
     local results = {
         download = download,
@@ -137,6 +156,21 @@ end
 
 sys.subscribe("SPEEDTEST_START", function()
     sys.taskInit(run_speed_test_task)
+end)
+
+sys.subscribe("IP_READY", function()
+    network_connected = true
+    log.info("speedtest", "网络已连接")
+end)
+
+sys.subscribe("IP_LOSE", function()
+    network_connected = false
+    if is_testing then
+        is_testing = false
+        sys.publish("SPDTEST_STATUS", "网络已断开")
+        sys.publish("SPDTEST_FINISHED")
+    end
+    log.info("speedtest", "网络已断开")
 end)
 
 log.info("speedtest_app", "模块加载完成")

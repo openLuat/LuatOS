@@ -310,7 +310,7 @@ local function list_create_ui()
         parent = saved_network_item,
         text = "已保存的网络",
         x = 10, y = 15,
-        w = 200, h = 30,
+        w = 200, h = 40,
         font_size = 20,
         color = 0x000000,
         align = airui.TEXT_ALIGN_LEFT,
@@ -544,6 +544,7 @@ local function list_on_config_rsp(data)
     end
     if wifi_enable_switch_container then wifi_enable_switch_container:open() end
     if current_status then list_on_status_updated(current_status) end
+    list_update_saved_networks_list()
     if current_config and current_config.wifi_enabled then
         sys.publish("WIFI_SCAN_REQ")
     end

@@ -31,19 +31,19 @@
 1、主要是使用Air8000开发板演示四种errdump异常日志上报功能，使用的时候根据自己需求在main.lua文件中选择要使用的功能，注意不能同时使用自动上报和手动读取功能。
 
     （1）自动上报异常日志到iot平台
-
+    
     （2）自动上报异常日志到自建udp服务器
-
+    
     （3）手动读取异常日志并通过串口传输
-
+    
     （4）手动读取异常日志并通过tcp传输
 
 2、netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（三选一）
 
     （1） netdrv_4g：4G网卡
-
+    
     （2） netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-
+    
     （3） netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
 
 ## 演示硬件环境
@@ -56,7 +56,19 @@
 
 - 天线装到开发板上
 
-- 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
+- 可选AirETH_1000配件板一块，网线一端插核心板外接的AirETH_1000配件板，另外一端连接可以上外网的路由器网口
+
+  Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
+
+  | Air780EXX核心板 | AirETH_1000配件板 |
+  | --------------- | ----------------- |
+  | 3V3             | 3.3v              |
+  | gnd             | gnd               |
+  | 86/SPI0CLK      | SCK               |
+  | 83/SPI0CS       | CSS               |
+  | 84/SPI0MISO     | SDO               |
+  | 85/SPI0MOSI     | SDI               |
+  | 22/GPIO1        | INT               |
 
 2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air780EXX核心板和数据线的硬件接线方式为：
 
@@ -70,7 +82,7 @@
 
 1、Luatools下载调试工具
 
-2、[780EXX V2010版本固件）](https://docs.openluat.com/air780ehv/luatos/firmware/version/)（理论上，2025年7月26日之后发布的固件都可以）
+2、[780EXX V2010版本固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)（理论上，2025年7月26日之后发布的固件都可以）
 
 3、PC端的串口工具，例如SSCOM、LLCOM等都可以；
 

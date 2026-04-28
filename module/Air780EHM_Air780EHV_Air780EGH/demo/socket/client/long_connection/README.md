@@ -110,13 +110,13 @@
 | 83/SPI0CS       | CSS               |
 | 84/SPI0MISO     | SDO               |
 | 85/SPI0MOSI     | SDI               |
-| 107/GPIO21      | INT               |
+| 22/GPIO1     | INT               |
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[780EXX V2010版本固件）](https://docs.openluat.com/air780ehv/luatos/firmware/version/)（理论上，2025年7月26日之后发布的固件都可以）
+2、[780EXX V2010版本固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)（理论上，2025年7月26日之后发布的固件都可以）
 
 3、PC端的串口工具，例如SSCOM、LLCOM等都可以；
 
@@ -171,7 +171,7 @@
 ``` json
 [ { "value": 31, "data_type": 0, "field_meaning": 782 }, { "value": "898608751025C0771365", "data_type": 3, "field_meaning": 783 }, { "value": 1774529029, "data_type": 0, "field_meaning": 1280 }, { "value": "863434088224404", "data_type": 3, "field_meaning": 798 }, { "value": "29.0000000", "data_type": 1, "field_meaning": 256 }, { "value": "3.7309999", "data_type": 0, "field_meaning": 799 }, { "value": "用户utf-8格式自定义数据", "data_type": 5, "field_meaning": 0 } ]
 7
-``` 
+```
 
 
 9、打开PC端的串口工具，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位；

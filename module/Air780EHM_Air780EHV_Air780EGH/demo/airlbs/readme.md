@@ -42,14 +42,14 @@
 3、可选AirETH_1000配件板一块，Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
 
 | Air780EXX核心板 | AirETH_1000配件板 |
-| ------------ | -------------- |
-| 3V3          | 3.3v           |
-| gnd          | gnd            |
-| 86/SPI0CLK   | SCK            |
-| 83/SPI0CS    | CSS            |
-| 84/SPI0MISO  | SDO            |
-| 85/SPI0MOSI  | SDI            |
-| 107/GPIO21   | INT            |
+| --------------- | ----------------- |
+| 3V3             | 3.3v              |
+| gnd             | gnd               |
+| 86/SPI0CLK      | SCK               |
+| 83/SPI0CS       | CSS               |
+| 84/SPI0MISO     | SDO               |
+| 85/SPI0MOSI     | SDI               |
+| 22/GPIO1        | INT               |
 
 ## 演示软件环境
 
@@ -145,7 +145,6 @@
 1、使用合宙开发板时，如出现I2C/SPI通讯异常的情况，请使用exmux扩展库的setup函数初始化外设分组开关状态，使用open函数打开外设分组，并跳转至exmux扩展库介绍文档中了解I2C/SPI总线上拉问题；https://docs.openluat.com/osapi/ext/exmodbus/
 
 2、使用自己制作的板子时，如出现I2C通讯异常的情况，请根据各型号文档中”硬件设计资料“的I2C和SPI板块”常见的坑“栏目中的经验，检查板子上的I2C/SPI总线是正常上拉；也可使用exmux库来管理i2c和spi总线的上拉状态，详情请参考exmux扩展库介绍文档。
-
 
 
 

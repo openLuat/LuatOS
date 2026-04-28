@@ -90,7 +90,7 @@
 | 83/SPI0CS       | CSS               |
 | 84/SPI0MISO     | SDO               |
 | 85/SPI0MOSI     | SDI               |
-| 107/GPIO21      | INT               |
+| 22/GPIO1        | INT               |
 
 
 ## 演示软件环境

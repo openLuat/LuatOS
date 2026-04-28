@@ -70,72 +70,45 @@
 
    (4) netdrv_multiple：支持以上(2)、(3)两种网卡，可以配置两种网卡的优先级
 
-
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air8101/luatos/app/image/netdrv_multi.jpg)
+![](https://docs.openluat.com/air780ehv/luatos/common/hwenv/image/Air780EHV.png)
 
-1、Air8101核心板一块
+1、Air780EXX核心板一块+可上网的sim卡一张+4g天线一根+网线一根：
 
-2、TYPE-C USB数据线一根
+- sim卡插入开发板的sim卡槽
 
-3、USB转串口数据线一根
+- 天线装到开发板上
 
-4、Air8101核心板和数据线的硬件接线方式为
+- 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
 
-- Air8101核心板通过TYPE-C USB口供电；（核心板背面的功耗测试开关拨到OFF一端）
+2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air780EXX核心板和数据线的硬件接线方式为：
 
-- 如果测试发现软件频繁重启，重启原因值为：poweron reason 0，可能是供电不足，此时再通过直流稳压电源对核心板的vbat管脚进行4V供电，或者VIN管脚进行5V供电；
+- Air780EXX核心板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-- USB转串口数据线，一般来说，白线连接核心板的12/U1TX，绿线连接核心板的11/U1RX，黑线连接核心板的gnd，另外一端连接电脑USB口；
+- USB转串口数据线，一般来说，白线连接开发板的UART1_TX，绿线连接开发板的UART1_RX，黑线连接核心板的GND，另外一端连接电脑USB口；
 
-5、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
+3、可选AirETH_1000配件板一块，Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
 
-| Air8101核心板 | AirETH_1000配件板 |
-| ------------- | ----------------- |
-| 59/3V3        | 3.3v              |
-| gnd           | gnd               |
-| 28/DCLK       | SCK               |
-| 54/DISP       | CSS               |
-| 55/HSYN       | SDO               |
-| 57/DE         | SDI               |
-| 14/GPIO8      | INT               |
-
-6、可选Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板一块，Air8101核心板和Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板的硬件接线方式为:
-
-| Air8101核心板 | Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板 |
-| ------------- | --------------------------------------------- |
-| gnd           | GND                                           |
-| 54/DISP       | 83/SPI0CS                                     |
-| 55/HSYN       | 84/SPI0MISO                                   |
-| 57/DE         | 85/SPI0MOSI                                   |
-| 28/DCLK       | 86/SPI0CLK                                    |
-| 43/R2         | 19/GPIO22                                     |
-| 75/GPIO28     | 22/GPIO1                                      |
-
-
-| Air8101核心板 | Air780EHM/Air780EHV/Air780EGH/Air780EPM开发板 |
-| ------------- | --------------------------------------------- |
-| gnd           | GND                                           |
-| 54/DISP       | SPI_CS                                        |
-| 55/HSYN       | SPI_MISO                                      |
-| 57/DE         | SPI_MOSI                                      |
-| 28/DCLK       | SPI_CLK                                       |
-| 43/R2         | GPIO22                                        |
-| 75/GPIO28     | GPIO1                                         |
-
+| Air780EXX核心板 | AirETH_1000配件板 |
+| --------------- | ----------------- |
+| 3V3             | 3.3v              |
+| gnd             | gnd               |
+| 86/SPI0CLK      | SCK               |
+| 83/SPI0CS       | CSS               |
+| 84/SPI0MISO     | SDO               |
+| 85/SPI0MOSI     | SDI               |
+| 22/GPIO1        | INT               |
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air8101 V1005版本固件](https://docs.openluat.com/air8101/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
+2、[780EXX V2010版本固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)（理论上，2025年7月26日之后发布的固件都可以）
 
-3、PC端的串口工具，例如SSCOM、LLCOM等都可以
-
-
+3、PC端的串口工具，例如SSCOM、LLCOM等都可以；
 
 ## 演示核心步骤
 

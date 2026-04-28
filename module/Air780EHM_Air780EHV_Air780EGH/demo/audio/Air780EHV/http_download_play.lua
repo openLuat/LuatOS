@@ -7,7 +7,7 @@
 @usage
 
 注意：
-如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+如果搭配AirAUDIO_1000 音频板测试，需将AirAUDIO_1000 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
 
 HTTP下载音频文件播放演示程序，按键功能：
 1. Power键：开始HTTP下载并播放，停止播放

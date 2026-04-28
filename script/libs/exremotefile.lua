@@ -1,10 +1,13 @@
 --[[
 @module exremotefile
 @summary exremotefile 远程文件管理系统扩展库，提供AP热点创建、SD卡挂载、SERVER文件管理服务器等功能，支持文件浏览、上传、下载和删除操作。
-@version 1.1
-@date    2026.3.12
+@version 1.2
+@date    2026.4.27
 @author  拓毅恒
 @usage
+V1.2：
+修改sdcard_opts参数为可选参数，如果为nil则不挂载SD卡
+修改close()函数，不再强制卸载SD卡，避免影响其他SD卡业务
 V1.1：
 移除sdcard_opts.is_sdio参数、新增sdcard_opts.is_8101参数，用于挂载8101 sd卡
 V1.0：
@@ -16,10 +19,11 @@ V1.0：
 
 本文件的对外接口有2个：
 1、exremotefile.open(ap_opts, sdcard_opts, server_opts)：启动远程文件管理系统，可配置AP参数、SD卡参数和服务器参数
+-- sdcard_opts为nil时，不挂载SD卡，适用于客户自行管理SD卡的场景
 -- 启动后连接AP热点，直接使用luatools日志中默认的地址"http://192.168.4.1:80/explorer.html"来访问文件管理服务器。
 -- 如果使用自定义配置，则需要根据配置中的server_addr和server_port参数来访问文件管理服务器。
 
-2、exremotefile.close()：关闭远程文件管理系统，停止AP热点、卸载SD卡和关闭HTTP服务器
+2、exremotefile.close()：关闭远程文件管理系统，停止AP热点和关闭HTTP服务器（不卸载SD卡）
 ]]
 
 -- 导入必要的模块
@@ -1520,8 +1524,7 @@ function exremotefile.open(ap_opts, sdcard_opts, server_opts)
         end
         log.info("check_config", "TF/SD挂载参数配置完毕")
     else
-        sdcard_opts = default_sdcard_opts
-        log.info("check_config", "没有TF/SD挂载参数，用默认配置")
+        log.info("check_config", "没有TF/SD挂载参数，不挂载SD卡")
     end
     
     if server_opts then
@@ -1552,22 +1555,27 @@ function exremotefile.open(ap_opts, sdcard_opts, server_opts)
     user_server_opts = server_opts
     -- 创建AP热点
     create_ap(ap_opts, server_opts)
-    
+
     -- 初始化SD卡
-    local mount_result = init_sdcard(sdcard_opts)
-    if not mount_result then
-        log.error("exremotefile", "SD卡初始化失败")
+    if sdcard_opts then
+        local mount_result = init_sdcard(sdcard_opts)
+        if not mount_result then
+            log.error("exremotefile", "SD卡初始化失败")
+        end
+    else
+        log.info("exremotefile", "跳过SD卡初始化")
     end
-    
+
     -- 启动HTTP服务器
     sys.taskInit(http_server_start_task, server_opts, ap_opts)
-    
+
     is_initialized = true
     log.info("exremotefile", "文件管理系统启动完成")
 end
 
 --[[
-关闭文件管理系统，包括停止HTTP文件服务器、取消TF/SD卡挂载和停止AP热点
+关闭文件管理系统，包括停止HTTP文件服务器、停止AP热点和取消TF/SD卡挂载（仅在使用open挂载sd卡时才会卸载）
+注意：如果SD卡是在open时由本库挂载的，关闭文件系统时会卸载SD卡
 @api exremotefile.close()
 @return 无 无返回值
 @usage
@@ -1579,26 +1587,27 @@ function exremotefile.close()
         log.warn("exremotefile", "文件管理系统尚未启动")
         return
     end
-    
+
     log.info("exremotefile", "关闭文件管理系统")
-    
+
     -- 停止HTTP服务器
     httpsrv.stop(user_server_opts.server_port, nil, socket.LWIP_AP)
-    -- 取消挂载SD卡
-    fatfs.unmount("/sd")
     -- 停止AP热点
     wlan.stopAP()
 
-    -- 关闭所用SPI
-    spi.close(user_sdcard_opts.spi_id)
-    
-    -- 关闭所用IO
-    if user_sdcard_opts.is_8000_development_board == true then
-        gpio.close(ETH3V3_EN)
-        gpio.close(SPI_ETH_CS)
+    -- 仅在open时初始化了SD卡的情况下，才关闭相关资源
+    if user_sdcard_opts then
+        -- 关闭所用SPI
+        spi.close(user_sdcard_opts.spi_id)
+
+        -- 关闭所用IO
+        if user_sdcard_opts.is_8000_development_board == true then
+            gpio.close(ETH3V3_EN)
+            gpio.close(SPI_ETH_CS)
+        end
+        gpio.close(user_sdcard_opts.spi_cs)
     end
-    gpio.close(user_sdcard_opts.spi_cs)
-    
+
     is_initialized = false
     log.info("exremotefile", "文件管理系统已关闭")
 end

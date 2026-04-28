@@ -259,7 +259,7 @@ typedef struct {
 } little_flash_chipinfo_t;
 
 typedef struct{
-    lf_err_t (*transfer)(little_flash_t *lf,uint8_t *tx_buf, uint32_t tx_len, uint8_t *rx_buf, uint32_t rx_len);
+    lf_err_t (*transfer)(const little_flash_t *lf,uint8_t *tx_buf, uint32_t tx_len, uint8_t *rx_buf, uint32_t rx_len);
     void* user_data;
 } little_flash_spi_t;
 
@@ -267,9 +267,9 @@ struct little_flash{
     little_flash_chipinfo_t chip_info;
     little_flash_spi_t spi;
     /* lock */
-    void (*lock)(little_flash_t *lf);
+    void (*lock)(const little_flash_t *lf);
     /* unlock */
-    void (*unlock)(little_flash_t *lf);
+    void (*unlock)(const little_flash_t *lf);
     /* wait 10us */
     void (*wait_10us)(uint32_t count);
     /* wait ms */

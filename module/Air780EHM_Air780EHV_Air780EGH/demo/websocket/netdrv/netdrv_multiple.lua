@@ -20,7 +20,7 @@ Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
 | 83/SPI0CS       | CSS               |
 | 84/SPI0MISO     | SDO               |
 | 85/SPI0MOSI     | SDI               |
-| 107/GPIO21      | INT               |
+| 22/GPIO1      | INT               |
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_multiple"就可以加载运行；
 ]]
@@ -67,7 +67,7 @@ local function netdrv_multiple_task_func()
                     -- 3V3管脚是作为LDO 3.3V输出，供测试用的，仅在使用DCDC供电时有输出，默认打开，无需控制
                     -- 供电使能GPIO
                     pwrpin = nil,
-                    -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
+                    -- 设置的多个"已经IP READY，但是还没有ping通"网卡，循环执行ping动作的间隔（单位毫秒，可选）
                     -- 如果没有传入此参数，exnetif会使用默认值10秒
                     ping_time = 3000,
 
@@ -77,8 +77,9 @@ local function netdrv_multiple_task_func()
                     -- ping_ip = "填入可靠的并且可以ping通的ip地址",
 
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+                    -- INT中断引脚，使用中断模式提高响应速度, 若不填此参数，默认不使用中断模式而是使用轮询模式
                     tp = netdrv.CH390,
-                    opts = {spi=0, cs=8}
+                    opts = {spi=0, cs=8, irq = 1}
                 }
             },
 

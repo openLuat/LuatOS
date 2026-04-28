@@ -21,10 +21,10 @@ local MOUSE_H = 36
 
 
 local function resolution_adapt()
-    local scale = math.max(0.75, math.min(1.5, screen_h / 480))
-    MOUSE_SPEED = math.floor(15 * scale)
-    ZOOM_STEP1 = 256 + math.floor(128 * scale)
-    local mouse_size = math.floor(math.max(28, math.min(52, screen_h * 0.055)))
+    local ds = _G.density_scale or 1.0
+    MOUSE_SPEED = math.floor(15 * ds)
+    ZOOM_STEP1 = math.floor(256 + 128 * ds)
+    local mouse_size = math.floor(math.max(28, math.min(52, screen_h * 0.055)) * ds)
     MOUSE_W = mouse_size
     MOUSE_H = mouse_size
 end
@@ -98,11 +98,11 @@ local function create_ui()
         color = 0xFFFFFF, radius = box_r
     })
 
-    local icon_size = math.floor(math.max(28, box_h * 0.7))
+    local icon_size = math.floor(math.max(28, box_h * 0.7) * _G.density_scale)
     local icon_padding = math.floor(box_h * 0.15)
     local icon_x = box_w - icon_size - icon_padding
     local icon_y = math.floor((box_h - icon_size) / 2)
-    local label_font = math.floor(math.max(16, box_h * 0.4))
+    local label_font = math.floor(math.max(16, box_h * 0.4) * _G.density_scale)
 
     airui.label({
         parent = search_box, x = math.floor(box_h * 0.3), y = math.floor((box_h - label_font) / 2),

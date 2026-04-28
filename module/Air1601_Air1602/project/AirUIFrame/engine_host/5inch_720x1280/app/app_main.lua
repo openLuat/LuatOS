@@ -35,3 +35,6 @@ require "status_provider_app"
 
 -- 加载设置主模块（会通知settings_config_app进行初始化）
 require "settings_app"
+
+-- 加载网络测速应用模块
+require "speedtest_app"

@@ -13,17 +13,25 @@ local search_icon
 local mouse_img
 local move_timer
 
-local MOUSE_SPEED = 20          -- 鼠标移动速度（像素/步）
-local ZOOM_STEP1 = 350          -- 放大后的尺寸
-local ZOOM_NORMAL = 256         -- 正常尺寸
+local MOUSE_SPEED = 20
+local ZOOM_STEP1 = 350
+local ZOOM_NORMAL = 256
 local MOUSE_W = 32
 local MOUSE_H = 32
 
+local function resolution_adapt()
+    local ds = _G.density_scale or 1.0
+    MOUSE_SPEED = math.floor(20 * ds)
+    ZOOM_STEP1 = math.floor(256 + 94 * ds)
+    local mouse_size = math.floor(math.max(24, math.min(48, screen_h * 0.05)) * ds)
+    MOUSE_W = mouse_size
+    MOUSE_H = mouse_size
+end
 
 -- 鼠标移动完成后的动作：放大搜索图标，关闭窗口，发布事件
-local function on_mouse_arrived()   
-    exwin.close(win_id)                     -- 关闭当前窗口
-    sys.publish("OPEN_IDLE_WIN")            -- 打开 IDLE 窗口
+local function on_mouse_arrived()
+    exwin.close(win_id)
+    sys.publish("OPEN_IDLE_WIN")
 end
 
 -- 鼠标移动一步
@@ -37,17 +45,15 @@ local function move_mouse_step(target_x, target_y)
     local dist = math.sqrt(dx*dx + dy*dy)
 
     if dist <= MOUSE_SPEED then
-        -- 到达目标位置
         mouse_img:set_pos(target_x, target_y)
         if move_timer then
             sys.timerStop(move_timer)
             move_timer = nil
         end
-        search_icon:set_zoom(ZOOM_STEP1)        -- 放大搜索图标
+        search_icon:set_zoom(ZOOM_STEP1)
         mouse_img:destroy()
         sys.timerStart(on_mouse_arrived, 2500)
     else
-        -- 继续移动
         local step_x = (dx / dist) * MOUSE_SPEED
         local step_y = (dy / dist) * MOUSE_SPEED
         local new_x = math.floor(cur_x + step_x + 0.5)
@@ -59,17 +65,18 @@ end
 -- 启动鼠标移动动画
 local function start_mouse_animation(icon_abs_x, icon_abs_y)
     if not mouse_img then return end
-    -- 鼠标起始位置：屏幕右侧，Y随机
     local start_x = screen_w - MOUSE_W
     local start_y = math.random(0, screen_h - MOUSE_H)
     mouse_img:set_pos(start_x, start_y)
 
     move_timer = sys.timerLoopStart(function()
         move_mouse_step(icon_abs_x, icon_abs_y)
-    end, 50)  -- 每50毫秒移动一步
+    end, 50)
 end
 
 local function create_ui()
+    resolution_adapt()
+
     main_container = airui.container({
         parent = airui.screen, x = 0, y = 0, w = screen_w, h = screen_h,
         color = 0x3F51B5
@@ -86,11 +93,11 @@ local function create_ui()
         color = 0xFFFFFF, radius = box_r
     })
 
-    local icon_size = math.floor(math.min(32, box_h * 0.5))
+    local icon_size = math.floor(math.max(28, box_h * 0.5) * _G.density_scale)
     local icon_padding = math.floor(box_h * 0.15)
     local icon_x = box_w - icon_size - icon_padding
     local icon_y = math.floor((box_h - icon_size) / 2)
-    local label_font = math.floor(math.min(24, box_h * 0.4))
+    local label_font = math.floor(math.max(16, box_h * 0.4) * _G.density_scale)
 
     airui.label({
         parent = search_box, x = math.floor(box_h * 0.3), y = math.floor((box_h - label_font) / 2),
@@ -105,7 +112,6 @@ local function create_ui()
         zoom = ZOOM_NORMAL, opacity = 255
     })
 
-    -- 鼠标图片：初始放在屏幕右侧随机Y位置
     local mouse_start_x = screen_w - MOUSE_W
     local mouse_start_y = math.random(0, screen_h - MOUSE_H)
     mouse_img = airui.image({
@@ -114,7 +120,6 @@ local function create_ui()
         zoom = ZOOM_NORMAL, opacity = 255
     })
 
-    -- 计算搜索图标的绝对坐标
     local icon_abs_x = box_x + icon_x
     local icon_abs_y = box_y + icon_y
     start_mouse_animation(icon_abs_x, icon_abs_y)

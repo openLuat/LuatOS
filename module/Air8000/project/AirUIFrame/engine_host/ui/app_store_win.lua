@@ -66,7 +66,7 @@ local info_font_size = 0
 local max_desc_lines = 2  -- 描述最大行数，动态计算
 
 -- 按钮自适应参数
-local card_btn_height = 32
+local card_btn_height = math.floor(32 * _G.density_scale)
 local card_btn_bottom_margin = 8
 local current_page = 1
 local total_pages = 0
@@ -120,21 +120,21 @@ local function calc_layout()
     page_btn_h = math.max(28, math.min(60, page_btn_h))
 
     -- 字体大小（全部 ≥ 14）
-    local base_font = math.floor(screen_h / 40)
-    base_font = math.max(14, math.min(24, base_font))
-    title_font_size = math.max(16, math.min(26, base_font))
-    desc_font_size = math.max(14, math.min(22, base_font - 2))
-    button_font_size = math.max(14, math.min(20, base_font - 2))
+    local base_font = math.floor(screen_h / 40 * _G.density_scale)
+    base_font = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(24 * _G.density_scale), base_font))
+    title_font_size = math.max(math.floor(16 * _G.density_scale), math.min(math.floor(26 * _G.density_scale), base_font))
+    desc_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(22 * _G.density_scale), base_font - math.floor(2 * _G.density_scale)))
+    button_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(20 * _G.density_scale), base_font - math.floor(2 * _G.density_scale)))
     info_font_size = button_font_size
 
     -- 图标大小
     if is_landscape then
-        icon_size = math.max(40, math.min(70, math.floor(screen_h / 16)))
+        icon_size = math.max(math.floor(40 * _G.density_scale), math.min(math.floor(70 * _G.density_scale), math.floor(screen_h / 16 * _G.density_scale)))
     else
-        icon_size = math.max(40, math.min(70, math.floor(screen_h / 14)))
+        icon_size = math.max(math.floor(40 * _G.density_scale), math.min(math.floor(70 * _G.density_scale), math.floor(screen_h / 14 * _G.density_scale)))
     end
     if screen_h < 360 then
-        icon_size = math.max(32, math.min(50, math.floor(screen_h / 12)))
+        icon_size = math.max(math.floor(32 * _G.density_scale), math.min(math.floor(50 * _G.density_scale), math.floor(screen_h / 12 * _G.density_scale)))
     end
 
     -- 区域尺寸
@@ -179,9 +179,9 @@ local function calc_layout()
 
     -- 卡片按钮高度
     if screen_h < 360 then
-        card_btn_height = math.max(28, math.min(40, math.floor(screen_h / 14)))
+        card_btn_height = math.max(math.floor(28 * _G.density_scale), math.min(math.floor(40 * _G.density_scale), math.floor(screen_h / 14 * _G.density_scale)))
     else
-        card_btn_height = math.max(36, math.min(50, math.floor(screen_h / 18)))
+        card_btn_height = math.max(math.floor(36 * _G.density_scale), math.min(math.floor(50 * _G.density_scale), math.floor(screen_h / 18 * _G.density_scale)))
     end
 
     -- 卡片高度与描述行数
@@ -367,7 +367,7 @@ local function create_ui()
         w = top_item_h,
         h = top_item_h,
         text = "←",
-        font_size = math.min(24, top_item_h - 4),
+        font_size = math.min(math.floor(24 * _G.density_scale), math.floor((top_item_h - 4) * _G.density_scale)),
         style = { bg_color = 0xEEEEEE, pressed_bg_color = COLOR_DIVIDER, text_color = COLOR_TEXT, radius = top_item_r, border_width = 1, border_color = COLOR_DIVIDER, pad = 0 },
         on_click = function()
             if win_id then
@@ -432,7 +432,7 @@ local function create_ui()
         sort_dd_w = math.floor(screen_w - sort_label_w - 90)
         sort_refresh_x = sort_label_w + sort_dd_w + 10
     end
-    airui.label({ parent = sort_bar, x = 8, y = sort_btn_y, w = sort_label_w, h = sort_btn_h, text = "排序:", font_size = math.max(14, button_font_size - 2), color = COLOR_TEXT_SECONDARY })
+    airui.label({ parent = sort_bar, x = 8, y = sort_btn_y, w = sort_label_w, h = sort_btn_h, text = "排序:", font_size = math.max(math.floor(14 * _G.density_scale), button_font_size - math.floor(2 * _G.density_scale)), color = COLOR_TEXT_SECONDARY })
     sort_select = airui.dropdown({
         parent = sort_bar,
         x = sort_label_w + 12,
@@ -527,7 +527,7 @@ local function create_ui()
         w = prev_btn_w,
         h = page_nav_btn_h,
         text = "上一页",
-        font_size = math.max(14, button_font_size - 4),
+        font_size = math.max(math.floor(14 * _G.density_scale), button_font_size - math.floor(4 * _G.density_scale)),
         style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = 0xFFFFFF, radius = page_nav_radius, border_width = 0 },
         on_click = function()
             if current_page > 1 then
@@ -544,7 +544,7 @@ local function create_ui()
         w = next_btn_w,
         h = page_nav_btn_h,
         text = "下一页",
-        font_size = math.max(14, button_font_size - 4),
+        font_size = math.max(math.floor(14 * _G.density_scale), button_font_size - math.floor(4 * _G.density_scale)),
         style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = 0xFFFFFF, radius = page_nav_radius, border_width = 0 },
         on_click = function()
             if has_more then

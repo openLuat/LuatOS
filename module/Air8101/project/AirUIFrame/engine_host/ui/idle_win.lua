@@ -1,46 +1,30 @@
 --[[
 @module  idle_win
 @summary 首页窗口模块，融合主菜单功能，采用选项卡滑动切换
-@version 1.3
-@date    2026.04.14
-@author  江访
+@version 1.4
+@date    2026.04.28
 ]]
 
 local win_id = nil
 local main_container = nil
-local time_label, big_time_label, date_label, signal_img, qrcode1, qrcode2
-local aircloud_qr = nil
+local product_label, big_time_label, date_label, wifi_img, mobile_img, qrcode
 local page_label = nil
 local tabview = nil
 local current_tab_index = 0
 
-local full_path = ""
-local StatusProvider = require "status_provider_app"
-
---[[
-    内置应用定义表 builtin_apps
-    每个应用包含三个字段：
-    - name: 应用显示名称（字符串）
-    - win:  窗口标识（字符串），用于拼接发布的事件名
-    - icon: 图标路径（字符串）
-
-    使用说明：
-    1. 点击应用时，会发布事件 "OPEN_" .. win .. "_WIN"
-       例如：点击"应用市场" -> 发布 "OPEN_APP_STORE_WIN"
-    2. 目标窗口需订阅对应事件并打开窗口
-       例如：sys.subscribe("OPEN_APP_STORE_WIN", open_handler)
-
-    添加新应用示例：
-    { name = "新应用", win = "NEW_APP", icon = "/luadb/new_icon.png" }
-]]
-
-local builtin_apps = {
-    { name = "WiFi", win = "WIFI", icon = "/luadb/wifi.png" },
-    { name = "设置", win = "SETTINGS", icon = "/luadb/settings.png" },
-    { name = "应用市场", win = "APP_STORE", icon = "/luadb/app_store_icon.png" },
+local status_cache = {
+    time = "08:00",
+    date = "1970-01-01",
+    weekday = "星期四",
+    mobile_level = -1,
+    wifi_level = 0
 }
 
--- 布局参数
+local builtin_apps = {
+    { name = "设置", win = "SETTINGS", icon = "/luadb/settings.png" },
+    { name = "应用市场", win = "APP_STORE", icon = "/luadb/app_store_icon.png" },
+    { name = "网络测速", win = "SPEEDTEST", icon = "/luadb/internet_speed.png" },
+}
 
 local top_h = 60
 local page_indicator_h = 40
@@ -50,36 +34,34 @@ local apps_per_page = 0
 local grid_margin = 8
 local grid_top_padding = 16
 
--- 首页动态布局参数
-local big_time_font_size = 100
+local big_time_font_size = math.floor(100 * _G.density_scale)
 local big_time_y = 20
 local date_y = 130
-local date_font_size = 20
-local qr_size = 130
-local qr_spacing = 20
+local date_font_size = math.floor(20 * _G.density_scale)
+local qr_size = math.floor(130 * _G.density_scale)
 local qr_y = 190
-local qr_stack = false
 local builtin_y = 0
-local builtin_btn_w = 80
-local builtin_btn_spacing = 20
+local builtin_btn_w = math.floor(80 * _G.density_scale)
+local builtin_btn_spacing = math.floor(20 * _G.density_scale)
 
+local time_timer = nil
 local external_apps_cache = {}
 local page_grids = {}
 
--- 颜色常量
 local COLOR_PRIMARY = 0x3F51B5
 local COLOR_BG = 0xF8F9FA
 local COLOR_CARD = 0xFFFFFF
 local COLOR_TEXT = 0x000000
 local COLOR_TEXT_SECONDARY = 0x666666
 
--------------------------------------------------------------------------------
--- 布局计算（支持横竖屏自适应，图标固定32x32，文字两行）
--------------------------------------------------------------------------------
+local product_name = "合宙引擎主机"
+local ok, model = pcall(hmeta.model)
+if ok and model then
+    local suffix = tostring(model):gsub("^Air", "")
+    product_name = "合宙引擎主机" .. suffix
+end
+
 local function calc_layout()
-    -- 框架布局：从模板线性缩放
-    -- 竖屏模板 480x854: top=59, page_ind=29
-    -- 横屏模板 854x480: top=44, page_ind=28
     if is_landscape then
         top_h = math.max(44, math.min(70, math.floor(44 * screen_h / 480)))
         page_indicator_h = math.max(28, math.min(50, math.floor(28 * screen_h / 480)))
@@ -88,53 +70,41 @@ local function calc_layout()
         page_indicator_h = math.max(28, math.min(50, math.floor(29 * screen_h / 854)))
     end
 
-    -- 首页布局：screen_h < 400 时极矮横屏紧凑模式（无大时钟）
     local compact_mode = is_landscape and screen_h < 400
     if compact_mode then
         big_time_font_size = 0
         big_time_y = 0
-        date_font_size = math.max(14, math.min(18, math.floor(screen_h * 0.03)))
+        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h * 0.03 * _G.density_scale)))
         date_y = math.floor(screen_h * 0.01)
-        qr_size = math.max(45, math.min(70, math.floor(screen_h * 0.20)))
-        qr_spacing = math.max(4, math.min(10, math.floor(screen_h * 0.015)))
-        qr_y = date_y + date_font_size + 4
-        builtin_btn_w = math.max(45, math.min(65, math.floor(screen_w * 0.055)))
-        builtin_btn_spacing = math.max(4, math.min(10, math.floor(screen_w * 0.01)))
+        qr_size = math.max(math.floor(45 * _G.density_scale), math.min(math.floor(70 * _G.density_scale), math.floor(screen_h * 0.20 * _G.density_scale)))
+        qr_y = date_y + date_font_size + math.floor(4 * _G.density_scale)
+        builtin_btn_w = math.max(math.floor(45 * _G.density_scale), math.min(math.floor(65 * _G.density_scale), math.floor(screen_w * 0.055 * _G.density_scale)))
+        builtin_btn_spacing = math.max(math.floor(4 * _G.density_scale), math.min(math.floor(10 * _G.density_scale), math.floor(screen_w * 0.01 * _G.density_scale)))
     elseif is_landscape then
-        big_time_font_size = math.max(40, math.min(80, math.floor(screen_h * 0.15)))
+        big_time_font_size = math.max(math.floor(40 * _G.density_scale), math.min(math.floor(80 * _G.density_scale), math.floor(screen_h * 0.15 * _G.density_scale)))
         big_time_y = math.floor(screen_h * 0.015)
-        date_font_size = math.max(14, math.min(18, math.floor(screen_h * 0.03)))
-        date_y = big_time_y + big_time_font_size + 8
-        qr_size = math.max(50, math.min(110, math.floor(screen_h * 0.20)))
-        qr_spacing = math.max(6, math.min(15, math.floor(screen_h * 0.02)))
-        qr_y = date_y + date_font_size + 10
-        builtin_btn_w = math.max(55, math.min(75, math.floor(screen_w * 0.065)))
-        builtin_btn_spacing = math.max(6, math.min(16, math.floor(screen_w * 0.012)))
+        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h * 0.03 * _G.density_scale)))
+        date_y = big_time_y + big_time_font_size + math.floor(8 * _G.density_scale)
+        qr_size = math.max(math.floor(50 * _G.density_scale), math.min(math.floor(110 * _G.density_scale), math.floor(screen_h * 0.20 * _G.density_scale)))
+        qr_y = date_y + date_font_size + math.floor(10 * _G.density_scale)
+        builtin_btn_w = math.max(math.floor(55 * _G.density_scale), math.min(math.floor(75 * _G.density_scale), math.floor(screen_w * 0.065 * _G.density_scale)))
+        builtin_btn_spacing = math.max(math.floor(6 * _G.density_scale), math.min(math.floor(16 * _G.density_scale), math.floor(screen_w * 0.012 * _G.density_scale)))
     else
-        big_time_font_size = math.max(48, math.min(130, math.floor(screen_h * 0.10)))
+        big_time_font_size = math.max(math.floor(48 * _G.density_scale), math.min(math.floor(130 * _G.density_scale), math.floor(screen_h * 0.10 * _G.density_scale)))
         big_time_y = math.floor(screen_h * 0.025)
-        date_font_size = math.max(14, math.min(22, math.floor(screen_h * 0.028)))
-        date_y = big_time_y + big_time_font_size + 15
-        qr_size = math.max(60, math.min(150, math.floor(screen_w * 0.25)))
-        qr_spacing = math.max(8, math.min(25, math.floor(screen_w * 0.04)))
-        qr_y = date_y + date_font_size + 18
-        builtin_btn_w = math.max(60, math.min(90, math.floor(screen_w * 0.16)))
-        builtin_btn_spacing = math.max(8, math.min(30, math.floor(screen_w * 0.035)))
+        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(22 * _G.density_scale), math.floor(screen_h * 0.028 * _G.density_scale)))
+        date_y = big_time_y + big_time_font_size + math.floor(15 * _G.density_scale)
+        qr_size = math.max(math.floor(60 * _G.density_scale), math.min(math.floor(150 * _G.density_scale), math.floor(screen_w * 0.25 * _G.density_scale)))
+        qr_y = date_y + date_font_size + math.floor(18 * _G.density_scale)
+        builtin_btn_w = math.max(math.floor(60 * _G.density_scale), math.min(math.floor(90 * _G.density_scale), math.floor(screen_w * 0.16 * _G.density_scale)))
+        builtin_btn_spacing = math.max(math.floor(8 * _G.density_scale), math.min(math.floor(30 * _G.density_scale), math.floor(screen_w * 0.035 * _G.density_scale)))
     end
 
-    -- QR 叠放判断：文字放不下时强制叠放
-    local two_qr_width = qr_size * 2 + qr_spacing
-    qr_stack = (two_qr_width > screen_w * 0.85) or (qr_size + qr_spacing < 80)
-    if qr_stack then
-        builtin_y = qr_y + qr_size + 30 + qr_size + 28
-    else
-        builtin_y = qr_y + qr_size + 55
-    end
+    builtin_y = qr_y + qr_size + math.floor(55 * _G.density_scale)
 
-    -- 网格
-    local icon_size = 32
-    local base_font = math.floor(screen_h / 32)
-    local title_font_size = math.max(14, math.min(18, base_font))
+    local icon_size = math.floor(32 * _G.density_scale)
+    local base_font = math.floor(screen_h / 32 * _G.density_scale)
+    local title_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), base_font))
 
     local grid_area_w = screen_w
     local grid_area_h = screen_h - top_h - page_indicator_h
@@ -150,7 +120,7 @@ local function calc_layout()
     local text_height = title_font_size * 2 + 8
     local padding_vertical = is_landscape and 12 or 16
     card_h = icon_size + text_height + padding_vertical
-    if card_h < 70 then card_h = 70 end
+    if card_h < math.floor(70 * _G.density_scale) then card_h = math.floor(70 * _G.density_scale) end
 
     local available_height = grid_area_h - grid_top_padding
     local rows_per_page = math.max(1, math.floor(available_height / (card_h + grid_margin)))
@@ -160,18 +130,12 @@ local function calc_layout()
         "cols", grid_cols, "card", card_w, card_h, "per_page", apps_per_page)
 end
 
--------------------------------------------------------------------------------
--- 更新页码指示器
--------------------------------------------------------------------------------
 local function update_page_indicator()
     if not tabview or not page_label then return end
     local total = tabview:get_tab_count()
     page_label:set_text(string.format("%d/%d", current_tab_index + 1, total))
 end
 
--------------------------------------------------------------------------------
--- 构建首页内容
--------------------------------------------------------------------------------
 local function build_home_page(page_container)
     local content = airui.container({
         parent = page_container,
@@ -182,7 +146,6 @@ local function build_home_page(page_container)
         color = COLOR_BG
     })
 
-    -- 大时钟（compact_mode=极矮横屏时不显示，状态栏已显示时间）
     if big_time_font_size > 0 then
         big_time_label = airui.label({
             parent = content,
@@ -211,108 +174,28 @@ local function build_home_page(page_container)
         align = airui.TEXT_ALIGN_CENTER
     })
 
-    -- 二维码（支持叠放，字号固定14不低于）
-    local qr_label_w
-    if qr_stack then
-        qr_label_w = math.floor(math.min(screen_w * 0.85, qr_size + 30))
-    else
-        qr_label_w = math.min(qr_size + qr_spacing - 4, math.floor((screen_w - qr_spacing) / 2))
-    end
-    if qr_stack then
-        -- 纵向叠放
-        local qr_center_x = (screen_w - qr_size) / 2
-        qrcode1 = airui.qrcode({
-            parent = content,
-            x = qr_center_x,
-            y = qr_y,
-            size = qr_size,
-            data = aircloud_qr,
-            dark_color = 0x000000,
-            light_color = 0xFFFFFF,
-            quiet_zone = true
-        })
-        airui.label({
-            parent = content,
-            x = qr_center_x,
-            y = qr_y + qr_size + 5,
-            w = qr_label_w,
-            h = 22,
-            text = "设备云端数据",
-            font_size = 14,
-            color = 0x3d3d3d,
-            align = airui.TEXT_ALIGN_CENTER
-        })
-        local qr2_y = qr_y + qr_size + 32
-        qrcode2 = airui.qrcode({
-            parent = content,
-            x = qr_center_x,
-            y = qr2_y,
-            size = qr_size,
-            data = "https://docs.openluat.com/air8101/",
-            dark_color = 0x000000,
-            light_color = 0xFFFFFF,
-            quiet_zone = true
-        })
-        airui.label({
-            parent = content,
-            x = qr_center_x,
-            y = qr2_y + qr_size + 5,
-            w = qr_label_w,
-            h = 22,
-            text = "使用说明",
-            font_size = 14,
-            color = 0x3d3d3d,
-            align = airui.TEXT_ALIGN_CENTER
-        })
-    else
-        -- 横向并排
-        local total_width = qr_size * 2 + qr_spacing
-        local start_x = (screen_w - total_width) / 2
-        local qr1_label_x = start_x - math.max(0, (qr_label_w - qr_size) / 2)
-        local qr2_label_x = start_x + qr_size + qr_spacing - math.max(0, (qr_label_w - qr_size) / 2)
-        qrcode1 = airui.qrcode({
-            parent = content,
-            x = start_x,
-            y = qr_y,
-            size = qr_size,
-            data = aircloud_qr,
-            dark_color = 0x000000,
-            light_color = 0xFFFFFF,
-            quiet_zone = true
-        })
-        airui.label({
-            parent = content,
-            x = qr1_label_x,
-            y = qr_y + qr_size + 5,
-            w = qr_label_w,
-            h = 22,
-            text = "设备云端数据",
-            font_size = 14,
-            color = 0x3d3d3d,
-            align = airui.TEXT_ALIGN_CENTER
-        })
-        qrcode2 = airui.qrcode({
-            parent = content,
-            x = start_x + qr_size + qr_spacing,
-            y = qr_y,
-            size = qr_size,
-            data = "https://docs.openluat.com/air8101/",
-            dark_color = 0x000000,
-            light_color = 0xFFFFFF,
-            quiet_zone = true
-        })
-        airui.label({
-            parent = content,
-            x = qr2_label_x,
-            y = qr_y + qr_size + 5,
-            w = qr_label_w,
-            h = 22,
-            text = "使用说明",
-            font_size = 14,
-            color = 0x3d3d3d,
-            align = airui.TEXT_ALIGN_CENTER
-        })
-    end
+    local qr_center_x = (screen_w - qr_size) / 2
+    qrcode = airui.qrcode({
+        parent = content,
+        x = qr_center_x,
+        y = qr_y,
+        size = qr_size,
+        data = "https://docs.openluat.com/",
+        dark_color = 0x000000,
+        light_color = 0xFFFFFF,
+        quiet_zone = true
+    })
+    airui.label({
+        parent = content,
+        x = 0,
+        y = qr_y + qr_size + math.floor(5 * _G.density_scale),
+        w = screen_w,
+        h = math.floor(22 * _G.density_scale),
+        text = "资料中心",
+        font_size = math.floor(14 * _G.density_scale),
+        color = 0x3d3d3d,
+        align = airui.TEXT_ALIGN_CENTER
+    })
 
     local builtin_start_x = (screen_w - (builtin_btn_w * #builtin_apps + builtin_btn_spacing * (#builtin_apps - 1))) / 2
 
@@ -323,16 +206,16 @@ local function build_home_page(page_container)
             x = x,
             y = builtin_y,
             w = builtin_btn_w,
-            h = 100,
+            h = math.floor(100 * _G.density_scale),
             color = COLOR_BG,
             on_click = function() sys.publish("OPEN_" .. app.win .. "_WIN") end
         })
-        local builtin_icon_size = math.min(40, builtin_btn_w - 10)
+        local builtin_icon_size = math.min(math.floor(40 * _G.density_scale), builtin_btn_w - math.floor(10 * _G.density_scale))
         local builtin_icon_x = (builtin_btn_w - builtin_icon_size) / 2
         airui.image({
             parent = cell,
             x = builtin_icon_x,
-            y = 10,
+            y = math.floor(10 * _G.density_scale),
             w = builtin_icon_size,
             h = builtin_icon_size,
             src = app.icon
@@ -340,20 +223,17 @@ local function build_home_page(page_container)
         airui.label({
             parent = cell,
             x = 0,
-            y = builtin_icon_size + 18,
+            y = builtin_icon_size + math.floor(18 * _G.density_scale),
             w = builtin_btn_w,
-            h = 30,
+            h = math.floor(30 * _G.density_scale),
             text = app.name,
-            font_size = 14,
+        font_size = math.floor(14 * _G.density_scale),
             color = COLOR_TEXT,
             align = airui.TEXT_ALIGN_CENTER
         })
     end
 end
 
--------------------------------------------------------------------------------
--- 构建应用网格页（图标固定32x32，文字两行，居中显示，顶部边距）
--------------------------------------------------------------------------------
 local function build_app_grid_page(page_container, start_idx, apps)
     local grid_container = airui.container({
         parent = page_container,
@@ -364,8 +244,8 @@ local function build_app_grid_page(page_container, start_idx, apps)
         color = COLOR_BG
     })
 
-    local icon_size = 32
-    local title_font_size = math.max(12, math.min(18, math.floor(screen_h / 32)))
+    local icon_size = math.floor(32 * _G.density_scale)
+    local title_font_size = math.max(math.floor(12 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h / 32 * _G.density_scale)))
     local text_height = title_font_size * 2 + 8
 
     for i = 1, apps_per_page do
@@ -376,7 +256,6 @@ local function build_app_grid_page(page_container, start_idx, apps)
         local col = (i - 1) % grid_cols
         local row = math.floor((i - 1) / grid_cols)
 
-        -- 计算居中偏移（精确取整）
         local total_row_width = grid_cols * card_w + (grid_cols - 1) * grid_margin
         local start_x = math.floor((screen_w - total_row_width) / 2 + 0.5)
         local x = start_x + col * (card_w + grid_margin)
@@ -390,8 +269,6 @@ local function build_app_grid_page(page_container, start_idx, apps)
             h = card_h,
             radius = 12,
             border_width = 1,
-            -- color = COLOR_CARD,
-            -- border_color = 0xE0E0E0,
             on_click = function()
                 if app.is_builtin then
                     sys.publish("OPEN_" .. app.win .. "_WIN")
@@ -402,7 +279,7 @@ local function build_app_grid_page(page_container, start_idx, apps)
             end
         })
 
-        local icon_src = app.icon -- or "/luadb/img.png"
+        local icon_src = app.icon
         local icon_x = math.floor((card_w - icon_size) / 2 + 0.5)
         airui.image({
             parent = card,
@@ -413,7 +290,6 @@ local function build_app_grid_page(page_container, start_idx, apps)
             src = icon_src
         })
 
-        -- 文字标签（支持两行显示）
         airui.label({
             parent = card,
             x = 4,
@@ -430,9 +306,6 @@ local function build_app_grid_page(page_container, start_idx, apps)
     return grid_container
 end
 
--------------------------------------------------------------------------------
--- 刷新应用网格页
--------------------------------------------------------------------------------
 local function refresh_app_pages()
     if not tabview then return end
 
@@ -443,7 +316,6 @@ local function refresh_app_pages()
     local current_tab_count = tabview:get_tab_count()
     local expected_tab_count = 1 + total_pages
 
-    -- 删除多余的应用页
     for i = current_tab_count - 1, expected_tab_count, -1 do
         if page_grids[i] then
             page_grids[i]:destroy()
@@ -452,7 +324,6 @@ local function refresh_app_pages()
         tabview:remove_tab(i)
     end
 
-    -- 添加/更新应用页
     for page_idx = 1, total_pages do
         local tab_index = page_idx
         local start_idx = (page_idx - 1) * apps_per_page + 1
@@ -482,9 +353,6 @@ local function refresh_app_pages()
     update_page_indicator()
 end
 
--------------------------------------------------------------------------------
--- 加载外部应用列表（按安装时间升序排序）
--------------------------------------------------------------------------------
 local function load_external_apps()
     local list = {}
     local installed, _ = exapp.list_installed()
@@ -503,21 +371,20 @@ local function load_external_apps()
                 icon = info.icon_path or "/luadb/img.png",
                 is_builtin = false,
                 path = info.path,
-                install_time = info.install_time, -- 保存安装时间戳
+                install_time = info.install_time,
             })
         end
     end
 
-    -- 按 install_time 升序排序，无时间戳的排在最后
     table.sort(list, function(a, b)
         local ta = a.install_time
         local tb = b.install_time
         if ta == nil and tb == nil then
-            return a.name < b.name -- 都没有时间戳，按名称排序
+            return a.name < b.name
         elseif ta == nil then
-            return false           -- a 无时间戳，排在后面
+            return false
         elseif tb == nil then
-            return true            -- b 无时间戳，a 排在前面
+            return true
         else
             if ta == tb then
                 return a.name < b.name
@@ -530,46 +397,53 @@ local function load_external_apps()
     refresh_app_pages()
 end
 
--------------------------------------------------------------------------------
--- 状态更新函数
--------------------------------------------------------------------------------
-local function update_time_date()
-    if not time_label or not date_label then return end
-    local time_str = StatusProvider.get_time()
-    local date_str = StatusProvider.get_date()
-    local weekday_str = StatusProvider.get_weekday()
-    time_label:set_text(time_str)
+local function update_time_date(time_str, date_str, weekday_str)
+    if time_str then status_cache.time = time_str end
+    if date_str then status_cache.date = date_str end
+    if weekday_str then status_cache.weekday = weekday_str end
+    if not date_label then return end
     if big_time_label then
-        big_time_label:set_text(time_str)
+        big_time_label:set_text(status_cache.time)
     end
-    date_label:set_text(date_str .. " " .. weekday_str)
+    date_label:set_text(status_cache.date .. " " .. status_cache.weekday)
 end
 
-local function update_signal()
-    local level = StatusProvider.get_signal_level()
-    if not signal_img then return end
+local function update_wifi_icon(level)
+    if level == nil then return end
+    status_cache.wifi_level = level
+    if not wifi_img then return end
     local img_name = "wifixinhao" .. level .. ".png"
-    signal_img:set_src("/luadb/" .. img_name)
+    wifi_img:set_src("/luadb/" .. img_name)
 end
 
-local function on_status_time_updated()
-    update_time_date()
-end
-
-local function on_status_signal_updated()
-    update_signal()
-end
-
-local function aircloud_qr_update(qr)
-    aircloud_qr = qr
-    if exwin.is_active(win_id) and qrcode1 then
-        qrcode1:set_data(aircloud_qr)
+local function update_mobile_icon(level)
+    if level == nil then return end
+    status_cache.mobile_level = level
+    if not mobile_img then return end
+    local img_index
+    if level == -1 then
+        img_index = 6
+    elseif level == 1 then
+        img_index = 5
+    else
+        img_index = level - 1
     end
+    local img_name = "4Gxinhao" .. img_index .. ".png"
+    mobile_img:set_src("/luadb/" .. img_name)
 end
 
--------------------------------------------------------------------------------
--- 窗口生命周期
--------------------------------------------------------------------------------
+local function on_status_time_updated(current_time, current_date, current_weekday)
+    update_time_date(current_time, current_date, current_weekday)
+end
+
+local function on_status_wifi_updated(level)
+    update_wifi_icon(level)
+end
+
+local function on_status_mobile_updated(level)
+    update_mobile_icon(level)
+end
+
 local function on_create()
     calc_layout()
 
@@ -582,7 +456,6 @@ local function on_create()
         parent = airui.screen
     })
 
-    -- 顶部状态栏
     local status_bar = airui.container({
         parent = main_container,
         x = 0,
@@ -591,30 +464,30 @@ local function on_create()
         h = top_h,
         color = COLOR_PRIMARY
     })
-    local status_icon_size = math.min(40, math.floor(top_h * 0.7))
+    local status_icon_size = math.floor(32 * _G.density_scale)
     local status_icon_y = math.floor((top_h - status_icon_size) / 2)
-    local status_font_size = math.min(40, math.floor(top_h * 0.65))
-    signal_img = airui.image({
+    local status_font_size = math.min(math.floor(40 * _G.density_scale), math.floor(top_h * 0.65 * _G.density_scale))
+    local icon_start_x = screen_w - status_icon_size - math.floor(12 * _G.density_scale)
+    wifi_img = airui.image({
         parent = status_bar,
-        x = screen_w - 50,
+        x = icon_start_x,
         y = status_icon_y,
         w = status_icon_size,
         h = status_icon_size,
-        src = full_path
+        src = "/luadb/wifixinhao0.png"
     })
-    time_label = airui.label({
+    product_label = airui.label({
         parent = status_bar,
-        x = (screen_w - 200) / 2,
-        y = math.floor((top_h - status_font_size - 8) / 2),
-        w = 200,
-        h = status_font_size + 8,
-        text = "08:00",
-        font_size = status_font_size,
+        x = 0,
+        y = math.floor((top_h - status_font_size) / 2),
+        w = screen_w - 100,
+        h = status_font_size + math.floor(4 * _G.density_scale),
+        text = product_name,
+        font_size = math.min(status_font_size, math.floor(20 * _G.density_scale)),
         color = 0xfefefe,
         align = airui.TEXT_ALIGN_CENTER
     })
 
-    -- 选项卡
     tabview = airui.tabview({
         parent = main_container,
         x = 0,
@@ -633,7 +506,6 @@ local function on_create()
     local home_page = tabview:get_content(0)
     build_home_page(home_page)
 
-    -- 底部页码
     local bottom_bar = airui.container({
         parent = main_container,
         x = 0,
@@ -649,7 +521,7 @@ local function on_create()
         w = screen_w,
         h = page_indicator_h,
         text = "1/1",
-        font_size = 18,
+        font_size = math.floor(18 * _G.density_scale),
         color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
@@ -660,23 +532,29 @@ local function on_create()
     end)
 
     load_external_apps()
-    update_time_date()
-    update_signal()
+    update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
+    update_wifi_icon(status_cache.wifi_level)
+    update_mobile_icon(status_cache.mobile_level)
 
-    sys.timerLoopStart(update_time_date, 1000)
+    time_timer = sys.timerLoopStart(function()
+        update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
+    end, 1000)
     sys.subscribe("STATUS_TIME_UPDATED", on_status_time_updated)
-    sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_signal_updated)
-    sys.subscribe("AIRCLOUD_QRINFO", aircloud_qr_update)
+    sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.subscribe("APP_STORE_INSTALLED_UPDATED", function()
         load_external_apps()
     end)
+
+    sys.publish("REQUEST_STATUS_REFRESH")
 end
 
 local function on_destroy()
-    sys.timerStop(update_time_date)
+    if time_timer then
+        sys.timerStop(time_timer)
+        time_timer = nil
+    end
     sys.unsubscribe("STATUS_TIME_UPDATED", on_status_time_updated)
-    sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_signal_updated)
-    sys.unsubscribe("AIRCLOUD_QRINFO", aircloud_qr_update)
+    sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", load_external_apps)
 
     if tabview then tabview:destroy() end
@@ -684,9 +562,9 @@ local function on_destroy()
 end
 
 local function on_get_focus()
-    update_time_date()
-    update_signal()
-    if aircloud_qr and qrcode1 then qrcode1:set_data(aircloud_qr) end
+    update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
+    update_wifi_icon(status_cache.wifi_level)
+    update_mobile_icon(status_cache.mobile_level)
     load_external_apps()
 end
 

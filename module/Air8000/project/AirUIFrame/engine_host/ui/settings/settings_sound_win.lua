@@ -30,10 +30,10 @@ end
 
 local function create_ui()
     update_screen_size()
-    local btn_w = 50
-    local btn_margin = 20
-    local bar_x = btn_margin + btn_w + 10
-    local bar_w = card_w - 2 * btn_margin - 2 * btn_w - 20
+    local btn_w = math.floor(50 * _G.density_scale)
+    local btn_margin = math.floor(20 * _G.density_scale)
+    local bar_x = btn_margin + btn_w + math.floor(10 * _G.density_scale)
+    local bar_w = card_w - 2 * btn_margin - 2 * btn_w - math.floor(20 * _G.density_scale)
     main_container = airui.container({
         parent = airui.screen,
         x = 0,
@@ -49,48 +49,49 @@ local function create_ui()
         x = 0,
         y = 0,
         w = screen_w,
-        h = 60,
+        h = math.floor(60 * _G.density_scale),
         color = 0x3F51B5
     })
     local btn_back = airui.container({
         parent = title_bar,
         x = 10,
         y = 10,
-        w = 50,
-        h = 40,
+        w = math.floor(50 * _G.density_scale),
+        h = math.floor(40 * _G.density_scale),
         color = 0x3F51B5,
         on_click = function() exwin.close(win_id) end
     })
     airui.label({
         parent = btn_back,
         x = 0,
-        y = 5,
-        w = 50,
-        h = 30,
+        y = math.floor(5 * _G.density_scale),
+        w = math.floor(50 * _G.density_scale),
+        h = math.floor(30 * _G.density_scale),
         text = "<",
-        font_size = 28,
+        font_size = math.floor(28 * _G.density_scale),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
         parent = title_bar,
-        x = 60,
-        y = 14,
-        w = 200,
-        h = 40,
+        x = math.floor(60 * _G.density_scale),
+        y = math.floor(14 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale),
+        h = math.floor(40 * _G.density_scale),
         text = "触摸音效",
-        font_size = 32,
+        font_size = math.floor(32 * _G.density_scale),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_LEFT
     })
 
     -- 内容区域
+    local title_h = math.floor(60 * _G.density_scale)
     local content = airui.container({
         parent = main_container,
         x = 0,
-        y = 60,
+        y = title_h,
         w = screen_w,
-        h = screen_h - 60,
+        h = screen_h - title_h,
         color = 0xF5F5F5
     })
 
@@ -98,20 +99,20 @@ local function create_ui()
     local card_toggle = airui.container({
         parent = content,
         x = margin,
-        y = 20,
+        y = math.floor(20 * _G.density_scale),
         w = card_w,
-        h = 70,
+        h = math.floor(70 * _G.density_scale),
         color = 0xFFFFFF,
         radius = 8
     })
     airui.label({
         parent = card_toggle,
-        x = 20,
-        y = 20,
-        w = 200,
-        h = 30,
+        x = math.floor(20 * _G.density_scale),
+        y = math.floor(20 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale),
+        h = math.floor(30 * _G.density_scale),
         text = "触摸反馈",
-        font_size = 24,
+        font_size = math.floor(24 * _G.density_scale),
         color = 0x333333,
         align = airui.TEXT_ALIGN_LEFT
     })
@@ -119,10 +120,10 @@ local function create_ui()
     -- 开关按钮（使用airui.switch）
     toggle_switch = airui.switch({
         parent = card_toggle,
-        x = card_w - 80,
-        y = 15,
-        w = 60,
-        h = 30,
+        x = card_w - math.floor(80 * _G.density_scale),
+        y = math.floor(15 * _G.density_scale),
+        w = math.floor(60 * _G.density_scale),
+        h = math.floor(30 * _G.density_scale),
         checked = true,
         on_change = function(self)
             sys.publish("BUZZER_SET_ENABLED", self:get_state())
@@ -133,42 +134,42 @@ local function create_ui()
     local card_duration = airui.container({
         parent = content,
         x = margin,
-        y = 110,
+        y = math.floor(110 * _G.density_scale),
         w = card_w,
-        h = 140,
+        h = math.floor(140 * _G.density_scale),
         color = 0xFFFFFF,
         radius = 8
     })
     airui.label({
         parent = card_duration,
-        x = 20,
-        y = 10,
-        w = 200,
-        h = 30,
+        x = math.floor(20 * _G.density_scale),
+        y = math.floor(10 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale),
+        h = math.floor(30 * _G.density_scale),
         text = "按下发声时长",
-        font_size = 24,
+        font_size = math.floor(24 * _G.density_scale),
         color = 0x333333,
         align = airui.TEXT_ALIGN_LEFT
     })
     duration_label = airui.label({
         parent = card_duration,
-        x = card_w - 120,
-        y = 10,
-        w = 100,
-        h = 30,
+        x = card_w - math.floor(120 * _G.density_scale),
+        y = math.floor(10 * _G.density_scale),
+        w = math.floor(100 * _G.density_scale),
+        h = math.floor(30 * _G.density_scale),
         text = "50ms",
-        font_size = 22,
+        font_size = math.floor(22 * _G.density_scale),
         color = 0x666666,
         align = airui.TEXT_ALIGN_RIGHT
     })
     airui.button({
         parent = card_duration,
         x = btn_margin,
-        y = 55,
+        y = math.floor(55 * _G.density_scale),
         w = btn_w,
-        h = 40,
+        h = math.floor(40 * _G.density_scale),
         text = "-10",
-        font_size = 20,
+        font_size = math.floor(20 * _G.density_scale),
         style = {
             bg_color = 0xE0E0E0,
             pressed_bg_color = 0xFF9800,
@@ -182,9 +183,9 @@ local function create_ui()
     duration_slider = airui.bar({
         parent = card_duration,
         x = bar_x,
-        y = 65,
+        y = math.floor(65 * _G.density_scale),
         w = bar_w,
-        h = 25,
+        h = math.floor(25 * _G.density_scale),
         min = 20,
         max = 500,
         value = 50,
@@ -194,11 +195,11 @@ local function create_ui()
     airui.button({
         parent = card_duration,
         x = card_w - btn_margin - btn_w,
-        y = 55,
+        y = math.floor(55 * _G.density_scale),
         w = btn_w,
-        h = 40,
+        h = math.floor(40 * _G.density_scale),
         text = "+10",
-        font_size = 20,
+        font_size = math.floor(20 * _G.density_scale),
         style = {
             bg_color = 0xE0E0E0,
             pressed_bg_color = 0xFF9800,
@@ -211,12 +212,12 @@ local function create_ui()
     })
     airui.label({
         parent = card_duration,
-        x = 20,
-        y = 110,
-        w = 80,
-        h = 25,
+        x = math.floor(20 * _G.density_scale),
+        y = math.floor(110 * _G.density_scale),
+        w = math.floor(80 * _G.density_scale),
+        h = math.floor(25 * _G.density_scale),
         text = "测试",
-        font_size = 20,
+        font_size = math.floor(20 * _G.density_scale),
         color = 0x2196F3,
         align = airui.TEXT_ALIGN_LEFT,
         on_click = function()
@@ -228,42 +229,42 @@ local function create_ui()
     local card_volume = airui.container({
         parent = content,
         x = margin,
-        y = 270,
+        y = math.floor(270 * _G.density_scale),
         w = card_w,
-        h = 140,
+        h = math.floor(140 * _G.density_scale),
         color = 0xFFFFFF,
         radius = 8
     })
     airui.label({
         parent = card_volume,
-        x = 20,
-        y = 10,
-        w = 200,
-        h = 30,
+        x = math.floor(20 * _G.density_scale),
+        y = math.floor(10 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale),
+        h = math.floor(30 * _G.density_scale),
         text = "声音大小",
-        font_size = 24,
+        font_size = math.floor(24 * _G.density_scale),
         color = 0x333333,
         align = airui.TEXT_ALIGN_LEFT
     })
     volume_label = airui.label({
         parent = card_volume,
-        x = card_w - 120,
-        y = 10,
-        w = 100,
-        h = 30,
+        x = card_w - math.floor(120 * _G.density_scale),
+        y = math.floor(10 * _G.density_scale),
+        w = math.floor(100 * _G.density_scale),
+        h = math.floor(30 * _G.density_scale),
         text = "50",
-        font_size = 22,
+        font_size = math.floor(22 * _G.density_scale),
         color = 0x666666,
         align = airui.TEXT_ALIGN_RIGHT
     })
     airui.button({
         parent = card_volume,
         x = btn_margin,
-        y = 55,
+        y = math.floor(55 * _G.density_scale),
         w = btn_w,
-        h = 40,
+        h = math.floor(40 * _G.density_scale),
         text = "-10",
-        font_size = 20,
+        font_size = math.floor(20 * _G.density_scale),
         style = {
             bg_color = 0xE0E0E0,
             pressed_bg_color = 0xE91E63,
@@ -277,9 +278,9 @@ local function create_ui()
     volume_slider = airui.bar({
         parent = card_volume,
         x = bar_x,
-        y = 65,
+        y = math.floor(65 * _G.density_scale),
         w = bar_w,
-        h = 25,
+        h = math.floor(25 * _G.density_scale),
         min = 10,
         max = 100,
         value = 50,
@@ -289,11 +290,11 @@ local function create_ui()
     airui.button({
         parent = card_volume,
         x = card_w - btn_margin - btn_w,
-        y = 55,
+        y = math.floor(55 * _G.density_scale),
         w = btn_w,
-        h = 40,
+        h = math.floor(40 * _G.density_scale),
         text = "+10",
-        font_size = 20,
+        font_size = math.floor(20 * _G.density_scale),
         style = {
             bg_color = 0xE0E0E0,
             pressed_bg_color = 0xE91E63,
@@ -306,12 +307,12 @@ local function create_ui()
     })
     airui.label({
         parent = card_volume,
-        x = 20,
-        y = 110,
-        w = 80,
-        h = 25,
+        x = math.floor(20 * _G.density_scale),
+        y = math.floor(110 * _G.density_scale),
+        w = math.floor(80 * _G.density_scale),
+        h = math.floor(25 * _G.density_scale),
         text = "测试",
-        font_size = 20,
+        font_size = math.floor(20 * _G.density_scale),
         color = 0x2196F3,
         align = airui.TEXT_ALIGN_LEFT,
         on_click = function()

@@ -111,8 +111,8 @@ local function connect_create_ui()
     })
     airui.button({
         parent = title_bar,
-        x = 0, y = 10,
-        w = 100, h = TITLE_H - 10,
+        x = 0, y = math.floor(10 * _G.density_scale),
+        w = math.floor(100 * _G.density_scale), h = TITLE_H - math.floor(10 * _G.density_scale),
         text = "< 返回",
         style = {
             bg_opa = 0, pressed_bg_opa = 0,
@@ -126,9 +126,9 @@ local function connect_create_ui()
     airui.label({
         parent = title_bar,
         text = connect_current_wifi and connect_current_wifi.ssid or "未知",
-        x = 0, y = 15,
-        w = SCREEN_W, h = 30,
-        font_size = 24,
+        x = 0, y = math.floor(15 * _G.density_scale),
+        w = SCREEN_W, h = math.floor(30 * _G.density_scale),
+        font_size = math.floor(24 * _G.density_scale),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_CENTER,
     })
@@ -137,7 +137,7 @@ local function connect_create_ui()
     connect_wifi_keyboard = airui.keyboard({
         parent = connect_main_container,
         x = 0, y = 0,
-        w = SCREEN_W, h = 200,
+        w = SCREEN_W, h = math.floor(200 * _G.density_scale),
         mode = "text",
         auto_hide = true,
         preview = true,
@@ -148,7 +148,7 @@ local function connect_create_ui()
     local content_container = airui.container({
         parent = connect_main_container,
         x = 0, y = TITLE_H,
-        w = SCREEN_W, h = SCREEN_H - TITLE_H - 80,
+        w = SCREEN_W, h = SCREEN_H - TITLE_H - math.floor(80 * _G.density_scale),
         color = 0xF0F0F0,
         scroll = true
     })
@@ -157,26 +157,26 @@ local function connect_create_ui()
     airui.label({
         parent = content_container,
         text = "WiFi 密码",
-        x = MARGIN + 5, y = 10,
-        w = 200, h = 25,
-        font_size = 18,
+        x = MARGIN + math.floor(5 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(18 * _G.density_scale),
         color = 0x666666,
         align = airui.TEXT_ALIGN_LEFT,
     })
     local password_card = airui.container({
         parent = content_container,
-        x = MARGIN, y = 40,
-        w = SCREEN_W - 2 * MARGIN, h = 80,
+        x = MARGIN, y = math.floor(40 * _G.density_scale),
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(80 * _G.density_scale),
         color = 0xFFFFFF, radius = 8,
     })
     connect_password_textarea = airui.textarea({
         parent = password_card,
-        x = 10, y = 15,
-        w = SCREEN_W - 2 * MARGIN - 20, h = 50,
+        x = math.floor(10 * _G.density_scale), y = math.floor(15 * _G.density_scale),
+        w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale), h = math.floor(50 * _G.density_scale),
         text = connect_current_wifi and connect_current_wifi.password or "",
         placeholder = "请输入WiFi密码",
         max_len = 64,
-        font_size = 22,
+        font_size = math.floor(22 * _G.density_scale),
         color = 0x000000,
         keyboard = connect_wifi_keyboard,
     })
@@ -185,154 +185,154 @@ local function connect_create_ui()
     airui.label({
         parent = content_container,
         text = "高级配置",
-        x = MARGIN + 5, y = 130,
-        w = 200, h = 25,
-        font_size = 18,
+        x = MARGIN + math.floor(5 * _G.density_scale), y = math.floor(130 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(18 * _G.density_scale),
         color = 0x666666,
         align = airui.TEXT_ALIGN_LEFT,
     })
     local advanced_card = airui.container({
         parent = content_container,
-        x = MARGIN, y = 160,
-        w = SCREEN_W - 2 * MARGIN, h = 330,
+        x = MARGIN, y = math.floor(160 * _G.density_scale),
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(330 * _G.density_scale),
         color = 0xFFFFFF, radius = 8,
     })
 
-    local y_offset = 15
-    local row_w = SCREEN_W - 2 * MARGIN - 20
+    local y_offset = math.floor(15 * _G.density_scale)
+    local row_w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale)
 
     -- need_ping 开关行
     local need_ping_row = airui.container({
         parent = advanced_card,
-        x = 10, y = y_offset,
-        w = row_w, h = 45,
+        x = math.floor(10 * _G.density_scale), y = y_offset,
+        w = row_w, h = math.floor(45 * _G.density_scale),
         color = 0xFAFAFA, radius = 4,
     })
     airui.label({
         parent = need_ping_row,
         text = "网络连通检测",
-        x = 10, y = 10,
-        w = 200, h = 25,
-        font_size = 20,
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
         color = 0x000000,
         align = airui.TEXT_ALIGN_LEFT,
     })
     airui.switch({
         parent = need_ping_row,
-        x = row_w - 80, y = 8,
-        w = 70, h = 29,
+        x = row_w - math.floor(80 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
         checked = connect_advanced_config.need_ping,
         on_change = function(self)
             connect_advanced_config.need_ping = self:get_state()
         end
     })
-    y_offset = y_offset + 55
+    y_offset = y_offset + math.floor(55 * _G.density_scale)
 
     -- 局域网模式开关
     local local_network_mode_row = airui.container({
         parent = advanced_card,
-        x = 10, y = y_offset,
-        w = row_w, h = 45,
+        x = math.floor(10 * _G.density_scale), y = y_offset,
+        w = row_w, h = math.floor(45 * _G.density_scale),
         color = 0xFAFAFA, radius = 4,
     })
     airui.label({
         parent = local_network_mode_row,
         text = "局域网模式",
-        x = 10, y = 10,
-        w = 200, h = 25,
-        font_size = 20,
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
         color = 0x000000,
         align = airui.TEXT_ALIGN_LEFT,
     })
     airui.switch({
         parent = local_network_mode_row,
-        x = row_w - 80, y = 8,
-        w = 70, h = 29,
+        x = row_w - math.floor(80 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
         checked = connect_advanced_config.local_network_mode,
         on_change = function(self)
             connect_advanced_config.local_network_mode = self:get_state()
         end
     })
-    y_offset = y_offset + 55
+    y_offset = y_offset + math.floor(55 * _G.density_scale)
 
     -- 检测间隔输入
     local ping_time_row = airui.container({
         parent = advanced_card,
-        x = 10, y = y_offset,
-        w = row_w, h = 45,
+        x = math.floor(10 * _G.density_scale), y = y_offset,
+        w = row_w, h = math.floor(45 * _G.density_scale),
         color = 0xFAFAFA, radius = 4,
     })
     airui.label({
         parent = ping_time_row,
         text = "检测间隔 (ms)",
-        x = 10, y = 10,
-        w = 150, h = 25,
-        font_size = 20,
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(150 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
         color = 0x000000,
         align = airui.TEXT_ALIGN_LEFT,
     })
     connect_ping_time_input = airui.textarea({
         parent = ping_time_row,
-        x = row_w - 120, y = 8,
-        w = 110, h = 29,
+        x = row_w - math.floor(120 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        w = math.floor(110 * _G.density_scale), h = math.floor(29 * _G.density_scale),
         text = connect_advanced_config.ping_time,
         placeholder = "10000",
         max_len = 10,
-        font_size = 18,
+        font_size = math.floor(18 * _G.density_scale),
         color = 0x000000,
         keyboard = connect_wifi_keyboard,
     })
-    y_offset = y_offset + 55
+    y_offset = y_offset + math.floor(55 * _G.density_scale)
 
     -- 检测IP输入
     local ping_ip_row = airui.container({
         parent = advanced_card,
-        x = 10, y = y_offset,
-        w = row_w, h = 45,
+        x = math.floor(10 * _G.density_scale), y = y_offset,
+        w = row_w, h = math.floor(45 * _G.density_scale),
         color = 0xFAFAFA, radius = 4,
     })
     airui.label({
         parent = ping_ip_row,
         text = "检测IP",
-        x = 10, y = 10,
-        w = 100, h = 25,
-        font_size = 20,
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(100 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
         color = 0x000000,
         align = airui.TEXT_ALIGN_LEFT,
     })
     connect_ping_ip_input = airui.textarea({
         parent = ping_ip_row,
-        x = row_w - 170, y = 8,
-        w = 160, h = 29,
+        x = row_w - math.floor(170 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        w = math.floor(160 * _G.density_scale), h = math.floor(29 * _G.density_scale),
         text = connect_advanced_config.ping_ip,
         placeholder = "可选",
         max_len = 32,
-        font_size = 18,
+        font_size = math.floor(18 * _G.density_scale),
         color = 0x000000,
         keyboard = connect_wifi_keyboard,
     })
-    y_offset = y_offset + 55
+    y_offset = y_offset + math.floor(55 * _G.density_scale)
 
     -- 自动切换连接开关
     local auto_socket_switch_row = airui.container({
         parent = advanced_card,
-        x = 10, y = y_offset,
-        w = row_w, h = 45,
+        x = math.floor(10 * _G.density_scale), y = y_offset,
+        w = row_w, h = math.floor(45 * _G.density_scale),
         color = 0xFAFAFA, radius = 4,
     })
     airui.label({
         parent = auto_socket_switch_row,
         text = "自动切换连接",
-        x = 10, y = 10,
-        w = 200, h = 25,
-        font_size = 20,
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
         color = 0x000000,
         align = airui.TEXT_ALIGN_LEFT,
     })
     airui.switch({
         parent = auto_socket_switch_row,
-        x = row_w - 80, y = 8,
-        w = 70, h = 29,
+        x = row_w - math.floor(80 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
         checked = connect_advanced_config.auto_socket_switch,
         on_change = function(self)
             connect_advanced_config.auto_socket_switch = self:get_state()
@@ -342,14 +342,14 @@ local function connect_create_ui()
     -- 底部按钮
     local bottom_container = airui.container({
         parent = connect_main_container,
-        x = 0, y = SCREEN_H - 80,
-        w = SCREEN_W, h = 80,
+        x = 0, y = SCREEN_H - math.floor(80 * _G.density_scale),
+        w = SCREEN_W, h = math.floor(80 * _G.density_scale),
         color = 0xF0F0F0,
     })
     local btn_w = math.floor((SCREEN_W - 2 * MARGIN - SPACING) / 2)
     airui.button({
         parent = bottom_container,
-        x = MARGIN, y = 15,
+        x = MARGIN, y = math.floor(15 * _G.density_scale),
         w = btn_w, h = BUTTON_H,
         text = "取消",
         on_click = function()
@@ -358,7 +358,7 @@ local function connect_create_ui()
     })
     airui.button({
         parent = bottom_container,
-        x = MARGIN + btn_w + SPACING, y = 15,
+        x = MARGIN + btn_w + SPACING, y = math.floor(15 * _G.density_scale),
         w = btn_w, h = BUTTON_H,
         text = "连接",
         style = {

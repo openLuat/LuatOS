@@ -35,9 +35,13 @@ end
 ]]
 
 _G.screen_w, _G.screen_h = 480, 800
+_G.screen_size = 5.0  -- 屏幕物理尺寸(英寸)，用于像素密度计算
+_G.density_scale = 1.0 -- 默认值，lcd_drv.init() 中根据实际PPI更新
 _G.is_landscape = false
 
-local function lcd_drv_init()
+local lcd_drv = {}
+
+function lcd_drv.init()
     pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
     gpio.setup(28, 1) -- 28号GPIO引脚设置为输出模式
     gpio.set(28, 1)  -- 将28号GPIO引脚设置为
@@ -93,8 +97,19 @@ local function lcd_drv_init()
             _G.screen_h, _G.screen_w = phys_w, phys_h
         end
         _G.is_landscape = (_G.screen_w > _G.screen_h)
+
+        -- 计算像素密度缩放比 (基准: 5寸480×800 ≈ 187 PPI)
+        local diagonal_px = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
+        local base_ppi = 186.6  -- sqrt(480²+800²) / 5.0
+        _G.density_scale = (diagonal_px / _G.screen_size) / base_ppi
+        _G.density_scale = math.max(1.0, _G.density_scale) -- 只放大不缩小
     end
 
 end
 
-lcd_drv_init()
+function lcd_drv.backlight_on()
+    pwm.setup(0, 1000, 100)
+    pwm.start(0)
+end
+
+return lcd_drv

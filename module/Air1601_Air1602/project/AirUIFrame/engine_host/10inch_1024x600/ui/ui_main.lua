@@ -12,15 +12,17 @@ require "idle_win"
 require "wifi_list_win"
 require "settings_win"
 require "app_store_win"
+require "speedtest_win"
 
 local function ui_main_task()
-    -- lcd_drv.init()
+    lcd_drv.init()
     tp_drv.init()
 
     sys.publish("OPEN_WELCOME_WIN")
 
-    -- sys.wait(1000)
-    -- gpio.setup(5, 1)
+    -- 等待欢迎界面渲染完成后再开启背光，避免白屏
+    sys.wait(1000)
+    lcd_drv.backlight_on()
 end
 
 sys.taskInit(ui_main_task)

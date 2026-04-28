@@ -8,6 +8,7 @@
 require "settings_display_win"
 require "settings_storage_win"
 require "settings_about_win"
+require "wifi_list_win"
 
 local win_id = nil
 local main_container
@@ -44,39 +45,40 @@ local function create_ui()
     local title_bar = airui.container({
         parent = main_container,
         x = 0, y = 0,
-        w = screen_w, h = 60,
+        w = screen_w, h = math.floor(60 * _G.density_scale),
         color = 0x3F51B5
     })
     local btn_back = airui.container({
         parent = title_bar,
         x = 10, y = 10,
-        w = 50, h = 40,
+        w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         color = 0x3F51B5,
         on_click = function() exwin.close(win_id) end
     })
     airui.label({
         parent = btn_back,
-        x = 0, y = 5,
-        w = 50, h = 30,
+        x = 0, y = math.floor(5 * _G.density_scale),
+        w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "<",
-        font_size = 28,
+        font_size = math.floor(28 * _G.density_scale),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
         parent = title_bar,
-        x = 60, y = 14,
-        w = 100, h = 40,
+        x = math.floor(60 * _G.density_scale), y = math.floor(14 * _G.density_scale),
+        w = math.floor(100 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "设置",
-        font_size = 32,
+        font_size = math.floor(32 * _G.density_scale),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_LEFT
     })
 
+    local title_h = math.floor(60 * _G.density_scale)
     local content = airui.container({
         parent = main_container,
-        x = 0, y = 60,
-        w = screen_w, h = screen_h - 60,
+        x = 0, y = title_h,
+        w = screen_w, h = screen_h - title_h,
         color = 0xF5F5F5
     })
 
@@ -91,28 +93,32 @@ local function create_ui()
         })
         airui.label({
             parent = card,
-            x = 20, y = (card_h - 30)/2,
-            w = 200, h = 30,
+            x = math.floor(20 * _G.density_scale), y = (card_h - math.floor(30 * _G.density_scale))/2 + math.floor(8 * _G.density_scale),
+            w = math.floor(200 * _G.density_scale), h = math.floor(30 * _G.density_scale),
             text = title,
-            font_size = 24,
+            font_size = math.floor(24 * _G.density_scale),
             color = 0x333333,
             align = airui.TEXT_ALIGN_LEFT
         })
         airui.label({
             parent = card,
-            x = card_w - 50, y = (card_h - 30)/2,
-            w = 30, h = 30,
+            x = card_w - math.floor(50 * _G.density_scale), y = (card_h - math.floor(30 * _G.density_scale))/2 + math.floor(8 * _G.density_scale),
+            w = math.floor(30 * _G.density_scale), h = math.floor(30 * _G.density_scale),
             text = ">",
-            font_size = 24,
+            font_size = math.floor(24 * _G.density_scale),
             color = 0x999999,
             align = airui.TEXT_ALIGN_CENTER
         })
     end
 
-    local y = 20
-    create_setting_card(y, "显示与亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)
+    local y = math.floor(20 * _G.density_scale)
+    create_setting_card(y, "显示亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)
     y = y + card_h + card_spacing
-    create_setting_card(y, "系统与更新", function()
+    create_setting_card(y, "WiFi设置", function() sys.publish("OPEN_WIFI_WIN") end)
+    y = y + card_h + card_spacing
+    create_setting_card(y, "存储", function() sys.publish("OPEN_STORAGE_WIN") end)
+    y = y + card_h + card_spacing
+    create_setting_card(y, "系统更新", function()
         sys.publish("OPEN_SYSTEM_WIN")
         airui.msgbox({
             parent = content,
@@ -123,9 +129,7 @@ local function create_ui()
         })
     end)
     y = y + card_h + card_spacing
-    create_setting_card(y, "存储", function() sys.publish("OPEN_STORAGE_WIN") end)
-    y = y + card_h + card_spacing
-    create_setting_card(y, "关于设备", function() sys.publish("OPEN_ABOUT_WIN") end)
+    create_setting_card(y, "关于设置", function() sys.publish("OPEN_ABOUT_WIN") end)
 end
 
 local function on_create() create_ui() end

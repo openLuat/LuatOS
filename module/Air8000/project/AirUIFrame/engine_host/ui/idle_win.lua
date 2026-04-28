@@ -34,15 +34,15 @@ local apps_per_page = 0
 local grid_margin = 8
 local grid_top_padding = 16
 
-local big_time_font_size = 100
+local big_time_font_size = math.floor(100 * _G.density_scale)
 local big_time_y = 20
 local date_y = 130
-local date_font_size = 20
-local qr_size = 130
+local date_font_size = math.floor(20 * _G.density_scale)
+local qr_size = math.floor(130 * _G.density_scale)
 local qr_y = 190
 local builtin_y = 0
-local builtin_btn_w = 80
-local builtin_btn_spacing = 20
+local builtin_btn_w = math.floor(80 * _G.density_scale)
+local builtin_btn_spacing = math.floor(20 * _G.density_scale)
 
 local time_timer = nil
 local external_apps_cache = {}
@@ -74,37 +74,37 @@ local function calc_layout()
     if compact_mode then
         big_time_font_size = 0
         big_time_y = 0
-        date_font_size = math.max(14, math.min(18, math.floor(screen_h * 0.03)))
+        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h * 0.03 * _G.density_scale)))
         date_y = math.floor(screen_h * 0.01)
-        qr_size = math.max(45, math.min(70, math.floor(screen_h * 0.20)))
-        qr_y = date_y + date_font_size + 4
-        builtin_btn_w = math.max(45, math.min(65, math.floor(screen_w * 0.055)))
-        builtin_btn_spacing = math.max(4, math.min(10, math.floor(screen_w * 0.01)))
+        qr_size = math.max(math.floor(45 * _G.density_scale), math.min(math.floor(70 * _G.density_scale), math.floor(screen_h * 0.20 * _G.density_scale)))
+        qr_y = date_y + date_font_size + math.floor(4 * _G.density_scale)
+        builtin_btn_w = math.max(math.floor(45 * _G.density_scale), math.min(math.floor(65 * _G.density_scale), math.floor(screen_w * 0.055 * _G.density_scale)))
+        builtin_btn_spacing = math.max(math.floor(4 * _G.density_scale), math.min(math.floor(10 * _G.density_scale), math.floor(screen_w * 0.01 * _G.density_scale)))
     elseif is_landscape then
-        big_time_font_size = math.max(40, math.min(80, math.floor(screen_h * 0.15)))
+        big_time_font_size = math.max(math.floor(40 * _G.density_scale), math.min(math.floor(80 * _G.density_scale), math.floor(screen_h * 0.15 * _G.density_scale)))
         big_time_y = math.floor(screen_h * 0.015)
-        date_font_size = math.max(14, math.min(18, math.floor(screen_h * 0.03)))
-        date_y = big_time_y + big_time_font_size + 8
-        qr_size = math.max(50, math.min(110, math.floor(screen_h * 0.20)))
-        qr_y = date_y + date_font_size + 10
-        builtin_btn_w = math.max(55, math.min(75, math.floor(screen_w * 0.065)))
-        builtin_btn_spacing = math.max(6, math.min(16, math.floor(screen_w * 0.012)))
+        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h * 0.03 * _G.density_scale)))
+        date_y = big_time_y + big_time_font_size + math.floor(8 * _G.density_scale)
+        qr_size = math.max(math.floor(50 * _G.density_scale), math.min(math.floor(110 * _G.density_scale), math.floor(screen_h * 0.20 * _G.density_scale)))
+        qr_y = date_y + date_font_size + math.floor(10 * _G.density_scale)
+        builtin_btn_w = math.max(math.floor(55 * _G.density_scale), math.min(math.floor(75 * _G.density_scale), math.floor(screen_w * 0.065 * _G.density_scale)))
+        builtin_btn_spacing = math.max(math.floor(6 * _G.density_scale), math.min(math.floor(16 * _G.density_scale), math.floor(screen_w * 0.012 * _G.density_scale)))
     else
-        big_time_font_size = math.max(48, math.min(130, math.floor(screen_h * 0.10)))
+        big_time_font_size = math.max(math.floor(48 * _G.density_scale), math.min(math.floor(130 * _G.density_scale), math.floor(screen_h * 0.10 * _G.density_scale)))
         big_time_y = math.floor(screen_h * 0.025)
-        date_font_size = math.max(14, math.min(22, math.floor(screen_h * 0.028)))
-        date_y = big_time_y + big_time_font_size + 15
-        qr_size = math.max(60, math.min(150, math.floor(screen_w * 0.25)))
-        qr_y = date_y + date_font_size + 18
-        builtin_btn_w = math.max(60, math.min(90, math.floor(screen_w * 0.16)))
-        builtin_btn_spacing = math.max(8, math.min(30, math.floor(screen_w * 0.035)))
+        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(22 * _G.density_scale), math.floor(screen_h * 0.028 * _G.density_scale)))
+        date_y = big_time_y + big_time_font_size + math.floor(15 * _G.density_scale)
+        qr_size = math.max(math.floor(60 * _G.density_scale), math.min(math.floor(150 * _G.density_scale), math.floor(screen_w * 0.25 * _G.density_scale)))
+        qr_y = date_y + date_font_size + math.floor(18 * _G.density_scale)
+        builtin_btn_w = math.max(math.floor(60 * _G.density_scale), math.min(math.floor(90 * _G.density_scale), math.floor(screen_w * 0.16 * _G.density_scale)))
+        builtin_btn_spacing = math.max(math.floor(8 * _G.density_scale), math.min(math.floor(30 * _G.density_scale), math.floor(screen_w * 0.035 * _G.density_scale)))
     end
 
-    builtin_y = qr_y + qr_size + 55
+    builtin_y = qr_y + qr_size + math.floor(55 * _G.density_scale)
 
-    local icon_size = 32
-    local base_font = math.floor(screen_h / 32)
-    local title_font_size = math.max(14, math.min(18, base_font))
+    local icon_size = math.floor(32 * _G.density_scale)
+    local base_font = math.floor(screen_h / 32 * _G.density_scale)
+    local title_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), base_font))
 
     local grid_area_w = screen_w
     local grid_area_h = screen_h - top_h - page_indicator_h
@@ -120,7 +120,7 @@ local function calc_layout()
     local text_height = title_font_size * 2 + 8
     local padding_vertical = is_landscape and 12 or 16
     card_h = icon_size + text_height + padding_vertical
-    if card_h < 70 then card_h = 70 end
+    if card_h < math.floor(70 * _G.density_scale) then card_h = math.floor(70 * _G.density_scale) end
 
     local available_height = grid_area_h - grid_top_padding
     local rows_per_page = math.max(1, math.floor(available_height / (card_h + grid_margin)))
@@ -188,11 +188,11 @@ local function build_home_page(page_container)
     airui.label({
         parent = content,
         x = 0,
-        y = qr_y + qr_size + 5,
+        y = qr_y + qr_size + math.floor(5 * _G.density_scale),
         w = screen_w,
-        h = 22,
+        h = math.floor(22 * _G.density_scale),
         text = "资料中心",
-        font_size = 14,
+        font_size = math.floor(14 * _G.density_scale),
         color = 0x3d3d3d,
         align = airui.TEXT_ALIGN_CENTER
     })
@@ -206,16 +206,16 @@ local function build_home_page(page_container)
             x = x,
             y = builtin_y,
             w = builtin_btn_w,
-            h = 100,
+            h = math.floor(100 * _G.density_scale),
             color = COLOR_BG,
             on_click = function() sys.publish("OPEN_" .. app.win .. "_WIN") end
         })
-        local builtin_icon_size = math.min(40, builtin_btn_w - 10)
+        local builtin_icon_size = math.min(math.floor(40 * _G.density_scale), builtin_btn_w - math.floor(10 * _G.density_scale))
         local builtin_icon_x = (builtin_btn_w - builtin_icon_size) / 2
         airui.image({
             parent = cell,
             x = builtin_icon_x,
-            y = 10,
+            y = math.floor(10 * _G.density_scale),
             w = builtin_icon_size,
             h = builtin_icon_size,
             src = app.icon
@@ -223,11 +223,11 @@ local function build_home_page(page_container)
         airui.label({
             parent = cell,
             x = 0,
-            y = builtin_icon_size + 18,
+            y = builtin_icon_size + math.floor(18 * _G.density_scale),
             w = builtin_btn_w,
-            h = 30,
+            h = math.floor(30 * _G.density_scale),
             text = app.name,
-            font_size = 14,
+        font_size = math.floor(14 * _G.density_scale),
             color = COLOR_TEXT,
             align = airui.TEXT_ALIGN_CENTER
         })
@@ -244,8 +244,8 @@ local function build_app_grid_page(page_container, start_idx, apps)
         color = COLOR_BG
     })
 
-    local icon_size = 32
-    local title_font_size = math.max(12, math.min(18, math.floor(screen_h / 32)))
+    local icon_size = math.floor(32 * _G.density_scale)
+    local title_font_size = math.max(math.floor(12 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h / 32 * _G.density_scale)))
     local text_height = title_font_size * 2 + 8
 
     for i = 1, apps_per_page do
@@ -464,11 +464,11 @@ local function on_create()
         h = top_h,
         color = COLOR_PRIMARY
     })
-    local status_icon_size = 32
+    local status_icon_size = math.floor(32 * _G.density_scale)
     local status_icon_y = math.floor((top_h - status_icon_size) / 2)
-    local status_font_size = math.min(40, math.floor(top_h * 0.65))
-    local icon_spacing = 8
-    local icon_start_x = screen_w - (status_icon_size * 2 + icon_spacing) - 12
+    local status_font_size = math.min(math.floor(40 * _G.density_scale), math.floor(top_h * 0.65 * _G.density_scale))
+    local icon_spacing = math.floor(8 * _G.density_scale)
+    local icon_start_x = screen_w - (status_icon_size * 2 + icon_spacing) - math.floor(12 * _G.density_scale)
     wifi_img = airui.image({
         parent = status_bar,
         x = icon_start_x,
@@ -490,9 +490,9 @@ local function on_create()
         x = 0,
         y = math.floor((top_h - status_font_size) / 2),
         w = screen_w - 100,
-        h = status_font_size + 4,
+        h = status_font_size + math.floor(4 * _G.density_scale),
         text = product_name,
-        font_size = math.min(status_font_size, 20),
+        font_size = math.min(status_font_size, math.floor(20 * _G.density_scale)),
         color = 0xfefefe,
         align = airui.TEXT_ALIGN_CENTER
     })
@@ -530,7 +530,7 @@ local function on_create()
         w = screen_w,
         h = page_indicator_h,
         text = "1/1",
-        font_size = 18,
+        font_size = math.floor(18 * _G.density_scale),
         color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })

@@ -89,35 +89,35 @@ end
 
 local function list_create_wifi_item(wifi, index)
     local signal = math.min(100, math.max(0, (wifi.rssi or -100) + 100))
-    local item_w = SCREEN_W - 2 * MARGIN - 20
+    local item_w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale)
     local wifi_item = airui.container({
         parent = list_wifi_list_content,
-        x = 10, y = 10 + (index - 1) * 75,
-        w = item_w, h = 65,
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale) + (index - 1) * math.floor(75 * _G.density_scale),
+        w = item_w, h = math.floor(65 * _G.density_scale),
         color = 0xFAFAFA, radius = 4,
     })
     airui.label({
         parent = wifi_item,
         text = wifi.ssid or "未知",
-        x = 10, y = 8,
-        w = item_w - 80, h = 20,
-        font_size = 20,
+        x = math.floor(10 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        w = item_w - math.floor(80 * _G.density_scale), h = math.floor(20 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
         color = 0x000000,
         align = airui.TEXT_ALIGN_LEFT,
     })
     airui.label({
         parent = wifi_item,
         text = string.format("%d%%", signal),
-        x = 10, y = 36,
-        w = item_w - 80, h = 15,
-        font_size = 16,
+        x = math.floor(10 * _G.density_scale), y = math.floor(36 * _G.density_scale),
+        w = item_w - math.floor(80 * _G.density_scale), h = math.floor(15 * _G.density_scale),
+        font_size = math.floor(16 * _G.density_scale),
         color = 0x666666,
         align = airui.TEXT_ALIGN_LEFT,
     })
     airui.button({
         parent = wifi_item,
-        x = item_w - 70, y = 17,
-        w = 60, h = 30,
+        x = item_w - math.floor(70 * _G.density_scale), y = math.floor(17 * _G.density_scale),
+        w = math.floor(60 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "连接",
         on_click = function()
             sys.publish("OPEN_WIFI_CONNECT_WIN", wifi.ssid)
@@ -127,11 +127,11 @@ local function list_create_wifi_item(wifi, index)
 end
 
 local function list_create_saved_network_item(saved_wifi, index, status_text)
-    local item_w = SCREEN_W - 2 * MARGIN - 20
+    local item_w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale)
     local wifi_item = airui.container({
         parent = list_saved_networks_content,
-        x = 10, y = 10 + (index - 1) * 60,
-        w = item_w, h = 50,
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale) + (index - 1) * math.floor(60 * _G.density_scale),
+        w = item_w, h = math.floor(50 * _G.density_scale),
         color = 0xFAFAFA, radius = 4,
         on_click = function()
             if status_text == "已连接" then
@@ -144,9 +144,9 @@ local function list_create_saved_network_item(saved_wifi, index, status_text)
     airui.label({
         parent = wifi_item,
         text = saved_wifi.ssid or "未知",
-        x = 10, y = 8,
-        w = item_w - 140, h = 22,
-        font_size = 22,
+        x = math.floor(10 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        w = item_w - math.floor(140 * _G.density_scale), h = math.floor(22 * _G.density_scale),
+        font_size = math.floor(22 * _G.density_scale),
         color = 0x000000,
         align = airui.TEXT_ALIGN_LEFT,
     })
@@ -154,9 +154,9 @@ local function list_create_saved_network_item(saved_wifi, index, status_text)
     airui.label({
         parent = wifi_item,
         text = status_text,
-        x = item_w - 130, y = 10,
-        w = 120, h = 24,
-        font_size = 20,
+        x = item_w - math.floor(130 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(120 * _G.density_scale), h = math.floor(24 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
         color = status_color,
         align = airui.TEXT_ALIGN_RIGHT,
     })
@@ -235,25 +235,25 @@ local function list_create_ui()
     local btn_back = airui.container({
         parent = title_bar,
         x = 10, y = 10,
-        w = 50, h = 40,
+        w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         color = 0x3F51B5,
         on_click = function() exwin.close(list_win_id) end
     })
     airui.label({
         parent = btn_back,
-        x = 0, y = 5,
-        w = 50, h = 30,
+        x = 0, y = math.floor(5 * _G.density_scale),
+        w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "<",
-        font_size = 28,
+        font_size = math.floor(28 * _G.density_scale),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
         parent = title_bar,
         text = "WiFi 网络配置",
-        x = 60, y = 14,
-        w = SCREEN_W -60, h = 40,
-        font_size = 32,
+        x = math.floor(60 * _G.density_scale), y = math.floor(14 * _G.density_scale),
+        w = SCREEN_W - math.floor(60 * _G.density_scale), h = math.floor(40 * _G.density_scale),
+        font_size = math.floor(32 * _G.density_scale),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_LEFT,
     })
@@ -268,29 +268,29 @@ local function list_create_ui()
     -- WiFi开关卡片
     local wifi_enable_card = airui.container({
         parent = list_scroll_container,
-        x = MARGIN, y = 10,
-        w = SCREEN_W - 2 * MARGIN, h = 60 + CARD_H,
+        x = MARGIN, y = math.floor(10 * _G.density_scale),
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(60 * _G.density_scale) + CARD_H,
         color = 0xFFFFFF, radius = 8,
     })
     airui.label({
         parent = wifi_enable_card,
         text = "WiFi",
-        x = 10, y = 15,
-        w = 80, h = 30,
-        font_size = 24,
+        x = math.floor(10 * _G.density_scale), y = math.floor(15 * _G.density_scale),
+        w = math.floor(80 * _G.density_scale), h = math.floor(30 * _G.density_scale),
+        font_size = math.floor(24 * _G.density_scale),
         color = 0x000000,
         align = airui.TEXT_ALIGN_LEFT,
     })
     wifi_enable_switch_container = airui.container({
         parent = wifi_enable_card,
-        x = SCREEN_W - 2 * MARGIN - 80, y = 15,
-        w = 70, h = 29,
+        x = SCREEN_W - 2 * MARGIN - math.floor(80 * _G.density_scale), y = math.floor(15 * _G.density_scale),
+        w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
     })
     wifi_enable_switch_container:hide()
     wifi_enable_switch = airui.switch({
         parent = wifi_enable_switch_container,
         x = 0, y = 0,
-        w = 70, h = 29,
+        w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
         checked = false,
         on_change = function(self)
             sys.taskInit(function() list_on_wifi_enable_change(self:get_state()) end)
@@ -299,7 +299,7 @@ local function list_create_ui()
 
     local saved_network_item = airui.container({
         parent = wifi_enable_card,
-        x = 0, y = 60,
+        x = 0, y = math.floor(60 * _G.density_scale),
         w = SCREEN_W - 2 * MARGIN, h = CARD_H,
         color = 0xFFFFFF, radius = 0,
         on_click = function()
@@ -309,18 +309,18 @@ local function list_create_ui()
     airui.label({
         parent = saved_network_item,
         text = "已保存的网络",
-        x = 10, y = 15,
-        w = 200, h = 40,
-        font_size = 20,
+        x = math.floor(10 * _G.density_scale), y = math.floor(15 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(40 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
         color = 0x000000,
         align = airui.TEXT_ALIGN_LEFT,
     })
     airui.label({
         parent = saved_network_item,
         text = ">",
-        x = SCREEN_W - 2 * MARGIN - 40, y = 15,
-        w = 30, h = 30,
-        font_size = 24,
+        x = SCREEN_W - 2 * MARGIN - math.floor(40 * _G.density_scale), y = math.floor(15 * _G.density_scale),
+        w = math.floor(30 * _G.density_scale), h = math.floor(30 * _G.density_scale),
+        font_size = math.floor(24 * _G.density_scale),
         color = 0x999999,
         align = airui.TEXT_ALIGN_CENTER,
     })
@@ -329,23 +329,23 @@ local function list_create_ui()
     airui.label({
         parent = list_scroll_container,
         text = "已保存网络",
-        x = MARGIN + 5, y = 145,
-        w = 200, h = 25,
-        font_size = 18,
+        x = MARGIN + math.floor(5 * _G.density_scale), y = math.floor(145 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(18 * _G.density_scale),
         color = 0x666666,
         align = airui.TEXT_ALIGN_LEFT,
     })
 
     local saved_networks_card = airui.container({
         parent = list_scroll_container,
-        x = MARGIN, y = 175,
-        w = SCREEN_W - 2 * MARGIN, h = 190,
+        x = MARGIN, y = math.floor(175 * _G.density_scale),
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(190 * _G.density_scale),
         color = 0xFFFFFF, radius = 8,
     })
     list_saved_networks_content = airui.container({
         parent = saved_networks_card,
         x = 0, y = 0,
-        w = SCREEN_W - 2 * MARGIN, h = 190,
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(190 * _G.density_scale),
         color = 0xFFFFFF,
     })
 
@@ -353,9 +353,9 @@ local function list_create_ui()
     airui.label({
         parent = list_scroll_container,
         text = "WiFi 列表",
-        x = MARGIN + 5, y = 385,
-        w = 200, h = 25,
-        font_size = 18,
+        x = MARGIN + math.floor(5 * _G.density_scale), y = math.floor(385 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(18 * _G.density_scale),
         color = 0x666666,
         align = airui.TEXT_ALIGN_LEFT,
     })
@@ -363,13 +363,13 @@ local function list_create_ui()
     -- 刷新按钮区域
     scan_refresh_container = airui.container({
         parent = list_scroll_container,
-        x = SCREEN_W - 2 * MARGIN - 60, y = 380,
-        w = 60, h = 30,
+        x = SCREEN_W - 2 * MARGIN - math.floor(60 * _G.density_scale), y = math.floor(380 * _G.density_scale),
+        w = math.floor(60 * _G.density_scale), h = math.floor(30 * _G.density_scale),
     })
     airui.button({
         parent = scan_refresh_container,
         x = 0, y = 0,
-        w = 60, h = 30,
+        w = math.floor(60 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "刷新",
         style = {
             bg_color = 0xF0F0F0, border_color = 0xF0F0F0,
@@ -392,22 +392,22 @@ local function list_create_ui()
 
     scan_indicator_container = airui.container({
         parent = list_scroll_container,
-        x = SCREEN_W - 2 * MARGIN - 120, y = 380,
-        w = 200, h = 30,
+        x = SCREEN_W - 2 * MARGIN - math.floor(120 * _G.density_scale), y = math.floor(380 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         color = 0xF0F0F0,
     })
     scan_indicator_image = airui.image({
         parent = scan_indicator_container,
-        x = 5, y = 0,
-        w = 30, h = 30,
+        x = math.floor(5 * _G.density_scale), y = 0,
+        w = math.floor(30 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         src = airui.SYMBOL_REFRESH,
     })
     airui.label({
         parent = scan_indicator_container,
         text = "正在扫描...",
-        x = 40, y = 5,
-        w = 150, h = 20,
-        font_size = 16,
+        x = math.floor(40 * _G.density_scale), y = math.floor(5 * _G.density_scale),
+        w = math.floor(150 * _G.density_scale), h = math.floor(20 * _G.density_scale),
+        font_size = math.floor(16 * _G.density_scale),
         color = 0x666666,
         align = airui.TEXT_ALIGN_LEFT,
     })
@@ -415,30 +415,30 @@ local function list_create_ui()
 
     local wifi_list_card = airui.container({
         parent = list_scroll_container,
-        x = MARGIN, y = 415,
-        w = SCREEN_W - 2 * MARGIN, h = 320,
+        x = MARGIN, y = math.floor(415 * _G.density_scale),
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(320 * _G.density_scale),
         color = 0xFFFFFF, radius = 8,
     })
     list_wifi_list_content = airui.container({
         parent = wifi_list_card,
         x = 0, y = 0,
-        w = SCREEN_W - 2 * MARGIN, h = 320,
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(320 * _G.density_scale),
         color = 0xFFFFFF,
     })
 
     -- 加载提示
     list_loading_container = airui.container({
         parent = list_main_container,
-        x = (SCREEN_W - 300) / 2, y = 130,
-        w = 300, h = 130,
+        x = (SCREEN_W - math.floor(300 * _G.density_scale)) / 2, y = math.floor(130 * _G.density_scale),
+        w = math.floor(300 * _G.density_scale), h = math.floor(130 * _G.density_scale),
         color = 0x000000,
     })
     airui.label({
         parent = list_loading_container,
         text = "正在扫描 WiFi 热点",
-        x = 0, y = 55,
-        w = 300, h = 60,
-        font_size = 20,
+        x = 0, y = math.floor(55 * _G.density_scale),
+        w = math.floor(300 * _G.density_scale), h = math.floor(60 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_CENTER,
     })
@@ -446,16 +446,16 @@ local function list_create_ui()
 
     list_connecting_container = airui.container({
         parent = list_main_container,
-        x = (SCREEN_W - 300) / 2, y = 130,
-        w = 300, h = 130,
+        x = (SCREEN_W - math.floor(300 * _G.density_scale)) / 2, y = math.floor(130 * _G.density_scale),
+        w = math.floor(300 * _G.density_scale), h = math.floor(130 * _G.density_scale),
         color = 0x000000,
     })
     airui.label({
         parent = list_connecting_container,
         text = "正在连接 WiFi",
-        x = 0, y = 55,
-        w = 300, h = 60,
-        font_size = 20,
+        x = 0, y = math.floor(55 * _G.density_scale),
+        w = math.floor(300 * _G.density_scale), h = math.floor(60 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_CENTER,
     })

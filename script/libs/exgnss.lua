@@ -373,6 +373,12 @@ local function fnc_open()
             end,500)
         end
     end
+    if exgnss.opts.static and exgnss.opts.static>0 and exgnss.opts.static<=100 then
+        log.info("static开启")
+        sys.timerStart(function()
+                uart.write(uart_id,"$CFGDYN,1,"..exgnss.opts.static.."\r\n")
+        end,400)
+    end
     openFlag = true
     if exgnss.opts.gnssmode==1 then
         --默认全开启

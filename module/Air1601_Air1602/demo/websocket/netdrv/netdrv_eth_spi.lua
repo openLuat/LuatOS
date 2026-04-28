@@ -58,14 +58,14 @@ local function netdrv_eth_spi_task_func()
     -- 配置SPI外接以太网芯片CH390H的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_ETH
     -- 本demo使用Air1601开发板测试，开发板上的硬件配置为：
     -- VBAT为CH390H以太网芯片供电使能
-    -- 使用spi1，片选引脚使用GPIO14
+    -- 使用spi1，片选引脚使用GPIO14，中断引脚使用GPIO51(WAKEUP)
     -- 如果使用的硬件不是Air1601开发板，根据自己的硬件配置修改以下参数
     exnetif.set_priority_order({
         {
             ETHERNET = {
                 pwrpin = nil,
                 tp = netdrv.CH390,
-                opts = {spi = 1, cs = 14}
+                opts = {spi = 1, cs = 14, irq = 51}
             }
         }
     })

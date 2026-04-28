@@ -264,7 +264,7 @@ static void airui_textarea_focus_cb(lv_event_t *e)
             // 点击时，如果未处于 FOCUSED 状态，主动设为 FOCUSED 并发送 LV_EVENT_FOCUSED 事件
             if (!lv_obj_has_state(target, LV_STATE_FOCUSED)) {
                 lv_obj_add_state(target, LV_STATE_FOCUSED);
-                lv_event_send(target, LV_EVENT_FOCUSED, NULL);
+                lv_obj_send_event(target, LV_EVENT_FOCUSED, NULL);
             }
 #if defined(LUAT_USE_AIRUI_SDL2)
             airui_platform_sdl2_set_text_input_rect(meta->ctx, target);

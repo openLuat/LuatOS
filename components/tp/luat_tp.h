@@ -55,9 +55,9 @@ typedef struct luat_tp_config{
 typedef struct luat_tp_opts {
     const char* name;
     int (*init)(luat_tp_config_t* luat_tp_config);
-    int (*read)(luat_tp_config_t* luat_tp_config, uint8_t* data);
+    int (*read)(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data);
     void (*read_done)(luat_tp_config_t* luat_tp_config);
-    void (*deinit)(luat_tp_config_t* luat_tp_config);
+    int (*deinit)(luat_tp_config_t* luat_tp_config);
     int (*sleep)(luat_tp_config_t* luat_tp_config);
 } luat_tp_opts_t;
 

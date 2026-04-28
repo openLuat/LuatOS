@@ -45,14 +45,14 @@
 3、可选 AirETH_1000 配件板一块，Air780EHV 核心板和 AirETH_1000 配件板的硬件接线方式为:
 
 | **Air780EHV核心板** | **AirETH_1000配件板** |
-| ---------------- | ------------------ |
-| 3V3              | 3.3v               |
-| GND              | GND                |
-| 86/SPI0CLK       | SCK                |
-| 83/SPI0CS        | CSS                |
-| 84/SPI0MISO      | SDO                |
-| 85/SPI0MOSI      | SDI                |
-| 107/GPIO21       | INT                |
+| ------------------- | --------------------- |
+| 3V3                 | 3.3v                  |
+| GND                 | GND                   |
+| 86/SPI0CLK          | SCK                   |
+| 83/SPI0CS           | CSS                   |
+| 84/SPI0MISO         | SDO                   |
+| 85/SPI0MOSI         | SDI                   |
+| 22/GPIO1            | INT                   |
 
 4、Air780EHV核心板购买链接：[商品详情](https://item.taobao.com/item.htm?id=943253206359&spm=a1z10.3-c-s.w4002-24045920836.11.52ca6ee5XT5zBv)
 

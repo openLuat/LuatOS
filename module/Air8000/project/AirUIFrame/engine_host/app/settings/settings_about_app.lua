@@ -8,7 +8,7 @@
 
 -- ==================== 设备信息 ====================
 local device_info = {
-    device_name = "Air8101 UI 畅玩板",
+    device_name = "Air8101",
     model = "--",
     version = "1.0.0",
     kernel = "--",

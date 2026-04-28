@@ -7,7 +7,7 @@
 @usage
 本demo演示的核心功能为：
 1. 初始化4G和WiFi网络连接。
-2. Air8101与对端设备进行数据交互。
+2. Air1601与对端设备进行数据交互。
 3. 自动切换网络连接模式。
 4. 通过HTTP GET请求测试网络连接情况。
 ]]
@@ -21,7 +21,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "Air8101_master"
+PROJECT = "Air1601_master"
 VERSION = "001.999.000"
 
 

@@ -12,7 +12,8 @@ require "wifi_saved_list_win"
 
 local SCREEN_W, SCREEN_H = 480, 800
 local MARGIN = 15
-local TITLE_H = 50
+local TITLE_H = 60
+local CARD_H = 60
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
@@ -23,7 +24,8 @@ local function update_screen_size()
         SCREEN_W, SCREEN_H = phys_h, phys_w
     end
     MARGIN = math.floor(SCREEN_W * 0.03)
-    TITLE_H = math.floor(SCREEN_H * 0.0625)
+    TITLE_H = 60
+    CARD_H = math.floor(SCREEN_H * 0.09)
 end
 
 local list_win_id = nil
@@ -228,28 +230,32 @@ local function list_create_ui()
         parent = list_main_container,
         x = 0, y = 0,
         w = SCREEN_W, h = TITLE_H,
-        color = 0x1E88E5,
+        color = 0x3F51B5,
     })
-    airui.button({
+    local btn_back = airui.container({
         parent = title_bar,
-        x = 0, y = 10,
-        w = 100, h = TITLE_H - 10,
-        text = "< 返回",
-        style = {
-            bg_opa = 0, pressed_bg_opa = 0,
-            text_color = 0xFFFFFF, pressed_text_color = 0xFFFFFF,
-            border_color = 0x1E88E5,
-        },
+        x = 10, y = 10,
+        w = 50, h = 40,
+        color = 0x3F51B5,
         on_click = function() exwin.close(list_win_id) end
+    })
+    airui.label({
+        parent = btn_back,
+        x = 0, y = 5,
+        w = 50, h = 30,
+        text = "<",
+        font_size = 28,
+        color = 0xFFFFFF,
+        align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
         parent = title_bar,
         text = "WiFi 网络配置",
-        x = 0, y = 15,
-        w = SCREEN_W, h = 30,
-        font_size = 24,
+        x = 60, y = 14,
+        w = SCREEN_W -60, h = 40,
+        font_size = 32,
         color = 0xFFFFFF,
-        align = airui.TEXT_ALIGN_CENTER,
+        align = airui.TEXT_ALIGN_LEFT,
     })
 
     local list_scroll_container = airui.container({
@@ -263,7 +269,7 @@ local function list_create_ui()
     local wifi_enable_card = airui.container({
         parent = list_scroll_container,
         x = MARGIN, y = 10,
-        w = SCREEN_W - 2 * MARGIN, h = 120,
+        w = SCREEN_W - 2 * MARGIN, h = 60 + CARD_H,
         color = 0xFFFFFF, radius = 8,
     })
     airui.label({
@@ -294,7 +300,7 @@ local function list_create_ui()
     local saved_network_item = airui.container({
         parent = wifi_enable_card,
         x = 0, y = 60,
-        w = SCREEN_W - 2 * MARGIN, h = 60,
+        w = SCREEN_W - 2 * MARGIN, h = CARD_H,
         color = 0xFFFFFF, radius = 0,
         on_click = function()
             sys.publish("OPEN_WIFI_SAVED_LIST_WIN")

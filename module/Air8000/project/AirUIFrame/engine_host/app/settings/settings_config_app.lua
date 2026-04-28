@@ -22,7 +22,7 @@ local CONFIG_KEYS = {
 }
 
 -- 设备名称后缀常量（拼接在模组型号后面）
-local DEVICE_NAME_SUFFIX = "_UI_畅玩板"
+local DEVICE_NAME_SUFFIX = "合宙引擎主机"
 
 -- 默认值（不在此处定义，动态生成）
 -- 注意：默认值通过 get_default_device_name() 函数动态获取
@@ -44,7 +44,8 @@ local function get_default_device_name()
     if ret and result and result ~= "" then
         model = result
     end
-    return model .. DEVICE_NAME_SUFFIX
+    local suffix = model:gsub("^Air", "")
+    return "合宙引擎主机" .. suffix
 end
 
 --[[

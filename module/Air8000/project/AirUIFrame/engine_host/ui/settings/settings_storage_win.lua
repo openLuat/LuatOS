@@ -85,25 +85,25 @@ end
 local function update_memory_info(info)
     if info.sys and sys_total_label then
         local pct = calc_percent(info.sys.used, info.sys.total)
-        sys_total_label:set_text(format_memory_full(info.sys.total))
-        sys_used_label:set_text(format_memory_full(info.sys.used))
-        sys_max_label:set_text(format_memory_full(info.sys.max))
+        sys_total_label:set_text(format_memory(info.sys.total))
+        sys_used_label:set_text(format_memory(info.sys.used))
+        sys_max_label:set_text(format_memory(info.sys.max))
         sys_percent_label:set_text(string.format("%.1f%% 占用", pct))
         if sys_progress_bar then sys_progress_bar:set_value(math.floor(pct), false) end
     end
     if info.vm and vm_total_label then
         local pct = calc_percent(info.vm.used, info.vm.total)
-        vm_total_label:set_text(format_memory_full(info.vm.total))
-        vm_used_label:set_text(format_memory_full(info.vm.used))
-        vm_max_label:set_text(format_memory_full(info.vm.max))
+        vm_total_label:set_text(format_memory(info.vm.total))
+        vm_used_label:set_text(format_memory(info.vm.used))
+        vm_max_label:set_text(format_memory(info.vm.max))
         vm_percent_label:set_text(string.format("%.1f%% 占用", pct))
         if vm_progress_bar then vm_progress_bar:set_value(math.floor(pct), false) end
     end
     if info.psram and psram_total_label then
         local pct = calc_percent(info.psram.used, info.psram.total)
-        psram_total_label:set_text(format_memory_full(info.psram.total))
-        psram_used_label:set_text(format_memory_full(info.psram.used))
-        psram_max_label:set_text(format_memory_full(info.psram.max))
+        psram_total_label:set_text(format_memory(info.psram.total))
+        psram_used_label:set_text(format_memory(info.psram.used))
+        psram_max_label:set_text(format_memory(info.psram.max))
         psram_percent_label:set_text(string.format("%.1f%% 占用", pct))
         if psram_progress_bar then psram_progress_bar:set_value(math.floor(pct), false) end
     end

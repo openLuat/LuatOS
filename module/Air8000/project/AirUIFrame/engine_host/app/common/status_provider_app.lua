@@ -142,6 +142,12 @@ function StatusProvider.get_signal_level()
     return wifi_signal_level
 end
 
+local mobile_signal_level = -1
+
+function StatusProvider.get_mobile_signal_level()
+    return mobile_signal_level
+end
+
 -- 获取最新传感器数据（保留接口，返回nil）
 function StatusProvider.get_sensor_latest()
     return nil, nil, nil

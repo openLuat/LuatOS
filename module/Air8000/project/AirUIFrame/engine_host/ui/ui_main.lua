@@ -12,6 +12,7 @@ require "idle_win"
 require "wifi_list_win"
 require "settings_win"
 require "app_store_win"
+require "speedtest_win"
 
 local function ui_main_task()
 

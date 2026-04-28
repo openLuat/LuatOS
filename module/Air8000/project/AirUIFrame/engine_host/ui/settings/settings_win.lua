@@ -9,6 +9,7 @@ require "settings_display_win"
 require "settings_storage_win"
 require "settings_about_win"
 require "settings_sound_win"
+require "wifi_list_win"
 
 local win_id = nil
 local main_container
@@ -92,7 +93,7 @@ local function create_ui()
         })
         airui.label({
             parent = card,
-            x = 20, y = (card_h - 30)/2,
+            x = 20, y = (card_h - 30)/2 + 8,
             w = 200, h = 30,
             text = title,
             font_size = 24,
@@ -101,7 +102,7 @@ local function create_ui()
         })
         airui.label({
             parent = card,
-            x = card_w - 50, y = (card_h - 30)/2,
+            x = card_w - 50, y = (card_h - 30)/2 + 8,
             w = 30, h = 30,
             text = ">",
             font_size = 24,
@@ -111,9 +112,13 @@ local function create_ui()
     end
 
     local y = 20
-    create_setting_card(y, "显示与亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)
+    create_setting_card(y, "显示亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)
     y = y + card_h + card_spacing
-    create_setting_card(y, "系统与更新", function()
+    create_setting_card(y, "WiFi设置", function() sys.publish("OPEN_WIFI_WIN") end)
+    y = y + card_h + card_spacing
+    create_setting_card(y, "存储", function() sys.publish("OPEN_STORAGE_WIN") end)
+    y = y + card_h + card_spacing
+    create_setting_card(y, "系统更新", function()
         sys.publish("OPEN_SYSTEM_WIN")
         airui.msgbox({
             parent = content,
@@ -124,11 +129,9 @@ local function create_ui()
         })
     end)
     y = y + card_h + card_spacing
-    create_setting_card(y, "存储", function() sys.publish("OPEN_STORAGE_WIN") end)
+    create_setting_card(y, "触摸音效", function() sys.publish("OPEN_SOUND_WIN") end)
     y = y + card_h + card_spacing
-    create_setting_card(y, "声音与触摸", function() sys.publish("OPEN_SOUND_WIN") end)
-    y = y + card_h + card_spacing
-    create_setting_card(y, "关于设备", function() sys.publish("OPEN_ABOUT_WIN") end)
+    create_setting_card(y, "关于设置", function() sys.publish("OPEN_ABOUT_WIN") end)
 end
 
 local function on_create() create_ui() end

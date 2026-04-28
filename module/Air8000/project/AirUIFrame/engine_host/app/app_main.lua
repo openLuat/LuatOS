@@ -15,10 +15,6 @@
 -- 加载网络驱动设备功能模块
 -- require "netdrv_device"
 
-if rtos.bsp() ~= "PC" then
-    -- 加载 aircloud 主模块
-    require "aircloud_app"
-end
 
 -- 加载 wifi_app 主模块
 require "wifi_app"

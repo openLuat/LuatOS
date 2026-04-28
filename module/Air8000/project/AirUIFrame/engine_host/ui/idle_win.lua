@@ -402,20 +402,22 @@ local function update_time_date()
 end
 
 local function update_wifi_icon()
-    local level = StatusProvider.get_signal_level() or 0
+    local level = StatusProvider.get_wifi_signal_level() or 0
     if not wifi_img then return end
     local img_name = "wifixinhao" .. level .. ".png"
     wifi_img:set_src("/luadb/" .. img_name)
 end
 
 local function update_mobile_icon()
-    local level = StatusProvider.get_mobile_signal_level() or -1
+    local level = StatusProvider.get_signal_level() or -1
     if not mobile_img then return end
     local img_index
     if level == -1 then
         img_index = 6
+    elseif level == 1 then
+        img_index = 5
     else
-        img_index = level
+        img_index = level - 1
     end
     local img_name = "4Gxinhao" .. img_index .. ".png"
     mobile_img:set_src("/luadb/" .. img_name)
@@ -536,8 +538,8 @@ local function on_create()
 
     sys.timerLoopStart(update_time_date, 1000)
     sys.subscribe("STATUS_TIME_UPDATED", on_status_time_updated)
-    sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_wifi_updated)
-    sys.subscribe("STATUS_MOBILE_SIGNAL_UPDATED", on_status_mobile_updated)
+    sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_mobile_updated)
+    sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.subscribe("APP_STORE_INSTALLED_UPDATED", function()
         load_external_apps()
     end)
@@ -546,8 +548,8 @@ end
 local function on_destroy()
     sys.timerStop(update_time_date)
     sys.unsubscribe("STATUS_TIME_UPDATED", on_status_time_updated)
-    sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_wifi_updated)
-    sys.unsubscribe("STATUS_MOBILE_SIGNAL_UPDATED", on_status_mobile_updated)
+    sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_mobile_updated)
+    sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", load_external_apps)
 
     if tabview then tabview:destroy() end

@@ -78,7 +78,7 @@ local function create_ui()
         y = 14,
         w = 200,
         h = 40,
-        text = "声音与触摸",
+        text = "触摸音效",
         font_size = 32,
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_LEFT

@@ -13,11 +13,21 @@ local search_icon
 local mouse_img
 local move_timer
 
-local MOUSE_SPEED = 20          -- 鼠标移动速度（像素/步）
-local ZOOM_STEP1 = 350          -- 放大后的尺寸
-local ZOOM_NORMAL = 256         -- 正常尺寸
-local MOUSE_W = 32
-local MOUSE_H = 32
+local MOUSE_SPEED = 15           -- 鼠标移动速度（像素/步）
+local ZOOM_STEP1 = 450           -- 放大后的尺寸
+local ZOOM_NORMAL = 256          -- 正常尺寸
+local MOUSE_W = 36
+local MOUSE_H = 36
+
+
+local function resolution_adapt()
+    local scale = math.max(0.75, math.min(1.5, screen_h / 480))
+    MOUSE_SPEED = math.floor(15 * scale)
+    ZOOM_STEP1 = 256 + math.floor(128 * scale)
+    local mouse_size = math.floor(math.max(28, math.min(52, screen_h * 0.055)))
+    MOUSE_W = mouse_size
+    MOUSE_H = mouse_size
+end
 
 
 -- 鼠标移动完成后的动作：放大搜索图标，关闭窗口，发布事件
@@ -70,13 +80,15 @@ local function start_mouse_animation(icon_abs_x, icon_abs_y)
 end
 
 local function create_ui()
+    resolution_adapt()
+
     main_container = airui.container({
         parent = airui.screen, x = 0, y = 0, w = screen_w, h = screen_h,
         color = 0x3F51B5
     })
 
     local box_w = math.floor(math.min(400, screen_w * 0.8))
-    local box_h = math.floor(math.min(60, math.max(40, screen_h * 0.07)))
+    local box_h = math.floor(math.min(70, math.max(48, screen_h * 0.08)))
     local box_x = math.floor((screen_w - box_w) / 2)
     local box_y = math.floor((screen_h - box_h) / 2)
     local box_r = math.floor(box_h / 2)
@@ -86,11 +98,11 @@ local function create_ui()
         color = 0xFFFFFF, radius = box_r
     })
 
-    local icon_size = math.floor(math.min(32, box_h * 0.5))
+    local icon_size = math.floor(math.max(28, box_h * 0.7))
     local icon_padding = math.floor(box_h * 0.15)
     local icon_x = box_w - icon_size - icon_padding
     local icon_y = math.floor((box_h - icon_size) / 2)
-    local label_font = math.floor(math.min(24, box_h * 0.4))
+    local label_font = math.floor(math.max(16, box_h * 0.4))
 
     airui.label({
         parent = search_box, x = math.floor(box_h * 0.3), y = math.floor((box_h - label_font) / 2),

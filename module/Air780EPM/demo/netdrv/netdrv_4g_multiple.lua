@@ -32,10 +32,11 @@ local function lte_eth_setup()
     -- 初始化指定netdrv设备,
     -- socket.LWIP_ETH 网络适配器编号
     -- netdrv.CH390外挂CH390
-    -- SPI ID 1, 片选 GPIO12
+    -- SPI ID 1, 片选 GPIO12, 中断引脚 GPIO22
     netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {
         spi = 0,
-        cs = 8
+        cs = 8,
+        irq = 22
     })
     -- 确保ch390初始化完成,否则会出现netdrv.ipv4设置失败的情况
     sys.wait(1000)

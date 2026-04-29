@@ -40,7 +40,7 @@ local function http_download_file_task()
 
     -- 进行SPI初始化，Air8000开发板TF卡的CS脚为：SPI1，GPIO20
     local spi_id, pin_cs = 1, 20 
-    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    spi.setup(spi_id, nil, 0, 0, 8, 2000000)
     -- 同一spi总线上的所有从设备在初始化时必须要先拉高CS脚，防止从设备之间互相干扰。
     -- 在air8000开发板上，TF卡和ch390共用SPI1总线。
     gpio.setup(pin_cs, 1)

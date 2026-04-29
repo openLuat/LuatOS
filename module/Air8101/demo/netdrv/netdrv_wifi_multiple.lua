@@ -41,7 +41,8 @@ local function eth_lan_setup()
     -- SPI ID 1, 片选 GPIO12
     netdrv.setup(eth_adapter, netdrv.CH390, {
         spi = 0,
-        cs = 15
+        cs = 15,
+        irq = 8
     })
 end
 -- 确保ch390初始化完成,否则会出现netdrv.ipv4设置失败的情况

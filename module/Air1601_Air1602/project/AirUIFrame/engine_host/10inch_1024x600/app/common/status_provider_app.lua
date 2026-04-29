@@ -99,6 +99,8 @@ local function sta_event(evt, data)
     log.info("status_provider", "WLAN_STA_INC", evt, data)
     if evt == "CONNECTED" then
         wifi_connected = true
+        wifi_signal_level = 3
+        sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
         update_wifi_signal()
         if wifi_timer then
             sys.timerStop(update_wifi_signal)
@@ -225,7 +227,7 @@ local function update_time()
         end
     end
     -- 发布各时间相关事件
-    sys.publish("STATUS_TIME_UPDATED", current_time)
+    sys.publish("STATUS_TIME_UPDATED", current_time, current_date, current_weekday)
     sys.publish("STATUS_DATE_UPDATED", current_date)
     sys.publish("STATUS_WEEKDAY_UPDATED", current_weekday)
 end
@@ -293,7 +295,7 @@ local function init()
     if bsp == "PC" then
         -- PC模拟环境，不做实际WiFi初始化
         -- log.info("status_provider", "Running on PC, WiFi disabled")
-    elseif bsp == "Air8101" or bsp == "Air780E" or bsp == "Air101" then
+    elseif bsp == "Air8101" or bsp == "Air1601" or bsp == "Air1602" then
         -- 支持WiFi的平台
         sys.subscribe("WLAN_STA_INC", sta_event)
         local info = wlan.getInfo()

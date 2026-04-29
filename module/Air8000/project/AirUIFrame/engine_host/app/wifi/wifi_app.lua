@@ -277,38 +277,69 @@ end
 @return table {verified, ssid, signal} - 验证结果
 ]]
 local function auto_scan_and_verify()
-    log.info("wifi_app", "开始自动扫描并验证SSID")
-    
-    -- 执行扫描
-    sys.publish("WIFI_SCAN_REQ")
-    
-    -- 等待扫描完成事件
-    local scan_done, results = sys.waitUntil("WIFI_SCAN_DONE", 15000)
-    
-    if not scan_done then
-        log.error("wifi_app", "自动扫描超时")
-        return { verified = false, ssid = saved_config.ssid, signal = 0 }
-    end
-    
-    -- 验证保存的SSID是否在扫描结果中
-    local saved_ssid = saved_config.ssid
-    local found = false
-    local signal = 0
-    
-    for _, wifi in ipairs(results or {}) do
-        if wifi.ssid == saved_ssid then
-            found = true
-            signal = wifi.rssi or 0
-            log.info("wifi_app", "找到保存的SSID:", saved_ssid, "信号:", signal)
-            break
+    log.info("wifi_app", "开始自动扫描并查找最佳已保存网络")
+
+    -- 获取所有已保存网络
+    sys.publish("WIFI_STORAGE_GET_SAVED_LIST_REQ")
+    local got_list, saved_data = sys.waitUntil("WIFI_STORAGE_GET_SAVED_LIST_RSP", 3000)
+    local saved_list = (got_list and saved_data and saved_data.list) or {}
+
+    -- 如果有已保存的单个SSID，加入列表
+    if saved_config.ssid and saved_config.ssid ~= "" and saved_config.password and saved_config.password ~= "" then
+        local exists = false
+        for _, s in ipairs(saved_list) do
+            if s.ssid == saved_config.ssid then exists = true; break end
+        end
+        if not exists then
+            table.insert(saved_list, {ssid = saved_config.ssid, password = saved_config.password,
+                need_ping = saved_config.need_ping, local_network_mode = saved_config.local_network_mode,
+                ping_ip = saved_config.ping_ip, ping_time = saved_config.ping_time,
+                auto_socket_switch = saved_config.auto_socket_switch})
         end
     end
-    
-    if not found then
-        log.info("wifi_app", "未找到保存的SSID:", saved_ssid)
+
+    if #saved_list == 0 then
+        log.info("wifi_app", "没有已保存的网络")
+        return { verified = false }
     end
-    
-    return { verified = found, ssid = saved_ssid, signal = signal }
+
+    -- 扫描WiFi
+    sys.publish("WIFI_SCAN_REQ")
+    local scan_done, results = sys.waitUntil("WIFI_SCAN_DONE", 15000)
+
+    if not scan_done then
+        log.error("wifi_app", "自动扫描超时")
+        return { verified = false }
+    end
+
+    -- 在所有扫描结果中匹配已保存网络，选信号最强的
+    local best_ssid, best_password, best_rssi = nil, nil, -200
+    local best_config = nil
+
+    for _, wifi in ipairs(results or {}) do
+        for _, saved in ipairs(saved_list) do
+            if wifi.ssid == saved.ssid and (wifi.rssi or -200) > best_rssi then
+                best_ssid = saved.ssid
+                best_password = saved.password
+                best_rssi = wifi.rssi or -200
+                best_config = saved
+            end
+        end
+    end
+
+    if best_ssid then
+        log.info("wifi_app", "找到最佳已保存网络:", best_ssid, "信号:", best_rssi)
+        return {
+            verified = true,
+            ssid = best_ssid,
+            password = best_password,
+            signal = best_rssi,
+            config = best_config
+        }
+    end
+
+    log.info("wifi_app", "未在附近找到任何已保存网络")
+    return { verified = false }
 end
 
 --[[
@@ -316,43 +347,36 @@ end
 @summary 运行自动连接任务
 ]]
 local function run_auto_connect_task()
-    -- 检查WiFi开关状态
     if not saved_config.wifi_enabled then
         log.info("wifi_app", "WiFi开关已关闭，跳过自动连接")
         return
-    else
-        log.info("wifi_app", "WiFi 开关已打开，执行自动连接操作")
     end
 
-    -- 检查是否已连接WiFi
     if wifi_status.connected then
-        log.info("wifi_app", "已连接WiFi，只进行扫描刷新列表")
+        log.info("wifi_app", "已连接WiFi，刷新列表")
         sys.publish("WIFI_SCAN_REQ")
         return
     end
 
-    -- 检查是否有保存的SSID
-    if not saved_config.ssid or saved_config.ssid == "" then
-        log.info("wifi_app", "没有保存的SSID，跳过自动连接")
-        return
-    end
-
-    log.info("wifi_app", "开始执行开机自动连接")
-
-    -- 执行自动扫描并验证SSID
+    log.info("wifi_app", "开始执行开机自动连接（选择信号最强的已保存网络）")
     local verify_result = auto_scan_and_verify()
 
     if verify_result.verified then
-        log.info("wifi_app", "找到保存的SSID，开始自动连接")
-
-        -- 自动连接
+        log.info("wifi_app", "自动连接到最佳网络:", verify_result.ssid, "信号:", verify_result.signal)
         sys.publish("WIFI_CONNECT_REQ", {
-            ssid = saved_config.ssid,
-            password = saved_config.password
+            ssid = verify_result.ssid,
+            password = verify_result.password,
+            advanced_config = verify_result.config and {
+                need_ping = verify_result.config.need_ping,
+                local_network_mode = verify_result.config.local_network_mode,
+                ping_ip = verify_result.config.ping_ip,
+                ping_time = verify_result.config.ping_time,
+                auto_socket_switch = verify_result.config.auto_socket_switch,
+            }
         })
         log.info("wifi_app", "自动连接请求发送成功")
     else
-        log.info("wifi_app", "未找到保存的SSID，等待用户手动连接")
+        log.info("wifi_app", "附近没有已保存网络，等待手动连接")
     end
 end
 
@@ -688,6 +712,16 @@ end
 ]]
 local function init()
     log.info("wifi_app", "开始初始化")
+
+    -- Air1601/Air1602: 先控制GPIO55使能WiFi模块
+    if rtos.bsp() == "Air1601" or rtos.bsp() == "Air1602" then
+        gpio.setup(55, 0)
+        gpio.set(55, 0)
+        sys.wait(200)
+        gpio.set(55, 1)
+        log.info("wifi_app", "Air1601 GPIO55初始化完成")
+    end
+
     sys.subscribe("WIFI_STORAGE_INIT_RSP", on_storage_init_rsp)
     sys.publish("WIFI_STORAGE_INIT_REQ")
 end

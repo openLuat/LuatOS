@@ -81,7 +81,7 @@ local function update_wifi_signal()
     if not wifi_connected then
         if wifi_signal_level ~= 0 then
             wifi_signal_level = 0
-            sys.publish("STATUS_SIGNAL_UPDATED", wifi_signal_level)
+            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
         end
         return
     end
@@ -92,7 +92,7 @@ local function update_wifi_signal()
         local new_level = rssi_to_level(wifi_rssi)
         if wifi_signal_level ~= new_level then
             wifi_signal_level = new_level
-            sys.publish("STATUS_SIGNAL_UPDATED", wifi_signal_level)
+            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
         end
     else
         log.warn("status_provider", "Failed to get WiFi RSSI")
@@ -117,7 +117,7 @@ local function sta_event(evt, data)
         end
         if wifi_signal_level ~= 0 then
             wifi_signal_level = 0
-            sys.publish("STATUS_SIGNAL_UPDATED", wifi_signal_level)
+            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
         end
     end
 end

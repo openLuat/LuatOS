@@ -495,9 +495,9 @@ local function on_create()
     product_label = airui.label({
         parent = status_bar,
         x = 0,
-        y = math.floor((top_h - status_font_size) / 2),
-        w = screen_w - 100,
-        h = status_font_size + math.floor(4 * _G.density_scale),
+        y = product_label_y,
+        w = screen_w - (status_icon_size * 2 + math.floor(8 * _G.density_scale)) - math.floor(20 * _G.density_scale),
+        h = product_label_h,
         text = product_name,
         font_size = math.min(status_font_size, math.floor(20 * _G.density_scale)),
         color = COLOR_WHITE,

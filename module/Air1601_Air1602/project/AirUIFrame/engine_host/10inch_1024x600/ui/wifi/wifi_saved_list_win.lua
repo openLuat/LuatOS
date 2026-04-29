@@ -100,6 +100,7 @@ local function saved_list_create_ui()
         x = 0, y = TITLE_H,
         w = SCREEN_W, h = SCREEN_H - TITLE_H,
         color = COLOR_BG,
+        scrollable = true,
     })
     saved_list_content = airui.container({
         parent = saved_list_scroll_container,

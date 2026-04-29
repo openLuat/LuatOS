@@ -303,7 +303,8 @@ local function create_ui()
         parent = main_container,
         x = 0, y = title_h,
         w = screen_w, h = screen_h - title_h,
-        color = COLOR_BG
+        color = COLOR_BG,
+        scrollable = true,
     })
 
     -- 设备名称卡片

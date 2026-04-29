@@ -114,6 +114,7 @@ local function detail_create_ui()
         x = 0, y = TITLE_H,
         w = SCREEN_W, h = SCREEN_H - TITLE_H,
         color = COLOR_BG,
+        scrollable = true,
     })
 
     local detail_card = airui.container({

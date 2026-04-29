@@ -118,19 +118,23 @@ local function connect_create_ui()
         w = SCREEN_W, h = TITLE_H,
         color = COLOR_PRIMARY,
     })
-    airui.button({
+    local btn_back = airui.container({
         parent = title_bar,
-        x = 0, y = math.floor(10 * _G.density_scale),
-        w = math.floor(100 * _G.density_scale), h = TITLE_H - math.floor(10 * _G.density_scale),
-        text = "< 返回",
-        style = {
-            bg_opa = 0, pressed_bg_opa = 0,
-            text_color = COLOR_WHITE, pressed_text_color = COLOR_WHITE,
-            border_color = COLOR_PRIMARY,
-        },
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(50 * _G.density_scale), h = TITLE_H - math.floor(20 * _G.density_scale),
+        color = COLOR_PRIMARY,
         on_click = function()
             exwin.close(connect_win_id)
         end
+    })
+    airui.label({
+        parent = btn_back,
+        x = 0, y = math.floor(5 * _G.density_scale),
+        w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
+        text = "<",
+        font_size = math.floor(28 * _G.density_scale),
+        color = COLOR_WHITE,
+        align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
         parent = title_bar,

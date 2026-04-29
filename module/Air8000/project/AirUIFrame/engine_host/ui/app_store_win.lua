@@ -157,14 +157,14 @@ local function calc_layout()
     apps_grid_h = grid_area_h
     page_bar_w = apps_container_w
 
-    -- 网格列数（动态计算）
+    -- 网格列数（动态计算，最小卡片宽度乘以 density_scale 适配高密度屏）
     local min_card_w
     if is_landscape then
-        min_card_w = math.max(150, math.floor(screen_w * 0.18))
+        min_card_w = math.max(math.floor(150 * _G.density_scale), math.floor(screen_w * 0.18 * _G.density_scale))
     else
-        min_card_w = math.max(150, math.floor(screen_w * 0.30))
+        min_card_w = math.max(math.floor(150 * _G.density_scale), math.floor(screen_w * 0.30 * _G.density_scale))
     end
-    min_card_w = math.max(150, math.min(280, min_card_w))
+    min_card_w = math.max(math.floor(150 * _G.density_scale), math.min(math.floor(280 * _G.density_scale), min_card_w))
 
     grid_cols = math.max(1, math.floor(apps_grid_w / min_card_w))
 
@@ -565,7 +565,8 @@ local function create_ui()
         w = apps_container_w,
         h =
             apps_container_h - page_btn_h,
-        color = COLOR_BG
+        color = COLOR_BG,
+        scrollable = true,
     })
     apps_grid = airui.container({
         parent = apps_container,

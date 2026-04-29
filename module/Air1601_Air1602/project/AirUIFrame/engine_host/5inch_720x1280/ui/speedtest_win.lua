@@ -82,7 +82,8 @@ local function create_ui()
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = COLOR_CARD
+        color = COLOR_CARD,
+        scrollable = true,
     })
 
     local title_bar = airui.container({

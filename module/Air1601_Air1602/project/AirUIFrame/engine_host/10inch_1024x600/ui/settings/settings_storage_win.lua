@@ -215,8 +215,24 @@ local function create_ui()
     local card_h = math.floor(screen_h * 0.20)
     if card_h < 140 then card_h = 140 end
     if card_h > 260 then card_h = 260 end
-    STORAGE_CARD_H = card_h
-    MEMORY_CARD_H = card_h
+
+    local s_pad = math.floor(10 * _G.density_scale)
+    local s_row_h = math.floor(28 * _G.density_scale)
+    local s_bar_h = math.floor(18 * _G.density_scale)
+    local s_small_h = math.floor(22 * _G.density_scale)
+    local s_gap = math.floor(6 * _G.density_scale)
+    local y_free = s_pad + s_row_h + s_gap + s_bar_h + math.floor(2 * _G.density_scale) + s_small_h + s_gap + s_small_h + s_gap
+    local s_total = y_free + s_small_h + s_pad
+    STORAGE_CARD_H = math.max(card_h, s_total)
+
+    local m_pad = math.floor(12 * _G.density_scale)
+    local m_title_h = math.floor(30 * _G.density_scale)
+    local m_info_h = math.floor(35 * _G.density_scale)
+    local m_bar_h = math.floor(18 * _G.density_scale)
+    local m_gap = math.floor(4 * _G.density_scale)
+    local y_bar = m_pad + m_title_h + m_gap + m_info_h + m_gap + m_info_h + m_gap + m_info_h + m_gap
+    local m_total = y_bar + m_bar_h + m_pad + math.floor(8 * _G.density_scale)
+    MEMORY_CARD_H = math.max(card_h, m_total)
 
     main_container = airui.container({
         parent = airui.screen,
@@ -258,25 +274,20 @@ local function create_ui()
         align = airui.TEXT_ALIGN_LEFT
     })
 
-    -- 内容容器（不使用滚动，直接放置所有卡片）
+    -- 内容容器（支持滚动，防止高密度屏下内容溢出）
     local title_h = math.floor(60 * _G.density_scale)
     local content = airui.container({
         parent = main_container,
         x = 0, y = title_h,
         w = screen_w, h = screen_h - title_h,
-        color = COLOR_BG
+        color = COLOR_BG,
+        scrollable = true
     })
 
     local card_gap = math.floor(margin * 0.7)
     local current_y = margin
 
-    -- 存储卡片内部相对布局
-    local s_pad = math.floor(10 * _G.density_scale)
-    local s_row_h = math.floor(28 * _G.density_scale)
-    local s_bar_h = math.floor(18 * _G.density_scale)
-    local s_small_h = math.floor(22 * _G.density_scale)
-    local s_gap = math.floor(6 * _G.density_scale)
-
+    -- 存储卡片内部相对布局（变量已在上方预计算）
     local y_title = s_pad
     local y_bar = y_title + s_row_h + s_gap
     local y_percent = y_bar + s_bar_h + math.floor(2 * _G.density_scale)

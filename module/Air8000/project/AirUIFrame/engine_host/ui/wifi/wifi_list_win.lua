@@ -272,6 +272,7 @@ local function list_create_ui()
         x = 0, y = TITLE_H,
         w = SCREEN_W, h = SCREEN_H - TITLE_H,
         color = COLOR_BG,
+        scrollable = true,
     })
 
     -- WiFi开关卡片
@@ -381,10 +382,11 @@ local function list_create_ui()
         w = math.floor(60 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "刷新",
         style = {
-            bg_color = COLOR_BG, border_color = COLOR_BG,
-            text_color = COLOR_PRIMARY,
-            pressed_bg_color = COLOR_DIVIDER, pressed_text_color = COLOR_PRIMARY,
+            bg_color = COLOR_PRIMARY,
+            pressed_bg_color = COLOR_PRIMARY_DARK,
+            text_color = COLOR_WHITE,
         },
+        font_size = math.floor(16 * _G.density_scale),
         on_click = function()
             if current_config and current_config.wifi_enabled then
                 sys.publish("WIFI_SCAN_REQ")

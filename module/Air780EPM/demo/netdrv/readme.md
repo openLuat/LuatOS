@@ -89,4 +89,3 @@ netdrv_eth_multiple：
 模块以太网口WAN接路由器LAN口，这里使用电脑连接模块LAN口，dhcp获取到ip，测试网络正常
 ![](https://docs.openluat.com/air780epm/luatos/app/socket/netdrv/image/780epm-netdrv3.png)
 
-

@@ -608,8 +608,10 @@ static void voip_stop_audio(voip_ctx_t *ctx)
     luat_audio_record_stop(ctx->config.multimedia_id);
 
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
+#if defined(LUAT_USE_I2S)
         luat_i2s_load_old_config(audio_conf->codec_conf.i2s_id);
         ctx->i2s_config_saved = 0;
+#endif
     } else {
 #if defined(LUAT_USE_DAC)
         luat_dac_close(0);

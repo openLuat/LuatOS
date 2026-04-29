@@ -48,11 +48,16 @@ local time_timer = nil
 local external_apps_cache = {}
 local page_grids = {}
 
-local COLOR_PRIMARY = 0x3F51B5
-local COLOR_BG = 0xF8F9FA
-local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x000000
-local COLOR_TEXT_SECONDARY = 0x666666
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_PRIMARY_DARK   = 0x0056B3
+local COLOR_ACCENT         = 0xFF9800
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_DIVIDER        = 0xE0E0E0
+local COLOR_WHITE          = 0xFFFFFF
+local COLOR_DANGER         = 0xE63946
 
 local product_name = "合宙引擎主机"
 local ok, model = pcall(hmeta.model)
@@ -182,7 +187,7 @@ local function build_home_page(page_container)
         size = qr_size,
         data = "https://docs.openluat.com/",
         dark_color = 0x000000,
-        light_color = 0xFFFFFF,
+            light_color = COLOR_WHITE,
         quiet_zone = true
     })
     airui.label({
@@ -193,7 +198,7 @@ local function build_home_page(page_container)
         h = math.floor(22 * _G.density_scale),
         text = "资料中心",
         font_size = math.floor(14 * _G.density_scale),
-        color = 0x3d3d3d,
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_CENTER
     })
 
@@ -493,7 +498,7 @@ local function on_create()
         h = status_font_size + math.floor(4 * _G.density_scale),
         text = product_name,
         font_size = math.min(status_font_size, math.floor(20 * _G.density_scale)),
-        color = 0xfefefe,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_CENTER
     })
 

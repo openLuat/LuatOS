@@ -78,14 +78,16 @@ local current_query = ""
 local local_installed_ids = {}
 
 -- 使用颜色
-local COLOR_PRIMARY = 0x2196F3
-local COLOR_PRIMARY_DARK = 0x0B5E9E
+local COLOR_PRIMARY = 0x007AFF
+local COLOR_PRIMARY_DARK = 0x0056B3
 local COLOR_ACCENT = 0xFF9800
 local COLOR_BG = 0xF5F5F5
 local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x212121
+local COLOR_TEXT = 0x333333
 local COLOR_TEXT_SECONDARY = 0x757575
 local COLOR_DIVIDER = 0xE0E0E0
+local COLOR_WHITE = 0xFFFFFF
+local COLOR_DANGER = 0xE63946
 
 local categories = { "全部", "已安装", "通信","工具", "游戏", "工业", "健康" }
 local pending_icon_updates = {}
@@ -368,7 +370,7 @@ local function create_ui()
         h = top_item_h,
         text = "←",
         font_size = math.min(math.floor(24 * _G.density_scale), math.floor((top_item_h - 4) * _G.density_scale)),
-        style = { bg_color = 0xEEEEEE, pressed_bg_color = COLOR_DIVIDER, text_color = COLOR_TEXT, radius = top_item_r, border_width = 1, border_color = COLOR_DIVIDER, pad = 0 },
+        style = { bg_color = COLOR_DIVIDER, pressed_bg_color = COLOR_DIVIDER, text_color = COLOR_TEXT, radius = top_item_r, border_width = 1, border_color = COLOR_DIVIDER, pad = 0 },
         on_click = function()
             if win_id then
                 exapp.init()
@@ -385,7 +387,7 @@ local function create_ui()
         y = top_item_y,
         w = search_bg_w_eff,
         h = search_bg_h_eff,
-        color = 0xEEEEEE,
+        color = COLOR_DIVIDER,
         radius = top_item_r,
         border_width = 1,
         border_color = COLOR_DIVIDER
@@ -411,7 +413,7 @@ local function create_ui()
         h = top_item_h,
         text = "搜索",
         font_size = button_font_size,
-        style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = 0xFFFFFF, radius = top_item_r, border_width = 0, pad = 4 },
+        style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE, radius = top_item_r, border_width = 0, pad = 4 },
         on_click = function()
             local q = (search_input and search_input:get_text()) or ""
             current_query = q or ""
@@ -441,7 +443,7 @@ local function create_ui()
         h = sort_btn_h,
         options = { "推荐", "序号", "上传时间(旧)", "上传时间(新)", "热度", "下载量", "更新优先" },
         default_index = 0,
-        style = { bg_color = 0xFFFFFF, border_color = COLOR_DIVIDER, radius = sort_btn_radius },
+        style = { bg_color = COLOR_CARD, border_color = COLOR_DIVIDER, radius = sort_btn_radius },
         on_change = function(self, idx, value)
             local sort_map = { "recommend", "idAsc", "timeAsc", "timeDesc", "hot", "downloads", "updatePriority" }
             current_sort = sort_map[idx + 1] or "recommend"
@@ -457,7 +459,7 @@ local function create_ui()
         h = sort_btn_h,
         text = "刷新",
         font_size = button_font_size,
-        style = { bg_color = 0xEEEEEE, pressed_bg_color = COLOR_DIVIDER, text_color = COLOR_TEXT, radius = sort_btn_radius, border_width = 1, border_color = COLOR_DIVIDER },
+        style = { bg_color = COLOR_DIVIDER, pressed_bg_color = COLOR_DIVIDER, text_color = COLOR_TEXT, radius = sort_btn_radius, border_width = 1, border_color = COLOR_DIVIDER },
         on_click = function()
             current_page = 1
             sys.publish("APP_STORE_GET_LIST", current_category, current_sort, current_page, page_limit, current_query)
@@ -480,9 +482,9 @@ local function create_ui()
             text = cat,
             font_size = button_font_size,
             style = {
-                bg_color = (cat == current_category) and COLOR_PRIMARY or 0xFFFFFF,
+                bg_color = (cat == current_category) and COLOR_PRIMARY or COLOR_CARD,
                 pressed_bg_color = COLOR_PRIMARY_DARK,
-                text_color = (cat == current_category) and 0xFFFFFF or COLOR_TEXT,
+                text_color = (cat == current_category) and COLOR_WHITE or COLOR_TEXT,
                 radius = cat_radius,
                 border_width = 1,
                 border_color = COLOR_DIVIDER,
@@ -493,7 +495,7 @@ local function create_ui()
                 current_category = cat
                 for idx, btn_obj in ipairs(category_btns) do
                     local active = (categories[idx] == cat)
-                    btn_obj:set_style({ bg_color = active and COLOR_PRIMARY or 0xFFFFFF, text_color = active and 0xFFFFFF or COLOR_TEXT })
+                    btn_obj:set_style({ bg_color = active and COLOR_PRIMARY or COLOR_CARD, text_color = active and COLOR_WHITE or COLOR_TEXT })
                 end
                 current_page = 1
                 sys.publish("APP_STORE_GET_LIST", current_category, current_sort, current_page, page_limit, current_query)
@@ -528,7 +530,7 @@ local function create_ui()
         h = page_nav_btn_h,
         text = "上一页",
         font_size = math.max(math.floor(14 * _G.density_scale), button_font_size - math.floor(4 * _G.density_scale)),
-        style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = 0xFFFFFF, radius = page_nav_radius, border_width = 0 },
+        style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE, radius = page_nav_radius, border_width = 0 },
         on_click = function()
             if current_page > 1 then
                 current_page = current_page - 1
@@ -545,7 +547,7 @@ local function create_ui()
         h = page_nav_btn_h,
         text = "下一页",
         font_size = math.max(math.floor(14 * _G.density_scale), button_font_size - math.floor(4 * _G.density_scale)),
-        style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = 0xFFFFFF, radius = page_nav_radius, border_width = 0 },
+        style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE, radius = page_nav_radius, border_width = 0 },
         on_click = function()
             if has_more then
                 current_page = current_page + 1
@@ -699,7 +701,7 @@ local function render_apps(apps, more)
                     h = btn_height,
                     text = "更新",
                     font_size = button_font_size,
-                    style = { bg_color = COLOR_ACCENT, pressed_bg_color = 0xE68900, text_color = 0xFFFFFF, radius = 16, border_width = 0 },
+                    style = { bg_color = COLOR_ACCENT, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE, radius = 16, border_width = 0 },
                     on_click = function()
                         local msgbox = airui.msgbox({
                             title = "确认更新",
@@ -725,7 +727,7 @@ local function render_apps(apps, more)
                     h = btn_height,
                     text = "卸载",
                     font_size = button_font_size,
-                    style = { bg_color = 0xF44336, pressed_bg_color = 0xD32F2F, text_color = 0xFFFFFF, radius = 16, border_width = 0 },
+                    style = { bg_color = COLOR_DANGER, pressed_bg_color = COLOR_DANGER, text_color = COLOR_WHITE, radius = 16, border_width = 0 },
                     on_click = function()
                         local msgbox = airui.msgbox({
                             title = "确认卸载",
@@ -751,7 +753,7 @@ local function render_apps(apps, more)
                     h = btn_height,
                     text = "卸载",
                     font_size = button_font_size,
-                    style = { bg_color = 0xF44336, pressed_bg_color = 0xD32F2F, text_color = 0xFFFFFF, radius = 16, border_width = 0 },
+                    style = { bg_color = COLOR_DANGER, pressed_bg_color = COLOR_DANGER, text_color = COLOR_WHITE, radius = 16, border_width = 0 },
                     on_click = function()
                         local msgbox = airui.msgbox({
                             title = "确认卸载",
@@ -778,7 +780,7 @@ local function render_apps(apps, more)
                 h = btn_height,
                 text = "安装",
                 font_size = button_font_size,
-                style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = 0xFFFFFF, radius = 16, border_width = 0 },
+                style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE, radius = 16, border_width = 0 },
                 on_click = function()
                     local msgbox = airui.msgbox({
                         title = "确认安装",

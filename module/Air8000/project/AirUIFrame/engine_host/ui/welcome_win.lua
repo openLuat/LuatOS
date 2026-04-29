@@ -13,12 +13,20 @@ local search_icon
 local mouse_img
 local move_timer
 
-local MOUSE_SPEED = 15           -- 鼠标移动速度（像素/步）
-local ZOOM_STEP1 = 450           -- 放大后的尺寸
-local ZOOM_NORMAL = 256          -- 正常尺寸
+local MOUSE_SPEED = 15
+local ZOOM_STEP1 = 450
+local ZOOM_NORMAL = 256
 local MOUSE_W = 36
 local MOUSE_H = 36
 
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_WHITE          = 0xFFFFFF
+
+local product_name = "合宙引擎主机"
 
 local function resolution_adapt()
     local ds = _G.density_scale or 1.0
@@ -27,6 +35,12 @@ local function resolution_adapt()
     local mouse_size = math.floor(math.max(28, math.min(52, screen_h * 0.055)) * ds)
     MOUSE_W = mouse_size
     MOUSE_H = mouse_size
+
+    local ok, model = pcall(hmeta.model)
+    if ok and model then
+        local suffix = tostring(model):gsub("^Air", "")
+        product_name = "合宙引擎主机" .. suffix
+    end
 end
 
 
@@ -84,7 +98,7 @@ local function create_ui()
 
     main_container = airui.container({
         parent = airui.screen, x = 0, y = 0, w = screen_w, h = screen_h,
-        color = 0x3F51B5
+        color = COLOR_PRIMARY
     })
 
     local box_w = math.floor(math.min(400, screen_w * 0.8))
@@ -95,7 +109,7 @@ local function create_ui()
 
     search_box = airui.container({
         parent = main_container, x = box_x, y = box_y, w = box_w, h = box_h,
-        color = 0xFFFFFF, radius = box_r
+        color = COLOR_CARD, radius = box_r
     })
 
     local icon_size = math.floor(math.max(28, box_h * 0.7) * _G.density_scale)
@@ -107,7 +121,7 @@ local function create_ui()
     airui.label({
         parent = search_box, x = math.floor(box_h * 0.3), y = math.floor((box_h - label_font) / 2),
         w = box_w - icon_size - icon_padding - math.floor(box_h * 0.5), h = label_font + 4,
-        text = "合宙turnkey开发板", font_size = label_font, color = 0x666666,
+        text = product_name, font_size = label_font, color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
 

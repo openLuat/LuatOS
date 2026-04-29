@@ -8,6 +8,7 @@
 require "settings_display_win"
 require "settings_storage_win"
 require "settings_about_win"
+require "settings_sound_win"
 require "wifi_list_win"
 
 local win_id = nil
@@ -17,6 +18,14 @@ local margin = 10
 local card_w = 460
 local card_h = 70
 local card_spacing = 20
+
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_DIVIDER        = 0xE0E0E0
+local COLOR_WHITE          = 0xFFFFFF
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
@@ -38,7 +47,7 @@ local function create_ui()
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF5F5F5
+        color = COLOR_BG
     })
 
     -- 标题栏
@@ -46,13 +55,13 @@ local function create_ui()
         parent = main_container,
         x = 0, y = 0,
         w = screen_w, h = math.floor(60 * _G.density_scale),
-        color = 0x3F51B5
+        color = COLOR_PRIMARY
     })
     local btn_back = airui.container({
         parent = title_bar,
         x = 10, y = 10,
         w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
-        color = 0x3F51B5,
+        color = COLOR_PRIMARY,
         on_click = function() exwin.close(win_id) end
     })
     airui.label({
@@ -61,7 +70,7 @@ local function create_ui()
         w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "<",
         font_size = math.floor(28 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
@@ -70,7 +79,7 @@ local function create_ui()
         w = math.floor(100 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "设置",
         font_size = math.floor(32 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_LEFT
     })
 
@@ -79,7 +88,7 @@ local function create_ui()
         parent = main_container,
         x = 0, y = title_h,
         w = screen_w, h = screen_h - title_h,
-        color = 0xF5F5F5
+        color = COLOR_BG
     })
 
     local function create_setting_card(y, title, on_click)
@@ -87,26 +96,28 @@ local function create_ui()
             parent = content,
             x = margin, y = y,
             w = card_w, h = card_h,
-            color = 0xFFFFFF,
+            color = COLOR_WHITE,
             radius = 8,
             on_click = on_click
         })
+        local label_h = math.floor(30 * _G.density_scale)
+        local label_y = math.floor((card_h - label_h) / 2)
         airui.label({
             parent = card,
-            x = math.floor(20 * _G.density_scale), y = (card_h - math.floor(30 * _G.density_scale))/2 + math.floor(8 * _G.density_scale),
-            w = math.floor(200 * _G.density_scale), h = math.floor(30 * _G.density_scale),
+            x = math.floor(20 * _G.density_scale), y = label_y,
+            w = math.floor(200 * _G.density_scale), h = label_h,
             text = title,
             font_size = math.floor(24 * _G.density_scale),
-            color = 0x333333,
+            color = COLOR_TEXT,
             align = airui.TEXT_ALIGN_LEFT
         })
         airui.label({
             parent = card,
-            x = card_w - math.floor(50 * _G.density_scale), y = (card_h - math.floor(30 * _G.density_scale))/2 + math.floor(8 * _G.density_scale),
-            w = math.floor(30 * _G.density_scale), h = math.floor(30 * _G.density_scale),
+            x = card_w - math.floor(50 * _G.density_scale), y = label_y,
+            w = math.floor(30 * _G.density_scale), h = label_h,
             text = ">",
             font_size = math.floor(24 * _G.density_scale),
-            color = 0x999999,
+            color = COLOR_TEXT_SECONDARY,
             align = airui.TEXT_ALIGN_CENTER
         })
     end
@@ -128,6 +139,8 @@ local function create_ui()
             on_action = function(self) self:destroy() end
         })
     end)
+    y = y + card_h + card_spacing
+    create_setting_card(y, "触摸音效", function() sys.publish("OPEN_SOUND_WIN") end)
     y = y + card_h + card_spacing
     create_setting_card(y, "关于设置", function() sys.publish("OPEN_ABOUT_WIN") end)
 end

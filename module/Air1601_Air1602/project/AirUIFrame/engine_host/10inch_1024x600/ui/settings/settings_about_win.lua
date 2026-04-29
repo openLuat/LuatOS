@@ -25,6 +25,17 @@ local screen_w, screen_h = 480, 800
 local margin = 15
 local card_w = 460
 
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_PRIMARY_DARK   = 0x0056B3
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_DIVIDER        = 0xE0E0E0
+local COLOR_WHITE          = 0xFFFFFF
+
+local product_name = "合宙引擎主机"
+
 local function update_screen_size()
     local rotation = airui.get_rotation()
     local phys_w, phys_h = lcd.getSize()
@@ -65,7 +76,7 @@ local function create_clickable_row(parent, y, label_text, on_click)
         x = 0, y = y,
         w = card_w,
         h = math.floor(50 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         on_click = on_click
     })
     airui.label({
@@ -74,7 +85,7 @@ local function create_clickable_row(parent, y, label_text, on_click)
         w = math.floor(150 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = label_text,
         font_size = math.floor(22 * _G.density_scale),
-        color = 0x333333,
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
     airui.label({
@@ -83,7 +94,7 @@ local function create_clickable_row(parent, y, label_text, on_click)
         w = math.floor(40 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = ">",
         font_size = math.floor(22 * _G.density_scale),
-        color = 0x999999,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_RIGHT
     })
     return row
@@ -100,7 +111,7 @@ local function create_info_row(parent, y, label_text, value_text)
         x = 0, y = y,
         w = card_w,
         h = row_height,
-        color = 0xFFFFFF
+        color = COLOR_CARD
     })
     airui.label({
         parent = row,
@@ -108,7 +119,7 @@ local function create_info_row(parent, y, label_text, value_text)
         w = math.floor(150 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = label_text,
         font_size = math.floor(22 * _G.density_scale),
-        color = 0x333333,
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
     local value_label = airui.label({
@@ -118,7 +129,7 @@ local function create_info_row(parent, y, label_text, value_text)
         h = value_height,
         text = value_text,
         font_size = math.floor(22 * _G.density_scale),
-        color = 0x666666,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_RIGHT,
         long_mode = true
     })
@@ -146,10 +157,10 @@ local function create_edit_win(default_name)
         close_btn = false,
         auto_center = true,
         style = {
-            bg_color = 0xFFFFFF,
-            header_bg_color = 0x3F51B5,
-            content_bg_color = 0xFFFFFF,
-            title_text_color = 0xFFFFFF,
+            bg_color = COLOR_CARD,
+            header_bg_color = COLOR_PRIMARY,
+            content_bg_color = COLOR_CARD,
+            title_text_color = COLOR_WHITE,
             radius = 12,
             title_align = airui.TEXT_ALIGN_CENTER,
             header_height = math.floor(50 * _G.density_scale),
@@ -185,12 +196,12 @@ local function create_edit_win(default_name)
         text = "返回",
         font_size = math.floor(20 * _G.density_scale),
         style = {
-            bg_color = 0xE0E0E0,
-            pressed_bg_color = 0xBDBDBD,
-            text_color = 0x333333,
+            bg_color = COLOR_DIVIDER,
+            pressed_bg_color = COLOR_DIVIDER,
+            text_color = COLOR_TEXT,
             radius = 8,
             border_width = 1,
-            border_color = 0xBDBDBD
+            border_color = COLOR_DIVIDER
         },
         on_click = function()
             if edit_win then edit_win:close() end
@@ -203,9 +214,9 @@ local function create_edit_win(default_name)
         text = "保存",
         font_size = math.floor(20 * _G.density_scale),
         style = {
-            bg_color = 0x2196F3,
-            pressed_bg_color = 0x1976D2,
-            text_color = 0xFFFFFF,
+            bg_color = COLOR_PRIMARY,
+            pressed_bg_color = COLOR_PRIMARY_DARK,
+            text_color = COLOR_WHITE,
             radius = 8,
             border_width = 0
         },
@@ -239,10 +250,17 @@ end
 
 local function create_ui()
     update_screen_size()
+
+    local ok, model = pcall(hmeta.model)
+    if ok and model then
+        local suffix = tostring(model):gsub("^Air", "")
+        product_name = "合宙引擎主机" .. suffix
+    end
+
     main_container = airui.container({
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF5F5F5,
+        color = COLOR_BG,
         parent = airui.screen
     })
 
@@ -251,13 +269,13 @@ local function create_ui()
         parent = main_container,
         x = 0, y = 0,
         w = screen_w, h = math.floor(60 * _G.density_scale),
-        color = 0x3F51B5
+        color = COLOR_PRIMARY
     })
     local btn_back = airui.container({
         parent = title_bar,
         x = 10, y = 10,
         w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
-        color = 0x3F51B5,
+        color = COLOR_PRIMARY,
         on_click = function() exwin.close(win_id) end
     })
     airui.label({
@@ -266,7 +284,7 @@ local function create_ui()
         w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "<",
         font_size = math.floor(28 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
@@ -275,7 +293,7 @@ local function create_ui()
         w = math.floor(200 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "关于设备",
         font_size = math.floor(32 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_LEFT
     })
 
@@ -285,7 +303,7 @@ local function create_ui()
         parent = main_container,
         x = 0, y = title_h,
         w = screen_w, h = screen_h - title_h,
-        color = 0xF5F5F5
+        color = COLOR_BG
     })
 
     -- 设备名称卡片
@@ -293,7 +311,7 @@ local function create_ui()
         parent = content,
         x = margin, y = math.floor(20 * _G.density_scale),
         w = card_w, h = math.floor(70 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         radius = 8
     })
     create_clickable_row(card_device_name, math.floor(10 * _G.density_scale), "设备名称", function()
@@ -304,9 +322,9 @@ local function create_ui()
         parent = card_device_name,
         x = math.floor(90 * _G.density_scale), y = math.floor(20 * _G.density_scale),
         w = card_w - math.floor(130 * _G.density_scale), h = math.floor(30 * _G.density_scale),
-        text = "--",
+        text = product_name,
         font_size = math.floor(22 * _G.density_scale),
-        color = 0x666666,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_RIGHT
     })
 
@@ -315,7 +333,7 @@ local function create_ui()
         parent = content,
         x = margin, y = math.floor(110 * _G.density_scale),
         w = card_w, h = math.floor(380 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         radius = 8
     })
     -- 删除内存信息可点击行，直接显示设备信息

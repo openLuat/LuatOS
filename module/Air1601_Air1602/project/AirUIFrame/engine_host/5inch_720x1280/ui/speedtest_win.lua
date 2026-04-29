@@ -21,21 +21,15 @@ local screen_w, screen_h = 480, 800
 local margin = 15
 local title_h = 60
 
-local COLORS = {
-    download_green = 0x1E6F5C,
-    upload_red = 0xC4452C,
-    primary_dark = 0x222F44,
-    text_primary = 0x1E2A44,
-    text_secondary = 0x6A7A99,
-    text_aux = 0x2C3E66,
-    text_label = 0x7A89A8,
-    white = 0xFFFFFF,
-    bg_card = 0xF8FAFE,
-    border = 0xEFF3F9,
-    success = 0x27AE60,
-    warning = 0xE67E22,
-    danger = 0xEF4444
-}
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_PRIMARY_DARK   = 0x0056B3
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_DIVIDER        = 0xE0E0E0
+local COLOR_WHITE          = 0xFFFFFF
+local COLOR_DANGER         = 0xE63946
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
@@ -88,20 +82,20 @@ local function create_ui()
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = COLORS.white
+        color = COLOR_CARD
     })
 
     local title_bar = airui.container({
         parent = main_container,
         x = 0, y = 0,
         w = screen_w, h = math.floor(title_h * _G.density_scale),
-        color = 0x3F51B5
+        color = COLOR_PRIMARY
     })
     local btn_back = airui.container({
         parent = title_bar,
         x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
-        color = 0x3F51B5,
+        color = COLOR_PRIMARY,
         on_click = function()
             if win_id then exwin.close(win_id) end
         end
@@ -112,7 +106,7 @@ local function create_ui()
         w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "<",
         font_size = math.floor(28 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
@@ -121,7 +115,7 @@ local function create_ui()
         w = math.floor(140 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "网络测速",
         font_size = math.floor(32 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_LEFT
     })
 
@@ -129,7 +123,7 @@ local function create_ui()
     local content_h = screen_h - content_y
 
     local card_w = math.floor((screen_w - margin * 3) / 2)
-    local card_h = math.floor(content_h * 0.35)
+    local card_h = math.min(math.floor(content_h * 0.35), math.floor(250 * _G.density_scale))
 
     local aux_w = card_w
     local aux_h = math.floor(card_h * 0.65)
@@ -146,7 +140,7 @@ local function create_ui()
         y = card_y,
         w = card_w,
         h = card_h,
-        color = COLORS.bg_card,
+        color = COLOR_CARD,
         radius = 48
     })
     local icon_size = math.floor(math.min(math.floor(40 * _G.density_scale), math.floor(card_w * 0.19 * _G.density_scale)))
@@ -159,7 +153,7 @@ local function create_ui()
         h = math.floor(card_h * 0.12),
         text = "下载速度",
         font_size = math.floor(card_h * 0.09 * _G.density_scale),
-        color = COLORS.text_secondary,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
     download_label = airui.label({
@@ -169,8 +163,8 @@ local function create_ui()
         w = card_w,
         h = math.floor(card_h * 0.28),
         text = "--",
-        font_size = math.floor(card_h * 0.26 * _G.density_scale),
-        color = COLORS.download_green,
+        font_size = math.min(math.floor(card_h * 0.3), math.floor(60 * _G.density_scale)),
+        color = COLOR_PRIMARY,
         align = airui.TEXT_ALIGN_CENTER
     })
     download_unit_label = airui.label({
@@ -180,8 +174,8 @@ local function create_ui()
         w = card_w,
         h = math.floor(card_h * 0.12),
         text = "Kbps",
-        font_size = math.floor(card_h * 0.09 * _G.density_scale),
-        color = COLORS.text_secondary,
+        font_size = math.min(math.floor(card_h * 0.09), math.floor(20 * _G.density_scale)),
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
 
@@ -191,7 +185,7 @@ local function create_ui()
         y = card_y,
         w = card_w,
         h = card_h,
-        color = COLORS.bg_card,
+        color = COLOR_CARD,
         radius = 48
     })
     airui.label({
@@ -202,7 +196,7 @@ local function create_ui()
         h = math.floor(card_h * 0.12),
         text = "上传速度",
         font_size = math.floor(card_h * 0.09 * _G.density_scale),
-        color = COLORS.text_secondary,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
     upload_label = airui.label({
@@ -212,8 +206,8 @@ local function create_ui()
         w = card_w,
         h = math.floor(card_h * 0.28),
         text = "--",
-        font_size = math.floor(card_h * 0.26 * _G.density_scale),
-        color = COLORS.upload_red,
+        font_size = math.min(math.floor(card_h * 0.3), math.floor(60 * _G.density_scale)),
+        color = COLOR_DANGER,
         align = airui.TEXT_ALIGN_CENTER
     })
     upload_unit_label = airui.label({
@@ -223,8 +217,8 @@ local function create_ui()
         w = card_w,
         h = math.floor(card_h * 0.12),
         text = "Kbps",
-        font_size = math.floor(card_h * 0.09 * _G.density_scale),
-        color = COLORS.text_secondary,
+        font_size = math.min(math.floor(card_h * 0.09), math.floor(20 * _G.density_scale)),
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
 
@@ -235,7 +229,7 @@ local function create_ui()
         y = aux_y,
         w = aux_w,
         h = aux_h,
-        color = COLORS.bg_card,
+        color = COLOR_CARD,
         radius = 36
     })
     airui.label({
@@ -246,7 +240,7 @@ local function create_ui()
         h = math.floor(aux_h * 0.16),
         text = "延迟 (Ping)",
         font_size = math.floor(aux_h * 0.11 * _G.density_scale),
-        color = COLORS.text_label,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
     ping_label = airui.label({
@@ -257,7 +251,7 @@ local function create_ui()
         h = math.floor(aux_h * 0.32),
         text = "--",
         font_size = math.floor(aux_h * 0.24 * _G.density_scale),
-        color = COLORS.text_aux,
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
@@ -268,7 +262,7 @@ local function create_ui()
         h = math.floor(aux_h * 0.16),
         text = "ms",
         font_size = math.floor(aux_h * 0.12 * _G.density_scale),
-        color = COLORS.text_label,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
 
@@ -278,7 +272,7 @@ local function create_ui()
         y = aux_y,
         w = aux_w,
         h = aux_h,
-        color = COLORS.bg_card,
+        color = COLOR_CARD,
         radius = 36
     })
     airui.label({
@@ -289,7 +283,7 @@ local function create_ui()
         h = math.floor(aux_h * 0.16),
         text = "抖动 (Jitter)",
         font_size = math.floor(aux_h * 0.11 * _G.density_scale),
-        color = COLORS.text_label,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
     jitter_label = airui.label({
@@ -300,7 +294,7 @@ local function create_ui()
         h = math.floor(aux_h * 0.32),
         text = "--",
         font_size = math.floor(aux_h * 0.24 * _G.density_scale),
-        color = COLORS.text_aux,
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
@@ -311,7 +305,7 @@ local function create_ui()
         h = math.floor(aux_h * 0.16),
         text = "ms",
         font_size = math.floor(aux_h * 0.12 * _G.density_scale),
-        color = COLORS.text_label,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
 
@@ -324,8 +318,8 @@ local function create_ui()
         h = button_h,
         text = "开始测速",
         font_size = math.floor(button_h * 0.35 * _G.density_scale),
-        font_color = COLORS.white,
-        bg_color = COLORS.primary_dark,
+        font_color = COLOR_WHITE,
+        bg_color = COLOR_PRIMARY,
         radius = button_h / 2,
         on_click = function()
             sys.publish("SPEEDTEST_START")
@@ -341,7 +335,7 @@ local function create_ui()
         h = math.floor(screen_h * 0.04),
         text = "就绪",
         font_size = math.floor(screen_h * 0.022 * _G.density_scale),
-        color = COLORS.text_secondary,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
 end
@@ -349,7 +343,7 @@ end
 local function on_spdtest_started()
     if start_btn then
         start_btn:set_text("测速中...")
-        start_btn:set_style({ bg_color = COLORS.text_secondary })
+        start_btn:set_style({ bg_color = COLOR_TEXT_SECONDARY, text_color = COLOR_WHITE })
     end
     reset_display()
 end
@@ -388,7 +382,7 @@ end
 local function on_spdtest_finished()
     if start_btn then
         start_btn:set_text("重新测速")
-        start_btn:set_style({ bg_color = COLORS.primary_dark })
+        start_btn:set_style({ bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE })
     end
 end
 

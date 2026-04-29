@@ -10,7 +10,15 @@ require "wifi_connect_win"
 
 local SCREEN_W, SCREEN_H = 480, 800
 local MARGIN = 15
-local TITLE_H = 50
+local TITLE_H = math.floor(60 * _G.density_scale)
+
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_DIVIDER        = 0xE0E0E0
+local COLOR_WHITE          = 0xFFFFFF
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
@@ -21,9 +29,8 @@ local function update_screen_size()
         SCREEN_W, SCREEN_H = phys_h, phys_w
     end
     MARGIN = math.floor(SCREEN_W * 0.03)
-    TITLE_H = math.floor(SCREEN_H * 0.0625)
+    TITLE_H = math.floor(60 * _G.density_scale)
 end
-
 local saved_list_win_id = nil
 local saved_list_main_container = nil
 local saved_list_scroll_container = nil
@@ -51,50 +58,54 @@ local function saved_list_create_ui()
     saved_list_main_container = airui.container({
         x = 0, y = 0,
         w = SCREEN_W, h = SCREEN_H,
-        color = 0xF0F0F0,
+        color = COLOR_BG,
     })
 
     local title_bar = airui.container({
         parent = saved_list_main_container,
         x = 0, y = 0,
         w = SCREEN_W, h = TITLE_H,
-        color = 0x1E88E5,
+        color = COLOR_PRIMARY,
     })
-    airui.button({
+    local btn_back = airui.container({
         parent = title_bar,
-        x = 0, y = 10,
-        w = 100, h = TITLE_H - 10,
-        text = "< 返回",
-        style = {
-            bg_opa = 0, pressed_bg_opa = 0,
-            text_color = 0xFFFFFF, pressed_text_color = 0xFFFFFF,
-            border_color = 0x1E88E5,
-        },
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
+        color = COLOR_PRIMARY,
         on_click = function()
             sys.publish("CLOSE_WIFI_SAVED_LIST_WIN")
         end
     })
     airui.label({
+        parent = btn_back,
+        x = 0, y = math.floor(5 * _G.density_scale),
+        w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
+        text = "<",
+        font_size = math.floor(28 * _G.density_scale),
+        color = COLOR_WHITE,
+        align = airui.TEXT_ALIGN_CENTER
+    })
+    airui.label({
         parent = title_bar,
         text = "已保存的网络",
-        x = 0, y = 15,
-        w = SCREEN_W, h = 30,
-        font_size = 24,
-        color = 0xFFFFFF,
-        align = airui.TEXT_ALIGN_CENTER,
+        x = math.floor(60 * _G.density_scale), y = math.floor(14 * _G.density_scale),
+        w = SCREEN_W - math.floor(60 * _G.density_scale), h = math.floor(40 * _G.density_scale),
+        font_size = math.floor(32 * _G.density_scale),
+        color = COLOR_WHITE,
+        align = airui.TEXT_ALIGN_LEFT,
     })
 
     saved_list_scroll_container = airui.container({
         parent = saved_list_main_container,
-        x = 0, y = TITLE_H + 10,
-        w = SCREEN_W, h = SCREEN_H - TITLE_H - 10,
-        color = 0xF0F0F0,
+        x = 0, y = TITLE_H,
+        w = SCREEN_W, h = SCREEN_H - TITLE_H,
+        color = COLOR_BG,
     })
     saved_list_content = airui.container({
         parent = saved_list_scroll_container,
         x = 0, y = 0,
-        w = SCREEN_W, h = SCREEN_H - TITLE_H - 10,
-        color = 0xF0F0F0,
+        w = SCREEN_W, h = SCREEN_H - TITLE_H,
+        color = COLOR_BG,
     })
 end
 
@@ -106,8 +117,8 @@ local function saved_list_update()
         local item = airui.container({
             parent = saved_list_content,
             x = MARGIN, y = y,
-            w = SCREEN_W - 2 * MARGIN, h = 65,
-            color = 0xFFFFFF, radius = 8,
+            w = SCREEN_W - 2 * MARGIN, h = math.floor(65 * _G.density_scale),
+            color = COLOR_WHITE, radius = 8,
             on_click = function()
                 log.info("wifi_saved_list_win", "点击已保存网络:", wifi_data.ssid)
                 if not current_config or not current_config.wifi_enabled then
@@ -124,14 +135,14 @@ local function saved_list_update()
         airui.label({
             parent = item,
             text = wifi_data.ssid,
-            x = 10, y = 17,
-            w = SCREEN_W - 2 * MARGIN - 20, h = 30,
-            font_size = 20,
-            color = 0x000000,
+            x = math.floor(10 * _G.density_scale), y = math.floor(17 * _G.density_scale),
+            w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale), h = math.floor(30 * _G.density_scale),
+            font_size = math.floor(20 * _G.density_scale),
+            color = COLOR_TEXT,
             align = airui.TEXT_ALIGN_LEFT,
         })
         table.insert(saved_list_items, item)
-        y = y + 75
+        y = y + math.floor(75 * _G.density_scale)
     end
 end
 

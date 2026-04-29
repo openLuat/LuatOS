@@ -15,6 +15,14 @@ local screen_w, screen_h = 480, 800
 local margin = 15
 local card_w = 460
 
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_DIVIDER        = 0xE0E0E0
+local COLOR_WHITE          = 0xFFFFFF
+
 local function update_screen_size()
     local rotation = airui.get_rotation()
     local phys_w, phys_h = lcd.getSize()
@@ -42,7 +50,7 @@ local function create_ui()
     main_container = airui.container({
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF5F5F5,
+        color = COLOR_BG,
         parent = airui.screen
     })
 
@@ -51,13 +59,13 @@ local function create_ui()
         parent = main_container,
         x = 0, y = 0,
         w = screen_w, h = math.floor(60 * _G.density_scale),
-        color = 0x3F51B5
+        color = COLOR_PRIMARY
     })
     local btn_back = airui.container({
         parent = title_bar,
         x = 10, y = 10,
         w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
-        color = 0x3F51B5,
+        color = COLOR_PRIMARY,
         on_click = function() exwin.close(win_id) end
     })
     airui.label({
@@ -66,7 +74,7 @@ local function create_ui()
         w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "<",
         font_size = math.floor(28 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
@@ -75,7 +83,7 @@ local function create_ui()
         w = math.floor(200 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "显示与亮度",
         font_size = math.floor(32 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_LEFT
     })
 
@@ -84,7 +92,7 @@ local function create_ui()
         parent = main_container,
         x = 0, y = title_h,
         w = screen_w, h = screen_h - title_h,
-        color = 0xF5F5F5
+        color = COLOR_BG
     })
 
     -- 亮度卡片
@@ -92,7 +100,7 @@ local function create_ui()
         parent = content,
         x = margin, y = math.floor(20 * _G.density_scale),
         w = card_w, h = math.floor(140 * _G.density_scale),
-        color = 0xFFFFFF,
+        color = COLOR_WHITE,
         radius = 8
     })
     airui.label({
@@ -101,7 +109,7 @@ local function create_ui()
         w = math.floor(100 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "亮度",
         font_size = math.floor(24 * _G.density_scale),
-        color = 0x333333,
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
     brightness_label = airui.label({
@@ -110,7 +118,7 @@ local function create_ui()
         w = math.floor(60 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "50",
         font_size = math.floor(24 * _G.density_scale),
-        color = 0x666666,
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_RIGHT
     })
 
@@ -126,12 +134,12 @@ local function create_ui()
         text = "-10",
         font_size = math.floor(20 * _G.density_scale),
         style = {
-            bg_color = 0xE0E0E0,
-            pressed_bg_color = 0x2196F3,
-            text_color = 0x333333,
+            bg_color = COLOR_DIVIDER,
+            pressed_bg_color = COLOR_PRIMARY,
+            text_color = COLOR_TEXT,
             radius = 8,
             border_width = 1,
-            border_color = 0xBDBDBD
+            border_color = COLOR_DIVIDER
         },
         on_click = function() sys.publish("DISPLAY_BRIGHTNESS_DECREASE") end
     })
@@ -142,12 +150,12 @@ local function create_ui()
         text = "+10",
         font_size = math.floor(20 * _G.density_scale),
         style = {
-            bg_color = 0xE0E0E0,
-            pressed_bg_color = 0x2196F3,
-            text_color = 0x333333,
+            bg_color = COLOR_DIVIDER,
+            pressed_bg_color = COLOR_PRIMARY,
+            text_color = COLOR_TEXT,
             radius = 8,
             border_width = 1,
-            border_color = 0xBDBDBD
+            border_color = COLOR_DIVIDER
         },
         on_click = function() sys.publish("DISPLAY_BRIGHTNESS_INCREASE") end
     })
@@ -157,8 +165,8 @@ local function create_ui()
         w = bar_w, h = math.floor(25 * _G.density_scale),
         min = 0, max = 100,
         value = 50,
-        color = 0x2196F3,
-        bg_color = 0xE0E0E0
+        color = COLOR_PRIMARY,
+        bg_color = COLOR_DIVIDER
     })
 end
 

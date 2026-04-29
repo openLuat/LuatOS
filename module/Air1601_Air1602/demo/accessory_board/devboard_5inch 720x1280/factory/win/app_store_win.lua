@@ -63,12 +63,12 @@ local title_font_size = 0
 local desc_font_size = 0
 local button_font_size = 0
 local info_font_size = 0
-local max_desc_lines = 2  -- 描述最大行数，动态计算
+local max_desc_lines = 2 -- 描述最大行数，动态计算
 
 -- 按钮自适应参数
 local card_btn_height = 32
 local card_btn_bottom_margin = 8
-local vertical_padding = 12 
+local vertical_padding = 12
 local current_page = 1
 local total_pages = 0
 local page_limit = 10
@@ -88,7 +88,7 @@ local COLOR_TEXT = 0x212121
 local COLOR_TEXT_SECONDARY = 0x757575
 local COLOR_DIVIDER = 0xE0E0E0
 
-local categories = { "全部", "已安装", "通信","工具", "游戏", "工业", "健康" }
+local categories = { "全部", "已安装", "通信", "工具", "游戏", "工业", "健康" }
 local pending_icon_updates = {}
 
 -- 进度对话框相关
@@ -101,8 +101,8 @@ local progress_label = nil
 ------------------------------------------------------------------------------
 local function calc_layout()
     -- 响应式断点定义
-    local screen_width_breakpoints = {480, 720, 1024}
-    local screen_height_breakpoints = {480, 600, 800, 854, 1280}
+    local screen_width_breakpoints = { 480, 720, 1024 }
+    local screen_height_breakpoints = { 480, 600, 800, 854, 1280 }
 
     -- 字体大小优化：更平缓的缩放曲线，增加最大最小值限制
     local base_font = math.floor(screen_h / 40)
@@ -128,13 +128,13 @@ local function calc_layout()
     if is_landscape then
         -- 横向屏幕：适当减少顶部和排序栏高度，优化侧边栏宽度
         top_h = math.floor(screen_h * 0.08)  -- 从0.1降低到0.08
-        sort_h = math.floor(screen_h * 0.06)  -- 从0.08降低到0.06
-        side_w = math.floor(screen_w * 0.16)  -- 从0.18降低到0.16
+        sort_h = math.floor(screen_h * 0.06) -- 从0.08降低到0.06
+        side_w = math.floor(screen_w * 0.16) -- 从0.18降低到0.16
     else
         -- 纵向屏幕：微调比例
         top_h = math.floor(screen_h * 0.08)
         sort_h = math.floor(screen_h * 0.06)
-        side_w = math.floor(screen_w * 0.2)   -- 从0.22降低到0.2
+        side_w = math.floor(screen_w * 0.2) -- 从0.22降低到0.2
     end
 
     -- 分页栏高度优化：基于屏幕高度的比例，增加限制
@@ -165,7 +165,7 @@ local function calc_layout()
     min_card_w = math.max(150, math.min(280, min_card_w))
 
     grid_cols = math.max(1, math.floor(apps_grid_w / min_card_w))
-    
+
     -- 基于屏幕宽度的智能列数限制
     if screen_w < 480 then
         -- 超小屏幕：最多2列
@@ -177,7 +177,7 @@ local function calc_layout()
         -- 大屏幕：最多4列
         grid_cols = math.min(4, grid_cols)
     end
-    
+
     -- 特殊处理：480×800/854竖屏保持单列布局（用户反馈显示3个应用正好）
     if screen_w == 480 and not is_landscape and (screen_h == 800 or screen_h == 854) then
         grid_cols = 1
@@ -195,7 +195,8 @@ local function calc_layout()
     local desc_lines = 2
 
     -- 计算卡片基础高度（不含描述）
-    local base_card_h = math.max(icon_size, title_height + info_line_height) + card_btn_height + card_btn_bottom_margin + vertical_padding
+    local base_card_h = math.max(icon_size, title_height + info_line_height) + card_btn_height + card_btn_bottom_margin +
+    vertical_padding
     local available_height_for_desc = grid_area_h - base_card_h - grid_margin * 2
 
     -- 根据可用高度调整描述行数
@@ -216,7 +217,8 @@ local function calc_layout()
     -- 更新全局变量
     max_desc_lines = desc_lines
 
-    log.info("app_store_win", "layout", screen_w, screen_h, is_landscape, grid_cols, card_w, card_h, "btn_h", card_btn_height, "min_card_w", min_card_w, "desc_lines", desc_lines)
+    log.info("app_store_win", "layout", screen_w, screen_h, is_landscape, grid_cols, card_w, card_h, "btn_h",
+        card_btn_height, "min_card_w", min_card_w, "desc_lines", desc_lines)
 end
 
 local function update_page_display()
@@ -391,7 +393,19 @@ local function create_ui()
         border_width = 1,
         border_color = COLOR_DIVIDER
     })
-    search_keyboard = airui.keyboard({ mode = "text", auto_hide = true, preview = true, preview_height = 40, w = screen_w, h = 200, bg_color = COLOR_CARD })
+    search_keyboard = airui.keyboard({
+        mode = "text",
+        auto_hide = true,
+        preview = true,
+        preview_height = 40,
+        w = screen_w,
+        h = 200,
+        bg_color = COLOR_CARD,
+        on_commit = function(self)                                                                                                                                                           -- 确认事件回调，只有在按下确认键时才会触发
+            -- 隐藏键盘
+            self:hide()
+        end,
+    })
     search_input = airui.textarea({
         parent = search_bg,
         x = 16,
@@ -421,8 +435,10 @@ local function create_ui()
     })
 
     -- 排序栏
-    local sort_bar = airui.container({ parent = main_container, x = 0, y = top_h, w = sort_bar_w, h = sort_h, color = COLOR_CARD })
-    airui.label({ parent = sort_bar, x = 16, y = 10, w = 50, h = sort_h - 10, text = "排序:", font_size = math.max(14, button_font_size - 2), color = COLOR_TEXT_SECONDARY })
+    local sort_bar = airui.container({ parent = main_container, x = 0, y = top_h, w = sort_bar_w, h = sort_h, color =
+    COLOR_CARD })
+    airui.label({ parent = sort_bar, x = 16, y = 10, w = 50, h = sort_h - 10, text = "排序:", font_size = math.max(14,
+        button_font_size - 2), color = COLOR_TEXT_SECONDARY })
     sort_select = airui.dropdown({
         parent = sort_bar,
         x = 70,
@@ -455,7 +471,8 @@ local function create_ui()
     })
 
     -- 分类侧边栏
-    local category_sidebar = airui.container({ parent = main_container, x = 0, y = top_h + sort_h, w = side_w, h = app_area_h, color = COLOR_CARD })
+    local category_sidebar = airui.container({ parent = main_container, x = 0, y = top_h + sort_h, w = side_w, h =
+    app_area_h, color = COLOR_CARD })
     local cat_y = 16
     local cat_height = math.max(36, math.min(50, math.floor(screen_h / 20)))
     local cat_width = side_w - 20
@@ -482,7 +499,8 @@ local function create_ui()
                 current_category = cat
                 for idx, btn_obj in ipairs(category_btns) do
                     local active = (categories[idx] == cat)
-                    btn_obj:set_style({ bg_color = active and COLOR_PRIMARY or 0xFFFFFF, text_color = active and 0xFFFFFF or COLOR_TEXT })
+                    btn_obj:set_style({ bg_color = active and COLOR_PRIMARY or 0xFFFFFF, text_color = active and 0xFFFFFF or
+                    COLOR_TEXT })
                 end
                 current_page = 1
                 sys.publish("APP_STORE_GET_LIST", current_category, current_sort, current_page, page_limit, current_query)
@@ -493,11 +511,14 @@ local function create_ui()
     end
 
     -- 右侧内容区
-    apps_container = airui.container({ parent = main_container, x = side_w, y = top_h + sort_h, w = apps_container_w, h = apps_container_h - page_btn_h, color = COLOR_BG })
-    apps_grid = airui.container({ parent = apps_container, x = grid_margin, y = grid_margin, w = apps_grid_w, h = apps_grid_h, color = COLOR_BG })
+    apps_container = airui.container({ parent = main_container, x = side_w, y = top_h + sort_h, w = apps_container_w, h =
+    apps_container_h - page_btn_h, color = COLOR_BG })
+    apps_grid = airui.container({ parent = apps_container, x = grid_margin, y = grid_margin, w = apps_grid_w, h =
+    apps_grid_h, color = COLOR_BG })
 
     -- 分页栏
-    local page_bar = airui.container({ parent = main_container, x = side_w, y = screen_h - page_btn_h, w = screen_w - side_w, h = page_btn_h, color = COLOR_CARD })
+    local page_bar = airui.container({ parent = main_container, x = side_w, y = screen_h - page_btn_h, w = screen_w -
+    side_w, h = page_btn_h, color = COLOR_CARD })
     local prev_btn_x = 16
     local prev_btn_w = 70
     local next_btn_w = 70
@@ -594,7 +615,10 @@ local function render_apps(apps, more)
 
         local card = airui.container({
             parent = apps_grid,
-            x = x, y = y, w = card_w, h = card_h,
+            x = x,
+            y = y,
+            w = card_w,
+            h = card_h,
             color = COLOR_CARD,
             radius = 16,
             border_width = 1,

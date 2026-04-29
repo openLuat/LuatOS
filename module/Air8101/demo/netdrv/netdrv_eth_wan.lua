@@ -62,7 +62,8 @@ local function eth_wan_setup()
     -- SPI ID 1, 片选 GPIO12
     netdrv.setup(eth_adapter, netdrv.CH390, {
         spi = 0,
-        cs = 15
+        cs = 15,
+        irq = 8
     })
 end
 

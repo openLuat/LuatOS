@@ -57,7 +57,7 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 -- 配置SPI外接以太网芯片CH390H的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_ETH
 -- 本demo使用 Air780EPM V1.3 开发板测试，开发板上的硬件配置为：
 -- GPIO20为CH390H以太网芯片的供电使能控制引脚
--- 使用spi0，片选引脚使用GPIO8
+-- 使用spi0，片选引脚使用GPIO8，中断引脚使用GPIO22
 -- 如果使用的硬件不是Air780EPM V1.3 开发板，根据自己的硬件配置修改以下参数
 local function netdrv_task_func()
     exnetif.set_priority_order({
@@ -65,7 +65,7 @@ local function netdrv_task_func()
             ETHERNET = {
                 pwrpin = 20,
                 tp = netdrv.CH390,
-                opts = { spi = 0, cs = 8 },
+                opts = { spi = 0, cs = 8, irq = 22 },
                 -- 此处设置为静态 IP 地址
                 -- 如果不设置为静态 IP 地址，默认会使用 DHCP 协议动态获取 IP 地址
                 static_ip = {

@@ -70,14 +70,14 @@ local function netdrv_eth_spi_task_func()
     -- 配置SPI外接以太网芯片CH390H的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_USER1
     -- 本demo使用Air8101核心板+AirETH_1000配件板测试，核心板上的硬件配置为：
     -- GPIO13为AirETH_1000以太网芯片的供电使能控制引脚； VDD 3V3引脚是Air8101内部的LDO输出引脚，最大输出电流300mA；GPIO13在Air8101内部使能控制这个LDO的输出
-    -- 使用spi0，片选引脚使用GPIO15
+    -- 使用spi0，片选引脚使用GPIO15，中断引脚使用GPIO8
     -- 如果使用的硬件和以上描述的环境不同，根据自己的硬件配置修改以下参数
     exnetif.set_priority_order({
         {
             ETHUSER1 = {
                 pwrpin = 13, 
                 tp = netdrv.CH390,
-                opts = {spi = 0, cs = 15}
+                opts = {spi = 0, cs = 15, irq = 8}
             }
         }
     })

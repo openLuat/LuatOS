@@ -29,14 +29,14 @@
 3、Air780EPM核心板和AirETH_1000配件板的硬件接线方式为：
 
 | Air780EPM核心板 | AirETH_1000配件板 |
-| ------------ | -------------- |
-| 3.3V         | 3.3v           |
-| gnd          | gnd            |
-| spi0_sclk    | SCK            |
-| spi0_cs      | CSS            |
-| spi0_miso    | SDO            |
-| spi0_mosi    | SDI            |
-| gpio21       | INT            |
+| --------------- | ----------------- |
+| 3.3V            | 3.3v              |
+| gnd             | gnd               |
+| spi0_sclk       | SCK               |
+| spi0_cs         | CSS               |
+| spi0_miso       | SDO               |
+| spi0_mosi       | SDI               |
+| gpio1           | INT               |
 
 演示软件环境
 ------

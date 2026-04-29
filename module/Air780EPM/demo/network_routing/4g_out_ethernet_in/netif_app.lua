@@ -25,7 +25,7 @@ function netif_app_task_func()
     res = exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, {
         ethpower_en = 20,                   -- 以太网模块的pwrpin引脚(gpio编号)
         tp = netdrv.CH390,                  -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-        opts = {spi = 0, cs = 8},           -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+        opts = {spi = 0, cs = 8, irq = 22}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
         adapter_addr = "192.168.2.1",       -- 自定义LWIP_ETH网卡的ip地址(选填),需要自定义ip和网关ip时填写
         adapter_gw = {192, 168, 2, 1}       -- 自定义LWIP_ETH网卡的网关地址(选填),需要自定义ip和网关ip时填写
     })

@@ -33,7 +33,7 @@ local function mount_tf_card()
     
     -- 在Air8101核心板上TF卡的的pin_cs为gpio3，spi_id为1.请根据实际硬件修改
     local spi_id, pin_cs = 1, 3
-    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    spi.setup(spi_id, nil, 0, 0, 8, 2000000)
     --初始化后拉高pin_cs,准备开始挂载TF卡
     gpio.setup(pin_cs, 1)
     -- ########## 开始进行tf卡挂载 ##########

@@ -568,12 +568,14 @@ LUAT_WEAK uint8_t luat_audio_is_finish(uint8_t multimedia_id){
     if (play_state->playing || play_state->task_running) {
         return 0;
     }
+#ifdef LUAT_USE_I2S
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
         if (luat_i2s_txbuff_info(audio_conf->codec_conf.i2s_id, &total, &remain) != 0) {
             return 1;
         }
         return remain == 0;
     }
+#endif
     return 1;
 }
 
@@ -616,12 +618,14 @@ LUAT_WEAK int luat_audio_start_raw(uint8_t multimedia_id, uint8_t audio_format, 
         // LLOGD("luat_audio_start_raw: bus_type=%d, format=%d, channels=%d, sample_rate=%d, bits_per_sample=%d, is_signed=%d",
         //         audio_conf->bus_type, audio_format, num_channels, sample_rate, bits_per_sample, is_signed);
         if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
+#ifdef LUAT_USE_I2S
             luat_i2s_conf_t * i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
             i2s_conf->data_bits = bits_per_sample;
             i2s_conf->sample_rate = sample_rate,
             luat_i2s_modify(audio_conf->codec_conf.i2s_id,i2s_conf->channel_format,i2s_conf->data_bits, i2s_conf->sample_rate);
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,sample_rate);
             luat_audio_pa(multimedia_id,1,0);
+#endif
         }
 #ifdef LUAT_USE_DAC
         else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
@@ -636,6 +640,7 @@ LUAT_WEAK int luat_audio_write_raw(uint8_t multimedia_id, uint8_t *data, uint32_
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
+#ifdef LUAT_USE_I2S
             int send_bytes = 0;
             while (send_bytes < len) {
                 int length = luat_i2s_send(audio_conf->codec_conf.i2s_id,data + send_bytes, len - send_bytes);
@@ -644,6 +649,7 @@ LUAT_WEAK int luat_audio_write_raw(uint8_t multimedia_id, uint8_t *data, uint32_
                 }
                 luat_rtos_task_sleep(1);
             }
+#endif
         }
 #ifdef LUAT_USE_DAC
         else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
@@ -674,6 +680,7 @@ LUAT_WEAK int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
+#ifdef LUAT_USE_I2S
             if (is_pause){
                 luat_audio_pa(multimedia_id,0,0);
                 luat_i2s_pause(audio_conf->codec_conf.i2s_id);
@@ -683,6 +690,7 @@ LUAT_WEAK int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause){
             }
             return 0;
         }
+#endif
     }
     return -1;
 }
@@ -772,6 +780,7 @@ LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
     }
     audio_conf->soft_vol = vol<=100?100:vol;
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
+#ifdef LUAT_USE_I2S
         uint8_t sleep_mode = audio_conf->sleep_mode;
         audio_conf->last_vol = vol;
         if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
@@ -783,6 +792,7 @@ LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
         }
         if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,sleep_mode);
         return vol;
+#endif
     }
 #ifdef LUAT_USE_DAC
     else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
@@ -921,6 +931,7 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
     audio_conf->last_vol = init_vol;
     audio_conf->last_mic_vol = init_mic_vol;
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
+#ifdef LUAT_USE_I2S
     	if (audio_conf->codec_conf.codec_opts->no_control)
     	{
     		audio_conf->sleep_mode = LUAT_AUDIO_PM_SHUTDOWN;
@@ -952,6 +963,7 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 
         }
         audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
+#endif
     }
 #ifdef LUAT_USE_DAC
     else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){

@@ -72,10 +72,11 @@ local function eth_lan_setup()
     -- 初始化指定netdrv设备,
     -- socket.LWIP_USER0 网络适配器编号
     -- netdrv.CH390外挂CH390
-    -- SPI ID 1, 片选 GPIO12
+    -- SPI ID 1, 片选 GPIO12, 中断引脚 GPIO222
     netdrv.setup(socket.LWIP_USER0, netdrv.CH390, {
         spi = 1,
-        cs = 12
+        cs = 12,
+        irq = 22
     })
     -- 确保ch390初始化完成,否则会出现netdrv.ipv4设置失败的情况
     sys.wait(1000)

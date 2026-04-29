@@ -29,7 +29,8 @@ function netif_app_task_func()
             tp = netdrv.CH390,              
             opts = {
                 spi = 1,
-                cs = 12
+                cs = 12,
+                irq = 22
             }
         }
     })

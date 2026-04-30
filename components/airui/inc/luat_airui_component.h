@@ -523,6 +523,7 @@ void airui_tabview_release_data(airui_component_meta_t *meta); //释放内部页
  * Msgbox 组件
  */
 lv_obj_t *airui_msgbox_create_from_config(void *L, int idx);
+int airui_msgbox_set_style(lv_obj_t *msgbox, void *L, int idx);
 int airui_msgbox_set_on_action(lv_obj_t *msgbox, int callback_ref); //设置消息框按钮回调
 int airui_msgbox_show(lv_obj_t *msgbox); //显示消息框
 int airui_msgbox_hide(lv_obj_t *msgbox); //隐藏消息框

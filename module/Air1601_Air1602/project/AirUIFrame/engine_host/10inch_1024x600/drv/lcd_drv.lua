@@ -22,25 +22,32 @@ local lcd_drv = {}
 _G.screen_w, _G.screen_h = 1024, 600
 _G.screen_size = 10.0  -- 屏幕物理尺寸(英寸)，用于像素密度计算
 _G.density_scale = 1.0 -- 默认值，lcd_drv.init() 中根据实际PPI更新
-_G.is_landscape = true
+_G.is_landscape = false
 
 local port, pin_rst, bl = lcd.RGB, 15, 2
 
 function lcd_drv.init()
     local result = lcd.init("custom", {
-        port = port,
-        hbp = 140,
-        hspw = 20,
-        hfp = 160,
-        vbp = 20,
-        vspw = 3,
-        vfp = 12,
-        bus_speed = 50 * 1000 * 1000,
-        pin_pwr = bl,
-        pin_rst = pin_rst,
+        port      = port,
+        -- pin_dc    = 0xff,    -- RGB接口不需要DC引脚
+        -- pin_clk   = 23, -- SPI 时钟引脚 (用于初始化)
+        -- pin_sda   = 22, -- SPI 数据引脚
+        -- pin_cs    = 2, -- SPI 片选引脚
+        -- pin_pwr   = bl,
+        pin_rst   = pin_rst,
         direction = 0,
-        w = 1024,
-        h = 600
+        w         = 1024,
+        h         = 600,
+        xoffset   = 0,
+        yoffset   = 0,
+        -- 时序参数采用 lcddemo.lua 中的 custom 配置
+        hbp       = 160,
+        hspw      = 70,
+        hfp       = 160,
+        vbp       = 23,
+        vspw      = 20,
+        vfp       = 12,
+        bus_speed = 51 * 1000 * 1000, -- 51 MHz
     })
 
     log.info("lcd.init", result)
@@ -77,14 +84,17 @@ function lcd_drv.init()
 
         -- 计算像素密度缩放比 (基准: 5寸480×800 ≈ 187 PPI)
         local diagonal_px = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
-        local base_ppi = 186.6  -- sqrt(480²+800²) / 5.0
+        local base_ppi = 186.6                             -- sqrt(480²+800²) / 5.0
         _G.density_scale = (diagonal_px / _G.screen_size) / base_ppi
         _G.density_scale = math.max(1.0, _G.density_scale) -- 只放大不缩小
     end
 end
 
 function lcd_drv.backlight_on()
-    gpio.setup(5, 1)
+    gpio.setup(bl, 1)
+    gpio.set(bl, 1)
+    -- pwm.setup(3, 1000, 100)
+    -- pwm.open(3, 1000, 100)
 end
 
 return lcd_drv

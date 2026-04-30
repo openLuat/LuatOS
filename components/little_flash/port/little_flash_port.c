@@ -43,11 +43,11 @@ static void little_flash_free(void* ptr){
 }
 #endif
 
-static void little_flash_lock(little_flash_t *lf){
+static void little_flash_lock(const little_flash_t *lf){
     luat_mutex_lock(lf->user_data);
 }
 
-static void little_flash_unlock(little_flash_t *lf){
+static void little_flash_unlock(const little_flash_t *lf){
     luat_mutex_unlock(lf->user_data);
 }
 

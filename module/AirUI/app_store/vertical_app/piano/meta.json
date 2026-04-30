@@ -1,0 +1,24 @@
+{
+  "app_name_cn": "钢琴",
+  "app_name_en": "piano",
+  "version": "1.0.0",
+  "publish_time": "2026-04-08 22:10:00",
+  "author": "xc",
+  "category": "工具",
+  "description": "简单钢琴模拟，点击琴键播放音符",
+  "resolution": "480x800",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 120,
+  "origin_size_kb": 280
+}

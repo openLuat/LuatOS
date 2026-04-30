@@ -41,7 +41,8 @@ local function eth_wan_setup()
     -- SPI ID 1, 片选 GPIO12
     netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {
         spi = 0,
-        cs = 8
+        cs = 8,
+        irq = 1
     })
     sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
     if static_ip then

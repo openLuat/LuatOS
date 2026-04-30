@@ -23,7 +23,7 @@
 
 typedef struct tp_reg {
     const char *name;
-    const luat_tp_config_t *luat_tp_config;
+    luat_tp_config_t *luat_tp_config;
 }tp_reg_t;
 
 static const tp_reg_t tp_regs[] = {
@@ -50,7 +50,7 @@ static const tp_reg_t tp_regs[] = {
 static int l_tp_handler(lua_State* L, void* ptr) {
     rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
     luat_tp_config_t* luat_tp_config = msg->ptr;
-    luat_tp_data_t* luat_tp_data = msg->arg1;
+    luat_tp_data_t* luat_tp_data = (luat_tp_data_t*)msg->arg1;
 
     if (luat_tp_config->luat_cb) {
         lua_geti(L, LUA_REGISTRYINDEX, luat_tp_config->luat_cb);
@@ -95,7 +95,7 @@ int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data
 	uint8_t i = 0;
     for(i = 0; i < LUAT_TP_TOUCH_MAX; i++) {
 		if (luat_tp_data[i].event != TP_EVENT_TYPE_NONE) {
-            rtos_msg_t msg = {.handler = l_tp_handler, .ptr=luat_tp_config, .arg1=luat_tp_data};
+            rtos_msg_t msg = {.handler = l_tp_handler, .ptr=luat_tp_config, .arg1=(int)luat_tp_data};
             luat_msgbus_put(&msg, 1);
             return 0;
         }

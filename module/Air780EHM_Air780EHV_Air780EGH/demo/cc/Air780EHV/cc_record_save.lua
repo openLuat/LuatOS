@@ -73,7 +73,7 @@ local function mount_sd_card()
     gpio.setup(8,1)
     
     -- 初始化SPI接口
-    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    spi.setup(spi_id, nil, 0, 0, 8, 2000000)
     -- 设置片选引脚为高电平
     gpio.setup(pin_cs, 1)
     

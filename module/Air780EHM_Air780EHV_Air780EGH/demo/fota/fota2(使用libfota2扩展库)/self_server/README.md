@@ -36,9 +36,9 @@
 1、combination文件夹下的demo会有三个演示场景，在main.lua中选择要使用的场景：
 
     (1) 使用自建服务器升级，演示最简单的升级逻辑。
-
+    
     (2) 使用自建服务器升级，通过tcp下发升级指令控制设备升级，指令格式使用json字符串，包含版本、url、是否升级参数，演示如何通过服务器控制下发指令去升级。
-
+    
     (3) 休眠状态下升级，此场景是针对psm状态下升级没完成就进入休眠导致升级失败的情况写的一个例子。
 
 2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
@@ -51,34 +51,44 @@
 
    (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
 
-
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air780epm/luatos/app/driver/eth/image/RFSvb75NRoEWqYxfCRVcVrOKnsf.jpg)
+![img](https://docs.openluat.com/air780ehv/luatos/common/hwenv/image/Air780EHV.png)
 
-1、Air780EPM V1.3版本开发板一块+可上网的sim卡一张+4g天线一根+网线一根：
+1、Air780EXX核心板一块+可上网的sim卡一张+4g天线一根+网线一根：
 
-- sim卡插入开发板的sim卡槽
+- sim卡插入核心板的sim卡槽
 
-- 天线装到开发板上
+- 网线一端插入核心板网口，另外一端连接可以上外网的路由器网口
 
-- 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
+2、TYPE-C USB数据线一根，Air780EXX核心板和数据线的硬件接线方式为：
 
-2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air780EPM V1.3版本开发板和数据线的硬件接线方式为：
-
-- Air780EPM V1.3版本开发板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
-
+- Air780EXX核心板通过TYPE-C USB口供电；（ 供电拨动开关 拨到 ON一端）
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
+3、可选AirETH_1000配件板一块，Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
 
+| Air780EXX核心板 | AirETH_1000配件板 |
+| --------------- | ----------------- |
+| 3V3             | 3.3v              |
+| gnd             | gnd               |
+| 86/SPI0CLK      | SCK               |
+| 83/SPI0CS       | CSS               |
+| 84/SPI0MISO     | SDO               |
+| 85/SPI0MOSI     | SDI               |
+| 22/GPIO1        | INT               |
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air780EPM V2012版本固件）](https://docs.openluat.com/air780epm/luatos/firmware/version/)
+2、[Air780EHM V2012版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)
 
-3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)；
+[Air780EHV V2012版本固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+
+[Air780EGH V2012版本固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
+
+3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；
 
 
 ## 演示核心步骤

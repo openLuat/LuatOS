@@ -18,7 +18,8 @@ local audio_drv = require "audio_drv"
 local sip_app = {}
 
 local g_sip_started = false
-local g_first_initialized = false
+local g_network_ready = false
+local g_net_switch_debounce_timer = nil
 
 local SIP_CONFIG = {
     sip_server_addr = "180.152.6.34",
@@ -32,19 +33,14 @@ local SIP_CONFIG = {
 }
 
 local function start_sip_service()
-    if g_sip_started then
-        log.info("sip", "SIP 服务已在运行，先停止")
-        exsip.stop()
-        g_sip_started = false
-        sys.wait(500)
-    end
+    log.info("sip", "start_sip_service called, SIP_CONFIG type:", type(SIP_CONFIG), SIP_CONFIG)
 
     log.info("sip", "开始初始化 SIP...")
     if exsip.init(SIP_CONFIG) then
         log.info("sip", "配置完成，开始启动 SIP...")
         if exsip.start() then
             log.info("sip", "启动完成，等待注册...")
-            g_sip_started = true
+            -- g_sip_started 会在收到 lifecycle online 事件时设置
         else
             log.error("sip", "启动失败")
         end
@@ -99,6 +95,16 @@ local function sip_callback(event, arg1, arg2, arg3)
         elseif sub_event == "error" then
             log.error("voip", "错误:", data)
         end
+    elseif event == "lifecycle" then
+        local sub_event, data = arg1, arg2
+        log.info("sip", "lifecycle event:", sub_event)
+        if sub_event == "online" then
+            g_sip_started = true
+            log.info("sip", "SIP 服务已在线，本地IP地址为：",data.local_ip)
+        elseif sub_event == "offline" or sub_event == "stopped" then
+            g_sip_started = false
+            log.info("sip", "SIP 服务已离线/停止")
+        end
     elseif event == "error" then
         local action, payload = arg1, arg2
         log.error("sip", "错误:", action, payload.event, payload.param)
@@ -107,6 +113,11 @@ end
 
 
 local function gpio_dial_callback()
+    log.info("sip_app", "BOOT键被按下，尝试拨号")
+    if not exsip.isRegistered() then
+        log.warn("sip_app", "SIP尚未注册完成，无法拨号")
+        return
+    end
     local state = exsip.dial(100000)
     if state then
         log.info("exsip", "拨号成功")
@@ -115,11 +126,69 @@ local function gpio_dial_callback()
     end
 end
 local function gpio_hangup_callback()
+    log.info("sip_app", "PWR键被按下，尝试挂断")
     local state = exsip.hangUp()
     if state then
         log.info("exsip", "挂断成功")
     else
         log.warn("exsip", "挂断失败")
+    end
+end
+
+local function check_net(net_type, adapter)
+    log.info("sip_app", "NETDRV_NETWORK_STATUS", net_type, adapter)
+    if net_type then
+        -- 有可用网卡了
+        g_network_ready = true
+        
+        -- 如果之前有防抖定时器，先取消
+        if g_net_switch_debounce_timer then
+            sys.timerStop(g_net_switch_debounce_timer)
+            g_net_switch_debounce_timer = nil
+        end
+        
+        log.info("sip_app", "网络已就绪，等待网络稳定...")
+        g_net_switch_debounce_timer = sys.timerStart(function()
+            g_net_switch_debounce_timer = nil
+            
+            -- 无论SIP是否在运行，都先停止它（清除状态），然后重新启动
+            sys.taskInit(function()
+                log.info("sip_app", "准备重启 SIP 服务")
+                
+                -- 先停止当前的SIP服务
+                if g_sip_started or exsip.is_started() then
+                    log.info("sip_app", "正在停止 SIP 服务...")
+                    exsip.stop()
+                    g_sip_started = false
+                end
+                
+                -- 等待 exsip 完全停止
+                log.info("sip_app", "等待 SIP 完全停止...")
+                local wait_count = 0
+                while exsip.is_started() and wait_count < 200 do
+                    sys.wait(10)
+                    wait_count = wait_count + 1
+                end
+                log.info("sip_app", "SIP 已停止")
+                
+                -- 重新启动SIP服务
+                log.info("sip_app", "开始重新初始化和启动 SIP 服务")
+                start_sip_service()
+            end)
+        end, 3000)
+    else
+        -- 没网卡了
+        g_network_ready = false
+        -- 取消防抖定时器
+        if g_net_switch_debounce_timer then
+            sys.timerStop(g_net_switch_debounce_timer)
+            g_net_switch_debounce_timer = nil
+        end
+        if g_sip_started then
+            log.info("sip_app", "网络断开，停止 SIP")
+            exsip.stop()
+            g_sip_started = false
+        end
     end
 end
 
@@ -134,17 +203,12 @@ local function sip_init_task()
         return
     end
 
-    log.info("sip", "检查网络状态...")
-    if socket.adapter(SIP_CONFIG.adapter) then
-        log.info("sip", "网络已就绪（已连接）")
-    else
-        log.info("sip", "等待网络连接...")
-        sys.waitUntil("IP_READY")
-        log.info("sip", "网络已就绪")
-    end
+    log.info("sip", "等待网卡稳定...")
+    
+    -- 订阅网络状态事件
+    sys.subscribe("NETDRV_NETWORK_STATUS", check_net)
 
-    start_sip_service()
-
+    -- 设置按键
     gpio.setup(0, gpio_dial_callback, gpio.PULLDOWN, gpio.RISING)
     gpio.setup(gpio.PWR_KEY, gpio_hangup_callback, gpio.PULLUP, gpio.FALLING)
 end

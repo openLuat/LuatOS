@@ -196,7 +196,13 @@ local function gnss_fnc()
         auto_open=false,
         -- 定位频率，指gnss每秒输出多少次的定位数据，1hz=1次/秒，默认1hz，可选值：1/2/4/5
         -- hz=1,
-        gnss_volgpio=21 --设置GNSS模块的供电脚，外挂GNSS模块需要设置，4G定位二合一的模块不需要设置
+        gnss_volgpio=21, --设置GNSS模块的供电脚，外挂GNSS模块需要设置，4G定位二合一的模块不需要设置
+        -- 静态抑制，指在gnss定位成功后，是否需要开启静态抑制，开启后，gnss会根据设置的static值，去进行速度值判断，
+        -- 如果速度值小于static值，gnss会持续上报最后一条定位数据，直到速度值大于static值，才上报新的定位数据，
+        -- 可选值：1-100，不开启该内容则表示不开启静态抑制，不管速度值多少，都上报原本的定位数据，单位：cm/s,
+        -- 也就是说如果设置最大速度值为100cm/s，100cm/s=1m/s=3.6km/h，如果速度值小于100cm/s，gnss会持续上报最后一条定位数据
+        -- 直到速度值大于100cm/s，才上报新的定位数据，这样做可以避免在静止状态下，gnss会有静态飘移的情况，导致定位数据不准确
+        -- static=100
     }
     exgnss.setup(gnssotps)
     exgnss.open(exgnss.TIMERORSUC,{tag="psm",val=60,cb=psm_cb})

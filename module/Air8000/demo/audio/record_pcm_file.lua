@@ -89,6 +89,9 @@ local audio_setup_param = {
     i2c_id = 0,                -- I2C接口编号
     pa_ctrl = 162,             -- 音频放大器控制引脚
     dac_ctrl = 164,            -- 音频编解码芯片控制引脚
+    -- Air8000核心板配置pa_ctrl 和dac_ctrl 
+    -- pa_ctrl = 17,            -- 音频放大器电源控制管脚
+    -- dac_ctrl = 16,           -- 音频编解码芯片电源控制管脚 
     
     -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
     dac_delay = set_dac_delay,            -- DAC启动前冗余时间
@@ -373,7 +376,7 @@ local function mount_sd_card()
     gpio.setup(12,1)
 
     -- 初始化SPI接口
-    spi.setup(sd_spi_id, nil, 0, 0, 400 * 1000)
+    spi.setup(sd_spi_id, nil, 0, 0, 8, 2000000)
     -- 设置片选引脚为高电平
     gpio.setup(sd_cs_pin, 1)
     

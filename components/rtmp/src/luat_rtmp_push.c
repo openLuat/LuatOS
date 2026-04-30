@@ -1,8 +1,8 @@
 /**
  * @file luat_rtmp_push.c
- * @brief RTMP推流组件实现 - 基于lwip raw API
+ * @brief RTMP推流组件实现 - 基于 luat_network_adapter API
  * @author LuatOS Team
- * 
+ *
  * 实现了RTMP协议的核心功能,包括:
  * - TCP连接管理
  * - RTMP握手流程
@@ -18,9 +18,7 @@
 #include "luat_rtos.h"
 #include "luat_netdrv.h"
 
-#include "lwip/tcp.h"
-#include "lwip/tcpip.h"
-#include "lwip/timeouts.h"
+#include "luat_network_adapter.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -70,25 +68,14 @@ extern int luat_camera_stop(int id);
 static int rtmp_parse_url(rtmp_ctx_t *ctx, const char *url);
 
 /**
- * TCP连接回调函数
+ * 网络事件回调函数
  */
-static err_t rtmp_tcp_connect_callback(void *arg, struct tcp_pcb *pcb, err_t err);
+static int32_t rtmp_network_callback(void *data, void *param);
 
 /**
- * TCP接收回调函数
+ * 发送RTMP connect命令（握手完成后调用）
  */
-static err_t rtmp_tcp_recv_callback(void *arg, struct tcp_pcb *pcb, 
-                                   struct pbuf *p, err_t err);
-
-/**
- * TCP错误回调函数
- */
-static void rtmp_tcp_error_callback(void *arg, err_t err);
-
-/**
- * TCP发送回调函数
- */
-static err_t rtmp_tcp_sent_callback(void *arg, struct tcp_pcb *pcb, u16_t len);
+static void rtmp_send_connect(void *arg);
 
 /**
  * 执行RTMP握手
@@ -323,8 +310,8 @@ static int rtmp_pack_message(rtmp_ctx_t *ctx, uint8_t msg_type,
     if (!ctx || !payload || payload_len == 0) {
         return RTMP_ERR_INVALID_PARAM;
     }
-    
-    if (!ctx->pcb) {
+
+    if (!ctx->netc) {
         return RTMP_ERR_FAILED;
     }
     
@@ -489,50 +476,57 @@ static int rtmp_pack_message(rtmp_ctx_t *ctx, uint8_t msg_type,
 /* ======================== 核心实现函数 ======================== */
 
 /**
- * 创建RTMP推流上下文
+ * 全局RTMP推流上下文（仅支持单实例）
  */
 rtmp_ctx_t *g_rtmp_ctx;
 
-rtmp_ctx_t* rtmp_create(void) {
-    rtmp_ctx_t *ctx = (rtmp_ctx_t *)luat_heap_malloc(sizeof(rtmp_ctx_t));
+/**
+ * 初始化RTMP推流上下文
+ */
+int rtmp_init(rtmp_ctx_t *ctx) {
     if (!ctx) {
-        LLOGE("RTMP: Failed to allocate context");
-        return NULL;
+        LLOGE("RTMP: Invalid context pointer");
+        return RTMP_ERR_INVALID_PARAM;
     }
-    
+
+    /* 检查是否已存在实例 */
+    if (g_rtmp_ctx) {
+        LLOGE("RTMP: Instance already exists, destroy it first");
+        return RTMP_ERR_INVALID_PARAM;
+    }
+
     memset(ctx, 0, sizeof(rtmp_ctx_t));
-    
+
     /* 初始化chunk大小 */
     ctx->chunk_size = RTMP_DEFAULT_CHUNK_SIZE;
-    
+
     /* 初始化缓冲区 */
     ctx->recv_buf = (uint8_t *)luat_heap_malloc(RTMP_BUFFER_SIZE);
     ctx->send_buf = (uint8_t *)luat_heap_malloc(RTMP_BUFFER_SIZE);
-    
+
     if (!ctx->recv_buf || !ctx->send_buf) {
         LLOGE("RTMP: Failed to allocate buffers");
         if (ctx->recv_buf) luat_heap_free(ctx->recv_buf);
         if (ctx->send_buf) luat_heap_free(ctx->send_buf);
-        luat_heap_free(ctx);
-        return NULL;
+        return RTMP_ERR_NO_MEMORY;
     }
-    
+
     ctx->recv_buf_size = RTMP_BUFFER_SIZE;
     ctx->send_buf_size = RTMP_BUFFER_SIZE;
     ctx->recv_pos = 0;
     ctx->send_pos = 0;
-    
+
     /* 初始化默认块大小 */
     ctx->in_chunk_size = RTMP_DEFAULT_CHUNK_SIZE;
     ctx->out_chunk_size = RTMP_DEFAULT_CHUNK_SIZE;
-    
+
     /* 初始化流ID */
     ctx->video_stream_id = 1;
     ctx->audio_stream_id = 1;
-    
+
     /* 初始化端口 */
     ctx->port = RTMP_DEFAULT_PORT;
-    
+
     /* 初始化状态 */
     ctx->state = RTMP_STATE_IDLE;
 
@@ -543,31 +537,29 @@ rtmp_ctx_t* rtmp_create(void) {
     ctx->stats_window_ms = 10000;
     ctx->last_window_ms = ctx->last_stats_log_ms;
     ctx->last_window_bytes = 0;
-    
-    RTMP_LOGV("RTMP: Context created successfully");
+
+    RTMP_LOGV("RTMP: Context initialized successfully");
     g_rtmp_ctx = ctx;
-    return ctx;
+    return RTMP_OK;
 }
 
 /**
- * 销毁RTMP推流上下文
+ * 反初始化RTMP推流上下文
  */
-int rtmp_destroy(rtmp_ctx_t *ctx) {
+int rtmp_deinit(rtmp_ctx_t *ctx) {
     if (!ctx) {
         return RTMP_ERR_INVALID_PARAM;
     }
     g_rtmp_ctx = NULL;
-    
+
     /* 断开TCP连接 */
-    if (ctx->pcb) {
-        tcp_arg(ctx->pcb, NULL);
-        tcp_recv(ctx->pcb, NULL);
-        tcp_err(ctx->pcb, NULL);
-        tcp_sent(ctx->pcb, NULL);
-        tcp_close(ctx->pcb);
-        ctx->pcb = NULL;
+    if (ctx->netc) {
+        network_close(ctx->netc, 0);
+        network_force_close_socket(ctx->netc);
+        network_release_ctrl(ctx->netc);
+        ctx->netc = NULL;
     }
-    
+
     /* 释放内存 */
     if (ctx->url) luat_heap_free(ctx->url);
     if (ctx->host) luat_heap_free(ctx->host);
@@ -584,10 +576,8 @@ int rtmp_destroy(rtmp_ctx_t *ctx) {
         rtmp_free_frame_node(cur);
         cur = next;
     }
-    
-    luat_heap_free(ctx);
-    
-    RTMP_LOGV("RTMP: Context destroyed");
+
+    RTMP_LOGV("RTMP: Context deinitialized");
     return RTMP_OK;
 }
 
@@ -614,62 +604,46 @@ int rtmp_connect(rtmp_ctx_t *ctx) {
     if (!ctx) {
         return RTMP_ERR_INVALID_PARAM;
     }
-    
+
     if (!ctx->host || !ctx->app || !ctx->stream) {
         LLOGE("RTMP: URL not set before connect");
         return RTMP_ERR_INVALID_PARAM;
     }
-    
-    /* 创建TCP控制块 */
-    ctx->pcb = tcp_new();
-    if (!ctx->pcb) {
-        LLOGE("RTMP: Failed to create TCP PCB");
+
+    /* 分配网络控制器 */
+    ctx->netc = network_alloc_ctrl(ctx->adapter_id);
+    if (!ctx->netc) {
+        LLOGE("RTMP: Failed to allocate network controller");
         return RTMP_ERR_NO_MEMORY;
     }
-    
-    tcp_arg(ctx->pcb, (void *)ctx);
-    tcp_recv(ctx->pcb, rtmp_tcp_recv_callback);
-    tcp_err(ctx->pcb, rtmp_tcp_error_callback);
-    tcp_sent(ctx->pcb, rtmp_tcp_sent_callback);
-    
-    /* 将IP地址字符串转换为lwip ip_addr结构体 */
-    ip_addr_t remote_addr;
-    err_t parse_ret = ipaddr_aton(ctx->host, &remote_addr);
-    
-    if (!parse_ret) {
-        LLOGE("RTMP: Invalid IP address: %s", ctx->host);
-        tcp_close(ctx->pcb);
-        ctx->pcb = NULL;
-        return RTMP_ERR_INVALID_PARAM;
-    }
-    
+
+    /* 初始化网络控制器（与 HTTP client 一致，传 ctx 指针作为 user_data） */
+    network_init_ctrl(ctx->netc, NULL, rtmp_network_callback, ctx);
+    network_set_base_mode(ctx->netc, 1, 10000, 0, 0, 0, 0); /* TCP模式 */
+    network_set_local_port(ctx->netc, 0);
+
     rtmp_set_state(ctx, RTMP_STATE_CONNECTING, 0);
 
-    // 初始化握手状态和缓冲区位置
+    /* 初始化握手状态和缓冲区位置 */
     ctx->handshake_state = 0;
     ctx->recv_pos = 0;
     ctx->send_pos = 0;
 
-    // 先尝试绑定本地端口（可选）
-    luat_netdrv_t *netdrv = luat_netdrv_get(ctx->adapter_id);
-    if (netdrv && netdrv->netif) {
-        tcp_bind(ctx->pcb, &netdrv->netif->ip_addr, 0);
-    }
-    
-    /* 发起TCP连接 */
-    err_t err = tcp_connect(ctx->pcb, &remote_addr, ctx->port, rtmp_tcp_connect_callback);
-    
-    if (err != ERR_OK) {
-        LLOGE("RTMP: TCP connect failed: %d", err);
+    /* 发起TCP连接（支持域名解析） */
+    int ret = network_connect(ctx->netc, ctx->host, strlen(ctx->host), NULL, ctx->port, 0);
+
+    if (ret < 0) {
+        LLOGE("RTMP: network_connect failed: %d", ret);
         rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_CONNECT_FAILED);
-        tcp_close(ctx->pcb);
-        ctx->pcb = NULL;
+        network_force_close_socket(ctx->netc);
+        network_release_ctrl(ctx->netc);
+        ctx->netc = NULL;
         return RTMP_ERR_CONNECT_FAILED;
     }
-    
+
     ctx->last_activity_time = rtmp_gen_timestamp();
     RTMP_LOGV("RTMP: Connecting to %s:%d (app:%s, stream:%s)", ctx->host, ctx->port, ctx->app, ctx->stream);
-    
+
     return RTMP_OK;
 }
 
@@ -681,10 +655,12 @@ int rtmp_disconnect(rtmp_ctx_t *ctx) {
         return RTMP_ERR_INVALID_PARAM;
     }
 
-    if (ctx->pcb) {
+    if (ctx->netc) {
         rtmp_set_state(ctx, RTMP_STATE_DISCONNECTING, 0);
-        tcp_close(ctx->pcb);
-        ctx->pcb = NULL;
+        network_close(ctx->netc, 0);
+        network_force_close_socket(ctx->netc);
+        network_release_ctrl(ctx->netc);
+        ctx->netc = NULL;
     }
 
     rtmp_set_state(ctx, RTMP_STATE_DISCONNECTED, 0);
@@ -1135,43 +1111,39 @@ int rtmp_poll(rtmp_ctx_t *ctx) {
         return RTMP_ERR_INVALID_PARAM;
     }
 
-    // 根据netif的状态, 如果网卡不可用, 则直接返回错误, 断开链接
-    luat_netdrv_t *netdrv = luat_netdrv_get(ctx->adapter_id);
-    if (netdrv && netdrv->netif) {
-        /* 如果网卡不可用, 则断开链接 */
-        if (netif_is_link_up(netdrv->netif) == 0 || netif_is_up(netdrv->netif) == 0) {
-            LLOGW("RTMP: Network interface is down, disconnecting");
-            rtmp_disconnect(ctx);
-            return RTMP_ERR_NETWORK;
-        }
+    // 根据网络适配器状态, 如果网卡不可用, 则直接返回错误, 断开链接
+    if (network_check_ready(NULL, ctx->adapter_id) == 0) {
+        LLOGW("RTMP: Network interface is down, disconnecting");
+        rtmp_disconnect(ctx);
+        return RTMP_ERR_NETWORK;
     }
 
     /* 优先尝试发送队列中的数据 */
     rtmp_try_send_queue(ctx);
-    
+
     /* 检查超时 */
     uint32_t now = rtmp_gen_timestamp();
-    if (ctx->last_activity_time > 0 && 
+    if (ctx->last_activity_time > 0 &&
         (now - ctx->last_activity_time) > RTMP_CMD_TIMEOUT) {
-        
-        if (ctx->state == RTMP_STATE_CONNECTING || 
+
+        if (ctx->state == RTMP_STATE_CONNECTING ||
             ctx->state == RTMP_STATE_HANDSHAKING) {
             rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_TIMEOUT);
             return RTMP_ERR_TIMEOUT;
         }
     }
-    
-    /* 处理收到的数据 */
-    if (ctx->recv_pos > 0) {
+
+    /* 处理缓冲区剩余数据（只有握手完成后才处理RTMP消息） */
+    if (ctx->recv_pos > 0 && ctx->handshake_state >= 3) {
         int ret = rtmp_process_data(ctx);
         if (ret < 0) {
             return ret;
         }
     }
-    
+
     /* 发送缓冲的数据 */
     /* 在CONNECTED和PUBLISHING状态下都可以发送数据 */
-    if (ctx->send_pos > 0 && (ctx->state == RTMP_STATE_PUBLISHING || 
+    if (ctx->send_pos > 0 && (ctx->state == RTMP_STATE_PUBLISHING ||
                               ctx->state == RTMP_STATE_CONNECTED)) {
         int ret = rtmp_flush_send_buffer(ctx);
         if (ret < 0) {
@@ -1481,32 +1453,6 @@ static int rtmp_parse_url(rtmp_ctx_t *ctx, const char *url) {
     return RTMP_OK;
 }
 
-/**
- * TCP连接回调函数
- */
-static err_t rtmp_tcp_connect_callback(void *arg, struct tcp_pcb *pcb, err_t err) {
-    rtmp_ctx_t *ctx = (rtmp_ctx_t *)arg;
-    
-    if (err != ERR_OK) {
-        LLOGE("RTMP: TCP connect failed: %d", err);
-        rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_CONNECT_FAILED);
-        return err;
-    }
-    
-    RTMP_LOGV("RTMP: TCP connected %s:%d", ctx->host, ctx->port);
-    
-    /* 执行握手 */
-    int ret = rtmp_do_handshake(ctx);
-    if (ret != RTMP_OK) {
-        rtmp_set_state(ctx, RTMP_STATE_ERROR, ret);
-        return ERR_ABRT;
-    }
-    
-    rtmp_set_state(ctx, RTMP_STATE_HANDSHAKING, 0);
-    
-    return ERR_OK;
-}
-
 static void rtmp_send_connect(void *arg) {
     rtmp_ctx_t *ctx = (rtmp_ctx_t *)arg;
     LLOGI("RTMP: Received %u bytes after C2, handshake confirmed", ctx->recv_pos);
@@ -1529,131 +1475,139 @@ static void rtmp_send_connect(void *arg) {
 }
 
 /**
- * TCP接收回调函数
+ * 网络事件回调函数
  */
-static err_t rtmp_tcp_recv_callback(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
-    rtmp_ctx_t *ctx = (rtmp_ctx_t *)arg;
-    if (arg == NULL) {
-        LLOGE("RTMP: TCP recv callback with NULL arg");
-        return ERR_ARG;
+static int32_t rtmp_network_callback(void *data, void *param) {
+    if (data == NULL) {
+        LLOGE("RTMP: Network callback with NULL data");
+        return -1;
     }
-    RTMP_LOGV("RTMP: TCP recv callback, err=%d, pbuf=%p len=%d", err, p, p ? p->tot_len : 0);
-    if (err != ERR_OK) {
-        LLOGE("RTMP: TCP recv error: %d", err);
-        rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_NETWORK);
-        return ERR_OK;
-    }
-    
-    if (!p) {
-        LLOGW("RTMP: TCP connection closed");
-        rtmp_set_state(ctx, RTMP_STATE_IDLE, 0);
-        return ERR_OK;
-    }
-    
-    /* 将数据复制到接收缓冲区 */
-    uint32_t copy_len = (p->tot_len < (ctx->recv_buf_size - ctx->recv_pos)) ?
-                        p->tot_len : (ctx->recv_buf_size - ctx->recv_pos);
-    if (copy_len > 0) {
-        pbuf_copy_partial(p, &ctx->recv_buf[ctx->recv_pos], copy_len, 0);
-        
-        ctx->recv_pos += copy_len;
-    }
-    
-    RTMP_LOGV("RTMP: Received %d bytes, p->tot_len=%d", copy_len, p->tot_len);
-    tcp_recved(pcb, p->tot_len);
-    pbuf_free(p);
-    
-    ctx->last_activity_time = rtmp_gen_timestamp();
-    
-    /* 处理握手 */
-    if (ctx->handshake_state == 1) {
-        /* 等待接收完整的 S0+S1 (1+1536 = 1537 字节) */
-        uint32_t required_len = 1 + RTMP_HANDSHAKE_CLIENT_SIZE;
-        
-        if (ctx->recv_pos >= required_len) {
-            /* 验证S0版本号 */
-            if (ctx->recv_buf[0] != 0x03) {
-                LLOGE("RTMP: Invalid RTMP version from server: %d", ctx->recv_buf[0]);
-                rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_HANDSHAKE_FAILED);
-                return ERR_ABRT;
-            }
-            
-            /* 已收到完整的S0+S1,现在发送C2 */
-            /* C2 是 S1 的完整 1536 字节回显 */
-            LLOGI("RTMP: Received complete S0+S1 (%u bytes), sending C2...", required_len);
-            
-            err_t err = tcp_write(ctx->pcb, &ctx->recv_buf[1], RTMP_HANDSHAKE_CLIENT_SIZE, TCP_WRITE_FLAG_COPY);
-            
-            if (err != ERR_OK) {
-                LLOGE("RTMP: Failed to send C2: %d", err);
-                rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_NETWORK);
-                return ERR_ABRT;
-            }
-            
-            tcp_output(ctx->pcb);
-            
-            LLOGI("RTMP: C2 sent successfully (exactly %u bytes, S1 echo)", RTMP_HANDSHAKE_CLIENT_SIZE);
-            
-            /* 握手状态转为2，等待握手完全完成或后续RTMP数据 */
-            ctx->handshake_state = 2;
-            
-            /* 移除已处理的握手数据，保留剩余数据用于后续RTMP消息处理 */
-            if (ctx->recv_pos > required_len) {
-                /* 还有剩余数据（可能是服务器握手确认或RTMP消息），需要左移 */
-                LLOGI("RTMP: Extra data after S0+S1: %u bytes", ctx->recv_pos - required_len);
-                memmove(ctx->recv_buf, &ctx->recv_buf[required_len], ctx->recv_pos - required_len);
-                ctx->recv_pos -= required_len;
-                RTMP_LOGV("RTMP: Buffer adjusted, remaining: %u bytes", ctx->recv_pos);
-            } else {
-                /* 恰好接收到S0+S1，没有剩余数据 */
-                ctx->recv_pos = 0;
-                RTMP_LOGV("RTMP: No extra data after S0+S1, buffer cleared");
-            }
-        } else {
-            /* 数据不足，继续等待 */
-            RTMP_LOGV("RTMP: Waiting for complete S0+S1... received %u/%u bytes", ctx->recv_pos, required_len);
-        }
-    } 
-    else if (ctx->handshake_state == 2) {
-        /* 握手已发送C2
-           根据RTMP规范，握手完成后，可以直接开始发送RTMP消息
-           或等待服务器响应。这里我们检查是否有新数据到达
-           如果有新数据，说明服务器已确认握手，可以继续 */
-        
-        if (ctx->recv_pos >= RTMP_HANDSHAKE_SIZE) {
-            sys_timeout(100, rtmp_send_connect, (void *)ctx);
-        }
-    }
-    
-    return ERR_OK;
-}
 
-/**
- * TCP错误回调函数
- */
-static void rtmp_tcp_error_callback(void *arg, err_t err) {
-    rtmp_ctx_t *ctx = (rtmp_ctx_t *)arg;
-    
-    LLOGE("RTMP: TCP error: %d", err);
-    
-    if (ctx) {
-        rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_NETWORK);
-        ctx->pcb = NULL;
-    }
-}
+    OS_EVENT *event = (OS_EVENT *)data;
+    rtmp_ctx_t *ctx = (rtmp_ctx_t *)param;
 
-/**
- * TCP发送回调函数
- */
-static err_t rtmp_tcp_sent_callback(void *arg, struct tcp_pcb *pcb, u16_t len) {
-    rtmp_ctx_t *ctx = (rtmp_ctx_t *)arg;
-    if (ctx) {
-        /* bytes_sent 已在 rtmp_send_single_nalu / rtmp_send_audio 等处按应用层统计，
-         * 此处不再重复累加，仅触发队列继续发送 */
-        rtmp_try_send_queue(ctx);
+    LLOGI("RTMP: Network event: 0x%lx, param1=%lu, param2=%lu", event->ID, event->Param1, event->Param2);
+
+    /* 统一检查错误：Param1 非0 表示操作失败 */
+    if (event->Param1) {
+        LLOGW("RTMP: Network error, event=0x%lx, param1=%lu", event->ID, event->Param1);
+        rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_NETWORK);
+        return -1;
     }
-    
-    return ERR_OK;
+
+    switch (event->ID) {
+        case EV_NW_RESULT_CONNECT:
+            /* 连接成功（失败已在开头统一处理） */
+            LLOGI("RTMP: TCP connected %s:%d", ctx->host, ctx->port);
+            ctx->last_activity_time = rtmp_gen_timestamp();
+            int ret = rtmp_do_handshake(ctx);
+            if (ret != RTMP_OK) {
+                rtmp_set_state(ctx, RTMP_STATE_ERROR, ret);
+                return -1;
+            }
+            rtmp_set_state(ctx, RTMP_STATE_HANDSHAKING, 0);
+            break;
+
+        case EV_NW_RESULT_EVENT:
+            /* 接收数据 */
+            {
+                uint32_t rx_len = 0;
+                int ret = network_rx(ctx->netc, NULL, 0, 0, NULL, NULL, &rx_len);
+                if (ret >= 0 && rx_len > 0) {
+                    uint32_t buf_space = ctx->recv_buf_size - ctx->recv_pos;
+                    uint32_t to_read = (rx_len < buf_space) ? rx_len : buf_space;
+
+                    ret = network_rx(ctx->netc, &ctx->recv_buf[ctx->recv_pos], to_read, 0, NULL, NULL, &rx_len);
+                    if (ret >= 0 && rx_len > 0) {
+                        ctx->recv_pos += rx_len;
+                        ctx->last_activity_time = rtmp_gen_timestamp();
+
+                        RTMP_LOGV("RTMP: Received %u bytes (total in buffer: %u)", rx_len, ctx->recv_pos);
+
+                        /* 处理握手数据 */
+                        if (ctx->handshake_state == 1) {
+                            uint32_t required_len = 1 + RTMP_HANDSHAKE_CLIENT_SIZE;
+
+                            if (ctx->recv_pos >= required_len) {
+                                if (ctx->recv_buf[0] != 0x03) {
+                                    LLOGE("RTMP: Invalid RTMP version from server: %d", ctx->recv_buf[0]);
+                                    rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_HANDSHAKE_FAILED);
+                                    break;
+                                }
+
+                                LLOGI("RTMP: Received complete S0+S1 (%u bytes), sending C2...", required_len);
+
+                                /* 发送C2（S1的回显） */
+                                uint32_t tx_len = 0;
+                                network_tx(ctx->netc, &ctx->recv_buf[1], RTMP_HANDSHAKE_CLIENT_SIZE,
+                                          0, NULL, 0, &tx_len, 0);
+
+                                if (tx_len != RTMP_HANDSHAKE_CLIENT_SIZE) {
+                                    LLOGE("RTMP: Failed to send C2: tx_len=%u", tx_len);
+                                    rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_NETWORK);
+                                    break;
+                                }
+
+                                LLOGI("RTMP: C2 sent successfully (%u bytes, S1 echo)", tx_len);
+                                ctx->handshake_state = 2;
+
+                                /* 调整缓冲区 */
+                                if (ctx->recv_pos > required_len) {
+                                    LLOGI("RTMP: Extra data after S0+S1: %u bytes", ctx->recv_pos - required_len);
+                                    memmove(ctx->recv_buf, &ctx->recv_buf[required_len], ctx->recv_pos - required_len);
+                                    ctx->recv_pos -= required_len;
+                                } else {
+                                    ctx->recv_pos = 0;
+                                }
+                            } else {
+                                RTMP_LOGV("RTMP: Waiting for complete S0+S1... received %u/%u bytes", ctx->recv_pos, required_len);
+                            }
+                        }
+                        else if (ctx->handshake_state == 2) {
+                            /* RTMP规范：等待S2(1536字节)，但有些服务器可能不发送完整S2 */
+                            LLOGI("RTMP: handshake_state=2 in callback, recv_pos=%u", ctx->recv_pos);
+                            if (ctx->recv_pos >= RTMP_HANDSHAKE_SIZE) {
+                                /* 收到S2，握手完成，移除S2数据 */
+                                LLOGI("RTMP: Received S2 (%u bytes), handshake complete", RTMP_HANDSHAKE_SIZE);
+                                if (ctx->recv_pos > RTMP_HANDSHAKE_SIZE) {
+                                    memmove(ctx->recv_buf, &ctx->recv_buf[RTMP_HANDSHAKE_SIZE], ctx->recv_pos - RTMP_HANDSHAKE_SIZE);
+                                    ctx->recv_pos -= RTMP_HANDSHAKE_SIZE;
+                                } else {
+                                    ctx->recv_pos = 0;
+                                }
+                                rtmp_send_connect(ctx);
+                            }
+                            /* 如果数据不足完整S2，等待poll中的超时逻辑处理 */
+                        }
+
+                        /* 处理RTMP消息数据（只有握手完成后才处理） */
+                        if (ctx->recv_pos > 0 && ctx->handshake_state >= 3) {
+                            rtmp_process_data(ctx);
+                        }
+                    } else {
+                        LLOGE("RTMP: network_rx failed: ret=%d, rx_len=%u", ret, rx_len);
+                    }
+                }
+            }
+            break;
+
+        case EV_NW_RESULT_TX:
+            /* 发送完成 */
+            rtmp_try_send_queue(ctx);
+            break;
+
+        default:
+            RTMP_LOGV("RTMP: Unhandled network event: 0x%lx", event->ID);
+            break;
+    }
+
+    /* 等待下一个网络事件（关键！否则数据事件不会触发） */
+    int wait_ret = network_wait_event(ctx->netc, NULL, 0, NULL);
+    if (wait_ret < 0) {
+        LLOGW("RTMP: network_wait_event failed: %d", wait_ret);
+    }
+
+    return 0;
 }
 
 /**
@@ -1662,7 +1616,7 @@ static err_t rtmp_tcp_sent_callback(void *arg, struct tcp_pcb *pcb, u16_t len) {
 static int rtmp_do_handshake(rtmp_ctx_t *ctx) {
     /* 生成C0和C1数据 */
     uint8_t handshake[1 + RTMP_HANDSHAKE_CLIENT_SIZE];
-    
+
     /* C0: 版本号 */
     handshake[0] = 0x03;  /* RTMP版本3 */
     
@@ -1680,20 +1634,19 @@ static int rtmp_do_handshake(rtmp_ctx_t *ctx) {
     
     /* 发送握手数据 */
     LLOGI("RTMP: Sending handshake (C0+C1)...");
-    err_t err = tcp_write(ctx->pcb, handshake, sizeof(handshake), TCP_WRITE_FLAG_COPY);
-    
-    if (err != ERR_OK) {
-        LLOGE("RTMP: Failed to send handshake: %d", err);
+    uint32_t tx_len = 0;
+    network_tx(ctx->netc, handshake, sizeof(handshake), 0, NULL, 0, &tx_len, 0);
+
+    if (tx_len != sizeof(handshake)) {
+        LLOGE("RTMP: Failed to send handshake: tx_len=%u, expected=%u", tx_len, (uint32_t)sizeof(handshake));
         return RTMP_ERR_NETWORK;
     }
-    
-    tcp_output(ctx->pcb);
-    
-    RTMP_LOGV("RTMP: C0+C1 sent (%d bytes), waiting for S0+S1...", sizeof(handshake));
-    
+
+    RTMP_LOGV("RTMP: C0+C1 sent (%u bytes), waiting for S0+S1...", tx_len);
+
     /* 设置握手状态为等待S0+S1 */
     ctx->handshake_state = 1;
-    
+
     return RTMP_OK;
 }
 
@@ -1959,9 +1912,9 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
     return RTMP_OK;
 }
 
-/* 发送队列中的数据，逐chunk写入lwip */
+/* 发送队列中的数据，逐chunk写入网络 */
 static void rtmp_try_send_queue(rtmp_ctx_t *ctx) {
-    if (!ctx || !ctx->pcb) return;
+    if (!ctx || !ctx->netc) return;
 
     while (ctx->frame_head) {
         rtmp_frame_node_t *node = ctx->frame_head;
@@ -1974,32 +1927,21 @@ static void rtmp_try_send_queue(rtmp_ctx_t *ctx) {
             continue;
         }
 
-        u16_t snd_avail = tcp_sndbuf(ctx->pcb);
-        if (snd_avail == 0) {
-            tcp_output(ctx->pcb);
-            break;
-        }
-
-        uint32_t to_send = remaining < snd_avail ? remaining : snd_avail;
-        /* 在空闲时多发，拥堵时受snd_avail限制；上限设为8KB */
+        uint32_t to_send = remaining;
+        /* 上限设为8KB，避免单次发送过大 */
         if (to_send > 8192) to_send = 8192;
 
-        err_t err = tcp_write(ctx->pcb, node->data + node->sent, to_send, TCP_WRITE_FLAG_COPY);
-        if (err != ERR_OK) {
-            LLOGE("RTMP: tcp_write queue failed %d", err);
-            break;
-        }
-        node->sent += to_send;
-
-        tcp_output(ctx->pcb);
+        uint32_t tx_len = 0;
+        network_tx(ctx->netc, node->data + node->sent, to_send, 0, NULL, 0, &tx_len, 0);
+        node->sent += tx_len;
 
         if (node->sent >= node->len) {
             ctx->frame_head = node->next;
             if (ctx->frame_head == NULL) ctx->frame_tail = NULL;
             if (ctx->frame_queue_bytes >= node->len) ctx->frame_queue_bytes -= node->len; else ctx->frame_queue_bytes = 0;
             rtmp_free_frame_node(node);
-        } else {
-            /* 发送缓冲区不足，等待sent回调继续 */
+        } else if (tx_len == 0) {
+            /* 发送缓冲区已满，等待后续回调继续 */
             break;
         }
     }
@@ -2594,53 +2536,36 @@ static int rtmp_flush_send_buffer(rtmp_ctx_t *ctx) {
     if (!ctx || ctx->send_pos == 0) {
         return RTMP_OK;
     }
-    
-    if (!ctx->pcb) {
+
+    if (!ctx->netc) {
         return RTMP_ERR_FAILED;
     }
-    
-    //LLOGI("RTMP: Flushing %u bytes from send buffer", ctx->send_pos);
-    
+
     uint32_t bytes_sent = 0;
     uint32_t total_bytes = ctx->send_pos;
-    
-    /* 分批发送数据，避免lwip缓冲区溢出 */
+
+    /* 分批发送数据，避免缓冲区溢出 */
     while (bytes_sent < total_bytes) {
-        /* 检查TCP发送缓冲区可用空间 */
-        u16_t available = tcp_sndbuf(ctx->pcb);
-        if (available == 0) {
-            /* 缓冲区已满，先输出已有数据，等待sent回调继续 */
-            tcp_output(ctx->pcb);
-            return RTMP_ERR_NETWORK;
-        }
-        
         /* 计算本次可以发送的字节数 */
         uint32_t remaining = total_bytes - bytes_sent;
-        uint32_t to_send = (remaining < available) ? remaining : available;
-        
-        /* 限制单次发送大小，避免过大 */
-        if (to_send > 4096) {
-            to_send = 4096;
-        }
-        
+        uint32_t to_send = (remaining < 4096) ? remaining : 4096;
+
         /* 发送数据 */
-        err_t err = tcp_write(ctx->pcb, &ctx->send_buf[bytes_sent], to_send, TCP_WRITE_FLAG_COPY);
-        if (err != ERR_OK) {
-            LLOGE("RTMP: tcp_write failed: %d, sent %u/%u bytes", err, bytes_sent, total_bytes);
-            return RTMP_ERR_NETWORK;
-        }
-        
-        bytes_sent += to_send;
-        
-        /* 每发送一批数据后触发输出 */
-        if (bytes_sent % 8192 == 0 || bytes_sent >= total_bytes) {
-            tcp_output(ctx->pcb);
+        uint32_t tx_len = 0;
+        network_tx(ctx->netc, &ctx->send_buf[bytes_sent], to_send, 0, NULL, 0, &tx_len, 0);
+        bytes_sent += tx_len;
+
+        /* 如果单次发送为0，说明缓冲区已满，等待后续回调继续 */
+        if (tx_len == 0) {
+            break;
         }
     }
-    
-    //LLOGI("RTMP: Successfully sent %u bytes", bytes_sent);
-    ctx->send_pos = 0;
-    
+
+    ctx->send_pos = bytes_sent;
+    if (ctx->send_pos >= total_bytes) {
+        ctx->send_pos = 0;
+    }
+
     return RTMP_OK;
 }
 
@@ -2649,7 +2574,7 @@ static int rtmp_flush_send_buffer(rtmp_ctx_t *ctx) {
  */
 static void rtmp_set_state(rtmp_ctx_t *ctx, rtmp_state_t new_state, int error_code) {
     rtmp_state_t old_state = ctx->state;
-    
+
     if (old_state == new_state) {
         return;
     }

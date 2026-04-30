@@ -8,7 +8,7 @@
 本文件为多网卡驱动模块 ，核心业务逻辑为：
 1、调用exnetif.set_priority_order配置多网卡的控制参数以及优先级；
 
-通过SPI外挂CH390H芯片的以太网卡（此网卡和4G网卡硬件连接有冲突，如果必须使用spi以太网卡，注意更换以太网或者4G网卡使用的spi来避免冲突）：
+通过SPI外挂CH390H芯片的以太网卡：
 Air8101核心板和AirETH_1000配件板的硬件接线方式为:
 Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；
 如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的VIN管脚进行5V供电；
@@ -80,7 +80,7 @@ local function netdrv_multiple_task_func()
 
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                     tp = netdrv.CH390, 
-                    opts = {spi=0, cs=15}
+                    opts = {spi=0, cs=15, irq=8}
                 }
             },
 

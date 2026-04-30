@@ -982,6 +982,11 @@ int luat_airlink_has_wifi(void) {
             return 1;
         }
     }
+
+    if(g_airlink_ext_dev_info.tp == 0x01)
+    {
+        has_wifi = 1;
+    }
     return has_wifi;
 }
 

@@ -174,6 +174,7 @@ static void luat_audio_post_done_event(uint8_t multimedia_id) {
 }
 
 static void luat_audio_wait_output_empty(uint8_t multimedia_id, luat_audio_conf_t *audio_conf, volatile uint8_t *stop_requested) {
+#ifdef LUAT_USE_I2S
     size_t total = 0;
     size_t remain = 0;
 
@@ -191,6 +192,11 @@ static void luat_audio_wait_output_empty(uint8_t multimedia_id, luat_audio_conf_
         luat_rtos_task_sleep(5);
     }
     (void)multimedia_id;
+#else
+    (void)multimedia_id;
+    (void)audio_conf;
+    (void)stop_requested;
+#endif
 }
 
 static int luat_audio_task_bootstrap(void) {
@@ -559,8 +565,10 @@ LUAT_WEAK int luat_audio_play_file(uint8_t multimedia_id, const char *path){
 LUAT_WEAK uint8_t luat_audio_is_finish(uint8_t multimedia_id){
     luat_audio_play_state_t *play_state = luat_audio_get_play_state(multimedia_id);
     luat_audio_conf_t *audio_conf = luat_audio_get_config(multimedia_id);
+#ifdef LUAT_USE_I2S
     size_t total = 0;
     size_t remain = 0;
+#endif
 
     if (!play_state || !audio_conf) {
         return 1;
@@ -568,12 +576,14 @@ LUAT_WEAK uint8_t luat_audio_is_finish(uint8_t multimedia_id){
     if (play_state->playing || play_state->task_running) {
         return 0;
     }
+#ifdef LUAT_USE_I2S
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
         if (luat_i2s_txbuff_info(audio_conf->codec_conf.i2s_id, &total, &remain) != 0) {
             return 1;
         }
         return remain == 0;
     }
+#endif
     return 1;
 }
 
@@ -616,12 +626,14 @@ LUAT_WEAK int luat_audio_start_raw(uint8_t multimedia_id, uint8_t audio_format, 
         // LLOGD("luat_audio_start_raw: bus_type=%d, format=%d, channels=%d, sample_rate=%d, bits_per_sample=%d, is_signed=%d",
         //         audio_conf->bus_type, audio_format, num_channels, sample_rate, bits_per_sample, is_signed);
         if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
+#ifdef LUAT_USE_I2S
             luat_i2s_conf_t * i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
             i2s_conf->data_bits = bits_per_sample;
             i2s_conf->sample_rate = sample_rate,
             luat_i2s_modify(audio_conf->codec_conf.i2s_id,i2s_conf->channel_format,i2s_conf->data_bits, i2s_conf->sample_rate);
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,sample_rate);
             luat_audio_pa(multimedia_id,1,0);
+#endif
         }
 #ifdef LUAT_USE_DAC
         else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
@@ -636,6 +648,7 @@ LUAT_WEAK int luat_audio_write_raw(uint8_t multimedia_id, uint8_t *data, uint32_
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
+#ifdef LUAT_USE_I2S
             int send_bytes = 0;
             while (send_bytes < len) {
                 int length = luat_i2s_send(audio_conf->codec_conf.i2s_id,data + send_bytes, len - send_bytes);
@@ -644,6 +657,7 @@ LUAT_WEAK int luat_audio_write_raw(uint8_t multimedia_id, uint8_t *data, uint32_
                 }
                 luat_rtos_task_sleep(1);
             }
+#endif
         }
 #ifdef LUAT_USE_DAC
         else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
@@ -658,9 +672,11 @@ LUAT_WEAK int luat_audio_write_raw(uint8_t multimedia_id, uint8_t *data, uint32_
 LUAT_WEAK int luat_audio_stop_raw(uint8_t multimedia_id){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
+#ifdef LUAT_USE_I2S
         if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
             return luat_i2s_close(audio_conf->codec_conf.i2s_id);
         }
+#endif
         /* DAC: initialized once by luat_audio_init, kept open across files */
     }
     return -1;
@@ -674,6 +690,7 @@ LUAT_WEAK int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
+#ifdef LUAT_USE_I2S
             if (is_pause){
                 luat_audio_pa(multimedia_id,0,0);
                 luat_i2s_pause(audio_conf->codec_conf.i2s_id);
@@ -682,6 +699,7 @@ LUAT_WEAK int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause){
                 luat_i2s_resume(audio_conf->codec_conf.i2s_id);
             }
             return 0;
+#endif
         }
     }
     return -1;
@@ -772,6 +790,7 @@ LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
     }
     audio_conf->soft_vol = vol<=100?100:vol;
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
+#ifdef LUAT_USE_I2S
         uint8_t sleep_mode = audio_conf->sleep_mode;
         audio_conf->last_vol = vol;
         if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
@@ -783,6 +802,7 @@ LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
         }
         if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,sleep_mode);
         return vol;
+#endif
     }
 #ifdef LUAT_USE_DAC
     else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
@@ -921,6 +941,7 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
     audio_conf->last_vol = init_vol;
     audio_conf->last_mic_vol = init_mic_vol;
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
+#ifdef LUAT_USE_I2S
     	if (audio_conf->codec_conf.codec_opts->no_control)
     	{
     		audio_conf->sleep_mode = LUAT_AUDIO_PM_SHUTDOWN;
@@ -952,6 +973,7 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 
         }
         audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
+#endif
     }
 #ifdef LUAT_USE_DAC
     else if(audio_conf->bus_type == LUAT_AUDIO_BUS_DAC){
@@ -973,16 +995,26 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 LUAT_WEAK int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);  // 获取音频配置
     if (audio_conf){
-        if (bus_type == LUAT_AUDIO_BUS_I2S || bus_type == LUAT_AUDIO_BUS_DAC){
+#ifdef LUAT_USE_I2S
+        if (bus_type == LUAT_AUDIO_BUS_I2S){
             audio_conf->codec_conf.multimedia_id = multimedia_id;
             audio_conf->bus_type = bus_type;
             return 0;
         }
+#endif
+#ifdef LUAT_USE_DAC
+        if (bus_type == LUAT_AUDIO_BUS_DAC){
+            audio_conf->codec_conf.multimedia_id = multimedia_id;
+            audio_conf->bus_type = bus_type;
+            return 0;
+        }
+#endif
     }
     return -1;  // 配置无效或不支持的总线类型
 }
 
 LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t mode){
+#ifdef LUAT_USE_I2S
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf!=NULL && audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
     	if (!audio_conf->pa_is_control_enable)
@@ -1097,6 +1129,10 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 
         return 0;
     }
+#else
+    (void)multimedia_id;
+    (void)mode;
+#endif
     return -1;
 }
 

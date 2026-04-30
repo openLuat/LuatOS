@@ -55,41 +55,72 @@ local dtu = {
     task = {}, -- 用户自定义任务列表
 }
 
---GPIO初始化输入，
-default.pios = {
-    pio1 = gpio.setup(1, nil, gpio.PULLDOWN),
-    pio2 = gpio.setup(2, nil, gpio.PULLDOWN),
-    pio3 = gpio.setup(3, nil, gpio.PULLDOWN),
-    pio4 = gpio.setup(4, nil, gpio.PULLDOWN),
-    pio5 =gpio.setup(5, nil,gpio.PULLDOWN),
-    pio6 =gpio.setup(6, nil,gpio.PULLDOWN),
-    pio7 =gpio.setup(7, nil,gpio.PULLDOWN),
-    pio8 =gpio.setup(8, nil,gpio.PULLDOWN),
-    pio9 =gpio.setup(9, nil,gpio.PULLDOWN),
-    pio10 =gpio.setup(10, nil,gpio.PULLDOWN),
-    pio11 =gpio.setup(11, nil,gpio.PULLDOWN),
-    pio16 =gpio.setup(16, nil,gpio.PULLDOWN),
-    pio17 =gpio.setup(17, nil,gpio.PULLDOWN),
-    pio20 =gpio.setup(20, nil,gpio.PULLDOWN),
-    pio21 =gpio.setup(21, nil,gpio.PULLDOWN),
-    pio22 =gpio.setup(22, nil,gpio.PULLDOWN),
-    -- pio23 =gpio.setup(23, nil,gpio.PULLDOWN),
-    -- pio24 =gpio.setup(24, nil,gpio.PULLDOWN),
-    -- pio25 =gpio.setup(25, nil,gpio.PULLDOWN),
-    pio26 =gpio.setup(26, nil,gpio.PULLDOWN),  --READY指示灯
-    pio27 =gpio.setup(27, nil,gpio.PULLDOWN),  --NET指示灯
-    pio28 =gpio.setup(28, nil,gpio.PULLDOWN),  
-    pio29 =gpio.setup(29, nil,gpio.PULLDOWN) ,
-    pio30 =gpio.setup(30, nil,gpio.PULLDOWN),
-    pio31 =gpio.setup(31, nil,gpio.PULLDOWN),
-    pio32 =gpio.setup(32, nil,gpio.PULLDOWN),
-    pio33 =gpio.setup(33, nil,gpio.PULLDOWN),
-    pio34 =gpio.setup(34, nil,gpio.PULLDOWN),
-    pio35 =gpio.setup(35, nil,gpio.PULLDOWN),
-    pio36 =gpio.setup(36, nil,gpio.PULLDOWN),
-    pio37 =gpio.setup(37, nil,gpio.PULLDOWN),
-    pio38 =gpio.setup(38, nil,gpio.PULLDOWN),
+--GPIO初始化输入，根据不同型号配置
+-- 只定义配置结构，不在外部直接初始化GPIO
+local model_gpio_configs = {
+    ["Air8000A"] = {
+        pins = {1, 2, 3, 4, 5, 16, 17, 20, 21, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 140, 141, 146, 147, 152, 153, 156, 160, 162, 164}
+    },
+    ["Air8000W"] = {
+        pins = {1, 2, 3, 4, 5, 6, 7, 16, 17, 20, 21, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 140, 141, 146, 147, 152, 153, 156, 160, 162, 164}
+    },
+    ["Air8000D"] = {
+        pins = {1, 2, 3, 4, 5, 8, 9, 10, 11, 16, 17, 20, 21, 22, 23, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38}
+    },
+    ["Air780EPM_Air780EHM"] = {
+        pins = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38}
+    },
+    ["Air780EHV"] = {
+        pins = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38}
+    },
+    ["Air780EGH_Air780EGP_Air780EGG"] = {
+        pins = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 20, 22, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38}
+    },
 }
+
+-- 获取当前设备型号
+local function get_device_model()
+    return hmeta.model()
+end
+
+-- 根据型号获取对应的GPIO配置
+local function get_gpio_config()
+    local model = get_device_model()
+    log.info("Current device model:", model)
+    
+    -- 根据型号获取对应的引脚配置
+    local config = nil
+    if model == "Air8000T" then
+        config = model_gpio_configs["Air780EPM_Air780EHM"]
+    elseif model == "Air8000A" then
+        config = model_gpio_configs["Air8000A"]
+    elseif model == "Air8000W" then
+        config = model_gpio_configs["Air8000W"]
+    elseif model == "Air8000D" then
+        config = model_gpio_configs["Air8000D"]
+    elseif model == "Air780EPM" or model == "Air780EHM" then
+        config = model_gpio_configs["Air780EPM_Air780EHM"]
+    elseif model == "Air780EHV" then
+        config = model_gpio_configs["Air780EHV"]
+    elseif model == "Air780EGH" or model == "Air780EGP" or model == "Air780EGG" then
+        config = model_gpio_configs["Air780EGH_Air780EGP_Air780EGG"]
+    else
+        log.warn("Unknown device model:", model, "using Air780EPM/Air780EHM default configuration")
+        config = model_gpio_configs["Air780EPM_Air780EHM"] -- 默认使用Air780EPM/Air780EHM配置
+    end
+    
+    -- 在函数内部动态初始化GPIO
+    local gpio_config = {}
+    for _, pin in ipairs(config.pins) do
+        local pio_name = "pio" .. pin
+        gpio_config[pio_name] = gpio.setup(pin, nil, gpio.PULLDOWN)
+    end
+    
+    return gpio_config
+end
+
+-- 初始化GPIO配置
+default.pios = get_gpio_config()
 
 --初始化fskv区域
 fskv.init()

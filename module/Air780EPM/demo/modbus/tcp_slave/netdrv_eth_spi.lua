@@ -65,7 +65,7 @@ local function netdrv_task_func()
             ETHERNET = {
                 pwrpin = 20,
                 tp = netdrv.CH390,
-                opts = { spi = 0, cs = 8 },
+                opts = { spi = 0, cs = 8, irq = 22 },
                 -- 此处设置为静态 IP 地址
                 -- 如果不设置为静态 IP 地址，默认会使用 DHCP 协议动态获取 IP 地址
                 static_ip = {

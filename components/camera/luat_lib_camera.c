@@ -554,7 +554,15 @@ LUAT_WEAK int luat_usb_camera_stream_get_config_info(uint8_t app_id, uint8_t for
     return -1;
 }
 
+LUAT_WEAK int luat_usb_camera_stream_set_min_data_len(uint8_t app_id, uint32_t min_data_len)
+{
+	return -1;
+}
 
+LUAT_WEAK int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t jump_frame_cnt)
+{
+	return -1;
+}
 /**
 camera拍照
 @api camera.capture(id, save_path, quality, x, y, w, h)
@@ -727,6 +735,8 @@ camera输出/停止数据流
 @api camera.stream(id, app_id)
 @id camera id
 @app_id 如果是usb摄像头，则输入usb应用id，其他留空
+@int 跳帧，针对USB摄像头，跳过N帧后上报，一般情况正常传输是30fps，如果脚本处理不过来，可以跳过N帧上报，默认是0，即不跳
+@int 图像数据最小长度，针对USB摄像头ISO传输可能漏数据的情况，只有大于最小长度的图像帧会上报，默认是10KB
 @return boolean 成功返回true,否则返回false
 @usage
 =
@@ -735,6 +745,9 @@ camera.stream(camera.USB, app_id)
 static int l_camera_stream(lua_State *L) {
 	int camera_id = luaL_checkinteger(L, 1);
     int app_id = luaL_optinteger(L, 2, -1);
+    uint8_t jump_frame_cnt = luaL_optinteger(L, 3, 0);
+    uint32_t min_data_len = luaL_optinteger(L, 4, 10*1024);
+
     uint8_t usb_mode = 0;
     if (camera_id >= LUAT_CAMERA_TYPE_USB)
     {
@@ -744,6 +757,8 @@ static int l_camera_stream(lua_State *L) {
 
     if (usb_mode)
     {
+    	luat_usb_camera_stream_set_jump_frame_cnt(app_id, jump_frame_cnt);
+    	luat_usb_camera_stream_set_min_data_len(app_id, min_data_len);
         lua_pushboolean(L, !luat_camera_start(app_id));
 
     }

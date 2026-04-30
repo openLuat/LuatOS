@@ -13,7 +13,7 @@ local libnet = require "libnet"
 local dtulib = require "dtulib"
 
 local excloud= require ("excloud")
-local lbsLoc = require("lbsLoc")
+local lbsLoc2 = require("lbsLoc2")
 local default = require("default")
 local dtu
 local audio_uid="a"
@@ -71,26 +71,32 @@ end
 
 -- 获取实时经纬度
 function create.getRealLocation()
-    lbsLoc.request(function(result, lat, lng, addr, time, locType)
-        if result then
-            latdata = lat
-            lngdata = lng
-        end
-    end)
+    -- 使用 lbsLoc2.request 进行定位
+    local lat, lng, t = lbsLoc2.request(5000)
+    if lat and lng then
+        latdata = lat
+        lngdata = lng
+    end
     return latdata, lngdata
 end
 
 --- 用户串口和远程调用的API接口
 -- @string str：执行API的命令字符串
 -- @retrun str : 处理结果字符串
-function create.userapi(str)
+function create.userapi(str, source_info)
     local t = str:match("(.+)\r\n") and dtulib.split(str:match("(.+)\r\n"), ',') or dtulib.split(str, ',')
     local first = table.remove(t, 1)
     local second = table.remove(t, 1) or ""
     if tonumber(second) and tonumber(second) > 0 and tonumber(second) < 8 then
         return cmd[first]["pipe"](t, second) .. "\r\n"
     elseif cmd[first][second] then
-        return cmd[first][second](t, str) .. "\r\n"
+        local result = cmd[first][second](t, source_info)
+        if result then
+            return result .. "\r\n"
+        else
+            -- 如果没有返回结果，说明是异步处理
+            return nil
+        end
     else
         return "ERROR\r\n"
     end
@@ -209,7 +215,25 @@ local function tcpTask(dName, cid, pios, reg,upprot, dwprot, sockettype,prot, pi
                     else
                         -- log.info("匹配CID失败",data)
                     end
+                elseif data:match("CID_") then
+                    -- 检查CID是否匹配
+                    if data== "CID_"..cid then
+                        -- log.info("匹配CID成功",cid)
+                        table.insert(outputSocket, data2)
+                        if waitsend==0 then
+                            sys_send(dName, socket.EVENT, 0)
+                            waitsend=1
+                        else
+                            log.info("太快了，晚500ms发")
+                            sys.timerStart(function ()
+                            sys_send(dName, socket.EVENT, 0)
+                            end,500)
+                        end
+                    else
+                        log.info("消息CID不匹配当前通道，忽略消息", "Message CID:", data, "Current CID:", cid)
+                    end
                 else
+                    -- 对于没有CID前缀的消息，直接处理
                     table.insert(outputSocket, data)
                     if waitsend==0 then
                         sys_send(dName, socket.EVENT, 0)
@@ -294,22 +318,43 @@ local function tcpTask(dName, cid, pios, reg,upprot, dwprot, sockettype,prot, pi
                     if data:sub(1, 5) == "rrpc," or data:sub(1, 7) == "config," then
                         audio_uid=uid
                         audio_cid=cid
-                        local res, msg = pcall(create.userapi, data, pios)
+                        -- 对于 getreallocation 指令，我们需要传递来源信息（网络）给 userapi，以便异步响应
+                        local res, msg
+                        if data:find("getreallocation") or data:find("getairlbslocation") then
+                            res, msg = pcall(create.userapi, data, {
+                                type = "network",
+                                uid = uid,
+                                cid = cid,
+                                dname = dName,
+                                netc = netc
+                            })
+                        else
+                            res, msg = pcall(create.userapi, data, pios)
+                        end
+                        
                         if not res then
                             log.error("远程查询的API错误:", msg)
-                        end
-                        if dwprotFnc then -- 转换为用户自定义报文
-                            res, msg = pcall(dwprotFnc, data)
-                            if not res then
-                                log.error("数据流模版错误:", msg)
+                        else
+                            if dwprotFnc then -- 转换为用户自定义报文
+                                res, msg = pcall(dwprotFnc, data)
+                                if not res then
+                                    log.error("数据流模版错误:", msg)
+                                else
+                                    res, msg = pcall(create.userapi, msg, pios)
+                                    if not res then
+                                        log.error("远程查询的API错误:", msg)
+                                    end
+                                end
                             end
-                            res, msg = pcall(create.userapi, msg, pios)
-                            if not res then
-                                log.error("远程查询的API错误:", msg)
+                            
+                            -- 对于 getreallocation 指令，我们不立即发送响应，异步响应将在定位完成后发送
+                            if not data:find("getreallocation") and msg then
+                                if not libnet.tx(dName, nil, netc, msg) then
+                                    break
+                                end
+                            else
+                                log.info("create: getreallocation will be handled asynchronously")
                             end
-                        end
-                        if not libnet.tx(dName, nil, netc, msg) then
-                            break
                         end
                     elseif  dwprotFnc then -- 转换用户自定义报文
                         local res, msg = pcall(dwprotFnc, data)
@@ -466,6 +511,7 @@ local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr
     -- log.info("MQTT clientID,user,pwd", clientID, conver(usr), conver(pwd))
     local idx = 0
     local mqttc = mqtt.create(nil, addr, port, (ssl == 1 and true or false))
+    log.info("conver(clientID)",conver(clientID))
     -- 是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密
     mqttc:auth(conver(clientID), conver(usr), conver(pwd),cleansession)
     log.info("KEEPALIVE", keepAlive)
@@ -598,8 +644,39 @@ local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr
                             else
                                 -- log.info("匹配CID失败",data)
                             end
-                        else
+                        elseif topic:match("CID_") then
+                            -- 检查CID是否匹配
+                            if topic== "CID_"..cid then
                                 if  upprotFnc then -- 转换为用户自定义报文
+                                    local res, msg, index = pcall(upprotFnc, data)
+                                    if not res or not msg then
+                                        log.error("数据流模版错误:", msg)
+                                    else
+                                        index = tonumber(index) or 1
+                                        local pub_topic = (pub[index]:sub(-1, -1) == "+" and messageId) and
+                                            pub[index]:sub(1, -2) .. messageId or pub[index]
+                                        log.info("-----发布的主题:", pub_topic)
+                                        if not mqttc:publish(pub_topic, res and msg or data, tonumber(pub[index + 1]) or qos,
+                                                retain) then
+                                            break
+                                        end
+                                    end
+                                else
+                                    local pub_topic = (pub[1]:sub(-1, -1) == "+" and messageId) and pub[1]:sub(1, -2) ..
+                                        messageId or pub[1]
+                                    log.info("-----发布的主题:", pub_topic)
+                                    if not mqttc:publish(pub_topic, data, tonumber(pub[2]) or qos, retain) then
+                                        break
+                                    end
+                                end
+                                messageId = false
+                                log.info('The client actively reports status information.')
+                            else
+                                log.info("消息CID不匹配当前通道，忽略消息", "Message CID:", topic, "Current CID:", cid)
+                            end
+                        else
+                            -- 对于没有CID前缀的消息，直接处理
+                            if  upprotFnc then -- 转换为用户自定义报文
                                 local res, msg, index = pcall(upprotFnc, topic)
                                 if not res or not msg then
                                     log.error("数据流模版错误:", msg)
@@ -941,9 +1018,19 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
                     else
                         -- log.info("匹配CID失败",data)
                     end
+                elseif data:match("CID_") then
+                    -- 检查CID是否匹配
+                    if data== "CID_"..cid then
+                        -- log.info("匹配CID成功",cid)
+                        table.insert(outputSocket, data2)
+                        sys.publish("SEND_DATA")
+                    else
+                        log.info("消息CID不匹配当前通道，忽略消息", "Message CID:", data, "Current CID:", cid)
+                    end
                 else
-                table.insert(outputSocket, data)
-                sys.publish("SEND_DATA")
+                    -- 对于没有CID前缀的消息，直接处理
+                    table.insert(outputSocket, data)
+                    sys.publish("SEND_DATA")
                 end
             end
         end

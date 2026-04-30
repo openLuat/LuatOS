@@ -662,7 +662,7 @@ static void airui_keyboard_preview_proxy_event_cb(lv_event_t *e)
             !lv_obj_has_state(runtime->preview_ta, LV_STATE_FOCUSED)) {
             lv_obj_add_state(runtime->preview_ta, LV_STATE_FOCUSED);
             if (code != LV_EVENT_FOCUSED) {
-                lv_event_send(runtime->preview_ta, LV_EVENT_FOCUSED, NULL);
+                lv_obj_send_event(runtime->preview_ta, LV_EVENT_FOCUSED, NULL);
             }
         }
     }

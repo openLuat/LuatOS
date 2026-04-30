@@ -30,7 +30,7 @@ local function tfcard_main_task() -- 开始进行主测试流程。
     -- ##########  SPI初始化 ##########
     -- 在Air780EHM/EHV/EGH核心板上TF卡的的pin_cs为gpio8，spi_id为0.请根据实际硬件修改
     spi_id, pin_cs = 0, 8
-    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    spi.setup(spi_id, nil, 0, 0, 8, 2000000)
     --初始化后拉高pin_cs,准备开始挂载TF卡
     gpio.setup(pin_cs, 1)
 

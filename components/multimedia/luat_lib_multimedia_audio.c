@@ -170,7 +170,7 @@ static void record_run(uint8_t *data, uint32_t len)
 
 }
 
-void luat_audio_record_set_callbac(luat_audio_record_cb_t* cb) {
+void luat_audio_record_set_callback(luat_audio_record_cb_t* cb) {
     g_s_record.record_callback = cb;
 }
 
@@ -841,13 +841,14 @@ audio.setBus(0, audio.BUS_DAC,{dacid=0})	--通道0的硬件输出通道设置为
 audio.setBus(0, audio.BUS_ADC,{adcid=0, adc_chl=audio.CHL_L, sample_rate=audio.SAMP_16000, bits=audio.BITS_16}) --通道0的输入为板载ADC
 */
 static int l_audio_set_output_bus(lua_State *L) {
-    size_t len;
     int id = luaL_checkinteger(L, 1);
     luat_audio_conf_t* audio_conf = luat_audio_get_config(id);
     int tp = luaL_checkinteger(L, 2);
     int ret = luat_audio_set_bus_type(id,tp);
     if (audio_conf!=NULL && lua_istable(L,3)){
+#ifdef LUAT_USE_I2S
         if (tp==LUAT_AUDIO_BUS_I2S){
+            size_t len;
             audio_conf->codec_conf.multimedia_id = id;
             audio_conf->bus_type = LUAT_AUDIO_BUS_I2S;
             audio_conf->codec_conf.codec_opts = &codec_opts_common;
@@ -874,10 +875,13 @@ static int l_audio_set_output_bus(lua_State *L) {
                 audio_conf->voltage = luaL_checknumber(L, -1);
             }
             lua_pop(L, 1);
-        }else if (tp==LUAT_AUDIO_BUS_DAC){
+        }
+#endif
+#ifdef LUAT_USE_DAC
+        if (tp==LUAT_AUDIO_BUS_DAC){
             audio_conf->bus_type = LUAT_AUDIO_BUS_DAC;
             audio_conf->codec_conf.multimedia_id = id;
-            audio_conf->codec_conf.codec_opts = &codec_opts_common;
+            audio_conf->codec_conf.codec_opts = NULL;
 
             lua_pushstring(L, "dacid");
             if (LUA_TNUMBER == lua_gettable(L, 3)) {
@@ -912,6 +916,7 @@ static int l_audio_set_output_bus(lua_State *L) {
             #endif
 
         }
+#endif
     }
     ret |= luat_audio_init(id, 0, 0);
     lua_pushboolean(L, !ret);

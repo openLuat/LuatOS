@@ -50,8 +50,9 @@
 <tr>
 <td>85/SPI0MOSI<br/></td><td>SDI<br/></td></tr>
 <tr>
-<td>107/GPIO21<br/></td><td>INT<br/></td></tr>
+<td>22/GPIO1<br/></td><td>INT<br/></td></tr>
 </table>
+
 
 
 这块配件板以太网接口接电脑
@@ -104,5 +105,4 @@ netdrv_4g_multiple：
 netdrv_eth_multiple：
 模块以太网口WAN接路由器LAN口，这里使用电脑连接模块LAN口，dhcp获取到ip，测试网络正常
 ![](https://docs.openluat.com/air780epm/luatos/app/socket/netdrv/image/780epm-netdrv3.png)
-
 

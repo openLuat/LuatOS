@@ -455,29 +455,16 @@ local function create_ui()
     })
     local sort_btn_h = math.min(36, math.floor(sort_h * 0.85))
     local sort_btn_radius = math.floor(sort_btn_h / 2)
-    local sort_label_w = math.min(50, math.floor(screen_w * 0.12))
-    local sort_btn_y = math.floor((sort_h - sort_btn_h) / 2)
-    local sort_dd_w = math.min(150, math.floor((screen_w - sort_label_w - 90) * 0.65))
-    local sort_refresh_x = sort_label_w + sort_dd_w + 20
+    local sort_dd_x = math.floor(12 * _G.density_scale)
+    local sort_dd_w = math.min(150, math.floor((screen_w - sort_dd_x - 90) * 0.65))
+    local sort_refresh_x = sort_dd_x + sort_dd_w + 20
     if sort_refresh_x + 70 > screen_w then
-        sort_dd_w = math.floor(screen_w - sort_label_w - 90)
-        sort_refresh_x = sort_label_w + sort_dd_w + 10
+        sort_dd_w = math.floor(screen_w - sort_dd_x - 90)
+        sort_refresh_x = sort_dd_x + sort_dd_w + 10
     end
-    airui.label({
-        parent = sort_bar,
-        x = 8,
-        y = sort_btn_y,
-        w = sort_label_w,
-        h = sort_btn_h,
-        text = "排序:",
-        font_size =
-            math.max(math.floor(14 * _G.density_scale), button_font_size - math.floor(2 * _G.density_scale)),
-        color =
-            COLOR_TEXT_SECONDARY
-    })
     sort_select = airui.dropdown({
         parent = sort_bar,
-        x = sort_label_w + 12,
+        x = sort_dd_x,
         y = sort_btn_y,
         w = sort_dd_w,
         h = sort_btn_h,

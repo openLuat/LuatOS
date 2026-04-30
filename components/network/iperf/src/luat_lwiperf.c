@@ -248,10 +248,17 @@ static void iperf_free(size_t line, void* ptr);
      } else {
        bandwidth_kbitpsec = (conn->bytes_transferred / duration_ms) * 8U;
      }
-     conn->report_fn(conn->report_arg, report_type,
-                     &conn->conn_pcb->local_ip, conn->conn_pcb->local_port,
-                     &conn->conn_pcb->remote_ip, conn->conn_pcb->remote_port,
-                     conn->bytes_transferred, duration_ms, bandwidth_kbitpsec);
+     if (conn->conn_pcb != NULL) {
+       conn->report_fn(conn->report_arg, report_type,
+                       &conn->conn_pcb->local_ip, conn->conn_pcb->local_port,
+                       &conn->conn_pcb->remote_ip, conn->conn_pcb->remote_port,
+                       conn->bytes_transferred, duration_ms, bandwidth_kbitpsec);
+     } else {
+       /* PCB already freed by lwIP (err callback path), address info unavailable */
+       conn->report_fn(conn->report_arg, report_type,
+                       IP_ADDR_ANY, 0, IP_ADDR_ANY, 0,
+                       conn->bytes_transferred, duration_ms, bandwidth_kbitpsec);
+     }
    }
  }
  
@@ -274,7 +281,7 @@ static void iperf_free(size_t line, void* ptr);
        /* don't want to wait for free memory here... */
        tcp_abort(conn->conn_pcb);
      }
-   } else {
+   } else if (conn->server_pcb != NULL) {
      /* no conn pcb, this is the listener pcb */
      err = tcp_close(conn->server_pcb);
      LWIP_ASSERT("error", err == ERR_OK);
@@ -615,6 +622,10 @@ static void iperf_free(size_t line, void* ptr);
  {
    lwiperf_state_tcp_t *conn = (lwiperf_state_tcp_t *)arg;
    LWIP_UNUSED_ARG(err);
+   /* lwIP releases the PCB before invoking this callback, so clear the pointer
+    * to prevent lwiperf_tcp_close() from calling tcp_close/tcp_abort on
+    * already-freed memory. */
+   conn->conn_pcb = NULL;
    lwiperf_tcp_close(conn, LWIPERF_TCP_ABORTED_REMOTE);
  }
  
@@ -862,7 +873,6 @@ static void iperf_free(size_t line, void* ptr);
 
 static void* iperf_malloc(size_t line, size_t len) {
   void* ptr = luat_heap_malloc(len + 4096);
-  ptr = luat_heap_malloc(len + 4096);
   LLOGD("iperf_malloc %d %d 0x%p", line, len, ptr);
   return ptr;
 }

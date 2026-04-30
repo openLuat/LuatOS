@@ -43,7 +43,7 @@ Air780Exx系列，包括Air780EPM/Air780EHM/Air780EHV/Air780EGH等；
 ## 资料大全
 
 * [docs@luatos](https://docs.openluat.com/)
-* 第三方工具 - LuatOS IDE Helper (https://gitee.com/tianyiw/LuatOS-ide-helper)
+* 跨平台命令行工具(开发完善中) [luatos-cli](https://gitee.com/openLuat/luatos-cli) 
 
 
 ## 授权协议

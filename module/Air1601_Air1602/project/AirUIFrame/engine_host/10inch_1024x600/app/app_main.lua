@@ -13,8 +13,6 @@
 所有模块在加载时自动执行初始化，无需额外调用。
 ]]
 
--- pings.setup(21, "GPIO55")
-gpio.setup(55, 1)
 
 -- -- 加载 aircloud 主模块
 -- log.info("设备型号:"..rtos.bsp())

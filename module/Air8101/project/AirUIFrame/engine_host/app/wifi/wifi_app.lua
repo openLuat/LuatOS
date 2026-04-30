@@ -102,7 +102,7 @@ end
 ]]
 local function refresh_network_info()
     if not socket.adapter(socket.LWIP_STA) then
-        log.warn("wifi_app", "WiFi网卡未就绪")
+        log.warn("wifi_app", "正在获取IP地址")
         return
     end
     

@@ -12,8 +12,6 @@
 3. 提供配置参数的读取和保存接口
 ]]
 
-local settings_config_app = {}
-
 -- ==================== 配置常量 ====================
 
 -- 配置项键名
@@ -168,5 +166,3 @@ sys.subscribe("SETTINGS_APP_INIT", function()
 end)
 
 log.info("settings_config_app", "模块加载完成")
-
-return settings_config_app

@@ -83,6 +83,6 @@ sys.subscribe("DISPLAY_BRIGHTNESS_GET", function()
 end)
 
 -- ==================== 开机自动初始化 ====================
-sys.taskInit(init_pwm)
+-- sys.taskInit(init_pwm)
 
 log.info("settings_display_app", "模块加载完成")

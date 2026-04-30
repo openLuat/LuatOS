@@ -21,7 +21,7 @@ local function ui_main_task()
     sys.publish("OPEN_WELCOME_WIN")
 
     -- 等待欢迎界面渲染完成后再开启背光，避免白屏
-    sys.wait(1000)
+    sys.wait(100)
     lcd_drv.backlight_on()
 end
 

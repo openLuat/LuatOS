@@ -12,8 +12,6 @@
 3. 提供配置参数的读取和保存接口
 ]]
 
-local settings_config_app = {}
-
 -- ==================== 配置常量 ====================
 
 -- 配置项键名
@@ -21,8 +19,6 @@ local CONFIG_KEYS = {
     DEVICE_NAME = "device_name"  -- 设备名称
 }
 
--- 设备名称后缀常量（拼接在模组型号后面）
-local DEVICE_NAME_SUFFIX = "_UI_畅玩板"
 
 -- 默认值（不在此处定义，动态生成）
 -- 注意：默认值通过 get_default_device_name() 函数动态获取
@@ -39,12 +35,12 @@ local fskv_initialized = false
 @return string 默认设备名称，格式：模组型号_UI_畅玩板
 ]]
 local function get_default_device_name()
-    local model = "Air8101"
-    local ret, result = pcall(hmeta.model)
-    if ret and result and result ~= "" then
-        model = result
+    local ok, model = pcall(hmeta.model)
+    if ok and model then
+        local suffix = tostring(model):gsub("^Air", "")
+        return "合宙引擎主机" .. suffix
     end
-    return model .. DEVICE_NAME_SUFFIX
+    return "合宙引擎主机"
 end
 
 --[[
@@ -167,5 +163,3 @@ sys.subscribe("SETTINGS_APP_INIT", function()
 end)
 
 log.info("settings_config_app", "模块加载完成")
-
-return settings_config_app

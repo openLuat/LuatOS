@@ -23,7 +23,7 @@ VERSION：项目版本号，ascii string类型
 
 -- 项目名称和版本定义
 PROJECT = "AirUIFrame_EngineHost" -- 项目名称，用于标识当前工程
-VERSION = "001.999.003"      -- 项目版本号
+VERSION = "001.999.004"      -- 项目版本号
 PROJECT_KEY = "YdsyLfESvOKYSVuOBeKYmKFmoeTuuGUv"
 
 -- 在日志中打印项目名和项目版本号

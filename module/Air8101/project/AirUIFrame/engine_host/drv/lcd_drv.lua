@@ -46,7 +46,7 @@ function lcd_drv.init()
     local lcd_param = {
         port = lcd.RGB, -- RGB 并行接口
         pin_rst = 9,    -- LCD 复位引脚 (GPIO)
-        pin_pwr = 8,    -- 背光控制引脚 (GPIO)
+        -- pin_pwr = 8,    -- 背光控制引脚 (GPIO)
         pin_clk = 2,    -- SPI 时钟引脚 (用于初始化)
         pin_sda = 4,    -- SPI 数据引脚
         pin_cs = 3,     -- SPI 片选引脚
@@ -404,7 +404,8 @@ function lcd_drv.init()
 end
 
 function lcd_drv.backlight_on()
-    gpio.setup(8, 1)
+    pwm.setup(1, 10000, 100) -- 通道1，10kHz频率，100%占空比
+    pwm.open(1, 10000, 100)
 end
 
 return lcd_drv

@@ -10,13 +10,9 @@
 2. 协调各个设置子模块的加载
 ]]
 
-local settings_app = {}
-
 require "settings_config_app"
 
 -- 发布消息通知 settings_config_app 进行初始化
 sys.publish("SETTINGS_APP_INIT")
 
 log.info("settings_app", "设置模块初始化完成")
-
-return settings_app

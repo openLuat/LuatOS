@@ -122,13 +122,6 @@ local function list_create_wifi_item(wifi, index)
             color = 0x4CAF50,
             align = airui.TEXT_ALIGN_CENTER,
         })
-    else
-        airui.button({
-            parent = wifi_item,
-            x = item_w - math.floor(70 * _G.density_scale), y = math.floor(17 * _G.density_scale),
-            w = math.floor(60 * _G.density_scale), h = math.floor(30 * _G.density_scale),
-            text = "连接",
-        })
     end
     table.insert(list_wifi_items, wifi_item)
 end
@@ -304,7 +297,19 @@ local function list_create_ui()
     })
 
     -- 已保存wifi
-    local saved_y = math.floor(10 * _G.density_scale) + card_h + math.floor(15 * _G.density_scale)
+    local saved_title_y = math.floor(10 * _G.density_scale) + card_h + math.floor(15 * _G.density_scale)
+    airui.label({
+        parent = list_scroll_container,
+        text = "已保存wifi",
+        x = MARGIN + math.floor(5 * _G.density_scale), y = saved_title_y,
+        w = math.floor(150 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(18 * _G.density_scale),
+        color = COLOR_TEXT_SECONDARY,
+        align = airui.TEXT_ALIGN_LEFT,
+    })
+
+    -- 已保存wifi 容器
+    local saved_y = saved_title_y + math.floor(28 * _G.density_scale)
     local saved_card = airui.container({
         parent = list_scroll_container,
         x = MARGIN, y = saved_y,

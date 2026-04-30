@@ -472,8 +472,8 @@ local function on_create()
     local status_icon_size = math.floor(32 * _G.density_scale)
     local status_icon_y = math.floor((top_h - status_icon_size) / 2)
     local status_font_size = math.min(math.floor(40 * _G.density_scale), math.floor(top_h * 0.65 * _G.density_scale))
-    local product_label_y = math.floor((top_h - status_font_size) / 2)
-    local product_label_h = math.min(status_font_size + math.floor(4 * _G.density_scale), top_h - product_label_y)
+    local product_label_h = status_font_size
+    local product_label_y = math.floor((top_h - product_label_h) / 2)
     local icon_spacing = math.floor(8 * _G.density_scale)
     local icon_start_x = screen_w - (status_icon_size * 2 + icon_spacing) - math.floor(12 * _G.density_scale)
     wifi_img = airui.image({

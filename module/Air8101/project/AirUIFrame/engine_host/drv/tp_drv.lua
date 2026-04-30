@@ -57,7 +57,7 @@ i2c.setup(1, i2c.SLOW)
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
 
-    local result = tp.init("gt911", { port = 1, pin_rst = 28, pin_int = 7 })
+    local result = tp.init("gt911", { port = 1, pin_rst = 28, pin_int = 7 , int_type = tp.FALLING })
 
     log.info("tp.init", result)
 

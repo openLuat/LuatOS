@@ -7,6 +7,10 @@
  * 
  * 提供音频硬件驱动的抽象接口，允许用户绑定自定义的硬件驱动实现。
  * 通过函数指针表的方式，实现硬件无关的音频框架设计。
+ * 
+ * @defgroup luat_audio_driver 音频驱动抽象层
+ * @ingroup audio
+ * @{
  */
 
 #include "luat_base.h"
@@ -22,6 +26,8 @@
  */
 struct luat_audio_driver_ctrl
 {
+    const struct luat_audio_driver_opts *driver_opts;  /**< 驱动操作函数集指针 */
+    
     /**
      * @brief 音频驱动事件回调函数
      * 
@@ -33,11 +39,11 @@ struct luat_audio_driver_ctrl
      * @param ctrl 驱动控制器指针
      * @return int 返回值，0表示成功，负值表示错误
      */
+    int (*luat_audio_driver_event_callback)(uint32_t event, uint8_t *rx_data, uint32_t param, struct luat_audio_driver_ctrl *ctrl);
     
-	int (*luat_audio_driver_event_callback)(uint32_t event, uint8_t *rx_data, uint32_t param, struct luat_audio_driver_ctrl *ctrl);
     void *private_data;  /**< 驱动私有数据指针 */
     void *user_data;     /**< 用户自定义数据指针 */
-    const struct luat_audio_driver_opts *driver_opts;  /**< 驱动操作函数集指针 */
+    struct luat_audio_channel *data_channel;  /**< 关联的音频通道指针 */
 };
 
 /**
@@ -114,3 +120,5 @@ typedef struct luat_audio_driver_opts {
 typedef struct luat_audio_driver_ctrl luat_audio_driver_ctrl_t;
 
 #endif
+
+/** @} */

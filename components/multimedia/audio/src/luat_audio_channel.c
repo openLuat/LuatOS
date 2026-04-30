@@ -12,7 +12,9 @@ int luat_audio_channel_init(luat_audio_channel_t *channel)
         return -LUAT_ERROR_PARAM_INVALID;
     }
     
-    channel->fifo = NULL;
+    channel->play_fifo = NULL;
+    channel->record_fifo = NULL;
+    channel->forward_fifo = NULL;
     channel->lock_mutex = luat_mutex_create();
     channel->driver_ctrl = NULL;
     

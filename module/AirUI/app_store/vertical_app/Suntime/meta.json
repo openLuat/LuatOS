@@ -1,10 +1,10 @@
 {
-  "app_name_cn": "日出日落时间",
-  "app_name_en": "Suntime",
+  "app_name_cn": "日出日落",
+  "app_name_en": "Sun",
   "version": "1.0.0",
   "publish_time": "2026-04-22 17:30:00",
   "category": "工具",
-  "description": "显示指定城市的日出日落时间，支持定位获取和城市选择",
+  "description": "显示指定城市的日出日落",
   "resolution": "480x800",
   "supported_models": {
     "Air8101": [

@@ -357,7 +357,7 @@ local function create_ui()
         y = 12,
         w = 90,
         h = 72,
-        src = "/luadb/Sunrise.png"
+        src = "/luadb/sunrise.png"
     })
 
     airui.label({
@@ -402,7 +402,7 @@ local function create_ui()
         y = 12,
         w = 90,
         h = 72,
-        src = "/luadb/Sunset.png"
+        src = "/luadb/sunset.png"
     })
 
     airui.label({

@@ -1,4 +1,4 @@
-PROJECT = "SUNTIME"
+PROJECT = "SUN"
 VERSION = "001.999.000"
 
 -- 在日志中打印项目名和项目版本号

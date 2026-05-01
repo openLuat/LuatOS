@@ -9,7 +9,7 @@
 -- ==================== 局部变量 ====================
 local pwm_initialized = false  -- PWM 初始化标志
 local current_brightness = 100 -- 当前亮度值 (10-100)
-local PWM_CHANNEL = 0          -- PWM 通道
+local PWM_CHANNEL = 3          -- PWM 通道
 local PWM_FREQ = 10000         -- PWM 频率 10kHz
 
 -- ==================== 内部函数 ====================

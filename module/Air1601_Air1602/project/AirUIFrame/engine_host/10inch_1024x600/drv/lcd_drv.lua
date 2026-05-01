@@ -24,7 +24,7 @@ _G.screen_size = 10.0  -- 屏幕物理尺寸(英寸)，用于像素密度计算
 _G.density_scale = 1.0 -- 默认值，lcd_drv.init() 中根据实际PPI更新
 _G.is_landscape = false
 
-local port, pin_rst, bl = lcd.RGB, 15, 2
+local port, pin_rst, bl = lcd.RGB, 15, 13
 
 function lcd_drv.init()
     local result = lcd.init("custom", {
@@ -91,10 +91,10 @@ function lcd_drv.init()
 end
 
 function lcd_drv.backlight_on()
-    gpio.setup(bl, 1)
-    gpio.set(bl, 1)
-    -- pwm.setup(3, 1000, 100)
-    -- pwm.open(3, 1000, 100)
+    -- gpio.setup(bl, 1)
+    -- gpio.set(bl, 1)
+    pwm.setup(3, 1000, 100)
+    pwm.open(3, 1000, 100)
 end
 
 return lcd_drv

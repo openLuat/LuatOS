@@ -8,7 +8,7 @@
 @tag LUAT_USE_SQLITE3
 @usage
 -- 注意, 本库仍处于开发阶段, 大部分BSP尚不支持本库
--- 本移植基于 sqlite3 3.44.0
+-- 本移植基于 sqlite3 3.53.0
 sys.taskInit(function()
     sys.wait(1000)
     local db = sqlite3.open("/ram/test.db")

@@ -222,9 +222,9 @@ target("luatos-lua")
     add_files(luatos.."components/memprof/binding/*.c")
 
     -- sqlite3
-    -- add_includedirs(luatos.."components/sqlite3/include",{public = true})
-    -- add_files(luatos.."components/sqlite3/src/*.c")
-    -- add_files(luatos.."components/sqlite3/binding/*.c")
+    add_includedirs(luatos.."components/sqlite3/include",{public = true})
+    add_files(luatos.."components/sqlite3/src/*.c")
+    add_files(luatos.."components/sqlite3/binding/*.c")
     
     --mobile
     add_includedirs(luatos.."components/mobile")

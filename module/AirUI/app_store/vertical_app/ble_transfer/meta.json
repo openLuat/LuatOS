@@ -1,8 +1,8 @@
 {
   "app_name_cn": "蓝牙文件传输",
   "app_name_en": "ble_transfer",
-  "version": "1.0.0",
-  "publish_time": "2026-04-23 12:00:00",
+  "version": "1.0.1",
+  "publish_time": "2026-05-01 17:22:00",
   "category": "工具",
   "description": "蓝牙文件传输应用，支持主从模式切换，文件发送和接收",
   "resolution": "480x800",

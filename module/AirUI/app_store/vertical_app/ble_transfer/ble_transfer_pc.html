@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>蓝牙文件传输 - PC端</title>
+    <title>蓝牙文件传输 V2.0</title>
     <style>
         * {
             margin: 0;
@@ -552,6 +552,16 @@
             margin-bottom: 8px;
             color: #E65100;
         }
+
+        /* 协议版本标签 */
+        .protocol-badge {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
@@ -559,7 +569,7 @@
         <!-- 标题栏 -->
         <div class="header">
             <div>
-                <div class="header-title">📡 蓝牙文件传输</div>
+                <div class="header-title">📡 蓝牙文件传输<span class="protocol-badge">V2.0 优化版</span></div>
                 <div class="header-subtitle">电脑端 - 主机模式</div>
             </div>
             <div class="pc-badge">PC</div>
@@ -582,7 +592,8 @@
                 <div class="tip-content">
                     1. 电脑作为主机，扫描并连接蓝牙设备<br>
                     2. 连接成功后即可互相收发文件<br>
-                    3. 点击"扫描连接"搜索周围的BLE设备
+                    3. 点击"扫描连接"搜索周围的BLE设备<br>
+                    4. <b>优化版特性：</b>二进制传输 + ACK确认，速度更快更可靠
                 </div>
             </div>
 
@@ -636,6 +647,10 @@
                         <span id="sendProgressSize">0 KB / 0 KB</span>
                         <span id="sendSpeed">0 KB/s</span>
                     </div>
+                    <div class="progress-stats">
+                        <span id="sendElapsedTime">已用时: 00:00</span>
+                        <span id="sendTotalTime">总时长: --:--</span>
+                    </div>
                 </div>
                 <div class="file-actions">
                     <button class="btn btn-outline" onclick="selectFile()">📁 选择文件</button>
@@ -660,6 +675,10 @@
                     <div class="progress-stats">
                         <span id="receiveProgressSize">0 KB / 0 KB</span>
                         <span id="receiveSpeed">0 KB/s</span>
+                    </div>
+                    <div class="progress-stats">
+                        <span id="receiveElapsedTime">已用时: 00:00</span>
+                        <span id="receiveTotalTime">总时长: --:--</span>
                     </div>
                 </div>
                 <div class="received-files-list" id="receivedFilesList">
@@ -694,16 +713,57 @@
         // ==================== BLE 配置 ====================
         // 适配 ble_transfer 设备的 UUID (16-bit UUID 转换为 128-bit)
         const SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb";
-        const CHAR_UUID_1 = "0000fff1-0000-1000-8000-00805f9b34fb";
-        const CHAR_UUID_2 = "0000fff2-0000-1000-8000-00805f9b34fb";
+        const CHAR_UUID_DATA = "0000fff1-0000-1000-8000-00805f9b34fb";
+        const CHAR_UUID_CTRL = "0000fff2-0000-1000-8000-00805f9b34fb";
 
-        // 文件传输协议常量
-        const PACKET_TYPE_META = 0x01;
-        const PACKET_TYPE_DATA = 0x02;
-        // BLE MTU 通常限制在 512 字节，JSON + base64 编码后数据会变大
-        // 原始数据 100 字节 -> base64 约 134 字节 -> JSON 约 200 字节
-        // 保守设置，确保不超过 MTU 限制
-        const MAX_CHUNK_SIZE = 100;
+        // ==================== 全二进制协议常量 (与 ble_manager.lua 匹配) ====================
+        const PACKET_TYPE_DATA = 0x01;       // 数据包
+        const PACKET_TYPE_FILE_START = 0x02; // 文件开始
+        const PACKET_TYPE_FILE_END = 0x03;   // 文件结束
+        const PACKET_TYPE_ACK = 0x04;        // ACK确认
+        const PACKET_TYPE_ERROR = 0x05;      // 错误/重传请求
+        
+        const ACK_STATUS_OK = 0x00;
+        const ACK_STATUS_RESEND = 0x01;
+        const ACK_STATUS_ERROR = 0x02;
+        
+        // MTU 256 字节，数据包最大209字节（3+4+200+2）
+        const CHUNK_SIZE = 200;             // 与 ble_manager.lua 一致
+        
+        // ACK超时配置
+        const ACK_TIMEOUT_MS = 10000;       // ACK超时时间10秒（增加以应对BLE传输延迟）
+        const MAX_RETRY_COUNT = 3;          // 最大重试次数
+
+        // ==================== CRC16 实现 (与 ble_manager.lua 匹配) ====================
+        const CRC16_TABLE = new Uint16Array(256);
+        const CRC16_POLYNOMIAL = 0xA001;
+        let crcTableInitialized = false;
+
+        function initCrc16Table() {
+            if (crcTableInitialized) return;
+            for (let i = 0; i < 256; i++) {
+                let crc = i;
+                for (let j = 0; j < 8; j++) {
+                    if ((crc & 1) !== 0) {
+                        crc = (crc >> 1) ^ CRC16_POLYNOMIAL;
+                    } else {
+                        crc = crc >> 1;
+                    }
+                }
+                CRC16_TABLE[i] = crc & 0xFFFF;
+            }
+            crcTableInitialized = true;
+        }
+
+        function crc16(data) {
+            initCrc16Table();
+            let crc = 0xFFFF;
+            for (let i = 0; i < data.length; i++) {
+                const byte = data[i];
+                crc = ((crc >> 8) ^ CRC16_TABLE[(crc ^ byte) & 0xFF]) & 0xFFFF;
+            }
+            return crc;
+        }
 
         // ==================== 全局变量 ====================
         let bluetoothDevice = null;
@@ -722,8 +782,35 @@
             totalSize: 0,
             receivedBuffer: null,
             receivedBytes: 0,
-            writtenOffsets: new Set()
+            expectedOffset: 0
         };
+
+        // ACK 等待机制
+        let ackContext = {
+            waiting: false,
+            expectedOffset: 0,
+            received: false,
+            timeout: null,
+            ackOffset: 0
+        };
+
+        // ==================== 工具函数 ====================
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function formatFileSize(size) {
+            if (size < 1024) return size + " B";
+            if (size < 1024 * 1024) return (size / 1024).toFixed(1) + " KB";
+            return (size / (1024 * 1024)).toFixed(2) + " MB";
+        }
+
+        function formatTime(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
 
         // ==================== 日志功能 ====================
         function addLog(message, type = 'normal') {
@@ -744,9 +831,224 @@
             document.getElementById('logArea').innerHTML = `
                 <div class="log-entry info">
                     <span class="log-time">${new Date().toLocaleTimeString()}</span>
-                    日志已清空
+                    日志已清空 (V2.1 全二进制协议)
                 </div>
             `;
+        }
+
+        // ==================== 全二进制协议构建/解析 (与 ble_manager.lua 匹配) ====================
+        
+        // 构建通用包头 [1字节类型][2字节数据长度(大端)]
+        function buildPacketHeader(packetType, dataLen) {
+            const header = new Uint8Array(3);
+            header[0] = packetType;
+            header[1] = (dataLen >> 8) & 0xFF;
+            header[2] = dataLen & 0xFF;
+            return header;
+        }
+        
+        // 构建数据包 [1][2][4字节偏移量][N字节数据][2字节CRC16]
+        function buildDataPacket(offset, data) {
+            // payload = 偏移量(4) + 数据(N)
+            const payloadLen = 4 + data.length;
+            const header = buildPacketHeader(PACKET_TYPE_DATA, payloadLen);
+            
+            // 构建完整包（不含CRC）
+            const packetWithoutCrc = new Uint8Array(3 + payloadLen);
+            packetWithoutCrc.set(header, 0);
+            
+            let pos = 3;
+            // 偏移量（大端4字节）
+            packetWithoutCrc[pos++] = (offset >> 24) & 0xFF;
+            packetWithoutCrc[pos++] = (offset >> 16) & 0xFF;
+            packetWithoutCrc[pos++] = (offset >> 8) & 0xFF;
+            packetWithoutCrc[pos++] = offset & 0xFF;
+            // 数据
+            packetWithoutCrc.set(data, pos);
+            
+            // 计算CRC（整个包除CRC本身）
+            const crc = crc16(packetWithoutCrc);
+            
+            // 添加CRC
+            const packet = new Uint8Array(packetWithoutCrc.length + 2);
+            packet.set(packetWithoutCrc, 0);
+            packet[packetWithoutCrc.length] = (crc >> 8) & 0xFF;
+            packet[packetWithoutCrc.length + 1] = crc & 0xFF;
+            
+            return packet;
+        }
+        
+        // 构建文件开始包 [2][2][2字节文件名长度][文件名][4字节文件大小][2字节CRC16]
+        function buildFileStartPacket(fileName, fileSize) {
+            const nameBytes = new TextEncoder().encode(fileName);
+            const nameLen = nameBytes.length;
+            
+            // payload = 文件名长度(2) + 文件名 + 文件大小(4)
+            const payloadLen = 2 + nameLen + 4;
+            const header = buildPacketHeader(PACKET_TYPE_FILE_START, payloadLen);
+            
+            const packetWithoutCrc = new Uint8Array(3 + payloadLen);
+            packetWithoutCrc.set(header, 0);
+            
+            let pos = 3;
+            // 文件名长度（大端2字节）
+            packetWithoutCrc[pos++] = (nameLen >> 8) & 0xFF;
+            packetWithoutCrc[pos++] = nameLen & 0xFF;
+            // 文件名
+            packetWithoutCrc.set(nameBytes, pos);
+            pos += nameLen;
+            // 文件大小（大端4字节）
+            packetWithoutCrc[pos++] = (fileSize >> 24) & 0xFF;
+            packetWithoutCrc[pos++] = (fileSize >> 16) & 0xFF;
+            packetWithoutCrc[pos++] = (fileSize >> 8) & 0xFF;
+            packetWithoutCrc[pos++] = fileSize & 0xFF;
+            
+            const crc = crc16(packetWithoutCrc);
+            
+            const packet = new Uint8Array(packetWithoutCrc.length + 2);
+            packet.set(packetWithoutCrc, 0);
+            packet[packetWithoutCrc.length] = (crc >> 8) & 0xFF;
+            packet[packetWithoutCrc.length + 1] = crc & 0xFF;
+            
+            return packet;
+        }
+        
+        // 构建文件结束包 [3][2][0字节数据][2字节CRC16]
+        function buildFileEndPacket() {
+            const header = buildPacketHeader(PACKET_TYPE_FILE_END, 0);
+            const crc = crc16(header);
+            
+            const packet = new Uint8Array(5);
+            packet.set(header, 0);
+            packet[3] = (crc >> 8) & 0xFF;
+            packet[4] = crc & 0xFF;
+            
+            return packet;
+        }
+        
+        // 构建ACK包 [4][2][1字节状态][4字节偏移量][2字节CRC16]
+        function buildAckPacket(status, offset) {
+            // payload = 状态(1) + 偏移量(4)
+            const payloadLen = 5;
+            const header = buildPacketHeader(PACKET_TYPE_ACK, payloadLen);
+            
+            const packetWithoutCrc = new Uint8Array(3 + payloadLen);
+            packetWithoutCrc.set(header, 0);
+            
+            let pos = 3;
+            packetWithoutCrc[pos++] = status;
+            packetWithoutCrc[pos++] = (offset >> 24) & 0xFF;
+            packetWithoutCrc[pos++] = (offset >> 16) & 0xFF;
+            packetWithoutCrc[pos++] = (offset >> 8) & 0xFF;
+            packetWithoutCrc[pos++] = offset & 0xFF;
+            
+            const crc = crc16(packetWithoutCrc);
+            
+            const packet = new Uint8Array(packetWithoutCrc.length + 2);
+            packet.set(packetWithoutCrc, 0);
+            packet[packetWithoutCrc.length] = (crc >> 8) & 0xFF;
+            packet[packetWithoutCrc.length + 1] = crc & 0xFF;
+            
+            return packet;
+        }
+        
+        // 发送ACK
+        async function sendAck(status, offset) {
+            const packet = buildAckPacket(status, offset);
+            try {
+                await writeCharacteristic.writeValue(packet);
+            } catch (error) {
+                addLog(`发送ACK失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 解析通用包头
+        // 返回：{ type, dataLen, payloadStart, error }
+        function parsePacketHeader(buffer) {
+            const view = new Uint8Array(buffer);
+            if (view.length < 3) {
+                return { error: "包头长度不足" };
+            }
+            return {
+                type: view[0],
+                dataLen: (view[1] << 8) | view[2],
+                payloadStart: 3
+            };
+        }
+        
+        // 验证CRC
+        function verifyCrc(buffer) {
+            const view = new Uint8Array(buffer);
+            if (view.length < 5) {
+                return { success: false, error: "包长度不足" };
+            }
+            const dataPart = view.slice(0, view.length - 2);
+            const receivedCrc = (view[view.length - 2] << 8) | view[view.length - 1];
+            const calculatedCrc = crc16(dataPart);
+            if (receivedCrc !== calculatedCrc) {
+                return { success: false, error: `CRC校验失败: 期望${calculatedCrc}, 实际${receivedCrc}` };
+            }
+            return { success: true };
+        }
+            
+            // 验证CRC
+
+
+        // 等待ACK确认（带超时和重试）
+        function waitForAck(expectedOffset, timeoutMs = ACK_TIMEOUT_MS) {
+            return new Promise((resolve, reject) => {
+                // 先清除之前可能存在的定时器
+                if (ackContext.timeout) {
+                    clearTimeout(ackContext.timeout);
+                    ackContext.timeout = null;
+                }
+                if (ackContext.checkInterval) {
+                    clearInterval(ackContext.checkInterval);
+                    ackContext.checkInterval = null;
+                }
+                
+                ackContext.waiting = true;
+                ackContext.expectedOffset = expectedOffset;
+                ackContext.received = false;
+                ackContext.ackOffset = 0;
+
+                const startTime = Date.now();
+                addLog(`开始等待ACK: expectedOffset=${expectedOffset}, timeout=${timeoutMs}ms`, 'debug');
+
+                // 轮询检查 ACK
+                let checkCount = 0;
+                ackContext.checkInterval = setInterval(() => {
+                    checkCount++;
+                    if (ackContext.received) {
+                        const elapsed = Date.now() - startTime;
+                        clearInterval(ackContext.checkInterval);
+                        ackContext.checkInterval = null;
+                        clearTimeout(ackContext.timeout);
+                        ackContext.timeout = null;
+                        ackContext.waiting = false;
+                        addLog(`ACK等待完成: offset=${ackContext.ackOffset}, 耗时=${elapsed}ms`, 'success');
+                        resolve(ackContext.ackOffset);
+                    }
+                    // 每100次检查打印一次日志（避免日志过多）
+                    if (checkCount % 100 === 0) {
+                        const elapsed = Date.now() - startTime;
+                        addLog(`仍在等待ACK: ${elapsed}ms/${timeoutMs}ms`, 'debug');
+                    }
+                }, 10);
+
+                // 设置超时
+                ackContext.timeout = setTimeout(() => {
+                    const elapsed = Date.now() - startTime;
+                    clearInterval(ackContext.checkInterval);
+                    ackContext.checkInterval = null;
+                    ackContext.timeout = null;
+                    if (!ackContext.received) {
+                        ackContext.waiting = false;
+                        addLog(`ACK超时: expectedOffset=${expectedOffset}, 实际等待=${elapsed}ms`, 'warn');
+                        reject(new Error('ACK 超时'));
+                    }
+                }, timeoutMs);
+            });
         }
 
         // ==================== 蓝牙连接 ====================
@@ -766,7 +1068,6 @@
                 addLog('正在请求蓝牙设备...', 'info');
                 updateConnectionState('connecting');
 
-                // 使用设备名称过滤扫描 (与 ble_fota_web.html 一致的方式)
                 const device = await navigator.bluetooth.requestDevice({
                     filters: [{ name: 'LuatOS-BLE-Transfer' }],
                     optionalServices: [SERVICE_UUID]
@@ -786,9 +1087,12 @@
                 addLog('服务获取成功', 'success');
 
                 addLog('正在获取特征值...', 'info');
-                writeCharacteristic = await bleService.getCharacteristic(CHAR_UUID_2);
-                notifyCharacteristic = await bleService.getCharacteristic(CHAR_UUID_1);
-                addLog('特征值获取成功', 'success');
+                // 注意：所有数据传输都通过 FFF1 特征值（与Lua端保持一致）
+                // FFF1: 数据传输特征值 (Notify + Write)
+                // FFF2: 控制特征值 (Write) - 当前未使用
+                writeCharacteristic = await bleService.getCharacteristic(CHAR_UUID_DATA);
+                notifyCharacteristic = await bleService.getCharacteristic(CHAR_UUID_DATA);
+                addLog('特征值获取成功 (FFF1)', 'success');
 
                 await enableNotifications();
 
@@ -812,6 +1116,18 @@
             isConnected = false;
             updateConnectionState('disconnected');
             addLog('设备已断开连接', 'info');
+            
+            // 清理ACK等待定时器
+            if (ackContext.timeout) {
+                clearTimeout(ackContext.timeout);
+                ackContext.timeout = null;
+            }
+            if (ackContext.checkInterval) {
+                clearInterval(ackContext.checkInterval);
+                ackContext.checkInterval = null;
+            }
+            ackContext.waiting = false;
+            
             resetReceiveContext();
         }
 
@@ -870,111 +1186,161 @@
 
         function handleNotification(event) {
             const value = event.target.value;
+            const dataLength = value ? value.byteLength : 0;
+            const timestamp = new Date().toLocaleTimeString();
+            addLog(`[${timestamp}] 收到通知数据，长度: ${dataLength} 字节`, 'debug');
+            
+            if (dataLength === 0) {
+                addLog('收到空通知数据', 'warn');
+                return;
+            }
+            
             if (value && value.buffer) {
-                handleReceivedPacket(value.buffer);
+                // 将DataView转换为Uint8Array以便查看内容
+                const view = new Uint8Array(value.buffer);
+                handleReceivedData(value.buffer);
             }
         }
 
-        // ==================== 文件接收处理 ====================
-        function handleReceivedPacket(buffer) {
+        // ==================== 数据接收处理 (全二进制协议) ====================
+        function handleReceivedData(buffer) {
             if (!buffer || buffer.byteLength < 1) return;
-
-            // 将接收到的数据转换为字符串（JSON格式）
-            const textDecoder = new TextDecoder();
-            const jsonStr = textDecoder.decode(buffer);
             
-            let packet;
-            try {
-                packet = JSON.parse(jsonStr);
-            } catch (e) {
-                addLog('收到非JSON数据，忽略', 'warn');
+            // 解析包头
+            const header = parsePacketHeader(buffer);
+            if (header.error) {
+                addLog(`解析包头失败: ${header.error}`, 'warn');
                 return;
             }
-
-            if (!packet.type) {
-                addLog('数据包缺少type字段', 'error');
+            
+            // 验证CRC
+            const crcResult = verifyCrc(buffer);
+            if (!crcResult.success) {
+                addLog(`CRC校验失败: ${crcResult.error}`, 'warn');
                 return;
             }
+            
+            addLog(`收到包: type=${header.type}, dataLen=${header.dataLen}`, 'debug');
+            
+            const view = new Uint8Array(buffer);
+            const payloadStart = header.payloadStart;
+            
+            switch (header.type) {
+                case PACKET_TYPE_DATA:
+                    handleDataPacket(view, payloadStart);
+                    break;
+                case PACKET_TYPE_FILE_START:
+                    handleFileStartPacket(view, payloadStart, header.dataLen);
+                    break;
+                case PACKET_TYPE_FILE_END:
+                    handleFileEndPacket();
+                    break;
+                case PACKET_TYPE_ACK:
+                    handleAckPacket(view, payloadStart);
+                    break;
+                default:
+                    addLog(`未知包类型: ${header.type}`, 'warn');
+            }
+        }
 
-            if (packet.type === 'file_start') {
-                // 开始接收文件
-                const fileName = packet.name;
-                const totalSize = packet.size;
-
-                addLog(`开始接收文件: ${fileName} (${formatFileSize(totalSize)})`, 'info');
-
+        // 处理数据包
+        function handleDataPacket(view, payloadStart) {
+            if (!receiveContext.active) {
+                addLog('收到数据块但没有活动接收会话', 'error');
+                return;
+            }
+            
+            // 解析偏移量（大端4字节）
+            const offset = (view[payloadStart] << 24) | 
+                          (view[payloadStart + 1] << 16) | 
+                          (view[payloadStart + 2] << 8) | 
+                          view[payloadStart + 3];
+            
+            // 提取数据（payload从偏移后开始，到CRC前结束）
+            const data = view.slice(payloadStart + 4, view.length - 2);
+            
+            // 校验偏移量
+            if (offset !== receiveContext.expectedOffset) {
+                addLog(`偏移量不匹配，期望: ${receiveContext.expectedOffset}, 实际: ${offset}`, 'warn');
+                sendAck(ACK_STATUS_RESEND, receiveContext.expectedOffset);
+                return;
+            }
+            
+            // 保存数据
+            const targetBuffer = new Uint8Array(receiveContext.receivedBuffer);
+            targetBuffer.set(data, receiveContext.receivedBytes);
+            receiveContext.receivedBytes += data.length;
+            receiveContext.expectedOffset += data.length;
+            
+            // 发送ACK
+            sendAck(ACK_STATUS_OK, receiveContext.expectedOffset);
+            
+            // 更新进度
+            const progress = Math.floor((receiveContext.receivedBytes / receiveContext.totalSize) * 100);
+            showReceiveProgress(progress, receiveContext.totalSize);
+            
+            // 检查是否完成
+            if (receiveContext.receivedBytes >= receiveContext.totalSize) {
+                const blob = new Blob([receiveContext.receivedBuffer], { type: 'application/octet-stream' });
+                addReceivedFile(blob, receiveContext.fileName);
                 resetReceiveContext();
-                receiveContext.active = true;
-                receiveContext.fileName = fileName;
-                receiveContext.totalSize = totalSize;
-                receiveContext.receivedBuffer = new ArrayBuffer(totalSize);
-
-                showReceiveProgress(0, totalSize);
-
-            } else if (packet.type === 'file_data') {
-                // 接收文件数据
-                if (!receiveContext.active) {
-                    addLog('收到数据块但没有活动接收会话', 'error');
-                    return;
-                }
-
-                const blockOffset = packet.offset || 0;
-                const base64Data = packet.data;
-                
-                if (!base64Data) {
-                    addLog('数据块缺少data字段', 'error');
-                    return;
-                }
-
-                // 解码base64数据
-                const chunkData = new Uint8Array(atob(base64Data).split('').map(c => c.charCodeAt(0)));
-                const dataLen = chunkData.length;
-                const targetBuffer = new Uint8Array(receiveContext.receivedBuffer);
-
-                if (blockOffset + dataLen <= receiveContext.totalSize) {
-                    targetBuffer.set(chunkData, blockOffset);
-
-                    let newBytes = 0;
-                    for (let i = 0; i < dataLen; i++) {
-                        const pos = blockOffset + i;
-                        if (!receiveContext.writtenOffsets.has(pos)) {
-                            receiveContext.writtenOffsets.add(pos);
-                            newBytes++;
-                        }
-                    }
-                    receiveContext.receivedBytes += newBytes;
-
-                    const percent = Math.floor((receiveContext.receivedBytes / receiveContext.totalSize) * 100);
-                    showReceiveProgress(percent, receiveContext.totalSize);
-
-                    if (receiveContext.receivedBytes >= receiveContext.totalSize) {
-                        const blob = new Blob([receiveContext.receivedBuffer], { type: 'application/octet-stream' });
-                        addReceivedFile(blob, receiveContext.fileName);
-                        resetReceiveContext();
-                        hideReceiveProgress();
-                    }
-                }
-            } else if (packet.type === 'file_end') {
-                // 文件传输完成
-                addLog(`文件接收完成: ${packet.name}`, 'success');
-                if (receiveContext.active) {
-                    const blob = new Blob([receiveContext.receivedBuffer], { type: 'application/octet-stream' });
-                    addReceivedFile(blob, receiveContext.fileName);
-                    resetReceiveContext();
-                    hideReceiveProgress();
-                }
-            } else if (packet.type === 'file_response') {
-                // 处理设备响应
-                if (packet.status === 'ready') {
-                    addLog('设备就绪，开始发送文件数据', 'info');
-                } else if (packet.status === 'progress') {
-                    addLog(`发送进度: ${packet.progress}%`, 'info');
-                } else if (packet.status === 'success') {
-                    addLog(`文件发送成功: ${packet.name}`, 'success');
-                } else if (packet.status === 'error') {
-                    addLog(`设备错误: ${packet.message}`, 'error');
-                }
+                hideReceiveProgress();
             }
+        }
+
+        // 处理文件开始包
+        function handleFileStartPacket(view, payloadStart, dataLen) {
+            if (dataLen < 6) {
+                addLog('文件开始包数据长度不足', 'error');
+                return;
+            }
+            
+            // 解析文件名长度（大端2字节）
+            const nameLen = (view[payloadStart] << 8) | view[payloadStart + 1];
+            
+            // 提取文件名
+            const nameBytes = view.slice(payloadStart + 2, payloadStart + 2 + nameLen);
+            const fileName = new TextDecoder().decode(nameBytes);
+            
+            // 解析文件大小（大端4字节）
+            const sizeStart = payloadStart + 2 + nameLen;
+            const fileSize = (view[sizeStart] << 24) | 
+                             (view[sizeStart + 1] << 16) | 
+                             (view[sizeStart + 2] << 8) | 
+                             view[sizeStart + 3];
+            
+            addLog(`开始接收文件: ${fileName} (${formatFileSize(fileSize)})`, 'info');
+            
+            resetReceiveContext();
+            receiveContext.active = true;
+            receiveContext.fileName = fileName;
+            receiveContext.totalSize = fileSize;
+            receiveContext.receivedBuffer = new ArrayBuffer(fileSize);
+            receiveContext.receivedBytes = 0;
+            receiveContext.expectedOffset = 0;
+            
+            // 发送ACK
+            sendAck(ACK_STATUS_OK, 0);
+            showReceiveProgress(0, fileSize);
+        }
+
+        // 处理文件结束包
+        function handleFileEndPacket() {
+            addLog('收到文件结束包', 'info');
+            if (receiveContext.active) {
+                const blob = new Blob([receiveContext.receivedBuffer], { type: 'application/octet-stream' });
+                addReceivedFile(blob, receiveContext.fileName);
+                resetReceiveContext();
+                hideReceiveProgress();
+            }
+            // 发送ACK
+            sendAck(ACK_STATUS_OK, receiveContext.expectedOffset);
+        }
+
+        // 处理ACK包（简化版：PC端不等待ACK，只记录不处理）
+        function handleAckPacket(view, payloadStart) {
+            // PC端不等待ACK，直接忽略设备端发送的ACK
+            // 保留此函数是为了兼容协议，但不进行任何处理
         }
 
         function resetReceiveContext() {
@@ -984,7 +1350,7 @@
                 totalSize: 0,
                 receivedBuffer: null,
                 receivedBytes: 0,
-                writtenOffsets: new Set()
+                expectedOffset: 0
             };
         }
 
@@ -1068,7 +1434,7 @@
             addLog(`删除文件: ${fileName}`, 'info');
         }
 
-        // ==================== 文件发送 ====================
+        // ==================== 文件发送 (新协议) ====================
         function selectFile() {
             document.getElementById('fileInput').click();
         }
@@ -1104,97 +1470,121 @@
             const progressFill = document.getElementById('sendProgressFill');
             const progressText = document.getElementById('sendProgressPercent');
             const sizeText = document.getElementById('sendProgressSize');
+            const speedText = document.getElementById('sendSpeed');
+            const elapsedTimeText = document.getElementById('sendElapsedTime');
+            const totalTimeText = document.getElementById('sendTotalTime');
 
             progressContainer.classList.add('active');
             addLog(`开始发送文件: ${selectedFile.name}`, 'info');
+
+            const startTime = Date.now();
+            let lastUpdateTime = startTime;
+            let lastBytesSent = 0;
+
+            const updateTimer = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                elapsedTimeText.textContent = `已用时: ${formatTime(elapsed)}`;
+            }, 1000);
 
             try {
                 const fileName = selectedFile.name;
                 const fileSize = selectedFile.size;
 
-                // 1. 发送文件开始标记 (JSON 格式)
-                const startPacket = {
-                    type: "file_start",
-                    name: fileName,
-                    size: fileSize
-                };
-                const startJson = JSON.stringify(startPacket);
-                const startBytes = new TextEncoder().encode(startJson);
-                await writeCharacteristic.writeValue(startBytes);
-                addLog(`发送文件开始标记: ${fileName}, 大小: ${fileSize} 字节`, 'info');
-                await sleep(100);
+                // 初始化进度条显示
+                progressFill.style.width = '0%';
+                progressText.textContent = '0%';
+                sizeText.textContent = `0 KB / ${formatFileSize(fileSize)}`;
+                speedText.textContent = '0 KB/s';
+                totalTimeText.textContent = '总时长: --:--';
 
-                // 2. 发送文件数据
-                const chunkSize = MAX_CHUNK_SIZE;
-                const totalChunks = Math.ceil(fileSize / chunkSize);
+                // 1. 发送文件头（二进制格式）
+                const headerPacket = buildFileStartPacket(fileName, fileSize);
+                addLog(`文件开始包已构建，大小: ${headerPacket.length} 字节`, 'debug');
+                
+                // 简化：直接发送文件头，不等待ACK
+                addLog('正在发送文件开始包（不等待ACK）...', 'info');
+                try {
+                    await writeCharacteristic.writeValue(headerPacket);
+                    addLog('文件开始包已发送', 'success');
+                } catch (writeError) {
+                    addLog(`写入特征值失败: ${writeError.message}`, 'error');
+                    throw new Error('发送文件头失败');
+                }
+                
+                // 短暂延迟，让设备有时间处理
+                await sleep(200);
+                
+                addLog('文件头发送成功，开始传输数据', 'info');
+
+                // 2. 发送文件数据（二进制格式，带ACK确认）
+                const fileData = await selectedFile.arrayBuffer();
+                const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
                 let bytesSent = 0;
 
-                const fileData = await selectedFile.arrayBuffer();
-
                 for (let i = 0; i < totalChunks; i++) {
-                    const offset = i * chunkSize;
-                    const chunk = fileData.slice(offset, offset + chunkSize);
+                    const chunkOffset = i * CHUNK_SIZE;
+                    const chunk = fileData.slice(chunkOffset, Math.min(chunkOffset + CHUNK_SIZE, fileSize));
                     const chunkBytes = new Uint8Array(chunk);
                     
-                    // 将二进制数据转换为 base64
-                    const base64Data = btoa(String.fromCharCode(...chunkBytes));
-
-                    const dataPacket = {
-                        type: "file_data",
-                        offset: offset,
-                        data: base64Data
-                    };
-                    const dataJson = JSON.stringify(dataPacket);
-                    const dataBytes = new TextEncoder().encode(dataJson);
+                    // 构建二进制数据包
+                    const dataPacket = buildDataPacket(bytesSent, chunkBytes);
                     
-                    await writeCharacteristic.writeValue(dataBytes);
+                    // 直接发送数据，不等待ACK
+                    try {
+                        await writeCharacteristic.writeValue(dataPacket);
+                    } catch (error) {
+                        addLog(`发送数据块 ${i + 1} 失败: ${error.message}`, 'error');
+                        throw new Error(`发送数据块 ${i + 1} 失败`);
+                    }
 
-                    bytesSent += chunk.byteLength;
+                    bytesSent += chunkBytes.length;
                     const percent = Math.floor((bytesSent / fileSize) * 100);
+                    const currentTime = Date.now();
+                    const elapsed = currentTime - startTime;
+
+                    // 计算速度
+                    const timeDiff = currentTime - lastUpdateTime;
+                    if (timeDiff >= 1000) {
+                        const bytesDiff = bytesSent - lastBytesSent;
+                        const speed = bytesDiff / (timeDiff / 1000) / 1024;
+                        speedText.textContent = `${speed.toFixed(1)} KB/s`;
+                        lastUpdateTime = currentTime;
+                        lastBytesSent = bytesSent;
+                    }
+
+                    // 估算总时长
+                    if (bytesSent > 0 && percent > 0) {
+                        const estimatedTotal = elapsed / (percent / 100);
+                        totalTimeText.textContent = `总时长: ${formatTime(estimatedTotal)}`;
+                    }
 
                     progressFill.style.width = percent + '%';
                     progressText.textContent = percent + '%';
                     sizeText.textContent = `${formatFileSize(bytesSent)} / ${formatFileSize(fileSize)}`;
 
-                    addLog(`发送数据块 ${i + 1}/${totalChunks}, 进度: ${percent}%`, 'info');
-                    await sleep(50);
+                    if (i % 10 === 0 || i === totalChunks - 1) {
+                        addLog(`发送数据块 ${i + 1}/${totalChunks}, 进度: ${percent}%`, 'info');
+                    }
                 }
 
-                // 3. 发送文件结束标记
-                const endPacket = {
-                    type: "file_end",
-                    name: fileName
-                };
-                const endJson = JSON.stringify(endPacket);
-                const endBytes = new TextEncoder().encode(endJson);
-                await writeCharacteristic.writeValue(endBytes);
+                // 3. 发送文件结束标记（不等待ACK）
+                const footerPacket = buildFileEndPacket();
+                try {
+                    await writeCharacteristic.writeValue(footerPacket);
+                    addLog('文件结束标记已发送', 'success');
+                } catch (e) {
+                    addLog(`文件结束标记发送失败: ${e.message}`, 'warn');
+                }
 
-                addLog(`文件发送完成: ${fileName}`, 'success');
+                clearInterval(updateTimer);
+                const totalElapsed = Date.now() - startTime;
+                addLog(`文件发送完成: ${fileName}, 总用时: ${formatTime(totalElapsed)}, 平均速度: ${(fileSize / (totalElapsed / 1000) / 1024).toFixed(1)} KB/s`, 'success');
 
             } catch (error) {
+                clearInterval(updateTimer);
                 addLog(`发送失败: ${error.message}`, 'error');
-            } finally {
-                setTimeout(() => {
-                    progressContainer.classList.remove('active');
-                    progressFill.style.width = '0%';
-                }, 2000);
             }
         }
-
-        // ==================== 工具函数 ====================
-        function formatFileSize(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-        }
-
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-
-        // 初始化
-        addLog('PC端蓝牙文件传输已就绪', 'info');
-        addLog('请点击"扫描连接"搜索BLE设备', 'info');
     </script>
 </body>
 </html>

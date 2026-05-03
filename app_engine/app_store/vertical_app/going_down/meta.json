@@ -1,0 +1,24 @@
+{
+  "app_name_cn": "是男人就下一百层",
+  "app_name_en": "going_down",
+  "version": "1.0.0",
+  "publish_time": "2026-04-08 19:20:00",
+  "author": "xc",
+  "category": "游戏",
+  "description": "横版躲避尖刺并持续下行的生存游戏",
+  "resolution": "480x800",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 80,
+  "origin_size_kb": 220
+}

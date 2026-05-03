@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>诗词闯关 ， 过关斩句</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #2b2b2b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', 'Noto Sans CJK SC', 'Roboto', 'Microsoft YaHei', system-ui, sans-serif;
+        }
+
+        /* 设备容器 480*800 竖屏 */
+        .device {
+            width: 480px;
+            height: 800px;
+            background: #fef7e8;
+            border-radius: 32px;
+            overflow: hidden;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.3), 0 0 0 8px #3e3a36;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 页面通用 */
+        .page {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: #fef7e8;
+        }
+
+        .page-hidden {
+            display: none;
+        }
+
+        /* 头部导航栏 */
+        .header {
+            padding: 18px 20px 8px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid #e2d9cc;
+            background: #fef7e8;
+            flex-shrink: 0;
+        }
+
+        .back-btn, .exit-btn {
+            background: #e9e0d0;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 24px;
+            font-weight: 500;
+            color: #5e4b3c;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .back-btn:active, .exit-btn:active {
+            background: #d6cbbc;
+            transform: scale(0.94);
+        }
+
+        .title {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: #6b4c3b;
+            background: #fff3e0;
+            padding: 6px 16px;
+            border-radius: 40px;
+            box-shadow: inset 0 1px 2px #fff8, 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .placeholder {
+            width: 44px;
+        }
+
+        /* 主菜单界面 */
+        .menu-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 30px 20px;
+        }
+        .menu-logo {
+            font-size: 56px;
+            margin-bottom: 8px;
+        }
+        .menu-desc {
+            font-size: 18px;
+            color: #8e735b;
+            background: #f7eddf;
+            padding: 10px 24px;
+            border-radius: 60px;
+        }
+        .start-btn {
+            background: #b48c5c;
+            border: none;
+            padding: 16px 44px;
+            border-radius: 60px;
+            font-size: 22px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            margin-top: 16px;
+            box-shadow: 0 8px 14px rgba(0,0,0,0.1);
+            transition: 0.15s linear;
+        }
+        .start-btn:active {
+            background: #9b6f48;
+            transform: scale(0.97);
+        }
+        .footer-note {
+            margin-top: 40px;
+            font-size: 12px;
+            color: #cbbca7;
+        }
+
+        /* 闯关模式专用样式 */
+        .game-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .progress-area {
+            background: #f3ecdf;
+            margin: 12px 20px 0 20px;
+            border-radius: 40px;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-weight: 600;
+            color: #5a3f2e;
+            box-shadow: inset 0 1px 2px #fff8, 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .level-badge {
+            background: #c7ae8a;
+            padding: 6px 18px;
+            border-radius: 30px;
+            color: white;
+            font-size: 16px;
+        }
+        .score-badge {
+            font-size: 18px;
+            background: #e9ddcd;
+            padding: 6px 16px;
+            border-radius: 30px;
+        }
+        .question-card {
+            background: #fffcf5;
+            margin: 20px 20px 16px 20px;
+            border-radius: 48px;
+            padding: 28px 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            border: 1px solid #f0e2d2;
+            flex: 0 0 auto;
+        }
+        .poem-line {
+            font-size: 24px;
+            line-height: 1.5;
+            text-align: center;
+            color: #3e2a1f;
+            font-weight: 600;
+            margin-bottom: 28px;
+            letter-spacing: 1px;
+        }
+        .blank-highlight {
+            display: inline-block;
+            min-width: 100px;
+            border-bottom: 4px solid #c7ae8a;
+            margin: 0 4px;
+            text-indent: 0;
+            background: #fef1e2;
+            border-radius: 12px;
+            padding: 0 8px;
+        }
+        .options-area {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin: 16px 0 8px;
+        }
+        .option-btn {
+            background: #f7efe2;
+            border: 2px solid #e2cfb8;
+            border-radius: 60px;
+            padding: 14px 18px;
+            font-size: 18px;
+            font-weight: 500;
+            color: #4f3a2a;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.12s linear;
+        }
+        .option-btn:active {
+            background: #e8d9c8;
+            transform: scale(0.97);
+        }
+        .option-btn.selected {
+            background: #dac09e;
+            border-color: #b48c5c;
+            color: white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin: 24px 20px 12px 20px;
+        }
+        .confirm-btn, .next-btn {
+            flex: 1;
+            background: #c7ae8a;
+            border: none;
+            padding: 14px 0;
+            border-radius: 48px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: 0.15s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .confirm-btn:active, .next-btn:active {
+            transform: scale(0.96);
+            background: #b2926c;
+        }
+        .next-btn {
+            background: #8faa7b;
+        }
+        .next-btn:active {
+            background: #789463;
+        }
+        .feedback {
+            margin: 8px 20px 12px 20px;
+            padding: 12px;
+            border-radius: 36px;
+            text-align: center;
+            font-size: 15px;
+            background: #f1ebdf;
+            color: #6b5a4a;
+        }
+        .feedback.correct {
+            background: #e0f0e3;
+            color: #2f6b3c;
+        }
+        .feedback.wrong {
+            background: #ffe6e5;
+            color: #bc5a4c;
+        }
+        .complete-panel {
+            background: #fffcf0;
+            margin: 40px 20px;
+            border-radius: 60px;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        .complete-panel h3 {
+            font-size: 28px;
+            color: #b48c5c;
+            margin-bottom: 16px;
+        }
+        .exit-app-btn {
+            background: #b48c5c;
+            margin-top: 28px;
+            padding: 14px 20px;
+            border-radius: 60px;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            transition: 0.15s;
+            border: none;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+        }
+        .exit-app-btn:active {
+            background: #9b6f48;
+            transform: scale(0.96);
+        }
+        .scrollable {
+            overflow-y: auto;
+            flex: 1;
+        }
+        .inline-exit {
+            background: #d9c9b5;
+        }
+    </style>
+</head>
+<body>
+<div class="device">
+    <!-- 主菜单页面 -->
+    <div id="menuPage" class="page">
+        <div class="header">
+            <div class="placeholder"></div>
+            <div class="title">诗 词 闯 关</div>
+            <button id="menuExitAppBtn" class="exit-btn" title="退出应用">✕</button>
+        </div>
+        <div class="menu-content">
+            <div class="menu-logo">🏆📜</div>
+            <div class="menu-desc">过关斩句 · 步步生花</div>
+            <button id="enterGameBtn" class="start-btn">⚔️ 开始闯关</button>
+            <div class="footer-note">· 每关一题 · 答对晋级 · 累计积分 ·</div>
+        </div>
+    </div>
+
+    <!-- 闯关游戏页面（过关模式） -->
+    <div id="gamePage" class="page page-hidden">
+        <div class="header">
+            <button id="exitToMenuBtn" class="exit-btn" title="退出闯关并返回菜单">⇽</button>
+            <div class="title">过关模式</div>
+            <button id="gameExitAppBtn" class="exit-btn" title="退出应用">✕</button>
+        </div>
+        <div class="game-container" id="gameContainer">
+            <!-- 进度条区域 -->
+            <div class="progress-area">
+                <span class="level-badge" id="levelDisplay">第1关</span>
+                <span class="score-badge" id="scoreDisplay">🏅 积分:0</span>
+            </div>
+            <div class="scrollable" id="gameScrollArea">
+                <!-- 动态渲染当前关卡题目 -->
+                <div id="currentQuestionPanel"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- 诗词题库 (过关模式) ----------
+    const levelsData = [
+        {
+            id: 0,
+            poemSnippet: "床前____光，疑是地上霜。",
+            correctAnswer: "明月",
+            options: ["明月", "月光", "灯光", "烛光"],
+            explanation: "李白《静夜思》经典名句。"
+        },
+        {
+            id: 1,
+            poemSnippet: "欲穷____目，更上一层楼。",
+            correctAnswer: "千里",
+            options: ["万里", "千里", "百尺", "千山"],
+            explanation: "王之涣《登鹳雀楼》气势磅礴。"
+        },
+        {
+            id: 2,
+            poemSnippet: "野火烧____，春风吹又生。",
+            correctAnswer: "不尽",
+            options: ["不尽", "不灭", "未绝", "无痕"],
+            explanation: "白居易《赋得古原草送别》坚韧意象。"
+        },
+        {
+            id: 3,
+            poemSnippet: "独在异乡为异客，每逢____倍思亲。",
+            correctAnswer: "佳节",
+            options: ["节日", "重阳", "佳节", "良辰"],
+            explanation: "王维《九月九日忆山东兄弟》思乡情深。"
+        },
+        {
+            id: 4,
+            poemSnippet: "黄沙百战穿金甲，不破____终不还。",
+            correctAnswer: "楼兰",
+            options: ["楼兰", "玉门", "阴山", "天山"],
+            explanation: "王昌龄《从军行》壮怀激烈。"
+        },
+        {
+            id: 5,
+            poemSnippet: "春风又绿____岸，明月何时照我还。",
+            correctAnswer: "江南",
+            options: ["江南", "江左", "江东", "江畔"],
+            explanation: "王安石《泊船瓜洲》千古绝唱。"
+        }
+    ];
+
+    // 游戏全局状态
+    let currentLevelIndex = 0;          // 当前第几关 (0起始)
+    let totalScore = 0;                 // 累计积分
+    let currentSelectedOption = null;   
+    let hasAnsweredCurrent = false;     
+    let isLevelCompleted = false;       
+
+    // DOM 元素
+    const menuPage = document.getElementById('menuPage');
+    const gamePage = document.getElementById('gamePage');
+    const enterBtn = document.getElementById('enterGameBtn');
+    const exitToMenuBtn = document.getElementById('exitToMenuBtn');
+    const menuExitAppBtn = document.getElementById('menuExitAppBtn');
+    const gameExitAppBtn = document.getElementById('gameExitAppBtn');
+    const levelDisplaySpan = document.getElementById('levelDisplay');
+    const scoreDisplaySpan = document.getElementById('scoreDisplay');
+    const currentQuestionPanel = document.getElementById('currentQuestionPanel');
+    
+    // ---------- 核心：退出APP（模拟嵌入式设备关闭）----------
+    // 在真实嵌入式WebView中，可通过特定JavaScript Bridge退出；
+    // 此处模拟APP退出行为：关闭当前页面/提示并退出（针对演示，提供一个不可逆的关闭效果）
+    function exitApp() {
+        // 针对嵌入式设备UI演示环境，通常执行外部接口。
+        // 由于在普通浏览器无法真正退出，但为达到“退出APP”效果:
+        // 显示退出遮罩并清空内容，模拟应用已退出（专业嵌入式可调用原生退出）
+        // 增加一个友好的“已退出”占位，并在1.2秒后尝试关闭窗口或显示黑屏（更符合演示预期）
+        const deviceElem = document.querySelector('.device');
+        if (deviceElem) {
+            // 创建退出遮罩，模拟APP已退出
+            const exitOverlay = document.createElement('div');
+            exitOverlay.style.position = 'absolute';
+            exitOverlay.style.top = '0';
+            exitOverlay.style.left = '0';
+            exitOverlay.style.width = '100%';
+            exitOverlay.style.height = '100%';
+            exitOverlay.style.backgroundColor = '#1e1a16';
+            exitOverlay.style.display = 'flex';
+            exitOverlay.style.alignItems = 'center';
+            exitOverlay.style.justifyContent = 'center';
+            exitOverlay.style.flexDirection = 'column';
+            exitOverlay.style.zIndex = '9999';
+            exitOverlay.style.color = '#e7dacd';
+            exitOverlay.style.fontSize = '24px';
+            exitOverlay.style.fontWeight = 'bold';
+            exitOverlay.style.backdropFilter = 'blur(4px)';
+            exitOverlay.innerHTML = '<div style="text-align:center;">📖 应用已退出<br><span style="font-size:14px; margin-top:12px; display:block;">诗词雅趣 · 待君重临</span></div>';
+            deviceElem.appendChild(exitOverlay);
+            // 对于嵌入式设备，可在此调用原生退出bridge（示例留空，但演示效果足够）
+            // 模拟退出后阻止任何点击交互
+            document.body.style.pointerEvents = 'none';
+            // 若运行在真实 WebView 且存在退出接口，可尝试调用:
+            if (typeof window.embeddedExit === 'function') {
+                window.embeddedExit();
+            } else {
+                // 针对纯演示，延时后让界面保持退出状态，无法再交互（模拟退出）
+                console.log("APP Exit (Demo Mode) - 诗词应用已关闭");
+            }
+        } else {
+            // 后备: 尝试关闭窗口(对某些环境可能无效)
+            window.close();
+        }
+    }
+
+    // 更新UI上的关卡和分数
+    function updateProgressUI() {
+        levelDisplaySpan.innerText = `第${currentLevelIndex+1}关`;
+        scoreDisplaySpan.innerText = `🏅 积分:${totalScore}`;
+    }
+    
+    function getCurrentLevelData() {
+        if (currentLevelIndex < levelsData.length) {
+            return levelsData[currentLevelIndex];
+        }
+        return null;
+    }
+    
+    // 渲染通关完成界面（所有关卡通过），并提供明显的“退出APP”按钮
+    function renderCompletionScreen() {
+        if (!currentQuestionPanel) return;
+        currentQuestionPanel.innerHTML = `
+            <div class="complete-panel">
+                <h3>🏁 通关成功 🏁</h3>
+                <p style="font-size:18px; margin:12px 0">诗才横溢，满腹经纶</p>
+                <p style="margin:8px 0; font-weight:bold;">累计积分: ${totalScore}</p>
+                <button id="completionExitAppBtn" class="exit-app-btn">🚪 退出应用</button>
+                <button id="completionMenuBtn" style="background:#aa8f70; margin-top:16px;" class="exit-app-btn">🏠 返回主菜单</button>
+            </div>
+        `;
+        const exitAppComplete = document.getElementById('completionExitAppBtn');
+        if (exitAppComplete) {
+            exitAppComplete.addEventListener('click', (e) => {
+                e.stopPropagation();
+                exitApp();   // 退出APP
+            });
+        }
+        const menuBtnComplete = document.getElementById('completionMenuBtn');
+        if (menuBtnComplete) {
+            menuBtnComplete.addEventListener('click', () => {
+                resetGameFully();
+                showMenuPage();
+            });
+        }
+        // 隐藏原有的动作按钮区域（如果有）
+        const actionDiv = document.querySelector('.action-buttons');
+        if (actionDiv) actionDiv.style.display = 'none';
+        const feedbackDiv = document.getElementById('feedbackArea');
+        if (feedbackDiv) feedbackDiv.style.display = 'none';
+    }
+    
+    // 渲染当前关卡题目
+    function renderCurrentQuestion() {
+        if (!currentQuestionPanel) return;
+        const levelData = getCurrentLevelData();
+        if (!levelData) {
+            renderCompletionScreen();
+            return;
+        }
+        
+        let displayLine = levelData.poemSnippet;
+        displayLine = displayLine.replace(/____/g, '<span class="blank-highlight">______</span>');
+        
+        const html = `
+            <div class="question-card">
+                <div class="poem-line">${displayLine}</div>
+                <div class="options-area" id="optionsContainer">
+                    ${levelData.options.map(opt => `
+                        <div class="option-btn" data-opt="${opt.replace(/"/g, '&quot;')}">${opt}</div>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button id="confirmAnswerBtn" class="confirm-btn">✓ 确认作答</button>
+                ${isLevelCompleted ? '<button id="nextLevelBtn" class="next-btn">▶ 下一关</button>' : ''}
+            </div>
+            <div id="feedbackArea" class="feedback">
+                ${hasAnsweredCurrent ? (isLevelCompleted ? '🎉 答对啦！点击下一关继续！' : '❌ 答错了，无法进入下一关，请使用上方退出按钮重新挑战。') : '✨ 选择正确的词语填空 ✨'}
+            </div>
+        `;
+        currentQuestionPanel.innerHTML = html;
+        
+        // 绑定选项点击事件
+        const optionBtns = document.querySelectorAll('.option-btn');
+        optionBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (hasAnsweredCurrent && isLevelCompleted) {
+                    const feedbackDiv = document.getElementById('feedbackArea');
+                    if (feedbackDiv) {
+                        feedbackDiv.innerHTML = '🏆 本关已过，请点击“下一关”继续征程！';
+                        feedbackDiv.classList.add('correct');
+                    }
+                    return;
+                }
+                if (hasAnsweredCurrent && !isLevelCompleted) {
+                    const feedbackDiv = document.getElementById('feedbackArea');
+                    if (feedbackDiv) {
+                        feedbackDiv.innerHTML = '❌ 本关已失败，请使用“退出”按钮重新开始。';
+                        feedbackDiv.classList.add('wrong');
+                    }
+                    return;
+                }
+                const selectedText = btn.getAttribute('data-opt');
+                optionBtns.forEach(btnEl => btnEl.classList.remove('selected'));
+                btn.classList.add('selected');
+                currentSelectedOption = selectedText;
+                const feedbackDiv = document.getElementById('feedbackArea');
+                if (feedbackDiv && !hasAnsweredCurrent) {
+                    feedbackDiv.innerHTML = '📖 已选中，点击确认作答。';
+                    feedbackDiv.classList.remove('correct', 'wrong');
+                }
+            });
+        });
+        
+        // 确认按钮逻辑
+        const confirmBtn = document.getElementById('confirmAnswerBtn');
+        if (confirmBtn) {
+            const newConfirm = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
+            newConfirm.addEventListener('click', () => {
+                if (hasAnsweredCurrent) {
+                    if (isLevelCompleted) {
+                        const fb = document.getElementById('feedbackArea');
+                        if (fb) fb.innerHTML = '✅ 已经通关，请点击“下一关”！';
+                    } else {
+                        const fb = document.getElementById('feedbackArea');
+                        if (fb) fb.innerHTML = '⚠️ 本关答案错误无法晋级，请退出重试。';
+                    }
+                    return;
+                }
+                handleAnswer();
+            });
+        }
+        
+        // 下一关按钮事件
+        const nextBtn = document.getElementById('nextLevelBtn');
+        if (nextBtn && isLevelCompleted) {
+            const newNext = nextBtn.cloneNode(true);
+            nextBtn.parentNode.replaceChild(newNext, nextBtn);
+            newNext.addEventListener('click', () => {
+                goToNextLevel();
+            });
+        }
+        
+        // 同步反馈样式
+        const feedbackDiv = document.getElementById('feedbackArea');
+        if (feedbackDiv && hasAnsweredCurrent) {
+            if (isLevelCompleted) {
+                feedbackDiv.innerHTML = '🎉 漂亮！答对了！点击下一关继续闯关。';
+                feedbackDiv.classList.add('correct');
+                feedbackDiv.classList.remove('wrong');
+            } else {
+                feedbackDiv.innerHTML = `❌ 很遗憾，“${currentSelectedOption || '你的答案'}”不正确。正确答案是“${levelData.correctAnswer}”。${levelData.explanation}<br>✖️ 闯关失败，请按上方“退出”重新开始。`;
+                feedbackDiv.classList.add('wrong');
+                feedbackDiv.classList.remove('correct');
+            }
+        }
+    }
+    
+    // 处理作答
+    function handleAnswer() {
+        const levelData = getCurrentLevelData();
+        if (!levelData) return;
+        if (!currentSelectedOption) {
+            const fb = document.getElementById('feedbackArea');
+            if (fb) {
+                fb.innerHTML = '📌 请先选择一个选项再确认！';
+                fb.classList.add('wrong');
+                setTimeout(() => {
+                    if (fb && !hasAnsweredCurrent) fb.classList.remove('wrong');
+                }, 1000);
+            }
+            return;
+        }
+        hasAnsweredCurrent = true;
+        const isCorrect = (currentSelectedOption === levelData.correctAnswer);
+        if (isCorrect) {
+            totalScore += 10;
+            isLevelCompleted = true;
+            updateProgressUI();
+            renderCurrentQuestion();
+        } else {
+            isLevelCompleted = false;
+            renderCurrentQuestion();
+        }
+    }
+    
+    // 进入下一关
+    function goToNextLevel() {
+        if (!isLevelCompleted) return;
+        currentLevelIndex++;
+        currentSelectedOption = null;
+        hasAnsweredCurrent = false;
+        isLevelCompleted = false;
+        if (currentLevelIndex >= levelsData.length) {
+            renderCurrentQuestion(); 
+            updateProgressUI();
+            return;
+        }
+        updateProgressUI();
+        renderCurrentQuestion();
+    }
+    
+    // 重置所有进度
+    function resetGameFully() {
+        currentLevelIndex = 0;
+        totalScore = 0;
+        currentSelectedOption = null;
+        hasAnsweredCurrent = false;
+        isLevelCompleted = false;
+        updateProgressUI();
+        if (!menuPage.classList.contains('page-hidden')) {
+            // 菜单状态无需额外
+        } else {
+            renderCurrentQuestion();
+        }
+    }
+    
+    // 显示游戏页面并重置(开始新游戏)
+    function startNewGame() {
+        resetGameFully();
+        showGamePage();
+    }
+    
+    function showGamePage() {
+        renderCurrentQuestion();
+        menuPage.classList.add('page-hidden');
+        gamePage.classList.remove('page-hidden');
+        const actionDiv = document.querySelector('.action-buttons');
+        if (actionDiv) actionDiv.style.display = 'flex';
+        const feedbackDiv = document.getElementById('feedbackArea');
+        if (feedbackDiv) feedbackDiv.style.display = 'block';
+    }
+    
+    // 退出到主菜单并重置进度（不完全退出应用）
+    function exitToMenuAndReset() {
+        resetGameFully();
+        showMenuPage();
+    }
+    
+    function showMenuPage() {
+        menuPage.classList.remove('page-hidden');
+        gamePage.classList.add('page-hidden');
+        resetGameFully();
+    }
+    
+    // 事件绑定 + 退出逻辑
+    function bindEvents() {
+        if (enterBtn) {
+            enterBtn.addEventListener('click', () => {
+                startNewGame();
+            });
+        }
+        if (exitToMenuBtn) {
+            exitToMenuBtn.addEventListener('click', () => {
+                exitToMenuAndReset();
+            });
+        }
+        if (menuExitAppBtn) {
+            menuExitAppBtn.addEventListener('click', () => {
+                exitApp();
+            });
+        }
+        if (gameExitAppBtn) {
+            gameExitAppBtn.addEventListener('click', () => {
+                exitApp();
+            });
+        }
+    }
+    
+    function init() {
+        bindEvents();
+        resetGameFully();
+        showMenuPage();
+    }
+    
+    init();
+</script>
+</body>
+</html>

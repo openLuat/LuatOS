@@ -28,7 +28,7 @@ local function http_upload_task()
 
     -- 阶段2: TF卡文件系统初始化
     local spi_id, pin_cs = 1, 12
-    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    spi.setup(spi_id, nil, 0, 0, 8, 2000000)
     gpio.setup(pin_cs, 1)
     
     local mount_ok = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)

@@ -7,7 +7,7 @@
 
 #include "stdint.h"
 
-#define LUAT_BSP_VERSION "V2028"
+#define LUAT_BSP_VERSION "V2029"
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
 #define LUAT_USE_CMDLINE_ARGS 1
 // 启用64位虚拟机
@@ -151,7 +151,7 @@
 #define LUAT_USE_ICONV 1
 #define LUAT_USE_BIT64 1
 #define LUAT_USE_FASTLZ 1
-// #define LUAT_USE_SQLITE3 1
+#define LUAT_USE_SQLITE3 1
 // #define LUAT_USE_ONEWIRE 1
 // #define LUAT_USE_WS2812 1
 #define LUAT_USE_XXTEA 1

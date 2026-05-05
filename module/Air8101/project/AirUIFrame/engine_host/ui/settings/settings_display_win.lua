@@ -15,6 +15,14 @@ local screen_w, screen_h = 480, 800
 local margin = 15
 local card_w = 460
 
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_DIVIDER        = 0xE0E0E0
+local COLOR_WHITE          = 0xFFFFFF
+
 local function update_screen_size()
     local rotation = airui.get_rotation()
     local phys_w, phys_h = lcd.getSize()
@@ -42,7 +50,7 @@ local function create_ui()
     main_container = airui.container({
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = 0xF5F5F5,
+        color = COLOR_BG,
         parent = airui.screen
     })
 
@@ -50,114 +58,115 @@ local function create_ui()
     local title_bar = airui.container({
         parent = main_container,
         x = 0, y = 0,
-        w = screen_w, h = 60,
-        color = 0x3F51B5
+        w = screen_w, h = math.floor(60 * _G.density_scale),
+        color = COLOR_PRIMARY
     })
     local btn_back = airui.container({
         parent = title_bar,
         x = 10, y = 10,
-        w = 50, h = 40,
-        color = 0x3F51B5,
+        w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
+        color = COLOR_PRIMARY,
         on_click = function() exwin.close(win_id) end
     })
     airui.label({
         parent = btn_back,
-        x = 0, y = 5,
-        w = 50, h = 30,
+        x = 0, y = math.floor(5 * _G.density_scale),
+        w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "<",
-        font_size = 28,
-        color = 0xFFFFFF,
+        font_size = math.floor(28 * _G.density_scale),
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
         parent = title_bar,
-        x = 60, y = 14,
-        w = 200, h = 40,
+        x = math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "显示与亮度",
-        font_size = 32,
-        color = 0xFFFFFF,
+        font_size = math.floor(32 * _G.density_scale),
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_LEFT
     })
 
+    local title_h = math.floor(60 * _G.density_scale)
     local content = airui.container({
         parent = main_container,
-        x = 0, y = 60,
-        w = screen_w, h = screen_h - 60,
-        color = 0xF5F5F5
+        x = 0, y = title_h,
+        w = screen_w, h = screen_h - title_h,
+        color = COLOR_BG
     })
 
     -- 亮度卡片
     local card_brightness = airui.container({
         parent = content,
-        x = margin, y = 20,
-        w = card_w, h = 140,
-        color = 0xFFFFFF,
+        x = margin, y = math.floor(20 * _G.density_scale),
+        w = card_w, h = math.floor(140 * _G.density_scale),
+        color = COLOR_WHITE,
         radius = 8
     })
     airui.label({
         parent = card_brightness,
-        x = 20, y = 10,
-        w = 100, h = 30,
+        x = math.floor(20 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(100 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "亮度",
-        font_size = 24,
-        color = 0x333333,
+        font_size = math.floor(24 * _G.density_scale),
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
     brightness_label = airui.label({
         parent = card_brightness,
-        x = card_w - 80, y = 10,
-        w = 60, h = 30,
+        x = card_w - math.floor(80 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(60 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "50",
-        font_size = 24,
-        color = 0x666666,
+        font_size = math.floor(24 * _G.density_scale),
+        color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_RIGHT
     })
 
-    local btn_w = 60
-    local btn_margin = 20
-    local bar_x = btn_margin + btn_w + 10
-    local bar_w = card_w - 2 * btn_margin - 2 * btn_w - 20
+    local btn_w = math.floor(60 * _G.density_scale)
+    local btn_margin = math.floor(20 * _G.density_scale)
+    local bar_x = btn_margin + btn_w + math.floor(10 * _G.density_scale)
+    local bar_w = card_w - 2 * btn_margin - 2 * btn_w - math.floor(20 * _G.density_scale)
 
     airui.button({
         parent = card_brightness,
-        x = btn_margin, y = 55,
-        w = btn_w, h = 40,
+        x = btn_margin, y = math.floor(55 * _G.density_scale),
+        w = btn_w, h = math.floor(40 * _G.density_scale),
         text = "-10",
-        font_size = 20,
+        font_size = math.floor(20 * _G.density_scale),
         style = {
-            bg_color = 0xE0E0E0,
-            pressed_bg_color = 0x2196F3,
-            text_color = 0x333333,
+            bg_color = COLOR_DIVIDER,
+            pressed_bg_color = COLOR_PRIMARY,
+            text_color = COLOR_TEXT,
             radius = 8,
             border_width = 1,
-            border_color = 0xBDBDBD
+            border_color = COLOR_DIVIDER
         },
         on_click = function() sys.publish("DISPLAY_BRIGHTNESS_DECREASE") end
     })
     airui.button({
         parent = card_brightness,
-        x = card_w - btn_margin - btn_w, y = 55,
-        w = btn_w, h = 40,
+        x = card_w - btn_margin - btn_w, y = math.floor(55 * _G.density_scale),
+        w = btn_w, h = math.floor(40 * _G.density_scale),
         text = "+10",
-        font_size = 20,
+        font_size = math.floor(20 * _G.density_scale),
         style = {
-            bg_color = 0xE0E0E0,
-            pressed_bg_color = 0x2196F3,
-            text_color = 0x333333,
+            bg_color = COLOR_DIVIDER,
+            pressed_bg_color = COLOR_PRIMARY,
+            text_color = COLOR_TEXT,
             radius = 8,
             border_width = 1,
-            border_color = 0xBDBDBD
+            border_color = COLOR_DIVIDER
         },
         on_click = function() sys.publish("DISPLAY_BRIGHTNESS_INCREASE") end
     })
     brightness_bar = airui.bar({
         parent = card_brightness,
-        x = bar_x, y = 65,
-        w = bar_w, h = 25,
+        x = bar_x, y = math.floor(65 * _G.density_scale),
+        w = bar_w, h = math.floor(25 * _G.density_scale),
         min = 0, max = 100,
         value = 50,
-        color = 0x2196F3,
-        bg_color = 0xE0E0E0
+        color = COLOR_PRIMARY,
+        bg_color = COLOR_DIVIDER
     })
 end
 

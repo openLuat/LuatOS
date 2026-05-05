@@ -41,9 +41,6 @@ local function netdrv_multiple_notify_cbfunc(net_type,adapter)
     else
         log.warn("netdrv_multiple_notify_cbfunc", "unknown status", net_type, adapter)
     end
-    
-    -- 发送全局事件，通知其他模块
-    sys.publish("NETDRV_NETWORK_STATUS", net_type, adapter)
 end
 
 local function netdrv_multiple_task_func()
@@ -66,7 +63,7 @@ local function netdrv_multiple_task_func()
                     
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                     tp = netdrv.CH390, 
-                    opts = {spi=1, cs=12}
+                    opts = {spi=1, cs=12, irq=21}
                 }
             },
 
@@ -74,7 +71,7 @@ local function netdrv_multiple_task_func()
             {
                 WIFI = {
                     -- 要连接的WIFI路由器名称
-                    ssid = "admin-降功耗，找合宙！",
+                    ssid = "茶室-降功耗,找合宙!",
                     -- 要连接的WIFI路由器密码
                     password = "Air123456", 
 

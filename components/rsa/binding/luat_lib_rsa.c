@@ -174,7 +174,13 @@ static int l_rsa_verify(lua_State* L) {
                                     (const uint8_t *)hash, hash_len,
                                     (const uint8_t *)key,  keylen,
                                     (const uint8_t *)sig,  sig_len);
-    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    if (ret == 0) {
+        lua_pushboolean(L, 1);
+    } else if (ret > 0) {
+        lua_pushboolean(L, 0);
+    } else {
+        return 0;
+    }
     return 1;
 }
 

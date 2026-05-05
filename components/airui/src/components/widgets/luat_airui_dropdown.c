@@ -13,6 +13,8 @@
 #include "lvgl9/src/core/lv_obj.h"
 #include <string.h>
 
+static char *airui_dropdown_build_options_from_table(lua_State *L, int idx);
+
 static airui_ctx_t *airui_binding_get_ctx(lua_State *L) {
     if (L == NULL) {
         return NULL;
@@ -34,18 +36,49 @@ static airui_ctx_t *airui_binding_get_ctx(lua_State *L) {
  * @return 拼接后的选项字符串（需调用方释放），失败返回 NULL
  */
 static char *airui_dropdown_build_options(lua_State *L, int idx) {
-    int count = airui_marshal_table_length(L, idx, "options");
+    if (L == NULL) {
+        return NULL;
+    }
+
+    lua_getfield(L, idx, "options");
+    char *options = airui_dropdown_build_options_from_table(L, -1);
+    lua_pop(L, 1);
+    return options;
+}
+
+/**
+ * 根据 Lua 配置表创建下拉框并完成基本属性设置
+ * @param L Lua 状态
+ * @param idx 配置表在栈中的索引
+ * @return 构建成功的 LVGL 下拉框对象，失败返回 NULL
+ */
+/* Build LVGL newline-separated options from a Lua array. */
+static char *airui_dropdown_build_options_from_table(lua_State *L, int idx) {
+    if (L == NULL) {
+        return NULL;
+    }
+
+    idx = lua_absindex(L, idx);
+    if (!lua_istable(L, idx)) {
+        return NULL;
+    }
+
+    int count = (int)lua_rawlen(L, idx);
     if (count <= 0) {
         return NULL;
     }
 
     size_t total = 0;
     for (int i = 1; i <= count; i++) {
-        const char *entry = airui_marshal_table_string_at(L, idx, "options", i);
-        if (entry != NULL) {
-            total += strlen(entry);
-            total += 1;  // newline
+        lua_rawgeti(L, idx, i);
+        if (lua_type(L, -1) == LUA_TSTRING) {
+            const char *entry = lua_tostring(L, -1);
+            if (entry != NULL) {
+                total += strlen(entry);
+                total += 1;  // newline
+            }
         }
+        lua_pop(L, 1);
     }
 
     if (total == 0) {
@@ -59,13 +92,17 @@ static char *airui_dropdown_build_options(lua_State *L, int idx) {
 
     size_t offset = 0;
     for (int i = 1; i <= count; i++) {
-        const char *entry = airui_marshal_table_string_at(L, idx, "options", i);
-        if (entry != NULL) {
-            size_t len = strlen(entry);
-            memcpy(buffer + offset, entry, len);
-            offset += len;
-            buffer[offset++] = '\n';
+        lua_rawgeti(L, idx, i);
+        if (lua_type(L, -1) == LUA_TSTRING) {
+            const char *entry = lua_tostring(L, -1);
+            if (entry != NULL) {
+                size_t len = strlen(entry);
+                memcpy(buffer + offset, entry, len);
+                offset += len;
+                buffer[offset++] = '\n';
+            }
         }
+        lua_pop(L, 1);
     }
 
     if (offset > 0) {
@@ -78,11 +115,34 @@ static char *airui_dropdown_build_options(lua_State *L, int idx) {
 }
 
 /**
- * 根据 Lua 配置表创建下拉框并完成基本属性设置
+ * 设置下拉框选项
+ * @param dropdown LVGL 下拉框对象
  * @param L Lua 状态
  * @param idx 配置表在栈中的索引
- * @return 构建成功的 LVGL 下拉框对象，失败返回 NULL
+ * @return AIRUI_OK 成功，其他失败
  */
+int airui_dropdown_set_options(lv_obj_t *dropdown, void *L, int idx) {
+    if (dropdown == NULL || L == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    idx = lua_absindex(L_state, idx);
+
+    if (lua_type(L_state, idx) == LUA_TTABLE) {
+        char *options = airui_dropdown_build_options_from_table(L_state, idx);
+        if (options == NULL) {
+            lv_dropdown_clear_options(dropdown);
+            return AIRUI_OK;
+        }
+        lv_dropdown_set_options(dropdown, options);
+        luat_heap_free(options);
+        return AIRUI_OK;
+    }
+
+    return AIRUI_ERR_INVALID_PARAM;
+}
+
 lv_obj_t *airui_dropdown_create_from_config(void *L, int idx) {
     if (L == NULL) {
         return NULL;
@@ -126,6 +186,8 @@ lv_obj_t *airui_dropdown_create_from_config(void *L, int idx) {
     char *options = airui_dropdown_build_options(L_state, idx);
     if (options != NULL) {
         lv_dropdown_set_options(dropdown, options);
+        luat_heap_free(options);
+        options = NULL;
     }
 
     // 如果指定了默认选中，立即设置
@@ -137,16 +199,11 @@ lv_obj_t *airui_dropdown_create_from_config(void *L, int idx) {
     airui_component_meta_t *meta = airui_component_meta_alloc(
         ctx, dropdown, AIRUI_COMPONENT_DROPDOWN);
     if (meta == NULL) {
-        if (options != NULL) {
-            luat_heap_free(options);
-        }
         lv_obj_delete(dropdown);
         return NULL;
     }
 
     // 将 options 字符串绑定到 user_data，方便后续回收
-    meta->user_data = options;
-
     // 捕获 Lua 回调并绑定 LVGL 事件
     int callback_ref = airui_component_capture_callback(L, idx, "on_change");
     if (callback_ref != LUA_NOREF) {

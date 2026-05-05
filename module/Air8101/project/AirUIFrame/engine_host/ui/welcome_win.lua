@@ -13,11 +13,35 @@ local search_icon
 local mouse_img
 local move_timer
 
-local MOUSE_SPEED = 20          -- 鼠标移动速度（像素/步）
-local ZOOM_STEP1 = 350          -- 放大后的尺寸
-local ZOOM_NORMAL = 256         -- 正常尺寸
-local MOUSE_W = 32
-local MOUSE_H = 32
+local MOUSE_SPEED = 15
+local ZOOM_STEP1 = 450
+local ZOOM_NORMAL = 256
+local MOUSE_W = 36
+local MOUSE_H = 36
+
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_WHITE          = 0xFFFFFF
+
+local product_name = "合宙引擎主机"
+
+local function resolution_adapt()
+    local ds = _G.density_scale or 1.0
+    MOUSE_SPEED = math.floor(15 * ds)
+    ZOOM_STEP1 = math.floor(256 + 128 * ds)
+    local mouse_size = math.floor(math.max(28, math.min(52, screen_h * 0.055)) * ds)
+    MOUSE_W = mouse_size
+    MOUSE_H = mouse_size
+
+    local ok, model = pcall(hmeta.model)
+    if ok and model then
+        local suffix = tostring(model):gsub("^Air", "")
+        product_name = "合宙引擎主机" .. suffix
+    end
+end
 
 
 -- 鼠标移动完成后的动作：放大搜索图标，关闭窗口，发布事件
@@ -70,32 +94,34 @@ local function start_mouse_animation(icon_abs_x, icon_abs_y)
 end
 
 local function create_ui()
+    resolution_adapt()
+
     main_container = airui.container({
         parent = airui.screen, x = 0, y = 0, w = screen_w, h = screen_h,
-        color = 0x3F51B5
+        color = COLOR_PRIMARY
     })
 
     local box_w = math.floor(math.min(400, screen_w * 0.8))
-    local box_h = math.floor(math.min(60, math.max(40, screen_h * 0.07)))
+    local box_h = math.floor(math.min(70, math.max(48, screen_h * 0.08)))
     local box_x = math.floor((screen_w - box_w) / 2)
     local box_y = math.floor((screen_h - box_h) / 2)
     local box_r = math.floor(box_h / 2)
 
     search_box = airui.container({
         parent = main_container, x = box_x, y = box_y, w = box_w, h = box_h,
-        color = 0xFFFFFF, radius = box_r
+        color = COLOR_CARD, radius = box_r
     })
 
-    local icon_size = math.floor(math.min(32, box_h * 0.5))
+    local icon_size = math.floor(math.max(28, box_h * 0.7) * _G.density_scale)
     local icon_padding = math.floor(box_h * 0.15)
     local icon_x = box_w - icon_size - icon_padding
     local icon_y = math.floor((box_h - icon_size) / 2)
-    local label_font = math.floor(math.min(24, box_h * 0.4))
+    local label_font = math.floor(math.max(16, box_h * 0.4) * _G.density_scale)
 
     airui.label({
         parent = search_box, x = math.floor(box_h * 0.3), y = math.floor((box_h - label_font) / 2),
         w = box_w - icon_size - icon_padding - math.floor(box_h * 0.5), h = label_font + 4,
-        text = "合宙turnkey开发板", font_size = label_font, color = 0x666666,
+        text = product_name, font_size = label_font, color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
 

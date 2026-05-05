@@ -121,7 +121,7 @@ static int32_t voip_net_cb(void *pdata, void *pparam)
     return 0;
 }
 
-/* ======================== I2S 麦克风回调 (真机) ======================== */
+#if defined(LUAT_USE_I2S)
 static int voip_i2s_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
 {
     voip_ctx_t *ctx = &g_voip_ctx;
@@ -152,6 +152,7 @@ static int voip_i2s_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx_data, uin
 
     return 0;
 }
+#endif
 
 #if defined(LUAT_USE_DAC)
 static int voip_dac_play_cb(uint8_t id, luat_dac_event_t event, uint32_t tx_len, void *param)
@@ -533,6 +534,7 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
     }
     memset(ctx->duplex_play_buf, 0, ctx->frame_bytes * ctx->play_slot_count);
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
+#if defined(LUAT_USE_I2S)
         luat_i2s_conf_t *i2s = luat_i2s_get_config((uint8_t)audio_conf->codec_conf.i2s_id);
         if (!i2s) {
             LLOGE("i2s config not found");
@@ -557,6 +559,9 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
             }
             return -1;
         }
+#else
+        return -1;
+#endif
     } else if (audio_conf->bus_type == LUAT_AUDIO_BUS_DAC) {
 #if defined(LUAT_USE_DAC)
         ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
@@ -578,6 +583,8 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
         LLOGE("DAC bus type not supported in this build");
         return -1;
 #endif
+    } else {
+        return -1;
     }
 
 
@@ -601,8 +608,10 @@ static void voip_stop_audio(voip_ctx_t *ctx)
     luat_audio_record_stop(ctx->config.multimedia_id);
 
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
+#if defined(LUAT_USE_I2S)
         luat_i2s_load_old_config(audio_conf->codec_conf.i2s_id);
         ctx->i2s_config_saved = 0;
+#endif
     } else {
 #if defined(LUAT_USE_DAC)
         luat_dac_close(0);
@@ -760,8 +769,7 @@ static int voip_session_start(voip_ctx_t *ctx)
         }
     }
 
-    LLOGE("udp socket created and connected to %s:%d",
-          ctx->config.remote_ip, ctx->config.remote_port);
+    LLOGE("udp socket created and connected to %s:%d",ctx->config.remote_ip, ctx->config.remote_port);
     if (voip_start_audio(ctx, sample_rate) != 0) {
         goto start_failed;
     }

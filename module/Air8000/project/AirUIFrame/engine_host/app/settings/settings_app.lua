@@ -10,8 +10,6 @@
 2. 协调各个设置子模块的加载
 ]]
 
-local settings_app = {}
-
 require "settings_config_app"
 require "settings_buzzer_app"
 
@@ -19,5 +17,3 @@ require "settings_buzzer_app"
 sys.publish("SETTINGS_APP_INIT")
 
 log.info("settings_app", "设置模块初始化完成")
-
-return settings_app

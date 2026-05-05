@@ -29,7 +29,7 @@ local function http_download_file_task()
 
     -- 进行SPI初始化，Air8000核心板TF卡的CS脚为：SPI1，GPIO12
     local spi_id, pin_cs = 1, 12 
-    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    spi.setup(spi_id, nil, 0, 0, 8, 2000000)
     gpio.setup(pin_cs, 1)
     -- 挂载文件系统
     local mount_ok = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)

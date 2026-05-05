@@ -43,9 +43,8 @@ function tp_drv.init()
 
     local i2c_id = 1
     i2c.setup(i2c_id)
-    local result = tp.init("gt911", { port = i2c_id, pin_rst = 3, pin_int = 51 })
+    local result = tp.init("gt911", { port = i2c_id, pin_rst = 3, pin_int = 51, int_type = tp.FALLING })
     log.info("tp.init", result)
-
 
     if rtos.bsp() == "PC" then
         log.info("PC", "已启用鼠标点击功能")
@@ -58,6 +57,7 @@ function tp_drv.init()
             log.info("设备", "触摸初始化成功")
         end
     end
+
 end
 
 return tp_drv

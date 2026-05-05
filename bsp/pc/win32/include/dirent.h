@@ -26,6 +26,7 @@
 #include <stdarg.h>
 #include <windef.h>
 #include <winbase.h>
+#include <winnls.h>
 #include <wchar.h>
 #include <string.h>
 #include <stdlib.h>
@@ -798,8 +799,18 @@ dirent_mbstowcs_s(
 
 #if defined(_MSC_VER)  &&  _MSC_VER >= 1400
 
-    /* Microsoft Visual Studio 2005 or later */
-    error = mbstowcs_s (pReturnValue, wcstr, sizeInWords, mbstr, count);
+    /* Microsoft Visual Studio 2005 or later:
+     * Use MultiByteToWideChar with CP_ACP so that Chinese paths (GBK) are
+     * handled correctly regardless of the C locale setting. */
+    int n = MultiByteToWideChar(CP_ACP, 0, mbstr, -1, wcstr, (int)sizeInWords);
+    if (n == 0) {
+        error = 1;
+    } else {
+        if (pReturnValue) {
+            *pReturnValue = (size_t)n;
+        }
+        error = 0;
+    }
 
 #else
 
@@ -851,8 +862,18 @@ dirent_wcstombs_s(
 
 #if defined(_MSC_VER)  &&  _MSC_VER >= 1400
 
-    /* Microsoft Visual Studio 2005 or later */
-    error = wcstombs_s (pReturnValue, mbstr, sizeInBytes, wcstr, count);
+    /* Microsoft Visual Studio 2005 or later:
+     * Use WideCharToMultiByte with CP_ACP so that Chinese file names (GBK)
+     * are returned correctly regardless of the C locale setting. */
+    int n = WideCharToMultiByte(CP_ACP, 0, wcstr, -1, mbstr, (int)sizeInBytes, NULL, NULL);
+    if (n == 0) {
+        error = 1;
+    } else {
+        if (pReturnValue) {
+            *pReturnValue = (size_t)n;
+        }
+        error = 0;
+    }
 
 #else
 

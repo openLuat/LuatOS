@@ -7,6 +7,7 @@
 ]]
 
 -- 加载所有需要的页面模块
+require "lcd_drv"
 require "welcome_win"
 require "idle_win"
 require "wifi_list_win"
@@ -15,16 +16,14 @@ require "app_store_win"
 require "speedtest_win"
 
 local function ui_main_task()
-
+    lcd_drv.init()
     tp_drv.init()
      -- 发布消息打开欢迎界面
     sys.publish("OPEN_WELCOME_WIN")
 
-    sys.wait(1000)
-
-    --开启背光
-    pwm.setup(0,1000,100)
-    pwm.start(0)
+    -- 等待欢迎界面渲染完成后再开启背光，避免白屏
+    sys.wait(300)
+    lcd_drv.backlight_on()
 end
 
 sys.taskInit(ui_main_task)

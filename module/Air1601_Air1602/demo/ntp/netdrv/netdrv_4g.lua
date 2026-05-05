@@ -12,7 +12,7 @@
 
 测试本功能模块时，Air780EPM需要烧录以下软件：
 1、最新版本的内核固件(固件需支持airlink over uart功能)
-2、脚本：https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/Air1601_780EPM_airlink/Air780EPM
+2、脚本：https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601_Air1602/demo/airlink/Air1601_780EPM_uart/Air780EPM
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_4g"就可以加载运行；
 ]]

@@ -9,8 +9,18 @@ require "wifi_app"
 
 local SCREEN_W, SCREEN_H = 480, 800
 local MARGIN = 15
-local TITLE_H = 50
+local TITLE_H = math.floor(60 * _G.density_scale)
 local BUTTON_H = 50
+
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_PRIMARY_DARK   = 0x0056B3
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_DIVIDER        = 0xE0E0E0
+local COLOR_WHITE          = 0xFFFFFF
+local COLOR_DANGER         = 0xE63946
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
@@ -21,7 +31,7 @@ local function update_screen_size()
         SCREEN_W, SCREEN_H = phys_h, phys_w
     end
     MARGIN = math.floor(SCREEN_W * 0.03)
-    TITLE_H = math.floor(SCREEN_H * 0.0625)
+    TITLE_H = math.floor(60 * _G.density_scale)
     BUTTON_H = math.floor(SCREEN_H * 0.0625)
 end
 
@@ -68,70 +78,75 @@ local function detail_create_ui()
     detail_main_container = airui.container({
         x = 0, y = 0,
         w = SCREEN_W, h = SCREEN_H,
-        color = 0xF0F0F0,
+        color = COLOR_BG,
     })
 
     local title_bar = airui.container({
         parent = detail_main_container,
         x = 0, y = 0,
         w = SCREEN_W, h = TITLE_H,
-        color = 0x1E88E5,
+        color = COLOR_PRIMARY,
     })
-    airui.button({
+    local btn_back = airui.container({
         parent = title_bar,
-        x = 0, y = 10,
-        w = 100, h = TITLE_H - 10,
-        text = "< 返回",
-        style = {
-            bg_opa = 0, pressed_bg_opa = 0,
-            text_color = 0xFFFFFF, pressed_text_color = 0xFFFFFF,
-            border_color = 0x1E88E5,
-        },
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(50 * _G.density_scale), h = TITLE_H - math.floor(20 * _G.density_scale),
+        color = COLOR_PRIMARY,
         on_click = function() exwin.close(detail_win_id) end
+    })
+    airui.label({
+        parent = btn_back,
+        x = 0, y = math.floor(5 * _G.density_scale),
+        w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
+        text = "<",
+        font_size = math.floor(28 * _G.density_scale),
+        color = COLOR_WHITE,
+        align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
         parent = title_bar,
         text = "WiFi 详情",
-        x = 0, y = 15,
-        w = SCREEN_W, h = 30,
-        font_size = 24,
-        color = 0xFFFFFF,
-        align = airui.TEXT_ALIGN_CENTER,
+        x = math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = SCREEN_W - math.floor(60 * _G.density_scale), h = math.floor(40 * _G.density_scale),
+        font_size = math.floor(32 * _G.density_scale),
+        color = COLOR_WHITE,
+        align = airui.TEXT_ALIGN_LEFT,
     })
 
     local detail_scroll_container = airui.container({
         parent = detail_main_container,
         x = 0, y = TITLE_H,
         w = SCREEN_W, h = SCREEN_H - TITLE_H,
-        color = 0xF0F0F0,
+        color = COLOR_BG,
+        scrollable = true,
     })
 
     local detail_card = airui.container({
         parent = detail_scroll_container,
-        x = MARGIN, y = 10,
-        w = SCREEN_W - 2 * MARGIN, h = 440,
-        color = 0xFFFFFF, radius = 8,
+        x = MARGIN, y = math.floor(10 * _G.density_scale),
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(440 * _G.density_scale),
+        color = COLOR_CARD, radius = 8,
     })
 
     airui.label({
         parent = detail_card,
         text = "网络详情",
-        x = 10, y = 15,
-        w = 200, h = 20,
-        font_size = 22,
-        color = 0x000000,
+        x = math.floor(10 * _G.density_scale), y = math.floor(15 * _G.density_scale),
+        w = math.floor(200 * _G.density_scale), h = math.floor(20 * _G.density_scale),
+        font_size = math.floor(22 * _G.density_scale),
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT,
     })
     airui.button({
         parent = detail_card,
-        x = SCREEN_W - 2 * MARGIN - 20 - 60, y = 10,
-        w = 60, h = 30,
+        x = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale) - math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        w = math.floor(60 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "刷新",
         style = {
-            bg_color = 0x2196F3, bg_opa = 255,
-            text_color = 0xFFFFFF,
-            pressed_bg_color = 0x1976D2,
-            pressed_text_color = 0xFFFFFF,
+            bg_color = COLOR_PRIMARY, bg_opa = 255,
+            text_color = COLOR_WHITE,
+            pressed_bg_color = COLOR_PRIMARY_DARK,
+            pressed_text_color = COLOR_WHITE,
         },
         on_click = function()
             sys.publish("WIFI_GET_STATUS_REQ")
@@ -147,71 +162,71 @@ local function detail_create_ui()
     local function create_detail_row(parent, y, label_text, value_key)
         local row = airui.container({
             parent = parent,
-            x = 10, y = y,
-            w = SCREEN_W - 2 * MARGIN - 20,
-            h = 50,
-            color = 0xFAFAFA, radius = 4,
+            x = math.floor(10 * _G.density_scale), y = y,
+            w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale),
+            h = math.floor(50 * _G.density_scale),
+            color = COLOR_CARD, radius = 4,
         })
         airui.label({
             parent = row,
             text = label_text,
-            x = 0, y = 15,
-            w = 120, h = 25,
-            font_size = 20,
-            color = 0x000000,
+            x = 0, y = math.floor(15 * _G.density_scale),
+            w = math.floor(120 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+            font_size = math.floor(20 * _G.density_scale),
+            color = COLOR_TEXT,
             align = airui.TEXT_ALIGN_LEFT,
         })
         local value_label = airui.label({
             parent = row,
             text = "--",
-            x = 130, y = 15,
-            w = (SCREEN_W - 2 * MARGIN - 20) - 130 - 5,
-            h = 25,
-            font_size = 20,
-            color = 0x000000,
+            x = math.floor(130 * _G.density_scale), y = math.floor(15 * _G.density_scale),
+            w = (SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale)) - math.floor(130 * _G.density_scale) - math.floor(5 * _G.density_scale),
+            h = math.floor(25 * _G.density_scale),
+            font_size = math.floor(20 * _G.density_scale),
+            color = COLOR_TEXT,
             align = airui.TEXT_ALIGN_RIGHT,
         })
         detail_labels[value_key] = value_label
     end
 
-    local y_offset = 50
+    local y_offset = math.floor(50 * _G.density_scale)
     create_detail_row(detail_card, y_offset, "SSID", "ssid")
-    y_offset = y_offset + 55
+    y_offset = y_offset + math.floor(55 * _G.density_scale)
     create_detail_row(detail_card, y_offset, "信号强度", "rssi")
-    y_offset = y_offset + 55
+    y_offset = y_offset + math.floor(55 * _G.density_scale)
     create_detail_row(detail_card, y_offset, "IP地址", "ip")
-    y_offset = y_offset + 55
+    y_offset = y_offset + math.floor(55 * _G.density_scale)
     create_detail_row(detail_card, y_offset, "子网掩码", "netmask")
-    y_offset = y_offset + 55
+    y_offset = y_offset + math.floor(55 * _G.density_scale)
     create_detail_row(detail_card, y_offset, "网关", "gateway")
-    y_offset = y_offset + 55
+    y_offset = y_offset + math.floor(55 * _G.density_scale)
     create_detail_row(detail_card, y_offset, "MAC地址", "bssid")
-    y_offset = y_offset + 55
+    y_offset = y_offset + math.floor(55 * _G.density_scale)
 
     local password_row = airui.container({
         parent = detail_card,
-        x = 10, y = y_offset,
-        w = SCREEN_W - 2 * MARGIN - 20,
-        h = 50,
-        color = 0xFAFAFA, radius = 4,
+        x = math.floor(10 * _G.density_scale), y = y_offset,
+        w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale),
+        h = math.floor(50 * _G.density_scale),
+        color = COLOR_CARD, radius = 4,
     })
     airui.label({
         parent = password_row,
         text = "密码",
-        x = 0, y = 15,
-        w = 120, h = 25,
-        font_size = 20,
-        color = 0x000000,
+        x = 0, y = math.floor(15 * _G.density_scale),
+        w = math.floor(120 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT,
     })
     detail_labels.password = airui.label({
         parent = password_row,
         text = "",
-        x = 130, y = 15,
-        w = (SCREEN_W - 2 * MARGIN - 20) - 130 - 5,
-        h = 25,
-        font_size = 20,
-        color = 0x000000,
+        x = math.floor(130 * _G.density_scale), y = math.floor(15 * _G.density_scale),
+        w = (SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale)) - math.floor(130 * _G.density_scale) - math.floor(5 * _G.density_scale),
+        h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(20 * _G.density_scale),
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_RIGHT,
         on_click = function()
             password_visible = not password_visible
@@ -228,14 +243,14 @@ local function detail_create_ui()
 
     airui.button({
         parent = detail_scroll_container,
-        x = MARGIN, y = 470,
+        x = MARGIN, y = math.floor(470 * _G.density_scale),
         w = SCREEN_W - 2 * MARGIN, h = BUTTON_H,
         text = "断开连接",
         style = {
-            bg_color = 0xF44336, bg_opa = 255,
-            text_color = 0xFFFFFF,
-            pressed_bg_color = 0xD32F2F,
-            pressed_text_color = 0xFFFFFF,
+            bg_color = COLOR_DANGER, bg_opa = 255,
+            text_color = COLOR_WHITE,
+            pressed_bg_color = COLOR_DANGER,
+            pressed_text_color = COLOR_WHITE,
         },
         on_click = function()
             local msg = airui.msgbox({

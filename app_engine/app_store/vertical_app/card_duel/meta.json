@@ -1,0 +1,23 @@
+{
+  "app_name_cn": "卡牌对决",
+  "app_name_en": "card_duel",
+  "version": "1.0.2",
+  "publish_time": "2026-04-03 12:00:00",
+  "category": "游戏",
+  "description": "收集卡牌构筑牌组，策略战斗逐步推进",
+  "resolution": "320x480",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 50,
+  "origin_size_kb": 120
+}

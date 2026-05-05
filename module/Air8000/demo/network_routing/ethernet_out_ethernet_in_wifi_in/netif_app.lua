@@ -28,7 +28,7 @@ function netif_app_task_func()
             main_adapter = {                    -- 提供网络的网卡开启参数
                 ethpower_en = 140,              -- 以太网模块的pwrpin引脚(gpio编号)
                 tp = netdrv.CH390,              -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-                opts = {spi = 1, cs = 12}
+                opts = {spi = 1, cs = 12, irq = 21}
             }
         })
     
@@ -46,7 +46,7 @@ function netif_app_task_func()
             main_adapter = {                    -- 提供网络的网卡开启参数
                 ethpower_en = 140,              -- 以太网模块的pwrpin引脚(gpio编号)
                 tp = netdrv.CH390,              -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-                opts = {spi = 1, cs = 12}
+                opts = {spi = 1, cs = 12, irq = 21}
             }
         })
     if res then

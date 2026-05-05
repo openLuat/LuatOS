@@ -12,7 +12,13 @@ local page_label = nil
 local tabview = nil
 local current_tab_index = 0
 
-local StatusProvider = require "status_provider_app"
+local status_cache = {
+    time = "08:00",
+    date = "1970-01-01",
+    weekday = "星期四",
+    mobile_level = -1,
+    wifi_level = 0
+}
 
 local builtin_apps = {
     { name = "设置", win = "SETTINGS", icon = "/luadb/settings.png" },
@@ -28,24 +34,30 @@ local apps_per_page = 0
 local grid_margin = 8
 local grid_top_padding = 16
 
-local big_time_font_size = 100
+local big_time_font_size = math.floor(100 * _G.density_scale)
 local big_time_y = 20
 local date_y = 130
-local date_font_size = 20
-local qr_size = 130
+local date_font_size = math.floor(20 * _G.density_scale)
+local qr_size = math.floor(130 * _G.density_scale)
 local qr_y = 190
 local builtin_y = 0
-local builtin_btn_w = 80
-local builtin_btn_spacing = 20
+local builtin_btn_w = math.floor(80 * _G.density_scale)
+local builtin_btn_spacing = math.floor(20 * _G.density_scale)
 
+local time_timer = nil
 local external_apps_cache = {}
 local page_grids = {}
 
-local COLOR_PRIMARY = 0x3F51B5
-local COLOR_BG = 0xF8F9FA
-local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x000000
-local COLOR_TEXT_SECONDARY = 0x666666
+local COLOR_PRIMARY        = 0x007AFF
+local COLOR_PRIMARY_DARK   = 0x0056B3
+local COLOR_ACCENT         = 0xFF9800
+local COLOR_BG             = 0xF5F5F5
+local COLOR_CARD           = 0xFFFFFF
+local COLOR_TEXT           = 0x333333
+local COLOR_TEXT_SECONDARY = 0x757575
+local COLOR_DIVIDER        = 0xE0E0E0
+local COLOR_WHITE          = 0xFFFFFF
+local COLOR_DANGER         = 0xE63946
 
 local product_name = "合宙引擎主机"
 local ok, model = pcall(hmeta.model)
@@ -67,37 +79,37 @@ local function calc_layout()
     if compact_mode then
         big_time_font_size = 0
         big_time_y = 0
-        date_font_size = math.max(14, math.min(18, math.floor(screen_h * 0.03)))
+        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h * 0.03 * _G.density_scale)))
         date_y = math.floor(screen_h * 0.01)
-        qr_size = math.max(45, math.min(70, math.floor(screen_h * 0.20)))
-        qr_y = date_y + date_font_size + 4
-        builtin_btn_w = math.max(45, math.min(65, math.floor(screen_w * 0.055)))
-        builtin_btn_spacing = math.max(4, math.min(10, math.floor(screen_w * 0.01)))
+        qr_size = math.max(math.floor(45 * _G.density_scale), math.min(math.floor(70 * _G.density_scale), math.floor(screen_h * 0.20 * _G.density_scale)))
+        qr_y = date_y + date_font_size + math.floor(4 * _G.density_scale)
+        builtin_btn_w = math.max(math.floor(45 * _G.density_scale), math.min(math.floor(65 * _G.density_scale), math.floor(screen_w * 0.055 * _G.density_scale)))
+        builtin_btn_spacing = math.max(math.floor(4 * _G.density_scale), math.min(math.floor(10 * _G.density_scale), math.floor(screen_w * 0.01 * _G.density_scale)))
     elseif is_landscape then
-        big_time_font_size = math.max(40, math.min(80, math.floor(screen_h * 0.15)))
+        big_time_font_size = math.max(math.floor(40 * _G.density_scale), math.min(math.floor(80 * _G.density_scale), math.floor(screen_h * 0.15 * _G.density_scale)))
         big_time_y = math.floor(screen_h * 0.015)
-        date_font_size = math.max(14, math.min(18, math.floor(screen_h * 0.03)))
-        date_y = big_time_y + big_time_font_size + 8
-        qr_size = math.max(50, math.min(110, math.floor(screen_h * 0.20)))
-        qr_y = date_y + date_font_size + 10
-        builtin_btn_w = math.max(55, math.min(75, math.floor(screen_w * 0.065)))
-        builtin_btn_spacing = math.max(6, math.min(16, math.floor(screen_w * 0.012)))
+        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h * 0.03 * _G.density_scale)))
+        date_y = big_time_y + big_time_font_size + math.floor(8 * _G.density_scale)
+        qr_size = math.max(math.floor(50 * _G.density_scale), math.min(math.floor(110 * _G.density_scale), math.floor(screen_h * 0.20 * _G.density_scale)))
+        qr_y = date_y + date_font_size + math.floor(10 * _G.density_scale)
+        builtin_btn_w = math.max(math.floor(55 * _G.density_scale), math.min(math.floor(75 * _G.density_scale), math.floor(screen_w * 0.065 * _G.density_scale)))
+        builtin_btn_spacing = math.max(math.floor(6 * _G.density_scale), math.min(math.floor(16 * _G.density_scale), math.floor(screen_w * 0.012 * _G.density_scale)))
     else
-        big_time_font_size = math.max(48, math.min(130, math.floor(screen_h * 0.10)))
+        big_time_font_size = math.max(math.floor(48 * _G.density_scale), math.min(math.floor(130 * _G.density_scale), math.floor(screen_h * 0.10 * _G.density_scale)))
         big_time_y = math.floor(screen_h * 0.025)
-        date_font_size = math.max(14, math.min(22, math.floor(screen_h * 0.028)))
-        date_y = big_time_y + big_time_font_size + 15
-        qr_size = math.max(60, math.min(150, math.floor(screen_w * 0.25)))
-        qr_y = date_y + date_font_size + 18
-        builtin_btn_w = math.max(60, math.min(90, math.floor(screen_w * 0.16)))
-        builtin_btn_spacing = math.max(8, math.min(30, math.floor(screen_w * 0.035)))
+        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(22 * _G.density_scale), math.floor(screen_h * 0.028 * _G.density_scale)))
+        date_y = big_time_y + big_time_font_size + math.floor(15 * _G.density_scale)
+        qr_size = math.max(math.floor(60 * _G.density_scale), math.min(math.floor(150 * _G.density_scale), math.floor(screen_w * 0.25 * _G.density_scale)))
+        qr_y = date_y + date_font_size + math.floor(18 * _G.density_scale)
+        builtin_btn_w = math.max(math.floor(60 * _G.density_scale), math.min(math.floor(90 * _G.density_scale), math.floor(screen_w * 0.16 * _G.density_scale)))
+        builtin_btn_spacing = math.max(math.floor(8 * _G.density_scale), math.min(math.floor(30 * _G.density_scale), math.floor(screen_w * 0.035 * _G.density_scale)))
     end
 
-    builtin_y = qr_y + qr_size + 55
+    builtin_y = qr_y + qr_size + math.floor(55 * _G.density_scale)
 
-    local icon_size = 32
-    local base_font = math.floor(screen_h / 32)
-    local title_font_size = math.max(14, math.min(18, base_font))
+    local icon_size = math.floor(32 * _G.density_scale)
+    local base_font = math.floor(screen_h / 32 * _G.density_scale)
+    local title_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), base_font))
 
     local grid_area_w = screen_w
     local grid_area_h = screen_h - top_h - page_indicator_h
@@ -113,7 +125,7 @@ local function calc_layout()
     local text_height = title_font_size * 2 + 8
     local padding_vertical = is_landscape and 12 or 16
     card_h = icon_size + text_height + padding_vertical
-    if card_h < 70 then card_h = 70 end
+    if card_h < math.floor(70 * _G.density_scale) then card_h = math.floor(70 * _G.density_scale) end
 
     local available_height = grid_area_h - grid_top_padding
     local rows_per_page = math.max(1, math.floor(available_height / (card_h + grid_margin)))
@@ -175,18 +187,18 @@ local function build_home_page(page_container)
         size = qr_size,
         data = "https://docs.openluat.com/",
         dark_color = 0x000000,
-        light_color = 0xFFFFFF,
+            light_color = COLOR_WHITE,
         quiet_zone = true
     })
     airui.label({
         parent = content,
         x = 0,
-        y = qr_y + qr_size + 5,
+        y = qr_y + qr_size + math.floor(5 * _G.density_scale),
         w = screen_w,
-        h = 22,
+        h = math.floor(22 * _G.density_scale),
         text = "资料中心",
-        font_size = 14,
-        color = 0x3d3d3d,
+        font_size = math.floor(14 * _G.density_scale),
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_CENTER
     })
 
@@ -199,16 +211,16 @@ local function build_home_page(page_container)
             x = x,
             y = builtin_y,
             w = builtin_btn_w,
-            h = 100,
+            h = math.floor(100 * _G.density_scale),
             color = COLOR_BG,
             on_click = function() sys.publish("OPEN_" .. app.win .. "_WIN") end
         })
-        local builtin_icon_size = math.min(40, builtin_btn_w - 10)
+        local builtin_icon_size = math.min(math.floor(40 * _G.density_scale), builtin_btn_w - math.floor(10 * _G.density_scale))
         local builtin_icon_x = (builtin_btn_w - builtin_icon_size) / 2
         airui.image({
             parent = cell,
             x = builtin_icon_x,
-            y = 10,
+            y = math.floor(10 * _G.density_scale),
             w = builtin_icon_size,
             h = builtin_icon_size,
             src = app.icon
@@ -216,11 +228,11 @@ local function build_home_page(page_container)
         airui.label({
             parent = cell,
             x = 0,
-            y = builtin_icon_size + 18,
+            y = builtin_icon_size + math.floor(18 * _G.density_scale),
             w = builtin_btn_w,
-            h = 30,
+            h = math.floor(30 * _G.density_scale),
             text = app.name,
-            font_size = 14,
+        font_size = math.floor(14 * _G.density_scale),
             color = COLOR_TEXT,
             align = airui.TEXT_ALIGN_CENTER
         })
@@ -237,8 +249,8 @@ local function build_app_grid_page(page_container, start_idx, apps)
         color = COLOR_BG
     })
 
-    local icon_size = 32
-    local title_font_size = math.max(12, math.min(18, math.floor(screen_h / 32)))
+    local icon_size = math.floor(32 * _G.density_scale)
+    local title_font_size = math.max(math.floor(12 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h / 32 * _G.density_scale)))
     local text_height = title_font_size * 2 + 8
 
     for i = 1, apps_per_page do
@@ -390,47 +402,51 @@ local function load_external_apps()
     refresh_app_pages()
 end
 
-local function update_time_date()
+local function update_time_date(time_str, date_str, weekday_str)
+    if time_str then status_cache.time = time_str end
+    if date_str then status_cache.date = date_str end
+    if weekday_str then status_cache.weekday = weekday_str end
     if not date_label then return end
-    local time_str = StatusProvider.get_time()
-    local date_str = StatusProvider.get_date()
-    local weekday_str = StatusProvider.get_weekday()
     if big_time_label then
-        big_time_label:set_text(time_str)
+        big_time_label:set_text(status_cache.time)
     end
-    date_label:set_text(date_str .. " " .. weekday_str)
+    date_label:set_text(status_cache.date .. " " .. status_cache.weekday)
 end
 
-local function update_wifi_icon()
-    local level = StatusProvider.get_signal_level() or 0
+local function update_wifi_icon(level)
+    if level == nil then return end
+    status_cache.wifi_level = level
     if not wifi_img then return end
     local img_name = "wifixinhao" .. level .. ".png"
     wifi_img:set_src("/luadb/" .. img_name)
 end
 
-local function update_mobile_icon()
-    local level = StatusProvider.get_mobile_signal_level() or -1
+local function update_mobile_icon(level)
+    if level == nil then return end
+    status_cache.mobile_level = level
     if not mobile_img then return end
     local img_index
     if level == -1 then
         img_index = 6
+    elseif level == 1 then
+        img_index = 5
     else
-        img_index = level
+        img_index = level - 1
     end
     local img_name = "4Gxinhao" .. img_index .. ".png"
     mobile_img:set_src("/luadb/" .. img_name)
 end
 
-local function on_status_time_updated()
-    update_time_date()
+local function on_status_time_updated(current_time, current_date, current_weekday)
+    update_time_date(current_time, current_date, current_weekday)
 end
 
-local function on_status_wifi_updated()
-    update_wifi_icon()
+local function on_status_wifi_updated(level)
+    update_wifi_icon(level)
 end
 
-local function on_status_mobile_updated()
-    update_mobile_icon()
+local function on_status_mobile_updated(level)
+    update_mobile_icon(level)
 end
 
 local function on_create()
@@ -453,11 +469,13 @@ local function on_create()
         h = top_h,
         color = COLOR_PRIMARY
     })
-    local status_icon_size = 32
+    local status_icon_size = math.floor(32 * _G.density_scale)
     local status_icon_y = math.floor((top_h - status_icon_size) / 2)
-    local status_font_size = math.min(40, math.floor(top_h * 0.65))
-    local icon_spacing = 8
-    local icon_start_x = screen_w - (status_icon_size * 2 + icon_spacing) - 12
+    local status_font_size = math.min(math.floor(40 * _G.density_scale), math.floor(top_h * 0.65 * _G.density_scale))
+    local product_label_h = math.min(status_font_size, math.floor(24 * _G.density_scale))
+    local product_label_y = math.floor((top_h - product_label_h) / 2)
+    local icon_spacing = math.floor(8 * _G.density_scale)
+    local icon_start_x = screen_w - (status_icon_size * 2 + icon_spacing) - math.floor(12 * _G.density_scale)
     wifi_img = airui.image({
         parent = status_bar,
         x = icon_start_x,
@@ -477,12 +495,12 @@ local function on_create()
     product_label = airui.label({
         parent = status_bar,
         x = 0,
-        y = math.floor((top_h - status_font_size) / 2),
-        w = screen_w - 100,
-        h = status_font_size + 4,
+        y = product_label_y,
+        w = screen_w - (status_icon_size * 2 + math.floor(8 * _G.density_scale)) - math.floor(20 * _G.density_scale),
+        h = product_label_h,
         text = product_name,
-        font_size = math.min(status_font_size, 20),
-        color = 0xfefefe,
+        font_size = product_label_h,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_CENTER
     })
 
@@ -519,7 +537,7 @@ local function on_create()
         w = screen_w,
         h = page_indicator_h,
         text = "1/1",
-        font_size = 18,
+        font_size = math.floor(18 * _G.density_scale),
         color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
@@ -530,24 +548,31 @@ local function on_create()
     end)
 
     load_external_apps()
-    update_time_date()
-    update_wifi_icon()
-    update_mobile_icon()
+    update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
+    update_wifi_icon(status_cache.wifi_level)
+    update_mobile_icon(status_cache.mobile_level)
 
-    sys.timerLoopStart(update_time_date, 1000)
+    time_timer = sys.timerLoopStart(function()
+        update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
+    end, 1000)
     sys.subscribe("STATUS_TIME_UPDATED", on_status_time_updated)
-    sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_wifi_updated)
-    sys.subscribe("STATUS_MOBILE_SIGNAL_UPDATED", on_status_mobile_updated)
+    sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_mobile_updated)
+    sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.subscribe("APP_STORE_INSTALLED_UPDATED", function()
         load_external_apps()
     end)
+
+    sys.publish("REQUEST_STATUS_REFRESH")
 end
 
 local function on_destroy()
-    sys.timerStop(update_time_date)
+    if time_timer then
+        sys.timerStop(time_timer)
+        time_timer = nil
+    end
     sys.unsubscribe("STATUS_TIME_UPDATED", on_status_time_updated)
-    sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_wifi_updated)
-    sys.unsubscribe("STATUS_MOBILE_SIGNAL_UPDATED", on_status_mobile_updated)
+    sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_mobile_updated)
+    sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", load_external_apps)
 
     if tabview then tabview:destroy() end
@@ -555,9 +580,9 @@ local function on_destroy()
 end
 
 local function on_get_focus()
-    update_time_date()
-    update_wifi_icon()
-    update_mobile_icon()
+    update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
+    update_wifi_icon(status_cache.wifi_level)
+    update_mobile_icon(status_cache.mobile_level)
     load_external_apps()
 end
 

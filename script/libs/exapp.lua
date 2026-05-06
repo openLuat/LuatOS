@@ -1674,13 +1674,22 @@ local function app_task(app_path)
             -- my_env.log.info("exapp.airui.constructor", app_path, component_name, "called with", ...)
             local args = {...}
             if type(args[1]) == "table" then
-                -- 记录parent信息
+                -- 如果parent是包装对象，提取原始对象
                 if args[1].parent then
-                    -- my_env.log.info("exapp.airui.constructor", app_path, component_name, "parent type", type(args[1].parent))
-                    -- 如果parent是包装对象，提取原始对象
                     if type(args[1].parent) == "table" and args[1].parent.__raw then
-                        -- my_env.log.info("exapp.airui.constructor", app_path, component_name, "parent is wrapper, extract __raw")
                         args[1].parent = args[1].parent.__raw
+                    end
+                end
+                -- 如果keyboard是包装对象，提取原始对象（textarea等需要绑定键盘）
+                if args[1].keyboard then
+                    if type(args[1].keyboard) == "table" and args[1].keyboard.__raw then
+                        args[1].keyboard = args[1].keyboard.__raw
+                    end
+                end
+                -- 如果target是包装对象，提取原始对象（keyboard创建时可指定target）
+                if args[1].target then
+                    if type(args[1].target) == "table" and args[1].target.__raw then
+                        args[1].target = args[1].target.__raw
                     end
                 end
                 local new_config = airui_resolve_paths(component_name, args[1])

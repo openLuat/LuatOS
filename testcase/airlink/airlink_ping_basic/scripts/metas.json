@@ -1,0 +1,6 @@
+{
+    "name": "airlink_ping_basic",
+    "desc": "AirLink raw ping/pong loopback 基础测试",
+    "version": "1.0.0",
+    "platform": ["pc"]
+}

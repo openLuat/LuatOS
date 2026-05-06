@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_airlink.h"
+#include "luat_airlink_result.h"
 
 #include "luat_rtos.h"
 #include "luat_debug.h"
@@ -22,15 +23,34 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_nop(luat_airlink_cmd_t *cmd, v
 
 int luat_airlink_cmd_exec_ping(luat_airlink_cmd_t *cmd, void *userdata)
 {
-    LLOGD("收到ping指令,返回pong");
-    // TODO 返回PONG
+    if (cmd->len < 18) {
+        LLOGE("ping: length too short %d", cmd->len);
+        return -1;
+    }
+    luat_airlink_cmd_t* pong = luat_airlink_cmd_new(0x02, cmd->len);
+    if (pong == NULL) {
+        LLOGE("ping: malloc pong failed");
+        return -1;
+    }
+    memcpy(pong->data, cmd->data, cmd->len);
+    luat_airlink_send2slave(pong);
+    luat_airlink_cmd_free(pong);
     return 0;
 }
 
 int luat_airlink_cmd_exec_pong(luat_airlink_cmd_t *cmd, void *userdata)
 {
-    LLOGD("收到pong指令,检查数据是否匹配!!");
-    return 0;
+    if (cmd->len < 18) {
+        LLOGE("pong: length too short %d", cmd->len);
+        return -1;
+    }
+    uint64_t pkgid = 0;
+    memcpy(&pkgid, cmd->data, 8);
+    int ret = luat_airlink_result_dispatch(pkgid, cmd);
+    if (ret != 0) {
+        LLOGW("pong: no waiter for pkgid=0x%llx", (unsigned long long)pkgid);
+    }
+    return ret;
 }
 
 int luat_airlink_cmd_exec_reset(luat_airlink_cmd_t *cmd, void *userdata)

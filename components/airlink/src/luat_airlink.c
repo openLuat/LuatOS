@@ -946,6 +946,22 @@ int luat_airlink_cmd_exec_result(luat_airlink_cmd_t* cmd, void* userdata) {
     return -1;
 }
 
+int luat_airlink_result_dispatch(uint64_t id, luat_airlink_cmd_t* cmd) {
+    if (reg_mutex == NULL) return -1;
+    luat_rtos_mutex_lock(reg_mutex, 1000);
+    for (size_t i = 0; i < 64; i++) {
+        if (regs[i].tm != 0 && memcmp(&regs[i].id, &id, 8) == 0) {
+            regs[i].exec(&regs[i], cmd);
+            memset(&regs[i], 0, sizeof(luat_airlink_result_reg_t));
+            luat_rtos_mutex_unlock(reg_mutex);
+            return 0;
+        }
+    }
+    luat_rtos_mutex_unlock(reg_mutex);
+    LLOGW("result_dispatch: no slot for id=0x%llx", (unsigned long long)id);
+    return -1;
+}
+
 int luat_airlink_result_send(uint8_t* buff, size_t len) {
     // LLOGD("传输syspub命令数据 %d", len);
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x08, 8 + len);

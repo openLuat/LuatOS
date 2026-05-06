@@ -352,14 +352,14 @@ local function app_task(app_path)
     -- ==============================================
 
     -- LuatOS 扩展库模块名称列表
-    -- 这些模块从全局环境加载，不需要在应用目录中提供
     local EXT_LIBS = {
-        "air153C_wtd", "airlbs", "dhcpsrv", "dnsproxy",
+        "air153C_wtd", "airlbs", "bf30a2", "dhcam", "dhcpsrv", "dnsproxy",
         "exaudio", "excamera", "exchg", "excloud", "exeasyui", "exfotawifi",
-        "exgnss", "exlcd", "exmodbus", "exnetif", "exremotecam", "exremotefile",
-        "exril_5101", "extalk", "extp", "exvib", "exvib1", "exwin",
-        "httpdns", "httpplus", "lbsLoc", "lbsLoc2",
-        "libfota", "libfota2", "libnet", "netLed", "udpsrv", "xmodem", "sys"
+        "exftp", "exgnss", "exlcd", "exmodbus", "exmtn", "exmux", "exnetif",
+        "exremotecam", "exremotefile", "exril_5101", "exsip", "exsipclient",
+        "exsipproto", "extalk", "extp", "exvib", "exvib1", "exwin", "gc032a",
+        "gc0310", "httpdns", "httpplus", "lbsLoc", "lbsLoc2", "libfota",
+        "libfota2", "libnet", "netLed", "udpsrv", "xmodem", "sys"
     }
     local EXT_LIBS_SET = {}
     for _, v in ipairs(EXT_LIBS) do EXT_LIBS_SET[v] = true end

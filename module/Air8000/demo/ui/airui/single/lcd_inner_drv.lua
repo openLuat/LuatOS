@@ -1,6 +1,6 @@
 --[[
-@module  lcd_drv
-@summary LCD显示驱动模块，基于lcd核心库
+@module  lcd_inner_drv
+@summary LCD内置显示驱动模块，基于lcd核心库
 @version 1.0
 @date    2025.12.1
 @author  江访
@@ -11,8 +11,7 @@
 3、初始化AirUI;
 4、支持多种屏幕方向和分辨率设置；
 
-对外接口：
-1、lcd_drv.init()：初始化LCD显示驱动
+对外接口：无
 ]]
 
 
@@ -21,13 +20,13 @@
 --[[
 初始化LCD显示驱动；
 
-@api lcd_drv.init()
+@api lcd_drv_init()
 @summary 配置并初始化LCD屏幕
 @return boolean 初始化成功返回true，失败返回false
 
 @usage
 -- 初始化LCD显示
-local result = lcd_drv.init()
+local result = lcd_drv_init()
 if result then
     log.info("LCD初始化成功")
 else

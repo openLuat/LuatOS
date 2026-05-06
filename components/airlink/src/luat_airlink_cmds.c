@@ -123,8 +123,8 @@ __AIRLINK_CODE_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x81, notify_log),
 #endif
 
-    // CMD_REG(0x01, ping),
-    // CMD_REG(0x02, pong),
+    CMD_REG(0x01, ping),
+    CMD_REG(0x02, pong),
 #ifdef LUAT_USE_AIRLINK_EXEC_FOTA
     CMD_REG(0x04, fota_init),
     CMD_REG(0x05, fota_write),

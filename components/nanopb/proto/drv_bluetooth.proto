@@ -1,0 +1,174 @@
+syntax = "proto2";
+
+package drv.bluetooth;
+
+import "nanopb.proto";
+
+// ---- 通用返回码 ----
+enum BleResultCode {
+    BLE_RES_OK   = 0;
+    BLE_RES_FAIL = 255;
+}
+
+message BleResult {
+    optional BleResultCode code     = 1 [default = BLE_RES_OK];
+    optional int32         os_errno = 2 [default = 0];
+}
+
+// ---- ADV 参数 (对应 luat_ble_adv_cfg_t) ----
+message BleAdvCfg {
+    optional uint32 channel_map = 1 [default = 7];   // luat_ble_adv_chnl_t
+    optional uint32 addr_mode   = 2 [default = 0];   // luat_ble_addr_mode_t
+    optional uint32 intv_min    = 3 [default = 160]; // 100 ms (160*0.625ms)
+    optional uint32 intv_max    = 4 [default = 160];
+    optional uint32 adv_prop    = 5 [default = 0];   // luat_ble_adv_prop_t bitmask
+    optional uint32 adv_type    = 6 [default = 0];   // LUAT_BLE_ADV_TYPE_LEGACY
+}
+
+// ---- Scan 参数 (对应 luat_ble_scan_cfg_t) ----
+message BleScanCfg {
+    optional uint32 scan_type     = 1 [default = 0];  // luat_ble_scan_type_t
+    optional uint32 addr_mode     = 2 [default = 0];  // luat_ble_addr_mode_t
+    optional uint32 scan_interval = 3 [default = 16]; // 单位 0.625ms
+    optional uint32 scan_window   = 4 [default = 16];
+}
+
+// ---- 各操作请求消息 ----
+message BleInitRequest {}
+message BleDeinitRequest {}
+
+message BleSetNameRequest {
+    required bytes name = 1 [(nanopb).max_size = 32];
+}
+
+message BleSetMaxMtuRequest {
+    required uint32 max_mtu = 1;
+}
+
+message BleAdvCreateRequest {
+    optional BleAdvCfg cfg = 1;
+}
+
+message BleAdvSetDataRequest {
+    required bytes data = 1 [(nanopb).max_size = 31];
+}
+
+message BleAdvSetScanRspRequest {
+    required bytes data = 1 [(nanopb).max_size = 31];
+}
+
+message BleAdvStartRequest {}
+message BleAdvStopRequest {}
+message BleAdvDeleteRequest {}
+
+// GATT 创建：packed_gatt 携带 luat_ble_gatt_pack() 序列化输出
+message BleGattCreateRequest {
+    required bytes packed_gatt = 1 [(nanopb).max_size = 512];
+}
+
+// Slave 读操作的应答
+message BleReadResponseRequest {
+    required uint32 conn_idx   = 1;
+    required uint32 service_id = 2;
+    required uint32 att_handle = 3;
+    required bytes  data       = 4 [(nanopb).max_size = 512];
+}
+
+// Slave 写通知
+message BleWriteNotifyRequest {
+    required uint32 conn_idx   = 1;
+    required uint32 service_id = 2;
+    required uint32 att_handle = 3;
+    required bytes  data       = 4 [(nanopb).max_size = 512];
+}
+
+message BleScanCreateRequest {
+    optional BleScanCfg cfg = 1;
+}
+message BleScanStartRequest {}
+message BleScanStopRequest {}
+message BleScanDeleteRequest {}
+
+// ---- 各操作响应消息 ----
+message BleInitResponse          { required BleResult result = 1; }
+message BleDeinitResponse        { required BleResult result = 1; }
+message BleSetNameResponse       { required BleResult result = 1; }
+message BleSetMaxMtuResponse     { required BleResult result = 1; }
+message BleAdvCreateResponse     { required BleResult result = 1; }
+message BleAdvSetDataResponse    { required BleResult result = 1; }
+message BleAdvSetScanRspResponse { required BleResult result = 1; }
+message BleAdvStartResponse      { required BleResult result = 1; }
+message BleAdvStopResponse       { required BleResult result = 1; }
+message BleAdvDeleteResponse     { required BleResult result = 1; }
+message BleGattCreateResponse    { required BleResult result = 1; }
+message BleReadResponseResponse  { required BleResult result = 1; }
+message BleWriteNotifyResponse   { required BleResult result = 1; }
+message BleScanCreateResponse    { required BleResult result = 1; }
+message BleScanStartResponse     { required BleResult result = 1; }
+message BleScanStopResponse      { required BleResult result = 1; }
+message BleScanDeleteResponse    { required BleResult result = 1; }
+
+// ---- 统一 RPC 请求 ----
+message BleRpcRequest {
+    required uint32 req_id = 1;
+    oneof payload {
+        BleInitRequest          init             = 10;
+        BleDeinitRequest        deinit           = 11;
+        BleSetNameRequest       set_name         = 12;
+        BleSetMaxMtuRequest     set_max_mtu      = 13;
+        BleAdvCreateRequest     adv_create       = 20;
+        BleAdvSetDataRequest    adv_set_data     = 21;
+        BleAdvSetScanRspRequest adv_set_scan_rsp = 22;
+        BleAdvStartRequest      adv_start        = 23;
+        BleAdvStopRequest       adv_stop         = 24;
+        BleAdvDeleteRequest     adv_delete       = 25;
+        BleGattCreateRequest    gatt_create      = 30;
+        BleReadResponseRequest  read_response    = 31;
+        BleWriteNotifyRequest   write_notify     = 32;
+        BleScanCreateRequest    scan_create      = 40;
+        BleScanStartRequest     scan_start       = 41;
+        BleScanStopRequest      scan_stop        = 42;
+        BleScanDeleteRequest    scan_delete      = 43;
+    }
+}
+
+// ---- 统一 RPC 响应 ----
+message BleRpcResponse {
+    optional uint32 req_id = 1 [default = 0]; // 与请求匹配；事件上报时为 0
+    oneof payload {
+        BleInitResponse          init             = 10;
+        BleDeinitResponse        deinit           = 11;
+        BleSetNameResponse       set_name         = 12;
+        BleSetMaxMtuResponse     set_max_mtu      = 13;
+        BleAdvCreateResponse     adv_create       = 20;
+        BleAdvSetDataResponse    adv_set_data     = 21;
+        BleAdvSetScanRspResponse adv_set_scan_rsp = 22;
+        BleAdvStartResponse      adv_start        = 23;
+        BleAdvStopResponse       adv_stop         = 24;
+        BleAdvDeleteResponse     adv_delete       = 25;
+        BleGattCreateResponse    gatt_create      = 30;
+        BleReadResponseResponse  read_response    = 31;
+        BleWriteNotifyResponse   write_notify     = 32;
+        BleScanCreateResponse    scan_create      = 40;
+        BleScanStartResponse     scan_start       = 41;
+        BleScanStopResponse      scan_stop        = 42;
+        BleScanDeleteResponse    scan_delete      = 43;
+    }
+}
+
+// ---- BLE 事件通知 (服务端 → 客户端, 通过 nb_notify 发送) ----
+// event_type: luat_ble_event_t 枚举值
+// packed_data 格式随 event_type 而定：
+//   CONN      → luat_ble_conn_ind_t
+//   DISCONN   → luat_ble_disconn_ind_t
+//   GATT_DONE → luat_ble_gatt_done_ind_t
+//   WRITE     → luat_ble_write_req_t + value 字节
+//   READ      → luat_ble_read_req_t
+//   READ_VALUE→ luat_ble_read_req_t + value 字节
+//   SCAN_REPORT → luat_ble_adv_req_t + adv_data 字节
+//   GATT_ITEM → luat_ble_gatt_pack() 输出
+//   其他事件  → 无 packed_data
+message BleEventNotify {
+    required uint32 event_type  = 1;
+    optional bytes  packed_data = 2 [(nanopb).max_size = 1500];
+}

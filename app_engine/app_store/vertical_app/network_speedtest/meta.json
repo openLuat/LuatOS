@@ -1,0 +1,23 @@
+{
+  "app_name_cn": "网络测速",
+  "app_name_en": "network-speedtest",
+  "version": "1.0.0",
+  "publish_time": "2026-04-08 12:00:00",
+  "category": "工具",
+  "description": "基于Cloudflare Speedtest的网络测速工具，采用NetEqualizer对称测速风格。支持测试下载速度、上传速度、网络延迟和抖动。界面简洁现代，双核心布局，操作方便。",
+  "resolution": "480x800",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 10,
+  "origin_size_kb": 20
+}

@@ -205,6 +205,7 @@ int luat_napt_udp_handle(napt_ctx_t* ctx);
 
 void luat_netdrv_napt_tcp_cleanup(void);
 void luat_netdrv_napt_udp_cleanup(void);
+void luat_netdrv_napt_icmp_cleanup(void);
 
 int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len);
 
@@ -219,5 +220,8 @@ int luat_netdrv_napt_init_contexts(void);
 
 void luat_netdrv_napt_enable(int adapter_id);
 void luat_netdrv_napt_disable(void);
+
+extern luat_netdrv_napt_ctx_t *g_napt_tcp_ctx;
+extern luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 
 #endif

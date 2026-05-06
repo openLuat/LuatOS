@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>诗词填空 · 选诗如弈 | 嵌入式竖屏演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* 嵌入式触屏体验，避免长按菜单 */
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #2c241e;  /* 深檀木色背景 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', 'Noto Sans CJK SC', 'Noto Sans SC', 'PingFang SC', '微软雅黑', system-ui, -apple-system, 'Roboto', serif;
+            padding: 12px;
+        }
+
+        /* 480*800 竖屏主容器 - 相对定位以便右下角按钮绝对定位 */
+        .device {
+            width: 480px;
+            height: 800px;
+            background: #fef5e7;  /* 古书卷底色 */
+            border-radius: 42px;
+            box-shadow: 0 25px 40px rgba(0, 0, 0, 0.35), inset 0 1px 2px rgba(255, 250, 240, 0.8);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* 顶部装饰栏 */
+        .top-bar {
+            background: #e5d5bb;
+            padding: 12px 20px 8px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-size: 14px;
+            font-weight: 500;
+            color: #5a3e2a;
+            border-bottom: 1px solid #d6c3a4;
+            font-family: monospace;
+        }
+
+        /* 滚动区域 (为右下角退出按钮留出空间，底部留白) */
+        .scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 18px 16px 80px 16px;  /* 底部留白避免遮挡内容 */
+            scrollbar-width: thin;
+        }
+
+        .scroll-area::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .scroll-area::-webkit-scrollbar-track {
+            background: #efe5d3;
+            border-radius: 4px;
+        }
+
+        .scroll-area::-webkit-scrollbar-thumb {
+            background: #bc946c;
+            border-radius: 4px;
+        }
+
+        /* 标题 & 徽章 */
+        .quiz-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .quiz-header h1 {
+            font-size: 24px;
+            font-weight: 500;
+            background: #f4ecdd;
+            display: inline-block;
+            padding: 6px 28px;
+            border-radius: 60px;
+            color: #7f583b;
+            letter-spacing: 2px;
+            box-shadow: inset 0 1px 2px #fff8, 0 3px 6px rgba(0,0,0,0.05);
+        }
+
+        /* 积分卡片 */
+        .stats-card {
+            background: #fffaf2;
+            border-radius: 36px;
+            padding: 12px 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 6px 12px -6px rgba(80, 50, 25, 0.12);
+            border: 1px solid #f0e2cf;
+        }
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 12px;
+        }
+        .score-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: #a57148;
+        }
+        .score-number {
+            font-size: 32px;
+            font-weight: 800;
+            color: #c47a44;
+            line-height: 1;
+        }
+        .progress-track {
+            background: #e7dac8;
+            border-radius: 20px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: #c27e4a;
+            width: 0%;
+            height: 100%;
+            border-radius: 20px;
+            transition: width 0.25s ease;
+        }
+        .question-counter {
+            text-align: right;
+            font-size: 12px;
+            margin-top: 6px;
+            color: #b18862;
+        }
+
+        /* 诗词填空卡片 (题干) */
+        .question-card {
+            background: linear-gradient(135deg, #ffffff 0%, #fffaf0 100%);
+            border-radius: 48px;
+            padding: 26px 20px 22px;
+            margin-bottom: 24px;
+            box-shadow: 0 12px 20px -12px rgba(60, 40, 20, 0.2);
+            border: 1px solid #f3e5d0;
+        }
+        .poem-stem {
+            font-size: 24px;
+            font-weight: 550;
+            text-align: center;
+            color: #3c2a1f;
+            line-height: 1.45;
+            letter-spacing: 1.5px;
+            background: #fef7e8;
+            padding: 12px 8px;
+            border-radius: 36px;
+            margin-bottom: 16px;
+            word-break: break-word;
+        }
+        .blank-highlight {
+            display: inline-block;
+            background: #f5e5d2;
+            padding: 0 8px;
+            border-radius: 30px;
+            color: #bc6f2c;
+            font-weight: 700;
+            margin: 0 2px;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+            text-underline-offset: 5px;
+        }
+        .fill-hint {
+            font-size: 13px;
+            text-align: center;
+            color: #b4805a;
+            margin-top: 8px;
+            border-top: 1px dashed #eedbc2;
+            padding-top: 12px;
+        }
+
+        /* 选择题选项区 */
+        .options-area {
+            margin: 12px 0 8px;
+        }
+        .option-item {
+            background: #fef6ec;
+            border: 2px solid #f0e0cb;
+            border-radius: 60px;
+            padding: 12px 18px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 3px rgba(0,0,0,0.02);
+        }
+        .option-item.active-option {
+            background: #f7ebd9;
+            border-color: #c78754;
+            box-shadow: 0 2px 8px rgba(199, 135, 84, 0.2);
+        }
+        .option-prefix {
+            font-weight: 800;
+            font-size: 20px;
+            width: 40px;
+            color: #bc8260;
+            letter-spacing: 2px;
+        }
+        .option-text {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 500;
+            color: #5f4230;
+            line-height: 1.35;
+        }
+        .option-radio {
+            width: 22px;
+            height: 22px;
+            border-radius: 22px;
+            background: #fff;
+            border: 2px solid #d6bc9a;
+            margin-left: 8px;
+            display: inline-block;
+            transition: 0.1s;
+        }
+        .option-item.active-option .option-radio {
+            background: #c27e4a;
+            border-color: #c27e4a;
+            box-shadow: inset 0 0 0 3px white;
+        }
+
+        /* 按钮组 */
+        .action-group {
+            display: flex;
+            gap: 14px;
+            margin: 18px 0 12px;
+        }
+        .btn {
+            flex: 1;
+            border: none;
+            padding: 12px 0;
+            border-radius: 48px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .btn-submit {
+            background: #c27e4a;
+            color: white;
+            box-shadow: 0 4px 0 #7e4a2a;
+            transform: translateY(-1px);
+        }
+        .btn-submit:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #7e4a2a;
+        }
+        .btn-skip {
+            background: #efe2cf;
+            color: #896b48;
+            border: 1px solid #e2cfb4;
+        }
+        .btn-skip:active {
+            background: #e6d6be;
+            transform: scale(0.97);
+        }
+        .btn-nav {
+            background: #e7d9c6;
+            color: #7c5c3e;
+        }
+        .btn-nav:active {
+            background: #dfcfb7;
+        }
+
+        /* 反馈信息 */
+        .feedback {
+            text-align: center;
+            padding: 12px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-top: 8px;
+            transition: 0.1s;
+        }
+        .feedback-correct {
+            background: #dbebc7;
+            color: #3c671d;
+        }
+        .feedback-wrong {
+            background: #ffe0cf;
+            color: #bd5a2b;
+        }
+        .feedback-neutral {
+            background: #efe3d3;
+            color: #956e48;
+        }
+
+        /* 完成界面 */
+        .completion-panel {
+            text-align: center;
+            background: #fff7ec;
+            border-radius: 56px;
+            padding: 32px 20px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .completion-panel h2 {
+            font-size: 30px;
+            color: #c27e4a;
+            margin-bottom: 12px;
+        }
+        .final-score-big {
+            font-size: 54px;
+            font-weight: 800;
+            color: #b26028;
+            margin: 18px 0;
+        }
+        .restart-full {
+            background: #a57148;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 60px;
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 18px;
+            width: 75%;
+            cursor: pointer;
+        }
+
+        /* 右下角退出按钮 (文本样式，悬浮于右下角) */
+        .exit-corner {
+            position: absolute;
+            bottom: 22px;
+            right: 22px;
+            z-index: 20;
+        }
+        .btn-exit-corner {
+            background: #e7d8c4;
+            border: 1px solid #dac8ae;
+            color: #8a6846;
+            padding: 10px 20px;
+            border-radius: 48px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            background: #f3ecd9;
+            letter-spacing: 1px;
+        }
+        .btn-exit-corner:active {
+            background: #dac6ac;
+            transform: scale(0.96);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 优雅小脚注 (底部留白与退出按钮和谐) */
+        .corner-placeholder {
+            height: 4px;
+        }
+    </style>
+</head>
+<body>
+<div class="device">
+    <div class="top-bar">
+        <span>🌸 诗词填空·选韵</span>
+        <span>📖 翰林院</span>
+    </div>
+    <div class="scroll-area" id="quizScrollArea">
+        <!-- 动态渲染内容 -->
+    </div>
+    <!-- 右下角退出按钮 (纯文本“退出”，不实现业务逻辑) -->
+    <div class="exit-corner">
+        <button class="btn-exit-corner" id="exitCornerButton">退出</button>
+    </div>
+</div>
+
+<script>
+    // ---------- 诗词题库：每一题展示诗句（含空缺提示），选择题形式，四个选项，一个正确答案 ----------
+    const POEMS_DB = [
+        {
+            id: 1,
+            stem: "床前明月光，________",
+            correctAnswer: "疑是地上霜",
+            options: ["疑似地上霜", "疑是地上霜", "低头思故乡", "处处闻啼鸟"],
+            hint: "李白《静夜思》经典下句"
+        },
+        {
+            id: 2,
+            stem: "欲穷千里目，________",
+            correctAnswer: "更上一层楼",
+            options: ["更上一层楼", "黄河入海流", "山穷水复疑无路", "行到水穷处"],
+            hint: "王之涣·登鹳雀楼"
+        },
+        {
+            id: 3,
+            stem: "春眠不觉晓，________",
+            correctAnswer: "处处闻啼鸟",
+            options: ["夜来风雨声", "处处闻啼鸟", "花落知多少", "鸟鸣山更幽"],
+            hint: "孟浩然《春晓》次句"
+        },
+        {
+            id: 4,
+            stem: "锄禾日当午，________",
+            correctAnswer: "汗滴禾下土",
+            options: ["粒粒皆辛苦", "汗滴禾下土", "春种一粒粟", "秋收万颗子"],
+            hint: "李绅《悯农》"
+        },
+        {
+            id: 5,
+            stem: "野火烧不尽，________",
+            correctAnswer: "春风吹又生",
+            options: ["一岁一枯荣", "春风吹又生", "离离原上草", "萋萋满别情"],
+            hint: "白居易·赋得古原草送别"
+        },
+        {
+            id: 6,
+            stem: "举头望明月，________",
+            correctAnswer: "低头思故乡",
+            options: ["疑是地上霜", "低头思故乡", "对影成三人", "月是故乡明"],
+            hint: "李白《静夜思》尾联"
+        },
+        {
+            id: 7,
+            stem: "采菊东篱下，________",
+            correctAnswer: "悠然见南山",
+            options: ["悠然见南山", "性本爱丘山", "此中有真意", "山气日夕佳"],
+            hint: "陶渊明·饮酒其五"
+        },
+        {
+            id: 8,
+            stem: "大漠沙如雪，________",
+            correctAnswer: "燕山月似钩",
+            options: ["燕山月似钩", "沙场秋点兵", "青海长云暗雪山", "黄沙百战穿金甲"],
+            hint: "李贺·马诗"
+        },
+        {
+            id: 9,
+            stem: "小荷才露尖尖角，________",
+            correctAnswer: "早有蜻蜓立上头",
+            options: ["早有蜻蜓立上头", "映日荷花别样红", "荷尽已无擎雨盖", "接天莲叶无穷碧"],
+            hint: "杨万里·小池"
+        },
+        {
+            id: 10,
+            stem: "问君能有几多愁？________",
+            correctAnswer: "恰似一江春水向东流",
+            options: ["恰似一江春水向东流", "一江春水向东流", "流到瓜洲古渡头", "人生长恨水长东"],
+            hint: "李煜·虞美人"
+        }
+    ];
+
+    // 游戏状态
+    let currentIndex = 0;                // 当前第几题 (0~9)
+    let score = 0;                      // 累计答对题目数量
+    let answeredStatus = new Array(POEMS_DB.length).fill(false); // 本题是否已经答对过（防止重复加分）
+    let selectedOptionIndex = -1;       // 当前题目选择的选项索引 (0~3)
+    let quizCompletedFlag = false;       // 是否已完成所有题目 (全部答对)
+    let feedbackMsg = "";               // 反馈消息
+    let feedbackType = "neutral";       // correct, wrong, neutral
+
+    // DOM 根元素
+    const container = document.getElementById("quizScrollArea");
+
+    // 辅助函数: 标准化字符串（忽略标点、空格、大小写、全角半角）
+    function normalizeText(str) {
+        if (!str) return "";
+        return str.trim()
+            .toLowerCase()
+            .replace(/[，,。？?！!；;：”“''‘’《》【】（）·～—\s]/g, '')
+            .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+    }
+
+    // 检查选项是否正确（基于标准化比较）
+    function isAnswerCorrect(question, selectedOptText) {
+        if (!selectedOptText) return false;
+        const normalizedSelected = normalizeText(selectedOptText);
+        const normalizedCorrect = normalizeText(question.correctAnswer);
+        return normalizedSelected === normalizedCorrect;
+    }
+
+    // 检查是否全部答对
+    function isAllCompleted() {
+        return answeredStatus.every(v => v === true);
+    }
+
+    // 移动到下一个未答题（智能跳转）
+    function moveToNextUnanswered() {
+        // 从 currentIndex+1 开始找未答对的
+        for (let i = currentIndex + 1; i < POEMS_DB.length; i++) {
+            if (!answeredStatus[i]) {
+                return i;
+            }
+        }
+        // 再从开头找
+        for (let i = 0; i < currentIndex; i++) {
+            if (!answeredStatus[i]) {
+                return i;
+            }
+        }
+        return -1; // 全对
+    }
+
+    // 重置当前题目的选择状态并渲染
+    function resetSelection() {
+        selectedOptionIndex = -1;
+        feedbackMsg = "";
+        feedbackType = "neutral";
+    }
+
+    // 处理提交答案
+    function handleSubmit() {
+        if (quizCompletedFlag) return;
+        // 如果已经答对本题，不允许重复提交，提示跳转
+        if (answeredStatus[currentIndex]) {
+            feedbackMsg = "🎋 此诗已补全，请进入下一题 🎋";
+            feedbackType = "neutral";
+            render();
+            return;
+        }
+        if (selectedOptionIndex === -1) {
+            feedbackMsg = "📜 请选择一个选项，补全诗句～";
+            feedbackType = "neutral";
+            render();
+            return;
+        }
+
+        const currentQuestion = POEMS_DB[currentIndex];
+        const selectedText = currentQuestion.options[selectedOptionIndex];
+        const isCorrect = isAnswerCorrect(currentQuestion, selectedText);
+
+        if (isCorrect) {
+            // 正确且未得分时加分并标记
+            if (!answeredStatus[currentIndex]) {
+                score++;
+                answeredStatus[currentIndex] = true;
+                feedbackMsg = `✓ 妙哉！ “${currentQuestion.correctAnswer}” 正是此句！ +1 诗才 ✨`;
+                feedbackType = "correct";
+                render();
+
+                // 检查游戏是否完成
+                if (isAllCompleted()) {
+                    quizCompletedFlag = true;
+                    render();
+                    return;
+                }
+                // 自动跳转到下一个未答题
+                const nextIdx = moveToNextUnanswered();
+                if (nextIdx !== -1) {
+                    currentIndex = nextIdx;
+                    resetSelection();
+                    render();
+                } else {
+                    quizCompletedFlag = true;
+                    render();
+                }
+                return;
+            } else {
+                // 理论上已答对无法再提交，但防御
+                feedbackMsg = "此题已经答对，继续下一段诗旅吧";
+                feedbackType = "neutral";
+                render();
+            }
+        } else {
+            // 错误反馈
+            const hintMsg = currentQuestion.hint;
+            feedbackMsg = `❌ 续句不恰，再斟酌一番～  ${hintMsg ? '📌 ' + hintMsg : ''}`;
+            feedbackType = "wrong";
+            render();
+        }
+    }
+
+    // 处理跳过 / 下一题 (不校验正确，直接移动到未答或下一题)
+    function handleSkip() {
+        if (quizCompletedFlag) return;
+        // 若本题未答对，不扣分但跳转
+        const nextUnanswered = moveToNextUnanswered();
+        if (nextUnanswered !== -1) {
+            currentIndex = nextUnanswered;
+            resetSelection();
+            render();
+        } else {
+            if (isAllCompleted()) {
+                quizCompletedFlag = true;
+                render();
+            } else {
+                // 防御: 直接+1如果还有未答但不在范围内? 移动逻辑保证
+                let nextIdx = currentIndex + 1;
+                if (nextIdx < POEMS_DB.length) {
+                    currentIndex = nextIdx;
+                    resetSelection();
+                    render();
+                } else {
+                    // 从头找未答
+                    for (let i = 0; i < POEMS_DB.length; i++) {
+                        if (!answeredStatus[i]) {
+                            currentIndex = i;
+                            resetSelection();
+                            render();
+                            return;
+                        }
+                    }
+                    quizCompletedFlag = true;
+                    render();
+                }
+            }
+        }
+    }
+
+    // 上一题导航（仅切换题目，不清除正确状态）
+    function handlePrev() {
+        if (quizCompletedFlag) return;
+        if (currentIndex > 0) {
+            currentIndex--;
+            resetSelection();     // 切换题目时重置选择和反馈
+            render();
+        } else {
+            feedbackMsg = "已是诗卷开篇，无上句可寻";
+            feedbackType = "neutral";
+            render();
+            setTimeout(() => {
+                if (!quizCompletedFlag && feedbackMsg === "已是诗卷开篇，无上句可寻") {
+                    feedbackMsg = "";
+                    render();
+                }
+            }, 1000);
+        }
+    }
+
+    // 下一题（简单下一个索引，未答题优先？这里实现和skip类似但为了按钮区别: 常规下一题 不跳过正确与否？更加友好）
+    function handleNext() {
+        if (quizCompletedFlag) return;
+        // 如果当前未答对，提示建议先作答或也可跳过
+        if (!answeredStatus[currentIndex]) {
+            feedbackMsg = "✨ 建议先完成本题填空，或使用「跳过」✨";
+            feedbackType = "neutral";
+            render();
+            return;
+        }
+        // 已答对直接移动
+        const nextUnanswered = moveToNextUnanswered();
+        if (nextUnanswered !== -1) {
+            currentIndex = nextUnanswered;
+            resetSelection();
+            render();
+        } else if (isAllCompleted()) {
+            quizCompletedFlag = true;
+            render();
+        } else {
+            // 常规下一索引
+            if (currentIndex + 1 < POEMS_DB.length) {
+                currentIndex++;
+                resetSelection();
+                render();
+            } else {
+                for (let i = 0; i < POEMS_DB.length; i++) {
+                    if (!answeredStatus[i]) { currentIndex = i; resetSelection(); render(); return; }
+                }
+                quizCompletedFlag = true;
+                render();
+            }
+        }
+    }
+
+    // 重新开始游戏
+    function restartGame() {
+        currentIndex = 0;
+        score = 0;
+        answeredStatus = new Array(POEMS_DB.length).fill(false);
+        quizCompletedFlag = false;
+        selectedOptionIndex = -1;
+        feedbackMsg = "";
+        feedbackType = "neutral";
+        render();
+    }
+
+    // 退出按钮演示（无实际业务逻辑，仅提示演示性质，右下角文本“退出”）
+    function onExitCornerClick() {
+        // 按照需求不实现退出逻辑，仅做界面演示提示
+        const toastMsg = document.createElement("div");
+        toastMsg.textContent = "【演示模式】“退出”按钮位于右下角，未绑定实际退出逻辑";
+        toastMsg.style.position = "fixed";
+        toastMsg.style.bottom = "90px";
+        toastMsg.style.right = "30px";
+        toastMsg.style.backgroundColor = "#5c3e2a";
+        toastMsg.style.color = "#f7e9d7";
+        toastMsg.style.padding = "8px 18px";
+        toastMsg.style.borderRadius = "40px";
+        toastMsg.style.fontSize = "12px";
+        toastMsg.style.zIndex = "999";
+        toastMsg.style.whiteSpace = "nowrap";
+        toastMsg.style.fontFamily = "inherit";
+        toastMsg.style.pointerEvents = "none";
+        toastMsg.style.opacity = "0.95";
+        toastMsg.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
+        document.body.appendChild(toastMsg);
+        setTimeout(() => {
+            toastMsg.style.opacity = "0";
+            setTimeout(() => toastMsg.remove(), 500);
+        }, 1500);
+    }
+
+    // 渲染主界面 (根据状态显示答题界面或完成界面)
+    function render() {
+        if (!container) return;
+        if (quizCompletedFlag || isAllCompleted()) {
+            renderCompletion();
+            return;
+        }
+        renderActiveQuiz();
+    }
+
+    // 渲染完成面板
+    function renderCompletion() {
+        const total = POEMS_DB.length;
+        const finalScore = score;
+        const medal = finalScore === total ? "🏅 诗仙·满腹经纶" : (finalScore >= total*0.7 ? "📚 诗杰·才思敏捷" : (finalScore >= total*0.4 ? "🌱 诗童·初窥门径" : "✍️ 墨客·勤学可嘉"));
+        container.innerHTML = `
+            <div class="completion-panel">
+                <h2>🎉 诗卷圆满 🎉</h2>
+                <p style="color:#a87042;">慧心如兰，集句成章</p>
+                <div class="final-score-big">${finalScore} / ${total}</div>
+                <p style="margin-bottom: 6px;">${medal}</p>
+                <button class="restart-full" id="restartFinalBtn">🖌️ 重开诗卷</button>
+                <div class="corner-placeholder"></div>
+            </div>
+        `;
+        const restartBtn = document.getElementById("restartFinalBtn");
+        if (restartBtn) restartBtn.addEventListener("click", () => restartGame());
+    }
+
+    // 渲染当前题目 (选择题模式)
+    function renderActiveQuiz() {
+        const question = POEMS_DB[currentIndex];
+        const totalCount = POEMS_DB.length;
+        const answeredCount = answeredStatus.filter(v => v === true).length;
+        const progressPercent = (answeredCount / totalCount) * 100;
+        const isAlreadyCorrect = answeredStatus[currentIndex];
+
+        // 构建题干，将填空处高亮显示
+        let stemHtml = question.stem.replace(/________/g, '<span class="blank-highlight">______</span>');
+        
+        // 生成选项列表html，标记当前选中的选项
+        let optionsHtml = "";
+        const prefixLetters = ["A", "B", "C", "D"];
+        question.options.forEach((opt, idx) => {
+            const isActive = (selectedOptionIndex === idx);
+            const activeClass = isActive ? "active-option" : "";
+            optionsHtml += `
+                <div class="option-item ${activeClass}" data-opt-index="${idx}">
+                    <div class="option-prefix">${prefixLetters[idx]}.</div>
+                    <div class="option-text">${escapeHtml(opt)}</div>
+                    <div class="option-radio"></div>
+                </div>
+            `;
+        });
+
+        // 反馈区域样式
+        let feedbackClass = "feedback-neutral";
+        if (feedbackType === "correct") feedbackClass = "feedback-correct";
+        if (feedbackType === "wrong") feedbackClass = "feedback-wrong";
+
+        const mainHtml = `
+            <div class="quiz-header">
+                <h1>📖 择句填空</h1>
+            </div>
+            <div class="stats-card">
+                <div class="stats-row">
+                    <span class="score-label">🏆 诗才积分</span>
+                    <span class="score-number">${score}</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" style="width: ${progressPercent}%;"></div>
+                </div>
+                <div class="question-counter">📜 已悟 ${answeredCount} / ${totalCount} 章</div>
+            </div>
+            <div class="question-card">
+                <div class="poem-stem">${stemHtml}</div>
+                <div class="fill-hint">💡 ${question.hint}</div>
+            </div>
+            <div class="options-area" id="optionsContainer">
+                ${optionsHtml}
+            </div>
+            <div class="action-group">
+                <button class="btn btn-nav" id="prevBtn">◀ 上题</button>
+                <button class="btn btn-submit" id="submitAnswerBtn">✓ 校验</button>
+                <button class="btn btn-skip" id="skipBtn">⏩ 跳过</button>
+                <button class="btn btn-nav" id="nextBtn">下题 ▶</button>
+            </div>
+            <div class="feedback ${feedbackClass}" id="feedbackMsgArea">
+                ${feedbackMsg ? escapeHtml(feedbackMsg) : "&nbsp;&nbsp;⚡ 选择正确选项，补全诗词意境 ⚡"}
+            </div>
+            <div class="corner-placeholder"></div>
+        `;
+
+        container.innerHTML = mainHtml;
+
+        // 绑定选项点击事件
+        const optionDivs = document.querySelectorAll(".option-item");
+        optionDivs.forEach(div => {
+            const idxAttr = div.getAttribute("data-opt-index");
+            if (idxAttr !== null) {
+                const optIdx = parseInt(idxAttr, 10);
+                div.addEventListener("click", (e) => {
+                    if (isAlreadyCorrect) {
+                        feedbackMsg = "🏮 此诗已补全，无需再选，请进入下一题 🏮";
+                        feedbackType = "neutral";
+                        render();
+                        return;
+                    }
+                    if (selectedOptionIndex === optIdx) {
+                        // 保持选中
+                    }
+                    selectedOptionIndex = optIdx;
+                    feedbackMsg = "";
+                    render();
+                });
+            }
+        });
+
+        // 按钮绑定
+        const submitBtn = document.getElementById("submitAnswerBtn");
+        if (submitBtn) submitBtn.addEventListener("click", () => handleSubmit());
+        const skipBtn = document.getElementById("skipBtn");
+        if (skipBtn) skipBtn.addEventListener("click", () => handleSkip());
+        const prevBtn = document.getElementById("prevBtn");
+        if (prevBtn) prevBtn.addEventListener("click", () => handlePrev());
+        const nextBtn = document.getElementById("nextBtn");
+        if (nextBtn) nextBtn.addEventListener("click", () => handleNext());
+    }
+
+    // 辅助防XSS
+    function escapeHtml(str) {
+        if (!str) return "";
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // 绑定右下角退出按钮（纯文本“退出”，仅UI演示）
+    function bindExitCorner() {
+        const exitBtn = document.getElementById("exitCornerButton");
+        if (exitBtn) {
+            exitBtn.addEventListener("click", onExitCornerClick);
+        }
+    }
+
+    // 初始化游戏
+    function init() {
+        currentIndex = 0;
+        score = 0;
+        answeredStatus.fill(false);
+        quizCompletedFlag = false;
+        selectedOptionIndex = -1;
+        feedbackMsg = "";
+        feedbackType = "neutral";
+        render();
+        bindExitCorner();
+    }
+    init();
+</script>
+</body>
+</html>

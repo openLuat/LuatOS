@@ -1,0 +1,23 @@
+{
+  "app_name_cn": "数字华容道",
+  "app_name_en": "HuarongRoad",
+  "version": "1.0.0",
+  "publish_time": "2026-04-13 12:00:00",
+  "category": "游戏",
+  "description": "4X4数字华容道",
+  "resolution": "480x800",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 100,
+  "origin_size_kb": 300
+}

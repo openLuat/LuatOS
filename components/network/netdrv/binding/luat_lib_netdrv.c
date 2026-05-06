@@ -339,23 +339,23 @@ static int l_netdrv_ipv4(lua_State *L) {
 }
 
 /*
-开启或关闭NAPT
+开启或关闭NAPT。关闭时会清除所有映射表。开启NAPT前请确保网关适配器已就绪。
 @api netdrv.napt(id)
-@int 网关适配器的id
+@int 网关适配器的id, 传-1或nil关闭NAPT并清除所有映射表
 @return bool 合法值就返回true, 否则返回nil
 @usage
 
 -- 使用4G网络作为主网关出口
 netdrv.napt(socket.LWIP_GP)
 
--- 关闭napt功能
+-- 关闭napt功能, 清除所有映射表
 netdrv.napt(-1)
 */
 static int l_netdrv_napt(lua_State *L) {
-    int id = luaL_checkinteger(L, 1);
+    int id = luaL_optinteger(L, 1, -1);
     if (id < 0) {
-        LLOGD("NAPT is disabled");
-        luat_netdrv_napt_enable(id);
+        LLOGI("NAPT is disabled, cleaning up all mappings");
+        luat_netdrv_napt_disable();
         lua_pushboolean(L, 1);
         return 1;
     }

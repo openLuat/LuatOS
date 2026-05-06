@@ -1,0 +1,98 @@
+syntax = "proto2";
+
+package drv.wlan;
+
+import "nanopb.proto";
+
+// 通用返回码
+enum WlanResultCode {
+    WLAN_RES_OK     = 0;
+    WLAN_RES_EINVAL = 1;
+    WLAN_RES_FAIL   = 255;
+}
+
+message WlanResult {
+    optional WlanResultCode code     = 1 [default = WLAN_RES_OK];
+    optional int32          os_errno = 2 [default = 0];
+}
+
+// 初始化 WLAN（对应 luat_wlan_init）
+// mode: 1=STA, 2=AP, 3=APSTA（对应 LUAT_WLAN_MODE_*）
+message WlanInitRequest {
+    optional uint32 mode = 1 [default = 1];
+}
+message WlanInitResponse {
+    required WlanResult result = 1;
+}
+
+// STA 连接（对应 luat_wlan_connect）
+message WlanConnectRequest {
+    required string ssid                        = 1 [(nanopb).max_size = 36];
+    optional string password                    = 2 [(nanopb).max_size = 64];
+    optional bytes  bssid                       = 3 [(nanopb).max_size = 6];
+    optional uint32 authmode                    = 4 [default = 0];
+    optional bool   auto_reconnection           = 5 [default = false];
+    optional uint32 auto_reconnection_delay_sec = 6 [default = 0];
+}
+message WlanConnectResponse {
+    required WlanResult result = 1;
+}
+
+// STA 断开（对应 luat_wlan_disconnect）
+message WlanDisconnectRequest  {}
+message WlanDisconnectResponse {
+    required WlanResult result = 1;
+}
+
+// AP 启动（对应 luat_wlan_ap_start）
+message WlanApStartRequest {
+    required string ssid     = 1 [(nanopb).max_size = 36];
+    optional string password = 2 [(nanopb).max_size = 64];
+    optional uint32 channel  = 3 [default = 6];
+    optional uint32 encrypt  = 4 [default = 0];
+    optional bool   hidden   = 5 [default = false];
+    optional uint32 max_conn = 6 [default = 4];
+    optional bytes  gateway  = 7 [(nanopb).max_size = 4];
+    optional bytes  netmask  = 8 [(nanopb).max_size = 4];
+}
+message WlanApStartResponse {
+    required WlanResult result = 1;
+}
+
+// AP 停止（对应 luat_wlan_ap_stop）
+message WlanApStopRequest  {}
+message WlanApStopResponse {
+    required WlanResult result = 1;
+}
+
+// 发起扫描（对应 luat_wlan_scan）
+message WlanScanRequest  {}
+message WlanScanResponse {
+    required WlanResult result = 1;
+}
+
+// 统一 RPC 请求
+message WlanRpcRequest {
+    required uint32 req_id = 1;
+    oneof payload {
+        WlanInitRequest       init       = 10;
+        WlanConnectRequest    connect    = 11;
+        WlanDisconnectRequest disconnect = 12;
+        WlanApStartRequest    ap_start   = 13;
+        WlanApStopRequest     ap_stop    = 14;
+        WlanScanRequest       scan       = 15;
+    }
+}
+
+// 统一 RPC 响应
+message WlanRpcResponse {
+    optional uint32 req_id = 1 [default = 0];
+    oneof payload {
+        WlanInitResponse       init       = 10;
+        WlanConnectResponse    connect    = 11;
+        WlanDisconnectResponse disconnect = 12;
+        WlanApStartResponse    ap_start   = 13;
+        WlanApStopResponse     ap_stop    = 14;
+        WlanScanResponse       scan       = 15;
+    }
+}

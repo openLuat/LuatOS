@@ -1,0 +1,26 @@
+{
+    "supported_models": {
+        "Air8101": [
+            {
+                "min_firmware_version": 2010,
+                "firmware_id": 104
+            },
+            {
+                "min_firmware_version": 2010,
+                "firmware_id": 105
+            }
+        ]
+    },
+    "install_time": 1776330496,
+    "description": "扫码支付售货机，支持商品选择、扫码支付、补货和重置功能",
+    "publish_time": "2026-04-05 00:00:00",
+    "version": "1.0.0",
+    "category": "工具",
+    "app_name_en": "vending_machine",
+    "origin_size_kb": "81",
+    "app_name_cn": "智能售货机",
+    "resolution": "480x800",
+    "display_zoom": "adaptive",
+    "zip_size_kb": 100,
+    "total_downloads": "8"
+}

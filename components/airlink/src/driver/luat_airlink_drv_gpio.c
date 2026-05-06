@@ -1,14 +1,9 @@
 #include "luat_base.h"
-#include "luat_spi.h"
 #include "luat_airlink.h"
-
-
 #include "luat_rtos.h"
 #include "luat_debug.h"
-#include "luat_spi.h"
 #include "luat_pm.h"
 #include "luat_gpio.h"
-#include "luat_airlink.h"
 #include "luat_mem.h"
 
 #define LUAT_LOG_TAG "airlink"
@@ -18,7 +13,7 @@
 #define LLOGD(...) 
 
 int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio) {
-    // LLOGD("执行GPIO配置指令!!! pin %d mode %d pull %d", gpio->pin, gpio->mode, gpio->pull);
+    // --- raw byte path ---
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = sizeof(luat_gpio_t) + sizeof(luat_airlink_cmd_t) + 8
@@ -34,7 +29,18 @@ int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio) {
     return 0;
 }
 
+int luat_airlink_drv_gpio_open(luat_gpio_cfg_t* gpio) {
+    // raw byte path: new API → falls back to luat_airlink_drv_gpio_setup via legacy struct
+    luat_gpio_t legacy = {0};
+    legacy.pin  = gpio->pin;
+    legacy.mode = gpio->mode;
+    legacy.pull = gpio->pull;
+    legacy.irq  = gpio->irq_type;
+    return luat_airlink_drv_gpio_setup(&legacy);
+}
+
 int luat_airlink_drv_gpio_set(int pin, int level) {
+    // --- raw byte path ---
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = 2 + sizeof(luat_airlink_cmd_t) + 8
@@ -64,6 +70,7 @@ int luat_airlink_drv_gpio_get(int pin, int* val) {
         *val = 0;
         return 0;
     }
+    // --- raw byte path ---
     uint32_t version;
     memcpy(&version, &g_airlink_ext_dev_info.wifi.version, 4);
     if (version < 9) {
@@ -145,5 +152,4 @@ int luat_airlink_drv_gpio_driver_yhm27xx_reqinfo(uint8_t Pin, uint8_t ChipID)
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
     return 0;
 }
-
 

@@ -108,6 +108,7 @@ CMD_DEFINE(rpc);
 __AIRLINK_CODE_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
     CMD_REG(0x10,  dev_info),
+    CMD_REG(0x08,  result),  // RPC/指令结果回调
     CMD_REG(0x100, ip_pkg),
     CMD_REG(0x03,  reset),
 #ifdef LUAT_USE_AIRLINK_RPC

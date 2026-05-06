@@ -180,6 +180,54 @@ static int l_airlink_slave_reboot(lua_State *L) {
     return 0;
 }
 
+#ifdef LUAT_USE_AIRLINK_RPC
+#include "luat_airlink_rpc.h"
+#include "drv_sdata.pb.h"
+#define AIRLINK_SDATA_CHUNK 1400
+
+/* 客户端 sdata 发送: RPC 模式走 nb_notify 分块, 否则走原始 cmd 0x20 */
+int luat_airlink_sdata_send(const void* data, size_t len) {
+    int mode = luat_airlink_current_mode_get();
+    if (luat_airlink_peer_rpc_supported() && mode >= 0) {
+        const uint8_t* ptr = (const uint8_t*)data;
+        size_t remaining = len;
+        while (remaining > 0) {
+            size_t chunk = (remaining > AIRLINK_SDATA_CHUNK) ? AIRLINK_SDATA_CHUNK : remaining;
+            SdataNotify notify = SdataNotify_init_zero;
+            notify.data.size = (pb_size_t)chunk;
+            memcpy(notify.data.bytes, ptr, chunk);
+            int rc = luat_airlink_rpc_nb_notify((uint8_t)mode, 0x0500,
+                                                SdataNotify_fields, &notify);
+            if (rc != 0) return rc;
+            ptr       += chunk;
+            remaining -= chunk;
+        }
+        return 0;
+    }
+    if (len > 1500) return -1;
+    luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    if (!cmd) return -2;
+    cmd->cmd = 0x20;
+    cmd->len = (uint16_t)len;
+    memcpy(cmd->data, data, len);
+    luat_airlink_send2slave(cmd);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    return 0;
+}
+#else
+static int luat_airlink_sdata_send(const void* data, size_t len) {
+    if (len > 1500) return -1;
+    luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    if (!cmd) return -2;
+    cmd->cmd = 0x20;
+    cmd->len = (uint16_t)len;
+    memcpy(cmd->data, data, len);
+    luat_airlink_send2slave(cmd);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    return 0;
+}
+#endif
+
 /*
 发送自定义数据
 @api airlink.sdata(data)
@@ -196,7 +244,6 @@ static int l_airlink_sdata(lua_State *L) {
         data = luaL_checklstring(L, 1, &len);
     }
     else if (lua_isuserdata(L, 1)) {
-        // zbuff
         luat_zbuff_t* buff = tozbuff(L);
         data = (const char*)buff->addr;
         len = buff->used;
@@ -205,18 +252,8 @@ static int l_airlink_sdata(lua_State *L) {
         LLOGE("无效的参数,只能是字符串或者zbuff");
         return 0;
     }
-    if (len > 1500) {
-        LLOGE("无效的数据长度,最大1500字节");
-        return 0;
-    }
-    luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
-    if (cmd == NULL) return 0;
-    cmd->cmd = 0x20;
-    cmd->len = len;
-    memcpy(cmd->data, data, len);
-    luat_airlink_send2slave(cmd);
-    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
-    lua_pushboolean(L, 1);
+    int rc = luat_airlink_sdata_send(data, len);
+    lua_pushboolean(L, rc == 0);
     return 1;
 }
 
@@ -585,113 +622,6 @@ static int l_airlink_bind_transport(lua_State* L) {
 
 #ifdef LUAT_USE_AIRLINK_RPC
 
-//@api airlink.rpcRegister(rpc_id, func)
-//@int      rpc_id  RPC 功能号 (uint16_t)
-//@function func    处理函数, 原型: function(rpc_id, req_data) return resp_data end
-//                  req_data 为 string 或 nil; resp_data 为 string 或 nil
-//@return bool 成功返回 true, 失败返回 false
-//@usage
-// airlink.rpcRegister(0x0001, function(rpc_id, req)
-//     log.info("rpc", "收到请求", rpc_id, req)
-//     return "response"
-// end)
-static int l_airlink_rpc_handler(uint16_t rpc_id,
-                                  const uint8_t* req, uint16_t req_len,
-                                  uint8_t* resp, uint16_t resp_size, uint16_t* resp_len,
-                                  void* userdata);
-
-// Lua 函数引用表 (rpc_id → lua ref), 简单数组实现
-#define MAX_LUA_RPC_HANDLERS 32
-static struct {
-    uint16_t rpc_id;
-    int lua_ref;
-    uint8_t active;
-} s_lua_rpc_handlers[MAX_LUA_RPC_HANDLERS];
-static lua_State* s_lua_rpc_L = NULL;
-
-static int l_airlink_rpc_handler(uint16_t rpc_id,
-                                   const uint8_t* req, uint16_t req_len,
-                                   uint8_t* resp, uint16_t resp_size, uint16_t* resp_len,
-                                   void* userdata) {
-    (void)userdata;
-    *resp_len = 0;
-    if (s_lua_rpc_L == NULL) return -1;
-    lua_State* L = s_lua_rpc_L;
-
-    // 查找 lua_ref
-    int ref = LUA_NOREF;
-    for (int i = 0; i < MAX_LUA_RPC_HANDLERS; i++) {
-        if (s_lua_rpc_handlers[i].active && s_lua_rpc_handlers[i].rpc_id == rpc_id) {
-            ref = s_lua_rpc_handlers[i].lua_ref;
-            break;
-        }
-    }
-    if (ref == LUA_NOREF) return -404;
-
-    lua_rawgeti(L, LUA_REGISTRYINDEX, ref);  // push function
-    lua_pushinteger(L, rpc_id);               // arg1: rpc_id
-    if (req && req_len > 0) {
-        lua_pushlstring(L, (const char*)req, req_len); // arg2: req as string
-    } else {
-        lua_pushnil(L);
-    }
-    if (lua_pcall(L, 2, 1, 0) != LUA_OK) {
-        LLOGE("airlink rpc lua call error: %s", lua_tostring(L, -1));
-        lua_pop(L, 1);
-        return -1;
-    }
-    // 取返回值
-    if (lua_isstring(L, -1)) {
-        size_t rlen = 0;
-        const char* rdata = lua_tolstring(L, -1, &rlen);
-        if (rlen > resp_size) rlen = resp_size;
-        if (rdata && rlen > 0) {
-            memcpy(resp, rdata, rlen);
-            *resp_len = (uint16_t)rlen;
-        }
-    }
-    lua_pop(L, 1);
-    return 0;
-}
-
-static int l_airlink_rpc_register(lua_State* L) {
-    uint16_t rpc_id = (uint16_t)luaL_checkinteger(L, 1);
-    luaL_checktype(L, 2, LUA_TFUNCTION);
-
-    // 保存 Lua 状态指针 (线程共享)
-    s_lua_rpc_L = L;
-
-    // 找空槽或已有同 rpc_id 的槽
-    int slot = -1;
-    for (int i = 0; i < MAX_LUA_RPC_HANDLERS; i++) {
-        if (s_lua_rpc_handlers[i].active && s_lua_rpc_handlers[i].rpc_id == rpc_id) {
-            // 取消旧引用
-            luaL_unref(L, LUA_REGISTRYINDEX, s_lua_rpc_handlers[i].lua_ref);
-            slot = i;
-            break;
-        }
-        if (slot == -1 && !s_lua_rpc_handlers[i].active) {
-            slot = i;
-        }
-    }
-    if (slot == -1) {
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    lua_pushvalue(L, 2);  // 复制函数到栈顶
-    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    s_lua_rpc_handlers[slot].rpc_id  = rpc_id;
-    s_lua_rpc_handlers[slot].lua_ref = ref;
-    s_lua_rpc_handlers[slot].active  = 1;
-
-    // 注册 C 层 handler (l_airlink_rpc_handler)
-    luat_airlink_rpc_register(rpc_id, l_airlink_rpc_handler, NULL);
-
-    lua_pushboolean(L, 1);
-    return 1;
-}
-
 //@api airlink.rpc(mode, rpc_id, req_data, timeout_ms)
 //@int    mode        目标传输 mode
 //@int    rpc_id      RPC 功能号
@@ -730,6 +660,353 @@ static int l_airlink_rpc(lua_State* L) {
 
 #endif /* LUAT_USE_AIRLINK_RPC */
 
+#ifdef LUAT_USE_AIRLINK_LOOPBACK
+#include "luat_airlink_rpc.h"
+#include "drv_gpio.pb.h"
+#include "drv_uart.pb.h"
+#include "drv_wlan.pb.h"
+#include "drv_pm.pb.h"
+
+#define AIRLINK_LIB_RPC_ID_GPIO  0x0100
+#define AIRLINK_LIB_RPC_ID_UART  0x0200
+#define AIRLINK_LIB_RPC_ID_WLAN  0x0300
+#define AIRLINK_LIB_RPC_ID_PM    0x0400
+
+/*
+nanopb GPIO RPC loopback 自测
+@api airlink.testNanopbGpio()
+@return int 0=全部通过, 负值=失败步骤号
+@usage
+-- 在 loopback 模式启动后调用
+local rc = airlink.testNanopbGpio()
+assert(rc == 0, "nanopb GPIO RPC 测试失败: " .. tostring(rc))
+*/
+static int l_airlink_test_nanopb_gpio(lua_State* L) {
+    int rc = 0;
+
+    // step 1: write pin=5 HIGH
+    {
+        drv_gpio_GpioRpcRequest  req  = drv_gpio_GpioRpcRequest_init_zero;
+        drv_gpio_GpioRpcResponse resp = drv_gpio_GpioRpcResponse_init_zero;
+        req.which_payload = drv_gpio_GpioRpcRequest_write_tag;
+        req.payload.write.pin   = 5;
+        req.payload.write.level = drv_gpio_GpioLevel_GPIO_LEVEL_HIGH;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_GPIO,
+            drv_gpio_GpioRpcRequest_fields,  &req,
+            drv_gpio_GpioRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -1; goto done; }
+        if (resp.which_payload != drv_gpio_GpioRpcResponse_write_tag) { rc = -2; goto done; }
+        if (!resp.payload.write.result.has_code ||
+            resp.payload.write.result.code != drv_gpio_GpioResultCode_GPIO_RES_OK) {
+            rc = -3; goto done;
+        }
+    }
+
+    // step 2: read pin=5 expect HIGH
+    {
+        drv_gpio_GpioRpcRequest  req  = drv_gpio_GpioRpcRequest_init_zero;
+        drv_gpio_GpioRpcResponse resp = drv_gpio_GpioRpcResponse_init_zero;
+        req.which_payload = drv_gpio_GpioRpcRequest_read_tag;
+        req.payload.read.pin = 5;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_GPIO,
+            drv_gpio_GpioRpcRequest_fields,  &req,
+            drv_gpio_GpioRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -4; goto done; }
+        if (resp.which_payload != drv_gpio_GpioRpcResponse_read_tag) { rc = -5; goto done; }
+        if (!resp.payload.read.result.has_code ||
+            resp.payload.read.result.code != drv_gpio_GpioResultCode_GPIO_RES_OK) {
+            rc = -6; goto done;
+        }
+        if (!resp.payload.read.has_level ||
+            resp.payload.read.level != drv_gpio_GpioLevel_GPIO_LEVEL_HIGH) {
+            rc = -7; goto done;
+        }
+    }
+
+    // step 3: timeout test (unknown rpc_id, 500ms)
+    {
+        drv_gpio_GpioRpcRequest  req  = drv_gpio_GpioRpcRequest_init_zero;
+        drv_gpio_GpioRpcResponse resp = drv_gpio_GpioRpcResponse_init_zero;
+        req.which_payload = drv_gpio_GpioRpcRequest_read_tag;
+        req.payload.read.pin = 1;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, 0xFFFF,
+            drv_gpio_GpioRpcRequest_fields,  &req,
+            drv_gpio_GpioRpcResponse_fields, &resp,
+            500);
+        if (ret == 0) { rc = -8; goto done; } // 期望非零 (服务端无handler → -404, 或超时 → -1)
+    }
+
+done:
+    lua_pushinteger(L, rc);
+    return 1;
+}
+
+/*
+nanopb UART RPC loopback 自测
+@api airlink.testNanopbUart()
+@return int 0=全部通过, 负值=失败步骤号
+*/
+static int l_airlink_test_nanopb_uart(lua_State* L) {
+    int rc = 0;
+
+    // step 1: uart setup (PC stub 返回 -1 → FAIL result 也可接受)
+    {
+        drv_uart_UartRpcRequest  req  = drv_uart_UartRpcRequest_init_zero;
+        drv_uart_UartRpcResponse resp = drv_uart_UartRpcResponse_init_zero;
+        req.which_payload       = drv_uart_UartRpcRequest_setup_tag;
+        req.payload.setup.id        = 10;  // airlink uart 0
+        req.payload.setup.has_baud_rate = true;
+        req.payload.setup.baud_rate = 115200;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_UART,
+            drv_uart_UartRpcRequest_fields,  &req,
+            drv_uart_UartRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -1; goto done_uart; }
+        if (resp.which_payload != drv_uart_UartRpcResponse_setup_tag) { rc = -2; goto done_uart; }
+        // PC stub 可能返回 FAIL, 但只要 RPC 调通即可
+    }
+
+    // step 2: uart write (PC stub 无 uart driver, 预期 FAIL, 但 RPC 应答不超时)
+    {
+        drv_uart_UartRpcRequest  req  = drv_uart_UartRpcRequest_init_zero;
+        drv_uart_UartRpcResponse resp = drv_uart_UartRpcResponse_init_zero;
+        req.which_payload        = drv_uart_UartRpcRequest_write_tag;
+        req.payload.write.id     = 10;
+        req.payload.write.data.size = 4;
+        req.payload.write.data.bytes[0] = 'T';
+        req.payload.write.data.bytes[1] = 'E';
+        req.payload.write.data.bytes[2] = 'S';
+        req.payload.write.data.bytes[3] = 'T';
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_UART,
+            drv_uart_UartRpcRequest_fields,  &req,
+            drv_uart_UartRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -3; goto done_uart; }
+        if (resp.which_payload != drv_uart_UartRpcResponse_write_tag) { rc = -4; goto done_uart; }
+    }
+
+    // step 3: uart close
+    {
+        drv_uart_UartRpcRequest  req  = drv_uart_UartRpcRequest_init_zero;
+        drv_uart_UartRpcResponse resp = drv_uart_UartRpcResponse_init_zero;
+        req.which_payload        = drv_uart_UartRpcRequest_close_tag;
+        req.payload.close.id     = 10;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_UART,
+            drv_uart_UartRpcRequest_fields,  &req,
+            drv_uart_UartRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -5; goto done_uart; }
+        if (resp.which_payload != drv_uart_UartRpcResponse_close_tag) { rc = -6; goto done_uart; }
+    }
+
+done_uart:
+    lua_pushinteger(L, rc);
+    return 1;
+}
+
+/*
+nanopb WLAN RPC loopback 自测
+@api airlink.testNanopbWlan()
+@return int 0=全部通过, 负值=失败步骤号
+*/
+static int l_airlink_test_nanopb_wlan(lua_State* L) {
+    int rc = 0;
+
+    // step 1: wlan init (PC mock 返回 0 → OK)
+    {
+        drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
+        drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;
+        req.which_payload = drv_wlan_WlanRpcRequest_init_tag;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_WLAN,
+            drv_wlan_WlanRpcRequest_fields,  &req,
+            drv_wlan_WlanRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -1; goto done_wlan; }
+        if (resp.which_payload != drv_wlan_WlanRpcResponse_init_tag) { rc = -2; goto done_wlan; }
+        if (!resp.payload.init.result.has_code ||
+            resp.payload.init.result.code != drv_wlan_WlanResultCode_WLAN_RES_OK) {
+            rc = -3; goto done_wlan;
+        }
+    }
+
+    // step 2: wlan scan (PC mock 返回 0 → OK)
+    {
+        drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
+        drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;
+        req.which_payload = drv_wlan_WlanRpcRequest_scan_tag;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_WLAN,
+            drv_wlan_WlanRpcRequest_fields,  &req,
+            drv_wlan_WlanRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -4; goto done_wlan; }
+        if (resp.which_payload != drv_wlan_WlanRpcResponse_scan_tag) { rc = -5; goto done_wlan; }
+        if (!resp.payload.scan.result.has_code ||
+            resp.payload.scan.result.code != drv_wlan_WlanResultCode_WLAN_RES_OK) {
+            rc = -6; goto done_wlan;
+        }
+    }
+
+    // step 3: wlan ap_start (PC mock 返回 0 → OK)
+    {
+        drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
+        drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;
+        req.which_payload = drv_wlan_WlanRpcRequest_ap_start_tag;
+        strncpy(req.payload.ap_start.ssid, "TestAP", sizeof(req.payload.ap_start.ssid) - 1);
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_WLAN,
+            drv_wlan_WlanRpcRequest_fields,  &req,
+            drv_wlan_WlanRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -7; goto done_wlan; }
+        if (resp.which_payload != drv_wlan_WlanRpcResponse_ap_start_tag) { rc = -8; goto done_wlan; }
+        if (!resp.payload.ap_start.result.has_code ||
+            resp.payload.ap_start.result.code != drv_wlan_WlanResultCode_WLAN_RES_OK) {
+            rc = -9; goto done_wlan;
+        }
+    }
+
+    // step 4: wlan ap_stop (PC mock 返回 0 → OK)
+    {
+        drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
+        drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;
+        req.which_payload = drv_wlan_WlanRpcRequest_ap_stop_tag;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_WLAN,
+            drv_wlan_WlanRpcRequest_fields,  &req,
+            drv_wlan_WlanRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -10; goto done_wlan; }
+        if (resp.which_payload != drv_wlan_WlanRpcResponse_ap_stop_tag) { rc = -11; goto done_wlan; }
+        if (!resp.payload.ap_stop.result.has_code ||
+            resp.payload.ap_stop.result.code != drv_wlan_WlanResultCode_WLAN_RES_OK) {
+            rc = -12; goto done_wlan;
+        }
+    }
+
+    // step 5: wlan connect (PC mock 返回 0 → OK)
+    {
+        drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
+        drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;
+        req.which_payload = drv_wlan_WlanRpcRequest_connect_tag;
+        strncpy(req.payload.connect.ssid, "TestSSID", sizeof(req.payload.connect.ssid) - 1);
+        req.payload.connect.has_password = true;
+        strncpy(req.payload.connect.password, "testpass", sizeof(req.payload.connect.password) - 1);
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_WLAN,
+            drv_wlan_WlanRpcRequest_fields,  &req,
+            drv_wlan_WlanRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -13; goto done_wlan; }
+        if (resp.which_payload != drv_wlan_WlanRpcResponse_connect_tag) { rc = -14; goto done_wlan; }
+        if (!resp.payload.connect.result.has_code ||
+            resp.payload.connect.result.code != drv_wlan_WlanResultCode_WLAN_RES_OK) {
+            rc = -15; goto done_wlan;
+        }
+    }
+
+    // step 6: wlan disconnect (PC mock 返回 0 → OK)
+    {
+        drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
+        drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;
+        req.which_payload = drv_wlan_WlanRpcRequest_disconnect_tag;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_WLAN,
+            drv_wlan_WlanRpcRequest_fields,  &req,
+            drv_wlan_WlanRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -16; goto done_wlan; }
+        if (resp.which_payload != drv_wlan_WlanRpcResponse_disconnect_tag) { rc = -17; goto done_wlan; }
+        if (!resp.payload.disconnect.result.has_code ||
+            resp.payload.disconnect.result.code != drv_wlan_WlanResultCode_WLAN_RES_OK) {
+            rc = -18; goto done_wlan;
+        }
+    }
+
+done_wlan:
+    lua_pushinteger(L, rc);
+    return 1;
+}
+
+/*
+nanopb PM RPC loopback 自测
+@api airlink.testNanopbPm()
+@return int 0=全部通过, 负值=失败步骤号
+*/
+static int l_airlink_test_nanopb_pm(lua_State* L) {
+    int rc = 0;
+
+    // step 1: pm_power_ctrl (PC stub 返回 0 → OK)
+    {
+        drv_pm_PmRpcRequest  req  = drv_pm_PmRpcRequest_init_zero;
+        drv_pm_PmRpcResponse resp = drv_pm_PmRpcResponse_init_zero;
+        req.which_payload              = drv_pm_PmRpcRequest_power_ctrl_tag;
+        req.payload.power_ctrl.id      = 1;
+        req.payload.power_ctrl.val     = 1;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_PM,
+            drv_pm_PmRpcRequest_fields,  &req,
+            drv_pm_PmRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -1; goto done_pm; }
+        if (resp.which_payload != drv_pm_PmRpcResponse_power_ctrl_tag) { rc = -2; goto done_pm; }
+        if (!resp.payload.power_ctrl.result.has_code ||
+            resp.payload.power_ctrl.result.code != drv_pm_PmResultCode_PM_RES_OK) {
+            rc = -3; goto done_pm;
+        }
+    }
+
+    // step 2: pm_wakeup_pin (PC stub 返回 -1 → FAIL result, 但 RPC 应答不超时)
+    {
+        drv_pm_PmRpcRequest  req  = drv_pm_PmRpcRequest_init_zero;
+        drv_pm_PmRpcResponse resp = drv_pm_PmRpcResponse_init_zero;
+        req.which_payload             = drv_pm_PmRpcRequest_wakeup_pin_tag;
+        req.payload.wakeup_pin.pin    = 5;
+        req.payload.wakeup_pin.val    = 1;
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_PM,
+            drv_pm_PmRpcRequest_fields,  &req,
+            drv_pm_PmRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -4; goto done_pm; }
+        if (resp.which_payload != drv_pm_PmRpcResponse_wakeup_pin_tag) { rc = -5; goto done_pm; }
+        // PC stub 返回 -1 → FAIL result 也可接受
+    }
+
+    // step 3: pm_request (PC stub 返回 0 → OK)
+    {
+        drv_pm_PmRpcRequest  req  = drv_pm_PmRpcRequest_init_zero;
+        drv_pm_PmRpcResponse resp = drv_pm_PmRpcResponse_init_zero;
+        req.which_payload              = drv_pm_PmRpcRequest_pm_request_tag;
+        req.payload.pm_request.mode    = 0;  // LUAT_PM_SLEEP_MODE_NONE
+        int ret = luat_airlink_rpc_nb_call(
+            LUAT_AIRLINK_MODE_LOOPBACK, AIRLINK_LIB_RPC_ID_PM,
+            drv_pm_PmRpcRequest_fields,  &req,
+            drv_pm_PmRpcResponse_fields, &resp,
+            3000);
+        if (ret != 0) { rc = -6; goto done_pm; }
+        if (resp.which_payload != drv_pm_PmRpcResponse_pm_request_tag) { rc = -7; goto done_pm; }
+        if (!resp.payload.pm_request.result.has_code ||
+            resp.payload.pm_request.result.code != drv_pm_PmResultCode_PM_RES_OK) {
+            rc = -8; goto done_pm;
+        }
+    }
+
+done_pm:
+    lua_pushinteger(L, rc);
+    return 1;
+}
+#endif /* LUAT_USE_AIRLINK_LOOPBACK */
+
 static const rotable_Reg_t reg_airlink[] =
 {
     { "init" ,         ROREG_FUNC(l_airlink_init )},
@@ -766,10 +1043,21 @@ static const rotable_Reg_t reg_airlink[] =
 #endif
 
 #ifdef LUAT_USE_AIRLINK_RPC
-    //@const rpcRegister function 注册 RPC 服务端处理函数
-    { "rpcRegister",   ROREG_FUNC(l_airlink_rpc_register )},
     //@const rpc function 同步调用对端 RPC
     { "rpc",           ROREG_FUNC(l_airlink_rpc )},
+#endif
+
+#ifdef LUAT_USE_AIRLINK_LOOPBACK
+    //@const testNanopbGpio function nanopb GPIO RPC loopback 自测
+    { "testNanopbGpio", ROREG_FUNC(l_airlink_test_nanopb_gpio) },
+    //@const testNanopbUart function nanopb UART RPC loopback 自测
+    { "testNanopbUart", ROREG_FUNC(l_airlink_test_nanopb_uart) },
+    //@const testNanopbWlan function nanopb WLAN RPC loopback 自测
+    { "testNanopbWlan", ROREG_FUNC(l_airlink_test_nanopb_wlan) },
+    //@const testNanopbPm function nanopb PM RPC loopback 自测
+    { "testNanopbPm",   ROREG_FUNC(l_airlink_test_nanopb_pm) },
+    //@const MODE_LOOPBACK number airlink.start参数, loopback自测模式
+    { "MODE_LOOPBACK",  ROREG_INT(LUAT_AIRLINK_MODE_LOOPBACK) },
 #endif
 
     //@const MODE_SPI_SLAVE number airlink.start参数, SPI从机模式

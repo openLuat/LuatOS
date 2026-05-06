@@ -33,6 +33,7 @@ static int s_gw_adapter_id = -1;
 // 同步 drvs[adapter_id]->netif 与 prvlwip.lwip_netif (SOC固件的真实netif)
 // 用于解决 PDP 重激活后 drvs[]->netif 指针过时的问题
 static void napt_sync_gw_netif(int adapter_id) {
+    #ifdef  __USE_SDK_LWIP__
     luat_netdrv_t* drv = luat_netdrv_get(adapter_id);
     if (drv == NULL) return;
     struct netif* real_netif = net_lwip_get_netif(adapter_id);
@@ -43,6 +44,7 @@ static void napt_sync_gw_netif(int adapter_id) {
     LLOGI("NAPT netif sync: adapter=%d old=%p(IP %08X) -> new=%p(IP %08X)",
           adapter_id, drv->netif, old_ip, real_netif, new_ip);
     drv->netif = real_netif;
+    #endif
 }
 
 #if !defined(LUAT_USE_PSRAM) && !defined(LUAT_USE_NETDRV_NAPT)

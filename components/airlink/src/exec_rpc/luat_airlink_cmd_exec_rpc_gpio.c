@@ -52,30 +52,27 @@ __AIRLINK_CODE_IN_RAM__ static int rpc_gpio_irq_cb_task(void* param) {
         int pin   = (int)event.param1;
         int level = (int)event.param2;
 
-        // 构造 GpioRpcRequest { irq_event { pin, level, tick_ms } }
-        drv_gpio_GpioRpcRequest req = drv_gpio_GpioRpcRequest_init_zero;
-        req.req_id = 0;
-        req.which_payload = drv_gpio_GpioRpcRequest_irq_event_tag;
-        req.payload.irq_event.pin          = (uint32_t)(pin + 128); // 物理 pin → 虚拟 pin
-        req.payload.irq_event.has_level    = true;
-        req.payload.irq_event.level        = (level == 1) ? drv_gpio_GpioLevel_GPIO_LEVEL_HIGH
+        // 构造 GpioRpcResponse { irq_event { pin, level, tick_ms } } 作为 NOTIFY
+        drv_gpio_GpioRpcResponse msg = drv_gpio_GpioRpcResponse_init_zero;
+        msg.req_id = 0;
+        msg.which_payload = drv_gpio_GpioRpcResponse_irq_event_tag;
+        msg.payload.irq_event.pin          = (uint32_t)(pin + 128); // 物理 pin → 虚拟 pin
+        msg.payload.irq_event.has_level    = true;
+        msg.payload.irq_event.level        = (level == 1) ? drv_gpio_GpioLevel_GPIO_LEVEL_HIGH
                                                           : drv_gpio_GpioLevel_GPIO_LEVEL_LOW;
-        req.payload.irq_event.has_tick_ms  = true;
-        req.payload.irq_event.tick_ms      = luat_mcu_tick64_ms();
+        msg.payload.irq_event.has_tick_ms  = true;
+        msg.payload.irq_event.tick_ms      = luat_mcu_tick64_ms();
 
-        LLOGD("rpc gpio irq notify pin=%d level=%d", pin, level);
+        LLOGW("rpc gpio irq notify pin=%d level=%d", pin, level);
 
         int mode = luat_airlink_current_mode_get();
         luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_RPC_ID_GPIO,
-                                   drv_gpio_GpioRpcRequest_fields, &req);
+                                   drv_gpio_GpioRpcResponse_fields, &msg);
     }
     return 0;
 }
 
-/* ------------------------------------------------------------------ */
-/* proto enum (1-based) → C 宏 (0-based) 转换辅助                       */
-/* ------------------------------------------------------------------ */
-
+// proto enum (1-based) → C 宏 (0-based) 转换辅助
 static inline int proto_mode_to_c(drv_gpio_GpioMode m) {
     return (m > 0) ? (int)(m - 1) : Luat_GPIO_INPUT;
 }
@@ -104,10 +101,6 @@ static void set_result_fail(drv_gpio_GpioResult* r, int os_err) {
     r->os_errno = os_err;
 }
 
-/* ------------------------------------------------------------------ */
-/* 统一 handler (从机执行 GPIO 操作 + 主机接收 IRQ 事件)                  */
-/* ------------------------------------------------------------------ */
-
 static int gpio_rpc_handler(uint16_t rpc_id,
                              const void* req_raw, void* resp_raw,
                              void* userdata) {
@@ -124,17 +117,18 @@ static int gpio_rpc_handler(uint16_t rpc_id,
         luat_gpio_cfg_t cfg = {0};
         luat_gpio_set_default_cfg(&cfg);
         cfg.pin  = (int)s->pin;
+        if (cfg.pin >= 128) cfg.pin -= 128;
         cfg.mode = proto_mode_to_c(s->has_mode ? s->mode : drv_gpio_GpioMode_GPIO_MODE_INPUT);
         cfg.pull = proto_pull_to_c(s->has_pull ? s->pull : drv_gpio_GpioPull_GPIO_PULL_DEFAULT);
         if (cfg.mode == Luat_GPIO_OUTPUT) {
             cfg.output_level = proto_level_to_c(s->has_init_level ? s->init_level
                                                                    : drv_gpio_GpioLevel_GPIO_LEVEL_LOW);
         }
+        if (cfg.mode == Luat_GPIO_IRQ && s->has_irq_type) {
+            cfg.irq_type = proto_irq_to_c(s->irq_type);
+        }
         if (cfg.mode == Luat_GPIO_IRQ) {
-            if (s->has_irq_type) {
-                cfg.irq_type = proto_irq_to_c(s->irq_type);
-            }
-            // 创建 IRQ 基础设施 (首次)
+            // 创建 IRQ 基础设施 (首次, 仅从机侧生效)
             if (rpc_gpio_irq_queue == NULL) {
                 luat_rtos_queue_create(&rpc_gpio_irq_queue, 1 * 1024, sizeof(luat_event_t));
             }
@@ -145,30 +139,35 @@ static int gpio_rpc_handler(uint16_t rpc_id,
             cfg.irq_cb   = rpc_gpio_irq_cb;
             cfg.irq_args = NULL;
         }
-        LLOGI("gpio setup pin=%d mode=%d pull=%d", cfg.pin, cfg.mode, cfg.pull);
         ret = luat_gpio_open(&cfg);
+        LLOGW("gpio setup pin=%d mode=%d pull=%d irq_type=%d ret=%d", cfg.pin, cfg.mode, cfg.pull, cfg.irq_type, ret);
         resp->which_payload = drv_gpio_GpioRpcResponse_setup_tag;
         if (ret == 0) set_result_ok(&resp->payload.setup.result);
         else          set_result_fail(&resp->payload.setup.result, ret);
         break;
     }
     case drv_gpio_GpioRpcRequest_close_tag: {
-        luat_gpio_close((int)req->payload.close.pin);
+        int pin = (int)req->payload.close.pin;
+        if (pin >= 128) pin -= 128;
+        luat_gpio_close(pin);
         resp->which_payload = drv_gpio_GpioRpcResponse_close_tag;
         set_result_ok(&resp->payload.close.result);
         break;
     }
     case drv_gpio_GpioRpcRequest_write_tag: {
         const drv_gpio_GpioWriteRequest* w = &req->payload.write;
-        LLOGI("gpio write pin=%d level=%d", (int)w->pin, proto_level_to_c(w->level));
-        ret = luat_gpio_set((int)w->pin, proto_level_to_c(w->level));
+        int pin = (int)w->pin;
+        if (pin >= 128) pin -= 128;
+        ret = luat_gpio_set(pin, proto_level_to_c(w->level));
         resp->which_payload = drv_gpio_GpioRpcResponse_write_tag;
         if (ret == 0) set_result_ok(&resp->payload.write.result);
         else          set_result_fail(&resp->payload.write.result, ret);
         break;
     }
     case drv_gpio_GpioRpcRequest_read_tag: {
-        int level = luat_gpio_get((int)req->payload.read.pin);
+        int pin = (int)req->payload.read.pin;
+        if (pin >= 128) pin -= 128;
+        int level = luat_gpio_get(pin);
         resp->which_payload = drv_gpio_GpioRpcResponse_read_tag;
         if (level < 0) {
             set_result_fail(&resp->payload.read.result, level);
@@ -181,7 +180,9 @@ static int gpio_rpc_handler(uint16_t rpc_id,
     }
     case drv_gpio_GpioRpcRequest_set_pull_tag: {
         const drv_gpio_GpioSetPullRequest* sp = &req->payload.set_pull;
-        ret = luat_gpio_ctrl((int)sp->pin, LUAT_GPIO_CMD_SET_PULL_MODE,
+        int pin = (int)sp->pin;
+        if (pin >= 128) pin -= 128;
+        ret = luat_gpio_ctrl(pin, LUAT_GPIO_CMD_SET_PULL_MODE,
                              proto_pull_to_c(sp->pull));
         resp->which_payload = drv_gpio_GpioRpcResponse_set_pull_tag;
         if (ret == 0) set_result_ok(&resp->payload.set_pull.result);
@@ -190,24 +191,14 @@ static int gpio_rpc_handler(uint16_t rpc_id,
     }
     case drv_gpio_GpioRpcRequest_set_irq_tag: {
         const drv_gpio_GpioSetIrqRequest* si = &req->payload.set_irq;
+        int pin = (int)si->pin;
+        if (pin >= 128) pin -= 128;
         int irq_mode = proto_irq_to_c(si->has_irq_type ? si->irq_type
                                                         : drv_gpio_GpioIrqType_GPIO_IRQ_RISING);
-        ret = luat_gpio_ctrl((int)si->pin, LUAT_GPIO_CMD_SET_IRQ_MODE, irq_mode);
+        ret = luat_gpio_ctrl(pin, LUAT_GPIO_CMD_SET_IRQ_MODE, irq_mode);
         resp->which_payload = drv_gpio_GpioRpcResponse_set_irq_tag;
         if (ret == 0) set_result_ok(&resp->payload.set_irq.result);
         else          set_result_fail(&resp->payload.set_irq.result, ret);
-        break;
-    }
-    case drv_gpio_GpioRpcRequest_irq_event_tag: {
-        // 主机侧接收: 从机上报的 IRQ 事件 NOTIFY → 调用 Lua 回调
-        const drv_gpio_GpioIrqEvent* evt = &req->payload.irq_event;
-        int pin   = (int)evt->pin;
-        int level = evt->has_level
-                    ? (evt->level == drv_gpio_GpioLevel_GPIO_LEVEL_HIGH ? 1 : 0)
-                    : 0;
-        LLOGD("irq event recv pin=%d level=%d tick=%llu",
-              pin, level, evt->has_tick_ms ? evt->tick_ms : 0ULL);
-        luat_gpio_irq_default(pin, (void*)(intptr_t)level);
         break;
     }
     default:
@@ -217,6 +208,18 @@ static int gpio_rpc_handler(uint16_t rpc_id,
     return 0;
 }
 
+// NOTIFY 处理: 对端上报的 GPIO IRQ 事件 → 调用 luat_gpio_irq_default 触发 Lua 回调
+static void gpio_rpc_notify_handler(uint16_t rpc_id, const void* msg, void* userdata) {
+    const drv_gpio_GpioRpcResponse* resp = (const drv_gpio_GpioRpcResponse*)msg;
+    if (resp->which_payload == drv_gpio_GpioRpcResponse_irq_event_tag) {
+        int pin = (int)resp->payload.irq_event.pin;
+        // proto level: GPIO_LEVEL_LOW=1, GPIO_LEVEL_HIGH=2 → C level: 0/1
+        int level = (resp->payload.irq_event.level == drv_gpio_GpioLevel_GPIO_LEVEL_HIGH) ? 1 : 0;
+        LLOGW("irq notify pin=%d level=%d", pin, level);
+        luat_gpio_irq_default(pin, (void*)(intptr_t)level);
+    }
+}
+
 const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_gpio_reg = {
     .rpc_id         = AIRLINK_RPC_ID_GPIO,
     .active         = 1,
@@ -224,8 +227,10 @@ const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_gpio_reg = {
     .req_size       = sizeof(drv_gpio_GpioRpcRequest),
     .resp_desc      = drv_gpio_GpioRpcResponse_fields,
     .resp_size      = sizeof(drv_gpio_GpioRpcResponse),
+    .notify_desc    = drv_gpio_GpioRpcResponse_fields,
+    .notify_size    = sizeof(drv_gpio_GpioRpcResponse),
     .handler        = gpio_rpc_handler,
-    .notify_handler = NULL,
+    .notify_handler = gpio_rpc_notify_handler,
     .userdata       = NULL,
 };
 

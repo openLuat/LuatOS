@@ -55,6 +55,8 @@ typedef struct luat_airlink_rpc_nb_reg {
     size_t               req_size;
     const pb_msgdesc_t* resp_desc;
     size_t               resp_size;
+    const pb_msgdesc_t* notify_desc;     // NOTIFY 消息的 proto 描述符 (NULL=使用 req_desc)
+    size_t               notify_size;    // NOTIFY 消息的 struct 大小
     luat_airlink_rpc_nb_handler_t        handler;
     luat_airlink_rpc_nb_notify_handler_t notify_handler;
     void* userdata;

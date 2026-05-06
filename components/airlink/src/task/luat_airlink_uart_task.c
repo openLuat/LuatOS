@@ -104,7 +104,7 @@ __USER_FUNC_IN_RAM__ static void record_statistic(luat_event_t event)
 
 
 __USER_FUNC_IN_RAM__ static int on_link_data_notify(airlink_link_data_t* link) {
-    memset(&link->flags, 0, sizeof(uint32_t));
+    // memset(&link->flags, 0, sizeof(uint32_t));
     if (g_airlink_irq_ctx.enable) {
         link->flags.irq_ready = 1;
         link->flags.irq_pin = g_airlink_irq_ctx.slave_pin - 140;

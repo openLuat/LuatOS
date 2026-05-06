@@ -149,6 +149,7 @@ typedef struct _drv_gpio_GpioRpcRequest {
         drv_gpio_GpioReadRequest read;
         drv_gpio_GpioSetPullRequest set_pull;
         drv_gpio_GpioSetIrqRequest set_irq;
+        drv_gpio_GpioIrqEvent irq_event;
     } payload;
 } drv_gpio_GpioRpcRequest;
 
@@ -294,6 +295,7 @@ extern "C" {
 #define drv_gpio_GpioRpcRequest_read_tag         13
 #define drv_gpio_GpioRpcRequest_set_pull_tag     14
 #define drv_gpio_GpioRpcRequest_set_irq_tag      15
+#define drv_gpio_GpioRpcRequest_irq_event_tag    100
 #define drv_gpio_GpioRpcResponse_req_id_tag      1
 #define drv_gpio_GpioRpcResponse_setup_tag       10
 #define drv_gpio_GpioRpcResponse_close_tag       11
@@ -404,7 +406,8 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,close,payload.close),  11) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,write,payload.write),  12) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,read,payload.read),  13) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,set_pull,payload.set_pull),  14) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (payload,set_irq,payload.set_irq),  15)
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,set_irq,payload.set_irq),  15) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,irq_event,payload.irq_event), 100)
 #define drv_gpio_GpioRpcRequest_CALLBACK NULL
 #define drv_gpio_GpioRpcRequest_DEFAULT NULL
 #define drv_gpio_GpioRpcRequest_payload_setup_MSGTYPE drv_gpio_GpioSetupRequest
@@ -413,6 +416,7 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,set_irq,payload.set_irq),  15)
 #define drv_gpio_GpioRpcRequest_payload_read_MSGTYPE drv_gpio_GpioReadRequest
 #define drv_gpio_GpioRpcRequest_payload_set_pull_MSGTYPE drv_gpio_GpioSetPullRequest
 #define drv_gpio_GpioRpcRequest_payload_set_irq_MSGTYPE drv_gpio_GpioSetIrqRequest
+#define drv_gpio_GpioRpcRequest_payload_irq_event_MSGTYPE drv_gpio_GpioIrqEvent
 
 #define drv_gpio_GpioRpcResponse_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, UINT32,   req_id,            1) \

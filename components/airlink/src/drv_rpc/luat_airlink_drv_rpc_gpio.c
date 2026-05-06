@@ -70,11 +70,21 @@ static void gpio_cfg_to_setup_req(const luat_gpio_cfg_t* cfg, drv_gpio_GpioSetup
 
 int luat_airlink_drv_rpc_gpio_setup(luat_gpio_t* gpio) {
     int mode = luat_airlink_current_mode_get();
-    drv_gpio_GpioRpcRequest req = drv_gpio_GpioRpcRequest_init_zero;
+    drv_gpio_GpioRpcRequest  req  = drv_gpio_GpioRpcRequest_init_zero;
+    drv_gpio_GpioRpcResponse resp = drv_gpio_GpioRpcResponse_init_zero;
     req.which_payload = drv_gpio_GpioRpcRequest_setup_tag;
     gpio_t_to_setup_req(gpio, &req.payload.setup);
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_GPIO,
-                                      drv_gpio_GpioRpcRequest_fields, &req);
+    int rc = luat_airlink_rpc_nb_call((uint8_t)mode, AIRLINK_DRV_RPC_ID_GPIO,
+                                       drv_gpio_GpioRpcRequest_fields,  &req,
+                                       drv_gpio_GpioRpcResponse_fields, &resp,
+                                       1000);
+    if (rc != 0) return rc;
+    if (resp.which_payload != drv_gpio_GpioRpcResponse_setup_tag) return -10;
+    if (resp.payload.setup.result.has_code &&
+        resp.payload.setup.result.code != drv_gpio_GpioResultCode_GPIO_RES_OK) {
+        return (int)resp.payload.setup.result.code;
+    }
+    return 0;
 }
 
 int luat_airlink_drv_rpc_gpio_open(luat_gpio_cfg_t* gpio) {
@@ -99,12 +109,22 @@ int luat_airlink_drv_rpc_gpio_open(luat_gpio_cfg_t* gpio) {
 int luat_airlink_drv_rpc_gpio_set(int pin, int level) {
     if (pin >= 128) pin -= 128;
     int mode = luat_airlink_current_mode_get();
-    drv_gpio_GpioRpcRequest req = drv_gpio_GpioRpcRequest_init_zero;
+    drv_gpio_GpioRpcRequest  req  = drv_gpio_GpioRpcRequest_init_zero;
+    drv_gpio_GpioRpcResponse resp = drv_gpio_GpioRpcResponse_init_zero;
     req.which_payload       = drv_gpio_GpioRpcRequest_write_tag;
     req.payload.write.pin   = (uint32_t)pin;
     req.payload.write.level = c_level_to_proto(level);
-    return luat_airlink_rpc_nb_notify((uint8_t)mode, AIRLINK_DRV_RPC_ID_GPIO,
-                                      drv_gpio_GpioRpcRequest_fields, &req);
+    int rc = luat_airlink_rpc_nb_call((uint8_t)mode, AIRLINK_DRV_RPC_ID_GPIO,
+                                       drv_gpio_GpioRpcRequest_fields,  &req,
+                                       drv_gpio_GpioRpcResponse_fields, &resp,
+                                       1000);
+    if (rc != 0) return rc;
+    if (resp.which_payload != drv_gpio_GpioRpcResponse_write_tag) return -10;
+    if (resp.payload.write.result.has_code &&
+        resp.payload.write.result.code != drv_gpio_GpioResultCode_GPIO_RES_OK) {
+        return (int)resp.payload.write.result.code;
+    }
+    return 0;
 }
 
 int luat_airlink_drv_rpc_gpio_get(int pin, int* val) {

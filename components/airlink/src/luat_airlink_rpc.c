@@ -18,10 +18,10 @@
 #include "luat_rtos.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
+#ifdef LUAT_USE_AIRLINK_RPC
+
 #include "pb_encode.h"
 #include "pb_decode.h"
-
-#ifdef LUAT_USE_AIRLINK_RPC
 
 #define LUAT_LOG_TAG "airlink.rpc"
 #include "luat_log.h"
@@ -34,6 +34,13 @@ static luat_airlink_rpc_stats_t g_rpc_stats = {0};
 static luat_airlink_rpc_latency_t g_rpc_latency = {0};
 static luat_airlink_rpc_perf_t g_rpc_perf = {0};
 static luat_rtos_mutex_t g_rpc_stats_mutex = NULL;
+
+// stats mutex 统一初始化 (幂等, 由 luat_airlink_init 调用)
+void luat_airlink_rpc_stats_init(void) {
+    if (g_rpc_stats_mutex == NULL) {
+        luat_rtos_mutex_create(&g_rpc_stats_mutex);
+    }
+}
 
 static inline void _stats_lock(void) {
     if (g_rpc_stats_mutex == NULL) {
@@ -94,6 +101,8 @@ typedef struct {
 static void rpc_sync_exec(struct luat_airlink_result_reg* reg, luat_airlink_cmd_t* cmd) {
     rpc_sync_ctx_t* ctx = (rpc_sync_ctx_t*)reg->userdata;
 
+    LLOGI("rpc_sync_exec ENTER cmd->len=%d timed_out=%d", cmd->len, (int)ctx->timed_out);
+
     if (ctx->timed_out) {
         // 调用方已超时并放弃等待，由 callback 释放资源
         luat_rtos_semaphore_delete(ctx->sem);
@@ -101,10 +110,12 @@ static void rpc_sync_exec(struct luat_airlink_result_reg* reg, luat_airlink_cmd_
         return;
     }
 
+    LLOGD("rpc_sync_exec cmd->len=%d", cmd->len);
     // cmd->data 格式: [new_pkgid:8][req_pkgid:8][result_code:2][resp payload]
     if (cmd->len >= 18) {
         int16_t result_code = 0;
         memcpy(&result_code, cmd->data + 16, 2);
+        LLOGD("rpc_sync_exec result_code=%d", (int)result_code);
         ctx->ret_code = (int)result_code;
 
         uint16_t payload_len = cmd->len - 18;
@@ -154,7 +165,7 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
     ctx->ret_code     = -1;
     ctx->timed_out    = 0;
 
-    if (luat_rtos_semaphore_create(&ctx->sem, 0) != 0) {
+    if (luat_rtos_semaphore_create(&ctx->sem, 1) != 0) {
         LLOGE("rpc: semaphore create failed");
         luat_heap_free(ctx);
         _stats_lock();
@@ -223,8 +234,10 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
         return -3;
     }
 
+    LLOGI("rpc: waiting on semaphore pkgid=0x%llx timeout=%dms", pkgid, timeout_ms);
     // 阻塞等待
     int wait_ret = luat_rtos_semaphore_take(ctx->sem, timeout_ms);
+    LLOGI("rpc: semaphore take ret=%d (pkgid=0x%llx)", wait_ret, pkgid);
     if (wait_ret != 0) {
         // 超时：尝试从注册表清理 result_reg slot
         uint64_t elapsed_ms = luat_mcu_tick64_ms() - start_tick;
@@ -272,6 +285,7 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
     }
     _stats_unlock();
     
+    luat_airlink_result_unreg(pkgid);
     luat_rtos_semaphore_delete(ctx->sem);
     luat_heap_free(ctx);
     return result;
@@ -306,14 +320,21 @@ int luat_airlink_rpc_nb_dispatch(uint16_t rpc_id, uint8_t msg_type,
     if (!found) return -404;
 
     if (msg_type == AIRLINK_RPC_MSG_TYPE_NOTIFY) {
-        if (entry.notify_handler && entry.req_desc && entry.req_size > 0) {
-            void* msg_struct = luat_heap_malloc(entry.req_size);
-            if (msg_struct) {
-                memset(msg_struct, 0, entry.req_size);
-                pb_istream_t istream = pb_istream_from_buffer(req_bytes, req_len);
-                pb_decode(&istream, entry.req_desc, msg_struct);
-                entry.notify_handler(rpc_id, msg_struct, entry.userdata);
-                luat_heap_free(msg_struct);
+        if (entry.notify_handler) {
+            const pb_msgdesc_t* n_desc  = entry.notify_desc ? entry.notify_desc : entry.req_desc;
+            size_t              n_size  = entry.notify_desc ? entry.notify_size : entry.req_size;
+            if (n_desc && n_size > 0) {
+                void* msg_struct = luat_heap_malloc(n_size);
+                if (msg_struct) {
+                    memset(msg_struct, 0, n_size);
+                    pb_istream_t istream = pb_istream_from_buffer(req_bytes, req_len);
+                    if (pb_decode(&istream, n_desc, msg_struct)) {
+                        entry.notify_handler(rpc_id, msg_struct, entry.userdata);
+                    } else {
+                        LLOGE("rpc_nb_dispatch: pb_decode notify failed rpc_id=%04X", rpc_id);
+                    }
+                    luat_heap_free(msg_struct);
+                }
             }
         }
         *resp_len = 0;

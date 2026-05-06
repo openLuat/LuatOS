@@ -1,5 +1,0 @@
-{
-    "name": "memprof_basic",
-    "desc": "memprof Lua memory profiler basic tests",
-    "version": "1.0.0"
-}

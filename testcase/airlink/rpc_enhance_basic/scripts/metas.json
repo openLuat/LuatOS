@@ -1,6 +1,0 @@
-{
-    "name": "rpc_enhance_basic",
-    "desc": "AirLink RPC 增强功能测试 (async/notify/defer API)",
-    "version": "1.0.0",
-    "platform": ["pc"]
-}

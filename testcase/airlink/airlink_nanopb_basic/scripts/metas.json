@@ -1,6 +1,0 @@
-{
-    "name": "airlink_nanopb_basic",
-    "desc": "AirLink nanopb RPC loopback 基础测试 (GPIO write/read/timeout)",
-    "version": "1.0.0",
-    "platform": ["pc"]
-}

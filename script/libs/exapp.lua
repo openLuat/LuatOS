@@ -359,7 +359,7 @@ local function app_task(app_path)
         "exgnss", "exlcd", "exmodbus", "exnetif", "exremotecam", "exremotefile",
         "exril_5101", "extalk", "extp", "exvib", "exvib1", "exwin",
         "httpdns", "httpplus", "lbsLoc", "lbsLoc2",
-        "libfota", "libfota2", "libnet", "netLed", "udpsrv", "xmodem"
+        "libfota", "libfota2", "libnet", "netLed", "udpsrv", "xmodem", "sys"
     }
     local EXT_LIBS_SET = {}
     for _, v in ipairs(EXT_LIBS) do EXT_LIBS_SET[v] = true end

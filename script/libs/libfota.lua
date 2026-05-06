@@ -47,9 +47,6 @@ sys.timerLoopStart(libfota.request, 4*3600*1000, libfota_cb)
 sys.timerLoopStart(libfota.request, 4*3600*1000, libfota_cb, "http://xxxxxx.com/xxx/upgrade?version=" .. _G.VERSION)
 ]]
 
-local sys = require "sys"
-local sysplus = require "sysplus"
-
 local libfota = {}
 
 

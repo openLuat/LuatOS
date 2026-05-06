@@ -90,8 +90,6 @@ sys.taskInit(xmodem_run, taskName,xmodem_run_cb)
 ]]
 local xmodem = {}
 
-local sys = require "sys"
-
 local HEAD
 local DATA_SIZE 
 

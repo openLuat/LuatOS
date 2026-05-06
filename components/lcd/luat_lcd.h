@@ -142,6 +142,14 @@ typedef struct luat_lcd_buff_info {
 	void* userdata;
 }luat_lcd_buff_info_t;
 
+typedef struct luat_image_buff_info {
+	luat_color_t * buff;
+    size_t len;
+    uint32_t width;
+    uint32_t height;
+	void* userdata;
+}luat_image_buff_info_t;
+
 typedef struct luat_lcd_opts {
     const char* name;
     uint8_t sleep_cmd;

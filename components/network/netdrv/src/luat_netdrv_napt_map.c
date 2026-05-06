@@ -305,6 +305,32 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t *ctx, luat_ne
     return ret;
 }
 
+static void ctx_cleanup(luat_netdrv_napt_ctx_t *napt_ctx) {
+    if (napt_ctx == NULL) {
+        return;
+    }
+    luat_rtos_mutex_lock(napt_ctx->lock, 5000);
+    memset(napt_ctx->items, 0, sizeof(luat_netdrv_napt_tcpudp_t) * napt_ctx->item_last);
+    napt_ctx->item_last = 0;
+    napt_ctx->clean_tm = 1;
+    size_t port_len = (NAPT_PORT_RANGE_END - NAPT_PORT_RANGE_START) / 4;
+    if (napt_ctx->port_used) {
+        memset(napt_ctx->port_used, 0, port_len + 8);
+    }
+    napt_hash_reset(napt_ctx);
+    luat_rtos_mutex_unlock(napt_ctx->lock);
+}
+
+void luat_netdrv_napt_tcp_cleanup(void) {
+    LLOGI("清理TCP NAPT映射表");
+    ctx_cleanup(g_napt_tcp_ctx);
+}
+
+void luat_netdrv_napt_udp_cleanup(void) {
+    LLOGI("清理UDP NAPT映射表");
+    ctx_cleanup(g_napt_udp_ctx);
+}
+
 // 内网到外网
 __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t *ctx, luat_netdrv_napt_tcpudp_t *mapping, luat_netdrv_napt_ctx_t *napt_ctx) {
     int ret = -1;
@@ -391,6 +417,12 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t *ctx, luat_ne
         uint16_t new_index = (uint16_t)(napt_ctx->item_last - 1);
         napt_hash_insert_w2l(napt_ctx, new_index);
         napt_hash_insert_l2w(napt_ctx, new_index);
+        // LLOGI("NAPT新建映射: 协议=%d inet=%08X:%d->wnet=%08X:%d local_port=%d idx=%d/%d",
+        //       napt_ctx->ip_tp,
+        //       tmp.inet_ip, ntohs(tmp.inet_port),
+        //       tmp.wnet_ip, ntohs(tmp.wnet_port),
+        //       ntohs(tmp.wnet_local_port),
+        //       new_index, napt_ctx->item_max);
         ret = 0;
         break;
     }

@@ -34,13 +34,14 @@ else
     log.error("LCD初始化失败")
 end
 ]]
+local lcd_drv = {}
 
-local function lcd_drv_init()
+function lcd_drv.init()
     -- 开启屏幕供电
     gpio.setup(141, 1)
     local result = lcd.init("st7796",
         {
-            pin_pwr = 1,       -- 背光控制引脚GPIO端口号
+            -- pin_pwr = 1,       -- 背光控制引脚GPIO端口号，不填使用lcd.sleep和lcd.wakeup时需要手动控制背光
             port = lcd.HWID_0, -- 驱动端口
             pin_rst = 2,       -- lcd复位引脚
             direction = 0,     -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
@@ -48,6 +49,7 @@ local function lcd_drv_init()
             h = 480,           -- lcd 竖直分辨率
             xoffset = 0,       -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
             yoffset = 0,       -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
+            bus_speed = 80000000
         })
 
     log.info("lcd.init", result)
@@ -88,10 +90,15 @@ local function lcd_drv_init()
             })
         end
 
+        -- 查询当前固件内AirUI核心库版本
+        local version_result = airui.version()
+
+        -- 打印查询结果
+        log.info("airui", "version -> " .. version_result)
+
         return result
     end
 
-    return result
 end
 
-lcd_drv_init()
+return lcd_drv

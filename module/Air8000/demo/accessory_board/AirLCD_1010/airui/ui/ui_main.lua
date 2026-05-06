@@ -33,6 +33,9 @@ require("qrcode_win")
 
 -- 主任务函数
 local function ui_main_task()
+    lcd_drv.init() -- 初始化LCD显示驱动
+
+    tp_drv.init() -- 初始化触摸屏驱动
 
     -- 发布打开首窗口消息
     sys.publish("OPEN_HOME_WIN")

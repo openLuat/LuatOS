@@ -23,15 +23,25 @@
 #include "luat_audio_driver.h"
 #include "luat_fs.h"
 
+typedef struct
+{
+	char *path;		//文件路径，如果为NULL，则表示是ROM数组
+	uint32_t address;	//ROM数组地址
+	uint32_t rom_data_len;	//ROM数组长度
+	uint32_t fail_continue;	//如果解码失败是否跳过继续下一个，如果是最后一个文件，强制停止并设置错误信息
+}luat_audio_play_file_info_t;
 /**
  * @brief 音频请求块结构
  * 
  * 表示一个音频播放或录音请求，包含所有必要的上下文信息。
  * 请求块通过链表节点组织，可以支持多个并发请求的排队和管理。
  */
-struct luat_audio_request_block
-{
-    luat_llist_head node;                    /**< 链表节点，用于请求队列管理 */
+struct luat_audio_request_block {
+    luat_llist_head node;                       /**< 链表节点，用于请求队列管理 */
+    luat_audio_play_file_info_t *file_info;     /**< 音频文件信息 */
+    void *tts_data;                             /**< 文本转语音数据指针 */
+    uint32_t tts_data_size_or_file_info_cnt;    /**< 文本转语音数据大小或文件信息数量，根据fail_continue判断 */
+    uint32_t file_info_done_cnt;                /**< 已处理的文件信息数量 */
     FILE *fd;                                /**< 音频文件句柄 */
     luat_fifo_t *input_data_fifo;            /**< 输入数据FIFO缓冲区 */
     luat_buffer_t out_buffer;                /**< 输出数据缓冲区 */

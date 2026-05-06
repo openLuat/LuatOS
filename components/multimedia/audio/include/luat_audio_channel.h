@@ -28,8 +28,7 @@
  * 在多输入源场景中，每个输入源可以绑定到独立的通道，
  * 通过通道选择机制实现单输出切换。
  */
-struct luat_audio_channel
-{
+struct luat_audio_channel {
     luat_fifo_t *play_fifo;                    /**< 播放数据FIFO缓冲区 */
     luat_fifo_t *record_fifo;                  /**< 录音数据FIFO缓冲区 */
     luat_fifo_t *forward_fifo;                 /**< 转发数据FIFO缓冲区（用于音频转发） */
@@ -51,8 +50,17 @@ typedef struct luat_audio_channel luat_audio_channel_t;
  * 调用前确保 channel 指针有效且未被初始化过。
  * 初始化后的通道状态为停止状态。
  */
-int luat_audio_channel_init(luat_audio_channel_t *channel);
+int luat_audio_channel_init(luat_audio_channel_t *channel, uint32_t fifo_size_power);
 
+/**
+ * @brief 反初始化音频通道
+ * @param channel 音频通道指针，必须指向有效的 luat_audio_channel_t 结构
+ * @return int 成功返回 0，失败返回负值错误码
+ * 
+ * 此函数会释放音频通道占用的资源，包括互斥锁和FIFO缓冲区。
+ * 调用前确保 channel 指针有效且已被初始化。
+ */
+int luat_audio_channel_deinit(luat_audio_channel_t *channel);
 #endif
 
 /** @} */

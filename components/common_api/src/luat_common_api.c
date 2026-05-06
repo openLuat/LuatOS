@@ -131,6 +131,8 @@ void luat_clear_fifo(luat_fifo_t *fifo)
 
 void luat_deinit_fifo(luat_fifo_t *fifo)
 {
+	if (!fifo)
+		return ;
 	luat_heap_free(fifo);
 }
 

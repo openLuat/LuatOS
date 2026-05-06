@@ -37,7 +37,10 @@ typedef struct {
  * 用于存储特定编解码器的配置参数。
  */
 typedef union {
-    uint8_t amr_speed;  /**< AMR编码速率参数 */
+    struct {
+        uint8_t speed;  /**< AMR编码速率参数 */
+        uint8_t is_wb;
+    } amr_param;
 } luat_audio_data_codec_param_u;
 
 
@@ -63,7 +66,7 @@ typedef struct luat_audio_data_codec_opts {
     /**
      * @brief 探测文件是否能被解码
      * @param file 文件指针
-     * @return 成功返回 0，失败返回负值错误码
+     * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
      */
     int (*probe)(FILE* file);
     
@@ -72,7 +75,7 @@ typedef struct luat_audio_data_codec_opts {
      * @param codec 编解码器上下文指针
      * @param file 文件指针
      * @param info 指向存储播放信息的结构
-     * @return 成功返回 0，失败返回负值错误码
+     * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
      */
     int (*get_play_info_from_file)(struct luat_audio_data_codec *codec, FILE* file, luat_audio_play_info_t *info);
 
@@ -86,7 +89,7 @@ typedef struct luat_audio_data_codec_opts {
      * @param output 输出解码数据缓冲区
      * @param output_size 输出缓冲区大小（字节）
      * @param decoded_output_size 实际解码产生的输出数据大小（字节）
-     * @return 成功返回 0，失败返回负值错误码
+     * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
      */
     int (*decode)(struct luat_audio_data_codec* codec, luat_audio_play_info_t *info,
                   const uint8_t *input, uint32_t input_size, uint32_t *decoded_input_size,
@@ -111,13 +114,29 @@ typedef struct luat_audio_data_codec_opts {
      * @param output 输出编码数据缓冲区
      * @param output_size 输出缓冲区大小（字节）
      * @param encoded_size 实际编码的数据大小（字节）
-     * @return 成功返回 0，失败返回负值错误码
+     * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
      */
     int (*encode)(struct luat_audio_data_codec* codec,
                   const uint8_t *input, uint32_t input_size,
                   uint8_t *output, uint32_t output_size,
                   uint32_t *encoded_size);
+    /**
+     * @brief TTS解码音频数据
+     * @param codec 编解码器上下文指针
+     * @param text 输入文本指针
+     * @param len 输入文本长度（字节）
+     * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
+     */
+    int (*tts_decode)(struct luat_audio_data_codec* codec, const void *text, uint32_t len);
 
+    /**
+     * @brief 设置TTS参数
+     * @param codec 编解码器上下文指针
+     * @param param TTS参数类型
+     * @param value TTS参数值
+     * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
+     */
+    int (*tts_set_param)(struct luat_audio_data_codec* codec, uint32_t param, uint32_t value);
 } luat_audio_data_codec_opts_t;
 
 /**
@@ -133,7 +152,9 @@ struct luat_audio_data_codec {
     uint32_t decode_min_input_len;              /**< 解码最小输入长度 (字节) */
     uint32_t decode_max_output_len;             /**< 解码最大输出长度 (字节) */
     uint8_t is_encoder;                         /**< 是否为编码器 (1=encoder, 0=decoder) */
+    uint8_t is_tts;                             /**< 是否为TTS (1=tts, 0=not tts) */
 };
+
 
 typedef struct luat_audio_data_codec luat_audio_data_codec_t;
 

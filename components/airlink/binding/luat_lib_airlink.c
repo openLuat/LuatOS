@@ -189,6 +189,7 @@ static int l_airlink_slave_reboot(lua_State *L) {
 int luat_airlink_sdata_send(const void* data, size_t len) {
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
+        LLOGI("sdata via RPC notify len=%d", len);
         const uint8_t* ptr = (const uint8_t*)data;
         size_t remaining = len;
         while (remaining > 0) {
@@ -205,6 +206,7 @@ int luat_airlink_sdata_send(const void* data, size_t len) {
         return 0;
     }
     if (len > 1500) return -1;
+    LLOGI("sdata via raw cmd 0x20 len=%d", len);
     luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
     if (!cmd) return -2;
     cmd->cmd = 0x20;

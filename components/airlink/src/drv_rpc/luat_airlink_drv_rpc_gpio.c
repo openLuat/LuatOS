@@ -32,7 +32,9 @@ static inline drv_gpio_GpioIrqType c_irq_to_proto(int t) {
 
 static void gpio_t_to_setup_req(const luat_gpio_t* gpio, drv_gpio_GpioSetupRequest* out) {
     memset(out, 0, sizeof(*out));
-    out->pin      = (uint32_t)gpio->pin;
+    int pin = gpio->pin;
+    if (pin >= 128) pin -= 128;
+    out->pin      = (uint32_t)pin;
     out->has_mode = true;
     out->mode     = c_mode_to_proto(gpio->mode);
     out->has_pull = true;
@@ -47,7 +49,9 @@ static void gpio_t_to_setup_req(const luat_gpio_t* gpio, drv_gpio_GpioSetupReque
 
 static void gpio_cfg_to_setup_req(const luat_gpio_cfg_t* cfg, drv_gpio_GpioSetupRequest* out) {
     memset(out, 0, sizeof(*out));
-    out->pin      = (uint32_t)cfg->pin;
+    int pin = cfg->pin;
+    if (pin >= 128) pin -= 128;
+    out->pin      = (uint32_t)pin;
     out->has_mode = true;
     out->mode     = c_mode_to_proto(cfg->mode);
     out->has_pull = true;
@@ -93,6 +97,7 @@ int luat_airlink_drv_rpc_gpio_open(luat_gpio_cfg_t* gpio) {
 }
 
 int luat_airlink_drv_rpc_gpio_set(int pin, int level) {
+    if (pin >= 128) pin -= 128;
     int mode = luat_airlink_current_mode_get();
     drv_gpio_GpioRpcRequest req = drv_gpio_GpioRpcRequest_init_zero;
     req.which_payload       = drv_gpio_GpioRpcRequest_write_tag;

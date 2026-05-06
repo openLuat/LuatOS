@@ -28,6 +28,8 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
 // nanopb typed RPC (handler 收到的是已解码的 C struct)
 // =====================================================================
 
+#ifdef LUAT_USE_AIRLINK_RPC
+
 #include "pb.h"
 #include "pb_encode.h"
 #include "pb_decode.h"
@@ -117,5 +119,7 @@ int luat_airlink_rpc_reset_stats(void);
 
 // 打印统计信息到日志
 void luat_airlink_rpc_print_stats(void);
+
+#endif /* LUAT_USE_AIRLINK_RPC */
 
 #endif /* LUAT_AIRLINK_RPC_H */

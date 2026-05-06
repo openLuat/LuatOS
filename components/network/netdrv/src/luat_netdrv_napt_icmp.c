@@ -238,3 +238,12 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
     }
     // return 0;
 }
+
+void luat_netdrv_napt_icmp_cleanup(void) {
+    LLOGI("清理ICMP NAPT映射表");
+    if (icmps == NULL) {
+        return;
+    }
+    memset(icmps, 0, sizeof(luat_netdrv_napt_icmp_t) * ICMP_MAP_SIZE);
+    napt_curr_id = NAPT_ICMP_ID_RANGE_START;
+}

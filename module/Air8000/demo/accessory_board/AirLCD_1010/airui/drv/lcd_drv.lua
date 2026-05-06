@@ -34,9 +34,9 @@ else
     log.error("LCD初始化失败")
 end
 ]]
-local lcd_drv = {}
 
-function lcd_drv.init()
+
+local function lcd_drv_init()
     -- 开启屏幕供电
     gpio.setup(141, 1)
     local result = lcd.init("st7796",
@@ -96,9 +96,9 @@ function lcd_drv.init()
         -- 打印查询结果
         log.info("airui", "version -> " .. version_result)
 
-        return result
     end
 
 end
 
-return lcd_drv
+
+sys.taskInit(lcd_drv_init)

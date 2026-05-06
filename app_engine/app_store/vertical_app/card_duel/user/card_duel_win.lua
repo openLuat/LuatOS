@@ -317,14 +317,15 @@ shop_buy_heal = function()
 end
 
 -- ============ UI 构建 ============
+local function floor(v) return type(v)=="number" and math.floor(v) or v end
 local function mk_cont(p, x, y, w, h, c, r)
-    return airui.container({parent=p, x=x, y=y, w=w, h=h, color=c or CL.bg, radius=r})
+    return airui.container({parent=p, x=floor(x), y=floor(y), w=floor(w), h=floor(h), color=c or CL.bg, radius=r and floor(r)})
 end
 local function mk_lbl(p, x, y, w, h, t, fs, c, a)
-    return airui.label({parent=p, x=x, y=y, w=w, h=h, text=t or "", font_size=fs or L.f_main, color=c or CL.tw, align=a or airui.TEXT_ALIGN_CENTER})
+    return airui.label({parent=p, x=floor(x), y=floor(y), w=floor(w), h=floor(h), text=t or "", font_size=floor(fs or L.f_main), color=c or CL.tw, align=a or airui.TEXT_ALIGN_CENTER})
 end
 local function mk_btn(p, x, y, w, h, t, fs, tc, bc, oc)
-    return airui.button({parent=p, x=x, y=y, w=w, h=h, text=t, font_size=fs or L.f_main, style={text_color=tc or CL.tw, bg_color=bc or CL.b1, radius=L.r, border_width=0}, on_click=oc})
+    return airui.button({parent=p, x=floor(x), y=floor(y), w=floor(w), h=floor(h), text=t, font_size=floor(fs or L.f_main), style={text_color=tc or CL.tw, bg_color=bc or CL.b1, radius=floor(L.r), border_width=0}, on_click=oc})
 end
 
 -- 卡牌点击
@@ -354,8 +355,11 @@ end
 local function page_combat()
     local ui = game.ui; local fw = W - L.pad*2
 
+    -- 战斗根容器，统一管理所有战斗子元素的显隐，避免AirUI真实固件渲染树重建丢失parent
+    ui.combat_root = mk_cont(main_container, 0, 0, W, H, CL.bg)
+
     -- 战场 (敌人上/玩家下)
-    ui.batt = mk_cont(main_container,0,L.batt_y,W,L.batt_h,CL.bg)
+    ui.batt = mk_cont(ui.combat_root,0,L.batt_y,W,L.batt_h,CL.bg)
     ui.batt:set_border_color(0x1e3040,1)
 
     -- 敌人 (上半)
@@ -376,7 +380,7 @@ local function page_combat()
     ui.pblk = mk_lbl(ui.batt, math.floor(W*.5), 120, math.floor(fw*.5)-L.pad, 18, "", L.f_sm, CL.bl, airui.TEXT_ALIGN_LEFT)
 
     -- 手牌 (无desc行, 4标签)
-    ui.hand = mk_cont(main_container, 0, L.hand_y, W, L.hand_h, CL.bg)
+    ui.hand = mk_cont(ui.combat_root, 0, L.hand_y, W, L.hand_h, CL.bg)
     ui.cards = {}
     local tw = MAX_HAND*L.card_w + (MAX_HAND-1)*L.card_gap
     local sx = math.floor((W-tw)/2)
@@ -395,7 +399,7 @@ local function page_combat()
     end
 
     -- 动作栏 (含详情文字)
-    ui.act = mk_cont(main_container, 0, L.act_y, W, L.act_h, CL.bg)
+    ui.act = mk_cont(ui.combat_root, 0, L.act_y, W, L.act_h, CL.bg)
     ui.dlbl = mk_lbl(ui.act, L.pad, 2, W-L.pad*2, 16, "点击手牌选中", L.f_sm, CL.td)
     local bw2 = math.floor(W*.42); local bh2 = 26
     local bg2 = math.floor((W-bw2*2)/3)
@@ -403,7 +407,7 @@ local function page_combat()
     ui.bend = mk_btn(ui.act, bg2*2+bw2, 20, bw2, bh2, "结束回合", L.f_main, CL.tw, CL.be, player_end)
 
     -- 状态栏
-    ui.st = mk_cont(main_container, 0, L.st_y, W, L.st_h, CL.bg)
+    ui.st = mk_cont(ui.combat_root, 0, L.st_y, W, L.st_h, CL.bg)
     ui.fl = mk_lbl(ui.st, L.pad, 2, math.floor(W*.3), L.st_h-4, "", L.f_sm, CL.tg, airui.TEXT_ALIGN_LEFT)
     ui.pl = mk_lbl(ui.st, math.floor(W*.32), 2, math.floor(W*.34), L.st_h-4, "", L.f_sm, CL.td)
     local rw2 = math.floor(W*.15); local rh2 = math.floor(L.st_h*.7)
@@ -418,7 +422,7 @@ local function page_win()
     local bw = math.floor(W*.78); local bx = math.floor((W-bw)/2)
     local bh = math.floor(H*.42); local by = math.floor(H*.15)
     T(ui.win,bx,by,bw,bh,CL.pc,L.r)
-    airui.image({parent=ui.win, src="/luadb/win.png", x=math.floor((W-24)/2), y=by+bh*.06, w=24, h=24, opacity=255})
+    airui.image({parent=ui.win, src="/luadb/win.png", x=math.floor((W-24)/2), y=math.floor(by+bh*.06), w=24, h=24, opacity=255})
     mk_lbl(ui.win,bx,by+bh*.22,bw,L.f_big*1.5,"战斗胜利!",L.f_big,CL.hl)
     ui.wgold = mk_lbl(ui.win,bx,by+bh*.42,bw,L.f_main*1.2,"",L.f_main,CL.tg)
     ui.wnext = mk_lbl(ui.win,bx,by+bh*.60,bw,L.f_sm*1.2,"",L.f_sm,CL.tw)
@@ -433,7 +437,7 @@ local function page_lose()
     local bw = math.floor(W*.78); local bx = math.floor((W-bw)/2)
     local bh = math.floor(H*.42); local by = math.floor(H*.15)
     T(ui.lose,bx,by,bw,bh,CL.pc,L.r)
-    airui.image({parent=ui.lose, src="/luadb/lose.png", x=math.floor((W-24)/2), y=by+bh*.06, w=24, h=24, opacity=255})
+    airui.image({parent=ui.lose, src="/luadb/lose.png", x=math.floor((W-24)/2), y=math.floor(by+bh*.06), w=24, h=24, opacity=255})
     mk_lbl(ui.lose,bx,by+bh*.22,bw,L.f_big*1.5,"战斗失败",L.f_big,CL.hp)
     ui.lfl = mk_lbl(ui.lose,bx,by+bh*.42,bw,L.f_main*1.2,"",L.f_main,CL.tw)
     ui.lgl = mk_lbl(ui.lose,bx,by+bh*.58,bw,L.f_main*1.2,"",L.f_main,CL.tg)
@@ -451,7 +455,7 @@ local function page_victory()
     local bw = math.floor(W*.8); local bx = math.floor((W-bw)/2)
     local bh = math.floor(H*.48); local by = math.floor(H*.12)
     T(ui.vic,bx,by,bw,bh,CL.pc,L.r)
-    airui.image({parent=ui.vic, src="/luadb/victory.png", x=math.floor((W-24)/2), y=by+bh*.05, w=24, h=24, opacity=255})
+    airui.image({parent=ui.vic, src="/luadb/victory.png", x=math.floor((W-24)/2), y=math.floor(by+bh*.05), w=24, h=24, opacity=255})
     mk_lbl(ui.vic,bx,by+bh*.20,bw,L.f_big*1.5,"完全通关!",L.f_big,CL.eg)
     mk_lbl(ui.vic,bx,by+bh*.36,bw,L.f_main*1.3,"击败了深渊领主",L.f_main,CL.tw)
     ui.vhp = mk_lbl(ui.vic,bx,by+bh*.50,bw,L.f_main*1.2,"",L.f_main,CL.hp)
@@ -493,8 +497,7 @@ end
 
 function page_show(name)
     local ui = game.ui
-    sv(ui.batt, name==nil); sv(ui.hand, name==nil)
-    sv(ui.act, name==nil); sv(ui.st, name==nil)
+    sv(ui.combat_root, name==nil)
     sv(ui.start, name=="start"); sv(ui.win, name=="win")
     sv(ui.lose, name=="lose"); sv(ui.vic, name=="victory"); sv(ui.shop, name=="shop")
     if name=="win" then game.gold = game.gold + game.floor*10 end

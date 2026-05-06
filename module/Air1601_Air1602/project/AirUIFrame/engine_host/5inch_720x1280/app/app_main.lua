@@ -23,7 +23,6 @@ gpio.setup(55, 1)
 --     -- 加载ntp时间同步应用模块
 --     require "ntp_app"
 -- else
---     require "airlink_mobile_info"
 -- end
 
 require "netdrv_device"

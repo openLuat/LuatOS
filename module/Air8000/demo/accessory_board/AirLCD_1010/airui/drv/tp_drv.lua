@@ -33,16 +33,13 @@ else
     log.error("触摸面板初始化失败")
 end
 ]]
-local tp_drv = {}
 
 
-function tp_drv.init()
+local function tp_drv_init()
     -- 开机I2C供电，触摸、摄像头和音频都是使用I2C0
     -- pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
     gpio.setup(147, 1, gpio.PULLUP)
     gpio.setup(164, 1, gpio.PULLUP)
-    gpio.setup(17, 1, gpio.PULLUP)
-    gpio.setup(16, 1, gpio.PULLUP)
 
     sys.wait(100)
     -- 初始化硬件I2C
@@ -65,8 +62,6 @@ function tp_drv.init()
         -- 绑定触摸设备到AirUI输入设备
         airui.device_bind_touch(result)
 
-        -- 在PC模拟器上启用系统键盘输入
-        airui.keyboard_enable_system(true)
     else
         if not result then
             log.error("ui_main", "触摸初始化失败")
@@ -78,5 +73,4 @@ function tp_drv.init()
     end
 end
 
-return tp_drv
--- tp_drv_init()
+sys.taskInit(tp_drv_init)

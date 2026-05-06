@@ -681,8 +681,6 @@ end
 -- 窗口创建回调
 local function on_create()
     log.info("dingding_robot", "窗口创建回调")
-    -- 启用系统物理键盘（PC模拟器专用，方便调试）
-    airui.keyboard_enable_system(true)
     create_ui()
     -- 初始化字符计数
     update_char_count()

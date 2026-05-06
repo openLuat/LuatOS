@@ -34,7 +34,7 @@ function lcd_drv.init()
         -- pin_sda   = 22, -- SPI 数据引脚
         -- pin_cs    = 2, -- SPI 片选引脚
         -- pin_pwr   = bl,
-        pin_rst   = pin_rst,
+        -- pin_rst   = pin_rst,
         direction = 0,
         w         = 1024,
         h         = 600,

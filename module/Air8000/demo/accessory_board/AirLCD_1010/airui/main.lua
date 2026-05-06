@@ -56,11 +56,11 @@ log.info("ui_demo", PROJECT, VERSION)
 -- end, 3000)
 
 -- 加载显示驱动
-require("lcd_drv")
+lcd_drv = require("lcd_drv")
 -- 加载触摸驱动
-require("tp_drv")
+tp_drv = require("tp_drv")
 
-exwin= require("exwin")
+exwin = require("exwin")
 
 -- 引入演示模块
 require("ui_main")

@@ -8,7 +8,6 @@
 require "settings_display_win"
 require "settings_storage_win"
 require "settings_about_win"
-require "settings_sound_win"
 require "wifi_list_win"
 
 local win_id = nil
@@ -75,7 +74,7 @@ local function create_ui()
     })
     airui.label({
         parent = title_bar,
-        x = math.floor(60 * _G.density_scale), y = math.floor(14 * _G.density_scale),
+        x = math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(100 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "设置",
         font_size = math.floor(32 * _G.density_scale),
@@ -139,8 +138,6 @@ local function create_ui()
             on_action = function(self) self:destroy() end
         })
     end)
-    y = y + card_h + card_spacing
-    create_setting_card(y, "触摸音效", function() sys.publish("OPEN_SOUND_WIN") end)
     y = y + card_h + card_spacing
     create_setting_card(y, "关于设置", function() sys.publish("OPEN_ABOUT_WIN") end)
 end

@@ -618,6 +618,7 @@ int luat_crypto_pk_verify(int md_type,
     ret = mbedtls_pk_verify(&pk, (mbedtls_md_type_t)md_type, hash, hash_len, sig, sig_len);
     if (ret != 0) {
         LLOGD("pk_verify: verify failed -0x%04x", -ret);
+        ret = 1;
     }
 
 cleanup:

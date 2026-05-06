@@ -289,7 +289,7 @@ local function create_ui()
     })
     airui.label({
         parent = title_bar,
-        x = math.floor(60 * _G.density_scale), y = math.floor(14 * _G.density_scale),
+        x = math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(200 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "关于设备",
         font_size = math.floor(32 * _G.density_scale),
@@ -303,7 +303,8 @@ local function create_ui()
         parent = main_container,
         x = 0, y = title_h,
         w = screen_w, h = screen_h - title_h,
-        color = COLOR_BG
+        color = COLOR_BG,
+        scrollable = true,
     })
 
     -- 设备名称卡片

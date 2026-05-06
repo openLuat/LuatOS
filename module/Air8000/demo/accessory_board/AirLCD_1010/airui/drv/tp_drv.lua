@@ -33,12 +33,18 @@ else
     log.error("触摸面板初始化失败")
 end
 ]]
+local tp_drv = {}
 
-local function tp_drv_init()
+
+function tp_drv.init()
     -- 开机I2C供电，触摸、摄像头和音频都是使用I2C0
-    gpio.setup(147, 1)
-    gpio.setup(164, 1)
+    -- pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
+    gpio.setup(147, 1, gpio.PULLUP)
+    gpio.setup(164, 1, gpio.PULLUP)
+    gpio.setup(17, 1, gpio.PULLUP)
+    gpio.setup(16, 1, gpio.PULLUP)
 
+    sys.wait(100)
     -- 初始化硬件I2C
     i2c.setup(0, i2c.SLOW) -- 初始化I2C 0，设置为低速模式
 
@@ -50,7 +56,7 @@ local function tp_drv_init()
     -- pin_int: 中断引脚编号
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
-    local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0, w = 320, h = 480 })
+    local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0})
 
     log.info("tp.init", result)
 
@@ -72,4 +78,5 @@ local function tp_drv_init()
     end
 end
 
-tp_drv_init()
+return tp_drv
+-- tp_drv_init()

@@ -433,6 +433,7 @@ int airui_label_set_text_align(lv_obj_t *label, lv_text_align_t align); //设置
  * Dropdown 组件创建
  */
 lv_obj_t *airui_dropdown_create_from_config(void *L, int idx);
+int airui_dropdown_set_options(lv_obj_t *dropdown, void *L, int idx);
 int airui_dropdown_set_selected(lv_obj_t *dropdown, int index); //设置下拉框选中项
 int airui_dropdown_get_selected(lv_obj_t *dropdown); //获取下拉框选中项
 int airui_dropdown_set_on_change(lv_obj_t *dropdown, int callback_ref); //设置改变回调
@@ -522,6 +523,7 @@ void airui_tabview_release_data(airui_component_meta_t *meta); //释放内部页
  * Msgbox 组件
  */
 lv_obj_t *airui_msgbox_create_from_config(void *L, int idx);
+int airui_msgbox_set_style(lv_obj_t *msgbox, void *L, int idx);
 int airui_msgbox_set_on_action(lv_obj_t *msgbox, int callback_ref); //设置消息框按钮回调
 int airui_msgbox_show(lv_obj_t *msgbox); //显示消息框
 int airui_msgbox_hide(lv_obj_t *msgbox); //隐藏消息框

@@ -11,23 +11,22 @@
 3. 自动切换网络连接模式。
 4. 通过HTTP GET请求测试网络连接情况。
 ]]
- -- 初始化网络，使得Air1601可以外挂Air780EPM实现4G联网功能。
+
+local exnetif = require "exnetif"
+
+-- 初始化网络，使得Air1601可以外挂Air780EPM实现4G联网功能。
 local function init_airlink_net()
-    local uartid = 3 -- 根据实际设备选取不同的uartid
-
-    -- 初始化
-    uart.setup(uartid, -- 串口id
-    2000000, -- 波特率
-    8, -- 数据位
-    1 -- 停止位
-    )
-
-    airlink.init()
-    airlink.config(airlink.CONF_UART_ID, uartid)
-    airlink.start(airlink.MODE_UART)
-    netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
-    netdrv.ipv4(socket.LWIP_GP_GW, "192.168.111.1", "255.255.255.0", "192.168.111.2")
-    log.info("桥接网络设备", netdrv.link(socket.LWIP_GP_GW))
+    exnetif.set_priority_order({
+        { -- 开启4G虚拟网卡
+            airlink_4G = {
+                auto_socket_switch = false, -- 切换网卡时是否断开之前网卡的所有socket连接并用新的网卡重新建立连接
+                airlink_type = airlink.MODE_UART, -- airlink工作模式：UART模式
+                airlink_uart_id = 3, -- airlink使用的UART接口ID
+                airlink_uart_baud = 2000000, -- airlink使用的UART波特率，默认2000000
+                airlink_adapter = socket.LWIP_GP_GW -- Air1601使用socket.LWIP_GP_GW网卡标识
+            }
+        }
+    })
 end
 
 -- Air1601发送数据信息给Air780EPM。

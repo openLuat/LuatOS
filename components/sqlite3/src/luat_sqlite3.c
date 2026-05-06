@@ -66,6 +66,7 @@ typedef struct sfile
     sqlite3_file sf;
     const char* path;
     int flags;
+    FILE* fd;
 }sfile_t;
 
 
@@ -143,11 +144,11 @@ static int svfs_Open(sqlite3_vfs* ctx, sqlite3_filename zName, sqlite3_file* f, 
     if (fd == NULL) {
         return SQLITE_NOTFOUND;
     }
-    luat_fs_fclose(fd);
     sfile_t* t = (sfile_t*)f;
     t->sf.pMethods = &svfs_io;
     t->path = zName;
     t->flags = flags;
+    t->fd = fd;
     return SQLITE_OK;
 }
 static int svfs_Delete(sqlite3_vfs* ctx, const char *zName, int syncDir) {
@@ -188,6 +189,10 @@ static int svfs_io_Close(sqlite3_file* f) {
     if (!t)
         return -1;
     LLOGD("文件关闭 %s", t->path);
+    if (t->fd) {
+        luat_fs_fclose(t->fd);
+        t->fd = NULL;
+    }
     return 0;
 }
 
@@ -200,32 +205,23 @@ static int svfs_io_Read(sqlite3_file* f, void* data, int iAmt, sqlite3_int64 iOf
         return SQLITE_IOERR;
     }
     memset(ptr, 0, iAmt);
-    FILE* fd = sopen(t->path, t->flags);
-    if (fd == NULL) {
-        LLOGD("读取目标文件不存在 %s", t->path);
+    if (t->fd == NULL) {
+        LLOGD("读取目标文件句柄为NULL %s", t->path);
         return SQLITE_NOTFOUND;
     }
     LLOGD("文件读取 %s 长度 %d 偏移量 %d", t->path, iAmt, iOfst);
-    ret = luat_fs_fseek(fd, iOfst, SEEK_SET);
+    ret = luat_fs_fseek(t->fd, iOfst, SEEK_SET);
     if (ret < 0) {
-        luat_fs_fclose(fd);
         LLOGE("读取位置seek失败 %s %d", t->path, ret);
         return SQLITE_IOERR_READ;
     }
-    ret = luat_fs_fread(data, iAmt, 1, fd);
-    if (ret < 0) {
-        luat_fs_fclose(fd);
-        LLOGE("读取数据失败 %s %d", t->path, ret);
-        return SQLITE_IOERR_READ;
-    }
-    if (ret != iAmt) {
-        luat_fs_fclose(fd);
-        LLOGD("读取的长度不足 %s %d %d", t->path, ret, iAmt);
+    ret = luat_fs_fread(data, 1, iAmt, t->fd);
+    if (ret < iAmt) {
+        LLOGD("读取的长度不足 %s 期望 %d 实际 %d", t->path, iAmt, ret);
         return SQLITE_IOERR_SHORT_READ;
     }
     LLOGD("读取完成 %p 长度 %d 偏移量 %d", t->path, iAmt, iOfst);
     LLOGDUMP(ptr, iAmt > 48 ? 48 : iAmt);
-    luat_fs_fclose(fd);
     return SQLITE_OK;
 }
 
@@ -237,32 +233,23 @@ static int svfs_io_Write(sqlite3_file* f, const void* data, int iAmt, sqlite3_in
         LLOGD("io write 目标地址为NULL");
         return SQLITE_IOERR;
     }
-    FILE* fd = sopen(t->path, t->flags);
-    if (fd == NULL) {
-        LLOGD("io write 目标文件不存在 %s", t->path);
+    if (t->fd == NULL) {
+        LLOGD("io write 文件句柄为NULL %s", t->path);
         return SQLITE_NOTFOUND;
     }
     LLOGD("文件写入 指针 %p 长度 %d 偏移量 %d", data, iAmt, iOfst);
-    ret = luat_fs_fseek(fd, iOfst, SEEK_SET);
+    ret = luat_fs_fseek(t->fd, iOfst, SEEK_SET);
     if (ret < 0) {
-        luat_fs_fclose(fd);
         LLOGE("文件写入设置偏移量失败 %d", ret);
         return SQLITE_IOERR_WRITE;
     }
-    ret = luat_fs_fwrite(data, iAmt, 1, fd);
-    if (ret < 0) {
-        luat_fs_fclose(fd);
-        LLOGE("文件写入失败 %s %d", t->path, ret);
-        return SQLITE_IOERR_WRITE;
-    }
+    ret = luat_fs_fwrite(data, 1, iAmt, t->fd);
     if (ret != iAmt) {
-        luat_fs_fclose(fd);
-        LLOGE("文件写入长度不足 结果 %d 长度 %d", ret, iAmt);
+        LLOGE("文件写入失败 %s 期望 %d 实际 %d", t->path, iAmt, ret);
         return SQLITE_IOERR_WRITE;
     }
     LLOGD("文件写入完成 %s 长度 %d 偏移量 %d", t->path, iAmt, iOfst);
     LLOGDUMP(ptr, iAmt > 48 ? 48 : iAmt);
-    luat_fs_fclose(fd);
     return SQLITE_OK;
 }
 
@@ -276,14 +263,23 @@ static int svfs_io_Truncate(sqlite3_file* f, sqlite3_int64 size) {
 }
 
 static int svfs_io_Sync(sqlite3_file* f, int flags) {
-    return 0;
+    sfile_t* t = (sfile_t*)f;
+    if (t && t->fd)
+        luat_fs_fflush(t->fd);
+    return SQLITE_OK;
 }
 
 static int svfs_io_FileSize(sqlite3_file* f, sqlite3_int64 *pSize) {
     sfile_t* t = (sfile_t*)f;
-    *pSize = luat_fs_fsize(t->path);
-    // LLOGD("读取文件大小 %s %d", t->path, *pSize);
-    return 0;
+    if (t->fd) {
+        long cur = luat_fs_ftell(t->fd);
+        luat_fs_fseek(t->fd, 0, SEEK_END);
+        *pSize = luat_fs_ftell(t->fd);
+        luat_fs_fseek(t->fd, cur, SEEK_SET);
+    } else {
+        *pSize = luat_fs_fsize(t->path);
+    }
+    return SQLITE_OK;
 }
 
 static int svfs_io_Lock(sqlite3_file* f, int t) {

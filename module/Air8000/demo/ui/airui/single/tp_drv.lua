@@ -2,7 +2,7 @@
 @module  tp_drv
 @summary 触摸面板驱动模块，基于tp核心库
 @version 1.0
-@date    2025.12.1
+@date    2026.02.05
 @author  江访
 @usage
 本模块为触摸面板驱动功能模块，主要功能包括：
@@ -13,6 +13,7 @@
 对外接口：
 1、tp_drv.init()：初始化触摸面板驱动
 ]]
+
 
 
 
@@ -33,14 +34,18 @@ else
 end
 ]]
 
+
 local function tp_drv_init()
     -- 开机I2C供电，触摸、摄像头和音频都是使用I2C0
-    gpio.setup(147, 1)
-    gpio.setup(164, 1)
+    -- pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
+    gpio.setup(147, 1, gpio.PULLUP)
+    gpio.setup(164, 1, gpio.PULLUP)
 
+    sys.wait(100)
     -- 初始化硬件I2C
     i2c.setup(0, i2c.SLOW) -- 初始化I2C 0，设置为低速模式
 
+    -- 此处触摸IC数据读取使用的是软件I2C接口
     -- 参数说明：
     -- "gt911": 触摸控制器型号
     -- port: I2C接口对象
@@ -48,7 +53,7 @@ local function tp_drv_init()
     -- pin_int: 中断引脚编号
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
-    local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0 })
+    local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0})
 
     log.info("tp.init", result)
 
@@ -70,4 +75,4 @@ local function tp_drv_init()
     end
 end
 
-tp_drv_init()
+sys.taskInit(tp_drv_init)

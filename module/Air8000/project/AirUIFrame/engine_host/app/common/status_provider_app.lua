@@ -19,8 +19,6 @@
 5、StatusProvider.get_wifi_signal_level()：获取WiFi信号等级（0-4）
 ]]
 
-local StatusProvider = {}
-
 -- 当前时间字符串，格式为"HH:MM"
 local current_time = "08:00"
 -- 当前日期字符串，格式为"YYYY-MM-DD"
@@ -105,6 +103,8 @@ local function sta_event(evt, data)
     log.info("status_provider", "WLAN_STA_INC", evt, data)
     if evt == "CONNECTED" then
         wifi_connected = true
+        wifi_signal_level = 3
+        sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
         update_wifi_signal()
         if wifi_timer then
             sys.timerStop(update_wifi_signal)
@@ -124,21 +124,21 @@ local function sta_event(evt, data)
 end
 
 -- 获取当前时间
-function StatusProvider.get_time()
+local function get_time()
     return current_time
 end
 
 -- 获取当前日期
-function StatusProvider.get_date()
+local function get_date()
     return current_date
 end
 
 -- 获取当前星期几（中文）
-function StatusProvider.get_weekday()
+local function get_weekday()
     return current_weekday
 end
 
-function StatusProvider.get_wifi_signal_level()
+local function get_wifi_signal_level()
     return wifi_signal_level
 end
 
@@ -188,17 +188,17 @@ local function handle_sim_ind(status, value)
     update_mobile_signal()
 end
 
-function StatusProvider.get_signal_level()
+local function get_signal_level()
     return mobile_signal_level
 end
 
 -- 获取最新传感器数据（保留接口，返回nil）
-function StatusProvider.get_sensor_latest()
+local function get_sensor_latest()
     return nil, nil, nil
 end
 
 -- 获取传感器历史数据（保留接口，返回空表）
-function StatusProvider.get_history(sensor_type)
+local function get_history(sensor_type)
     return {}
 end
 
@@ -235,5 +235,3 @@ local function init()
     end)
 end
 init()
-
-return StatusProvider

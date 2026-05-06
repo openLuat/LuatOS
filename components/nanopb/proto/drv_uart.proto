@@ -1,0 +1,76 @@
+syntax = "proto2";
+
+package drv.uart;
+
+import "nanopb.proto";
+
+// 奇偶校验
+enum UartParity {
+    UART_PARITY_NONE = 0;
+    UART_PARITY_ODD  = 1;
+    UART_PARITY_EVEN = 2;
+}
+
+// 通用返回码
+enum UartResultCode {
+    UART_RES_OK     = 0;
+    UART_RES_EINVAL = 1;
+    UART_RES_EBUSY  = 2;
+    UART_RES_FAIL   = 255;
+}
+
+message UartResult {
+    optional UartResultCode code     = 1 [default = UART_RES_OK];
+    optional int32          os_errno = 2 [default = 0];
+}
+
+// 配置串口（对应 luat_uart_setup）
+message UartSetupRequest {
+    required uint32     id        = 1;
+    optional uint32     baud_rate = 2 [default = 9600];
+    optional uint32     data_bits = 3 [default = 8];
+    optional uint32     stop_bits = 4 [default = 1];
+    optional UartParity parity    = 5 [default = UART_PARITY_NONE];
+    optional uint32     bufsz     = 6 [default = 1024];
+}
+message UartSetupResponse {
+    required UartResult result = 1;
+}
+
+// 写数据（最大 500 字节；大数据走原始分段路径）
+message UartWriteRequest {
+    required uint32 id   = 1;
+    required bytes  data = 2 [(nanopb).max_size = 500];
+}
+message UartWriteResponse {
+    required UartResult result        = 1;
+    optional int32      bytes_written = 2 [default = 0];
+}
+
+// 关闭串口（对应 luat_uart_close）
+message UartCloseRequest {
+    required uint32 id = 1;
+}
+message UartCloseResponse {
+    required UartResult result = 1;
+}
+
+// 统一 RPC 请求
+message UartRpcRequest {
+    required uint32 req_id = 1;
+    oneof payload {
+        UartSetupRequest setup = 10;
+        UartWriteRequest write = 11;
+        UartCloseRequest close = 12;
+    }
+}
+
+// 统一 RPC 响应
+message UartRpcResponse {
+    optional uint32 req_id = 1 [default = 0];
+    oneof payload {
+        UartSetupResponse setup = 10;
+        UartWriteResponse write = 11;
+        UartCloseResponse close = 12;
+    }
+}

@@ -472,8 +472,10 @@ local function on_create()
     local status_icon_size = math.floor(32 * _G.density_scale)
     local status_icon_y = math.floor((top_h - status_icon_size) / 2)
     local status_font_size = math.min(math.floor(40 * _G.density_scale), math.floor(top_h * 0.65 * _G.density_scale))
-    local icon_spacing = math.floor(8 * _G.density_scale)
-    local icon_start_x = screen_w - (status_icon_size * 2 + icon_spacing) - math.floor(12 * _G.density_scale)
+    local product_label_h = math.min(status_font_size, math.floor(24 * _G.density_scale))
+    local product_label_y = math.floor((top_h - product_label_h) / 2)
+    local icon_start_x = screen_w - status_icon_size - math.floor(12 * _G.density_scale)
+    log.info("idle_win", "status bar layout", top_h, status_icon_size, status_font_size, product_label_h, product_label_y, icon_start_x, status_icon_y)
     wifi_img = airui.image({
         parent = status_bar,
         x = icon_start_x,
@@ -482,22 +484,14 @@ local function on_create()
         h = status_icon_size,
         src = "/luadb/wifixinhao0.png"
     })
-    mobile_img = airui.image({
-        parent = status_bar,
-        x = icon_start_x + status_icon_size + icon_spacing,
-        y = status_icon_y,
-        w = status_icon_size,
-        h = status_icon_size,
-        src = "/luadb/4Gxinhao6.png"
-    })
     product_label = airui.label({
         parent = status_bar,
         x = 0,
-        y = math.floor((top_h - status_font_size) / 2),
-        w = screen_w - 100,
-        h = status_font_size + math.floor(4 * _G.density_scale),
+        y = product_label_y,
+        w = screen_w - status_icon_size - math.floor(20 * _G.density_scale),
+        h = product_label_h,
         text = product_name,
-        font_size = math.min(status_font_size, math.floor(20 * _G.density_scale)),
+        font_size = product_label_h,
         color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_CENTER
     })
@@ -554,7 +548,6 @@ local function on_create()
         update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     end, 1000)
     sys.subscribe("STATUS_TIME_UPDATED", on_status_time_updated)
-    sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_mobile_updated)
     sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.subscribe("APP_STORE_INSTALLED_UPDATED", function()
         load_external_apps()
@@ -569,7 +562,6 @@ local function on_destroy()
         time_timer = nil
     end
     sys.unsubscribe("STATUS_TIME_UPDATED", on_status_time_updated)
-    sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_mobile_updated)
     sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", load_external_apps)
 

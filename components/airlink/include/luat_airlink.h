@@ -24,6 +24,7 @@ enum {
     LUAT_AIRLINK_MODE_SPI_SLAVE = 0,
     LUAT_AIRLINK_MODE_SPI_MASTER = 1,
     LUAT_AIRLINK_MODE_UART = 2,
+    LUAT_AIRLINK_MODE_LOOPBACK = 3, // PC simulator self-test loopback
     LUAT_AIRLINK_MODE_UNKNOW = -1
 };
 
@@ -41,7 +42,8 @@ typedef struct airlink_flags {
     uint32_t queue_ip: 1; // 用于ip包的队列是否还有数据
     uint32_t irq_ready: 1; // 是否切换到IRQ模式
     uint32_t irq_pin: 4;   // 中断管脚号, 这是传给SLAVE的, 从 GPIO12(GPIO140)开始算
-    uint32_t reserved: 24; // 保留位, 用于扩展
+    uint32_t rpc_supported: 1; // 是否支持nanopb RPC指令 (cmd 0x30)
+    uint32_t reserved: 23; // 保留位, 用于扩展
 }airlink_flags_t;
 
 typedef struct airlink_link_data {
@@ -199,6 +201,12 @@ uint32_t luat_airlink_sversion(void);
 
 void luat_airlink_current_mode_set(int mode);
 int luat_airlink_current_mode_get(void);
+
+// 对端 flags 追踪: 传输层在收到每个链路包后调用 luat_airlink_peer_flags_update
+// 更新对端的能力标志 (如 rpc_supported).
+// 上层调用 luat_airlink_peer_rpc_supported() 来查询对端是否支持 nanopb RPC.
+void luat_airlink_peer_flags_update(const airlink_flags_t* flags);
+int luat_airlink_peer_rpc_supported(void);
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"

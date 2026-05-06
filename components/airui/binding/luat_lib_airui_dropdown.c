@@ -91,6 +91,51 @@ static int l_dropdown_get_selected(lua_State *L)
 }
 
 /**
+ * Dropdown:set_options(config)
+ * @api dropdown:set_options({options=options, default_idx=default_index})
+ * @table options 选项列表，例如 {"A", "B"}
+ * @int default_index 替换选项后默认选中的索引，可选，0起始
+ * @return nil 无返回值
+ */
+static int l_dropdown_set_options(lua_State *L)
+{
+    lv_obj_t *dropdown = airui_check_component(L, 1, AIRUI_DROPDOWN_MT);
+    int has_default_index = 0;
+    int default_index = 0;
+
+    luaL_checktype(L, 2, LUA_TTABLE);
+
+    lua_getfield(L, 2, "options");
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        return luaL_argerror(L, 2, "config.options must be a table");
+    }
+    int options_idx = lua_gettop(L);
+
+    lua_getfield(L, 2, "default_idx");
+    if (lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        lua_getfield(L, 2, "default_index");
+    }
+    if (!lua_isnil(L, -1)) {
+        default_index = luaL_checkinteger(L, -1);
+        has_default_index = 1;
+    }
+    lua_pop(L, 1);
+
+    int ret = airui_dropdown_set_options(dropdown, L, options_idx);
+    lua_pop(L, 1);
+    if (ret != AIRUI_OK) {
+        return luaL_argerror(L, 2, "config.options must be a table");
+    }
+
+    if (has_default_index && default_index >= 0 && lv_dropdown_get_option_count(dropdown) > 0) {
+        airui_dropdown_set_selected(dropdown, default_index);
+    }
+    return 0;
+}
+
+/**
  * Dropdown:get_value()
  * @api dropdown:get_value()
  * @return string 当前选中项文本
@@ -143,6 +188,7 @@ void airui_register_dropdown_meta(lua_State *L)
     luaL_newmetatable(L, AIRUI_DROPDOWN_MT);
 
     static const luaL_Reg methods[] = {
+        {"set_options", l_dropdown_set_options},
         {"set_selected", l_dropdown_set_selected},
         {"get_selected", l_dropdown_get_selected},
         {"get_value", l_dropdown_get_value},

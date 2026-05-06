@@ -13,6 +13,8 @@
 5. SIM卡状态监控
 ]]
 
+require("sys")
+
 -- 对于双卡的设备, 可以设置为自动选sim卡
 -- 但是SIM1所在管脚就强制复用为SIM功能, 占用4个IO口(gpio4/5/6/23)，不可以再复用为GPIO
 -- mobile.simid(2)
@@ -81,35 +83,35 @@ gpio.setup(gpio.WAKEUP2,sim_hot_plug)
 
 -- 定义测试band和移动网络信息的函数
 local function mobileinfo_task()
-    -- 开启SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息
-    mobile.setAuto(10000,30000, 5) -- 此函数仅需要配置一次
+    -- -- 开启SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息
+    -- mobile.setAuto(10000,30000, 5) -- 此函数仅需要配置一次
 
-    log.info("************开始测试band************")
-    local band = zbuff.create(40)
-    local band1 = zbuff.create(40)
-    mobile.getBand(band)
-    log.info("当前使用的band:")
-    for i=0,band:used()-1 do
-        log.info("band", band[i])
-    end
-    band1[0] = 38
-    band1[1] = 39
-    band1[2] = 40
-    mobile.setBand(band1, 3)    --改成使用38,39,40
-    band1:clear()
-    mobile.getBand(band1)
-    log.info("修改后使用的band:")
-    for i=0,band1:used()-1 do
-        log.info("band", band1[i])
-    end
-    mobile.setBand(band, band:used())    --改回原先使用的band，也可以下载的时候选择清除fs
+    -- log.info("************开始测试band************")
+    -- local band = zbuff.create(40)
+    -- local band1 = zbuff.create(40)
+    -- mobile.getBand(band)
+    -- log.info("当前使用的band:")
+    -- for i=0,band:used()-1 do
+    --     log.info("band", band[i])
+    -- end
+    -- band1[0] = 38
+    -- band1[1] = 39
+    -- band1[2] = 40
+    -- mobile.setBand(band1, 3)    --改成使用38,39,40
+    -- band1:clear()
+    -- mobile.getBand(band1)
+    -- log.info("修改后使用的band:")
+    -- for i=0,band1:used()-1 do
+    --     log.info("band", band1[i])
+    -- end
+    -- mobile.setBand(band, band:used())    --改回原先使用的band，也可以下载的时候选择清除fs
 
-    mobile.getBand(band1)
-    log.info("修改回默认使用的band:")
-    for i=0,band1:used()-1 do
-        log.info("band", band1[i])
-    end
-    log.info("************band测试完毕************")
+    -- mobile.getBand(band1)
+    -- log.info("修改回默认使用的band:")
+    -- for i=0,band1:used()-1 do
+    --     log.info("band", band1[i])
+    -- end
+    -- log.info("************band测试完毕************")
 
 	log.info("status", mobile.status())
     sys.wait(2000)
@@ -125,7 +127,7 @@ local function mobileinfo_task()
         log.info("rsrp", mobile.rsrp())
         log.info("snr", mobile.snr())
         log.info("simid", mobile.simid()) -- 这里是获取当前SIM卡槽
-        log.info("apn", mobile.apn(0,1))
+        -- log.info("apn", mobile.apn(0,1))
         -- sys内存
         log.info("lua", rtos.meminfo())
         log.info("sys", rtos.meminfo("sys"))
@@ -137,3 +139,5 @@ end
 -- sys.taskInit(get_cell_info_task)
 -- 启动测试任务
 sys.taskInit(mobileinfo_task)
+
+sys.run()

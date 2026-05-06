@@ -13,8 +13,27 @@
 #include "lvgl9/src/misc/lv_timer.h"
 #include "lvgl9/src/core/lv_obj.h"
 #include "lvgl9/src/misc/lv_event.h"
+#include "lvgl9/src/misc/lv_color.h"
 
 #include <string.h>
+#include <stdint.h>
+
+static void airui_msgbox_set_text_font_size_recursive(lv_obj_t *obj, int font_size)
+{
+    if (obj == NULL || font_size <= 0) {
+        return;
+    }
+
+    if (lv_obj_check_type(obj, &lv_label_class)) {
+        (void)airui_text_font_apply_hzfont(obj, font_size,
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+
+    uint32_t child_cnt = lv_obj_get_child_cnt(obj);
+    for (uint32_t i = 0; i < child_cnt; i++) {
+        airui_msgbox_set_text_font_size_recursive(lv_obj_get_child(obj, i), font_size);
+    }
+}
 
 /**
  * 从注册表中获取 AIRUI 上下文
@@ -129,6 +148,8 @@ lv_obj_t *airui_msgbox_create_from_config(void *L, int idx)
     const char *text = airui_marshal_string(L, idx, "text", NULL);
     bool auto_center = airui_marshal_bool(L, idx, "auto_center", true);
     int timeout = airui_marshal_integer(L, idx, "timeout", 0);
+    int value = 0;
+    bool has_pos = false;
 
     lv_obj_t *msgbox = lv_msgbox_create(parent);
     if (msgbox == NULL) {
@@ -136,10 +157,6 @@ lv_obj_t *airui_msgbox_create_from_config(void *L, int idx)
     }
 
     // 可选居中
-    if (auto_center) {
-        lv_obj_center(msgbox);
-    }
-
     // 设置标题与文本
     if (title != NULL) {
         lv_msgbox_add_title(msgbox, title);
@@ -164,6 +181,34 @@ lv_obj_t *airui_msgbox_create_from_config(void *L, int idx)
         if (btn != NULL) {
             lv_obj_add_event_cb(btn, airui_msgbox_button_event_cb, LV_EVENT_CLICKED, msgbox);
         }
+    }
+
+    if (airui_marshal_integer_opt(L_state, idx, "w", &value)) {
+        lv_obj_set_width(msgbox, value < 0 ? 0 : value);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "h", &value)) {
+        lv_obj_set_height(msgbox, value < 0 ? 0 : value);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "x", &value)) {
+        lv_obj_set_x(msgbox, value);
+        has_pos = true;
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "y", &value)) {
+        lv_obj_set_y(msgbox, value);
+        has_pos = true;
+    }
+
+    lua_getfield(L_state, idx, "style");
+    if (lua_type(L_state, -1) == LUA_TTABLE) {
+        airui_msgbox_set_style(msgbox, L_state, lua_gettop(L_state));
+    }
+    lua_pop(L_state, 1);
+
+    if (auto_center && !has_pos) {
+        lv_obj_center(msgbox);
+    }
+    else if (!auto_center && !has_pos) {
+        lv_obj_set_pos(msgbox, 0, 0);
     }
 
     airui_component_meta_t *meta = airui_component_meta_alloc(
@@ -195,6 +240,47 @@ lv_obj_t *airui_msgbox_create_from_config(void *L, int idx)
     }
 
     return msgbox;
+}
+
+int airui_msgbox_set_style(lv_obj_t *msgbox, void *L, int idx)
+{
+    if (msgbox == NULL || L == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    idx = lua_absindex(L_state, idx);
+    if (!lua_istable(L_state, idx)) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    int value = 0;
+
+    if (airui_marshal_integer_opt(L_state, idx, "bg_color", &value)) {
+        lv_obj_set_style_bg_color(msgbox, lv_color_hex((uint32_t)value),
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "bg_opa", &value)) {
+        lv_obj_set_style_bg_opa(msgbox, airui_marshal_opacity(value),
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
+        lv_obj_set_style_border_color(msgbox, lv_color_hex((uint32_t)value),
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "border_width", &value)) {
+        lv_obj_set_style_border_width(msgbox, value < 0 ? 0 : value,
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "radius", &value)) {
+        lv_obj_set_style_radius(msgbox, value < 0 ? 0 : value,
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "text_font_size", &value) && value > 0) {
+        airui_msgbox_set_text_font_size_recursive(msgbox, value);
+    }
+
+    return AIRUI_OK;
 }
 
 /**

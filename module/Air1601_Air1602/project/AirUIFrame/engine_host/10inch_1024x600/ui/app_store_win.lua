@@ -157,14 +157,14 @@ local function calc_layout()
     apps_grid_h = grid_area_h
     page_bar_w = apps_container_w
 
-    -- 网格列数（动态计算）
+    -- 网格列数（动态计算，最小卡片宽度乘以 density_scale 适配高密度屏）
     local min_card_w
     if is_landscape then
-        min_card_w = math.max(150, math.floor(screen_w * 0.18))
+        min_card_w = math.max(math.floor(150 * _G.density_scale), math.floor(screen_w * 0.18 * _G.density_scale))
     else
-        min_card_w = math.max(150, math.floor(screen_w * 0.30))
+        min_card_w = math.max(math.floor(150 * _G.density_scale), math.floor(screen_w * 0.30 * _G.density_scale))
     end
-    min_card_w = math.max(150, math.min(280, min_card_w))
+    min_card_w = math.max(math.floor(150 * _G.density_scale), math.min(math.floor(280 * _G.density_scale), min_card_w))
 
     grid_cols = math.max(1, math.floor(apps_grid_w / min_card_w))
 
@@ -201,7 +201,7 @@ local function calc_layout()
 
     local vertical_padding_eff = (screen_h < 400) and 8 or 12
     local base_card_h = math.max(icon_size, title_height + info_line_height) + card_btn_height + card_btn_bottom_margin +
-    vertical_padding_eff
+        vertical_padding_eff
     local available_height_for_desc = grid_area_h - base_card_h - grid_margin * 2
 
     if available_height_for_desc >= desc_line_height * 2 then
@@ -409,7 +409,7 @@ local function create_ui()
         w = screen_w,
         h = 200,
         bg_color = COLOR_CARD,
-        on_commit = function(self)                                                                                                                                                            -- 确认事件回调，只有在按下确认键时才会触发
+        on_commit = function(self)         -- 确认事件回调，只有在按下确认键时才会触发
             -- 隐藏键盘
             self:hide()
         end,
@@ -444,24 +444,27 @@ local function create_ui()
     })
 
     -- 排序栏
-    local sort_bar = airui.container({ parent = main_container, x = 0, y = top_h, w = sort_bar_w, h = sort_h, color =
-    COLOR_CARD })
+    local sort_bar = airui.container({
+        parent = main_container,
+        x = 0,
+        y = top_h,
+        w = sort_bar_w,
+        h = sort_h,
+        color =
+            COLOR_CARD
+    })
     local sort_btn_h = math.min(36, math.floor(sort_h * 0.85))
     local sort_btn_radius = math.floor(sort_btn_h / 2)
-    local sort_label_w = math.min(50, math.floor(screen_w * 0.12))
-    local sort_btn_y = math.floor((sort_h - sort_btn_h) / 2)
-    local sort_dd_w = math.min(150, math.floor((screen_w - sort_label_w - 90) * 0.65))
-    local sort_refresh_x = sort_label_w + sort_dd_w + 20
+    local sort_dd_x = math.floor(12 * _G.density_scale)
+    local sort_dd_w = math.min(150, math.floor((screen_w - sort_dd_x - 90) * 0.65))
+    local sort_refresh_x = sort_dd_x + sort_dd_w + 20
     if sort_refresh_x + 70 > screen_w then
-        sort_dd_w = math.floor(screen_w - sort_label_w - 90)
-        sort_refresh_x = sort_label_w + sort_dd_w + 10
+        sort_dd_w = math.floor(screen_w - sort_dd_x - 90)
+        sort_refresh_x = sort_dd_x + sort_dd_w + 10
     end
-    airui.label({ parent = sort_bar, x = 8, y = sort_btn_y, w = sort_label_w, h = sort_btn_h, text = "排序:", font_size =
-    math.max(math.floor(14 * _G.density_scale), button_font_size - math.floor(2 * _G.density_scale)), color =
-    COLOR_TEXT_SECONDARY })
     sort_select = airui.dropdown({
         parent = sort_bar,
-        x = sort_label_w + 12,
+        x = sort_dd_x,
         y = sort_btn_y,
         w = sort_dd_w,
         h = sort_btn_h,
@@ -491,8 +494,15 @@ local function create_ui()
     })
 
     -- 分类侧边栏
-    local category_sidebar = airui.container({ parent = main_container, x = 0, y = top_h + sort_h, w = side_w, h =
-    app_area_h, color = COLOR_CARD })
+    local category_sidebar = airui.container({
+        parent = main_container,
+        x = 0,
+        y = top_h + sort_h,
+        w = side_w,
+        h =
+            app_area_h,
+        color = COLOR_CARD
+    })
     local cat_y = 16
     local cat_height = math.max(36, math.min(50, math.floor(screen_h / 20)))
     local cat_radius = math.min(24, math.floor(cat_height / 2))
@@ -520,8 +530,11 @@ local function create_ui()
                 current_category = cat
                 for idx, btn_obj in ipairs(category_btns) do
                     local active = (categories[idx] == cat)
-                    btn_obj:set_style({ bg_color = active and COLOR_PRIMARY or COLOR_CARD, text_color = active and
-                    COLOR_WHITE or COLOR_TEXT })
+                    btn_obj:set_style({
+                        bg_color = active and COLOR_PRIMARY or COLOR_CARD,
+                        text_color = active and
+                            COLOR_WHITE or COLOR_TEXT
+                    })
                 end
                 current_page = 1
                 sys.publish("APP_STORE_GET_LIST", current_category, current_sort, current_page, page_limit, current_query)
@@ -532,15 +545,37 @@ local function create_ui()
     end
 
     -- 右侧内容区
-    apps_container = airui.container({ parent = main_container, x = side_w, y = top_h + sort_h, w = apps_container_w, h =
-    apps_container_h - page_btn_h, color = COLOR_BG })
-    apps_grid = airui.container({ parent = apps_container, x = grid_margin, y = grid_margin, w = apps_grid_w, h =
-    apps_grid_h, color = COLOR_BG })
+    apps_container = airui.container({
+        parent = main_container,
+        x = side_w,
+        y = top_h + sort_h,
+        w = apps_container_w,
+        h =
+            apps_container_h - page_btn_h,
+        color = COLOR_BG,
+        scrollable = true,
+    })
+    apps_grid = airui.container({
+        parent = apps_container,
+        x = grid_margin,
+        y = grid_margin,
+        w = apps_grid_w,
+        h =
+            apps_grid_h,
+        color = COLOR_BG
+    })
 
     -- 分页栏
     local page_bar_h_eff = page_btn_h
-    local page_bar = airui.container({ parent = main_container, x = side_w, y = screen_h - page_btn_h, w = screen_w -
-    side_w, h = page_btn_h, color = COLOR_CARD })
+    local page_bar = airui.container({
+        parent = main_container,
+        x = side_w,
+        y = screen_h - page_btn_h,
+        w = screen_w -
+            side_w,
+        h = page_btn_h,
+        color = COLOR_CARD
+    })
     local prev_btn_x = 16
     local prev_btn_w = 70
     local next_btn_w = 70

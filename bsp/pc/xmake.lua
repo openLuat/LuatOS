@@ -222,9 +222,9 @@ target("luatos-lua")
     add_files(luatos.."components/memprof/binding/*.c")
 
     -- sqlite3
-    -- add_includedirs(luatos.."components/sqlite3/include",{public = true})
-    -- add_files(luatos.."components/sqlite3/src/*.c")
-    -- add_files(luatos.."components/sqlite3/binding/*.c")
+    add_includedirs(luatos.."components/sqlite3/include",{public = true})
+    add_files(luatos.."components/sqlite3/src/*.c")
+    add_files(luatos.."components/sqlite3/binding/*.c")
     
     --mobile
     add_includedirs(luatos.."components/mobile")
@@ -418,10 +418,10 @@ target("luatos-lua")
         add_includedirs(luatos .. "components/network/iperf/include")
         add_files(luatos .. "components/network/iperf/**.c")
 
-        remove_files(luatos .. "components/airlink/src/driver/*.c")
-        remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_wlan.c")
-        remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_gpio.c")
-        remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_uart.c")
+        -- remove_files(luatos .. "components/airlink/src/driver/*.c")
+        -- remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_wlan.c")
+        -- remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_gpio.c")
+        -- remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_uart.c")
         remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_bluetooth.c")
         
         remove_files(luatos .. "components/airlink/src/task/luat_airlink_spi_slave_task.c")
@@ -439,6 +439,7 @@ target("luatos-lua")
 
         -- 添加蓝牙
         add_includedirs(luatos .. "components/bluetooth/include")
+        add_files(luatos .. "components/bluetooth/drv/luat_drv_ble_gatt.c")
     else
         add_includedirs(luatos .. "components/network/lwip/include")
         add_includedirs("lwip/include")    

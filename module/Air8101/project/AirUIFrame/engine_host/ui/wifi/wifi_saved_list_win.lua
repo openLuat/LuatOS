@@ -88,7 +88,7 @@ local function saved_list_create_ui()
     airui.label({
         parent = title_bar,
         text = "已保存的网络",
-        x = math.floor(60 * _G.density_scale), y = math.floor(14 * _G.density_scale),
+        x = math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = SCREEN_W - math.floor(60 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         font_size = math.floor(32 * _G.density_scale),
         color = COLOR_WHITE,
@@ -100,6 +100,7 @@ local function saved_list_create_ui()
         x = 0, y = TITLE_H,
         w = SCREEN_W, h = SCREEN_H - TITLE_H,
         color = COLOR_BG,
+        scrollable = true,
     })
     saved_list_content = airui.container({
         parent = saved_list_scroll_container,

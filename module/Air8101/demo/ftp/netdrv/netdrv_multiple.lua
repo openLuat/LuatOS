@@ -80,7 +80,7 @@ local function netdrv_multiple_task_func()
 
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                     tp = netdrv.CH390, 
-                    opts = {spi=0, cs=15}
+                    opts = {spi=0, cs=15, irq=8}
                 }
             },
 

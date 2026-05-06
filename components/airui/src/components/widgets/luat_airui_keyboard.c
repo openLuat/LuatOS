@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file luat_airui_keyboard.c
  * @summary Keyboard 组件实现
  * @responsible 虚拟键盘创建、目标绑定、事件与布局控制
@@ -61,6 +61,35 @@ static void airui_keyboard_data_init_defaults(airui_keyboard_data_t *data)
     data->bg_color = lv_color_hex(0xffffff);
     data->preview_runtime = NULL;
 }
+
+
+#if LV_USE_IME_PINYIN
+static lv_obj_t *airui_keyboard_get_valid_cand_panel(airui_keyboard_data_t *data)
+{
+    if (data == NULL || data->ime == NULL || !lv_obj_is_valid(data->ime)) {
+        return NULL;
+    }
+
+    lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+    if (cand_panel == NULL || !lv_obj_is_valid(cand_panel)) {
+        return NULL;
+    }
+
+    return cand_panel;
+}
+
+static void airui_keyboard_ime_delete_event_cb(lv_event_t *e)
+{
+    if (e == NULL || lv_event_get_code(e) != LV_EVENT_DELETE) {
+        return;
+    }
+
+    airui_keyboard_data_t *data = (airui_keyboard_data_t *)lv_event_get_user_data(e);
+    if (data != NULL) {
+        data->ime = NULL;
+    }
+}
+#endif
 
 /**
  * 获取 AIRUI 上下文（简化访问注册表里预存的上下文指针）
@@ -138,7 +167,7 @@ static bool airui_keyboard_is_focus_within_related_objects(lv_obj_t *keyboard, a
 
 #if LV_USE_IME_PINYIN
             if (data->ime != NULL && lv_obj_is_valid(data->ime)) {
-                lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+                lv_obj_t *cand_panel = airui_keyboard_get_valid_cand_panel(data);
                 if (airui_keyboard_is_obj_or_ancestor(cand_panel, focused)) {
                     return true;
                 }
@@ -168,7 +197,7 @@ static bool airui_keyboard_is_focus_within_related_objects(lv_obj_t *keyboard, a
 
 #if LV_USE_IME_PINYIN
         if (data->ime != NULL && lv_obj_is_valid(data->ime)) {
-            lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+            lv_obj_t *cand_panel = airui_keyboard_get_valid_cand_panel(data);
             if (cand_panel != NULL && lv_obj_is_valid(cand_panel) && lv_obj_has_state(cand_panel, LV_STATE_FOCUSED)) {
                 return true;
             }
@@ -200,7 +229,7 @@ static bool airui_keyboard_is_related_obj(lv_obj_t *keyboard, airui_keyboard_dat
 
 #if LV_USE_IME_PINYIN
         if (data->ime != NULL && lv_obj_is_valid(data->ime)) {
-            lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+            lv_obj_t *cand_panel = airui_keyboard_get_valid_cand_panel(data);
             if (airui_keyboard_is_obj_or_ancestor(cand_panel, obj)) {
                 return true;
             }
@@ -295,7 +324,7 @@ static void airui_keyboard_preview_relayout(airui_keyboard_preview_runtime_t *ru
     if (meta != NULL && meta->user_data != NULL) {
         airui_keyboard_data_t *data = (airui_keyboard_data_t *)meta->user_data;
         if (data != NULL && data->ime != NULL) {
-            lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+            lv_obj_t *cand_panel = airui_keyboard_get_valid_cand_panel(data);
             if (cand_panel != NULL && lv_obj_is_valid(cand_panel)) {
                 lv_obj_update_layout(cand_panel);
                 int32_t cand_h = lv_obj_get_height(cand_panel);
@@ -404,7 +433,7 @@ static void airui_keyboard_apply_font(lv_obj_t *keyboard, airui_keyboard_data_t 
 
 #if LV_USE_IME_PINYIN
     if (data->ime != NULL) {
-        lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+        lv_obj_t *cand_panel = airui_keyboard_get_valid_cand_panel(data);
         if (cand_panel != NULL && lv_obj_is_valid(cand_panel)) {
             (void)airui_text_font_apply_hzfont(cand_panel, data->font_size,
                 ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
@@ -915,7 +944,7 @@ static void airui_keyboard_apply_pinyin_mode(airui_keyboard_data_t *data, const 
     if (strcmp(mode, "pinyin_9_number") == 0) {
         lv_ime_pinyin_set_mode(data->ime, LV_IME_PINYIN_MODE_K9_NUMBER);
         lv_keyboard_set_mode(lv_ime_pinyin_get_kb(data->ime), LV_KEYBOARD_MODE_NUMBER);
-        lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+        lv_obj_t *cand_panel = airui_keyboard_get_valid_cand_panel(data);
         if (cand_panel != NULL) {
             lv_obj_add_flag(cand_panel, LV_OBJ_FLAG_HIDDEN);
         }
@@ -1012,13 +1041,14 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     data->preview_enabled = preview_enabled;
     data->preview_height = preview_height;
     data->bg_color = bg_color;
-    meta->user_data = data;
+    airui_component_meta_set_user_data(meta, data, luat_heap_free);
 
     // 支持拼音输入法
 #if LV_USE_IME_PINYIN
     data->ime = lv_ime_pinyin_create(keyboard);
     if (data->ime != NULL) {
         lv_ime_pinyin_set_keyboard(data->ime, keyboard);
+        lv_obj_add_event_cb(data->ime, airui_keyboard_ime_delete_event_cb, LV_EVENT_DELETE, data);
 
         // 如果定义了LUAT_USE_PINYIN，则使用自己的pinyin字典
 #if defined(LUAT_USE_PINYIN)
@@ -1106,7 +1136,7 @@ int airui_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
             return AIRUI_ERR_NO_MEM;
         }
         airui_keyboard_data_init_defaults(data);
-        meta->user_data = data;
+        airui_component_meta_set_user_data(meta, data, luat_heap_free);
     }
     lv_obj_t *old_target = data->target;
     data->target = textarea;
@@ -1158,7 +1188,7 @@ static void airui_keyboard_update_pinyin_panel(lv_obj_t *keyboard, bool visible)
     if (data == NULL || data->ime == NULL) {
         return;
     }
-    lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+    lv_obj_t *cand_panel = airui_keyboard_get_valid_cand_panel(data);
     if (cand_panel == NULL) {
         return;
     }
@@ -1272,7 +1302,7 @@ int airui_keyboard_set_bg_color(lv_obj_t *keyboard, lv_color_t color)
 
 #if LV_USE_IME_PINYIN
     if (data->ime != NULL) {
-        lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+        lv_obj_t *cand_panel = airui_keyboard_get_valid_cand_panel(data);
         airui_keyboard_apply_pinyin_bg(data, cand_panel);
     }
 #endif
@@ -1289,3 +1319,4 @@ int airui_keyboard_set_bg_color(lv_obj_t *keyboard, lv_color_t color)
     lv_obj_set_style_bg_opa(keyboard, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     return AIRUI_OK;
 }
+

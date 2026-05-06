@@ -41,6 +41,9 @@ extern int luat_airlink_start_uart(void);
 extern int luat_airlink_stop_slave(void);
 extern int luat_airlink_stop_master(void);
 extern int luat_airlink_stop_uart(void);
+#ifdef LUAT_USE_AIRLINK_LOOPBACK
+extern int luat_airlink_start_loopback(void);
+#endif
 
 typedef struct luat_airlink_mode_cb_reg {
     luat_airlink_newdata_notify_cb newdata_cb;
@@ -199,6 +202,19 @@ AIRLINK_DEV_INFO_UPDATE_CB luat_airlink_mode_dev_info_update_cb_get(void) {
 luat_airlink_spi_conf_t g_airlink_spi_conf;
 airlink_statistic_t g_airlink_statistic;
 uint64_t g_airlink_last_cmd_timestamp;
+
+// 最近一次收到的对端 flags (由传输层在收到报文时调用 luat_airlink_peer_flags_update 更新)
+static airlink_flags_t g_airlink_peer_flags;
+
+void luat_airlink_peer_flags_update(const airlink_flags_t* flags) {
+    if (flags) {
+        g_airlink_peer_flags = *flags;
+    }
+}
+
+int luat_airlink_peer_rpc_supported(void) {
+    return g_airlink_peer_flags.rpc_supported ? 1 : 0;
+}
 uint32_t g_airlink_debug;
 uint32_t g_airlink_pause;
 luat_rtos_mutex_t g_airlink_pause_mutex = NULL;
@@ -254,6 +270,13 @@ int luat_airlink_start(int id)
         ret = luat_airlink_start_uart();
         #else
         LLOGE("当前固件不支持 UART模式");
+        #endif
+    }
+    else if (id == 3) {
+        #ifdef LUAT_USE_AIRLINK_LOOPBACK
+        ret = luat_airlink_start_loopback();
+        #else
+        LLOGE("当前固件不支持 LOOPBACK模式");
         #endif
     }
     if (ret != 0 || airlink_cmd_queue == NULL || airlink_ippkg_queue == NULL) {
@@ -920,6 +943,22 @@ int luat_airlink_cmd_exec_result(luat_airlink_cmd_t* cmd, void* userdata) {
         }
     }
     luat_rtos_mutex_unlock(reg_mutex);
+    return -1;
+}
+
+int luat_airlink_result_dispatch(uint64_t id, luat_airlink_cmd_t* cmd) {
+    if (reg_mutex == NULL) return -1;
+    luat_rtos_mutex_lock(reg_mutex, 1000);
+    for (size_t i = 0; i < 64; i++) {
+        if (regs[i].tm != 0 && memcmp(&regs[i].id, &id, 8) == 0) {
+            regs[i].exec(&regs[i], cmd);
+            memset(&regs[i], 0, sizeof(luat_airlink_result_reg_t));
+            luat_rtos_mutex_unlock(reg_mutex);
+            return 0;
+        }
+    }
+    luat_rtos_mutex_unlock(reg_mutex);
+    LLOGW("result_dispatch: no slot for id=0x%llx", (unsigned long long)id);
     return -1;
 }
 

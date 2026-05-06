@@ -1,5 +1,7 @@
 #include "luat_base.h"
+#ifdef __LUATOS__
 #include "luat_msgbus.h"
+#endif
 #include "luat_gpio.h"
 #ifdef LUAT_USE_DRV_GPIO
 #include "luat/drv_gpio.h"
@@ -67,10 +69,10 @@ static void luat_audio_dac_loop_cleanup(luat_audio_dac_loop_ctx_t *ctx)
 }
 #endif /* LUAT_USE_DAC */
 
-typedef struct lua_State lua_State;
-
+#ifdef __LUATOS__
 static void luat_audio_task(void *param);
 extern int l_multimedia_raw_handler(lua_State *L, void* ptr);
+#endif
 
 typedef struct luat_audio_play_ctx {
     uint8_t multimedia_id;
@@ -165,6 +167,7 @@ static void luat_audio_release_decoder(luat_multimedia_codec_t *coder) {
     }
 }
 
+#ifdef __LUATOS__
 static void luat_audio_post_done_event(uint8_t multimedia_id) {
     rtos_msg_t msg = {0};
     msg.handler = l_multimedia_raw_handler;
@@ -172,6 +175,11 @@ static void luat_audio_post_done_event(uint8_t multimedia_id) {
     msg.arg2 = multimedia_id;
     luat_msgbus_put(&msg, 1);
 }
+#else
+static void luat_audio_post_done_event(uint8_t multimedia_id) {
+    (void)multimedia_id;
+}
+#endif
 
 static void luat_audio_wait_output_empty(uint8_t multimedia_id, luat_audio_conf_t *audio_conf, volatile uint8_t *stop_requested) {
 #ifdef LUAT_USE_I2S
@@ -199,6 +207,7 @@ static void luat_audio_wait_output_empty(uint8_t multimedia_id, luat_audio_conf_
 #endif
 }
 
+#ifdef __LUATOS__
 static int luat_audio_task_bootstrap(void) {
     if (!audio_queue_handle) {
         if (luat_rtos_queue_create(&audio_queue_handle, LUAT_AUDIO_TASK_QUEUE_LEN, sizeof(OS_EVENT)) != 0) {
@@ -218,6 +227,11 @@ static int luat_audio_task_bootstrap(void) {
     }
     return 0;
 }
+#else
+static int luat_audio_task_bootstrap(void) {
+    return 0;
+}
+#endif
 
 static int luat_audio_do_play_file(uint8_t multimedia_id, const char *path) {
     luat_audio_conf_t *audio_conf = luat_audio_get_config(multimedia_id);

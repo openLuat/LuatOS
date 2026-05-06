@@ -1,9 +1,11 @@
 #include "luat_base.h"
+#if defined(LUAT_USE_DRV_WLAN)
 #include "luat_gpio.h"
 #include "luat_mem.h"
 #include "luat_wlan.h"
 #include "luat_airlink.h"
 #include "luat_airlink_drv_wlan.h"
+#include "luat_airlink_drv_rpc_wlan.h"
 #include "luat/drv_wlan.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv.h"
@@ -17,6 +19,10 @@
 // #define LLOGD(...) 
 
 int luat_drv_wlan_init(luat_wlan_config_t *conf) {
+    #ifdef LUAT_USE_AIRLINK_RPC
+    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+        return luat_airlink_drv_rpc_wlan_init(conf);
+    #endif
     return luat_airlink_drv_wlan_init(conf);
 }
 
@@ -29,14 +35,26 @@ int luat_drv_wlan_ready(void) {
 }
 
 int luat_drv_wlan_connect(luat_wlan_conninfo_t* info) {
+    #ifdef LUAT_USE_AIRLINK_RPC
+    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+        return luat_airlink_drv_rpc_wlan_connect(info);
+    #endif
     return luat_airlink_drv_wlan_connect(info);
 }
 
 int luat_drv_wlan_disconnect(void) {
+    #ifdef LUAT_USE_AIRLINK_RPC
+    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+        return luat_airlink_drv_rpc_wlan_disconnect();
+    #endif
     return luat_airlink_drv_wlan_disconnect();
 }
 
 int luat_drv_wlan_scan(void) {
+    #ifdef LUAT_USE_AIRLINK_RPC
+    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+        return luat_airlink_drv_rpc_wlan_scan();
+    #endif
     return luat_airlink_drv_wlan_scan();
 }
 
@@ -112,10 +130,18 @@ int luat_drv_wlan_get_ap_gateway(char* buff) {
 
 // AP类
 int luat_drv_wlan_ap_start(luat_wlan_apinfo_t *apinfo) {
+    #ifdef LUAT_USE_AIRLINK_RPC
+    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+        return luat_airlink_drv_rpc_wlan_ap_start(apinfo);
+    #endif
     return luat_airlink_drv_wlan_ap_start(apinfo);
 }
 
 int luat_drv_wlan_ap_stop(void) {
+    #ifdef LUAT_USE_AIRLINK_RPC
+    if (luat_airlink_peer_rpc_supported() && luat_airlink_current_mode_get() >= 0)
+        return luat_airlink_drv_rpc_wlan_ap_stop();
+    #endif
     return luat_airlink_drv_wlan_ap_stop();
 }
 
@@ -211,5 +237,7 @@ int luat_wlan_ap_stop(void) {
     return luat_drv_wlan_ap_stop();
 }
 
-#endif
+#endif /* LUAT_USE_DRV_WLAN */
+
+#endif /* LUAT_USE_DRV_WLAN */
 

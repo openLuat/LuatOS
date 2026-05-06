@@ -82,7 +82,8 @@ local function create_ui()
         parent = airui.screen,
         x = 0, y = 0,
         w = screen_w, h = screen_h,
-        color = COLOR_CARD
+        color = COLOR_CARD,
+        scrollable = true,
     })
 
     local title_bar = airui.container({
@@ -111,7 +112,7 @@ local function create_ui()
     })
     airui.label({
         parent = title_bar,
-        x = math.floor(60 * _G.density_scale), y = math.floor(8 * _G.density_scale),
+        x = math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(140 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "网络测速",
         font_size = math.floor(32 * _G.density_scale),

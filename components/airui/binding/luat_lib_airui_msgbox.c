@@ -1,6 +1,6 @@
 /*
 @module  airui.msgbox
-@summary AIRUI Msgbox 组件
+@summary AIRUI Msgbox component
 @version 0.2.0
 @date    2025.12.12
 @tag     LUAT_USE_AIRUI
@@ -25,12 +25,24 @@
 /**
  * 创建 Msgbox 组件
  * @api airui.msgbox(config)
+ * @usage airui.msgbox({ title = "Notice", x = 20, y = 20, w = 280, h = 160, style = { bg_color = 0xffffff, text_font_size = 18 } })
  * @table config 配置表
  * @string config.title 标题文本，可选
  * @string config.text 内容文本，可选
  * @boolean config.auto_center 是否自动居中，默认 true
- * @int config.timeout 自动关闭时间（毫秒），默认 0
- * @table config.buttons 按钮标签数组，默认 ["OK"]
+ * @int config.x X 坐标，可选
+ * @int config.y Y 坐标，可选
+ * @int config.w 宽度，可选
+ * @int config.h 高度，可选
+ * @int config.timeout 自动关闭时间，单位毫秒，默认 0
+ * @table config.buttons 按钮标签数组，默认 {"OK"}
+ * @table config.style 样式表，可选
+ * @int config.style.bg_color 背景色，格式 0xRRGGBB
+ * @int config.style.bg_opa 背景透明度，范围 0-255
+ * @int config.style.border_color 边框颜色，格式 0xRRGGBB
+ * @int config.style.border_width 边框宽度，单位像素
+ * @int config.style.radius 圆角半径，单位像素
+ * @int config.style.text_font_size 文本字号，仅在 hzfont 启用时生效
  * @function config.on_action 按钮点击回调
  * @userdata config.parent 父对象，可选
  * @return userdata Msgbox 对象，失败返回 nil
@@ -60,10 +72,6 @@ static int l_airui_msgbox(lua_State *L)
     return 1;
 }
 
-/**
- * 清理 msgbox Lua 侧关联数据
- * @param ud 组件用户数据
- */
 static void airui_msgbox_lua_cleanup(airui_component_ud_t *ud)
 {
     lv_obj_t *obj = airui_component_userdata_obj(ud);
@@ -109,7 +117,7 @@ static int l_msgbox_hide(lua_State *L)
 /**
  * Msgbox:set_on_action(callback)
  * @api msgbox:set_on_action(callback)
- * @function callback 操作回调（按键 ID 传参）
+ * @function callback action callback
  * @return nil
  */
 static int l_msgbox_set_on_action(lua_State *L)
@@ -119,6 +127,20 @@ static int l_msgbox_set_on_action(lua_State *L)
     lua_pushvalue(L, 2);
     int ref = luaL_ref(L, LUA_REGISTRYINDEX);
     airui_msgbox_set_on_action(msgbox, ref);
+    return 0;
+}
+
+/**
+ * Msgbox:set_style(style)
+ * @api msgbox:set_style(style)
+ * @table style style table, supports bg_color/bg_opa, border_color/border_width, radius, text_font_size
+ * @return nil
+ */
+static int l_msgbox_set_style(lua_State *L)
+{
+    lv_obj_t *msgbox = airui_check_component(L, 1, AIRUI_MSGBOX_MT);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    airui_msgbox_set_style(msgbox, L, 2);
     return 0;
 }
 
@@ -136,28 +158,22 @@ static int l_msgbox_release(lua_State *L)
     return 0;
 }
 
-/**
- * Msgbox:destroy（手动销毁）
- */
 static int l_msgbox_destroy(lua_State *L)
 {
     return l_msgbox_release(L);
 }
 
-/**
- * 注册 Msgbox 元表
- * @param L Lua 状态
- */
 void airui_register_msgbox_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_MSGBOX_MT);
 
     static const luaL_Reg methods[] = {
-        {"show", l_msgbox_show}, // 显示 Msgbox 对话框
-        {"hide", l_msgbox_hide}, // 隐藏 Msgbox 对话框
-        {"set_on_action", l_msgbox_set_on_action}, // 设置按钮点击回调
-        {"release", l_msgbox_release}, // 释放 Msgbox 组件, todo： 后续1.1版本可以移除，和destroy功能重复
-        {"destroy", l_msgbox_destroy}, // 销毁 Msgbox 组件
+        {"show", l_msgbox_show},
+        {"hide", l_msgbox_hide},
+        {"set_style", l_msgbox_set_style},
+        {"set_on_action", l_msgbox_set_on_action},
+        {"release", l_msgbox_release},
+        {"destroy", l_msgbox_destroy},
         {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}
     };
@@ -167,11 +183,7 @@ void airui_register_msgbox_meta(lua_State *L)
     lua_pop(L, 1);
 }
 
-/**
- * Msgbox 创建函数（供主模块注册）
- */
 int airui_msgbox_create(lua_State *L)
 {
     return l_airui_msgbox(L);
 }
-

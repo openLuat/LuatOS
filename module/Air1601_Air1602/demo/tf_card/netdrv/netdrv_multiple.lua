@@ -10,6 +10,8 @@
 
 直接使用Air1601开发板硬件测试即可；
 
+注意：当前netdrv_wifi还不能使用
+
 本文件没有对外接口，直接在其他功能模块中require "netdrv_multiple"就可以加载运行；
 ]]
 
@@ -63,7 +65,7 @@ local function netdrv_multiple_task_func()
                     
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                     tp = netdrv.CH390, 
-                    opts = {spi=1, cs=14}
+                    opts = {spi=1, cs=14, irq=51}
                 }
             },
 

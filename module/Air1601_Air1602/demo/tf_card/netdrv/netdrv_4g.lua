@@ -8,12 +8,11 @@
 本文件为 "通过UART接口外挂4G模组(Air780EPM)的4G网卡"驱动模块，核心业务逻辑为：
 1、初始化和外部4G网卡的配置；
 2、4G网卡的连接状态发生变化时，在日志中进行打印；
-3、通过HTTP GET请求测试网络连接情况。
 
 
 测试本功能模块时，Air780EPM需要烧录以下软件：
 1、最新版本的内核固件(固件需支持airlink over uart功能)
-2、脚本：https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/Air1601_780EPM_airlink/Air780EPM
+2、脚本：https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601_Air1602/demo/airlink/Air1601_780EPM_uart/Air780EPM
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_4g"就可以加载运行；
 ]]

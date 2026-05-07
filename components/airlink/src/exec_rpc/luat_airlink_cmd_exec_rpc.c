@@ -13,6 +13,7 @@
 
 #include "luat_base.h"
 #include "luat_airlink.h"
+#include "luat_mcu.h"
 #include "luat_airlink_rpc.h"
 #include "luat_mem.h"
 

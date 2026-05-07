@@ -35,11 +35,21 @@ end
 ]]
 
 local function lcd_drv_init()
-    -- 开启屏幕供电
+    -- Air8000开发板上，使能lcd供电的ldo电源开关
+    -- 如果你使用的不是Air8000开发板，而是自己设计的硬件，需要根据实际情况来配置电源使能
     gpio.setup(141, 1)
+    
     local result = lcd.init("custom",
         {
-            pin_pwr = 1,       -- 背光控制引脚GPIO端口号
+            -- 背光控制引脚GPIO端口号
+            -- 此处如果配置了背光控制引脚，在lcd初始化之后，就会立即点亮背光，会先白屏一小段时间，然后才会显示画面，这是正常现象
+            --
+            -- 如果你无法接受这种现象，可以在此处将pin_pwr配置为nil，在代码逻辑显示开机第一个画面之后，再手动通过gpio.setup接口去控制背光引脚
+            -- 如果采用手动控制背光的方式，需要注意的是，在低功耗场景：
+            -- 使用lcd.sleep接口休眠lcd前，需要手动通过gpio接口关闭背光；
+            -- 使用lcd.wakeup接口唤醒lcd后，需要手动控通过gpio接口打开背光；
+            pin_pwr = 1,
+
             port = lcd.HWID_0, -- 驱动端口
             pin_rst = 2,       -- lcd复位引脚
             direction = 0,     -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
@@ -47,6 +57,7 @@ local function lcd_drv_init()
             h = 480,           -- lcd 竖直分辨率
             xoffset = 0,       -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
             yoffset = 0,       -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
+            bus_speed = 80000000,
             sleepcmd = 0x10,             -- 睡眠命令：SLPIN命令，进入睡眠模式
             wakecmd = 0x11,              -- 唤醒命令：SLPOUT命令，退出睡眠模式
             interface_mode = lcd.WIRE_4_BIT_8_INTERFACE_I,  -- 接口模式：4线SPI 8bit模式I
@@ -124,9 +135,9 @@ local function lcd_drv_init()
     -------------------------------------自定义初始化配置（结束）-------------------------------------------
 
     if result then
-        -- 开启缓冲区, 刷屏速度会加快, 但也消耗2倍屏幕分辨率的内存
-        lcd.setupBuff(nil, true)
-        lcd.autoFlush(false)
+        -- 开启缓冲区, 刷屏速度会加快（效果不明显，如果有需要，在自己的项目上打开实际体验一下）, 但也消耗2倍屏幕分辨率的内存
+        -- lcd.setupBuff(nil, true)
+        -- lcd.autoFlush(false)
 
         -- 初始化AirUI
         local width, height = lcd.getSize()
@@ -159,13 +170,12 @@ local function lcd_drv_init()
             })
         end
 
-        -- 开启背光引脚供电
-        gpio.setup(1, 1)
+        -- 查询当前固件内AirUI核心库版本
+        local version_result = airui.version()
 
-        -- 查询当前固件内AirUI核心库版本，V1.0.3新增接口
-        log.info("airui", "version -> " .. airui.version())
+        -- 打印查询结果
+        log.info("airui", "version -> " .. version_result)
 
-        return result
     end
 
 end

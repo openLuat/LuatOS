@@ -67,8 +67,6 @@ local function tp_drv_init()
         -- 绑定触摸设备到AirUI输入设备
         airui.device_bind_touch(result)
 
-        -- 在PC模拟器上启用系统键盘输入
-        airui.keyboard_enable_system(true)
     else
         if not result then
             log.error("ui_main", "触摸初始化失败")

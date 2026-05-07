@@ -851,8 +851,6 @@ local function create_ui()
 end
 
 local function on_create()
-    -- 启用系统键盘
-    airui.keyboard_enable_system(true)
     create_ui()
 end
 

@@ -2,7 +2,7 @@
 @module  lcd_inner_drv
 @summary LCD内置显示驱动模块，基于lcd核心库
 @version 1.0
-@date    2026.02.05
+@date    2025.12.1
 @author  江访
 @usage
 本模块为LCD显示驱动功能模块，主要功能包括：

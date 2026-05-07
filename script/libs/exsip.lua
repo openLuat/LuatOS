@@ -81,6 +81,7 @@ local g_started = false
 local g_registered = false
 local g_callbacks = {}
 local g_current_call = nil
+local g_netdrv_subscribed = false
 
 -- 默认配置
 local default_config = {
@@ -92,6 +93,7 @@ local default_config = {
     ptime = 20,
     auto_answer = false,
     delay_auto_answer = 0,
+    call_timeout = 30,
     adapter = nil  -- nil = 使用系统默认网卡
 }
 
@@ -99,6 +101,12 @@ local default_config = {
 local function log_info(...)
     if _G.log and type(log.info) == "function" then
         log.info("exsip", ...)
+    end
+end
+
+local function log_warn(...)
+    if _G.log and type(log.warn) == "function" then
+        log.warn("exsip", ...)
     end
 end
 
@@ -140,13 +148,16 @@ local function start_voip_engine(session)
         jitter_depth = 3,   --抖动缓冲深度，单位为包，默认值为3，建议值为3-5，过大可能增加通话延迟，过小可能增加丢包率
         multimedia_id = 0,  --多媒体ID
         stats_interval = 5000,  --统计信息上报间隔
-        -- 使用当前默认网卡，支持多网融合自动切换
-        adapter = socket.dft()
+        -- 使用 SIP 层锁定的网卡适配器，确保媒体和 SIP 使用同一个网卡
+        adapter = g_config and g_config.adapter or socket.dft(),
+        -- adapter = session.adapter or (g_config and g_config.adapter) or socket.dft(),
+        aec = true,
+        aec_denoise =true
     })
 
     if ok then
         log_info("voip engine started", session.remote_ip .. ":" .. session.remote_port,
-            "codec=" .. tostring(session.codec))
+            "codec=" .. tostring(session.codec), "adapter", g_config and g_config.adapter)
     else
         log_error("voip engine start failed")
     end
@@ -162,17 +173,39 @@ local function stop_voip_engine()
     end
 end
 
+local function netdrv_network_status_handler(net_type, adapter)
+    log_info("NETDRV_NETWORK_STATUS", net_type, adapter, "g_started", g_started)
+    
+    if not g_started then
+        return
+    end
+    
+    if net_type == nil then
+        -- 当前所有网卡都断开
+        log_warn("all network adapters disconnected, stopping SIP")
+        exsip.stop()
+        return
+    end
+    
+    -- 网络类型发生变化，触发错误事件
+    log_warn("network status changed, triggering error")
+    emit_callback("error", "network_changed", {net_type = net_type, adapter = adapter})
+end
+
 local function sip_event_handler(event, action, payload)
     log_info("event:", event, "action:", action)
 
     if event == "register" then
         if action == "ok" then
             g_registered = true
-            emit_callback("register", true, payload)
+            emit_callback("register", "ok", payload)
             emit_callback("ready")
+        elseif action == "challenge" then
+            -- challenge 是正常的认证流程，不标记为未注册
+            emit_callback("register", "challenge", payload)
         else
             g_registered = false
-            emit_callback("register", false, payload)
+            emit_callback("register", "failed", payload)
         end
     elseif event == "call" then
         if action == "incoming" then
@@ -192,7 +225,7 @@ local function sip_event_handler(event, action, payload)
             end
         elseif action == "ringing" then
             emit_callback("call", "ringing", payload)
-        elseif action == "connected" then
+        elseif action == "connected" or action == "established" then
             emit_callback("call", "connected", payload)
         elseif action == "ended" or action == "failed" then
             stop_voip_engine()
@@ -222,9 +255,10 @@ local function sip_event_handler(event, action, payload)
         end
     elseif event == "lifecycle" then
         log_info("lifecycle:", action)
-        if action == "offline" then
+        if action == "offline" or action == "stopped" then
             -- SIP 离线时，停止 voip 引擎，让下次重连时使用新网卡
             stop_voip_engine()
+            g_registered = false
         end
         emit_callback("lifecycle", action, payload)
     elseif event == "error" then
@@ -270,6 +304,7 @@ end
 @number config.ptime 打包时长（毫秒），默认 20
 @boolean config.auto_answer 是否自动接听，默认 false
 @number config.delay_auto_answer 自动接听延迟（秒），默认 0
+@number config.call_timeout 拨号超时时间（秒），默认 30
 @number config.adapter 网络适配器，nil=使用系统默认，socket.LWIP_GP=4G，socket.LWIP_STA=WiFi，socket.LWIP_ETH=以太网
 @return boolean 成功返回 true，失败返回 false
 @usage
@@ -330,7 +365,8 @@ function exsip.start()
     end
 
     local ok, err = pcall(function()
-        sipclient = require "exsipclient"
+        -- sipclient = require "exsipclient"
+        sipclient = require "exsipclient_fixed"
     end)
 
     if not ok or not sipclient then
@@ -340,6 +376,13 @@ function exsip.start()
 
     setup_voip_callbacks()
 
+    -- 订阅网络状态事件
+    if not g_netdrv_subscribed then
+        sys.subscribe("NETDRV_NETWORK_STATUS", netdrv_network_status_handler)
+        g_netdrv_subscribed = true
+        log_info("subscribed to NETDRV_NETWORK_STATUS")
+    end
+
     sipclient.start({
         sip_server_addr = g_config.sip_server_addr,
         sip_server_port = g_config.sip_server_port,
@@ -347,16 +390,17 @@ function exsip.start()
         sip_username = g_config.sip_username,
         sip_password = g_config.sip_password,
         sip_transport = g_config.sip_transport,
-        -- adapter 不设置，让 exsipclient 自动使用 socket.dft()
+        adapter = g_config.adapter,
         rtp_port = g_config.rtp_port,
         expires = g_config.expires,
         codecs = g_config.codecs,
         ptime = g_config.ptime,
+        call_timeout = g_config.call_timeout,
         event_callback = sip_event_handler
     })
 
     g_started = true
-    log_info("started")
+    log_info("started", "adapter", g_config.adapter)
     return true
 end
 
@@ -378,12 +422,20 @@ function exsip.stop()
         sipclient.stop()
     end
 
+    -- 取消订阅网络状态事件
+    if g_netdrv_subscribed then
+        sys.unsubscribe("NETDRV_NETWORK_STATUS", netdrv_network_status_handler)
+        g_netdrv_subscribed = false
+        log_info("unsubscribed from NETDRV_NETWORK_STATUS")
+    end
+
     local timeout = 1000
     while g_started and timeout > 0 do
         sys.wait(10)
         timeout = timeout - 10
     end
     g_started = false
+    g_registered = false
     g_current_call = nil
     log_info("stopped")
 end
@@ -402,32 +454,18 @@ function exsip.dial(target)
         return false
     end
 
-    if not g_registered then
-        log_error("not registered, waiting for registration")
-        return false
-    end
-
     if not sipclient or not sipclient.call then
         log_error("sipclient.call not available")
         return false
     end
 
+    if type(target) ~= "string" then
+        log_error("target must be a string")
+        return false
+    end
     sipclient.call(target)
     log_info("calling:", target)
     return true
-end
-
---[[
-检查是否已注册成功。
-@api exsip.isRegistered()
-@return boolean 已注册返回 true，否则返回 false
-@usage
-if exsip.isRegistered() then
-    exsip.dial("1002")
-end
-]]
-function exsip.isRegistered()
-    return g_registered and g_started
 end
 
 --[[
@@ -533,7 +571,7 @@ end)
 ]]
 function exsip.on(callback)
     if type(callback) == "function" then
-        local events = {"register", "ready", "call", "media", "message", "voip", "error"}
+        local events = {"register", "ready", "call", "media", "message", "voip","lifecycle", "error"}
         for _, event in ipairs(events) do
             g_callbacks[event] = function(...)
                 callback(event, ...)
@@ -604,6 +642,19 @@ end
 ]]
 function exsip.is_started()
     return g_started
+end
+
+--[[
+检查 SIP 是否注册成功。
+@api exsip.isRegistered()
+@return boolean 已注册返回 true，否则返回 false
+@usage
+if exsip.isRegistered() then
+    log.info("SIP 已注册")
+end
+]]
+function exsip.isRegistered()
+    return g_registered
 end
 
 --[[

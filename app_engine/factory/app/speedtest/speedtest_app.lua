@@ -1,14 +1,27 @@
 --[[
 @module  speedtest_app
 @summary 网络测速业务逻辑层
-@version 1.0.0
+@version 1.0
 @date    2026.04.28
+@author  江访
+@usage
+本模块基于 Cloudflare speedtest API 实现网络测速功能：
+1. 延迟与抖动测试（5次采样取最小值）
+2. 下载速度测试（32KB 文件）
+3. 上传速度测试（16KB 数据）
+测速结果通过 SPDTEST_RESULT 事件发布。
 ]]
 
 local BASE_URL = "http://speed.cloudflare.com"
 local is_testing = false
 local network_connected = false
 
+--[[
+@function measure_latency_and_jitter
+@summary 测量网络延迟与抖动
+@return number 最小延迟（ms），失败返回 nil
+@return number 抖动值（ms），失败返回 nil
+]]
 local function measure_latency_and_jitter()
     local rtts = {}
     local sample_count = 5
@@ -48,6 +61,11 @@ local function measure_latency_and_jitter()
     return min_latency, jitter
 end
 
+--[[
+@function measure_download
+@summary 测量下载速度
+@return number 下载速度（Mbps），失败返回 nil
+]]
 local function measure_download()
     local test_bytes = 32 * 1024
     local url = BASE_URL .. "/__down?bytes=" .. tostring(test_bytes) .. "&t=" .. tostring(mcu.ticks())
@@ -73,6 +91,11 @@ local function measure_download()
     return speed_mbps
 end
 
+--[[
+@function measure_upload
+@summary 测量上传速度
+@return number 上传速度（Mbps），失败返回 nil
+]]
 local function measure_upload()
     local test_bytes = 16 * 1024
     local url = BASE_URL .. "/__up"
@@ -100,6 +123,10 @@ local function measure_upload()
     return speed_mbps
 end
 
+--[[
+@function run_speed_test_task
+@summary 运行完整的网络测速流程（延迟→下载→上传）
+]]
 local function run_speed_test_task()
     if is_testing then return end
 

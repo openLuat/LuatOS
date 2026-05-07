@@ -40,32 +40,27 @@ local lcd_drv = {}
 
 function lcd_drv.init()
     gpio.setup(3, 0)
-    -- spi.deviceSetup(1, 3, 0, 0, 8, 30 * 1000 * 1000, spi.MSB, 1, 0)
 
-    -- 1. LCD 参数配置（根据硬件实际连接修改引脚号）
     local lcd_param = {
-        port = lcd.RGB, -- RGB 并行接口
-        pin_rst = 9,    -- LCD 复位引脚 (GPIO)
-        -- pin_pwr = 8,    -- 背光控制引脚 (GPIO)
-        pin_clk = 2,    -- SPI 时钟引脚 (用于初始化)
-        pin_sda = 4,    -- SPI 数据引脚
-        pin_cs = 3,     -- SPI 片选引脚
-        direction = 0,  -- 显示方向 0° (0,1,2,3)
+        port = lcd.RGB,
+        pin_rst = 9,
+        pin_clk = 2,
+        pin_sda = 4,
+        pin_cs = 3,
+        direction = 0,
         pclk = lcd.PCLK_RISING,
-        w = 480,        -- 水平分辨率
-        h = 854,        -- 垂直分辨率
-        xoffset = 0,    -- X 偏移
-        yoffset = 0,    -- Y 偏移
-        -- RGB 时序参数 (根据屏幕手册调整)
+        w = 480,
+        h = 854,
+        xoffset = 0,
+        yoffset = 0,
         hbp = 30,
         hspw = 6,
         hfp = 12,
         vbp = 30,
         vspw = 1,
         vfp = 12,
-        bus_speed = 26 * 1000 * 1000, -- 像素时钟频率 30MHz
+        bus_speed = 26 * 1000 * 1000,
     }
-    -- 2. 执行 custom 初始化（只初始化硬件接口和基本参数）
     local result = lcd.init("custom", lcd_param)
     log.info("lcd.init", result)
 
@@ -80,10 +75,6 @@ function lcd_drv.init()
         lcd.setupBuff(nil, true) -- 设置帧缓冲区，使用heap内存
         lcd.autoFlush(false)     -- 禁止自动刷新
 
-
-        -- 2. 执行 custom 初始化 (此时只初始化硬件接口和基本参数)
-        local lcdinit_result = lcd.init("custom", lcd_param)
-        log.info("lcdinit_result", lcdinit_result)
 
         local rst_pin = gpio.setup(9, 1)
         rst_pin(1)
@@ -356,7 +347,7 @@ function lcd_drv.init()
         sys.wait(20)
 
         -- 加载中文字体
-        if rtos.bsp() ~= "Air8101" then
+        if not _G.model_str:find("Air8101") then
             -- PC端/Air8000/780EHM 从14号固件/114号固件中加载hzfont字库，从而支持12-255~号中文显示
             airui.font_load({
                 type = "hzfont",   -- 字体类型，可选 "hzfont" 或 "bin"
@@ -379,11 +370,7 @@ function lcd_drv.init()
         end
 
         airui.set_rotation(180)
-
-        -- 查询当前固件内AirUI核心库版本
         local version_result = airui.version()
-
-        -- 打印查询结果
         log.info("airui", "version -> " .. version_result)
 
         local rotation = airui.get_rotation()

@@ -1,13 +1,10 @@
--- settings_storage_win.lua
 --[[
 @module  settings_storage_win
 @summary 存储页面
 @version 1.2
 @date    2026.04.16
+@author  江访
 ]]
-
-require "settings_storage_app"
-require "settings_memory_app"
 
 local win_id = nil
 local main_container
@@ -47,7 +44,6 @@ local function update_screen_size()
     end
     margin = math.floor(screen_w * 0.04)
     card_w = screen_w - 2 * margin
-    log.info("storage_win", "屏幕尺寸", screen_w, screen_h, "卡片宽度", card_w)
 end
 
 -- 存储信息更新
@@ -61,7 +57,6 @@ local function update_storage_info(info)
     if info.used_percent and percent_label then
         percent_label:set_text("已使用 " .. info.used_percent .. "%")
     end
-    log.info("storage_win", "存储信息已更新")
 end
 
 -- 内存工具函数
@@ -114,7 +109,6 @@ local function update_memory_info(info)
         psram_percent_label:set_text(string.format("%.1f%% 占用", pct))
         if psram_progress_bar then psram_progress_bar:set_value(math.floor(pct), false) end
     end
-    log.info("storage_win", "内存信息已更新")
 end
 
 -- 创建信息行（辅助）
@@ -395,11 +389,9 @@ local function create_ui()
     local psram = create_memory_card(content, current_y, "PSRAM 内存", 0x9C27B0, MEMORY_CARD_H)
     psram_total_label, psram_used_label, psram_max_label, psram_percent_label, psram_progress_bar = psram.total, psram.used, psram.max, psram.percent, psram.progress
 
-    log.info("storage_win", "UI创建完成，总内容高度", current_y + MEMORY_CARD_H)
 end
 
 local function on_create()
-    log.info("storage_win", "窗口创建")
     create_ui()
     sys.publish("STORAGE_GET_INFO")
     sys.publish("MEMORY_INFO_GET")
@@ -407,7 +399,6 @@ local function on_create()
     timer_id = sys.timerLoopStart(function()
         sys.publish("MEMORY_INFO_GET")
     end, 1000)
-    log.info("storage_win", "数据请求已发送，定时器启动")
 end
 
 local function on_destroy()
@@ -417,7 +408,6 @@ local function on_destroy()
     sys_total_label = nil; sys_used_label = nil; sys_max_label = nil; sys_percent_label = nil; sys_progress_bar = nil
     vm_total_label = nil; vm_used_label = nil; vm_max_label = nil; vm_percent_label = nil; vm_progress_bar = nil
     psram_total_label = nil; psram_used_label = nil; psram_max_label = nil; psram_percent_label = nil; psram_progress_bar = nil
-    log.info("storage_win", "窗口销毁")
 end
 
 local function on_get_focus() end
@@ -430,7 +420,6 @@ local function open_handler()
         on_lose_focus = on_lose_focus,
         on_get_focus = on_get_focus,
     })
-    log.info("storage_win", "窗口已打开, win_id=", win_id)
 end
 
 sys.subscribe("STORAGE_INFO", update_storage_info)

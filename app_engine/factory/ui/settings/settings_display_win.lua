@@ -3,9 +3,9 @@
 @summary 显示与亮度子页面
 @version 1.1 (自适应分辨率)
 @date    2026.04.16
+@author  江访
 ]]
 
-require "settings_display_app"
 
 local win_id = nil
 local main_container

@@ -3,6 +3,7 @@
 @summary 网络测速窗口模块（UI层）
 @version 1.0.0
 @date    2026.04.28
+@author  江访
 ]]
 
 local win_id = nil

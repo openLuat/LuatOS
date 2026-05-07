@@ -3,6 +3,7 @@
 @summary 声音与触摸子页面
 @version 1.0
 @date    2026.04.24
+@author  江访
 ]]
 
 local win_id = nil

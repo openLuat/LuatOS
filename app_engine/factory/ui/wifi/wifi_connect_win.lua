@@ -3,9 +3,9 @@
 @summary WiFi连接窗口（UI层，事件驱动）- 自适应分辨率
 @version 1.1
 @date    2026.04.16
+@author  江访
 ]]
 
-require "wifi_app"
 
 local SCREEN_W, SCREEN_H = 480, 800
 local MARGIN = 15
@@ -438,7 +438,6 @@ local function connect_on_disconnected(reason, code)
 end
 
 local function connect_on_create()
-    log.info("wifi_connect_win", "WiFi连接窗口创建")
     sys.publish("WIFI_GET_CONFIG_REQ")
     connect_create_ui()
     sys.subscribe("WIFI_CONNECTED", connect_on_connected)
@@ -447,7 +446,6 @@ local function connect_on_create()
 end
 
 local function connect_on_destroy()
-    log.info("wifi_connect_win", "WiFi连接窗口销毁")
     sys.unsubscribe("WIFI_CONNECTED", connect_on_connected)
     sys.unsubscribe("WIFI_DISCONNECTED", connect_on_disconnected)
     sys.unsubscribe("WIFI_CONFIG_RSP", connect_on_config_rsp)
@@ -482,9 +480,7 @@ local function open(wifi_data, from_saved)
             on_get_focus = connect_on_get_focus,
             on_lose_focus = connect_on_lose_focus,
         })
-        log.info("wifi_connect_win", "WiFi连接窗口打开，ID:", connect_win_id)
     end
 end
 
 sys.subscribe("OPEN_WIFI_CONNECT_WIN", open)
-log.info("wifi_connect_win", "订阅 OPEN_WIFI_CONNECT_WIN 消息")

@@ -262,7 +262,7 @@ function lcd_drv.init()
 		log.info("custom_nv3052c", "LCD自定义初始化完成")
 
 		-- 加载中文字体
-		if rtos.bsp() ~= "Air8101" then
+		if not _G.model_str:find("Air8101") then
 			-- PC端/Air8000/780EHM 从14号固件/114号固件中加载hzfont字库，从而支持12-255~号中文显示
 			airui.font_load({
 				type = "hzfont",   -- 字体类型，可选 "hzfont" 或 "bin"
@@ -279,12 +279,9 @@ function lcd_drv.init()
 				size = 20,                   -- 字体大小，默认 16
 				cache_size = 1024,           -- 缓存字数大小，默认 2048
 				antialias = 1,               -- 抗锯齿等级1-3，默认 1
-				-- load_to_psram= true,
 				global = true
 			})
 		end
-
-		-- airui.set_rotation(180)
 
 		-- 查询当前固件内AirUI核心库版本
 		local version_result = airui.version()

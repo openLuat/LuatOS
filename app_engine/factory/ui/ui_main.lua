@@ -6,7 +6,8 @@
 @author  江访
 ]]
 
--- 加载所有需要的页面模块
+
+-- 加载所有页面模块
 require "welcome_win"
 require "idle_win"
 require "wifi_list_win"
@@ -21,7 +22,7 @@ local function ui_main_task()
     sys.publish("OPEN_WELCOME_WIN")
 
     -- 等待欢迎界面渲染完成后再开启背光，避免白屏
-    sys.wait(300)
+    sys.wait(100)
     lcd_drv.backlight_on()
 end
 

@@ -59,31 +59,30 @@ log.info("main", PROJECT, VERSION)
 -- 平台检测（hmeta.model 为主，rtos.bsp 为回退）
 local ok, _model = pcall(hmeta.model)
 if not ok or not _model then _model = rtos.bsp() end
-local _model_str = tostring(_model or "")
-log.info("main", "当前平台: " .. _model_str)
+_G.model_str = tostring(_model or "")
 
 -- 加载显示驱动/触摸驱动（根据平台选择对应驱动）
-if _model_str:find("Air8000") then
+if _G.model_str:find("Air8000") then
     -- Air8000 显示/触摸驱动
     lcd_drv = require "lcd_drv_air8000w"
     tp_drv = require "tp_drv_air8000w"
-elseif _model_str:find("Air8101") then
+elseif _G.model_str:find("Air8101") then
     -- Air8101 显示/触摸驱动
     lcd_drv = require "lcd_drv_air8101"
     tp_drv = require "tp_drv_air8101"
-elseif _model_str:find("Air1601") or _model_str:find("Air1602") then
+elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
     -- 5寸屏显示/触摸驱动
-    lcd_drv = require "lcd_drv_air1601_5in"
-    tp_drv = require "tp_drv_air1601_5in"
+    -- lcd_drv = require "lcd_drv_air1601_5in"
+    -- tp_drv = require "tp_drv_air1601_5in"
 
     -- 10寸屏显示驱动
     -- lcd_drv = require "lcd_drv_air1601_10in"
 
     -- 7寸屏显示驱动
-    -- lcd_drv = require "lcd_drv_air1601_7in"
+    lcd_drv = require "lcd_drv_air1601_7in"
 
     -- 10寸和7寸共用触摸驱动
-    -- tp_drv = require "tp_drv_air1601_7or10"
+    tp_drv = require "tp_drv_air1601_7or10"
 else
     --PC模拟器复用 Air8101显示/触摸驱动
     lcd_drv = require "lcd_drv_air8101"
@@ -99,19 +98,6 @@ require "app_main"
 
 -- 引入UI主模块
 require "ui_main"
-
--- Air1601/Air1602 使用 WIFI STA 模式（非 PC 平台）
-if (_model_str:find("Air1601") or _model_str:find("Air1602")) and rtos.bsp() ~= "PC" then
-    socket.dft(socket.LWIP_STA)
-end
-
-
--- 发布版本号到全局事件总线
-sys.taskInit(function()
-    sys.wait(200) -- 等待其他模块加载完成
-    sys.publish("APP_VERSION", VERSION)
-    log.info("main", "版本号已发布: " .. VERSION)
-end)
 
 -- 用户代码已结束
 -- 结尾总是这一句

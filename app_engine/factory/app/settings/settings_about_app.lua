@@ -3,7 +3,9 @@
 @summary 关于设备业务逻辑层
 @version 1.0
 @date    2026.04.01
-@author  LuatOS
+@author  江访
+@usage
+本模块为关于设备业务逻辑层，收集设备型号、唯一ID、固件版本、内核版本等信息并上报。
 ]]
 
 -- ==================== 设备信息 ====================
@@ -16,16 +18,15 @@ local device_info = {
     unique_id_hex = "--"
 }
 
+device_info.version = _G.VERSION
 --[[
-获取设备信息
+@function get_device_info
+@summary 获取设备信息（型号、唯一ID、固件版本、内核版本）
 @return table 设备信息表
 ]]
 local function get_device_info()
     -- 获取设备型号
-    local ret, model = pcall(hmeta.model)
-    if ret and model then
-        device_info.model = model
-    end
+    device_info.model = _G.model_str
 
     -- 获取MCU唯一ID（原始格式和十六进制格式）
     local ret_id, unique_id = pcall(mcu.unique_id)
@@ -59,13 +60,6 @@ local function get_device_info()
 end
 
 -- ==================== 事件订阅 ====================
-
--- 订阅版本号事件（从 main.lua 获取）
-sys.subscribe("APP_VERSION", function(ver)
-    device_info.version = ver
-    log.info("settings_about_app", "收到版本号: " .. ver)
-end)
-
 -- 订阅设备信息查询事件
 sys.subscribe("ABOUT_DEVICE_GET_INFO", function()
     local info = get_device_info()

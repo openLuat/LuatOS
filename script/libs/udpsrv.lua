@@ -11,8 +11,6 @@
 阅demo
 ]]
 
-local sys = require "sys"
-
 local udpsrv = {}
 local srvs = {}
 

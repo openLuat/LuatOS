@@ -47,9 +47,6 @@ sys.timerLoopStart(libfota.request, 4*3600*1000, libfota_cb)
 sys.timerLoopStart(libfota.request, 4*3600*1000, libfota_cb, "http://xxxxxx.com/xxx/upgrade?version=" .. _G.VERSION)
 ]]
 
-local sys = require "sys"
-local sysplus = require "sysplus"
-
 local libfota = {}
 
 
@@ -78,6 +75,10 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,lib
                 end
                 if mobile then
                     query = "imei=" .. mobile.imei()
+                    version = rtos.version():sub(2) .. "." ..  x .. "." .. z
+                    firmware_name = _G.PROJECT.. "_LuatOS-SoC_" .. bsp
+                elseif bsp == "Air1601" or bsp == "Air1602" then
+                    query = "mac=" .. mcu.unique_id():toHex()
                     version = rtos.version():sub(2) .. "." ..  x .. "." .. z
                     firmware_name = _G.PROJECT.. "_LuatOS-SoC_" .. bsp
                 elseif wlan and wlan.getMac then

@@ -18,8 +18,6 @@ sys.taskInit(function()
         antialias = 4, -- 抗锯齿等级1-3，默认 1
     })
 
-    -- 允许系统键盘事件转发给当前 textarea, 当前只支持pc模拟器中使用
-    airui.keyboard_enable_system(true)
 
     local textarea = airui.textarea({
         x = 20, y = 20,

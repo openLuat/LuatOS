@@ -20,6 +20,8 @@
 #include "lwip/prot/udp.h"
 #include "lwip/ip_addr.h"
 
+#include "net_lwip2.h"
+
 #define LUAT_LOG_TAG "netdrv.napt"
 #include "luat_log.h"
 
@@ -27,6 +29,23 @@
 #define NAPT_MAX_PACKET_SIZE (1520)
 
 static int s_gw_adapter_id = -1;
+
+// 同步 drvs[adapter_id]->netif 与 prvlwip.lwip_netif (SOC固件的真实netif)
+// 用于解决 PDP 重激活后 drvs[]->netif 指针过时的问题
+static void napt_sync_gw_netif(int adapter_id) {
+    #ifdef  __USE_SDK_LWIP__
+    luat_netdrv_t* drv = luat_netdrv_get(adapter_id);
+    if (drv == NULL) return;
+    struct netif* real_netif = net_lwip_get_netif(adapter_id);
+    if (real_netif == NULL) return;
+    if (drv->netif == real_netif) return;
+    uint32_t old_ip = drv->netif ? ip_addr_get_ip4_u32(&drv->netif->ip_addr) : 0;
+    uint32_t new_ip = ip_addr_get_ip4_u32(&real_netif->ip_addr);
+    LLOGI("NAPT netif sync: adapter=%d old=%p(IP %08X) -> new=%p(IP %08X)",
+          adapter_id, drv->netif, old_ip, real_netif, new_ip);
+    drv->netif = real_netif;
+    #endif
+}
 
 #if !defined(LUAT_USE_PSRAM) && !defined(LUAT_USE_NETDRV_NAPT)
 __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
@@ -184,7 +203,15 @@ void luat_netdrv_napt_enable(int adapter_id) {
         luat_netdrv_napt_init_contexts();
     }
     s_gw_adapter_id = adapter_id;
-    // 主动发送ARP请求获取网关MAC
+    napt_sync_gw_netif(adapter_id);
+    // struct netif* gprsnet = net_lwip_get_netif(adapter_id);
+    // LLOGI("NAPT enable: adapter=%d, gprsnet=%p ip=%08X", adapter_id, gprsnet, gprsnet ? ip_addr_get_ip4_u32(&gprsnet->ip_addr) : 0);
+    // luat_netdrv_t* drv = luat_netdrv_get(adapter_id);
+    // if (drv != NULL && drv->netif != NULL) {
+    //     LLOGI("luat_netdrv_get(%d) IP %08X", adapter_id, ip_addr_get_ip4_u32(&drv->netif->ip_addr));
+    // } else {
+    //     LLOGW("luat_netdrv_get(%d) 返回空或netif为空", adapter_id);
+    // }
     if (adapter_id > 0) {
         luat_netdrv_t* gw = luat_netdrv_get(adapter_id);
         if (gw && gw->netif) {
@@ -199,4 +226,15 @@ void luat_netdrv_napt_enable(int adapter_id) {
         }
     }
 }
- 
+
+void luat_netdrv_napt_disable(void) {
+    if (s_gw_adapter_id < 0) {
+        LLOGD("NAPT已经是关闭状态");
+        return;
+    }
+    LLOGI("关闭NAPT, 清理所有映射表, 原网关适配器=%d", s_gw_adapter_id);
+    luat_netdrv_napt_tcp_cleanup();
+    luat_netdrv_napt_udp_cleanup();
+    luat_netdrv_napt_icmp_cleanup();
+    s_gw_adapter_id = -1;
+}

@@ -51,8 +51,6 @@ sys.taskInit(function()
 end)
 ]]
 
-local sys = require "sys"
-local sysplus = require("sysplus")
 local libnet = require("libnet")
 
 local lbsLoc = {}

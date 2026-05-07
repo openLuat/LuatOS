@@ -31,8 +31,6 @@ sys.taskInit(function()
 end)
 ]]
 
-local sys = require "sys"
-
 local lbsLoc2 = {}
 
 local function numToBcdNum(inStr,destLen)

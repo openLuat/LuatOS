@@ -1,0 +1,64 @@
+syntax = "proto2";
+
+package drv.pm;
+
+import "nanopb.proto";
+
+// 通用返回码
+enum PmResultCode {
+    PM_RES_OK     = 0;
+    PM_RES_EINVAL = 1;
+    PM_RES_FAIL   = 255;
+}
+
+message PmResult {
+    optional PmResultCode code     = 1 [default = PM_RES_OK];
+    optional int32        os_errno = 2 [default = 0];
+}
+
+// 睡眠模式请求（对应 luat_pm_request）
+// mode: LUAT_PM_SLEEP_MODE_NONE/LIGHT/DEEP/STANDBY
+message PmRequestRequest {
+    required uint32 mode = 1;
+}
+message PmRequestResponse {
+    required PmResult result = 1;
+}
+
+// 外设电源控制（对应 luat_pm_power_ctrl）
+message PmPowerCtrlRequest {
+    required uint32 id  = 1;
+    required uint32 val = 2;
+}
+message PmPowerCtrlResponse {
+    required PmResult result = 1;
+}
+
+// 配置唤醒脚（对应 luat_pm_wakeup_pin）
+message PmWakeupPinRequest {
+    required uint32 pin = 1;
+    required uint32 val = 2;
+}
+message PmWakeupPinResponse {
+    required PmResult result = 1;
+}
+
+// 统一 RPC 请求
+message PmRpcRequest {
+    required uint32 req_id = 1;
+    oneof payload {
+        PmRequestRequest   pm_request = 10;
+        PmPowerCtrlRequest power_ctrl = 11;
+        PmWakeupPinRequest wakeup_pin = 12;
+    }
+}
+
+// 统一 RPC 响应
+message PmRpcResponse {
+    optional uint32 req_id = 1 [default = 0];
+    oneof payload {
+        PmRequestResponse   pm_request = 10;
+        PmPowerCtrlResponse power_ctrl = 11;
+        PmWakeupPinResponse wakeup_pin = 12;
+    }
+}

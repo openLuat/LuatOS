@@ -10,8 +10,6 @@
 -- 具体用法请查阅demo
 ]]
 
-local sys = require "sys"
-
 local dnsproxy = {
     server = "119.29.29.29",
     srvs = {},

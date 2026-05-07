@@ -49,6 +49,9 @@ local device_state = "等待连接"
 local is_broadcasting = false
 local is_scanning = false
 
+-- 传输状态
+local is_transferring = false  -- 是否正在传输中
+
 -- 数据存储
 local log_entries = {}
 local file_list = {}
@@ -58,6 +61,8 @@ local scan_devices = {}
 local subtitle_label, device_name_label, device_state_label, state_dot
 local connect_btn, disconnect_btn
 local file_list_container, log_container, log_card, receive_card
+local empty_state_label  -- 空状态标签（接收时显示进度）
+local send_hint_label    -- 发送区域提示标签（发送时显示进度）
 local modal_mask, modal_dialog
 local toggle_text_label, toggle_knob_container
 
@@ -183,6 +188,11 @@ local function close_scan_modal()
     scan_btn = nil
     last_update_time = 0  -- 重置节流时间戳
     ble_manager.stop_scan()
+    
+    -- 同步更新主页面连接按钮状态
+    if connect_btn and is_master and not is_connected then
+        connect_btn:set_text("开始扫描")
+    end
 end
 
 --[[
@@ -377,6 +387,11 @@ local function stop_scan_only()
     ble_manager.stop_scan()
     update_scan_btn()
     update_scan_modal()
+    
+    -- 同步更新主页面连接按钮状态
+    if connect_btn and is_master and not is_connected then
+        connect_btn:set_text("开始扫描")
+    end
 end
 
 --[[
@@ -1068,7 +1083,7 @@ local function show_mode_modal()
         parent = link_bg,
         x = 10, y = 8,
         w = screen_w - 60, h = 54,
-        text = "https://gitee.com/openLuat/LuatOS/tree/develop/module/Air8101/project/AirUIFrame/ui_play_board/app_store/ble_transfer/ble_transfer_pc.html",
+        text = "https://gitee.com/openLuat/LuatOS/blob/master/module/AirUI/app_store/vertical_app/ble_transfer/ble_transfer_pc.html",
         font_size = 10,
         color = COLOR_INFO
     })
@@ -1107,7 +1122,7 @@ local function show_mode_modal()
         parent = modal_dialog,
         x = qr_x, y = content_y,
         size = qr_size,
-        data = "https://gitee.com/openLuat/LuatOS/tree/develop/module/Air8101/project/AirUIFrame/ui_play_board/app_store/ble_transfer/ble_transfer_pc.html",
+        data = "https://gitee.com/openLuat/LuatOS/blob/master/module/AirUI/app_store/vertical_app/ble_transfer/ble_transfer_pc.html",
         dark_color = 0x000000,
         light_color = 0xFFFFFF,
         quiet_zone = true
@@ -1349,6 +1364,12 @@ local function update_file_list()
     file_list = ble_manager.get_received_files()
     log.info("ble_transfer", "update_file_list: 获取到 " .. #file_list .. " 个文件")
     
+    -- 如果正在传输中且文件列表为空，保留当前的进度显示，不刷新
+    if is_transferring and #file_list == 0 then
+        log.info("ble_transfer", "传输进行中，跳过空状态刷新")
+        return
+    end
+    
     -- 重新创建文件列表容器
     file_list_container:destroy()
     file_list_container = airui.container({
@@ -1372,7 +1393,7 @@ local function update_file_list()
             src = "/luadb/folder.png"
         })
         
-        airui.label({
+        empty_state_label = airui.label({
             parent = empty_container,
             x = 0, y = 50,
             w = screen_w - 2 * margin - 40, h = 20,
@@ -1955,8 +1976,8 @@ local function create_send_card(parent, y)
         src = "/luadb/folder.png"
     })
 
-    -- 提示文字
-    airui.label({
+    -- 提示文字（发送时显示进度）
+    send_hint_label = airui.label({
         parent = select_area,
         x = 10, y = 55,
         w = screen_w - 2 * margin - 60, h = 20,
@@ -2097,6 +2118,12 @@ end
 @param addr 断开的设备地址
 ]]
 local function handle_ble_disconnect(addr)
+    -- 检查窗口是否还存在（防止应用关闭后访问已销毁的UI）
+    if not win_id or not main_container then
+        log.info("ble_transfer", "窗口已销毁，跳过断开连接UI更新")
+        return
+    end
+    
     -- 更新广播状态（断开后广播通常也会停止）
     is_broadcasting = false
     is_connected = false
@@ -2108,9 +2135,38 @@ end
 处理文件传输开始回调
 @param name 文件名
 @param size 文件大小
+@param direction 传输方向 "send" 或 "receive"
 ]]
-local function handle_transfer_start(name, size)
-    add_log("开始传输: " .. name .. " (" .. size .. " bytes)")
+local function handle_transfer_start(name, size, direction)
+    -- 检查窗口是否还存在
+    if not win_id or not main_container then
+        return
+    end
+    
+    direction = direction or "send"  -- 默认发送方向
+    add_log("开始传输: " .. name .. " (" .. size .. " bytes, " .. direction .. ")")
+    
+    -- 标记传输开始
+    is_transferring = true
+    
+    -- 根据传输方向更新对应的区域
+    if direction == "send" then
+        -- 传输开始时，重置发送提示标签
+        if send_hint_label then
+            send_hint_label:set_text("准备发送...")
+            send_hint_label:set_color(COLOR_PRIMARY)
+        end
+    elseif direction == "receive" then
+        -- 传输开始时，如果接收文件列表为空，重置空状态标签
+        log.info("ble_transfer", "传输开始(接收): empty_state_label=", empty_state_label and "存在" or "nil", "file_list长度=", #file_list)
+        if empty_state_label and #file_list == 0 then
+            log.info("ble_transfer", "设置空状态标签为: 准备接收...")
+            empty_state_label:set_text("准备接收...")
+            empty_state_label:set_color(COLOR_PRIMARY)
+        else
+            log.warn("ble_transfer", "无法设置空状态标签: empty_state_label=", empty_state_label and "存在" or "nil", "file_list长度=", #file_list)
+        end
+    end
 end
 
 --[[
@@ -2118,9 +2174,80 @@ end
 @param progress 进度百分比
 @param current 当前字节数
 @param total 总字节数
+@param direction 传输方向 "send" 或 "receive"
 ]]
-local function handle_transfer_progress(progress, current, total)
-    add_log("传输进度: " .. progress .. "%")
+local function handle_transfer_progress(progress, current, total, direction)
+    -- 检查窗口是否还存在
+    if not win_id or not main_container then
+        log.warn("ble_transfer", "handle_transfer_progress: 窗口不存在，跳过")
+        return
+    end
+    
+    direction = direction or "send"  -- 默认发送方向
+    log.info("ble_transfer", "handle_transfer_progress 被调用: progress=", progress, "current=", current, "total=", total, "direction=", direction)
+    
+    -- 格式化进度显示
+    local current_kb = current // 1024
+    local total_kb = total // 1024
+    local progress_text = string.format("传输进度: %d%% (%dKB/%dKB)", progress, current_kb, total_kb)
+    
+    -- 每10%或最后100%才打印日志，避免日志过多
+    if progress % 10 == 0 or progress == 100 then
+        add_log(progress_text, "info")
+    end
+    
+    -- 更新设备状态标签显示进度
+    if device_state_label and is_connected then
+        device_state_label:set_text(string.format("传输中 %d%%", progress))
+    end
+    
+    -- 根据传输方向更新对应的区域
+    if direction == "send" then
+        -- 更新发送区域提示标签显示进度
+        if send_hint_label then
+            if progress > 0 and progress < 100 then
+                send_hint_label:set_text(string.format("正在发送 %d%% (%dKB/%dKB)", progress, current_kb, total_kb))
+                send_hint_label:set_color(COLOR_PRIMARY)
+            elseif progress >= 100 then
+                send_hint_label:set_text("发送完成")
+                send_hint_label:set_color(COLOR_SUCCESS)
+                -- 3秒后恢复默认文本
+                sys.timerStart(function()
+                    if send_hint_label then
+                        send_hint_label:set_text("请在连接成功后，点击选择文件")
+                        send_hint_label:set_color(COLOR_TEXT_SECONDARY)
+                    end
+                end, 3000)
+            end
+        end
+    elseif direction == "receive" then
+        -- 更新接收文件区域的空状态标签显示进度（当没有文件时）
+        log.info("ble_transfer", "检查接收区域进度显示: empty_state_label=", empty_state_label and "存在" or "nil", "file_list长度=", #file_list, "is_transferring=", is_transferring)
+        if empty_state_label then
+            if #file_list == 0 then
+                if progress > 0 and progress < 100 then
+                    log.info("ble_transfer", "【接收区域】更新进度: 正在接收 ", progress, "%")
+                    empty_state_label:set_text(string.format("正在接收 %d%% (%dKB/%dKB)", progress, current_kb, total_kb))
+                    empty_state_label:set_color(COLOR_PRIMARY)
+                elseif progress >= 100 then
+                    log.info("ble_transfer", "【接收区域】更新进度: 接收完成")
+                    empty_state_label:set_text("接收完成")
+                    empty_state_label:set_color(COLOR_SUCCESS)
+                    -- 3秒后恢复默认文本
+                    sys.timerStart(function()
+                        if empty_state_label and #file_list == 0 then
+                            empty_state_label:set_text("暂无接收到的文件")
+                            empty_state_label:set_color(0xaaaaaa)
+                        end
+                    end, 3000)
+                end
+            else
+                log.info("ble_transfer", "【接收区域】文件列表不为空(", #file_list, "个)，跳过更新")
+            end
+        else
+            log.warn("ble_transfer", "【接收区域】empty_state_label 为 nil，无法更新")
+        end
+    end
 end
 
 --[[
@@ -2129,8 +2256,33 @@ end
 @param size 文件大小
 ]]
 local function handle_transfer_complete(name, size)
+    -- 检查窗口是否还存在
+    if not win_id or not main_container then
+        return
+    end
     add_log("传输完成: " .. name .. " (" .. size .. " 字节)", "success")
     log.info("ble_transfer", "on_transfer_complete 回调触发:", name, size)
+    
+    -- 标记传输结束
+    is_transferring = false
+    
+    -- 恢复设备状态标签
+    if device_state_label and is_connected then
+        device_state_label:set_text("已连接")
+    end
+    
+    -- 传输完成后，重置发送提示标签
+    if send_hint_label then
+        send_hint_label:set_text("请在连接成功后，点击选择文件")
+        send_hint_label:set_color(COLOR_TEXT_SECONDARY)
+    end
+    
+    -- 传输完成后，如果文件列表仍为空，重置空状态标签
+    if empty_state_label and #file_list == 0 then
+        empty_state_label:set_text("暂无接收到的文件")
+        empty_state_label:set_color(0xaaaaaa)
+    end
+    
     update_file_list()
 end
 
@@ -2139,7 +2291,31 @@ end
 @param err 错误信息
 ]]
 local function handle_transfer_error(err)
+    -- 检查窗口是否还存在
+    if not win_id or not main_container then
+        return
+    end
     add_log("传输错误: " .. err, "error")
+    
+    -- 标记传输结束
+    is_transferring = false
+    
+    -- 恢复设备状态标签
+    if device_state_label and is_connected then
+        device_state_label:set_text("已连接")
+    end
+    
+    -- 传输错误时，重置发送提示标签
+    if send_hint_label then
+        send_hint_label:set_text("请在连接成功后，点击选择文件")
+        send_hint_label:set_color(COLOR_TEXT_SECONDARY)
+    end
+    
+    -- 传输错误时，重置空状态标签
+    if empty_state_label and #file_list == 0 then
+        empty_state_label:set_text("暂无接收到的文件")
+        empty_state_label:set_color(0xaaaaaa)
+    end
 end
 
 --[[
@@ -2149,11 +2325,17 @@ end
 @param size 文件大小
 ]]
 local function handle_file_received(path, name, size)
+    -- 检查窗口是否还存在
+    if not win_id or not main_container then
+        return
+    end
     add_log("收到文件: " .. name .. " (" .. size .. " 字节)", "success")
     log.info("ble_transfer", "on_file_received 回调触发:", path, name, size)
     -- 延迟更新文件列表，确保文件系统已写入
     sys.timerStart(function()
-        update_file_list()
+        if win_id and main_container then
+            update_file_list()
+        end
     end, 100)
 end
 
@@ -2162,6 +2344,13 @@ end
 定期检查BLE连接状态并更新UI
 ]]
 local function check_connection_state()
+    -- 检查窗口是否还存在
+    if not win_id or not main_container then
+        log.info("ble_transfer", "窗口已销毁，停止连接状态检查")
+        connection_check_timer = nil
+        return
+    end
+    
     if ble_manager.is_connected and ble_manager.is_connected() and not is_connected then
         -- 检测到已连接但 UI 未更新
         log.info("ble_transfer", "定时器检测到已连接，更新 UI")
@@ -2295,6 +2484,11 @@ end
 清理资源，停止定时器
 ]]
 local function handle_window_destroy()
+    -- 先清理BLE管理器，防止回调访问已销毁的UI
+    if ble_manager and ble_manager.cleanup then
+        ble_manager.cleanup()
+    end
+    
     -- 停止连接状态检查定时器
     if connection_check_timer then
         sys.timerStop(connection_check_timer)
@@ -2347,6 +2541,10 @@ end
 返回上一页
 ]]
 function ble_transfer_win.go_back()
+    -- 先清理BLE管理器，防止回调访问已销毁的UI
+    if ble_manager and ble_manager.cleanup then
+        ble_manager.cleanup()
+    end
     if win_id then
         exwin.close(win_id)
     end

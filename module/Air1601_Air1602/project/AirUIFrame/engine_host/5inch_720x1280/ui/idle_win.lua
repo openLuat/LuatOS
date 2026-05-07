@@ -548,7 +548,6 @@ local function on_create()
         update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     end, 1000)
     sys.subscribe("STATUS_TIME_UPDATED", on_status_time_updated)
-    sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_mobile_updated)
     sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.subscribe("APP_STORE_INSTALLED_UPDATED", function()
         load_external_apps()
@@ -563,7 +562,6 @@ local function on_destroy()
         time_timer = nil
     end
     sys.unsubscribe("STATUS_TIME_UPDATED", on_status_time_updated)
-    sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_mobile_updated)
     sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi_updated)
     sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", load_external_apps)
 

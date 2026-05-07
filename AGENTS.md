@@ -68,13 +68,31 @@ LuatOS/
 See `bsp/pc/AGENTS.md` for detailed PC Simulator build and development instructions.
 
 **Compilation rule:**
-- If you modify ordinary non-GUI logic and only need a fast verification, build in `bsp/pc` with `xmake -y`
-- If you modify `components/airui/`, LVGL, SDL display flow, or any code behind `LUAT_USE_GUI`, you MUST verify with a GUI-enabled PC build instead of plain `xmake -y`
-- On Windows, prefer the existing helper scripts in `bsp/pc/`, especially `build_windows_64bit_msvc_gui.bat` or `build_windows_32bit_msvc_gui.bat`
-- On Linux/macOS, ensure `LUAT_USE_GUI=y` is set before running `xmake f ...` and then `xmake -y`
-- For AirUI-related changes, do not claim build verification is complete unless the GUI build path has been exercised
+- **NEVER run `xmake -y` directly** — it triggers a full rebuild (10+ min) and the output gets truncated in the shell tool, making it impossible to read errors.
+- **ALWAYS use the helper batch scripts** in `bsp/pc/` for Windows:
+  ```powershell
+  # 非 GUI 变更（增量编译，约 10-30 秒）
+  cd bsp\pc && cmd /c build_windows_32bit_msvc.bat
+  # 或 64 位
+  cd bsp\pc && cmd /c build_windows_64bit_msvc.bat
+  ```
+- The scripts call `build_with_summary.ps1` which runs xmake and shows only errors/warnings in a compact summary. Full log is written to `bsp/pc/build/logs/`.
+- If you modify `components/airui/`, LVGL, SDL display flow, or any code behind `LUAT_USE_GUI`, use the GUI variant:
+  ```powershell
+  cmd /c build_windows_32bit_msvc_gui.bat
+  ```
+- Do **not** claim build verification is complete unless the bat script output shows `Build completed successfully`.
 
-### Running Tests
+### Build Helper Scripts (Windows)
+
+| Script | Arch | GUI | Use Case |
+|--------|------|-----|----------|
+| `build_windows_32bit_msvc.bat` | x86 | No | 日常非 GUI 增量编译（推荐） |
+| `build_windows_64bit_msvc.bat` | x64 | No | 64 位测试 |
+| `build_windows_32bit_msvc_gui.bat` | x86 | Yes | AirUI/LVGL/SDL 变更验证 |
+| `build_windows_64bit_msvc_gui.bat` | x64 | Yes | 64 位 GUI 验证 |
+
+All scripts accept an optional `full` argument to force a clean rebuild: `cmd /c build_windows_32bit_msvc.bat full`
 
 ```bash
 # Run a test case (pass exactly two script directories)
@@ -283,8 +301,133 @@ Before reporting task completion, verify:
 3. Check if the crash is in a synchronous return path or an async callback
 4. Always clean up debug prints after fixing
 
+### AirLink / nanopb RPC Pitfalls
+
+- **`#ifdef LUAT_USE_AIRLINK_RPC` must NOT appear before `#include "luat_base.h"`** — the feature macros (`LUAT_USE_*`) are provided by `luat_conf_bsp.h` which is pulled in through `luat_base.h`. If you guard the entire file contents with `#ifdef LUAT_USE_AIRLINK_RPC` but only include `luat_base.h` inside the guard, the preprocessor sees the macro as undefined and skips the whole file → silent linker errors (`LNK2001` unresolved external).  
+  **Fix**: always put `#include "luat_base.h"` as the very first include, before any `#ifdef LUAT_USE_*` guard.
+
+- **nanopb struct name prefix depends on `package` in the `.proto` file** — without a `package` directive, the generated type is `SdataNotify` (bare name). With `package drv_sdata;` it would be `drv_sdata_SdataNotify`. Check the actual generated `.pb.h` before writing C code that uses the types.
+
+- **Static table file needs `luat_base.h` too** — `luat_airlink_rpc_nb_table.c` only includes `luat_airlink_rpc.h`, which does not transitively include `luat_conf_bsp.h`. Add `#include "luat_base.h"` before the `#ifdef LUAT_USE_AIRLINK_RPC` guard.
+
+- **`drv_sdata.pb.c` is generated into `include/` by the nanopb generator** — after running `nanopb_generator.exe --output-dir=../include`, manually copy/move the `.pb.c` file to `src/` so the build system compiles it. The `.pb.h` stays in `include/`.
+
+### Git 换行符污染（CRLF vs LF）
+
+**症状**：`git diff master HEAD` 显示某些文件"像整个被重写了一样"——`driver/` 和 `drv/` 目录尤其明显，实际上内容几乎没变。
+
+**根因**：master 分支文件使用 LF（Unix 换行），但在 Windows 上编辑并提交后变成 CRLF。git 逐行比对时每行结尾字节不同，所有行都显示为"删除+新增"。
+
+**快速诊断**：
+```powershell
+# 检查 git 对象的原始换行符（用 cmd 重定向避免 PowerShell 自动转换）
+$hash = git rev-parse "master:path/to/file.c"
+cmd /c "git cat-file blob $hash > $env:TEMP\check.bin"
+$bytes = [System.IO.File]::ReadAllBytes("$env:TEMP\check.bin")
+"CR count: $(($bytes | ?{$_-eq13}).Count)"   # 0=LF, >0=CRLF
+```
+
+**根治方案**：
+
+1. 在仓库根目录创建 `.gitattributes`（已创建），对源文件强制 `eol=lf`
+2. 精准转换「master=LF、branch=CRLF」的文件，跳过「master=CRLF」的文件（避免引入新 phantom diff）：
+   ```powershell
+   # 只转换 master=LF 的文件
+   git diff --name-only master HEAD | ForEach-Object {
+       $mHash = git rev-parse "master:$_" 2>$null
+       if ($mHash) {
+           cmd /c "git cat-file blob $mHash > $env:TEMP\m.bin"
+           $cr = ([IO.File]::ReadAllBytes("$env:TEMP\m.bin") | ?{$_-eq13}).Count
+           if ($cr -eq 0) { $_ }  # master=LF，需要修正
+       }
+   }
+   ```
+3. 对筛选出的文件做 CRLF→LF 转换后 `git add`，和 `.gitattributes` 一起提交。
+
+**注意**：`git add --renormalize .` 会全量规范化，若 master 本身有 CRLF 文件则会反向引入新的 phantom diff，**不要无脑用**。务必精准筛选后再操作。
+
+**预防**：`.gitattributes` 已提交到仓库，后续 `git add` 会自动强制 LF，无需手动处理。
+
+### xmake `remove_files` + `add_files` 交互陷阱
+
+**症状**：在 xmake.lua 中先无条件调用 `remove_files("dir/*.c")`，然后在 `if` 块内调用 `add_files("dir/foo.c")` 尝试将其中某些文件"加回来"，但链接阶段报符号未定义。
+
+**根因**：xmake 的 `remove_files` 在内部维护一个排除名单（blacklist），即使后续的 `add_files` 指向同一文件，该文件也不会被编译——无论是通配符匹配还是精确路径匹配。
+
+**复现场景**：PC 模拟器通过 `port/**.c` 通配符无条件编译所有平台 stub，而某些 stub 只应在可选功能（如 `LUAT_USE_MP4PLAYER`）启用时才参与编译。最初的"先排除再加回"写法是无效的。
+
+**解决方案**：将只在条件下编译的 stub 文件放到一个**不被任何全局通配符覆盖**的目录，例如 `stubs/<feature>/`。在条件块内用精确路径 `add_files("stubs/<feature>/foo.c")` 添加。这样完全绕开了排除名单问题：
+
+```lua
+-- ❌ 错误写法：remove_files 后 add_files 无法将文件加回
+remove_files("port/mp4player/*.c")
+if os.getenv("LUAT_USE_MP4PLAYER") == "y" then
+    add_files("port/mp4player/dac_sound_pc.c")  -- 永远不会编译
+end
+
+-- ✅ 正确写法：stub 放在不被通配符覆盖的目录
+-- stubs/mp4player/*.c 不属于 port/**.c 的范围
+if os.getenv("LUAT_USE_MP4PLAYER") == "y" then
+    add_files("stubs/mp4player/dac_sound_pc.c")  -- 正常编译
+end
+```
+
+### mp4player PC 模拟器适配经验
+
+**场景**：将平台专有的 mp4player（依赖 CCM42xx DAC/DMA 外设）适配到 PC 模拟器，关键处理：
+
+| 问题 | 解决方案 |
+|------|----------|
+| CCM42xx DAC/DMA 硬件驱动（`dac_sound.c`, `sys_dac.c`）| 排除原文件，在 `stubs/mp4player/` 提供 no-op stub |
+| ARM GCC 专属头（`<sys.h>` RTOS, `atomic_gcc.h`）| 在 `bsp/pc/include/` 添加 `sys.h` 空 stub；在 `atomic_gcc.h` 加 `#ifdef _MSC_VER` 兼容块 |
+| `config.h` 无法被 `-D` 命令行覆盖 | 必须直接修改 `.h` 文件，`#ifdef _MSC_VER` 选择平台实现 |
+| `malloc_align`（CCM42xx 自定义对齐 malloc）| 在 `mem.c` 用 `#ifdef _MSC_VER` 映射到 `_aligned_malloc`/`_aligned_free`/`_aligned_realloc` |
+| 符号冲突：player 内部 `h264_decode_stream` vs LuatOS `components/h264/src/h264_decoder.c` | 排除 player 的 `avcodec/h264_decode.c`，`mp4_decode.c` 直接调用 FFmpeg AVCodec API |
+| 符号冲突：player `h264/yuv.c` vs SDL2 `yuv_rgb_std.c` | 排除 player 的 `h264/yuv.c` |
+| `*_template.c` 被通配符纳入直接编译 | `remove_files` 排除所有 `*_template.c` |
+| ARM NEON 文件（`yuv2rgb_neon.c`）| `remove_files` 排除 |
+| libavutil 的 `file_open.c` 依赖 `<fcntl.h>` 而 config.h 未启用 | 排除 + 在 `stubs/mp4player/avcodec_fileopen_pc.c` 提供 stub |
+
+**涉及文件**（PC 模拟器侧）：
+- `bsp/pc/stubs/mp4player/dac_sound_pc.c` — DAC 音频接口 stub
+- `bsp/pc/stubs/mp4player/sys_dac_pc.c` — DAC DMA stub（立即回调）
+- `bsp/pc/stubs/mp4player/avcodec_fileopen_pc.c` — `avpriv_open`/`av_fopen_utf8` stub
+- `bsp/pc/include/sys.h` — RTOS `<sys.h>` 空 stub
+- `bsp/pc/include/win32_ver.h` — libfaad Windows 版本资源空 stub
+- `bsp/pc/include/wchar_filename.h` — `utf8towchar` stub（返回 NULL 触发 ASCII 回退）
+
+**涉及文件**（外部 player 源码侧，需直接修改）：
+- `player/video_decode/avcodec/h264/libavutil/atomic_gcc.h` — 加 `#ifdef _MSC_VER` 用 volatile 实现原子操作
+- `player/video_decode/avcodec/h264/libavutil/mem.c` — 加 `#ifdef _MSC_VER` 映射对齐内存分配
+
 ### Debug Records
 - `bsp/pc/docs/debug_tcp_listen.md` — TCP listen/accept implementation and crash debugging
+
+### PC 模拟器测试脚本必须调用 `os.exit(0)`
+
+**症状**：Lua 任务执行完毕（日志正常打印），但进程永远不退出，挂在 `sys.run()` 处。
+
+**根因**：`sys.run()` 调用 libuv 的 `uv_run(UV_RUN_DEFAULT)`，只要有任意活跃句柄（网络、文件、MP4 播放器等内部资源），事件循环就不会自行退出。
+
+**修复**：在 Lua 任务协程内部（`sys.run()` 调用前执行的协程中）调用 `os.exit(0)`：
+
+```lua
+sys.taskInit(function()
+    -- ... 执行任务 ...
+    os.exit(0)   -- ✅ 强制退出 libuv 事件循环
+end)
+sys.run()        -- 启动事件循环
+```
+
+**注意**：`os.exit(0)` 写在 `sys.run()` 之后无效——`sys.run()` 永远不返回，后面的代码不会执行。使用 `testrunner` 框架的标准测试用例由框架自身处理退出，无需手动添加。
+
+### `ad_fopen` 在 `__LUATOS__` 下使用 `luat_fs` VFS
+
+player SDK 的 `plat_support.c` 通过 `#ifdef __LUATOS__` 将 `ad_fopen/fread/fseek/fclose/fsize` 路由到 `luat_fs_*` 系列函数，而非 FatFS 或 stdio。PC 模拟器构建时 `__LUATOS__` 已定义，因此：
+
+- 文件路径通过 LuatOS VFS 解析（支持 PC 模拟器脚本目录自动挂载）
+- 无需将 `ad_fopen` 替换为 `fopen` 或 `luat_fs_fopen`
+- 资源文件放在测试脚本目录下，VFS 会自动找到
 
 ---
 

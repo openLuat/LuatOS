@@ -1,0 +1,317 @@
+--[[
+@module  lcd_drv
+@summary LCD显示驱动模块，基于lcd核心库
+@version 1.0
+@date    2025.12.1
+@author  江访
+@usage
+本模块为LCD显示驱动功能模块，主要功能包括：
+1、初始化 LCD屏幕；
+2、配置LCD显示参数和显示缓冲区；
+3、初始化AirUI;
+4、支持多种屏幕方向和分辨率设置；
+
+对外接口：
+1、lcd_drv.init()：初始化LCD显示驱动
+]]
+
+
+--[[
+初始化LCD显示驱动；
+
+@api lcd_drv.init()
+@summary 配置并初始化LCD屏幕
+@return boolean 初始化成功返回true，失败返回false
+
+@usage
+-- 初始化LCD显示
+local result = lcd_drv.init()
+if result then
+    log.info("LCD初始化成功")
+else
+    log.error("LCD初始化失败")
+end
+]]
+local lcd_drv = {}
+_G.screen_w, _G.screen_h = 720, 1280
+_G.screen_size = 5.0  -- 屏幕物理尺寸(英寸)，用于像素密度计算
+_G.density_scale = 1.0 -- 默认值，lcd_drv.init() 中根据实际PPI更新
+_G.is_landscape = false
+
+local port, pin_rst, bl = lcd.RGB, 15, 13
+
+function lcd_drv.init()
+	local result = lcd.init("custom", {
+		port      = port,
+		-- pin_dc    = 0xff,    -- RGB接口不需要DC引脚
+		pin_clk   = 23, -- SPI 时钟引脚 (用于初始化)
+		pin_sda   = 22, -- SPI 数据引脚
+		pin_cs    = 2,  -- SPI 片选引脚
+		-- pin_pwr   = bl,
+		pin_rst   = pin_rst,
+		direction = 0,
+		w         = 720,
+		h         = 1280,
+		xoffset   = 0,
+		yoffset   = 0,
+		hbp       = 46,
+		hspw      = 2,
+		hfp       = 48,
+		vbp       = 24,
+		vspw      = 2,
+		vfp       = 24,
+		bus_speed = 62 * 1000 * 1000,
+	})
+
+	log.info("lcd.init", result)
+
+	if result then
+		-- 初始化AirUI
+		local width, height = lcd.getSize()
+		local result = airui.init(width, height)
+		if not result then
+			log.error("airui", "init failed")
+		end
+
+		lcd.setupBuff(nil, true) -- 设置帧缓冲区，使用heap内存
+		lcd.autoFlush(false)     -- 禁止自动刷新
+
+		local rst_pin = gpio.setup(pin_rst, 1)
+		rst_pin(1)
+		sys.wait(20);
+		rst_pin(0)
+		sys.wait(20);
+		rst_pin(1)
+		sys.wait(120);
+
+		-- //---------------------NV3052CGRB +BOE5.0(N47) Initial------------------
+
+		lcd.cmd(0xFF, 0x30)
+		lcd.cmd(0xFF, 0x52)
+		lcd.cmd(0xFF, 0x01)
+		lcd.cmd(0xE3, 0x00)
+		lcd.cmd(0x0A, 0x01)
+		lcd.cmd(0x23, 0xA2) --A0
+		lcd.cmd(0x24, 0x10)
+		lcd.cmd(0x25, 0x0A)
+		lcd.cmd(0x26, 0x3C)
+		lcd.cmd(0x27, 0x46)
+		lcd.cmd(0x38, 0x9C)
+		lcd.cmd(0x39, 0xA7)
+		lcd.cmd(0x3A, 0x47) --VCOM
+		lcd.cmd(0x91, 0x77)
+		lcd.cmd(0x92, 0x77)
+		lcd.cmd(0x99, 0x51)
+		lcd.cmd(0x9B, 0x59)
+		lcd.cmd(0xA0, 0x55)
+		lcd.cmd(0xA1, 0x50)
+		lcd.cmd(0xA4, 0x9C)
+		lcd.cmd(0xA7, 0x02)
+		lcd.cmd(0xA8, 0x01)
+		lcd.cmd(0xA9, 0x01)
+		lcd.cmd(0xAA, 0xFC)
+		lcd.cmd(0xAB, 0x28)
+		lcd.cmd(0xAC, 0x06)
+		lcd.cmd(0xAD, 0x06)
+		lcd.cmd(0xAE, 0x06)
+		lcd.cmd(0xAF, 0x03)
+		lcd.cmd(0xB0, 0x08)
+		lcd.cmd(0xB1, 0x26)
+		lcd.cmd(0xB2, 0x28)
+		lcd.cmd(0xB3, 0x28)
+		lcd.cmd(0xB4, 0x03)
+		lcd.cmd(0xB5, 0x08)
+		lcd.cmd(0xB6, 0x26)
+		lcd.cmd(0xB7, 0x08)
+		lcd.cmd(0xB8, 0x26)
+		lcd.cmd(0xFF, 0x30)
+		lcd.cmd(0xFF, 0x52)
+		lcd.cmd(0xFF, 0x02)
+		lcd.cmd(0xB0, 0x01)
+		lcd.cmd(0xB1, 0x12)
+		lcd.cmd(0xB2, 0x09)
+		lcd.cmd(0xB3, 0x2B)
+		lcd.cmd(0xB4, 0x2F)
+		lcd.cmd(0xB5, 0x30)
+		lcd.cmd(0xB6, 0x19)
+		lcd.cmd(0xB7, 0x35)
+		lcd.cmd(0xB8, 0x0D)
+		lcd.cmd(0xB9, 0x03)
+		lcd.cmd(0xBA, 0x12)
+		lcd.cmd(0xBB, 0x12)
+		lcd.cmd(0xBC, 0x14)
+		lcd.cmd(0xBD, 0x15)
+		lcd.cmd(0xBE, 0x18)
+		lcd.cmd(0xBF, 0x0F)
+		lcd.cmd(0xC0, 0x17)
+		lcd.cmd(0xC1, 0x08)
+		lcd.cmd(0xD0, 0x0F)
+		lcd.cmd(0xD1, 0x12)
+		lcd.cmd(0xD2, 0x1A)
+		lcd.cmd(0xD3, 0x38)
+		lcd.cmd(0xD4, 0x36)
+		lcd.cmd(0xD5, 0x3a)
+		lcd.cmd(0xD6, 0x22)
+		lcd.cmd(0xD7, 0x40)
+		lcd.cmd(0xD8, 0x0D)
+		lcd.cmd(0xD9, 0x03)
+		lcd.cmd(0xDA, 0x11)
+		lcd.cmd(0xDB, 0x10)
+		lcd.cmd(0xDC, 0x12)
+		lcd.cmd(0xDD, 0x13)
+		lcd.cmd(0xDE, 0x18)
+		lcd.cmd(0xDF, 0x10)
+		lcd.cmd(0xE0, 0x17)
+		lcd.cmd(0xE1, 0x08)
+		lcd.cmd(0xFF, 0x30)
+		lcd.cmd(0xFF, 0x52)
+		lcd.cmd(0xFF, 0x03)
+		lcd.cmd(0x00, 0x2A)
+		lcd.cmd(0x01, 0x2A)
+		lcd.cmd(0x02, 0x2A)
+		lcd.cmd(0x03, 0x2A)
+		lcd.cmd(0x08, 0x02)
+		lcd.cmd(0x09, 0x03)
+		lcd.cmd(0x0A, 0x04)
+		lcd.cmd(0x0B, 0x05)
+		lcd.cmd(0x30, 0x2A)
+		lcd.cmd(0x31, 0x2A)
+		lcd.cmd(0x32, 0x2A)
+		lcd.cmd(0x33, 0x2A)
+		lcd.cmd(0x34, 0x81)
+		lcd.cmd(0x35, 0x26)
+		lcd.cmd(0x37, 0x13)
+		lcd.cmd(0x40, 0x03)
+		lcd.cmd(0x41, 0x04)
+		lcd.cmd(0x42, 0x05)
+		lcd.cmd(0x43, 0x06)
+		lcd.cmd(0x45, 0x08)
+		lcd.cmd(0x46, 0x09)
+		lcd.cmd(0x48, 0x0a)
+		lcd.cmd(0x49, 0x0b)
+		lcd.cmd(0x50, 0x07)
+		lcd.cmd(0x51, 0x08)
+		lcd.cmd(0x52, 0x09)
+		lcd.cmd(0x53, 0x0a)
+		lcd.cmd(0x55, 0x0c)
+		lcd.cmd(0x56, 0x0d)
+		lcd.cmd(0x58, 0x0e)
+		lcd.cmd(0x59, 0x0f)
+		lcd.cmd(0x80, 0x00)
+		lcd.cmd(0x81, 0x00)
+		lcd.cmd(0x82, 0x04)
+		lcd.cmd(0x83, 0x02)
+		lcd.cmd(0x84, 0x0E)
+		lcd.cmd(0x85, 0x10)
+		lcd.cmd(0x86, 0x0A)
+		lcd.cmd(0x87, 0x0C)
+		lcd.cmd(0x91, 0x00)
+		lcd.cmd(0x92, 0x00)
+		lcd.cmd(0x93, 0x00)
+		lcd.cmd(0x94, 0x1f)
+		lcd.cmd(0x95, 0x1F)
+		lcd.cmd(0x96, 0x00)
+		lcd.cmd(0x97, 0x00)
+		lcd.cmd(0x98, 0x03)
+		lcd.cmd(0x99, 0x01)
+		lcd.cmd(0x9A, 0x0D)
+		lcd.cmd(0x9B, 0x0F)
+		lcd.cmd(0x9C, 0x09)
+		lcd.cmd(0x9D, 0x0B)
+		lcd.cmd(0xA7, 0x00)
+		lcd.cmd(0xA8, 0x00)
+		lcd.cmd(0xA9, 0x00)
+		lcd.cmd(0xAA, 0x1F)
+		lcd.cmd(0xAB, 0x1F)
+		lcd.cmd(0xB0, 0x00)
+		lcd.cmd(0xB1, 0x1F)
+		lcd.cmd(0xB2, 0x01)
+		lcd.cmd(0xB3, 0x03)
+		lcd.cmd(0xB4, 0x0B)
+		lcd.cmd(0xB5, 0x09)
+		lcd.cmd(0xB6, 0x0F)
+		lcd.cmd(0xB7, 0x0D)
+		lcd.cmd(0xC1, 0x00)
+		lcd.cmd(0xC2, 0x00)
+		lcd.cmd(0xC3, 0x00)
+		lcd.cmd(0xC4, 0x1F)
+		lcd.cmd(0xC5, 0x00)
+		lcd.cmd(0xC6, 0x00)
+		lcd.cmd(0xC7, 0x1F)
+		lcd.cmd(0xC8, 0x02)
+		lcd.cmd(0xC9, 0x04)
+		lcd.cmd(0xCA, 0x0C)
+		lcd.cmd(0xCB, 0x0A)
+		lcd.cmd(0xCC, 0x10)
+		lcd.cmd(0xCD, 0x0E)
+		lcd.cmd(0xD7, 0x00)
+		lcd.cmd(0xD8, 0x00)
+		lcd.cmd(0xD9, 0x00)
+		lcd.cmd(0xDA, 0x1F)
+		lcd.cmd(0xDB, 0x00)
+		lcd.cmd(0xFF, 0x30)
+		lcd.cmd(0xFF, 0x52)
+		lcd.cmd(0xFF, 0x00)
+		lcd.cmd(0x36, 0x0A) --反扫09
+
+		lcd.cmd(0x11, 0x00)
+		sys.wait(200)
+		lcd.cmd(0x29, 0x00)
+		sys.wait(100)
+
+		log.info("custom_nv3052c", "LCD自定义初始化完成")
+
+		-- 加载中文字体
+		if rtos.bsp() ~= "Air8101" then
+			-- PC端/Air8000/780EHM 从14号固件/114号固件中加载hzfont字库，从而支持12-255~号中文显示
+			airui.font_load({
+				type = "hzfont",   -- 字体类型，可选 "hzfont" 或 "bin"
+				path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+				size = 20,         -- 字体大小，默认 16
+				cache_size = 1024, -- 缓存字数大小，默认 2048
+				antialias = 1,     -- 抗锯齿等级1-3，默认 1
+			})
+		else
+			-- Air8101使用104号固件将字体文件烧录到文件系统，从文件系统中加载hzfont字库，从而支持12-255号中文显示
+			airui.font_load({
+				type = "hzfont",             -- 字体类型，可选 "hzfont" 或 "bin"
+				path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+				size = 20,                   -- 字体大小，默认 16
+				cache_size = 1024,           -- 缓存字数大小，默认 2048
+				antialias = 1,               -- 抗锯齿等级1-3，默认 1
+				-- load_to_psram= true,
+				global = true
+			})
+		end
+
+		-- airui.set_rotation(180)
+
+		-- 查询当前固件内AirUI核心库版本
+		local version_result = airui.version()
+
+		-- 打印查询结果
+		log.info("airui", "version -> " .. version_result)
+
+		local rotation = airui.get_rotation()
+		local phys_w, phys_h = lcd.getSize()
+		if rotation == 0 or rotation == 180 then
+			_G.screen_w, _G.screen_h = phys_w, phys_h
+		else
+			_G.screen_h, _G.screen_w = phys_w, phys_h
+		end
+        _G.is_landscape = (_G.screen_w > _G.screen_h)
+
+        -- 计算像素密度缩放比 (基准: 5寸480×800 ≈ 187 PPI)
+        local diagonal_px = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
+        local base_ppi = 186.6  -- sqrt(480²+800²) / 5.0
+        _G.density_scale = (diagonal_px / _G.screen_size) / base_ppi
+        _G.density_scale = math.max(1.0, _G.density_scale) -- 只放大不缩小
+    end
+end
+
+function lcd_drv.backlight_on()
+    pwm.setup(3, 1000, 100)
+    pwm.open(3, 1000, 100)
+end
+
+return lcd_drv

@@ -45,6 +45,10 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
                 crc16_data = luat_crc16_modbus(&buff[i + 4 + 4], tlen + 8);
                 if (crc16_data == crc16)
                 {
+                    // 如果支持RPC, 那就把对应的flags设置一下
+                    #ifdef LUAT_USE_AIRLINK_RPC
+                    luat_airlink_peer_flags_update(&link->flags);
+                    #endif
                     return link;
                 }
                 else
@@ -79,6 +83,11 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, u
     data->len = len;
     data->pkgid = next_pkg_id++;
     memset(&data->flags, 0, sizeof(data->flags));
+
+    // 如果支持RPC, 那就把对应的flags设置一下
+    if (luat_airlink_mode_link_data_cb_get() != NULL) {
+        data->flags.rpc_supported = 1;
+    }
 
 
     memcpy(data->data, buff, len);

@@ -204,6 +204,9 @@ static int decode_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     // LLOGD("jpeg seg size %d %d %d", rect->right - rect->left + 1, rect->bottom - rect->top + 1, (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1));
     return 1;    /* Continue to decompress */
 }
+
+
+
 int lcd_jpeg_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
     JRESULT res;      /* Result code of TJpgDec API */
     JDEC jdec;        /* Decompression object */
@@ -254,6 +257,8 @@ error:
 	}
 	return -1;
 }
+
+
 
 LUAT_WEAK int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
     return lcd_draw_jpeg_default(conf, path, x, y);

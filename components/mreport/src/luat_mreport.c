@@ -29,6 +29,8 @@
 #define MREPORT_DOMAIN "47.94.236.172"
 #define MREPORT_PORT (12388)
 
+#define MREPORT_DEBUG 0
+
 typedef struct mreport_ctx {
     struct udp_pcb* mreport_pcb;
     luat_rtos_timer_t mreport_timer;
@@ -100,14 +102,10 @@ static inline uint16_t u162bcd(uint16_t src) {
 
 // 基础信息
 static void luat_mreport_sys_basic(cJSON* mreport_data) {
-    struct tm tblock = {0};
-    int ret;
-    ret = luat_rtc_get(&tblock);
-    if (ret == 0) {
-        char time_str[32] = {0};
-        snprintf(time_str, sizeof(time_str), "%04d-%02d-%02d %02d:%02d:%02d", tblock.tm_year + 1900, tblock.tm_mon + 1, tblock.tm_mday, tblock.tm_hour, tblock.tm_min, tblock.tm_sec);
-        cJSON_AddStringToObject(mreport_data, "localtime", time_str);
-    }
+    // 本地时间, 时间戳格式, 1776319447
+	time_t t;
+	time(&t);
+    cJSON_AddNumberToObject(mreport_data, "localtime", t);
 
     // 版本号
     cJSON_AddStringToObject(mreport_data, "bspver", luat_version_str());
@@ -258,12 +256,12 @@ static void luat_mreport_adc(cJSON* mreport_data) {
 // wifi信息
 static void luat_mreport_wifi(cJSON* mreport_data) {
 #ifdef LUAT_USE_DRV_WLAN
-    // wifi版本
-    uint32_t wifi_version = 0;
+    // wifi版本 格式为字符串，V22
+    char wifi_version[5] = {0};
     if (g_airlink_ext_dev_info.tp == 0x01) {
-        memcpy(&wifi_version, g_airlink_ext_dev_info.wifi.version, 4);
+        sprintf_(wifi_version, "V%d%d", g_airlink_ext_dev_info.wifi.version);
     }
-    cJSON_AddNumberToObject(mreport_data, "wifi_ver", wifi_version);
+    cJSON_AddStringToObject(mreport_data, "wifi_ver", wifi_version);
 
     // wifi mac
     char mac[18] = {0};
@@ -438,6 +436,14 @@ void luat_mreport_send(void) {
     // sim卡和网络相关, TODO 有mobile库的才添加
     luat_mreport_sim_network(mreport_data, netif);
 #endif
+#if defined(LUAT_MODEL_AIR1601) || defined(LUAT_MODEL_AIR1602)
+       // unique_id作为imei
+	size_t len = 0;
+    char buff[12] = {0};
+    const char* unique_id = luat_mcu_unique_id(&len);
+    luat_str_tohex(unique_id, len, buff);
+    cJSON_AddStringToObject(mreport_data, "imei", buff);
+#endif
     // adc信息
     luat_mreport_adc(mreport_data);
     // wifi信息
@@ -454,7 +460,9 @@ void luat_mreport_send(void) {
         cJSON_Delete(mreport_data);
         return;
     }
-    // LLOGE("mreport json --- len: %d\r\n%s", strlen(json), json);
+#if MREPORT_DEBUG
+    LLOGD("mreport json --- len: %d\r\n%s", strlen(json), json);
+#endif
 
     struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, strlen(json), PBUF_RAM);
     if (p == NULL) {

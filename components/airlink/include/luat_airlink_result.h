@@ -27,4 +27,8 @@ int luat_airlink_result_reg(luat_airlink_result_reg_t* reg);
 // 返回 0: 成功清理; -1: slot 已被回调消费
 int luat_airlink_result_unreg(uint64_t id);
 
+// 按 id 查找 result slot 并触发 exec 回调 (供 pong 等命令的 handler 调用)
+// 返回 0: 找到并触发; -1: 未找到
+int luat_airlink_result_dispatch(uint64_t id, luat_airlink_cmd_t* cmd);
+
 #endif /* LUAT_AIRLINK_RESULT_H */

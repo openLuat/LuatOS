@@ -1,8 +1,14 @@
 {
     "timeout" : 600,
-    "model" : {},
+    "model" : {
+        "air780epm": [1, 105],
+        "air780ehm": [1, 104],
+        "air8000": [1,101],
+        "air8101": [1, 101],
+        "air1601": [1]
+    },
 
     "action_count" : 1,
-    "priority" : 1,
+    "priority" : 5,
     "description" : "udp单元测试"
 }

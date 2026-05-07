@@ -79,10 +79,8 @@ int luat_gpio_get(int pin)
     if (gpio_drvs[pin]) {
         return gpio_drvs[pin]->read(NULL, pin);
     }
-    if (gpio_confs[pin].mode == LUAT_GPIO_INPUT || gpio_confs[pin].mode == LUAT_GPIO_IRQ) {
-        return gpio_levels[pin];
-    }
-    return 0;
+    // PC 模拟器: 直接返回 gpio_levels[pin]，不区分输入/输出模式
+    return gpio_levels[pin];
 }
 
 void luat_gpio_close(int pin)
@@ -121,6 +119,24 @@ void luat_gpio_set_default_cfg(luat_gpio_cfg_t* gpio) {
 }
 
 int luat_gpio_open(luat_gpio_cfg_t* gpio) {
-    LLOGD("luat_gpio_open not supported on PC yet");
-    return -1; // Not implemented
+    if (!gpio || gpio->pin < 0 || gpio->pin >= 128) return -1;
+    // Minimal PC implementation: store mode, set initial level for output
+    gpio_confs[gpio->pin].pin  = gpio->pin;
+    gpio_confs[gpio->pin].mode = gpio->mode;
+    gpio_confs[gpio->pin].pull = gpio->pull;
+    if (gpio->mode == Luat_GPIO_OUTPUT) {
+        gpio_levels[gpio->pin] = gpio->output_level ? 1 : 0;
+    }
+    return 0;
+}
+
+int luat_gpio_ctrl(int pin, LUAT_GPIO_CTRL_CMD_E cmd, int param) {
+    (void)cmd;
+    (void)param;
+    if (pin < 0 || pin >= 128) return -1;
+    return 0;
+}
+
+int luat_gpio_driver_yhm27xx(uint32_t pin, uint8_t chip_id, uint8_t reg, uint8_t is_read, uint8_t *data) {
+    return -1;
 }

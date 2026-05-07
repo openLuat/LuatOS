@@ -222,9 +222,9 @@ target("luatos-lua")
     add_files(luatos.."components/memprof/binding/*.c")
 
     -- sqlite3
-    -- add_includedirs(luatos.."components/sqlite3/include",{public = true})
-    -- add_files(luatos.."components/sqlite3/src/*.c")
-    -- add_files(luatos.."components/sqlite3/binding/*.c")
+    add_includedirs(luatos.."components/sqlite3/include",{public = true})
+    add_files(luatos.."components/sqlite3/src/*.c")
+    add_files(luatos.."components/sqlite3/binding/*.c")
     
     --mobile
     add_includedirs(luatos.."components/mobile")
@@ -364,11 +364,6 @@ target("luatos-lua")
     -- add_includedirs(luatos.."components/mreport/include",{public = true})
     add_files(luatos.."components/mreport/src/*.c")
 
-    -- 添加h264
-    add_includedirs(luatos.."components/h264/include")
-    add_files(luatos.."components/h264/src/*.c")
-    add_files(luatos.."components/h264/binding/*.c")
-
     -- 添加videoplayer
     add_includedirs(luatos.."components/videoplayer/include")
     add_includedirs(luatos.."components/tjpgd")
@@ -418,10 +413,10 @@ target("luatos-lua")
         add_includedirs(luatos .. "components/network/iperf/include")
         add_files(luatos .. "components/network/iperf/**.c")
 
-        remove_files(luatos .. "components/airlink/src/driver/*.c")
-        remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_wlan.c")
-        remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_gpio.c")
-        remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_uart.c")
+        -- remove_files(luatos .. "components/airlink/src/driver/*.c")
+        -- remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_wlan.c")
+        -- remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_gpio.c")
+        -- remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_uart.c")
         remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_bluetooth.c")
         
         remove_files(luatos .. "components/airlink/src/task/luat_airlink_spi_slave_task.c")
@@ -439,6 +434,7 @@ target("luatos-lua")
 
         -- 添加蓝牙
         add_includedirs(luatos .. "components/bluetooth/include")
+        add_files(luatos .. "components/bluetooth/drv/luat_drv_ble_gatt.c")
     else
         add_includedirs(luatos .. "components/network/lwip/include")
         add_includedirs("lwip/include")    
@@ -654,5 +650,84 @@ target("luatos-lua")
         
         -- 添加 Windows 库
         add_links("shlwapi")
+    end
+
+    -- =========================================================
+    -- mp4player（MP4/H.264/AAC 解码器）
+    -- 启用方式：设置环境变量 LUAT_USE_MP4PLAYER=y
+    --           并设置 MP4PLAYER_SRC_DIR 指向 player 源码根目录
+    -- 示例（PowerShell）：
+    --   $env:LUAT_USE_MP4PLAYER = "y"
+    --   $env:MP4PLAYER_SRC_DIR  = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
+    --   cmd /c build_windows_32bit_msvc.bat
+    -- =========================================================
+    if os.getenv("LUAT_USE_MP4PLAYER") == "y" then
+        add_defines("LUAT_USE_MP4PLAYER=1")
+
+        local mp4player_src = os.getenv("MP4PLAYER_SRC_DIR")
+        if not mp4player_src or mp4player_src == "" then
+            -- 如果未设置环境变量，使用默认路径（开发者本地约定）
+            mp4player_src = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
+        end
+        -- 统一为正斜杠，xmake 在 Windows 下两者均支持
+        mp4player_src = mp4player_src:gsub("\\", "/")
+        -- 确保末尾无斜杠
+        mp4player_src = mp4player_src:gsub("/$", "")
+
+        -- ---- 头文件搜索路径 ----
+        -- port/ 最先，其 plat_support.h 优先覆盖 platform/ 原始版本
+        add_includedirs(mp4player_src .. "/port")
+        add_includedirs(mp4player_src .. "/audio_decode")
+        add_includedirs(mp4player_src .. "/audio_decode/platform")
+        add_includedirs(mp4player_src .. "/audio_decode/aac")
+        add_includedirs(mp4player_src .. "/audio_decode/aac/include")
+        add_includedirs(mp4player_src .. "/audio_decode/aac/libfaad")
+        add_includedirs(mp4player_src .. "/video_decode")
+        add_includedirs(mp4player_src .. "/video_decode/avcodec")
+        add_includedirs(mp4player_src .. "/video_decode/avcodec/h264")
+
+        -- ---- 音频公共模块 ----
+        add_files(mp4player_src .. "/audio_decode/audio_rb.c")
+        add_files(mp4player_src .. "/audio_decode/sound.c")
+
+        -- ---- AAC 解码（libfaad，第三方代码，关闭所有警告）----
+        add_thirdparty_files(mp4player_src .. "/audio_decode/aac/libfaad/*.c")
+
+        -- ---- H.264 解码器（avcodec，FFmpeg 派生，关闭所有警告）----
+        -- atomic_gcc.h 已在 MSVC 下添加 #ifdef _MSC_VER 兼容处理，无需额外 defines。
+        add_thirdparty_files(mp4player_src .. "/video_decode/avcodec/h264/*.c")
+        add_thirdparty_files(mp4player_src .. "/video_decode/avcodec/*.c")
+        -- libavutil 是 avcodec 的底层库（av_frame_*, av_samples_*, av_image_*, av_opt_* 等）
+        add_thirdparty_files(mp4player_src .. "/video_decode/avcodec/h264/libavutil/*.c")
+        -- file_open.c 依赖 <fcntl.h> O_CREAT 等宏（config.h 未启用 HAVE_FCNTL），改用 PC stub
+        remove_files(mp4player_src .. "/video_decode/avcodec/h264/libavutil/file_open.c")
+        add_files("stubs/mp4player/avcodec_fileopen_pc.c")
+        -- *_template.c 是通过 #include 引入的模板文件，不直接参与编译
+        remove_files(mp4player_src .. "/video_decode/avcodec/*_template.c")
+        remove_files(mp4player_src .. "/video_decode/avcodec/h264/*_template.c")
+        -- yuv2rgb_neon.c 使用 ARM NEON intrinsics，PC 不可编译
+        remove_files(mp4player_src .. "/video_decode/avcodec/yuv2rgb_neon.c")
+        -- h264/yuv.c 与 SDL2 的 yuv_rgb_std.c 重复定义 yuv420_rgb24_std 等函数，排除之
+        remove_files(mp4player_src .. "/video_decode/avcodec/h264/yuv.c")
+        -- h264_decode.c 是独立的 H264 解码桥接层，供 luat_mp4_videoplayer.c 调用
+        -- （以前因为与 components/h264/src/h264_decoder.c 符号冲突而被排除；
+        --   现已移除 components/h264，因此可以正常编译）
+
+        -- ---- MP4 解复用 + 解码协调层 ----
+        add_files(mp4player_src .. "/video_decode/mp4_decode.c")
+        add_files(mp4player_src .. "/video_decode/video_rb.c")
+
+        -- ---- platform port（已适配 LuatOS VFS，仅含 luat_mp4player_port.c）----
+        add_files(mp4player_src .. "/port/luat_mp4player_port.c")
+
+        -- ---- PC audio stubs（替代 CCM42xx DAC/DMA 硬件驱动）----
+        -- platform/ 中的 dac_sound.c / sys_dac.c 依赖 CCM42xx 外设寄存器，不编译；
+        -- 改用 port/mp4player/ 中的 no-op stub。
+        add_files("stubs/mp4player/dac_sound_pc.c")
+        add_files("stubs/mp4player/sys_dac_pc.c")
+
+        -- ---- PC-side MP4 videoplayer integration ----
+        add_includedirs(path.join(os.scriptdir(), "port/mp4player"))
+        add_files(path.join(os.scriptdir(), "port/mp4player/luat_mp4_videoplayer.c"))
     end
 target_end()

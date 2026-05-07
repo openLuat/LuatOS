@@ -147,8 +147,88 @@ SC_IDLE → SC_USED → SC_CONNECTING → SC_CONNECTED → SC_CLOSING → SC_CLO
 - Update `xmake.lua` with platform detection
 - Use `#ifdef LUAT_USE_WINDOWS` etc.
 
+## PC 模拟器测试脚本规范
+
+### ⚠️ 必须在任务内部调用 `os.exit(0)`
+
+PC 模拟器的 `sys.run()` 最终调用 libuv 的 `uv_run(UV_RUN_DEFAULT)`，该事件循环**不会因为 Lua 任务结束而自动退出**——只要还有任何活跃的 libuv 句柄（如网络、文件、定时器），进程就会一直挂起等待。
+
+**正确写法**（`os.exit(0)` 在任务协程内、`sys.run()` 之前执行）：
+
+```lua
+sys.taskInit(function()
+    -- ... 执行任务逻辑 ...
+    videoplayer.close(player)
+    log.info("main", "完成")
+    os.exit(0)   -- ✅ 在任务内部强制退出
+end)
+
+sys.run()        -- 启动事件循环（os.exit 会在任务中断开它）
+```
+
+**错误写法**（`os.exit(0)` 在 `sys.run()` 之后，永远不会执行）：
+
+```lua
+sys.taskInit(function()
+    -- ...
+end)
+
+sys.run()        -- ❌ 挂在这里，os.exit 永远不会执行
+os.exit(0)
+```
+
+**适用场景**：所有在 PC 模拟器上运行的独立测试脚本（非 `testrunner` 框架管理的）都应遵循此规范。使用 `testrunner` 框架的标准测试用例由框架自身负责调用 `os.exit`，无需手动添加。
+
+### `ad_fopen` 文件 API 与 luat_fs VFS
+
+player SDK 中的 `plat_support.c` 通过 `#ifdef __LUATOS__` 条件编译，在 LuatOS 构建（包括 PC 模拟器）上将 `ad_fopen/fread/fseek/fclose/fsize` 路由到 `luat_fs_*` VFS 函数，而非直接使用 FatFS 或 stdio。
+
+- **优点**：文件路径通过 LuatOS VFS 解析，PC 模拟器启动时传入的脚本目录自动映射为根路径，`ad_fopen("foo.mp4", ...)` 等价于 `luat_fs_fopen("/lua/foo.mp4", ...)`（取决于 VFS 挂载配置）
+- **无需替换**：不必将 `ad_fopen` 换成 `fopen` 或 `luat_fs_fopen`，在 `__LUATOS__` 构建中它们本质上是同一个
+- **文件路径**：测试时将资源文件放在脚本目录下，VFS 会正确解析
+
 ## ANTI-PATTERNS
 
 - ❌ Do NOT assume PC == hardware behavior (timing differences)
 - ❌ Do NOT hardcode paths - use relative paths
 - ❌ Do NOT skip hardware validation phase
+
+## OPTIONAL FEATURES (环境变量开关)
+
+PC 模拟器支持通过环境变量按需启用可选功能，遵循与 `LUAT_USE_GUI`、`LUAT_USE_MGBA` 相同的模式：
+
+| 环境变量 | 值 | 说明 |
+|----------|----|------|
+| `LUAT_USE_GUI` | `y` | 启用 SDL2 GUI / AirUI |
+| `LUAT_USE_MGBA` | `y` | 启用 mGBA GameBoy 模拟器 |
+| `LUAT_USE_MP4PLAYER` | `y` | 启用 MP4/H.264/AAC 解码器 |
+| `MP4PLAYER_SRC_DIR` | 路径 | mp4player 源码根目录（与 `LUAT_USE_MP4PLAYER=y` 配合使用） |
+
+### mp4player 启用示例（PowerShell）
+
+```powershell
+$env:LUAT_USE_MP4PLAYER = "y"
+$env:MP4PLAYER_SRC_DIR  = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
+cmd /c build_windows_32bit_msvc.bat
+```
+
+### ⚠️ xmake `remove_files` + `add_files` 陷阱
+
+**问题**：在 `if` 块外无条件调用 `remove_files("port/mp4player/*.c")`，然后在 `if` 块内调用 `add_files("port/mp4player/foo.c")` 尝试加回某些文件——该文件**永远不会被编译**。`remove_files` 维护内部排除名单，后续 `add_files` 无法绕过。
+
+**正确做法**：将只在条件下编译的 stub 文件放到**不被任何全局通配符覆盖**的目录，如 `stubs/<feature>/`：
+
+```lua
+-- ❌ 错误：remove_files 黑名单无法被 add_files 解除
+remove_files("port/mp4player/*.c")
+if os.getenv("LUAT_USE_MP4PLAYER") == "y" then
+    add_files("port/mp4player/dac_sound_pc.c")  -- 无效
+end
+
+-- ✅ 正确：stubs/ 目录不在 port/**.c 通配符范围内
+if os.getenv("LUAT_USE_MP4PLAYER") == "y" then
+    add_files("stubs/mp4player/dac_sound_pc.c")  -- 正常编译
+end
+```
+
+**目录约定**：`bsp/pc/stubs/<feature>/` — 存放只在特定可选功能开启时才参与编译的 PC stub 文件。

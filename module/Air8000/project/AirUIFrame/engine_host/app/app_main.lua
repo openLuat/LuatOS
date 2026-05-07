@@ -15,7 +15,6 @@
 -- 加载网络驱动设备功能模块
 -- require "netdrv_device"
 
-
 -- 加载 wifi_app 主模块
 require "wifi_app"
 
@@ -25,8 +24,8 @@ require "status_provider_app"
 -- 加载ntp时间同步应用模块
 require "ntp_app"
 
+-- 加载网络测速应用模块
+require "speedtest_app"
+
 -- 加载设置主模块（会通知settings_config_app进行初始化）
 require "settings_app"
-
--- 加载网络测速业务模块
-require "speedtest_app"

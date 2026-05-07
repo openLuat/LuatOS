@@ -1,0 +1,152 @@
+syntax = "proto2";
+
+package drv.gpio;
+
+import "nanopb.proto";
+
+// GPIO 模式（对应 luat_gpio_legacy.h Luat_GPIO_OUTPUT/INPUT/IRQ）
+// 注意：proto 枚举值比 C 宏值大 1，0 保留给 UNSPECIFIED
+enum GpioMode {
+    GPIO_MODE_UNSPECIFIED = 0;
+    GPIO_MODE_OUTPUT      = 1; // Luat_GPIO_OUTPUT (0x00)
+    GPIO_MODE_INPUT       = 2; // Luat_GPIO_INPUT  (0x01)
+    GPIO_MODE_IRQ         = 3; // Luat_GPIO_IRQ    (0x02)
+}
+
+// 上下拉（对应 Luat_GPIO_DEFAULT/PULLUP/PULLDOWN）
+enum GpioPull {
+    GPIO_PULL_UNSPECIFIED = 0;
+    GPIO_PULL_DEFAULT     = 1; // Luat_GPIO_DEFAULT  (0x00)，关闭上下拉
+    GPIO_PULL_UP          = 2; // Luat_GPIO_PULLUP   (0x01)
+    GPIO_PULL_DOWN        = 3; // Luat_GPIO_PULLDOWN (0x02)
+}
+
+// 电平（对应 Luat_GPIO_LOW/HIGH）
+enum GpioLevel {
+    GPIO_LEVEL_UNSPECIFIED = 0;
+    GPIO_LEVEL_LOW         = 1; // Luat_GPIO_LOW  (0x00)
+    GPIO_LEVEL_HIGH        = 2; // Luat_GPIO_HIGH (0x01)
+}
+
+// 中断触发类型（对应 Luat_GPIO_RISING/FALLING/BOTH/HIGH_IRQ/LOW_IRQ）
+enum GpioIrqType {
+    GPIO_IRQ_UNSPECIFIED = 0;
+    GPIO_IRQ_RISING      = 1; // Luat_GPIO_RISING   (0x00)
+    GPIO_IRQ_FALLING     = 2; // Luat_GPIO_FALLING  (0x01)
+    GPIO_IRQ_BOTH        = 3; // Luat_GPIO_BOTH     (0x02)
+    GPIO_IRQ_HIGH        = 4; // Luat_GPIO_HIGH_IRQ (0x03)
+    GPIO_IRQ_LOW         = 5; // Luat_GPIO_LOW_IRQ  (0x04)
+}
+
+// 通用返回码
+enum GpioResultCode {
+    GPIO_RES_OK      = 0;
+    GPIO_RES_EINVAL  = 1;
+    GPIO_RES_EBUSY   = 2;
+    GPIO_RES_ENOTSUP = 3;
+    GPIO_RES_EIO     = 4;
+    GPIO_RES_EPERM   = 5;
+    GPIO_RES_FAIL    = 255;
+}
+
+message GpioResult {
+    optional GpioResultCode code     = 1 [default = GPIO_RES_OK];
+    optional int32          os_errno = 2 [default = 0];
+    optional string         msg      = 3 [(nanopb).max_size = 32];  // 调试信息，静态分配
+}
+
+// 初始化/配置 GPIO（对应 luat_gpio_open / luat_gpio_mode）
+message GpioSetupRequest {
+    required uint32      pin         = 1;
+    optional GpioMode    mode        = 2 [default = GPIO_MODE_INPUT];
+    optional GpioPull    pull        = 3 [default = GPIO_PULL_DEFAULT];
+    optional GpioLevel   init_level  = 4 [default = GPIO_LEVEL_LOW];       // 输出模式下有效
+    optional GpioIrqType irq_type    = 5 [default = GPIO_IRQ_UNSPECIFIED]; // IRQ 模式下有效
+    optional bool        irq_enable  = 6 [default = false];
+    optional uint32      debounce_ms = 7 [default = 0];                    // 防抖，驱动支持时有效
+}
+message GpioSetupResponse {
+    required GpioResult result = 1;
+}
+
+// 释放 GPIO（对应 luat_gpio_close）
+message GpioCloseRequest {
+    required uint32 pin = 1;
+}
+message GpioCloseResponse {
+    required GpioResult result = 1;
+}
+
+// 写 GPIO 电平（对应 luat_gpio_set）
+message GpioWriteRequest {
+    required uint32    pin   = 1;
+    required GpioLevel level = 2;
+}
+message GpioWriteResponse {
+    required GpioResult result = 1;
+}
+
+// 读 GPIO 电平（对应 luat_gpio_get）
+message GpioReadRequest {
+    required uint32 pin = 1;
+}
+message GpioReadResponse {
+    required GpioResult result = 1;
+    optional GpioLevel  level  = 2 [default = GPIO_LEVEL_UNSPECIFIED];
+}
+
+// 设置上下拉（对应 luat_gpio_ctrl LUAT_GPIO_CMD_SET_PULL_MODE）
+message GpioSetPullRequest {
+    required uint32   pin  = 1;
+    required GpioPull pull = 2;
+}
+message GpioSetPullResponse {
+    required GpioResult result = 1;
+}
+
+// 设置中断类型/使能（对应 luat_gpio_ctrl LUAT_GPIO_CMD_SET_IRQ_MODE / luat_gpio_irq_enable）
+message GpioSetIrqRequest {
+    required uint32      pin         = 1;
+    optional GpioIrqType irq_type    = 2 [default = GPIO_IRQ_UNSPECIFIED];
+    optional bool        enable      = 3 [default = true];
+    optional uint32      debounce_ms = 4 [default = 0];
+}
+message GpioSetIrqResponse {
+    required GpioResult result = 1;
+}
+
+// 中断上报事件（设备 -> 主控，对应 luat_gpio_irq_cb 回调）
+message GpioIrqEvent {
+    required uint32      pin      = 1;
+    optional GpioIrqType irq_type = 2 [default = GPIO_IRQ_UNSPECIFIED]; // 实际触发类型
+    optional GpioLevel   level    = 3 [default = GPIO_LEVEL_UNSPECIFIED]; // 触发瞬间电平
+    optional uint64      tick_ms  = 4 [default = 0];                       // 时间戳（ms）
+}
+
+// 统一 RPC 请求
+message GpioRpcRequest {
+    required uint32 req_id = 1;
+    oneof payload {
+        GpioSetupRequest   setup    = 10;
+        GpioCloseRequest   close    = 11;
+        GpioWriteRequest   write    = 12;
+        GpioReadRequest    read     = 13;
+        GpioSetPullRequest set_pull  = 14;
+        GpioSetIrqRequest  set_irq   = 15;
+        GpioIrqEvent       irq_event = 100; // slave → master IRQ 事件上报
+    }
+}
+
+// 统一 RPC 响应/事件
+message GpioRpcResponse {
+    optional uint32 req_id = 1 [default = 0]; // 与请求匹配；事件上报时为 0
+    oneof payload {
+        GpioSetupResponse   setup     = 10;
+        GpioCloseResponse   close     = 11;
+        GpioWriteResponse   write     = 12;
+        GpioReadResponse    read      = 13;
+        GpioSetPullResponse set_pull  = 14;
+        GpioSetIrqResponse  set_irq   = 15;
+        GpioIrqEvent        irq_event = 100;
+    }
+}

@@ -35,19 +35,19 @@ else
 end
 ]]
 
-local port, pin_reset, bl = lcd.RGB, 15, 2
+local port, pin_reset, bl = lcd.RGB, 0, 2
 
 local function lcd_drv_init()
     -- 开启屏幕供电
     local result = lcd.init("custom", {
         port = port,
-        hbp = 140,
-        hspw = 20,
-        hfp = 160,
-        vbp = 20,
-        vspw = 3,
+        hbp = 120,
+        hspw = 40,
+        hfp = 150,
+        vbp = 23,
+        vspw = 10,
         vfp = 12,
-        bus_speed = 50 * 1000 * 1000,
+        bus_speed = 51 * 1000 * 1000,
         pin_pwr = bl,
         pin_rst = pin_reset,
         direction = 0,
@@ -56,6 +56,7 @@ local function lcd_drv_init()
     })
 
     log.info("lcd.init", result)
+    log.info("lcd.getSize", lcd.getSize())
 
     if result then
         -- 开启缓冲区, 刷屏速度会加快, 但也消耗2倍屏幕分辨率的内存
@@ -67,7 +68,7 @@ local function lcd_drv_init()
         local result = airui.init(width, height)
         if not result then
             log.error("airui", "init failed")
-            return result
+            -- return result
         end
 
         -- 加载字体
@@ -82,9 +83,10 @@ local function lcd_drv_init()
         local version_result = airui.version()
         log.info("airui", "version -> " .. version_result)
 
-        return result
+        -- return result
     end
 
 end
 
-lcd_drv_init()
+-- lcd_drv_init()
+sys.taskInit(lcd_drv_init)

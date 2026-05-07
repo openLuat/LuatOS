@@ -7,10 +7,11 @@
 1. **main.lua** - 主程序入口，负责系统初始化和任务调度
 2. **ui_main.lua** - AirUI 主程序，负责窗口管理和主循环调度
 
-### 1.2 硬件驱动模块
+### 1.2 硬件驱动模块（其中lcd_inner_drv.lua和lcd_custom_drv.lua二选一即可，详细注释参考main.lua）
 
-1. **lcd_drv.lua** - LCD 显示驱动模块，基于 lcd 核心库，支持 ST7796 屏幕
-2. **tp_drv.lua** - 触摸面板驱动模块，基于 tp 核心库，支持 GT911 触摸控制器
+1. **lcd_inner_drv.lua** - LCD 显示内置驱动模块，基于 lcd 核心库，支持 ST7796 屏幕
+2. **lcd_custom_drv.lua** - LCD 显示自定义驱动模块，基于 lcd 核心库，支持 ST7796 屏幕
+3. **tp_drv.lua** - 触摸面板驱动模块，基于 tp 核心库，支持 GT911 触摸控制器
 
 ### 1.3 演示窗口模块
 
@@ -92,8 +93,15 @@
 在 `main.lua` 中选择要运行的演示模块：
 
 ```lua
--- 加载显示驱动
-require("lcd_drv")
+-- 加载显示驱动，有内置驱动和自定义驱动两种方式
+-- 内置驱动方式（lcd_inner_drv.lua）：使用LuatOS内核固件已经支持的显示驱动，无需在脚本中进行初始化命令配置
+-- 自定义驱动方式（lcd_custom_drv.lua）：用户根据自己使用的lcd型号，在脚本中自己配置初始化命令，来驱动lcd显示
+-- 如果是LuatOS内核固件已经支持的lcd型号，可以选择内置驱动方式，也可以选择自定义驱动方式
+-- 如果LuatOS内核固件不支持的lcd型号，只能选择自定义驱动方式
+-- 根据自己的实际情况，二选一开启以下两行代码中的其中一行
+require("lcd_inner_drv")
+-- require("lcd_custom_drv")
+
 -- 加载触摸驱动
 require("tp_drv")
 
@@ -107,7 +115,8 @@ require("ui_main")
 
 在对应的驱动文件中根据实际硬件调整硬件参数：
 
-- **lcd_drv.lua** - lcd显示驱动配置、AirUI初始化、hzfont初始化配置
+- **lcd_inner_drv.lua** - lcd显示驱动配置、AirUI初始化、hzfont初始化配置
+- **lcd_customn_drv.lua** - lcd显示驱动配置、AirUI初始化、hzfont初始化配置
 - **tp_key_drv.lua** - tp触摸驱动配置和初始化，触摸设备绑定AirUI
 
 ### 5.4 软件烧录

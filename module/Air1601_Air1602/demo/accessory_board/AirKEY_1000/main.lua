@@ -1,13 +1,16 @@
 --[[
 @module  main
-@summary AirUI组件演示主程序入口
-@version 1.1.0
-@date    2026-03-18
-@author  江访
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 1.0
+@date    2025.10.24
+@author  沈园园
 @usage
-本文件是AirUI演示程序的主入口，用于选择加载不同的UI组件演示模块。
-
+AirKEY_1000是合宙设计生产的一款支持8个独立按键的配件板；
+本demo演示的核心功能为：
+Air1601开发板+AirKEY_1000配件板，使用Air1601开发板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态；
+更多说明参考本目录下的readme.md文件
 ]]
+
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -19,18 +22,13 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
+PROJECT = "AirKEY_1000"
+VERSION = "001.999.000"
 
--- main.lua - 程序入口文件
-
--- 项目名称和版本定义
-PROJECT = "AirUI_demo" -- 项目名称，用于标识当前工程
-VERSION = "001.999.001"      -- 项目版本号
 
 -- 在日志中打印项目名和项目版本号
-log.info("ui_demo", PROJECT, VERSION)
+log.info("main", PROJECT, VERSION)
 
--- 设置日志输出风格为样式2（建议调试时开启）
--- log.style(2)
 
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
@@ -54,27 +52,13 @@ log.info("ui_demo", PROJECT, VERSION)
 -- sys.timerLoopStart(function()
 --     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
--- end, 3000)
+--  end, 3000)
 
--- 加载显示驱动，有内置驱动和自定义驱动两种方式
--- 内置驱动方式（lcd_inner_drv.lua）：使用LuatOS内核固件已经支持的显示驱动，无需在脚本中进行初始化命令配置
--- 自定义驱动方式（lcd_custom_drv.lua）：用户根据自己使用的lcd型号，在脚本中自己配置初始化命令，来驱动lcd显示
--- 如果是LuatOS内核固件已经支持的lcd型号，可以选择内置驱动方式，也可以选择自定义驱动方式
--- 如果LuatOS内核固件不支持的lcd型号，只能选择自定义驱动方式
--- 根据自己的实际情况，二选一开启以下两行代码中的其中一行
-require("lcd_inner_drv")
--- require("lcd_custom_drv")
-
--- 加载触摸驱动
-require("tp_drv")
-
-exwin = require("exwin")
-
--- 引入演示模块
-require("ui_main")
+ -- 加载KEY应用模块
+ require "key_app"
 
 
--- 用户代码已结束
+-- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
 -- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

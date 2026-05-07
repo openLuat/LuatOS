@@ -307,7 +307,7 @@ static int ble_rpc_handler(uint16_t rpc_id,
             ret = luat_drv_bt_msg_send(msg);
             if (ret != 0) luat_heap_free(msg);
         } else {
-            ret = -ENOMEM;
+            ret = -1;
         }
         if (ret == 0) set_result_ok(&resp->payload.read_response.result);
         else          set_result_fail(&resp->payload.read_response.result, ret);

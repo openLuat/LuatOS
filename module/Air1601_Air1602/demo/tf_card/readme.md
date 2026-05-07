@@ -14,7 +14,6 @@
 
 netdrv_device.lua/netdrv 文件夹：网卡驱动设备配置文件，可配置使用 netdrv 文件夹内的五种网卡（单 4G 网卡、单 WIFI 网卡、单 SPI 以太网卡、多网卡、PC 模拟器上的网卡）中的任意一种；
 
-网卡驱动文件获取链接：https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/ntp
 
 ## 演示功能概述：
 

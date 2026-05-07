@@ -131,8 +131,9 @@ message GpioRpcRequest {
         GpioCloseRequest   close    = 11;
         GpioWriteRequest   write    = 12;
         GpioReadRequest    read     = 13;
-        GpioSetPullRequest set_pull = 14;
-        GpioSetIrqRequest  set_irq  = 15;
+        GpioSetPullRequest set_pull  = 14;
+        GpioSetIrqRequest  set_irq   = 15;
+        GpioIrqEvent       irq_event = 100; // slave → master IRQ 事件上报
     }
 }
 

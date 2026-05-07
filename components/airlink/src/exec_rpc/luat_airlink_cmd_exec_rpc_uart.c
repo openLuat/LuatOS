@@ -55,8 +55,13 @@ static int uart_rpc_handler(uint16_t rpc_id,
         int ret = luat_uart_setup(&uart);
         LLOGD("uart[%d] setup baud=%d ret=%d", uart.id, uart.baud_rate, ret);
         resp->which_payload = drv_uart_UartRpcResponse_setup_tag;
-        if (ret == 0) set_result_ok(&resp->payload.setup.result);
-        else          set_result_fail(&resp->payload.setup.result, ret);
+        if (ret == 0) {
+            set_result_ok(&resp->payload.setup.result);
+            extern void luat_airlink_exec_uart_install_rx_cb(int uart_id);
+            luat_airlink_exec_uart_install_rx_cb(uart.id);
+        } else {
+            set_result_fail(&resp->payload.setup.result, ret);
+        }
         break;
     }
     case drv_uart_UartRpcRequest_write_tag: {

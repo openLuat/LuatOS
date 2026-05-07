@@ -84,6 +84,10 @@ elseif _model_str:find("Air1601") or _model_str:find("Air1602") then
 
     -- 10寸和7寸共用触摸驱动
     -- tp_drv = require "tp_drv_air1601_7or10"
+else
+    --PC模拟器复用 Air8101显示/触摸驱动
+    lcd_drv = require "lcd_drv_air8101"
+    tp_drv = require "tp_drv_air8101"
 end
 
 exwin = require "exwin"

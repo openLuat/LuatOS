@@ -350,12 +350,17 @@ local function start_next_play()
             audio_play_param.channels
         )
 
+        if playConfigs.signed_or_unsigned ~= nil then
+            audio_play_param.signed_or_unsigned = playConfigs.signed_or_unsigned
+        end
+
         audio.start(
             MULTIMEDIA_ID, 
             audio.PCM, 
             audio_play_param.channels, 
             playConfigs.sampling_rate, 
-            playConfigs.sampling_depth
+            playConfigs.sampling_depth, 
+            audio_play_param.signed_or_unsigned
         )
 
         -- 发送初始数据（使用计算出的缓冲区大小）

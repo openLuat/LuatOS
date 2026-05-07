@@ -355,11 +355,12 @@ local function app_task(app_path)
     local EXT_LIBS = {
         "air153C_wtd", "airlbs", "bf30a2", "dhcam", "dhcpsrv", "dnsproxy",
         "exaudio", "excamera", "exchg", "excloud", "exeasyui", "exfotawifi",
-        "exftp", "exgnss", "exlcd", "exmodbus", "exmtn", "exmux", "exnetif",
-        "exremotecam", "exremotefile", "exril_5101", "exsip", "exsipclient",
-        "exsipproto", "extalk", "extp", "exvib", "exvib1", "exwin", "gc032a",
-        "gc0310", "httpdns", "httpplus", "lbsLoc", "lbsLoc2", "libfota",
-        "libfota2", "libnet", "netLed", "udpsrv", "xmodem", "sys"
+        "exftp", "exgnss", "exlcd", "exmodbus_rtu_ascii", "exmodbus_tcp" ,
+        "exmodbus", "exmtn", "exmux", "exnetif", "exremotecam", "exremotefile",
+        "exril_5101", "exsip", "exsipclient", "exsipproto", "extalk", "extp",
+        "exvib", "exvib1", "exwin", "gc032a", "gc0310", "httpdns", "httpplus",
+        "lbsLoc", "lbsLoc2", "libfota", "libfota2", "libnet", "netLed", "udpsrv",
+        "xmodem", "sys", "sysplus"
     }
     local EXT_LIBS_SET = {}
     for _, v in ipairs(EXT_LIBS) do EXT_LIBS_SET[v] = true end
@@ -391,13 +392,13 @@ local function app_task(app_path)
         end
 
         -- 从应用目录加载模块
-        -- 搜索顺序：user/name.lua -> user/name.luac -> libs/name.lua -> libs/name.luac
+        -- 搜索顺序：libs/name.lua -> libs/name.luac -> user/name.lua -> user/name.luac
         local chunk, err
         local search_paths = {
-            app_path.."user/"..name..".lua",
-            app_path.."user/"..name..".luac",
             app_path.."libs/"..name..".lua",
-            app_path.."libs/"..name..".luac"
+            app_path.."libs/"..name..".luac",
+            app_path.."user/"..name..".lua",
+            app_path.."user/"..name..".luac"
         }
 
         for _, path in ipairs(search_paths) do

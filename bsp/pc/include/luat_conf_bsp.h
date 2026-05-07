@@ -165,8 +165,6 @@
 
 #define LUAT_USE_MEMPROF 1
 
-#define LUAT_USE_H264_DECODER 1
-
 #define LUAT_USE_VIDEOPLAYER 1
 // videoplayer软解依赖TJPGD, 需在GUI块外启用
 #define LUAT_USE_TJPGD

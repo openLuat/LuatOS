@@ -2,6 +2,7 @@
  * luat_videoplayer.c - Video player core implementation
  *
  * Handles MJPG stream parsing and decoder dispatching.
+ * MP4+H264 playback is supported when LUAT_USE_MP4PLAYER is defined.
  */
 
 #include "luat_videoplayer.h"
@@ -31,6 +32,10 @@
 
 #include <string.h>
 
+#ifdef LUAT_USE_MP4PLAYER
+#include "luat_mp4_videoplayer.h"
+#endif
+
 /* Read buffer size for scanning MJPG stream */
 #define VP_READ_BUF_SIZE  (32 * 1024)
 
@@ -58,7 +63,7 @@ static int g_vp_debug = 0;
 
 /* ---- Player context ---- */
 struct luat_vp_ctx {
-    void *fp;                           /* File pointer */
+    void *fp;                           /* File pointer (MJPG only) */
     luat_vp_format_t format;
     luat_vp_decode_mode_t decode_mode;
     const luat_vp_decoder_ops_t *decoder_ops;
@@ -68,6 +73,9 @@ struct luat_vp_ctx {
     uint8_t *read_buf;                  /* Buffer for reading JPEG frames */
     size_t read_buf_cap;                /* Capacity of read_buf */
     int eof;
+#ifdef LUAT_USE_MP4PLAYER
+    void *mp4_vctx;                     /* luat_mp4_vctx_t* for MP4 playback */
+#endif
 };
 
 /* ---- Internal: detect format from file extension ---- */
@@ -242,7 +250,28 @@ luat_vp_ctx_t* luat_videoplayer_open(const char *path) {
 
     luat_vp_format_t fmt = detect_format(path);
 
-    /* Currently only MJPG is supported */
+#ifdef LUAT_USE_MP4PLAYER
+    if (fmt == LUAT_VP_FMT_MP4_H264) {
+        luat_mp4_vctx_t *mp4ctx = luat_mp4_vctx_open(path);
+        if (!mp4ctx) {
+            VP_LOGW("failed to open mp4: %s", path);
+            return NULL;
+        }
+        luat_vp_ctx_t *ctx = (luat_vp_ctx_t *)VP_MALLOC(sizeof(luat_vp_ctx_t));
+        if (!ctx) {
+            luat_mp4_vctx_close(mp4ctx);
+            return NULL;
+        }
+        memset(ctx, 0, sizeof(luat_vp_ctx_t));
+        ctx->format = LUAT_VP_FMT_MP4_H264;
+        ctx->decode_mode = LUAT_VP_DECODE_SW;
+        ctx->mp4_vctx = mp4ctx;
+        VP_LOGD("opened %s as MP4+H264", path);
+        return ctx;
+    }
+#endif
+
+    /* Currently only MJPG is supported for non-MP4 formats */
     if (fmt != LUAT_VP_FMT_MJPG) {
         VP_LOGW("unsupported format for: %s", path);
         return NULL;
@@ -290,6 +319,13 @@ luat_vp_ctx_t* luat_videoplayer_open(const char *path) {
 void luat_videoplayer_close(luat_vp_ctx_t *ctx) {
     if (!ctx) return;
 
+#ifdef LUAT_USE_MP4PLAYER
+    if (ctx->mp4_vctx) {
+        luat_mp4_vctx_close((luat_mp4_vctx_t *)ctx->mp4_vctx);
+        ctx->mp4_vctx = NULL;
+    }
+#endif
+
     if (ctx->decoder_ops && ctx->decoder_ctx) {
         ctx->decoder_ops->deinit(ctx->decoder_ctx);
         ctx->decoder_ctx = NULL;
@@ -312,6 +348,38 @@ int luat_videoplayer_read_frame(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame) {
     if (!ctx || !frame) return LUAT_VP_ERR_PARAM;
 
     memset(frame, 0, sizeof(luat_vp_frame_t));
+
+#ifdef LUAT_USE_MP4PLAYER
+    if (ctx->format == LUAT_VP_FMT_MP4_H264) {
+        if (!ctx->mp4_vctx) return LUAT_VP_ERR_PARAM;
+        if (ctx->eof) return LUAT_VP_ERR_EOF;
+
+        uint16_t *raw_rgb = NULL;
+        int fw = 0, fh = 0;
+        int ret = luat_mp4_vctx_read_frame(
+                      (luat_mp4_vctx_t *)ctx->mp4_vctx,
+                      &raw_rgb, &fw, &fh);
+        if (ret == LUAT_MP4VP_EOF) { ctx->eof = 1; return LUAT_VP_ERR_EOF; }
+        if (ret != LUAT_MP4VP_OK || !raw_rgb) return LUAT_VP_ERR_DECODE;
+
+        /* Copy RGB565 data to a heap buffer owned by the caller (freed via frame_free) */
+        uint16_t *out = (uint16_t *)VP_MALLOC((size_t)fw * fh * 2);
+        if (!out) return LUAT_VP_ERR_NOMEM;
+        memcpy(out, raw_rgb, (size_t)fw * fh * 2);
+
+        frame->data   = (uint8_t *)out;
+        frame->width  = (uint16_t)fw;
+        frame->height = (uint16_t)fh;
+
+        if (ctx->width == 0 && fw > 0) {
+            ctx->width  = (uint16_t)fw;
+            ctx->height = (uint16_t)fh;
+            VP_LOGD("mp4 video size: %dx%d", fw, fh);
+        }
+
+        return LUAT_VP_OK;
+    }
+#endif
 
     if (ctx->format == LUAT_VP_FMT_MJPG) {
         uint8_t *jpeg_data = NULL;
@@ -354,7 +422,7 @@ void luat_videoplayer_frame_free(luat_vp_frame_t *frame) {
 int luat_videoplayer_get_info(luat_vp_ctx_t *ctx, luat_vp_info_t *info) {
     if (!ctx || !info) return LUAT_VP_ERR_PARAM;
 
-    /* If dimensions are unknown, try to decode first frame to get them */
+    /* For MJPG: peek at first frame to learn dimensions if not yet known. */
     if (ctx->width == 0 && ctx->format == LUAT_VP_FMT_MJPG) {
         /* Save current file position */
         long file_pos = VP_FTELL(ctx->fp);
@@ -386,6 +454,14 @@ int luat_videoplayer_set_decode_mode(luat_vp_ctx_t *ctx,
     if (!ctx) return LUAT_VP_ERR_PARAM;
     if (mode != LUAT_VP_DECODE_SW && mode != LUAT_VP_DECODE_HW)
         return LUAT_VP_ERR_PARAM;
+
+#ifdef LUAT_USE_MP4PLAYER
+    /* MP4+H264 decoding is always software; silently accept mode changes. */
+    if (ctx->format == LUAT_VP_FMT_MP4_H264) {
+        ctx->decode_mode = mode;
+        return LUAT_VP_OK;
+    }
+#endif
 
     if (ctx->decode_mode == mode) return LUAT_VP_OK;
 

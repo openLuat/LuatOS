@@ -546,7 +546,7 @@ static void lv_ime_pinyin_constructor(const lv_obj_class_t * class_p, lv_obj_t *
     /* Init pinyin_ime->cand_panel */
     pinyin_ime->cand_panel = lv_buttonmatrix_create(lv_obj_get_parent(obj));
     lv_buttonmatrix_set_map(pinyin_ime->cand_panel, (const char **)lv_btnm_def_pinyin_sel_map);
-    lv_obj_set_size(pinyin_ime->cand_panel, LV_PCT(100), LV_PCT(10));
+    lv_obj_set_size(pinyin_ime->cand_panel, LV_PCT(100), LV_PCT(8));
     lv_obj_add_flag(pinyin_ime->cand_panel, LV_OBJ_FLAG_HIDDEN);
 
     lv_buttonmatrix_set_one_checked(pinyin_ime->cand_panel, true);

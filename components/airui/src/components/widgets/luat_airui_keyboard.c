@@ -860,6 +860,10 @@ static void airui_keyboard_preview_init(lv_obj_t *keyboard, airui_keyboard_data_
     lv_obj_add_event_cb(keyboard, airui_keyboard_preview_cleanup_event_cb, LV_EVENT_DELETE, runtime);
     lv_obj_add_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
 
+    /* 预览框仅供键盘绑定与显示，不参与与业务 textarea 相同的 lv_group，避免收起预览时
+     * lv_group_focus_next 把焦点/session 甩到组内下一个输入框。组焦点仍留在业务框。 */
+    lv_group_remove_obj(runtime->preview_ta);
+
     data->preview_runtime = runtime;
     airui_keyboard_session_set_preview_ta(data, runtime->preview_ta);
 }
@@ -1100,6 +1104,10 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     // 根据配置设置键盘模式与提示框开关
     lv_keyboard_set_mode(keyboard, airui_keyboard_mode_from_string(mode));
     lv_keyboard_set_popovers(keyboard, popovers);
+
+    /* 与 preview_ta 同理：键盘在 default group 内且获得组焦点时，隐藏键盘会触发 focus_next。
+     * 触摸场景不依赖组内焦点，移出组避免 auto_hide 后光标乱跳。 */
+    lv_group_remove_obj(keyboard);
 
     bg_color = lv_obj_get_style_bg_color(keyboard, LV_PART_MAIN);
     if (airui_marshal_color(L, idx, "bg_color", &parsed_color)) {

@@ -169,6 +169,7 @@ int airui_input_coordinator_request_show(airui_input_coordinator_t *coord,
     return 0;
 }
 
+// 隐藏键盘
 int airui_input_coordinator_request_hide(airui_input_coordinator_t *coord,
                                          airui_input_hide_reason_t reason)
 {

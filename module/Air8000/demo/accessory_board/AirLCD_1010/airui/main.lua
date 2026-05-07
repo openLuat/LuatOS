@@ -7,6 +7,7 @@
 @usage
 本文件是AirUI演示程序的主入口，用于选择加载不同的UI组件演示模块。
 
+]]
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -55,8 +56,15 @@ log.info("ui_demo", PROJECT, VERSION)
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载显示驱动
-require("lcd_drv")
+-- 加载显示驱动，有内置驱动和自定义驱动两种方式
+-- 内置驱动方式（lcd_inner_drv.lua）：使用LuatOS内核固件已经支持的显示驱动，无需在脚本中进行初始化命令配置
+-- 自定义驱动方式（lcd_custom_drv.lua）：用户根据自己使用的lcd型号，在脚本中自己配置初始化命令，来驱动lcd显示
+-- 如果是LuatOS内核固件已经支持的lcd型号，可以选择内置驱动方式，也可以选择自定义驱动方式
+-- 如果LuatOS内核固件不支持的lcd型号，只能选择自定义驱动方式
+-- 根据自己的实际情况，二选一开启以下两行代码中的其中一行
+require("lcd_inner_drv")
+-- require("lcd_custom_drv")
+
 -- 加载触摸驱动
 require("tp_drv")
 

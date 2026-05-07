@@ -9,6 +9,7 @@
 #if defined(LUAT_USE_AIRUI_SDL2)
 
 #include "luat_airui.h"
+#include "luat_airui_component.h"
 #include "luat_airui_conf.h"
 #include "luat_lcd.h"
 #include "luat_sdl2.h"
@@ -292,9 +293,16 @@ void airui_platform_sdl2_bind_keypad_cfg(const void *cfg_ptr)
  */
 void airui_system_keyboard_clear_preedit(airui_ctx_t *ctx)
 {
+    lv_obj_t *keyboard = NULL;
+
     if (ctx == NULL || ctx->focused_textarea == NULL || ctx->system_keyboard_preedit_len <= 0) {
         if (ctx != NULL && ctx->focused_textarea != NULL) {
             ctx->system_keyboard_preedit_pos = (int32_t)lv_textarea_get_cursor_pos(ctx->focused_textarea);
+            ctx->system_keyboard_preedit_active = false;
+            keyboard = airui_textarea_get_keyboard(ctx->focused_textarea);
+            if (keyboard != NULL) {
+                airui_keyboard_set_system_preedit_state(keyboard, false, 0, 0);
+            }
         }
         return;
     }
@@ -303,12 +311,17 @@ void airui_system_keyboard_clear_preedit(airui_ctx_t *ctx)
     lv_textarea_set_cursor_pos(textarea, ctx->system_keyboard_preedit_pos);
     int32_t len = ctx->system_keyboard_preedit_len;
     ctx->system_keyboard_preedit_len = 0;
+    ctx->system_keyboard_preedit_active = false;
 
     for (int32_t i = 0; i < len; ++i) {
         lv_textarea_delete_char_forward(textarea);
     }
 
     ctx->system_keyboard_preedit_pos = (int32_t)lv_textarea_get_cursor_pos(textarea);
+    keyboard = airui_textarea_get_keyboard(textarea);
+    if (keyboard != NULL) {
+        airui_keyboard_set_system_preedit_state(keyboard, false, 0, 0);
+    }
 }
 
 /**
@@ -316,10 +329,13 @@ void airui_system_keyboard_clear_preedit(airui_ctx_t *ctx)
  */
 void airui_system_keyboard_set_preedit(airui_ctx_t *ctx, const char *text)
 {
+    lv_obj_t *keyboard = NULL;
+
     if (ctx == NULL || ctx->focused_textarea == NULL) {
         return;
     }
 
+    ctx->system_keyboard_preedit_active = true;
     lv_obj_t *textarea = ctx->focused_textarea;
     // sdl完整返回预编辑文字，所以需要清空重填
     airui_system_keyboard_clear_preedit(ctx);
@@ -331,6 +347,14 @@ void airui_system_keyboard_set_preedit(airui_ctx_t *ctx, const char *text)
     ctx->system_keyboard_preedit_pos = (int32_t)lv_textarea_get_cursor_pos(textarea);
     lv_textarea_add_text(textarea, text);
     ctx->system_keyboard_preedit_len = (int32_t)(lv_textarea_get_cursor_pos(textarea) - ctx->system_keyboard_preedit_pos);
+    keyboard = airui_textarea_get_keyboard(textarea);
+    if (keyboard != NULL) {
+        airui_keyboard_set_system_preedit_state(
+            keyboard,
+            true,
+            ctx->system_keyboard_preedit_pos,
+            ctx->system_keyboard_preedit_len);
+    }
     LLOGD("airui_system_keyboard_set_preedit: system_keyboard_preedit_len=%d", ctx->system_keyboard_preedit_len);
 }
 
@@ -394,15 +418,10 @@ static void sdl_process_keyboard_event(const SDL_Event *event, airui_ctx_t *ctx)
         break;
     }
     case SDL_TEXTEDITING:
-        // 进入预编辑阶段，保存 SIMD 编辑器反馈的未提交文本
-        // LLOGD("SDL_TEXTEDITING text=%s cursor=%d length=%d", event->edit.text, event->edit.start, event->edit.length);
         airui_system_keyboard_set_preedit(ctx, event->edit.text);
-        ctx->system_keyboard_preedit_active = true;
         break;
     case SDL_TEXTINPUT:
-        // 文本输入完成，清理预编辑状态后提交最终字符串
         airui_system_keyboard_clear_preedit(ctx);
-        ctx->system_keyboard_preedit_active = false;
         airui_system_keyboard_post_text(ctx, event->text.text);
         break;
     default:

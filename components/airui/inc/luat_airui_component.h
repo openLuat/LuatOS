@@ -12,6 +12,8 @@ extern "C" {
 #endif
 
 #include "luat_airui.h"
+#include "luat_airui_input_session.h"
+#include "luat_airui_input_coordinator.h"
 
 typedef struct airui_component_ref airui_component_ref_t;
 
@@ -199,10 +201,13 @@ typedef struct {
     airui_text_font_state_t font;
 } airui_textarea_data_t;
 
+/* airui_input_composing_type_t and airui_input_session_t
+   are now defined in luat_airui_input_session.h */
+
 /**
  * Keyboard 私有数据
  */
-typedef struct {
+typedef struct airui_keyboard_data {
     lv_obj_t *target;
     lv_obj_t *ime;   /**< LVGL 词库对象，可能为 lv_ime_pinyin */
     bool auto_hide; /**< Keyboard 是否自动跟随 textarea 焦点显示/隐藏 */
@@ -212,6 +217,8 @@ typedef struct {
     int32_t preview_height; /**< 预览框固定高度（像素） */
     lv_color_t bg_color; /**< 背景颜色 */
     void *preview_runtime; /**< 预览框运行态数据（内部使用） */
+    airui_input_session_t session;
+    airui_input_coordinator_t coord; /**< 输入协调器 */
 } airui_keyboard_data_t;
 
 /**********************
@@ -578,7 +585,13 @@ int airui_keyboard_hide(lv_obj_t *keyboard); //隐藏键盘
 int airui_keyboard_set_on_commit(lv_obj_t *keyboard, int callback_ref); //设置提交回调
 int airui_keyboard_set_layout(lv_obj_t *keyboard, const char *layout); //设置键盘布局
 int airui_keyboard_set_bg_color(lv_obj_t *keyboard, lv_color_t color); //设置键盘背景颜色
+int airui_keyboard_set_system_preedit_state(lv_obj_t *keyboard, bool active, int32_t pos, int32_t len);
 void airui_keyboard_detach_auto_hide_target(lv_obj_t *keyboard, airui_keyboard_data_t *data);
+
+/**
+ * 键盘内部渲染 API (供 coordinator 调用)
+ */
+void airui_keyboard_apply_visibility(lv_obj_t *keyboard, airui_keyboard_data_t *data, bool visible);
 
 /**
  * Lottie组件

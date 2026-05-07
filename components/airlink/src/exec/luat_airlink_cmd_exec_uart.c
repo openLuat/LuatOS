@@ -94,20 +94,23 @@ static void rx_thread_main(void* params) {
     }
 }
 
+void luat_airlink_exec_uart_install_rx_cb(int uart_id) {
+    if (rx_thread == NULL) {
+        luat_rtos_task_create(&rx_thread, 4 * 1024, 50, "airlink_rx", rx_thread_main, NULL, 0);
+    }
+    luat_uart_ctrl(uart_id, LUAT_UART_SET_RECV_CALLBACK, rx_data_input);
+    luat_uart_ctrl(uart_id, LUAT_UART_SET_SENT_CALLBACK, tx_sent_cb);
+}
+
 int luat_airlink_cmd_exec_uart_setup(luat_airlink_cmd_t* cmd, void* userdata) {
     luat_uart_t* uart = cmd->data + 8;
     if (uart->id >= 10) {
         uart->id -= 10;
     }
-    // LLOGD("uart[%d] setup", uart->id);
     int ret = luat_uart_setup(uart);
     LLOGD("uart[%d] setup baud_rate %d ret %d", uart->id, uart->baud_rate, ret);
     if (ret == 0) {
-        if (rx_thread == NULL) {
-            luat_rtos_task_create(&rx_thread, 4 * 1024, 50, "airlink_rx", rx_thread_main, NULL, 0);
-        }
-        luat_uart_ctrl(uart->id, LUAT_UART_SET_RECV_CALLBACK, rx_data_input);
-        luat_uart_ctrl(uart->id, LUAT_UART_SET_SENT_CALLBACK, tx_sent_cb);
+        luat_airlink_exec_uart_install_rx_cb(uart->id);
     }
     return ret;
 }

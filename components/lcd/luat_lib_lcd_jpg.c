@@ -205,23 +205,7 @@ static int decode_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     return 1;    /* Continue to decompress */
 }
 
-typedef struct {
-    const uint8_t *data;
-    size_t len;
-    size_t pos;
-} mem_reader_t;
 
-static unsigned int decode_mem_in_func(JDEC* jd, uint8_t* buff, unsigned int nbyte) {
-    luat_lcd_buff_info_t *buff_info = (luat_lcd_buff_info_t*)jd->device;
-    mem_reader_t *reader = (mem_reader_t*)buff_info->userdata;
-    size_t available = reader->len - reader->pos;
-    if ((size_t)nbyte > available) nbyte = (unsigned int)available;
-    if (buff) {
-        memcpy(buff, reader->data + reader->pos, nbyte);
-    }
-    reader->pos += nbyte;
-    return nbyte;
-}
 
 int lcd_jpeg_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
     JRESULT res;      /* Result code of TJpgDec API */
@@ -274,63 +258,7 @@ error:
 	return -1;
 }
 
-int luat_jpeg_decode_sw_default(uint8_t *in_buf, size_t in_len, luat_image_buff_info_t* buff_info){
-    JRESULT res;
-    JDEC jdec;
-    void *work = NULL;
-#if JD_FASTDECODE == 2
-    size_t sz_work = 3500 * 3;
-#else
-    size_t sz_work = 3500;
-#endif
-    if (in_buf == NULL || in_len == 0 || buff_info == NULL) {
-        return -1;
-    }
-    mem_reader_t reader = {in_buf, in_len, 0};
-    buff_info->userdata = &reader;
-    work = luat_heap_malloc(sz_work);
-    if (work == NULL) {
-        LLOGE("out of memory when malloc jpeg decode workbuff");
-        goto error;
-    }
-    res = luat_jd_prepare(&jdec, decode_mem_in_func, work, sz_work, buff_info);
-    if (res != JDR_OK) {
-        LLOGW("luat_jd_prepare mem error %d", res);
-        goto error;
-    }
-    buff_info->width = jdec.width;
-    buff_info->height = jdec.height;
-    buff_info->len = jdec.width * jdec.height * sizeof(luat_color_t);
-    buff_info->buff = luat_heap_malloc(buff_info->len);
-    if (buff_info->buff == NULL) {
-        LLOGE("out of memory when malloc jpeg image buff");
-        goto error;
-    }
-    res = luat_jd_decomp(&jdec, decode_out_func, 0);
-    if (res != JDR_OK) {
-        LLOGW("luat_jd_decomp mem error %d", res);
-        goto error;
-    }
-    luat_heap_free(work);
-    return 0;
-error:
-    if (work) {
-        luat_heap_free(work);
-    }
-    if (buff_info->buff) {
-        luat_heap_free(buff_info->buff);
-        buff_info->buff = NULL;
-    }
-    return -1;
-}
 
-LUAT_WEAK int luat_jpeg_decode_sw(uint8_t *in_buf, size_t in_len, luat_image_buff_info_t* buff_info){
-	return luat_jpeg_decode_sw_default(in_buf, in_len, buff_info);
-}
-
-LUAT_WEAK int luat_jpeg_decode_hw(uint8_t *in_buf, size_t in_len, luat_image_buff_info_t* buff_info){
-	return -1;
-}
 
 LUAT_WEAK int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
     return lcd_draw_jpeg_default(conf, path, x, y);

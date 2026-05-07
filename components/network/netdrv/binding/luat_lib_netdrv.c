@@ -172,7 +172,6 @@ static int l_netdrv_setup(lua_State *L) {
                 conf.ovpn_conf->ovpn_retry_max_ms = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
-            lua_pop(L, 1);
         }
         #endif
     }

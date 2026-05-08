@@ -1,3 +1,4 @@
+-- nconv: var2-4 fn2-5 tag-short
 --[[
 @module  wifi_app
 @summary WiFi应用模块分发器，根据平台加载对应实现

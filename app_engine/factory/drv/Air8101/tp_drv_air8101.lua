@@ -1,3 +1,4 @@
+-- nconv: var2-4 fn2-5 tag-short
 --[[
 @module  tp_drv
 @summary 触摸面板驱动模块，基于tp核心库
@@ -13,9 +14,6 @@
 对外接口：
 1、tp_drv.init()：初始化触摸面板驱动
 ]]
-
-
-
 --[[
 初始化触摸面板驱动；
 
@@ -32,30 +30,23 @@ else
     log.error("触摸面板初始化失败")
 end
 ]]
-
 local tp_drv = {}
 
 function tp_drv.init()
-
     i2c.setup(1, i2c.SLOW)
-    local result = tp.init("gt911", { port = 1, pin_rst = 28, pin_int = 7 , int_type = tp.FALLING })
-
-    log.info("tp.init", result)
-
+    local r = tp.init("gt911", { port = 1, pin_rst = 28, pin_int = 7 , int_type = tp.FALLING })
+    log.info("tp", r)
     if not _G.model_str:find("PC") then
-       
         -- 绑定触摸设备到AirUI输入设备
-        airui.device_bind_touch(result)
-
+        airui.device_bind_touch(r)
     else
-        if not result then
-            log.error("ui_main", "触摸初始化失败")
+        if not r then
+            log.error("ui", "触摸初始化失败")
         else
             -- 绑定触摸设备到AirUI输入设备
-           airui.device_bind_touch(result)
+           airui.device_bind_touch(r)
         end
     end
 end
 
 return tp_drv
--- tp_drv_init()

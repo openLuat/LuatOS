@@ -1,3 +1,4 @@
+-- nconv: var2-4 fn2-5 tag-short
 --[[
 @module  tp_drv
 @summary 触摸面板驱动模块，基于tp核心库
@@ -13,9 +14,6 @@
 对外接口：
 1、tp_drv.init()：初始化触摸面板驱动
 ]]
-
-
-
 --[[
 初始化触摸面板驱动；
 
@@ -33,40 +31,32 @@ else
 end
 ]]
 local tp_drv = {}
-
-local rst_pin = 3
-local int_pin = 51
-
+local rp = 3
+local ip = 51
 
 function tp_drv.init()
-    gpio.setup(rst_pin, 0) -- 设置GPIO4为输出模式，输出低电平
-
-    gpio.close(rst_pin)    -- 关闭GPIO4功能，恢复高阻态
-
-    local i2c_id = 1
-    i2c.setup(i2c_id)
-
-
-    local result = tp.init("gt911", {
-        port = i2c_id,
-        pin_rst = rst_pin,
-        pin_int = int_pin,
+    gpio.setup(rp, 0) -- 设置GPIO4为输出模式，输出低电平
+    gpio.close(rp)    -- 关闭GPIO4功能，恢复高阻态
+    local iid = 1
+    i2c.setup(iid)
+    local r = tp.init("gt911", {
+        port = iid,
+        pin_rst = rp,
+        pin_int = ip,
         int_type = 1,
         w = 1024,
         h = 600
     })
-
-    log.info("tp.init", result)
-
+    log.info("tp", r)
     if _G.model_str:find("PC") then
-        log.info("PC", "已启用鼠标点击功能")
+        log.info("pc", "已启用鼠标点击功能")
     else
-        if not result then
-            log.error("ui_main", "触摸初始化失败")
+        if not r then
+            log.error("ui", "触摸初始化失败")
         else
             -- 绑定触摸设备到AirUI输入设备
-            airui.device_bind_touch(result)
-            log.info("设备", "触摸初始化成功")
+            airui.device_bind_touch(r)
+            log.info("dev", "触摸初始化成功")
         end
     end
 end

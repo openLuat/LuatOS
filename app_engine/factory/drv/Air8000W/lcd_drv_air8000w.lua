@@ -1,3 +1,4 @@
+-- nconv: var2-4 fn2-5 tag-short
 --[[
 @module  lcd_drv
 @summary LCD显示驱动模块，基于lcd核心库
@@ -14,9 +15,6 @@
 对外接口：
 1、lcd_drv.init()：初始化LCD显示驱动
 ]]
-
-
-
 --[[
 初始化LCD显示驱动；
 
@@ -33,7 +31,6 @@ else
     log.error("LCD初始化失败")
 end
 ]]
-
 _G.screen_w, _G.screen_h = 480, 800
 _G.screen_size = 5.0  -- 屏幕物理尺寸(英寸)，用于像素密度计算
 _G.density_scale = 1.0 -- 默认值，lcd_drv.init() 中根据实际PPI更新
@@ -46,7 +43,7 @@ function lcd_drv.init()
     gpio.setup(28, 1) -- 28号GPIO引脚设置为输出模式
     gpio.set(28, 1)  -- 将28号GPIO引脚设置为
     -- 开启屏幕供电
-    local result = lcd.init("st7796",
+    local r = lcd.init("st7796",
         {
             -- pin_pwr = 1,       -- 背光控制引脚GPIO端口号
             port = lcd.HWID_0, -- 驱动端口
@@ -58,15 +55,15 @@ function lcd_drv.init()
             yoffset = 0,       -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
         })
 
-    log.info("lcd.init", result)
+    log.info("lcd", r)
 
-    if result then
+    if r then
         -- 初始化AirUI
-        local width, height = lcd.getSize()
-        local result = airui.init(width, height)
-        if not result then
-            log.error("airui", "init failed")
-            return result
+        local w, h = lcd.getSize()
+        r = airui.init(w, h)
+        if not r then
+            log.error("arui", "init failed")
+            return r
         end
 
         -- 加载字体
@@ -79,25 +76,24 @@ function lcd_drv.init()
         })
 
         airui.set_rotation(0)
-        local version_result = airui.version()
-        log.info("airui", "version -> " .. version_result)
+        local vr = airui.version()
+        log.info("arui", "version -> " .. vr)
 
-        local rotation = airui.get_rotation()
-        local phys_w, phys_h = lcd.getSize()
-        if rotation == 0 or rotation == 180 then
-            _G.screen_w, _G.screen_h = phys_w, phys_h
+        local rot = airui.get_rotation()
+        local pw, ph = lcd.getSize()
+        if rot == 0 or rot == 180 then
+            _G.screen_w, _G.screen_h = pw, ph
         else
-            _G.screen_h, _G.screen_w = phys_w, phys_h
+            _G.screen_h, _G.screen_w = pw, ph
         end
         _G.is_landscape = (_G.screen_w > _G.screen_h)
 
         -- 计算像素密度缩放比 (基准: 5寸480×800 ≈ 187 PPI)
-        local diagonal_px = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
-        local base_ppi = 186.6  -- sqrt(480²+800²) / 5.0
-        _G.density_scale = (diagonal_px / _G.screen_size) / base_ppi
+        local dp = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
+        local bp = 186.6  -- sqrt(480²+800²) / 5.0
+        _G.density_scale = (dp / _G.screen_size) / bp
         _G.density_scale = math.max(1.0, _G.density_scale) -- 只放大不缩小
     end
-
 end
 
 function lcd_drv.backlight_on()

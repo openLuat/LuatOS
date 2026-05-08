@@ -8,6 +8,13 @@
 local BASE_URL = "http://speed.cloudflare.com"
 local is_testing = false
 local network_connected = false
+local TICK_MS_FACTOR = 1
+do
+    local bsp = rtos.bsp()
+    if string.find(bsp, "Air1601") or string.find(bsp, "Air1602") then
+        TICK_MS_FACTOR = 20
+    end
+end
 
 local function measure_latency_and_jitter()
     local rtts = {}
@@ -19,9 +26,9 @@ local function measure_latency_and_jitter()
             local code, headers, body = result.wait()
             local end_time = mcu.ticks()
             if code == 200 then
-                local rtt = end_time - start_time
+                local rtt = (end_time - start_time) * TICK_MS_FACTOR
                 table.insert(rtts, rtt)
-                log.info("speedtest", "RTT sample " .. i .. ": " .. rtt .. " ms")
+                log.info("speedtest", "RTT sample " .. i .. ": " .. string.format("%.0f", rtt) .. " ms")
             else
                 log.warn("speedtest", "Latency request failed, code: " .. tostring(code))
             end
@@ -64,7 +71,7 @@ local function measure_download()
         log.error("speedtest", "Download test failed, code: " .. tostring(code))
         return nil
     end
-    local duration_ms = end_time - start_time
+    local duration_ms = (end_time - start_time) * TICK_MS_FACTOR
     if duration_ms < 10 then duration_ms = 10 end
     local duration_sec = duration_ms / 1000
     local bits = #body * 8
@@ -91,7 +98,7 @@ local function measure_upload()
         log.error("speedtest", "Upload test failed, code: " .. tostring(code))
         return nil
     end
-    local duration_ms = end_time - start_time
+    local duration_ms = (end_time - start_time) * TICK_MS_FACTOR
     if duration_ms < 10 then duration_ms = 10 end
     local duration_sec = duration_ms / 1000
     local bits = test_bytes * 8

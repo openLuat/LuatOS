@@ -1,4 +1,5 @@
 --[[
+@naming  us_s=update_screen_size fm=format_memory fmf=format_memory_full cp=calc_percent ci_r=create_info_row cm_c=create_memory_card c_ui=create_ui | wid=win_id mc=main_container sw=screen_w sh=screen_h m=margin cw=card_w tid=timer_id tl/ul/fl/pb/pl=total/used/free/progress_bar/percent_label stl/sul/sml/spl/spb=sys_* vtl/vul/vml/vpl/vpb=vm_* ptl/pul/pml/ppl/ppb=psram_* sch=STORAGE_CARD_H mch=MEMORY_CARD_H
 @module  settings_storage_win
 @summary 存储页面
 @version 1.2
@@ -6,21 +7,16 @@
 @author  江访
 ]]
 
-local win_id = nil
-local main_container
-
--- 存储相关UI
-local total_label, used_label, free_label, progress_bar, percent_label
-
--- 内存相关UI
-local sys_total_label, sys_used_label, sys_max_label, sys_percent_label, sys_progress_bar
-local vm_total_label, vm_used_label, vm_max_label, vm_percent_label, vm_progress_bar
-local psram_total_label, psram_used_label, psram_max_label, psram_percent_label, psram_progress_bar
-
-local screen_w, screen_h = 480, 800
-local margin = 20
-local card_w = 440
-local timer_id = nil
+local wid = nil
+local mc
+local tl, ul, fl, pb, pl
+local stl, sul, sml, spl, spb
+local vtl, vul, vml, vpl, vpb
+local ptl, pul, pml, ppl, ppb
+local sw, sh = 480, 800
+local m = 20
+local cw = 440
+local tid = nil
 
 local COLOR_PRIMARY        = 0x007AFF
 local COLOR_BG             = 0xF5F5F5
@@ -31,226 +27,221 @@ local COLOR_DIVIDER        = 0xE0E0E0
 local COLOR_WHITE          = 0xFFFFFF
 local COLOR_ACCENT         = 0xFF9800
 
-local STORAGE_CARD_H
-local MEMORY_CARD_H
+local sch
+local mch
 
-local function update_screen_size()
-    local rotation = airui.get_rotation()
-    local phys_w, phys_h = lcd.getSize()
-    if rotation == 0 or rotation == 180 then
-        screen_w, screen_h = phys_w, phys_h
+local function us_s()
+    local rot = airui.get_rotation()
+    local pw, ph = lcd.getSize()
+    if rot == 0 or rot == 180 then
+        sw, sh = pw, ph
     else
-        screen_w, screen_h = phys_h, phys_w
+        sw, sh = ph, pw
     end
-    margin = math.floor(screen_w * 0.04)
-    card_w = screen_w - 2 * margin
+    m = math.floor(sw * 0.04)
+    cw = sw - 2 * m
 end
 
--- 存储信息更新
-local function update_storage_info(info)
-    if total_label then total_label:set_text(info.total or "--") end
-    if used_label then used_label:set_text(info.used or "--") end
-    if free_label then free_label:set_text(info.free or "--") end
-    if info.used_percent and progress_bar then
-        progress_bar:set_value(info.used_percent, true)
+local function update_storage_info(inf)
+    if tl then tl:set_text(inf.total or "--") end
+    if ul then ul:set_text(inf.used or "--") end
+    if fl then fl:set_text(inf.free or "--") end
+    if inf.used_percent and pb then
+        pb:set_value(inf.used_percent, true)
     end
-    if info.used_percent and percent_label then
-        percent_label:set_text("已使用 " .. info.used_percent .. "%")
+    if inf.used_percent and pl then
+        pl:set_text("已使用 " .. inf.used_percent .. "%")
     end
 end
 
--- 内存工具函数
-local function format_memory(bytes)
-    if not bytes or bytes == 0 then return "0 B" end
-    if bytes < 1024 then return string.format("%d B", bytes)
-    elseif bytes < 1024*1024 then return string.format("%.2f KB", bytes/1024)
-    elseif bytes < 1024*1024*1024 then return string.format("%.2f MB", bytes/1024/1024)
-    else return string.format("%.2f GB", bytes/1024/1024/1024) end
+local function fm(bs)
+    if not bs or bs == 0 then return "0 B" end
+    if bs < 1024 then return string.format("%d B", bs)
+    elseif bs < 1024*1024 then return string.format("%.2f KB", bs/1024)
+    elseif bs < 1024*1024*1024 then return string.format("%.2f MB", bs/1024/1024)
+    else return string.format("%.2f GB", bs/1024/1024/1024) end
 end
 
-local function format_memory_full(bytes)
-    if not bytes or bytes == 0 then return "0 B" end
-    local converted = format_memory(bytes)
-    if bytes >= 1024 then
-        return string.format("%d B (≈%s)", bytes, converted)
+local function fmf(bs)
+    if not bs or bs == 0 then return "0 B" end
+    local cvt = fm(bs)
+    if bs >= 1024 then
+        return string.format("%d B (≈%s)", bs, cvt)
     else
-        return string.format("%d B", bytes)
+        return string.format("%d B", bs)
     end
 end
 
-local function calc_percent(used, total)
-    if not used or not total or total == 0 then return 0 end
-    return math.min(100, math.max(0, (used / total) * 100))
+local function cp(u, tt)
+    if not u or not tt or tt == 0 then return 0 end
+    return math.min(100, math.max(0, (u / tt) * 100))
 end
 
--- 内存信息更新
-local function update_memory_info(info)
-    if info.sys and sys_total_label then
-        local pct = calc_percent(info.sys.used, info.sys.total)
-        sys_total_label:set_text(format_memory(info.sys.total))
-        sys_used_label:set_text(format_memory(info.sys.used))
-        sys_max_label:set_text(format_memory(info.sys.max))
-        sys_percent_label:set_text(string.format("%.1f%% 占用", pct))
-        if sys_progress_bar then sys_progress_bar:set_value(math.floor(pct), false) end
+local function update_memory_info(inf)
+    if inf.sys and stl then
+        local pct = cp(inf.sys.used, inf.sys.total)
+        stl:set_text(fm(inf.sys.total))
+        sul:set_text(fm(inf.sys.used))
+        sml:set_text(fm(inf.sys.max))
+        spl:set_text(string.format("%.1f%% 占用", pct))
+        if spb then spb:set_value(math.floor(pct), false) end
     end
-    if info.vm and vm_total_label then
-        local pct = calc_percent(info.vm.used, info.vm.total)
-        vm_total_label:set_text(format_memory(info.vm.total))
-        vm_used_label:set_text(format_memory(info.vm.used))
-        vm_max_label:set_text(format_memory(info.vm.max))
-        vm_percent_label:set_text(string.format("%.1f%% 占用", pct))
-        if vm_progress_bar then vm_progress_bar:set_value(math.floor(pct), false) end
+    if inf.vm and vtl then
+        local pct = cp(inf.vm.used, inf.vm.total)
+        vtl:set_text(fm(inf.vm.total))
+        vul:set_text(fm(inf.vm.used))
+        vml:set_text(fm(inf.vm.max))
+        vpl:set_text(string.format("%.1f%% 占用", pct))
+        if vpb then vpb:set_value(math.floor(pct), false) end
     end
-    if info.psram and psram_total_label then
-        local pct = calc_percent(info.psram.used, info.psram.total)
-        psram_total_label:set_text(format_memory(info.psram.total))
-        psram_used_label:set_text(format_memory(info.psram.used))
-        psram_max_label:set_text(format_memory(info.psram.max))
-        psram_percent_label:set_text(string.format("%.1f%% 占用", pct))
-        if psram_progress_bar then psram_progress_bar:set_value(math.floor(pct), false) end
+    if inf.psram and ptl then
+        local pct = cp(inf.psram.used, inf.psram.total)
+        ptl:set_text(fm(inf.psram.total))
+        pul:set_text(fm(inf.psram.used))
+        pml:set_text(fm(inf.psram.max))
+        ppl:set_text(string.format("%.1f%% 占用", pct))
+        if ppb then ppb:set_value(math.floor(pct), false) end
     end
 end
 
--- 创建信息行（辅助）
-local function create_info_row(parent, y, label_text)
-    local row = airui.container({
-        parent = parent,
+local function ci_r(p, y, lt)
+    local r = airui.container({
+        parent = p,
         x = math.floor(20 * _G.density_scale), y = y,
-        w = card_w - math.floor(40 * _G.density_scale),
+        w = cw - math.floor(40 * _G.density_scale),
         h = math.floor(35 * _G.density_scale),
         color = COLOR_CARD
     })
     airui.label({
-        parent = row,
+        parent = r,
         x = 0, y = math.floor(5 * _G.density_scale),
         w = math.floor(100 * _G.density_scale), h = math.floor(25 * _G.density_scale),
-        text = label_text,
+        text = lt,
         font_size = math.floor(16 * _G.density_scale),
         color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
-    local value_label = airui.label({
-        parent = row,
+    local vl = airui.label({
+        parent = r,
         x = math.floor(110 * _G.density_scale), y = math.floor(5 * _G.density_scale),
-        w = (card_w - math.floor(40 * _G.density_scale)) - math.floor(110 * _G.density_scale),
+        w = (cw - math.floor(40 * _G.density_scale)) - math.floor(110 * _G.density_scale),
         h = math.floor(25 * _G.density_scale),
         text = "--",
         font_size = math.floor(16 * _G.density_scale),
         color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_RIGHT
     })
-    return value_label
+    return vl
 end
 
--- 创建内存卡片（高度可调）
-local function create_memory_card(parent, y, title, progress_color, card_height)
-    local card = airui.container({
-        parent = parent,
-        x = margin, y = y,
-        w = card_w, h = card_height,
+local function cm_c(p, y, ti, pcl, ch)
+    local cd = airui.container({
+        parent = p,
+        x = m, y = y,
+        w = cw, h = ch,
         color = COLOR_WHITE,
         radius = 8
     })
-    local m_pad = math.floor(12 * _G.density_scale)
-    local m_title_h = math.floor(30 * _G.density_scale)
-    local m_info_h = math.floor(35 * _G.density_scale)
-    local m_bar_h = math.floor(18 * _G.density_scale)
-    local m_gap = math.floor(4 * _G.density_scale)
+    local mpd = math.floor(12 * _G.density_scale)
+    local mth = math.floor(30 * _G.density_scale)
+    local mih = math.floor(35 * _G.density_scale)
+    local mbh = math.floor(18 * _G.density_scale)
+    local mg = math.floor(4 * _G.density_scale)
 
-    local y_title = m_pad
-    local y_row1 = y_title + m_title_h + m_gap
-    local y_row2 = y_row1 + m_info_h + m_gap
-    local y_row3 = y_row2 + m_info_h + m_gap
-    local y_bar = y_row3 + m_info_h + m_gap
+    local yt = mpd
+    local y1 = yt + mth + mg
+    local y2 = y1 + mih + mg
+    local y3 = y2 + mih + mg
+    local yb = y3 + mih + mg
 
     airui.label({
-        parent = card,
-        x = math.floor(20 * _G.density_scale), y = y_title,
-        w = math.floor(200 * _G.density_scale), h = m_title_h,
-        text = title,
+        parent = cd,
+        x = math.floor(20 * _G.density_scale), y = yt,
+        w = math.floor(200 * _G.density_scale), h = mth,
+        text = ti,
         font_size = math.floor(22 * _G.density_scale),
         color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
-    local percent_label = airui.label({
-        parent = card,
-        x = card_w - math.floor(180 * _G.density_scale), y = y_title,
-        w = math.floor(160 * _G.density_scale), h = m_title_h,
+    local lpl = airui.label({
+        parent = cd,
+        x = cw - math.floor(180 * _G.density_scale), y = yt,
+        w = math.floor(160 * _G.density_scale), h = mth,
         text = "0% 占用",
         font_size = math.floor(16 * _G.density_scale),
         color = COLOR_PRIMARY,
         align = airui.TEXT_ALIGN_RIGHT
     })
-    local total_label = create_info_row(card, y_row1, "总内存")
-    local used_label = create_info_row(card, y_row2, "当前使用")
-    local max_label = create_info_row(card, y_row3, "历史峰值")
-    local progress_bar = airui.bar({
-        parent = card,
-        x = math.floor(20 * _G.density_scale), y = y_bar,
-        w = card_w - math.floor(40 * _G.density_scale),
-        h = m_bar_h,
+    local ltl = ci_r(cd, y1, "总内存")
+    local lul = ci_r(cd, y2, "当前使用")
+    local lml = ci_r(cd, y3, "历史峰值")
+    local lpb = airui.bar({
+        parent = cd,
+        x = math.floor(20 * _G.density_scale), y = yb,
+        w = cw - math.floor(40 * _G.density_scale),
+        h = mbh,
         value = 0,
         bg_color = COLOR_DIVIDER,
-        indicator_color = progress_color,
+        indicator_color = pcl,
         radius = 8
     })
     return {
-        total = total_label,
-        used = used_label,
-        max = max_label,
-        percent = percent_label,
-        progress = progress_bar
+        total = ltl,
+        used = lul,
+        max = lml,
+        percent = lpl,
+        progress = lpb
     }
 end
 
-local function create_ui()
-    update_screen_size()
+local function c_ui()
+    us_s()
 
-    local card_h = math.floor(screen_h * 0.20)
-    if card_h < 140 then card_h = 140 end
-    if card_h > 260 then card_h = 260 end
+    local ch2 = math.floor(sh * 0.20)
+    if ch2 < 140 then ch2 = 140 end
+    if ch2 > 260 then ch2 = 260 end
 
-    local s_pad = math.floor(10 * _G.density_scale)
-    local s_row_h = math.floor(28 * _G.density_scale)
-    local s_bar_h = math.floor(18 * _G.density_scale)
-    local s_small_h = math.floor(22 * _G.density_scale)
-    local s_gap = math.floor(6 * _G.density_scale)
-    local y_free = s_pad + s_row_h + s_gap + s_bar_h + math.floor(2 * _G.density_scale) + s_small_h + s_gap + s_small_h + s_gap
-    local s_total = y_free + s_small_h + s_pad
-    STORAGE_CARD_H = math.max(card_h, s_total)
+    local spd = math.floor(10 * _G.density_scale)
+    local srh = math.floor(28 * _G.density_scale)
+    local sbh = math.floor(18 * _G.density_scale)
+    local ssh = math.floor(22 * _G.density_scale)
+    local sg = math.floor(6 * _G.density_scale)
+    local yf = spd + srh + sg + sbh + math.floor(2 * _G.density_scale) + ssh + sg + ssh + sg
+    local stt = yf + ssh + spd
+    sch = math.max(ch2, stt)
 
-    local m_pad = math.floor(12 * _G.density_scale)
-    local m_title_h = math.floor(30 * _G.density_scale)
-    local m_info_h = math.floor(35 * _G.density_scale)
-    local m_bar_h = math.floor(18 * _G.density_scale)
-    local m_gap = math.floor(4 * _G.density_scale)
-    local y_bar = m_pad + m_title_h + m_gap + m_info_h + m_gap + m_info_h + m_gap + m_info_h + m_gap
-    local m_total = y_bar + m_bar_h + m_pad + math.floor(8 * _G.density_scale)
-    MEMORY_CARD_H = math.max(card_h, m_total)
+    local mpd = math.floor(12 * _G.density_scale)
+    local mth = math.floor(30 * _G.density_scale)
+    local mih = math.floor(35 * _G.density_scale)
+    local mbh = math.floor(18 * _G.density_scale)
+    local mg = math.floor(4 * _G.density_scale)
+    local yb2 = mpd + mth + mg + mih + mg + mih + mg + mih + mg
+    local mtt = yb2 + mbh + mpd + math.floor(8 * _G.density_scale)
+    mch = math.max(ch2, mtt)
 
-    main_container = airui.container({
+    mc = airui.container({
         parent = airui.screen,
         x = 0, y = 0,
-        w = screen_w, h = screen_h,
+        w = sw, h = sh,
         color = COLOR_BG
     })
 
-    local title_bar = airui.container({
-        parent = main_container,
+    local tb = airui.container({
+        parent = mc,
         x = 0, y = 0,
-        w = screen_w, h = math.floor(60 * _G.density_scale),
+        w = sw, h = math.floor(60 * _G.density_scale),
         color = COLOR_PRIMARY
     })
 
-    local btn_back = airui.container({
-        parent = title_bar,
+    local bb = airui.container({
+        parent = tb,
         x = 10, y = 10,
         w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         color = COLOR_PRIMARY,
-        on_click = function() exwin.close(win_id) end
+        on_click = function() exwin.close(wid) end
     })
     airui.label({
-        parent = btn_back,
+        parent = bb,
         x = 0, y = math.floor(5 * _G.density_scale),
         w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "<",
@@ -259,7 +250,7 @@ local function create_ui()
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
-        parent = title_bar,
+        parent = tb,
         x = math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(200 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "存储",
@@ -268,60 +259,57 @@ local function create_ui()
         align = airui.TEXT_ALIGN_LEFT
     })
 
-    -- 内容容器（支持滚动，防止高密度屏下内容溢出）
-    local title_h = math.floor(60 * _G.density_scale)
-    local content = airui.container({
-        parent = main_container,
-        x = 0, y = title_h,
-        w = screen_w, h = screen_h - title_h,
+    local th2 = math.floor(60 * _G.density_scale)
+    local ct = airui.container({
+        parent = mc,
+        x = 0, y = th2,
+        w = sw, h = sh - th2,
         color = COLOR_BG,
         scrollable = true
     })
 
-    local card_gap = math.floor(margin * 0.7)
-    local current_y = margin
+    local cg = math.floor(m * 0.7)
+    local cy = m
 
-    -- 存储卡片内部相对布局（变量已在上方预计算）
-    local y_title = s_pad
-    local y_bar = y_title + s_row_h + s_gap
-    local y_percent = y_bar + s_bar_h + math.floor(2 * _G.density_scale)
-    local y_used = y_percent + s_small_h + s_gap
-    local y_free = y_used + s_small_h + s_gap
+    local yt = spd
+    local yb3 = yt + srh + sg
+    local yp = yb3 + sbh + math.floor(2 * _G.density_scale)
+    local yu = yp + ssh + sg
+    local yf2 = yu + ssh + sg
 
-    -- 存储卡片
-    local card_storage = airui.container({
-        parent = content,
-        x = margin, y = current_y,
-        w = card_w, h = STORAGE_CARD_H,
+    local cs = airui.container({
+        parent = ct,
+        x = m, y = cy,
+        w = cw, h = sch,
         color = COLOR_WHITE,
         radius = 8
     })
-    current_y = current_y + STORAGE_CARD_H + card_gap
+    cy = cy + sch + cg
 
     airui.label({
-        parent = card_storage,
-        x = math.floor(20 * _G.density_scale), y = y_title,
-        w = math.floor(100 * _G.density_scale), h = s_row_h,
+        parent = cs,
+        x = math.floor(20 * _G.density_scale), y = yt,
+        w = math.floor(100 * _G.density_scale), h = srh,
         text = "总容量",
         font_size = math.floor(20 * _G.density_scale),
         color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
-    total_label = airui.label({
-        parent = card_storage,
-        x = card_w - math.floor(220 * _G.density_scale), y = y_title,
-        w = math.floor(200 * _G.density_scale), h = s_row_h,
+    tl = airui.label({
+        parent = cs,
+        x = cw - math.floor(220 * _G.density_scale), y = yt,
+        w = math.floor(200 * _G.density_scale), h = srh,
         text = "--",
         font_size = math.floor(22 * _G.density_scale),
         color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_RIGHT
     })
 
-    progress_bar = airui.bar({
-        parent = card_storage,
-        x = math.floor(20 * _G.density_scale), y = y_bar,
-        w = card_w - math.floor(40 * _G.density_scale),
-        h = s_bar_h,
+    pb = airui.bar({
+        parent = cs,
+        x = math.floor(20 * _G.density_scale), y = yb3,
+        w = cw - math.floor(40 * _G.density_scale),
+        h = sbh,
         min = 0, max = 100,
         value = 0,
         bg_color = COLOR_DIVIDER,
@@ -329,10 +317,10 @@ local function create_ui()
         radius = 8
     })
 
-    percent_label = airui.label({
-        parent = card_storage,
-        x = card_w - math.floor(220 * _G.density_scale), y = y_percent,
-        w = math.floor(200 * _G.density_scale), h = s_small_h,
+    pl = airui.label({
+        parent = cs,
+        x = cw - math.floor(220 * _G.density_scale), y = yp,
+        w = math.floor(200 * _G.density_scale), h = ssh,
         text = "已使用 --%",
         font_size = math.floor(18 * _G.density_scale),
         color = COLOR_PRIMARY,
@@ -340,18 +328,18 @@ local function create_ui()
     })
 
     airui.label({
-        parent = card_storage,
-        x = math.floor(20 * _G.density_scale), y = y_used,
-        w = math.floor(100 * _G.density_scale), h = s_small_h,
+        parent = cs,
+        x = math.floor(20 * _G.density_scale), y = yu,
+        w = math.floor(100 * _G.density_scale), h = ssh,
         text = "已使用",
         font_size = math.floor(18 * _G.density_scale),
         color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
-    used_label = airui.label({
-        parent = card_storage,
-        x = card_w - math.floor(220 * _G.density_scale), y = y_used,
-        w = math.floor(200 * _G.density_scale), h = s_small_h,
+    ul = airui.label({
+        parent = cs,
+        x = cw - math.floor(220 * _G.density_scale), y = yu,
+        w = math.floor(200 * _G.density_scale), h = ssh,
         text = "--",
         font_size = math.floor(20 * _G.density_scale),
         color = COLOR_TEXT,
@@ -359,62 +347,61 @@ local function create_ui()
     })
 
     airui.label({
-        parent = card_storage,
-        x = math.floor(20 * _G.density_scale), y = y_free,
-        w = math.floor(100 * _G.density_scale), h = s_small_h,
+        parent = cs,
+        x = math.floor(20 * _G.density_scale), y = yf2,
+        w = math.floor(100 * _G.density_scale), h = ssh,
         text = "可用空间",
         font_size = math.floor(18 * _G.density_scale),
         color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
-    free_label = airui.label({
-        parent = card_storage,
-        x = card_w - math.floor(220 * _G.density_scale), y = y_free,
-        w = math.floor(200 * _G.density_scale), h = s_small_h,
+    fl = airui.label({
+        parent = cs,
+        x = cw - math.floor(220 * _G.density_scale), y = yf2,
+        w = math.floor(200 * _G.density_scale), h = ssh,
         text = "--",
         font_size = math.floor(20 * _G.density_scale),
         color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_RIGHT
     })
 
-    -- 内存卡片（使用高度 MEMORY_CARD_H = 180）
-    local sys = create_memory_card(content, current_y, "系统内存", 0x4CAF50, MEMORY_CARD_H)
-    sys_total_label, sys_used_label, sys_max_label, sys_percent_label, sys_progress_bar = sys.total, sys.used, sys.max, sys.percent, sys.progress
-    current_y = current_y + MEMORY_CARD_H + card_gap
+    local sy = cm_c(ct, cy, "系统内存", 0x4CAF50, mch)
+    stl, sul, sml, spl, spb = sy.total, sy.used, sy.max, sy.percent, sy.progress
+    cy = cy + mch + cg
 
-    local vm = create_memory_card(content, current_y, "Lua 虚拟机内存", COLOR_ACCENT, MEMORY_CARD_H)
-    vm_total_label, vm_used_label, vm_max_label, vm_percent_label, vm_progress_bar = vm.total, vm.used, vm.max, vm.percent, vm.progress
-    current_y = current_y + MEMORY_CARD_H + card_gap
+    local vm = cm_c(ct, cy, "Lua 虚拟机内存", COLOR_ACCENT, mch)
+    vtl, vul, vml, vpl, vpb = vm.total, vm.used, vm.max, vm.percent, vm.progress
+    cy = cy + mch + cg
 
-    local psram = create_memory_card(content, current_y, "PSRAM 内存", 0x9C27B0, MEMORY_CARD_H)
-    psram_total_label, psram_used_label, psram_max_label, psram_percent_label, psram_progress_bar = psram.total, psram.used, psram.max, psram.percent, psram.progress
+    local pr = cm_c(ct, cy, "PSRAM 内存", 0x9C27B0, mch)
+    ptl, pul, pml, ppl, ppb = pr.total, pr.used, pr.max, pr.percent, pr.progress
 
 end
 
 local function on_create()
-    create_ui()
+    c_ui()
     sys.publish("STORAGE_GET_INFO")
     sys.publish("MEMORY_INFO_GET")
-    if timer_id then sys.timerStop(timer_id) end
-    timer_id = sys.timerLoopStart(function()
+    if tid then sys.timerStop(tid) end
+    tid = sys.timerLoopStart(function()
         sys.publish("MEMORY_INFO_GET")
     end, 1000)
 end
 
 local function on_destroy()
-    if timer_id then sys.timerStop(timer_id); timer_id = nil end
-    if main_container then main_container:destroy(); main_container = nil end
-    total_label = nil; used_label = nil; free_label = nil; progress_bar = nil; percent_label = nil
-    sys_total_label = nil; sys_used_label = nil; sys_max_label = nil; sys_percent_label = nil; sys_progress_bar = nil
-    vm_total_label = nil; vm_used_label = nil; vm_max_label = nil; vm_percent_label = nil; vm_progress_bar = nil
-    psram_total_label = nil; psram_used_label = nil; psram_max_label = nil; psram_percent_label = nil; psram_progress_bar = nil
+    if tid then sys.timerStop(tid); tid = nil end
+    if mc then mc:destroy(); mc = nil end
+    tl = nil; ul = nil; fl = nil; pb = nil; pl = nil
+    stl = nil; sul = nil; sml = nil; spl = nil; spb = nil
+    vtl = nil; vul = nil; vml = nil; vpl = nil; vpb = nil
+    ptl = nil; pul = nil; pml = nil; ppl = nil; ppb = nil
 end
 
 local function on_get_focus() end
 local function on_lose_focus() end
 
 local function open_handler()
-    win_id = exwin.open({
+    wid = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,
         on_lose_focus = on_lose_focus,

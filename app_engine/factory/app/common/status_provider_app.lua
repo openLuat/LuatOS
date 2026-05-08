@@ -1,3 +1,4 @@
+-- Naming convention: local fns ≤5 chars, local vars ≤4 chars
 --[[
 @module  status_provider_app
 @summary 状态提供器应用模块，负责收集和管理系统状态信息
@@ -21,22 +22,17 @@
 7、StatusProvider.get_history()：获取传感器历史数据（保留接口）
 ]]
 
-local _is_air8000 = _G.model_str:find("Air8000") ~= nil
+local ia8 = _G.model_str:find("Air8000") ~= nil
 
--- 当前时间字符串，格式为"HH:MM"
-local current_time = "08:00"
--- 当前日期字符串，格式为"YYYY-MM-DD"
-local current_date = "1970-01-01"
--- 当前星期字符串，中文
-local current_weekday = "星期四"
+local ct = "08:00"
+local cd = "1970-01-01"
+local cw = "星期四"
 
--- WiFi信号相关变量
-local wifi_connected = false
-local wifi_signal_level = 0
-local wifi_rssi = nil
-local wifi_timer = nil
+local wc = false
+local wsl = 0
+local wr = nil
+local wt = nil
 
--- 星期映射表（从英文星期到中文）
 local weekday_map = {
     ["Sunday"] = "星期日",
     ["Monday"] = "星期一",
@@ -47,24 +43,19 @@ local weekday_map = {
     ["Saturday"] = "星期六",
 }
 
--- 更新时间、日期、星期
-local function update_time()
+local function uptm()
     local t = os.time()
     if t then
         local dt = os.date("*t", t)
-        current_time = string.format("%02d:%02d", dt.hour, dt.min)
-        -- 注意：os.date("*t") 返回的月份字段是 month，不是 mon
-        current_date = string.format("%04d-%02d-%02d", dt.year, dt.month, dt.day)
-        -- 获取英文星期全名，再转为中文
-        local en_weekday = os.date("%A", t)
-        current_weekday = weekday_map[en_weekday] or en_weekday
-        -- 发布时间更新事件
-        sys.publish("STATUS_TIME_UPDATED", current_time, current_date, current_weekday)
+        ct = string.format("%02d:%02d", dt.hour, dt.min)
+        cd = string.format("%04d-%02d-%02d", dt.year, dt.month, dt.day)
+        local ew = os.date("%A", t)
+        cw = weekday_map[ew] or ew
+        sys.publish("STATUS_TIME_UPDATED", ct, cd, cw)
     end
 end
 
--- 根据RSSI计算信号等级（0-4）
-local function rssi_to_level(rssi)
+local function r2l(rssi)
     if not rssi then return 0 end
     if rssi > -60 then
         return 4
@@ -79,177 +70,158 @@ local function rssi_to_level(rssi)
     end
 end
 
--- 更新WiFi信号等级
-local function update_wifi_signal()
-    if not wifi_connected then
-        if wifi_signal_level ~= 0 then
-            wifi_signal_level = 0
-            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
+local function upws()
+    if not wc then
+        if wsl ~= 0 then
+            wsl = 0
+            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wsl)
         end
         return
     end
-
     local info = wlan.getInfo()
     if info and info.rssi then
-        wifi_rssi = info.rssi
-        local new_level = rssi_to_level(wifi_rssi)
-        if wifi_signal_level ~= new_level then
-            wifi_signal_level = new_level
-            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
+        wr = info.rssi
+        local nl = r2l(wr)
+        if wsl ~= nl then
+            wsl = nl
+            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wsl)
         end
     else
-        log.warn("status_provider", "Failed to get WiFi RSSI")
+        log.warn("stpr", "Failed to get WiFi RSSI")
     end
 end
 
--- WiFi STA事件处理
-local function sta_event(evt, data)
-    log.info("status_provider", "WLAN_STA_INC", evt, data)
-    if evt == "CONNECTED" then
-        wifi_connected = true
-        wifi_signal_level = 3
-        sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
-        update_wifi_signal()
-        if wifi_timer then
-            sys.timerStop(update_wifi_signal)
+local function stev(ev, dt)
+    log.info("stpr", "WLAN_STA_INC", ev, dt)
+    if ev == "CONNECTED" then
+        wc = true
+        wsl = 3
+        sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wsl)
+        upws()
+        if wt then
+            sys.timerStop(upws)
         end
-        wifi_timer = sys.timerLoopStart(update_wifi_signal, 1000)
-    elseif evt == "DISCONNECTED" then
-        wifi_connected = false
-        if wifi_timer then
-            sys.timerStop(update_wifi_signal)
-            wifi_timer = nil
+        wt = sys.timerLoopStart(upws, 1000)
+    elseif ev == "DISCONNECTED" then
+        wc = false
+        if wt then
+            sys.timerStop(upws)
+            wt = nil
         end
-        if wifi_signal_level ~= 0 then
-            wifi_signal_level = 0
-            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
+        if wsl ~= 0 then
+            wsl = 0
+            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wsl)
         end
     end
 end
 
--- 获取当前时间
 local function get_time()
-    return current_time
+    return ct
 end
 
--- 获取当前日期
 local function get_date()
-    return current_date
+    return cd
 end
 
--- 获取当前星期几（中文）
 local function get_weekday()
-    return current_weekday
+    return cw
 end
 
 local function get_wifi_signal_level()
-    return wifi_signal_level
+    return wsl
 end
 
--- 4G/移动信号相关变量
-local mobile_signal_level = -1
-local sim_present = false
-local mobile_timer = nil
+local msl = -1
+local sp = false
+local mt = nil
 
-if _is_air8000 then
-    -- 开启SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息，会增加功耗
-    mobile.setAuto(10000, 30000, 5) -- 此函数仅需配置一次
+if ia8 then
+    mobile.setAuto(10000, 30000, 5)
 end
 
-local function update_mobile_signal()
-     local old_level = mobile_signal_level
-    if not sim_present then
-        mobile_signal_level = -1
-        log.info("status_provider", "no sim, set level -1")
+local function upms()
+     local ol = msl
+    if not sp then
+        msl = -1
+        log.info("stpr", "no sim, set level -1")
     else
         local csq = mobile.csq()
-        -- log.info("status_provider", "csq raw =", csq)
         if csq == 99 or csq <= 5 then
-            mobile_signal_level = 1
+            msl = 1
         elseif csq <= 10 then
-            mobile_signal_level = 2
+            msl = 2
         elseif csq <= 15 then
-            mobile_signal_level = 3
+            msl = 3
         elseif csq <= 20 then
-            mobile_signal_level = 4
+            msl = 4
         else
-            mobile_signal_level = 5
+            msl = 5
         end
-        log.info("status_provider", "mapped level =", mobile_signal_level)
+        log.info("stpr", "mapped level =", msl)
     end
-    if old_level ~= mobile_signal_level then
-        sys.publish("STATUS_SIGNAL_UPDATED", mobile_signal_level)
+    if ol ~= msl then
+        sys.publish("STATUS_SIGNAL_UPDATED", msl)
     end
 end
 
-local function handle_sim_ind(status, value)
-    log.info("status_provider", "SIM_IND", status, value or "")
-    if status == "RDY" then
-        sim_present = true
-    elseif status == "NORDY" then
-        sim_present = false
+local function hsim(st, vl)
+    log.info("stpr", "SIM_IND", st, vl or "")
+    if st == "RDY" then
+        sp = true
+    elseif st == "NORDY" then
+        sp = false
     end
-    update_mobile_signal()
+    upms()
 end
 
 local function get_signal_level()
-    return mobile_signal_level
+    return msl
 end
 
--- 获取最新传感器数据（保留接口，返回nil）
 local function get_sensor_latest()
     return nil, nil, nil
 end
 
--- 获取传感器历史数据（保留接口，返回空表）
-local function get_history(sensor_type)
+local function get_history(st)
     return {}
 end
 
-local function init()
-    sys.timerLoopStart(update_time, 1000)
-    sys.subscribe("WLAN_STA_INC", sta_event)
-    update_time()
+local function ini()
+    sys.timerLoopStart(uptm, 1000)
+    sys.subscribe("WLAN_STA_INC", stev)
+    uptm()
 
-    if _is_air8000 then
-        -- Air8000：4G + WiFi 双通路
-        sys.subscribe("SIM_IND", handle_sim_ind)
-
+    if ia8 then
+        sys.subscribe("SIM_IND", hsim)
         if _G.model_str:find("PC") then
-            sim_present = true
+            sp = true
         else
-            sim_present = mobile.simPin() or false
+            sp = mobile.simPin() or false
         end
-
-        mobile_timer = sys.timerLoopStart(update_mobile_signal, 2000)
-        update_mobile_signal()
-
+        mt = sys.timerLoopStart(upms, 2000)
+        upms()
         sys.subscribe("REQUEST_STATUS_REFRESH", function()
-            sys.publish("STATUS_TIME_UPDATED", current_time, current_date, current_weekday)
-            sys.publish("STATUS_SIGNAL_UPDATED", mobile_signal_level)
-            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
+            sys.publish("STATUS_TIME_UPDATED", ct, cd, cw)
+            sys.publish("STATUS_SIGNAL_UPDATED", msl)
+            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wsl)
         end)
     else
-        -- 非Air8000（Air8101/Air1601/PC等）：仅WiFi
         if _G.model_str:find("PC") then
-            -- PC平台无需额外操作
         else
-            -- Air8101/Air1601等WiFi芯片：初始获取WiFi状态
             local info = wlan.getInfo()
             if info and info.ssid then
-                wifi_connected = true
-                update_wifi_signal()
-                wifi_timer = sys.timerLoopStart(update_wifi_signal, 1000)
+                wc = true
+                upws()
+                wt = sys.timerLoopStart(upws, 1000)
             else
-                wifi_connected = false
-                wifi_signal_level = 0
+                wc = false
+                wsl = 0
             end
         end
-
         sys.subscribe("REQUEST_STATUS_REFRESH", function()
-            sys.publish("STATUS_TIME_UPDATED", current_time, current_date, current_weekday)
-            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
+            sys.publish("STATUS_TIME_UPDATED", ct, cd, cw)
+            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wsl)
         end)
     end
 end
-init()
+ini()

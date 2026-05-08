@@ -1,4 +1,5 @@
 --[[
+@naming  us_s=update_screen_size c_ui=create_ui | wid=win_id mc=main_container sw=screen_w sh=screen_h m=margin cw=card_w tgl=toggle_switch ds=duration_slider dl=duration_label vs=volume_slider vl=volume_label
 @module  settings_sound_win
 @summary 声音与触摸子页面
 @version 1.0
@@ -6,16 +7,15 @@
 @author  江访
 ]]
 
-local win_id = nil
-local main_container
-local screen_w, screen_h = 480, 800
-local margin = 15
-local card_w = 460
+local wid = nil
+local mc
+local sw, sh = 480, 800
+local m = 15
+local cw = 460
 
--- UI 引用
-local toggle_switch
-local duration_slider, duration_label
-local volume_slider, volume_label
+local tgl
+local ds, dl
+local vs, vl
 
 local COLOR_PRIMARY        = 0x007AFF
 local COLOR_ACCENT         = 0xFF9800
@@ -26,53 +26,52 @@ local COLOR_TEXT_SECONDARY = 0x757575
 local COLOR_DIVIDER        = 0xE0E0E0
 local COLOR_WHITE          = 0xFFFFFF
 
-local function update_screen_size()
-    local rotation = airui.get_rotation()
-    local phys_w, phys_h = lcd.getSize()
-    if rotation == 0 or rotation == 180 then
-        screen_w, screen_h = phys_w, phys_h
+local function us_s()
+    local rot = airui.get_rotation()
+    local pw, ph = lcd.getSize()
+    if rot == 0 or rot == 180 then
+        sw, sh = pw, ph
     else
-        screen_w, screen_h = phys_h, phys_w
+        sw, sh = ph, pw
     end
-    margin = math.floor(screen_w * 0.03)
-    card_w = screen_w - 2 * margin
+    m = math.floor(sw * 0.03)
+    cw = sw - 2 * m
 end
 
-local function create_ui()
-    update_screen_size()
-    local btn_w = math.floor(50 * _G.density_scale)
-    local btn_margin = math.floor(20 * _G.density_scale)
-    local bar_x = btn_margin + btn_w + math.floor(10 * _G.density_scale)
-    local bar_w = card_w - 2 * btn_margin - 2 * btn_w - math.floor(20 * _G.density_scale)
-    main_container = airui.container({
+local function c_ui()
+    us_s()
+    local bw = math.floor(50 * _G.density_scale)
+    local bm = math.floor(20 * _G.density_scale)
+    local bx = bm + bw + math.floor(10 * _G.density_scale)
+    local brw = cw - 2 * bm - 2 * bw - math.floor(20 * _G.density_scale)
+    mc = airui.container({
         parent = airui.screen,
         x = 0,
         y = 0,
-        w = screen_w,
-        h = screen_h,
+        w = sw,
+        h = sh,
         color = COLOR_BG
     })
 
-    -- 标题栏
-    local title_bar = airui.container({
-        parent = main_container,
+    local tb = airui.container({
+        parent = mc,
         x = 0,
         y = 0,
-        w = screen_w,
+        w = sw,
         h = math.floor(60 * _G.density_scale),
         color = COLOR_PRIMARY
     })
-    local btn_back = airui.container({
-        parent = title_bar,
+    local bb = airui.container({
+        parent = tb,
         x = 10,
         y = 10,
         w = math.floor(50 * _G.density_scale),
         h = math.floor(40 * _G.density_scale),
         color = COLOR_PRIMARY,
-        on_click = function() exwin.close(win_id) end
+        on_click = function() exwin.close(wid) end
     })
     airui.label({
-        parent = btn_back,
+        parent = bb,
         x = 0,
         y = math.floor(5 * _G.density_scale),
         w = math.floor(50 * _G.density_scale),
@@ -83,7 +82,7 @@ local function create_ui()
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
-        parent = title_bar,
+        parent = tb,
         x = math.floor(60 * _G.density_scale),
         y = math.floor(10 * _G.density_scale),
         w = math.floor(200 * _G.density_scale),
@@ -94,29 +93,27 @@ local function create_ui()
         align = airui.TEXT_ALIGN_LEFT
     })
 
-    -- 内容区域
-    local title_h = math.floor(60 * _G.density_scale)
-    local content = airui.container({
-        parent = main_container,
+    local th = math.floor(60 * _G.density_scale)
+    local ct = airui.container({
+        parent = mc,
         x = 0,
-        y = title_h,
-        w = screen_w,
-        h = screen_h - title_h,
+        y = th,
+        w = sw,
+        h = sh - th,
         color = COLOR_BG
     })
 
-    -- 开启/关闭触摸反馈卡片
-    local card_toggle = airui.container({
-        parent = content,
-        x = margin,
+    local ctg = airui.container({
+        parent = ct,
+        x = m,
         y = math.floor(20 * _G.density_scale),
-        w = card_w,
+        w = cw,
         h = math.floor(70 * _G.density_scale),
         color = COLOR_WHITE,
         radius = 8
     })
     airui.label({
-        parent = card_toggle,
+        parent = ctg,
         x = math.floor(20 * _G.density_scale),
         y = math.floor(20 * _G.density_scale),
         w = math.floor(200 * _G.density_scale),
@@ -127,10 +124,9 @@ local function create_ui()
         align = airui.TEXT_ALIGN_LEFT
     })
 
-    -- 开关按钮（使用airui.switch）
-    toggle_switch = airui.switch({
-        parent = card_toggle,
-        x = card_w - math.floor(80 * _G.density_scale),
+    tgl = airui.switch({
+        parent = ctg,
+        x = cw - math.floor(80 * _G.density_scale),
         y = math.floor(15 * _G.density_scale),
         w = math.floor(60 * _G.density_scale),
         h = math.floor(30 * _G.density_scale),
@@ -140,18 +136,17 @@ local function create_ui()
         end
     })
 
-    -- 按下发声时长卡片
-    local card_duration = airui.container({
-        parent = content,
-        x = margin,
+    local cdr = airui.container({
+        parent = ct,
+        x = m,
         y = math.floor(110 * _G.density_scale),
-        w = card_w,
+        w = cw,
         h = math.floor(140 * _G.density_scale),
         color = COLOR_WHITE,
         radius = 8
     })
     airui.label({
-        parent = card_duration,
+        parent = cdr,
         x = math.floor(20 * _G.density_scale),
         y = math.floor(10 * _G.density_scale),
         w = math.floor(200 * _G.density_scale),
@@ -161,9 +156,9 @@ local function create_ui()
         color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
-    duration_label = airui.label({
-        parent = card_duration,
-        x = card_w - math.floor(120 * _G.density_scale),
+    dl = airui.label({
+        parent = cdr,
+        x = cw - math.floor(120 * _G.density_scale),
         y = math.floor(10 * _G.density_scale),
         w = math.floor(100 * _G.density_scale),
         h = math.floor(30 * _G.density_scale),
@@ -173,10 +168,10 @@ local function create_ui()
         align = airui.TEXT_ALIGN_RIGHT
     })
     airui.button({
-        parent = card_duration,
-        x = btn_margin,
+        parent = cdr,
+        x = bm,
         y = math.floor(55 * _G.density_scale),
-        w = btn_w,
+        w = bw,
         h = math.floor(40 * _G.density_scale),
         text = "-10",
         font_size = math.floor(20 * _G.density_scale),
@@ -190,11 +185,11 @@ local function create_ui()
         },
         on_click = function() sys.publish("BUZZER_DURATION_DECREASE") end
     })
-    duration_slider = airui.bar({
-        parent = card_duration,
-        x = bar_x,
+    ds = airui.bar({
+        parent = cdr,
+        x = bx,
         y = math.floor(65 * _G.density_scale),
-        w = bar_w,
+        w = brw,
         h = math.floor(25 * _G.density_scale),
         min = 20,
         max = 500,
@@ -203,10 +198,10 @@ local function create_ui()
         bg_color = COLOR_DIVIDER
     })
     airui.button({
-        parent = card_duration,
-        x = card_w - btn_margin - btn_w,
+        parent = cdr,
+        x = cw - bm - bw,
         y = math.floor(55 * _G.density_scale),
-        w = btn_w,
+        w = bw,
         h = math.floor(40 * _G.density_scale),
         text = "+10",
         font_size = math.floor(20 * _G.density_scale),
@@ -221,7 +216,7 @@ local function create_ui()
         on_click = function() sys.publish("BUZZER_DURATION_INCREASE") end
     })
     airui.label({
-        parent = card_duration,
+        parent = cdr,
         x = math.floor(20 * _G.density_scale),
         y = math.floor(110 * _G.density_scale),
         w = math.floor(80 * _G.density_scale),
@@ -235,18 +230,17 @@ local function create_ui()
         end
     })
 
-    -- 声音大小卡片
-    local card_volume = airui.container({
-        parent = content,
-        x = margin,
+    local cvl = airui.container({
+        parent = ct,
+        x = m,
         y = math.floor(270 * _G.density_scale),
-        w = card_w,
+        w = cw,
         h = math.floor(140 * _G.density_scale),
         color = COLOR_WHITE,
         radius = 8
     })
     airui.label({
-        parent = card_volume,
+        parent = cvl,
         x = math.floor(20 * _G.density_scale),
         y = math.floor(10 * _G.density_scale),
         w = math.floor(200 * _G.density_scale),
@@ -256,9 +250,9 @@ local function create_ui()
         color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
-    volume_label = airui.label({
-        parent = card_volume,
-        x = card_w - math.floor(120 * _G.density_scale),
+    vl = airui.label({
+        parent = cvl,
+        x = cw - math.floor(120 * _G.density_scale),
         y = math.floor(10 * _G.density_scale),
         w = math.floor(100 * _G.density_scale),
         h = math.floor(30 * _G.density_scale),
@@ -268,10 +262,10 @@ local function create_ui()
         align = airui.TEXT_ALIGN_RIGHT
     })
     airui.button({
-        parent = card_volume,
-        x = btn_margin,
+        parent = cvl,
+        x = bm,
         y = math.floor(55 * _G.density_scale),
-        w = btn_w,
+        w = bw,
         h = math.floor(40 * _G.density_scale),
         text = "-10",
         font_size = math.floor(20 * _G.density_scale),
@@ -285,11 +279,11 @@ local function create_ui()
         },
         on_click = function() sys.publish("BUZZER_VOLUME_DECREASE") end
     })
-    volume_slider = airui.bar({
-        parent = card_volume,
-        x = bar_x,
+    vs = airui.bar({
+        parent = cvl,
+        x = bx,
         y = math.floor(65 * _G.density_scale),
-        w = bar_w,
+        w = brw,
         h = math.floor(25 * _G.density_scale),
         min = 10,
         max = 100,
@@ -298,10 +292,10 @@ local function create_ui()
         bg_color = COLOR_DIVIDER
     })
     airui.button({
-        parent = card_volume,
-        x = card_w - btn_margin - btn_w,
+        parent = cvl,
+        x = cw - bm - bw,
         y = math.floor(55 * _G.density_scale),
-        w = btn_w,
+        w = bw,
         h = math.floor(40 * _G.density_scale),
         text = "+10",
         font_size = math.floor(20 * _G.density_scale),
@@ -316,7 +310,7 @@ local function create_ui()
         on_click = function() sys.publish("BUZZER_VOLUME_INCREASE") end
     })
     airui.label({
-        parent = card_volume,
+        parent = cvl,
         x = math.floor(20 * _G.density_scale),
         y = math.floor(110 * _G.density_scale),
         w = math.floor(80 * _G.density_scale),
@@ -331,66 +325,60 @@ local function create_ui()
     })
 end
 
--- ==================== UI 更新回调 ====================
-
 local function update_enabled_ui(val)
-    if not toggle_switch then return end
-    if toggle_switch:get_state() == val then return end
-    toggle_switch:set_state(val)
+    if not tgl then return end
+    if tgl:get_state() == val then return end
+    tgl:set_state(val)
 end
 
 local function update_duration_ui(val)
-    if duration_label then
-        duration_label:set_text(tostring(val) .. "ms")
+    if dl then
+        dl:set_text(tostring(val) .. "ms")
     end
-    if duration_slider then
-        duration_slider:set_value(val)
+    if ds then
+        ds:set_value(val)
     end
 end
 
 local function update_volume_ui(val)
-    if volume_label then
-        volume_label:set_text(tostring(val))
+    if vl then
+        vl:set_text(tostring(val))
     end
-    if volume_slider then
-        volume_slider:set_value(val)
+    if vs then
+        vs:set_value(val)
     end
 end
 
--- ==================== 窗口生命周期 ====================
-
 local function on_create()
-    create_ui()
+    c_ui()
     sys.publish("BUZZER_GET_ENABLED")
     sys.publish("BUZZER_GET_DURATION")
     sys.publish("BUZZER_GET_VOLUME")
 end
 
 local function on_destroy()
-    if main_container then
-        main_container:destroy()
-        main_container = nil
+    if mc then
+        mc:destroy()
+        mc = nil
     end
-    toggle_switch = nil
-    duration_slider = nil
-    duration_label = nil
-    volume_slider = nil
-    volume_label = nil
+    tgl = nil
+    ds = nil
+    dl = nil
+    vs = nil
+    vl = nil
 end
 
 local function on_get_focus() end
 local function on_lose_focus() end
 
 local function open_handler()
-    win_id = exwin.open({
+    wid = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,
         on_lose_focus = on_lose_focus,
         on_get_focus = on_get_focus,
     })
 end
-
--- ==================== 事件订阅 ====================
 
 sys.subscribe("BUZZER_ENABLED_VALUE", function(val)
     update_enabled_ui(val)

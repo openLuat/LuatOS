@@ -90,11 +90,6 @@ target("luatos-lua")
 
     add_files("src/*.c",{public = true})
     add_files("port/**.c")
-    -- platform HAL (POSIX pthreads + eventloop + timer)
-    add_files("platform/posix/*.c")
-    -- 排除旧的 libuv 网络适配器
-    remove_files("port/network/luat_network_adapter_libuv.c")
-    remove_files("port/network/sys_arch_uv.c")
 
     add_thirdparty_files(luatos.."lua/src/*.c")
     -- printf

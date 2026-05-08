@@ -365,8 +365,7 @@ function exsip.start()
     end
 
     local ok, err = pcall(function()
-        -- sipclient = require "exsipclient"
-        sipclient = require "exsipclient_fixed"
+        sipclient = require "exsipclient"
     end)
 
     if not ok or not sipclient then

@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>成语接龙 · 三关夺魁</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(145deg, #1f5436 0%, #0e2a1a 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Noto Sans CJK SC', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+            padding: 12px;
+        }
+
+        /* 主容器 */
+        .game-container {
+            width: 100%;
+            max-width: 480px;
+            height: 100%;
+            max-height: 800px;
+            background: #fef7e8;
+            background-image: radial-gradient(circle at 10% 20%, rgba(210, 180, 120, 0.2) 2%, transparent 2.2%),
+                              radial-gradient(circle at 85% 75%, rgba(170, 130, 70, 0.15) 1.8%, transparent 2%);
+            background-size: 32px 32px, 28px 28px;
+            border-radius: 48px 48px 36px 36px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.45), inset 0 1px 4px rgba(255,245,200,0.8);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 普通游戏界面布局 (与之前类似) */
+        .game-main {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+
+        /* 通关界面特殊样式 */
+        .victory-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(30, 40, 20, 0.92);
+ backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            border-radius: 48px 48px 36px 36px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .victory-card {
+            background: #fff7e8;
+            border-radius: 60px;
+            padding: 32px 20px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.4), inset 0 1px 4px gold;
+            border: 2px solid #f5cf8e;
+        }
+        .victory-title {
+            font-size: 36px;
+            font-weight: 800;
+            color: #d49b3a;
+            text-shadow: 2px 2px 0 #7a521f;
+            margin-bottom: 16px;
+        }
+        .victory-message {
+            font-size: 18px;
+            color: #4a2e1a;
+            margin: 16px 0;
+            font-weight: bold;
+        }
+        .victory-stats {
+            background: #ecdbaa;
+            border-radius: 48px;
+            padding: 12px;
+            margin: 12px 0;
+            font-size: 15px;
+        }
+        .victory-buttons {
+            display: flex;
+            gap: 16px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+        .victory-btn {
+            background: #e9cf9b;
+            border: none;
+            border-radius: 48px;
+            padding: 12px 20px;
+            font-weight: bold;
+            font-size: 16px;
+            color: #3d2b18;
+            box-shadow: 0 2px 0 #a67b40;
+            cursor: pointer;
+            transition: 0.07s linear;
+            flex: 1;
+            text-align: center;
+        }
+        .victory-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #a67b40;
+        }
+        .victory-btn-exit {
+            background: #c9aa6e;
+            color: #2a1f0f;
+        }
+
+        /* 头部 & 关卡信息 */
+        .game-header {
+            padding: 18px 20px 8px 20px;
+            text-align: center;
+            border-bottom: 2px solid #eedbaa;
+            background: rgba(254, 247, 232, 0.7);
+        }
+        .game-title {
+            font-size: 26px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #4f3a26, #2f241b);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: 4px;
+        }
+        .level-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-top: 8px;
+            background: #ebddbc;
+            padding: 6px 14px;
+            border-radius: 60px;
+        }
+        .level-badge {
+            background: #5a3e28;
+            color: #ffe3b3;
+            padding: 4px 16px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .progress-text {
+            font-size: 13px;
+            font-weight: bold;
+            color: #6b4c2c;
+        }
+        .difficulty-tag {
+            font-size: 12px;
+            background: #d4b87a;
+            padding: 4px 12px;
+            border-radius: 40px;
+            color: #2d2418;
+        }
+
+        /* 当前成语展示卡 */
+        .current-card {
+            margin: 12px 18px 8px 18px;
+            background: #fffaf0;
+            border-radius: 56px;
+            box-shadow: inset 0 0 0 2px #fff0db, 0 10px 18px rgba(0,0,0,0.12);
+            padding: 12px 12px;
+            text-align: center;
+        }
+        .current-label {
+            font-size: 12px;
+            color: #bf8746;
+            letter-spacing: 2px;
+        }
+        .current-idiom {
+            font-size: 40px;
+            font-weight: 800;
+            color: #5a2e18;
+            font-family: 'Noto Serif SC', 'KaiTi', serif;
+            letter-spacing: 6px;
+            text-shadow: 2px 2px 0 #f3e2c0;
+        }
+        .last-char-hint {
+            font-size: 13px;
+            margin-top: 6px;
+            background: #ecdbaa;
+            display: inline-block;
+            padding: 4px 18px;
+            border-radius: 40px;
+            color: #4e301c;
+            font-weight: 600;
+        }
+
+        /* 三选一并排选项 */
+        .options-row {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 12px 18px 12px 18px;
+        }
+        .option-card {
+            flex: 1;
+            background: #fff4e2;
+            border: 2px solid #eed6aa;
+            border-radius: 28px;
+            padding: 12px 4px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #4a311d;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+            letter-spacing: 1px;
+            touch-action: manipulation;
+            min-height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            word-break: break-word;
+            line-height: 1.3;
+        }
+        .option-card:active {
+            transform: scale(0.96);
+            background: #f7e8cf;
+        }
+        .option-correct-effect {
+            background: #bddb92 !important;
+            border-color: #6f9e3f !important;
+            color: #2c4d1a !important;
+            box-shadow: 0 0 0 2px #e5ffb3;
+        }
+        .option-wrong-effect {
+            background: #e6bcac !important;
+            border-color: #c1572e !important;
+            color: #631d00 !important;
+            text-decoration: line-through;
+        }
+
+        /* 操作按钮区 */
+        .action-row {
+            display: flex;
+            gap: 14px;
+            margin: 4px 18px 12px 18px;
+        }
+        .btn-action {
+            flex: 1;
+            background: #e9cf9b;
+            border: none;
+            border-radius: 48px;
+            padding: 10px 0;
+            font-weight: bold;
+            font-size: 15px;
+            color: #3d2b18;
+            box-shadow: 0 2px 0 #a67b40;
+            cursor: pointer;
+            transition: 0.07s linear;
+        }
+        .btn-action:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #a67b40;
+        }
+
+        /* 消息栏 */
+        .message-bar {
+            background: #2e281f;
+            margin: 6px 18px;
+            padding: 10px 14px;
+            border-radius: 40px;
+            color: #f7e6c4;
+            font-size: 12px;
+            text-align: center;
+            font-weight: 500;
+            min-height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-left: 6px solid #e9bc6e;
+        }
+
+        /* 历史记录 */
+        .history-area {
+            flex: 1;
+            margin: 6px 18px 18px 18px;
+            background: rgba(235, 222, 193, 0.55);
+            border-radius: 32px;
+            padding: 10px 10px;
+            backdrop-filter: blur(3px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: bold;
+            color: #7b5a36;
+            padding: 0 6px 6px 6px;
+            border-bottom: 1px dashed #cbad78;
+        }
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 8px;
+            padding: 6px 4px;
+        }
+        .history-badge {
+            background: #fdf3e2;
+            border-radius: 28px;
+            padding: 4px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #644829;
+        }
+        .history-badge.current-highlight {
+            background: #eddbb0;
+            box-shadow: 0 0 0 2px #e9b456;
+        }
+        .footnote {
+            font-size: 9px;
+            text-align: center;
+            color: #ac884d;
+            margin-bottom: 12px;
+        }
+        @media (max-width: 500px) {
+            .current-idiom { font-size: 30px; letter-spacing: 4px; }
+            .option-card { font-size: 13px; padding: 10px 4px; min-height: 60px; }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container" id="gameContainer">
+    <!-- 正常游戏主界面 -->
+    <div class="game-main" id="gameMain">
+        <div class="game-header">
+            <div class="game-title">成语接龙 · 闯三关</div>
+            <div class="level-info">
+                <span class="level-badge" id="levelLabel">第壹关</span>
+                <span class="progress-text" id="progressText">进度 0 / 3</span>
+                <span class="difficulty-tag" id="difficultyTag">⭐ 初出茅庐</span>
+            </div>
+        </div>
+
+        <div class="current-card">
+            <div class="current-label">🐉 当前龙首</div>
+            <div class="current-idiom" id="currentIdiom">一马当先</div>
+            <div class="last-char-hint" id="lastCharHint">⚡ 需以「先」字开头接龙</div>
+        </div>
+
+        <div class="options-row" id="optionsRow">
+            <div class="option-card" data-opt="0">——</div>
+            <div class="option-card" data-opt="1">——</div>
+            <div class="option-card" data-opt="2">——</div>
+        </div>
+
+        <div class="action-row">
+            <button id="resetBtn" class="btn-action">🔄 重来闯关</button>
+            <button id="refreshBtn" class="btn-action">✨ 换一批选项</button>
+        </div>
+
+        <div class="message-bar" id="messageBox">
+            第1关 · 选择正确成语接龙，累计答对3题晋级！
+        </div>
+
+        <div class="history-area">
+            <div class="history-header">
+                <span>📜 接龙长卷</span>
+                <span>本关答对 <span id="correctCountSpan">0</span> / <span id="needCountSpan">3</span></span>
+            </div>
+            <div class="history-list" id="historyList">
+                <span class="history-badge current-highlight">一马当先</span>
+            </div>
+        </div>
+        <div class="footnote">
+            ※ 每关需连续答对指定数量，三选一唯有成语正确，难度递增
+        </div>
+    </div>
+
+    <!-- 通关界面 (胜利弹窗) -->
+    <div id="victoryScreen" class="victory-overlay hidden">
+        <div class="victory-card">
+            <div class="victory-title">🏆 金榜题名 🏆</div>
+            <div class="victory-message">恭喜通关三关！<br> 成语接龙大师！</div>
+            <div class="victory-stats" id="victoryStats">
+                总接龙成语数: -- 个
+            </div>
+            <div class="victory-buttons">
+                <button id="returnToGameBtn" class="victory-btn">📖 返回界面</button>
+                <button id="exitGameBtn" class="victory-btn victory-btn-exit">🚪 退出游戏</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- 成语库 (纯正成语) ----------
+    const REAL_IDIOM_SET = new Set([
+        "一马当先", "先发制人", "人山人海", "海阔天空", "空穴来风", "风花雪月", "月明星稀", "稀奇古怪",
+        "怪力乱神", "神采飞扬", "扬眉吐气", "气宇轩昂", "昂首阔步", "步步高升", "升堂入室", "室迩人远",
+        "远走高飞", "飞黄腾达", "达官贵人", "人杰地灵", "灵机一动", "动人心弦", "弦外之音", "音信全无",
+        "无中生有", "有目共睹", "睹物思人", "人定胜天", "天马行空", "空口无凭", "凭栏远眺", "眺望未来",
+        "来日方长", "长命百岁", "岁月如梭", "梭天摸地", "地久天长", "长治久安", "安步当车", "车水马龙",
+        "龙飞凤舞", "舞文弄墨", "墨守成规", "规行矩步", "步履维艰", "艰苦卓绝", "绝处逢生", "生龙活虎",
+        "虎视眈眈", "眈眈逐逐", "逐鹿中原", "原封不动", "动辄得咎", "咎由自取", "取长补短", "短兵相接",
+        "接二连三", "三心二意", "意气风发", "发人深省", "省吃俭用", "用兵如神", "神机妙算", "算无遗策",
+        "策马扬鞭", "鞭长莫及", "及锋而试", "试才录用", "用武之地", "地大物博", "博古通今", "今非昔比",
+        "比比皆是", "是非分明", "明察秋毫", "毫不介意", "意味深长", "长驱直入", "入木三分", "分秒必争",
+        "争先恐后", "后来居上", "上善若水", "水到渠成", "成竹在胸", "胸有成竹", "竹报平安", "安之若素",
+        "素不相识", "识途老马", "马到成功", "功高盖主", "主次不分", "分道扬镳", "镳旗飞扬", "扬长而去",
+        "去伪存真", "真知灼见", "见仁见智", "智勇双全", "全力以赴", "赴汤蹈火", "火上浇油", "油然而生"
+    ]);
+
+    // 干扰词库 (四字词语，非成语)
+    const FAKE_PHRASES = new Set([
+        "开心快乐", "天天向上", "好好学习", "努力工作", "美丽风景", "春暖花开", "夏日炎炎", "秋高气爽",
+        "冰天雪地", "鸟语花香", "乱七八糟", "心想事成", "万事如意", "财源广进", "身体健康", "事业顺利",
+        "平安喜乐", "一帆风顺", "双喜临门", "三阳开泰", "四季平安", "五福临门", "六六大顺", "七星高照",
+        "八方来财", "九九同心", "十全十美", "百年好合", "千载难逢", "万无一失", "意气洋洋", "生机勃发",
+        "欣欣向荣", "锦绣前程", "鹏程万里", "前程似锦"
+    ]);
+
+    // ---------- 关卡配置 ----------
+    const LEVELS = [
+        { id: 1, name: "第壹关", needCorrect: 3, difficulty: "⭐ 初出茅庐", 干扰系数: 0 },
+        { id: 2, name: "第贰关", needCorrect: 4, difficulty: "⭐⭐⭐ 渐入佳境",干扰系数: 1 },
+        { id: 3, name: "第叁关", needCorrect: 5, difficulty: "⭐⭐⭐⭐⭐ 炉火纯青",干扰系数: 2 }
+    ];
+
+    function getFirstChar(str) { return str.charAt(0); }
+    function getLastChar(str) { return str.charAt(str.length - 1); }
+    function isValidIdiom(word) { return word && word.length === 4 && REAL_IDIOM_SET.has(word); }
+    function canChain(prev, next) { return prev && next && getLastChar(prev) === getFirstChar(next); }
+
+    // 游戏状态
+    let currentLevel = 0;             
+    let currentChain = [];            
+    let usedSet = new Set();          
+    let currentCorrectInLevel = 0;    
+    let isWaiting = false;            
+    let gameCompleted = false;         // 是否通关完成（显示胜利界面）
+    
+    let currentOptions = [];
+    let correctAnswer = null;
+
+    // DOM 元素
+    const gameMainDiv = document.getElementById('gameMain');
+    const victoryScreen = document.getElementById('victoryScreen');
+    const levelLabel = document.getElementById('levelLabel');
+    const progressTextSpan = document.getElementById('progressText');
+    const difficultyTag = document.getElementById('difficultyTag');
+    const currentIdiomSpan = document.getElementById('currentIdiom');
+    const lastCharHintSpan = document.getElementById('lastCharHint');
+    const optionCards = document.querySelectorAll('.option-card');
+    const resetBtn = document.getElementById('resetBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const messageBox = document.getElementById('messageBox');
+    const historyListDiv = document.getElementById('historyList');
+    const correctCountSpan = document.getElementById('correctCountSpan');
+    const needCountSpan = document.getElementById('needCountSpan');
+    const victoryStatsSpan = document.getElementById('victoryStats');
+    const returnToGameBtn = document.getElementById('returnToGameBtn');
+    const exitGameBtn = document.getElementById('exitGameBtn');
+
+    let msgTimeout = null;
+    function showMessage(msg, isError = false) {
+        if (msgTimeout) clearTimeout(msgTimeout);
+        messageBox.style.backgroundColor = isError ? '#622e2a' : '#2e281f';
+        messageBox.style.borderLeftColor = isError ? '#e97c6a' : '#e9bc6e';
+        messageBox.innerText = msg;
+        msgTimeout = setTimeout(() => {
+            if (messageBox && !gameCompleted) messageBox.innerText = '✨ 三选一 · 选对成语即可闯关 ✨';
+        }, 2200);
+    }
+
+    function refreshUI() {
+        if (!currentChain.length) return;
+        const cur = currentChain[currentChain.length - 1];
+        currentIdiomSpan.innerText = cur;
+        lastCharHintSpan.innerHTML = `🔗 下一成语需以「${getLastChar(cur)}」开头`;
+        renderHistory();
+        correctCountSpan.innerText = currentCorrectInLevel;
+        const levelData = LEVELS[currentLevel];
+        needCountSpan.innerText = levelData.needCorrect;
+        progressTextSpan.innerText = `进度 ${currentCorrectInLevel} / ${levelData.needCorrect}`;
+    }
+
+    function renderHistory() {
+        historyListDiv.innerHTML = '';
+        currentChain.forEach((idiom, idx) => {
+            const badge = document.createElement('span');
+            badge.className = 'history-badge';
+            badge.innerText = idiom;
+            if (idx === currentChain.length - 1) badge.classList.add('current-highlight');
+            historyListDiv.appendChild(badge);
+        });
+        historyListDiv.scrollTop = historyListDiv.scrollHeight;
+    }
+
+    // 根据当前龙头生成选项 (正确成语 + 两个干扰四字词语)
+    function generateOptionsForLevel() {
+        if (!currentChain.length) return null;
+        const lastIdiom = currentChain[currentChain.length - 1];
+        const requiredFirst = getLastChar(lastIdiom);
+        
+        let correctCandidates = [];
+        for (let idiom of REAL_IDIOM_SET) {
+            if (!usedSet.has(idiom) && getFirstChar(idiom) === requiredFirst && isValidIdiom(idiom)) {
+                correctCandidates.push(idiom);
+            }
+        }
+        if (correctCandidates.length === 0) return null;
+        const correct = correctCandidates[Math.floor(Math.random() * correctCandidates.length)];
+        
+        let fakePool = Array.from(FAKE_PHRASES).filter(f => f !== correct && f.length === 4);
+        if (fakePool.length < 2) fakePool = ["心想事成", "万事如意", "天天开心", "幸福美满", "欢天喜地"];
+        let shuffled = [...fakePool];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        let distractor1 = shuffled[0] || "欢天喜地";
+        let distractor2 = shuffled[1] || "四季如春";
+        if (distractor1 === correct) distractor1 = "美好时光";
+        if (distractor2 === correct) distractor2 = "前程似锦";
+        
+        let options = [correct, distractor1, distractor2];
+        for (let i = options.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [options[i], options[j]] = [options[j], options[i]];
+        }
+        return { options, correct };
+    }
+
+    function refreshOptionsUI() {
+        const generated = generateOptionsForLevel();
+        if (!generated) {
+            showMessage("⚠️ 本关无可接龙成语，请重置闯关", true);
+            for (let i=0;i<optionCards.length;i++) {
+                optionCards[i].innerText = "❌ 无可用";
+                optionCards[i].style.pointerEvents = "none";
+            }
+            currentOptions = [];
+            correctAnswer = null;
+            return false;
+        }
+        currentOptions = generated.options;
+        correctAnswer = generated.correct;
+        for (let i=0;i<optionCards.length;i++) {
+            optionCards[i].innerText = currentOptions[i];
+            optionCards[i].style.pointerEvents = "auto";
+            optionCards[i].style.opacity = "1";
+            optionCards[i].classList.remove('option-correct-effect', 'option-wrong-effect');
+        }
+        return true;
+    }
+
+    // 显示胜利界面并统计总接龙数量
+    function showVictoryScreen() {
+        gameCompleted = true;
+        const totalIdioms = currentChain.length; // 最终接龙总成语数
+        victoryStatsSpan.innerText = `总接龙成语数: ${totalIdioms} 个\n文曲星下凡！`;
+        victoryScreen.classList.remove('hidden');
+        // 禁用游戏内按钮点击（可选）
+        disableGameInputs(true);
+    }
+
+    function disableGameInputs(disabled) {
+        for (let btn of optionCards) {
+            btn.style.pointerEvents = disabled ? 'none' : 'auto';
+        }
+        resetBtn.style.pointerEvents = disabled ? 'none' : 'auto';
+        refreshBtn.style.pointerEvents = disabled ? 'none' : 'auto';
+    }
+
+    // 通关晋级或最终通关调用
+    function advanceToNextLevel() {
+        if (currentLevel + 1 < LEVELS.length) {
+            currentLevel++;
+            // 重置本关状态 (保留接龙链？为了统计总成语数，我们保留currentChain不清零，但关卡内正确计数重置)
+            // 注意: 为了保证闯关体验，不清空成语链，继续接龙，但已使用成语集合保留，但正确计数重置
+            // 然而 needCorrect 计数需要重新累计，所以 currentCorrectInLevel 重置为0，但是接龙链继续增长。
+            // 为避免已使用成语造成无法接龙，保留usedSet和currentChain是正确的。
+            currentCorrectInLevel = 0;
+            const lvl = LEVELS[currentLevel];
+            levelLabel.innerText = lvl.name;
+            difficultyTag.innerText = lvl.difficulty;
+            needCountSpan.innerText = lvl.needCorrect;
+            refreshUI();
+            const success = refreshOptionsUI();
+            if (!success) resetGameToLevel(currentLevel);
+            showMessage(`🎉 晋级${lvl.name}！难度${lvl.difficulty}，需再答对${lvl.needCorrect}题`, false);
+        } else {
+            // 三关全部完成，展示通关界面
+            showVictoryScreen();
+        }
+    }
+
+    function handleCorrect(selectedIdiom, btnElement) {
+        currentChain.push(selectedIdiom);
+        usedSet.add(selectedIdiom);
+        currentCorrectInLevel++;
+        refreshUI();
+        btnElement.classList.add('option-correct-effect');
+        showMessage(`✓ 接龙成功！“${selectedIdiom}”  +1分`, false);
+        
+        const levelData = LEVELS[currentLevel];
+        if (currentCorrectInLevel >= levelData.needCorrect) {
+            // 晋级或者通关
+            setTimeout(() => {
+                clearEffects();
+                if (currentLevel + 1 < LEVELS.length) {
+                    advanceToNextLevel();
+                } else {
+                    // 第三关完成，最终通关
+                    showVictoryScreen();
+                }
+                isWaiting = false;
+                enableOptions(true);
+            }, 600);
+        } else {
+            setTimeout(() => {
+                clearEffects();
+                const success = refreshOptionsUI();
+                if (!success) showMessage("本关成语库紧张，可重置闯关", true);
+                isWaiting = false;
+                enableOptions(true);
+            }, 500);
+        }
+    }
+
+    function handleWrong(selectedWord, btnElement) {
+        btnElement.classList.add('option-wrong-effect');
+        const lastIdiom = currentChain[currentChain.length - 1];
+        showMessage(`❌ “${selectedWord}” 不是正确成语 / 接龙失败，需以「${getLastChar(lastIdiom)}」开头`, true);
+        setTimeout(() => {
+            btnElement.classList.remove('option-wrong-effect');
+            isWaiting = false;
+            enableOptions(true);
+        }, 900);
+    }
+
+    function onOptionClick(index) {
+        if (isWaiting || gameCompleted) return;
+        if (!currentOptions.length || !correctAnswer) {
+            showMessage("请点击「换一批选项」或重置", true);
+            return;
+        }
+        const selected = currentOptions[index];
+        if (!selected) return;
+        const lastIdiom = currentChain[currentChain.length - 1];
+        const isReal = isValidIdiom(selected);
+        let isCorrect = false;
+        if (isReal && !usedSet.has(selected) && canChain(lastIdiom, selected) && selected === correctAnswer) {
+            isCorrect = true;
+        }
+        isWaiting = true;
+        disableOptions(true);
+        const btn = optionCards[index];
+        if (isCorrect) handleCorrect(selected, btn);
+        else handleWrong(selected, btn);
+    }
+
+    function disableOptions(disable) {
+        for (let btn of optionCards) {
+            if (disable) btn.style.pointerEvents = "none";
+            else if (currentOptions.length) btn.style.pointerEvents = "auto";
+        }
+    }
+    function enableOptions(enable) {
+        if (enable && !isWaiting && !gameCompleted) {
+            for (let btn of optionCards) {
+                if (currentOptions.length) btn.style.pointerEvents = "auto";
+            }
+        }
+    }
+    function clearEffects() {
+        for (let btn of optionCards) btn.classList.remove('option-correct-effect', 'option-wrong-effect');
+    }
+
+    function refreshOptionsOnly() {
+        if (isWaiting || gameCompleted) { showMessage("请等待或游戏已通关", true); return; }
+        clearEffects();
+        const success = refreshOptionsUI();
+        if (success) showMessage("✨ 已更换选项，请选择正确成语接龙", false);
+        else showMessage("无法生成新选项，可重置闯关", true);
+        enableOptions(true);
+    }
+
+    function resetGameToLevel(levelIdx = 0) {
+        if (isWaiting) return;
+        gameCompleted = false;
+        victoryScreen.classList.add('hidden');
+        currentLevel = levelIdx;
+        currentChain = [];
+        usedSet.clear();
+        currentCorrectInLevel = 0;
+        const startMap = {0:"一马当先",1:"人山人海",2:"龙飞凤舞"};
+        let start = startMap[currentLevel] || "一马当先";
+        if (!isValidIdiom(start)) start = "一马当先";
+        currentChain.push(start);
+        usedSet.add(start);
+        const lvl = LEVELS[currentLevel];
+        levelLabel.innerText = lvl.name;
+        difficultyTag.innerText = lvl.difficulty;
+        needCountSpan.innerText = lvl.needCorrect;
+        refreshUI();
+        refreshOptionsUI();
+        isWaiting = false;
+        enableOptions(true);
+        clearEffects();
+        disableGameInputs(false);
+        showMessage(`重新开始 ${lvl.name}，需答对 ${lvl.needCorrect} 题`, false);
+    }
+
+    function fullReset() {
+        resetGameToLevel(0);
+    }
+
+    // 返回界面（即重新开始第一关，关闭胜利界面）
+    function returnToGame() {
+        fullReset();
+    }
+
+    // 退出游戏: 模拟退出动作（嵌入式设备可提示或关闭页面）
+    function exitGame() {
+        if (confirm("确定要退出游戏吗？")) {
+            // 对于嵌入式webview，可执行关闭或返回，这里简单提示并重置到开始界面
+            alert("游戏已退出，点击确定重新开始。");
+            fullReset();
+        }
+    }
+
+    function bindEvents() {
+        for (let i=0;i<optionCards.length;i++) {
+            optionCards[i].addEventListener('click', () => onOptionClick(i));
+        }
+        resetBtn.addEventListener('click', fullReset);
+        refreshBtn.addEventListener('click', refreshOptionsOnly);
+        returnToGameBtn.addEventListener('click', returnToGame);
+        exitGameBtn.addEventListener('click', exitGame);
+    }
+
+    function init() {
+        resetGameToLevel(0);
+        bindEvents();
+    }
+    init();
+</script>
+</body>
+</html>

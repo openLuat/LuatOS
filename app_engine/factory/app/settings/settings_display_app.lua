@@ -96,5 +96,3 @@ end)
 sys.subscribe("DISPLAY_BRIGHTNESS_GET", function()
     sys.publish("DISPLAY_BRIGHTNESS_VALUE", current_brightness)
 end)
-
-log.info("settings_display_app", "模块加载完成")

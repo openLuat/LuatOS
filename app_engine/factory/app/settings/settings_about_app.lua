@@ -66,5 +66,3 @@ sys.subscribe("ABOUT_DEVICE_GET_INFO", function()
     sys.publish("ABOUT_DEVICE_INFO", info)
     log.info("settings_about_app", "上报设备信息")
 end)
-
-log.info("settings_about_app", "模块加载完成")

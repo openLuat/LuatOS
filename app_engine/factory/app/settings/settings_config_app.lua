@@ -162,4 +162,3 @@ end)
 
 
 init_fskv()
-log.info("settings_config_app", "模块加载完成")

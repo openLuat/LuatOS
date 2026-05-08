@@ -110,5 +110,3 @@ end
 
 -- 订阅存储信息查询事件
 sys.subscribe("STORAGE_GET_INFO", storage_info_get_handler)
-
-log.info("settings_storage_app", "模块加载完成")

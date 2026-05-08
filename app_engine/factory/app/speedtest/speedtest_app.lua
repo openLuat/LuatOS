@@ -199,5 +199,3 @@ sys.subscribe("IP_LOSE", function()
     end
     log.info("speedtest", "网络已断开")
 end)
-
-log.info("speedtest_app", "模块加载完成")

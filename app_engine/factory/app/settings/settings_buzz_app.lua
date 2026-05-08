@@ -189,5 +189,3 @@ end)
 sys.subscribe("BUZZER_VOLUME_INCREASE", function()
     set_volume(buzzer_volume + 10)
 end)
-
-log.info("settings_buzzer_app", "模块加载完成")

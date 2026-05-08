@@ -63,10 +63,17 @@ _G.model_str = tostring(_model or "")
 
 -- 加载显示驱动/触摸驱动（根据平台选择对应驱动）
 if _G.model_str:find("Air8000") then
+    -- 配置引脚功能
+    pins.setup(31, "PWM0")
+    pins.setup(35, "PWM4")
     -- Air8000 显示/触摸驱动
     lcd_drv = require "lcd_drv_air8000w"
     tp_drv = require "tp_drv_air8000w"
 elseif _G.model_str:find("Air8101") then
+    -- 配置引脚功能
+    pins.setup(11, "I2C1_SDA")
+    pins.setup(12, "I2C1_SCL")
+    pins.setup(14, "PWM1")
     -- Air8101 显示/触摸驱动
     lcd_drv = require "lcd_drv_air8101"
     tp_drv = require "tp_drv_air8101"
@@ -76,10 +83,10 @@ elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
     -- tp_drv = require "tp_drv_air1601_5in"
 
     -- 10寸屏显示驱动
-    -- lcd_drv = require "lcd_drv_air1601_10in"
+    lcd_drv = require "lcd_drv_air1601_10in"
 
     -- 7寸屏显示驱动
-    lcd_drv = require "lcd_drv_air1601_7in"
+    -- lcd_drv = require "lcd_drv_air1601_7in"
 
     -- 10寸和7寸共用触摸驱动
     tp_drv = require "tp_drv_air1601_7or10"

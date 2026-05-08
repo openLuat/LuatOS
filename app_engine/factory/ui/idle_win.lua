@@ -521,9 +521,19 @@ local function ogf()
     uwi(sc.wifi_level)
     umi(sc.mobile_level)
     lea()
+    if not tt then
+        tt = sys.timerLoopStart(function()
+            utd(sc.time, sc.date, sc.weekday)
+        end, 1000)
+    end
 end
 
-local function olf() end
+local function olf()
+    if tt then
+        sys.timerStop(tt)
+        tt = nil
+    end
+end
 
 local function oh()
     wid = exwin.open({

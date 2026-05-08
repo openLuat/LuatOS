@@ -44,7 +44,7 @@
 require "wifi_storage"
 local cm = require "wifi_app_common"
 
-local SCAN_TIMEOUT = 30000
+local SCAN_TIMEOUT = 15000
 local UPDATE_INTERVAL = 5000
 
 local ws = { connected = false, ready = false, current_ssid = "", rssi = "--", ip = "--", netmask = "--", gateway = "--", bssid = "--", scan_results = {} }
@@ -528,6 +528,7 @@ local function ocr(d)
     end
 
     sys.publish("WIFI_CONNECTING", sd)
+    dr = "config"
 
     sys.taskInit(function()
         if not wi then

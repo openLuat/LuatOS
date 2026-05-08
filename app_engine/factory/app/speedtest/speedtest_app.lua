@@ -16,6 +16,7 @@
 local BU = "http://speed.cloudflare.com"
 local it = false
 local nc = false
+local cn = false
 local TF = 1
 
 local bsp = rtos.bsp()
@@ -139,10 +140,18 @@ local function rstt()
         sys.publish("SPDTEST_STATUS", "当前未连接网络")
         return
     end
+    cn = false
     it = true
     sys.publish("SPDTEST_STARTED")
     sys.publish("SPDTEST_STATUS", "测延迟 & 抖动...")
     sys.wait(100)
+    if cn then
+        cn = false
+        sys.publish("SPDTEST_STATUS", "测速已取消")
+        sys.publish("SPDTEST_FINISHED")
+        it = false
+        return
+    end
     local pg, jt = mlj()
     if not nc then
         it = false
@@ -150,6 +159,13 @@ local function rstt()
     end
     sys.publish("SPDTEST_STATUS", "测试下载速度...")
     sys.wait(100)
+    if cn then
+        cn = false
+        sys.publish("SPDTEST_STATUS", "测速已取消")
+        sys.publish("SPDTEST_FINISHED")
+        it = false
+        return
+    end
     local dl = mdl()
     if not nc then
         it = false
@@ -157,6 +173,13 @@ local function rstt()
     end
     sys.publish("SPDTEST_STATUS", "测试上传速度...")
     sys.wait(100)
+    if cn then
+        cn = false
+        sys.publish("SPDTEST_STATUS", "测速已取消")
+        sys.publish("SPDTEST_FINISHED")
+        it = false
+        return
+    end
     local ul = mul()
     if not nc then
         it = false
@@ -196,4 +219,9 @@ sys.subscribe("IP_LOSE", function()
         sys.publish("SPDTEST_FINISHED")
     end
     log.info("spdt", "网络已断开")
+end)
+
+sys.subscribe("SPEEDTEST_CANCEL", function()
+    cn = true
+    it = false
 end)

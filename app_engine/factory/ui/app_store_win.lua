@@ -865,16 +865,16 @@ local function olu(apps, pg)
         if type(pg.page) == 'number' then
             cp = pg.page
         end
-        if type(total_pages) == 'number' then
-            tn = total_pages
-        elseif type(pg.pages) == 'number' then
-            tn = pg.pages
+        if type(pg.total_pages) == 'number' then
+            tn = pg.total_pages
+        elseif type(pg.total_pages) == 'number' then
+            tn = pg.total_pages
         end
         if type(pg.total) == 'number' then
             tl = pg.total
         end
-        if has_more ~= nil then
-            hn = (has_more == true)
+        if pg.has_more ~= nil then
+            hn = (pg.has_more == true)
         else
             hn = (cp < tn)
         end

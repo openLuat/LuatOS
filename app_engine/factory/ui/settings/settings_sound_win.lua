@@ -331,6 +331,8 @@ local function update_enabled_ui(val)
     tgl:set_state(val)
 end
 
+local function uev(val) update_enabled_ui(val) end
+
 local function update_duration_ui(val)
     if dl then
         dl:set_text(tostring(val) .. "ms")
@@ -354,9 +356,21 @@ local function on_create()
     sys.publish("BUZZER_GET_ENABLED")
     sys.publish("BUZZER_GET_DURATION")
     sys.publish("BUZZER_GET_VOLUME")
+    sys.subscribe("BUZZER_ENABLED_VALUE", uev)
+    sys.subscribe("BUZZER_ENABLED_CHANGED", update_enabled_ui)
+    sys.subscribe("BUZZER_DURATION_VALUE", update_duration_ui)
+    sys.subscribe("BUZZER_DURATION_CHANGED", update_duration_ui)
+    sys.subscribe("BUZZER_VOLUME_VALUE", update_volume_ui)
+    sys.subscribe("BUZZER_VOLUME_CHANGED", update_volume_ui)
 end
 
 local function on_destroy()
+    sys.unsubscribe("BUZZER_ENABLED_VALUE", uev)
+    sys.unsubscribe("BUZZER_ENABLED_CHANGED", update_enabled_ui)
+    sys.unsubscribe("BUZZER_DURATION_VALUE", update_duration_ui)
+    sys.unsubscribe("BUZZER_DURATION_CHANGED", update_duration_ui)
+    sys.unsubscribe("BUZZER_VOLUME_VALUE", update_volume_ui)
+    sys.unsubscribe("BUZZER_VOLUME_CHANGED", update_volume_ui)
     if mc then
         mc:destroy()
         mc = nil
@@ -379,15 +393,5 @@ local function open_handler()
         on_get_focus = on_get_focus,
     })
 end
-
-sys.subscribe("BUZZER_ENABLED_VALUE", function(val)
-    update_enabled_ui(val)
-end)
-
-sys.subscribe("BUZZER_ENABLED_CHANGED", update_enabled_ui)
-sys.subscribe("BUZZER_DURATION_VALUE", update_duration_ui)
-sys.subscribe("BUZZER_DURATION_CHANGED", update_duration_ui)
-sys.subscribe("BUZZER_VOLUME_VALUE", update_volume_ui)
-sys.subscribe("BUZZER_VOLUME_CHANGED", update_volume_ui)
 
 sys.subscribe("OPEN_SOUND_WIN", open_handler)

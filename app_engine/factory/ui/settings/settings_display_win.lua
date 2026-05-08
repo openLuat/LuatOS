@@ -171,9 +171,13 @@ end
 local function on_create()
     c_ui()
     sys.publish("DISPLAY_BRIGHTNESS_GET")
+    sys.subscribe("DISPLAY_BRIGHTNESS_CHANGED", update_brightness_ui)
+    sys.subscribe("DISPLAY_BRIGHTNESS_VALUE", update_brightness_ui)
 end
 
 local function on_destroy()
+    sys.unsubscribe("DISPLAY_BRIGHTNESS_CHANGED", update_brightness_ui)
+    sys.unsubscribe("DISPLAY_BRIGHTNESS_VALUE", update_brightness_ui)
     if mc then
         mc:destroy()
         mc = nil
@@ -194,6 +198,4 @@ local function open_handler()
     })
 end
 
-sys.subscribe("DISPLAY_BRIGHTNESS_CHANGED", update_brightness_ui)
-sys.subscribe("DISPLAY_BRIGHTNESS_VALUE", update_brightness_ui)
 sys.subscribe("OPEN_DISPLAY_WIN", open_handler)

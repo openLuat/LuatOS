@@ -15,6 +15,11 @@ add_packages("libuv")
 add_requires("gmssl")
 add_packages("gmssl")
 
+-- POSIX pthreads（Windows 通过 pthreads4w 提供）
+if is_host("windows") then
+    add_requires("pthreads4w")
+end
+
 add_requires("libsdl2")
 add_packages("libsdl2")
 
@@ -85,6 +90,11 @@ target("luatos-lua")
 
     add_files("src/*.c",{public = true})
     add_files("port/**.c")
+    -- platform HAL (POSIX pthreads + eventloop + timer)
+    add_files("platform/posix/*.c")
+    -- 排除旧的 libuv 网络适配器
+    remove_files("port/network/luat_network_adapter_libuv.c")
+    remove_files("port/network/sys_arch_uv.c")
 
     add_thirdparty_files(luatos.."lua/src/*.c")
     -- printf
@@ -96,6 +106,11 @@ target("luatos-lua")
     if is_plat("linux", "macosx") then
         add_linkdirs("/opt/homebrew/lib", "/usr/local/lib")
         add_links("pthread", "m", "dl")
+    end
+
+    if is_host("windows") then
+        add_packages("pthreads4w")
+        add_links("ws2_32", "iphlpapi")
     end
 
     -- i2c-tools

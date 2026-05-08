@@ -68,9 +68,7 @@ Air1601开发板与AirSHT30_1000配件板连接方式如下：
 
 1、搭建好演示硬件环境
 
-2、使用Air1601开发板不需要修改demo脚本代码
-
-3、使用Air1601开发板，需要在`sht30_app.lua`中将`air_sht30.open(0)`和`gpio.setup(164, 1, gpio.PULLUP)`打开，同时屏蔽掉`air_sht30.open(1)`
+2、不需要修改demo脚本代码
 
 3、Luatools烧录内核固件和demo脚本代码
 

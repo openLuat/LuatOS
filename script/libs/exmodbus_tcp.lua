@@ -43,6 +43,8 @@ function modbus:new(config, TASK_NAME)
     obj.send_queue = {}
     -- 当前等待响应的事务ID
     obj.pending_transaction = nil
+    -- socket 对象引用
+    obj.netc = nil
 
     -- 设置原表；
     setmetatable(obj, modbus)
@@ -1050,26 +1052,25 @@ local function tcp_receiver(netc, instance)
 end
 
 local function tcp_slave_main_task_func(instance)
-    local netc = nil
     local result, param
 
     while true do
         -- 创建 TCP 服务器
-        netc = socket.create(instance.adapter, instance.TASK_NAME)
-        if not netc then
+        instance.netc = socket.create(instance.adapter, instance.TASK_NAME)
+        if not instance.netc then
             log.error("exmodbus", "创建 TCP 服务器失败")
             goto EXCEPTION_PROC
         end
 
         -- 配置服务器
-        result = socket.config(netc, instance.port)
+        result = socket.config(instance.netc, instance.port)
         if not result then
             log.error("exmodbus", "配置 TCP 服务器失败")
             goto EXCEPTION_PROC
         end
 
         -- 监听端口
-        result = libnet.listen(instance.TASK_NAME, 0, netc)
+        result = libnet.listen(instance.TASK_NAME, 0, instance.netc)
         if not result then
             log.error("exmodbus", "监听端口失败")
             goto EXCEPTION_PROC
@@ -1080,13 +1081,13 @@ local function tcp_slave_main_task_func(instance)
         -- 处理连接和数据
         while true do
             -- 处理接收数据
-            if not tcp_receiver(netc, instance) then
+            if not tcp_receiver(instance.netc, instance) then
                 log.info("exmodbus", "接收数据处理失败")
                 break
             end
 
             -- 等待事件
-            result, param = libnet.wait(instance.TASK_NAME, 0, netc)
+            result, param = libnet.wait(instance.TASK_NAME, 0, instance.netc)
             if not result then
                 log.info("exmodbus", "客户端断开连接")
                 break
@@ -1097,10 +1098,10 @@ local function tcp_slave_main_task_func(instance)
         ::EXCEPTION_PROC::
 
         -- 关闭连接
-        if netc then
-            libnet.close(instance.TASK_NAME, 5000, netc)
-            socket.release(netc)
-            netc = nil
+        if instance.netc then
+            libnet.close(instance.TASK_NAME, 5000, instance.netc)
+            socket.release(instance.netc)
+            instance.netc = nil
         end
 
         -- 等待 5 秒后重试
@@ -1144,11 +1145,22 @@ end
 function modbus:destroy()
     -- 停止任务
     sys.taskDel(self.TASK_NAME)
+
+    -- 关闭 TCP 连接
+    if self.netc then
+        -- 断开 socket 链接
+        libnet.close(self.TASK_NAME, 5000, self.netc)
+        -- 释放 socket 对象
+        socket.release(self.netc)
+        self.netc = nil
+    end
     -- 释放缓冲区
     if self.recv_buff then
         self.recv_buff:free()
         self.recv_buff = nil
     end
+
+    log.info("exmodbus", "实例对象已销毁")
 end
 
 -- 内部读函数

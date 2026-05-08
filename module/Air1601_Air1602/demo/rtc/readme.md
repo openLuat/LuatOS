@@ -22,7 +22,7 @@
   - 单独使用以太网时：拨至 `ON`，连接 `WAKEUP` 信号到 `LAN_INT`，启用以太网中断功能。
   - 与触摸（TP）同时使用时：拨至 `OFF`，断开以太网中断，将 `WAKEUP` 信号留给 TP 使用。
 
-![](https://docs.openluat.com/air1601/app/common/rtc/image/spi_lan.png)
+![](https://docs.openluat.com/air1601/luatos/app/common/rtc/image/spi_lan.png)
 
 使用其它网络接线方式请参考：[Air1601开发板使用说明](https://docs.openluat.com/air1601/product/shouce/#air1601_2)
 
@@ -30,7 +30,7 @@
 
 2、TYPE-C USB数据线一根
 
-3、网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
+3、网线一根，网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
 
 4、Air1601开发板和数据线的硬件接线方式为
 

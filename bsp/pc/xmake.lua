@@ -452,7 +452,9 @@ target("luatos-lua")
         add_files(luatos.."components/u8g2/*.c")
         -- lcd
         add_includedirs(luatos.."components/lcd")
+        add_includedirs(luatos.."components/luat_image/include")
         add_files(luatos.."components/lcd/*.c")
+        add_files(luatos.."components/luat_image/src/*.c")
         
         -- LVGL 9.4 + AIRUI - 最基础组件编译
         -- 头文件添加：lvgl9 

@@ -39,6 +39,7 @@ static int add_onefile(const char *path);
 
 static int luat_cmd_load_luadb(const char *path);
 static int luat_cmd_load_luatools(const char *path);
+static int luat_cmd_collect_luatools_paths(const char *ini_path, char ***ppaths, size_t *pcount, size_t *pcapacity);
 int luat_search_module(const char *name, char *filename);
 
 int luadb_do_report(luat_luadb2_ctx_t *ctx);

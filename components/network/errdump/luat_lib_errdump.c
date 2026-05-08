@@ -139,6 +139,14 @@ static void luat_errdump_make_data(lua_State *L)
 		#ifdef LUAT_USE_MOBILE
 		luat_mobile_get_imei(0, imei, 15);
 		selfid = imei;
+		#elif defined(CHIP_CCM4211)
+		selfid = luat_mcu_unique_id(&len);
+		if (selfid != NULL && len > 0 && len < 12) {
+			for (size_t i = 0; i < len; i++)
+			{
+				sprintf_(econf.custom_id + i*2, "%02X", selfid[i]);
+			}
+		}
 		#elif defined(LUAT_USE_WLAN)
 		luat_wlan_get_mac(0, (char*)mac);
 		sprintf(tmpbuff, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);

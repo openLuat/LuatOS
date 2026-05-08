@@ -914,6 +914,17 @@ local function olu(apps, pg)
             end
         end
     end
+    if cc == "已安装" then
+        local filtered = {}
+        for _, app in ipairs(apps) do
+            if app.installed then
+                table.insert(filtered, app)
+            end
+        end
+        apps = filtered
+        tp = math.max(1, math.ceil(#filtered / plim))
+        hm = false
+    end
     ra(apps, hm)
 end
 
@@ -959,7 +970,17 @@ local function oad(aid, ac, sc)
                 end
             end
 
-            ra(apps, more)
+            if cc == "已安装" then
+                local filtered = {}
+                for _, app in ipairs(apps) do
+                    if app.installed then
+                        table.insert(filtered, app)
+                    end
+                end
+                ra(filtered, false)
+            else
+                ra(apps, more)
+            end
         end
 
         sst(ac, an)
@@ -1018,7 +1039,20 @@ end
 local function ogf()
     local apps, more = exapp.get_current_list()
     if apps then
-        ra(apps, more)
+        if cc == "已安装" then
+            local ia = exapp.list_installed()
+            local filtered = {}
+            for _, app in ipairs(apps) do
+                local aid = tostring(app.aid)
+                if ia[aid] then
+                    app.installed = true
+                    table.insert(filtered, app)
+                end
+            end
+            ra(filtered, false)
+        else
+            ra(apps, more)
+        end
     end
 end
 

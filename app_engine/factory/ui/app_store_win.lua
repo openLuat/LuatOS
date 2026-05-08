@@ -921,6 +921,9 @@ local function olu(apps, pg)
                 table.insert(filtered, app)
             end
         end
+        if #filtered == 0 then
+            return
+        end
         apps = filtered
         tp = math.max(1, math.ceil(#filtered / plim))
         hm = false
@@ -977,7 +980,9 @@ local function oad(aid, ac, sc)
                         table.insert(filtered, app)
                     end
                 end
-                ra(filtered, false)
+                if #filtered > 0 then
+                    ra(filtered, false)
+                end
             else
                 ra(apps, more)
             end
@@ -1048,6 +1053,9 @@ local function ogf()
                     app.installed = true
                     table.insert(filtered, app)
                 end
+            end
+            if #filtered == 0 then
+                return
             end
             ra(filtered, false)
         else

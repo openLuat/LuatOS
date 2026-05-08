@@ -772,7 +772,7 @@ static void airui_keyboard_preview_cleanup_event_cb(lv_event_t *e)
     }
 
     if (runtime->container != NULL && lv_obj_is_valid(runtime->container)) {
-        lv_obj_delete(runtime->container);
+        lv_obj_remove_event_cb_with_user_data(runtime->container, airui_keyboard_preview_container_event_cb, runtime);
     }
 
     if (runtime->keyboard != NULL && lv_obj_is_valid(runtime->keyboard)) {

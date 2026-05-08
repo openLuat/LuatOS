@@ -19,7 +19,11 @@ typedef struct utask
     uint16_t event_cout;
 }utask_t;
 
-static __declspec(thread) utask_t* g_current_task = NULL;
+#ifdef _MSC_VER
+  static __declspec(thread) utask_t* g_current_task = NULL;
+#else
+  static __thread utask_t* g_current_task = NULL;
+#endif
 
 
 

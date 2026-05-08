@@ -270,7 +270,9 @@ static int l_spi_soft(lua_State *L) {
     espi->mode = luaL_optinteger(L, 10, 0);
     luat_gpio_mode(espi->cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
     luat_gpio_mode(espi->mosi, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-    luat_gpio_mode(espi->miso, Luat_GPIO_INPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);
+    if (espi->miso != LUAT_GPIO_NONE){
+        luat_gpio_mode(espi->miso, Luat_GPIO_INPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);
+    }
     if (espi->CPOL == 0)
     {
         luat_gpio_mode(espi->clk, Luat_GPIO_OUTPUT, Luat_GPIO_PULLDOWN, Luat_GPIO_LOW);

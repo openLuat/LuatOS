@@ -29,6 +29,7 @@ local function ip_ready_func(ip, adapter)
         socket.setDNS(adapter, 2, "114.114.114.114")
 
         log.info("netdrv_eth_spi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_ETH))
+        sys.publish("NETDRV_NETWORK_STATUS", true, adapter)
     end
 end
 
@@ -58,14 +59,14 @@ local function netdrv_eth_spi_task_func()
     -- 配置SPI外接以太网芯片CH390H的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_ETH
     -- 本demo使用Air8000开发板测试，开发板上的硬件配置为：
     -- GPIO140为CH390H以太网芯片的供电使能控制引脚
-    -- 使用spi1，片选引脚使用GPIO12，中断引脚使用GPIO21
+    -- 使用spi1，片选引脚使用GPIO12
     -- 如果使用的硬件不是Air8000开发板，根据自己的硬件配置修改以下参数
     exnetif.set_priority_order({
         {
             ETHERNET = {
                 pwrpin = 140, 
                 tp = netdrv.CH390,
-                opts = {spi = 1, cs = 12, irq = 21}
+                opts = {spi = 1, cs = 12}
             }
         }
     })

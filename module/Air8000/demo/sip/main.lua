@@ -51,7 +51,9 @@ log.info("main", PROJECT, VERSION)
 require "netdrv_device"
 
 -- 加载SIP电话应用模块
-require "sip_app"
+-- require "sip_app"
+require "sip_app_key"
+require "sip_app_main"
 
 
 -- 用户代码已结束---------------------------------------------

@@ -670,7 +670,7 @@ target("luatos-lua")
         local mp4player_src = os.getenv("MP4PLAYER_SRC_DIR")
         if not mp4player_src or mp4player_src == "" then
             -- 如果未设置环境变量，使用默认路径（开发者本地约定）
-            mp4player_src = "../luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
+            mp4player_src = "C:/code/cursor/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
             if not os.isdir(mp4player_src) then
                 mp4player_src = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
             end

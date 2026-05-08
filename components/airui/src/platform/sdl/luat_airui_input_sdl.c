@@ -175,25 +175,43 @@ static uint32_t sdl_map_to_lvgl_key(SDL_Keycode key)
     // 右和下 -> NEXT (下一个对象)
     // 左和上 -> PREV (上一个对象)
     
-    if (key == g_keypad_cfg.right || key == SDLK_d) {
+    if (key == g_keypad_cfg.right) {
         return LV_KEY_NEXT;  // 右方向键 -> 下一个
     }
-    if (key == g_keypad_cfg.down || key == SDLK_s) {
+    if (key == g_keypad_cfg.down) {
         return LV_KEY_NEXT;  // 下方向键 -> 下一个
     }
-    if (key == g_keypad_cfg.left || key == SDLK_a) {
+    if (key == g_keypad_cfg.left) {
         return LV_KEY_PREV;  // 左方向键 -> 上一个
     }
-    if (key == g_keypad_cfg.up || key == SDLK_w) {
+    if (key == g_keypad_cfg.up) {
         return LV_KEY_PREV;  // 上方向键 -> 上一个
     }
-    if (key == g_keypad_cfg.ok || key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE) {
+    if (key == g_keypad_cfg.ok || key == SDLK_KP_ENTER) {
         return LV_KEY_ENTER;
     }
-    if (key == g_keypad_cfg.back || key == SDLK_ESCAPE) {
+    if (key == g_keypad_cfg.back) {
         return LV_KEY_ESC;
     }
     return 0;
+}
+
+static uint32_t sdl_map_to_airui_key(SDL_Keycode key)
+{
+    switch (key) {
+        case SDLK_KP_0: return SDLK_0;
+        case SDLK_KP_1: return SDLK_1;
+        case SDLK_KP_2: return SDLK_2;
+        case SDLK_KP_3: return SDLK_3;
+        case SDLK_KP_4: return SDLK_4;
+        case SDLK_KP_5: return SDLK_5;
+        case SDLK_KP_6: return SDLK_6;
+        case SDLK_KP_7: return SDLK_7;
+        case SDLK_KP_8: return SDLK_8;
+        case SDLK_KP_9: return SDLK_9;
+        case SDLK_KP_ENTER: return SDLK_RETURN;
+        default: return (uint32_t)key;
+    }
 }
 
 /**
@@ -376,9 +394,10 @@ static void sdl_process_keyboard_event(const SDL_Event *event, airui_ctx_t *ctx)
     case SDL_KEYDOWN: {
         lv_indev_state_t key_state = (event->type == SDL_KEYDOWN) ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
         uint32_t keypad_key = sdl_map_to_lvgl_key(event->key.keysym.sym);
+        uint32_t airui_key = sdl_map_to_airui_key(event->key.keysym.sym);
         
         // 通知 Lua 键盘订阅回调（传递原始 SDL keycode）
-        airui_keypad_notify(ctx, event->key.keysym.sym, key_state == LV_INDEV_STATE_PRESSED, lv_tick_get());
+        airui_keypad_notify(ctx, airui_key, key_state == LV_INDEV_STATE_PRESSED, lv_tick_get());
         
         if (g_keypad_enabled && keypad_key != 0) {
             airui_keypad_queue_push(keypad_key, key_state);

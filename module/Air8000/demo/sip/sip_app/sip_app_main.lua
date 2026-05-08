@@ -3,6 +3,7 @@ local audio_drv = require "audio_drv"
 local exaudio = require "exaudio"
 
 local TASK_NAME = "sip_app_main_task"
+--测试账号，根据自己实际情况修改
 local SIP_CONFIG = {
     sip_server_addr = "180.152.6.34",
     sip_server_port = 8910,
@@ -29,44 +30,12 @@ local g_sip_status = "STATE_IDLE"
 -- "MSG_DIAL"：呼出
 -- "MSG_INCOMING"：呼入
 -- "MSG_ACCEPT"：接听
--- "MSG_HUNGUP"：拒绝接听
+-- "MSG_HANGUP"：拒绝接听
 -- "MSG_CONNECTED"：已连接
 -- "MSG_DISCONNECTED"：已经断开连接
 -- "MSG_ERROR"：出现异常
 
 local g_audio_inited = false
-local g_dial_timer = nil
-local g_disconnect_timer = nil
-
-local function cancel_dial_timer()
-    if g_dial_timer then
-        sys.timerStop(g_dial_timer)
-        g_dial_timer = nil
-    end
-end
-
-local function cancel_disconnect_timer()
-    if g_disconnect_timer then
-        sys.timerStop(g_disconnect_timer)
-        g_disconnect_timer = nil
-    end
-end
-
-local function on_dial_timeout()
-    if g_sip_status == "STATE_DIALING" then
-        log.warn("sip_app_main_task_func", "dial timeout, auto hangup")
-        sys.sendMsg(TASK_NAME, "sip_app_main_task_func", "MSG_HUNGUP")
-    end
-    g_dial_timer = nil
-end
-
-local function on_disconnect_timeout()
-    if g_sip_status == "STATE_DISCONNECTING" then
-        log.warn("sip_app_main_task_func", "disconnect timeout, force ready")
-        sys.sendMsg(TASK_NAME, "sip_app_main_task_func", "MSG_DISCONNECTED")
-    end
-    g_disconnect_timer = nil
-end
 
 local function start()
     log.info("start", "开始初始化 SIP，当前状态:", g_sip_status)
@@ -101,43 +70,42 @@ end
 -- 如果没有启动，调用停止接口也不应该出问题
 local function stop()
     log.info("stop", "开始停止 SIP，当前状态:", g_sip_status)
-    cancel_dial_timer()
-    cancel_disconnect_timer()
     exsip.stop()
     exaudio.pm(0, audio.SHUTDOWN)
 end
 
-
---拨号，未接通，主动挂断
+--主动拨号，未接通，挂断（如无特别标注，则主动挂断和对方挂断出发的事件顺序相同）
 --sip事件触发顺序：call_ringing -> call_ended
---
---拨号，接通，挂断
---sip事件触发顺序：call_ringing -> media_ready -> call_connected -> voip_state:started -> voip_media:stats -> media_stopped -> call_ended -> voip_state:stopped
---
---来电未接通挂断
+
+--收到来电，未接通，挂断
 --sip事件触发顺序：call_incoming -> call_ringing -> call_ended
 --
---来电接通挂断
+--主动拨号，接通，挂断
+--sip事件触发顺序：call_ringing -> media_ready -> call_connected -> voip_state:started -> voip_media:stats -> media_stopped -> call_ended -> voip_state:stopped
+--
+--来电，接通，挂断
 --sip事件触发顺序：call_incoming -> call_ringing -> media_ready -> call_connected -> voip_state:started -> voip_media:stats -> media_stopped -> call_ended -> voip_state:stopped
 
 --异常情况
---
 --拨号中出现网络切换
---sip事件触发顺序：call_ringing -> error_net -> lifecycle_online -> registered_true -> ready
---
+--sip事件触发顺序：call_ringing -> error_network_changed -> lifecycle_stopped -> lifecycle_online -> register_ok-> ready
+
 --通话中出现网络切换
---sip事件触发顺序：call_ringing -> media_ready -> call_connected -> voip_state:started -> voip_media:stats -> error_net -> voip_state:stopped -> lifecycle_online -> registered_true -> ready
+--sip事件触发顺序：call_ringing -> media_ready -> call_connected -> voip_state:started -> voip_media:stats -> -> error_network_changed -> lifecycle_stopped -> lifecycle_online -> register_ok-> ready
+
 local function sip_callback(event, arg1, arg2, arg3)
     local tag = "sip_callback"
 
     log.info("sip_callback", g_sip_status,event, arg1, arg2, arg3)
 
     if event == "register" then
-        local status, data = arg1, arg2
-        if status then
+        local action, data = arg1, arg2
+        if action == "ok" then
             log.info("sip_callback", "注册成功，有效期:", data.expires, "SIP响应头:", data.headers)
+        elseif action == "challenge" then
+            log.info("sip_callback", "收到认证挑战，继续注册流程")
         else
-            log.error("sip_callback", "注册失败")
+            log.error("sip_callback", "注册失败，action:", action)
             sys.sendMsg(TASK_NAME, tag, "MSG_ERROR")
         end
     elseif event == "ready" then
@@ -191,7 +159,7 @@ local function sip_callback(event, arg1, arg2, arg3)
             log.info("sip_callback", "SIP 服务已在线，本地IP地址为：", data.local_ip)
             if g_sip_status ~= "STATE_INITING" then
                 -- 网络恢复后，SIP 服务可能需要重新初始化
-                sys.sendMsg(TASK_NAME, tag, "MSG_REINIT")
+                -- sys.sendMsg(TASK_NAME, tag, "MSG_REINIT")
             end
         else
             sys.sendMsg(TASK_NAME, tag, "MSG_ERROR")
@@ -257,29 +225,14 @@ local function sip_app_main_task_func()
                         sys.publish("SIP_APP_MAIN_DIAL_RSP", tag, false, "exsip.dial")
                     else
                         g_sip_status = "STATE_DIALING"
-                        -- cancel_dial_timer()
-                        -- g_dial_timer = sys.timerStart(on_dial_timeout, 15000)
                     end
                 else
                     sys.publish("SIP_APP_MAIN_DIAL_RSP", tag, false, g_sip_status)
                 end
             elseif event == "MSG_ERROR" then
-                if g_sip_status == "STATE_DIALING" or g_sip_status == "STATE_INCOMING" or g_sip_status == "STATE_CONNECTED" or g_sip_status == "STATE_DISCONNECTING" then
-                    -- cancel_dial_timer()
-                    -- sys.sendMsg(TASK_NAME, "sip_app_main_task_func", "MSG_DISCONNECTED")
+                -- if g_sip_status == "STATE_DIALING" or g_sip_status == "STATE_INCOMING" or g_sip_status == "STATE_CONNECTED" or g_sip_status == "STATE_DISCONNECTING" then
                     goto EXCEPTION_PROC
-                end
-            elseif event == "MSG_REINIT" then
-                log.info("sip_app_main_task_func", "MSG_REINIT received after lifecycle online", g_sip_status)
-                if g_sip_status ~= "STATE_INITING" then
-                    stop()
-                    g_sip_status = "STATE_INITING"
-                    result = start()
-                    if not result then
-                        log.error("sip_app_main_task_func", "reinit error")
-                        goto EXCEPTION_PROC
-                    end
-                end
+                -- end
             elseif event == "MSG_READY" then
                 if g_sip_status == "STATE_INITING" then
                     g_sip_status = "STATE_READY"
@@ -302,22 +255,10 @@ local function sip_app_main_task_func()
                 else
                     log.warn("sip_app_main_task_func", g_sip_status, tag, "invalid event", event)
                 end
-            elseif event == "MSG_HUNGUP" then
+            elseif event == "MSG_HANGUP" then
                 if g_sip_status == "STATE_DIALING" or g_sip_status == "STATE_INCOMING" or g_sip_status == "STATE_CONNECTED" then--or g_sip_status == "STATE_DISCONNECTING" then
                     if not exsip.hangUp() then
                         log.error("sip_app_main_task_func", "hangUp error")
-                    end
-                    if g_sip_status == "STATE_DIALING" or g_sip_status == "STATE_CONNECTED" then
-                        -- 呼出过程中主动挂断，等待 SIP 断开事件完成再恢复 READY
-                        g_sip_status = "STATE_DISCONNECTING"
-                        cancel_disconnect_timer()
-                        cancel_dial_timer()
-                        g_disconnect_timer = sys.timerStart(on_disconnect_timeout, 5000)
-                    elseif g_sip_status == "STATE_INCOMING" then
-                        -- 来电未接通已主动挂断，直接恢复到 READY 状态
-                        g_sip_status = "STATE_READY"
-                        sys.publish("SIP_APP_MAIN_DISCONNECTED")
-                        exaudio.pm(0, audio.SHUTDOWN)
                     end
                 else
                     log.warn("sip_app_main_task_func", g_sip_status, tag, "invalid event", event)
@@ -325,19 +266,14 @@ local function sip_app_main_task_func()
             elseif event == "MSG_CONNECTED" then
                 if g_sip_status == "STATE_DIALING" or g_sip_status == "STATE_INCOMING" then
                     g_sip_status = "STATE_CONNECTED"
-                    cancel_dial_timer()
                     sys.publish("SIP_APP_MAIN_CONNECTED")
                 else
                     log.warn("sip_app_main_task_func", g_sip_status, tag, "invalid event", event)
                 end
             elseif event == "MSG_DISCONNECTED" then
                 if g_sip_status == "STATE_DIALING" or g_sip_status == "STATE_INCOMING" or g_sip_status == "STATE_CONNECTED" or g_sip_status == "STATE_DISCONNECTING" then
-                    cancel_dial_timer()
-                    cancel_disconnect_timer()
                     g_sip_status = "STATE_READY"
                     sys.publish("SIP_APP_MAIN_DISCONNECTED")
-                -- elseif g_sip_status == "STATE_READY" then
-                --     log.info("sip_app_main_task_func", "MSG_DISCONNECTED ignored, already STATE_READY")
                 else
                     log.warn("sip_app_main_task_func", g_sip_status, tag, "invalid event", event)
                 end
@@ -345,7 +281,6 @@ local function sip_app_main_task_func()
             else
                 log.warn("sip_app_main_task_func", g_sip_status, tag, "invalid event", event)
             end
-       
             log.info("sip_app_main_task_func after process", g_sip_status)
         end
         
@@ -353,7 +288,6 @@ local function sip_app_main_task_func()
         -- 出现异常
         ::EXCEPTION_PROC::
 
-        -- 停止会失败吗？如果停止失败了，需要做什么处理吗？
         stop()
         if g_sip_status ~= "STATE_INITING" then
             sys.publish("SIP_APP_MAIN_LOSE")
@@ -399,30 +333,13 @@ local function accept_req(tag)
 end
 
 local function hangup_req(tag)
-    sys.sendMsg(TASK_NAME, tag, "MSG_HUNGUP")
+    sys.sendMsg(TASK_NAME, tag, "MSG_HANGUP")
 end
-
-local function netdrv_network_status_handler(net_type, adapter)
-    log.info("sip_app_main", "NETDRV_NETWORK_STATUS", net_type, adapter, "status", g_sip_status)
-    if net_type == nil then
-        -- 当前所有网卡都断开
-        if g_sip_status ~= "STATE_IDLE" and g_sip_status ~= "STATE_INITING" then
-            stop()
-            g_sip_status = "STATE_INITING"
-        end
-        return
-    end
-    if g_sip_status ~= "STATE_IDLE" and g_sip_status ~= "STATE_INITING" then
-        sys.sendMsg(TASK_NAME, "sip_app_main", "MSG_REINIT")
-    end
-end
-
 
 sys.subscribe("SIP_APP_MAIN_START_REQ", start_req)
 sys.subscribe("SIP_APP_MAIN_STOP_REQ", stop_req)
 
 sys.subscribe("SIP_APP_MAIN_DIAL_REQ", dial_req)
 sys.subscribe("SIP_APP_MAIN_ACCEPT_REQ", accept_req)
-sys.subscribe("SIP_APP_MAIN_HUNGUP_REQ", hangup_req)
-sys.subscribe("NETDRV_NETWORK_STATUS", netdrv_network_status_handler)
+sys.subscribe("SIP_APP_MAIN_HANGUP_REQ", hangup_req)
 

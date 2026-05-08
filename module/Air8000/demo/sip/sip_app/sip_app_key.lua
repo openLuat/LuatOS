@@ -21,7 +21,7 @@ end
 local function powerkey_handler()
     log.info(g_tag, "按下POWERKEY键")
     g_sip_incoming = false
-    sys.publish("SIP_APP_MAIN_HUNGUP_REQ", g_tag)
+    sys.publish("SIP_APP_MAIN_HANGUP_REQ", g_tag)
 end
 
 -- BOOT键：呼出/接听

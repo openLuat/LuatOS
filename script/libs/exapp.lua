@@ -41,7 +41,7 @@
     6. 云端应用管理（新增功能）
        - 获取远程应用列表（分页）
        - 下载并安装应用（ZIP解压到 /app_store/<aid>/）
-       - 安装成功后写入 install_time 到 meta.json（本地时间戳）
+        - 安装成功后写入 install_time 和 total_downloads 到 meta.json（本地时间戳 + 下载量）
        - 卸载应用（删除目录）
        - 更新应用（先删后装）
        - 图标下载与缓存
@@ -2124,7 +2124,8 @@ for app_dir_name, app_info in pairs(apps) do
     log.info("version:", app_info.version)
     log.info("category:", app_info.category)
     log.info("description:", app_info.description)
-    log.info("install_time:", app_info.install_time)
+     log.info("install_time:", app_info.install_time)
+     log.info("total_downloads:", app_info.total_downloads)
 end
 
 获取单个应用:
@@ -2537,6 +2538,7 @@ function exapp.get_app_list(params)
                 icon_path = info.icon_path,
                 zip_size_kb = info.zip_size_kb,
                 origin_size_kb = info.origin_size_kb,
+                total_downloads = info.total_downloads,
                 install_time = info.install_time
             })
         end
@@ -2768,7 +2770,7 @@ end
 2. APP_STORE_ACTION_DONE - 安装完成（成功/失败）
 3. APP_STORE_ERROR - 错误信息
 4. 安装完成后会自动发布APP_STORE_INSTALLED_UPDATED消息更新已安装列表
-5. 安装成功后会将 install_time（本地时间戳）写入 meta.json 并更新 installed_info
+ 5. 安装成功后会将 install_time（本地时间戳）和 total_downloads（下载量）写入 meta.json 并更新 installed_info
 
 @usage
 -- 安装应用
@@ -2851,7 +2853,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
                 if meta_content then
                     local ok, meta_data = pcall(json.decode, meta_content)
                     if ok then
-                        -- 写入安装时间戳（本地 UTC 时间戳）
+                        -- 写入安装时间戳（本地 UTC 时间戳）和下载量
                         local install_time = os.time()
                         meta_data.install_time = install_time
                         -- 从 remote_app_list.apps 中找到当前 aid 对应的记录
@@ -2864,10 +2866,14 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
                                 end
                             end
                         end
-                        
+                        -- 写入下载量和原始大小（优先使用服务端数据，否则保留 meta.json 原有值）
                         if app_entry then
-                            meta_data.origin_size_kb = app_entry.origin_size_kb or meta_data.origin_size_kb
-                            meta_data.total_downloads = app_entry.total_downloads or meta_data.total_downloads
+                            if app_entry.origin_size_kb then
+                                meta_data.origin_size_kb = app_entry.origin_size_kb
+                            end
+                            if app_entry.total_downloads then
+                                meta_data.total_downloads = app_entry.total_downloads
+                            end
                         end
                         
                         local new_content = json.encode(meta_data)

@@ -663,13 +663,17 @@ target("luatos-lua")
     --   $env:MP4PLAYER_SRC_DIR  = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
     --   cmd /c build_windows_32bit_msvc.bat
     -- =========================================================
-    if os.getenv("LUAT_USE_MP4PLAYER") == "y" then
+    local use_mp4player = true
+    if use_mp4player then
         add_defines("LUAT_USE_MP4PLAYER=1")
 
         local mp4player_src = os.getenv("MP4PLAYER_SRC_DIR")
         if not mp4player_src or mp4player_src == "" then
             -- 如果未设置环境变量，使用默认路径（开发者本地约定）
-            mp4player_src = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
+            mp4player_src = "../luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
+            if not os.isdir(mp4player_src) then
+                mp4player_src = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
+            end
         end
         -- 统一为正斜杠，xmake 在 Windows 下两者均支持
         mp4player_src = mp4player_src:gsub("\\", "/")
@@ -703,7 +707,6 @@ target("luatos-lua")
         add_thirdparty_files(mp4player_src .. "/video_decode/avcodec/h264/libavutil/*.c")
         -- file_open.c 依赖 <fcntl.h> O_CREAT 等宏（config.h 未启用 HAVE_FCNTL），改用 PC stub
         remove_files(mp4player_src .. "/video_decode/avcodec/h264/libavutil/file_open.c")
-        add_files("stubs/mp4player/avcodec_fileopen_pc.c")
         -- *_template.c 是通过 #include 引入的模板文件，不直接参与编译
         remove_files(mp4player_src .. "/video_decode/avcodec/*_template.c")
         remove_files(mp4player_src .. "/video_decode/avcodec/h264/*_template.c")

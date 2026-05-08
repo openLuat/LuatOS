@@ -308,7 +308,9 @@ static int airui_video_select_backend(airui_video_data_t *data)
 
     /* auto 模式下先把 MJPG 路由到 videoplayer backend。 */
     if (data->backend == AIRUI_VIDEO_BACKEND_AUTO) {
-        if (data->format == AIRUI_VIDEO_FORMAT_AUTO || data->format == AIRUI_VIDEO_FORMAT_MJPG) {
+        if (data->format == AIRUI_VIDEO_FORMAT_AUTO ||
+            data->format == AIRUI_VIDEO_FORMAT_MJPG ||
+            data->format == AIRUI_VIDEO_FORMAT_MP4_H264) {
             data->backend = AIRUI_VIDEO_BACKEND_VIDEOPLAYER;
         }
     }
@@ -534,7 +536,9 @@ static int airui_video_vp_open(void **backend_ctx, const airui_video_open_opts_t
     }
 
     /* 当前 videoplayer backend 仅接 MJPG，其他格式先明确返回不支持。 */
-    if (!(opts->format == AIRUI_VIDEO_FORMAT_AUTO || opts->format == AIRUI_VIDEO_FORMAT_MJPG)) {
+    if (!(opts->format == AIRUI_VIDEO_FORMAT_AUTO ||
+          opts->format == AIRUI_VIDEO_FORMAT_MJPG ||
+          opts->format == AIRUI_VIDEO_FORMAT_MP4_H264)) {
         return AIRUI_ERR_NOT_SUPPORTED;
     }
 

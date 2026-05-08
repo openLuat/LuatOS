@@ -3,6 +3,7 @@
 @summary 首页窗口模块，融合主菜单功能，采用选项卡滑动切换
 @version 1.4
 @date    2026.04.28
+@author  江访
 ]]
 
 local win_id = nil
@@ -60,13 +61,10 @@ local COLOR_WHITE          = 0xFFFFFF
 local COLOR_DANGER         = 0xE63946
 
 local product_name = "合宙引擎主机"
-local is_air8000 = false
-local ok, model = pcall(hmeta.model)
-if ok and model then
-    local model_str = tostring(model)
-    local suffix = model_str:gsub("^Air", "")
+local is_air8000 = _G.model_str:find("Air8000") ~= nil
+local suffix = _G.model_str:gsub("^Air", "")
+if suffix ~= "" then
     product_name = "合宙引擎主机" .. suffix
-    is_air8000 = (model_str:find("Air8000") ~= nil)
 end
 
 local function calc_layout()
@@ -134,8 +132,6 @@ local function calc_layout()
     local rows_per_page = math.max(1, math.floor(available_height / (card_h + grid_margin)))
     apps_per_page = grid_cols * rows_per_page
 
-    log.info("idle_win", "layout", screen_w, screen_h, "landscape", is_landscape,
-        "cols", grid_cols, "card", card_w, card_h, "per_page", apps_per_page)
 end
 
 local function update_page_indicator()
@@ -484,7 +480,6 @@ local function on_create()
     else
         icon_start_x = screen_w - status_icon_size - math.floor(12 * _G.density_scale)
     end
-    log.info("idle_win", "status bar layout", top_h, status_icon_size, status_font_size, product_label_h, product_label_y, icon_start_x, status_icon_y)
     wifi_img = airui.image({
         parent = status_bar,
         x = icon_start_x,

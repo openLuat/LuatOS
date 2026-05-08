@@ -3,7 +3,9 @@
 @summary 存储业务逻辑层
 @version 1.0
 @date    2026.04.01
-@author  LuatOS
+@author  江访
+@usage
+本模块为存储业务逻辑层，通过 io.fsstat 获取文件系统容量/已用/可用空间信息并上报。
 ]]
 
 -- ==================== 存储信息 ====================
@@ -15,7 +17,8 @@ local storage_info = {
 }
 
 --[[
-格式化存储大小（字节转可读格式）
+@function format_size
+@summary 格式化存储大小（字节转可读格式）
 @param size 大小（字节）
 @return string 格式化后的字符串
 ]]
@@ -36,12 +39,13 @@ local function format_size(size)
 end
 
 --[[
-获取存储信息
+@function get_storage_info
+@summary 获取文件系统存储信息（PC 模拟器返回模拟数据）
 @return table 存储信息表
 ]]
 local function get_storage_info()
     -- PC模拟器使用模拟数据
-    if rtos.bsp() == "PC" then
+    if _G.model_str:find("PC") then
         -- 总容量 1GB
         local total_bytes = 1024 * 1024 * 1024
 
@@ -106,5 +110,3 @@ end
 
 -- 订阅存储信息查询事件
 sys.subscribe("STORAGE_GET_INFO", storage_info_get_handler)
-
-log.info("settings_storage_app", "模块加载完成")

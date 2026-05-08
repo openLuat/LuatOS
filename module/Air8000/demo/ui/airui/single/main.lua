@@ -1,12 +1,12 @@
 --[[
 @module  main
-@summary exEasyUI组件演示主程序入口
+@summary AirUI组件演示主程序入口
 @version 1.0.0
 @date    2026.03.09
 @author  江访
 @usage
-本文件是exEasyUI演示程序的主入口，用于选择加载不同的UI组件演示模块。
-通过注释/取消注释require语句来运行不同的演示。
+本文件是AirUI演示程序的主入口，用于选择加载不同的UI组件演示模块。
+
 ]]
 
 --[[
@@ -16,7 +16,7 @@ PROJECT：项目名，ascii string类型
 VERSION：项目版本号，ascii string类型
         如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
-            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 

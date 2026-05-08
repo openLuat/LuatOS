@@ -489,6 +489,12 @@ static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
 		else if(http_ctrl->isfota){
 			if (parser->status_code == 200 || parser->status_code == 206){
 				parser->status_code = 200;
+				// 防御性检查：如果body不完整，直接报错，不要进入阻塞等待
+				if (http_ctrl->resp_content_len > 0 && http_ctrl->body_len < http_ctrl->resp_content_len) {
+					LLOGE("fota body incomplete, %lu/%ld", http_ctrl->body_len, http_ctrl->resp_content_len);
+					http_ctrl->error_code = HTTP_ERROR_FOTA;
+					return -1;
+				}
 				int result = luat_fota_done();
 				LLOGD("result1:%d",result);
 				size_t wait_count = 0;

@@ -226,8 +226,6 @@ local function calc_layout()
 
     max_desc_lines = desc_lines
 
-    log.info("app_store_win", "layout", screen_w, screen_h, is_landscape, grid_cols, card_w, card_h, "btn_h",
-        card_btn_height)
 end
 
 local function update_page_display()
@@ -680,36 +678,14 @@ local function render_apps(apps, more)
         })
 
         -- 图标
-        -- /* 原有图标下载+替换逻辑（注释保留）
-        -- local icon_src = nil
-        -- local need_async = false
-        -- if app.icon_path and io.exists(app.icon_path) then
-        --     icon_src = app.icon_path
-        -- elseif app.icon and app.icon ~= "" then
-        --     icon_src = exapp.get_icon_path(app.aid, app.icon)
-        --     if icon_src and io.exists(icon_src) then
-        --     else
-        --         icon_src = "/luadb/img.png"
-        --         need_async = true
-        --     end
-        -- else
-        --     icon_src = "/luadb/img.png"
-        -- end
-        -- */
-        -- 新图标加载逻辑：icon_binary已由enrich_app_list处理并保存到/ram目录，直接使用icon_path
         local icon_src = "/luadb/img.png"
         if app.icon_path and io.exists(app.icon_path) then
             icon_src = app.icon_path
         end
 
-        local icon_img = airui.image({
+        airui.image({
             parent = card, x = 12, y = 12, w = icon_size, h = icon_size, src = icon_src
         })
-        -- /* 原有异步图标更新逻辑（注释保留）
-        -- if need_async then
-        --     pending_icon_updates[app.aid] = { image_component = icon_img }
-        -- end
-        -- */
 
         -- 应用名称
         local name_y = 15

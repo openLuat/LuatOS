@@ -2,13 +2,11 @@
 
 1、main.lua：主程序入口；
 
-2、init_app.lua：初始化模块，负责加载网络驱动和SD卡挂载功能；
+2、cam_control.lua：摄像头控制模块，负责OSD设置、拍照和照片上传；
 
-3、cam_control.lua：摄像头控制模块，负责OSD设置、拍照和照片上传；
+3、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的两种网卡（WiFi STA网卡、SPI以太网卡）中的任何一种网卡；
 
-4、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的两种网卡（WiFi STA网卡、SPI以太网卡）中的任何一种网卡；
-
-5、sdcard_mount_app.lua：SD卡挂载功能模块；
+4、sdcard_mount_app.lua：SD卡挂载功能模块；
 
 ## 演示功能概述
 

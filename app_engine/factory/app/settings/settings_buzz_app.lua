@@ -1,9 +1,11 @@
 --[[
-@module  settings_buzzer_app
+@module  settings_buzz_app
 @summary 蜂鸣器(触摸反馈)业务逻辑层
 @version 1.0
 @date    2026.04.24
-@author  LuatOS
+@author  江访
+@usage
+本模块为蜂鸣器(触摸反馈)业务逻辑层，管理PWM蜂鸣器的开关、发声时长、音量，订阅触摸事件驱动反馈。
 ]]
 
 -- ==================== 配置常量 ====================
@@ -187,5 +189,3 @@ end)
 sys.subscribe("BUZZER_VOLUME_INCREASE", function()
     set_volume(buzzer_volume + 10)
 end)
-
-log.info("settings_buzzer_app", "模块加载完成")

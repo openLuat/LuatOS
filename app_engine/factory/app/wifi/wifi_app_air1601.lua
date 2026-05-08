@@ -3,6 +3,7 @@
 @summary WiFi应用模块（业务逻辑层，事件驱动）
 @version 1.0
 @date    2026.04.05
+@author  江访
 @usage
 -- 接收的事件（来自UI层）：
 --   WIFI_ENABLE_REQ: {enabled}
@@ -27,6 +28,7 @@
 ]]
 
 require "wifi_storage"
+local common = require "wifi_app_common"
 
 local SCAN_TIMEOUT = 20000   -- WiFi扫描超时时间（毫秒），airlink SPI速度慢，给足时间
 local UPDATE_INTERVAL = 5000 -- 网络信息更新间隔（毫秒）
@@ -79,23 +81,7 @@ local function update_status(status)
     for k, v in pairs(status) do
         wifi_status[k] = v
     end
-    
-    local log_status = {
-        connected = wifi_status.connected,
-        ready = wifi_status.ready,
-        current_ssid = wifi_status.current_ssid,
-        rssi = wifi_status.rssi,
-        ip = wifi_status.ip,
-        netmask = wifi_status.netmask,
-        gateway = wifi_status.gateway,
-        bssid = wifi_status.bssid
-    }
-    log.info("wifi_app", "WiFi状态更新:", json.encode(log_status))
-    
-    if saved_config then
-        log_status.wifi_enabled = saved_config.wifi_enabled
-    end
-    sys.publish("WIFI_STATUS_UPDATED", log_status)
+    common.update_status(wifi_status, saved_config)
 end
 
 --[[
@@ -103,16 +89,8 @@ end
 @summary 刷新并更新网络信息（IP、网关、子网掩码等）
 ]]
 local function refresh_network_info()
-    if not socket.adapter(socket.LWIP_STA) then
-        log.warn("wifi_app", "正在获取IP地址")
-        return
-    end
-    
-    local wlan_info = wlan.getInfo()
-    if wlan_info then
-        if wlan_info.rssi then
-            wifi_status.rssi = wlan_info.rssi
-            -- 根据RSSI推送WiFi信号等级
+    local function update_wifi_signal()
+        if wlan_info then
             local rssi = wlan_info.rssi
             local level = 0
             if rssi > -60 then level = 4
@@ -121,25 +99,8 @@ local function refresh_network_info()
             else level = 1 end
             sys.publish("STATUS_WIFI_SIGNAL_UPDATED", level)
         end
-        if wlan_info.bssid then
-            wifi_status.bssid = wlan_info.bssid
-        end
-        if wlan_info.gw then
-            wifi_status.gateway = wlan_info.gw
-        end
     end
-    
-    local ip, netmask, gateway = socket.localIP(socket.LWIP_STA)
-    if ip then
-        wifi_status.ip = ip
-        wifi_status.netmask = netmask
-        wifi_status.gateway = gateway
-        wifi_status.ready = true
-    else
-        wifi_status.ready = false
-    end
-    
-    update_status(wifi_status)
+    common.refresh_network_info(wifi_status, update_wifi_signal)
 end
 
 --[[
@@ -250,15 +211,7 @@ local function handle_wifi_sta_event(evt, data)
             update_timer = nil
         end
         
-        local reason = "未知错误"
-        if data == 260 then reason = "DHCP超时"
-        elseif data == 259 then reason = "程序主动断开"
-        elseif data == 258 then reason = "密码错误"
-        elseif data == 257 then reason = "找不到对应SSID"
-        elseif data == 256 then reason = "信号丢失"
-        elseif data == 3 then reason = "软件主动断开"
-        end
-        
+        local reason = common.resolve_disconnect_reason(data)
         sys.publish("WIFI_DISCONNECTED", reason, data)
         sys.publish("STATUS_WIFI_SIGNAL_UPDATED", 0)
         last_connect_status = "DISCONNECTED"
@@ -280,9 +233,11 @@ end
 ]]
 local function handle_ip_ready(ip, adapter)
     if adapter == socket.LWIP_STA then
-        log.info("wifi_app", "WiFi IP就绪:", ip)
-        refresh_network_info()
+        socket.setDNS(adapter, 1, "223.5.5.5")
+        socket.setDNS(adapter, 2, "114.114.114.114")
+        log.info("wifi_app", "WiFi IP就绪，DNS已设置:", ip)
     end
+    common.handle_ip_ready(ip, adapter, wifi_status, refresh_network_info)
 end
 
 --[[
@@ -291,14 +246,7 @@ end
 @param number adapter - 网卡适配器
 ]]
 local function handle_ip_lose(adapter)
-    if adapter == socket.LWIP_STA then
-        log.info("wifi_app", "WiFi IP断开")
-        wifi_status.ready = false
-        wifi_status.ip = "--"
-        wifi_status.netmask = "--"
-        wifi_status.gateway = "--"
-        update_status(wifi_status)
-    end
+    common.handle_ip_lose(adapter, wifi_status)
 end
 
 --[[
@@ -306,25 +254,10 @@ end
 @summary 处理WiFi扫描完成事件
 ]]
 local function handle_scan_done()
-    if scan_timer then
-        sys.timerStop(scan_timer)
-        scan_timer = nil
-    end
-    scan_in_progress = false
-    
-    local results = wlan.scanResult() or {}
-    
-    local filtered_results = {}
-    for _, wifi in ipairs(results) do
-        if wifi.ssid and wifi.ssid ~= "" then
-            table.insert(filtered_results, wifi)
-        end
-    end
-    
-    wifi_status.scan_results = filtered_results
-    sys.publish("WIFI_SCAN_DONE", wifi_status.scan_results)
-    sys.publish("WIFI_DONE",results)
-    log.info("wifi_app", "扫描完成，找到", #wifi_status.scan_results, "个热点")
+    local st_ref = {}
+    st_ref[1] = scan_timer
+    common.handle_scan_done(wifi_status, st_ref, function() scan_in_progress = false end)
+    scan_timer = st_ref[1]
 end
 
 --[[
@@ -334,8 +267,7 @@ end
 local function handle_scan_timeout()
     scan_timer = nil
     scan_in_progress = false
-    sys.publish("WIFI_SCAN_TIMEOUT")
-    log.warn("wifi_app", "扫描超时")
+    common.handle_scan_timeout({})
 end
 
 --[[
@@ -344,65 +276,7 @@ end
 @return table {verified, ssid, password, signal, config} - 验证结果
 ]]
 local function auto_scan_and_verify()
-    log.info("wifi_app", "开始自动扫描并查找最佳已保存网络")
-
-    -- 获取所有已保存网络
-    sys.publish("WIFI_STORAGE_GET_SAVED_LIST_REQ")
-    local got_list, saved_data = sys.waitUntil("WIFI_STORAGE_GET_SAVED_LIST_RSP", 3000)
-    local saved_list = (got_list and saved_data and saved_data.list) or {}
-
-    -- 确保当前配置中的SSID也在列表中
-    if saved_config.ssid and saved_config.ssid ~= "" and saved_config.password and saved_config.password ~= "" then
-        local exists = false
-        for _, s in ipairs(saved_list) do
-            if s.ssid == saved_config.ssid then exists = true; break end
-        end
-        if not exists then
-            table.insert(saved_list, {
-                ssid = saved_config.ssid, password = saved_config.password,
-                need_ping = saved_config.need_ping, local_network_mode = saved_config.local_network_mode,
-                ping_ip = saved_config.ping_ip, ping_time = saved_config.ping_time,
-                auto_socket_switch = saved_config.auto_socket_switch
-            })
-        end
-    end
-
-    if #saved_list == 0 then
-        log.info("wifi_app", "没有已保存的网络")
-        return { verified = false }
-    end
-
-    -- 执行扫描
-    sys.publish("WIFI_SCAN_REQ")
-    local scan_done, results = sys.waitUntil("WIFI_SCAN_DONE", SCAN_TIMEOUT + 5000)
-
-    if not scan_done then
-        log.error("wifi_app", "自动扫描超时")
-        return { verified = false }
-    end
-
-    -- 在所有扫描结果中匹配已保存网络，选信号最强的
-    local best_ssid, best_password, best_rssi = nil, nil, -200
-    local best_config = nil
-
-    for _, wifi in ipairs(results or {}) do
-        for _, saved in ipairs(saved_list) do
-            if wifi.ssid == saved.ssid and (wifi.rssi or -200) > best_rssi then
-                best_ssid = saved.ssid
-                best_password = saved.password
-                best_rssi = wifi.rssi or -200
-                best_config = saved
-            end
-        end
-    end
-
-    if best_ssid then
-        log.info("wifi_app", "找到最佳已保存网络:", best_ssid, "信号:", best_rssi)
-        return { verified = true, ssid = best_ssid, password = best_password, signal = best_rssi, config = best_config }
-    end
-
-    log.info("wifi_app", "未在附近找到任何已保存网络")
-    return { verified = false }
+    return common.auto_scan_and_verify(saved_config, SCAN_TIMEOUT + 5000)
 end
 
 --[[
@@ -410,7 +284,7 @@ end
 @summary 运行自动连接任务
 ]]
 local function run_auto_connect_task()
-    if rtos.bsp() == "PC" then
+    if _G.model_str:find("PC") then
         -- PC模拟器直接跳过后面的硬件初始化
     else
         if not saved_config.wifi_enabled then
@@ -469,17 +343,16 @@ local function on_storage_load_rsp(data)
     sys.taskInit(run_auto_connect_task)
 end
 
+local function on_storage_set_enabled_rsp(data)
+    common.on_storage_set_enabled_rsp(data, saved_config)
+end
+
 --[[
 @function on_storage_set_enabled_rsp
 @summary 处理WIFI_STORAGE_SET_ENABLED_RSP事件
 @param table data - 包含success和enabled字段的响应数据
 ]]
-local function on_storage_set_enabled_rsp(data)
-    log.info("wifi_app", "设置开关响应:", data.success, data.enabled)
-    if saved_config then
-        saved_config.wifi_enabled = data.enabled
-    end
-end
+
 
 --[[
 @function on_enable_req
@@ -495,7 +368,7 @@ local function on_enable_req(data)
     end
     sys.publish("WIFI_STORAGE_SET_ENABLED_REQ", {enabled = enabled})
     
-    if rtos.bsp() == "PC" then
+    if _G.model_str:find("PC") then
         if not enabled then
             wifi_status.connected = false
             wifi_status.ready = false
@@ -564,7 +437,7 @@ end
 local function on_scan_req()
     log.info("wifi_app", "收到扫描请求")
     
-    if rtos.bsp() == "PC" then
+    if _G.model_str:find("PC") then
         sys.publish("WIFI_SCAN_STARTED")
         sys.taskInit(function()
             sys.wait(1500)
@@ -646,7 +519,7 @@ local function on_connect_req(data)
         advanced_config = advanced_config
     })
     
-    if rtos.bsp() == "PC" then
+    if _G.model_str:find("PC") then
         sys.publish("WIFI_CONNECTING", ssid)
         sys.taskInit(function()
             sys.wait(2000)
@@ -719,7 +592,7 @@ local function on_disconnect_req()
     log.info("wifi_app", "收到断开请求")
     user_initiated_disconnect = true
     
-    if rtos.bsp() == "PC" then
+    if _G.model_str:find("PC") then
         wifi_status.connected = false
         wifi_status.current_ssid = ""
         wifi_status.ready = false
@@ -743,15 +616,7 @@ end
 @summary 处理WIFI_GET_STATUS_REQ事件（获取当前状态）
 ]]
 local function on_get_status_req()
-    log.info("wifi_app", "收到获取状态请求")
-    local status = {}
-    for k, v in pairs(wifi_status) do
-        status[k] = v
-    end
-    if saved_config then
-        status.wifi_enabled = saved_config.wifi_enabled
-    end
-    sys.publish("WIFI_STATUS_UPDATED", status)
+    common.on_get_status_req(wifi_status, saved_config)
 end
 
 --[[
@@ -759,8 +624,7 @@ end
 @summary 处理WIFI_GET_CONFIG_REQ事件（获取配置）
 ]]
 local function on_get_config_req()
-    log.info("wifi_app", "收到获取配置请求")
-    sys.publish("WIFI_CONFIG_RSP", {config = saved_config})
+    common.on_get_config_req(saved_config)
 end
 
 --[[
@@ -768,25 +632,11 @@ end
 @summary 处理WIFI_GET_SAVED_LIST_REQ事件（获取已保存网络列表）
 ]]
 local function on_get_saved_list_req()
-    log.info("wifi_app", "收到获取已保存网络列表请求")
-    
-    if rtos.bsp() == "PC" then
-        local list = {
-            {ssid = "TP-LINK_ABC", password = "12345678", need_ping = true, local_network_mode = false, ping_ip = "8.8.8.8", ping_time = "10000", auto_socket_switch = true},
-            {ssid = "ChinaNet-5G", password = "abcdefgh", need_ping = true, local_network_mode = true, ping_ip = "192.168.1.1", ping_time = "5000", auto_socket_switch = false},
-            {ssid = "CMCC-8888", password = "88888888", need_ping = false, local_network_mode = false, ping_ip = "", ping_time = "20000", auto_socket_switch = true},
-            {ssid = "HUAWEI-123", password = "huawei123", need_ping = true, local_network_mode = true, ping_ip = "114.114.114.114", ping_time = "15000", auto_socket_switch = true},
-            {ssid = "NETGEAR_5GHz", password = "netgear5g", need_ping = true, local_network_mode = false, ping_ip = "8.8.4.4", ping_time = "10000", auto_socket_switch = false},
-        }
-        sys.publish("WIFI_SAVED_LIST_RSP", {list = list})
-    else
-        sys.publish("WIFI_STORAGE_GET_SAVED_LIST_REQ")
-    end
+    common.on_get_saved_list_req(saved_config)
 end
 
 local function on_storage_get_saved_list_rsp(data)
-    log.info("wifi_app", "收到已保存网络列表，数量:", #data.list)
-    sys.publish("WIFI_SAVED_LIST_RSP", {list = data.list})
+    common.on_storage_get_saved_list_rsp(data)
 end
 
 --[[
@@ -795,15 +645,7 @@ end
 @param table data - 包含success字段的响应数据
 ]]
 local function on_storage_init_rsp(data)
-    log.info("wifi_app", "storage初始化响应:", data.success)
-    
-    if not data.success then
-        log.error("wifi_app", "storage初始化失败")
-        return
-    end
-    
-    sys.publish("WIFI_STORAGE_LOAD_REQ")
-    log.info("wifi_app", "初始化完成")
+    common.on_storage_init_rsp(data)
 end
 
 --[[

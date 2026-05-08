@@ -9,26 +9,8 @@
 所有模块在加载时自动执行初始化，无需额外调用。
 ]]
 
--- 平台检测
-local function get_model()
-    local ok, m = pcall(hmeta.model)
-    if ok and m then return tostring(m) end
-    return rtos.bsp() or ""
-end
-local model = get_model()
-local is_air1601 = model:find("Air1601") or model:find("Air1602")
 
--- Air1601/Air1602: GPIO55供电给Air780EPM WiFi模块
-if is_air1601 then
-    gpio.setup(55, 1)
-end
-
--- 加载网络驱动设备功能模块
--- Air1601/Air1602通过netdrv_device注册WiFi网卡驱动
--- Air8000/Air8101由exnetif自行管理网络适配器
-if is_air1601 then
-    require "netdrv_device"
-end
+require "netdrv_device"
 
 -- 加载 wifi_app 主模块
 require "wifi_app"

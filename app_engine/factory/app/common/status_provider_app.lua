@@ -21,14 +21,7 @@
 7、StatusProvider.get_history()：获取传感器历史数据（保留接口）
 ]]
 
--- 平台检测：判断是否为Air8000（4G+WiFi）芯片
-local function is_air8000()
-    local ok, m = pcall(hmeta.model)
-    if ok and m then return tostring(m):find("Air8000") ~= nil end
-    local bsp = rtos.bsp()
-    return bsp and bsp ~= "Air8101" and bsp ~= "PC" and bsp:find("Air1601") == nil and bsp:find("Air1602") == nil
-end
-local _is_air8000 = is_air8000()
+local _is_air8000 = _G.model_str:find("Air8000") ~= nil
 
 -- 当前时间字符串，格式为"HH:MM"
 local current_time = "08:00"
@@ -222,7 +215,7 @@ local function init()
         -- Air8000：4G + WiFi 双通路
         sys.subscribe("SIM_IND", handle_sim_ind)
 
-        if rtos.bsp() == "PC" then
+        if _G.model_str:find("PC") then
             sim_present = true
         else
             sim_present = mobile.simPin() or false
@@ -238,7 +231,7 @@ local function init()
         end)
     else
         -- 非Air8000（Air8101/Air1601/PC等）：仅WiFi
-        if rtos.bsp() == "PC" then
+        if _G.model_str:find("PC") then
             -- PC平台无需额外操作
         else
             -- Air8101/Air1601等WiFi芯片：初始获取WiFi状态

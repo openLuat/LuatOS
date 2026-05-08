@@ -3,7 +3,7 @@
 @summary 设置配置管理模块
 @version 1.0
 @date    2026.04.02
-@author  LuatOS
+@author  江访
 @usage
 本模块管理应用配置参数，使用fskv进行持久化存储。
 功能：
@@ -31,20 +31,21 @@ local fskv_initialized = false
 -- ==================== 私有函数 ====================
 
 --[[
-获取默认设备名称（动态拼接模组型号 + 后缀）
+@function get_default_device_name
+@summary 获取默认设备名称（动态拼接模组型号 + 后缀）
 @return string 默认设备名称
 ]]
 local function get_default_device_name()
-    local ok, model = pcall(hmeta.model)
-    if ok and model then
-        local suffix = tostring(model):gsub("^Air", "")
+    local suffix = _G.model_str:gsub("^Air", "")
+    if suffix ~= "" then
         return "合宙引擎主机" .. suffix
     end
     return "合宙引擎主机"
 end
 
 --[[
-初始化fskv
+@function init_fskv
+@summary 初始化 fskv，如未初始化则设置默认值
 @return boolean 初始化是否成功
 ]]
 local function init_fskv()
@@ -73,7 +74,8 @@ local function init_fskv()
 end
 
 --[[
-获取配置值
+@function get_config
+@summary 获取配置值
 @param key 配置键名
 @param default_value 默认值（可选）
 @return any 配置值
@@ -94,7 +96,8 @@ local function get_config(key, default_value)
 end
 
 --[[
-设置配置值
+@function set_config
+@summary 设置配置值并发布变更事件
 @param key 配置键名
 @param value 配置值
 @return boolean 是否设置成功
@@ -121,7 +124,8 @@ end
 -- ==================== 设备名称相关接口 ====================
 
 --[[
-获取设备名称
+@function get_device_name
+@summary 获取设备名称
 @return string 设备名称
 ]]
 local function get_device_name()
@@ -129,7 +133,8 @@ local function get_device_name()
 end
 
 --[[
-设置设备名称
+@function set_device_name
+@summary 设置设备名称
 @param name 设备名称
 @return boolean 是否设置成功
 ]]
@@ -155,11 +160,5 @@ sys.subscribe("CONFIG_SET_DEVICE_NAME", function(name)
     end
 end)
 
--- ==================== 事件订阅 ====================
--- 订阅 settings_app 初始化通知
-sys.subscribe("SETTINGS_APP_INIT", function()
-    log.info("settings_config_app", "收到初始化通知")
-    init_fskv()
-end)
 
-log.info("settings_config_app", "模块加载完成")
+init_fskv()

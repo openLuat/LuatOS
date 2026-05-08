@@ -90,6 +90,9 @@ end
 
 -- SNTP同步主逻辑
 local function sntp_sync_loop()
+    if _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
+        socket.dft(socket.LWIP_STA)
+    end
     --查看网卡适配器的联网状态是否IP_READY,true表示已经准备好可以联网了,false暂时不可以联网
     while not socket.adapter(socket.dft()) do
         log.warn("sntp", "wait IP_READY", socket.dft())

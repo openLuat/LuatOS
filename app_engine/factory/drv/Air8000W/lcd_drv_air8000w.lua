@@ -61,10 +61,6 @@ function lcd_drv.init()
     log.info("lcd.init", result)
 
     if result then
-        -- 开启缓冲区, 刷屏速度会加快, 但也消耗2倍屏幕分辨率的内存
-        -- lcd.setupBuff(nil, true)
-        -- lcd.autoFlush(false)
-
         -- 初始化AirUI
         local width, height = lcd.getSize()
         local result = airui.init(width, height)
@@ -83,10 +79,7 @@ function lcd_drv.init()
         })
 
         airui.set_rotation(0)
-        -- 查询当前固件内AirUI核心库版本
         local version_result = airui.version()
-
-        -- 打印查询结果
         log.info("airui", "version -> " .. version_result)
 
         local rotation = airui.get_rotation()

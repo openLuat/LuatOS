@@ -3,9 +3,8 @@
 @summary WiFi详情窗口（UI层，事件驱动）- 自适应分辨率
 @version 1.1
 @date    2026.04.16
+@author  江访
 ]]
-
-require "wifi_app"
 
 local SCREEN_W, SCREEN_H = 480, 800
 local MARGIN = 15
@@ -284,7 +283,6 @@ local function detail_on_config_rsp(data)
 end
 
 local function detail_on_create()
-    log.info("wifi_detail_win", "WiFi详情窗口创建")
     detail_create_ui()
     sys.publish("WIFI_GET_STATUS_REQ")
     sys.publish("WIFI_GET_CONFIG_REQ")
@@ -293,7 +291,6 @@ local function detail_on_create()
 end
 
 local function detail_on_destroy()
-    log.info("wifi_detail_win", "WiFi详情窗口销毁")
     sys.unsubscribe("WIFI_STATUS_UPDATED", detail_on_status_updated)
     sys.unsubscribe("WIFI_CONFIG_RSP", detail_on_config_rsp)
     if detail_main_container then
@@ -316,9 +313,7 @@ local function open()
             on_get_focus = detail_on_get_focus,
             on_lose_focus = detail_on_lose_focus,
         })
-        log.info("wifi_detail_win", "WiFi详情窗口打开，ID:", detail_win_id)
     end
 end
 
 sys.subscribe("OPEN_WIFI_DETAIL_WIN", open)
-log.info("wifi_detail_win", "订阅 OPEN_WIFI_DETAIL_WIN 消息")

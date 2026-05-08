@@ -67,6 +67,7 @@ sys.subscribe("WLAN_STA_INC", wifi_sta_func)
 local _airlink_init_done = false
 
 local function netdrv_wifi_task_func()
+    socket.dft(socket.LWIP_STA)
     if _airlink_init_done then return end
     _airlink_init_done = true
     -- 使用pcall保护，避免首次开机时airlink未就绪导致的死机
@@ -99,4 +100,3 @@ end
 -- 在处理函数中初始化airlink和wifi
 -- 因为airlink和wlan初始化要求必须在task中被调用，所以此处启动一个task
 sys.taskInit(netdrv_wifi_task_func)
-

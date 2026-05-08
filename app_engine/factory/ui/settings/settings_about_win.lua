@@ -1,12 +1,11 @@
--- settings_about_win.lua
 --[[
 @module  settings_about_win
 @summary 关于设备子页面
 @version 1.2 (自适应分辨率，移除内存信息)
 @date    2026.04.16
+@author  江访
 ]]
 
-require "settings_about_app"
 
 local win_id = nil
 local main_container
@@ -251,9 +250,8 @@ end
 local function create_ui()
     update_screen_size()
 
-    local ok, model = pcall(hmeta.model)
-    if ok and model then
-        local suffix = tostring(model):gsub("^Air", "")
+    local suffix = _G.model_str:gsub("^Air", "")
+    if suffix ~= "" then
         product_name = "合宙引擎主机" .. suffix
     end
 

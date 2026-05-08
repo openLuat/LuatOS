@@ -3,9 +3,9 @@
 @summary WiFi列表窗口（UI层，事件驱动）- 自适应分辨率
 @version 1.1
 @date    2026.04.16
+@author  江访
 ]]
 
-require "wifi_app"
 require "wifi_connect_win"
 require "wifi_detail_win"
 
@@ -454,7 +454,6 @@ local function list_on_config_rsp(data)
 end
 
 local function list_on_create()
-    log.info("wifi_list_win", "WiFi列表窗口创建")
     list_create_ui()
     sys.publish("WIFI_GET_STATUS_REQ")
     sys.publish("WIFI_GET_CONFIG_REQ")
@@ -471,7 +470,6 @@ local function list_on_create()
 end
 
 local function list_on_destroy()
-    log.info("wifi_list_win", "WiFi列表窗口销毁")
     sys.unsubscribe("WIFI_SCAN_STARTED", list_on_scan_started)
     sys.unsubscribe("WIFI_SCAN_DONE", list_on_scan_done)
     sys.unsubscribe("WIFI_SCAN_TIMEOUT", list_on_scan_timeout)
@@ -502,7 +500,6 @@ local function list_on_destroy()
 end
 
 local function list_on_get_focus()
-    log.info("wifi_list_win", "WiFi列表窗口获得焦点")
     sys.publish("WIFI_GET_STATUS_REQ")
     if current_config and current_config.wifi_enabled then
         sys.publish("WIFI_SCAN_REQ")

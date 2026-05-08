@@ -29,7 +29,7 @@ local port, pin_rst, bl = lcd.RGB, 15, 13
 function lcd_drv.init()
     local result = lcd.init("custom", {
         port      = port,
-        -- pin_rst   = pin_rst,
+        pin_rst   = pin_rst,
         direction = 0,
         w         = 1024,
         h         = 600,

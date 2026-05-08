@@ -3,6 +3,7 @@
 @summary WiFi存储模块（fskv封装）
 @version 1.0
 @date    2026.04.05
+@author  江访
 @usage
 -- 完全通过事件交互，不对外提供函数
 -- 接收的事件：
@@ -160,17 +161,11 @@ end
 ]]
 local function on_init_req()
     log.info("wifi_storage", "收到初始化请求")
-    log.info("wifi_storage", "DEBUG: calling fskv.init")
-
     local success = fskv.init()
-    log.info("wifi_storage", "DEBUG: fskv.init done", success)
     if success then
         log.info("wifi_storage", "fskv 初始化成功")
-        log.info("wifi_storage", "DEBUG: calling load_from_fskv")
         load_from_fskv()
-        log.info("wifi_storage", "DEBUG: calling load_saved_list")
         load_saved_list_from_file()
-        log.info("wifi_storage", "DEBUG: subscribing events")
 
         sys.subscribe("WIFI_STORAGE_SAVE_REQ", function(data)
             log.info("wifi_storage", "收到保存请求，ssid:", data.ssid)

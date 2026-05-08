@@ -3,6 +3,7 @@
 @summary 设置主页面窗口
 @version 1.1 (自适应分辨率)
 @date    2026.04.16
+@author  江访
 ]]
 
 require "settings_display_win"
@@ -122,11 +123,7 @@ local function create_ui()
         })
     end
 
-    local is_air8000 = false
-    local ok, m = pcall(hmeta.model)
-    if ok and m then
-        is_air8000 = tostring(m):find("Air8000") ~= nil
-    end
+    local is_air8000 = _G.model_str:find("Air8000") ~= nil
 
     local y = math.floor(20 * _G.density_scale)
     create_setting_card(y, "显示亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)

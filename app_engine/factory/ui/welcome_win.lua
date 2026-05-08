@@ -36,9 +36,8 @@ local function resolution_adapt()
     MOUSE_W = mouse_size
     MOUSE_H = mouse_size
 
-    local ok, model = pcall(hmeta.model)
-    if ok and model then
-        local suffix = tostring(model):gsub("^Air", "")
+    local suffix = _G.model_str:gsub("^Air", "")
+    if suffix ~= "" then
         product_name = "合宙引擎主机" .. suffix
     end
 end

@@ -73,6 +73,18 @@ typedef struct luat_vp_decoder_ops {
     void (*deinit)(void *ctx);
 } luat_vp_decoder_ops_t;
 
+typedef enum {
+    LUAT_VP_PROF_T_DEMUX = 0,
+    LUAT_VP_PROF_T_READ,
+    LUAT_VP_PROF_T_ANNEXB,
+    LUAT_VP_PROF_T_DECODE,
+    LUAT_VP_PROF_T_YUV2RGB,
+    LUAT_VP_PROF_T_COPY,
+    LUAT_VP_PROF_T_DRAW,
+    LUAT_VP_PROF_T_FLUSH,
+    LUAT_VP_PROF_T_COUNT
+} luat_vp_prof_stage_t;
+
 /* ---- Player context (opaque) ---- */
 typedef struct luat_vp_ctx luat_vp_ctx_t;
 
@@ -101,6 +113,20 @@ void luat_videoplayer_close(luat_vp_ctx_t *ctx);
  * @return LUAT_VP_OK on success, LUAT_VP_ERR_EOF at end, negative on error.
  */
 int luat_videoplayer_read_frame(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame);
+
+/**
+ * Read and decode the next video frame, optionally borrowing backend-owned
+ * frame memory to avoid an extra copy on direct draw paths.
+ * @param ctx       Player context.
+ * @param frame     Output: decoded frame.
+ * @param borrowed  Output: 1 when frame->data is backend-owned and must not be
+ *                  freed by the caller, 0 when caller owns frame->data and
+ *                  should free it with luat_videoplayer_frame_free().
+ * @return LUAT_VP_OK on success, LUAT_VP_ERR_EOF at end, negative on error.
+ */
+int luat_videoplayer_read_frame_ref(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, uint8_t *borrowed);
+
+int luat_videoplayer_read_frame_to(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame, uint8_t *out_buf, size_t out_buf_size);
 
 /**
  * Free frame data allocated by luat_videoplayer_read_frame().
@@ -133,6 +159,10 @@ int luat_videoplayer_set_decode_mode(luat_vp_ctx_t *ctx,
  * @param enable  1 to enable, 0 to disable.
  */
 void luat_videoplayer_set_debug(int enable);
+
+uint64_t luat_videoplayer_prof_now_ms(void);
+void luat_videoplayer_prof_add_time(luat_vp_prof_stage_t stage, uint32_t elapsed_ms);
+void luat_videoplayer_prof_mark_frame(void);
 
 /* ---- Decoder backends (provided by src/) ---- */
 

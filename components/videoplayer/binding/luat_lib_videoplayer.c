@@ -153,9 +153,10 @@ static int l_videoplayer_read_frame(lua_State *L) {
     }
 
     luat_vp_frame_t frame;
+    uint8_t borrowed = 0;
     memset(&frame, 0, sizeof(frame));
 
-    int ret = luat_videoplayer_read_frame(ud->ctx, &frame);
+    int ret = luat_videoplayer_read_frame_ref(ud->ctx, &frame, &borrowed);
     if (ret == LUAT_VP_ERR_EOF) {
         lua_pushnil(L);
         lua_pushstring(L, "eof");
@@ -236,9 +237,10 @@ static int l_videoplayer_draw_frame(lua_State *L) {
     }
 
     luat_vp_frame_t frame;
+    uint8_t borrowed = 0;
     memset(&frame, 0, sizeof(frame));
 
-    int ret = luat_videoplayer_read_frame(ud->ctx, &frame);
+    int ret = luat_videoplayer_read_frame_ref(ud->ctx, &frame, &borrowed);
     if (ret == LUAT_VP_ERR_EOF) {
         lua_pushnil(L);
         lua_pushstring(L, "eof");
@@ -256,7 +258,9 @@ static int l_videoplayer_draw_frame(lua_State *L) {
                   (luat_color_t *)frame.data);
     lcd_auto_flush(lcd);
 
-    luat_videoplayer_frame_free(&frame);
+    if (!borrowed) {
+        luat_videoplayer_frame_free(&frame);
+    }
     lua_pushboolean(L, 1);
     return 1;
 }

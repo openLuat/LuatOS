@@ -1,1 +1,0 @@
-{"connect_timeout":10,"max_reconnect":5,"heartbeat_interval":10,"reconnect_interval":5,"server_url":"wss://echo.airtun.air32.cn/ws/echo","response_timeout":5}

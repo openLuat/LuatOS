@@ -32,14 +32,13 @@ else
 end
 ]]
 _G.screen_w, _G.screen_h = 480, 800
-_G.screen_size = 5.0  -- 屏幕物理尺寸(英寸)，用于像素密度计算
+_G.screen_size = 4.0  -- 屏幕物理尺寸(英寸)，用于像素密度计算
 _G.density_scale = 1.0 -- 默认值，lcd_drv.init() 中根据实际PPI更新
 _G.is_landscape = false
 
 local lcd_drv = {}
 
 function lcd_drv.init()
-    pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
     gpio.setup(28, 1) -- 28号GPIO引脚设置为输出模式
     gpio.set(28, 1)  -- 将28号GPIO引脚设置为
     -- 开启屏幕供电

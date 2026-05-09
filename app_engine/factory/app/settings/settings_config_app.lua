@@ -17,7 +17,11 @@
 
 -- 配置项键名
 local CK = {
-    DEVICE_NAME = "device_name"
+    DEVICE_NAME     = "device_name",
+    IOT_ACCOUNT     = "iot_account",
+    IOT_PASSWORD    = "iot_password",
+    IOT_NICKNAME    = "iot_nickname",
+    IOT_LOGIN_TIME  = "iot_login_time"
 }
 
 -- 默认值（不在此处定义，动态生成）

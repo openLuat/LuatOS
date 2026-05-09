@@ -309,10 +309,10 @@ local function cui()
 end
 
 local function oc()
-    cui()
     sys.subscribe("IOT_LOGIN_RESULT", on_login_resp)
     sys.subscribe("IOT_LOGOUT_RESULT", on_logout_resp)
     sys.subscribe("IOT_ACCOUNT_INFO", up_info)
+    cui()
 end
 
 local function od()

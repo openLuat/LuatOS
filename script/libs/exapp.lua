@@ -2073,6 +2073,7 @@ function exapp.iot_get_auth_headers(appid)
 end
 
 function exapp.iot_auto_login()
+    fskv.init()
     iot_load_state()
     if iot_info.is_guest then
         log.info("iot", "auto login skipped, guest mode")

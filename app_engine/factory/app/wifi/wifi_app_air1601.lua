@@ -44,7 +44,7 @@
 require "wifi_storage"
 local cm = require "wifi_app_common"
 
-local SCAN_TIMEOUT = 15000
+local SCAN_TIMEOUT = 20000
 local UPDATE_INTERVAL = 5000
 
 local ws = { connected = false, ready = false, current_ssid = "", rssi = "--", ip = "--", netmask = "--", gateway = "--", bssid = "--", scan_results = {} }
@@ -113,6 +113,7 @@ local function iwh()
     wlan.setMode(wlan.STATIONAP)
     wi = true
     wp = false
+    sys.wait(5000)
     log.info("wa", "airlink+wlan硬件初始化完成")
     sys.publish("WIFI_HW_READY")
 end
@@ -299,7 +300,7 @@ local function osr()
         ewi()
         log.info("wa", "等待WiFi硬件初始化完成后再扫描")
         sys.taskInit(function()
-            sys.waitUntil("WIFI_HW_READY", 15000)
+            sys.waitUntil("WIFI_HW_READY", 35000)
             if wi and not sp then
                 sp = true
                 wlan.scan()
@@ -358,6 +359,7 @@ local function ocr(d)
         end
         dr = "config"
         wlan.disconnect()
+        sys.wait(500)
         local res = wlan.connect(sd, pw)
         if res then
             log.info("wa", "WiFi连接已发起:", sd)

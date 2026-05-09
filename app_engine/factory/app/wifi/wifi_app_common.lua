@@ -101,7 +101,7 @@ function M.handle_scan_timeout(sr, ot)
 end
 
 function M.auto_scan_and_verify(sc, sto)
-    sto = sto or 15000
+    sto = sto or 20000
     log.info("wfap", "开始自动扫描并查找最佳已保存网络")
     sys.publish("WIFI_STORAGE_GET_SAVED_LIST_REQ")
     local gl, sd = sys.waitUntil("WIFI_STORAGE_GET_SAVED_LIST_RSP", 3000)

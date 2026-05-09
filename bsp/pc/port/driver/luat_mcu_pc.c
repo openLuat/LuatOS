@@ -1,5 +1,5 @@
 
-#include "uv.h"
+#include "luat_posix_compat.h"
 
 #include "luat_base.h"
 #include "luat_msgbus.h"
@@ -26,8 +26,6 @@ int luat_mcu_set_clk(size_t mhz) {
 int luat_mcu_get_clk(void) {
     return g_pcconf.mcu_mhz;
 }
-
-extern uv_timespec64_t boot_ts;
 
 const char* luat_mcu_unique_id(size_t* t) {
     FILE *fp = NULL;
@@ -82,10 +80,14 @@ uint32_t luat_mcu_hz(void) {
     return 1;
 }
 
-uint64_t uv_startup_ns;
+static uint64_t startup_ns;
+
+void luat_mcu_startup_init(void) {
+    startup_ns = luat_monotonic_ns();
+}
+
 uint64_t luat_mcu_tick64(void) {
-    uint64_t ns = uv_hrtime();
-    return (ns - uv_startup_ns) / 1000;
+    return (luat_monotonic_ns() - startup_ns) / 1000;
 }
 
 int luat_mcu_us_period(void) {

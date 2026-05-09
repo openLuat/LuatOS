@@ -9,9 +9,6 @@ local luatos = "../../"
 -- 2表示mbedtls 2.18.x，3表示mbedtls 3.x
 local mbedtls_version = 3
 
-add_requires("libuv v1.49.2")
-add_packages("libuv")
-
 add_requires("gmssl")
 add_packages("gmssl")
 
@@ -80,6 +77,7 @@ end
 add_includedirs("include",{public = true})
 add_includedirs(luatos.."lua/include",{public = true})
 add_includedirs(luatos.."luat/include",{public = true})
+add_includedirs("port/posix",{public = true})
 -- add_includedirs("libuv/include",{public = true})
 
 
@@ -90,6 +88,8 @@ target("luatos-lua")
 
     add_files("src/*.c",{public = true})
     add_files("port/**.c")
+    remove_files("port/network/luat_network_adapter_libuv.c")
+    remove_files("port/network/sys_arch_uv.c")
 
     add_thirdparty_files(luatos.."lua/src/*.c")
     -- printf

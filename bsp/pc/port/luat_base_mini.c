@@ -309,19 +309,6 @@ void luat_ota_reboot(int timeout_ms) {
 
 ///------------------------------------
 
-#include "uv.h"
-
-static void on_free(uv_handle_t* ptr) {
-  luat_heap_free(ptr);
-}
-
-
-void free_uv_handle(void* ptr) {
-  if (ptr == NULL)
-    return;
-  uv_close((uv_handle_t*)ptr, on_free);
-}
-
 void luat_rtos_task_suspend_all(void) {}
 
 void luat_rtos_task_resume_all(void) {}

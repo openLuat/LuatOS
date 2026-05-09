@@ -75,7 +75,7 @@ elseif _G.model_str:find("Air8101") then
     pins.setup(12, "I2C1_SCL")
     pins.setup(14, "PWM1")
     -- Air8101 显示/触摸驱动
-    lcd_drv = require "lcd_drv_air8101"
+    lcd_drv = require "lcd_drv_air8101_5in"
     tp_drv = require "tp_drv_air8101"
 elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
     -- 5寸屏显示/触摸驱动
@@ -92,7 +92,7 @@ elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
     tp_drv = require "tp_drv_air1601_7or10"
 else
     --PC模拟器复用 Air8101显示/触摸驱动
-    lcd_drv = require "lcd_drv_air8101"
+    lcd_drv = require "lcd_drv_air8101_5in"
     tp_drv = require "tp_drv_air8101"
 end
 

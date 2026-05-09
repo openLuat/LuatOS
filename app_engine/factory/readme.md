@@ -11,7 +11,7 @@
 ### 1.2 硬件驱动模块（根据平台和屏幕型号选择）
 - **Air8000/Air8101代码会根据型号自动选择驱动**
 1. **lcd_drv_air8000w_4in.lua** - Air8000W LCD 驱动（ST7796，SPI 接口，480×800）
-2. **lcd_drv_air8101.lua** - Air8101 LCD 驱动（ST7701S，RGB 接口，480×854）
+2. **lcd_drv_air8101_5in.lua** - Air8101 LCD 驱动（ST7701S，RGB 接口，480×854）
 3. **tp_drv_air8000w.lua** - Air8000W 触摸驱动（GT911，I2C0）
 4. **tp_drv_air8101.lua** - Air8101 触摸驱动（GT911，I2C1）
 
@@ -117,7 +117,7 @@ elseif _G.model_str:find("Air8101") then
     pins.setup(11, "I2C1_SDA")
     pins.setup(12, "I2C1_SCL")
     pins.setup(14, "PWM1")
-    lcd_drv = require "lcd_drv_air8101"
+    lcd_drv = require "lcd_drv_air8101_5in"
     tp_drv = require "tp_drv_air8101"
 elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
     -- 根据实际屏幕尺寸选择对应 LCD 驱动（三选一）
@@ -130,7 +130,7 @@ elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
     tp_drv = require "tp_drv_air1601_7or10"
 else
     -- PC 模拟器复用 Air8101 驱动
-    lcd_drv = require "lcd_drv_air8101"
+    lcd_drv = require "lcd_drv_air8101_5in"
     tp_drv = require "tp_drv_air8101"
 end
 ```

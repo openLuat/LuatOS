@@ -2,12 +2,11 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.10.20
+@date    2025.08.05
 @author  魏健强
 @usage
 本demo演示的核心功能为：
-1.开启以太网功能
-2.开启多网融合功能
+1.设置多网融合功能，以太网提供网络供wifi和以太网设备上网
 更多说明参考本目录下的readme.md文件
 ]]
 --[[
@@ -20,7 +19,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "netdrv"
+PROJECT = "ethernet_out_ethernet_in_wifi_in"
 VERSION = "001.999.000"
 
 
@@ -54,18 +53,9 @@ log.info("main", PROJECT, VERSION)
 -- end, 3000)
 
 
--- 开启以太网wan
--- require "netdrv_eth_wan"
--- 开启以太网lan
--- require "netdrv_eth_lan"
--- 4G连接外部网络，生成WiFi热点为WiFi终端设备提供接入，支持以太网lan模式为其他以太网设备提供接入 
--- require "netdrv_4g_multiple"
--- 以太网连接外部网络,生成WiFi热点为WiFi终端设备提供接入 
--- require "netdrv_eth_multiple"
--- WIFI连接外部网络,支持以太网lan模式为其他以太网设备提供接入,支持生成WiFi热点为WiFi终端设备提供接入
--- require "netdrv_wifi_multiple"
--- 单独测试wifi ap局域网
-require "netdrv_wifi_ap"
+
+-- 开启多网融合功能
+require "netif_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

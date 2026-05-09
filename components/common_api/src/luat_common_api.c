@@ -31,7 +31,7 @@ void *luat_llist_traversal(luat_llist_head *head, luat_llist_traversal_fun cb, v
 	return NULL;
 }
 
-luat_fifo_t *luat_create_fifo(uint32_t size_power)
+luat_fifo_t *luat_fifo_create(uint32_t size_power)
 {
 	if (size_power > 31) return NULL;
 	uint32_t data_size = 1 << size_power;
@@ -45,7 +45,7 @@ luat_fifo_t *luat_create_fifo(uint32_t size_power)
 	}
 	return fifo;
 }
-uint32_t luat_write_fifo(luat_fifo_t *fifo, const void *buf, uint32_t size)
+uint32_t luat_fifo_write(luat_fifo_t *fifo, const void *buf, uint32_t size)
 {
 	uint32_t space = fifo->size - (uint32_t)(fifo->wpoint - fifo->rpoint);
 	if (size > space) size = space;
@@ -63,7 +63,7 @@ uint32_t luat_write_fifo(luat_fifo_t *fifo, const void *buf, uint32_t size)
     fifo->wpoint += size;
     return size;
 }
-uint32_t luat_set_fifo(luat_fifo_t *fifo, uint8_t value, uint32_t size)
+uint32_t luat_fifo_fill(luat_fifo_t *fifo, uint8_t value, uint32_t size)
 {
 	uint32_t space = fifo->size - (uint32_t)(fifo->wpoint - fifo->rpoint);
 	if (size > space) size = space;
@@ -81,13 +81,13 @@ uint32_t luat_set_fifo(luat_fifo_t *fifo, uint8_t value, uint32_t size)
     fifo->wpoint += size;
     return size;
 }
-uint32_t luat_read_fifo(luat_fifo_t *fifo, uint8_t *buf, uint32_t size)
+uint32_t luat_fifo_read(luat_fifo_t *fifo, uint8_t *buf, uint32_t size)
 {
-	uint32_t dummy = luat_query_fifo(fifo, buf, size);
+	uint32_t dummy = luat_fifo_query(fifo, buf, size);
 	fifo->rpoint += dummy;
 	return dummy;
 }
-uint32_t luat_query_fifo(luat_fifo_t *fifo, uint8_t *buf, uint32_t size)
+uint32_t luat_fifo_query(luat_fifo_t *fifo, uint8_t *buf, uint32_t size)
 {
 	uint32_t space = (uint32_t)(fifo->wpoint - fifo->rpoint);
 	if (size > space) size = space;
@@ -105,17 +105,11 @@ uint32_t luat_query_fifo(luat_fifo_t *fifo, uint8_t *buf, uint32_t size)
     return size;
 }
 
-uint32_t luat_check_fifo_free_space(luat_fifo_t *fifo)
-{
-	return (fifo->size - ((uint32_t)(fifo->wpoint - fifo->rpoint)));
-}
-
-void luat_delete_fifo(luat_fifo_t *fifo, uint32_t size)
+void luat_fifo_delete(luat_fifo_t *fifo, uint32_t size)
 {
 	if ((fifo->rpoint + size) >= fifo->wpoint)
 	{
-		fifo->rpoint = 0;
-		fifo->wpoint = 0;
+		fifo->rpoint = fifo->wpoint;
 	}
 	else
 	{
@@ -123,20 +117,20 @@ void luat_delete_fifo(luat_fifo_t *fifo, uint32_t size)
 	}
 }
 
-void luat_clear_fifo(luat_fifo_t *fifo)
+void luat_fifo_clear(luat_fifo_t *fifo)
 {
 	fifo->rpoint = 0;
 	fifo->wpoint = 0;
 }
 
-void luat_deinit_fifo(luat_fifo_t *fifo)
+void luat_fifo_destroy(luat_fifo_t *fifo)
 {
 	if (!fifo)
 		return ;
 	luat_heap_free(fifo);
 }
 
-int luat_init_buffer(luat_buffer_t *buffer, uint32_t size)
+int luat_buffer_init(luat_buffer_t *buffer, uint32_t size)
 {
 	if (!buffer)
 		return 0;
@@ -151,7 +145,7 @@ int luat_init_buffer(luat_buffer_t *buffer, uint32_t size)
 	buffer->pos = 0;
 	return size;
 }
-void luat_deinit_buffer(luat_buffer_t *buffer)
+void luat_buffer_deinit(luat_buffer_t *buffer)
 {
 	if (buffer->data)
 	{
@@ -161,7 +155,7 @@ void luat_deinit_buffer(luat_buffer_t *buffer)
 	buffer->max_len = 0;
 	buffer->pos = 0;
 }
-int luat_reinit_buffer(luat_buffer_t *buffer, uint32_t len)
+int luat_buffer_reinit(luat_buffer_t *buffer, uint32_t len)
 {
 	if (!buffer)
 		return 0;
@@ -181,7 +175,7 @@ int luat_reinit_buffer(luat_buffer_t *buffer, uint32_t len)
 	buffer->pos = 0;
 	return len;
 }
-int luat_resize_buffer(luat_buffer_t *buffer, uint32_t len)
+int luat_buffer_resize(luat_buffer_t *buffer, uint32_t len)
 {
 
 	if (!buffer)
@@ -219,7 +213,7 @@ int luat_write_buffer(luat_buffer_t *buffer, const void *data, uint32_t len)
 	write_len = buffer->pos + len;
 	if (write_len > buffer->max_len)
 	{
-		if (!luat_resize_buffer(buffer, write_len))
+		if (!luat_buffer_resize(buffer, write_len))
 		{
 			return -LUAT_ERROR_NO_MEMORY;
 		}
@@ -228,7 +222,7 @@ int luat_write_buffer(luat_buffer_t *buffer, const void *data, uint32_t len)
 	buffer->pos += len;
 	return LUAT_ERROR_NONE;
 }
-void luat_remove_data_from_buffer(luat_buffer_t *buffer, uint32_t len)
+void luat_buffer_remove_data(luat_buffer_t *buffer, uint32_t len)
 {
 	uint32_t RestLen;
 	if (!buffer)

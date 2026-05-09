@@ -22,8 +22,7 @@
 #include "stdint.h"
 #include "stdio.h"
 
-enum
-{
+enum {
 	LUAT_ERROR_NONE,
 	LUAT_ERROR_NO_SUCH_ID,
 	LUAT_ERROR_PERMISSION_DENIED,
@@ -48,6 +47,15 @@ enum
 	LUAT_LIST_PASS = 0,
 	LUAT_LIST_DEL = -1,
 };
+typedef union {
+	uint8_t u8[4];
+	uint16_t u16[2];
+	uint32_t u32;
+    uint8_t *p8;
+    uint16_t *p16;
+    uint32_t *p32;
+	void *p;
+}luat_data_union_t;
 
 typedef int(*luat_llist_traversal_fun)(void *node, void *param);
 /**
@@ -264,7 +272,7 @@ typedef struct
  * @param size_power 队列大小的幂（实际大小为 2^size_power）
  * @return 成功返回指向 FIFO 结构的指针，失败返回 NULL
  */
-luat_fifo_t *luat_create_fifo(uint32_t size_power);
+luat_fifo_t *luat_fifo_create(uint32_t size_power);
 
 /**
  * @brief 向 FIFO 队列写入数据
@@ -273,7 +281,7 @@ luat_fifo_t *luat_create_fifo(uint32_t size_power);
  * @param size 要写入的数据大小（字节）
  * @return 实际写入的数据大小
  */
-uint32_t luat_write_fifo(luat_fifo_t *fifo, const void *buf, uint32_t size);
+uint32_t luat_fifo_write(luat_fifo_t *fifo, const void *buf, uint32_t size);
 
 /**
  * @brief 向 FIFO 队列填充指定值
@@ -286,7 +294,7 @@ uint32_t luat_write_fifo(luat_fifo_t *fifo, const void *buf, uint32_t size);
  *
  * @note 当队列中数据不足 size 时，只填充实际存在的数据
  */
-uint32_t luat_set_fifo(luat_fifo_t *fifo, uint8_t value, uint32_t size);
+uint32_t luat_fifo_fill(luat_fifo_t *fifo, uint8_t value, uint32_t size);
 
 /**
  * @brief 从 FIFO 队列读取数据
@@ -298,9 +306,9 @@ uint32_t luat_set_fifo(luat_fifo_t *fifo, uint8_t value, uint32_t size);
  * @return 实际读取的字节数
  *
  * @note 读取后读指针向前移动，数据不再保留在队列中
- * @note 使用 luat_query_fifo 可以查看数据而不移除
+ * @note 使用 luat_fifo_query 可以查看数据而不移除
  */
-uint32_t luat_read_fifo(luat_fifo_t *fifo, uint8_t *buf, uint32_t size);
+uint32_t luat_fifo_read(luat_fifo_t *fifo, uint8_t *buf, uint32_t size);
 
 /**
  * @brief 查询 FIFO 队列中的数据（不移动读指针）
@@ -311,10 +319,10 @@ uint32_t luat_read_fifo(luat_fifo_t *fifo, uint8_t *buf, uint32_t size);
  * @param size 要查询的字节数
  * @return 实际查询的字节数
  *
- * @note 与 luat_read_fifo 不同，此函数不会移除数据
+ * @note 与 luat_fifo_read 不同，此函数不会移除数据
  * @note 适合用于预览数据后再决定是否读取
  */
-uint32_t luat_query_fifo(luat_fifo_t *fifo, uint8_t *buf, uint32_t size);
+uint32_t luat_fifo_query(luat_fifo_t *fifo, uint8_t *buf, uint32_t size);
 
 /**
  * @brief 检查 FIFO 队列剩余可用空间
@@ -324,7 +332,15 @@ uint32_t luat_query_fifo(luat_fifo_t *fifo, uint8_t *buf, uint32_t size);
  * @return 剩余可用空间大小（字节）
  *
  */
-uint32_t luat_check_fifo_free_space(luat_fifo_t *fifo);
+static inline uint32_t luat_fifo_check_free_space(luat_fifo_t *fifo)
+{
+	return (fifo->size - ((uint32_t)(fifo->wpoint - fifo->rpoint)));
+}
+
+static inline uint32_t luat_fifo_check_used_space(luat_fifo_t *fifo)
+{
+	return ((uint32_t)(fifo->wpoint - fifo->rpoint));
+}
 
 /**
  * @brief 删除 FIFO 队列中的数据（仅移动读指针）
@@ -336,7 +352,7 @@ uint32_t luat_check_fifo_free_space(luat_fifo_t *fifo);
  * @note 这只是移动读指针，不会真正删除数据区内容
  * @note 用于实现丢弃过期的数据
  */
-void luat_delete_fifo(luat_fifo_t *fifo, uint32_t size);
+void luat_fifo_delete(luat_fifo_t *fifo, uint32_t size);
 
 /**
  * @brief 清空 FIFO 队列
@@ -345,9 +361,9 @@ void luat_delete_fifo(luat_fifo_t *fifo, uint32_t size);
  * @param fifo FIFO 队列指针
  *
  * @note 清空后读写指针都回到起点，但数据内容仍然存在
- * @note 如果需要释放内存，使用 luat_deinit_fifo
+ * @note 如果需要释放内存，使用 luat_fifo_destroy
  */
-void luat_clear_fifo(luat_fifo_t *fifo);
+void luat_fifo_clear(luat_fifo_t *fifo);
 
 /**
  * @brief 销毁 FIFO 队列
@@ -358,7 +374,7 @@ void luat_clear_fifo(luat_fifo_t *fifo);
  * @warning 调用此函数后不能再使用该 fifo 指针
  * @note 在程序结束或不再需要 FIFO 时调用
  */
-void luat_deinit_fifo(luat_fifo_t *fifo);
+void luat_fifo_destroy(luat_fifo_t *fifo);
 
 /**
  * @brief 动态缓冲区结构
@@ -368,10 +384,10 @@ void luat_deinit_fifo(luat_fifo_t *fifo);
  * @par 使用示例:
  * @code
  * luat_buffer_t buf;
- * luat_init_buffer(&buf, 1024);  // 初始容量 1KB
+ * luat_buffer_init(&buf, 1024);  // 初始容量 1KB
  * luat_write_buffer(&buf, data, data_len);
  * // 使用 buf.data 和 buf.pos
- * luat_deinit_buffer(&buf);
+ * luat_buffer_deinit(&buf);
  * @endcode
  */
 typedef struct
@@ -389,9 +405,9 @@ typedef struct
  * @param size 初始容量（字节）
  * @return 0 成功，-1 失败
  *
- * @note 使用完后必须调用 luat_deinit_buffer 释放内存
+ * @note 使用完后必须调用 luat_buffer_deinit 释放内存
  */
-int luat_init_buffer(luat_buffer_t *buffer, uint32_t size);
+int luat_buffer_init(luat_buffer_t *buffer, uint32_t size);
 
 /**
  * @brief 销毁动态缓冲区
@@ -402,7 +418,7 @@ int luat_init_buffer(luat_buffer_t *buffer, uint32_t size);
  * @warning 调用后 buffer->data 将变为 NULL
  * @note 调用此函数后不能再使用该 buffer
  */
-void luat_deinit_buffer(luat_buffer_t *buffer);
+void luat_buffer_deinit(luat_buffer_t *buffer);
 
 /**
  * @brief 重新初始化动态缓冲区
@@ -412,10 +428,10 @@ void luat_deinit_buffer(luat_buffer_t *buffer);
  * @param len 新的容量（字节）
  * @return 0 成功，-1 失败
  *
- * @note 与 luat_deinit_buffer + luat_init_buffer 等效，但更高效
+ * @note 与 luat_buffer_deinit + luat_buffer_init 等效，但更高效
  * @note 如果 len 小于当前数据长度，数据会被截断
  */
-int luat_reinit_buffer(luat_buffer_t *buffer, uint32_t len);
+int luat_buffer_reinit(luat_buffer_t *buffer, uint32_t len);
 
 /**
  * @brief 调整动态缓冲区容量
@@ -428,7 +444,7 @@ int luat_reinit_buffer(luat_buffer_t *buffer, uint32_t len);
  * @note 即使失败，原有数据也会保留
  * @note 如果 len 小于当前数据长度，可能返回错误
  */
-int luat_resize_buffer(luat_buffer_t *buffer, uint32_t len);
+int luat_buffer_resize(luat_buffer_t *buffer, uint32_t len);
 
 /**
  * @brief 向动态缓冲区写入数据
@@ -454,5 +470,5 @@ int luat_write_buffer(luat_buffer_t *buffer, const void *data, uint32_t len);
  * @note 数据会左移，pos 会相应减少
  * @note 如果 len >= pos，则清空整个缓冲区
  */
-void luat_remove_data_from_buffer(luat_buffer_t *buffer, uint32_t len);
+void luat_buffer_remove_data(luat_buffer_t *buffer, uint32_t len);
 #endif

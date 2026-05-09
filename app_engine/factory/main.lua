@@ -79,17 +79,17 @@ elseif _G.model_str:find("Air8101") then
     tp_drv = require "tp_drv_air8101"
 elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
     -- 5寸屏显示/触摸驱动
-    -- lcd_drv = require "lcd_drv_air1601_5in"
-    -- tp_drv = require "tp_drv_air1601_5in"
+    lcd_drv = require "lcd_drv_air1601_5in"
+    tp_drv = require "tp_drv_air1601_5in"
 
     -- 10寸屏显示驱动
-    lcd_drv = require "lcd_drv_air1601_10in"
+    -- lcd_drv = require "lcd_drv_air1601_10in"
 
     -- 7寸屏显示驱动
     -- lcd_drv = require "lcd_drv_air1601_7in"
 
     -- 10寸和7寸共用触摸驱动
-    tp_drv = require "tp_drv_air1601_7or10"
+    -- tp_drv = require "tp_drv_air1601_7or10"
 else
     --PC模拟器复用 Air8101显示/触摸驱动
     lcd_drv = require "lcd_drv_air8101"

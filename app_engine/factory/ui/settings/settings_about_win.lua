@@ -68,6 +68,15 @@ local function update_device_info(inf)
     log.info("s_abt", "UI更新设备信息")
 end
 
+local function udi(inf) update_device_info(inf) end
+
+local function udn(dn)
+    if dnl then
+        dnl:set_text(dn)
+        log.info("s_abt", "更新设备名称", dn)
+    end
+end
+
 local function cc_r(p, y, lt, oc)
     local r = airui.container({
         parent = p,
@@ -341,9 +350,13 @@ local function on_create()
     c_ui()
     sys.publish("ABOUT_DEVICE_GET_INFO")
     sys.publish("CONFIG_GET_DEVICE_NAME")
+    sys.subscribe("ABOUT_DEVICE_INFO", udi)
+    sys.subscribe("CONFIG_DEVICE_NAME_VALUE", udn)
 end
 
 local function on_destroy()
+    sys.unsubscribe("ABOUT_DEVICE_INFO", udi)
+    sys.unsubscribe("CONFIG_DEVICE_NAME_VALUE", udn)
     if mc then
         mc:destroy()
         mc = nil
@@ -370,11 +383,4 @@ local function open_handler()
     })
 end
 
-sys.subscribe("ABOUT_DEVICE_INFO", function(inf) update_device_info(inf) end)
-sys.subscribe("CONFIG_DEVICE_NAME_VALUE", function(dn)
-    if dnl then
-        dnl:set_text(dn)
-        log.info("s_abt", "更新设备名称", dn)
-    end
-end)
 sys.subscribe("OPEN_ABOUT_WIN", open_handler)

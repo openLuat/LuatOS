@@ -865,16 +865,16 @@ local function olu(apps, pg)
         if type(pg.page) == 'number' then
             cp = pg.page
         end
-        if type(total_pages) == 'number' then
-            tn = total_pages
-        elseif type(pg.pages) == 'number' then
-            tn = pg.pages
+        if type(pg.total_pages) == 'number' then
+            tn = pg.total_pages
+        elseif type(pg.total_pages) == 'number' then
+            tn = pg.total_pages
         end
         if type(pg.total) == 'number' then
             tl = pg.total
         end
-        if has_more ~= nil then
-            hn = (has_more == true)
+        if pg.has_more ~= nil then
+            hn = (pg.has_more == true)
         else
             hn = (cp < tn)
         end
@@ -913,6 +913,20 @@ local function olu(apps, pg)
                 app.installed = false
             end
         end
+    end
+    if cc == "已安装" then
+        local filtered = {}
+        for _, app in ipairs(apps) do
+            if app.installed then
+                table.insert(filtered, app)
+            end
+        end
+        if #filtered == 0 then
+            return
+        end
+        apps = filtered
+        tp = math.max(1, math.ceil(#filtered / plim))
+        hm = false
     end
     ra(apps, hm)
 end
@@ -959,7 +973,19 @@ local function oad(aid, ac, sc)
                 end
             end
 
-            ra(apps, more)
+            if cc == "已安装" then
+                local filtered = {}
+                for _, app in ipairs(apps) do
+                    if app.installed then
+                        table.insert(filtered, app)
+                    end
+                end
+                if #filtered > 0 then
+                    ra(filtered, false)
+                end
+            else
+                ra(apps, more)
+            end
         end
 
         sst(ac, an)
@@ -1018,7 +1044,23 @@ end
 local function ogf()
     local apps, more = exapp.get_current_list()
     if apps then
-        ra(apps, more)
+        if cc == "已安装" then
+            local ia = exapp.list_installed()
+            local filtered = {}
+            for _, app in ipairs(apps) do
+                local aid = tostring(app.aid)
+                if ia[aid] then
+                    app.installed = true
+                    table.insert(filtered, app)
+                end
+            end
+            if #filtered == 0 then
+                return
+            end
+            ra(filtered, false)
+        else
+            ra(apps, more)
+        end
     end
 end
 

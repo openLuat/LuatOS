@@ -382,6 +382,8 @@ local function on_create()
     c_ui()
     sys.publish("STORAGE_GET_INFO")
     sys.publish("MEMORY_INFO_GET")
+    sys.subscribe("STORAGE_INFO", update_storage_info)
+    sys.subscribe("MEMORY_INFO", update_memory_info)
     if tid then sys.timerStop(tid) end
     tid = sys.timerLoopStart(function()
         sys.publish("MEMORY_INFO_GET")
@@ -389,6 +391,8 @@ local function on_create()
 end
 
 local function on_destroy()
+    sys.unsubscribe("STORAGE_INFO", update_storage_info)
+    sys.unsubscribe("MEMORY_INFO", update_memory_info)
     if tid then sys.timerStop(tid); tid = nil end
     if mc then mc:destroy(); mc = nil end
     tl = nil; ul = nil; fl = nil; pb = nil; pl = nil
@@ -397,8 +401,16 @@ local function on_destroy()
     ptl = nil; pul = nil; pml = nil; ppl = nil; ppb = nil
 end
 
-local function on_get_focus() end
-local function on_lose_focus() end
+local function on_get_focus()
+    if tid then sys.timerStop(tid) end
+    tid = sys.timerLoopStart(function()
+        sys.publish("MEMORY_INFO_GET")
+    end, 1000)
+end
+
+local function on_lose_focus()
+    if tid then sys.timerStop(tid); tid = nil end
+end
 
 local function open_handler()
     wid = exwin.open({
@@ -409,6 +421,4 @@ local function open_handler()
     })
 end
 
-sys.subscribe("STORAGE_INFO", update_storage_info)
-sys.subscribe("MEMORY_INFO", update_memory_info)
 sys.subscribe("OPEN_STORAGE_WIN", open_handler)

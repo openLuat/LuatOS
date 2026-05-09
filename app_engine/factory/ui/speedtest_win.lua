@@ -391,14 +391,22 @@ end
 
 local function onc()
     cui()
+    sys.subscribe("SPDTEST_STARTED", onss)
+    sys.subscribe("SPDTEST_RESULT", onsr)
+    sys.subscribe("SPDTEST_STATUS", onst)
+    sys.subscribe("SPDTEST_FINISHED", onsf)
 end
 
 local function ond()
+    sys.unsubscribe("SPDTEST_STARTED", onss)
+    sys.unsubscribe("SPDTEST_RESULT", onsr)
+    sys.unsubscribe("SPDTEST_STATUS", onst)
+    sys.unsubscribe("SPDTEST_FINISHED", onsf)
+    sys.publish("SPEEDTEST_CANCEL")
     if mc then
         mc:destroy()
         mc = nil
     end
-    -- 将组件引用置nil，避免测速回调中操作已销毁的UI对象导致死机
     dl = nil
     ul = nil
     pl = nil
@@ -424,7 +432,3 @@ local function oph()
 end
 
 sys.subscribe("OPEN_SPEEDTEST_WIN", oph)
-sys.subscribe("SPDTEST_STARTED", onss)
-sys.subscribe("SPDTEST_RESULT", onsr)
-sys.subscribe("SPDTEST_STATUS", onst)
-sys.subscribe("SPDTEST_FINISHED", onsf)

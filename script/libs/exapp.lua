@@ -2344,16 +2344,16 @@ exapp.get_app_list({query="游戏", page=1, size=10})
 exapp.get_app_list({category="已安装", page=1, size=10})
 ]]
 function exapp.get_app_list(params)
-    if not network_ready then
-        sys.publish("APP_STORE_ERROR", "网络未就绪")
-        return false
-    end
-
     local category = params.category or "全部"
     local sort = params.sort or "recommend"
     local page = params.page or 1
     local size = params.size or PAGE_LIMIT
     local query = params.query or ""
+
+    if category ~= "已安装" and not network_ready then
+        sys.publish("APP_STORE_ERROR", "网络未就绪")
+        return false
+    end
 
     if category == "已安装" then
     local installed_list = {}

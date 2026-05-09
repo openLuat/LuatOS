@@ -469,6 +469,12 @@ target("luatos-lua")
         add_files(luatos.."components/lcd/*.c")
         add_files(luatos.."components/luat_image/src/*.c")
         
+        -- nes
+        add_includedirs(luatos.."components/nes/inc")
+        add_includedirs(luatos.."components/nes/port")
+        add_files(luatos.."components/nes/**.c")
+        add_defines("LUAT_USE_NES=1")
+
         -- LVGL 9.4 + AIRUI - 最基础组件编译
         -- 头文件添加：lvgl9 
         add_includedirs(luatos.."components/airui")

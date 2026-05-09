@@ -246,6 +246,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_MGBA
   {"gba", luaopen_gba},
 #endif
+#ifdef LUAT_USE_NES
+  {"nes", luaopen_nes},
+#endif
   {NULL, NULL}
 };
 

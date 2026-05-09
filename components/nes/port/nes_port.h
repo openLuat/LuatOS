@@ -63,6 +63,14 @@ void nes_frame(void);
 
 int nes_draw(size_t x1, size_t y1, size_t x2, size_t y2, nes_color_t* color_data);
 
+#ifdef LUAT_USE_AIRUI
+/**
+ * @brief 切换渲染模式
+ * @param enabled 1=AirUI 模式，0=LCD 模式（默认）
+ */
+void nes_set_airui_mode(int enabled);
+#endif
+
 
 #ifdef __cplusplus          
     }

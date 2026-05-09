@@ -380,7 +380,7 @@ void nes_run(nes_t* nes){
             // v: GHIA.BC DEF..... <- t: GHIA.BC DEF.....
             nes->nes_ppu.v_reg = (nes->nes_ppu.v_reg & (uint16_t)0x841F) | (nes->nes_ppu.t_reg & (uint16_t)0x7BE0);
         }
-        // nes_frame();
+        nes_frame();
     }
 }
 

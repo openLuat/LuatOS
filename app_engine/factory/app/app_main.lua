@@ -18,5 +18,7 @@ require "status_provider_app"
 require "ntp_app"
 -- 加载网络测速应用模块
 require "speedtest_app"
+-- 加载IOT账号模块
+require "settings_iot_app"
 -- 加载设置主模块（会通知settings_config_app进行初始化）
 require "settings_app"

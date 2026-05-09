@@ -12,6 +12,7 @@ require "settings_storage_win"
 require "settings_about_win"
 require "settings_sound_win"
 require "wifi_list_win"
+require "settings_iot_win"
 
 local wid = nil
 local mc
@@ -127,9 +128,11 @@ local function cui()
     local a8k = _G.model_str:find("Air8000") ~= nil
 
     local y = math.floor(20 * _G.density_scale)
-    mk(y, "显示亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)
+    mk(y, "IOT账号", function() sys.publish("OPEN_IOT_WIN") end)
     y = y + ch + csp
     mk(y, "WiFi设置", function() sys.publish("OPEN_WIFI_WIN") end)
+    y = y + ch + csp
+    mk(y, "显示亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)
     y = y + ch + csp
     mk(y, "存储", function() sys.publish("OPEN_STORAGE_WIN") end)
     y = y + ch + csp

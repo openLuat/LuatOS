@@ -1,0 +1,34 @@
+{
+  "app_name_cn" : "联机火柴人格斗",
+  "app_name_en" : "StickFighter_Online",
+  "version" : "1.0.3",
+  "publish_time" : "2026-05-09 12:12:00",
+  "category" : "游戏",
+  "description" : "基于MQTT的双人联机火柴人格斗游戏",
+  "resolution" : "320x480",
+  "display_zoom" : "fixed_resolution",
+  "supported_models" : {
+  "Air8000W" : [ 
+    {
+      "firmware_id" : 14,
+      "min_firmware_version" : 2034
+    }, 
+    {
+      "firmware_id" : 14,
+      "min_firmware_version" : 2034
+    } 
+  ],
+  "Air8101" : [
+      {
+        "firmware_id" : 104,
+        "min_firmware_version" : 2010
+      },
+      {
+        "firmware_id" : 105,
+        "min_firmware_version" : 2010
+      }
+    ]
+  },
+  "zip_size_kb" : "15.0",
+  "origin_size_kb" : "45.0"
+}

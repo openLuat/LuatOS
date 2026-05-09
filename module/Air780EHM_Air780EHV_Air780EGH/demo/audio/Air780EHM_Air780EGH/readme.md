@@ -78,7 +78,7 @@
 
 Air780EHM核心板/Air780EGH核心板和AirAudio_1010配件板的硬件接线方式为:
 | Air780EHM核心板/Air780EGH核心板 | AirAUDIO_1010配件板 |
-| ------------------------------ | ------------------- |
+| ------------------------------  | ------------------- |
 | 26/I2S_MCLK                     | I2S_MCLK            |
 | 30/I2S_BCK                      | I2S_BCK             |
 | 31/I2S_LRCK                     | I2S_LRCK            |
@@ -88,7 +88,7 @@ Air780EHM核心板/Air780EGH核心板和AirAudio_1010配件板的硬件接线方
 | 66/I2C1_SDA                     | I2C_SDA             |
 | 25/GPIO26                       | PA_EN               |
 | 23/GPIO2                        | 8311_EN             |
-| 3V3                             | VCC                 |
+| VBAT                            | VCC                 |
 | GND                             | GND                 |
 
 2、TYPE-C USB数据线一根

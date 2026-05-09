@@ -36,6 +36,13 @@ struct luat_audio_driver_ctrl
     void *user_data;     /**< 用户自定义数据指针 */
     struct luat_audio_channel *data_channel;  /**< 关联的音频通道指针 */
     struct luat_audio_driver_probe probe;  /**< 驱动匹配结构 */
+    uint8_t *play_buff;
+    uint8_t *record_buff;
+    volatile uint32_t last_play_cnt;
+    volatile uint32_t current_play_cnt;
+    volatile uint32_t current_record_cnt;
+    uint32_t one_play_block_len;
+    uint32_t one_record_block_len;
     uint8_t is_init;  /**< 是否初始化 */
     uint8_t is_running;  /**< 是否正在运行 */
 };
@@ -65,6 +72,12 @@ typedef struct luat_audio_driver_opts {
     int (*config)(struct luat_audio_driver_ctrl *ctrl, uint32_t param, uint32_t value1, uint32_t value2);
     
     /**
+     * @brief 激活音频驱动, 初始化和配置完成后调用，主要包括退出低功耗，提供I2S MCLK等
+     * @param ctrl 驱动控制器指针
+     * @return int 成功返回0，失败返回负值错误码
+     */
+    int (*activate)(struct luat_audio_driver_ctrl *ctrl);
+    /**
      * @brief 修改音频参数
      * @param ctrl 驱动控制器指针
      * @param sample_rate 采样率 (Hz)
@@ -75,27 +88,35 @@ typedef struct luat_audio_driver_opts {
     int (*modify)(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_bits, uint8_t channel);
     
     /**
-     * @brief 启动播放循环，必须确保没有未播放完成的数据残留
+     * @brief 填充播放缓存区空白音，确保播放缓存区有数据可播放
+     * @param ctrl 驱动控制器指针
+     * @param play_buff 播放缓冲区数组指针
+     * @param len_bytes 要填充的数据长度 (字节)
+     * @return int 成功返回0，失败返回负值错误码
+     */
+    int (*fill)(struct luat_audio_driver_ctrl *ctrl, uint8_t *play_buff, uint32_t len_bytes, uint8_t is_signed, uint8_t align);
+    /**
+     * @brief 启动播放循环，必须确保没有未播放完成的数据残留，播放缓存区由驱动生成
      * @param ctrl 驱动控制器指针
      * @param play_buff 播放缓冲区数组指针
      * @param one_play_block_len 单个播放缓冲区块长度 (字节)
-     * @param block_num 缓冲区块数量
+     * @param block_num 播放缓冲区块数量
      * @return int 成功返回0，失败返回负值错误码
      */
     int (*start_tx_loop)(struct luat_audio_driver_ctrl *ctrl, uint32_t **play_buff, uint32_t one_block_len, uint32_t block_num);
     
     /**
-     * @brief 启动录音循环
+     * @brief 启动录音循环, 录音缓存区由驱动生成
      * @param ctrl 驱动控制器指针
      * @param record_buff 录音缓冲区数组指针
-     * @param one_block_len 单个缓冲区块长度 (字节)
-     * @param block_num 缓冲区块数量
+     * @param one_record_block_len 单个录音缓冲区块长度 (字节)
+     * @param block_num 录音缓存区块数量
      * @return int 成功返回0，失败返回负值错误码
      */
     int (*start_rx_loop)(struct luat_audio_driver_ctrl *ctrl, uint32_t **record_buff, uint32_t one_block_len, uint32_t block_num);
     
     /**
-     * @brief 启动全双工循环 (同时播放和录音)
+     * @brief 启动全双工循环 (同时播放和录音), 播放和录音缓存区由驱动生成
      * @param ctrl 驱动控制器指针
      * @param play_buff 播放缓冲区数组指针
      * @param one_play_block_len 单个播放缓冲区块长度 (字节)
@@ -106,12 +127,32 @@ typedef struct luat_audio_driver_opts {
      * @return int 成功返回0，失败返回负值错误码
      */
     int (*start_full_loop)(struct luat_audio_driver_ctrl *ctrl, uint32_t **play_buff, uint32_t one_play_block_len, uint32_t play_block_num,uint32_t **record_buff, uint32_t one_record_block_len, uint32_t record_block_num);
+    
+    /**
+     * @brief 启动全双工循环 (同时播放和录音), 提供播放缓冲区，录音缓存区由驱动生成
+     * @param ctrl 驱动控制器指针
+     * @param play_buff 播放缓冲区数组指针
+     * @param one_play_block_len 单个播放缓冲区块长度 (字节)
+     * @param play_block_num 播放缓冲区块数量
+     * @param record_buff 录音缓冲区数组指针
+     * @param one_record_block_len 单个录音缓冲区块长度 (字节)
+     * @param record_block_num 录音缓存区块数量 
+     * @return int 成功返回0，失败返回负值错误码
+     */
+    int (*start_full_loop_with_play_buff)(struct luat_audio_driver_ctrl *ctrl, uint32_t *play_buff, uint32_t one_play_block_len, uint32_t play_block_num,uint32_t **record_buff, uint32_t one_record_block_len, uint32_t record_block_num);
     /**
      * @brief 停止播放循环、录音循环或全双工循环
      * @param ctrl 驱动控制器指针
      * @return int 成功返回0，失败返回负值错误码
      */
     int (*stop)(struct luat_audio_driver_ctrl *ctrl);
+
+    /**
+     * @brief 反激活音频驱动，主要包括进入低功耗模式，关闭I2S MCLK等
+     * @param ctrl 驱动控制器指针
+     * @return int 成功返回0，失败返回负值错误码
+     */
+    int (*deactivate)(struct luat_audio_driver_ctrl *ctrl);
     /**
      * @brief 反初始化驱动
      * @param ctrl 驱动控制器指针
@@ -124,13 +165,17 @@ typedef struct luat_audio_driver_opts {
     uint32_t support_tx_loop:1;  /**< 是否支持播放循环 */
     uint32_t support_rx_loop:1;  /**< 是否支持录音循环 */
     uint32_t support_full_loop:1;  /**< 是否支持全双工循环 */
-} luat_audio_driver_opts_t;
+    uint32_t is_signed:1;  /**< 是否为有符号数据 */
+    uint32_t support_bytes:3;  /**< 支持的字节数 */
+   } luat_audio_driver_opts_t;
 
 /**
  * @brief 音频驱动控制器类型定义
  */
 typedef struct luat_audio_driver_ctrl luat_audio_driver_ctrl_t;
 typedef struct luat_audio_driver_probe luat_audio_driver_probe_t;
+
+int luat_audio_driver_fill_default(struct luat_audio_driver_ctrl *ctrl, uint8_t *play_buff, uint32_t len_bytes, uint8_t is_signed, uint8_t align);
 #endif
 
 /** @} */

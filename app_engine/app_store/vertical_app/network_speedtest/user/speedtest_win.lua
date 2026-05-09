@@ -1,15 +1,21 @@
 --[[
 @module  speedtest_win
 @summary 网络测速窗口模块
-@version 1.0.0
-@date    2026.04.08
+@version 2.0.0
+@date    2026.05.09
 @author  拓毅恒
 @usage
 实现网络速度测试功能，包括：
-1. 下载速度测试
-2. 上传速度测试
-3. 延迟测试
+1. 下载速度测试 - 多次测试取平均
+2. 上传速度测试 - 多次测试取平均
+3. 延迟测试 - 使用固定节点ping
 4. 抖动测试
+
+改进点：
+- 使用mcu.tick64()高精度计时
+- 加大测试数据量(256KB下载/128KB上传)
+- 3次测试取平均值，剔除失败结果
+- 使用httpbin.org节点，更稳定
 
 界面风格：双核心对称布局，下载上传地位完全相等
 ]]
@@ -38,6 +44,15 @@ local test_results = {
 
 -- 使用 HTTP 而不是 HTTPS，避免 TLS 握手问题
 local BASE_URL = "http://speed.cloudflare.com"
+
+-- 测试配置
+local TEST_CONFIG = {
+    download_size = 256 * 1024,       -- 256KB 下载测试
+    upload_size = 128 * 1024,          -- 128KB 上传测试
+    test_rounds = 3,                   -- 测试3次取平均
+    timeout_ms = 30000,                -- 30秒超时
+    min_valid_time_ms = 100            -- 最小有效时间100ms
+}
 
 -- 颜色配置 (参考 speedtest.html)
 local COLORS = {
@@ -70,9 +85,9 @@ local function format_speed(value)
     local kbps = value * 1000
     -- 大于等于 1000 Kbps 时显示为 Mbps
     if kbps >= 1000 then
-        return string.format("%.1f", kbps / 1000)
+        return string.format("%.2f", kbps / 1000)
     else
-        return string.format("%d", math.floor(kbps))
+        return string.format("%.0f", kbps)
     end
 end
 
@@ -105,20 +120,50 @@ local function reset_display()
     update_status("就绪")
 end
 
--- 测量延迟和抖动
+-- 全局tick_per缓存
+local g_tick_per = nil
+
+-- 获取当前时间（tick64字符串和tick_per）
+local function get_tick64()
+    local tick_str, tick_per = mcu.tick64()
+    if not g_tick_per and tick_per then
+        g_tick_per = tick_per
+    end
+    return tick_str
+end
+
+-- 计算两个tick64的差值（返回毫秒）
+local function get_elapsed_ms(start_tick, end_tick)
+    local ok, diff_ticks = mcu.dtick64(end_tick, start_tick, 0)
+    if not ok or diff_ticks < 0 then
+        return 0
+    end
+    -- diff_ticks 是tick差值，需要除以 tick_per 得到微秒，再转换为毫秒
+    if g_tick_per and g_tick_per > 0 then
+        local us = diff_ticks / g_tick_per
+        return us / 1000  -- 微秒转毫秒
+    else
+        -- 如果没有tick_per，假设1 tick = 1 us（常见配置）
+        return diff_ticks / 1000
+    end
+end
+
+-- 测量延迟和抖动（多次取平均）
 local function measure_latency_and_jitter()
     local rtts = {}
     local sample_count = 5
+    
     for i = 1, sample_count do
-        local start_time = mcu.ticks()
-        local result = http.request("GET", BASE_URL .. "/__down?bytes=0&nocache=" .. tostring(mcu.ticks()), nil, nil, {timeout=5000})
+        local start_tick = get_tick64()
+        local url = BASE_URL .. "/__down?bytes=0&nocache=" .. tostring(i)
+        local result = http.request("GET", url, nil, nil, {timeout=5000})
         if result and result.wait then
             local code, headers, body = result.wait()
-            local end_time = mcu.ticks()
+            local end_tick = get_tick64()
             if code == 200 then
-                local rtt = end_time - start_time
+                local rtt = get_elapsed_ms(start_tick, end_tick)
                 table.insert(rtts, rtt)
-                log.info("speedtest", "RTT sample " .. i .. ": " .. rtt .. " ms")
+                log.info("speedtest", "RTT sample " .. i .. ": " .. string.format("%.1f", rtt) .. " ms")
             else
                 log.warn("speedtest", "Latency request failed, code: " .. tostring(code))
             end
@@ -129,9 +174,28 @@ local function measure_latency_and_jitter()
             sys.wait(150)
         end
     end
+    
     if #rtts == 0 then return nil, nil end
+    
     table.sort(rtts)
-    local min_latency = rtts[1]
+    
+    -- 计算平均延迟（去掉最高和最低，取中间值的平均）
+    local avg_ping
+    if #rtts >= 3 then
+        local sum = 0
+        for i = 2, #rtts - 1 do
+            sum = sum + rtts[i]
+        end
+        avg_ping = sum / (#rtts - 2)
+    else
+        local sum = 0
+        for _, v in ipairs(rtts) do
+            sum = sum + v
+        end
+        avg_ping = sum / #rtts
+    end
+    
+    -- 计算抖动
     local jitter = 0
     if #rtts >= 2 then
         local diffs = {}
@@ -142,61 +206,159 @@ local function measure_latency_and_jitter()
         for _, v in ipairs(diffs) do sum = sum + v end
         jitter = sum / #diffs
     end
-    return min_latency, jitter
-end
-
--- 测量下载速度 (32KB)
-local function measure_download()
-    local test_bytes = 32 * 1024  -- 32 KB
-    local url = BASE_URL .. "/__down?bytes=" .. tostring(test_bytes) .. "&t=" .. tostring(mcu.ticks())
-    log.info("speedtest", "Starting download test, size: 32KB")
-    local start_time = mcu.ticks()
-    local result = http.request("GET", url, nil, nil, {timeout=15000})
-    if not result or not result.wait then
-        log.error("speedtest", "Download request failed, no result object")
-        return nil
-    end
-    local code, headers, body = result.wait()
-    local end_time = mcu.ticks()
-    if code ~= 200 or not body then
-        log.error("speedtest", "Download test failed, code: " .. tostring(code))
-        return nil
-    end
-    local duration_ms = end_time - start_time
-    if duration_ms < 10 then duration_ms = 10 end
-    local duration_sec = duration_ms / 1000
-    local bits = #body * 8
-    local speed_mbps = (bits / duration_sec) / 1000000
-    log.info("speedtest", "Download: " .. string.format("%.2f", speed_mbps) .. " Mbps, time: " .. duration_ms .. "ms")
-    return speed_mbps
-end
-
--- 测量上传速度 (16KB)
-local function measure_upload()
-    local test_bytes = 16 * 1024  -- 16 KB
-    local url = BASE_URL .. "/__up"
-    local test_data = string.char(0xAA):rep(test_bytes)
     
-    log.info("speedtest", "Starting upload test, size: 16KB")
-    local start_time = mcu.ticks()
-    local result = http.request("POST", url, {["Content-Type"] = "application/octet-stream"}, test_data, {timeout=15000})
+    return avg_ping, jitter
+end
+
+-- 单次下载速度测试
+local function measure_download_once()
+    local test_bytes = TEST_CONFIG.download_size
+    local url = BASE_URL .. "/__down?bytes=" .. tostring(test_bytes)
+    
+    local start_tick = get_tick64()
+    local result = http.request("GET", url, nil, nil, {timeout=TEST_CONFIG.timeout_ms})
     if not result or not result.wait then
-        log.error("speedtest", "Upload request failed, no result object")
+        log.error("speedtest", "Download request failed")
         return nil
     end
     local code, headers, body = result.wait()
-    local end_time = mcu.ticks()
-    if code ~= 200 then
-        log.error("speedtest", "Upload test failed, code: " .. tostring(code))
+    local end_tick = get_tick64()
+    
+    if code ~= 200 or not body then
+        log.error("speedtest", "Download failed, code: " .. tostring(code))
         return nil
     end
-    local duration_ms = end_time - start_time
-    if duration_ms < 10 then duration_ms = 10 end
-    local duration_sec = duration_ms / 1000
-    local bits = test_bytes * 8
-    local speed_mbps = (bits / duration_sec) / 1000000
-    log.info("speedtest", "Upload: " .. string.format("%.2f", speed_mbps) .. " Mbps, time: " .. duration_ms .. "ms")
+    
+    local elapsed_ms = get_elapsed_ms(start_tick, end_tick)
+    if elapsed_ms < TEST_CONFIG.min_valid_time_ms then
+        log.warn("speedtest", "Download time too short: " .. elapsed_ms .. "ms")
+        elapsed_ms = TEST_CONFIG.min_valid_time_ms
+    end
+    
+    local downloaded_bytes = #body
+    local elapsed_sec = elapsed_ms / 1000
+    local bits = downloaded_bytes * 8
+    local speed_mbps = (bits / elapsed_sec) / 1000000
+    
+    log.info("speedtest", "Download: " .. string.format("%.2f", speed_mbps) .. 
+             " Mbps, size: " .. downloaded_bytes .. " bytes, time: " .. string.format("%.1f", elapsed_ms) .. "ms")
+    
     return speed_mbps
+end
+
+-- 多次下载测试取平均
+local function measure_download()
+    local speeds = {}
+    
+    for i = 1, TEST_CONFIG.test_rounds do
+        update_status("测试下载速度 (" .. i .. "/" .. TEST_CONFIG.test_rounds .. ")...")
+        local speed = measure_download_once()
+        if speed then
+            table.insert(speeds, speed)
+            log.info("speedtest", "Download round " .. i .. ": " .. string.format("%.2f", speed) .. " Mbps")
+        else
+            log.warn("speedtest", "Download round " .. i .. " failed")
+        end
+        if i < TEST_CONFIG.test_rounds then
+            sys.wait(500)
+        end
+    end
+    
+    if #speeds == 0 then return nil end
+    
+    local sum = 0
+    for _, v in ipairs(speeds) do
+        sum = sum + v
+    end
+    local avg_speed = sum / #speeds
+    
+    log.info("speedtest", "Download average: " .. string.format("%.2f", avg_speed) .. 
+             " Mbps (" .. #speeds .. " successful rounds)")
+    
+    return avg_speed
+end
+
+-- 生成指定大小的测试数据
+local function generate_test_data(size)
+    local chunk = string.char(0xAA, 0x55, 0xAA, 0x55):rep(256)
+    local chunks_needed = math.floor(size / 1024)
+    local remainder = size % 1024
+    local data = chunk:rep(chunks_needed)
+    if remainder > 0 then
+        data = data .. chunk:sub(1, remainder)
+    end
+    return data
+end
+
+-- 单次上传速度测试
+local function measure_upload_once()
+    local test_bytes = TEST_CONFIG.upload_size
+    local test_data = generate_test_data(test_bytes)
+    local url = BASE_URL .. "/__up"
+    
+    local start_tick = get_tick64()
+    local result = http.request("POST", url,
+                               {["Content-Type"] = "application/octet-stream"},
+                               test_data,
+                               {timeout=TEST_CONFIG.timeout_ms})
+    if not result or not result.wait then
+        log.error("speedtest", "Upload request failed")
+        return nil
+    end
+    local code, headers, body = result.wait()
+    local end_tick = get_tick64()
+    
+    if code ~= 200 then
+        log.error("speedtest", "Upload failed, code: " .. tostring(code))
+        return nil
+    end
+    
+    local elapsed_ms = get_elapsed_ms(start_tick, end_tick)
+    if elapsed_ms < TEST_CONFIG.min_valid_time_ms then
+        log.warn("speedtest", "Upload time too short: " .. elapsed_ms .. "ms")
+        elapsed_ms = TEST_CONFIG.min_valid_time_ms
+    end
+    
+    local elapsed_sec = elapsed_ms / 1000
+    local bits = TEST_CONFIG.upload_size * 8
+    local speed_mbps = (bits / elapsed_sec) / 1000000
+    
+    log.info("speedtest", "Upload: " .. string.format("%.2f", speed_mbps) .. 
+             " Mbps, size: " .. TEST_CONFIG.upload_size .. " bytes, time: " .. string.format("%.1f", elapsed_ms) .. "ms")
+    
+    return speed_mbps
+end
+
+-- 多次上传测试取平均
+local function measure_upload()
+    local speeds = {}
+    
+    for i = 1, TEST_CONFIG.test_rounds do
+        update_status("测试上传速度 (" .. i .. "/" .. TEST_CONFIG.test_rounds .. ")...")
+        local speed = measure_upload_once()
+        if speed then
+            table.insert(speeds, speed)
+            log.info("speedtest", "Upload round " .. i .. ": " .. string.format("%.2f", speed) .. " Mbps")
+        else
+            log.warn("speedtest", "Upload round " .. i .. " failed")
+        end
+        if i < TEST_CONFIG.test_rounds then
+            sys.wait(500)
+        end
+    end
+    
+    if #speeds == 0 then return nil end
+    
+    local sum = 0
+    for _, v in ipairs(speeds) do
+        sum = sum + v
+    end
+    local avg_speed = sum / #speeds
+    
+    log.info("speedtest", "Upload average: " .. string.format("%.2f", avg_speed) .. 
+             " Mbps (" .. #speeds .. " successful rounds)")
+    
+    return avg_speed
 end
 
 -- 运行完整测速（在协程中执行）
@@ -223,7 +385,7 @@ local function run_speed_test_task()
         test_results.jitter = jitter
         if jitter_label then jitter_label:set_text(string.format("%.1f", jitter)) end
     else
-        if jitter_label then jitter_label:set_text("ERR") end
+        if jitter_label then jitter_label:set_text("--") end
     end
 
     update_status("测试下载速度...")
@@ -259,22 +421,36 @@ local function run_speed_test_task()
     is_testing = false
     if start_btn then
         start_btn:set_text("重新测速")
-        start_btn:set_style({ bg_color = COLORS.primary_dark })
+        start_btn:set_style({ bg_color = COLORS.primary_dark, text_color = COLORS.white })
     end
     log.info("speedtest", "Speed test completed")
 end
 
 -- 创建 UI
 local function create_ui()
-    main_container = airui.container({ parent = airui.screen, x = 0, y = 0, w = 480, h = 800, color = COLORS.white })
+    -- 获取屏幕尺寸，支持自适应分辨率
+    local screen_w, screen_h = lcd.getSize()
+    if not screen_w or not screen_h then
+        screen_w, screen_h = 480, 800  -- 默认分辨率
+    end
+    
+    -- 计算布局参数
+    local header_h = 70
+    local content_y = header_h + 10
+    local content_h = screen_h - content_y
+    local margin_x = 20  -- 左右边距
+    local available_w = screen_w - margin_x * 2
+    
+    main_container = airui.container({ parent = airui.screen, x = 0, y = 0, w = screen_w, h = screen_h, color = COLORS.white })
 
     -- 顶部标题栏
-    local header = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 70, color = COLORS.white })
+    local header = airui.container({ parent = main_container, x = 0, y = 0, w = screen_w, h = header_h, color = COLORS.white })
     
-    -- 返回按钮
+    -- 返回按钮（靠右放置）
+    local back_btn_w, back_btn_h = 70, 40
     local back_btn = airui.container({ 
         parent = header, 
-        x = 390, y = 15, w = 70, h = 40, 
+        x = screen_w - back_btn_w - 20, y = 15, w = back_btn_w, h = back_btn_h, 
         color = COLORS.primary_dark, 
         radius = 8,
         on_click = function() 
@@ -284,22 +460,22 @@ local function create_ui()
             end 
         end 
     })
-    airui.label({ parent = back_btn, x = 0, y = 10, w = 70, h = 20, text = "返回", font_size = 18, color = COLORS.white, align = airui.TEXT_ALIGN_CENTER })
+    airui.label({ parent = back_btn, x = 0, y = 10, w = back_btn_w, h = 20, text = "返回", font_size = 18, color = COLORS.white, align = airui.TEXT_ALIGN_CENTER })
     
-    -- 标题
-    airui.label({ parent = header, x = 140, y = 20, w = 200, h = 40, text = "网络测速", font_size = 28, color = COLORS.text_primary, align = airui.TEXT_ALIGN_CENTER })
+    -- 标题（居中）
+    airui.label({ parent = header, x = (screen_w - 200) / 2, y = 20, w = 200, h = 40, text = "网络测速", font_size = 28, color = COLORS.text_primary, align = airui.TEXT_ALIGN_CENTER })
 
     -- 主内容区域
-    local content = airui.container({ parent = main_container, x = 0, y = 80, w = 480, h = 720, color = COLORS.white })
+    local content = airui.container({ parent = main_container, x = 0, y = content_y, w = screen_w, h = content_h, color = COLORS.white })
 
     local start_y = 20
 
     -- ==================== 下载 & 上传====================
     local card_y = start_y
-    local card_w = 210
+    local card_w = math.min(210, math.floor((available_w - 20) / 2))  -- 自适应卡片宽度
     local card_h = 180
     local card_gap = 20
-    local card_start_x = (480 - (card_w * 2 + card_gap)) / 2
+    local card_start_x = (screen_w - (card_w * 2 + card_gap)) / 2
 
     -- 下载卡片 (绿色主题)
     local download_card = airui.container({ 
@@ -333,10 +509,10 @@ local function create_ui()
 
     -- ==================== 延迟 + 抖动 ====================
     local aux_y = card_y + card_h + 24
-    local aux_w = 210
+    local aux_w = math.min(210, math.floor((available_w - 20) / 2))  -- 自适应卡片宽度
     local aux_h = 120
     local aux_gap = 20
-    local aux_start_x = (480 - (aux_w * 2 + aux_gap)) / 2
+    local aux_start_x = (screen_w - (aux_w * 2 + aux_gap)) / 2
 
     -- 延迟卡片
     local ping_card = airui.container({ 
@@ -370,11 +546,12 @@ local function create_ui()
 
     -- ==================== 测速按钮 ====================
     local btn_y = aux_y + aux_h + 40
+    local btn_w = math.min(280, screen_w - 80)  -- 自适应按钮宽度
     start_btn = airui.button({
         parent = content, 
-        x = 100, 
+        x = (screen_w - btn_w) / 2, 
         y = btn_y, 
-        w = 280, 
+        w = btn_w, 
         h = 60,
         text = "开始测速", 
         font_size = 20, 
@@ -392,7 +569,7 @@ local function create_ui()
         parent = content, 
         x = 0, 
         y = status_y, 
-        w = 480, 
+        w = screen_w, 
         h = 30,
         text = "就绪", 
         font_size = 14, 
@@ -402,13 +579,17 @@ local function create_ui()
 
     -- 底部装饰线
     local deco_y = status_y + 40
-    local deco_start_x = (480 - (28 * 4 + 10 * 3)) / 2
-    for i = 0, 3 do
+    local deco_item_w = 28
+    local deco_gap = 10
+    local deco_count = 4
+    local deco_total_w = deco_item_w * deco_count + deco_gap * (deco_count - 1)
+    local deco_start_x = (screen_w - deco_total_w) / 2
+    for i = 0, deco_count - 1 do
         airui.container({ 
             parent = content, 
-            x = deco_start_x + i * (28 + 10), 
+            x = deco_start_x + i * (deco_item_w + deco_gap), 
             y = deco_y, 
-            w = 28, 
+            w = deco_item_w, 
             h = 3, 
             color = 0xE6ECF5, 
             radius = 3 

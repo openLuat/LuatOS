@@ -155,6 +155,65 @@ local network_ready = false
 -- 设备信息缓存
 local device_info = nil
 
+-- ==============================================
+-- IOT 账号管理
+-- ==============================================
+
+local IOT_AUTH_URL   = "https://api.luatos.com/iot/appstore/auth"
+local GUEST_ACCOUNT  = "guest_000000"
+local GUEST_NICKNAME = "游客"
+
+local iot_rsa_public_key = nil
+
+local function iot_get_public_key()
+    if iot_rsa_public_key then return iot_rsa_public_key end
+    iot_rsa_public_key = io.readFile("/luadb/public.pem")
+    return iot_rsa_public_key
+end
+
+local iot_info = {
+    account  = GUEST_ACCOUNT,
+    nickname = GUEST_NICKNAME,
+    is_guest = true,
+}
+local device_uid = nil
+
+local function mask_account(account)
+    if not account or #account < 7 then return "***" end
+    return account:sub(1, 3) .. string.rep("*", #account - 7) .. account:sub(-4)
+end
+
+local function iot_gen_device_uid()
+    if device_uid then return device_uid end
+    device_uid = hmeta.unique_id()
+    return device_uid
+end
+
+local function iot_load_state()
+    local account = fskv.get("iot_account")
+    local password = fskv.get("iot_password")
+    local nickname = fskv.get("iot_nickname")
+    if account and password then
+        iot_info.account = account
+        iot_info.nickname = nickname or GUEST_NICKNAME
+        iot_info.is_guest = false
+    end
+end
+
+local function iot_save_login_time()
+    fskv.set("iot_login_time", os.time())
+end
+
+local function iot_clear_state()
+    fskv.del("iot_account")
+    fskv.del("iot_password")
+    fskv.del("iot_nickname")
+    fskv.del("iot_login_time")
+    iot_info.account  = GUEST_ACCOUNT
+    iot_info.nickname = GUEST_NICKNAME
+    iot_info.is_guest = true
+end
+
 --[[
     清理沙箱环境中的全局变量
 
@@ -334,6 +393,9 @@ local function app_task(app_path)
         my_env.log.info("exapp_closing:", app_path)
         sys.publish(app_path .. "_close_req", "yes")
     end
+
+    my_env.exapp.iot_get_account_info = exapp.iot_get_account_info
+    my_env.exapp.iot_get_auth_headers = exapp.iot_get_auth_headers
 
     -- ==============================================
     -- 自定义require函数
@@ -1924,6 +1986,135 @@ function exapp.uninstall(app_path)
     return true
 end
 
+-- ==============================================
+-- IOT 账号管理 公开接口
+-- ==============================================
+
+function exapp.iot_login(account, password)
+    log.info("iot", "login attempt", mask_account(account))
+    sys.taskInit(function()
+        local ac_cipher = rsa.encrypt(iot_get_public_key(), account)
+        local pw_cipher = rsa.encrypt(iot_get_public_key(), password)
+        if not ac_cipher or not pw_cipher then
+            log.warn("iot", "rsa encrypt failed")
+            sys.publish("IOT_LOGIN_RESULT", {
+                success = false, error = "加密失败"
+            })
+            return
+        end
+        local body = json.encode({
+            account_rsa  = string.toBase64(ac_cipher),
+            password_rsa = string.toBase64(pw_cipher),
+        })
+        local code, _, resp_body = http.request("POST", IOT_AUTH_URL, {
+            ["Content-Type"] = "application/json"
+        }, body, { timeout = 10000 }).wait()
+        if code < 0 or code ~= 200 then
+            log.warn("iot", "auth request failed", code)
+            sys.publish("IOT_LOGIN_RESULT", {
+                success = false, error = "服务器连接失败"
+            })
+            return
+        end
+        local ok, resp = pcall(json.decode, resp_body)
+        if not ok or type(resp) ~= "table" then
+            log.warn("iot", "auth response parse failed")
+            sys.publish("IOT_LOGIN_RESULT", {
+                success = false, error = "数据解析失败"
+            })
+            return
+        end
+        if resp.code == 0 and resp.value then
+            local value = resp.value
+            iot_info.account  = value.account
+            iot_info.nickname = value.nickname or GUEST_NICKNAME
+            iot_info.is_guest = false
+            fskv.set("iot_account",  value.account)
+            fskv.set("iot_password", password)
+            fskv.set("iot_nickname", value.nickname or GUEST_NICKNAME)
+            iot_save_login_time()
+            log.info("iot", "login success", mask_account(value.account))
+            sys.publish("IOT_LOGIN_RESULT", {
+                success  = true,
+                account  = value.account,
+                nickname = value.nickname,
+            })
+        else
+            log.info("iot", "login failed", mask_account(account))
+            sys.publish("IOT_LOGIN_RESULT", {
+                success = false,
+                error   = resp.value or "账号或密码错误",
+            })
+        end
+    end)
+end
+
+function exapp.iot_logout()
+    local old_account = iot_info.account
+    iot_clear_state()
+    log.info("iot", "logged out", mask_account(old_account))
+    sys.publish("IOT_LOGOUT_RESULT", { account = old_account })
+end
+
+function exapp.iot_get_account_info()
+    return {
+        account  = iot_info.account,
+        nickname = iot_info.nickname,
+        is_guest = iot_info.is_guest,
+    }
+end
+
+function exapp.iot_get_auth_headers(appid)
+    return {
+        ["X-Appid"]     = appid or "",
+        ["X-Device-Id"] = iot_gen_device_uid(),
+        ["X-Account"]   = iot_info.account,
+    }
+end
+
+function exapp.iot_auto_login()
+    iot_load_state()
+    if iot_info.is_guest then
+        log.info("iot", "auto login skipped, guest mode")
+        return
+    end
+    log.info("iot", "auto login attempt", mask_account(iot_info.account))
+    local password = fskv.get("iot_password")
+    if not password then
+        iot_clear_state()
+        return
+    end
+    local ac_cipher = rsa.encrypt(iot_get_public_key(), iot_info.account)
+    local pw_cipher = rsa.encrypt(iot_get_public_key(), password)
+    if not ac_cipher or not pw_cipher then
+        log.warn("iot", "auto login rsa encrypt failed")
+        return
+    end
+    local body = json.encode({
+        account_rsa  = string.toBase64(ac_cipher),
+        password_rsa = string.toBase64(pw_cipher),
+    })
+    local code, _, resp_body = http.request("POST", IOT_AUTH_URL, {
+        ["Content-Type"] = "application/json"
+    }, body, { timeout = 10000 }).wait()
+    if code < 0 or code ~= 200 then
+        log.warn("iot", "auto login network error", code)
+        return
+    end
+    local ok, resp = pcall(json.decode, resp_body)
+    if ok and type(resp) == "table" and resp.code == 0 and resp.value then
+        iot_info.account  = resp.value.account
+        iot_info.nickname = resp.value.nickname or GUEST_NICKNAME
+        iot_info.is_guest = false
+        fskv.set("iot_nickname", resp.value.nickname or GUEST_NICKNAME)
+        iot_save_login_time()
+        log.info("iot", "auto login success", mask_account(resp.value.account))
+    else
+        log.warn("iot", "auto login invalid, clearing")
+        iot_clear_state()
+    end
+end
+
 --[[
 获取已安装应用列表
 
@@ -2099,6 +2290,11 @@ function exapp.init()
     installed_total_count = installed_cnt
     log.info("ei", "scan completed, found", installed_cnt, "apps")
     sys.publish("APP_STORE_INSTALLED_UPDATED", installed_info)
+
+    sys.taskInit(function()
+        exapp.iot_auto_login()
+    end)
+
     return true
 end
 

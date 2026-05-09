@@ -50,6 +50,9 @@ enum {
     LUAT_AUDIO_CODEC_TYPE_G711,    /**< G711 编解码器 */
     LUAT_AUDIO_CODEC_TYPE_MAX,     /**< 最大编解码器类型 */
 
+    LUAT_AUDIO_CODEC_DECODE_DONE = 0, /**< 编码完成状态 */
+
+    LUAT_AUDIO_CHANNEL_TX_FIFO_DONE = 0, /**< 发送FIFO完成状态 */
 };
 
 /**
@@ -75,6 +78,8 @@ enum {
 #ifndef LUAT_AUDIO_TASK_STACK
 #define LUAT_AUDIO_TASK_STACK 13 * 1024
 #endif
+
+#define LUAT_AUDIO_FRAME_LOOP_CNT   4
 /**
  * @brief 音频驱动探测结构
  * 

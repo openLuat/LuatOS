@@ -1,0 +1,25 @@
+{
+  "app_name_cn" : "对战测速",
+  "app_name_en" : "battle_latency",
+  "version" : "1.0.0",
+  "publish_time" : "2026-05-08 01:21:17",
+  "category" : "游戏",
+  "description" : "基于MQTT协议的双人对战测试",
+  "resolution" : "320x480",
+  "supported_models" : {
+    "Air8101" : [ {
+      "firmware_id" : 104,
+      "min_firmware_version" : 2010
+    }, {
+      "firmware_id" : 105,
+      "min_firmware_version" : 2010
+    } ],
+    "Air8000" : [ {
+      "firmware_id" : 104,
+      "min_firmware_version" : 2010
+    } ]
+  },
+  "zip_size_kb" : "16.0",
+  "origin_size_kb" : "75.8",
+  "display_zoom" : "adaptive"
+}

@@ -1,0 +1,23 @@
+{
+  "app_name_cn": "胎压监测",
+  "app_name_en": "tpms_dashboard",
+  "version": "1.0.0",
+  "publish_time": "2026-05-09 16:00:00",
+  "category": "工具",
+  "description": "智能胎压监测系统，实时显示四轮胎压和温度",
+  "resolution": "480x800",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 120,
+  "origin_size_kb": 350
+}

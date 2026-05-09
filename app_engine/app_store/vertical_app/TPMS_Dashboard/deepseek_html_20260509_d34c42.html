@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>智能胎压监测仪 | TPMS Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* 提升触屏体验，避免点击选中文字 */
+        }
+
+        body {
+            background: linear-gradient(145deg, #1a2634 0%, #0e1219 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Poppins', 'Roboto', system-ui, -apple-system, 'BlinkMacSystemFont', 'Inter', sans-serif;
+            padding: 20px;
+        }
+
+        /* 主卡片模拟车载仪表风格 */
+        .dashboard {
+            max-width: 550px;
+            width: 100%;
+            background: rgba(12, 18, 28, 0.75);
+            backdrop-filter: blur(2px);
+            border-radius: 56px;
+            padding: 24px 20px 32px;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            transition: all 0.2s ease;
+        }
+
+        /* 头部信息 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 24px;
+            padding: 0 8px;
+        }
+        .title {
+            color: #eef5ff;
+            font-weight: 600;
+            font-size: 1.65rem;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff, #9bb8e0);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .status-badge {
+            background: #1e2a3a;
+            padding: 6px 14px;
+            border-radius: 60px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #b9e6ff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(4px);
+            border: 0.5px solid rgba(80, 140, 200, 0.4);
+        }
+        .led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #2ecc71;
+            box-shadow: 0 0 6px #2ecc71;
+            animation: pulse 1.8s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.4; transform: scale(0.9);}
+            100% { opacity: 1; transform: scale(1.2);}
+        }
+
+        /* 轮胎网格 */
+        .tires-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        /* 轮胎卡片 */
+        .tire-card {
+            background: rgba(20, 28, 38, 0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 38px;
+            padding: 20px 12px 18px;
+            text-align: center;
+            transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+        }
+        .tire-card.active {
+            border: 1.5px solid #3b82f6;
+            background: rgba(36, 58, 86, 0.6);
+            box-shadow: 0 0 15px rgba(59,130,246,0.3);
+        }
+        .tire-label {
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: #2c3e4e;
+            display: inline-block;
+            padding: 4px 18px;
+            border-radius: 40px;
+            color: #d9eaff;
+            margin-bottom: 18px;
+            letter-spacing: 1px;
+        }
+        .pressure-area {
+            display: flex;
+            justify-content: center;
+            align-items: baseline;
+            gap: 5px;
+            margin-bottom: 16px;
+        }
+        .pressure-value {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: #f0f9ff;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .pressure-unit {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #8aaec0;
+        }
+        .temp-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            background: #0f161f;
+            width: fit-content;
+            margin: 0 auto 12px;
+            padding: 6px 16px;
+            border-radius: 32px;
+        }
+        .temp-icon {
+            font-size: 1rem;
+        }
+        .temp-value {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #bdd4ff;
+        }
+        .alert-badge {
+            margin-top: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0,0,0,0.5);
+        }
+        .alert-badge.warning {
+            background: #f97316cc;
+            color: #fff4e0;
+        }
+        .alert-badge.critical {
+            background: #ef4444cc;
+            color: white;
+        }
+        .alert-badge.normal {
+            background: #10b98166;
+            color: #ccf0e6;
+        }
+
+        /* 全局统计数据栏 */
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            background: #0a1017aa;
+            border-radius: 48px;
+            padding: 14px 18px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(4px);
+            border: 0.5px solid #2c3e50;
+        }
+        .stat {
+            text-align: center;
+            flex: 1;
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #88a0bb;
+            letter-spacing: 1px;
+        }
+        .stat-number {
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: #c7e2ff;
+        }
+
+        /* 控制栏按钮区 */
+        .action-bar {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        button {
+            background: #1f2a36;
+            border: none;
+            padding: 12px 22px;
+            border-radius: 44px;
+            font-weight: 600;
+            font-size: 1rem;
+            color: #e2efff;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(8px);
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            border: 0.5px solid rgba(255,255,255,0.1);
+        }
+        button:active {
+            transform: scale(0.96);
+        }
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+            box-shadow: 0 5px 12px #1e40af40;
+        }
+        .btn-warning {
+            background: #b45309;
+        }
+        button i {
+            font-style: normal;
+            font-weight: bold;
+        }
+
+        /* 模拟提示面板（实时反馈） */
+        .toast-message {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2a38e6;
+            backdrop-filter: blur(12px);
+            padding: 8px 20px;
+            border-radius: 60px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #bbe1ff;
+            border-left: 4px solid #3b82f6;
+            pointer-events: none;
+            z-index: 200;
+            transition: opacity 0.2s;
+            opacity: 0;
+            white-space: nowrap;
+            font-family: monospace;
+        }
+
+        @media (max-width: 480px) {
+            .dashboard {
+                padding: 18px 14px 24px;
+            }
+            .pressure-value {
+                font-size: 2rem;
+            }
+            .tire-card {
+                padding: 14px 8px;
+            }
+            button {
+                padding: 8px 16px;
+                font-size: 0.85rem;
+            }
+            .stats-bar {
+                padding: 10px 12px;
+            }
+        }
+        footer {
+            text-align: center;
+            font-size: 0.65rem;
+            color: #4f6f8f;
+            margin-top: 24px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="header">
+        <span class="title">⛽ TPMS · 灵眸胎压</span>
+        <div class="status-badge">
+            <span class="led"></span>
+            <span id="sysStatusText">实时监测</span>
+        </div>
+    </div>
+
+    <!-- 轮胎区域 四个位置: 左前FL, 右前FR, 左后RL, 右后RR -->
+    <div class="tires-grid" id="tiresGrid">
+        <!-- 动态js渲染但为了方便结构用js动态填充，也可以直接静态 但为了交互逻辑统一用js生成 -->
+    </div>
+
+    <!-- 综合统计区 -->
+    <div class="stats-bar">
+        <div class="stat"><div class="stat-label">平均胎压</div><div class="stat-number" id="avgPressure">--</div><div class="stat-label" style="font-size:0.6rem;">psi</div></div>
+        <div class="stat"><div class="stat-label">最高温度</div><div class="stat-number" id="maxTemp">--</div><div class="stat-label" style="font-size:0.6rem;">°C</div></div>
+        <div class="stat"><div class="stat-label">报警总数</div><div class="stat-number" id="alertCount">0</div></div>
+    </div>
+
+    <div class="action-bar">
+        <button id="refreshBtn" class="btn-primary">🔄 模拟刷新</button>
+        <button id="resetNormalBtn">✅ 重置标准值</button>
+        <button id="simulateLeakBtn" class="btn-warning">⚠️ 模拟左前漏气</button>
+    </div>
+    <footer>点击轮胎卡片可手动调节 ±0.2 PSI | 异常实时预警</footer>
+</div>
+<div id="toastMsg" class="toast-message">⚡ 提示信息</div>
+
+<script>
+    // ----- 胎压检测核心数据模型 -----
+    // 定义轮胎位置: FL, FR, RL, RR
+    const positions = [
+        { id: 'FL', label: '左前轮', short: 'FL', defaultPsi: 36.0, defaultTemp: 28 },
+        { id: 'FR', label: '右前轮', short: 'FR', defaultPsi: 36.0, defaultTemp: 29 },
+        { id: 'RL', label: '左后轮', short: 'RL', defaultPsi: 34.5, defaultTemp: 27 },
+        { id: 'RR', label: '右后轮', short: 'RR', defaultPsi: 34.5, defaultTemp: 28 }
+    ];
+    
+    // 胎压范围 (psi) 报警阈值: 低压<30 psi 严重低压<28; 高压>44 psi过高警告
+    // 温度报警: >65°C 严重高温报警, >58°C 警告
+    let tiresData = [];
+
+    // 辅助函数: 随机生成合理范围内的模拟真实数据 (但保留重置后默认)
+    function generateRandomTire(basePsi, baseTemp, variancePsi = 1.2, varianceTemp = 3) {
+        let newPsi = basePsi + (Math.random() - 0.5) * variancePsi * 2;
+        newPsi = Math.round(newPsi * 10) / 10;
+        // 边界限制防止过于离谱: 22~50 psi
+        newPsi = Math.min(50, Math.max(22, newPsi));
+        let newTemp = baseTemp + (Math.random() - 0.5) * varianceTemp * 2;
+        newTemp = Math.round(newTemp);
+        newTemp = Math.min(78, Math.max(18, newTemp));
+        return { psi: newPsi, temp: newTemp };
+    }
+
+    // 初始化/重置为标准健康值
+    function resetToNormal() {
+        tiresData = positions.map(pos => ({
+            id: pos.id,
+            label: pos.label,
+            short: pos.short,
+            psi: pos.defaultPsi,
+            temp: pos.defaultTemp,
+        }));
+        updateAllUI();
+        showToast("✓ 所有轮胎已重置为标准胎压/温度", "#10b981");
+    }
+
+    // 模拟真实场景数据刷新（大部分都在健康范围，偶尔轻微波动）
+    function simulateFreshData() {
+        tiresData = tiresData.map(tire => {
+            // 根据原始默认值轻微波动，但保持基于当前数据为避免突变过大，但根据原默认偏移更加自然
+            const basePos = positions.find(p => p.id === tire.id);
+            const targetPsi = basePos.defaultPsi;
+            const targetTemp = basePos.defaultTemp;
+            let newPsi = tire.psi + (Math.random() - 0.5) * 0.6;
+            newPsi = Math.round(newPsi * 10) / 10;
+            // 偶尔轻微偏移但不超过安全范围
+            if (newPsi > targetPsi + 2.5) newPsi = targetPsi + 2.2;
+            if (newPsi < targetPsi - 2.2) newPsi = targetPsi - 2.0;
+            newPsi = Math.min(48, Math.max(28, newPsi));
+            
+            let newTemp = tire.temp + (Math.random() - 0.5) * 1.8;
+            newTemp = Math.round(newTemp);
+            newTemp = Math.min(72, Math.max(22, newTemp));
+            return { ...tire, psi: newPsi, temp: newTemp };
+        });
+        updateAllUI();
+        showToast("📡 传感器数据刷新 (模拟正常波动)");
+    }
+
+    // 模拟左前轮漏气：逐渐降低压力
+    function simulateLeakFL() {
+        const flIndex = tiresData.findIndex(t => t.id === 'FL');
+        if (flIndex === -1) return;
+        let currentPsi = tiresData[flIndex].psi;
+        let newPsi = currentPsi - 1.8;
+        if (newPsi < 22) newPsi = 22;
+        newPsi = Math.round(newPsi * 10) / 10;
+        tiresData[flIndex].psi = newPsi;
+        // 漏气可能会轻微影响温度上升? 可以象征性微升温度
+        let newTemp = tiresData[flIndex].temp + 1;
+        if (newTemp > 72) newTemp = 72;
+        tiresData[flIndex].temp = newTemp;
+        updateAllUI();
+        showToast("⚠️ 左前轮快速漏气模拟! 胎压骤降", "#f97316");
+        // 如果触发严重低压，toast会有额外弹窗警告，在更新报警时会显示
+    }
+
+    // 手动微调轮胎气压: 通过卡片点击增加减少 ±0.2 PSI (交互逻辑)
+    function adjustTirePressure(tireId, delta) {
+        const idx = tiresData.findIndex(t => t.id === tireId);
+        if (idx === -1) return;
+        let newPsi = tiresData[idx].psi + delta;
+        newPsi = Math.round(newPsi * 10) / 10;
+        if (newPsi < 20) newPsi = 20;
+        if (newPsi > 55) newPsi = 55;
+        tiresData[idx].psi = newPsi;
+        // 温度也可能因为胎压变化轻微关联，为了更真实，增加细小变动
+        if (Math.abs(delta) > 0.1) {
+            let tempDelta = delta > 0 ? 0.3 : -0.2;
+            let newTemp = tiresData[idx].temp + tempDelta;
+            newTemp = Math.min(78, Math.max(18, Math.round(newTemp)));
+            tiresData[idx].temp = newTemp;
+        }
+        updateAllUI();
+        showToast(`${tiresData[idx].label} 胎压 ${delta>0 ? '+' : ''}${delta.toFixed(1)} PSI`, "#3b82f6");
+    }
+
+    // 计算报警统计与警告级别
+    function evaluateAlert(tire) {
+        const psi = tire.psi;
+        const temp = tire.temp;
+        let alertLevel = 'normal'; // normal, warning, critical
+        let reason = [];
+        // 低压报警
+        if (psi < 30) reason.push('低压');
+        if (psi < 28) reason.push('严重低压');
+        if (psi > 44) reason.push('高压');
+        if (psi > 48) reason.push('严重高压');
+        // 高温报警
+        if (temp > 58) reason.push('高温');
+        if (temp > 65) reason.push('严重高温');
+        
+        if (reason.length === 0) alertLevel = 'normal';
+        else if (reason.some(r => r.includes('严重'))) alertLevel = 'critical';
+        else alertLevel = 'warning';
+        
+        let alertMsg = reason.join(',');
+        return { level: alertLevel, msg: alertMsg, hasAlert: alertLevel !== 'normal' };
+    }
+
+    // 渲染全部UI (动态绘制轮胎卡片，并刷新统计)
+    function updateAllUI() {
+        renderTiresCards();
+        updateStatsAndGlobalAlerts();
+    }
+
+    // 动态生成轮胎卡片(绑定事件委托)
+    function renderTiresCards() {
+        const grid = document.getElementById('tiresGrid');
+        if (!grid) return;
+        let html = '';
+        for (let tire of tiresData) {
+            const alertInfo = evaluateAlert(tire);
+            let psiColor = '#f0f9ff';
+            let borderGlow = '';
+            if (alertInfo.level === 'warning') psiColor = '#fbbf24';
+            if (alertInfo.level === 'critical') psiColor = '#f87171';
+            // 报警徽章显示
+            let badgeHtml = '';
+            if (alertInfo.hasAlert) {
+                badgeHtml = `<div class="alert-badge ${alertInfo.level === 'critical' ? 'critical' : 'warning'}">⚠️ ${alertInfo.msg}</div>`;
+            } else {
+                badgeHtml = `<div class="alert-badge normal">✓ 正常</div>`;
+            }
+            
+            html += `
+                <div class="tire-card" data-tire-id="${tire.id}">
+                    <div class="tire-label">${tire.label}</div>
+                    <div class="pressure-area">
+                        <span class="pressure-value" style="color: ${psiColor};">${tire.psi.toFixed(1)}</span>
+                        <span class="pressure-unit">PSI</span>
+                    </div>
+                    <div class="temp-area">
+                        <span class="temp-icon">🌡️</span>
+                        <span class="temp-value">${tire.temp} °C</span>
+                    </div>
+                    ${badgeHtml}
+                    <div style="margin-top: 12px; display: flex; justify-content: center; gap: 12px; font-size:12px; opacity:0.7;">
+                        <span class="adjust-btn" data-delta="-0.2" style="cursor:pointer; background:#2c3e4e; padding:2px 10px; border-radius:20px;">−0.2</span>
+                        <span class="adjust-btn" data-delta="+0.2" style="cursor:pointer; background:#2c3e4e; padding:2px 10px; border-radius:20px;">+0.2</span>
+                    </div>
+                </div>
+            `;
+        }
+        grid.innerHTML = html;
+        
+        // 重新绑定轮胎卡片内微调按钮事件 (使用事件委托, 但为了灵活直接绑定)
+        document.querySelectorAll('.adjust-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const delta = parseFloat(btn.getAttribute('data-delta'));
+                const tireCard = btn.closest('.tire-card');
+                if (tireCard) {
+                    const tireId = tireCard.getAttribute('data-tire-id');
+                    adjustTirePressure(tireId, delta);
+                }
+            });
+        });
+        
+        // 给整个卡片添加点击反馈（扩展选中效果）
+        document.querySelectorAll('.tire-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                // 如果点到按钮内部已经处理，避免重复. 但无伤大雅，清除选中样式临时
+                if(e.target.classList && e.target.classList.contains('adjust-btn')) return;
+                const tireId = card.getAttribute('data-tire-id');
+                // 轻提示显示哪个轮胎被选中，也可显示详细数据，不做复杂修改 仅反馈
+                const tire = tiresData.find(t => t.id === tireId);
+                if(tire) showToast(`📌 ${tire.label}  胎压 ${tire.psi.toFixed(1)} PSI / ${tire.temp}°C`, "#3b82f6");
+                // 增加激活边框特效
+                document.querySelectorAll('.tire-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                setTimeout(() => card.classList.remove('active'), 800);
+            });
+        });
+    }
+    
+    // 更新顶部统计数据 + 全局系统状态 + 报警计数
+    function updateStatsAndGlobalAlerts() {
+        if (!tiresData.length) return;
+        let totalPsi = 0;
+        let maxTemp = -Infinity;
+        let alertTotal = 0;
+        for (let tire of tiresData) {
+            totalPsi += tire.psi;
+            if (tire.temp > maxTemp) maxTemp = tire.temp;
+            const alert = evaluateAlert(tire);
+            if (alert.hasAlert) alertTotal++;
+        }
+        const avgPsi = totalPsi / tiresData.length;
+        document.getElementById('avgPressure').innerText = avgPsi.toFixed(1);
+        document.getElementById('maxTemp').innerText = maxTemp === -Infinity ? '--' : maxTemp;
+        document.getElementById('alertCount').innerText = alertTotal;
+        
+        // 更新系统状态文本 + 闪烁效果 (根据是否有严重报警)
+        const sysStatus = document.getElementById('sysStatusText');
+        const ledSpan = document.querySelector('.led');
+        if (alertTotal > 0) {
+            const hasCritical = tiresData.some(t => evaluateAlert(t).level === 'critical');
+            if (hasCritical) {
+                sysStatus.innerText = '⚠️ 严重警报！';
+                ledSpan.style.backgroundColor = '#ef4444';
+                ledSpan.style.boxShadow = '0 0 10px #ef4444';
+            } else {
+                sysStatus.innerText = '⚠️ 胎压/温度异常';
+                ledSpan.style.backgroundColor = '#f97316';
+                ledSpan.style.boxShadow = '0 0 8px #f97316';
+            }
+        } else {
+            sysStatus.innerText = '全轮正常 · 安全行驶';
+            ledSpan.style.backgroundColor = '#2ecc71';
+            ledSpan.style.boxShadow = '0 0 8px #2ecc71';
+        }
+        
+        // 额外自定义全局if紧急低压高压 可以增加全局报警toast（仅当关键状态变化时二次提醒，但为了清爽，这里不过多冗余toast）
+        // 检测是否有新严重问题发送警报（简化，第一次提醒已经在刷新时由具体场景提示，但为了保险，可以显示全局弹窗不频繁即可）
+        // 但为了不让用户错过严重情况，当alertTotal变化且出现critical时额外toast提醒
+        const prevCriticalFlag = window._prevCriticalFlag || false;
+        const curCritical = tiresData.some(t => evaluateAlert(t).level === 'critical');
+        if (curCritical && !prevCriticalFlag) {
+            showToast("🚨 检测到严重胎压或高温，请立即检查轮胎！", "#ef4444");
+        }
+        window._prevCriticalFlag = curCritical;
+    }
+    
+    // 显示临时提示
+    let toastTimeout = null;
+    function showToast(msg, color = '#3b82f6') {
+        const toast = document.getElementById('toastMsg');
+        if (!toast) return;
+        toast.style.transition = 'opacity 0.2s';
+        toast.style.opacity = '1';
+        toast.innerHTML = `⚡ ${msg}`;
+        toast.style.borderLeftColor = color;
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 2200);
+    }
+    
+    // 额外增加全局重置时候的绑定
+    function bindControls() {
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            simulateFreshData();
+        });
+        document.getElementById('resetNormalBtn').addEventListener('click', () => {
+            resetToNormal();
+        });
+        document.getElementById('simulateLeakBtn').addEventListener('click', () => {
+            simulateLeakFL();
+        });
+    }
+    
+    // 初始化数据并渲染
+    function init() {
+        resetToNormal();  // 建立标准数据并渲染
+        bindControls();
+        // 添加自动后台模拟动态环境 (模拟轻微物理变化 每25秒一次真实感但不打扰按钮)
+        setInterval(() => {
+            // 随机有30%几率自动模拟轻微波动，不干扰用户手动设置，但让界面更活跃
+            if (Math.random() < 0.4) {
+                simulateFreshData();
+            } else {
+                // 轻微漂移保证不会完全静态
+                tiresData = tiresData.map(t => {
+                    let tinyShift = (Math.random() - 0.5) * 0.2;
+                    let newPsi = t.psi + tinyShift;
+                    newPsi = Math.min(49, Math.max(23, parseFloat(newPsi.toFixed(1))));
+                    let tempShift = (Math.random() - 0.5) * 0.6;
+                    let newTemp = t.temp + tempShift;
+                    newTemp = Math.min(74, Math.max(20, Math.round(newTemp)));
+                    return {...t, psi: newPsi, temp: newTemp};
+                });
+                updateAllUI();
+            }
+        }, 18000);
+    }
+    
+    init();
+</script>
+</body>
+</html>

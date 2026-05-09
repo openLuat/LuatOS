@@ -925,8 +925,10 @@ local function olu(apps, pg)
             return
         end
         apps = filtered
-        tp = math.max(1, math.ceil(#filtered / plim))
-        hm = false
+        if tl > 0 then
+            tp = math.max(1, math.ceil(tl / plim))
+        end
+        hm = (cp < tp)
     end
     ra(apps, hm)
 end

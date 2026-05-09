@@ -159,7 +159,7 @@ local device_info = nil
 -- IOT 账号管理
 -- ==============================================
 
-local IOT_AUTH_URL   = "https://api.luatos.com/iot/appstore/auth"
+local IOT_AUTH_URL   = "https://api.luatos.com/iot/appstore/login"
 local GUEST_ACCOUNT  = "guest_000000"
 local GUEST_NICKNAME = "游客"
 
@@ -2003,8 +2003,8 @@ function exapp.iot_login(account, password)
             return
         end
         local body = json.encode({
-            account_rsa  = string.toBase64(ac_cipher),
-            password_rsa = string.toBase64(pw_cipher),
+            user     = string.toBase64(ac_cipher),
+            password = string.toBase64(pw_cipher),
         })
         local code, _, resp_body = http.request("POST", IOT_AUTH_URL, {
             ["Content-Type"] = "application/json"
@@ -2026,17 +2026,17 @@ function exapp.iot_login(account, password)
         end
         if resp.code == 0 and resp.value then
             local value = resp.value
-            iot_info.account  = value.account
+            iot_info.account  = account
             iot_info.nickname = value.nickname or GUEST_NICKNAME
             iot_info.is_guest = false
-            fskv.set("iot_account",  value.account)
+            fskv.set("iot_account",  account)
             fskv.set("iot_password", password)
             fskv.set("iot_nickname", value.nickname or GUEST_NICKNAME)
             iot_save_login_time()
-            log.info("iot", "login success", mask_account(value.account))
+            log.info("iot", "login success", mask_account(account))
             sys.publish("IOT_LOGIN_RESULT", {
                 success  = true,
-                account  = value.account,
+                account  = account,
                 nickname = value.nickname,
             })
         else
@@ -2091,8 +2091,8 @@ function exapp.iot_auto_login()
         return
     end
     local body = json.encode({
-        account_rsa  = string.toBase64(ac_cipher),
-        password_rsa = string.toBase64(pw_cipher),
+        user     = string.toBase64(ac_cipher),
+        password = string.toBase64(pw_cipher),
     })
     local code, _, resp_body = http.request("POST", IOT_AUTH_URL, {
         ["Content-Type"] = "application/json"
@@ -2103,12 +2103,11 @@ function exapp.iot_auto_login()
     end
     local ok, resp = pcall(json.decode, resp_body)
     if ok and type(resp) == "table" and resp.code == 0 and resp.value then
-        iot_info.account  = resp.value.account
         iot_info.nickname = resp.value.nickname or GUEST_NICKNAME
         iot_info.is_guest = false
         fskv.set("iot_nickname", resp.value.nickname or GUEST_NICKNAME)
         iot_save_login_time()
-        log.info("iot", "auto login success", mask_account(resp.value.account))
+        log.info("iot", "auto login success", mask_account(iot_info.account))
     else
         log.warn("iot", "auto login invalid, clearing")
         iot_clear_state()

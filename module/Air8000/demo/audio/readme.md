@@ -91,7 +91,7 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 | 81/I2C_SDA      | I2C_SDA             |
 | 82/GPIO17       | PA_EN               |
 | 83/GPIO16       | 8311_EN             |
-| VDD_EXT         | VCC                 |
+| VBAT            | VCC                 |
 | GND             | GND                 |
 
 2、TYPE-C USB数据线一根

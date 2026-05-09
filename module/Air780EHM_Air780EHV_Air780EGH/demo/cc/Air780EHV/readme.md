@@ -93,7 +93,7 @@
 | 5/SPK+         |     SPK+            |
 | 6/SPK-         |     SPK-            |
 | 19/GPIO22      |     PA_EN           |
-| 3V3            |     VCC             |
+| VBAT           |     VCC             |
 | GND            |     GND             |
 
 ## 演示软件环境

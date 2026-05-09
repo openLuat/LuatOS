@@ -192,7 +192,7 @@ typedef struct {
 
 static SerialPort serial[8] = {0};
 
-static int l_uart_handler(lua_State *L, void *arg);
+int l_uart_handler(lua_State *L, void *arg);
 
 static void *serial_read_thread(void *arg)
 {

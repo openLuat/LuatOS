@@ -46,6 +46,14 @@
 #include LWIP_SOCKET_EXTERNAL_HEADER_INET_H
 #else /* LWIP_SOCKET_EXTERNAL_HEADERS */
 
+/* On POSIX systems (Linux/macOS), force-include <netinet/in.h> before defining
+ * struct in_addr / in6_addr so that regardless of include order, the system
+ * definition always wins and the guard macros (_NETINET_IN_H / _NETINET_IN_H_)
+ * are set before we reach the duplicate struct declarations below. */
+#if defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__)
+#include <netinet/in.h>
+#endif
+
 #include "lwip/def.h"
 #include "lwip/ip_addr.h"
 #include "lwip/ip6_addr.h"
@@ -60,6 +68,10 @@ extern "C" {
 typedef u32_t in_addr_t;
 #endif
 
+/* If system POSIX headers have already defined in_addr / in6_addr (e.g. via
+ * <netinet/in.h> on Linux/macOS), do not redefine them to avoid compiler errors.
+ * _NETINET_IN_H is the include guard used by glibc; _NETINET_IN_H_ by BSD/macOS. */
+#if !defined(_NETINET_IN_H) && !defined(_NETINET_IN_H_)
 struct in_addr {
   in_addr_t s_addr;
 };
@@ -71,6 +83,7 @@ struct in6_addr {
   } un;
 #define s6_addr  un.u8_addr
 };
+#endif /* !_NETINET_IN_H && !_NETINET_IN_H_ */
 
 /** 255.255.255.255 */
 #define INADDR_NONE         IPADDR_NONE
@@ -153,10 +166,18 @@ extern const struct in6_addr in6addr_any;
 #define inet_addr_to_ip4addr(target_ipaddr, source_inaddr)   (ip4_addr_set_u32(target_ipaddr, (source_inaddr)->s_addr))
 
 /* directly map this to the lwip internal functions */
+/* On POSIX systems (Linux/macOS/Android) these names are declared as C
+ * functions in <arpa/inet.h>.  Defining them as macros here would cause
+ * the compiler to expand those function-declaration lines into invalid C
+ * when <arpa/inet.h> is included later in the same translation unit.
+ * On POSIX, skip the macro aliases and let callers use the system functions
+ * (which are binary-compatible with the LwIP implementations). */
+#if !defined(__linux__) && !defined(__APPLE__) && !defined(__ANDROID__)
 #define inet_addr(cp)                   ipaddr_addr(cp)
 #define inet_aton(cp, addr)             ip4addr_aton(cp, (ip4_addr_t*)addr)
 #define inet_ntoa(addr)                 ip4addr_ntoa((const ip4_addr_t*)&(addr))
 #define inet_ntoa_r(addr, buf, buflen)  ip4addr_ntoa_r((const ip4_addr_t*)&(addr), buf, buflen)
+#endif /* !POSIX */
 
 #endif /* LWIP_IPV4 */
 
@@ -172,9 +193,12 @@ extern const struct in6_addr in6addr_any;
                                                                  ip6_addr_clear_zone(target_ip6addr);}
 
 /* directly map this to the lwip internal functions */
+/* Same POSIX guard as for inet_aton/inet_ntoa above. */
+#if !defined(__linux__) && !defined(__APPLE__) && !defined(__ANDROID__)
 #define inet6_aton(cp, addr)            ip6addr_aton(cp, (ip6_addr_t*)addr)
 #define inet6_ntoa(addr)                ip6addr_ntoa((const ip6_addr_t*)&(addr))
 #define inet6_ntoa_r(addr, buf, buflen) ip6addr_ntoa_r((const ip6_addr_t*)&(addr), buf, buflen)
+#endif /* !POSIX */
 
 #endif /* LWIP_IPV6 */
 

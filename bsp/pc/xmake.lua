@@ -17,8 +17,10 @@ if is_host("windows") then
     add_requires("pthreads4w")
 end
 
-add_requires("libsdl2")
-add_packages("libsdl2")
+-- SDL2 仅在 GUI 模式下需要
+if os.getenv("LUAT_USE_GUI") == "y" then
+    add_requires("libsdl2")
+end
 
 local function thirdparty_file_options()
     if is_host("windows") then
@@ -451,6 +453,7 @@ target("luatos-lua")
     end
 
     if os.getenv("LUAT_USE_GUI") == "y" then
+        add_packages("libsdl2")
         add_files("ui/*.c")
         add_defines("U8G2_USE_LARGE_FONTS=1")
 

@@ -1,11 +1,9 @@
-﻿#define SDL_MAIN_HANDLED
+#define SDL_MAIN_HANDLED
 
 #include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_i2s.h"
 #include "lua.h"
-
-#include <SDL.h>
 #include <string.h>
 
 #define LUAT_LOG_TAG "i2s_pc"
@@ -14,6 +12,10 @@
 #ifndef I2S_MAX_DEVICE
 #define I2S_MAX_DEVICE 1
 #endif
+
+#ifdef LUAT_USE_GUI
+
+#include <SDL.h>
 
 typedef struct {
     SDL_AudioDeviceID dev;            // SDL playback device id
@@ -144,7 +146,6 @@ int luat_i2s_send(uint8_t id, uint8_t* buff, size_t len) {
 
     const size_t queued = SDL_GetQueuedAudioSize(dev->dev);
     if (queued >= dev->queue_limit) {
-        // LLOGD("i2s[%d] queue full queued=%u limit=%u", id, (unsigned)queued, (unsigned)dev->queue_limit);
         return 0; // caller will retry after yielding
     }
 
@@ -153,32 +154,6 @@ int luat_i2s_send(uint8_t id, uint8_t* buff, size_t len) {
         return -1;
     }
     return (int)len;
-}
-
-int luat_i2s_recv(uint8_t id, uint8_t* buff, size_t len) {
-    (void)buff;
-    (void)len;
-    if (id >= I2S_MAX_DEVICE) {
-        return -1;
-    }
-    LLOGW("i2s[%d] recv not supported on PC", id);
-    return -1;
-}
-
-int luat_i2s_transfer(uint8_t id, uint8_t* txbuff, size_t len) {
-    (void)id;
-    (void)txbuff;
-    (void)len;
-    return -1;
-}
-
-int luat_i2s_transfer_loop(uint8_t id, uint8_t* buff, uint32_t one_truck_byte_len, uint32_t total_trunk_cnt, uint8_t need_callback) {
-    (void)id;
-    (void)buff;
-    (void)one_truck_byte_len;
-    (void)total_trunk_cnt;
-    (void)need_callback;
-    return -1;
 }
 
 int luat_i2s_pause(uint8_t id) {
@@ -229,16 +204,6 @@ luat_i2s_conf_t *luat_i2s_get_config(uint8_t id) {
     return &g_i2s[id].conf;
 }
 
-int luat_i2s_save_old_config(uint8_t id) {
-    (void)id;
-    return 0;
-}
-
-int luat_i2s_load_old_config(uint8_t id) {
-    (void)id;
-    return 0;
-}
-
 int luat_i2s_txbuff_info(uint8_t id, size_t *buffsize, size_t* remain) {
     if (id >= I2S_MAX_DEVICE || buffsize == NULL || remain == NULL) {
         return -1;
@@ -257,6 +222,88 @@ int luat_i2s_txbuff_info(uint8_t id, size_t *buffsize, size_t* remain) {
     return 0;
 }
 
+#else /* !LUAT_USE_GUI - stub implementations without SDL */
+
+static luat_i2s_conf_t g_i2s_conf[I2S_MAX_DEVICE];
+
+int luat_i2s_setup(const luat_i2s_conf_t *conf) {
+    if (conf == NULL || conf->id >= I2S_MAX_DEVICE) return -1;
+    memcpy(&g_i2s_conf[conf->id], conf, sizeof(luat_i2s_conf_t));
+    LLOGW("i2s[%d] SDL not available (no GUI build)", conf->id);
+    return 0;
+}
+
+int luat_i2s_modify(uint8_t id, uint8_t channel_format, uint8_t data_bits, uint32_t sample_rate) {
+    if (id >= I2S_MAX_DEVICE) return -1;
+    g_i2s_conf[id].channel_format = channel_format;
+    g_i2s_conf[id].data_bits = data_bits;
+    g_i2s_conf[id].sample_rate = sample_rate;
+    return 0;
+}
+
+int luat_i2s_send(uint8_t id, uint8_t* buff, size_t len) {
+    (void)id; (void)buff; (void)len;
+    return -1;
+}
+
+int luat_i2s_pause(uint8_t id) {
+    if (id >= I2S_MAX_DEVICE) return -1;
+    g_i2s_conf[id].state = LUAT_I2S_STATE_STOP;
+    return 0;
+}
+
+int luat_i2s_resume(uint8_t id) {
+    if (id >= I2S_MAX_DEVICE) return -1;
+    g_i2s_conf[id].state = LUAT_I2S_STATE_RUNING;
+    return 0;
+}
+
+int luat_i2s_close(uint8_t id) {
+    if (id >= I2S_MAX_DEVICE) return -1;
+    g_i2s_conf[id].state = LUAT_I2S_STATE_STOP;
+    return 0;
+}
+
+luat_i2s_conf_t *luat_i2s_get_config(uint8_t id) {
+    if (id >= I2S_MAX_DEVICE) return NULL;
+    return &g_i2s_conf[id];
+}
+
+int luat_i2s_txbuff_info(uint8_t id, size_t *buffsize, size_t* remain) {
+    if (id >= I2S_MAX_DEVICE || buffsize == NULL || remain == NULL) return -1;
+    *buffsize = 0;
+    *remain = 0;
+    return -1;
+}
+
+#endif /* LUAT_USE_GUI */
+
+int luat_i2s_recv(uint8_t id, uint8_t* buff, size_t len) {
+    (void)buff;
+    (void)len;
+    if (id >= I2S_MAX_DEVICE) {
+        return -1;
+    }
+    LLOGW("i2s[%d] recv not supported on PC", id);
+    return -1;
+}
+
+int luat_i2s_transfer(uint8_t id, uint8_t* txbuff, size_t len) {
+    (void)id;
+    (void)txbuff;
+    (void)len;
+    return -1;
+}
+
+int luat_i2s_transfer_loop(uint8_t id, uint8_t* buff, uint32_t one_truck_byte_len, uint32_t total_trunk_cnt, uint8_t need_callback) {
+    (void)id;
+    (void)buff;
+    (void)one_truck_byte_len;
+    (void)total_trunk_cnt;
+    (void)need_callback;
+    return -1;
+}
+
 int luat_i2s_rxbuff_info(uint8_t id, size_t *buffsize, size_t* remain) {
     if (id >= I2S_MAX_DEVICE || buffsize == NULL || remain == NULL) {
         return -1;
@@ -270,8 +317,8 @@ int luat_i2s_set_user_data(uint8_t id, void *user_data) {
     if (id >= I2S_MAX_DEVICE) {
         return -1;
     }
-
-    g_i2s[id].conf.userdata = user_data;
+    luat_i2s_conf_t *conf = luat_i2s_get_config(id);
+    if (conf) conf->userdata = user_data;
     return 0;
 }
 

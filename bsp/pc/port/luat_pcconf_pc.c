@@ -35,6 +35,7 @@ void luat_pcconf_init(void) {
     {
         uart_drvs[i] = &uart_linux;
     }
+    return;
     #endif
     for (size_t i = 0; i < 128; i++)
     {

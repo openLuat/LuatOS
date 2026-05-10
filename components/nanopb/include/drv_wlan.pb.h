@@ -108,6 +108,41 @@ typedef struct _drv_wlan_WlanScanResponse {
     drv_wlan_WlanResult result;
 } drv_wlan_WlanScanResponse;
 
+/* 扫描结果 NOTIFY（Slave → Host 异步通知, rpc_id=0x0301） */
+typedef PB_BYTES_ARRAY_T(2048) drv_wlan_WlanScanResultNotify_data_t;
+typedef struct _drv_wlan_WlanScanResultNotify {
+    uint32_t count;
+    drv_wlan_WlanScanResultNotify_data_t data;
+} drv_wlan_WlanScanResultNotify;
+
+/* STA 事件 NOTIFY（Slave → Host 异步通知, rpc_id=0x0302） */
+typedef PB_BYTES_ARRAY_T(6) drv_wlan_WlanStaIncNotify_bssid_t;
+typedef struct _drv_wlan_WlanStaIncNotify {
+    char event[16];
+    bool has_ssid;
+    char ssid[36];
+    bool has_bssid;
+    drv_wlan_WlanStaIncNotify_bssid_t bssid;
+    bool has_reason;
+    uint32_t reason;
+} drv_wlan_WlanStaIncNotify;
+
+/* IP 就绪 NOTIFY（Slave → Host 异步通知, rpc_id=0x0303） */
+typedef struct _drv_wlan_WlanIpReadyNotify {
+    bool has_ip;
+    char ip[16];
+    bool has_adapter;
+    uint32_t adapter;
+} drv_wlan_WlanIpReadyNotify;
+
+/* AP 热点事件 NOTIFY（Slave → Host 异步通知, rpc_id=0x0304） */
+typedef PB_BYTES_ARRAY_T(6) drv_wlan_WlanApIncNotify_mac_t;
+typedef struct _drv_wlan_WlanApIncNotify {
+    char event[16];
+    bool has_mac;
+    drv_wlan_WlanApIncNotify_mac_t mac;
+} drv_wlan_WlanApIncNotify;
+
 /* 统一 RPC 请求 */
 typedef struct _drv_wlan_WlanRpcRequest {
     uint32_t req_id;
@@ -193,6 +228,14 @@ extern "C" {
 #define drv_wlan_WlanApStopResponse_init_zero    {drv_wlan_WlanResult_init_zero}
 #define drv_wlan_WlanScanRequest_init_zero       {0}
 #define drv_wlan_WlanScanResponse_init_zero      {drv_wlan_WlanResult_init_zero}
+#define drv_wlan_WlanScanResultNotify_init_default {0, {0, {0}}}
+#define drv_wlan_WlanScanResultNotify_init_zero    {0, {0, {0}}}
+#define drv_wlan_WlanStaIncNotify_init_default     {"", false, "", false, {0, {0}}, false, 0}
+#define drv_wlan_WlanStaIncNotify_init_zero        {"", false, "", false, {0, {0}}, false, 0}
+#define drv_wlan_WlanIpReadyNotify_init_default    {false, "", false, 0}
+#define drv_wlan_WlanIpReadyNotify_init_zero       {false, "", false, 0}
+#define drv_wlan_WlanApIncNotify_init_default      {"", false, {0, {0}}}
+#define drv_wlan_WlanApIncNotify_init_zero         {"", false, {0, {0}}}
 #define drv_wlan_WlanRpcRequest_init_zero        {0, 0, {drv_wlan_WlanInitRequest_init_zero}}
 #define drv_wlan_WlanRpcResponse_init_zero       {false, 0, 0, {drv_wlan_WlanInitResponse_init_zero}}
 
@@ -208,6 +251,16 @@ extern "C" {
 #define drv_wlan_WlanConnectRequest_auto_reconnection_tag 5
 #define drv_wlan_WlanConnectRequest_auto_reconnection_delay_sec_tag 6
 #define drv_wlan_WlanConnectResponse_result_tag  1
+#define drv_wlan_WlanScanResultNotify_count_tag  1
+#define drv_wlan_WlanScanResultNotify_data_tag   2
+#define drv_wlan_WlanStaIncNotify_event_tag      1
+#define drv_wlan_WlanStaIncNotify_ssid_tag       2
+#define drv_wlan_WlanStaIncNotify_bssid_tag      3
+#define drv_wlan_WlanStaIncNotify_reason_tag     4
+#define drv_wlan_WlanIpReadyNotify_ip_tag        1
+#define drv_wlan_WlanIpReadyNotify_adapter_tag   2
+#define drv_wlan_WlanApIncNotify_event_tag       1
+#define drv_wlan_WlanApIncNotify_mac_tag         2
 #define drv_wlan_WlanDisconnectResponse_result_tag 1
 #define drv_wlan_WlanApStartRequest_ssid_tag     1
 #define drv_wlan_WlanApStartRequest_password_tag 2
@@ -320,6 +373,32 @@ X(a, STATIC,   REQUIRED, MESSAGE,  result,            1)
 #define drv_wlan_WlanScanResponse_DEFAULT NULL
 #define drv_wlan_WlanScanResponse_result_MSGTYPE drv_wlan_WlanResult
 
+#define drv_wlan_WlanScanResultNotify_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, UINT32,   count,             1) \
+X(a, STATIC,   REQUIRED, BYTES,    data,              2)
+#define drv_wlan_WlanScanResultNotify_CALLBACK NULL
+#define drv_wlan_WlanScanResultNotify_DEFAULT NULL
+
+#define drv_wlan_WlanStaIncNotify_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, STRING,   event,             1) \
+X(a, STATIC,   OPTIONAL, STRING,   ssid,              2) \
+X(a, STATIC,   OPTIONAL, BYTES,    bssid,             3) \
+X(a, STATIC,   OPTIONAL, UINT32,   reason,            4)
+#define drv_wlan_WlanStaIncNotify_CALLBACK NULL
+#define drv_wlan_WlanStaIncNotify_DEFAULT (const pb_byte_t*)"\x0a\x00\x00"
+
+#define drv_wlan_WlanIpReadyNotify_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, STRING,   ip,                1) \
+X(a, STATIC,   OPTIONAL, UINT32,   adapter,           2)
+#define drv_wlan_WlanIpReadyNotify_CALLBACK NULL
+#define drv_wlan_WlanIpReadyNotify_DEFAULT NULL
+
+#define drv_wlan_WlanApIncNotify_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, STRING,   event,             1) \
+X(a, STATIC,   OPTIONAL, BYTES,    mac,               2)
+#define drv_wlan_WlanApIncNotify_CALLBACK NULL
+#define drv_wlan_WlanApIncNotify_DEFAULT (const pb_byte_t*)"\x0a\x00\x00"
+
 #define drv_wlan_WlanRpcRequest_FIELDLIST(X, a) \
 X(a, STATIC,   REQUIRED, UINT32,   req_id,            1) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,init,payload.init),  10) \
@@ -367,6 +446,10 @@ extern const pb_msgdesc_t drv_wlan_WlanApStopRequest_msg;
 extern const pb_msgdesc_t drv_wlan_WlanApStopResponse_msg;
 extern const pb_msgdesc_t drv_wlan_WlanScanRequest_msg;
 extern const pb_msgdesc_t drv_wlan_WlanScanResponse_msg;
+extern const pb_msgdesc_t drv_wlan_WlanScanResultNotify_msg;
+extern const pb_msgdesc_t drv_wlan_WlanStaIncNotify_msg;
+extern const pb_msgdesc_t drv_wlan_WlanIpReadyNotify_msg;
+extern const pb_msgdesc_t drv_wlan_WlanApIncNotify_msg;
 extern const pb_msgdesc_t drv_wlan_WlanRpcRequest_msg;
 extern const pb_msgdesc_t drv_wlan_WlanRpcResponse_msg;
 
@@ -384,11 +467,15 @@ extern const pb_msgdesc_t drv_wlan_WlanRpcResponse_msg;
 #define drv_wlan_WlanApStopResponse_fields &drv_wlan_WlanApStopResponse_msg
 #define drv_wlan_WlanScanRequest_fields &drv_wlan_WlanScanRequest_msg
 #define drv_wlan_WlanScanResponse_fields &drv_wlan_WlanScanResponse_msg
+#define drv_wlan_WlanScanResultNotify_fields &drv_wlan_WlanScanResultNotify_msg
+#define drv_wlan_WlanStaIncNotify_fields &drv_wlan_WlanStaIncNotify_msg
+#define drv_wlan_WlanIpReadyNotify_fields &drv_wlan_WlanIpReadyNotify_msg
+#define drv_wlan_WlanApIncNotify_fields &drv_wlan_WlanApIncNotify_msg
 #define drv_wlan_WlanRpcRequest_fields &drv_wlan_WlanRpcRequest_msg
 #define drv_wlan_WlanRpcResponse_fields &drv_wlan_WlanRpcResponse_msg
 
 /* Maximum encoded size of messages (where known) */
-#define DRV_WLAN_DRV_WLAN_PB_H_MAX_SIZE          drv_wlan_WlanRpcRequest_size
+#define DRV_WLAN_DRV_WLAN_PB_H_MAX_SIZE          drv_wlan_WlanScanResultNotify_size
 #define drv_wlan_WlanApStartRequest_size         134
 #define drv_wlan_WlanApStartResponse_size        16
 #define drv_wlan_WlanApStopRequest_size          0
@@ -404,6 +491,10 @@ extern const pb_msgdesc_t drv_wlan_WlanRpcResponse_msg;
 #define drv_wlan_WlanRpcResponse_size            24
 #define drv_wlan_WlanScanRequest_size            0
 #define drv_wlan_WlanScanResponse_size           16
+#define drv_wlan_WlanScanResultNotify_size       2060
+#define drv_wlan_WlanStaIncNotify_size           70
+#define drv_wlan_WlanIpReadyNotify_size          24
+#define drv_wlan_WlanApIncNotify_size            26
 
 #ifdef __cplusplus
 } /* extern "C" */

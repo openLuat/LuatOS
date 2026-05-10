@@ -18,6 +18,12 @@ int luat_airlink_drv_wlan_connect(luat_wlan_conninfo_t* info);
 int luat_airlink_drv_wlan_disconnect(void);
 
 int luat_airlink_drv_wlan_scan(void);
+int luat_airlink_drv_wlan_scan_result_cb(void);
+void luat_airlink_drv_wlan_sta_connected_cb(const char* ssid, const uint8_t* bssid);
+void luat_airlink_drv_wlan_sta_disconnected_cb(uint32_t reason);
+void luat_airlink_drv_wlan_ip_ready_cb(const char* ip, uint32_t adapter);
+void luat_airlink_drv_wlan_ap_connected_cb(const uint8_t* mac);
+void luat_airlink_drv_wlan_ap_disconnected_cb(const uint8_t* mac);
 
 int luat_airlink_drv_wlan_scan_get_result(luat_wlan_scan_result_t *results, size_t ap_limit);
 

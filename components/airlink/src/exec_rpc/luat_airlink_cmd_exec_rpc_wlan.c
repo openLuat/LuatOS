@@ -1,22 +1,109 @@
 /*
- * AirLink WLAN nanopb RPC exec handler (服务端)
+ * AirLink WLAN nanopb RPC exec handler (服务端) + 客户端事件接收
  *
- * 将 WlanRpcRequest 分发到对应的 luat_wlan_* 函数，填写 WlanRpcResponse。
+ * RPC 分配:
+ *   0x0300 — WlanRpcRequest/Response: 客户端→服务端请求，服务端处理后响应
+ *   0x0301 — WlanScanResultNotify:    服务端→客户端事件通知 (nb_notify, 无响应)
+ *
+ * 服务端（Slave, 有 WiFi 硬件）：
+ *   收到 WlanRpcRequest (0x0300) → 调用 luat_wlan_* → 填写 WlanRpcResponse
+ *   WiFi 扫描完成时 → 编码 WlanScanResultNotify → luat_airlink_rpc_nb_notify(0x0301)
+ *
+ * 客户端（Host / drv_rpc）：
+ *   调用 luat_airlink_rpc_wlan_set_event_notify_fn() 注册回调
+ *   收到 WlanScanResultNotify (0x0301) → notify_handler 解码 → 回调 drv_rpc 函数
  */
 
 #include "luat_base.h"
 
-#ifdef LUAT_USE_AIRLINK_EXEC_WLAN
+#ifdef LUAT_USE_AIRLINK_RPC
 
 #include "luat_airlink_rpc.h"
-#include "luat_wlan.h"
 #include "drv_wlan.pb.h"
-#include <string.h>
 
 #define LUAT_LOG_TAG "airlink.rpc.wlan"
 #include "luat_log.h"
 
-#define AIRLINK_RPC_ID_WLAN  0x0300
+#define AIRLINK_RPC_ID_WLAN        0x0300  /* WlanRpcRequest/Response */
+#define AIRLINK_RPC_ID_WLAN_EVENT  0x0301  /* WlanScanResultNotify (server → client) */
+#define AIRLINK_RPC_ID_WLAN_STA_EVENT 0x0302  /* WlanStaIncNotify (server → client) */
+#define AIRLINK_RPC_ID_WLAN_IP_EVENT  0x0303  /* WlanIpReadyNotify (server → client) */
+#define AIRLINK_RPC_ID_WLAN_AP_EVENT  0x0304  /* WlanApIncNotify (server → client) */
+
+/* 客户端注册的 WLAN 事件回调 (由 luat_airlink_drv_rpc_wlan_init 通过 setter 设置) */
+typedef void (*wlan_event_notify_fn_t)(uint16_t rpc_id, const void* msg, void* userdata);
+static wlan_event_notify_fn_t s_wlan_notify_fn = NULL;
+
+/**
+ * luat_airlink_rpc_wlan_set_event_notify_fn — 供客户端驱动调用，注册 WlanScanResultNotify 接收回调
+ */
+void luat_airlink_rpc_wlan_set_event_notify_fn(wlan_event_notify_fn_t fn) {
+    s_wlan_notify_fn = fn;
+}
+
+/* 客户端侧 WlanScanResultNotify 接收处理器 (由 nb_dispatch 在 0x0301 NOTIFY 时调用) */
+static void wlan_event_notify_handler(uint16_t rpc_id, const void* msg, void* userdata) {
+    if (s_wlan_notify_fn) {
+        s_wlan_notify_fn(rpc_id, msg, userdata);
+    }
+}
+
+/* 0x0301 事件接收注册 (服务端发送, 客户端接收 — 编译时链接到静态表) */
+const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_event_reg = {
+    .rpc_id         = AIRLINK_RPC_ID_WLAN_EVENT,
+    .active         = 1,
+    .req_desc       = drv_wlan_WlanScanResultNotify_fields,
+    .req_size       = sizeof(drv_wlan_WlanScanResultNotify),
+    .resp_desc      = NULL,
+    .resp_size      = 0,
+    .handler        = NULL,
+    .notify_handler = wlan_event_notify_handler,
+    .userdata       = NULL,
+};
+
+/* 0x0302 STA 事件接收注册 (从机发送, 主机接收) */
+const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_sta_event_reg = {
+    .rpc_id         = AIRLINK_RPC_ID_WLAN_STA_EVENT,
+    .active         = 1,
+    .req_desc       = drv_wlan_WlanStaIncNotify_fields,
+    .req_size       = sizeof(drv_wlan_WlanStaIncNotify),
+    .resp_desc      = NULL,
+    .resp_size      = 0,
+    .handler        = NULL,
+    .notify_handler = wlan_event_notify_handler,
+    .userdata       = NULL,
+};
+
+/* 0x0303 IP 就绪事件接收注册 (从机发送, 主机接收) */
+const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_ip_event_reg = {
+    .rpc_id         = AIRLINK_RPC_ID_WLAN_IP_EVENT,
+    .active         = 1,
+    .req_desc       = drv_wlan_WlanIpReadyNotify_fields,
+    .req_size       = sizeof(drv_wlan_WlanIpReadyNotify),
+    .resp_desc      = NULL,
+    .resp_size      = 0,
+    .handler        = NULL,
+    .notify_handler = wlan_event_notify_handler,
+    .userdata       = NULL,
+};
+
+/* 0x0304 AP 热点事件接收注册 (从机发送, 主机接收) */
+const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_ap_event_reg = {
+    .rpc_id         = AIRLINK_RPC_ID_WLAN_AP_EVENT,
+    .active         = 1,
+    .req_desc       = drv_wlan_WlanApIncNotify_fields,
+    .req_size       = sizeof(drv_wlan_WlanApIncNotify),
+    .resp_desc      = NULL,
+    .resp_size      = 0,
+    .handler        = NULL,
+    .notify_handler = wlan_event_notify_handler,
+    .userdata       = NULL,
+};
+
+#ifdef LUAT_USE_AIRLINK_EXEC_WLAN
+
+#include "luat_wlan.h"
+#include <string.h>
 
 static void set_result_ok(drv_wlan_WlanResult* r) {
     r->has_code = true;
@@ -126,6 +213,24 @@ static int wlan_rpc_handler(uint16_t rpc_id,
     return 0;
 }
 
+#else /* !LUAT_USE_AIRLINK_EXEC_WLAN — Host 端 stub */
+
+static int wlan_rpc_handler(uint16_t rpc_id,
+                              const void* req_raw, void* resp_raw,
+                              void* userdata) {
+    (void)rpc_id; (void)req_raw; (void)userdata;
+    drv_wlan_WlanRpcResponse* resp = (drv_wlan_WlanRpcResponse*)resp_raw;
+    resp->which_payload = drv_wlan_WlanRpcResponse_init_tag;
+    resp->payload.init.result.has_code    = true;
+    resp->payload.init.result.code        = drv_wlan_WlanResultCode_WLAN_RES_FAIL;
+    resp->payload.init.result.has_os_errno = true;
+    resp->payload.init.result.os_errno    = -1;
+    return 0;
+}
+
+#endif /* LUAT_USE_AIRLINK_EXEC_WLAN */
+
+/* 0x0300 请求处理注册 (服务端执行, 客户端为 stub — 编译时链接到静态表) */
 const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_reg = {
     .rpc_id         = AIRLINK_RPC_ID_WLAN,
     .active         = 1,
@@ -138,4 +243,4 @@ const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_reg = {
     .userdata       = NULL,
 };
 
-#endif /* LUAT_USE_AIRLINK_EXEC_WLAN */
+#endif /* LUAT_USE_AIRLINK_RPC */

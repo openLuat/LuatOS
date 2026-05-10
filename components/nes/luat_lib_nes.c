@@ -34,7 +34,7 @@ enum {
     Select
 };
 
-static luat_rtos_queue_t nes_thread;
+static luat_rtos_task_handle nes_thread;
 static nes_t* nes = NULL;
 
 /* 供 nes_airui_video.c 获取 nes 实例以操作 joypad */
@@ -43,7 +43,7 @@ nes_t *luat_nes_get_global_ctx(void) {
 }
 
 void nes_task(void *param){
-    nes_run(nes);
+    nes_run((nes_t *)param);
 }
 
 /*
@@ -120,11 +120,30 @@ nes.deinit()
 */
 static int l_nes_deinit(lua_State *L) {
     (void)L;
+    if (nes) {
+        nes_t *ctx = nes;
+        nes = NULL;  /* 先清全局指针，防止 nes_draw/nes_frame 继续写入 */
+
+        /* 设置退出标志，让 nes_run() 的 while 循环在本帧末尾退出 */
+        ctx->nes_quit = 1;
+
+        /* 等待至多 2 帧（PC 上约 30ms/帧）让任务自行退出 */
+        luat_timer_mdelay(80);
+
+        /* 强制删除任务（若任务已退出，delete 通常为 no-op 或返回错误，不会崩溃） */
+        if (nes_thread) {
+            luat_rtos_task_delete(nes_thread);
+            nes_thread = NULL;
+        }
+
+        /* 释放 ROM / PPU 内存 */
+        nes_rom_free(ctx);
+    }
+
 #ifdef LUAT_USE_AIRUI
     nes_set_airui_mode(0);
     nes_airui_video_deinit(NULL);
 #endif
-    nes = NULL;
     return 0;
 }
 /*

@@ -28,7 +28,10 @@
 #include "luat_mem.h"
 #include "luat_timer.h"
 #include "luat_fs.h"
+
+#ifdef LUAT_USE_GUI
 #include "luat_lcd.h"
+#endif
 
 #ifdef LUAT_USE_AIRUI
 #include "nes_airui_video.h"
@@ -84,10 +87,14 @@ void nes_wait(uint32_t ms){
     luat_timer_mdelay(ms);
 }
 
+#ifdef LUAT_USE_GUI
 static luat_lcd_conf_t* nes_lcd_conf;
+#endif
 
 int nes_initex(nes_t *nes){
+#ifdef LUAT_USE_GUI
     nes_lcd_conf = luat_lcd_get_default();
+#endif
     return 0;
 }
 
@@ -101,7 +108,11 @@ int nes_draw(size_t x1, size_t y1, size_t x2, size_t y2, nes_color_t* color_data
         return nes_airui_video_draw(NULL, x1, y1, x2, y2, color_data);
     }
 #endif
+#ifdef LUAT_USE_GUI
     return luat_lcd_draw(nes_lcd_conf, x1, y1, x2, y2, color_data);
+#else
+    return 0;
+#endif
 }
 
 void nes_frame(void){

@@ -452,6 +452,11 @@ target("luatos-lua")
         add_includedirs("lwip/include")    
     end
 
+    -- nes
+    add_includedirs(luatos.."components/nes/inc")
+    add_includedirs(luatos.."components/nes/port")
+    add_files(luatos.."components/nes/**.c")
+
     if os.getenv("LUAT_USE_GUI") == "y" then
         add_packages("libsdl2")
         add_files("ui/*.c")
@@ -468,11 +473,6 @@ target("luatos-lua")
         add_includedirs(luatos.."components/luat_image/include")
         add_files(luatos.."components/lcd/*.c")
         add_files(luatos.."components/luat_image/src/*.c")
-        
-        -- nes
-        add_includedirs(luatos.."components/nes/inc")
-        add_includedirs(luatos.."components/nes/port")
-        add_files(luatos.."components/nes/**.c")
 
         -- LVGL 9.4 + AIRUI - 最基础组件编译
         -- 头文件添加：lvgl9 

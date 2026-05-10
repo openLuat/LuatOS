@@ -94,17 +94,19 @@ static void _create_controls(nes_airui_video_t *v);
  */
 static int _nes_refresh_handler(lua_State *L, void *ptr) {
     (void)L;
-    nes_airui_video_t *v = (nes_airui_video_t *)ptr;
+    (void)ptr;  /* ptr 可能是已释放的悬空指针（deinit 后的队列残留），
+                 * 必须使用全局 g_nes_airui 而非 ptr 做有效性判断。 */
+    nes_airui_video_t *v = g_nes_airui;
     if (!v || !v->initialized || !v->game_screen) return 0;
-    /* 现在运行在 Lua 主线程，可以安全调用 LVGL。
-     * 使用 lv_timer_handler() 而非 lv_refr_now()，确保：
-     * 1. 输入设备定时器触发 → SDL_PollEvent → 按键事件被处理
-     * 2. 显示刷新定时器触发 → 渲染脏区域 → SDL_RenderPresent
-     * pending 在 lv_timer_handler 之后重置，避免 NES 线程在渲染期间
-     * 反复投递消息（防止 msgbus 溢出，也给 airui 定时器留出机会）。
+    /*
+     * 只标记游戏画面为脏区域，不在这里调用 lv_timer_handler()。
+     * AirUI 自身的 33ms 刷新定时器会调用 lv_timer_handler()：
+     *   - 触发 indev 定时器 → SDL_PollEvent → 按键事件被分发到 LVGL 按钮
+     *   - 触发 display refr 定时器 → 渲染脏区域 → SDL_RenderPresent
+     * 在这里额外调用 lv_timer_handler() 会与 AirUI 定时器在 LVGL/ThorVG
+     * 内部产生竞争（概率崩溃根因），且 LVGL9 不保证此函数可重入调用安全。
      */
     lv_obj_invalidate(v->game_screen);
-    lv_timer_handler();
     v->refresh_pending = 0;
     return 0;
 }
@@ -112,7 +114,7 @@ static int _nes_refresh_handler(lua_State *L, void *ptr) {
 /* ========== 默认配置 ========== */
 
 static const nes_airui_video_config_t s_default_cfg = {
-    .scale         = 2,
+    .scale         = 1,
     .show_controls = 1,
     .bg_color      = 0x1A1A2E,
     .btn_a_color   = 0xE74C3C,
@@ -396,6 +398,16 @@ void nes_airui_video_deinit(nes_airui_video_t *video) {
     if (!video) video = g_nes_airui;
     if (!video) return;
 
+    /*
+     * 先清除全局指针并清零 initialized 标志，再释放资源。
+     * 这确保任何已入队但尚未执行的 _nes_refresh_handler 都会看到
+     * g_nes_airui == NULL 并立即返回，不会访问已释放的内存。
+     */
+    if (video == g_nes_airui) {
+        g_nes_airui = NULL;
+    }
+    video->initialized = 0;
+
     if (video->framebuffer) {
         lv_free(video->framebuffer);
         video->framebuffer = NULL;
@@ -403,9 +415,6 @@ void nes_airui_video_deinit(nes_airui_video_t *video) {
     if (video->main_container) {
         lv_obj_delete(video->main_container);
         video->main_container = NULL;
-    }
-    if (video == g_nes_airui) {
-        g_nes_airui = NULL;
     }
     lv_free(video);
     LLOGI("NES AirUI deinitialized");

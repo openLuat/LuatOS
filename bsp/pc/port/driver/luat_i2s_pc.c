@@ -15,7 +15,7 @@
 
 #ifdef LUAT_USE_GUI
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 
 typedef struct {
     SDL_AudioDeviceID dev;            // SDL playback device id

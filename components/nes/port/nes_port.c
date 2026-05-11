@@ -119,7 +119,6 @@ void nes_frame(nes_t* nes){
 #ifdef LUAT_USE_AIRUI
     if (g_nes_airui_mode) {
         nes_airui_video_frame(NULL);
-        return;
     }
 #endif
 #ifdef LUAT_BSP_PC

@@ -185,7 +185,27 @@ end
 
 local function iot_gen_device_uid()
     if device_uid then return device_uid end
-    device_uid = hmeta.unique_id()
+    local model = rtos.bsp()
+    if model:find("Air1601") or model:find("Air1602") then
+        device_uid = mcu.unique_id()
+    elseif model:find("Air8101") or model:find("Air6205") then
+        -- WiFi MAC 转数值
+        local mac = wlan.getMac()
+        if mac then
+            local hex = mac:gsub("[^%x]", "")
+            device_uid = tonumber(hex, 16) or 0
+        else
+            device_uid = 0
+        end
+    elseif model:find("Air780E") or model:find("Air8000") then
+        -- 4G IMEI，保持字符串避免科学计数法
+        device_uid = mobile.imei() or "0"
+    elseif model == "PC" or model:lower():find("pc") then
+        device_uid = "PC"
+    else
+        device_uid = mcu.unique_id() or "unknown"
+    end
+    log.info("ea", "device_uid generated:", model, device_uid)
     return device_uid
 end
 
@@ -396,6 +416,31 @@ local function app_task(app_path)
 
     my_env.exapp.iot_get_account_info = exapp.iot_get_account_info
     my_env.exapp.iot_get_auth_headers = exapp.iot_get_auth_headers
+
+    -- 从 meta.json 读取数字 appid（服务端分配的，如 "100162"）
+    local meta_appid = nil
+    do
+        local meta_path = app_path .. "meta.json"
+        local content = io.readFile(meta_path)
+        if content then
+            local ok, meta = pcall(json.decode, content)
+            if ok and type(meta) == "table" then
+                meta_appid = meta.appid
+            end
+        end
+    end
+    local app_id = meta_appid or app_n
+    my_env.log.info("ea", "DB appid:", app_id)
+
+    my_env.exapp.add_record = function(params)
+        return exapp.add_record(params, app_id)
+    end
+    my_env.exapp.list_record = function(params)
+        return exapp.list_record(params, app_id)
+    end
+    my_env.exapp.delete_record = function(params)
+        return exapp.delete_record(params, app_id)
+    end
 
     -- ==============================================
     -- 自定义require函数
@@ -2065,10 +2110,14 @@ function exapp.iot_get_account_info()
 end
 
 function exapp.iot_get_auth_headers(appid)
+    local pub_key = iot_get_public_key()
+    local ts = tostring(os.time())
+    local devid = tostring(iot_gen_device_uid())
+    local raw = ts .. "," .. (appid or "") .. "," .. devid
+    local cipher = rsa.encrypt(pub_key, raw)
+    local app_key = cipher and string.toBase64(cipher) or ""
     return {
-        ["X-Appid"]     = appid or "",
-        ["X-Device-Id"] = iot_gen_device_uid(),
-        ["X-Account"]   = iot_info.account,
+        ["app-key"] = app_key,
     }
 end
 
@@ -2451,9 +2500,13 @@ end
 -- 丰富应用列表（合并已安装状态）
 local function enrich(server_apps)
     for _, app in ipairs(server_apps) do
-        -- 兼容服务端新格式：appname 替换 aid，新增 icon_binary 字段
+        -- 兼容服务端新格式：app_id 是数字ID，app_name/appname 是文件夹名
         if not app.aid then
-            app.aid = app.appname or app.app_name
+            app.aid = app.app_name or app.appname
+        end
+        -- 标准化 app_id 字段（服务端返回的数字ID，用于 X-Appid Header）
+        if app.app_id then
+            app.appid = app.app_id
         end
         -- 处理 icon_binary：将base64编码的图标二进制数据解码并保存到/ram目录
         if app.icon_binary and app.icon_binary ~= "" then
@@ -2893,8 +2946,11 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
                                 end
                             end
                         end
-                        -- 写入下载量和原始大小（优先使用服务端数据，否则保留 meta.json 原有值）
+                        -- 写入 appid、下载量和原始大小（优先使用服务端数据，否则保留 meta.json 原有值）
                         if app_entry then
+                            if app_entry.appid then
+                                meta_data.appid = app_entry.appid
+                            end
                             if app_entry.origin_size_kb then
                                 meta_data.origin_size_kb = app_entry.origin_size_kb
                             end
@@ -2907,6 +2963,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
                         io.writeFile(meta_path, new_content)
 
                         installed_info[aid] = {
+                            appid = meta_data.appid,
                             cn_name = meta_data.app_name_cn or app_name or aid,
                             path = app_path,
                             version = meta_data.version or "1.0.0",
@@ -3140,6 +3197,175 @@ function exapp.get_status()
         running_count = #exapp.list_running(),
         remote_total = remote_app_list.total
     }
+end
+
+-- ==============================================
+-- 远程数据库操作（云端数据 CRUD）
+-- ==============================================
+local APP_DB_BASE = "https://api.luatos.com/iot/appstore/develop/data/"
+
+local function db_req(endpoint, body_params, appid, callback)
+    local url = APP_DB_BASE .. endpoint
+    local body = json.encode(body_params)
+    local headers = exapp.iot_get_auth_headers(appid)
+    headers["Content-Type"] = "application/json"
+    log.info("db", ">>> REQ", url)
+    log.info("db", ">>> BODY", body)
+    log.info("db", ">>> HEADERS", json.encode(headers))
+    sys.taskInit(function()
+        local code, _, resp_body = http.request("POST", url, headers, body, { timeout = 10000 }).wait()
+        log.info("db", "<<< RESP code", code)
+        log.info("db", "<<< BODY", resp_body or "(empty)")
+        if code < 0 or code ~= 200 then
+            log.warn("db", endpoint, "request failed", code)
+            if callback then callback(false, "服务器连接失败") end
+            sys.publish("DB_RESULT", endpoint, false, "服务器连接失败(code=" .. tostring(code) .. ")")
+            return
+        end
+        local ok, resp = pcall(json.decode, resp_body)
+        if not ok or type(resp) ~= "table" then
+            log.warn("db", endpoint, "response parse failed")
+            if callback then callback(false, "数据解析失败") end
+            sys.publish("DB_RESULT", endpoint, false, "数据解析失败")
+            return
+        end
+        if resp.code == 0 then
+            if callback then callback(true, resp.value) end
+            sys.publish("DB_RESULT", endpoint, true, resp.value)
+        else
+            log.warn("db", endpoint, "business error", resp.code, resp.value)
+            if callback then callback(false, resp.value or "操作失败") end
+            sys.publish("DB_RESULT", endpoint, false, "code=" .. tostring(resp.code) .. " " .. tostring(resp.value))
+        end
+    end)
+end
+
+--[[
+添加或更新一条数据记录
+
+@api exapp.add_record(params)
+@table params 记录参数表
+@int params.cls 业务表标识（必填）
+@string params.uni_key 业务主键（可选，同名则覆盖更新）
+@string params.s1-s4 字符串字段
+@int params.i1-i4 整数字段
+@int params.d1-d2 时间戳字段
+@return nil 无返回值
+
+@usage
+exapp.add_record({cls = 2, uni_key = "user_001", i1 = 100, s1 = "玩家A"})
+]]
+function exapp.add_record(params, appid)
+    if not network_ready then
+        log.warn("db", "add_record: network not ready")
+        return
+    end
+    local body = {
+        cls = tonumber(params.cls) or 0,
+    }
+    if params.uni_key then body.uni_key = params.uni_key end
+    -- s1-s4：始终发送，不传默认为空字符串
+    for i = 1, 4 do
+        body["s" .. i] = params["s" .. i] or ""
+    end
+    -- i1-i4：始终发送，不传默认为 0
+    for i = 1, 4 do
+        body["i" .. i] = tonumber(params["i" .. i]) or 0
+    end
+    -- d1-d2：始终发送，不传默认为 null
+    for i = 1, 2 do
+        local dk = "d" .. i
+        if params[dk] ~= nil then
+            body[dk] = tonumber(params[dk])
+        else
+            body[dk] = json.null
+        end
+    end
+    db_req("add", body, appid, function(success, result)
+        if success then
+            log.info("db", "add_record ok")
+        else
+            log.warn("db", "add_record failed", result)
+        end
+    end)
+end
+
+--[[
+查询记录列表
+
+@api exapp.list_record(params)
+@table params 查询参数表
+@int params.cls 业务表标识（必填）
+@int params.page 页码（可选，默认 1）
+@int params.size 每页数量（可选，默认 10）
+@string params.sort 排序字段（可选）
+@return nil 无返回值，结果通过回调获取
+
+@usage
+exapp.list_record({cls = 2, sort = "i1_desc", size = 10})
+exapp.list_record({cls = 2, filter = {aks = {"s1"}, acs = {"eq"}, avs = {"12"}}})
+]]
+function exapp.list_record(params, appid)
+    if not network_ready then
+        log.warn("db", "list_record: network not ready")
+        return
+    end
+    local body = {
+        cls = tonumber(params.cls) or 0,
+        page = tonumber(params.page) or 1,
+        size = tonumber(params.size) or 10,
+    }
+    if params.sort then body.sort = params.sort end
+    -- desc：默认 true（降序），传 false 则升序
+    if params.desc == false then
+        body.desc = false
+    end
+    if params.filter and type(params.filter) == "table" then
+        body.filter = params.filter
+    end
+    db_req("list", body, appid, function(success, result)
+        if success then
+            log.info("db", "list_record ok")
+        else
+            log.warn("db", "list_record failed", result)
+        end
+    end)
+end
+
+--[[
+删除指定记录
+
+@api exapp.delete_record(params)
+@table params 删除参数表
+@int params.cls 业务表标识（必填）
+@string params.uni_key 要删除的记录主键（必填）
+@return nil 无返回值
+
+@usage
+exapp.delete_record({cls = 2, uni_key = "user_001"})
+]]
+function exapp.delete_record(params, appid)
+    if not network_ready then
+        log.warn("db", "delete_record: network not ready")
+        return
+    end
+    local body = {
+        cls = tonumber(params.cls) or 0,
+    }
+    if params.id then
+        body.id = params.id
+    elseif params.filter and type(params.filter) == "table" then
+        body.filter = params.filter
+    elseif params.uni_key then
+        body.filter = {aks = {"uni_key"}, acs = {"eq"}, avs = {params.uni_key}}
+    end
+    db_req("delete", body, appid, function(success, result)
+        if success then
+            log.info("db", "delete_record ok")
+        else
+            log.warn("db", "delete_record failed", result)
+        end
+    end)
 end
 
 exapp.init()

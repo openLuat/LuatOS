@@ -259,7 +259,7 @@ end
 
 function miniz_test.test_unzip_nested_directories()
     if (rtos_bsp == "Air780EPM") or (rtos_bsp == "Air8000" and (core_value == 11 or core_value == 111)) then
-        log.info("miniz测试", rtos_bsp .. "不支持miniz.unzip接口，跳过unzip测试")
+        log.info("miniz测试", rtos_bsp .. "的".. core_value .. "号固件不支持miniz.unzip接口，跳过unzip测试")
     else
         log.info("miniz测试", "测试 unzip 目录创建")
 

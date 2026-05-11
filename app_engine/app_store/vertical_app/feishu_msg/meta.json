@@ -1,10 +1,10 @@
 {
-  "app_name_cn": "胎压监测",
-  "app_name_en": "tpms_dashboard",
+  "app_name_cn": "飞书机器人",
+  "app_name_en": "feishu_msg",
   "version": "1.0.0",
-  "publish_time": "2026-05-09 16:00:00",
+  "publish_time": "2026-04-14 12:00:00",
   "category": "工具",
-  "description": "智能胎压监测系统，实时显示四轮胎压和温度",
+  "description": "飞书机器人消息推送工具，支持配置Webhook地址、签名校验和发送消息",
   "resolution": "480x800",
   "supported_models": {
     "Air8101": [
@@ -18,6 +18,6 @@
       }
     ]
   },
-  "zip_size_kb": 120,
-  "origin_size_kb": 350
+  "zip_size_kb": 50,
+  "origin_size_kb": 150
 }

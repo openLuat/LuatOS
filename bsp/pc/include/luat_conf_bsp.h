@@ -165,7 +165,10 @@
 
 #define LUAT_USE_MEMPROF 1
 
+// 视频播放器(默认mjpeg播放)
 #define LUAT_USE_VIDEOPLAYER 1
+// 视频播放器支持mp4播放
+#define LUAT_USE_MP4PLAYER 1
 // videoplayer软解依赖TJPGD, 需在GUI块外启用
 #define LUAT_USE_TJPGD
 

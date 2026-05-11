@@ -31,6 +31,17 @@ int luat_mp4_vctx_read_frame(luat_mp4_vctx_t *ctx,
                               uint16_t **rgb_out,
                               int *w, int *h);
 
+/*
+ * Decode the next video frame to a user-provided buffer.
+ * On success: returns LUAT_MP4VP_OK, *w and *h are set to the frame dimensions.
+ * The buffer is owned by the caller and valid until the next call or luat_mp4_vctx_close.
+ * Returns LUAT_MP4VP_ERR on decode error, LUAT_MP4VP_EOF at end of stream.
+ */
+int luat_mp4_vctx_read_frame_to(luat_mp4_vctx_t *ctx,
+                                uint16_t *rgb_buf,
+                                int rgb_buf_pixels,
+                                int *w, int *h);
+
 /* Get video dimensions (0 if not yet decoded). */
 void luat_mp4_vctx_get_dims(luat_mp4_vctx_t *ctx, int *w, int *h);
 

@@ -14,7 +14,11 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "luat_conf_bsp.h"
 #include "lvgl9/lvgl.h"
+#if defined(LUAT_USE_AIRUI_SDL2)
+#include <SDL2/SDL.h>
+#endif
 
 /*********************
  *      DEFINES
@@ -76,6 +80,46 @@ typedef enum {
     AIRUI_TOUCH_STATE_HOLD,
     AIRUI_TOUCH_STATE_UP
 } airui_touch_state_t;
+
+/**
+ * Lua-facing keypad key values used by airui.keypad_subscribe().
+ * On SDL builds these match the normalized SDL keycodes delivered to Lua.
+ */
+#if defined(LUAT_USE_AIRUI_SDL2)
+#define AIRUI_LUA_KEY_0       SDLK_0
+#define AIRUI_LUA_KEY_1       SDLK_1
+#define AIRUI_LUA_KEY_2       SDLK_2
+#define AIRUI_LUA_KEY_3       SDLK_3
+#define AIRUI_LUA_KEY_4       SDLK_4
+#define AIRUI_LUA_KEY_5       SDLK_5
+#define AIRUI_LUA_KEY_6       SDLK_6
+#define AIRUI_LUA_KEY_7       SDLK_7
+#define AIRUI_LUA_KEY_8       SDLK_8
+#define AIRUI_LUA_KEY_9       SDLK_9
+#define AIRUI_LUA_KEY_UP      SDLK_UP
+#define AIRUI_LUA_KEY_DOWN    SDLK_DOWN
+#define AIRUI_LUA_KEY_LEFT    SDLK_LEFT
+#define AIRUI_LUA_KEY_RIGHT   SDLK_RIGHT
+#define AIRUI_LUA_KEY_OK      SDLK_RETURN
+#define AIRUI_LUA_KEY_BACK    SDLK_ESCAPE
+#else
+#define AIRUI_LUA_KEY_0       '0'
+#define AIRUI_LUA_KEY_1       '1'
+#define AIRUI_LUA_KEY_2       '2'
+#define AIRUI_LUA_KEY_3       '3'
+#define AIRUI_LUA_KEY_4       '4'
+#define AIRUI_LUA_KEY_5       '5'
+#define AIRUI_LUA_KEY_6       '6'
+#define AIRUI_LUA_KEY_7       '7'
+#define AIRUI_LUA_KEY_8       '8'
+#define AIRUI_LUA_KEY_9       '9'
+#define AIRUI_LUA_KEY_UP      1001
+#define AIRUI_LUA_KEY_DOWN    1002
+#define AIRUI_LUA_KEY_LEFT    1003
+#define AIRUI_LUA_KEY_RIGHT   1004
+#define AIRUI_LUA_KEY_OK      1005
+#define AIRUI_LUA_KEY_BACK    1006
+#endif
 
 /**
  * 显示驱动操作接口

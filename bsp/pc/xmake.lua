@@ -6,6 +6,7 @@ add_rules("mode.debug", "mode.release")
 
 local unpack = table.unpack or unpack
 local luatos = "../../"
+local luatos_ext_root = path.join(os.scriptdir(), "../../../luatos-ext-components")
 -- 2表示mbedtls 2.18.x，3表示mbedtls 3.x
 local mbedtls_version = 3
 
@@ -84,6 +85,15 @@ add_includedirs("port/posix",{public = true})
 
 
 target("luatos-lua")
+
+    -- 用于获取windows模拟器调试信息，打开debug模式
+    -- if is_host("windows") then
+    --     set_symbols("debug")
+    --     add_cflags("/Zi")
+    --     add_cxflags("/Zi")
+    --     add_ldflags("/DEBUG")
+    -- end
+
     -- set kind
     set_kind("binary")
     set_targetdir("$(builddir)/out")
@@ -674,21 +684,16 @@ target("luatos-lua")
 
     -- =========================================================
     -- mp4player（MP4/H.264/AAC 解码器）
-    -- 启用方式：设置环境变量 LUAT_USE_MP4PLAYER=y
-    --           并设置 MP4PLAYER_SRC_DIR 指向 player 源码根目录
+    -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/vedio_player
     -- 示例（PowerShell）：
     --   $env:LUAT_USE_MP4PLAYER = "y"
-    --   $env:MP4PLAYER_SRC_DIR  = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
     --   cmd /c build_windows_32bit_msvc.bat
     -- =========================================================
-    if os.getenv("LUAT_USE_MP4PLAYER") == "y" then
+    local use_mp4player = true
+    if use_mp4player then
         add_defines("LUAT_USE_MP4PLAYER=1")
 
-        local mp4player_src = os.getenv("MP4PLAYER_SRC_DIR")
-        if not mp4player_src or mp4player_src == "" then
-            -- 如果未设置环境变量，使用默认路径（开发者本地约定）
-            mp4player_src = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
-        end
+        local mp4player_src = luatos_ext_root .. "/vedio_player"
         -- 统一为正斜杠，xmake 在 Windows 下两者均支持
         mp4player_src = mp4player_src:gsub("\\", "/")
         -- 确保末尾无斜杠
@@ -721,7 +726,6 @@ target("luatos-lua")
         add_thirdparty_files(mp4player_src .. "/video_decode/avcodec/h264/libavutil/*.c")
         -- file_open.c 依赖 <fcntl.h> O_CREAT 等宏（config.h 未启用 HAVE_FCNTL），改用 PC stub
         remove_files(mp4player_src .. "/video_decode/avcodec/h264/libavutil/file_open.c")
-        add_files("stubs/mp4player/avcodec_fileopen_pc.c")
         -- *_template.c 是通过 #include 引入的模板文件，不直接参与编译
         remove_files(mp4player_src .. "/video_decode/avcodec/*_template.c")
         remove_files(mp4player_src .. "/video_decode/avcodec/h264/*_template.c")

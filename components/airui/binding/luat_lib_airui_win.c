@@ -102,6 +102,20 @@ static int l_win_set_title(lua_State *L) {
 }
 
 /**
+ * Win:get_title()
+ * @api win:get_title()
+ * @return string 当前标题文本
+ * @usage
+ * local title = win:get_title()
+ */
+static int l_win_get_title(lua_State *L) {
+    lv_obj_t *win = airui_check_component(L, 1, AIRUI_WIN_MT);
+    const char *title = airui_win_get_title(win);
+    lua_pushstring(L, title ? title : "");
+    return 1;
+}
+
+/**
  * Win:add_content(child)
  * @api win:add_content(child)
  * @userdata child 子组件对象
@@ -187,6 +201,7 @@ void airui_register_win_meta(lua_State *L) {
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_title", l_win_set_title}, // 设置窗口标题
+        {"get_title", l_win_get_title}, // 获取窗口标题
         {"set_style", l_win_set_style}, // 设置窗口样式
         {"add_content", l_win_add_content}, // 添加内容,当前也支持通过组件设置parent为win来添加内容,todo：后续1.1版本可以移除
         {"destroy", l_win_destroy}, // 销毁窗口

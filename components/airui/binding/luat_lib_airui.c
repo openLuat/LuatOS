@@ -204,6 +204,23 @@ static const rotable_Reg_t reg_airui[] = {
     {"TP_DOWN", ROREG_INT(AIRUI_TOUCH_STATE_DOWN)},
     {"TP_HOLD", ROREG_INT(AIRUI_TOUCH_STATE_HOLD)},
     {"TP_UP", ROREG_INT(AIRUI_TOUCH_STATE_UP)},
+    // PC模拟器键盘常量
+    {"KEY_0", ROREG_INT(AIRUI_LUA_KEY_0)},
+    {"KEY_1", ROREG_INT(AIRUI_LUA_KEY_1)},
+    {"KEY_2", ROREG_INT(AIRUI_LUA_KEY_2)},
+    {"KEY_3", ROREG_INT(AIRUI_LUA_KEY_3)},
+    {"KEY_4", ROREG_INT(AIRUI_LUA_KEY_4)},
+    {"KEY_5", ROREG_INT(AIRUI_LUA_KEY_5)},
+    {"KEY_6", ROREG_INT(AIRUI_LUA_KEY_6)},
+    {"KEY_7", ROREG_INT(AIRUI_LUA_KEY_7)},
+    {"KEY_8", ROREG_INT(AIRUI_LUA_KEY_8)},
+    {"KEY_9", ROREG_INT(AIRUI_LUA_KEY_9)},
+    {"KEY_UP", ROREG_INT(AIRUI_LUA_KEY_UP)},
+    {"KEY_DOWN", ROREG_INT(AIRUI_LUA_KEY_DOWN)},
+    {"KEY_LEFT", ROREG_INT(AIRUI_LUA_KEY_LEFT)},
+    {"KEY_RIGHT", ROREG_INT(AIRUI_LUA_KEY_RIGHT)},
+    {"KEY_OK", ROREG_INT(AIRUI_LUA_KEY_OK)},
+    {"KEY_BACK", ROREG_INT(AIRUI_LUA_KEY_BACK)},
     // 图标常量
     AIRUI_SYMBOL_REG,
     {NULL, ROREG_INT(0)}
@@ -715,7 +732,7 @@ static int l_airui_device_bind_keypad(lua_State *L) {
               cfg.up, cfg.down, cfg.left, cfg.right, cfg.ok, cfg.back);
     } else {
         airui_platform_sdl2_bind_keypad(true);
-        LLOGD("device_bind_keypad enabled on SDL2 (default: WASD/Arrow/Enter/Space/Esc)");
+        LLOGD("device_bind_keypad enabled on SDL2 (default: 0-9/Arrow/Enter/Esc subscribe, Arrow/Enter/Esc navigate)");
     }
     lua_pushboolean(L, 1);
     return 1;

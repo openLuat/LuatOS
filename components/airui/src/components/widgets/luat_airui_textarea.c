@@ -40,6 +40,7 @@ static void airui_textarea_apply_font(lv_obj_t *textarea, airui_text_font_state_
 static void airui_textarea_focus_cb(lv_event_t *e);
 static char *airui_textarea_dup_clipped_text(const char *text, uint32_t max_len, bool *truncated);
 static int airui_textarea_apply_text_fast(lv_obj_t *textarea, const char *text);
+static lv_obj_t *airui_textarea_get_valid_bound_keyboard(airui_textarea_data_t *data);
 
 /**
  * 从 Lua 配置表创建 textarea
@@ -188,12 +189,27 @@ static void airui_textarea_bind_shared_keyboard(lv_obj_t *target)
     }
 
     airui_textarea_data_t *data = (airui_textarea_data_t *)meta->user_data;
-    if (data == NULL || data->keyboard == NULL) {
+    lv_obj_t *keyboard = airui_textarea_get_valid_bound_keyboard(data);
+    if (data == NULL || keyboard == NULL) {
         return;
     }
 
     // 焦点变化时重新绑定到当前 textarea，保持自动隐藏逻辑一致
-    airui_keyboard_set_target(data->keyboard, target);
+    airui_keyboard_set_target(keyboard, target);
+}
+
+static lv_obj_t *airui_textarea_get_valid_bound_keyboard(airui_textarea_data_t *data)
+{
+    if (data == NULL || data->keyboard == NULL) {
+        return NULL;
+    }
+
+    if (!lv_obj_is_valid(data->keyboard)) {
+        data->keyboard = NULL;
+        return NULL;
+    }
+
+    return data->keyboard;
 }
 
 static void airui_textarea_apply_font(lv_obj_t *textarea, airui_text_font_state_t *font_state)
@@ -280,6 +296,12 @@ static void airui_textarea_focus_cb(lv_event_t *e)
 #endif
             break;
         case LV_EVENT_DELETE:
+        {
+            airui_textarea_data_t *data = (airui_textarea_data_t *)meta->user_data;
+            lv_obj_t *keyboard = airui_textarea_get_valid_bound_keyboard(data);
+            if (keyboard != NULL) {
+                airui_keyboard_set_target(keyboard, NULL);
+            }
             if (airui_ctx_get_focused_textarea(meta->ctx) == target) {
 #if defined(LUAT_USE_AIRUI_SDL2)
                 airui_system_keyboard_clear_preedit(meta->ctx);
@@ -287,6 +309,7 @@ static void airui_textarea_focus_cb(lv_event_t *e)
                 airui_ctx_set_focused_textarea(meta->ctx, NULL);
             }
             break;
+        }
         default:
             break;
     }
@@ -456,6 +479,29 @@ int airui_textarea_attach_keyboard(lv_obj_t *textarea, lv_obj_t *keyboard)
     return AIRUI_OK;
 }
 
+int airui_textarea_detach_keyboard(lv_obj_t *textarea, lv_obj_t *keyboard)
+{
+    if (textarea == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(textarea);
+    if (meta == NULL || meta->user_data == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_textarea_data_t *data = (airui_textarea_data_t *)meta->user_data;
+    if (data == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (keyboard == NULL || data->keyboard == keyboard || !lv_obj_is_valid(data->keyboard)) {
+        data->keyboard = NULL;
+    }
+
+    return AIRUI_OK;
+}
+
 /**
  * 查询绑定的虚拟键盘
  */
@@ -471,6 +517,6 @@ lv_obj_t *airui_textarea_get_keyboard(lv_obj_t *textarea)
     }
 
     airui_textarea_data_t *data = (airui_textarea_data_t *)meta->user_data;
-    return data->keyboard;
+    return airui_textarea_get_valid_bound_keyboard(data);
 }
 

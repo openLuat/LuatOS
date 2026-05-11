@@ -208,7 +208,7 @@ local function ini()
     else
         if _G.model_str:find("PC") then
         else
-            local info = wlan.getInfo()
+            -- local info = wlan.getInfo()
             if info and info.ssid then
                 wc = true
                 upws()

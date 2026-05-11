@@ -62,7 +62,7 @@ local COLOR_WHITE          = 0xFFFFFF
 local COLOR_DANGER         = 0xE63946
 
 local pn = "合宙引擎主机"
-local ia8 = _G.model_str:find("Air8000") ~= nil
+local ia8 = _G.model_str:find("Air8000") or _G.model_str:find("Air780")
 local sf = _G.model_str:gsub("^Air", "")
 if sf ~= "" then
     pn = "合宙引擎主机" .. sf
@@ -361,13 +361,13 @@ local function utd(time_str, date_str, weekday_str)
     dl:set_text(sc.date .. " " .. sc.weekday)
 end
 
-local function uwi(level)
-    if level == nil then return end
-    sc.wifi_level = level
-    if not wi then return end
-    local imn = "wifixinhao" .. level .. ".png"
-    wi:set_src("/luadb/" .. imn)
-end
+-- local function uwi(level)
+--     if level == nil then return end
+--     sc.wifi_level = level
+--     if not wi then return end
+--     local imn = "wifixinhao" .. level .. ".png"
+--     wi:set_src("/luadb/" .. imn)
+-- end
 
 local function umi(level)
     if level == nil then return end
@@ -389,9 +389,9 @@ local function ost(current_time, current_date, current_weekday)
     utd(current_time, current_date, current_weekday)
 end
 
-local function osw(level)
-    uwi(level)
-end
+-- local function osw(level)
+--     uwi(level)
+-- end
 
 local function osm(level)
     umi(level)
@@ -421,10 +421,10 @@ local function oc()
     else
         isx = screen_w - sis - math.floor(12 * _G.density_scale)
     end
-    wi = airui.image({
-        parent = sb, x = isx, y = siy,
-        w = sis, h = sis, src = "/luadb/wifixinhao0.png"
-    })
+    -- wi = airui.image({
+    --     parent = sb, x = isx, y = siy,
+    --     w = sis, h = sis, src = "/luadb/wifixinhao0.png"
+    -- })
     if ia8 then
         mi = airui.image({
             parent = sb,
@@ -482,7 +482,7 @@ local function oc()
 
     lea()
     utd(sc.time, sc.date, sc.weekday)
-    uwi(sc.wifi_level)
+    -- uwi(sc.wifi_level)
     umi(sc.mobile_level)
 
     tt = sys.timerLoopStart(function()
@@ -492,7 +492,7 @@ local function oc()
     if ia8 then
         sys.subscribe("STATUS_SIGNAL_UPDATED", osm)
     end
-    sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", osw)
+    -- sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", osw)
     sys.subscribe("APP_STORE_INSTALLED_UPDATED", function()
         lea()
     end)
@@ -509,7 +509,7 @@ local function od()
     if ia8 then
         sys.unsubscribe("STATUS_SIGNAL_UPDATED", osm)
     end
-    sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", osw)
+    -- sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", osw)
     sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", lea)
 
     if tv then tv:destroy() end
@@ -518,7 +518,7 @@ end
 
 local function ogf()
     utd(sc.time, sc.date, sc.weekday)
-    uwi(sc.wifi_level)
+    -- uwi(sc.wifi_level)
     umi(sc.mobile_level)
     lea()
     if not tt then

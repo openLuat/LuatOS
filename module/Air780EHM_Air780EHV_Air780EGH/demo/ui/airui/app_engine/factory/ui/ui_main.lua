@@ -9,7 +9,7 @@
 -- 加载所有页面模块
 require "welcome_win"
 require "idle_win"
-require "wifi_list_win"
+-- require "wifi_list_win"
 require "settings_win"
 require "app_store_win"
 require "speedtest_win"

@@ -11,7 +11,7 @@
 ]]
 require "netdrv_device"
 -- 加载 wifi_app 主模块
-require "wifi_app"
+-- require "wifi_app"
 -- 加载状态提供app模块
 require "status_provider_app"
 -- 加载ntp时间同步应用模块

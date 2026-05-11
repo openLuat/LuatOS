@@ -11,7 +11,7 @@ require "settings_display_win"
 require "settings_storage_win"
 require "settings_about_win"
 require "settings_sound_win"
-require "wifi_list_win"
+-- require "wifi_list_win"
 require "settings_iot_win"
 
 local wid = nil
@@ -129,8 +129,8 @@ local function cui()
 
     local y = math.floor(20 * _G.density_scale)
     mk(y, "IOT账号", function() sys.publish("OPEN_IOT_WIN") end)
-    y = y + ch + csp
-    mk(y, "WiFi设置", function() sys.publish("OPEN_WIFI_WIN") end)
+    -- y = y + ch + csp
+    -- mk(y, "WiFi设置", function() sys.publish("OPEN_WIFI_WIN") end)
     y = y + ch + csp
     mk(y, "显示亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)
     y = y + ch + csp

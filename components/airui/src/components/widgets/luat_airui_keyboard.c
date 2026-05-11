@@ -1096,10 +1096,6 @@ static void airui_keyboard_apply_pinyin_mode(airui_keyboard_data_t *data, const 
     if (strcmp(mode, "pinyin_9_number") == 0) {
         lv_ime_pinyin_set_mode(data->ime, LV_IME_PINYIN_MODE_K9_NUMBER);
         lv_keyboard_set_mode(lv_ime_pinyin_get_kb(data->ime), LV_KEYBOARD_MODE_NUMBER);
-        lv_obj_t *cand_panel = airui_keyboard_get_valid_cand_panel(data);
-        if (cand_panel != NULL) {
-            lv_obj_add_flag(cand_panel, LV_OBJ_FLAG_HIDDEN);
-        }
         airui_keyboard_session_set_pinyin_composing(data, false);
         airui_keyboard_session_sync_cand_panel(data);
         return;
@@ -1375,13 +1371,13 @@ static void airui_keyboard_update_pinyin_panel(lv_obj_t *keyboard, bool visible)
     }
     airui_keyboard_apply_pinyin_bg(data, cand_panel);
     if (visible) {
-        if (!lv_obj_has_flag(cand_panel, LV_OBJ_FLAG_HIDDEN)) {
-            lv_obj_move_foreground(cand_panel);
+        if (lv_obj_has_flag(cand_panel, LV_OBJ_FLAG_HIDDEN)) {
+            lv_obj_clear_flag(cand_panel, LV_OBJ_FLAG_HIDDEN);
+            airui_keyboard_session_set_pinyin_composing(data, false);
+        } else {
             airui_keyboard_session_set_pinyin_composing(data, true);
         }
-        else {
-            airui_keyboard_session_set_pinyin_composing(data, false);
-        }
+        lv_obj_move_foreground(cand_panel);
     } else {
         lv_obj_add_flag(cand_panel, LV_OBJ_FLAG_HIDDEN);
         airui_keyboard_session_set_pinyin_composing(data, false);

@@ -1092,6 +1092,21 @@ int airui_table_set_cell_text(lv_obj_t *table, uint16_t row, uint16_t col, const
 }
 
 /**
+ * 获取单元格文本
+ * @param table Table 对象
+ * @param row 行索引
+ * @param col 列索引
+ * @return 单元格文本，失败返回 NULL
+ */
+const char *airui_table_get_cell_text(lv_obj_t *table, uint16_t row, uint16_t col)
+{
+    if (table == NULL) {
+        return NULL;
+    }
+    return lv_table_get_cell_value(table, row, col);
+}
+
+/**
  * 调整列宽
  * @param table Table 对象
  * @param col 要设置的列索引

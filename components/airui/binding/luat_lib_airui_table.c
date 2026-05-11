@@ -102,6 +102,24 @@ static int l_table_set_cell_text(lua_State *L) {
 }
 
 /**
+ * Table:get_cell_text(row, col)
+ * @api table:get_cell_text(row, col)
+ * @int row 行索引（从 0 开始）
+ * @int col 列索引（从 0 开始）
+ * @return string 单元格文本
+ * @usage
+ * local text = tbl:get_cell_text(0, 0)
+ */
+static int l_table_get_cell_text(lua_State *L) {
+    lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
+    int row = luaL_checkinteger(L, 2);
+    int col = luaL_checkinteger(L, 3);
+    const char *text = airui_table_get_cell_text(table, row, col);
+    lua_pushstring(L, text ? text : "");
+    return 1;
+}
+
+/**
  * Table:set_col_width(col, width)
  * @api table:set_col_width(col, width)
  * @int col 列索引（从 0 开始）
@@ -481,6 +499,7 @@ void airui_register_table_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_TABLE_MT);
     static const luaL_Reg methods[] = {
         {"set_cell_text", l_table_set_cell_text},
+        {"get_cell_text", l_table_get_cell_text},
         {"set_cell_style", l_table_set_cell_style},
         {"set_col_width", l_table_set_col_width},
         {"set_row_height", l_table_set_row_height},

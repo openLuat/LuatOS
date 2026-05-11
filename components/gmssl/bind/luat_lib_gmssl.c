@@ -265,7 +265,7 @@ static int l_sm3_update(lua_State *L)
 {
     size_t inputLen = 0;
     uint8_t dgst[SM3_DIGEST_LENGTH];
-    const char *inputData = lua_tolstring(L,1,&inputLen);
+    const char *inputData = luaL_checklstring(L, 1, &inputLen);
     sm3_digest((uint8_t*)inputData, inputLen, dgst);
 
     lua_pushlstring(L, (char*)dgst, SM3_DIGEST_LENGTH);   
@@ -466,9 +466,9 @@ static int l_sm4_decrypt(lua_State *L)
     const char *pMode = luaL_checkstring(L, 1);
     const char *pPadding = luaL_checkstring(L, 2);
     size_t nBufLen = 0;
-    const char *pBuf = lua_tolstring(L, 3, &nBufLen);
+    const char *pBuf = luaL_checklstring(L, 3, &nBufLen);
     size_t nPswdLen = 0;
-    const char *pPassword = lua_tolstring(L, 4, &nPswdLen);
+    const char *pPassword = luaL_checklstring(L, 4, &nPswdLen);
     size_t nIVLen = 0;
     const char *pIV =  lua_tolstring(L, 5, &nIVLen);
     char out[SM4_BLOCK_LEN];

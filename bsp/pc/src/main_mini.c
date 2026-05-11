@@ -14,15 +14,19 @@
 #define LUAT_LOG_TAG "main"
 #include "luat_log.h"
 
-#include "uv.h"
 #include "luat_mem.h"
+/* luat_posix_compat.h must come before uv.h on Windows to establish the
+ * correct winsock2/windows.h include order. */
+#include "luat_posix_compat.h"
+#include "luat_timer_engine.h"
+
 
 #ifdef LUAT_USE_LWIP
 #include "lwip/tcpip.h"
 #endif
 
 #ifdef LUAT_USE_LVGL
-uv_timer_t lvgl_timer;
+luat_timer_handle_t lvgl_timer_handle;
 #include "lvgl.h"
 #endif
 
@@ -40,8 +44,8 @@ uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 int cmdline_argc;
 char** cmdline_argv;
 // uv_timespec64_t boot_ts;
-extern uint64_t uv_startup_ns;
 extern void luat_lwip_init(void);
+extern void luat_mcu_startup_init(void);
 
 int lua_main (int argc, char** argv);
 
@@ -50,12 +54,10 @@ void luat_log_deinit_win32(void);
 void luat_uart_initial_win32(void);
 void luat_network_init(void);
 
-uv_loop_t *main_loop;
-uv_mutex_t timer_lock;
 
 int luat_cmd_parse(int argc, char** argv);
 static int luat_lvg_handler(lua_State* L, void* ptr);
-static void lvgl_timer_cb(uv_timer_t* lvgl_timer);
+static void lvgl_timer_cb(void* arg);
 
 int32_t luatos_pc_climode;
 
@@ -76,12 +78,7 @@ void uv_luat_main(void* args) {
     }
 }
 
-static void timer_nop(uv_timer_t *handle) {
-    // 不需要操作东西
-    (void)handle;
-}
-
-static void timer_lwip(uv_timer_t *handle);
+static void timer_nop(void *arg) { (void)arg; }
 
 // boot
 int main(int argc, char** argv) {
@@ -98,12 +95,8 @@ int main(int argc, char** argv) {
     luat_console_auto_encoding();
 #endif
 
-    main_loop = malloc(sizeof(uv_loop_t));
-    // uv_replace_allocator(luat_heap_malloc, luat_heap_realloc, luat_heap_calloc, luat_heap_free);
-    uv_loop_init(main_loop);
-    // uv_clock_gettime(UV_CLOCK_MONOTONIC, &boot_ts);
-    uv_startup_ns = uv_hrtime();
-    uv_mutex_init(&timer_lock);
+    luat_mcu_startup_init();
+    luat_timer_engine_init();
 
     luat_pcconf_init();
 
@@ -136,8 +129,8 @@ int main(int argc, char** argv) {
 
 
     #ifdef LUAT_USE_LVGL
-    uv_timer_init(main_loop, &lvgl_timer);
-    uv_timer_start(&lvgl_timer, lvgl_timer_cb, 25, 25);
+    lvgl_timer_handle = luat_timer_engine_create(lvgl_timer_cb, NULL);
+    luat_timer_engine_start(lvgl_timer_handle, 25, 1);
     #endif
 
     #ifdef LUAT_USE_LWIP
@@ -145,16 +138,9 @@ int main(int argc, char** argv) {
     tcpip_init(NULL, NULL);
     #endif
 
-    // uv_thread_t l_main;
-    // 加一个NOP的timer，防止uv_run 立即退出
-    uv_timer_t t;
-    uv_timer_init(main_loop, &t);
-    uv_timer_start(&t, timer_nop, 1000, 1000);
     uv_luat_main(NULL);
 
     luat_log_deinit_win32();
-    uv_loop_close(main_loop);
-    free(main_loop);
     return 0;
 }
 
@@ -168,16 +154,11 @@ static int luat_lvg_handler(lua_State* L, void* ptr) {
     lv_task_handler();
     return 0;
 }
-static void lvgl_timer_cb(uv_timer_t* lvgl_timer) {
+static void lvgl_timer_cb(void* arg) {
+    (void)arg;
     rtos_msg_t msg = {
         .handler = luat_lvg_handler
     };
     luat_msgbus_put(&msg, 0);
 }
 #endif
-
-void sys_check_timeouts(void);
-static void timer_lwip(uv_timer_t *handle) {
-    (void)handle;
-    sys_check_timeouts();
-}

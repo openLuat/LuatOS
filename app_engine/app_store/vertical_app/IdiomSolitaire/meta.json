@@ -1,0 +1,23 @@
+{
+  "app_name_cn": "成语接龙",
+  "app_name_en": "idiom_solitaire",
+  "version": "1.0.0",
+  "publish_time": "2026-04-22 14:00:00",
+  "category": "游戏",
+  "description": "成语接龙 · 闯三关",
+  "resolution": "480x800",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 50,
+  "origin_size_kb": 150
+}

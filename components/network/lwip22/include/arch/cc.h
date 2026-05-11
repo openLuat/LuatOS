@@ -34,8 +34,13 @@
 
 #define LWIP_TIMEVAL_PRIVATE 1
 #define LWIP_ERRNO_STDINCLUDE	1
+#ifdef _MSC_VER
+/* MSVC doesn't have limits.h/unistd.h in the right places; suppress them
+ * and let lwIP fall back to its own definitions. On GCC/Linux these headers
+ * must be included normally so that ssize_t resolves to the system type. */
 #define LWIP_NO_LIMITS_H 1
 #define LWIP_NO_UNISTD_H 1
+#endif
 
 #ifdef _MSC_VER
 #define LWIP_SOCKET_EXTERNAL_HEADERS 1

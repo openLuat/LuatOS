@@ -47,6 +47,25 @@ int luat_audio_driver_register(const luat_audio_driver_opts_t *ops, struct luat_
  * @return 驱动控制器指针，成功返回非NULL，失败返回NULL
  */
 luat_audio_driver_ctrl_t *luat_audio_driver_probe(struct luat_audio_driver_probe *probe);
+
+/**
+ * @brief 初始化音频请求
+ * 
+ * 此函数用于初始化音频请求结构体，为后续的音频处理做准备。
+ * 
+ * @param req 音频请求结构体指针，包含请求的详细信息
+ * @return 0 表示成功，其他值表示失败
+ */
+int luat_audio_request_init(luat_audio_request_block_t *req);
+/**
+ * @brief 释放音频请求结构体指针
+ * 
+ * 此函数用于释放音频请求结构体指针，释放请求资源。
+ * 
+ * @param req 音频请求结构体指针，包含请求的详细信息
+ * @return 0 表示成功，其他值表示失败
+ */
+int luat_audio_request_deinit(luat_audio_request_block_t *req);
 /**
  * @brief 提交音频请求
  * 
@@ -57,7 +76,17 @@ luat_audio_driver_ctrl_t *luat_audio_driver_probe(struct luat_audio_driver_probe
  */
 int luat_audio_request(luat_audio_request_block_t *req);
 
-int luat_audio_driver_event_callback(uint32_t event, uint8_t *rx_data, uint32_t param, struct luat_audio_driver_ctrl *ctrl);
+/**
+ * @brief 取消音频请求
+ * 
+ * 此函数用于取消已提交的音频请求，不释放请求资源。
+ * 
+ * @param req 音频请求结构体指针，包含请求的详细信息
+ * @return 0 表示成功，其他值表示失败
+ */
+int luat_audio_request_cancel(luat_audio_request_block_t *req);
+
+void luat_audio_driver_event_callback(uint32_t event, uint8_t *rx_data, uint32_t param, struct luat_audio_driver_ctrl *ctrl);
 #endif
 
 /** @} */

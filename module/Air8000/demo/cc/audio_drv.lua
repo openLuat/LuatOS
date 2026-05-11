@@ -35,12 +35,12 @@ end
 
 -- exaudio配置参数
 local audio_configs = {
-    model = "es8311",         -- dac类型: "es8311"
+    model = "es8311",         -- dac类型,可填入"es8311","tm8211"
     i2c_id = 0,               -- i2c_id: 可填入0，1 并使用pins 工具配置对应的管脚
-    --Air8000开发板配置pa_ctrl 和dac_ctrl 
+    -- Air8000开发板配置pa_ctrl 和dac_ctrl 
     pa_ctrl = 162,            -- 音频放大器电源控制管脚
     dac_ctrl = 164,           -- 音频编解码芯片电源控制管脚
-    --Air8000核心板配置pa_ctrl 和dac_ctrl 
+    -- Air8000核心板配置pa_ctrl 和dac_ctrl 
     -- pa_ctrl = 17,            -- 音频放大器电源控制管脚
     -- dac_ctrl = 16,           -- 音频编解码芯片电源控制管脚
         

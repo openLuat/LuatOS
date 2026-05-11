@@ -74,7 +74,7 @@
 
 ![alt text](https://docs.openLuat.com/cdn/image/Air8000%E5%BC%80%E5%8F%91%E6%9D%BF.jpg )
 
-或者Air8000核心板+AirAUDIO_1010 音频配件板+喇叭
+2、Air8000核心板+AirAUDIO_1010 音频配件板+喇叭（可选）
 
 ![alt text]( https://docs.openLuat.com/cdn/image/Air8000%E6%A0%B8%E5%BF%83%E6%9D%BF+1010.jpg)
 
@@ -91,10 +91,26 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 | 81/I2C_SDA      | I2C_SDA             |
 | 82/GPIO17       | PA_EN               |
 | 83/GPIO16       | 8311_EN             |
-| VDD_EXT         | VCC                 |
+| VBAT            | VCC                 |
 | GND             | GND                 |
 
-2、TYPE-C USB数据线一根
+3、Air8000核心板+AirAUDIO_1020 音频配件板+喇叭（可选）
+
+![alt text]( https://docs.openLuat.com/cdn/image/Air8000+1020.jpg)
+
+Air8000核心板和AirAudio_1020 配件板的硬件接线方式为:
+
+|  Air8000核心板   | AirAUDIO_1020配件板 |
+| --------------- | -----------------   |
+| 18/I2S_BCK      | I2S_BCK             |
+| 19/I2S_LRCK     | I2S_LRCK            |
+| 21/I2S_DOUT     | I2S_DOUT            |
+| 82/GPIO17       | PA_EN               |
+| 83/GPIO16       | 8311_EN             |
+| VBAT            | VCC                 |
+| GND             | GND                 |
+
+4、TYPE-C USB数据线一根
 
 - Air8000开发板/核心板通过 TYPE-C USB 口供电；
 

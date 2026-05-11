@@ -222,8 +222,11 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
                 gw->dataout(gw, gw->userdata, ctx->eth, ctx->len);
             }
             else {
-                LLOGD("网关netdrv是ETH,源网卡不是ETH, 当前不支持");
-                return 0;
+                memcpy(icmp_buff, gw->gw_mac, 6);
+                memcpy(icmp_buff + 6, gw->netif->hwaddr, 6);
+                memcpy(icmp_buff + 12, "\x08\x00", 2);
+                memcpy(icmp_buff + 14, ip_hdr, ctx->len);
+                gw->dataout(gw, gw->userdata, icmp_buff, ctx->len + 14);
             }
         }
         else {

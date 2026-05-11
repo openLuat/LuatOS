@@ -24,7 +24,7 @@
 
 
 -- 加载“通过SPI外挂CH390H芯片的以太网卡”驱动模块
--- require "netdrv_eth_spi"
+require "netdrv_eth_spi"
 
 -- 加载“可以配置优先级的多种网卡”驱动模块
-require "netdrv_multiple"
+-- require "netdrv_multiple"

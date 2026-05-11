@@ -157,10 +157,6 @@ local function sip_callback(event, arg1, arg2, arg3)
         log.info("sip_callback", "lifecycle event:", sub_event)
         if sub_event == "online" then
             log.info("sip_callback", "SIP 服务已在线，本地IP地址为：", data.local_ip)
-            if g_sip_status ~= "STATE_INITING" then
-                -- 网络恢复后，SIP 服务可能需要重新初始化
-                -- sys.sendMsg(TASK_NAME, tag, "MSG_REINIT")
-            end
         else
             sys.sendMsg(TASK_NAME, tag, "MSG_ERROR")
         end
@@ -230,9 +226,7 @@ local function sip_app_main_task_func()
                     sys.publish("SIP_APP_MAIN_DIAL_RSP", tag, false, g_sip_status)
                 end
             elseif event == "MSG_ERROR" then
-                -- if g_sip_status == "STATE_DIALING" or g_sip_status == "STATE_INCOMING" or g_sip_status == "STATE_CONNECTED" or g_sip_status == "STATE_DISCONNECTING" then
-                    goto EXCEPTION_PROC
-                -- end
+                    break
             elseif event == "MSG_READY" then
                 if g_sip_status == "STATE_INITING" then
                     g_sip_status = "STATE_READY"

@@ -71,6 +71,33 @@ message WlanScanResponse {
     required WlanResult result = 1;
 }
 
+// 扫描结果 NOTIFY（Slave → Host 异步通知, rpc_id=0x0301）
+// data 为 luat_wlan_scan_result_t 数组的连续二进制封装
+message WlanScanResultNotify {
+    required uint32 count = 1;
+    required bytes  data  = 2 [(nanopb).max_size = 2048];
+}
+
+// STA 事件 NOTIFY（Slave → Host 异步通知, rpc_id=0x0302）
+message WlanStaIncNotify {
+    required string event  = 1 [(nanopb).max_size = 16];  // "CONNECTED" or "DISCONNECTED"
+    optional string ssid   = 2 [(nanopb).max_size = 36];
+    optional bytes  bssid  = 3 [(nanopb).max_size = 6];
+    optional uint32 reason = 4;
+}
+
+// IP 就绪 NOTIFY（Slave → Host 异步通知, rpc_id=0x0303）
+message WlanIpReadyNotify {
+    optional string ip      = 1 [(nanopb).max_size = 16];
+    optional uint32 adapter = 2;
+}
+
+// AP 热点事件 NOTIFY（Slave → Host 异步通知, rpc_id=0x0304）
+message WlanApIncNotify {
+    required string event = 1 [(nanopb).max_size = 16];  // "CONNECTED" or "DISCONNECTED"
+    optional bytes  mac   = 2 [(nanopb).max_size = 6];   // STA 的 MAC 地址
+}
+
 // 统一 RPC 请求
 message WlanRpcRequest {
     required uint32 req_id = 1;

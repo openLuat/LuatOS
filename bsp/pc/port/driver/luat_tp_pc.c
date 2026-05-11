@@ -6,7 +6,7 @@
 #include "luat_rtos.h"
 #include "luat_sdl2.h"
 
-#include "uv.h"
+#include "luat_posix_compat.h"
 
 #include "SDL2/SDL.h"
 
@@ -31,7 +31,7 @@ luat_tp_opts_t tp_config_pc = {
 
 typedef struct tp_pc_state
 {
-    uv_mutex_t lock;
+    pthread_mutex_t lock;
     uint8_t has_event;
     luat_tp_data_t ev; // single-point pending event (保持兼容性)
     uint16_t last_valid_x; // 最后一次有效X坐标
@@ -80,7 +80,7 @@ static void stop_tp_flush_timer(void) {
 static int enqueue_event(luat_tp_data_t* event) {
     if (!event || !s_tp_state.queue_enabled) return -1;
 
-    uv_mutex_lock(&s_tp_state.lock);
+    pthread_mutex_lock(&s_tp_state.lock);
 
     // 计算下一个尾位置
     uint8_t next_tail = (s_tp_state.queue_tail + 1) % s_tp_state.event_queue_size;
@@ -95,7 +95,7 @@ static int enqueue_event(luat_tp_data_t* event) {
     s_tp_state.event_queue[s_tp_state.queue_tail] = *event;
     s_tp_state.queue_tail = next_tail;
 
-    uv_mutex_unlock(&s_tp_state.lock);
+    pthread_mutex_unlock(&s_tp_state.lock);
 
     return 0;
 }
@@ -103,11 +103,11 @@ static int enqueue_event(luat_tp_data_t* event) {
 static int dequeue_event(luat_tp_data_t* event) {
     if (!event || !s_tp_state.queue_enabled) return -1;
 
-    uv_mutex_lock(&s_tp_state.lock);
+    pthread_mutex_lock(&s_tp_state.lock);
 
     if (s_tp_state.queue_head == s_tp_state.queue_tail) {
         // 队列为空
-        uv_mutex_unlock(&s_tp_state.lock);
+        pthread_mutex_unlock(&s_tp_state.lock);
         return -1;
     }
 
@@ -115,7 +115,7 @@ static int dequeue_event(luat_tp_data_t* event) {
     *event = s_tp_state.event_queue[s_tp_state.queue_head];
     s_tp_state.queue_head = (s_tp_state.queue_head + 1) % s_tp_state.event_queue_size;
 
-    uv_mutex_unlock(&s_tp_state.lock);
+    pthread_mutex_unlock(&s_tp_state.lock);
 
     return 0;
 }
@@ -123,7 +123,7 @@ static int dequeue_event(luat_tp_data_t* event) {
 static int get_queue_count(void) {
     if (!s_tp_state.queue_enabled) return 0;
 
-    uv_mutex_lock(&s_tp_state.lock);
+    pthread_mutex_lock(&s_tp_state.lock);
 
     int count;
     if (s_tp_state.queue_tail >= s_tp_state.queue_head) {
@@ -132,7 +132,7 @@ static int get_queue_count(void) {
         count = s_tp_state.event_queue_size - s_tp_state.queue_head + s_tp_state.queue_tail;
     }
 
-    uv_mutex_unlock(&s_tp_state.lock);
+    pthread_mutex_unlock(&s_tp_state.lock);
 
     return count;
 }
@@ -153,10 +153,10 @@ static int SDLCALL tp_sdl_watch(void* userdata, SDL_Event* e) {
                 ev.y_coordinate = (uint16_t)e->button.y;
                 set = 1;
   
-                uv_mutex_lock(&s_tp_state.lock);
+                pthread_mutex_lock(&s_tp_state.lock);
                 s_tp_state.last_valid_x = ev.x_coordinate;
                 s_tp_state.last_valid_y = ev.y_coordinate;
-                uv_mutex_unlock(&s_tp_state.lock);
+                pthread_mutex_unlock(&s_tp_state.lock);
             }
             break;
         case SDL_MOUSEMOTION:
@@ -179,10 +179,10 @@ static int SDLCALL tp_sdl_watch(void* userdata, SDL_Event* e) {
                     ev.y_coordinate = (uint16_t)y;
                     set = 1;
       
-                    uv_mutex_lock(&s_tp_state.lock);
+                    pthread_mutex_lock(&s_tp_state.lock);
                     s_tp_state.last_valid_x = ev.x_coordinate;
                     s_tp_state.last_valid_y = ev.y_coordinate;
-                    uv_mutex_unlock(&s_tp_state.lock);
+                    pthread_mutex_unlock(&s_tp_state.lock);
                 }
             }
             break;
@@ -206,20 +206,20 @@ static int SDLCALL tp_sdl_watch(void* userdata, SDL_Event* e) {
             ev.x_coordinate = (uint16_t)(e->tfinger.x * conf->w);
             ev.y_coordinate = (uint16_t)(e->tfinger.y * conf->h);
             set = 1;
-              uv_mutex_lock(&s_tp_state.lock);
+              pthread_mutex_lock(&s_tp_state.lock);
             s_tp_state.last_valid_x = ev.x_coordinate;
             s_tp_state.last_valid_y = ev.y_coordinate;
-            uv_mutex_unlock(&s_tp_state.lock);
+            pthread_mutex_unlock(&s_tp_state.lock);
             break;
         case SDL_FINGERMOTION:
             ev.event = TP_EVENT_TYPE_MOVE;
             ev.x_coordinate = (uint16_t)(e->tfinger.x * conf->w);
             ev.y_coordinate = (uint16_t)(e->tfinger.y * conf->h);
             set = 1;
-              uv_mutex_lock(&s_tp_state.lock);
+              pthread_mutex_lock(&s_tp_state.lock);
             s_tp_state.last_valid_x = ev.x_coordinate;
             s_tp_state.last_valid_y = ev.y_coordinate;
-            uv_mutex_unlock(&s_tp_state.lock);
+            pthread_mutex_unlock(&s_tp_state.lock);
             break;
         case SDL_FINGERUP:
             ev.event = TP_EVENT_TYPE_UP;
@@ -246,10 +246,10 @@ static int SDLCALL tp_sdl_watch(void* userdata, SDL_Event* e) {
                 }
 
                 // 始终保持与原有框架的兼容性 - 更新单事件缓冲区
-                uv_mutex_lock(&s_tp_state.lock);
+                pthread_mutex_lock(&s_tp_state.lock);
                 s_tp_state.ev = ev;
                 s_tp_state.has_event = 1;
-                uv_mutex_unlock(&s_tp_state.lock);
+                pthread_mutex_unlock(&s_tp_state.lock);
 
                 // wake tp task
                 luat_rtos_message_send(conf->task_handle, 1, conf);
@@ -263,10 +263,10 @@ static int SDLCALL tp_sdl_watch(void* userdata, SDL_Event* e) {
             }
         } else {
             // 使用原有的单事件机制
-            uv_mutex_lock(&s_tp_state.lock);
+            pthread_mutex_lock(&s_tp_state.lock);
             s_tp_state.ev = ev;
             s_tp_state.has_event = 1;
-            uv_mutex_unlock(&s_tp_state.lock);
+            pthread_mutex_unlock(&s_tp_state.lock);
 
             // wake tp task
             luat_rtos_message_send(conf->task_handle, 1, conf);
@@ -291,7 +291,7 @@ static int luat_tp_pc_init(luat_tp_config_t* conf) {
 
     // 初始化状态结构
     memset(&s_tp_state, 0, sizeof(s_tp_state));
-    uv_mutex_init(&s_tp_state.lock);
+    pthread_mutex_init(&s_tp_state.lock, NULL);
     s_tp_state.last_valid_x = 0;
     s_tp_state.last_valid_y = 0;
     s_tp_state.data_consumed = 1; // 初始状态为已消费，避免被清空
@@ -330,19 +330,19 @@ static int luat_tp_pc_read(luat_tp_config_t* conf, uint8_t* data) {
             event_found = 1;
         } else if (s_tp_state.has_event) {
             // 队列为空，尝试使用单事件缓冲区（兼容性）
-            uv_mutex_lock(&s_tp_state.lock);
+            pthread_mutex_lock(&s_tp_state.lock);
             event_to_deliver = s_tp_state.ev;
             s_tp_state.has_event = 0;
-            uv_mutex_unlock(&s_tp_state.lock);
+            pthread_mutex_unlock(&s_tp_state.lock);
             event_found = 1;
         }
     } else {
         // 使用原有的单事件机制
         if (s_tp_state.has_event) {
-            uv_mutex_lock(&s_tp_state.lock);
+            pthread_mutex_lock(&s_tp_state.lock);
             event_to_deliver = s_tp_state.ev;
             s_tp_state.has_event = 0;
-            uv_mutex_unlock(&s_tp_state.lock);
+            pthread_mutex_unlock(&s_tp_state.lock);
             event_found = 1;
         }
     }
@@ -374,9 +374,9 @@ static int luat_tp_pc_read(luat_tp_config_t* conf, uint8_t* data) {
 
 static void luat_tp_pc_read_done(luat_tp_config_t* conf) {
     if (!conf) return;
-    uv_mutex_lock(&s_tp_state.lock);
+    pthread_mutex_lock(&s_tp_state.lock);
     s_tp_state.data_consumed = 1; // 标记数据已被消费
-    uv_mutex_unlock(&s_tp_state.lock);
+    pthread_mutex_unlock(&s_tp_state.lock);
 }
 
 static void luat_tp_pc_deinit(luat_tp_config_t* conf) {
@@ -385,11 +385,11 @@ static void luat_tp_pc_deinit(luat_tp_config_t* conf) {
 
         // 清理队列
         if (s_tp_state.queue_enabled) {
-            uv_mutex_lock(&s_tp_state.lock);
+            pthread_mutex_lock(&s_tp_state.lock);
             s_tp_state.queue_head = 0;
             s_tp_state.queue_tail = 0;
             s_tp_state.queue_enabled = 0;
-            uv_mutex_unlock(&s_tp_state.lock);
+            pthread_mutex_unlock(&s_tp_state.lock);
         }
         // 停止并释放 SDL 刷新定时器，避免重复创建
         stop_tp_flush_timer();

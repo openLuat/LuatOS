@@ -6,8 +6,17 @@
  *   2. Native mode (LUAT_USE_WLAN_NATIVE on Windows): calls Windows Native WiFi API
  */
 
-// uv.h must be included first to avoid LwIP vs WinSock type conflicts
-#include "uv.h"
+#include "luat_posix_compat.h"
+#include "luat_timer_engine.h"
+
+/* Platform-specific IP enumeration headers */
+#if defined(_WIN32) || defined(_WIN64)
+#  include <iphlpapi.h>
+#elif !defined(__EMSCRIPTEN__)
+#  include <ifaddrs.h>
+#  include <netinet/in.h>
+#  include <arpa/inet.h>
+#endif
 
 #include "luat_base.h"
 #include "luat_wlan.h"
@@ -19,9 +28,6 @@
 
 #define LUAT_LOG_TAG "wlan.pc"
 #include "luat_log.h"
-
-extern uv_loop_t *main_loop;
-void free_uv_handle(void* ptr);
 
 // ========== Internal state ==========
 
@@ -55,10 +61,14 @@ static uint8_t wlan_ap_netmask[4] = {255, 255, 255, 0};
 #define MOCK_IP_READY_DELAY_MS 1100
 
 typedef struct mock_wlan_connect_timer {
-    uv_timer_t timer;
+    luat_timer_handle_t handle;
     uint32_t seq;
     int reason;
 } mock_wlan_connect_timer_t;
+
+typedef struct {
+    luat_timer_handle_t handle;
+} simple_timer_ctx_t;
 
 // ========== Mock scan data ==========
 
@@ -70,6 +80,50 @@ static const luat_wlan_scan_result_t mock_scan_results[] = {
     {.ssid = "CMCC-FREE",      .bssid = {0xAA,0xBB,0xCC,0xDD,0xEE,0x05}, .rssi = -80, .ch = 6},
 };
 #define MOCK_AP_COUNT (sizeof(mock_scan_results) / sizeof(mock_scan_results[0]))
+
+// ========== Platform-specific host IP helper ==========
+
+#if defined(_WIN32) || defined(_WIN64)
+static uint32_t luat_get_host_ipv4_u32(void) {
+    ULONG bufLen = 15 * 1024;
+    PIP_ADAPTER_INFO buf = (PIP_ADAPTER_INFO)luat_heap_malloc(bufLen);
+    if (!buf) return htonl(0xC0A80164UL); /* fallback 192.168.1.100 */
+    DWORD r = GetAdaptersInfo(buf, &bufLen);
+    if (r == ERROR_BUFFER_OVERFLOW) {
+        luat_heap_free(buf);
+        buf = (PIP_ADAPTER_INFO)luat_heap_malloc(bufLen);
+        if (!buf) return htonl(0xC0A80164UL);
+        r = GetAdaptersInfo(buf, &bufLen);
+    }
+    uint32_t result = htonl(0xC0A80164UL);
+    if (r == NO_ERROR) {
+        for (PIP_ADAPTER_INFO p = buf; p; p = p->Next) {
+            const char *s = p->IpAddressList.IpAddress.String;
+            if (!s || !s[0] || strcmp(s, "0.0.0.0") == 0 || strncmp(s, "127.", 4) == 0) continue;
+            unsigned long ip = inet_addr(s);
+            if (ip == INADDR_NONE) continue;
+            result = (uint32_t)ip;
+        }
+    }
+    luat_heap_free(buf);
+    return result;
+}
+#else
+static uint32_t luat_get_host_ipv4_u32(void) {
+    struct ifaddrs *ifa_list = NULL;
+    uint32_t result = htonl(0xC0A80164UL); /* fallback 192.168.1.100 */
+    if (getifaddrs(&ifa_list) != 0) return result;
+    for (struct ifaddrs *ifa = ifa_list; ifa; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET) continue;
+        struct sockaddr_in *sin = (struct sockaddr_in *)ifa->ifa_addr;
+        uint32_t ip = sin->sin_addr.s_addr;
+        if ((ntohl(ip) >> 24) == 127) continue; /* skip loopback */
+        result = ip; /* last non-loopback IPv4 wins */
+    }
+    if (ifa_list) freeifaddrs(ifa_list);
+    return result;
+}
+#endif
 
 // ========== Forward declarations for native mode ==========
 
@@ -157,36 +211,29 @@ static int l_wlan_ip_lose_cb(lua_State *L, void *ptr) {
 
 // ========== Timer callbacks for async events ==========
 
-static void mock_scan_done_timer_cb(uv_timer_t *t) {
-    free_uv_handle(t);
+static void mock_scan_done_timer_cb(void *arg) {
+    simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)arg;
+    luat_timer_engine_delete(ctx->handle);
+    luat_heap_free(ctx);
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_scan_done_cb;
     luat_msgbus_put(&msg, 0);
 }
 
-static void mock_sta_connected_timer_cb(uv_timer_t *t) {
-    free_uv_handle(t);
+static void mock_sta_connected_timer_cb(void *arg) {
+    simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)arg;
+    luat_timer_engine_delete(ctx->handle);
+    luat_heap_free(ctx);
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_sta_connected_cb;
     luat_msgbus_put(&msg, 0);
 }
 
-static void mock_ip_ready_timer_cb(uv_timer_t *t) {
-    free_uv_handle(t);
-    // Get host real IP via libuv
-    uv_interface_address_t *info = NULL;
-    int count = 0;
-    uint32_t ip_addr = 0xC0A80164; // fallback: 192.168.1.100
-    uv_interface_addresses(&info, &count);
-    for (int i = count - 1; i >= 0; i--) {
-        if (!info[i].is_internal && info[i].address.address4.sin_family == 2 /* AF_INET */) {
-            ip_addr = info[i].address.address4.sin_addr.s_addr;
-            break;
-        }
-    }
-    if (info) {
-        uv_free_interface_addresses(info, count);
-    }
+static void mock_ip_ready_timer_cb(void *arg) {
+    simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)arg;
+    luat_timer_engine_delete(ctx->handle);
+    luat_heap_free(ctx);
+    uint32_t ip_addr = luat_get_host_ipv4_u32();
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_ip_ready_cb;
     msg.arg1 = 1;
@@ -194,38 +241,44 @@ static void mock_ip_ready_timer_cb(uv_timer_t *t) {
     luat_msgbus_put(&msg, 0);
 }
 
-static void mock_sta_disconnected_timer_cb(uv_timer_t *t) {
-    free_uv_handle(t);
+static void mock_sta_disconnected_timer_cb(void *arg) {
+    simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)arg;
+    luat_timer_engine_delete(ctx->handle);
+    luat_heap_free(ctx);
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_sta_disconnected_cb;
     luat_msgbus_put(&msg, 0);
 }
 
-static void mock_ip_lose_timer_cb(uv_timer_t *t) {
-    free_uv_handle(t);
+static void mock_ip_lose_timer_cb(void *arg) {
+    simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)arg;
+    luat_timer_engine_delete(ctx->handle);
+    luat_heap_free(ctx);
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_ip_lose_cb;
     luat_msgbus_put(&msg, 0);
 }
 
-// Helper: start a one-shot libuv timer
-static int start_oneshot_timer(uv_timer_cb cb, uint64_t delay_ms) {
-    uv_timer_t *t = luat_heap_malloc(sizeof(uv_timer_t));
-    if (t == NULL) return -1;
-    memset(t, 0, sizeof(uv_timer_t));
-    uv_timer_init(main_loop, t);
-    uv_timer_start(t, cb, delay_ms, 0);
+/* Start a one-shot fire-and-forget timer using a simple_timer_ctx_t. */
+static int start_oneshot_timer(void (*cb)(void*), uint64_t delay_ms) {
+    simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)luat_heap_malloc(sizeof(simple_timer_ctx_t));
+    if (!ctx) return -1;
+    memset(ctx, 0, sizeof(simple_timer_ctx_t));
+    ctx->handle = luat_timer_engine_create(cb, ctx);
+    if (!ctx->handle) { luat_heap_free(ctx); return -1; }
+    luat_timer_engine_start(ctx->handle, (uint32_t)delay_ms, 0);
     return 0;
 }
 
-static int start_connect_timer(uv_timer_cb cb, uint64_t delay_ms, uint32_t seq, int reason) {
-    mock_wlan_connect_timer_t *t = luat_heap_malloc(sizeof(mock_wlan_connect_timer_t));
-    if (t == NULL) return -1;
-    memset(t, 0, sizeof(mock_wlan_connect_timer_t));
-    t->seq = seq;
-    t->reason = reason;
-    uv_timer_init(main_loop, &t->timer);
-    uv_timer_start(&t->timer, cb, delay_ms, 0);
+static int start_connect_timer(void (*cb)(void*), uint64_t delay_ms, uint32_t seq, int reason) {
+    mock_wlan_connect_timer_t *ctx = (mock_wlan_connect_timer_t *)luat_heap_malloc(sizeof(mock_wlan_connect_timer_t));
+    if (!ctx) return -1;
+    memset(ctx, 0, sizeof(mock_wlan_connect_timer_t));
+    ctx->seq = seq;
+    ctx->reason = reason;
+    ctx->handle = luat_timer_engine_create(cb, ctx);
+    if (!ctx->handle) { luat_heap_free(ctx); return -1; }
+    luat_timer_engine_start(ctx->handle, (uint32_t)delay_ms, 0);
     return 0;
 }
 
@@ -244,10 +297,11 @@ static void mock_wlan_clear_pending_state(void) {
     wlan_pending_rssi = 0;
 }
 
-static void mock_sta_connected_guard_timer_cb(uv_timer_t *t) {
-    mock_wlan_connect_timer_t *ctx = (mock_wlan_connect_timer_t *)t;
+static void mock_sta_connected_guard_timer_cb(void *arg) {
+    mock_wlan_connect_timer_t *ctx = (mock_wlan_connect_timer_t *)arg;
     uint32_t seq = ctx->seq;
-    free_uv_handle(t);
+    luat_timer_engine_delete(ctx->handle);
+    luat_heap_free(ctx);
     if (seq != wlan_connect_seq || wlan_pending_ssid[0] == 0) {
         return;
     }
@@ -261,26 +315,15 @@ static void mock_sta_connected_guard_timer_cb(uv_timer_t *t) {
     luat_msgbus_put(&msg, 0);
 }
 
-static void mock_ip_ready_guard_timer_cb(uv_timer_t *t) {
-    mock_wlan_connect_timer_t *ctx = (mock_wlan_connect_timer_t *)t;
+static void mock_ip_ready_guard_timer_cb(void *arg) {
+    mock_wlan_connect_timer_t *ctx = (mock_wlan_connect_timer_t *)arg;
     uint32_t seq = ctx->seq;
-    free_uv_handle(t);
+    luat_timer_engine_delete(ctx->handle);
+    luat_heap_free(ctx);
     if (seq != wlan_connect_seq || !wlan_connected) {
         return;
     }
-    uv_interface_address_t *info = NULL;
-    int count = 0;
-    uint32_t ip_addr = 0xC0A80164;
-    uv_interface_addresses(&info, &count);
-    for (int i = count - 1; i >= 0; i--) {
-        if (!info[i].is_internal && info[i].address.address4.sin_family == 2) {
-            ip_addr = info[i].address.address4.sin_addr.s_addr;
-            break;
-        }
-    }
-    if (info) {
-        uv_free_interface_addresses(info, count);
-    }
+    uint32_t ip_addr = luat_get_host_ipv4_u32();
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_ip_ready_cb;
     msg.arg1 = 1;
@@ -288,11 +331,12 @@ static void mock_ip_ready_guard_timer_cb(uv_timer_t *t) {
     luat_msgbus_put(&msg, 0);
 }
 
-static void mock_connfail_timer_cb(uv_timer_t *t) {
-    mock_wlan_connect_timer_t *ctx = (mock_wlan_connect_timer_t *)t;
+static void mock_connfail_timer_cb(void *arg) {
+    mock_wlan_connect_timer_t *ctx = (mock_wlan_connect_timer_t *)arg;
     uint32_t seq = ctx->seq;
     int reason = ctx->reason;
-    free_uv_handle(t);
+    luat_timer_engine_delete(ctx->handle);
+    luat_heap_free(ctx);
     if (seq != wlan_connect_seq) {
         return;
     }
@@ -496,20 +540,8 @@ int luat_wlan_get_ip(int type, char* data) {
         data[0] = 0;
         return -1;
     }
-    // Get host real IP via libuv
-    uv_interface_address_t *info = NULL;
-    int count = 0;
-    uv_interface_addresses(&info, &count);
-    for (int i = count - 1; i >= 0; i--) {
-        if (!info[i].is_internal && info[i].address.address4.sin_family == 2 /* AF_INET */) {
-            uint32_t ip = info[i].address.address4.sin_addr.s_addr;
-            sprintf_(data, "%d.%d.%d.%d", (ip) & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, (ip >> 24) & 0xFF);
-            uv_free_interface_addresses(info, count);
-            return 0;
-        }
-    }
-    if (info) uv_free_interface_addresses(info, count);
-    strcpy(data, "192.168.1.100");
+    uint32_t ip = luat_get_host_ipv4_u32();
+    sprintf_(data, "%d.%d.%d.%d", (ip) & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, (ip >> 24) & 0xFF);
     return 0;
 }
 

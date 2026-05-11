@@ -1,0 +1,4 @@
+old目录：旧版的Turnkey开发板固件默认出厂软件源码
+app_engine目录：新版的Turnkey开发板固件默认出厂软件源码，支持应用市场功能，可以下载丰富的应用app
+
+当前阶段，app_engine正在开发完善中，old和app_engine并存，等app_engine完善后，old目录将被迁移到其他目录

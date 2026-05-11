@@ -18,7 +18,7 @@
 
 
 -- 使用UART1
-local UART_ID = 1
+local UART_ID = 2
 -- 串口接收数据缓冲区
 local read_buf = ""
 

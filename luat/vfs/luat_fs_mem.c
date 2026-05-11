@@ -11,7 +11,7 @@
 #define RAM_NODE_TYPE_FILE 0
 #define RAM_NODE_TYPE_DIR 1
 
-#define RAM_NODE_MAX (64)
+#define RAM_NODE_MAX (512)
 
 typedef struct ram_file_block
 {

@@ -7,7 +7,7 @@
 
 #include "stdint.h"
 
-#define LUAT_BSP_VERSION "V2029"
+#define LUAT_BSP_VERSION "V2031"
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
 #define LUAT_USE_CMDLINE_ARGS 1
 // 启用64位虚拟机
@@ -174,6 +174,8 @@
 
 #define LUAT_USE_WEBP 1
 
+#define LUAT_USE_NES 1
+
 //--------------------------------------------------
 // mGBA GBA模拟器
 //--------------------------------------------------
@@ -229,7 +231,7 @@
 
 
 // 注意这里是 LUAT_USE_WINDOWS
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
 #define LUAT_USE_LWIP 1
 // #define LUAT_USE_ULWIP 1
 #define LUAT_USE_DNS 1

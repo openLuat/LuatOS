@@ -863,8 +863,9 @@ static int l_gba_airui_init_ex(lua_State* L) {
         if (lua_isuserdata(L, -1)) {
             /* 获取AirUI组件的userdata，并解包出obj字段 */
             airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L, -1);
-            if (ud && ud->obj) {
-                airui_cfg.parent_obj = ud->obj;
+            lv_obj_t *parent_obj = airui_component_userdata_obj(ud);
+            if (parent_obj) {
+                airui_cfg.parent_obj = parent_obj;
                 LLOGI("Got AirUI parent container: %p", airui_cfg.parent_obj);
             } else {
                 LLOGE("Invalid AirUI parent container");

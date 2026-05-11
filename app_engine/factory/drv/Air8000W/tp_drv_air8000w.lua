@@ -1,3 +1,4 @@
+-- nconv: var2-4 fn2-5 tag-short
 --[[
 @module  tp_drv
 @summary 触摸面板驱动模块，基于tp核心库
@@ -13,9 +14,7 @@
 对外接口：
 1、tp_drv.init()：初始化触摸面板驱动
 ]]
-
 local tp_drv = {}
-
 
 --[[
 初始化触摸面板驱动；
@@ -33,14 +32,10 @@ else
     log.error("触摸面板初始化失败")
 end
 ]]
-
-
-
 function tp_drv.init()
     -- 开机I2C供电，触摸、摄像头和音频都是使用I2C0
     -- 初始化硬件I2C
     i2c.setup(0, i2c.SLOW) -- 初始化I2C 0，设置为低速模式
-
     -- 此处触摸IC数据读取使用的是软件I2C接口
     -- 参数说明：
     -- "gt911": 触摸控制器型号
@@ -49,16 +44,14 @@ function tp_drv.init()
     -- pin_int: 中断引脚编号
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
-    local result = tp.init("gt911", { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0})
-
-    log.info("tp.init", result)
-
-    if not result then
-        log.error("ui_main", "触摸初始化失败")
-        return result
+    local r = tp.init("gt911", { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0})
+    log.info("tp", r)
+    if not r then
+        log.error("ui", "触摸初始化失败")
+        return r
     else
         -- 绑定触摸设备到AirUI输入设备
-        return airui.device_bind_touch(result)
+        return airui.device_bind_touch(r)
     end
 end
 

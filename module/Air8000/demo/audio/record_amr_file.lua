@@ -69,8 +69,12 @@ local recordPath = sd_mount_path .. "/record.amr"
 local audio_setup_param = {
     model = "es8311",          -- 音频编解码芯片类型
     i2c_id = 0,                -- I2C接口编号
-    pa_ctrl = 162,             -- 音频放大器控制引脚
-    dac_ctrl = 164,            -- 音频编解码芯片控制引脚
+    -- Air8000开发板配置pa_ctrl 和dac_ctrl 
+    -- pa_ctrl = 162,            -- 音频放大器电源控制管脚
+    -- dac_ctrl = 164,           -- 音频编解码芯片电源控制管脚
+    -- Air8000核心板配置pa_ctrl 和dac_ctrl 
+    pa_ctrl = 17,            -- 音频放大器电源控制管脚
+    dac_ctrl = 16,           -- 音频编解码芯片电源控制管脚    
     
     -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
     dac_delay = set_dac_delay,            -- DAC启动前冗余时间

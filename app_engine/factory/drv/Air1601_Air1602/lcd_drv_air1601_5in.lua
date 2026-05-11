@@ -1,3 +1,4 @@
+-- Naming: local vars 2-4 chars, local funcs 2-5 chars, public API unchanged
 --[[
 @module  lcd_drv
 @summary LCD显示驱动模块，基于lcd核心库
@@ -14,7 +15,6 @@
 对外接口：
 1、lcd_drv.init()：初始化LCD显示驱动
 ]]
-
 
 --[[
 初始化LCD显示驱动；
@@ -34,21 +34,19 @@ end
 ]]
 local lcd_drv = {}
 _G.screen_w, _G.screen_h = 720, 1280
-_G.screen_size = 5.0  -- 屏幕物理尺寸(英寸)，用于像素密度计算
+_G.screen_size = 5.0   -- 屏幕物理尺寸(英寸)，用于像素密度计算
 _G.density_scale = 1.0 -- 默认值，lcd_drv.init() 中根据实际PPI更新
 _G.is_landscape = false
 
-local port, pin_rst, bl = lcd.RGB, 15, 13
+local port, pr, bl = lcd.RGB, 15, 13
 
 function lcd_drv.init()
-	local result = lcd.init("custom", {
+	local res = lcd.init("custom", {
 		port      = port,
-		-- pin_dc    = 0xff,    -- RGB接口不需要DC引脚
 		pin_clk   = 23, -- SPI 时钟引脚 (用于初始化)
 		pin_sda   = 22, -- SPI 数据引脚
-		pin_cs    = 2,  -- SPI 片选引脚
-		-- pin_pwr   = bl,
-		pin_rst   = pin_rst,
+		pin_cs    = 2, -- SPI 片选引脚
+		pin_rst   = pr,
 		direction = 0,
 		w         = 720,
 		h         = 1280,
@@ -63,25 +61,25 @@ function lcd_drv.init()
 		bus_speed = 62 * 1000 * 1000,
 	})
 
-	log.info("lcd.init", result)
+	log.info("ld", res)
 
-	if result then
+	if res then
 		-- 初始化AirUI
-		local width, height = lcd.getSize()
-		local result = airui.init(width, height)
-		if not result then
-			log.error("airui", "init failed")
+		local w, h = lcd.getSize()
+		local res = airui.init(w, h)
+		if not res then
+			log.error("au", "init failed")
 		end
 
 		lcd.setupBuff(nil, true) -- 设置帧缓冲区，使用heap内存
-		lcd.autoFlush(false)     -- 禁止自动刷新
+		lcd.autoFlush(false) -- 禁止自动刷新
 
-		local rst_pin = gpio.setup(pin_rst, 1)
-		rst_pin(1)
+		local rp = gpio.setup(pr, 1)
+		rp(1)
 		sys.wait(20);
-		rst_pin(0)
+		rp(0)
 		sys.wait(20);
-		rst_pin(1)
+		rp(1)
 		sys.wait(120);
 
 		-- //---------------------NV3052CGRB +BOE5.0(N47) Initial------------------
@@ -259,56 +257,43 @@ function lcd_drv.init()
 		lcd.cmd(0x29, 0x00)
 		sys.wait(100)
 
-		log.info("custom_nv3052c", "LCD自定义初始化完成")
+		log.info("nv", "LCD自定义初始化完成")
 
 		-- 加载中文字体
-		if not _G.model_str:find("Air8101") then
-			-- PC端/Air8000/780EHM 从14号固件/114号固件中加载hzfont字库，从而支持12-255~号中文显示
-			airui.font_load({
-				type = "hzfont",   -- 字体类型，可选 "hzfont" 或 "bin"
-				path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
-				size = 20,         -- 字体大小，默认 16
-				cache_size = 1024, -- 缓存字数大小，默认 2048
-				antialias = 1,     -- 抗锯齿等级1-3，默认 1
-			})
-		else
-			-- Air8101使用104号固件将字体文件烧录到文件系统，从文件系统中加载hzfont字库，从而支持12-255号中文显示
-			airui.font_load({
-				type = "hzfont",             -- 字体类型，可选 "hzfont" 或 "bin"
-				path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
-				size = 20,                   -- 字体大小，默认 16
-				cache_size = 1024,           -- 缓存字数大小，默认 2048
-				antialias = 1,               -- 抗锯齿等级1-3，默认 1
-				global = true
-			})
-		end
+		airui.font_load({
+			type = "hzfont", -- 字体类型，可选 "hzfont" 或 "bin"
+			path = nil, -- 字体路径，对于 type = "hzfont"，传path = nil, 则使用内置字库
+			size = 20, -- 字体大小，默认 16
+			cache_size = 1024, -- 缓存字数大小，默认 2048
+			antialias = 1, -- 抗锯齿等级1-3，默认 1
+		})
 
 		-- 查询当前固件内AirUI核心库版本
-		local version_result = airui.version()
+		local ver = airui.version()
 
 		-- 打印查询结果
-		log.info("airui", "version -> " .. version_result)
+		log.info("au", "version -> " .. ver)
 
-		local rotation = airui.get_rotation()
-		local phys_w, phys_h = lcd.getSize()
-		if rotation == 0 or rotation == 180 then
-			_G.screen_w, _G.screen_h = phys_w, phys_h
+		local rot = airui.get_rotation()
+		local pw, ph = lcd.getSize()
+		if rot == 0 or rot == 180 then
+			_G.screen_w, _G.screen_h = pw, ph
 		else
-			_G.screen_h, _G.screen_w = phys_w, phys_h
+			_G.screen_h, _G.screen_w = pw, ph
 		end
-        _G.is_landscape = (_G.screen_w > _G.screen_h)
+		_G.is_landscape = (_G.screen_w > _G.screen_h)
 
-        -- 计算像素密度缩放比 (基准: 5寸480×800 ≈ 187 PPI)
-        local diagonal_px = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
-        local base_ppi = 186.6  -- sqrt(480²+800²) / 5.0
-        _G.density_scale = (diagonal_px / _G.screen_size) / base_ppi
-        _G.density_scale = math.max(1.0, _G.density_scale) -- 只放大不缩小
-    end
+		-- 计算像素密度缩放比 (基准: 5寸480×800 ≈ 187 PPI)
+		local dg = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
+		local bp = 186.6                                   -- sqrt(480²+800²) / 5.0
+		_G.density_scale = (dg / _G.screen_size) / bp
+		_G.density_scale = math.max(1.0, _G.density_scale) -- 只放大不缩小
+	end
 end
 
 function lcd_drv.backlight_on()
-    pwm.setup(3, 1000, 100)
-    pwm.open(3, 1000, 100)
+	pwm.setup(3, 1000, 100)
+	pwm.open(3, 1000, 100)
 end
 
 return lcd_drv

@@ -35,7 +35,7 @@ end
 
 -- exaudio配置参数
 local audio_configs = {
-    model = "es8311",         -- dac类型: "es8311"
+    model = "es8311",         -- dac类型,可填入"es8311","tm8211"
     i2c_id = 1,               -- i2c_id: 可填入0，1 并使用pins 工具配置对应的管脚
     pa_ctrl = 22,            -- 音频放大器电源控制管脚
     dac_ctrl = 20,           -- 音频编解码芯片电源控制管脚

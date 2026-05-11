@@ -1,29 +1,21 @@
 /*
- * MIT License
+ * Copyright PeakRacing
  *
- * Copyright (c) 2022 Dozingfiretruck
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+#pragma once
 
-#ifndef _NES_MAPPER_
-#define _NES_MAPPER_
+#include "nes_default.h"
 
 #ifdef __cplusplus
     extern "C" {
@@ -32,37 +24,50 @@
 struct nes;
 typedef struct nes nes_t;
 
+/* https://www.nesdev.org/wiki/Mapper   */
 typedef struct {
-    /* Initialize Mapper */
     void (*mapper_init)(nes_t* nes);
-    /* Write to Mapper */
-    void (*mapper_write)(nes_t* nes,uint16_t write_addr, uint8_t data );
-    /* Write to SRAM */
-    void (*mapper_sram)( uint16_t write_addr, uint8_t data );
-    /* Write to Apu */
-    void (*mapper_apu)( uint16_t write_addr, uint8_t data );
-    /* Read from Apu */
-    uint8_t (*mapper_read_apu)( uint16_t write_addr );
+    void (*mapper_deinit)(nes_t* nes);
+    void (*mapper_write)(nes_t* nes, uint16_t write_addr, uint8_t data);
+    uint8_t (*mapper_read_prg)(nes_t* nes, uint16_t read_addr);
+    void (*mapper_sram)(nes_t* nes, uint16_t write_addr, uint8_t data);
+    uint8_t (*mapper_read_sram)(nes_t* nes, uint16_t read_addr);
+    void (*mapper_apu)(nes_t* nes, uint16_t write_addr, uint8_t data);
+    uint8_t (*mapper_read_apu)(nes_t* nes, uint16_t write_addr);
+    /* Callback after CPU instructions consume cycles */
+    void (*mapper_cpu_clock)(nes_t* nes, uint16_t cycles);
     /* Callback at VSync */
-    void (*mapper_vsync)(void);
+    void (*mapper_vsync)(nes_t* nes);
     /* Callback at HSync */
-    void (*mapper_hsync)(void);
-    /* Callback at PPU read/write */
-    void (*mapper_ppu)( uint16_t write_addr );
+    void (*mapper_hsync)(nes_t* nes);
+    /* Callback at selected PPU pattern fetches */
+    void (*mapper_ppu)(nes_t* nes, uint16_t write_addr);
+    uint8_t mapper_ppu_tile_min;
+    uint8_t mapper_ppu_tile_max;
     /* Callback at Rendering Screen 1:BG, 0:Sprite */
-    void (*mapper_render_screen)( uint8_t mode );
+    void (*mapper_render_screen)(nes_t* nes, uint8_t mode);
+    /* ExRAM mode 1 (MMC5): non-NULL when exram_mode==1.
+     * Each byte: bits[5:0] = 4KB CHR bank selector, bits[7:6] = palette override.
+     * mapper_chr_hi holds upper CHR bank bits ($5130 bits[1:0]). */
+    uint8_t* mapper_exram;
+    uint8_t  mapper_chr_hi;
+    void* mapper_register;
+    void* mapper_data;
 } nes_mapper_t;
+
+/* prg rom */
+void nes_load_prgrom_8k(nes_t* nes,uint8_t des, uint16_t src);
+void nes_load_prgrom_16k(nes_t* nes,uint8_t des, uint16_t src);
+void nes_load_prgrom_32k(nes_t* nes,uint8_t des, uint16_t src);
+
+/* chr rom */
+void nes_load_chrrom_1k(nes_t* nes,uint8_t des, uint16_t src);
+void nes_load_chrrom_4k(nes_t* nes,uint8_t des, uint16_t src);
+void nes_load_chrrom_8k(nes_t* nes,uint8_t des, uint16_t src);
 
 /* mapper */
 int nes_load_mapper(nes_t* nes);
-void nes_load_prgrom_8k(nes_t* nes,int des, int src);
-void nes_load_chrrom_1k(nes_t* nes,int des, int src);
-int nes_mapper0_init(nes_t* nes);
-int nes_mapper1_init(nes_t* nes);
-int nes_mapper2_init(nes_t* nes);
 
 #ifdef __cplusplus          
     }
 #endif
-
-#endif// _NES_MAPPER_

@@ -1,68 +1,48 @@
 /*
- * MIT License
+ * Copyright PeakRacing
  *
- * Copyright (c) 2022 Dozingfiretruck
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 
 #include "nes.h"
 
-//https://www.nesdev.org/pal.txt
-#if (NES_COLOR_DEPTH == 32)
-// ARGB8888
-nes_color_t nes_palette[]={
-    0xFF757575, 0xFF271B8F, 0xFF0000AB, 0xFF47009F, 0xFF8F0077, 0xFFB0013, 0xFFA70000, 0xFF7F0B00,0xFF432F00, 0xFF004700, 0xFF005100, 0xFF003F17, 0xFF1B3F5F, 0xFF000000, 0xFF000000, 0xFF000000,
-    0xFFBCBCBC, 0xFF0073EF, 0xFF233BEF, 0xFF8300F3, 0xFFBF00BF, 0xFF7005B, 0xFFDB2B00, 0xFFCB4F0F,0xFF8B7300, 0xFF009700, 0xFF00AB00, 0xFF00933B, 0xFF00838B, 0xFF000000, 0xFF000000, 0xFF000000,
-    0xFFFFFFFF, 0xFF3FBFFF, 0xFF5F97FF, 0xFFA78BFD, 0xFFF77BFF, 0xFFF77B7, 0xFFFF7763, 0xFFFF9B3B,0xFFF3BF3F, 0xFF83D313, 0xFF4FDF4B, 0xFF58F898, 0xFF00EBDB, 0xFF000000, 0xFF000000, 0xFF000000,
-    0xFFFFFFFF, 0xFFABE7FF, 0xFFC7D7FF, 0xFFD7CBFF, 0xFFFFC7FF, 0xFFFC7DB, 0xFFFFBFB3, 0xFFFFDBAB,0xFFFFE7A3, 0xFFE3FFA3, 0xFFABF3BF, 0xFFB3FFCF, 0xFF9FFFF3, 0xFF000000, 0xFF000000, 0xFF000000,
-};
-#elif (NES_COLOR_DEPTH == 16)
-#if (NES_COLOR_SWAP == 0)
-// RGB565
-nes_color_t nes_palette[]={
-    0x73AE, 0x20D1, 0x0015, 0x4013, 0x880E, 0x0802, 0xA000, 0x7840,0x4160, 0x0220, 0x0280, 0x01E2, 0x19EB, 0x0000, 0x0000, 0x0000,
-    0xBDF7, 0x039D, 0x21DD, 0x801E, 0xB817, 0x000B, 0xD940, 0xCA61,0x8B80, 0x04A0, 0x0540, 0x0487, 0x0411, 0x0000, 0x0000, 0x0000,
-    0xFFFF, 0x3DFF, 0x5CBF, 0xA45F, 0xF3DF, 0x0BB6, 0xFBAC, 0xFCC7,0xF5E7, 0x8682, 0x4EE9, 0x5FD3, 0x075B, 0x0000, 0x0000, 0x0000,
-    0xFFFF, 0xAF3F, 0xC6BF, 0xD65F, 0xFE3F, 0x0E3B, 0xFDF6, 0xFED5,0xFF34, 0xE7F4, 0xAF97, 0xB7F9, 0x9FFE, 0x0000, 0x0000, 0x0000,
-};
+static inline uint8_t nes_ppu_chr_bank_is_rom(nes_t* nes, uint8_t index) {
+    if (nes->nes_rom.chr_rom_size == 0u || nes->nes_rom.chr_rom == NULL) {
+        return 0;
+    }
+
+    const uintptr_t bank = (uintptr_t)nes->nes_ppu.chr_banks[index];
+    const uintptr_t chr_rom = (uintptr_t)nes->nes_rom.chr_rom;
+#if (NES_ROM_STREAM == 1)
+    const uintptr_t chr_rom_end = chr_rom + (uintptr_t)NES_CHR_CACHE_SLOTS * 1024u;
 #else
-// RGB565_SWAP
-nes_color_t nes_palette[]={
-    0xAE73, 0xD120, 0x1500, 0x1340, 0x0E88, 0x0208, 0x00A0, 0x4078,0x6041, 0x2002, 0x8002, 0xE201, 0xEB19, 0x0000, 0x0000, 0x0000,
-    0xF7BD, 0x9D03, 0xDD21, 0x1E80, 0x17B8, 0x0B00, 0x40D9, 0x61CA,0x808B, 0xA004, 0x4005, 0x8704, 0x1104, 0x0000, 0x0000, 0x0000,
-    0xFFFF, 0xFF3D, 0xBF5C, 0x5FA4, 0xDFF3, 0xB60B, 0xACFB, 0xC7FC,0xE7F5, 0x8286, 0xE94E, 0xD35F, 0x5B07, 0x0000, 0x0000, 0x0000,
-    0xFFFF, 0x3FAF, 0xBFC6, 0x5FD6, 0x3FFE, 0x3B0E, 0xF6FD, 0xD5FE,0x34FF, 0xF4E7, 0x97AF, 0xF9B7, 0xFE9F, 0x0000, 0x0000, 0x0000,
-};
+    const uintptr_t chr_rom_end = chr_rom + (uintptr_t)nes->nes_rom.chr_rom_size * CHR_ROM_UNIT_SIZE;
 #endif
-#endif
+    // Covers all 16 chr_banks slots (pattern tables 0-7 AND nametable slots 8-15).
+    // Mapper 19 (Namco 163) can map nametable slots to CHR ROM; writes to those
+    // addresses must be blocked just like writes to CHR ROM-backed pattern tables.
+    return bank >= chr_rom && bank < chr_rom_end;
+}
 
 static inline uint8_t nes_read_ppu_memory(nes_t* nes){
     const uint16_t address = nes->nes_ppu.v_reg & (uint16_t)0x3FFF;
-    const uint16_t index = address >> 10;
+    const uint8_t index = address >> 10;
     const uint16_t offset = address & (uint16_t)0x3FF;
-    if (address < (uint16_t)0x3F00) {
+    if (address < (uint16_t)0x3F00) {// BANK
         uint8_t data = nes->nes_ppu.buffer;
         nes->nes_ppu.buffer = nes->nes_ppu.chr_banks[index][offset];
         return data;
-    } else {
+    } else {// 调色板
         nes->nes_ppu.buffer = nes->nes_ppu.chr_banks[index][offset];
         return nes->nes_ppu.palette_indexes[address & (uint16_t)0x1f];
     }
@@ -70,17 +50,21 @@ static inline uint8_t nes_read_ppu_memory(nes_t* nes){
 
 static inline void nes_write_ppu_memory(nes_t* nes,uint8_t data){
     const uint16_t address = nes->nes_ppu.v_reg & (uint16_t)0x3FFF;
-    if (address < (uint16_t)0x3F00) {
-        const uint16_t index = address >> 10;
-        const uint16_t offset = address & (uint16_t)0x3FF;
-        nes->nes_ppu.chr_banks[index][offset] = data;
-    } else {
-        if (address & (uint16_t)0x03) {
-            nes->nes_ppu.palette_indexes[address & (uint16_t)0x1f] = data;
+    if (address < (uint16_t)0x3F00) {// BANK
+        const uint8_t index = (uint8_t)(address >> 10);
+        if (!nes_ppu_chr_bank_is_rom(nes, index)) {
+            nes->nes_ppu.chr_banks[index][(uint16_t)(address & (uint16_t)0x3FF)] = data;
+        }
+    } else {// 调色板
+        // Only the every-4th (backdrop) entries mirror:
+        // $3F10/$3F14/$3F18/$3F1C <-> $3F00/$3F04/$3F08/$3F0C
+        // All other palette entries are independent.
+        const uint8_t raw = (uint8_t)address & 0x1F;
+        if ((raw & 0x03) == 0) {
+            const uint8_t offset = raw & 0x0F;
+            nes->nes_ppu.palette_indexes[offset] = nes->nes_ppu.palette_indexes[offset | 0x10] = data & 0x3F;
         } else {
-            const uint16_t offset = address & (uint16_t)0x0f;
-            nes->nes_ppu.palette_indexes[offset] = data;
-            nes->nes_ppu.palette_indexes[offset | (uint16_t)0x10] = data;
+            nes->nes_ppu.palette_indexes[raw] = data & 0x3F;
         }
     }
 }
@@ -102,22 +86,33 @@ uint8_t nes_read_ppu_register(nes_t* nes,uint16_t address){
             data = nes_read_ppu_memory(nes);
             nes->nes_ppu.v_reg += (uint16_t)((nes->nes_ppu.CTRL_I) ? 32 : 1);
             break;
-        default :
-            nes_printf("nes_read_ppu_register error %04X\n",address);
-            return -1;
+        default : // ($2000 $2001 $2003 $2005 $2006)
+            // NES_LOG_DEBUG("nes_read_ppu_register error %04X\n",address);
+            // break;
+            return nes->nes_ppu.oam_addr;
     }
-    // nes_printf("nes_read_ppu_register %04X %02X\n",address,data);
+    // NES_LOG_DEBUG("nes_read_ppu_register %04X %02X\n",address,data);
     return data;
 }
 
 void nes_write_ppu_register(nes_t* nes,uint16_t address, uint8_t data){
-    // nes_printf("nes_write_ppu_register %04X %02X\n",address,data);
+    // NES_LOG_DEBUG("nes_write_ppu_register %04X %02X\n",address,data);
     switch (address & (uint16_t)0x07){
         case 0://Controller ($2000) > write
-            // t: ...GH.. ........ <- d: ......GH
-            //    <used elsewhere> <- d: ABCDEF..
-            nes->nes_ppu.ppu_ctrl = data;
-            nes->nes_ppu.t.nametable = (data & 0x03);
+            // t: ....GH.. ........ <- d: ......GH
+            //     <used elsewhere> <- d: ABCDEF..
+            {
+                uint8_t old_nmi = nes->nes_ppu.CTRL_V;
+                nes->nes_ppu.ppu_ctrl = data;
+                nes->nes_ppu.t.nametable = nes->nes_ppu.CTRL_N;
+                // Toggling NMI enable from 0→1 while VBlank flag is set triggers NMI.
+                // On real 6502, NMI is sampled on the second-to-last cycle of each instruction,
+                // and the PPU write happens on the last cycle — so NMI fires after the NEXT
+                // instruction completes. Use irq_nmi_delay to model this 1-instruction latency.
+                if (!old_nmi && nes->nes_ppu.CTRL_V && nes->nes_ppu.STATUS_V) {
+                    nes->nes_cpu.irq_nmi_delay = 1;
+                }
+            }
             break;
         case 1://Mask ($2001) > write
             nes->nes_ppu.ppu_mask = data;
@@ -153,10 +148,10 @@ void nes_write_ppu_register(nes_t* nes,uint16_t address, uint8_t data){
                 nes->nes_ppu.v_reg = nes->nes_ppu.t_reg;
                 nes->nes_ppu.w = 0;
             } else {                // w is 0
-                // t: .CDEFGH ........ <- d: ..CDEFGH
-                //        <unused>     <- d: AB......
-                // t: Z...... ........ <- 0 (bit Z is cleared)
-                // w:                  <- 1
+                // t: ..CDEFGH ........ <- d: ..CDEFGH
+                //         <unused>     <- d: AB......
+                // t: .Z...... ........ <- 0 (bit Z is cleared)
+                // w:                   <- 1
                 nes->nes_ppu.t_reg = (nes->nes_ppu.t_reg & (uint16_t)0xFF) | (((uint16_t)data & 0x3F) << 8);
                 nes->nes_ppu.w = 1;
             }
@@ -166,37 +161,43 @@ void nes_write_ppu_register(nes_t* nes,uint16_t address, uint8_t data){
             nes->nes_ppu.v_reg += (uint16_t)((nes->nes_ppu.CTRL_I) ? 32 : 1);
             break;
         default :
-            nes_printf("nes_write_ppu_register error %04X %02X\n",address,data);
-            return;
+            NES_LOG_DEBUG("nes_write_ppu_register error %04X %02X\n",address,data);
+            break;
     }
 }
 
-void nes_ppu_init(nes_t *nes){
-    // four_screen
-    if (nes->nes_rom.four_screen) { 
-        nes->nes_ppu.name_table[0] = nes->nes_ppu.ppu_vram0;
-        nes->nes_ppu.name_table[1] = nes->nes_ppu.ppu_vram1;
-        nes->nes_ppu.name_table[2] = nes->nes_ppu.ppu_vram2;
-        nes->nes_ppu.name_table[3] = nes->nes_ppu.ppu_vram3;
+static const uint8_t nes_mirror_table[NES_MIRROR_COUNT][4] ={
+    { 0, 1, 2, 3 }, // NES_MIRROR_FOUR_SCREEN
+    { 0, 0, 1, 1 }, // NES_MIRROR_HORIZONTAL 
+    { 0, 1, 0, 1 }, // NES_MIRROR_VERTICAL   
+    { 0, 0, 0, 0 }, // NES_MIRROR_ONE_SCREEN0
+    { 1, 1, 1, 1 }, // NES_MIRROR_ONE_SCREEN1
+    { 0, 0, 0, 1 }, // NES_MIRROR_MAPPER     
+};
+
+
+void nes_ppu_screen_mirrors(nes_t *nes,nes_mirror_type_t mirror_type){
+    if (mirror_type == NES_MIRROR_AUTO){
+        if (nes->nes_rom.four_screen) {             // four_screen
+            mirror_type = NES_MIRROR_FOUR_SCREEN;
+        } else if (nes->nes_rom.mirroring_type) {   // Vertical
+            mirror_type = NES_MIRROR_VERTICAL;
+        } else {                                    // Horizontal
+            mirror_type = NES_MIRROR_HORIZONTAL;
+        }
     }
-    // Vertical
-    else if (nes->nes_rom.mirroring_type) {
-        nes->nes_ppu.name_table[0] = nes->nes_ppu.ppu_vram0;
-        nes->nes_ppu.name_table[1] = nes->nes_ppu.ppu_vram1;
-        nes->nes_ppu.name_table[2] = nes->nes_ppu.ppu_vram0;
-        nes->nes_ppu.name_table[3] = nes->nes_ppu.ppu_vram1;
-    }
-    // Horizontal or mapper-controlled
-    else {
-        nes->nes_ppu.name_table[0] = nes->nes_ppu.ppu_vram0;
-        nes->nes_ppu.name_table[1] = nes->nes_ppu.ppu_vram0;
-        nes->nes_ppu.name_table[2] = nes->nes_ppu.ppu_vram1;
-        nes->nes_ppu.name_table[3] = nes->nes_ppu.ppu_vram1;
-    }
+    nes->nes_ppu.name_table[0] = nes->nes_ppu.ppu_vram[nes_mirror_table[mirror_type][0]];
+    nes->nes_ppu.name_table[1] = nes->nes_ppu.ppu_vram[nes_mirror_table[mirror_type][1]];
+    nes->nes_ppu.name_table[2] = nes->nes_ppu.ppu_vram[nes_mirror_table[mirror_type][2]];
+    nes->nes_ppu.name_table[3] = nes->nes_ppu.ppu_vram[nes_mirror_table[mirror_type][3]];
     // mirrors
-    nes->nes_ppu.chr_banks[12] = nes->nes_ppu.name_table[0];
-    nes->nes_ppu.chr_banks[13] = nes->nes_ppu.name_table[1];
-    nes->nes_ppu.chr_banks[14] = nes->nes_ppu.name_table[2];
-    nes->nes_ppu.chr_banks[15] = nes->nes_ppu.name_table[3];
+    nes->nes_ppu.name_table_mirrors[0] = nes->nes_ppu.name_table[0];
+    nes->nes_ppu.name_table_mirrors[1] = nes->nes_ppu.name_table[1];
+    nes->nes_ppu.name_table_mirrors[2] = nes->nes_ppu.name_table[2];
+    nes->nes_ppu.name_table_mirrors[3] = nes->nes_ppu.name_table[3];
+}
+
+void nes_ppu_init(nes_t *nes){
+    nes_ppu_screen_mirrors(nes,NES_MIRROR_AUTO);
 }
 

@@ -97,7 +97,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
             udp_hdr->chksum = alg_tcpudphdr_chksum(ip_hdr->src.addr, ip_hdr->dest.addr,
                 IP_PROTO_UDP, (u16*)udp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
         }
-        return napt_output_to_wan(ctx, gw, ip_hdr);
+        return napt_output_to_wan(ctx, gw, ip_hdr, udp_buff);
     }
     // return 0;
 }

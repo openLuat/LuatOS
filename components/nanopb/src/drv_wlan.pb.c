@@ -45,6 +45,18 @@ PB_BIND(drv_wlan_WlanScanRequest, drv_wlan_WlanScanRequest, AUTO)
 PB_BIND(drv_wlan_WlanScanResponse, drv_wlan_WlanScanResponse, AUTO)
 
 
+PB_BIND(drv_wlan_WlanScanResultNotify, drv_wlan_WlanScanResultNotify, AUTO)
+
+
+PB_BIND(drv_wlan_WlanStaIncNotify, drv_wlan_WlanStaIncNotify, AUTO)
+
+
+PB_BIND(drv_wlan_WlanIpReadyNotify, drv_wlan_WlanIpReadyNotify, AUTO)
+
+
+PB_BIND(drv_wlan_WlanApIncNotify, drv_wlan_WlanApIncNotify, AUTO)
+
+
 PB_BIND(drv_wlan_WlanRpcRequest, drv_wlan_WlanRpcRequest, AUTO)
 
 

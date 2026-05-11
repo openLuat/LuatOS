@@ -180,6 +180,11 @@ lv_obj_t *airui_table_create_from_config(void *L, int idx)
 
     airui_table_apply_row_heights(L_state, idx, table, rows);
 
+    int callback_ref = airui_component_capture_callback(L, idx, "on_click");
+    if (callback_ref != LUA_NOREF) {
+        airui_component_bind_event(meta, AIRUI_EVENT_VALUE_CHANGED, callback_ref);
+    }
+
     LV_UNUSED(meta);
 
     return table;
@@ -1092,6 +1097,21 @@ int airui_table_set_cell_text(lv_obj_t *table, uint16_t row, uint16_t col, const
 }
 
 /**
+ * 获取单元格文本
+ * @param table Table 对象
+ * @param row 行索引
+ * @param col 列索引
+ * @return 单元格文本，失败返回 NULL
+ */
+const char *airui_table_get_cell_text(lv_obj_t *table, uint16_t row, uint16_t col)
+{
+    if (table == NULL) {
+        return NULL;
+    }
+    return lv_table_get_cell_value(table, row, col);
+}
+
+/**
  * 调整列宽
  * @param table Table 对象
  * @param col 要设置的列索引
@@ -1529,4 +1549,24 @@ int airui_table_auto_marquee_scroll_control(lv_obj_t *table,
     default:
         return AIRUI_ERR_INVALID_PARAM;
     }
+}
+
+/**
+ * 设置单元格点击回调
+ * @param table Table 对象指针
+ * @param callback_ref Lua 回调引用
+ * @return 0 成功，<0 失败
+ */
+int airui_table_set_on_cell_click(lv_obj_t *table, int callback_ref)
+{
+    if (table == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(table);
+    if (meta == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    return airui_component_bind_event(meta, AIRUI_EVENT_VALUE_CHANGED, callback_ref);
 }

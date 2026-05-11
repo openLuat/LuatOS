@@ -22,7 +22,7 @@ local function ui_main()
     })
 
     -- 创建开关
--- 使用一个变量来跟踪当前状态
+    -- 使用一个变量来跟踪当前状态
     local is_on = true
     local sw = airui.switch({
         x = 20,

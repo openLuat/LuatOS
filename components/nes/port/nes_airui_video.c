@@ -10,7 +10,8 @@
  *  - 颜色格式：RGB565（NES_COLOR_DEPTH=16）
  *  - 半帧绘制（NES_RAM_LACK=1）：nes_draw() 被调用两次
  *      第一次：y=0..119，第二次：y=120..239
- *  - NES_COLOR_SWAP=1：字节序与 LVGL 相反，写入 framebuffer 时需要字节对换
+ *  - NES_COLOR_SWAP=0（PC）：字节序与 LVGL 一致，可直接 memcpy
+ *  - NES_COLOR_SWAP=1（其他平台）：字节序与 LVGL 相反，写入 framebuffer 时需要字节对换
  *
  * @tag LUAT_USE_NES, LUAT_USE_AIRUI
  */
@@ -358,7 +359,25 @@ nes_airui_video_t *nes_airui_video_init(const nes_airui_video_config_t *config) 
     } else {
         nes_airui_video_get_default_config(&cfg);
     }
-    v->scale = (cfg.scale >= 1 && cfg.scale <= 3) ? cfg.scale : 2;
+    v->scale = (cfg.scale >= 1 && cfg.scale <= 3) ? cfg.scale : 1;
+
+    /* 自动限制 scale，防止 NES 画面超出显示器宽高（ThorVG canvas 溢出崩溃） */
+    {
+        lv_display_t *disp = lv_display_get_default();
+        if (disp) {
+            int disp_w = lv_display_get_horizontal_resolution(disp);
+            int disp_h = lv_display_get_vertical_resolution(disp);
+            /* 控制区域约 220px + 标题栏 40px + 间距 16px */
+            int avail_h = disp_h - 40 - 220 - 16;
+            while (v->scale > 1 &&
+                   (NES_AIRUI_WIDTH  * v->scale > disp_w ||
+                    NES_AIRUI_HEIGHT * v->scale > avail_h)) {
+                v->scale--;
+            }
+            LLOGI("NES AirUI scale=%d (display %dx%d, avail_h=%d)",
+                  v->scale, disp_w, disp_h, avail_h);
+        }
+    }
 
     lv_obj_t *screen = lv_screen_active();
     if (!screen) {
@@ -408,13 +427,23 @@ void nes_airui_video_deinit(nes_airui_video_t *video) {
     }
     video->initialized = 0;
 
-    if (video->framebuffer) {
-        lv_free(video->framebuffer);
-        video->framebuffer = NULL;
+    /*
+     * 先摘除 lv_image 的 src（断开对 framebuffer 的引用），
+     * 再删除 LVGL 对象，最后释放 framebuffer。
+     * 若顺序反转（先 lv_free(framebuffer) 再 lv_obj_delete），
+     * LVGL 析构期间可能访问已释放的 framebuffer → use-after-free。
+     */
+    if (video->game_screen) {
+        lv_image_set_src(video->game_screen, NULL);
+        video->game_screen = NULL;
     }
     if (video->main_container) {
         lv_obj_delete(video->main_container);
         video->main_container = NULL;
+    }
+    if (video->framebuffer) {
+        lv_free(video->framebuffer);
+        video->framebuffer = NULL;
     }
     lv_free(video);
     LLOGI("NES AirUI deinitialized");
@@ -428,14 +457,28 @@ int nes_airui_video_draw(nes_airui_video_t *video,
     if (!video || !video->initialized || !video->framebuffer) return -1;
     if (!pixels) return -2;
 
+    /* 坐标越界保护：防止 NES ROM 产生超出显示范围的坐标导致堆溢出 */
+    if (x1 >= NES_AIRUI_WIDTH || y1 >= NES_AIRUI_HEIGHT) return -3;
+    if (x2 >= NES_AIRUI_WIDTH)  x2 = NES_AIRUI_WIDTH  - 1;
+    if (y2 >= NES_AIRUI_HEIGHT) y2 = NES_AIRUI_HEIGHT - 1;
+
     size_t cols = x2 - x1 + 1;
     size_t rows = y2 - y1 + 1;
 
+#if (NES_COLOR_SWAP == 0)
     /*
-     * NES_COLOR_SWAP=1：NES 输出的 RGB565 像素字节序与 LVGL 相反。
-     * LVGL 期望 little-endian uint16_t（低字节在前），
-     * NES 输出的是大端 RGB565（高字节在前）。
-     * 因此每个像素需要做一次字节对换：v = (v>>8)|(v<<8)
+     * NES_COLOR_SWAP=0：NES 输出的 RGB565 字节序与 LVGL 一致（little-endian），
+     * 直接 memcpy 逐行复制，避免逐像素循环，提升渲染性能。
+     */
+    for (size_t row = 0; row < rows; row++) {
+        uint16_t *dst = video->framebuffer + (y1 + row) * NES_AIRUI_WIDTH + x1;
+        const nes_color_t *src = pixels + row * cols;
+        memcpy(dst, src, cols * sizeof(uint16_t));
+    }
+#else
+    /*
+     * NES_COLOR_SWAP=1：NES 输出大端 RGB565，LVGL 期望 little-endian，
+     * 每个像素需做字节对换：v = (v>>8)|(v<<8)
      */
     for (size_t row = 0; row < rows; row++) {
         uint16_t *dst = video->framebuffer + (y1 + row) * NES_AIRUI_WIDTH + x1;
@@ -445,6 +488,7 @@ int nes_airui_video_draw(nes_airui_video_t *video,
             dst[col] = (uint16_t)((v >> 8) | (v << 8));
         }
     }
+#endif
     return 0;
 }
 

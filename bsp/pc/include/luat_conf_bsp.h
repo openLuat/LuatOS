@@ -7,6 +7,8 @@
 
 #include "stdint.h"
 
+#define LUAT_BSP_PC 1 // 定义平台标识符，供代码中使用
+
 #define LUAT_BSP_VERSION "V2031"
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
 #define LUAT_USE_CMDLINE_ARGS 1
@@ -165,13 +167,19 @@
 
 #define LUAT_USE_MEMPROF 1
 
+// 视频播放器(默认mjpeg播放)
 #define LUAT_USE_VIDEOPLAYER 1
+// 视频播放器支持mp4播放
+#define LUAT_USE_MP4PLAYER 1
 // videoplayer软解依赖TJPGD, 需在GUI块外启用
 #define LUAT_USE_TJPGD
 
 #define LUAT_USE_WEBP 1
 
-#define LUAT_USE_NES 1
+#define LUAT_USE_NES        1
+#define NES_FRAME_SKIP      0
+#define NES_COLOR_DEPTH     16
+#define NES_COLOR_SWAP      0
 
 //--------------------------------------------------
 // mGBA GBA模拟器

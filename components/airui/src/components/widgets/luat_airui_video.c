@@ -8,9 +8,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#if defined(LUAT_USE_VIDEOPLAYER)
 #include "luat_videoplayer.h"
-#endif
 
 #define LUAT_LOG_TAG "airui.video"
 #include "luat_log.h"
@@ -20,7 +18,7 @@
 
 /* 通用帧描述：组件层只关心一帧 RGB565 数据，不关心底层解码实现。 */
 typedef struct {
-    const uint8_t *data;
+    uint8_t *data;
     size_t data_size;
     uint16_t width;
     uint16_t height;
@@ -52,8 +50,9 @@ typedef struct {
     void *backend_ctx;
     lv_timer_t *timer;
     lv_image_dsc_t img_dsc;
-    uint8_t *framebuffer;
+    uint8_t *framebuffers[2];
     size_t framebuffer_size;
+    uint8_t framebuffer_index;
     char *src;
     lv_coord_t requested_width;
     lv_coord_t requested_height;
@@ -77,6 +76,11 @@ typedef struct {
     airui_video_format_t format;
     airui_video_decode_mode_t decode_mode;
 } airui_video_videoplayer_ctx_t;
+
+typedef struct {
+    luat_vp_frame_t frame;
+    uint8_t owned;
+} airui_video_vp_frame_wrap_t;
 #endif
 
 static airui_ctx_t *airui_video_get_ctx(lua_State *L_state);
@@ -91,6 +95,7 @@ static int airui_video_select_backend(airui_video_data_t *data);
 static int airui_video_open_backend(airui_video_data_t *data);
 static void airui_video_close_backend(airui_video_data_t *data);
 static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *data, uint16_t width, uint16_t height);
+static uint8_t *airui_video_get_next_framebuffer(airui_video_data_t *data);
 static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, const airui_video_frame_t *frame);
 static int airui_video_read_and_present(lv_obj_t *video, airui_video_data_t *data, bool allow_loop);
 static int airui_video_restart_and_prime(lv_obj_t *video, airui_video_data_t *data);
@@ -152,9 +157,13 @@ static void airui_video_release_data(void *user_data)
 
     airui_video_close_backend(data);
 
-    if (data->framebuffer != NULL) {
-        luat_heap_free(data->framebuffer);
-        data->framebuffer = NULL;
+    if (data->framebuffers[0] != NULL) {
+        luat_heap_free(data->framebuffers[0]);
+        data->framebuffers[0] = NULL;
+    }
+    if (data->framebuffers[1] != NULL) {
+        luat_heap_free(data->framebuffers[1]);
+        data->framebuffers[1] = NULL;
     }
 
     if (data->src != NULL) {
@@ -308,7 +317,9 @@ static int airui_video_select_backend(airui_video_data_t *data)
 
     /* auto 模式下先把 MJPG 路由到 videoplayer backend。 */
     if (data->backend == AIRUI_VIDEO_BACKEND_AUTO) {
-        if (data->format == AIRUI_VIDEO_FORMAT_AUTO || data->format == AIRUI_VIDEO_FORMAT_MJPG) {
+        if (data->format == AIRUI_VIDEO_FORMAT_AUTO ||
+            data->format == AIRUI_VIDEO_FORMAT_MJPG ||
+            data->format == AIRUI_VIDEO_FORMAT_MP4_H264) {
             data->backend = AIRUI_VIDEO_BACKEND_VIDEOPLAYER;
         }
     }
@@ -349,10 +360,19 @@ static void airui_video_close_backend(airui_video_data_t *data)
     data->backend_ctx = NULL;
 }
 
+static uint8_t *airui_video_get_next_framebuffer(airui_video_data_t *data)
+{
+    if (data == NULL) {
+        return NULL;
+    }
+    return data->framebuffers[(data->framebuffer_index + 1u) & 0x1u];
+}
+
 static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *data, uint16_t width, uint16_t height)
 {
     size_t framebuffer_size;
-    uint8_t *new_buf;
+    uint8_t *new_buf0;
+    uint8_t *new_buf1;
 
     if (video == NULL || data == NULL || width == 0 || height == 0) {
         return AIRUI_ERR_INVALID_PARAM;
@@ -364,16 +384,26 @@ static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *d
     }
 
     /* 帧尺寸变化时重建持久 framebuffer，LVGL 始终持有这一份稳定内存。 */
-    if (data->framebuffer == NULL || data->framebuffer_size != framebuffer_size) {
-        new_buf = (uint8_t *)luat_heap_malloc(framebuffer_size);
-        if (new_buf == NULL) {
+    if (data->framebuffers[0] == NULL || data->framebuffers[1] == NULL || data->framebuffer_size != framebuffer_size) {
+        new_buf0 = (uint8_t *)luat_heap_malloc(framebuffer_size);
+        if (new_buf0 == NULL) {
             return AIRUI_ERR_NO_MEM;
         }
-        if (data->framebuffer != NULL) {
-            luat_heap_free(data->framebuffer);
+        new_buf1 = (uint8_t *)luat_heap_malloc(framebuffer_size);
+        if (new_buf1 == NULL) {
+            luat_heap_free(new_buf0);
+            return AIRUI_ERR_NO_MEM;
         }
-        data->framebuffer = new_buf;
+        if (data->framebuffers[0] != NULL) {
+            luat_heap_free(data->framebuffers[0]);
+        }
+        if (data->framebuffers[1] != NULL) {
+            luat_heap_free(data->framebuffers[1]);
+        }
+        data->framebuffers[0] = new_buf0;
+        data->framebuffers[1] = new_buf1;
         data->framebuffer_size = framebuffer_size;
+        data->framebuffer_index = 0;
     }
 
     data->frame_width = width;
@@ -385,7 +415,7 @@ static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *d
     data->img_dsc.header.stride = (uint32_t)width * 2u;
     data->img_dsc.header.flags = 0;
     data->img_dsc.data_size = framebuffer_size;
-    data->img_dsc.data = data->framebuffer;
+    data->img_dsc.data = data->framebuffers[data->framebuffer_index];
     data->img_dsc.reserved = NULL;
     data->img_dsc.reserved_2 = NULL;
 
@@ -396,6 +426,8 @@ static int airui_video_ensure_framebuffer(lv_obj_t *video, airui_video_data_t *d
 static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, const airui_video_frame_t *frame)
 {
     int ret;
+    uint64_t copy_start_ms;
+    uint8_t *target_buf;
 
     if (video == NULL || data == NULL || frame == NULL || frame->data == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
@@ -421,7 +453,20 @@ static int airui_video_present_frame(lv_obj_t *video, airui_video_data_t *data, 
     }
 
     /* 不能直接引用 backend 返回的临时帧内存，必须拷贝到组件自有缓冲区。 */
-    memcpy(data->framebuffer, frame->data, data->framebuffer_size);
+    target_buf = airui_video_get_next_framebuffer(data);
+    if (target_buf == NULL) {
+        return AIRUI_ERR_NO_MEM;
+    }
+
+    if (frame->data != target_buf) {
+        copy_start_ms = luat_videoplayer_prof_now_ms();
+        memcpy(target_buf, frame->data, data->framebuffer_size);
+        luat_videoplayer_prof_add_time(LUAT_VP_PROF_T_COPY, (uint32_t)(luat_videoplayer_prof_now_ms() - copy_start_ms));
+    }
+
+    data->framebuffer_index = (uint8_t)((data->framebuffer_index + 1u) & 0x1u);
+    data->img_dsc.data = data->framebuffers[data->framebuffer_index];
+    lv_image_set_src(video, &data->img_dsc);
     lv_obj_invalidate(video);
     return AIRUI_OK;
 }
@@ -436,12 +481,20 @@ static int airui_video_read_and_present(lv_obj_t *video, airui_video_data_t *dat
     }
 
     memset(&frame, 0, sizeof(frame));
+    if (data->framebuffer_size > 0) {
+        frame.data = airui_video_get_next_framebuffer(data);
+        frame.data_size = data->framebuffer_size;
+    }
     /* 主播放路径：读一帧 -> 可选 loop 重启 -> 渲染 -> 释放 backend 帧。 */
     ret = data->ops->read_frame(data->backend_ctx, &frame);
     if (ret == AIRUI_VIDEO_STATUS_EOF && allow_loop && data->loop && data->ops->restart != NULL) {
         ret = data->ops->restart(data->backend_ctx);
         if (ret == AIRUI_OK) {
             memset(&frame, 0, sizeof(frame));
+            if (data->framebuffer_size > 0) {
+                frame.data = airui_video_get_next_framebuffer(data);
+                frame.data_size = data->framebuffer_size;
+            }
             ret = data->ops->read_frame(data->backend_ctx, &frame);
         }
     }
@@ -534,7 +587,9 @@ static int airui_video_vp_open(void **backend_ctx, const airui_video_open_opts_t
     }
 
     /* 当前 videoplayer backend 仅接 MJPG，其他格式先明确返回不支持。 */
-    if (!(opts->format == AIRUI_VIDEO_FORMAT_AUTO || opts->format == AIRUI_VIDEO_FORMAT_MJPG)) {
+    if (!(opts->format == AIRUI_VIDEO_FORMAT_AUTO ||
+          opts->format == AIRUI_VIDEO_FORMAT_MJPG ||
+          opts->format == AIRUI_VIDEO_FORMAT_MP4_H264)) {
         return AIRUI_ERR_NOT_SUPPORTED;
     }
 
@@ -592,7 +647,7 @@ static void airui_video_vp_close(void *backend_ctx)
 static int airui_video_vp_read_frame(void *backend_ctx, airui_video_frame_t *frame)
 {
     airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
-    luat_vp_frame_t *vp_frame;
+    airui_video_vp_frame_wrap_t *wrap;
     int ret;
 
     if (ctx == NULL || ctx->player == NULL || frame == NULL) {
@@ -600,33 +655,39 @@ static int airui_video_vp_read_frame(void *backend_ctx, airui_video_frame_t *fra
     }
 
     /* 用一层 priv 包装 luat_vp_frame_t，便于在 release_frame 中统一回收。 */
-    vp_frame = (luat_vp_frame_t *)luat_heap_malloc(sizeof(luat_vp_frame_t));
-    if (vp_frame == NULL) {
+    wrap = (airui_video_vp_frame_wrap_t *)luat_heap_malloc(sizeof(airui_video_vp_frame_wrap_t));
+    if (wrap == NULL) {
         return AIRUI_ERR_NO_MEM;
     }
-    memset(vp_frame, 0, sizeof(luat_vp_frame_t));
+    memset(wrap, 0, sizeof(airui_video_vp_frame_wrap_t));
 
-    ret = luat_videoplayer_read_frame(ctx->player, vp_frame);
+    if (frame->data != NULL && frame->data_size > 0) {
+        ret = luat_videoplayer_read_frame_to(ctx->player, &wrap->frame, frame->data, frame->data_size);
+        wrap->owned = 0;
+    } else {
+        ret = luat_videoplayer_read_frame(ctx->player, &wrap->frame);
+        wrap->owned = 1;
+    }
     if (ret == LUAT_VP_ERR_EOF) {
-        luat_heap_free(vp_frame);
+        luat_heap_free(wrap);
         return AIRUI_VIDEO_STATUS_EOF;
     }
     if (ret != LUAT_VP_OK) {
-        luat_heap_free(vp_frame);
+        luat_heap_free(wrap);
         return AIRUI_ERR_INIT_FAILED;
     }
 
-    frame->data = vp_frame->data;
-    frame->data_size = (size_t)vp_frame->width * (size_t)vp_frame->height * 2u;
-    frame->width = vp_frame->width;
-    frame->height = vp_frame->height;
-    frame->priv = vp_frame;
+    frame->data = wrap->frame.data;
+    frame->data_size = (size_t)wrap->frame.width * (size_t)wrap->frame.height * 2u;
+    frame->width = wrap->frame.width;
+    frame->height = wrap->frame.height;
+    frame->priv = wrap;
     return AIRUI_VIDEO_STATUS_OK;
 }
 
 static void airui_video_vp_release_frame(void *backend_ctx, airui_video_frame_t *frame)
 {
-    luat_vp_frame_t *vp_frame;
+    airui_video_vp_frame_wrap_t *wrap;
 
     (void)backend_ctx;
 
@@ -635,9 +696,11 @@ static void airui_video_vp_release_frame(void *backend_ctx, airui_video_frame_t 
     }
 
     /* 归还 videoplayer 分配的帧像素缓冲，并释放包装结构。 */
-    vp_frame = (luat_vp_frame_t *)frame->priv;
-    luat_videoplayer_frame_free(vp_frame);
-    luat_heap_free(vp_frame);
+    wrap = (airui_video_vp_frame_wrap_t *)frame->priv;
+    if (wrap->owned) {
+        luat_videoplayer_frame_free(&wrap->frame);
+    }
+    luat_heap_free(wrap);
     memset(frame, 0, sizeof(airui_video_frame_t));
 }
 

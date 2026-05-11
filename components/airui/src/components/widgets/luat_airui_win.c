@@ -239,6 +239,29 @@ int airui_win_set_title(lv_obj_t *win, const char *title)
 }
 
 /**
+ * 获取 Win 标题
+ * @param win Win 对象指针
+ * @return 标题文本，失败返回 NULL
+ */
+const char *airui_win_get_title(lv_obj_t *win)
+{
+    if (win == NULL) {
+        return NULL;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(win);
+    if (meta == NULL || meta->user_data == NULL) {
+        return NULL;
+    }
+
+    airui_win_data_t *win_data = (airui_win_data_t *)meta->user_data;
+    if (win_data->title_label == NULL) {
+        return NULL;
+    }
+    return lv_label_get_text(win_data->title_label);
+}
+
+/**
  * 添加子组件到 Win 内容容器
  * @param win Win 对象指针
  * @param child 子对象指针

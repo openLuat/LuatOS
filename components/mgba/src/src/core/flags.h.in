@@ -1,0 +1,204 @@
+#ifndef FLAGS_H
+#define FLAGS_H
+
+#ifndef MINIMAL_CORE
+#cmakedefine MINIMAL_CORE @MINIMAL_CORE@
+#endif
+
+// BUILD flags
+
+#ifndef BUILD_GL
+#cmakedefine BUILD_GL
+#endif
+
+#ifndef BUILD_GLES2
+#cmakedefine BUILD_GLES2
+#endif
+
+#ifndef BUILD_GLES3
+#cmakedefine BUILD_GLES3
+#endif
+
+// Miscellaneous flags
+
+#ifndef COLOR_16_BIT
+#cmakedefine COLOR_16_BIT
+#endif
+
+#ifndef COLOR_5_6_5
+#cmakedefine COLOR_5_6_5
+#endif
+
+#ifndef DISABLE_THREADING
+#cmakedefine DISABLE_THREADING
+#endif
+
+#ifndef FIXED_ROM_BUFFER
+#cmakedefine FIXED_ROM_BUFFER
+#endif
+
+// M_CORE flags
+
+#ifndef M_CORE_GBA
+#cmakedefine M_CORE_GBA
+#endif
+
+#ifndef M_CORE_GB
+#cmakedefine M_CORE_GB
+#endif
+
+// ENABLE flags
+
+#ifndef ENABLE_DEBUGGERS
+#cmakedefine ENABLE_DEBUGGERS
+#endif
+
+#ifndef ENABLE_DIRECTORIES
+#cmakedefine ENABLE_DIRECTORIES
+#endif
+
+#ifndef ENABLE_GDB_STUB
+#cmakedefine ENABLE_GDB_STUB
+#endif
+
+#ifndef ENABLE_SCRIPTING
+#cmakedefine ENABLE_SCRIPTING
+#endif
+
+#ifndef ENABLE_VFS
+#cmakedefine ENABLE_VFS
+#endif
+
+#ifndef ENABLE_VFS_FD
+#cmakedefine ENABLE_VFS_FD
+#endif
+
+#ifndef ENABLE_VFS_FILE
+#cmakedefine ENABLE_VFS_FILE
+#endif
+
+// USE flags
+
+#ifndef USE_DISCORD_RPC
+#cmakedefine USE_DISCORD_RPC
+#endif
+
+#ifndef USE_EDITLINE
+#cmakedefine USE_EDITLINE
+#endif
+
+#ifndef USE_ELF
+#cmakedefine USE_ELF
+#endif
+
+#ifndef USE_EPOXY
+#cmakedefine USE_EPOXY
+#endif
+
+#ifndef USE_FFMPEG
+#cmakedefine USE_FFMPEG
+#endif
+
+#ifndef USE_FREETYPE
+#cmakedefine USE_FREETYPE
+#endif
+
+#ifndef USE_JSON_C
+#cmakedefine USE_JSON_C
+#endif
+
+#ifndef USE_LIBAV
+#cmakedefine USE_LIBAV
+#endif
+
+#ifndef USE_LIBAVRESAMPLE
+#cmakedefine USE_LIBAVRESAMPLE
+#endif
+
+#ifndef USE_LIBSWRESAMPLE
+#cmakedefine USE_LIBSWRESAMPLE
+#endif
+
+#ifndef USE_LIBZIP
+#cmakedefine USE_LIBZIP
+#endif
+
+#ifndef USE_LUA
+#cmakedefine USE_LUA
+#endif
+
+#ifndef USE_LZMA
+#cmakedefine USE_LZMA
+#endif
+
+#ifndef USE_MINIZIP
+#cmakedefine USE_MINIZIP
+#endif
+
+#ifndef USE_PNG
+#cmakedefine USE_PNG
+#endif
+
+#ifndef USE_PTHREADS
+#cmakedefine USE_PTHREADS
+#endif
+
+#ifndef USE_SQLITE3
+#cmakedefine USE_SQLITE3
+#endif
+
+#ifndef USE_ZLIB
+#cmakedefine USE_ZLIB
+#endif
+
+// HAVE flags
+
+#ifndef HAVE_CRC32
+#cmakedefine HAVE_CRC32
+#endif
+
+#ifndef HAVE_LOCALE
+#cmakedefine HAVE_LOCALE
+#endif
+
+#ifndef HAVE_LOCALTIME_R
+#cmakedefine HAVE_LOCALTIME_R
+#endif
+
+#ifndef HAVE_POPCOUNT32
+#cmakedefine HAVE_POPCOUNT32
+#endif
+
+#ifndef HAVE_PTHREAD_NP_H
+#cmakedefine HAVE_PTHREAD_NP_H
+#endif
+
+#ifndef HAVE_PTHREAD_SETNAME_NP
+#cmakedefine HAVE_PTHREAD_SETNAME_NP
+#endif
+
+#ifndef HAVE_SNPRINTF_L
+#cmakedefine HAVE_SNPRINTF_L
+#endif
+
+#ifndef HAVE_STRDUP
+#cmakedefine HAVE_STRDUP
+#endif
+
+#ifndef HAVE_STRLCPY
+#cmakedefine HAVE_STRLCPY
+#endif
+
+#ifndef HAVE_STRDUP
+#cmakedefine HAVE_STRDUP
+#endif
+
+#ifndef HAVE_STRTOF_L
+#cmakedefine HAVE_STRTOF_L
+#endif
+
+#ifndef HAVE_XLOCALE
+#cmakedefine HAVE_XLOCALE
+#endif
+
+#endif

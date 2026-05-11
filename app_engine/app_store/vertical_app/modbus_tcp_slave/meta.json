@@ -1,0 +1,23 @@
+{
+    "app_name_cn": "MB TCP从站",
+    "app_name_en": "modbus_tcp_slave",
+    "version": "1.0.0",
+    "publish_time": "2026-05-11 12:00:00",
+    "category": "工业",
+    "description": "Modbus TCP 从站应用，支持标准功能码0x01/02/03/04/05/06/0F/10，可配置本机地址和端口，内置寄存器映射表和通讯日志。",
+    "resolution": "320x480",
+    "supported_models": {
+        "Air8101": [
+            {
+                "firmware_id": 104,
+                "min_firmware_version": 2010
+            },
+            {
+                "firmware_id": 105,
+                "min_firmware_version": 2010
+            }
+        ]
+    },
+    "zip_size_kb": 50,
+    "origin_size_kb": 120
+}

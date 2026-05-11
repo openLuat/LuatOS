@@ -1,7 +1,7 @@
 --[[
 @module  settings_iot_win
-@summary IOT 账号设置页面  
-@version 1.3
+@summary IOT 账号设置页面
+@version 1.4
 @date    2026.05.09
 @author  江访
 ]]
@@ -11,6 +11,7 @@ local wid = nil
 local mc
 local kv
 local ct
+local first_open = true
 
 local sw, sh = 480, 800
 local mg, cw, pad, gap, lw, iw, ih, rh, bw, bh, fs, fs2
@@ -47,7 +48,12 @@ local function up_sz()
 end
 
 local function rbct(info)
-    if ct then ct:destroy() end
+    if not mc then return end
+    if ct then
+        ct:destroy()
+        ct = nil
+    end
+    kv = nil
     ct = airui.container({
         parent = mc,
         x = 0, y = math.floor(60 * _G.density_scale),
@@ -142,6 +148,13 @@ local function rbct(info)
             end
         })
     else
+        kv = airui.keyboard({
+            x = 0, y = -math.floor(sh * 0.03),
+            w = sw, h = math.floor(sh * 0.32),
+            mode = "text",
+            auto_hide = true,
+            on_commit = function(self) self:hide() end
+        })
         local y = math.floor(sh * 0.03)
         local r1 = airui.container({
             parent = ct,
@@ -296,15 +309,8 @@ local function cui()
         align = airui.TEXT_ALIGN_LEFT
     })
 
-    kv = airui.keyboard({
-        x = 0, y = -math.floor(sh * 0.03),
-        w = sw, h = math.floor(sh * 0.32),
-        mode = "text",
-        auto_hide = true,
-        on_commit = function(self) self:hide() end
-    })
+    if kv then kv = nil end
 
-    rbct(nil)
     sys.publish("IOT_GET_ACCOUNT_INFO")
 end
 

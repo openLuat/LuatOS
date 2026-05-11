@@ -91,7 +91,22 @@ Air780EHM核心板/Air780EGH核心板和AirAudio_1010配件板的硬件接线方
 | VBAT                            | VCC                 |
 | GND                             | GND                 |
 
-2、TYPE-C USB数据线一根
+2、Air780EHM核心板/Air780EGH核心板+AirAUDIO_1010音频配件板+喇叭
+
+![alt text](https://docs.openLuat.com/cdn/image/Air780EHM+Airaudio1020.jpg)
+
+Air780EHM核心板/Air780EGH核心板和AirAudio_1020配件板的硬件接线方式为:
+| Air780EHM核心板/Air780EGH核心板 | AirAUDIO_1020配件板 |
+| ------------------------------  | ------------------- |
+| 30/I2S_BCK                      | I2S_BCK             |
+| 31/I2S_LRCK                     | I2S_LRCK            |
+| 33/I2S_DOUT                     | I2S_DOUT            |
+| 25/GPIO26                       | PA_EN               |
+| 23/GPIO2                        | 8311_EN             |
+| VBAT                            | VCC                 |
+| GND                             | GND                 |
+
+3、TYPE-C USB数据线一根
 
 - Air780EHM核心板/Air780EGH核心板通过TYPE-C USB口供电；
 

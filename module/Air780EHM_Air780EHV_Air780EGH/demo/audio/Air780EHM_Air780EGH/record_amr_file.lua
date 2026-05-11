@@ -67,7 +67,7 @@ local recordPath = sd_mount_path .. "/record.amr"
 
 -- 硬件配置参数
 local audio_setup_param = {
-    model = "es8311",          -- 音频编解码芯片类型
+    model = "es8311",          -- dac类型,可填入"es8311","tm8211"
     i2c_id = 1,                -- I2C接口编号
     pa_ctrl = 26,             -- 音频放大器控制引脚
     dac_ctrl = 2,            -- 音频编解码芯片控制引脚

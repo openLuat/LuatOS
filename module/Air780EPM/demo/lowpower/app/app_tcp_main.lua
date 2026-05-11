@@ -24,8 +24,8 @@ local tcp_client_sender = require "app_tcp_sender"
 -- 本工具使用方法可以参考：https://docs.openluat.com/common/TCPUDP_Test/
 -- 点击 打开TCP 按钮，会创建一个TCP server
 -- 将server的地址和端口赋值给下面这两个变量
-local SERVER_ADDR = "112.125.89.8"
-local SERVER_PORT = 32496
+local SERVER_ADDR = "115.120.239.161"
+local SERVER_PORT = 25485
 
 -- tcp_client_main的任务名
 local TASK_NAME = tcp_client_sender.TASK_NAME

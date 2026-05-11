@@ -22,8 +22,8 @@ local timeout = 10 -- 扫描基站/wifi 做 基站/wifi定位 的超时时间，
 
 --  以下为合宙LBS平台开通的项目id和秘钥
 --  以下项目密钥和id请根据实际项目进行修改，https://iot.openluat.com/lbs/bs 在此网址中我的项目下
-local airlbs_project_id = "此处换成自己的项目id"
-local airlbs_project_key = "此处换成自己的项目key"
+local airlbs_project_id = "hgM0Xi"
+local airlbs_project_key = "XEkKZv7hwYnASyXgaFAo4EwtG09X6OXi"
 local lat , lng = nil, nil
 
 

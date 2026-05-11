@@ -33,7 +33,7 @@ log.info("main", PROJECT, VERSION)
 ------------------------------------ 加载应用项目主调度功能模块（每次从以下项目中选择一个来演示运行）-----------------------------------
 
 -- 常规模式下的tcp长连接项目（每5分钟发送一次数据到tcp server）
-require "prj_0_tcp_long"
+-- require "prj_0_tcp_long"
 
 -- PSM+模式3简单项目
 -- require "prj_3"
@@ -48,7 +48,7 @@ require "prj_0_tcp_long"
 -- require "prj_1_tcp_long"
 
 -- PSM+模式下的tcp短连接项目（每次开机，发送一次数据到tcp server，无论成功还是失败，然后进入PSM+模式，1小时后唤醒）
--- require "prj_3_tcp_short"
+require "prj_3_tcp_short"
 
 -- 低功耗模式下的mqtt长连接项目（每5分钟发送一次数据到mqtt server）
 -- require "prj_1_mqtt_long"

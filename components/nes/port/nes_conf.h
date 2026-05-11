@@ -25,15 +25,13 @@
 #ifndef _NES_CONF_
 #define _NES_CONF_
 
+#include "luat_conf_bsp.h"
+
 #ifdef __cplusplus
     extern "C" {
 #endif
 
-#define NES_FRAME_SKIP          2
-
 #define NES_USE_SRAM            0
-#define NES_COLOR_DEPTH         16
-#define NES_COLOR_SWAP          1
 #define NES_RAM_LACK            1
 
 #define NES_USE_FS              1
@@ -57,7 +55,7 @@
 #endif
 
 #ifndef NES_COLOR_SWAP
-#define NES_COLOR_SWAP         0
+#define NES_COLOR_SWAP         1
 #endif
 
 /* Color depth:
@@ -65,7 +63,7 @@
  * - 32: ARGB8888
  */
 #ifndef NES_COLOR_DEPTH
-#define NES_COLOR_DEPTH         32
+#define NES_COLOR_DEPTH         16
 #endif
 
 #if (NES_COLOR_DEPTH == 32)

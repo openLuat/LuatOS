@@ -11,7 +11,6 @@
 #include "luat_rtos.h"
 #include "luat_lcd.h"
 #include "luat_mem.h"
-#include "luat_rtos.h"
 
 #include "nes.h"
 #include "nes_port.h"
@@ -128,7 +127,7 @@ static int l_nes_deinit(lua_State *L) {
         ctx->nes_quit = 1;
 
         /* 等待至多 2 帧（PC 上约 30ms/帧）让任务自行退出 */
-        luat_timer_mdelay(80);
+        luat_rtos_task_sleep(80);
 
         /* 强制删除任务（若任务已退出，delete 通常为 no-op 或返回错误，不会崩溃） */
         if (nes_thread) {

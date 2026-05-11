@@ -26,7 +26,7 @@
 
 #include "luat_base.h"
 #include "luat_mem.h"
-#include "luat_timer.h"
+#include "luat_rtos.h"
 #include "luat_fs.h"
 
 #ifdef LUAT_USE_GUI
@@ -84,7 +84,7 @@ int nes_fclose( FILE *fp ){
 
 /* wait */
 void nes_wait(uint32_t ms){
-    luat_timer_mdelay(ms);
+    luat_rtos_task_sleep(ms);
 }
 
 #ifdef LUAT_USE_GUI
@@ -119,12 +119,15 @@ void nes_frame(nes_t* nes){
 #ifdef LUAT_USE_AIRUI
     if (g_nes_airui_mode) {
         nes_airui_video_frame(NULL);
-        /* PC 上限速到约 60fps（NES 实际约 60.1Hz），否则模拟器以全速运行 */
-        luat_timer_mdelay(15);
         return;
     }
 #endif
-    luat_timer_us_delay(10);
+#ifdef LUAT_BSP_PC
+    /* PC 上限速到约 60fps（NES 实际约 60.1Hz），否则模拟器以全速运行 */
+    luat_rtos_task_sleep(15);
+#else
+    luat_rtos_task_sleep(1);
+#endif
 }
 
 /* log */

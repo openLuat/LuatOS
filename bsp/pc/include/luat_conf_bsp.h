@@ -7,6 +7,8 @@
 
 #include "stdint.h"
 
+#define LUAT_BSP_PC 1 // 定义平台标识符，供代码中使用
+
 #define LUAT_BSP_VERSION "V2031"
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
 #define LUAT_USE_CMDLINE_ARGS 1
@@ -174,7 +176,10 @@
 
 #define LUAT_USE_WEBP 1
 
-#define LUAT_USE_NES 1
+#define LUAT_USE_NES        1
+#define NES_FRAME_SKIP      0
+#define NES_COLOR_DEPTH     16
+#define NES_COLOR_SWAP      0
 
 //--------------------------------------------------
 // mGBA GBA模拟器

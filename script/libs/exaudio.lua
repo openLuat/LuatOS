@@ -1,10 +1,12 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 1.7
-@date    2026.4.22
+@version 1.8
+@date    2026.5.11
 @author  拓毅恒
 @updates
+    v1.8 2026.5.11
+        1. 新增TM8211音频编解码器支持，支持"es8311"、"tm8211"(I2S+外部Codec)和"dac"(内置DAC)两种类型
     v1.7 2026.4.22
         1. 新增多文件播放时的音频参数一致性检查，连续播放多个音频时添加限制，避免格式不同导致播放异常
     v1.6 2026.4.16
@@ -73,7 +75,7 @@ end
 
 -- 默认配置参数
 local audio_setup_param = {
-    model = "es8311",    -- 编解码器类型: "es8311" 或 "dac"(内置DAC)
+    model = "es8311",    -- 编解码器类型: "es8311"、"tm8211" 或 "dac"(内置DAC)
     i2c_id = 0,               -- i2c_id: 0,1
     pa_ctrl = 0,              -- 音频放大器电源控制管脚
     dac_ctrl = 0,             -- 音频编解码芯片电源控制管脚
@@ -495,9 +497,52 @@ local function audio_setup()
         )
         
         log.info("exaudio.setup", "DAC通道已设置为:"..audio_setup_param.dac_ch)
+    elseif audio_setup_param.model == "tm8211" then
+        -- TM8211模式初始化 (I2S，无需I2C)
+        log.info("exaudio.setup", "使用TM8211模式初始化")
+        
+        -- 初始化I2S
+        local I2S_channel_format = audio_setup_param.channels == 2 and i2s.STEREO or i2s.MONO_R
+
+        local result, data = i2s.setup(
+            I2S_ID,  -- I2S的通道号
+            audio_setup_param.i2s_mode,  -- I2S主从模式
+            audio_setup_param.i2s_sample,  -- I2S采样率
+            audio_setup_param.bits_per_sample,  -- I2S采样位深
+            I2S_channel_format, -- 声道
+            audio_setup_param.i2s_comm_format, -- I2S通讯格式
+            audio_setup_param.i2s_framebit  -- I2S通道位宽
+        )
+
+        if not result then
+            log.error("I2S设置失败")
+            return false
+        end
+        -- 配置音频通道
+        audio.config(
+            MULTIMEDIA_ID, 
+            audio_setup_param.pa_ctrl, 
+            audio_setup_param.pa_on_level, 
+            audio_setup_param.dac_delay, 
+            audio_setup_param.pa_delay, 
+            audio_setup_param.dac_ctrl, 
+            1,  -- power_on_level
+            audio_setup_param.dac_time_delay
+        )
+        -- 设置总线
+        audio.setBus(
+            MULTIMEDIA_ID, 
+            audio.BUS_I2S,
+            {
+                chip = audio_setup_param.model,
+                i2sid = I2S_ID
+                -- voltage = audio.VOLTAGE_1800
+            }
+        )
+        -- TM8211无需I2C芯片ID检查
     else
-        -- I2S模式初始化
-        log.info("exaudio.setup", "使用I2S模式初始化, model:"..audio_setup_param.model)
+        -- ES8311 I2S模式初始化
+        log.info("exaudio.setup", "使用ES8311 I2S模式初始化")
         
         -- I2C配置
         if not i2c.setup(audio_setup_param.i2c_id, i2c.FAST) then
@@ -593,8 +638,8 @@ function exaudio.setup(audioConfigs)
     
     -- 检查编解码器型号
     if audioConfigs.model then
-        if audioConfigs.model ~= "es8311" and audioConfigs.model ~= "dac" then
-            log.error("请指定正确的model: es8311 或 dac")
+        if audioConfigs.model ~= "es8311" and audioConfigs.model ~= "dac" and audioConfigs.model ~= "tm8211" then
+            log.error("请指定正确的model: es8311、tm8211 或 dac")
             return false
         end
         audio_setup_param.model = audioConfigs.model
@@ -610,8 +655,23 @@ function exaudio.setup(audioConfigs)
             audio_setup_param.dac_chl = audioConfigs.dac_chl
         end
         log.info("exaudio.setup", "DAC模式 - 通道:"..audio_setup_param.dac_ch..", 声道:"..audio_setup_param.channels)
+    elseif audio_setup_param.model == "tm8211" then
+        -- TM8211模式 (I2S，无需I2C)
+        log.info("exaudio.setup", "TM8211模式 - 声道:"..audio_setup_param.channels)
+        
+        -- TM8211 默认使用 MODE_MSB 格式
+        if audioConfigs.i2s_comm_format == nil then
+            audio_setup_param.i2s_comm_format = i2s.MODE_MSB
+            log.info("exaudio.setup", "TM8211使用默认MODE_MSB格式")
+        end
+        
+        -- 检查功率放大器控制管脚
+        if audioConfigs.dac_ctrl == nil then
+            log.warn("dac_ctrl(音频编解码控制管脚)是控制pop 音的重要管脚,建议硬件设计加上")
+        end
+        audio_setup_param.dac_ctrl = audioConfigs.dac_ctrl
     else
-        -- I2S模式
+        -- ES8311 I2S模式
         if not audio_setup_param.model or (audio_setup_param.model ~= "es8311") then
             log.error("请指定正确的model(es8311)")
             return false

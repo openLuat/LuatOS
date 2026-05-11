@@ -484,21 +484,10 @@ int luat_crypto_cipher_suites(const char** list, size_t* len) {
 #if defined(MBEDTLS_PK_C) && defined(MBEDTLS_PK_PARSE_C)
 #include "mbedtls/pk.h"
 
-static unsigned int luat_crypto_rand(void) {
-    unsigned int val = 0;
-    luat_crypto_trng((char *)&val, sizeof(val));
-    return val;
-}
-
-/* 简单 RNG 回调：优先使用平台 TRNG，回退到 luat_crypto_rand */
+/* RNG 回调：使用平台 TRNG */
 static int luat_pk_rng_cb(void *ctx, unsigned char *output, size_t len) {
     (void)ctx;
-    if (luat_crypto_trng((char *)output, len) == 0)
-        return 0;
-    /* fallback */
-    for (size_t i = 0; i < len; i++)
-        output[i] = (unsigned char)luat_crypto_rand();
-    return 0;
+    return luat_crypto_trng((char *)output, len);
 }
 
 /* 判断是否为 PEM 格式（以 "-----" 开头且末尾含 '\0'） */

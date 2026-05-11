@@ -48,6 +48,7 @@ typedef struct {
 
 static void airui_keyboard_preview_set_visible(airui_keyboard_data_t *data, bool visible);
 static void airui_keyboard_update_pinyin_panel(lv_obj_t *keyboard, bool visible);
+static void airui_keyboard_data_free(void *user_data);
 #if LV_USE_IME_PINYIN
 static lv_obj_t *airui_keyboard_get_valid_cand_panel(airui_keyboard_data_t *data);
 #endif
@@ -793,6 +794,34 @@ static void airui_keyboard_preview_cleanup_event_cb(lv_event_t *e)
     luat_heap_free(runtime);
 }
 
+static void airui_keyboard_data_free(void *user_data)
+{
+    airui_keyboard_data_t *data = (airui_keyboard_data_t *)user_data;
+    if (data == NULL) {
+        return;
+    }
+
+#if LV_USE_IME_PINYIN
+    if (data->ime != NULL && lv_obj_is_valid(data->ime)) {
+        lv_obj_remove_event_cb_with_user_data(data->ime, airui_keyboard_ime_delete_event_cb, data);
+    }
+#endif
+
+    data->ime = NULL;
+    data->target = NULL;
+    data->session.keyboard = NULL;
+    data->session.target = NULL;
+    data->session.edit_host = NULL;
+    data->session.display_host = NULL;
+    data->session.preview_ta = NULL;
+    data->session.ime = NULL;
+    data->session.cand_panel = NULL;
+    data->coord.keyboard = NULL;
+    data->coord.kb_data = NULL;
+
+    luat_heap_free(data);
+}
+
 // 输入预览框初始化
 static void airui_keyboard_preview_init(lv_obj_t *keyboard, airui_keyboard_data_t *data)
 {
@@ -1134,7 +1163,7 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     data->preview_enabled = preview_enabled;
     data->preview_height = preview_height;
     data->bg_color = bg_color;
-    airui_component_meta_set_user_data(meta, data, luat_heap_free);
+    airui_component_meta_set_user_data(meta, data, airui_keyboard_data_free);
 
     // 支持拼音输入法
 #if LV_USE_IME_PINYIN
@@ -1231,7 +1260,7 @@ int airui_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
             return AIRUI_ERR_NO_MEM;
         }
         airui_keyboard_data_init_defaults(data, keyboard);
-        airui_component_meta_set_user_data(meta, data, luat_heap_free);
+        airui_component_meta_set_user_data(meta, data, airui_keyboard_data_free);
     }
     lv_obj_t *old_target = airui_keyboard_session_get_target(data);
     if (old_target != NULL && old_target != textarea && data->session.preview_visible) {

@@ -1,7 +1,8 @@
 local miniz_test = {}
 
 -- 来自miniz公开示例的演示数据
-local b64_payload = "eAEFQIGNwyAMXOUm+E2+OzjhCCiOjYyhyvbVR7K7IR0l+iau8G82eIW5jXVoPzF5pse/B8FaPXLiWTNxEMsKI+WmIR0l+iayEY2i2V4UbqqPh5bwimyEuY11aD8xeaYHxAquvom6VDFUXqQjG1Fek6efCFfCK0b0LUnQMjiCxhUT05GNL75dFUWCSMcjN3EE5c4Wvq42/36R41fa"
+local b64_payload =
+    "eAEFQIGNwyAMXOUm+E2+OzjhCCiOjYyhyvbVR7K7IR0l+iau8G82eIW5jXVoPzF5pse/B8FaPXLiWTNxEMsKI+WmIR0l+iayEY2i2V4UbqqPh5bwimyEuY11aD8xeaYHxAquvom6VDFUXqQjG1Fek6efCFfCK0b0LUnQMjiCxhUT05GNL75dFUWCSMcjN3EE5c4Wvq42/36R41fa"
 local compressed_demo = b64_payload:fromBase64()
 local expected_compressed_len = 156
 local expected_uncompressed_len = 235
@@ -9,16 +10,25 @@ local unzip_zip_path = "/luadb/pac_man.zip"
 local unzip_target_dir = "/ram/miniz_test_unzip/"
 local unzip_root_dir = unzip_target_dir .. "/pac_man"
 local unzip_nested_dir = unzip_root_dir .. "/user"
-local unzip_expected_files = {
-    {path = unzip_root_dir .. "/main.lua", size = 223},
-    {path = unzip_root_dir .. "/meta.json", size = 493},
-    {path = unzip_root_dir .. "/icon.png", size = 3241},
-    {path = unzip_nested_dir .. "/pacman_game_win.lua", size = 15173},
-}
+local unzip_expected_files = {{
+    path = unzip_root_dir .. "/main.lua",
+    size = 223
+}, {
+    path = unzip_root_dir .. "/meta.json",
+    size = 493
+}, {
+    path = unzip_root_dir .. "/icon.png",
+    size = 3241
+}, {
+    path = unzip_nested_dir .. "/pacman_game_win.lua",
+    size = 15173
+}}
+local rtos_bsp = rtos.bsp()
+local mouble, core_value, _ = rtos.version(true)
 
 -- 压缩测试用的测试数据
 local test_data_simple = "123jfoiq4hlkfjbnasdilfhuqwo;hfashfp9qw38hrfaios;hfiuoaghfluaeisw"
-local test_data_repeated = string.rep("ABCDE", 100)  -- 重复字符串，压缩效果更好
+local test_data_repeated = string.rep("ABCDE", 100) -- 重复字符串，压缩效果更好
 local test_data_large = string.rep("This is a test string with some repetition. ", 50)
 
 local function cleanup_unzip_output()
@@ -33,11 +43,13 @@ end
 -- 验证示例数据解压后长度符合预期
 function miniz_test.test_uncompress_demo_blob()
     log.info("miniz测试", "正在解压演示数据")
-    assert(#compressed_demo == expected_compressed_len, string.format("压缩长度不匹配，预期 %d，实际 %d", expected_compressed_len, #compressed_demo))
+    assert(#compressed_demo == expected_compressed_len,
+        string.format("压缩长度不匹配，预期 %d，实际 %d", expected_compressed_len, #compressed_demo))
 
     local inflated = miniz.uncompress(compressed_demo)
     assert(type(inflated) == "string", "解压应返回字符串类型")
-    assert(#inflated == expected_uncompressed_len, string.format("解压长度不匹配，预期 %d，实际 %d", expected_uncompressed_len, #inflated))
+    assert(#inflated == expected_uncompressed_len,
+        string.format("解压长度不匹配，预期 %d，实际 %d", expected_uncompressed_len, #inflated))
 
     assert(#compressed_demo == expected_compressed_len, "解压后原压缩数据被修改")
     log.info("miniz测试", "演示数据解压测试通过")
@@ -184,7 +196,8 @@ function miniz_test.test_compress_ratio_repeated_data()
     assert(udata == test_data_repeated, "重复数据往返不一致")
 
     local ratio = (compressed_size / original_size) * 100
-    log.info("miniz测试", "压缩率测试通过", "原始长度:", original_size, "压缩后:", compressed_size, string.format("压缩率: %.2f%%", ratio))
+    log.info("miniz测试", "压缩率测试通过", "原始长度:", original_size, "压缩后:", compressed_size,
+        string.format("压缩率: %.2f%%", ratio))
 end
 
 -- 测试较大数据量压缩
@@ -245,37 +258,52 @@ function miniz_test.test_uncompress_invalid_flags()
 end
 
 function miniz_test.test_unzip_nested_directories()
-    log.info("miniz测试", "测试 unzip 目录创建")
-    
-    assert(io.exists(unzip_zip_path) == true, "缺少 pac_man.zip 测试资源")
+    if (rtos_bsp == "Air780EPM") or (rtos_bsp == "Air8000" and (core_value == 11 or core_value == 111)) then
+        log.info("miniz测试", rtos_bsp .. "不支持miniz.unzip接口，跳过unzip测试")
+    else
+        log.info("miniz测试", "测试 unzip 目录创建")
 
-    cleanup_unzip_output()
+        assert(io.exists(unzip_zip_path) == true, "缺少 pac_man.zip 测试资源")
 
-    local success = miniz.unzip(unzip_zip_path, unzip_target_dir)
-    assert(success == true, "unzip 应成功")
+        cleanup_unzip_output()
 
-    -- ZIP 文件中包含 pac_man 文件夹，所以实际路径是 unzip_target_dir .. "pac_man/"
-    local actual_root_dir = unzip_target_dir .. "pac_man/"
-    
-    -- 期望的文件
-    local expected_files = {
-        {path = actual_root_dir .. "/main.lua", size = 272},        -- 实际大小是 272
-        {path = actual_root_dir .. "/metas.json", size = 255},      -- 文件名和大小都不同
-        {path = actual_root_dir .. "/icon.png", size = 3241},
-        {path = actual_root_dir .. "/pacman_game_win.lua", size = 8233},  -- 实际大小是 8233
-    }
+        local success = miniz.unzip(unzip_zip_path, unzip_target_dir)
+        assert(success == true, "unzip 应成功")
 
-    for _, item in ipairs(expected_files) do
-        assert(io.exists(item.path) == true, "缺少解压文件: " .. item.path)
-        local file_size = io.fileSize(item.path)
-        assert(file_size == item.size, string.format("文件大小不匹配 %s 预期 %d 实际 %d", item.path, item.size, file_size or -1))
+        -- ZIP 文件中包含 pac_man 文件夹，所以实际路径是 unzip_target_dir .. "pac_man/"
+        local actual_root_dir = unzip_target_dir .. "pac_man/"
+
+        -- 期望的文件
+        local expected_files = {{
+            path = actual_root_dir .. "/main.lua",
+            size = 272
+        }, -- 实际大小是 272
+        {
+            path = actual_root_dir .. "/metas.json",
+            size = 255
+        }, -- 文件名和大小都不同
+        {
+            path = actual_root_dir .. "/icon.png",
+            size = 3241
+        }, {
+            path = actual_root_dir .. "/pacman_game_win.lua",
+            size = 8233
+        } -- 实际大小是 8233
+        }
+
+        for _, item in ipairs(expected_files) do
+            assert(io.exists(item.path) == true, "缺少解压文件: " .. item.path)
+            local file_size = io.fileSize(item.path)
+            assert(file_size == item.size,
+                string.format("文件大小不匹配 %s 预期 %d 实际 %d", item.path, item.size, file_size or -1))
+        end
+
+        -- 验证目录存在
+        local ok, entries = io.lsdir(actual_root_dir, 10, 0)
+        assert(ok == true and type(entries) == "table", "解压目录应存在")
+
+        log.info("miniz测试", "unzip 测试通过")
     end
-
-    -- 验证目录存在
-    local ok, entries = io.lsdir(actual_root_dir, 10, 0)
-    assert(ok == true and type(entries) == "table", "解压目录应存在")
-
-    log.info("miniz测试", "unzip 测试通过")
 end
 
 return miniz_test

@@ -296,6 +296,12 @@ static void airui_textarea_focus_cb(lv_event_t *e)
 #endif
             break;
         case LV_EVENT_DELETE:
+        {
+            airui_textarea_data_t *data = (airui_textarea_data_t *)meta->user_data;
+            lv_obj_t *keyboard = airui_textarea_get_valid_bound_keyboard(data);
+            if (keyboard != NULL) {
+                airui_keyboard_set_target(keyboard, NULL);
+            }
             if (airui_ctx_get_focused_textarea(meta->ctx) == target) {
 #if defined(LUAT_USE_AIRUI_SDL2)
                 airui_system_keyboard_clear_preedit(meta->ctx);
@@ -303,6 +309,7 @@ static void airui_textarea_focus_cb(lv_event_t *e)
                 airui_ctx_set_focused_textarea(meta->ctx, NULL);
             }
             break;
+        }
         default:
             break;
     }

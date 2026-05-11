@@ -987,7 +987,7 @@ static void airui_keyboard_refresh_auto_hide(lv_obj_t *keyboard, airui_keyboard_
     }
 
     //移除旧目标的自动隐藏回调
-    if (old_target != NULL) {
+    if (old_target != NULL && lv_obj_is_valid(old_target)) {
         lv_obj_remove_event_cb_with_user_data(old_target, airui_keyboard_target_auto_hide_cb, keyboard);
     }
 
@@ -1285,7 +1285,7 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
  */
 int airui_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
 {
-    if (keyboard == NULL || textarea == NULL) {
+    if (keyboard == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
@@ -1312,6 +1312,12 @@ int airui_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
     airui_keyboard_session_clear_composing(data);
     //刷新自动隐藏键盘
     airui_keyboard_refresh_auto_hide(keyboard, data, old_target);
+    if (textarea == NULL) {
+        airui_keyboard_session_set_preview_visible(data, false);
+        airui_keyboard_session_sync_runtime(data);
+        airui_keyboard_session_bind_active_host(keyboard, data);
+        return AIRUI_OK;
+    }
     if (data->preview_runtime != NULL) {
         airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
         airui_keyboard_preview_bind_target(runtime, textarea);

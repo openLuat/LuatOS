@@ -6,6 +6,7 @@ add_rules("mode.debug", "mode.release")
 
 local unpack = table.unpack or unpack
 local luatos = "../../"
+local luatos_ext_root = path.join(os.scriptdir(), "../../../luatos-ext-components")
 -- 2表示mbedtls 2.18.x，3表示mbedtls 3.x
 local mbedtls_version = 3
 
@@ -665,25 +666,16 @@ target("luatos-lua")
 
     -- =========================================================
     -- mp4player（MP4/H.264/AAC 解码器）
-    -- 启用方式：设置环境变量 LUAT_USE_MP4PLAYER=y
-    --           并设置 MP4PLAYER_SRC_DIR 指向 player 源码根目录
+    -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/vedio_player
     -- 示例（PowerShell）：
     --   $env:LUAT_USE_MP4PLAYER = "y"
-    --   $env:MP4PLAYER_SRC_DIR  = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
     --   cmd /c build_windows_32bit_msvc.bat
     -- =========================================================
     local use_mp4player = true
     if use_mp4player then
         add_defines("LUAT_USE_MP4PLAYER=1")
 
-        local mp4player_src = os.getenv("MP4PLAYER_SRC_DIR")
-        if not mp4player_src or mp4player_src == "" then
-            -- 如果未设置环境变量，使用默认路径（开发者本地约定）
-            mp4player_src = "C:/code/cursor/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
-            if not os.isdir(mp4player_src) then
-                mp4player_src = "D:/github/luatos-sdk-ccm42xx-gcc/csdk/project/luatos/player"
-            end
-        end
+        local mp4player_src = luatos_ext_root .. "/vedio_player"
         -- 统一为正斜杠，xmake 在 Windows 下两者均支持
         mp4player_src = mp4player_src:gsub("\\", "/")
         -- 确保末尾无斜杠

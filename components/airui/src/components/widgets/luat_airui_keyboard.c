@@ -50,6 +50,7 @@ static void airui_keyboard_preview_set_visible(airui_keyboard_data_t *data, bool
 static void airui_keyboard_update_pinyin_panel(lv_obj_t *keyboard, bool visible);
 static void airui_keyboard_data_free(void *user_data);
 static void airui_keyboard_unhook_external_events(lv_obj_t *keyboard, airui_keyboard_data_t *data);
+static void airui_keyboard_overlay_refresh_event_cb(lv_event_t *e);
 #if LV_USE_IME_PINYIN
 static lv_obj_t *airui_keyboard_get_valid_cand_panel(airui_keyboard_data_t *data);
 #endif
@@ -431,6 +432,31 @@ static void airui_keyboard_preview_sync_text(airui_keyboard_preview_runtime_t *r
         else {
             lv_obj_scroll_to_y(runtime->container, 0, LV_ANIM_OFF);
         }
+    }
+}
+
+static void airui_keyboard_overlay_refresh_event_cb(lv_event_t *e)
+{
+    if (e == NULL || lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) {
+        return;
+    }
+
+    airui_keyboard_data_t *data = (airui_keyboard_data_t *)lv_event_get_user_data(e);
+    if (data == NULL) {
+        return;
+    }
+
+#if LV_USE_IME_PINYIN
+    lv_obj_t *cand_panel = airui_keyboard_get_valid_cand_panel(data);
+    if (cand_panel != NULL && lv_obj_is_valid(cand_panel) &&
+        !lv_obj_has_flag(cand_panel, LV_OBJ_FLAG_HIDDEN)) {
+        lv_obj_move_foreground(cand_panel);
+    }
+#endif
+
+    if (data->preview_runtime != NULL) {
+        airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
+        airui_keyboard_preview_relayout(runtime);
     }
 }
 
@@ -1200,6 +1226,7 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
 
         airui_keyboard_apply_pinyin_mode(data, mode);
         airui_keyboard_session_sync_cand_panel(data);
+        lv_obj_add_event_cb(keyboard, airui_keyboard_overlay_refresh_event_cb, LV_EVENT_VALUE_CHANGED, data);
 
     }
 #endif

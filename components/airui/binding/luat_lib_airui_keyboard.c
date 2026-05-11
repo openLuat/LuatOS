@@ -172,9 +172,9 @@ static int l_keyboard_destroy(lua_State *L) {
     airui_component_meta_t *meta = airui_component_meta_get(keyboard);
     if (meta != NULL && meta->user_data != NULL) {
         airui_keyboard_data_t *data = (airui_keyboard_data_t *)meta->user_data;
-        airui_keyboard_detach_auto_hide_target(keyboard, data);
-        luat_heap_free(meta->user_data);
-        meta->user_data = NULL;
+        if (data->target != NULL && lv_obj_is_valid(data->target)) {
+            airui_textarea_detach_keyboard(data->target, keyboard);
+        }
     }
 
     return airui_component_destroy_userdata(L, 1, AIRUI_KEYBOARD_MT);

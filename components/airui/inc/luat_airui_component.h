@@ -573,6 +573,7 @@ const char *airui_textarea_get_text(lv_obj_t *textarea); //获取文本内容
 int airui_textarea_set_cursor(lv_obj_t *textarea, uint32_t pos); //设置光标位置
 int airui_textarea_set_on_text_change(lv_obj_t *textarea, int callback_ref); //设置文本改变回调
 int airui_textarea_attach_keyboard(lv_obj_t *textarea, lv_obj_t *keyboard); //关联键盘
+int airui_textarea_detach_keyboard(lv_obj_t *textarea, lv_obj_t *keyboard); //解绑键盘；keyboard为NULL时清空当前绑定
 lv_obj_t *airui_textarea_get_keyboard(lv_obj_t *textarea); //获取关联键盘
 
 /**

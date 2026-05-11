@@ -114,6 +114,14 @@ LUAT_WEAK int luat_jpeg_decode_hw(uint8_t *in_buf, size_t in_len, luat_img_info_
     return LUAT_IMG_ERR;
 }
 
+LUAT_WEAK int luat_png_decode_sw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info){
+    return LUAT_IMG_ERR;
+}
+
+LUAT_WEAK int luat_png_decode_hw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info){
+    return LUAT_IMG_ERR;
+}
+
 LUAT_WEAK int luat_image_decode(luat_img_conf_t* img_conf, uint8_t *in_buf, size_t size, luat_img_info_t* img_info){
     if (img_conf == NULL || in_buf == NULL || size == 0 || img_info == NULL) {
         return LUAT_IMG_ERR;
@@ -125,6 +133,14 @@ LUAT_WEAK int luat_image_decode(luat_img_conf_t* img_conf, uint8_t *in_buf, size
             return luat_jpeg_decode_sw(in_buf, size, img_info);
         case LUAT_IMG_DECODE_HW:
             return luat_jpeg_decode_hw(in_buf, size, img_info);
+        }
+        break;
+    case LUAT_IMG_FMT_PNG:
+        switch (img_conf->decode_mode) {
+        case LUAT_IMG_DECODE_SW:
+            return luat_png_decode_sw(in_buf, size, img_info);
+        case LUAT_IMG_DECODE_HW:
+            return luat_png_decode_hw(in_buf, size, img_info);
         }
         break;
     default:

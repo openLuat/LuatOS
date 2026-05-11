@@ -41,6 +41,10 @@ int luat_jpeg_decode_sw_default(uint8_t *in_buf, size_t in_len, luat_img_info_t*
 // 下面两个函数可自行实现
 int luat_jpeg_decode_sw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 int luat_jpeg_decode_hw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
+/* png decode */
+// 下面两个函数可自行实现
+int luat_png_decode_sw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
+int luat_png_decode_hw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 
 int luat_image_decode(luat_img_conf_t* img_conf, uint8_t *in_buf, size_t size, luat_img_info_t* img_info);
 

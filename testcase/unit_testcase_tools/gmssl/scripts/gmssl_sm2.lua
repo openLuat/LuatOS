@@ -80,6 +80,7 @@ function sm2.test_sm2_test_C1C2C3_encrypt()
     pkx = "ABE87C924B7ECFDEA1748A06E89003C9F7F4DC5C3563873CE2CAE46F66DE8141"
     pky = "9514733D38CC026F2452A6A3A3A4DA0C28F864AFA5FE2C45E0EB6B761FBB5286"
     private = "129EDC282CD2E9C1144C2E7315F926D772BC96600D2771E8BE02060313FE00D5"
+    encrypt_originStr = "!!from LuatOS!!"
     local encry_val = gmssl.sm2encrypt(pkx, pky, encrypt_originStr, true, true)
 
     assert(encry_val, "× GMSSL SM2 网站兼容模式(C1C2C3)加密失败")

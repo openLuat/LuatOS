@@ -5,18 +5,16 @@
 @date    2025.10.11
 @author  马亚丹
 @usage
-本demo演示的功能为：使用Air8101核心板通过SPI核心库/sfud核心库实现对 NOR Flash的操作，演示读数据写数据、删除数据等操作。
-以Air8101核心板为例, 接线如下:
+本demo演示的功能为：使用Air1601开发板通过SPI核心库/sfud核心库实现对 NOR Flash的操作，演示读数据写数据、删除数据等操作。
+以 Air1601开发板为例, 接线如下:
 
-Air8101核心板    AirSPINORFLASH_1000配件版
-GND(任意)               GND
-3.3V                    VCC
-SPI0_CS/p44/GPIO22      CS
-SPI0_SCK/p28/GPIO14     CLK
-SPI0_MOSI/p57/GPIO16    MOSI
-SPI0_MISO/p55/GPIO17    MISO
-
-使用SPI0，硬件SPI CS接在gpio15上
+Air1601开发板        AirSPINAND_1000配件板
+GND(任意)            GND
+VDD_EXT              3V3
+38/SPI1_CS           CS
+39/SPI1_SLK          CLK
+41/SPI1_MOSI         DI
+40/SPI1_MISO         DO
 
 运行核心逻辑：
 1.以对象的方式配置参数，初始化启用SPI，返回SPI对象
@@ -33,8 +31,8 @@ local CS_PIN = 8       -- CS引脚，根据实际情况修改
 local CPHA = 0          -- 时钟相位
 local CPOL = 0          -- 时钟极性
 local data_Width = 8    -- 数据宽度(位)
-local bandrate = 4*1000*1000 -- 波特率(Hz)，初始化为4MHz,8101最低支持4M
-gpio.setup(13, 1)        --air8101模组，gpio13控制ldo输出3.3v
+local bandrate = 2*1000*1000 -- 波特率(Hz)，初始化为2MHz
+
 -- flash操作起始地址（示例值，需根据需求调整）
 local erase_addr = 4096 
 -- 擦除数据的大小（示例值，需匹配 Flash 扇区 大小）

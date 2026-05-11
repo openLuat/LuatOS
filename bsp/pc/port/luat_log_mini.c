@@ -15,7 +15,7 @@
 #include <direct.h>
 #endif
 
-#include "uv.h"
+#include "luat_posix_compat.h"
 
 typedef struct log_msg {
     char* buff;
@@ -81,14 +81,19 @@ static int luat_log_host_file_exists(const char* path) {
 }
 
 static void luat_log_capture_startup_time(void) {
-    uv_timespec64_t tv;
+    struct timespec tv;
 
     if (luat_log_startup_ready) {
         return;
     }
 
     time(&luat_log_startup_time);
-    if (uv_clock_gettime(UV_CLOCK_REALTIME, &tv) == 0) {
+#if defined(_WIN32) || defined(_WIN64)
+    if (luat_win_clock_realtime(&tv) == 0)
+#else
+    if (clock_gettime(CLOCK_REALTIME, &tv) == 0)
+#endif
+    {
         luat_log_startup_ms = (uint16_t)(tv.tv_nsec / 1000000);
     }
     else {
@@ -113,7 +118,7 @@ static void luat_log_report_file_warning(const char* reason) {
 static size_t luat_log_format_prefix(char* buff, size_t buff_size) {
     time_t now;
     struct tm *local_time;
-    uv_timespec64_t tv;
+    struct timespec tv;
     uint64_t tick;
     uint32_t sec;
     uint32_t ms;
@@ -124,7 +129,12 @@ static size_t luat_log_format_prefix(char* buff, size_t buff_size) {
     }
 
     time(&now);
-    if (uv_clock_gettime(UV_CLOCK_REALTIME, &tv) != 0) {
+#if defined(_WIN32) || defined(_WIN64)
+    if (luat_win_clock_realtime(&tv) != 0)
+#else
+    if (clock_gettime(CLOCK_REALTIME, &tv) != 0)
+#endif
+    {
         tv.tv_nsec = 0;
     }
     local_time = localtime(&now);
@@ -273,7 +283,11 @@ static void luat_log_write_startup_header(void) {
     snprintf(line, sizeof(line), "I/pclog logfile: %s\n", luat_log_file_path);
     luat_log_write_header_line(line);
 
-    if (uv_cwd(cwd, &cwd_len) == 0) {
+#if defined(_WIN32) || defined(_WIN64)
+    if (_getcwd(cwd, (int)cwd_len) != NULL) {
+#else
+    if (getcwd(cwd, cwd_len) != NULL) {
+#endif
         snprintf(line, sizeof(line), "I/pclog cwd: %s\n", cwd);
     }
     else {

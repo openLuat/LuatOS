@@ -206,7 +206,7 @@ static int l_wlan_scan(lua_State* L){
     (void)L;
     #ifdef LUAT_USE_DRV_WLAN
     #ifdef LUAT_USE_AIRLINK
-    if (luat_airlink_has_wifi()) {
+    if (luat_airlink_has_wifi() || luat_airlink_current_mode_get() >= 0) {
         luat_drv_wlan_scan();
         return 0;
     }
@@ -239,7 +239,7 @@ static int l_wlan_scan_result(lua_State* L) {
     #ifdef LUAT_USE_DRV_WLAN
     int len = 0;
     #ifdef LUAT_USE_AIRLINK
-    if (luat_airlink_has_wifi()) {
+    if (luat_airlink_has_wifi() || luat_airlink_current_mode_get() >= 0) {
         len = luat_drv_wlan_scan_get_result(results, ap_limit);
     }
     else

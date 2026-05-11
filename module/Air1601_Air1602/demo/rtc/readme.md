@@ -14,11 +14,25 @@
 
 ![](https://docs.openluat.com/air1601/luatos/common/download/image/download.jpg)
 
+本demo默认联网方式用的是SPI_以太网接口，以太网功能开关设置说明
+
+- `V_LAN` 电源开关：拨至 `ON`，为以太网 PHY 芯片供电。
+- `U5`（SPI/ETH 通道拨码开关）：所有通道拨向左侧"ON"，打开以太网，以太网使用 `CS1 (GPIO14)` 作为片选。
+- `S15`（WAKEUP/LAN_INT 中断开关）：
+  - 单独使用以太网时：拨至 `ON`，连接 `WAKEUP` 信号到 `LAN_INT`，启用以太网中断功能。
+  - 与触摸（TP）同时使用时：拨至 `OFF`，断开以太网中断，将 `WAKEUP` 信号留给 TP 使用。
+
+![](https://docs.openluat.com/air1601/luatos/app/common/rtc/image/spi_lan.png)
+
+使用其它网络接线方式请参考：[Air1601开发板使用说明](https://docs.openluat.com/air1601/product/shouce/#air1601_2)
+
 1、Air1601开发板一块
 
 2、TYPE-C USB数据线一根
 
-3、Air1601开发板和数据线的硬件接线方式为
+3、网线一根，网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
+
+4、Air1601开发板和数据线的硬件接线方式为
 
 - Air1601开发板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
 - 在 Air1601 开发板上丝印标注 USB1，为芯片烧录下载接口；

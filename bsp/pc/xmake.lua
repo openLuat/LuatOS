@@ -9,14 +9,18 @@ local luatos = "../../"
 -- 2表示mbedtls 2.18.x，3表示mbedtls 3.x
 local mbedtls_version = 3
 
-add_requires("libuv v1.49.2")
-add_packages("libuv")
-
 add_requires("gmssl")
 add_packages("gmssl")
 
-add_requires("libsdl2")
-add_packages("libsdl2")
+-- POSIX pthreads（Windows 通过 pthreads4w 提供）
+if is_host("windows") then
+    add_requires("pthreads4w")
+end
+
+-- SDL2 仅在 GUI 模式下需要
+if os.getenv("LUAT_USE_GUI") == "y" then
+    add_requires("libsdl2")
+end
 
 local function thirdparty_file_options()
     if is_host("windows") then
@@ -75,6 +79,7 @@ end
 add_includedirs("include",{public = true})
 add_includedirs(luatos.."lua/include",{public = true})
 add_includedirs(luatos.."luat/include",{public = true})
+add_includedirs("port/posix",{public = true})
 -- add_includedirs("libuv/include",{public = true})
 
 
@@ -85,6 +90,8 @@ target("luatos-lua")
 
     add_files("src/*.c",{public = true})
     add_files("port/**.c")
+    remove_files("port/network/luat_network_adapter_libuv.c")
+    remove_files("port/network/sys_arch_uv.c")
 
     add_thirdparty_files(luatos.."lua/src/*.c")
     -- printf
@@ -96,6 +103,11 @@ target("luatos-lua")
     if is_plat("linux", "macosx") then
         add_linkdirs("/opt/homebrew/lib", "/usr/local/lib")
         add_links("pthread", "m", "dl")
+    end
+
+    if is_host("windows") then
+        add_packages("pthreads4w")
+        add_links("ws2_32", "iphlpapi")
     end
 
     -- i2c-tools
@@ -440,7 +452,13 @@ target("luatos-lua")
         add_includedirs("lwip/include")    
     end
 
+    -- nes
+    add_includedirs(luatos.."components/nes/inc")
+    add_includedirs(luatos.."components/nes/port")
+    add_files(luatos.."components/nes/**.c")
+
     if os.getenv("LUAT_USE_GUI") == "y" then
+        add_packages("libsdl2")
         add_files("ui/*.c")
         add_defines("U8G2_USE_LARGE_FONTS=1")
 
@@ -452,8 +470,10 @@ target("luatos-lua")
         add_files(luatos.."components/u8g2/*.c")
         -- lcd
         add_includedirs(luatos.."components/lcd")
+        add_includedirs(luatos.."components/luat_image/include")
         add_files(luatos.."components/lcd/*.c")
-        
+        add_files(luatos.."components/luat_image/src/*.c")
+
         -- LVGL 9.4 + AIRUI - 最基础组件编译
         -- 头文件添加：lvgl9 
         add_includedirs(luatos.."components/airui")

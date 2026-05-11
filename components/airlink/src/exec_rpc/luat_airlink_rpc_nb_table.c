@@ -17,6 +17,12 @@ extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_gpio_reg;
 #ifdef LUAT_USE_AIRLINK_EXEC_UART
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_uart_reg;
 #endif
+#ifdef LUAT_USE_AIRLINK_RPC_WLAN
+extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_event_reg;
+extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_sta_event_reg;
+extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_ip_event_reg;
+extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_ap_event_reg;
+#endif
 #ifdef LUAT_USE_AIRLINK_EXEC_WLAN
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_wlan_reg;
 #endif
@@ -37,6 +43,12 @@ const luat_airlink_rpc_nb_reg_t* const luat_airlink_rpc_nb_static_table[] = {
 #endif
 #ifdef LUAT_USE_AIRLINK_EXEC_UART
     &luat_airlink_rpc_uart_reg,
+#endif
+#ifdef LUAT_USE_AIRLINK_RPC_WLAN
+    &luat_airlink_rpc_wlan_event_reg,
+    &luat_airlink_rpc_wlan_sta_event_reg,
+    &luat_airlink_rpc_wlan_ip_event_reg,
+    &luat_airlink_rpc_wlan_ap_event_reg,
 #endif
 #ifdef LUAT_USE_AIRLINK_EXEC_WLAN
     &luat_airlink_rpc_wlan_reg,

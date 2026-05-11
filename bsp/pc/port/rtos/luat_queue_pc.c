@@ -1,4 +1,3 @@
-#include "uv.h"
 #include "luat_base.h"
 #include "luat_queue_pc.h"
 #include "luat_malloc.h"

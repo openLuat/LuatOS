@@ -3,153 +3,106 @@
 #include "luat_malloc.h"
 #include "luat_pcconf.h"
 
-#include "uv.h"
+#include "luat_posix_compat.h"
+#include "luat_timer_engine.h"
 
 #define LUAT_LOG_TAG "rtos.timer"
 #include "luat_log.h"
 
-
-typedef struct timer_data
-{
-    void *cb;
-    void *param;
-    void *task_handle;
-    int is_repeat;
-    size_t timeout;
-}timer_data_t;
+typedef struct timer_data {
+    void       *cb;
+    void       *param;
+    void       *task_handle;
+    int         is_repeat;
+    uint32_t    timeout_ms;
+    luat_timer_handle_t handle;
+} timer_data_t;
 
 typedef void (*tcb)(void*);
 
-extern uv_loop_t *main_loop;
-extern uv_mutex_t timer_lock;
-
-static void timer_cb(uv_timer_t *handle) {
-    timer_data_t* data = (timer_data_t*)handle->data;
+static void timer_engine_cb(void *p) {
+    timer_data_t *data = (timer_data_t *)p;
     if (data->cb)
         ((tcb)data->cb)(data->param);
     if (data->is_repeat) {
-        uv_timer_start(handle, timer_cb, data->timeout, 0);
+        luat_timer_engine_start(data->handle, data->timeout_ms, 0);
     }
 }
 
-// Timer类
 void *luat_create_rtos_timer(void *cb, void *param, void *task_handle) {
-    uv_mutex_lock(&timer_lock);
-    uv_timer_t *t = luat_heap_malloc(sizeof(uv_timer_t));
-    if (t == NULL) {
-        uv_mutex_unlock(&timer_lock);
-        return NULL;
-    }
-    memset(t, 0, sizeof(uv_timer_t));
-    uv_timer_init(main_loop, t);
     timer_data_t *data = luat_heap_malloc(sizeof(timer_data_t));
-    if (data == NULL) {
-        uv_mutex_unlock(&timer_lock);
-        luat_heap_free(t);
+    if (data == NULL) return NULL;
+    memset(data, 0, sizeof(timer_data_t));
+    data->cb           = cb;
+    data->param        = param;
+    data->task_handle  = task_handle;
+    luat_timer_handle_t h = luat_timer_engine_create(timer_engine_cb, data);
+    if (h == NULL) {
+        luat_heap_free(data);
         return NULL;
     }
-    memset(data, 0, sizeof(timer_data_t));
-    t->data = data;
-    data->cb = cb;
-    data->param = param;
-    data->task_handle = task_handle;
-    // LLOGD("创建rtos timer %p", t);
-    uv_mutex_unlock(&timer_lock);
-    return t;
+    data->handle = h;
+    return data;
 }
 
 int luat_start_rtos_timer(void *timer, uint32_t ms, uint8_t is_repeat) {
-    int ret = 0;
-    uv_mutex_lock(&timer_lock);
-    uv_timer_t *t = (uv_timer_t *)timer;
-    // LLOGD("启动rtos timer %p", t, ms, is_repeat);
-    ((timer_data_t*)t->data)->is_repeat = is_repeat;
-    ((timer_data_t*)t->data)->timeout = ms;
-    ret = uv_timer_start(t, timer_cb, ms, 0);
-    uv_mutex_unlock(&timer_lock);
-    return ret;
+    if (timer == NULL) return -1;
+    timer_data_t *data = (timer_data_t *)timer;
+    data->is_repeat   = is_repeat;
+    data->timeout_ms  = ms;
+    return luat_timer_engine_start(data->handle, ms, 0);
 }
 
 void luat_stop_rtos_timer(void *timer) {
-    uv_mutex_lock(&timer_lock);
-    uv_timer_t *t = (uv_timer_t *)timer;
-    uv_timer_stop(t);
-    uv_mutex_unlock(&timer_lock);
+    if (timer == NULL) return;
+    timer_data_t *data = (timer_data_t *)timer;
+    luat_timer_engine_stop(data->handle);
 }
 
 void luat_release_rtos_timer(void *timer) {
-    uv_mutex_lock(&timer_lock);
-    uv_timer_t *t = (uv_timer_t *)timer;
-    uv_timer_stop(t);
-    luat_heap_free(t->data);
-    free_uv_handle(t);
-    uv_mutex_unlock(&timer_lock);
+    if (timer == NULL) return;
+    timer_data_t *data = (timer_data_t *)timer;
+    luat_timer_engine_delete(data->handle);
+    luat_heap_free(data);
 }
 
+void luat_task_suspend_all(void) {}
+void luat_task_resume_all(void) {}
 
-void luat_task_suspend_all(void) {
-    // nop
+int luat_rtos_timer_create(luat_rtos_timer_t *timer_handle) {
+    if (!timer_handle) return -1;
+    *timer_handle = luat_create_rtos_timer(NULL, NULL, NULL);
+    return (*timer_handle) ? 0 : -1;
 }
 
-void luat_task_resume_all(void) {
-    // nop
+int luat_rtos_timer_delete(luat_rtos_timer_t timer_handle) {
+    if (!timer_handle) return -1;
+    luat_release_rtos_timer(timer_handle);
+    return 0;
 }
 
-int luat_rtos_timer_create(luat_rtos_timer_t *timer_handle)
-{
-	if (!timer_handle) return -1;
-	*timer_handle = luat_create_rtos_timer(NULL, NULL, NULL);
-	return (*timer_handle)?0:-1;
+int luat_rtos_timer_start(luat_rtos_timer_t timer_handle, uint32_t timeout, uint8_t repeat, luat_rtos_timer_callback_t callback_fun, void *user_param) {
+    if (!timer_handle) return -1;
+    timer_data_t *data = (timer_data_t *)timer_handle;
+    data->is_repeat   = repeat;
+    data->timeout_ms  = timeout;
+    data->cb          = callback_fun;
+    data->param       = user_param;
+    return luat_timer_engine_start(data->handle, timeout, 0);
 }
 
-int luat_rtos_timer_delete(luat_rtos_timer_t timer_handle)
-{
-	if (!timer_handle) return -1;
-	luat_release_rtos_timer(timer_handle);
-	return 0;
+int luat_rtos_timer_stop(luat_rtos_timer_t timer_handle) {
+    if (!timer_handle) return -1;
+    luat_stop_rtos_timer(timer_handle);
+    return 0;
 }
-
-int luat_rtos_timer_start(luat_rtos_timer_t timer_handle, uint32_t timeout, uint8_t repeat, luat_rtos_timer_callback_t callback_fun, void *user_param)
-{
-    int ret = 0;
-	if (!timer_handle) {
-        return -1;
-    }
-    uv_mutex_lock(&timer_lock);
-	uv_timer_t *t = (uv_timer_t *)timer_handle;
-    ((timer_data_t*)t->data)->is_repeat = repeat;
-    ((timer_data_t*)t->data)->timeout = timeout;
-    ((timer_data_t*)t->data)->cb = callback_fun;
-    ((timer_data_t*)t->data)->param = user_param;
-    ret = uv_timer_start(t, timer_cb, timeout, 0);
-    uv_mutex_unlock(&timer_lock);
-    return ret;
-}
-
-int luat_rtos_timer_stop(luat_rtos_timer_t timer_handle)
-{
-	if (!timer_handle) return -1;
-	luat_stop_rtos_timer(timer_handle);
-	return 0;
-}
-
-
 
 void luat_rtos_task_sleep(uint32_t ms) {
-    if (ms > 0) {
-        uv_sleep(ms);
-    }
+    if (ms > 0) luat_sleep_ms(ms);
 }
 
 int luat_rtos_timer_is_active(luat_rtos_timer_t timer_handle) {
-
-    int ret = 0;
-	if (!timer_handle) {
-        return -1;
-    }
-	uv_timer_t *t = (uv_timer_t *)timer_handle;
-    if (uv_timer_get_due_in(t) > 0) {
-        return 1;
-    }
-    return 0;
+    if (!timer_handle) return -1;
+    timer_data_t *data = (timer_data_t *)timer_handle;
+    return luat_timer_engine_is_active(data->handle);
 }

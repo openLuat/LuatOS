@@ -29,7 +29,7 @@ function audio_drv.init()
         return true
     end
 
-    gpio.setup(147, 1)     -- 8000开发板，打开I2C总线，扫描音频芯片
+    -- gpio.setup(147, 1)     -- 8000开发板，打开I2C总线，扫描音频芯片
     
     --初始化音频设备
     if exaudio.setup(audio_configs) then

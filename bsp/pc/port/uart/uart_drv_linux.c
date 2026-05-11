@@ -11,9 +11,8 @@
 #define LUAT_LOG_TAG "uart.nop"
 #include "luat_log.h"
 
-#include "uv.h"
+#include "luat_posix_compat.h"
 #include "luat_pcconf.h"
-
 
 #include <stddef.h>
 #include <stdint.h>
@@ -49,39 +48,24 @@ typedef enum serial_parity {
 
 typedef struct serial_handle serial_t;
 
-/* Primary Functions */
-serial_t *serial_new(void);
-static int serial_open_advanced(serial_t *serial, const char *path,
-                         uint32_t baudrate, unsigned int databits,
-                         serial_parity_t parity, unsigned int stopbits,
-                         bool xonxoff, bool rtscts);
-int serial_read(serial_t *serial, uint8_t *buf, size_t len, int timeout_ms);
-int serial_write(serial_t *serial, const uint8_t *buf, size_t len);
-int serial_close(serial_t *serial);
-void serial_free(serial_t *serial);
-
-
 struct serial_handle {
     int fd;
 };
 
 static int _serial_error(serial_t *serial, int code, int c_errno, const char *fmt, ...) {
-
+    (void)serial; (void)c_errno; (void)fmt;
     return code;
 }
 
 serial_t *serial_new(void) {
-    serial_t *serial = calloc(1, sizeof(serial_t));
-    if (serial == NULL)
-        return NULL;
-
-    serial->fd = -1;
-
-    return serial;
+    serial_t *s = calloc(1, sizeof(serial_t));
+    if (s == NULL) return NULL;
+    s->fd = -1;
+    return s;
 }
 
-void serial_free(serial_t *serial) {
-    free(serial);
+void serial_free(serial_t *s) {
+    free(s);
 }
 
 static int _serial_baudrate_to_bits(uint32_t baudrate) {
@@ -128,298 +112,225 @@ static int _serial_baudrate_to_bits(uint32_t baudrate) {
     }
 }
 
-static int serial_open_advanced(serial_t *serial, const char *path, uint32_t baudrate, unsigned int databits, serial_parity_t parity, unsigned int stopbits, bool xonxoff, bool rtscts) {
+static int serial_open_advanced(serial_t *s, const char *path, uint32_t baudrate,
+                                unsigned int databits, serial_parity_t parity,
+                                unsigned int stopbits, bool xonxoff, bool rtscts) {
     struct termios termios_settings;
 
-    /* Validate args */
     if (databits != 5 && databits != 6 && databits != 7 && databits != 8)
-        return _serial_error(serial, SERIAL_ERROR_ARG, 0, "Invalid data bits (can be 5,6,7,8)");
+        return _serial_error(s, SERIAL_ERROR_ARG, 0, "Invalid data bits");
     if (parity != PARITY_NONE && parity != PARITY_ODD && parity != PARITY_EVEN)
-        return _serial_error(serial, SERIAL_ERROR_ARG, 0, "Invalid parity (can be PARITY_NONE,PARITY_ODD,PARITY_EVEN)");
+        return _serial_error(s, SERIAL_ERROR_ARG, 0, "Invalid parity");
     if (stopbits != 1 && stopbits != 2)
-        return _serial_error(serial, SERIAL_ERROR_ARG, 0, "Invalid stop bits (can be 1,2)");
+        return _serial_error(s, SERIAL_ERROR_ARG, 0, "Invalid stop bits");
 
-    memset(serial, 0, sizeof(serial_t));
+    memset(s, 0, sizeof(serial_t));
 
-    /* Open serial port */
-    if ((serial->fd = open(path, O_RDWR | O_NOCTTY)) < 0)
-        return _serial_error(serial, SERIAL_ERROR_OPEN, errno, "Opening serial port \"%s\"", path);
+    if ((s->fd = open(path, O_RDWR | O_NOCTTY)) < 0)
+        return _serial_error(s, SERIAL_ERROR_OPEN, errno, "Opening serial port \"%s\"", path);
 
     memset(&termios_settings, 0, sizeof(termios_settings));
 
-    /* c_iflag */
-
-    /* Ignore break characters */
     termios_settings.c_iflag = IGNBRK;
-    if (parity != PARITY_NONE)
-        termios_settings.c_iflag |= INPCK;
-    /* Only use ISTRIP when less than 8 bits as it strips the 8th bit */
-    if (parity != PARITY_NONE && databits != 8)
-        termios_settings.c_iflag |= ISTRIP;
-    if (xonxoff)
-        termios_settings.c_iflag |= (IXON | IXOFF);
+    if (parity != PARITY_NONE) termios_settings.c_iflag |= INPCK;
+    if (parity != PARITY_NONE && databits != 8) termios_settings.c_iflag |= ISTRIP;
+    if (xonxoff) termios_settings.c_iflag |= (IXON | IXOFF);
 
-    /* c_oflag */
     termios_settings.c_oflag = 0;
-
-    /* c_lflag */
     termios_settings.c_lflag = 0;
-
-    /* c_cflag */
-    /* Enable receiver, ignore modem control lines */
     termios_settings.c_cflag = CREAD | CLOCAL;
 
-    /* Databits */
-    if (databits == 5)
-        termios_settings.c_cflag |= CS5;
-    else if (databits == 6)
-        termios_settings.c_cflag |= CS6;
-    else if (databits == 7)
-        termios_settings.c_cflag |= CS7;
-    else if (databits == 8)
-        termios_settings.c_cflag |= CS8;
+    if (databits == 5)      termios_settings.c_cflag |= CS5;
+    else if (databits == 6) termios_settings.c_cflag |= CS6;
+    else if (databits == 7) termios_settings.c_cflag |= CS7;
+    else if (databits == 8) termios_settings.c_cflag |= CS8;
 
-    /* Parity */
-    if (parity == PARITY_EVEN)
-        termios_settings.c_cflag |= PARENB;
-    else if (parity == PARITY_ODD)
-        termios_settings.c_cflag |= (PARENB | PARODD);
+    if (parity == PARITY_EVEN) termios_settings.c_cflag |= PARENB;
+    else if (parity == PARITY_ODD) termios_settings.c_cflag |= (PARENB | PARODD);
 
-    /* Stopbits */
-    if (stopbits == 2)
-        termios_settings.c_cflag |= CSTOPB;
+    if (stopbits == 2) termios_settings.c_cflag |= CSTOPB;
+    if (rtscts) termios_settings.c_cflag |= CRTSCTS;
 
-    /* RTS/CTS */
-    if (rtscts)
-        termios_settings.c_cflag |= CRTSCTS;
-
-    /* Baudrate */
     cfsetispeed(&termios_settings, _serial_baudrate_to_bits(baudrate));
     cfsetospeed(&termios_settings, _serial_baudrate_to_bits(baudrate));
 
-    /* Set termios attributes */
-    if (tcsetattr(serial->fd, TCSANOW, &termios_settings) < 0) {
+    if (tcsetattr(s->fd, TCSANOW, &termios_settings) < 0) {
         int errsv = errno;
-        close(serial->fd);
-        serial->fd = -1;
-        return _serial_error(serial, SERIAL_ERROR_CONFIGURE, errsv, "Setting serial port attributes");
+        close(s->fd);
+        s->fd = -1;
+        return _serial_error(s, SERIAL_ERROR_CONFIGURE, errsv, "Setting serial port attributes");
     }
     return 0;
 }
 
-int serial_write(serial_t *serial, const uint8_t *buf, size_t len) {
+static int serial_write_fd(serial_t *s, const uint8_t *buf, size_t len) {
     ssize_t ret;
-
-    if ((ret = write(serial->fd, buf, len)) < 0)
-        return _serial_error(serial, SERIAL_ERROR_IO, errno, "Writing serial port");
-
-    return ret;
+    if ((ret = write(s->fd, buf, len)) < 0)
+        return _serial_error(s, SERIAL_ERROR_IO, errno, "Writing serial port");
+    return (int)ret;
 }
-int serial_close(serial_t *serial) {
-    if (serial->fd < 0)
-        return 0;
 
-    if (close(serial->fd) < 0)
-        return _serial_error(serial, SERIAL_ERROR_CLOSE, errno, "Closing serial port");
-
-    serial->fd = -1;
-
+static int serial_close_fd(serial_t *s) {
+    if (s->fd < 0) return 0;
+    if (close(s->fd) < 0)
+        return _serial_error(s, SERIAL_ERROR_CLOSE, errno, "Closing serial port");
+    s->fd = -1;
     return 0;
 }
 
-extern uv_loop_t *main_loop;
+/* ---------- UART driver ---------- */
 
 typedef struct {
-    uv_poll_t poll_handle;
-    //uv_write_t write_req;
-    serial_t serial;
-    char* recv_buff;
-    size_t recv_len;
-    //uv_pipe_t stream;
-    bool initialized;
-    char devPath[32];
-
+    pthread_t       read_thread;
+    volatile int    stop_flag;
+    serial_t        serial;
+    char           *recv_buff;
+    size_t          recv_len;
+    bool            initialized;
+    char            devPath[32];
 } SerialPort;
 
-static SerialPort serial[8]={0}; //最多8个串口
+static SerialPort serial[8] = {0};
 
+int l_uart_handler(lua_State *L, void *arg);
 
-static void read_callback(uv_poll_t* handle, int status, int events) {
-    if (status < 0) {
-        // 监听出错（如 fd 关闭），处理错误
-        return;
-    }
-    // 检查是否是“可读”事件（与启动监听时的类型对应）
-    if (events & UV_READABLE) {
+static void *serial_read_thread(void *arg)
+{
+    int uart_id = (int)(intptr_t)arg;
+    SerialPort *sp = &serial[uart_id];
+
+    while (!sp->stop_flag) {
+        struct pollfd pfd = { sp->serial.fd, POLLIN, 0 };
+        int ret = poll(&pfd, 1, 100);
+        if (ret <= 0) continue;
+        if (pfd.revents & (POLLERR | POLLNVAL)) break;
+
         char buf[512];
-        ssize_t nread = read(handle->io_watcher.fd, buf, sizeof(buf)); 
+        ssize_t nread = read(sp->serial.fd, buf, sizeof(buf));
         if (nread > 0) {
-            int uart_id = (int)handle->data;  // 转换回整数
-
-            size_t newsize = serial[uart_id].recv_len + nread;
-            if (serial[uart_id].recv_buff == NULL) {
-                serial[uart_id].recv_buff = luat_heap_malloc(nread);
-                serial[uart_id].recv_len = nread;
-                memcpy(serial[uart_id].recv_buff, buf, nread);
+            size_t newsize = sp->recv_len + (size_t)nread;
+            if (sp->recv_buff == NULL) {
+                sp->recv_buff = luat_heap_malloc((size_t)nread);
+                sp->recv_len  = (size_t)nread;
+                memcpy(sp->recv_buff, buf, (size_t)nread);
+            } else {
+                void *p = luat_heap_realloc(sp->recv_buff, newsize);
+                if (p == NULL) { LLOGE("overflow when uart recv"); continue; }
+                memcpy((char *)p + sp->recv_len, buf, (size_t)nread);
+                sp->recv_buff = p;
+                sp->recv_len  = newsize;
             }
-            else {
-                void* ptr = luat_heap_realloc(serial[uart_id].recv_buff, newsize);
-                if (ptr == NULL) {
-                    LLOGE("overflow when uart recv");
-                    return;
-                }
-                serial[uart_id].recv_buff = ptr;
-                memcpy(serial[uart_id].recv_buff + serial[uart_id].recv_len, buf, nread);
-            }
-            rtos_msg_t msg = {
-                .handler = l_uart_handler,
-                .arg1 = uart_id,
-                .arg2 = nread
-            };
+            rtos_msg_t msg = { .handler = l_uart_handler, .arg1 = uart_id, .arg2 = (int)nread };
             luat_msgbus_put(&msg, 0);
         } else if (nread == 0) {
-            // 串口关闭（如设备断开），可停止监听
-            uv_poll_stop(handle);
+            break;
         }
     }
+    return NULL;
 }
 
-static int uart_setup_nop(void* userdata, luat_uart_t* uart) {
-
+static int uart_setup_nop(void *userdata, luat_uart_t *uart)
+{
+    (void)userdata;
     if (uart->id < 0 || uart->id >= 8) {
         LLOGD("Invalid UART ID: %d", uart->id);
         return -1;
     }
-    SerialPort* sp = &serial[uart->id];
-    // 避免重复初始化  
+    SerialPort *sp = &serial[uart->id];
     if (sp->initialized) {
         LLOGD("UART %d already initialized", uart->id);
         return -1;
     }
-    // if (strlen(sp->devPath)==0) {
-    //     LLOGD("UART %d not initialized", uart->id);
-    //     return -1;
-    // }
-    uint16_t parity=PARITY_NONE;
-    if(uart->parity==1){
-        parity=PARITY_ODD;
-    }else if(uart->parity==2){
-        parity=PARITY_EVEN;
-    }else if(uart->parity==0){
-        parity=PARITY_NONE;//"/dev/ttyAMA0"
-    }
-    // 初始化串口
-   
-    if (serial_open_advanced(&sp->serial,sp->devPath ,uart->baud_rate, uart->data_bits, parity, uart->stop_bits, false, false) < 0) {
+
+    serial_parity_t parity = PARITY_NONE;
+    if (uart->parity == 1)      parity = PARITY_ODD;
+    else if (uart->parity == 2) parity = PARITY_EVEN;
+
+    if (serial_open_advanced(&sp->serial, sp->devPath, uart->baud_rate,
+                             uart->data_bits, parity, uart->stop_bits,
+                             false, false) < 0) {
         return -1;
     }
-    const char *parity_[3] = {"ODD", "EVEN", "NONE"};
-    printf("初始化 uart %d,fd:%d,path:%s,%d,%s\r\n", uart->id,sp->serial.fd,sp->devPath,uart->baud_rate,parity_[parity]); 
-    // 初始化UV轮询
-    int r = uv_poll_init(main_loop, &sp->poll_handle, sp->serial.fd);
-    if (r != 0) {
-        LLOGD("uv_poll_init failed: %s", uv_strerror(r));
-        serial_close(&sp->serial);
-        return -1;
-    } 
-    r = uv_poll_start(&sp->poll_handle, UV_READABLE, read_callback);
-    if (r != 0) {
-        LLOGD("uv_poll_start failed: %s", uv_strerror(r));
-        uv_poll_stop(&sp->poll_handle);
-        serial_close(&sp->serial);
+
+    const char *parity_str[] = {"NONE", "ODD", "EVEN"};
+    printf("init uart %d fd:%d path:%s baud:%d parity:%s\n",
+           uart->id, sp->serial.fd, sp->devPath,
+           uart->baud_rate, parity_str[parity]);
+
+    sp->stop_flag = 0;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    if (pthread_create(&sp->read_thread, &attr, serial_read_thread,
+                       (void *)(intptr_t)uart->id) != 0) {
+        LLOGE("Failed to create serial read thread for uart %d", uart->id);
+        pthread_attr_destroy(&attr);
+        serial_close_fd(&sp->serial);
         return -1;
     }
-    sp->poll_handle.data = (void*)uart->id;;
-    // // 初始化uv_pipe_t
-    // r = uv_pipe_init(main_loop, &sp->stream, 1);
-    // if (r) {
-    //     LLOGD("uv_pipe_init failed: %s", uv_strerror(r));
-    //     uv_poll_stop(&sp->poll_handle);
-    //     serial_close(&sp->serial);
-    //     return -1;
-    // }
-    // // 将串口文件描述符附加到uv_pipe_t
-    // r = uv_pipe_open(&sp->stream, sp->serial.fd);
-    // if (r) {
-    //     LLOGD("uv_pipe_open failed: %s", uv_strerror(r));
-    //     uv_poll_stop(&sp->poll_handle);
-    //     serial_close(&sp->serial);
-    //     return -1;
-    // }
-    
+    pthread_attr_destroy(&attr);
+
     sp->initialized = true;
     return 0;
-
 }
 
-static int uart_write_nop(void* userdata, int uart_id, void* data, size_t length) {
-    if (uart_id < 0 || uart_id >= 8) {
-        return -1;
-    }
-    SerialPort* sp = &serial[uart_id];
+static int uart_write_nop(void *userdata, int uart_id, void *data, size_t length)
+{
+    (void)userdata;
+    if (uart_id < 0 || uart_id >= 8) return -1;
+    SerialPort *sp = &serial[uart_id];
     if (!sp->initialized) {
         memset(sp, 0, sizeof(SerialPort));
-        memcpy(sp->devPath,data,length);
-        printf("UART %d get fd: %s\r\n", uart_id,sp->devPath);
+        memcpy(sp->devPath, data, length < sizeof(sp->devPath) - 1 ? length : sizeof(sp->devPath) - 1);
+        printf("UART %d set dev path: %s\n", uart_id, sp->devPath);
         return -1;
     }
-    if (serial_write(&sp->serial, data, length) < 0) {
+    if (serial_write_fd(&sp->serial, (const uint8_t *)data, length) < 0)
         return -1;
-    }
     return 0;
 }
 
-static int uart_read_nop(void* userdata, int uart_id, void* buffer, size_t length) {
+static int uart_read_nop(void *userdata, int uart_id, void *buffer, size_t length)
+{
+    (void)userdata;
+    if (uart_id < 0 || uart_id >= 8) return -1;
+    SerialPort *sp = &serial[uart_id];
+    if (!sp->initialized || sp->recv_len == 0) return -1;
 
-    if (uart_id < 0 || uart_id >= 8) {
-        return -1;
-    }
-    SerialPort* sp = &serial[uart_id];
-    if (sp->initialized == false) {
-        return -1;
-    }
-    if (sp->recv_len == 0) {
-        return -1;
-    }
-    if (length > sp->recv_len) {
-        length = sp->recv_len;
-    }
-    memcpy(buffer,sp->recv_buff, length);
+    if (length > sp->recv_len) length = sp->recv_len;
+    memcpy(buffer, sp->recv_buff, length);
+
     if (sp->recv_len > length) {
         size_t newsize = sp->recv_len - length;
-        memmove(sp->recv_buff, sp->recv_buff + sp->recv_len, newsize);
-        void* ptr = luat_heap_realloc(sp->recv_buff, newsize);
-        sp->recv_buff = ptr;
-        sp->recv_len = newsize;
-    }
-    else {
+        memmove(sp->recv_buff, sp->recv_buff + length, newsize);
+        void *p = luat_heap_realloc(sp->recv_buff, newsize);
+        sp->recv_buff = p;
+        sp->recv_len  = newsize;
+    } else {
         luat_heap_free(sp->recv_buff);
         sp->recv_buff = NULL;
-        sp->recv_len = 0;
+        sp->recv_len  = 0;
     }
-    return length;
+    return (int)length;
 }
 
-static int uart_close_nop(void* userdata, int uart_id) {
-    if (uart_id < 0 || uart_id >= 8) {
-        return -1;
-    }
-    SerialPort* sp = &serial[uart_id];
-    if (sp->initialized==false) {
-        return -1;
-    }
-    serial_close(&sp->serial);
-    serial_free(&sp->serial);
-    uv_poll_stop(&sp->poll_handle); 
+static int uart_close_nop(void *userdata, int uart_id)
+{
+    (void)userdata;
+    if (uart_id < 0 || uart_id >= 8) return -1;
+    SerialPort *sp = &serial[uart_id];
+    if (!sp->initialized) return -1;
+
+    sp->stop_flag = 1;
+    serial_close_fd(&sp->serial);
     memset(sp, 0, sizeof(SerialPort));
     return 0;
 }
 
-
 const luat_uart_drv_opts_t uart_linux = {
     .setup = uart_setup_nop,
     .write = uart_write_nop,
-    .read = uart_read_nop,
+    .read  = uart_read_nop,
     .close = uart_close_nop,
 };
 

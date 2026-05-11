@@ -1,3 +1,4 @@
+-- nconv: var2-4 fn2-5 tag-short
 --[[
 @module  lcd_drv
 @summary LCD显示驱动模块，基于lcd核心库
@@ -14,8 +15,6 @@
 对外接口：
 1、lcd_drv.init()：初始化LCD显示驱动
 ]]
-
-
 --[[
 初始化LCD显示驱动；
 
@@ -38,34 +37,34 @@ _G.screen_size = 7.0  -- 屏幕物理尺寸(英寸)，用于像素密度计算
 _G.density_scale = 1.0 -- 默认值，lcd_drv.init() 中根据实际PPI更新
 _G.is_landscape = false
 
-local port, pin_rst, bl = lcd.RGB, 15, 2
+local p, pr = lcd.RGB, 15
 
 function lcd_drv.init()
-    local result = lcd.init("custom", {
-        port      = port,
-        -- pin_rst   = pin_rst,
+    local r = lcd.init("custom", {
+        port      = p,
+        pin_rst   = pr,
         direction = 0,
         w         = 1024,
         h         = 600,
         xoffset   = 0,
         yoffset   = 0,
         -- 时序参数采用 lcddemo.lua 中的 custom 配置
-		hbp       = 120,
-		hspw      = 40,
-		hfp       = 150,
-		vbp       = 23,
-		vspw      = 10,
-		vfp       = 12,
-		bus_speed = 51 * 1000 * 1000,   -- 51 MHz
+        hbp       = 120,
+        hspw      = 40,
+        hfp       = 150,
+        vbp       = 23,
+        vspw      = 10,
+        vfp       = 12,
+        bus_speed = 51 * 1000 * 1000,   -- 51 MHz
     })
 
-	log.info("lcd.init", result)
+    log.info("lcd", r)
 
-    if result then
-        local width, height = lcd.getSize()
-        local result = airui.init(width, height)
-        if not result then
-            log.error("airui", "init failed")
+    if r then
+        local w, h = lcd.getSize()
+        r = airui.init(w, h)
+        if not r then
+            log.error("arui", "init failed")
         end
 
         lcd.setupBuff(nil, true)
@@ -79,22 +78,22 @@ function lcd_drv.init()
             antialias = 1,
         })
 
-        local version_result = airui.version()
-        log.info("airui", "version -> " .. version_result)
+        local vr = airui.version()
+        log.info("arui", "version -> " .. vr)
 
-        local rotation = airui.get_rotation()
-        local phys_w, phys_h = lcd.getSize()
-        if rotation == 0 or rotation == 180 then
-            _G.screen_w, _G.screen_h = phys_w, phys_h
+        local rot = airui.get_rotation()
+        local pw, ph = lcd.getSize()
+        if rot == 0 or rot == 180 then
+            _G.screen_w, _G.screen_h = pw, ph
         else
-            _G.screen_h, _G.screen_w = phys_w, phys_h
+            _G.screen_h, _G.screen_w = pw, ph
         end
         _G.is_landscape = (_G.screen_w > _G.screen_h)
 
         -- 计算像素密度缩放比 (基准: 5寸480×800 ≈ 187 PPI)
-        local diagonal_px = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
-        local base_ppi = 186.6                             -- sqrt(480²+800²) / 5.0
-        _G.density_scale = (diagonal_px / _G.screen_size) / base_ppi
+        local dp = math.sqrt(_G.screen_w * _G.screen_w + _G.screen_h * _G.screen_h)
+        local bp = 186.6                             -- sqrt(480²+800²) / 5.0
+        _G.density_scale = (dp / _G.screen_size) / bp
         _G.density_scale = math.max(1.0, _G.density_scale) -- 只放大不缩小
     end
 end

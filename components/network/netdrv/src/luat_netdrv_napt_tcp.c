@@ -96,7 +96,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             tcp_hdr->chksum = alg_tcpudphdr_chksum(ip_hdr->src.addr, ip_hdr->dest.addr,
                 IP_PROTO_TCP, (u16*)tcp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
         }
-        return napt_output_to_wan(ctx, gw, ip_hdr);
+        return napt_output_to_wan(ctx, gw, ip_hdr, tcp_buff);
     }
     // return 0;
 }

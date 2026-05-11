@@ -1,12 +1,17 @@
+-- nconv: var2-4 fn2-5 tag-short
 --[[
 @module  netdrv_device
-@summary 网络驱动设备分发器
+@summary 网络驱动设备分发器，根据平台加载对应网卡驱动
+@version 1.0
+@date    2026.03.26
+@author  江访
 ]]
-local ok, model = pcall(hmeta.model)
-if not ok or not model then model = rtos.bsp() end
-
-if type(model) == "string" and (model:find("Air1601") or model:find("Air1602")) then
-    require "netdrv_dev_air1601"
-else
-    require "netdrv_dev_air8000w"
+if _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
+    require "netdrv_wifi_air1601"
+elseif _G.model_str:find("Air8000") then
+    require "netdrv_4g_air8000w"
+elseif _G.model_str:find("Air8101") then
+    require "netdrv_wifi_air8101"
+elseif _G.model_str:find("PC") then
+    require "netdrv_pc"
 end

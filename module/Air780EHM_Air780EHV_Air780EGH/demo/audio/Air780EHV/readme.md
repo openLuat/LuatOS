@@ -85,7 +85,7 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 | 5/SPK+         |     SPK+            |
 | 6/SPK-         |     SPK-            |
 | 19/GPIO22      |     PA_EN           |
-| 3V3            |     VCC             |
+| VBAT           |     VCC             |
 | GND            |     GND             |
 
 2、TYPE-C USB数据线一根

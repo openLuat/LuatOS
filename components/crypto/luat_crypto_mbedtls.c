@@ -3,6 +3,7 @@
 #include "FreeRTOS.h"
 #endif
 
+#include <stdlib.h>
 #include "luat_base.h"
 #include "luat_crypto.h"
 #include "luat_mem.h"

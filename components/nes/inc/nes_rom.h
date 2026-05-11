@@ -1,41 +1,70 @@
 /*
- * MIT License
+ * Copyright PeakRacing
  *
- * Copyright (c) 2022 Dozingfiretruck
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+#pragma once
 
-#ifndef _NES_ROM_
-#define _NES_ROM_
+#include "nes_default.h"
 
 #ifdef __cplusplus
     extern "C" {
 #endif
 
+#define SRAM_SIZE               (0x2000)      /* 8K */
+
+#define TRAINER_SIZE            (0x200)     /* 512 */
+#define PRG_ROM_UNIT_SIZE       (0x4000)    /* 16K */
+#define CHR_ROM_UNIT_SIZE       (0x2000)    /* 8K */
+
 struct nes;
 typedef struct nes nes_t;
 
+/* INES:    https://www.nesdev.org/wiki/INES */
+typedef struct {
+    uint8_t identification[4];          /*  0-3   Constant $4E $45 $53 $1A (ASCII "NES" followed by MS-DOS end-of-file) */
+    uint8_t prg_rom_size;               /*  4     Size of PRG ROM in 16 KB units */
+    uint8_t chr_rom_size;               /*  5     Size of CHR ROM in 8 KB units (value 0 means the board uses CHR RAM) */
+    struct {
+        uint8_t mirroring:1;            /*  D0    Nametable arrangement: 0: vertical arrangement ("horizontal mirrored") (CIRAM A10 = PPU A11)
+                                                                         1: horizontal arrangement ("vertically mirrored") (CIRAM A10 = PPU A10) */
+        uint8_t save:1;                 /*  D1    Cartridge contains battery-backed PRG RAM ($6000-7FFF) or other persistent memory */
+        uint8_t trainer:1;              /*  D2    512-byte trainer at $7000-$71FF (stored before PRG data) */
+        uint8_t four_screen:1;          /*  D3    Alternative nametable layout */
+        uint8_t mapper_number_l:4;      /*  D4-7  Lower nybble of mapper number */
+    };
+    struct {
+        uint8_t unisystem:1;            /*  D0    VS Unisystem */
+        uint8_t playchoice_10:1;        /*  D1    PlayChoice-10 (8 KB of Hint Screen data stored after CHR data) */
+        uint8_t identifier:2;           /*  D2-3  If equal to 2, flags 8-15 are in NES 2.0 format */
+        uint8_t mapper_number_h:4;      /*  D4-7  Upper nybble of mapper number */
+    }; 
+    uint8_t prg_ram_size;               /*  PRG RAM size */
+    struct {
+        uint8_t tv_system:1;            /*  D0    TV system (0: NTSC; 1: PAL) */
+        uint8_t :7;
+    };
+    struct {
+        uint8_t tv_system_ex:2;         /*  D0-1  TV system (0: NTSC; 2: PAL; 1/3: dual compatible) */
+        uint8_t :2;
+        uint8_t prg_rom:1;              /*  D4  PRG RAM ($6000-$7FFF) (0: present; 1: not present) */
+        uint8_t board_conflicts:1;      /*  D5  0: Board has no bus conflicts; 1: Board has bus conflicts */
+        uint8_t :2;
+    };                                  
+    uint8_t Reserved[5];                /*  11-15 Reserved */
+} nes_header_ines_t;
+
 /* NES 2.0: https://wiki.nesdev.org/w/index.php/NES_2.0 */
-#define TRAINER_SIZE            (0x200)
-#define PRG_ROM_UNIT_SIZE       (0x4000)
-#define CHR_ROM_UNIT_SIZE       (0x2000)
 typedef struct {
     uint8_t identification[4];          /*  0-3   Identification String. Must be "NES<EOF>". */
     uint8_t prg_rom_size_l;             /*  4     PRG-ROM size LSB */
@@ -49,7 +78,7 @@ typedef struct {
     };
     struct {
         uint8_t console_type:2;         /*  D0-1  Console type   0: Nintendo Entertainment System/Family Computer 1: Nintendo Vs. System 2: Nintendo Playchoice 10 3: Extended Console Type */
-        uint8_t identifier2:2;          /*  D2-3  NES 2.0 identifier */
+        uint8_t identifier:2;           /*  D2-3  NES 2.0 identifier */
         uint8_t mapper_number_m:4;      /*  D4-7  Mapper Number D4..D7 */
     }; 
     struct {
@@ -95,7 +124,14 @@ typedef struct {
         uint8_t expansion_device:6;     /*  D0-5  Default Expansion Device */
         uint8_t :2;
     };                                  /*  Default Expansion Device */
-} nes_header_info_t;
+} nes_header_nes2_t;
+
+#if (NES_ROM_STREAM == 1)
+typedef struct {
+    uint16_t tag;                       /*  source page index, 0xFFFF = empty */
+    uint16_t last_used;                 /*  LRU access timestamp */
+} nes_stream_cache_t;
+#endif
 
 typedef struct nes_rom_info{
     uint16_t prg_rom_size;
@@ -107,17 +143,18 @@ typedef struct nes_rom_info{
     uint8_t  mirroring_type;            /*  0: Horizontal or mapper-controlled 1: Vertical */
     uint8_t  four_screen;               /*  0: No 1: Yes */
     uint8_t  save_ram;                  /*  0: Not present 1: Present */
-} nes_rom_info_t;
-
-#if (NES_USE_FS == 1)
-nes_t* nes_load_file(const char* file_path);
+    uint32_t rom_crc;                   /*  PRG+CHR CRC32 computed at load time */
+#if (NES_ROM_STREAM == 1)
+    FILE*    rom_file;                  /*  ROM file handle (kept open for streaming) */
+    long     prg_data_offset;           /*  PRG-ROM data start offset in file */
+    long     chr_data_offset;           /*  CHR-ROM data start offset in file */
+    uint16_t cache_tick;                /*  global LRU access counter */
+    nes_stream_cache_t prg_cache[NES_PRG_CACHE_SLOTS];
+    nes_stream_cache_t chr_cache[NES_CHR_CACHE_SLOTS];
 #endif
-
-nes_t* nes_load_rom(const uint8_t* nes_rom);
-int nes_rom_free(nes_t* nes);
+} nes_rom_info_t;
 
 #ifdef __cplusplus          
     }
 #endif
 
-#endif// _NES_ROM_

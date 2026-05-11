@@ -1,31 +1,22 @@
 /*
- * MIT License
+ * Copyright PeakRacing
  *
- * Copyright (c) 2022 Dozingfiretruck
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+#pragma once
 
-#ifndef _NES_
-#define _NES_
-
-#include "nes_port.h"
+#include "nes_default.h"
+#include "nes_log.h"
 #include "nes_rom.h"
 #include "nes_cpu.h"
 #include "nes_ppu.h"
@@ -36,33 +27,120 @@
     extern "C" {
 #endif
 
+#define NES_VERSION_MAJOR       0
+#define NES_VERSION_MINOR       1
+#define NES_VERSION_PATCH       0
+
+#define STRINGIFY_HELPER(x)     #x
+#define NES_VERSION_STRING      STRINGIFY_HELPER(NES_VERSION_MAJOR) "." STRINGIFY_HELPER(NES_VERSION_MINOR) "." STRINGIFY_HELPER(NES_VERSION_PATCH)
+
 #define NES_NAME                "NES"
+
+#define NES_URL                 "https://github.com/PeakRacing/nes"
+
 #define NES_WIDTH               256
 #define NES_HEIGHT              240
 
-#define NES_OK                  0 
-#define NES_ERROR               -1
+// https://www.nesdev.org/wiki/Cycle_reference_chart
+#define NES_CPU_CLOCK_FREQ      (1789773) // 21.47~ MHz ÷ 12 = 1.789773 MHz
+
+// https://www.nesdev.org/w/images/default/4/4f/Ppu.svg
+#define NES_PPU_CPU_CLOCKS		(113)     // 341 × 4 ÷ 12 = 113 2⁄3
+
+#define NES_OK                  (0) 
+#define NES_ERROR               (-1)
 
 typedef struct nes{
     uint8_t nes_quit;
+#if (NES_FRAME_SKIP != 0)
+    uint8_t nes_frame_skip_count;
+#endif
+    uint16_t scanline;
     nes_rom_info_t nes_rom;
     nes_cpu_t nes_cpu;
     nes_ppu_t nes_ppu;
+#if (NES_ENABLE_SOUND==1)
+    nes_apu_t nes_apu;
+#endif
     nes_mapper_t nes_mapper;
     nes_color_t nes_draw_data[NES_DRAW_SIZE];
 } nes_t;
 
+/*
+ * Allocate and initialize a new NES instance.
+ *
+ * Returns a pointer to the initialized instance, or NULL on failure.
+ */
+nes_t* nes_init(void);
 
-int nes_init(nes_t *nes);
+/*
+ * Deinitialize a NES instance created by nes_init and free its memory.
+ *
+ * Returns NES_OK on success or NES_ERROR on failure.
+ */
 int nes_deinit(nes_t *nes);
 
+/*
+ * Run the main emulation loop until nes_quit is set.
+ */
+void nes_run(nes_t* nes);
+
+#if (NES_USE_FS == 1)
+/*
+ * Load a ROM image from a file.
+ *
+ * Returns NES_OK on success or NES_ERROR on failure.
+ */
+int nes_load_file(nes_t* nes, const char* file_path);
+
+/*
+ * Unload the ROM loaded from a file and release related resources.
+ *
+ * Returns NES_OK on success or NES_ERROR on failure.
+ */
+int nes_unload_file(nes_t* nes);
+#endif
+
+/*
+ * Load a ROM image from a memory buffer.
+ *
+ * Returns NES_OK on success or NES_ERROR on failure.
+ */
+int nes_load_rom(nes_t* nes, const uint8_t* nes_rom);
+
+/*
+ * Unload the currently loaded ROM and release related resources.
+ *
+ * Returns NES_OK on success or NES_ERROR on failure.
+ */
+int nes_unload_rom(nes_t* nes);
+
+/*
+ * Initialize platform-specific resources for an already allocated instance.
+ *
+ * Returns NES_OK on success or NES_ERROR on failure.
+ */
 int nes_initex(nes_t* nes);
+
+/*
+ * Release platform-specific resources without freeing the nes_t instance itself.
+ *
+ * Returns NES_OK on success or NES_ERROR on failure.
+ */
 int nes_deinitex(nes_t* nes);
 
-void nes_run(nes_t* nes);
+/*
+ * Unload ROM and free the entire nes_t instance.
+ * Convenience wrapper combining nes_unload_file/nes_unload_rom + nes_deinitex + nes_free.
+ */
+void nes_rom_free(nes_t* nes);
+
+/*
+ * Platform hook called after each emulated frame.
+ */
+void nes_frame(nes_t* nes);
 
 #ifdef __cplusplus          
     }
 #endif
 
-#endif// _NES_

@@ -1,44 +1,36 @@
 /*
- * MIT License
+ * Copyright PeakRacing
  *
- * Copyright (c) 2022 Dozingfiretruck
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+#pragma once
 
-#ifndef _NES_CPU_
-#define _NES_CPU_
+#include "nes_default.h"
 
 #ifdef __cplusplus
     extern "C" {
 #endif
 
 
-// https://www.nesdev.org/wiki/Controller_reading
+// https://www.nesdev.org/wiki/CPU_memory_map
 #define NES_CPU_RAM_SIZE        0x800   /*  2KB */
-
-struct nes;
-typedef struct nes nes_t;
 
 #define NES_VERCTOR_NMI         0xFFFA  /*  NMI vector (NMI=not maskable interupts) */
 #define NES_VERCTOR_RESET       0xFFFC  /*  Reset vector */
 #define NES_VERCTOR_IRQBRK      0xFFFE  /*  IRQ vector */
+
+struct nes;
+typedef struct nes nes_t;
 
 /*
 Bit No. 15      14      13      12      11      10      9       8
@@ -79,8 +71,8 @@ typedef struct nes_cpu{
     uint8_t A;                          /*  Accumulator */
     uint8_t X;                          /*  Indexes X */
     uint8_t Y;                          /*  Indexes Y */
-    uint16_t PC;                        /*  Program Counter */
     uint8_t SP;                         /*  Stack Pointer */
+    uint16_t PC;                        /*  Program Counter */
     union {
         struct {
             uint8_t C:1;                /*  carry flag (1 on unsigned overflow) */
@@ -94,8 +86,12 @@ typedef struct nes_cpu{
         };
         uint8_t P;                      /*  Status Register */
     };
-    uint32_t cycles;  
-    uint8_t opcode;     
+    uint8_t irq_counter;
+    uint8_t irq_nmi;
+    uint8_t irq_nmi_delay;              /* delayed NMI from $2000 write during VBlank (fires 1 instruction later) */
+    uint8_t irq_pending;                   /*  IRQ line asserted (level-triggered, polled per instruction) */
+    uint8_t opcode;
+    uint16_t cycles;
     uint8_t cpu_ram[NES_CPU_RAM_SIZE];
     uint8_t* prg_banks[4];              /*  4 bank ( 8Kb * 4 ) = 32KB  */
     nes_joypad_t joypad;
@@ -103,12 +99,10 @@ typedef struct nes_cpu{
 
 void nes_cpu_init(nes_t *nes);
 void nes_cpu_reset(nes_t* nes);
+void nes_cpu_irq(nes_t* nes);
 
-void nes_nmi(nes_t* nes);
 void nes_opcode(nes_t* nes,uint16_t ticks);
 
 #ifdef __cplusplus          
     }
 #endif
-
-#endif// _NES_CPU_

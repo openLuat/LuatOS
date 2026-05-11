@@ -102,7 +102,7 @@ int nes_deinitex(nes_t *nes){
     return 0;
 }
 
-int nes_draw(size_t x1, size_t y1, size_t x2, size_t y2, nes_color_t* color_data){
+int nes_draw(int x1, int y1, int x2, int y2, nes_color_t* color_data){
 #ifdef LUAT_USE_AIRUI
     if (g_nes_airui_mode) {
         return nes_airui_video_draw(NULL, x1, y1, x2, y2, color_data);
@@ -115,7 +115,7 @@ int nes_draw(size_t x1, size_t y1, size_t x2, size_t y2, nes_color_t* color_data
 #endif
 }
 
-void nes_frame(void){
+void nes_frame(nes_t* nes){
 #ifdef LUAT_USE_AIRUI
     if (g_nes_airui_mode) {
         nes_airui_video_frame(NULL);
@@ -125,5 +125,13 @@ void nes_frame(void){
     }
 #endif
     luat_timer_us_delay(10);
+}
+
+/* log */
+void nes_log_printf(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
 }
 

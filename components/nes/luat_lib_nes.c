@@ -100,11 +100,11 @@ static int l_nes_init(lua_State *L) {
         nes_set_airui_mode(1);
     }
 #endif
-
-    nes = nes_load_file(nes_rom);
+    nes = nes_init();
     if (!nes){
         return 0;
     }
+    nes_load_file(nes, nes_rom);
     if (luat_rtos_task_create(&nes_thread, 4*1024, 50, "nes", nes_task, nes, 0)){
         return 0;
     }
@@ -137,7 +137,7 @@ static int l_nes_deinit(lua_State *L) {
         }
 
         /* 释放 ROM / PPU 内存 */
-        nes_rom_free(ctx);
+        nes_deinit(ctx);
     }
 
 #ifdef LUAT_USE_AIRUI

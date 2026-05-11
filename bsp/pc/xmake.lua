@@ -79,6 +79,15 @@ add_includedirs(luatos.."luat/include",{public = true})
 
 
 target("luatos-lua")
+
+    -- 用于获取windows模拟器调试信息，打开debug模式
+    -- if is_host("windows") then
+    --     set_symbols("debug")
+    --     add_cflags("/Zi")
+    --     add_cxflags("/Zi")
+    --     add_ldflags("/DEBUG")
+    -- end
+
     -- set kind
     set_kind("binary")
     set_targetdir("$(builddir)/out")

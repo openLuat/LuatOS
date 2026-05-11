@@ -54,6 +54,7 @@ static int airui_table_parse_axis(lua_State *L, int idx, bool *is_row);
  * @int config.style.selected_cell_border_color 选中单元格边框颜色（0xRRGGBB）
  * @int config.style.selected_cell_text_color 选中单元格文字颜色（0xRRGGBB）
  * @int config.border_color 可选的边框颜色（Hex 整数，如 0xff0000）
+ * @function config.on_click 单元格点击回调函数，参数为 (self, row, col, value) 
  * @userdata config.parent 父对象，默认当前屏幕
  * @return userdata Table 对象
  */
@@ -117,6 +118,25 @@ static int l_table_get_cell_text(lua_State *L) {
     const char *text = airui_table_get_cell_text(table, row, col);
     lua_pushstring(L, text ? text : "");
     return 1;
+}
+
+/**
+ * Table:set_on_cell_click(callback)
+ * @api table:set_on_cell_click(callback)
+ * @function callback 回调函数 function(row, col, value) row/col 从 0 开始
+ * @return nil
+ * @usage
+ * tbl:set_on_cell_click(function(row, col, value)
+ *     log.info("table", "clicked cell", row, col, value)
+ * end)
+ */
+static int l_table_set_on_cell_click(lua_State *L) {
+    lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+    lua_pushvalue(L, 2);
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    airui_table_set_on_cell_click(table, ref);
+    return 0;
 }
 
 /**
@@ -509,6 +529,7 @@ void airui_register_table_meta(lua_State *L) {
         {"remove", l_table_remove},
         {"auto_jump_scroll_control", l_table_auto_jump_scroll_control},
         {"auto_marquee_scroll_control", l_table_auto_marquee_scroll_control},
+        {"set_on_cell_click", l_table_set_on_cell_click},
         {"destroy", l_table_destroy},
         {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}

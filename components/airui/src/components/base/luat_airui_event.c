@@ -11,6 +11,7 @@
 #include "lvgl9/src/widgets/button/lv_button.h"
 #include "lvgl9/src/widgets/dropdown/lv_dropdown.h"
 #include "lvgl9/src/widgets/tabview/lv_tabview.h"
+#include "lvgl9/src/widgets/table/lv_table.h"
 #include "lvgl9/src/misc/lv_event.h"
 #include <string.h>
 
@@ -249,6 +250,16 @@ void airui_component_call_callback(
                  meta->component_type == AIRUI_COMPONENT_TABVIEW) {
             lua_pushinteger(L_state, lv_tabview_get_tab_active(meta->obj));
             arg_count++;
+        }
+        else if (event_type == AIRUI_EVENT_VALUE_CHANGED &&
+                 meta->component_type == AIRUI_COMPONENT_TABLE) {
+            uint32_t row = 0, col = 0;
+            lv_table_get_selected_cell(meta->obj, &row, &col);
+            lua_pushinteger(L_state, (lua_Integer)row);
+            lua_pushinteger(L_state, (lua_Integer)col);
+            const char *value = lv_table_get_cell_value(meta->obj, row, col);
+            lua_pushstring(L_state, value ? value : "");
+            arg_count += 3;
         }
         
         // 调用回调函数

@@ -515,6 +515,7 @@ int airui_table_auto_marquee_scroll_control(lv_obj_t *table,
                                             uint32_t interval,
                                             bool loop,
                                             uint16_t speed); //控制跑马灯滚动
+int airui_table_set_on_cell_click(lv_obj_t *table, int callback_ref); //设置单元格点击回调
 
 /**
  * TabView 组件创建

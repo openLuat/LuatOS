@@ -69,7 +69,7 @@ local ifs = 0
 local mdl = 2 -- 描述最大行数，动态计算
 
 -- 按钮自适应参数
-local cbh = math.floor(32 * _G.density_scale)
+local cbh = math.floor(32 * (_G.density_scale or 1.0))
 local cbbm = 8
 local cp = 1
 local tp = 0

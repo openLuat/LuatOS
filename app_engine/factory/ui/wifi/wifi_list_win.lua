@@ -11,7 +11,7 @@ require "wifi_detail_win"
 
 local SCREEN_W, SCREEN_H = 480, 800
 local MARGIN = 15
-local TITLE_H = math.floor(60 * _G.density_scale)
+local TITLE_H = math.floor(60 * (_G.density_scale or 1.0))
 local CARD_H = 60
 
 local COLOR_PRIMARY  = 0x007AFF

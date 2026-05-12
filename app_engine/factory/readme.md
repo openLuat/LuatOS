@@ -20,7 +20,7 @@
 1. **lcd_drv_air1601_5in.lua** - Air1601 5 寸屏 LCD 驱动（NV3052C，RGB 接口，720×1280）
 2. **tp_drv_air1601_5in.lua** - Air1601 5 寸屏触摸驱动（GT911，I2C1）
 
-3. **lcd_drv_air1601_7in.lua** - Air1601 7 寸屏 LCD 驱动（RGB 接口，1024×600）
+3. **lcd_drv_air1601_7_10.lua** - Air1601 7 寸屏 LCD 驱动（RGB 接口，1024×600）
 4. **lcd_drv_air1601_10in.lua** - Air1601 10 寸屏 LCD 驱动（RGB 接口，1024×600）
 
 5. **tp_drv_air1601_7or10.lua** - Air1601 7/10 寸屏触摸驱动（GT911，I2C1）
@@ -122,7 +122,7 @@ elseif _G.model_str:find("Air8101") then
 elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
     -- 根据实际屏幕尺寸选择对应 LCD 驱动（三选一）
     lcd_drv = require "lcd_drv_air1601_5in"
-    -- lcd_drv = require "lcd_drv_air1601_7in"
+    -- lcd_drv = require "lcd_drv_air1601_7_10"
     -- lcd_drv = require "lcd_drv_air1601_10in"
 
     -- 触摸驱动（5 寸和 7/10 寸二选一）

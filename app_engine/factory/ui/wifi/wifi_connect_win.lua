@@ -9,7 +9,7 @@
 
 local SCREEN_W, SCREEN_H = 480, 800
 local MARGIN = 15
-local TITLE_H = math.floor(60 * _G.density_scale)
+local TITLE_H = math.floor(60 * (_G.density_scale or 1.0))
 local BUTTON_H = 50
 local SPACING = 10
 

@@ -36,15 +36,16 @@ local ap = 0
 local gm = 8
 local gtp = 16
 
-local btfs = math.floor(100 * _G.density_scale)
+local ds = _G.density_scale or 1.0
+local btfs = math.floor(100 * ds)
 local bty = 20
 local dy = 130
-local dfs = math.floor(20 * _G.density_scale)
-local qs = math.floor(130 * _G.density_scale)
+local dfs = math.floor(20 * ds)
+local qs = math.floor(130 * ds)
 local qy = 190
 local by = 0
-local bbw = math.floor(80 * _G.density_scale)
-local bbs = math.floor(20 * _G.density_scale)
+local bbw = math.floor(80 * ds)
+local bbs = math.floor(20 * ds)
 
 local tt = nil
 local eac = {}

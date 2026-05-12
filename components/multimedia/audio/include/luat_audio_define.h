@@ -128,6 +128,7 @@ struct luat_audio_request_block;
  */
 struct luat_audio_channel;
 
+extern unsigned char luat_audio_debug_flag;
 #endif
 
 /** @} */

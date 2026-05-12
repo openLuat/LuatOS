@@ -9,10 +9,12 @@
 #include "luat_rtos.h"
 #include "luat_mem.h"
 #include "luat_rtos_legacy.h"
+#include <sys/_types.h>
 #define LUAT_LOG_TAG "audio_core"
 #include "luat_log.h"
 #include "luat_gpio.h"
 
+unsigned char luat_audio_debug_flag;
 enum {
 	LUAT_AUDIO_EV_TX_NEED_DATA = 0x01,
 	LUAT_AUDIO_EV_TX_NO_DATA,
@@ -134,7 +136,7 @@ static int _audio_tts_output_callback(void *data, uint32_t param, void *user_dat
 	if (data) {
 		while(!request_block->user_stop && luat_fifo_check_free_space(request_block->data_channel->play_fifo) >= request_block->codec.opts->decode_max_output_len * ((request_block->data_channel->driver_ctrl->data_align == 3)?4:request_block->data_channel->driver_ctrl->data_align))
 		{
-			LLOGD("tts wait fifo space %d", luat_fifo_check_free_space(request_block->data_channel->play_fifo));
+			LLOGC(luat_audio_debug_flag, "tts wait fifo space %d", luat_fifo_check_free_space(request_block->data_channel->play_fifo));
 			if (luat_rtos_semaphore_take(_luat_audio.tts_wait_sem, 1000)) {
 				LLOGE("tts wait timeout");
 				return -1;
@@ -307,7 +309,7 @@ int luat_audio_request(luat_audio_request_block_t *req)
 	if (!req) {
 		return -LUAT_ERROR_PARAM_INVALID;
 	}
-	LLOGD("request_id: %d add in request_block_list", req->request_id);
+	LLOGC(luat_audio_debug_flag, "request_id: %d add in request_block_list", req->request_id);
 	luat_mutex_lock(_luat_audio.request_lock);
 	if (luat_llist_empty(&_luat_audio.request_block_list)) {
 		luat_llist_add(&req->node, &_luat_audio.request_block_list);
@@ -325,12 +327,12 @@ int luat_audio_request_cancel(luat_audio_request_block_t *req)
 	if (!req) {
 		return -LUAT_ERROR_PARAM_INVALID;
 	}
-	LLOGD("request_id: %d cancel", req->request_id);
+	LLOGC(luat_audio_debug_flag, "request_id: %d cancel", req->request_id);
 	luat_mutex_lock(_luat_audio.request_lock);
 	luat_llist_del(&req->node);
 	if (_luat_audio.request_block) {
 		if (req->request_id == _luat_audio.request_block->request_id) {
-			LLOGD("now work request_id: %d cancel", req->request_id);
+			LLOGC(luat_audio_debug_flag, "now work request_id: %d cancel", req->request_id);
 			_luat_audio.request_block = NULL;
 		}
 	}
@@ -347,3 +349,9 @@ void luat_audio_base_init(void)
 	luat_mutex_lock(_luat_audio.tts_wait_sem);
 	LUAT_INIT_LLIST_HEAD(&_luat_audio.request_block_list);
 }
+
+void luat_audio_debug_switch(uint8_t on_off)
+{
+	luat_audio_debug_flag = on_off;
+}
+

@@ -24,6 +24,7 @@ struct luat_audio_driver_probe
     uint8_t bus_type;
     uint8_t bus_id;
 };
+
 /**
  * @brief 音频驱动控制器结构
  * 
@@ -96,7 +97,7 @@ typedef struct luat_audio_driver_opts {
      * @param value2 第二个配置值，根据具体参数而定
      * @return int 成功返回0，失败返回负值错误码
      */
-    int (*config)(struct luat_audio_driver_ctrl *ctrl, uint32_t param, uint32_t value1, uint32_t value2);
+    int (*config_private_param)(struct luat_audio_driver_ctrl *ctrl, uint32_t param, uint32_t value1, uint32_t value2);
     
     /**
      * @brief 激活音频驱动, 初始化和配置完成后调用，主要包括退出低功耗，提供I2S MCLK等
@@ -105,14 +106,14 @@ typedef struct luat_audio_driver_opts {
      */
     int (*activate)(struct luat_audio_driver_ctrl *ctrl);
     /**
-     * @brief 修改音频通用参数
+     * @brief 修改音频通用参数，如果采样率无法支持，返回错误码，data_bits和channel_nums不支持则选择最优值。配置成功后更新ctrl->data_align和ctrl->channel_nums
      * @param ctrl 驱动控制器指针
      * @param sample_rate 采样率 (Hz)
-     * @param data_align 数据对齐方式
-     * @param channel 声道配置 (见 LUAT_AUDIO_CHANNEL_* 枚举)
+     * @param data_bits 数据位数 (8-32位)
+     * @param channel_nums 声道数量
      * @return int 成功返回0，失败返回负值错误码
      */
-    int (*modify)(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_align, uint8_t channel);
+    int (*modify_audio_common_param)(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_bits, uint8_t channel_nums);
     
     /**
      * @brief 改变音频采样率，允许在播放过程中改变
@@ -158,7 +159,7 @@ typedef struct luat_audio_driver_opts {
      * @param record_buff 录音缓冲区数组指针
      * @param one_record_block_len 单个录音缓冲区块长度 (字节)
      * @param record_block_num 录音缓存区块数量 
-     * @return int 成功返回0，失败返回负值错误码
+     * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
      */
     int (*start_full_loop)(struct luat_audio_driver_ctrl *ctrl, uint32_t **play_buff, uint32_t one_play_block_len, uint32_t play_block_num,uint32_t **record_buff, uint32_t one_record_block_len, uint32_t record_block_num);
     
@@ -175,18 +176,18 @@ typedef struct luat_audio_driver_opts {
      */
     int (*start_full_loop_with_play_buff)(struct luat_audio_driver_ctrl *ctrl, uint32_t *play_buff, uint32_t one_play_block_len, uint32_t play_block_num,uint32_t **record_buff, uint32_t one_record_block_len, uint32_t record_block_num);
     /**
-     * @brief 停止播放循环、录音循环或全双工循环
+     * @brief 停止播放循环、录音循环或全双工循环，必须保证成功
      * @param ctrl 驱动控制器指针
      */
     void (*stop)(struct luat_audio_driver_ctrl *ctrl);
 
     /**
-     * @brief 反激活音频驱动，主要包括进入低功耗模式，关闭I2S MCLK等
+     * @brief 反激活音频驱动，主要包括进入低功耗模式，关闭I2S MCLK等，必须保证成功
      * @param ctrl 驱动控制器指针
      */
     void (*deactivate)(struct luat_audio_driver_ctrl *ctrl);
     /**
-     * @brief 反初始化驱动
+     * @brief 反初始化驱动，必须保证成功
      * @param ctrl 驱动控制器指针
      */
     void (*deinit)(struct luat_audio_driver_ctrl *ctrl);
@@ -215,20 +216,97 @@ typedef struct luat_audio_driver_probe luat_audio_driver_probe_t;
  * @param pa_power_pin PA电源引脚
  * @param pa_power_on_level PA电源电平
  * @param pa_power_on_delay_time_ms PA电源上电延迟时间 (毫秒)
- * @return int 成功返回0，失败返回负值错误码
+ * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
  */
 int luat_audio_driver_config_pa_power_ctrl(struct luat_audio_driver_ctrl *ctrl, uint8_t pa_power_ctrl_enable, uint8_t pa_power_pin,
     uint8_t pa_power_on_level, uint16_t pa_power_on_delay_time_ms);
 
+/**
+    * @brief 配置音频驱动的CODEC控制
+    * @param ctrl 驱动控制器指针
+    * @param codec_power_ctrl_enable 是否启用CODEC控制
+    * @param codec_power_pin CODEC电源引脚
+    * @param codec_power_on_level CODEC电源电平
+    * @param codec_ready_after_wakeup_time_ms CODEC上电后等待时间 (毫秒)
+    * @param codec_power_off_delay_time_ms CODEC电源下电延迟时间 (毫秒)
+    * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
+    */ 
 int luat_audio_driver_config_codec_power_ctrl(struct luat_audio_driver_ctrl *ctrl, uint8_t codec_power_ctrl_enable, uint8_t codec_power_pin,
     uint8_t codec_power_on_level, uint32_t codec_ready_after_wakeup_time_ms, uint16_t codec_power_off_delay_time_ms);
 
+/**
+ * @brief 配置音频驱动的私有参数
+ * @param ctrl 驱动控制器指针
+ * @param param 参数
+ * @param value1 参数值1
+ * @param value2 参数值2
+ * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
+ */
+int luat_audio_driver_config_private_param(struct luat_audio_driver_ctrl *ctrl, uint32_t param, uint32_t value1, uint32_t value2);
+
+/**
+ * @brief 配置音频驱动的音频公共参数
+ * @param ctrl 驱动控制器指针
+ * @param sample_rate 采样率
+ * @param data_bits 数据位数
+ * @param channel_nums 声道数量
+ * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
+ */
+int luat_audio_driver_config_audio_common_param(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_bits, uint8_t channel_nums);
+
+/**
+ * @brief 改变音频驱动的采样率
+ * @param ctrl 驱动控制器指针
+ * @param sample_rate 采样率
+ * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
+ */
+int luat_audio_driver_change_sample_rate(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate);
+
+/**
+ * @brief 启动音频驱动的播放循环、录音循环或全双工循环
+ * @param ctrl 驱动控制器指针
+ * @param mode 模式，0: 播放循环，1: 录音循环，2: 全双工循环，3：全双工循环带预分配的播放缓存，仅适用于Air780EXX系列
+ * @param play_buff 播放缓冲区数组指针
+ * @param one_block_len 单个缓冲区块长度 (字节)
+ * @param block_nums 缓冲区块数量
+ * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
+ */
 int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, uint8_t mode, uint32_t *play_buff, uint32_t one_block_len, uint8_t block_nums);
+/**
+ * @brief 关闭音频驱动的PA电源
+ * @param ctrl 驱动控制器指针
+ * @return 无
+ */
+void luat_audio_driver_pa_power_off(struct luat_audio_driver_ctrl *ctrl);
+/**
+ * @brief 关闭音频驱动的CODEC电源
+ * @param ctrl 驱动控制器指针
+ * @return 无
+ */
+void luat_audio_driver_codec_power_off(struct luat_audio_driver_ctrl *ctrl);
+/**
+ * @brief 停止音频驱动的播放循环、录音循环或全双工循环
+ * @param ctrl 驱动控制器指针
+ * @return 无
+ */
+void luat_audio_driver_stop(struct luat_audio_driver_ctrl *ctrl);
 
-int luat_audio_driver_stop(struct luat_audio_driver_ctrl *ctrl);
+/**
+ * @brief 反激活音频驱动，主要包括进入低功耗模式，关闭I2S MCLK等
+ * @param ctrl 驱动控制器指针
+ * @return 无 
+ */
+void luat_audio_driver_deactivate(struct luat_audio_driver_ctrl *ctrl);
 
-int luat_audio_driver_deactivate(struct luat_audio_driver_ctrl *ctrl);
-
+/**
+ * @brief 填充默认音频数据到播放缓存
+ * @param ctrl 驱动控制器指针
+ * @param play_buff 播放缓冲区数组指针
+ * @param len_bytes 缓冲区块数量 (字节)
+ * @param is_signed 是否为有符号数据
+ * @param align 数据对齐方式
+ * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
+ */
 int luat_audio_driver_fill_default(struct luat_audio_driver_ctrl *ctrl, uint8_t *play_buff, uint32_t len_bytes, uint8_t is_signed, uint8_t align);
 #endif
 

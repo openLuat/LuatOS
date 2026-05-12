@@ -34,10 +34,11 @@ struct luat_audio_channel {
     luat_fifo_t *forward_fifo;                 /**< 转发数据FIFO缓冲区（用于音频转发） */
     uint32_t play_fifo_need_data_level;        /**< 播放缓存需要更多数据的临界点 */
     uint32_t record_fifo_enough_data_level;      /**< 录放缓存有足够数据可以处理的临界点 */
-    void *lock_mutex;                          /**< 互斥锁指针，用于线程安全的数据访问 */
+    void *play_lock_mutex;                          /**< 播放数据写入保护 */
     struct luat_audio_driver_ctrl *driver_ctrl; /**< 关联的音频驱动控制器指针 */
     struct luat_audio_request_block *play_request_block;   /**< 当前播放请求块指针 */
     struct luat_audio_request_block *record_request_block; /**< 当前录音请求块指针 */
+    uint32_t soft_vol;                          /**< 软件音量控制（0-1000） 1000为10倍 */
     uint8_t play_state;                        /**< 当前播放状态（0=停止, 1=播放） */
     uint8_t record_state;                      /**< 当前录音状态（0=停止, 1=录音, 2=转发） */
     uint8_t error_record_overflow;             /**< 录音溢出错误标志位 */
@@ -89,6 +90,21 @@ int luat_audio_channel_play(luat_audio_channel_t *channel, uint8_t is_play);
  */
 int luat_audio_channel_record(luat_audio_channel_t *channel, uint8_t record_state);
 
+/**
+ * @brief 写入音频通道数据
+ * @param channel 音频通道指针，必须指向有效的 luat_audio_channel_t 结构
+ * @param data 数据指针，指向要写入的音频数据
+ * @param len_bytes 数据长度（字节）
+ * @param written_bytes 实际写入的字节数指针，用于返回写入的字节数
+ * @param is_signed 是否有符号（1=有符号，0=无符号）
+ * @param data_align 数据对齐方式（2=16位, 3=24位, 4=32位）
+ * @param channel_nums 通道数（1=单声道, 2=双声道）
+ * @return int 成功返回 0，失败返回负值错误码
+ * 
+ * 此函数会将指定的音频数据写入音频通道的播放FIFO缓冲区。
+ * 调用前确保 channel 指针有效且已被初始化。
+ */
+int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uint32_t len_bytes, uint32_t *written_bytes, uint8_t is_signed,uint8_t data_align, uint8_t channel_nums);
 #endif
 
 /** @} */

@@ -56,6 +56,7 @@ struct luat_audio_request_block {
     //uint8_t decode_state;                    /**< 解码状态 */
     uint8_t is_stream;                       /**< 是否为流式请求 */
     uint8_t is_stream_end;                   /**< 是否为流式请求结束 */
+    uint8_t user_stop;                       /**< 用户是否请求停止 */
     uint8_t priority;                        /**< 请求优先级 (0-255) */
 };
 

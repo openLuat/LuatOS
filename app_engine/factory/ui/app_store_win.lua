@@ -57,6 +57,7 @@ local sbrw = 0
 local acw, ach = 0, 0
 local agw, agh = 0, 0
 local pbw = 0
+local sort_by = 0
 
 local gm = 8
 local cw, ch = 0, 0
@@ -410,8 +411,7 @@ local function cui()
         w = screen_w,
         h = 200,
         bg_color = COLOR_CARD,
-        on_commit = function(self)         -- 确认事件回调，只有在按下确认键时才会触发
-            -- 隐藏键盘
+        on_commit = function(self)
             self:hide()
         end,
     })
@@ -451,11 +451,11 @@ local function cui()
         y = th,
         w = sbrw,
         h = sh,
-        color =
-            COLOR_CARD
+        color = COLOR_CARD
     })
     local stbh = math.min(36, math.floor(sh * 0.85))
     local stbr = math.floor(stbh / 2)
+    sort_by = math.floor((sh - stbh) / 2)
     local sddx = math.floor(12 * _G.density_scale)
     local sddw = math.min(150, math.floor((screen_w - sddx - 90) * 0.65))
     local srfx = sddx + sddw + 20
@@ -500,8 +500,7 @@ local function cui()
         x = 0,
         y = th + sh,
         w = sw,
-        h =
-            aah,
+        h = aah,
         color = COLOR_CARD
     })
     local cy = 16
@@ -533,8 +532,7 @@ local function cui()
                     local act = (cats[idx] == cat)
                     bo:set_style({
                         bg_color = act and COLOR_PRIMARY or COLOR_CARD,
-                        text_color = act and
-                            COLOR_WHITE or COLOR_TEXT
+                        text_color = act and COLOR_WHITE or COLOR_TEXT
                     })
                 end
                 cp = 1
@@ -551,8 +549,7 @@ local function cui()
         x = sw,
         y = th + sh,
         w = acw,
-        h =
-            ach - pbh,
+        h = ach - pbh,
         color = COLOR_BG,
         scrollable = true,
     })
@@ -561,8 +558,7 @@ local function cui()
         x = gm,
         y = gm,
         w = agw,
-        h =
-            agh,
+        h = agh,
         color = COLOR_BG
     })
 
@@ -572,8 +568,7 @@ local function cui()
         parent = mc,
         x = sw,
         y = screen_h - pbh,
-        w = screen_w -
-            sw,
+        w = screen_w - sw,
         h = pbh,
         color = COLOR_CARD
     })
@@ -756,8 +751,7 @@ local function ra(apps, more)
                             on_action = function(self, lb)
                                 if lb == "确定" then
                                     spd(app.title or app.name)
-                                    sys.publish("APP_STORE_UPDATE", tostring(app.aid), app.url, app.title or app.name,
-                                        cc, cs)
+                                    sys.publish("APP_STORE_UPDATE", tostring(app.aid), app.url, app.title or app.name, cc, cs)
                                 end
                                 self:hide()
                             end
@@ -835,8 +829,7 @@ local function ra(apps, more)
                         on_action = function(self, lb)
                             if lb == "确定" then
                                 spd(app.title or app.name)
-                                sys.publish("APP_STORE_INSTALL", tostring(app.aid), app.url, app.title or app.name,
-                                    cc, cs)
+                                sys.publish("APP_STORE_INSTALL", tostring(app.aid), app.url, app.title or app.name, cc, cs)
                             end
                             self:hide()
                         end
@@ -998,6 +991,9 @@ local function oad(aid, ac, sc)
         elseif ac == "uninstall" and sc then
             lii[key] = false
         end
+
+        -- 后台用当前页码重新请求服务端数据，不跳回第1页
+        sys.publish("APP_STORE_GET_LIST", cc, cs, cp, plim, cq)
     end
 end
 

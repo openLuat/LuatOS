@@ -1018,6 +1018,7 @@ function modbus:read_internal(config)
                 -- 解析响应数据；
                 parsed_data = parse_rtu_response(response, config, function_code)
                 parsed_data.raw_response = response
+                parsed_data.raw_request = request_frame
             end
 
         -- 用户传入原始请求帧；
@@ -1030,6 +1031,7 @@ function modbus:read_internal(config)
                 -- 直接返回响应结果和原始响应数据；
                 parsed_data.status = exmodbus_ref.STATUS_SUCCESS
                 parsed_data.raw_response = response
+                parsed_data.raw_request = config.raw_request
             end
         end
 
@@ -1079,6 +1081,7 @@ function modbus:write_internal(config)
                 -- 解析响应数据；
                 parsed_data = parse_rtu_response(response, config, function_code)
                 parsed_data.raw_response = response
+                parsed_data.raw_request = request_frame
             end
 
         -- 用户传入原始请求帧；
@@ -1091,6 +1094,7 @@ function modbus:write_internal(config)
                 -- 直接返回响应结果和原始响应数据；
                 parsed_data.status = exmodbus_ref.STATUS_SUCCESS
                 parsed_data.raw_response = response
+                parsed_data.raw_request = config.raw_request
             end
         end
 

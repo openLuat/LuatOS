@@ -535,8 +535,29 @@ local function setup_airlink_4G(config)
     return adapter_id
 end
 
--- airlink_wifi网卡开启（Air1601 WHALE WiFi方案）
+-- Air1601 WiFi硬件初始化
+-- 使能6205模组（GPIO12拉高），配置UART3引脚（GPIO22/23）
+local function airlink_wifi_hardware_init()
+    -- WiFi使能GPIO（Air1601核心板，GPIO12拉高使能6205模组）
+    local wifi_en = gpio.setup(12, 0)
+
+    -- 将串口对应的GPIO设置为输入拉低模式
+    gpio.setup(22, nil, gpio.PULLDOWN)
+    gpio.setup(23, nil, gpio.PULLDOWN)
+    sys.wait(1000)
+    wifi_en(1) -- 拉高WiFi使能GPIO
+    sys.wait(1000)
+    -- 关闭串口对应的GPIO引脚功能
+    gpio.close(22)
+    gpio.close(23)
+    log.info("airlink_wifi_hardware_init", "6205模组硬件初始化完成")
+end
+
+-- airlink_wifi网卡开启（Air1601 E WiFi方案）
 local function setup_airlink_wifi(config)
+    -- 先进行WiFi硬件初始化
+    airlink_wifi_hardware_init()
+
     if config.auto_socket_switch ~= nil then
         auto_socket_switch = config.auto_socket_switch
     end

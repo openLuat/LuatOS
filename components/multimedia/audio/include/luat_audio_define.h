@@ -40,7 +40,20 @@ enum {
 
     LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE = 0, /**< 播放1个block完成事件 */
     LUAT_AUDIO_DRIVER_EVENT_RX_ONE_BLOCK_DONE, /**< 录音1个block完成事件 */
+    /**
+     * @brief 音频驱动状态枚举
+     * 
+     * 定义音频驱动的运行状态，包括空闲和运行。
+     */
+    LUAT_AUDIO_DRIVER_STATE_IDLE = 0, /**< 空闲状态 */
+    LUAT_AUDIO_DRIVER_STATE_INITED, /**< 初始化状态 */
+    LUAT_AUDIO_DRIVER_STATE_ACTIVE, /**< 激活状态 */
+    LUAT_AUDIO_DRIVER_STATE_RUNNING, /**< 运行状态 */
 
+    LUAT_AUDIO_DRIVER_MODE_PLAY = 0, /**< 播放模式 */
+    LUAT_AUDIO_DRIVER_MODE_RECORD, /**< 录音模式 */
+    LUAT_AUDIO_DRIVER_MODE_CALL, /**< 通话模式 */
+    LUAT_AUDIO_DRIVER_MODE_CALL_WITH_BUFFER, /**< 通话带缓冲区模式 */
 
     LUAT_AUDIO_CODEC_TYPE_WAV = 0, /**< WAV 编解码器 */
     LUAT_AUDIO_CODEC_TYPE_AMR,     /**< AMR 编解码器 */
@@ -53,6 +66,9 @@ enum {
     LUAT_AUDIO_CODEC_DECODE_DONE = 0, /**< 编码完成状态 */
 
     LUAT_AUDIO_CHANNEL_TX_FIFO_DONE = 0, /**< 发送FIFO完成状态 */
+
+    LUAT_AUDIO_TTS_EVENT_START = 0, /**< TTS 开始事件 */
+    LUAT_AUDIO_TTS_EVENT_NEW_DATA, /**< TTS 新数据可用事件 */
 };
 
 /**

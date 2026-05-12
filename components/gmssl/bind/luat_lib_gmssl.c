@@ -134,37 +134,51 @@ static int l_sm2_encrypt(lua_State *L)
         return 0;
     }
 
-    uint8_t out[SM2_MAX_CIPHERTEXT_SIZE] = {0};
+    uint8_t *out = (uint8_t *)luat_heap_malloc(SM2_MAX_CIPHERTEXT_SIZE);
+    if (!out) {
+        LLOGE("out of memory for sm2 encrypt output");
+        return 0;
+    }
+    memset(out, 0, SM2_MAX_CIPHERTEXT_SIZE);
     size_t olen = 0;
     if (mode == 1) {
-        SM2_CIPHERTEXT C = {0};
-        ret = sm2_do_encrypt(&sm2, (const uint8_t *)pBuf, pBufLen, &C);
+        SM2_CIPHERTEXT *C = (SM2_CIPHERTEXT *)luat_heap_malloc(sizeof(SM2_CIPHERTEXT));
+        if (!C) {
+            luat_heap_free(out);
+            LLOGE("out of memory for sm2 ciphertext struct");
+            return 0;
+        }
+        memset(C, 0, sizeof(SM2_CIPHERTEXT));
+        ret = sm2_do_encrypt(&sm2, (const uint8_t *)pBuf, pBufLen, C);
         if (ret == 1) {
             if (mode2 == 0) {
-                memcpy(out, &C.point.x, 32);
-                memcpy(out + 32, &C.point.y, 32);
-                memcpy(out + 64, C.hash, 32);
-                memcpy(out + 96, C.ciphertext, C.ciphertext_size);
-                olen = 96 + C.ciphertext_size;
+                memcpy(out, &C->point.x, 32);
+                memcpy(out + 32, &C->point.y, 32);
+                memcpy(out + 64, C->hash, 32);
+                memcpy(out + 96, C->ciphertext, C->ciphertext_size);
+                olen = 96 + C->ciphertext_size;
             }
             else {
                 out[0] = 0x04;
-                memcpy(out + 1, &C.point.x, 32);
-                memcpy(out + 32 + 1, &C.point.y, 32);
-                memcpy(out + 64 + 1, C.ciphertext, C.ciphertext_size);
-                memcpy(out + 64 + C.ciphertext_size + 1, C.hash, 32);
-                olen = 96 + C.ciphertext_size + 1;
+                memcpy(out + 1, &C->point.x, 32);
+                memcpy(out + 32 + 1, &C->point.y, 32);
+                memcpy(out + 64 + 1, C->ciphertext, C->ciphertext_size);
+                memcpy(out + 64 + C->ciphertext_size + 1, C->hash, 32);
+                olen = 96 + C->ciphertext_size + 1;
             }
         }
+        luat_heap_free(C);
     }
     else {
         ret = sm2_encrypt(&sm2, (const uint8_t *)pBuf, pBufLen, out, &olen);
     }
     if (ret != 1) {
+        luat_heap_free(out);
         LLOGD("sm2_encrypt ret %d", ret);
         return 0;
     }
     lua_pushlstring(L, (char*)out, olen);
+    luat_heap_free(out);
     return 1;
 }
 
@@ -210,44 +224,72 @@ static int l_sm2_decrypt(lua_State *L)
     }
     
     SM2_KEY sm2 = {0};
-    char out[512] = {0};
+    char *out = (char *)luat_heap_malloc(SM2_MAX_PLAINTEXT_SIZE + 1);
+    if (!out) {
+        LLOGE("out of memory for sm2 decrypt output");
+        return 0;
+    }
+    memset(out, 0, SM2_MAX_PLAINTEXT_SIZE + 1);
     size_t olen = 0;
     luat_str_fromhex(private, 64, (char*)sm2.private_key);
 
     if (mode) {
         // LLOGD("网站兼容模式");
-        SM2_CIPHERTEXT C = {0};
+        SM2_CIPHERTEXT *C = (SM2_CIPHERTEXT *)luat_heap_malloc(sizeof(SM2_CIPHERTEXT));
+        if (!C) {
+            luat_heap_free(out);
+            LLOGE("out of memory for sm2 ciphertext struct");
+            return 0;
+        }
+        memset(C, 0, sizeof(SM2_CIPHERTEXT));
         if (mode2 == 0) {
             // LLOGD("C1C3C2");
-            C.ciphertext_size = (uint8_t)(pBufLen - 96);
-            // LLOGD("pBufLen %d ciphertext_size %d", pBufLen, C.ciphertext_size);
-            memcpy(&C.point.x, pBuf, 32);
-            memcpy(&C.point.y, pBuf + 32, 32);
-            memcpy(C.hash, pBuf + 64, 32);
-            memcpy(C.ciphertext, pBuf + 96, C.ciphertext_size);
+            size_t ct_size = pBufLen - 96;
+            if (ct_size > SM2_MAX_PLAINTEXT_SIZE) {
+                luat_heap_free(C);
+                luat_heap_free(out);
+                LLOGE("ciphertext too large: %d", (int)ct_size);
+                return 0;
+            }
+            C->ciphertext_size = (uint32_t)ct_size;
+            // LLOGD("pBufLen %d ciphertext_size %d", pBufLen, C->ciphertext_size);
+            memcpy(&C->point.x, pBuf, 32);
+            memcpy(&C->point.y, pBuf + 32, 32);
+            memcpy(C->hash, pBuf + 64, 32);
+            memcpy(C->ciphertext, pBuf + 96, C->ciphertext_size);
         }
         else {
-            // LLOGD("C1C2C3");
+            // LLOGD("C1C2C3")
             pBuf ++;
             pBufLen --;
-            C.ciphertext_size = (uint8_t)(pBufLen - 96);
-            // LLOGD("pBufLen %d ciphertext_size %d", pBufLen, C.ciphertext_size);
-            memcpy(&C.point.x, pBuf, 32);
-            memcpy(&C.point.y, pBuf + 32, 32);
-            memcpy(C.ciphertext, pBuf + 64, C.ciphertext_size);
-            memcpy(C.hash, pBuf + 64 + C.ciphertext_size, 32);
+            size_t ct_size = pBufLen - 96;
+            if (ct_size > SM2_MAX_PLAINTEXT_SIZE) {
+                luat_heap_free(C);
+                luat_heap_free(out);
+                LLOGE("ciphertext too large: %d", (int)ct_size);
+                return 0;
+            }
+            C->ciphertext_size = (uint32_t)ct_size;
+            // LLOGD("pBufLen %d ciphertext_size %d", pBufLen, C->ciphertext_size);
+            memcpy(&C->point.x, pBuf, 32);
+            memcpy(&C->point.y, pBuf + 32, 32);
+            memcpy(C->ciphertext, pBuf + 64, C->ciphertext_size);
+            memcpy(C->hash, pBuf + 64 + C->ciphertext_size, 32);
         }
-        ret = sm2_do_decrypt(&sm2, &C, (uint8_t *)out, &olen);
+        ret = sm2_do_decrypt(&sm2, C, (uint8_t *)out, &olen);
+        luat_heap_free(C);
     }
     else {
         // LLOGD("GMSSL默认模式");
         ret = sm2_decrypt(&sm2, (uint8_t*)pBuf, pBufLen, (uint8_t*)out, &olen);
     }
     if (ret != 1) {
+        luat_heap_free(out);
         LLOGD("sm2_decrypt ret %d", ret);
         return 0;
     }
     lua_pushlstring(L, (char*)out, olen);
+    luat_heap_free(out);
     return 1;
 }
 

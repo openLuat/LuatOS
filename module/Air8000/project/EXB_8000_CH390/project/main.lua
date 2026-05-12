@@ -2,27 +2,32 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.07.01
+@date    2026.05.12
 @author  朱天华
 @usage
 本demo演示的核心功能为：
-1、创建四路socket连接，详情如下
-- 创建一个tcp client，连接tcp server；
-- 创建一个udp client，连接udp server；
-- 创建一个tcp ssl client，连接tcp ssl server，不做证书校验；
-- 创建一个tcp ssl client，连接tcp ssl server，client仅单向校验server的证书，server不校验client的证书和密钥文件；
-2、每一路socket连接出现异常后，自动重连；
-3、每一路socket连接，client按照以下几种逻辑发送数据给server
-- 串口应用功能模块uart_app.lua，通过uart1接收到串口数据，将串口数据增加send from uart: 前缀后发送给server；
-- 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后发送给server；
-4、每一路socket连接，client收到server数据后，将数据增加recv from tcp/udp/tcp ssl/tcp ssl ca（四选一）server: 前缀后，通过uart1发送出去；
-5、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
-6、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+1、配置连接外网使用的网卡（netdrv_device），支持以下模式（多选一）：
     (1) netdrv_4g：4G网卡
     (2) netdrv_wifi：WIFI STA网卡
     (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-    (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
-    (5) netdrv_pc: pc模拟器网卡
+    (4) netdrv_multiple：支持以上三种网卡，可配置优先级
+    (5) netdrv_pc：PC模拟器网卡
+    (6) netif_app_1：4G提供网络供wifi和以太网设备上网
+    (7) netif_app_2：以太网提供网络供wifi和以太网设备上网
+    (8) netif_app_3：wifi提供网络供wifi和以太网设备上网
+2、创建tcp client socket连接，连接tcp server；
+3、tcp client连接出现异常后，自动重连；
+4、tcp client按照以下逻辑发送数据给server：
+    - 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer: 前缀后发送给server；
+    - aircloud数据处理模块aircloud_data.lua，定时上报设备数据（信号强度、ICCID、温度、电压、定位等）给server；
+5、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
+6、airlbs定位功能：通过多基站+多wifi定位获取设备经纬度，并上报给aircloud；
+7、modbus功能（可选）：
+    - RTU从站：rtu_slave_manage.lua
+    - RTU主站：param_field_rtu.lua / raw_frame_rtu.lua（二选一）
+    - TCP从站：tcp_slave_manage.lua
+    - TCP主站：param_field_tcp.lua / raw_frame_tcp.lua（二选一）
+8、LED状态指示：led.lua，modbus通信成功时LED轮流闪烁，通信失败时全部熄灭
 更多说明参考本目录下的readme.md文件
 ]]
 

@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <gmssl/mem.h>
 #include <gmssl/error.h>
 
 int OPENSSL_hexchar2int(unsigned char c)

@@ -54,7 +54,10 @@ typedef union {
     uint8_t *p8;
     uint16_t *p16;
     uint32_t *p32;
-	void *p;
+	int8_t *i8;
+	int16_t *i16;
+	int32_t *i32;
+	const void *p;
 }luat_data_union_t;
 
 typedef int(*luat_llist_traversal_fun)(void *node, void *param);

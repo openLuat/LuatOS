@@ -1,5 +1,4 @@
 --[[
-@naming  us_s=update_screen_size c_ui=create_ui | wid=win_id mc=main_container brb=brightness_bar brl=brightness_label sw=screen_w sh=screen_h m=margin cw=card_w
 @module  settings_display_win
 @summary 显示与亮度子页面
 @version 1.1 (自适应分辨率)
@@ -7,13 +6,13 @@
 @author  江访
 ]]
 
-local wid = nil
-local mc
-local brb
-local brl
-local sw, sh = 480, 800
-local m = 15
-local cw = 460
+local window_id = nil
+local main_container
+local brightness_bar
+local brightness_label
+local screen_w, screen_h = 480, 800
+local margin = 15
+local card_w = 460
 
 local COLOR_PRIMARY        = 0x007AFF
 local COLOR_BG             = 0xF5F5F5
@@ -23,41 +22,41 @@ local COLOR_TEXT_SECONDARY = 0x757575
 local COLOR_DIVIDER        = 0xE0E0E0
 local COLOR_WHITE          = 0xFFFFFF
 
-local function us_s()
-    local rot = airui.get_rotation()
-    local pw, ph = lcd.getSize()
-    if rot == 0 or rot == 180 then
-        sw, sh = pw, ph
+local function update_screen_size()
+    local rotation = airui.get_rotation()
+    local phys_w, phys_h = lcd.getSize()
+    if rotation == 0 or rotation == 180 then
+        screen_w, screen_h = phys_w, phys_h
     else
-        sw, sh = ph, pw
+        screen_w, screen_h = phys_h, phys_w
     end
-    m = math.floor(sw * 0.03)
-    cw = sw - 2 * m
+    margin = math.floor(screen_w * 0.03)
+    card_w = screen_w - 2 * margin
 end
 
-local function update_brightness_ui(val)
-    if brb then
-        brb:set_value(val)
+local function update_brightness_ui(value)
+    if brightness_bar then
+        brightness_bar:set_value(value)
     end
-    if brl then
-        brl:set_text(tostring(val))
+    if brightness_label then
+        brightness_label:set_text(tostring(value))
     end
-    log.info("s_dsp", "UI更新亮度: " .. val)
+    log.info("settings_display", "UI更新亮度: " .. value)
 end
 
-local function c_ui()
-    us_s()
-    mc = airui.container({
+local function build_ui()
+    update_screen_size()
+    main_container = airui.container({
         x = 0, y = 0,
-        w = sw, h = sh,
+        w = screen_w, h = screen_h,
         color = COLOR_BG,
         parent = airui.screen
     })
 
     local tb = airui.container({
-        parent = mc,
+        parent = main_container,
         x = 0, y = 0,
-        w = sw, h = math.floor(60 * _G.density_scale),
+        w = screen_w, h = math.floor(60 * _G.density_scale),
         color = COLOR_PRIMARY
     })
     local bb = airui.container({
@@ -65,7 +64,7 @@ local function c_ui()
         x = 10, y = 10,
         w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         color = COLOR_PRIMARY,
-        on_click = function() exwin.close(wid) end
+        on_click = function() exwin.close(window_id) end
     })
     airui.label({
         parent = bb,
@@ -88,21 +87,21 @@ local function c_ui()
 
     local th = math.floor(60 * _G.density_scale)
     local ct = airui.container({
-        parent = mc,
+        parent = main_container,
         x = 0, y = th,
-        w = sw, h = sh - th,
+        w = screen_w, h = screen_h - th,
         color = COLOR_BG
     })
 
-    local cbr = airui.container({
+    local brightness_card = airui.container({
         parent = ct,
-        x = m, y = math.floor(20 * _G.density_scale),
-        w = cw, h = math.floor(140 * _G.density_scale),
+        x = margin, y = math.floor(20 * _G.density_scale),
+        w = card_w, h = math.floor(140 * _G.density_scale),
         color = COLOR_WHITE,
         radius = 8
     })
     airui.label({
-        parent = cbr,
+        parent = brightness_card,
         x = math.floor(20 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(100 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "亮度",
@@ -110,9 +109,9 @@ local function c_ui()
         color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
-    brl = airui.label({
-        parent = cbr,
-        x = cw - math.floor(80 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+    brightness_label = airui.label({
+        parent = brightness_card,
+        x = card_w - math.floor(80 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(60 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "50",
         font_size = math.floor(24 * _G.density_scale),
@@ -120,15 +119,15 @@ local function c_ui()
         align = airui.TEXT_ALIGN_RIGHT
     })
 
-    local bw = math.floor(60 * _G.density_scale)
-    local bm = math.floor(20 * _G.density_scale)
-    local bx = bm + bw + math.floor(10 * _G.density_scale)
-    local brw = cw - 2 * bm - 2 * bw - math.floor(20 * _G.density_scale)
+    local btn_w = math.floor(60 * _G.density_scale)
+    local btn_margin = math.floor(20 * _G.density_scale)
+    local bar_x = btn_margin + btn_w + math.floor(10 * _G.density_scale)
+    local bar_w = card_w - 2 * btn_margin - 2 * btn_w - math.floor(20 * _G.density_scale)
 
     airui.button({
-        parent = cbr,
-        x = bm, y = math.floor(55 * _G.density_scale),
-        w = bw, h = math.floor(40 * _G.density_scale),
+        parent = brightness_card,
+        x = btn_margin, y = math.floor(55 * _G.density_scale),
+        w = btn_w, h = math.floor(40 * _G.density_scale),
         text = "-10",
         font_size = math.floor(20 * _G.density_scale),
         style = {
@@ -142,9 +141,9 @@ local function c_ui()
         on_click = function() sys.publish("DISPLAY_BRIGHTNESS_DECREASE") end
     })
     airui.button({
-        parent = cbr,
-        x = cw - bm - bw, y = math.floor(55 * _G.density_scale),
-        w = bw, h = math.floor(40 * _G.density_scale),
+        parent = brightness_card,
+        x = card_w - btn_margin - btn_w, y = math.floor(55 * _G.density_scale),
+        w = btn_w, h = math.floor(40 * _G.density_scale),
         text = "+10",
         font_size = math.floor(20 * _G.density_scale),
         style = {
@@ -157,10 +156,10 @@ local function c_ui()
         },
         on_click = function() sys.publish("DISPLAY_BRIGHTNESS_INCREASE") end
     })
-    brb = airui.bar({
-        parent = cbr,
-        x = bx, y = math.floor(65 * _G.density_scale),
-        w = brw, h = math.floor(25 * _G.density_scale),
+    brightness_bar = airui.bar({
+        parent = brightness_card,
+        x = bar_x, y = math.floor(65 * _G.density_scale),
+        w = bar_w, h = math.floor(25 * _G.density_scale),
         min = 0, max = 100,
         value = 50,
         color = COLOR_PRIMARY,
@@ -169,7 +168,7 @@ local function c_ui()
 end
 
 local function on_create()
-    c_ui()
+    build_ui()
     sys.publish("DISPLAY_BRIGHTNESS_GET")
     sys.subscribe("DISPLAY_BRIGHTNESS_CHANGED", update_brightness_ui)
     sys.subscribe("DISPLAY_BRIGHTNESS_VALUE", update_brightness_ui)
@@ -178,19 +177,19 @@ end
 local function on_destroy()
     sys.unsubscribe("DISPLAY_BRIGHTNESS_CHANGED", update_brightness_ui)
     sys.unsubscribe("DISPLAY_BRIGHTNESS_VALUE", update_brightness_ui)
-    if mc then
-        mc:destroy()
-        mc = nil
+    if main_container then
+        main_container:destroy()
+        main_container = nil
     end
-    brb = nil
-    brl = nil
+    brightness_bar = nil
+    brightness_label = nil
 end
 
 local function on_get_focus() end
 local function on_lose_focus() end
 
 local function open_handler()
-    wid = exwin.open({
+    window_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,
         on_lose_focus = on_lose_focus,

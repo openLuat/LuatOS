@@ -1,5 +1,4 @@
 --[[
-@naming  us_s=update_screen_size cc_r=create_clickable_row ci_r=create_info_row ce_w=create_edit_win c_ui=create_ui | wid=win_id mc=main_container dnl=device_name_label mdl=model_label uil=unique_id_label uhl=unique_id_hex_label vsl=version_label knl=kernel_label ew=edit_win ni=name_input kb=keyboard sw=screen_w sh=screen_h m=margin cw=card_w pn=product_name
 @module  settings_about_win
 @summary 关于设备子页面
 @version 1.2 (自适应分辨率，移除内存信息)
@@ -7,21 +6,21 @@
 @author  江访
 ]]
 
-local wid = nil
-local mc
-local dnl
-local mdl
-local uil
-local uhl
-local vsl
-local knl
-local ew = nil
-local ni
-local kb
+local window_id = nil
+local main_container
+local device_name_label
+local model_label
+local unique_id_label
+local unique_id_hex_label
+local version_label
+local kernel_label
+local edit_win = nil
+local name_input
+local soft_keyboard
 
-local sw, sh = 480, 800
-local m = 15
-local cw = 460
+local screen_w, screen_h = 480, 800
+local margin = 15
+local card_w = 460
 
 local COLOR_PRIMARY        = 0x007AFF
 local COLOR_PRIMARY_DARK   = 0x0056B3
@@ -32,72 +31,72 @@ local COLOR_TEXT_SECONDARY = 0x757575
 local COLOR_DIVIDER        = 0xE0E0E0
 local COLOR_WHITE          = 0xFFFFFF
 
-local pn = "合宙引擎主机"
+local product_name = "合宙引擎主机"
 
-local function us_s()
-    local rot = airui.get_rotation()
-    local pw, ph = lcd.getSize()
-    if rot == 0 or rot == 180 then
-        sw, sh = pw, ph
+local function update_screen_size()
+    local rotation = airui.get_rotation()
+    local phys_w, phys_h = lcd.getSize()
+    if rotation == 0 or rotation == 180 then
+        screen_w, screen_h = phys_w, phys_h
     else
-        sw, sh = ph, pw
+        screen_w, screen_h = phys_h, phys_w
     end
-    m = math.floor(sw * 0.03)
-    cw = sw - 2 * m
+    margin = math.floor(screen_w * 0.03)
+    card_w = screen_w - 2 * margin
 end
 
-local function update_device_info(inf)
-    if dnl and inf.device_name then
-        dnl:set_text(inf.device_name)
+local function update_device_info(info)
+    if device_name_label and info.device_name then
+        device_name_label:set_text(info.device_name)
     end
-    if mdl and inf.model then
-        mdl:set_text(inf.model)
+    if model_label and info.model then
+        model_label:set_text(info.model)
     end
-    if uil and inf.unique_id then
-        uil:set_text(inf.unique_id)
+    if unique_id_label and info.unique_id then
+        unique_id_label:set_text(info.unique_id)
     end
-    if uhl and inf.unique_id_hex then
-        uhl:set_text(inf.unique_id_hex)
+    if unique_id_hex_label and info.unique_id_hex then
+        unique_id_hex_label:set_text(info.unique_id_hex)
     end
-    if vsl and inf.version then
-        vsl:set_text(inf.version)
+    if version_label and info.version then
+        version_label:set_text(info.version)
     end
-    if knl and inf.kernel then
-        knl:set_text(inf.kernel)
+    if kernel_label and info.kernel then
+        kernel_label:set_text(info.kernel)
     end
-    log.info("s_abt", "UI更新设备信息")
+    log.info("settings_about", "UI更新设备信息")
 end
 
-local function udi(inf) update_device_info(inf) end
+local function on_device_info(info) update_device_info(info) end
 
-local function udn(dn)
-    if dnl then
-        dnl:set_text(dn)
-        log.info("s_abt", "更新设备名称", dn)
+local function on_device_name(device_name)
+    if device_name_label then
+        device_name_label:set_text(device_name)
+        log.info("settings_about", "更新设备名称", device_name)
     end
 end
 
-local function cc_r(p, y, lt, oc)
+local function create_clickable_row(p, y, label_text, on_click)
     local r = airui.container({
         parent = p,
         x = 0, y = y,
-        w = cw,
+        w = card_w,
         h = math.floor(50 * _G.density_scale),
         color = COLOR_WHITE,
-        on_click = oc
+        on_click = on_click
     })
     airui.label({
         parent = r,
         x = math.floor(20 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(150 * _G.density_scale), h = math.floor(30 * _G.density_scale),
-        text = lt,
+        text = label_text,
         font_size = math.floor(22 * _G.density_scale),
         color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
     airui.label({
         parent = r,
-        x = cw - math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        x = card_w - math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(40 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = ">",
         font_size = math.floor(22 * _G.density_scale),
@@ -107,60 +106,60 @@ local function cc_r(p, y, lt, oc)
     return r
 end
 
-local function ci_r(p, y, lt, vt)
-    local ik = (lt == "内核版本")
-    local rh = math.floor((ik and 120 or 70) * _G.density_scale)
-    local vw = cw - math.floor(150 * _G.density_scale) - math.floor(30 * _G.density_scale)
-    local vh = math.floor((ik and 100 or 50) * _G.density_scale)
+local function create_info_row(p, y, label_text, value_text)
+    local is_kernel = (label_text == "内核版本")
+    local row_h = math.floor((is_kernel and 120 or 70) * _G.density_scale)
+    local value_w = card_w - math.floor(150 * _G.density_scale) - math.floor(30 * _G.density_scale)
+    local value_h = math.floor((is_kernel and 100 or 50) * _G.density_scale)
 
     local r = airui.container({
         parent = p,
         x = 0, y = y,
-        w = cw,
-        h = rh,
+        w = card_w,
+        h = row_h,
         color = COLOR_CARD
     })
     airui.label({
         parent = r,
         x = math.floor(20 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(150 * _G.density_scale), h = math.floor(30 * _G.density_scale),
-        text = lt,
+        text = label_text,
         font_size = math.floor(22 * _G.density_scale),
         color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
-    local vl = airui.label({
+    local value_label = airui.label({
         parent = r,
         x = math.floor(180 * _G.density_scale), y = math.floor(10 * _G.density_scale),
-        w = vw,
-        h = vh,
-        text = vt,
+        w = value_w,
+        h = value_h,
+        text = value_text,
         font_size = math.floor(22 * _G.density_scale),
         color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_RIGHT,
         long_mode = true
     })
-    return vl
+    return value_label
 end
 
-local function ce_w(dn)
-    local ww = math.floor(sw * 0.85)
-    local wh = math.floor(sh * 0.45)
-    local pd = math.floor(20 * _G.density_scale)
+local function create_edit_win(device_name)
+    local win_w = math.floor(screen_w * 0.85)
+    local win_h = math.floor(screen_h * 0.45)
+    local padding = math.floor(20 * _G.density_scale)
 
-    kb = airui.keyboard({
+    soft_keyboard = airui.keyboard({
         x = 0, y = -math.floor(20 * _G.density_scale),
-        w = sw, h = math.floor(280 * _G.density_scale),
+        w = screen_w, h = math.floor(280 * _G.density_scale),
         mode = "text",
         auto_hide = true,
         on_commit = function(self) self:hide() end
     })
 
-    ew = airui.win({
-        parent = mc,
+    edit_win = airui.win({
+        parent = main_container,
         title = "更改设备名称",
-        w = ww,
-        h = wh,
+        w = win_w,
+        h = win_h,
         close_btn = false,
         auto_center = true,
         style = {
@@ -173,33 +172,33 @@ local function ce_w(dn)
             header_height = math.floor(50 * _G.density_scale),
         },
         on_close = function(self)
-            log.info("s_abt", "编辑窗口已关闭")
-            if kb then kb = nil end
-            ew = nil
+            log.info("settings_about", "编辑窗口已关闭")
+            if soft_keyboard then soft_keyboard = nil end
+            edit_win = nil
         end
     })
 
-    ni = airui.textarea({
-        parent = ew,
-        x = pd,
+    name_input = airui.textarea({
+        parent = edit_win,
+        x = padding,
         y = math.floor(60 * _G.density_scale),
-        w = ww - 2 * pd - math.floor(40 * _G.density_scale),
+        w = win_w - 2 * padding - math.floor(40 * _G.density_scale),
         h = math.floor(60 * _G.density_scale),
-        text = dn or "",
+        text = device_name or "",
         placeholder = "请输入设备名称",
         max_len = 32,
         font_size = math.floor(20 * _G.density_scale),
-        keyboard = kb
+        keyboard = soft_keyboard
     })
 
-    local bw = math.floor(math.min(math.floor(120 * _G.density_scale), (ww - 3 * pd) / 2))
-    local bx1 = pd + math.floor(20 * _G.density_scale)
-    local bx2 = ww - pd - math.floor(20 * _G.density_scale) - bw
+    local btn_w = math.floor(math.min(math.floor(120 * _G.density_scale), (win_w - 3 * padding) / 2))
+    local btn_x1 = padding + math.floor(20 * _G.density_scale)
+    local btn_x2 = win_w - padding - math.floor(20 * _G.density_scale) - btn_w
 
     airui.button({
-        parent = ew,
-        x = bx1, y = math.floor(150 * _G.density_scale),
-        w = bw, h = math.floor(50 * _G.density_scale),
+        parent = edit_win,
+        x = btn_x1, y = math.floor(150 * _G.density_scale),
+        w = btn_w, h = math.floor(50 * _G.density_scale),
         text = "返回",
         font_size = math.floor(20 * _G.density_scale),
         style = {
@@ -211,13 +210,13 @@ local function ce_w(dn)
             border_color = COLOR_DIVIDER
         },
         on_click = function()
-            if ew then ew:close() end
+            if edit_win then edit_win:close() end
         end
     })
     airui.button({
-        parent = ew,
-        x = bx2, y = math.floor(150 * _G.density_scale),
-        w = bw, h = math.floor(50 * _G.density_scale),
+        parent = edit_win,
+        x = btn_x2, y = math.floor(150 * _G.density_scale),
+        w = btn_w, h = math.floor(50 * _G.density_scale),
         text = "保存",
         font_size = math.floor(20 * _G.density_scale),
         style = {
@@ -228,19 +227,19 @@ local function ce_w(dn)
             border_width = 0
         },
         on_click = function()
-            local nm = ni:get_text()
-            if nm and #nm > 0 then
-                if dnl then
-                    dnl:set_text(nm)
+            local new_name = name_input:get_text()
+            if new_name and #new_name > 0 then
+                if device_name_label then
+                    device_name_label:set_text(new_name)
                 end
-                sys.publish("CONFIG_SET_DEVICE_NAME", nm)
+                sys.publish("CONFIG_SET_DEVICE_NAME", new_name)
                 airui.msgbox({
                     title = "提示",
                     text = "设备名称已保存",
                     buttons = {"确定"},
                     on_action = function(self)
                         self:hide()
-                        if ew then ew:close() end
+                        if edit_win then edit_win:close() end
                     end
                 })
             else
@@ -255,36 +254,36 @@ local function ce_w(dn)
     })
 end
 
-local function c_ui()
-    us_s()
+local function build_ui()
+    update_screen_size()
 
-    local sf = _G.model_str:gsub("^Air", "")
-    if sf ~= "" then
-        pn = "合宙引擎主机" .. sf
+    local suffix = _G.model_str:gsub("^Air", "")
+    if suffix ~= "" then
+        product_name = "合宙引擎主机" .. suffix
     end
 
-    mc = airui.container({
+    main_container = airui.container({
         x = 0, y = 0,
-        w = sw, h = sh,
+        w = screen_w, h = screen_h,
         color = COLOR_BG,
         parent = airui.screen
     })
 
-    local tb = airui.container({
-        parent = mc,
+    local title_bar = airui.container({
+        parent = main_container,
         x = 0, y = 0,
-        w = sw, h = math.floor(60 * _G.density_scale),
+        w = screen_w, h = math.floor(60 * _G.density_scale),
         color = COLOR_PRIMARY
     })
-    local bb = airui.container({
-        parent = tb,
+    local back_btn = airui.container({
+        parent = title_bar,
         x = 10, y = 10,
         w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         color = COLOR_PRIMARY,
-        on_click = function() exwin.close(wid) end
+        on_click = function() exwin.close(window_id) end
     })
     airui.label({
-        parent = bb,
+        parent = back_btn,
         x = 0, y = math.floor(5 * _G.density_scale),
         w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "<",
@@ -293,7 +292,7 @@ local function c_ui()
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
-        parent = tb,
+        parent = title_bar,
         x = math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(200 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         text = "关于设备",
@@ -304,78 +303,78 @@ local function c_ui()
 
     local th = math.floor(60 * _G.density_scale)
     local ct = airui.container({
-        parent = mc,
+        parent = main_container,
         x = 0, y = th,
-        w = sw, h = sh - th,
+        w = screen_w, h = screen_h - th,
         color = COLOR_BG,
         scrollable = true,
     })
 
-    local cdn = airui.container({
+    local name_card = airui.container({
         parent = ct,
-        x = m, y = math.floor(20 * _G.density_scale),
-        w = cw, h = math.floor(70 * _G.density_scale),
+        x = margin, y = math.floor(20 * _G.density_scale),
+        w = card_w, h = math.floor(70 * _G.density_scale),
         color = COLOR_WHITE,
         radius = 8
     })
-    cc_r(cdn, math.floor(10 * _G.density_scale), "设备名称", function()
-        local cn = dnl and dnl:get_text() or ""
-        ce_w(cn)
+    create_clickable_row(name_card, math.floor(10 * _G.density_scale), "设备名称", function()
+        local current_name = device_name_label and device_name_label:get_text() or ""
+        create_edit_win(current_name)
     end)
-    dnl = airui.label({
-        parent = cdn,
+    device_name_label = airui.label({
+        parent = name_card,
         x = math.floor(90 * _G.density_scale), y = math.floor(20 * _G.density_scale),
-        w = cw - math.floor(130 * _G.density_scale), h = math.floor(30 * _G.density_scale),
-        text = pn,
+        w = card_w - math.floor(130 * _G.density_scale), h = math.floor(30 * _G.density_scale),
+        text = product_name,
         font_size = math.floor(22 * _G.density_scale),
         color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_RIGHT
     })
 
-    local ci = airui.container({
+    local info_card = airui.container({
         parent = ct,
-        x = m, y = math.floor(110 * _G.density_scale),
-        w = cw, h = math.floor(380 * _G.density_scale),
+        x = margin, y = math.floor(110 * _G.density_scale),
+        w = card_w, h = math.floor(380 * _G.density_scale),
         color = COLOR_WHITE,
         radius = 8
     })
-    mdl = ci_r(ci, math.floor(10 * _G.density_scale), "设备型号", "--")
-    uil = ci_r(ci, math.floor(70 * _G.density_scale), "设备 ID", "--")
-    uhl = ci_r(ci, math.floor(130 * _G.density_scale), "设备 ID (HEX)", "--")
-    vsl = ci_r(ci, math.floor(190 * _G.density_scale), "软件版本", "--")
-    knl = ci_r(ci, math.floor(250 * _G.density_scale), "内核版本", "--")
+    model_label = create_info_row(info_card, math.floor(10 * _G.density_scale), "设备型号", "--")
+    unique_id_label = create_info_row(info_card, math.floor(70 * _G.density_scale), "设备 ID", "--")
+    unique_id_hex_label = create_info_row(info_card, math.floor(130 * _G.density_scale), "设备 ID (HEX)", "--")
+    version_label = create_info_row(info_card, math.floor(190 * _G.density_scale), "软件版本", "--")
+    kernel_label = create_info_row(info_card, math.floor(250 * _G.density_scale), "内核版本", "--")
 end
 
 local function on_create()
-    c_ui()
+    build_ui()
     sys.publish("ABOUT_DEVICE_GET_INFO")
     sys.publish("CONFIG_GET_DEVICE_NAME")
-    sys.subscribe("ABOUT_DEVICE_INFO", udi)
-    sys.subscribe("CONFIG_DEVICE_NAME_VALUE", udn)
+    sys.subscribe("ABOUT_DEVICE_INFO", on_device_info)
+    sys.subscribe("CONFIG_DEVICE_NAME_VALUE", on_device_name)
 end
 
 local function on_destroy()
-    sys.unsubscribe("ABOUT_DEVICE_INFO", udi)
-    sys.unsubscribe("CONFIG_DEVICE_NAME_VALUE", udn)
-    if mc then
-        mc:destroy()
-        mc = nil
+    sys.unsubscribe("ABOUT_DEVICE_INFO", on_device_info)
+    sys.unsubscribe("CONFIG_DEVICE_NAME_VALUE", on_device_name)
+    if main_container then
+        main_container:destroy()
+        main_container = nil
     end
-    dnl = nil
-    mdl = nil
-    uil = nil
-    uhl = nil
-    vsl = nil
-    knl = nil
+    device_name_label = nil
+    model_label = nil
+    unique_id_label = nil
+    unique_id_hex_label = nil
+    version_label = nil
+    kernel_label = nil
 end
 
 local function on_get_focus() end
 local function on_lose_focus()
-    if ew then ew:close() end
+    if edit_win then edit_win:close() end
 end
 
 local function open_handler()
-    wid = exwin.open({
+    window_id = exwin.open({
         on_create = on_create,
         on_destroy = on_destroy,
         on_lose_focus = on_lose_focus,

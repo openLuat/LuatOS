@@ -2,8 +2,12 @@
 #include "luat_common_api.h"
 #include "luat_rtos.h"
 #include "luat_mem.h"
-#include "luat_log.h"
 #define LUAT_LOG_TAG "audio_codec"
+#include "luat_log.h"
+
+#ifdef LUAT_CSDK_CONFIG_FILE
+#include LUAT_CSDK_CONFIG_FILE
+#endif
 
 int luat_audio_data_codec_init(luat_audio_data_codec_t *codec, const luat_audio_data_codec_opts_t *opts, void *user_data, uint8_t is_tts)
 {
@@ -58,6 +62,34 @@ int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_
         luat_fifo_delete(input_data_fifo, used_len);
         if (!ret) {
             output_data_buffer->pos += out_len;
+        }
+    }
+    return LUAT_ERROR_NONE;
+}
+
+int luat_audio_data_codec_encode_once(luat_audio_data_codec_t *codec, luat_fifo_t *input_data_fifo, luat_buffer_t *output_data_buffer)
+{
+    if (!codec || !input_data_fifo || !output_data_buffer) {
+        return -LUAT_ERROR_PARAM_INVALID;
+    }
+    uint32_t input_data_len = 0;
+    uint32_t out_len;
+    int ret;
+    while ((output_data_buffer->pos + codec->opts->encode_max_output_len) <= output_data_buffer->max_len) {
+        if (luat_fifo_check_used_space(input_data_fifo) >= codec->opts->encode_min_input_len) {
+            input_data_len = luat_fifo_query(input_data_fifo, codec->input_buffer, codec->opts->encode_min_input_len);
+        } else {
+            return LUAT_ERROR_NONE;
+        }
+        // 使用codec编码数据
+        ret = codec->opts->encode(codec, &codec->play_info, codec->input_buffer, input_data_len,
+                                                        output_data_buffer->data + output_data_buffer->pos, 
+                                &out_len);
+        luat_fifo_delete(input_data_fifo, input_data_len);
+        if (!ret) {
+            output_data_buffer->pos += out_len;
+        } else {
+            LLOGE("encode failed, ret = %d", ret);
         }
     }
     return LUAT_ERROR_NONE;

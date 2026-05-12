@@ -31,12 +31,12 @@ void luat_audio_base_init(void);
  * 
  * 此函数用于向音频框架注册一个音频驱动，注册后该驱动可被音频通道使用。第一个注册的驱动会被默认使用。
  * 
- * @param ops 音频驱动操作接口结构体指针，包含驱动的具体实现函数
+ * @param opts 音频驱动操作接口结构体指针，包含驱动的具体实现函数
  * @param probe 音频驱动匹配结构，用于描述驱动的匹配条件
  * @param driver_data 驱动私有数据指针，用于存储驱动的私有数据
  * @return 0 表示成功，其他值表示失败
  */
-int luat_audio_driver_register(const luat_audio_driver_opts_t *ops, struct luat_audio_driver_probe probe, void *driver_data);
+int luat_audio_driver_register(const luat_audio_driver_opts_t *opts, struct luat_audio_driver_probe probe, void *driver_data);
 
 /**
  * @brief 探测音频驱动

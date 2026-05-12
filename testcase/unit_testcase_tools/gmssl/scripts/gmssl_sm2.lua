@@ -138,6 +138,47 @@ function sm2.test_sm2_dynamic_C1C2C3_encrypt()
     end
 end
 
+-- SM2 大数据加密测试 (验证 16KB 上限)
+function sm2.test_sm2_large_data_encrypt()
+    log.info("GMSSL SM2 大数据加密测试开始 (256/1024 字节)")
+    local pkx, pky, private = gmssl.sm2keygen()
+
+    -- 构造 256 字节测试数据
+    local data256 = string.rep("A", 256)
+    -- 构造 1024 字节测试数据
+    local data1024 = string.rep("B", 1024)
+
+    -- 默认 DER 模式 (mode=false)
+    for _, testdata in ipairs({data256, data1024}) do
+        local label = #testdata .. " 字节"
+
+        -- 默认模式
+        local enc = gmssl.sm2encrypt(pkx, pky, testdata)
+        assert(enc, "× SM2 大数据(" .. label .. ")默认模式加密失败")
+        local dec = gmssl.sm2decrypt(private, enc)
+        assert(dec == testdata, "× SM2 大数据(" .. label .. ")默认模式解密失败")
+
+        -- 网站兼容模式 C1C3C2
+        local enc2 = gmssl.sm2encrypt(pkx, pky, testdata, true)
+        assert(enc2, "× SM2 大数据(" .. label .. ")C1C3C2加密失败")
+        local dec2 = gmssl.sm2decrypt(private, enc2, true)
+        assert(dec2 == testdata, "× SM2 大数据(" .. label .. ")C1C3C2解密失败")
+
+        -- 网站兼容模式 C1C2C3
+        local enc3 = gmssl.sm2encrypt(pkx, pky, testdata, true, true)
+        assert(enc3, "× SM2 大数据(" .. label .. ")C1C2C3加密失败")
+        local dec3 = gmssl.sm2decrypt(private, enc3, true, true)
+        assert(dec3 == testdata, "× SM2 大数据(" .. label .. ")C1C2C3解密失败")
+    end
+
+    -- 验证超限数据被正确拒绝 (16385 字节)
+    local data_over = string.rep("C", 16385)
+    local enc_over = gmssl.sm2encrypt(pkx, pky, data_over)
+    assert(enc_over == nil, "× SM2 超限数据应返回 nil")
+
+    log.info("√ GMSSL SM2 大数据加密测试全部通过")
+end
+
 -- SM2 nil参数测试
 function sm2.test_sm2_nil_params()
     log.info("GMSSL SM2 nil参数测试开始")

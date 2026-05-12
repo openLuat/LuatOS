@@ -762,17 +762,22 @@ int sm2_ciphertext_from_der(SM2_CIPHERTEXT *C, const uint8_t **in, size_t *inlen
 	}
 	memcpy(C->hash, hash, hashlen);
 	memcpy(C->ciphertext, c, clen);
-	C->ciphertext_size = (uint8_t)clen;
+	C->ciphertext_size = (uint32_t)clen;
 	return 1;
 }
 
 int sm2_ciphertext_print(FILE *fp, int fmt, int ind, const char *label, const uint8_t *a, size_t alen)
 {
-	uint8_t buf[512] = {0};
-	SM2_CIPHERTEXT *c = (SM2_CIPHERTEXT *)buf;
+	SM2_CIPHERTEXT *c = (SM2_CIPHERTEXT *)malloc(sizeof(SM2_CIPHERTEXT));
+	if (!c) {
+		error_print();
+		return -1;
+	}
+	memset(c, 0, sizeof(SM2_CIPHERTEXT));
 
 	if (sm2_ciphertext_from_der(c, &a, &alen) != 1
 		|| asn1_length_is_zero(alen) != 1) {
+		free(c);
 		error_print();
 		return -1;
 	}
@@ -782,76 +787,103 @@ int sm2_ciphertext_print(FILE *fp, int fmt, int ind, const char *label, const ui
 	format_bytes(fp, fmt, ind, "YCoordinate", c->point.y, 32);
 	format_bytes(fp, fmt, ind, "HASH", c->hash, 32);
 	format_bytes(fp, fmt, ind, "CipherText", c->ciphertext, c->ciphertext_size);
+	free(c);
 	return 1;
 }
 
 int sm2_encrypt(const SM2_KEY *key, const uint8_t *in, size_t inlen, uint8_t *out, size_t *outlen)
 {
-	SM2_CIPHERTEXT C;
+	SM2_CIPHERTEXT *C = (SM2_CIPHERTEXT *)malloc(sizeof(SM2_CIPHERTEXT));
+	if (!C) {
+		error_print();
+		return -1;
+	}
 
 	if (!key || !in || !out || !outlen) {
+		free(C);
 		error_print();
 		return -1;
 	}
 	if (!inlen) {
+		free(C);
 		error_print();
 		return -1;
 	}
 
-	if (sm2_do_encrypt(key, in, inlen, &C) != 1) {
+	if (sm2_do_encrypt(key, in, inlen, C) != 1) {
+		free(C);
 		error_print();
 		return -1;
 	}
 	*outlen = 0;
-	if (sm2_ciphertext_to_der(&C, &out, outlen) != 1) {
+	if (sm2_ciphertext_to_der(C, &out, outlen) != 1) {
+		free(C);
 		error_print();
 		return -1;
 	}
+	free(C);
 	return 1;
 }
 
 int sm2_encrypt_fixlen(const SM2_KEY *key, const uint8_t *in, size_t inlen, int point_size, uint8_t *out, size_t *outlen)
 {
-	SM2_CIPHERTEXT C;
+	SM2_CIPHERTEXT *C = (SM2_CIPHERTEXT *)malloc(sizeof(SM2_CIPHERTEXT));
+	if (!C) {
+		error_print();
+		return -1;
+	}
 
 	if (!key || !in || !out || !outlen) {
+		free(C);
 		error_print();
 		return -1;
 	}
 	if (!inlen) {
+		free(C);
 		error_print();
 		return -1;
 	}
 
-	if (sm2_do_encrypt_fixlen(key, in, inlen, point_size, &C) != 1) {
+	if (sm2_do_encrypt_fixlen(key, in, inlen, point_size, C) != 1) {
+		free(C);
 		error_print();
 		return -1;
 	}
 	*outlen = 0;
-	if (sm2_ciphertext_to_der(&C, &out, outlen) != 1) {
+	if (sm2_ciphertext_to_der(C, &out, outlen) != 1) {
+		free(C);
 		error_print();
 		return -1;
 	}
+	free(C);
 	return 1;
 }
 
 int sm2_decrypt(const SM2_KEY *key, const uint8_t *in, size_t inlen, uint8_t *out, size_t *outlen)
 {
-	SM2_CIPHERTEXT C;
+	SM2_CIPHERTEXT *C = (SM2_CIPHERTEXT *)malloc(sizeof(SM2_CIPHERTEXT));
+	if (!C) {
+		error_print();
+		return -1;
+	}
 
 	if (!key || !in || !out || !outlen) {
+		free(C);
 		error_print();
 		return -1;
 	}
-	if (sm2_ciphertext_from_der(&C, &in, &inlen) != 1
+	if (sm2_ciphertext_from_der(C, &in, &inlen) != 1
 		|| asn1_length_is_zero(inlen) != 1) {
+		free(C);
 		error_print();
 		return -1;
 	}
-	if (sm2_do_decrypt(key, &C, out, outlen) != 1) {
+	if (sm2_do_decrypt(key, C, out, outlen) != 1) {
+		free(C);
 		error_print();
 		return -1;
 	}
+	free(C);
 	return 1;
 }
 

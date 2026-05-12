@@ -201,9 +201,11 @@ target("luatos-lua")
     -- rsa
     add_files(luatos.."components/rsa/**.c")
 
-    -- gmssl
-    -- add_includedirs(luatos.."components/gmssl/include")
-    -- add_files(luatos.."components/gmssl/src/**.c")
+    -- gmssl: use local include (new uint32_t ciphertext_size) + local sm2_lib.c (new 16KB limit).
+    -- The package lib provides all other gmssl symbols (aes, sha, x509, format_*, etc.).
+    -- MSVC linker prefers .obj files over .lib for duplicate symbols, so our local sm2_lib.c wins.
+    add_includedirs(luatos.."components/gmssl/include")
+    add_files(luatos.."components/gmssl/src/sm2_lib.c")
     add_files(luatos.."components/gmssl/bind/*.c")
 
     -- iconv

@@ -14,7 +14,7 @@
 
 function gmssl_sm2_encrypt_decrypt(originStr, pkx, pky, private)
     -- GMSSL默认格式
-    log.info("==== SM2 默认GMSSL模式")
+    log.info("==== SM2 默认GMSSL模式", originStr)
     local encodeStr = gmssl.sm2encrypt(pkx,pky,originStr)
     log.info("sm2默认模式", "加密后", encodeStr and  string.toHex(encodeStr))
     if encodeStr then

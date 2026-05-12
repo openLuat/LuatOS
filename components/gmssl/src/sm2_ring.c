@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <gmssl/mem.h>
 #include <gmssl/sm2_ring.h>
 #include <gmssl/asn1.h>
 #include <gmssl/error.h>

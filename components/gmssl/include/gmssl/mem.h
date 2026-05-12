@@ -14,6 +14,13 @@
 #include <stdint.h>
 #include <stddef.h> // where size_t from
 
+#ifdef __LUATOS__
+#include "luat_malloc.h"
+#define malloc   luat_heap_malloc
+#define free     luat_heap_free
+#define realloc  luat_heap_realloc
+#define calloc   luat_heap_calloc
+#endif
 
 void memxor(void *r, const void *a, size_t len);
 void gmssl_memxor(void *r, const void *a, const void *b, size_t len);

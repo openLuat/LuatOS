@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <gmssl/mem.h>
 #include <gmssl/hash_drbg.h>
 #include <gmssl/error.h>
 #include <gmssl/endian.h>

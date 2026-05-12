@@ -50,4 +50,6 @@ void luat_log_dump(const char* tag, void* ptr, size_t len);
 
 #endif
 
+#define LLOGC(cond, format, ...) if(cond) do { luat_log_log(LUAT_LOG_DEBUG, LUAT_LOG_TAG, format, ##__VA_ARGS__); } while(0)
+
 #endif

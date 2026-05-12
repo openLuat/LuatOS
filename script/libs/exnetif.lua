@@ -535,6 +535,64 @@ local function setup_airlink_4G(config)
     return adapter_id
 end
 
+-- airlink_wifi网卡开启（Air1601 WHALE WiFi方案）
+local function setup_airlink_wifi(config)
+    if config.auto_socket_switch ~= nil then
+        auto_socket_switch = config.auto_socket_switch
+    end
+
+    -- 判断是SPI模式还是UART模式
+    local is_spi_mode = (config.airlink_type == airlink.MODE_SPI_MASTER or
+                         config.airlink_type == airlink.MODE_SPI_SLAVE)
+    local is_uart_mode = (config.airlink_type == airlink.MODE_UART)
+
+    -- 根据模式配置不同的参数
+    if is_spi_mode then
+        if config.airlink_spi_id then
+            airlink.config(airlink.CONF_SPI_ID, config.airlink_spi_id)
+        end
+        if config.airlink_cs_pin then
+            airlink.config(airlink.CONF_SPI_CS, config.airlink_cs_pin)
+        end
+        if config.airlink_rdy_pin then
+            airlink.config(airlink.CONF_SPI_RDY, config.airlink_rdy_pin)
+        end
+    elseif is_uart_mode then
+        if config.airlink_uart_id then
+            local uart_baud = config.airlink_uart_baud or 2000000
+            uart.setup(config.airlink_uart_id, uart_baud, 8, 1)
+            airlink.config(airlink.CONF_UART_ID, config.airlink_uart_id)
+        end
+    end
+
+    airlink.init()
+    log.info("创建airlink_wifi桥接网络设备")
+
+    -- 使用socket.LWIP_STA作为airlink WiFi的网卡标识
+    netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
+    airlink.start(config.airlink_type)
+
+    if not single_network_mode then
+        available[socket.LWIP_STA] = connection_states.OPENED
+    else
+        available[socket.LWIP_STA] = connection_states.SINGLE_NETWORK
+    end
+
+    -- 初始化WiFi并连接路由器
+    wlan.init()
+    sys.wait(1000)
+    log.info("WiFi名称:", config.ssid)
+    local success = wlan.connect(config.ssid, config.password)
+    if not success then
+        log.error("WiFi连接失败")
+        return false
+    end
+    log.info("airlink_wifi初始化完成")
+    socket_state_detection(socket.LWIP_STA)
+
+    return socket.LWIP_STA
+end
+
 
 --[[
 设置网络优先级，相应网卡获取到ip且网络正常视为网卡可用，丢失ip视为网卡不可用.(需要在task中调用)
@@ -664,6 +722,19 @@ exnetif.set_priority_order({
             }
         }
     })
+-- Air1601单网络模式下使用airlink WiFi（WHALE方案）
+    exnetif.set_priority_order({
+        {
+            airlink_wifi = { -- AirLink WiFi配置（Air1601 WHALE方案）
+                auto_socket_switch = false,     -- 切换网卡时是否断开之前网卡的所有socket连接并用新的网卡重新建立连接
+                airlink_type = airlink.MODE_UART, -- airlink工作模式：UART模式
+                airlink_uart_id = 3,            -- airlink使用的UART接口ID(选填参数)，UART模式时填写
+                airlink_uart_baud = 2000000,    -- airlink使用的UART波特率(选填参数)，默认2000000
+                ssid = "your_ssid",             -- WiFi名称(string)
+                password = "your_pwd",           -- WiFi密码(string)
+            }
+        }
+    })
 -- 4G单网模式下，不需要require "exnetif"，减少不必要的功能模块加载
 ]]
 function exnetif.set_priority_order(networkConfigs)
@@ -761,6 +832,19 @@ function exnetif.set_priority_order(networkConfigs)
             end
             available[adapter_id] = connection_states.CONNECTED
             log.info("airlink_4G网卡已开启", adapter_id)
+        end
+        if type(config.airlink_wifi) == "table" then
+            -- airlink_wifi（Air1601 WHALE WiFi方案）
+            local adapter_id = setup_airlink_wifi(config.airlink_wifi)
+            if adapter_id == false then
+                log.error("airlink_wifi开启失败")
+                return false
+            end
+            table.insert(new_priority, adapter_id)
+            if config.auto_socket_switch ~= nil then
+                auto_socket_switch = config.auto_socket_switch
+            end
+            log.info("airlink_wifi网卡已开启", adapter_id)
         end
     end
 

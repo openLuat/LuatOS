@@ -1,0 +1,21 @@
+{
+  "app_name_cn": "数据库测试",
+  "app_name_en": "db_test",
+  "version": "1.0.2",
+  "publish_time": "2026-05-11 12:00:00",
+  "category": "工具",
+  "description": "测试云端数据库增删查功能",
+  "resolution": "320x480",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": "5",
+  "origin_size_kb": "10",
+  "display_zoom": "fixed_resolution",
+  "appid": "100162"
+}

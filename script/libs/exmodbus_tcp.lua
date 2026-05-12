@@ -727,6 +727,10 @@ local function tcp_master_main_task_func(instance)
         -- 等待 5 秒后重试
         sys.wait(5000)
     end
+
+    -- 释放资源
+    sys.cleanMsg(instance.TASK_NAME)
+    sys.taskDel(instance.TASK_NAME)
 end
 
 -- 解析 TCP 请求帧（从站使用）
@@ -1141,6 +1145,10 @@ local function tcp_slave_main_task_func(instance)
         -- 等待 5 秒后重试
         sys.wait(5000)
     end
+
+    -- 释放资源
+    sys.cleanMsg(instance.TASK_NAME)
+    sys.taskDel(instance.TASK_NAME)
 end
 
 -- 创建一个新的实例；
@@ -1179,8 +1187,6 @@ end
 function modbus:destroy()
     -- 设置退出标志，让主任务循环检测后主动退出
     self.should_exit = true
-    -- 停止任务
-    sys.taskDel(self.TASK_NAME)
 
     -- 关闭 TCP 连接（从站）
     if self.netc then

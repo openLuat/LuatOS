@@ -22,7 +22,7 @@
 
 **AirAUDIO_1020 使用注意：**
 - AirAUDIO_1020 板载 TM8211 编解码器，**不支持录音功能**
-- 使用 AirAUDIO_1020 时，仅需修改 `model="tm8211"` 并移除 `i2c_id` 配置即可支持播放功能
+- 使用 AirAUDIO_1020 时，仅需在 `audio_setup_param` 修改 `model="tm8211"` 并移除 `i2c_id` 配置即可支持播放功能
 
 ## 常量的介绍
 

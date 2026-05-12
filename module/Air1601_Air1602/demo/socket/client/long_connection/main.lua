@@ -93,7 +93,7 @@ require "timer_app"
 require "aircloud_data"
 
 -- 加载tcp client socket主应用功能模块
--- require "tcp_client_main"
+require "tcp_client_main"
 
 -- 加载udp client socket主应用功能模块
 -- require "udp_client_main"
@@ -102,10 +102,10 @@ require "aircloud_data"
 -- socket.sslLog(3)
 
 -- 加载tcp ssl client socket主应用功能模块
-require "tcp_ssl_main"
+-- require "tcp_ssl_main"
 
 -- 加载tcp ssl ca client socket主应用功能模块
-require "tcp_ssl_ca_main"
+-- require "tcp_ssl_ca_main"
 
 
 -- 用户代码已结束---------------------------------------------

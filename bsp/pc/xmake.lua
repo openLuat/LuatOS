@@ -752,8 +752,8 @@ target("luatos-lua")
         add_files("stubs/mp4player/dac_sound_pc.c")
         add_files("stubs/mp4player/sys_dac_pc.c")
 
-        -- ---- PC-side MP4 videoplayer integration ----
-        -- add_includedirs(path.join(os.scriptdir(), "port/mp4player"))
-        -- add_files(path.join(os.scriptdir(), "port/mp4player/luat_mp4_videoplayer.c"))
+        -- mp3
+        add_includedirs(mp4player_src .. "/audio_decode/mp3")
+        add_files(mp4player_src .. "/audio_decode/mp3/*.c")
     end
 target_end()

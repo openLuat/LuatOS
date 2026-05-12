@@ -397,3 +397,14 @@ void luat_mp4_vctx_get_dims(luat_mp4_vctx_t *ctx, int *w, int *h)
 }
 
 #endif /* LUAT_USE_MP4PLAYER */
+
+uint64_t sys_get_time(void)
+{
+    return luat_mcu_tick64_ms();
+}
+
+uint64_t sys_get_time_elaps(uint64_t prev_tick)
+{
+    uint64_t tnow = luat_mcu_tick64_ms();
+    return tnow - prev_tick;
+}

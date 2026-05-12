@@ -45,6 +45,8 @@ function modbus:new(config, TASK_NAME)
     obj.pending_transaction = nil
     -- socket 对象引用
     obj.netc = nil
+    -- 退出标志
+    obj.should_exit = false
 
     -- 设置原表；
     setmetatable(obj, modbus)
@@ -649,6 +651,14 @@ local function tcp_master_main_task_func(instance)
     local result, param
 
     while true do
+        -- 检查是否需要退出
+        if instance.should_exit then
+            if debug_enabled then
+                log.info("exmodbus", "收到退出信号")
+            end
+            break
+        end
+
         -- 创建 socket 客户端
         instance.socket_client = socket.create(instance.adapter, instance.TASK_NAME)
         if not instance.socket_client then
@@ -697,6 +707,14 @@ local function tcp_master_main_task_func(instance)
 
         -- 异常处理
         ::EXCEPTION_PROC::
+
+        -- 检查是否需要退出
+        if instance.should_exit then
+            if debug_enabled then
+                log.info("exmodbus", "收到退出信号，停止重连")
+            end
+            break
+        end
 
         -- 关闭连接
         if instance.socket_client then
@@ -1055,6 +1073,14 @@ local function tcp_slave_main_task_func(instance)
     local result, param
 
     while true do
+        -- 检查是否需要退出
+        if instance.should_exit then
+            if debug_enabled then
+                log.info("exmodbus", "收到退出信号")
+            end
+            break
+        end
+
         -- 创建 TCP 服务器
         instance.netc = socket.create(instance.adapter, instance.TASK_NAME)
         if not instance.netc then
@@ -1096,6 +1122,14 @@ local function tcp_slave_main_task_func(instance)
 
         -- 异常处理
         ::EXCEPTION_PROC::
+
+        -- 检查是否需要退出
+        if instance.should_exit then
+            if debug_enabled then
+                log.info("exmodbus", "收到退出信号，停止重连")
+            end
+            break
+        end
 
         -- 关闭连接
         if instance.netc then
@@ -1143,16 +1177,28 @@ local function create(config, exmodbus, gen_request_id, debug_flag)
 end
 
 function modbus:destroy()
+    -- 设置退出标志，让主任务循环检测后主动退出
+    self.should_exit = true
     -- 停止任务
     sys.taskDel(self.TASK_NAME)
 
-    -- 关闭 TCP 连接
+    -- 关闭 TCP 连接（从站）
     if self.netc then
         -- 断开 socket 链接
         libnet.close(self.TASK_NAME, 5000, self.netc)
         -- 释放 socket 对象
         socket.release(self.netc)
         self.netc = nil
+    end
+    
+    -- 关闭 TCP 连接（主站）
+    if self.socket_client then
+        -- 断开 socket 链接
+        libnet.close(self.TASK_NAME, 5000, self.socket_client)
+        -- 释放 socket 对象
+        socket.release(self.socket_client)
+        self.socket_client = nil
+        self.is_connected = false
     end
     -- 释放缓冲区
     if self.recv_buff then

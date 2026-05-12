@@ -5,14 +5,13 @@
 @date    2026.04.16
 @author  江访
 ]]
--- naming: fn(2-5char), var(2-4char)
 
-local wid = nil
-local mc
-local sb
-local si
-local mi
-local mt
+local window_id = nil
+local main_container
+local search_bar
+local search_icon
+local mouse_img
+local move_timer
 
 local MOUSE_SPEED = 15
 local ZOOM_STEP1 = 450
@@ -27,32 +26,32 @@ local COLOR_TEXT           = 0x333333
 local COLOR_TEXT_SECONDARY = 0x757575
 local COLOR_WHITE          = 0xFFFFFF
 
-local pn = "合宙引擎主机"
+local product_name = "合宙引擎主机"
 
-local function ra()
-    local ds = _G.density_scale or 1.0
-    MOUSE_SPEED = math.floor(15 * ds)
-    ZOOM_STEP1 = math.floor(256 + 128 * ds)
-    local msz = math.floor(math.max(28, math.min(52, screen_h * 0.055)) * ds)
-    MOUSE_W = msz
-    MOUSE_H = msz
+local function recalc_adapt()
+    local density_scale = _G.density_scale or 1.0
+    MOUSE_SPEED = math.floor(15 * density_scale)
+    ZOOM_STEP1 = math.floor(256 + 128 * density_scale)
+    local mouse_size = math.floor(math.max(28, math.min(52, screen_h * 0.055)) * density_scale)
+    MOUSE_W = mouse_size
+    MOUSE_H = mouse_size
 
-    local sfx = _G.model_str:gsub("^Air", "")
-    if sfx ~= "" then
-        pn = "合宙引擎主机" .. sfx
+    local suffix = _G.model_str:gsub("^Air", "")
+    if suffix ~= "" then
+        product_name = "合宙引擎主机" .. suffix
     end
 end
 
 -- 鼠标移动完成后的动作：放大搜索图标，关闭窗口，发布事件
-local function oma()
-    exwin.close(wid)
+local function on_mouse_arrive()
+    exwin.close(window_id)
     sys.publish("OPEN_IDLE_WIN")
 end
 
 -- 鼠标移动一步
-local function mms(tx, ty)
-    if not mi then return end
-    local cx, cy = mi:get_pos()
+local function move_mouse_step(tx, ty)
+    if not mouse_img then return end
+    local cx, cy = mouse_img:get_pos()
     cx = math.floor(cx)
     cy = math.floor(cy)
     local dx = tx - cx
@@ -61,40 +60,40 @@ local function mms(tx, ty)
 
     if dt <= MOUSE_SPEED then
         -- 到达目标位置
-        mi:set_pos(tx, ty)
-        if mt then
-            sys.timerStop(mt)
-            mt = nil
+        mouse_img:set_pos(tx, ty)
+        if move_timer then
+            sys.timerStop(move_timer)
+            move_timer = nil
         end
-        si:set_zoom(ZOOM_STEP1)
-        mi:destroy()
-        sys.timerStart(oma, 2500)
+        search_icon:set_zoom(ZOOM_STEP1)
+        mouse_img:destroy()
+        sys.timerStart(on_mouse_arrive, 2500)
     else
         -- 继续移动
         local sx = (dx / dt) * MOUSE_SPEED
         local sy = (dy / dt) * MOUSE_SPEED
         local nx = math.floor(cx + sx + 0.5)
         local ny = math.floor(cy + sy + 0.5)
-        mi:set_pos(nx, ny)
+        mouse_img:set_pos(nx, ny)
     end
 end
 
 -- 启动鼠标移动动画
-local function sma(ax, ay)
-    if not mi then return end
+local function start_mouse_anim(ax, ay)
+    if not mouse_img then return end
     local sx = screen_w - MOUSE_W
     local sy = math.random(0, screen_h - MOUSE_H)
-    mi:set_pos(sx, sy)
+    mouse_img:set_pos(sx, sy)
 
-    mt = sys.timerLoopStart(function()
-        mms(ax, ay)
+    move_timer = sys.timerLoopStart(function()
+        move_mouse_step(ax, ay)
     end, 50)
 end
 
-local function cui()
-    ra()
+local function build_ui()
+    recalc_adapt()
 
-    mc = airui.container({
+    main_container = airui.container({
         parent = airui.screen, x = 0, y = 0, w = screen_w, h = screen_h,
         color = COLOR_PRIMARY
     })
@@ -105,8 +104,8 @@ local function cui()
     local by = math.floor((screen_h - bh) / 2)
     local br = math.floor(bh / 2)
 
-    sb = airui.container({
-        parent = mc, x = bx, y = by, w = bw, h = bh,
+    search_bar = airui.container({
+        parent = main_container, x = bx, y = by, w = bw, h = bh,
         color = COLOR_CARD, radius = br
     })
 
@@ -117,14 +116,14 @@ local function cui()
     local lf = math.floor(math.max(16, bh * 0.4) * _G.density_scale)
 
     airui.label({
-        parent = sb, x = math.floor(bh * 0.3), y = math.floor((bh - lf) / 2),
+        parent = search_bar, x = math.floor(bh * 0.3), y = math.floor((bh - lf) / 2),
         w = bw - ic - ipd - math.floor(bh * 0.5), h = lf + 4,
-        text = pn, font_size = lf, color = COLOR_TEXT,
+        text = product_name, font_size = lf, color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
 
-    si = airui.image({
-        parent = sb, src = "/luadb/search.png",
+    search_icon = airui.image({
+        parent = search_bar, src = "/luadb/search.png",
         x = ix, y = iy, w = ic, h = ic,
         zoom = ZOOM_NORMAL, opacity = 255
     })
@@ -132,44 +131,44 @@ local function cui()
     -- 鼠标图片：初始放在屏幕右侧随机Y位置
     local mx = screen_w - MOUSE_W
     local my = math.random(0, screen_h - MOUSE_H)
-    mi = airui.image({
-        parent = mc, src = "/luadb/mouse.png",
+    mouse_img = airui.image({
+        parent = main_container, src = "/luadb/mouse.png",
         x = mx, y = my, w = MOUSE_W, h = MOUSE_H,
         zoom = ZOOM_NORMAL, opacity = 255
     })
 
-    sma(bx + ix, by + iy)
+    start_mouse_anim(bx + ix, by + iy)
 end
 
-local function oc()
-    cui()
+local function on_create()
+    build_ui()
 end
 
-local function od()
-    if mt then
-        sys.timerStop(mt)
-        mt = nil
+local function on_destroy()
+    if move_timer then
+        sys.timerStop(move_timer)
+        move_timer = nil
     end
-    if mc then
-        mc:destroy()
-        mc = nil
+    if main_container then
+        main_container:destroy()
+        main_container = nil
     end
-    sb = nil
-    si = nil
-    mi = nil
-    wid = nil
+    search_bar = nil
+    search_icon = nil
+    mouse_img = nil
+    window_id = nil
 end
 
-local function ogf() end
-local function olf() end
+local function on_get_focus() end
+local function on_lose_focus() end
 
-local function oh()
-    wid = exwin.open({
-        on_create = oc,
-        on_destroy = od,
-        on_get_focus = ogf,
-        on_lose_focus = olf,
+local function open_handler()
+    window_id = exwin.open({
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
 
-sys.subscribe("OPEN_WELCOME_WIN", oh)
+sys.subscribe("OPEN_WELCOME_WIN", open_handler)

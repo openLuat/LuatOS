@@ -73,7 +73,7 @@
     5. APP_STORE_SYNC_INSTALLED - 请求同步已安装应用信息
 
     使用示例：
-        local exapp = require("ea")
+        local exapp = require("exapp")
 
         -- 打开应用
         exapp.open("/app_store/app_hello/")
@@ -115,7 +115,7 @@ local exapp = {}
 local app_registry = {}
 
 -- 已安装应用信息表（统一数据源，由 init 扫描填充，云端安装/卸载会更新）
--- key: app_n 应用目录名称 (如 "app_hello"), value: { cn_name, path, version, category, description, install_time }
+-- key: app_name 应用目录名称 (如 "app_hello"), value: { cn_name, path, version, category, description, install_time }
 -- 示例: { ["app_hello"] = { cn_name = "你好世界", path = "/app_store/app_hello/", version = "1.0.0", category = "demo", description = "示例应用", install_time = 1759161153 } }
 local installed_info = {}
 
@@ -244,7 +244,7 @@ end
     - 遍历沙箱环境表，将所有引用设置为nil
     - 帮助垃圾回收器回收沙箱环境中的资源
 ]]
-local function cln_env(env)
+local function cleanup_env(env)
     if not env then return end
 
     for k, v in pairs(env) do
@@ -257,8 +257,8 @@ end
 
 @param app_path string 应用目录路径
 @param my_env table 沙箱环境表
-@param unsub function 取消所有订阅的函数
-@param mem0 number 沙箱创建前的内存基准值（KB）
+@param unsubscribe_all function 取消所有订阅的函数
+@param mem_base number 沙箱创建前的内存基准值（KB）
 
     功能说明：
     - 取消所有订阅
@@ -268,44 +268,44 @@ end
     - 触发垃圾回收
     - 检测内存泄漏（比较清理后内存与基准值）
 ]]
-local function s_cln(app_path, my_env, unsub, mem0)
-    log.info("s_cln", "start cleanup:", app_path)
+local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base)
+    log.info("sandbox_cleanup", "start cleanup:", app_path)
 
-    unsub()
+    unsubscribe_all()
 
     if my_env and my_env.package and my_env.package.loaded then
         for module_name in pairs(my_env.package.loaded) do
             my_env.package.loaded[module_name] = nil
-            log.info("s_cln", "cleared module:", module_name)
+            log.info("sandbox_cleanup", "cleared module:", module_name)
         end
     end
 
-    cln_env(my_env)
+    cleanup_env(my_env)
     app_registry[app_path] = nil
 
     collectgarbage("collect")
 
     -- 检测内存泄漏：比较清理后内存与沙箱创建前的基准值
-    if mem0 then
+    if mem_base then
         local mem_after = collectgarbage("count")
-        local mem_diff = mem_after - mem0
+        local mem_diff = mem_after - mem_base
         -- 内存泄漏阈值（KB）根据实际情况调整
         -- if mem_diff > 1 then
-        --     log.warn("s_cln", "potential memory leak:", app_path, mem_diff, "KB", mem0)
+        --     log.warn("sandbox_cleanup", "potential memory leak:", app_path, mem_diff, "KB", mem_base)
         -- end
     end
-    log.info("s_cln", "cleanup completed:", app_path)
+    log.info("sandbox_cleanup", "cleanup completed:", app_path)
 end
 
 -- 递归删除目录（用于云端卸载）
-local function rm_r(dir)
+local function rmdir_recursive(dir)
     if not io.dexist(dir) then return true end
     local ret, list = io.lsdir(dir, 100, 0)
     if ret then
         for _, item in ipairs(list) do
             local full_path = dir .. "/" .. item.name
             if item.type == 1 then
-                rm_r(full_path)
+                rmdir_recursive(full_path)
             else
                 os.remove(full_path)
             end
@@ -332,59 +332,59 @@ local function app_task(app_path)
     collectgarbage("collect")
 
     -- 记录沙箱创建前的内存基准值（KB），用于检测内存泄漏
-    local mem0 = collectgarbage("count")
+    local mem_base = collectgarbage("count")
 
     -- 保存全局原版函数引用
-    local g_log = log
-    local g_sys = sys
+    local glob_log = log
+    local glob_sys = sys
 
-    -- 从app_path提取app_n，用于fskv键名隔离
+    -- 从app_path提取app_name，用于fskv键名隔离
     -- /app_store/app_hello/ -> app_hello
     -- /sd/app_store/myapp/ -> myapp
-    local app_n = app_path:match("/app_store/([^/]+)/?$") or app_path:match("/sd/app_store/([^/]+)/?$")
-    local pfx = app_n and (app_n .. "_") or "e_"
+    local app_name = app_path:match("/app_store/([^/]+)/?$") or app_path:match("/sd/app_store/([^/]+)/?$")
+    local app_prefix = app_name and (app_name .. "_") or "e_"
 
     -- ==============================================
     -- 【核心：沙箱订阅管理器】自动记录 + 自动清理
     -- 功能：记录应用的所有订阅，应用退出时自动取消
     -- ==============================================
-    local subs = {}
+    local subscriptions = {}
 
     -- 订阅消息，同时记录到订阅列表
-    local function s_sub(topic, func)
+    local function sandbox_subscribe(topic, func)
         if not topic or type(func) ~= "function" then return end
-        g_sys.subscribe(topic, func)
-        table.insert(subs, { topic = topic, func = func })
+        glob_sys.subscribe(topic, func)
+        table.insert(subscriptions, { topic = topic, func = func })
     end
 
     -- 取消订阅，同时从订阅列表中移除
-    local function s_unsub(topic, func)
+    local function sandbox_unsubscribe(topic, func)
         if not topic then return end
-        g_sys.unsubscribe(topic, func)
-        for i = #subs, 1, -1 do
-            local sub = subs[i]
+        glob_sys.unsubscribe(topic, func)
+        for i = #subscriptions, 1, -1 do
+            local sub = subscriptions[i]
             if sub.topic == topic and sub.func == func then
-                table.remove(subs, i)
+                table.remove(subscriptions, i)
                 break
             end
         end
     end
 
     -- 取消所有订阅（应用退出时调用）
-    local function unsub()
-        for _, sub in ipairs(subs) do
-            g_sys.unsubscribe(sub.topic, sub.func)
+    local function unsubscribe_all()
+        for _, sub in ipairs(subscriptions) do
+            glob_sys.unsubscribe(sub.topic, sub.func)
         end
-        subs = {}
+        subscriptions = {}
     end
 
     -- ==============================================
     -- 创建沙箱专用的log对象
     -- 功能：自动给所有log函数调用添加应用目录前缀
     -- ==============================================
-    local slog = setmetatable({}, {
+    local sandbox_log = setmetatable({}, {
         __index = function(_, k)
-            local v = g_log[k]
+            local v = glob_log[k]
             if type(v) == "function" then
                 return function(...)
                     return v("["..app_path.."]", ...)
@@ -398,7 +398,7 @@ local function app_task(app_path)
     -- 创建自定义环境表
     -- ==============================================
     local my_env = setmetatable({
-        log = slog,
+        log = sandbox_log,
         package = { loaded = {} }
     }, { __index = _G })
 
@@ -429,7 +429,7 @@ local function app_task(app_path)
             end
         end
     end
-    local app_id = meta_appid or app_n
+    local app_id = meta_appid or app_name
     my_env.log.info("ea", "DB appid:", app_id)
 
     my_env.exapp.add_record = function(params)
@@ -463,8 +463,8 @@ local function app_task(app_path)
         "lbsLoc", "lbsLoc2", "libfota", "libfota2", "libnet", "netLed", "udpsrv",
         "xmodem", "sys", "sysplus"
     }
-    local exts = {}
-    for _, v in ipairs(EXT_LIBS) do exts[v] = true end
+    local ext_libs = {}
+    for _, v in ipairs(EXT_LIBS) do ext_libs[v] = true end
 
     my_env.require = function(name)
         my_env.log.info("require enter: " .. name)
@@ -475,7 +475,7 @@ local function app_task(app_path)
 
         -- 检查是否属于 LuatOS 扩展库
         -- 处理顺序：_G[name] -> 实时require -> _G[name] -> 应用目录加载
-        if exts[name] then
+        if ext_libs[name] then
             local global_mod = _G[name]
             if global_mod then
                 my_env.package.loaded[name] = global_mod
@@ -496,7 +496,7 @@ local function app_task(app_path)
         -- 扩展库搜索顺序：libs/name.lua -> libs/name.luac -> user/name.lua -> user/name.luac
         -- 用户模块搜索顺序：user/name.lua -> user/name.luac -> libs/name.lua -> libs/name.luac
         local chunk, err, search_paths
-        if exts[name] then
+        if ext_libs[name] then
             search_paths = {
                 app_path.."libs/"..name..".lua",
                 app_path.."libs/"..name..".luac",
@@ -541,7 +541,13 @@ local function app_task(app_path)
 
     -- ==============================================
     -- 【核心辅助函数】路径解析与权限检查
-    -- 简记: res_f=文件路径解析 res_d=目录路径解析 res_w=写路径解析+权限 chk_w=写权限检查 res_arr=数组路径解析 cp=浅拷贝表
+    -- 路径解析函数族：
+    -- resolve_file  =将沙箱虚拟路径解析为实际文件路径(只读)
+    -- resolve_dir   =将沙箱虚拟路径解析为实际目录路径(要求以/结尾)
+    -- resolve_write =解析路径并检查写权限(组合函数,先解析后检查)
+    -- check_write   =检查路径是否有写入权限(禁止写libs/user/res目录和受保护文件)
+    -- resolve_paths =批量解析路径数组(支持可选的写权限检查)
+    -- copy_table    =深拷贝表(避免修改原始配置表中的路径)
     -- ==============================================
 
     --[[
@@ -570,13 +576,13 @@ local function app_task(app_path)
            /ram/test.bin -> /ram/test.bin
            /config/settings.json -> <app_path>/data/config/settings.json
     ]]
-    local function res_f(path)
+    local function resolve_file(path)
         -- 参数类型检查，非字符串直接返回nil
         if type(path) ~= "string" then return nil end
 
         -- 路径前缀校验：必须以 /luadb/ 或 / 开头，否则拒绝访问
         if path:sub(1, 7) ~= "/luadb/" and path:sub(1, 1) ~= "/" then
-            my_env.log.error("res_f", "path must start with /luadb/ or /:", path)
+            my_env.log.error("resolve_file", "path must start with /luadb/ or /:", path)
             return nil
         end
 
@@ -585,7 +591,7 @@ local function app_task(app_path)
         if path == "/luadb/icon.png" then
             local icon_path = app_path .. "icon.png"
             if io.exists(icon_path) then return icon_path end
-            my_env.log.error("res_f", "icon.png not found:", icon_path)
+            my_env.log.error("resolve_file", "icon.png not found:", icon_path)
             return nil
         end
 
@@ -594,7 +600,7 @@ local function app_task(app_path)
         if path == "/luadb/meta.json" then
             local meta_path = app_path .. "meta.json"
             if io.exists(meta_path) then return meta_path end
-            my_env.log.error("res_f", "meta.json not found:", meta_path)
+            my_env.log.error("resolve_file", "meta.json not found:", meta_path)
             return nil
         end
 
@@ -629,7 +635,7 @@ local function app_task(app_path)
                 end
             end
             -- 文件未找到，记录错误日志
-            my_env.log.error("res_f", "file not found:", path)
+            my_env.log.error("resolve_file", "file not found:", path)
             return nil
         end
 
@@ -646,7 +652,7 @@ local function app_task(app_path)
         end
 
         -- 无法识别的路径格式
-        my_env.log.error("res_f", "unresolvable path:", path)
+        my_env.log.error("resolve_file", "unresolvable path:", path)
         return nil
     end
 
@@ -666,10 +672,10 @@ local function app_task(app_path)
         @return string|nil 解析后的实际路径，解析失败返回 nil
 
         使用示例：
-        local real_path = res_d("/luadb/res/")
+        local real_path = resolve_dir("/luadb/res/")
         -- 映射为: /app_store/app_xxx/res/
     ]]
-    local function res_d(path)
+    local function resolve_dir(path)
         -- 参数类型检查，非字符串直接返回 nil
         if type(path) ~= "string" then
             return nil
@@ -677,13 +683,13 @@ local function app_task(app_path)
 
         -- 检查路径第一个字符是否为 /
         if path:sub(1, 1) ~= "/" then
-            my_env.log.error("res_d", "path must start with /:", path)
+            my_env.log.error("resolve_dir", "path must start with /:", path)
             return nil
         end
 
         -- 检查路径最后一个字符是否为 /
         if path:sub(-1) ~= "/" then
-            my_env.log.error("res_d", "path must end with /:", path)
+            my_env.log.error("resolve_dir", "path must end with /:", path)
             return nil
         end
 
@@ -712,7 +718,7 @@ local function app_task(app_path)
         end
 
         -- 无法识别的路径格式
-        my_env.log.error("res_d", "unresolvable path:", path)
+        my_env.log.error("resolve_dir", "unresolvable path:", path)
         return nil
     end
 
@@ -723,7 +729,7 @@ local function app_task(app_path)
     -- 3. 禁止写入 libs/、user/、res/ 目录（只读资源）
     -- 4. 禁止写入 main.lua、meta.json、icon.png（受保护文件）
     -- 返回 true 表示有权限，false 表示无权限
-    local function chk_w(resolved_path)
+    local function check_write(resolved_path)
         -- /ram/ 目录允许写入
         if resolved_path:sub(1, 5) == "/ram/" then
             return true
@@ -731,7 +737,7 @@ local function app_task(app_path)
 
         -- 只允许写入应用目录内的文件
         if resolved_path:sub(1, #app_path) ~= app_path then
-            my_env.log.error("chk_w", "no permission, operation not allowed:", resolved_path)
+            my_env.log.error("check_write", "no permission, operation not allowed:", resolved_path)
             return false
         end
 
@@ -741,14 +747,14 @@ local function app_task(app_path)
         if relative_path:sub(1, 5) == "libs/" or
            relative_path:sub(1, 5) == "user/" or
            relative_path:sub(1, 5) == "res/" then
-            my_env.log.error("chk_w", "no permission, libs/user/res directories are read-only:", resolved_path)
+            my_env.log.error("check_write", "no permission, libs/user/res directories are read-only:", resolved_path)
             return false
         end
 
         -- 禁止写入受保护文件
         local filename = relative_path:match("([^/]+)$")
         if filename == "main.lua" or filename == "meta.json" or filename == "icon.png" then
-            my_env.log.error("chk_w", "no permission, protected file:", resolved_path)
+            my_env.log.error("check_write", "no permission, protected file:", resolved_path)
             return false
         end
 
@@ -757,16 +763,16 @@ local function app_task(app_path)
 
     -- 解析路径并检查写权限（组合函数）
     -- 先解析路径，再检查写权限，任一步骤失败则返回 nil
-    -- 当 path 最后一个字符是 / 时，使用 res_d 进行目录映射
-    local function res_w(path)
+    -- 当 path 最后一个字符是 / 时，使用 resolve_dir 进行目录映射
+    local function resolve_write(path)
         local resolved
         if path:sub(-1) == "/" then
-            resolved = res_d(path)
+            resolved = resolve_dir(path)
         else
-            resolved = res_f(path)
+            resolved = resolve_file(path)
         end
         if not resolved then return nil end
-        if not chk_w(resolved) then return nil end
+        if not check_write(resolved) then return nil end
         return resolved
     end
 
@@ -786,12 +792,12 @@ local function app_task(app_path)
     -- 解析路径数组
     -- 批量转换路径数组中的每个路径
     -- check_write 为 true 时检查写权限，否则只做路径转换
-    local function res_arr(paths, check_write)
+    local function resolve_paths(paths, check_write)
         if type(paths) ~= "table" then return nil end
 
         local resolved = {}
         for i, path in ipairs(paths) do
-            local p = check_write and res_w(path) or res_f(path)
+            local p = check_write and resolve_write(path) or resolve_file(path)
             if not p then return nil end
             resolved[i] = p
         end
@@ -800,11 +806,14 @@ local function app_task(app_path)
 
     -- ==============================================
     -- 【核心包装器工厂】用于快速创建沙箱函数
-    -- 简记: sget=安全取全局, wsp=单路径包装, wcp=配置表路径包装, wdp=双路径包装
+    -- safe_global=安全取全局库(不存在时返回空表)
+    -- wrap_path   =包装单路径参数(如ftp.pull路径)
+    -- wrap_config =包装配置表路径参数(如http.request的dst字段)
+    -- wrap_dual   =包装双路径参数(如os.rename的源路径+目标路径)
     -- ==============================================
 
     -- 安全获取全局库，如果不存在则返回空表
-    local function sget(name)
+    local function safe_global(name)
         local global = _G[name]
         return global or {}
     end
@@ -815,7 +824,7 @@ local function app_task(app_path)
     --       path_index - 路径参数的位置（从1开始）
     --       check_write - 是否检查写权限
     --       fail_return - 失败时的返回值（默认false）
-    local function wsp(orig_func, path_index, check_write, fail_return)
+    local function wrap_path(orig_func, path_index, check_write, fail_return)
         if not orig_func then
             return function(...) return fail_return or false end
         end
@@ -824,7 +833,7 @@ local function app_task(app_path)
             local path = args[path_index]
 
             if type(path) == "string" then
-                local resolved = check_write and res_w(path) or res_f(path)
+                local resolved = check_write and resolve_write(path) or resolve_file(path)
                 if not resolved then return fail_return or false end
 
                 local new_args = {}
@@ -845,7 +854,7 @@ local function app_task(app_path)
     --       config_index - 配置表参数的位置（默认1）
     --       check_write - 是否检查写权限
     --       fail_return - 失败时的返回值
-    local function wcp(orig_func, path_key, config_index, check_write, fail_return)
+    local function wrap_config(orig_func, path_key, config_index, check_write, fail_return)
         if not orig_func then
             return function(...) return fail_return or false end
         end
@@ -855,7 +864,7 @@ local function app_task(app_path)
             local config = args[config_index]
 
             if type(config) == "table" and type(config[path_key]) == "string" then
-                local resolved = check_write and res_w(config[path_key]) or res_f(config[path_key])
+                local resolved = check_write and resolve_write(config[path_key]) or resolve_file(config[path_key])
                 if not resolved then return fail_return or false end
 
                 local new_config = cp(config)
@@ -875,7 +884,7 @@ local function app_task(app_path)
     --       check_write1 - 第一个路径是否检查写权限
     --       check_write2 - 第二个路径是否检查写权限
     --       fail_return - 失败时的返回值
-    local function wdp(orig_func, path1_index, path2_index, check_write1, check_write2, fail_return)
+    local function wrap_dual(orig_func, path1_index, path2_index, check_write1, check_write2, fail_return)
         if not orig_func then
             return function(...) return fail_return or false end
         end
@@ -885,8 +894,8 @@ local function app_task(app_path)
             local path2 = args[path2_index]
 
             if type(path1) == "string" and type(path2) == "string" then
-                local resolved1 = check_write1 and res_w(path1) or res_f(path1)
-                local resolved2 = check_write2 and res_w(path2) or res_f(path2)
+                local resolved1 = check_write1 and resolve_write(path1) or resolve_file(path1)
+                local resolved2 = check_write2 and resolve_write(path2) or resolve_file(path2)
                 if not resolved1 or not resolved2 then return fail_return or false end
 
                 local new_args = {}
@@ -912,54 +921,54 @@ local function app_task(app_path)
 
     -- 打开文件，根据模式检查读/写权限
     my_env.io.open = function(path, mode)
-        local resolved = res_f(path)
+        local resolved = resolve_file(path)
         if not resolved then return nil end
         if mode and (mode:find("w") or mode:find("a")) then
-            if not chk_w(resolved) then return nil end
+            if not check_write(resolved) then return nil end
         end
         return io.open(resolved, mode)
     end
 
     -- 检查文件是否存在
     my_env.io.exists = function(path)
-        local resolved = res_f(path)
+        local resolved = resolve_file(path)
         return resolved and io.exists(resolved) or false
     end
 
     -- 获取文件大小
     my_env.io.fileSize = function(path)
-        local resolved = res_f(path)
+        local resolved = resolve_file(path)
         return resolved and io.fileSize(resolved) or nil
     end
 
     -- 读取文件内容
     my_env.io.readFile = function(path)
-        local resolved = res_f(path)
+        local resolved = resolve_file(path)
         return resolved and io.readFile(resolved) or nil
     end
 
     -- 写入文件内容（需要写权限）
     my_env.io.writeFile = function(path, data)
-        local resolved = res_w(path)
+        local resolved = resolve_write(path)
         return resolved and io.writeFile(resolved, data) or nil
     end
 
     -- 创建目录（需要写权限）
     my_env.io.mkdir = function(path)
-        local resolved = res_w(path)
+        local resolved = resolve_write(path)
         return resolved and io.mkdir(resolved) or nil
     end
 
     -- 删除目录（需要写权限）
     my_env.io.rmdir = function(path)
-        local resolved = res_w(path)
+        local resolved = resolve_write(path)
         return resolved and io.rmdir(resolved) or nil
     end
 
     -- 列出目录内容
-    -- 使用 res_d 进行目录映射，确保目录路径正确解析
+    -- 使用 resolve_dir 进行目录映射，确保目录路径正确解析
     my_env.io.lsdir = function(path, ...)
-        local resolved = res_d(path)
+        local resolved = resolve_dir(path)
         if resolved then
             local success, data = io.lsdir(resolved, ...)
             if success and type(data) == "table" and path:sub(1,7) == "/luadb/" then
@@ -995,14 +1004,14 @@ local function app_task(app_path)
 
         -- 单个路径：转换后播放
         if type(path_or_table) == "string" then
-            local resolved = res_f(path_or_table)
+            local resolved = resolve_file(path_or_table)
             if not resolved then return false end
             return audio.play(id, resolved, select(2, ...))
         end
 
         -- 路径数组：批量转换后播放
         if type(path_or_table) == "table" then
-            local resolved = res_arr(path_or_table, false)
+            local resolved = resolve_paths(path_or_table, false)
             if not resolved then return false end
             return audio.play(id, resolved, select(2, ...))
         end
@@ -1014,7 +1023,7 @@ local function app_task(app_path)
     my_env.audio.record = function(...)
         local args = {...}
         if type(args[5]) == "string" then
-            local resolved = res_w(args[5])
+            local resolved = resolve_write(args[5])
             if not resolved then return false end
             return audio.record(args[1], args[2], args[3], args[4], resolved, select(6, ...))
         end
@@ -1029,7 +1038,7 @@ local function app_task(app_path)
     my_env.camera.capture = function(...)
         local args = {...}
         if type(args[2]) == "string" then
-            local resolved = res_w(args[2])
+            local resolved = resolve_write(args[2])
             if not resolved then return false end
             return camera.capture(args[1], resolved, select(3, ...))
         end
@@ -1045,7 +1054,7 @@ local function app_task(app_path)
         local args = {...}
         local opts = args[5]
         if type(opts) == "table" and type(opts.dst) == "string" then
-            local resolved = res_w(opts.dst)
+            local resolved = resolve_write(opts.dst)
             if not resolved then return -7 end
             local new_opts = cp(opts)
             new_opts.dst = resolved
@@ -1071,7 +1080,7 @@ local function app_task(app_path)
             local resolved = {}
             for field, path in pairs(opts.files) do
                 if type(path) ~= "string" then return -7 end
-                local p = res_w(path)
+                local p = resolve_write(path)
                 if not p then return -7 end
                 resolved[field] = p
             end
@@ -1080,7 +1089,7 @@ local function app_task(app_path)
         end
 
         if type(opts.bodyfile) == "string" then
-            local resolved = res_w(opts.bodyfile)
+            local resolved = resolve_write(opts.bodyfile)
             if not resolved then return -7 end
             new_opts.bodyfile = resolved
             need_resolve = true
@@ -1094,20 +1103,20 @@ local function app_task(app_path)
 
     -- ftp 库
     -- 功能：包装 ftp.pull 和 ftp.push，支持路径转换
-    local ftp_lib = sget("ftp")
+    local ftp_lib = safe_global("ftp")
     my_env.ftp = setmetatable({}, { __index = ftp_lib })
-    my_env.ftp.pull = wsp(ftp_lib.pull, 1, false, false)
-    my_env.ftp.push = wsp(ftp_lib.push, 1, true, false)
+    my_env.ftp.pull = wrap_path(ftp_lib.pull, 1, false, false)
+    my_env.ftp.push = wrap_path(ftp_lib.push, 1, true, false)
 
     -- fota 库
     -- 功能：包装 fota.file，支持路径转换
-    local fota_lib = sget("fota")
+    local fota_lib = safe_global("fota")
     my_env.fota = setmetatable({}, { __index = fota_lib })
-    my_env.fota.file = wsp(fota_lib.file, 1, false, false)
+    my_env.fota.file = wrap_path(fota_lib.file, 1, false, false)
 
     -- ymodem 库
     -- 功能：包装 ymodem.create，支持路径转换
-    local ymodem_lib = sget("ymodem")
+    local ymodem_lib = safe_global("ymodem")
     my_env.ymodem = setmetatable({}, { __index = ymodem_lib })
 
     -- 处理目录和文件名参数，将沙箱路径转换为实际路径
@@ -1115,7 +1124,7 @@ local function app_task(app_path)
         local args = {...}
         if type(args[1]) == "string" and type(args[2]) == "string" then
             local full_path = args[1] .. args[2]
-            local resolved = res_w(full_path)
+            local resolved = resolve_write(full_path)
             if not resolved then return false end
             local new_dir = resolved:match("^(.*/)[^/]+$")
             return ymodem_lib.create and ymodem_lib.create(new_dir, args[2])
@@ -1125,18 +1134,49 @@ local function app_task(app_path)
 
     -- xmodem 库
     -- 功能：包装 xmodem.send，支持路径转换
-    local xmodem_lib = sget("xmodem")
+    local xmodem_lib = safe_global("xmodem")
     my_env.xmodem = setmetatable({}, { __index = xmodem_lib })
-    my_env.xmodem.send = wsp(xmodem_lib.send, 3, false, false)
+    my_env.xmodem.send = wrap_path(xmodem_lib.send, 3, false, false)
 
-    -- airui 库（统一构造器模式：res_p解析路径→adapt缩放适配→wrap_c包装返回值）
-    -- 缩放简记: sx=scale_x, sy=scale_y, smin=scale_min, aw=adapt_w, ah=adapt_h, rnd=round
-    local ui = sget("airui")
+    -- ==============================================
+    -- airui 库（UI 组件沙箱包装）
+    -- ==============================================
+    -- 每个 UI 组件创建都经过三阶段管道处理：
+    --
+    -- 第一阶段 -- resolve_config_paths(组件名, 配置表)：
+    --   将配置表中的沙箱路径（如 /luadb/xxx.png）转换为实际文件系统路径。
+    --   目前处理 src 字段（image/lottie/video）和 frames 字段（animimg）。
+    --
+    -- 第二阶段 -- adapt_config(组件名, 配置表)：
+    --   1. 填充默认值（default_config）：不同组件有不同的默认参数
+    --      - image: zoom=256, qrcode: size=160, label/button: w=100 h=40 font_size=14
+    --      - button.style: radius=10 border_width=2
+    --      - table: 根据 w/h/rows/cols 自动生成均匀的 col_width/row_height 数组
+    --   2. 坐标自适应缩放（仅当 UI 设计分辨率 ≠ 屏幕分辨率时启用）：
+    --      - x/w/col_width 按 scale_x_fn（屏幕宽/UI宽）缩放
+    --      - y/h/row_height 按 scale_y_fn（屏幕高/UI高）缩放
+    --      - font_size/zoom/size/radius/border_width 按 scale_min_fn（取较小缩放比）缩放
+    --      - w 或 h 等于设计分辨率全尺寸时，自动映射到屏幕全尺寸（adapt_w_fn/adapt_h_fn）
+    --      - style/page_style 嵌套样式递归处理
+    --   3. display_zoom="adaptive" 的应用跳过缩放适配，由应用自行处理
+    --
+    -- 第三阶段 -- wrap_component(组件名, 原始userdata)：
+    --   将 airui 返回的原始 userdata 包装为代理对象，拦截以下方法：
+    --   - set_src: 自动转换沙箱路径
+    --   - set_pos/move: 自动缩放坐标
+    --   - set_font_size/set_zoom/set_size: 自动缩放
+    --   - set_style/set_cell_style: 自动缩放样式参数
+    --   - get_content/add_tab: 递归包装子组件
+    --   其他方法透明代理到原始 userdata。
+    --   通过 __raw 属性可以取出原始 userdata（用于嵌套组件传递）。
+    --
+    -- install_component(组件名)：对每个 airui 组件类型应用三阶段管道
+    local ui = safe_global("airui")
     my_env.airui = setmetatable({}, { __index = ui })
 
     -- excloud 库
     -- 功能：包装 excloud.upload_image 和 excloud.upload_audio，支持路径转换
-    local function rnd(v)
+    local function round_val(v)
         if type(v) ~= "number" then return v end
         if v >= 0 then
             return math.floor(v + 0.5)
@@ -1144,7 +1184,7 @@ local function app_task(app_path)
         return math.ceil(v - 0.5)
     end
 
-    local function ld_res()
+    local function load_res()
         local meta_path = app_path .. "meta.json"
         local content = io.readFile(meta_path)
         if not content then
@@ -1167,7 +1207,7 @@ local function app_task(app_path)
         return w, h, display_zoom
     end
 
-    local function ld_scr()
+    local function load_screen()
         local size = ui.status and ui.status() or nil
         if type(size) == "table" then
             local rotation = tonumber(size.rotation) or 0
@@ -1193,9 +1233,9 @@ local function app_task(app_path)
         return 0, 480, 800
     end
 
-    local function init_ctx()
-        local ui_w, ui_h, display_zoom = ld_res()
-        local rotation, screen_w, screen_h = ld_scr()
+    local function init_context()
+        local ui_w, ui_h, display_zoom = load_res()
+        local rotation, screen_w, screen_h = load_screen()
         local ctx = {
             ui_w = ui_w,
             ui_h = ui_h,
@@ -1220,43 +1260,43 @@ local function app_task(app_path)
         return ctx
     end
 
-    local ctx = init_ctx()
+    local ctx = init_context()
 
-    local function sx(v)
+    local function scale_x_fn(v)
         if type(v) ~= "number" or not ctx.adapt_enabled then return v end
-        local result = rnd(v * ctx.scale_x)
+        local result = round_val(v * ctx.scale_x)
         return result
     end
 
-    local function sy(v)
+    local function scale_y_fn(v)
         if type(v) ~= "number" or not ctx.adapt_enabled then return v end
-        local result = rnd(v * ctx.scale_y)
+        local result = round_val(v * ctx.scale_y)
         return result
     end
 
-    local function smin(v)
+    local function scale_min_fn(v)
         if type(v) ~= "number" or not ctx.adapt_enabled then return v end
-        local result = rnd(v * ctx.scale_min)
+        local result = round_val(v * ctx.scale_min)
         return result
     end
 
-    local function aw(v)
+    local function adapt_w_fn(v)
         if type(v) ~= "number" or not ctx.adapt_enabled then return v end
         if v == ctx.ui_w then
             return ctx.screen_w
         end
-        return sx(v)
+        return scale_x_fn(v)
     end
 
-    local function ah(v)
+    local function adapt_h_fn(v)
         if type(v) ~= "number" or not ctx.adapt_enabled then return v end
         if v == ctx.ui_h then
             return ctx.screen_h
         end
-        return sy(v)
+        return scale_y_fn(v)
     end
 
-    local function sa(arr, scaler)
+    local function scale_array(arr, scaler)
         if type(arr) ~= "table" then return arr end
         local out = {}
         for i, v in ipairs(arr) do
@@ -1265,7 +1305,7 @@ local function app_task(app_path)
         return out
     end
 
-    local function ss(style)
+    local function style_scale(style)
         if type(style) ~= "table" then return style end
         local out = cp(style)
         local min_keys = {
@@ -1278,29 +1318,29 @@ local function app_task(app_path)
         }
         for k, v in pairs(out) do
             if min_keys[k] and type(v) == "number" then
-                out[k] = smin(v)
+                out[k] = scale_min_fn(v)
             elseif k == "pivot" and type(v) == "table" then
-                out[k] = { x = sx(v.x), y = sy(v.y) }
+                out[k] = { x = scale_x_fn(v.x), y = scale_y_fn(v.y) }
             elseif k == "col_width" then
                 if type(v) == "number" then
-                    out[k] = sx(v)
+                    out[k] = scale_x_fn(v)
                 elseif type(v) == "table" then
-                    out[k] = sa(v, sx)
+                    out[k] = scale_array(v, scale_x_fn)
                 end
             elseif k == "row_height" then
                 if type(v) == "number" then
-                    out[k] = sy(v)
+                    out[k] = scale_y_fn(v)
                 elseif type(v) == "table" then
-                    out[k] = sa(v, sy)
+                    out[k] = scale_array(v, scale_y_fn)
                 end
             elseif (k == "style" or k == "page_style") and type(v) == "table" then
-                out[k] = ss(v)
+                out[k] = style_scale(v)
             end
         end
         return out
     end
 
-    local function dflt(component_name, config)
+    local function default_config(component_name, config)
         -- 根据组件类型提供默认值
         local defaults = {}
         if component_name == "image" then
@@ -1403,105 +1443,105 @@ local function app_task(app_path)
         return defaults
     end
 
-    local function merge_d(config, defaults)
+    local function merge_defaults(config, defaults)
         if type(config) ~= "table" then config = {} end
         if type(defaults) ~= "table" then return config end
         for k, v in pairs(defaults) do
             if config[k] == nil then
                 config[k] = cp(v)
             elseif type(config[k]) == "table" and type(v) == "table" then
-                config[k] = merge_d(config[k], v)
+                config[k] = merge_defaults(config[k], v)
             end
         end
         return config
     end
 
-    local function res_p(component_name, config)
+    local function resolve_config_paths(component_name, config)
         if type(config) ~= "table" then return config end
         local new_config = cp(config)
         if component_name == "image" or component_name == "lottie" or component_name == "video" then
             if type(new_config.src) == "string" then
-                new_config.src = res_f(new_config.src)
+                new_config.src = resolve_file(new_config.src)
                 if not new_config.src then return nil end
             end
         elseif component_name == "animimg" then
             if type(new_config.frames) == "table" then
-                new_config.frames = res_arr(new_config.frames, false)
+                new_config.frames = resolve_paths(new_config.frames, false)
                 if not new_config.frames then return nil end
             end
         end
         return new_config
     end
 
-    local function adapt(component_name, config)
+    local function adapt_config(component_name, config)
         if type(config) ~= "table" then return config end
         local new_config = cp(config)
-        new_config = merge_d(new_config, dflt(component_name, config))
+        new_config = merge_defaults(new_config, default_config(component_name, config))
         if not ctx.adapt_enabled then
             return new_config
         end
         -- 基础参数：x、y、w、h、font_size
         if type(new_config.x) == "number" then
-            new_config.x = sx(new_config.x)
+            new_config.x = scale_x_fn(new_config.x)
         end
         if type(new_config.y) == "number" then
-            new_config.y = sy(new_config.y)
+            new_config.y = scale_y_fn(new_config.y)
         end
         if type(new_config.w) == "number" then
-            new_config.w = aw(new_config.w)
+            new_config.w = adapt_w_fn(new_config.w)
         end
         if type(new_config.h) == "number" then
-            new_config.h = ah(new_config.h)
+            new_config.h = adapt_h_fn(new_config.h)
         end
         if type(new_config.font_size) == "number" then
-            new_config.font_size = smin(new_config.font_size)
+            new_config.font_size = scale_min_fn(new_config.font_size)
         end
         -- 图片大小参数
         if type(new_config.zoom) == "number" then
-            new_config.zoom = smin(new_config.zoom)
+            new_config.zoom = scale_min_fn(new_config.zoom)
         end
         if type(new_config.size) == "number" then
-            new_config.size = smin(new_config.size)
+            new_config.size = scale_min_fn(new_config.size)
         end
         local scale_min_params = {"radius", "border_width", "tabbar_size", "bar_radius", "bar_group_gap", "bar_series_gap", "preview_height"}
         for _, param in ipairs(scale_min_params) do
             if type(new_config[param]) == "number" then
-                new_config[param] = smin(new_config[param])
+                new_config[param] = scale_min_fn(new_config[param])
             end
         end
         -- 表格参数：col_width, row_height
         if type(new_config.col_width) == "number" then
-            new_config.col_width = sx(new_config.col_width)
+            new_config.col_width = scale_x_fn(new_config.col_width)
         elseif type(new_config.col_width) == "table" then
-            new_config.col_width = sa(new_config.col_width, sx)
+            new_config.col_width = scale_array(new_config.col_width, scale_x_fn)
         end
         if type(new_config.row_height) == "number" then
-            new_config.row_height = sy(new_config.row_height)
+            new_config.row_height = scale_y_fn(new_config.row_height)
         elseif type(new_config.row_height) == "table" then
-            new_config.row_height = sa(new_config.row_height, sy)
+            new_config.row_height = scale_array(new_config.row_height, scale_y_fn)
         end
         -- 样式参数：style, page_style
         if type(new_config.style) == "table" then
-            new_config.style = ss(new_config.style)
+            new_config.style = style_scale(new_config.style)
         end
         if type(new_config.page_style) == "table" then
-            new_config.page_style = ss(new_config.page_style)
+            new_config.page_style = style_scale(new_config.page_style)
         end
         -- pivot参数：x按scale_x，y按scale_y
         if type(new_config.pivot) == "table" then
             local pivot = new_config.pivot
             if type(pivot.x) == "number" then
-                pivot.x = sx(pivot.x)
+                pivot.x = scale_x_fn(pivot.x)
             end
             if type(pivot.y) == "number" then
-                pivot.y = sy(pivot.y)
+                pivot.y = scale_y_fn(pivot.y)
             end
         end
         -- 其他参数暂不处理
         return new_config
     end
 
-    local function ud_m(raw_obj, orig_index, key)
+    local function userdata_member(raw_obj, orig_index, key)
         if not orig_index then return nil end
         if type(orig_index) == "function" then
             return orig_index(raw_obj, key)
@@ -1511,7 +1551,7 @@ local function app_task(app_path)
         return nil
     end
 
-    local function wrap_c(component_name, raw_obj)
+    local function wrap_component(component_name, raw_obj)
         if type(raw_obj) ~= "userdata" then return raw_obj end
         local orig_mt = debug.getmetatable(raw_obj)
         local orig_index = orig_mt and orig_mt.__index
@@ -1521,7 +1561,7 @@ local function app_task(app_path)
                 if key == "__raw" then return raw_obj end
                 if key == "set_src" and (component_name == "image" or component_name == "lottie" or component_name == "video") then
                     return function(_, src)
-                        local resolved = res_f(src)
+                        local resolved = resolve_file(src)
                         if not resolved then return false end
                         return raw_obj:set_src(resolved)
                     end
@@ -1529,7 +1569,7 @@ local function app_task(app_path)
                 if key == "set_src" and component_name == "animimg" then
                     return function(_, frames)
                         if type(frames) == "table" then
-                            local resolved = res_arr(frames, false)
+                            local resolved = resolve_paths(frames, false)
                             if not resolved then return false end
                             return raw_obj:set_src(resolved)
                         end
@@ -1537,61 +1577,61 @@ local function app_task(app_path)
                     end
                 end
                 if key == "set_pos" then
-                    return function(_, x, y) return raw_obj:set_pos(sx(x), sy(y)) end
+                    return function(_, x, y) return raw_obj:set_pos(scale_x_fn(x), scale_y_fn(y)) end
                 end
                 if key == "move" then
-                    return function(_, dx, dy) return raw_obj:move(sx(dx), sy(dy)) end
+                    return function(_, dx, dy) return raw_obj:move(scale_x_fn(dx), scale_y_fn(dy)) end
                 end
                 if key == "set_font_size" then
-                    return function(_, size) return raw_obj:set_font_size(smin(size)) end
+                    return function(_, size) return raw_obj:set_font_size(scale_min_fn(size)) end
                 end
                 if key == "set_zoom" then
-                    return function(_, zoom) return raw_obj:set_zoom(smin(zoom)) end
+                    return function(_, zoom) return raw_obj:set_zoom(scale_min_fn(zoom)) end
                 end
                 if key == "set_size" and component_name == "qrcode" then
-                    return function(_, size) return raw_obj:set_size(smin(size)) end
+                    return function(_, size) return raw_obj:set_size(scale_min_fn(size)) end
                 end
                 if key == "set_col_width" and component_name == "table" then
-                    return function(_, col, width) return raw_obj:set_col_width(col, sx(width)) end
+                    return function(_, col, width) return raw_obj:set_col_width(col, scale_x_fn(width)) end
                 end
                 if key == "set_row_height" and component_name == "table" then
-                    return function(_, row, height) return raw_obj:set_row_height(row, sy(height)) end
+                    return function(_, row, height) return raw_obj:set_row_height(row, scale_y_fn(height)) end
                 end
                 if key == "set_cell_style" and component_name == "table" then
-                    return function(_, axis, index, style) return raw_obj:set_cell_style(axis, index, ss(style)) end
+                    return function(_, axis, index, style) return raw_obj:set_cell_style(axis, index, style_scale(style)) end
                 end
                 if (key == "set_style" or key == "set_stype") and
                     (component_name == "button" or component_name == "table" or component_name == "spinner" or component_name == "win") then
                     return function(_, style)
-                        local method = ud_m(raw_obj, orig_index, key)
+                        local method = userdata_member(raw_obj, orig_index, key)
                         if type(method) ~= "function" then return false end
-                        return method(raw_obj, ss(style))
+                        return method(raw_obj, style_scale(style))
                     end
                 end
                 if key == "set_bar_gap" and component_name == "chart" then
                     return function(_, group_gap, series_gap)
-                        return raw_obj:set_bar_gap(smin(group_gap), smin(series_gap))
+                        return raw_obj:set_bar_gap(scale_min_fn(group_gap), scale_min_fn(series_gap))
                     end
                 end
                 if key == "set_bar_radius" and component_name == "chart" then
-                    return function(_, radius) return raw_obj:set_bar_radius(smin(radius)) end
+                    return function(_, radius) return raw_obj:set_bar_radius(scale_min_fn(radius)) end
                 end
                 if key == "get_content" and component_name == "tabview" then
-                    return function(_, index) return wrap_c("container", raw_obj:get_content(index)) end
+                    return function(_, index) return wrap_component("container", raw_obj:get_content(index)) end
                 end
                 if key == "add_tab" and component_name == "tabview" then
                     return function(_, title, content)
                         if type(content) == "table" and content.__raw then
                             content = content.__raw
                         end
-                        return wrap_c("container", raw_obj:add_tab(title, content))
+                        return wrap_component("container", raw_obj:add_tab(title, content))
                     end
                 end
                 if key == "get_keyboard" and component_name == "textarea" then
-                    return function(_) return wrap_c("keyboard", raw_obj:get_keyboard()) end
+                    return function(_) return wrap_component("keyboard", raw_obj:get_keyboard()) end
                 end
                 if key == "get_target" and component_name == "keyboard" then
-                    return function(_) return wrap_c("textarea", raw_obj:get_target()) end
+                    return function(_) return wrap_component("textarea", raw_obj:get_target()) end
                 end
                 if key == "attach_keyboard" and component_name == "textarea" then
                     return function(_, keyboard)
@@ -1609,7 +1649,7 @@ local function app_task(app_path)
                         return raw_obj:set_target(textarea)
                     end
                 end
-                local v = ud_m(raw_obj, orig_index, key)
+                local v = userdata_member(raw_obj, orig_index, key)
                 if type(v) == "function" then
                     return function(_, ...) return v(raw_obj, ...) end
                 end
@@ -1619,7 +1659,7 @@ local function app_task(app_path)
         return wrapper
     end
 
-    local function inst_c(component_name)
+    local function install_component(component_name)
         local orig_func = ui[component_name]
         if type(orig_func) ~= "function" then
             my_env.log.info("ea", app_path, component_name, "no original")
@@ -1646,15 +1686,15 @@ local function app_task(app_path)
                         args[1].target = args[1].target.__raw
                     end
                 end
-                local new_config = res_p(component_name, args[1])
+                local new_config = resolve_config_paths(component_name, args[1])
                 if args[1] and not new_config then
                     return false
                 end
-                args[1] = adapt(component_name, new_config)
+                args[1] = adapt_config(component_name, new_config)
             end
             local raw_obj = orig_func(unpack(args))
             if type(raw_obj) ~= "userdata" then return raw_obj end
-            return wrap_c(component_name, raw_obj)
+            return wrap_component(component_name, raw_obj)
         end
     end
 
@@ -1663,19 +1703,19 @@ local function app_task(app_path)
         "switch", "table", "keyboard", "textarea", "tabview", "chart",
         "qrcode", "win", "msgbox", "shape", "spinner", "video", "lottie"
     }) do
-        inst_c(component_name)
+        install_component(component_name)
     end
 
-    my_env.airui.font_load = wcp(ui.font_load, "path", 1, false, false)
+    my_env.airui.font_load = wrap_config(ui.font_load, "path", 1, false, false)
 
-    local excloud_lib = sget("excloud")
+    local excloud_lib = safe_global("excloud")
     my_env.excloud = setmetatable({}, { __index = excloud_lib })
-    my_env.excloud.upload_image = wsp(excloud_lib.upload_image, 1, false, false)
-    my_env.excloud.upload_audio = wsp(excloud_lib.upload_audio, 1, false, false)
+    my_env.excloud.upload_image = wrap_path(excloud_lib.upload_image, 1, false, false)
+    my_env.excloud.upload_audio = wrap_path(excloud_lib.upload_audio, 1, false, false)
 
     -- exaudio 库
     -- 功能：包装 exaudio.play_start，支持音频文件路径转换
-    local exaudio_lib = sget("exaudio")
+    local exaudio_lib = safe_global("exaudio")
     my_env.exaudio = setmetatable({}, { __index = exaudio_lib })
 
     -- 处理 config.content 参数，支持单个路径或路径数组
@@ -1687,11 +1727,11 @@ local function app_task(app_path)
             local new_config = cp(config)
 
             if type(config.content) == "string" then
-                local resolved = res_f(config.content)
+                local resolved = resolve_file(config.content)
                 if not resolved then return false end
                 new_config.content = resolved
             elseif type(config.content) == "table" then
-                local resolved = res_arr(config.content, false)
+                local resolved = resolve_paths(config.content, false)
                 if not resolved then return false end
                 new_config.content = resolved
             end
@@ -1702,11 +1742,11 @@ local function app_task(app_path)
         return exaudio_lib.play_start(...)
     end
 
-    my_env.exaudio.record_start = wcp(exaudio_lib.record_start, "path", 1, true, false)
+    my_env.exaudio.record_start = wrap_config(exaudio_lib.record_start, "path", 1, true, false)
 
     -- excamera 库
     -- 功能：包装 excamera.open 和 excamera.video，支持视频文件路径转换
-    local excamera_lib = sget("excamera")
+    local excamera_lib = safe_global("excamera")
     my_env.excamera = setmetatable({}, { __index = excamera_lib })
 
     -- 处理 config.save_path 参数，将沙箱路径转换为实际路径
@@ -1716,7 +1756,7 @@ local function app_task(app_path)
 
         if type(config) == "table" and type(config.save_path) == "string" then
             if config.save_path:lower() ~= "zbuff" then
-                local resolved = res_w(config.save_path)
+                local resolved = resolve_write(config.save_path)
                 if not resolved then return false end
                 local new_config = cp(config)
                 new_config.save_path = resolved
@@ -1727,13 +1767,13 @@ local function app_task(app_path)
         return excamera_lib.open(...)
     end
 
-    my_env.excamera.video = wsp(excamera_lib.video, 1, true, false)
+    my_env.excamera.video = wrap_path(excamera_lib.video, 1, true, false)
 
     -- os 库
     -- 功能：包装 os.remove 和 os.rename，支持路径转换
     my_env.os = setmetatable({}, { __index = _G.os })
-    my_env.os.remove = wsp(os.remove, 1, true, nil)
-    my_env.os.rename = wdp(os.rename, 1, 2, false, true, nil)
+    my_env.os.remove = wrap_path(os.remove, 1, true, nil)
+    my_env.os.rename = wrap_dual(os.rename, 1, 2, false, true, nil)
 
     -- sys 库
     -- 功能：禁用 sys.run()，使用沙箱专用的订阅管理
@@ -1745,8 +1785,8 @@ local function app_task(app_path)
     end
 
     -- 使用沙箱专用的订阅管理函数
-    my_env.sys.subscribe = s_sub
-    my_env.sys.unsubscribe = s_unsub
+    my_env.sys.subscribe = sandbox_subscribe
+    my_env.sys.unsubscribe = sandbox_unsubscribe
 
     -- ==============================================
     -- fskv 库（键名隔离）
@@ -1755,34 +1795,34 @@ local function app_task(app_path)
     -- ==============================================
 
     -- 为键添加应用前缀
-    local function wk(key)
-        return pfx .. key
+    local function wrap_key(key)
+        return app_prefix .. key
     end
 
     my_env.fskv = setmetatable({}, { __index = _G.fskv })
 
     -- 设置键值对，键名自动添加前缀
     my_env.fskv.set = function(key, value, ...)
-        local wrapped_key = wk(key)
+        local wrapped_key = wrap_key(key)
         return _G.fskv.set(wrapped_key, value, ...)
     end
 
     -- 设置哈希表键值对，键名自动添加前缀
     my_env.fskv.sett = function(key, value, ...)
-        local wrapped_key = wk(key)
-        local wrapped_skey = wk(skey)
+        local wrapped_key = wrap_key(key)
+        local wrapped_skey = wrap_key(skey)
         return _G.fskv.sett(wrapped_key, wrapped_skey, ...)
     end
 
     -- 获取键值，键名自动添加前缀
     my_env.fskv.get = function(key)
-        local wrapped_key = wk(key)
+        local wrapped_key = wrap_key(key)
         return _G.fskv.get(wrapped_key)
     end
 
     -- 删除键，键名自动添加前缀
     my_env.fskv.del = function(key, ...)
-        local wrapped_key = wk(key)
+        local wrapped_key = wrap_key(key)
         return _G.fskv.del(wrapped_key, ...)
     end
 
@@ -1794,8 +1834,8 @@ local function app_task(app_path)
                 return nil
             end
             -- 只返回当前应用前缀的键
-            if key:find("^" .. pfx, 1) then
-                local original_key = key:sub(#pfx + 1)
+            if key:find("^" .. app_prefix, 1) then
+                local original_key = key:sub(#app_prefix + 1)
                 return original_key
             end
         end
@@ -1811,7 +1851,7 @@ local function app_task(app_path)
             if not key then
                 break
             end
-            if key:find("^" .. pfx, 1) then
+            if key:find("^" .. app_prefix, 1) then
                 table.insert(keys_to_delete, key)
             end
         end
@@ -1826,21 +1866,21 @@ local function app_task(app_path)
     -- 功能：跟踪应用打开的窗口，窗口全部关闭时自动退出应用
     -- ==============================================
     local win_ids = {}
-    local g_ex = exwin
+    local glob_exwin = exwin
 
     -- 检查窗口数量，如果为0则自动退出应用
-    local function chk_win()
+    local function check_windows()
         if #win_ids == 0 then
             my_env.log.info("ex", "window count is 0, auto exit app")
             my_env.exapp.close()
         end
     end
 
-    my_env.exwin = setmetatable({}, { __index = g_ex })
+    my_env.exwin = setmetatable({}, { __index = glob_exwin })
 
     -- 打开窗口，记录窗口ID
     my_env.exwin.open = function(config)
-        local win_id = g_ex.open(config)
+        local win_id = glob_exwin.open(config)
         if win_id then
             table.insert(win_ids, win_id)
             my_env.log.info("ee", "window opened, ID:", win_id, "window count:", #win_ids)
@@ -1850,7 +1890,7 @@ local function app_task(app_path)
 
     -- 关闭窗口，从记录中移除，检查是否需要退出应用
     my_env.exwin.close = function(win_id)
-        g_ex.close(win_id)
+        glob_exwin.close(win_id)
         for i, id in ipairs(win_ids) do
             if id == win_id then
                 table.remove(win_ids, i)
@@ -1858,15 +1898,15 @@ local function app_task(app_path)
             end
         end
         my_env.log.info("ex", "window closed, ID:", win_id, "window count:", #win_ids)
-        chk_win()
+        check_windows()
     end
 
     -- 返回首页，清空窗口记录，检查是否需要退出应用
     my_env.exwin.return_idle = function()
-        g_ex.return_idle()
+        glob_exwin.return_idle()
         win_ids = {}
         my_env.log.info("exwin.return_idle", "returned to home, window count:", #win_ids)
-        chk_win()
+        check_windows()
     end
 
     -- ==============================================
@@ -1882,7 +1922,7 @@ local function app_task(app_path)
     -- 加载失败，记录错误并清理沙箱
     if not f then
         my_env.log.error("app_task", "failed to load main.lua:", err)
-        s_cln(app_path, my_env, unsub, mem0)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base)
         return
     end
 
@@ -1901,7 +1941,7 @@ local function app_task(app_path)
     -- 应用异常退出，执行清理
     if not ok then
         my_env.log.error("app_task", "app crashed, starting cleanup:", app_path, result)
-        s_cln(app_path, my_env, unsub, mem0)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base)
         return
     end
 
@@ -1910,7 +1950,7 @@ local function app_task(app_path)
     -- 等待应用关闭请求
     local ret, rdata = sys.waitUntil(app_path .."_close_req")
     if rdata == "yes" then
-        s_cln(app_path, my_env, unsub, mem0)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base)
         log.info("app co quit", app_path)
     end
 end
@@ -2189,8 +2229,8 @@ end
 
 遍历示例:
 local apps, cnt = exapp.list_installed()
-for app_n, app_info in pairs(apps) do
-    log.info("app_n:", app_n)
+for app_name, app_info in pairs(apps) do
+    log.info("app_name:", app_name)
     log.info("cn_name:", app_info.cn_name)
     log.info("path:", app_info.path)
     log.info("version:", app_info.version)
@@ -2212,11 +2252,11 @@ end
 --[[
 获取应用信息
 
-@param app_n string 应用目录名称，例如 "pac_man"
+@param app_name string 应用目录名称，例如 "pac_man"
 @return table|nil 应用信息
 ]]
-function exapp.get_info(app_n)
-    return installed_info[app_n]
+function exapp.get_info(app_name)
+    return installed_info[app_name]
 end
 
 
@@ -2274,8 +2314,8 @@ local function scan(base_dir)
                 end
 
                 -- 保存应用信息，包含 install_time
-                local app_n = app_dir.name
-                installed_info[app_n] = {
+                local app_name = app_dir.name
+                installed_info[app_name] = {
                     cn_name = meta_data.app_name_cn or "unknown",
                     path = base_dir .. app_dir.name .. "/",
                     version = meta_data.version or "1.0.0",
@@ -2289,7 +2329,7 @@ local function scan(base_dir)
                     total_downloads = meta_data.total_downloads,
                     install_time = meta_data.install_time
                 }
-                log.info("ei", "found app:", app_n, installed_info[app_n].cn_name)
+                log.info("ei", "found app:", app_name, installed_info[app_name].cn_name)
                 cnt = cnt + 1
                 ::continue::
             end
@@ -2352,7 +2392,7 @@ end
 -- ==============================================
 
 -- 获取设备信息
-local function gdi()
+local function get_device_info()
     if device_info then return device_info end
     local model = rtos.bsp()
 
@@ -2397,8 +2437,8 @@ local function gdi()
 end
 
 -- 构建请求参数
-local function bld(category, sort, page, size, query)
-    local params = gdi()
+local function build_params(category, sort, page, size, query)
+    local params = get_device_info()
     params.categ = category or ""
     params.sort = sort or "recommend"
     params.page = page or 1
@@ -2419,7 +2459,7 @@ local function bld(category, sort, page, size, query)
 end
 
 -- 修复空数组问题
-local function fix_a(field, body_str)
+local function fix_empty_array(field, body_str)
     local r = string.format('"%s":[]', field)
     body_str = body_str:gsub(string.format('"%s":{}', field), r)
     body_str = body_str:gsub(string.format('"%s": {}', field), r)
@@ -2427,13 +2467,13 @@ local function fix_a(field, body_str)
 end
 
 -- HTTP请求
-local function req(params)
+local function http_request(params)
     local body = json.encode(params)
     if type(params.aids) == "table" and next(params.aids) == nil then
-        body = fix_a("aids", body)
+        body = fix_empty_array("aids", body)
     end
     if type(params.ver) == "table" and next(params.ver) == nil then
-        body = fix_a("ver", body)
+        body = fix_empty_array("ver", body)
     end
 
     -- 发送 HTTP 请求
@@ -2516,7 +2556,7 @@ local function enrich(server_apps)
                 if ok and decoded and #decoded > 0 then
                     local icon_path = string.format("/ram/icon_%s.png", app.aid)
                     -- /* 原有下载图标逻辑（注释保留）
-                    -- dic(app.aid, app.icon)
+                    -- download_icon(app.aid, app.icon)
                     -- */
                     local wf_ok, wf_err = io.writeFile(icon_path, decoded)
                     if wf_ok then
@@ -2670,8 +2710,8 @@ function exapp.get_app_list(params)
     end
 
     sys.taskInit(function()
-        local request_params = bld(category, sort, page, size, query)
-        local apps, err, total, current_page, total_pages, page_size = req(request_params)
+        local request_params = build_params(category, sort, page, size, query)
+        local apps, err, total, current_page, total_pages, page_size = http_request(request_params)
         if not apps then
             sys.publish("APP_STORE_ERROR", err)
             return
@@ -2724,7 +2764,7 @@ function exapp.get_current_list()
 end
 
 -- 下载文件
-local function dl(url, dest_path, aid)
+local function download_file(url, dest_path, aid)
     log.info("ea", "downloading", url, "->", dest_path)
     -- 尝试从服务器返回字段获取 zip 大小信息（若服务端支持）
     local app_entry = nil
@@ -2788,14 +2828,14 @@ local function dl(url, dest_path, aid)
 end
 
 -- 计算目录大小，单位 KB（简单实现，递归统计）
-local function dsk(dir_path)
+local function dir_size_kb(dir_path)
     local total = 0
     local ret, list = io.lsdir(dir_path, 100, 0)
     if not ret or not list then return total end
     for _, item in ipairs(list) do
         local full = dir_path .. (dir_path:sub(-1) == "/" and "" or "/") .. item.name
         if item.type == 1 then
-            total = total + dsk(full)
+            total = total + dir_size_kb(full)
         else
             local fsz = io.fileSize(full) or 0
             total = total + fsz / 1024
@@ -2805,14 +2845,14 @@ local function dsk(dir_path)
 end
 
 -- 解压ZIP
-local function unz(zip_path, dest_dir)
+local function unzip_file(zip_path, dest_dir)
     log.info("ea", "extracting", zip_path, "->", dest_dir)
     local success = miniz.unzip(zip_path, dest_dir)
     return success
 end
 
 -- 向服务器报告下载安装结果
-local function rpt(aid, error_msg)
+local function report_result(aid, error_msg)
     log.info("ea", "reporting download result", aid, error_msg or "success")
     local data = { app_id = tostring(aid) }
     -- 只有传入非空的 error_msg 时才添加该字段
@@ -2865,7 +2905,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
     if installed_info[aid] then
         sys.publish("APP_STORE_ERROR", "应用已安装")
         sys.publish("APP_STORE_ACTION_DONE", aid, "install", false)
-        rpt(aid, "应用已安装")
+        report_result(aid, "应用已安装")
         return
     end
 
@@ -2879,28 +2919,28 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
         sys.publish("APP_STORE_PROGRESS", aid, 0, "开始下载")
 
         -- 预下载容量校验：若zip_size_kb大于 /ram 空间，直接失败
-        -- (在 dl 中还会再做一次详细校验)
+        -- (在 download_file 中还会再做一次详细校验)
 
         -- 进行下载前对 zip_size 的容量校验，若不通过则直接退出
-        if not dl(url, temp_path, aid) then
+        if not download_file(url, temp_path, aid) then
             sys.publish("APP_STORE_ERROR", "下载失败")
             sys.publish("APP_STORE_ACTION_DONE", aid, "install", false)
-            rpt(aid, "下载失败")
+            report_result(aid, "下载失败")
             return
         end
 
         sys.publish("APP_STORE_PROGRESS", aid, 0, "解压中")
-        if not unz(temp_path, root_path .. "/") then
+        if not unzip_file(temp_path, root_path .. "/") then
             -- 解压失败，清理下载的压缩包和目标目录
             os.remove(temp_path)
             -- 如果已经解压出目录，尝试清理部分数据
             if io.dexist(root_path .. "/" .. aid) then
-                rm_r(root_path .. "/" .. aid)
+                rmdir_recursive(root_path .. "/" .. aid)
             end
             os.remove(temp_path)
             sys.publish("APP_STORE_ERROR", "解压失败，请检查存储空间！")
             sys.publish("APP_STORE_ACTION_DONE", aid, "install", false)
-            rpt(aid, "解压失败")
+            report_result(aid, "解压失败")
             return
         end
 
@@ -2910,7 +2950,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
         -- 安装后容量校验：估算解压后的占用大小，是否超过目标分区剩余空间
         local app_dir_kb = 0
         if io.dexist(app_path) or io.exists(app_path) then
-            app_dir_kb = dsk(app_path) or 0
+            app_dir_kb = dir_size_kb(app_path) or 0
         end
         local dest_parent = root_path
         local parent_stat = io.fsstat and io.fsstat(dest_parent) or nil
@@ -2919,11 +2959,11 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
         if parent_stat and type(parent_stat.free_kb) == "number" then dest_free_kb = parent_stat.free_kb end
         if app_dir_kb > 0 and dest_free_kb > 0 and app_dir_kb > dest_free_kb then
             -- 文件系统空间不足，清理已下载/解压的内容
-            if io.dexist(app_path) then rm_r(app_path) end
+            if io.dexist(app_path) then rmdir_recursive(app_path) end
             if io.exists(temp_path) then os.remove(temp_path) end
             sys.publish("APP_STORE_ERROR","文件系统空间不足无法进行安装")
             sys.publish("APP_STORE_ACTION_DONE", aid, "install", false)
-            rpt(aid, "文件系统空间不足无法进行安装")
+            report_result(aid, "文件系统空间不足无法进行安装")
             return
         end
         if io.dexist(app_path) then
@@ -2987,7 +3027,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
 
         sys.publish("APP_STORE_ACTION_DONE", aid, "install", true)
         sys.publish("APP_STORE_PROGRESS", aid, 100, "安装完成")
-        rpt(aid, nil)
+        report_result(aid, nil)
 
         -- 刷新当前列表（仅一次请求，使用当前UI正确的分页参数）
         exapp.get_app_list({
@@ -3036,7 +3076,7 @@ function exapp.uninstall_remote_app(aid, category, sort)
     end
 
     sys.publish("APP_STORE_PROGRESS", aid, 0, "卸载中")
-    local success = rm_r(target_path)
+    local success = rmdir_recursive(target_path)
 
     if success then
         installed_info[aid] = nil
@@ -3086,26 +3126,26 @@ function exapp.update_remote_app(aid, url, app_name, category, sort)
     if not installed_info[aid] then
         sys.publish("APP_STORE_ERROR", "应用未安装，无法更新")
         sys.publish("APP_STORE_ACTION_DONE", aid, "update", false)
-        rpt(aid, "应用未安装，无法更新")
+        report_result(aid, "应用未安装，无法更新")
         return
     end
 
     local old_path = installed_info[aid].path
     sys.publish("APP_STORE_PROGRESS", aid, 0, "准备更新")
 
-    if rm_r(old_path) then
+    if rmdir_recursive(old_path) then
         installed_info[aid] = nil
         installed_cnt = installed_cnt - 1
         exapp.install_remote_app(aid, url, app_name, category, sort)
     else
         sys.publish("APP_STORE_ERROR", "卸载旧版本失败")
         sys.publish("APP_STORE_ACTION_DONE", aid, "update", false)
-        rpt(aid, "卸载旧版本失败")
+        report_result(aid, "卸载旧版本失败")
     end
 end
 
 -- 图标下载与缓存
-local function dic(aid, url)
+local function download_icon(aid, url)
     if not url or url == "" then return nil end
     if icon_cache[aid] and io.exists(icon_cache[aid].path) then
         return icon_cache[aid].path
@@ -3155,7 +3195,7 @@ function exapp.get_icon_path(aid, url)
         return icon_cache[aid].path
     end
     if url and url ~= "" then
-        return dic(aid, url)
+        return download_icon(aid, url)
     end
     return nil
 end
@@ -3202,9 +3242,23 @@ end
 -- ==============================================
 -- 远程数据库操作（云端数据 CRUD）
 -- ==============================================
+-- 为每个应用提供云端数据存储能力，支持增/查/删操作。
+-- 数据模型：cls（业务表标识，类似数据库的"表名"） + uni_key（业务主键，同名则覆盖）
+-- 字段规范：s1-s4（字符串）、i1-i4（整数）、d1-d2（时间戳，不传为 null）
+--
+-- 通信流程：
+--   POST {base_url}/{endpoint} + auth_headers + json_body
+--   端点: add（添加/更新）、list（分页查询）、delete（删除）
+--   鉴权: 通过 exapp.iot_get_auth_headers(appid) 获取 app-key，使用 RSA 签名
+--   结果: 回调函数 + DB_RESULT 消息双重通知
+--
+-- 限制：
+--   - 需要网络就绪（network_ready == true）
+--   - 每个 app 通过 appid（服务端分配的数字 ID）隔离数据
+--   - 单次请求超时 10 秒
 local APP_DB_BASE = "https://api.luatos.com/iot/appstore/develop/data/"
 
-local function db_req(endpoint, body_params, appid, callback)
+local function db_request(endpoint, body_params, appid, callback)
     local url = APP_DB_BASE .. endpoint
     local body = json.encode(body_params)
     local headers = exapp.iot_get_auth_headers(appid)
@@ -3281,7 +3335,7 @@ function exapp.add_record(params, appid)
             body[dk] = json.null
         end
     end
-    db_req("add", body, appid, function(success, result)
+    db_request("add", body, appid, function(success, result)
         if success then
             log.info("db", "add_record ok")
         else
@@ -3323,7 +3377,7 @@ function exapp.list_record(params, appid)
     if params.filter and type(params.filter) == "table" then
         body.filter = params.filter
     end
-    db_req("list", body, appid, function(success, result)
+    db_request("list", body, appid, function(success, result)
         if success then
             log.info("db", "list_record ok")
         else
@@ -3359,7 +3413,7 @@ function exapp.delete_record(params, appid)
     elseif params.uni_key then
         body.filter = {aks = {"uni_key"}, acs = {"eq"}, avs = {params.uni_key}}
     end
-    db_req("delete", body, appid, function(success, result)
+    db_request("delete", body, appid, function(success, result)
         if success then
             log.info("db", "delete_record ok")
         else

@@ -187,7 +187,7 @@ function libfota2.request(cbFnc, opts)
         if not opts.imei then
             if mobile then
                 query = "imei=" .. mobile.imei()
-            elseif wlan and wlan.getMac then
+            elseif wlan and wlan.getMac() then
                 query = "mac=" .. wlan.getMac()
             else
                 query = "uid=" .. mcu.unique_id():toHex()

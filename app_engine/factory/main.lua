@@ -23,7 +23,7 @@ VERSION：项目版本号，ascii string类型
 
 -- 项目名称和版本定义
 PROJECT = "app_engine_factory"                   -- 项目名称，用于标识当前工程
-VERSION = "001.999.003"                          -- 项目版本号
+VERSION = "001.999.004"                          -- 项目版本号
 PROJECT_KEY = "YdsyLfESvOKYSVuOBeKYmKFmoeTuuGUv" -- 项目key，此非真实项目key
 
 -- 在日志中打印项目名和项目版本号
@@ -79,28 +79,49 @@ elseif _G.model_str:find("Air8101") then
     tp_drv = require "tp_drv_air8101"
 elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
     -- Air1602 5\7\9\10寸屏显示驱动，默认5寸
-    local Air1602_lcd = 5 
+    -- 取值可以是5、7、9、10，分别对应5寸屏、7寸屏、9寸屏、10寸屏
+    local Air1602_lcd = 5
     if Air1602_lcd == 5 then
         -- 5寸屏显示/触摸驱动
         lcd_drv = require "lcd_drv_air1601_5in"
         tp_drv = require "tp_drv_air1601_5in"
-    elseif Air1602_lcd == 7 then
-        -- 7寸屏显示/触摸驱动
-        lcd_drv = require "lcd_drv_air1601_7in"
+    elseif Air1602_lcd == 7 or Air1602_lcd == 10 then
+        -- 7寸/10寸屏显示/触摸驱动
+        lcd_drv = require "lcd_drv_air1601_7_10"
         tp_drv = require "tp_drv_air1601_7or10"
     elseif Air1602_lcd == 9 then
         -- 9寸屏显示驱动
         -- lcd_drv = require "lcd_drv_air1601_9in"
         -- tp_drv = require "tp_drv_air1601_9in"
-    elseif Air1602_lcd == 10 then
+        -- elseif Air1602_lcd == 10 then
         -- 10寸屏显示驱动
-        lcd_drv = require "lcd_drv_air1601_10in"
-        tp_drv = require "tp_drv_air1601_7or10"
+        -- lcd_drv = require "lcd_drv_air1601_10in"
+        -- tp_drv = require "tp_drv_air1601_7or10"
     end
 else
-    --PC模拟器复用 Air8101显示/触摸驱动
-    lcd_drv = require "lcd_drv_air8101_5in"
-    tp_drv = require "tp_drv_air8101"
+    -- PC模拟器显示/触摸驱动，
+    -- 取值可以是"Air8000W_4in"、"Air8101_5in"、"Air1601_5in"、"Air1601_7in"、"Air1601_9in"、"Air1601_10in"
+    local pc_lcd = "Air8000W_4in"
+
+    if pc_lcd == "Air8000W_4in" then
+        lcd_drv = require "lcd_drv_air8101_5in"
+        tp_drv = require "tp_drv_air8101"
+    elseif pc_lcd == "Air8101_5in" then
+        lcd_drv = require "lcd_drv_air8101_5in"
+        tp_drv = require "tp_drv_air8101"
+    elseif pc_lcd == "Air1601_5in" then
+        -- 5寸屏显示/触摸驱动
+        lcd_drv = require "lcd_drv_air1601_5in"
+        tp_drv = require "tp_drv_air1601_5in"
+    elseif pc_lcd == "Air1601_7in" or pc_lcd == "Air1601_10in" then
+        -- 7寸/10寸屏显示/触摸驱动
+        lcd_drv = require "lcd_drv_air1601_7_10"
+        tp_drv = require "tp_drv_air1601_7or10"
+        -- elseif pc_lcd == "Air1601_9in" then
+        -- 9寸屏显示驱动
+        -- lcd_drv = require "lcd_drv_air1601_9in"
+        -- tp_drv = require "tp_drv_air1601_9in"
+    end
 end
 
 exwin = require "exwin"

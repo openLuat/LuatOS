@@ -44,6 +44,24 @@ project/
 
 ---
 
+## 演示硬件环境
+
+1、EXB_8000_CH390 开发板一块
+
+2、TYPE-C USB数据线一根
+
+3、三根母对母杜邦线
+
+4、两根网线分别一端接路由器/交换机，另一端接开发板的网口
+
+| 隔离485 | 非隔离485 |
+| ------- | --------- |
+| A       | A         |
+| B       | B         |
+| GND     | GND       |
+
+![](https://docs.openluat.com/air8000/luatos/app/image/双网口项目.jpg)
+
 ### 功能模块说明
 
 #### 1. 网络看门狗 (`network_watchdog.lua`)

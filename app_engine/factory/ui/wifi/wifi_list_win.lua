@@ -1,4 +1,3 @@
---[[ naming: lv=2-4 chars, lf=2-5 chars ]]
 --[[
 @module  wifi_list_win
 @summary WiFi列表窗口（UI层，事件驱动）- 自适应分辨率
@@ -10,113 +9,113 @@
 require "wifi_connect_win"
 require "wifi_detail_win"
 
-local SW, SH = 480, 800
-local MG = 15
-local TH = math.floor(60 * _G.density_scale)
-local CH = 60
+local SCREEN_W, SCREEN_H = 480, 800
+local MARGIN = 15
+local TITLE_H = math.floor(60 * (_G.density_scale or 1.0))
+local CARD_H = 60
 
-local CP  = 0x007AFF
-local CPD = 0x0056B3
-local CBG = 0xF5F5F5
-local CCD = 0xFFFFFF
-local CTX = 0x333333
-local CT2 = 0x757575
-local CDV = 0xE0E0E0
-local CWH = 0xFFFFFF
-local CAC = 0xFF9800
+local COLOR_PRIMARY  = 0x007AFF
+local COLOR_PRIMARY_DARK = 0x0056B3
+local COLOR_BG = 0xF5F5F5
+local COLOR_CARD = 0xFFFFFF
+local COLOR_TEXT = 0x333333
+local COLOR_SECONDARY = 0x757575
+local COLOR_DIVIDER = 0xE0E0E0
+local COLOR_WHITE = 0xFFFFFF
+local COLOR_ACCENT = 0xFF9800
 
-local function upss()
-    local rt = airui.get_rotation()
-    local pw, ph = lcd.getSize()
-    if rt == 0 or rt == 180 then
-        SW, SH = pw, ph
+local function update_screen_size()
+    local rotation = airui.get_rotation()
+    local phys_w, phys_h = lcd.getSize()
+    if rotation == 0 or rotation == 180 then
+        SCREEN_W, SCREEN_H = phys_w, phys_h
     else
-        SW, SH = ph, pw
+        SCREEN_W, SCREEN_H = phys_h, phys_w
     end
-    MG = math.floor(SW * 0.03)
-    TH = math.floor(60 * _G.density_scale)
-    CH = math.floor(SH * 0.09)
+    MARGIN = math.floor(SCREEN_W * 0.03)
+    TITLE_H = math.floor(60 * _G.density_scale)
+    CARD_H = math.floor(SCREEN_H * 0.09)
 end
 
-local wid = nil
-local lmc = nil
+local window_id = nil
+local main_container = nil
 local lcci = nil
-local lwc = nil
-local lsc = nil
-local lwi = {}
+local wifi_list_container = nil
+local saved_list_container = nil
+local wifi_items = {}
 local llc = nil
-local lcc = nil
-local wes = nil
-local wsc = nil
-local ipss = false
+local connecting_container = nil
+local wifi_switch = nil
+local switch_container = nil
+local programmatic_switch = false
 
-local snl = {}
-local sni = {}
-local csr = {}
+local saved_network_list = {}
+local saved_network_items = {}
+local current_scan_results = {}
 
-local sic = nil
-local srf = nil
+local scanning_indicator = nil
+local scan_refresh_btn = nil
 
-local function sish()
-    if srf then srf:hide() end
-    if sic then sic:open() end
+local function show_scanning()
+    if scan_refresh_btn then scan_refresh_btn:hide() end
+    if scanning_indicator then scanning_indicator:open() end
 end
 
-local function sihd()
-    if sic then sic:hide() end
-    if srf then srf:open() end
+local function hide_scanning()
+    if scanning_indicator then scanning_indicator:hide() end
+    if scan_refresh_btn then scan_refresh_btn:open() end
 end
 
-local cfg = {
+local wifi_config = {
     wifi_enabled = false, ssid = "", password = "",
     need_ping = true, local_network_mode = false,
     ping_ip = "", ping_time = "10000", auto_socket_switch = true
 }
-local sts = {
+local wifi_status = {
     connected = false, ready = false, current_ssid = "",
     rssi = "--", ip = "--", netmask = "--", gateway = "--", bssid = "--",
     scan_results = {}
 }
 
-local function cwfi(wf, idx)
-    local sig = math.min(100, math.max(0, (wf.rssi or -100) + 100))
-    local iw = SW - 2 * MG - math.floor(20 * _G.density_scale)
-    local ic = sts and sts.current_ssid == wf.ssid
-    local it = airui.container({
-        parent = lwc,
-        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale) + (idx - 1) * math.floor(75 * _G.density_scale),
-        w = iw, h = math.floor(65 * _G.density_scale),
-        color = CCD, radius = 4,
+local function create_wifi_item(wifi_entry, index)
+    local signal_pct = math.min(100, math.max(0, (wifi_entry.rssi or -100) + 100))
+    local item_w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale)
+    local is_connected = wifi_status and wifi_status.current_ssid == wifi_entry.ssid
+    local item = airui.container({
+        parent = wifi_list_container,
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale) + (index - 1) * math.floor(75 * _G.density_scale),
+        w = item_w, h = math.floor(65 * _G.density_scale),
+        color = COLOR_CARD, radius = 4,
         on_click = function()
-            if ic then
+            if is_connected then
                 sys.publish("OPEN_WIFI_DETAIL_WIN")
             else
-                sys.publish("OPEN_WIFI_CONNECT_WIN", wf.ssid)
+                sys.publish("OPEN_WIFI_CONNECT_WIN", wifi_entry.ssid)
             end
         end
     })
     airui.label({
-        parent = it,
-        text = wf.ssid or "未知",
+        parent = item,
+        text = wifi_entry.ssid or "未知",
         x = math.floor(10 * _G.density_scale), y = math.floor(8 * _G.density_scale),
-        w = iw - math.floor(80 * _G.density_scale), h = math.floor(20 * _G.density_scale),
+        w = item_w - math.floor(80 * _G.density_scale), h = math.floor(20 * _G.density_scale),
         font_size = math.floor(20 * _G.density_scale),
-        color = CTX,
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT,
     })
     airui.label({
-        parent = it,
-        text = string.format("%d%%", sig),
+        parent = item,
+        text = string.format("%d%%", signal_pct),
         x = math.floor(10 * _G.density_scale), y = math.floor(36 * _G.density_scale),
-        w = iw - math.floor(80 * _G.density_scale), h = math.floor(15 * _G.density_scale),
+        w = item_w - math.floor(80 * _G.density_scale), h = math.floor(15 * _G.density_scale),
         font_size = math.floor(16 * _G.density_scale),
-        color = CT2,
+        color = COLOR_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT,
     })
-    if ic then
+    if is_connected then
         airui.label({
-            parent = it,
-            x = iw - math.floor(80 * _G.density_scale), y = math.floor(17 * _G.density_scale),
+            parent = item,
+            x = item_w - math.floor(80 * _G.density_scale), y = math.floor(17 * _G.density_scale),
             w = math.floor(70 * _G.density_scale), h = math.floor(30 * _G.density_scale),
             text = "已连接",
             font_size = math.floor(16 * _G.density_scale),
@@ -124,118 +123,118 @@ local function cwfi(wf, idx)
             align = airui.TEXT_ALIGN_CENTER,
         })
     end
-    table.insert(lwi, it)
+    table.insert(wifi_items, item)
 end
 
-local function csni(sw, idx, stx)
-    local iw = SW - 2 * MG - math.floor(20 * _G.density_scale)
-    local it = airui.container({
-        parent = lsc,
-        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale) + (idx - 1) * math.floor(60 * _G.density_scale),
-        w = iw, h = math.floor(50 * _G.density_scale),
-        color = CCD, radius = 4,
+local function create_saved_item(saved_wifi, index, stx)
+    local item_w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale)
+    local item = airui.container({
+        parent = saved_list_container,
+        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale) + (index - 1) * math.floor(60 * _G.density_scale),
+        w = item_w, h = math.floor(50 * _G.density_scale),
+        color = COLOR_CARD, radius = 4,
         on_click = function()
             if stx == "已连接" then
                 sys.publish("OPEN_WIFI_DETAIL_WIN")
             else
-                sys.publish("OPEN_WIFI_CONNECT_WIN", sw, false)
+                sys.publish("OPEN_WIFI_CONNECT_WIN", saved_wifi, false)
             end
         end
     })
     airui.label({
-        parent = it,
-        text = sw.ssid or "未知",
+        parent = item,
+        text = saved_wifi.ssid or "未知",
         x = math.floor(10 * _G.density_scale), y = math.floor(8 * _G.density_scale),
-        w = iw - math.floor(140 * _G.density_scale), h = math.floor(22 * _G.density_scale),
+        w = item_w - math.floor(140 * _G.density_scale), h = math.floor(22 * _G.density_scale),
         font_size = math.floor(22 * _G.density_scale),
-        color = CTX,
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT,
     })
-    local sc = stx == "已连接" and 0x4CAF50 or (stx == "已配置" and CAC or CP)
+    local status_color = stx == "已连接" and 0x4CAF50 or (stx == "已配置" and COLOR_ACCENT or COLOR_PRIMARY)
     airui.label({
-        parent = it,
+        parent = item,
         text = stx,
-        x = iw - math.floor(130 * _G.density_scale), y = math.floor(10 * _G.density_scale),
+        x = item_w - math.floor(130 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(120 * _G.density_scale), h = math.floor(24 * _G.density_scale),
         font_size = math.floor(20 * _G.density_scale),
-        color = sc,
+        color = status_color,
         align = airui.TEXT_ALIGN_RIGHT,
     })
-    table.insert(sni, it)
+    table.insert(saved_network_items, item)
 end
 
-local function usnl()
-    for _, it in ipairs(sni) do it:destroy() end
-    sni = {}
-    if not lsc then return end
-    if not cfg or not cfg.wifi_enabled then return end
+local function update_saved_list()
+    for _, item in ipairs(saved_network_items) do item:destroy() end
+    saved_network_items = {}
+    if not saved_list_container then return end
+    if not wifi_config or not wifi_config.wifi_enabled then return end
 
-    local ms = {}
-    local csid = sts and sts.current_ssid or ""
-    for _, sw in ipairs(snl) do
-        local sc = false
-        local ic = (sw.ssid == csid)
-        for _, scw in ipairs(csr) do
-            if scw.ssid == sw.ssid then sc = true; break end
+    local matched_list = {}
+    local connected_ssid = wifi_status and wifi_status.current_ssid or ""
+    for _, saved_wifi in ipairs(saved_network_list) do
+        local status_color = false
+        local is_connected = (saved_wifi.ssid == connected_ssid)
+        for _, saved_config_wifi in ipairs(current_scan_results) do
+            if saved_config_wifi.ssid == saved_wifi.ssid then status_color = true; break end
         end
-        if sc or ic then
-            table.insert(ms, {
-                wifi = sw,
-                status = ic and "已连接" or "可连接",
-                is_connected = ic
+        if status_color or is_connected then
+            table.insert(matched_list, {
+                wifi = saved_wifi,
+                status = is_connected and "已连接" or "可连接",
+                is_connected = is_connected
             })
         end
     end
-    table.sort(ms, function(a,b)
+    table.sort(matched_list, function(a,b)
         if a.is_connected and not b.is_connected then return true end
         if not a.is_connected and b.is_connected then return false end
         return a.wifi.ssid < b.wifi.ssid
     end)
-    for i, it in ipairs(ms) do
-        csni(it.wifi, i, it.status)
+    for i, item in ipairs(matched_list) do
+        create_saved_item(item.wifi, i, item.status)
     end
 end
 
-local function uwfl(rs)
-    for _, it in ipairs(lwi) do it:destroy() end
-    lwi = {}
-    if rs and #rs > 0 then
-        for i, wf in ipairs(rs) do
-            cwfi(wf, i)
+local function update_wifi_list(scan_results)
+    for _, item in ipairs(wifi_items) do item:destroy() end
+    wifi_items = {}
+    if scan_results and #scan_results > 0 then
+        for i, wifi_entry in ipairs(scan_results) do
+            create_wifi_item(wifi_entry, i)
         end
     end
 end
 
-local function wech(ck)
-    if ipss then return end
-    sys.publish("WIFI_ENABLE_REQ", {enabled = ck})
-    if ck then
+local function on_wifi_toggle(checked)
+    if programmatic_switch then return end
+    sys.publish("WIFI_ENABLE_REQ", {enabled = checked})
+    if checked then
         sys.publish("WIFI_SCAN_REQ")
     else
-        uwfl({})
+        update_wifi_list({})
     end
 end
 
-local function lcui()
-    upss()
-    lmc = airui.container({
+local function build_ui()
+    update_screen_size()
+    main_container = airui.container({
         x = 0, y = 0,
-        w = SW, h = SH,
-        color = CBG,
+        w = SCREEN_W, h = SCREEN_H,
+        color = COLOR_BG,
     })
 
     local tb = airui.container({
-        parent = lmc,
+        parent = main_container,
         x = 0, y = 0,
-        w = SW, h = TH,
-        color = CP,
+        w = SCREEN_W, h = TITLE_H,
+        color = COLOR_PRIMARY,
     })
     local bb = airui.container({
         parent = tb,
         x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
         w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
-        color = CP,
-        on_click = function() exwin.close(wid) end
+        color = COLOR_PRIMARY,
+        on_click = function() exwin.close(window_id) end
     })
     airui.label({
         parent = bb,
@@ -243,33 +242,33 @@ local function lcui()
         w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         text = "<",
         font_size = math.floor(28 * _G.density_scale),
-        color = CWH,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_CENTER
     })
     airui.label({
         parent = tb,
         text = "WiFi 网络配置",
         x = math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
-        w = SW - math.floor(60 * _G.density_scale), h = math.floor(40 * _G.density_scale),
+        w = SCREEN_W - math.floor(60 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         font_size = math.floor(32 * _G.density_scale),
-        color = CWH,
+        color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_LEFT,
     })
 
     local scr = airui.container({
-        parent = lmc,
-        x = 0, y = TH,
-        w = SW, h = SH - TH,
-        color = CBG,
+        parent = main_container,
+        x = 0, y = TITLE_H,
+        w = SCREEN_W, h = SCREEN_H - TITLE_H,
+        color = COLOR_BG,
         scrollable = true,
     })
 
     -- WiFi开关卡片（紧凑布局）
     local wec = airui.container({
         parent = scr,
-        x = MG, y = math.floor(10 * _G.density_scale),
-        w = SW - 2 * MG, h = math.floor(50 * _G.density_scale),
-        color = CWH, radius = 8,
+        x = MARGIN, y = math.floor(10 * _G.density_scale),
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(50 * _G.density_scale),
+        color = COLOR_WHITE, radius = 8,
     })
     local ch = math.floor(50 * _G.density_scale)
     airui.label({
@@ -278,22 +277,22 @@ local function lcui()
         x = math.floor(10 * _G.density_scale), y = math.floor((ch - 30 * _G.density_scale) / 2),
         w = math.floor(80 * _G.density_scale), h = math.floor(30 * _G.density_scale),
         font_size = math.floor(24 * _G.density_scale),
-        color = CTX,
+        color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT,
     })
-    wsc = airui.container({
+    switch_container = airui.container({
         parent = wec,
-        x = SW - 2 * MG - math.floor(80 * _G.density_scale), y = math.floor((ch - 29 * _G.density_scale) / 2),
+        x = SCREEN_W - 2 * MARGIN - math.floor(80 * _G.density_scale), y = math.floor((ch - 29 * _G.density_scale) / 2),
         w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
     })
-    wsc:hide()
-    wes = airui.switch({
-        parent = wsc,
+    switch_container:hide()
+    wifi_switch = airui.switch({
+        parent = switch_container,
         x = 0, y = 0,
         w = math.floor(70 * _G.density_scale), h = math.floor(29 * _G.density_scale),
         checked = false,
         on_change = function(self)
-            sys.taskInit(function() wech(self:get_state()) end)
+            sys.taskInit(function() on_wifi_toggle(self:get_state()) end)
         end
     })
 
@@ -302,26 +301,26 @@ local function lcui()
     airui.label({
         parent = scr,
         text = "已保存wifi",
-        x = MG + math.floor(5 * _G.density_scale), y = sty,
+        x = MARGIN + math.floor(5 * _G.density_scale), y = sty,
         w = math.floor(150 * _G.density_scale), h = math.floor(25 * _G.density_scale),
         font_size = math.floor(18 * _G.density_scale),
-        color = CT2,
+        color = COLOR_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT,
     })
 
     -- 已保存wifi 容器
     local sy = sty + math.floor(28 * _G.density_scale)
-    local sc = airui.container({
+    local status_color = airui.container({
         parent = scr,
-        x = MG, y = sy,
-        w = SW - 2 * MG, h = math.floor(190 * _G.density_scale),
-        color = CWH, radius = 8,
+        x = MARGIN, y = sy,
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(190 * _G.density_scale),
+        color = COLOR_WHITE, radius = 8,
     })
-    lsc = airui.container({
-        parent = sc,
+    saved_list_container = airui.container({
+        parent = status_color,
         x = 0, y = 0,
-        w = SW - 2 * MG, h = math.floor(190 * _G.density_scale),
-        color = CWH,
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(190 * _G.density_scale),
+        color = COLOR_WHITE,
     })
 
     -- 附近的wifi
@@ -329,27 +328,27 @@ local function lcui()
     airui.label({
         parent = scr,
         text = "附近的wifi",
-        x = MG + math.floor(5 * _G.density_scale), y = scy,
+        x = MARGIN + math.floor(5 * _G.density_scale), y = scy,
         w = math.floor(150 * _G.density_scale), h = math.floor(25 * _G.density_scale),
         font_size = math.floor(18 * _G.density_scale),
-        color = CT2,
+        color = COLOR_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT,
     })
 
-    srf = airui.container({
+    scan_refresh_btn = airui.container({
         parent = scr,
-        x = SW - 2 * MG - math.floor(60 * _G.density_scale), y = scy,
+        x = SCREEN_W - 2 * MARGIN - math.floor(60 * _G.density_scale), y = scy,
         w = math.floor(60 * _G.density_scale), h = math.floor(25 * _G.density_scale),
     })
     airui.button({
-        parent = srf,
+        parent = scan_refresh_btn,
         x = 0, y = 0,
         w = math.floor(60 * _G.density_scale), h = math.floor(25 * _G.density_scale),
         text = "刷新",
         font_size = math.floor(16 * _G.density_scale),
-        style = { bg_color = CP, pressed_bg_color = CPD, text_color = CWH },
+        style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE },
         on_click = function()
-            if cfg and cfg.wifi_enabled then
+            if wifi_config and wifi_config.wifi_enabled then
                 sys.publish("WIFI_SCAN_REQ")
             else
                 airui.msgbox({ text = "请先开启WiFi", buttons = { "确定" }, on_action = function(s) s:hide() end }):show()
@@ -357,169 +356,169 @@ local function lcui()
         end
     })
 
-    sic = airui.container({
+    scanning_indicator = airui.container({
         parent = scr,
-        x = SW - 2 * MG - math.floor(130 * _G.density_scale), y = scy,
+        x = SCREEN_W - 2 * MARGIN - math.floor(130 * _G.density_scale), y = scy,
         w = math.floor(130 * _G.density_scale), h = math.floor(25 * _G.density_scale),
-        color = CBG,
+        color = COLOR_BG,
     })
-    sic:hide()
+    scanning_indicator:hide()
 
     local lcy = scy + math.floor(35 * _G.density_scale)
     local wlc = airui.container({
         parent = scr,
-        x = MG, y = lcy,
-        w = SW - 2 * MG, h = math.floor(320 * _G.density_scale),
-        color = CWH, radius = 8,
+        x = MARGIN, y = lcy,
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(320 * _G.density_scale),
+        color = COLOR_WHITE, radius = 8,
     })
-    lwc = airui.container({
+    wifi_list_container = airui.container({
         parent = wlc,
         x = 0, y = 0,
-        w = SW - 2 * MG, h = math.floor(320 * _G.density_scale),
-        color = CWH,
+        w = SCREEN_W - 2 * MARGIN, h = math.floor(320 * _G.density_scale),
+        color = COLOR_WHITE,
     })
 end
 
-local function scst()
-    log.info("wlw", "扫描开始")
-    sish()
+local function on_scan_start()
+    log.info("wifi_list", "扫描开始")
+    show_scanning()
 end
 
-local function scdn(rs)
-    log.info("wlw", "扫描完成，找到", #rs, "个热点")
-    sihd()
-    csr = rs or {}
-    uwfl(rs)
-    usnl()
+local function on_scan_done(scan_results)
+    log.info("wifi_list", "扫描完成，找到", #scan_results, "个热点")
+    hide_scanning()
+    current_scan_results = scan_results or {}
+    update_wifi_list(scan_results)
+    update_saved_list()
 end
 
-local function scto()
-    log.warn("wlw", "扫描超时")
-    sihd()
+local function on_scan_timeout()
+    log.warn("wifi_list", "扫描超时")
+    hide_scanning()
     airui.msgbox({ text = "扫描超时，未找到WiFi热点", buttons = { "确定" }, on_action = function(s) s:hide() end }):show()
 end
 
-local function cng(sid)
-    log.info("wlw", "正在连接:", sid)
-    if lcc then lcc:open() end
+local function on_connecting(sid)
+    log.info("wifi_list", "正在连接:", sid)
+    if connecting_container then connecting_container:open() end
 end
 
-local function cnd(sid)
-    log.info("wlw", "连接成功:", sid)
-    if lcc then lcc:hide() end
-    usnl()
-    uwfl(csr)
+local function on_connected(sid)
+    log.info("wifi_list", "连接成功:", sid)
+    if connecting_container then connecting_container:hide() end
+    update_saved_list()
+    update_wifi_list(current_scan_results)
     airui.msgbox({ text = "WiFi 连接成功", buttons = { "确定" }, timeout = 3000, on_action = function(s) s:destroy() end })
 end
 
-local function dsc(rs, cd)
-    log.error("wlw", "连接失败:", rs, cd)
-    if lcc then lcc:hide() end
-    airui.msgbox({ text = "WiFi 连接失败: " .. rs, buttons = { "确定" }, timeout = 3000, on_action = function(s) s:destroy() end })
-    usnl()
-    uwfl({})
+local function on_disconnected(scan_results, code)
+    log.error("wifi_list", "连接失败:", scan_results, code)
+    if connecting_container then connecting_container:hide() end
+    airui.msgbox({ text = "WiFi 连接失败: " .. scan_results, buttons = { "确定" }, timeout = 3000, on_action = function(s) s:destroy() end })
+    update_saved_list()
+    update_wifi_list({})
 end
 
-local function stup(st)
-    log.info("wlw", "WiFi状态更新:", json.encode(st))
-    sts = st
-    if cfg then
-        if not cfg.wifi_enabled and not st.connected then
-            uwfl({})
+local function on_status_update(status)
+    log.info("wifi_list", "WiFi状态更新:", json.encode(status))
+    wifi_status = status
+    if wifi_config then
+        if not wifi_config.wifi_enabled and not status.connected then
+            update_wifi_list({})
         end
-        usnl()
+        update_saved_list()
     end
 end
 
-local function slrs(dt)
-    log.info("wlw", "收到已保存网络列表:", #dt.list)
-    snl = dt.list or {}
-    usnl()
+local function on_saved_list_rsp(data)
+    log.info("wifi_list", "收到已保存网络列表:", #data.list)
+    saved_network_list = data.list or {}
+    update_saved_list()
 end
 
-local function cfrs(dt)
-    local oe = cfg and cfg.wifi_enabled
-    cfg = dt.config
-    log.info("wlw", "配置加载完成, enabled:", cfg.wifi_enabled)
-    if wes and (oe == nil or oe ~= cfg.wifi_enabled) then
-        ipss = true
-        wes:set_state(cfg.wifi_enabled)
-        ipss = false
+local function on_config_rsp(data)
+    local old_enabled = wifi_config and wifi_config.wifi_enabled
+    wifi_config = data.config
+    log.info("wifi_list", "配置加载完成, enabled:", wifi_config.wifi_enabled)
+    if wifi_switch and (old_enabled == nil or old_enabled ~= wifi_config.wifi_enabled) then
+        programmatic_switch = true
+        wifi_switch:set_state(wifi_config.wifi_enabled)
+        programmatic_switch = false
     end
-    if wsc then wsc:open() end
-    if sts then stup(sts) end
-    usnl()
-    if cfg and cfg.wifi_enabled then
+    if switch_container then switch_container:open() end
+    if wifi_status then on_status_update(wifi_status) end
+    update_saved_list()
+    if wifi_config and wifi_config.wifi_enabled then
         sys.publish("WIFI_SCAN_REQ")
     end
 end
 
-local function lcrt()
-    lcui()
+local function on_create()
+    build_ui()
     sys.publish("WIFI_GET_STATUS_REQ")
     sys.publish("WIFI_GET_CONFIG_REQ")
     sys.publish("WIFI_GET_SAVED_LIST_REQ")
-    sys.subscribe("WIFI_SCAN_STARTED", scst)
-    sys.subscribe("WIFI_SCAN_DONE", scdn)
-    sys.subscribe("WIFI_SCAN_TIMEOUT", scto)
-    sys.subscribe("WIFI_CONNECTING", cng)
-    sys.subscribe("WIFI_CONNECTED", cnd)
-    sys.subscribe("WIFI_DISCONNECTED", dsc)
-    sys.subscribe("WIFI_STATUS_UPDATED", stup)
-    sys.subscribe("WIFI_CONFIG_RSP", cfrs)
-    sys.subscribe("WIFI_SAVED_LIST_RSP", slrs)
+    sys.subscribe("WIFI_SCAN_STARTED", on_scan_start)
+    sys.subscribe("WIFI_SCAN_DONE", on_scan_done)
+    sys.subscribe("WIFI_SCAN_TIMEOUT", on_scan_timeout)
+    sys.subscribe("WIFI_CONNECTING", on_connecting)
+    sys.subscribe("WIFI_CONNECTED", on_connected)
+    sys.subscribe("WIFI_DISCONNECTED", on_disconnected)
+    sys.subscribe("WIFI_STATUS_UPDATED", on_status_update)
+    sys.subscribe("WIFI_CONFIG_RSP", on_config_rsp)
+    sys.subscribe("WIFI_SAVED_LIST_RSP", on_saved_list_rsp)
 end
 
-local function ldst()
-    sys.unsubscribe("WIFI_SCAN_STARTED", scst)
-    sys.unsubscribe("WIFI_SCAN_DONE", scdn)
-    sys.unsubscribe("WIFI_SCAN_TIMEOUT", scto)
-    sys.unsubscribe("WIFI_CONNECTING", cng)
-    sys.unsubscribe("WIFI_CONNECTED", cnd)
-    sys.unsubscribe("WIFI_DISCONNECTED", dsc)
-    sys.unsubscribe("WIFI_STATUS_UPDATED", stup)
-    sys.unsubscribe("WIFI_CONFIG_RSP", cfrs)
-    sys.unsubscribe("WIFI_SAVED_LIST_RSP", slrs)
-    sihd()
-    if lmc then lmc:destroy(); lmc = nil end
+local function on_destroy()
+    sys.unsubscribe("WIFI_SCAN_STARTED", on_scan_start)
+    sys.unsubscribe("WIFI_SCAN_DONE", on_scan_done)
+    sys.unsubscribe("WIFI_SCAN_TIMEOUT", on_scan_timeout)
+    sys.unsubscribe("WIFI_CONNECTING", on_connecting)
+    sys.unsubscribe("WIFI_CONNECTED", on_connected)
+    sys.unsubscribe("WIFI_DISCONNECTED", on_disconnected)
+    sys.unsubscribe("WIFI_STATUS_UPDATED", on_status_update)
+    sys.unsubscribe("WIFI_CONFIG_RSP", on_config_rsp)
+    sys.unsubscribe("WIFI_SAVED_LIST_RSP", on_saved_list_rsp)
+    hide_scanning()
+    if main_container then main_container:destroy(); main_container = nil end
     lcci = nil
-    lwc = nil
-    lsc = nil
-    lwi = {}
+    wifi_list_container = nil
+    saved_list_container = nil
+    wifi_items = {}
     llc = nil
-    lcc = nil
-    wes = nil
-    wsc = nil
-    cfg = nil
-    sts = nil
-    wid = nil
-    snl = {}
-    sni = {}
-    csr = {}
-    sic = nil
-    srf = nil
+    connecting_container = nil
+    wifi_switch = nil
+    switch_container = nil
+    wifi_config = nil
+    wifi_status = nil
+    window_id = nil
+    saved_network_list = {}
+    saved_network_items = {}
+    current_scan_results = {}
+    scanning_indicator = nil
+    scan_refresh_btn = nil
 end
 
-local function lgfc()
+local function on_get_focus()
     sys.publish("WIFI_GET_STATUS_REQ")
-    if cfg and cfg.wifi_enabled then
+    if wifi_config and wifi_config.wifi_enabled then
         sys.publish("WIFI_SCAN_REQ")
     end
 end
 
-local function llfc() end
+local function on_lose_focus() end
 
 local function open()
-    if not exwin.is_active(wid) then
-        wid = exwin.open({
-            on_create = lcrt,
-            on_destroy = ldst,
-            on_get_focus = lgfc,
-            on_lose_focus = llfc,
+    if not exwin.is_active(window_id) then
+        window_id = exwin.open({
+            on_create = on_create,
+            on_destroy = on_destroy,
+            on_get_focus = on_get_focus,
+            on_lose_focus = on_lose_focus,
         })
-        log.info("wlw", "WiFi列表窗口打开，ID:", wid)
+        log.info("wifi_list", "WiFi列表窗口打开，ID:", window_id)
     end
 end
 
 sys.subscribe("OPEN_WIFI_WIN", open)
-log.info("wlw", "订阅 OPEN_WIFI_WIN 消息")
+log.info("wifi_list", "订阅 OPEN_WIFI_WIN 消息")

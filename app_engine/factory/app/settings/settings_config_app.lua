@@ -11,12 +11,11 @@
 2. 管理设备名称等配置参数
 3. 提供配置参数的读取和保存接口
 ]]
--- naming: fn(2-5char), var(2-4char)
 
 -- ==================== 配置常量 ====================
 
 -- 配置项键名
-local CK = {
+local CONFIG_KEYS = {
     DEVICE_NAME     = "device_name",
     IOT_ACCOUNT     = "iot_account",
     IOT_PASSWORD    = "iot_password",
@@ -30,7 +29,7 @@ local CK = {
 -- ==================== 局部变量 ====================
 
 -- fskv初始化状态
-local finit = false
+local fskv_initialized = false
 
 -- ==================== 私有函数 ====================
 
@@ -39,7 +38,7 @@ local finit = false
 @summary 获取默认设备名称（动态拼接模组型号 + 后缀）
 @return string 默认设备名称
 ]]
-local function gdn()
+local function get_default_name()
     local sfx = _G.model_str:gsub("^Air", "")
     if sfx ~= "" then
         return "合宙引擎主机" .. sfx
@@ -52,27 +51,27 @@ end
 @summary 初始化 fskv，如未初始化则设置默认值
 @return boolean 初始化是否成功
 ]]
-local function ifk()
-    if finit then
+local function init_fskv()
+    if fskv_initialized then
         return true
     end
 
     local result = fskv.init()
     if result then
-        finit = true
-        log.info("scfg", "fskv初始化成功")
+        fskv_initialized = true
+        log.info("settings_config", "fskv初始化成功")
 
         -- 初始化默认值（如果不存在）
-        local defn = gdn()
-        local val = fskv.get(CK.DEVICE_NAME)
-        if val == nil then
-            fskv.set(CK.DEVICE_NAME, defn)
-            log.info("scfg", "设置默认值", CK.DEVICE_NAME, defn)
+        local default_name = get_default_name()
+        local value = fskv.get(CONFIG_KEYS.DEVICE_NAME)
+        if value == nil then
+            fskv.set(CONFIG_KEYS.DEVICE_NAME, default_name)
+            log.info("settings_config", "设置默认值", CONFIG_KEYS.DEVICE_NAME, default_name)
         end
 
         return true
     else
-        log.error("scfg", "fskv初始化失败")
+        log.error("settings_config", "fskv初始化失败")
         return false
     end
 end
@@ -84,19 +83,19 @@ end
 @param default_value 默认值（可选）
 @return any 配置值
 ]]
-local function gc(key, def)
-    if not finit then
-        log.warn("scfg", "fskv未初始化，尝试初始化")
-        if not ifk() then
-            return def or ""
+local function get_config(key, default_value)
+    if not fskv_initialized then
+        log.warn("settings_config", "fskv未初始化，尝试初始化")
+        if not init_fskv() then
+            return default_value or ""
         end
     end
 
-    local val = fskv.get(key)
-    if val == nil then
-        val = def or ""
+    local value = fskv.get(key)
+    if value == nil then
+        value = default_value or ""
     end
-    return val
+    return value
 end
 
 --[[
@@ -106,21 +105,21 @@ end
 @param value 配置值
 @return boolean 是否设置成功
 ]]
-local function sc(key, val)
-    if not finit then
-        log.warn("scfg", "fskv未初始化，尝试初始化")
-        if not ifk() then
+local function set_config(key, value)
+    if not fskv_initialized then
+        log.warn("settings_config", "fskv未初始化，尝试初始化")
+        if not init_fskv() then
             return false
         end
     end
 
-    local result = fskv.set(key, val)
+    local result = fskv.set(key, value)
     if result then
-        log.info("scfg", "配置已保存", key, val)
+        log.info("settings_config", "配置已保存", key, value)
         -- 发布配置变更事件
-        sys.publish("CONFIG_CHANGED", key, val)
+        sys.publish("CONFIG_CHANGED", key, value)
     else
-        log.error("scfg", "配置保存失败", key)
+        log.error("settings_config", "配置保存失败", key)
     end
     return result
 end
@@ -132,8 +131,8 @@ end
 @summary 获取设备名称
 @return string 设备名称
 ]]
-local function gdv()
-    return gc(CK.DEVICE_NAME)
+local function get_device_name()
+    return get_config(CONFIG_KEYS.DEVICE_NAME)
 end
 
 --[[
@@ -142,26 +141,26 @@ end
 @param name 设备名称
 @return boolean 是否设置成功
 ]]
-local function sdv(name)
-    return sc(CK.DEVICE_NAME, name)
+local function set_device_name(name)
+    return set_config(CONFIG_KEYS.DEVICE_NAME, name)
 end
 
 -- ==================== 事件处理 ====================
 
 -- 订阅获取设备名称事件
 sys.subscribe("CONFIG_GET_DEVICE_NAME", function()
-    local dn = gdv()
-    sys.publish("CONFIG_DEVICE_NAME_VALUE", dn)
-    log.info("scfg", "上报设备名称", dn)
+    local device_name = get_device_name()
+    sys.publish("CONFIG_DEVICE_NAME_VALUE", device_name)
+    log.info("settings_config", "上报设备名称", device_name)
 end)
 
 -- 订阅设置设备名称事件
 sys.subscribe("CONFIG_SET_DEVICE_NAME", function(name)
     if name and #name > 0 then
-        sdv(name)
+        set_device_name(name)
     else
-        log.warn("scfg", "设置设备名称失败，名称无效")
+        log.warn("settings_config", "设置设备名称失败，名称无效")
     end
 end)
 
-ifk()
+init_fskv()

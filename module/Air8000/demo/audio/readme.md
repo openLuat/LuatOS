@@ -12,11 +12,17 @@
 
 6、record_pcm_file.lua：流式录音到文件功能模块，演示PCM格式音频录制；
 
-7、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
+7、http_download_play.lua：从HTTP下载音频文件并播放功能模块，演示从网络下载音频文件并播放的场景；
 
-8、test.pcm：用于测试PCM流式播放的示例音频文件；
+8、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
+
+9、test.pcm：用于测试PCM流式播放的示例音频文件；
 
 **注意:目前不支持录音和放音同时进行**
+
+**AirAUDIO_1020 使用注意：**
+- AirAUDIO_1020 板载 TM8211 编解码器，**不支持录音功能**
+- 使用 AirAUDIO_1020 时，仅需修改 `model="tm8211"` 并移除 `i2c_id` 配置即可支持播放功能
 
 ## 常量的介绍
 
@@ -94,6 +100,34 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 | VBAT            | VCC                 |
 | GND             | GND                 |
 
+**AirAUDIO_1010 使用说明：**
+
+1. 使用 AirAUDIO_1010 时，需要修改 `play_file.lua`、`play_tts.lua`、`play_stream.lua` 中的初始化参数：
+
+```lua
+local audio_setup_param ={
+    model= "es8311",          -- 使用 ES8311 编解码器
+    i2c_id = 0,               -- I2C总线ID，根据实际接线配置（0或1）
+    pa_ctrl = 162,            -- PA控制管脚（Air8000开发板）
+    dac_ctrl = 164,           -- ES8311电源控制管脚（Air8000开发板）
+    -- 如果是Air8000核心板，使用以下配置：
+    -- pa_ctrl = 17,
+    -- dac_ctrl = 16,
+}
+```
+
+2. 在 `main.lua` 中启用所需功能模块：
+
+```lua
+-- 播放功能
+require "play_file"
+-- require "play_tts"
+-- require "play_stream"
+-- require "http_download_play"
+-- require "record_amr_file"
+-- require "record_pcm_file"
+```
+
 3、Air8000核心板+AirAUDIO_1020 音频配件板+喇叭（可选）
 
 ![alt text]( https://docs.openLuat.com/cdn/image/Air8000+1020.jpg)
@@ -106,9 +140,40 @@ Air8000核心板和AirAudio_1020 配件板的硬件接线方式为:
 | 19/I2S_LRCK     | I2S_LRCK            |
 | 21/I2S_DOUT     | I2S_DOUT            |
 | 82/GPIO17       | PA_EN               |
-| 83/GPIO16       | 8311_EN             |
+| 83/GPIO16       | TM8211_EN           |
 | VBAT            | VCC                 |
 | GND             | GND                 |
+
+**AirAUDIO_1020 使用说明：**
+
+1. 使用 AirAUDIO_1020 时，需要修改 `audio_setup_param` 中的初始化参数：
+
+```lua
+local audio_setup_param ={
+    model= "tm8211",          -- 改为 "tm8211"
+    -- i2c_id 无需配置，TM8211不需要I2C
+    pa_ctrl = 162,            -- PA控制管脚（Air8000开发板）
+    dac_ctrl = 164,           -- TM8211电源控制管脚（Air8000开发板）
+    -- 如果是Air8000核心板，使用以下配置：
+    -- pa_ctrl = 17,
+    -- dac_ctrl = 16,
+}
+```
+
+2. 在 `main.lua` 中启用所需功能模块：
+
+```lua
+-- 播放功能
+require "play_file"
+-- require "play_tts"
+-- require "play_stream"
+-- require "http_download_play"
+
+-- 因为AirAUDIO_1020配件板没有麦克风接口，所以不支持录音功能。
+-- 录音功能（AirAUDIO_1020不支持）
+-- require "record_amr_file"
+-- require "record_pcm_file"
+```
 
 4、TYPE-C USB数据线一根
 
@@ -142,15 +207,16 @@ Air8000核心板和AirAudio_1020 配件板的硬件接线方式为:
 ### 目录结构说明
 
 ```lua
-├── main.lua              # 主程序入口，负责初始化音频系统并启动各个音频功能任务
-├── play_file.lua         # 音频文件播放功能模块，支持MP3、WAV、AMR格式
-├── play_tts.lua          # 文字转语音功能模块，支持中文TTS语音合成
-├── play_stream.lua       # 流式音频播放功能模块，支持PCM格式流式播放
-├── record_amr_file.lua   # 录音到文件功能模块，支持AMR格式录音
-├── record_pcm_file.lua   # 流式录音到文件功能模块，支持PCM格式录音
-├── sample-6s.mp3         # 示例音频文件，用于播放测试
-├── test.pcm              # 示例PCM音频文件，用于流式播放测试
-└── 10.amr                # 示例AMR音频文件，用于播放测试
+├── main.lua                # 主程序入口，负责初始化音频系统并启动各个音频功能任务
+├── play_file.lua           # 音频文件播放功能模块，支持MP3、WAV、AMR格式
+├── play_tts.lua            # 文字转语音功能模块，支持中文TTS语音合成
+├── play_stream.lua         # 流式音频播放功能模块，支持PCM格式流式播放
+├── record_amr_file.lua     # 录音到文件功能模块，支持AMR格式录音
+├── record_pcm_file.lua     # 流式录音到文件功能模块，支持PCM格式录音
+├── http_download_play.lua  # 从HTTP下载音频文件并播放功能模块
+├── sample-6s.mp3           # 示例音频文件，用于播放测试
+├── test.pcm                # 示例PCM音频文件，用于流式播放测试
+└── 10.amr                  # 示例AMR音频文件，用于播放测试
 ```
 
 ### 1、音频文件播放功能（play_file.lua）

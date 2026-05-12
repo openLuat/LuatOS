@@ -7,10 +7,9 @@
 @usage
 本模块为存储业务逻辑层，通过 io.fsstat 获取文件系统容量/已用/可用空间信息并上报。
 ]]
--- naming: fn(2-5char), var(2-4char)
 
 -- ==================== 存储信息 ====================
-local si = {
+local storage_info = {
     total = "--",
     used = "--",
     free = "--",
@@ -23,20 +22,20 @@ local si = {
 @param size 大小（字节）
 @return string 格式化后的字符串
 ]]
-local function fs(sz)
-    if sz == nil or type(sz) ~= "number" or sz < 0 then
+local function format_size(size_bytes)
+    if size_bytes == nil or type(size_bytes) ~= "number" or size_bytes < 0 then
         return "--"
     end
 
-    local us = {"B", "KB", "MB", "GB"}
-    local ui = 1
+    local units = {"B", "KB", "MB", "GB"}
+    local unit_index = 1
 
-    while sz >= 1024 and ui < #us do
-        sz = sz / 1024
-        ui = ui + 1
+    while size_bytes >= 1024 and unit_index < #units do
+        size_bytes = size_bytes / 1024
+        unit_index = unit_index + 1
     end
 
-    return string.format("%.2f %s", sz, us[ui])
+    return string.format("%.2f %s", size_bytes, units[unit_index])
 end
 
 --[[
@@ -44,65 +43,65 @@ end
 @summary 获取文件系统存储信息（PC 模拟器返回模拟数据）
 @return table 存储信息表
 ]]
-local function gsi()
+local function get_storage_info()
     -- PC模拟器使用模拟数据
     if _G.model_str:find("PC") then
-        local tb = 1024 * 1024 * 1024
+        local total_bytes = 1024 * 1024 * 1024
 
         -- 新方案：直接生成 1~99 的百分比
-        local pct = math.random(1, 99)
+        local percent = math.random(1, 99)
 
         -- 整数运算，无浮点、无BUG、无nil
-        local ub = tb * (pct / 100.0)
-        local fb = tb - ub
+        local used_bytes = total_bytes * (percent / 100.0)
+        local free_bytes = total_bytes - used_bytes
 
-        si.total = fs(tb)
-        si.used = fs(ub)
-        si.free = fs(fb)
-        si.used_percent = pct
+        storage_info.total = format_size(total_bytes)
+        storage_info.used = format_size(used_bytes)
+        storage_info.free = format_size(free_bytes)
+        storage_info.used_percent = percent
 
-        log.info("sstg", "PC模拟器模拟存储数据",
-            "used:", si.used,
-            "free:", si.free,
-            "percent:", pct .. "%"
+        log.info("settings_storage", "PC模拟器模拟存储数据",
+            "used:", storage_info.used,
+            "free:", storage_info.free,
+            "percent:", percent .. "%"
         )
 
-        return si
+        return storage_info
     end
 
     -- 尝试获取文件系统信息
     -- io.fsstat 返回值: success, total_blocks, used_blocks, block_size, fs_type
-    local r, ok, tbk, ubk, bsz = pcall(io.fsstat, "/")
+    local r, ok, total_blocks, used_blocks, block_size = pcall(io.fsstat, "/")
 
-    log.info("sstg", "获取存储信息", "ret:", r, "success:", ok, "total_blocks:", tbk, "used_blocks:", ubk, "block_size:", bsz)
+    log.info("settings_storage", "获取存储信息", "ret:", r, "success:", ok, "total_blocks:", total_blocks, "used_blocks:", used_blocks, "block_size:", block_size)
 
-    if r and ok == true and tbk and ubk and bsz then
-        local tb = tbk * bsz
-        local ub = ubk * bsz
-        local fb = tb - ub
+    if r and ok == true and total_blocks and used_blocks and block_size then
+        local total_bytes = total_blocks * block_size
+        local used_bytes = used_blocks * block_size
+        local free_bytes = total_bytes - used_bytes
 
-        si.total = fs(tb)
-        si.used = fs(ub)
-        si.free = fs(fb)
-        si.used_percent = math.tointeger(math.floor(ub * 100 / tb))
+        storage_info.total = format_size(total_bytes)
+        storage_info.used = format_size(used_bytes)
+        storage_info.free = format_size(free_bytes)
+        storage_info.used_percent = math.tointeger(math.floor(used_bytes * 100 / total_bytes))
     else
-        si.total = "--"
-        si.used = "--"
-        si.free = "--"
-        si.used_percent = 0
-        log.warn("sstg", "获取存储信息失败")
+        storage_info.total = "--"
+        storage_info.used = "--"
+        storage_info.free = "--"
+        storage_info.used_percent = 0
+        log.warn("settings_storage", "获取存储信息失败")
     end
 
-    return si
+    return storage_info
 end
 
 -- ==================== 事件订阅 ====================
 
-local function sih()
-    local info = gsi()
+local function storage_info_handler()
+    local info = get_storage_info()
     sys.publish("STORAGE_INFO", info)
-    log.info("sstg", "上报存储信息", "total:", info.total, "used:", info.used, "free:", info.free, "percent:", info.used_percent)
+    log.info("settings_storage", "上报存储信息", "total:", info.total, "used:", info.used, "free:", info.free, "percent:", info.used_percent)
 end
 
 -- 订阅存储信息查询事件
-sys.subscribe("STORAGE_GET_INFO", sih)
+sys.subscribe("STORAGE_GET_INFO", storage_info_handler)

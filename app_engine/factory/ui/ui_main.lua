@@ -1,4 +1,3 @@
--- nconv: var2-4 fn2-5 tag-short
 --[[
 @module  ui_main
 @summary UI主模块，负责初始化硬件并启动UI系统
@@ -14,7 +13,7 @@ require "settings_win"
 require "app_store_win"
 require "speedtest_win"
 
-local function umt()
+local function init_ui_task()
     lcd_drv.init()
     tp_drv.init()
      -- 发布消息打开欢迎界面
@@ -24,4 +23,4 @@ local function umt()
     lcd_drv.backlight_on()
 end
 
-sys.taskInit(umt)
+sys.taskInit(init_ui_task)

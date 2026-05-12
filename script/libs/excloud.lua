@@ -96,20 +96,14 @@ local config = {
 
 }
 
--- 简记: cb=回调 func, seq=流水号, rec_cnt/tmr=重连次数/定时器, rx=接收缓冲, did=设备ID二进制
---       hb_tmr/int/data/on=心跳, conn_tmr=连接超时, mtn_up=日志上传中, gt=getip类型
---       tbe/fbe=大小端编解码, enc/dec=TLV编解码, bld_hdr/par_hdr=消息头, snd_auth=发送鉴权
---       par/par_msg=解析, sched_rec=重连调度, tcp_cb/udp_cb/mqtt_cb=socket回调
---       bld_form=构建form, snd_up_s/e=上传开始/结束, hdl_mtn/bld_mtn/snd_mtn/up_mtn/scan_mtn=运维日志
-local cb = nil          -- 回调函数
+local callback_func = nil          -- 回调函数
 local is_open = false              -- 服务是否开启
 local is_connected = false         -- 是否已连接
 local is_authenticated = false     -- 是否已鉴权
-local seq = 1             -- 流水号
-local function gt() return config.transport=="tcp"and 3 or config.transport=="udp"and 4 or config.transport=="mqtt"and 5 or 3 end
+local sequence_num = 1             -- 流水号
 
 -- 辅助函数：构建multipart/form-data请求体
-local function bld_form(forms, files)
+local function build_multipart_form_data(forms, files)
     local boundary = "----WebKitFormBoundary" .. tostring(os.time())
     local body = {}
 
@@ -135,7 +129,17 @@ local function bld_form(forms, files)
 
                 -- 根据文件扩展名设置Content-Type
                 local ext = file_name:match("%.(%w+)$" or ""):lower()
-                local content_types = {txt="text/plain",jpg="image/jpeg",jpeg="image/jpeg",png="image/png",gif="image/gif",mp3="audio/mpeg",wav="audio/wav",json="application/json",html="text/html"}
+                local content_types = {
+                    txt = "text/plain",
+                    jpg = "image/jpeg",
+                    jpeg = "image/jpeg",
+                    png = "image/png",
+                    gif = "image/gif",
+                    mp3 = "audio/mpeg",
+                    wav = "audio/wav",
+                    json = "application/json",
+                    html = "text/html"
+                }
                 if content_types[ext] then
                     content_type = content_types[ext]
                 end
@@ -154,16 +158,16 @@ local function bld_form(forms, files)
     return table.concat(body), boundary
 end
 local connection = nil             -- 连接对象
-local did = nil       -- 二进制格式的设备ID
-local rec_tmr = nil        -- 重连定时器
-local rec_cnt = 0          -- 重连次数
-local rx = nil                 -- 接收缓冲区
-local conn_tmr = nil  -- 连接超时定时器
-local hb_tmr = nil        -- 心跳定时器
-local hb_int = 300     -- 心跳间隔(秒)，默认5分钟
-local hb_data = {}          -- 心跳数据，默认空表
-local hb_on = false -- 心跳是否正在运行
-local mtn_up = false -- 运维日志是否正在上传
+local device_id_binary = nil       -- 二进制格式的设备ID
+local reconnect_timer = nil        -- 重连定时器
+local reconnect_count = 0          -- 重连次数
+local rxbuff = nil                 -- 接收缓冲区
+local connect_timeout_timer = nil  -- 连接超时定时器
+local heartbeat_timer = nil        -- 心跳定时器
+local heartbeat_interval = 300     -- 心跳间隔(秒)，默认5分钟
+local heartbeat_data = {}          -- 心跳数据，默认空表
+local is_heartbeat_running = false -- 心跳是否正在运行
+local is_mtn_log_uploading = false -- 运维日志是否正在上传
 
 -- 数据类型定义
 local DATA_TYPES = {
@@ -278,7 +282,7 @@ local MTN_LOG_STATUS = {
 }
 
 -- 将数字转换为大端字节序列
-local function tbe(num, bytes)
+local function to_big_endian(num, bytes)
     local result = {}
     for i = bytes, 1, -1 do
         result[i] = string.char(num % 256)
@@ -288,20 +292,20 @@ local function tbe(num, bytes)
 end
 
 -- 从大端字节序列转换为数字
-local function fbe(data, start, length)
+local function from_big_endian(data, start, length)
     local value = 0
     for i = start, start + length - 1 do
         value = value * 256 + data:byte(i)
     end
-    -- log.info("[ec]fbe", value)
+    -- log.info("[excloud]from_big_endian", value)
     return value
 end
 
 -- 将设备ID进行编码
-local function pack_dev(deviceType, deviceId)
+local function packDeviceInfo(deviceType, deviceId)
     -- 验证设备类型
     if deviceType ~= 1 and deviceType ~= 2 and deviceType ~= 9 then
-        log.info("[ec]设备类型错误: 4G设备应为1, WIFI设备应为2")
+        log.info("[excloud]设备类型错误: 4G设备应为1, WIFI设备应为2")
     end
 
     -- 设备类型字节
@@ -367,7 +371,7 @@ local function pack_dev(deviceType, deviceId)
             table.insert(result, string.char(byte))
         end
     else
-        log.info("[ec]未知设备类型 ")
+        log.info("[excloud]未知设备类型 ")
         return deviceId
     end
 
@@ -376,46 +380,46 @@ local function pack_dev(deviceType, deviceId)
 end
 
 -- 编码数据值
-local function enc(data_type, value)
+local function encode_value(data_type, value)
     -- 添加参数类型检查
     if data_type == nil or value == nil then
-        log.info("[ec]Data type or value is nil")
+        log.info("[excloud]Data type or value is nil")
         return ""
     end
     if data_type == DATA_TYPES.INTEGER then
         -- 验证value是否为数字
         if type(value) ~= "number" then
-            log.info("[ec]Integer value must be a number")
+            log.info("[excloud]Integer value must be a number")
             return ""
         end
-        return tbe(math.floor(value), 4)
+        return to_big_endian(math.floor(value), 4)
     elseif data_type == DATA_TYPES.FLOAT then
         -- 验证value是否为数字
         if type(value) ~= "number" then
-            log.info("[ec]Float value must be a number")
+            log.info("[excloud]Float value must be a number")
             return ""
         end
         -- 简化处理：将浮点数转换为整数，乘以1000以保留三位小数
-        return tbe(math.floor(value * 1000), 4)
+        return to_big_endian(math.floor(value * 1000), 4)
     elseif data_type == DATA_TYPES.BOOLEAN then
         return value and "\1" or "\0"
     elseif data_type == DATA_TYPES.ASCII or data_type == DATA_TYPES.BINARY or data_type == DATA_TYPES.UNICODE then
         -- 确保value是字符串类型
         return tostring(value)
     else
-        log.info("[ec]Unsupported data type: " .. tostring(data_type))
+        log.info("[excloud]Unsupported data type: " .. tostring(data_type))
         -- 返回空字符串而不是nil，避免后续处理出错
         return ""
     end
 end
 
 -- 解码数据值
-local function dec(data_type, value)
+local function decode_value(data_type, value)
     if data_type == DATA_TYPES.INTEGER then
-        return fbe(value, 1, #value)
+        return from_big_endian(value, 1, #value)
     elseif data_type == DATA_TYPES.FLOAT then
         -- 简化处理：将整数转换为浮点数（实际应使用IEEE 754格式）
-        return fbe(value, 1, #value) / 1000
+        return from_big_endian(value, 1, #value) / 1000
     elseif data_type == DATA_TYPES.BOOLEAN then
         return value:byte(1) ~= 0
     elseif data_type == DATA_TYPES.ASCII then
@@ -425,7 +429,7 @@ local function dec(data_type, value)
     elseif data_type == DATA_TYPES.UNICODE then
         return value
     else
-        log.info("[ec]Unsupported data type: " .. data_type)
+        log.info("[excloud]Unsupported data type: " .. data_type)
         return nil
     end
 end
@@ -434,10 +438,10 @@ end
 -- @param need_reply boolean 是否需要服务器回复
 -- @param has_auth_key boolean 是否携带鉴权key
 -- @param data_length number 数据长度
-local function bld_hdr(need_reply, is_udp_transport, data_length)
-    seq = seq + 1
-    if seq > 65535 then
-        seq = 1
+local function build_header(need_reply, is_udp_transport, data_length)
+    sequence_num = sequence_num + 1
+    if sequence_num > 65535 then
+        sequence_num = 1
     end
 
     -- 消息标识字段
@@ -448,12 +452,12 @@ local function bld_hdr(need_reply, is_udp_transport, data_length)
     if is_udp_transport then
         flags = flags + 32 -- bit5: 是否是UDP承载
     end
-    log.info("[ec]构建消息头", did, tbe(seq, 2), tbe(data_length, 2),
-        tbe(flags, 4))
-    return did ..
-        tbe(seq, 2) ..
-        tbe(data_length, 2) ..
-        tbe(flags, 4)
+    log.info("[excloud]构建消息头", device_id_binary, to_big_endian(sequence_num, 2), to_big_endian(data_length, 2),
+        to_big_endian(flags, 4))
+    return device_id_binary ..
+        to_big_endian(sequence_num, 2) ..
+        to_big_endian(data_length, 2) ..
+        to_big_endian(flags, 4)
 end
 
 --[[
@@ -478,34 +482,34 @@ end
 
 function excloud.build_tlv(field_meaning, data_type, value)
     if field_meaning == nil or data_type == nil or value == nil then
-        log.info("[ec]构建tlv参数不能为空")
+        log.info("[excloud]构建tlv参数不能为空")
         return false
     end
-    local value_encoded = enc(data_type, value)
+    local value_encoded = encode_value(data_type, value)
     if value_encoded == nil then
-        log.info("[ec]构建tlv打包数据时长度为0")
+        log.info("[excloud]构建tlv打包数据时长度为0")
         -- 添加空字符串作为默认值，避免后续获取长度时出错
         value_encoded = ""
     end
     local length = #value_encoded
     -- 字段类型（字段含义 + 数据类型）
     local head   = (field_meaning & 0x0FFF) | (data_type << 12) -- 2 字节头
-    return true, tbe(head, 2) ..
-        tbe(length, 2) ..
+    return true, to_big_endian(head, 2) ..
+        to_big_endian(length, 2) ..
         value_encoded
 end
 
 -- 解析消息头
-local function par_hdr(header)
+local function parse_header(header)
     if #header < 16 then
-        log.info("[ec]消息头解析失败", "Header too short")
+        log.info("[excloud]消息头解析失败", "Header too short")
         return nil, "Header too short"
     end
 
     local device_id = header:sub(1, 8)
-    local seq_num = fbe(header, 9, 2)
-    local msg_length = fbe(header, 11, 2)
-    local flags = fbe(header, 13, 4)
+    local seq_num = from_big_endian(header, 9, 2)
+    local msg_length = from_big_endian(header, 11, 2)
+    local flags = from_big_endian(header, 13, 4)
 
     -- 提取标志位
     local protocol_version = flags % 16
@@ -513,15 +517,15 @@ local function par_hdr(header)
     local is_udp_transport = (flags % 64) >= 32
 
     -- 打印解析结果，方便调试
-    -- log.info("[ec]消息头解析结果",
+    -- log.info("[excloud]消息头解析结果",
     --     string.format(
-    --         "device_id: %s, seq: %d, msg_length: %d, protocol_version: %d, need_reply: %s, is_udp_transport: %s",
+    --         "device_id: %s, sequence_num: %d, msg_length: %d, protocol_version: %d, need_reply: %s, is_udp_transport: %s",
     --         string.toHex(device_id), seq_num, msg_length, protocol_version,
     --         tostring(need_reply), tostring(is_udp_transport)))
 
     return {
         device_id = string.toHex(device_id),
-        seq = seq_num,
+        sequence_num = seq_num,
         msg_length = msg_length,
         protocol_version = protocol_version,
         need_reply = need_reply,
@@ -564,8 +568,8 @@ function excloud.parse_tlv(data, startPos)
         return nil, startPos, "TLV data too short"
     end
 
-    local fieldType = fbe(data, startPos, 2)
-    local length = fbe(data, startPos + 2, 2)
+    local fieldType = from_big_endian(data, startPos, 2)
+    local length = from_big_endian(data, startPos + 2, 2)
     -- 提取原始字节值
     local value = data:sub(startPos + 4, startPos + 4 + length - 1)
     --解析TLV字段中的T
@@ -574,8 +578,8 @@ function excloud.parse_tlv(data, startPos)
     local field_meaning = fieldType & 0x0FFF -- 取低12位作为字段含义
     local data_type = fieldType >> 12        -- 取高4位作为数据类型
 
-    local decoded_value = dec(data_type, value)
-    -- log.info("[ec]消息体解析结果", field_meaning, data_type, decoded_value)
+    local decoded_value = decode_value(data_type, value)
+    -- log.info("[excloud]消息体解析结果", field_meaning, data_type, decoded_value)
     return {
         field = field_meaning,
         type = data_type,
@@ -585,8 +589,8 @@ function excloud.parse_tlv(data, startPos)
 end
 
 -- 解析完整消息
-local function par_msg(data)
-    local header, err = par_hdr(data:sub(1, 16))
+local function parse_message(data)
+    local header, err = parse_header(data:sub(1, 16))
     if not header then
         return nil, err
     end
@@ -613,8 +617,8 @@ local function par_msg(data)
         end_pos = 16 + (header.msg_length)
     end
     -- local data1 = data:sub(body_start, end_pos)
-    -- log.info("[ec]验证key解析结果", body_start,",",data:len(),",",auth_key:len(),",",auth_key:toHex())
-    -- log.info("[ec]消息体解析结果", data1:toHex())
+    -- log.info("[excloud]验证key解析结果", body_start,",",data:len(),",",auth_key:len(),",",auth_key:toHex())
+    -- log.info("[excloud]消息体解析结果", data1:toHex())
     if #data < end_pos then
         return nil, "Message incomplete"
     end
@@ -628,7 +632,7 @@ local function par_msg(data)
         pos = new_pos
     end
     if config.transport == "udp" then
-    local udp_auth_key_match = auth_key == config.udp_auth_key
+    local udp_auth_key_match = auth_key == config.udp_auth_key and true or false
     return {
         header = header,
         auth_key = auth_key,
@@ -644,9 +648,9 @@ local function par_msg(data)
 end
 
 -- 发送鉴权请求
-local function snd_auth()
+local function send_auth_request()
     if not config.auth_key then
-        log.error("[ec]没有配置auth_key，无法发送鉴权请求")
+        log.error("[excloud]没有配置auth_key，无法发送鉴权请求")
         return false, "No auth key configured"
     end
     local auth_data
@@ -668,29 +672,57 @@ local function snd_auth()
             value = auth_data
         }
     }
-    -- log.info("[ec]send auth request", message,message[1].value,message[1].data_type,message[1].field_meaning)
+    -- log.info("[excloud]send auth request", message,message[1].value,message[1].data_type,message[1].field_meaning)
     return excloud.send(message, true, true) -- 鉴权消息需要设置 is_auth_msg 为 true
 end
 
+-- 处理认证响应
+-- local function handle_auth_response(tlvs)
+--     for _, tlv in ipairs(tlvs) do
+--         if tlv.field_meaning == FIELD_MEANINGS.AUTH_RESPONSE then
+--             local success = (tlv.value == "OK" or tlv.value == "SUCCESS")
+--             is_authenticated = true
+
+--             -- 记录认证结果到运维日志
+--             if config.aircloud_mtn_log_enabled then
+--                 exmtn.log("info", "aircloud","auth", "认证结果", "success", success, "message", tlv.value)
+--             end
+
+
+--             if callback_func then
+--                 callback_func("auth_result", {
+--                     success = success,
+--                     message = tlv.value
+--                 })
+--             end
+
+
+--             return success
+--         end
+--     end
+
+--     return false
+-- end
+
 -- 初始化运维日志模块
-local function init_mtn()
+local function init_mtn_log()
     if not config.mtn_log_enabled then
-        log.info("[ec]aircloud运维日志功能已禁用")
+        log.info("[excloud]aircloud运维日志功能已禁用")
         return true
     end
 
     local ok, err = exmtn.init(config.mtn_log_blocks, config.mtn_log_write_way)
     if not ok then
-        log.error("[ec]运维日志初始化失败:", err)
+        log.error("[excloud]运维日志初始化失败:", err)
         return false, err
     end
 
-    log.info("[ec]运维日志初始化成功")
+    log.info("[excloud]运维日志初始化成功")
     return true
 end
 
 -- 扫描运维日志文件
-local function scan_mtn()
+local function scan_mtn_log_files()
     local log_files = {}
 
     -- 使用exmtn管理的文件信息
@@ -724,7 +756,7 @@ local function scan_mtn()
 end
 
 -- 构建运维日志响应TLV数据
-local function bld_mtn(total_files, latest_index)
+local function build_mtn_log_response_tlv(total_files, latest_index)
     local sub_tlvs = ""
 
     -- 文件总数
@@ -750,7 +782,7 @@ local function bld_mtn(total_files, latest_index)
 end
 
 -- 发送运维日志上传状态
-local function snd_mtn(status, file_index, file_name, file_size)
+local function send_mtn_log_status(status, file_index, file_name, file_size)
     local sub_tlvs = ""
 
     -- 上传状态（必须）
@@ -822,16 +854,23 @@ local function snd_mtn(status, file_index, file_name, file_size)
     return true
 end
 -- 上传运维日志文件
-local function up_mtn()
+local function upload_mtn_log_files()
 
     sys.taskInit(function()
         -- 设置上传标志位为true
-        mtn_up = true
+        is_mtn_log_uploading = true
 
         local total_files = 4 -- 固定为4个日志文件
         local success_count = 0
         local failed_count = 0
         local processed_count = 0
+
+        -- -- 通知开始上传
+        -- if callback_func then
+        --     callback_func("mtn_log_upload_start", {
+        --         file_count = total_files
+        --     })
+        -- end
 
         -- 按顺序检查并上传每个日志文件
         for i = 1, 4 do
@@ -844,9 +883,9 @@ local function up_mtn()
                 processed_count = processed_count + 1
 
                 -- 发送开始上传状态
-                snd_mtn(MTN_LOG_STATUS.START, i, file_name, file_size)
+                send_mtn_log_status(MTN_LOG_STATUS.START, i, file_name, file_size)
 
-                log.info("[ec]开始上传运维日志文件", "文件:", file_name, "大小:", file_size)
+                log.info("[excloud]开始上传运维日志文件", "文件:", file_name, "大小:", file_size)
 
                 -- 上传文件
                 local success, err_msg = excloud.upload_mtnlog(file_path, file_name)
@@ -854,7 +893,7 @@ local function up_mtn()
                 if success then
                     -- 发送上传成功状态
                     log.info("运维日志文件上传成功", "文件:", file_name, "大小:", file_size)
-                    snd_mtn(MTN_LOG_STATUS.SUCCESS, i, file_name, file_size)
+                    send_mtn_log_status(MTN_LOG_STATUS.SUCCESS, i, file_name, file_size)
                     success_count = success_count + 1
 
                     -- 记录上传成功的运维日志
@@ -864,7 +903,7 @@ local function up_mtn()
                 else
                     -- 发送上传失败状态
                     log.error("运维日志文件上传失败", "文件:", file_name, "错误:", err_msg)
-                    snd_mtn(MTN_LOG_STATUS.FAILED, i, file_name, file_size)
+                    send_mtn_log_status(MTN_LOG_STATUS.FAILED, i, file_name, file_size)
                     failed_count = failed_count + 1
 
                     -- 记录上传失败的运维日志
@@ -874,8 +913,8 @@ local function up_mtn()
                 end
 
                 -- 通知上传进度
-                if cb then
-                    cb("mtn_log_upload_progress", {
+                if callback_func then
+                    callback_func("mtn_log_upload_progress", {
                         current_file = processed_count,
                         total_files = total_files,
                         file_name = file_name,
@@ -888,6 +927,10 @@ local function up_mtn()
                 -- 文件不存在或为空，跳过上传
                 log.info("运维日志文件不存在或为空，跳过上传", "文件:", file_name)
             end
+            -- -- 文件间延迟，避免同时上传多个文件
+            -- if i < 4 then
+            --     sys.wait(2000)
+            -- end
         end
 
         log.info("运维日志上传完成", "成功:", success_count, "失败:", failed_count, "总计:", processed_count)
@@ -899,8 +942,8 @@ local function up_mtn()
         end
 
         -- 通知上传完成
-        if cb then
-            cb("mtn_log_upload_complete", {
+        if callback_func then
+            callback_func("mtn_log_upload_complete", {
                 success_count = success_count,
                 failed_count = failed_count,
                 total_files = processed_count
@@ -908,15 +951,15 @@ local function up_mtn()
         end
 
         -- 上传完成，设置标志位为false
-        mtn_up = false
+        is_mtn_log_uploading = false
     end)
 end
 
 -- 处理运维日志上传请求
-local function hdl_mtn()
+local function handle_mtn_log_upload_request()
     -- 检查是否正在上传，如果是则直接返回，抛弃新请求
-    if mtn_up then
-        log.info("[ec]运维日志正在上传中，抛弃新的上传请求")
+    if is_mtn_log_uploading then
+        log.info("[excloud]运维日志正在上传中，抛弃新的上传请求")
         return
     end
 
@@ -934,7 +977,7 @@ local function hdl_mtn()
         {
             field_meaning = FIELD_MEANINGS.MTN_LOG_UPLOAD_RESP_SIGNAL, -- 使用信令类型
             data_type = DATA_TYPES.BINARY,
-            value = bld_mtn(total_files, latest_index)
+            value = build_mtn_log_response_tlv(total_files, latest_index)
         }
     }, false)
 
@@ -947,33 +990,55 @@ local function hdl_mtn()
 
     -- 开始上传日志文件
     sys.timerStart(function()
-        up_mtn()
+        upload_mtn_log_files()
     end, 10)
 end
 
 
 
 -- 接收消息解析处理
-local function par(data)
-    local message, err = par_msg(data)
+local function parse_data(data)
+    local message, err = parse_message(data)
     if not message then
-        log.info("[ec]Failed to parse message: " .. err)
+        log.info("[excloud]Failed to parse message: " .. err)
         return
     end
 
     -- 处理运维日志上传请求（信令25）
     for _, tlv in ipairs(message.tlvs) do
         if tlv.field == FIELD_MEANINGS.MTN_LOG_UPLOAD_REQ_SIGNAL then
-            log.info("[ec]收到运维日志上传请求")
-            hdl_mtn()
+            log.info("[excloud]收到运维日志上传请求")
+            handle_mtn_log_upload_request()
             return
         end
     end
 
+    -- 处理认证响应
+    -- if not is_authenticated then
+    --   for _, tlv in ipairs(message.tlvs) do
+    --        if tlv.field == FIELD_MEANINGS.AUTH_RESPONSE then
+    --           handle_auth_response(message.tlvs)
+    --          return
+    --       end
+    --   end
+    --end
+
     --数据返回给回调
-    if cb then
-        cb("message", message)
+    if callback_func then
+        callback_func("message", message)
     end
+
+    -- -- 如果需要回复，发送确认AAA
+    -- if message.header.need_reply then
+    --     local response = {
+    --         {
+    --             field_meaning = FIELD_MEANINGS.REPORT_RESPONSE,
+    --             data_type = DATA_TYPES.ASCII,
+    --             value = "ACK"
+    --         }
+    --     }
+    --     excloud.send(response, false)
+    -- end
 end
 
 function excloud.getip(getip_type)
@@ -986,7 +1051,7 @@ function excloud.getip(getip_type)
 
     -- 构建key：如果有auth_key则使用auth_key+device_id，否则只使用device_id
     local key = config.auth_key and (config.auth_key .. "-" .. config.device_id) or config.device_id
-    log.info("[ec]excloud.getip", "类型:", getip_type, "key:", key)
+    log.info("[excloud]excloud.getip", "类型:", getip_type, "key:", key)
 
     -- 执行HTTP请求
     local code, response = httpplus.request(
@@ -998,23 +1063,23 @@ function excloud.getip(getip_type)
 
     -- 添加对HTTP响应为空值的处理
     if not response or not response.body then
-        log.error("[ec]getip请求失败", "HTTP响应为空")
+        log.error("[excloud]getip请求失败", "HTTP响应为空")
         return false, "HTTP响应为空"
     end
     
-    log.info("[ec]excloud.getip响应", "HTTP Code:", code, "Body:", response.body:query())
+    log.info("[excloud]excloud.getip响应", "HTTP Code:", code, "Body:", response.body:query())
 
     local response_body = response.body:query()
     if not response_body or response_body == "" then
-        log.error("[ec]getip请求失败", "响应体为空")
+        log.error("[excloud]getip请求失败", "响应体为空")
         return false, "响应体为空"
     end
 
-    log.info("[ec]excloud.getip响应", "HTTP Code:", code, "Body:", response_body)
+    log.info("[excloud]excloud.getip响应", "HTTP Code:", code, "Body:", response_body)
 
     -- 处理HTTP错误码
     if code ~= 200 then
-        log.info("[ec]getip请求失败", "HTTP Code:", code)
+        log.info("[excloud]getip请求失败", "HTTP Code:", code)
         return false, "HTTP请求失败: " .. tostring(code)
     end
 
@@ -1026,12 +1091,12 @@ function excloud.getip(getip_type)
 
     -- 检查服务器返回状态
     if not response_json.msg then
-        log.error("[ec]getip响应格式错误", "缺少msg字段")
+        log.error("[excloud]getip响应格式错误", "缺少msg字段")
         return false, "服务器响应格式错误: 缺少msg字段"
     end
 
     if response_json.msg ~= "ok" then
-        log.error("[ec]服务器返回错误", "消息:", response_json.msg)
+        log.error("[excloud]服务器返回错误", "消息:", response_json.msg)
         return false, "服务器返回错误: " .. tostring(response_json.msg)
     end
 
@@ -1043,52 +1108,52 @@ function excloud.getip(getip_type)
 
             -- 根据连接类型处理不同的连接信息
             if getip_type == 5 then -- MQTT连接
-                log.info("[ec]获取到MQTT连接信息",
+                log.info("[excloud]获取到MQTT连接信息",
                     "host:", response_json.conninfo.ssl,
                     "port:", response_json.conninfo.port,
                     "username:", response_json.conninfo.username,
                     "password:", response_json.conninfo.password)
-                log.info("[ec]实际MQTT连接将使用设备信息:",
+                log.info("[excloud]实际MQTT连接将使用设备信息:",
                     "client_id:", mobile.imei(),
                     "username:", mobile.imei(),
                     "password:", mobile.muid())
             else -- TCP/UDP连接
-                log.info("[ec]获取到TCP/UDP连接信息",
+                log.info("[excloud]获取到TCP/UDP连接信息",
                     "host:", response_json.conninfo.ipv4,
                     "port:", response_json.conninfo.port,
                     "key:", response_json.conninfo.key)
             end
         else
-            log.warn("[ec]未获取到连接信息")
+            log.warn("[excloud]未获取到连接信息")
         end
 
         if response_json.imginfo then
             config.current_imginfo = response_json.imginfo
-            log.info("[ec]获取到图片上传信息")
+            log.info("[excloud]获取到图片上传信息")
         else
-            log.warn("[ec]未获取到图片上传信息")
+            log.warn("[excloud]未获取到图片上传信息")
         end
 
         if response_json.audinfo then
             config.current_audinfo = response_json.audinfo
-            log.info("[ec]获取到音频上传信息")
+            log.info("[excloud]获取到音频上传信息")
         else
-            log.warn("[ec]未获取到音频上传信息")
+            log.warn("[excloud]未获取到音频上传信息")
         end
         -- 新增：运维日志上传信息 (mtninfo)
         if response_json.mtninfo then
             config.current_mtninfo = response_json.mtninfo
-            log.info("[ec]获取到运维日志上传信息")
+            log.info("[excloud]获取到运维日志上传信息")
         else
-            log.warn("[ec]未获取到运维日志上传信息")
+            log.warn("[excloud]未获取到运维日志上传信息")
         end
         
         -- 保存二维码信息
         if response_json.qrinfo then
             config.current_qrinfo = response_json.qrinfo
-            log.info("[ec]获取到二维码信息")
+            log.info("[excloud]获取到二维码信息")
         else
-            log.warn("[ec]未获取到二维码信息")
+            log.warn("[excloud]未获取到二维码信息")
         end
     end
 
@@ -1099,20 +1164,20 @@ function excloud.getip(getip_type)
             if config.current_conninfo.ssl then
                 config.host = config.current_conninfo.ssl
             else
-                log.warn("[ec]MQTT连接信息中缺少SSL域名")
+                log.warn("[excloud]MQTT连接信息中缺少SSL域名")
             end
         else -- TCP/UDP连接
             if config.current_conninfo.ipv4 then
                 config.host = config.current_conninfo.ipv4
             else
-                log.warn("[ec]TCP/UDP连接信息中缺少IP地址")
+                log.warn("[excloud]TCP/UDP连接信息中缺少IP地址")
             end
         end
 
         if config.current_conninfo.port then
             config.port = config.current_conninfo.port
         else
-            log.warn("[ec]连接信息中缺少端口号")
+            log.warn("[excloud]连接信息中缺少端口号")
         end
 
         -- 更新MQTT认证信息
@@ -1126,25 +1191,25 @@ function excloud.getip(getip_type)
             -- 如果服务器返回了auth_key，且本地没有设置，则保存
             if config.current_conninfo.auth_key and not config.auth_key then
                 config.auth_key = config.current_conninfo.auth_key
-                log.info("[ec]自动获取到auth_key")
+                log.info("[excloud]自动获取到auth_key")
             end
         else -- TCP/UDP连接
             -- 更新UDP认证密钥
             if config.current_conninfo.key then
                 config.udp_auth_key = config.current_conninfo.key
-                log.info("[ec]更新UDP认证密钥")
+                log.info("[excloud]更新UDP认证密钥")
             end
             
             -- 如果服务器返回了auth_key，且本地没有设置，则保存
             if config.current_conninfo.auth_key and not config.auth_key then
                 config.auth_key = config.current_conninfo.auth_key
-                log.info("[ec]自动获取到auth_key")
+                log.info("[excloud]自动获取到auth_key")
             end
         end
 
-        log.info("[ec]excloud.getip", "更新配置:", config.host, config.port)
+        log.info("[excloud]excloud.getip", "更新配置:", config.host, config.port)
     else
-        log.warn("[ec]未获取到有效的连接信息，将使用原有配置")
+        log.warn("[excloud]未获取到有效的连接信息，将使用原有配置")
     end
 
     return true, config.current_conninfo
@@ -1159,7 +1224,7 @@ function excloud.getip_with_retry(getip_type)
     while retry_count < max_retry do
         success, result = excloud.getip(getip_type)
         if success and result then
-            log.info("[ec]excloud.getip", "成功:", success, "结果:", json.encode(result))
+            log.info("[excloud]excloud.getip", "成功:", success, "结果:", json.encode(result))
             config.getip_retry_count = 0
             return true, result
         end
@@ -1177,7 +1242,7 @@ function excloud.getip_with_retry(getip_type)
 end
 
 -- 发送文件上传开始通知
-local function snd_up_s(file_type, file_name, file_size)
+local function send_file_upload_start(file_type, file_name, file_size)
 
     local sub_tlvs = 0
     -- 主TLV（文件上传开始通知）
@@ -1208,7 +1273,7 @@ local function snd_up_s(file_type, file_name, file_size)
 end
 
 -- 发送文件上传完成通知
-local function snd_up_e(file_type, file_name, file_success)
+local function send_file_upload_finish(file_type, file_name, file_success)
 
     local sub_tlvs = 0
     -- 主TLV（文件上传完成通知）
@@ -1264,16 +1329,16 @@ local function upload_file(file_type, file_path, file_name)
     end
     local file_size = io.fileSize(file_path)
     if not file_size or file_size == 0 then
-        log.info("[ec]文件不存在或为空", "文件:", file_name,file_size)
+        log.info("[excloud]文件不存在或为空", "文件:", file_name,file_size)
         return false, "文件不存在或为空"
     end
 
-    log.info("[ec]开始文件上传", "类型:", file_type, "文件:", file_path, "大小:", file_size)
-    log.info("[ec]开始文件上传", "类型:", file_type, "文件:", file_name, "大小:", file_size)
+    log.info("[excloud]开始文件上传", "类型:", file_type, "文件:", file_path, "大小:", file_size)
+    log.info("[excloud]开始文件上传", "类型:", file_type, "文件:", file_name, "大小:", file_size)
 
     -- 发送上传开始通知（运维日志不需要）
     if file_type ~= 3 then
-        local ok, err = snd_up_s(file_type, file_name, file_size)
+        local ok, err = send_file_upload_start(file_type, file_name, file_size)
         if not ok then
             log.warn("发送上传开始通知失败", err)
         end
@@ -1290,7 +1355,7 @@ local function upload_file(file_type, file_path, file_name)
         -- 构建multipart/form-data请求体
         local forms = { ["key"] = upload_info.data_param.key }
         local files = { [upload_info.data_key or "f"] = file_path }
-        local request_body, boundary = bld_form(forms, files)
+        local request_body, boundary = build_multipart_form_data(forms, files)
 
         -- 构建请求头
         local headers = {
@@ -1299,18 +1364,18 @@ local function upload_file(file_type, file_path, file_name)
         }
 
         -- 发送HTTP请求
-        log.info("[ec]开始发送HTTP请求", "URL:", upload_info.url)
+        log.info("[excloud]开始发送HTTP请求", "URL:", upload_info.url)
         code, headers, body = http.request("POST", upload_info.url, headers, request_body, {timeout=30000}).wait()
 
         -- 检查响应
         if code == 200 then
-            log.info("[ec]excloud.getip文件上传响应", "HTTP Code:", code, "Body:", body and (#body > 512 and #body or body) or "nil")
+            log.info("[excloud]excloud.getip文件上传响应", "HTTP Code:", code, "Body:", body and (#body > 512 and #body or body) or "nil")
 
             local resp_data, err = json.decode(body)
             if resp_data and resp_data.code == 0 then
                 upload_success = true
                 result_msg = "上传成功"
-                log.info("[ec]文件上传成功", "URL:", resp_data.value and resp_data.value.uri or "未知")
+                log.info("[excloud]文件上传成功", "URL:", resp_data.value and resp_data.value.uri or "未知")
                 break
             else
                 result_msg = "服务器返回错误: " .. (resp_data and tostring(resp_data.code) or "未知")
@@ -1324,7 +1389,7 @@ local function upload_file(file_type, file_path, file_name)
         -- 如果失败且未达到最大重试次数，则重试
         if not upload_success and retry_count < max_retries then
             retry_count = retry_count + 1
-            log.info("[ec]文件上传失败，开始第" .. retry_count .. "次重试")
+            log.info("[excloud]文件上传失败，开始第" .. retry_count .. "次重试")
             sys.wait(1000) -- 等待1秒后重试
         else
             break
@@ -1333,7 +1398,7 @@ local function upload_file(file_type, file_path, file_name)
 
     -- 发送上传完成通知（运维日志不需要）
     if file_type ~= 3 then
-        local notify_ok, notify_err = snd_up_e(file_type, file_name, upload_success)
+        local notify_ok, notify_err = send_file_upload_finish(file_type, file_name, upload_success)
         if not notify_ok then
             log.warn("发送上传完成通知失败", notify_err)
         end
@@ -1346,7 +1411,7 @@ end
 function excloud.upload_mtnlog(file_path, file_name)
     -- 判断是否是手动填写IP，不是getip的话，不允许上传文件
     if not config.use_getip then
-        log.warn("[ec]手动填写IP时不允许上传文件")
+        log.warn("[excloud]手动填写IP时不允许上传文件")
         return false, "手动填写IP时不允许上传文件"
     end
 
@@ -1355,11 +1420,13 @@ function excloud.upload_mtnlog(file_path, file_name)
     if not io.exists(file_path) then
         return false, "文件不存在: " .. file_path
     end
-    log.info("[ec]excloud.upload_mtnlog", "文件路径:", file_path, "文件名:", file_name)
+    log.info("[excloud]excloud.upload_mtnlog", "文件路径:", file_path, "文件名:", file_name)
     -- 如果没有文件上传配置，先获取
     if not config.current_mtninfo then
-        log.info("[ec]获取运维日志上传配置...")
-        local getip_type = gt()
+        log.info("[excloud]获取运维日志上传配置...")
+        local getip_type = config.transport == "tcp" and 3 or
+            config.transport == "udp" and 4 or
+            config.transport == "mqtt" and 5 or 3
 
 
         local ok, err = excloud.getip_with_retry(getip_type)
@@ -1367,7 +1434,7 @@ function excloud.upload_mtnlog(file_path, file_name)
             return false, "获取运维日志上传配置失败: " .. err
         end
     end
-    log.info("[ec]excloud.upload_mtnlog", "文件路径:", file_path, "文件名:", file_name)
+    log.info("[excloud]excloud.upload_mtnlog", "文件路径:", file_path, "文件名:", file_name)
     return upload_file(3, file_path, file_name) -- 文件类型为3
 end
 
@@ -1375,7 +1442,7 @@ end
 function excloud.upload_image(file_path, file_name)
     -- 判断是否是手动填写IP，不是getip的话，不允许上传文件
     if not config.use_getip then
-        log.warn("[ec]手动填写IP时不允许上传图片文件")
+        log.warn("[excloud]手动填写IP时不允许上传图片文件")
         return false, "手动填写IP时不允许上传图片文件"
     end
     if not io.exists(file_path) then
@@ -1389,8 +1456,10 @@ function excloud.upload_image(file_path, file_name)
 
     -- 如果没有图片上传配置，先获取
     if not config.current_imginfo then
-        log.info("[ec]excloud.upload_image", "获取图片上传配置...")
-        local getip_type = gt()
+        log.info("[excloud]excloud.upload_image", "获取图片上传配置...")
+        local getip_type = config.transport == "tcp" and 3 or
+            config.transport == "udp" and 4 or
+            config.transport == "mqtt" and 5 or 3
         local ok, err = excloud.getip_with_retry(getip_type)
         if not ok then
             return false, "获取图片上传配置失败: " .. err
@@ -1404,7 +1473,7 @@ end
 function excloud.upload_audio(file_path, file_name)
     -- 判断是否是手动填写IP，不是getip的话，不允许上传文件
     if not config.use_getip then
-        log.warn("[ec]手动填写IP时不允许上传音频文件")
+        log.warn("[excloud]手动填写IP时不允许上传音频文件")
         return false, "手动填写IP时不允许上传音频文件"
     end
     if not io.exists(file_path) then
@@ -1418,8 +1487,10 @@ function excloud.upload_audio(file_path, file_name)
 
     -- 如果没有音频上传配置，先获取
     if not config.current_audinfo then
-        log.info("[ec]excloud.upload_audio", "获取音频上传配置...")
-        local getip_type = gt()
+        log.info("[excloud]excloud.upload_audio", "获取音频上传配置...")
+        local getip_type = config.transport == "tcp" and 3 or
+            config.transport == "udp" and 4 or
+            config.transport == "mqtt" and 5 or 3
         local ok, err = excloud.getip_with_retry(getip_type)
         if not ok then
             return false, "获取音频上传配置失败: " .. err
@@ -1465,7 +1536,7 @@ function excloud.get_mtn_log_status()
     end
 
     local config_info = exmtn.get_config()
-    local log_files = scan_mtn()
+    local log_files = scan_mtn_log_files()
     local total_size = 0
 
     for _, file in ipairs(log_files) do
@@ -1483,20 +1554,20 @@ function excloud.get_mtn_log_status()
 end
 
 -- 重连
-local function sched_rec()
+local function schedule_reconnect()
     -- 检查是否已经关闭服务
     if not is_open then
-        log.info("[ec]服务已关闭，停止重连")
+        log.info("[excloud]服务已关闭，停止重连")
         return
     end
     -- 增加重连计数
-    rec_cnt = rec_cnt + 1
-    log.info("[ec]安排第 " ..
-        rec_cnt .. "/" .. config.max_reconnect .. " 次重连，等待 " .. config.reconnect_interval .. " 秒")
+    reconnect_count = reconnect_count + 1
+    log.info("[excloud]安排第 " ..
+        reconnect_count .. "/" .. config.max_reconnect .. " 次重连，等待 " .. config.reconnect_interval .. " 秒")
 
     -- 检查是否达到最大重连次数
-    if rec_cnt >= config.max_reconnect then
-        log.info("[ec]到达最大重连次数 " .. rec_cnt .. "/" .. config.max_reconnect)
+    if reconnect_count >= config.max_reconnect then
+        log.info("[excloud]到达最大重连次数 " .. reconnect_count .. "/" .. config.max_reconnect)
 
         -- 使用协程执行复杂的重连逻辑
         sys.taskInit(function()
@@ -1506,50 +1577,52 @@ local function sched_rec()
 
             -- 根据use_getip决定是否重新获取服务器信息
             if config.use_getip then
-                log.info("[ec]TCP连接多次失败，重新获取服务器信息...")
-                local getip_type = gt()
+                log.info("[excloud]TCP连接多次失败，重新获取服务器信息...")
+                local getip_type = config.transport == "tcp" and 3 or
+                    config.transport == "udp" and 4 or
+                    config.transport == "mqtt" and 5 or 3
 
                 -- 清除当前连接信息，强制重新获取
                 config.current_conninfo = nil
 
                 local ok, result = excloud.getip_with_retry(getip_type)
                 if ok then
-                    log.info("[ec]重新获取服务器信息成功，重置重连计数",
+                    log.info("[excloud]重新获取服务器信息成功，重置重连计数",
                         "host:", config.host,
                         "port:", config.port,
                         "transport:", config.transport)
 
                     -- 重置重连计数
-                    rec_cnt = 0
+                    reconnect_count = 0
 
                     -- 使用新的服务器信息重新连接（先关闭再打开）
                     excloud.close() -- 确保完全关闭
                     sys.wait(200)   -- 在协程中可以安全使用 wait
                     excloud.open()  -- 重新打开
                 else
-                    log.error("[ec]重新获取服务器信息失败，将在网络恢复后重试")
-                    if cb then
-                        cb("reconnect_failed", {
-                            count = rec_cnt,
+                    log.error("[excloud]重新获取服务器信息失败，将在网络恢复后重试")
+                    if callback_func then
+                        callback_func("reconnect_failed", {
+                            count = reconnect_count,
                             max_reconnect = config.max_reconnect,
                             getip_failed = true
                         })
                     end
                     -- 重置重连计数，等待网络恢复后通过IP_READY事件重试
-                    rec_cnt = 0
+                    reconnect_count = 0
                     -- 保持服务开启状态，等待网络恢复
                 end
             else
                 -- 不使用getip，将在网络恢复后重试
-                log.info("[ec]达到最大重连次数，将在网络恢复后重试")
-                if cb then
-                    cb("reconnect_failed", {
-                        count = rec_cnt,
+                log.info("[excloud]达到最大重连次数，将在网络恢复后重试")
+                if callback_func then
+                    callback_func("reconnect_failed", {
+                        count = reconnect_count,
                         max_reconnect = config.max_reconnect
                     })
                 end
                 -- 重置重连计数，等待网络恢复后通过IP_READY事件重试
-                rec_cnt = 0
+                reconnect_count = 0
                 -- 保持服务开启状态，等待网络恢复
             end
         end)
@@ -1559,13 +1632,13 @@ local function sched_rec()
 
 
     -- 使用定时器安排重连，在协程中执行
-    rec_tmr = sys.timerStart(function()
+    reconnect_timer = sys.timerStart(function()
         sys.taskInit(function()
-            log.info("[ec]执行第 " .. rec_cnt .. "/" .. config.max_reconnect .. " 次重连")
+            log.info("[excloud]执行第 " .. reconnect_count .. "/" .. config.max_reconnect .. " 次重连")
 
             -- 在重连前检查服务状态
             if not is_open then
-                log.info("[ec]服务已关闭，取消重连")
+                log.info("[excloud]服务已关闭，取消重连")
                 return
             end
 
@@ -1574,7 +1647,7 @@ local function sched_rec()
 
             -- 如果连接对象存在但连接已断开，先清理
             if connection and not is_connected then
-                log.info("[ec]清理残留的连接对象")
+                log.info("[excloud]清理残留的连接对象")
                 if config.transport == "tcp" then
                     socket.close(connection)
                     socket.release(connection)
@@ -1593,22 +1666,22 @@ local function sched_rec()
             -- 执行重连
             local success, err = excloud.open()
             if not success then
-                log.error("[ec]重连失败:", err)
-                -- 重连失败会再次触发sched_rec
+                log.error("[excloud]重连失败:", err)
+                -- 重连失败会再次触发schedule_reconnect
             else
-                log.info("[ec]重连操作已发起")
+                log.info("[excloud]重连操作已发起")
             end
         end)
     end, config.reconnect_interval * 1000)
 end
 
 -- TCP socket事件回调函数
-local function tcp_cb(netc, event, param)
-    log.info("[ec]socket cb", netc, event, param)
+local function tcp_socket_callback(netc, event, param)
+    log.info("[excloud]socket cb", netc, event, param)
     -- 取消连接超时定时器
-    if conn_tmr then
-        sys.timerStop(conn_tmr)
-        conn_tmr = nil
+    if connect_timeout_timer then
+        sys.timerStop(connect_timeout_timer)
+        connect_timeout_timer = nil
     end
 
     -- 记录连接状态变化的运维日志
@@ -1623,12 +1696,12 @@ local function tcp_cb(netc, event, param)
     end
 
     if param ~= 0 then
-        log.info("[ec]socket", "连接断开")
+        log.info("[excloud]socket", "连接断开")
         is_connected = false
         is_authenticated = false
 
-        if cb then
-            cb("disconnect", {})
+        if callback_func then
+            callback_func("disconnect", {})
         end
         -- 连接断开，释放资源
         socket.release(connection)
@@ -1637,54 +1710,54 @@ local function tcp_cb(netc, event, param)
         -- 尝试重连
         if config.auto_reconnect and is_open then
             -- is_open = false
-            sched_rec()
+            schedule_reconnect()
         end
         return
     end
     if event == socket.LINK then
         -- 网络连接成功
-        log.info("[ec]socket", "网络连接成功")
+        log.info("[excloud]socket", "网络连接成功")
     elseif event == socket.ON_LINE then
         -- TCP连接成功
-        log.info("[ec]socket", "TCP连接成功")
+        log.info("[excloud]socket", "TCP连接成功")
         is_connected = true
 
         -- 重置重连计数，如果是重连的话，连接上服务器给重连计数重置为0
-        rec_cnt = 0
-        if cb then
-            cb("connect_result", { success = true })
+        reconnect_count = 0
+        if callback_func then
+            callback_func("connect_result", { success = true })
         end
         -- 发送认证请求
-        snd_auth()
+        send_auth_request()
     elseif event == socket.EVENT then
         -- 有数据到达
-        socket.rx(netc, rx)
-        if rx:used() > 0 then
-            local data = rx:query()
-            log.info("[ec]socket", "收到数据", #data, "字节", data:toHex())
+        socket.rx(netc, rxbuff)
+        if rxbuff:used() > 0 then
+            local data = rxbuff:query()
+            log.info("[excloud]socket", "收到数据", #data, "字节", data:toHex())
             -- 处理接收到的数据
-            par(data)
+            parse_data(data)
         end
         -- -- 清空缓冲区
-        rx:del()
+        rxbuff:del()
     elseif event == socket.TX_OK then
         socket.wait(netc)
-        log.info("[ec]socket", "发送完成")
+        log.info("[excloud]socket", "发送完成")
     elseif event == socket.CLOSED then
         -- 连接错误或关闭
         socket.release(connection)
         connection = nil
-        log.info("[ec]socket", "主动断开链接")
+        log.info("[excloud]socket", "主动断开链接")
     end
 end
 
 -- UDP socket回调函数
-local function udp_cb(netc, event, param)
-    log.info("[ec]UDP socket cb", netc, event, param)
+local function udp_socket_callback(netc, event, param)
+    log.info("[excloud]UDP socket cb", netc, event, param)
     -- 取消连接超时定时器
-    if conn_tmr then
-        sys.timerStop(conn_tmr)
-        conn_tmr = nil
+    if connect_timeout_timer then
+        sys.timerStop(connect_timeout_timer)
+        connect_timeout_timer = nil
     end
 
     -- 记录连接状态变化的运维日志
@@ -1699,12 +1772,12 @@ local function udp_cb(netc, event, param)
     end
 
     if param ~= 0 then
-        log.info("[ec]UDP socket", "连接断开")
+        log.info("[excloud]UDP socket", "连接断开")
         is_connected = false
         is_authenticated = false
 
-        if cb then
-            cb("disconnect", {})
+        if callback_func then
+            callback_func("disconnect", {})
         end
         -- 连接断开，释放资源
         socket.release(connection)
@@ -1712,42 +1785,42 @@ local function udp_cb(netc, event, param)
 
         -- 尝试重连
         if config.auto_reconnect and is_open then
-            sched_rec()
+            schedule_reconnect()
         end
         return
     end
     if event == socket.LINK then
         -- 网络连接成功
-        log.info("[ec]UDP socket", "网络连接成功")
+        log.info("[excloud]UDP socket", "网络连接成功")
     elseif event == socket.ON_LINE then
         -- UDP连接成功
-        log.info("[ec]UDP socket", "UDP连接成功")
+        log.info("[excloud]UDP socket", "UDP连接成功")
         is_connected = true
 
         -- 重置重连计数
-        rec_cnt = 0
-        if cb then
-            cb("connect_result", { success = true })
+        reconnect_count = 0
+        if callback_func then
+            callback_func("connect_result", { success = true })
         end
         -- 发送认证请求
-        snd_auth()
+        send_auth_request()
     elseif event == socket.EVENT then
         -- 有数据到达
-        local ok, len, remote_ip, remote_port = socket.rx(netc, rx)
+        local ok, len, remote_ip, remote_port = socket.rx(netc, rxbuff)
         if ok then
-            local data = rx:query()
-            log.info("[ec]UDP socket", "收到数据", #data, "字节", data:toHex())
+            local data = rxbuff:query()
+            log.info("[excloud]UDP socket", "收到数据", #data, "字节", data:toHex())
             -- 处理接收到的数据
-            par(data)
+            parse_data(data)
             -- 清空缓冲区
-            rx:del()
+            rxbuff:del()
         else
-            log.info("[ec]UDP socket", "服务器断开了连接")
+            log.info("[excloud]UDP socket", "服务器断开了连接")
             is_connected = false
             is_authenticated = false
 
-            if cb then
-                cb("disconnect", {})
+            if callback_func then
+                callback_func("disconnect", {})
             end
             -- 连接断开，释放资源
             socket.release(connection)
@@ -1755,23 +1828,23 @@ local function udp_cb(netc, event, param)
 
             -- 尝试重连
             if config.auto_reconnect and is_open then
-                sched_rec()
+                schedule_reconnect()
             end
         end
     elseif event == socket.TX_OK then
-        log.info("[ec]UDP socket", "上行完成")
+        log.info("[excloud]UDP socket", "上行完成")
     else
-        log.info("[ec]UDP socket", "其他事件", event)
+        log.info("[excloud]UDP socket", "其他事件", event)
     end
 end
 
 -- mqtt client的事件回调函数
-local function mqtt_cb(connected, event, data, payload, metas)
-    log.info("[ec]mqtt_cb", event, data, payload, json.encode(metas))
+local function mqtt_client_event_cbfunc(connected, event, data, payload, metas)
+    log.info("[excloud]mqtt_client_event_cbfunc", event, data, payload, json.encode(metas))
     -- 取消连接超时定时器
-    if conn_tmr then
-        sys.timerStop(conn_tmr)
-        conn_tmr = nil
+    if connect_timeout_timer then
+        sys.timerStop(connect_timeout_timer)
+        connect_timeout_timer = nil
     end
 
     -- 记录MQTT状态变化的运维日志
@@ -1788,22 +1861,22 @@ local function mqtt_cb(connected, event, data, payload, metas)
     -- mqtt连接成功
     if event == "conack" then
         is_connected = true
-        log.info("[ec]MQTT connected")
+        log.info("[excloud]MQTT connected")
         -- 重置重连计数，如果是重连的话，连接上服务器给重连计数重置为0
-        rec_cnt = 0
+        reconnect_count = 0
         -- 订阅主题
-        local device_id_hex = string.toHex(did)
+        local device_id_hex = string.toHex(device_id_binary)
         local auth_topic = "/AirCloud/down/" .. device_id_hex .. "/auth"
         local all_topic = "/AirCloud/down/" .. device_id_hex .. "/all"
-        log.info("[ec]mqtt_cb", "订阅主题", auth_topic, all_topic)
+        log.info("[excloud]mqtt_client_event_cbfunc", "订阅主题", auth_topic, all_topic)
         connection:subscribe(auth_topic, 0)
         connection:subscribe(all_topic, 0)
 
-        if cb then
-            cb("connect_result", { success = true })
+        if callback_func then
+            callback_func("connect_result", { success = true })
         end
         -- 发送认证请求
-        snd_auth()
+        send_auth_request()
 
         -- 订阅成功
     elseif event == "suback" then
@@ -1820,14 +1893,14 @@ local function mqtt_cb(connected, event, data, payload, metas)
         --     message_id: number类型
         -- }
     elseif event == "recv" then
-        log.info("[ec]接收到MQTT消息",
+        log.info("[excloud]接收到MQTT消息",
             "主题:", data,
             "数据长度:", #payload,
             "QoS:", metas and metas.qos or "unknown",
             "消息ID:", metas and metas.message_id or "unknown")
 
         -- 对接收到的publish数据处理
-        par(payload)
+        parse_data(payload)
 
         -- 发送成功publish数据
         -- data：number类型，表示message id
@@ -1836,16 +1909,16 @@ local function mqtt_cb(connected, event, data, payload, metas)
     elseif event == "disconnect" then
         is_connected = false
         is_authenticated = false
-        log.info("[ec]MQTT disconnected")
+        log.info("[excloud]MQTT disconnected")
 
-        if cb then
-            cb("disconnect", {})
+        if callback_func then
+            callback_func("disconnect", {})
         end
 
         -- 尝试重连
         if config.auto_reconnect and is_open then
             -- is_open = false
-            sched_rec()
+            schedule_reconnect()
         end
 
         -- 收到服务器的心跳应答
@@ -1864,8 +1937,8 @@ local function mqtt_cb(connected, event, data, payload, metas)
         if data == "connect" then
             error_msg = "TCP connection failed"
             -- 连接失败，应该考虑重新获取服务器信息
-            if rec_cnt >= config.max_reconnect and config.use_getip then
-                log.info("[ec]MQTT连接多次失败，需要重新获取服务器信息")
+            if reconnect_count >= config.max_reconnect and config.use_getip then
+                log.info("[excloud]MQTT连接多次失败，需要重新获取服务器信息")
                 config.current_conninfo = nil
             end
         elseif data == "tx" then
@@ -1876,10 +1949,10 @@ local function mqtt_cb(connected, event, data, payload, metas)
             error_msg = "Other MQTT error: " .. tostring(data)
         end
 
-        log.info("[ec]MQTT error: " .. error_msg)
+        log.info("[excloud]MQTT error: " .. error_msg)
 
-        if cb then
-            cb("disconnect", { error = error_msg })
+        if callback_func then
+            callback_func("disconnect", { error = error_msg })
         end
         -- 安全释放连接资源
         if connection then
@@ -1890,7 +1963,7 @@ local function mqtt_cb(connected, event, data, payload, metas)
         -- 尝试重连
         if config.auto_reconnect and is_open then
             -- is_open = false
-            sched_rec()
+            schedule_reconnect()
         end
     end
 end
@@ -1910,7 +1983,7 @@ function excloud.setup(params)
     -- auth_key不再是必需的，如果没有传入，会在open时自动获取
     if config.device_type == 1 then
         config.device_id = mobile.imei()
-        log.info("[ec]4G设备", "IMEI:", config.device_id, "MUID:", mobile.muid())
+        log.info("[excloud]4G设备", "IMEI:", config.device_id, "MUID:", mobile.muid())
     elseif config.device_type == 2 then
         config.device_id = wlan.getMac(nil, true)
         --以太网设备
@@ -1942,20 +2015,20 @@ function excloud.setup(params)
 
         log.info("虚拟设备配置", "手机号:", config.virtual_phone_number, "序列号:", serial_str, "设备ID:", config.device_id)
     else
-        log.info("[ec]未知设备类型", config.device_type)
+        log.info("[excloud]未知设备类型", config.device_type)
         config.device_id = "unknown"
     end
 
     -- 打包设备id
-    did = pack_dev(config.device_type, config.device_id)
+    device_id_binary = packDeviceInfo(config.device_type, config.device_id)
 
     -- 初始化运维日志模块
-    local mtn_ok, mtn_err = init_mtn()
+    local mtn_ok, mtn_err = init_mtn_log()
     if not mtn_ok then
-        log.warn("[ec]运维日志初始化失败，但继续excloud初始化:", mtn_err)
+        log.warn("[excloud]运维日志初始化失败，但继续excloud初始化:", mtn_err)
     end
 
-    log.info("[ec]excloud.setup", "初始化成功", "设备ID:", config.device_id)
+    log.info("[excloud]excloud.setup", "初始化成功", "设备ID:", config.device_id)
     return true
 end
 
@@ -1965,7 +2038,7 @@ function excloud.on(cbfunc)
         return false, "Callback must be a function"
     end
 
-    cb = cbfunc
+    callback_func = cbfunc
     return true
 end
 
@@ -1973,7 +2046,7 @@ end
 function excloud.open()
     -- 如果之前连接异常断开，但状态未重置，先清理
     if is_open and not is_connected then
-        log.warn("[ec]检测到状态不一致，先清理残留状态")
+        log.warn("[excloud]检测到状态不一致，先清理残留状态")
         excloud.close()
     end
     -- 检查是否已打开
@@ -1982,25 +2055,25 @@ function excloud.open()
     end
     -- 只有首次连接时才重置重连计数，重连时保持计数
     -- if not is_open then
-    --     rec_cnt = 0
+    --     reconnect_count = 0
     -- end
     -- 判断是否初始化
-    if not did then
+    if not device_id_binary then
         return false, "excloud 没有初始化，请先调用setup"
     end
     
     -- 订阅IP_READY事件，当网络恢复时自动重连
     sys.subscribe("IP_READY", function()
         if is_open and not is_connected then
-            log.info("[ec]网络已恢复，尝试重新连接")
+            log.info("[excloud]网络已恢复，尝试重新连接")
             -- 在协程中执行重连操作
             sys.taskInit(function()
                 -- 重置重连计数
-                rec_cnt = 0
+                reconnect_count = 0
                 -- 尝试重新连接
                 local success, err = excloud.open()
                 if not success then
-                    log.error("[ec]网络恢复后重连失败:", err)
+                    log.error("[excloud]网络恢复后重连失败:", err)
                 end
             end)
         end
@@ -2023,7 +2096,7 @@ function excloud.open()
         -- 获取服务器连接信息
         if not config.current_conninfo or (config.transport ~= "mqtt" and not config.current_conninfo.ipv4) or
             (config.transport == "mqtt" and not config.current_conninfo.ssl) then
-            log.info("[ec]首次连接，获取服务器信息...")
+            log.info("[excloud]首次连接，获取服务器信息...")
             local ok, result = excloud.getip_with_retry(getip_type)
             if not ok then
                 return false, "获取服务器信息失败: " .. result
@@ -2031,15 +2104,15 @@ function excloud.open()
 
             -- 检查是否成功获取到auth_key
             if not config.auth_key then
-                log.error("[ec]未能获取到auth_key，无法继续")
-                if cb then
-                    cb("auth_key_error", { error = "未能获取到auth_key" })
+                log.error("[excloud]未能获取到auth_key，无法继续")
+                if callback_func then
+                    callback_func("auth_key_error", { error = "未能获取到auth_key" })
                 end
                 return false, "未能获取到auth_key"
             end
 
             -- 更新连接配置
-            log.info("[ec]服务器信息获取成功", "host:", config.host, "port:", config.port, "transport:", config.transport)
+            log.info("[excloud]服务器信息获取成功", "host:", config.host, "port:", config.port, "transport:", config.transport)
 
             -- 保存文件上传信息
             if result.imginfo then
@@ -2055,7 +2128,7 @@ function excloud.open()
             -- 保存二维码信息
             if result.qrinfo then
                 config.current_qrinfo = result.qrinfo
-                log.info("[ec]获取到二维码信息")
+                log.info("[excloud]获取到二维码信息")
             end
         end
     else
@@ -2069,10 +2142,10 @@ function excloud.open()
     -- 根据传输协议创建连接
     if config.transport == "tcp" then
         -- 创建接收缓冲区
-        rx = zbuff.create(2048)
+        rxbuff = zbuff.create(2048)
         -- 创建TCP连接
-        log.info("[ec]创建TCP连接")
-        connection = socket.create(socket.dft(), tcp_cb)
+        log.info("[excloud]创建TCP连接")
+        connection = socket.create(socket.dft(), tcp_socket_callback)
         if not connection then
             return false, "Failed to create socket"
         end
@@ -2094,7 +2167,7 @@ function excloud.open()
             connection,
             config.local_port,                               -- 本地端口号
             false,                                           -- 是否是UDP，TCP连接为false
-            ssl_config ~= nil,                                   -- 是否是加密传输
+            ssl_config and true or false,                    -- 是否是加密传输
             config.keep_idle,                                -- keepalive idle时间
             config.keep_interval,                            -- keepalive 探测间隔
             config.keep_cnt,                                 -- keepalive 探测次数
@@ -2110,12 +2183,12 @@ function excloud.open()
         end
 
         if config and config.debug then
-            log.info("[ec]TCP调试模式已启用")
+            log.info("[excloud]TCP调试模式已启用")
             socket.debug(connection, true)
         end
 
         -- 设置连接超时定时器
-        conn_tmr = sys.timerStart(function()
+        connect_timeout_timer = sys.timerStart(function()
             if not is_connected then
                 log.error("TCP connection timeout")
                 if connection then
@@ -2124,21 +2197,21 @@ function excloud.open()
                     connection = nil
                 end
 
-                if cb then
-                    cb("connect_result", { success = false, error = "Connection timeout" })
+                if callback_func then
+                    callback_func("connect_result", { success = false, error = "Connection timeout" })
                 end
 
                 -- 尝试重连
                 if config.auto_reconnect and is_open then
                     -- is_open = false
-                    sched_rec()
+                    schedule_reconnect()
                 end
             end
         end, config.timeout * 1000)
 
         -- 连接到服务器
         local ok, result = socket.connect(connection, config.host, config.port, config.ipv6)
-        log.info("[ec]TCP连接结果", ok, result)
+        log.info("[excloud]TCP连接结果", ok, result)
         if not ok then
             --发生异常，释放资源但保持is_open为true，以便重连计数能正确递增
             socket.close(connection)
@@ -2147,7 +2220,7 @@ function excloud.open()
             connection = nil
 
             if config.auto_reconnect then
-                sched_rec()
+                schedule_reconnect()
             end
             return false, result
         end
@@ -2202,7 +2275,7 @@ function excloud.open()
             return false, "MQTT connect failed, device_type not supported"
         end
 
-        log.info("[ec]MQTT认证信息",
+        log.info("[excloud]MQTT认证信息",
             "client_id:", client_id,
             "username:", username,
             "password:", password)
@@ -2222,7 +2295,7 @@ function excloud.open()
                 config.will_retain or 0
             )
             if not will_result then
-                log.warn("[ec]设置遗嘱消息失败")
+                log.warn("[excloud]设置遗嘱消息失败")
             end
         end
 
@@ -2232,10 +2305,10 @@ function excloud.open()
         end
 
         -- 注册事件回调
-        connection:on(mqtt_cb)
+        connection:on(mqtt_client_event_cbfunc)
 
         -- 设置连接超时定时器
-        conn_tmr = sys.timerStart(function()
+        connect_timeout_timer = sys.timerStart(function()
             if not is_connected then
                 log.error("MQTT connection timeout")
                 if connection then
@@ -2244,14 +2317,14 @@ function excloud.open()
                     connection = nil
                 end
 
-                if cb then
-                    cb("connect_result", { success = false, error = "Connection timeout" })
+                if callback_func then
+                    callback_func("connect_result", { success = false, error = "Connection timeout" })
                 end
 
                 -- 尝试重连
                 if config.auto_reconnect and is_open then
                     -- is_open = false
-                    sched_rec()
+                    schedule_reconnect()
                 end
             end
         end, config.timeout * 1000)
@@ -2264,16 +2337,16 @@ function excloud.open()
             connection = nil
             -- 发起连接失败，尝试重连
             if config.auto_reconnect then
-                sched_rec()
+                schedule_reconnect()
             end
             return false, "MQTT connect failed"
         end
     elseif config.transport == "udp" then
         -- 创建接收缓冲区
-        rx = zbuff.create(2048)
+        rxbuff = zbuff.create(2048)
         -- 创建UDP连接
-        log.info("[ec]创建UDP连接")
-        connection = socket.create(socket.dft(), udp_cb)
+        log.info("[excloud]创建UDP连接")
+        connection = socket.create(socket.dft(), udp_socket_callback)
         if not connection then
             return false, "Failed to create UDP socket"
         end
@@ -2298,7 +2371,7 @@ function excloud.open()
         socket.debug(connection, true)
 
         -- 设置连接超时定时器
-        conn_tmr = sys.timerStart(function()
+        connect_timeout_timer = sys.timerStart(function()
             if not is_connected then
                 log.error("UDP connection timeout")
                 if connection then
@@ -2307,20 +2380,20 @@ function excloud.open()
                     connection = nil
                 end
 
-                if cb then
-                    cb("connect_result", { success = false, error = "Connection timeout" })
+                if callback_func then
+                    callback_func("connect_result", { success = false, error = "Connection timeout" })
                 end
 
                 -- 尝试重连
                 if config.auto_reconnect and is_open then
-                    sched_rec()
+                    schedule_reconnect()
                 end
             end
         end, config.timeout * 1000)
 
         -- 连接到服务器
         local ok, result = socket.connect(connection, config.host, config.port, config.ipv6)
-        log.info("[ec]UDP连接结果", ok, result)
+        log.info("[excloud]UDP连接结果", ok, result)
         if not ok then
             --发生异常，释放资源但保持is_open为true，以便重连计数能正确递增
             socket.close(connection)
@@ -2329,7 +2402,7 @@ function excloud.open()
             connection = nil
 
             if config.auto_reconnect then
-                sched_rec()
+                schedule_reconnect()
             end
             return false, result
         end
@@ -2346,7 +2419,7 @@ function excloud.open()
             config.port)
     end
 
-    log.info("[ec]excloud service started")
+    log.info("[excloud]excloud service started")
 
     return true
 end
@@ -2380,8 +2453,8 @@ function excloud.send(data, need_reply, is_auth_msg)
     end
     -- 检查服务是否开启
     if not is_open then
-        if cb then
-            cb("send_result", {
+        if callback_func then
+            callback_func("send_result", {
                 success = false,
                 error_msg = "excloud not open"
             })
@@ -2391,8 +2464,8 @@ function excloud.send(data, need_reply, is_auth_msg)
 
     -- 检查是否已连接
     if not is_connected then
-        if cb then
-            cb("send_result", {
+        if callback_func then
+            callback_func("send_result", {
                 success = false,
                 error_msg = "excloud not connected"
             })
@@ -2401,12 +2474,12 @@ function excloud.send(data, need_reply, is_auth_msg)
     end
 
     -- 保存当前序列号用于回调
-    local current_sequence = seq
+    local current_sequence = sequence_num
     -- 构建消息体
     local message_body = ""
     local parts = {}
     for _, item in ipairs(data) do
-        log.info("[ec]构建发送数据", item.field_meaning, item.data_type, item.value, message_body)
+        log.info("[excloud]构建发送数据", item.field_meaning, item.data_type, item.value, message_body)
         local success, tlv = build_tlv(item.field_meaning, item.data_type, item.value)
         if not success then
             return false, "excloud.send data is failed"
@@ -2418,7 +2491,7 @@ function excloud.send(data, need_reply, is_auth_msg)
         message_body = table.concat(parts)
         parts = {}
     else
-        log.warn("[ec]没有有效的TLV数据可发送")
+        log.warn("[excloud]没有有效的TLV数据可发送")
         -- return false, "No valid TLV data to send"
     end
 
@@ -2426,11 +2499,11 @@ function excloud.send(data, need_reply, is_auth_msg)
     local udp_auth_key = config.udp_auth_key and true or false
     local total_length = #message_body
 
-    log.info("[ec]tlv发送数据长度4", total_length)
+    log.info("[excloud]tlv发送数据长度4", total_length)
 
     -- 构建消息头
-    local is_udp_transport = config.transport == "udp"
-    local header = bld_hdr(need_reply, is_udp_transport, total_length)
+    local is_udp_transport = (config.transport == "udp") and true or false
+    local header = build_header(need_reply, is_udp_transport, total_length)
 
 
     local full_message
@@ -2452,20 +2525,20 @@ function excloud.send(data, need_reply, is_auth_msg)
     elseif config.transport == "mqtt" then
         -- 根据是否为鉴权消息选择不同的topic
         local topic
-        local device_id_hex = string.toHex(did)
+        local device_id_hex = string.toHex(device_id_binary)
         if is_auth_msg then
             topic = "/AirCloud/up/" .. device_id_hex .. "/auth"
         else
             topic = "/AirCloud/up/" .. device_id_hex .. "/all"
         end
-        log.info("[ec]发布主题", topic, #full_message, full_message:toHex())
+        log.info("[excloud]发布主题", topic, #full_message, full_message:toHex())
         local message_id = connection:publish(topic, full_message, config.qos, config.retain)
         if message_id then
             success = true
             if config.qos and config.qos > 0 then
-                log.info("[ec]MQTT消息发布成功", "消息ID:", message_id)
+                log.info("[excloud]MQTT消息发布成功", "消息ID:", message_id)
             else
-                log.info("[ec]MQTT消息发布成功")
+                log.info("[excloud]MQTT消息发布成功")
             end
         else
             success = false
@@ -2481,16 +2554,16 @@ function excloud.send(data, need_reply, is_auth_msg)
     end
 
     -- 通过回调返回发送结果
-    if cb then
-        cb("send_result", {
+    if callback_func then
+        callback_func("send_result", {
             success = success,
             error_msg = success and "Send successful" or err_msg,
-            seq = current_sequence
+            sequence_num = current_sequence
         })
     end
     collectgarbage("collect")
     if success then
-        log.info("[ec]数据发送成功", #full_message, "字节")
+        log.info("[excloud]数据发送成功", #full_message, "字节")
         return true
     else
         log.error("数据发送失败", err_msg)
@@ -2505,13 +2578,13 @@ function excloud.close()
     end
 
     -- 停止所有定时器
-    if rec_tmr then
-        sys.timerStop(rec_tmr)
-        rec_tmr = nil
+    if reconnect_timer then
+        sys.timerStop(reconnect_timer)
+        reconnect_timer = nil
     end
-    if conn_tmr then
-        sys.timerStop(conn_tmr)
-        conn_tmr = nil
+    if connect_timeout_timer then
+        sys.timerStop(connect_timeout_timer)
+        connect_timeout_timer = nil
     end
     -- 停止心跳
     excloud.stop_heartbeat()
@@ -2528,11 +2601,11 @@ function excloud.close()
         connection = nil
     end
     -- 释放缓冲区
-    if rx then
-        rx = nil
+    if rxbuff then
+        rxbuff = nil
     end
 
-    cb = nil
+    callback_func = nil
     -- 记录服务关闭日志
     if config.aircloud_mtn_log_enabled then
         exmtn.log("info", "aircloud", "system", "excloud服务关闭")
@@ -2543,10 +2616,10 @@ function excloud.close()
     is_connected = false
     is_authenticated = false
 
-    rx = nil
-    hb_on = false
+    rxbuff = nil
+    is_heartbeat_running = false
     collectgarbage("collect")
-    log.info("[ec]excloud service stopped")
+    log.info("[excloud]excloud service stopped")
     return true
 end
 
@@ -2556,8 +2629,8 @@ function excloud.status()
         is_open = is_open,
         is_connected = is_connected,
         is_authenticated = is_authenticated,
-        seq = seq,
-        rec_cnt = rec_cnt,
+        sequence_num = sequence_num,
+        reconnect_count = reconnect_count,
     }
 end
 
@@ -2568,7 +2641,7 @@ end
 -- @return string 错误信息（如果失败）
 function excloud.heartbeat(custom_data, need_reply)
     -- 如果心跳数据未提供，则使用默认的心跳数据（空表）
-    local data = custom_data or hb_data
+    local data = custom_data or heartbeat_data
 
     -- 设置默认不需要回复
     if need_reply == nil then
@@ -2585,41 +2658,41 @@ end
 -- @return boolean 是否启动成功
 function excloud.start_heartbeat(interval, custom_data)
     -- 停止现有的心跳定时器
-    if hb_on then
+    if is_heartbeat_running then
         excloud.stop_heartbeat()
     end
 
     -- 设置心跳间隔，默认5分钟
-    hb_int = interval or 300
+    heartbeat_interval = interval or 300
 
     -- 设置心跳数据
-    hb_data = custom_data or {}
+    heartbeat_data = custom_data or {}
 
     -- 创建并启动心跳定时器
-    hb_tmr = sys.timerLoopStart(function()
+    heartbeat_timer = sys.timerLoopStart(function()
         if is_open and is_connected then
             local ok, err_msg = excloud.heartbeat()
             if not ok then
-                log.info("[ec]excloud", "心跳发送失败: " .. err_msg)
+                log.info("[excloud]excloud", "心跳发送失败: " .. err_msg)
             else
-                log.info("[ec]excloud", "心跳发送成功")
+                log.info("[excloud]excloud", "心跳发送成功")
             end
         end
-    end, hb_int * 1000) -- 转换为毫秒
+    end, heartbeat_interval * 1000) -- 转换为毫秒
 
-    hb_on = true
-    log.info("[ec]excloud", "自动心跳已启动，间隔 " .. hb_int .. " 秒")
+    is_heartbeat_running = true
+    log.info("[excloud]excloud", "自动心跳已启动，间隔 " .. heartbeat_interval .. " 秒")
     return true
 end
 
 -- 停止自动心跳
 -- @return boolean 是否停止成功
 function excloud.stop_heartbeat()
-    if hb_tmr then
-        sys.timerStop(hb_tmr)
-        hb_tmr = nil
-        hb_on = false
-        log.info("[ec]excloud", "自动心跳已停止")
+    if heartbeat_timer then
+        sys.timerStop(heartbeat_timer)
+        heartbeat_timer = nil
+        is_heartbeat_running = false
+        log.info("[excloud]excloud", "自动心跳已停止")
         return true
     end
     return false
@@ -2635,6 +2708,13 @@ function excloud.get_server_info()
     }
 end
 
+-- 强制刷新服务器信息
+-- function excloud.refresh_server_info()
+--     config.current_conninfo = nil
+--     config.current_imginfo = nil
+--     config.current_audinfo = nil
+--     return true
+-- end
 -- 导出常量
 excloud.DATA_TYPES = DATA_TYPES
 excloud.FIELD_MEANINGS = FIELD_MEANINGS

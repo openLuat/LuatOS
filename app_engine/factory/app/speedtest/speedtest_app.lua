@@ -1,4 +1,3 @@
--- Naming convention: local fns ≤5 chars, local vars ≤4 chars
 --[[
 @module  speedtest_app
 @summary 网络测速业务逻辑层
@@ -13,15 +12,15 @@
 测速结果通过 SPDTEST_RESULT 事件发布。
 ]]
 
-local BU = "http://speed.cloudflare.com"
-local it = false
-local nc = false
-local cn = false
-local TF = 1
+local BASE_URL = "http://speed.cloudflare.com"
+local is_testing = false
+local network_connected = false
+local cancel_requested = false
+local TIME_FACTOR_MS = 1
 
 local bsp = rtos.bsp()
 if string.find(bsp, "Air1601") or string.find(bsp, "Air1602") then
-    TF = 20
+    TIME_FACTOR_MS = 20
 end
 
 --[[
@@ -30,43 +29,43 @@ end
 @return number 最小延迟（ms），失败返回 nil
 @return number 抖动值（ms），失败返回 nil
 ]]
-local function mlj()
-    local rt = {}
-    local sc = 5
-    for i = 1, sc do
-        local st = mcu.ticks()
-        local rs = http.request("GET", BU .. "/__down?bytes=0&nocache=" .. tostring(mcu.ticks()), nil, nil, {timeout=5000})
-        if rs and rs.wait then
-            local cd, hd, bd = rs.wait()
-            local et = mcu.ticks()
-            if cd == 200 then
-                local rtt = (et - st) * TF
-                table.insert(rt, rtt)
-                log.info("spdt", "RTT sample " .. i .. ": " .. rtt .. " ms")
+local function measure_latency_jitter()
+    local rtt_samples = {}
+    local sample_count = 5
+    for i = 1, sample_count do
+        local start_ticks = mcu.ticks()
+        local response = http.request("GET", BASE_URL .. "/__down?bytes=0&nocache=" .. tostring(mcu.ticks()), nil, nil, {timeout=5000})
+        if response and response.wait then
+            local code, headers, body = response.wait()
+            local end_ticks = mcu.ticks()
+            if code == 200 then
+                local rtt = (end_ticks - start_ticks) * TIME_FACTOR_MS
+                table.insert(rtt_samples, rtt)
+                log.info("speedtest", "RTT sample " .. i .. ": " .. rtt .. " ms")
             else
-                log.warn("spdt", "Latency request failed, code: " .. tostring(cd))
+                log.warn("speedtest", "Latency request failed, code: " .. tostring(code))
             end
         else
-            log.warn("spdt", "Latency request failed, no result object")
+            log.warn("speedtest", "Latency request failed, no result object")
         end
-        if i < sc then
+        if i < sample_count then
             sys.wait(150)
         end
     end
-    if #rt == 0 then return nil, nil end
-    table.sort(rt)
-    local ml = rt[1]
-    local jt = 0
-    if #rt >= 2 then
-        local df = {}
-        for i = 1, #rt - 1 do
-            table.insert(df, math.abs(rt[i + 1] - rt[i]))
+    if #rtt_samples == 0 then return nil, nil end
+    table.sort(rtt_samples)
+    local min_latency = rtt_samples[1]
+    local jitter = 0
+    if #rtt_samples >= 2 then
+        local diffs = {}
+        for i = 1, #rtt_samples - 1 do
+            table.insert(diffs, math.abs(rtt_samples[i + 1] - rtt_samples[i]))
         end
-        local sm = 0
-        for _, v in ipairs(df) do sm = sm + v end
-        jt = sm / #df
+        local diff_total = 0
+        for _, v in ipairs(diffs) do diff_total = diff_total + v end
+        jitter = diff_total / #diffs
     end
-    return ml, jt
+    return min_latency, jitter
 end
 
 --[[
@@ -74,29 +73,29 @@ end
 @summary 测量下载速度
 @return number 下载速度（Mbps），失败返回 nil
 ]]
-local function mdl()
-    local tb = 32 * 1024
-    local url = BU .. "/__down?bytes=" .. tostring(tb) .. "&t=" .. tostring(mcu.ticks())
-    log.info("spdt", "Starting download test, size: 32KB")
-    local st = mcu.ticks()
-    local rs = http.request("GET", url, nil, nil, {timeout=15000})
-    if not rs or not rs.wait then
-        log.error("spdt", "Download request failed, no result object")
+local function measure_download()
+    local total_bytes = 32 * 1024
+    local url = BASE_URL .. "/__down?bytes=" .. tostring(total_bytes) .. "&t=" .. tostring(mcu.ticks())
+    log.info("speedtest", "Starting download test, size: 32KB")
+    local start_ticks = mcu.ticks()
+    local response = http.request("GET", url, nil, nil, {timeout=15000})
+    if not response or not response.wait then
+        log.error("speedtest", "Download request failed, no result object")
         return nil
     end
-    local cd, hd, bd = rs.wait()
-    local et = mcu.ticks()
-    if cd ~= 200 or not bd then
-        log.error("spdt", "Download test failed, code: " .. tostring(cd))
+    local code, headers, body = response.wait()
+    local end_ticks = mcu.ticks()
+    if code ~= 200 or not body then
+        log.error("speedtest", "Download test failed, code: " .. tostring(code))
         return nil
     end
-    local dm = (et - st) * TF
-    if dm < 10 then dm = 10 end
-    local ds = dm / 1000
-    local bt = #bd * 8
-    local sm = (bt / ds) / 1000000
-    log.info("spdt", "Download: " .. string.format("%.2f", sm) .. " Mbps, time: " .. dm .. "ms")
-    return sm
+    local duration_ms = (end_ticks - start_ticks) * TIME_FACTOR_MS
+    if duration_ms < 10 then duration_ms = 10 end
+    local duration_sec = duration_ms / 1000
+    local total_bits = #body * 8
+    local speed_mbps = (total_bits / duration_sec) / 1000000
+    log.info("speedtest", "Download: " .. string.format("%.2f", speed_mbps) .. " Mbps, time: " .. duration_ms .. "ms")
+    return speed_mbps
 end
 
 --[[
@@ -104,124 +103,124 @@ end
 @summary 测量上传速度
 @return number 上传速度（Mbps），失败返回 nil
 ]]
-local function mul()
-    local tb = 16 * 1024
-    local url = BU .. "/__up"
-    local td = string.char(0xAA):rep(tb)
-    log.info("spdt", "Starting upload test, size: 16KB")
-    local st = mcu.ticks()
-    local rs = http.request("POST", url, {["Content-Type"] = "application/octet-stream"}, td, {timeout=15000})
-    if not rs or not rs.wait then
-        log.error("spdt", "Upload request failed, no result object")
+local function measure_upload()
+    local total_bytes = 16 * 1024
+    local url = BASE_URL .. "/__up"
+    local test_data = string.char(0xAA):rep(total_bytes)
+    log.info("speedtest", "Starting upload test, size: 16KB")
+    local start_ticks = mcu.ticks()
+    local response = http.request("POST", url, {["Content-Type"] = "application/octet-stream"}, test_data, {timeout=15000})
+    if not response or not response.wait then
+        log.error("speedtest", "Upload request failed, no result object")
         return nil
     end
-    local cd, hd, bd = rs.wait()
-    local et = mcu.ticks()
-    if cd ~= 200 then
-        log.error("spdt", "Upload test failed, code: " .. tostring(cd))
+    local code, headers, body = response.wait()
+    local end_ticks = mcu.ticks()
+    if code ~= 200 then
+        log.error("speedtest", "Upload test failed, code: " .. tostring(code))
         return nil
     end
-    local dm = (et - st) * TF
-    if dm < 10 then dm = 10 end
-    local ds = dm / 1000
-    local bt = tb * 8
-    local sm = (bt / ds) / 1000000
-    log.info("spdt", "Upload: " .. string.format("%.2f", sm) .. " Mbps, time: " .. dm .. "ms")
-    return sm
+    local duration_ms = (end_ticks - start_ticks) * TIME_FACTOR_MS
+    if duration_ms < 10 then duration_ms = 10 end
+    local duration_sec = duration_ms / 1000
+    local total_bits = total_bytes * 8
+    local speed_mbps = (total_bits / duration_sec) / 1000000
+    log.info("speedtest", "Upload: " .. string.format("%.2f", speed_mbps) .. " Mbps, time: " .. duration_ms .. "ms")
+    return speed_mbps
 end
 
 --[[
 @function run_speed_test_task
 @summary 运行完整的网络测速流程（延迟->下载->上传）
 ]]
-local function rstt()
-    if it then return end
-    if not nc then
+local function run_speedtest()
+    if is_testing then return end
+    if not network_connected then
         sys.publish("SPDTEST_STATUS", "当前未连接网络")
         return
     end
-    cn = false
-    it = true
+    cancel_requested = false
+    is_testing = true
     sys.publish("SPDTEST_STARTED")
     sys.publish("SPDTEST_STATUS", "测延迟 & 抖动...")
     sys.wait(100)
-    if cn then
-        cn = false
+    if cancel_requested then
+        cancel_requested = false
         sys.publish("SPDTEST_STATUS", "测速已取消")
         sys.publish("SPDTEST_FINISHED")
-        it = false
+        is_testing = false
         return
     end
-    local pg, jt = mlj()
-    if not nc then
-        it = false
+    local ping_ms, jitter = measure_latency_jitter()
+    if not network_connected then
+        is_testing = false
         return
     end
     sys.publish("SPDTEST_STATUS", "测试下载速度...")
     sys.wait(100)
-    if cn then
-        cn = false
+    if cancel_requested then
+        cancel_requested = false
         sys.publish("SPDTEST_STATUS", "测速已取消")
         sys.publish("SPDTEST_FINISHED")
-        it = false
+        is_testing = false
         return
     end
-    local dl = mdl()
-    if not nc then
-        it = false
+    local download_speed = measure_download()
+    if not network_connected then
+        is_testing = false
         return
     end
     sys.publish("SPDTEST_STATUS", "测试上传速度...")
     sys.wait(100)
-    if cn then
-        cn = false
+    if cancel_requested then
+        cancel_requested = false
         sys.publish("SPDTEST_STATUS", "测速已取消")
         sys.publish("SPDTEST_FINISHED")
-        it = false
+        is_testing = false
         return
     end
-    local ul = mul()
-    if not nc then
-        it = false
+    local upload_speed = measure_upload()
+    if not network_connected then
+        is_testing = false
         return
     end
-    local rs = {
-        download = dl,
-        upload = ul,
-        ping = pg,
-        jitter = jt
+    local test_result = {
+        download = download_speed,
+        upload = upload_speed,
+        ping = ping_ms,
+        jitter = jitter
     }
-    sys.publish("SPDTEST_RESULT", rs)
-    if dl or ul then
+    sys.publish("SPDTEST_RESULT", test_result)
+    if download_speed or upload_speed then
         sys.publish("SPDTEST_STATUS", "测速完成")
     else
         sys.publish("SPDTEST_STATUS", "部分失败，请重试")
     end
-    it = false
+    is_testing = false
     sys.publish("SPDTEST_FINISHED")
-    log.info("spdt", "Speed test completed")
+    log.info("speedtest", "Speed test completed")
 end
 
 sys.subscribe("SPEEDTEST_START", function()
-    sys.taskInit(rstt)
+    sys.taskInit(run_speedtest)
 end)
 
 sys.subscribe("IP_READY", function()
-    nc = true
-    log.info("spdt", "网络已连接")
+    network_connected = true
+    log.info("speedtest", "网络已连接")
 end)
 
 sys.subscribe("IP_LOSE", function()
-    nc = false
-    if it then
-        it = false
+    network_connected = false
+    if is_testing then
+        is_testing = false
         sys.publish("SPDTEST_STATUS", "网络已断开")
         sys.publish("SPDTEST_FINISHED")
     end
-    log.info("spdt", "网络已断开")
+    log.info("speedtest", "网络已断开")
 end)
 
 sys.subscribe("SPEEDTEST_CANCEL", function()
-    cn = true
-    it = false
+    cancel_requested = true
+    is_testing = false
 end)

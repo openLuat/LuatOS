@@ -5,7 +5,6 @@
 @date    2026.04.16
 @author  江访
 ]]
--- naming: fn(2-5char), var(2-4char)
 
 require "settings_display_win"
 require "settings_storage_win"
@@ -14,13 +13,13 @@ require "settings_sound_win"
 require "wifi_list_win"
 require "settings_iot_win"
 
-local wid = nil
-local mc
-local sw, sh = 480, 800
-local mg = 10
-local cw = 460
-local ch = 70
-local csp = 20
+local window_id = nil
+local main_container
+local screen_w, screen_h = 480, 800
+local margin = 10
+local card_w = 460
+local card_h = 70
+local card_spacing = 20
 
 local COLOR_PRIMARY        = 0x007AFF
 local COLOR_BG             = 0xF5F5F5
@@ -30,34 +29,34 @@ local COLOR_TEXT_SECONDARY = 0x757575
 local COLOR_DIVIDER        = 0xE0E0E0
 local COLOR_WHITE          = 0xFFFFFF
 
-local function up_sz()
+local function update_screen_size()
     local rotation = airui.get_rotation()
     local phys_w, phys_h = lcd.getSize()
     if rotation == 0 or rotation == 180 then
-        sw, sh = phys_w, phys_h
+        screen_w, screen_h = phys_w, phys_h
     else
-        sw, sh = phys_h, phys_w
+        screen_w, screen_h = phys_h, phys_w
     end
-    mg = math.floor(sw * 0.02)
-    cw = sw - 2 * mg
-    ch = math.floor(sh * 0.09)
-    csp = math.floor(sh * 0.015)
+    margin = math.floor(screen_w * 0.02)
+    card_w = screen_w - 2 * margin
+    card_h = math.floor(screen_h * 0.09)
+    card_spacing = math.floor(screen_h * 0.015)
 end
 
-local function cui()
-    up_sz()
-    mc = airui.container({
+local function build_ui()
+    update_screen_size()
+    main_container = airui.container({
         parent = airui.screen,
         x = 0, y = 0,
-        w = sw, h = sh,
+        w = screen_w, h = screen_h,
         color = COLOR_BG
     })
 
     -- 标题栏
     local tb = airui.container({
-        parent = mc,
+        parent = main_container,
         x = 0, y = 0,
-        w = sw, h = math.floor(60 * _G.density_scale),
+        w = screen_w, h = math.floor(60 * _G.density_scale),
         color = COLOR_PRIMARY
     })
     local bb = airui.container({
@@ -65,7 +64,7 @@ local function cui()
         x = 10, y = 10,
         w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
         color = COLOR_PRIMARY,
-        on_click = function() exwin.close(wid) end
+        on_click = function() exwin.close(window_id) end
     })
     airui.label({
         parent = bb,
@@ -88,27 +87,27 @@ local function cui()
 
     local th = math.floor(60 * _G.density_scale)
     local ct = airui.container({
-        parent = mc,
+        parent = main_container,
         x = 0, y = th,
-        w = sw, h = sh - th,
+        w = screen_w, h = screen_h - th,
         color = COLOR_BG
     })
 
-    local function mk(y, title, on_click)
+    local function create_card(y, title, on_click)
         local card = airui.container({
             parent = ct,
-            x = mg, y = y,
-            w = cw, h = ch,
+            x = margin, y = y,
+            w = card_w, h = card_h,
             color = COLOR_WHITE,
             radius = 8,
             on_click = on_click
         })
-        local lh = math.floor(30 * _G.density_scale)
-        local ly = math.floor((ch - lh) / 2)
+        local label_h = math.floor(30 * _G.density_scale)
+        local label_y = math.floor((card_h - label_h) / 2)
         airui.label({
             parent = card,
-            x = math.floor(20 * _G.density_scale), y = ly,
-            w = math.floor(200 * _G.density_scale), h = lh,
+            x = math.floor(20 * _G.density_scale), y = label_y,
+            w = math.floor(200 * _G.density_scale), h = label_h,
             text = title,
             font_size = math.floor(24 * _G.density_scale),
             color = COLOR_TEXT,
@@ -116,8 +115,8 @@ local function cui()
         })
         airui.label({
             parent = card,
-            x = cw - math.floor(50 * _G.density_scale), y = ly,
-            w = math.floor(30 * _G.density_scale), h = lh,
+            x = card_w - math.floor(50 * _G.density_scale), y = label_y,
+            w = math.floor(30 * _G.density_scale), h = label_h,
             text = ">",
             font_size = math.floor(24 * _G.density_scale),
             color = COLOR_TEXT_SECONDARY,
@@ -125,18 +124,18 @@ local function cui()
         })
     end
 
-    local a8k = _G.model_str:find("Air8000") ~= nil
+    local is_air8000 = _G.model_str:find("Air8000") ~= nil
 
     local y = math.floor(20 * _G.density_scale)
-    mk(y, "IOT账号", function() sys.publish("OPEN_IOT_WIN") end)
-    y = y + ch + csp
-    mk(y, "WiFi设置", function() sys.publish("OPEN_WIFI_WIN") end)
-    y = y + ch + csp
-    mk(y, "显示亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)
-    y = y + ch + csp
-    mk(y, "存储", function() sys.publish("OPEN_STORAGE_WIN") end)
-    y = y + ch + csp
-    mk(y, "系统更新", function()
+    create_card(y, "IOT账号", function() sys.publish("OPEN_IOT_WIN") end)
+    y = y + card_h + card_spacing
+    create_card(y, "WiFi设置", function() sys.publish("OPEN_WIFI_WIN") end)
+    y = y + card_h + card_spacing
+    create_card(y, "显示亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)
+    y = y + card_h + card_spacing
+    create_card(y, "存储", function() sys.publish("OPEN_STORAGE_WIN") end)
+    y = y + card_h + card_spacing
+    create_card(y, "系统更新", function()
         sys.publish("OPEN_SYSTEM_WIN")
         airui.msgbox({
             parent = ct,
@@ -146,28 +145,28 @@ local function cui()
             on_action = function(self) self:destroy() end
         })
     end)
-    y = y + ch + csp
-    if a8k then
-        mk(y, "触摸音效", function() sys.publish("OPEN_SOUND_WIN") end)
-        y = y + ch + csp
+    y = y + card_h + card_spacing
+    if is_air8000 then
+        create_card(y, "触摸音效", function() sys.publish("OPEN_SOUND_WIN") end)
+        y = y + card_h + card_spacing
     end
-    mk(y, "关于设置", function() sys.publish("OPEN_ABOUT_WIN") end)
+    create_card(y, "关于设置", function() sys.publish("OPEN_ABOUT_WIN") end)
 end
 
-local function oc() cui() end
-local function od()
-    if mc then mc:destroy(); mc = nil end
+local function on_create() build_ui() end
+local function on_destroy()
+    if main_container then main_container:destroy(); main_container = nil end
 end
-local function ogf() end
-local function olf() end
+local function on_get_focus() end
+local function on_lose_focus() end
 
-local function oh()
-    wid = exwin.open({
-        on_create = oc,
-        on_destroy = od,
-        on_lose_focus = olf,
-        on_get_focus = ogf,
+local function open_handler()
+    window_id = exwin.open({
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_lose_focus = on_lose_focus,
+        on_get_focus = on_get_focus,
     })
 end
 
-sys.subscribe("OPEN_SETTINGS_WIN", oh)
+sys.subscribe("OPEN_SETTINGS_WIN", open_handler)

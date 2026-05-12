@@ -33,6 +33,11 @@ local demos = {
     {name = "页面切换演示", icon = airui.SYMBOL_LEFT, page = "airui_switch_page", color = 0x673AB7},
     {name = "矢量字体演示", icon = airui.SYMBOL_EYE_OPEN, page = "hzfont", color = 0x2196F3},
     {name = "二维码组件演示", icon = airui.SYMBOL_LOOP, page = "qrcode", color = 0xFF4081},
+    {name = "图表组件演示", icon = airui.SYMBOL_GPS, page = "chart", color = 0x00BCD4},
+    {name = "动画图像演示", icon = airui.SYMBOL_VIDEO, page = "animimg", color = 0xE91E63},
+    {name = "形状组件演示", icon = airui.SYMBOL_EDIT, page = "shape", color = 0x607D8B},
+    {name = "加载指示器演示", icon = airui.SYMBOL_REFRESH, page = "spinner", color = 0xFF9800},
+    {name = "视频组件演示", icon = airui.SYMBOL_PLAY, page = "video", color = 0x3F51B5},
 }
 
 -- 创建主页UI

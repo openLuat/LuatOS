@@ -11,24 +11,32 @@
 local function ui_main()
     -- 初始化硬件
 
+    -- 标题
+    airui.label({
+        text = "图表组件演示（动态折线图）",
+        x = 0, y = 15, w = 800, h = 30,
+        font_size = 24,
+        color = 0x333333,
+        align = airui.TEXT_ALIGN_CENTER,
+    })
 
     -- 创建图表（折线图）
     local chart = airui.chart({
-        x = 20,
-        y = 20,
-        w = 760,
-        h = 440,
-        type = "line",                -- 折线图
+        x = 40,
+        y = 60,
+        w = 720,
+        h = 390,
+        type = "line",
         y_min = 0,
         y_max = 100,
-        point_count = 120,            -- 数据点总数
-        update_mode = "shift",         -- 滚动更新
-        line_color = 0x00b4ff,         -- 主系列颜色
+        point_count = 120,
+        update_mode = "shift",
+        line_color = 0x00b4ff,
         line_width = 2,
-        point_radius = 2,              -- 显示数据点
+        point_radius = 2,
         hdiv = 6,
         vdiv = 6,
-        legend = true,                 -- 显示图例
+        legend = true,
         x_axis = { enable = true, min = 0, max = 120, ticks = 6, unit = "s" },
         y_axis = { enable = true, min = 0, max = 100, ticks = 6, unit = "%" }
     })
@@ -45,9 +53,8 @@ local function ui_main()
     chart:set_values(sid2, {50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60})
     chart:set_values(sid3, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 
-    -- 模拟动态推送（可选）
+    -- 模拟动态推送
     sys.timerLoopStart(function()
-        -- 随机生成新数据并推入
         local v1 = 50 + math.random(-20, 20)
         local v2 = 50 + math.random(-15, 15)
         local v3 = v1 - v2

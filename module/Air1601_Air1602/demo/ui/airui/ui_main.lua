@@ -26,6 +26,10 @@ require("airui_hzfont")
 --require("airui_game")
 require("airui_chart")
 require("airui_qrcode")
+require("airui_animimg")
+require("airui_shape")
+require("airui_spinner")
+require("airui_video")
 require("airui_all_component")
 
 -- 当前显示的页面
@@ -59,6 +63,11 @@ local pages = {
     airui_switch_page = "airui_switch_page", -- 页面切换演示
     hzfont = "airui_hzfont",                -- 矢量字体演示
     qrcode = "airui_qrcode",                    -- 二维码演示
+    chart = "airui_chart",                      -- 图表演示
+    animimg = "airui_animimg",                  -- 动画图像演示
+    shape = "airui_shape",                      -- 形状演示
+    spinner = "airui_spinner",                  -- 加载指示器演示
+    video = "airui_video",                      -- 视频演示
     all_component = "airui_all_component",  -- 所有组件演示
 }
 

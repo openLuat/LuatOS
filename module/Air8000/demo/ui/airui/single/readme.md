@@ -38,6 +38,7 @@
 3.  **`airui_input.lua`** - 输入框和虚拟键盘演示
 4.  **`airui_msgbox.lua`** - 消息框组件演示
 
+### 2.4 布局与高级组件演示
 1.  **`airui_table.lua`** - 表格组件演示
 2.  **`airui_tabview.lua`** - 选项卡组件演示
 3.  **`airui_win.lua`** - 窗口组件演示
@@ -46,7 +47,13 @@
 6.  **`airui_chart.lua`** - 图表组件演示
 7.  **`airui_qrcode.lua`** - 二维码组件演示
 
-### 2.5 字体渲染演示
+### 2.5 多媒体与图形演示
+1.  **`airui_animimg.lua`** - 动画图像组件演示（多帧PNG序列播放）
+2.  **`airui_shape.lua`** - 形状组件演示（直线、圆形、椭圆、矩形）
+3.  **`airui_spinner.lua`** - 加载指示器组件演示（旋转动画）
+4.  **`airui_video.lua`** - 视频组件演示（MJPG播放）
+
+### 2.6 字体渲染演示
 1.  **`airui_hzfont.lua`** - HzFont 矢量字体特性演示
 
 ## 三、演示效果
@@ -188,14 +195,20 @@ require("airui_all_component") --所有组件综合演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
 -- require("airui_chart")  --图表组件演示
 -- require("airui_qrcode") --二维码组件演示
+-- require("airui_animimg")  -- 动画图像组件演示
+-- require("airui_shape")  -- 形状组件演示
+-- require("airui_spinner")  -- 加载指示器组件演示
+-- require("airui_video")  -- 视频组件演示
 ```
 
 ### 7.3 软件烧录步骤
 
 1. 使用 Luatools 烧录对应型号的最新内核固件
 2. 下载本项目所有脚本文件
-3. 将演示图片文件（如 `logo.jpg` ）同.lua脚本文件一起烧录到脚本分区
-4. 设备自动重启后开始运行选定的演示模块
+3. 将演示图片文件（如 `logo.jpg`、`dingwei_50x50.png` 等）同.lua脚本文件一起烧录到脚本分区
+4. 动画图像(animimg)演示需要 `fly_man_01.png` ~ `fly_man_04.png` 多帧图片资源
+5. 视频(video)演示需要 `fly_man.mjpg` MJPG视频资源
+6. 设备自动重启后开始运行选定的演示模块
 
 
 ## 八、故障排除

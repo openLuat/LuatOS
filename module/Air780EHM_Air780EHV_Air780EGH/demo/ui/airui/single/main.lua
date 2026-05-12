@@ -85,6 +85,12 @@ require("tp_drv")
 require("airui_all_component") --所有组件综合演示
 -- require("airui_switch_page")  --页面切换演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
+-- require("airui_chart")  --图表组件演示
+-- require("airui_qrcode") --二维码组件演示
+-- require("airui_animimg")  -- 动画图像组件演示
+-- require("airui_shape")  -- 形状组件演示
+-- require("airui_spinner")  -- 加载指示器组件演示
+-- require("airui_video")  -- 视频组件演示
 
 
 -- 用户代码已结束

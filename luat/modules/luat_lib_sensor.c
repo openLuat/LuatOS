@@ -619,6 +619,10 @@ static int l_sensor_ws2812b_spi(lua_State *L)
   luat_spi_send(ws2812b_spi_conf.id, &res_buff, 1);
 
   char *gbr_buff = luat_heap_malloc(len*8);
+  if (gbr_buff == NULL) {
+    luat_spi_close(ws2812b_spi_conf.id);
+    return 0;
+  }
   m=0;
   for(i=0;i<len;i++){
     for(j=7;j>=0;j--){

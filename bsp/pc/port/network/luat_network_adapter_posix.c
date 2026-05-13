@@ -8,8 +8,8 @@
  *  - UDP sockets run a single recv pthread.
  *  - DNS queries run in a temporary detached pthread (getaddrinfo).
  *  - All events are dispatched to the Lua thread via luat_msgbus_put().
- *  - malloc/free are used exclusively for buffers allocated in I/O threads, matching
- *    the framework's expectation (luat_network_adapter.c frees dns_ip with free()).
+ *  - All heap allocations use luat_heap_* (consistent with the rest of LuatOS).
+ *    luat_network_adapter.c frees dns_ip with luat_heap_free().
  */
 
 /* luat_posix_compat.h must come first: sets up winsock2/pthreads include order. */
@@ -167,7 +167,7 @@ static int32_t posix_nw_event_handler(lua_State *L, void *ptr);
 
 static void cb_to_nw_task(uint32_t event_id, size_t param1, size_t param2, size_t param3)
 {
-    posix_nw_event_t *e = malloc(sizeof(posix_nw_event_t));
+    posix_nw_event_t *e = luat_heap_malloc(sizeof(posix_nw_event_t));
     if (!e) { LLOGE("OOM in cb_to_nw_task"); return; }
     memset(e, 0, sizeof(posix_nw_event_t));
     e->event.ID = event_id;
@@ -197,7 +197,7 @@ static int32_t posix_nw_event_handler(lua_State *L, void *ptr)
     posix_nw_event_t *e = (posix_nw_event_t *)msg->ptr;
     if (e) {
         ctrl.socket_cb(&e->event, &e->param);
-        free(e);
+        luat_heap_free(e);
     }
     return 0;
 }
@@ -252,7 +252,7 @@ static void start_detached_thread(void *(*fn)(void*), void *arg)
 static void tcp_read_loop(int socket_id)
 {
     posix_conn_t *conn = &sockets[socket_id];
-    char *tmp = malloc(TCP_RECV_BUF);
+    char *tmp = luat_heap_malloc(TCP_RECV_BUF);
     if (!tmp) return;
 
     while (!conn->io_stop) {
@@ -277,16 +277,16 @@ static void tcp_read_loop(int socket_id)
 
         pthread_mutex_lock(&conn->recv_lock);
         if (!conn->recv_buff) {
-            conn->recv_buff = malloc(nread);
+            conn->recv_buff = luat_heap_malloc(nread);
             if (conn->recv_buff) { memcpy(conn->recv_buff, tmp, nread); conn->recv_size = nread; }
         } else {
-            char *p = realloc(conn->recv_buff, conn->recv_size + nread);
+            char *p = luat_heap_realloc(conn->recv_buff, conn->recv_size + nread);
             if (p) { memcpy(p + conn->recv_size, tmp, nread); conn->recv_buff = p; conn->recv_size += nread; }
         }
         pthread_mutex_unlock(&conn->recv_lock);
         cb_to_nw_task(EV_NW_SOCKET_RX_NEW, socket_id, nread, 0);
     }
-    free(tmp);
+    luat_heap_free(tmp);
 
     /* Determine what event to post */
     int should_close = 0;
@@ -429,7 +429,7 @@ static void *tcp_accept_thread(void *arg)
         pthread_mutex_lock(&g_socket_mutex);
         if (conn->fd != INVALID_SOCK_FD) { sock_close(conn->fd); conn->fd = INVALID_SOCK_FD; }
         /* Clear recv buffer */
-        if (conn->recv_buff) { free(conn->recv_buff); conn->recv_buff = NULL; conn->recv_size = 0; }
+        if (conn->recv_buff) { luat_heap_free(conn->recv_buff); conn->recv_buff = NULL; conn->recv_size = 0; }
         pthread_mutex_unlock(&g_socket_mutex);
     }
 
@@ -471,7 +471,7 @@ static void *udp_recv_thread(void *arg)
         }
         if (nread == 0) continue;
 
-        posix_udp_data_t *d = malloc(sizeof(posix_udp_data_t) + nread);
+        posix_udp_data_t *d = luat_heap_malloc(sizeof(posix_udp_data_t) + nread);
         if (!d) { LLOGE("OOM in udp_recv_thread"); continue; }
         memset(d, 0, sizeof(posix_udp_data_t));
         memcpy(d->data, tmp, nread);
@@ -527,7 +527,7 @@ static void *dns_resolve_thread(void *arg)
         LLOGI("dns query failed for %s", q->domain);
         cb_to_nw_task(EV_NW_DNS_RESULT, 0, 0, (size_t)q->param);
     } else {
-        luat_dns_ip_result *ip_result = calloc(1, sizeof(luat_dns_ip_result));
+        luat_dns_ip_result *ip_result = luat_heap_calloc(1, sizeof(luat_dns_ip_result));
         if (ip_result) {
             char addr[17] = {0};
             inet_ntop(AF_INET, &((struct sockaddr_in*)res->ai_addr)->sin_addr, addr, sizeof(addr));
@@ -541,7 +541,7 @@ static void *dns_resolve_thread(void *arg)
         }
         freeaddrinfo(res);
     }
-    free(q);
+    luat_heap_free(q);
     return NULL;
 }
 
@@ -676,7 +676,7 @@ static int posix_create_socket(uint8_t is_tcp, uint64_t *tag, void *param,
     }
 
     /* Free stale resources outside the lock (safe: io_running was 0) */
-    if (old_recv_buff) free(old_recv_buff);
+    if (old_recv_buff) luat_heap_free(old_recv_buff);
     if (old_fd  != INVALID_SOCK_FD) sock_close(old_fd);
     if (old_srv != INVALID_SOCK_FD) sock_close(old_srv);
 
@@ -892,11 +892,11 @@ static int posix_socket_receive(int socket_id, uint64_t tag, uint8_t *buf, uint3
         memcpy(buf, c->recv_buff, len);
         size_t newsize = c->recv_size - len;
         if (newsize == 0) {
-            free(c->recv_buff); c->recv_buff = NULL; c->recv_size = 0;
+            luat_heap_free(c->recv_buff); c->recv_buff = NULL; c->recv_size = 0;
         } else {
-            char *p = malloc(newsize);
+            char *p = luat_heap_malloc(newsize);
             if (p) memcpy(p, c->recv_buff + len, newsize);
-            free(c->recv_buff);
+            luat_heap_free(c->recv_buff);
             c->recv_buff = p; c->recv_size = p ? newsize : 0;
         }
         pthread_mutex_unlock(&c->recv_lock);
@@ -926,7 +926,7 @@ static int posix_socket_receive(int socket_id, uint64_t tag, uint8_t *buf, uint3
         posix_udp_data_t *old = c->udp_data;
         c->udp_data = (posix_udp_data_t *)old->next;
         pthread_mutex_unlock(&c->udp_lock);
-        free(old);
+        luat_heap_free(old);
         return (int)len;
     }
 }
@@ -993,12 +993,12 @@ static void posix_socket_clean(int *valid_list, uint32_t num, void *user_data)
         posix_conn_t *c = &sockets[sid];
         if (c->tag == 0 || c->state == SC_CLOSED) {
             pthread_mutex_lock(&c->recv_lock);
-            if (c->recv_buff) { free(c->recv_buff); c->recv_buff = NULL; c->recv_size = 0; }
+            if (c->recv_buff) { luat_heap_free(c->recv_buff); c->recv_buff = NULL; c->recv_size = 0; }
             pthread_mutex_unlock(&c->recv_lock);
 
             pthread_mutex_lock(&c->udp_lock);
             posix_udp_data_t *h = c->udp_data;
-            while (h) { posix_udp_data_t *n = h->next; free(h); h = n; }
+            while (h) { posix_udp_data_t *n = h->next; luat_heap_free(h); h = n; }
             c->udp_data = NULL;
             pthread_mutex_unlock(&c->udp_lock);
 
@@ -1068,7 +1068,7 @@ static int posix_user_cmd(int socket_id, uint64_t tag, uint32_t cmd, uint32_t va
 static int posix_dns(const char *domain_name, uint32_t len, void *param, void *user_data)
 {
     (void)user_data;
-    posix_dns_query_t *q = calloc(1, sizeof(posix_dns_query_t));
+    posix_dns_query_t *q = luat_heap_calloc(1, sizeof(posix_dns_query_t));
     if (!q) return -1;
     size_t copy_len = len < 255 ? len : 255;
     memcpy(q->domain, domain_name, copy_len);

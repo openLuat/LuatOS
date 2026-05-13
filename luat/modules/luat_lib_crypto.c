@@ -158,7 +158,7 @@ static int l_crypto_hmac_sha256(lua_State *L) {
     if (key_size > 64) {
         luat_crypto_sha256_simple(key, key_size, dst);
         key = (const char*)dst;
-        key_size = 64;
+        key_size = 32;  /* SHA-256 output is 32 bytes */
     }
 
     if (luat_crypto_hmac_sha256_simple(str, str_size, key, key_size, tmp) == 0) {
@@ -214,7 +214,7 @@ static int l_crypto_hmac_sha512(lua_State *L) {
     if (key_size > 128) {
         luat_crypto_sha512_simple(key, key_size, dst);
         key = (const char*)dst;
-        key_size = 128;
+        key_size = 64;  /* SHA-512 output is 64 bytes */
     }
 
     if (luat_crypto_hmac_sha512_simple(str, str_size, key, key_size, tmp) == 0) {

@@ -394,7 +394,7 @@ static int network_get_host_by_name(network_ctrl_t *ctrl)
 		char *name = zalloc(ctrl->domain_name_len + 1);
 		memcpy(name, ctrl->domain_name, ctrl->domain_name_len);
 		network_string_to_ipv6(name, &ctrl->remote_ip);
-		free(name);
+		luat_heap_free(name);
 	}
 	if (ctrl->remote_ip.is_ipv6 != 0xff)
 	{
@@ -833,7 +833,7 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
     			return -1;
     		}
     		int result = mbedtls_ssl_write(ctrl->ssl, ctrl->cache_data, ctrl->cache_len);
-    		free(ctrl->cache_data);
+    		luat_heap_free(ctrl->cache_data);
     		ctrl->cache_data = NULL;
     		ctrl->cache_len = 0;
     	    if (result < 0)
@@ -1437,17 +1437,17 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 			}
 			if (ctrl->cache_data)
 			{
-				free(ctrl->cache_data);
+				luat_heap_free(ctrl->cache_data);
 				ctrl->cache_data = NULL;
 			}
 			if (ctrl->dns_ip)
 			{
-				free(ctrl->dns_ip);
+				luat_heap_free(ctrl->dns_ip);
 				ctrl->dns_ip = NULL;
 			}
 			if (ctrl->domain_name)
 			{
-				free(ctrl->domain_name);
+				luat_heap_free(ctrl->domain_name);
 				ctrl->domain_name = NULL;
 			}
 			adapter->ctrl_busy[i] = 0;
@@ -1467,17 +1467,17 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
 	//network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	if (ctrl->dns_ip)
 	{
-		free(ctrl->dns_ip);
+		luat_heap_free(ctrl->dns_ip);
 		ctrl->dns_ip = NULL;
 	}
 	if (ctrl->cache_data)
 	{
-		free(ctrl->cache_data);
+		luat_heap_free(ctrl->cache_data);
 		ctrl->cache_data = NULL;
 	}
 	if (ctrl->domain_name)
 	{
-		free(ctrl->domain_name);
+		luat_heap_free(ctrl->domain_name);
 		ctrl->domain_name = NULL;
 	}
 	HANDLE sem = ctrl->mutex;
@@ -1798,12 +1798,12 @@ void network_force_close_socket(network_ctrl_t *ctrl)
 	ctrl->new_rx_flag = 0;
 	if (ctrl->dns_ip)
 	{
-		free(ctrl->dns_ip);
+		luat_heap_free(ctrl->dns_ip);
 		ctrl->dns_ip = NULL;
 	}
 	if (ctrl->domain_name)
 	{
-		free(ctrl->domain_name);
+		luat_heap_free(ctrl->domain_name);
 		ctrl->domain_name = NULL;
 	}
 	ctrl->dns_ip_cnt = 0;
@@ -1817,7 +1817,7 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 	int *list;
 	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
 	network_ctrl_t *ctrl;
-	list = malloc(adapter->opt->max_socket_num * sizeof(int));
+	list = luat_heap_malloc(adapter->opt->max_socket_num * sizeof(int));
 	G_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
 	{
@@ -1835,7 +1835,7 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 	}
 	G_UNLOCK;
 	adapter->opt->socket_clean(list, adapter->opt->max_socket_num, adapter->user_data);
-	free(list);
+	luat_heap_free(list);
 }
 
 
@@ -1935,8 +1935,8 @@ int network_set_client_cert(network_ctrl_t *ctrl,
     }
     return ERROR_NONE;
 ERROR_OUT:
-	if (client_cert) free(client_cert);
-	if (pkey) free(pkey);
+	if (client_cert) luat_heap_free(client_cert);
+	if (pkey) luat_heap_free(pkey);
 	return -1;
 #else
 	return -1;
@@ -2015,21 +2015,21 @@ void network_deinit_tls(network_ctrl_t *ctrl)
 	if (ctrl->ssl)
 	{
 		mbedtls_ssl_free(ctrl->ssl);
-		free(ctrl->ssl);
+		luat_heap_free(ctrl->ssl);
 		ctrl->ssl = NULL;
 	}
 
 	if (ctrl->config)
 	{
 		mbedtls_ssl_config_free(ctrl->config);
-		free(ctrl->config);
+		luat_heap_free(ctrl->config);
 		ctrl->config = NULL;
 	}
 
 	if (ctrl->ca_cert)
 	{
 		mbedtls_x509_crt_free(ctrl->ca_cert);
-		free(ctrl->ca_cert);
+		luat_heap_free(ctrl->ca_cert);
 		ctrl->ca_cert = NULL;
 	}
 
@@ -2120,18 +2120,18 @@ int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t doma
 	ctrl->ack_size = 0;
 	if (ctrl->dns_ip)
 	{
-		free(ctrl->dns_ip);
+		luat_heap_free(ctrl->dns_ip);
 		ctrl->dns_ip = NULL;
 	}
 	if (ctrl->cache_data)
 	{
-		free(ctrl->cache_data);
+		luat_heap_free(ctrl->cache_data);
 		ctrl->cache_data = NULL;
 	}
 	ctrl->need_close = 0;
 	if (ctrl->domain_name)
 	{
-		free(ctrl->domain_name);
+		luat_heap_free(ctrl->domain_name);
 	}
 	ctrl->domain_name = zalloc(domain_name_len + 1);
 	memcpy(ctrl->domain_name, domain_name, domain_name_len);
@@ -2285,7 +2285,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	NW_LOCK;
 	if (ctrl->cache_data)
 	{
-		free(ctrl->cache_data);
+		luat_heap_free(ctrl->cache_data);
 		ctrl->cache_data = NULL;
 	}
 	uint8_t old_state = ctrl->state;
@@ -2388,10 +2388,10 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 			ctrl->tls_need_reshakehand = 0;
 			if (ctrl->cache_data)
 			{
-				free(ctrl->cache_data);
+				luat_heap_free(ctrl->cache_data);
 				ctrl->cache_data = NULL;
 			}
-			ctrl->cache_data = malloc(len);
+			ctrl->cache_data = luat_heap_malloc(len);
 			memcpy(ctrl->cache_data, data, len);
 			ctrl->cache_len = len;
 	    	mbedtls_ssl_session_reset(ctrl->ssl);

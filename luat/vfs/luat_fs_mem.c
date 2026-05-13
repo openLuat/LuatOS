@@ -193,7 +193,7 @@ static int ram_create_node(const char* path, uint8_t type) {
     }
     memset(node, 0, sizeof(ram_node_t));
     node->type = type;
-    strcpy(node->name, path);
+    strncpy(node->name, path, MEMFS_MAX_FILE_NAME);
     nodes[slot] = node;
     return slot;
 }
@@ -715,6 +715,9 @@ int luat_vfs_ram_rename(void* userdata, const char *old_filename, const char *ne
             continue;
         }
         suffix = nodes[i]->name + old_len;
+        if (strlen(new_path) + strlen(suffix) > MEMFS_MAX_FILE_NAME) {
+            return -1;
+        }
         strcpy(renamed, new_path);
         strcat(renamed, suffix);
         strcpy(nodes[i]->name, renamed);
@@ -820,7 +823,7 @@ int luat_vfs_ram_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* e
         }
         ents[count].d_type = nodes[i]->type;
         ents[count].d_size = (nodes[i]->type == RAM_NODE_TYPE_FILE) ? nodes[i]->size : 0;
-        strcpy(ents[count].d_name, child_name);
+        strncpy(ents[count].d_name, child_name, sizeof(ents[count].d_name) - 1);
         count++;
     }
     return (int)count;

@@ -81,7 +81,6 @@ add_includedirs("include",{public = true})
 add_includedirs(luatos.."lua/include",{public = true})
 add_includedirs(luatos.."luat/include",{public = true})
 add_includedirs("port/posix",{public = true})
--- add_includedirs("libuv/include",{public = true})
 
 
 target("luatos-lua")
@@ -100,8 +99,6 @@ target("luatos-lua")
 
     add_files("src/*.c",{public = true})
     add_files("port/**.c")
-    remove_files("port/network/luat_network_adapter_libuv.c")
-    remove_files("port/network/sys_arch_uv.c")
 
     add_thirdparty_files(luatos.."lua/src/*.c")
     -- printf

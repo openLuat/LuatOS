@@ -41,6 +41,14 @@ int luat_cmd_parse(int argc, char** argv);
 
 int32_t luatos_pc_climode;
 
+static void luat_log_init_web(void) {
+    luat_log_init_win32();
+}
+
+static void luat_log_deinit_web(void) {
+    luat_log_deinit_win32();
+}
+
 static void web_luat_main(void) {
     if (cmdline_argc == 1) {
         luatos_pc_climode = 1;
@@ -66,7 +74,7 @@ int main(int argc, char** argv) {
 
     luat_pcconf_init();
 
-    luat_log_init_win32();
+    luat_log_init_web();
     bpool(luavm_heap, LUAT_HEAP_SIZE);
     luat_heap_opt_init(LUAT_HEAP_PSRAM);
 
@@ -87,6 +95,6 @@ int main(int argc, char** argv) {
 
     web_luat_main();
 
-    luat_log_deinit_win32();
+    luat_log_deinit_web();
     return 0;
 }

@@ -41,6 +41,10 @@ int luat_cmd_parse(int argc, char** argv);
 
 int32_t luatos_pc_climode;
 
+/*
+ * Web BSP 先复用 bsp/pc 的日志后端实现；
+ * 虽然底层导出名保留了历史上的 win32 后缀，但该实现本身并不局限于 Win32。
+ */
 static void luat_log_init_web(void) {
     luat_log_init_win32();
 }

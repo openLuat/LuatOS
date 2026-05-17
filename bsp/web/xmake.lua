@@ -6,7 +6,6 @@ add_rules("mode.debug", "mode.release")
 
 local luatos = "../../"
 
-set_optimize("fastest")
 set_languages("gnu11", "cxx17")
 
 add_defines("__LUATOS__", "__XMAKE_BUILD__", "__EMSCRIPTEN__")

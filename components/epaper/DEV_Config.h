@@ -75,6 +75,8 @@
 typedef struct eink_ctx{
     uint32_t str_color;
     Paint paint;
+    uint16_t fb_stride_width;
+    uint16_t fb_height;
     uint8_t fb[];
 }eink_ctx_t;
 typedef struct eink_conf {

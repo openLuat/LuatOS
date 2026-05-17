@@ -203,6 +203,7 @@ PC 模拟器支持通过环境变量按需启用可选功能，遵循与 `LUAT_U
 | `LUAT_USE_MGBA` | `y` | 启用 mGBA GameBoy 模拟器 |
 | `LUAT_USE_MP4PLAYER` | `y` | 启用 MP4/H.264/AAC 解码器 |
 | `MP4PLAYER_SRC_DIR` | 路径 | mp4player 源码根目录（与 `LUAT_USE_MP4PLAYER=y` 配合使用） |
+| `LUATOS_EXT_ROOT` | 路径 | `luatos-ext-components` 仓库根目录。未设置时自动从脚本目录向上三级查找；**在 git worktree 中必须设置此变量**（或依赖自动 worktree 检测）。 |
 
 ### mp4player 启用示例（PowerShell）
 

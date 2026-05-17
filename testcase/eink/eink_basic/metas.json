@@ -1,0 +1,9 @@
+{
+    "timeout": 60,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "eink 2.13 非8对齐宽度基础回归 (PC模拟器)"
+}

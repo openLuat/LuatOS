@@ -28,7 +28,10 @@ int luat_lv_canvas_set_buffer(lua_State *L) {
     lv_coord_t w = (lv_coord_t)luaL_checknumber(L, 3);
     lv_coord_t h = (lv_coord_t)luaL_checknumber(L, 4);
     lv_img_cf_t cf = (lv_img_cf_t)luaL_checkinteger(L, 5);
-    buf = luat_heap_malloc((lv_img_cf_get_px_size(cf) * w * h) / 8);
+    uint32_t buf_size = lv_img_buf_get_img_size(w, h, cf);
+    if (buf_size == 0)
+        return 0;
+    buf = luat_heap_malloc(buf_size);
     if (buf == NULL)
         return 0;
     lv_canvas_set_buffer(canvas ,buf ,w ,h ,cf);

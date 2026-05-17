@@ -43,8 +43,26 @@ uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 
 eink_conf_t econf = {0};
 
+static size_t luat_eink_padded_width(size_t width)
+{
+    return (width + 7u) & ~((size_t)7u);
+}
+
+static size_t luat_eink_framebuffer_bytes(size_t width, size_t height)
+{
+    return (luat_eink_padded_width(width) * height) / 8u;
+}
+
+static void luat_eink_free_ctxs(size_t count)
+{
+    for (size_t j = 0; j < count; j++) {
+        luat_heap_free(econf.ctxs[j]);
+        econf.ctxs[j] = NULL;
+    }
+}
+
 static int check_init(void) {
-    if (econf.ctxs[0] == NULL) {
+    if (econf.ctx_index > 1 || econf.ctxs[econf.ctx_index] == NULL) {
       LLOGW("eink NOT init yet");
       return 0;
     }
@@ -158,17 +176,15 @@ static int l_eink_init(lua_State* L) {
         return 0;
     }
     for (size_t i = 0; i < colors; i++){
-        econf.ctxs[i] = luat_heap_malloc( sizeof(eink_ctx_t) +  (((epd_w + 7) & (~7)) * epd_h) / 8);
+        econf.ctxs[i] = luat_heap_malloc(sizeof(eink_ctx_t) + luat_eink_framebuffer_bytes(epd_w, epd_h));
         if (econf.ctxs[i] == NULL) {
             LLOGE("out of memory when malloc buff for eink");
-            for (size_t j = 0; j < i - 1; j++)
-            {
-                luat_heap_free(econf.ctxs[i]);
-                econf.ctxs[i] = NULL;
-            }
+            luat_eink_free_ctxs(i);
           return 0;
         }
         Paint_Init(&econf.ctxs[i]->paint, econf.ctxs[i]->fb, epd_w, epd_h);
+        econf.ctxs[i]->fb_stride_width = (uint16_t)luat_eink_padded_width(epd_w);
+        econf.ctxs[i]->fb_height = (uint16_t)epd_h;
         Paint_Clear(&econf.ctxs[i]->paint, UNCOLORED);
         econf.ctxs[i]->paint.inited = 1;
     }
@@ -218,54 +234,41 @@ static int l_eink_setup(lua_State *L) {
         // 鉴于LCD不太可能重复初始化, 引用也没什么问题
         econf.eink_spi_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         econf.port = LUAT_EINK_SPI_DEVICE;
-
-        status = 0;
     }else{
         luat_gpio_mode(econf.pin_cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    }
-
-    if (status != 0) {
-      LLOGD("spi setup fail, eink init fail");
-      return 0;
     }
 
     size_t epd_w = 0;
     size_t epd_h = 0;
     size_t colors = 0;
 
-    if(status == 0)
+    if(econf.full_mode)
+        status = EPD_Init(1, &epd_w, &epd_h, &colors);
+    else
+        status = EPD_Init(0, &epd_w, &epd_h, &colors);
+
+    if (status != 0) {
+        LLOGD("e-Paper init failed");
+        return 0;
+    }
+    LLOGD("spi setup complete, now setup epd");
+    if (colors > 2) {
+        LLOGE("only 2 color eink supported yet");
+        return 0;
+    }
+    for (size_t i = 0; i < colors; i++)
     {
-        if(econf.full_mode)
-            status = EPD_Init(1, &epd_w, &epd_h, &colors);
-        else
-            status = EPD_Init(0, &epd_w, &epd_h, &colors);
-
-        if (status != 0) {
-            LLOGD("e-Paper init failed");
-            return 0;
+        econf.ctxs[i] = luat_heap_malloc(sizeof(eink_ctx_t) + luat_eink_framebuffer_bytes(epd_w, epd_h));
+        if (econf.ctxs[i] == NULL) {
+            LLOGE("out of memory when malloc buff for eink");
+            luat_eink_free_ctxs(i);
+          return 0;
         }
-        LLOGD("spi setup complete, now setup epd");
-        if (colors > 2) {
-            LLOGE("only 2 color eink supported yet");
-            return 0;
-        }
-        for (size_t i = 0; i < colors; i++)
-        {
-            econf.ctxs[i] = luat_heap_malloc( sizeof(eink_ctx_t) +  (epd_w * epd_h + 7) / 8);
-            if (econf.ctxs[i] == NULL) {
-                LLOGE("out of memory when malloc buff for eink");
-                for (size_t j = 0; j < i - 1; j++)
-                {
-                    luat_heap_free(econf.ctxs[i]);
-                    econf.ctxs[i] = NULL;
-                }
-              return 0;
-            }
-            Paint_Init(&econf.ctxs[i]->paint, econf.ctxs[i]->fb, epd_w, epd_h);
-            Paint_Clear(&econf.ctxs[i]->paint, UNCOLORED);
-            econf.ctxs[i]->paint.inited = 1;
-        }
-
+        Paint_Init(&econf.ctxs[i]->paint, econf.ctxs[i]->fb, epd_w, epd_h);
+        econf.ctxs[i]->fb_stride_width = (uint16_t)luat_eink_padded_width(epd_w);
+        econf.ctxs[i]->fb_height = (uint16_t)epd_h;
+        Paint_Clear(&econf.ctxs[i]->paint, UNCOLORED);
+        econf.ctxs[i]->paint.inited = 1;
     }
     u8g2_SetFont(&(econf.luat_eink_u8g2), u8g2_font_opposansm12);
     u8g2_SetFontMode(&(econf.luat_eink_u8g2), 0);
@@ -329,7 +332,7 @@ static int l_eink_clear(lua_State *L)
 @int width  宽度
 @int height 高度
 @int rotate 显示方向,0/1/2/3, 相当于旋转0度/90度/180度/270度
-@return nil 无返回值
+@return bool 成功返回true,否则返回false
 */
 static int l_eink_setWin(lua_State *L)
 {
@@ -338,12 +341,32 @@ static int l_eink_setWin(lua_State *L)
     int rotate = luaL_checkinteger(L, 3);
 
     if (check_init() == 0)
-        return 0;
+    {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    if (width <= 0 || height <= 0) {
+        LLOGE("invalid eink window %d x %d", width, height);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    size_t padded_width = luat_eink_padded_width((size_t)width);
+    if (padded_width > econf.ctxs[econf.ctx_index]->fb_stride_width || (size_t)height > econf.ctxs[econf.ctx_index]->fb_height) {
+        LLOGE("eink window %d x %d exceeds allocated framebuffer %u x %u",
+            width, height,
+            econf.ctxs[econf.ctx_index]->fb_stride_width,
+            econf.ctxs[econf.ctx_index]->fb_height);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
 
     Paint_SetWidth(&econf.ctxs[econf.ctx_index]->paint, width);
     Paint_SetHeight(&econf.ctxs[econf.ctx_index]->paint, height);
     Paint_SetRotate(&econf.ctxs[econf.ctx_index]->paint, rotate);
-    return 0;
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 /**
@@ -1299,14 +1322,7 @@ static int l_eink_draw_hzfont(lua_State* L) {
     uint8_t font_size = luaL_checkinteger(L, 4);
     uint8_t antialias = lua_isnoneornil(L, 5) ? 0xFF : luaL_checkinteger(L, 5);
 
-    // 获取当前绘制上下文
-    if (econf.ctxs[0] == NULL) {
-        LLOGE("eink context not available");
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    Paint* paint = &econf.ctxs[0]->paint;
+    Paint* paint = &econf.ctxs[econf.ctx_index]->paint;
 
     // 绘制HzFont文本
     int ret = eink_hzfont_draw_utf8(paint, x, y, text, font_size, antialias);

@@ -45,9 +45,9 @@ static void web_luat_main(void) {
     if (cmdline_argc == 1) {
         luatos_pc_climode = 1;
 #ifdef LUAT_CONF_VM_64bit
-        LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__ " 64bit", "WEB", LUAT_VERSION);
+        LLOGI("LuatOS@%s %s 64bit", "WEB", LUAT_VERSION);
 #else
-        LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__ " 32bit", "WEB", LUAT_VERSION);
+        LLOGI("LuatOS@%s %s 32bit", "WEB", LUAT_VERSION);
 #endif
         lua_main(cmdline_argc, cmdline_argv);
     }

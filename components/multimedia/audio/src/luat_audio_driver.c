@@ -154,6 +154,7 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             return -LUAT_ERROR_OPERATION_FAILED;
         }
         ctrl->state = LUAT_AUDIO_DRIVER_STATE_ACTIVE;
+        ctrl->current_play_cnt = 0;
     }
     LLOGC(luat_audio_debug_flag, "start check commom param old %u,%u,%u,%d, new %u,%u,%u,%d", 
         ctrl->common_param.sample_rate, ctrl->common_param.data_align, ctrl->common_param.channel_nums, ctrl->common_param.driver_work_mode,
@@ -307,6 +308,7 @@ void luat_audio_driver_stop(struct luat_audio_driver_ctrl *ctrl)
     }
     if (LUAT_AUDIO_DRIVER_STATE_RUNNING == ctrl->state) {
         ctrl->opts->stop(ctrl);
+        ctrl->current_play_cnt = 0;
         ctrl->state = LUAT_AUDIO_DRIVER_STATE_ACTIVE;
     }
 }
@@ -318,6 +320,7 @@ void luat_audio_driver_deactivate(struct luat_audio_driver_ctrl *ctrl)
     }
     if (LUAT_AUDIO_DRIVER_STATE_RUNNING == ctrl->state) {
         ctrl->opts->stop(ctrl);
+        ctrl->current_play_cnt = 0;
         ctrl->state = LUAT_AUDIO_DRIVER_STATE_ACTIVE;
     }
     if (LUAT_AUDIO_DRIVER_STATE_ACTIVE == ctrl->state) {
@@ -336,9 +339,6 @@ int luat_audio_driver_fill_default(struct luat_audio_driver_ctrl *ctrl, uint8_t 
         memset(play_buff, 0, len_bytes);
     } else {
         switch (align) {
-            case 1:
-                memset(play_buff, 0x80, len_bytes);
-                break;
             case 2:
                 data_address &= ~0x1;
                 data.p16 = (uint16_t *)data_address;

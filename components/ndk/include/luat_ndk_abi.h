@@ -36,12 +36,35 @@
 #define NDK_CSR_UART_RX_READ   0x223
 #define NDK_CSR_UART_RX_CLEAR  0x224
 
+// CRYPTO v1 CSR addresses
+#define NDK_CSR_CRYPTO_MD5     0x230
+#define NDK_CSR_CRYPTO_CRC32   0x231
+
 // Feature flags
 #define LUAT_NDK_FEATURE_META   (1u << 0)
 #define LUAT_NDK_FEATURE_TIME   (1u << 1)
 #define LUAT_NDK_FEATURE_EVENT  (1u << 2)
 #define LUAT_NDK_FEATURE_GPIO   (1u << 3)
 #define LUAT_NDK_FEATURE_UART   (1u << 4)
+#define LUAT_NDK_FEATURE_CRYPTO (1u << 5)
+
+// Host ABI command opcodes (fixture protocol)
+#define LUAT_NDK_CMD_QUERY_META       0x01u
+#define LUAT_NDK_CMD_DELAY_US         0x02u
+#define LUAT_NDK_CMD_EVENT_STATE      0x03u
+#define LUAT_NDK_CMD_QUERY_RVC_STATUS 0x04u
+#define LUAT_NDK_CMD_GPIO_CONFIG      0x10u
+#define LUAT_NDK_CMD_GPIO_WRITE       0x11u
+#define LUAT_NDK_CMD_GPIO_READ        0x12u
+#define LUAT_NDK_CMD_GPIO_IRQ_STATE   0x13u
+#define LUAT_NDK_CMD_GPIO_IRQ_CLEAR   0x14u
+#define LUAT_NDK_CMD_UART_CONFIG      0x20u
+#define LUAT_NDK_CMD_UART_TX          0x21u
+#define LUAT_NDK_CMD_UART_RX_STATE    0x22u
+#define LUAT_NDK_CMD_UART_RX_READ     0x23u
+#define LUAT_NDK_CMD_UART_RX_CLEAR    0x24u
+#define LUAT_NDK_CMD_CRYPTO_MD5       0x30u
+#define LUAT_NDK_CMD_CRYPTO_CRC32     0x31u
 
 // Host error codes
 typedef enum {
@@ -145,6 +168,14 @@ typedef enum {
     LUAT_NDK_UART_STATUS_HOST_ERROR   = 26u
 } luat_ndk_uart_status_t;
 
+typedef enum {
+    LUAT_NDK_CRYPTO_STATUS_OK          = 0u,
+    LUAT_NDK_CRYPTO_STATUS_BAD_ARG     = 30u,
+    LUAT_NDK_CRYPTO_STATUS_BAD_BOUNDS  = 31u,
+    LUAT_NDK_CRYPTO_STATUS_UNSUPPORTED = 32u,
+    LUAT_NDK_CRYPTO_STATUS_HOST_ERROR  = 33u
+} luat_ndk_crypto_status_t;
+
 typedef struct {
     uint32_t baud;
     uint8_t  data_bits;
@@ -175,3 +206,19 @@ typedef struct {
 #define LUAT_NDK_UART_RX_STATE_PENDING(value) ((uint32_t)((value) & 0x1u))
 #define LUAT_NDK_UART_RX_STATE_REASON(value)  ((uint32_t)(((value) >>  8) & 0xFFu))
 #define LUAT_NDK_UART_RX_STATE_LENGTH(value)  ((uint32_t)(((value) >> 16) & 0xFFFFu))
+
+// NDK_CSR_CRYPTO_MD5 value: in_offset[31:22] | in_len[21:12] | out_offset[11:2]
+#define LUAT_NDK_CRYPTO_MD5_PACK(in_offset, in_len, out_offset) \
+    ((((uint32_t)(in_offset)  & 0x03FFu) << 22) | \
+     (((uint32_t)(in_len)     & 0x03FFu) << 12) | \
+     (((uint32_t)(out_offset) & 0x03FFu) <<  2))
+#define LUAT_NDK_CRYPTO_MD5_INPUT_OFFSET(value)  ((uint32_t)(((value) >> 22) & 0x03FFu))
+#define LUAT_NDK_CRYPTO_MD5_INPUT_LENGTH(value)  ((uint32_t)(((value) >> 12) & 0x03FFu))
+#define LUAT_NDK_CRYPTO_MD5_OUTPUT_OFFSET(value) ((uint32_t)(((value) >>  2) & 0x03FFu))
+
+// NDK_CSR_CRYPTO_CRC32 value: (in_offset[11:0] << 20) | (in_len[11:0] << 8)
+#define LUAT_NDK_CRYPTO_CRC32_PACK(in_offset, in_len) \
+    ((((uint32_t)(in_offset) & 0x0FFFu) << 20) | \
+     (((uint32_t)(in_len)    & 0x0FFFu) <<  8))
+#define LUAT_NDK_CRYPTO_CRC32_INPUT_OFFSET(value) ((uint32_t)(((value) >> 20) & 0x0FFFu))
+#define LUAT_NDK_CRYPTO_CRC32_INPUT_LENGTH(value) ((uint32_t)(((value) >>  8) & 0x0FFFu))

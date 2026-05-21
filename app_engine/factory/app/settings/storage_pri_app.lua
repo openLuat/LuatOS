@@ -19,9 +19,9 @@ elseif model and model:find("Air8000") then
     -- exapp.init("custom", { storage_type = "nand_flash",    spi_id = 1, pin_cs = 12, speed = 20000000 })
 elseif model and (model:find("Air1601") or model:find("Air1602")) then
     -- Engine_Air1602_5inch_720x1280_003_V000
-    gpio.setup(50, 1)
-    gpio.set(50, 1)
-    exapp.init("custom", { storage_type = "nand_flash", spi_id = 2, pin_cs = 4, speed = 20000000 })
+    -- gpio.setup(50, 1)
+    -- gpio.set(50, 1)
+    -- exapp.init("custom", { storage_type = "nand_flash", spi_id = 2, pin_cs = 4, speed = 20000000 })
 else
     -- 自定义型号
     -- exapp.init("custom", { storage_type = "sd_tf", spi_id = 1, pin_cs = 12, speed = 20000000 })

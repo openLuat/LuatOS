@@ -159,6 +159,9 @@ LUAMOD_API int luaopen_max30102( lua_State *L );
 LUAMOD_API int luaopen_bit64( lua_State *L );
 
 LUAMOD_API int luaopen_repl( lua_State *L );
+#ifdef LUAT_USE_WINDOWS
+LUAMOD_API int luaopen_hostfenv( lua_State *L );
+#endif
 
 // fft
 LUAMOD_API int luaopen_fft( lua_State *L );

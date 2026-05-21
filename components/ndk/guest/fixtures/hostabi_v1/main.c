@@ -1,6 +1,6 @@
 /* main.c - NDK Host ABI Test Fixture */
 #include "protocol.h"
-#include "../../../../components/ndk/include/luat_ndk_abi.h"
+#include "../../../include/luat_ndk_abi.h"
 
 /* RVC smoke test - only present in compressed variant */
 #ifdef __riscv_compressed
@@ -26,6 +26,8 @@ extern unsigned int ndk_uart_tx(unsigned int port, unsigned int data_offset, uns
 extern unsigned int ndk_uart_rx_state(unsigned int port);
 extern unsigned int ndk_uart_rx_read(unsigned int port, unsigned int data_offset, unsigned int length);
 extern unsigned int ndk_uart_rx_clear(unsigned int port);
+extern unsigned int ndk_crypto_md5(unsigned int input_offset, unsigned int input_len, unsigned int output_offset);
+extern unsigned int ndk_crypto_crc32(unsigned int input_offset, unsigned int input_len);
 
 /* NDK builtin host API (implemented in ndk_stubs.c) */
 unsigned int ndk_host_magic(void);
@@ -202,6 +204,17 @@ int main(void) {
         }
     } else if (cmd->opcode == HOSTABI_CMD_UART_RX_CLEAR) {
         out->status = ndk_uart_rx_clear(cmd->arg0);
+    } else if (cmd->opcode == HOSTABI_CMD_CRYPTO_MD5) {
+        out->status = ndk_crypto_md5(cmd->arg0, cmd->arg1, cmd->arg2);
+    } else if (cmd->opcode == HOSTABI_CMD_CRYPTO_CRC32) {
+        uint32_t crc = ndk_crypto_crc32(cmd->arg0, cmd->arg1);
+        unsigned int last_error = ndk_last_error();
+        if (last_error != 0u && crc >= HOSTABI_STATUS_CRYPTO_BAD_ARG) {
+            out->status = crc;
+        } else {
+            out->status = HOSTABI_STATUS_OK;
+            out->value0 = crc;
+        }
     } else {
         out->status = 1;
         out->value0 = ndk_last_error();

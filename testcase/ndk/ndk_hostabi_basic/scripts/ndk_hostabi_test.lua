@@ -41,6 +41,26 @@ local function run_gpio_config(ctx, pin, mode, pull, irq_mode, do_reset, extra_f
     return run_payload_with_reset(ctx, proto.pack_gpio_config_cmd(pin, mode, pull, irq_mode, extra_flags), do_reset)
 end
 
+local function crc32_reflect_byte(crc, b)
+    crc = crc ~ b
+    for _ = 1, 8 do
+        if (crc & 1) ~= 0 then
+            crc = (crc >> 1) ~ 0xEDB88320
+        else
+            crc = crc >> 1
+        end
+    end
+    return crc
+end
+
+local function crc32_ref(data, start)
+    local crc = start or 0xFFFFFFFF
+    for i = 1, #data do
+        crc = crc32_reflect_byte(crc, string.byte(data, i))
+    end
+    return crc & 0xFFFFFFFF
+end
+
 function tests.test_guest_fixture_binary_present()
     assert(io.exists(IMAGE), "missing hostabi_v1.bin")
 end
@@ -63,6 +83,7 @@ function tests.test_ndk_info_exposes_abi_fields()
     assert(info.abi_version == proto.HOST_VERSION, "missing abi_version")
     assert(type(info.features) == "number", "missing features")
     assert((info.features & proto.FEATURE_GPIO) ~= 0, "missing gpio feature bit")
+    assert((info.features & proto.FEATURE_CRYPTO) ~= 0, "missing crypto feature bit")
     assert(info.last_error == 0, "missing last_error")
     assert(info.event_slots >= 1, "missing event_slots")
 end
@@ -449,6 +470,62 @@ function tests.test_uart_context_isolation_holds()
     assert(run_payload_with_reset(a, txcmd .. txpad .. payload, false).status == proto.STATUS_OK)
     local state_b = run_cmd_with_reset(b, proto.CMD_UART_RX_STATE, proto.UART_PORT_LOOPBACK, 0, 0, false)
     assert(proto.decode_uart_rx_state(state_b).buffered_len == 0, "peer context should not observe foreign uart rx bytes")
+end
+
+-- ---------------------------------------------------------------------------
+-- CRYPTO tests
+-- ---------------------------------------------------------------------------
+
+function tests.test_crypto_query_meta_advertises_crypto_feature()
+    local ctx, err = ndk.rv32i(IMAGE, 32 * 1024, 1024)
+    assert(ctx, tostring(err))
+    local result = run_cmd(ctx, proto.CMD_QUERY_META, 0, 0, 0)
+    assert((result.value2 & proto.FEATURE_CRYPTO) ~= 0, "query meta should advertise CRYPTO feature")
+end
+
+function tests.test_crypto_md5_hash_matches_known_vector()
+    local ctx, err = ndk.rv32i(IMAGE, 32 * 1024, 1024)
+    assert(ctx, tostring(err))
+    local payload = "abc"
+    local cmd = proto.pack_crypto_md5_cmd(proto.CRYPTO_INPUT_OFFSET, #payload, proto.CRYPTO_OUTPUT_OFFSET)
+    local pad = string.rep("\0", proto.CRYPTO_INPUT_OFFSET - #cmd)
+    local result = run_payload_with_reset(ctx, cmd .. pad .. payload, true)
+    assert(result.status == proto.STATUS_OK, "crypto md5 should succeed")
+    local digest = ndk.getData(ctx, 16, proto.CRYPTO_OUTPUT_OFFSET)
+    local expected = proto.hex_to_bin("900150983cd24fb0d6963f7d28e17f72")
+    assert(digest == expected, "crypto md5 digest mismatch")
+end
+
+function tests.test_crypto_crc32_matches_reference_implementation()
+    local ctx, err = ndk.rv32i(IMAGE, 32 * 1024, 1024)
+    assert(ctx, tostring(err))
+    local payload = "123456789"
+    local cmd = proto.pack_crypto_crc32_cmd(proto.CRYPTO_INPUT_OFFSET, #payload, 0xFFFFFFFF)
+    local pad = string.rep("\0", proto.CRYPTO_INPUT_OFFSET - #cmd)
+    local result = run_payload_with_reset(ctx, cmd .. pad .. payload, true)
+    assert(result.status == proto.STATUS_OK, "crypto crc32 should succeed")
+    local expected = crc32_ref(payload, 0xFFFFFFFF)
+    assert(result.value0 == expected, string.format("expected crc32 0x%08X got 0x%08X", expected, result.value0))
+end
+
+function tests.test_crypto_md5_rejects_exchange_bounds_overflow()
+    local ctx, err = ndk.rv32i(IMAGE, 32 * 1024, 1024)
+    assert(ctx, tostring(err))
+    local payload = "xx"
+    local bad_output_offset = 1020
+    local cmd = proto.pack_crypto_md5_cmd(proto.CRYPTO_INPUT_OFFSET, #payload, bad_output_offset)
+    local pad = string.rep("\0", proto.CRYPTO_INPUT_OFFSET - #cmd)
+    local result = run_payload_with_reset(ctx, cmd .. pad .. payload, true)
+    assert(result.status == proto.STATUS_CRYPTO_BAD_BOUNDS,
+        string.format("expected STATUS_CRYPTO_BAD_BOUNDS (%d), got %d", proto.STATUS_CRYPTO_BAD_BOUNDS, result.status))
+end
+
+function tests.test_crypto_crc32_rejects_out_of_bounds_input()
+    local ctx, err = ndk.rv32i(IMAGE, 32 * 1024, 1024)
+    assert(ctx, tostring(err))
+    local result = run_cmd(ctx, proto.CMD_CRYPTO_CRC32, 1000, 64, 0xFFFFFFFF)
+    assert(result.status == proto.STATUS_CRYPTO_BAD_BOUNDS,
+        string.format("expected STATUS_CRYPTO_BAD_BOUNDS (%d), got %d", proto.STATUS_CRYPTO_BAD_BOUNDS, result.status))
 end
 
 function tests.test_rv32c_compressed_binary_exists()

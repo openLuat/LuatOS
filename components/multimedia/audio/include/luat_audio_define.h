@@ -24,13 +24,14 @@ enum {
     LUAT_AUDIO_CHANNEL_RIGHT,              /**< 右声道模式 */
     LUAT_AUDIO_CHANNEL_STEREO,             /**< 立体声模式 (双声道) */
 
-    LUAT_AUDIO_DRIVER_TYPE_I2S = 0,        /**< I2S 接口驱动 */
+    LUAT_AUDIO_DRIVER_TYPE_NONE = 0,     /**< 无驱动类型 */
+    LUAT_AUDIO_DRIVER_TYPE_I2S,        /**< I2S 接口驱动 */
     LUAT_AUDIO_DRIVER_TYPE_DAC,            /**< DAC 接口驱动（仅播放） */
     LUAT_AUDIO_DRIVER_TYPE_ADC,            /**< ADC 接口驱动（仅录音） */
-    LUAT_AUDIO_DRIVER_TYPE_DAC_ADC,        /**< DAC+ADC 组合驱动 */
-    LUAT_AUDIO_DRIVER_TYPE_DAC_I2S,        /**< DAC+I2S 组合驱动 */
-    LUAT_AUDIO_DRIVER_TYPE_ADC_I2S,        /**< ADC+I2S 组合驱动 */
     LUAT_AUDIO_DRIVER_TYPE_USB,            /**< USB 音频驱动 */
+    LUAT_AUDIO_DRIVER_TYPE_MAX = 255,            /**< 最大驱动类型 */
+
+
 
     LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_MODE = 0,       /**< I2S 模式参数 */
     LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_FRAME_TYPE,     /**< I2S 帧大小参数 */
@@ -68,6 +69,7 @@ enum {
     LUAT_AUDIO_REQUEST_EVENT_DECODE_DONE,             /**< 解码完成 */
     LUAT_AUDIO_REQUEST_EVENT_END,                     /**< 请求结束 */
     LUAT_AUDIO_REQUEST_ALL_PLAY_DATA_DONE,                /**< 所有播放数据完成 */
+    LUAT_AUDIO_REQUEST_MAX = 255,
 };
 
 /**

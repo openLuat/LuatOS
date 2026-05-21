@@ -3,20 +3,20 @@
 #define HOSTABI_PROTOCOL_H
 
 #include <stdint.h>
-#include "../../../../components/ndk/include/luat_ndk_abi.h"
+#include "../../../include/luat_ndk_abi.h"
 
 /* Command opcodes */
-#define HOSTABI_CMD_QUERY_META  0x01
-#define HOSTABI_CMD_DELAY_US    0x02
-#define HOSTABI_CMD_EVENT_STATE 0x03
-#define HOSTABI_CMD_QUERY_RVC_STATUS 0x04
+#define HOSTABI_CMD_QUERY_META  LUAT_NDK_CMD_QUERY_META
+#define HOSTABI_CMD_DELAY_US    LUAT_NDK_CMD_DELAY_US
+#define HOSTABI_CMD_EVENT_STATE LUAT_NDK_CMD_EVENT_STATE
+#define HOSTABI_CMD_QUERY_RVC_STATUS LUAT_NDK_CMD_QUERY_RVC_STATUS
 
 /* GPIO v2 command opcodes */
-#define HOSTABI_CMD_GPIO_CONFIG     0x10
-#define HOSTABI_CMD_GPIO_WRITE      0x11
-#define HOSTABI_CMD_GPIO_READ       0x12
-#define HOSTABI_CMD_GPIO_IRQ_STATE  0x13
-#define HOSTABI_CMD_GPIO_IRQ_CLEAR  0x14
+#define HOSTABI_CMD_GPIO_CONFIG     LUAT_NDK_CMD_GPIO_CONFIG
+#define HOSTABI_CMD_GPIO_WRITE      LUAT_NDK_CMD_GPIO_WRITE
+#define HOSTABI_CMD_GPIO_READ       LUAT_NDK_CMD_GPIO_READ
+#define HOSTABI_CMD_GPIO_IRQ_STATE  LUAT_NDK_CMD_GPIO_IRQ_STATE
+#define HOSTABI_CMD_GPIO_IRQ_CLEAR  LUAT_NDK_CMD_GPIO_IRQ_CLEAR
 
 /* UART v1 command opcodes
  *   UART_CONFIG:  arg0=port, arg1=cfg_offset, arg2=cfg_len
@@ -28,11 +28,20 @@
  *                 host copies received bytes into exchange[payload_offset..]
  *   UART_RX_CLEAR: arg0=port
  */
-#define HOSTABI_CMD_UART_CONFIG    0x20
-#define HOSTABI_CMD_UART_TX        0x21
-#define HOSTABI_CMD_UART_RX_STATE  0x22
-#define HOSTABI_CMD_UART_RX_READ   0x23
-#define HOSTABI_CMD_UART_RX_CLEAR  0x24
+#define HOSTABI_CMD_UART_CONFIG    LUAT_NDK_CMD_UART_CONFIG
+#define HOSTABI_CMD_UART_TX        LUAT_NDK_CMD_UART_TX
+#define HOSTABI_CMD_UART_RX_STATE  LUAT_NDK_CMD_UART_RX_STATE
+#define HOSTABI_CMD_UART_RX_READ   LUAT_NDK_CMD_UART_RX_READ
+#define HOSTABI_CMD_UART_RX_CLEAR  LUAT_NDK_CMD_UART_RX_CLEAR
+
+/* CRYPTO v1 command opcodes
+ *   CRYPTO_MD5:   arg0=input_offset, arg1=input_len, arg2=output_offset(16 bytes)
+ *                 output digest written to exchange[output_offset..output_offset+15]
+ *   CRYPTO_CRC32: arg0=input_offset, arg1=input_len
+ *                 return value0=crc32(start=0xFFFFFFFF, poly=0x04C11DB7)
+ */
+#define HOSTABI_CMD_CRYPTO_MD5    LUAT_NDK_CMD_CRYPTO_MD5
+#define HOSTABI_CMD_CRYPTO_CRC32  LUAT_NDK_CMD_CRYPTO_CRC32
 
 /* UART v1 buffer offsets */
 #define HOSTABI_UART_CFG_OFFSET     128u
@@ -54,6 +63,11 @@
 #define HOSTABI_STATUS_UART_BAD_LENGTH 22u
 #define HOSTABI_STATUS_UART_BUSY       23u
 #define HOSTABI_STATUS_UART_OVERFLOW   24u
+
+/* CRYPTO v1 status codes */
+#define HOSTABI_STATUS_CRYPTO_BAD_ARG      LUAT_NDK_CRYPTO_STATUS_BAD_ARG
+#define HOSTABI_STATUS_CRYPTO_BAD_BOUNDS   LUAT_NDK_CRYPTO_STATUS_BAD_BOUNDS
+#define HOSTABI_STATUS_CRYPTO_UNSUPPORTED  LUAT_NDK_CRYPTO_STATUS_UNSUPPORTED
 
 /* Command structure (16 bytes) */
 typedef struct {

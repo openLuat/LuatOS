@@ -23,8 +23,15 @@
 
 typedef struct luat_audio_driver_probe
 {
-    uint8_t bus_type;
-    uint8_t bus_id;
+    union {
+        struct {
+            uint8_t tx_bus_type;
+            uint8_t tx_bus_id;
+            uint8_t rx_bus_type;
+            uint8_t rx_bus_id;
+        };
+        uint32_t probe_id;
+    };
 } luat_audio_driver_probe_t;
 
 /**

@@ -4,6 +4,14 @@
 
 本文档既是**运行时 API 参考**，也是**从零重建与验证指南**。
 
+## RV32F 当前支持说明（阶段性）
+
+- 通过 `ndk.rv32i(..., { isa = "rv32imf" })` 启用单精度浮点扩展。
+- 当前已覆盖常见编译器发射路径：`FLW/FSW`、`FMV.*`、`FADD/FSUB/FMUL/FDIV/FSQRT.S/FMADD.S/FMSUB.S/FNMSUB.S/FNMADD.S`、`FMIN/FMAX.S`、`FEQ/FLT/FLE.S`、`FCLASS.S`、`FCVT.S.W/WU`、`FCVT.W/WU.S`。
+- 当前 host-backed rounding 支持 `RNE/RTZ/RDN/RUP`（`rm/frm = 0..3`）。
+- `RMM`（`rm/frm = 4`）**当前仍未支持**，遇到该 rounding mode 会按非法指令路径处理（阶段性限制，后续再扩展）。
+- 已补充 `RMM` 限制回归：`baremetal_fadd_rmm_static.bin`（`rm=4`）与 `baremetal_fadd_rmm_dynamic.bin`（`frm=4 + rm=dyn`）在 `rv32imf` 模式下都应触发非法指令 trap。
+
 ---
 
 ## 目录
@@ -18,8 +26,7 @@
 8. [运行时 API 参考](#运行时-api-参考)
 9. [CSR/MMIO 接口](#csrmmio-接口)
 10. [Host ABI v1 / GPIO v2 / UART v1](#host-abi-v1--gpio-v2--uart-v1)
-11. [RV32C 压缩指令支持与兼容性](#rv32c-压缩指令支持与兼容性)
-12. [最小使用示例](#最小使用示例)
+11. [最小使用示例](#最小使用示例)
 
 ---
 
@@ -28,32 +35,26 @@
 如果你已经有了可用的构建环境，直接执行：
 
 ```powershell
-# 1.
-Set-Location D:\github\LuatOS\testcase\ndk\guest
+# 1. 重建 ndk_basic guest 镜像（可选，如果二进制已是最新则跳过）
+cd components\ndk\guest\fixtures\rv32f_regression
+cmd /c build.bat
 
-# 2.
+# 2. 重建 hostabi fixture（含 crypto + RV32C 回归镜像）
+cd ..\..\
 .\build_hostabi_v1.ps1
 
-# 3.
-Set-Location D:\github\LuatOS\testcase\ndk\ndk_basic\guest
-
-# 4.
-.\build.ps1
-
-# 5.
-Set-Location D:\github\LuatOS\bsp\pc
-
-# 6.
+# 3. 构建 PC 模拟器
+cd ..\..\..\..\bsp\pc
 cmd /c build_windows_32bit_msvc.bat
 
-# 7.
-.\build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_basic\scripts\
+# 4. 运行 hostabi 回归（含 crypto 命令链）
+build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_hostabi_basic\scripts\
 
-# 8.
-.\build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_hostabi_basic\scripts\
+# 5. 运行 ndk_basic 回归
+build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_basic\scripts\
 ```
 
-期望输出：所有测试套件 `Total: N passed, 0 failed`
+期望输出：`Total: N passed, 0 failed`（当前基线：`ndk_hostabi_basic` 为 `39 passed, 0 failed`；`ndk_basic` 为 `42 passed, 0 failed`）
 
 ---
 
@@ -100,48 +101,39 @@ llvm-objcopy --version
 
 ## Guest 镜像重建
 
-**何时需要：** 修改了 `testcase/ndk/ndk_basic/guest/main.c` 或 `link.ld` 后。
+**何时需要：** 修改了 `components/ndk/guest/fixtures/rv32f_regression/main.c` 或 `link.ld` 后。
 
 ### 自动构建（推荐）
 
 ```powershell
-cd testcase\ndk\ndk_basic\guest
+cd components\ndk\guest\fixtures\rv32f_regression
 cmd /c build.bat
 ```
 
 脚本会：
 1. 自动检测可用工具链（GNU > LLVM）
-2. **同时编译两个指令集变体**：
-   - **RV32IMA** (`-march=rv32ima_zicsr`)：传统 32 位定宽指令
-   - **RV32IMAC** (`-march=rv32imac_zicsr`)：带 C 扩展的 16/32 位混合指令（更紧凑，约节省 15-25% 代码体积）
-3. **自动同步**二进制到目标位置：
-   - `testcase/ndk/ndk_basic/scripts/baremetal.bin` (RV32IMA)
-   - `testcase/ndk/ndk_basic/scripts/baremetal_rvc.bin` (RV32IMAC)
-   - `bsp/pc/test/113.ndk_simple/baremetal.bin` (RV32IMA，快速测试用)
-   - `bsp/pc/test/113.ndk_simple/baremetal_rvc.bin` (RV32IMAC，快速测试用)
+2. 编译 `main.c` 生成 RV32IMA flat binary
+3. **自动同步**二进制到两个位置：
+   - `testcase/ndk/ndk_basic/scripts/baremetal.bin`（testcase 使用）
+   - `bsp/pc/test/113.ndk_simple/baremetal.bin`（PC 快速测试）
 
 ### 输出产物
 
 | 文件 | 位置 | 说明 |
 |------|------|------|
-| `baremetal.elf` | `guest/build/` | RV32IMA 带符号的 ELF（调试用） |
-| `baremetal.bin` | `guest/build/` | RV32IMA flat binary（约 315 字节） |
-| `baremetal_rvc.elf` | `guest/build/` | RV32IMAC 带符号的 ELF（调试用） |
-| `baremetal_rvc.bin` | `guest/build/` | RV32IMAC flat binary（约 240-260 字节，具体大小随工具链略有变化） |
-| `baremetal.map` | `guest/build/` | RV32IMA 链接映射表 |
-| `baremetal_rvc.map` | `guest/build/` | RV32IMAC 链接映射表 |
-| ↳ 同步到 | `../scripts/baremetal.bin` | ndk_basic 测试镜像 (RV32IMA) |
-| ↳ 同步到 | `../scripts/baremetal_rvc.bin` | ndk_basic 测试镜像 (RV32IMAC) |
-| ↳ 同步到 | `../../../../bsp/pc/test/113.ndk_simple/baremetal.bin` | PC 快速测试 (RV32IMA) |
-| ↳ 同步到 | `../../../../bsp/pc/test/113.ndk_simple/baremetal_rvc.bin` | PC 快速测试 (RV32IMAC) |
+| `baremetal.elf` | `guest/build/` | 带符号的 ELF（调试用） |
+| `baremetal.bin` | `guest/build/` | Flat binary（约 315 字节，具体大小会随工具链略有变化） |
+| `baremetal.map` | `guest/build/` | 链接映射表 |
+| ↳ 同步到 | `../scripts/baremetal.bin` | testcase 测试镜像 |
+| ↳ 同步到 | `../../../../../bsp/pc/test/113.ndk_simple/baremetal.bin` | PC 快速测试 |
 
 ### 手动构建（调试用）
 
 ```powershell
-cd testcase\ndk\ndk_basic\guest
+cd components\ndk\guest\fixtures\rv32f_regression
 mkdir build -ErrorAction SilentlyContinue
 
-# RV32IMA 变体（传统 32 位指令）
+# GNU 工具链
 riscv64-unknown-elf-gcc -march=rv32ima_zicsr -mabi=ilp32 `
   -ffreestanding -nostdlib -fno-stack-protector `
   -fdata-sections -ffunction-sections -Os -g `
@@ -150,20 +142,9 @@ riscv64-unknown-elf-gcc -march=rv32ima_zicsr -mabi=ilp32 `
 
 riscv64-unknown-elf-objcopy -O binary build\baremetal.elf build\baremetal.bin
 
-# RV32IMAC 变体（压缩指令）
-riscv64-unknown-elf-gcc -march=rv32imac_zicsr -mabi=ilp32 `
-  -ffreestanding -nostdlib -fno-stack-protector `
-  -fdata-sections -ffunction-sections -Os -g `
-  -Wl,-T,link.ld -Wl,-Map,build\baremetal_rvc.map -Wl,--gc-sections `
-  -o build\baremetal_rvc.elf main.c rvc_smoke.S
-
-riscv64-unknown-elf-objcopy -O binary build\baremetal_rvc.elf build\baremetal_rvc.bin
-
 # 手动同步
 copy build\baremetal.bin ..\scripts\baremetal.bin
-copy build\baremetal_rvc.bin ..\scripts\baremetal_rvc.bin
-copy build\baremetal.bin ..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal.bin
-copy build\baremetal_rvc.bin ..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal_rvc.bin
+copy build\baremetal.bin ..\..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal.bin
 ```
 
 ---
@@ -228,29 +209,11 @@ git clone https://gitee.com/openLuat/LuatOS.git
 cd LuatOS
 ```
 
-### Step 3: 重建 Host ABI v1 Guest 镜像
+### Step 3: 重建 Guest 镜像
 
 ```powershell
-Set-Location D:\github\LuatOS\testcase\ndk\guest
-.\build_hostabi_v1.ps1
-```
-
-期望输出：
-```
-=== Building Host ABI v1 fixture ===
-Using GNU toolchain: riscv64-unknown-elf
-...
-=== Build successful ===
-  Output: ..\ndk_hostabi_basic\scripts\hostabi_v1.bin (XXX bytes)
-  Output: ..\ndk_hostabi_basic\scripts\hostabi_v1_rvc.bin (XXX bytes)
-=== All done! ===
-```
-
-### Step 4: 重建 ndk_basic Guest 镜像
-
-```powershell
-Set-Location D:\github\LuatOS\testcase\ndk\ndk_basic\guest
-.\build.ps1
+cd components\ndk\guest\fixtures\rv32f_regression
+cmd /c build.bat
 ```
 
 期望输出：
@@ -259,20 +222,31 @@ Set-Location D:\github\LuatOS\testcase\ndk\ndk_basic\guest
 Using GNU toolchain: riscv64-unknown-elf
 ...
 === Build successful ===
-  RV32IMA:  build\baremetal.bin (315 bytes)
-  RV32IMAC: build\baremetal_rvc.bin (240-260 bytes)
+  BIN: build\baremetal.bin (315 bytes)
 ...
-=== Syncing binaries to target locations ===
-  Copying to: ...\testcase\ndk\ndk_basic\scripts\
+=== Syncing binary to target locations ===
+  Copying to: ...\testcase\ndk\ndk_basic\scripts\baremetal.bin
   Copying to: ...\bsp\pc\test\113.ndk_simple\baremetal.bin
-  Copying to: ...\bsp\pc\test\113.ndk_simple\baremetal_rvc.bin
 === All done! ===
+```
+
+### Step 4: 重建 Host ABI fixture（含 crypto + RV32C）
+
+```powershell
+cd ..\..\
+.\build_hostabi_v1.ps1
+```
+
+期望输出包含：
+```
+[build] Success: hostabi_v1.bin (...)
+[build] Success: hostabi_v1_rvc.bin (...)
 ```
 
 ### Step 5: 构建 PC 模拟器
 
 ```powershell
-Set-Location D:\github\LuatOS\bsp\pc
+cd ..\..\..\..\bsp\pc
 cmd /c build_windows_32bit_msvc.bat
 ```
 
@@ -281,31 +255,17 @@ cmd /c build_windows_32bit_msvc.bat
 [pc-build] Build completed successfully
 ```
 
-### Step 6: 运行 ndk_basic 测试
+### Step 6: 运行 hostabi suite（含 crypto 命令链）
 
 ```powershell
-.\build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_basic\scripts\
+build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_hostabi_basic\scripts\
 ```
 
-期望输出：
-```
-[I]/testcase/ndk/ndk_basic/scripts/main.lua:XX ndk test result Total: 9 passed, 0 failed
-```
-
-（包括 RV32IMA 和 RV32IMAC 执行覆盖，以及边界条件回归测试）
-
-### Step 7: 运行 Host ABI 回归测试
+### Step 7: 运行 ndk_basic suite
 
 ```powershell
-.\build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_hostabi_basic\scripts\
+build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_basic\scripts\
 ```
-
-期望输出：
-```
-[I]/testcase/ndk/ndk_hostabi_basic/scripts/main.lua:XX ndk Host ABI v1 test result Total: 34 passed, 0 failed
-```
-
-（包括 RV32IMAC Host ABI fixture 的 CSR 语义验证和压缩指令执行覆盖）
 
 ---
 
@@ -314,7 +274,7 @@ cmd /c build_windows_32bit_msvc.bat
 ### 成功输出示例
 
 ```
-[I]/testcase/ndk/ndk_basic/scripts/main.lua:15 ndk test result Total: 5 passed, 0 failed
+[I]/testcase/ndk/ndk_basic/scripts/main.lua:15 ndk test result Total: N passed, 0 failed
 ```
 
 ### 关键日志（调试级别）
@@ -380,11 +340,11 @@ Control Store: set val to 00005555
 **原因**：`build.bat` 自动同步机制依赖相对路径
 
 **解决**：
-1. 确保在 `testcase/ndk/ndk_basic/guest/` 目录内运行 `build.bat`
+1. 确保在 `components/ndk/guest/fixtures/rv32f_regression/` 目录内运行 `build.bat`（或使用兼容入口 `testcase/ndk/ndk_basic/guest/build.bat`）
 2. 手动验证同步：
    ```powershell
    ls ..\scripts\baremetal.bin
-   ls ..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal.bin
+   ls ..\..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal.bin
    ```
 
 ### Q3: PC 模拟器构建失败（MSVC 错误）
@@ -413,7 +373,7 @@ Control Store: set val to 00005555
 1. 确保 `testcase/ndk/ndk_basic/scripts/baremetal.bin` 存在
 2. 重新运行 guest 构建（会自动同步）：
    ```powershell
-   cd testcase\ndk\ndk_basic\guest
+   cd components\ndk\guest\fixtures\rv32f_regression
    cmd /c build.bat
    ```
 
@@ -424,13 +384,13 @@ Control Store: set val to 00005555
 **完整流程**：
 ```powershell
 # 1. 重建 guest
-cd testcase\ndk\ndk_basic\guest
+cd components\ndk\guest\fixtures\rv32f_regression
 cmd /c build.bat
 
 # 2. 不需要重建 PC（guest 是运行时加载的）
 
 # 3. 直接测试
-cd ..\..\..\..\bsp\pc
+cd ..\..\..\..\..\bsp\pc
 build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_basic\scripts\
 ```
 
@@ -656,7 +616,7 @@ asm volatile("csrr %0, 0x139" : "=r"(exchange_addr));
 - 时间/事件核心：`delay_us`、`time_us_lo/hi`、`event_enable`、`event_pending`
 - GPIO v2：`GPIO_CONFIG`、`GPIO_WRITE`、`GPIO_READ`、`GPIO_IRQ_STATE`、`GPIO_IRQ_CLEAR`
 - UART v1：`UART_CONFIG`、`UART_TX`、`UART_RX_STATE`、`UART_RX_READ`、`UART_RX_CLEAR`
-- PC 回归 fixture：`testcase\ndk\guest\hostabi_v1`
+- PC 回归 fixture：`components\ndk\guest\fixtures\hostabi_v1`
 
 交换区布局：
 
@@ -724,7 +684,7 @@ GPIO IRQ 事件语义：
 重建 guest fixture：
 
 ```powershell
-Set-Location testcase\ndk\guest
+Set-Location components\ndk\guest
 .\build_hostabi_v1.ps1
 ```
 
@@ -735,169 +695,6 @@ Set-Location bsp\pc
 cmd /c build_windows_32bit_msvc.bat
 build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_hostabi_basic\scripts\
 ```
-
----
-
-## RV32C 压缩指令支持与兼容性
-
-### 概述
-
-LuatOS NDK 同时支持：
-
-- **RV32IMA / RV32IMA_ZICSR**（传统 32 位定宽指令集）
-- **RV32IMAC / RV32IMAC_ZICSR**（带 C 扩展的 16/32 位混合指令集，本次变更后支持）
-
-Guest 应用代码可以使用 `-march=rv32imac` 编译，生成更紧凑的二进制镜像（代码体积通常减少 15-25%）。Mini-rv32ima 解释器已正确实现 RV32C 解码与执行。
-
-#### ISA 支持矩阵
-
-| ISA 组合 | 支持状态 | 说明 |
-|---------|---------|------|
-| **rv32ima** | ✅ 完全支持 | 传统 32 位定宽指令集 |
-| **rv32ima_zicsr** | ✅ 完全支持 | 推荐用于需要 CSR 访问的应用 |
-| **rv32imac** | ✅ 完全支持 | 带 C 扩展的压缩指令（本次变更后支持） |
-| **rv32imac_zicsr** | ✅ 完全支持 | 推荐用于压缩模式 + CSR 访问（本次变更后支持） |
-| rv64/rv128 | ❌ 不支持 | 仅支持 32 位架构 |
-| F/D/V 扩展 | ❌ 不支持 | 无浮点/向量支持 |
-| Zb*/Zk* 等其他扩展 | ❌ 不支持 | 仅限上述基本 ISA 组合 |
-
-#### 性能考虑
-
-**压缩指令的权衡**：
-
-- ✅ **优势**：代码体积减少 15-25%，节省内存/存储
-- ⚠️ **劣势**：解释器需要**解压缩**指令流，每次取指增加额外开销
-  - RV32C 指令需要先解码为 32 位等价指令，再执行
-  - 对于计算密集型任务，fetch 开销可能抵消体积收益
-  - 对于 I/O 密集型或内存受限任务，体积优势更明显
-
-**推荐策略**：
-- **默认使用 RV32IMA**：已有工具链/测试充分验证
-- **仅在内存/存储极度受限时启用 RV32IMAC**：如嵌入式存储 < 64KB 场景
-- **性能关键路径避免压缩指令**：hotspot 函数可用 `-fno-compress` 单独编译（部分工具链支持）
-
-### CSR Helper 固定宽度保证
-
-#### `.option norvc` 使用范围
-
-所有 CSR 访问指令（`csrr`/`csrrw`）在 **inline asm 块内局部禁用压缩**：
-
-```c
-// luat_ndk_builtin.h / ndk_stubs.c 中的典型模式
-static inline uint32_t ndk_exchange_base(void) {
-    uint32_t v = 0;
-    __asm__ volatile(".option norvc\ncsrr %0, %1" : "=r"(v) : "i"(NDK_CSR_EXCHANGE_BASE));
-    return v;
-}
-```
-
-**设计原则**：
-
-1. **局部作用域**：每个 `.option norvc` 仅影响其所在的单条 inline asm 语句，**不影响整个编译单元**
-2. **固定宽度 CSR**：CSR 指令保持 32 位编码，确保 host 侧解释器的 CSR 拦截逻辑无需处理压缩指令变体
-3. **应用代码自由**：guest 应用代码（非 CSR wrapper）可自由使用 RV32C 压缩指令，由编译器 `-march=rv32imac` 控制
-
-#### 为何 CSR 不压缩
-
-RISC-V C 扩展不包含 CSR 指令的压缩形式（`csrr`/`csrrw` 无 16 位编码）。`.option norvc` 是**防御性编码**，防止未来工具链优化或非标准扩展意外修改 CSR 指令长度。
-
-### 兼容性边界
-
-| 组件 | 指令集 | 压缩指令 | 说明 |
-|------|--------|----------|------|
-| **CSR Helper** | RV32IMA | ❌ 禁用 | 所有 `luat_ndk_builtin.h` / `ndk_stubs.c` 内的 CSR inline asm 使用 `.option norvc` |
-| **Guest 应用代码** | RV32IMAC | ✅ 允许 | 编译标志 `-march=rv32imac` / `-march=rv32ima` 均支持 |
-| **Host 解释器** | N/A | ✅ 支持 | Mini-rv32ima 正确解码并执行 RV32C |
-
-### Host ABI 兼容性声明
-
-**重要**：RV32C 支持是 **guest 代码优化特性**，不改变 Host ABI 语义：
-
-- **不新增 Host ABI 命令族**（GPIO v2 / UART v1 保持不变）
-- **不修改现有 CSR 编码或语义**（所有 CSR 号与行为与 RV32IMA 版本完全一致）
-- **构建时验证**：guest build 脚本编译并检查 RV32IMAC 镜像包含压缩指令（反汇编验证）
-- **运行时兼容性**：RV32IMA Host ABI 测试（`ndk_hostabi_basic`）确保 CSR helper 语义不变（RV32C 执行覆盖由基础测试提供）
-
-### 构建与验证
-
-#### Guest 镜像变体
-
-所有 guest build 脚本自动生成两个变体：
-
-```powershell
-# ndk_basic 测试镜像
-cd testcase\ndk\ndk_basic\guest
-.\build.ps1
-
-# 输出：
-#   build/baremetal.bin      (rv32ima_zicsr, ~315 bytes)
-#   build/baremetal_rvc.bin  (rv32imac_zicsr, ~240-260 bytes)
-
-# Host ABI v1 fixture
-cd testcase\ndk\guest
-.\build_hostabi_v1.ps1
-
-# 输出：
-#   testcase\ndk\ndk_hostabi_basic\scripts\hostabi_v1.bin     (rv32ima_zicsr)
-#   testcase\ndk\ndk_hostabi_basic\scripts\hostabi_v1_rvc.bin (rv32imac_zicsr)
-```
-
-#### 完整验证序列
-
-**CRITICAL**: 以下是完整的端到端验证流程，包括所有 RV32C 覆盖：
-
-```powershell
-# 1.
-Set-Location D:\github\LuatOS\testcase\ndk\guest
-
-# 2.
-.\build_hostabi_v1.ps1
-
-# 3.
-Set-Location D:\github\LuatOS\testcase\ndk\ndk_basic\guest
-
-# 4.
-.\build.ps1
-
-# 5.
-Set-Location D:\github\LuatOS\bsp\pc
-
-# 6.
-cmd /c build_windows_32bit_msvc.bat
-
-# 7.
-.\build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_basic\scripts\
-
-# 8.
-.\build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_hostabi_basic\scripts\
-```
-
-#### 期望结果
-
-1. **ndk_basic**（Step 7）:
-   ```
-   [I]/testcase/ndk/ndk_basic/scripts/main.lua:XX ndk test result Total: 9 passed, 0 failed
-   ```
-   - ✅ RV32IMA 执行（`baremetal.bin`）
-   - ✅ RV32IMAC 执行（`baremetal_rvc.bin`，含 `c.li`, `c.addi`, `c.jr` 等压缩指令）
-   - ✅ 边界条件回归（非法 PC / 未对齐访问）
-
-2. **ndk_hostabi_basic**（Step 8）:
-   ```
-   [I]/testcase/ndk/ndk_hostabi_basic/scripts/main.lua:XX ndk Host ABI v1 test result Total: 34 passed, 0 failed
-   ```
-   - ✅ RV32IMA Host ABI fixture（CSR 语义验证）
-   - ✅ RV32IMAC Host ABI fixture（压缩指令 + CSR 语义验证）
-   - ✅ GPIO v2 / UART v1 完整回归
-
-### 相关文件
-
-| 文件 | 说明 |
-|------|------|
-| `components/ndk/include/luat_ndk_builtin.h` | CSR helper 定义（所有函数含 `.option norvc`） |
-| `testcase/ndk/guest/hostabi_v1/ndk_stubs.c` | Host ABI fixture（所有 CSR asm 含 `.option norvc`） |
-| `testcase/ndk/ndk_basic/guest/rvc_smoke.S` | RV32C 手写汇编烟雾测试 |
-| `testcase/ndk/guest/hostabi_v1/rvc_smoke.S` | Host ABI fixture 的 RV32C 烟雾测试 |
 
 ---
 
@@ -938,8 +735,10 @@ collectgarbage("collect")
 
 ## 相关文档
 
-- **Guest 源码与构建**：`testcase/ndk/ndk_basic/guest/README.md`
-- **Testcase 说明**：`testcase/ndk/ndk_basic/README.md`
+- **Guest 源码与构建（canonical）**：`components/ndk/guest/fixtures/rv32f_regression/README.md`
+- **Host ABI fixture（canonical）**：`components/ndk/guest/fixtures/hostabi_v1/README.md`
+- **ndk_basic 兼容入口说明**：`testcase/ndk/ndk_basic/guest/README.md`
+- **hostabi 兼容入口说明**：`testcase/ndk/guest/hostabi_v1/README.md`
 - **Runtime 实现**：`components/ndk/src/luat_ndk.c`
 - **CSR 处理器**：`components/ndk/src/luat_ndk_host.c`
 - **mini-rv32ima 上游**：https://github.com/cnlohr/mini-rv32ima

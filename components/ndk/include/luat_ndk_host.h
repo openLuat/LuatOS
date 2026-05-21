@@ -23,3 +23,7 @@ void luat_ndk_gpio_reset(luat_ndk_t *ctx);
 // UART CSR handling
 uint32_t luat_ndk_uart_csr_write(luat_ndk_t *ctx, uint32_t csrno, uint32_t value);
 void luat_ndk_uart_reset(luat_ndk_t *ctx);
+
+// CRYPTO CSR handling
+uint32_t luat_ndk_crypto_md5_csr_write(luat_ndk_t *ctx, uint32_t value);
+uint32_t luat_ndk_crypto_crc32_csr_write(luat_ndk_t *ctx, uint32_t value);

@@ -19,6 +19,8 @@ M.CMD_UART_TX        = 0x21
 M.CMD_UART_RX_STATE  = 0x22
 M.CMD_UART_RX_READ   = 0x23
 M.CMD_UART_RX_CLEAR  = 0x24
+M.CMD_CRYPTO_MD5     = 0x30
+M.CMD_CRYPTO_CRC32   = 0x31
 
 -- Status codes
 M.STATUS_OK = 0
@@ -35,6 +37,9 @@ M.STATUS_UART_BAD_CONFIG = 21
 M.STATUS_UART_BAD_LENGTH = 22
 M.STATUS_UART_BUSY       = 23
 M.STATUS_UART_OVERFLOW   = 24
+M.STATUS_CRYPTO_BAD_ARG  = 30
+M.STATUS_CRYPTO_BAD_BOUNDS = 31
+M.STATUS_CRYPTO_UNSUPPORTED = 32
 
 -- Protocol constants
 M.HOST_MAGIC = 0x4E444B31  -- "NDK1"
@@ -44,6 +49,7 @@ M.FEATURE_TIME = 1 << 1
 M.FEATURE_EVENT = 1 << 2
 M.FEATURE_GPIO = 1 << 3
 M.FEATURE_UART = 1 << 4
+M.FEATURE_CRYPTO = 1 << 5
 M.RESULT_OFFSET = 16
 M.RESULT_SIZE = 16
 
@@ -51,6 +57,8 @@ M.RESULT_SIZE = 16
 M.UART_CFG_OFFSET     = 128
 M.UART_PAYLOAD_OFFSET = 256
 M.UART_PORT_LOOPBACK  = 0x20
+M.CRYPTO_INPUT_OFFSET = 384
+M.CRYPTO_OUTPUT_OFFSET = 900
 
 -- Event constants
 M.EVENT_HEADER_OFFSET = 32  -- Event header starts at offset 32 (after command + result)
@@ -173,6 +181,20 @@ function M.decode_uart_rx_ready_event(event)
         reason       = (event.data >> 8) & 0xFF,
         buffered_len = (event.data >> 16) & 0xFFFF,
     }
+end
+
+function M.pack_crypto_md5_cmd(input_offset, input_len, output_offset)
+    return M.pack_cmd(M.CMD_CRYPTO_MD5, input_offset or 0, input_len or 0, output_offset or 0)
+end
+
+function M.pack_crypto_crc32_cmd(input_offset, input_len, start)
+    return M.pack_cmd(M.CMD_CRYPTO_CRC32, input_offset or 0, input_len or 0, start or 0xFFFFFFFF)
+end
+
+function M.hex_to_bin(hex)
+    return (hex:gsub("..", function(cc)
+        return string.char(tonumber(cc, 16))
+    end))
 end
 
 return M

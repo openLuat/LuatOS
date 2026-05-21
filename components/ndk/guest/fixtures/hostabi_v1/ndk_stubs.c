@@ -184,3 +184,15 @@ unsigned int ndk_uart_rx_clear(unsigned int port) {
     __asm__ volatile(".option norvc\ncsrrw a0, 0x224, a0" : "+r"(a0));
     return a0;
 }
+
+unsigned int ndk_crypto_md5(unsigned int input_offset, unsigned int input_len, unsigned int output_offset) {
+    register unsigned int a0 __asm__("a0") = LUAT_NDK_CRYPTO_MD5_PACK(input_offset, input_len, output_offset);
+    __asm__ volatile(".option norvc\ncsrrw a0, 0x230, a0" : "+r"(a0));
+    return a0;
+}
+
+unsigned int ndk_crypto_crc32(unsigned int input_offset, unsigned int input_len) {
+    register unsigned int a0 __asm__("a0") = LUAT_NDK_CRYPTO_CRC32_PACK(input_offset, input_len);
+    __asm__ volatile(".option norvc\ncsrrw a0, 0x231, a0" : "+r"(a0));
+    return a0;
+}

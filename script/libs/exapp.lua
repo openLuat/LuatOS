@@ -389,7 +389,7 @@ local function iot_gen_device_uid()
     if device_uid then return device_uid end
     local model = rtos.bsp()
     if model:find("Air1601") or model:find("Air1602")  or model:find("PC") then
-        device_uid = mcu.unique_id()
+        device_uid = mcu.unique_id() or "PC"
     elseif model:find("Air8101") or model:find("Air6205") then
         -- WiFi MAC 
         device_uid = wlan.getMac()
@@ -1373,11 +1373,55 @@ local function app_task(app_path)
     -- fota 库
     -- 禁止应用使用固件升级功能，替换为错误提示
     my_env.fota = {
+        init = function(...)
+            my_env.log.error("fota", "沙箱环境不允许FOTA升级操作")
+            return -1
+        end,
+        run = function(...)
+            my_env.log.error("fota", "沙箱环境不允许FOTA升级操作")
+            return -1
+        end,
         file = function(...)
             my_env.log.error("fota", "沙箱环境不允许FOTA升级操作")
             return -1
         end,
     }
+
+    -- libfota 库
+    -- 禁止应用使用固件升级功能，替换为错误提示
+    local libfota_lib = safe_global("libfota")
+    my_env.libfota = setmetatable({}, { __index = libfota_lib })
+    my_env.libfota.request = function(...)
+        my_env.log.error("libfota", "沙箱环境不允许FOTA升级操作")
+        return -1
+    end
+
+    -- libfota2 库
+    -- 禁止应用使用固件升级功能，替换为错误提示
+    local libfota2_lib = safe_global("libfota2")
+    my_env.libfota2 = setmetatable({}, { __index = libfota2_lib })
+    my_env.libfota2.request = function(...)
+        my_env.log.error("libfota2", "沙箱环境不允许FOTA升级操作")
+        return -1
+    end
+
+    -- pm 库
+    -- 禁止应用控制系统电源管理，替换为错误提示
+    local pm_lib = safe_global("pm")
+    my_env.pm = setmetatable({}, { __index = pm_lib })
+    my_env.pm.reboot = function(...)
+        my_env.log.error("pm", "沙箱环境不允许系统重启操作")
+        return -1
+    end
+
+    -- rtos 库
+    -- 禁止应用控制系统重启，替换为错误提示
+    local rtos_lib = safe_global("rtos")
+    my_env.rtos = setmetatable({}, { __index = rtos_lib })
+    my_env.rtos.reboot = function(...)
+        my_env.log.error("rtos", "沙箱环境不允许系统重启操作")
+        return -1
+    end
 
     -- ymodem 库
     -- 功能：包装 ymodem.create，支持路径转换
@@ -1438,6 +1482,30 @@ local function app_task(app_path)
     -- install_component(组件名)：对每个 airui 组件类型应用三阶段管道
     local ui = safe_global("airui")
     my_env.airui = setmetatable({}, { __index = ui })
+
+    -- 禁止应用调用 airui.init 重新初始化 UI 系统
+    my_env.airui.init = function(...)
+        my_env.log.error("airui", "沙箱环境不允许重新初始化UI系统")
+        return -1
+    end
+
+    -- lcd 库
+    -- 禁止应用重新初始化 LCD，其他 lcd 接口正常透传
+    local lcd_lib = safe_global("lcd")
+    my_env.lcd = setmetatable({}, { __index = lcd_lib })
+    my_env.lcd.init = function(...)
+        my_env.log.error("lcd", "沙箱环境不允许重新初始化LCD")
+        return -1
+    end
+
+    -- tp 库
+    -- 禁止应用重新初始化触摸面板，其他 tp 接口正常透传
+    local tp_lib = safe_global("tp")
+    my_env.tp = setmetatable({}, { __index = tp_lib })
+    my_env.tp.init = function(...)
+        my_env.log.error("tp", "沙箱环境不允许重新初始化触摸面板")
+        return -1
+    end
 
     -- excloud 库
     -- 功能：包装 excloud.upload_image 和 excloud.upload_audio，支持路径转换
@@ -1738,6 +1806,49 @@ local function app_task(app_path)
         return new_config
     end
 
+    -- Shape 图元坐标缩放：递归处理 items 数组中每个图元的坐标字段
+    local function scale_shape_items(items)
+        if type(items) ~= "table" then return items end
+        local out = {}
+        for i, item in ipairs(items) do
+            if type(item) ~= "table" then
+                out[i] = item
+            else
+                local scaled = cp(item)
+                local item_type = scaled.type
+                -- 公共字段：线宽
+                if type(scaled.width) == "number" then
+                    scaled.width = scale_min_fn(scaled.width)
+                end
+                if item_type == "line" then
+                    if type(scaled.x1) == "number" then scaled.x1 = scale_x_fn(scaled.x1) end
+                    if type(scaled.y1) == "number" then scaled.y1 = scale_y_fn(scaled.y1) end
+                    if type(scaled.x2) == "number" then scaled.x2 = scale_x_fn(scaled.x2) end
+                    if type(scaled.y2) == "number" then scaled.y2 = scale_y_fn(scaled.y2) end
+                    if type(scaled.dash_width) == "number" then scaled.dash_width = scale_min_fn(scaled.dash_width) end
+                    if type(scaled.dash_gap) == "number" then scaled.dash_gap = scale_min_fn(scaled.dash_gap) end
+                elseif item_type == "circle" then
+                    if type(scaled.cx) == "number" then scaled.cx = scale_x_fn(scaled.cx) end
+                    if type(scaled.cy) == "number" then scaled.cy = scale_y_fn(scaled.cy) end
+                    if type(scaled.r) == "number" then scaled.r = scale_min_fn(scaled.r) end
+                elseif item_type == "ellipse" then
+                    if type(scaled.cx) == "number" then scaled.cx = scale_x_fn(scaled.cx) end
+                    if type(scaled.cy) == "number" then scaled.cy = scale_y_fn(scaled.cy) end
+                    if type(scaled.rx) == "number" then scaled.rx = scale_x_fn(scaled.rx) end
+                    if type(scaled.ry) == "number" then scaled.ry = scale_y_fn(scaled.ry) end
+                elseif item_type == "rect" then
+                    if type(scaled.x) == "number" then scaled.x = scale_x_fn(scaled.x) end
+                    if type(scaled.y) == "number" then scaled.y = scale_y_fn(scaled.y) end
+                    if type(scaled.w) == "number" then scaled.w = scale_x_fn(scaled.w) end
+                    if type(scaled.h) == "number" then scaled.h = scale_y_fn(scaled.h) end
+                    if type(scaled.radius) == "number" then scaled.radius = scale_min_fn(scaled.radius) end
+                end
+                out[i] = scaled
+            end
+        end
+        return out
+    end
+
     local function adapt_config(component_name, config)
         if type(config) ~= "table" then return config end
         local new_config = cp(config)
@@ -1808,49 +1919,6 @@ local function app_task(app_path)
         end
         -- 其他参数暂不处理
         return new_config
-    end
-
-    -- Shape 图元坐标缩放：递归处理 items 数组中每个图元的坐标字段
-    local function scale_shape_items(items)
-        if type(items) ~= "table" then return items end
-        local out = {}
-        for i, item in ipairs(items) do
-            if type(item) ~= "table" then
-                out[i] = item
-            else
-                local scaled = cp(item)
-                local item_type = scaled.type
-                -- 公共字段：线宽
-                if type(scaled.width) == "number" then
-                    scaled.width = scale_min_fn(scaled.width)
-                end
-                if item_type == "line" then
-                    if type(scaled.x1) == "number" then scaled.x1 = scale_x_fn(scaled.x1) end
-                    if type(scaled.y1) == "number" then scaled.y1 = scale_y_fn(scaled.y1) end
-                    if type(scaled.x2) == "number" then scaled.x2 = scale_x_fn(scaled.x2) end
-                    if type(scaled.y2) == "number" then scaled.y2 = scale_y_fn(scaled.y2) end
-                    if type(scaled.dash_width) == "number" then scaled.dash_width = scale_min_fn(scaled.dash_width) end
-                    if type(scaled.dash_gap) == "number" then scaled.dash_gap = scale_min_fn(scaled.dash_gap) end
-                elseif item_type == "circle" then
-                    if type(scaled.cx) == "number" then scaled.cx = scale_x_fn(scaled.cx) end
-                    if type(scaled.cy) == "number" then scaled.cy = scale_y_fn(scaled.cy) end
-                    if type(scaled.r) == "number" then scaled.r = scale_min_fn(scaled.r) end
-                elseif item_type == "ellipse" then
-                    if type(scaled.cx) == "number" then scaled.cx = scale_x_fn(scaled.cx) end
-                    if type(scaled.cy) == "number" then scaled.cy = scale_y_fn(scaled.cy) end
-                    if type(scaled.rx) == "number" then scaled.rx = scale_x_fn(scaled.rx) end
-                    if type(scaled.ry) == "number" then scaled.ry = scale_y_fn(scaled.ry) end
-                elseif item_type == "rect" then
-                    if type(scaled.x) == "number" then scaled.x = scale_x_fn(scaled.x) end
-                    if type(scaled.y) == "number" then scaled.y = scale_y_fn(scaled.y) end
-                    if type(scaled.w) == "number" then scaled.w = scale_x_fn(scaled.w) end
-                    if type(scaled.h) == "number" then scaled.h = scale_y_fn(scaled.h) end
-                    if type(scaled.radius) == "number" then scaled.radius = scale_min_fn(scaled.radius) end
-                end
-                out[i] = scaled
-            end
-        end
-        return out
     end
 
     local function userdata_member(raw_obj, orig_index, key)
@@ -2135,6 +2203,12 @@ local function app_task(app_path)
     end
 
     my_env.fskv = setmetatable({}, { __index = _G.fskv })
+
+    -- 禁止应用调用 fskv.init 重新初始化存储系统
+    my_env.fskv.init = function(...)
+        my_env.log.error("fskv", "沙箱环境不允许重新初始化存储系统")
+        return -1
+    end
 
     -- 设置键值对，键名自动添加前缀
     my_env.fskv.set = function(key, value, ...)

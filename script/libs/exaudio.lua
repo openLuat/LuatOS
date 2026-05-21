@@ -769,17 +769,7 @@ function exaudio.play_start(playConfigs)
             if audio.play(MULTIMEDIA_ID) ~= true then
                 return false
             end
-            -- 轮询等待播放结束，最多3秒，避免 sys.waitUntil 的 race condition
-            local wait_count = 0
-            while not audio.isEnd(MULTIMEDIA_ID) and wait_count < 300 do
-                sys.wait(10)
-                wait_count = wait_count + 1
-            end
-            if not audio.isEnd(MULTIMEDIA_ID) then
-                log.warn("exaudio", "等待播放结束超时，强制SHUTDOWN")
-                audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN)
-                audio_play_queue.current_priority = 0
-            end
+            sys.waitUntil(EX_MSG_PLAY_DONE)
             
             -- 将新请求加入队列并立即播放
             audio_play_queue_push_request(request)

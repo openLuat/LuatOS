@@ -102,7 +102,8 @@ typedef struct luat_audio_request_block luat_audio_request_block_t;
  * 此函数用于播放音频文件，支持指定文件路径和播放参数。
  * 
  * @param request_block 音频请求块指针，用于存储播放参数
- * @param probe 音频驱动匹配结构，用于描述驱动的匹配条件，如果为NULL，则使用默认驱动。
+ * @param probe 音频驱动匹配结构，用于指定要使用的音频驱动，如果为NULL，则使用默认驱动。一般不需要指定。
+ * @param codec_opts 音频解码器选项结构，用于指定要使用的音频解码器，如果为NULL，则会自动选择合适的解码器。一般不需要指定。
  * @param files 音频文件信息指针，每个元素为一个音频文件信息，request直接使用该指针，不复制数据，注意数据的生命周期必须大于请求块的生命周期
  * @param files_num 音频文件信息数组的元素数量
  * @param priority 请求优先级，0-255，数值越大优先级越高
@@ -111,7 +112,7 @@ typedef struct luat_audio_request_block luat_audio_request_block_t;
  * @param user_data 用户数据指针，用于传递自定义数据
  * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
-int luat_audio_request_play_files(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, luat_audio_play_file_info_t *files, uint32_t files_num, 
+int luat_audio_request_play_files(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts, luat_audio_play_file_info_t *files, uint32_t files_num, 
     uint8_t priority, uint8_t is_sync,
     luat_audio_request_cb_t cb, void *user_data);
 

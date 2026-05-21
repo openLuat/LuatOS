@@ -69,6 +69,9 @@ static const luaL_Reg loadedlibs[] = {
   {"json", luaopen_cjson},             // json
   {"zbuff", luaopen_zbuff},            // 
   {"crypto", luaopen_crypto},
+#ifdef LUAT_USE_WINDOWS
+  {"hostfenv", luaopen_hostfenv},
+#endif
   {"hmeta", luaopen_hmeta},           // 硬件信息库
 #ifdef LUAT_USE_RSA
   {"rsa", luaopen_rsa},

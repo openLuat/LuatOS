@@ -70,16 +70,37 @@ static int l_ndk_gc(lua_State *L) {
 
 /*
 创建并加载一个RV32镜像
-@api ndk.rv32i(path, mem_size, exchange_size)
+@api ndk.rv32i(path, mem_size, exchange_size, opts)
 @string path 镜像路径
 @int mem_size 可选，沙盒RAM大小，默认 LUAT_NDK_DEFAULT_RAM_SIZE，最大 LUAT_NDK_MAX_RAM_SIZE
 @int exchange_size 可选，交换区大小，默认 LUAT_NDK_DEFAULT_EXCHANGE_SIZE，必须小于 mem_size
+@table opts 可选，目前支持 {isa="rv32ima"|"rv32imf"}
 @return userdata ctx 成功返回上下文，失败返回 nil,err
 */
 static int l_ndk_create(lua_State *L) {
     const char *path = luaL_checkstring(L, 1);
     size_t mem_size = luaL_optinteger(L, 2, 0);
     size_t exch_size = luaL_optinteger(L, 3, 0);
+    const char *isa = NULL;
+
+    if (!lua_isnoneornil(L, 4)) {
+        if (!lua_istable(L, 4)) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "invalid param");
+            return 2;
+        }
+        lua_getfield(L, 4, "isa");
+        if (!lua_isnoneornil(L, -1)) {
+            if (!lua_isstring(L, -1)) {
+                lua_pop(L, 1);
+                lua_pushnil(L);
+                lua_pushliteral(L, "invalid param");
+                return 2;
+            }
+            isa = lua_tostring(L, -1);
+        }
+        lua_pop(L, 1);
+    }
 
     luat_ndk_t *ndk = (luat_ndk_t *)lua_newuserdata(L, sizeof(luat_ndk_t));
     if (!ndk) {
@@ -89,7 +110,7 @@ static int l_ndk_create(lua_State *L) {
     }
     memset(ndk, 0, sizeof(luat_ndk_t));
 
-    int rc = luat_ndk_init(ndk, path, mem_size, exch_size);
+    int rc = luat_ndk_init(ndk, path, mem_size, exch_size, isa);
     if (rc != LUAT_NDK_OK) {
         lua_pop(L, 1);
         lua_pushnil(L);
@@ -297,7 +318,7 @@ static int l_ndk_stop(lua_State *L) {
 获取当前运行状态
 @api ndk.info(ctx)
 @userdata ctx ndk.rv32i 返回的上下文
-@return table 包含 mem/exchange/exchange_addr/image/running/mcause/mtval/abi_magic/abi_version/features/last_error/event_slots，便于判断生命周期状态和ABI能力
+@return table 包含 mem/exchange/exchange_addr/image/running/mcause/mtval/abi_magic/abi_version/features/last_error/event_slots/isa/flen/fcsr/frm/fflags，便于判断生命周期状态和ABI能力
 */
 static int l_ndk_info(lua_State *L) {
     luat_ndk_t *ndk = ndk_check(L, 1);
@@ -326,6 +347,16 @@ static int l_ndk_info(lua_State *L) {
     lua_setfield(L, -2, "last_error");
     lua_pushinteger(L, ndk->event_slots);
     lua_setfield(L, -2, "event_slots");
+    lua_pushstring(L, ndk->isa);
+    lua_setfield(L, -2, "isa");
+    lua_pushinteger(L, ndk->flen);
+    lua_setfield(L, -2, "flen");
+    lua_pushinteger(L, ndk->fcsr);
+    lua_setfield(L, -2, "fcsr");
+    lua_pushinteger(L, (ndk->fcsr >> 5) & 0x7);
+    lua_setfield(L, -2, "frm");
+    lua_pushinteger(L, ndk->fcsr & 0x1F);
+    lua_setfield(L, -2, "fflags");
     return 1;
 }
 

@@ -52,7 +52,7 @@ sip/
 
 ## **三、准备硬件环境**
 
-参考：[硬件环境清单第二章节内容](https://docs.openluat.com/Air780EHV/luatos/common/hwenv/)，准备以及组装好硬件环境。
+参考：[硬件环境清单第二章节内容](https://docs.openluat.com/air780ehv/luatos/common/hwenv/)，准备，并组装好硬件环境。
 
 1. Air780EHV 开发板一块 +SIM 卡一张 +4g 天线一根 + 网线一根，所有硬件环境组装好，实际测试根据需要进行，具体可以参考”演示核心步骤“中的对应操作。
 2. TYPE-C USB 数据线一根，Air780EHV 开发板和数据线的硬件接线方式为：
@@ -67,11 +67,10 @@ sip/
 ### **4.1 工具 + 内核固件 + 脚本**
 
 1. 烧录工具 [Luatools](https://luatos.com/luatools/download/last)；
-2. Air780EHVA V2034 及以上 版本固件，除 11/12/14 和 111/112/114 固件以外，其他均可，如果需要 TTS 播放，则只能选 1/3/5/7/13/16[Air780EHV 固件](https://docs.openluat.com/Air780EHV/luatos/firmware/)本 demo 开发测试时使用的固件为 [Air780EHVA V2034 版本固件](https://cdn18.air32.cn:19443/files/Air780EHV/LuatOS_Air780EHV/LuatOS-SoC_V2034_Air780EHV/) ，如果发现最新版本的内核固件测试有问题，可以使用我们开发本 demo 时使用的内核固件版本来对比测试；
+2. Air780EHV V2034 及以上 版本固件，除 11/12/14 和 111/112/114 固件以外，其他均可，如果需要 TTS 播放，则只能选 1/3/5/7/13/16和101/103/105/107/113[Air780EHV 固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)；本 demo 开发测试时使用的固件为 [Air780EHV V2034 版本固件](https://cdn18.air32.cn:19443/files/Air780EHV/LuatOS_Air780EHV/LuatOS-SoC_V2034_Air780EHV/) ，如果发现最新版本的内核固件测试有问题，可以使用我们开发本 demo 时使用的内核固件版本来对比测试；
 3. luatos 需要的脚本和资源文件
-
 - 脚本和资源文件[点我浏览所有文件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EHV/demo/sip)
-- 准备好软件环境之后，接下来查看[如何使用 LuaTools 烧录软件](https://docs.openluat.com/air780epm/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到 Air780EHVA 开发板中，或者查看 [Air780EHVA 整机开发板使用说明_V1.0.3](https://docs.openluat.com/Air780EHV/product/file/Air780EHV_V2.0%E5%BC%80%E5%8F%91%E6%9D%BF%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E_V1.0.3.pdf) ，将本篇文章中演示使用的项目文件烧录到 Air780EHVA 开发板中。
+- 准备好软件环境之后，接下来查看[如何使用 LuaTools 烧录软件](https://docs.openluat.com/air780epm/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到 Air780EHV 开发板中，或者查看 [Air780EHV 整机开发板使用说明_V1.4](https://docs.openluat.com/air780ehv/product/file/Air780EGP%26EGG%26EHM%26EHU%26EHV%E5%BC%80%E5%8F%91%E6%9D%BF%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8EV1.4.pdf) ，将本篇文章中演示使用的项目文件烧录到 Air780EHV 开发板中。
 - lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件，如果测试有问题，尝试手动添加 libs（..\LuatOS\script\libs）;
 
 ### **4.2 API 介绍**
@@ -1131,7 +1130,7 @@ a=ptime:20</span><br />
 
 ## **七、 总结**
 
-至此，我们通过 Air780EHV 演示了在不同网络状态下的拨号，来电、通话、网络切换通话保持全过程，动手试一试吧：
+至此，我们通过 Air780EHV整机开发板 演示了在不同网络状态下的拨号，来电、通话、网络切换通话保持全过程，动手试一试吧：
 
 1. **来电**：来电时播报来电号码，单击 boot 键接听，单击 PWRKEY 拒接
 2. **拨号**：在无来电的情况下，单击 boot 拨号，拨号过程中可以单击 PWRKEY 取消拨号

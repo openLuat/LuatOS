@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <fenv.h>
+#include <math.h>
 #include <string.h>
 
 #include "luat_mem.h"
@@ -13,16 +15,697 @@
 
 static void ndk_postexec(luat_ndk_t *ctx, uint32_t pc, uint32_t ir, uint32_t trap);
 
+enum {
+    NDK_FBINOP_ADD = 0,
+    NDK_FBINOP_SUB = 1,
+    NDK_FBINOP_MUL = 2,
+    NDK_FBINOP_DIV = 3,
+    NDK_FMINMAX_MIN = 4,
+    NDK_FMINMAX_MAX = 5,
+    NDK_FCMP_FEQ = 0,
+    NDK_FCMP_FLT = 1,
+    NDK_FCMP_FLE = 2,
+    NDK_FSGNJ_COPY = 0,
+    NDK_FSGNJ_NEGATE = 1,
+    NDK_FSGNJ_XOR = 2
+};
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma STDC FENV_ACCESS ON
+#endif
+#if defined(_MSC_VER)
+#pragma float_control(precise, on, push)
+#pragma fenv_access(on)
+#endif
+static uint32_t ndk_host_fexcepts_to_riscv_fflags(int host_excepts) {
+    uint32_t fflags = 0;
+
+    if (host_excepts & FE_INEXACT) {
+        fflags |= 0x01u;
+    }
+    if (host_excepts & FE_UNDERFLOW) {
+        fflags |= 0x02u;
+    }
+    if (host_excepts & FE_OVERFLOW) {
+        fflags |= 0x04u;
+    }
+    if (host_excepts & FE_DIVBYZERO) {
+        fflags |= 0x08u;
+    }
+    if (host_excepts & FE_INVALID) {
+        fflags |= 0x10u;
+    }
+    return fflags;
+}
+
+static int ndk_riscv_rm_to_host_round(uint32_t rm, int *host_round) {
+    if (!host_round) return 0;
+    switch (rm) {
+    case 0:
+        *host_round = FE_TONEAREST;
+        return 1;
+    case 1:
+        *host_round = FE_TOWARDZERO;
+        return 1;
+    case 2:
+        *host_round = FE_DOWNWARD;
+        return 1;
+    case 3:
+        *host_round = FE_UPWARD;
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+static int ndk_resolve_host_round(luat_ndk_t *ctx, uint32_t rm, int *host_round) {
+    uint32_t effective_rm = 0;
+
+    if (!ctx || !host_round || ctx->flen != 32) return 0;
+    effective_rm = (rm == 7) ? ((ctx->fcsr >> 5) & 0x7u) : rm;
+    return ndk_riscv_rm_to_host_round(effective_rm, host_round);
+}
+
+static void ndk_merge_fflags(luat_ndk_t *ctx, uint32_t fflags) {
+    if (!ctx || ctx->flen != 32 || (fflags & 0x1Fu) == 0) return;
+    ctx->fcsr = (ctx->fcsr & ~0x1Fu) | ((ctx->fcsr & 0x1Fu) | (fflags & 0x1Fu));
+}
+
+static bool ndk_f32_is_nan(uint32_t bits) {
+    return (bits & 0x7F800000u) == 0x7F800000u && (bits & 0x007FFFFFu) != 0;
+}
+
+static bool ndk_f32_is_snan(uint32_t bits) {
+    return ndk_f32_is_nan(bits) && (bits & 0x00400000u) == 0;
+}
+
+static bool ndk_f32_is_inf(uint32_t bits) {
+    return (bits & 0x7FFFFFFFu) == 0x7F800000u;
+}
+
+static uint32_t ndk_f32_canonicalize_nan(uint32_t bits) {
+    return ndk_f32_is_nan(bits) ? 0x7FC00000u : bits;
+}
+
+static uint32_t ndk_fclass_s_bits(uint32_t bits) {
+    uint32_t sign = bits >> 31;
+    uint32_t exp = (bits >> 23) & 0xFFu;
+    uint32_t frac = bits & 0x007FFFFFu;
+
+    if (exp == 0xFFu) {
+        if (frac == 0) {
+            return sign ? 0x001u : 0x080u;
+        }
+        return (bits & 0x00400000u) ? 0x200u : 0x100u;
+    }
+    if (exp == 0) {
+        if (frac == 0) {
+            return sign ? 0x008u : 0x010u;
+        }
+        return sign ? 0x004u : 0x020u;
+    }
+    return sign ? 0x002u : 0x040u;
+}
+
+static int ndk_host_fcvt_s_w(uint32_t value, bool is_unsigned, int host_round, float *out, uint32_t *fflags_out) {
+    fenv_t saved_env;
+    int saved_mode = 0;
+    int host_excepts = 0;
+    volatile int32_t signed_value = (int32_t)value;
+    volatile uint32_t unsigned_value = value;
+    volatile float result_v = 0.0f;
+
+    if (!out || !fflags_out) return 0;
+    if (fegetenv(&saved_env) != 0) return 0;
+    saved_mode = fegetround();
+    if (saved_mode < 0) return 0;
+    if (saved_mode != host_round && fesetround(host_round) != 0) {
+        return 0;
+    }
+    if (feclearexcept(FE_ALL_EXCEPT) != 0) {
+        (void)fesetenv(&saved_env);
+        return 0;
+    }
+
+    result_v = is_unsigned ? (float)unsigned_value : (float)signed_value;
+    host_excepts = fetestexcept(FE_ALL_EXCEPT);
+    *out = result_v;
+    *fflags_out = ndk_host_fexcepts_to_riscv_fflags(host_excepts);
+
+    if (fesetenv(&saved_env) != 0) {
+        if (saved_mode != FE_TONEAREST) {
+            (void)fesetround(saved_mode);
+        }
+        LLOGW("restore host fenv failed after FCVT.S.W");
+    }
+    return 1;
+}
+
+static int ndk_host_fcvt_w_s(uint32_t bits, bool is_unsigned, int host_round, uint32_t *out, uint32_t *fflags_out) {
+    fenv_t saved_env;
+    int saved_mode = 0;
+    int host_excepts = 0;
+    float input = 0.0f;
+    volatile float input_v = 0.0f;
+    volatile float rounded_v = 0.0f;
+    double rounded_d = 0.0;
+
+    if (!out || !fflags_out) return 0;
+    if (fegetenv(&saved_env) != 0) return 0;
+    saved_mode = fegetround();
+    if (saved_mode < 0) return 0;
+    if (saved_mode != host_round && fesetround(host_round) != 0) {
+        return 0;
+    }
+    if (feclearexcept(FE_ALL_EXCEPT) != 0) {
+        (void)fesetenv(&saved_env);
+        return 0;
+    }
+
+    if (ndk_f32_is_nan(bits)) {
+        *out = is_unsigned ? 0xFFFFFFFFu : 0x7FFFFFFFu;
+        *fflags_out = 0x10u;
+    } else if (ndk_f32_is_inf(bits)) {
+        if (bits & 0x80000000u) {
+            *out = is_unsigned ? 0x00000000u : 0x80000000u;
+        } else {
+            *out = is_unsigned ? 0xFFFFFFFFu : 0x7FFFFFFFu;
+        }
+        *fflags_out = 0x10u;
+    } else {
+        memcpy(&input, &bits, sizeof(input));
+        input_v = input;
+        rounded_v = rintf(input_v);
+        host_excepts = fetestexcept(FE_ALL_EXCEPT);
+        rounded_d = (double)rounded_v;
+        if (is_unsigned) {
+            if (rounded_d < 0.0) {
+                *out = 0x00000000u;
+                *fflags_out = 0x10u;
+            } else if (rounded_d > 4294967295.0) {
+                *out = 0xFFFFFFFFu;
+                *fflags_out = 0x10u;
+            } else {
+                *out = (uint32_t)rounded_v;
+                *fflags_out = ndk_host_fexcepts_to_riscv_fflags(host_excepts) & 0x0Fu;
+            }
+        } else {
+            if (rounded_d < -2147483648.0) {
+                *out = 0x80000000u;
+                *fflags_out = 0x10u;
+            } else if (rounded_d > 2147483647.0) {
+                *out = 0x7FFFFFFFu;
+                *fflags_out = 0x10u;
+            } else {
+                *out = (uint32_t)(int32_t)rounded_v;
+                *fflags_out = ndk_host_fexcepts_to_riscv_fflags(host_excepts) & 0x0Fu;
+            }
+        }
+    }
+
+    if (fesetenv(&saved_env) != 0) {
+        if (saved_mode != FE_TONEAREST) {
+            (void)fesetround(saved_mode);
+        }
+        LLOGW("restore host fenv failed after FCVT.W.S");
+    }
+    return 1;
+}
+
+static int ndk_host_fbinop(float lhs, float rhs, uint32_t op, int host_round, float *out, uint32_t *fflags_out) {
+    fenv_t saved_env;
+    int saved_mode = 0;
+    int host_excepts = 0;
+    volatile float lhs_v = lhs;
+    volatile float rhs_v = rhs;
+    volatile float result_v = 0.0f;
+
+    if (!out || !fflags_out) return 0;
+    if (fegetenv(&saved_env) != 0) return 0;
+    saved_mode = fegetround();
+    if (saved_mode < 0) return 0;
+    if (saved_mode != host_round && fesetround(host_round) != 0) {
+        return 0;
+    }
+    if (feclearexcept(FE_ALL_EXCEPT) != 0) {
+        (void)fesetenv(&saved_env);
+        return 0;
+    }
+
+    switch (op) {
+    case NDK_FBINOP_ADD:
+        result_v = lhs_v + rhs_v;
+        break;
+    case NDK_FBINOP_SUB:
+        result_v = lhs_v - rhs_v;
+        break;
+    case NDK_FBINOP_MUL:
+        result_v = lhs_v * rhs_v;
+        break;
+    case NDK_FBINOP_DIV:
+        result_v = lhs_v / rhs_v;
+        break;
+    default:
+        (void)fesetenv(&saved_env);
+        return 0;
+    }
+    host_excepts = fetestexcept(FE_ALL_EXCEPT);
+    *out = result_v;
+    *fflags_out = ndk_host_fexcepts_to_riscv_fflags(host_excepts);
+
+    if (fesetenv(&saved_env) != 0) {
+        if (saved_mode != FE_TONEAREST) {
+            (void)fesetround(saved_mode);
+        }
+        LLOGW("restore host fenv failed after FP binop");
+    }
+    return 1;
+}
+
+static int ndk_host_fmadd(float rs1, float rs2, float rs3, int host_round, float *out, uint32_t *fflags_out) {
+    fenv_t saved_env;
+    int saved_mode = 0;
+    int host_excepts = 0;
+    volatile float rs1_v = rs1;
+    volatile float rs2_v = rs2;
+    volatile float rs3_v = rs3;
+    volatile float result_v = 0.0f;
+
+    if (!out || !fflags_out) return 0;
+    if (fegetenv(&saved_env) != 0) return 0;
+    saved_mode = fegetround();
+    if (saved_mode < 0) return 0;
+    if (saved_mode != host_round && fesetround(host_round) != 0) {
+        return 0;
+    }
+    if (feclearexcept(FE_ALL_EXCEPT) != 0) {
+        (void)fesetenv(&saved_env);
+        return 0;
+    }
+
+    result_v = fmaf(rs1_v, rs2_v, rs3_v);
+    host_excepts = fetestexcept(FE_ALL_EXCEPT);
+    *out = result_v;
+    *fflags_out = ndk_host_fexcepts_to_riscv_fflags(host_excepts);
+
+    if (fesetenv(&saved_env) != 0) {
+        if (saved_mode != FE_TONEAREST) {
+            (void)fesetround(saved_mode);
+        }
+        LLOGW("restore host fenv failed after FMADD.S");
+    }
+    return 1;
+}
+
+static int ndk_host_fsqrt(float input, int host_round, float *out, uint32_t *fflags_out) {
+    fenv_t saved_env;
+    int saved_mode = 0;
+    int host_excepts = 0;
+    volatile float input_v = input;
+    volatile float result_v = 0.0f;
+
+    if (!out || !fflags_out) return 0;
+    if (fegetenv(&saved_env) != 0) return 0;
+    saved_mode = fegetround();
+    if (saved_mode < 0) return 0;
+    if (saved_mode != host_round && fesetround(host_round) != 0) {
+        return 0;
+    }
+    if (feclearexcept(FE_ALL_EXCEPT) != 0) {
+        (void)fesetenv(&saved_env);
+        return 0;
+    }
+
+    result_v = sqrtf(input_v);
+    host_excepts = fetestexcept(FE_ALL_EXCEPT);
+    *out = result_v;
+    *fflags_out = ndk_host_fexcepts_to_riscv_fflags(host_excepts);
+
+    if (fesetenv(&saved_env) != 0) {
+        if (saved_mode != FE_TONEAREST) {
+            (void)fesetround(saved_mode);
+        }
+        LLOGW("restore host fenv failed after FSQRT.S");
+    }
+    return 1;
+}
+#if defined(_MSC_VER)
+#pragma float_control(pop)
+#endif
+
+static int ndk_fbinop_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t rm, uint32_t op, uint32_t *out_bits) {
+    uint32_t fflags = 0;
+    uint32_t result_bits = 0;
+    int host_round = FE_TONEAREST;
+    float lhs = 0.0f;
+    float rhs = 0.0f;
+    float result = 0.0f;
+
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    if (!ndk_resolve_host_round(ctx, rm, &host_round)) return 0;
+
+    memcpy(&lhs, &rs1_bits, sizeof(lhs));
+    memcpy(&rhs, &rs2_bits, sizeof(rhs));
+    if (!ndk_host_fbinop(lhs, rhs, op, host_round, &result, &fflags)) return 0;
+    memcpy(&result_bits, &result, sizeof(result));
+    *out_bits = ndk_f32_canonicalize_nan(result_bits);
+    ndk_merge_fflags(ctx, fflags);
+    return 1;
+}
+
+static int ndk_fadd_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t rm, uint32_t *out_bits) {
+    return ndk_fbinop_s(ctx, rs1_bits, rs2_bits, rm, NDK_FBINOP_ADD, out_bits);
+}
+
+static int ndk_fsub_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t rm, uint32_t *out_bits) {
+    return ndk_fbinop_s(ctx, rs1_bits, rs2_bits, rm, NDK_FBINOP_SUB, out_bits);
+}
+
+static int ndk_fmul_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t rm, uint32_t *out_bits) {
+    return ndk_fbinop_s(ctx, rs1_bits, rs2_bits, rm, NDK_FBINOP_MUL, out_bits);
+}
+
+static int ndk_fdiv_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t rm, uint32_t *out_bits) {
+    return ndk_fbinop_s(ctx, rs1_bits, rs2_bits, rm, NDK_FBINOP_DIV, out_bits);
+}
+
+static int ndk_fminmax_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t op, uint32_t *out_bits) {
+    bool rs1_nan = false;
+    bool rs2_nan = false;
+    bool rs1_snan = false;
+    bool rs2_snan = false;
+    bool rs1_is_zero = false;
+    bool rs2_is_zero = false;
+    uint32_t result_bits = 0;
+    uint32_t fflags = 0;
+    float lhs = 0.0f;
+    float rhs = 0.0f;
+
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    rs1_nan = ndk_f32_is_nan(rs1_bits);
+    rs2_nan = ndk_f32_is_nan(rs2_bits);
+    rs1_snan = ndk_f32_is_snan(rs1_bits);
+    rs2_snan = ndk_f32_is_snan(rs2_bits);
+    if (rs1_snan || rs2_snan) {
+        fflags |= 0x10u;
+    }
+
+    if (rs1_nan && rs2_nan) {
+        result_bits = 0x7FC00000u;
+    } else if (rs1_nan) {
+        result_bits = rs2_bits;
+    } else if (rs2_nan) {
+        result_bits = rs1_bits;
+    } else {
+        memcpy(&lhs, &rs1_bits, sizeof(lhs));
+        memcpy(&rhs, &rs2_bits, sizeof(rhs));
+        if (lhs < rhs) {
+            result_bits = (op == NDK_FMINMAX_MIN) ? rs1_bits : rs2_bits;
+        } else if (lhs > rhs) {
+            result_bits = (op == NDK_FMINMAX_MIN) ? rs2_bits : rs1_bits;
+        } else {
+            rs1_is_zero = (rs1_bits & 0x7FFFFFFFu) == 0;
+            rs2_is_zero = (rs2_bits & 0x7FFFFFFFu) == 0;
+            if (rs1_is_zero && rs2_is_zero) {
+                result_bits = (op == NDK_FMINMAX_MIN) ? (rs1_bits | rs2_bits) : (rs1_bits & rs2_bits);
+            } else {
+                result_bits = rs1_bits;
+            }
+        }
+    }
+
+    *out_bits = result_bits;
+    ndk_merge_fflags(ctx, fflags);
+    return 1;
+}
+
+static int ndk_fmin_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t *out_bits) {
+    return ndk_fminmax_s(ctx, rs1_bits, rs2_bits, NDK_FMINMAX_MIN, out_bits);
+}
+
+static int ndk_fmax_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t *out_bits) {
+    return ndk_fminmax_s(ctx, rs1_bits, rs2_bits, NDK_FMINMAX_MAX, out_bits);
+}
+
+static int ndk_fmadd_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t rs3_bits, uint32_t rm, uint32_t *out_bits) {
+    uint32_t fflags = 0;
+    uint32_t result_bits = 0;
+    int host_round = FE_TONEAREST;
+    float rs1 = 0.0f;
+    float rs2 = 0.0f;
+    float rs3 = 0.0f;
+    float result = 0.0f;
+
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    if (!ndk_resolve_host_round(ctx, rm, &host_round)) return 0;
+
+    memcpy(&rs1, &rs1_bits, sizeof(rs1));
+    memcpy(&rs2, &rs2_bits, sizeof(rs2));
+    memcpy(&rs3, &rs3_bits, sizeof(rs3));
+    if (!ndk_host_fmadd(rs1, rs2, rs3, host_round, &result, &fflags)) return 0;
+    memcpy(&result_bits, &result, sizeof(result));
+    *out_bits = ndk_f32_canonicalize_nan(result_bits);
+    ndk_merge_fflags(ctx, fflags);
+    return 1;
+}
+
+static int ndk_fmsub_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t rs3_bits, uint32_t rm, uint32_t *out_bits) {
+    uint32_t fflags = 0;
+    uint32_t result_bits = 0;
+    uint32_t neg_rs3_bits = 0;
+    int host_round = FE_TONEAREST;
+    float rs1 = 0.0f;
+    float rs2 = 0.0f;
+    float neg_rs3 = 0.0f;
+    float result = 0.0f;
+
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    if (!ndk_resolve_host_round(ctx, rm, &host_round)) return 0;
+
+    memcpy(&rs1, &rs1_bits, sizeof(rs1));
+    memcpy(&rs2, &rs2_bits, sizeof(rs2));
+    neg_rs3_bits = rs3_bits ^ 0x80000000u;
+    memcpy(&neg_rs3, &neg_rs3_bits, sizeof(neg_rs3));
+    if (!ndk_host_fmadd(rs1, rs2, neg_rs3, host_round, &result, &fflags)) return 0;
+    memcpy(&result_bits, &result, sizeof(result));
+    *out_bits = ndk_f32_canonicalize_nan(result_bits);
+    ndk_merge_fflags(ctx, fflags);
+    return 1;
+}
+
+static int ndk_fnmsub_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t rs3_bits, uint32_t rm, uint32_t *out_bits) {
+    uint32_t fflags = 0;
+    uint32_t result_bits = 0;
+    uint32_t neg_rs1_bits = 0;
+    int host_round = FE_TONEAREST;
+    float neg_rs1 = 0.0f;
+    float rs2 = 0.0f;
+    float rs3 = 0.0f;
+    float result = 0.0f;
+
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    if (!ndk_resolve_host_round(ctx, rm, &host_round)) return 0;
+
+    neg_rs1_bits = rs1_bits ^ 0x80000000u;
+    memcpy(&neg_rs1, &neg_rs1_bits, sizeof(neg_rs1));
+    memcpy(&rs2, &rs2_bits, sizeof(rs2));
+    memcpy(&rs3, &rs3_bits, sizeof(rs3));
+    if (!ndk_host_fmadd(neg_rs1, rs2, rs3, host_round, &result, &fflags)) return 0;
+    memcpy(&result_bits, &result, sizeof(result));
+    *out_bits = ndk_f32_canonicalize_nan(result_bits);
+    ndk_merge_fflags(ctx, fflags);
+    return 1;
+}
+
+static int ndk_fnmadd_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t rs3_bits, uint32_t rm, uint32_t *out_bits) {
+    uint32_t fflags = 0;
+    uint32_t result_bits = 0;
+    uint32_t neg_rs1_bits = 0;
+    uint32_t neg_rs3_bits = 0;
+    int host_round = FE_TONEAREST;
+    float neg_rs1 = 0.0f;
+    float rs2 = 0.0f;
+    float neg_rs3 = 0.0f;
+    float result = 0.0f;
+
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    if (!ndk_resolve_host_round(ctx, rm, &host_round)) return 0;
+
+    neg_rs1_bits = rs1_bits ^ 0x80000000u;
+    neg_rs3_bits = rs3_bits ^ 0x80000000u;
+    memcpy(&neg_rs1, &neg_rs1_bits, sizeof(neg_rs1));
+    memcpy(&rs2, &rs2_bits, sizeof(rs2));
+    memcpy(&neg_rs3, &neg_rs3_bits, sizeof(neg_rs3));
+    if (!ndk_host_fmadd(neg_rs1, rs2, neg_rs3, host_round, &result, &fflags)) return 0;
+    memcpy(&result_bits, &result, sizeof(result));
+    *out_bits = ndk_f32_canonicalize_nan(result_bits);
+    ndk_merge_fflags(ctx, fflags);
+    return 1;
+}
+
+static int ndk_fsqrt_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rm, uint32_t *out_bits) {
+    uint32_t fflags = 0;
+    uint32_t result_bits = 0;
+    int host_round = FE_TONEAREST;
+    float input = 0.0f;
+    float result = 0.0f;
+
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    if (!ndk_resolve_host_round(ctx, rm, &host_round)) return 0;
+
+    memcpy(&input, &rs1_bits, sizeof(input));
+    if (!ndk_host_fsqrt(input, host_round, &result, &fflags)) return 0;
+    memcpy(&result_bits, &result, sizeof(result));
+    *out_bits = ndk_f32_canonicalize_nan(result_bits);
+    ndk_merge_fflags(ctx, fflags);
+    return 1;
+}
+
+static int ndk_fsgnj_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t op, uint32_t *out_bits) {
+    uint32_t sign = 0;
+
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    switch (op) {
+    case NDK_FSGNJ_COPY:
+        sign = rs2_bits & 0x80000000u;
+        break;
+    case NDK_FSGNJ_NEGATE:
+        sign = (~rs2_bits) & 0x80000000u;
+        break;
+    case NDK_FSGNJ_XOR:
+        sign = (rs1_bits ^ rs2_bits) & 0x80000000u;
+        break;
+    default:
+        return 0;
+    }
+    *out_bits = (rs1_bits & 0x7FFFFFFFu) | sign;
+    return 1;
+}
+
+static int ndk_fcmp_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rs2_bits, uint32_t op, uint32_t *out_bits) {
+    bool rs1_nan = false;
+    bool rs2_nan = false;
+    bool rs1_snan = false;
+    bool rs2_snan = false;
+    uint32_t fflags = 0;
+    float lhs = 0.0f;
+    float rhs = 0.0f;
+    bool result = false;
+
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    rs1_nan = ndk_f32_is_nan(rs1_bits);
+    rs2_nan = ndk_f32_is_nan(rs2_bits);
+    rs1_snan = ndk_f32_is_snan(rs1_bits);
+    rs2_snan = ndk_f32_is_snan(rs2_bits);
+    if (rs1_nan || rs2_nan) {
+        if (op == NDK_FCMP_FEQ) {
+            if (rs1_snan || rs2_snan) {
+                fflags = 0x10u;
+            }
+        } else {
+            fflags = 0x10u;
+        }
+        *out_bits = 0;
+        ndk_merge_fflags(ctx, fflags);
+        return 1;
+    }
+
+    memcpy(&lhs, &rs1_bits, sizeof(lhs));
+    memcpy(&rhs, &rs2_bits, sizeof(rhs));
+    switch (op) {
+    case NDK_FCMP_FEQ:
+        result = lhs == rhs;
+        break;
+    case NDK_FCMP_FLT:
+        result = lhs < rhs;
+        break;
+    case NDK_FCMP_FLE:
+        result = lhs <= rhs;
+        break;
+    default:
+        return 0;
+    }
+    *out_bits = result ? 1u : 0u;
+    return 1;
+}
+
+static int ndk_fclass_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t *out_bits) {
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    *out_bits = ndk_fclass_s_bits(rs1_bits);
+    return 1;
+}
+
+static int ndk_fcvt_s_w(luat_ndk_t *ctx, uint32_t rs1_value, uint32_t rm, bool is_unsigned, uint32_t *out_bits) {
+    uint32_t fflags = 0;
+    int host_round = FE_TONEAREST;
+    float result = 0.0f;
+
+    if (!ctx || !out_bits || ctx->flen != 32) return 0;
+    if (!ndk_resolve_host_round(ctx, rm, &host_round)) return 0;
+    if (!ndk_host_fcvt_s_w(rs1_value, is_unsigned, host_round, &result, &fflags)) return 0;
+    memcpy(out_bits, &result, sizeof(result));
+    ndk_merge_fflags(ctx, fflags);
+    return 1;
+}
+
+static int ndk_fcvt_w_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rm, bool is_unsigned, uint32_t *out_value) {
+    uint32_t fflags = 0;
+    int host_round = FE_TONEAREST;
+
+    if (!ctx || !out_value || ctx->flen != 32) return 0;
+    if (!ndk_resolve_host_round(ctx, rm, &host_round)) return 0;
+    if (!ndk_host_fcvt_w_s(rs1_bits, is_unsigned, host_round, out_value, &fflags)) return 0;
+    ndk_merge_fflags(ctx, fflags);
+    return 1;
+}
+
+static int ndk_set_isa(luat_ndk_t *ndk, const char *isa) {
+    const char *selected = isa;
+    if (!ndk) return LUAT_NDK_ERR_PARAM;
+    if (selected == NULL || selected[0] == '\0') {
+        selected = LUAT_NDK_ISA_RV32IMA;
+    }
+    if (strcmp(selected, LUAT_NDK_ISA_RV32IMA) != 0 && strcmp(selected, LUAT_NDK_ISA_RV32IMF) != 0) {
+        return LUAT_NDK_ERR_PARAM;
+    }
+    memcpy(ndk->isa, selected, strlen(selected) + 1);
+    ndk->flen = (strcmp(selected, LUAT_NDK_ISA_RV32IMF) == 0) ? 32 : 0;
+    ndk->fcsr = 0;
+    return LUAT_NDK_OK;
+}
+
 // mini-rv32ima configuration
 #define MINI_RV32_RAM_SIZE (ctx->ram_size)
 #define MINIRV32_POSTEXEC(pc, ir, trap) ndk_postexec(ctx, pc, ir, trap)
+#define MINIRV32_LUATOS_RV32C_PATCH 1
+#define MINIRV32_HAS_F_EXTENSION() (ctx->flen == 32)
+#define MINIRV32_GET_MISA() (0x40401105u | (MINIRV32_HAS_F_EXTENSION() ? 0x20u : 0u))
 #define MINIRV32_OTHERCSR_WRITE(csrno, value) luat_ndk_host_othercsr_write(ctx, csrno, value)
 #define MINIRV32_OTHERCSR_READ(csrno, value) luat_ndk_host_othercsr_read(ctx, csrno, &value)
+#define MINIRV32_FADD_S(rs1_bits, rs2_bits, rm, out_bits) ndk_fadd_s(ctx, rs1_bits, rs2_bits, rm, &(out_bits))
+#define MINIRV32_FSUB_S(rs1_bits, rs2_bits, rm, out_bits) ndk_fsub_s(ctx, rs1_bits, rs2_bits, rm, &(out_bits))
+#define MINIRV32_FMUL_S(rs1_bits, rs2_bits, rm, out_bits) ndk_fmul_s(ctx, rs1_bits, rs2_bits, rm, &(out_bits))
+#define MINIRV32_FDIV_S(rs1_bits, rs2_bits, rm, out_bits) ndk_fdiv_s(ctx, rs1_bits, rs2_bits, rm, &(out_bits))
+#define MINIRV32_FMADD_S(rs1_bits, rs2_bits, rs3_bits, rm, out_bits) ndk_fmadd_s(ctx, rs1_bits, rs2_bits, rs3_bits, rm, &(out_bits))
+#define MINIRV32_FMSUB_S(rs1_bits, rs2_bits, rs3_bits, rm, out_bits) ndk_fmsub_s(ctx, rs1_bits, rs2_bits, rs3_bits, rm, &(out_bits))
+#define MINIRV32_FNMSUB_S(rs1_bits, rs2_bits, rs3_bits, rm, out_bits) ndk_fnmsub_s(ctx, rs1_bits, rs2_bits, rs3_bits, rm, &(out_bits))
+#define MINIRV32_FNMADD_S(rs1_bits, rs2_bits, rs3_bits, rm, out_bits) ndk_fnmadd_s(ctx, rs1_bits, rs2_bits, rs3_bits, rm, &(out_bits))
+#define MINIRV32_FSQRT_S(rs1_bits, rm, out_bits) ndk_fsqrt_s(ctx, rs1_bits, rm, &(out_bits))
+#define MINIRV32_FEQ_S(rs1_bits, rs2_bits, out_bits) ndk_fcmp_s(ctx, rs1_bits, rs2_bits, NDK_FCMP_FEQ, &(out_bits))
+#define MINIRV32_FLT_S(rs1_bits, rs2_bits, out_bits) ndk_fcmp_s(ctx, rs1_bits, rs2_bits, NDK_FCMP_FLT, &(out_bits))
+#define MINIRV32_FLE_S(rs1_bits, rs2_bits, out_bits) ndk_fcmp_s(ctx, rs1_bits, rs2_bits, NDK_FCMP_FLE, &(out_bits))
+#define MINIRV32_FCLASS_S(rs1_bits, out_bits) ndk_fclass_s(ctx, rs1_bits, &(out_bits))
+#define MINIRV32_FCVT_S_W(rs1_value, rm, out_bits) ndk_fcvt_s_w(ctx, rs1_value, rm, false, &(out_bits))
+#define MINIRV32_FCVT_S_WU(rs1_value, rm, out_bits) ndk_fcvt_s_w(ctx, rs1_value, rm, true, &(out_bits))
+#define MINIRV32_FCVT_W_S(rs1_bits, rm, out_bits) ndk_fcvt_w_s(ctx, rs1_bits, rm, false, &(out_bits))
+#define MINIRV32_FCVT_WU_S(rs1_bits, rm, out_bits) ndk_fcvt_w_s(ctx, rs1_bits, rm, true, &(out_bits))
+#define MINIRV32_FSGNJ_S(rs1_bits, rs2_bits, out_bits) ndk_fsgnj_s(ctx, rs1_bits, rs2_bits, NDK_FSGNJ_COPY, &(out_bits))
+#define MINIRV32_FSGNJN_S(rs1_bits, rs2_bits, out_bits) ndk_fsgnj_s(ctx, rs1_bits, rs2_bits, NDK_FSGNJ_NEGATE, &(out_bits))
+#define MINIRV32_FSGNJX_S(rs1_bits, rs2_bits, out_bits) ndk_fsgnj_s(ctx, rs1_bits, rs2_bits, NDK_FSGNJ_XOR, &(out_bits))
+#define MINIRV32_FMIN_S(rs1_bits, rs2_bits, out_bits) ndk_fmin_s(ctx, rs1_bits, rs2_bits, &(out_bits))
+#define MINIRV32_FMAX_S(rs1_bits, rs2_bits, out_bits) ndk_fmax_s(ctx, rs1_bits, rs2_bits, &(out_bits))
 #define MINIRV32_HANDLE_MEM_STORE_CONTROL( addy, val ) if( luat_ndk_host_control_store(ctx, addy, val ) ) return val;
 #define MINIRV32_STEPPROTO static int32_t MiniRV32IMAStep(luat_ndk_t *ctx, struct MiniRV32IMAState *state, uint8_t *image, uint32_t vProcAddress, uint32_t elapsedUs, int count)
-// LuatOS-local mini-rv32ima delta: enable RV32C-safe fetch/decompression support.
-// Keep this marker when syncing vendor mini-rv32ima.h so the compressed-instruction patch stays easy to find.
-#define MINIRV32_LUATOS_RV32C_PATCH 1
 #define MINIRV32_IMPLEMENTATION
 #include "mini-rv32ima.h"
 
@@ -87,6 +770,9 @@ static void ndk_init_fail_cleanup(luat_ndk_t *ndk) {
     ndk->image_size = 0;
     ndk->trap_pending = 0;
     ndk->stop_request = 0;
+    ndk->fcsr = 0;
+    ndk->flen = 0;
+    ndk->isa[0] = '\0';
     ndk->lock_closing = 0;
     ndk->lock_refs = 0;
     ndk->state = LUAT_NDK_STATE_DEINIT;
@@ -117,7 +803,8 @@ static void ndk_reset_abi_state(luat_ndk_t *ndk) {
     size_t event_bytes = 0;
     size_t slot_count = 0;
 
-    ndk->abi_features = LUAT_NDK_FEATURE_META | LUAT_NDK_FEATURE_TIME | LUAT_NDK_FEATURE_EVENT | LUAT_NDK_FEATURE_GPIO | LUAT_NDK_FEATURE_UART;
+    ndk->abi_features = LUAT_NDK_FEATURE_META | LUAT_NDK_FEATURE_TIME | LUAT_NDK_FEATURE_EVENT |
+        LUAT_NDK_FEATURE_GPIO | LUAT_NDK_FEATURE_UART | LUAT_NDK_FEATURE_CRYPTO;
     ndk->last_error = LUAT_NDK_HOST_ERR_NONE;
 
     event_bytes = (ndk->exchange_size > (LUAT_NDK_EVENT_HDR_OFFSET + LUAT_NDK_EVENT_HDR_SIZE))
@@ -153,6 +840,7 @@ static void ndk_reset_core(luat_ndk_t *ndk) {
     ndk->last_mcause = 0;
     ndk->last_mtval = 0;
     ndk->last_trap = 0;
+    ndk->fcsr = 0;
     ndk_reset_abi_state(ndk);
 }
 
@@ -241,7 +929,7 @@ static int ndk_exec_inner(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapse
     return rc;
 }
 
-int luat_ndk_init(luat_ndk_t *ndk, const char *path, size_t mem_size, size_t exchange_size) {
+int luat_ndk_init(luat_ndk_t *ndk, const char *path, size_t mem_size, size_t exchange_size, const char *isa) {
     if (!ndk || !path) return LUAT_NDK_ERR_PARAM;
     memset(ndk, 0, sizeof(luat_ndk_t));
     ndk->state = LUAT_NDK_STATE_DEINIT;
@@ -260,6 +948,11 @@ int luat_ndk_init(luat_ndk_t *ndk, const char *path, size_t mem_size, size_t exc
     if (mem_size > LUAT_NDK_MAX_RAM_SIZE || exchange_size >= mem_size) {
         ndk_init_fail_cleanup(ndk);
         return LUAT_NDK_ERR_PARAM;
+    }
+    int rc = ndk_set_isa(ndk, isa);
+    if (rc != LUAT_NDK_OK) {
+        ndk_init_fail_cleanup(ndk);
+        return rc;
     }
 
     ndk->ram_size = mem_size;
@@ -284,7 +977,7 @@ int luat_ndk_init(luat_ndk_t *ndk, const char *path, size_t mem_size, size_t exc
     memcpy(ndk->image_path, path, plen);
     ndk->image_path[plen] = '\0';
 
-    int rc = ndk_load_image(ndk, path);
+    rc = ndk_load_image(ndk, path);
     if (rc != LUAT_NDK_OK) {
         ndk_init_fail_cleanup(ndk);
         return rc;
@@ -337,6 +1030,9 @@ void luat_ndk_deinit(luat_ndk_t *ndk) {
         ndk->trap_pending = 0;
         ndk->image_size = 0;
         ndk->thread_id = 0;
+        ndk->fcsr = 0;
+        ndk->flen = 0;
+        ndk->isa[0] = '\0';
         return;
     }
 
@@ -361,6 +1057,9 @@ void luat_ndk_deinit(luat_ndk_t *ndk) {
     ndk->trap_pending = 0;
     ndk->image_size = 0;
     ndk->thread_id = 0;
+    ndk->fcsr = 0;
+    ndk->flen = 0;
+    ndk->isa[0] = '\0';
     ndk->lock_closing = 1;
     ndk_unlock(ndk);
 

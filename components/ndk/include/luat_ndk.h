@@ -21,6 +21,9 @@
 #define LUAT_NDK_EXCHANGE_ALIGN 4
 #define LUAT_NDK_GPIO_TRACK_BYTES 32
 #define LUAT_NDK_UART_RX_CAPACITY 256
+#define LUAT_NDK_ISA_NAME_MAX 8
+#define LUAT_NDK_ISA_RV32IMA "rv32ima"
+#define LUAT_NDK_ISA_RV32IMF "rv32imf"
 
 struct MiniRV32IMAState;
 typedef struct MiniRV32IMAState MiniRV32IMAState;
@@ -71,15 +74,18 @@ typedef struct luat_ndk {
     uint32_t last_mcause;
     uint32_t last_mtval;
     uint32_t last_trap;
+    uint32_t fcsr;
     uint8_t trap_pending;
     uint8_t stop_request;
     uint8_t lock_closing;
+    uint8_t flen;
     luat_ndk_state_t state;
     uint32_t lock_refs;
     luat_rtos_mutex_t lock;
     luat_rtos_task_handle worker;
     uint32_t thread_id;
     char *image_path;
+    char isa[LUAT_NDK_ISA_NAME_MAX];
     // ABI state
     uint32_t abi_features;
     uint32_t last_error;
@@ -94,7 +100,7 @@ typedef struct luat_ndk {
     luat_ndk_uart_port_t uart_ports[1];
 } luat_ndk_t;
 
-int luat_ndk_init(luat_ndk_t *ndk, const char *path, size_t mem_size, size_t exchange_size);
+int luat_ndk_init(luat_ndk_t *ndk, const char *path, size_t mem_size, size_t exchange_size, const char *isa);
 void luat_ndk_deinit(luat_ndk_t *ndk);
 int luat_ndk_reset(luat_ndk_t *ndk);
 int luat_ndk_set_data(luat_ndk_t *ndk, const void *data, size_t len, size_t offset);

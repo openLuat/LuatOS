@@ -1,7 +1,7 @@
 
 --[[
 @module  stick_fighter_online_win
-@summary 双人联机火柴人格斗游戏窗口模块
+@summary 联机火柴人格斗游戏竖屏版窗口模块
 @version 1.1.2
 @date    2026.05.15
 @author  王世豪
@@ -59,6 +59,25 @@ local peerModelLabel = nil
 local pendingUpload = nil  -- 待上传的积分 {account, nickname, score}
 local justDeletedMyScore = false  -- 删除积分后的标记，下次上传强制覆盖（不走累加）
 
+-- 先定义获取设备ID的函数和设备ID变量
+local my_device_id = nil
+
+local function get_device_id()
+    local device_id = "DEV_UNKNOWN"
+    if mobile and mobile.imei then
+        device_id = mobile.imei()
+    elseif wlan and wlan.getMac then
+        device_id = wlan.getMac()
+    else
+        device_id = "DEV_" .. tostring(os.time())
+    end
+    return device_id
+end
+
+-- 初始化设备ID
+my_device_id = get_device_id()
+log.info('device_id', my_device_id)
+
 -- 获取显示昵称（优先用IOT昵称，没有就用设备ID后6位）
 local function get_nickname()
     if exapp then
@@ -66,6 +85,10 @@ local function get_nickname()
         if ok and info and info.nickname and #info.nickname > 0 then
             return info.nickname
         end
+    end
+    -- 确保 my_device_id 不为 nil
+    if not my_device_id or #my_device_id == 0 then
+        my_device_id = "DEV_" .. tostring(os.time())
     end
     return my_device_id:sub(#my_device_id - 5)
 end
@@ -91,23 +114,6 @@ local MQTT_SERVER = "lbsmqtt.airm2m.com"
 local MQTT_PORT = 1884
 local MQTT_QOS = 0
 local TASK_NAME = "stick_fighter_mqtt"
-
-local my_device_id = nil
-
-local function get_device_id()
-    local device_id = "DEV_UNKNOWN"
-    if mobile and mobile.imei then
-        device_id = mobile.imei()
-    elseif wlan and wlan.getMac then
-        device_id = wlan.getMac()
-    else
-        device_id = "DEV_" .. tostring(os.time())
-    end
-    return device_id
-end
-
-my_device_id = get_device_id()
-log.info('device_id', my_device_id)
 
 -- 获取本机设备型号
 local my_device_model = "未知"

@@ -48,6 +48,8 @@ local builtin_button_spacing = math.floor(20 * density_scale_val)
 local timer_handler = nil
 local external_app_cache = {}
 local page_grids = {}
+local app_rebuild_pending = false
+local app_cache_dirty = false
 
 local COLOR_PRIMARY        = 0x007AFF
 local COLOR_PRIMARY_DARK   = 0x0056B3
@@ -116,6 +118,10 @@ local function calc_layout()
     local gah = screen_h - top_height - page_indicator_height
 
     local mcw = is_landscape and 120 or 100
+    -- 宽屏增大最小卡片宽度，减少列数避免卡片过密
+    if screen_w > 480 then
+        mcw = math.max(mcw, math.floor(screen_w / 5))
+    end
     grid_columns = math.max(1, math.floor(gaw / mcw))
     local mxc = math.floor(gaw / 70)
     if grid_columns > mxc then grid_columns = mxc end
@@ -131,6 +137,16 @@ local function calc_layout()
     local ah = gah - grid_top_padding
     local rpp = math.max(1, math.floor(ah / (card_height + grid_margin)))
     apps_per_page = grid_columns * rpp
+    -- 限制每页最多 24 个卡片，避免大屏上控件过密导致滑动卡顿
+    if not is_landscape and apps_per_page > 24 then
+        apps_per_page = 24
+        -- 卡片变少后，拉高卡片填满剩余空间
+        local target_rows = math.ceil(apps_per_page / grid_columns)
+        card_height = math.floor((ah - grid_margin * (target_rows - 1)) / target_rows)
+        if card_height < math.floor(70 * _G.density_scale) then
+            card_height = math.floor(70 * _G.density_scale)
+        end
+    end
 
 end
 
@@ -349,6 +365,20 @@ local function load_external_apps()
     rebuild_app_pages()
 end
 
+local function on_installed_updated()
+    app_cache_dirty = true
+    if not app_rebuild_pending then
+        app_rebuild_pending = true
+        sys.timerStart(function()
+            app_rebuild_pending = false
+            if app_cache_dirty then
+                app_cache_dirty = false
+                load_external_apps()
+            end
+        end, 500)
+    end
+end
+
 local function update_time_date(time_str, date_str, weekday_str)
     if time_str then status_cache.time = time_str end
     if date_str then status_cache.date = date_str end
@@ -492,9 +522,7 @@ local function on_create()
         sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_mobile)
     end
     sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi)
-    sys.subscribe("APP_STORE_INSTALLED_UPDATED", function()
-        load_external_apps()
-    end)
+    sys.subscribe("APP_STORE_INSTALLED_UPDATED", on_installed_updated)
 
     sys.publish("REQUEST_STATUS_REFRESH")
 end
@@ -509,20 +537,24 @@ local function on_destroy()
         sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_mobile)
     end
     sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi)
-    sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", load_external_apps)
+    sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", on_installed_updated)
 
     if tab_view then tab_view:destroy(); tab_view = nil end
     if main_container then main_container:destroy(); main_container = nil end
     product_label = nil; big_time_label = nil; date_label = nil; wifi_icon = nil; mobile_icon = nil; qrcode_widget = nil
     page_label = nil; external_app_cache = {}; page_grids = {}
     current_tab_index = 0
+    app_rebuild_pending = false; app_cache_dirty = false
 end
 
 local function on_get_focus()
     update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     update_wifi_icon(status_cache.wifi_level)
     update_mobile_icon(status_cache.mobile_level)
-    load_external_apps()
+    if app_cache_dirty then
+        app_cache_dirty = false
+        load_external_apps()
+    end
     if not timer_handler then
         timer_handler = sys.timerLoopStart(function()
             update_time_date(status_cache.time, status_cache.date, status_cache.weekday)

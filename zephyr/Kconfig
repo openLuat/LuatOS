@@ -1,0 +1,32 @@
+menu "LuatOS"
+
+config LUATOS
+	bool "Enable LuatOS Lua VM"
+	default n
+	help
+	  Enable the LuatOS embedded Lua 5.3 VM as a Zephyr library.
+
+if LUATOS
+
+config LUATOS_HEAP_SIZE
+	int "LuatOS heap size (bytes)"
+	default 262144
+	help
+	  Size of the heap available to LuatOS (Lua VM + BSP malloc).
+	  Must be <= CONFIG_HEAP_MEM_POOL_SIZE.
+
+config LUATOS_TASK_STACK_SIZE
+	int "LuatOS main task stack size (bytes)"
+	default 16384
+	help
+	  Stack size for the LuatOS main thread running luat_main().
+
+config LUATOS_FS_MOUNT
+	string "LuatOS filesystem mount point"
+	default "/lfs/"
+	help
+	  Zephyr FS mount point where LuatOS stores Lua scripts.
+	  Must end with '/'.  The LuatOS VFS prefix is set to this value.
+
+endif # LUATOS
+endmenu

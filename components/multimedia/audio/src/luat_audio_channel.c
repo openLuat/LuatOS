@@ -107,10 +107,19 @@ static void _audio_channel_play_vol_32bit(int32_t *data, uint32_t len_bytes, uin
 
 int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uint32_t len_bytes, uint32_t *written_bytes, uint8_t is_signed,uint8_t data_align, uint8_t channel_nums)
 {
-    *written_bytes = 0;
     // if (!channel || !data || !written_bytes) {
     //     return -LUAT_ERROR_PARAM_INVALID;
     // }
+    uint32_t rest_space = luat_fifo_check_free_space(channel->play_fifo);
+    uint32_t one_channel_pcm_len = rest_space / channel->driver_ctrl->common_param.channel_nums / channel->driver_ctrl->common_param.data_align;
+    uint32_t max_data_bytes = one_channel_pcm_len * channel_nums * data_align;
+    // LLOGC(luat_audio_debug_flag,"input param %d-%d output param %d-%d rest space %u, one_channel_pcm_len %u, max_data_bytes %u, len_bytes %u", 
+    //     channel_nums, data_align, channel->driver_ctrl->common_param.channel_nums, channel->driver_ctrl->common_param.data_align, 
+    //     rest_space, one_channel_pcm_len, max_data_bytes, len_bytes);
+    if (len_bytes > max_data_bytes) {
+        len_bytes = max_data_bytes;
+    }
+    *written_bytes = len_bytes;
     luat_data_union_t data_union;
     data_union.p = data;
     // LLOGC(luat_audio_debug_flag,"write data to channel len_bytes %u, is_signed %u, data_align %u, channel_nums %u", len_bytes, is_signed, data_align, channel_nums);
@@ -183,10 +192,9 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
     }
 
     if (data_align == channel->driver_ctrl->common_param.data_align && channel_nums == channel->driver_ctrl->common_param.channel_nums) {
-        luat_mutex_lock(channel->play_lock_mutex);
+        //luat_mutex_lock(channel->play_lock_mutex);
 		luat_fifo_write(channel->play_fifo, data, len_bytes);
-		luat_mutex_unlock(channel->play_lock_mutex);
-        *written_bytes = len_bytes;
+		//luat_mutex_unlock(channel->play_lock_mutex);
         return LUAT_ERROR_NONE;
     } else if (data_align == channel->driver_ctrl->common_param.data_align) { // 音频通道数匹配
         uint32_t pcm_data_len, new_data_len, new_data_bytes = 0;
@@ -197,9 +205,6 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
                 pcm_data_len = len_bytes;
                 new_data_len = (pcm_data_len / channel_nums) * channel->driver_ctrl->common_param.channel_nums;
                 new_data_bytes = new_data_len;
-                if (new_data_bytes > luat_fifo_check_free_space(channel->play_fifo)) {
-                    return -LUAT_ERROR_PARAM_OVERFLOW;
-                }
                 new_data_union.p = luat_heap_malloc(new_data_bytes);
                 if (!new_data_union.p) {
                     return -LUAT_ERROR_NO_MEMORY;
@@ -242,16 +247,15 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
                 pcm_data_len = len_bytes >> 1;
                 new_data_len = (pcm_data_len / channel_nums) * channel->driver_ctrl->common_param.channel_nums;
                 new_data_bytes = new_data_len << 1;
-                if (new_data_bytes > luat_fifo_check_free_space(channel->play_fifo)) {
-                    return -LUAT_ERROR_PARAM_OVERFLOW;
-                }
+
                 new_data_union.p = luat_heap_malloc(new_data_bytes);
                 if (!new_data_union.p) {
                     return -LUAT_ERROR_NO_MEMORY;
                 }
                 if (channel_nums > channel->driver_ctrl->common_param.channel_nums) {    // 解码后数据通道数大于音频通道数, 需要减少数据
                     if (1 == channel->driver_ctrl->common_param.channel_nums) {
-                        for(uint32_t i = 0, j = 0; i < pcm_data_len; i += channel_nums, j++){
+                        uint32_t i,j;
+                        for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j++){
                             new_data_union.i16[j] = data_union.i16[i];
                         }
                     } else {
@@ -288,9 +292,6 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
                 pcm_data_len = len_bytes >> 2;
                 new_data_len = (pcm_data_len / channel_nums) * channel->driver_ctrl->common_param.channel_nums;
                 new_data_bytes = new_data_len << 2;
-                if (new_data_bytes > luat_fifo_check_free_space(channel->play_fifo)) {
-                    return -LUAT_ERROR_PARAM_OVERFLOW;
-                }
                 new_data_union.p = luat_heap_malloc(new_data_bytes);
                 if (!new_data_union.p) {
                     return -LUAT_ERROR_NO_MEMORY;
@@ -333,7 +334,6 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
                 return -LUAT_ERROR_PARAM_INVALID;
                 break;
         }
-        *written_bytes = new_data_bytes;
         luat_fifo_write(channel->play_fifo, new_data_union.p, new_data_bytes);
         luat_heap_free(new_data_union.p8);
     } else if (channel_nums == channel->driver_ctrl->common_param.channel_nums) {
@@ -369,9 +369,6 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
             default:
                 return -LUAT_ERROR_PARAM_INVALID;
                 break;
-        }
-        if (new_data_bytes > luat_fifo_check_free_space(channel->play_fifo)) {
-            return -LUAT_ERROR_PARAM_OVERFLOW;
         }
         new_data_union.p = luat_heap_malloc(new_data_bytes);
         if (!new_data_union.p) {
@@ -470,8 +467,6 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
                 return -LUAT_ERROR_PARAM_INVALID;
                 break;
         }
-
-        *written_bytes = new_data_bytes;
         luat_fifo_write(channel->play_fifo, new_data_union.p, new_data_bytes);
         luat_heap_free(new_data_union.p8);
     } else {

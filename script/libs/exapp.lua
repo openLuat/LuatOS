@@ -1981,7 +1981,7 @@ local function app_task(app_path)
                     return function(_, axis, index, style) return raw_obj:set_cell_style(axis, index, style_scale(style)) end
                 end
                 if (key == "set_style" or key == "set_stype") and
-                    (component_name == "button" or component_name == "table" or component_name == "spinner" or component_name == "win") then
+                    (component_name == "button" or component_name == "table" or component_name == "spinner" or component_name == "win" or component_name == "msgbox") then
                     return function(_, style)
                         local method = userdata_member(raw_obj, orig_index, key)
                         if type(method) ~= "function" then return false end

@@ -67,15 +67,15 @@ luat_audio_driver_ctrl_t *luat_audio_driver_probe(luat_audio_driver_probe_t *pro
 int luat_audio_driver_set_default(luat_audio_driver_probe_t *probe);
 
 /**
- * @brief 获取所有已注册的音频驱动匹配结构
+ * @brief 获取所有已注册的音频驱动控制器
  * 
- * 此函数用于获取所有已注册的音频驱动匹配结构，包括默认驱动。
+ * 此函数用于获取所有已注册的音频驱动控制器，包括默认驱动。
  * 
- * @param all_nums 输出参数，用于返回已注册的音频驱动匹配结构数量
+ * @param all_nums 输出参数，用于返回已注册的音频驱动控制器数量
  * @param default_index 输出参数，用于返回默认音频驱动的索引
- * @return 音频驱动匹配结构指针数组，成功返回非NULL，失败返回NULL
+ * @return 音频驱动控制器指针数组，成功返回非NULL，失败返回NULL
  */
-luat_audio_driver_probe_t *luat_audio_driver_get_probe_info(uint8_t *all_nums, uint8_t *default_index);
+luat_audio_driver_ctrl_t *luat_audio_driver_get_ctrl_info(uint8_t *all_nums, uint8_t *default_index);
 /**
  * @brief 获取音频文件的播放信息
  * 

@@ -97,8 +97,9 @@ local function fota_check_with_libfota2(is_manual)
                 -- 手动检测：弹窗询问是否重启
                 sys.publish("FOTA_PROMPT_REBOOT", "升级包已下载完成，是否重启设备进行升级？")
             else
-                -- 定时检测：静默完成，只通知有更新
+                -- 定时检测：下载完成后也弹窗询问是否升级
                 sys.publish("FOTA_STATUS", "UPDATE_READY", "有新版本，重启即可升级")
+                sys.publish("FOTA_AUTO_PROMPT_UPGRADE", "检测到新版本已下载完成，是否立即升级？")
             end
         elseif ret == 4 then
             log.info("fota_app", "当前已是最新版本")
@@ -211,6 +212,36 @@ sys.subscribe("FOTA_CONFIRM_REBOOT", function()
     log.info("fota_app", "用户确认重启，执行 rtos.reboot()")
     sys.publish("FOTA_STATUS", "REBOOTING", "正在重启...")
     sys.timerStart(rtos.reboot, 500)
+end)
+
+-- 自动触发升级提示（定时/开机检测下载完成后弹窗）
+sys.subscribe("FOTA_AUTO_PROMPT_UPGRADE", function(message)
+    log.info("fota_app", "自动检测完成，弹窗询问是否升级")
+    sys.taskInit(function()
+        local mw, mh = 300, 180
+        local msg_font = 14
+        local lcd_w, lcd_h = lcd.getSize()
+        if lcd_w and lcd_h then
+            local d = math.min(lcd_w, lcd_h)
+            mw = math.floor(d * 0.85)
+            mh = math.floor(d * 0.35)
+            msg_font = math.max(math.floor(d * 0.036), 14)
+        end
+        airui.msgbox({
+            w = mw,
+            h = mh,
+            style = { text_font_size = msg_font },
+            title = "固件更新",
+            text = message or "检测到新版本，是否立即升级？",
+            buttons = { "稍后", "立即升级" },
+            on_action = function(self, btn_label)
+                self:destroy()
+                if btn_label == "立即升级" then
+                    sys.publish("FOTA_CONFIRM_REBOOT")
+                end
+            end
+        })
+    end)
 end)
 
 -- 获取/保存设置

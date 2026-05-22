@@ -76,8 +76,13 @@ end
 
 local function show_reboot_prompt(message)
     if not main_container then return end
+    local mw = math.floor(card_w * 0.85)
+    local mh = math.floor(screen_h * 0.28)
     airui.msgbox({
         parent = main_container,
+        w = mw,
+        h = mh,
+        style = { text_font_size = font_size },
         title = "固件更新",
         text = message or "升级包已下载完成，是否重启设备进行升级？",
         buttons = { "稍后重启", "立即重启" },

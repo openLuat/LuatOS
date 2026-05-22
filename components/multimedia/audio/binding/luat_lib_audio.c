@@ -29,9 +29,10 @@
 
 typedef struct {
     luat_llist_head node;
-    luat_audio_request_block_t request;
     uint8_t self_index;
     uint8_t is_busy;
+    uint8_t pad[2];
+    luat_audio_request_block_t request;
 } l_audio_request_t;
 
 typedef struct {
@@ -51,10 +52,10 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
     if (u_data.u8[0] < LUAT_AUDIO_REQUEST_MAX) {
         if (LUAT_AUDIO_REQUEST_EVENT_END == u_data.u8[1]) {
             l_audio_request_t *l_req = &_l_audio.request_table[u_data.u8[0]];
-            LLOGC(luat_audio_debug_flag,"lua request %d free", l_req->self_index);
             l_req->is_busy = 0;
             luat_llist_del(&l_req->node);
             luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
+            LLOGC(luat_audio_debug_flag,"lua request %d end", u_data.u8[0]);
         }
         if (_l_audio.cb_ref) {
             lua_geti(L, LUA_REGISTRYINDEX, _l_audio.cb_ref);
@@ -71,8 +72,8 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
     return 1;
 }
 
-static void _l_audio_request_callback(uint32_t event, uint8_t *data, uint32_t len, struct luat_audio_request_block *request_block) {
-    l_audio_request_t *l_req = (l_audio_request_t *)request_block->user_data;
+static void _l_audio_request_callback(uint32_t event, uint8_t *data, uint32_t param, struct luat_audio_request_block *request_block) {
+    l_audio_request_t *l_req = (l_audio_request_t *)(request_block->user_data);
     luat_data_union_t u_data;
     u_data.u8[0] = l_req->self_index;
     u_data.u8[1] = event;
@@ -80,19 +81,19 @@ static void _l_audio_request_callback(uint32_t event, uint8_t *data, uint32_t le
 	msg.handler = _l_audio_handler;
 	msg.ptr = NULL;
 	msg.arg1 = u_data.u32;
-	msg.arg2 = len;
+	msg.arg2 = param;
 	luat_msgbus_put(&msg, 0);
 }
 
 void l_audio_init(void)
 {
     LUAT_INIT_LLIST_HEAD(&_l_audio.request_free_list);
+    LUAT_INIT_LLIST_HEAD(&_l_audio.request_busy_list);
     for(uint32_t i = 0; i < LUAT_AUDIO_REQUEST_MAX; i++)
     {
         _l_audio.request_table[i].self_index = i;
         luat_llist_add_tail(&_l_audio.request_table[i].node, &_l_audio.request_free_list);
     }
-    LUAT_INIT_LLIST_HEAD(&_l_audio.request_busy_list);
 }
 
 /*
@@ -137,12 +138,12 @@ static int l_audio_play(lua_State *L) {
             info[i].rom_data_len = 0;
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
-    } else if (LUA_TSTRING == (lua_type(L, (2)))) {
+    } else if (LUA_TSTRING == (lua_type(L, (1)))) {
         info = (luat_audio_play_file_info_t *)luat_heap_calloc(1, sizeof(luat_audio_play_file_info_t));
         if (!info) {
             goto DONE;
         }
-        info[0].path = (void*)lua_tolstring(L, 2, &path_len);
+        info[0].path = (void*)lua_tolstring(L, 1, &path_len);
         info[0].fail_continue = !is_error_stop;
         info[0].rom_data_len = 0;
         file_nums = 1;
@@ -153,7 +154,7 @@ static int l_audio_play(lua_State *L) {
         LLOGE("audio request free list is empty");
         goto DONE;
     }
-    l_audio_request_t *l_req = (luat_audio_request_block_t *)&_l_audio.request_free_list.next;
+    l_audio_request_t *l_req = (l_audio_request_t *)_l_audio.request_free_list.next;
     request_index = l_req->self_index;
     luat_llist_del(&l_req->node);
     luat_llist_add_tail(&l_req->node, &_l_audio.request_busy_list);
@@ -166,7 +167,7 @@ static int l_audio_play(lua_State *L) {
         luat_llist_del(&l_req->node);
         luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
     } else {
-        LLOGC(luat_audio_debug_flag,"lua request %d busy", l_req->self_index);
+        LLOGC(luat_audio_debug_flag,"lua request %d start", l_req->self_index);
     }
 DONE:
     lua_pushboolean(L, !result);
@@ -206,7 +207,7 @@ static int l_audio_tts(lua_State *L) {
         LLOGE("audio request free list is empty");
         goto DONE;
     }
-    l_audio_request_t *l_req = (luat_audio_request_block_t *)&_l_audio.request_free_list.next;
+    l_audio_request_t *l_req = (l_audio_request_t *)_l_audio.request_free_list.next;
     request_index = l_req->self_index;
     luat_llist_del(&l_req->node);
     luat_llist_add_tail(&l_req->node, &_l_audio.request_busy_list);
@@ -216,7 +217,7 @@ static int l_audio_tts(lua_State *L) {
         luat_llist_del(&l_req->node);
         luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
     } else {
-        LLOGC(luat_audio_debug_flag,"lua request %d busy", l_req->self_index);
+        LLOGC(luat_audio_debug_flag,"lua request %d start", l_req->self_index);
     }
 DONE:
     lua_pushboolean(L, !result);
@@ -315,7 +316,7 @@ log.info(all_nums, default_driver_index)
 static int l_audio_get_driver_info(lua_State *L) {
     uint8_t all_nums = 0;
     uint8_t default_driver_index;
-    luat_audio_driver_get_probe_info(&all_nums, &default_driver_index);
+    luat_audio_driver_get_ctrl_info(&all_nums, &default_driver_index);
     lua_pushinteger(L, all_nums);
     lua_pushinteger(L, default_driver_index);
     return 2;
@@ -336,12 +337,12 @@ static int l_audio_get_driver_id(lua_State *L) {
     uint8_t index = luaL_optinteger(L, 1, 0);
     uint8_t all_nums = 0;
     uint8_t default_driver_index;
-    luat_audio_driver_probe_t *probe_table =luat_audio_driver_get_probe_info(&all_nums, &default_driver_index);
+    luat_audio_driver_ctrl_t *ctrl_table =luat_audio_driver_get_ctrl_info(&all_nums, &default_driver_index);
     if (index >= all_nums) {
         lua_pushinteger(L, 0);
         return 1;
     } else {
-        lua_pushinteger(L, probe_table[index].probe_id);
+        lua_pushinteger(L, ctrl_table[index].probe.probe_id);
         return 1;
     }
 }
@@ -394,18 +395,21 @@ audio_v2.config_pa_power_ctrl(true, 12, 1, 100)
 static int l_audio_config_pa_power_ctrl(lua_State *L) {
     luat_audio_driver_ctrl_t *ctrl = NULL;
     luat_audio_driver_probe_t probe;
-    probe.probe_id = luaL_optinteger(L, 1, 0);
+    probe.probe_id = luaL_optinteger(L, 5, 0);
     if (probe.probe_id) {
         ctrl = luat_audio_driver_probe(&probe);
         if (!ctrl) {
             lua_pushboolean(L, 0);
             return 1;
         }
+    } else {
+        ctrl = luat_audio_driver_probe(NULL);
     }
-    uint8_t pa_power_ctrl_enable = lua_toboolean(L, 2);
-    uint8_t pa_power_pin = luaL_optinteger(L, 3, 0);
-    uint8_t pa_power_on_level = luaL_optinteger(L, 4, 1);
-    uint16_t pa_power_on_delay_time_ms = luaL_optinteger(L, 5, 100);
+    uint8_t pa_power_ctrl_enable = lua_toboolean(L, 1);
+    uint8_t pa_power_pin = luaL_optinteger(L, 2, 0);
+    uint8_t pa_power_on_level = luaL_optinteger(L, 3, 1);
+    uint16_t pa_power_on_delay_time_ms = luaL_optinteger(L, 4, 100);
+    LLOGC(luat_audio_debug_flag,"lua config pa power ctrl %d %d %d %d", pa_power_ctrl_enable, pa_power_pin, pa_power_on_level, pa_power_on_delay_time_ms);
     int ret = luat_audio_driver_config_pa_power_ctrl(ctrl, pa_power_ctrl_enable, pa_power_pin, pa_power_on_level, pa_power_on_delay_time_ms);
     lua_pushboolean(L, !ret);
     return 1;
@@ -427,19 +431,22 @@ audio_v2.config_codec_power_ctrl(true, 11, 1, 200, 10)
 static int l_audio_config_codec_power_ctrl(lua_State *L) {
     luat_audio_driver_ctrl_t *ctrl = NULL;
     luat_audio_driver_probe_t probe;
-    probe.probe_id = luaL_optinteger(L, 1, 0);
+    probe.probe_id = luaL_optinteger(L, 6, 0);
     if (probe.probe_id) {
         ctrl = luat_audio_driver_probe(&probe);
         if (!ctrl) {
             lua_pushboolean(L, 0);
             return 1;
         }
+    } else {
+        ctrl = luat_audio_driver_probe(NULL);
     }
-    uint8_t codec_power_ctrl_enable = lua_toboolean(L, 2);
-    uint8_t codec_power_pin = luaL_optinteger(L, 3, 0);
-    uint8_t codec_power_on_level = luaL_optinteger(L, 4, 1);
-    uint32_t codec_ready_after_wakeup_time_ms = luaL_optinteger(L, 5, 200);
-    uint16_t codec_power_off_delay_time_ms = luaL_optinteger(L, 6, 10);
+    uint8_t codec_power_ctrl_enable = lua_toboolean(L, 1);
+    uint8_t codec_power_pin = luaL_optinteger(L, 2, 0);
+    uint8_t codec_power_on_level = luaL_optinteger(L, 3, 1);
+    uint32_t codec_ready_after_wakeup_time_ms = luaL_optinteger(L, 4, 200);
+    uint16_t codec_power_off_delay_time_ms = luaL_optinteger(L, 5, 10);
+    LLOGC(luat_audio_debug_flag,"lua config codec power ctrl %d %d %d %d %d", codec_power_ctrl_enable, codec_power_pin, codec_power_on_level, codec_ready_after_wakeup_time_ms, codec_power_off_delay_time_ms);
     int ret = luat_audio_driver_config_codec_power_ctrl(ctrl, codec_power_ctrl_enable, codec_power_pin, codec_power_on_level, codec_ready_after_wakeup_time_ms, codec_power_off_delay_time_ms);
     lua_pushboolean(L, !ret);
     return 1;
@@ -494,7 +501,6 @@ static int l_audio_set_debug(lua_State *L) {
 #include "rotable2.h"
 static const rotable_Reg_t reg_audio_v2[] =
 {
-
 	{ "play",			ROREG_FUNC(l_audio_play)},
     { "tts",			ROREG_FUNC(l_audio_tts)},
     { "stop",			ROREG_FUNC(l_audio_stop)},

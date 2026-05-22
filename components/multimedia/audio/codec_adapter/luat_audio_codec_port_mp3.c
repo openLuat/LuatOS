@@ -21,7 +21,7 @@ int luat_audio_mp3_get_play_info(struct luat_audio_data_codec *codec, luat_buffe
         return LUAT_ERROR_NONE;
     }
     mp3dec_t *mp3_decoder;
-    if (input_buffer->data[0] == 0xff) {  //mp3数据帧，尝试解码  
+    if (input_buffer->data[0] == 0xff || (now_file_pos > 12)) {  //mp3数据帧，尝试解码  
         mp3_decoder = luat_heap_malloc(sizeof(mp3dec_t));
         if (!mp3_decoder) {
             return -LUAT_ERROR_NO_MEMORY;
@@ -31,8 +31,7 @@ int luat_audio_mp3_get_play_info(struct luat_audio_data_codec *codec, luat_buffe
         mp3dec_frame_info_t mp3_frame_info;
         int ret = mp3dec_decode_frame(mp3_decoder, input_buffer->data, input_buffer->pos, NULL, &mp3_frame_info);
         luat_heap_free(mp3_decoder);
-        if (ret > 0)
-        {
+        if (ret > 0) {
             info->sample_rate = mp3_frame_info.hz;
             info->channel_nums = mp3_frame_info.channels;
             info->data_align = 2;
@@ -40,21 +39,18 @@ int luat_audio_mp3_get_play_info(struct luat_audio_data_codec *codec, luat_buffe
             *jump_offset_bytes = now_file_pos;
             *need_bytes = 0;
             return LUAT_ERROR_NONE;
-        }
-        else
-        {
+        } else {
             return -LUAT_ERROR_PARAM_INVALID;
         }
 
     }
     if (!memcmp(input_buffer->data, "ID3", 3)) {
         uint32_t jump = 0;
-        for(uint32_t i = 0; i < 4; i++)
-        {
+        for(uint32_t i = 0; i < 4; i++) {
             jump <<= 7;
             jump |= input_buffer->data[6 + i] & 0x7f;
         }
-        *jump_offset_bytes = jump;
+        *jump_offset_bytes = jump + 12;
         *need_bytes = MP3_FRAME_AFTER_ENCODE_SIZE;
         info->sample_rate = 0;
         return LUAT_ERROR_NONE;

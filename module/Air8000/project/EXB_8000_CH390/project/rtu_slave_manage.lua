@@ -22,6 +22,7 @@ local exmodbus = require("exmodbus")
 gpio.setup(29, 1, gpio.PULLUP)        -- Air8000 开发板 RS485 芯片供电引脚
 local rs485_dir_gpio = 36 -- Air8000 开发板 RS485 方向引脚
 
+-- 配置相关引脚
 pins.setup(27,"GPIO36") 
 pins.setup(28,"GPIO37") 
 pins.setup(25,"UART3_RX") 

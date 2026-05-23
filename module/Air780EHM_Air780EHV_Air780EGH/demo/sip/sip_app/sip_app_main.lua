@@ -1,7 +1,27 @@
+
+--[[
+@module  sip_app_main
+@summary SIP 应用主逻辑模块
+@version 1.0
+@date    2026.05.22
+@author  蒋骞
+@usage
+本文件为SIP应用主逻辑模块，核心业务逻辑为：负责 SIP 服务的初始化、状态机管理、按键事件处理、通话控制及音频管理。通过状态机驱动呼出、呼入、接听、挂断等通话全流程，并处理网络变化等异常场景。
+@description
+1、本文件依赖的模块：
+    1）exsip：SIP协议栈模块，负责SIP信令处理；
+    2）audio_drv：音频驱动模块，负责音频设备的初始化和控制；
+    3）exaudio：音频处理模块，负责音频数据的处理和传输；
+2、核心功能逻辑：
+    1）SIP服务初始化：在start函数中，进行SIP服务的初始化，包括音频设备的初始化和SIP协议栈的配置启动；
+    2）状态机管理：通过g_sip_status变量维护当前SIP应用的状态，处理不同事件时根据状态进行相应的业务逻辑控制；
+    3）按键事件处理：通过sys.publish和sys.subscribe机制，接收按键事件（如呼出、接听、挂断等），并触发相应的SIP操作；
+    4）通话控制：根据SIP事件（如来电、响铃、接通、挂断等），更新状态机状态，并进行相应的业务处理；
+]]--
+
 local exsip = require "exsip"
 local audio_drv = require "audio_drv"
 local exaudio = require "exaudio"
-local tts_speaker = require "tts_speaker"
 
 local TASK_NAME = "sip_app_main_task"
 --测试账号，根据自己实际情况修改
@@ -9,8 +29,6 @@ local SIP_CONFIG = {
     sip_server_addr = "180.152.6.34",
     sip_server_port = 8910,
     sip_domain = "180.152.6.34",
-    -- sip_username = "100001",
-    -- sip_password = "Mm123..",
     sip_username = "100000",
     sip_password = "Mm123.",
     sip_transport = exsip.TRANSPORT_UDP,
@@ -39,11 +57,6 @@ local g_sip_status = "STATE_IDLE"
 -- "MSG_ERROR"：出现异常
 
 local g_audio_inited = false
-local pending_hangup_reason = nil
-
--- lifecycle online 频繁触发检测（用于打破 482 重试死循环）
-local lifecycle_online_count = 0
-local lifecycle_online_last_time = 0
 
 local function start()
     log.info("start", "开始初始化 SIP，当前状态:", g_sip_status)
@@ -74,8 +87,6 @@ local function start()
     return true
 end
 
--- 停止会失败吗？如果停止失败了，需要做什么处理吗？
--- 如果没有启动，调用停止接口也不应该出问题
 local function stop()
     log.info("stop", "开始停止 SIP，当前状态:", g_sip_status)
     exsip.stop()
@@ -154,13 +165,8 @@ local function sip_callback(event, arg1, arg2, arg3)
         local sub_event, data = arg1, arg2
         if sub_event == "state" then
             log.info("sip_callback", "VoIP状态:", data)
-        if data == "stopped" then
-            tts_speaker.set_voip_running(false)
-            tts_speaker.reset_audio()
-            if pending_hangup_reason then
-                sys.sendMsg(TASK_NAME, tag, "MSG_PLAY_HUNGUP", pending_hangup_reason)
-                pending_hangup_reason = nil
-            end
+        if data == "started" then
+            sys.publish("SIP_APP_MAIN_VOIP_STARTED")
         end
         elseif sub_event == "stats" then
             log.info("sip_callback", "VoIP统计 - 发送:", data.tx_packets, "接收:", data.rx_packets, "丢失:", data.rx_lost)
@@ -173,29 +179,6 @@ local function sip_callback(event, arg1, arg2, arg3)
         log.info("sip_callback", "lifecycle event:", sub_event)
         if sub_event == "online" then
             log.info("sip_callback", "SIP 服务已在线，本地IP地址为：", data.local_ip)
-
-            -- 若在 STATE_READY 状态下收到 lifecycle online，说明网络发生切换或恢复，
-            -- exsip 正在重新注册，暂时标记为不可用，避免用户在此期间误操作
-            if g_sip_status == "STATE_READY" then
-                g_sip_status = "STATE_INITING"
-                sys.publish("SIP_APP_MAIN_LOSE")
-                log.warn("sip_callback", "网络状态变化，SIP 重新注册中，标记为不可用")
-            end
-
-            -- 频繁触发检测：30 秒内收到 >=3 次 lifecycle online，判定为死循环，主动重启
-            local now = (mcu and mcu.ticks and mcu.ticks()) or (os.time() * 1000)
-            if now - lifecycle_online_last_time > 30000 then
-                lifecycle_online_count = 1
-                lifecycle_online_last_time = now
-            else
-                lifecycle_online_count = lifecycle_online_count + 1
-                if lifecycle_online_count >= 3 then
-                    log.error("sip_callback", "lifecycle online 频繁触发（", lifecycle_online_count, "次/30s），判定为注册死循环，触发重启")
-                    lifecycle_online_count = 0
-                    lifecycle_online_last_time = 0
-                    sys.sendMsg(TASK_NAME, tag, "MSG_ERROR")
-                end
-            end
         else
             sys.sendMsg(TASK_NAME, tag, "MSG_ERROR")
         end
@@ -263,9 +246,7 @@ local function sip_app_main_task_func()
                         sys.publish("SIP_APP_MAIN_DIAL_RSP", tag, false, "exsip.dial")
                     else
                         g_sip_status = "STATE_DIALING"
-                        sys.taskInit(function()
-                            tts_speaker.speak_dialing(para)
-                        end)
+                        sys.publish("SIP_APP_MAIN_DIAL_RSP", tag, true, para)
                     end
                 else
                     sys.publish("SIP_APP_MAIN_DIAL_RSP", tag, false, g_sip_status)
@@ -274,18 +255,12 @@ local function sip_app_main_task_func()
                     break
             elseif event == "MSG_READY" then
                 if g_sip_status == "STATE_INITING" then
-                    sys.publish("SIP_APP_MAIN_READY")
-                    sys.taskInit(function()
-                        tts_speaker.speak_sip_ready_with_network(socket.dft())
-                    end)
+                    sys.publish("SIP_APP_MAIN_READY",socket.dft())
                 end
                 g_sip_status = "STATE_READY"
             elseif event == "MSG_INCOMING" then
                 if g_sip_status == "STATE_READY" then
                     g_sip_status = "STATE_INCOMING"
-                    sys.taskInit(function()
-                        tts_speaker.speak_incoming(para)
-                    end)
                     sys.publish("SIP_APP_MAIN_INCOMING", para)
                 else
                     log.warn("sip_app_main_task_func", g_sip_status, tag, "invalid event", event)
@@ -309,36 +284,18 @@ local function sip_app_main_task_func()
             elseif event == "MSG_CONNECTED" then
                 if g_sip_status == "STATE_DIALING" or g_sip_status == "STATE_INCOMING" then
                     g_sip_status = "STATE_CONNECTED"
-                    tts_speaker.stop()
-                    tts_speaker.set_voip_running(true)
                     sys.publish("SIP_APP_MAIN_CONNECTED")
                 else
                     log.warn("sip_app_main_task_func", g_sip_status, tag, "invalid event", event)
                 end
-            elseif event == "MSG_PLAY_HUNGUP" then
-                sys.taskInit(function()
-                    sys.wait(300)
-                    tts_speaker.speak_hungup(para)
-                end)
             elseif event == "MSG_DISCONNECTED" then
                 if g_sip_status == "STATE_DIALING" or g_sip_status == "STATE_INCOMING" or g_sip_status == "STATE_CONNECTED" or g_sip_status == "STATE_DISCONNECTING" then
-                    local was_connected = (g_sip_status == "STATE_CONNECTED" or g_sip_status == "STATE_DISCONNECTING")
                     g_sip_status = "STATE_READY"
-                    if was_connected then
-                        pending_hangup_reason = para
-                    else
-                        sys.taskInit(function()
-                            tts_speaker.speak_hungup(para)
-                        end)
-                    end
-                    sys.publish("SIP_APP_MAIN_DISCONNECTED")
+                    sys.publish("SIP_APP_MAIN_DISCONNECTED",para)
                 elseif g_sip_status == "STATE_READY" then
                     -- 已处理过的挂断事件，忽略重复触发
                     log.info("sip_app_main_task_func", "忽略重复的 MSG_DISCONNECTED")
                 else
-                    sys.taskInit(function()
-                        tts_speaker.speak_hungup(para)
-                    end)
                     log.warn("sip_app_main_task_func", g_sip_status, tag, "invalid event", event)
                 end
             else

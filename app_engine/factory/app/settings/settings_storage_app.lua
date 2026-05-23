@@ -127,12 +127,6 @@ local function get_all_storage_info()
         if io.dexist(mp) then
             -- io.fsstat 返回值格式: success, total_blocks, used_blocks, block_size, fs_type
             local r, success, total_blocks, used_blocks, block_size = pcall(io.fsstat, mp)
-            if not r then
-                -- little_flash(LFS) 用 fs.fsstat
-                if fs and fs.fsstat then
-                    r, success, total_blocks, used_blocks, block_size = pcall(fs.fsstat, mp)
-                end
-            end
             log.info("settings_storage", mp, "io.fsstat raw:",
                 "success", success, "total_blk", total_blocks, "used_blk", used_blocks, "blk_sz", block_size)
             if r and success and total_blocks and used_blocks and block_size then
@@ -155,4 +149,26 @@ sys.subscribe("STORAGE_GET_INFO_LIST", function()
     local list = get_all_storage_info()
     sys.publish("STORAGE_INFO_LIST", list)
     log.info("settings_storage", "上报多存储信息", #list, "个存储位置")
+end)
+
+-- 快速查询：只查内置 /，不碰 NAND/SD
+sys.subscribe("STORAGE_GET_INFO_FAST", function()
+    local fast_list = {
+        { mount_point = "/",              label = STORAGE_LABELS["/"],              available = false },
+        { mount_point = "/sd/",           label = STORAGE_LABELS["/sd/"],           available = false },
+        { mount_point = "/little_flash/", label = STORAGE_LABELS["/little_flash/"], available = false },
+    }
+    -- 仅查内置文件系统 /，不碰 NAND
+    local r, success, total_blocks, used_blocks, block_size = pcall(io.fsstat, "/")
+    if r and success and total_blocks and used_blocks and block_size then
+        local total_kb = total_blocks * (block_size / 1024)
+        local used_kb = used_blocks * (block_size / 1024)
+        fast_list[1].total_kb = total_kb
+        fast_list[1].free_kb = total_kb - used_kb
+        fast_list[1].used_kb = used_kb
+        fast_list[1].used_percent = math.floor(used_kb * 100 / total_kb)
+        fast_list[1].available = true
+    end
+    sys.publish("STORAGE_INFO_LIST", fast_list)
+    log.info("settings_storage", "快速上报内置存储完成")
 end)

@@ -3,6 +3,7 @@
 @summary LuatOS SIP/VoIP 电话应用入口，负责加载功能模块
 @version 1.0
 @date    2026.04.15
+@author  蒋骞
 @usage
 本demo演示的核心功能为：
 1. 使用 exsip.lua 封装库实现 SIP/VoIP 电话功能
@@ -11,7 +12,10 @@
 4. 按键接听电话
 
 模块加载顺序：
-1. 加载 sip_app 主业务模块
+1. 加载 sip_app_main 主业务模块
+2. 加载 sip_app_key 按键控制模块
+3. 加载 netdrv_device 网络驱动设备功能模块
+4. 加载 tts_speaker TTS播报模块
 ]]
 
 --[[
@@ -53,6 +57,7 @@ require "netdrv_device"
 -- 加载SIP电话应用模块
 require "sip_app_key"
 require "sip_app_main"
+require "tts_speaker"
 
 
 -- 用户代码已结束---------------------------------------------

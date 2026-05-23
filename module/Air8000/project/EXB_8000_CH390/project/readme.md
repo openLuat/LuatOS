@@ -1,458 +1,428 @@
-## EXB_8000_CH390 综合项目 (project/)
+# EXB_8000_CH390 综合项目
 
-本目录是一个完整的生产级项目，整合了 Socket 长连接、Modbus RTU/TCP 主从站、AirCloud 物联网数据上报、合宙 LBS 定位、网络看门狗等功能。
+基于 Air8000W + CH390 双网口开发板集成 RTU/TCP 主从站、温湿度采集、AirCloud 物联网上报、LBS 定位、 LED 状态指示的项目。
 
-### 文件结构
+## 文件结构
 
 ```
 project/
 ├── main.lua                  ← 项目入口，调度所有功能模块
 ├── readme.md                 ← 本文件
 │
-├── network_watchdog.lua      ← 网络看门狗（180秒超时自动重启）
-├── netdrv_device.lua         ← 网络驱动选择器（4G/WiFi/ETH/多网切换/PC）
-├── netdrv_eth_static.lua     ← 以太网静态IP驱动（双网口 CH390）
+├── netdrv_device.lua         ← 网络驱动选择器（4G/WiFi/ETH/多网）
+├── netdrv_eth_static.lua     ← 以太网静态IP（双网口 CH390，网口1=192.168.1.183, 网口2=192.168.1.185）
 │
 ├── airlbs_app.lua            ← 合宙 LBS 定位（基站+WiFi，付费服务）
-├── aircloud_data.lua         ← AirCloud 物联网数据上报（30秒周期）
-├── timer_app.lua             ← 定时器数据发送（10秒周期）
-├── led.lua                   ← LED 指示灯驱动（可复用模块）
+├── aircloud_data.lua         ← AirCloud 物联网数据上报（30秒周期，excloud 协议）
 │
-├── param_field_rtu.lua       ← Modbus RTU 主站（字段参数方式）
-├── raw_frame_rtu.lua         ← Modbus RTU 主站（原始帧方式）
-├── rtu_slave_manage.lua      ← Modbus RTU 从站
+├── rtu_slave_regmap.lua      ← RTU 从站 + 寄存器映射表
+├── temp_hum_sensor.lua       ← RTU 主站（UART1，RS485，读取 RTU 温湿度传感器）
+├── tcp_modbus_master.lua     ← TCP 主站（网口1，读取建大仁科 TCP 温湿度传感器）
+├── tcp_slave.lua             ← TCP 从站（网口2，端口 502，ID=1，复用 RTU 从站寄存器）
 │
-├── param_field_tcp.lua       ← Modbus TCP 主站（字段参数方式）
-├── raw_frame_tcp.lua         ← Modbus TCP 主站（原始帧方式）
-├── tcp_slave_manage.lua      ← Modbus TCP 从站
+├── led.lua                   ←  LED 状态指示
 │
-├── netdrv/                   ← 网络驱动 + 多网融合路由模块
-│   ├── netdrv_4g.lua         # 4G 蜂窝网络驱动
-│   ├── netdrv_wifi.lua       # WiFi STA 驱动
-│   ├── netdrv_eth_spi.lua    # SPI 以太网驱动
-│   ├── netdrv_multiple.lua   # 多网卡自动切换（ETH > WiFi > 4G）
-│   ├── netdrv_pc.lua         # PC 模拟器网卡
-│   ├── netif_app_1.lua       # 4G 转 WiFi+以太网 多网融合
-│   ├── netif_app_2.lua       # 以太网 转 WiFi+以太网 多网融合
-│   └── netif_app_3.lua       # WiFi 转 WiFi+以太网 多网融合
-│
-└── tcp/                      ← TCP Socket 长连接模块
-    ├── tcp_client_main.lua   # Socket 连接管理主模
-    ├── tcp_client_receiver.lua # Socket 数据接收模块
-    └── tcp_client_sender.lua   # Socket 数据发送模块
+├── netdrv/                   ← 网络驱动 + 多网融合
+│   ├── netdrv_4g.lua
+│   ├── netdrv_wifi.lua
+│   ├── netdrv_eth_spi.lua
+│   ├── netdrv_multiple.lua
+│   └── netif_app_1~3.lua
 ```
 
----
-
-## 演示硬件环境
-
-1、EXB_8000_CH390 开发板一块
-
-2、TYPE-C USB数据线一根
-
-3、三根母对母杜邦线
-
-4、两根网线分别一端接路由器/交换机，另一端接开发板的网口
-
-| 隔离485 | 非隔离485 |
-| ------- | --------- |
-| A       | A         |
-| B       | B         |
-| GND     | GND       |
-
-![](https://docs.openluat.com/air8000/luatos/app/image/双网口项目.jpg)
-
-### 功能模块说明
-
-#### 1. 网络看门狗 (`network_watchdog.lua`)
-
-- 监控网络通信是否正常，180 秒内未收到喂狗信号则自动重启设备
-- 喂狗时机：收到服务器数据 或 TCP 发送成功
-- 其他模块通过 `sys.publish("FEED_NETWORK_WATCHDOG")` 喂狗
-
-#### 2. 网络驱动 (`netdrv_device.lua` + `netdrv/`)
-
-| 驱动模块 | 适配器 | 说明 |
-|----------|--------|------|
-| `netdrv_4g` | `socket.LWIP_GP` | 4G 蜂窝网络 |
-| `netdrv_wifi` | `socket.LWIP_STA` | WiFi STA 模式 |
-| `netdrv_eth_spi` | `socket.LWIP_ETH` | SPI CH390 以太网 (DHCP) |
-| `netdrv_multiple` | 多适配器 | 自动切换：ETH > WiFi > 4G |
-| `netdrv_pc` | `socket.ETH0` | PC 模拟器 |
-
-多网融合路由模块 (`netif_app_1/2/3`) 使用 `exnetif.setproxy` 实现：
-- **netif_app_1**: 4G WAN → WiFi AP + 以太网 LAN
-- **netif_app_2**: 以太网 WAN → WiFi AP + 以太网 LAN
-- **netif_app_3**: WiFi STA WAN → WiFi AP + 以太网 LAN
-
-#### 3. Socket 长连接 (`tcp/`)
-
-- 创建 **4 路** socket 连接：TCP、UDP、TCP SSL（无校验）、TCP SSL（单向校验证书）
-- 异常自动重连
-- 数据发送来源：串口 UART1 数据 或 定时器 Timer 数据
-- 接收数据通过 UART1 转发
-
-#### 4. AirCloud 数据上报 (`aircloud_data.lua`)
-
-- 按 AirCloud 平台格式构建 JSON 数据
-- 每 30 秒上报一次，包含：4G 信号强度、SIM ICCID、时间戳、设备 IMEI、CPU 温度、VBAT 电压、经纬度
-
-#### 5. 合宙 LBS 定位 (`airlbs_app.lua`)
-
-- 等待网络就绪后进行 NTP 授时
-- 扫描基站 + WiFi 信息
-- 每 60 秒发起一次定位请求（**付费服务**，需在 iot.openluat.com 购买）
-- 定位结果通过 `sys.publish("Airlbs_LOCATION_UPDATE", lat, lng)` 通知其他模块
-
-#### 6. LED 驱动 (`led.lua`)
-
-可复用的通用 LED 控制模块：
-
-```lua
-local led = require "led"
-led.init({26, 27, 28})       -- 初始化 LED 引脚
-led.start()                   -- 启动 LED 闪烁任务
-led.set_comm_status(true)     -- 通信成功：LED 轮流闪烁
-led.set_comm_status(false)    -- 通信失败：全部熄灭
-```
-
-#### 7. 定时器 (`timer_app.lua`)
-
-- 每 10 秒生成递增数据，通过 `sys.publish("SEND_DATA_REQ")` 发送给 Socket 模块
-
-#### 8. Modbus RTU 主站 (`param_field_rtu.lua` / `raw_frame_rtu.lua`)
-
-- 使用 UART1，波特率 115200/8N1
-- RS485 方向引脚：GPIO 37
-- 从站 ID=1，每 2 秒读保持寄存器 0-1，每 4 秒写保持寄存器 0-1
-- **二选一**：`param_field_rtu`（字段参数）或 `raw_frame_rtu`（原始帧）
-
-#### 9. Modbus RTU 从站 (`rtu_slave_manage.lua`)
-
-- 使用 UART3，波特率 115200/8N1
-- RS485 方向引脚：GPIO 36，供电引脚：GPIO 29
-- 从站 ID=1，支持读线圈/离散输入/保持寄存器/输入寄存器、写线圈/保持寄存器
-
-#### 10. Modbus TCP 主站 (`param_field_tcp.lua` / `raw_frame_tcp.lua`)
-
-- 使用 `socket.LWIP_ETH` 适配器
-- 连接 192.168.1.185:6000
-- **二选一**：`param_field_tcp`（字段参数）或 `raw_frame_tcp`（原始帧）
-
-#### 11. Modbus TCP 从站 (`tcp_slave_manage.lua`)
-
-- 使用 `socket.LWIP_USER1` 适配器（网口2）
-- 监听端口 6000，从站 ID=1
-- 等待网卡就绪后创建从站，发布 `TCP_SLAVE_READY` 消息
-
----
-
-### 硬件引脚总览
+## 硬件引脚
 
 | 功能 | 引脚 | 说明 |
 |------|------|------|
 | CH390 网口1 供电 | GPIO 16 | 以太网 PHY 使能 |
 | CH390 网口2 供电 | GPIO 17 | 以太网 PHY 使能 |
-| SPI1 CS 网口1 | GPIO 21 | CH390 片选 |
-| SPI1 CS 网口2 | GPIO 20 | CH390 片选 |
-| RS485 Master 方向 | GPIO 37 | 主站 485 收发控制 |
-| RS485 Slave 方向 | GPIO 36 | 从站 485 收发控制 |
+| SPI CS 网口1 | GPIO 21 | CH390 片选 |
+| SPI CS 网口2 | GPIO 20 | CH390 片选 |
+| RS485 主站方向 | GPIO 37 | UART1 485 收发控制 |
+| RS485 从站方向 | GPIO 36 | UART3 485 收发控制 |
 | RS485 供电 | GPIO 29 | 485 芯片电源 |
-| UART1 | — | Modbus RTU 主站 / 串口数据收发 |
-| UART3 | — | Modbus RTU 从站 |
-| LED1-3 | GPIO 26,27,28 | 通信状态指示 |
+| UART1 | — | RS485 主站，接RTU温湿度传感器 |
+| UART3 | — | RS485 从站，接电脑 |
+| 网口1 | LWIP_ETH | 静态 192.168.1.183，接路由器 |
+| 网口2 | LWIP_USER1 | 静态 192.168.1.185，接路由器 |
+| LED (红) | GPIO 27 | LED 红色通道 |
+| LED (绿) | GPIO 28 | LED 绿色通道 |
 
----
+## 寄存器映射表
 
-### main.lua 配置说明
+Modbus RTU/ TCP 从站均可读取以下保持寄存器(此映射表也可自行设计)：
 
-编辑 `main.lua` 中的 `require` 行来启用/禁用功能：
+| 地址 | 寄存器数 | 数据项 | 来源 | 示例 |
+|------|---------|--------|------|------|
+| 0x0000-01 | 2 | RTU 传感器湿度 | RS485 XY-MD02 | 65.3 %RH |
+| 0x0002-03 | 2 | RTU 传感器温度 | RS485 XY-MD02 | 23.5 ℃ |
+| 0x0004-05 | 2 | CPU 温度 | 模块内部 ADC | 45.2 ℃ |
+| 0x0006-07 | 2 | VBAT 电压 | 模块内部 ADC | 3.85 V |
+| 0x0008-11 | 10 | LBS 纬度 | 定位模块 | "34.8074150" |
+| 0x0012-1B | 10 | LBS 经度 | 定位模块 | "114.2941589" |
+| 0x001C | 1 | 4G 信号强度 | 移动网络 | 25 dBm |
+| 0x001D-28 | 12 | 设备 IMEI | 移动网络 | "861234567890123" |
+| 0x0029-36 | 14 | SIM ICCID | 移动网络 | "898606..." |
+| 0x0037-38 | 2 | 时间戳 | NTP | 1779158409 |
+| 0x0039 | 1 | TCP 传感器湿度 | 网口1 | 653 (÷10=65.3%RH) |
+| 0x003A | 1 | TCP 传感器温度 | 网口1 | 235 (÷10=23.5℃) |
 
-#### 网络驱动选择（在 `netdrv_device.lua` 中修改）
+**数据格式**：
+
+- **FLOAT**：IEEE 754 单精度，小端序字序（寄存器 N = 低 16 位，N+1 = 高 16 位）
+- **INT16**：直接存储，有符号（> 0x7FFF 为负数）
+- **INT32**：小端序字序（寄存器 N = 低字，N+1 = 高字）
+- **STRING**：每寄存器 2 字符（高字节=char1，低字节=char2），超长补 0x00
+
+## RTU 从站通信
+
+| 参数 | 值 |
+|------|-----|
+| 接口 | UART3 (RS485) |
+| 波特率 | 9600, 8N1 |
+| 从站 ID | 1 |
+| 功能码 | 03（读保持寄存器） |
+
+**示例请求**：
+
+| 数据项 | 十六进制指令 |
+|--------|-------------|
+| 全部寄存器 | 01 03 00 00 00 3B 04 19 |
+| RTU传感器湿度 | 01 03 00 00 00 02 C4 0B |
+| RTU传感器温度 | 01 03 00 02 00 02 65 CB |
+| CPU温度 | 01 03 00 04 00 02 85 CA |
+| VBAT电压 | 01 03 00 06 00 02 24 0A |
+| LBS纬度 | 01 03 00 08 00 0A 44 0F |
+| LBS经度 | 01 03 00 12 00 0A 65 C8 |
+| 4G信号强度 | 01 03 00 1C 00 01 45 CC |
+| 设备IMEI | 01 03 00 1D 00 0C D5 C9 |
+| SIM ICCID | 01 03 00 29 00 0E 15 C6 |
+| 时间戳 | 01 03 00 37 00 02 75 C5 |
+| TCP传感器湿度 | 01 03 00 39 00 01 54 07 |
+| TCP传感器温度 | 01 03 00 3A 00 01 A4 07 |
+
+## TCP 从站通信
+
+| 参数 | 值 |
+|------|-----|
+| 接口 | 网口2 (192.168.1.185) |
+| 端口 | 502 |
+| 从站 ID | 1 |
+| 协议 | Modbus TCP (MBAP 头 + PDU，无 CRC) |
+
+**示例请求**：
+
+| 数据项 | 十六进制指令 |
+|--------|-------------|
+| 全部寄存器 | 00 07 00 00 00 06 01 03 00 00 00 02 |
+| RTU传感器湿度 | 00 07 00 00 00 06 01 03 00 02 00 02 |
+| RTU传感器温度 | 00 07 00 00 00 06 01 03 00 02 00 02 |
+| CPU温度 | 00 07 00 00 00 06 01 03 00 04 00 02 |
+| VBAT电压 | 00 07 00 00 00 06 01 03 00 06 00 02 |
+| LBS纬度 | 00 07 00 00 00 06 01 03 00 08 00 0A |
+| LBS经度 | 00 07 00 00 00 06 01 03 00 12 00 0A |
+| 4G信号强度 | 00 07 00 00 00 06 01 03 00 1C 00 01 |
+| 设备IMEI | 00 07 00 00 00 06 01 03 00 1D 00 0C |
+| SIM ICCID | 00 07 00 00 00 06 01 03 00 29 00 0E |
+| 时间戳 | 00 07 00 00 00 06 01 03 00 37 00 02 |
+| TCP传感器湿度 | 00 07 00 00 00 06 01 03 00 39 00 01 |
+| TCP传感器温度 | 00 07 00 00 00 06 01 03 00 3A 00 01 |
+
+## LED 状态指示
+
+一颗多色 RGB LED，分时复用：
+
+| 颜色 | GPIO | 含义 | 行为 |
+|------|------|------|------|
+| 🟢 绿 | 28 | 传感器数据更新 | 亮 1 秒 |
+| 🔴 红 | 27 | PC 发来 Modbus 请求 | 请求期间 + 处理后 500ms 保持 |
+
+互斥规则：红亮期间绿不亮，红灭后绿恢复正常。
+
+## 演示硬件环境
+
+1、EXB_8000_CH390 工控板一块
+
+2、TYPE-C USB数据线一根
+
+3、USB-RS485 串口板
+
+> 此处购买链接仅为推荐，如有问题请直接联系店家
+
+- 购买链接：[4路RS-485，TYPEC接口 不含USB线](https://gitee.com/link?target=https%3A%2F%2Fitem.taobao.com%2Fitem.htm%3Fapp%3Dchrome%26bxsign%3DscdJP32y4DuiSo5k5D89Yse5PsbQ6EIYXNIPNkzmMi6zdQszLdrZrUy6-Nw96m51cCA5oz67QzXT9StIYyW8C2WWDa9P6CTUC4Imox3bONGK_FgAw8bQ8lYY0rnL7cRpNsG%26cpp%3D1%26id%3D608773837508%26price%3D2.5%26shareUniqueId%3D34323628624%26share_crt_v%3D1%26shareurl%3Dtrue%26short_name%3Dh.7YHZDX57ex5G68h%26skuId%3D5692060399621%26sourceType%3Ditem%26sp_tk%3DQXZFNGZzdXJGeTg%3D%26spm%3Da2159r.13376460.0.0%26suid%3D97525605-306d-4a26-8181-c6a5e5ac1449%26tbSocialPopKey%3DshareItem%26tk%3DAvE4fsurFy8%26un%3D7a6477372f5d73d28011994573a7abfb%26un_site%3D0%26ut_sk%3D1.ZjZmtV%2FpLDkDACz9psyM0ajN_21646297_1765329298678.Copy.1%26wxsign%3DtbwqCWYZys39IqYxa6fkQJ4fSCqNnxJegN9tEYlbjtUm1rAZyDddEbbohCLQnFZUojPMaKxNICvdbp1uAgV6d03jf7_X0hLeyUaHbuddZUTcL_y45R5fClnUqq9IfXXAxNG)
+
+4、空气质量变送器一个(485传感器)
+
+> 此处购买链接仅为推荐，如有问题请直接联系店家
+
+- 购买链接：[空气质量烟雾感酒精甲烷丙烷一氧化碳氢气浓度温湿度大气压变送器-淘宝网](https://item.taobao.com/item.htm?abbucket=19&id=845163274010&mi_id=0000FM9WMzofq1ceXAVzQFqvf-0gD7627garqRKp_NBQSp8&ns=1&priceTId=214786b117585983084821794e0fcf&skuId=5623949684517&spm=a21n57.1.hoverItem.19&utparam={"aplus_abtest"%3A"3f42e532d5e0e5f0c0d5cf2a9bd59004"}&xxc=taobaoSearch)
+
+5、建大仁科ModBus-TCP温湿度计传感变送器一个
+
+> 此处购买链接仅为推荐，如有问题请直接联系店家
+
+- 购买链接：[RJ45温湿度记录仪以太网络远程无线ModBus-TCP温湿度计传感变送器-淘宝网](https://item.taobao.com/item.htm?abbucket=19&id=529344294403&mi_id=00000YSt_1dNIoGhr-lBxIt_nSvaf4mPy56s9Ppceo_91_g&ns=1&priceTId=2150482c17586121369614403e1de1&skuId=4867184541891&spm=a21n57.1.hoverItem.2&utparam={"aplus_abtest"%3A"0579e8fb3ae25ed325c7b91470373c68"}&xxc=taobaoSearch)
+
+6、网线三根(其中两根用于连接板子网口和路由器，另外一根用于连接建大仁科ModBus-TCP温湿度计传感变送器和路由器)
+
+7、杜邦线若干
+
+8、直流电源一个（用于给空气质量变送器供电，供电范围为8-36V）
+
+![](https://docs.openluat.com/air8000/luatos/app/image/modbus1.jpg)
+
+## 演示软件环境
+
+1、SSCOM串口工具[13 SSCOM串口通信工具 - 合宙模组资料中心](https://docs.openluat.com/common/tools/sscom/)
+
+2、 演示软件环境
+
+3、[Luatools下载调试工具](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair8000%2Fluatos%2Fcommon%2Fdownload%2F)
+
+4、[Air8000 V2034 版本](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair8000%2Fluatos%2Ffirmware%2F)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录 V2034-1 固件对比验证）
+
+##  演示核心步骤
+
+1、搭建硬件环境   
+
+- 将 USB-RS485 串口板与 EXB_8000_CH390 工控板的非隔离485进行连接
+
+  | EXB_8000_CH390 工控板 非隔离485接口 | USB-RS485 串口板 |
+  | :---------------------------------- | ---------------- |
+  | A                                   | A                |
+  | B                                   | B                |
+  | GND                                 | GND              |
+
+- 将空气质量变送器与 EXB_8000_CH390 工控板的隔离485进行连接
+
+  | EXB_8000_CH390 工控板 隔离485接口 | 空气质量变送器 |
+  | :-------------------------------- | -------------- |
+  | A                                 | A              |
+  | B                                 | B              |
+
+2、建大仁科ModBus-TCP温湿度计传感需要设为静态IP且和模组所连接的以太网在同频段
+
+打开此网页：[建大仁科 - ModBusTCP型温湿度变送器 122](http://www.rkckth.com/product/qbcp/wsd/wsdytwx/125.html)
+
+下载对应资料包，打开资料表中对应的配置工具配置对应参数
+
+配置成同网段和tcp server模式   
+
+![](https://docs.openluat.com/air8000/luatos/app/image/modbus2.jpg)
+
+3、修改代码配置：
+
+airlbs_app: 修改自己实际使用的项目key，开通流程见[LBS配置文档 - 合宙模组资料中心](https://docs.openluat.com/value/basestation/doc/)
+
+aircloud_data: 修改自己实际使用的auth_key，具体数据格式要求见[报文详解 - 合宙模组资料中心](https://docs.openluat.com/protocols/aircloud/baowen/)
+
+3、烧录内核固件和本项目的Lua脚本
+
+4、启动设备，观察日志输出：
+
+出现类似如下打印，就表示成功。
 
 ```lua
-require "netdrv_4g"          -- 4G
--- require "netdrv_wifi"     -- WiFi
--- require "netdrv_eth_spi"  -- 以太网 DHCP
--- require "netdrv_multiple" -- 多网切换
+[2026-05-22 15:20:41.202][000000002.421] I/user.airlbs_multi_cells_wifi_func recv IP_READY 1 4
+[2026-05-22 15:20:41.204][000000002.421] D/sntp query ntp.aliyun.com
+[2026-05-22 15:20:41.207][000000002.422] dns_run 676:ntp.aliyun.com state 0 id 1 ipv6 0 use dns server2, try 0
+[2026-05-22 15:20:41.211][000000002.425] I/user.netdrv_4g.ip_ready_func IP_READY 10.82.140.78 255.255.255.255 0.0.0.0 nil
+[2026-05-22 15:20:41.214][000000002.433] D/mobile TIME_SYNC 0 tm 1779434445
+[2026-05-22 15:20:41.216][000000002.466] dns_run 693:dns all done ,now stop
+[2026-05-22 15:20:41.219][000000002.484] I/user.netdrv 自定义以太网IP地址 192.168.1.183
+[2026-05-22 15:20:41.221][000000002.485] I/netdrv 设置IP[4] 192.168.1.183 255.255.255.0 192.168.1.1 ret 0
+[2026-05-22 15:20:41.223][000000002.485] I/user.静态ip 192.168.1.183 255.255.255.0 192.168.1.1
+[2026-05-22 15:20:41.227][000000002.486] I/user.以太网初始化完成
+[2026-05-22 15:20:41.229][000000002.486] I/user.netdrv 订阅socket连接状态变化事件 Ethernet
+[2026-05-22 15:20:41.232][000000002.487] dft adapter change from 1 to 8
+[2026-05-22 15:20:41.244][000000002.528] D/sntp Unix timestamp: 1779434446
+[2026-05-22 15:20:41.786][000000003.067] I/netdrv.ch390x link is up 1 21 100M
+[2026-05-22 15:20:41.788][000000003.067] D/netdrv 网卡(4)设置为UP
+[2026-05-22 15:20:41.791][000000003.067] D/net network ready 4, setup dns server
+[2026-05-22 15:20:41.794][000000003.068] D/netdrv IP_READY 4 192.168.1.183
+[2026-05-22 15:20:41.796][000000003.069] I/user.dnsproxy 开始监听
+[2026-05-22 15:20:41.798][000000003.070] D/net 设置DNS服务器 id 4 index 0 ip 223.5.5.5
+[2026-05-22 15:20:41.803][000000003.070] D/net 设置DNS服务器 id 4 index 1 ip 114.114.114.114
+[2026-05-22 15:20:41.805][000000003.071] I/user.netdrv_eth_spi.ip_ready_func IP_READY 192.168.1.183 255.255.255.0 192.168.1.1 nil
+[2026-05-22 15:20:42.144][000000003.421] I/user.[ec]4G设备 IMEI: 864793080523348 MUID: 20260421100304A964124A8978986468
+[2026-05-22 15:20:42.153][000000003.422] I/user.[ec]aircloud运维日志功能已禁用
+[2026-05-22 15:20:42.161][000000003.423] I/user.[ec]excloud.setup 初始化成功 设备ID: 864793080523348
+[2026-05-22 15:20:42.168][000000003.423] I/user.excloud初始化成功
+[2026-05-22 15:20:42.174][000000003.424] I/user.[ec]首次连接，获取服务器信息...
+[2026-05-22 15:20:42.182][000000003.424] I/user.[ec]excloud.getip 类型: 3 key: 47J0PYMJzOCXwjXQ0bpqhXkoq9KMgDgi-864793080523348
+[2026-05-22 15:20:42.189][000000003.430] D/socket connect to gps.openluat.com,443
+[2026-05-22 15:20:42.893][000000004.169] D/airlink.wlan 收到扫描结果 20
+[2026-05-22 15:20:42.902][000000004.172] I/user.scan wifi_info 20
+[2026-05-22 15:20:42.910][000000004.181] I/user.mac nil
+[2026-05-22 15:20:42.917][000000004.182] I/user.硬件型号 Air8000
+[2026-05-22 15:20:42.987][000000004.267] I/user.扫描出的数据 
+[2026-05-22 15:20:42.995][000000004.267] {"cells":[[460,0,18500,245550027,-64,14,358,-94,-10,1300],[460,15,18500,245550027,-94,14,358,-94,-10,1300]],"macs":[["92:5E:44:04:C2:A8",-53],["82:3C:20:94:13:08",-56],["D0:79:80:C6:3A:B0",-64],["4C:10:D5:3C:14:47",-65],["50:4F:3B:B5:20:2B",-75],["94:CB:CD:82:DF:B8",-77],["CC:E0:DA:D4:7C:85",-80],["CE:E0:DA:B4:7C:85",-80],["62:42:15:31:98:14",-82],["EC:6C:B5:08:15:F8",-83],["E0:E0:FC:F6:A8:09",-84],["E0:E0:FC:B6:A8:04",-84],["0C:E4:A0:D1:57:DB",-89],["30:86:EB:B4:5A:30",-93],["F8:B8:B4:1C:E1:66",-95],["A0:44:5C:EB:C2:B4",-96],["EC:3C:BB:81:38:9C",-97],["40:0E:F3:FE:E4:61",-99],["EC:3C:BB:81:38:A1",-100],["24:69:68:60:C3:6A",-21]]}
+[2026-05-22 15:20:43.004][000000004.271] D/socket connect to airlbs.openluat.com,12413
+[2026-05-22 15:20:44.466][000000005.743] I/user.rtu_slave 等待网络就绪...
+[2026-05-22 15:20:44.481][000000005.752] I/user.rtu_slave 数据更新: 温度: 26.10000 湿度: 55.70000 CPU: 38.00000 电压: 3.803000
+[2026-05-22 15:20:44.591][000000005.869] I/netdrv.ch390x link is up 1 20 100M
+[2026-05-22 15:20:44.599][000000005.870] D/netdrv 网卡(8)设置为UP
+[2026-05-22 15:20:44.608][000000005.870] D/net network ready 8, setup dns server
+[2026-05-22 15:20:44.619][000000005.871] dns_run 676:gps.openluat.com state 0 id 1 ipv6 0 use dns server2, try 0
+[2026-05-22 15:20:44.630][000000005.871] D/net adatper 8 dns server 192.168.1.1
+[2026-05-22 15:20:44.639][000000005.871] D/net dns udp sendto 192.168.1.1:53 from 192.168.1.185
+[2026-05-22 15:20:44.650][000000005.872] dns_run 676:airlbs.openluat.com state 0 id 2 ipv6 0 use dns server2, try 0
+[2026-05-22 15:20:44.666][000000005.872] D/net adatper 8 dns server 192.168.1.1
+[2026-05-22 15:20:44.680][000000005.872] D/net dns udp sendto 192.168.1.1:53 from 192.168.1.185
+[2026-05-22 15:20:44.704][000000005.873] D/netdrv IP_READY 8 192.168.1.185
+[2026-05-22 15:20:44.713][000000005.874] I/user.dnsproxy 开始监听
+[2026-05-22 15:20:44.721][000000005.874] I/user.tcp_slave 网口2网络就绪，IP地址: 192.168.1.185
+[2026-05-22 15:20:44.730][000000005.875] I/user.rtu_slave 网络就绪，开始NTP同步
+[2026-05-22 15:20:44.739][000000005.876] D/sntp query ntp.aliyun.com
+[2026-05-22 15:20:44.748][000000005.876] dns_run 676:ntp.aliyun.com state 0 id 3 ipv6 0 use dns server2, try 0
+[2026-05-22 15:20:44.755][000000005.876] D/net adatper 8 dns server 192.168.1.1
+[2026-05-22 15:20:44.762][000000005.876] D/net dns udp sendto 192.168.1.1:53 from 192.168.1.185
+[2026-05-22 15:20:44.770][000000005.878] D/net 设置DNS服务器 id 8 index 0 ip 223.5.5.5
+[2026-05-22 15:20:44.778][000000005.878] D/net 设置DNS服务器 id 8 index 1 ip 114.114.114.114
+[2026-05-22 15:20:44.793][000000005.879] I/user.netdrv_eth_spi.ip_ready_func IP_READY 192.168.1.185 255.255.255.0 192.168.1.1 nil
+[2026-05-22 15:20:44.805][000000005.886] D/socket connect to 192.168.1.100,500
+[2026-05-22 15:20:44.815][000000005.887] D/net adapter 4 connect 192.168.1.100:500 TCP
+[2026-05-22 15:20:44.826][000000005.895] I/user.exmodbus 连接服务器成功
+[2026-05-22 15:20:44.836][000000005.903] I/user.temp_hum_sensor 开始读取温湿度传感器数据
+[2026-05-22 15:20:44.846][000000005.906] D/net adapter 8 connect 123.60.5.123:443 TCP
+[2026-05-22 15:20:44.858][000000005.909] D/net adapter 8 connect 203.107.6.88:123 UDP
+[2026-05-22 15:20:44.870][000000005.927] dns_run 693:dns all done ,now stop
+[2026-05-22 15:20:44.882][000000005.927] D/net adapter 8 connect 121.40.251.45:12413 UDP
+[2026-05-22 15:20:44.893][000000005.929] I/user.airlbs 服务器连上了
+[2026-05-22 15:20:44.903][000000005.933] I/user.temp_hum_sensor 读取成功，温度为 26.10000 ℃，湿度为 55.70000 %RH
+[2026-05-22 15:20:44.914][000000005.935] I/user.rtu_slave 温湿度更新: 温度: 26.10000 湿度: 55.70000
+[2026-05-22 15:20:44.923][000000005.952] D/sntp 修正网络延时(ms) 0 -> 21
+[2026-05-22 15:20:44.934][000000005.952] D/sntp Unix timestamp: 1779434449
+[2026-05-22 15:20:44.944][000000005.953] I/user.rtu_slave NTP同步成功，时间戳: 1779434449
+[2026-05-22 15:20:44.954][000000005.954] I/user.rtu_slave 当前时间: 2026-05-22 15:20:49
+[2026-05-22 15:20:44.972][000000005.955] I/user.rtu_slave 当前时间: 2026-05-22 15:20:49
+[2026-05-22 15:20:44.987][000000005.974] I/user.airlbs wait true true nil
+[2026-05-22 15:20:44.998][000000005.977] I/user.定位请求的结果 true 超时时间 0 table: 0C7B4408 {"result":1,"lng":114.2932816,"lat":34.8070984}
+[2026-05-22 15:20:45.011][000000005.977] I/user.多基站请求成功,服务器返回的原始数据 table: 0C7B4408
+[2026-05-22 15:20:45.020][000000005.978] I/user.airlbs多基站+多wifi定位返回的经纬度数据为 {"lat":34.8070984,"lng":114.2932816}
+[2026-05-22 15:20:45.029][000000005.979] I/user.airlbs lat 34.8070984
+[2026-05-22 15:20:45.038][000000005.979] I/user.airlbs lng 114.2932816
+[2026-05-22 15:20:45.046][000000005.982] I/user.airlbs Using 4G device ID: 864793080523348
+[2026-05-22 15:20:45.055][000000005.984] dns_run 676:iot.openluat.com state 0 id 4 ipv6 0 use dns server0, try 0
+[2026-05-22 15:20:45.063][000000005.984] D/net adatper 8 dns server 223.5.5.5
+[2026-05-22 15:20:45.073][000000005.985] D/net dns udp sendto 223.5.5.5:53 from 192.168.1.185
+[2026-05-22 15:20:45.081][000000005.986] I/user.rtu_slave 定位更新: lat: 34.8070984 lng: 114.2932816
+[2026-05-22 15:20:45.090][000000006.341] dns_run 693:dns all done ,now stop
+[2026-05-22 15:20:45.101][000000006.342] D/net adapter 8 connect 121.196.16.94:80 TCP
+[2026-05-22 15:20:45.256][000000006.533] I/user.httpplus 服务器已完成响应
+[2026-05-22 15:20:45.269][000000006.535] I/user.[ec]excloud.getip响应 HTTP Code: 200 Body: 
+[2026-05-22 15:20:45.282][000000006.536] {"msg":"ok","conninfo":{"ipv4":"124.71.128.165","port":9108},"imginfo":{"url":"https://gps.openluat.com/iot/air_up/image","data_key":"f","data_param":{"key":"WwmSQLoe3K6UDL9ynupqypW9XFV7Qaxy274zFA","tip":""}},"audinfo":{"url":"https://gps.openluat.com/iot/air_up/audio","data_key":"f","data_param":{"key":"WwmSQLoe3K6UDL9ynupqypW9XFV7Qaxy274zFA","tip":""}},"mtninfo":{"url":"https://gps.openluat.com/iot/air_up/file","data_key":"f","data_param":{"key":"WwmSQLoe3K6UDL9ynupqypW9XFV7Qaxy274zFA","tip":""}},"qrinfo":{"url":"https://gps.openluat.com/#/redirect?key=_5oruyMsMk5Ny5ZajRxwJqUr2wyQGRu8scA3"}}
+[2026-05-22 15:20:45.295][000000006.536] I/user.[ec]excloud.getip响应 HTTP Code: 200 Body: 
+[2026-05-22 15:20:45.307][000000006.536] {"msg":"ok","conninfo":{"ipv4":"124.71.128.165","port":9108},"imginfo":{"url":"https://gps.openluat.com/iot/air_up/image","data_key":"f","data_param":{"key":"WwmSQLoe3K6UDL9ynupqypW9XFV7Qaxy274zFA","tip":""}},"audinfo":{"url":"https://gps.openluat.com/iot/air_up/audio","data_key":"f","data_param":{"key":"WwmSQLoe3K6UDL9ynupqypW9XFV7Qaxy274zFA","tip":""}},"mtninfo":{"url":"https://gps.openluat.com/iot/air_up/file","data_key":"f","data_param":{"key":"WwmSQLoe3K6UDL9ynupqypW9XFV7Qaxy274zFA","tip":""}},"qrinfo":{"url":"https://gps.openluat.com/#/redirect?key=_5oruyMsMk5Ny5ZajRxwJqUr2wyQGRu8scA3"}}
+[2026-05-22 15:20:45.321][000000006.538] I/user.[ec]获取到TCP/UDP连接信息 host: 124.71.128.165 port: 9108 key: nil
+[2026-05-22 15:20:45.335][000000006.538] I/user.[ec]获取到图片上传信息
+[2026-05-22 15:20:45.348][000000006.539] I/user.[ec]获取到音频上传信息
+[2026-05-22 15:20:45.368][000000006.539] I/user.[ec]获取到运维日志上传信息
+[2026-05-22 15:20:45.384][000000006.539] I/user.[ec]获取到二维码信息
+[2026-05-22 15:20:45.395][000000006.540] I/user.[ec]excloud.getip 更新配置: 124.71.128.165 9108
+[2026-05-22 15:20:45.406][000000006.540] I/user.[ec]excloud.getip 成功: true 结果: {"ipv4":"124.71.128.165","port":9108}
+[2026-05-22 15:20:45.419][000000006.541] I/user.[ec]服务器信息获取成功 host: 124.71.128.165 port: 9108 transport: tcp
+[2026-05-22 15:20:45.432][000000006.541] I/user.[ec]创建TCP连接
+[2026-05-22 15:20:45.442][000000006.542] D/socket connect to 124.71.128.165,9108
+[2026-05-22 15:20:45.451][000000006.543] D/net adapter 8 connect 124.71.128.165:9108 TCP
+[2026-05-22 15:20:45.461][000000006.544] I/user.[ec]TCP连接结果 true false
+[2026-05-22 15:20:45.469][000000006.544] I/user.[ec]excloud service started
+[2026-05-22 15:20:45.480][000000006.545] I/user.excloud服务已开启
+[2026-05-22 15:20:45.490][000000006.553] I/http http close c16984c
+[2026-05-22 15:20:45.499][000000006.554] I/user.airlbs 获取地址成功, 响应体: {"code": 0, "address": "\u6cb3\u5357\u7701\u5f00\u5c01\u5e02\u9f99\u4ead\u533a\u91d1\u88d5\u8def"}
+[2026-05-22 15:20:45.509][000000006.555] I/user.airlbs.get_address 河南省开封市龙亭区金裕路
+[2026-05-22 15:20:45.517][000000006.576] I/user.[ec]socket cb userdata: 0C7B1050 33554449 0
+[2026-05-22 15:20:45.527][000000006.577] I/user.[ec]socket TCP连接成功
+[2026-05-22 15:20:45.536][000000006.577] I/user.用户回调函数 connect_result {"success":true}
+[2026-05-22 15:20:45.545][000000006.578] I/user.连接成功
+[2026-05-22 15:20:45.555][000000006.581] I/user.[ec]构建发送数据 16 3 47J0PYMJzOCXwjXQ0bpqhXkoq9KMgDgi-864793080523348-20260421100304A964124A8978986468 
+[2026-05-22 15:20:45.565][000000006.582] I/user.[ec]tlv发送数据长度4 85
+[2026-05-22 15:20:45.574][000000006.583] I/user.[ec]构建消息头 G#4 
+[2026-05-22 15:20:45.584][000000006.586] I/user.用户回调函数 send_result {"success":true,"seq":1,"error_msg":"Send successful"}
+[2026-05-22 15:20:45.592][000000006.586] I/user.发送成功, 流水号: 1
+[2026-05-22 15:20:45.602][000000006.596] I/user.[ec]数据发送成功 101 字节
+[2026-05-22 15:20:45.612][000000006.626] I/user.[ec]socket cb userdata: 0C7B1050 33554450 0
+[2026-05-22 15:20:45.621][000000006.626] I/user.[ec]socket 发送完成
+[2026-05-22 15:20:45.633][000000006.888] I/user.tcp_modbus_master 开始读取温湿度传感器数据
+[2026-05-22 15:20:45.687][000000006.958] I/user.tcp_modbus_master 读取成功，温度为 26.1 ℃，湿度为 62.0 %RH
+[2026-05-22 15:20:45.697][000000006.961] I/user.rtu_slave TCP传感器更新: 温度: 26.10000 湿度: 62.00000
+[2026-05-22 15:20:49.472][000000010.755] I/user.rtu_slave 数据更新: 温度: 26.10000 湿度: 55.70000 CPU: 37.00000 电压: 3.789000
+[2026-05-22 15:20:49.661][000000010.934] I/user.temp_hum_sensor 开始读取温湿度传感器数据
+[2026-05-22 15:20:49.693][000000010.963] I/user.temp_hum_sensor 读取成功，温度为 26.00000 ℃，湿度为 55.70000 %RH
+[2026-05-22 15:20:49.701][000000010.966] I/user.rtu_slave 温湿度更新: 温度: 26.00000 湿度: 55.70000
+[2026-05-22 15:20:50.686][000000011.960] I/user.tcp_modbus_master 开始读取温湿度传感器数据
+[2026-05-22 15:20:50.747][000000012.028] I/user.tcp_modbus_master 读取成功，温度为 26.1 ℃，湿度为 62.0 %RH
+[2026-05-22 15:20:50.754][000000012.030] I/user.rtu_slave TCP传感器更新: 温度: 26.10000 湿度: 62.00000
+[2026-05-22 15:20:54.476][000000015.759] I/user.rtu_slave 数据更新: 温度: 26.00000 湿度: 55.70000 CPU: 38.00000 电压: 3.782000
+[2026-05-22 15:20:54.680][000000015.965] I/user.temp_hum_sensor 开始读取温湿度传感器数据
+[2026-05-22 15:20:54.710][000000015.993] I/user.temp_hum_sensor 读取成功，温度为 26.10000 ℃，湿度为 55.70000 %RH
+[2026-05-22 15:20:54.713][000000015.995] I/user.rtu_slave 温湿度更新: 温度: 26.10000 湿度: 55.70000
+[2026-05-22 15:20:55.751][000000017.028] I/user.tcp_modbus_master 开始读取温湿度传感器数据
+[2026-05-22 15:20:55.814][000000017.090] I/user.tcp_modbus_master 读取成功，温度为 26.1 ℃，湿度为 62.1 %RH
+[2026-05-22 15:20:55.820][000000017.093] I/user.rtu_slave TCP传感器更新: 温度: 26.10000 湿度: 62.10000
+[2026-05-22 15:20:59.484][000000020.762] I/user.rtu_slave 数据更新: 温度: 26.10000 湿度: 55.70000 CPU: 36.00000 电压: 3.792000
+[2026-05-22 15:20:59.719][000000020.994] I/user.temp_hum_sensor 开始读取温湿度传感器数据
+[2026-05-22 15:20:59.750][000000021.024] I/user.temp_hum_sensor 读取成功，温度为 26.10000 ℃，湿度为 55.70000 %RH
+[2026-05-22 15:20:59.752][000000021.026] I/user.rtu_slave 温湿度更新: 温度: 26.10000 湿度: 55.70000
+[2026-05-22 15:21:00.814][000000022.091] I/user.tcp_modbus_master 开始读取温湿度传感器数据
+[2026-05-22 15:21:00.876][000000022.158] I/user.tcp_modbus_master 读取成功，温度为 26.1 ℃，湿度为 62.1 %RH
+[2026-05-22 15:21:00.878][000000022.160] I/user.rtu_slave TCP传感器更新: 温度: 26.10000 湿度: 62.10000
+[2026-05-22 15:21:04.481][000000025.765] I/user.rtu_slave 数据更新: 温度: 26.10000 湿度: 55.70000 CPU: 36.00000 电压: 3.790000
+[2026-05-22 15:21:04.742][000000026.025] I/user.temp_hum_sensor 开始读取温湿度传感器数据
+[2026-05-22 15:21:04.773][000000026.054] I/user.temp_hum_sensor 读取成功，温度为 26.10000 ℃，湿度为 55.70000 %RH
+[2026-05-22 15:21:04.777][000000026.056] I/user.rtu_slave 温湿度更新: 温度: 26.10000 湿度: 55.70000
+[2026-05-22 15:21:05.875][000000027.159] I/user.tcp_modbus_master 开始读取温湿度传感器数据
+[2026-05-22 15:21:05.938][000000027.211] I/user.tcp_modbus_master 读取成功，温度为 26.1 ℃，湿度为 62.0 %RH
+[2026-05-22 15:21:05.941][000000027.213] I/user.rtu_slave TCP传感器更新: 温度: 26.10000 湿度: 62.00000
+[2026-05-22 15:21:09.489][000000030.768] I/user.rtu_slave 数据更新: 温度: 26.10000 湿度: 55.70000 CPU: 36.00000 电压: 3.797000
+[2026-05-22 15:21:09.782][000000031.055] I/user.temp_hum_sensor 开始读取温湿度传感器数据
+[2026-05-22 15:21:09.814][000000031.083] I/user.temp_hum_sensor 读取成功，温度为 26.10000 ℃，湿度为 55.70000 %RH
+[2026-05-22 15:21:09.816][000000031.085] I/user.rtu_slave 温湿度更新: 温度: 26.10000 湿度: 55.70000
+[2026-05-22 15:21:10.933][000000032.212] I/user.tcp_modbus_master 开始读取温湿度传感器数据
+[2026-05-22 15:21:10.995][000000032.279] I/user.tcp_modbus_master 读取成功，温度为 26.1 ℃，湿度为 62.0 %RH
+[2026-05-22 15:21:11.009][000000032.281] I/user.rtu_slave TCP传感器更新: 温度: 26.10000 湿度: 62.00000
+[2026-05-22 15:21:14.487][000000035.771] I/user.rtu_slave 数据更新: 温度: 26.10000 湿度: 55.70000 CPU: 36.00000 电压: 3.799000
+[2026-05-22 15:21:14.810][000000036.084] I/user.temp_hum_sensor 开始读取温湿度传感器数据
+[2026-05-22 15:21:14.841][000000036.112] I/user.temp_hum_sensor 读取成功，温度为 26.10000 ℃，湿度为 55.70000 %RH
+[2026-05-22 15:21:14.844][000000036.114] I/user.rtu_slave 温湿度更新: 温度: 26.10000 湿度: 55.70000
+[2026-05-22 15:21:15.262][000000036.545] I/user.[ec]构建发送数据 782 0 25 
+[2026-05-22 15:21:15.266][000000036.547] I/user.[ec]构建发送数据 783 3 898604901024C0016694 
+[2026-05-22 15:21:15.276][000000036.548] I/user.[ec]构建发送数据 256 1 26.10000 
+[2026-05-22 15:21:15.279][000000036.550] I/user.[ec]构建发送数据 257 1 55.70000 
+[2026-05-22 15:21:15.281][000000036.551] I/user.[ec]构建发送数据 263 0 36000 
+[2026-05-22 15:21:15.283][000000036.552] I/user.[ec]构建发送数据 799 0 3799 
+[2026-05-22 15:21:15.286][000000036.554] I/user.[ec]构建发送数据 512 3 114.2932816 
+[2026-05-22 15:21:15.288][000000036.555] I/user.[ec]构建发送数据 513 3 34.8070984 
+[2026-05-22 15:21:15.291][000000036.556] I/user.[ec]tlv发送数据长度4 93
+[2026-05-22 15:21:15.294][000000036.557] I/user.[ec]构建消息头 G#4 
+[2026-05-22 15:21:15.297][000000036.559] I/user.用户回调函数 send_result {"success":true,"seq":2,"error_msg":"Send successful"}
+[2026-05-22 15:21:15.299][000000036.560] I/user.发送成功, 流水号: 2
+[2026-05-22 15:21:15.302][000000036.569] I/user.[ec]数据发送成功 109 字节
+[2026-05-22 15:21:15.305][000000036.569] I/user.[ec]构建发送数据 256 1 26.10000 
+[2026-05-22 15:21:15.309][000000036.571] I/user.[ec]构建发送数据 257 1 62.00000 
+[2026-05-22 15:21:15.312][000000036.573] I/user.[ec]tlv发送数据长度4 16
+[2026-05-22 15:21:15.314][000000036.574] I/user.[ec]构建消息头 G#4 
+[2026-05-22 15:21:15.317][000000036.576] I/user.用户回调函数 send_result {"success":true,"seq":3,"error_msg":"Send successful"}
+[2026-05-22 15:21:15.319][000000036.576] I/user.发送成功, 流水号: 3
+[2026-05-22 15:21:15.322][000000036.584] I/user.[ec]数据发送成功 32 字节
+[2026-05-22 15:21:15.325][000000036.584] I/user.数据发送成功
+[2026-05-22 15:21:15.327][000000036.584] I/user.数据发送成功
+[2026-05-22 15:21:15.369][000000036.639] I/user.[ec]socket cb userdata: 0C7B1050 33554450 0
+[2026-05-22 15:21:15.372][000000036.640] I/user.[ec]socket 发送完成
+[2026-05-22 15:21:16.008][000000037.280] I/user.tcp_modbus_master 开始读取温湿度传感器数据
+[2026-05-22 15:21:16.085][000000037.358] I/user.tcp_modbus_master 读取成功，温度为 26.1 ℃，湿度为 62.0 %RH
+[2026-05-22 15:21:16.087][000000037.360] I/user.rtu_slave TCP传感器更新: 温度: 26.10000 湿度: 62.00000
 ```
 
-#### Modbus 主站 API 选择（二选一）
+### **使用sscom通过tcp发送指令读取寄存器数据**
 
-```lua
-require "param_field_rtu"   -- RTU 字段参数方式
--- require "raw_frame_rtu"  -- RTU 原始帧方式
+![](https://docs.openluat.com/air8000/luatos/app/image/modbus3.jpg)
 
--- require "param_field_tcp" -- TCP 字段参数方式
-require "raw_frame_tcp"      -- TCP 原始帧方式
-```
+### **使用sscom通过rtu发送指令读取寄存器数据**
 
-#### 以太网静态 IP
+![](https://docs.openluat.com/air8000/luatos/app/image/modbus4.jpg)
 
-当需要静态 IP（网口1: 192.168.1.183, 网口2: 192.168.1.185）时，确保 `netdrv_eth_static.lua` 已加载，且 `netdrv_device.lua` 中不要同时加载以太网 DHCP 驱动。
+### **上传到aircloud云平台**
 
----
-
-### 模块间通信
-
-| 消息名 | 发布者 | 订阅者 | 说明 |
-|--------|--------|--------|------|
-| `FEED_NETWORK_WATCHDOG` | Socket 模块 | network_watchdog | 喂狗信号 |
-| `SEND_DATA_REQ` | timer_app / uart | tcp_client_sender | 发送数据请求 |
-| `CONNECTION_SUCCESS` | tcp_client_main | aircloud_data | Socket 连接成功 |
-| `TCP_SLAVE_READY` | tcp_slave_manage | main.lua | TCP 从站就绪 |
-| `Airlbs_LOCATION_UPDATE` | airlbs_app | aircloud_data | 定位数据更新 |
-
----
-
-### 依赖扩展库
-
-| 扩展库 | 用途 |
-|--------|------|
-| `exmodbus` | Modbus RTU/TCP 通信 |
-| `exnetif` | 网络适配器管理/多网融合 |
-| `excloud` | AirCloud 平台数据上报 |
-| `airlbs` | 合宙 LBS 定位 |
-| `json` | JSON 编解码 |
-| `crypto` | CRC16 校验 |
-
----
-
-### 启动流程
-
-```
-1. network_watchdog  ←  启动网络看门狗
-2. netdrv_device     ←  按配置启用网络驱动
-3. airlbs_app        ←  等待网络就绪 → NTP 授时 → 循环定位
-4. timer_app         ←  启动 10 秒定时器
-5. aircloud_data     ←  等待 Socket 连接成功 → 30 秒周期上报
-6. led               ←  初始化 LED 驱动
-7. tcp_client_main   ←  建立 4 路 Socket 连接
-8. rtu_slave_manage  ←  RTU 从站立即启动
-9. param_field_rtu   ←  RTU 主站立即启动
-10. netdrv_eth_static ←  配置以太网静态 IP（双网口）
-11. tcp_slave_manage  ←  等待 LWIP_USER1 就绪 → 创建 TCP 从站
-12. raw_frame_tcp     ←  TCP 主站（字段参数方式注释掉）
-```
-
-### 注意事项
-
-1. `param_field_rtu` 和 `raw_frame_rtu` 不能同时加载（同一 UART1）
-2. `param_field_tcp` 和 `raw_frame_tcp` 不能同时加载（同一适配器）
-3. 使用以太网静态 IP 时，`netdrv_device.lua` 中的以太网 DHCP 驱动必须全部注释掉
-4. AirLBS 定位为 **付费服务**，需修改 `airlbs_app.lua` 中的 `project_id` 和 `project_key`
-5. 网络看门狗超时时间 180 秒，根据实际业务调整
-6. Socket 连接的服务器地址需根据实际环境修改（在各 tcp_client 模块中配置）
-
-### 演示核心步骤
-
-1、搭建硬件环境
-
-- 将 TYPE-C USB 数据线一端接在 EXB_8000W_CH390 开发板上，另一端接在电脑上
-- 将两根网线分别一端接在 EXB_8000W_CH390 开发板网口1和网口2上，另一端接在路由器/交换机上
-- 参考图见 演示硬件环境
-
-2、修改代码
-
-- 两个网口的网关和静态ip需要自己在"netdrv_eth_static.lua "文件下根据实际设置
-- modbus tcp 在“param_field”或”raw_frame“文件下create_config参数中修改实际使用的从站ip
-- 对于modbus tcp若需要字段参数方式，打开 require "raw_frame_tcp" ，注释掉 require "param_field_tcp" ，反之也成立
-
-- 对于modbus rtu若需要字段参数方式，打开 require "raw_frame_rtu" ，注释掉 require "param_field_rtu" ，反之也成立
-
-4、打开 Luatools 工具，根据要求烧录本次所需要的内核固件和脚本代码
-
-5、烧录成功后，自动开机运行
-
-6、运行成功后后 Luatools 工具上的日志如下：
-
-```lua
-[2026-05-12 10:06:48.585][000000000.718] I/user.exmodbus 串口 3 初始化成功，波特率 115200
-[2026-05-12 10:06:48.588][000000000.718] I/user.exmodbus_test rtu_slave 创建成功, 从站 ID 为 1
-[2026-05-12 10:06:48.592][000000000.719] I/user.exmodbus 已注册从站请求处理回调函数
-[2026-05-12 10:06:48.596][000000000.719] I/user.从站回调函数已注册，开始监听主站请求...
-[2026-05-12 10:06:48.601][000000000.738] Uart_ChangeBR 1461:uart1, 115200 115203 26000000 3611
-[2026-05-12 10:06:48.604][000000000.739] I/user.exmodbus 串口 1 初始化成功，波特率 115200
-[2026-05-12 10:06:48.607][000000000.740] I/user.exmodbus_test rtu_master 创建成功
-[2026-05-12 10:06:48.611][000000000.741] I/user.led LED初始化完成，引脚: 26, 27, 28
-[2026-05-12 10:06:48.614][000000000.742] I/user.led LED任务已启动
-[2026-05-12 10:06:48.617][000000000.743] I/user.exmodbus_test 开始读取从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:48.746][000000000.928] I/user.初始化以太网
-[2026-05-12 10:06:48.751][000000000.929] I/user.config.opts.spi 1 ,config.type 1
-[2026-05-12 10:06:48.754][000000000.929] SPI_HWInit 445:APB MP 102400000
-[2026-05-12 10:06:48.757][000000000.929] SPI_HWInit 556:spi1 speed 25600000,25600000,12
-[2026-05-12 10:06:48.760][000000000.930] I/user.main open spi 0
-[2026-05-12 10:06:48.765][000000000.930] D/ch390h 注册CH390H设备(8) SPI id 1 cs 20 irq 255
-[2026-05-12 10:06:48.770][000000000.931] D/ch390h adapter 8 netif init ok
-[2026-05-12 10:06:48.775][000000000.932] D/netdrv.ch390x task started
-[2026-05-12 10:06:48.780][000000000.932] D/ch390h 注册完成 adapter 8 spi 1 cs 20 irq 255
-[2026-05-12 10:06:48.795][000000001.024] I/user.exmodbus_test 等待从站网卡就绪...
-[2026-05-12 10:06:48.809][000000001.026] I/user.exmodbus_test 从站网卡未就绪，继续等待...
-[2026-05-12 10:06:48.842][000000001.079] network_alloc_ctrl 1387:adapter index 4 is invalid!
-[2026-05-12 10:06:48.850][000000001.079] D/socket create fail
-[2026-05-12 10:06:48.859][000000001.080] E/user.exmodbus 创建 socket 客户端失败
-[2026-05-12 10:06:48.868][000000001.080] I/user.exmodbus TCP 主站任务已启动
-[2026-05-12 10:06:48.873][000000001.081] I/user.exmodbus_test tcp_master 创建成功
-[2026-05-12 10:06:48.880][000000001.082] I/user.led LED初始化完成，引脚: 26, 27, 28
-[2026-05-12 10:06:48.892][000000001.082] W/user.led LED任务已启动，请勿重复启动
-[2026-05-12 10:06:48.898][000000001.092] I/user.exmodbus_test rtu_slave 收到主站请求
-[2026-05-12 10:06:48.902][000000001.092] I/user.exmodbus_test 读取成功，返回数据:  200, 201
-[2026-05-12 10:06:48.908][000000001.096] I/user.exmodbus_test 成功读取到从站 1 保持寄存器 0-1 的值，寄存器 0 数值为 200 ，寄存器 1 数值为 201
-[2026-05-12 10:06:48.917][000000001.097] I/user.exmodbus_test 开始写入从站 1 保持寄存器 0-1 的值，寄存器 0 数值为 123 ，寄存器 1 数值为 456
-[2026-05-12 10:06:48.923][000000001.103] I/user.exmodbus_test rtu_slave 收到主站请求
-[2026-05-12 10:06:48.928][000000001.104] I/user.exmodbus_test 写入成功，写入地址:  0 写入数据:  123
-[2026-05-12 10:06:48.932][000000001.104] I/user.exmodbus_test 写入成功，写入地址:  1 写入数据:  456
-[2026-05-12 10:06:48.939][000000001.108] I/user.exmodbus_test 成功写入从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:48.945][000000001.115] D/netdrv.ch390x 初始化MAC DC045A56208F
-[2026-05-12 10:06:49.215][000000001.452] W/user.airlbs_multi_cells_wifi_func wait IP_READY 1 8
-[2026-05-12 10:06:49.418][000000001.646] W/user.tcp_client_main_task_func wait IP_READY 1 8
-[2026-05-12 10:06:49.710][000000001.933] I/user.netdrv 自定义以太网IP地址 192.168.1.185
-[2026-05-12 10:06:49.717][000000001.934] I/netdrv 设置IP[8] 192.168.1.185 255.255.255.0 192.168.1.1 ret 0
-[2026-05-12 10:06:49.723][000000001.934] I/user.静态ip 192.168.1.185 255.255.255.0 192.168.1.1
-[2026-05-12 10:06:49.730][000000001.935] I/user.以太网初始化完成
-[2026-05-12 10:06:49.734][000000001.935] I/user.netdrv 订阅socket连接状态变化事件 8101SPIETH
-[2026-05-12 10:06:49.741][000000001.936] I/user.初始化以太网
-[2026-05-12 10:06:49.745][000000001.937] I/user.config.opts.spi 1 ,config.type 1
-[2026-05-12 10:06:49.750][000000001.937] SPI_HWInit 445:APB MP 102400000
-[2026-05-12 10:06:49.757][000000001.937] SPI_HWInit 556:spi1 speed 25600000,25600000,12
-[2026-05-12 10:06:49.762][000000001.938] I/user.main open spi 0
-[2026-05-12 10:06:49.768][000000001.938] D/ch390h 注册CH390H设备(4) SPI id 1 cs 21 irq 255
-[2026-05-12 10:06:49.775][000000001.939] D/ch390h adapter 4 netif init ok
-[2026-05-12 10:06:49.779][000000001.939] D/ch390h 注册完成 adapter 4 spi 1 cs 21 irq 255
-[2026-05-12 10:06:49.783][000000001.950] D/netdrv.ch390x 初始化MAC DC045A566D07
-[2026-05-12 10:06:49.804][000000002.027] I/user.exmodbus_test 从站网卡未就绪，继续等待...
-[2026-05-12 10:06:50.219][000000002.453] W/user.airlbs_multi_cells_wifi_func wait IP_READY 1 4
-[2026-05-12 10:06:50.423][000000002.647] W/user.tcp_client_main_task_func wait IP_READY 1 4
-[2026-05-12 10:06:50.428][000000002.659] I/netdrv.ch390x link is up 1 20 100M
-[2026-05-12 10:06:50.435][000000002.660] D/netdrv 网卡(8)设置为UP
-[2026-05-12 10:06:50.445][000000002.660] D/net network ready 8, setup dns server
-[2026-05-12 10:06:50.453][000000002.661] D/netdrv IP_READY 8 192.168.1.185
-[2026-05-12 10:06:50.459][000000002.662] D/net 设置DNS服务器 id 8 index 0 ip 223.5.5.5
-[2026-05-12 10:06:50.465][000000002.662] D/net 设置DNS服务器 id 8 index 1 ip 114.114.114.114
-[2026-05-12 10:06:50.472][000000002.662] I/user.netdrv_eth_spi.ip_ready_func IP_READY 192.168.1.185 255.255.255.0 192.168.1.1 nil
-[2026-05-12 10:06:50.476][000000002.663] I/user.dnsproxy 开始监听
-[2026-05-12 10:06:50.481][000000002.664] W/user.tcp_client_main_task_func wait IP_READY 1 4
-[2026-05-12 10:06:50.487][000000002.665] W/user.airlbs_multi_cells_wifi_func wait IP_READY 1 4
-[2026-05-12 10:06:50.716][000000002.940] I/user.netdrv 自定义以太网IP地址 192.168.1.183
-[2026-05-12 10:06:50.721][000000002.941] I/netdrv 设置IP[4] 192.168.1.183 255.255.255.0 192.168.1.1 ret 0
-[2026-05-12 10:06:50.725][000000002.941] I/user.静态ip 192.168.1.183 255.255.255.0 192.168.1.1
-[2026-05-12 10:06:50.732][000000002.942] I/user.以太网初始化完成
-[2026-05-12 10:06:50.737][000000002.943] I/user.netdrv 订阅socket连接状态变化事件 Ethernet
-[2026-05-12 10:06:50.742][000000002.943] change from 1 to 8
-[2026-05-12 10:06:50.792][000000003.028] I/user.exmodbus_test 从站网卡已就绪，index: 8
-[2026-05-12 10:06:50.798][000000003.030] I/user.exmodbus TCP 从站任务已启动
-[2026-05-12 10:06:50.804][000000003.030] I/user.exmodbus_test tcp_slave 创建成功, 从站 ID 为 1
-[2026-05-12 10:06:50.811][000000003.031] I/user.exmodbus 已注册从站请求处理回调函数
-[2026-05-12 10:06:50.816][000000003.031] I/user.exmodbus_test 从站回调函数已注册，开始监听主站请求...
-[2026-05-12 10:06:50.821][000000003.032] I/user.exmodbus_test 已发布 TCP_SLAVE_READY 消息
-[2026-05-12 10:06:50.871][000000003.108] I/user.exmodbus_test 开始读取从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:50.886][000000003.111] I/user.exmodbus_test rtu_slave 收到主站请求
-[2026-05-12 10:06:50.891][000000003.112] I/user.exmodbus_test 读取成功，返回数据:  123, 456
-[2026-05-12 10:06:50.896][000000003.115] I/user.exmodbus_test 成功读取到从站 1 保持寄存器 0-1 的值，寄存器 0 数值为 123 ，寄存器 1 数值为 456
-[2026-05-12 10:06:51.431][000000003.664] I/user.tcp_client_main_task_func recv IP_READY 8 4
-[2026-05-12 10:06:51.436][000000003.665] D/socket connect to 115.120.239.161,28824
-[2026-05-12 10:06:51.441][000000003.665] D/net adapter 8 connect 115.120.239.161:28824 TCP
-[2026-05-12 10:06:51.447][000000003.667] I/user.airlbs_multi_cells_wifi_func recv IP_READY 8 4
-[2026-05-12 10:06:51.453][000000003.668] D/sntp query ntp.aliyun.com
-[2026-05-12 10:06:51.459][000000003.668] dns_run 676:ntp.aliyun.com state 0 id 1 ipv6 0 use dns server0, try 0
-[2026-05-12 10:06:51.466][000000003.669] D/net adatper 8 dns server 223.5.5.5
-[2026-05-12 10:06:51.471][000000003.669] D/net dns udp sendto 223.5.5.5:53 from 192.168.1.185
-[2026-05-12 10:06:51.475][000000003.698] dns_run 693:dns all done ,now stop
-[2026-05-12 10:06:51.484][000000003.698] D/net adapter 8 connect 203.107.6.88:123 UDP
-[2026-05-12 10:06:51.490][000000003.708] I/user.tcp_client_main_task_func libnet.connect success
-[2026-05-12 10:06:51.496][000000003.711] luat_adc_open 670:adc gain 1658, offset 151
-[2026-05-12 10:06:51.501][000000003.711] luat_adc_open 694:adc5 param 0,20,5,32,3, max read:17785994mv
-[2026-05-12 10:06:51.507][000000003.712] I/user.CPU TEMP 35.00000
-[2026-05-12 10:06:51.515][000000003.713] luat_adc_open 694:adc4 param 1,15,0,32,8, max read:6669748mv
-[2026-05-12 10:06:51.521][000000003.714] I/user.VBAT 3.800000
-[2026-05-12 10:06:51.527][000000003.731] D/sntp Unix timestamp: 1778551612
-[2026-05-12 10:06:52.632][000000004.862] I/netdrv.ch390x link is up 1 21 100M
-[2026-05-12 10:06:52.637][000000004.863] D/netdrv 网卡(4)设置为UP
-[2026-05-12 10:06:52.643][000000004.863] D/net network ready 4, setup dns server
-[2026-05-12 10:06:52.651][000000004.864] D/netdrv IP_READY 4 192.168.1.183
-[2026-05-12 10:06:52.656][000000004.865] D/net 设置DNS服务器 id 4 index 0 ip 223.5.5.5
-[2026-05-12 10:06:52.664][000000004.865] D/net 设置DNS服务器 id 4 index 1 ip 114.114.114.114
-[2026-05-12 10:06:52.668][000000004.866] I/user.netdrv_eth_spi.ip_ready_func IP_READY 192.168.1.183 255.255.255.0 192.168.1.1 nil
-[2026-05-12 10:06:52.673][000000004.866] I/user.dnsproxy 开始监听
-[2026-05-12 10:06:52.879][000000005.116] I/user.exmodbus_test 开始读取从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:52.894][000000005.120] I/user.exmodbus_test rtu_slave 收到主站请求
-[2026-05-12 10:06:52.898][000000005.120] I/user.exmodbus_test 读取成功，返回数据:  123, 456
-[2026-05-12 10:06:52.902][000000005.124] I/user.exmodbus_test 成功读取到从站 1 保持寄存器 0-1 的值，寄存器 0 数值为 123 ，寄存器 1 数值为 456
-[2026-05-12 10:06:52.907][000000005.124] I/user.exmodbus_test 开始写入从站 1 保持寄存器 0-1 的值，寄存器 0 数值为 123 ，寄存器 1 数值为 456
-[2026-05-12 10:06:52.910][000000005.129] I/user.exmodbus_test rtu_slave 收到主站请求
-[2026-05-12 10:06:52.915][000000005.129] I/user.exmodbus_test 写入成功，写入地址:  0 写入数据:  123
-[2026-05-12 10:06:52.920][000000005.130] I/user.exmodbus_test 写入成功，写入地址:  1 写入数据:  456
-[2026-05-12 10:06:52.926][000000005.133] I/user.exmodbus_test 成功写入从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:53.234][000000005.465] D/airlink.wlan 收到扫描结果 14
-[2026-05-12 10:06:53.239][000000005.467] I/user.scan wifi_info 14
-[2026-05-12 10:06:53.250][000000005.477] I/user.mac nil
-[2026-05-12 10:06:53.253][000000005.477] I/user.硬件型号 Air8000
-[2026-05-12 10:06:53.257][000000005.488] I/user.扫描出的数据 {"cells":[[460,0,18500,245494475,-72,9,359,-102,-13,3590]],"macs":[["82:3C:20:94:13:08",-43],["92:5E:44:04:C2:A8",-61],["94:CB:CD:82:DF:B8",-75],["E0:E0:FC:B6:A8:04",-81],["E0:E0:FC:F6:A8:09",-81],["D0:79:80:C6:3A:B0",-82],["62:42:15:31:98:14",-88],["CC:E0:DA:D4:7C:85",-90],["A0:44:5C:EB:C2:B4",-91],["CE:E0:DA:B4:7C:85",-95],["EC:6C:B5:08:15:F8",-95],["90:FB:5D:94:36:9A",-97],["EC:3C:BB:81:38:9C",-97],["EC:3C:BB:81:38:A1",-99]]}
-[2026-05-12 10:06:53.266][000000005.492] D/socket connect to airlbs.openluat.com,12413
-[2026-05-12 10:06:53.270][000000005.492] dns_run 676:airlbs.openluat.com state 0 id 2 ipv6 0 use dns server0, try 0
-[2026-05-12 10:06:53.273][000000005.492] D/net adatper 8 dns server 223.5.5.5
-[2026-05-12 10:06:53.276][000000005.493] D/net dns udp sendto 223.5.5.5:53 from 192.168.1.185
-[2026-05-12 10:06:53.281][000000005.516] dns_run 693:dns all done ,now stop
-[2026-05-12 10:06:53.285][000000005.516] D/net adapter 8 connect 121.40.251.45:12413 UDP
-[2026-05-12 10:06:53.289][000000005.518] I/user.airlbs 服务器连上了
-[2026-05-12 10:06:53.438][000000005.664] I/user.airlbs wait true true nil
-[2026-05-12 10:06:53.444][000000005.667] I/user.定位请求的结果 true 超时时间 0 table: 0C7B3E38 {"result":1,"lng":114.2941742,"lat":34.8074112}
-[2026-05-12 10:06:53.451][000000005.667] I/user.多基站请求成功,服务器返回的原始数据 table: 0C7B3E38
-[2026-05-12 10:06:53.459][000000005.668] I/user.airlbs多基站+多wifi定位返回的经纬度数据为 {"lat":34.8074112,"lng":114.2941742}
-[2026-05-12 10:06:53.466][000000005.669] I/user.airlbs lat 34.8074112
-[2026-05-12 10:06:53.472][000000005.669] I/user.airlbs lng 114.2941742
-[2026-05-12 10:06:53.477][000000005.672] I/user.airlbs Using 4G device ID: 864793080523348
-[2026-05-12 10:06:53.483][000000005.674] dns_run 676:iot.openluat.com state 0 id 3 ipv6 0 use dns server0, try 0
-[2026-05-12 10:06:53.489][000000005.674] D/net adatper 8 dns server 223.5.5.5
-[2026-05-12 10:06:53.495][000000005.674] D/net dns udp sendto 223.5.5.5:53 from 192.168.1.185
-[2026-05-12 10:06:53.502][000000005.676] I/user.aircloud_data 收到定位数据更新 lat: 34.8074112 lng: 114.2941742
-[2026-05-12 10:06:53.815][000000005.952] I/mobile sim0 sms ready
-[2026-05-12 10:06:53.821][000000005.952] D/mobile cid1, state0
-[2026-05-12 10:06:53.826][000000005.953] D/mobile bearer act 0, result 0
-[2026-05-12 10:06:53.831][000000005.953] D/mobile NETIF_LINK_ON -> IP_READY
-[2026-05-12 10:06:53.834][000000005.954] I/user.netdrv_4g.ip_ready_func IP_READY 10.114.92.27 255.255.255.255 0.0.0.0 nil
-[2026-05-12 10:06:53.837][000000005.955] I/user.dnsproxy 开始监听
-[2026-05-12 10:06:53.841][000000005.997] dns_run 693:dns all done ,now stop
-[2026-05-12 10:06:53.844][000000005.997] D/net adapter 8 connect 121.196.16.94:80 TCP
-[2026-05-12 10:06:53.848][000000006.007] D/mobile TIME_SYNC 0 tm 1778551614
-[2026-05-12 10:06:53.856][000000006.080] D/socket connect to 192.168.1.185,6000
-[2026-05-12 10:06:53.859][000000006.081] D/net adapter 4 connect 192.168.1.185:6000 TCP
-[2026-05-12 10:06:53.862][000000006.089] I/user.exmodbus 连接服务器成功
-[2026-05-12 10:06:53.865][000000006.092] D/net adapter 8 socket 0 new client from 192.168.1.183:10003
-[2026-05-12 10:06:53.868][000000006.094] I/user.exmodbus TCP 从站已启动，监听端口: 6000
-[2026-05-12 10:06:53.933][000000006.168] I/http http close c15da64
-[2026-05-12 10:06:53.938][000000006.170] I/user.airlbs 获取地址成功, 响应体: {"code": 0, "address": "\u6cb3\u5357\u7701\u5f00\u5c01\u5e02\u9f99\u4ead\u533a\u91d1\u88d5\u8def"}
-[2026-05-12 10:06:53.945][000000006.171] I/user.airlbs.get_address 河南省开封市龙亭区金裕路
-[2026-05-12 10:06:54.854][000000007.083] I/user.exmodbus_test 开始读取从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:54.859][000000007.090] I/user.exmodbus_test tcp_slave 收到主站请求
-[2026-05-12 10:06:54.864][000000007.091] I/user.exmodbus_test 读取成功，返回数据:  200, 201
-[2026-05-12 10:06:54.870][000000007.097] I/user.exmodbus_test 成功读取到从站 1 保持寄存器 0-1 的值，寄存器 0 数值为 200 ，寄存器 1 数值为 201
-[2026-05-12 10:06:54.875][000000007.098] I/user.exmodbus_test 开始写入从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:54.880][000000007.106] I/user.exmodbus_test tcp_slave 收到主站请求
-[2026-05-12 10:06:54.885][000000007.106] I/user.exmodbus_test 写入成功，写入地址:  0 写入数据:  18
-[2026-05-12 10:06:54.891][000000007.107] I/user.exmodbus_test 写入成功，写入地址:  1 写入数据:  52
-[2026-05-12 10:06:54.896][000000007.115] I/user.exmodbus_test 成功写入从站 1 保持寄存器 0-1
-[2026-05-12 10:06:54.902][000000007.134] I/user.exmodbus_test 开始读取从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:54.908][000000007.137] I/user.exmodbus_test rtu_slave 收到主站请求
-[2026-05-12 10:06:54.914][000000007.138] I/user.exmodbus_test 读取成功，返回数据:  123, 456
-[2026-05-12 10:06:54.922][000000007.142] I/user.exmodbus_test 成功读取到从站 1 保持寄存器 0-1 的值，寄存器 0 数值为 123 ，寄存器 1 数值为 456
-[2026-05-12 10:06:56.894][000000009.116] I/user.exmodbus_test 开始读取从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:56.901][000000009.122] I/user.exmodbus_test tcp_slave 收到主站请求
-[2026-05-12 10:06:56.908][000000009.123] I/user.exmodbus_test 读取成功，返回数据:  18, 52
-[2026-05-12 10:06:56.914][000000009.130] I/user.exmodbus_test 成功读取到从站 1 保持寄存器 0-1 的值，寄存器 0 数值为 18 ，寄存器 1 数值为 52
-[2026-05-12 10:06:56.920][000000009.142] I/user.exmodbus_test 开始读取从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:56.926][000000009.145] I/user.exmodbus_test rtu_slave 收到主站请求
-[2026-05-12 10:06:56.931][000000009.146] I/user.exmodbus_test 读取成功，返回数据:  123, 456
-[2026-05-12 10:06:56.935][000000009.149] I/user.exmodbus_test 成功读取到从站 1 保持寄存器 0-1 的值，寄存器 0 数值为 123 ，寄存器 1 数值为 456
-[2026-05-12 10:06:56.941][000000009.150] I/user.exmodbus_test 开始写入从站 1 保持寄存器 0-1 的值，寄存器 0 数值为 123 ，寄存器 1 数值为 456
-[2026-05-12 10:06:56.944][000000009.154] I/user.exmodbus_test rtu_slave 收到主站请求
-[2026-05-12 10:06:56.947][000000009.155] I/user.exmodbus_test 写入成功，写入地址:  0 写入数据:  123
-[2026-05-12 10:06:56.950][000000009.156] I/user.exmodbus_test 写入成功，写入地址:  1 写入数据:  456
-[2026-05-12 10:06:56.953][000000009.159] I/user.exmodbus_test 成功写入从站 1 保持寄存器 0-1 的值
-[2026-05-12 10:06:58.238][000000010.463] I/user.tcp_client_main_task_func libnet.wait true true nil
-[2026-05-12 10:06:58.269][000000010.497] I/user.tcp_client_sender.proc send success
-[2026-05-12 10:06:58.273][000000010.498] I/user.send_data_cbfunc true timer1
-```
-
-
+![](https://docs.openluat.com/air8000/luatos/app/image/modbus5.jpg)
 

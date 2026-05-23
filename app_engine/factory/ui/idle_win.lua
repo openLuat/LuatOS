@@ -137,14 +137,23 @@ local function calc_layout()
     local ah = gah - grid_top_padding
     local rpp = math.max(1, math.floor(ah / (card_height + grid_margin)))
     apps_per_page = grid_columns * rpp
-    -- 限制每页最多 24 个卡片，避免大屏上控件过密导致滑动卡顿
+    -- 限制每页卡片数量，避免大屏上控件过密导致滑动卡顿
+    -- 截断条件：总应用数超过截断后一页的量才截，避免最后一页太空
     if not is_landscape and apps_per_page > 24 then
-        apps_per_page = 24
-        -- 卡片变少后，拉高卡片填满剩余空间
-        local target_rows = math.ceil(apps_per_page / grid_columns)
-        card_height = math.floor((ah - grid_margin * (target_rows - 1)) / target_rows)
-        if card_height < math.floor(70 * _G.density_scale) then
-            card_height = math.floor(70 * _G.density_scale)
+        local total_cards = 0
+        local ok, installed_apps = pcall(exapp.list_installed)
+        if ok then
+            for _ in pairs(installed_apps) do total_cards = total_cards + 1 end
+        end
+        total_cards = total_cards - #builtin_apps
+        if total_cards > 24 + grid_columns then
+            apps_per_page = 24
+            -- 卡片变少后，拉高卡片填满剩余空间
+            local target_rows = math.ceil(apps_per_page / grid_columns)
+            card_height = math.floor((ah - grid_margin * (target_rows - 1)) / target_rows)
+            if card_height < math.floor(70 * _G.density_scale) then
+                card_height = math.floor(70 * _G.density_scale)
+            end
         end
     end
 

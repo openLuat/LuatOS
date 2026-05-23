@@ -1,0 +1,24 @@
+{
+  "app_name_cn": "GNSS定位",
+  "app_name_en": "gnss",
+  "version": "1.0.0",
+  "publish_time": "2026-05-21 12:00:00",
+  "category": "工具",
+  "description": "GNSS定位应用，支持GPS、北斗等卫星定位，提供地图显示和卫星信息功能",
+  "resolution": "480x320",
+  "display_zoom":"adaptive",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 100,
+  "origin_size_kb": 300
+}

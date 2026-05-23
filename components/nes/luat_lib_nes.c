@@ -11,6 +11,7 @@
 #include "luat_rtos.h"
 #include "luat_lcd.h"
 #include "luat_mem.h"
+#include "luat_msgbus.h"
 
 #include "nes.h"
 #include "nes_port.h"
@@ -35,14 +36,28 @@ enum {
 
 static luat_rtos_task_handle nes_thread;
 static nes_t* nes = NULL;
+// 清理 handler
+static int _nes_cleanup_handler(lua_State *L, void *ptr);
 
 /* 供 nes_airui_video.c 获取 nes 实例以操作 joypad */
 nes_t *luat_nes_get_global_ctx(void) {
     return nes;
 }
 
-void nes_task(void *param){
-    nes_run((nes_t *)param);
+void nes_task(void *param) {
+    nes_t *ctx = (nes_t *)param;
+    // 开始运行 nes
+    nes_run(ctx);
+    // nes循环结束，清理资源
+    if (ctx == NULL) return;
+    rtos_msg_t msg = {
+        .handler = _nes_cleanup_handler,
+        .ptr     = ctx,
+        .arg1    = 0,
+        .arg2    = 0,
+    };
+    // 发送清理资源消息
+    luat_msgbus_put(&msg, 0);
 }
 
 /*
@@ -121,27 +136,27 @@ static int l_nes_deinit(lua_State *L) {
     (void)L;
     if (nes) {
         nes_t *ctx = nes;
-        nes = NULL;  /* 先清全局指针，防止 nes_draw/nes_frame 继续写入 */
-
-        /* 设置退出标志，让 nes_run() 的 while 循环在本帧末尾退出 */
+        nes = NULL;
         ctx->nes_quit = 1;
+    }
+    return 0;
+}
 
-        luat_rtos_task_sleep(1200);
-
-        /* 释放 ROM / PPU 内存 */
-        nes_deinit(ctx);
-
-        /* 强制删除任务（若任务已退出，delete 通常为 no-op 或返回错误，不会崩溃） */
+static int _nes_cleanup_handler(lua_State *L, void *ptr) {
+    (void)L;
+    nes_t *ctx = (nes_t *)ptr;
+    if (!ctx) return 0;
+    nes_deinit(ctx);
+    if (nes == NULL || nes == ctx) {
         if (nes_thread) {
             luat_rtos_task_delete(nes_thread);
             nes_thread = NULL;
         }
-    }
-
 #ifdef LUAT_USE_AIRUI
-    nes_set_airui_mode(0);
-    nes_airui_video_deinit(NULL);
+        nes_set_airui_mode(0);
+        nes_airui_video_deinit(NULL);
 #endif
+    }
     return 0;
 }
 

@@ -1,116 +1,191 @@
 --[[
 @module  aircloud_data
-@summary 网络驱动设备功能模块
-@version 1.0
-@date    2026年3月26日
+@summary AirCloud平台数据上报模块
+@version 1.1
+@date    2026.05.21
 @author  黄何
 @usage
-本文件为aircloud数据处理模块，核心业务逻辑为：根据aircloud服务器要求的格式，构建要发送的数据结构，并且定时发送给tcp client socket的发送功能模块；
-1、构建要发送的数据结构，数据结构为一个table，table中每一个元素也是一个table，每个元素的字段含义如下：
+本文件为AirCloud数据处理模块，负责定时通过 excloud.send 上报设备数据到 AirCloud 平台。
 
-    field_meaning：字段含义，必须按照aircloud平台的要求进行定义，
-        aircloud平台要求的字段含义可以参考excloud中参数描述，使用时直接将excloud.FIELD_MEANINGS中定义的字段含义赋值给field_meaning即可；
-        如果需要发送自定义数据，无法在excloud.FIELD_MEANINGS中找到合适的字段含义，可以将field_meaning赋值为0，表示自定义数据，此时data_type和value的定义和格式也必须满足aircloud平台的要求；
+数据来源（事件订阅，零重复采集）：
+  - 定位经纬度 → 订阅 airlbs_app 发布的 Airlbs_LOCATION_UPDATE
+  - RTU传感器温湿度 → 订阅 temp_hum_sensor 发布的 TEMP_HUMIDITY_UPDATE
+  - TCP传感器温湿度 → 订阅 tcp_modbus_master 发布的 TCP_TEMP_HUMIDITY_UPDATE
+  - 基站频段 → 订阅 CELL_INFO_UPDATE
+  - 系统数据(CPU/VBAT/CSQ/ICCID/小区ID) → 发送时实时读取（系统级API，一次调用即可）
 
-    data_type：数据类型，必须按照aircloud平台的要求进行定义，
-        aircloud平台要求的数据类型可以参考excloud.DATA_TYPES这个table中的定义，使用时直接将excloud.DATA_TYPES中定义的数据类型赋值给data_type即可；
+上报字段：
+  - 4G信号强度 (782, INTEGER)
+  - SIM ICCID (783, ASCII)
+  - 驻留频段 (772, INTEGER)
+  - 驻留小区 (773, INTEGER)
+  - RTU传感器温度 (256, FLOAT)
+  - RTU传感器湿度 (257, FLOAT)
+  - CPU温度 (263, INTEGER)
+  - VBAT电压 (799, INTEGER)
+  - GNSS经度 (512, ASCII)
+  - GNSS纬度 (513, ASCII)
+  - TCP传感器温度 (256, FLOAT, 自定义)
+  - TCP传感器湿度 (257, FLOAT, 自定义)
+  本文件没有对外接口，直接在main.lua中require "aircloud_data"就可以加载运行；
+]]
 
-value：数据值，按照field_meaning定义的字段含义和data_type定义的数据类型，构建对应的数据值；
-
-2、定时发送构建好的数据结构给tcp client socket的发送功能模块；
-
-本文件没有对外接口，使用时直接在main.lua中require "aircloud_data"就可以加载运行；
-]] 
 local excloud = require "excloud"
 
+-- AirCloud 服务器配置（请填入实际值）
+local AIRcloud_CONFIG = {
+    host = "124.71.128.165",
+    port = 9108,
+    auth_key = "47J0PYMJzOCXwjXQ0bpqhXkoq9KMgDgi",
+}
 
--- 获取CPU温度的函数
-local function cpu_temperature()
-    adc.open(adc.CH_CPU) -- 打开adc.CH_CPU通道
-    local cpu_temp = adc.get(adc.CH_CPU) -- 获取adc.CH_CPU计算值
-    adc.close(adc.CH_CPU) -- 关闭adc.CH_CPU通道
-    log.info("CPU TEMP", cpu_temp / 1000) -- 打印adc.CH_CPU计算值，单位：摄氏度
-    return cpu_temp / 1000 or 0 -- 如果获取到的值为nil，则返回0
-end
-
--- 获取VBAT电压的函数
-local function vabt_vaule()
-    adc.open(adc.CH_VBAT) -- 打开adc.CH_VBAT通道
-    local vabt_vaule = adc.get(adc.CH_VBAT) -- 获取adc.CH_VBAT计算值
-    adc.close(adc.CH_VBAT) -- 关闭adc.CH_VBAT通道
-    log.info("VBAT", vabt_vaule / 1000) -- 打印adc.CH_VBAT计算值，单位：毫伏
-    return vabt_vaule / 1000 or 3.300 -- 如果获取到的值为nil，则返回3300   
-end
-
--- 经纬度变量
+-- 经纬度
 local lat, lng = nil, nil
-
--- 监听定位数据更新消息
 sys.subscribe("Airlbs_LOCATION_UPDATE", function(new_lat, new_lng)
     lat = new_lat
     lng = new_lng
-    log.info("aircloud_data", "收到定位数据更新", "lat:", lat, "lng:", lng)
 end)
 
--- 定时发送json数据的回调函数
-local function send_aircloud_data()
-    sys.waitUntil("CONNECTION_SUCCESS") -- 等待服务器连接成功的消息，确保在连接成功后才开始发送数据
-    -- 按照aircloud平台的格式定义要发送的数据
-    -- 不需要的变量可以删除，或者注释掉；需要的变量可以增加，或者修改；只要保证field_meaning、data_type、value这三个字段的定义和格式满足aircloud平台的要求即可；
-    -- 具体的field_meaning赋值可以参考本目录下的FIELD_MEANINGS.md文件；
-    -- 具体的data_type赋值可以参考https://docs.openluat.com/osapi/ext/excloud/#31 中的数据类型常量；
-    local send_data = {{
-        field_meaning = excloud.FIELD_MEANINGS.SIGNAL_STRENGTH_4G, -- 字段含义：4G信号强度
-        data_type = excloud.DATA_TYPES.INTEGER, -- 数据类型：整数
-        value = mobile.csq() or 0 -- 信号强度
-    }, {
-        field_meaning = excloud.FIELD_MEANINGS.SIM_ICCID, -- 字段含义：SIM卡的ICCID号
-        data_type = excloud.DATA_TYPES.ASCII, -- 数据类型：ASCII字符串
-        value = mobile.iccid() or "" -- SIM卡ICCID
-    }, {
-        field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP, -- 字段含义：时间戳
-        data_type = excloud.DATA_TYPES.INTEGER, -- 数据类型：整数
-        value = os.time() -- 当前时间戳
-    }, {
-        field_meaning = excloud.FIELD_MEANINGS.DEVICE_ID, -- 字段含义：设备号
-        data_type = excloud.DATA_TYPES.ASCII, -- 数据类型：ASCII字符串
-        value = mobile.imei() or "" -- 设备IMEI（4G模块）
-    }, {
-        field_meaning = excloud.FIELD_MEANINGS.TEMPERATURE, -- 字段含义：温度
-        data_type = excloud.DATA_TYPES.FLOAT, -- 数据类型：浮点数
-        value = cpu_temperature() -- 温度值
-    }, {
-        field_meaning = excloud.FIELD_MEANINGS.VOLTAGE, -- 字段含义：电压
-        data_type = excloud.DATA_TYPES.INTEGER, -- 数据类型：整数
-        value = vabt_vaule() -- vbat电压值
-    }, 
-    -- {
-    --     field_meaning = 0, -- 自定义数据，使用0作为field_meaning
-    --     data_type = excloud.DATA_TYPES.UNICODE, -- 数据类型：Unicode字符串
-    --     value = "用户utf-8格式自定义数据"
-    -- },
-    {
-        --经度
-        field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-        data_type = excloud.DATA_TYPES.ASCII,
-        value = lng
-    },{
-        --纬度
-        field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-        data_type = excloud.DATA_TYPES.ASCII,
-        value = lat
-    }}
-    while 1 do
-        sys.wait(30000) -- 每隔30秒发送一次数据
-        -- 更新经纬度数据
-        send_data[7].value = lng or ""
-        send_data[8].value = lat or ""
-        -- 打印构建的数据结构，用于调试
-        log.info("send_data structure:", json.encode(send_data))
+-- RTU 传感器温湿度
+local rtu_temp, rtu_hum = nil, nil
+sys.subscribe("TEMP_HUMIDITY_UPDATE", function(temp, humi)
+    rtu_temp = temp
+    rtu_hum = humi
+end)
 
-        local send_data_string = json.encode(send_data)
-        sys.publish("SEND_DATA_REQ", "Aircloud_main", send_data_string)
+-- TCP Modbus 传感器温湿度
+local tcp_temp, tcp_hum = nil, nil
+sys.subscribe("TCP_TEMP_HUMIDITY_UPDATE", function(temp, humi)
+    tcp_temp = temp
+    tcp_hum = humi
+end)
+
+
+
+excloud.on(function(event, data)
+    log.info("用户回调函数", event, json.encode(data))
+
+    if event == "connect_result" then
+        if data.success then
+            log.info("连接成功")
+        else
+            log.info("连接失败: " .. (data.error or "未知错误"))
+        end
+    elseif event == "auth_result" then
+        if data.success then
+            log.info("认证成功")
+        else
+            log.info("认证失败: " .. (data.message or "?"))
+        end
+    elseif event == "message" then
+        log.info("收到消息, 流水号: " .. (data.header and data.header.seq or "?"))
+        for _, tlv in ipairs(data.tlvs or {}) do
+            if tlv.field == excloud.FIELD_MEANINGS.CONTROL_COMMAND then
+                log.info("收到控制命令: " .. tostring(tlv.value))
+                local ok, err_msg = excloud.send({
+                    {
+                        field_meaning = excloud.FIELD_MEANINGS.CONTROL_RESPONSE,
+                        data_type = excloud.DATA_TYPES.ASCII,
+                        value = "命令执行成功"
+                    }
+                }, false)
+                if not ok then
+                    log.info("发送控制响应失败: " .. (err_msg or "?"))
+                end
+            end
+        end
+    elseif event == "disconnect" then
+        log.warn("与服务器断开连接")
+    elseif event == "reconnect_failed" then
+        log.info("重连失败，已尝试 " .. data.count .. " 次")
+    elseif event == "send_result" then
+        if data.success then
+            log.info("发送成功, 流水号: " .. (data.seq or "?"))
+        else
+            log.info("发送失败: " .. (data.error_msg or "?"))
+        end
     end
+end)
 
-end
-sys.taskInit(send_aircloud_data)
+
+sys.taskInit(function()
+    -- 等待IP就绪
+    while not socket.adapter(socket.dft()) do
+        log.warn("aircloud_data", "wait IP_READY", socket.dft())
+        sys.waitUntil("IP_READY", 1000)
+    end
+    sys.wait(1000)
+
+    -- 配置 excloud
+    local ok, err = excloud.setup({
+        device_type = 1,
+        host = AIRcloud_CONFIG.host,
+        port = AIRcloud_CONFIG.port,
+        auth_key = AIRcloud_CONFIG.auth_key,
+        transport = "tcp",
+        auto_reconnect = true,
+        reconnect_interval = 10,
+        max_reconnect = 5,
+        timeout = 30,
+    })
+    if not ok then log.info("初始化失败: " .. (err or "?")); return end
+    log.info("excloud初始化成功")
+
+    ok, err = excloud.open()
+    if not ok then log.info("开启excloud服务失败: " .. (err or "?")); return end
+    log.info("excloud服务已开启")
+
+    -- 定时上报
+    while true do
+        sys.wait(30000)
+
+        -- 系统数据：发送时实时读取（系统API，不会重复采集传感器）
+        local rssi = mobile.csq() or 0
+        local iccid = mobile.iccid() or ""
+
+        adc.open(adc.CH_CPU)
+        local cpu_temp = adc.get(adc.CH_CPU) or 0
+        adc.close(adc.CH_CPU)
+
+        adc.open(adc.CH_VBAT)
+        local vbat = adc.get(adc.CH_VBAT) or 3300
+        adc.close(adc.CH_VBAT)
+
+        -- 异步数据：空值兜底
+        local _lat = lat or 0
+        local _lng = lng or 0
+        local _rtu_temp = rtu_temp or 0
+        local _rtu_hum = rtu_hum or 0
+        local _tcp_temp = tcp_temp or 0
+        local _tcp_hum = tcp_hum or 0
+
+        local ok, err_msg = excloud.send({
+            { field_meaning = excloud.FIELD_MEANINGS.SIGNAL_STRENGTH_4G,  data_type = excloud.DATA_TYPES.INTEGER, value = rssi },
+            { field_meaning = excloud.FIELD_MEANINGS.SIM_ICCID,           data_type = excloud.DATA_TYPES.ASCII,   value = iccid },
+            { field_meaning = excloud.FIELD_MEANINGS.TEMPERATURE,         data_type = excloud.DATA_TYPES.FLOAT,   value = _rtu_temp },
+            { field_meaning = excloud.FIELD_MEANINGS.HUMIDITY,            data_type = excloud.DATA_TYPES.FLOAT,   value = _rtu_hum },
+            { field_meaning = excloud.FIELD_MEANINGS.ENV_TEMPERATURE,     data_type = excloud.DATA_TYPES.INTEGER, value = cpu_temp },
+            { field_meaning = excloud.FIELD_MEANINGS.VOLTAGE,             data_type = excloud.DATA_TYPES.INTEGER, value = vbat },
+            { field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,      data_type = excloud.DATA_TYPES.ASCII,   value = _lng },
+            { field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,       data_type = excloud.DATA_TYPES.ASCII,   value = _lat },
+        }, false)
+
+        -- 每包数据内只有一个温湿度，故此处二次发送
+        local yes,not_ok = excloud.send({
+            { field_meaning = excloud.FIELD_MEANINGS.TEMPERATURE, data_type = excloud.DATA_TYPES.FLOAT, value = _tcp_temp },
+            { field_meaning = excloud.FIELD_MEANINGS.HUMIDITY, data_type = excloud.DATA_TYPES.FLOAT, value = _tcp_hum },
+        }, false)
+
+        if not ok then
+            log.info("发送数据失败: " .. (err_msg or "?"))
+        else
+            log.info("数据发送成功")
+        end
+        
+        if not yes then
+            log.info("发送数据失败: " .. (not_ok or "?"))
+        else
+            log.info("数据发送成功")
+        end
+    end
+end)

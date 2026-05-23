@@ -1,18 +1,24 @@
 --[[
-@module  netdrv_eth_spi
-@summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块
+@module  netdrv_eth_static
+@summary 以太网静态IP配置驱动（SPI外接CH390H芯片，双网口）
 @version 1.0
 @date    2025.12.18
 @author  马梦阳
 @usage
-本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块，核心业务逻辑为：
-1、打开CH390H芯片供电开关；
-2、初始化spi1，初始化以太网卡，并且在以太网卡上开启DHCP(动态主机配置协议)；
-3、以太网卡的连接状态发生变化时，在日志中进行打印；
+本文件为以太网驱动模块，核心业务逻辑为：
+1、打开CH390H双网口芯片供电（GPIO16和GPIO17）；
+2、初始化SPI外接CH390H芯片；
+3、配置两个网口使用静态IP地址；
+4、订阅IP_READY/IP_LOSE事件，分别打印联网成功/断网状态；
 
-直接使用EXB_8000W_CH390功能板硬件测试即可；
+硬件说明：
+- GPIO16: CH390网口1电源使能
+- GPIO17: CH390网口2电源使能
+- SPI1: CH390芯片通讯总线
+- GPIO21: 网口1片选（CS）
+- GPIO20: 网口2片选（CS）
 
-本文件没有对外接口，直接在其他功能模块中require "netdrv_eth_spi"就可以加载运行；
+本文件没有对外接口，直接在其他功能模块中require "netdrv_eth_static"就可以加载运行；
 ]]
 
 local exnetif = require "exnetif"

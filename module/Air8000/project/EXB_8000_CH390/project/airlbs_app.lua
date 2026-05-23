@@ -11,7 +11,9 @@
 2. 发起NTP授时 
 3. 循环定位请求 
 
-本文件没有对外接口，直接在main.lua中require "airlbs_app"就可以加载运行；
+本文件的对外接口有一个：
+1、sys.publish("Airlbs_LOCATION_UPDATE", lat, lng)，通过publish通知订阅者模块定位结果（经纬度）;
+    lat/lng 为字符串格式，如 "34.8074150" / "114.2941589"，定位失败时为 nil;
 ]]
 
 local airlbs = require "airlbs"
@@ -24,7 +26,7 @@ local timeout = 10 -- 扫描基站/wifi 做 基站/wifi定位 的超时时间，
 --  以下项目密钥和id请根据实际项目进行修改，https://iot.openluat.com/lbs/bs 在此网址中我的项目下
 local airlbs_project_id = "lblKo3"
 local airlbs_project_key = "DKqM6sHJkHV23WCzgzTbk7QW7HYGCJxp"
-_G.lat , _G.lng = nil, nil
+local lat, lng = nil, nil
 
 --多基站+多wifi定位
 local function airlbs_multi_cells_wifi_task_func()
@@ -65,19 +67,19 @@ local function airlbs_multi_cells_wifi_task_func()
         if result then
             local data_str = json.encode(data)
             log.info("airlbs多基站+多wifi定位返回的经纬度数据为", data_str)-- 解析经纬度
-            _G.lat = data_str:match("\"lat\":([0-9.-]+)")-- 匹配lat
-            log.info("airlbs", "lat", _G.lat)-- 打印lat
-            _G.lng = data_str:match("\"lng\":([0-9.-]+)")-- 匹配lng
-            log.info("airlbs", "lng", _G.lng)-- 打印lng
+            lat = data_str:match("\"lat\":([0-9.-]+)")-- 匹配lat
+            log.info("airlbs", "lat", lat)-- 打印lat
+            lng = data_str:match("\"lng\":([0-9.-]+)")-- 匹配lng
+            log.info("airlbs", "lng", lng)-- 打印lng
             -- 发布定位数据更新消息，通知其他模块
-            sys.publish("Airlbs_LOCATION_UPDATE", _G.lat, _G.lng)
+            sys.publish("Airlbs_LOCATION_UPDATE", lat, lng)
         else        
             log.warn("请检查project_id和project_key")-- 打印提示信息
         end
         --获取具体地址
         local result, address = airlbs.get_address({
-            lat = _G.lat,
-            lng = _G.lng
+            lat = lat,
+            lng = lng
         })
         if result then
             log.info("airlbs.get_address", address)

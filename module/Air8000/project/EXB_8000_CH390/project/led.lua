@@ -1,102 +1,80 @@
 --[[
-@module  led
-@summary LED控制模块
-@version 1.0
-@date    2025.12.18
-@author  马梦阳
+@module  led.lua
+@summary LED模块
+@version 1.1
+@date    2026.05.20
+@author  王城钧
 @usage
-本功能模块为通用LED控制模块，核心业务逻辑为：
-1、初始化LED引脚
-2、根据通信状态控制LED闪烁或熄灭
-3、通信成功时LED轮流闪烁，通信失败时全部熄灭
 
-本文件对外接口：
-1、led.init(led_pins) - 初始化LED引脚
-2、led.set_comm_status(status) - 设置通信状态
-3、led.start() - 启动LED控制任务
+规则：
+  绿 — 传感器更新时脉冲1秒
+  红 — 从站收到请求时亮，请求处理完后保持至少500ms再灭
 
-使用示例：
-local led = require "led"
-led.init({26, 27, 28})  -- 初始化LED引脚
-led.start()             -- 启动LED任务
-led.set_comm_status(true)  -- 设置通信成功，LED开始闪烁
-led.set_comm_status(false) -- 设置通信失败，LED全部熄灭
+用法：
+  led.sensor_ok()   -- 温湿度数据更新 → 绿灯1秒
+  led.rtu_req()     -- 收到主站请求   → 红灯亮（最少500ms）
+  led.rtu_done()    -- 请求处理完毕   → 触发红灯倒计时
+
+  本文件没有对外接口，直接在main.lua中require "led"就可以加载运行；
 ]]
+
 
 local led = {}
 
--- LED引脚表
-local led_pins = {}
--- 通信状态标志
-local comm_success = false
--- LED任务句柄
-local led_task_handle = nil
+local PINS = {27, 28, 26}  -- RED=GPIO27, GREEN=GPIO28, BLUE=GPIO26
 
--- 初始化LED引脚
--- @param pins table LED引脚编号表，例如 {26, 27, 28}
-function led.init(pins)
-    led_pins = pins or {26, 27, 28}
-    -- 初始化所有LED引脚为输出，默认熄灭
-    for i, pin in ipairs(led_pins) do
-        gpio.setup(pin, 0, gpio.PULLDOWN)
-    end
-    log.info("led", "LED初始化完成，引脚:", table.concat(led_pins, ", "))
+local rtu_timer = nil       -- 红灯最小保持定时器
+local green_timer = nil
+
+local function off_all()
+    for _, p in ipairs(PINS) do gpio.set(p, 0) end
 end
 
--- 设置通信状态
--- @param status boolean true表示通信成功，false表示通信失败
-function led.set_comm_status(status)
-    comm_success = status
+local function start_red()
+    off_all()
+    gpio.set(PINS[1], 1)
 end
 
--- 获取通信状态
--- @return boolean 当前通信状态
-function led.get_comm_status()
-    return comm_success
+local function start_green()
+    off_all()
+    gpio.set(PINS[2], 1)
 end
 
--- LED闪烁控制函数
-local function led_task()
-    local current = 1
-    
-    while true do
-        if comm_success then
-            -- 通信成功，执行闪烁
-            -- 熄灭所有LED
-            for i, pin in ipairs(led_pins) do
-                gpio.set(pin, 0)
-            end
-            -- 点亮当前LED
-            if #led_pins > 0 then
-                gpio.set(led_pins[current], 1)
-                
-                -- 切换到下一个
-                current = current + 1
-                if current > #led_pins then
-                    current = 1
-                end
-            end
-            
-            sys.wait(1000) -- 1s切换一次
-        else
-            -- 通信未成功，全部熄灭
-            for i, pin in ipairs(led_pins) do
-                gpio.set(pin, 0)
-            end
-            sys.wait(100) -- 短暂等待后再次检查
-        end
-    end
+-- 红灯灭
+local function red_off()
+    if rtu_timer then sys.timerStop(rtu_timer); rtu_timer = nil end
+    off_all()
 end
 
--- 启动LED任务
-function led.start()
-    if led_task_handle then
-        log.warn("led", "LED任务已启动，请勿重复启动")
-        return
-    end
-    led_task_handle = sys.taskInit(led_task)
-    log.info("led", "LED任务已启动")
+-- RTU/TCP从站收到主站请求 → 红灯亮
+function led.rtu_req()
+    if green_timer then sys.timerStop(green_timer); green_timer = nil end
+    start_red()
 end
 
+-- 请求处理完毕 → 红灯至少再保持500ms后灭
+function led.rtu_done()
+    if rtu_timer then sys.timerStop(rtu_timer) end
+    rtu_timer = sys.timerStart(function()
+        rtu_timer = nil
+        off_all()
+    end, 500)
+end
+
+-- 传感器数据更新 → 绿灯亮1秒
+function led.sensor_ok()
+    if rtu_timer then return end  -- 红灯还在就不亮绿
+    if green_timer then sys.timerStop(green_timer) end
+    start_green()
+    green_timer = sys.timerStart(function()
+        green_timer = nil
+        off_all()
+    end, 1000)
+end
+
+for _, p in ipairs(PINS) do
+    gpio.setup(p, 0, gpio.PULLDOWN)
+end
+off_all()
 
 return led

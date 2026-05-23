@@ -1,3 +1,18 @@
+--[[
+@module  sip_app_key
+@summary SIP 应用按键控制模块
+@version 1.0
+@date    2026.05.22
+@author  蒋骞
+@usage
+本文件为SIP应用按键控制模块，核心业务逻辑为：负责按键事件监听（POWERKEY 挂断、BOOT 键呼出/接听），并订阅 SIP 状态消息以更新本地状态，最后主动触发 SIP 服务启动。
+@description
+1. 监听 POWERKEY 键的按下事件，触发挂断操作；
+2. 监听 BOOT 键的按下事件，根据当前状态触发呼出或接听操作；
+3. 订阅 SIP_APP_MAIN_READY 和 SIP_APP_MAIN_LOSE 消息，更新 SIP 服务可用状态；
+4. 订阅 SIP_APP_MAIN_DIAL_RSP、SIP_APP_MAIN_CONNECTED、SIP_APP_MAIN_DISCONNECTED、SIP_APP_MAIN_INCOMING 消息，更新本地状态；
+5. 主动触发 SIP 服务启动。
+]]--    
 
 local exsip = require "exsip"
 
@@ -41,9 +56,7 @@ local function boot_key_handler()
         g_sip_incoming = false
         return
     end
-
     sys.publish("SIP_APP_MAIN_DIAL_REQ", g_tag, "100001")
-    -- sys.publish("SIP_APP_MAIN_DIAL_REQ", g_tag, "100000")
 end
 
 local function dial_rsp(tag, success, reason)

@@ -15,19 +15,14 @@
     (6) netif_app_1：4G提供网络供wifi和以太网设备上网
     (7) netif_app_2：以太网提供网络供wifi和以太网设备上网
     (8) netif_app_3：wifi提供网络供wifi和以太网设备上网
-2、创建tcp client socket连接，连接tcp server；
-3、tcp client连接出现异常后，自动重连；
-4、tcp client按照以下逻辑发送数据给server：
-    - 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer: 前缀后发送给server；
-    - aircloud数据处理模块aircloud_data.lua，定时上报设备数据（信号强度、ICCID、温度、电压、定位等）给server；
-5、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
-6、airlbs定位功能：通过多基站+多wifi定位获取设备经纬度，并上报给aircloud；
-7、modbus功能（可选）：
-    - RTU从站：rtu_slave_manage.lua
-    - RTU主站：param_field_rtu.lua / raw_frame_rtu.lua（二选一）
-    - TCP从站：tcp_slave_manage.lua
-    - TCP主站：param_field_tcp.lua / raw_frame_tcp.lua（二选一）
-8、LED状态指示：led.lua，modbus通信成功时LED轮流闪烁，通信失败时全部熄灭
+2、AirCloud数据上报：aircloud_data.lua 定时上报设备数据到AirCloud平台
+3、airlbs定位：airlbs_app.lua 通过多基站+多wifi定位获取设备经纬度
+4、modbus功能：
+    - RTU从站：rtu_slave_regmap.lua（寄存器映射表，同时提供从站功能）
+    - RTU主站：temp_hum_sensor.lua（读取RS485温湿度传感器）
+    - TCP从站：tcp_slave.lua
+    - TCP主站：tcp_modbus_master.lua（读取网口1温湿度传感器）
+5、LED状态指示：led.lua（绿=传感器更新, 红=主站请求）
 更多说明参考本目录下的readme.md文件
 ]]
 
@@ -48,7 +43,6 @@ VERSION = "001.999.000"
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-
 
 
 
@@ -75,53 +69,38 @@ log.info("main", PROJECT, VERSION)
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载网络环境检测看门狗功能模块
-require "network_watchdog"
 
--- 加载网络驱动设备功能模块
+-- 网络驱动设备功能模块
 require "netdrv_device"
 
--- 加载付费定位功能模块
-require "airlbs_app"
 
--- 加载定时器应用功能模块
-require "timer_app"
-
--- 加载aircloud数据处理模块
-require "aircloud_data"
-
--- 加载led应用功能模块
-require "led"
-
--- 加载tcp client socket主应用功能模块
-require "tcp_client_main"
-
--- 打开内核固件中ssl的调试日志（需要分析问题时再打开）
--- socket.sslLog(3)
-
--- 加载 RTU 从站应用模块
-require "rtu_slave_manage"
-
--- 注意：以下主站模式只能二选一打开
--- 加载 RTU 主站应用模块（字段参数方式）
-require "param_field_rtu"
-
--- 加载 RTU 主站应用模块（原始帧方式）
--- require "raw_frame_rtu"
-
--- 注意：当使用以太网静态ip地址时，netdrv_device文件下相关以太网的配置都不能使用，否则会有干扰
--- 开启以太网wan（默认使用静态 IP 地址）
+-- 开启以太网wan（使用静态 IP 地址）
+-- 注意：当使用以太网静态ip地址时，netdrv_device 文件下相关以太网的配置都不能使用，否则会有干扰
 require "netdrv_eth_static"
 
--- 加载 TCP 从站应用模块
-require "tcp_slave_manage"
 
--- 以下TCP 主站模式只能二选一
--- 加载 TCP 主站应用模块（字段参数方式）
--- require "param_field_tcp"
+-- airlbs 定位（多基站+多wifi定位）
+require "airlbs_app"
 
--- 加载 TCP 主站应用模块（原始帧方式）
-require "raw_frame_tcp" 
+-- AirCloud 数据上报
+require "aircloud_data"
+
+
+-- RTU从站：寄存器映射表 + 从站响应
+require "rtu_slave_regmap"
+
+-- TCP Modbus从站
+require "tcp_slave"
+
+-- RTU Modbus温湿度传感器主站
+require "temp_hum_sensor"
+
+-- TCP Modbus 主站
+require "tcp_modbus_master"
+
+-- LED 状态指示
+require "led"
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

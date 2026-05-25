@@ -1797,7 +1797,7 @@ int l_lcd_image2raw(lua_State *L) {
     }
     luat_zbuff_t *zbuff = (luat_zbuff_t *)lua_newuserdata(L, sizeof(luat_zbuff_t));
 	memset(zbuff,0,sizeof(luat_zbuff_t));
-    zbuff->addr = buff_info.buff;
+    zbuff->addr = (uint8_t*)buff_info.buff;
 	zbuff->len = buff_info.len;
 	zbuff->width = buff_info.width;
 	zbuff->height = buff_info.height;

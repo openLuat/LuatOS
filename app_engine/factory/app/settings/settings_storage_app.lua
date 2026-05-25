@@ -151,14 +151,14 @@ sys.subscribe("STORAGE_GET_INFO_LIST", function()
     log.info("settings_storage", "上报多存储信息", #list, "个存储位置")
 end)
 
--- 快速查询：只查内置 /，不碰 NAND/SD
+-- 快速查询：只查内置 /，不碰 NAND/SD（毫秒级）
 sys.subscribe("STORAGE_GET_INFO_FAST", function()
     local fast_list = {
         { mount_point = "/",              label = STORAGE_LABELS["/"],              available = false },
         { mount_point = "/sd/",           label = STORAGE_LABELS["/sd/"],           available = false },
         { mount_point = "/little_flash/", label = STORAGE_LABELS["/little_flash/"], available = false },
     }
-    -- 仅查内置文件系统 /，不碰 NAND
+    -- 仅查内置文件系统 /，不碰 NAND/SD
     local r, success, total_blocks, used_blocks, block_size = pcall(io.fsstat, "/")
     if r and success and total_blocks and used_blocks and block_size then
         local total_kb = total_blocks * (block_size / 1024)

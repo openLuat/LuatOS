@@ -1,30 +1,75 @@
 --[[
 @module  main
-@summary app_engine_factory主程序入口
-@version 1.0.1
-@date    2026.04.28
+@summary app_engine_factory 主程序入口（配置驱动架构）
+@version 1.2
+@date    2026.05.22
 @author  江访
-@usage
-通过注释/取消注释require语句来运行不同的演示。
 ]]
+
+--[[
+=== 系统启动流程 ===
+
+main.lua 是整个工厂固件的唯一入口，负责串联所有初始化阶段：
+
+  阶段0: 设置 PROJECT / VERSION / PROJECT_KEY（编译时确定）
+  阶段1: require "platform_loader" → 平台检测 → 配置加载 → 引脚初始化 → _G.project_config 就绪
+  阶段2: require "exwin" / "exapp" → 窗口管理器 + 应用沙箱（LuatOS 固件内置扩展库）
+  阶段3: require "lcd_common" → 根据 project_config 构建 _G.lcd_drv / _G.tp_drv 全局驱动对象
+  阶段4: require "app_main" → 加载所有业务模块（网络/WiFi/NTP/FOTA/设置等），事件驱动自初始化
+  阶段5: require "ui_main" → 加载所有 UI 页面模块，创建 init_ui_task 协程（LCD→TP→欢迎页→背光）
+  阶段6: sys.run() → 启动事件循环，所有模块通过 publish/subscribe 解耦运行
+
+=== 关键设计决策 ===
+
+1. PROJECT 是唯一编译时变量：更换硬件只需改 PROJECT 字符串，其余全部由 platform_loader + 配置文件驱动
+2. require 顺序即初始化顺序：Lua 单线程，require 同步执行，不会出现竞态
+3. 模块编译清单在 platform_loader 头部：编译系统静态分析 pcall(require, ...) 确定打包范围
+4. exwin/exapp 是固件内置扩展库，不在 factory 仓库中，由 LuatOS SDK 提供
+]]
+
+-- ==================== 编译时配置（更换硬件只需改这三行） ====================
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
-        可以随便定义，只要不使用,就行
+=== PROJECT 对应关系 ===
+已实现的配置（修改 PROJECT 为以下任一值即可切换硬件）：
+
+  Engine 引擎主机系列:
+  "Engine_Air8000W_4inch_320x480_000_V000"     → config/eng_8000w_4i_v0.lua     4寸SPI  ST7796  +4G+WiFi
+  "Engine_Air1602_5inch_720x1280_002_V000"     → config/eng_1602_5i_v2.lua     5寸RGB  NV3052C +WiFi
+  "Engine_Air1602_5inch_720x1280_003_V000"     → config/eng_1602_5i_v3.lua     5寸RGB  NV3052C +WiFi+NAND
+  "Engine_Air1602_7inch_1024x600_000_V000"     → config/eng_1602_7i_v0.lua     7寸RGB  Custom  +WiFi
+  "Engine_Air1602_10inch1_1024x600_001_V000"   → config/eng_1602_10i_v0.lua    10寸RGB Custom  +WiFi+蜂鸣器
+
+  EVB turnkey 开发板系列:
+  "EVB_Air8101_10inch1_1024x600_000_V010"      → config/evb_8101_10i_v1.lua    10寸RGB HX8282  +WiFi+SD
+  "EVB_Air8101B_5inch_480x854_000_V010"         → config/evb_8101b_5i_v1.lua     5寸RGB  ST7701S +WiFi+SD
+
+  待实现（映射已预留，配置文件待创建）:
+  "EVB_Air1601_10inch1_1024x600_000_V011"      "EVB_Air1601_7inch_1024x600_000_V011"
+  "EVB_Air1601_5inch_800x480_000_V011"         "EVB_Air8000A_3inch5_480x320_000_V020"
+  "EVB_Air780EGG_3inch5_480x320_000_V014"      "EVB_Air780EHV_3inch5_480x320_000_V014"
+  "EVB_Air780EHU_3inch5_480x320_000_V014"      "EVB_Air780EHM_3inch5_480x320_000_V014"
+  "EVB_Air8101B_5inch_480x854_000_V010"        "EVB_Air8101_10inch1_1024x600_000_V010_b"
+  Core 核心板系列:
+  "Core_Air780EGG_3inch5_480x320_000_V020"     "Core_Air780EHU_3inch5_480x320_000_V020"
+  "Core_Air780EHN_3inch5_480x320_000_V020"     "Core_Air8000A_3inch5_480x320_000_V040"
+  "Core_Air8000W_3inch5_480x320_000_V040"      "Core_Air8000D_3inch5_480x320_000_V040"
+  "Core_Air8000DB_3inch5_480x320_000_V040"     "Core_Air8000U_3inch5_480x320_000_V040"
+  "Core_Air8000N_3inch5_480x320_000_V040"
+
+
 VERSION：项目版本号，ascii string类型
         如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-
 -- main.lua - 程序入口文件
-
--- 项目名称和版本定义
-PROJECT = "app_engine_factory"                   -- 项目名称，用于标识当前工程
-VERSION = "001.999.005"                          -- 项目版本号
-PROJECT_KEY = "nT000d0plkrskM1dyd4XWToqsXkmiXSQ" -- 项目key，此非真实项目key
+PROJECT = "Engine_Air8000W_4inch_320x480_000_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
+VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
+PROJECT_KEY = "vMzSTFa5YG3GBMdqR5hxrKXClkwWPnZp"    -- 项目密钥，FOTA 云端鉴权
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
@@ -56,100 +101,30 @@ log.info("main", PROJECT, VERSION)
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 平台检测（hmeta.model 为主，rtos.bsp 为回退）
-local ok, _model = pcall(hmeta.model)
-if not ok or not _model then _model = rtos.bsp() end
-_G.model_str = tostring(_model or "")
+-- ==================== 阶段1: 平台检测 + 配置加载 + 引脚初始化 ====================
+-- require 即执行：平台检测 → PROJECT 短名映射 → require 配置文件 → 设 _G.project_config → 配引脚
+require "platform_loader"
 
--- 加载显示驱动/触摸驱动（根据平台选择对应驱动）
-if _G.model_str:find("Air8000") then
-    -- 配置引脚功能
-    pins.setup(31, "PWM0")
-    pins.setup(35, "PWM4")
-    -- Air8000 显示/触摸驱动
-    lcd_drv = require "lcd_drv_air8000w_4in"
-    tp_drv = require "tp_drv_air8000w"
-elseif _G.model_str:find("Air8101") then
-    -- Air8101 5\10寸屏显示驱动，默认5寸
-    local Air8101_lcd = 10
-    if Air8101_lcd == 5 then
-        -- 配置引脚功能
-        pins.setup(11, "I2C1_SDA")
-        pins.setup(12, "I2C1_SCL")
-        pins.setup(14, "PWM1")
-        -- Air8101 显示/触摸驱动
-        lcd_drv = require "lcd_drv_air8101_5in"
-        tp_drv = require "tp_drv_air8101_5in"
-    elseif Air8101_lcd == 10 then
-        -- 配置引脚功能
-        pins.setup(11, "I2C1_SDA")
-        pins.setup(12, "I2C1_SCL")
-        pins.setup(14, "PWM1")
-        -- SD卡 SPI配置
-        -- pins.setup(4, "SPI0_CS1")
-        pins.setup(72, "SPI0_CLK")
-        pins.setup(71, "SPI0_MOSI")
-        pins.setup(6, "SPI0_MISO")
-        -- Air8101 显示/触摸驱动
-        lcd_drv = require "lcd_drv_air8101_10in"
-        tp_drv = require "tp_drv_air8101_10in"
-    end
-elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
-    -- Air1602 5\7\9\10寸屏显示驱动，默认5寸
-    -- 取值可以是5、7、9、10，分别对应5寸屏、7寸屏、9寸屏、10寸屏
-    local Air1602_lcd = 5
-    if Air1602_lcd == 5 then
-        -- 5寸屏显示/触摸驱动
-        lcd_drv = require "lcd_drv_air1601_5in"
-        tp_drv = require "tp_drv_air1601_5in"
-    elseif Air1602_lcd == 7 or Air1602_lcd == 10 then
-        -- 7寸/10寸屏显示/触摸驱动
-        lcd_drv = require "lcd_drv_air1601_7_10"
-        tp_drv = require "tp_drv_air1601_7or10"
-    elseif Air1602_lcd == 9 then
-        -- 9寸屏显示驱动
-        -- elseif Air1602_lcd == 10 then
-        -- 10寸屏显示驱动
-        -- lcd_drv = require "lcd_drv_air1601_10in"
-        -- tp_drv = require "tp_drv_air1601_7or10"
-    end
-else
-    -- PC模拟器显示/触摸驱动，
-    -- 取值可以是"Air8000W_4in"、"Air8101_5in"、"Air1601_5in"、"Air1601_7in"、"Air1601_9in"、"Air1601_10in"
-    local pc_lcd = "Air8000W_4in"
-
-    if pc_lcd == "Air8000W_4in" then
-        lcd_drv = require "lcd_drv_air8000w_4in"
-        tp_drv = require "tp_drv_air8000w"
-    elseif pc_lcd == "Air8101_5in" then
-        lcd_drv = require "lcd_drv_air8101_5in"
-        tp_drv = require "tp_drv_air8101_5in"
-    elseif pc_lcd == "Air1601_5in" then
-        -- 5寸屏显示/触摸驱动
-        lcd_drv = require "lcd_drv_air1601_5in"
-        tp_drv = require "tp_drv_air1601_5in"
-    elseif pc_lcd == "Air1601_7in" or pc_lcd == "Air1601_10in" then
-        -- 7寸/10寸屏显示/触摸驱动
-        lcd_drv = require "lcd_drv_air1601_7_10"
-        tp_drv = require "tp_drv_air1601_7or10"
-        -- elseif pc_lcd == "Air1601_9in" then
-        -- 9寸屏显示驱动
-        -- lcd_drv = require "lcd_drv_air1601_9in"
-        -- tp_drv = require "tp_drv_air1601_9in"
-    end
-end
-
+-- ==================== 阶段2: 窗口管理 + 应用沙箱（固件内置扩展库） ====================
+-- exwin: 窗口栈管理（open/close/焦点切换），所有 UI 页面的容器
+-- exapp: 外部应用管理（扫描/安装/卸载/生命周期），运行从应用商店下载的 .exapp 应用
 exwin = require "exwin"
-
 exapp = require "exapp"
 
--- 加载应用主模块
+-- ==================== 阶段3: LCD/TP 驱动对象构建 ====================
+-- 根据 _G.project_config.hw.lcd / hw.tp 动态 require 对应驱动模块
+-- 构建 _G.lcd_drv（含 init/backlight_on）和 _G.tp_drv（含 init）全局接口
+require "lcd_common"
+
+-- ==================== 阶段4: 业务模块加载 ====================
+-- 按顺序 require 各业务模块：net_init → wifi_app → status_provider → ntp → speedtest → iot → settings → fota
+-- 每个模块 require 时自动订阅事件、启动定时器，互不阻塞
 require "app_main"
 
--- 引入UI主模块
+-- ==================== 阶段5: UI 模块加载 + 启动 ====================
+-- require 所有 UI 页面模块（注册窗口），然后 sys.taskInit 创建协程执行硬件初始化序列
 require "ui_main"
 
--- 用户代码已结束
--- 结尾总是这一句
+-- ==================== 阶段6: 启动事件循环 ====================
+-- sys.run() 是 LuatOS 的主循环，永不返回。所有业务逻辑通过事件驱动在协程中运行
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

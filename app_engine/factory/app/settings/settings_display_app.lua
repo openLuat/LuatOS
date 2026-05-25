@@ -11,17 +11,13 @@
 local pwm_initialized = false  -- PWM 初始化标志
 local current_brightness = 100    -- 当前亮度值 (10-100)
 
--- 根据平台选择 PWM 通道和频率（对应各平台 lcd_drv 中 backlight_on 的配置）
-local pwm_channel, pwm_freq
-if _G.model_str:find("Air8000") then
-    pwm_channel, pwm_freq = 0, 1000
-elseif _G.model_str:find("Air8101") then
-    pwm_channel, pwm_freq = 1, 10000
-elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
-    pwm_channel, pwm_freq = 3, 1000
-end
-if not pwm_channel then
-    pwm_channel, pwm_freq = 0, 1000  -- 默认值
+-- 从配置文件读取背光 PWM 参数（hw.lcd.backlight）
+local pwm_channel, pwm_freq = 0, 1000
+local cfg = _G.project_config
+if cfg and cfg.hw and cfg.hw.lcd and cfg.hw.lcd.backlight then
+    local bl = cfg.hw.lcd.backlight
+    pwm_channel = bl.pwm_ch or 0
+    pwm_freq = bl.pwm_freq or 1000
 end
 
 -- ==================== 内部函数 ====================

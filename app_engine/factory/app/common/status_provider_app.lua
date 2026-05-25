@@ -24,7 +24,8 @@ status_provider 只负责 RSSI 信号强度轮询，通过 WIFI_CONNECTED/DISCON
 5、StatusProvider.get_wifi_signal_level()：获取WiFi信号等级（0-4）
 ]]
 
-local is_air8000 = _G.model_str:find("Air8000") ~= nil
+local has_4g = _G.project_config and _G.project_config.features and _G.project_config.features.net_4g
+local has_wifi = _G.project_config and _G.project_config.features and _G.project_config.features.wifi
 
 local current_time = "08:00"
 local current_date = "1970-01-01"
@@ -174,8 +175,8 @@ local mobile_signal_level = -1
 local sim_present = false
 local mobile_timer = nil
 
-if is_air8000 then
-    mobile.setAuto(10000, 30000, 5)
+if has_4g then
+    pcall(mobile.setAuto, 10000, 30000, 5)
 end
 
 local function update_mobile_signal()
@@ -184,7 +185,8 @@ local function update_mobile_signal()
         mobile_signal_level = -1
         log.info("status_provider", "无SIM卡，信号等级=-1")
     else
-        local csq = mobile.csq()
+        local ok, csq = pcall(mobile.csq)
+        if not ok then csq = 99 end
         if csq == 99 or csq <= 5 then
             mobile_signal_level = 1
         elseif csq <= 10 then
@@ -234,17 +236,20 @@ local function init_module()
 
     -- 订阅WiFi连接/断开事件（由wifi_app发布），替代直接监听WLAN_STA_INC
     -- 这样wifi_app是WLAN_STA_INC的唯一消费者，状态管理清晰
-    sys.subscribe("WIFI_CONNECTED", handle_wifi_connected)
-    sys.subscribe("WIFI_DISCONNECTED", handle_wifi_disconnected)
-    sys.subscribe("IP_READY", handle_ip_ready)
+    if has_wifi then
+        sys.subscribe("WIFI_CONNECTED", handle_wifi_connected)
+        sys.subscribe("WIFI_DISCONNECTED", handle_wifi_disconnected)
+        sys.subscribe("IP_READY", handle_ip_ready)
+    end
 
-    -- Air8000有4G模块
-    if is_air8000 then
+    -- 有4G模块
+    if has_4g then
         sys.subscribe("SIM_IND", handle_sim_ind)
-        if _G.model_str:find("PC") then
+        if _G.project_config and _G.project_config.chip == "PC" then
             sim_present = true
         else
-            sim_present = mobile.simPin() or false
+            local ok, pin = pcall(mobile.simPin)
+            sim_present = ok and pin or false
         end
         mobile_timer = sys.timerLoopStart(update_mobile_signal, 2000)
         update_mobile_signal()
@@ -253,9 +258,9 @@ local function init_module()
             sys.publish("STATUS_SIGNAL_UPDATED", mobile_signal_level)
             sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
         end)
-    else
-        -- 非Air8000（Air1601/Air8101等）：启动时检查是否已有连接
-        if _G.model_str:find("PC") then
+    elseif has_wifi then
+        -- 非4G但有WiFi（Air1601/Air8101等）：启动时检查是否已有连接
+        if _G.project_config and _G.project_config.chip == "PC" then
             -- PC模拟器，不检测真实连接
         else
             local info = wlan.getInfo()

@@ -67,7 +67,7 @@ local grid_columns = 1
 local icon_size = 0
 local title_font_size = 0
 local description_font_size = 0
-local button_font_size = 0
+local button_font_size = math.floor(16 * (_G.density_scale or 1))
 local info_font_size = 0
 local max_description_lines = 2 -- 描述最大行数，动态计算
 
@@ -336,9 +336,9 @@ local function show_status_toast(action, app_name)
     end
     local toast_msg = airui.msgbox({
         w = math.floor(screen_w * 0.7),
-        h = math.floor(screen_h * 0.2),
+        h = math.floor(screen_h * 0.25),
         style = { text_font_size = button_font_size },
-        title = "提示",
+	title = "提示",
         text = msg,
         buttons = { "确定" },
         timeout = 1000,

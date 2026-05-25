@@ -138,7 +138,10 @@ end
 ]]
 local function run_speedtest()
     if is_testing then return end
-    if not network_connected then
+    -- 双重验证：事件标记 + 实时 IP 检测，避免 WiFi→4G 切换时的误判
+    local current_ip = socket.localIP()
+    local has_network = network_connected or (current_ip and current_ip ~= "0.0.0.0" and current_ip ~= "")
+    if not has_network then
         sys.publish("SPDTEST_STATUS", "当前未连接网络")
         return
     end
@@ -213,7 +216,14 @@ sys.subscribe("IP_READY", function()
     log.info("speedtest", "网络已连接")
 end)
 
-sys.subscribe("IP_LOSE", function()
+sys.subscribe("IP_LOSE", function(adapter)
+    -- 不要立即标记断网：WiFi断开时4G可能仍在线
+    -- 通过 socket.localIP() 验证是否真的所有网卡都断开
+    local ip = socket.localIP()
+    if ip and ip ~= "0.0.0.0" and ip ~= "" then
+        log.info("speedtest", "IP_LOSE adapter", adapter, "但仍有网卡在线, ip:", ip)
+        return
+    end
     network_connected = false
     if is_testing then
         is_testing = false

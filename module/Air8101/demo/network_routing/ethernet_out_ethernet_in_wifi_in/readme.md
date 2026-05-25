@@ -12,17 +12,15 @@
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air8101/product/file/AirPHY_1000/hw_connection.jpg)
-
-![](https://docs.openluat.com/air8101/product/file/AirPHY_1000/hw_connection1.jpg)
+![](https://docs.openluat.com/air8101/luatos/app/image/8101_1.jpg)
 
 1、Air8101核心板
 
-2、AirETH_1000配件板
+2、AirETH_1000配件板 2个
 
-3、公对母的杜邦线11根（连接核心板和配件板）
+3、母对母的杜邦线若干
 
-4、网线1根（一端接配件板，一端接路由器）
+4、网线2根（网线1一端接配件板，一端接路由器；网线2一端接配件板，另一端接电脑）
 
 5、Air8101核心板和AirETH_1000配件板的硬件接线方式为
 
@@ -30,9 +28,9 @@
 
 可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
 
-| Air8101核心板   |  AirETH_1000配件板 |
+| Air8101核心板   | AirETH_1000配件板1 |
 | --------------- | ----------------- |
-| 59/3V3          | 3.3v              |
+| vbat          | 3.3v              |
 | gnd             | gnd               |
 | 28/DCLK         | SCK               |
 | 54/DISP         | CSS               |
@@ -40,18 +38,30 @@
 | 57/DE           | SDI               |
 | 14/GPIO8        | INT               |
 
+| Air8101核心板 | AirETH_1000配件板2 |
+| ------------- | ------------------ |
+| vbat          | 3.3v               |
+| gnd           | gnd                |
+| 65/gpio2      | SCK                |
+| 66/gpio3      | CSS                |
+| 8/gpio5       | SDO                |
+| 67/gpio4      | SDI                |
+| 9/gpio6       | INT                |
+
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air8101 V1005版本固件](https://docs.openluat.com/air8101/luatos/firmware/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V1005固件对比验证）
+2、[Air8101 V2016-101版本固件](https://docs.openluat.com/air8101/luatos/firmware/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V2016-101固件对比验证）
 
 ## 演示核心步骤
 
 1、搭建好硬件环境，按接线图连接硬件,
 
 2、按需修改WiFi热点配置（在netif_app.lua中）：
+
 ssid = "AP热点名称"
+
 password = "AP热点密码"
 
 3、如果使用spi方式外挂网卡，打开SPI方式外挂网卡的代码，注释掉RMII方式外挂网卡的代码

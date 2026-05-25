@@ -305,7 +305,7 @@ local C_1 = {"bit64", "adc", "airlink", "fft", "protobuf", "iconv", "rsa", "xxte
              "ble", "fastlz", "lcd", "lf", "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio",
              "hmeta", "http", "httpsrv", "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz",
              "mqtt", "netdrv", "os", "pack", "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus",
-             "uart", "wdt", "websocket", "wlan", "zbuff", "libgnss", "sfud", "ymodem", "eink", "u8g2", "codec", "audio",
+             "uart", "wdt", "websocket", "wlan", "zbuff", "u8g2", "codec", "audio",
              "i2s"}
 
 local C_2 = {"bit64", "adc", "airlink", "camera", "fatfs", "hzfont", "can", "pins", "ble", "fastlz", "lcd", "lf", "otp",
@@ -318,7 +318,7 @@ local C_4 = {"bit64", "adc", "airlink", "airui", "hzfont", "camera", "fatfs", "c
              "lf", "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv",
              "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack",
              "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket",
-             "wlan", "zbuff", "codec", "audio", "i2s"}
+             "wlan", "zbuff", "codec", "audio", "i2s", "rsa"}
 
 local C_5 = {"bit64", "adc", "airui", "hzfont", "can", "crypto", "errDump", "fastlz", "fota", "fskv", "ftp", "gpio",
              "http", "httpsrv", "i2c", "io", "json", "lcd", "little_flash", "log", "mcu", "miniz", "mqtt", "netdrv",

@@ -1,67 +1,23 @@
-# 引擎主机出厂工程
+# 引擎主机出厂工程（配置驱动架构）
 
-## 一、功能模块介绍
+## 一、已支持的硬件型号
 
-### 1.1 核心主程序模块
+| 序号 | 主控 | 类型 | 硬件 | 支持功能 | 命名 | 正面视图 | 背面视图 |
+|------|------|------|------|---------|------|---------|---------|
+| 1 | Air1602 | 引擎主机 | Air1601 UI 畅玩板 V000 | 1024*600 7寸RGB触摸屏；Wifi；PWM背光调节 | Engine_Air1602_7inch_1024x600_000_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_7inch_1024x600_000_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_7inch_1024x600_000_V000_back_view.png"> |
+| 2 | Air1602 | 引擎主机 | Air1601 UI 畅玩板 V001 | 1024*600 10.1寸RGB触摸屏；Wifi；蜂鸣器；PWM背光调节 | Engine_Air1602_10inch1_1024x600_001_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_10inch1_1024x600_001_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_10inch1_1024x600_001_V000_back_view.png"> |
+| 3 | Air1602 | 引擎主机 | Air1601 UI 畅玩板 V002 | 720*1280 5寸RGB触摸屏；Wifi；PWM背光调节 | Engine_Air1602_5inch_720x1280_002_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_5inch_720x1280_002_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_5inch_720x1280_002_V000_back_view.png"> |
+| 4 | Air1602 | 引擎主机 | 合宙引擎AIR1602 V003 | 720*1280 5寸RGB触摸屏；Wifi；PWM背光调节；little_flash；喇叭；MIC；按键 | Engine_Air1602_5inch_720x1280_003_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_5inch_720x1280_003_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_5inch_720x1280_003_V000_back_view.png"> |
+| 5 | Air1602 | 引擎主机 | 合宙引擎AIR1602 V004 | 1024*600 7寸RGB触摸屏；Wifi；PWM背光调节；喇叭、MIC、按键 | Engine_Air1602_7inch_1024x600_004_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_7inch_1024x600_004_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air1602_7inch_1024x600_004_V000_back_view.png"> |
+| 6 | Air8000W | 引擎主机 | 合宙引擎主机8000W_V000 | 320*480 4寸SPI触摸屏；4G；Wifi；蜂鸣器；PWM背光调节 | Engine_Air8000W_4inch_320x480_000_V000 | <img src="https://docs.openLuat.com/cdn/image/Engine_Air8000W_4inch_320x480_000_V000_front_view.png"> | <img src="https://docs.openLuat.com/cdn/image/Engine_Air8000W_4inch_320x480_000_V000_back_view.png"> |
+| 7 | Air1601 | turnkey开发板套装 | EVB_Air1601_V1.1；AirLCD 10.1寸屏；AirSHT30；AirVOC_1000；AirCAMERA_1030 | 1024*600 10.1寸RGB触摸屏；4G；Wifi；以太网；蓝牙；tf/sd卡；喇叭；CAN；RS485；200万像素USB摄像头；I2C传感器 | EVB_Air1601_10inch1_1024x600_000_V011 | | |
+| 8 | Air1601 | turnkey开发板套装 | EVB_Air1601_V1.1；AirLCD 7寸屏；AirSHT30；AirVOC_1000；AirCAMERA_1030 | 1024*600 7寸RGB触摸屏；4G；Wifi；以太网；蓝牙；tf/sd卡；喇叭；CAN；RS485；200万像素USB摄像头；I2C传感器 | EVB_Air1601_7inch_1024x600_000_V011 | | |
+| 9 | Air1601 | turnkey开发板+配件板 | EVB_Air1601_V1.1；AirLCD_1020；AirSHT30；AirVOC_1000；AirCAMERA_1030 | 800*480 5寸RGB触摸屏；4G；Wifi；以太网；蓝牙；tf/sd卡；喇叭；CAN；RS485；200万像素USB摄像头；I2C传感器 | EVB_Air1601_5inch_800x480_000_V011 | | |
+| 10 | Air8101 | 引擎主机 | EVB_Air8101_V1.0 | 1024*600 10.1寸RGB触摸屏；4G；Wifi；以太网；tf/sd卡；MIC；喇叭；CAN；200万像素USB摄像头 | EVB_Air8101_10inch1_1024x600_000_V010 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101_10inch1_1024x600_000_V010_back_view.png"> |
+| 11 | Air8101B | 引擎主机 | 合宙引擎 8101B V002 | 854*480 5寸RGB触摸屏；Wifi | EVB_Air8101B_5inch_480x854_000_V010 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101B_5inch_480x854_000_V010_back_view.png"> |
+| 12 | Air8101 | 引擎主机 | 合宙引擎 8101 V002 | 854*480 5寸RGB触摸屏；Wifi | EVB_Air8101_5inch_480x854_000_V010 | | |
 
-1. **main.lua** - 程序入口，负责平台检测、硬件驱动加载和任务调度
-2. **ui_main.lua** - UI 主程序，负责加载所有窗口模块并初始化 LCD/触摸驱动
-3. **app_main.lua** - 业务逻辑加载器，依次加载网络、WiFi、NTP、测速、设置等业务模块
-
-### 1.2 硬件驱动模块（根据平台和屏幕型号选择）
-- **Air8000/Air8101代码会根据型号自动选择驱动**
-1. **lcd_drv_air8000w_4in.lua** - Air8000W LCD 驱动（ST7796，SPI 接口，480×800）
-2. **lcd_drv_air8101_5in.lua** - Air8101 LCD 驱动（ST7701S，RGB 接口，480×854）
-3. **tp_drv_air8000w.lua** - Air8000W 触摸驱动（GT911，I2C0）
-4. **tp_drv_air8101.lua** - Air8101 触摸驱动（GT911，I2C1）
-
-- **Air1601/Air1602有三种屏幕型号，需要手动选择对应的LCD驱动和触摸驱动**
-
-1. **lcd_drv_air1601_5in.lua** - Air1601 5 寸屏 LCD 驱动（NV3052C，RGB 接口，720×1280）
-2. **tp_drv_air1601_5in.lua** - Air1601 5 寸屏触摸驱动（GT911，I2C1）
-
-3. **lcd_drv_air1601_7_10.lua** - Air1601 7 寸屏 LCD 驱动（RGB 接口，1024×600）
-4. **lcd_drv_air1601_10in.lua** - Air1601 10 寸屏 LCD 驱动（RGB 接口，1024×600）
-
-5. **tp_drv_air1601_7or10.lua** - Air1601 7/10 寸屏触摸驱动（GT911，I2C1）
-
-### 1.3 网络驱动模块（根据平台自动选择）
-
-1. **netdrv_4g_air8000w.lua** - Air8000W 4G 网络驱动
-2. **netdrv_wifi_air8101.lua** - Air8101 WiFi 网络驱动
-3. **netdrv_wifi_air1601.lua** - Air1601/Air1602 WiFi 网络驱动（Airlink SPI 桥接）
-4. **netdrv_pc.lua** - PC 模拟器网络驱动
-
-### 1.4 业务逻辑模块
-
-1. **status_provider_app.lua** - 时间/日期/信号强度状态维护，定时发布状态更新事件
-2. **wifi_app_air8000w.lua** - Air8000W WiFi 管理（扫描/连接/断开/自动连接，基于 exnetif）
-3. **wifi_app_air1601.lua** - Air1601/Air1602 WiFi 管理（扫描/连接/断开，Airlink SPI 驱动）
-4. **wifi_app_common.lua** - WiFi 公共逻辑（状态构建、网络刷新、扫描校验、断连原因）
-5. **wifi_storage.lua** - WiFi 配置持久化存储（基于 fskv）
-6. **ntp_app.lua** - NTP 授时，连网后自动同步系统时间
-7. **speedtest_app.lua** - 基于 Cloudflare 的延迟/抖动/下载/上传测速
-8. **settings_display_app.lua** - 屏幕亮度管理（PWM 背光）
-9. **settings_buzz_app.lua** - 触摸反馈音管理（PWM 蜂鸣器）
-10. **settings_storage_app.lua** - 存储空间信息采集
-11. **settings_memory_app.lua** - 内存信息采集（系统/Lua VM/PSRAM）
-12. **settings_about_app.lua** - 设备信息采集（型号/唯一ID/固件版本/内核版本）
-13. **settings_config_app.lua** - 设备名称管理（基于 fskv 持久化）
-
-### 1.5 窗口模块
-
-1. **welcome_win.lua** - 开机动画窗口（鼠标搜索动画）
-2. **idle_win.lua** - 桌面启动器窗口（时间/日期/信号/快捷入口/外部应用网格）
-3. **settings_win.lua** - 设置主窗口（亮度/WiFi/存储/更新/声音/关于入口）
-4. **settings_display_win.lua** - 屏幕亮度设置窗口（滑动条调节）
-5. **settings_storage_win.lua** - 存储与内存信息窗口
-6. **settings_sound_win.lua** - 触摸反馈音设置窗口（开关/音量/时长/测试）
-7. **settings_about_win.lua** - 关于设备窗口（名称/型号/ID/版本）
-8. **wifi_list_win.lua** - WiFi 列表窗口（开关/已保存网络/附近网络/扫描）
-9. **wifi_detail_win.lua** - WiFi 详情窗口（SSID/IP/密码/信号/断开）
-10. **wifi_connect_win.lua** - WiFi 连接窗口（密码输入/高级配置）
-11. **app_store_win.lua** - 应用市场窗口（搜索/分类/安装/卸载/更新/分页）
-12. **speedtest_win.lua** - 网络测速窗口（延迟/抖动/下载/上传）
+---
 
 ## 二、演示效果
 
@@ -71,71 +27,231 @@
 |---------|--------|---------|---------|---------|---------|
 | <img src="https://docs.openLuat.com/cdn/image/idle_win.png"> | <img src="https://docs.openLuat.com/cdn/image/settings_win.png">| <img src="https://docs.openLuat.com/cdn/image/app_store_win.png">| <img src="https://docs.openLuat.com/cdn/image/speedtest_win.png"> |<img src="https://docs.openLuat.com/cdn/image/app_2.png"> | <img src="https://docs.openLuat.com/cdn/image/app_1.png"> |
 
-## 三、演示硬件环境
+---
+
+## 三、架构概览
+
+### 配置驱动设计
+
+**换硬件只需改 `main.lua` 中的一行 `PROJECT` 字符串**。所有硬件差异（LCD 型号、TP 引脚、GPIO 上电时序、功能开关）通过 `config/` 目录下的配置文件声明，框架自动适配。
+
+```
+main.lua（设 PROJECT）
+    │
+    ▼
+platform_loader（平台检测 → PROJECT 映射 → 加载配置 → _G.project_config）
+    │
+    ├── lcd_common（动态 require LCD/TP 驱动 → 构建 _G.lcd_drv / _G.tp_drv）
+    ├── app_main（加载业务模块：net_init → wifi_app → ntp → speedtest → settings → fota）
+    └── ui_main（LCD 初始化 → TP 初始化 → 欢迎页 → 背光 → sys.run() 事件循环）
+```
+
+### 目录结构
+
+```
+factory/
+├── main.lua                   # 入口（设 PROJECT，串联 6 阶段初始化）
+├── core/
+│   └── platform_loader.lua    # 平台检测 + 配置映射 + 引脚初始化 + GPIO 上电
+├── config/                    # 硬件配置文件（每个 PROJECT 一个）
+│   ├── eng_1602_5i_v2.lua     # Air1602 5寸 V002
+│   ├── eng_1602_5i_v3.lua     # Air1602 5寸 V003（NAND Flash）
+│   ├── eng_1602_7i_v0.lua     # Air1602 7寸
+│   ├── eng_1602_10i_v0.lua    # Air1602 10.1寸
+│   ├── eng_8000w_4i_v0.lua    # Air8000W 4寸
+│   ├── evb_8101_10i_v1.lua    # Air8101 10.1寸
+│   ├── evb_8101b_5i_v1.lua     # Air8101 5寸
+│   ├── pc_default.lua         # PC 模拟器回退
+│   └── template.lua           # 配置参数完整说明
+├── drv/                       # 配件驱动（参数驱动，不硬编码平台）
+│   ├── lcd/                   # 7 款 LCD 驱动
+│   └── tp/                    # GT911 触摸驱动
+├── app/                       # 业务逻辑（事件驱动，模块解耦）
+│   ├── app_main.lua           # 业务模块加载器
+│   ├── network/net_init.lua   # 统一网络初始化（DNS + 事件日志）
+│   ├── wifi/                  # WiFi 管理
+│   ├── settings/              # 设置子模块（显示/声音/存储/内存/关于/IOT）
+│   ├── ntp/ntp_app.lua        # NTP 校时
+│   ├── speedtest/             # 网络测速
+│   └── fota_app.lua           # OTA 固件升级
+├── ui/                        # UI 层（纯事件驱动）
+│   ├── ui_main.lua            # UI 入口 + 硬件初始化序列
+│   ├── welcome_win.lua        # 开机欢迎页
+│   ├── idle_win.lua           # 桌面启动器
+│   ├── settings/              # 设置页面（9 个子页面）
+│   ├── wifi/                  # WiFi 页面
+│   ├── app_store_win.lua      # 应用市场
+│   └── speedtest_win.lua      # 测速页面
+└── res/                       # 图片资源 + RSA 公钥
+```
+
+---
+
+## 四、配置文件格式
+
+每个配置文件声明以下内容，示例（`eng_1602_5i_v3.lua`）：
+
+```lua
+return {
+    name = "Engine_Air1602_5inch_720x1280_003_V000",
+    chip = "Air1602",
+    baseboard = "合宙引擎AIR1602 V003",
+
+    -- 引脚复用配置（PWM、I2C、SPI 等功能指定）
+    pins = {},
+
+    -- GPIO 上电时序（Airlink WiFi 模组: GPIO55 拉低 50ms → 拉高 120ms）
+    power_on = {
+        { pin = 55, dir = 0, level = 0, delay = 50 },
+        { pin = 55, dir = 0, level = 1, delay = 120 },
+    },
+
+    -- 硬件参数（LCD/TP 型号、引脚、分辨率、字体、背光）
+    hw = {
+        lcd = { model = "lcd_nv3052c_5in", params = {...}, ... },
+        tp  = { model = "tp_gt911",        params = {...} },
+    },
+
+    -- 功能开关（true=启用, false=禁用）
+    features = {
+        wifi = true, buzzer = false, nand_flash = true, ...
+    },
+
+    -- UI 显示控制
+    ui = {
+        show_wifi_icon = true, show_storage_settings = true, ...
+    },
+}
+```
+
+---
+
+## 五、如何适配新硬件
+
+### 4.1 新增已有芯片的新型号
+
+1. 在 `config/` 创建配置文件（如 `eng_1602_5i_v4.lua`）
+2. 在 `core/platform_loader.lua` 的 `PROJECT_MAP` 中添加映射
+3. 在编译清单中添加 `require("eng_1602_5i_v4")`
+4. 在 `main.lua` 中修改 `PROJECT` 为新命名
+
+### 4.2 新增配件驱动
+
+1. 在 `drv/lcd/` 或 `drv/tp/` 创建驱动文件，遵循 `init(params)` 接口
+2. 在配置文件 `hw.lcd.model` 中引用新驱动名
+3. 在 `platform_loader.lua` 编译清单中添加 `require` 声明
+
+### 4.3 PROJECT 命名规范
+
+```
+{类型}_{芯片}_{尺寸}_{版本}
+  类型: Engine引擎主机 / EVB开发板 / Core核心板
+  芯片: Air1602 / Air8000W / Air8101 / Air780EGG ...
+  尺寸: 5inch_720x1280 / 10inch1_1024x600 ...
+  版本: 002_V000 / 003_V000 ...
+```
+
+---
+
+## 六、功能模块
+
+### 5.1 核心框架
+
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| 入口 | `main.lua` | 设 PROJECT，串联 6 阶段启动流程 |
+| 平台加载器 | `core/platform_loader.lua` | 平台检测 → 配置映射 → 引脚初始化 → GPIO 上电 |
+| 驱动构建 | `drv/lcd/lcd_common.lua` | 动态加载 LCD/TP 驱动，构建全局接口 |
+| 业务加载器 | `app/app_main.lua` | 按序 require 所有业务模块 |
+| UI 入口 | `ui/ui_main.lua` | 加载 UI 页面，创建硬件初始化协程 |
+
+### 5.2 网络与通信
+
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| 网络初始化 | `app/network/net_init.lua` | DNS 配置 + IP/WLAN 事件日志 + 多网融合状态 |
+| WiFi 管理 | `app/wifi/wifi_app_real.lua` | 扫描/连接/断开/自动连接（Air8000W/Air8101/Air160x） |
+| WiFi 公共 | `app/wifi/wifi_app_common.lua` | 状态构建、网络刷新、扫描校验、断连原因 |
+| WiFi 存储 | `app/wifi/wifi_storage.lua` | 凭证持久化（基于 fskv） |
+
+### 5.3 业务服务
+
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| 状态提供器 | `app/common/status_provider_app.lua` | 时间/信号/电量定时更新 |
+| NTP 校时 | `app/ntp/ntp_app.lua` | 联网后自动向 ntp.aliyun.com 校时 |
+| 测速 | `app/speedtest/speedtest_app.lua` | Cloudflare 延迟/抖动/下载/上传 |
+| FOTA 升级 | `app/fota_app.lua` | 定时检查云端固件更新 |
+| IOT 账号 | `app/settings/settings_iot_app.lua` | 合宙 IoT 平台登录/登出 |
+
+### 5.4 设置与配置
+
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| 设置框架 | `app/settings/settings_app.lua` | 设置主框架，级联加载子模块 |
+| 显示亮度 | `app/settings/settings_display_app.lua` | PWM 背光管理 |
+| 触摸音效 | `app/settings/settings_buzz_app.lua` | 触摸反馈音管理 |
+| 存储信息 | `app/settings/settings_storage_app.lua` | 多挂载点容量采集 + 快速/全量双通道 |
+| 内存信息 | `app/settings/settings_memory_app.lua` | 系统/LuaVM/PSRAM 内存采集 |
+| 存储优先级 | `app/settings/storage_pri_app.lua` | 外部应用安装位置优先级管理 |
+| 设备信息 | `app/settings/settings_about_app.lua` | 型号/唯一ID/固件版本采集 |
+
+### 5.5 UI 页面
+
+| 窗口 | 文件 | 功能 |
+|------|------|------|
+| 欢迎页 | `ui/welcome_win.lua` | 开机引导动画 |
+| 桌面 | `ui/idle_win.lua` | 时间/日期/信号/快捷入口/外部应用网格 |
+| 设置主页 | `ui/settings/settings_win.lua` | 功能入口列表（WiFi/显示/存储/声音/关于/更新） |
+| 显示设置 | `ui/settings/settings_display_win.lua` | 亮度滑动条 + 加减按钮 |
+| 存储页 | `ui/settings/settings_storage_win.lua` | 文件系统容量 + 内存占用（6 卡片，两阶段加载） |
+| 存储优先级 | `ui/settings/storage_pri_win.lua` | 拖拽排序应用安装位置 |
+| 声音设置 | `ui/settings/settings_sound_win.lua` | 蜂鸣器开关/音量/时长 |
+| 关于设备 | `ui/settings/settings_about_win.lua` | 设备名称/型号/ID/版本 |
+| IOT 账号 | `ui/settings/settings_iot_win.lua` | 登录/登出/账号信息 |
+| 系统更新 | `ui/settings/settings_fota_win.lua` | 固件版本检查与更新 |
+| WiFi 列表 | `ui/wifi/wifi_list_win.lua` | 开关/扫描/网络列表 |
+| WiFi 详情 | `ui/wifi/wifi_detail_win.lua` | SSID/IP/MAC/信号/断开 |
+| WiFi 连接 | `ui/wifi/wifi_connect_win.lua` | 密码输入/高级配置 |
+| 应用市场 | `ui/app_store_win.lua` | 搜索/分类/安装/卸载/分页 |
+| 测速 | `ui/speedtest_win.lua` | 延迟/抖动/下载/上传结果 |
+
+---
+
+## 七、演示硬件环境
 
 - type-c 数据线 x 1
-- 合宙引擎主机 x 1，可以通过[合宙引擎主机购买链接](https://luat.taobao.com/category-1841239809.htm?spm=a1z10.1-c-s.w5002-24045920810.3.5e431170zwnEuQ&search=y&catName=%BA%CF%D6%E6%D2%FD%C7%E6%D6%F7%BB%FA) 进行购买
+- 合宙引擎主机 x 1，可通过[合宙引擎主机购买链接](https://luat.taobao.com/category-1841239809.htm) 进行购买
 
+---
 
-## 四、演示软件环境
+## 八、演示软件环境
 
-### 4.1 开发工具
+### 7.1 开发工具
 
 - [Luatools 下载调试工具](https://docs.openluat.com/air8000/luatos/common/download/) - 固件烧录和代码调试
 
-### 4.2 内核固件
+### 7.2 内核固件
 
 - Air8000W：[点击下载 Air8000W 最新版本内核固件](https://docs.openluat.com/air8000/luatos/firmware/)
 - Air8101：[点击下载 Air8101 最新版本内核固件](https://docs.openluat.com/air8101/luatos/firmware/)
-- Air1601：[点击下载 Air1601 最新版本内核固件](https://docs.openluat.com/air1601/luatos/firmware/)
+- Air1601/Air1602：[点击下载 Air1601 最新版本内核固件](https://docs.openluat.com/air1601/luatos/firmware/)
 
+---
 
-## 五、演示核心步骤
+## 九、使用步骤
 
-### 5.1 硬件准备
+### 8.1 选择硬件型号
 
-- 通过 type-c 数据线对引擎主机供电
-
-
-### 5.2 软件配置
-
-在 `main.lua` 中根据实际使用的平台和屏幕尺寸选择对应驱动：
+在 `main.lua` 中修改 `PROJECT` 为对应型号的命名：
 
 ```lua
--- 平台检测（hmeta.model 为主，rtos.bsp 为回退）
-local ok, _model = pcall(hmeta.model)
-if not ok or not _model then _model = rtos.bsp() end
-_G.model_str = tostring(_model or "")
-
--- 加载显示驱动/触摸驱动（根据平台选择对应驱动）
-if _G.model_str:find("Air8000") then
-    pins.setup(31, "PWM0")
-    pins.setup(35, "PWM4")
-    lcd_drv = require "lcd_drv_air8000w_4in"
-    tp_drv = require "tp_drv_air8000w"
-elseif _G.model_str:find("Air8101") then
-    pins.setup(11, "I2C1_SDA")
-    pins.setup(12, "I2C1_SCL")
-    pins.setup(14, "PWM1")
-    lcd_drv = require "lcd_drv_air8101_5in"
-    tp_drv = require "tp_drv_air8101"
-elseif _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
-    -- 根据实际屏幕尺寸选择对应 LCD 驱动（三选一）
-    lcd_drv = require "lcd_drv_air1601_5in"
-    -- lcd_drv = require "lcd_drv_air1601_7_10"
-    -- lcd_drv = require "lcd_drv_air1601_10in"
-
-    -- 触摸驱动（5 寸和 7/10 寸二选一）
-    -- tp_drv = require "tp_drv_air1601_5in"
-    tp_drv = require "tp_drv_air1601_7or10"
-else
-    -- PC 模拟器复用 Air8101 驱动
-    lcd_drv = require "lcd_drv_air8101_5in"
-    tp_drv = require "tp_drv_air8101"
-end
+PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
 ```
 
-### 5.3 软件烧录
+`main.lua` 文件头部已列出所有可用的 PROJECT 值及对应硬件说明。
+
+### 8.2 软件烧录
 
 1. 使用 Luatools 烧录对应型号的最新内核固件
 2. 下载并烧录本工程所有脚本文件
@@ -143,70 +259,30 @@ end
 4. 设备自动重启后开始运行
 5. [点击查看 Luatools 下载和详细使用](https://docs.openluat.com/air8000/common/Luatools/)
 
-### 5.4 功能测试
+### 8.3 功能测试
 
-#### 5.4.1 开机流程
+**开机流程**：上电 → 固件启动 → 平台检测 → 配置加载 → GPIO 上电 → 驱动初始化 → 业务模块加载 → 欢迎页 → 桌面
 
-1. 设备上电后自动运行主程序
-2. 显示开机动画（鼠标飞向搜索图标的动画效果）
-3. 动画结束后自动进入桌面启动器
+**桌面操作**：时间/日期/信号显示、设置/应用市场/测速入口、外部应用网格
 
-#### 5.4.2 桌面操作
+**设置操作**：显示亮度调节、WiFi 管理、存储空间查看、触摸音效设置、设备信息查看、IOT 账号管理、系统更新
 
-1. 桌面显示当前时间、日期和星期
-2. 状态栏显示 WiFi/4G 信号强度图标和设备名称
-3. 点击"设置"进入系统设置
-4. 点击"应用市场"进入应用管理
-5. 点击"网络测速"进入测速页面
-6. 左右滑动切换外部应用页面
+**WiFi 操作**：开关/扫描/连接/断开、已保存网络管理、密码显隐切换
 
-#### 5.4.3 设置操作
+**应用市场**：搜索/分类/安装/卸载/更新/分页浏览
 
-1. 显示亮度：拖动滑动条或点击 +/- 按钮调节屏幕亮度
-2. WiFi 设置：查看/扫描/连接 WiFi 网络
-3. 存储空间：查看文件系统使用情况
-4. 触摸音效：开启/关闭触摸反馈音，调节音量和时长
-5. 关于设备：查看和修改设备名称、型号、固件版本等信息
+**网络测速**：延迟/抖动/下载速度/上传速度
 
-#### 5.4.4 WiFi 操作
+---
 
-1. 开启 WiFi 开关，自动扫描附近网络
-2. 点击已保存网络直接连接
-3. 点击附近网络进入连接页面，输入密码
-4. 点击已连接网络查看详情（SSID/IP/MAC/信号强度）
-5. 支持断开连接和密码显隐切换
+## 十、故障排除
 
-#### 5.4.5 应用市场操作
-
-1. 搜索应用：点击搜索框弹出键盘输入
-2. 分类筛选：点击侧边栏选择"全部/已安装/通信/工具/游戏/工业/健康"
-3. 安装应用：点击"安装"按钮，显示安装进度
-4. 卸载应用：已安装的应用显示"卸载"按钮
-5. 更新应用：有更新时显示"更新"按钮
-
-#### 5.4.6 网络测速操作
-
-1. 点击"开始测速"启动测试
-2. 实时显示延迟/抖动/下载速度/上传速度
-3. 测试完成后显示最终结果
-
-### 5.5 预期效果
-
-- **系统启动**：正常初始化，显示开机动画，自动进入桌面
-- **NTP 授时**：连网后自动同步系统时间，桌面时钟正常显示
-- **WiFi 管理**：正常扫描和连接网络，自动重连
-- **应用市场**：外部应用正常安装/卸载/更新
-- **触摸操作**：准确的触摸定位和事件响应
-- **窗口切换**：流畅的窗口过渡效果
-- **设置功能**：亮度/声音/存储/内存/设备信息正常显示和调节
-
-### 5.6 故障排除
-
-1. **显示异常**：检查 LCD 接线，确认对应驱动文件中的硬件参数正确
-2. **触摸无响应**：检查 I2C 接线，确认触摸芯片型号配置正确
-3. **WiFi 无法扫描**：检查网络驱动是否与平台匹配
-4. **图片无法显示**：确认图片资源已正确烧录到脚本分区
-5. **字体显示异常**：确认字体文件已正确烧录
-6. **设备名称不保存**：确认 fskv 存储空间正常
-7. **系统卡顿**：关闭调试日志，检查是否有死循环
-
+1. **持续重启**：检查 `PROJECT` 是否正确、配置文件是否存在、LCD 驱动 model 名是否匹配
+2. **显示异常**：检查 LCD 接线，确认配置文件中 `direction` 旋转参数正确
+3. **触摸无响应**：检查 I2C 接线，确认 GT911 `pin_rst`/`pin_int` 引脚配置正确
+4. **WiFi 无法扫描**：Air160x 系列检查 airlink `pin_cs`/`pin_rdy` 配置，Air8000W/Air8101 检查 exnetif 配置
+5. **4G 无信号**：检查 SIM 卡是否插入、`features.net_4g` 是否设为 true、芯片是否支持 4G
+6. **存储页面卡顿**：NAND Flash 的 `io.fsstat` 耗时较长（2-8 秒），页面使用两阶段加载避免 UI 冻结
+7. **图片无法显示**：确认图片资源已正确烧录到脚本分区
+8. **字体显示异常**：确认字体文件已正确烧录，或使用固件内置字库
+9. **设备名称不保存**：确认 fskv 存储空间正常

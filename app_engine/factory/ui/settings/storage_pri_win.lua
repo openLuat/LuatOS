@@ -23,6 +23,7 @@ local card_gap = 12
 local priority_items = {}
 local content_area = nil
 local titlebar_height = 0
+local title_bar = nil  -- 标题栏引用，重建时需销毁旧实例
 
 local COLOR_PRIMARY        = 0x007AFF
 local COLOR_PRIMARY_DARK   = 0x0056B3
@@ -104,6 +105,14 @@ function rebuild_priority_list()
         color = COLOR_BG,
         scrollable = true,
     })
+
+    -- 重建标题栏，保持在内容区上层以接收触摸事件
+    if title_bar then
+        title_bar:destroy()
+    end
+    title_bar = titlebar.create(main_container, "存储顺序", screen_w, function()
+        exwin.close(window_id)
+    end)
 
     local current_y = margin + math.floor(10 * _G.density_scale)
 
@@ -257,10 +266,21 @@ local function build_ui()
         color = COLOR_BG,
     })
 
-    local _, th = titlebar.create(main_container, "存储顺序", screen_w, function()
+    -- 标题栏高度（与 titlebar.create 内部计算一致）
+    local density = _G.density_scale or 1.0
+    titlebar_height = math.floor(60 * density)
+
+    -- 先创建可滚动内容区（在下层），再创建标题栏（在上层接收触摸）
+    content_area = airui.container({
+        parent = main_container,
+        x = 0, y = titlebar_height,
+        w = screen_w, h = screen_h - titlebar_height,
+        color = COLOR_BG, scrollable = true,
+    })
+
+    title_bar = titlebar.create(main_container, "存储顺序", screen_w, function()
         exwin.close(window_id)
     end)
-    titlebar_height = th
 end
 
 local function on_create()

@@ -275,7 +275,7 @@ end
 ]]
 function M.on_get_saved_list_req(storage_config, callback)
     log.info("wifi_app", "收到获取已保存网络列表请求")
-    if _G.model_str:find("PC") then
+    if _G.project_config and _G.project_config.chip == "PC" then
         local status_payload = {
             {ssid = "TP-LINK_ABC", password = "12345678", need_ping = true, local_network_mode = false, ping_ip = "8.8.8.8", ping_time = "10000", auto_socket_switch = true},
             {ssid = "ChinaNet-5G", password = "abcdefgh", need_ping = true, local_network_mode = true, ping_ip = "192.168.1.1", ping_time = "5000", auto_socket_switch = false},

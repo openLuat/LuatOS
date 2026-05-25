@@ -17,7 +17,9 @@ function netif_app_task_func()
     -- 设置多网融合功能，以太网提供网络供wifi设备上网(RMII方式外挂)
     res = exnetif.setproxy(socket.LWIP_AP, socket.LWIP_ETH, {
         main_adapter = {-- 提供网络的网卡开启参数
-            ethpower_en = 13 -- 以太网模块的pwrpin引脚(gpio编号)
+            ethpower_en = 13, -- 以太网模块的pwrpin引脚(gpio编号)
+            tp = netdrv.CH390,
+            opts ={ spi =0,cs=15, irq=8}
         },
         ssid = "test2", -- AP热点名称(string)，网卡包含wifi时填写
         password = "HZ88888888", -- AP热点密码(string)，网卡包含wifi时填写
@@ -39,12 +41,14 @@ function netif_app_task_func()
     res = exnetif.setproxy(socket.LWIP_USER1, socket.LWIP_ETH, {
         tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
         opts = {           -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
-            spi = 0,
-            cs = 15,
-            irq = 8
+            spi = 1,
+            cs = 3,
+            irq = 6
         },
         main_adapter = {-- 提供网络的网卡开启参数
-            ethpower_en = 13 -- 以太网模块的pwrpin引脚(gpio编号)
+            ethpower_en = 13, -- 以太网模块的pwrpin引脚(gpio编号)
+            tp = netdrv.CH390,
+            opts ={ spi =0,cs=15, irq=8}
         }
     })
     if res then

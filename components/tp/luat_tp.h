@@ -75,6 +75,7 @@ extern luat_tp_opts_t tp_config_jd9261t;
 extern luat_tp_opts_t tp_config_jd9261t_inited;
 extern luat_tp_opts_t tp_config_ft3x68;
 extern luat_tp_opts_t tp_config_cst820;
+extern luat_tp_opts_t tp_config_cst816d;
 extern luat_tp_opts_t tp_config_cst92xx;
 extern luat_tp_opts_t tp_config_pc;
 

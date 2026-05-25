@@ -37,6 +37,7 @@ static const tp_reg_t tp_regs[] = {
     {"jd9261t",  &tp_config_jd9261t},
 	{"jd9261t_inited",  &tp_config_jd9261t_inited},
 	{"ft3x68", &tp_config_ft3x68},
+    {"cst816d", &tp_config_cst816d},
     {"cst820", &tp_config_cst820},
     {"cst9220", &tp_config_cst92xx},
     #endif
@@ -51,6 +52,7 @@ static int l_tp_handler(lua_State* L, void* ptr) {
     rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
     luat_tp_config_t* luat_tp_config = msg->ptr;
     luat_tp_data_t* luat_tp_data = (luat_tp_data_t*)msg->arg1;
+    if (luat_tp_data == NULL) return 0;
 
     if (luat_tp_config->luat_cb) {
         lua_geti(L, LUA_REGISTRYINDEX, luat_tp_config->luat_cb);
@@ -87,6 +89,7 @@ static int l_tp_handler(lua_State* L, void* ptr) {
             lua_call(L, 2, 0);
         }
     }
+    luat_heap_free(luat_tp_data);
     // luat_tp_config->opts->read_done(luat_tp_config);
     return 0;
 }
@@ -95,7 +98,10 @@ int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data
 	uint8_t i = 0;
     for(i = 0; i < LUAT_TP_TOUCH_MAX; i++) {
 		if (luat_tp_data[i].event != TP_EVENT_TYPE_NONE) {
-            rtos_msg_t msg = {.handler = l_tp_handler, .ptr=luat_tp_config, .arg1=(int)luat_tp_data};
+            luat_tp_data_t* copy = (luat_tp_data_t*)luat_heap_malloc(sizeof(luat_tp_data_t) * LUAT_TP_TOUCH_MAX);
+            if (copy == NULL) return -1;
+            memcpy(copy, luat_tp_data, sizeof(luat_tp_data_t) * LUAT_TP_TOUCH_MAX);
+            rtos_msg_t msg = {.handler = l_tp_handler, .ptr=luat_tp_config, .arg1=(int)copy};
             luat_msgbus_put(&msg, 1);
             return 0;
         }

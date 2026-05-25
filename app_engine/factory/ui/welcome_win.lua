@@ -36,7 +36,8 @@ local function recalc_adapt()
     MOUSE_W = mouse_size
     MOUSE_H = mouse_size
 
-    local suffix = _G.model_str:gsub("^Air", "")
+    local chip_name = (_G.project_config and _G.project_config.chip) or ""
+    local suffix = chip_name:gsub("^Air", "")
     if suffix ~= "" then
         product_name = "合宙引擎主机" .. suffix
     end

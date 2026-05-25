@@ -24,8 +24,8 @@ local DEFAULT_VOLUME = 50
 local PWM_CHANNEL = 4
 local PWM_FREQ = 2700
 
--- Air8101 无蜂鸣器硬件，跳过触摸反馈
-local NO_BUZZER = _G.model_str and _G.model_str:find("Air8101")
+-- 按配置判断是否有蜂鸣器（而非硬编码平台名）
+local NO_BUZZER = not (_G.project_config and _G.project_config.features and _G.project_config.features.buzzer)
 
 -- ==================== 局部变量 ====================
 local buzz_enabled  = DEFAULT_ENABLED

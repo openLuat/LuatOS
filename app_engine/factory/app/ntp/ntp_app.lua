@@ -60,7 +60,8 @@ NTP同步主逻辑
 ]]
 local function ntp_sync_task()
     -- Air1601/Air1602需要显式设置默认网卡为STA
-    if _G.model_str:find("Air1601") or _G.model_str:find("Air1602") then
+    local chip = (_G.project_config and _G.project_config.chip) or ""
+    if chip:find("Air1601") or chip:find("Air1602") then
         socket.dft(socket.LWIP_STA)
     end
 

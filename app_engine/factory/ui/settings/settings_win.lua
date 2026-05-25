@@ -95,26 +95,35 @@ local function build_ui()
         })
     end
 
-    local is_air8000 = _G.model_str:find("Air8000") ~= nil
+    local cfg = _G.project_config or {}
+    local fe = cfg.features or {}
+    local ui = cfg.ui or {}
+    local has_wifi = fe.wifi
+    local has_buzzer = fe.buzzer
+    local has_storage = fe.sd_card or fe.nand_flash
+
+    local function add_card(label, event, y)
+        create_card(y, label, function() sys.publish(event) end)
+        return y + card_h + card_spacing
+    end
 
     local y = math.floor(20 * _G.density_scale)
-    create_card(y, "IOT账号", function() sys.publish("OPEN_IOT_WIN") end)
-    y = y + card_h + card_spacing
-    create_card(y, "WiFi设置", function() sys.publish("OPEN_WIFI_WIN") end)
-    y = y + card_h + card_spacing
-    create_card(y, "显示亮度", function() sys.publish("OPEN_DISPLAY_WIN") end)
-    y = y + card_h + card_spacing
-    create_card(y, "存储和内存", function() sys.publish("OPEN_STORAGE_WIN") end)
-    y = y + card_h + card_spacing
-    create_card(y, "存储顺序", function() sys.publish("OPEN_STORAGE_PRI_WIN") end)
-    y = y + card_h + card_spacing
-    create_card(y, "系统更新", function() sys.publish("OPEN_FOTA_WIN") end)
-    y = y + card_h + card_spacing
-    if is_air8000 then
-        create_card(y, "触摸音效", function() sys.publish("OPEN_SOUND_WIN") end)
-        y = y + card_h + card_spacing
+    y = add_card("IOT账号", "OPEN_IOT_WIN", y)
+    if has_wifi then
+        y = add_card("WiFi设置", "OPEN_WIFI_WIN", y)
     end
-    create_card(y, "关于设置", function() sys.publish("OPEN_ABOUT_WIN") end)
+    y = add_card("显示亮度", "OPEN_DISPLAY_WIN", y)
+    if ui.show_storage_settings ~= false then
+        y = add_card("存储和内存", "OPEN_STORAGE_WIN", y)
+    end
+    if has_storage then
+        y = add_card("存储顺序", "OPEN_STORAGE_PRI_WIN", y)
+    end
+    y = add_card("系统更新", "OPEN_FOTA_WIN", y)
+    if has_buzzer and ui.show_buzzer_settings ~= false then
+        y = add_card("触摸音效", "OPEN_SOUND_WIN", y)
+    end
+    add_card("关于设置", "OPEN_ABOUT_WIN", y)
 end
 
 local function on_create() build_ui() end

@@ -40,7 +40,8 @@ local fskv_initialized = false
 @return string 默认设备名称
 ]]
 local function get_default_name()
-    local sfx = _G.model_str:gsub("^Air", "")
+    local chip = (_G.project_config and _G.project_config.chip) or ""
+    local sfx = chip:gsub("^Air", "")
     if sfx ~= "" then
         return "合宙引擎主机" .. sfx
     end

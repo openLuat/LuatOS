@@ -1720,7 +1720,7 @@ local function app_task(app_path)
     sandbox_container = ui.container({
         x = 0, y = 0,
         w = ctx.screen_w, h = ctx.screen_h,
-        color = 0x000000, opa = 0,  -- 100%透明
+        color = 0xffffff, color_opacity = 0,  -- 100%透明
     })
     if sandbox_container then
         -- 用沙箱容器替换airui.screen，app中parent=airui.screen实际指向此容器

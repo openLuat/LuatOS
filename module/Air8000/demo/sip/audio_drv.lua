@@ -35,7 +35,7 @@ function audio_drv.init()
     if exaudio.setup(audio_configs) then
         log.info("audio_drv", "exaudio.setup初始化成功")
         if exaudio.vol then
-            exaudio.vol(35)  -- 0是通道号，35是音量
+            exaudio.vol(35)  -- 35是音量
             log.info("audio_drv", "已设置通话音量为: 35")
         end
         -- 设置麦克风音量

@@ -248,6 +248,22 @@ static lua_Number lua_strx2number (const char *s, char **endptr) {
 #define L_MAXLENNUM	200
 #endif
 
+/*
+** Maximum number of characters passed to strtod/strtof on the first call.
+** Some embedded libc implementations (e.g. newlib-nano on ARM Cortex-M7)
+** crash or hang when given float strings longer than ~20 characters.
+** Reported customer crash: literals such as
+**   3.14159265358979323846  (22 chars)
+**   0.00669342162296594323  (22 chars)
+** cause immediate reboot on air1601 (ARM Cortex-M7, 64-bit Lua VM).
+** IEEE 754 double only has ~17 significant decimal digits, so 20 chars
+** is a safe cap: any extra digits do not affect the parsed value.
+** Can be overridden via -DL_MAXLENNUM_GUARD=N in the build system.
+*/
+#if !defined(L_MAXLENNUM_GUARD)
+#define L_MAXLENNUM_GUARD  20
+#endif
+
 static const char *l_str2dloc (const char *s, lua_Number *result, int mode) {
   char *endptr;
   *result = (mode == 'x') ? lua_strx2number(s, &endptr)  /* try to convert */
@@ -277,6 +293,30 @@ static const char *l_str2d (const char *s, lua_Number *result) {
   int mode = pmode ? ltolower(cast_uchar(*pmode)) : 0;
   if (mode == 'n')  /* reject 'inf' and 'nan' */
     return NULL;
+  /*
+  ** If the string is longer than L_MAXLENNUM_GUARD, truncate it before
+  ** calling strtod. Some embedded strtod implementations (e.g. newlib-nano
+  ** on ARM Cortex-M7) crash or hang on strings longer than ~20-30 chars.
+  ** IEEE 754 double has only ~17 significant decimal digits; truncating any
+  ** surplus digits does not affect the parsed value.  The exponent part
+  ** (e/E/p/P suffix) is preserved in the truncated copy so that values like
+  ** "1.000...000e+308" still parse to the correct magnitude.
+  */
+  if (strlen(s) > L_MAXLENNUM_GUARD) {
+    char buff[L_MAXLENNUM_GUARD + 1];
+    const char *expmark = strpbrk(s, "eEpP");
+    size_t ekeep = 0;
+    if (expmark != NULL) {
+      ekeep = strlen(expmark);
+      if (ekeep >= (size_t)L_MAXLENNUM_GUARD) ekeep = 0; /* exponent itself too long: invalid */
+    }
+    size_t mkeep = (size_t)L_MAXLENNUM_GUARD - ekeep;
+    memcpy(buff, s, mkeep);
+    if (ekeep > 0) memcpy(buff + mkeep, expmark, ekeep);
+    buff[L_MAXLENNUM_GUARD] = '\0';
+    endptr = l_str2dloc(buff, result, mode);
+    return (endptr != NULL) ? (s + strlen(s)) : NULL;
+  }
   endptr = l_str2dloc(s, result, mode);  /* try to convert */
   if (endptr == NULL) {  /* failed? may be a different locale */
     char buff[L_MAXLENNUM + 1];

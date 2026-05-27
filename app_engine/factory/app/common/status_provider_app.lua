@@ -103,7 +103,11 @@ local function update_wifi_signal()
             sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
         end
     else
-        log.warn("status_provider", "无法获取WiFi RSSI")
+        -- 已连接但无法获取RSSI（IP尚未就绪），保持"正在获取IP"状态
+        if wifi_signal_level ~= 5 then
+            wifi_signal_level = 5
+            sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
+        end
     end
 end
 
@@ -115,8 +119,9 @@ end
 local function handle_wifi_connected(ssid)
     log.info("status_provider", "WiFi已连接:", ssid)
     wifi_connected = true
-    -- 不立即设置信号等级，由 IP_READY 或后续 RSSI 轮询更新
-    wifi_signal_level = 0
+    -- L2已连接AP但IP尚未获取，发布level=5显示"正在获取IP"图标
+    -- IP_READY后会启动RSSI轮询，届时更新为真实信号等级0-4
+    wifi_signal_level = 5
     sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
 end
 
@@ -266,6 +271,9 @@ local function init_module()
             local info = wlan.getInfo()
             if info and info.ssid then
                 wifi_connected = true
+                -- 先发布"正在获取IP"状态，RSSI轮询会在获取到信号后更新为真实等级
+                wifi_signal_level = 5
+                sys.publish("STATUS_WIFI_SIGNAL_UPDATED", wifi_signal_level)
                 update_wifi_signal()
                 wifi_timer = sys.timerLoopStart(update_wifi_signal, 1000)
             else

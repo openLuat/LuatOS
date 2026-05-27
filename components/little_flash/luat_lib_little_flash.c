@@ -204,15 +204,69 @@ static int luat_little_flash_get_info(lua_State *L){
 #ifdef LUAT_USE_FS_VFS
 #include "luat_fs.h"
 #include "lfs.h"
+#include "../luat_lfs2_nand/luat_lfs2_nand.h"
+
 extern lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize);
+typedef struct {
+    void* bus;
+    const char* filesystem;
+} luat_lf_mount_backend_t;
+
+static void* luat_little_flash_default_bus(void* flash, size_t offset, size_t maxsize) {
+    return flash_lfs_lf((little_flash_t*)flash, offset, maxsize);
+}
+
+static void* luat_little_flash_named_bus(void* flash, size_t offset, size_t maxsize, const char* fs) {
+    if (fs != NULL && strcmp(fs, "lfs2_nand") == 0) {
+        luat_lfs2_nand_vfs_init();
+        return luat_fs_lfs2_nand_default_bus(flash, offset, maxsize);
+    }
+    return NULL;
+}
+
+static int luat_lf_mount_resolve(void* flash, size_t offset, size_t maxsize, const char* fs, luat_lf_mount_backend_t* out) {
+    const char* selector = fs;
+    if (!out) {
+        return -1;
+    }
+    memset(out, 0, sizeof(*out));
+    if (!selector || selector[0] == 0 || strcmp(selector, "lfs2") == 0) {
+        out->filesystem = "lfs2";
+        out->bus = luat_little_flash_default_bus(flash, offset, maxsize);
+        return out->bus ? 0 : -1;
+    }
+    out->filesystem = selector;
+    out->bus = luat_little_flash_named_bus(flash, offset, maxsize, selector);
+    return out->bus ? 0 : -1;
+}
+
+static const char* luat_little_flash_mount_fs_selector(lua_State *L, int index) {
+    const char* fs = NULL;
+
+    if (lua_isnoneornil(L, index)) {
+        return NULL;
+    }
+    if (lua_type(L, index) == LUA_TSTRING) {
+        return lua_tostring(L, index);
+    }
+    if (lua_istable(L, index)) {
+        lua_getfield(L, index, "fs");
+        if (lua_type(L, -1) == LUA_TSTRING) {
+            fs = lua_tostring(L, -1);
+        }
+        lua_pop(L, 1);
+    }
+    return fs;
+}
 
 /*
 挂载 little_flash lfs文件系统
-@api  lf.mount(flash, mount_point, offset, maxsize)
+@api  lf.mount(flash, mount_point, offset, maxsize, opts)
 @userdata flash Flash 设备对象 lf.init()返回的数据结构
 @string mount_point 挂载目录名
 @int    起始偏移量,默认0
 @int    总大小, 默认是整个flash
+@table/string opts 可选, 文件系统选择. nil/"lfs2"为默认; 可传"lfs2_nand"或{fs="lfs2_nand"}
 @return bool 成功返回true
 @usage
 log.info("lf.mount",lf.mount(little_flash_device,"/little_flash"))
@@ -226,17 +280,18 @@ static int luat_little_flash_mount(lua_State *L) {
     const char* mount_point = luaL_checkstring(L, 2);
     size_t offset = luaL_optinteger(L, 3, 0);
     size_t maxsize = luaL_optinteger(L, 4, 0);
-    lfs_t* lfs = flash_lfs_lf(flash, offset, maxsize);
-    if (lfs) {
+    const char* fs = luat_little_flash_mount_fs_selector(L, 5);
+    luat_lf_mount_backend_t backend = {0};
+    if (luat_lf_mount_resolve(flash, offset, maxsize, fs, &backend) == 0) {
         luat_fs_conf_t conf = {
-            .busname = (char*)lfs,
-            .type = "lfs2",
-            .filesystem = "lfs2",
+            .busname = (char*)backend.bus,
+            .type = (char*)backend.filesystem,
+            .filesystem = (char*)backend.filesystem,
             .mount_point = mount_point,
         };
         int ret = luat_fs_mount(&conf);
-        LLOGD("vfs mount %s ret %d", mount_point, ret);
-        lua_pushboolean(L, 1);
+        LLOGD("vfs mount %s fs %s ret %d", mount_point, backend.filesystem, ret);
+        lua_pushboolean(L, ret == 0);
     }
     else {
         lua_pushboolean(L, 0);

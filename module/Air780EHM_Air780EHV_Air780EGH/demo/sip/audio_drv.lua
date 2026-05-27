@@ -17,7 +17,7 @@ local audio_configs ={
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
     
     -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
-    dac_delay = set_dac_delay,            -- DAC启动前冗余时间
+    dac_delay = 6,            -- DAC启动前冗余时间
     
     pa_ctrl = gpio.AUDIOPA_EN,         -- 音频放大器电源控制管脚
     

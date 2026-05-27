@@ -155,7 +155,7 @@ function M.auto_scan_and_verify(storage_config, scan_timeout)
     sys.publish("WIFI_STORAGE_GET_SAVED_LIST_REQ")
     local got_list, storage_data = sys.waitUntil("WIFI_STORAGE_GET_SAVED_LIST_RSP", 3000)
     local saved_list = (got_list and storage_data and storage_data.list) or {}
-    if storage_config.ssid and storage_config.ssid ~= "" and storage_config.password and storage_config.password ~= "" then
+    if storage_config.ssid and storage_config.ssid ~= "" then  -- 无密码热点允许password为空
         local found = false
         for _, status_msg in ipairs(saved_list) do
             if status_msg.ssid == storage_config.ssid then found = true; break end

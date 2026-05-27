@@ -166,14 +166,26 @@ int luat_audio_data_codec_encode_once(luat_audio_data_codec_t *codec, luat_fifo_
 const luat_audio_data_codec_opts_t* luat_audio_data_codec_find(uint8_t type)
 {
     if (type >= LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
+        LLOGE("type %d out of range, max %d", type, LUAT_AUDIO_DATA_CODEC_TYPE_MAX - 1);
         return NULL;
     }
-    if (_audio_data_codec_hardware_items[type].opts && !_audio_data_codec_hardware_items[type].is_busy) {
-        return _audio_data_codec_hardware_items[type].opts;
+    if (_audio_data_codec_hardware_items[type].opts) {
+        LLOGC(luat_audio_debug_flag, "find hardware codec %d", type);
+        if (!_audio_data_codec_hardware_items[type].is_busy) {
+            return _audio_data_codec_hardware_items[type].opts;
+        } else {
+            LLOGC(luat_audio_debug_flag, "find hardware codec %d busy", type);
+        }
     }
-    if (_audio_data_codec_software_items[type].opts && !_audio_data_codec_software_items[type].is_busy) {
-        return _audio_data_codec_software_items[type].opts;
+    if (_audio_data_codec_software_items[type].opts) {
+        LLOGC(luat_audio_debug_flag, "find software codec %d", type);
+        if (!_audio_data_codec_software_items[type].is_busy) {
+            return _audio_data_codec_software_items[type].opts;
+        } else {
+            LLOGC(luat_audio_debug_flag, "find software codec %d busy", type);
+        }
     }
+    LLOGE("type %d can not find in data codec", type);
     return NULL;
 }
 

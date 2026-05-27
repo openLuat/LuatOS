@@ -49,6 +49,8 @@ exsip.start()
 -- 挂断通话
 -- exsip.hangUp()
 ]]
+exaudio = require "exaudio"
+
 local exsip = {}
 
 -- 常量定义 
@@ -74,7 +76,6 @@ exsip.DEFAULT_EXPIRES = 600
 -- socket.LWIP_ETH = 以太网
 -- nil = 使用系统默认网卡
 
-local exnetif = require "exnetif"
 
 local sipclient = nil
 local g_config = nil
@@ -139,6 +140,10 @@ local function start_voip_engine(session)
         log_error("voip core not support")
         return
     end
+    --关闭其他播报，避免和 VoIP 音频冲突
+    pcall(exaudio.play_stop, {type = 0}) 
+    pcall(exaudio.play_stop, {type = 1}) 
+    pcall(exaudio.play_stop, {type = 2}) 
 
     local codec_map = {
         [exsip.CODEC_PCMU] = voip.PCMU,
@@ -181,6 +186,7 @@ local function stop_voip_engine()
         voip.stop()
         log_info("voip engine stopping")
     end
+    pcall(exaudio.pm,audio.SHUTDOWN)
 end
 
 -- 网卡 IP 就绪/丢失事件处理
@@ -250,7 +256,6 @@ local function sip_event_handler(event, action, payload)
         elseif action == "connected" or action == "established" then
             emit_callback("call", "connected", payload)
         elseif action == "ended" or action == "failed" then
-            stop_voip_engine()
             emit_callback("call", "ended", payload)
             g_current_call = nil
         end

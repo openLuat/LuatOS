@@ -78,6 +78,9 @@ local function detail_update_detail_info()
         elseif current_status.ready then
             detail_labels.connectivity:set_text("待确认 (NTP同步中...)")
             detail_labels.connectivity:set_color(COLOR_ACCENT)
+        elseif current_status.connected then
+            detail_labels.connectivity:set_text("正在获取IP")
+            detail_labels.connectivity:set_color(COLOR_ACCENT)
         else
             detail_labels.connectivity:set_text("未就绪")
             detail_labels.connectivity:set_color(COLOR_TEXT_SECONDARY)

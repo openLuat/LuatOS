@@ -521,6 +521,9 @@ local function setup_airlink_4G(config)
         if config.airlink_rdy_pin then
             airlink.config(airlink.CONF_SPI_RDY, config.airlink_rdy_pin)
         end
+        if config.airlink_spi_speed then
+            airlink.config(airlink.CONF_SPI_SPEED, config.airlink_spi_speed)
+        end
     elseif is_uart_mode then
         -- UART模式配置
         if config.airlink_uart_id then
@@ -592,6 +595,9 @@ local function setup_airlink_wifi(config)
         end
         if config.airlink_rdy_pin then
             airlink.config(airlink.CONF_SPI_RDY, config.airlink_rdy_pin)
+        end
+        if config.airlink_spi_speed then
+            airlink.config(airlink.CONF_SPI_SPEED, config.airlink_spi_speed)
         end
     elseif is_uart_mode then
         if config.airlink_uart_id then

@@ -324,6 +324,9 @@ struct little_flash{
 
 #define LF_CMD_NANDFLASH_RESET                      (0xFF)
 
+#define LF_CMD_POWER_DOWN                           (0xB9)
+#define LF_CMD_RELEASE_POWER_DOWN                   (0xAB)
+
 #define LF_CMD_PROG_DATA                            (0x02)
 #define LF_CMD_READ_DATA                            (0x03)
 

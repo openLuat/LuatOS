@@ -514,7 +514,7 @@ static int l_audio_pause(lua_State *L) {
     uint8_t request_index = luaL_checkinteger(L, 1);
     l_audio_request_t *l_req = &_l_audio.request_table[request_index];
     uint8_t pause = lua_toboolean(L, 2);
-    luat_audio_channel_play(&l_req->request.data_channel, !pause);
+    luat_audio_channel_play(l_req->request.data_channel, !pause);
     return 0;
 }
 

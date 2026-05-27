@@ -402,6 +402,9 @@ target("luatos-lua")
     add_includedirs(luatos.."components/little_flash/inc",{public = true})
     add_includedirs(luatos.."components/little_flash/port",{public = true})
     add_files(luatos.."components/little_flash/**.c")
+    add_defines("LUAT_USE_LFS2_NAND_COMPONENT")
+    add_includedirs(luatos.."components/luat_lfs2_nand",{public = true})
+    add_files(luatos.."components/luat_lfs2_nand/**.c")
 
     -- 添加mreport
     -- add_includedirs(luatos.."components/mreport/include",{public = true})

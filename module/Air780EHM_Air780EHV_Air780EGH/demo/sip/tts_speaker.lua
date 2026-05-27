@@ -21,40 +21,25 @@
 
 local exaudio = require "exaudio"
 local exsip = require "exsip"
-local audio_drv = require "audio_drv"
 
-local g_tag = "sip_tts_speaker"
+local g_tag = "sip_app_tts_speaker"
 
 --表示当前是否有 TTS 在播放
 local is_playing = false
-local tts_fallback_timer = nil
 --voip 是否正在运行，true 时跳过所有 TTS 播报
 local voip_running = false
 --前正在播放的 TTS 优先级
 local current_priority = 0
---每次 play_tts 调用时递增
-local session_id = 0
---当前活跃的 session ID，用于过滤过期回调
-local active_session = 0
 
-local function cancel_tts_fallback_timer()
-    if tts_fallback_timer then
-        sys.timerStop(tts_fallback_timer)
-        tts_fallback_timer = nil
-    end
-end
+local TTS_TASK_NAME = "tts_speaker_task"
 
-local function play_end(event, session)
+
+local function play_end(event)
+    log.info("tts_speaker", "播报事件回调，事件类型:", event)
     if event == exaudio.PLAY_DONE then
-        if session ~= active_session then
-            log.info("tts_speaker", "忽略过期回调，session=", session, "当前=", active_session)
-            return
-        end
-        cancel_tts_fallback_timer()
         log.info("tts_speaker", "播放完成")
         is_playing = false
         current_priority = 0
-        active_session = 0
     end
 end
 
@@ -70,102 +55,39 @@ local function format_digits(number)
     return spaced:gsub("%s+$", "")
 end
 
--- playDone 事件命名回调：voip 运行中防止 SHUTDOWN 切断通话
-local function on_playDone()
-    if voip_running then
-        log.info("tts_speaker", "voip运行中，TTS完成事件触发，恢复音频")
-        local ok, err = pcall(exaudio.pm, audio.RESUME)
-        if not ok then
-            log.error("tts_speaker", "恢复音频失败:", err)
-        end
-    end
-end
-
--- taskInit 命名任务函数：通话结束处理
-local function task_call_ended(reason)
-    stop()
-    if voip_running then
-        -- voip 启动过（接听后挂断）：需要清理 PCM 残留 + 重置 TTS 队列
-        voip_running = false
-        sys.wait(200)
-        pcall(audio.stop, 0)
-        sys.wait(100)
-        pcall(exaudio.play_stop, {type = 1})
-        sys.wait(500)
-        speak_hungup(reason)
-    else
-        -- voip 没启动过（不接电话直接挂断）：不强制停止 TTS，等它自然完成
-        sys.wait(500)
-        speak_hungup(reason)
-    end
-end
-
 -- play_tts: 核心播报函数
--- 每次调用生成唯一 session_id，通过 active_session 过滤过期回调,防止 voip 抢占后旧 TTS 的延迟 DONE 事件错误地重置当前状态。
 -- 优先级数值越高越优先。挂断播报(100) > 来电/拨号(90) > 就绪(50)。
 local function play_tts(text, priority)
     priority = priority or 0
+    
     if voip_running then
         log.info("tts_speaker", "voip运行中，跳过TTS播报")
         return false
     end
+
     if is_playing then
         if priority > current_priority then
             log.info("tts_speaker", "高优先级打断当前播报", priority, ">", current_priority)
-            -- 不主动调用 exaudio.play_stop，让 exaudio.play_start 内部处理打断
-            -- 避免 SHUTDOWN/RESUME 频繁切换导致 TTS 引擎状态异常
         else
             log.info("tts_speaker", "正在播放中且优先级不够，忽略", priority, "<=", current_priority)
             return false
         end
     end
 
-    -- session 机制：防止过期回调干扰当前状态
-    session_id = session_id + 1
-    local my_session = session_id
-    active_session = my_session
-
     local audio_play_param = {
         type = 1,
         content = text,
         cbfnc = function(event)
-            play_end(event, my_session)
+            play_end(event)
         end,
         priority = priority
     }
 
     log.info("tts_speaker", "开始播报:", text)
-    -- 第一次尝试
     local ok, result = pcall(exaudio.play_start, audio_play_param)
-    -- 失败重试逻辑（最多三次）：
-    -- 第一次失败：audio.stop(0) 清理 PCM 残留 + exaudio.play_stop 重置 TTS 队列 + 等待 1秒
-    -- 第二次失败：audio_drv.init() 重新初始化 I2S/codec + 等待 2秒
-    -- 原因：ivTTS 引擎在 voip 抢占后可能卡在"合成中"状态，需要时间自然停止或硬件重置
-    if not ok or not result then
-        if not ok then
-            log.error("tts_speaker", "exaudio.play_start error:", result)
-        else
-            log.error("tts_speaker", "exaudio.play_start failed，尝试重建音频后重试")
-        end
-        pcall(audio.stop, 0)                       -- 清理 audio.start(PCM) 残留状态
-        pcall(exaudio.play_stop, {type = 1})
-        sys.wait(1000)                             -- 给 TTS 引擎时间自然停止
-        ok, result = pcall(exaudio.play_start, audio_play_param)
-        if not ok or not result then
-            log.error("tts_speaker", "TTS第二次失败，第三次尝试")
-            pcall(audio_drv.init)                  -- 仅在长等待后仍失败时才重新初始化
-            sys.wait(2000)                         -- 让 init 后的 codec 充分预热
-            ok, result = pcall(exaudio.play_start, audio_play_param)
-        end
-    end
     if ok and result then
         is_playing = true
         current_priority = priority
-        cancel_tts_fallback_timer()
-        tts_fallback_timer = sys.timerStart(function()
-            log.warn("tts_speaker", "TTS回调超时，强制触发play_end")
-            play_end(exaudio.PLAY_DONE, my_session)
-        end, 8000)
     else
         if not ok then
             log.error("tts_speaker", "exaudio.play_start 最终失败:", result)
@@ -174,7 +96,6 @@ local function play_tts(text, priority)
         end
         is_playing = false
         current_priority = 0
-        active_session = 0
     end
     return ok and result
 end
@@ -182,7 +103,7 @@ end
 function speak_sip_ready_with_network(adapter)
     local text = "通话服务已就绪"
     if adapter then
-        if adapter == 1 then
+        if adapter == socket.LWIP_GP then
             local ok, csq = pcall(mobile.csq)
             if ok and type(csq) == "number" then
                 text = text .. "，当前已连接4G，信号强度为" .. csq
@@ -211,8 +132,7 @@ function speak_incoming()
         local digits = format_digits(current_call)
         if digits then
             log.info("tts_speaker", "收到来电，号码", digits)
-            -- text = string.format("收到%s来电", digits)
-            text = string.format("收到来电")
+            text = string.format("收到%s来电", digits)
         end
     else
         log.info("tts_speaker", "收到来电")
@@ -220,19 +140,33 @@ function speak_incoming()
     end
     play_tts(text, 90)
 end
+
+function speak_accept()
+    log.info("tts_speaker", "接听电话前，停止当前播报")
+    is_playing = false
+    current_priority = 0
+end
+
 function speak_dialing(number)
     local digits = format_digits(number)
     local text
     if digits then
         log.info("tts_speaker", "播报拨号", digits)
-        -- text = string.format("正在拨号，号码%s", digits)
-        text = string.format("正在拨号")
+        text = string.format("正在拨号，号码%s", digits)
     else
         log.info("tts_speaker", "播报拨号", number)
-        -- text = string.format("正在拨号，号码%s", number)
-        text = string.format("正在拨号")
+        text = string.format("正在拨号，号码%s", number)
     end
     play_tts(text, 90)
+end
+
+function task_call_ended(reason)
+    is_playing = false
+    current_priority = 0
+    if voip_running then
+        voip_running = false
+    end
+    speak_hungup(reason)
 end
 
 function speak_hungup(reason)
@@ -244,8 +178,6 @@ function speak_hungup(reason)
         socket_closed = "网络断开",
         timeout = "呼叫超时",
         local_reject = "我方已拒接",
-        -- Temporarily Unavailable = "对方暂时无法接听",
-        -- Busy here = "对方正忙，请稍后再拨",
     }
     local text
     if reason and reason ~= "" then
@@ -263,77 +195,73 @@ function speak_hungup(reason)
     play_tts(text, 100)
 end
 
--- stop: 通话建立时调用
--- 让 voip 自己抢占音频通道
-function stop()
-    if not is_playing then
-        return
+-- 集中式 TTS Task
+local function tts_task_func()
+    while true do
+        local msg = sys.waitMsg(TTS_TASK_NAME)
+        if type(msg) ~= "table" then
+            log.warn("tts_speaker", "收到非消息数据，忽略:", msg)
+        else
+            local tts_msg = msg[1]
+            if tts_msg == "TTS_READY" then
+                speak_sip_ready_with_network(msg[2])
+            elseif tts_msg == "TTS_INCOMING" then
+                speak_incoming()
+            elseif tts_msg == "TTS_ACCEPT" then
+                speak_accept()
+            elseif tts_msg == "TTS_DIAL" then
+                speak_dialing(msg[2])
+            elseif tts_msg == "TTS_ENDED" then
+                task_call_ended(msg[2])
+            end
+        end
     end
-    log.info("tts_speaker", "通话建立，停止当前播报")
-    cancel_tts_fallback_timer()
-    -- 不主动调用 exaudio.play_stop，避免 SHUTDOWN 破坏 voip 音频
-    -- voip 启动后会自然抢占音频通道，TTS 被中断但不触发 audio.DONE
-    is_playing = false
-    current_priority = 0
-    active_session = 0
 end
 
--- playDone 守护：防止 TTS 完成后 SHUTDOWN 破坏 voip 音频
--- 场景：voip 运行期间，TTS 的 DONE 事件触发 audio_callback 中的 SHUTDOWN，
--- 导致 voip 音频电源被关闭。守护检测到 voip_running=true 时立即 RESUME 恢复。
-sys.subscribe("playDone", on_playDone)
 
 local function ready_tts(para)
     log.info(g_tag, "SIP应用就绪，开始第一个TTS播报")
-    sys.taskInit(speak_sip_ready_with_network, para)
+    sys.sendMsg(TTS_TASK_NAME, "TTS_READY", para)
 end
 
 local function incoming_tts()
     local incoming_number = exsip.get_current_call()
      log.info(g_tag, "呼入中，来电号码：", incoming_number)
-     sys.taskInit(speak_incoming)
+     sys.sendMsg(TTS_TASK_NAME, "TTS_INCOMING")
 end
-
-local function connected_tts()
-    log.info("tts_speaker", "媒体通道开启，抢占音频通道，停止当前播报")
-    stop() 
+    
+local function accept_tts()
+    log.info(g_tag, "接听电话前")
+    sys.sendMsg(TTS_TASK_NAME, "TTS_ACCEPT")
 end
 
 local function voip_start_tts()
     voip_running = true
 end
 
-local function dial_tts(tag, success, para)
-    if success then
-        log.info(g_tag, "呼出成功")
-        sys.taskInit(speak_dialing, para)
-    else
-        log.info(g_tag, "呼出失败，原因：", para)
-    end
+local function dial_tts(tag, para)
+    log.info(g_tag, "收到拨号请求，准备播报拨号信息")
+    sys.sendMsg(TTS_TASK_NAME, "TTS_DIAL", para)
 end
 
-
--- 区分两种挂断场景：
--- 接听后挂断：voip_running=true,voip 启动过，audio.start(PCM) 有 PCM 残留。
---    必须 audio.stop(0) 清理 PCM + exaudio.play_stop 重置 TTS 队列。
--- 不接电话直接挂断：voip_running=false,voip 从未启动，来电 TTS 还在正常播放。
---    不强制停止 TTS（避免 ivTTS 引擎卡住），等待 500ms 让短文本自然完成。
 local function call_ended_tts(reason)
-    sys.taskInit(task_call_ended, reason)
+    sys.sendMsg(TTS_TASK_NAME, "TTS_ENDED", reason)
 end
+    
+    
+sys.taskInitEx(tts_task_func, TTS_TASK_NAME)
 
 -- sys.subscribe 说明：
 -- SIP_APP_MAIN_READY:        sip_app_main.lua 中 SIP 初始化完成后发布
 -- SIP_APP_MAIN_INCOMING:     sip_app_main.lua 中 MSG_INCOMING 时发布（收到来电）
--- SIP_APP_MAIN_CONNECTED:    sip_app_main.lua 中 MSG_CONNECTED 时发布（用户接听）
 -- SIP_APP_MAIN_VOIP_STARTED: sip_app_main.lua / sip_callback 中 voip started 时发布
 -- SIP_APP_MAIN_DISCONNECTED: sip_app_main.lua 中 MSG_DISCONNECTED 时发布（通话结束）
 -- SIP_APP_MAIN_DIAL_RSP:     sip_app_main.lua 中 MSG_DIAL 时发布（拨号结果）
+    
 sys.subscribe("SIP_APP_MAIN_READY", ready_tts)
 sys.subscribe("SIP_APP_MAIN_INCOMING", incoming_tts)
-sys.subscribe("SIP_APP_MAIN_CONNECTED", connected_tts)
+sys.subscribe("SIP_APP_MAIN_ACCEPT_REQ", accept_tts)
 sys.subscribe("SIP_APP_MAIN_VOIP_STARTED", voip_start_tts)
+sys.subscribe("SIP_APP_MAIN_DIAL_REQ", dial_tts)
 sys.subscribe("SIP_APP_MAIN_DISCONNECTED", call_ended_tts)
-sys.subscribe("SIP_APP_MAIN_DIAL_RSP", dial_tts)
-
-
+    

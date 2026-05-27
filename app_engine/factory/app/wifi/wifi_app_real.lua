@@ -134,7 +134,7 @@ local function build_network_priority(ssid, password, cfg)
     cfg = cfg or {}
     local priority = {}
 
-    if ssid and ssid ~= "" and password and password ~= "" then
+    if ssid and ssid ~= "" then  -- 无密码热点允许password为空
         if is_air1601 then
             -- Air1601/Air1602 WiFi 走 SPI 接口（SPI1, CS=8, RDY=14）
             table.insert(priority, {
@@ -259,7 +259,10 @@ local function on_sta_event(evt, data)
         wifi_state.current_ssid = data
         wifi_state.connectivity_verified = false
         sys.publish("WIFI_CONNECTED", data)
-        sys.publish("STATUS_WIFI_SIGNAL_UPDATED", 3)
+        -- 发布level=5表示"已连接AP，正在获取IP"，待IP_READY后由RSSI轮询更新为真实信号等级
+        sys.publish("STATUS_WIFI_SIGNAL_UPDATED", 5)
+        -- 立即发布状态更新，让UI层在DHCP阶段就能显示"正在获取IP"
+        common.update_status(wifi_state, saved_config)
         last_connect = "CONNECTED"
         user_connect = false
         if update_timer then sys.timerStop(update_timer) end
@@ -376,7 +379,7 @@ local function on_storage_loaded(data)
     end
 
     -- 有保存的 SSID → 自动扫描+连接
-    if saved_config.ssid and saved_config.ssid ~= "" and saved_config.password and saved_config.password ~= "" then
+    if saved_config.ssid and saved_config.ssid ~= "" then  -- 无密码热点允许password为空
         sys.taskInit(run_auto_connect)
     else
         -- 无保存 SSID 但 WiFi 开启 → 先启用 4G（如有）
@@ -422,7 +425,7 @@ local function on_enable_req(data)
         update_status(wifi_state)
     else
         log.info("wifi_app", "开启WiFi")
-        if saved_config.ssid and saved_config.ssid ~= "" and saved_config.password then
+        if saved_config.ssid and saved_config.ssid ~= "" then  -- 无密码热点允许password为空
             sys.taskInit(run_auto_connect)
         else
             local fb_4g = build_4g_fallback()
@@ -459,10 +462,6 @@ local function on_connect_req(data)
 
         if not ssid or ssid == "" then
             sys.publish("WIFI_DISCONNECTED", "SSID不能为空", -3)
-            return
-        end
-        if not password or password == "" then
-            sys.publish("WIFI_DISCONNECTED", "密码不能为空", -4)
             return
         end
         if saved_config and not saved_config.wifi_enabled then return end

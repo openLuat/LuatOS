@@ -1,0 +1,4 @@
+{
+    "name": "loadfloat_basic",
+    "description": "Test load() with long float literals - regression for air1601 64-bit crash"
+}

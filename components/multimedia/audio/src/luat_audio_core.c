@@ -546,6 +546,12 @@ static void _audio_decode_file_to_fifo(luat_audio_request_block_t *request_block
 static void _audio_start_request(luat_audio_request_block_t *request_block)
 {
 	int ret;
+	if (!request_block->data_channel->play_fifo) {
+		LLOGD("driver 0x%x create play fifo", request_block->data_channel->driver_ctrl->probe.probe_id);
+		request_block->data_channel->play_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_FIFO_DEFAULT_SIZE_POWER);
+    	request_block->data_channel->play_fifo_low_level = 32 * 1024;
+    	request_block->data_channel->play_fifo_high_level = request_block->data_channel->play_fifo->size - 16 * 1024;
+	}
 	request_block->cb(LUAT_AUDIO_REQUEST_EVENT_START, NULL, 0, request_block);
 	// 最后根据请求块的模式做不同的解码操作
 	if (request_block->is_tts) {	//TTS模式发送给tts_task处理
@@ -704,9 +710,6 @@ int luat_audio_driver_register(const luat_audio_driver_opts_t *opts, struct luat
 			_luat_audio.channel[i].driver_ctrl = &_luat_audio.driver_ctrl[i];
 			_luat_audio.channel[i].play_lock_mutex = luat_mutex_create();
 			_luat_audio.channel[i].soft_volume = 100;
-			_luat_audio.channel[i].play_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_FIFO_DEFAULT_SIZE_POWER);
-    		_luat_audio.channel[i].play_fifo_low_level = 32 * 1024;
-    		_luat_audio.channel[i].play_fifo_high_level = _luat_audio.channel[i].play_fifo->size - 16 * 1024;
 			_luat_audio.all_driver_nums++;
 			LLOGC(luat_audio_debug_flag, "probe_id: %x driver register success index: %d", probe.probe_id, i);
 			return LUAT_ERROR_NONE;

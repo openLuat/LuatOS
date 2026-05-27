@@ -327,7 +327,7 @@ static int tls_send(void *ctx, const unsigned char *buf, size_t len )
 	{
 		return -ERROR_PERMISSION_DENIED;
 	}
-#if defined(CHIP_EC618) || defined(CHIP_EC716) || defined(CHIP_EC718)
+#ifdef LUAT_CONF_TLS_DELAY
 	// 加2ms延迟，确保数据发送完成
 	luat_rtos_task_sleep(2);
 #endif
@@ -353,7 +353,7 @@ static int tls_recv(void *ctx, unsigned char *buf, size_t len )
 		return -1;
 	}
 TLS_RECV:
-#if defined(CHIP_EC618) || defined(CHIP_EC716) || defined(CHIP_EC718)
+#ifdef LUAT_CONF_TLS_DELAY
 	// 加2ms延迟，确保数据接收完成
 	luat_rtos_task_sleep(2);
 #endif

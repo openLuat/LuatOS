@@ -8,245 +8,210 @@
 #include "luat_log.h"
 
 const char* ems_server_lua_code = "\
-PROJECT = \"ems_svr_demo\"\n\
-VERSION = \"1.0.0\"\n\
-TAG = \"[EMS]\"\n\
-\n\
-sys = require(\"sys\")\n\
-\n\
-local post_body = {}\n\
-local getip_data = {}\n\
-local emg_svc_data = nil\n\
-local interval = 10800000 -- 3小时上报一次\n\
-\n\
--- 获取急救服务器地址\n\
-local function getip(getip_type)\n\
-    local key = post_body.reson_key..\"-\"..(post_body.device_id or \"\")\n\
-    local url = \"https://gps.openluat.com/iam/iot/getip?key=\"..key..\"&type=\"..getip_type\n\
-    log.info(TAG, \"getip请求URL:\", url)\n\
-    -- 执行HTTP请求\n\
-    local code,headers,body = http.request(\"GET\", url, nil, nil, nil, {timeout=5000}).wait()\n\
-    log.info(TAG, \"getip响应\", \"HTTP Code:\", code, \"Body:\", body)\n\
-    -- 添加对HTTP响应为空值的处理\n\
-    if not body then\n\
-        log.error(TAG, \"getip请求失败\", \"HTTP响应为空\")\n\
-        return false, \"HTTP响应为空\"\n\
-    end\n\
-\n\
-    -- 处理HTTP错误码\n\
-    if code ~= 200 then\n\
-        log.info(TAG, \"getip请求失败\", \"HTTP Code:\", code)\n\
-        return false, \"HTTP请求失败: \" .. tostring(code)\n\
-    end\n\
-\n\
-    -- 解析JSON响应,添加对解析失败的处理\n\
-    local response_json = json.decode(body)\n\
-    if not response_json then\n\
-        return false, \"JSON解析失败: \" .. body\n\
-    end\n\
-\n\
-    -- 检查服务器返回状态\n\
-    if not response_json.msg then\n\
-        log.error(TAG, \"getip响应格式错误\", \"缺少msg字段\")\n\
-        return false, \"服务器响应格式错误: 缺少msg字段\"\n\
-    end\n\
-\n\
-    if response_json.msg ~= \"ok\" then\n\
-        log.error(TAG, \"服务器返回错误\", \"消息:\", response_json.msg)\n\
-        return false, \"服务器返回错误: \" .. tostring(response_json.msg)\n\
-    end\n\
-    post_body.key = response_json.key\n\
-\n\
-    return true, response_json\n\
-end\n\
-\n\
--- 带重试的getip请求\n\
-local function getip_with_retry(getip_type)\n\
-    local retry_count = 0\n\
-    local max_retry = 3\n\
-    local success, result\n\
-\n\
-    while retry_count < max_retry do\n\
-        success, result = getip(getip_type)\n\
-        if success and result then\n\
-            log.info(TAG, \"getip\", \"成功:\", success, \"结果:\", json.encode(result))\n\
-            return true, result\n\
-        end\n\
-\n\
-        retry_count = retry_count + 1\n\
-        log.warn(TAG, \"getip重试\", \"次数:\", retry_count, \"错误:\", result)\n\
-\n\
-        if retry_count < max_retry then\n\
-            sys.wait(5000) -- 等待5秒后重试\n\
-        end\n\
-    end\n\
-\n\
-    return false, \"getip请求失败, 已达最大重试次数 3次: \" .. (result or \"未知错误\")\n\
-end\n\
-\n\
--- 上报结果到服务器\n\
-local function upload_report(message)\n\
-    if not getip_data.report_url or not getip_data.key then\n\
-        log.error(TAG, \"上报失败\", \"缺少report_url或key\")\n\
-        return\n\
-    end\n\
-\n\
-    local report_body = {\n\
-        key = getip_data.key,\n\
-        device_id = post_body.device_id or \"unknown\",\n\
-        upload_time = os.date(\"%Y-%m-%d %H:%M:%S\"),\n\
-        project = PROJECT,\n\
-        device_version = rtos.version()..\"-\"..VERSION,\n\
-        server_version = rtos.version()..\"-\"..VERSION,\n\
-        msg = message\n\
-    }\n\
-    log.info(TAG, \"report\", getip_data.report_url, json.encode(report_body))\n\
-    local code,headers,body = http.request(\"POST\", getip_data.report_url, nil, json.encode(report_body)).wait()\n\
-    log.info(\"report\", code, json.encode(headers), body)\n\
-end\n\
-\n\
--- 处理FOTA升级回调\n\
-local function fota_cb(ret)\n\
-    log.info(TAG, \"fota\", ret)\n\
-    upload_report(\"请求fotabin结果: \" .. tostring(ret))\n\
-    if ret == 0 then\n\
-        upload_report(\"升级成功\")\n\
-        log.info(TAG, \"升级包下载成功,重启模块\")\n\
-        emg_svc_data.power_normal = emg_svc_data.normal_max_count\n\
-        io.writeFile(\"/emg_svc\", json.encode(emg_svc_data))\n\
-        rtos.reboot()\n\
-    end\n\
-end\n\
-\n\
--- 发起FOTA升级请求\n\
-local function fota_request()\n\
-    -- 获取getip服务\n\
-    local success, getip_result = getip_with_retry(8)\n\
-    if not success then\n\
-        upload_report(\"获取getip服务失败, 错误信息: \" .. getip_result)\n\
-        log.error(TAG, \"获取getip服务失败, \", getip_result)\n\
-    else\n\
-        log.info(TAG, \"获取getip服务成功, \", getip_result.msg)\n\
-        getip_data.url = getip_result.url\n\
-        getip_data.report_url = getip_result.report_url\n\
-        getip_data.key = getip_result.key\n\
-        getip_data.msg = getip_result.msg\n\
-        log.info(TAG, \"getip_data\", getip_data.url, json.encode(post_body))\n\
-        local code,headers,body = http.request(\"POST\", getip_data.url, nil, json.encode(post_body)).wait()\n\
-        log.info(\"http\", code, json.encode(headers), body)\n\
-        if code == 200 then\n\
-            local response = json.decode(body)\n\
-            if not response then\n\
-                upload_report(\"fotabin error: JSON解析失败\")\n\
-                log.error(TAG, \"fotabin error: JSON解析失败\")\n\
-                return\n\
-            end\n\
-            log.info(TAG, \"fotabin response\", json.encode(response))\n\
-            if response.code == 10 then\n\
-                upload_report(\"请求下载升级文件\")\n\
-                log.info(\"fota\", \"开始升级\")\n\
-                -- fotabin\n\
-                code, headers, body = http.request(\"GET\", response.fotabin, {[\"Host\"] = \"gps.openluat.com\"}, nil, {fota=true, timeout=10000}).wait()\n\
-                log.info(\"fota download\", code, headers, body)\n\
-                local ret = 4\n\
-                if code == 200 or code == 206 then\n\
-                    if body == 0 then\n\
-                        ret = 4\n\
-                        upload_report(\"升级文件内容为空\")\n\
-                    else\n\
-                        ret = 0\n\
-                        if type(body) == \"string\" then\n\
-                            upload_report(\"升级文件请求正常,文件大小: \" .. tostring(#body))\n\
-                        elseif type(body) == \"number\" then\n\
-                            upload_report(\"升级文件请求正常,文件大小: \" .. tostring(body))\n\
-                        else\n\
-                            upload_report(\"升级文件请求正常,body类型: \" .. type(body))\n\
-                        end\n\
-                    end\n\
-                elseif code == -4 then\n\
-                    ret = 1\n\
-                elseif code == -5 then\n\
-                    ret = 3\n\
-                else\n\
-                    ret = 4\n\
-                end\n\
-                fota_cb(ret)\n\
-            end\n\
-        else\n\
-            log.error(TAG, \"获取fotabin url error: \" .. tostring(response.code), \", \", body)\n\
-            upload_report(\"获取fotabin url error: \" .. tostring(response.code))\n\
-        end\n\
-    end\n\
-end\n\
-\n\
-sys.taskInit(function()\n\
-    local reason1, reason2, reason3 = pm.lastReson()\n\
-    while true do\n\
-        sys.wait(10000)\n\
-        if wlan and not wlan.ready() then\n\
-            wlan.connect(emg_svc_data.wifi_ssid, emg_svc_data.wifi_password)\n\
-        end\n\
-        log.info(TAG, \"version\", VERSION)\n\
-        -- 当前网络状态\n\
-        log.info(TAG, \"当前网络状态\", mobile.status() == 1 and \"已注册\" or \"未注册到网络\")\n\
-        adc.open(adc.CH_VBAT)\n\
-        adc.open(adc.CH_CPU)\n\
-        post_body.reson_key = \"StWtlHHhrPkNdELu2MDSaNMMYMXCZ2Mx\"\n\
-        post_body.core_ver = rtos.version()\n\
-        post_body.hw_ver = hmeta.hwver() or \"unknown\"\n\
-        post_body.model = rtos.bsp()\n\
-        post_body.power_reson = reason3 or 0\n\
-        post_body.vbat = adc.get(adc.CH_VBAT)\n\
-        post_body.cpu_temp = adc.get(adc.CH_CPU)\n\
-        adc.close(adc.CH_VBAT)\n\
-        adc.close(adc.CH_CPU)\n\
-        if mobile then\n\
-            local server_cell = mobile.scell()\n\
-            post_body.device_id = mobile.imei()\n\
-            post_body.muid = mobile.muid()\n\
-            post_body.iccid = mobile.iccid()\n\
-            post_body.imsi = mobile.imsi()\n\
-            post_body.rssi = mobile.rssi()\n\
-            post_body.rsrq = mobile.rsrq()\n\
-            post_body.rsrp = mobile.rsrp()\n\
-            post_body.snr = mobile.snr()\n\
-            post_body.band = server_cell.band or 0\n\
-            post_body.mcc = server_cell.mcc or 0\n\
-            post_body.mnc = server_cell.mnc or 0\n\
-            post_body.cid = server_cell.cid or 0\n\
-            post_body.earfcn = server_cell.earfcn or 0\n\
-            post_body.pci = server_cell.pci or 0\n\
-            post_body.tac = server_cell.tac or 0\n\
-        elseif wlan then\n\
-            post_body.device_id = wlan.getMac()\n\
-            post_body.wifi_ssid = wlan.getSsid() or \"unknown ssid\"\n\
-            post_body.wifi_password = wlan.getPassword() or \"unknown password\"\n\
-            post_body.wifi_bssid = wlan.getBssid() or \"unknown bssid\"\n\
-            post_body.wifi_ip = wlan.getIp() or \"unknown ip\"\n\
-        end\n\
-        log.info(TAG, \"device_info\", json.encode(post_body))\n\
-        if not post_body.key then\n\
-            getip_with_retry(8)\n\
-        end\n\
-    end\n\
-end)\n\
-\n\
-sys.taskInit(function()\n\
-    local data = io.readFile(\"/emg_svc\")\n\
-    if data then\n\
-        log.info(TAG, \"emg_svc\", data)\n\
-        emg_svc_data = json.decode(data)\n\
-        if emg_svc_data and emg_svc_data.interval then\n\
-            interval = emg_svc_data.interval * 60000 -- 分钟转换为毫秒\n\
-        end\n\
-    end\n\
-    while true do\n\
-        log.info(TAG, \"emg_svc\", \"紧急服务 间隔\", interval / 60000, \"分钟请求一次升级\")\n\
-        sys.wait(interval)\n\
-        fota_request()\n\
-    end\n\
-end)\n\
-\n\
+PROJECT = \"ems_svr_demo\"\
+VERSION = \"1.0.0\"\
+TAG = \"[EMS]\"\
+sys = require(\"sys\")\
+local post_body = {}\
+local getip_data = {}\
+local emg_svc_data = nil\
+local interval = 10800000\
+local function getip(getip_type)\
+local key = post_body.reson_key..\"-\"..(post_body.device_id or \"\")\
+local url = \"https://gps.openluat.com/iam/iot/getip?key=\"..key..\"&type=\"..getip_type\
+log.info(TAG, \"getip url:\", url)\
+local code,headers,body = http.request(\"GET\", url, nil, nil, nil, {timeout=5000}).wait()\
+log.info(TAG, \"getip resp\", code, body)\
+if not body then\
+log.error(TAG, \"getip no response\")\
+return false, \"no http response\"\
+end\
+if code ~= 200 then\
+log.info(TAG, \"getip http error\", code)\
+return false, \"http error: \" .. tostring(code)\
+end\
+local response_json = json.decode(body)\
+if not response_json then\
+return false, \"json decode fail: \" .. body\
+end\
+if not response_json.msg then\
+log.error(TAG, \"getip no msg field\")\
+return false, \"server response no msg\"\
+end\
+if response_json.msg ~= \"ok\" then\
+log.error(TAG, \"server error\", response_json.msg)\
+return false, \"server error: \" .. tostring(response_json.msg)\
+end\
+post_body.key = response_json.key\
+return true, response_json\
+end\
+local function getip_with_retry(getip_type)\
+local retry_count = 0\
+local max_retry = 3\
+local success, result\
+while retry_count < max_retry do\
+success, result = getip(getip_type)\
+if success and result then\
+return true, result\
+end\
+retry_count = retry_count + 1\
+log.warn(TAG, \"getip retry\", retry_count, result)\
+if retry_count < max_retry then\
+sys.wait(5000)\
+end\
+end\
+return false, \"getip max retry: \" .. (result or \"unknown\")\
+end\
+local function upload_report(message)\
+if not getip_data.report_url or not getip_data.key then\
+log.error(TAG, \"upload no url/key\")\
+return\
+end\
+local report_body = {\
+key = getip_data.key,\
+device_id = post_body.device_id or \"unknown\",\
+upload_time = os.date(\"%Y-%m-%d %H:%M:%S\"),\
+project = PROJECT,\
+device_version = rtos.version()..\"-\"..VERSION,\
+server_version = rtos.version()..\"-\"..VERSION,\
+msg = message\
+}\
+log.info(TAG, \"report\", getip_data.report_url, json.encode(report_body))\
+local code,headers,body = http.request(\"POST\", getip_data.report_url, nil, json.encode(report_body)).wait()\
+log.info(\"report\", code, body)\
+end\
+local function fota_cb(ret)\
+log.info(TAG, \"fota\", ret)\
+upload_report(\"fotabin ret: \" .. tostring(ret))\
+if ret == 0 then\
+upload_report(\"upgrade ok\")\
+log.info(TAG, \"upgrade ok, reboot\")\
+emg_svc_data.power_normal = emg_svc_data.normal_max_count\
+io.writeFile(\"/emg_svc\", json.encode(emg_svc_data))\
+rtos.reboot()\
+end\
+end\
+local function fota_request()\
+local success, getip_result = getip_with_retry(8)\
+if not success then\
+upload_report(\"getip fail: \" .. getip_result)\
+log.error(TAG, \"getip fail\", getip_result)\
+else\
+log.info(TAG, \"getip ok\", getip_result.msg)\
+getip_data.url = getip_result.url\
+getip_data.report_url = getip_result.report_url\
+getip_data.key = getip_result.key\
+getip_data.msg = getip_result.msg\
+log.info(TAG, \"getip_data\", getip_data.url)\
+local code,headers,body = http.request(\"POST\", getip_data.url, nil, json.encode(post_body)).wait()\
+log.info(\"http\", code, body)\
+if code == 200 then\
+local response = json.decode(body)\
+if not response then\
+upload_report(\"fotabin json fail\")\
+log.error(TAG, \"fotabin json fail\")\
+return\
+end\
+log.info(TAG, \"fotabin resp\", json.encode(response))\
+if response.code == 10 then\
+upload_report(\"request fota bin\")\
+log.info(\"fota\", \"start\")\
+code, headers, body = http.request(\"GET\", response.fotabin, {[\"Host\"] = \"gps.openluat.com\"}, nil, {fota=true, timeout=10000}).wait()\
+log.info(\"fota download\", code, body)\
+local ret = 4\
+if code == 200 or code == 206 then\
+if body == 0 then\
+ret = 4\
+upload_report(\"fota body empty\")\
+else\
+ret = 0\
+if type(body) == \"string\" then\
+upload_report(\"fota ok, size: \" .. tostring(#body))\
+elseif type(body) == \"number\" then\
+upload_report(\"fota ok, size: \" .. tostring(body))\
+else\
+upload_report(\"fota ok, type: \" .. type(body))\
+end\
+elseif code == -4 then\
+ret = 1\
+elseif code == -5 then\
+ret = 3\
+else\
+ret = 4\
+end\
+fota_cb(ret)\
+end\
+else\
+log.error(TAG, \"fotabin url error\", response.code)\
+upload_report(\"fotabin url error: \" .. tostring(response.code))\
+end\
+end\
+end\
+sys.taskInit(function()\
+local reason1, reason2, reason3 = pm.lastReson()\
+while true do\
+sys.wait(10000)\
+if wlan and not wlan.ready() then\
+wlan.connect(emg_svc_data.wifi_ssid, emg_svc_data.wifi_password)\
+end\
+log.info(TAG, \"ver\", VERSION)\
+log.info(TAG, \"net status\", mobile.status() == 1 and \"reg\" or \"not reg\")\
+adc.open(adc.CH_VBAT)\
+adc.open(adc.CH_CPU)\
+post_body.reson_key = \"StWtlHHhrPkNdELu2MDSaNMMYMXCZ2Mx\"\
+post_body.core_ver = rtos.version()\
+post_body.hw_ver = hmeta.hwver() or \"unknown\"\
+post_body.model = rtos.bsp()\
+post_body.power_reson = reason3 or 0\
+post_body.vbat = adc.get(adc.CH_VBAT)\
+post_body.cpu_temp = adc.get(adc.CH_CPU)\
+adc.close(adc.CH_VBAT)\
+adc.close(adc.CH_CPU)\
+if mobile then\
+local server_cell = mobile.scell()\
+post_body.device_id = mobile.imei()\
+post_body.muid = mobile.muid()\
+post_body.iccid = mobile.iccid()\
+post_body.imsi = mobile.imsi()\
+post_body.rssi = mobile.rssi()\
+post_body.rsrq = mobile.rsrq()\
+post_body.rsrp = mobile.rsrp()\
+post_body.snr = mobile.snr()\
+post_body.band = server_cell.band or 0\
+post_body.mcc = server_cell.mcc or 0\
+post_body.mnc = server_cell.mnc or 0\
+post_body.cid = server_cell.cid or 0\
+post_body.earfcn = server_cell.earfcn or 0\
+post_body.pci = server_cell.pci or 0\
+post_body.tac = server_cell.tac or 0\
+elseif wlan then\
+post_body.device_id = wlan.getMac()\
+post_body.wifi_ssid = wlan.getSsid() or \"unknown ssid\"\
+post_body.wifi_password = wlan.getPassword() or \"unknown password\"\
+post_body.wifi_bssid = wlan.getBssid() or \"unknown bssid\"\
+post_body.wifi_ip = wlan.getIp() or \"unknown ip\"\
+end\
+log.info(TAG, \"device_info\", json.encode(post_body))\
+if not post_body.key then\
+getip_with_retry(8)\
+end\
+end\
+end)\
+sys.taskInit(function()\
+local data = io.readFile(\"/emg_svc\")\
+if data then\
+log.info(TAG, \"emg_svc\", data)\
+emg_svc_data = json.decode(data)\
+if emg_svc_data and emg_svc_data.interval then\
+interval = emg_svc_data.interval * 60000\
+end\
+end\
+while true do\
+log.info(TAG, \"emg_svc interval\", interval / 60000, \"min\")\
+sys.wait(interval)\
+fota_request()\
+end\
+end)\
 sys.run()\
 ";
 

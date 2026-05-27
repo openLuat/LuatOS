@@ -382,12 +382,19 @@ local function connect_create_ui()
         },
         on_click = function()
             local password = connect_password_textarea:get_text()
+            -- 无密码热点允许空密码连接
             if not password or password == "" then
-                airui.msgbox({
-                    text = "请输入WiFi密码",
-                    buttons = { "确定" },
-                    on_action = function(self) self:destroy() end
+                sys.publish("WIFI_CONNECT_REQ", {
+                    ssid = connect_current_wifi and connect_current_wifi.ssid,
+                    password = "",
+                    advanced_config = connect_advanced_config
                 })
+                if connect_from_saved then
+                    sys.publish("CLOSE_WIFI_SAVED_LIST_WIN")
+                end
+                if connect_win_id then
+                    exwin.close(connect_win_id)
+                end
                 return
             end
             if #password < 8 then

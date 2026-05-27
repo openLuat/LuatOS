@@ -99,6 +99,31 @@ local function on_fota_reboot_prompt(message)
     show_reboot_prompt(message)
 end
 
+-- 下载确认弹窗（检测到新版本后询问是否下载）
+local function show_download_prompt(message)
+    local mw = math.min(400, screen_w - 80)
+    local mh = math.floor(screen_h * 0.28)
+    local font_size = math.max(14, math.min(20, math.floor(screen_h * 0.024)))
+    airui.msgbox({
+        parent = main_container,
+        w = mw, h = mh,
+        style = { text_font_size = font_size },
+        title = "固件更新",
+        text = message or "检测到新版本，是否下载升级？",
+        buttons = { "取消", "开始下载" },
+        on_action = function(self, btn_label)
+            self:destroy()
+            if btn_label == "开始下载" then
+                sys.publish("FOTA_DOWNLOAD_START")
+            end
+        end
+    })
+end
+
+local function on_fota_download_prompt(message)
+    show_download_prompt(message)
+end
+
 -- ==================== 设置值回填 ====================
 
 local function on_fota_settings(auto, interval)
@@ -306,6 +331,7 @@ end
 local function on_create()
     sys.subscribe("FOTA_STATUS", on_fota_status)
     sys.subscribe("FOTA_PROMPT_REBOOT", on_fota_reboot_prompt)
+    sys.subscribe("FOTA_PROMPT_DOWNLOAD", on_fota_download_prompt)
     sys.subscribe("FOTA_SETTINGS", on_fota_settings)
     build_ui()
 end
@@ -313,6 +339,7 @@ end
 local function on_destroy()
     sys.unsubscribe("FOTA_STATUS", on_fota_status)
     sys.unsubscribe("FOTA_PROMPT_REBOOT", on_fota_reboot_prompt)
+    sys.unsubscribe("FOTA_PROMPT_DOWNLOAD", on_fota_download_prompt)
     sys.unsubscribe("FOTA_SETTINGS", on_fota_settings)
     if content_area then
         content_area:destroy(); content_area = nil

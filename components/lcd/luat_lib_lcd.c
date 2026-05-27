@@ -69,13 +69,15 @@ static const lcd_reg_t lcd_regs[] = {
   {"ili9486", &lcd_opts_ili9486},
   {"nv3037",  &lcd_opts_nv3037},
   {"nv3041a", &lcd_opts_nv3041a},
-  {"h050iwv", &lcd_opts_h050iwv},
-  {"jd9261t_inited", &lcd_opts_jd9261t_inited},
   {"nv3052c", &lcd_opts_nv3052c},
   {"hx8282",  &lcd_opts_hx8282},
   {"st7701s",  &lcd_opts_st7701s},
   {"st7701sn",  &lcd_opts_st7701sn},
+#if !defined(LUAT_USE_LCD_SPI_ONLY)
+  {"h050iwv", &lcd_opts_h050iwv},
+  {"jd9261t_inited", &lcd_opts_jd9261t_inited},
   {"sh8601z",  &lcd_opts_sh8601z},
+#endif
   {"user",  &lcd_opts_user_ctrl},
   {"", NULL} // 最后一个必须是空字符串
 };

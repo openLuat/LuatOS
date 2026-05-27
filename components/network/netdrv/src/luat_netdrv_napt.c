@@ -34,6 +34,8 @@ static int s_gw_adapter_id = -1;
 // 用于解决 PDP 重激活后 drvs[]->netif 指针过时的问题
 static void napt_sync_gw_netif(int adapter_id) {
     #ifdef  __USE_SDK_LWIP__
+    if (adapter_id != NW_ADAPTER_INDEX_LWIP_GPRS)
+        return;
     luat_netdrv_t* drv = luat_netdrv_get(adapter_id);
     if (drv == NULL) return;
     struct netif* real_netif = net_lwip_get_netif(adapter_id);
@@ -41,8 +43,7 @@ static void napt_sync_gw_netif(int adapter_id) {
     if (drv->netif == real_netif) return;
     uint32_t old_ip = drv->netif ? ip_addr_get_ip4_u32(&drv->netif->ip_addr) : 0;
     uint32_t new_ip = ip_addr_get_ip4_u32(&real_netif->ip_addr);
-    LLOGI("NAPT netif sync: adapter=%d old=%p(IP %08X) -> new=%p(IP %08X)",
-          adapter_id, drv->netif, old_ip, real_netif, new_ip);
+    LLOGI("NAPT netif sync: adapter=%d old=%p(IP %08X) -> new=%p(IP %08X)", adapter_id, drv->netif, old_ip, real_netif, new_ip);
     drv->netif = real_netif;
     #endif
 }

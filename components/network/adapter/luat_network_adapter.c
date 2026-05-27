@@ -327,6 +327,10 @@ static int tls_send(void *ctx, const unsigned char *buf, size_t len )
 	{
 		return -ERROR_PERMISSION_DENIED;
 	}
+#if defined(CHIP_EC618) || defined(CHIP_EC716) || defined(CHIP_EC718)
+	// 加2ms延迟，确保数据发送完成
+	luat_rtos_task_sleep(2);
+#endif
 	if (network_base_tx(ctrl, buf, len, 0, NULL, 0) != len)
 	{
 		return -0x004E;
@@ -349,7 +353,10 @@ static int tls_recv(void *ctx, unsigned char *buf, size_t len )
 		return -1;
 	}
 TLS_RECV:
-
+#if defined(CHIP_EC618) || defined(CHIP_EC716) || defined(CHIP_EC718)
+	// 加2ms延迟，确保数据接收完成
+	luat_rtos_task_sleep(2);
+#endif
 	result = network_socket_receive(ctrl, buf, len, 0, &remote_ip, &remote_port);
 	if (result < 0)
 	{

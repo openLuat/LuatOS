@@ -297,11 +297,13 @@ struct little_flash{
 
 #define LF_NANDFLASH_PAGE_ZISE                      (2048)     /**< NAND flash page size (bytes) */
 
-#define LF_CMD_WRITE_STATUS_REGISTER                (0x01)
+#define LF_CMD_NORFLASH_WRITE_STATUS_REGISTER       (0x01)
+#define LF_CMD_NORFLASH_READ_STATUS_REGISTER        (0x05)
+
+#define LF_CMD_NANDFLASH_WRITE_STATUS_REGISTER      (0x1F)
+#define LF_CMD_NANDFLASH_READ_STATUS_REGISTER       (0x0F)
 
 #define LF_CMD_WRITE_DISABLE                        (0x04)
-
-#define LF_CMD_READ_STATUS_REGISTER                 (0x05)
 
 #define LF_CMD_WRITE_ENABLE                         (0x06)
 

@@ -48,6 +48,9 @@
  * @int config.style.focus_outline_width 焦点态描边宽度
  * @table config.stype 兼容旧样式表，可选，已废弃并将在 1.2.0 版本后移除
  * @function config.on_click 点击回调函数，可选
+ * @function config.on_pressed 按下回调函数，可选
+ * @function config.on_released 抬起回调函数，可选
+ * @function config.on_long_press 长按回调函数，按住>=400ms触发，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Button 对象
  */
@@ -130,6 +133,57 @@ static int l_button_set_on_click(lua_State *L) {
     int ref = luaL_ref(L, LUA_REGISTRYINDEX);
     
     airui_button_set_on_click(btn, ref);
+    return 0;
+}
+
+/**
+ * Button:set_on_pressed(callback)
+ * @api button:set_on_pressed(callback)
+ * @function callback 按下回调函数
+ * @return nil
+ */
+static int l_button_set_on_pressed(lua_State *L) {
+    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+    
+    lua_pushvalue(L, 2);
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    
+    airui_button_set_on_pressed(btn, ref);
+    return 0;
+}
+
+/**
+ * Button:set_on_released(callback)
+ * @api button:set_on_released(callback)
+ * @function callback 抬起回调函数
+ * @return nil
+ */
+static int l_button_set_on_released(lua_State *L) {
+    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+    
+    lua_pushvalue(L, 2);
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    
+    airui_button_set_on_released(btn, ref);
+    return 0;
+}
+
+/**
+ * Button:set_on_long_press(callback)
+ * @api button:set_on_long_press(callback)
+ * @function callback 长按回调函数
+ * @return nil
+ */
+static int l_button_set_on_long_press(lua_State *L) {
+    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+    
+    lua_pushvalue(L, 2);
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    
+    airui_button_set_on_long_press(btn, ref);
     return 0;
 }
 
@@ -235,6 +289,7 @@ static int l_button_destroy(lua_State *L) {
  */
 void airui_register_button_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_BUTTON_MT);
+    airui_component_set_metatable_gc(L);
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_text", l_button_set_text},
@@ -243,6 +298,9 @@ void airui_register_button_meta(lua_State *L) {
         {"set_style", l_button_set_style},
         {"set_stype", l_button_set_stype},
         {"set_on_click", l_button_set_on_click},
+        {"set_on_pressed", l_button_set_on_pressed},
+        {"set_on_released", l_button_set_on_released},
+        {"set_on_long_press", l_button_set_on_long_press},
         {"get_pos", l_button_get_pos},
         {"set_pos", l_button_set_pos},
         {"move", l_button_move},

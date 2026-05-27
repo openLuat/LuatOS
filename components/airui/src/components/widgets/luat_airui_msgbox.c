@@ -280,6 +280,26 @@ int airui_msgbox_set_style(lv_obj_t *msgbox, void *L, int idx)
         airui_msgbox_set_text_font_size_recursive(msgbox, value);
     }
 
+    int btn_text_font_size = 0;
+    if (airui_marshal_integer_opt(L_state, idx, "btn_text_font_size", &btn_text_font_size) && btn_text_font_size > 0) {
+        lv_obj_t *footer = lv_msgbox_get_footer(msgbox);
+        if (footer != NULL) {
+            uint32_t btn_cnt = lv_obj_get_child_cnt(footer);
+            for (uint32_t i = 0; i < btn_cnt; i++) {
+                lv_obj_t *btn = lv_obj_get_child(footer, i);
+                if (btn == NULL) continue;
+                uint32_t child_cnt = lv_obj_get_child_cnt(btn);
+                for (uint32_t j = 0; j < child_cnt; j++) {
+                    lv_obj_t *child = lv_obj_get_child(btn, j);
+                    if (child != NULL && lv_obj_check_type(child, &lv_label_class)) {
+                        (void)airui_text_font_apply_hzfont(child, btn_text_font_size,
+                            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+                    }
+                }
+            }
+        }
+    }
+
     return AIRUI_OK;
 }
 

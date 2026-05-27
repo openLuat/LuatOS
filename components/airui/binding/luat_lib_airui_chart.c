@@ -436,6 +436,7 @@ static int l_chart_destroy(lua_State *L)
 void airui_register_chart_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_CHART_MT);
+    airui_component_set_metatable_gc(L);
     static const luaL_Reg methods[] = {
         {"set_values", l_chart_set_values},
         {"push", l_chart_push},

@@ -11,6 +11,18 @@ params: { port, pin_rst, pin_int, int_type, i2c_speed, w, h, gpio_reset }
 local M = {}
 
 function M.init(params)
+    -- 底板 I2C 供电 GPIO 上拉（部分平台需要在 I2C 初始化前配置）
+    if params.pwr_pins then
+        for _, p in ipairs(params.pwr_pins) do
+            gpio.setup(p.pin, 1, gpio.PULLUP)
+        end
+    end
+    -- I2C 上电稳定等待（默认 0，有 pwr_pins 或显式设 pwr_delay 时才等）
+    local delay = params.pwr_pins and (params.pwr_delay or 100) or params.pwr_delay
+    if delay and delay > 0 then
+        sys.wait(delay)
+    end
+
     -- GPIO 复位序列（部分底板需要）
     if params.gpio_reset then
         gpio.setup(params.gpio_reset, 0)

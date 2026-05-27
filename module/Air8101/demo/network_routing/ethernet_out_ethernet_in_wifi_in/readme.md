@@ -12,7 +12,7 @@
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air8101/luatos/app/image/8101_1.jpg)
+![](https://docs.openluat.com/air8000/luatos/app/image/8101以太网.jpg)
 
 1、Air8101核心板
 

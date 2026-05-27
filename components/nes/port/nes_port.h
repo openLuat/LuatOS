@@ -59,6 +59,15 @@ int nes_fclose( FILE *fp );
 
 void nes_wait(uint32_t ms);
 
+typedef struct {
+    int  (*draw)(void *ctx, int x1, int y1, int x2, int y2, void *pixels);
+    void (*frame)(void *ctx);
+    void *ctx;
+} nes_port_render_cb_t;
+
+void nes_port_set_render_cb(nes_port_render_cb_t *cb);
+void nes_port_clear_render_cb(void);
+
 #ifdef LUAT_USE_AIRUI
 /**
  * @brief 切换渲染模式

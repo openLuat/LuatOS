@@ -120,6 +120,9 @@ static void lvgl_event_cb(lv_event_t *e)
         case LV_EVENT_READY:
             event_type = AIRUI_EVENT_READY;
             break;
+        case LV_EVENT_LONG_PRESSED:
+            event_type = AIRUI_EVENT_LONG_PRESSED;
+            break;
         default:
             return;
     }
@@ -183,6 +186,9 @@ int airui_component_bind_event(
             break;
         case AIRUI_EVENT_READY:
             lv_event_code = LV_EVENT_READY;
+            break;
+        case AIRUI_EVENT_LONG_PRESSED:
+            lv_event_code = LV_EVENT_LONG_PRESSED;
             break;
         default:
             return AIRUI_ERR_INVALID_PARAM;

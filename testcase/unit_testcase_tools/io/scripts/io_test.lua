@@ -200,6 +200,31 @@ function io_context.test_file_seek()
     log.info("io_context", "file:seek 测试通过")
 end
 
+function io_context.test_inline_file_seek_clamps_offsets()
+    log.info("io_context", "开始 /lua/ inline file:seek 边界测试")
+    local inline_path = "/lua/sys.lua"
+    local content = io.readFile(inline_path, "rb")
+    assert(content and #content > 8, "读取 inline 文件失败")
+
+    local file = io.open(inline_path, "rb")
+    assert(file, "打开 inline 文件失败")
+
+    local pos = file:seek("end", -3)
+    log.info("io_context", "inline seek end后位置:", pos)
+    assert(pos == #content - 3, "inline seek end 应定位到末尾前3字节")
+    local tail = file:read("*a")
+    assert(tail == string.sub(content, -3), "inline seek end 后读取尾部失败")
+
+    pos = file:seek("set", -5)
+    log.info("io_context", "inline seek set负偏移后位置:", pos)
+    assert(pos == 0, "inline seek set 负偏移应钳制到0")
+    local head = file:read(3)
+    assert(head == string.sub(content, 1, 3), "inline seek set 钳制后读取头部失败")
+
+    file:close()
+    log.info("io_context", "/lua/ inline file:seek 边界测试通过")
+end
+
 function io_context.test_file_close()
     log.info("io_context", "开始 file:close 测试")
     local file = io.open(test_file_path, "w")

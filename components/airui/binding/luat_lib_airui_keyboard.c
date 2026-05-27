@@ -186,6 +186,7 @@ static int l_keyboard_destroy(lua_State *L) {
  */
 void airui_register_keyboard_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_KEYBOARD_MT);
+    airui_component_set_metatable_gc(L);
 
     static const luaL_Reg methods[] = {
         {"set_target", l_keyboard_set_target},

@@ -333,19 +333,42 @@ end
 
 --[[
 解析断开原因码
-@param number data - 断开原因码
-@return string - 可读的原因描述
+@param number data - 断开原因码 (WLAN_STA_DISCONNECT 事件的 data 字段)
+@return string - 可读的原因描述，格式: "原因名(code)"
 ]]
 function M.resolve_disconnect_reason(data)
-    local reason_name = "未知错误"
+    local reason_name
+    -- LuatOS 封装层自定义码 (256+)
     if data == 260 then reason_name = "DHCP超时"
     elseif data == 259 then reason_name = "程序主动断开"
     elseif data == 258 then reason_name = "密码错误"
     elseif data == 257 then reason_name = "找不到对应SSID"
     elseif data == 256 then reason_name = "信号丢失"
-    elseif data == 3 then reason_name = "软件主动断开"
+    -- WiFi 协议标准断开原因码 (1~255，来自 AP 或底层驱动)
+    elseif data == 1  then reason_name = "未指定原因"
+    elseif data == 2  then reason_name = "认证过期"
+    elseif data == 3  then reason_name = "软件主动断开"
+    elseif data == 4  then reason_name = "接入点无响应"
+    elseif data == 5  then reason_name = "接入点过载"
+    elseif data == 6  then reason_name = "未认证"
+    elseif data == 7  then reason_name = "未关联"
+    elseif data == 8  then reason_name = "关联离开"
+    elseif data == 13 then reason_name = "四次握手MIC校验失败"
+    elseif data == 14 then reason_name = "四次握手超时"
+    elseif data == 15 then reason_name = "组密钥更新超时"
+    elseif data == 200 then reason_name = "Beacon丢失(AP离线)"
+    elseif data == 201 then reason_name = "找不到AP"
+    elseif data == 202 then reason_name = "802.11认证被拒"
+    elseif data == 203 then reason_name = "关联被拒"
+    elseif data == 204 then reason_name = "握手超时"
+    elseif data == 205 then reason_name = "连接超时"
     end
-    return reason_name
+    -- 未匹配则显示原始码，不再返回"未知错误"
+    if reason_name then
+        return reason_name .. "(" .. tostring(data) .. ")"
+    else
+        return "断开(" .. tostring(data) .. ")"
+    end
 end
 
 return M

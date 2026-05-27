@@ -99,6 +99,15 @@ int luat_audio_get_play_info_from_file(luat_audio_data_codec_t *codec, luat_audi
  */
 void luat_audio_driver_event_callback(uint32_t event, uint8_t *rx_data, uint32_t param, luat_audio_driver_ctrl_t *ctrl);
 
+/**
+ * @brief 检查所有音频请求是否完成
+ * 
+ * 此函数用于检查所有音频请求是否完成，包括解码、播放等。
+ * 
+ * @param ctrl 音频驱动控制器指针, 用于指定要检查的音频驱动，如果为NULL，则检查所有音频驱动的请求
+ * @return 0 表示有请求未完成，1 表示所有请求已完成
+ */
+uint8_t luat_audio_is_request_all_done(luat_audio_driver_ctrl_t *ctrl);
 
 #ifdef __LUATOS__
 void l_audio_init(void);

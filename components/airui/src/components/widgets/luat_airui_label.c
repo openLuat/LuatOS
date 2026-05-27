@@ -114,6 +114,12 @@ lv_obj_t *airui_label_create_from_config(void *L, int idx)
         lv_obj_add_flag(label, LV_OBJ_FLAG_CLICKABLE);
         airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, click_ref);
     }
+
+    int long_press_ref = airui_component_capture_callback(L, idx, "on_long_press");
+    if (long_press_ref != LUA_NOREF) {
+        lv_obj_add_flag(label, LV_OBJ_FLAG_CLICKABLE);
+        airui_component_bind_event(meta, AIRUI_EVENT_LONG_PRESSED, long_press_ref);
+    }
     
     return label;
 }

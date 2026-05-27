@@ -20,7 +20,7 @@ return {
 
     hw = {
         lcd = {
-            model = "lcd_custom_10in",
+            model = "lcd_hx8282_10in",
             params = {
                 port = lcd.RGB,
                 pin_rst = 15,

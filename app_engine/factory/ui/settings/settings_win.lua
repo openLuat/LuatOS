@@ -42,7 +42,7 @@ local function update_screen_size()
     end
     margin = math.floor(screen_w * 0.02)
     card_w = screen_w - 2 * margin
-    card_h = math.floor(screen_h * 0.09)
+    card_h = math.max(42, math.floor(screen_h * 0.09))
     card_spacing = math.floor(screen_h * 0.015)
 end
 

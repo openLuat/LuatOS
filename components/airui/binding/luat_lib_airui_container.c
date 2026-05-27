@@ -29,6 +29,7 @@
  * @int config.border_color 边框颜色（0xRRGGBB），不传或小于 0 时不绘制边框
  * @int config.border_width 边框宽度，默认 1；需与 border_color 同时有效才显示边框
  * @function config.on_click 点击回调函数，可选；传入时容器可点击
+ * @function config.on_long_press 长按回调函数，按住>=400ms触发，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Container 对象；创建失败时返回 nil
  */
@@ -70,6 +71,22 @@ static int l_container_set_on_click(lua_State *L) {
     int ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
     airui_container_set_on_click(container, ref);
+    return 0;
+}
+
+/**
+ * Container:set_on_long_press(callback)
+ * @api container:set_on_long_press(callback)
+ * @function callback 长按回调函数
+ */
+static int l_container_set_on_long_press(lua_State *L) {
+    lv_obj_t *container = airui_check_component(L, 1, AIRUI_CONTAINER_MT);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+
+    lua_pushvalue(L, 2);
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    airui_container_set_on_long_press(container, ref);
     return 0;
 }
 
@@ -193,6 +210,7 @@ static int l_container_destroy(lua_State *L) {
  */
 void airui_register_container_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_CONTAINER_MT);
+    airui_component_set_metatable_gc(L);
     // lua_pushcfunction(L, l_container_gc);
     // lua_setfield(L, -2, "__gc");
 
@@ -200,6 +218,7 @@ void airui_register_container_meta(lua_State *L) {
         {"set_color", l_container_set_color},
         {"set_border_color", l_container_set_border_color},
         {"set_on_click", l_container_set_on_click},
+        {"set_on_long_press", l_container_set_on_long_press},
         {"set_hidden", l_container_set_hidden},
         {"get_pos", l_container_get_pos},
         {"set_pos", l_container_set_pos},

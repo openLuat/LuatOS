@@ -205,6 +205,17 @@ void luat_audio_data_codec_deinit(luat_audio_data_codec_t *codec);
 void luat_audio_data_codec_unbind(luat_audio_data_codec_t *codec);
 
 /**
+ * @brief 获取音频编解码器的播放信息
+ * @param codec 编解码控制器上下文指针
+ * @param input_buffer 输入数据缓冲区指针
+ * @param now_file_pos 当前文件位置（字节）,输入参数
+ * @param jump_offset_bytes 跳转偏移量指针，用于存储跳转偏移量（字节），输出参数，如果成功获取到采样率，则这里是解码开始的位置
+ * @param need_bytes 需要的字节数指针，用于存储需要的字节数（字节），输出参数
+ * @return int 无错误返回 LUAT_ERROR_NONE，失败返回负值错误码，codec->common_param 会更新播放信息结构，得到sample_rate则完全成功
+ * @note 该函数在解码前调用，用于获取音频的播放信息，如采样率、声道数、采样宽度、采样深度等
+ */
+int luat_audio_data_codec_get_play_info(luat_audio_data_codec_t *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes);
+/**
  * @brief 解码音频数据一次
  * @param codec 编解码控制器上下文指针
  * @param input_data_fifo 输入数据fifo指针
@@ -242,10 +253,12 @@ int luat_audio_amr_nb_get_play_info(struct luat_audio_data_codec *codec, luat_bu
 int luat_audio_amr_wb_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);
 int luat_audio_mp3_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);
 int luat_audio_wav_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);
+
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_nb_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts;       
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_wav_opts;
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_raw_opts;
 #endif
 
 /** @} */

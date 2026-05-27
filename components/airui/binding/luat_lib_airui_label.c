@@ -34,6 +34,9 @@
  * @int config.font_size 字号，默认 14
  * @string config.font 字体类型，当前支持 "hzfont"，不传时使用默认字体
  * @string config.text 文本内容，可选
+ * @string config.symbol 符号，可选
+ * @function config.on_click 点击回调函数，可选
+ * @function config.on_long_press 长按回调函数，按住>=400ms触发，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Label 对象
  */
@@ -162,6 +165,31 @@ static int l_label_set_on_click(lua_State *L) {
 }
 
 /**
+ * Label:set_on_long_press(callback)
+ * @api label:set_on_long_press(callback)
+ * @function callback 长按回调
+ * @return nil
+ */
+static int l_label_set_on_long_press(lua_State *L) {
+    lv_obj_t *label = airui_check_component(L, 1, AIRUI_LABEL_MT);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+
+    lua_pushvalue(L, 2);
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    lv_obj_add_flag(label, LV_OBJ_FLAG_CLICKABLE);
+
+    airui_component_meta_t *meta = airui_component_meta_get(label);
+    if (meta != NULL) {
+        airui_component_bind_event(meta, AIRUI_EVENT_LONG_PRESSED, ref);
+    } else {
+        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+    }
+
+    return 0;
+}
+
+/**
  * Label:get_text()
  * @api label:get_text()
  * @return string 文本内容
@@ -240,6 +268,7 @@ static int l_label_destroy(lua_State *L) {
  */
 void airui_register_label_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_LABEL_MT);
+    airui_component_set_metatable_gc(L);
     
     // 设置方法表
     static const luaL_Reg methods[] = {
@@ -249,6 +278,7 @@ void airui_register_label_meta(lua_State *L) {
         {"set_font_size", l_label_set_font_size},
         {"set_align", l_label_set_align},
         {"set_on_click", l_label_set_on_click},
+        {"set_on_long_press", l_label_set_on_long_press},
         {"get_text", l_label_get_text},
         {"get_pos", l_label_get_pos},
         {"set_pos", l_label_set_pos},

@@ -153,12 +153,6 @@ static int l_textarea_get_keyboard(lua_State *L) {
  * Textarea:destroy（手动销毁）
  */
 static int l_textarea_destroy(lua_State *L) {
-    lv_obj_t *textarea = airui_check_component(L, 1, AIRUI_TEXTAREA_MT);
-    airui_component_meta_t *meta = airui_component_meta_get(textarea);
-    if (meta != NULL && meta->user_data != NULL) {
-        luat_heap_free(meta->user_data);
-        meta->user_data = NULL;
-    }
     return airui_component_destroy_userdata(L, 1, AIRUI_TEXTAREA_MT);
 }
 
@@ -168,6 +162,7 @@ static int l_textarea_destroy(lua_State *L) {
  */
 void airui_register_textarea_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_TEXTAREA_MT);
+    airui_component_set_metatable_gc(L);
 
     static const luaL_Reg functions[] = {
         {"set_text", l_textarea_set_text},

@@ -90,7 +90,12 @@ function create.userapi(str, source_info)
     if tonumber(second) and tonumber(second) > 0 and tonumber(second) < 8 then
         return cmd[first]["pipe"](t, second) .. "\r\n"
     elseif cmd[first][second] then
-        local result = cmd[first][second](t, source_info)
+        local result
+        if second=="getreallocation" or second=="getairlbslocation" then
+            result = cmd[first][second](t, source_info)
+        else
+            result = cmd[first][second](t, str)
+        end
         if result then
             return result .. "\r\n"
         else

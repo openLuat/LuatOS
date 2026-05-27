@@ -77,18 +77,28 @@ int luat_vfs_inline_getc(void* userdata, FILE* stream) {
 int luat_vfs_inline_fseek(void* userdata, FILE* stream, long int offset, int origin) {
     //LLOGD("fseek %p %p %d %d", userdata, stream, offset, origin);
     luat_fs_inline_t* fd = (luat_fs_inline_t*)stream;
+    long long new_offset;
+
+    if (fd == NULL) {
+        return -1;
+    }
     if (origin == SEEK_CUR) {
-        fd->offset += offset;
-        return 0;
+        new_offset = (long long)fd->offset + offset;
     }
     else if (origin == SEEK_SET) {
-        fd->offset = offset;
-        return 0;
+        new_offset = offset;
     }
     else {
-        fd->offset = fd->size - offset;
-        return 0;
+        new_offset = (long long)fd->size + offset;
     }
+    if (new_offset < 0) {
+        new_offset = 0;
+    }
+    if ((uint64_t)new_offset > fd->size) {
+        new_offset = fd->size;
+    }
+    fd->offset = (uint32_t)new_offset;
+    return 0;
 }
 
 int luat_vfs_inline_ftell(void* userdata, FILE* stream) {
@@ -106,6 +116,9 @@ int luat_vfs_inline_fclose(void* userdata, FILE* stream) {
 int luat_vfs_inline_feof(void* userdata, FILE* stream) {
     luat_fs_inline_t* fd = (luat_fs_inline_t*)stream;
     //LLOGD("feof %p %p %d %d", userdata, stream, fd->size, fd->offset);
+    if (fd == NULL) {
+        return 1;
+    }
     return fd->offset >= fd->size ? 1 : 0;
 }
 int luat_vfs_inline_ferror(void* userdata, FILE *stream) {
@@ -116,6 +129,12 @@ size_t luat_vfs_inline_fread(void* userdata, void *ptr, size_t size, size_t nmem
     //LLOGD("fread %p %p %d %d", userdata, stream, fd->size, fd->offset);
     //LLOGD("fread2 %p %p %d %d", userdata, stream, size * nmemb, fd->offset);
     size_t read_size = size*nmemb;
+    if (fd == NULL || ptr == NULL) {
+        return 0;
+    }
+    if (fd->offset >= fd->size) {
+        return 0;
+    }
     if (fd->offset + read_size > fd->size) {
         read_size = fd->size - fd->offset;
     }
@@ -195,4 +214,3 @@ const struct luat_vfs_filesystem vfs_fs_inline = {
     }
 };
 #endif
-

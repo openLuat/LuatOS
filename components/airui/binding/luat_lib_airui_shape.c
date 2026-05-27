@@ -270,6 +270,7 @@ static int l_shape_destroy(lua_State *L)
 void airui_register_shape_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_SHAPE_MT);
+    airui_component_set_metatable_gc(L);
     static const luaL_Reg methods[] = {
         {"set_items", l_shape_set_items},
         {"add_item", l_shape_add_item},

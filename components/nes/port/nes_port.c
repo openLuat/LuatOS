@@ -23,6 +23,7 @@
  */
 
 #include "nes.h"
+#include "nes_port.h"
 
 #include "luat_base.h"
 #include "luat_mem.h"
@@ -41,6 +42,24 @@ void nes_set_airui_mode(int enabled) {
     g_nes_airui_mode = enabled;
 }
 #endif
+
+static nes_port_render_cb_t g_render_cb = { NULL, NULL, NULL };
+
+void nes_port_set_render_cb(nes_port_render_cb_t *cb) {
+    if (cb) {
+        g_render_cb = *cb;
+    } else {
+        g_render_cb.draw  = NULL;
+        g_render_cb.frame = NULL;
+        g_render_cb.ctx   = NULL;
+    }
+}
+
+void nes_port_clear_render_cb(void) {
+    g_render_cb.draw  = NULL;
+    g_render_cb.frame = NULL;
+    g_render_cb.ctx   = NULL;
+}
 
 /* memory */
 void *nes_malloc(int num){
@@ -103,6 +122,9 @@ int nes_deinitex(nes_t *nes){
 }
 
 int nes_draw(int x1, int y1, int x2, int y2, nes_color_t* color_data){
+    if (g_render_cb.draw) {
+        return g_render_cb.draw(g_render_cb.ctx, x1, y1, x2, y2, color_data);
+    }
 #ifdef LUAT_USE_AIRUI
     if (g_nes_airui_mode) {
         return nes_airui_video_draw(NULL, x1, y1, x2, y2, color_data);
@@ -116,13 +138,16 @@ int nes_draw(int x1, int y1, int x2, int y2, nes_color_t* color_data){
 }
 
 void nes_frame(nes_t* nes){
+    (void)nes;
+    if (g_render_cb.frame) {
+        g_render_cb.frame(g_render_cb.ctx);
+    }
 #ifdef LUAT_USE_AIRUI
-    if (g_nes_airui_mode) {
+    else if (g_nes_airui_mode) {
         nes_airui_video_frame(NULL);
     }
 #endif
 #ifdef LUAT_BSP_PC
-    /* PC 上限速到约 60fps（NES 实际约 60.1Hz），否则模拟器以全速运行 */
     luat_rtos_task_sleep(15);
 #else
     luat_rtos_task_sleep(1);

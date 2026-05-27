@@ -9,7 +9,7 @@ static const little_flash_chipinfo_t little_flash_table[] = LITTLE_FLASH_CHIP_TA
 lf_err_t little_flash_write_status(const little_flash_t *lf, uint8_t address, uint8_t status){
     lf_err_t result = LF_ERR_OK;
     uint8_t cmd_data[3]={0};
-    cmd_data[0]=LF_CMD_WRITE_STATUS_REGISTER;
+    cmd_data[0]=lf->chip_info.type==LF_DRIVER_NOR_FLASH?LF_CMD_NORFLASH_WRITE_STATUS_REGISTER:LF_CMD_NANDFLASH_WRITE_STATUS_REGISTER;
     if (address){
         cmd_data[1]=address;
         cmd_data[2]=status;
@@ -23,7 +23,7 @@ lf_err_t little_flash_write_status(const little_flash_t *lf, uint8_t address, ui
 lf_err_t little_flash_read_status(const little_flash_t *lf, uint8_t address, uint8_t *status){
     lf_err_t result = LF_ERR_OK;
     uint8_t cmd_data[2]={0};
-    cmd_data[0]=LF_CMD_READ_STATUS_REGISTER;
+    cmd_data[0]=lf->chip_info.type==LF_DRIVER_NOR_FLASH?LF_CMD_NORFLASH_READ_STATUS_REGISTER:LF_CMD_NANDFLASH_READ_STATUS_REGISTER;
     if (address){
         cmd_data[1]=address;
     }

@@ -175,7 +175,10 @@ local function create_edit_win(device_name)
         },
         on_close = function(self)
             log.info("settings_about", "编辑窗口已关闭")
-            if soft_keyboard then soft_keyboard = nil end
+            if soft_keyboard then
+                soft_keyboard:destroy()
+                soft_keyboard = nil
+            end
             edit_win = nil
         end
     })
@@ -212,6 +215,11 @@ local function create_edit_win(device_name)
             border_color = COLOR_DIVIDER
         },
         on_click = function()
+            if soft_keyboard then
+                soft_keyboard:hide()
+                soft_keyboard:destroy()
+                soft_keyboard = nil
+            end
             if edit_win then edit_win:close() end
         end
     })
@@ -228,22 +236,27 @@ local function create_edit_win(device_name)
             radius = 8,
             border_width = 0
         },
-        on_click = function()
-            local new_name = name_input:get_text()
-            if new_name and #new_name > 0 then
-                if device_name_label then
-                    device_name_label:set_text(new_name)
-                end
-                sys.publish("CONFIG_SET_DEVICE_NAME", new_name)
-                airui.msgbox({
-                    title = "提示",
-                    text = "设备名称已保存",
-                    buttons = {"确定"},
-                    on_action = function(self)
-                        self:hide()
-                        if edit_win then edit_win:close() end
-                    end
-                })
+                on_click = function()
+                    local new_name = name_input:get_text()
+                    if new_name and #new_name > 0 then
+                        if device_name_label then
+                            device_name_label:set_text(new_name)
+                        end
+                        sys.publish("CONFIG_SET_DEVICE_NAME", new_name)
+                        if soft_keyboard then
+                            soft_keyboard:hide()
+                            soft_keyboard:destroy()
+                            soft_keyboard = nil
+                        end
+                        airui.msgbox({
+                            title = "提示",
+                            text = "设备名称已保存",
+                            buttons = {"确定"},
+                            on_action = function(self)
+                                self:hide()
+                                if edit_win then edit_win:close() end
+                            end
+                        })
             else
                 airui.msgbox({
                     title = "提示",
@@ -342,6 +355,11 @@ end
 
 local function on_get_focus() end
 local function on_lose_focus()
+    if soft_keyboard then
+        soft_keyboard:hide()
+        soft_keyboard:destroy()
+        soft_keyboard = nil
+    end
     if edit_win then edit_win:close() end
 end
 

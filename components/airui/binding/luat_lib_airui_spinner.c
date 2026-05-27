@@ -99,6 +99,7 @@ static int l_spinner_destroy(lua_State *L)
 void airui_register_spinner_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_SPINNER_MT);
+    airui_component_set_metatable_gc(L);
     static const luaL_Reg methods[] = {
         {"set_style", l_spinner_set_style},
         {"set_anim_params", l_spinner_set_anim_params},

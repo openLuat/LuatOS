@@ -85,6 +85,12 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
         airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
     }
 
+    int long_press_ref = airui_component_capture_callback(L, idx, "on_long_press");
+    if (long_press_ref != LUA_NOREF) {
+        lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
+        airui_component_bind_event(meta, AIRUI_EVENT_LONG_PRESSED, long_press_ref);
+    }
+
     return container;
 }
 
@@ -170,6 +176,21 @@ int airui_container_set_on_click(lv_obj_t *container, int callback_ref)
 
     lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
     return airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
+}
+
+int airui_container_set_on_long_press(lv_obj_t *container, int callback_ref)
+{
+    if (container == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(container);
+    if (meta == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
+    return airui_component_bind_event(meta, AIRUI_EVENT_LONG_PRESSED, callback_ref);
 }
 
 /**

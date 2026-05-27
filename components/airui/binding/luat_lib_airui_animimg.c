@@ -128,6 +128,7 @@ static int l_animimg_destroy(lua_State *L)
 void airui_register_animimg_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_ANIMIMG_MT);
+    airui_component_set_metatable_gc(L);
 
     static const luaL_Reg methods[] = {
         {"play", l_animimg_play},

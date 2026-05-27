@@ -77,6 +77,6 @@ return {
     },
     -- 存储设备配置（如 NAND Flash）
     storage = {
-        sd_card = { spi_id = 0, pin_cs = 32, speed = 20000000},
+        sd_card = { spi_id = 0, pin_cs = 32, speed = 40000000},
     },
 }

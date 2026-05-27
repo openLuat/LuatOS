@@ -9,6 +9,15 @@
 #include "luat_log.h"
 #include "luat_queue_pc.h"
 
+/* Forward declarations for the Windows crash-handler task registry */
+#if defined(_WIN32) || defined(_WIN64)
+extern void win32_task_register(const char* name);
+extern void win32_task_unregister(void);
+#else
+static inline void win32_task_register(const char* n) { (void)n; }
+static inline void win32_task_unregister(void) {}
+#endif
+
 typedef struct utask
 {
     pthread_t          t;
@@ -18,6 +27,7 @@ typedef struct utask
     luat_rtos_task_entry task_fun;
     void*              user_data;
     uint16_t           event_cout;
+    char               task_name[64]; /* stored for crash-handler thread registry */
 } utask_t;
 
 #ifdef _MSC_VER
@@ -47,13 +57,15 @@ luat_rtos_task_handle luat_rtos_get_current_handle(void) {
 static void *rtos_task(void* args) {
     utask_t* task = (utask_t*)args;
     g_current_task = task;
+    win32_task_register(task->task_name);
     task->task_fun(task->user_data);
+    win32_task_unregister();
     g_current_task = NULL;
     return NULL;
 }
 
 int luat_rtos_task_create(luat_rtos_task_handle *task_handle, uint32_t stack_size, uint8_t priority, const char *task_name, luat_rtos_task_entry task_fun, void* user_data, uint16_t event_cout) {
-    (void)stack_size; (void)priority; (void)task_name;
+    (void)stack_size; (void)priority;
     utask_t* task = luat_heap_malloc(sizeof(utask_t));
     if (task == NULL) {
         return -1;
@@ -62,6 +74,7 @@ int luat_rtos_task_create(luat_rtos_task_handle *task_handle, uint32_t stack_siz
     task->event_cout = event_cout;
     task->user_data  = user_data;
     task->task_fun   = task_fun;
+    strncpy(task->task_name, task_name ? task_name : "unnamed", sizeof(task->task_name) - 1);
     pthread_mutex_init(&task->m, NULL);
     pthread_cond_init(&task->cv, NULL);
     int ret = pthread_create(&task->t, NULL, rtos_task, task);

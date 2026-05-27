@@ -167,14 +167,22 @@
 
 #define LUAT_USE_MEMPROF 1
 
+// 图片解码功能开关（高层控制）
+#define LUAT_USE_JPG  1   // 启用 JPEG 解码支持（含 SW/HW 路径）
+#define LUAT_USE_PNG  1   // 启用 PNG  解码支持（含 SW/HW 路径）
+#define LUAT_USE_WEBP 1   // 启用 WebP 解码支持
+// JPEG SW 解码器选择（仅指代是否编译 tjpgd 库，需配合 LUAT_USE_JPG）
+// videoplayer 软解依赖 TJPGD，需在 GUI 块外启用
+#define LUAT_USE_TJPGD
+
 // 视频播放器(默认mjpeg播放)
 #define LUAT_USE_VIDEOPLAYER 1
 // 视频播放器支持mp4播放
 // 注意: LUAT_USE_MP4PLAYER 由 xmake 动态控制（基于 luatos-ext-components/vedio_player 的存在性）
 // 请勿在此处硬编码，否则会导致编译配置与实际编译状态不一致
 // #define LUAT_USE_MP4PLAYER 1
-// videoplayer软解依赖TJPGD, 需在GUI块外启用
-#define LUAT_USE_TJPGD
+
+
 
 // U8G2 在 GUI/非 GUI PC 构建中都需要保留。
 #define LUAT_USE_U8G2 1

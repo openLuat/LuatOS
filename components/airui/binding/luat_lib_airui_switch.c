@@ -116,6 +116,7 @@ static int l_switch_destroy(lua_State *L)
 void airui_register_switch_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_SWITCH_MT);
+    airui_component_set_metatable_gc(L);
 
     static const luaL_Reg methods[] = {
         {"set_state", l_switch_set_state},

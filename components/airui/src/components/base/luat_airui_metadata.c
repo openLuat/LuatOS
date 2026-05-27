@@ -222,8 +222,8 @@ void airui_component_meta_free(airui_component_meta_t *meta)
     }
 
     if (meta->ref != NULL) {
-        meta->ref->alive = 0;
-        meta->ref->obj = NULL;
+        airui_component_invalidate_ref(meta->ref);
+        meta->ref = NULL;
     }
     
     // 释放 Lua 回调引用

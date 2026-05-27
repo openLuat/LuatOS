@@ -17,6 +17,7 @@ int luat_audio_wav_get_play_info(struct luat_audio_data_codec *codec, luat_buffe
         info->sample_rate = 0;
         return LUAT_ERROR_NONE;
     }
+        
     if (!memcmp(temp, "RIFF", 4) && !memcmp(temp + 8, "WAVE", 4) && !memcmp(temp + 12, "fmt ", 4)) {
         memcpy(&len, temp + 16, 4);
         pos = 16 + len;
@@ -118,10 +119,10 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_wav_opts = {
     .decode = _wav_codec_decode,
     .make_head = _wav_codec_make_head,
     .encode = _wav_codec_encode,
-    .decode_min_input_len = 4096,
-    .decode_max_output_len = 4096,
-    .encode_min_input_len = 4096,
-    .encode_max_output_len = 4096,
+    .decode_min_input_len = LUAT_AUDIO_DATA_CACHE_LEN,
+    .decode_max_output_len = LUAT_AUDIO_DATA_CACHE_LEN,
+    .encode_min_input_len = LUAT_AUDIO_DATA_CACHE_LEN,
+    .encode_max_output_len = LUAT_AUDIO_DATA_CACHE_LEN,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_WAV,
     .is_reentrant = 1,
     .is_hardware = 0,

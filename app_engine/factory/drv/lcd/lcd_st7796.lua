@@ -30,6 +30,7 @@ function M.init(params)
         h         = params.h,
         xoffset   = params.xoffset or 0,
         yoffset   = params.yoffset or 0,
+        bus_speed = params.bus_speed,
     })
     return r
 end

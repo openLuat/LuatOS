@@ -184,6 +184,7 @@ static int l_bar_destroy(lua_State *L) {
 
 void airui_register_bar_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_BAR_MT);
+    airui_component_set_metatable_gc(L);
     static const luaL_Reg methods[] = {
         {"set_value", l_bar_set_value},
         {"get_value", l_bar_get_value},

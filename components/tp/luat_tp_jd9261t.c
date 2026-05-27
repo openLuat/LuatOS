@@ -250,7 +250,7 @@ static int tp_jd9261t_detect(luat_tp_config_t* luat_tp_config){
     if (jd9261t_back_door_mode){
         jd9261t_EnterBackDoor(luat_tp_config); /* EnterBackDoor */
     }
-    jd9261t_ReadRegMulti(luat_tp_config, JT9261T_PRODUCT_ID, &product_id, sizeof(product_id));
+    jd9261t_ReadRegMulti(luat_tp_config, JT9261T_PRODUCT_ID, (uint8_t*)&product_id, sizeof(product_id));
     if (product_id == JT9261T_PRODUCT_ID_CODE){
         LLOGI("TP find device JT9261T ,address:0x%02X",luat_tp_config->address);
         return 0;
@@ -259,7 +259,7 @@ static int tp_jd9261t_detect(luat_tp_config_t* luat_tp_config){
         if (jd9261t_back_door_mode){
             jd9261t_EnterBackDoor(luat_tp_config); /* EnterBackDoor */
         }
-        jd9261t_ReadRegMulti(luat_tp_config, JT9261T_PRODUCT_ID, &product_id, sizeof(product_id));
+        jd9261t_ReadRegMulti(luat_tp_config, JT9261T_PRODUCT_ID, (uint8_t*)&product_id, sizeof(product_id));
         if (product_id == JT9261T_PRODUCT_ID_CODE){
             LLOGI("TP find device JT9261T ,address:0x%02X",luat_tp_config->address);
             return 0;

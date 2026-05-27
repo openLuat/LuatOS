@@ -63,7 +63,7 @@ static int read_file_to_buf(const char *path, uint8_t **out_buf, size_t *out_len
         goto cleanup;
     }
 
-    buf = (uint8_t *)luat_heap_malloc((size_t)fsize);
+    buf = (uint8_t *)luat_heap_memalign(8, (size_t)fsize);
     if (buf == NULL) {
         LLOGE("oom: file_buf %ld bytes", fsize);
         goto cleanup;

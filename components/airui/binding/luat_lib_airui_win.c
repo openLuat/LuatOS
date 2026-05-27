@@ -198,6 +198,7 @@ static int l_win_destroy(lua_State *L) {
  */
 void airui_register_win_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_WIN_MT);
+    airui_component_set_metatable_gc(L);
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_title", l_win_set_title}, // 设置窗口标题

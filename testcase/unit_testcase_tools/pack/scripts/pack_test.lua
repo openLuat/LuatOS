@@ -600,6 +600,7 @@ end
 function pack_tests.test_pack_unpack_c_param_multiple()
     log.info("pack_tests", "开始 多个c参数打包解包测试")
     for val1 = -128, 127 do
+        sys.wait(10)
         for val2 = -128, 127 do
             local data = pack.pack("cc", val1, val2)
             assert(data ~= nil, string.format("多个c参数打包失败, 值=%d,%d", val1, val2))

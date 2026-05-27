@@ -50,7 +50,7 @@ local function update_screen_size()
     input_h    = math.max(math.floor(d * 0.06), 30)
     row_h      = input_h + 2 * padding
     btn_w      = math.floor(card_w * 0.7)
-    btn_h      = math.max(math.floor(d * 0.06), 30)
+    btn_h      = math.max(math.floor(d * 0.06), 36)
     font_size  = math.max(math.floor(d * 0.036), 14)
     font_size2 = math.max(math.floor(d * 0.030), 12)
 end

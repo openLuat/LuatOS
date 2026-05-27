@@ -46,18 +46,18 @@ nes_t *luat_nes_get_global_ctx(void) {
 
 void nes_task(void *param) {
     nes_t *ctx = (nes_t *)param;
-    // 开始运行 nes
     nes_run(ctx);
-    // nes循环结束，清理资源
-    if (ctx == NULL) return;
+    if (ctx == NULL) {
+        while (1) { luat_rtos_task_sleep(1000); }
+    }
     rtos_msg_t msg = {
         .handler = _nes_cleanup_handler,
         .ptr     = ctx,
         .arg1    = 0,
         .arg2    = 0,
     };
-    // 发送清理资源消息
     luat_msgbus_put(&msg, 0);
+    while (1) { luat_rtos_task_sleep(1000); }
 }
 
 /*

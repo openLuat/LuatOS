@@ -120,6 +120,24 @@ lv_obj_t *airui_button_create_from_config(void *L, int idx)
         airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
     }
     
+    // 绑定按下事件
+    int pressed_ref = airui_component_capture_callback(L, idx, "on_pressed");
+    if (pressed_ref != LUA_NOREF) {
+        airui_component_bind_event(meta, AIRUI_EVENT_PRESSED, pressed_ref);
+    }
+    
+    // 绑定抬起事件
+    int released_ref = airui_component_capture_callback(L, idx, "on_released");
+    if (released_ref != LUA_NOREF) {
+        airui_component_bind_event(meta, AIRUI_EVENT_RELEASED, released_ref);
+    }
+    
+    // 绑定长按事件
+    int long_press_ref = airui_component_capture_callback(L, idx, "on_long_press");
+    if (long_press_ref != LUA_NOREF) {
+        airui_component_bind_event(meta, AIRUI_EVENT_LONG_PRESSED, long_press_ref);
+    }
+    
     // 将按钮添加到默认按键组，以便支持按键导航
     lv_group_t *default_group = lv_group_get_default();
     if (default_group != NULL) {
@@ -213,6 +231,48 @@ int airui_button_set_on_click(lv_obj_t *btn, int callback_ref)
     }
     
     return airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
+}
+
+int airui_button_set_on_pressed(lv_obj_t *btn, int callback_ref)
+{
+    if (btn == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    
+    airui_component_meta_t *meta = airui_component_meta_get(btn);
+    if (meta == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    
+    return airui_component_bind_event(meta, AIRUI_EVENT_PRESSED, callback_ref);
+}
+
+int airui_button_set_on_released(lv_obj_t *btn, int callback_ref)
+{
+    if (btn == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    
+    airui_component_meta_t *meta = airui_component_meta_get(btn);
+    if (meta == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    
+    return airui_component_bind_event(meta, AIRUI_EVENT_RELEASED, callback_ref);
+}
+
+int airui_button_set_on_long_press(lv_obj_t *btn, int callback_ref)
+{
+    if (btn == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    
+    airui_component_meta_t *meta = airui_component_meta_get(btn);
+    if (meta == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+    
+    return airui_component_bind_event(meta, AIRUI_EVENT_LONG_PRESSED, callback_ref);
 }
 
 /**

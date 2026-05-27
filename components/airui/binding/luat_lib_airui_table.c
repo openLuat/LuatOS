@@ -582,6 +582,7 @@ static int airui_table_parse_axis(lua_State *L, int idx, bool *is_row) {
 
 void airui_register_table_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_TABLE_MT);
+    airui_component_set_metatable_gc(L);
     static const luaL_Reg methods[] = {
         {"set_cell_text", l_table_set_cell_text},
         {"get_cell_text", l_table_get_cell_text},

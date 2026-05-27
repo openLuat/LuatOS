@@ -43,6 +43,7 @@ typedef struct airui_component_ref airui_component_ref_t;
 #define AIRUI_SPINNER_MT "airui.spinner"
 #define AIRUI_SHAPE_MT "airui.shape"
 #define AIRUI_CHECKBOX_MT "airui.checkbox"
+#define AIRUI_NES_MT "airui.nes"
 
 /** 组件类型 */
 typedef enum {
@@ -66,7 +67,8 @@ typedef enum {
     AIRUI_COMPONENT_QRCODE,
     AIRUI_COMPONENT_SPINNER,
     AIRUI_COMPONENT_SHAPE,
-    AIRUI_COMPONENT_CHECKBOX
+    AIRUI_COMPONENT_CHECKBOX,
+    AIRUI_COMPONENT_NES
 } airui_component_type_t;
 
 /** Video 格式 */
@@ -121,6 +123,7 @@ typedef enum {
     AIRUI_EVENT_READY,
     AIRUI_EVENT_CLOSE,
     AIRUI_EVENT_COMPLETE,
+    AIRUI_EVENT_LONG_PRESSED,
     AIRUI_EVENT_MAX
 } airui_event_type_t;
 
@@ -425,6 +428,9 @@ int airui_button_set_text(lv_obj_t *btn, const char *text); //设置按钮文本
 const char *airui_button_get_text(lv_obj_t *btn); //获取按钮文本
 int airui_button_set_disabled(lv_obj_t *btn, bool disabled); //设置按钮失活状态
 int airui_button_set_on_click(lv_obj_t *btn, int callback_ref); //设置点击回调
+int airui_button_set_on_pressed(lv_obj_t *btn, int callback_ref); //设置按下回调
+int airui_button_set_on_released(lv_obj_t *btn, int callback_ref); //设置抬起回调
+int airui_button_set_on_long_press(lv_obj_t *btn, int callback_ref); //设置长按回调
 int airui_button_set_style(lv_obj_t *btn, void *L, int idx); //按样式表设置按钮样式
 int airui_button_set_stype(lv_obj_t *btn, void *L, int idx); //按样式表设置按钮样式
 
@@ -464,6 +470,7 @@ int airui_container_set_hidden(lv_obj_t *container, bool hidden); //设置隐藏
 int airui_container_open(lv_obj_t *container); //显示并置顶容器
 int airui_container_set_border_color(lv_obj_t *container, uint32_t color, int width); //设置边框颜色+宽度
 int airui_container_set_on_click(lv_obj_t *container, int callback_ref); //设置点击回调
+int airui_container_set_on_long_press(lv_obj_t *container, int callback_ref); //设置长按回调
 int airui_container_get_pos(lv_obj_t *container, int32_t *x, int32_t *y); //获取容器位置
 int airui_container_set_pos(lv_obj_t *container, int32_t x, int32_t y); //设置容器绝对位置
 int airui_container_move(lv_obj_t *container, int32_t dx, int32_t dy); //按偏移量移动容器
@@ -678,6 +685,22 @@ int airui_shape_set_items(lv_obj_t *shape, void *L, int idx);
 int airui_shape_add_item(lv_obj_t *shape, void *L, int idx);
 int airui_shape_clear(lv_obj_t *shape);
 int airui_shape_get_count(lv_obj_t *shape);
+
+/**
+ * NES 组件（NES 模拟器嵌入式播放）
+ */
+lv_obj_t *airui_nes_create_from_config(void *L, int idx);
+int airui_nes_destroy(lv_obj_t *nes);
+int airui_nes_set_key(lv_obj_t *nes, int key, int pressed);
+
+#define AIRUI_NES_KEY_UP     1
+#define AIRUI_NES_KEY_DOWN   2
+#define AIRUI_NES_KEY_LEFT   3
+#define AIRUI_NES_KEY_RIGHT  4
+#define AIRUI_NES_KEY_A      5
+#define AIRUI_NES_KEY_B      6
+#define AIRUI_NES_KEY_START  7
+#define AIRUI_NES_KEY_SELECT 8
 
 #ifdef __cplusplus
 }

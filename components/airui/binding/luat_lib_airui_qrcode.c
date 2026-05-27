@@ -130,6 +130,7 @@ static int l_qrcode_destroy(lua_State *L)
 void airui_register_qrcode_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_QRCODE_MT);
+    airui_component_set_metatable_gc(L);
 
     static const luaL_Reg methods[] = {
         {"set_data", l_qrcode_set_data},

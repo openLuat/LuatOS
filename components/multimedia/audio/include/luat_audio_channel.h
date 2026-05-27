@@ -36,7 +36,7 @@ struct luat_audio_channel {
     struct luat_audio_driver_ctrl *driver_ctrl; /**< 关联的音频驱动控制器指针 */
     struct luat_audio_request_block *play_request_block;   /**< 当前播放请求块指针 */
     struct luat_audio_request_block *record_request_block; /**< 当前录音请求块指针 */
-    uint32_t soft_vol;                          /**< 软件音量控制（0-1000） 1000为10倍 */
+    uint32_t soft_volume;                          /**< 软件音量控制（0-1000） 1000为10倍 */
     // uint8_t play_state;                        /**< 当前播放状态（0=停止, 1=播放） */
     // uint8_t record_state;                      /**< 当前录音状态（0=停止, 1=录音, 2=转发） */
     uint8_t error_record_overflow;             /**< 录音溢出错误标志位 */
@@ -87,7 +87,16 @@ int luat_audio_channel_play(luat_audio_channel_t *channel, uint8_t is_play);
  * 调用前确保 channel 指针有效且已被初始化。
  */
 int luat_audio_channel_record(luat_audio_channel_t *channel, uint8_t is_record);
-
+/**
+ * @brief 设置音频通道的软件音量
+ * @param channel 音频通道指针，必须指向有效的 luat_audio_channel_t 结构
+ * @param volume 软件音量控制（0-1000） 1000为10倍
+ * @return int 成功返回 LUAT_ERROR_NONE，失败返回其他错误码
+ * 
+ * 此函数会根据 volume 参数设置音频通道的软件音量。
+ * 调用前确保 channel 指针有效且已被初始化。
+ */
+int luat_audio_channel_set_soft_volume(luat_audio_channel_t *channel,uint32_t volume);
 /**
  * @brief 写入音频通道数据
  * @param channel 音频通道指针，必须指向有效的 luat_audio_channel_t 结构

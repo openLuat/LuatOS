@@ -528,7 +528,7 @@ void cst92xx_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
                 off_set = read_index * CST92XX_POINT_INFO_NUM + 2;
             }
 			
-			point_data_t* point_buff = &read_buf[off_set];
+			point_data_t* point_buff = (point_data_t*)&read_buf[off_set];
 			read_id = point_buff->id;
 			if (read_id >= CST92XX_POINT_INFO_NUM){
 				LLOGE("%s, touch ID %d is out range!", __func__, read_id);

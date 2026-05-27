@@ -17,10 +17,10 @@ if platform == "Air8000" then
     pins.setup(16, "UART1_TXD")
     pins.setup(25, "UART3_RXD")
     pins.setup(26, "UART3_TXD")
-    pins.setup(48, "UART11_RX")
-    pins.setup(49, "UART11_TX")
-    pins.setup(60, "UART12_TX")
-    pins.setup(59, "UART12_RX")
+    pins.setup(48, "UART11_RXD")
+    pins.setup(49, "UART11_TXD")
+    pins.setup(60, "UART12_TXD")
+    pins.setup(59, "UART12_RXD")
 
     -- Air8000: 测试两组UART配对
     uart_pairs = {
@@ -39,10 +39,12 @@ if platform == "Air8000" then
     }
 elseif platform == "Air8101" then
     -- Air8101引脚配置
-    pins.setup(12, "UART1_TX")
-    pins.setup(11, "UART1_RX")
-    pins.setup(3, "UART2_RX")
-    pins.setup(73, "UART2_TX")
+    pins.setup(12, "UART1_TXD")
+    pins.setup(11, "UART1_RXD")
+    pins.setup(3, "UART2_RXD")
+    pins.setup(73, "UART2_TXD")
+    -- pins.setup(48, "UART2_RXD")
+    -- pins.setup(35, "UART2_TXD")
 
     -- Air8101: 测试uart1和uart2
     uart_pairs = {

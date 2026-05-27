@@ -44,7 +44,7 @@ local function update_screen_size()
     end
     margin = math.floor(screen_w * 0.04)
     card_w = screen_w - 2 * margin
-    card_h = math.floor(screen_h * 0.12)
+    card_h = math.max(48, math.floor(screen_h * 0.12))
     card_gap = math.floor(screen_h * 0.015)
 end
 

@@ -43,6 +43,7 @@
  * @int config.style.border_width 边框宽度，单位像素
  * @int config.style.radius 圆角半径，单位像素
  * @int config.style.text_font_size 文本字号，仅在 hzfont 启用时生效
+ * @int config.style.btn_text_font_size 按钮文字字号，仅在 hzfont 启用时生效
  * @function config.on_action 按钮点击回调
  * @userdata config.parent 父对象，可选
  * @return userdata Msgbox 对象，失败返回 nil
@@ -133,7 +134,7 @@ static int l_msgbox_set_on_action(lua_State *L)
 /**
  * Msgbox:set_style(style)
  * @api msgbox:set_style(style)
- * @table style style table, supports bg_color/bg_opa, border_color/border_width, radius, text_font_size
+ * @table style style table, supports bg_color/bg_opa, border_color/border_width, radius, text_font_size, btn_text_font_size
  * @return nil
  */
 static int l_msgbox_set_style(lua_State *L)
@@ -166,6 +167,7 @@ static int l_msgbox_destroy(lua_State *L)
 void airui_register_msgbox_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_MSGBOX_MT);
+    airui_component_set_metatable_gc(L);
 
     static const luaL_Reg methods[] = {
         {"show", l_msgbox_show},

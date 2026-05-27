@@ -112,10 +112,10 @@ local function calc_layout()
     -- 横屏模板 854x480: top=38, sort=28, side=136, pagination_bar_height=40
     if is_landscape then
         local sy = screen_h / 480
-        top_height = math.floor(38 * sy)
-        sort_height = math.floor(28 * sy)
+        top_height = math.max(38, math.floor(38 * sy))
+        sort_height = math.max(34, math.floor(28 * sy))
         sidebar_width = math.floor(136 * screen_w / 854)
-        pagination_bar_height = math.floor(40 * sy)
+        pagination_bar_height = math.max(28, math.floor(40 * sy))
     else
         local sy = screen_h / 854
         top_height = math.floor(68 * sy)
@@ -375,12 +375,17 @@ local function create_ui()
     local tb = airui.container({
         parent = main_container, x = 0, y = 0, w = screen_w, h = top_height, color = COLOR_CARD
     })
-    -- 按钮高度：小屏用 38 上限，大屏按宽度比例放大
-    local tih = math.floor(top_height * 0.82)
-    if screen_w <= 480 then
-        tih = math.min(38, tih)
+    -- 按钮高度：横屏用宽度比例，竖屏小屏上限38、大屏宽度比例放大
+    local tih
+    if is_landscape then
+        tih = math.floor(screen_w * 0.08)
     else
-        tih = math.max(math.floor(screen_w * 0.06), tih)
+        tih = math.floor(top_height * 0.82)
+        if screen_w <= 480 then
+            tih = math.min(38, tih)
+        else
+            tih = math.max(math.floor(screen_w * 0.06), tih)
+        end
     end
     tih = math.min(tih, top_height - 4)
     local tiy = math.floor((top_height - tih) / 2)
@@ -481,11 +486,16 @@ local function create_ui()
         h = sort_height,
         color = COLOR_CARD
     })
-    local stbh = math.floor(sort_height * 0.85)
-    if screen_w <= 480 then
-        stbh = math.min(36, stbh)
+    local stbh
+    if is_landscape then
+        stbh = math.floor(screen_w * 0.08)
     else
-        stbh = math.max(math.floor(screen_w * 0.06), stbh)
+        stbh = math.floor(sort_height * 0.85)
+        if screen_w <= 480 then
+            stbh = math.min(36, stbh)
+        else
+            stbh = math.max(math.floor(screen_w * 0.06), stbh)
+        end
     end
     stbh = math.min(stbh, sort_height - 4)
     local stbr = math.floor(stbh / 2)
@@ -614,7 +624,7 @@ local function create_ui()
     local nxx = page_bar_width - pag_btn_w - 16
     local lx = pvx + pvw + 4
 
-    local pnbh = math.min(40, math.floor(pagination_bar_height * 0.8))
+    local pnbh = math.max(28, math.min(40, math.floor(pagination_bar_height * 0.8)))
     local pnby = math.floor((pagination_bar_height - pnbh) / 2)
     local pnr = math.floor(pnbh / 2)
 
@@ -807,8 +817,8 @@ local function render_apps(apps, has_more_pages)
                     style = { bg_color = COLOR_ACCENT, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE, radius = 16, border_width = 0 },
                     on_click = function()
                         local msg_box = airui.msgbox({
-                            w = math.floor(screen_w * 0.78),
-                            h = math.floor(screen_h * 0.28),
+                            w = math.min(math.floor(screen_w * 0.78), screen_w - 20),
+                            h = math.max(math.floor(screen_h * 0.28), 120),
                             style = { text_font_size = button_font_size },
                             title = "确认更新",
                             text = "是否更新应用 " .. (app.title or app.name) .. "？",
@@ -835,8 +845,8 @@ local function render_apps(apps, has_more_pages)
                     style = { bg_color = COLOR_DANGER, pressed_bg_color = COLOR_DANGER, text_color = COLOR_WHITE, radius = 16, border_width = 0 },
                     on_click = function()
                         local msg_box = airui.msgbox({
-                            w = math.floor(screen_w * 0.78),
-                            h = math.floor(screen_h * 0.28),
+                            w = math.min(math.floor(screen_w * 0.78), screen_w - 20),
+                            h = math.max(math.floor(screen_h * 0.28), 120),
                             style = { text_font_size = button_font_size },
                             title = "确认卸载",
                             text = "是否卸载应用 " .. (app.title or app.name) .. "？",
@@ -864,8 +874,8 @@ local function render_apps(apps, has_more_pages)
                     style = { bg_color = COLOR_DANGER, pressed_bg_color = COLOR_DANGER, text_color = COLOR_WHITE, radius = 16, border_width = 0 },
                     on_click = function()
                         local msg_box = airui.msgbox({
-                            w = math.floor(screen_w * 0.78),
-                            h = math.floor(screen_h * 0.28),
+                            w = math.min(math.floor(screen_w * 0.78), screen_w - 20),
+                            h = math.max(math.floor(screen_h * 0.28), 120),
                             style = { text_font_size = button_font_size },
                             title = "确认卸载",
                             text = "是否卸载应用 " .. (app.title or app.name) .. "？",
@@ -894,7 +904,7 @@ local function render_apps(apps, has_more_pages)
                 style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE, radius = 16, border_width = 0 },
                 on_click = function()
                     local msg_box = airui.msgbox({
-                        w = math.floor(screen_w * 0.78),
+                        w = math.min(400, screen_w - 80),
                         h = math.floor(screen_h * 0.28),
                         style = { text_font_size = button_font_size },
                         title ="确认安装",
@@ -1120,6 +1130,8 @@ local function on_create()
     sys.subscribe("APP_STORE_ICON_READY", on_icon_ready)
 
     sys.publish("APP_STORE_SYNC_INSTALLED")
+    -- 进入应用市场时重置存储校准，下次 get_app_list 重新读取各存储剩余空间
+    exapp.reset_storage_calibration()
     -- 立即请求列表（网络已就绪时马上加载）
     sys.publish("APP_STORE_GET_LIST", current_category, current_sort, current_page, page_limit, current_query)
     -- 网络未就绪时等IP_READY后再重试一次（避免首次进入需手动刷新）

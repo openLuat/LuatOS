@@ -186,6 +186,7 @@ static int l_dropdown_destroy(lua_State *L)
 void airui_register_dropdown_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_DROPDOWN_MT);
+    airui_component_set_metatable_gc(L);
 
     static const luaL_Reg methods[] = {
         {"set_options", l_dropdown_set_options},

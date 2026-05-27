@@ -107,13 +107,13 @@ add_includedirs("port/posix",{public = true})
 
 target("luatos-lua")
 
-    -- 用于获取windows模拟器调试信息，打开debug模式
-    -- if is_host("windows") then
-    --     set_symbols("debug")
-    --     add_cflags("/Zi")
-    --     add_cxflags("/Zi")
-    --     add_ldflags("/DEBUG")
-    -- end
+    -- 始终生成调试符号，让崩溃时的 StackWalk64 能解析函数名和文件行号
+    if is_host("windows") then
+        set_symbols("debug")
+        add_cflags("/Zi", {force = true})
+        add_cxflags("/Zi", {force = true})
+        add_ldflags("/DEBUG", {force = true})
+    end
 
     -- set kind
     set_kind("binary")

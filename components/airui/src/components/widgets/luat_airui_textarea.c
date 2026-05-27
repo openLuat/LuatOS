@@ -124,7 +124,7 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     data->keyboard = NULL;
     airui_text_font_state_init(&data->font, 0);
     airui_text_font_read_config(&data->font, L, idx);
-    meta->user_data = data;
+    airui_component_meta_set_user_data(meta, data, luat_heap_free);
     airui_textarea_apply_font(textarea, &data->font);
 
     // 绑定 Lua on_text_change 回调
@@ -473,7 +473,7 @@ int airui_textarea_attach_keyboard(lv_obj_t *textarea, lv_obj_t *keyboard)
             return AIRUI_ERR_NO_MEM;
         }
         data->keyboard = NULL;
-        meta->user_data = data;
+        airui_component_meta_set_user_data(meta, data, luat_heap_free);
     }
     data->keyboard = keyboard;
     return AIRUI_OK;

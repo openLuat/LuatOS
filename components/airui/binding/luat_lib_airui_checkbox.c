@@ -161,6 +161,7 @@ static int l_checkbox_destroy(lua_State *L)
 void airui_register_checkbox_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_CHECKBOX_MT);
+    airui_component_set_metatable_gc(L);
 
     static const luaL_Reg methods[] = {
         {"set_checked", l_checkbox_set_checked},

@@ -9,6 +9,7 @@ extern "C" {
 #define LF_MF_ID_WINBOND                             0xEF
 #define LF_MF_ID_MACRONIX                            0xC2
 
+
 /* 
     Flash table 
     name | manufacturer ID |device ID | falsh type | capacity | erase cmd | erase size

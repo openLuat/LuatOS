@@ -1,3 +1,4 @@
+#include "luat_audio_define.h"
 #include "luat_base.h"
 #include "luat_common_api.h"
 #include "luat_malloc.h"
@@ -14,6 +15,7 @@
 
 int luat_audio_mp3_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info)
 {
+    // LLOGC(luat_audio_debug_flag, "get mp3 file info pos %d, len %d", now_file_pos, input_buffer->pos);
     if (input_buffer->pos < MP3_FRAME_AFTER_ENCODE_SIZE) {
         *jump_offset_bytes = 0;
         *need_bytes = MP3_FRAME_AFTER_ENCODE_SIZE;

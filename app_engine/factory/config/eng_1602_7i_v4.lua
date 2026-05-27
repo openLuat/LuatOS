@@ -1,21 +1,21 @@
 --[[
-@module  config.eng_1602_7i_v0
-@summary Air1602引擎主机 7寸1024x600 RGB屏 配置文件
-@version 1.1
-@date    2026.05.22
+@module  config.eng_1602_7i_v4
+@summary Air1602引擎主机 7寸1024x600 RGB屏(HX8282) + NAND Flash 配置文件
+@version 1.0
+@date    2026.05.25
 @author  江访
 ]]
 return {
-    name = "Engine_Air1602_7inch_1024x600_000_V000",
+    name = "Engine_Air1602_7inch_1024x600_004_V000",
     chip = "Air1602",
-    baseboard = "合宙引擎AIR1602 V000",
+    baseboard = "合宙引擎AIR1602 V004",
 
     pins = {},
 
-    -- GPIO 供电上电时序（Air1602 airlink WiFi 模组: GPIO55 拉低→延时→拉高）
+    -- GPIO 供电上电时序（V004: airlink WiFi 模组 GPIO55 改为低电平有效）
     power_on = {
-        { pin = 55, dir = 0, level = 0, delay = 50 },
-        { pin = 55, dir = 0, level = 1, delay = 120 },
+        { pin = 55, dir = 0, level = 1, delay = 50 },
+        { pin = 55, dir = 0, level = 0, delay = 120 },
     },
 
     hw = {
@@ -55,7 +55,7 @@ return {
         speaker = false,
         mic = false,
         sd_card = false,
-        nand_flash = false,
+        nand_flash = true,
         gnss = false,
         bluetooth = false,
         can = false,
@@ -74,5 +74,9 @@ return {
         show_storage_settings = true,
         show_camera_preview = false,
         show_sensor_panel = false,
+    },
+
+    storage = {
+        nand_flash = { spi_id = 2, pin_cs = 4, speed = 40000000, pin_pwr = 50 },
     },
 }

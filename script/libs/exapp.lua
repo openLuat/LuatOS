@@ -153,6 +153,10 @@ local APP_STORE_DOWNLOAD_REPORT_URL = "https://api.luatos.com/iot/appstore/downl
 local PAGE_LIMIT = 10
 local TEMP_DOWNLOAD_PATH = "/ram/app_%s.zip"
 local MIN_FREE_SPACE_KB = 100
+
+-- 存储空间校准缓存（避免反复 io.fsstat 导致 SD/NAND 读卡耗时）
+local storage_space_cache = {}  -- mount_point -> { free_kb, estimated_used_kb }
+local storage_calibrated = false
 -- ==============================================
 -- 多存储配置（模块层全局变量）
 -- ==============================================
@@ -271,6 +275,47 @@ local function get_storage_free_kb(mount_point)
     return nil
 end
 
+-- 校准所有可用存储的剩余空间（每个挂载点只读一次，进入应用市场时触发）
+local function calibrate_storage()
+    storage_calibrated = false
+    storage_space_cache = {}
+    for _, type_key in ipairs({"sd_tf", "little_flash", "nand_flash", "internal"}) do
+        if storage_available[type_key] then
+            local mount_point = STORAGE_DEFS[type_key].mount_point
+            local free_kb = get_storage_free_kb(mount_point)
+            if free_kb then
+                storage_space_cache[mount_point] = {
+                    free_kb = free_kb,
+                    estimated_used_kb = 0,
+                }
+                log.info("exapp", "storage calibrated", mount_point, "free", string.format("%.1f", free_kb), "KB")
+            end
+        end
+    end
+    storage_calibrated = true
+end
+
+-- 获取挂载点估计剩余空间（优先使用校准缓存，校准期间回退到直接 io.fsstat）
+local function get_estimated_free_kb(mount_point)
+    if storage_calibrated and storage_space_cache[mount_point] then
+        local cache = storage_space_cache[mount_point]
+        local estimated_free = cache.free_kb - cache.estimated_used_kb
+        return math.max(0, estimated_free)
+    end
+    return get_storage_free_kb(mount_point)
+end
+
+-- 记录已安装应用消耗的预估空间（仅在校准模式下累积，用于后续安装的剩余空间判断）
+local function record_install_usage(mount_point, size_kb)
+    if storage_calibrated and storage_space_cache[mount_point] and size_kb then
+        storage_space_cache[mount_point].estimated_used_kb =
+            storage_space_cache[mount_point].estimated_used_kb + size_kb
+        log.info("exapp", "record install usage", mount_point,
+            "app", string.format("%.1f", size_kb), "KB",
+            "total_est", string.format("%.1f", storage_space_cache[mount_point].estimated_used_kb), "KB")
+    end
+end
+
 -- 根据 app_path 推断其挂载点信息
 -- "/sd/app_store/hello/"     → "/sd/", "sd_tf"
 -- "/little_flash/.../hello/" → "/little_flash/", "little_flash"
@@ -322,7 +367,7 @@ local function select_storage_location(app_size_kb)
         -- 条件2：空间是否足够（如果提供了预估大小）
         elseif app_size_kb then
             local mount_point = STORAGE_DEFS[type_key].mount_point
-            local free_kb = get_storage_free_kb(mount_point)
+            local free_kb = get_estimated_free_kb(mount_point)
             if free_kb and tonumber(app_size_kb) and free_kb < app_size_kb then
                 reasons[#reasons + 1] = string.format(
                     "%s空间不足(需%.0fKB, 剩%.0fKB)",
@@ -1796,6 +1841,11 @@ local function app_task(app_path)
                 new_config.frames = resolve_paths(new_config.frames, false)
                 if not new_config.frames then return nil end
             end
+        elseif component_name == "nes" then
+            if type(new_config.rom) == "string" then
+                new_config.rom = resolve_file(new_config.rom)
+                if not new_config.rom then return nil end
+            end
         end
         return new_config
     end
@@ -2093,7 +2143,7 @@ local function app_task(app_path)
     for _, component_name in ipairs({
         "label", "image", "animimg", "button", "container", "bar", "dropdown",
         "switch", "table", "keyboard", "textarea", "tabview", "chart",
-        "qrcode", "win", "msgbox", "shape", "spinner", "video", "lottie"
+        "qrcode", "win", "msgbox", "shape", "spinner", "video", "lottie", "nes"
     }) do
         install_component(component_name)
     end
@@ -2692,6 +2742,11 @@ function exapp.get_info(app_name)
     return installed_info[app_name]
 end
 
+-- 重置存储空间校准标记（进入应用市场时调用，使下次 get_app_list 重新读取各存储剩余空间）
+function exapp.reset_storage_calibration()
+    storage_calibrated = false
+    log.info("exapp", "storage calibration reset")
+end
 
 --[[
     扫描应用目录（支持分页，最多不限）
@@ -3197,6 +3252,11 @@ function exapp.get_app_list(params)
         return false
     end
 
+    -- 每次进入应用市场时校准一次存储空间（后续下载不再重复 io.fsstat）
+    if category ~= "已安装" and not storage_calibrated then
+        calibrate_storage()
+    end
+
     if category == "已安装" then
     local installed_list = {}
         for aid, info in pairs(installed_info) do
@@ -3361,9 +3421,9 @@ local function download_file(url, dest_path, aid)
     -- 注意：此处检查的是根文件系统(/)而非安装目标挂载点。
     -- 安装目标由调用方(install_remote_app)通过 select_storage_location 决定，
     -- 并在解压前对目标挂载点做精确空间校验。
-    local fs_free_kb = get_storage_free_kb("/") or 0
+    local fs_free_kb = get_estimated_free_kb("/") or 0
     if origin_size_kb_val > 0 then
-        local needed_kb = math.ceil(origin_size_kb_val * 1.2)
+        local needed_kb = math.ceil(origin_size_kb_val * 1.3)
         if fs_free_kb > 0 and needed_kb > fs_free_kb then
             log.error("exapp", "not enough fs space for", aid, "need", needed_kb, "free", fs_free_kb)
             sys.publish("APP_STORE_ERROR", "文件系统空间不足无法安装")
@@ -3631,17 +3691,19 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
                 if tostring(entry.aid) == tostring(aid) then
                     local origin = tonumber(entry.origin_size_kb)
                     if origin and origin > 0 then
-                        -- 加 20% buffer，防止解压后超出
-                        estimated_size_kb = math.ceil(origin * 1.2)
+                        -- 加 30% buffer，防止解压后超出
+                        estimated_size_kb = math.ceil(origin * 1.3)
                     end
                     break
                 end
             end
         end
 
-        -- 2. 安装时重新探测外部存储状态（驱动可能后于 init 完成初始化）
-        storage_available.sd_tf = probe_storage("/sd/")
-        storage_available.little_flash = probe_storage("/little_flash/")
+        -- 2. 安装时重新探测外部存储状态（首次安装或校准失效时探测，已校准则跳过）
+        if not storage_calibrated then
+            storage_available.sd_tf = probe_storage("/sd/")
+            storage_available.little_flash = probe_storage("/little_flash/")
+        end
 
         -- 3. 选择合适的存储位置
         local storage_type, mount_point, reason = select_storage_location(estimated_size_kb)
@@ -3680,7 +3742,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
         end
 
         -- 最低空闲空间保护：剩余空间不足100KB时不允许安装（防止FAT簇开销导致超额消耗）
-        local min_free_check_kb = get_storage_free_kb(mount_point)
+        local min_free_check_kb = get_estimated_free_kb(mount_point)
         if min_free_check_kb and min_free_check_kb < MIN_FREE_SPACE_KB then
             os.remove(temp_path)
             log.error("exapp", "minimum free space check failed on", mount_point, "for", aid, "free", min_free_check_kb, "min", MIN_FREE_SPACE_KB)
@@ -3693,7 +3755,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
         -- 解压前容量校验：对选中的目标挂载点做精确空间检查
         -- download_file 中只检查了根文件系统(/)，但安装目标可能是 /sd/ 或 /little_flash/
         if estimated_size_kb then
-            local target_free_kb = get_storage_free_kb(mount_point)
+            local target_free_kb = get_estimated_free_kb(mount_point)
             if target_free_kb and target_free_kb < estimated_size_kb then
                 -- 空间不足，清理已下载的压缩包
                 os.remove(temp_path)
@@ -3732,7 +3794,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
         if io.dexist(app_path) or io.exists(app_path) then
             app_dir_kb = dir_size_kb(app_path) or 0
         end
-        local dest_free_kb = get_storage_free_kb(mount_point) or 0
+        local dest_free_kb = get_estimated_free_kb(mount_point) or 0
         if app_dir_kb > 0 and dest_free_kb > 0 and app_dir_kb > dest_free_kb then
             -- 文件系统空间不足，清理已下载/解压的内容
             if io.dexist(app_path) then rmdir_recursive(app_path) end
@@ -3798,6 +3860,8 @@ function exapp.install_remote_app(aid, url, app_name, category, sort)
                         }
                         installed_cnt = installed_cnt + 1
                         installed_total_count = installed_cnt
+                        -- 记录该应用对预估空间的消耗，供本会话后续安装的空间判断
+                        record_install_usage(mount_point, estimated_size_kb)
                         sys.publish("APP_STORE_INSTALLED_UPDATED", installed_info)
                     end
                 end
@@ -3943,8 +4007,8 @@ function exapp.update_remote_app(aid, url, app_name, category, sort)
     local origin_size = tonumber(installed_info[aid].origin_size_kb)
     if origin_size and origin_size > 0 then
         local mount_point = installed_info[aid].mount_point or "/"
-        local needed = math.ceil(origin_size * 1.2)
-        local target_free_kb = get_storage_free_kb(mount_point)
+        local needed = math.ceil(origin_size * 1.3)
+        local target_free_kb = get_estimated_free_kb(mount_point)
         if target_free_kb and needed > target_free_kb then
             log.error("exapp", "not enough space on", mount_point, "for update", aid, "need", needed, "free", target_free_kb)
             sys.publish("APP_STORE_ERROR", "空间不足，无法更新")

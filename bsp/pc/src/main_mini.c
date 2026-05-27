@@ -71,6 +71,11 @@ int32_t luatos_pc_climode;
 
 void uv_luat_main(void* args) {
     (void)args;
+    /* Register the main Lua thread in the crash-handler task registry */
+#if defined(_WIN32) || defined(_WIN64)
+    extern void win32_task_register(const char* name);
+    win32_task_register("lua-main");
+#endif
     // printf("cmdline_argc %d\n", cmdline_argc);
     if (cmdline_argc == 1) {
         luatos_pc_climode = 1;

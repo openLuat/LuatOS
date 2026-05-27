@@ -77,6 +77,11 @@ void luat_audio_data_codec_unbind(luat_audio_data_codec_t *codec)
     codec->opts = NULL;
 }
 
+int luat_audio_data_codec_get_play_info(luat_audio_data_codec_t *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes)
+{
+    return codec->opts->get_play_info(codec, input_buffer, now_file_pos, jump_offset_bytes, need_bytes, &codec->common_param);
+}
+
 int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_t *input_data_fifo, luat_buffer_t *output_data_buffer, uint8_t is_end)
 {
     uint32_t input_data_len = 0;
@@ -112,15 +117,20 @@ int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_
             }
         }
         // 使用codec解码数据
+        used_len = 0;
+        out_len = 0;
         ret = codec->opts->decode(codec, &codec->common_param, codec->input_buffer, input_data_len,
                                                         output_data_buffer->data + output_data_buffer->pos, 
                                 &out_len, &used_len);
         luat_fifo_delete(input_data_fifo, used_len);
         if (!ret) {
             output_data_buffer->pos += out_len;
+            // LLOGC(luat_audio_debug_flag, "decode used %d bytes, output %d bytes, input fifo %d bytes, output buffer %d bytes", used_len, out_len,
+            //     luat_fifo_check_used_space(input_data_fifo), output_data_buffer->pos);
+        } else {
+            //LLOGE("decode failed, ret = %d, %d, %d", ret, used_len, out_len);
+            return ret;
         }
-        // LLOGC(luat_audio_debug_flag, "decode used %d bytes, output %d bytes, input fifo %d bytes, output buffer %d bytes", used_len, out_len,
-        //     luat_fifo_check_used_space(input_data_fifo), output_data_buffer->pos);
     }
     return LUAT_ERROR_NONE;
 }

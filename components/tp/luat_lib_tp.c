@@ -13,6 +13,7 @@
 #include "luat_msgbus.h"
 #include "luat_mem.h"
 #include "luat_gpio.h"
+#include <stdint.h>
 
 #ifdef LUAT_USE_LCD
 #include "luat_lcd.h"
@@ -23,13 +24,14 @@
 
 typedef struct tp_reg {
     const char *name;
-    luat_tp_config_t *luat_tp_config;
+    luat_tp_opts_t *opts;
 }tp_reg_t;
 
 static const tp_reg_t tp_regs[] = {
 #ifndef LUAT_USE_TP_PC
     {"gt9xx",  &tp_config_gt9xx},
     {"gt911",  &tp_config_gt9xx},
+    {"gt1158",  &tp_config_gt9xx},
     {"gt927",  &tp_config_gt9xx},
     // 临时措施, Air780EPM仅开启gt911触摸屏
     #if !defined(TYPE_EC718PM) && !defined(LUAT_USE_TP_TINY)
@@ -55,7 +57,7 @@ static int l_tp_handler(lua_State* L, void* ptr) {
     if (luat_tp_data == NULL) return 0;
 
     if (luat_tp_config->luat_cb) {
-        lua_geti(L, LUA_REGISTRYINDEX, luat_tp_config->luat_cb);
+        lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)(uintptr_t)luat_tp_config->luat_cb);
         if (lua_isfunction(L, -1)) {
             lua_pushlightuserdata(L, luat_tp_config);
             lua_newtable(L);
@@ -166,7 +168,7 @@ static int l_tp_init(lua_State* L){
         if (strlen(tp_regs[i].name) == 0)
           break;
         if(strcmp(tp_regs[i].name,tp_name) == 0){
-            luat_tp_config->opts = tp_regs[i].luat_tp_config;
+            luat_tp_config->opts = tp_regs[i].opts;
             break;
         }
     }
@@ -178,7 +180,7 @@ static int l_tp_init(lua_State* L){
 
 	if (lua_isfunction(L, 3)) {
 		lua_pushvalue(L, 3);
-		luat_tp_config->luat_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+		luat_tp_config->luat_cb = (void*)(uintptr_t)luaL_ref(L, LUA_REGISTRYINDEX);
 	}
 
     lua_settop(L, 2);

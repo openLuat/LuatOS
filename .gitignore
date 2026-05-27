@@ -89,10 +89,12 @@ debug.log
 量产文件
 
 CMakefiles
+bsp/pc/build/
 bsp/win32/build/
 bsp/win32/release/
 bsp/pico/build/
 bsp/linux/build/
+bsp/zephyr/
 
 
 build/

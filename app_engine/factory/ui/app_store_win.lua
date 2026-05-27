@@ -581,6 +581,11 @@ local function create_ui()
                     })
                 end
                 current_page = 1
+                -- 立即清空旧数据，避免切换标签时短暂显示上一分类的残留内容
+                total_pages = 0
+                has_more = false
+                update_page_label()
+                if app_grid then app_grid:destroy(); app_grid = nil end
                 publish_get_list()
             end
         })

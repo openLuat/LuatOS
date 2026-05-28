@@ -42,14 +42,69 @@ static int lf_block_device_sync(const struct lfs_config *cfg) {
     return LFS_ERR_OK;
 }
 
-#define LFS_BLOCK_DEVICE_LOOK_AHEAD (16)
+#define LFS_LOOKAHEAD_MIN_BYTES (32u)
+#define LFS_LOOKAHEAD_MAX_BYTES (128u)
+#define LFS_CACHE_MIN_MULTIPLIER (2u)
+#define LFS_CACHE_MAX_BYTES (8u * 1024u)
 typedef struct LFS2 {
     lfs_t lfs;
     struct lfs_config cfg;
-    uint8_t* lookahead_buffer[LFS_BLOCK_DEVICE_LOOK_AHEAD];
+    uint8_t lookahead_buffer[LFS_LOOKAHEAD_MAX_BYTES];
     uint8_t* read_buffer;
     uint8_t* prog_buffer;
 }LFS2_t;
+
+static lfs_size_t luat_lfs2_align_up(lfs_size_t value, lfs_size_t unit) {
+    if (unit == 0) {
+        return value;
+    }
+    return ((value + unit - 1) / unit) * unit;
+}
+
+static lfs_size_t luat_lfs2_pick_cache_size(const little_flash_t* flash) {
+    lfs_size_t prog = flash->chip_info.prog_size;
+    lfs_size_t block = flash->chip_info.erase_size;
+    lfs_size_t target;
+    if (prog == 0) {
+        return 0;
+    }
+    target = prog * LFS_CACHE_MIN_MULTIPLIER;
+    if (target < prog) {
+        target = prog;
+    }
+    if (target > LFS_CACHE_MAX_BYTES) {
+        target = LFS_CACHE_MAX_BYTES;
+    }
+    if (block > 0 && target > block) {
+        target = block;
+    }
+    target = luat_lfs2_align_up(target, prog);
+    if (block > 0 && target > block) {
+        target = block - (block % prog);
+        if (target == 0) {
+            target = prog;
+        }
+    }
+    return target;
+}
+
+static lfs_size_t luat_lfs2_pick_lookahead_size(lfs_size_t block_count) {
+    lfs_size_t target = block_count / 8;
+    if ((block_count % 8) != 0) {
+        target++;
+    }
+    if (target < LFS_LOOKAHEAD_MIN_BYTES) {
+        target = LFS_LOOKAHEAD_MIN_BYTES;
+    }
+    if (target > LFS_LOOKAHEAD_MAX_BYTES) {
+        target = LFS_LOOKAHEAD_MAX_BYTES;
+    }
+    target &= ~((lfs_size_t)7);
+    if (target == 0) {
+        target = 8;
+    }
+    return target;
+}
 
 lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
     if (flash==NULL){
@@ -77,12 +132,15 @@ lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
     lfs_cfg->prog_size = flash->chip_info.prog_size;
     lfs_cfg->block_size = flash->chip_info.erase_size;
     lfs_cfg->block_count = (maxsize > 0 ? maxsize : (flash->chip_info.capacity - offset)) / flash->chip_info.erase_size;
-    lfs_cfg->block_cycles = 200;
-    lfs_cfg->cache_size = flash->chip_info.prog_size;
-    lfs_cfg->lookahead_size = LFS_BLOCK_DEVICE_LOOK_AHEAD;
+    lfs_cfg->block_cycles = 500;
+    lfs_cfg->cache_size = luat_lfs2_pick_cache_size(flash);
+    lfs_cfg->lookahead_size = luat_lfs2_pick_lookahead_size(lfs_cfg->block_count);
 
-    _lfs->read_buffer = luat_heap_malloc(flash->chip_info.prog_size);
-    _lfs->prog_buffer = luat_heap_malloc(flash->chip_info.prog_size);
+    _lfs->read_buffer = luat_heap_malloc(lfs_cfg->cache_size);
+    _lfs->prog_buffer = luat_heap_malloc(lfs_cfg->cache_size);
+    if (_lfs->read_buffer == NULL || _lfs->prog_buffer == NULL) {
+        goto fail;
+    }
 
     lfs_cfg->read_buffer = _lfs->read_buffer;
     lfs_cfg->prog_buffer = _lfs->prog_buffer;
@@ -97,6 +155,10 @@ lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
     // LLOGD("erase_size %d", flash->chip_info.erase_size);
 
     // ------
+    LLOGD("flash_lfs_lf mount begin offset=%u maxsize=%u block_size=%u block_count=%u cache=%u lookahead=%u",
+          (unsigned int)offset, (unsigned int)maxsize,
+          (unsigned int)lfs_cfg->block_size, (unsigned int)lfs_cfg->block_count,
+          (unsigned int)lfs_cfg->cache_size, (unsigned int)lfs_cfg->lookahead_size);
     int err = lfs_mount(lfs, lfs_cfg);
     LLOGD("lfs_mount %d",err);
     if (err)
@@ -112,6 +174,12 @@ lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
     }
     return lfs;
 fail :
+    if (_lfs->read_buffer) {
+        luat_heap_free(_lfs->read_buffer);
+    }
+    if (_lfs->prog_buffer) {
+        luat_heap_free(_lfs->prog_buffer);
+    }
     luat_heap_free(_lfs);
     return NULL;
     //------

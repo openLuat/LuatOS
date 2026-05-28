@@ -1,0 +1,45 @@
+name: 缺陷反馈
+description: 对本项目提出一个缺陷反馈
+body:
+  - type: textarea
+    id: related-problem
+    attributes:
+      label: 出现的问题
+      description: 出现了什么问题，出问题的依据是什么。
+    validations:
+      required: true
+  - type: textarea
+    id: firmware-name
+    attributes:
+      label: 固件名称
+      description: 出现问题时使用的固件是什么。
+    validations:
+      required: true
+  - type: textarea
+    id: device-name
+    attributes:
+      label: 测试设备
+      description: 出现问题时使用的设备是什么。
+    validations:
+      required: true
+  - type: textarea
+    id: use-function
+    attributes:
+      label: 使用功能
+      description: 使用什么功能时出现了问题。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 能否复现
+      description: 是否能够复现，如果能，填写详细复现步骤。
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 你有其他上下文或截图吗？
+      description: 在此处添加有关功能请求的任何其他上下文或截图。
+    validations:
+      required: false

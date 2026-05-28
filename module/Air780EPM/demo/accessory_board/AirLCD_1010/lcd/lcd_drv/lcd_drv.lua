@@ -11,28 +11,9 @@
 3、支持多种屏幕方向和分辨率设置；
 
 对外接口：
-1、lcd_drv.init()：初始化LCD显示驱动
+加载lcd_drv模块后，自动进行LCD显示驱动初始化，无需调用其他函数：
 ]]
 
-
-
-
---[[
-初始化LCD显示驱动；
-
-@api lcd_drv.init()
-@summary 配置并初始化ST7796 LCD控制器
-@return boolean 初始化成功返回true，失败返回false
-
-@usage
--- 初始化LCD显示
-local result = lcd_drv.init()
-if result then
-    log.info("LCD初始化成功")
-else
-    log.error("LCD初始化失败")
-end
-]]
 
 local function lcd_drv_init()
     local result = lcd.init("st7796",

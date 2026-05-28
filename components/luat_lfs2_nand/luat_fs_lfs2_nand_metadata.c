@@ -1,11 +1,34 @@
 #include "luat_fs_lfs2_nand_metadata.h"
 
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
+#include "luat_mcu.h"
 
 #define LUAT_LFS2_NAND_SPACE_META_MAGIC 0x4C324E44u
 #define LUAT_LFS2_NAND_SPACE_META_VERSION 1u
 #define LUAT_LFS2_NAND_SPACE_META_REFRESH_RETRY 4u
+#define LUAT_LFS2_NAND_SPACE_META_SLOW_US 5000u
+
+static void luat_lfs2_nand_space_meta_log(const luat_lfs2_nand_space_meta_ops_t* ops, const char* message);
+
+static uint64_t luat_lfs2_nand_space_meta_now_us(void) {
+    uint64_t tick = luat_mcu_tick64();
+    uint32_t tick_per_us = luat_mcu_us_period();
+    if (tick_per_us == 0) {
+        tick_per_us = 1;
+    }
+    return tick / tick_per_us;
+}
+
+static void luat_lfs2_nand_space_meta_log_timing(const luat_lfs2_nand_space_meta_ops_t* ops, const char* stage, uint32_t attempt, uint64_t cost_us) {
+    char msg[128];
+    if (cost_us < LUAT_LFS2_NAND_SPACE_META_SLOW_US) {
+        return;
+    }
+    snprintf(msg, sizeof(msg), "space metadata %s attempt=%u cost=%llu us", stage, (unsigned int)attempt, (unsigned long long)cost_us);
+    luat_lfs2_nand_space_meta_log(ops, msg);
+}
 
 static uint32_t luat_lfs2_nand_space_meta_crc32(const void* data, size_t len) {
     uint32_t crc = 0xFFFFFFFFu;
@@ -139,19 +162,25 @@ int luat_lfs2_nand_space_meta_refresh(const luat_lfs2_nand_space_meta_ops_t* ops
     }
 
     while (attempt < LUAT_LFS2_NAND_SPACE_META_REFRESH_RETRY) {
+        uint64_t t0 = luat_lfs2_nand_space_meta_now_us();
         if (ops->scan(ops->ctx, &used, &total) != 0) {
             luat_lfs2_nand_space_meta_log(ops, "space metadata scan failed");
             return -1;
         }
+        luat_lfs2_nand_space_meta_log_timing(ops, "scan", attempt, luat_lfs2_nand_space_meta_now_us() - t0);
         luat_lfs2_nand_space_meta_init(out, seq, used, total);
+        t0 = luat_lfs2_nand_space_meta_now_us();
         if (ops->write_slot(ops->ctx, target_slot, out) != 0) {
             luat_lfs2_nand_space_meta_log(ops, "space metadata write failed");
             return -1;
         }
+        luat_lfs2_nand_space_meta_log_timing(ops, "write", attempt, luat_lfs2_nand_space_meta_now_us() - t0);
+        t0 = luat_lfs2_nand_space_meta_now_us();
         if (ops->scan(ops->ctx, &used, &total) != 0) {
             luat_lfs2_nand_space_meta_log(ops, "space metadata verify scan failed");
             return -1;
         }
+        luat_lfs2_nand_space_meta_log_timing(ops, "verify_scan", attempt, luat_lfs2_nand_space_meta_now_us() - t0);
         if (used == out->used && total == out->total) {
             if (out_slot) {
                 *out_slot = target_slot;

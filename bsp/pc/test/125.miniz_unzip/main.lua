@@ -7,6 +7,28 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
+local function now_us()
+    if mcu and mcu.ticks2 then
+        local high, low = mcu.ticks2(1)
+        return high * 1000000 + low
+    end
+    if mcu and mcu.ticks then
+        return mcu.ticks() * 1000
+    end
+    return math.floor(os.clock() * 1000000)
+end
+
+local function us_to_ms(cost_us)
+    if cost_us <= 0 then
+        return 1
+    end
+    local ms = math.floor((cost_us + 500) / 1000)
+    if ms == 0 then
+        ms = 1
+    end
+    return ms
+end
+
 sys.taskInit(function()
     sys.wait(1000) -- 等待系统稳定
     log.info("test", "开始测试 miniz.unzip 功能")
@@ -40,7 +62,11 @@ sys.taskInit(function()
     end
     
     -- 调用 unzip 函数
-    local success = miniz.unzip(zip_file, target_dir .. "/")
+    local t0 = now_us()
+    local success = miniz.unzip(zip_file, target_dir .. "/", true, 30000)
+    local root_cost_us = now_us() - t0
+    local root_cost_ms = us_to_ms(root_cost_us)
+    log.info("PERF_ROOT_MS", root_cost_ms)
     local pass = true
     if success then
         log.info("test", "解压成功！")
@@ -78,7 +104,10 @@ sys.taskInit(function()
 
         -- 测试解压到 /lfs2
         local lfs_target = "/lfs2/"
-        local success_lfs = miniz.unzip(zip_file, lfs_target)
+        t0 = now_us()
+        local success_lfs = miniz.unzip(zip_file, lfs_target, true, 30000)
+        local lfs2_cost_us = now_us() - t0
+        log.info("PERF_LFS2_MS", us_to_ms(lfs2_cost_us))
         if success_lfs then
             log.info("test", "解压到 /lfs2 成功！")
             local ok_lfs, lfs_entries = io.lsdir(lfs_target .. "pac_man")
@@ -118,7 +147,7 @@ sys.taskInit(function()
 
     -- 输出到/abc/目录进行测试
     local abc_target = "/abc/"
-    local success_abc = miniz.unzip(zip_file, abc_target)
+    local success_abc = miniz.unzip(zip_file, abc_target, true, 30000)
     if success_abc then
         log.info("test", "解压到 /abc 成功！")
         local ok_abc, abc_entries = io.lsdir(abc_target .. "pac_man")
@@ -140,6 +169,35 @@ sys.taskInit(function()
         end
     else
         log.error("test", "解压到 /abc 失败！")
+        pass = false
+    end
+
+    if lf and lf.init and spi and spi.deviceSetup then
+        local spi_dev = spi.deviceSetup(1, 4, 0, 0, 8, 2000000, spi.MSB, 1, 0)
+        if spi_dev then
+            local lfdev = lf.init(spi_dev)
+            if lfdev and lf.mount(lfdev, "/lfs2n/", 0, 0, "lfs2_nand") then
+                local lfs2n_target = "/lfs2n/"
+                t0 = now_us()
+                local success_lfs2n = miniz.unzip(zip_file, lfs2n_target, true, 30000)
+                local lfs2n_cost_us = now_us() - t0
+                local lfs2n_cost_ms = us_to_ms(lfs2n_cost_us)
+                log.info("PERF_LFS2N_MS", lfs2n_cost_ms)
+                log.info("PERF_LFS2N_RATIO_X100", math.floor((lfs2n_cost_ms * 100) / root_cost_ms))
+                if not success_lfs2n then
+                    log.error("test", "解压到 /lfs2n 失败！")
+                    pass = false
+                end
+            else
+                log.error("test", "lf.mount /lfs2n 失败")
+                pass = false
+            end
+        else
+            log.error("test", "spi.deviceSetup 失败")
+            pass = false
+        end
+    else
+        log.error("test", "lf/spi 库不可用")
         pass = false
     end
 

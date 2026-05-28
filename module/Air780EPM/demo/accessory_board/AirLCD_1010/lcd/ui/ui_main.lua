@@ -99,15 +99,6 @@ end
 @return nil
 ]]
 local function ui_main()
-    if not lcd_drv.init() then
-        log.error("ui_main", "显示初始化失败")
-        return
-    end
-
-    if not tp_drv.init() then
-        log.error("ui_main", "触摸初始化失败")
-        return
-    end
 
     -- 默认使用12号自定义字体
     lcd.setFontFile("/luadb/customer_font_12.bin")

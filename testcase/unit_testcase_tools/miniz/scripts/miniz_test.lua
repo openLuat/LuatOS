@@ -31,6 +31,17 @@ local test_data_simple = "123jfoiq4hlkfjbnasdilfhuqwo;hfashfp9qw38hrfaios;hfiuoa
 local test_data_repeated = string.rep("ABCDE", 100) -- 重复字符串，压缩效果更好
 local test_data_large = string.rep("This is a test string with some repetition. ", 50)
 
+local function now_us()
+    if mcu and mcu.ticks2 then
+        local high, low = mcu.ticks2(1)
+        return high * 1000000 + low
+    end
+    if mcu and mcu.ticks then
+        return mcu.ticks() * 1000
+    end
+    return math.floor(os.clock() * 1000000)
+end
+
 local function cleanup_unzip_output()
     for _, item in ipairs(unzip_expected_files) do
         os.remove(item.path)
@@ -38,6 +49,16 @@ local function cleanup_unzip_output()
     io.rmdir(unzip_nested_dir)
     io.rmdir(unzip_root_dir)
     io.rmdir(unzip_target_dir)
+end
+
+local function cleanup_perf_output(base_dir)
+    local root = base_dir .. "/pac_man"
+    os.remove(root .. "/main.lua")
+    os.remove(root .. "/metas.json")
+    os.remove(root .. "/icon.png")
+    os.remove(root .. "/pacman_game_win.lua")
+    io.rmdir(root)
+    io.rmdir(base_dir)
 end
 
 -- 验证示例数据解压后长度符合预期
@@ -304,6 +325,57 @@ function miniz_test.test_unzip_nested_directories()
 
         log.info("miniz测试", "unzip 测试通过")
     end
+end
+
+function miniz_test.test_unzip_lfs2n_perf_compare()
+    if not lf or not lf.init then
+        log.info("miniz测试", "lf库不可用，跳过lfs2n性能对照")
+        return
+    end
+    if rtos_bsp == "PC" then
+        log.info("miniz测试", "PC环境跳过lfs2n性能对照（使用bsp/pc专用脚本）")
+        return
+    end
+    if (rtos_bsp ~= "AIR1601") and (rtos_bsp ~= "WIN32") and (rtos_bsp ~= "EC618") then
+        log.info("miniz测试", "当前BSP不做lfs2n性能对照: " .. tostring(rtos_bsp))
+        return
+    end
+    local spi_dev = spi.deviceSetup(1, 4, 0, 0, 8, 2000000, spi.MSB, 1, 0)
+    if not spi_dev then
+        log.info("miniz测试", "spi.deviceSetup失败，跳过lfs2n性能对照")
+        return
+    end
+    local lfdev = lf.init(spi_dev)
+    if not lfdev then
+        log.info("miniz测试", "lf.init(spi1,cs4,pwr50)失败，跳过lfs2n性能对照")
+        return
+    end
+    local ok_mount = lf.mount(lfdev, "/lfs2n", 0, 0, "lfs2_nand")
+    assert(ok_mount, "挂载/lfs2n失败")
+    local root_dir = "/ram/miniz_perf_root"
+    local nand_dir = "/lfs2n/miniz_perf_lfs2n"
+
+    cleanup_perf_output(root_dir)
+    cleanup_perf_output(nand_dir)
+
+    local t0 = now_us()
+    local ok_root = miniz.unzip(unzip_zip_path, root_dir, true, 120000)
+    local root_cost = now_us() - t0
+    assert(ok_root == true, "解压到/ram失败")
+
+    t0 = now_us()
+    local ok_nand = miniz.unzip(unzip_zip_path, nand_dir, true, 120000)
+    local nand_cost = now_us() - t0
+    assert(ok_nand == true, "解压到/lfs2n失败")
+
+    log.info("LFS2N_PERF_ROOT_MS", math.floor((root_cost + 500) / 1000))
+    log.info("LFS2N_PERF_NAND_MS", math.floor((nand_cost + 500) / 1000))
+    if root_cost > 0 then
+        log.info("LFS2N_PERF_RATIO_X100", math.floor((nand_cost * 100) / root_cost))
+    end
+
+    cleanup_perf_output(root_dir)
+    cleanup_perf_output(nand_dir)
 end
 
 return miniz_test

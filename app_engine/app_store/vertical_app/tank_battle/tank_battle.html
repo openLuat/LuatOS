@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>坦克大战 - 钢铁突击</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'PingFang SC', 'Orbitron', monospace;
+            overflow: hidden;
+            position: relative;
+            background: #0a0f1e;
+        }
+
+        /* 主菜单背景 - 使用坦克背景图 */
+        .main-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('res/tank_background.png') center center / cover no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: all 0.4s;
+        }
+
+        /* 背景暗化遮罩，让文字更清晰 */
+        .main-menu::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+        }
+
+        .menu-card {
+            background: rgba(8, 18, 26, 0.85);
+            backdrop-filter: blur(14px);
+            border: 2px solid rgba(240, 196, 64, 0.8);
+            border-radius: 48px;
+            padding: 30px 40px;
+            width: 460px;
+            text-align: center;
+            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.6);
+            z-index: 2;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .menu-card h1 {
+            font-size: 48px;
+            background: linear-gradient(135deg, #f0c040, #e0a020);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 10px rgba(240, 192, 64, 0.3);
+        }
+
+        .menu-sub {
+            color: #9bb5d0;
+            margin-bottom: 32px;
+            border-bottom: 1px dashed #5a6e7e;
+            display: inline-block;
+            padding-bottom: 8px;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            margin-bottom: 32px;
+        }
+
+        .menu-btn {
+            background: linear-gradient(95deg, #1e2a36, #0f1722);
+            border: 1px solid #5f7f9e;
+            padding: 14px 0;
+            font-size: 20px;
+            font-weight: bold;
+            color: #eef4ff;
+            border-radius: 60px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .menu-btn:hover {
+            border-color: #f0c040;
+            color: #f0c040;
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(240, 192, 64, 0.3);
+        }
+
+        .menu-btn:active { transform: scale(0.98); }
+
+        .rank-panel {
+            background: #0b1422e6;
+            backdrop-filter: blur(16px);
+            border-radius: 32px;
+            padding: 20px;
+            margin-top: 16px;
+            border: 1px solid #f0c040;
+            text-align: left;
+            max-height: 280px;
+            overflow-y: auto;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .rank-panel.show { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .rank-panel h3 { color: #f0c040; text-align: center; margin-bottom: 12px; }
+        .rank-list { list-style: none; }
+        .rank-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 12px;
+            border-bottom: 1px solid #2f3e55;
+            color: #cfdfef;
+        }
+        .rank-list li:last-child { border-bottom: none; }
+        .rank-empty { text-align: center; color: #5a6e7e; padding: 20px; }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #f0c040;
+            float: right;
+            font-size: 18px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .close-btn:hover { transform: scale(1.1); }
+
+        .version-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            z-index: 3;
+        }
+
+        /* 游戏容器 */
+        .game-wrapper {
+            position: relative;
+            background: #111827;
+            border-radius: 16px;
+            padding: 12px;
+            border: 2px solid #2a3040;
+            display: none;
+            box-shadow: 0 0 60px rgba(0,0,0,0.8);
+            width: 100%;
+            max-width: 824px;
+        }
+        .game-wrapper.active { display: block; animation: fadeInScale 0.3s; }
+        @keyframes fadeInScale { from{opacity:0;transform:scale(0.96);} to{opacity:1;transform:scale(1);} }
+
+        .game-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            background: #16213e;
+            border-radius: 10px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .player-info { display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 13px; }
+        .player-info.p1 { background: rgba(78,203,113,0.15); border:1px solid rgba(78,203,113,0.4); color:#4ecb71; }
+        .player-info.p2 { background: rgba(77,166,255,0.15); border:1px solid rgba(77,166,255,0.4); color:#4da6ff; }
+        .score-badge { background:#1e293b; padding:4px 10px; border-radius:12px; color:#f0c040; }
+        .mode-indicator { font-size:11px; padding:5px 10px; border-radius:14px; background:#1e293b; cursor:pointer; border:1px solid #3a3f50; }
+        canvas { display: block; border-radius: 8px; background: #0d1117; touch-action: none; width:100%; height:auto; }
+        .controls-hint { display: flex; justify-content: space-between; padding: 6px 12px; background:#16213e; border-radius:10px; font-size:11px; color:#8899aa; margin-top: 6px; }
+        .back-menu-btn { background:#2a2f3f; border:none; border-radius:24px; padding:4px 16px; color:#ddd; cursor:pointer; font-size:12px; }
+        .settings-bar { display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 8px; align-items: center; }
+
+        /* 触摸控制层 */
+        .touch-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 20;
+        }
+        .control-group {
+            position: absolute;
+            pointer-events: auto;
+            bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 35px;
+        }
+        .control-group.left { left: 20px; flex-direction: row; }
+        .control-group.right { right: 20px; flex-direction: row-reverse; gap: 35px; }
+        .joystick-area {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 60px;
+            backdrop-filter: blur(8px);
+            border: 1.5px solid rgba(255, 215, 120, 0.7);
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+            touch-action: none;
+        }
+        .joystick-base {
+            width: 100%;
+            height: 100%;
+            border-radius: 60px;
+            background: rgba(30, 40, 50, 0.5);
+        }
+        .js-thumb {
+            width: 48px;
+            height: 48px;
+            background: rgba(240, 196, 64, 0.9);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 12px #ffcc44;
+            transition: transform 0.02s linear;
+        }
+        .shoot-btn-area {
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(8px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid #ffaa66;
+            box-shadow: 0 0 15px rgba(255,80,40,0.5);
+            touch-action: manipulation;
+            cursor: pointer;
+            font-size: 32px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 5px red;
+        }
+        .shoot-btn-area:active {
+            transform: scale(0.92);
+            background: rgba(200, 60, 40, 0.6);
+        }
+
+        .control-group.single-mode {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            width: auto;
+            transform: none;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            pointer-events: auto;
+            gap: 0;
+        }
+        .control-group.single-mode .joystick-area { margin-left: 0; margin-right: auto; left: 0; }
+        .control-group.single-mode .shoot-btn-area { margin-right: 0; margin-left: auto; }
+
+        .overlay { position: absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:15; }
+        .overlay-message { background:rgba(0,0,0,0.85); padding:18px 30px; border-radius:24px; font-size:20px; border:2px solid #f0c040; animation:pop-in 0.3s; display:none; }
+        @keyframes pop-in { from{transform:scale(0.7); opacity:0;} to{transform:scale(1); opacity:1;} }
+
+        .heart.lost { opacity: 0.3; filter: grayscale(1); }
+    </style>
+</head>
+<body>
+    <!-- 主菜单 -->
+    <div class="main-menu" id="mainMenu">
+        <div class="menu-card">
+            <h1>⚡ 坦克大战 ⚡</h1>
+            <div class="menu-buttons">
+                <button class="menu-btn" id="singleBtn">单机对战</button>
+                <button class="menu-btn" id="networkBtn">联网对战</button>
+                <button class="menu-btn rank-btn" id="rankMenuBtn">🏆 积分排行榜</button>
+                <button class="menu-btn" id="helpBtn">❓ 帮助</button>
+                <button class="menu-btn" id="exitBtn" style="background:#884444;">🚪 退出</button>
+            </div>
+            <div id="rankDisplayArea" class="rank-panel">
+                <button class="close-btn" id="closeRankPanel">✖</button>
+                <h3>🏅 英雄榜</h3>
+                <ul class="rank-list" id="rankList"></ul>
+            </div>
+        </div>
+        <div class="version-info">v1.0.0</div>
+    </div>
+
+    <!-- 游戏包装器 -->
+    <div class="game-wrapper" id="gameWrapper">
+        <div class="settings-bar">
+            <button class="back-menu-btn" id="backToMenuBtn">🔙 主菜单</button>
+            <div class="mode-indicator" id="modeIndicator">🎮 选择模式</div>
+        </div>
+        <div class="game-header">
+            <div class="player-info p1"><span class="player-dot"></span> 玩家1 <span class="lives-display" id="livesP1">❤️❤️❤️</span><span class="score-badge" id="scoreP1">0</span></div>
+            <div class="player-info p2"><span class="score-badge" id="scoreP2">0</span><span class="lives-display" id="livesP2">❤️❤️❤️</span> 玩家2 <span class="player-dot"></span></div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="480"></canvas>
+        <div class="controls-hint">
+            <span>📱 左侧摇杆移动 | 右侧开火 | 双人双控</span>
+            <span id="aiHintSpan" style="display:none;">🤖 AI自动战斗</span>
+        </div>
+        <div class="overlay" id="overlay"><div class="overlay-message" id="overlayMsg"></div></div>
+        <div id="touchOverlay" class="touch-overlay"></div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- DOM ----------
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = 800, H = 480, CELL = 40;
+            const mainMenuDiv = document.getElementById('mainMenu');
+            const gameWrapper = document.getElementById('gameWrapper');
+            const overlayMsgDiv = document.getElementById('overlayMsg');
+            const modeIndicator = document.getElementById('modeIndicator');
+            const livesP1El = document.getElementById('livesP1');
+            const livesP2El = document.getElementById('livesP2');
+            const scoreP1El = document.getElementById('scoreP1');
+            const scoreP2El = document.getElementById('scoreP2');
+            const aiHintSpan = document.getElementById('aiHintSpan');
+            const touchOverlay = document.getElementById('touchOverlay');
+
+            // 游戏状态
+            let currentMode = null;
+            let gameLoopId = null;
+            let gameRunning = true, gameOver = false, winnerName = '', winnerColor = '', roundStartDelay = 0;
+            let tanks = [], bullets = [], walls = [], particles = [];
+            let scoreP1 = 0, scoreP2 = 0;
+            let shakeAmount = 0, shakeDuration = 0;
+            let lastTimestamp = 0;
+
+            // 触摸输入状态
+            let touchInput = {
+                p1: { up: false, down: false, left: false, right: false, shoot: false },
+                p2: { up: false, down: false, left: false, right: false, shoot: false }
+            };
+
+            // ---------- 排行榜 ----------
+            const RANK_KEY = 'tank_battle_rank';
+            let rankList = [];
+
+            function loadRank() {
+                const stored = localStorage.getItem(RANK_KEY);
+                rankList = stored ? JSON.parse(stored) : [];
+            }
+
+            function saveRank() {
+                localStorage.setItem(RANK_KEY, JSON.stringify(rankList.slice(0, 12)));
+            }
+
+            function addRankEntry(winner, modeStr) {
+                if (!winner) return;
+                rankList.unshift({ winner, mode: modeStr, date: Date.now() });
+                if (rankList.length > 12) rankList.pop();
+                saveRank();
+                refreshRankUI();
+            }
+
+            function refreshRankUI() {
+                const rankUl = document.getElementById('rankList');
+                if (!rankUl) return;
+                if (rankList.length === 0) {
+                    rankUl.innerHTML = '<div class="rank-empty">暂无战绩</div>';
+                    return;
+                }
+                rankUl.innerHTML = rankList.map((r, i) => {
+                    const date = new Date(r.date).toLocaleDateString();
+                    return `<li><span>${i + 1}. ${r.winner}</span><span>${r.mode}</span><span>${date}</span></li>`;
+                }).join('');
+            }
+
+            // 音效
+            let audioCtx = null;
+            function playSound(freq, type, dur, vol = 0.08, freqEnd = null) {
+                try {
+                    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                    let t = audioCtx.currentTime, osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+                    osc.type = type;
+                    osc.frequency.value = freq;
+                    if (freqEnd) osc.frequency.linearRampToValueAtTime(freqEnd, t + dur);
+                    gain.gain.setValueAtTime(vol, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(t);
+                    osc.stop(t + dur);
+                } catch (e) {}
+            }
+            function sfxShoot() { playSound(800, 'square', 0.08, 0.04, 200); }
+            function sfxHitWall() { playSound(120, 'triangle', 0.1, 0.06, 60); }
+            function sfxHitTank() { playSound(40, 'sawtooth', 0.2, 0.25, 15); playSound(200, 'square', 0.12, 0.12, 80); }
+            function sfxExplosion() { playSound(30, 'sawtooth', 0.3, 0.35, 10); playSound(500, 'triangle', 0.15, 0.1, 100); }
+            function sfxGameOver() { playSound(60, 'sawtooth', 0.25, 0.5, 20); playSound(150, 'triangle', 0.15, 0.3, 40); }
+
+            // 坦克类
+            const TANK_SIZE = 30, TANK_HALF = 15, BULLET_SIZE = 7, BULLET_SPEED = 7, TANK_SPEED = 2.8;
+            const MAX_LIVES = 3, RESPAWN_INVINCIBLE_MS = 2000, SHOOT_COOLDOWN_MS = 450;
+
+            class Tank {
+                constructor(x, y, color, playerNum) {
+                    this.x = x; this.y = y; this.color = color; this.playerNum = playerNum;
+                    this.dir = { x: 0, y: -1 }; this.speed = TANK_SPEED; this.lives = MAX_LIVES;
+                    this.alive = true; this.invincibleUntil = 0; this.shootCooldownUntil = 0;
+                    this.respawnTimer = 0; this.flashTimer = 0; this.trailPositions = [];
+                }
+                getBounds() { return { x: this.x - TANK_HALF, y: this.y - TANK_HALF, w: TANK_SIZE, h: TANK_SIZE }; }
+                hit() {
+                    if (!this.alive) return false;
+                    if (Date.now() < this.invincibleUntil) return false;
+                    this.lives--;
+                    this.alive = false;
+                    this.respawnTimer = RESPAWN_INVINCIBLE_MS;
+                    sfxHitTank();
+                    spawnParticles(this.x, this.y, this.color, 30);
+                    shakeAmount = 6; shakeDuration = 200;
+                    if (this.lives <= 0) this.respawnTimer = -1;
+                    return true;
+                }
+                respawn(x, y) {
+                    this.x = x; this.y = y; this.dir = { x: 0, y: -1 };
+                    this.alive = true; this.invincibleUntil = Date.now() + RESPAWN_INVINCIBLE_MS;
+                    this.shootCooldownUntil = 0; this.trailPositions = [];
+                }
+                update(dt, inputState) {
+                    if (!this.alive) {
+                        if (this.respawnTimer > 0) {
+                            this.respawnTimer -= dt * 1000;
+                            if (this.respawnTimer <= 0) {
+                                let sp = this.playerNum === 1 ? { x: 2.5 * CELL, y: 2.5 * CELL } : { x: 17.5 * CELL, y: 9.5 * CELL };
+                                this.respawn(sp.x, sp.y);
+                            }
+                        }
+                        return;
+                    }
+                    let moveX = 0, moveY = 0;
+                    if (inputState.up) moveY = -1;
+                    if (inputState.down) moveY = 1;
+                    if (inputState.left) moveX = -1;
+                    if (inputState.right) moveX = 1;
+                    const mag = Math.hypot(moveX, moveY);
+                    if (mag > 0) { moveX /= mag; moveY /= mag; this.dir = { x: moveX, y: moveY }; }
+                    let newX = this.x + moveX * this.speed * dt * 60, newY = this.y + moveY * this.speed * dt * 60;
+                    let blockedX = false, blockedY = false;
+                    const bounds = { x: newX - TANK_HALF, y: newY - TANK_HALF, w: TANK_SIZE, h: TANK_SIZE };
+                    for (let w of walls) {
+                        if (w.destroyed) continue;
+                        if (rectsOverlap(bounds, w)) {
+                            let bx = { x: this.x + moveX * this.speed * dt * 60 - TANK_HALF, y: this.y - TANK_HALF, w: TANK_SIZE, h: TANK_SIZE };
+                            let by = { x: this.x - TANK_HALF, y: this.y + moveY * this.speed * dt * 60 - TANK_HALF, w: TANK_SIZE, h: TANK_SIZE };
+                            if (rectsOverlap(bx, w)) blockedX = true;
+                            if (rectsOverlap(by, w)) blockedY = true;
+                        }
+                    }
+                    let other = tanks.find(t => t.playerNum !== this.playerNum && t.alive);
+                    if (other) {
+                        let ob = other.getBounds();
+                        let bx2 = { x: this.x + moveX * this.speed * dt * 60 - TANK_HALF, y: this.y - TANK_HALF, w: TANK_SIZE, h: TANK_SIZE };
+                        let by2 = { x: this.x - TANK_HALF, y: this.y + moveY * this.speed * dt * 60 - TANK_HALF, w: TANK_SIZE, h: TANK_SIZE };
+                        if (rectsOverlap(bx2, ob)) blockedX = true;
+                        if (rectsOverlap(by2, ob)) blockedY = true;
+                    }
+                    if (newX - TANK_HALF < 0 || newX + TANK_HALF > W) blockedX = true;
+                    if (newY - TANK_HALF < 0 || newY + TANK_HALF > H) blockedY = true;
+                    if (!blockedX) this.x = newX;
+                    if (!blockedY) this.y = newY;
+                    this.x = Math.min(W - TANK_HALF, Math.max(TANK_HALF, this.x));
+                    this.y = Math.min(H - TANK_HALF, Math.max(TANK_HALF, this.y));
+                    if (Math.abs(moveX) > 0.01 || Math.abs(moveY) > 0.01) {
+                        this.trailPositions.push({ x: this.x, y: this.y, t: Date.now() });
+                        if (this.trailPositions.length > 8) this.trailPositions.shift();
+                    }
+                    if (inputState.shoot && Date.now() >= this.shootCooldownUntil) this.shoot();
+                    if (Date.now() < this.invincibleUntil) this.flashTimer += dt;
+                }
+                shoot() {
+                    let bx = this.x + this.dir.x * (TANK_HALF + 6), by = this.y + this.dir.y * (TANK_HALF + 6);
+                    bullets.push({ x: bx, y: by, vx: this.dir.x * BULLET_SPEED, vy: this.dir.y * BULLET_SPEED, owner: this.playerNum, color: this.color, size: BULLET_SIZE });
+                    this.shootCooldownUntil = Date.now() + SHOOT_COOLDOWN_MS;
+                    sfxShoot();
+                }
+                draw(ctx) {
+                    if (!this.alive) return;
+                    if (Date.now() < this.invincibleUntil && Math.floor(this.flashTimer * 15) % 2 === 0) return;
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(Math.atan2(this.dir.y, this.dir.x) + Math.PI / 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(-TANK_HALF, -TANK_HALF, TANK_SIZE, TANK_SIZE);
+                    ctx.fillStyle = '#222';
+                    ctx.fillRect(-TANK_HALF - 1, -TANK_HALF, 6, TANK_SIZE);
+                    ctx.fillRect(TANK_HALF - 5, -TANK_HALF, 6, TANK_SIZE);
+                    ctx.fillStyle = '#ddd';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillRect(-3, -TANK_HALF - 6, 6, TANK_HALF + 2);
+                    ctx.restore();
+                }
+            }
+
+            function rectsOverlap(a, b) {
+                return !(a.x + a.w <= b.x || a.x >= b.x + b.w || a.y + a.h <= b.y || a.y >= b.y + b.h);
+            }
+
+            function spawnParticles(x, y, color, count) {
+                for (let i = 0; i < count; i++) {
+                    let angle = Math.random() * Math.PI * 2, speed = 1.5 + Math.random() * 6;
+                    particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 0.6, maxLife: 0.6, color, size: 2 + Math.random() * 4 });
+                }
+            }
+
+            function buildMap() {
+                walls = [];
+                for (let row = 0; row < 12; row++)
+                    for (let col = 0; col < 20; col++) {
+                        let val = (row === 0 || row === 11 || col === 0 || col === 19) ? 2 : 0;
+                        if (val === 2) walls.push({ x: col * CELL, y: row * CELL, w: CELL, h: CELL, type: 'steel', destroyed: false, borderWall: true });
+                    }
+                let template = [
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                    [0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+                    [0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 2, 2, 0, 1, 0, 0, 0, 1, 1, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                    [0, 1, 1, 0, 0, 0, 1, 0, 0, 2, 2, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                    [0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
+                    [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                ];
+                for (let r = 0; r < 12; r++)
+                    for (let c = 0; c < 20; c++)
+                        if (template[r][c] === 1) walls.push({ x: c * CELL, y: r * CELL, w: CELL, h: CELL, type: 'brick', destroyed: false });
+                        else if (template[r][c] === 2) walls.push({ x: c * CELL, y: r * CELL, w: CELL, h: CELL, type: 'steel', destroyed: false });
+            }
+
+            function resetGameState() {
+                bullets = []; particles = [];
+                gameRunning = true; gameOver = false; roundStartDelay = 600; winnerName = '';
+                shakeAmount = 0;
+                let p1sp = { x: 2.5 * CELL, y: 2.5 * CELL }, p2sp = { x: 17.5 * CELL, y: 9.5 * CELL };
+                tanks = [new Tank(p1sp.x, p1sp.y, '#4ecb71', 1), new Tank(p2sp.x, p2sp.y, '#4da6ff', 2)];
+                tanks[0].lives = MAX_LIVES; tanks[1].lives = MAX_LIVES;
+                tanks[0].alive = true; tanks[1].alive = true;
+                tanks[0].invincibleUntil = Date.now() + 1500;
+                tanks[1].invincibleUntil = Date.now() + 1500;
+                if (currentMode === 'single') { tanks[1].lives = MAX_LIVES; tanks[1].alive = true; }
+                updateUI();
+            }
+
+            function updateUI() {
+                livesP1El.innerHTML = Array.from({ length: MAX_LIVES }, (_, i) => `<span class="heart${i >= tanks[0].lives ? ' lost' : ''}">❤️</span>`).join('');
+                livesP2El.innerHTML = Array.from({ length: MAX_LIVES }, (_, i) => `<span class="heart${i >= tanks[1].lives ? ' lost' : ''}">❤️</span>`).join('');
+                scoreP1El.textContent = scoreP1;
+                scoreP2El.textContent = scoreP2;
+            }
+
+            function getInputState(tank) {
+                if (currentMode === 'single' && tank.playerNum === 2) {
+                    let dx = tanks[0].x - tank.x, dy = tanks[0].y - tank.y;
+                    let move = { up: false, down: false, left: false, right: false, shoot: false };
+                    if (Math.abs(dx) > 12) { if (dx > 0) move.right = true; else move.left = true; }
+                    if (Math.abs(dy) > 12) { if (dy > 0) move.down = true; else move.up = true; }
+                    if (Math.hypot(dx, dy) < 280 && Date.now() > tank.shootCooldownUntil && Math.random() < 0.022) move.shoot = true;
+                    return move;
+                }
+                let inp = (tank.playerNum === 1) ? touchInput.p1 : touchInput.p2;
+                return { up: inp.up, down: inp.down, left: inp.left, right: inp.right, shoot: inp.shoot };
+            }
+
+            // 触摸控件
+            function clearControls() { touchOverlay.innerHTML = ''; }
+
+            function createSingleControl(parentEl, playerId) {
+                const container = document.createElement('div');
+                container.className = 'control-group single-mode';
+                const joyDiv = document.createElement('div');
+                joyDiv.className = 'joystick-area';
+                const base = document.createElement('div'); base.className = 'joystick-base';
+                const thumb = document.createElement('div'); thumb.className = 'js-thumb';
+                joyDiv.appendChild(base); joyDiv.appendChild(thumb);
+                const shootDiv = document.createElement('div');
+                shootDiv.className = 'shoot-btn-area';
+                shootDiv.innerHTML = '⚡';
+                container.appendChild(joyDiv);
+                container.appendChild(shootDiv);
+                parentEl.appendChild(container);
+
+                let active = false, centerX = 0, centerY = 0;
+                const onStart = (e) => {
+                    e.preventDefault(); active = true;
+                    const rect = joyDiv.getBoundingClientRect();
+                    centerX = rect.left + rect.width / 2;
+                    centerY = rect.top + rect.height / 2;
+                    onMove(e);
+                };
+                const onMove = (e) => {
+                    if (!active) return;
+                    const touch = e.touches ? e.touches[0] : e;
+                    let dx = touch.clientX - centerX, dy = touch.clientY - centerY;
+                    const dist = Math.hypot(dx, dy), maxR = 45;
+                    let normX = 0, normY = 0;
+                    if (dist > 0.01) { normX = dx / dist; normY = dy / dist; }
+                    let limited = Math.min(dist, maxR);
+                    let offsetX = normX * limited, offsetY = normY * limited;
+                    thumb.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+                    const outX = (dist > maxR ? normX : dx / maxR);
+                    const outY = (dist > maxR ? normY : dy / maxR);
+                    const dead = 0.15;
+                    const finalX = Math.abs(outX) > dead ? outX : 0;
+                    const finalY = Math.abs(outY) > dead ? outY : 0;
+                    const target = (playerId === 1 ? touchInput.p1 : touchInput.p2);
+                    target.up = (finalY < -0.2);
+                    target.down = (finalY > 0.2);
+                    target.left = (finalX < -0.2);
+                    target.right = (finalX > 0.2);
+                };
+                const onEnd = () => {
+                    active = false; thumb.style.transform = 'translate(-50%, -50%)';
+                    const target = (playerId === 1 ? touchInput.p1 : touchInput.p2);
+                    target.up = false; target.down = false; target.left = false; target.right = false;
+                };
+                joyDiv.addEventListener('touchstart', onStart, { passive: false });
+                joyDiv.addEventListener('touchmove', onMove, { passive: false });
+                joyDiv.addEventListener('touchend', onEnd);
+                joyDiv.addEventListener('touchcancel', onEnd);
+
+                const setShoot = (val) => { const t = (playerId === 1 ? touchInput.p1 : touchInput.p2); t.shoot = val; };
+                shootDiv.addEventListener('pointerdown', (e) => { e.preventDefault(); setShoot(true); });
+                shootDiv.addEventListener('pointerup', () => { setShoot(false); });
+                shootDiv.addEventListener('pointerleave', () => { setShoot(false); });
+            }
+
+            function createDoubleControls(parentEl) {
+                const leftGroup = document.createElement('div');
+                leftGroup.className = 'control-group left';
+                const joy1 = document.createElement('div'); joy1.className = 'joystick-area';
+                const base1 = document.createElement('div'); base1.className = 'joystick-base';
+                const thumb1 = document.createElement('div'); thumb1.className = 'js-thumb';
+                joy1.appendChild(base1); joy1.appendChild(thumb1);
+                const shoot1 = document.createElement('div'); shoot1.className = 'shoot-btn-area'; shoot1.innerHTML = '⚡';
+                leftGroup.appendChild(joy1); leftGroup.appendChild(shoot1);
+                parentEl.appendChild(leftGroup);
+
+                const rightGroup = document.createElement('div');
+                rightGroup.className = 'control-group right';
+                const joy2 = document.createElement('div'); joy2.className = 'joystick-area';
+                const base2 = document.createElement('div'); base2.className = 'joystick-base';
+                const thumb2 = document.createElement('div'); thumb2.className = 'js-thumb';
+                joy2.appendChild(base2); joy2.appendChild(thumb2);
+                const shoot2 = document.createElement('div'); shoot2.className = 'shoot-btn-area'; shoot2.innerHTML = '⚡';
+                rightGroup.appendChild(joy2); rightGroup.appendChild(shoot2);
+                parentEl.appendChild(rightGroup);
+
+                function attachJoystick(joy, thumb, playerId) {
+                    let active = false, centerX = 0, centerY = 0;
+                    const onStart = (e) => {
+                        e.preventDefault(); active = true;
+                        const rect = joy.getBoundingClientRect();
+                        centerX = rect.left + rect.width / 2;
+                        centerY = rect.top + rect.height / 2;
+                        onMove(e);
+                    };
+                    const onMove = (e) => {
+                        if (!active) return;
+                        const touch = e.touches ? e.touches[0] : e;
+                        let dx = touch.clientX - centerX, dy = touch.clientY - centerY;
+                        const dist = Math.hypot(dx, dy), maxR = 45;
+                        let normX = 0, normY = 0;
+                        if (dist > 0.01) { normX = dx / dist; normY = dy / dist; }
+                        let limited = Math.min(dist, maxR);
+                        let offsetX = normX * limited, offsetY = normY * limited;
+                        thumb.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+                        const outX = (dist > maxR ? normX : dx / maxR);
+                        const outY = (dist > maxR ? normY : dy / maxR);
+                        const dead = 0.15;
+                        const finalX = Math.abs(outX) > dead ? outX : 0;
+                        const finalY = Math.abs(outY) > dead ? outY : 0;
+                        const target = (playerId === 1 ? touchInput.p1 : touchInput.p2);
+                        target.up = (finalY < -0.2);
+                        target.down = (finalY > 0.2);
+                        target.left = (finalX < -0.2);
+                        target.right = (finalX > 0.2);
+                    };
+                    const onEnd = () => {
+                        active = false; thumb.style.transform = 'translate(-50%, -50%)';
+                        const target = (playerId === 1 ? touchInput.p1 : touchInput.p2);
+                        target.up = false; target.down = false; target.left = false; target.right = false;
+                    };
+                    joy.addEventListener('touchstart', onStart, { passive: false });
+                    joy.addEventListener('touchmove', onMove, { passive: false });
+                    joy.addEventListener('touchend', onEnd);
+                    joy.addEventListener('touchcancel', onEnd);
+                }
+                attachJoystick(joy1, thumb1, 1);
+                attachJoystick(joy2, thumb2, 2);
+
+                const setShoot = (playerId, val) => { const t = (playerId === 1 ? touchInput.p1 : touchInput.p2); t.shoot = val; };
+                shoot1.addEventListener('pointerdown', (e) => { e.preventDefault(); setShoot(1, true); });
+                shoot1.addEventListener('pointerup', () => { setShoot(1, false); });
+                shoot1.addEventListener('pointerleave', () => { setShoot(1, false); });
+                shoot2.addEventListener('pointerdown', (e) => { e.preventDefault(); setShoot(2, true); });
+                shoot2.addEventListener('pointerup', () => { setShoot(2, false); });
+                shoot2.addEventListener('pointerleave', () => { setShoot(2, false); });
+            }
+
+            function buildControlsByMode() {
+                clearControls();
+                if (currentMode === 'single') { createSingleControl(touchOverlay, 1); }
+                else if (currentMode === 'double') { createDoubleControls(touchOverlay); }
+            }
+
+            function updateModeIndicator() {
+                modeIndicator.textContent = currentMode === 'single' ? '🤖 单机模式' : (currentMode === 'double' ? '👥 双人对战' : '🎮 对战');
+                aiHintSpan.style.display = currentMode === 'single' ? 'inline-block' : 'none';
+            }
+
+            function launchMode(mode) {
+                currentMode = mode;
+                buildMap(); scoreP1 = 0; scoreP2 = 0; resetGameState();
+                if (mode === 'single') { aiHintSpan.style.display = 'inline-block'; updateModeIndicator(); buildControlsByMode(); }
+                else if (mode === 'double') { aiHintSpan.style.display = 'none'; buildControlsByMode(); updateModeIndicator(); }
+                gameRunning = true; gameOver = false; roundStartDelay = 800;
+                lastTimestamp = performance.now();
+                if (gameLoopId) cancelAnimationFrame(gameLoopId);
+                gameLoopId = requestAnimationFrame(gameLoop);
+            }
+
+            function gameLoop(timestamp) {
+                let dt = (timestamp - lastTimestamp) / 1000;
+                lastTimestamp = timestamp;
+                if (dt > 0.05) dt = 0.05;
+                if (roundStartDelay > 0) {
+                    roundStartDelay -= dt * 1000;
+                    overlayMsgDiv.style.display = 'block';
+                    overlayMsgDiv.textContent = roundStartDelay > 400 ? '3' : (roundStartDelay > 200 ? '2' : (roundStartDelay > 0 ? '1' : 'GO!'));
+                    if (roundStartDelay <= 0) overlayMsgDiv.style.display = 'none';
+                }
+                if (gameOver) {
+                    overlayMsgDiv.style.display = 'block';
+                    overlayMsgDiv.innerHTML = `<div style="color:${winnerColor};font-size:28px;">${winnerName} 获胜!</div><div style="font-size:14px;margin-top:8px;">点击返回菜单</div>`;
+                    overlayMsgDiv.onclick = () => { backToMenu(); };
+                }
+                ctx.fillStyle = '#0d1117';
+                ctx.fillRect(0, 0, W, H);
+                if (shakeDuration > 0) {
+                    shakeDuration -= dt * 1000;
+                    let sx = (Math.random() - 0.5) * shakeAmount;
+                    let sy = (Math.random() - 0.5) * shakeAmount;
+                    ctx.save(); ctx.translate(sx, sy);
+                }
+                for (let w of walls) {
+                    if (w.destroyed) continue;
+                    ctx.fillStyle = w.type === 'steel' ? '#5a6e7e' : '#8b5a3c';
+                    ctx.fillRect(w.x, w.y, w.w, w.h);
+                    ctx.strokeStyle = w.type === 'steel' ? '#3a4a5a' : '#6b4a2c';
+                    ctx.strokeRect(w.x, w.y, w.w, w.h);
+                }
+                for (let tank of tanks) {
+                    let input = getInputState(tank);
+                    tank.update(dt, input);
+                    tank.draw(ctx);
+                }
+                let bRemove = new Set();
+                for (let i = 0; i < bullets.length; i++) {
+                    let b = bullets[i];
+                    b.x += b.vx; b.y += b.vy;
+                    if (b.x < 0 || b.x > W || b.y < 0 || b.y > H) { bRemove.add(i); continue; }
+                    for (let w of walls) {
+                        if (w.destroyed) continue;
+                        let br = { x: b.x - b.size / 2, y: b.y - b.size / 2, w: b.size, h: b.size };
+                        if (rectsOverlap(br, w)) {
+                            bRemove.add(i);
+                            if (w.type === 'brick') { w.destroyed = true; sfxHitWall(); spawnParticles(b.x, b.y, '#8b5a3c', 8); }
+                            else { sfxHitWall(); spawnParticles(b.x, b.y, '#5a6e7e', 5); }
+                            break;
+                        }
+                    }
+                }
+                for (let tank of tanks) {
+                    if (!tank.alive) continue;
+                    for (let i = 0; i < bullets.length; i++) {
+                        if (bRemove.has(i)) continue;
+                        let b = bullets[i];
+                        if (tank.playerNum === b.owner) continue;
+                        let tb = tank.getBounds(), br = { x: b.x - b.size / 2, y: b.y - b.size / 2, w: b.size, h: b.size };
+                        if (rectsOverlap(br, tb)) {
+                            bRemove.add(i);
+                            let killed = tank.hit();
+                            if (killed && tank.lives <= 0) {
+                                if (b.owner === 1) scoreP1++; else scoreP2++;
+                                updateUI();
+                                sfxExplosion();
+                                spawnParticles(tank.x, tank.y, '#ff6644', 40);
+                                shakeAmount = 8; shakeDuration = 300;
+                                if (tank.lives <= 0 && tank.respawnTimer < 0) {
+                                    gameOver = true;
+                                    winnerName = (tank.playerNum === 1 ? '玩家2' : '玩家1');
+                                    winnerColor = (tank.playerNum === 1 ? '#4da6ff' : '#4ecb71');
+                                    if (tank.playerNum === 1) scoreP2 += 2; else scoreP1 += 2;
+                                    let modeText = currentMode === 'single' ? '单机AI' : '双人对战';
+                                    addRankEntry(winnerName, modeText);
+                                    sfxGameOver();
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+                bullets = bullets.filter((_, i) => !bRemove.has(i));
+                for (let b of bullets) {
+                    ctx.fillStyle = b.color;
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, b.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    let p = particles[i];
+                    p.x += p.vx; p.y += p.vy;
+                    p.life -= dt;
+                    if (p.life <= 0) { particles.splice(i, 1); continue; }
+                    ctx.globalAlpha = p.life / p.maxLife;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                if (shakeDuration > 0) ctx.restore();
+                if (!gameOver) gameLoopId = requestAnimationFrame(gameLoop);
+            }
+
+            function backToMenu() {
+                gameWrapper.classList.remove('active');
+                mainMenuDiv.style.display = 'flex';
+                if (gameLoopId) cancelAnimationFrame(gameLoopId);
+                gameRunning = false;
+            }
+
+            // ---------- 事件绑定 ----------
+            document.getElementById('singleBtn').addEventListener('click', function() {
+                mainMenuDiv.style.display = 'none';
+                gameWrapper.classList.add('active');
+                launchMode('single');
+            });
+
+            document.getElementById('networkBtn').addEventListener('click', function() {
+                alert('联网模式暂未实现，请先体验单机模式！');
+            });
+
+            document.getElementById('rankMenuBtn').addEventListener('click', function() {
+                rankDisplayArea.classList.add('show');
+                refreshRankUI();
+            });
+
+            document.getElementById('helpBtn').addEventListener('click', function() {
+                alert('游戏操作说明：\n\n玩家1：WASD移动，空格射击\n玩家2：方向键移动，回车射击');
+            });
+
+            document.getElementById('exitBtn').addEventListener('click', function() {
+                if (confirm('确定要退出游戏吗？')) {
+                    window.close();
+                }
+            });
+
+            document.getElementById('closeRankPanel').addEventListener('click', function() {
+                rankDisplayArea.classList.remove('show');
+            });
+
+            document.getElementById('backToMenuBtn').addEventListener('click', backToMenu);
+
+            // ---------- 初始化 ----------
+            loadRank();
+            refreshRankUI();
+        })();
+    </script>
+</body>
+</html>

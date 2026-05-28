@@ -36,18 +36,6 @@ end
 --[[
 初始化触摸面板驱动；
 
-@api tp_drv.init()
-@summary 配置并初始化GT911触摸控制器
-@return boolean 初始化成功返回true，失败返回false
-
-@usage
--- 初始化触摸面板
-local result = tp_drv.init()
-if result then
-    log.info("触摸面板初始化成功")
-else
-    log.error("触摸面板初始化失败")
-end
 ]]
 
 local function tp_drv_init()

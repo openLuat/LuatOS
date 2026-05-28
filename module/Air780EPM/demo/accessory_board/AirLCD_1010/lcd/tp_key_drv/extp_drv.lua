@@ -27,21 +27,13 @@ local extp_drv = {}
 --[[
 初始化扩展触摸面板驱动；
 
-@api extp_drv.init()
-@summary 配置并初始化AirLCD_1010扩展触摸面板
-@return boolean 初始化成功返回true，失败返回false
+
 
 @usage
--- 初始化扩展触摸面板
-local result = extp_drv.init()
-if result then
-    log.info("扩展触摸面板初始化成功")
-else
-    log.error("扩展触摸面板初始化失败")
-end
+加载extp_drv模块后，自动进行初始化：
 ]]
 
-function extp_drv.init()
+local function extp_drv_init()
     -- 初始化I2C
     local result = i2c.setup(1, i2c.SLOW)
 
@@ -54,7 +46,6 @@ function extp_drv.init()
 
     log.info("extp.init", result)
 
-    return result
 end
 
-return extp_drv
+extp_drv_init()

@@ -69,8 +69,8 @@ log.info("ui_demo", PROJECT, VERSION)
 -- 2、使用exlcd扩展库驱动的exlcd_drv.lua
 -- 根据自己的需求，启用两者中的任何一种都可以
 -- 也可以不启用任何一种，不使用显示屏功能
-lcd_drv = require "lcd_drv"
--- lcd_drv = require "exlcd_drv"
+require "lcd_drv"
+--require "exlcd_drv"
 
 
 -- 加载触摸面板驱动管理功能模块，有以下两种：
@@ -78,8 +78,8 @@ lcd_drv = require "lcd_drv"
 -- 2、使用extp扩展库驱动的extp_drv.lua
 -- 根据自己的需求，启用两者中的任何一种都可以
 -- 也可以不启用任何一种，不使用触摸面板功能
-tp_drv = require "tp_drv"
--- tp_drv = require "extp_drv"
+require "tp_drv"
+--require "extp_drv"
 
 
 -- 加载字库驱动管理功能模块

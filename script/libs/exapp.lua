@@ -167,13 +167,13 @@ local storage_calibrated = false
 -- order: 默认优先级序号（越小越优先）
 local STORAGE_DEFS = {
     sd_tf        = { mount_point = "/sd/",          label = "外挂TF卡",     order = 1 },
-    little_flash = { mount_point = "/little_flash/", label = "外挂NOR Flash", order = 2 },
+    little_flash = { mount_point = "/little_flash/", label = "外挂NAND Flash", order = 2 },
     nand_flash   = { mount_point = "/little_flash/", label = "外挂NAND Flash",order = 3 },
     internal     = { mount_point = "/",              label = "内置文件系统", order = 4 },
 }
 
 -- 当前生效的存储优先级配置（type_key 数组，高优先级在前）
--- 默认值：TF > NOR Flash > NAND Flash > 内置
+-- 默认值：TF > NAND Flash > 内置
 local storage_priority = { "sd_tf", "little_flash", "nand_flash", "internal" }
 
 -- 存储介质可用状态（init 时探测）
@@ -265,8 +265,11 @@ local function get_storage_free_kb(mount_point)
         local free_kb = total_kb - used_kb
         log.info("exapp", "fsstat", mount_point, "total_kb:", string.format("%.1f", total_kb),
             "free_kb:", string.format("%.1f", free_kb))
-        -- total_kb == 0：PC模拟器无真实存储限制返回极大值，真实硬件返回nil让上层跳过
+        -- total_kb == 0：PC模拟器无真实存储限制返回极大值，真实硬件记录原始数据便于排查
         if total_kb == 0 then
+            log.warn("exapp", "fsstat returned 0 blocks for", mount_point,
+                "bsuccess", success, "total_blk", total_blocks, "used_blk", used_blocks, "blk_sz", block_size,
+                "bsp", rtos.bsp())
             if rtos.bsp() == "PC" then
                 return 999999
             end
@@ -303,9 +306,12 @@ local function get_estimated_free_kb(mount_point)
     if storage_calibrated and storage_space_cache[mount_point] then
         local cache = storage_space_cache[mount_point]
         local estimated_free = cache.free_kb - cache.estimated_used_kb
-        return math.max(0, estimated_free)
+        local result = math.max(0, estimated_free)
+
+        return result
     end
-    return get_storage_free_kb(mount_point)
+    local direct = get_storage_free_kb(mount_point)
+    return direct
 end
 
 -- 记录已安装应用消耗的预估空间（仅在校准模式下累积，用于后续安装的剩余空间判断）
@@ -372,11 +378,12 @@ local function select_storage_location(app_size_kb)
         elseif app_size_kb then
             local mount_point = STORAGE_DEFS[type_key].mount_point
             local free_kb = get_estimated_free_kb(mount_point)
-            -- 记录第一个可用位置作为兜底
-            if not first_available then
-                first_available = {type_key, mount_point}
-            end
+            local is_first = (not first_available)  -- 在赋值前保存，供后续elseif判断
             if free_kb then
+                -- 记录第一个可用位置作为兜底
+                if is_first then
+                    first_available = {type_key, mount_point}
+                end
                 -- 安装后需保留至少 MIN_FREE_SPACE_KB 防止FAT簇开销导致超额
                 local needed = app_size_kb + MIN_FREE_SPACE_KB
                 if free_kb >= needed then
@@ -388,8 +395,14 @@ local function select_storage_location(app_size_kb)
                         STORAGE_DEFS[type_key].label, needed, free_kb
                     )
                 end
+            elseif is_first then
+                -- 最高优先级存储无法获取空间信息（io.fsstat返回total_kb==0），不盲目跳过
+                -- 直接信任并选择，若实际空间不足会在后续下载/解压阶段报明确错误
+                log.warn("storage_select", "selecting", STORAGE_DEFS[type_key].label, "(space unknown, fsstat returned 0 blocks, trusting)")
+                return type_key, mount_point, nil
             end
-            -- free_kb为nil → 无法确定空间，跳过继续尝试下一个
+            -- free_kb为nil且非最高优先级 → 无法确定空间，跳过继续尝试下一个
+            log.info("storage_select", "skipped", STORAGE_DEFS[type_key].label, "(space unknown)")
         else
             log.info("storage_select", "selected", STORAGE_DEFS[type_key].label)
             return type_key, STORAGE_DEFS[type_key].mount_point, nil
@@ -584,6 +597,35 @@ local function copy_data_dir(src_dir, dst_dir)
             copy_data_dir(src_path .. "/", dst_path .. "/")
         else
             -- 读取源文件内容，写入目标文件
+            local data = io.readFile(src_path)
+            if data then
+                io.writeFile(dst_path, data)
+            else
+                log.warn("copy_data_dir", "cannot read:", src_path)
+            end
+        end
+    end
+    return true
+end
+
+-- 递归拷贝目录（用于更新时跨存储迁移data目录）
+local function copy_data_dir(src_dir, dst_dir)
+    if not io.dexist(src_dir) then return false end
+    if not io.dexist(dst_dir) then
+        local ok = io.mkdir(dst_dir)
+        if not ok then
+            log.warn("copy_data_dir", "cannot create dst dir:", dst_dir)
+            return false
+        end
+    end
+    local ret, list = io.lsdir(src_dir, 100, 0)
+    if not ret then return false end
+    for _, item in ipairs(list) do
+        local src_path = src_dir .. item.name
+        local dst_path = dst_dir .. item.name
+        if item.type == 1 then
+            copy_data_dir(src_path .. "/", dst_path .. "/")
+        else
             local data = io.readFile(src_path)
             if data then
                 io.writeFile(dst_path, data)
@@ -3349,6 +3391,7 @@ function exapp.get_app_list(params)
     local size = params.size or PAGE_LIMIT
     local query = params.query or ""
 
+
     if category ~= "已安装" and not network_ready then
         sys.publish("APP_STORE_ERROR", "当前无网络，请先连接WiFi")
         return false
@@ -3416,8 +3459,10 @@ function exapp.get_app_list(params)
             total_pages = total_pages_now,
             total = total
         })
+
         return true
     end
+
 
     sys.taskInit(function()
         -- 异步校准存储空间（io.fsstat可能耗时，放入协程避免阻塞UI）
@@ -3800,11 +3845,9 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
             end
         end
 
-        -- 2. 安装时重新探测外部存储状态（首次安装或校准失效时探测，已校准则跳过）
-        if not storage_calibrated then
-            storage_available.sd_tf = probe_storage("/sd/")
-            storage_available.little_flash = probe_storage("/little_flash/")
-        end
+        -- 2. 安装时始终探测外部存储状态（校准可能已过时，如TF卡被拔出）
+        storage_available.sd_tf = probe_storage("/sd/")
+        storage_available.little_flash = probe_storage("/little_flash/")
 
         -- 3. 选择合适的存储位置（_target_root非nil时跳过自动选择）
         local storage_type, mount_point, reason, root_path
@@ -3834,14 +3877,14 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
         end
 
         -- 临时文件：优先/ram/（内存盘速度快），空间不足时回退到目标文件系统
-        -- 估算zip包大小：优先用服务端zip_size_kb，否则用解压后大小的30%估算
+        -- PSRAM需满足 zip_size×1.3（含缓冲），否则下载到目标文件系统
         local zip_need_kb = 300  -- 默认兜底值
         if remote_app_list and remote_app_list.apps then
             for _, it in ipairs(remote_app_list.apps) do
                 if tostring(it.aid) == tostring(aid) then
                     local z = tonumber(it.zip_size_kb)
                     if z and z > 0 then
-                        zip_need_kb = z
+                        zip_need_kb = math.ceil(z * 1.3)
                     elseif estimated_size_kb then
                         zip_need_kb = math.ceil(estimated_size_kb * 0.3)
                     end

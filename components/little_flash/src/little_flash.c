@@ -37,9 +37,12 @@ static lf_err_t little_flash_wait_busy(const little_flash_t *lf, uint32_t timeou
     size_t retry_times = lf->chip_info.retry_times;
     int32_t timeout_us;
     uint8_t status;
-    do{
+    if (retry_times == 0) {
+        retry_times = LF_RETRY_TIMES;
+    }
+    while (retry_times > 0) {
         timeout_us = (int32_t)timeout;
-        do{
+        do {
             if (lf->chip_info.type==LF_DRIVER_NOR_FLASH){
                 result = little_flash_read_status(lf, 0, &status);
             }else{
@@ -56,9 +59,9 @@ static lf_err_t little_flash_wait_busy(const little_flash_t *lf, uint32_t timeou
                 lf->wait_10us(1);
                 timeout_us -= 10;
             }
-        } while (timeout_us>0);
+        } while (timeout_us > 0);
         retry_times--;
-    } while (retry_times>0);
+    }
     LF_ERROR("Error: Wait busy timeout.");
     return LF_ERR_TIMEOUT;
 }
@@ -68,7 +71,9 @@ static lf_err_t little_flash_wait_busy(const little_flash_t *lf, uint32_t timeou
 */
 static lf_err_t little_flash_reset(little_flash_t *lf){
     lf_err_t result = LF_ERR_OK;
+    LF_DEBUG("little_flash_reset start");
     result |= little_flash_wait_busy(lf,1000);
+    LF_DEBUG("little_flash_reset after wait_busy #1 result=%d", result);
     if(lf->chip_info.type==LF_DRIVER_NOR_FLASH){
         result |= lf->spi.transfer(lf,(uint8_t[]){LF_CMD_ENABLE_RESET}, 1,LF_NULL,0);
         result |= lf->spi.transfer(lf,(uint8_t[]){LF_CMD_NORFLASH_RESET}, 1,LF_NULL,0);
@@ -78,6 +83,7 @@ static lf_err_t little_flash_reset(little_flash_t *lf){
     }
     lf->wait_ms(50);
     result |= little_flash_wait_busy(lf,1000);
+    LF_DEBUG("little_flash_reset after wait_busy #2 result=%d", result);
     if (result) return result;
     if(lf->chip_info.type==LF_DRIVER_NOR_FLASH){
         if(lf->chip_info.prog_size==0) lf->chip_info.prog_size = LF_NORFLASH_PAGE_ZISE;
@@ -96,6 +102,7 @@ static lf_err_t little_flash_reset(little_flash_t *lf){
     }
     if(lf->chip_info.retry_times==0) lf->chip_info.retry_times = LF_RETRY_TIMES;
     lf->wait_10us(5);
+    LF_DEBUG("little_flash_reset done");
     return result;
 }
 
@@ -288,7 +295,9 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
             memcpy(&lf->chip_info,&little_flash_table[i],sizeof(little_flash_chipinfo_t));
             LF_DEBUG("JEDEC ID: manufacturer_id:0x%02X device_id:0x%04X ",little_flash_table[i].manufacturer_id,little_flash_table[i].device_id);
             LF_DEBUG("little flash found flash %s",lf->chip_info.name);
+            LF_DEBUG("little_flash_device_init call reset");
             result = little_flash_reset(lf);
+            LF_DEBUG("little_flash_device_init reset ret=%d", result);
             return result;
         }
     }
@@ -709,10 +718,6 @@ error:
     }
     return LF_ERR_READ;
 }
-
-
-
-
 
 
 

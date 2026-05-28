@@ -1,0 +1,6 @@
+{
+  "description": "LFS2N Regression Test - Verify /lfs2n mounting and write performance",
+  "requires": ["lfs2_nand"],
+  "version": "1.0.0",
+  "timeout": 30
+}

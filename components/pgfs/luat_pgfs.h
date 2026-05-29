@@ -21,11 +21,15 @@ int luat_pgfs_vfs_register(void);
 int luat_pgfs_mount(const char *mount_point, const pgfs_flash_opts_t *opts);
 int luat_pgfs_umount(const char *mount_point);
 int luat_pgfs_info(const char *path, luat_fs_info_t *info);
+int luat_pgfs_begin_batch(uint32_t* out_batch_id);
+int luat_pgfs_commit_batch(uint32_t batch_id);
+int luat_pgfs_abort_batch(uint32_t batch_id);
 int pgfs_control_set_lock_mode(const char* mode);
 int pgfs_control_inject_powercut_stage(const char* stage);
 int pgfs_control_inject_corrupt_latest_cp(int enable);
 int pgfs_control_inject_bad_block_once(int enable);
 int pgfs_control_reset_runtime(void);
 int pgfs_run_c_layer_tests(void);
+int pgfs_run_c_layer_case(const char* case_name);
 
 #endif

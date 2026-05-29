@@ -10,7 +10,8 @@
 #ifdef LUAT_USE_WEBP
 #include "webp/decode.h"
 
-int luat_webp_decode_sw_default(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+int luat_webp_decode_sw_default(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+    (void)img_conf;
     int w = 0;
     int h = 0;
     uint8_t *rgba = WebPDecodeRGBA(in_buf, in_len, &w, &h);
@@ -29,7 +30,8 @@ int luat_webp_decode_sw_default(uint8_t *in_buf, size_t in_len, luat_img_info_t*
     return LUAT_IMG_OK;
 }
 
-LUAT_WEAK int luat_webp_decode_hw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+LUAT_WEAK int luat_webp_decode_hw(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+    (void)img_conf;
     (void)in_buf;
     (void)in_len;
     (void)img_info;

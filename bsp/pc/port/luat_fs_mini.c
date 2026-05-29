@@ -11,6 +11,7 @@ extern const struct luat_vfs_filesystem vfs_fs_posix;
 extern const struct luat_vfs_filesystem vfs_fs_luadb;
 extern const struct luat_vfs_filesystem vfs_fs_ram;
 extern const struct luat_vfs_filesystem vfs_fs_lfs2;
+extern const struct luat_vfs_filesystem vfs_fs_lfs3;
 
 extern int cmdline_argc;
 extern char **cmdline_argv;
@@ -24,6 +25,7 @@ void *build_luadb_from_cmd(void);
 static void lvgl_fs_init(void);
 
 static void pc_lfs2_mount(void);
+static void pc_lfs3_mount(void);
 
 int luat_fs_init(void)
 {
@@ -34,6 +36,7 @@ int luat_fs_init(void)
 	luat_vfs_reg(&vfs_fs_luadb);
 	luat_vfs_reg(&vfs_fs_ram);
 	luat_vfs_reg(&vfs_fs_lfs2);
+	luat_vfs_reg(&vfs_fs_lfs3);
 
 	luat_fs_conf_t conf = {
 		.busname = "",
@@ -67,6 +70,9 @@ int luat_fs_init(void)
 
 	// 挂载/lfs2作为测试lfs文件系统的目录
 	pc_lfs2_mount();
+
+	// 挂载/lfs3作为测试lfsv3文件系统的目录
+	pc_lfs3_mount();
 
 #ifdef LUAT_USE_LVGL
 	lvgl_fs_init();
@@ -175,4 +181,80 @@ static void pc_lfs2_mount(void) {
 	};
 	luat_fs_mount(&conf);
 	// LLOGD("挂载/lfs2/ 成功");
+}
+
+#include "lfs3.h"
+#define LUAT_LFS3_MEM_SIZE       (512 * 1024)
+#define LUAT_LFS3_MEM_BLOCK_SIZE (4 * 1024)
+#define LUAT_LFS3_MEM_BLOCK_COUNT (LUAT_LFS3_MEM_SIZE / LUAT_LFS3_MEM_BLOCK_SIZE)
+#define LFS3_BLOCK_DEVICE_READ_SIZE  (256)
+#define LFS3_BLOCK_DEVICE_PROG_SIZE  (256)
+#define LFS3_BLOCK_DEVICE_CACHE_SIZE (256)
+#define LFS3_BLOCK_DEVICE_LOOK_AHEAD (16)
+
+static char lfs3_mem_buff[LUAT_LFS3_MEM_SIZE];
+static int lfs3_mem_read(const struct lfs3_cfg *c, lfs3_block_t block,
+		lfs3_off_t off, void *buffer, lfs3_size_t size) {
+	(void)c;
+	memcpy(buffer, lfs3_mem_buff + (block * LUAT_LFS3_MEM_BLOCK_SIZE + off), size);
+	return LFS3_ERR_OK;
+}
+static int lfs3_mem_prog(const struct lfs3_cfg *c, lfs3_block_t block,
+		lfs3_off_t off, const void *buffer, lfs3_size_t size) {
+	(void)c;
+	memcpy(lfs3_mem_buff + (block * LUAT_LFS3_MEM_BLOCK_SIZE + off), buffer, size);
+	return LFS3_ERR_OK;
+}
+static int lfs3_mem_erase(const struct lfs3_cfg *c, lfs3_block_t block) {
+	(void)c;
+	memset(lfs3_mem_buff + (block * LUAT_LFS3_MEM_BLOCK_SIZE), 0xFF, LUAT_LFS3_MEM_BLOCK_SIZE);
+	return LFS3_ERR_OK;
+}
+static int lfs3_mem_sync(const struct lfs3_cfg *c) {
+	(void)c;
+	return LFS3_ERR_OK;
+}
+
+static char lfs3_rcache_buf[LFS3_BLOCK_DEVICE_CACHE_SIZE];
+static char lfs3_pcache_buf[LFS3_BLOCK_DEVICE_CACHE_SIZE];
+static char lfs3_lookahead_buf[LFS3_BLOCK_DEVICE_LOOK_AHEAD];
+
+static lfs3_t lfs3_mem;
+static const struct lfs3_cfg lfs3_cfg = {
+	.read    = lfs3_mem_read,
+	.prog    = lfs3_mem_prog,
+	.erase   = lfs3_mem_erase,
+	.sync    = lfs3_mem_sync,
+	.read_size   = LFS3_BLOCK_DEVICE_READ_SIZE,
+	.prog_size   = LFS3_BLOCK_DEVICE_PROG_SIZE,
+	.block_size  = LUAT_LFS3_MEM_BLOCK_SIZE,
+	.block_count = LUAT_LFS3_MEM_BLOCK_COUNT,
+	.block_recycles = 200,
+	.rcache_size    = LFS3_BLOCK_DEVICE_CACHE_SIZE,
+	.pcache_size    = LFS3_BLOCK_DEVICE_CACHE_SIZE,
+	.fcache_size    = LFS3_BLOCK_DEVICE_CACHE_SIZE,
+	.lookahead_size = LFS3_BLOCK_DEVICE_LOOK_AHEAD,
+	.rcache_buffer    = lfs3_rcache_buf,
+	.pcache_buffer    = lfs3_pcache_buf,
+	.lookahead_buffer = lfs3_lookahead_buf,
+	.name_limit = 63,
+	.file_limit = 0,
+};
+static void pc_lfs3_mount(void) {
+	int ret = lfs3_mount(&lfs3_mem, 0, &lfs3_cfg);
+	if (ret) {
+		lfs3_format(&lfs3_mem, 0, &lfs3_cfg);
+		ret = lfs3_mount(&lfs3_mem, 0, &lfs3_cfg);
+		if (ret) {
+			LLOGE("挂载/lfs3/失败!!! %d", ret);
+			return;
+		}
+	}
+	luat_fs_conf_t conf = {
+		.busname = (char*)&lfs3_mem,
+		.type = "lfs3",
+		.filesystem = "lfs3",
+		.mount_point = "/lfs3/",
+	};
+	luat_fs_mount(&conf);
 }

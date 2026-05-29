@@ -25,6 +25,7 @@ typedef enum {
 typedef struct {
     luat_img_format_t format;
     luat_img_decode_mode_t decode_mode;
+    const char *source_path;
 } luat_img_conf_t;
 
 typedef struct {
@@ -40,7 +41,7 @@ typedef struct {
  * Each decoder implementation provides a const instance of this struct.
  */
 typedef struct luat_img_decoder_opts {
-    int (*decode)(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
+    int (*decode)(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 } luat_img_decoder_opts_t;
 
 /* Table index: format * 2 + mode  (SW=0, HW=1) */
@@ -49,27 +50,31 @@ typedef struct luat_img_decoder_opts {
 /* Lookup a decoder from the built-in opts table */
 const luat_img_decoder_opts_t* luat_image_get_decoder_opts(luat_img_format_t fmt, luat_img_decode_mode_t mode);
 
+/* Toggle decode timing logs for all image decoders routed via luat_image_decode */
+void luat_image_set_debug(int enable);
+int luat_image_get_debug(void);
+
 /* --- Legacy / default decode helpers --- */
 /* JPEG SW default (tjpgd), available when LUAT_USE_TJPGD is defined */
-int luat_jpeg_decode_sw_default(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
+int luat_jpeg_decode_sw_default(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 /* PNG SW default (lodepng), available when LUAT_USE_LODEPNG is defined */
-int luat_png_decode_sw_default(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
+int luat_png_decode_sw_default(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 /* WebP SW default (libwebp), available when LUAT_USE_WEBP is defined */
 #ifdef LUAT_USE_WEBP
-int luat_webp_decode_sw_default(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
+int luat_webp_decode_sw_default(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 #endif
 /* HW decode stubs — BSP platforms override these via LUAT_WEAK
  * luat_jpeg_decode_hw: only declared/defined when LUAT_USE_JPG is set
  * luat_png_decode_hw:  only declared/defined when LUAT_USE_PNG_HW is set
  * luat_webp_decode_hw: only declared/defined when LUAT_USE_WEBP is set */
-#ifdef LUAT_USE_JPG
-int luat_jpeg_decode_hw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
+#ifdef LUAT_USE_JPG_HW
+int luat_jpeg_decode_hw(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 #endif
 #ifdef LUAT_USE_PNG_HW
-int luat_png_decode_hw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
+int luat_png_decode_hw(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 #endif
 #ifdef LUAT_USE_WEBP
-int luat_webp_decode_hw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
+int luat_webp_decode_hw(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 #endif
 
 /* Top-level decode entry point */

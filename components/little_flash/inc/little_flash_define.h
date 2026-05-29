@@ -279,6 +279,8 @@ struct little_flash{
     void* (*malloc)(size_t size);
     /* free */
     void (*free)(void* ptr);
+    /* pre-allocated write buffer: 4+prog_size bytes, set by device_init */
+    uint8_t *prog_buf;
 #endif /* LF_USE_HEAP */
     /* user data */
     void* user_data;

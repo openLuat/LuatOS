@@ -117,6 +117,25 @@ local disconnect_reason = nil
 local user_disconnect = false
 local user_connect = false
 
+-- 当前连接尝试的暂存参数（连接成功后才持久化保存）
+local pending_connect = nil
+-- 连接超时定时器
+local connect_timeout_timer = nil
+
+-- 连接超时回调
+local function on_connect_timeout()
+    connect_timeout_timer = nil
+    if not pending_connect then return end
+    log.error("wifi_app", "连接超时:", pending_connect.ssid)
+    sys.publish("WIFI_DISCONNECTED", "连接超时", -6)
+    -- 超时也算连接失败，标记一下
+    if pending_connect.ssid then
+        sys.publish("WIFI_STORAGE_MARK_FAILED_REQ", {ssid = pending_connect.ssid})
+    end
+    pending_connect = nil
+    user_connect = false
+end
+
 -- Air1601 硬件就绪标记（扫描前需初始化 airlink）
 local hw_ready = false
 local hw_busy = false
@@ -258,6 +277,11 @@ local function on_sta_event(evt, data)
         wifi_state.ready = false
         wifi_state.current_ssid = data
         wifi_state.connectivity_verified = false
+        -- 立即获取BSSID，让附近WiFi列表能立即根据MAC地址匹配到正确条目
+        local info = wlan.getInfo()
+        if info and info.bssid then
+            wifi_state.bssid = info.bssid
+        end
         sys.publish("WIFI_CONNECTED", data)
         -- 发布level=5表示"已连接AP，正在获取IP"，待IP_READY后由RSSI轮询更新为真实信号等级
         sys.publish("STATUS_WIFI_SIGNAL_UPDATED", 5)
@@ -267,11 +291,45 @@ local function on_sta_event(evt, data)
         user_connect = false
         if update_timer then sys.timerStop(update_timer) end
         update_timer = sys.timerLoopStart(refresh_net_info, UPDATE_INTERVAL)
+        -- 停止连接超时定时器
+        if connect_timeout_timer then
+            sys.timerStop(connect_timeout_timer)
+            connect_timeout_timer = nil
+        end
+        -- 连接成功后才持久化保存密码（修复：错误密码不会被保存）
+        if pending_connect then
+            sys.publish("WIFI_STORAGE_SAVE_REQ", {
+                ssid = pending_connect.ssid,
+                password = pending_connect.password,
+                advanced_config = pending_connect.advanced_config,
+                bssid = pending_connect.bssid
+            })
+            sys.publish("WIFI_STORAGE_MARK_CONNECTED_REQ", {
+                ssid = pending_connect.ssid,
+                bssid = pending_connect.bssid
+            })
+            pending_connect = nil
+        end
 
     elseif evt == "DISCONNECTED" then
+        -- 停止连接超时定时器
+        if connect_timeout_timer then
+            sys.timerStop(connect_timeout_timer)
+            connect_timeout_timer = nil
+        end
         if user_connect then
             log.info("wifi_app", "用户发起的连接失败，重置状态")
             last_connect = nil
+            -- 用户主动连接失败：若为认证类错误（密码错误等），标记失败
+            -- 仅对从未成功过的记录生效（wifi_storage内部保护）
+            if pending_connect and pending_connect.ssid then
+                local reason_code = data
+                -- 认证/密码类错误码：258(密码错误)、202(802.11认证被拒)、13(四次握手MIC校验失败)
+                if reason_code == 258 or reason_code == 202 or reason_code == 13 then
+                    sys.publish("WIFI_STORAGE_MARK_FAILED_REQ", {ssid = pending_connect.ssid})
+                end
+                pending_connect = nil
+            end
         elseif last_connect == "DISCONNECTED" then
             log.info("wifi_app", "已断开状态，跳过重复事件")
             return
@@ -408,6 +466,11 @@ local function on_enable_req(data)
         log.info("wifi_app", "关闭WiFi")
         exnetif.close(nil, socket.LWIP_STA)
 
+        -- 停止所有WiFi相关定时器
+        if update_timer then sys.timerStop(update_timer); update_timer = nil end
+        if connect_timeout_timer then sys.timerStop(connect_timeout_timer); connect_timeout_timer = nil end
+        pending_connect = nil
+
         local fb_4g = build_4g_fallback()
         if fb_4g then
             exnetif.set_priority_order({ fb_4g })
@@ -423,6 +486,9 @@ local function on_enable_req(data)
         wifi_state.scan_results = {}
         wifi_state.connectivity_verified = false
         update_status(wifi_state)
+        -- 立即通知图标归零，同时让status_provider停止RSSI轮询
+        sys.publish("WIFI_DISCONNECTED", "用户关闭WiFi", -1)
+        sys.publish("STATUS_WIFI_SIGNAL_UPDATED", 0)
     else
         log.info("wifi_app", "开启WiFi")
         if saved_config.ssid and saved_config.ssid ~= "" then  -- 无密码热点允许password为空
@@ -456,8 +522,9 @@ local function on_connect_req(data)
         local ssid = data.ssid
         local password = data.password
         local adv = data.advanced_config
+        local bssid = data.bssid
 
-        log.info("wifi_app", "连接请求:", ssid)
+        log.info("wifi_app", "连接请求:", ssid, "bssid:", bssid)
         user_connect = true
 
         if not ssid or ssid == "" then
@@ -466,10 +533,22 @@ local function on_connect_req(data)
         end
         if saved_config and not saved_config.wifi_enabled then return end
 
-        sys.publish("WIFI_STORAGE_SAVE_REQ", { ssid = ssid, password = password, advanced_config = adv })
+        -- 暂存连接参数，连接成功后由 on_sta_event CONNECTED 分支持久化保存
+        -- 修复：不再提前保存密码，错误密码不会被记录
+        pending_connect = {
+            ssid = ssid,
+            password = password,
+            advanced_config = adv,
+            bssid = bssid
+        }
+
         sys.publish("WIFI_CONNECTING", ssid)
         disconnect_reason = "config"
         exnetif.close(nil, socket.LWIP_STA)
+
+        -- 启动连接超时定时器（在 close 之后，避免被 config 断开事件误杀）
+        local timeout = common.get_connect_timeout()
+        connect_timeout_timer = sys.timerStart(on_connect_timeout, timeout)
 
         local cfg = saved_config or {}
         if adv then
@@ -486,6 +565,12 @@ local function on_connect_req(data)
             log.info("wifi_app", "exnetif 配置成功")
         else
             log.error("wifi_app", "exnetif 配置失败")
+            -- 配置失败：清除暂存和定时器
+            if connect_timeout_timer then
+                sys.timerStop(connect_timeout_timer)
+                connect_timeout_timer = nil
+            end
+            pending_connect = nil
             sys.publish("WIFI_DISCONNECTED", "连接参数配置失败", -5)
         end
     end)

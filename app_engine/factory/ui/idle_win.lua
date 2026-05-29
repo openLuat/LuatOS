@@ -443,31 +443,33 @@ end
 -- 电池充电动画
 local charge_anim_timer = nil
 local charge_anim_value = 0
+local charge_start_level = 0
+local charge_anim_active = false  -- 标记动画是否正在运行
 
 local function stop_charge_anim()
     if charge_anim_timer then
         sys.timerStop(charge_anim_timer)
         charge_anim_timer = nil
     end
+    charge_anim_active = false
 end
 
 local function start_charge_anim(from_level)
     stop_charge_anim()
+    charge_start_level = from_level
     charge_anim_value = from_level
+    charge_anim_active = true
     charge_anim_timer = sys.timerLoopStart(function()
         if not battery_bar then
             stop_charge_anim()
             return
         end
-        charge_anim_value = charge_anim_value + 1
-        if charge_anim_value > 100 then
-            charge_anim_value = 100
+        charge_anim_value = charge_anim_value + 4
+        if charge_anim_value >= 100 then
+            charge_anim_value = charge_start_level
         end
         battery_bar:set_value(charge_anim_value)
-        if charge_anim_value >= 100 then
-            stop_charge_anim()
-        end
-    end, 200)
+    end, 100)
 end
 
 local function on_status_battery(data)
@@ -491,8 +493,13 @@ local function on_status_battery(data)
 
     if charging then
         battery_bar:set_indicator_color(COLOR_GREEN)
-        battery_bar:set_value(level)
-        start_charge_anim(level)
+        if not charge_anim_active then
+            -- 刚进入充电状态：启动动画，从当前电量循环到 100%
+            start_charge_anim(level)
+        else
+            -- 动画已运行中：只更新循环起点的电量值，下一个周期自动用新起点，不打断当前动画
+            charge_start_level = level
+        end
     else
         stop_charge_anim()
         battery_bar:set_value(level)
@@ -577,7 +584,7 @@ local function on_create()
     if icon_batt then
         battery_container = airui.container({
             parent = sb, x = next_x, y = batt_y, w = batt_w, h = batt_h,
-            color = 0x00000000,
+            color = 0x00000000, radius = 5,
         })
         battery_bar = airui.bar({
             parent = battery_container, x = 0, y = 0, w = batt_w, h = batt_h,

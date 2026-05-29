@@ -21,6 +21,9 @@ local COLOR_TEXT           = 0x333333
 local COLOR_TEXT_SECONDARY = 0x757575
 local COLOR_DIVIDER        = 0xE0E0E0
 local COLOR_WHITE          = 0xFFFFFF
+local COLOR_SUCCESS        = 0x4CAF50
+local COLOR_ERROR          = 0xE63946
+local COLOR_ACCENT         = 0xFF9800
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
@@ -45,6 +48,11 @@ local connect_ping_time_input = nil
 local connect_ping_ip_input = nil
 local connect_advanced_config = nil
 local connect_from_saved = false
+local connect_connecting = false
+local connect_status_label = nil
+local connect_btn_cancel = nil
+local connect_btn_connect = nil
+local connect_close_timer = nil
 
 local current_config = {
     wifi_enabled = false,
@@ -192,6 +200,17 @@ local function connect_create_ui()
         font_size = math.floor(22 * _G.density_scale),
         color = COLOR_TEXT,
         keyboard = connect_wifi_keyboard,
+    })
+
+    -- 连接状态提示（连接中/成功/失败）
+    connect_status_label = airui.label({
+        parent = content_container,
+        text = "",
+        x = MARGIN + math.floor(5 * _G.density_scale), y = math.floor(130 * _G.density_scale),
+        w = SCREEN_W - 2 * MARGIN - math.floor(10 * _G.density_scale), h = math.floor(25 * _G.density_scale),
+        font_size = math.floor(18 * _G.density_scale),
+        color = COLOR_ACCENT,
+        align = airui.TEXT_ALIGN_CENTER,
     })
 
     -- 高级配置
@@ -360,16 +379,20 @@ local function connect_create_ui()
         color = COLOR_BG,
     })
     local btn_w = math.floor((SCREEN_W - 2 * MARGIN - SPACING) / 2)
-    airui.button({
+    connect_btn_cancel = airui.button({
         parent = bottom_container,
         x = MARGIN, y = math.floor(15 * _G.density_scale),
         w = btn_w, h = BUTTON_H,
         text = "取消",
         on_click = function()
+            if connect_close_timer then
+                sys.timerStop(connect_close_timer)
+                connect_close_timer = nil
+            end
             exwin.close(connect_win_id)
         end
     })
-    airui.button({
+    connect_btn_connect = airui.button({
         parent = bottom_container,
         x = MARGIN + btn_w + SPACING, y = math.floor(15 * _G.density_scale),
         w = btn_w, h = BUTTON_H,
@@ -381,20 +404,23 @@ local function connect_create_ui()
             pressed_text_color = COLOR_WHITE,
         },
         on_click = function()
+            if connect_connecting then return end  -- 防止重复点击
             local password = connect_password_textarea:get_text()
             -- 无密码热点允许空密码连接
             if not password or password == "" then
+                connect_connecting = true
+                if connect_status_label then
+                    connect_status_label:set_text("正在连接...")
+                    connect_status_label:set_color(COLOR_ACCENT)
+                end
+                if connect_wifi_keyboard then connect_wifi_keyboard:hide() end
+                if connect_btn_connect then connect_btn_connect:set_text("连接中...") end
                 sys.publish("WIFI_CONNECT_REQ", {
                     ssid = connect_current_wifi and connect_current_wifi.ssid,
                     password = "",
+                    bssid = connect_current_wifi and connect_current_wifi.bssid,
                     advanced_config = connect_advanced_config
                 })
-                if connect_from_saved then
-                    sys.publish("CLOSE_WIFI_SAVED_LIST_WIN")
-                end
-                if connect_win_id then
-                    exwin.close(connect_win_id)
-                end
                 return
             end
             if #password < 8 then
@@ -419,29 +445,62 @@ local function connect_create_ui()
                 return
             end
 
+            connect_connecting = true
+            if connect_status_label then
+                connect_status_label:set_text("正在连接...")
+                connect_status_label:set_color(COLOR_ACCENT)
+            end
+            if connect_wifi_keyboard then connect_wifi_keyboard:hide() end
+            if connect_btn_connect then connect_btn_connect:set_text("连接中...") end
             sys.publish("WIFI_CONNECT_REQ", {
                 ssid = connect_current_wifi and connect_current_wifi.ssid,
                 password = password,
+                bssid = connect_current_wifi and connect_current_wifi.bssid,
                 advanced_config = connect_advanced_config
             })
-            
-            if connect_from_saved then
-                sys.publish("CLOSE_WIFI_SAVED_LIST_WIN")
-            end
-            
-            if connect_win_id then
-                exwin.close(connect_win_id)
-            end
         end
     })
 end
 
 local function connect_on_connected(ssid)
     log.info("wifi_connect_win", "WiFi连接成功:", ssid)
+    if not connect_connecting then return end
+    if connect_status_label then
+        connect_status_label:set_text("连接成功！")
+        connect_status_label:set_color(COLOR_SUCCESS)
+    end
+    if connect_from_saved then
+        sys.publish("CLOSE_WIFI_SAVED_LIST_WIN")
+    end
+    -- 1.5秒后自动关闭
+    connect_close_timer = sys.timerStart(function()
+        connect_close_timer = nil
+        if connect_win_id then
+            exwin.close(connect_win_id)
+        end
+    end, 1500)
 end
 
 local function connect_on_disconnected(reason, code)
     log.info("wifi_connect_win", "WiFi连接失败:", reason, code)
+    if not connect_connecting then return end
+    connect_connecting = false
+    local error_text = "连接失败"
+    if reason then
+        error_text = "连接失败: " .. reason
+    end
+    if connect_status_label then
+        connect_status_label:set_text(error_text)
+        connect_status_label:set_color(COLOR_ERROR)
+    end
+    connect_connecting = false
+    if connect_btn_connect then connect_btn_connect:set_text("连接") end
+    -- 弹窗提示详细错误
+    airui.msgbox({
+        text = error_text,
+        buttons = { "确定" },
+        on_action = function(self) self:destroy() end
+    })
 end
 
 local function connect_on_create()
@@ -456,6 +515,10 @@ local function connect_on_destroy()
     sys.unsubscribe("WIFI_CONNECTED", connect_on_connected)
     sys.unsubscribe("WIFI_DISCONNECTED", connect_on_disconnected)
     sys.unsubscribe("WIFI_CONFIG_RSP", connect_on_config_rsp)
+    if connect_close_timer then
+        sys.timerStop(connect_close_timer)
+        connect_close_timer = nil
+    end
     if connect_main_container then
         connect_main_container:destroy()
         connect_main_container = nil
@@ -468,6 +531,10 @@ local function connect_on_destroy()
     connect_ping_ip_input = nil
     connect_advanced_config = nil
     connect_from_saved = false
+    connect_connecting = false
+    connect_status_label = nil
+    connect_btn_cancel = nil
+    connect_btn_connect = nil
 end
 
 local function connect_on_get_focus() end
@@ -475,6 +542,8 @@ local function connect_on_lose_focus() end
 
 local function open(wifi_data, from_saved)
     if type(wifi_data) == "table" then
+        -- 可能是wifi_entry扫描条目（有ssid/bssid/rssi/security）
+        -- 也可能是saved_network条目（有ssid/password/需要认证配置字段）
         connect_current_wifi = wifi_data
     else
         connect_current_wifi = {ssid = wifi_data}

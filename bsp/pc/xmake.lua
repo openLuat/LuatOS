@@ -193,6 +193,13 @@ target("luatos-lua")
     add_includedirs(luatos.."components/luat_lfs2_nand")
     add_thirdparty_files(luatos.."components/lfs/*.c")
 
+    -- lfsv3 (littlefs v3) - only core files; bd/ runners/ tests/ are excluded
+    add_includedirs(luatos.."components/lfsv3")
+    add_thirdparty_files(luatos.."components/lfsv3/lfs3.c")
+    add_thirdparty_files(luatos.."components/lfsv3/lfs3_util.c")
+    add_defines("LFS3_NO_DEBUG")  -- suppress per-operation debug prints
+    add_defines("LFS3_NO_INFO")   -- suppress "Formatting/Mounted littlefs" info lines
+
     -- add_files(luatos.."components/sfd/*.c")
     -- lua-cjson
     add_includedirs(luatos.."components/lua-cjson")

@@ -55,12 +55,27 @@ static uint8_t *luatos_display_get_rotation_buf(luatos_platform_data_t *data, ui
     }
 
     if (data->rotation_buf != NULL) {
-        luat_heap_free(data->rotation_buf);
+        if (data->rotation_buf_in_psram) {
+            luat_heap_opt_free(LUAT_HEAP_PSRAM, data->rotation_buf);
+        }
+        else {
+            luat_heap_free(data->rotation_buf);
+        }
         data->rotation_buf = NULL;
         data->rotation_buf_size = 0;
+        data->rotation_buf_in_psram = 0;
     }
 
-    data->rotation_buf = (uint8_t *)luat_heap_malloc(size);
+    data->rotation_buf = (uint8_t *)luat_heap_opt_malloc(LUAT_HEAP_PSRAM, size);
+    if (data->rotation_buf) {
+        data->rotation_buf_in_psram = 1;
+    }
+    else {
+        data->rotation_buf = (uint8_t *)luat_heap_malloc(size);
+        if (data->rotation_buf) {
+            data->rotation_buf_in_psram = 0;
+        }
+    }
     if (data->rotation_buf == NULL) {
         return NULL;
     }
@@ -247,9 +262,15 @@ static void luatos_display_deinit(airui_ctx_t *ctx)
     }
 
     if (data->rotation_buf != NULL) {
-        luat_heap_free(data->rotation_buf);
+        if (data->rotation_buf_in_psram) {
+            luat_heap_opt_free(LUAT_HEAP_PSRAM, data->rotation_buf);
+        }
+        else {
+            luat_heap_free(data->rotation_buf);
+        }
         data->rotation_buf = NULL;
         data->rotation_buf_size = 0;
+        data->rotation_buf_in_psram = 0;
     }
 
     luat_heap_free(data);
@@ -273,4 +294,3 @@ const airui_display_ops_t *airui_platform_luatos_get_display_ops(void)
 }
 
 #endif /* LUAT_USE_AIRUI_LUATOS */
-

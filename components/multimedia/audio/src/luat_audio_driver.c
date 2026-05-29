@@ -347,6 +347,7 @@ int luat_audio_driver_fill_default(struct luat_audio_driver_ctrl *ctrl, uint8_t 
                 {
                     data.p16[i] = 0x8000;
                 }
+
                 break;
             case 3:
             case 4:
@@ -362,6 +363,9 @@ int luat_audio_driver_fill_default(struct luat_audio_driver_ctrl *ctrl, uint8_t 
             default:
                 memset(play_buff, 0x80, len_bytes);
                 break;
+        }
+        if (ctrl->opts->dac_data_align) {
+            ctrl->opts->dac_data_align(ctrl, play_buff, len_bytes, align);
         }
     }
     return 0;

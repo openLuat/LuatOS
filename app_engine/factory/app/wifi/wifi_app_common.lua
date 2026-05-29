@@ -10,8 +10,69 @@
 ]]
 
 local CONNECTIVITY_TIMEOUT = 15000
+-- WiFi连接超时（等待WLAN_STA_INC CONNECTED/DISCONNECTED的最长时间）
+local CONNECT_TIMEOUT = 20000
 
 local M = {}
+
+--[[
+归一化BSSID为统一格式：去除非十六进制字符、转小写
+@param string bssid - 原始BSSID（支持 "AA:BB:CC:DD:EE:FF" 或 "AABBCCDDEEFF" 等格式）
+@return string - 归一化后的小写纯十六进制串（12字符），无效返回空串
+@usage
+local norm = normalize_bssid("AA:BB:CC:DD:EE:FF")  --> "aabbccddeeff"
+]]
+function M.normalize_bssid(bssid)
+    if not bssid or bssid == "" then return "" end
+    local s = bssid:lower():gsub("[^0-9a-f]", "")
+    if #s >= 12 then return s end
+    return ""
+end
+
+--[[
+从扫描结果中提取WiFi安全类型
+@param table wifi_entry - 扫描结果条目（含 authmode/security/enc 等字段）
+@return string - 安全类型描述（"WPA3", "WPA2", "WPA", "WEP", "OPEN", "未知"）
+@note 不同芯片平台上报字段名不同，按优先级尝试多个字段
+]]
+function M.extract_security_type(wifi_entry)
+    if not wifi_entry then return "未知" end
+    -- 尝试多个可能的字段名
+    local raw = wifi_entry.authmode or wifi_entry.security or wifi_entry.enc or ""
+    raw = tostring(raw):upper()
+    if raw:find("WPA3") then return "WPA3" end
+    if raw:find("WPA2") or raw:find("CCMP") or raw:find("AES") then return "WPA2" end
+    if raw:find("WPA") or raw:find("TKIP") then return "WPA" end
+    if raw:find("WEP") then return "WEP" end
+    if raw == "" or raw == "OPEN" or raw == "NONE" or raw == "0" then return "OPEN" end
+    return "未知"
+end
+
+--[[
+检测扫描结果中是否存在同SSID的多条记录（表明存在同名热点）
+@param table scan_results - 扫描结果列表
+@param string ssid - 要检查的SSID
+@return boolean - true表示存在重复SSID
+]]
+function M.is_duplicate_ssid(scan_results, ssid)
+    if not scan_results or not ssid then return false end
+    local count = 0
+    for _, entry in ipairs(scan_results) do
+        if entry.ssid == ssid then
+            count = count + 1
+            if count >= 2 then return true end
+        end
+    end
+    return false
+end
+
+--[[
+获取连接超时时间（毫秒）
+@return number - 连接超时时间
+]]
+function M.get_connect_timeout()
+    return CONNECT_TIMEOUT
+end
 
 --[[
 构建WiFi状态负载（用于发布WIFI_STATUS_UPDATED）

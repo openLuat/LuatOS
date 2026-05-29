@@ -18,12 +18,10 @@
 
 /* https://www.nesdev.org/wiki/INES_Mapper_003 */
 static void nes_mapper_init(nes_t* nes){
-    uint8_t last = (uint8_t)(nes->nes_rom.prg_rom_size - 1u);
-    uint8_t second_last = (nes->nes_rom.prg_rom_size >= 2u) ? (uint8_t)(nes->nes_rom.prg_rom_size - 2u) : 0u;
-    // CPU $8000-$BFFF: second-to-last 16 KB (= first 16 KB for <=32KB ROMs).
-    nes_load_prgrom_16k(nes, 0, second_last);
-    // CPU $C000-$FFFF: Last 16 KB of ROM (or mirror of $8000-$BFFF for 16 KB ROMs).
-    nes_load_prgrom_16k(nes, 1, last);
+    // CPU $8000-$BFFF: First 16 KB of ROM.
+    nes_load_prgrom_16k(nes, 0, 0);
+    // CPU $C000-$FFFF: Last 16 KB of ROM or mirror of $8000-$BFFF.
+    nes_load_prgrom_16k(nes, 1, nes->nes_rom.prg_rom_size - 1); // PRG ROM size: 16 KiB or 32 KiB, set mirror.
     // CHR capacity: 8 KiB ROM.
     nes_load_chrrom_8k(nes, 0, 0);
 }
@@ -38,12 +36,9 @@ static void nes_mapper_init(nes_t* nes){
     CNROM only implements the lowest 2 bits, capping it at 32 KiB CHR. Other boards may implement 4 or more bits for larger CHR.
 */
 static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
+    (void)address;
     if (nes->nes_rom.chr_rom_size == 0) return;
-    // Bus conflicts: effective data = written_data & ROM[address]
-    uint8_t slot = (uint8_t)((address - 0x8000u) >> 13u);
-    uint8_t rom_byte = nes->nes_cpu.prg_banks[slot][address & 0x1FFFu];
-    uint8_t effective = data & rom_byte;
-    nes_load_chrrom_8k(nes, 0, effective % nes->nes_rom.chr_rom_size);
+    nes_load_chrrom_8k(nes, 0, data % nes->nes_rom.chr_rom_size);
 }
 
 int nes_mapper3_init(nes_t* nes){

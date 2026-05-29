@@ -210,6 +210,11 @@ static int luat_little_flash_get_info(lua_State *L){
 #ifdef LUAT_USE_PGFS_COMPONENT
 #include "luat_pgfs.h"
 #endif
+#ifdef LUAT_USE_LFSV3_COMPONENT
+#include "lfs3.h"
+extern lfs3_t* flash_lfs3_lf(little_flash_t* flash, size_t offset, size_t maxsize);
+extern void lfs3_vfs_init(void);
+#endif
 
 extern luat_lfs2_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize);
 typedef struct {
@@ -237,6 +242,12 @@ static void* luat_little_flash_named_bus(void* flash, size_t offset, size_t maxs
     if (fs != NULL && strcmp(fs, "pgfs") == 0) {
         pgfs_vfs_init();
         return pgfs_default_bus(flash, offset, maxsize);
+    }
+#endif
+#ifdef LUAT_USE_LFSV3_COMPONENT
+    if (fs != NULL && strcmp(fs, "lfs3") == 0) {
+        lfs3_vfs_init();
+        return flash_lfs3_lf((little_flash_t*)flash, offset, maxsize);
     }
 #endif
     return NULL;
@@ -284,10 +295,12 @@ static const char* luat_little_flash_mount_fs_selector(lua_State *L, int index) 
 @string mount_point 挂载目录名
 @int    起始偏移量,默认0
 @int    总大小, 默认是整个flash
-@table/string opts 可选, 文件系统选择. nil/"lfs2"为默认; 可传"lfsn"/"pgfs"或{fs="lfsn"}、{fs="pgfs"}
+@table/string opts 可选, 文件系统选择. nil/"lfs2"为默认; 可传"lfsn"/"pgfs"/"lfs3"或{fs="lfsn"}、{fs="pgfs"}、{fs="lfs3"}
 @return bool 成功返回true
 @usage
 log.info("lf.mount",lf.mount(little_flash_device,"/little_flash"))
+-- 使用 lfs3
+log.info("lf.mount",lf.mount(little_flash_device,"/lfs3flash",0,0,"lfs3"))
 */
 static int luat_little_flash_mount(lua_State *L) {
     little_flash_t *flash = lua_touserdata(L, 1);

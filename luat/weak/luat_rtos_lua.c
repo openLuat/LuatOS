@@ -54,9 +54,9 @@ LUAT_WEAK int luat_timer_start(luat_timer_t* timer) {
         LLOGE("xTimerCreate FAIL");
         return -1;
     }
-    timer->id=timerIndex;
+
     timers[timerIndex] = timer;
-    int re = luat_rtos_timer_start(timer->os_timer, timer->timeout, timer->repeat, luat_timer_callback, (void*)timerIndex);
+    int re = luat_rtos_timer_start(timer->os_timer, timer->timeout, timer->repeat, luat_timer_callback, (void*)(uintptr_t)(timer->id));
     LLOGD("timer id=%ld timeout=%ld start=%ld", timerIndex, timer->timeout, re);
     if (re) {
         LLOGE("xTimerStart FAIL");

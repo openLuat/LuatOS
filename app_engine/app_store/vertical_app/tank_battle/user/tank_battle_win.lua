@@ -1,7 +1,7 @@
 --[[
 @module  tank_battle_win
 @summary 双人联网坦克大战游戏窗口模块
-@version 1.0.2
+@version 1.0.3
 @date    2026.05.20
 @author  王世豪
 @description
@@ -15,7 +15,7 @@
 ]]
 
 -- 游戏版本号
-local GAME_VERSION = "1.0.2"
+local GAME_VERSION = "1.0.3"
 
 -- 引入网络模块（exPvP：联网对战游戏通用框架）
 local expvp = require("expvp")
@@ -46,6 +46,9 @@ local RESPAWN_INVINCIBLE_MS = 1000  -- 重生倒计时+无敌时间 1秒
 local SHOOT_COOLDOWN_MS = 500  -- 开火冷却 500ms，手感更流畅
 local TANK_SIZE = 22  -- 坦克大小（比砖块小，留出空隙可以钻入砖缝）
 local TANK_HALF = TANK_SIZE / 2
+-- 碰撞体积比视觉体积稍小，允许坦克更贴近墙壁
+local TANK_COLLISION_SIZE = 18
+local TANK_COLLISION_HALF = TANK_COLLISION_SIZE / 2
 local BULLET_SIZE = 6
 local BULLET_SPEED = 6
 local TANK_SPEED = 2.6
@@ -136,7 +139,6 @@ local sendOpponentLeft
 local tanks = {}
 local bullets = {}
 local walls = {}
-local particles = {}
 local powerUps = {}
 
 -- 输入状态
@@ -144,6 +146,20 @@ local input_p1 = { up = false, down = false, left = false, right = false, shoot 
 local input_p2 = { up = false, down = false, left = false, right = false, shoot = false }
 -- 屏幕按钮输入状态（玩家1，避免被键盘状态覆盖）
 local btn_input = { up = false, down = false, left = false, right = false, shoot = false }
+-- 按钮按下状态跟踪（防止 on_pressed/on_released 异常重复触发）
+local btn_pressed_state = { up = false, down = false, left = false, right = false, shoot = false }
+
+-- ==================== 实体按键配置 ====================
+-- GPIO按键映射（与饥荒游戏保持一致）
+local GPIO_KEY_MAP = {
+    { pin = 44, action = "up"    },    -- 上
+    { pin = 48, action = "down"  },    -- 下
+    { pin = 41, action = "left"  },    -- 左
+    { pin = 40, action = "right" },    -- 右
+    { pin = 0,  action = "shoot" },    -- A键 - 开火
+}
+local DEBOUNCE_MS = 20              -- 消抖时间
+local gpio_keys_setup = false       -- 按键是否已初始化
 -- 方向按钮矩形（在 showGameUI 中初始化），用于 touch 订阅判定长按持续移动
 local dir_btn_rects = nil
 -- 全局触摸订阅引用（用于 win_on_destroy 时取消）
@@ -291,15 +307,6 @@ local function uploadGameScore()
     end)
 end
 
--- 查询并显示总积分
-local function queryAndShowTotalScore()
-    expvp.query_total_score(function(ok, total)
-        if ok and ui.total_score_label then
-            ui.total_score_label:set_text("总积分: " .. tostring(total))
-        end
-    end)
-end
-
 -- ==================== 地图定义 ====================
 
 local MAP_TEMPLATE = {
@@ -443,11 +450,6 @@ end
 function Tank:hit()
     if not self.alive then return false end
     if getTimestamp() < self.invincibleUntil then return false end
-    if self.powerUpType == 'shield' and getTimestamp() < self.powerUpUntil then
-        self.powerUpType = nil
-        self.powerUpUntil = 0
-        return false
-    end
     -- 每次被击中掉1条命，立即死亡并开始重生倒计时
     self.lives = self.lives - 1
     self.alive = false
@@ -609,13 +611,10 @@ local function updateSingleAI(aiTank, dt, inputState)
     end
 end
 
--- 更新AI（支持多个AI坦克）
+-- 更新AI（P2在单机模式下是纯AI，不需要玩家输入）
 local function updateAI(dt)
-    -- 更新P2 AI（如果存在且是AI控制）
     if tanks[2] and tanks[2].alive then
         updateSingleAI(tanks[2], dt, input_p2)
-    else
-        input_p2 = { up = false, down = false, left = false, right = false, shoot = false }
     end
 end
 
@@ -642,8 +641,8 @@ function Tank:update(dt, inputState)
         local newX = self.x + moveX * step
         local newY = self.y + moveY * step
 
-        -- 碰撞检测（复用原有逻辑）
-        local bounds = { x = newX - TANK_HALF, y = newY - TANK_HALF, w = TANK_SIZE, h = TANK_SIZE }
+        -- 碰撞检测（使用较小的碰撞体积，允许坦克更贴近墙壁）
+        local bounds = { x = newX - TANK_COLLISION_HALF, y = newY - TANK_COLLISION_HALF, w = TANK_COLLISION_SIZE, h = TANK_COLLISION_SIZE }
         local blockedX = false
         local blockedY = false
         for _, wall in ipairs(walls) do
@@ -670,12 +669,12 @@ function Tank:update(dt, inputState)
                 end
             end
         end
-        if newX - TANK_HALF < 0 or newX + TANK_HALF > GAME_AREA_W then
+        if newX - TANK_COLLISION_HALF < 0 or newX + TANK_COLLISION_HALF > GAME_AREA_W then
             blockedX = true
             -- 调试log（可选）
             -- log.info("tank_battle", "碰撞检测: 碰到左/右边界")
         end
-        if newY - TANK_HALF < 0 or newY + TANK_HALF > GAME_AREA_H then
+        if newY - TANK_COLLISION_HALF < 0 or newY + TANK_COLLISION_HALF > GAME_AREA_H then
             blockedY = true
             -- 调试log（可选）
             -- log.info("tank_battle", "碰撞检测: 碰到上/下边界")
@@ -716,7 +715,7 @@ function Tank:update(dt, inputState)
     local newX = self.x + moveX * spd * dt * 60
     local newY = self.y + moveY * spd * dt * 60
 
-    local bounds = { x = newX - TANK_HALF, y = newY - TANK_HALF, w = TANK_SIZE, h = TANK_SIZE }
+    local bounds = { x = newX - TANK_COLLISION_HALF, y = newY - TANK_COLLISION_HALF, w = TANK_COLLISION_SIZE, h = TANK_COLLISION_SIZE }
     local blockedX = false
     local blockedY = false
 
@@ -744,8 +743,8 @@ function Tank:update(dt, inputState)
         end
     end
 
-    if newX - TANK_HALF < 0 or newX + TANK_HALF > GAME_AREA_W then blockedX = true end
-    if newY - TANK_HALF < 0 or newY + TANK_HALF > GAME_AREA_H then blockedY = true end
+    if newX - TANK_COLLISION_HALF < 0 or newX + TANK_COLLISION_HALF > GAME_AREA_W then blockedX = true end
+    if newY - TANK_COLLISION_HALF < 0 or newY + TANK_COLLISION_HALF > GAME_AREA_H then blockedY = true end
 
     if not blockedX then self.x = newX end
     if not blockedY then self.y = newY end
@@ -769,6 +768,12 @@ function Tank:update(dt, inputState)
 end
 
 function Tank:shoot()
+    -- 双重检查：防止任何路径跳过冷却时间
+    if getTimestamp() < self.shootCooldownUntil then
+        log.warn('tank_battle', string.format('tank%d shoot: 冷却中，强制阻止', self.playerNum))
+        return
+    end
+    
     local bx = self.x + self.dir.x * (TANK_HALF + 6)
     local by = self.y + self.dir.y * (TANK_HALF + 6)
     table.insert(bullets, {
@@ -826,7 +831,7 @@ local lastUpdateTime = getTimestamp()
 local function processButtonInput()
     if networkMode then
         -- 联机点按模式：移动由 moveOneStep 驱动，不依赖 input 表
-        -- 只处理开火（btn_input.shoot 由 on_click 设置）
+        -- 只处理开火（btn_input.shoot 由 on_click 或 GPIO 回调设置）
         -- 重要：必须把方向字段全部清零，防止上一局单机模式残留的状态影响联机模式
         input_p1.up = false
         input_p1.down = false
@@ -851,7 +856,7 @@ local function processButtonInput()
             btn_input.shoot = false
         end
     else
-        -- 单机模式：把 btn_input 映射到 input_p1（P1 用按钮，P2 用键盘）
+        -- 单机模式：P1 用按钮 + GPIO，P2 是纯 AI
         input_p1.up = btn_input.up or false
         input_p1.down = btn_input.down or false
         input_p1.left = btn_input.left or false
@@ -862,6 +867,9 @@ local function processButtonInput()
         else
             input_p1.shoot = false
         end
+        
+        -- P2 完全由 AI 控制，清空 input_p2 让 AI 自由设置
+        -- （AI 会在 updateSingleAI 中直接设置 input_p2 的字段）
     end
 end
 
@@ -985,19 +993,6 @@ local function gameLoop()
         i = i - 1
     end
 
-    i = #particles
-    while i >= 1 do
-        local p = particles[i]
-        p.x = p.x + p.vx
-        p.y = p.y + p.vy
-        p.life = p.life - dt
-        -- 粒子超出游戏区域或生命周期结束则移除
-        if p.life <= 0 or p.x < 0 or p.x > GAME_AREA_W or p.y < 0 or p.y > GAME_AREA_H then
-            table.remove(particles, i)
-        end
-        i = i - 1
-    end
-
     -- 检查游戏结束：只剩一个玩家存活（lives <= 0 即出局）
     if gameState == STATE.PLAYING then
         local alive = {}
@@ -1103,9 +1098,6 @@ local ui_pool = {
     tank_track_l = {},
     tank_track_r = {},
     bullets = {},        -- 子弹UI元素 [index] = ref
-    particles = {},      -- 粒子UI元素 [index] = ref
-    shields = {},        -- 护盾UI元素 [playerNum] = ref
-    invincible_rings = {}, -- 重生无敌保护罩 [playerNum] = ref
     initialized = false
 }
 
@@ -1116,7 +1108,6 @@ local MAX_PARTICLES = 100
 local COLOR_BRICK = 0x8b4513    -- 砖墙：棕色
 local COLOR_STEEL = 0x808080    -- 钢铁墙：灰色
 local COLOR_BULLET = 0xffdf70   -- 子弹：黄色
-local COLOR_SHIELD = 0x00ffff   -- 护盾：青色
 -- 颜色暗化辅助函数（用于3D立体感）
 local function dimColor(c, factor)
     local r = ((c >> 16) & 0xFF) * factor
@@ -1423,20 +1414,6 @@ local function initUIPool()
         ui_pool.tank_muzzles[tank.playerNum] = muzzle
         ui_pool.tank_track_l[tank.playerNum] = {v = trackL_v, h = trackL_h}
         ui_pool.tank_track_r[tank.playerNum] = {v = trackR_v, h = trackR_h}
-
-        -- 护盾UI（用一个稍大的圆形容器作为光环）
-        ui_pool.shields[tank.playerNum] = airui.container({
-            parent = game_elements_container,
-            x = -100,
-            y = -100,
-            w = TANK_SIZE + 10,
-            h = TANK_SIZE + 10,
-            color = COLOR_SHIELD,
-            radius = (TANK_SIZE + 10) / 2
-        })
-        if ui_pool.shields[tank.playerNum].set_hidden then
-            ui_pool.shields[tank.playerNum]:set_hidden(true)
-        end
     end
 
     -- 预创建子弹UI池
@@ -1452,22 +1429,6 @@ local function initUIPool()
         })
         if ui_pool.bullets[i].set_hidden then
             ui_pool.bullets[i]:set_hidden(true)
-        end
-    end
-
-    -- 预创建粒子UI池
-    for i = 1, MAX_PARTICLES do
-        ui_pool.particles[i] = airui.container({
-            parent = game_elements_container,
-            x = -100,
-            y = -100,
-            w = 6,
-            h = 6,
-            color = 0xff6b6b,
-            radius = 3
-        })
-        if ui_pool.particles[i].set_hidden then
-            ui_pool.particles[i]:set_hidden(true)
         end
     end
 
@@ -1495,18 +1456,6 @@ local function destroyUIPool()
             ref:destroy()
         end
     end
-    -- 销毁粒子
-    for _, ref in ipairs(ui_pool.particles) do
-        if ref and ref.destroy then
-            ref:destroy()
-        end
-    end
-    -- 销毁护盾
-    for _, ref in pairs(ui_pool.shields) do
-        if ref and ref.destroy then
-            ref:destroy()
-        end
-    end
     ui_pool.walls = {}
     ui_pool.tanks = {}
     ui_pool.tank_barrels = {}
@@ -1514,9 +1463,6 @@ local function destroyUIPool()
     ui_pool.tank_track_l = {}
     ui_pool.tank_track_r = {}
     ui_pool.bullets = {}
-    ui_pool.particles = {}
-    ui_pool.shields = {}
-    ui_pool.invincible_rings = {}
     ui_pool.initialized = false
 end
 
@@ -1613,19 +1559,6 @@ function renderGame()
                 ref:set_hidden(not tank.alive or blinkHidden)
             end
         end
-
-        -- 更新护盾显隐
-        local shieldRef = ui_pool.shields[tank.playerNum]
-        if shieldRef then
-            local hasShield = tank.alive and tank.powerUpType == 'shield' 
-                and getTimestamp() < tank.powerUpUntil
-            if shieldRef.set_pos then
-                shieldRef:set_pos(tank.x - TANK_HALF - 5, tank.y - TANK_HALF - 5)
-            end
-            if shieldRef.set_hidden then
-                shieldRef:set_hidden(not hasShield)
-            end
-        end
     end
     
     -- 更新子弹位置
@@ -1636,26 +1569,6 @@ function renderGame()
             if bullet then
                 if ref.set_pos then
                     ref:set_pos(bullet.x - bullet.size / 2, bullet.y - bullet.size / 2)
-                end
-                if ref.set_hidden then
-                    ref:set_hidden(false)
-                end
-            else
-                if ref.set_hidden then
-                    ref:set_hidden(true)
-                end
-            end
-        end
-    end
-    
-    -- 更新粒子位置
-    for i = 1, MAX_PARTICLES do
-        local ref = ui_pool.particles[i]
-        if ref then
-            local p = particles[i]
-            if p then
-                if ref.set_pos then
-                    ref:set_pos(p.x - p.size / 2, p.y - p.size / 2)
                 end
                 if ref.set_hidden then
                     ref:set_hidden(false)
@@ -2317,6 +2230,15 @@ end
 -- 联机模式：点按开火，向对方发送"开火"指令
 local function sendShootMessage()
     if not networkMode then return end
+    
+    -- 检查冷却时间：本地坦克必须在可射击状态才能发送
+    local tank = tanks[my_player_number]
+    if not tank or not tank.alive then return end
+    if getTimestamp() < tank.shootCooldownUntil then 
+        log.info('tank_battle', 'sendShootMessage: 冷却中，忽略')
+        return 
+    end
+    
     local msg = {
         type = "shoot",
         player_num = my_player_number,
@@ -2819,12 +2741,18 @@ local function buildGameUI()
         end,
         -- 单机模式：按住移动，松开停止
         on_pressed = function()
-            log.info("tank_battle", "[BUTTON] 上按钮按下!")
+            -- 防止重复触发
+            if btn_pressed_state.up then return end
+            btn_pressed_state.up = true
             btn_input.up = true
+            -- log.info("tank_battle", "[BUTTON] 上按钮按下")
         end,
         on_released = function()
-            log.info("tank_battle", "[BUTTON] 上按钮释放")
+            -- 防止重复触发
+            if not btn_pressed_state.up then return end
+            btn_pressed_state.up = false
             btn_input.up = false
+            -- log.info("tank_battle", "[BUTTON] 上按钮释放")
         end,
     })
     log.info('tank_battle', '上按钮创建结果: ' .. tostring(btn_up))
@@ -2855,12 +2783,18 @@ local function buildGameUI()
         end,
         -- 单机模式：按住移动，松开停止
         on_pressed = function()
-            log.info("tank_battle", "[BUTTON] 下按钮按下!")
+            -- 防止重复触发
+            if btn_pressed_state.down then return end
+            btn_pressed_state.down = true
             btn_input.down = true
+            -- log.info("tank_battle", "[BUTTON] 下按钮按下")
         end,
         on_released = function()
-            log.info("tank_battle", "[BUTTON] 下按钮释放")
+            -- 防止重复触发
+            if not btn_pressed_state.down then return end
+            btn_pressed_state.down = false
             btn_input.down = false
+            -- log.info("tank_battle", "[BUTTON] 下按钮释放")
         end,
     })
     log.info('tank_battle', '下按钮创建结果: ' .. tostring(btn_down))
@@ -2891,11 +2825,17 @@ local function buildGameUI()
         end,
         -- 单机模式：按住移动，松开停止
         on_pressed = function()
-            log.info("tank_battle", "[BUTTON] 左按钮按下!")
+            -- 防止重复触发
+            if btn_pressed_state.left then return end
+            btn_pressed_state.left = true
+            -- log.info("tank_battle", "[BUTTON] 左按钮按下!")
             btn_input.left = true
         end,
         on_released = function()
-            log.info("tank_battle", "[BUTTON] 左按钮释放")
+            -- 防止重复触发
+            if not btn_pressed_state.left then return end
+            btn_pressed_state.left = false
+            -- log.info("tank_battle", "[BUTTON] 左按钮释放")
             btn_input.left = false
         end,
     })
@@ -2927,11 +2867,17 @@ local function buildGameUI()
         end,
         -- 单机模式：按住移动，松开停止
         on_pressed = function()
-            log.info("tank_battle", "[BUTTON] 右按钮按下!")
+            -- 防止重复触发
+            if btn_pressed_state.right then return end
+            btn_pressed_state.right = true
+            -- log.info("tank_battle", "[BUTTON] 右按钮按下!")
             btn_input.right = true
         end,
         on_released = function()
-            log.info("tank_battle", "[BUTTON] 右按钮释放")
+            -- 防止重复触发
+            if not btn_pressed_state.right then return end
+            btn_pressed_state.right = false
+            -- log.info("tank_battle", "[BUTTON] 右按钮释放")
             btn_input.right = false
         end,
     })
@@ -2954,17 +2900,17 @@ local function buildGameUI()
             radius = fire_size / 2,
             pressed_bg_color = 0xff0000  -- 按下时变亮红色
         },
-        on_pressed = function()
+        on_click = function()
             btn_input.shoot = true
-            log.info("tank_battle", "[touch] 开火按钮按下")
+            -- 开火后重置，确保每次点击只发射一发
+            sys.timerStart(function()
+                btn_input.shoot = false
+            end, 50)
+            -- log.info("tank_battle", "[touch] 开火按钮点击")
             -- 联机模式也发送开火消息（点按即发射一发）
             if networkMode then
                 sendShootMessage()
             end
-        end,
-        on_released = function()
-            btn_input.shoot = false
-            log.info("tank_battle", "[touch] 开火按钮释放")
         end
     })
 
@@ -3168,13 +3114,17 @@ local function onNetworkMessage(data)
         if targetPlayerNum then
             local tank = tanks[targetPlayerNum]
             if tank and tank.alive then
-                -- 网络模式下直接射击，不通过 inputState
-                tank:shoot()
-                -- 重置对应玩家的输入状态，防止连续射击
-                if targetPlayerNum == 1 then
-                    input_p1.shoot = false
+                -- 检查冷却时间：防止网络延迟导致的重复射击
+                if getTimestamp() >= tank.shootCooldownUntil then
+                    tank:shoot()
+                    -- 重置对应玩家的输入状态，防止连续射击
+                    if targetPlayerNum == 1 then
+                        input_p1.shoot = false
+                    else
+                        input_p2.shoot = false
+                    end
                 else
-                    input_p2.shoot = false
+                    log.info('tank_battle', string.format('收到shoot: tank%d 冷却中，忽略', targetPlayerNum))
                 end
             else
                 log.warn('tank_battle', 'shoot: tank ' .. tostring(targetPlayerNum) .. ' not found or dead')
@@ -3416,12 +3366,28 @@ local function onKeyEvent(key, state)
         end
     end
 
-    -- P2 键盘控制（单机双人用）
-    input_p2.up = keyStates['up'] or false
-    input_p2.down = keyStates['down'] or false
-    input_p2.left = keyStates['left'] or false
-    input_p2.right = keyStates['right'] or false
-    input_p2.shoot = keyStates['enter'] or false
+    if networkMode then
+        -- 联机模式：实体按键触发移动/开火消息
+        -- 只有按下时触发（state=true），松开时不处理
+        if state then
+            -- 方向键：发送移动消息
+            if key == 'up' or key == 'down' or key == 'left' or key == 'right' then
+                local direction = key  -- 'up', 'down', 'left', 'right'
+                sendMoveMessage(direction)
+                -- 本地立即执行移动（与屏幕按钮的 on_click 相同）
+                local myTank = tanks[my_player_number]
+                if myTank and myTank.alive then
+                    myTank:moveOneStep(direction, CELL)
+                end
+            -- 开火键（GPIO action="shoot"）
+            elseif key == 'shoot' then
+                -- 设置 btn_input.shoot，由 processButtonInput 处理
+                btn_input.shoot = true
+                sendShootMessage()
+            end
+        end
+    end
+    -- 单机模式：不需要在这里处理，processButtonInput 会自动合并 keyStates 和 btn_input
 end
 
 -- ==================== 窗口生命周期 ====================
@@ -3536,20 +3502,138 @@ local function win_on_create()
 
     sys.timerStart(sendPresence, 5000)
 
-    -- 降低游戏循环频率到100ms(10FPS)，减少实机卡顿和事件队列溢出
-    game_timer_id = sys.timerLoopStart(gameLoop, 100)
+    -- 使用 sys.taskInit + sys.wait 方式运行游戏循环，避免阻塞 I2C 触摸驱动
+    -- 相比 timerLoopStart，这种方式会在 wait 时让出 CPU 时间片
+    sys.taskInit(function()
+        while true do
+            gameLoop()
+            sys.wait(100)  -- 100ms 间隔，约10FPS
+        end
+    end)
 
     buildUI()
+
+    -- 初始化实体按键
+    setup_gpio_keys()
 
     log.info('tank_battle', 'window created successfully')
 end
 
+-- ==================== 实体按键处理 ====================
+
+-- 判断是否使用实体按键（Air1602使用，Air8000W不使用）
+local function should_use_gpio_keys()
+    local model = get_device_model()
+    log.info("tank_battle", "检测设备型号: " .. model)
+    if model and model:find("Air1602") then
+        log.info("tank_battle", "检测到Air1602设备，启用实体按键")
+        return true
+    end
+    log.info("tank_battle", "非Air1602设备，不使用实体按键")
+    return false
+end
+
+--- 注册所有实体按键 GPIO 中断（带消抖）
+function setup_gpio_keys()
+    if gpio_keys_setup then return end
+    
+    -- 根据设备型号判断是否使用实体按键
+    if not should_use_gpio_keys() then
+        log.info("tank_battle", "当前设备不使用实体按键: " .. tostring(get_device_model()))
+        return
+    end
+
+    for _, item in ipairs(GPIO_KEY_MAP) do
+        local action = item.action
+        local pin = item.pin
+        gpio.debounce(pin, DEBOUNCE_MS, 1)
+        gpio.setup(pin, function(val)
+            if val == 0 then
+                -- 按键按下
+                if action == "up" then
+                    btn_input.up = true
+                    -- 联网模式：发送移动消息并本地执行
+                    if networkMode then
+                        sendMoveMessage('up')
+                        local myTank = tanks[my_player_number]
+                        if myTank and myTank.alive then
+                            myTank:moveOneStep('up', CELL)
+                        end
+                    end
+                elseif action == "down" then
+                    btn_input.down = true
+                    if networkMode then
+                        sendMoveMessage('down')
+                        local myTank = tanks[my_player_number]
+                        if myTank and myTank.alive then
+                            myTank:moveOneStep('down', CELL)
+                        end
+                    end
+                elseif action == "left" then
+                    btn_input.left = true
+                    if networkMode then
+                        sendMoveMessage('left')
+                        local myTank = tanks[my_player_number]
+                        if myTank and myTank.alive then
+                            myTank:moveOneStep('left', CELL)
+                        end
+                    end
+                elseif action == "right" then
+                    btn_input.right = true
+                    if networkMode then
+                        sendMoveMessage('right')
+                        local myTank = tanks[my_player_number]
+                        if myTank and myTank.alive then
+                            myTank:moveOneStep('right', CELL)
+                        end
+                    end
+                elseif action == "shoot" then
+                    btn_input.shoot = true
+                    if networkMode then
+                        sendShootMessage()
+                    end
+                end
+                log.info("tank_battle", "[GPIO] 按键按下: " .. action)
+            else
+                -- 按键释放
+                if action == "up" then
+                    btn_input.up = false
+                elseif action == "down" then
+                    btn_input.down = false
+                elseif action == "left" then
+                    btn_input.left = false
+                elseif action == "right" then
+                    btn_input.right = false
+                elseif action == "shoot" then
+                    btn_input.shoot = false
+                end
+                log.info("tank_battle", "[GPIO] 按键释放: " .. action)
+            end
+        end, gpio.PULLUP, gpio.BOTH)
+    end
+    gpio_keys_setup = true
+    log.info("tank_battle", "GPIO keys setup completed")
+end
+
+--- 释放所有实体按键 GPIO 中断
+local function teardown_gpio_keys()
+    if not gpio_keys_setup then return end
+    for _, item in ipairs(GPIO_KEY_MAP) do
+        gpio.debounce(item.pin, 0)
+        gpio.close(item.pin)
+    end
+    gpio_keys_setup = false
+    log.info("tank_battle", "GPIO keys teardown completed")
+end
+
 local function win_on_destroy()
     log.info('tank_battle', 'win_on_destroy called')
-    if game_timer_id then
-        sys.timerStop(game_timer_id)
-        game_timer_id = nil
-    end
+    -- 释放实体按键
+    teardown_gpio_keys()
+    -- 停止游戏循环任务（使用 taskInit 方式，不需要 timerStop）
+    -- 通过设置 gameState 为非 PLAYING 状态来停止游戏循环
+    gameState = STATE.MENU
+    game_timer_id = nil  -- 保留变量兼容性
     -- 停止位置同步定时器
     if pos_sync_timer then
         sys.timerStop(pos_sync_timer)

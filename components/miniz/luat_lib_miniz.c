@@ -29,6 +29,9 @@ end
 #include "luat_log.h"
 
 #include "miniz.h"
+#ifdef LUAT_USE_PGFS_COMPONENT
+#include "luat_pgfs.h"
+#endif
 
 #define LUAT_MINIZ_DEBUG_LOGI(debug, ...) do { if (debug) { LLOGI(__VA_ARGS__); } } while (0)
 #define LUAT_MINIZ_DEBUG_LOGD(debug, ...) do { if (debug) { LLOGD(__VA_ARGS__); } } while (0)
@@ -336,6 +339,23 @@ static int luat_miniz_should_stage_target(const char* target_dir) {
     return strncmp(target_dir, "/lfs2n/", 7) == 0 || strcmp(target_dir, "/lfs2n") == 0;
 }
 
+static int luat_miniz_should_use_pgfs_batch(const char* target_dir) {
+#ifdef LUAT_USE_PGFS_COMPONENT
+    luat_fs_info_t fsinfo;
+    if (!target_dir) {
+        return 0;
+    }
+    memset(&fsinfo, 0, sizeof(fsinfo));
+    if (luat_fs_info(target_dir, &fsinfo) != 0) {
+        return 0;
+    }
+    return strcmp(fsinfo.filesystem, "pgfs") == 0;
+#else
+    (void)target_dir;
+    return 0;
+#endif
+}
+
 static int luat_miniz_copy_file(const char* src_path, const char* dst_path) {
     FILE* in_f = luat_fs_fopen(src_path, "rb");
     FILE* out_f;
@@ -435,34 +455,55 @@ static int l_miniz_unzip(lua_State* L) {
     uint64_t unzip_start_tick_ms = luat_mcu_tick64_ms();
     uint64_t now_tick_ms;
     uint64_t elapsed_ms;
-    
     size_t zip_file_size = 0;
+    mz_uint num_files = 0;
+    FILE* f = NULL;
+    mz_zip_archive zip_archive = {0};
+    int zip_reader_inited = 0;
+    int success = 1;
+#ifdef LUAT_USE_PGFS_COMPONENT
+    uint32_t pgfs_batch_id = 0;
+    int pgfs_batch_started = 0;
+    int pgfs_batch_need_abort = 0;
+#endif
+
     zip_file_size = luat_fs_fsize(zip_file_path);
     if (zip_file_size == 0) {
         LLOGE("ZIP file is empty: %s", zip_file_path);
-        lua_pushboolean(L, 0);
-        return 1;
+        success = 0;
+        goto unzip_finish;
     }
     LUAT_MINIZ_DEBUG_LOGI(debug, "ZIP file size: %u bytes", (unsigned int)zip_file_size);
     if (!luat_miniz_is_valid_target_dir(target_dir)) {
         LLOGE("target_dir must end with '/': %s", target_dir);
-        lua_pushboolean(L, 0);
-        return 1;
+        success = 0;
+        goto unzip_finish;
     }
+#ifdef LUAT_USE_PGFS_COMPONENT
+    if (luat_miniz_should_use_pgfs_batch(target_dir)) {
+        if (luat_pgfs_begin_batch(&pgfs_batch_id) != 0) {
+            LLOGE("Failed to begin pgfs batch for unzip target: %s", target_dir);
+            success = 0;
+            goto unzip_finish;
+        }
+        pgfs_batch_started = 1;
+        pgfs_batch_need_abort = 1;
+        LUAT_MINIZ_DEBUG_LOGI(debug, "PGFS batch begin id=%u target=%s", (unsigned int)pgfs_batch_id, target_dir);
+    }
+#endif
     if (luat_mkdir_recursive(target_dir) != 0) {
         LLOGE("Failed to create target directory: %s", target_dir);
-        lua_pushboolean(L, 0);
-        return 1;
+        success = 0;
+        goto unzip_finish;
     }
-    FILE* f = luat_fs_fopen(zip_file_path, "rb");
+    f = luat_fs_fopen(zip_file_path, "rb");
     if (!f) {
         LLOGE("Failed to open ZIP file: %s", zip_file_path);
-        lua_pushboolean(L, 0);
-        return 1;
+        success = 0;
+        goto unzip_finish;
     }
     
     // Initialize ZIP reader
-    mz_zip_archive zip_archive = {0};
     zip_archive.m_pRead = luat_miniz_file_read_func;
     zip_archive.m_pIO_opaque = f;
     zip_archive.m_archive_size = zip_file_size;
@@ -470,17 +511,15 @@ static int l_miniz_unzip(lua_State* L) {
     zip_archive.m_pFree = luat_mz_free_func;
     zip_archive.m_pRealloc = luat_mz_realloc_func;
 
-    if(!mz_zip_reader_init(&zip_archive, zip_file_size, 0)) {
+    if (!mz_zip_reader_init(&zip_archive, zip_file_size, 0)) {
         LLOGE("Failed to initialize ZIP reader err %d", zip_archive.m_last_error);
-        luat_fs_fclose(f);
-        lua_pushboolean(L, 0);
-        return 1;
+        success = 0;
+        goto unzip_finish;
     }
-    
-    mz_uint num_files = mz_zip_reader_get_num_files(&zip_archive);
+    zip_reader_inited = 1;
+
+    num_files = mz_zip_reader_get_num_files(&zip_archive);
     LUAT_MINIZ_DEBUG_LOGI(debug, "ZIP file contains %u files", num_files);
-    
-    int success = 1;
     if (enable_stage) {
         snprintf(stage_root, sizeof(stage_root), "/_miniz_stage_%u/", (unsigned int)(unzip_start_tick_ms & 0xFFFFFFFFu));
         if (luat_mkdir_recursive(stage_root) != 0) {
@@ -735,13 +774,40 @@ static int l_miniz_unzip(lua_State* L) {
         }
     }
 
-    mz_zip_reader_end(&zip_archive);
-    luat_fs_fclose(f);
+unzip_finish:
+    if (zip_reader_inited) {
+        mz_zip_reader_end(&zip_archive);
+    }
+    if (f != NULL) {
+        luat_fs_fclose(f);
+    }
     if (stage_entries) {
         luat_miniz_stage_cleanup(stage_entries, num_files);
         stage_entries = NULL;
     }
-    
+
+#ifdef LUAT_USE_PGFS_COMPONENT
+    if (pgfs_batch_started) {
+        if (success) {
+            if (luat_pgfs_commit_batch(pgfs_batch_id) != 0) {
+                LLOGE("Failed to commit pgfs batch id=%u target=%s", (unsigned int)pgfs_batch_id, target_dir);
+                success = 0;
+            } else {
+                pgfs_batch_need_abort = 0;
+                LUAT_MINIZ_DEBUG_LOGI(debug, "PGFS batch commit id=%u target=%s", (unsigned int)pgfs_batch_id, target_dir);
+            }
+        }
+        if (!success && pgfs_batch_need_abort) {
+            if (luat_pgfs_abort_batch(pgfs_batch_id) != 0) {
+                LLOGE("Failed to abort pgfs batch id=%u target=%s", (unsigned int)pgfs_batch_id, target_dir);
+            } else {
+                LUAT_MINIZ_DEBUG_LOGI(debug, "PGFS batch abort id=%u target=%s", (unsigned int)pgfs_batch_id, target_dir);
+            }
+            pgfs_batch_need_abort = 0;
+        }
+    }
+#endif
+
     lua_pushboolean(L, success);
     return 1;
 }

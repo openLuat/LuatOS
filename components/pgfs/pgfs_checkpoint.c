@@ -195,6 +195,21 @@ int pgfs_checkpoint_store_next(void* fs, const pgfs_checkpoint_t* current, pgfs_
         sb_addr = PGFS_SUPERBLOCK_B_ADDR;
     }
 
+    if (ctx->flash_opts && ctx->flash_opts->control && ctx->flash_opts->erase &&
+        ctx->flash_opts->control(ctx->flash_opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+        geo.erase_size) {
+        uint32_t cp_blk = (cp_addr / geo.erase_size) * geo.erase_size;
+        uint32_t sb_blk = (sb_addr / geo.erase_size) * geo.erase_size;
+        if (ctx->flash_opts->erase(ctx->flash_opts->ctx, cp_blk, geo.erase_size) != 0) {
+            return -1;
+        }
+        if (sb_blk != cp_blk) {
+            if (ctx->flash_opts->erase(ctx->flash_opts->ctx, sb_blk, geo.erase_size) != 0) {
+                return -1;
+            }
+        }
+    }
+
     tmp.crc32 = 0;
     tmp.crc32 = pgfs_crc32_calc(&tmp, sizeof(tmp));
     if (pgfs_flash_write(ctx, cp_addr, &tmp, sizeof(tmp)) != 0) {
@@ -216,6 +231,21 @@ int pgfs_checkpoint_store_next(void* fs, const pgfs_checkpoint_t* current, pgfs_
     }
 
     *next = tmp;
+    return 0;
+}
+
+int pgfs_checkpoint_commit_pending(pgfs_mount_ctx_t* ctx) {
+    if (ctx == NULL) {
+        return -1;
+    }
+    if (ctx->pending_checkpoint_writes == 0) {
+        return 0;
+    }
+    if (pgfs_checkpoint_store_next(ctx, &ctx->checkpoint, &ctx->checkpoint) != 0) {
+        return -1;
+    }
+    ctx->pending_checkpoint_writes = 0;
+    ctx->checkpoint_loaded = 1;
     return 0;
 }
 
@@ -244,6 +274,34 @@ int pgfs_rebuild_checkpoint_from_replay(pgfs_mount_ctx_t* ctx) {
     return 0;
 }
 
+static int pgfs_checkpoint_runtime_valid(const pgfs_mount_ctx_t* ctx) {
+    if (ctx == NULL || !ctx->checkpoint_loaded) {
+        return 0;
+    }
+    if (ctx->checkpoint.magic != PGFS_CHECKPOINT_MAGIC || ctx->checkpoint.version != PGFS_ONDISK_VERSION) {
+        return 0;
+    }
+    return 1;
+}
+
+static void pgfs_info_fill_from_checkpoint(const pgfs_mount_ctx_t* ctx, const pgfs_flash_geometry_t* geo, luat_fs_info_t* out) {
+    uint32_t total = 0;
+    uint32_t used = 0;
+    if (ctx == NULL || out == NULL) {
+        return;
+    }
+    total = ctx->checkpoint.total_blocks;
+    used = ctx->checkpoint.used_blocks;
+    if (total == 0 && geo != NULL && geo->erase_size != 0) {
+        total = geo->capacity / geo->erase_size;
+    }
+    if (total != 0 && used > total) {
+        used = total;
+    }
+    out->total_block = total;
+    out->block_used = used;
+}
+
 int pgfs_info_fast(pgfs_mount_ctx_t* ctx, luat_fs_info_t* out) {
     pgfs_checkpoint_t latest = {0};
     pgfs_flash_geometry_t geo = {0};
@@ -263,22 +321,22 @@ int pgfs_info_fast(pgfs_mount_ctx_t* ctx, luat_fs_info_t* out) {
         out->block_size = 4096;
     }
 
+    if (pgfs_checkpoint_runtime_valid(ctx)) {
+        pgfs_info_fill_from_checkpoint(ctx, &geo, out);
+        return 0;
+    }
+
     if (pgfs_checkpoint_load(ctx, &latest) == 0) {
         ctx->checkpoint = latest;
         ctx->checkpoint_loaded = 1;
-        out->total_block = latest.total_blocks;
-        out->block_used = latest.used_blocks;
-        if (out->total_block == 0 && geo.erase_size) {
-            out->total_block = geo.capacity / geo.erase_size;
-        }
+        pgfs_info_fill_from_checkpoint(ctx, &geo, out);
         return 0;
     }
 
     if (pgfs_rebuild_checkpoint_from_replay(ctx) != 0) {
         return -1;
     }
-    out->total_block = ctx->checkpoint.total_blocks;
-    out->block_used = ctx->checkpoint.used_blocks;
+    pgfs_info_fill_from_checkpoint(ctx, &geo, out);
     return 0;
 }
 

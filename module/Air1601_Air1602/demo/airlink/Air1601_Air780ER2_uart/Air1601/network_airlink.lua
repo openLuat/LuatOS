@@ -83,20 +83,11 @@ end
 local function log_mobile_sync_info()
     while true do
         sys.wait(15000)
-        if not airlink.ready() then
-            log.info("airlink 链路未通，接下来执行一次 ping 请求（超时3秒）")
-            netdrv.ping(socket.LWIP_GP_GW, NET_PEER_IP)
-            local res = sys.waitUntil("PING_RESULT", 3000)
-            if not res then
-                log.info("ping 请求超时，跳过获取 airlink 从机端网络信息")
-                goto continue
-            end
-        end
         if mobile then
             log.info("存在 mobile 底层库")
         else
             log.info("不存在 mobile 底层库，跳过获取 airlink 从机端网络信息")
-            goto continue
+            return
         end
         local imei = "unknown"
         local imsi = "unknown"
@@ -147,8 +138,6 @@ local function log_mobile_sync_info()
         --     if ok and val then rssi = val end
         -- end
         -- log.info("mobile-rpc-sync", "imei", imei, "imsi", imsi, "iccid", iccid, "csq", csq, "status", status, "rsrp", rsrp, "rsrq", rsrq, "snr", snr, "rssi", rssi, "airlink_ready", airlink.ready())
-
-        ::continue::
     end
 end
 

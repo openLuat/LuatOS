@@ -25,6 +25,12 @@
 
 static bool g_luatos_png_decoder_registered = false;
 
+typedef struct {
+    uint16_t width;
+    uint16_t height;
+    uint32_t idat_blocks;
+} airui_png_probe_t;
+
 static bool airui_luatos_is_png_path(const char *src)
 {
     const char *dot;
@@ -90,36 +96,101 @@ static uint32_t read_be32(const uint8_t *p)
     return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | (uint32_t)p[3];
 }
 
-static int png_read_ihdr(const char *path, uint16_t *width, uint16_t *height)
+static int png_read_ihdr(const char *path, airui_png_probe_t *probe)
 {
-    uint8_t buf[24];
-    FILE *fd;
-    size_t n;
+    uint8_t signature[8];
+    uint8_t chunk_header[8];
+    uint8_t ihdr_prefix[8];
+    FILE *fd = NULL;
+    size_t n = 0;
+    bool ihdr_seen = false;
+    uint32_t chunk_len = 0;
+
+    if (probe == NULL) {
+        return -1;
+    }
+
+    memset(probe, 0, sizeof(*probe));
 
     fd = luat_fs_fopen(path, "rb");
-    if (fd == NULL) return -1;
+    if (fd == NULL) {
+        return -1;
+    }
 
-    n = luat_fs_fread(buf, 1, sizeof(buf), fd);
+    n = luat_fs_fread(signature, 1, sizeof(signature), fd);
+    if (n < sizeof(signature)) {
+        goto fail;
+    }
+
+    if (signature[0] != 0x89 || signature[1] != 0x50 || signature[2] != 0x4E || signature[3] != 0x47
+     || signature[4] != 0x0D || signature[5] != 0x0A || signature[6] != 0x1A || signature[7] != 0x0A) {
+        goto fail;
+    }
+
+    while (1) {
+        n = luat_fs_fread(chunk_header, 1, sizeof(chunk_header), fd);
+        if (n < sizeof(chunk_header)) {
+            break;
+        }
+
+        chunk_len = read_be32(chunk_header);
+        if (chunk_header[4] == 'I' && chunk_header[5] == 'H' && chunk_header[6] == 'D' && chunk_header[7] == 'R') {
+            if (chunk_len < sizeof(ihdr_prefix)) {
+                goto fail;
+            }
+
+            n = luat_fs_fread(ihdr_prefix, 1, sizeof(ihdr_prefix), fd);
+            if (n < sizeof(ihdr_prefix)) {
+                goto fail;
+            }
+
+            probe->width = (uint16_t)read_be32(ihdr_prefix);
+            probe->height = (uint16_t)read_be32(ihdr_prefix + 4);
+            ihdr_seen = true;
+
+            if (chunk_len > sizeof(ihdr_prefix) && luat_fs_fseek(fd, (long)(chunk_len - sizeof(ihdr_prefix)), SEEK_CUR) != 0) {
+                goto fail;
+            }
+        }
+        else {
+            if (chunk_len > 0 && luat_fs_fseek(fd, (long)chunk_len, SEEK_CUR) != 0) {
+                goto fail;
+            }
+        }
+
+        if (luat_fs_fseek(fd, 4, SEEK_CUR) != 0) {
+            goto fail;
+        }
+
+        if (chunk_header[4] == 'I' && chunk_header[5] == 'D' && chunk_header[6] == 'A' && chunk_header[7] == 'T') {
+            probe->idat_blocks++;
+            if (probe->idat_blocks > 1 && ihdr_seen) {
+                luat_fs_fclose(fd);
+                return 0;
+            }
+        }
+        else if (chunk_header[4] == 'I' && chunk_header[5] == 'E' && chunk_header[6] == 'N' && chunk_header[7] == 'D') {
+            break;
+        }
+    }
+
     luat_fs_fclose(fd);
-
-    if (n < 24) return -1;
-
-    if (buf[0] != 0x89 || buf[1] != 0x50 || buf[2] != 0x4E || buf[3] != 0x47
-     || buf[4] != 0x0D || buf[5] != 0x0A || buf[6] != 0x1A || buf[7] != 0x0A)
+    if (!ihdr_seen || probe->width == 0 || probe->height == 0 || probe->idat_blocks == 0) {
         return -1;
-
-    if (buf[12] != 'I' || buf[13] != 'H' || buf[14] != 'D' || buf[15] != 'R')
-        return -1;
-
-    *width  = (uint16_t)read_be32(buf + 16);
-    *height = (uint16_t)read_be32(buf + 20);
+    }
     return 0;
+
+fail:
+    if (fd != NULL) {
+        luat_fs_fclose(fd);
+    }
+    return -1;
 }
 
 static lv_result_t airui_luatos_png_decoder_info(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc,
                                                   lv_image_header_t *header)
 {
-    uint16_t width = 0, height = 0;
+    airui_png_probe_t probe;
 
     LV_UNUSED(decoder);
 
@@ -131,14 +202,19 @@ static lv_result_t airui_luatos_png_decoder_info(lv_image_decoder_t *decoder, lv
         return LV_RESULT_INVALID;
     }
 
-    if (png_read_ihdr((const char *)dsc->src, &width, &height) != 0 || width == 0 || height == 0) {
+    if (png_read_ihdr((const char *)dsc->src, &probe) != 0) {
+        return LV_RESULT_INVALID;
+    }
+
+    if (probe.idat_blocks != 1) {
+        LLOGI("skip hardware png decoder: %s, idat_blocks=%u", (const char *)dsc->src, (unsigned int)probe.idat_blocks);
         return LV_RESULT_INVALID;
     }
 
     header->cf = LV_COLOR_FORMAT_ARGB8888;
-    header->w = width;
-    header->h = height;
-    header->stride = width * 4;
+    header->w = probe.width;
+    header->h = probe.height;
+    header->stride = probe.width * 4;
     return LV_RESULT_OK;
 }
 
@@ -172,6 +248,7 @@ static lv_result_t airui_luatos_png_decoder_open(lv_image_decoder_t *decoder, lv
     memset(&img_conf, 0, sizeof(img_conf));
     img_conf.format = LUAT_IMG_FMT_PNG;
     img_conf.decode_mode = LUAT_IMG_DECODE_HW;
+    img_conf.source_path = (const char *)dsc->src;
 
     memset(&img_info, 0, sizeof(img_info));
     ret = luat_image_decode(&img_conf, file_buf, file_len, &img_info);

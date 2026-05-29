@@ -825,7 +825,7 @@ local function app_task(app_path)
         "exftp", "exgnss", "exlcd", "exmodbus_rtu_ascii", "exmodbus_tcp" ,
         "exmodbus", "exmtn", "exmux", "exnetif", "exremotecam", "exremotefile",
         "exril_5101", "exsip", "exsipclient", "exsipproto", "extalk", "extp",
-        "exvib", "exvib1", "ex", "gc032a", "gc0310", "httpdns", "httpplus",
+        "exvib", "exvib1", "exwin", "gc032a", "gc0310", "httpdns", "httpplus",
         "lbsLoc", "lbsLoc2", "libnet", "netLed", "udpsrv",
         "xmodem", "sys", "sysplus"
     }
@@ -840,16 +840,20 @@ local function app_task(app_path)
         end
 
         -- 检查是否属于 LuatOS 扩展库
-        -- 处理顺序：_G[name] -> 实时require -> _G[name] -> 应用目录加载
+        -- 处理顺序：_G[name]存在时走沙箱包装版 -> 实时require -> 应用目录加载
+        -- 注意：返回 my_env[name] 而非 _G[name]，确保应用代码拿到的是经过沙箱包装的版本
+        -- 关键：以 _G[name] 是否存在为分界，_G[name] 不存在时不走 my_env[name]，
+        -- 因为 my_env[name] 可能只是空包装壳（__index 指向空表），需回退到文件加载
         if ext_libs[name] then
-            local global_mod = _G[name]
-            if global_mod then
-                my_env.package.loaded[name] = global_mod
-                my_env.log.info("require from _G: " .. name)
-                return global_mod
+            if _G[name] then
+                -- 全局模块存在，使用沙箱包装版本，保证路径翻译等安全策略生效
+                local sandbox_mod = my_env[name] or _G[name]
+                my_env.package.loaded[name] = sandbox_mod
+                my_env.log.info("require from sandbox _G: " .. name)
+                return sandbox_mod
             end
 
-            -- 实时在全局环境中 require
+            -- 全局模块不存在，尝试实时 require
             local ok, result = pcall(require, name)
             if ok then
                 my_env.package.loaded[name] = result
@@ -901,6 +905,20 @@ local function app_task(app_path)
 
         -- 缓存已加载的模块
         my_env.package.loaded[name] = mod
+
+        -- 如果是扩展库且沙箱有对应的包装器（my_env[name]），
+        -- 更新包装器的 __index 指向新加载的模块，并返回包装器而非原始模块，
+        -- 确保 play_start 等路径翻译包装器在 app 调用时生效
+        if ext_libs[name] then
+            local sandbox_wrapper = my_env[name]
+            if type(sandbox_wrapper) == "table" then
+                local mt = getmetatable(sandbox_wrapper)
+                if mt then
+                    mt.__index = mod
+                    return sandbox_wrapper
+                end
+            end
+        end
 
         return mod
     end
@@ -995,7 +1013,10 @@ local function app_task(app_path)
                         if io.exists(p) then return p end
                     end
                 else
-                    -- 非Lua文件默认在 res/ 目录查找
+                    -- 非Lua文件：先在原始相对路径查找（如 /luadb/data/xxx），
+                    -- 再在 res/ 下查找（兼容 /luadb/xxx → res/xxx 的惯例）
+                    local direct_path = app_path .. relative_path
+                    if io.exists(direct_path) then return direct_path end
                     local res_path = app_path .. "res/" .. relative_path
                     if io.exists(res_path) then return res_path end
                 end
@@ -1383,15 +1404,35 @@ local function app_task(app_path)
 
     -- 列出目录内容
     -- 使用 resolve_dir 进行目录映射，确保目录路径正确解析
+    -- 当扫描 /luadb/（应用根目录）时，自动合并 res/ 子目录下的文件
     my_env.io.lsdir = function(path, ...)
+        -- 自动补末尾 /，resolve_dir 要求目录路径以 / 结尾
+        if type(path) == "string" and path:sub(-1) ~= "/" then
+            path = path .. "/"
+        end
         local resolved = resolve_dir(path)
         if resolved then
             local success, data = io.lsdir(resolved, ...)
             if success and type(data) == "table" and path:sub(1,7) == "/luadb/" then
                 local new_data = {}
                 for i, item in ipairs(data) do
+                    -- 过滤掉 data 目录（应用私有数据）
                     if item.name ~= "data" then
-                        table.insert(new_data, item)
+                        -- 扫描根目录时，过滤掉 res 目录条目本身（其内容将合并进来）
+                        if not (path == "/luadb/" and item.name == "res") then
+                            table.insert(new_data, item)
+                        end
+                    end
+                end
+                -- 扫描应用根目录 /luadb/ 时，自动合并 res/ 子目录的文件
+                -- 这样写 /luadb/xxx 的非 Lua 文件不需要显式带 res/ 前缀就能被列出
+                if path == "/luadb/" then
+                    local res_dir = app_path .. "res/"
+                    local res_success, res_data = io.lsdir(res_dir, ...)
+                    if res_success and res_data then
+                        for _, item in ipairs(res_data) do
+                            table.insert(new_data, item)
+                        end
                     end
                 end
                 return success, new_data
@@ -2316,9 +2357,13 @@ local function app_task(app_path)
     my_env.exaudio = setmetatable({}, { __index = exaudio_lib })
 
     -- 处理 config.content 参数，支持单个路径或路径数组
+    -- 注意：通过 getmetatable 动态获取基模块，而非捕获 exaudio_lib 闭包
+    -- 这样当 _G.exaudio 不存在、app 自带模块通过 require 加载后，
+    -- 只需更新 __index 即可让包装器指向正确的基模块
     my_env.exaudio.play_start = function(...)
         local args = {...}
         local config = args[1]
+        local base = getmetatable(my_env.exaudio).__index
 
         if type(config) == "table" and config.type == 0 then
             local new_config = cp(config)
@@ -2333,13 +2378,24 @@ local function app_task(app_path)
                 new_config.content = resolved
             end
 
-            return exaudio_lib.play_start(new_config)
+            return base.play_start(new_config)
         end
 
-        return exaudio_lib.play_start(...)
+        return base.play_start(...)
     end
 
-    my_env.exaudio.record_start = wrap_config(exaudio_lib.record_start, "path", 1, true, false)
+    my_env.exaudio.record_start = function(...)
+        local args = {...}
+        local base = getmetatable(my_env.exaudio).__index
+        if type(args[1]) == "table" and type(args[1].path) == "string" then
+            local new_config = cp(args[1])
+            local resolved = resolve_write(args[1].path)
+            if not resolved then return false end
+            new_config.path = resolved
+            return base.record_start(new_config, select(2, ...))
+        end
+        return base.record_start(...)
+    end
 
     -- excamera 库
     -- 功能：包装 excamera.open 和 excamera.video，支持视频文件路径转换

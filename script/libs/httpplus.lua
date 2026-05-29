@@ -188,13 +188,42 @@ local function http_opts_parse(opts)
             webm = "video/webm",            -- WebM 格式视频
         }
         for kk, vv in pairs(opts.files) do
-            local ct = contentType[vv:match("%.(%w+)$")] or "application/octet-stream"
-            local fname = vv:match("([^/\\]+)$") or vv
-            local tmp = string.format("--%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\nContent-Type: %s\r\n\r\n", boundary, kk, fname, ct)
-            -- log.info("文件传输头", tmp)
-            table.insert(opts.mp, {vv, tmp, "file"})
-            opts.body_len = opts.body_len + #tmp + io.fileSize(vv) + 2
-            -- log.info("当前body长度", opts.body_len, "文件长度", io.fileSize(vv), fname, ct)
+            if type(vv) == "string" then
+                -- 文件路径上传, 原有逻辑
+                -- 根据文件扩展名匹配Content-Type, 未匹配到则默认application/octet-stream
+                local ct = contentType[vv:match("%.(%w+)$")] or "application/octet-stream"
+                -- 从完整路径中提取文件名, 用于multipart头的filename字段
+                local fname = vv:match("([^/\\]+)$") or vv
+                -- 构造multipart文件分部的头部, 格式: --boundary + Content-Disposition + Content-Type
+                local tmp = string.format("--%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\nContent-Type: %s\r\n\r\n", boundary, kk, fname, ct)
+                -- log.info("文件传输头", tmp)
+                -- 存入mp列表: {文件路径, 分部头部, 类型标记"file"}
+                table.insert(opts.mp, {vv, tmp, "file"})
+                -- 累加body长度: 分部头部长度 + 文件实际大小 + 结尾\r\n(2字节)
+                opts.body_len = opts.body_len + #tmp + io.fileSize(vv) + 2
+                -- log.info("当前body长度", opts.body_len, "文件长度", io.fileSize(vv), fname, ct)
+            elseif type(vv) == "table" then
+                -- 流式数据上传
+                -- 校验size: 必须存在且为非负number, 它是fill_data_func多次调用返回数据的总字节长度, 用于设置Content-Length
+                if not vv.size or type(vv.size) ~= "number" or vv.size < 0 then
+                    log.error(TAG, "流式上传的size必须是非负数")
+                    return -108, "流式上传的size必须是非负数"
+                end
+                -- 校验fill_data_func: 必须存在且为function, 每次调用返回当前分片的流式数据(string或zbuff), 返回nil表示数据已全部填充完毕
+                if not vv.fill_data_func or type(vv.fill_data_func) ~= "function" then
+                    log.error(TAG, "流式上传的fill_data_func必须是function")
+                    return -109, "流式上传的fill_data_func必须是function"
+                end
+                -- 可选字段: filename用于multipart头的filename字段, 缺省使用files表的key; content_type用于Content-Type, 缺省application/octet-stream
+                local fname = vv.filename or kk
+                local ct = contentType[fname:match("%.(%w+)$")] or "application/octet-stream"
+                -- 构造multipart文件分部的头部, 格式与文件路径上传一致
+                local tmp = string.format("--%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\nContent-Type: %s\r\n\r\n", boundary, kk, fname, ct)
+                -- 存入mp列表: {流式参数表{size, fill_data_func}, 分部头部, 类型标记"stream"}
+                table.insert(opts.mp, {{size=vv.size, fill_data_func=vv.fill_data_func}, tmp, "stream"})
+                -- 累加body长度: 分部头部长度 + 流式数据声明总长度 + 结尾\r\n(2字节)
+                opts.body_len = opts.body_len + #tmp + vv.size + 2
+            end
         end
     end
 
@@ -733,6 +762,49 @@ local function http_exec(opts)
                         sys.waitUntil(opts.topic, 1000)
                     end
                     fd:close()
+                end
+            elseif v[3] == "stream" then
+                -- 提取流式上传参数
+                local stream_info = v[1]
+                local fill_data_func = stream_info.fill_data_func
+                local total_sent = 0
+                local sent_count = 0
+                -- 循环条件: 已发送字节数 < 声明总长度 且 连接未断开
+                while total_sent < stream_info.size and not opts.is_closed do
+                    sent_count = sent_count + 1
+                    -- 调用用户填充函数获取当前分片数据
+                    local data = fill_data_func(total_sent, sent_count)
+                    -- 返回nil表示数据源已耗尽, 提前结束
+                    if data == nil then
+                        log.warn(TAG, "fill_data_func返回nil, 流式数据提前结束")
+                        break
+                    end
+                    -- 根据返回值类型计算数据长度
+                    local data_len = 0
+                    if type(data) == "string" then
+                        data_len = #data
+                    elseif type(data) == "userdata" then
+                        data_len = data:used()
+                    else
+                        log.warn(TAG, "fill_data_func返回非法类型", type(data))
+                        break
+                    end
+                    -- 返回空数据视为异常, 提前结束
+                    if data_len == 0 then
+                        log.warn(TAG, "fill_data_func返回空数据, 流式数据提前结束")
+                        break
+                    end
+                    -- 发送数据, socket.tx支持string和zbuff两种类型
+                    if socket.tx(netc, data) == false then
+                        log.warn(TAG, "流式数据socket.tx失败")
+                        fail_check = false
+                        break
+                    end
+                    -- 累加已发送字节数
+                    total_sent = total_sent + data_len
+                    write_counter = write_counter + data_len
+                    -- 等待TX_OK事件确认数据已发送, 超时时间与数据长度关联: 10bytes/ms保守速率, 最低1秒
+                    sys.waitUntil(opts.topic, math.max(1000, math.ceil(data_len / 10)))
                 end
             else
                 socket.tx(netc, v[1])

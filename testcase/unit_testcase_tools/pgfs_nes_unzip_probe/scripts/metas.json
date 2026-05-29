@@ -1,0 +1,6 @@
+{
+  "name": "pgfs_nes_unzip_probe",
+  "summary": "PGFS NES unzip durability/perf probe on PC",
+  "platform": ["pc"],
+  "timeout": 180
+}

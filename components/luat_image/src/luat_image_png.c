@@ -10,7 +10,8 @@
 #ifdef LUAT_USE_LODEPNG
 #include "lodepng.h"
 
-int luat_png_decode_sw_default(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+int luat_png_decode_sw_default(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+    (void)img_conf;
     unsigned char *rgba = NULL;
     unsigned w = 0;
     unsigned h = 0;
@@ -36,7 +37,8 @@ const luat_img_decoder_opts_t png_sw_decoder_opts = {
 #endif /* LUAT_USE_LODEPNG */
 
 #ifdef LUAT_USE_PNG
-LUAT_WEAK int luat_png_decode_hw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+LUAT_WEAK int luat_png_decode_hw(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+    (void)img_conf;
     (void)in_buf;
     (void)in_len;
     (void)img_info;

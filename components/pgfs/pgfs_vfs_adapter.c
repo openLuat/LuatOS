@@ -88,6 +88,24 @@ static int pgfs_lf_control(void *ctx, uint32_t cmd, void *arg) {
 }
 #endif
 
+static uint32_t pgfs_compute_data_log_base(const pgfs_flash_opts_t* opts) {
+    pgfs_flash_geometry_t geo = {0};
+    uint32_t base = PGFS_DATA_LOG_BASE_ADDR;
+    if (opts == NULL || opts->control == NULL) {
+        return base;
+    }
+    if (opts->control(opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) != 0 || geo.erase_size == 0) {
+        return base;
+    }
+    if (base % geo.erase_size != 0) {
+        uint64_t aligned = ((uint64_t)base + (uint64_t)geo.erase_size - 1u) / (uint64_t)geo.erase_size * (uint64_t)geo.erase_size;
+        if (aligned < 0xFFFFFFFFu) {
+            base = (uint32_t)aligned;
+        }
+    }
+    return base;
+}
+
 static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
     int ret = 0;
     size_t mlen = 0;
@@ -104,7 +122,9 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
     s_pgfs_ctx.mount_point[mlen] = 0;
     s_pgfs_ctx.flash_opts = (const pgfs_flash_opts_t *)conf->busname;
     s_pgfs_ctx.runtime_generation = 1;
-    s_pgfs_ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    s_pgfs_ctx.data_log_base_addr = pgfs_compute_data_log_base(s_pgfs_ctx.flash_opts);
+    s_pgfs_ctx.data_log_write_addr = s_pgfs_ctx.data_log_base_addr;
+    s_pgfs_ctx.data_log_prepared_until = s_pgfs_ctx.data_log_base_addr;
 
     ret = pgfs_checkpoint_load(&s_pgfs_ctx, &s_pgfs_ctx.checkpoint);
     if (ret != 0) {
@@ -130,6 +150,9 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
 static int luat_vfs_pgfs_umount(void* fsdata, luat_fs_conf_t *conf) {
     (void)fsdata;
     (void)conf;
+    if (s_pgfs_ctx.mounted && pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
+        return -1;
+    }
     pgfs_file_reset_all();
     memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
     return 0;
@@ -291,6 +314,27 @@ int luat_pgfs_info(const char *path, luat_fs_info_t *info) {
     return luat_fs_info(path, info);
 }
 
+int luat_pgfs_begin_batch(uint32_t* out_batch_id) {
+    if (!s_pgfs_ctx.mounted) {
+        return -1;
+    }
+    return pgfs_batch_begin(&s_pgfs_ctx, out_batch_id);
+}
+
+int luat_pgfs_commit_batch(uint32_t batch_id) {
+    if (!s_pgfs_ctx.mounted) {
+        return -1;
+    }
+    return pgfs_batch_commit(&s_pgfs_ctx, batch_id);
+}
+
+int luat_pgfs_abort_batch(uint32_t batch_id) {
+    if (!s_pgfs_ctx.mounted) {
+        return -1;
+    }
+    return pgfs_batch_abort(&s_pgfs_ctx, batch_id);
+}
+
 static int pgfs_parse_on_off(const char* mode, int* out) {
     if (mode == NULL || out == NULL) {
         return -1;
@@ -349,24 +393,31 @@ int pgfs_control_reset_runtime(void) {
     int loaded = -1;
 
     memcpy(mount_point, s_pgfs_ctx.mount_point, sizeof(mount_point));
+    if (s_pgfs_ctx.mounted && pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
+        return -1;
+    }
     pgfs_file_reset_all();
     memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
     s_pgfs_ctx.runtime_generation = next_generation == 0 ? 1 : next_generation + 1;
     s_pgfs_ctx.flash_opts = flash_opts;
     memcpy(s_pgfs_ctx.mount_point, mount_point, sizeof(s_pgfs_ctx.mount_point));
     s_pgfs_ctx.mounted = mounted;
-    s_pgfs_ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    s_pgfs_ctx.data_log_base_addr = pgfs_compute_data_log_base(s_pgfs_ctx.flash_opts);
+    s_pgfs_ctx.data_log_write_addr = s_pgfs_ctx.data_log_base_addr;
+    s_pgfs_ctx.data_log_prepared_until = s_pgfs_ctx.data_log_base_addr;
     if (s_pgfs_ctx.flash_opts != NULL) {
         loaded = pgfs_checkpoint_load(&s_pgfs_ctx, &checkpoint);
         if (loaded == 0) {
             s_pgfs_ctx.checkpoint = checkpoint;
             s_pgfs_ctx.checkpoint_loaded = 1;
-            if (pgfs_replay_data_log(&s_pgfs_ctx) != 0) {
+            loaded = pgfs_replay_data_log(&s_pgfs_ctx);
+            if (loaded != 0) {
                 return -1;
             }
         }
         else {
-            if (pgfs_rebuild_checkpoint_from_replay(&s_pgfs_ctx) != 0) {
+            loaded = pgfs_rebuild_checkpoint_from_replay(&s_pgfs_ctx);
+            if (loaded != 0) {
                 return -1;
             }
             s_pgfs_ctx.checkpoint_loaded = 1;
@@ -413,6 +464,21 @@ int luat_pgfs_info(const char *path, luat_fs_info_t *info) {
     if (info != NULL) {
         memset(info, 0, sizeof(*info));
     }
+    return -1;
+}
+
+int luat_pgfs_begin_batch(uint32_t* out_batch_id) {
+    (void)out_batch_id;
+    return -1;
+}
+
+int luat_pgfs_commit_batch(uint32_t batch_id) {
+    (void)batch_id;
+    return -1;
+}
+
+int luat_pgfs_abort_batch(uint32_t batch_id) {
+    (void)batch_id;
     return -1;
 }
 

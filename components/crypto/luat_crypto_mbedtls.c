@@ -506,6 +506,20 @@ static uint8_t *luat_pk_dup_pem(const uint8_t *data, size_t len) {
     return buf;
 }
 
+// 将 LuatOS MD 类型常量映射为 mbedTLS MD 类型枚举值
+// LuatOS 宏值对齐 mbedTLS v3，v2 枚举值不同，需要转换
+static mbedtls_md_type_t luat_md_to_mbedtls(int md) {
+    switch (md) {
+        case LUAT_CRYPTO_MD_MD5:    return MBEDTLS_MD_MD5;
+        case LUAT_CRYPTO_MD_SHA1:   return MBEDTLS_MD_SHA1;
+        case LUAT_CRYPTO_MD_SHA224: return MBEDTLS_MD_SHA224;
+        case LUAT_CRYPTO_MD_SHA256: return MBEDTLS_MD_SHA256;
+        case LUAT_CRYPTO_MD_SHA384: return MBEDTLS_MD_SHA384;
+        case LUAT_CRYPTO_MD_SHA512: return MBEDTLS_MD_SHA512;
+        default: return (mbedtls_md_type_t)md;
+    }
+}
+
 int luat_crypto_pk_sign(int md_type,
                         const uint8_t *hash, size_t hash_len,
                         const uint8_t *privkey, size_t privkey_len,
@@ -563,11 +577,11 @@ int luat_crypto_pk_sign(int md_type,
     /* 执行签名 */
     size_t sig_len = 0;
 #if MBEDTLS_VERSION_NUMBER >= 0x03000000
-    ret = mbedtls_pk_sign(&pk, (mbedtls_md_type_t)md_type, hash, hash_len,
+    ret = mbedtls_pk_sign(&pk, luat_md_to_mbedtls(md_type), hash, hash_len,
                           *sig_out, sig_max, &sig_len,
                           luat_pk_rng_cb, NULL);
 #else
-    ret = mbedtls_pk_sign(&pk, (mbedtls_md_type_t)md_type, hash, hash_len,
+    ret = mbedtls_pk_sign(&pk, luat_md_to_mbedtls(md_type), hash, hash_len,
                           *sig_out, &sig_len,
                           luat_pk_rng_cb, NULL);
 #endif
@@ -611,7 +625,7 @@ int luat_crypto_pk_verify(int md_type,
         goto cleanup;
     }
 
-    ret = mbedtls_pk_verify(&pk, (mbedtls_md_type_t)md_type, hash, hash_len, sig, sig_len);
+    ret = mbedtls_pk_verify(&pk, luat_md_to_mbedtls(md_type), hash, hash_len, sig, sig_len);
     if (ret != 0) {
         LLOGD("pk_verify: verify failed -0x%04x", -ret);
         ret = 1;

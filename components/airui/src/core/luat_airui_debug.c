@@ -5,6 +5,7 @@
 
 #include "luat_base.h"
 #include "luat_airui.h"
+#include "luat_image.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
 #include <stdint.h>
@@ -113,6 +114,8 @@ static void airui_debug_perf_timer_cb(LUAT_RT_CB_PARAM)
  */
 static void airui_debug_disable_internal(airui_ctx_t *ctx)
 {
+    luat_image_set_debug(0);
+
     if (ctx == NULL) {
         if (g_airui_debug_perf_timer != NULL) {
             luat_rtos_timer_stop(g_airui_debug_perf_timer);
@@ -159,6 +162,7 @@ int airui_debug_set_enabled(airui_ctx_t *ctx, bool enable)
     }
 
     if (ctx->debug_enabled) {
+        luat_image_set_debug(1);
         return AIRUI_OK;
     }
 
@@ -194,6 +198,7 @@ int airui_debug_set_enabled(airui_ctx_t *ctx, bool enable)
     ctx->debug_last_refr_count = ctx->debug_refr_count;
     ctx->debug_last_fps = 0;
     ctx->debug_last_mem_used_pct = 0;
+    luat_image_set_debug(1);
 
     return AIRUI_OK;
 }

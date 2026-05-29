@@ -89,15 +89,13 @@ local function read_battery()
     end
 
     -- 读取电池电压 (ADC)
-    local ok_adc, raw_mv = pcall(adc.open, adc_channel)
-    if ok_adc then
-        local ok_read, read_val = pcall(adc.get, adc_channel)
-        pcall(adc.close, adc_channel)
-        if ok_read and read_val and read_val > 0 then
-            new_voltage = read_val * voltage_divider
-        end
+    -- 注意: ASR平台(Air1602) adc.open 是"打开+读取"一次性操作，返回的 raw_mv 就是有效读数
+    -- adc.get 用于已 open 的通道再次读取，反复 open→close 会导致读数不稳定
+    -- ADC 通道在模块初始化时已 adc.open，此处只需 adc.get
+    local ok_read, read_val = pcall(adc.get, adc_channel)
+    if ok_read and read_val and read_val > 0 then
+        new_voltage = read_val * voltage_divider
     end
-
     -- 滑动窗口平均滤波：保留最近 10 次采样，取平均值抑制 ADC 噪点
     if new_voltage > 0 then
         voltage_history[#voltage_history + 1] = new_voltage
@@ -132,12 +130,10 @@ local function read_battery()
         end
     end
 
-    -- 判断充电状态
+    -- 判断充电状态：USB 插入即视为充电
     local new_charging = false
     if new_present and new_usb then
-        if avg_voltage < full_voltage then
-            new_charging = true
-        end
+        new_charging = true
     end
 
     -- 检测状态是否发生变化
@@ -166,15 +162,21 @@ local function read_battery()
         log.info("battery", "电池未检测到")
     elseif is_charging then
         log.info("battery", string.format("充电中 电量:%d%% 电压:%dmV", battery_level, battery_voltage))
+    elseif battery_level < 3 then
+        log.info("battery", string.format("电量耗尽 电压:%dmV", battery_voltage))
     else
         log.info("battery", string.format("放电中 电量:%d%% 电压:%dmV", battery_level, battery_voltage))
     end
 end
 
--- 初始化 USB 检测 GPIO 为输入模式
-gpio.setup(usb_gpio, nil, gpio.PULLDOWN)
+-- 初始化 USB 检测 GPIO 为输入模式（无内部上下拉，外部分压网络已提供偏置）
+-- USB_5V → 100K → GPIO52 → 200K → GND，插入后分压约 3.33V 远高于 VIH 阈值
+gpio.setup(usb_gpio, nil)
 
--- 首次读取并启动 3 秒周期定时器
+-- 初始化 ADC 通道（仅一次，后续 read_battery 中直接 adc.get 读数）
+adc.open(adc_channel)
+
+-- 首次读取并启动 10 秒周期定时器
 read_battery()
 sys.timerLoopStart(read_battery, 10000)
 

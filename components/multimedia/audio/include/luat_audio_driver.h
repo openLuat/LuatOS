@@ -121,6 +121,14 @@ typedef struct luat_audio_driver_opts {
      * @return int 成功返回0，失败返回负值错误码
      */
     int (*modify_audio_common_param)(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_bits, uint8_t channel_nums);
+
+    /**
+     * @brief 对齐音频数据，只有右对齐的DAC驱动才需要
+     * @param ctrl 驱动控制器指针
+     * @param data 要对齐的数据指针
+     * @param len_bytes 要对齐的数据长度 (字节)
+     */
+    void (*dac_data_align)(struct luat_audio_driver_ctrl *ctrl, const void *data, uint32_t len_bytes, uint8_t input_align);
     /**
      * @brief 填充播放缓存区空白音，确保播放缓存区有数据可播放
      * @param ctrl 驱动控制器指针

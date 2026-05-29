@@ -1,0 +1,131 @@
+[2026-05-29 12:00:23.711][00000000.006] I/pclog ===== session start =====
+[2026-05-29 12:00:23.711][00000000.006] I/pclog logfile: pclogs/luatos_pc_20260529_120023_711.log
+[2026-05-29 12:00:23.711][00000000.006] I/pclog cwd: D:\github\LuatOS\.worktrees\pgfs-perf-air1601
+[2026-05-29 12:00:23.711][00000000.006] I/pclog argc: 3
+[2026-05-29 12:00:23.711][00000000.006] I/pclog argv[0]: bsp\pc\build\out\luatos-lua.exe
+[2026-05-29 12:00:23.712][00000000.006] I/pclog argv[1]: testcase\common\scripts
+[2026-05-29 12:00:23.712][00000000.006] I/pclog argv[2]: testcase\unit_testcase_tools\pgfs_nes_unzip_probe\scripts
+[2026-05-29 12:00:23.712][00000000.006] I/pclog =========================
+[2026-05-29 12:00:23.709][00000000.005] W/uart uart library not found, fallback to UDP driver
+[2026-05-29 12:00:23.714][00000000.009] I/fs 依赖裁剪完成, 文件总数 11, 剔除脚本 8
+[2026-05-29 12:00:23.714][00000000.009] I/main LuatOS@PC base 26.04 bsp V2031 32bit
+[2026-05-29 12:00:23.714][00000000.009] I/main ROM Build: May 29 2026 11:26:01
+[2026-05-29 12:00:23.715][00000000.009] D/main loadlibs luavm 4194296 16600 21896
+[2026-05-29 12:00:23.715][00000000.009] D/main loadlibs sys   2097144 5976 2091168
+[2026-05-29 12:00:23.715][00000000.009] D/main loadlibs psram 16777208 0 0
+[2026-05-29 12:00:23.715][00000000.009] I/user.pgfs_nes_unzip start PC
+[2026-05-29 12:00:23.718][00000000.012] D/luat.ch347 loaded CH347DLL.DLL
+[2026-05-29 12:00:23.728][00000000.023] D/luat.ch347 no device found
+[2026-05-29 12:00:23.745][00000000.040] I/luat.spi virtual nand enabled profile=dev size=134217728 page=2048 block_pages=64 read_us=50 prog_us=700 erase_us=2000 bad_ratio=0.0010 speed_factor=1.00 seed=3596638427 jedec=00 EF AA 21
+[2026-05-29 12:00:23.745][00000000.040] I/little_flash SFDP header not found.
+[2026-05-29 12:00:23.745][00000000.040] I/little_flash JEDEC ID: manufacturer_id:0xEF device_id:0xAA21 
+[2026-05-29 12:00:23.745][00000000.040] I/little_flash little flash found flash W25N01GVZEIG
+[2026-05-29 12:00:23.745][00000000.040] I/little_flash little_flash_reset start
+[2026-05-29 12:00:23.745][00000000.040] I/little_flash little_flash_reset after wait_busy #1 result=0
+[2026-05-29 12:00:23.799][00000000.094] I/little_flash little_flash_reset after wait_busy #2 result=0
+[2026-05-29 12:00:23.799][00000000.094] I/little_flash little_flash_reset done
+[2026-05-29 12:00:23.799][00000000.094] D/little_flash pgfs_default_bus offset=0 maxsize=67108864
+[2026-05-29 12:00:23.799][00000000.094] D/little_flash vfs mount start /little_flash/ fs pgfs offset 0 size 67108864
+[2026-05-29 12:00:26.985][00000003.279] D/little_flash vfs mount /little_flash/ fs pgfs ret 0
+[2026-05-29 12:00:26.985][00000003.279] I/miniz ZIP file size: 801758 bytes
+[2026-05-29 12:00:26.985][00000003.280] I/miniz ZIP file contains 14 files
+[2026-05-29 12:00:26.985][00000003.280] I/miniz Processing file [1/14]: NES_Emulator/data/BattleCity.nes -> /little_flash/app_store/NES_Emulator/data/BattleCity.nes
+[2026-05-29 12:00:26.985][00000003.280] I/miniz Extracted done: NES_Emulator/data/BattleCity.nes (24719 bytes)
+[2026-05-29 12:00:30.379][00000006.673] D/pgfs perf close path=app_store/NES_Emulator/data/BattleCity.nes size=24719 gc=0 alloc=0 append=3393 apply=0 cp=0 total=3393 cp_flush=0 pending_cp=1
+[2026-05-29 12:00:30.379][00000006.673] I/miniz Processing file [2/14]: NES_Emulator/data/BomberMan.nes -> /little_flash/app_store/NES_Emulator/data/BomberMan.nes
+[2026-05-29 12:00:30.379][00000006.673] I/miniz Extracted done: NES_Emulator/data/BomberMan.nes (24592 bytes)
+[2026-05-29 12:00:30.614][00000006.909] D/pgfs perf close path=app_store/NES_Emulator/data/BomberMan.nes size=24592 gc=0 alloc=0 append=236 apply=0 cp=0 total=236 cp_flush=0 pending_cp=2
+[2026-05-29 12:00:30.614][00000006.909] I/miniz Processing file [3/14]: NES_Emulator/data/Castlevania.nes -> /little_flash/app_store/NES_Emulator/data/Castlevania.nes
+[2026-05-29 12:00:30.614][00000006.909] I/miniz Extracting NES_Emulator/data/Castlevania.nes: wrote 32768 bytes
+[2026-05-29 12:00:30.614][00000006.909] I/miniz Extracting NES_Emulator/data/Castlevania.nes: wrote 65536 bytes
+[2026-05-29 12:00:30.614][00000006.910] I/miniz Extracting NES_Emulator/data/Castlevania.nes: wrote 98304 bytes
+[2026-05-29 12:00:30.615][00000006.910] I/miniz Extracting NES_Emulator/data/Castlevania.nes: wrote 131072 bytes
+[2026-05-29 12:00:30.615][00000006.910] I/miniz Extracted done: NES_Emulator/data/Castlevania.nes (131088 bytes)
+[2026-05-29 12:00:30.913][00000007.207] D/pgfs perf close path=app_store/NES_Emulator/data/Castlevania.nes size=32784 gc=0 alloc=0 append=297 apply=0 cp=0 total=297 cp_flush=0 pending_cp=3
+[2026-05-29 12:00:30.913][00000007.207] I/miniz Processing file [4/14]: NES_Emulator/data/Contra1.nes -> /little_flash/app_store/NES_Emulator/data/Contra1.nes
+[2026-05-29 12:00:30.913][00000007.208] I/miniz Extracting NES_Emulator/data/Contra1.nes: wrote 32768 bytes
+[2026-05-29 12:00:30.913][00000007.208] I/miniz Extracting NES_Emulator/data/Contra1.nes: wrote 65536 bytes
+[2026-05-29 12:00:30.913][00000007.208] I/miniz Extracting NES_Emulator/data/Contra1.nes: wrote 98304 bytes
+[2026-05-29 12:00:30.914][00000007.208] I/miniz Extracting NES_Emulator/data/Contra1.nes: wrote 131072 bytes
+[2026-05-29 12:00:30.914][00000007.209] I/miniz Extracted done: NES_Emulator/data/Contra1.nes (131088 bytes)
+[2026-05-29 12:00:31.211][00000007.505] D/pgfs perf close path=app_store/NES_Emulator/data/Contra1.nes size=32784 gc=0 alloc=0 append=296 apply=0 cp=0 total=296 cp_flush=0 pending_cp=4
+[2026-05-29 12:00:31.211][00000007.506] I/miniz Processing file [5/14]: NES_Emulator/data/FireEmblem.nes -> /little_flash/app_store/NES_Emulator/data/FireEmblem.nes
+[2026-05-29 12:00:31.211][00000007.506] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 32768 bytes
+[2026-05-29 12:00:31.211][00000007.506] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 65536 bytes
+[2026-05-29 12:00:31.211][00000007.506] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 98304 bytes
+[2026-05-29 12:00:31.211][00000007.506] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 131072 bytes
+[2026-05-29 12:00:31.212][00000007.507] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 163840 bytes
+[2026-05-29 12:00:31.212][00000007.507] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 196608 bytes
+[2026-05-29 12:00:31.212][00000007.507] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 229376 bytes
+[2026-05-29 12:00:31.212][00000007.507] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 262144 bytes
+[2026-05-29 12:00:31.213][00000007.508] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 294912 bytes
+[2026-05-29 12:00:31.213][00000007.508] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 327680 bytes
+[2026-05-29 12:00:31.213][00000007.508] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 360448 bytes
+[2026-05-29 12:00:31.213][00000007.508] I/miniz Extracting NES_Emulator/data/FireEmblem.nes: wrote 393216 bytes
+[2026-05-29 12:00:31.213][00000007.508] I/miniz Extracted done: NES_Emulator/data/FireEmblem.nes (393232 bytes)
+[2026-05-29 12:00:32.516][00000008.810] D/pgfs perf close path=app_store/NES_Emulator/data/FireEmblem.nes size=163856 gc=0 alloc=0 append=1302 apply=0 cp=0 total=1302 cp_flush=0 pending_cp=5
+[2026-05-29 12:00:32.516][00000008.810] I/miniz Processing file [6/14]: NES_Emulator/data/Jackal.NES -> /little_flash/app_store/NES_Emulator/data/Jackal.NES
+[2026-05-29 12:00:32.516][00000008.810] I/miniz Extracting NES_Emulator/data/Jackal.NES: wrote 32768 bytes
+[2026-05-29 12:00:32.516][00000008.811] I/miniz Extracting NES_Emulator/data/Jackal.NES: wrote 65536 bytes
+[2026-05-29 12:00:32.516][00000008.811] I/miniz Extracting NES_Emulator/data/Jackal.NES: wrote 98304 bytes
+[2026-05-29 12:00:32.517][00000008.811] I/miniz Extracting NES_Emulator/data/Jackal.NES: wrote 131072 bytes
+[2026-05-29 12:00:32.517][00000008.811] I/miniz Extracted done: NES_Emulator/data/Jackal.NES (131088 bytes)
+[2026-05-29 12:00:32.815][00000009.109] D/pgfs perf close path=app_store/NES_Emulator/data/Jackal.NES size=32784 gc=0 alloc=0 append=298 apply=0 cp=0 total=298 cp_flush=0 pending_cp=6
+[2026-05-29 12:00:32.815][00000009.110] I/miniz Processing file [7/14]: NES_Emulator/data/Lifeporce.nes -> /little_flash/app_store/NES_Emulator/data/Lifeporce.nes
+[2026-05-29 12:00:32.815][00000009.110] I/miniz Extracting NES_Emulator/data/Lifeporce.nes: wrote 32768 bytes
+[2026-05-29 12:00:32.815][00000009.110] I/miniz Extracting NES_Emulator/data/Lifeporce.nes: wrote 65536 bytes
+[2026-05-29 12:00:32.816][00000009.110] I/miniz Extracting NES_Emulator/data/Lifeporce.nes: wrote 98304 bytes
+[2026-05-29 12:00:32.816][00000009.110] I/miniz Extracting NES_Emulator/data/Lifeporce.nes: wrote 131072 bytes
+[2026-05-29 12:00:32.816][00000009.110] I/miniz Extracted done: NES_Emulator/data/Lifeporce.nes (131088 bytes)
+[2026-05-29 12:00:33.115][00000009.409] D/pgfs perf close path=app_store/NES_Emulator/data/Lifeporce.nes size=32784 gc=0 alloc=0 append=299 apply=0 cp=0 total=299 cp_flush=0 pending_cp=7
+[2026-05-29 12:00:33.115][00000009.409] I/miniz Processing file [8/14]: NES_Emulator/data/MapleStory.nes -> /little_flash/app_store/NES_Emulator/data/MapleStory.nes
+[2026-05-29 12:00:33.115][00000009.409] I/miniz Extracting NES_Emulator/data/MapleStory.nes: wrote 32768 bytes
+[2026-05-29 12:00:33.115][00000009.410] I/miniz Extracting NES_Emulator/data/MapleStory.nes: wrote 65536 bytes
+[2026-05-29 12:00:33.115][00000009.410] I/miniz Extracted done: NES_Emulator/data/MapleStory.nes (65552 bytes)
+[2026-05-29 12:00:36.613][00000012.908] D/pgfs perf close path=app_store/NES_Emulator/data/MapleStory.nes size=32784 gc=0 alloc=0 append=295 apply=0 cp=3203 total=3498 cp_flush=1 pending_cp=0
+[2026-05-29 12:00:36.613][00000012.908] I/miniz Processing file [9/14]: NES_Emulator/data/Mighty.nes -> /little_flash/app_store/NES_Emulator/data/Mighty.nes
+[2026-05-29 12:00:36.613][00000012.908] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 32768 bytes
+[2026-05-29 12:00:36.613][00000012.908] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 65536 bytes
+[2026-05-29 12:00:36.613][00000012.908] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 98304 bytes
+[2026-05-29 12:00:36.614][00000012.909] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 131072 bytes
+[2026-05-29 12:00:36.614][00000012.909] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 163840 bytes
+[2026-05-29 12:00:36.614][00000012.909] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 196608 bytes
+[2026-05-29 12:00:36.614][00000012.909] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 229376 bytes
+[2026-05-29 12:00:36.615][00000012.910] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 262144 bytes
+[2026-05-29 12:00:36.615][00000012.910] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 294912 bytes
+[2026-05-29 12:00:36.615][00000012.910] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 327680 bytes
+[2026-05-29 12:00:36.615][00000012.910] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 360448 bytes
+[2026-05-29 12:00:36.615][00000012.910] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 393216 bytes
+[2026-05-29 12:00:36.615][00000012.910] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 425984 bytes
+[2026-05-29 12:00:36.615][00000012.910] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 458752 bytes
+[2026-05-29 12:00:36.615][00000012.910] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 491520 bytes
+[2026-05-29 12:00:36.615][00000012.910] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 524288 bytes
+[2026-05-29 12:00:36.615][00000012.911] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 557056 bytes
+[2026-05-29 12:00:36.616][00000012.911] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 589824 bytes
+[2026-05-29 12:00:36.616][00000012.911] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 622592 bytes
+[2026-05-29 12:00:36.616][00000012.911] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 655360 bytes
+[2026-05-29 12:00:36.616][00000012.911] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 688128 bytes
+[2026-05-29 12:00:36.616][00000012.911] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 720896 bytes
+[2026-05-29 12:00:36.616][00000012.911] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 753664 bytes
+[2026-05-29 12:00:36.616][00000012.911] I/miniz Extracting NES_Emulator/data/Mighty.nes: wrote 786432 bytes
+[2026-05-29 12:00:36.616][00000012.911] I/miniz Extracted done: NES_Emulator/data/Mighty.nes (786464 bytes)
+[2026-05-29 12:00:40.573][00000016.867] D/pgfs perf close path=app_store/NES_Emulator/data/Mighty.nes size=98336 gc=0 alloc=0 append=3956 apply=0 cp=0 total=3956 cp_flush=0 pending_cp=1
+[2026-05-29 12:00:40.573][00000016.868] I/miniz Processing file [10/14]: NES_Emulator/data/SuperMarioBros.nes -> /little_flash/app_store/NES_Emulator/data/SuperMarioBros.nes
+[2026-05-29 12:00:40.573][00000016.868] I/miniz Extracting NES_Emulator/data/SuperMarioBros.nes: wrote 32768 bytes
+[2026-05-29 12:00:40.573][00000016.868] I/miniz Extracted done: NES_Emulator/data/SuperMarioBros.nes (40976 bytes)
+[2026-05-29 12:00:40.685][00000016.979] D/pgfs perf close path=app_store/NES_Emulator/data/SuperMarioBros.nes size=8208 gc=0 alloc=0 append=111 apply=0 cp=0 total=111 cp_flush=0 pending_cp=2
+[2026-05-29 12:00:40.685][00000016.979] I/miniz Processing file [11/14]: NES_Emulator/icon.png -> /little_flash/app_store/NES_Emulator/icon.png
+[2026-05-29 12:00:40.685][00000016.979] I/miniz Extracted done: NES_Emulator/icon.png (599 bytes)
+[2026-05-29 12:00:40.731][00000017.026] D/pgfs perf close path=app_store/NES_Emulator/icon.png size=599 gc=0 alloc=0 append=47 apply=0 cp=0 total=47 cp_flush=0 pending_cp=3
+[2026-05-29 12:00:40.731][00000017.026] I/miniz Processing file [12/14]: NES_Emulator/main.lua -> /little_flash/app_store/NES_Emulator/main.lua
+[2026-05-29 12:00:40.731][00000017.026] I/miniz Extracted done: NES_Emulator/main.lua (158 bytes)
+[2026-05-29 12:00:40.779][00000017.073] D/pgfs perf close path=app_store/NES_Emulator/main.lua size=158 gc=0 alloc=0 append=47 apply=0 cp=0 total=47 cp_flush=0 pending_cp=4
+[2026-05-29 12:00:40.779][00000017.073] I/miniz Processing file [13/14]: NES_Emulator/user/nes_emulator.lua -> /little_flash/app_store/NES_Emulator/user/nes_emulator.lua
+[2026-05-29 12:00:40.779][00000017.073] I/miniz Extracted done: NES_Emulator/user/nes_emulator.lua (19032 bytes)
+[2026-05-29 12:00:40.965][00000017.259] D/pgfs perf close path=app_store/NES_Emulator/user/nes_emulator.lua size=19032 gc=0 alloc=0 append=186 apply=0 cp=0 total=186 cp_flush=0 pending_cp=5
+[2026-05-29 12:00:40.965][00000017.259] I/miniz Processing file [14/14]: NES_Emulator/meta.json -> /little_flash/app_store/NES_Emulator/meta.json
+[2026-05-29 12:00:40.965][00000017.259] I/miniz Extracted done: NES_Emulator/meta.json (575 bytes)
+[2026-05-29 12:00:41.011][00000017.305] D/pgfs perf close path=app_store/NES_Emulator/meta.json size=575 gc=0 alloc=0 append=46 apply=0 cp=0 total=46 cp_flush=0 pending_cp=6
+[2026-05-29 12:00:41.011][00000017.305] I/user.pgfs_nes_unzip ### PGFS_NES_UNZIP_METRIC ### unzip_ms=14 reset_ms=1 entries=1
+[2026-05-29 12:00:41.011][00000017.305] I/user.pgfs_nes_unzip unzip durable entries=1
+[2026-05-29 12:00:41.011][00000017.305] I/user.pgfs_nes_unzip ### PGFS_NES_UNZIP_PASS ###

@@ -37,6 +37,7 @@ typedef struct {
     airui_luatos_keypad_cfg_t keypad_cfg; /**< GPIO 按键配置（可选） */
     uint8_t *rotation_buf;           /**< 显示旋转临时缓冲 */
     uint32_t rotation_buf_size;      /**< 显示旋转临时缓冲大小 */
+    uint8_t rotation_buf_in_psram;   /**< 是否分配在 PSRAM（1）或堆（0） */
 } luatos_platform_data_t;
 
 /**

@@ -1,0 +1,24 @@
+{
+  "app_name_cn": "音频播放器",
+  "app_name_en": "audio_app",
+  "version": "1.0.0",
+  "publish_time": "2026-05-27 12:00:00",
+  "author": "LuatOS",
+  "category": "工具",
+  "description": "音频播放、TTS语音合成、录音功能",
+  "resolution": "480x800",
+  "supported_models": {
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 150,
+  "origin_size_kb": 350
+}

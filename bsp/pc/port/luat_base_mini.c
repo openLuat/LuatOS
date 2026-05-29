@@ -252,6 +252,7 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_NES
   {"nes", luaopen_nes},
 #endif
+  {"pgfs", luaopen_pgfs},
   {NULL, NULL}
 };
 

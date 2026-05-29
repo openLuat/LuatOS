@@ -47,7 +47,6 @@ end
 #include "luat_log.h"
 
 #include "mbedtls/pk.h"
-#include "mbedtls/md.h"
 
 #ifdef LUAT_USE_UTEST
 extern int luat_rsa_utest(lua_State *L, const char *case_name);
@@ -62,17 +61,6 @@ static int myrand( void *rng_state, unsigned char *output, size_t len ) {
     (void)rng_state;
     luat_crypto_trng((char*)output, len);
     return 0;
-}
-
-// 将 LuatOS MD 类型常量映射为 mbedTLS MD 类型枚举值
-static mbedtls_md_type_t luat_md_to_mbedtls(int md) {
-    switch (md) {
-        case LUAT_CRYPTO_MD_MD5:    return MBEDTLS_MD_MD5;
-        case LUAT_CRYPTO_MD_SHA1:   return MBEDTLS_MD_SHA1;
-        case LUAT_CRYPTO_MD_SHA224: return MBEDTLS_MD_SHA224;
-        case LUAT_CRYPTO_MD_SHA256: return MBEDTLS_MD_SHA256;
-        default: return (mbedtls_md_type_t)md;
-    }
 }
 
 /*
@@ -189,7 +177,7 @@ static int l_rsa_verify(lua_State* L) {
     const char* hash = luaL_checklstring(L, 3, &hash_len);
     const char* sig =  luaL_checklstring(L,  4, &sig_len);
 
-    int ret = luat_crypto_pk_verify(luat_md_to_mbedtls(md),
+    int ret = luat_crypto_pk_verify(md,
                                     (const uint8_t *)hash, hash_len,
                                     (const uint8_t *)key,  keylen,
                                     (const uint8_t *)sig,  sig_len);
@@ -225,7 +213,7 @@ static int l_rsa_sign(lua_State* L) {
 
     uint8_t *sig = NULL;
     size_t sig_len = 0;
-    int ret = luat_crypto_pk_sign(luat_md_to_mbedtls(md),
+    int ret = luat_crypto_pk_sign(md,
                                   (const uint8_t *)hash, hash_len,
                                   (const uint8_t *)key, keylen,
                                   pwd, pwdlen,

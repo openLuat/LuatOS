@@ -45,7 +45,7 @@ static int decode_out_func(JDEC* jd, void* bitmap, JRECT* rect) {
     return 1;
 }
 
-int luat_jpeg_decode_sw_default(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+int luat_jpeg_decode_sw_default(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
     JRESULT res;
     JDEC jdec;
     void *work = NULL;
@@ -54,6 +54,7 @@ int luat_jpeg_decode_sw_default(uint8_t *in_buf, size_t in_len, luat_img_info_t*
 #else
     size_t sz_work = 3500;
 #endif
+    (void)img_conf;
     if (in_buf == NULL || in_len == 0 || img_info == NULL) {
         return LUAT_IMG_ERR;
     }
@@ -99,11 +100,36 @@ const luat_img_decoder_opts_t jpeg_sw_decoder_opts = {
 #endif /* LUAT_USE_TJPGD */
 
 #ifdef LUAT_USE_JPG
-LUAT_WEAK int luat_jpeg_decode_hw(uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+LUAT_WEAK int luat_jpeg_decode_hw(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info) {
+    luat_lcd_conf_t *lcd_conf;
+    luat_lcd_buff_info_t buff_info = {0};
+    int ret;
+
     (void)in_buf;
     (void)in_len;
-    (void)img_info;
-    return LUAT_IMG_ERR;
+
+    if (img_conf == NULL || img_conf->source_path == NULL || img_info == NULL) {
+        return LUAT_IMG_ERR;
+    }
+
+    lcd_conf = luat_lcd_get_default();
+    if (lcd_conf == NULL || lcd_conf->acc_hw_jpeg == 0) {
+        return LUAT_IMG_ERR;
+    }
+
+    ret = lcd_jpeg_decode(lcd_conf, img_conf->source_path, &buff_info);
+    if (ret != 0 || buff_info.buff == NULL || buff_info.width == 0 || buff_info.height == 0) {
+        if (buff_info.buff != NULL) {
+            luat_heap_free(buff_info.buff);
+        }
+        return LUAT_IMG_ERR;
+    }
+
+    img_info->width = (uint16_t)buff_info.width;
+    img_info->height = (uint16_t)buff_info.height;
+    img_info->size = (uint32_t)buff_info.len;
+    img_info->data = (uint8_t *)buff_info.buff;
+    return LUAT_IMG_OK;
 }
 
 const luat_img_decoder_opts_t jpeg_hw_decoder_opts = {

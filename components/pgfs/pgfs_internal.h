@@ -12,7 +12,12 @@
 #define PGFS_CHECKPOINT_A_ADDR       0x2000u
 #define PGFS_CHECKPOINT_B_ADDR       0x3000u
 #define PGFS_DATA_LOG_BASE_ADDR      0x4000u
+#define PGFS_DATA_RECORD_MAGIC       0x50474644u
+#define PGFS_BATCH_DATA_RECORD_MAGIC 0x50474642u
+#define PGFS_BATCH_COMMIT_RECORD_MAGIC 0x50474643u
 #define PGFS_MAX_DIRS                256u
+#define PGFS_CHECKPOINT_BATCH_CLOSES 8u
+#define PGFS_CHECKPOINT_PENDING_CAP  PGFS_CHECKPOINT_BATCH_CLOSES
 
 #define PGFS_CTRL_GET_GEOMETRY       1u
 #define PGFS_LOCK_MODE_OFF           0u
@@ -80,21 +85,31 @@ typedef struct pgfs_mount_ctx {
     uint8_t inject_powercut_stage;
     uint8_t inject_bad_block_once;
     uint8_t inject_corrupt_latest_cp;
+    uint16_t pending_checkpoint_writes;
+    uint16_t reserved0;
     pgfs_checkpoint_t checkpoint;
+    uint32_t data_log_base_addr;
     uint32_t data_log_write_addr;
+    uint32_t data_log_prepared_until;
     uint32_t gc_next_seg_id;
     pgfs_diag_stats_t stats;
+    uint8_t batch_active;
+    uint8_t batch_reserved[3];
+    uint32_t batch_id;
+    uint32_t batch_next_id;
 } pgfs_mount_ctx_t;
 
 typedef struct pgfs_file_cache {
     uint8_t *data;
     size_t len;
     size_t cap;
+    uint8_t heap_type;
 } pgfs_file_cache_t;
 
 typedef struct pgfs_file_entry {
     uint8_t used;
-    uint8_t reserved[3];
+    uint8_t heap_type;
+    uint8_t reserved[2];
     char path[96];
     uint8_t *data;
     size_t len;
@@ -110,12 +125,16 @@ typedef struct pgfs_dir_entry {
 typedef struct pgfs_file {
     pgfs_mount_ctx_t *ctx;
     pgfs_file_entry_t *entry;
+    char path[96];
     size_t pos;
     uint32_t generation;
     uint8_t mode_write;
     uint8_t mode_read;
     uint8_t eof;
     uint8_t err;
+    uint8_t opened_in_batch;
+    uint8_t batch_reserved[3];
+    uint32_t batch_id;
     pgfs_file_cache_t cache;
 } pgfs_file_t;
 
@@ -128,6 +147,7 @@ pgfs_mount_ctx_t* pgfs_get_mount_ctx(void);
 int pgfs_pick_latest_valid_sb(const pgfs_superblock_t* a, const pgfs_superblock_t* b, pgfs_superblock_t* out);
 int pgfs_checkpoint_load(void* fs, pgfs_checkpoint_t* cp);
 int pgfs_checkpoint_store_next(void* fs, const pgfs_checkpoint_t* current, pgfs_checkpoint_t* next);
+int pgfs_checkpoint_commit_pending(pgfs_mount_ctx_t* ctx);
 int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx);
 int pgfs_info_fast(pgfs_mount_ctx_t* ctx, luat_fs_info_t* out);
 int pgfs_rebuild_checkpoint_from_replay(pgfs_mount_ctx_t* ctx);
@@ -136,6 +156,9 @@ int pgfs_cache_append(pgfs_file_t* f, const uint8_t* data, size_t len);
 int pgfs_cache_flush_to_log(pgfs_mount_ctx_t* ctx, pgfs_file_t* f);
 int pgfs_lock(pgfs_mount_ctx_t* ctx);
 int pgfs_unlock(pgfs_mount_ctx_t* ctx);
+int pgfs_batch_begin(pgfs_mount_ctx_t* ctx, uint32_t* out_batch_id);
+int pgfs_batch_commit(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
+int pgfs_batch_abort(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
 
 FILE* pgfs_file_open(pgfs_mount_ctx_t* ctx, const char *filename, const char *mode);
 int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream);

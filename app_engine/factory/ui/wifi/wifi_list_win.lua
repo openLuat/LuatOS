@@ -8,6 +8,7 @@
 
 require "wifi_connect_win"
 require "wifi_detail_win"
+local wifi_common = require "wifi_app_common"
 
 local SCREEN_W, SCREEN_H = 480, 800
 local MARGIN = 15
@@ -23,6 +24,7 @@ local COLOR_SECONDARY = 0x757575
 local COLOR_DIVIDER = 0xE0E0E0
 local COLOR_WHITE = 0xFFFFFF
 local COLOR_ACCENT = 0xFF9800
+local COLOR_DANGER = 0xE63946
 
 local function update_screen_size()
     local rotation = airui.get_rotation()
@@ -80,17 +82,28 @@ local wifi_status = {
 local function create_wifi_item(wifi_entry, index)
     local signal_pct = math.min(100, math.max(0, (wifi_entry.rssi or -100) + 100))
     local item_w = SCREEN_W - 2 * MARGIN - math.floor(20 * _G.density_scale)
-    -- 优先按BSSID精确匹配，避免同名SSID不同AP全部显示为已连接
-    -- BSSID格式归一化：去除分隔符统一为小写纯十六进制串，兼容不同来源的格式差异
+    -- 检测是否存在同SSID的多条记录（用于BSSID区分和连接状态判定）
+    local has_duplicate = wifi_common.is_duplicate_ssid(current_scan_results, wifi_entry.ssid)
+    -- 优先按BSSID精确匹配
     local is_connected = false
-    if wifi_status then
+    if wifi_status and wifi_status.current_ssid == wifi_entry.ssid then
         local status_bssid = wifi_status.bssid and wifi_status.bssid ~= "--" and wifi_status.bssid:lower():gsub("[^0-9a-f]", "")
         local entry_bssid = wifi_entry.bssid and wifi_entry.bssid:lower():gsub("[^0-9a-f]", "")
-        -- 有效BSSID归一化后应为12位十六进制串，短于12位视为无效（如airlink原始字节）
         if status_bssid and #status_bssid >= 12 and entry_bssid and #entry_bssid >= 12 then
+            -- BSSID 可用：精确匹配
             is_connected = (status_bssid == entry_bssid)
+        elseif not has_duplicate then
+            -- 同SSID唯一条目：SSID匹配即可
+            is_connected = true
         else
-            is_connected = (wifi_status.current_ssid == wifi_entry.ssid)
+            -- 同SSID多条且BSSID不可用：只标记信号最强的那一条为已连接
+            local best_rssi = -200
+            for _, entry in ipairs(current_scan_results) do
+                if entry.ssid == wifi_entry.ssid and (entry.rssi or -200) > best_rssi then
+                    best_rssi = entry.rssi or -200
+                end
+            end
+            is_connected = ((wifi_entry.rssi or -200) == best_rssi)
         end
     end
     local is_ready = wifi_status and wifi_status.ready
@@ -103,7 +116,13 @@ local function create_wifi_item(wifi_entry, index)
             if is_connected then
                 sys.publish("OPEN_WIFI_DETAIL_WIN")
             else
-                sys.publish("OPEN_WIFI_CONNECT_WIN", wifi_entry.ssid)
+                -- 传递完整wifi_entry（包含BSSID和security），便于连接窗口区分同名AP
+                sys.publish("OPEN_WIFI_CONNECT_WIN", {
+                    ssid = wifi_entry.ssid,
+                    bssid = wifi_entry.bssid,
+                    rssi = wifi_entry.rssi,
+                    security = wifi_common.extract_security_type(wifi_entry),
+                })
             end
         end
     })
@@ -111,16 +130,22 @@ local function create_wifi_item(wifi_entry, index)
         parent = item,
         text = wifi_entry.ssid or "未知",
         x = math.floor(10 * _G.density_scale), y = math.floor(8 * _G.density_scale),
-        w = item_w - math.floor(80 * _G.density_scale), h = math.floor(20 * _G.density_scale),
+        w = item_w - math.floor(140 * _G.density_scale), h = math.floor(20 * _G.density_scale),
         font_size = math.floor(20 * _G.density_scale),
         color = COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT,
     })
+    -- 副标题：信号强度 + 安全类型
+    local sub_text = string.format("%d%%", signal_pct)
+    local sec_type = wifi_common.extract_security_type(wifi_entry)
+    if sec_type and sec_type ~= "未知" then
+        sub_text = sub_text .. " | " .. sec_type
+    end
     airui.label({
         parent = item,
-        text = string.format("%d%%", signal_pct),
+        text = sub_text,
         x = math.floor(10 * _G.density_scale), y = math.floor(36 * _G.density_scale),
-        w = item_w - math.floor(80 * _G.density_scale), h = math.floor(15 * _G.density_scale),
+        w = item_w - math.floor(140 * _G.density_scale), h = math.floor(15 * _G.density_scale),
         font_size = math.floor(16 * _G.density_scale),
         color = COLOR_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT,
@@ -130,8 +155,8 @@ local function create_wifi_item(wifi_entry, index)
         local status_color_val = is_ready and 0x4CAF50 or COLOR_ACCENT
         airui.label({
             parent = item,
-            x = item_w - math.floor(80 * _G.density_scale), y = math.floor(17 * _G.density_scale),
-            w = math.floor(70 * _G.density_scale), h = math.floor(30 * _G.density_scale),
+            x = item_w - math.floor(130 * _G.density_scale), y = math.floor(17 * _G.density_scale),
+            w = math.floor(120 * _G.density_scale), h = math.floor(30 * _G.density_scale),
             text = status_text,
             font_size = math.floor(16 * _G.density_scale),
             color = status_color_val,
@@ -170,6 +195,12 @@ local function create_saved_item(saved_wifi, index, stx)
         status_color = 0x4CAF50
     elseif stx == "正在获取IP" then
         status_color = COLOR_ACCENT
+    elseif stx == "可连接" then
+        status_color = 0x4CAF50
+    elseif stx == "未验证" then
+        status_color = COLOR_ACCENT
+    elseif stx == "连接失败" then
+        status_color = COLOR_DANGER or 0xE63946
     elseif stx == "已配置" then
         status_color = COLOR_ACCENT
     else
@@ -206,7 +237,15 @@ local function update_saved_list()
             if is_connected then
                 status_text = wifi_status.ready and "已连接" or "正在获取IP"
             else
-                status_text = "可连接"
+                -- 根据last_connect_ok区分连接验证状态
+                if saved_wifi.last_connect_ok == true then
+                    status_text = "可连接"
+                elseif saved_wifi.last_connect_ok == false then
+                    status_text = "连接失败"
+                else
+                    -- last_connect_ok == nil（从未验证过）
+                    status_text = "未验证"
+                end
             end
             table.insert(matched_list, {
                 wifi = saved_wifi,
@@ -452,7 +491,8 @@ local function on_disconnected(scan_results, code)
     if connecting_container then connecting_container:hide() end
     airui.msgbox({ text = "WiFi 连接失败: " .. scan_results, buttons = { "确定" }, timeout = 3000, on_action = function(s) s:destroy() end })
     update_saved_list()
-    update_wifi_list({})
+    -- 保留当前扫描结果列表，不清空（修复：原来 update_wifi_list({}) 会清空附近WiFi列表）
+    update_wifi_list(current_scan_results)
 end
 
 local function on_status_update(status)

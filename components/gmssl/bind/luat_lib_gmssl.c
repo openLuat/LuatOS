@@ -820,6 +820,107 @@ static int l_sm2_keygen(lua_State *L)
     return 3;
 }
 
+/*
+SM2标量点乘: R = k * P
+@api gmssl.sm2pointmul(k, px, py)
+@string 标量k, HEX字符串(64字符)
+@string 点P的x坐标, HEX字符串(64字符)
+@string 点P的y坐标, HEX字符串(64字符)
+@return string 结果点R的x坐标, HEX字符串(64字符)
+@return string 结果点R的y坐标, HEX字符串(64字符)
+@usage
+-- 计算 R = k * P (核心用于 GBT 32918.3-2016 SM2密钥交换)
+local rx, ry = gmssl.sm2pointmul(kHex, pxHex, pyHex)
+-- 本函数于2026.02.02新增,用于支持SM2密钥交换协议
+*/
+static int l_sm2_point_mul(lua_State *L)
+{
+    size_t kLen = 0, pxLen = 0, pyLen = 0;
+    const char *kHex  = luaL_checklstring(L, 1, &kLen);
+    const char *pxHex = luaL_checklstring(L, 2, &pxLen);
+    const char *pyHex = luaL_checklstring(L, 3, &pyLen);
+
+    if (kLen != 64 || pxLen != 64 || pyLen != 64) {
+        LLOGE("sm2pointmul: k/px/py must be 64-char HEX strings, got %d/%d/%d", kLen, pxLen, pyLen);
+        return 0;
+    }
+
+    SM2_POINT P = {0};
+    SM2_POINT R = {0};
+    uint8_t k[32];
+
+    luat_str_fromhex(kHex,  64, (char*)k);
+    luat_str_fromhex(pxHex, 64, (char*)P.x);
+    luat_str_fromhex(pyHex, 64, (char*)P.y);
+
+    if (sm2_point_mul(&R, k, &P) != 1) {
+        LLOGE("sm2pointmul: sm2_point_mul failed");
+        return 0;
+    }
+
+    char tmp[128];
+    luat_str_tohex((const char*)R.x, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    luat_str_tohex((const char*)R.y, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 2;
+}
+
+/*
+SM2 ECDH密钥协商: S = d * P
+@api gmssl.sm2ecdh(private, peerPx, peerPy)
+@string 己方私钥, HEX字符串(64字符)
+@string 对方公钥X, HEX字符串(64字符)
+@string 对方公钥Y, HEX字符串(64字符)
+@return string 协商结果点的x坐标, HEX字符串(64字符)
+@return string 协商结果点的y坐标, HEX字符串(64字符)
+@usage
+-- ECDH协商: 己方私钥 * 对方公钥
+local sx, sy = gmssl.sm2ecdh(privateKey, peerPkx, peerPky)
+-- 用于 GBT 32918.3-2016 SM2密钥交换协议
+-- 本函数于2026.02.02新增
+*/
+static int l_sm2_ecdh(lua_State *L)
+{
+    size_t privLen = 0, pxLen = 0, pyLen = 0;
+    const char *privHex = luaL_checklstring(L, 1, &privLen);
+    const char *pxHex   = luaL_checklstring(L, 2, &pxLen);
+    const char *pyHex   = luaL_checklstring(L, 3, &pyLen);
+
+    if (privLen != 64 || pxLen != 64 || pyLen != 64) {
+        LLOGE("sm2ecdh: priv/px/py must be 64-char HEX strings, got %d/%d/%d", privLen, pxLen, pyLen);
+        return 0;
+    }
+
+    SM2_KEY key = {0};
+    SM2_POINT peer = {0};
+    SM2_POINT out = {0};
+
+    luat_str_fromhex(privHex, 64, (char*)key.private_key);
+    luat_str_fromhex(pxHex,   64, (char*)peer.x);
+    luat_str_fromhex(pyHex,   64, (char*)peer.y);
+
+    // sm2_key_set_private_key 会从私钥推导出公钥, sm2_do_ecdh 内部会用到
+    int ret = sm2_key_set_private_key(&key, key.private_key);
+    if (ret != 1) {
+        LLOGE("sm2ecdh: invalid private key");
+        return 0;
+    }
+
+    ret = sm2_do_ecdh(&key, &peer, &out);
+    if (ret != 1) {
+        LLOGE("sm2ecdh: sm2_do_ecdh failed");
+        return 0;
+    }
+
+    char tmp[128];
+    luat_str_tohex((const char*)out.x, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    luat_str_tohex((const char*)out.y, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 2;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_gmssl[] =
 {
@@ -833,6 +934,8 @@ static const rotable_Reg_t reg_gmssl[] =
     { "sm2sign",         ROREG_FUNC(l_sm2_sign)},
     { "sm2verify",       ROREG_FUNC(l_sm2_verify)},
     { "sm2keygen",       ROREG_FUNC(l_sm2_keygen)},
+    { "sm2pointmul",     ROREG_FUNC(l_sm2_point_mul)},
+    { "sm2ecdh",         ROREG_FUNC(l_sm2_ecdh)},
 #ifdef LUAT_USE_UTEST
     { "utest",           ROREG_FUNC(l_gmssl_utest)},
 #endif

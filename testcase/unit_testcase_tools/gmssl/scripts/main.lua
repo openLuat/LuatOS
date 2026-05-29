@@ -12,6 +12,7 @@ testrunner = require("testrunner")
 gmssl_sm2 = require("gmssl_sm2")
 gmssl_sm3 = require("gmssl_sm3")
 gmssl_sm4 = require("gmssl_sm4")
+gmssl_sm2_keyex = require("gmssl_sm2_keyex")
 
 -- 开启一个task,运行测试
 sys.taskInit(function()
@@ -20,6 +21,9 @@ sys.taskInit(function()
     --   testTable - 包含测试函数的表, 也就是模块, 其中的所有 test_ 开头的函数都会被执行
     --   testcase - 测试用例的名称, 用于上报
     testrunner.runBatch("gmssl", {{
+        testTable = gmssl_sm2_keyex,
+        testcase = "GMSSL SM2 密钥交换协议"
+    }, {
         testTable = gmssl_sm2,
         testcase = "GMSSL SM2 测试"
     }, {

@@ -1077,6 +1077,15 @@ static int l_crypto_pk_generate(lua_State *L) {
     return 0;
 }
 
+#ifdef LUAT_USE_UTEST
+extern int luat_crypto_utest(lua_State *L, const char *case_name);
+static int l_crypto_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "sha1_known_vector");
+    lua_pushboolean(L, luat_crypto_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_crypto[] =
 {
@@ -1109,6 +1118,9 @@ static const rotable_Reg_t reg_crypto[] =
     { "hash_update",    ROREG_FUNC(l_crypt_hash_update)},
     { "hash_finish",    ROREG_FUNC(l_crypt_hash_finish)},
     { "crc_file",       ROREG_FUNC(l_crypto_crc_file)},
+#ifdef LUAT_USE_UTEST
+    { "utest",          ROREG_FUNC(l_crypto_utest)},
+#endif
     #if !defined(TYPE_EC718PM) && !defined(LUAT_USE_CRYPTO_LITE)
     { "pk_sign",        ROREG_FUNC(l_crypto_pk_sign)},
     { "pk_verify",      ROREG_FUNC(l_crypto_pk_verify)},

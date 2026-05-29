@@ -18,7 +18,9 @@
 #include "luat_log.h"
 
 #define MASTER_SPI_ID g_airlink_spi_conf.spi_id
-#define TEST_BUFF_SIZE (1600)
+// 当前 mobile RPC 最大 payload 约 3647B，再加 4B airlink cmd 头和 12B link 头后约 3663B；
+// SPI 原始帧缓冲统一取 4096B，既能覆盖当前上限，也给 transport 元数据留出余量。
+#define TEST_BUFF_SIZE (4096)
 
 #define AIRLINK_SPI_CS_PIN g_airlink_spi_conf.cs_pin
 #define AIRLINK_SPI_RDY_PIN g_airlink_spi_conf.rdy_pin
@@ -235,6 +237,18 @@ static uint64_t tnow = 0;
 extern void airlink_sfota_exec();
 static uint8_t slave_is_irq_ready = 0;
 
+static int pack_link_frame_or_log(uint8_t *dst, size_t dst_size, uint8_t *src, size_t src_len, const char *tag)
+{
+    size_t frame_len = src_len + sizeof(airlink_link_data_t);
+    if (frame_len > dst_size) {
+        LLOGE("%s frame too large src=%u raw=%u limit=%u", tag, (unsigned)src_len, (unsigned)frame_len, (unsigned)dst_size);
+        g_airlink_statistic.tx_pkg.drop++;
+        return -1;
+    }
+    luat_airlink_data_pack(src, src_len, dst);
+    return 0;
+}
+
 __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rxbuff)
 {
     // 清除link
@@ -399,17 +413,25 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     if (item.len > 0 && item.cmd != NULL)
     {
         // LLOGD("发送待传输的数据, 塞入SPI的FIFO cmd id 0x%04X", item.cmd->cmd);
-        luat_airlink_data_pack(item.cmd, item.len, txbuff);
-        luat_airlink_cmd_free(item.cmd);
-        queue_emtry_counter = 0;
+        if (pack_link_frame_or_log(txbuff, TEST_BUFF_SIZE, (uint8_t *)item.cmd, item.len, "spi master tx") != 0) {
+            luat_airlink_cmd_free(item.cmd);
+            item.cmd = NULL;
+            item.len = 0;
+        }
+        else {
+            luat_airlink_cmd_free(item.cmd);
+            queue_emtry_counter = 0;
+        }
     }
-    else
+    if (item.len == 0 || item.cmd == NULL)
     {
         // LLOGD("填充PING数据");
         #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
         memcpy(basic_info + sizeof(luat_airlink_cmd_t), luat_airlink_self_dev_info_ptr(), sizeof(luat_airlink_dev_info_t));
         #endif
-        luat_airlink_data_pack(basic_info, sizeof(basic_info), txbuff);
+        if (pack_link_frame_or_log(txbuff, TEST_BUFF_SIZE, basic_info, sizeof(basic_info), "spi master ping") != 0) {
+            memset(txbuff, 0, TEST_BUFF_SIZE);
+        }
         queue_emtry_counter ++;
     }
 }

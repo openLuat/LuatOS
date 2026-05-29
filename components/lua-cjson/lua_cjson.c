@@ -1469,10 +1469,22 @@ static int l_json_decode_safe(lua_State *L) {
     }
 }
 
+#ifdef LUAT_USE_UTEST
+extern int luat_cjson_utest(lua_State *L, const char *case_name);
+static int l_json_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "encode_decode_basic");
+    lua_pushboolean(L, luat_cjson_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_json[] = {
         { "encode", ROREG_FUNC(l_json_encode_safe)},
         { "decode", ROREG_FUNC(l_json_decode_safe)},
+#ifdef LUAT_USE_UTEST
+        { "utest", ROREG_FUNC(l_json_utest)},
+#endif
         // { "encode_sparse_array", json_cfg_encode_sparse_array },
         // { "encode_max_depth", json_cfg_encode_max_depth },
         // { "decode_max_depth", json_cfg_decode_max_depth },
@@ -1561,4 +1573,3 @@ int luaopen_cjson(lua_State *l)
 
 /* vi:ai et sw=4 ts=4:
  */
-

@@ -40,6 +40,11 @@ require "wifi_app"
 -- 加载状态提供 app 模块（系统时间/4G信号/WiFi信号 定时更新，发布 STATUS_UPDATE 给状态栏）
 require "status_provider_app"
 
+-- 加载电池管理模块（按 features.battery 配置开关，ADC 电压检测 + USB 充电检测）
+if _G.project_config and _G.project_config.features and _G.project_config.features.battery then
+    require "battery_app"
+end
+
 -- 加载 NTP 时间同步应用模块（订阅 IP_READY，首次联网自动向 ntp.aliyun.com 校时）
 require "ntp_app"
 
@@ -54,3 +59,8 @@ require "settings_app"
 
 -- 加载 FOTA 固件升级模块（订阅 IP_READY，定时向 iot.openluat.com 检查固件更新）
 require "fota_app"
+
+-- NES游戏按键模块（按 features.nes 配置开关）
+if _G.project_config and _G.project_config.features and _G.project_config.features.nes then
+    require "nes_key_app"
+end

@@ -230,15 +230,15 @@ int luat_fs_truncate(const char* filename, size_t len);
 #ifdef LUAT_USE_FS_VFS
 
 #ifndef LUAT_VFS_FILESYSTEM_MAX
-#define LUAT_VFS_FILESYSTEM_MAX 8
+#define LUAT_VFS_FILESYSTEM_MAX 16
 #endif
 
 #ifndef LUAT_VFS_FILESYSTEM_MOUNT_MAX
-#define LUAT_VFS_FILESYSTEM_MOUNT_MAX 8
+#define LUAT_VFS_FILESYSTEM_MOUNT_MAX 16
 #endif
 
 #ifndef LUAT_VFS_FILESYSTEM_FD_MAX
-#define LUAT_VFS_FILESYSTEM_FD_MAX 16
+#define LUAT_VFS_FILESYSTEM_FD_MAX 32
 #endif
 
 struct luat_vfs_file_opts {

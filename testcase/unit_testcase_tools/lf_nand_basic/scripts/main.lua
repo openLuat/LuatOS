@@ -18,6 +18,24 @@ local function get_mode()
     return mode
 end
 
+local function get_spi_bus()
+    local v = rawget(_G, "LF_SPI_BUS") or getenv("LF_SPI_BUS")
+    local n = tonumber(v)
+    if n then
+        return n
+    end
+    return 0
+end
+
+local function get_spi_cs()
+    local v = rawget(_G, "LF_SPI_CS") or getenv("LF_SPI_CS")
+    local n = tonumber(v)
+    if n then
+        return n
+    end
+    return 17
+end
+
 local function assert_file_roundtrip(path, expected)
     assert(io.writeFile(path, expected), "io.writeFile failed: " .. path)
     local actual = io.readFile(path)
@@ -29,7 +47,7 @@ sys.taskInit(function()
     local mode = get_mode()
     log.info("lf_nand_basic", "mode", mode)
     log.info("lf_nand_basic", "setting up spi device")
-    local spi_device = spi.deviceSetup(0, 17, 0, 0, 8, 2 * 1000 * 1000, spi.MSB, 1, 0)
+    local spi_device = spi.deviceSetup(get_spi_bus(), get_spi_cs(), 0, 0, 8, 2 * 1000 * 1000, spi.MSB, 1, 0)
     assert(spi_device, "spi.deviceSetup failed")
 
     local flash = lf.init(spi_device)

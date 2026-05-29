@@ -38,6 +38,8 @@ extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_sdata_reg;
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_bluetooth_reg;
 extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_bluetooth_event_reg;
 #endif
+extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_mobile_reg;
+extern const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_mobile_event_reg;
 
 const luat_airlink_rpc_nb_reg_t* const luat_airlink_rpc_nb_static_table[] = {
 #ifdef LUAT_USE_AIRLINK_EXEC_GPIO
@@ -67,6 +69,8 @@ const luat_airlink_rpc_nb_reg_t* const luat_airlink_rpc_nb_static_table[] = {
     &luat_airlink_rpc_bluetooth_reg,
     &luat_airlink_rpc_bluetooth_event_reg,
 #endif
+    &luat_airlink_rpc_mobile_reg,
+    &luat_airlink_rpc_mobile_event_reg,
 };
 
 const size_t luat_airlink_rpc_nb_static_count =

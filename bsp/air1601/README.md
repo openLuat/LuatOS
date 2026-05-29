@@ -1,8 +1,8 @@
 # Air1601 编译与下载调试说明（COM10）
 
 ## 环境
-- 设置环境变量：`CI_REPOS_PATH=D:\github`
-- LuatOS 主库：`D:\github\LuatOS`
+- 不要直接使用 `CI_REPOS_PATH=D:\github`（会固定引用 `D:\github\LuatOS`，忽略 worktree 变更）
+- LuatOS worktree：`D:\github\LuatOS\.worktrees\lfs2n-pc-air1601`
 - SDK 工程：`D:\github\luatos-sdk-ccm42xx-gcc\csdk\project\luatos`
 - 刷机工具：`D:\github\luatos-cli\target\release\luatos-cli.exe`
 - 设备串口：`COM10`
@@ -11,7 +11,14 @@
 在 SDK 工程目录执行：
 
 ```powershell
-$env:CI_REPOS_PATH='D:\github'
+$worktree = 'D:\github\LuatOS\.worktrees\lfs2n-pc-air1601'
+$repos = 'D:\github\_ci_repos_lfs2n'
+if (!(Test-Path $repos)) { New-Item -ItemType Directory -Path $repos | Out-Null }
+if (Test-Path "$repos\LuatOS") { Remove-Item "$repos\LuatOS" -Recurse -Force }
+if (Test-Path "$repos\luatos-ext-components") { Remove-Item "$repos\luatos-ext-components" -Recurse -Force }
+New-Item -ItemType Junction -Path "$repos\LuatOS" -Target $worktree | Out-Null
+New-Item -ItemType Junction -Path "$repos\luatos-ext-components" -Target 'D:\github\luatos-ext-components' | Out-Null
+$env:CI_REPOS_PATH = $repos
 Set-Location D:\github\luatos-sdk-ccm42xx-gcc\csdk\project\luatos
 xmake
 ```
@@ -35,7 +42,14 @@ $soc='D:\github\luatos-sdk-ccm42xx-gcc\csdk\project\luatos\out\LuatOS-SoC_V1021_
 ## 启动日志判定（建议统一）
 
 ```powershell
+# 先显式下发脚本，避免 flash test 读取到设备上的旧脚本
+& $cli flash script --soc $soc --port COM10 --script <common_scripts> --script <case_scripts>
+
+# 再做闭环日志判定
 & $cli flash test --soc $soc --port COM10 --timeout 30 --keyword '### OVERALL_PASS ###' --keyword '### OVERALL_FAIL ###'
+
+# LFS2N 指标校验（确认纯 wall 指标已落日志）
+& $cli flash test --soc $soc --port COM10 --timeout 80 --keyword 'LFS2N_BASELINE_WRITE_PURE_WALL_MS' --keyword 'LFS2N_BASELINE_WRITE_WALL_MS'
 ```
 
 规则：

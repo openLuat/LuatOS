@@ -203,12 +203,15 @@ static int luat_little_flash_get_info(lua_State *L){
 
 #ifdef LUAT_USE_FS_VFS
 #include "luat_fs.h"
-#include "lfs.h"
+#include "luat_lfs2.h"
 #ifdef LUAT_USE_LFS2_NAND_COMPONENT
 #include "luat_lfs2_nand.h"
 #endif
+#ifdef LUAT_USE_PGFS_COMPONENT
+#include "luat_pgfs.h"
+#endif
 
-extern lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize);
+extern luat_lfs2_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize);
 typedef struct {
     void* bus;
     const char* filesystem;
@@ -220,7 +223,7 @@ static void* luat_little_flash_default_bus(void* flash, size_t offset, size_t ma
 
 static void* luat_little_flash_named_bus(void* flash, size_t offset, size_t maxsize, const char* fs) {
 #ifdef LUAT_USE_LFS2_NAND_COMPONENT
-    if (fs != NULL && strcmp(fs, "lfs2_nand") == 0) {
+    if (fs != NULL && strcmp(fs, "lfsn") == 0) {
         luat_lfs2_nand_vfs_init();
         return luat_fs_lfs2_nand_default_bus(flash, offset, maxsize);
     }
@@ -229,6 +232,12 @@ static void* luat_little_flash_named_bus(void* flash, size_t offset, size_t maxs
     (void)offset;
     (void)maxsize;
     (void)fs;
+#endif
+#ifdef LUAT_USE_PGFS_COMPONENT
+    if (fs != NULL && strcmp(fs, "pgfs") == 0) {
+        pgfs_vfs_init();
+        return pgfs_default_bus(flash, offset, maxsize);
+    }
 #endif
     return NULL;
 }
@@ -275,7 +284,7 @@ static const char* luat_little_flash_mount_fs_selector(lua_State *L, int index) 
 @string mount_point 挂载目录名
 @int    起始偏移量,默认0
 @int    总大小, 默认是整个flash
-@table/string opts 可选, 文件系统选择. nil/"lfs2"为默认; 可传"lfs2_nand"或{fs="lfs2_nand"}
+@table/string opts 可选, 文件系统选择. nil/"lfs2"为默认; 可传"lfsn"/"pgfs"或{fs="lfsn"}、{fs="pgfs"}
 @return bool 成功返回true
 @usage
 log.info("lf.mount",lf.mount(little_flash_device,"/little_flash"))
@@ -308,6 +317,42 @@ static int luat_little_flash_mount(lua_State *L) {
     }
     return 1;
 }
+
+#ifdef LUAT_USE_PGFS_COMPONENT
+/*
+PGFS runtime control helper
+@api lf.pgfsctl(cmd, value)
+@string cmd lock_mode|powercut_stage|corrupt_latest_cp|bad_block_once|reset_runtime|run_c_tests
+@string/bool value value for command
+@return bool success
+*/
+static int luat_little_flash_pgfsctl(lua_State *L) {
+    const char* cmd = luaL_checkstring(L, 1);
+    int ret = -1;
+    if (strcmp(cmd, "lock_mode") == 0) {
+        const char* mode = luaL_checkstring(L, 2);
+        ret = pgfs_control_set_lock_mode(mode);
+    }
+    else if (strcmp(cmd, "powercut_stage") == 0) {
+        const char* stage = luaL_checkstring(L, 2);
+        ret = pgfs_control_inject_powercut_stage(stage);
+    }
+    else if (strcmp(cmd, "corrupt_latest_cp") == 0) {
+        ret = pgfs_control_inject_corrupt_latest_cp(lua_toboolean(L, 2));
+    }
+    else if (strcmp(cmd, "bad_block_once") == 0) {
+        ret = pgfs_control_inject_bad_block_once(lua_toboolean(L, 2));
+    }
+    else if (strcmp(cmd, "reset_runtime") == 0) {
+        ret = pgfs_control_reset_runtime();
+    }
+    else if (strcmp(cmd, "run_c_tests") == 0) {
+        ret = pgfs_run_c_layer_tests();
+    }
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+#endif
 #endif
 
 #include "rotable2.h"
@@ -322,6 +367,9 @@ static const rotable_Reg_t reg_little_flash[] =
     { "getInfo",        ROREG_FUNC(luat_little_flash_get_info)},
 #ifdef LUAT_USE_FS_VFS
     { "mount",          ROREG_FUNC(luat_little_flash_mount)},
+#ifdef LUAT_USE_PGFS_COMPONENT
+    { "pgfsctl",        ROREG_FUNC(luat_little_flash_pgfsctl)},
+#endif
 #endif
 	{ NULL,             ROREG_INT(0)}
 };

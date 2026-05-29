@@ -286,7 +286,34 @@
       }
 
 ================================================================================
-                          六、features — 功能开关
+                          六、hw.battery — 电池管理 (条件)
+================================================================================
+
+  hw.battery   table   [条件] 仅 features.battery = true 时有效
+
+    ├─ adc_channel         number [必填] ADC 通道号
+
+    ├─ usb_detect_gpio     number [必填] USB 插入检测 GPIO 引脚号
+
+    ├─ voltage_divider     number [可选,默认2] 电池电压分压比
+
+    ├─ full_voltage        number [可选,默认4150] 电池充满判定电压 (mV)
+
+    └─ no_battery_threshold number [可选,默认1500] 无电池判定电压阈值 (mV)
+
+    例 (Air1602):
+    hw = {
+        -- ... lcd, tp 等其他配置 ...
+        battery = {
+            adc_channel = 7,
+            usb_detect_gpio = 52,
+            voltage_divider = 2,
+            full_voltage = 4150,
+        },
+    }
+
+================================================================================
+                          七、features — 功能开关
 ================================================================================
 
   features    table   [必填] 硬件功能开关，全部 boolean 类型 (true/false)
@@ -311,20 +338,27 @@
      bluetooth    false    是否有蓝牙
      can          false    是否有 CAN 总线接口
      rs485        false    是否有 RS485 接口
-     usb_camera   false    是否有 USB 摄像头
-     spi_camera   false    是否有 SPI 摄像头
-     i2c_sensor   false    是否有 I2C 传感器 (SHT30温湿度/VOC等)
+      usb_camera   false    是否有 USB 摄像头
+      spi_camera   false    是否有 SPI 摄像头
+      i2c_sensor   false    是否有 I2C 传感器 (SHT30温湿度/VOC等)
+        nes          false    是否启用 NES 游戏实体按键（GPIO 按键注册 + 组合键处理）
+                             设为 true 时必须同时配置 nes_keys 数组
+                             加载 app/nes/nes_key_app.lua 模块
+                             发布 NES_KEY/NES_DIR/NES_CTRL/NES_COMBO 全局事件
+      battery      false    是否有电池管理（ADC 电压检测 + USB 充电检测）
+                             设为 true 时必须同时配置 hw.battery
 
-    例:
+     例:
     features = {
         net_4g = true,  wifi = true,  ethernet = false, buzzer = false,
         speaker = false, mic = false, sd_card = false,  nand_flash = true,
         gnss = false,    bluetooth = false, can = false, rs485 = false,
         usb_camera = false, spi_camera = false, i2c_sensor = false,
+        battery = false,  -- 是否启用电池管理（充电检测、电量显示）
     }
 
 ================================================================================
-                      七、net_4g_config — 4G 连接方式 (条件)
+                                             八、net_4g_config — 4G 连接方式 (条件)
 ================================================================================
 
   net_4g_config  table  [条件] 仅 features.net_4g = true 时有效
@@ -359,7 +393,7 @@
     }
 
 ================================================================================
-                          八、ui — UI 界面显示控制
+                          九、ui — UI 界面显示控制
 ================================================================================
 
   ui          table   [必填] UI 界面元素显隐开关，全部 boolean 类型
@@ -372,19 +406,21 @@
      show_brightness_slider  false    设置页是否显示亮度调节滑块
      show_ethernet_settings  false    设置页是否显示以太网设置入口
      show_storage_settings   false    设置页是否显示存储空间查看入口
-     show_camera_preview     false    是否显示摄像头预览入口
-     show_sensor_panel       false    是否显示传感器数据面板
+      show_camera_preview     false    是否显示摄像头预览入口
+      show_sensor_panel       false    是否显示传感器数据面板
+      show_battery_icon       false    桌面顶栏是否显示电池图标
 
-    例 (Air1602 7寸 WiFi版):
+     例 (Air1602 7寸 WiFi版):
     ui = {
         show_4g_icon = false, show_wifi_icon = true,
         show_buzzer_settings = false, show_brightness_slider = true,
         show_ethernet_settings = false, show_storage_settings = true,
         show_camera_preview = false, show_sensor_panel = false,
+        show_battery_icon = true,
     }
 
 ================================================================================
-                          九、storage — 存储设备配置 (条件)
+                          十、storage — 存储设备配置 (条件)
 ================================================================================
 
   storage     table   [条件] 仅当 features.sd_card 或 features.nand_flash
@@ -415,7 +451,7 @@
     }
 
 ================================================================================
-                      十、完整配置示例 (Air1602 7寸 NAND版)
+                                            十一、完整配置示例 (Air1602 7寸 NAND版)
 ================================================================================
 
 return {
@@ -454,6 +490,36 @@ return {
         speaker = false, mic = false, sd_card = false, nand_flash = true,
         gnss = false, bluetooth = false, can = false, rs485 = false,
         usb_camera = false, spi_camera = false, i2c_sensor = false,
+        nes = false,  -- 是否启用NES游戏按键GPIO绑定（需同时配置 nes_keys）
+    },
+
+    -- NES游戏按键绑定（可选，GPIO引脚 → NES按键），不需要时设为 nil 或空数组 {}
+    -- 按键类型根据 key 名称自动分类（nes_key_app v3.0）：
+    --   方向键: NES_KEY_UP / NES_KEY_DOWN / NES_KEY_LEFT / NES_KEY_RIGHT
+    --           → 支持8方向组合（同时按两个相邻方向键=对角线方向，如左上/右上/左下/右下）
+    --           → 支持持续按住（nes_widget 状态型接口，无需重复发布）
+    --   动作键: NES_KEY_A / NES_KEY_B
+    --           → 200ms窗口内先后按下触发 NES_COMBO("AB") 组合事件（组合优先，抑制单键）
+    --           → 超出窗口则正常发布 NES_KEY 单键事件
+    --   控制键: NES_KEY_RETURN / NES_KEY_START / NES_KEY_SELECT
+    --           → 仅单次触发（按下沿）+ 200ms软件防抖
+    --
+    -- 发布事件（供后装APP订阅）：
+    --   NES_KEY(key, pressed)   — key="UP"/"DOWN"/"LEFT"/"RIGHT"/"A"/"B", pressed=1按下/0释放
+    --   NES_DIR(direction)      — 0=NONE, 1=UP, 2=UP_RIGHT, 3=RIGHT, 4=DOWN_RIGHT,
+    --                                    5=DOWN, 6=DOWN_LEFT, 7=LEFT, 8=UP_LEFT
+    --   NES_CTRL(key)           — key="RETURN"/"START"/"SELECT"，仅按下沿发布
+    --   NES_COMBO(combo)        — combo="AB"，A+B同时按下时发布
+    nes_keys = {
+        { pin = 44, key = "NES_KEY_UP"    },  -- 上
+        { pin = 48, key = "NES_KEY_DOWN"  },  -- 下
+        { pin = 41, key = "NES_KEY_LEFT"  },  -- 左
+        { pin = 40, key = "NES_KEY_RIGHT" },  -- 右
+        { pin =  1, key = "NES_KEY_RETURN" }, -- 返回（退出APP）
+        { pin =  0, key = "NES_KEY_START" },  -- 开始
+        { pin = 22, key = "NES_KEY_SELECT"},  -- 选择
+        { pin = 23, key = "NES_KEY_A"     },  -- A
+        { pin = 13, key = "NES_KEY_B"     },  -- B
     },
 
     ui = {

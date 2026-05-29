@@ -42,9 +42,15 @@ end
 @param table wifi_state - WiFi状态表
 @param table storage_config - 存储的WiFi配置（可选）
 ]]
+local last_wifi_status_json = ""
 function M.update_status(wifi_state, storage_config)
     local status_payload = M.build_status_payload(wifi_state, storage_config)
-    log.info("wifi_app", "WiFi状态更新:", json.encode(status_payload))
+    -- 仅在状态变化时打印日志，避免RSSI波动导致日志风暴
+    local current_json = json.encode(status_payload)
+    if current_json ~= last_wifi_status_json then
+        last_wifi_status_json = current_json
+        log.info("wifi_app", "WiFi状态更新:", current_json)
+    end
     sys.publish("WIFI_STATUS_UPDATED", status_payload)
 end
 

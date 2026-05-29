@@ -1,0 +1,6 @@
+{
+  "name": "pgfs_regression_basic",
+  "summary": "PGFS recovery/gc/regression suite",
+  "platform": ["pc"],
+  "timeout": 300
+}

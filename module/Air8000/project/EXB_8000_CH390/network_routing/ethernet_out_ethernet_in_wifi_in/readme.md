@@ -13,6 +13,7 @@
 ## 演示硬件环境
 
 ![](https://docs.openluat.com/air8000/luatos/app/image/双网口modbus_tcp.jpg)
+
 1、EXB_8000W_CH390 开发板一块一块+网线两根：
 
 - 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口

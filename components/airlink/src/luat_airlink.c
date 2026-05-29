@@ -937,26 +937,26 @@ int luat_airlink_cmd_exec_result(luat_airlink_cmd_t* cmd, void* userdata) {
     if (reg_mutex == NULL) {
         luat_rtos_mutex_create(&reg_mutex);
     }
-    LLOGD("result exec cmd->len=%d", cmd->len);
+    // LLOGD("result exec cmd->len=%d", cmd->len);
     if (cmd->len < 16) {
         LLOGE("对端设备返回的result长度不足16字节 %d", cmd->len);
         return 0;
     }
     uint64_t id = 0;
     memcpy(&id, cmd->data + 8, 8);
-    LLOGD("result exec id=0x%llx", id);
+    // LLOGD("result exec id=0x%llx", id);
     luat_rtos_mutex_lock(reg_mutex, 1000);
     for (size_t i = 0; i < 64; i++)
     {
         if (regs[i].tm != 0 && memcmp(&regs[i].id, &id, 8) == 0) {
-            LLOGD("result exec slot %d matched", i);
+            // LLOGD("result exec slot %d matched", i);
             regs[i].exec(&regs[i], cmd);
             memset(&regs[i], 0, sizeof(luat_airlink_result_reg_t));
             luat_rtos_mutex_unlock(reg_mutex);
             return 0;
         }
     }
-    LLOGD("result exec slot not found for id=0x%llx", id);
+    // LLOGD("result exec slot not found for id=0x%llx", id);
     luat_rtos_mutex_unlock(reg_mutex);
     return -1;
 }

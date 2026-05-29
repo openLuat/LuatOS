@@ -65,6 +65,16 @@ return {
         usb_camera = false,
         spi_camera = false,
         i2c_sensor = false,
+        nes = false,
+    },
+    -- NES游戏按键绑定（GPIO引脚 → NES按键）
+    nes_keys = {
+        { pin = 44, key = "NES_KEY_UP"    },  -- 上
+        { pin = 48, key = "NES_KEY_DOWN"  },  -- 下
+        { pin = 41, key = "NES_KEY_LEFT"  },  -- 左
+        { pin = 40, key = "NES_KEY_RIGHT" },  -- 右
+        { pin =  0, key = "NES_KEY_A"     },  -- A
+        { pin =  1, key = "NES_KEY_B"     },  -- B
     },
     -- UI 显示选项
     ui = {

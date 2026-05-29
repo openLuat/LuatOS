@@ -55,8 +55,24 @@ local function reportResult(result, testcase, msg)
     else
         log.warn("testrunner", string.format("结果上报失败，状态码: %d", code))
     end
-    
+
     return code
+end
+
+local function emitOverallToken(success, detail)
+    local token = success and "### OVERALL_PASS ###" or "### OVERALL_FAIL ###"
+    if detail and #detail > 0 then
+        log.info("testrunner", string.format("%s %s", token, detail))
+    else
+        log.info("testrunner", token)
+    end
+end
+
+local function formatTraceback(err)
+    if debug and debug.traceback then
+        return debug.traceback(err)
+    end
+    return tostring(err)
 end
 
 -- 加载配置信息
@@ -163,6 +179,8 @@ end
 -- 返回: 布尔值，整个流程成功时返回 true
 function testrunner.run(testTable, testcase, msg)
     log.info("testrunner", "===== 开始测试运行流程 =====")
+    local case_name = testcase or "single_suite"
+    local case_msg = msg or case_name
     
     loadConfig()
     -- 打印配置信息
@@ -171,16 +189,18 @@ function testrunner.run(testTable, testcase, msg)
     -- 步骤 1: 初始化网络连接
     if not initNetwork() then
         log.error("testrunner", "网络初始化失败，中止测试")
-        reportResult(false, testcase, msg .. " - 网络连接失败")
+        emitOverallToken(false, case_name .. " network init failed")
+        reportResult(false, case_name, case_msg .. " - 网络连接失败")
         return false
     end
     
     -- 步骤 2: 执行测试用例
-    local test_result = runTests(testTable, testcase)
+    local test_result = runTests(testTable, case_name)
     
     -- 步骤 3: 上报测试结果
-    reportResult(test_result, testcase, msg)
+    reportResult(test_result, case_name, case_msg)
     deInitNetwork()
+    emitOverallToken(test_result, case_name)
     log.info("testrunner", "===== 测试运行流程结束 =====")
     
     return test_result
@@ -199,33 +219,48 @@ function testrunner.runBatch(name, testcases)
     log.info("testrunner", "===== 开始批量测试 =====")
     
     loadConfig()
-    local all_passed = true
-    
-    -- 初始化一次网络连接
-    if not initNetwork() then
-        log.error("testrunner", "网络初始化失败，中止所有测试")
-        return false
-    end
-    
-    -- 依次执行每个测试
-    for idx, testcase_info in ipairs(testcases) do
-        log.info("testrunner", string.format("执行第 %d 个测试: %s", idx, testcase_info.testcase))
-        
-        local result = runTests(testcase_info.testTable, testcase_info.testcase, testcase_info.only)
-        --reportResult(result, testcase_info.testcase, testcase_info.msg)
-        
-        if not result then
+    local all_passed = false
+    local runner_error
+
+    local ok, err = xpcall(function()
+        all_passed = true
+
+        -- 初始化一次网络连接
+        if not initNetwork() then
+            log.error("testrunner", "网络初始化失败，中止所有测试")
             all_passed = false
+            return
         end
+
+        -- 依次执行每个测试
+        for idx, testcase_info in ipairs(testcases) do
+            log.info("testrunner", string.format("执行第 %d 个测试: %s", idx, testcase_info.testcase))
+
+            local result = runTests(testcase_info.testTable, testcase_info.testcase, testcase_info.only)
+            --reportResult(result, testcase_info.testcase, testcase_info.msg)
+
+            if not result then
+                all_passed = false
+            end
+        end
+    end, formatTraceback)
+
+    if not ok then
+        all_passed = false
+        runner_error = err
+        log.error("testrunner", "批量测试运行异常", tostring(err))
     end
-    
+
     log.info("testrunner", "===== 批量测试结束 =====")
-    -- 应该在这里才上报整体结果
     if all_passed then
         log.info("testrunner", "所有测试均通过")
+    elseif runner_error then
+        log.warn("testrunner", "测试运行异常导致失败")
     else
         log.warn("testrunner", "部分测试未通过")
     end
+    local detail = runner_error and ("runner_exception=" .. tostring(runner_error)) or name
+    emitOverallToken(all_passed, detail)
     reportResult(all_passed, name, (all_passed and "所有测试均通过" or "部分测试失败"))
     
     deInitNetwork()

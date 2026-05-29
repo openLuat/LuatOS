@@ -1,0 +1,6 @@
+{
+  "name": "pgfs_basic",
+  "summary": "PGFS generation/durability/info/control basic suite",
+  "platform": ["pc"],
+  "timeout": 300
+}

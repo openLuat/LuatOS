@@ -45,6 +45,12 @@ return {
                 gpio_reset = 3,
             },
         },
+        battery = {
+            adc_channel = 7,
+            usb_detect_gpio = 52,
+            voltage_divider = 2,
+            full_voltage = 4150,
+        },
     },
 
     features = {
@@ -63,6 +69,21 @@ return {
         usb_camera = false,
         spi_camera = false,
         i2c_sensor = false,
+        nes = false,
+        battery = true,
+    },
+
+    -- NES游戏按键绑定（7寸型号：方向键同5寸，功能键引脚不同）
+    nes_keys = {
+        { pin = 44, key = "NES_KEY_UP"    },  -- 上
+        { pin = 48, key = "NES_KEY_DOWN"  },  -- 下
+        { pin = 41, key = "NES_KEY_LEFT"  },  -- 左
+        { pin = 40, key = "NES_KEY_RIGHT" },  -- 右
+        { pin =  1, key = "NES_KEY_RETURN" },  -- 返回键
+        { pin =  0, key = "NES_KEY_START" },  -- 开始
+        { pin = 22, key = "NES_KEY_SELECT"},  -- 选择
+        { pin = 23, key = "NES_KEY_A"     },  -- A
+        { pin = 13, key = "NES_KEY_B"     },  -- B
     },
 
     ui = {
@@ -74,6 +95,7 @@ return {
         show_storage_settings = true,
         show_camera_preview = false,
         show_sensor_panel = false,
+        show_battery_icon = true,
     },
 
     storage = {

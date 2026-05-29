@@ -295,7 +295,7 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
 /* nanopb typed RPC layer                                               */
 /* ------------------------------------------------------------------ */
 
-#define NB_ENC_BUF_SIZE  1500  // nanopb encode/decode 临时缓冲区大小 (UartRpcRequest 最大 518 字节, 预留余量)
+#define NB_ENC_BUF_SIZE  4096  // 通用 nanopb RPC 临时缓冲区统一升到 4 KiB，覆盖当前最大 mobile payload 3647B，并保留少量编码余量
 
 // 静态处理表 (由 luat_airlink_rpc_nb_table.c 汇编，按宏控制哪些模块启用)
 extern const luat_airlink_rpc_nb_reg_t* const luat_airlink_rpc_nb_static_table[];
@@ -623,4 +623,3 @@ void luat_airlink_rpc_print_stats(void) {
 }
 
 #endif /* LUAT_USE_AIRLINK_RPC */
-

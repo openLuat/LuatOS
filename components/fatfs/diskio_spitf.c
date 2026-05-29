@@ -1062,7 +1062,7 @@ void luat_spi_set_sdhc_ctrl_default(
 )
 {
 	luat_fatfs_spi_t* userdata = disk->userdata;
-	if (userdata->type)
+	if (userdata->type && userdata->spi_device)
 	{
 		g_s_spitf.CSPin = userdata->spi_device->spi_config.cs;
 		g_s_spitf.SpiID = userdata->spi_device->bus_id;
@@ -1107,4 +1107,3 @@ DRESULT diskio_open_spitf(BYTE pdrv, luat_fatfs_spi_t* userdata) {
 //}
 
 //--------------------------------------------------------------------------------------
-

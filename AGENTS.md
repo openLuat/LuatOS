@@ -421,6 +421,34 @@ sys.run()        -- 启动事件循环
 
 **注意**：`os.exit(0)` 写在 `sys.run()` 之后无效——`sys.run()` 永远不返回，后面的代码不会执行。使用 `testrunner` 框架的标准测试用例由框架自身处理退出，无需手动添加。
 
+### Lua 性能计时口径陷阱（`os.time()` 误用）
+
+**症状**：性能日志里 `write_wall/mount_wall` 显示 15000ms、16000ms 级别的大值，但同批次 C 层指标（如 `LFS2N_WRITE_MS`、`io_op_summary`）只有十几毫秒，二者明显矛盾。
+
+**根因**：Lua 侧使用 `os.time()*1000` 统计 wall-clock。`os.time()` 只有秒级分辨率，且非单调计时源，不适合子秒级性能评估，容易把真实 10~20ms 放大成秒级台阶值（常见为 15000/16000/30000ms）。
+
+**修复**：统一改为单调高精度时钟口径（`now_us()`），wall 指标由 `us_to_ms(now_us() - t0)` 计算；保留 C 层 `total_us/calls` 作为交叉校验。
+
+**防回归约束**：
+- 不允许在性能测试脚本中使用 `os.time()` 计算耗时。
+- 每次改动后至少核对一组“Lua wall vs C层 us”是否同量级。
+- 若 wall 指标变化极大但 `read/prog/erase total_us` 近似不变，先判定为“计量口径异常”，禁止直接宣称性能提升/回退。
+
+### LFS2N 调试日志默认关闭与真机验证边界
+
+**症状**：已经在仓库里关闭了 LFS2N 调试/性能日志，但真机日志仍然出现 `D/vfs.lfs2_nand*` / `D/little_flash*` 输出，容易误判“代码没生效”。
+
+**根因**：当前真机验证如果继续使用旧 `.soc` 固件，只刷脚本（`flash script` 或 `flash test --script`）不会更新 C 层实现；日志行为仍由旧固件决定。
+
+**修复策略**：
+- 在 C 层使用门控宏并默认关闭：`LUAT_LFS2N_DEBUG_LOG=0`、`LUAT_LFS2N_PERF_LOG=0`、`LUAT_LFS2_IO_TRACE_LOG=0`、`LUAT_LFS2_IO_PROFILE_LOG=0`、`LUAT_LFS2N_CORE_TRACE_LOG=0`。
+- Lua 测试脚本也默认关闭：`LFS2N_DEBUG_LOG_ENABLED=false`、`LFS2N_PERF_LOG_ENABLED=false`。
+- 若要验证 C 层日志开关效果，必须先重编 `.soc` 并刷入新固件，再看串口日志。
+
+**防回归约束**：
+- “脚本下载成功”不等价于“C 层日志策略已生效”。
+- 真机结论要标注验证对象：`script-only`（仅 Lua）或 `soc+script`（固件+脚本）。
+
 ### `ad_fopen` 在 `__LUATOS__` 下使用 `luat_fs` VFS
 
 player SDK 的 `plat_support.c` 通过 `#ifdef __LUATOS__` 将 `ad_fopen/fread/fseek/fclose/fsize` 路由到 `luat_fs_*` 系列函数，而非 FatFS 或 stdio。PC 模拟器构建时 `__LUATOS__` 已定义，因此：

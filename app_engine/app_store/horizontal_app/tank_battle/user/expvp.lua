@@ -1078,21 +1078,24 @@ function expvp.upload_score(callback)
         end
 
         local new_score = score_state.just_deleted and local_score or (server_score + local_score)
-        log.info("score", "【upload】server:", server_score, "local:", local_score, "new:", new_score)
+        -- 数据库 i1 字段为 UNSIGNED INT，不支持负值
+        -- 若 new_score < 0，上传 0，local_score 直接清零（不保留负分到下一局）
+        local upload_score = math.max(0, new_score)
+        log.info("score", "【upload】server:", server_score, "local:", local_score, "new:", new_score, "upload:", upload_score)
 
         exapp.add_record({
             cls = config.score_cls,
             uni_key = account,
-            i1 = new_score,
+            i1 = upload_score,
             s1 = nickname,
         }, function(ok, result)
             score_state.is_uploading = false
 
             if ok then
-                log.info("score", "【upload】success, total:", new_score)
+                log.info("score", "【upload】success, total:", upload_score)
                 score_state.local_score = 0
                 score_state.just_deleted = false
-                if callback then callback(true, new_score) end
+                if callback then callback(true, upload_score) end
             else
                 log.warn("score", "【upload】failed")
                 if callback then callback(false, server_score) end

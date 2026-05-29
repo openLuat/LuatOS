@@ -1,0 +1,233 @@
+syntax = "proto2";
+
+package drv.mobile;
+
+import "nanopb.proto";
+
+// 通用返回码
+enum MobileResultCode {
+    MOBILE_RES_OK     = 0;
+    MOBILE_RES_EINVAL = 1;
+    MOBILE_RES_FAIL   = 255;
+}
+
+message MobileResult {
+    optional MobileResultCode code     = 1 [default = MOBILE_RES_OK];
+    optional int32            os_errno = 2 [default = 0];
+}
+
+// P0a: SIM 维度的身份与就绪状态
+message MobileSimIdentityStatusRequest {
+    optional uint32 sim_id = 1 [default = 0];
+}
+
+message MobileSimIdentityStatus {
+    optional string imei            = 1 [(nanopb).max_size = 16];
+    optional string imsi            = 2 [(nanopb).max_size = 16];
+    optional string iccid           = 3 [(nanopb).max_size = 21];
+    optional bool   sim_ready       = 4 [default = false];
+}
+
+message MobileSimIdentityStatusResponse {
+    required MobileResult            result = 1;
+    optional MobileSimIdentityStatus status = 2;
+}
+
+// P0b: 全局/当前上下文状态（底层 API 不支持按 sim_id 精确查询）
+message MobileGlobalStatusRequest {
+    reserved 1;
+    reserved "sim_id";
+}
+
+message MobileGlobalStatus {
+    optional string sn              = 1 [(nanopb).max_size = 33];
+    optional string muid            = 2 [(nanopb).max_size = 33];
+    optional uint32 sim_status      = 3 [default = 0];
+    optional uint32 register_status = 4 [default = 0];
+}
+
+message MobileGlobalStatusResponse {
+    required MobileResult       result = 1;
+    optional MobileGlobalStatus status = 2;
+}
+
+// P1: 信号状态
+message MobileSignalRequest {
+    reserved 1;
+    reserved "sim_id";
+    // Uses the active/default SIM selected by the underlying C API.
+}
+
+message MobileGwSignalInfo {
+    optional int32 rssi           = 1;
+    optional int32 bit_error_rate = 2;
+    optional int32 rscp           = 3;
+    optional int32 ecno           = 4;
+}
+
+message MobileLteSignalInfo {
+    optional int32 rssi = 1;
+    optional int32 rsrp = 2;
+    optional int32 rsrq = 3;
+    optional int32 snr  = 4;
+}
+
+message MobileSignalInfo {
+    optional uint32              csq        = 1 [default = 0];
+    optional MobileGwSignalInfo  gw         = 2;
+    optional MobileLteSignalInfo lte        = 3;
+    optional bool                gw_valid   = 4 [default = false];
+    optional bool                lte_valid  = 5 [default = false];
+}
+
+message MobileSignalResponse {
+    required MobileResult     result = 1;
+    optional MobileSignalInfo info   = 2;
+}
+
+// P2/P3: 小区信息
+message MobileSyncCellInfoRequest {
+    reserved 1;
+    reserved "sim_id";
+    // Uses the active/default SIM selected by the underlying C API.
+}
+
+message MobileCellScanRequest {
+    reserved 1;
+    reserved "sim_id";
+    // Uses luat_mobile_get_cell_info_async(max_time), which only supports timeout-based scans on
+    // the active/default SIM. Per-SIM async scans are a different C API without timeout control.
+    optional uint32 timeout_sec = 2 [default = 15];
+}
+
+// All mcc/mnc fields carry decimal PLMN values on the wire after packed-BCD to decimal conversion
+// (for example, MCC 460 and MNC 11). Do not send or expose raw packed BCD values.
+message MobileGsmServiceCellInfo {
+    optional int32 cid   = 1;
+    optional uint32 mcc  = 2;
+    optional uint32 mnc  = 3;
+    optional int32 lac   = 4;
+    optional int32 arfcn = 5;
+    optional int32 bsic  = 6;
+    optional int32 rssi  = 7;
+}
+
+message MobileGsmCellInfo {
+    optional int32 cid   = 1;
+    optional uint32 mcc  = 2;
+    optional uint32 mnc  = 3;
+    optional int32 lac   = 4;
+    optional int32 arfcn = 5;
+    optional int32 bsic  = 6;
+    optional int32 rssi  = 7;
+}
+
+message MobileLteServiceCellInfo {
+    optional uint32 cid         = 1;
+    optional uint32 mcc         = 2;
+    optional uint32 mnc         = 3;
+    optional uint32 tac         = 4;
+    optional uint32 pci         = 5;
+    optional uint32 earfcn      = 6;
+    optional int32  rssi        = 7;
+    optional int32  rsrp        = 8;
+    optional int32  rsrq        = 9;
+    optional int32  snr         = 10;
+    optional bool   is_tdd      = 11 [default = false];
+    optional uint32 band        = 12;
+    optional uint32 ulbandwidth = 13;
+    optional uint32 dlbandwidth = 14;
+}
+
+message MobileLteCellInfo {
+    optional uint32 cid       = 1;
+    optional uint32 mcc       = 2;
+    optional uint32 mnc       = 3;
+    optional uint32 tac       = 4;
+    optional uint32 pci       = 5;
+    optional uint32 earfcn    = 6;
+    optional uint32 bandwidth = 7;
+    optional uint32 celltype  = 8;
+    optional int32  rsrp      = 9;
+    optional int32  rsrq      = 10;
+    optional int32  snr       = 11;
+    optional int32  rssi      = 12;
+}
+
+message MobileCellInfo {
+    optional MobileGsmServiceCellInfo gsm_service         = 1;
+    repeated MobileGsmCellInfo        gsm_neighbors       = 2 [(nanopb).max_count = 21];
+    optional MobileLteServiceCellInfo lte_service         = 3;
+    repeated MobileLteCellInfo        lte_neighbors       = 4 [(nanopb).max_count = 21];
+    optional uint32                   version             = 5;
+    optional bool                     gsm_info_valid      = 6 [default = false];
+    optional uint32                   gsm_neighbor_count  = 7 [default = 0];
+    optional bool                     lte_info_valid      = 8 [default = false];
+    optional uint32                   lte_neighbor_count  = 9 [default = 0];
+}
+
+message MobileSyncCellInfoResponse {
+    required MobileResult   result = 1;
+    optional MobileCellInfo info   = 2;
+}
+
+message MobileCellScanResponse {
+    required MobileResult result = 1;
+}
+
+// P4: 服务小区扩展信息
+message MobileScellExternInfoRequest {
+    reserved 1;
+    reserved "sim_id";
+    // Uses the active/default SIM selected by the underlying C API.
+}
+
+message MobileScellExternInfo {
+    optional uint32 earfcn = 1;
+    optional uint32 pci    = 2;
+    optional uint32 mcc    = 3;
+    optional uint32 mnc    = 4;
+    optional uint32 band   = 5;
+    optional uint32 eci    = 6;
+    optional uint32 cid    = 7;
+    optional uint32 tac    = 8;
+}
+
+message MobileScellExternInfoResponse {
+    required MobileResult          result = 1;
+    optional MobileScellExternInfo info   = 2;
+}
+
+// 统一 RPC 请求 (rpc_id = 0x0700)
+message MobileRpcRequest {
+    required uint32 req_id = 1;
+    oneof payload {
+        MobileSimIdentityStatusRequest sim_identity_status = 10;
+        MobileSignalRequest            signal              = 11;
+        MobileSyncCellInfoRequest      sync_cell_info      = 12;
+        MobileCellScanRequest          cell_scan           = 13;
+        MobileScellExternInfoRequest   scell_extern        = 14;
+        MobileGlobalStatusRequest      global_status       = 15;
+    }
+}
+
+// 统一 RPC 响应 (rpc_id = 0x0700)
+message MobileRpcResponse {
+    optional uint32 req_id = 1 [default = 0];
+    oneof payload {
+        MobileSimIdentityStatusResponse sim_identity_status = 10;
+        MobileSignalResponse            signal              = 11;
+        MobileSyncCellInfoResponse      sync_cell_info      = 12;
+        MobileCellScanResponse          cell_scan           = 13;
+        MobileScellExternInfoResponse   scell_extern        = 14;
+        MobileGlobalStatusResponse      global_status       = 15;
+    }
+}
+
+// P3: 异步小区扫描结果通知 (rpc_id = 0x0701)
+message MobileCellScanNotify {
+    optional uint32         req_id = 1 [default = 0];
+    required MobileResult   result = 2;
+    optional uint32         sim_id = 3 [default = 0];
+    optional MobileCellInfo info   = 4;
+}

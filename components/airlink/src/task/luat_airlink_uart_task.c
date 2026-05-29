@@ -18,8 +18,13 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
-#define TEST_BUFF_SIZE (4096)
-#define UNPACK_BUFF_SIZE (8*1024)
+// 当前 mobile RPC 最大 payload 约 3647B；连同 4B airlink cmd 头和 12B link 头后，
+// 原始 UART frame 约 3663B。原始打包缓冲取 4096B，覆盖当前上限并保留少量余量。
+#define AIRLINK_UART_RAW_FRAME_MAX (4096)
+// UART 采用 0x7E/0x7D 字节转义，最坏情况下每个原始字节都要扩成 2B，再加首尾定界符 2B。
+// 对当前最大原始帧 3663B，最坏约 7328B；这里取 8192B，留出一定 headroom。
+#define TEST_BUFF_SIZE (8 * 1024)
+#define UNPACK_BUFF_SIZE (8 * 1024)
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"
@@ -60,6 +65,66 @@ static luat_airlink_uart_ctrl_t g_airlink_uart = {0};
 
 static void luat_airlink_uart_transfer_task(void);
 static void luat_airlink_uart_receive_task(void);
+
+static int luat_airlink_uart_ensure_buffers(void)
+{
+    uint8_t *new_txbuff = NULL;
+    uint8_t *new_rxbuff = NULL;
+    uint8_t *new_rxbuf = NULL;
+
+    if (g_airlink_uart.s_txbuff == NULL) {
+        new_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+        if (new_txbuff == NULL) {
+            goto alloc_failed;
+        }
+        g_airlink_uart.s_txbuff = new_txbuff;
+    }
+    if (g_airlink_uart.s_rxbuff == NULL) {
+        new_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+        if (new_rxbuff == NULL) {
+            goto alloc_failed;
+        }
+        g_airlink_uart.s_rxbuff = new_rxbuff;
+    }
+    if (g_airlink_uart.rxbuf == NULL) {
+        new_rxbuf = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, UNPACK_BUFF_SIZE);
+        if (new_rxbuf == NULL) {
+            goto alloc_failed;
+        }
+        g_airlink_uart.rxbuf = new_rxbuf;
+    }
+
+    return 0;
+
+alloc_failed:
+    if (new_txbuff != NULL) {
+        luat_heap_opt_free(AIRLINK_MEM_TYPE, new_txbuff);
+        g_airlink_uart.s_txbuff = NULL;
+    }
+    if (new_rxbuff != NULL) {
+        luat_heap_opt_free(AIRLINK_MEM_TYPE, new_rxbuff);
+        g_airlink_uart.s_rxbuff = NULL;
+    }
+    if (new_rxbuf != NULL) {
+        luat_heap_opt_free(AIRLINK_MEM_TYPE, new_rxbuf);
+        g_airlink_uart.rxbuf = NULL;
+    }
+    LLOGE("uart buffer alloc failed tx=%u rx=%u unpack=%u", (unsigned)TEST_BUFF_SIZE, (unsigned)TEST_BUFF_SIZE, (unsigned)UNPACK_BUFF_SIZE);
+    return -1;
+}
+
+static int airlink_uart_pack_frame_or_log(uint8_t *dst, size_t dst_size, uint8_t *src, size_t src_len, size_t *packed_len, const char *tag)
+{
+    size_t frame_len = src_len + sizeof(airlink_link_data_t);
+    if (frame_len > dst_size) {
+        LLOGE("%s frame too large src=%u raw=%u limit=%u", tag, (unsigned)src_len, (unsigned)frame_len, (unsigned)dst_size);
+        g_airlink_statistic.tx_pkg.drop++;
+        return -1;
+    }
+    luat_airlink_data_pack(src, src_len, dst);
+    *packed_len = frame_len;
+    return 0;
+}
 
 __USER_FUNC_IN_RAM__ static void on_newdata_notify(void)
 {
@@ -126,6 +191,10 @@ static void unpack_data(uint8_t* buff, size_t len)
         if (buff[i] == 0x7D) {
             // 转义字符, 下一个字节是转义码
             if (i + 1 < len) {
+                if (unpacked_len >= AIRLINK_UART_RAW_FRAME_MAX) {
+                    LLOGE("unpack_data: unpacked data overflow len=%u limit=%u", (unsigned)(unpacked_len + 1), (unsigned)AIRLINK_UART_RAW_FRAME_MAX);
+                    return;
+                }
                 if (buff[i + 1] == 0x02) {
                     unpacked_data[unpacked_len++] = 0x7E; // 转义为0x7E
                 } else if (buff[i + 1] == 0x01) {
@@ -134,6 +203,10 @@ static void unpack_data(uint8_t* buff, size_t len)
                 i++; // 跳过下一个字节
             }
         } else {
+            if (unpacked_len >= AIRLINK_UART_RAW_FRAME_MAX) {
+                LLOGE("unpack_data: unpacked data overflow len=%u limit=%u", (unsigned)(unpacked_len + 1), (unsigned)AIRLINK_UART_RAW_FRAME_MAX);
+                return;
+            }
             unpacked_data[unpacked_len++] = buff[i]; // 普通数据直接复制
         }
     }
@@ -168,8 +241,8 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
     if (len == 0) {
         return; // 不需要处理
     }
-    // 按协议要求, 单个包的最大长度, 应该是 2 + 1600*2 + 2 = 3206 字节
-    // 所以, 8k完全可以放入2个包
+    // 当前 mobile RPC 最大原始 frame 约 3663B，UART 最坏转义后约 7328B；
+    // 这里保留 8KiB 接收缓存，允许单个最大帧完整进入并等待包尾。
     if (g_airlink_uart.rxoffset + len > UNPACK_BUFF_SIZE) {
         LLOGW("rxbuf溢出, 重置 rxoffset=%d len=%d", g_airlink_uart.rxoffset, len);
         g_airlink_uart.rxoffset = 0;
@@ -206,9 +279,9 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
             end_offset = offset + 1;
             while (end_offset < g_airlink_uart.rxoffset && rxbuff[end_offset] != 0x7E) {
                 end_offset++;
-                if(end_offset > 4096){
+                if ((end_offset - offset + 1) > TEST_BUFF_SIZE) {
                     g_airlink_uart.rxoffset = 0;
-                    LLOGE("缓存数据超4k，仍未找到包尾，丢弃数据");
+                    LLOGE("缓存数据超%u字节仍未找到包尾，丢弃数据", (unsigned)TEST_BUFF_SIZE);
                     break;
                 }
             }
@@ -245,8 +318,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
     uint8_t* ptr = NULL;
     size_t offset = 0;
     int uart_id;
-    // 单个link data的长度最大是1600字节,极端情况下所有数据都要转义,那就是3200字节,所以这里预留4K
-    uint8_t *pbuff = luat_heap_malloc(4*1024);
+    uint8_t *pbuff = luat_heap_malloc(AIRLINK_UART_RAW_FRAME_MAX);
     event.id = 0;
 
     while(g_airlink_uart.uart_running)
@@ -273,22 +345,31 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             if (ret != 0) {
                 break; // 没有数据了, 退出循环
             }
-            size_t len = item.len;
+            size_t packed_len = 0;
             uint8_t *txbuff = g_airlink_uart.s_txbuff;
             if (item.len == 0 || item.cmd == NULL) {
                 memcpy(basic_info + sizeof(luat_airlink_cmd_t), luat_airlink_self_dev_info_ptr(), sizeof(luat_airlink_dev_info_t));
-                luat_airlink_data_pack(basic_info, 128, pbuff);
+                if (airlink_uart_pack_frame_or_log(pbuff, AIRLINK_UART_RAW_FRAME_MAX, basic_info, 128, &packed_len, "uart basic info") != 0) {
+                    continue;
+                }
                 LLOGE("uart_transfer_task send basic info %d", sizeof(basic_info));
-                len = 128;
             } else {
-                luat_airlink_data_pack((uint8_t*)item.cmd, item.len, pbuff);
+                if (airlink_uart_pack_frame_or_log(pbuff, AIRLINK_UART_RAW_FRAME_MAX, (uint8_t*)item.cmd, item.len, &packed_len, "uart tx") != 0) {
+                    luat_airlink_cmd_free(item.cmd);
+                    continue;
+                }
                 luat_airlink_cmd_free(item.cmd);
-            }            
+            }
+            if ((packed_len * 2 + 2) > TEST_BUFF_SIZE) {
+                LLOGE("uart escaped frame too large raw=%u escaped=%u limit=%u", (unsigned)packed_len, (unsigned)(packed_len * 2 + 2), (unsigned)TEST_BUFF_SIZE);
+                g_airlink_statistic.tx_pkg.drop++;
+                continue;
+            }
             // 0x7E 开始, 0x7D 结束, 遇到 0x7E/0x7D 要转义
             txbuff[0] = 0x7E;
             offset = 1;
             ptr = (uint8_t*)pbuff;
-            for (size_t i = 0; i < len + sizeof(airlink_link_data_t); i++)
+            for (size_t i = 0; i < packed_len; i++)
             {
                 if (ptr[i] == 0x7E) {
                     txbuff[offset++] = 0x7D;
@@ -304,7 +385,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
                 }
             }
             txbuff[offset++] = 0x7E;
-            luat_uart_write(uart_id, (const char *)txbuff, offset);
+            luat_uart_write(uart_id, txbuff, offset);
             // LLOGD("发送数据长度:%d", offset);
         }
     }
@@ -359,8 +440,11 @@ int luat_airlink_start_uart(void)
     cmd->cmd = 0x10;
     cmd->len = 128;
     int ret = 0;
-    g_airlink_uart.uart_running = 1;
     AIRLINK_DEV_INFO_UPDATE_CB device_info_update_cb = NULL;
+    if (luat_airlink_uart_ensure_buffers() != 0) {
+        return -1;
+    }
+    g_airlink_uart.uart_running = 1;
 #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE) || defined(LUAT_USE_AIRLINK_EXEC_WLAN)
     device_info_update_cb = send_devinfo_update_evt;
     extern void luat_airlink_devinfo_init();
@@ -379,17 +463,6 @@ int luat_airlink_start_uart(void)
     uart_gpio_setup();
     luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_UART, on_newdata_notify, on_link_data_notify, device_info_update_cb);
     luat_airlink_slot_register(LUAT_AIRLINK_MODE_UART, on_newdata_notify);
-
-    if (g_airlink_uart.s_txbuff == NULL) {
-        g_airlink_uart.s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
-    }
-    if (g_airlink_uart.s_rxbuff == NULL) {
-        g_airlink_uart.s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
-    }
-    
-    if (g_airlink_uart.rxbuf == NULL) {
-        g_airlink_uart.rxbuf = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, UNPACK_BUFF_SIZE);
-    }
 
     luat_airlink_uart_transfer_task();
     luat_airlink_uart_receive_task();

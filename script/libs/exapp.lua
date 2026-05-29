@@ -314,12 +314,23 @@ local function get_estimated_free_kb(mount_point)
     return direct
 end
 
--- 记录已安装应用消耗的预估空间（仅在校准模式下累积，用于后续安装的剩余空间判断）
+-- 记录已安装应用消耗的预估空间
 local function record_install_usage(mount_point, size_kb)
     if storage_calibrated and storage_space_cache[mount_point] and size_kb then
         storage_space_cache[mount_point].estimated_used_kb =
             storage_space_cache[mount_point].estimated_used_kb + size_kb
         log.info("exapp", "record install usage", mount_point,
+            "app", string.format("%.1f", size_kb), "KB",
+            "total_est", string.format("%.1f", storage_space_cache[mount_point].estimated_used_kb), "KB")
+    end
+end
+
+-- 卸载时归还预估空间（读取meta.json获取实际安装大小，无需重新io.fsstat）
+local function record_uninstall_usage(mount_point, size_kb)
+    if storage_calibrated and storage_space_cache[mount_point] and size_kb then
+        storage_space_cache[mount_point].estimated_used_kb =
+            math.max(0, storage_space_cache[mount_point].estimated_used_kb - size_kb)
+        log.info("exapp", "record uninstall usage", mount_point,
             "app", string.format("%.1f", size_kb), "KB",
             "total_est", string.format("%.1f", storage_space_cache[mount_point].estimated_used_kb), "KB")
     end
@@ -2948,6 +2959,7 @@ local function scan(base_dir, storage_type)
 
                 -- 保存应用信息，包含 install_time 和 storage 信息
                 local app_name = app_dir.name
+                local size_kb = tonumber(meta_data.origin_size_kb) or 0
                 installed_info[app_name] = {
                     cn_name = meta_data.app_name_cn or "unknown",
                     path = base_dir .. app_dir.name .. "/",
@@ -2958,7 +2970,8 @@ local function scan(base_dir, storage_type)
                     installed = true,
                     has_update = false,
                     zip_size_kb = tonumber(meta_data.zip_size_kb) or 0,
-                    origin_size_kb = tonumber(meta_data.origin_size_kb) or 0,
+                    origin_size_kb = size_kb,
+                    installed_size_kb = size_kb,
                     total_downloads = tonumber(meta_data.total_downloads) or 0,
                     install_time = meta_data.install_time,
                     storage_type = storage_type,
@@ -4001,6 +4014,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
                         local new_content = json.encode(meta_data)
                         io.writeFile(meta_path, new_content)
 
+                        local size_kb = tonumber(meta_data.origin_size_kb) or 0
                         installed_info[aid] = {
                             appid = meta_data.appid,
                             cn_name = meta_data.app_name_cn or app_name or aid,
@@ -4012,7 +4026,8 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
                             installed = true,
                             has_update = false,
                             zip_size_kb = meta_data.zip_size_kb,
-                            origin_size_kb = meta_data.origin_size_kb,
+                            origin_size_kb = size_kb,
+                            installed_size_kb = size_kb,
                             total_downloads = meta_data.total_downloads,
                             install_time = install_time,
                             storage_type = storage_type,
@@ -4021,7 +4036,8 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
                         }
                         installed_cnt = installed_cnt + 1
                         installed_total_count = installed_cnt
-                        -- 记录该应用对预估空间的消耗，供本会话后续安装的空间判断
+                        -- 按1.3倍记录空间消耗（保守估计，避免多次安装后缓存低估导致装不下）
+                        -- 卸载时按installed_size_kb的实际值归还，保证长期准确性
                         record_install_usage(mount_point, estimated_size_kb)
                         sys.publish("APP_STORE_INSTALLED_UPDATED", installed_info)
                     end
@@ -4079,6 +4095,10 @@ function exapp.uninstall_remote_app(aid, category, sort)
         return
     end
 
+    -- 使用缓存中的安装大小归还预估空间（init/install时已从meta.json读取并存储）
+    local uninstall_size_kb = app_info.installed_size_kb
+    local uninstall_mount = app_info.mount_point or "/"
+
     sys.publish("APP_STORE_PROGRESS", aid, 0, "卸载中")
     local success = rmdir_recursive(target_path)
 
@@ -4109,6 +4129,11 @@ function exapp.uninstall_remote_app(aid, category, sort)
             fskv.del(key)
         end
         log.info("uninstall", "cleared", #keys_to_delete, "fskv entries for", aid)
+
+        -- 归还卸载应用的预估空间（基于meta.json中的origin_size_kb，无需重读io.fsstat）
+        if uninstall_size_kb then
+            record_uninstall_usage(uninstall_mount, uninstall_size_kb)
+        end
 
         installed_info[aid] = nil
         installed_cnt = installed_cnt - 1

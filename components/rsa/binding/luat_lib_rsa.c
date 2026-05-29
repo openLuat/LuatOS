@@ -49,6 +49,15 @@ end
 #include "mbedtls/pk.h"
 #include "mbedtls/md.h"
 
+#ifdef LUAT_USE_UTEST
+extern int luat_rsa_utest(lua_State *L, const char *case_name);
+static int l_rsa_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "invalid_pem_encrypt");
+    lua_pushboolean(L, luat_rsa_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 static int myrand( void *rng_state, unsigned char *output, size_t len ) {
     (void)rng_state;
     luat_crypto_trng((char*)output, len);
@@ -237,6 +246,9 @@ static const rotable_Reg_t reg_rsa[] =
 
     { "verify",          ROREG_FUNC(l_rsa_verify)},
     { "sign",            ROREG_FUNC(l_rsa_sign)},
+#ifdef LUAT_USE_UTEST
+    { "utest",           ROREG_FUNC(l_rsa_utest)},
+#endif
 
     //@const MD_MD5 MD5模式,用于签名和验签
     { "MD_MD5",          ROREG_INT(LUAT_CRYPTO_MD_MD5)},

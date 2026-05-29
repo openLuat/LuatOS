@@ -14,6 +14,7 @@
 local window_id = nil
 local main_container = nil
 local product_label, big_time_label, date_label, wifi_icon, mobile_icon, qrcode_widget
+local battery_container, battery_bar, battery_label
 local page_label = nil
 local tab_view = nil
 local current_tab_index = 0
@@ -61,10 +62,13 @@ local COLOR_TEXT_SECONDARY = 0x757575
 local COLOR_DIVIDER        = 0xE0E0E0
 local COLOR_WHITE          = 0xFFFFFF
 local COLOR_DANGER         = 0xE63946
+local COLOR_GREEN          = 0x34C759
 
 local product_name = "合宙引擎主机"
 local has_4g = _G.project_config and _G.project_config.features and _G.project_config.features.net_4g
 local has_wifi = _G.project_config and _G.project_config.features and _G.project_config.features.wifi
+local has_battery = _G.project_config and _G.project_config.features and _G.project_config.features.battery
+    and _G.project_config and _G.project_config.ui and _G.project_config.ui.show_battery_icon
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
 if model_suffix ~= "" then
@@ -436,6 +440,72 @@ local function on_status_mobile(level)
     update_mobile_icon(level)
 end
 
+-- 电池充电动画
+local charge_anim_timer = nil
+local charge_anim_value = 0
+
+local function stop_charge_anim()
+    if charge_anim_timer then
+        sys.timerStop(charge_anim_timer)
+        charge_anim_timer = nil
+    end
+end
+
+local function start_charge_anim(from_level)
+    stop_charge_anim()
+    charge_anim_value = from_level
+    charge_anim_timer = sys.timerLoopStart(function()
+        if not battery_bar then
+            stop_charge_anim()
+            return
+        end
+        charge_anim_value = charge_anim_value + 1
+        if charge_anim_value > 100 then
+            charge_anim_value = 100
+        end
+        battery_bar:set_value(charge_anim_value)
+        if charge_anim_value >= 100 then
+            stop_charge_anim()
+        end
+    end, 200)
+end
+
+local function on_status_battery(data)
+    if not data or not battery_bar or not battery_label then
+        return
+    end
+
+    local level = data.level or 0
+    local charging = data.charging
+    local present = data.present
+
+    if not present then
+        stop_charge_anim()
+        battery_bar:set_value(0)
+        battery_bar:set_indicator_color(0xBBBBBB)
+        battery_label:set_text("--")
+        return
+    end
+
+    battery_label:set_text(level .. "%")
+
+    if charging then
+        battery_bar:set_indicator_color(COLOR_GREEN)
+        battery_bar:set_value(level)
+        start_charge_anim(level)
+    else
+        stop_charge_anim()
+        battery_bar:set_value(level)
+        if level < 20 then
+            battery_bar:set_indicator_color(COLOR_DANGER)
+        elseif level < 50 then
+            battery_bar:set_indicator_color(COLOR_ACCENT)
+        else
+            battery_bar:set_indicator_color(COLOR_GREEN)
+        end
+    end
+end
+
 local function on_create()
     calc_layout()
 
@@ -454,35 +524,81 @@ local function on_create()
     local plh = math.min(sfs, math.floor(24 * _G.density_scale))
     local ply = math.floor((top_height - plh) / 2)
 
-    -- 计算可见图标数（均按配置驱动）
+    -- 计算可见图标数量（均按配置驱动）
     local icon_wifi = has_wifi
     local icon_4g   = has_4g
-    local icon_count = (icon_wifi and 1 or 0) + (icon_4g and 1 or 0)
-    local icon_spacing = icon_count > 1 and math.floor(8 * _G.density_scale) or 0
-    local icons_total_w = icon_count > 0 and (status_icon_size * icon_count + icon_spacing * (icon_count - 1)) or 0
-    local icons_x = screen_w - icons_total_w - math.floor(12 * _G.density_scale)
+    local icon_batt = has_battery
+    local icon_spacing = math.floor(8 * _G.density_scale)
+    local right_margin = math.floor(12 * _G.density_scale)
 
-    -- WiFi 图标（按 features.wifi）
+    -- 电池组件尺寸
+    local batt_w = icon_batt and math.floor(58 * _G.density_scale) or 0
+    local batt_h = icon_batt and math.floor(22 * _G.density_scale) or 0
+    local batt_y = icon_batt and math.floor((top_height - batt_h) / 2) or 0
+
+    -- 计算右侧区域总宽度
+    local total_right_w = 0
+    if icon_batt then
+        total_right_w = batt_w
+    end
+    if icon_4g then
+        if total_right_w > 0 then
+            total_right_w = total_right_w + icon_spacing
+        end
+        total_right_w = total_right_w + status_icon_size
+    end
+    if icon_wifi then
+        if total_right_w > 0 then
+            total_right_w = total_right_w + icon_spacing
+        end
+        total_right_w = total_right_w + status_icon_size
+    end
+
+    local right_base_x = total_right_w > 0 and (screen_w - total_right_w - right_margin) or 0
+
+    -- WiFi 图标（最左侧）
+    local next_x = right_base_x
     if icon_wifi then
         wifi_icon = airui.image({
-            parent = sb, x = icons_x, y = siy,
+            parent = sb, x = next_x, y = siy,
             w = status_icon_size, h = status_icon_size, src = "/luadb/wifixinhao0.png"
         })
+        next_x = next_x + status_icon_size + icon_spacing
     end
-    -- 4G 图标（按 features.net_4g）
+    -- 4G 图标
     if icon_4g then
-        local mx = icons_x
-        if icon_wifi then mx = mx + status_icon_size + icon_spacing end
         mobile_icon = airui.image({
-            parent = sb, x = mx, y = siy,
+            parent = sb, x = next_x, y = siy,
             w = status_icon_size, h = status_icon_size, src = "/luadb/4Gxinhao6.png"
+        })
+        next_x = next_x + status_icon_size + icon_spacing
+    end
+    -- 电池进度条组件（最右侧）
+    if icon_batt then
+        battery_container = airui.container({
+            parent = sb, x = next_x, y = batt_y, w = batt_w, h = batt_h,
+            color = 0x00000000,
+        })
+        battery_bar = airui.bar({
+            parent = battery_container, x = 0, y = 0, w = batt_w, h = batt_h,
+            min = 0, max = 100, value = 0,
+            indicator_color = COLOR_GREEN, bg_color = COLOR_DIVIDER, radius = 5,
+        })
+        battery_label = airui.label({
+            parent = battery_container, x = 0, y = math.floor(2 * _G.density_scale), w = batt_w, h = batt_h - math.floor(2 * _G.density_scale),
+            text = "--", font_size = math.floor(12 * _G.density_scale),
+            color = COLOR_WHITE, align = airui.TEXT_ALIGN_CENTER,
         })
     end
     -- 产品名标签（宽度自适应图标区）
+    local label_w = screen_w - math.floor(20 * _G.density_scale)
+    if total_right_w > 0 then
+        label_w = screen_w - total_right_w - right_margin - math.floor(20 * _G.density_scale)
+    end
     product_label = airui.label({
         parent = sb,
         x = 0, y = ply,
-        w = screen_w - icons_total_w - math.floor(20 * _G.density_scale) - (icon_count > 0 and icon_spacing or 0),
+        w = label_w,
         h = plh, text = product_name, font_size = plh, color = COLOR_WHITE,
         align = airui.TEXT_ALIGN_CENTER
     })
@@ -533,6 +649,9 @@ local function on_create()
         sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi)
     end
     sys.subscribe("APP_STORE_INSTALLED_UPDATED", on_installed_updated)
+    if has_battery then
+        sys.subscribe("BATTERY_STATUS", on_status_battery)
+    end
 
     sys.publish("REQUEST_STATUS_REFRESH")
 end
@@ -550,10 +669,15 @@ local function on_destroy()
         sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi)
     end
     sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", on_installed_updated)
+    if has_battery then
+        sys.unsubscribe("BATTERY_STATUS", on_status_battery)
+        stop_charge_anim()
+    end
 
     if tab_view then tab_view:destroy(); tab_view = nil end
     if main_container then main_container:destroy(); main_container = nil end
     product_label = nil; big_time_label = nil; date_label = nil; wifi_icon = nil; mobile_icon = nil; qrcode_widget = nil
+    battery_container = nil; battery_bar = nil; battery_label = nil
     page_label = nil; external_app_cache = {}; page_grids = {}
     current_tab_index = 0
 end
@@ -575,6 +699,7 @@ local function on_lose_focus()
         sys.timerStop(timer_handler)
         timer_handler = nil
     end
+    stop_charge_anim()
 end
 
 local function open_handler()

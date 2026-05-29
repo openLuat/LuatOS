@@ -27,7 +27,7 @@ extern int luat_airlink_rpc_nb_dispatch(uint16_t rpc_id, uint8_t msg_type,
                                          const uint8_t* req_bytes, uint16_t req_len,
                                          uint8_t* resp_bytes, uint16_t resp_size, uint16_t* resp_len);
 
-#define RPC_RESP_BUF_SIZE  512  // 默认响应缓冲区大小
+#define RPC_RESP_BUF_SIZE  4096  // 通用 RPC 响应 payload 缓冲区升到 4 KiB，覆盖当前最大 mobile response/notify payload 3647B
 // 最小线格式长度: pkgid(8) + rpc_id(2) + msg_type(1) = 11
 #define RPC_WIRE_HDR_LEN  11
 

@@ -382,11 +382,23 @@ int luat_unpack(lua_State *L) {
    return l_unpack(L);
 }
 
+#ifdef LUAT_USE_UTEST
+extern int luat_pack_utest(lua_State *L, const char *case_name);
+static int l_pack_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "pack_unpack_basic");
+    lua_pushboolean(L, luat_pack_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_pack[] =
 {
 	{"pack",	   ROREG_FUNC(l_pack)},
 	{"unpack",	ROREG_FUNC(l_unpack)},
+#ifdef LUAT_USE_UTEST
+    {"utest",   ROREG_FUNC(l_pack_utest)},
+#endif
 	{NULL,	   ROREG_INT(0) }
 };
 

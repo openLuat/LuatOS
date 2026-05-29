@@ -30,6 +30,15 @@
 #define SM2_STR_LEN 300
 #define HEX_CODE 16
 
+#ifdef LUAT_USE_UTEST
+extern int luat_gmssl_utest(lua_State *L, const char *case_name);
+static int l_gmssl_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "sm3_known_vector");
+    lua_pushboolean(L, luat_gmssl_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 static void DeletePaddingBuf(luaL_Buffer *B, const char *pPadding, size_t nBufLen, uint8_t *pBuf, uint8_t pPaddLen)
 {
     uint8_t nPadLen;
@@ -769,6 +778,9 @@ static const rotable_Reg_t reg_gmssl[] =
     { "sm2sign",         ROREG_FUNC(l_sm2_sign)},
     { "sm2verify",       ROREG_FUNC(l_sm2_verify)},
     { "sm2keygen",       ROREG_FUNC(l_sm2_keygen)},
+#ifdef LUAT_USE_UTEST
+    { "utest",           ROREG_FUNC(l_gmssl_utest)},
+#endif
 
 	{ NULL,             ROREG_INT(0) }
 };
@@ -777,4 +789,3 @@ LUAMOD_API int luaopen_gmssl( lua_State *L ) {
     luat_newlib2(L, reg_gmssl);
     return 1;
 }
-

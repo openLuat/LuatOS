@@ -350,7 +350,7 @@ function miniz_test.test_unzip_lfs2n_perf_compare()
         log.info("miniz测试", "lf.init(spi1,cs4,pwr50)失败，跳过lfs2n性能对照")
         return
     end
-    local ok_mount = lf.mount(lfdev, "/lfs2n", 0, 0, "lfs2_nand")
+    local ok_mount = lf.mount(lfdev, "/lfs2n", 0, 0, "lfsn")
     assert(ok_mount, "挂载/lfs2n失败")
     local root_dir = "/ram/miniz_perf_root"
     local nand_dir = "/lfs2n/miniz_perf_lfs2n"

@@ -1,7 +1,7 @@
 --[[
 @module  tank_battle_win
 @summary 双人联网坦克大战游戏窗口模块
-@version 1.0.1
+@version 1.0.2
 @date    2026.05.20
 @author  王世豪
 @description
@@ -15,7 +15,7 @@
 ]]
 
 -- 游戏版本号
-local GAME_VERSION = "1.0.1"
+local GAME_VERSION = "1.0.2"
 
 -- 引入网络模块（exPvP：联网对战游戏通用框架）
 local expvp = require("expvp")
@@ -2331,6 +2331,7 @@ local function sendShootMessage()
 end
 
 -- 联机模式：定时广播自己的绝对位置，修正对手画面中的位置漂移
+-- 使用格子坐标（grid_x, grid_y）而非像素坐标，确保横竖屏同步一致
 local function sendPosSync()
     if not networkMode then return end
     local tank = tanks[my_player_number]
@@ -2338,8 +2339,8 @@ local function sendPosSync()
     local msg = {
         type = "sync_pos",
         player_num = my_player_number,
-        x = tank.x,
-        y = tank.y,
+        grid_x = tank.x / CELL,  -- 发送格子坐标（如 2.5 表示第2.5格）
+        grid_y = tank.y / CELL,
         direction = nil,
         from_device = my_device_id,
     }
@@ -2412,7 +2413,8 @@ local function buildMainMenu()
         y = 0,
         w = W,
         h = H,
-        src = "/luadb/tank_background.jpg"
+        src = "/luadb/tank_background.jpg",
+        fit = "cover"
     })
 
     -- 标题 - "坦克大战"（下移居中）
@@ -3138,10 +3140,16 @@ local function onNetworkMessage(data)
         if not targetPlayerNum then return end
         local tank = tanks[targetPlayerNum]
         if not tank or not tank.alive then return end
-        -- 用绝对坐标直接覆盖，修正漂移
-        tank.x = data.x
-        tank.y = data.y
-        -- log.info('tank_battle', string.format('sync_pos: tank%d 校正到 (%.1f, %.1f)', targetPlayerNum, data.x, data.y))
+        -- 使用格子坐标转换为本地像素坐标，确保横竖屏同步一致
+        if data.grid_x and data.grid_y then
+            tank.x = data.grid_x * CELL
+            tank.y = data.grid_y * CELL
+        elseif data.x and data.y then
+            -- 兼容旧版本：直接接收像素坐标（不推荐）
+            tank.x = data.x
+            tank.y = data.y
+        end
+        -- log.info('tank_battle', string.format('sync_pos: tank%d 校正到 (%.1f, %.1f)', targetPlayerNum, tank.x, tank.y))
         -- 同步方向
         local dirMap = { up = {x=0,y=-1}, down = {x=0,y=1}, left = {x=-1,y=0}, right = {x=1,y=0} }
         if data.direction and dirMap[data.direction] then

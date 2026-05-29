@@ -1593,6 +1593,15 @@ static void createmeta(lua_State *L)
     //luaL_newlib(L, lib_zbuff);
 }
 
+#ifdef LUAT_USE_UTEST
+extern int luat_zbuff_utest(lua_State *L, const char *case_name);
+static int l_zbuff_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "rw_u8_basic");
+    lua_pushboolean(L, luat_zbuff_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_zbuff[] =
     {
@@ -1609,6 +1618,9 @@ static const rotable_Reg_t reg_zbuff[] =
         {"HEAP_SRAM",   ROREG_INT(LUAT_HEAP_SRAM)},
         //@const HEAP_PSRAM number 在psram申请
         {"HEAP_PSRAM",  ROREG_INT(LUAT_HEAP_PSRAM)},
+#ifdef LUAT_USE_UTEST
+        {"utest",       ROREG_FUNC(l_zbuff_utest)},
+#endif
         {NULL,       ROREG_INT(0)
     }
 };

@@ -18,7 +18,9 @@
 #define LUAT_LOG_TAG "airlink.slave"
 #include "luat_log.h"
 
-#define TEST_BUFF_SIZE (1600)
+// 当前 mobile RPC 最大 payload 约 3647B，再加 4B airlink cmd 头和 12B link 头后约 3663B；
+// SPI 从机原始帧缓冲统一取 4096B，覆盖当前最大帧并留少量余量。
+#define TEST_BUFF_SIZE (4096)
 #define SLAVE_SPI_ID g_airlink_spi_conf.spi_id
 #define AIRLINK_SPI_CS_PIN g_airlink_spi_conf.cs_pin
 #define AIRLINK_SPI_RDY_PIN g_airlink_spi_conf.rdy_pin
@@ -47,6 +49,18 @@ static uint8_t basic_info[512];
 static inline luat_airlink_dev_info_t * self_devinfo(void) {
     luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
     return (luat_airlink_dev_info_t *)(cmd->data);
+}
+
+static int pack_link_frame_or_log(uint8_t *dst, size_t dst_size, uint8_t *src, size_t src_len, const char *tag)
+{
+    size_t frame_len = src_len + sizeof(airlink_link_data_t);
+    if (frame_len > dst_size) {
+        LLOGE("%s frame too large src=%u raw=%u limit=%u", tag, (unsigned)src_len, (unsigned)frame_len, (unsigned)dst_size);
+        g_airlink_statistic.tx_pkg.drop++;
+        return -1;
+    }
+    luat_airlink_data_pack(src, src_len, dst);
+    return 0;
 }
 
 static void print_tm(const char* tag) {
@@ -202,14 +216,22 @@ __AIRLINK_CODE_IN_RAM__ static void start_spi_trans(void) {
     // LLOGD("执行完luat_airlink_cmd_recv_simple cmd %p len %d", item.cmd, item.len);
     if (item.len > 0 && item.cmd != NULL) {
         // LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);
-        luat_airlink_data_pack(item.cmd, item.len, s_txbuff);
-        // LLOGD("执行完luat_airlink_cmd_recv_simplecmd %p len %d --- ", item.cmd, item.len);
-        luat_airlink_cmd_free(item.cmd);
+        if (pack_link_frame_or_log(s_txbuff, TEST_BUFF_SIZE, (uint8_t *)item.cmd, item.len, "spi slave tx") != 0) {
+            luat_airlink_cmd_free(item.cmd);
+            item.cmd = NULL;
+            item.len = 0;
+        }
+        else {
+            // LLOGD("执行完luat_airlink_cmd_recv_simplecmd %p len %d --- ", item.cmd, item.len);
+            luat_airlink_cmd_free(item.cmd);
+        }
     }
-    else {
+    if (item.len == 0 || item.cmd == NULL) {
         // LLOGD("填充PING数据");
         memcpy(basic_info + sizeof(luat_airlink_cmd_t), luat_airlink_self_dev_info_ptr(), sizeof(luat_airlink_dev_info_t));
-        luat_airlink_data_pack(basic_info, sizeof(basic_info), s_txbuff);
+        if (pack_link_frame_or_log(s_txbuff, TEST_BUFF_SIZE, basic_info, sizeof(basic_info), "spi slave ping") != 0) {
+            memset(s_txbuff, 0, TEST_BUFF_SIZE);
+        }
     }
     luat_spi_slave_transfer(SLAVE_SPI_ID, (const char*)s_txbuff, (char*)s_rxbuff, TEST_BUFF_SIZE);
 
@@ -265,7 +287,7 @@ __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
             #if 1
             int len = luat_spi_slave_transfer_pause_and_read_data(SLAVE_SPI_ID);
             g_airlink_statistic.tx_pkg.total++;
-            if (len > 0 && len < 2024) {
+            if (len > 0 && len <= TEST_BUFF_SIZE) {
                 // LLOGE("数据长度 %d %d", len, SLAVE_SPI_ID);
                 link = luat_airlink_data_unpack(s_rxbuff, len);
                 if (link) {

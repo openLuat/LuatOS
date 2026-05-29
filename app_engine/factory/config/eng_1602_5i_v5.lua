@@ -46,6 +46,12 @@ return {
                 gpio_reset = 3,
             },
         },
+        battery = {
+            adc_channel = 7,
+            usb_detect_gpio = 52,
+            voltage_divider = 2,
+            full_voltage = 4150,
+        },
     },
     features = {
         net_4g = false,
@@ -63,7 +69,19 @@ return {
         usb_camera = false,
         spi_camera = false,
         i2c_sensor = false,
+        nes = true,
+        battery = true,
     },
+    -- NES游戏按键绑定（GPIO引脚 → NES按键）
+    nes_keys = {
+        { pin = 44, key = "NES_KEY_UP"    },  -- 上
+        { pin = 48, key = "NES_KEY_DOWN"  },  -- 下
+        { pin = 41, key = "NES_KEY_LEFT"  },  -- 左
+        { pin = 40, key = "NES_KEY_RIGHT" },  -- 右
+        { pin =  0, key = "NES_KEY_A"     },  -- A
+        { pin =  1, key = "NES_KEY_B"     },  -- B
+    },
+
     ui = {
         show_4g_icon = false,
         show_wifi_icon = true,
@@ -73,6 +91,7 @@ return {
         show_storage_settings = true,
         show_camera_preview = false,
         show_sensor_panel = false,
+        show_battery_icon = true,
     },
     storage = {
         nand_flash = { spi_id = 2, pin_cs = 4, speed = 40000000, pin_pwr = 50 },

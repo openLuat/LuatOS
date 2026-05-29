@@ -176,7 +176,7 @@ sys.taskInit(function()
         local spi_dev = spi.deviceSetup(1, 4, 0, 0, 8, 2000000, spi.MSB, 1, 0)
         if spi_dev then
             local lfdev = lf.init(spi_dev)
-            if lfdev and lf.mount(lfdev, "/lfs2n/", 0, 0, "lfs2_nand") then
+            if lfdev and lf.mount(lfdev, "/lfs2n/", 0, 0, "lfsn") then
                 local lfs2n_target = "/lfs2n/"
                 t0 = now_us()
                 local success_lfs2n = miniz.unzip(zip_file, lfs2n_target, true, 30000)

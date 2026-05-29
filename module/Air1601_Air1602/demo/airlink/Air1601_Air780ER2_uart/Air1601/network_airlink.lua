@@ -77,6 +77,82 @@ local function airlink_sdata_Air780ER2()
 end
 
 --============================================================
+-- 获取并打印 airlink 从机的网络信息
+--============================================================
+
+local function log_mobile_sync_info()
+    while true do
+        sys.wait(15000)
+        if not airlink.ready() then
+            log.info("airlink 链路未通，接下来执行一次 ping 请求（超时3秒）")
+            netdrv.ping(socket.LWIP_GP_GW, NET_PEER_IP)
+            local res = sys.waitUntil("PING_RESULT", 3000)
+            if not res then
+                log.info("ping 请求超时，跳过获取 airlink 从机端网络信息")
+                goto continue
+            end
+        end
+        if mobile then
+            log.info("存在 mobile 底层库")
+        else
+            log.info("不存在 mobile 底层库，跳过获取 airlink 从机端网络信息")
+            goto continue
+        end
+        local imei = "unknown"
+        local imsi = "unknown"
+        local iccid = "unknown"
+        local csq = -1
+        local status = -1
+        local rsrp = 0
+        local rsrq = 0
+        local snr = 0
+        local rssi = 0
+        if mobile and mobile.imei then
+            local ok, val = pcall(mobile.imei)
+            if ok and val then imei = val end
+        end
+        if mobile and mobile.imsi then
+            local ok, val = pcall(mobile.imsi)
+            if ok and val then imsi = val end
+        end
+        if mobile and mobile.iccid then
+            local ok, val = pcall(mobile.iccid)
+            if ok and val then iccid = val end
+        end
+        if mobile and mobile.csq then
+            local ok, val = pcall(mobile.csq)
+            if ok and val then csq = val end
+        end
+        log.info("airlink 从机网络信息", "imei", imei, "imsi", imsi, "iccid", iccid, "csq", csq, "airlink_ready", airlink.ready())
+
+        -- 以下网络信息暂时不打印
+        -- if mobile and mobile.status then
+        --     local ok, val = pcall(mobile.status)
+        --     if ok and val then status = val end
+        -- end
+        -- if mobile and mobile.rsrp then
+        --     local ok, val = pcall(mobile.rsrp)
+        --     if ok and val then rsrp = val end
+        -- end
+        -- if mobile and mobile.rsrq then
+        --     local ok, val = pcall(mobile.rsrq)
+        --     if ok and val then rsrq = val end
+        -- end
+        -- if mobile and mobile.snr then
+        --     local ok, val = pcall(mobile.snr)
+        --     if ok and val then snr = val end
+        -- end
+        -- if mobile and mobile.rssi then
+        --     local ok, val = pcall(mobile.rssi)
+        --     if ok and val then rssi = val end
+        -- end
+        -- log.info("mobile-rpc-sync", "imei", imei, "imsi", imsi, "iccid", iccid, "csq", csq, "status", status, "rsrp", rsrp, "rsrq", rsrq, "snr", snr, "rssi", rssi, "airlink_ready", airlink.ready())
+
+        ::continue::
+    end
+end
+
+--============================================================
 -- 测试函数
 --============================================================
 
@@ -154,3 +230,6 @@ sys.taskInit(http_get_test)
 
 -- Air1601发送数据信息给Air780ER2模块。
 sys.taskInit(airlink_sdata_Air780ER2)
+
+-- 获取并打印 airlink 从机的网络信息
+sys.taskInit(log_mobile_sync_info)

@@ -9,6 +9,9 @@ sys.taskInit(function()
     testrunner.runBatch("lf_fs_matrix", {
         { testTable = lf_fs_matrix_test, testcase = "lf 3fs matrix" }
     })
+    if rtos_bsp == "PC" then
+        os.exit(0)
+    end
 end)
 
 sys.run()

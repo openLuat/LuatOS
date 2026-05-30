@@ -29,6 +29,7 @@
 #define LUAT_PC_VBUS_CS_SD (23)
 #define LUAT_PC_NAND_DEFAULT_TOTAL_SIZE    (128u * 1024u * 1024u)
 #define LUAT_PC_NAND_DEFAULT_PAGE_SIZE     (2048u)
+#define LUAT_PC_NAND_DEFAULT_OOB_SIZE      (64u)
 #define LUAT_PC_NAND_DEFAULT_PAGES_PER_BLK (64u)
 #define LUAT_PC_NAND_DEFAULT_READ_DELAY_US (50u)
 #define LUAT_PC_NAND_DEFAULT_PROG_DELAY_US (700u)
@@ -104,6 +105,7 @@ typedef struct pc_vnand {
     uint32_t rand_state;
     uint32_t total_size;
     uint32_t page_size;
+    uint32_t oob_size;
     uint32_t pages_per_block;
     uint32_t block_size;
     uint32_t total_pages;
@@ -113,7 +115,9 @@ typedef struct pc_vnand {
     uint32_t erase_delay_us;
     uint32_t busy_remaining_us;
     uint8_t* storage;
+    uint8_t* oob;
     uint8_t* cache;
+    uint8_t* cache_oob;
     uint8_t* bad_blocks;
     double speed_factor;
 } pc_vnand_t;
@@ -479,7 +483,7 @@ static void pc_vnand_reset_state(pc_vnand_t* sim) {
     sim->write_enable = 0;
     sim->cache_loaded = 0;
     sim->prog_load_active = 0;
-    sim->cache_page = 0xFFFF;
+    sim->cache_page = 0xFFFFFFFFu;
     sim->reg1 = 0x00;
     sim->reg2 = 0x00;
     sim->reg3 = 0x00;
@@ -487,6 +491,9 @@ static void pc_vnand_reset_state(pc_vnand_t* sim) {
     sim->busy_remaining_us = 0;
     if (sim->cache) {
         memset(sim->cache, 0xFF, sim->page_size);
+    }
+    if (sim->cache_oob) {
+        memset(sim->cache_oob, 0xFF, sim->oob_size);
     }
 }
 
@@ -528,18 +535,52 @@ static int pc_vnand_is_bad_block(pc_vnand_t* sim, uint32_t page_addr) {
     return sim->bad_blocks[block] ? 1 : 0;
 }
 
+static void pc_vnand_mark_bad_block_oob(pc_vnand_t* sim, uint32_t block) {
+    if (!sim || !sim->oob || sim->oob_size == 0 || block >= sim->total_blocks) {
+        return;
+    }
+    uint32_t first_page = block * sim->pages_per_block;
+    uint32_t second_page = first_page + 1u;
+    if (first_page < sim->total_pages) {
+        sim->oob[(size_t)first_page * sim->oob_size] = 0x00;
+    }
+    if (second_page < sim->total_pages) {
+        sim->oob[(size_t)second_page * sim->oob_size] = 0x00;
+    }
+}
+
+static void pc_vnand_clear_bad_block_oob(pc_vnand_t* sim, uint32_t block) {
+    if (!sim || !sim->oob || sim->oob_size == 0 || block >= sim->total_blocks) {
+        return;
+    }
+    uint32_t first_page = block * sim->pages_per_block;
+    uint32_t second_page = first_page + 1u;
+    if (first_page < sim->total_pages) {
+        sim->oob[(size_t)first_page * sim->oob_size] = 0xFF;
+    }
+    if (second_page < sim->total_pages) {
+        sim->oob[(size_t)second_page * sim->oob_size] = 0xFF;
+    }
+}
+
 static void pc_vnand_load_page_to_cache(pc_vnand_t* sim, uint32_t page_addr) {
     if (page_addr >= sim->total_pages) {
         memset(sim->cache, 0xFF, sim->page_size);
+        if (sim->cache_oob) {
+            memset(sim->cache_oob, 0xFF, sim->oob_size);
+        }
         sim->cache_loaded = 0;
-        sim->cache_page = 0xFFFF;
+        sim->cache_page = 0xFFFFFFFFu;
         pc_vnand_mark_busy(sim, sim->read_delay_us);
         return;
     }
     uint32_t offset = page_addr * sim->page_size;
     memcpy(sim->cache, sim->storage + offset, sim->page_size);
+    if (sim->cache_oob && sim->oob) {
+        memcpy(sim->cache_oob, sim->oob + (size_t)page_addr * sim->oob_size, sim->oob_size);
+    }
     sim->cache_loaded = 1;
-    sim->cache_page = (uint16_t)page_addr;
+    sim->cache_page = page_addr;
     pc_vnand_mark_busy(sim, sim->read_delay_us);
 }
 
@@ -552,10 +593,19 @@ static void pc_vnand_program_execute(pc_vnand_t* sim, uint32_t page_addr) {
         for (uint32_t i = 0; i < sim->page_size; i++) {
             sim->storage[offset + i] &= sim->cache[i];
         }
+        if (sim->oob && sim->cache_oob) {
+            size_t oob_offset = (size_t)page_addr * sim->oob_size;
+            for (uint32_t i = 0; i < sim->oob_size; i++) {
+                sim->oob[oob_offset + i] &= sim->cache_oob[i];
+            }
+        }
     }
     sim->write_enable = 0;
     sim->prog_load_active = 0;
     memset(sim->cache, 0xFF, sim->page_size);
+    if (sim->cache_oob) {
+        memset(sim->cache_oob, 0xFF, sim->oob_size);
+    }
     if (fail) {
         sim->reg3 |= NAND_SR_PROG_FAIL;
     } else {
@@ -573,6 +623,10 @@ static void pc_vnand_block_erase(pc_vnand_t* sim, uint32_t page_addr) {
         uint32_t start_page = block * sim->pages_per_block;
         uint32_t offset = start_page * sim->page_size;
         memset(sim->storage + offset, 0xFF, sim->block_size);
+        if (sim->oob) {
+            size_t oob_offset = (size_t)start_page * sim->oob_size;
+            memset(sim->oob + oob_offset, 0xFF, (size_t)sim->pages_per_block * sim->oob_size);
+        }
     }
     sim->write_enable = 0;
     if (fail) {
@@ -591,15 +645,19 @@ static void pc_vnand_program_load(pc_vnand_t* sim, const uint8_t* send_buf, size
     size_t payload = send_length - 3;
     if (!sim->prog_load_active) {
         memset(sim->cache, 0xFF, sim->page_size);
+        if (sim->cache_oob) {
+            memset(sim->cache_oob, 0xFF, sim->oob_size);
+        }
         sim->prog_load_active = 1;
     }
-    if (column >= sim->page_size) {
-        return;
+    for (size_t i = 0; i < payload; i++) {
+        uint32_t pos = column + (uint32_t)i;
+        if (pos < sim->page_size) {
+            sim->cache[pos] = send_buf[3 + i];
+        } else if (sim->cache_oob && pos < (sim->page_size + sim->oob_size)) {
+            sim->cache_oob[pos - sim->page_size] = send_buf[3 + i];
+        }
     }
-    if (payload > (size_t)(sim->page_size - column)) {
-        payload = sim->page_size - column;
-    }
-    memcpy(sim->cache + column, send_buf + 3, payload);
 }
 
 static int pc_vnand_transfer(pc_vnand_t* sim, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length) {
@@ -654,20 +712,26 @@ static int pc_vnand_transfer(pc_vnand_t* sim, const char* send_buf, size_t send_
         case NAND_CMD_READ_DATA:
             if (send_length >= 4 && rx && recv_length) {
                 uint32_t column = ((uint32_t)tx[1] << 8) | tx[2];
-                if (column >= sim->page_size || !sim->cache_loaded) {
+                if (!sim->cache_loaded) {
                     memset(rx, 0xFF, recv_length);
                 } else {
-                    size_t copy = recv_length;
-                    if (copy > (size_t)(sim->page_size - column)) {
-                        copy = sim->page_size - column;
-                    }
-                    memcpy(rx, sim->cache + column, copy);
-                    if (copy < recv_length) {
-                        memset(rx + copy, 0xFF, recv_length - copy);
+                    for (size_t i = 0; i < recv_length; i++) {
+                        uint32_t pos = column + (uint32_t)i;
+                        if (pos < sim->page_size) {
+                            rx[i] = sim->cache[pos];
+                        } else if (sim->cache_oob && pos < (sim->page_size + sim->oob_size)) {
+                            rx[i] = sim->cache_oob[pos - sim->page_size];
+                        } else {
+                            rx[i] = 0xFF;
+                        }
                     }
                 }
                 // Apply read delay (per-byte)
-                pc_spi_apply_delay_us((uint32_t)(sim->read_delay_us / sim->page_size * recv_length));
+                uint32_t io_span = sim->page_size + sim->oob_size;
+                if (io_span == 0) {
+                    io_span = 1;
+                }
+                pc_spi_apply_delay_us((uint32_t)(sim->read_delay_us / io_span * recv_length));
             }
             return (int)recv_length;
         case NAND_CMD_PAGE_PROG_DATA:
@@ -716,6 +780,7 @@ static void pc_vnand_init_if_needed(int spi_id) {
 
     const pc_vnand_model_profile_t* model = pc_vnand_find_model(eff.nand_model);
     uint32_t page_size = pc_getenv_u32("LUAT_PC_NAND_PAGE_SIZE", LUAT_PC_NAND_DEFAULT_PAGE_SIZE, 256, 16384);
+    uint32_t oob_size = pc_getenv_u32("LUAT_PC_NAND_OOB_SIZE", LUAT_PC_NAND_DEFAULT_OOB_SIZE, 16, 2048);
     uint32_t pages_per_block = pc_getenv_u32("LUAT_PC_NAND_PAGES_PER_BLOCK", LUAT_PC_NAND_DEFAULT_PAGES_PER_BLK, 4, 512);
     uint32_t fallback_size = eff.nand_capacity_mb * LUAT_PC_BYTES_PER_MB;
     if (fallback_size == 0) {
@@ -736,6 +801,7 @@ static void pc_vnand_init_if_needed(int spi_id) {
 
     sim->total_size = total_size;
     sim->page_size = page_size;
+    sim->oob_size = oob_size;
     sim->pages_per_block = pages_per_block;
     sim->total_pages = total_pages;
     sim->total_blocks = total_blocks;
@@ -761,12 +827,16 @@ static void pc_vnand_init_if_needed(int spi_id) {
     sim->erase_delay_us = (uint32_t)(sim->erase_delay_us * sim->speed_factor);
 
     sim->storage = malloc(sim->total_size);
+    sim->oob = malloc((size_t)sim->total_pages * sim->oob_size);
     sim->cache = malloc(sim->page_size);
+    sim->cache_oob = malloc(sim->oob_size);
     sim->bad_blocks = malloc(sim->total_blocks);
-    if (!sim->storage || !sim->cache || !sim->bad_blocks) {
+    if (!sim->storage || !sim->oob || !sim->cache || !sim->cache_oob || !sim->bad_blocks) {
         LLOGW("virtual nand allocation failed, disable backend");
         if (sim->storage) free(sim->storage);
+        if (sim->oob) free(sim->oob);
         if (sim->cache) free(sim->cache);
+        if (sim->cache_oob) free(sim->cache_oob);
         if (sim->bad_blocks) free(sim->bad_blocks);
         memset(sim, 0, sizeof(*sim));
         sim->initialized = 1;
@@ -774,7 +844,9 @@ static void pc_vnand_init_if_needed(int spi_id) {
         return;
     }
     memset(sim->storage, 0xFF, sim->total_size);
+    memset(sim->oob, 0xFF, (size_t)sim->total_pages * sim->oob_size);
     memset(sim->cache, 0xFF, sim->page_size);
+    memset(sim->cache_oob, 0xFF, sim->oob_size);
     memset(sim->bad_blocks, 0, sim->total_blocks);
 
     double bad_ratio = pc_getenv_double("LUAT_PC_NAND_BAD_BLOCK_RATIO", profile->bad_ratio, 0.0, 1.0);
@@ -782,13 +854,17 @@ static void pc_vnand_init_if_needed(int spi_id) {
     for (uint32_t i = 0; i < sim->total_blocks; i++) {
         uint32_t r = pc_vnand_rand32(sim) % 1000000u;
         sim->bad_blocks[i] = (r < threshold) ? 1 : 0;
+        if (sim->bad_blocks[i]) {
+            pc_vnand_mark_bad_block_oob(sim, i);
+        }
     }
     if (sim->total_blocks) {
         sim->bad_blocks[0] = 0;
+        pc_vnand_clear_bad_block_oob(sim, 0);
     }
     pc_vnand_reset_state(sim);
-    LLOGI("virtual nand enabled profile=%s model=%s size=%u page=%u block_pages=%u read_us=%u prog_us=%u erase_us=%u bad_ratio=%.4f speed_factor=%.2f seed=%u jedec=%02X %02X %02X %02X",
-          profile->name, model->name, sim->total_size, sim->page_size, sim->pages_per_block,
+    LLOGI("virtual nand enabled profile=%s model=%s size=%u page=%u oob=%u block_pages=%u read_us=%u prog_us=%u erase_us=%u bad_ratio=%.4f speed_factor=%.2f seed=%u jedec=%02X %02X %02X %02X",
+          profile->name, model->name, sim->total_size, sim->page_size, sim->oob_size, sim->pages_per_block,
           sim->read_delay_us, sim->prog_delay_us, sim->erase_delay_us, bad_ratio, sim->speed_factor, sim->rand_state,
           sim->jedec[0], sim->jedec[1], sim->jedec[2], sim->jedec[3]);
 }

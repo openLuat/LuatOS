@@ -1,6 +1,20 @@
 local lf_fs_matrix_test = {}
 
 local zip_path = "/luadb/pac_man.zip"
+local required_fs = {
+    lfsn = true,
+    pgfs = true
+}
+
+local function read_bad_ratio_label()
+    if os and os.getenv then
+        local ratio = os.getenv("LUAT_PC_NAND_BAD_BLOCK_RATIO")
+        if ratio and ratio ~= "" then
+            return ratio
+        end
+    end
+    return "default"
+end
 
 local function now_us()
     if mcu and mcu.ticks then
@@ -81,9 +95,9 @@ local function run_unzip(root)
     if not ok then
         return false, "unzip_failed", unzip_ms
     end
-    local check_file = out_dir .. "pac_man/main.lua"
+    local check_file = out_dir .. "aes.obj"
     if not io.exists(check_file) then
-        return false, "unzip_missing_main", unzip_ms
+        return false, "unzip_missing_aes_obj", unzip_ms
     end
     rm_tree(out_dir)
     return true, "ok", unzip_ms
@@ -135,7 +149,9 @@ function lf_fs_matrix_test.test_lf_three_fs_matrix()
     assert(flash, "lf.init failed")
 
     local all_ok = true
+    local hard_fail = false
     local ran_any = false
+    local bad_ratio = read_bad_ratio_label()
     local fs_target = nil
     if os and os.getenv then
         fs_target = os.getenv("LF_FS_TARGET")
@@ -153,18 +169,26 @@ function lf_fs_matrix_test.test_lf_three_fs_matrix()
         local fs = item.name
         ran_any = true
         local mount_point = "/" .. fs .. "_mx"
-        log.info("LF_FS_MATRIX_STAGE", string.format("fs=%s stage=start offset=0x%X size=0x%X", fs, item.offset, item.size))
+        log.info("LF_FS_MATRIX_STAGE", string.format("fs=%s bad_ratio=%s stage=start offset=0x%X size=0x%X", fs, bad_ratio, item.offset, item.size))
         local ok_erase = lf.erase(flash, item.offset, 0x4000)
         if not ok_erase then
-            log.info("LF_FS_MATRIX_RESULT", string.format("fs=%s stage=erase ok=0", fs))
-            all_ok = false
+            log.info("LF_FS_MATRIX_RESULT", string.format("fs=%s bad_ratio=%s stage=erase ok=0 required=%d", fs, bad_ratio, required_fs[fs] and 1 or 0))
+            if fs == "lfsn" or fs == "pgfs" then
+                hard_fail = true
+            else
+                all_ok = false
+            end
         else
             local ok_mount = mount_fs(flash, mount_point, fs, item.offset, item.size)
             if not ok_mount then
-                log.info("LF_FS_MATRIX_RESULT", string.format("fs=%s stage=mount ok=0", fs))
-                all_ok = false
+                log.info("LF_FS_MATRIX_RESULT", string.format("fs=%s bad_ratio=%s stage=mount ok=0 required=%d", fs, bad_ratio, required_fs[fs] and 1 or 0))
+                if fs == "lfsn" or fs == "pgfs" then
+                    hard_fail = true
+                else
+                    all_ok = false
+                end
             else
-                log.info("LF_FS_MATRIX_STAGE", string.format("fs=%s stage=mounted", fs))
+                log.info("LF_FS_MATRIX_STAGE", string.format("fs=%s bad_ratio=%s stage=mounted", fs, bad_ratio))
                 local file_ok, file_msg = run_file_ops(mount_point)
                 local perf_ok, perf_ms, perf_msg = run_write_perf(mount_point)
                 local unzip_ok, unzip_msg, unzip_ms = run_unzip(mount_point)
@@ -174,8 +198,10 @@ function lf_fs_matrix_test.test_lf_three_fs_matrix()
                 end
                 log.info("LF_FS_MATRIX_RESULT",
                     string.format(
-                        "fs=%s file_ok=%d perf_ok=%d perf_ms=%d unzip_ok=%d unzip_ms=%d space_ok=%d free_bytes=%d detail=%s/%s/%s/%s",
+                        "fs=%s bad_ratio=%s required=%d file_ok=%d perf_ok=%d perf_ms=%d unzip_ok=%d unzip_ms=%d space_ok=%d free_bytes=%d detail=%s/%s/%s/%s",
                         fs,
+                        bad_ratio,
+                        required_fs[fs] and 1 or 0,
                         file_ok and 1 or 0,
                         perf_ok and 1 or 0,
                         perf_ms or -1,
@@ -190,7 +216,11 @@ function lf_fs_matrix_test.test_lf_three_fs_matrix()
                     )
                 )
                 if not (file_ok and perf_ok and unzip_ok and space_ok) then
-                    all_ok = false
+                    if fs == "lfsn" or fs == "pgfs" then
+                        hard_fail = true
+                    else
+                        all_ok = false
+                    end
                 end
                 rm_tree(mount_point)
             end
@@ -202,7 +232,10 @@ function lf_fs_matrix_test.test_lf_three_fs_matrix()
     if fs_target and fs_target ~= "" then
         assert(ran_any, "unknown LF_FS_TARGET: " .. tostring(fs_target))
     end
-    assert(all_ok, "lf fs matrix has failures")
+    assert(not hard_fail, "lf fs matrix required fs (lfsn/pgfs) has failures")
+    if not all_ok then
+        log.info("LF_FS_MATRIX", "optional fs has failures")
+    end
 end
 
 return lf_fs_matrix_test

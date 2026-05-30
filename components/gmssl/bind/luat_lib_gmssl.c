@@ -38,21 +38,28 @@ static int l_gmssl_utest(lua_State *L) {
     return 1;
 }
 #endif
-
-static void DeletePaddingBuf(luaL_Buffer *B, const char *pPadding, size_t nBufLen, uint8_t *pBuf, uint8_t pPaddLen)
+static int DeletePaddingBuf(luaL_Buffer *B, const char *pPadding, size_t nBufLen, uint8_t *pBuf, uint8_t pPaddLen)
 {
     uint8_t nPadLen;
     if((strcmp(pPadding, "PKCS5")==0) || (strcmp(pPadding, "PKCS7")==0))
     {
         nPadLen = *(pBuf+nBufLen-1);
         //printf("aes DeletePaddingBuf length=%d\n", nPadLen);
-        if((pPaddLen-nPadLen) >= 0)
+        if(nPadLen == 0 || nPadLen > pPaddLen)
         {
-            luaL_addlstring(B, (char*)pBuf, nBufLen-nPadLen);
+            return 0;
         }
+        for(uint8_t i = 0; i < nPadLen; i++)
+        {
+            if(*(pBuf+nBufLen-1-i) != nPadLen)
+            {
+                return 0;
+            }
+        }
+        luaL_addlstring(B, (char*)pBuf, nBufLen-nPadLen);
     }
     else if(strcmp(pPadding, "ZERO")==0)
-    {                        
+    {
         uint8_t *pEnd = pBuf+nBufLen-1;
         nPadLen = 0;
         while(1)
@@ -72,15 +79,24 @@ static void DeletePaddingBuf(luaL_Buffer *B, const char *pPadding, size_t nBufLe
             }
         }
         //printf("aes DeletePaddingBuf length=%d\n", nPadLen);
-        if((pPaddLen-nPadLen) >= 0)
+        if(nPadLen < 6 || nPadLen > pPaddLen)
         {
-            luaL_addlstring(B, (char*)pBuf, nBufLen-nPadLen);
+            return 0;
         }
+        for(uint8_t i = 0; i < nPadLen; i++)
+        {
+            if(*(pBuf+nBufLen-1-i) != 0x00)
+            {
+                return 0;
+            }
+        }
+        luaL_addlstring(B, (char*)pBuf, nBufLen-nPadLen);
     }
     else
     {
         luaL_addlstring(B, (char*)pBuf, nBufLen);
     }
+    return 1;
 }
 
 
@@ -316,10 +332,15 @@ static int l_sm3_update(lua_State *L)
 {
     size_t inputLen = 0;
     uint8_t dgst[SM3_DIGEST_LENGTH];
-    const char *inputData = luaL_checklstring(L, 1, &inputLen);
+    const char *inputData = lua_tolstring(L, 1, &inputLen);
+    if(inputData == NULL || inputLen == 0)
+    {
+        lua_pushnil(L);
+        return 1;
+    }
     sm3_digest((uint8_t*)inputData, inputLen, dgst);
 
-    lua_pushlstring(L, (char*)dgst, SM3_DIGEST_LENGTH);   
+    lua_pushlstring(L, (char*)dgst, SM3_DIGEST_LENGTH);
     return 1;
 }
 
@@ -339,11 +360,21 @@ static int l_sm3hmac_update(lua_State *L)
     size_t inputLen = 0;
     size_t keyLen = 0;
     uint8_t dgst[SM3_DIGEST_LENGTH];
-    const char *inputData = luaL_checklstring(L, 1, &inputLen);
-    const char *keyData = luaL_checklstring(L, 2, &keyLen);
+    const char *inputData = lua_tolstring(L, 1, &inputLen);
+    const char *keyData = lua_tolstring(L, 2, &keyLen);
+    if(inputData == NULL || inputLen == 0)
+    {
+        lua_pushnil(L);
+        return 1;
+    }
+    if(keyData == NULL || keyLen == 0)
+    {
+        lua_pushnil(L);
+        return 1;
+    }
     sm3_hmac((uint8_t*)keyData, keyLen, (uint8_t*)inputData, inputLen, dgst);
 
-    lua_pushlstring(L, (char*)dgst, SM3_DIGEST_LENGTH);   
+    lua_pushlstring(L, (char*)dgst, SM3_DIGEST_LENGTH);
     return 1;
 }
 
@@ -385,6 +416,12 @@ static int l_sm4_encrypt(lua_State *L)
     const char *pPassword = luaL_checklstring(L, 4, &nPswdLen);
     size_t nIVLen = 0;
     const char *pIV =  lua_tolstring(L, 5, &nIVLen);
+
+    if (pBuf == NULL || nBufLen == 0)
+    {
+        lua_pushnil(L);
+        return 1;
+    }
 
     int nPadLen = SM4_BLOCK_LEN-(nBufLen%SM4_BLOCK_LEN);
     uint8_t pPadBuf[SM4_BLOCK_LEN] = {0};
@@ -524,6 +561,11 @@ static int l_sm4_decrypt(lua_State *L)
     const char *pIV =  lua_tolstring(L, 5, &nIVLen);
     char out[SM4_BLOCK_LEN];
 
+    if (pBuf == NULL || nBufLen == 0)
+    {
+        lua_pushnil(L);
+        return 1;
+    }
     //检查参数合法性
     int isCBC = strcmp((char*)pMode, "CBC") == 0;
     int isECB = strcmp((char*)pMode, "ECB") == 0;
@@ -569,7 +611,11 @@ static int l_sm4_decrypt(lua_State *L)
                 //删除填充数据
                 if(nRmnLen==SM4_BLOCK_LEN)
                 {
-                    DeletePaddingBuf(&b, pPadding, SM4_BLOCK_LEN, (uint8_t*)out, SM4_BLOCK_LEN);
+                    if(!DeletePaddingBuf(&b, pPadding, SM4_BLOCK_LEN, (uint8_t*)out, SM4_BLOCK_LEN))
+                    {
+                        lua_pushnil(L);
+                        return 1;
+                    }
                 }
                 else
                 {
@@ -584,7 +630,11 @@ static int l_sm4_decrypt(lua_State *L)
             if (nBufLen <= 1024) {
                 char out[1024];
                 sm4_cbc_decrypt(&sm4_key, (uint8_t*)pIV, (uint8_t*)pBuf, nBufLen/SM4_BLOCK_LEN, (uint8_t*)out);
-                DeletePaddingBuf(&b, pPadding, nBufLen, (uint8_t*)out, SM4_BLOCK_LEN);
+                if(!DeletePaddingBuf(&b, pPadding, nBufLen, (uint8_t*)out, SM4_BLOCK_LEN))
+                {
+                    lua_pushnil(L);
+                    return 1;
+                }
             }
             else {
                 char *out = luat_heap_malloc(nBufLen);
@@ -593,11 +643,16 @@ static int l_sm4_decrypt(lua_State *L)
                     return 0;
                 }
                 sm4_cbc_decrypt(&sm4_key, (uint8_t*)pIV, (uint8_t*)pBuf, nBufLen/SM4_BLOCK_LEN, (uint8_t*)out);
-                DeletePaddingBuf(&b, pPadding, nBufLen, (uint8_t*)out, SM4_BLOCK_LEN);
+                if(!DeletePaddingBuf(&b, pPadding, nBufLen, (uint8_t*)out, SM4_BLOCK_LEN))
+                {
+                    luat_heap_free(out);
+                    lua_pushnil(L);
+                    return 1;
+                }
                 luat_heap_free(out);
             }
         }
-		
+
         luaL_pushresult( &b );
         return 1;
     }

@@ -364,6 +364,20 @@ end
 -- IP_READY
 local function on_ip_ready(ip, adapter)
     common.handle_ip_ready(ip, adapter, wifi_state, refresh_net_info)
+    -- 兜底保存：IP拿到后再确保一次密码已落盘（CONNECTED阶段存储可能未就绪）
+    if wifi_state.current_ssid and wifi_state.current_ssid ~= "" then
+        local pw = (saved_config and saved_config.password ~= nil) and saved_config.password or ""
+        log.info("wifi_app", "IP_READY 兜底保存:", wifi_state.current_ssid)
+        sys.publish("WIFI_STORAGE_SAVE_REQ", {
+            ssid = wifi_state.current_ssid,
+            password = pw,
+            bssid = wifi_state.bssid
+        })
+        sys.publish("WIFI_STORAGE_MARK_CONNECTED_REQ", {
+            ssid = wifi_state.current_ssid,
+            bssid = wifi_state.bssid
+        })
+    end
     sys.taskInit(function()
         common.start_connectivity_verification(wifi_state, CONNECTIVITY_TIMEOUT)
     end)

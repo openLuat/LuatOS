@@ -50,6 +50,10 @@ local function tp_drv_init()
 
     log.info("tp.init", result)
 
+    -- 保存 TP 设备对象到全局变量，供休眠模块（airui_sleep.lua）使用
+    -- tp.sleep 需要 TP 设备对象作为参数，触摸唤醒模式下需要重新初始化 TP
+    _G.tp_sleep_device = result
+
     if rtos.bsp() ~= "PC" then
        
         -- 绑定触摸设备到AirUI输入设备

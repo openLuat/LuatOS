@@ -91,6 +91,7 @@ require("airui_all_component") --所有组件综合演示
 -- require("airui_shape")  -- 形状组件演示
 -- require("airui_spinner")  -- 加载指示器组件演示
 -- require("airui_video")  -- 视频组件演示
+-- require("airui_sleep")  -- AirUI休眠/唤醒管理演示（内置按键驱动，按键唤醒开箱即用）
 
 
 -- 用户代码已结束

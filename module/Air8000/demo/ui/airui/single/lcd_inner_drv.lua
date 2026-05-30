@@ -50,7 +50,6 @@ local function lcd_drv_init()
             -- 使用lcd.sleep接口休眠lcd前，需要手动通过gpio接口关闭背光；
             -- 使用lcd.wakeup接口唤醒lcd后，需要手动控通过gpio接口打开背光；
             pin_pwr = 1,
-
             port = lcd.HWID_0, -- 驱动端口
             pin_rst = 2,       -- lcd复位引脚
             direction = 0,     -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致

@@ -56,6 +56,15 @@
 ### 2.6 字体渲染演示
 1.  **`airui_hzfont.lua`** - HzFont 矢量字体特性演示
 
+### 2.7 系统管理演示
+1.  **`airui_sleep.lua`** - AirUI 休眠管理演示
+    *   UI 界面配置休眠开关、超时时间、休眠类型、唤醒类型、LCD 休眠开关
+    *   休眠流程：AirUI 休眠 → LCD 休眠 → TP 休眠 → 模组休眠
+    *   唤醒流程：模组唤醒 → TP 恢复 → LCD 唤醒 → AirUI 恢复
+    *   支持触摸唤醒（WAKEUP0 中断）、定时唤醒（sys.timerStart / pm.dtimerStart）、按键唤醒（内置 BOOT/PWR_KEY 中断 + KEY_EVENT 消息）
+    *   支持模组常规低功耗（pm.WORK_MODE=1）和 PSM+ 极致低功耗（pm.WORK_MODE=3）
+    *   注意：PSM+ 与触摸唤醒互斥；按键驱动已内置，无需外部 `key_drv.lua`
+
 ## 三、演示效果
 
 <table>
@@ -223,6 +232,7 @@ require("airui_all_component") --所有组件综合演示
 -- require("airui_shape")  -- 形状组件演示
 -- require("airui_spinner")  -- 加载指示器组件演示
 -- require("airui_video")  -- 视频组件演示
+-- require("airui_sleep")  -- AirUI休眠/唤醒管理演示（内置按键驱动，按键唤醒开箱即用）
 ```
 
 ### 7.3 软件烧录步骤

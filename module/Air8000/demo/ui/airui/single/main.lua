@@ -81,7 +81,8 @@ require("tp_drv")
 -- require("airui_tabview")  --选项卡演示
 -- require("airui_table") --表格演示
 -- require("airui_win")  --标签窗口演示
-require("airui_all_component") --所有组件综合演示
+-- require("airui_all_component") --所有组件综合演示
+require("airui_sleep")  -- AirUI休眠管理演示
 -- require("airui_switch_page")  --页面切换演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
 -- require("airui_chart")  --图表组件演示

@@ -1,118 +1,83 @@
 --[[
 @module  nes_key_app
-@summary NES游戏按键模块 v4.0 — 全部 airui 常量直发，零换算
-@version 4.0
-@date    2026.05.28
+@summary NES游戏按键模块 — 8方向计算 + 动作键连发 + 控制键快响应
+@version 1.0
+@date    2026.05.30
+@author  江访
+
+由 app_main 根据 project_config.features.nes 条件加载。
+订阅 OPEN_WELCOME_WIN 事件（LCD初始化后触发），延迟注册GPIO中断。
 
 按键类型（根据 key 名称自动分类）：
-  - 方向键: UP/DOWN/LEFT/RIGHT → 8方向计算 → NES_KEY(airui常量, 0/1)
-  - 动作键: A/B → 200ms combo窗口 → NES_KEY(airui常量, 0/1)
-  - 瞬发键: START/SELECT → 按下即发 press+80ms后auto release → NES_KEY(airui常量, 0/1)
-  - 返回键: RETURN → 200ms防抖 → NES_CTRL("RETURN")
+  - 方向键: NES_KEY_UP / NES_KEY_DOWN / NES_KEY_LEFT / NES_KEY_RIGHT
+    → 发布 NES_KEY(key, pressed) 单键事件 + 计算组合方向发布 NES_DIR(direction) 事件
+    → 支持8方向组合（同时按两个相邻方向键=对角线方向）
+  - 动作键: NES_KEY_A / NES_KEY_B
+    → 按下立即发布 NES_KEY(key, 1)，松开发布 NES_KEY(key, 0)
+    → 按住不放：自动连发，60ms间隔交替按/松
+  - 控制键: NES_KEY_RETURN / NES_KEY_START / NES_KEY_SELECT
+    → 仅按下沿发布 NES_CTRL(key)，30ms软件防抖
 
 发布事件：
-  NES_KEY(key_code, pressed)  — key_code=airui.NES_KEY_* 常量(number), pressed=0/1(number)
-  NES_CTRL(key)                — key="RETURN"，仅返回键
-  NES_COMBO(combo)             — combo="AB"
+  NES_KEY(key, pressed)    — key="UP"/"DOWN"/"LEFT"/"RIGHT"/"A"/"B", pressed=1按下/0释放
+  NES_DIR(direction)       — 0=NONE, 1=UP, 2=UP_RIGHT, 3=RIGHT, 4=DOWN_RIGHT,
+                                    5=DOWN, 6=DOWN_LEFT, 7=LEFT, 8=UP_LEFT
+  NES_CTRL(key)            — key="RETURN"/"START"/"SELECT"，仅按下沿发布（带防抖）
 ]]
 
 -- ==================== 配置常量 ====================
 
-local HW_DEBOUNCE_MS = 20
-local CTRL_DEBOUNCE_MS = 200
-local COMBO_WINDOW_MS = 200
+local HW_DEBOUNCE_MS = 20          -- GPIO硬件消抖(ms)
+local CTRL_DEBOUNCE_MS = 30        -- 控制键软件防抖窗口(ms)，够快且防抖动
+
+-- ticks 转毫秒：mcu.hz() 动态获取 tick 频率，兼容 Air1601/1602（20ms/tick）和 PC（1ms/tick）
+local function ticks_to_ms(diff_ticks)
+    local hz = mcu.hz() or 1
+    if hz <= 0 then hz = 1 end
+    return diff_ticks * 1000 / hz
+end
 
 -- ==================== 方向状态 ====================
 
-local dir_up    = false
-local dir_down  = false
-local dir_left  = false
-local dir_right = false
-local dir_keys_sent = {}
+-- 方向bitmask: bit0=UP, bit1=DOWN, bit2=LEFT, bit3=RIGHT
+local dir_bits = 0
+local prev_dir_code = 0
 
---- 辅助：取 airui 常量并确保返回 number（严格类型检查）
-local function airui_key(name)
-    local v = airui["NES_KEY_" .. name]
-    if v == nil then return nil end
-    if type(v) == "number" then return v end
-    if type(v) == "string" then
-        local n = tonumber(v)
-        if n then return n end
-    end
-    return nil  -- 无法识别，跳过
-end
+-- bitmask → 方向编码（顺时针）
+local DIR_BITMASK_TO_CODE = {
+    [0]  = 0,   -- NONE
+    [1]  = 1,   -- UP         (0b0001)
+    [2]  = 5,   -- DOWN       (0b0010)
+    [4]  = 7,   -- LEFT       (0b0100)
+    [8]  = 3,   -- RIGHT      (0b1000)
+    [5]  = 8,   -- UP+LEFT    (0b0101)
+    [9]  = 2,   -- UP+RIGHT   (0b1001)
+    [6]  = 6,   -- DOWN+LEFT  (0b0110)
+    [10] = 4,   -- DOWN+RIGHT (0b1010)
+    [3]  = 0,   -- UP+DOWN    → 抵消为NONE
+    [12] = 0,   -- LEFT+RIGHT → 抵消为NONE
+}
 
---- 发布 NES_KEY
-local function pub_key(key_code, pressed)
-    log.info("nes_key_app", "PUB NES_KEY", key_code, pressed)
-    sys.publish("NES_KEY", key_code, pressed)
-end
+-- 方向键短名 → bit位
+local DIR_NAME_TO_BIT = {
+    UP    = 1,   -- bit0
+    DOWN  = 2,   -- bit1
+    LEFT  = 4,   -- bit2
+    RIGHT = 8,   -- bit3
+}
 
-local function publish_direction_keys()
-    local u, d, l, r = dir_up, dir_down, dir_left, dir_right
-    local target = {}
+-- ==================== 控制键状态 ====================
 
-    if u and r and not d and not l then
-        target.UP = true; target.RIGHT = true
-    elseif u and l and not d and not r then
-        target.UP = true; target.LEFT = true
-    elseif d and r and not u and not l then
-        target.DOWN = true; target.RIGHT = true
-    elseif d and l and not u and not r then
-        target.DOWN = true; target.LEFT = true
-    elseif u and not d and not l and not r then
-        target.UP = true
-    elseif d and not u and not l and not r then
-        target.DOWN = true
-    elseif l and not r and not u and not d then
-        target.LEFT = true
-    elseif r and not l and not u and not d then
-        target.RIGHT = true
-    end
-
-    for k, _ in pairs(dir_keys_sent) do
-        if not target[k] then
-            local kc = airui_key(k)
-            if kc then pub_key( kc, 0) end
-        end
-    end
-    for k, _ in pairs(target) do
-        if not dir_keys_sent[k] then
-            local kc = airui_key(k)
-            if kc then pub_key( kc, 1) end
-        end
-    end
-    dir_keys_sent = target
-end
-
--- ==================== 动作键(A/B)状态 ====================
-
-local a_pressed = false
-local b_pressed = false
-local combo_active = false
-local pending_action = nil
-local pending_timer = nil
-
--- ==================== 控制键(仅RETURN)状态 ====================
-
-local return_last = 0
-
-local function now_ms()
-    local ok, t = pcall(mcu.ticks)
-    if ok and type(t) == "number" then return math.floor(math.abs(t)) end
-    ok, t = pcall(rtos.tick)
-    if ok and type(t) == "number" then return math.floor(math.abs(t)) end
-    local ok2, clk = pcall(os.clock)
-    if ok2 and type(clk) == "number" then return math.floor(math.abs(clk) * 1000) end
-    return 0
-end
+local ctrl_last_press = {}    -- key短名 → 上次按下时间戳(tick)
 
 -- ==================== 工具函数 ====================
 
+--- 从 NES_KEY_XXX 全名提取短名（如 "NES_KEY_UP" → "UP"）
 local function short_name(key_name)
     return key_name:match("NES_KEY_(.+)$") or key_name
 end
 
+--- 按键类型分类
 local function classify_key(key_name)
     if key_name:find("NES_KEY_UP") or key_name:find("NES_KEY_DOWN") or
        key_name:find("NES_KEY_LEFT") or key_name:find("NES_KEY_RIGHT") then
@@ -121,115 +86,95 @@ local function classify_key(key_name)
     if key_name:find("NES_KEY_A") or key_name:find("NES_KEY_B") then
         return "action"
     end
-    if key_name:find("NES_KEY_START") or key_name:find("NES_KEY_SELECT") then
-        return "momentary"
-    end
-    if key_name:find("NES_KEY_RETURN") then
-        return "return_key"
+    if key_name:find("NES_KEY_RETURN") or key_name:find("NES_KEY_START") or
+       key_name:find("NES_KEY_SELECT") then
+        return "control"
     end
     return "unknown"
 end
 
+--- 计算并发布组合方向（仅当方向状态变化时）
+local function publish_direction()
+    local new_code = DIR_BITMASK_TO_CODE[dir_bits]
+    if new_code == nil then new_code = 0 end
+    if new_code ~= prev_dir_code then
+        prev_dir_code = new_code
+        log.info("nes_key", "DIR publish NES_DIR", new_code)
+        sys.publish("NES_DIR", new_code)
+    end
+end
+
 -- ==================== GPIO 回调工厂 ====================
 
+--- 方向键回调：更新 bitmask，发布 NES_KEY + 计算 NES_DIR
 local function create_direction_callback(sname)
+    local bit = DIR_NAME_TO_BIT[sname]
     return function(val)
         local pressed = (val == 0)
-        if sname == "UP" then dir_up = pressed
-        elseif sname == "DOWN" then dir_down = pressed
-        elseif sname == "LEFT" then dir_left = pressed
-        elseif sname == "RIGHT" then dir_right = pressed
-        end
-        publish_direction_keys()
-    end
-end
-
-local function create_action_callback(sname)
-    local is_a = (sname == "A")
-    local akey = airui_key(sname)
-    local okey = airui_key(is_a and "B" or "A")
-    return function(val)
-        local pressed = (val == 0)
-        if is_a then a_pressed = pressed else b_pressed = pressed end
-
+        log.info("nes_key", "DIR GPIO", sname, pressed and "DOWN" or "UP", "bits before", dir_bits)
         if pressed then
-            if combo_active then return end
-            local other_pressed = is_a and b_pressed or a_pressed
-            if other_pressed then
-                if pending_timer and pending_action then
-                    sys.timerStop(pending_timer)
-                    pending_timer = nil
-                    pending_action = nil
-                    combo_active = true
-                    sys.publish("NES_COMBO", "AB")
-                    return
-                end
-            end
-            pending_action = sname
-            if pending_timer then sys.timerStop(pending_timer) end
-            pending_timer = sys.timerStart(function()
-                if not combo_active and pending_action == sname then
-                    if akey then pub_key( akey, 1) end
-                end
-                pending_timer = nil
-                pending_action = nil
-            end, COMBO_WINDOW_MS)
+            dir_bits = dir_bits | bit
         else
-            if combo_active then
-                combo_active = false
-                if akey then pub_key( akey, 0) end
-                local other_held = is_a and b_pressed or a_pressed
-                if other_held and okey then
-                    pub_key( okey, 1)
-                end
-            else
-                if pending_action == sname and pending_timer then
-                    sys.timerStop(pending_timer)
-                    pending_timer = nil
-                    pending_action = nil
-                    if akey then pub_key( akey, 1) end
-                end
-                if akey then pub_key( akey, 0) end
-            end
+            dir_bits = dir_bits & ~bit
         end
+        -- 单键事件（后装APP可选择性忽略，用NES_DIR替代）
+        sys.publish("NES_KEY", sname, pressed and 1 or 0)
+        -- 更新组合方向
+        publish_direction()
+        log.info("nes_key", "DIR publish NES_KEY", sname, pressed and 1 or 0, "dir_bits", dir_bits)
     end
 end
 
-local function create_momentary_callback(sname)
-    local akey = airui_key(sname)
+--- 动作键回调：按下发1，松开发0，NES模拟器自行处理按住状态
+local function create_action_callback(sname)
     return function(val)
-        if val ~= 0 then return end
-        if akey then
-            pub_key( akey, 1)
-            sys.timerStart(function()
-                pub_key( akey, 0)
-            end, 80)
-        end
+        local pressed = (val == 0)
+        log.info("nes_key", "ACT GPIO", sname, pressed and "DOWN" or "UP")
+        sys.publish("NES_KEY", sname, pressed and 1 or 0)
     end
 end
 
-local function create_return_callback()
+--- 控制键回调：仅按下沿 + 软件防抖（使用 ticks_to_ms 兼容不同 tick 频率）
+local function create_control_callback(sname)
     return function(val)
-        if val ~= 0 then return end
-        local now = now_ms()
-        if now - return_last >= CTRL_DEBOUNCE_MS then
-            return_last = now
-            sys.publish("NES_CTRL", "RETURN")
+        local pressed = (val == 0)
+        if not pressed then return end  -- 控制键仅响应按下沿
+
+        local now = mcu.ticks()
+        local last = ctrl_last_press[sname] or 0
+        if ticks_to_ms(now - last) >= CTRL_DEBOUNCE_MS then
+            ctrl_last_press[sname] = now
+            log.info("nes_key", "CTRL publish NES_CTRL", sname)
+            sys.publish("NES_CTRL", sname)
         end
     end
 end
 
--- ==================== 主初始化 ====================
+-- ==================== 配置传递（兼容旧接口） ====================
 
-sys.subscribe("OPEN_WELCOME_WIN", function()
+sys.subscribe("NES_APP_BIND", function()
+    local cfg = _G.NES_KEY_CONFIG
+    if not cfg or type(cfg) ~= "table" or #cfg == 0 then
+        local pc = _G.project_config
+        if pc and pc.nes_keys and type(pc.nes_keys) == "table" then
+            cfg = pc.nes_keys
+        end
+    end
+    if cfg and type(cfg) == "table" and #cfg > 0 then
+        log.info("nes_key_app", "send NES_KEY_CFG", #cfg, "keys")
+        sys.publish("NES_KEY_CFG", cfg)
+    end
+end)
+
+-- ==================== 主初始化（延迟到LCD就绪后） ====================
+
+--- 注册所有 NES 按键 GPIO，可多次调用（幂等）
+local function register_all_keys()
     local cfg = _G.project_config
     if not cfg or not cfg.nes_keys or type(cfg.nes_keys) ~= "table" then
-        log.info("nes_key_app", "no nes_keys, skip")
+        log.info("nes_key_app", "no nes_keys in config, skip")
         return
     end
-
-    log.info("nes_key_app", "airui UP=" .. tostring(airui["NES_KEY_UP"])
-        .. " A=" .. tostring(airui["NES_KEY_A"]) .. " START=" .. tostring(airui["NES_KEY_START"]))
 
     local count = 0
     for _, entry in ipairs(cfg.nes_keys) do
@@ -238,26 +183,44 @@ sys.subscribe("OPEN_WELCOME_WIN", function()
         local key_type = classify_key(key_name)
         local sname = short_name(key_name)
 
+        if key_type == "unknown" then
+            log.warn("nes_key_app", "unknown key type:", key_name, "-> GPIO", pin)
+        end
+
+        -- 硬件消抖
         gpio.debounce(pin, HW_DEBOUNCE_MS, 1)
 
+        -- 根据类型创建对应的回调
         local callback
         if key_type == "direction" then
             callback = create_direction_callback(sname)
         elseif key_type == "action" then
             callback = create_action_callback(sname)
-        elseif key_type == "momentary" then
-            callback = create_momentary_callback(sname)
-        elseif key_type == "return_key" then
-            callback = create_return_callback()
+        elseif key_type == "control" then
+            callback = create_control_callback(sname)
         else
-            local kc = airui_key(key_name)
+            -- unknown类型：降级为简单双边沿发布
             callback = function(val)
-                if kc then sys.publish("NES_KEY", kc, val == 0 and 1 or 0) end
+                sys.publish("NES_KEY", sname, val == 0 and 1 or 0)
             end
         end
 
         gpio.setup(pin, callback, gpio.PULLUP, gpio.BOTH)
+
         count = count + 1
+        log.info("nes_key_app", key_name, "(", key_type, ")", "-> GPIO", pin)
     end
-    log.info("nes_key_app", "registered " .. tostring(count) .. " NES keys")
+    log.info("nes_key_app", "registered", count, "NES keys")
+end
+
+sys.subscribe("OPEN_WELCOME_WIN", function()
+    register_all_keys()
+end)
+
+-- NES 游戏启动后 airui.nes 初始化可能覆盖 GPIO，收到通知后补注册
+sys.subscribe("NES_GAME_STARTED", function()
+    log.info("nes_key_app", "NES game started, re-register keys after 200ms")
+    sys.timerStart(function()
+        register_all_keys()
+    end, 200)
 end)

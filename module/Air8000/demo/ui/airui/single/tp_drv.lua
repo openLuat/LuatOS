@@ -43,10 +43,15 @@ local function tp_drv_init()
     -- 当您使用的不是合宙开发板，而是自己设计的板子，请根据自己板子的硬件设计，来决定是否需要exmux库来配置
     --
     -- 初始化外设分组开关状态
-    exmux.setup("DEV_BOARD_8000_V2.0")
+    -- exmux.setup("DEV_BOARD_8000_V2.0")
     -- 打开i2c0外设分组的电源
-    exmux.open("i2c0")
+    -- exmux.open("i2c0")
+    gpio.setup(147, 1, gpio.PULLUP)
+    gpio.setup(164, 1, gpio.PULLUP)
+    gpio.set(147, 1)
+    gpio.set(164, 1)
 
+    sys.wait(100)
     -- 初始化硬件I2C
     i2c.setup(0, i2c.SLOW) -- 初始化I2C 0，设置为低速模式
 
@@ -61,6 +66,9 @@ local function tp_drv_init()
     local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0})
 
     log.info("tp.init", result)
+
+    -- 保存 TP 设备对象到全局变量，供休眠模块使用（tp.sleep 需要设备对象引用）
+    _G.tp_sleep_device = result
 
     if rtos.bsp() ~= "PC" then
        

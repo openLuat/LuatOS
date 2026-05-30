@@ -82,8 +82,8 @@ require("tp_drv")
 -- require("airui_animimg")  -- 动画图像组件演示
 -- require("airui_shape")  -- 形状组件演示
 -- require("airui_spinner")  -- 加载指示器组件演示
-require("airui_video")  -- 视频组件演示
-
+-- require("airui_video")  -- 视频组件演示
+require("airui_sleep")  -- AirUI休眠管理演示
 
 -- 用户代码已结束
 -- 结尾总是这一句

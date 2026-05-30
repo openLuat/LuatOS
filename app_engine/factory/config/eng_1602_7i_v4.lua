@@ -83,7 +83,7 @@ return {
         { pin =  0, key = "NES_KEY_START" },  -- 开始
         { pin = 22, key = "NES_KEY_SELECT"},  -- 选择
         { pin = 23, key = "NES_KEY_A"     },  -- A
-        { pin = 13, key = "NES_KEY_B"     },  -- B
+        { pin = 2, key = "NES_KEY_B"     },  -- B
     },
 
     ui = {

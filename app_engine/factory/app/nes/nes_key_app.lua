@@ -188,7 +188,10 @@ local function register_all_keys()
         end
 
         -- 硬件消抖
-        gpio.debounce(pin, HW_DEBOUNCE_MS, 1)
+        local debounce_ok = gpio.debounce(pin, HW_DEBOUNCE_MS, 1)
+        if debounce_ok == nil then
+            log.warn("nes_key_app", "debounce failed for", key_name, "GPIO", pin)
+        end
 
         -- 根据类型创建对应的回调
         local callback
@@ -205,12 +208,27 @@ local function register_all_keys()
             end
         end
 
-        gpio.setup(pin, callback, gpio.PULLUP, gpio.BOTH)
+        local setup_ret = gpio.setup(pin, callback, gpio.PULLUP, gpio.BOTH)
+        if setup_ret == nil then
+            log.error("nes_key_app", "gpio.setup FAILED for", key_name, "GPIO", pin)
+        else
+            log.info("nes_key_app", key_name, "(", key_type, ")", "-> GPIO", pin)
+        end
 
         count = count + 1
-        log.info("nes_key_app", key_name, "(", key_type, ")", "-> GPIO", pin)
     end
     log.info("nes_key_app", "registered", count, "NES keys")
+    -- 注册完后延迟确认 GPIO 引脚电平状态
+    sys.timerStart(function()
+        log.info("nes_key_app", "=== GPIO pin status check ===")
+        for _, entry in ipairs(cfg.nes_keys) do
+            local pin = entry.pin
+            local key_name = entry.key
+            local val = gpio.get(pin)
+            log.info("nes_key_app", "pin", pin, key_name, "value:", val)
+        end
+        log.info("nes_key_app", "=== GPIO pin status check end ===")
+    end, 2000)
 end
 
 sys.subscribe("OPEN_WELCOME_WIN", function()

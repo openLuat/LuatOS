@@ -85,6 +85,44 @@ Recommended:
 
 Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/macOS)
 
+### C-Layer UTest Coverage
+
+- Canonical helper: `bsp\pc\pc_utest_coverage.ps1`
+- Typical usage:
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_dtls_basic`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_tcp_basic`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_http_basic -SkipBuild`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_https_basic -SkipBuild`
+- After the first suite build, reuse the same binary for more suites with `-SkipBuild`
+- `-Suite` and `-TestcaseScripts` are mutually exclusive; pass only one of them
+- Coverage HTML is written to `build\coverage\<suite>\html\index.html`
+- Current network utest suites:
+  - `c_utest_dtls_basic`: PC-only DTLS-PSK loopback against `127.0.0.1`
+  - `c_utest_tcp_basic`: TCP reachability against `www.qq.com:80`
+  - `c_utest_http_basic`: HTTP reachability against `http://www.qq.com`
+  - `c_utest_https_basic`: HTTPS reachability against `https://www.qq.com`
+- Additional PC socket regression:
+  - `socket_udp_limit_basic`: verifies `socket.rx(..., limit)` truncates UDP data and discards the unread datagram tail
+- DTLS loopback depends on the PC mbedTLS3 config in `include\mbedtls_config_pc_mbedtls3.h` enabling DTLS server/PSK support
+
+### UTest 快速运行（无覆盖率）
+
+直接跑单个 utest 用例（跳过 OpenCppCoverage，只看 pass/fail）：
+
+```powershell
+# ⚠️ 必须先带 LUAT_USE_UTEST=y 编译，否则 socket.utest / http.utest 等函数不存在
+cd bsp\pc
+$env:LUAT_USE_UTEST = "y"
+cmd /c build_windows_32bit_msvc.bat   # 或 build_windows_64bit_msvc.bat
+
+# 运行（需要传两个脚本目录：common + 目标 testcase）
+cd build\out
+.\luatos-lua.exe ..\..\..\..\testcase\common\scripts\ ..\..\..\..\testcase\unit_testcase_tools\c_utest_dtls_basic\scripts\
+```
+
+输出中搜索 `OVERALL_PASS` / `OVERALL_FAIL` 判断结果。
+`pc_utest_coverage.ps1` 已内置 `LUAT_USE_UTEST=y`，使用它时无需手动设置。
+
 ## FEATURES
 
 - Lua 5.3 VM execution
@@ -199,6 +237,7 @@ PC 模拟器支持通过环境变量按需启用可选功能，遵循与 `LUAT_U
 | `LUAT_USE_GUI` | `y` | 启用 SDL2 GUI / AirUI |
 | `LUAT_USE_MGBA` | `y` | 启用 mGBA GameBoy 模拟器 |
 | `LUAT_USE_MP4PLAYER` | `y` | 启用 MP4/H.264/AAC 解码器 |
+| `LUAT_USE_UTEST` | `y` | 启用 C 层 utest（`socket.utest`、`http.utest` 等）。覆盖率和直接运行都需要 |
 | `MP4PLAYER_SRC_DIR` | 路径 | mp4player 源码根目录（与 `LUAT_USE_MP4PLAYER=y` 配合使用） |
 | `LUATOS_EXT_ROOT` | 路径 | `luatos-ext-components` 仓库根目录。未设置时自动从脚本目录向上三级查找；**在 git worktree 中必须设置此变量**（或依赖自动 worktree 检测）。 |
 

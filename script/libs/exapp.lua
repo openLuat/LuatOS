@@ -2667,10 +2667,13 @@ function exapp.open(app_path)
             elseif dir:sub(1, 14) == "/little_flash/" and not io.dexist("/little_flash/") then
                 goto next_data_dir
             end
-            -- 检查 app_store/<app> 父目录是否存在，不存在说明 app 未安装在此存储，跳过
-            local parent_app_dir = dir:match("^(.*/app_store/[^/]+)/data$")
-            if parent_app_dir and not io.dexist(parent_app_dir) then
-                goto next_data_dir
+            -- /ram/ 不需要检查父目录，RAM 文件系统始终可用，不存在则自动创建
+            -- 其他存储（/sd/、/little_flash/、内置）需要检查父目录是否存在
+            if dir:sub(1, 5) ~= "/ram/" then
+                local parent_app_dir = dir:match("^(.*/app_store/[^/]+)/data$")
+                if parent_app_dir and not io.dexist(parent_app_dir) then
+                    goto next_data_dir
+                end
             end
             if not io.dexist(dir) then
                 io.mkdir(dir)

@@ -33,6 +33,10 @@ typedef struct
 	uint8_t adapter_index;
 }luat_socket_ctrl_t;
 
+#ifdef LUAT_USE_UTEST
+int luat_socket_utest(lua_State *L, const char *case_name);
+#endif
+
 #define L_CTRL_CHECK 	do {if (!l_ctrl || !l_ctrl->netc){return 0;}}while(0)
 
 network_adapter_info* network_adapter_fetch(int id, void** userdata);
@@ -321,7 +325,7 @@ static int l_socket_config(lua_State *L)
 	const char *client_cert = NULL;
 	const char *client_key = NULL;
 	const char *client_password = NULL;
-	size_t server_cert_len, client_cert_len, client_key_len, client_password_len;
+	size_t server_cert_len = 0, client_cert_len = 0, client_key_len = 0, client_password_len = 0;
 
 	uint16_t local_port = luaL_optinteger(L, ++param_pos, 0);
 	if (lua_isboolean(L, ++param_pos))
@@ -370,7 +374,9 @@ static int l_socket_config(lua_State *L)
 		network_init_tls(l_ctrl->netc, (server_cert || client_cert)?2:0);
 		if (is_udp)
 		{
-			network_set_psk_info(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len, (const unsigned char *)client_key, client_key_len);
+			const unsigned char *psk_id = (const unsigned char *)(client_cert ? client_cert : client_key);
+			size_t psk_id_len = client_cert ? client_cert_len : client_key_len;
+			network_set_psk_info(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len, psk_id, psk_id_len);
 		}
 		else
 		{
@@ -1389,6 +1395,15 @@ static int l_socket_close_all(lua_State *L) {
 	lua_pushboolean(L, 1);
 	return 1;
 }
+
+#ifdef LUAT_USE_UTEST
+static int l_socket_utest(lua_State *L)
+{
+    const char *case_name = luaL_optstring(L, 1, NULL);
+    return luat_socket_utest(L, case_name);
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_socket_adapter[] =
 {
@@ -1414,6 +1429,9 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{"adapter",				ROREG_FUNC(l_socket_adapter)},
 	{"dft",                 ROREG_FUNC(l_socket_default)},
 	{"close_all",           ROREG_FUNC(l_socket_close_all)},
+#ifdef LUAT_USE_UTEST
+	{"utest",				ROREG_FUNC(l_socket_utest)},
+#endif
 #ifdef LUAT_USE_SNTP
 	{"sntp",         		ROREG_FUNC(l_sntp_get)},
 	{"ntptm",           	ROREG_FUNC(l_sntp_tm)},

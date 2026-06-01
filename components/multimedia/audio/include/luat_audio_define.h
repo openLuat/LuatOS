@@ -65,7 +65,8 @@ enum {
     LUAT_AUDIO_DATA_CODEC_TYPE_TTS,        /**< TTS 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MP3,        /**< MP3 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_OPUS,       /**< OPUS 编解码器 */
-    LUAT_AUDIO_DATA_CODEC_TYPE_G711,       /**< G711 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,       /**< G711 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,       /**< G711 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MAX,        /**< 最大编解码器类型 */
 
     LUAT_AUDIO_TTS_EVENT_START = 0,        /**< TTS 开始事件 */

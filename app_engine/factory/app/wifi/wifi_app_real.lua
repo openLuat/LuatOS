@@ -117,6 +117,9 @@ local disconnect_reason = nil
 local user_disconnect = false
 local user_connect = false
 
+-- 标记：CONNECTED阶段是否已完成保存（避免IP_READY兜底覆盖正确密码）
+local pending_saved = false
+
 -- 当前连接尝试的暂存参数（连接成功后才持久化保存）
 local pending_connect = nil
 -- 连接超时定时器
@@ -308,6 +311,7 @@ local function on_sta_event(evt, data)
                 ssid = pending_connect.ssid,
                 bssid = pending_connect.bssid
             })
+            pending_saved = true
             pending_connect = nil
         end
 
@@ -364,10 +368,11 @@ end
 -- IP_READY
 local function on_ip_ready(ip, adapter)
     common.handle_ip_ready(ip, adapter, wifi_state, refresh_net_info)
-    -- 兜底保存：IP拿到后再确保一次密码已落盘（CONNECTED阶段存储可能未就绪）
-    if wifi_state.current_ssid and wifi_state.current_ssid ~= "" then
+    -- 兜底保存：仅当 CONNECTED 阶段未完成保存时，IP_READY 再确保密码已落盘
+    -- 防止 CONNECTED 已正确保存后，兜底用 saved_config 的旧密码覆盖
+    if not pending_saved and wifi_state.current_ssid and wifi_state.current_ssid ~= "" then
         local pw = (saved_config and saved_config.password ~= nil) and saved_config.password or ""
-        log.info("wifi_app", "IP_READY 兜底保存:", wifi_state.current_ssid)
+        log.info("wifi_app", "IP_READY 兜底保存（CONNECTED未完成）:", wifi_state.current_ssid)
         sys.publish("WIFI_STORAGE_SAVE_REQ", {
             ssid = wifi_state.current_ssid,
             password = pw,
@@ -555,6 +560,7 @@ local function on_connect_req(data)
             advanced_config = adv,
             bssid = bssid
         }
+        pending_saved = false
 
         sys.publish("WIFI_CONNECTING", ssid)
         disconnect_reason = "config"

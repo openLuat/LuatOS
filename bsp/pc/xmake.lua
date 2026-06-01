@@ -35,13 +35,17 @@ local mbedtls_version = 3
 add_requires("gmssl")
 add_packages("gmssl")
 
+local function env_enabled(name)
+    return os.getenv(name) == "y"
+end
+
 -- POSIX pthreads（Windows 通过 pthreads4w 提供）
 if is_host("windows") then
     add_requires("pthreads4w")
 end
 
 -- SDL2 仅在 GUI 模式下需要
-if os.getenv("LUAT_USE_GUI") == "y" then
+if env_enabled("LUAT_USE_GUI") then
     add_requires("libsdl2")
 end
 
@@ -87,10 +91,14 @@ if os.getenv("VM_64bit") == "1" then
     add_defines("LUAT_CONF_VM_64bit")
 end
 
-if os.getenv("LUAT_USE_GUI") == "y" then
+local use_gui = env_enabled("LUAT_USE_GUI")
+local use_utest = env_enabled("LUAT_USE_UTEST")
+local use_mgba = env_enabled("LUAT_USE_MGBA")
+
+if use_gui then
     add_defines("LUAT_USE_GUI=1")
 end
-if os.getenv("LUAT_USE_UTEST") == "y" then
+if use_utest then
     add_defines("LUAT_USE_UTEST=1")
 end
 
@@ -129,6 +137,7 @@ target("luatos-lua")
     set_kind("binary")
     set_targetdir("$(builddir)/out")
 
+    add_defines("LUAT_BSP_PC")
     add_files("src/*.c",{public = true})
     add_files("port/**.c")
 
@@ -273,8 +282,10 @@ target("luatos-lua")
     add_includedirs(luatos.."components/common",{public = true})
     add_files(luatos.."components/common/*.c")
 
-    if os.getenv("LUAT_USE_UTEST") == "y" then
-        add_includedirs(luatos.."components/utest/include", {public = true})
+    if use_utest then
+        if os.isdir(luatos.."components/utest/include") then
+            add_includedirs(luatos.."components/utest/include", {public = true})
+        end
         add_files(luatos.."components/utest/**.c")
     end
 
@@ -528,7 +539,7 @@ target("luatos-lua")
     add_includedirs(luatos.."components/nes/port")
     add_files(luatos.."components/nes/**.c")
 
-    if os.getenv("LUAT_USE_GUI") == "y" then
+    if use_gui then
         add_packages("libsdl2")
         add_files("ui/*.c")
         add_defines("U8G2_USE_LARGE_FONTS=1")
@@ -620,7 +631,7 @@ target("luatos-lua")
 
     -- 非 GUI 构建补齐最小单色显示栈：u8g2 + eink/epaper + qrcode。
     -- GUI 构建沿用原有范围，避免意外扩大 EINK 支持面。
-    if os.getenv("LUAT_USE_GUI") ~= "y" then
+    if not use_gui then
         add_includedirs(luatos.."components/qrcode")
         add_files(luatos.."components/qrcode/*.c")
         add_files(luatos.."components/u8g2/*.c")
@@ -630,7 +641,7 @@ target("luatos-lua")
         add_includedirs(luatos.."components/epaper")
         add_files(luatos.."components/epaper/*.c")
     end
-    if os.getenv("LUAT_USE_MGBA") == "y" then
+    if use_mgba then
         add_defines("LUAT_USE_MGBA=1")
         add_defines("MGBA_CONFIG_FILE=\"mgba_config_luatos.h\"")
         
@@ -743,7 +754,7 @@ target("luatos-lua")
         add_files(luatos.."components/mgba/adapter/luat_mgba_input.c")
         
         -- 视频和音频输出适配器 (需要 GUI 支持)
-        if os.getenv("LUAT_USE_GUI") == "y" then
+        if use_gui then
             add_files(luatos.."components/mgba/adapter/luat_mgba_video.c")
             add_files(luatos.."components/mgba/adapter/luat_mgba_audio.c")
             -- AirUI视频适配器 (需要 AirUI 支持)

@@ -1,7 +1,7 @@
 /**
  * @file luat_airui_jpg_decoder_luatos.c
- * @summary LuatOS 平台 JPG 解码器
- * @responsible 优先复用 LCD JPG 解码能力并接入 LVGL 图片缓存
+ * @summary LuatOS platform JPG decoder
+ * @responsible Reuse the legacy LCD JPG decode path and integrate with LVGL cache
  */
 
 #include "luat_conf_bsp.h"
@@ -12,9 +12,10 @@
 #if defined(LUAT_USE_AIRUI_LUATOS)
 
 #include "luat_airui_platform_luatos.h"
-#include "luat_mem.h"
-#include "luat_image.h"
 #include "luat_fs.h"
+#include "luat_image.h"
+#include "luat_mcu.h"
+#include "luat_mem.h"
 #include "lvgl9/src/draw/lv_draw_buf.h"
 #include "lvgl9/src/draw/lv_image_decoder_private.h"
 #include "lvgl9/src/misc/cache/instance/lv_image_cache.h"
@@ -25,50 +26,54 @@
 
 static bool g_luatos_jpg_decoder_registered = false;
 
-static int read_file_to_buf(const char *path, uint8_t **out_buf, size_t *out_len)
+static uint64_t airui_luatos_jpg_now_us(void)
 {
-    FILE *fd = NULL;
-    uint8_t *buf = NULL;
-    long fsize = 0;
-    int ret = -1;
-
-    fd = luat_fs_fopen(path, "rb");
-    if (fd == NULL) {
-        LLOGW("no such file %s", path);
-        return -1;
+    int period = luat_mcu_us_period();
+    if (period <= 0) {
+        return luat_mcu_tick64_ms() * 1000ULL;
     }
-
-    luat_fs_fseek(fd, 0, SEEK_END);
-    fsize = luat_fs_ftell(fd);
-    luat_fs_fseek(fd, 0, SEEK_SET);
-    if (fsize <= 0) {
-        LLOGE("bad file size %s", path);
-        goto cleanup;
-    }
-
-    buf = (uint8_t *)luat_heap_memalign(8, (size_t)fsize);
-    if (buf == NULL) {
-        LLOGE("oom: file_buf %ld bytes", fsize);
-        goto cleanup;
-    }
-
-    if (luat_fs_fread(buf, 1, (size_t)fsize, fd) != (size_t)fsize) {
-        LLOGE("read file error %s", path);
-        luat_heap_free(buf);
-        buf = NULL;
-        goto cleanup;
-    }
-
-    *out_buf = buf;
-    *out_len = (size_t)fsize;
-    ret = 0;
-
-cleanup:
-    luat_fs_fclose(fd);
-    return ret;
+    return luat_mcu_tick64() / (uint64_t)period;
 }
 
-// 判断是否是 JPG 图片路径
+static void airui_luatos_jpg_log_decode(const char *path, const luat_lcd_buff_info_t *buff_info, int ret, uint64_t start_us)
+{
+    uint64_t elapsed_us = 0;
+    size_t input_size = 0;
+    unsigned int width = 0;
+    unsigned int height = 0;
+    unsigned int buf_size = 0;
+
+    if (!luat_image_get_debug()) {
+        return;
+    }
+
+    elapsed_us = airui_luatos_jpg_now_us();
+    if (elapsed_us > start_us) {
+        elapsed_us -= start_us;
+    } else {
+        elapsed_us = 0;
+    }
+
+    if (path != NULL) {
+        input_size = luat_fs_fsize(path);
+    }
+
+    if (ret == 0 && buff_info != NULL) {
+        width = (unsigned int)buff_info->width;
+        height = (unsigned int)buff_info->height;
+        buf_size = (unsigned int)buff_info->len;
+    }
+
+    LLOGI("[decode] fmt=jpg mode=hw input=%uB output=%ux%u buf=%uB cost=%.3fms ret=%d src=%s",
+          (unsigned int)input_size,
+          width,
+          height,
+          buf_size,
+          (double)elapsed_us / 1000.0,
+          ret == 0 ? LUAT_IMG_OK : LUAT_IMG_ERR,
+          path ? path : "<memory>");
+}
+
 static bool airui_luatos_is_jpg_path(const char *src)
 {
     const char *dot;
@@ -88,7 +93,6 @@ static bool airui_luatos_is_jpg_path(const char *src)
            (strcmp(dot, ".JPEG") == 0);
 }
 
-// 获取 JPG 图片信息
 static lv_result_t airui_luatos_jpg_decoder_info(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc,
                                                   lv_image_header_t *header)
 {
@@ -108,6 +112,10 @@ static lv_result_t airui_luatos_jpg_decoder_info(lv_image_decoder_t *decoder, lv
     }
 
     lcd_conf = luat_lcd_get_default();
+    if (lcd_conf == NULL || lcd_conf->acc_hw_jpeg == 0) {
+        return LV_RESULT_INVALID;
+    }
+
     ret = lcd_jpeg_info(lcd_conf, (const char *)dsc->src, &width, &height);
     if (ret != 0 || width == 0 || height == 0) {
         return LV_RESULT_INVALID;
@@ -120,15 +128,13 @@ static lv_result_t airui_luatos_jpg_decoder_info(lv_image_decoder_t *decoder, lv
     return LV_RESULT_OK;
 }
 
-// 打开 JPG 图片
 static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc)
 {
-    luat_img_conf_t img_conf;
-    luat_img_info_t img_info;
-    uint8_t *file_buf = NULL;
-    size_t file_len = 0;
+    luat_lcd_conf_t *lcd_conf;
+    luat_lcd_buff_info_t buff_info = {0};
     lv_draw_buf_t *decoded = NULL;
     lv_draw_buf_t *adjusted = NULL;
+    uint64_t start_us = 0;
     int ret;
 
     LV_UNUSED(decoder);
@@ -141,43 +147,36 @@ static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv
         return LV_RESULT_INVALID;
     }
 
-    ret = read_file_to_buf((const char *)dsc->src, &file_buf, &file_len);
-    if (ret != 0) {
+    lcd_conf = luat_lcd_get_default();
+    if (lcd_conf == NULL || lcd_conf->acc_hw_jpeg == 0) {
         return LV_RESULT_INVALID;
     }
 
-    memset(&img_conf, 0, sizeof(img_conf));
-    img_conf.format = LUAT_IMG_FMT_JPG;
-    img_conf.decode_mode = LUAT_IMG_DECODE_SW;
-    img_conf.source_path = (const char *)dsc->src;
-
-    if (luat_lcd_get_default() != NULL && luat_lcd_get_default()->acc_hw_jpeg) {
-        img_conf.decode_mode = LUAT_IMG_DECODE_HW;
+    if (luat_image_get_debug()) {
+        start_us = airui_luatos_jpg_now_us();
     }
 
-    memset(&img_info, 0, sizeof(img_info));
-    ret = luat_image_decode(&img_conf, file_buf, file_len, &img_info);
-    if (ret != LUAT_IMG_OK && img_conf.decode_mode == LUAT_IMG_DECODE_HW) {
-        memset(&img_info, 0, sizeof(img_info));
-        img_conf.decode_mode = LUAT_IMG_DECODE_SW;
-        ret = luat_image_decode(&img_conf, file_buf, file_len, &img_info);
-    }
-    luat_heap_free(file_buf);
+    LLOGI("use hardware jpeg decode: %s", (const char *)dsc->src);
 
-    if (ret != LUAT_IMG_OK || img_info.data == NULL || img_info.width == 0 || img_info.height == 0) {
+    ret = lcd_jpeg_decode(lcd_conf, (const char *)dsc->src, &buff_info);
+    airui_luatos_jpg_log_decode((const char *)dsc->src, &buff_info, ret, start_us);
+    if (ret != 0 || buff_info.buff == NULL || buff_info.width == 0 || buff_info.height == 0) {
+        if (buff_info.buff != NULL) {
+            luat_heap_free(buff_info.buff);
+        }
         return LV_RESULT_INVALID;
     }
 
     decoded = lv_malloc_zeroed(sizeof(lv_draw_buf_t));
     if (decoded == NULL) {
-        luat_heap_free(img_info.data);
+        luat_heap_free(buff_info.buff);
         return LV_RESULT_INVALID;
     }
 
-    if (lv_draw_buf_init(decoded, img_info.width, img_info.height, LV_COLOR_FORMAT_RGB565,
-                         img_info.width * sizeof(luat_color_t), img_info.data, img_info.size) != LV_RESULT_OK) {
+    if (lv_draw_buf_init(decoded, buff_info.width, buff_info.height, LV_COLOR_FORMAT_RGB565,
+                         buff_info.width * sizeof(luat_color_t), buff_info.buff, buff_info.len) != LV_RESULT_OK) {
         lv_free(decoded);
-        luat_heap_free(img_info.data);
+        luat_heap_free(buff_info.buff);
         return LV_RESULT_INVALID;
     }
 
@@ -186,8 +185,8 @@ static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv
     lv_draw_buf_set_flag(decoded, LV_IMAGE_FLAGS_ALLOCATED);
 
     dsc->header.cf = LV_COLOR_FORMAT_RGB565;
-    dsc->header.w = img_info.width;
-    dsc->header.h = img_info.height;
+    dsc->header.w = buff_info.width;
+    dsc->header.h = buff_info.height;
     dsc->header.stride = decoded->header.stride;
 
     adjusted = lv_image_decoder_post_process(dsc, decoded);
@@ -223,7 +222,6 @@ static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv
     return LV_RESULT_OK;
 }
 
-// 关闭 JPG 图片
 static void airui_luatos_jpg_decoder_close(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc)
 {
     LV_UNUSED(decoder);
@@ -237,7 +235,6 @@ static void airui_luatos_jpg_decoder_close(lv_image_decoder_t *decoder, lv_image
     }
 }
 
-// 注册 LuatOS 平台 JPG 解码器
 int airui_platform_luatos_register_jpg_decoder(void)
 {
     lv_image_decoder_t *decoder;

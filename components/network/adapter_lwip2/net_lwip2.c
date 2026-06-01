@@ -1443,6 +1443,7 @@ static int net_lwip2_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, 
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 
 	uint32_t read_len = 0;
+	uint32_t dummy_len = 0;
 	if (buf)
 	{
 		SOCKET_LOCK(socket_id);
@@ -1458,8 +1459,10 @@ static int net_lwip2_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, 
 		}
 		else
 		{
+			int preserve_udp_remain = (flags & NETWORK_RX_FLAG_PRESERVE_UDP_REMAIN) != 0;
 			if (p)
 			{
+				uint32_t remain_len = p->len - p->read_pos;
 				if (remote_ip)
 				{
 					*remote_ip = p->ip;
@@ -1468,7 +1471,15 @@ static int net_lwip2_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, 
 				{
 					*remote_port = p->port;
 				}
-				prvlwip.socket[socket_id].rx_wait_size -= net_lwip2_socket_read_data(socket_id, buf + read_len, &read_len, len, p);
+				dummy_len = net_lwip2_socket_read_data(socket_id, buf + read_len, &read_len, len, p);
+				prvlwip.socket[socket_id].rx_wait_size -= dummy_len;
+				if (!preserve_udp_remain && (remain_len > dummy_len))
+				{
+					prvlwip.socket[socket_id].rx_wait_size -= (remain_len - dummy_len);
+					llist_del(&p->node);
+					luat_heap_free(p->data);
+					luat_heap_free(p);
+				}
 			}
 		}
 		if (llist_empty(&prvlwip.socket[socket_id].rx_head))

@@ -1,8 +1,8 @@
 {
   "app_name_cn": "坦克大战横屏版",
   "app_name_en": "Tank_Battle_Horizontal",
-  "version": "1.0.3",
-  "publish_time": "2026-05-20 12:00:00",
+  "version": "1.0.4",
+  "publish_time": "2026-06-01 12:00:00",
   "category": "游戏",
   "description": "经典坦克大战游戏横屏版本，支持单机对战和联网对战",
   "resolution": "800x480",

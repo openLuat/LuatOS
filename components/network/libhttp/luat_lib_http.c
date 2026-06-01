@@ -358,10 +358,22 @@ error:
 	return 1;
 }
 
+#ifdef LUAT_USE_UTEST
+extern int luat_http_utest(lua_State *L, const char *case_name);
+
+static int l_http_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, NULL);
+    return luat_http_utest(L, case_name);
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_http[] =
 {
 	{"request",			ROREG_FUNC(l_http_request)},
+#ifdef LUAT_USE_UTEST
+    {"utest",          ROREG_FUNC(l_http_utest)},
+#endif
 	{ NULL,             ROREG_INT(0)}
 };
 

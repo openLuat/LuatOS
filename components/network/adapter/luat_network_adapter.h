@@ -719,6 +719,8 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms);
  */
 int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t *tx_len, uint32_t timeout_ms);
 
+#define NETWORK_RX_FLAG_PRESERVE_UDP_REMAIN (1 << 0)
+
 /**
  * 读取接收到的数据
  * 实际读到的数据量在read_len里，如果是UDP模式且为server时，需要看remote_ip和remote_port

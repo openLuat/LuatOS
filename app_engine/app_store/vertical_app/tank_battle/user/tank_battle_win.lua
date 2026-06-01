@@ -1,8 +1,8 @@
 --[[
 @module  tank_battle_win
 @summary 双人联网坦克大战游戏窗口模块
-@version 1.0.3
-@date    2026.05.20
+@version 1.0.4
+@date    2026.06.01
 @author  王世豪
 @description
     游戏业务层模块，负责：
@@ -15,7 +15,7 @@
 ]]
 
 -- 游戏版本号
-local GAME_VERSION = "1.0.3"
+local GAME_VERSION = "1.0.4"
 
 -- 引入网络模块（exPvP：联网对战游戏通用框架）
 local expvp = require("expvp")
@@ -269,24 +269,23 @@ end
 
 -- 获取设备ID
 local function get_device_id()
-    return expvp.get_device_id()
+    local info = expvp.get_player_info()
+    return info.device_id
 end
 
 -- 获取设备型号
 local function get_device_model()
     if not my_device_model or my_device_model == "未知" then
-        my_device_model = expvp.get_device_model()
+        local info = expvp.get_player_info()
+        my_device_model = info.device_model
     end
     return my_device_model
 end
 
 -- 获取昵称
 local function get_nickname()
-    local info = expvp.get_account_info()
-    if info and info.nickname and #info.nickname > 0 then
-        return info.nickname
-    end
-    return expvp.get_device_id():sub(-6)
+    local info = expvp.get_player_info()
+    return info.nickname
 end
 
 -- ==================== 积分系统功能 ====================
@@ -806,7 +805,7 @@ local function initGame()
     game_state.score_p2 = 0
 
     -- 重置网络模块的积分
-    expvp.reset_score()
+    expvp.set_local_score(0)
 
     -- 复位玩家按钮输入状态
     lastDirClickTime = 0  -- 重置方向点击节流
@@ -1724,7 +1723,15 @@ updateRoomUI = function()
     is_host_player = room_info.is_host
     current_room_id = room_info.room_id
     local players = room_info.players or {}
-    local player_count = expvp.get_player_count()
+    -- 计算玩家数量（players 表中已包含房主和自己，直接用 pairs 遍历）
+    local player_count = 0
+    for _ in pairs(players) do
+        player_count = player_count + 1
+    end
+    -- 如果 players 表为空（理论上不会），至少为1（自己）
+    if player_count == 0 then
+        player_count = 1
+    end
     room_has_enough = player_count >= 2
     -- 同步自己的准备状态（确保与网络模块一致）
     my_ready = room_info.my_ready
@@ -1742,17 +1749,34 @@ updateRoomUI = function()
     local player_names = {"P1", "P2"}
     -- 构建玩家映射表: player_number -> {device_id, nickname, ready}
     local player_slots = {}
-    -- 房主（自己）是P1
-    player_slots[1] = {
-        device_id = my_device_id,
-        nickname = get_nickname() .. " [你]",
-        ready = expvp.get_room_info().my_ready,
-    }
-    -- 其他玩家按顺序填入P2
-    local slot = 2
+    -- 从 players 表中动态获取玩家信息
+    -- 先放自己（房主或加入者）
+    local slot = 1
+    if players[my_device_id] then
+        local pinfo = players[my_device_id]
+        player_slots[slot] = {
+            device_id = my_device_id,
+            nickname = (pinfo.nickname or my_device_id:sub(-6)) .. " [你]",
+            ready = room_info.my_ready,
+        }
+        slot = slot + 1
+    else
+        -- 兜底：如果 players 中没有自己，手动添加
+        player_slots[slot] = {
+            device_id = my_device_id,
+            nickname = get_nickname() .. " [你]",
+            ready = room_info.my_ready,
+        }
+        slot = slot + 1
+    end
+    -- 其他玩家按顺序填入
     for device_id, pinfo in pairs(players) do
         if device_id ~= my_device_id and slot <= 2 then
-            local pname = (pinfo.nickname or device_id:sub(-6))
+            local pname = (pinfo.nickname or "") .. ""
+            -- 如果 nickname 为空，使用 device_id 后6位
+            if pname == "" then
+                pname = device_id:sub(-6)
+            end
             player_slots[slot] = {
                 device_id = device_id,
                 nickname = pname,
@@ -1995,18 +2019,16 @@ onCreateRoom = function()
     gameState = STATE.ROOM_WAITING
     
     -- 创建房间
-    expvp.create_room(function(success, room_id)
-        if success then
-            current_room_id = room_id
-            log.info('tank_battle', '房间创建成功:', room_id)
-            buildRoomWaitingUI()
-            showRoomWaitingUI()
-            showToast("房间已创建，等待其他玩家加入...")
-        else
-            showToast("创建房间失败")
-            showMainMenu()
-        end
-    end)
+    current_room_id = expvp.create_room()
+    if current_room_id then
+        log.info('tank_battle', '房间创建成功:', current_room_id)
+        buildRoomWaitingUI()
+        showRoomWaitingUI()
+        showToast("房间已创建，等待其他玩家加入...")
+    else
+        showToast("创建房间失败")
+        showMainMenu()
+    end
 end
 
 -- 加入房间弹窗（输入房间ID）
@@ -2173,18 +2195,12 @@ onJoinRoom = function(room_id)
     networkMode = true
     gameState = STATE.ROOM_WAITING
     
-    expvp.join_room(room_id, function(success)
-        if success then
-            current_room_id = room_id
-            log.info('tank_battle', '加入房间成功:', room_id)
-            buildRoomWaitingUI()
-            showRoomWaitingUI()
-            showToast("已加入房间，请点击准备")
-        else
-            showToast("加入房间失败")
-            showMainMenu()
-        end
-    end)
+    expvp.join_room(room_id)
+    current_room_id = room_id
+    log.info('tank_battle', '加入房间:', room_id)
+    buildRoomWaitingUI()
+    showRoomWaitingUI()
+    showToast("已加入房间，请点击准备")
 end
 -- ==================== 位置同步相关函数 ====================
 
@@ -3245,22 +3261,16 @@ startQuickMatch = function()
     
     showMatchingUI()
     
-    -- 开始匹配
-    expvp.start_match(function(success, result)
-        if not success then
-            hideMatchingUI()
-            if result == "timeout" then
-                showToast("匹配超时，暂无在线玩家")
-            elseif result == "already matching" then
-                showToast("正在匹配中...")
-            end
-            showMainMenu()
-        end
-        -- 匹配成功通过 on_match_found 回调处理
-    end)
+    -- 开始匹配（结果通过事件回调处理）
+    expvp.start_match()
 end
 
 local function onMatchFound(peer_id, peer_info)
+    -- 兼容两种调用方式：payload 表或两个独立参数
+    if type(peer_id) == "table" then
+        peer_info = peer_id
+        peer_id = peer_info.device_id
+    end
     local nickname = peer_info.nickname or peer_id:sub(-6)
     log.info('tank_battle', '匹配成功！对手:', nickname)
     
@@ -3278,15 +3288,15 @@ local function onMatchFound(peer_id, peer_info)
     -- 注意：device_id 可能是字符串（如MAC地址），需要安全比较
     local my_id_num = tonumber(my_device_id)
     local peer_id_num = tonumber(peer_id)
-    local imSmaller = false
+    local isSmaller = false
     if my_id_num and peer_id_num then
         -- 双方都是数字，按数字比较
-        imSmaller = (my_id_num < peer_id_num)
+        isSmaller = (my_id_num < peer_id_num)
     else
         -- 有一方不是数字，按字符串比较（结果互补，保证一方P1一方P2）
-        imSmaller = (my_device_id < peer_id)
+        isSmaller = (my_device_id < peer_id)
     end
-    networkPlayerNumber = imSmaller and 1 or 2
+    networkPlayerNumber = isSmaller and 1 or 2
     my_player_number = networkPlayerNumber  -- 匹配模式同步设置 my_player_number
     game_state.is_server = (networkPlayerNumber == 1)
     log.info('tank_battle', string.format('匹配结果: my_device_id=%s, peer_id=%s, my_player_number=%s',
@@ -3404,95 +3414,104 @@ local function win_on_create()
         color = 0x0d1117
     })
     
-    expvp.init({
+    -- 初始化网络模块
+    local ok, err = expvp.init({
         game_name = "tank_battle",
         score_cls = 1,
         room_max_players = 2,
-        callbacks = {
-            on_message = onNetworkMessage,
-            on_match_found = onMatchFound,
-            on_peer_join = function(peer_id, peer_info)
-                log.info('tank_battle', '玩家加入房间:', peer_info and peer_info.nickname or peer_id)
-                updateRoomUI()
-            end,
-            on_peer_leave = function(peer_id)
-                log.info('tank_battle', '玩家离开房间:', peer_id)
-                -- 游戏进行中或房间等待中，提示对方已退出
-                if gameState == STATE.PLAYING or gameState == STATE.GAME_OVER then
-                    showToast("对方已退出游戏")
-                    sys.timerStart(function()
-                        showMainMenu()
-                    end, 1500)
-                elseif gameState == STATE.ROOM_WAITING then
-                    showToast("对方已离开房间")
-                    updateRoomUI()
-                else
-                    updateRoomUI()
-                end
-            end,
-            on_peer_ready = function(peer_id, ready)
-                log.info('tank_battle', '玩家准备状态:', peer_id, ready)
-                updateRoomUI()
-            end,
-            on_game_started = function(data)
-                log.info('tank_battle', '收到游戏开始通知')
-                -- 解析玩家编号分配
-                local assignments = data.player_assignments or {}
-                my_player_number = assignments[my_device_id] or 1
-                networkMode = true
-                is_host_player = expvp.is_host()
-                -- 设置对手信息（用于兼容旧版点对点通信）
-                for device_id, pnum in pairs(assignments) do
-                    if device_id ~= my_device_id then
-                        game_state.peer_device_id = device_id
-                        break
-                    end
-                end
-                expvp.set_game_playing(true, game_state.peer_device_id)
-                
-                -- 关闭房间等待UI，开始游戏
-                hideRoomWaitingUI()
-                showGameUI()
-                startGame()
-                
-                -- 更新模式指示器
-                if ui.mode_indicator then
-                    ui.mode_indicator:set_text("联网对战 (2人房间)")
-                end
-            end,
-            on_join_rejected = function(reason)
-                showToast("加入被拒绝: " .. (reason or "未知原因"))
-                showMainMenu()
-            end,
-            on_disconnect = function()
-                if networkMode and (gameState == STATE.PLAYING or gameState == STATE.GAME_OVER) then
-                    showToast("对方已退出游戏")
-                    networkMode = false
-                    is_host_player = false
-                    game_state.peer_connected = false
-                    hideRoomWaitingUI()
-                    sys.timerStart(function()
-                        showMainMenu()
-                    end, 1500)
-                elseif networkMode and gameState == STATE.ROOM_WAITING then
-                    showToast("网络连接断开")
-                    networkMode = false
-                    is_host_player = false
-                    game_state.peer_connected = false
-                    hideRoomWaitingUI()
+    })
+    
+    if not ok then
+        log.error('tank_battle', 'expvp init failed:', err)
+    end
+    
+    -- 注册事件回调
+    expvp.on(function(event, payload)
+        if event == "message" then
+            onNetworkMessage(payload)
+        elseif event == "match_found" then
+            onMatchFound(payload.device_id, payload)
+        elseif event == "peer_join" then
+            log.info('tank_battle', '玩家加入房间:', payload.nickname or payload.device_id)
+            updateRoomUI()
+        elseif event == "peer_leave" then
+            log.info('tank_battle', '玩家离开房间:', payload.device_id)
+            -- 游戏进行中或房间等待中，提示对方已退出
+            if gameState == STATE.PLAYING or gameState == STATE.GAME_OVER then
+                showToast("对方已退出游戏")
+                sys.timerStart(function()
                     showMainMenu()
-                elseif networkMode and gameState == STATE.WAITING then
-                    -- 匹配中对方断开
-                    showToast("对方已取消匹配")
-                    networkMode = false
-                    game_state.peer_connected = false
-                    game_state.peer_device_id = nil
-                    hideMatchingUI()
-                    showMainMenu()
+                end, 1500)
+            elseif gameState == STATE.ROOM_WAITING then
+                showToast("对方已离开房间")
+                updateRoomUI()
+            else
+                updateRoomUI()
+            end
+        elseif event == "peer_ready" then
+            log.info('tank_battle', '玩家准备状态:', payload.device_id, payload.ready)
+            updateRoomUI()
+        elseif event == "game_start" then
+            log.info('tank_battle', '收到游戏开始通知')
+            -- 解析玩家编号分配
+            local assignments = payload.player_assignments or {}
+            my_player_number = assignments[my_device_id] or 1
+            networkMode = true
+            local room_info = expvp.get_room_info()
+            is_host_player = room_info.is_host
+            -- 设置对手信息（用于兼容旧版点对点通信）
+            for device_id, pnum in pairs(assignments) do
+                if device_id ~= my_device_id then
+                    game_state.peer_device_id = device_id
+                    break
                 end
             end
-        }
-    })
+            expvp.set_game_playing(true, game_state.peer_device_id)
+            
+            -- 关闭房间等待UI，开始游戏
+            hideRoomWaitingUI()
+            showGameUI()
+            startGame()
+            
+            -- 更新模式指示器
+            if ui.mode_indicator then
+                ui.mode_indicator:set_text("联网对战 (2人房间)")
+            end
+        elseif event == "join_rejected" then
+            showToast("加入被拒绝: " .. (payload.reason or "未知原因"))
+            showMainMenu()
+        elseif event == "disconnect" then
+            if networkMode and (gameState == STATE.PLAYING or gameState == STATE.GAME_OVER) then
+                showToast("对方已退出游戏")
+                networkMode = false
+                is_host_player = false
+                game_state.peer_connected = false
+                hideRoomWaitingUI()
+                sys.timerStart(function()
+                    showMainMenu()
+                end, 1500)
+            elseif networkMode and gameState == STATE.ROOM_WAITING then
+                showToast("网络连接断开")
+                networkMode = false
+                is_host_player = false
+                game_state.peer_connected = false
+                hideRoomWaitingUI()
+                showMainMenu()
+            elseif networkMode and gameState == STATE.WAITING then
+                -- 匹配中对方断开
+                showToast("对方已取消匹配")
+                networkMode = false
+                game_state.peer_connected = false
+                game_state.peer_device_id = nil
+                hideMatchingUI()
+                showMainMenu()
+            end
+        elseif event == "match_timeout" then
+            hideMatchingUI()
+            showToast("匹配超时，暂无在线玩家")
+            showMainMenu()
+        end
+    end)
     
     -- 在expvp.init之后获取设备信息（init内部会初始化state）
     my_device_id = get_device_id()
@@ -3900,14 +3919,8 @@ function loadLeaderboardData()
         leaderboardLoadingLabel:set_text("加载中...")
     end
     
-    -- 使用 exapp.list_record 直接查询（支持分页，每页11条）
-    if exapp then
-        local pageSize = 11
-        local offset = (leaderboardPage - 1) * pageSize
-        exapp.list_record({cls = 1, sort = "i1 desc", size = pageSize, offset = offset}, onLeaderboardQueryCallback)
-    else
-        -- 降级使用 expvp 模块
-        expvp.query_leaderboard(leaderboardPage, function(success, data)
+        -- 使用 expvp.query_leaderboard 查询（默认前30名）
+        expvp.query_leaderboard(function(success, data)
             if not success or not data then
                 if leaderboardLoadingLabel then
                     leaderboardLoadingLabel:set_text("加载失败")
@@ -3915,8 +3928,7 @@ function loadLeaderboardData()
                 return
             end
             onLeaderboardQueryCallback(success, data)
-        end, 11)
-    end
+        end)
 end
 
 -- 打开排行榜窗口
@@ -4035,25 +4047,18 @@ function openLeaderboardWin()
                         font_size = 18, text_color = 0xFFFFFF, bg_color = 0xCC0000, radius = 6,
                         on_click = function()
                             confirmContainer:destroy()
-                            local ok, info = pcall(exapp.iot_get_account_info)
-                            if ok and info and not info.is_guest then
-                                local account = info.account or ""
-                                local deleted = 0
-                                for _, record in ipairs(leaderboardData) do
-                                    local match = false
-                                    if record.uni_key then
-                                        match = (record.uni_key == account) or (record.uni_key:find(account, 1, true) == 1)
-                                    end
-                                    if match and record.id then
-                                        exapp.delete_record({cls = 1, id = record.id})
-                                        deleted = deleted + 1
-                                    end
+                            -- 使用 expvp.delete_score() API 删除当前账号的积分记录
+                            expvp.delete_score(function(success, deleted)
+                                if success then
+                                    log.info('tank_battle', '删除积分记录成功, 删除条数:', deleted)
+                                else
+                                    log.warn('tank_battle', '删除积分记录失败')
                                 end
                                 -- 删除后刷新排行榜
                                 sys.timerStart(function()
                                     loadLeaderboardData()
                                 end, 300)
-                            end
+                            end)
                         end
                     })
                 end

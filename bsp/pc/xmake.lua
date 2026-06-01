@@ -543,6 +543,11 @@ target("luatos-lua")
         add_includedirs(luatos.."components/lcd")
         add_includedirs(luatos.."components/luat_image/include")
         add_files(luatos.."components/lcd/*.c")
+        -- display
+        add_includedirs(luatos.."components/display/inc")
+        add_files(luatos.."components/display/src/**.c")
+        add_files(luatos.."components/display/binding/*.c")
+        -- luat_image
         add_files(luatos.."components/luat_image/src/*.c")
 
         -- LVGL 9.4 + AIRUI - 最基础组件编译

@@ -226,6 +226,8 @@
 // UI
 // LCD  是彩屏, 若使用LVGL就必须启用LCD
 #define LUAT_USE_LCD
+// Display 核心库 (新一代显示抽象层)
+#define LUAT_USE_DISPLAY 1
 // hzfont 字体库支持
 #define LUAT_USE_HZFONT 1
 #define LUAT_CONF_USE_HZFONT_BUILTIN_TTF 1

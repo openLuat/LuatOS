@@ -47,7 +47,7 @@ network/
 │           .c / .h)             │  States: OFF_LINE → CONNECTING → ONLINE / LISTEN
 ├─────────────────────────────────┤
 │ Adapter (per-platform)          │  lwip2: net_lwip2.c
-│                                 │  PC:    luat_network_adapter_libuv.c
+│                                 │  PC:    luat_network_adapter_posix.c
 └─────────────────────────────────┘
 ```
 

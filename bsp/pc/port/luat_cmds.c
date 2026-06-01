@@ -28,6 +28,7 @@ int cfg_dump_luadb;
 int cfg_dump_report;
 int cfg_norun;
 int cfg_noexit;
+int cfg_webc_port;
 // PC 模拟器默认开启依赖裁剪; 如需回退到旧行为, 用 --dep_strip=0 关闭
 int cfg_dep_strip = 1;
 // 是否已通过 --llt= / --ldb= 等方式预加载了项目文件(含 main.lua)
@@ -1014,6 +1015,27 @@ static int is_opts(const char *key, const char *arg)
 	return memcmp(key, arg, strlen(key)) == 0;
 }
 
+static int parse_webc_port(const char *value, int *port)
+{
+	char *endptr = NULL;
+	long p = 0;
+	if (value == NULL || value[0] == 0)
+	{
+		return -1;
+	}
+	p = strtol(value, &endptr, 10);
+	if (endptr == value || *endptr != 0)
+	{
+		return -1;
+	}
+	if (p < 1 || p > 65535)
+	{
+		return -1;
+	}
+	*port = (int)p;
+	return 0;
+}
+
 int luat_cmd_parse(int argc, char **argv)
 {
 	char **input_paths = NULL;
@@ -1137,6 +1159,18 @@ int luat_cmd_parse(int argc, char **argv)
 			else if (!strcmp("--dep_strip=0", arg)) {
 				cfg_dep_strip = 0;
 			}
+			continue;
+		}
+		if (is_opts("--webc=", arg))
+		{
+			const char *port_str = arg + strlen("--webc=");
+			int port = 0;
+			if (parse_webc_port(port_str, &port))
+			{
+				LLOGE("无效的 --webc 端口: %s, 允许范围 1-65535", port_str);
+				return -1;
+			}
+			cfg_webc_port = port;
 			continue;
 		}
 

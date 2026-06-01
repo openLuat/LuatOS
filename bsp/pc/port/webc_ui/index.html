@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LuatOS Web Console</title>
+  <link rel="stylesheet" href="/webc_ui/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>LuatOS Web Console</h1>
+      <p>Lightweight native HTML + JS dashboard backed by the PC runtime APIs.</p>
+    </div>
+    <div class="status-pill" id="health-pill">connecting…</div>
+  </header>
+
+  <main class="grid">
+    <section id="dashboard" class="card span-2">
+      <div class="card-head">
+        <h2>Dashboard</h2>
+        <div class="button-row">
+          <button data-cadence="1">1s</button>
+          <button data-cadence="5" class="active">5s</button>
+          <button data-cadence="15">15s</button>
+          <button id="refresh-all">Refresh</button>
+        </div>
+      </div>
+      <div class="summary-grid">
+        <div>
+          <h3>System status</h3>
+          <pre id="status-json">Loading…</pre>
+        </div>
+        <div>
+          <h3>Operation info</h3>
+          <pre id="op-info">Loading…</pre>
+        </div>
+        <div>
+          <h3>Memory snapshot</h3>
+          <pre id="memory-snapshot">Loading…</pre>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-head">
+          <h3>Memory curve</h3>
+          <span id="telemetry-meta">Waiting for telemetry…</span>
+        </div>
+        <canvas id="memory-curve" width="900" height="260"></canvas>
+      </div>
+    </section>
+
+    <section id="uart31" class="card">
+      <div class="card-head">
+        <h2>UART31</h2>
+        <button id="uart31-refresh">Refresh</button>
+      </div>
+      <pre id="uart31-console">Loading…</pre>
+      <form id="uart31-form" class="stack">
+        <label>Direction
+          <select name="direction">
+            <option value="rx">rx</option>
+            <option value="tx">tx</option>
+          </select>
+        </label>
+        <label>Encoding
+          <select name="encoding">
+            <option value="utf8">utf8</option>
+            <option value="hex">hex</option>
+          </select>
+        </label>
+        <label>Payload
+          <textarea name="payload" rows="4" placeholder="Hello"></textarea>
+        </label>
+        <button type="submit">Inject</button>
+      </form>
+    </section>
+
+    <section id="uart32-gnss" class="card">
+      <div class="card-head">
+        <h2>UART32 GNSS</h2>
+        <button id="gnss-refresh">Refresh</button>
+      </div>
+      <pre id="gnss-status">Loading…</pre>
+      <form id="gnss-form" class="stack">
+        <label>Mode
+          <select name="mode">
+            <option value="fixed">fixed</option>
+            <option value="kml">kml</option>
+            <option value="file">file</option>
+          </select>
+        </label>
+        <label><input type="checkbox" name="running" checked> Running</label>
+        <div class="split">
+          <label>Lat <input name="lat" type="number" step="0.0001" value="39.9070"></label>
+          <label>Lon <input name="lon" type="number" step="0.0001" value="116.3910"></label>
+        </div>
+        <div class="split">
+          <label>Speed(knots) <input name="speed_knots" type="number" step="0.1" value="0.5"></label>
+          <label>Course <input name="course" type="number" step="0.1" value="0"></label>
+        </div>
+        <label>Source text
+          <textarea name="source_text" rows="5" placeholder="KML or newline-separated track"></textarea>
+        </label>
+        <button type="submit">Apply GNSS</button>
+      </form>
+    </section>
+
+    <section id="sht20" class="card">
+      <div class="card-head">
+        <h2>SHT20</h2>
+        <button id="sht20-refresh">Refresh</button>
+      </div>
+      <pre id="sht20-status">Loading…</pre>
+      <form id="sht20-form" class="stack">
+        <div class="split">
+          <label>Temperature °C <input name="temperature_c" type="number" step="0.1"></label>
+          <label>Humidity %RH <input name="humidity_rh" type="number" step="0.1"></label>
+        </div>
+        <button type="submit">Update mock sensor</button>
+      </form>
+    </section>
+
+    <section id="storage" class="card">
+      <div class="card-head">
+        <h2>TF / NOR / NAND</h2>
+        <button id="storage-refresh">Refresh</button>
+      </div>
+      <pre id="storage-status">Loading…</pre>
+      <form id="storage-form" class="stack">
+        <label><input type="checkbox" name="tf_enabled"> TF enabled</label>
+        <label><input type="checkbox" name="nor_enabled"> NOR enabled</label>
+        <label><input type="checkbox" name="nand_enabled"> NAND enabled</label>
+        <div class="split">
+          <label>TF capacity MB <input name="tf_capacity_mb" type="number" min="1"></label>
+          <label>NOR capacity MB <input name="nor_capacity_mb" type="number" min="1"></label>
+        </div>
+        <div class="split">
+          <label>NAND capacity MB <input name="nand_capacity_mb" type="number" min="1"></label>
+          <label>NOR model <input name="nor_model" type="text"></label>
+        </div>
+        <label>NAND model <input name="nand_model" type="text"></label>
+        <button type="submit">Save storage config</button>
+      </form>
+    </section>
+
+    <section id="network" class="card">
+      <div class="card-head">
+        <h2>Network switch</h2>
+        <button id="network-refresh">Refresh</button>
+      </div>
+      <pre id="network-status">Loading…</pre>
+      <form id="network-form" class="stack">
+        <label><input type="checkbox" name="enabled"> Network enabled</label>
+        <button type="submit">Apply</button>
+      </form>
+    </section>
+
+    <section id="config" class="card span-2">
+      <div class="card-head">
+        <h2>Config</h2>
+        <button id="config-refresh">Refresh</button>
+      </div>
+      <pre id="config-json">Loading…</pre>
+      <form id="config-form" class="stack">
+        <div class="split">
+          <label>Web console port <input name="port" type="number" min="1" max="65535"></label>
+          <label>Refresh interval
+            <select name="refresh_interval">
+              <option value="1">1</option>
+              <option value="5">5</option>
+              <option value="15">15</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit">Save web console config</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/webc_ui/app.js" defer></script>
+</body>
+</html>

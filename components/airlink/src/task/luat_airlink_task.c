@@ -46,29 +46,26 @@ __AIRLINK_CODE_IN_RAM__ static void exec_cmd(luat_airlink_cmd_t* ptr) {
 }
 
 __AIRLINK_CODE_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
-    #ifdef __BK72XX__
     luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)data;
     if (cmd->cmd == 0x100) {
         // IP数据直接处理,不走线程
         luat_airlink_cmd_exec_ip_pkg(cmd, NULL);
         return;
     }
-    // GPIO指令, 需要立即执行
-    else if (cmd->cmd >= 0x300 && cmd->cmd <= 0x302) {
+#ifdef __BK72XX__
+    if (cmd->cmd >= 0x300 && cmd->cmd <= 0x302) {
         exec_cmd(cmd);
         return;
     }
-    // FOTA指令, 也需要立即执行
-    else if (cmd->cmd >= 0x04 && cmd->cmd <= 0x07) {
+    if (cmd->cmd >= 0x04 && cmd->cmd <= 0x07) {
         exec_cmd(cmd);
         return;
     }
-    // UART指令, 也需要立即执行
-    else if (cmd->cmd >= 0x400 && cmd->cmd <= 0x410) {
+    if (cmd->cmd >= 0x400 && cmd->cmd <= 0x410) {
         exec_cmd(cmd);
         return;
     }
-    #endif
+#endif
     void* ptr = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, len);
     if (ptr == NULL) {
         LLOGE("airlink分配内存失败!!! %d", len);

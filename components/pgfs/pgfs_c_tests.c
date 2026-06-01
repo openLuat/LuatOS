@@ -1459,6 +1459,263 @@ static int pgfs_test_replay_stops_at_truncated_tail_and_keeps_prefix(void) {
     return fail;
 }
 
+static int pgfs_test_write_file(pgfs_mount_ctx_t* ctx, const char* path, const uint8_t* data, size_t len) {
+    FILE* f = NULL;
+    size_t wrote = 0;
+    if (ctx == NULL || path == NULL || data == NULL || len == 0) {
+        return -1;
+    }
+    f = pgfs_file_open(ctx, path, "wb");
+    if (f == NULL) {
+        return -1;
+    }
+    wrote = pgfs_file_write(ctx, data, 1, len, f);
+    if (wrote != len) {
+        pgfs_file_close(ctx, f);
+        return -1;
+    }
+    if (pgfs_file_close(ctx, f) != 0) {
+        return -1;
+    }
+    return 0;
+}
+
+/* Boundary contract: after reaching ENOSPC, deleting files should allow writing new files again. */
+static int pgfs_test_fill_delete_rewrite_recovers_capacity(void) {
+    int fail = 0;
+    pgfs_test_flash_t flash = {0};
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint8_t payload[768];
+    uint32_t i = 0;
+    uint32_t written = 0;
+    char path[96];
+
+    memset(payload, 'R', sizeof(payload));
+    memset(flash.mem, 0xFF, sizeof(flash.mem));
+    flash.capacity_override = 0x7000u;
+    opts.ctx = &flash;
+    opts.read = pgfs_test_read;
+    opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase;
+    opts.control = pgfs_test_control;
+
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.checkpoint.magic = PGFS_CHECKPOINT_MAGIC;
+    ctx.checkpoint.version = PGFS_ONDISK_VERSION;
+    ctx.checkpoint.total_blocks = 7;
+    ctx.checkpoint_loaded = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+
+    for (i = 1; i <= 48; i++) {
+        snprintf(path, sizeof(path), "nand/full_%lu.bin", (unsigned long)i);
+        if (pgfs_test_write_file(&ctx, path, payload, sizeof(payload)) != 0) {
+            break;
+        }
+        written = i;
+    }
+    if (written == 0 || i > 48) {
+        return 1;
+    }
+    if (written < 8) {
+        return 1;
+    }
+
+    for (i = 1; i <= 6; i++) {
+        snprintf(path, sizeof(path), "nand/full_%lu.bin", (unsigned long)i);
+        if (pgfs_file_remove(&ctx, path) != 0) {
+            fail++;
+        }
+    }
+
+    for (i = 1; i <= 3; i++) {
+        snprintf(path, sizeof(path), "nand/rewrite_%lu.bin", (unsigned long)i);
+        if (pgfs_test_write_file(&ctx, path, payload, sizeof(payload)) != 0) {
+            fail++;
+        }
+    }
+    return fail;
+}
+
+static int pgfs_test_repeated_add_delete_stays_stable(void) {
+    int fail = 0;
+    pgfs_test_flash_t flash = {0};
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint8_t payload[64];
+    uint32_t round = 0;
+    uint32_t i = 0;
+    char path[96];
+
+    memset(payload, 'S', sizeof(payload));
+    memset(flash.mem, 0xFF, sizeof(flash.mem));
+    opts.ctx = &flash;
+    opts.read = pgfs_test_read;
+    opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase;
+    opts.control = pgfs_test_control;
+
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.checkpoint.magic = PGFS_CHECKPOINT_MAGIC;
+    ctx.checkpoint.version = PGFS_ONDISK_VERSION;
+    ctx.checkpoint.total_blocks = 7;
+    ctx.checkpoint_loaded = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+
+    for (round = 1; round <= 80; round++) {
+        for (i = 1; i <= 10; i++) {
+            snprintf(path, sizeof(path), "nand/churn_r%lu_f%lu.bin", (unsigned long)round, (unsigned long)i);
+            if (pgfs_test_write_file(&ctx, path, payload, sizeof(payload)) != 0) {
+                fail++;
+            }
+        }
+        for (i = 1; i <= 10; i++) {
+            snprintf(path, sizeof(path), "nand/churn_r%lu_f%lu.bin", (unsigned long)round, (unsigned long)i);
+            if (pgfs_file_remove(&ctx, path) != 0) {
+                fail++;
+            }
+        }
+    }
+    return fail;
+}
+
+static int pgfs_test_info_fast_after_many_small_files(void) {
+    int fail = 0;
+    pgfs_test_flash_t flash = {0};
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    luat_fs_info_t info = {0};
+    uint8_t payload[16];
+    uint32_t i = 0;
+    char path[96];
+
+    memset(payload, 'I', sizeof(payload));
+    memset(flash.mem, 0xFF, sizeof(flash.mem));
+    opts.ctx = &flash;
+    opts.read = pgfs_test_read;
+    opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase;
+    opts.control = pgfs_test_control;
+
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.checkpoint.magic = PGFS_CHECKPOINT_MAGIC;
+    ctx.checkpoint.version = PGFS_ONDISK_VERSION;
+    ctx.checkpoint.total_blocks = 7;
+    ctx.checkpoint_loaded = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+
+    for (i = 1; i <= 60; i++) {
+        snprintf(path, sizeof(path), "nand/small_%lu.txt", (unsigned long)i);
+        if (pgfs_test_write_file(&ctx, path, payload, sizeof(payload)) != 0) {
+            return 1;
+        }
+    }
+    for (i = 0; i < 400; i++) {
+        memset(&info, 0, sizeof(info));
+        if (pgfs_info_fast(&ctx, &info) != 0) {
+            fail++;
+            break;
+        }
+        if (info.total_block == 0) {
+            fail++;
+            break;
+        }
+    }
+    return fail;
+}
+
+static int pgfs_test_powercut_stage_matrix_visibility(void) {
+    int fail = 0;
+    pgfs_test_flash_t flash = {0};
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    pgfs_mount_ctx_t replay_ctx = {0};
+    FILE* f = NULL;
+    char buf[24] = {0};
+    const uint8_t payload[] = "cut";
+    struct stage_case {
+        uint8_t stage;
+        int expect_exist;
+    } cases[] = {
+        {PGFS_INJECT_POWERCUT_BEFORE_APPEND, 0},
+        {PGFS_INJECT_POWERCUT_AFTER_APPEND, 1},
+        {PGFS_INJECT_POWERCUT_BEFORE_CP, 1},
+    };
+    size_t i = 0;
+
+    for (i = 0; i < sizeof(cases)/sizeof(cases[0]); i++) {
+        memset(&flash, 0, sizeof(flash));
+        memset(flash.mem, 0xFF, sizeof(flash.mem));
+        memset(&ctx, 0, sizeof(ctx));
+        memset(&replay_ctx, 0, sizeof(replay_ctx));
+        pgfs_file_reset_all();
+
+        opts.ctx = &flash;
+        opts.read = pgfs_test_read;
+        opts.write = pgfs_test_write;
+        opts.erase = pgfs_test_erase;
+        opts.control = pgfs_test_control;
+
+        ctx.flash_opts = &opts;
+        ctx.runtime_generation = 1;
+        ctx.mounted = 1;
+        ctx.inject_powercut_stage = cases[i].stage;
+        ctx.checkpoint.magic = PGFS_CHECKPOINT_MAGIC;
+        ctx.checkpoint.version = PGFS_ONDISK_VERSION;
+        ctx.checkpoint.total_blocks = 7;
+        ctx.checkpoint_loaded = 1;
+        ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+        ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+        ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+
+        if (pgfs_test_write_file(&ctx, "nand/powercut_stage.txt", payload, sizeof(payload) - 1) == 0) {
+            fail++;
+            continue;
+        }
+
+        pgfs_file_reset_all();
+        replay_ctx.flash_opts = &opts;
+        replay_ctx.runtime_generation = 2;
+        replay_ctx.mounted = 1;
+        replay_ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+        replay_ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+        replay_ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+        if (pgfs_replay_data_log(&replay_ctx) != 0) {
+            fail++;
+            continue;
+        }
+        f = pgfs_file_open(&replay_ctx, "/nand/powercut_stage.txt", "rb");
+        if (cases[i].expect_exist) {
+            if (f == NULL) {
+                fail++;
+                continue;
+            }
+            memset(buf, 0, sizeof(buf));
+            if (pgfs_file_read(&replay_ctx, buf, 1, sizeof(payload) - 1, f) != sizeof(payload) - 1 || memcmp(buf, payload, sizeof(payload) - 1) != 0) {
+                fail++;
+            }
+            pgfs_file_close(&replay_ctx, f);
+        }
+        else if (f != NULL) {
+            pgfs_file_close(&replay_ctx, f);
+            fail++;
+        }
+    }
+    return fail;
+}
+
 int pgfs_run_c_layer_tests(void) {
     int fail = 0;
     int r = 0;
@@ -1482,13 +1739,56 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_replay_skips_unknown_prefix_to_relocated_log);
     PGFS_RUN_CTEST(pgfs_test_replay_batch_commit_marker_boundary);
     PGFS_RUN_CTEST(pgfs_test_info_fastpath_uses_runtime_checkpoint);
+    PGFS_RUN_CTEST(pgfs_test_fill_delete_rewrite_recovers_capacity);
+    PGFS_RUN_CTEST(pgfs_test_repeated_add_delete_stays_stable);
+    PGFS_RUN_CTEST(pgfs_test_info_fast_after_many_small_files);
+    PGFS_RUN_CTEST(pgfs_test_powercut_stage_matrix_visibility);
 #undef PGFS_RUN_CTEST
     return fail == 0 ? 0 : -1;
+}
+
+int pgfs_run_c_layer_case(const char* case_name) {
+    if (case_name == NULL || case_name[0] == '\0' || strcmp(case_name, "c_layer_selftests") == 0) {
+        return pgfs_run_c_layer_tests();
+    }
+    if (strcmp(case_name, "generation_fallback_prefers_latest_valid") == 0) {
+        return pgfs_test_pick_latest_valid_sb() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "fclose_is_durable_boundary") == 0) {
+        return pgfs_test_checkpoint_batch_close_and_pending_commit() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "controlled_powercut_before_checkpoint") == 0) {
+        return pgfs_test_replay_batch_commit_marker_boundary() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "control_invalid_args") == 0) {
+        return pgfs_test_batch_api_boundaries() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "info_fast_path_and_rebuild") == 0) {
+        return pgfs_test_info_fastpath_uses_runtime_checkpoint() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "getc_line_read_path") == 0) {
+        return pgfs_test_replay_stops_at_truncated_tail_and_keeps_prefix() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "directory_listing_and_existence") == 0) {
+        return pgfs_test_directory_helpers() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "large_unzip_repro") == 0) {
+        return pgfs_test_batch_commit_persists_after_replay() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "fill_delete_rewrite_recovers_capacity") == 0) {
+        return pgfs_test_fill_delete_rewrite_recovers_capacity() == 0 ? 0 : -1;
+    }
+    return -1;
 }
 
 #else
 
 int pgfs_run_c_layer_tests(void) {
+    return -1;
+}
+
+int pgfs_run_c_layer_case(const char* case_name) {
+    (void)case_name;
     return -1;
 }
 

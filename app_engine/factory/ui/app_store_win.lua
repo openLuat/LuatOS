@@ -1133,6 +1133,10 @@ local function on_create()
     calc_layout()
     create_ui()
 
+    -- 每次进入应用市场时重置存储校准标记，
+    -- 使首次 get_app_list 重新读取各存储剩余空间，清零幽灵占用
+    exapp.reset_storage_calibration()
+
     sys.subscribe("APP_STORE_LIST_UPDATED", on_list_updated)
     sys.subscribe("APP_STORE_PROGRESS", on_progress)
     sys.subscribe("APP_STORE_ERROR", on_error)
@@ -1150,8 +1154,6 @@ local function on_create()
         local ok = sys.waitUntil("IP_READY", 30000)
         if ok then
             sys.publish("APP_STORE_GET_LIST", current_category, current_sort, current_page, page_limit, current_query)
-            -- 进入应用市场时重置存储校准，下次 get_app_list 重新读取各存储剩余空间
-            exapp.reset_storage_calibration()
         end
     end)
 end

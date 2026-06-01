@@ -173,17 +173,21 @@ lfs3_t *flash_lfs3_lf(little_flash_t *flash, size_t offset, size_t maxsize) {
     cfg->file_limit       = 0;
 
     int err = lfs3_mount(&ctx->lfs3, 0, cfg);
-    LLOGD("lfs3_mount %d", err);
     if (err) {
+        LLOGW("lfs3_mount failed err=%d, formatting...", err);
         err = lfs3_format(&ctx->lfs3, 0, cfg);
-        LLOGD("lfs3_format %d", err);
-        if (err)
+        if (err) {
+            LLOGW("lfs3_format failed err=%d", err);
             goto fail;
+        }
         err = lfs3_mount(&ctx->lfs3, 0, cfg);
-        LLOGD("lfs3_mount after format %d", err);
-        if (err)
+        if (err) {
+            LLOGW("lfs3_mount after format failed err=%d", err);
             goto fail;
+        }
     }
+    LLOGD("lfs3 mounted ok block_count=%u block_size=%u",
+          (unsigned)cfg->block_count, (unsigned)cfg->block_size);
     return &ctx->lfs3;
 
 fail:

@@ -1010,6 +1010,51 @@ static int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
                                   f->cache.data, hdr.data_len);
 }
 
+static int pgfs_compact_live_entries(pgfs_mount_ctx_t* ctx) {
+    pgfs_flash_geometry_t geo = {0};
+    uint32_t base = 0;
+    uint32_t cap = 0;
+    uint32_t span = 0;
+    size_t i = 0;
+    if (ctx == NULL || ctx->flash_opts == NULL || ctx->flash_opts->control == NULL || ctx->flash_opts->erase == NULL) {
+        return -1;
+    }
+    if (ctx->flash_opts->control(ctx->flash_opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) != 0 || geo.erase_size == 0) {
+        return -1;
+    }
+    base = pgfs_data_log_base_addr(ctx);
+    cap = geo.capacity;
+    if (cap <= base) {
+        return -1;
+    }
+    span = cap - base;
+    if (ctx->flash_opts->erase(ctx->flash_opts->ctx, base, span) != 0) {
+        return -1;
+    }
+    ctx->data_log_write_addr = base;
+    ctx->data_log_prepared_until = base;
+    ctx->checkpoint.used_blocks = 0;
+    ctx->checkpoint.gc_live_bytes = 0;
+    ctx->checkpoint.gc_dead_bytes = 0;
+
+    for (i = 0; i < PGFS_MAX_FILES; i++) {
+        pgfs_file_entry_t* e = &s_pgfs_files[i];
+        pgfs_file_t shadow = {0};
+        if (!e->used || e->len == 0 || e->data == NULL || e->path[0] == '\0') {
+            continue;
+        }
+        shadow.entry = e;
+        shadow.cache.data = e->data;
+        shadow.cache.len = e->len;
+        if (pgfs_append_data_record(ctx, &shadow) != 0) {
+            return -1;
+        }
+        ctx->checkpoint.used_blocks += 1u;
+        ctx->checkpoint.gc_live_bytes += (uint32_t)e->len;
+    }
+    return 0;
+}
+
 static int pgfs_append_batch_data_record(pgfs_mount_ctx_t* ctx, pgfs_batch_pending_entry_t* p) {
     pgfs_batch_data_record_hdr_t hdr = {0};
     if (ctx == NULL || p == NULL || !p->used || p->batch_id == 0) {
@@ -1678,18 +1723,32 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
             goto finish;
         }
         t_alloc = luat_mcu_tick64_ms();
+        if (ctx->inject_powercut_stage == PGFS_INJECT_POWERCUT_BEFORE_APPEND) {
+            ctx->inject_powercut_stage = PGFS_INJECT_POWERCUT_NONE;
+            ctx->stats.powercut_inject_count++;
+            ret = -1;
+            goto finish;
+        }
         if (pgfs_cache_flush_to_log(ctx, f) != 0) {
             LLOGE("close cache_flush failed");
             ret = -1;
             goto finish;
         }
         if (pgfs_append_data_record(ctx, f) != 0) {
-            LLOGE("close append_data_record failed addr=%u", (unsigned int)ctx->data_log_write_addr);
-            (void)pgfs_mark_block_retired(ctx, seg_id);
+            if (pgfs_compact_live_entries(ctx) != 0 || pgfs_append_data_record(ctx, f) != 0) {
+                LLOGE("close append_data_record failed addr=%u", (unsigned int)ctx->data_log_write_addr);
+                (void)pgfs_mark_block_retired(ctx, seg_id);
+                ret = -1;
+                goto finish;
+            }
+        }
+        t_append = luat_mcu_tick64_ms();
+        if (ctx->inject_powercut_stage == PGFS_INJECT_POWERCUT_AFTER_APPEND) {
+            ctx->inject_powercut_stage = PGFS_INJECT_POWERCUT_NONE;
+            ctx->stats.powercut_inject_count++;
             ret = -1;
             goto finish;
         }
-        t_append = luat_mcu_tick64_ms();
         if (pgfs_apply_cache_to_entry(f) != 0) {
             LLOGE("close apply_cache failed");
             ret = -1;

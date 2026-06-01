@@ -19,7 +19,9 @@
 #define AIRLINK_DRV_RPC_ID_MOBILE        0x0700
 #define AIRLINK_DRV_RPC_ID_MOBILE_NOTIFY 0x0701
 
-#define AIRLINK_DRV_RPC_MOBILE_TIMEOUT_MS      2000
+#define AIRLINK_DRV_RPC_MOBILE_TIMEOUT_FAST_MS 120
+#define AIRLINK_DRV_RPC_MOBILE_TIMEOUT_MID_MS  400
+#define AIRLINK_DRV_RPC_MOBILE_TIMEOUT_SLOW_MS 2000
 #define AIRLINK_DRV_RPC_MOBILE_DEFAULT_SCAN_SEC 15
 
 #ifndef EINVAL
@@ -59,6 +61,24 @@ static luat_airlink_drv_rpc_mobile_cell_scan_notify_t s_mobile_last_notify;
 struct mobile_notify_ctx {
     luat_airlink_drv_rpc_mobile_cell_scan_notify_t event;
 };
+
+typedef enum {
+    MOBILE_CALL_TIER_FAST = 0,
+    MOBILE_CALL_TIER_MID,
+    MOBILE_CALL_TIER_SLOW
+} mobile_call_tier_t;
+
+static uint32_t mobile_call_timeout_ms(mobile_call_tier_t tier) {
+    switch (tier) {
+    case MOBILE_CALL_TIER_FAST:
+        return AIRLINK_DRV_RPC_MOBILE_TIMEOUT_FAST_MS;
+    case MOBILE_CALL_TIER_MID:
+        return AIRLINK_DRV_RPC_MOBILE_TIMEOUT_MID_MS;
+    case MOBILE_CALL_TIER_SLOW:
+    default:
+        return AIRLINK_DRV_RPC_MOBILE_TIMEOUT_SLOW_MS;
+    }
+}
 
 static void mobile_notify_ensure_registered(void) {
     if (!s_mobile_notify_registered) {
@@ -145,12 +165,18 @@ static uint32_t mobile_next_req_id(void) {
 static int mobile_do_call(
     drv_mobile_MobileRpcRequest* req,
     drv_mobile_MobileRpcResponse* resp,
-    pb_size_t expected_tag
+    pb_size_t expected_tag,
+    mobile_call_tier_t tier,
+    uint8_t require_ready
 ) {
     int rc;
     int mode = luat_airlink_current_mode_get();
+    uint32_t timeout_ms = mobile_call_timeout_ms(tier);
 
     if (!req || !resp) return -EINVAL;
+    if (require_ready && !luat_airlink_ready()) {
+        return AIRLINK_DRV_RPC_MOBILE_NOT_READY;
+    }
     if (mode < 0) {
         mode = LUAT_AIRLINK_MODE_UART;
     }
@@ -163,7 +189,7 @@ static int mobile_do_call(
         req,
         drv_mobile_MobileRpcResponse_fields,
         resp,
-        AIRLINK_DRV_RPC_MOBILE_TIMEOUT_MS
+        timeout_ms
     );
     if (rc != 0) return rc;
     LLOGD("rpc resp mode=%d rpc=0x%04x which=%u req_id=%lu", mode, AIRLINK_DRV_RPC_ID_MOBILE, (unsigned)resp->which_payload, (unsigned long)resp->req_id);
@@ -381,7 +407,7 @@ int luat_airlink_drv_rpc_mobile_sim_identity_status(
     req.payload.sim_identity_status.has_sim_id = true;
     req.payload.sim_identity_status.sim_id = sim_id;
 
-    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_sim_identity_status_tag);
+    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_sim_identity_status_tag, MOBILE_CALL_TIER_FAST, 1);
     if (rc != 0) return rc;
 
     rc = mobile_result_check(&resp.payload.sim_identity_status.result);
@@ -405,7 +431,7 @@ int luat_airlink_drv_rpc_mobile_global_status(
     req.req_id = mobile_next_req_id();
     req.which_payload = drv_mobile_MobileRpcRequest_global_status_tag;
 
-    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_global_status_tag);
+    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_global_status_tag, MOBILE_CALL_TIER_FAST, 1);
     if (rc != 0) return rc;
 
     rc = mobile_result_check(&resp.payload.global_status.result);
@@ -429,7 +455,7 @@ int luat_airlink_drv_rpc_mobile_signal(
     req.req_id = mobile_next_req_id();
     req.which_payload = drv_mobile_MobileRpcRequest_signal_tag;
 
-    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_signal_tag);
+    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_signal_tag, MOBILE_CALL_TIER_FAST, 1);
     if (rc != 0) return rc;
 
     rc = mobile_result_check(&resp.payload.signal.result);
@@ -450,7 +476,7 @@ int luat_airlink_drv_rpc_mobile_sync_cell_info(
     req.req_id = mobile_next_req_id();
     req.which_payload = drv_mobile_MobileRpcRequest_sync_cell_info_tag;
 
-    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_sync_cell_info_tag);
+    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_sync_cell_info_tag, MOBILE_CALL_TIER_MID, 1);
     if (rc != 0) return rc;
 
     rc = mobile_result_check(&resp.payload.sync_cell_info.result);
@@ -478,7 +504,7 @@ int luat_airlink_drv_rpc_mobile_cell_scan(
     req.payload.cell_scan.has_timeout_sec = true;
     req.payload.cell_scan.timeout_sec = timeout_sec ? timeout_sec : AIRLINK_DRV_RPC_MOBILE_DEFAULT_SCAN_SEC;
 
-    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_cell_scan_tag);
+    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_cell_scan_tag, MOBILE_CALL_TIER_SLOW, 1);
     if (rc != 0) return rc;
     rc = mobile_result_check(&resp.payload.cell_scan.result);
     if (rc == 0) {
@@ -499,7 +525,7 @@ int luat_airlink_drv_rpc_mobile_scell_extern(
     req.req_id = mobile_next_req_id();
     req.which_payload = drv_mobile_MobileRpcRequest_scell_extern_tag;
 
-    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_scell_extern_tag);
+    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_scell_extern_tag, MOBILE_CALL_TIER_FAST, 1);
     if (rc != 0) return rc;
 
     rc = mobile_result_check(&resp.payload.scell_extern.result);

@@ -19,6 +19,7 @@
 #endif
 
 #include "luat_base.h"
+#include "luat_pcconf.h"
 #include "luat_wlan.h"
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
@@ -46,6 +47,11 @@ static char wlan_pending_ssid[36] = {0};
 static char wlan_pending_password[64] = {0};
 static uint8_t wlan_pending_bssid[6] = {0};
 static int16_t wlan_pending_rssi = 0;
+
+static int pc_network_enabled(void) {
+    const luat_pcconf_t* conf = luat_pcconf_get();
+    return !conf || conf->network_enabled ? 1 : 0;
+}
 
 // AP mode state
 static uint32_t wlan_ap_active = 0;
@@ -140,6 +146,9 @@ static int native_wlan_ready(void);
 
 static int l_wlan_scan_done_cb(lua_State *L, void *ptr) {
     (void)ptr;
+    if (!pc_network_enabled()) {
+        return 0;
+    }
     lua_getglobal(L, "sys_pub");
     if (!lua_isfunction(L, -1)) {
         return 0;
@@ -151,6 +160,9 @@ static int l_wlan_scan_done_cb(lua_State *L, void *ptr) {
 
 static int l_wlan_sta_connected_cb(lua_State *L, void *ptr) {
     (void)ptr;
+    if (!pc_network_enabled()) {
+        return 0;
+    }
     lua_getglobal(L, "sys_pub");
     if (!lua_isfunction(L, -1)) {
         return 0;
@@ -166,6 +178,9 @@ static int l_wlan_sta_connected_cb(lua_State *L, void *ptr) {
 static int l_wlan_sta_disconnected_cb(lua_State *L, void *ptr) {
     (void)ptr;
     rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    if (!pc_network_enabled()) {
+        return 0;
+    }
     lua_getglobal(L, "sys_pub");
     if (!lua_isfunction(L, -1)) {
         return 0;
@@ -185,6 +200,9 @@ static int l_wlan_sta_disconnected_cb(lua_State *L, void *ptr) {
 static int l_wlan_ip_ready_cb(lua_State *L, void *ptr) {
     (void)ptr;
     rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    if (!pc_network_enabled()) {
+        return 0;
+    }
     lua_getglobal(L, "sys_pub");
     if (!lua_isfunction(L, -1)) {
         return 0;
@@ -199,6 +217,9 @@ static int l_wlan_ip_ready_cb(lua_State *L, void *ptr) {
 
 static int l_wlan_ip_lose_cb(lua_State *L, void *ptr) {
     (void)ptr;
+    if (!pc_network_enabled()) {
+        return 0;
+    }
     lua_getglobal(L, "sys_pub");
     if (!lua_isfunction(L, -1)) {
         return 0;
@@ -215,6 +236,9 @@ static void mock_scan_done_timer_cb(void *arg) {
     simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)arg;
     luat_timer_engine_delete(ctx->handle);
     luat_heap_free(ctx);
+    if (!pc_network_enabled()) {
+        return;
+    }
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_scan_done_cb;
     luat_msgbus_put(&msg, 0);
@@ -224,6 +248,9 @@ static void mock_sta_connected_timer_cb(void *arg) {
     simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)arg;
     luat_timer_engine_delete(ctx->handle);
     luat_heap_free(ctx);
+    if (!pc_network_enabled()) {
+        return;
+    }
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_sta_connected_cb;
     luat_msgbus_put(&msg, 0);
@@ -233,6 +260,9 @@ static void mock_ip_ready_timer_cb(void *arg) {
     simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)arg;
     luat_timer_engine_delete(ctx->handle);
     luat_heap_free(ctx);
+    if (!pc_network_enabled()) {
+        return;
+    }
     uint32_t ip_addr = luat_get_host_ipv4_u32();
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_ip_ready_cb;
@@ -245,6 +275,9 @@ static void mock_sta_disconnected_timer_cb(void *arg) {
     simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)arg;
     luat_timer_engine_delete(ctx->handle);
     luat_heap_free(ctx);
+    if (!pc_network_enabled()) {
+        return;
+    }
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_sta_disconnected_cb;
     luat_msgbus_put(&msg, 0);
@@ -254,6 +287,9 @@ static void mock_ip_lose_timer_cb(void *arg) {
     simple_timer_ctx_t *ctx = (simple_timer_ctx_t *)arg;
     luat_timer_engine_delete(ctx->handle);
     luat_heap_free(ctx);
+    if (!pc_network_enabled()) {
+        return;
+    }
     rtos_msg_t msg = {0};
     msg.handler = l_wlan_ip_lose_cb;
     luat_msgbus_put(&msg, 0);
@@ -302,7 +338,7 @@ static void mock_sta_connected_guard_timer_cb(void *arg) {
     uint32_t seq = ctx->seq;
     luat_timer_engine_delete(ctx->handle);
     luat_heap_free(ctx);
-    if (seq != wlan_connect_seq || wlan_pending_ssid[0] == 0) {
+    if (!pc_network_enabled() || seq != wlan_connect_seq || wlan_pending_ssid[0] == 0) {
         return;
     }
     wlan_connected = 1;
@@ -320,7 +356,7 @@ static void mock_ip_ready_guard_timer_cb(void *arg) {
     uint32_t seq = ctx->seq;
     luat_timer_engine_delete(ctx->handle);
     luat_heap_free(ctx);
-    if (seq != wlan_connect_seq || !wlan_connected) {
+    if (!pc_network_enabled() || seq != wlan_connect_seq || !wlan_connected) {
         return;
     }
     uint32_t ip_addr = luat_get_host_ipv4_u32();
@@ -337,7 +373,7 @@ static void mock_connfail_timer_cb(void *arg) {
     int reason = ctx->reason;
     luat_timer_engine_delete(ctx->handle);
     luat_heap_free(ctx);
-    if (seq != wlan_connect_seq) {
+    if (!pc_network_enabled() || seq != wlan_connect_seq) {
         return;
     }
     mock_wlan_clear_pending_state();
@@ -364,6 +400,10 @@ static int mock_wlan_scan(void) {
         LLOGW("wlan not inited");
         return -1;
     }
+    if (!pc_network_enabled()) {
+        LLOGW("wlan disabled by pcconf");
+        return -1;
+    }
     LLOGD("wlan mock scan start, will complete in 200ms");
     start_oneshot_timer(mock_scan_done_timer_cb, 200);
     return 0;
@@ -382,6 +422,10 @@ static int mock_wlan_connect(luat_wlan_conninfo_t* info) {
 
     if (!wlan_inited) {
         LLOGW("wlan not inited");
+        return -1;
+    }
+    if (!pc_network_enabled()) {
+        LLOGW("wlan disabled by pcconf");
         return -1;
     }
 
@@ -424,6 +468,11 @@ static int mock_wlan_connect(luat_wlan_conninfo_t* info) {
 
 static int mock_wlan_disconnect(void) {
     wlan_connect_seq++;
+    if (!pc_network_enabled()) {
+        mock_wlan_clear_connected_state();
+        mock_wlan_clear_pending_state();
+        return 0;
+    }
     if (!wlan_connected) {
         mock_wlan_clear_pending_state();
         return 0;
@@ -439,16 +488,34 @@ static int mock_wlan_disconnect(void) {
 }
 
 static int mock_wlan_ready(void) {
-    return wlan_connected ? 1 : 0;
+    return pc_network_enabled() && wlan_connected ? 1 : 0;
 }
 
 // ========== Public API: luat_wlan_* ==========
 
 int luat_wlan_init(luat_wlan_config_t *conf) {
 #if defined(LUAT_USE_WLAN_NATIVE) && defined(LUAT_USE_WINDOWS)
+    if (!pc_network_enabled()) {
+        wlan_inited = 1;
+        wlan_mode = LUAT_WLAN_MODE_STA;
+        wlan_connect_seq++;
+        mock_wlan_clear_connected_state();
+        mock_wlan_clear_pending_state();
+        LLOGI("wlan disabled by pcconf");
+        return 0;
+    }
     return native_wlan_init();
 #else
     (void)conf;
+    if (!pc_network_enabled()) {
+        wlan_inited = 1;
+        wlan_mode = LUAT_WLAN_MODE_STA;
+        wlan_connect_seq++;
+        mock_wlan_clear_connected_state();
+        mock_wlan_clear_pending_state();
+        LLOGI("wlan disabled by pcconf");
+        return 0;
+    }
     return mock_wlan_init();
 #endif
 }
@@ -462,6 +529,9 @@ int luat_wlan_mode(luat_wlan_config_t *conf) {
 
 int luat_wlan_ready(void) {
 #if defined(LUAT_USE_WLAN_NATIVE) && defined(LUAT_USE_WINDOWS)
+    if (!pc_network_enabled()) {
+        return 0;
+    }
     return native_wlan_ready();
 #else
     return mock_wlan_ready();
@@ -470,6 +540,10 @@ int luat_wlan_ready(void) {
 
 int luat_wlan_connect(luat_wlan_conninfo_t* info) {
 #if defined(LUAT_USE_WLAN_NATIVE) && defined(LUAT_USE_WINDOWS)
+    if (!pc_network_enabled()) {
+        LLOGW("wlan disabled by pcconf");
+        return -1;
+    }
     return native_wlan_connect(info);
 #else
     return mock_wlan_connect(info);
@@ -478,6 +552,11 @@ int luat_wlan_connect(luat_wlan_conninfo_t* info) {
 
 int luat_wlan_disconnect(void) {
 #if defined(LUAT_USE_WLAN_NATIVE) && defined(LUAT_USE_WINDOWS)
+    if (!pc_network_enabled()) {
+        mock_wlan_clear_connected_state();
+        mock_wlan_clear_pending_state();
+        return 0;
+    }
     return native_wlan_disconnect();
 #else
     return mock_wlan_disconnect();
@@ -486,6 +565,10 @@ int luat_wlan_disconnect(void) {
 
 int luat_wlan_scan(void) {
 #if defined(LUAT_USE_WLAN_NATIVE) && defined(LUAT_USE_WINDOWS)
+    if (!pc_network_enabled()) {
+        LLOGW("wlan disabled by pcconf");
+        return -1;
+    }
     return native_wlan_scan();
 #else
     return mock_wlan_scan();
@@ -536,7 +619,7 @@ int luat_wlan_set_mac(int id, const char* mac) {
 int luat_wlan_get_ip(int type, char* data) {
     (void)type;
     if (!data) return -1;
-    if (!wlan_connected) {
+    if (!pc_network_enabled() || !wlan_connected) {
         data[0] = 0;
         return -1;
     }
@@ -569,7 +652,7 @@ int luat_wlan_get_ps(void) {
 }
 
 int luat_wlan_get_ap_bssid(char* buff) {
-    if (!wlan_connected || !buff) {
+    if (!pc_network_enabled() || !wlan_connected || !buff) {
         if (buff) buff[0] = 0;
         return -1;
     }
@@ -578,13 +661,13 @@ int luat_wlan_get_ap_bssid(char* buff) {
 }
 
 int luat_wlan_get_ap_rssi(void) {
-    if (!wlan_connected) return 0;
+    if (!pc_network_enabled() || !wlan_connected) return 0;
     return wlan_rssi;
 }
 
 int luat_wlan_get_ap_gateway(char* buff) {
     if (!buff) return -1;
-    if (!wlan_connected) {
+    if (!pc_network_enabled() || !wlan_connected) {
         buff[0] = 0;
         return -1;
     }

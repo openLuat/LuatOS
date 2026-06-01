@@ -16,6 +16,7 @@
 #include "luat_posix_compat.h"
 
 #include "luat_base.h"
+#include "luat_pcconf.h"
 #include "luat_log.h"
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
@@ -152,6 +153,12 @@ static uint64_t      socket_tag_counter = 0xFAFB;
 static pthread_mutex_t g_socket_mutex  = PTHREAD_MUTEX_INITIALIZER;
 /* Broadcast when any slot's io_running transitions 1→0 (slot becomes reusable) */
 static pthread_cond_t  g_slot_free_cond = PTHREAD_COND_INITIALIZER;
+
+static int posix_network_enabled(void)
+{
+    const luat_pcconf_t *conf = luat_pcconf_get();
+    return !conf || conf->network_enabled ? 1 : 0;
+}
 
 /* ─── CHECK_SOCKET_ID macro ──────────────────────────────────────────────────── */
 #define CHECK_SOCKET_ID \
@@ -607,7 +614,7 @@ static int close_socket_internal(int socket_id, int force)
 }
 
 /* ─── Vtable: socket management ─────────────────────────────────────────────── */
-static int posix_check_ready(void *user_data) { (void)user_data; return 1; }
+static int posix_check_ready(void *user_data) { (void)user_data; return posix_network_enabled(); }
 
 static int posix_socket_check(int socket_id, uint64_t tag, void *user_data)
 {
@@ -1146,6 +1153,7 @@ static int32_t l_ip_ready(lua_State *L, void *ptr)
 {
     (void)ptr;
     rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    if (!posix_network_enabled()) return 0;
     lua_getglobal(L, "sys_pub");
     if (!lua_isfunction(L, -1)) return 0;
     if (msg->arg1) {
@@ -1166,6 +1174,9 @@ static int32_t l_ip_ready(lua_State *L, void *ptr)
 static void ip_ready_timer_cb(void *arg)
 {
     (void)arg;
+    if (!posix_network_enabled()) {
+        return;
+    }
     rtos_msg_t msg = {0};
     msg.handler = l_ip_ready;
     msg.arg1 = 1;
@@ -1192,8 +1203,10 @@ void luat_network_init(void)
                              (network_adapter_info*)&prv_posix_adapter, NULL);
 
     /* Publish IP_READY after 500 ms */
-    luat_timer_handle_t h = luat_timer_engine_create(ip_ready_timer_cb, NULL);
-    luat_timer_engine_start(h, 500, 0);
+    if (posix_network_enabled()) {
+        luat_timer_handle_t h = luat_timer_engine_create(ip_ready_timer_cb, NULL);
+        luat_timer_engine_start(h, 500, 0);
+    }
 }
 
 #ifndef LUAT_USE_LWIP

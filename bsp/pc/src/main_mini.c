@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 #include "luat_pcconf.h"
+#include "luat_web_runtime.h"
 
 #include "bget.h"
 
@@ -15,9 +16,6 @@
 #include "luat_log.h"
 
 #include "luat_mem.h"
-/* luat_posix_compat.h must come before uv.h on Windows to establish the
- * correct winsock2/windows.h include order. */
-#include "luat_posix_compat.h"
 #include "luat_timer_engine.h"
 
 
@@ -64,8 +62,11 @@ void luat_network_init(void);
 
 
 int luat_cmd_parse(int argc, char** argv);
+extern int cfg_webc_port;
 static int luat_lvg_handler(lua_State* L, void* ptr);
 static void lvgl_timer_cb(void* arg);
+static int luat_webc_startup(void);
+static void luat_webc_shutdown(void);
 
 int32_t luatos_pc_climode;
 
@@ -138,7 +139,9 @@ int main(int argc, char** argv) {
             return ret;
         }
     }
-    
+    if (luat_webc_startup()) {
+        return -1;
+    }
 
 
     #ifdef LUAT_USE_LVGL
@@ -154,7 +157,27 @@ int main(int argc, char** argv) {
     uv_luat_main(NULL);
 
     luat_log_deinit_win32();
+    luat_webc_shutdown();
     return 0;
+}
+
+static int luat_webc_startup(void) {
+    const luat_pcconf_t* conf = luat_pcconf_get();
+    int cadence = 5;
+    if (cfg_webc_port <= 0 && conf && conf->web_console_enabled) {
+        cfg_webc_port = conf->web_console_port;
+    }
+    if (cfg_webc_port <= 0) {
+        return 0;
+    }
+    if (conf && (conf->web_console_refresh_interval == 1 || conf->web_console_refresh_interval == 5 || conf->web_console_refresh_interval == 15)) {
+        cadence = conf->web_console_refresh_interval;
+    }
+    return luat_web_runtime_start(cfg_webc_port, cadence);
+}
+
+static void luat_webc_shutdown(void) {
+    luat_web_runtime_stop();
 }
 
 // UI相关

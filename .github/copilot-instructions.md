@@ -40,7 +40,7 @@ Tests are located in `testcase/` and are Lua scripts executed by the LuatOS firm
   Note: This mode does not support running multiple target testcase directories in a single command.
   Note: Check `bsp/pc/xmake.lua` for the exact output path (usually `$(builddir)/out`).
 
-**PC Simulator Test Scripts Must Call `os.exit(0)`**: The PC simulator runs Lua in an libuv event loop that never exits automatically, even after tasks complete. Test scripts MUST call `os.exit(0)` to terminate the process.
+**PC Simulator Test Scripts Must Call `os.exit(0)`**: The PC simulator runs Lua in an event loop that never exits automatically, even after tasks complete. Test scripts MUST call `os.exit(0)` to terminate the process.
   ```lua
   -- ✅ CORRECT: Call os.exit(0) inside the task (before sys.run() returns)
   sys.taskInit(function()
@@ -73,7 +73,7 @@ LuatOS is an embedded Lua operating system based on Lua 5.3.
 - **`components/`**: Extension libraries (Network, GUI, Drivers).
   - **`components/network/`**: Network stacks (LwIP, etc.). See `components/network/AGENTS.md` for 3-layer architecture.
   - **`components/airui/`**: GUI components (LVGL based).
-- **`bsp/`**: Board Support Packages. `bsp/pc` is the simulator. See `bsp/pc/AGENTS.md` for network/libuv details.
+- **`bsp/`**: Board Support Packages. `bsp/pc` is the simulator. See `bsp/pc/AGENTS.md` for network details.
 - **`script/`**: Lua scripts, core libraries (`corelib`), and drivers (`libs`).
 
 ## Key Conventions
@@ -159,9 +159,9 @@ $bytes = [System.IO.File]::ReadAllBytes("$env:TEMP\check.bin")
 
 **Note**: `.gitattributes` prevents future CRLF on checkin, but doesn't retroactively fix existing mismatches. Don't use `git add --renormalize .` blindly—it may reverse-pollute files that master intentionally uses CRLF.
 
-### Async Event Safety in libuv
+### Async Event Safety
 - When closing resources, consider what events are still in-flight
-- `uv_async_send` callbacks fire on a **different thread** — the originating context may already be freed
+- Async callbacks may fire on a **different thread** — the originating context may already be freed
 - Don't send state-machine events (e.g., `EV_NW_SOCKET_CLOSE_OK`) if the handler will access uninitialized state
 - **Never memcpy** `uv_tcp_t` or other handles — they have internal linked-list pointers
 - `uv_close` is async — the handle must remain valid until the close callback fires

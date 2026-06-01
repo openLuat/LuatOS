@@ -284,6 +284,9 @@ struct little_flash{
 #endif /* LF_USE_HEAP */
     /* user data */
     void* user_data;
+    /* NAND FTL runtime context */
+    void* ftl_ctx;
+    uint8_t ftl_enabled;
 };
 
 /* SFDP JESD216F revision */
@@ -347,7 +350,6 @@ struct little_flash{
 #endif
 
 #endif /* _LITTLE_FLASH_DEFINE_H_ */
-
 
 
 

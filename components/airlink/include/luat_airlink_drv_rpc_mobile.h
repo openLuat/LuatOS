@@ -12,6 +12,7 @@
 #define AIRLINK_DRV_RPC_MOBILE_NOTIFY_EMPTY     (-11)
 #define AIRLINK_DRV_RPC_MOBILE_REQID_MISMATCH   (-12)
 #define AIRLINK_DRV_RPC_MOBILE_NOTIFY_NO_INFO   (-13)
+#define AIRLINK_DRV_RPC_MOBILE_NOT_READY        (-14)
 
 typedef struct {
     char imei[16];

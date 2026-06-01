@@ -265,7 +265,7 @@ Before reporting task completion, verify:
 | File | Description |
 |------|-------------|
 | `bsp/pc/xmake.lua` | PC simulator build configuration |
-| `bsp/pc/port/network/luat_network_adapter_libuv.c` | PC network adapter (libuv) |
+| `bsp/pc/port/network/luat_network_adapter_posix.c` | PC network adapter |
 | `luat/include/luat.h` | Core header file |
 | `components/network/adapter/luat_network_adapter.c` | Network framework state machine |
 | `components/network/adapter/luat_network_adapter.h` | Network adapter API definitions |
@@ -287,12 +287,12 @@ Before reporting task completion, verify:
 
 ### Async Event Safety
 - When closing resources, consider what events are still in-flight
-- `uv_async_send` callbacks fire on a **different thread** — the originating context may already be freed
+- Async callbacks may fire on a **different thread** — the originating context may already be freed
 - Don't send state-machine events (e.g. `EV_NW_SOCKET_CLOSE_OK`) if the handler will access uninitialized state
 
-### libuv Handle Rules
-- **Never memcpy** `uv_tcp_t` or other handles — they have internal linked-list pointers
-- `uv_close` is async — the handle must remain valid until the close callback fires
+### Async Handle Rules
+- Do not copy runtime-managed async handles by `memcpy`; keep handle ownership clear
+- Async close operations require the handle to remain valid until close callback fires
 - Heap-allocate handles that need to outlive their creating scope
 
 ### Debugging Methodology
@@ -401,20 +401,19 @@ end
 - `player/video_decode/avcodec/h264/libavutil/mem.c` — 加 `#ifdef _MSC_VER` 映射对齐内存分配
 
 ### Debug Records
-- `bsp/pc/docs/debug_tcp_listen.md` — TCP listen/accept implementation and crash debugging
 
 ### PC 模拟器测试脚本必须调用 `os.exit(0)`
 
 **症状**：Lua 任务执行完毕（日志正常打印），但进程永远不退出，挂在 `sys.run()` 处。
 
-**根因**：`sys.run()` 调用 libuv 的 `uv_run(UV_RUN_DEFAULT)`，只要有任意活跃句柄（网络、文件、MP4 播放器等内部资源），事件循环就不会自行退出。
+**根因**：`sys.run()` 进入 PC 事件循环，只要有任意活跃句柄（网络、文件、MP4 播放器等内部资源），事件循环就不会自行退出。
 
 **修复**：在 Lua 任务协程内部（`sys.run()` 调用前执行的协程中）调用 `os.exit(0)`：
 
 ```lua
 sys.taskInit(function()
     -- ... 执行任务 ...
-    os.exit(0)   -- ✅ 强制退出 libuv 事件循环
+    os.exit(0)   -- ✅ 强制退出事件循环
 end)
 sys.run()        -- 启动事件循环
 ```

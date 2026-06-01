@@ -89,21 +89,21 @@ Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/ma
 
 - Lua 5.3 VM execution
 - GUI simulation (SDL2)
-- Network (via host OS, libuv adapter)
+- Network (via host OS adapter)
 - TCP Client & Server (listen/accept)
 - File system (host filesystem)
 - Most libraries supported
 
-## NETWORK ADAPTER (libuv)
+## NETWORK ADAPTER
 
-**File**: `port/network/luat_network_adapter_libuv.c`
+**File**: `port/network/luat_network_adapter_posix.c`
 
-The PC simulator uses libuv for async network I/O. Key architecture:
+The PC simulator uses the host OS adapter for async network I/O. Key architecture:
 
 ### Threading Model
 - **Main thread**: Lua VM, message bus, coroutine scheduling
-- **libuv thread**: Runs `uv_run()` event loop, handles I/O callbacks
-- **Bridge**: `cb_to_nw_task()` sends events via `uv_async_send` from main → libuv thread
+- **Network worker**: Handles async I/O callbacks
+- **Bridge**: `cb_to_nw_task()` forwards network events to framework callbacks
 
 ### Socket States
 ```
@@ -112,22 +112,19 @@ SC_IDLE → SC_USED → SC_CONNECTING → SC_CONNECTED → SC_CLOSING → SC_CLO
 ```
 
 ### TCP Server Flow (one-to-one mode, `no_accept=1`)
-1. `libuv_socket_listen`: creates separate `listen_tcp` (heap), binds, listens
+1. `socket_listen`: creates listener handle, binds, listens
 2. `on_new_connection`: accepts client into socket's embedded `tcp` handle
 3. State: LISTEN(6) → ONLINE(5)
 4. Close: closes both `listen_tcp` and embedded `tcp`
 
-### ⚠️ Critical libuv Pitfalls
+### ⚠️ Critical Async Pitfalls
 
 | Pitfall | Detail |
 |---------|--------|
-| **Never memcpy uv handles** | `uv_tcp_t` contains internal linked-list pointers (`handle_queue`). Memcpy corrupts the event loop. |
-| **`uv_close` is async** | Close callback fires in future event loop iteration. Heap-allocate handles that need to outlive close. |
-| **`uv_accept` target must be init'd** | The target handle must be initialized (`uv_tcp_init`) but not connected. |
-| **Thread safety** | Callbacks from `uv_async_send` fire on the libuv thread. Be careful with Lua state access. |
-
-### Debug Reference
-- See `docs/debug_tcp_listen.md` for the full TCP listen/accept debugging record
+| **Do not memcpy runtime handles** | Runtime-managed handles may carry internal state; copying them can corrupt async flow. |
+| **Async close lifecycle** | Close callbacks fire later; keep handles valid until close callback runs. |
+| **Accept target readiness** | The target handle must be initialized but not connected. |
+| **Thread safety** | Async callbacks may run on a different thread; be careful with Lua state access. |
 
 ## WHERE TO LOOK
 
@@ -136,7 +133,7 @@ SC_IDLE → SC_USED → SC_CONNECTING → SC_CONNECTED → SC_CLOSING → SC_CLO
 | Main entry | `src/main.c` |
 | Build config | `xmake.lua` |
 | Platform port | `port/` |
-| Network adapter | `port/network/luat_network_adapter_libuv.c` |
+| Network adapter | `port/network/luat_network_adapter_posix.c` |
 | UI tests | `ui/` |
 | Debug records | `docs/` |
 
@@ -151,7 +148,7 @@ SC_IDLE → SC_USED → SC_CONNECTING → SC_CONNECTED → SC_CLOSING → SC_CLO
 
 ### ⚠️ 必须在任务内部调用 `os.exit(0)`
 
-PC 模拟器的 `sys.run()` 最终调用 libuv 的 `uv_run(UV_RUN_DEFAULT)`，该事件循环**不会因为 Lua 任务结束而自动退出**——只要还有任何活跃的 libuv 句柄（如网络、文件、定时器），进程就会一直挂起等待。
+PC 模拟器的 `sys.run()` 进入事件循环，该循环**不会因为 Lua 任务结束而自动退出**——只要还有任何活跃句柄（如网络、文件、定时器），进程就会一直挂起等待。
 
 **正确写法**（`os.exit(0)` 在任务协程内、`sys.run()` 之前执行）：
 

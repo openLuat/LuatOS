@@ -89,6 +89,28 @@ local function run_unzip(root)
     return true, "ok", unzip_ms
 end
 
+local function run_space_stat(root)
+    if not fs or not fs.fsstat then
+        return false, -1, "fsstat_unavailable"
+    end
+    local path = root
+    if string.sub(path, -1) ~= "/" then
+        path = path .. "/"
+    end
+    local ok, total_blocks, used_blocks, block_size = fs.fsstat(path)
+    if not ok then
+        return false, -1, "fsstat_failed"
+    end
+    if not total_blocks or not used_blocks or not block_size then
+        return false, -1, "fsstat_invalid"
+    end
+    local free_bytes = (total_blocks - used_blocks) * block_size
+    if free_bytes < 0 then
+        return false, free_bytes, "fsstat_negative"
+    end
+    return true, free_bytes, "ok"
+end
+
 function lf_fs_matrix_test.test_lf_three_fs_matrix()
     if not lf or not lf.init then
         log.info("LF_FS_MATRIX", "lf unavailable, skip")
@@ -121,7 +143,8 @@ function lf_fs_matrix_test.test_lf_three_fs_matrix()
     local fs_list = {
         {name = "lfs2", offset = 0x0000000, size = 0x0800000},
         {name = "lfsn", offset = 0x0800000, size = 0x0800000},
-        {name = "pgfs", offset = 0x1000000, size = 0x0800000}
+        {name = "pgfs", offset = 0x1000000, size = 0x0800000},
+        {name = "lfs3", offset = 0x1800000, size = 0x0800000}
     }
     for _, item in ipairs(fs_list) do
         if fs_target and fs_target ~= "" and item.name ~= fs_target then
@@ -145,21 +168,28 @@ function lf_fs_matrix_test.test_lf_three_fs_matrix()
                 local file_ok, file_msg = run_file_ops(mount_point)
                 local perf_ok, perf_ms, perf_msg = run_write_perf(mount_point)
                 local unzip_ok, unzip_msg, unzip_ms = run_unzip(mount_point)
+                local space_ok, free_bytes, space_msg = true, -1, "skip"
+                if fs ~= "lfs3" then
+                    space_ok, free_bytes, space_msg = run_space_stat(mount_point)
+                end
                 log.info("LF_FS_MATRIX_RESULT",
                     string.format(
-                        "fs=%s file_ok=%d perf_ok=%d perf_ms=%d unzip_ok=%d unzip_ms=%d detail=%s/%s/%s",
+                        "fs=%s file_ok=%d perf_ok=%d perf_ms=%d unzip_ok=%d unzip_ms=%d space_ok=%d free_bytes=%d detail=%s/%s/%s/%s",
                         fs,
                         file_ok and 1 or 0,
                         perf_ok and 1 or 0,
                         perf_ms or -1,
                         unzip_ok and 1 or 0,
                         unzip_ms or -1,
+                        space_ok and 1 or 0,
+                        free_bytes or -1,
                         file_msg or "na",
                         perf_msg or "na",
-                        unzip_msg or "na"
+                        unzip_msg or "na",
+                        space_msg or "na"
                     )
                 )
-                if not (file_ok and perf_ok and unzip_ok) then
+                if not (file_ok and perf_ok and unzip_ok and space_ok) then
                     all_ok = false
                 end
                 rm_tree(mount_point)

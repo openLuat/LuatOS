@@ -128,7 +128,7 @@ int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_
             // LLOGC(luat_audio_debug_flag, "decode used %d bytes, output %d bytes, input fifo %d bytes, output buffer %d bytes", used_len, out_len,
             //     luat_fifo_check_used_space(input_data_fifo), output_data_buffer->pos);
         } else {
-            //LLOGE("decode failed, ret = %d, %d, %d", ret, used_len, out_len);
+            LLOGE("decode failed, ret = %d, %d, %d", ret, used_len, out_len);
             return ret;
         }
     }

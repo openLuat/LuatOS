@@ -260,14 +260,14 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
         g_rpc_stats.call_total++;
         g_rpc_stats.call_timeout++;
         _stats_unlock();
-        
+
         return -1; // timeout
     }
 
     // 成功
     uint64_t elapsed_ms = luat_mcu_tick64_ms() - start_tick;
     int result = ctx->ret_code;
-    
+
     _stats_lock();
     g_rpc_stats.call_total++;
     if (result == 0) {
@@ -365,7 +365,6 @@ int luat_airlink_rpc_nb_dispatch(uint16_t rpc_id, uint8_t msg_type,
     }
 
     rc = entry.handler(rpc_id, req_struct, resp_struct, entry.userdata);
-
     if (rc == 0 && resp_struct && entry.resp_desc) {
         pb_ostream_t ostream = pb_ostream_from_buffer(resp_bytes, resp_size);
         if (!pb_encode(&ostream, entry.resp_desc, resp_struct)) {

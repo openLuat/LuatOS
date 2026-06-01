@@ -3,7 +3,6 @@
 
 #include "stdint.h"
 #include "inttypes.h"
-// #include "uv.h"
 
 typedef struct uv_queue_item
 {

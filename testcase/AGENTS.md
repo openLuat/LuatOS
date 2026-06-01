@@ -90,6 +90,6 @@ local function wait_state(netc, target, timeout)
 end
 ```
 
-This is more reliable than callback-based testing because the 2-hop async chain (libuv → framework → Lua) may not deliver callbacks during `sys.wait()` polling.
+This is more reliable than callback-based testing because the 2-hop async chain (network adapter → framework → Lua) may not deliver callbacks during `sys.wait()` polling.
 
 **Example**: See `testcase/function_testcase_network/tcp_server/tcp_server_basic/` for a complete TCP server test with state polling + PING/PONG validation.

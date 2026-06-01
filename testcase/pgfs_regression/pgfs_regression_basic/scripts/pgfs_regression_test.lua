@@ -13,6 +13,28 @@ local LEGACY_TARGET_DIR = "/ram/miniz_legacy_contract/"
 local LEGACY_EXPECTED_MAIN = "/ram/miniz_legacy_contract/pac_man/main.lua"
 local CONTRACT_PASS_TOKEN = "### MINIZ_BATCH_CONTRACT_PASS ###"
 local CONTRACT_FAIL_TOKEN = "### MINIZ_BATCH_CONTRACT_FAIL ###"
+local FILL_WRITE_MAX_LOOPS = 2000
+local FILL_REWRITE_TARGET = 24
+local FSSTAT_SAMPLE_COUNT = 120
+local SMALL_FILE_COUNT = 320
+
+local function now_us()
+    if mcu and mcu.ticks2 then
+        local high, low = mcu.ticks2(1)
+        return high * 1000000 + low
+    end
+    if mcu and mcu.ticks then
+        return mcu.ticks() * 1000
+    end
+    return math.floor(os.clock() * 1000000)
+end
+
+local function us_to_ms(cost_us)
+    if cost_us <= 0 then
+        return 0
+    end
+    return math.floor((cost_us + 500) / 1000)
+end
 
 local function is_pc()
     if hmeta and hmeta.model then
@@ -212,6 +234,95 @@ function pgfs_regression.test_miniz_unzip_legacy_default_behavior_unchanged()
     contract_assert(ok == true, "legacy default unzip should remain successful")
     contract_assert(io.exists(LEGACY_EXPECTED_MAIN) == true, "legacy unzip main.lua missing")
     log.info("miniz_batch_contract", CONTRACT_PASS_TOKEN .. " legacy-default")
+end
+
+function pgfs_regression.test_fill_delete_rewrite_should_recover_capacity()
+    setup_flash()
+    local payload = string.rep("F", 2048)
+    local written = {}
+    local failed_at = 0
+    for i = 1, FILL_WRITE_MAX_LOOPS do
+        local path = "/pgfs/fill_" .. i .. ".bin"
+        if not io.writeFile(path, payload) then
+            failed_at = i
+            break
+        end
+        written[#written + 1] = path
+    end
+    assert(failed_at > 0, "fill phase did not hit boundary, increase pressure")
+    assert(#written > (FILL_REWRITE_TARGET * 2), "not enough files for rewrite scenario")
+
+    for i = 1, FILL_REWRITE_TARGET do
+        assert(os.remove(written[i]), "delete failed at " .. i)
+    end
+
+    local rewrite_start = now_us()
+    for i = 1, FILL_REWRITE_TARGET do
+        local ok = io.writeFile("/pgfs/rewrite_" .. i .. ".bin", payload)
+        assert(ok, "rewrite failed after delete at " .. i)
+    end
+    local rewrite_ms = us_to_ms(now_us() - rewrite_start)
+    local max_ms = is_pc() and 60000 or 15000
+    assert(rewrite_ms < max_ms, "rewrite latency regression ms=" .. rewrite_ms)
+    log.info("pgfs_boundary", string.format("fill_delete_rewrite failed_at=%d rewrite_ms=%d", failed_at, rewrite_ms))
+end
+
+function pgfs_regression.test_repeated_add_delete_should_stay_stable()
+    setup_flash()
+    for round = 1, 60 do
+        local base = "/pgfs/stable_r" .. round .. "_"
+        for i = 1, 18 do
+            local path = base .. i .. ".txt"
+            local val = "round=" .. round .. ";idx=" .. i
+            assert(io.writeFile(path, val), "write failed round=" .. round .. " idx=" .. i)
+            assert(io.readFile(path) == val, "readback mismatch round=" .. round .. " idx=" .. i)
+        end
+        for i = 1, 18 do
+            local path = base .. i .. ".txt"
+            assert(os.remove(path), "remove failed round=" .. round .. " idx=" .. i)
+            assert(io.readFile(path) == nil, "file still exists after remove round=" .. round .. " idx=" .. i)
+        end
+    end
+end
+
+function pgfs_regression.test_fsstat_latency_after_many_small_files()
+    setup_flash()
+    local payload = "s"
+    for i = 1, SMALL_FILE_COUNT do
+        assert(io.writeFile("/pgfs/small_" .. i .. ".txt", payload), "small write failed at " .. i)
+    end
+    local t0 = now_us()
+    for i = 1, FSSTAT_SAMPLE_COUNT do
+        local ok, total, used = fs.fsstat("/pgfs/")
+        assert(ok, "fsstat failed at sample " .. i)
+        assert(total and total > 0, "invalid fsstat total")
+        assert(used and used >= 0, "invalid fsstat used")
+    end
+    local elapsed_ms = us_to_ms(now_us() - t0)
+    local max_ms = is_pc() and 8000 or 1200
+    assert(elapsed_ms < max_ms, "fsstat latency regression ms=" .. elapsed_ms)
+    log.info("pgfs_boundary", string.format("fsstat_samples=%d elapsed_ms=%d", FSSTAT_SAMPLE_COUNT, elapsed_ms))
+end
+
+function pgfs_regression.test_powercut_stage_matrix_recovery()
+    setup_flash()
+    local cases = {
+        {stage = "before_append", expect_after_reset = false},
+        {stage = "after_append", expect_after_reset = true},
+        {stage = "before_checkpoint", expect_after_reset = true},
+    }
+    for i = 1, #cases do
+        local c = cases[i]
+        local path = "/pgfs/powercut_" .. c.stage .. ".txt"
+        os.remove(path)
+        assert(lf.pgfsctl("powercut_stage", c.stage), "set powercut stage failed: " .. c.stage)
+        local ok = io.writeFile(path, "stage=" .. c.stage)
+        assert(ok == false, "write should fail when powercut stage is injected: " .. c.stage)
+        assert(lf.pgfsctl("powercut_stage", "none"), "clear powercut stage failed: " .. c.stage)
+        assert(lf.pgfsctl("reset_runtime"), "reset_runtime failed for stage " .. c.stage)
+        local exist = io.exists(path)
+        assert(exist == c.expect_after_reset, "unexpected visibility after reset for " .. c.stage .. " exist=" .. tostring(exist))
+    end
 end
 
 return pgfs_regression

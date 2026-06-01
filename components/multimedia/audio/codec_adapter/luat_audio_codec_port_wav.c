@@ -20,16 +20,18 @@ int luat_audio_wav_get_play_info(struct luat_audio_data_codec *codec, luat_buffe
         
     if (!memcmp(temp, "RIFF", 4) && !memcmp(temp + 8, "WAVE", 4) && !memcmp(temp + 12, "fmt ", 4)) {
         memcpy(&len, temp + 16, 4);
-        pos = 16 + len;
+        pos = 20 + len;
+        LLOGC(luat_audio_debug_flag, "fmt len %d pos %d", len, pos);
         while((pos + 8) < input_buffer->pos && !find_data) {
             if (memcmp(temp + pos, "data", 4) == 0) {
                 find_data = 1;
             } else {
+                LLOGC(luat_audio_debug_flag, "tag %.*s pos %d", 4, temp + pos, pos);
                 memcpy(&len, temp + pos + 4, 4);
                 pos += len + 8;
             }
         }
-        LLOGC(luat_audio_debug_flag, "head pos %d/%d data block %d", pos, input_buffer->pos, find_data);
+        LLOGC(luat_audio_debug_flag, "head pos %d/%d data block is find %d", pos, input_buffer->pos, find_data);
         if (!find_data) {
             *jump_offset_bytes = 0;
             *need_bytes = now_file_pos + 1024;
@@ -46,8 +48,8 @@ int luat_audio_wav_get_play_info(struct luat_audio_data_codec *codec, luat_buffe
             LLOGE("wav file only suppor 16bit audio");
             return -LUAT_ERROR_PARAM_INVALID;
         }
-        *jump_offset_bytes = 0;
-        *need_bytes = pos + 8;
+        *jump_offset_bytes = pos + 8;
+        *need_bytes = 0;
         return LUAT_ERROR_NONE;
     }
     return -LUAT_ERROR_PARAM_INVALID;

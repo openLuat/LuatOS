@@ -15,6 +15,15 @@
 #include "luat_log.h"
 #include "little_flash.h"
 
+#ifdef LUAT_USE_UTEST
+extern int luat_little_flash_utest(lua_State *L, const char *case_name);
+static int l_little_flash_utest(lua_State *L) {
+    const char* case_name = luaL_optstring(L, 1, "ftl_identity_map");
+    lua_pushboolean(L, luat_little_flash_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 /*
 初始化 little_flash
 @api  lf.init(spi_device)
@@ -383,6 +392,9 @@ static const rotable_Reg_t reg_little_flash[] =
 #ifdef LUAT_USE_PGFS_COMPONENT
     { "pgfsctl",        ROREG_FUNC(luat_little_flash_pgfsctl)},
 #endif
+#endif
+#ifdef LUAT_USE_UTEST
+    { "utest",          ROREG_FUNC(l_little_flash_utest)},
 #endif
 	{ NULL,             ROREG_INT(0)}
 };

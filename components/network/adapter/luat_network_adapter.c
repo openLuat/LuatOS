@@ -2084,7 +2084,7 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	platform_start_timer(ctrl->timer, timeout_ms, 0);
 	while (!finish)
 	{
-		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
+		platform_wait_event(ctrl->task_handle, 0, (luat_event_t *)&event, NULL, 0);
 		switch (event.ID)
 		{
 		case EV_NW_RESULT_LINK:
@@ -2183,7 +2183,7 @@ NETWORK_CONNECT_WAIT:
 	platform_start_timer(ctrl->timer, timeout_ms, 0);
 	while (!finish)
 	{
-		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
+		platform_wait_event(ctrl->task_handle, 0, (luat_event_t *)&event, NULL, 0);
 		switch (event.ID)
 		{
 		case EV_NW_RESULT_CONNECT:
@@ -2260,7 +2260,7 @@ NETWORK_LISTEN_WAIT:
 	}
 	while (!finish)
 	{
-		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
+		platform_wait_event(ctrl->task_handle, 0, (luat_event_t *)&event, NULL, 0);
 		switch (event.ID)
 		{
 		case EV_NW_RESULT_CONNECT:
@@ -2350,7 +2350,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	platform_start_timer(ctrl->timer, timeout_ms, 0);
 	while (!finish)
 	{
-		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
+		platform_wait_event(ctrl->task_handle, 0, (luat_event_t *)&event, NULL, 0);
 		switch (event.ID)
 		{
 		case EV_NW_RESULT_CLOSE:
@@ -2479,7 +2479,7 @@ NETWORK_TX_WAIT:
 	platform_start_timer(ctrl->timer, timeout_ms, 0);
 	while (!finish)
 	{
-		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
+		platform_wait_event(ctrl->task_handle, 0, (luat_event_t *)&event, NULL, 0);
 		switch (event.ID)
 		{
 		case EV_NW_RESULT_TX:
@@ -2658,7 +2658,7 @@ int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeo
 	platform_start_timer(ctrl->timer, timeout_ms, 0);
 	while (!finish)
 	{
-		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
+		platform_wait_event(ctrl->task_handle, 0, (luat_event_t *)&event, NULL, 0);
 		switch (event.ID)
 		{
 		case EV_NW_RESULT_EVENT:
@@ -2734,7 +2734,7 @@ int network_wait_rx(network_ctrl_t *ctrl, uint32_t timeout_ms, uint8_t *is_break
 	}
 	while (!finish)
 	{
-		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
+		platform_wait_event(ctrl->task_handle, 0, (luat_event_t *)&event, NULL, 0);
 		switch (event.ID)
 		{
 		case EV_NW_RESULT_EVENT:

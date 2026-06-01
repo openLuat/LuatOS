@@ -227,7 +227,6 @@ static void unpack_data(uint8_t* buff, size_t len)
     }
     // 更新最后通讯时间戳，用于airlink.ready()判断
     g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
-    // LLOGD("luat_airlink data unpacked, len: %d, data: %p", link->len, link->data);
     luat_airlink_on_data_recv(link->data, link->len);
 }
 

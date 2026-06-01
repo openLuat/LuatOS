@@ -371,6 +371,14 @@ int pgfs_control_inject_powercut_stage(const char* stage) {
         s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_BEFORE_CP;
         return 0;
     }
+    if (strcmp(stage, "before_append") == 0) {
+        s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_BEFORE_APPEND;
+        return 0;
+    }
+    if (strcmp(stage, "after_append") == 0) {
+        s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_AFTER_APPEND;
+        return 0;
+    }
     return -1;
 }
 

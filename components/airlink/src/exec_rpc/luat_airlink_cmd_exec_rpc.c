@@ -49,9 +49,6 @@ int luat_airlink_cmd_exec_rpc(luat_airlink_cmd_t* cmd, void* userdata) {
                        ? (uint16_t)(cmd->len - RPC_WIRE_HDR_LEN) : 0;
 
     uint64_t start_tick = luat_mcu_tick64_ms();
-    
-    // LLOGD("rpc exec: rpc_id=0x%04X msg_type=%d req_len=%d pkgid=0x%llx",
-    //       rpc_id, msg_type, req_len, req_pkgid);
 
     // NOTIFY: 传给 notify_handler，不发任何响应
     if (msg_type == AIRLINK_RPC_MSG_TYPE_NOTIFY) {
@@ -101,7 +98,6 @@ int luat_airlink_cmd_exec_rpc(luat_airlink_cmd_t* cmd, void* userdata) {
             LLOGE("rpc exec: handler failed rc=%d resp_len=%d (took %llums)", rc, resp_len, elapsed);
         }
     } else {
-        // LLOGD("rpc exec: request handled resp_len=%d (took %llums)", resp_len, elapsed);
     }
 
     luat_airlink_result_send(resp_buf, (size_t)(10 + resp_len));

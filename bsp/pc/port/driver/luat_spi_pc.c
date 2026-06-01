@@ -4,6 +4,7 @@
 #include "luat_msgbus.h"
 #include "luat_mem.h"
 #include "luat_spi.h"
+#include "luat_pcconf.h"
 #ifdef LUAT_USE_WINDOWS
 #include "luat_ch347_pc.h"
 #include <windows.h>
@@ -46,6 +47,7 @@
 #define LUAT_PC_SD_TOTAL_SIZE              (64u * 1024u * 1024u)
 #define LUAT_PC_SD_BLOCK_SIZE              (512u)
 #define LUAT_PC_SD_IMAGE_PATH              "spidrv\\tf.bin"
+#define LUAT_PC_BYTES_PER_MB               (1024u * 1024u)
 
 #define NAND_CMD_WRITE_STATUS_LEGACY       (0x01)
 #define NAND_CMD_WRITE_STATUS              (0x1F)
@@ -124,11 +126,24 @@ typedef struct pc_vnand_profile_defaults {
     double bad_ratio;
 } pc_vnand_profile_defaults_t;
 
+typedef struct pc_vnand_model_profile {
+    const char* name;
+    uint32_t capacity_mb;
+    uint8_t jedec_mfr;
+    uint16_t jedec_dev;
+} pc_vnand_model_profile_t;
+
 typedef struct pc_vnor_speed_profile {
     uint32_t read_delay_us_per_byte;
     uint32_t prog_delay_us_per_byte;
     uint32_t erase_delay_us_per_4k;
 } pc_vnor_speed_profile_t;
+
+typedef struct pc_vnor_model_profile {
+    const char* name;
+    uint32_t capacity_mb;
+    uint8_t jedec[3];
+} pc_vnor_model_profile_t;
 
 typedef struct pc_vnor {
     uint8_t initialized;
@@ -165,6 +180,7 @@ typedef struct pc_vsd {
     uint8_t resp_buf[2048];
     uint16_t resp_pos;
     uint16_t resp_len;
+    uint32_t total_size;
     uint32_t sector_count;
     uint32_t rw_lba;
     FILE* fp;
@@ -183,6 +199,18 @@ static const pc_vnand_profile_defaults_t g_pc_vnand_profile_dev = {
 
 static const pc_vnand_profile_defaults_t g_pc_vnand_profile_realistic = {
     "realistic", 200u, 3000u, 12000u, 0.0001
+};
+
+static const pc_vnand_model_profile_t g_pc_vnand_model_profiles[] = {
+    {"w25n01gv", 128u, 0xEF, 0xAA21},
+    {"w25n02kv", 256u, 0xEF, 0xAB22},
+    {"gd5f1gq5", 128u, 0xC8, 0xB148},
+};
+
+static const pc_vnor_model_profile_t g_pc_vnor_model_profiles[] = {
+    {"w25q128", 16u, {0xEF, 0x40, 0x18}},
+    {"w25q64", 8u, {0xEF, 0x40, 0x17}},
+    {"mx25l128", 16u, {0xC2, 0x20, 0x18}},
 };
 
 win32spi_t win32spis[LUAT_WIN32_SPI_COUNT] = {0};
@@ -263,6 +291,104 @@ static double pc_getenv_double(const char* key, double fallback, double minv, do
     if (n < minv) n = minv;
     if (n > maxv) n = maxv;
     return n;
+}
+
+static int pc_env_is_set(const char* key) {
+    const char* v = getenv(key);
+    return (v && v[0]) ? 1 : 0;
+}
+
+static uint32_t pc_clamp_u32(uint32_t v, uint32_t minv, uint32_t maxv) {
+    if (v < minv) return minv;
+    if (v > maxv) return maxv;
+    return v;
+}
+
+static const pc_vnand_model_profile_t* pc_vnand_find_model(const char* model) {
+    if (!model || !model[0]) return &g_pc_vnand_model_profiles[0];
+    for (size_t i = 0; i < sizeof(g_pc_vnand_model_profiles) / sizeof(g_pc_vnand_model_profiles[0]); i++) {
+        if (_stricmp(model, g_pc_vnand_model_profiles[i].name) == 0) {
+            return &g_pc_vnand_model_profiles[i];
+        }
+    }
+    return &g_pc_vnand_model_profiles[0];
+}
+
+static const pc_vnor_model_profile_t* pc_vnor_find_model(const char* model) {
+    if (!model || !model[0]) return &g_pc_vnor_model_profiles[0];
+    for (size_t i = 0; i < sizeof(g_pc_vnor_model_profiles) / sizeof(g_pc_vnor_model_profiles[0]); i++) {
+        if (_stricmp(model, g_pc_vnor_model_profiles[i].name) == 0) {
+            return &g_pc_vnor_model_profiles[i];
+        }
+    }
+    return &g_pc_vnor_model_profiles[0];
+}
+
+void luat_pc_storage_get_effective(luat_pc_storage_effective_conf_t* out) {
+    if (!out) return;
+    memset(out, 0, sizeof(*out));
+    const luat_pcconf_t* conf = luat_pcconf_get();
+
+    out->tf_enabled = conf ? conf->tf_enabled : 1;
+    out->nor_enabled = conf ? conf->nor_enabled : 1;
+    out->nand_enabled = conf ? conf->nand_enabled : 1;
+
+    out->tf_capacity_mb = conf ? conf->tf_capacity_mb : (LUAT_PC_SD_TOTAL_SIZE / LUAT_PC_BYTES_PER_MB);
+    out->nor_capacity_mb = conf ? conf->nor_capacity_mb : 16;
+    out->nand_capacity_mb = conf ? conf->nand_capacity_mb : (LUAT_PC_NAND_DEFAULT_TOTAL_SIZE / LUAT_PC_BYTES_PER_MB);
+
+    const pc_vnor_model_profile_t* nor_model = pc_vnor_find_model(conf ? conf->nor_model : NULL);
+    const pc_vnand_model_profile_t* nand_model = pc_vnand_find_model(conf ? conf->nand_model : NULL);
+    strncpy(out->nor_model, nor_model->name, sizeof(out->nor_model) - 1);
+    strncpy(out->nand_model, nand_model->name, sizeof(out->nand_model) - 1);
+
+    if (pc_env_is_set("LUAT_PC_SD_SIM_ENABLE")) {
+        out->tf_enabled = (uint8_t)pc_getenv_u32("LUAT_PC_SD_SIM_ENABLE", out->tf_enabled, 0, 1);
+    }
+    if (pc_env_is_set("LUAT_PC_NOR_SIM_ENABLE")) {
+        out->nor_enabled = (uint8_t)pc_getenv_u32("LUAT_PC_NOR_SIM_ENABLE", out->nor_enabled, 0, 1);
+    }
+
+    uint32_t nand_fallback_enable = out->nand_enabled;
+    uint32_t legacy_enable = pc_getenv_u32("LUAT_VNAND_ENABLE", nand_fallback_enable, 0, 1);
+    if (pc_env_is_set("LUAT_PC_NAND_SIM_ENABLE")) {
+        out->nand_enabled = (uint8_t)pc_getenv_u32("LUAT_PC_NAND_SIM_ENABLE", legacy_enable, 0, 1);
+    } else {
+        out->nand_enabled = (uint8_t)legacy_enable;
+        const char* lf_nand_mode = getenv("LF_NAND_TEST_MODE");
+        if (lf_nand_mode && lf_nand_mode[0] && _stricmp(lf_nand_mode, "RED") == 0) {
+            out->nand_enabled = 0;
+        }
+    }
+
+    if (pc_env_is_set("LUAT_PC_SD_CAPACITY_MB")) {
+        out->tf_capacity_mb = pc_getenv_u32("LUAT_PC_SD_CAPACITY_MB", out->tf_capacity_mb, 1, 2048);
+    }
+    if (pc_env_is_set("LUAT_PC_NOR_CAPACITY_MB")) {
+        out->nor_capacity_mb = pc_getenv_u32("LUAT_PC_NOR_CAPACITY_MB", out->nor_capacity_mb, 1, 512);
+    }
+    if (pc_env_is_set("LUAT_PC_NAND_CAPACITY_MB")) {
+        out->nand_capacity_mb = pc_getenv_u32("LUAT_PC_NAND_CAPACITY_MB", out->nand_capacity_mb, 1, 2048);
+    }
+
+    if (pc_env_is_set("LUAT_PC_NOR_MODEL")) {
+        const pc_vnor_model_profile_t* env_nor = pc_vnor_find_model(getenv("LUAT_PC_NOR_MODEL"));
+        strncpy(out->nor_model, env_nor->name, sizeof(out->nor_model) - 1);
+        if (!pc_env_is_set("LUAT_PC_NOR_CAPACITY_MB")) {
+            out->nor_capacity_mb = env_nor->capacity_mb;
+        }
+    }
+    if (pc_env_is_set("LUAT_PC_NAND_MODEL")) {
+        const pc_vnand_model_profile_t* env_nand = pc_vnand_find_model(getenv("LUAT_PC_NAND_MODEL"));
+        strncpy(out->nand_model, env_nand->name, sizeof(out->nand_model) - 1);
+        if (!pc_env_is_set("LUAT_PC_NAND_CAPACITY_MB")) {
+            out->nand_capacity_mb = env_nand->capacity_mb;
+        }
+    }
+
+    out->tf_capacity_mb = pc_clamp_u32(out->tf_capacity_mb, 1, 2048);
+    out->nor_capacity_mb = pc_clamp_u32(out->nor_capacity_mb, 1, 512);
+    out->nand_capacity_mb = pc_clamp_u32(out->nand_capacity_mb, 1, 2048);
 }
 
 // Speed simulation helpers
@@ -578,26 +704,24 @@ static void pc_vnand_init_if_needed(int spi_id) {
         return;
     }
     sim->initialized = 1;
-    uint32_t legacy_enable = pc_getenv_u32("LUAT_VNAND_ENABLE", 1, 0, 1);
-    const char* sim_enable_env = getenv("LUAT_PC_NAND_SIM_ENABLE");
-    if (sim_enable_env && sim_enable_env[0]) {
-        // explicit per-simulator switch is a stronger override
-        sim->enabled = pc_getenv_u32("LUAT_PC_NAND_SIM_ENABLE", legacy_enable, 0, 1);
-    } else {
-        sim->enabled = legacy_enable;
-        const char* lf_nand_mode = getenv("LF_NAND_TEST_MODE");
-        if (lf_nand_mode && lf_nand_mode[0] && _stricmp(lf_nand_mode, "RED") == 0) {
-            sim->enabled = 0;
-            LLOGI("virtual nand disabled by LF_NAND_TEST_MODE=RED");
-        }
+    luat_pc_storage_effective_conf_t eff = {0};
+    luat_pc_storage_get_effective(&eff);
+    sim->enabled = eff.nand_enabled ? 1 : 0;
+    if (!sim->enabled && getenv("LF_NAND_TEST_MODE") && _stricmp(getenv("LF_NAND_TEST_MODE"), "RED") == 0) {
+        LLOGI("virtual nand disabled by LF_NAND_TEST_MODE=RED");
     }
     if (!sim->enabled) {
         return;
     }
 
+    const pc_vnand_model_profile_t* model = pc_vnand_find_model(eff.nand_model);
     uint32_t page_size = pc_getenv_u32("LUAT_PC_NAND_PAGE_SIZE", LUAT_PC_NAND_DEFAULT_PAGE_SIZE, 256, 16384);
     uint32_t pages_per_block = pc_getenv_u32("LUAT_PC_NAND_PAGES_PER_BLOCK", LUAT_PC_NAND_DEFAULT_PAGES_PER_BLK, 4, 512);
-    uint32_t total_size = pc_getenv_u32("LUAT_PC_NAND_TOTAL_SIZE", LUAT_PC_NAND_DEFAULT_TOTAL_SIZE, page_size * pages_per_block, 512u * 1024u * 1024u);
+    uint32_t fallback_size = eff.nand_capacity_mb * LUAT_PC_BYTES_PER_MB;
+    if (fallback_size == 0) {
+        fallback_size = model->capacity_mb * LUAT_PC_BYTES_PER_MB;
+    }
+    uint32_t total_size = pc_getenv_u32("LUAT_PC_NAND_TOTAL_SIZE", fallback_size, page_size * pages_per_block, 512u * 1024u * 1024u);
     uint32_t total_pages = total_size / page_size;
     total_pages -= total_pages % pages_per_block;
     if (total_pages == 0) {
@@ -621,8 +745,8 @@ static void pc_vnand_init_if_needed(int spi_id) {
     sim->erase_delay_us = pc_getenv_u32("LUAT_PC_NAND_ERASE_DELAY_US", profile->erase_delay_us, 0, 60000000);
     sim->rand_state = pc_getenv_u32("LUAT_PC_NAND_SEED", LUAT_PC_NAND_DEFAULT_SEED, 1, 0xFFFFFFFFu);
     sim->jedec[0] = 0x00;
-    sim->jedec[1] = (uint8_t)pc_getenv_u32("LUAT_PC_NAND_JEDEC_MFR", 0xEF, 0, 0xFF);
-    uint16_t jedec_dev = (uint16_t)pc_getenv_u32("LUAT_PC_NAND_JEDEC_DEV", 0xAA21, 0, 0xFFFF);
+    sim->jedec[1] = (uint8_t)pc_getenv_u32("LUAT_PC_NAND_JEDEC_MFR", model->jedec_mfr, 0, 0xFF);
+    uint16_t jedec_dev = (uint16_t)pc_getenv_u32("LUAT_PC_NAND_JEDEC_DEV", model->jedec_dev, 0, 0xFFFF);
     sim->jedec[2] = (uint8_t)(jedec_dev >> 8);
     sim->jedec[3] = (uint8_t)(jedec_dev & 0xFF);
     
@@ -663,8 +787,8 @@ static void pc_vnand_init_if_needed(int spi_id) {
         sim->bad_blocks[0] = 0;
     }
     pc_vnand_reset_state(sim);
-    LLOGI("virtual nand enabled profile=%s size=%u page=%u block_pages=%u read_us=%u prog_us=%u erase_us=%u bad_ratio=%.4f speed_factor=%.2f seed=%u jedec=%02X %02X %02X %02X",
-          profile->name, sim->total_size, sim->page_size, sim->pages_per_block,
+    LLOGI("virtual nand enabled profile=%s model=%s size=%u page=%u block_pages=%u read_us=%u prog_us=%u erase_us=%u bad_ratio=%.4f speed_factor=%.2f seed=%u jedec=%02X %02X %02X %02X",
+          profile->name, model->name, sim->total_size, sim->page_size, sim->pages_per_block,
           sim->read_delay_us, sim->prog_delay_us, sim->erase_delay_us, bad_ratio, sim->speed_factor, sim->rand_state,
           sim->jedec[0], sim->jedec[1], sim->jedec[2], sim->jedec[3]);
 }
@@ -678,10 +802,16 @@ static void pc_vnor_init_if_needed(int spi_id) {
         return;
     }
     sim->initialized = 1;
-    sim->enabled = 1;
-    sim->jedec[0] = 0xEF;
-    sim->jedec[1] = 0x40;
-    sim->jedec[2] = 0x18;
+    luat_pc_storage_effective_conf_t eff = {0};
+    luat_pc_storage_get_effective(&eff);
+    const pc_vnor_model_profile_t* model = pc_vnor_find_model(eff.nor_model);
+    sim->enabled = eff.nor_enabled ? 1 : 0;
+    sim->jedec[0] = model->jedec[0];
+    sim->jedec[1] = model->jedec[1];
+    sim->jedec[2] = model->jedec[2];
+    if (!sim->enabled) {
+        return;
+    }
     
     // Initialize NOR speed profile
     sim->speed_profile.read_delay_us_per_byte = LUAT_PC_NOR_DEFAULT_READ_DELAY_US_PER_BYTE;
@@ -701,8 +831,8 @@ static void pc_vnor_init_if_needed(int spi_id) {
     sim->speed_profile.erase_delay_us_per_4k = pc_getenv_u32("LUAT_NOR_ERASE_US_PER_4K", 
         (uint32_t)(LUAT_PC_NOR_DEFAULT_ERASE_DELAY_US_PER_4K * sim->speed_factor), 0, 10000000);
     
-    LLOGI("virtual nor enabled jedec=%02X %02X %02X speed_factor=%.2f read_us/byte=%u prog_us/byte=%u erase_us/4k=%u",
-          sim->jedec[0], sim->jedec[1], sim->jedec[2], sim->speed_factor,
+    LLOGI("virtual nor enabled model=%s size=%uMB jedec=%02X %02X %02X speed_factor=%.2f read_us/byte=%u prog_us/byte=%u erase_us/4k=%u",
+          model->name, eff.nor_capacity_mb, sim->jedec[0], sim->jedec[1], sim->jedec[2], sim->speed_factor,
           sim->speed_profile.read_delay_us_per_byte, sim->speed_profile.prog_delay_us_per_byte,
           sim->speed_profile.erase_delay_us_per_4k);
 }
@@ -740,19 +870,35 @@ static void pc_vsd_resp_push_data(pc_vsd_t* sim, const uint8_t* data, size_t len
 }
 
 static int pc_vsd_open_or_create(pc_vsd_t* sim, int create_if_missing) {
+    static uint8_t ff_buf[4096];
+    uint32_t target_size;
+    if (!sim) {
+        return -1;
+    }
+    target_size = sim->total_size ? sim->total_size : LUAT_PC_SD_TOTAL_SIZE;
+    memset(ff_buf, 0xFF, sizeof(ff_buf));
     if (sim->fp) {
         return 0;
     }
     sim->fp = fopen(sim->image_path, "rb+");
+    if (sim->fp) {
+        long fsz = 0;
+        if (!fseek(sim->fp, 0, SEEK_END)) {
+            fsz = ftell(sim->fp);
+            fseek(sim->fp, 0, SEEK_SET);
+        }
+        if (fsz != (long)target_size) {
+            fclose(sim->fp);
+            sim->fp = NULL;
+        }
+    }
     if (!sim->fp && create_if_missing) {
         _mkdir("spidrv");
         sim->fp = fopen(sim->image_path, "wb+");
         if (!sim->fp) {
             return -1;
         }
-        static uint8_t ff_buf[4096];
-        memset(ff_buf, 0xFF, sizeof(ff_buf));
-        uint32_t remaining = LUAT_PC_SD_TOTAL_SIZE;
+        uint32_t remaining = target_size;
         while (remaining > 0) {
             uint32_t now = remaining > sizeof(ff_buf) ? (uint32_t)sizeof(ff_buf) : remaining;
             if (fwrite(ff_buf, 1, now, sim->fp) != now) {
@@ -1043,10 +1189,19 @@ static void pc_vsd_init_if_needed(int spi_id) {
         return;
     }
     sim->initialized = 1;
-    sim->enabled = 1;
+    luat_pc_storage_effective_conf_t eff = {0};
+    luat_pc_storage_get_effective(&eff);
+    sim->enabled = eff.tf_enabled ? 1 : 0;
+    if (!sim->enabled) {
+        return;
+    }
     sim->idle = 1;
     sim->high_capacity = 1;
-    sim->sector_count = LUAT_PC_SD_TOTAL_SIZE / LUAT_PC_SD_BLOCK_SIZE;
+    sim->total_size = eff.tf_capacity_mb * LUAT_PC_BYTES_PER_MB;
+    if (sim->total_size == 0) {
+        sim->total_size = LUAT_PC_SD_TOTAL_SIZE;
+    }
+    sim->sector_count = sim->total_size / LUAT_PC_SD_BLOCK_SIZE;
     memcpy(sim->image_path, LUAT_PC_SD_IMAGE_PATH, sizeof(LUAT_PC_SD_IMAGE_PATH));
     memset(sim->csd_data, 0, sizeof(sim->csd_data));
     sim->csd_data[0] = 0x40;
@@ -1085,7 +1240,7 @@ static void pc_vsd_init_if_needed(int spi_id) {
         (uint32_t)(LUAT_PC_SD_DEFAULT_ERASE_DELAY_US * sim->speed_factor), 0, 10000000);
     
     LLOGI("virtual sd enabled size=%u bytes image=%s speed_factor=%.2f read_us/blk=%u write_us/blk=%u erase_us=%u",
-          LUAT_PC_SD_TOTAL_SIZE, sim->image_path, sim->speed_factor,
+          sim->total_size, sim->image_path, sim->speed_factor,
           sim->speed_profile.read_delay_us_per_block, sim->speed_profile.write_delay_us_per_block,
           sim->speed_profile.erase_delay_us);
 }

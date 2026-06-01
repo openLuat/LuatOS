@@ -113,14 +113,14 @@ local function build_ui()
         y = add_card("WiFi设置", "OPEN_WIFI_WIN", y)
     end
     y = add_card("显示亮度", "OPEN_DISPLAY_WIN", y)
-    if ui.show_storage_settings ~= false then
+    if ui.show_storage_settings then
         y = add_card("存储和内存", "OPEN_STORAGE_WIN", y)
     end
     if has_storage then
         y = add_card("存储顺序", "OPEN_STORAGE_PRI_WIN", y)
     end
     y = add_card("系统更新", "OPEN_FOTA_WIN", y)
-    if has_buzzer and ui.show_buzzer_settings ~= false then
+    if has_buzzer and ui.show_buzzer_settings then
         y = add_card("触摸音效", "OPEN_SOUND_WIN", y)
     end
     add_card("关于设置", "OPEN_ABOUT_WIN", y)

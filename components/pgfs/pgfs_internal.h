@@ -23,7 +23,9 @@
 #define PGFS_LOCK_MODE_OFF           0u
 #define PGFS_LOCK_MODE_ON            1u
 #define PGFS_INJECT_POWERCUT_NONE    0u
-#define PGFS_INJECT_POWERCUT_BEFORE_CP 1u
+#define PGFS_INJECT_POWERCUT_BEFORE_APPEND 1u
+#define PGFS_INJECT_POWERCUT_AFTER_APPEND 2u
+#define PGFS_INJECT_POWERCUT_BEFORE_CP 3u
 
 #if defined(_MSC_VER)
 #pragma pack(push, 1)

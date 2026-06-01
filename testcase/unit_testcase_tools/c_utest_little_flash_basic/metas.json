@@ -1,0 +1,9 @@
+{
+    "timeout": 90,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "C层utest-little_flash(Ftl映射基础)"
+}

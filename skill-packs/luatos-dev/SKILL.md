@@ -207,8 +207,8 @@ testcase/
 ## 十、常见陷阱
 
 - `lua_newuserdata` 不会零初始化 → 必须 `memset`
-- `uv_async_send` 回调在不同线程
-- 不能 memcpy libuv 句柄
+- 异步回调可能在不同线程执行
+- 不能 memcpy 运行时管理的异步句柄
 - xmake `remove_files` 后 `add_files` 无效
 - PC 测试必须 `os.exit(0)`，写在 `sys.run()` 之前
 

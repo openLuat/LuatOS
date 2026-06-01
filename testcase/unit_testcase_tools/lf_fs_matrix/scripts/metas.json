@@ -1,6 +1,6 @@
 {
   "name": "lf_fs_matrix",
-  "summary": "LF filesystem matrix test for lfs2/lfsn/pgfs",
+  "summary": "LF filesystem matrix test for lfs2/lfsn/pgfs/lfs3",
   "platform": ["pc", "air1601", "air1602", "ec618"],
   "timeout": 300
 }

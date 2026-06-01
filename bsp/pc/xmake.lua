@@ -454,6 +454,10 @@ target("luatos-lua")
     add_includedirs(luatos.."components/pgfs",{public = true})
     add_files(luatos.."components/pgfs/**.c")
 
+    -- nfs (NAND File System)
+    add_includedirs(luatos.."components/nfs/inc",{public = true})
+    add_files(luatos.."components/nfs/src/**.c")
+
     -- 添加mreport
     -- add_includedirs(luatos.."components/mreport/include",{public = true})
     add_files(luatos.."components/mreport/src/*.c")
@@ -538,6 +542,13 @@ target("luatos-lua")
     add_includedirs(luatos.."components/nes/inc")
     add_includedirs(luatos.."components/nes/port")
     add_files(luatos.."components/nes/**.c")
+
+    -- gbc
+    add_includedirs(luatos.."components/gbc/inc")
+    add_includedirs(luatos.."components/gbc/port")
+    add_files(luatos.."components/gbc/src/**.c")
+    add_files(luatos.."components/gbc/port/gbc_luatos_port.c")
+    add_files(luatos.."components/gbc/luat_lib_gbc.c")
 
     if use_gui then
         add_packages("libsdl2")

@@ -229,6 +229,17 @@ local function register_all_keys()
         end
         log.info("nes_key_app", "=== GPIO pin status check end ===")
     end, 2000)
+    -- 10秒后再次检查（WiFi/airlink/DHCP 初始化完毕后再看引脚是否被改）
+    sys.timerStart(function()
+        log.info("nes_key_app", "=== GPIO late pin status check (10s) ===")
+        for _, entry in ipairs(cfg.nes_keys) do
+            local pin = entry.pin
+            local key_name = entry.key
+            local val = gpio.get(pin)
+            log.info("nes_key_app", "pin", pin, key_name, "value:", val)
+        end
+        log.info("nes_key_app", "=== GPIO late pin status check end ===")
+    end, 10000)
 end
 
 sys.subscribe("OPEN_WELCOME_WIN", function()

@@ -38,6 +38,7 @@ require "wifi_list_win"     -- WiFi 列表页（扫描/连接/断开）
 require "settings_win"      -- 设置主页（功能入口列表：WiFi/显示/存储/关于...）
 require "app_store_win"     -- 应用商店页（浏览/搜索/下载 exapp 应用）
 require "speedtest_win"     -- 测速页（延迟/下载/上传结果显示）
+require "file_manager_win"  -- 文件管理页（浏览 /app_store 目录、新建/删除文件）
 
 -- ==================== 硬件初始化协程（LCD → TP → 欢迎页 → 背光） ====================
 local function init_ui_task()

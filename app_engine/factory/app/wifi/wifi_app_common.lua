@@ -189,6 +189,11 @@ function M.handle_scan_done(wifi_state, scan_ref, on_done)
     local filtered_results = {}
     for _, wifi_entry in ipairs(raw_results) do
         if wifi_entry.ssid and wifi_entry.ssid ~= "" then
+            -- wlan.scanResult() 返回的 bssid 是原始 6 字节二进制数据，
+            -- 需转换为 hex 字符串才能正确用于 json 序列化、toHex()、匹配比较等下游逻辑
+            if wifi_entry.bssid and #wifi_entry.bssid == 6 then
+                wifi_entry.bssid = wifi_entry.bssid:toHex()
+            end
             table.insert(filtered_results, wifi_entry)
         end
     end
@@ -245,20 +250,34 @@ function M.auto_scan_and_verify(storage_config, scan_timeout)
         return { verified = false }
     end
     local best_ssid, best_password, best_rssi = nil, nil, -200
-    local best_config = nil
+    local best_config, best_bssid = nil, nil
     for _, wifi_entry in ipairs(raw_results or {}) do
         for _, saved_network in ipairs(saved_list) do
-            if wifi_entry.ssid == saved_network.ssid and (wifi_entry.rssi or -200) > best_rssi then
-                best_ssid = saved_network.ssid
-                best_password = saved_network.password
-                best_rssi = wifi_entry.rssi or -200
-                best_config = saved_network
+            if wifi_entry.ssid == saved_network.ssid then
+                -- 归一化BSSID用于比较
+                local norm_entry_bssid = wifi_entry.bssid and wifi_entry.bssid:lower():gsub("[^0-9a-f]", "")
+                local norm_saved_bssid = saved_network.bssid and saved_network.bssid:lower():gsub("[^0-9a-f]", "")
+                -- BSSID精确匹配：已保存网络记录了bssid，且扫描结果bssid与之匹配 → 优先选它
+                if norm_saved_bssid and #norm_saved_bssid >= 12 and norm_entry_bssid and norm_entry_bssid == norm_saved_bssid then
+                    best_ssid = saved_network.ssid
+                    best_password = saved_network.password
+                    best_rssi = wifi_entry.rssi or -200
+                    best_config = saved_network
+                    best_bssid = norm_entry_bssid
+                    break  -- BSSID精配到就不需要继续内层循环
+                -- 已保存网络没有bssid或bssid不匹配时，降级到SSID+RSSI匹配（不覆盖已有的BSSID精配结果）
+                elseif not best_bssid and (wifi_entry.rssi or -200) > best_rssi then
+                    best_ssid = saved_network.ssid
+                    best_password = saved_network.password
+                    best_rssi = wifi_entry.rssi or -200
+                    best_config = saved_network
+                end
             end
         end
     end
     if best_ssid then
-        log.info("wifi_app", "找到最佳已保存网络:", best_ssid, "信号:", best_rssi)
-        return { verified = true, ssid = best_ssid, password = best_password, signal = best_rssi, config = best_config }
+        log.info("wifi_app", "找到最佳已保存网络:", best_ssid, "信号:", best_rssi, "bssid:", best_bssid or "N/A")
+        return { verified = true, ssid = best_ssid, password = best_password, signal = best_rssi, config = best_config, bssid = best_bssid }
     end
     log.info("wifi_app", "未在附近找到任何已保存网络")
     return { verified = false }

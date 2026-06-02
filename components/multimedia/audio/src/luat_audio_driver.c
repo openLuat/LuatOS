@@ -20,6 +20,10 @@
 #define LUAT_RT_CB_PARAM void *param
 #endif
 
+#ifndef __LUAT_C_CODE_IN_ISR__
+#define __LUAT_C_CODE_IN_ISR__
+#endif
+
 static __LUAT_C_CODE_IN_ISR__ LUAT_RT_RET_TYPE _audio_pa_power_on_delay_timer(LUAT_RT_CB_PARAM)
 {
 	struct luat_audio_driver_ctrl *ctrl = (struct luat_audio_driver_ctrl *)param;

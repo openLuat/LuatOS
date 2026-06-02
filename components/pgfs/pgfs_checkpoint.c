@@ -13,6 +13,34 @@
  * Block 0..4 are reserved (SB-A, SB-B, CP-A, CP-B, FTL state). The data
  * log spans [5, total_blocks-1]. Returns -1 if the geometry is too
  * small to host the required reserved blocks (< 5 blocks total). */
+/* Phase 4: consistency check between CP and FTL state.
+ * The CP carries a (log_tail_block, log_tail_offset) pair that records
+ * the data log position at the moment the CP was committed. The FTL
+ * state carries the same pair (write_head_block, write_head_offset).
+ * If they match, the data log has not been touched since the CP was
+ * committed, and pgfs_replay_data_log can be skipped on mount.
+ *
+ * For now this returns false unconditionally because Phase 4 only adds
+ * the field plumbing; the actual mount-time O(1) skip requires the
+ * per-segment write head to be populated on every CP commit, which
+ * depends on Phase 2's seg_state_t work. The fields are present so
+ * downstream tests can verify the contract. */
+bool pgfs_checkpoint_is_consistent_with_ftl(const pgfs_checkpoint_t* cp,
+                                          const pgfs_nand_ftl_ctx_t* ftl) {
+    if (cp == NULL || ftl == NULL || ftl->flash_opts == NULL) {
+        return false;
+    }
+    /* Placeholder: the real check is
+     *   cp->log_tail_block == ftl->write_head_block
+     *   && cp->log_tail_offset == ftl->write_head_offset
+     * but the FTL field is set by pgfs_ftl_persist which currently
+     * writes zero. Activate the check once pgfs_ftl_persist populates
+     * write_head from the per-segment state. */
+    (void)cp;
+    (void)ftl;
+    return false;
+}
+
 int pgfs_layout_compute(const pgfs_flash_geometry_t* geo, pgfs_layout_t* out) {
     if (geo == NULL || out == NULL) {
         return -1;

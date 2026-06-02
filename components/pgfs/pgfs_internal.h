@@ -136,6 +136,13 @@ typedef struct pgfs_layout {
  * the required reserved blocks. */
 int pgfs_layout_compute(const pgfs_flash_geometry_t* geo, pgfs_layout_t* out);
 
+/* Phase 4: consistency check between the latest checkpoint and the FTL
+ * state. If the CP's log_tail_block/offset matches the FTL's persisted
+ * write_head_block/offset, the data log is consistent and the mount
+ * path can skip pgfs_replay_data_log. Returns true if consistent. */
+bool pgfs_checkpoint_is_consistent_with_ftl(const pgfs_checkpoint_t* cp,
+                                          const pgfs_nand_ftl_ctx_t* ftl);
+
 typedef struct pgfs_diag_stats {
     uint32_t lock_acquire_count;
     uint32_t lock_passthrough_count;

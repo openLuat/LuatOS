@@ -11,11 +11,7 @@ extern "C" {
 /* define the printf function for little flash */
 #define LF_PRINTF LLOGI
 
-#ifndef LF_DEBUG_MODE
-/* LF_DEBUG_MODE: 0 = release (assert degrade to LLOGE), 1 = dev (assert = while(1) loop)
- * release builds default OFF; pass -DLF_DEBUG_MODE=1 in the build to enable. */
-#define LF_DEBUG_MODE 0
-#endif
+#define LF_DEBUG_MODE                   /* enable debug mode for little flash */
 
 #define LF_FLASH_NAME_LEN    16         /* the max length of flash name */
 

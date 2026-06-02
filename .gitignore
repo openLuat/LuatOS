@@ -122,3 +122,13 @@ bsp/pc/otp.bin
 .worktree
 .worktrees/
 *.log
+
+# Local AI / IDE tooling state (Mavis, Antigravity, OpenCode, etc.)
+.mavis/
+.antigravitycli/
+.opencode/
+# Media artifacts accidentally saved at repo root by tooling
+/matrix-media-*.mp4
+/pgfs_flow.mp4
+/pcconf/
+/pgfs_video/

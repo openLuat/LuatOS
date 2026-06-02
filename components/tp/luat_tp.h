@@ -86,5 +86,7 @@ int luat_tp_irq_enable(luat_tp_config_t* luat_tp_config, uint8_t enabled);
 
 int luat_tp_sleep(luat_tp_config_t* luat_tp_config);
 
+int luat_tp_wakeup(luat_tp_config_t* luat_tp_config);
+
 
 #endif

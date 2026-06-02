@@ -44,11 +44,11 @@ static void little_flash_free(void* ptr){
 #endif
 
 static void little_flash_lock(const little_flash_t *lf){
-    luat_mutex_lock(lf->mutex);
+    luat_mutex_lock(lf->user_data);
 }
 
 static void little_flash_unlock(const little_flash_t *lf){
-    luat_mutex_unlock(lf->mutex);
+    luat_mutex_unlock(lf->user_data);
 }
 
 lf_err_t little_flash_port_init(little_flash_t *lf){
@@ -60,7 +60,7 @@ lf_err_t little_flash_port_init(little_flash_t *lf){
     lf->free = little_flash_free;
 #endif
     /* create a mutex for locking */
-    lf->mutex = luat_mutex_create();
+    lf->user_data = luat_mutex_create();
     lf->lock = little_flash_lock;
     lf->unlock = little_flash_unlock;
     return LF_ERR_OK;

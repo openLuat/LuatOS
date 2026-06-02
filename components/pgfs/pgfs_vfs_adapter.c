@@ -2,10 +2,13 @@
 #include <string.h>
 #include "luat_pgfs.h"
 
+#define LUAT_LOG_TAG "pgfs"
+#include "luat_log.h"
+
 #ifdef LUAT_USE_PGFS_COMPONENT
 
 #include "luat_fs.h"
-#include "pgfs_internal.h"
+#include "pgfs_internal.h"  /* includes pgfs_nand_ftl.h internally */
 #ifdef LUAT_USE_LITTLE_FLASH
 #include "little_flash.h"
 #endif
@@ -59,7 +62,20 @@ static int pgfs_lf_erase(void *ctx, uint32_t block_addr, uint32_t block_count) {
     if (bus == NULL || bus->flash == NULL || block_count == 0) {
         return -1;
     }
-    return little_flash_erase(bus->flash, bus->offset + block_addr, block_count) == LF_ERR_OK ? 0 : -1;
+    int ret = little_flash_erase(bus->flash, bus->offset + block_addr, block_count);
+
+    /* Update FTL erase counts and bad-block state */
+    pgfs_mount_ctx_t *mount_ctx = pgfs_get_mount_ctx();
+    if (mount_ctx && mount_ctx->mounted) {
+        uint32_t block_id = block_addr / bus->flash->chip_info.erase_size;
+        if (ret == LF_ERR_OK) {
+            pgfs_ftl_on_erase_success(mount_ctx, block_id);
+        } else {
+            pgfs_ftl_on_erase_failure(mount_ctx, block_id);
+        }
+    }
+
+    return ret == LF_ERR_OK ? 0 : -1;
 }
 
 static int pgfs_lf_control(void *ctx, uint32_t cmd, void *arg) {
@@ -142,6 +158,14 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
         }
     }
     s_pgfs_ctx.checkpoint_loaded = 1;
+
+    /* NAND FTL init: try loading persisted state, fall back to factory scan */
+    if (pgfs_ftl_on_mount(&s_pgfs_ctx) != 0) {
+        LLOGE("pgfs: NAND FTL init failed");
+        memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
+        return -1;
+    }
+
     s_pgfs_ctx.mounted = 1;
     *fsdata = &s_pgfs_ctx;
     return 0;
@@ -150,8 +174,13 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
 static int luat_vfs_pgfs_umount(void* fsdata, luat_fs_conf_t *conf) {
     (void)fsdata;
     (void)conf;
-    if (s_pgfs_ctx.mounted && pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
-        return -1;
+    if (s_pgfs_ctx.mounted) {
+        /* Persist FTL state before committing checkpoint */
+        pgfs_ftl_on_checkpoint_commit(&s_pgfs_ctx);
+        if (pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
+            return -1;
+        }
+        pgfs_ftl_deinit(&s_pgfs_ctx.ftl);
     }
     pgfs_file_reset_all();
     memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
@@ -388,7 +417,20 @@ int pgfs_control_inject_corrupt_latest_cp(int enable) {
 }
 
 int pgfs_control_inject_bad_block_once(int enable) {
-    s_pgfs_ctx.inject_bad_block_once = enable ? 1 : 0;
+    if (enable) {
+        /* If FTL is already mounted, inject immediately into it.
+         * Otherwise, set flag to be picked up at mount time. */
+        if (s_pgfs_ctx.mounted) {
+            pgfs_ftl_inject_bad_block_once(&s_pgfs_ctx.ftl, 0);
+        } else {
+            s_pgfs_ctx.inject_bad_block_once = 1;
+        }
+    } else {
+        s_pgfs_ctx.inject_bad_block_once = 0;
+        if (s_pgfs_ctx.mounted) {
+            s_pgfs_ctx.ftl.inject_bad_block_once = 0;
+        }
+    }
     return 0;
 }
 
@@ -401,8 +443,13 @@ int pgfs_control_reset_runtime(void) {
     int loaded = -1;
 
     memcpy(mount_point, s_pgfs_ctx.mount_point, sizeof(mount_point));
-    if (s_pgfs_ctx.mounted && pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
-        return -1;
+    if (s_pgfs_ctx.mounted) {
+        /* Persist FTL state before resetting */
+        pgfs_ftl_on_checkpoint_commit(&s_pgfs_ctx);
+        if (pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
+            return -1;
+        }
+        pgfs_ftl_deinit(&s_pgfs_ctx.ftl);
     }
     pgfs_file_reset_all();
     memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
@@ -430,6 +477,11 @@ int pgfs_control_reset_runtime(void) {
             }
             s_pgfs_ctx.checkpoint_loaded = 1;
         }
+    }
+    /* Re-init NAND FTL on runtime reset */
+    if (pgfs_ftl_on_mount(&s_pgfs_ctx) != 0) {
+        LLOGE("pgfs: FTL re-init failed on runtime reset");
+        return -1;
     }
     return 0;
 }

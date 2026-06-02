@@ -44,4 +44,30 @@ function pgfs_tests.test_pgfs_utest_large_unzip_repro()
     run_pgfs_case("large_unzip_repro")
 end
 
+-- ── NAND FTL unit tests ──
+function pgfs_tests.test_pgfs_ftl_init_deinit()
+    run_pgfs_case("ftl_init_deinit")
+end
+function pgfs_tests.test_pgfs_ftl_mark_block_bad_idempotent()
+    run_pgfs_case("ftl_mark_block_bad_idempotent")
+end
+function pgfs_tests.test_pgfs_ftl_find_free_block_skips_bad()
+    run_pgfs_case("ftl_find_free_block_skips_bad")
+end
+function pgfs_tests.test_pgfs_ftl_block_erased_increments()
+    run_pgfs_case("ftl_block_erased_increments")
+end
+function pgfs_tests.test_pgfs_ftl_persist_load_roundtrip()
+    run_pgfs_case("ftl_persist_load_roundtrip")
+end
+function pgfs_tests.test_pgfs_ftl_load_no_record_on_fresh()
+    run_pgfs_case("ftl_load_no_record_on_fresh")
+end
+function pgfs_tests.test_pgfs_ftl_load_corrupt_crc()
+    run_pgfs_case("ftl_load_corrupt_crc")
+end
+function pgfs_tests.test_pgfs_ftl_inject_once()
+    run_pgfs_case("ftl_inject_once")
+end
+
 return pgfs_tests

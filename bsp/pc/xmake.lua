@@ -430,13 +430,13 @@ target("luatos-lua")
     add_includedirs(luatos.."components/little_flash/inc",{public = true})
     add_includedirs(luatos.."components/little_flash/port",{public = true})
     add_files(luatos.."components/little_flash/**.c")
-    add_defines("LUAT_USE_LFS2_NAND_COMPONENT")
     add_includedirs(luatos.."components/pgfs",{public = true})
     add_files(luatos.."components/pgfs/**.c")
+    add_defines("LUAT_USE_PGFS_COMPONENT=1")
 
-    -- nfs (NAND File System)
-    add_includedirs(luatos.."components/nfs/inc",{public = true})
-    add_files(luatos.."components/nfs/src/**.c")
+    -- tfs (Tiny File System)
+    add_includedirs(luatos.."components/tfs/inc",{public = true})
+    add_files(luatos.."components/tfs/src/**.c")
 
     -- 添加mreport
     -- add_includedirs(luatos.."components/mreport/include",{public = true})

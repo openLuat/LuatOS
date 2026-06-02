@@ -4,9 +4,9 @@
  * Bridges the little_flash SPI/NAND hardware layer to TFS's tfs_drv_t
  * callback interface.  Provides the factory function flash_tfs_lf().
  *
- * OOB handling:  SPI NAND does not expose the OOB (spare) area.
- * We allocate a RAM buffer for OOB and side-load it alongside
- * little_flash data reads/writes.  Limitation: OOB is not persistent.
+ * little_flash does not expose persistent OOB (spare) access, so this
+ * adapter uses TFS inband tags mode and stores packed tags in the tail
+ * of each page's main area.
  */
 
 #include "luat_base.h"
@@ -166,7 +166,8 @@ static void lf_tfs_fill_geo(tfs_geo_t *geo, luat_lf_tfs_ctx_t *ctx)
     uint32_t ps = flash->chip_info.prog_size;
     uint32_t es = flash->chip_info.erase_size;
     uint32_t capacity = flash->chip_info.capacity;
-    uint32_t spare_size = 64;
+    uint32_t inband_tags = 1;
+    uint32_t spare_size = inband_tags ? 0 : 64;
 
     memset(geo, 0, sizeof(*geo));
 
@@ -185,11 +186,12 @@ static void lf_tfs_fill_geo(tfs_geo_t *geo, luat_lf_tfs_ctx_t *ctx)
     geo->chunks_per_block      = es / ps;
     geo->start_block           = 0;
     geo->end_block             = block_count - 1;
-    geo->inband_tags           = 0;
+    geo->inband_tags           = (int)inband_tags;
     geo->stored_endian         = 0;
 
-    LLOGD("tfs geo: chunksize=%u spare=%u cpb=%u blocks=%u oob_ram=%u",
+    LLOGD("tfs geo: chunksize=%u spare=%u inband=%u cpb=%u blocks=%u oob_ram=%u",
           (unsigned int)ps, (unsigned int)spare_size,
+          (unsigned int)inband_tags,
           (unsigned int)(es / ps), (unsigned int)block_count,
           (unsigned int)(ctx->total_chunks * spare_size));
 }

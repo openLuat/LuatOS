@@ -89,6 +89,16 @@ static tfs_fd_t *get_fd(int fd)
     return &g_fd_table[fd];
 }
 
+static int open_accmode(int flags)
+{
+    return flags & (TFS_O_WRONLY | TFS_O_RDWR);
+}
+
+static int open_accmode_valid(int flags)
+{
+    return open_accmode(flags) != (TFS_O_WRONLY | TFS_O_RDWR);
+}
+
 /* Find the device for a path (first '/' → default device).
  * Paths have the form "/<devname>/rest/of/path".
  * Falls back to the first registered device for bare "/" paths. */
@@ -244,6 +254,11 @@ int tfs_open(const char *path, int flags, uint32_t mode)
     int         fd;
 
     if (!dev) { set_err(TFS_ENODEV); return -1; }
+    if (!open_accmode_valid(flags)) { set_err(TFS_EINVAL); return -1; }
+    if ((flags & TFS_O_TRUNC) && open_accmode(flags) == TFS_O_RDONLY) {
+        set_err(TFS_EACCES);
+        return -1;
+    }
 
     /* Lock device */
     if (dev->drv.lock) dev->drv.lock(dev->drv.ctx);
@@ -284,6 +299,12 @@ int tfs_open(const char *path, int flags, uint32_t mode)
     if (obj && obj->obj_type == TFS_OBJ_TYPE_HARDLINK && obj->var.hardlink.equiv_obj)
         obj = obj->var.hardlink.equiv_obj;
 
+    if (!obj || obj->obj_type != TFS_OBJ_TYPE_FILE) {
+        if (dev->drv.unlock) dev->drv.unlock(dev->drv.ctx);
+        set_err(obj && obj->obj_type == TFS_OBJ_TYPE_DIR ? TFS_EISDIR : TFS_EINVAL);
+        return -1;
+    }
+
     fd = alloc_fd();
     if (fd < 0) {
         if (dev->drv.unlock) dev->drv.unlock(dev->drv.ctx);
@@ -303,13 +324,15 @@ int tfs_open(const char *path, int flags, uint32_t mode)
 int tfs_close(int fd)
 {
     tfs_fd_t *f = get_fd(fd);
+    int       rc;
     if (!f) { set_err(TFS_EBADF); return -1; }
 
     if (f->dev->drv.lock) f->dev->drv.lock(f->dev->drv.ctx);
-    tfs_file_flush(f->dev, f->obj);
+    rc = tfs_file_flush(f->dev, f->obj);
     if (f->dev->drv.unlock) f->dev->drv.unlock(f->dev->drv.ctx);
 
     memset(f, 0, sizeof(tfs_fd_t));
+    if (rc != TFS_OK) { set_err(rc); return -1; }
     return 0;
 }
 
@@ -320,6 +343,10 @@ int tfs_read(int fd, void *buf, int n_bytes)
 
     if (!f) { set_err(TFS_EBADF); return -1; }
     if (!buf || n_bytes <= 0) return 0;
+    if (open_accmode(f->flags) == TFS_O_WRONLY) {
+        set_err(TFS_EACCES);
+        return -1;
+    }
 
     if (f->dev->drv.lock) f->dev->drv.lock(f->dev->drv.ctx);
     rc = tfs_file_read(f->dev, f->obj, (uint8_t *)buf, f->pos, n_bytes);
@@ -338,12 +365,18 @@ int tfs_write(int fd, const void *buf, int n_bytes)
     if (!f) { set_err(TFS_EBADF); return -1; }
     if (!buf || n_bytes <= 0) return 0;
 
-    if (f->flags & TFS_O_RDONLY) { set_err(TFS_EACCES); return -1; }
+    if (open_accmode(f->flags) == TFS_O_RDONLY) {
+        set_err(TFS_EACCES);
+        return -1;
+    }
 
     if (f->dev->drv.lock) f->dev->drv.lock(f->dev->drv.ctx);
 
     if (!tfs_gc_enough_space(f->dev))
         tfs_gc(f->dev, 0);
+
+    if (f->flags & TFS_O_APPEND)
+        f->pos = f->obj->var.file.file_size;
 
     rc = tfs_file_write(f->dev, f->obj, (const uint8_t *)buf, f->pos, n_bytes);
     if (rc > 0) f->pos += rc;
@@ -412,6 +445,11 @@ int tfs_ftruncate(int fd, tfs_off_t length)
     int       rc;
 
     if (!f) { set_err(TFS_EBADF); return -1; }
+    if (length < 0) { set_err(TFS_EINVAL); return -1; }
+    if (open_accmode(f->flags) == TFS_O_RDONLY) {
+        set_err(TFS_EACCES);
+        return -1;
+    }
 
     if (f->dev->drv.lock) f->dev->drv.lock(f->dev->drv.ctx);
     rc = tfs_file_resize(f->dev, f->obj, length);
@@ -429,6 +467,7 @@ int tfs_truncate(const char *path, tfs_off_t length)
     int         rc;
 
     if (!dev) { set_err(TFS_ENODEV); return -1; }
+    if (length < 0) { set_err(TFS_EINVAL); return -1; }
 
     if (dev->drv.lock) dev->drv.lock(dev->drv.ctx);
     obj = tfs_resolve_path(dev, rel, dev->root_dir, 1);

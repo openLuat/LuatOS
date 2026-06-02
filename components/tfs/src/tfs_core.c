@@ -125,13 +125,21 @@ static void scan_chunk(tfs_dev_t *dev, int chunk_in_nand,
         /* Data chunk: just record presence; tnode loaded lazily */
         obj = tfs_obj_find(dev, ext->obj_id);
         if (obj && obj->obj_type == TFS_OBJ_TYPE_FILE) {
-            tfs_tnode_put_chunk(dev, obj, ext->chunk_id - 1,
-                                (uint32_t)chunk_in_nand);
-            obj->n_data_chunks++;
+            uint32_t chunk_id = ext->chunk_id - 1;
+            uint32_t old_chunk = tfs_tnode_get_chunk(dev, obj, chunk_id);
+
+            if (tfs_tnode_put_chunk(dev, obj, chunk_id,
+                                    (uint32_t)chunk_in_nand) == TFS_OK) {
+                if (old_chunk > 0 && old_chunk != (uint32_t)chunk_in_nand)
+                    tfs_chunk_delete(dev, (int)old_chunk, 0);
+                else if (old_chunk == 0)
+                    obj->n_data_chunks++;
+            }
         }
     } else {
         /* Object header chunk */
         tfs_obj_hdr_t hdr;
+        int prefer_new = 1;
 
         if (tfs_obj_read_hdr(dev, chunk_in_nand, &hdr, NULL) != TFS_OK)
             return;
@@ -145,10 +153,22 @@ static void scan_chunk(tfs_dev_t *dev, int chunk_in_nand,
             tfs_obj_insert(dev, obj);
         }
 
-        /* Always prefer the header with the higher seq_number */
-        if ((int)ext->seq_number >= obj->hdr_chunk) {
+        if (obj->hdr_chunk > 0) {
+            tfs_ext_tags_t old_ext;
+            memset(&old_ext, 0, sizeof(old_ext));
+            if (tfs_obj_read_hdr(dev, obj->hdr_chunk, NULL, &old_ext) == TFS_OK) {
+                prefer_new = (ext->seq_number > old_ext.seq_number) ||
+                             (ext->seq_number == old_ext.seq_number &&
+                              chunk_in_nand > obj->hdr_chunk);
+            }
+        }
+
+        if (prefer_new) {
+            int old_hdr = obj->hdr_chunk;
             tfs_obj_load_hdr(dev, obj, &hdr, ext, chunk_in_nand);
             obj->valid = 1;
+            if (old_hdr > 0 && old_hdr != chunk_in_nand)
+                tfs_chunk_delete(dev, old_hdr, 0);
         } else {
             /* Older duplicate — delete */
             tfs_chunk_delete(dev, chunk_in_nand, 0);
@@ -294,9 +314,17 @@ static void rebuild_tnodes_after_checkpt(tfs_dev_t *dev)
             if (ext.chunk_id > 0) {
                 /* Data chunk: rebuild tnode mapping */
                 tfs_obj_t *obj = tfs_obj_find(dev, ext.obj_id);
-                if (obj && obj->obj_type == TFS_OBJ_TYPE_FILE)
-                    tfs_tnode_put_chunk(dev, obj, ext.chunk_id - 1,
-                                        (uint32_t)chunk);
+                if (obj && obj->obj_type == TFS_OBJ_TYPE_FILE) {
+                    uint32_t chunk_id = ext.chunk_id - 1;
+                    uint32_t old_chunk = tfs_tnode_get_chunk(dev, obj,
+                                                             chunk_id);
+
+                    if (tfs_tnode_put_chunk(dev, obj, chunk_id,
+                                            (uint32_t)chunk) == TFS_OK &&
+                        old_chunk > 0 && old_chunk != (uint32_t)chunk) {
+                        tfs_chunk_delete(dev, (int)old_chunk, 0);
+                    }
+                }
             }
         }
     }
@@ -781,14 +809,14 @@ int tfs_file_write(tfs_dev_t *dev, tfs_obj_t *obj,
             if (!ce) return TFS_ENOMEM;
         }
 
-        /* Seed cache entry from NAND if partial write */
-        if (ce->n_bytes == 0 && chunk_off > 0) {
+        /* Seed cache entry from NAND if a partial chunk may leave a hole. */
+        if (ce->n_bytes == 0 && (chunk_off > 0 || to_write < chunk_sz)) {
             int cinn = (int)tfs_tnode_get_chunk(dev, obj, chunk_id);
             if (cinn > 0) {
                 tfs_chunk_read(dev, cinn, ce->data, chunk_sz, NULL);
                 ce->n_bytes = chunk_sz;
             } else {
-                memset(ce->data, 0xff, (size_t)chunk_sz);
+                memset(ce->data, 0, (size_t)chunk_sz);
                 ce->n_bytes = chunk_sz;
             }
         }
@@ -938,9 +966,8 @@ int tfs_unlink_obj(tfs_dev_t *dev, tfs_obj_t *obj)
         return TFS_OK;
     }
 
-    /* Normal unlink: move to deleted dir, clean up */
-    tfs_obj_add_child(dev->del_dir, obj);
-
+    /* Normal unlink: this object is reclaimed immediately, so do not
+     * splice it into .deleted and leave a stale siblings link behind. */
     obj->unlinked = 1;
     obj->dirty    = 1;
 

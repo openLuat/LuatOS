@@ -274,21 +274,12 @@ int tfs_tnode_put_chunk(tfs_dev_t *dev, tfs_obj_t *obj,
  *  Delete all chunks in a file
  *===================================================================*/
 
-/* Stub: decrement n_data_chunks on a file object.
- * The tnode layer doesn't have direct access to the owning object,
- * so callers (tfs_core.c) must do the actual accounting. */
-static void obj_n_data_chunks_dec(tfs_dev_t *dev, uint32_t chunk_id)
-{
-    (void)dev;
-    (void)chunk_id;
-    /* no-op: callers handle n_data_chunks themselves */
-}
-
 static void del_chunks_recursive(tfs_dev_t *dev,
                                  tfs_tnode_t *tn, int level,
                                  uint32_t base_chunk_id,
                                  tfs_off_t limit_size,
-                                 int del_hdr)
+                                 int del_hdr,
+                                 int *deleted_count)
 {
     uint32_t i;
     int     cpb = (int)tfs_chunks_per_block(dev);
@@ -310,7 +301,8 @@ static void del_chunks_recursive(tfs_dev_t *dev,
                     uint32_t chunk_in_nand = c - 1u + (uint32_t)dev->chunk_offset;
                     tfs_chunk_delete(dev, (int)chunk_in_nand, 1);
                     leaf_set(dev, tn, i, 0);
-                    obj_n_data_chunks_dec(dev, chunk_id);
+                    if (deleted_count)
+                        (*deleted_count)++;
                 }
             }
         }
@@ -323,7 +315,8 @@ static void del_chunks_recursive(tfs_dev_t *dev,
             if (limit_size < 0 || child_start >= limit_size) {
                 del_chunks_recursive(dev, tn->internal[i],
                                      level - 1, child_base,
-                                     limit_size, del_hdr);
+                                     limit_size, del_hdr,
+                                     deleted_count);
                 if (limit_size >= 0 && child_start >= limit_size) {
                     tfs_tnode_free_tree(dev, tn->internal[i], level - 1);
                     tn->internal[i] = NULL;
@@ -331,23 +324,25 @@ static void del_chunks_recursive(tfs_dev_t *dev,
             } else {
                 del_chunks_recursive(dev, tn->internal[i],
                                      level - 1, child_base,
-                                     limit_size, del_hdr);
+                                     limit_size, del_hdr,
+                                     deleted_count);
             }
         }
     }
 }
 
-/* Helper: decrement n_data_chunks — handled by stub above. */
-
 void tfs_tnode_del_file_chunks(tfs_dev_t *dev, tfs_obj_t *obj,
                                 tfs_off_t limit_size)
 {
+    int deleted_count = 0;
+
     if (!obj->var.file.top)
         return;
 
     del_chunks_recursive(dev, obj->var.file.top,
                          obj->var.file.top_level,
-                         0, limit_size, 1);
+                         0, limit_size, 1,
+                         &deleted_count);
 
     if (limit_size < 0) {
         tfs_tnode_free_tree(dev, obj->var.file.top,
@@ -355,6 +350,11 @@ void tfs_tnode_del_file_chunks(tfs_dev_t *dev, tfs_obj_t *obj,
         obj->var.file.top       = NULL;
         obj->var.file.top_level = 0;
         obj->n_data_chunks      = 0;
+    } else if (deleted_count > 0) {
+        if (obj->n_data_chunks > deleted_count)
+            obj->n_data_chunks -= deleted_count;
+        else
+            obj->n_data_chunks = 0;
     }
 }
 

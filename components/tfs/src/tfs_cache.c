@@ -95,6 +95,7 @@ tfs_cache_entry_t *tfs_cache_find(tfs_dev_t *dev,
 static int flush_one(tfs_dev_t *dev, tfs_cache_entry_t *ce)
 {
     tfs_ext_tags_t ext;
+    int            old_chunk;
     int            chunk_in_nand;
     int            rc;
 
@@ -106,6 +107,9 @@ static int flush_one(tfs_dev_t *dev, tfs_cache_entry_t *ce)
     ext.obj_id     = ce->object->obj_id;
     ext.chunk_id   = (uint32_t)(ce->chunk_id + 1); /* 1-indexed: 0 is reserved for obj header */
     ext.n_bytes    = (uint32_t)ce->n_bytes;
+
+    old_chunk = (int)tfs_tnode_get_chunk(dev, ce->object,
+                                         (uint32_t)ce->chunk_id);
 
     chunk_in_nand = tfs_alloc_chunk(dev, 0);
     if (chunk_in_nand < 0)
@@ -119,8 +123,15 @@ static int flush_one(tfs_dev_t *dev, tfs_cache_entry_t *ce)
     rc = tfs_tnode_put_chunk(dev, ce->object,
                              (uint32_t)ce->chunk_id,
                              (uint32_t)chunk_in_nand);
-    if (rc != TFS_OK)
+    if (rc != TFS_OK) {
+        tfs_chunk_delete(dev, chunk_in_nand, 1);
         return rc;
+    }
+
+    if (old_chunk > 0 && old_chunk != chunk_in_nand)
+        tfs_chunk_delete(dev, old_chunk, 1);
+    else if (old_chunk == 0)
+        ce->object->n_data_chunks++;
 
     ce->dirty = 0;
     return TFS_OK;

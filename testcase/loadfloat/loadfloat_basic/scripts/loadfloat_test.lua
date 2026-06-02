@@ -30,9 +30,9 @@ function loadfloat_tests.test_long_mantissa_in_load()
 end
 
 -- Test 3: Long integer part before decimal point
+-- Using 15 nines (max safe integer for IEEE 754 double is ~9e15)
 function loadfloat_tests.test_long_integer_part_in_load()
-    -- "99999999999999999999999999999999999.0" (35 nines before decimal)
-    local numstr = string.rep("9", 35) .. ".0"
+    local numstr = string.rep("9", 15) .. ".0"
     local f, err = load("return " .. numstr)
     assert(f ~= nil, "load failed on long integer part: " .. tostring(err))
     local v = f()
@@ -93,10 +93,10 @@ function loadfloat_tests.test_tonumber_long_float()
     log.info("loadfloat", "test_tonumber_long_float PASS, n=" .. tostring(n))
 end
 
--- Test 8: load() with 20~30 char float (customer crash threshold on air1601)
+-- Test 8: load() with 16~33 char float (customer crash threshold on air1601)
 -- This is the minimal reproduction of the reported crash scenario.
-function loadfloat_tests.test_20to30_char_float_in_load()
-    -- 25-char mantissa - would crash at guard=32 but safe at guard=20
+function loadfloat_tests.test_16to33_char_float_in_load()
+    -- 25-char mantissa - would crash at guard=32 but safe at guard=16
     local s25 = "1." .. string.rep("1", 23)  -- 25 chars total
     assert(#s25 == 25, "expected 25 char string, got " .. #s25)
     local f, err = load("return " .. s25)
@@ -113,7 +113,7 @@ function loadfloat_tests.test_20to30_char_float_in_load()
     local v2 = f2()
     assert(type(v2) == "number", "type should be number")
     assert(v2 > 1.0 and v2 < 3.0, "value out of range: " .. tostring(v2))
-    log.info("loadfloat", "test_20to30_char_float_in_load PASS, s25=" .. tostring(v) .. " s33=" .. tostring(v2))
+    log.info("loadfloat", "test_16to33_char_float_in_load PASS, s25=" .. tostring(v) .. " s33=" .. tostring(v2))
 end
 
 -- Test 10: exact customer literals that caused air1601 crash

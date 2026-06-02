@@ -69,7 +69,21 @@ static uint32_t little_flash_ftl_meta_journal_crc(const little_flash_ftl_ctx_t *
 }
 
 static int little_flash_ftl_meta_mem_checkpoint_valid(const little_flash_ftl_checkpoint_hdr_t *cp, const little_flash_ftl_ctx_t *ctx) {
-    if (!cp || !ctx || cp->magic != LF_FTL_META_MAGIC || cp->version != LF_FTL_META_VERSION || cp->logical_pages != ctx->logical_pages || cp->journal_count > LF_FTL_JOURNAL_MAX) {
+    if (!cp || !ctx) {
+        return 0;
+    }
+    if (cp->magic != LF_FTL_META_MAGIC) {
+        return 0;
+    }
+    // F-12: 版本不匹配显式报错(以前是默默 identity fallback)
+    // 当前仍 return 0 走 fallback 保持向后兼容,但日志暴露了"为什么不匹配"
+    if (cp->version != LF_FTL_META_VERSION) {
+        LF_ERROR("FTL meta version mismatch: stored=%u current=%u;"
+                 " 升级时需手动迁移或擦除 FTL 区域,否则会走 identity fallback",
+                 cp->version, (unsigned)LF_FTL_META_VERSION);
+        return 0;
+    }
+    if (cp->logical_pages != ctx->logical_pages || cp->journal_count > LF_FTL_JOURNAL_MAX) {
         return 0;
     }
     if (cp->l2p_crc != little_flash_ftl_meta_l2p_crc(ctx)) {
@@ -174,7 +188,17 @@ static int little_flash_ftl_meta_validate_image(const little_flash_ftl_ctx_t *ct
     if (!ctx || !hdr || !image || image_len < sizeof(*hdr)) {
         return 0;
     }
-    if (hdr->magic != LF_FTL_META_MAGIC || hdr->version != LF_FTL_META_VERSION || hdr->logical_pages == 0u ||
+    // F-12: magic miss 和 version mismatch 区分报告
+    if (hdr->magic != LF_FTL_META_MAGIC) {
+        return 0;  // 静默,首次烧录 / 真损坏
+    }
+    if (hdr->version != LF_FTL_META_VERSION) {
+        LF_ERROR("FTL meta image version mismatch: stored=%u current=%u;"
+                 " 升级时需手动迁移或擦除 FTL 区域,否则会走 identity fallback",
+                 hdr->version, (unsigned)LF_FTL_META_VERSION);
+        return 0;
+    }
+    if (hdr->logical_pages == 0u ||
         hdr->logical_pages > ctx->spare_end || hdr->journal_count > LF_FTL_JOURNAL_MAX) {
         return 0;
     }
@@ -260,7 +284,17 @@ static int little_flash_ftl_meta_read_slot(little_flash_t *lf,
     if (ret != LF_ERR_OK) {
         return 0;
     }
-    if (hdr->magic != LF_FTL_META_MAGIC || hdr->version != LF_FTL_META_VERSION || hdr->logical_pages == 0u ||
+    // F-12: magic miss 和 version mismatch 区分报告
+    if (hdr->magic != LF_FTL_META_MAGIC) {
+        return 0;  // 静默,首次烧录 / 真损坏
+    }
+    if (hdr->version != LF_FTL_META_VERSION) {
+        LF_ERROR("FTL meta image version mismatch: stored=%u current=%u;"
+                 " 升级时需手动迁移或擦除 FTL 区域,否则会走 identity fallback",
+                 hdr->version, (unsigned)LF_FTL_META_VERSION);
+        return 0;
+    }
+    if (hdr->logical_pages == 0u ||
         hdr->logical_pages > ctx->spare_end || hdr->journal_count > LF_FTL_JOURNAL_MAX) {
         return 0;
     }
@@ -376,6 +410,9 @@ lf_err_t little_flash_ftl_meta_checkpoint(little_flash_t *lf, little_flash_ftl_c
     next.journal_count = ctx->journal_count;
     next.l2p_crc = little_flash_ftl_meta_l2p_crc(ctx);
     next.journal_crc = little_flash_ftl_meta_journal_crc(ctx, ctx->journal_count);
+    // F-11: 纯 RAM 路径(lf->spi.transfer == NULL)只允许在 PC 模拟器 utest 自检
+    // 真实固件上 port_init 必设 spi.transfer,等于 NULL 是异常(port_init 没跑)
+#ifdef LUAT_USE_UTEST
     if (!lf->spi.transfer) {
         if ((generation % LF_FTL_META_SLOT_COUNT) == 0u) {
             ctx->cp_a = next;
@@ -384,6 +421,12 @@ lf_err_t little_flash_ftl_meta_checkpoint(little_flash_t *lf, little_flash_ftl_c
         }
         return LF_ERR_OK;
     }
+#else
+    if (!lf->spi.transfer) {
+        LF_ERROR("FTL meta_checkpoint: spi.transfer is NULL; port_init not called?");
+        return LF_ERR_BAD_ADDRESS;
+    }
+#endif
     slot = generation % LF_FTL_META_SLOT_COUNT;
     ret = little_flash_ftl_meta_write_slot(lf, ctx, slot, &next);
     if (ret != LF_ERR_OK) {
@@ -424,6 +467,9 @@ lf_err_t little_flash_ftl_meta_recover(little_flash_t *lf, little_flash_ftl_ctx_
     if (!lf || !ctx || !ctx->l2p || !lf->malloc || !lf->free) {
         return LF_ERR_BAD_ADDRESS;
     }
+    // F-11: 纯 RAM 路径(lf->spi.transfer == NULL)只允许在 PC 模拟器 utest 自检
+    // 真实固件上 port_init 必设 spi.transfer,等于 NULL 是异常
+#ifdef LUAT_USE_UTEST
     if (!lf->spi.transfer) {
         if (!little_flash_ftl_meta_mem_checkpoint_valid(&ctx->cp_a, ctx) && !little_flash_ftl_meta_mem_checkpoint_valid(&ctx->cp_b, ctx)) {
             return LF_ERR_READ;
@@ -434,6 +480,12 @@ lf_err_t little_flash_ftl_meta_recover(little_flash_t *lf, little_flash_ftl_ctx_
         }
         return replay_ret;
     }
+#else
+    if (!lf->spi.transfer) {
+        LF_ERROR("FTL meta_recover: spi.transfer is NULL; port_init not called?");
+        return LF_ERR_BAD_ADDRESS;
+    }
+#endif
     image_capacity = little_flash_ftl_meta_max_image_len(ctx);
     image = (uint8_t *)lf->malloc(image_capacity);
     if (!image) {

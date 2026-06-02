@@ -291,7 +291,7 @@ static void pgfs_info_fill_from_checkpoint(const pgfs_mount_ctx_t* ctx, const pg
         return;
     }
     total = ctx->checkpoint.total_blocks;
-    used = ctx->checkpoint.used_blocks;
+    used = ctx->checkpoint.written_blocks;
     if (total == 0 && geo != NULL && geo->erase_size != 0) {
         total = geo->capacity / geo->erase_size;
     }

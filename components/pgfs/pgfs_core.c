@@ -644,7 +644,7 @@ static int pgfs_batch_persist_committed(pgfs_mount_ctx_t* ctx, uint32_t batch_id
     if (pgfs_append_batch_commit_record(ctx, batch_id, record_count) != 0) {
         return -1;
     }
-    ctx->checkpoint.used_blocks = (uint32_t)(ctx->checkpoint.used_blocks + record_count);
+    ctx->checkpoint.written_blocks = (uint32_t)(ctx->checkpoint.written_blocks + record_count);
     if (record_count > 0) {
         pgfs_mark_checkpoint_pending(ctx);
     }
@@ -1033,7 +1033,7 @@ static int pgfs_compact_live_entries(pgfs_mount_ctx_t* ctx) {
     }
     ctx->data_log_write_addr = base;
     ctx->data_log_prepared_until = base;
-    ctx->checkpoint.used_blocks = 0;
+    ctx->checkpoint.written_blocks = 0;
     ctx->checkpoint.gc_live_bytes = 0;
     ctx->checkpoint.gc_dead_bytes = 0;
 
@@ -1049,7 +1049,7 @@ static int pgfs_compact_live_entries(pgfs_mount_ctx_t* ctx) {
         if (pgfs_append_data_record(ctx, &shadow) != 0) {
             return -1;
         }
-        ctx->checkpoint.used_blocks += 1u;
+        ctx->checkpoint.written_blocks += 1u;
         ctx->checkpoint.gc_live_bytes += (uint32_t)e->len;
     }
     return 0;
@@ -1200,7 +1200,7 @@ static int pgfs_replay_pending_apply(pgfs_mount_ctx_t* ctx, pgfs_replay_pending_
         if (old_len > 0) {
             ctx->checkpoint.gc_dead_bytes += (uint32_t)old_len;
         }
-        ctx->checkpoint.used_blocks += 1u;
+        ctx->checkpoint.written_blocks += 1u;
         memset(p, 0, sizeof(*p));
     }
     return 0;
@@ -1297,7 +1297,7 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
     }
     memset(pending, 0, sizeof(pending));
 
-    ctx->checkpoint.used_blocks = 0;
+    ctx->checkpoint.written_blocks = 0;
     ctx->checkpoint.gc_live_bytes = 0;
     ctx->checkpoint.gc_dead_bytes = 0;
 
@@ -1566,7 +1566,7 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             if (old_len > 0) {
                 ctx->checkpoint.gc_dead_bytes += (uint32_t)old_len;
             }
-            ctx->checkpoint.used_blocks += 1u;
+            ctx->checkpoint.written_blocks += 1u;
         }
         else {
             if (pgfs_replay_pending_stage(pending, batch_id, norm, data_buf, data_len) != 0) {
@@ -1729,11 +1729,6 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
             ret = -1;
             goto finish;
         }
-        if (pgfs_cache_flush_to_log(ctx, f) != 0) {
-            LLOGE("close cache_flush failed");
-            ret = -1;
-            goto finish;
-        }
         if (pgfs_append_data_record(ctx, f) != 0) {
             if (pgfs_compact_live_entries(ctx) != 0 || pgfs_append_data_record(ctx, f) != 0) {
                 LLOGE("close append_data_record failed addr=%u", (unsigned int)ctx->data_log_write_addr);
@@ -1755,7 +1750,7 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
             goto finish;
         }
         t_apply = luat_mcu_tick64_ms();
-        ctx->checkpoint.used_blocks = (uint32_t)(ctx->checkpoint.used_blocks + 1u);
+        ctx->checkpoint.written_blocks = (uint32_t)(ctx->checkpoint.written_blocks + 1u);
         pgfs_mark_checkpoint_pending(ctx);
         if (ctx->inject_powercut_stage == PGFS_INJECT_POWERCUT_BEFORE_CP) {
             ctx->inject_powercut_stage = PGFS_INJECT_POWERCUT_NONE;
@@ -2031,11 +2026,8 @@ int pgfs_file_flush(pgfs_mount_ctx_t* ctx, FILE* stream) {
     if (pgfs_lock(ctx) != 0) {
         return -1;
     }
-    if (pgfs_cache_flush_to_log(ctx, f) != 0) {
-        f->err = 1;
-        pgfs_unlock(ctx);
-        return -1;
-    }
+    /* Cache flush is folded into pgfs_file_close via pgfs_append_data_record; fflush
+     * itself is a no-op because durability boundary is fclose (see AGENTS.md). */
     pgfs_unlock(ctx);
     return 0;
 }

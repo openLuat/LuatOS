@@ -232,6 +232,11 @@ pub extern fn luat_uart_read_extern(port: i32, buff: *mut u8, len: usize) -> i32
         _ => return 0
     };
 
+    // 查询模式：返回可用字节数而不读取
+    if buff.is_null() && len == 0 {
+        return read_buff.len() as i32;
+    }
+
     //判断下缓冲区有没有那么大，别超了
     let len = if read_buff.len() >= len {
         len

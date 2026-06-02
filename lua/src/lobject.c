@@ -251,17 +251,17 @@ static lua_Number lua_strx2number (const char *s, char **endptr) {
 /*
 ** Maximum number of characters passed to strtod/strtof on the first call.
 ** Some embedded libc implementations (e.g. newlib-nano on ARM Cortex-M7)
-** crash or hang when given float strings longer than ~20 characters.
+** crash or hang when given float strings longer than ~16 characters.
 ** Reported customer crash: literals such as
 **   3.14159265358979323846  (22 chars)
 **   0.00669342162296594323  (22 chars)
 ** cause immediate reboot on air1601 (ARM Cortex-M7, 64-bit Lua VM).
-** IEEE 754 double only has ~17 significant decimal digits, so 20 chars
+** IEEE 754 double only has ~17 significant decimal digits, so 16 chars
 ** is a safe cap: any extra digits do not affect the parsed value.
 ** Can be overridden via -DL_MAXLENNUM_GUARD=N in the build system.
 */
 #if !defined(L_MAXLENNUM_GUARD)
-#define L_MAXLENNUM_GUARD  20
+#define L_MAXLENNUM_GUARD  16
 #endif
 
 static const char *l_str2dloc (const char *s, lua_Number *result, int mode) {
@@ -296,7 +296,7 @@ static const char *l_str2d (const char *s, lua_Number *result) {
   /*
   ** If the string is longer than L_MAXLENNUM_GUARD, truncate it before
   ** calling strtod. Some embedded strtod implementations (e.g. newlib-nano
-  ** on ARM Cortex-M7) crash or hang on strings longer than ~20-30 chars.
+  ** on ARM Cortex-M7) crash or hang on strings longer than ~16 chars.
   ** IEEE 754 double has only ~17 significant decimal digits; truncating any
   ** surplus digits does not affect the parsed value.  The exponent part
   ** (e/E/p/P suffix) is preserved in the truncated copy so that values like

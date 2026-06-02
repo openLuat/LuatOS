@@ -129,14 +129,24 @@ int pgfs_gc_step(pgfs_mount_ctx_t *ctx, uint32_t byte_budget, uint32_t time_budg
 /* ── Block retirement ───────────────────────────────────────────────────── */
 
 /*
- * pgfs_mark_block_retired — mark a block as retired (no valid data).
- * Called when all data in a block has been overwritten.
+ * pgfs_mark_block_retired — Phase 5: separate retired state from bad
+ * state. A retired block has had all its live data moved out (safe to
+ * erase) but the chip-level erase has not yet been attempted. A bad
+ * block has had at least one erase attempt fail. The two are distinct
+ * because retirement is a GC-side decision and bad is a hardware-side
+ * signal. Pre-Phase-5 this function conflated the two, which caused
+ * retired blocks to be permanently lost from the pool even when their
+ * erase would have succeeded.
+ *
+ * For now we do not persist a separate "retired" bitmap (no consumer
+ * code yet); the CP flag is set so the next mount can observe the
+ * retirement. A full Phase 5 follow-up can add a retired_blocks_bitmap
+ * in FTL state if needed.
  */
 int pgfs_mark_block_retired(pgfs_mount_ctx_t *ctx, uint32_t block_id) {
     if (!ctx) return -1;
-    if (block_id < ctx->ftl.total_blocks && !pgfs_ftl_is_block_bad(&ctx->ftl, block_id)) {
-        pgfs_ftl_mark_block_bad(&ctx->ftl, block_id);
-        LLOGD("pgfs: block %u marked retired", (unsigned int)block_id);
+    if (block_id < ctx->ftl.total_blocks) {
+        LLOGD("pgfs: block %u marked retired (Phase 5: not yet persisted)", (unsigned int)block_id);
     }
     ctx->checkpoint.flags |= 0x01u;
     return 0;

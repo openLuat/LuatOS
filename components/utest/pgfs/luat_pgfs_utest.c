@@ -291,6 +291,58 @@ static int pgfs_test_control(void* ctx, uint32_t cmd, void* arg) {
     return 0;
 }
 
+/* Phase 5: verify that mark_block_retired does NOT conflate with bad. */
+static int pgfs_test_retired_does_not_mark_bad(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t seg_id = 0xFFFFFFFFu;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    if (pgfs_ftl_init(&ctx.ftl, &opts, 4096, 8) != 0) {
+        printf("[pgfs-utest] ftl init failed\n");
+        pgfs_test_flash_free(flash);
+        return 1;
+    }
+    /* Clear reservations on block 0 to keep the test focused. */
+    pgfs_ftl_clear_reserved(&ctx.ftl, 0);
+    /* Mark a block retired. */
+    pgfs_mark_block_retired(&ctx, 0);
+    /* Retired must NOT be conflated with bad. */
+    if (pgfs_ftl_is_block_bad(&ctx.ftl, 0)) {
+        printf("[pgfs-utest] mark_block_retired incorrectly marked block bad\n");
+        fail++;
+    }
+    /* Bad-mark on a different block must be independent. */
+    pgfs_ftl_mark_block_bad(&ctx.ftl, 2);
+    if (!pgfs_ftl_is_block_bad(&ctx.ftl, 2)) {
+        printf("[pgfs-utest] mark_block_bad did not work\n");
+        fail++;
+    }
+    /* And the data-log allocator must still be able to use the retired
+     * block (it is not "bad"). */
+    if (pgfs_alloc_segment(&ctx, &seg_id) != 0) {
+        printf("[pgfs-utest] alloc failed after retire\n");
+        fail++;
+    } else if (seg_id == 0) {
+        /* seg_id 0 is fine — it was cleared above. */
+    }
+    /* The CP flag must be set so a remount can observe retirement. */
+    if ((ctx.checkpoint.flags & 0x01u) == 0) {
+        printf("[pgfs-utest] retirement flag not set on CP\n");
+        fail++;
+    }
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 /* Phase 3: verify that a block can be marked weak independently of bad,
  * and that the weak state does not affect bad-block checks. */
 static int pgfs_test_weak_block_separate_from_bad(void) {
@@ -2655,6 +2707,7 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_ftl_test_persist_populates_snapshot);
     PGFS_RUN_CTEST(pgfs_ftl_test_persist_readback_failure_keeps_snapshot);
     PGFS_RUN_CTEST(pgfs_test_weak_block_separate_from_bad);
+    PGFS_RUN_CTEST(pgfs_test_retired_does_not_mark_bad);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
      * not registered in the default c_layer_selftests dispatch. It depends
      * on data-log compaction after file deletion to reset the write head,

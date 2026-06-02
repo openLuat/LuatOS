@@ -2,17 +2,6 @@
 
 This file captures practical guidance for AI-assisted work under `components/pgfs/`.
 
-## Flash backend contract (read this before assuming FTL features)
-
-- `components/pgfs/` mounts over little_flash (see `components/little_flash/inc/little_flash_ftl.h` for the public FTL header).
-- The little_flash "FTL" layer is **static bad-block replacement only**, NOT a true FTL. It provides:
-  - Per-page mapping (l2p/p2l) for static bad-block replacement
-  - Double-slot checkpoint + remap journal
-  - O(1) find_spare via bitmap (since F-10)
-- It does NOT provide: dynamic block reclaim, erase-count wear-leveling, GC stalls, l2p/p2l compression.
-- Treat as MTD + journal, not FTL. If you find yourself assuming WL/GC behavior at the pgfs layer, that's a pgfs-side bug — pgfs owns its own checkpointing and crash recovery, but the FTL beneath it does not give write-amplification guarantees.
-- Full scope of the FTL layer's known gaps: `docs/audit/track_b_ftl_layer.md` §1 (F-01..F-10) and §10 (5-phase plan).
-
 ## Scope
 
 - Component: `components/pgfs/`

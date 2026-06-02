@@ -2032,4 +2032,25 @@ int pgfs_file_flush(pgfs_mount_ctx_t* ctx, FILE* stream) {
     return 0;
 }
 
+/* ── C-layer test stubs ────────────────────────────────────────────────
+ *
+ * Production builds (LUAT_USE_UTEST not set) need pgfs_run_c_layer_tests
+ * and pgfs_run_c_layer_case symbols to exist so callers in
+ * components/little_flash/luat_lib_little_flash.c (lf.pgfsctl "run_c_tests")
+ * can link. Real test bodies live in
+ * components/utest/pgfs/luat_pgfs_utest.c, which is only compiled when
+ * LUAT_USE_UTEST=y. The stubs here always return -1 ("no tests") so the
+ * Lua command simply fails fast in production builds.
+ */
+#ifndef LUAT_USE_UTEST
+int pgfs_run_c_layer_tests(void) {
+    return -1;
+}
+
+int pgfs_run_c_layer_case(const char* case_name) {
+    (void)case_name;
+    return -1;
+}
+#endif
+
 #endif

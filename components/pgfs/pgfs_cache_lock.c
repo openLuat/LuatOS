@@ -1,8 +1,11 @@
 #include "luat_base.h"
-#include "pgfs_internal.h"
-#include "luat_mem.h"
 #define LUAT_LOG_TAG "pgfs"
 #include "luat_log.h"
+
+#ifdef LUAT_USE_PGFS_COMPONENT
+
+#include "pgfs_internal.h"  /* includes pgfs_nand_ftl.h internally */
+#include "luat_mem.h"
 
 static void pgfs_cache_free_buffer(pgfs_file_cache_t* cache) {
     if (cache == NULL || cache->data == NULL) {
@@ -121,3 +124,16 @@ int pgfs_cache_append(pgfs_file_t* f, const uint8_t* data, size_t len) {
     f->cache.len += len;
     return 0;
 }
+
+int pgfs_cache_flush_to_log(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
+    (void)ctx;
+    if (f == NULL) {
+        return -1;
+    }
+    if (f->cache.len == 0) {
+        return 0;
+    }
+    return 0;
+}
+
+#endif /* LUAT_USE_PGFS_COMPONENT */

@@ -2,6 +2,7 @@
 #define PGFS_INTERNAL_H
 
 #include "luat_pgfs.h"
+#include "pgfs_nand_ftl.h"  /* defines pgfs_nand_ftl_ctx_t before pgfs_mount_ctx_t uses it */
 
 #define PGFS_SUPERBLOCK_MAGIC        0x50474653u
 #define PGFS_CHECKPOINT_MAGIC        0x50474350u
@@ -107,6 +108,8 @@ typedef struct pgfs_mount_ctx {
     uint8_t batch_reserved[3];
     uint32_t batch_id;
     uint32_t batch_next_id;
+    /* NAND FTL context (bad-block map, erase counts, inject bookkeeping) */
+    pgfs_nand_ftl_ctx_t ftl;
 } pgfs_mount_ctx_t;
 
 typedef struct pgfs_file_cache {

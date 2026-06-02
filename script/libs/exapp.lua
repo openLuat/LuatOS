@@ -980,7 +980,7 @@ local function app_task(app_path)
         end
 
         -- 特殊处理：meta.json 请求
-        -- 优先使用应用目录下的 meta.json，如果不存在则报错
+        -- 只查应用根目录
         if path == "/luadb/meta.json" then
             local meta_path = app_path .. "meta.json"
             if io.exists(meta_path) then return meta_path end
@@ -1013,12 +1013,30 @@ local function app_task(app_path)
                         if io.exists(p) then return p end
                     end
                 else
-                    -- 非Lua文件：先在原始相对路径查找（如 /luadb/data/xxx），
-                    -- 再在 res/ 下查找（兼容 /luadb/xxx → res/xxx 的惯例）
-                    local direct_path = app_path .. relative_path
-                    if io.exists(direct_path) then return direct_path end
-                    local res_path = app_path .. "res/" .. relative_path
-                    if io.exists(res_path) then return res_path end
+                    -- 非Lua文件
+                    local ext = relative_path:sub(-4):lower()
+                    local is_bare = not relative_path:find("/")
+                    if is_bare and (ext == ".png" or ext == ".jpg") then
+                        -- 裸 .png/.jpg：优先在 res/ 下查找
+                        local res_path = app_path .. "res/" .. relative_path
+                        if io.exists(res_path) then return res_path end
+                        local direct_path = app_path .. relative_path
+                        if io.exists(direct_path) then return direct_path end
+                    elseif is_bare then
+                        -- 其他裸文件（不限格式）：根目录 → data/ → res/
+                        local search_paths = {
+                            app_path .. relative_path,
+                            app_path .. "data/" .. relative_path,
+                            app_path .. "res/" .. relative_path,
+                        }
+                        for _, p in ipairs(search_paths) do
+                            if io.exists(p) then return p end
+                        end
+                    else
+                        -- 含子目录的路径：直接用
+                        local direct_path = app_path .. relative_path
+                        if io.exists(direct_path) then return direct_path end
+                    end
                 end
             end
             -- 文件未找到，记录错误日志

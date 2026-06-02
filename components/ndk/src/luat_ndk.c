@@ -1,3 +1,6 @@
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <stdlib.h>
 #include <fenv.h>
 #include <math.h>
@@ -751,7 +754,7 @@ static inline void ndk_unlock(luat_ndk_t *ndk) {
     luat_rtos_exit_critical(critical);
 }
 
-static void ndk_init_fail_cleanup(luat_ndk_t *ndk) {
+static void ndk_free_fields(luat_ndk_t *ndk) {
     if (!ndk) return;
     if (ndk->ram) {
         luat_heap_free(ndk->ram);
@@ -773,13 +776,18 @@ static void ndk_init_fail_cleanup(luat_ndk_t *ndk) {
     ndk->fcsr = 0;
     ndk->flen = 0;
     ndk->isa[0] = '\0';
+    ndk->state = LUAT_NDK_STATE_DEINIT;
     ndk->lock_closing = 0;
     ndk->lock_refs = 0;
-    ndk->state = LUAT_NDK_STATE_DEINIT;
     if (ndk->lock) {
         luat_rtos_mutex_delete(ndk->lock);
         ndk->lock = NULL;
     }
+}
+
+static void ndk_init_fail_cleanup(luat_ndk_t *ndk) {
+    if (!ndk) return;
+    ndk_free_fields(ndk);
 }
 
 static bool ndk_should_stop(luat_ndk_t *ndk) {
@@ -1010,29 +1018,7 @@ void luat_ndk_deinit(luat_ndk_t *ndk) {
     if (!ndk->lock) {
         luat_ndk_gpio_reset(ndk);
         luat_ndk_uart_reset(ndk);
-        if (ndk->ram) {
-            luat_heap_free(ndk->ram);
-            ndk->ram = NULL;
-        }
-        if (ndk->core) {
-            luat_heap_free(ndk->core);
-            ndk->core = NULL;
-        }
-        if (ndk->image_path) {
-            luat_heap_free(ndk->image_path);
-            ndk->image_path = NULL;
-        }
-        ndk->worker = NULL;
-        ndk->state = LUAT_NDK_STATE_DEINIT;
-        ndk->stop_request = 0;
-        ndk->lock_closing = 0;
-        ndk->lock_refs = 0;
-        ndk->trap_pending = 0;
-        ndk->image_size = 0;
-        ndk->thread_id = 0;
-        ndk->fcsr = 0;
-        ndk->flen = 0;
-        ndk->isa[0] = '\0';
+        ndk_free_fields(ndk);
         return;
     }
 
@@ -1235,8 +1221,8 @@ int luat_ndk_start_thread(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapse
         luat_heap_free(arg);
         return LUAT_NDK_ERR_NOMEM;
     }
-    static uint32_t g_thread_counter = 1;
-    ndk->thread_id = g_thread_counter++;
+    static volatile LONG g_thread_counter = 0;
+    ndk->thread_id = (uint32_t)(InterlockedIncrement(&g_thread_counter));
     uint32_t tid = ndk->thread_id;
     ndk_unlock(ndk);
     return (int)tid;

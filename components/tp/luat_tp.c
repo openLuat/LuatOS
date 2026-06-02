@@ -100,8 +100,10 @@ LUAT_WEAK int luat_tp_sleep(luat_tp_config_t* luat_tp_config){
     return -1;
 }
 
-
-
-
-
+LUAT_WEAK int luat_tp_wakeup(luat_tp_config_t* luat_tp_config){
+    if (luat_tp_config->opts->wakeup) {
+        return luat_tp_config->opts->wakeup(luat_tp_config);
+    }
+    return -1;
+}
 

@@ -676,9 +676,9 @@ static int l_audio_print_probe_id(lua_State *L) {
 @int driver_probe_id 驱动id，在不使用默认驱动时填写，绝大部分情况下都不需要填写。驱动id需要通过audio.make_probe_id合成
 @return boolean 成功返回true,否则返回false
 @usage
-audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_I2S)
+audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
 audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16)
-audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_NUMS, 1)
+audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
 */
 static int l_audio_config(lua_State *L) {
     
@@ -841,6 +841,8 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "debug",			ROREG_FUNC(l_audio_set_debug)},
     //@const REQUEST_START number audio_v2.on回调函数传入消息值，表示开始处理请求块，可以传入更多数据
     { "REQUEST_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_START)},
+    //@const REQUEST_DRIVER_START number audio_v2.on回调函数传入消息值，表示请求块驱动开始
+    { "REQUEST_DRIVER_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_DRIVER_START)},
     //@const REQUEST_NEED_NEW_DATA number audio_v2.on回调函数传入消息值，表示请求块需要新的数据，需要传入新的数据
     { "REQUEST_NEED_NEW_DATA",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA)},
     //@const REQUEST_GET_NEW_DATA number audio_v2.on回调函数传入消息值，表示请求块获取新的数据

@@ -434,9 +434,9 @@ target("luatos-lua")
     add_files(luatos.."components/pgfs/**.c")
     add_defines("LUAT_USE_PGFS_COMPONENT=1")
 
-    -- nfs (NAND File System)
-    add_includedirs(luatos.."components/nfs/inc",{public = true})
-    add_files(luatos.."components/nfs/src/**.c")
+    -- tfs (Tiny File System)
+    add_includedirs(luatos.."components/tfs/inc",{public = true})
+    add_files(luatos.."components/tfs/src/**.c")
 
     -- 添加mreport
     -- add_includedirs(luatos.."components/mreport/include",{public = true})

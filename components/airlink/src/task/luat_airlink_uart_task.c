@@ -18,13 +18,10 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
-// 当前 mobile RPC 最大 payload 约 3647B；连同 4B airlink cmd 头和 12B link 头后，
-// 原始 UART frame 约 3663B。原始打包缓冲取 4096B，覆盖当前上限并保留少量余量。
 #define AIRLINK_UART_RAW_FRAME_MAX (4096)
-// UART 采用 0x7E/0x7D 字节转义，最坏情况下每个原始字节都要扩成 2B，再加首尾定界符 2B。
-// 对当前最大原始帧 3663B，最坏约 7328B；这里取 8192B，留出一定 headroom。
-#define TEST_BUFF_SIZE (8 * 1024)
-#define UNPACK_BUFF_SIZE (8 * 1024)
+#define TEST_BUFF_SIZE (4096)             // s_txbuff / s_rxbuff 大小 (临时缓冲)
+#define UNPACK_BUFF_SIZE (8 * 1024)       // rxbuf 环形缓冲区大小
+#define UART_ESC_FRAME_MAX   (TEST_BUFF_SIZE)  // 单帧转义后最大长度, 与 s_txbuff/s_rxbuff 一致
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"
@@ -117,7 +114,8 @@ static int airlink_uart_pack_frame_or_log(uint8_t *dst, size_t dst_size, uint8_t
 {
     size_t frame_len = src_len + sizeof(airlink_link_data_t);
     if (frame_len > dst_size) {
-        LLOGE("%s frame too large src=%u raw=%u limit=%u", tag, (unsigned)src_len, (unsigned)frame_len, (unsigned)dst_size);
+        LLOGE("%s frame too large src=%u raw=%u limit=%u — dropping (frag may not cover this path)",
+              tag, (unsigned)src_len, (unsigned)frame_len, (unsigned)dst_size);
         g_airlink_statistic.tx_pkg.drop++;
         return -1;
     }
@@ -179,10 +177,22 @@ __USER_FUNC_IN_RAM__ static int on_link_data_notify(airlink_link_data_t* link) {
 
 static void unpack_data(uint8_t* buff, size_t len)
 {
+    static uint32_t rx_ok_cnt = 0;
+    static uint32_t rx_fail_cnt = 0;
+    static uint64_t rx_last_log_tick = 0;
+    // 帧大小跟踪 (诊断用)
+    static uint16_t rx_esc_max = 0;
+    static uint16_t rx_raw_max = 0;
+
     // LLOGD("unpack_data: src len = %d", len);
     if (len < 2) {
         LLOGE("unpack_data: data too short");
         return; // 数据太短, 无法解析
+    }
+    // 跟踪最大转义帧
+    if (len > rx_esc_max) {
+        rx_esc_max = len;
+        LLOGI("uart rx: new max escaped frame %u bytes", (unsigned)len);
     }
     // 存储最终数据到s_rxbuff
     uint8_t* unpacked_data = g_airlink_uart.s_rxbuff;
@@ -191,8 +201,9 @@ static void unpack_data(uint8_t* buff, size_t len)
         if (buff[i] == 0x7D) {
             // 转义字符, 下一个字节是转义码
             if (i + 1 < len) {
-                if (unpacked_len >= AIRLINK_UART_RAW_FRAME_MAX) {
-                    LLOGE("unpack_data: unpacked data overflow len=%u limit=%u", (unsigned)(unpacked_len + 1), (unsigned)AIRLINK_UART_RAW_FRAME_MAX);
+                if (unpacked_len >= UART_ESC_FRAME_MAX) {
+                    LLOGW("unpack: overflow raw=%u limit=%u esc_len=%u — frame truncated",
+                          (unsigned)(unpacked_len + 1), (unsigned)UART_ESC_FRAME_MAX, (unsigned)len);
                     return;
                 }
                 if (buff[i + 1] == 0x02) {
@@ -203,12 +214,18 @@ static void unpack_data(uint8_t* buff, size_t len)
                 i++; // 跳过下一个字节
             }
         } else {
-            if (unpacked_len >= AIRLINK_UART_RAW_FRAME_MAX) {
-                LLOGE("unpack_data: unpacked data overflow len=%u limit=%u", (unsigned)(unpacked_len + 1), (unsigned)AIRLINK_UART_RAW_FRAME_MAX);
+            if (unpacked_len >= UART_ESC_FRAME_MAX) {
+                LLOGW("unpack: overflow raw=%u limit=%u esc_len=%u — frame truncated",
+                      (unsigned)(unpacked_len + 1), (unsigned)UART_ESC_FRAME_MAX, (unsigned)len);
                 return;
             }
             unpacked_data[unpacked_len++] = buff[i]; // 普通数据直接复制
         }
+    }
+    // 跟踪最大原始帧
+    if (unpacked_len > rx_raw_max) {
+        rx_raw_max = unpacked_len;
+        LLOGI("uart rx: new max raw frame %u bytes", (unsigned)unpacked_len);
     }
     if (unpacked_len < sizeof(airlink_link_data_t)) {
         // LLOGE("unpack_data: unpacked data too short, len %d", unpacked_len);
@@ -217,10 +234,19 @@ static void unpack_data(uint8_t* buff, size_t len)
     airlink_link_data_t *link = NULL;
     link = luat_airlink_data_unpack(unpacked_data, unpacked_len);
     if (link == NULL) {
-        // LLOGE("luat_airlink_data_unpack failed, unpacked_len %d", unpacked_len);
+        rx_fail_cnt++;
+        uint64_t tnow = luat_mcu_tick64_ms();
+        if (tnow - rx_last_log_tick > 5000) {
+            LLOGW("uart rx: ok=%lu fail=%lu esc_max=%u raw_max=%u last_ok=%llums ago",
+                  rx_ok_cnt, rx_fail_cnt, rx_esc_max, rx_raw_max,
+                  (g_airlink_last_cmd_timestamp > 0) ? (tnow - g_airlink_last_cmd_timestamp) : 0);
+            rx_last_log_tick = tnow;
+        }
         return; // 解析失败
     }
-    // 解析成功了, 那就是走uart为主模式了
+    // 解析成功了
+    rx_ok_cnt++;
+    // 那就走uart为主模式了
     if (luat_airlink_current_mode_get() == LUAT_AIRLINK_MODE_UNKNOW) {
         // LLOGD("luat_airlink_current_mode_get is UNKNOW, set to UART");
         luat_airlink_current_mode_set(LUAT_AIRLINK_MODE_UART);
@@ -243,7 +269,8 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
     // 当前 mobile RPC 最大原始 frame 约 3663B，UART 最坏转义后约 7328B；
     // 这里保留 8KiB 接收缓存，允许单个最大帧完整进入并等待包尾。
     if (g_airlink_uart.rxoffset + len > UNPACK_BUFF_SIZE) {
-        LLOGW("rxbuf溢出, 重置 rxoffset=%d len=%d", g_airlink_uart.rxoffset, len);
+        LLOGW("rxbuf 溢出: rxoffset=%u + len=%u > limit=%u — 重置缓冲区",
+              (unsigned)g_airlink_uart.rxoffset, (unsigned)len, (unsigned)UNPACK_BUFF_SIZE);
         g_airlink_uart.rxoffset = 0;
         if (len > UNPACK_BUFF_SIZE) return;
     }
@@ -278,9 +305,10 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
             end_offset = offset + 1;
             while (end_offset < g_airlink_uart.rxoffset && rxbuff[end_offset] != 0x7E) {
                 end_offset++;
-                if ((end_offset - offset + 1) > TEST_BUFF_SIZE) {
+                if ((end_offset - offset + 1) > UNPACK_BUFF_SIZE) {
+                    LLOGW("rxbuf 搜索帧尾超限: span=%u limit=%u rxoffset=%u — 重置缓冲区",
+                          (unsigned)(end_offset - offset + 1), (unsigned)UNPACK_BUFF_SIZE, (unsigned)g_airlink_uart.rxoffset);
                     g_airlink_uart.rxoffset = 0;
-                    LLOGE("缓存数据超%u字节仍未找到包尾，丢弃数据", (unsigned)TEST_BUFF_SIZE);
                     break;
                 }
             }
@@ -351,7 +379,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
                 if (airlink_uart_pack_frame_or_log(pbuff, AIRLINK_UART_RAW_FRAME_MAX, basic_info, 128, &packed_len, "uart basic info") != 0) {
                     continue;
                 }
-                LLOGE("uart_transfer_task send basic info %d", sizeof(basic_info));
+                LLOGD("uart_transfer_task send basic info %d", sizeof(basic_info));
             } else {
                 if (airlink_uart_pack_frame_or_log(pbuff, AIRLINK_UART_RAW_FRAME_MAX, (uint8_t*)item.cmd, item.len, &packed_len, "uart tx") != 0) {
                     luat_airlink_cmd_free(item.cmd);
@@ -360,7 +388,8 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
                 luat_airlink_cmd_free(item.cmd);
             }
             if ((packed_len * 2 + 2) > TEST_BUFF_SIZE) {
-                LLOGE("uart escaped frame too large raw=%u escaped=%u limit=%u", (unsigned)packed_len, (unsigned)(packed_len * 2 + 2), (unsigned)TEST_BUFF_SIZE);
+                LLOGE("uart tx: escaped frame too large raw=%u worst=%u limit=%u — dropping (consider enabling frag)",
+                      (unsigned)packed_len, (unsigned)(packed_len * 2 + 2), (unsigned)TEST_BUFF_SIZE);
                 g_airlink_statistic.tx_pkg.drop++;
                 continue;
             }
@@ -414,11 +443,19 @@ __USER_FUNC_IN_RAM__ static void uart_receive_task(void *param)
         }
         #endif
 
-        while (1) { 
+        while (1) {
+            static uint64_t uart_read_last_log = 0;
             uart_id = g_airlink_spi_conf.uart_id;
             ret = luat_uart_read(uart_id, (char *)g_airlink_uart.s_rxbuff, 1024);
             if (ret <= 0)
             {
+                if (ret < 0) {
+                    uint64_t tnow = luat_mcu_tick64_ms();
+                    if (tnow - uart_read_last_log > 5000) {
+                        LLOGW("uart read error ret=%d", ret);
+                        uart_read_last_log = tnow;
+                    }
+                }
                 break;
             }
             // LLOGD("收到uart数据长度 %d", ret);

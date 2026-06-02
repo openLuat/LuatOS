@@ -13,6 +13,7 @@
 ## 演示硬件环境
 
 ![](https://docs.openluat.com/air8000/luatos/app/image/8000双网口.jpg)
+
 1、EXB_8000_CH390 工控板一块+网线一根：
 
 - 网线一端插入开发板网口，另外一端连接其他需要联网的以太网设备

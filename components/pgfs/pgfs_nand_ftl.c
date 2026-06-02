@@ -12,6 +12,7 @@
  * erase-unit sized region. Format:
  *   [pgfs_ftl_meta_t] [bad_blocks_bitmap] [erase_counts: uint16_t[]]
  */
+#include "luat_base.h"
 #include "pgfs_nand_ftl.h"
 #include "luat_crypto.h"
 #include "luat_mem.h"

@@ -162,4 +162,9 @@ int pgfs_ftl_scan_bad_blocks(pgfs_nand_ftl_ctx_t *ctx,
  */
 void pgfs_ftl_inject_bad_block_once(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
 
+int pgfs_ftl_on_mount(void *ctx);
+int pgfs_ftl_on_checkpoint_commit(void *ctx);
+void pgfs_ftl_on_erase_success(void *ctx, uint32_t block_id);
+void pgfs_ftl_on_erase_failure(void *ctx, uint32_t block_id);
+
 #endif /* PGFS_NAND_FTL_H */

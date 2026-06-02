@@ -3,6 +3,7 @@
  *
  * Bridges pgfs core (checkpoint, mount) with the NAND FTL layer.
  */
+#include "luat_base.h"
 #ifdef LUAT_USE_PGFS_COMPONENT
 
 #include "pgfs_internal.h"  /* includes pgfs_nand_ftl.h internally */
@@ -25,7 +26,8 @@ static void pgfs_ftl_scan_progress(uint32_t done, uint32_t total) {
     (void)last_pct; /* suppress unused warning when logging is quiet */
 }
 
-int pgfs_ftl_on_mount(pgfs_mount_ctx_t *ctx) {
+int pgfs_ftl_on_mount(void* _ctx) {
+    pgfs_mount_ctx_t *ctx = (pgfs_mount_ctx_t *)_ctx;
     if (!ctx || !ctx->flash_opts) return -1;
 
     /* Read geometry to get block count */
@@ -107,12 +109,14 @@ int pgfs_ftl_on_mount(pgfs_mount_ctx_t *ctx) {
     return 0;
 }
 
-int pgfs_ftl_on_checkpoint_commit(pgfs_mount_ctx_t *ctx) {
+int pgfs_ftl_on_checkpoint_commit(void* _ctx) {
+    pgfs_mount_ctx_t *ctx = (pgfs_mount_ctx_t *)_ctx;
     if (!ctx || !ctx->mounted) return 0;
     return pgfs_ftl_persist(&ctx->ftl, ctx->checkpoint.seq);
 }
 
-void pgfs_ftl_on_erase_success(pgfs_mount_ctx_t *ctx, uint32_t block_id) {
+void pgfs_ftl_on_erase_success(void* _ctx, uint32_t block_id) {
+    pgfs_mount_ctx_t *ctx = (pgfs_mount_ctx_t *)_ctx;
     if (!ctx) return;
 
     /* Handle inject_bad_block_once: mark the injected block bad AFTER
@@ -129,15 +133,17 @@ void pgfs_ftl_on_erase_success(pgfs_mount_ctx_t *ctx, uint32_t block_id) {
     pgfs_ftl_block_erased(ftl, block_id);
 }
 
-void pgfs_ftl_on_erase_failure(pgfs_mount_ctx_t *ctx, uint32_t block_id) {
+void pgfs_ftl_on_erase_failure(void* _ctx, uint32_t block_id) {
+    pgfs_mount_ctx_t *ctx = (pgfs_mount_ctx_t *)_ctx;
     if (!ctx) return;
     pgfs_ftl_mark_block_bad(&ctx->ftl, block_id);
     LLOGW("pgfs_ftl: block %u marked bad (erase failed)",
            (unsigned int)block_id);
 }
 
-int pgfs_ftl_erase_block(pgfs_mount_ctx_t *ctx, uint32_t block_addr,
+int pgfs_ftl_erase_block(void* _ctx, uint32_t block_addr,
                           uint32_t erase_size, uint32_t block_id) {
+    pgfs_mount_ctx_t *ctx = (pgfs_mount_ctx_t *)_ctx;
     if (!ctx || !ctx->flash_opts || !ctx->flash_opts->erase) return -1;
 
     /* Handle inject_bad_block_once: inject BEFORE issuing erase so the

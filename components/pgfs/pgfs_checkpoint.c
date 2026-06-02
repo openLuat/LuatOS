@@ -3,6 +3,9 @@
 #include "luat_crypto.h"
 #include "pgfs_internal.h"
 
+#define LUAT_LOG_TAG "pgfs"
+#include "luat_log.h"
+
 #ifdef LUAT_USE_PGFS_COMPONENT
 
 static uint32_t pgfs_crc32_calc(const void* data, size_t len) {
@@ -210,9 +213,42 @@ int pgfs_checkpoint_store_next(void* fs, const pgfs_checkpoint_t* current, pgfs_
         }
     }
 
+    /* Powercut injection: fail right after the CP/SB blocks are erased
+     * but before any new content is written. Recovery should still see the
+     * previous valid SB/CP pair on the alternate slot. */
+    if (ctx->inject_powercut_stage == PGFS_INJECT_POWERCUT_AFTER_CP_ERASE) {
+        ctx->inject_powercut_stage = PGFS_INJECT_POWERCUT_NONE;
+        ctx->stats.powercut_inject_count++;
+        LLOGW("CP store: powercut injected after CP/SB erase, before write");
+        return -1;
+    }
+
     tmp.crc32 = 0;
     tmp.crc32 = pgfs_crc32_calc(&tmp, sizeof(tmp));
     if (pgfs_flash_write(ctx, cp_addr, &tmp, sizeof(tmp)) != 0) {
+        return -1;
+    }
+
+    /* Readback verify of CP: NAND write failures / bit-flips can leave the
+     * region silently corrupt. If the readback doesn't match, abort the
+     * whole store so the old SB/CP pair remains authoritative. */
+    {
+        pgfs_checkpoint_t verify_cp = {0};
+        if (pgfs_flash_read(ctx, cp_addr, &verify_cp, sizeof(verify_cp)) != 0 ||
+            !pgfs_checkpoint_valid(&verify_cp) ||
+            verify_cp.seq != tmp.seq) {
+            LLOGE("CP readback verify failed at addr=%u (seq=%u), store aborted",
+                  (unsigned int)cp_addr, (unsigned int)tmp.seq);
+            return -1;
+        }
+    }
+
+    /* Powercut injection point: CP written & verified, SB not yet written.
+     * Inject here to validate the CP-only recovery path on the next mount. */
+    if (ctx->inject_powercut_stage == PGFS_INJECT_POWERCUT_AFTER_CP_WRITE) {
+        ctx->inject_powercut_stage = PGFS_INJECT_POWERCUT_NONE;
+        ctx->stats.powercut_inject_count++;
+        LLOGW("CP store: powercut injected after CP write, before SB write");
         return -1;
     }
 
@@ -230,6 +266,18 @@ int pgfs_checkpoint_store_next(void* fs, const pgfs_checkpoint_t* current, pgfs_
         return -1;
     }
 
+    /* Readback verify of SB. */
+    {
+        pgfs_superblock_t verify_sb = {0};
+        if (pgfs_flash_read(ctx, sb_addr, &verify_sb, sizeof(verify_sb)) != 0 ||
+            !pgfs_superblock_valid(&verify_sb) ||
+            verify_sb.seq != sb.seq) {
+            LLOGE("SB readback verify failed at addr=%u (seq=%u), store aborted",
+                  (unsigned int)sb_addr, (unsigned int)sb.seq);
+            return -1;
+        }
+    }
+
     *next = tmp;
     return 0;
 }
@@ -243,6 +291,15 @@ int pgfs_checkpoint_commit_pending(pgfs_mount_ctx_t* ctx) {
     }
     if (pgfs_checkpoint_store_next(ctx, &ctx->checkpoint, &ctx->checkpoint) != 0) {
         return -1;
+    }
+    /* Persist FTL state (bad-block bitmap + erase counts) alongside the CP
+     * so that runtime-discovered bad blocks and wear-levelling counters
+     * survive an unexpected power loss. FTL persist failures are logged
+     * but do not roll back the CP (CP is already on flash); the in-RAM
+     * FTL ctx remains usable until the next CP cycle. */
+    if (pgfs_ftl_on_checkpoint_commit(ctx) != 0) {
+        LLOGE("FTL persist failed after CP commit (seq=%u), will retry on next CP",
+              (unsigned int)ctx->checkpoint.seq);
     }
     ctx->pending_checkpoint_writes = 0;
     ctx->checkpoint_loaded = 1;

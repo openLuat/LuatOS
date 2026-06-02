@@ -97,10 +97,29 @@ static uint32_t pgfs_crc32_calc(const void* data, size_t len) {
 }
 
 static uint32_t pgfs_data_log_base_addr(pgfs_mount_ctx_t* ctx) {
+    uint32_t base = PGFS_DATA_LOG_BASE_ADDR;
     if (ctx != NULL && ctx->data_log_base_addr >= PGFS_DATA_LOG_BASE_ADDR) {
-        return ctx->data_log_base_addr;
+        base = ctx->data_log_base_addr;
     }
-    return PGFS_DATA_LOG_BASE_ADDR;
+    /* The legacy PGFS_DATA_LOG_BASE_ADDR (0x5000) is correct only when the
+     * erase_size matches the original 4KB assumption. With real NAND chips
+     * (W25N01GVZEIG, MX35LF512) using 128KB erase blocks, the FTL state
+     * region is at 0x40000-0x60000 and would clobber the data log. When the
+     * FTL has been initialized (i.e. a real NAND layout is in use), snap
+     * the data log base up to past the FTL state region. Tests that don't
+     * initialize the FTL keep the legacy layout for backward compatibility. */
+    if (ctx != NULL && ctx->ftl.total_blocks != 0 &&
+        ctx->flash_opts != NULL && ctx->flash_opts->control != NULL) {
+        pgfs_flash_geometry_t geo = {0};
+        if (ctx->flash_opts->control(ctx->flash_opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+            geo.erase_size != 0) {
+            uint32_t ftl_state_end = pgfs_ftl_state_addr(geo.erase_size) + geo.erase_size;
+            if (base < ftl_state_end) {
+                base = ftl_state_end;
+            }
+        }
+    }
+    return base;
 }
 
 static uint32_t pgfs_program_size(pgfs_mount_ctx_t* ctx) {
@@ -873,9 +892,30 @@ static int pgfs_prepare_data_log_region(pgfs_mount_ctx_t* ctx, uint32_t addr, si
         ctx->data_log_prepared_until = erase_end;
         return 0;
     }
-    if (ctx->flash_opts->erase(ctx->flash_opts->ctx, erase_start, erase_end - erase_start) != 0) {
-        LLOGE("prepare region erase failed addr=%u size=%u", (unsigned int)erase_start, (unsigned int)(erase_end - erase_start));
-        return -1;
+    /* Skip the FTL state erase-unit: erasing it would destroy the persisted
+     * bad-block bitmap and erase counts. If the requested range crosses the
+     * FTL state region, split the erase into two halves. */
+    uint32_t ftl_state_addr = pgfs_ftl_state_addr(geo.erase_size);
+    uint32_t ftl_state_end  = ftl_state_addr + geo.erase_size;
+    if (ftl_state_addr != 0u && erase_start < ftl_state_end && erase_end > ftl_state_addr) {
+        if (erase_start < ftl_state_addr) {
+            uint32_t mid = (ftl_state_addr < erase_end) ? ftl_state_addr : erase_end;
+            if (ctx->flash_opts->erase(ctx->flash_opts->ctx, erase_start, mid - erase_start) != 0) {
+                LLOGE("prepare region erase (pre-FTL) failed addr=%u size=%u", (unsigned int)erase_start, (unsigned int)(mid - erase_start));
+                return -1;
+            }
+        }
+        if (ftl_state_end < erase_end) {
+            if (ctx->flash_opts->erase(ctx->flash_opts->ctx, ftl_state_end, erase_end - ftl_state_end) != 0) {
+                LLOGE("prepare region erase (post-FTL) failed addr=%u size=%u", (unsigned int)ftl_state_end, (unsigned int)(erase_end - ftl_state_end));
+                return -1;
+            }
+        }
+    } else {
+        if (ctx->flash_opts->erase(ctx->flash_opts->ctx, erase_start, erase_end - erase_start) != 0) {
+            LLOGE("prepare region erase failed addr=%u size=%u", (unsigned int)erase_start, (unsigned int)(erase_end - erase_start));
+            return -1;
+        }
     }
     ctx->data_log_prepared_until = erase_end;
     return 0;
@@ -934,7 +974,7 @@ static int pgfs_append_log_record(pgfs_mount_ctx_t* ctx, const uint8_t* hdr, siz
     uint64_t end_addr = 0;
     pgfs_flash_geometry_t geo = {0};
     uint32_t addr = 0;
-    int retried = 0;
+    int attempt = 0;
     if (ctx == NULL || hdr == NULL || hdr_len == 0 || ctx->flash_opts == NULL || ctx->flash_opts->write == NULL) {
         return -1;
     }
@@ -959,27 +999,47 @@ retry_prepare:
         return -1;
     }
     if (pgfs_prepare_data_log_region(ctx, addr, write_len) != 0) {
-        if (!retried && pgfs_relocate_unaligned_write_head(ctx, addr, write_len, &addr) == 0) {
-            retried = 1;
+        if (attempt < 1 && pgfs_relocate_unaligned_write_head(ctx, addr, write_len, &addr) == 0) {
+            attempt++;
             LLOGW("append_data relocate write head to %u", (unsigned int)addr);
             goto retry_prepare;
         }
         return -1;
     }
+    /* Powercut injection: fail right after the region is prepared (erased)
+     * but before any record is written. Recovery should see a clean erased
+     * region and advance the write head without committing a record. */
+    if (ctx->inject_powercut_stage == PGFS_INJECT_POWERCUT_AFTER_APPEND_ERASE) {
+        ctx->inject_powercut_stage = PGFS_INJECT_POWERCUT_NONE;
+        ctx->stats.powercut_inject_count++;
+        LLOGW("append_data: powercut injected after prepare, before write");
+        return -1;
+    }
     if (ctx->flash_opts->write(ctx->flash_opts->ctx, addr, hdr, hdr_len) != 0 ||
         (path_len != 0 && ctx->flash_opts->write(ctx->flash_opts->ctx, addr + (uint32_t)hdr_len, path, path_len) != 0) ||
         (data_len != 0 && ctx->flash_opts->write(ctx->flash_opts->ctx, addr + (uint32_t)hdr_len + path_len, data, data_len) != 0)) {
-        if (!retried && ctx->flash_opts->control != NULL &&
+        /* Notify FTL that the block at addr may be suspect — a write failure
+         * often means the block has bad pages. This propagates a bad-block
+         * mark so the next allocation skips it. */
+        if (ctx->flash_opts->control != NULL &&
             ctx->flash_opts->control(ctx->flash_opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
             geo.erase_size != 0) {
-            uint32_t next_addr = pgfs_align_up_u32(addr + 1u, geo.erase_size);
-            uint64_t next_end = (uint64_t)next_addr + (uint64_t)write_len;
-            if (next_addr > addr && (geo.capacity == 0 || next_end <= geo.capacity)) {
-                LLOGW("append_data write failed at addr=%u, retry next block=%u", (unsigned int)addr, (unsigned int)next_addr);
-                addr = next_addr;
-                ctx->data_log_prepared_until = next_addr;
-                retried = 1;
-                goto retry_prepare;
+            uint32_t bad_block = addr / geo.erase_size;
+            if (bad_block < ctx->ftl.total_blocks) {
+                pgfs_ftl_on_erase_failure(ctx, bad_block);
+            }
+            /* Single retry: relocate to next block. */
+            if (attempt < 1) {
+                uint32_t next_addr = pgfs_align_up_u32(addr + 1u, geo.erase_size);
+                uint64_t next_end = (uint64_t)next_addr + (uint64_t)write_len;
+                if (next_addr > addr && (geo.capacity == 0 || next_end <= geo.capacity)) {
+                    LLOGW("append_data write failed at addr=%u, retry next block=%u (attempt=%d)",
+                          (unsigned int)addr, (unsigned int)next_addr, attempt + 1);
+                    addr = next_addr;
+                    ctx->data_log_prepared_until = next_addr;
+                    attempt++;
+                    goto retry_prepare;
+                }
             }
         }
         return -1;

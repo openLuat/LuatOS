@@ -27,6 +27,13 @@
 #define PGFS_INJECT_POWERCUT_BEFORE_APPEND 1u
 #define PGFS_INJECT_POWERCUT_AFTER_APPEND 2u
 #define PGFS_INJECT_POWERCUT_BEFORE_CP 3u
+#define PGFS_INJECT_POWERCUT_AFTER_CP_ERASE 4u
+#define PGFS_INJECT_POWERCUT_AFTER_CP_WRITE 5u
+#define PGFS_INJECT_POWERCUT_AFTER_APPEND_ERASE 6u
+/* Stages 3 and 4 are FTL powercut (forwarded to FTL ctx):
+ *   3 → before FTL erase
+ *   4 → after FTL erase, before FTL write
+ * See pgfs_ftl_integration.c::pgfs_ftl_on_checkpoint_commit. */
 
 #if defined(_MSC_VER)
 #pragma pack(push, 1)

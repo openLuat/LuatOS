@@ -119,6 +119,14 @@ static uint32_t pgfs_compute_data_log_base(const pgfs_flash_opts_t* opts) {
             base = (uint32_t)aligned;
         }
     }
+    /* Skip past the FTL state erase-unit: the data log must not overlap
+     * the persisted FTL state. This fixes a latent bug where PGFS_DATA_LOG_BASE_ADDR
+     * could be inside the FTL block when erase_size was different from the
+     * default. */
+    uint32_t ftl_state_end = pgfs_ftl_state_addr(geo.erase_size) + geo.erase_size;
+    if (base < ftl_state_end) {
+        base = ftl_state_end;
+    }
     return base;
 }
 
@@ -406,6 +414,18 @@ int pgfs_control_inject_powercut_stage(const char* stage) {
     }
     if (strcmp(stage, "after_append") == 0) {
         s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_AFTER_APPEND;
+        return 0;
+    }
+    if (strcmp(stage, "after_cp_erase") == 0) {
+        s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_AFTER_CP_ERASE;
+        return 0;
+    }
+    if (strcmp(stage, "after_cp_write") == 0) {
+        s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_AFTER_CP_WRITE;
+        return 0;
+    }
+    if (strcmp(stage, "after_append_erase") == 0) {
+        s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_AFTER_APPEND_ERASE;
         return 0;
     }
     return -1;

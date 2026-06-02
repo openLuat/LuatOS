@@ -18,6 +18,9 @@
 #include "luat_mem.h"
 #include <stdlib.h>
 
+#define LUAT_LOG_TAG "pgfs.ftl"
+#include "luat_log.h"
+
 #ifdef LUAT_USE_PGFS_COMPONENT
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
@@ -29,8 +32,10 @@ static uint32_t pgfs_ftl_crc32(const void *data, size_t len) {
 /*
  * pgfs_ftl_state_addr — byte address of FTL state region.
  * Always the erase-unit immediately after the two CP slots.
+ * Public (non-static) so that pgfs_core.c can skip this region when
+ * erasing the data log.
  */
-static uint32_t pgfs_ftl_state_addr(uint32_t erase_size) {
+uint32_t pgfs_ftl_state_addr(uint32_t erase_size) {
     /* CP slots end at PGFS_CHECKPOINT_B_ADDR + erase_size; next erase unit starts there */
     uint32_t cp_end = PGFS_CHECKPOINT_B_ADDR + erase_size;
     return (cp_end + erase_size - 1u) / erase_size * erase_size;
@@ -103,6 +108,9 @@ void pgfs_ftl_deinit(pgfs_nand_ftl_ctx_t *ctx) {
     if (!ctx) return;
     free(ctx->bad_blocks_bitmap);
     free(ctx->erase_counts);
+    if (ctx->last_persist_buf != NULL) {
+        free(ctx->last_persist_buf);
+    }
     memset(ctx, 0, sizeof(*ctx));
 }
 
@@ -151,7 +159,7 @@ void pgfs_ftl_inject_bad_block_once(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id)
 
 /* ── Persist ─────────────────────────────────────────────────────────────── */
 
-int pgfs_ftl_persist(const pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
+int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     (void)cp_seq;
     if (!ctx || !ctx->flash_opts) return -1;
 
@@ -161,9 +169,22 @@ int pgfs_ftl_persist(const pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     uint32_t ec_bytes     = ctx->total_blocks * sizeof(uint16_t);
     uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + bitmap_bytes + ec_bytes;
 
+    /* Powercut injection point: fail right before erasing the FTL state
+     * block. The block retains its previous content, and the next mount
+     * should still see the old snapshot. */
+    if (ctx->powercut_inject == 1) {
+        ctx->powercut_inject = 0;
+        ctx->persist_failure_count++;
+        LLOGW("pgfs_ftl_persist: powercut injected before FTL erase");
+        return -1;
+    }
+
     /* Allocate staging buffer (RAM) */
     uint8_t *buf = (uint8_t *)calloc(1, total_bytes);
-    if (!buf) return -1;
+    if (!buf) {
+        ctx->persist_failure_count++;
+        return -1;
+    }
 
     /* Build header */
     pgfs_ftl_meta_t *meta = (pgfs_ftl_meta_t *)buf;
@@ -185,17 +206,74 @@ int pgfs_ftl_persist(const pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
 
     /* Erase FTL state erase-unit */
     if (pgfs_ftl_flash_erase(ctx->flash_opts, state_addr, erase_size) != 0) {
+        LLOGE("pgfs_ftl_persist: erase failed at addr=%u", (unsigned int)state_addr);
+        free(buf);
+        ctx->persist_failure_count++;
+        return -1;
+    }
+
+    /* Powercut injection point: fail right after erasing the FTL state
+     * block, before writing the new content. The block is now blank —
+     * recovery should still find the last_persist_buf (in RAM) or rebuild
+     * from CP-driven replay. */
+    if (ctx->powercut_inject == 2) {
+        ctx->powercut_inject = 0;
+        ctx->persist_failure_count++;
+        LLOGW("pgfs_ftl_persist: powercut injected after FTL erase, before write");
         free(buf);
         return -1;
     }
 
     /* Write FTL state */
     if (pgfs_ftl_flash_write(ctx->flash_opts, state_addr, buf, total_bytes) != 0) {
+        LLOGE("pgfs_ftl_persist: write failed at addr=%u", (unsigned int)state_addr);
         free(buf);
+        ctx->persist_failure_count++;
         return -1;
     }
 
-    free(buf);
+    /* Readback verify: read the just-written region and re-check CRC.
+     * If the readback fails or the CRC doesn't match, the on-flash content
+     * is corrupt; we MUST NOT update last_persist_buf in that case so the
+     * next mount can still recover from the previous snapshot. */
+    uint8_t *verify_buf = (uint8_t *)malloc(total_bytes);
+    if (verify_buf == NULL) {
+        /* Allocation failure is non-fatal for the on-flash write itself:
+         * the write succeeded. Take ownership of buf for snapshot. */
+        if (ctx->last_persist_buf != NULL) {
+            free(ctx->last_persist_buf);
+        }
+        ctx->last_persist_buf = buf;
+        ctx->last_persist_size = total_bytes;
+        ctx->persist_success_count++;
+        return 0;
+    }
+    int readback_ok = 0;
+    if (pgfs_ftl_flash_read(ctx->flash_opts, state_addr, verify_buf, total_bytes) == 0) {
+        pgfs_ftl_meta_t *verify_meta = (pgfs_ftl_meta_t *)verify_buf;
+        uint32_t stored_crc = verify_meta->crc32;
+        verify_meta->crc32 = 0;
+        if (stored_crc == pgfs_ftl_crc32(verify_buf, total_bytes) &&
+            verify_meta->magic == PGFS_FTL_MAGIC) {
+            readback_ok = 1;
+        }
+    }
+    free(verify_buf);
+    if (!readback_ok) {
+        LLOGE("pgfs_ftl_persist: readback verify failed at addr=%u, keeping old snapshot",
+              (unsigned int)state_addr);
+        free(buf);
+        ctx->persist_failure_count++;
+        return -1;
+    }
+
+    /* Success: take ownership of buf for the new snapshot, free the old one. */
+    if (ctx->last_persist_buf != NULL) {
+        free(ctx->last_persist_buf);
+    }
+    ctx->last_persist_buf = buf;
+    ctx->last_persist_size = total_bytes;
+    ctx->persist_success_count++;
     return 0;
 }
 

@@ -68,6 +68,17 @@ typedef struct {
     uint8_t inject_bad_block_once;
     uint8_t inject_bad_block_flag;    /* 0=not-injected, 1=injected-this-session */
     uint32_t inject_bad_block_id;
+
+    /* last successful persist snapshot (heap-owned, NULL until first persist).
+     * Used by pgfs_ftl_persist to detect write failures: if readback verify
+     * fails, the previous on-flash snapshot is still valid for recovery. */
+    uint8_t *last_persist_buf;
+    uint32_t last_persist_size;
+    uint32_t persist_success_count;
+    uint32_t persist_failure_count;
+
+    /* powercut injection (testing) — propagated from mount ctx at init time */
+    uint8_t powercut_inject;
 } pgfs_nand_ftl_ctx_t;
 
 /* ── Public API ────────────────────────────────────────────────────────── */
@@ -121,17 +132,25 @@ void pgfs_ftl_block_erased(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
 
 /*
  * pgfs_ftl_persist — write FTL state to flash immediately after CP area.
- *   ctx        : FTL context
+ *   ctx        : FTL context (non-const so the last-good snapshot can be
+ *                updated on success; preserved on failure)
  *   cp_seq     : checkpoint sequence number (for logging/debug)
  * Returns 0 on success, -1 on error.
  *
  * Layout written (one erase-unit starting at PGFS_FTL_STATE_ADDR):
  *   [pgfs_ftl_meta_t] [bad_blocks_bitmap] [erase_counts[]]
  *
+ * On success: ctx->last_persist_buf is updated to a copy of the buffer
+ *             just written, ctx->last_persist_size is set, and
+ *             ctx->persist_success_count is incremented.
+ * On failure: the previous ctx->last_persist_buf is preserved (if any) so
+ *             the caller can still fall back to it. ctx->persist_failure_count
+ *             is incremented.
+ *
  * PGFS_FTL_STATE_ADDR is computed as the next erase-unit after the
  * two CP slots (PGFS_CHECKPOINT_B_ADDR + erase_size).
  */
-int pgfs_ftl_persist(const pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq);
+int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq);
 
 /*
  * pgfs_ftl_load — load FTL state from flash (called at mount time).
@@ -166,5 +185,12 @@ int pgfs_ftl_on_mount(void *ctx);
 int pgfs_ftl_on_checkpoint_commit(void *ctx);
 void pgfs_ftl_on_erase_success(void *ctx, uint32_t block_id);
 void pgfs_ftl_on_erase_failure(void *ctx, uint32_t block_id);
+
+/*
+ * pgfs_ftl_state_addr — return the byte address of the FTL state region
+ * (the erase-unit immediately after the two CP slots). Exposed so the
+ * data-log prepare path can skip this region during erase.
+ */
+uint32_t pgfs_ftl_state_addr(uint32_t erase_size);
 
 #endif /* PGFS_NAND_FTL_H */

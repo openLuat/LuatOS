@@ -37,21 +37,48 @@ int pgfs_alloc_segment(pgfs_mount_ctx_t *ctx, uint32_t *seg_id) {
         ctx->gc_next_seg_id = 1;
     }
 
-    /* Find the next good block (skipping known-bad blocks via FTL) */
+    /* Wear-levelling: scan from gc_next_seg_id to total_blocks and pick the
+     * non-bad block with the lowest erase count. The lowest-ec block has
+     * been written/erased the fewest times, so directing new data there
+     * spreads wear evenly across the chip. */
     uint32_t block_id = ctx->gc_next_seg_id;
-    int ret = pgfs_ftl_find_free_block(&ctx->ftl, block_id, seg_id);
-    if (ret != 0) {
-        /* No good block found — out of space */
+    uint32_t best_block = UINT32_MAX;
+    uint16_t best_ec = UINT16_MAX;
+    for (uint32_t id = block_id; id < ctx->ftl.total_blocks; id++) {
+        if (pgfs_ftl_is_block_bad(&ctx->ftl, id)) {
+            continue;
+        }
+        uint16_t ec = ctx->ftl.erase_counts[id];
+        if (ec < best_ec) {
+            best_ec = ec;
+            best_block = id;
+        }
+    }
+    if (best_block == UINT32_MAX) {
+        /* No good block found in [block_id, total_blocks); wrap to start */
+        for (uint32_t id = 1; id < block_id; id++) {
+            if (pgfs_ftl_is_block_bad(&ctx->ftl, id)) {
+                continue;
+            }
+            uint16_t ec = ctx->ftl.erase_counts[id];
+            if (ec < best_ec) {
+                best_ec = ec;
+                best_block = id;
+            }
+        }
+    }
+    if (best_block == UINT32_MAX) {
         LLOGE("pgfs: alloc_segment: no free blocks (next=%u, total=%u, bad=%u)",
               (unsigned int)block_id,
               (unsigned int)ctx->ftl.total_blocks,
               (unsigned int)ctx->ftl.bad_block_count);
         return -1;
     }
+    *seg_id = best_block;
 
     /* Advance the counter past the allocated block to avoid re-checking it.
      * Future allocations start from this point. */
-    ctx->gc_next_seg_id = (*seg_id) + 1;
+    ctx->gc_next_seg_id = best_block + 1;
     if (ctx->gc_next_seg_id >= ctx->ftl.total_blocks) {
         ctx->gc_next_seg_id = 1; /* wrap around */
     }

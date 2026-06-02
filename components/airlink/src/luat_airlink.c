@@ -209,12 +209,92 @@ static airlink_flags_t g_airlink_peer_flags;
 
 void luat_airlink_peer_flags_update(const airlink_flags_t* flags) {
     if (flags) {
+        static uint8_t peer_flags_logged = 0;
         g_airlink_peer_flags = *flags;
+        if (!peer_flags_logged) {
+            LLOGI("peer flags: rpc=%u frag=%u raw=0x%08lX",
+                  flags->rpc_supported, flags->frag_supported, *(uint32_t*)flags);
+            peer_flags_logged = 1;
+        }
     }
 }
 
 int luat_airlink_peer_rpc_supported(void) {
     return g_airlink_peer_flags.rpc_supported ? 1 : 0;
+}
+
+int luat_airlink_peer_frag_supported(void) {
+    return g_airlink_peer_flags.frag_supported ? 1 : 0;
+}
+
+// SPI/UART 统一分片阈值: TEST_BUFF_SIZE(1600) - sizeof(airlink_link_data_t)(16) - sizeof(luat_airlink_cmd_t)(4)
+#define AIRLINK_FRAG_MAX_DATA_LEN  1580
+
+uint16_t luat_airlink_transport_max_data_len(uint8_t mode) {
+    switch (mode) {
+        case LUAT_AIRLINK_MODE_SPI_SLAVE:
+        case LUAT_AIRLINK_MODE_SPI_MASTER:
+        case LUAT_AIRLINK_MODE_UART:
+            return AIRLINK_FRAG_MAX_DATA_LEN;
+        case LUAT_AIRLINK_MODE_LOOPBACK:
+            return 0xFFFF;
+        default:
+            return 0;
+    }
+}
+
+// Fragment header constants (cmd 0x32 data layout):
+// [original_cmd:2][reassembly_id:2][total_len:2][frag_index:1][frag_total:1][chunk:N]
+#define FRAG_HDR_LEN  8
+
+static uint16_t g_next_reassembly_id = 0;
+
+// 共用: 将大 cmd 分片后入队到指定队列
+static int airlink_fragment_enqueue(luat_airlink_cmd_t* cmd, luat_rtos_queue_t cq,
+                                     luat_airlink_newdata_notify_cb notify_cb, uint16_t max_data) {
+    if (max_data <= FRAG_HDR_LEN) {
+        LLOGE("frag send: max_data=%u too small (min %d)", max_data, FRAG_HDR_LEN + 1);
+        return -5;
+    }
+    uint16_t reassembly_id = g_next_reassembly_id++;
+    uint16_t chunk_max = max_data - FRAG_HDR_LEN;
+    uint8_t  frag_total = (uint8_t)((cmd->len + chunk_max - 1) / chunk_max);
+
+    LLOGI("frag: split cmd=0x%04X len=%d into %d fragments id=0x%04X",
+          cmd->cmd, cmd->len, frag_total, reassembly_id);
+
+    uint16_t remaining  = cmd->len;
+    uint16_t src_offset = 0;
+
+    for (uint8_t i = 0; i < frag_total; i++) {
+        uint16_t chunk_len = (remaining > chunk_max) ? chunk_max : remaining;
+
+        luat_airlink_cmd_t* fcmd = luat_airlink_cmd_new(AIRLINK_CMD_FRAGMENT, FRAG_HDR_LEN + chunk_len);
+        if (fcmd == NULL) {
+            LLOGE("frag send: OOM allocating fragment %d/%d", i+1, frag_total);
+            return -3;
+        }
+        memcpy(fcmd->data,      &cmd->cmd,       2);
+        memcpy(fcmd->data + 2,  &reassembly_id,  2);
+        memcpy(fcmd->data + 4,  &cmd->len,       2);
+        fcmd->data[6] = i;
+        fcmd->data[7] = frag_total;
+        memcpy(fcmd->data + FRAG_HDR_LEN, cmd->data + src_offset, chunk_len);
+
+        airlink_queue_item_t item = {0};
+        item.len = fcmd->len + sizeof(luat_airlink_cmd_t);
+        item.cmd = fcmd;
+        int ret = luat_rtos_queue_send(cq, &item, 0, 0);
+        if (ret != 0) {
+            luat_airlink_cmd_free(fcmd);
+            LLOGE("frag send: queue full fragment %d/%d", i+1, frag_total);
+            return -4;
+        }
+        src_offset += chunk_len;
+        remaining  -= chunk_len;
+    }
+    if (notify_cb) notify_cb();
+    return 0;
 }
 uint32_t g_airlink_debug;
 uint32_t g_airlink_pause;
@@ -662,6 +742,17 @@ int luat_airlink_send2transport(luat_airlink_cmd_t* cmd, uint8_t mode) {
         LLOGE("send2transport: mode %d 无 cmd_queue", mode);
         return -2;
     }
+
+    uint16_t max_data = luat_airlink_transport_max_data_len(mode);
+    if (cmd->len > max_data) {
+        if (!luat_airlink_peer_frag_supported()) {
+            LLOGE("send2transport: cmd->len=%u exceeds max=%u, peer no frag support",
+                  cmd->len, max_data);
+            return -5;
+        }
+        return airlink_fragment_enqueue(cmd, cq, g_transport_slots[mode].notify_cb, max_data);
+    }
+
     airlink_queue_item_t item = {0};
     item.len = cmd->len + sizeof(luat_airlink_cmd_t);
     item.cmd = luat_airlink_cmd_new(cmd->cmd, cmd->len);
@@ -766,6 +857,25 @@ void luat_airlink_cmd_free(luat_airlink_cmd_t* cmd) {
 
 
 void luat_airlink_send2slave(luat_airlink_cmd_t* cmd) {
+    int mode = luat_airlink_current_mode_get();
+    uint16_t max_data = luat_airlink_transport_max_data_len(mode);
+
+    // 传输模式尚未确定时 (mode==-1 返回 max_data==0), 放行不做分片检查
+    if (mode != LUAT_AIRLINK_MODE_UNKNOW && cmd->len > max_data) {
+        if (!luat_airlink_peer_frag_supported()) {
+            LLOGW("luat_airlink_send2slave cmd->len=%u > max=%u, peer no frag, drop",
+                  cmd->len, max_data);
+            return;
+        }
+        luat_rtos_queue_t cq = airlink_cmd_queue;
+        airlink_fragment_enqueue(cmd, cq, luat_airlink_mode_newdata_cb_get(), max_data);
+        return;
+    }
+    // mode UNKNOWN 时大帧直接放行, 不做分片
+    if (mode == LUAT_AIRLINK_MODE_UNKNOW && cmd->len > max_data && cmd->len > 100) {
+        LLOGW("luat_airlink_send2slave mode=UNKNOW, 大帧直接发送 len=%u (未分片)", cmd->len);
+    }
+
     airlink_queue_item_t item = {0};
     int ret = 0;
     item.len = cmd->len + sizeof(luat_airlink_cmd_t);
@@ -786,9 +896,6 @@ void luat_airlink_send2slave(luat_airlink_cmd_t* cmd) {
 int luat_airlink_ready(void) {
     uint64_t tnow = luat_mcu_tick64_ms();
     uint64_t diff = tnow - g_airlink_last_cmd_timestamp;
-    // LLOGD("tnow %lld", tnow);
-    // LLOGD("gt %lld", g_airlink_last_cmd_timestamp);
-    // LLOGD("diff %lld", diff);
     if (diff < 2000) {
         return 1;
     }
@@ -912,11 +1019,12 @@ int luat_airlink_result_reg(luat_airlink_result_reg_t* reg) {
         }
     }
     luat_rtos_mutex_unlock(reg_mutex);
-    return -1;
+    return AIRLINK_ERR_RESULT_REG_FULL;
 }
 
 // 注销 result slot (用于超时清理).
-// 返回 0: 成功清理 (slot 被我们占有); -1: slot 已被对端应答消费 (需调用方延迟释放 ctx)
+// 返回 0: 成功清理 (slot 还在, callback 不会触发, 调用方安全释放 ctx)
+//       -1: slot 已被 result dispatch 取走 (callback 负责释放, 调用方只设 timed_out)
 int luat_airlink_result_unreg(uint64_t id) {
     if (reg_mutex == NULL) {
         return -1;
@@ -945,34 +1053,40 @@ int luat_airlink_cmd_exec_result(luat_airlink_cmd_t* cmd, void* userdata) {
     uint64_t id = 0;
     memcpy(&id, cmd->data + 8, 8);
     // LLOGD("result exec id=0x%llx", id);
+    luat_airlink_result_reg_t local = {0};
     luat_rtos_mutex_lock(reg_mutex, 1000);
     for (size_t i = 0; i < 64; i++)
     {
         if (regs[i].tm != 0 && memcmp(&regs[i].id, &id, 8) == 0) {
-            // LLOGD("result exec slot %d matched", i);
-            regs[i].exec(&regs[i], cmd);
+            memcpy(&local, &regs[i], sizeof(local));
             memset(&regs[i], 0, sizeof(luat_airlink_result_reg_t));
-            luat_rtos_mutex_unlock(reg_mutex);
-            return 0;
+            break;
         }
     }
-    // LLOGD("result exec slot not found for id=0x%llx", id);
     luat_rtos_mutex_unlock(reg_mutex);
+    if (local.exec) {
+        local.exec(&local, cmd);
+        return 0;
+    }
     return -1;
 }
 
 int luat_airlink_result_dispatch(uint64_t id, luat_airlink_cmd_t* cmd) {
     if (reg_mutex == NULL) return -1;
+    luat_airlink_result_reg_t local = {0};
     luat_rtos_mutex_lock(reg_mutex, 1000);
     for (size_t i = 0; i < 64; i++) {
         if (regs[i].tm != 0 && memcmp(&regs[i].id, &id, 8) == 0) {
-            regs[i].exec(&regs[i], cmd);
+            memcpy(&local, &regs[i], sizeof(local));
             memset(&regs[i], 0, sizeof(luat_airlink_result_reg_t));
-            luat_rtos_mutex_unlock(reg_mutex);
-            return 0;
+            break;
         }
     }
     luat_rtos_mutex_unlock(reg_mutex);
+    if (local.exec) {
+        local.exec(&local, cmd);
+        return 0;
+    }
     LLOGW("result_dispatch: no slot for id=0x%llx", (unsigned long long)id);
     return -1;
 }

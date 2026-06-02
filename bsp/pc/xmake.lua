@@ -47,6 +47,7 @@ end
 -- SDL2 仅在 GUI 模式下需要
 if env_enabled("LUAT_USE_GUI") then
     add_requires("libsdl2")
+    add_packages("libsdl2")
 end
 
 local function thirdparty_file_options()

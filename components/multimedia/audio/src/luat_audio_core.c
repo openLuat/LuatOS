@@ -96,23 +96,18 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 		_audio_play_next_block(ctrl);
 		break;
 	case LUAT_AUDIO_DRIVER_EVENT_RX_ONE_BLOCK_DONE:
-		if (!ctrl->data_channel->record_request_block) {
-			return;
+		if (ctrl->common_param.driver_work_mode >= LUAT_AUDIO_DRIVER_MODE_RECORD) {
+			rest_data_len = luat_fifo_check_free_space(ctrl->data_channel->record_request_block->record_data_fifo);
+			if (param < rest_data_len) {
+				luat_fifo_write(ctrl->data_channel->record_request_block->record_data_fifo, rx_data, param);
+			} else {
+				ctrl->data_channel->error_record_overflow = 1;
+			}
+			if (luat_fifo_check_used_space(ctrl->data_channel->record_request_block->record_data_fifo) >= ctrl->data_channel->record_request_block->record_fifo_enough_data_level) {	// 录音数据足够，发送事件
+				luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_RX_ENOUGH_DATA, (uint32_t)ctrl, 0, 0, 0);
+			}
 		}
-		if (ctrl->data_channel->record_jump_cnt) {
-			ctrl->data_channel->record_jump_cnt--;
-			return;
-		}
-		rest_data_len = luat_fifo_check_free_space(ctrl->data_channel->record_request_block->record_data_fifo);
-		if (param < rest_data_len) {
-			luat_fifo_write(ctrl->data_channel->record_request_block->record_data_fifo, rx_data, param);
-		} else {
-			ctrl->data_channel->error_record_overflow = 1;
-		}
-		if (luat_fifo_check_used_space(ctrl->data_channel->record_request_block->record_data_fifo) >= ctrl->data_channel->record_request_block->record_fifo_enough_data_level) {	// 录音数据足够，发送事件
-			luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_RX_ENOUGH_DATA, (uint32_t)ctrl, 0, 0, 0);
-		}
-		if (ctrl->opts->support_full_loop) {
+		if (ctrl->opts->support_full_loop && ctrl->common_param.driver_work_mode != LUAT_AUDIO_DRIVER_MODE_RECORD) {
 			_audio_play_next_block(ctrl);
 		}
 		break;

@@ -14,6 +14,7 @@
  */
 #include "luat_base.h"
 #include "pgfs_nand_ftl.h"
+#include "pgfs_internal.h"  /* PGFS_LAYOUT_RESERVED_BLOCKS, pgfs_layout_t */
 #include "luat_crypto.h"
 #include "luat_mem.h"
 #include <stdlib.h>
@@ -36,9 +37,15 @@ static uint32_t pgfs_ftl_crc32(const void *data, size_t len) {
  * erasing the data log.
  */
 uint32_t pgfs_ftl_state_addr(uint32_t erase_size) {
-    /* CP slots end at PGFS_CHECKPOINT_B_ADDR + erase_size; next erase unit starts there */
-    uint32_t cp_end = PGFS_CHECKPOINT_B_ADDR + erase_size;
-    return (cp_end + erase_size - 1u) / erase_size * erase_size;
+    /* Phase 0: v2 layout always places the FTL state at
+     *   data_log_first_block * erase_size - erase_size
+     *   = (PGFS_LAYOUT_RESERVED_BLOCKS - 1) * erase_size
+     *   = 4 * erase_size.
+     * This matches the v1 formula (align_up(0x3000 + erase_size, erase_size))
+     * for erase_size=4096 but differs for 128KB erase. Both produce the
+     * same answer for v1-format chips; the v2 layout just makes the
+     * reserved-block ordering explicit. */
+    return (PGFS_LAYOUT_RESERVED_BLOCKS - 1u) * erase_size;
 }
 
 /*

@@ -96,30 +96,24 @@ static uint32_t pgfs_crc32_calc(const void* data, size_t len) {
     return luat_crc32(data, (uint32_t)len, 0xFFFFFFFFu, 0);
 }
 
+/* pgfs_data_log_base_addr — derive the data log base address from the
+ * mount ctx. Prefers ctx->layout if it has been computed (v2+ mount);
+ * otherwise falls back to the legacy data_log_base_addr field. The legacy
+ * v1 default of 0x4000 is preserved for any code path that constructs a
+ * ctx without going through pgfs_vfs_adapter.c (mostly unit tests). */
 static uint32_t pgfs_data_log_base_addr(pgfs_mount_ctx_t* ctx) {
-    uint32_t base = PGFS_DATA_LOG_BASE_ADDR;
-    if (ctx != NULL && ctx->data_log_base_addr >= PGFS_DATA_LOG_BASE_ADDR) {
-        base = ctx->data_log_base_addr;
+    if (ctx == NULL) {
+        return 0;
     }
-    /* The legacy PGFS_DATA_LOG_BASE_ADDR (0x5000) is correct only when the
-     * erase_size matches the original 4KB assumption. With real NAND chips
-     * (W25N01GVZEIG, MX35LF512) using 128KB erase blocks, the FTL state
-     * region is at 0x40000-0x60000 and would clobber the data log. When the
-     * FTL has been initialized (i.e. a real NAND layout is in use), snap
-     * the data log base up to past the FTL state region. Tests that don't
-     * initialize the FTL keep the legacy layout for backward compatibility. */
-    if (ctx != NULL && ctx->ftl.total_blocks != 0 &&
-        ctx->flash_opts != NULL && ctx->flash_opts->control != NULL) {
-        pgfs_flash_geometry_t geo = {0};
-        if (ctx->flash_opts->control(ctx->flash_opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
-            geo.erase_size != 0) {
-            uint32_t ftl_state_end = pgfs_ftl_state_addr(geo.erase_size) + geo.erase_size;
-            if (base < ftl_state_end) {
-                base = ftl_state_end;
-            }
-        }
+    /* v2+ path: use the layout if it has been computed (erase_size != 0). */
+    if (ctx->layout.erase_size != 0) {
+        return ctx->layout.data_log_first_block * ctx->layout.erase_size;
     }
-    return base;
+    /* v1 / un-initialised path: fall back to the legacy field. */
+    if (ctx->data_log_base_addr >= PGFS_V1_DATA_LOG_BASE_ADDR) {
+        return ctx->data_log_base_addr;
+    }
+    return PGFS_V1_DATA_LOG_BASE_ADDR;
 }
 
 static uint32_t pgfs_program_size(pgfs_mount_ctx_t* ctx) {

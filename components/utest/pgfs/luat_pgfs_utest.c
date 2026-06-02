@@ -7,6 +7,7 @@
 
 #define PGFS_TEST_FLASH_SIZE 0x8000u    /* 32KB — default test flash, matches original */
 #define PGFS_TEST_FLASH_LARGE_SIZE 0x1000000u  /* 16MB — for tests that need a realistic NAND layout */
+#define PGFS_TEST_FLASH_64MB_SIZE 0x4000000u  /* 64MB — Phase 0: minimum supported real-NAND size */
 #define PGFS_TEST_DATA_RECORD_MAGIC 0x50474644u
 #define PGFS_TEST_BATCH_DATA_RECORD_MAGIC 0x50474642u
 #define PGFS_TEST_BATCH_COMMIT_RECORD_MAGIC 0x50474643u
@@ -54,6 +55,24 @@ typedef struct {
 static uint8_t s_pgfs_test_flash_slab[0x1000000];  /* 16MB */
 static int s_pgfs_test_flash_slab_inuse = 0;
 
+/* Phase 0: 64MB slab support. Try luat_heap_malloc first; fall back to
+ * the static 16MB BSS slab if the heap refuses. The fallback path is
+ * the only one that works on PC, and tests that need a 64MB-backed
+ * flash must declare so via pgfs_test_flash_new_64mb(). */
+static uint8_t* s_pgfs_test_flash_slab_64mb = NULL;
+static uint32_t s_pgfs_test_flash_slab_64mb_size = 0;
+
+static uint8_t* pgfs_test_flash_get_64mb_slab(uint32_t needed_size) {
+    if (s_pgfs_test_flash_slab_64mb == NULL) {
+        s_pgfs_test_flash_slab_64mb = (uint8_t*)luat_heap_malloc(needed_size);
+        if (s_pgfs_test_flash_slab_64mb != NULL) {
+            s_pgfs_test_flash_slab_64mb_size = needed_size;
+            memset(s_pgfs_test_flash_slab_64mb, 0xFF, needed_size);
+        }
+    }
+    return s_pgfs_test_flash_slab_64mb;
+}
+
 static pgfs_test_flash_t* pgfs_test_flash_new(void) {
     if (s_pgfs_test_flash_slab_inuse) {
         /* The slab is currently borrowed by another test; reset it. */
@@ -65,6 +84,25 @@ static pgfs_test_flash_t* pgfs_test_flash_new(void) {
     memset(tf, 0, sizeof(*tf));
     tf->mem = s_pgfs_test_flash_slab;
     tf->mem_size = sizeof(s_pgfs_test_flash_slab);
+    return tf;
+}
+
+/* pgfs_test_flash_new_64mb — return a flash with capacity_override=64MB,
+ * erase_size_override=128KB. Tries to allocate a 64MB heap slab; falls
+ * back to the 16MB BSS slab (capacity_override will be capped to 16MB
+ * in that case, so the test should not depend on 64MB physical flash). */
+static pgfs_test_flash_t* pgfs_test_flash_new_64mb(void) {
+    pgfs_test_flash_t* tf = pgfs_test_flash_new();
+    if (tf == NULL) return NULL;
+    tf->capacity_override = PGFS_TEST_FLASH_64MB_SIZE;
+    tf->erase_size_override = 128 * 1024;
+    uint8_t* slab = pgfs_test_flash_get_64mb_slab(PGFS_TEST_FLASH_64MB_SIZE);
+    if (slab != NULL) {
+        tf->mem = slab;
+        tf->mem_size = PGFS_TEST_FLASH_64MB_SIZE;
+    }
+    /* If heap allocation failed, the 16MB BSS slab is used; tests
+     * must not assume the full 64MB is addressable. */
     return tf;
 }
 
@@ -251,6 +289,61 @@ static int pgfs_test_control(void* ctx, uint32_t cmd, void* arg) {
     geo->erase_size = (tf != NULL && tf->erase_size_override != 0) ? tf->erase_size_override : 4096;
     geo->prog_size = 256;
     return 0;
+}
+
+/* Phase 0: verify pgfs_layout_compute for both 64MB / 128KB and 32KB / 4KB
+ * geometries. The 64MB case is the real-NAND target (MX35LF512); the 32KB
+ * case is the legacy PC-UTEST profile. */
+static int pgfs_test_layout_compute_64mb(void) {
+    int fail = 0;
+    pgfs_flash_geometry_t geo = {0};
+    pgfs_layout_t layout = {0};
+
+    /* 64MB / 128KB erase = 512 blocks */
+    geo.capacity = 64u * 1024u * 1024u;
+    geo.erase_size = 128u * 1024u;
+    geo.prog_size = 4096;
+    if (pgfs_layout_compute(&geo, &layout) != 0) {
+        printf("[pgfs-utest] layout_compute failed for 64MB\n");
+        fail++;
+    } else {
+        if (layout.sb_a_block != 0)         { fail++; }
+        if (layout.sb_b_block != 1)         { fail++; }
+        if (layout.cp_a_block != 2)         { fail++; }
+        if (layout.cp_b_block != 3)         { fail++; }
+        if (layout.ftl_state_block != 4)    { fail++; }
+        if (layout.data_log_first_block != 5){ fail++; }
+        if (layout.data_log_last_block != 511){ fail++; }
+        if (layout.reserved_block_count != 5){ fail++; }
+        if (layout.total_blocks != 512)      { fail++; }
+        if (layout.erase_size != 128u*1024u) { fail++; }
+    }
+
+    /* 32KB / 4KB erase = 8 blocks (legacy PC-UTEST profile) */
+    geo.capacity = 32u * 1024u;
+    geo.erase_size = 4u * 1024u;
+    geo.prog_size = 256;
+    memset(&layout, 0, sizeof(layout));
+    if (pgfs_layout_compute(&geo, &layout) != 0) {
+        printf("[pgfs-utest] layout_compute failed for 32KB\n");
+        fail++;
+    } else {
+        if (layout.sb_a_block != 0)         { fail++; }
+        if (layout.cp_a_block != 2)         { fail++; }
+        if (layout.ftl_state_block != 4)    { fail++; }
+        if (layout.data_log_first_block != 5){ fail++; }
+        if (layout.data_log_last_block != 7) { fail++; }
+    }
+
+    /* 16KB / 4KB erase = 4 blocks — should fail (< 5 reserved blocks) */
+    geo.capacity = 16u * 1024u;
+    geo.erase_size = 4u * 1024u;
+    memset(&layout, 0, sizeof(layout));
+    if (pgfs_layout_compute(&geo, &layout) == 0) {
+        printf("[pgfs-utest] layout_compute should have failed for 16KB\n");
+        fail++;
+    }
+    return fail;
 }
 
 static int pgfs_test_pick_latest_valid_sb(void) {
@@ -2281,8 +2374,11 @@ static int pgfs_test_skip_ftl_state_block_in_data_log_erase(void) {
         printf("[pgfs-utest] unexpected erase_size=%u\n", (unsigned)geo.erase_size);
         fail++;
     }
-    if (ftl_state_addr != 0x40000) {
-        printf("[pgfs-utest] unexpected ftl_state_addr=0x%X (expected 0x40000)\n",
+    if (ftl_state_addr != 4u * 128u * 1024u) {
+        /* Phase 0 v2 layout: FTL state is at block 4 = (PGFS_LAYOUT_RESERVED_BLOCKS-1)
+         * = 0x80000 for 128KB erase. The pre-v2 layout had FTL at block 2
+         * (0x40000) for 4KB erase. */
+        printf("[pgfs-utest] unexpected ftl_state_addr=0x%X (expected 0x80000)\n",
                (unsigned)ftl_state_addr);
         fail++;
     }
@@ -2370,6 +2466,7 @@ int pgfs_run_c_layer_tests(void) {
     int fail = 0;
     int r = 0;
 #define PGFS_RUN_CTEST(fn) do { r = fn(); if (r != 0) { printf("[pgfs-ctest] FAIL: " #fn "\n"); } else { printf("[pgfs-ctest] PASS: " #fn "\n"); } fail += r; } while(0)
+    PGFS_RUN_CTEST(pgfs_test_layout_compute_64mb);
     PGFS_RUN_CTEST(pgfs_test_pick_latest_valid_sb);
     PGFS_RUN_CTEST(pgfs_test_checkpoint_roundtrip_and_fallback);
     PGFS_RUN_CTEST(pgfs_test_lock_mode_counters);
@@ -2419,6 +2516,9 @@ int luat_pgfs_utest(lua_State *L, const char *case_name) {
     (void)L;
     if (case_name == NULL || case_name[0] == '\0' || strcmp(case_name, "c_layer_selftests") == 0) {
         return pgfs_run_c_layer_tests();
+    }
+    if (strcmp(case_name, "layout_compute_64mb") == 0) {
+        return pgfs_test_layout_compute_64mb() == 0 ? 0 : -1;
     }
     if (strcmp(case_name, "generation_fallback_prefers_latest_valid") == 0) {
         return pgfs_test_pick_latest_valid_sb() == 0 ? 0 : -1;

@@ -21,8 +21,8 @@
 
 /* PGFS layout addresses needed by pgfs_nand_ftl.c.
  * These are duplicated from pgfs_internal.h to avoid circular includes. */
-#ifndef PGFS_CHECKPOINT_B_ADDR
-#define PGFS_CHECKPOINT_B_ADDR  0x3000u
+#ifndef PGFS_V1_CHECKPOINT_B_ADDR
+#define PGFS_V1_CHECKPOINT_B_ADDR  0x3000u
 #endif
 
 #include <stdbool.h>
@@ -32,7 +32,10 @@
 /* ── FTL metadata on-flash format ─────────────────────────────────────── */
 
 #define PGFS_FTL_MAGIC   0x5046544Cu   /* 'PFTL' */
-#define PGFS_FTL_VERSION 1u
+/* v2: adds write_head_block, write_head_offset, log_tail_block,
+ * log_tail_offset, and a reserved_blocks_bitmap appended after the
+ * bad-block bitmap. v1 records are rejected as "load failed → scan". */
+#define PGFS_FTL_VERSION 2u
 
 /* Bitmap helpers: 1 bit per block, block N bad iff (bitmap[N/8] & (1 << (N%8))) */
 #define PGFS_FTL_BITMAP_BYTES(BLOCKS)  (((BLOCKS) + 7u) / 8u)
@@ -43,6 +46,12 @@ typedef struct pgfs_ftl_meta {
     uint16_t total_blocks;   /* matches geo from control() */
     uint32_t bitmap_bytes;   /* bytes following this header = PGFS_FTL_BITMAP_BYTES(total_blocks) */
     uint32_t erase_count_bytes; /* bytes following bitmap = total_blocks * sizeof(uint16_t) */
+    uint32_t write_head_block;     /* v2: current write block in the data log */
+    uint16_t write_head_offset;    /* v2: offset within write_head_block (prog-aligned) */
+    uint16_t log_tail_block_lo;    /* v2 low-16 of cp.log_tail_block (compat) */
+    uint32_t log_tail_block;       /* v2: per-segment tail block at last CP */
+    uint16_t log_tail_offset;      /* v2: tail offset at last CP */
+    uint16_t reserved1;            /* v2: padding */
     uint32_t crc32;          /* CRC over [meta + bitmap + erase_counts] with this field = 0 */
 } pgfs_ftl_meta_t;
 

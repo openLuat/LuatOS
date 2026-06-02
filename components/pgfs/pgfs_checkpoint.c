@@ -8,6 +8,36 @@
 
 #ifdef LUAT_USE_PGFS_COMPONENT
 
+/* pgfs_layout_compute — fill a layout struct from a flash geometry.
+ *
+ * Block 0..4 are reserved (SB-A, SB-B, CP-A, CP-B, FTL state). The data
+ * log spans [5, total_blocks-1]. Returns -1 if the geometry is too
+ * small to host the required reserved blocks (< 5 blocks total). */
+int pgfs_layout_compute(const pgfs_flash_geometry_t* geo, pgfs_layout_t* out) {
+    if (geo == NULL || out == NULL) {
+        return -1;
+    }
+    if (geo->erase_size == 0 || geo->capacity < geo->erase_size) {
+        return -1;
+    }
+    uint32_t total_blocks = geo->capacity / geo->erase_size;
+    if (total_blocks < PGFS_LAYOUT_RESERVED_BLOCKS) {
+        return -1;
+    }
+    out->erase_size = geo->erase_size;
+    out->prog_size = geo->prog_size != 0 ? geo->prog_size : 1u;
+    out->total_blocks = total_blocks;
+    out->sb_a_block = 0;
+    out->sb_b_block = 1;
+    out->cp_a_block = 2;
+    out->cp_b_block = 3;
+    out->ftl_state_block = 4;
+    out->data_log_first_block = PGFS_LAYOUT_RESERVED_BLOCKS;
+    out->data_log_last_block = total_blocks - 1u;
+    out->reserved_block_count = PGFS_LAYOUT_RESERVED_BLOCKS;
+    return 0;
+}
+
 static uint32_t pgfs_crc32_calc(const void* data, size_t len) {
     return luat_crc32(data, (uint32_t)len, 0xFFFFFFFFu, 0);
 }

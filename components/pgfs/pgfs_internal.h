@@ -6,13 +6,32 @@
 
 #define PGFS_SUPERBLOCK_MAGIC        0x50474653u
 #define PGFS_CHECKPOINT_MAGIC        0x50474350u
-#define PGFS_ONDISK_VERSION          1u
+/* On-disk format version 2: erase-aligned layout with 5 reserved blocks
+ * (SB-A, SB-B, CP-A, CP-B, FTL state) and a per-segment data log.
+ * v1 records on flash are treated as "fresh flash" and trigger a full
+ * factory scan (see pgfs_checkpoint_load / pgfs_ftl_load). */
+#define PGFS_ONDISK_VERSION          2u
 
-#define PGFS_SUPERBLOCK_A_ADDR       0x0000u
-#define PGFS_SUPERBLOCK_B_ADDR       0x1000u
-#define PGFS_CHECKPOINT_A_ADDR       0x2000u
-#define PGFS_CHECKPOINT_B_ADDR       0x3000u
-#define PGFS_DATA_LOG_BASE_ADDR      0x4000u
+/* Legacy address constants — kept for v1 record detection ONLY.
+ * All address arithmetic in v2+ code must go through pgfs_layout_t.
+ * These defines are referenced exclusively by the v1-detection probes
+ * (pgfs_checkpoint_load, pgfs_ftl_load) when reading a v1-format record. */
+#define PGFS_V1_SUPERBLOCK_A_ADDR    0x0000u
+#define PGFS_V1_SUPERBLOCK_B_ADDR    0x1000u
+#define PGFS_V1_CHECKPOINT_A_ADDR    0x2000u
+#define PGFS_V1_CHECKPOINT_B_ADDR    0x3000u
+#define PGFS_V1_DATA_LOG_BASE_ADDR   0x4000u
+/* Legacy aliases for code that still references the old v1 addresses by
+ * their non-V1_-prefixed name. Kept so the C unit tests (which hand-
+ * construct mount contexts) and external integrations continue to
+ * compile. New code MUST use pgfs_layout_t. */
+#define PGFS_SUPERBLOCK_A_ADDR        PGFS_V1_SUPERBLOCK_A_ADDR
+#define PGFS_SUPERBLOCK_B_ADDR        PGFS_V1_SUPERBLOCK_B_ADDR
+#define PGFS_CHECKPOINT_A_ADDR        PGFS_V1_CHECKPOINT_A_ADDR
+#define PGFS_CHECKPOINT_B_ADDR        PGFS_V1_CHECKPOINT_B_ADDR
+#define PGFS_DATA_LOG_BASE_ADDR       PGFS_V1_DATA_LOG_BASE_ADDR
+/* New layout: 5 reserved blocks, data log starts at block 5. */
+#define PGFS_LAYOUT_RESERVED_BLOCKS  5u
 #define PGFS_DATA_RECORD_MAGIC       0x50474644u
 #define PGFS_BATCH_DATA_RECORD_MAGIC 0x50474642u
 #define PGFS_BATCH_COMMIT_RECORD_MAGIC 0x50474643u
@@ -85,6 +104,38 @@ typedef struct pgfs_flash_geometry {
     uint32_t prog_size;
 } pgfs_flash_geometry_t;
 
+/* pgfs_layout_t — runtime-computed on-flash layout.
+ *
+ * Each region occupies exactly one erase unit. Block indices are stable
+ * (0..4 are reserved; data log starts at 5). The data log wraps across
+ * data_log_first_block..data_log_last_block inclusive, with per-segment
+ * write heads persisted in the FTL state (Phase 2 onward).
+ *
+ * For a 64 MB / 128 KB-erase flash: total_blocks = 512, data log
+ * occupies 507 erase units (~64.7 MB).
+ *
+ * This struct is computed by pgfs_layout_compute() at mount time and
+ * every address arithmetic must go through it. Do not introduce new
+ * hard-coded address constants. */
+typedef struct pgfs_layout {
+    uint32_t erase_size;
+    uint32_t prog_size;
+    uint32_t total_blocks;
+    uint32_t sb_a_block;            /* 0 */
+    uint32_t sb_b_block;            /* 1 */
+    uint32_t cp_a_block;            /* 2 */
+    uint32_t cp_b_block;            /* 3 */
+    uint32_t ftl_state_block;       /* 4 */
+    uint32_t data_log_first_block;  /* 5 */
+    uint32_t data_log_last_block;   /* total_blocks - 1 */
+    uint32_t reserved_block_count;  /* 5 */
+} pgfs_layout_t;
+
+/* pgfs_layout_compute — fill layout from a flash geometry.
+ * Returns 0 on success, -1 if the geometry is too small to host
+ * the required reserved blocks. */
+int pgfs_layout_compute(const pgfs_flash_geometry_t* geo, pgfs_layout_t* out);
+
 typedef struct pgfs_diag_stats {
     uint32_t lock_acquire_count;
     uint32_t lock_passthrough_count;
@@ -105,11 +156,15 @@ typedef struct pgfs_mount_ctx {
     uint8_t inject_corrupt_latest_cp;
     uint16_t pending_checkpoint_writes;
     uint16_t reserved0;
+    pgfs_layout_t layout;                /* computed at mount from geometry */
     pgfs_checkpoint_t checkpoint;
-    uint32_t data_log_base_addr;
-    uint32_t data_log_write_addr;
+    uint32_t data_log_base_addr;         /* legacy field; derived from layout */
+    uint32_t data_log_write_addr;        /* legacy field; per-segment head in layout */
     uint32_t data_log_prepared_until;
-    uint32_t gc_next_seg_id;
+    uint32_t gc_next_seg_id;            /* legacy; per-segment head replaces this */
+    uint32_t log_tail_block;            /* Phase 4: per-segment write head at last CP */
+    uint16_t log_tail_offset;            /* Phase 4: offset within tail block at last CP */
+    uint16_t layout_reserved0;           /* padding to keep alignment */
     pgfs_diag_stats_t stats;
     uint8_t batch_active;
     uint8_t batch_reserved[3];

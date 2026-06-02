@@ -133,3 +133,23 @@ bsp/pc/otp.bin
 /pcconf/
 /pgfs_video/
 /bsp/air1601/artifacts/
+
+# Local worktrees (not to be tracked from the main checkout)
+/.claude/
+/.fleet-worktrees/
+
+# In-progress test scaffolds (not yet ready to commit)
+/testcase/unit_testcase_tools/pgfs_perf/
+
+# PC BSP runtime artifacts (not to be tracked)
+/bsp/pc/CrashDump_*.dmp
+/bsp/pc/LastCoverageResults.log
+/bsp/pc/test_output.txt
+/bsp/pc/test_sqlite3_suite.db*
+/bsp/pc/test_dir/
+/bsp/pc/test_dir1/
+/bsp/pc/test_fs_dir/
+/bsp/pc/file2.txt
+/bsp/pc/mount_test.txt
+/bsp/pc/os_test_*.txt
+/bsp/pc/test_io.txt

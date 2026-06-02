@@ -291,6 +291,45 @@ static int pgfs_test_control(void* ctx, uint32_t cmd, void* arg) {
     return 0;
 }
 
+/* Phase 3: verify that a block can be marked weak independently of bad,
+ * and that the weak state does not affect bad-block checks. */
+static int pgfs_test_weak_block_separate_from_bad(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_nand_ftl_ctx_t ftl = {0};
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    pgfs_ftl_init(&ftl, &opts, 4096, 8);
+
+    if (pgfs_ftl_is_weak(&ftl, 3)) {
+        printf("[pgfs-ftl-utest] block 3 unexpectedly weak at init\n");
+        fail++;
+    }
+    pgfs_ftl_mark_weak(&ftl, 3);
+    if (!pgfs_ftl_is_weak(&ftl, 3)) {
+        printf("[pgfs-ftl-utest] block 3 should be weak after mark\n");
+        fail++;
+    }
+    /* Marking weak must NOT make the block bad. */
+    if (pgfs_ftl_is_block_bad(&ftl, 3)) {
+        printf("[pgfs-ftl-utest] block 3 incorrectly marked bad by mark_weak\n");
+        fail++;
+    }
+    /* Marking bad on a different block must not affect the weak state. */
+    pgfs_ftl_mark_block_bad(&ftl, 5);
+    if (!pgfs_ftl_is_weak(&ftl, 3) || !pgfs_ftl_is_block_bad(&ftl, 5)) {
+        printf("[pgfs-ftl-utest] bad/weak state leaked across blocks\n");
+        fail++;
+    }
+    pgfs_ftl_deinit(&ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 /* Phase 1: verify that the FTL never allocates a reserved block (SB-A/B,
  * CP-A/B, FTL state) for a data log segment. The test reserves blocks
  * 0..4 explicitly, then calls pgfs_alloc_segment 1000 times and asserts
@@ -2615,6 +2654,7 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_single_block_retired_recovers);
     PGFS_RUN_CTEST(pgfs_ftl_test_persist_populates_snapshot);
     PGFS_RUN_CTEST(pgfs_ftl_test_persist_readback_failure_keeps_snapshot);
+    PGFS_RUN_CTEST(pgfs_test_weak_block_separate_from_bad);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
      * not registered in the default c_layer_selftests dispatch. It depends
      * on data-log compaction after file deletion to reset the write head,

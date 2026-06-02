@@ -116,6 +116,25 @@ void pgfs_ftl_clear_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     }
 }
 
+/* ── Weak-block bitmap (Phase 3) ──────────────────────────────────────────── */
+
+bool pgfs_ftl_is_weak(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
+    if (!ctx || !ctx->weak_blocks_bitmap || block_id >= ctx->total_blocks) {
+        return false;
+    }
+    return pgfs_ftl_bit_get(ctx->weak_blocks_bitmap, block_id);
+}
+
+void pgfs_ftl_mark_weak(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
+    if (!ctx || !ctx->weak_blocks_bitmap || block_id >= ctx->total_blocks) {
+        return;
+    }
+    if (!pgfs_ftl_bit_get(ctx->weak_blocks_bitmap, block_id)) {
+        pgfs_ftl_bit_set(ctx->weak_blocks_bitmap, block_id);
+        ctx->weak_block_count++;
+    }
+}
+
 /* ── Public API ──────────────────────────────────────────────────────────── */
 
 int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
@@ -140,12 +159,23 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
         return -1;
     }
 
-    ctx->erase_counts = (uint16_t *)calloc(total_blocks, sizeof(uint16_t));
-    if (!ctx->erase_counts) {
+    ctx->weak_blocks_bitmap = (uint8_t *)calloc(1, bitmap_bytes);
+    if (!ctx->weak_blocks_bitmap) {
         free(ctx->bad_blocks_bitmap);
         free(ctx->reserved_blocks_bitmap);
         ctx->bad_blocks_bitmap = NULL;
         ctx->reserved_blocks_bitmap = NULL;
+        return -1;
+    }
+
+    ctx->erase_counts = (uint16_t *)calloc(total_blocks, sizeof(uint16_t));
+    if (!ctx->erase_counts) {
+        free(ctx->bad_blocks_bitmap);
+        free(ctx->reserved_blocks_bitmap);
+        free(ctx->weak_blocks_bitmap);
+        ctx->bad_blocks_bitmap = NULL;
+        ctx->reserved_blocks_bitmap = NULL;
+        ctx->weak_blocks_bitmap = NULL;
         return -1;
     }
     return 0;
@@ -155,6 +185,7 @@ void pgfs_ftl_deinit(pgfs_nand_ftl_ctx_t *ctx) {
     if (!ctx) return;
     free(ctx->bad_blocks_bitmap);
     free(ctx->reserved_blocks_bitmap);
+    free(ctx->weak_blocks_bitmap);
     free(ctx->erase_counts);
     if (ctx->last_persist_buf != NULL) {
         free(ctx->last_persist_buf);

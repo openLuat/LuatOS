@@ -73,6 +73,13 @@ typedef struct {
     uint8_t *reserved_blocks_bitmap;  /* heap-allocated, (total_blocks+7)/8 bytes */
     uint32_t reserved_block_count;
 
+    /* weak-block bitmap (Phase 3): 1=weak, 0=strong. A weak block is one
+     * that has produced an ECC-corrected read or otherwise shows signs of
+     * degradation. Weak blocks are still usable but should be the first
+     * candidates for refresh (copy-and-erase) on the next GC. */
+    uint8_t *weak_blocks_bitmap;      /* heap-allocated, (total_blocks+7)/8 bytes */
+    uint32_t weak_block_count;
+
     /* per-block erase counts: erase_counts[block_id] */
     uint16_t *erase_counts;          /* heap-allocated, total_blocks entries */
     uint32_t total_erase_count;     /* sum of all entries, for diagnostics */
@@ -138,6 +145,14 @@ void pgfs_ftl_mark_block_bad(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
 void pgfs_ftl_mark_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
 bool pgfs_ftl_is_reserved(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
 void pgfs_ftl_clear_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+
+/*
+ * Phase 3: weak-block tracking. A weak block is still readable but has
+ * shown signs of degradation (e.g. an ECC-corrected read). Weak blocks
+ * are valid data destinations but are first in line for refresh.
+ */
+void pgfs_ftl_mark_weak(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+bool pgfs_ftl_is_weak(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
 
 /*
  * pgfs_ftl_find_free_block — find the next good block from a given start.

@@ -646,7 +646,7 @@ function rtc_test.test_rtc_task1()
         "测试完成后恢复原始时区失败: 预期%d, 实际%s", original_tz, tostring(restore_tz_result)))
 
     if device_name == "Air8101" then
-        wlan.connect("HHHHHHHHHHH", "huanghefm94.3")
+        wlan.connect("luatos1234", "12341234")
     else
         mobile.flymode(0, false)
         sys.waitUntil("NET_READY", 10000)

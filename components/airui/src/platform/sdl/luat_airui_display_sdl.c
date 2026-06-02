@@ -53,6 +53,7 @@ typedef struct {
 } sdl_display_data_t;
 
 static void sdl_display_present_current_frame(sdl_display_data_t *data);
+static void sdl_display_blackout(sdl_display_data_t *data);
 
 static bool sdl_display_use_upright_preview(void)
 {
@@ -286,6 +287,34 @@ static void sdl_display_present_current_frame(sdl_display_data_t *data)
     SDL_RenderClear(data->renderer);
     SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
     SDL_RenderPresent(data->renderer);
+}
+
+// 黑屏
+static void sdl_display_blackout(sdl_display_data_t *data)
+{
+    if (data == NULL) {
+        return;
+    }
+
+    if (data->reuse_lcd) {
+        luat_sdl2_blackout();
+        return;
+    }
+
+    if (data->renderer == NULL || data->texture == NULL) {
+        return;
+    }
+
+    void *pixels = NULL;
+    int pitch = 0;
+    if (SDL_LockTexture(data->texture, NULL, &pixels, &pitch) == 0) {
+        for (uint16_t y = 0; y < data->height; y++) {
+            memset((uint8_t *)pixels + ((size_t)y * (size_t)pitch), 0, (size_t)pitch);
+        }
+        SDL_UnlockTexture(data->texture);
+    }
+
+    sdl_display_present_current_frame(data);
 }
 
 // 将窗口居中显示
@@ -719,6 +748,24 @@ static void sdl_display_wait_vsync(airui_ctx_t *ctx)
     (void)ctx;
 }
 
+// 休眠显示驱动
+static int sdl_display_suspend(airui_ctx_t *ctx)
+{
+    if (ctx == NULL || ctx->platform_data == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    sdl_display_blackout((sdl_display_data_t *)ctx->platform_data);
+    return AIRUI_OK;
+}
+
+// 唤醒显示驱动
+static int sdl_display_resume(airui_ctx_t *ctx)
+{
+    (void)ctx;
+    return AIRUI_OK;
+}
+
 /**
  * SDL2 显示驱动反初始化
  * @param ctx 上下文指针
@@ -777,6 +824,8 @@ static const airui_display_ops_t sdl_display_ops = {
     .init = sdl_display_init,
     .flush = sdl_display_flush,
     .wait_vsync = sdl_display_wait_vsync,
+    .suspend = sdl_display_suspend,
+    .resume = sdl_display_resume,
     .deinit = sdl_display_deinit
 };
 

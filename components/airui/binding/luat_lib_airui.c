@@ -193,6 +193,10 @@ static const rotable_Reg_t reg_airui[] = {
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(AIRUI_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(AIRUI_COLOR_FORMAT_ARGB8888)},
+    // 休眠模式常量
+    {"SLEEP_MODE_NONE", ROREG_INT(AIRUI_SLEEP_MODE_NONE)},
+    {"SLEEP_MODE_LIGHT", ROREG_INT(AIRUI_SLEEP_MODE_LIGHT)},
+    {"SLEEP_MODE_DEEP", ROREG_INT(AIRUI_SLEEP_MODE_DEEP)},
     // NES 按键常量
     {"NES_KEY_UP",     ROREG_INT(AIRUI_NES_KEY_UP)},
     {"NES_KEY_DOWN",   ROREG_INT(AIRUI_NES_KEY_DOWN)},
@@ -401,11 +405,38 @@ static int l_airui_full_refresh(lua_State *L) {
  * 休眠 AIRUI
  * @api airui.sleep(opts)
  * @table opts 可选配置
+ * @int|string opts.mode 可选，休眠模式，支持 airui.SLEEP_MODE_LIGHT / airui.SLEEP_MODE_DEEP，或 "light" / "deep"
  * @bool opts.power_down_lcd 休眠时是否关闭 LCD 背光，默认 true
+ * @note 默认进入深度睡眠
  * @return bool 成功返回 true，失败返回 false
  */
+static airui_sleep_mode_t airui_lua_parse_sleep_mode(lua_State *L, int idx) {
+    if (lua_isinteger(L, idx)) {
+        int mode = lua_tointeger(L, idx);
+        if (mode == AIRUI_SLEEP_MODE_LIGHT || mode == AIRUI_SLEEP_MODE_DEEP) {
+            return (airui_sleep_mode_t)mode;
+        }
+        return AIRUI_SLEEP_MODE_NONE;
+    }
+
+    if (lua_isstring(L, idx)) {
+        const char *mode = lua_tostring(L, idx);
+        if (mode != NULL) {
+            if (strcmp(mode, "light") == 0) {
+                return AIRUI_SLEEP_MODE_LIGHT;
+            }
+            if (strcmp(mode, "deep") == 0) {
+                return AIRUI_SLEEP_MODE_DEEP;
+            }
+        }
+    }
+
+    return AIRUI_SLEEP_MODE_NONE;
+}
+
 static int l_airui_sleep(lua_State *L) {
     bool power_down_lcd = true;
+    airui_sleep_mode_t sleep_mode = AIRUI_SLEEP_MODE_DEEP;
 
     if (g_ctx == NULL) {
         luaL_error(L, "airui not initialized, call airui.init() first");
@@ -418,10 +449,19 @@ static int l_airui_sleep(lua_State *L) {
             power_down_lcd = lua_toboolean(L, -1) ? true : false;
         }
         lua_pop(L, 1);
+
+        lua_getfield(L, 1, "mode");
+        if (!lua_isnil(L, -1)) {
+            sleep_mode = airui_lua_parse_sleep_mode(L, -1);
+            if (sleep_mode == AIRUI_SLEEP_MODE_NONE) {
+                return luaL_error(L, "invalid airui.sleep mode, use 'light' or 'deep'");
+            }
+        }
+        lua_pop(L, 1);
     }
 
     g_ctx->sleep_power_down_lcd = power_down_lcd;
-    lua_pushboolean(L, airui_sleep(g_ctx) == 0 ? 1 : 0);
+    lua_pushboolean(L, airui_sleep_ex(g_ctx, sleep_mode) == 0 ? 1 : 0);
     return 1;
 }
 
@@ -487,7 +527,7 @@ static int l_airui_get_rotation(lua_State *L) {
 /**
  * 获取 AIRUI 当前状态
  * @api airui.status()
- * @return table 状态表，包含 rotation/w/h
+ * @return table 状态表，包含 rotation/w/h/sleeping/sleep_mode
  */
 static int l_airui_status(lua_State *L) {
     if (g_ctx == NULL) {
@@ -495,7 +535,7 @@ static int l_airui_status(lua_State *L) {
         return 0;
     }
 
-    lua_createtable(L, 0, 3);
+    lua_createtable(L, 0, 5);
 
     lua_pushinteger(L, airui_display_get_rotation(g_ctx));
     lua_setfield(L, -2, "rotation");
@@ -505,6 +545,12 @@ static int l_airui_status(lua_State *L) {
 
     lua_pushinteger(L, g_ctx->height);
     lua_setfield(L, -2, "h");
+
+    lua_pushboolean(L, airui_is_sleeping(g_ctx) ? 1 : 0);
+    lua_setfield(L, -2, "sleeping");
+
+    lua_pushinteger(L, airui_get_sleep_mode(g_ctx));
+    lua_setfield(L, -2, "sleep_mode");
 
     return 1;
 }

@@ -390,11 +390,84 @@ static void luatos_input_calibration(airui_ctx_t *ctx, int16_t *x, int16_t *y)
     (void)y;
 }
 
+// 休眠输入设备
+static int luatos_input_suspend(airui_ctx_t *ctx, airui_sleep_mode_t mode)
+{
+    luatos_platform_data_t *platform = airui_luatos_get_data(ctx);
+    luat_tp_config_t *tp_cfg = platform ? platform->tp_config : NULL;
+
+    if (mode != AIRUI_SLEEP_MODE_DEEP || tp_cfg == NULL || tp_cfg->opts == NULL) {
+        return AIRUI_OK;
+    }
+
+    if (tp_cfg->pin_int != LUAT_GPIO_NONE) {
+        luat_tp_irq_enable(tp_cfg, 0);
+    }
+
+    if (tp_cfg->opts->sleep != NULL) {
+        luat_tp_sleep(tp_cfg);
+        if (platform != NULL) {
+            platform->tp_resume_needs_init = 1;
+        }
+    }
+
+    if (tp_cfg->opts->deinit != NULL) {
+        tp_cfg->opts->deinit(tp_cfg);
+        if (platform != NULL) {
+            platform->tp_resume_needs_init = 1;
+        }
+    }
+
+    memset(tp_cfg->tp_data, 0, sizeof(tp_cfg->tp_data));
+    if (platform != NULL) {
+        platform->tp_suspended = 1;
+    }
+    return AIRUI_OK;
+}
+
+static int luatos_input_resume(airui_ctx_t *ctx, airui_sleep_mode_t mode)
+{
+    luatos_platform_data_t *platform = airui_luatos_get_data(ctx);
+    luat_tp_config_t *tp_cfg = platform ? platform->tp_config : NULL;
+    int ret = 0;
+
+    if (mode != AIRUI_SLEEP_MODE_DEEP || tp_cfg == NULL || tp_cfg->opts == NULL) {
+        return AIRUI_OK;
+    }
+
+    if (platform != NULL && platform->tp_suspended == 0) {
+        return AIRUI_OK;
+    }
+
+    if (platform != NULL && platform->tp_resume_needs_init) {
+        ret = luat_tp_init(tp_cfg);
+        if (ret != 0) {
+            LLOGE("tp resume init failed ret=%d", ret);
+            return AIRUI_ERR_PLATFORM_ERROR;
+        }
+    } else if (tp_cfg->pin_int != LUAT_GPIO_NONE) {
+        ret = luat_tp_irq_enable(tp_cfg, 1);
+        if (ret != 0) {
+            LLOGE("tp resume irq enable failed ret=%d", ret);
+            return AIRUI_ERR_PLATFORM_ERROR;
+        }
+    }
+
+    memset(tp_cfg->tp_data, 0, sizeof(tp_cfg->tp_data));
+    if (platform != NULL) {
+        platform->tp_suspended = 0;
+        platform->tp_resume_needs_init = 0;
+    }
+    return AIRUI_OK;
+}
+
 /** LuatOS 输入驱动操作接口 */
 static const airui_input_ops_t luatos_input_ops = {
     .read_pointer = luatos_input_read_pointer,
     .read_keypad = luatos_input_read_keypad,
-    .calibration = luatos_input_calibration
+    .calibration = luatos_input_calibration,
+    .suspend = luatos_input_suspend,
+    .resume = luatos_input_resume
 };
 
 /** 获取 LuatOS 输入驱动操作接口 */

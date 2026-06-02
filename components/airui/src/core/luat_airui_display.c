@@ -90,7 +90,7 @@ int airui_display_set_rotation(airui_ctx_t *ctx, uint16_t rotation)
     ctx->width = (uint16_t)lv_display_get_horizontal_resolution(ctx->display);
     ctx->height = (uint16_t)lv_display_get_vertical_resolution(ctx->display);
 
-    if (!ctx->sleeping) {
+    if (!airui_is_sleeping(ctx)) {
         lv_obj_t *act_scr = lv_display_get_screen_active(ctx->display);
         if (act_scr != NULL) {
             lv_obj_invalidate(act_scr);

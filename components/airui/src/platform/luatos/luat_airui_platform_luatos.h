@@ -38,6 +38,8 @@ typedef struct {
     uint8_t *rotation_buf;           /**< 显示旋转临时缓冲 */
     uint32_t rotation_buf_size;      /**< 显示旋转临时缓冲大小 */
     uint8_t rotation_buf_in_psram;   /**< 是否分配在 PSRAM（1）或堆（0） */
+    uint8_t tp_suspended;            /**< 触摸是否已被 AirUI 挂起 */
+    uint8_t tp_resume_needs_init;    /**< 唤醒时是否需要重新初始化触摸 */
 } luatos_platform_data_t;
 
 /**

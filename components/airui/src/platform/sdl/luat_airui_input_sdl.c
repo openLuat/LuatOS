@@ -13,6 +13,8 @@
 #include "luat_airui_conf.h"
 #include "luat_lcd.h"
 #include "luat_sdl2.h"
+#include "luat_msgbus.h"
+#include "luat_rtos.h"
 #include "lvgl9/src/display/lv_display.h"
 #include <SDL2/SDL.h>
 #include <stdlib.h>
@@ -49,6 +51,26 @@ static airui_keypad_event_t g_keypad_queue[AIRUI_KEYPAD_QUEUE_SIZE]; // 按键�
 static uint8_t g_keypad_head = 0; // 按键队列头
 static uint8_t g_keypad_tail = 0; // 按键队列尾
 static bool g_keypad_enabled = false; // 按键是否启用
+
+static luat_rtos_timer_t g_sdl_sleep_pump_timer = NULL; // SDL 休眠泵定时器
+static bool g_sdl_sleep_pump_posted = false; // SDL 休眠泵是否已投递
+
+/** SDL 输入驱动私有数据 */
+typedef struct {
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+    SDL_Texture *texture;
+    uint16_t width;
+    uint16_t height;
+    lv_color_format_t color_format;
+    uint8_t reuse_lcd;
+    luat_lcd_conf_t *lcd_conf;
+    uint8_t *rotation_buf;
+    uint32_t rotation_buf_size;
+    int last_window_w;
+    int last_window_h;
+    uint8_t adjusting_window_size;
+} airui_sdl_display_data_t;
 
 static bool sdl_input_use_upright_preview(void)
 {
@@ -394,8 +416,9 @@ void airui_system_keyboard_set_preedit(airui_ctx_t *ctx, const char *text)
  * 处理 SDL 键盘输入事件，将其转化为 LVGL 预编辑、按键或文本事件
  * @param event SDL 事件指针
  * @param ctx airui 上下文
+ * @param dispatch_normal_input 是否走完整的正常输入分发路径（队列、系统键盘、mGBA、文本输入），用于区分休眠和正常模式在tp事件分发
  */
-static void sdl_process_keyboard_event(const SDL_Event *event, airui_ctx_t *ctx)
+static void sdl_process_keyboard_event(const SDL_Event *event, airui_ctx_t *ctx, bool dispatch_normal_input)
 {
     if (event == NULL || ctx == NULL) {
         return;
@@ -413,19 +436,21 @@ static void sdl_process_keyboard_event(const SDL_Event *event, airui_ctx_t *ctx)
         // 通知 Lua 键盘订阅回调（传递原始 SDL keycode）
         airui_keypad_notify(ctx, airui_key, key_state == LV_INDEV_STATE_PRESSED, lv_tick_get());
         
-        if (g_keypad_enabled && keypad_key != 0) {
+        if (dispatch_normal_input && g_keypad_enabled && keypad_key != 0) {
             airui_keypad_queue_push(keypad_key, key_state);
         }
 
 #ifdef LUAT_USE_MGBA
         /* GBA 模拟器键盘输入处理 */
-        luat_mgba_t* gba_ctx = luat_mgba_get_global_ctx();
-        if (gba_ctx) {
-            luat_mgba_handle_key_event(gba_ctx, event->key.keysym.scancode, event->type == SDL_KEYDOWN);
+        if (dispatch_normal_input) {
+            luat_mgba_t* gba_ctx = luat_mgba_get_global_ctx();
+            if (gba_ctx) {
+                luat_mgba_handle_key_event(gba_ctx, event->key.keysym.scancode, event->type == SDL_KEYDOWN);
+            }
         }
 #endif
 
-        if (event->type != SDL_KEYDOWN) {
+        if (!dispatch_normal_input || event->type != SDL_KEYDOWN) {
             break;
         }
 
@@ -451,14 +476,145 @@ static void sdl_process_keyboard_event(const SDL_Event *event, airui_ctx_t *ctx)
         break;
     }
     case SDL_TEXTEDITING:
-        airui_system_keyboard_set_preedit(ctx, event->edit.text);
+        if (dispatch_normal_input) {
+            airui_system_keyboard_set_preedit(ctx, event->edit.text);
+        }
         break;
     case SDL_TEXTINPUT:
-        airui_system_keyboard_clear_preedit(ctx);
-        airui_system_keyboard_post_text(ctx, event->text.text);
+        if (dispatch_normal_input) {
+            airui_system_keyboard_clear_preedit(ctx);
+            airui_system_keyboard_post_text(ctx, event->text.text);
+        }
         break;
     default:
         break;
+    }
+}
+
+/**
+ * 处理 SDL 窗口事件（被动模式）
+ * @param ctx airui 上下文
+ * @param event SDL 事件指针
+ * @param display_data SDL 显示数据
+ * @param window SDL 窗口
+ */
+static void sdl_process_window_event_passive(airui_ctx_t *ctx, const SDL_Event *event,
+                                             airui_sdl_display_data_t *display_data, SDL_Window *window)
+{
+#if !defined(_WIN32)
+    if (event == NULL || display_data == NULL || window == NULL || event->type != SDL_WINDOWEVENT) {
+        return;
+    }
+
+    if (event->window.windowID != SDL_GetWindowID(window)) {
+        return;
+    }
+
+    if (event->window.event == SDL_WINDOWEVENT_SIZE_CHANGED && !display_data->reuse_lcd) {
+        if (display_data->adjusting_window_size) {
+            display_data->adjusting_window_size = 0;
+            display_data->last_window_w = event->window.data1;
+            display_data->last_window_h = event->window.data2;
+        } else {
+            int request_w = event->window.data1;
+            int request_h = event->window.data2;
+            uint16_t preview_w = 0;
+            uint16_t preview_h = 0;
+            sdl_input_get_preview_size(ctx, &preview_w, &preview_h);
+            if (preview_w > 0 && preview_h > 0) {
+                int adjusted_w = request_w;
+                int adjusted_h = request_h;
+                int delta_w = abs(request_w - display_data->last_window_w);
+                int delta_h = abs(request_h - display_data->last_window_h);
+
+                if (display_data->last_window_w == 0 || display_data->last_window_h == 0 || delta_w >= delta_h) {
+                    adjusted_h = (int)(((int64_t)adjusted_w * preview_h + preview_w / 2) / preview_w);
+                } else {
+                    adjusted_w = (int)(((int64_t)adjusted_h * preview_w + preview_h / 2) / preview_h);
+                }
+
+                if (adjusted_w > 0 && adjusted_h > 0 && (adjusted_w != request_w || adjusted_h != request_h)) {
+                    display_data->adjusting_window_size = 1;
+                    display_data->last_window_w = adjusted_w;
+                    display_data->last_window_h = adjusted_h;
+                    SDL_SetWindowSize(window, adjusted_w, adjusted_h);
+                }
+            }
+        }
+    }
+#else
+    (void)ctx;
+    (void)event;
+    (void)display_data;
+    (void)window;
+#endif
+}
+
+/**
+ * 处理 SDL 事件（被动模式）
+ * @param L Lua 状态
+ * @param ptr 上下文指针
+ * @return 处理结果
+ */
+static int sdl_input_pump_events_passive_msg_handler(lua_State *L, void *ptr)
+{
+    (void)L;
+    airui_ctx_t *ctx = (airui_ctx_t *)ptr;
+    airui_sdl_display_data_t *display_data = ctx ? (airui_sdl_display_data_t *)ctx->platform_data : NULL;
+    SDL_Window *window = NULL;
+    SDL_Event event;
+
+    g_sdl_sleep_pump_posted = false;
+
+    if (ctx == NULL || display_data == NULL) {
+        return 0;
+    }
+
+    window = display_data->window;
+    if (window == NULL && display_data->reuse_lcd) {
+        luat_sdl2_pump_events();
+        return 0;
+    }
+
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            LLOGI("SDL_QUIT received during sleep, shutting down");
+            airui_deinit(ctx);
+            SDL_Quit();
+            exit(0);
+        }
+
+        if (event.type == SDL_WINDOWEVENT) {
+            sdl_process_window_event_passive(ctx, &event, display_data, window);
+        } else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING) {
+            sdl_process_keyboard_event(&event, ctx, false);
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * 处理 SDL 事件（被动模式）
+ * @param param 上下文指针
+ */
+static void sdl_input_pump_events_passive(LUAT_RT_CB_PARAM)
+{
+    airui_ctx_t *ctx = (airui_ctx_t *)param;
+
+    if (ctx == NULL || g_sdl_sleep_pump_posted) {
+        return;
+    }
+
+    rtos_msg_t msg = {
+        .handler = sdl_input_pump_events_passive_msg_handler,
+        .ptr = ctx,
+        .arg1 = 0,
+        .arg2 = 0
+    };
+
+    if (luat_msgbus_put(&msg, 0) == 0) {
+        g_sdl_sleep_pump_posted = true;
     }
 }
 
@@ -478,23 +634,7 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev
     // platform_data 被显示驱动使用，存储的是 sdl_display_data_t
     // 我们需要通过它来访问 SDL 窗口
     // 注意：这里需要与 luat_airui_display_sdl.c 中的结构体定义保持一致
-    typedef struct {
-        SDL_Window *window;
-        SDL_Renderer *renderer;
-        SDL_Texture *texture;
-        uint16_t width;
-        uint16_t height;
-        lv_color_format_t color_format;
-        uint8_t reuse_lcd;
-        luat_lcd_conf_t *lcd_conf;
-        uint8_t *rotation_buf;
-        uint32_t rotation_buf_size;
-        int last_window_w;
-        int last_window_h;
-        uint8_t adjusting_window_size;
-    } sdl_display_data_t;
-    
-    sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
+    airui_sdl_display_data_t *display_data = (airui_sdl_display_data_t *)ctx->platform_data;
     SDL_Window *window = display_data->window;
     if (window == NULL && display_data->reuse_lcd) {
         window = (SDL_Window *)luat_sdl2_get_window();
@@ -538,7 +678,7 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev
             SDL_Quit();
             exit(0);
         } else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING) {
-            sdl_process_keyboard_event(&event, ctx);
+            sdl_process_keyboard_event(&event, ctx, true);
         }
 #if !defined(_WIN32)
         else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED && window != NULL &&
@@ -662,6 +802,62 @@ static void sdl_input_calibration(airui_ctx_t *ctx, int16_t *x, int16_t *y)
 }
 
 /**
+ * 休眠输入设备
+ * @param ctx airui 上下文
+ * @param mode 休眠模式
+ * @return 处理结果
+ */
+static int sdl_input_suspend(airui_ctx_t *ctx, airui_sleep_mode_t mode)
+{
+    (void)ctx;
+
+    if (mode != AIRUI_SLEEP_MODE_DEEP) {
+        return AIRUI_OK;
+    }
+
+    g_keypad_head = 0;
+    g_keypad_tail = 0;
+    g_sdl_sleep_pump_posted = false;
+
+    if (g_sdl_sleep_pump_timer == NULL) {
+        if (luat_rtos_timer_create(&g_sdl_sleep_pump_timer) != 0) {
+            LLOGW("failed to create SDL sleep pump timer");
+            return AIRUI_ERR_PLATFORM_ERROR;
+        }
+    }
+
+    if (luat_rtos_timer_start(g_sdl_sleep_pump_timer, 30, 1, sdl_input_pump_events_passive, ctx) != 0) {
+        LLOGW("failed to start SDL sleep pump timer");
+        luat_rtos_timer_delete(g_sdl_sleep_pump_timer);
+        g_sdl_sleep_pump_timer = NULL;
+        return AIRUI_ERR_PLATFORM_ERROR;
+    }
+
+    return AIRUI_OK;
+}
+
+static int sdl_input_resume(airui_ctx_t *ctx, airui_sleep_mode_t mode)
+{
+    (void)ctx;
+
+    if (mode != AIRUI_SLEEP_MODE_DEEP) {
+        return AIRUI_OK;
+    }
+
+    g_keypad_head = 0;
+    g_keypad_tail = 0;
+    g_sdl_sleep_pump_posted = false;
+
+    if (g_sdl_sleep_pump_timer != NULL) {
+        luat_rtos_timer_stop(g_sdl_sleep_pump_timer);
+        luat_rtos_timer_delete(g_sdl_sleep_pump_timer);
+        g_sdl_sleep_pump_timer = NULL;
+    }
+
+    return AIRUI_OK;
+}
+
+/**
  * SDL2 平台同步文本输入矩形给 SDL
  */
 void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target) 
@@ -782,7 +978,9 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
 static const airui_input_ops_t sdl_input_ops = {
     .read_pointer = sdl_input_read_pointer,
     .read_keypad = sdl_input_read_keypad,
-    .calibration = sdl_input_calibration
+    .calibration = sdl_input_calibration,
+    .suspend = sdl_input_suspend,
+    .resume = sdl_input_resume
 };
 
 /** 获取 SDL2 输入驱动操作接口 */

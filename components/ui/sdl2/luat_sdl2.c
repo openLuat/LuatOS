@@ -506,6 +506,26 @@ void* luat_sdl2_get_window(void) {
     return window;
 }
 
+// 全屏黑屏
+void luat_sdl2_blackout(void) {
+    if (renderer == NULL || framebuffer == NULL) {
+        return;
+    }
+
+    void *pixels = NULL;
+    int pitch = 0;
+    if (SDL_LockTexture(framebuffer, NULL, &pixels, &pitch) == 0) {
+        size_t height = sdl_conf.height;
+        for (size_t y = 0; y < height; y++) {
+            memset((uint8_t *)pixels + (y * pitch), 0, (size_t)pitch);
+        }
+        SDL_UnlockTexture(framebuffer);
+    }
+
+    luat_sdl2_present_current_frame();
+    luat_sdl2_pump_events();
+}
+
 void luat_sdl2_set_upright_preview(uint8_t enable, uint16_t rotation, size_t native_width, size_t native_height) {
     uint8_t normalized_enable = enable ? 1 : 0;
     size_t normalized_width = native_width ? native_width : sdl_conf.width;

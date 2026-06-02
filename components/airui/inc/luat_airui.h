@@ -72,6 +72,15 @@ typedef enum {
 } airui_err_t;
 
 /**
+ * 休眠模式常量
+ */
+typedef enum {
+    AIRUI_SLEEP_MODE_NONE = 0,
+    AIRUI_SLEEP_MODE_LIGHT = 1,
+    AIRUI_SLEEP_MODE_DEEP = 2
+} airui_sleep_mode_t;
+
+/**
  * AirUI 触摸订阅状态
  */
 typedef enum {
@@ -167,6 +176,8 @@ typedef struct {
     bool (*read_pointer)(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev_data_t *data);
     bool (*read_keypad)(airui_ctx_t *ctx, lv_indev_data_t *data);
     void (*calibration)(airui_ctx_t *ctx, int16_t *x, int16_t *y);
+    int (*suspend)(airui_ctx_t *ctx, airui_sleep_mode_t mode);
+    int (*resume)(airui_ctx_t *ctx, airui_sleep_mode_t mode);
 } airui_input_ops_t;
 
 /**
@@ -261,11 +272,27 @@ struct airui_ctx {
     uint32_t debug_component_count;      /**< 当前组件计数 */
     bool debug_warned_refr_unavailable;  /**< 是否已打印过刷新计数不可用告警 */
     bool sleep_power_down_lcd;           /**< 休眠时是否关闭 LCD 供电 */
+    airui_sleep_mode_t sleep_mode;       /**< 当前休眠模式 */
     bool sleeping;                       /**< 当前是否处于休眠状态 */
     uint32_t refresh_posted_seq;         /**< 已成功投递的刷新序号 */
     uint32_t refresh_handled_seq;        /**< 已处理完成的刷新序号 */
     uint32_t refresh_last_post_tick;     /**< 最近一次成功投递刷新时刻(ms) */
 };
+
+static inline bool airui_is_sleeping(const airui_ctx_t *ctx)
+{
+    return ctx != NULL && ctx->sleep_mode != AIRUI_SLEEP_MODE_NONE;
+}
+
+static inline bool airui_is_light_sleeping(const airui_ctx_t *ctx)
+{
+    return ctx != NULL && ctx->sleep_mode == AIRUI_SLEEP_MODE_LIGHT;
+}
+
+static inline bool airui_is_deep_sleeping(const airui_ctx_t *ctx)
+{
+    return ctx != NULL && ctx->sleep_mode == AIRUI_SLEEP_MODE_DEEP;
+}
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -301,12 +328,27 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
 int airui_sleep(airui_ctx_t *ctx);
 
 /**
+ * 按指定模式休眠 AIRUI
+ * @param ctx 上下文指针
+ * @param mode 休眠模式
+ * @return 0 成功，<0 失败
+ */
+int airui_sleep_ex(airui_ctx_t *ctx, airui_sleep_mode_t mode);
+
+/**
  * 唤醒 AIRUI
  * @param ctx 上下文指针
  * @param auto_refresh true: 唤醒后立即刷新当前屏幕; false: 仅恢复运行时，由调用方自行刷新
  * @return 0 成功，<0 失败
  */
 int airui_wakeup(airui_ctx_t *ctx, bool auto_refresh);
+
+/**
+ * 获取当前休眠模式
+ * @param ctx 上下文指针
+ * @return 当前休眠模式
+ */
+airui_sleep_mode_t airui_get_sleep_mode(const airui_ctx_t *ctx);
 
 /**
  * 强制全屏刷新 AIRUI

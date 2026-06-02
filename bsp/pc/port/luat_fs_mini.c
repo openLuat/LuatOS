@@ -11,7 +11,6 @@ extern const struct luat_vfs_filesystem vfs_fs_posix;
 extern const struct luat_vfs_filesystem vfs_fs_luadb;
 extern const struct luat_vfs_filesystem vfs_fs_ram;
 extern const struct luat_vfs_filesystem vfs_fs_lfs2;
-extern const struct luat_vfs_filesystem vfs_fs_lfs3;
 
 extern int cmdline_argc;
 extern char **cmdline_argv;
@@ -35,7 +34,6 @@ int luat_fs_init(void)
 	luat_vfs_reg(&vfs_fs_luadb);
 	luat_vfs_reg(&vfs_fs_ram);
 	luat_vfs_reg(&vfs_fs_lfs2);
-	luat_vfs_reg(&vfs_fs_lfs3);
 
 	luat_fs_conf_t conf = {
 		.busname = "",

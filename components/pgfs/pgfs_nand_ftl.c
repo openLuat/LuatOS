@@ -85,6 +85,37 @@ static inline void pgfs_ftl_bit_clear(uint8_t *bitmap, uint32_t block_id) {
     bitmap[block_id >> 3] &= (uint8_t)~(1u << (block_id & 7u));
 }
 
+/* ── Reserved-block bitmap (Phase 1) ─────────────────────────────────────── */
+
+bool pgfs_ftl_is_reserved(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
+    if (!ctx || !ctx->reserved_blocks_bitmap || block_id >= ctx->total_blocks) {
+        return false;
+    }
+    return pgfs_ftl_bit_get(ctx->reserved_blocks_bitmap, block_id);
+}
+
+void pgfs_ftl_mark_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
+    if (!ctx || !ctx->reserved_blocks_bitmap || block_id >= ctx->total_blocks) {
+        return;
+    }
+    if (!pgfs_ftl_bit_get(ctx->reserved_blocks_bitmap, block_id)) {
+        pgfs_ftl_bit_set(ctx->reserved_blocks_bitmap, block_id);
+        ctx->reserved_block_count++;
+    }
+}
+
+void pgfs_ftl_clear_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
+    if (!ctx || !ctx->reserved_blocks_bitmap || block_id >= ctx->total_blocks) {
+        return;
+    }
+    if (pgfs_ftl_bit_get(ctx->reserved_blocks_bitmap, block_id)) {
+        pgfs_ftl_bit_clear(ctx->reserved_blocks_bitmap, block_id);
+        if (ctx->reserved_block_count > 0) {
+            ctx->reserved_block_count--;
+        }
+    }
+}
+
 /* ── Public API ──────────────────────────────────────────────────────────── */
 
 int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
@@ -102,10 +133,19 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
     ctx->bad_blocks_bitmap = (uint8_t *)calloc(1, bitmap_bytes);
     if (!ctx->bad_blocks_bitmap) return -1;
 
+    ctx->reserved_blocks_bitmap = (uint8_t *)calloc(1, bitmap_bytes);
+    if (!ctx->reserved_blocks_bitmap) {
+        free(ctx->bad_blocks_bitmap);
+        ctx->bad_blocks_bitmap = NULL;
+        return -1;
+    }
+
     ctx->erase_counts = (uint16_t *)calloc(total_blocks, sizeof(uint16_t));
     if (!ctx->erase_counts) {
         free(ctx->bad_blocks_bitmap);
+        free(ctx->reserved_blocks_bitmap);
         ctx->bad_blocks_bitmap = NULL;
+        ctx->reserved_blocks_bitmap = NULL;
         return -1;
     }
     return 0;
@@ -114,6 +154,7 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
 void pgfs_ftl_deinit(pgfs_nand_ftl_ctx_t *ctx) {
     if (!ctx) return;
     free(ctx->bad_blocks_bitmap);
+    free(ctx->reserved_blocks_bitmap);
     free(ctx->erase_counts);
     if (ctx->last_persist_buf != NULL) {
         free(ctx->last_persist_buf);
@@ -174,7 +215,8 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     uint32_t state_addr   = pgfs_ftl_state_addr(erase_size);
     uint32_t bitmap_bytes = PGFS_FTL_BITMAP_BYTES(ctx->total_blocks);
     uint32_t ec_bytes     = ctx->total_blocks * sizeof(uint16_t);
-    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + bitmap_bytes + ec_bytes;
+    /* v2 layout: [meta][bad_blocks][reserved_blocks][erase_counts] */
+    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + 2u * bitmap_bytes + ec_bytes;
 
     /* Powercut injection point: fail right before erasing the FTL state
      * block. The block retains its previous content, and the next mount
@@ -195,16 +237,20 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
 
     /* Build header */
     pgfs_ftl_meta_t *meta = (pgfs_ftl_meta_t *)buf;
-    meta->magic             = PGFS_FTL_MAGIC;
-    meta->version           = PGFS_FTL_VERSION;
-    meta->total_blocks      = (uint16_t)ctx->total_blocks;
-    meta->bitmap_bytes      = bitmap_bytes;
-    meta->erase_count_bytes = ec_bytes;
+    meta->magic                 = PGFS_FTL_MAGIC;
+    meta->version               = PGFS_FTL_VERSION;
+    meta->total_blocks          = (uint16_t)ctx->total_blocks;
+    meta->bitmap_bytes          = bitmap_bytes;
+    meta->reserved_bitmap_bytes = bitmap_bytes;
+    meta->erase_count_bytes     = ec_bytes;
 
-    /* Copy bitmap + erase_counts into staging buffer */
-    uint8_t *bitmap_ptr  = buf + sizeof(pgfs_ftl_meta_t);
-    uint16_t *ec_ptr     = (uint16_t *)(bitmap_ptr + bitmap_bytes);
+    /* Copy bad_blocks_bitmap + reserved_blocks_bitmap + erase_counts
+     * into staging buffer. v2 layout. */
+    uint8_t  *bitmap_ptr    = buf + sizeof(pgfs_ftl_meta_t);
+    uint8_t  *reserved_ptr  = bitmap_ptr + bitmap_bytes;
+    uint16_t *ec_ptr        = (uint16_t *)(reserved_ptr + bitmap_bytes);
     memcpy(bitmap_ptr, ctx->bad_blocks_bitmap, bitmap_bytes);
+    memcpy(reserved_ptr, ctx->reserved_blocks_bitmap, bitmap_bytes);
     memcpy(ec_ptr, ctx->erase_counts, ec_bytes);
 
     /* Compute CRC over [meta + bitmap + erase_counts] */
@@ -293,7 +339,7 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
     uint32_t state_addr   = pgfs_ftl_state_addr(erase_size);
     uint32_t bitmap_bytes = PGFS_FTL_BITMAP_BYTES(ctx->total_blocks);
     uint32_t ec_bytes     = ctx->total_blocks * sizeof(uint16_t);
-    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + bitmap_bytes + ec_bytes;
+    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + 2u * bitmap_bytes + ec_bytes;
 
     /* Read header first */
     pgfs_ftl_meta_t hdr;
@@ -328,12 +374,20 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         return 1; /* corrupt */
     }
 
-    /* Extract data */
-    uint8_t  *bitmap_ptr = buf + sizeof(pgfs_ftl_meta_t);
-    uint16_t *ec_ptr     = (uint16_t *)(bitmap_ptr + bitmap_bytes);
+    /* Extract data — v2 layout. */
+    uint8_t  *bitmap_ptr   = buf + sizeof(pgfs_ftl_meta_t);
+    uint8_t  *reserved_ptr = bitmap_ptr + bitmap_bytes;
+    uint16_t *ec_ptr       = (uint16_t *)(reserved_ptr + bitmap_bytes);
 
     memcpy(ctx->bad_blocks_bitmap, bitmap_ptr, bitmap_bytes);
+    memcpy(ctx->reserved_blocks_bitmap, reserved_ptr, bitmap_bytes);
     memcpy(ctx->erase_counts, ec_ptr, ec_bytes);
+
+    /* Recompute reserved_block_count from the loaded bitmap. */
+    ctx->reserved_block_count = 0;
+    for (uint32_t i = 0; i < ctx->total_blocks; i++) {
+        if (pgfs_ftl_is_reserved(ctx, i)) ctx->reserved_block_count++;
+    }
 
     /* Count bad blocks */
     ctx->bad_block_count = 0;
@@ -362,11 +416,16 @@ int pgfs_ftl_scan_bad_blocks(pgfs_nand_ftl_ctx_t *ctx,
     for (uint32_t block_id = 0; block_id < ctx->total_blocks; block_id++) {
         uint32_t addr = block_id * ctx->erase_size;
 
-        /* Skip the reserved area (SB + CP + FTL state) */
+        /* Phase 1: skip any block marked reserved (SB-A/B, CP-A/B, FTL state).
+         * The legacy heuristic that only skipped the FTL state block is
+         * retained as a fallback for code paths that pre-populate the
+         * reserved bitmap manually. */
+        if (pgfs_ftl_is_reserved(ctx, block_id)) {
+            continue;
+        }
         uint32_t ftl_state_start = pgfs_ftl_state_addr(ctx->erase_size);
         if (addr < ftl_state_start + ctx->erase_size &&
             addr + ctx->erase_size > ftl_state_start) {
-            /* This block is the FTL state region; treat as reserved, not bad */
             continue;
         }
 

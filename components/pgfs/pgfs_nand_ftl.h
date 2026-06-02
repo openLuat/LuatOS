@@ -44,15 +44,16 @@ typedef struct pgfs_ftl_meta {
     uint32_t magic;
     uint16_t version;
     uint16_t total_blocks;   /* matches geo from control() */
-    uint32_t bitmap_bytes;   /* bytes following this header = PGFS_FTL_BITMAP_BYTES(total_blocks) */
-    uint32_t erase_count_bytes; /* bytes following bitmap = total_blocks * sizeof(uint16_t) */
+    uint32_t bitmap_bytes;   /* bytes for the bad-block bitmap = PGFS_FTL_BITMAP_BYTES(total_blocks) */
+    uint32_t reserved_bitmap_bytes; /* v2: bytes for the reserved-block bitmap = same as bitmap_bytes */
+    uint32_t erase_count_bytes; /* bytes for the erase-count array = total_blocks * sizeof(uint16_t) */
     uint32_t write_head_block;     /* v2: current write block in the data log */
     uint16_t write_head_offset;    /* v2: offset within write_head_block (prog-aligned) */
     uint16_t log_tail_block_lo;    /* v2 low-16 of cp.log_tail_block (compat) */
     uint32_t log_tail_block;       /* v2: per-segment tail block at last CP */
     uint16_t log_tail_offset;      /* v2: tail offset at last CP */
     uint16_t reserved1;            /* v2: padding */
-    uint32_t crc32;          /* CRC over [meta + bitmap + erase_counts] with this field = 0 */
+    uint32_t crc32;          /* CRC over [meta + bad_blocks + reserved_blocks + erase_counts] with this field = 0 */
 } pgfs_ftl_meta_t;
 
 /* ── FTL runtime context ───────────────────────────────────────────────── */
@@ -65,6 +66,12 @@ typedef struct {
     /* bad-block bitmap: 1=bad, 0=good; indexed by block_id */
     uint8_t *bad_blocks_bitmap;      /* heap-allocated, (total_blocks+7)/8 bytes */
     uint32_t bad_block_count;
+
+    /* reserved-block bitmap: 1=reserved, 0=usable; indexed by block_id.
+     * Reserved blocks (SB-A/B, CP-A/B, FTL state) must never be allocated
+     * for data log segments. Phase 1. */
+    uint8_t *reserved_blocks_bitmap;  /* heap-allocated, (total_blocks+7)/8 bytes */
+    uint32_t reserved_block_count;
 
     /* per-block erase counts: erase_counts[block_id] */
     uint16_t *erase_counts;          /* heap-allocated, total_blocks entries */
@@ -121,6 +128,16 @@ bool pgfs_ftl_is_block_bad(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
  * Does NOT persist; call pgfs_ftl_persist afterwards.
  */
 void pgfs_ftl_mark_block_bad(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+
+/*
+ * pgfs_ftl_mark_reserved / pgfs_ftl_is_reserved — Phase 1: manage the
+ * reserved-block bitmap. Reserved blocks (SB-A/B, CP-A/B, FTL state) must
+ * never be allocated for data log segments. The bitmap is persisted as
+ * part of the FTL state.
+ */
+void pgfs_ftl_mark_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+bool pgfs_ftl_is_reserved(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+void pgfs_ftl_clear_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
 
 /*
  * pgfs_ftl_find_free_block — find the next good block from a given start.

@@ -47,6 +47,22 @@ int pgfs_ftl_on_mount(void* _ctx) {
         return -1;
     }
 
+    /* Phase 1: mark reserved blocks (SB-A/B, CP-A/B, FTL state) as off-limits
+     * for data log segments. Falls back to fixed blocks 0..4 if the layout
+     * is uninitialised. */
+    if (ctx->layout.erase_size != 0 && ctx->layout.data_log_first_block > 0) {
+        pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.sb_a_block);
+        pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.sb_b_block);
+        pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.cp_a_block);
+        pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.cp_b_block);
+        pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.ftl_state_block);
+    } else {
+        /* Legacy/v1 path: reserve blocks 0..4 by default. */
+        for (uint32_t i = 0; i < PGFS_LAYOUT_RESERVED_BLOCKS && i < total_blocks; i++) {
+            pgfs_ftl_mark_reserved(&ctx->ftl, i);
+        }
+    }
+
     /* Transfer inject_bad_block_once from mount ctx → FTL ctx */
     if (ctx->inject_bad_block_once) {
         pgfs_ftl_inject_bad_block_once(&ctx->ftl, 0); /* default to block 0; caller overrides */

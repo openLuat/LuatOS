@@ -291,6 +291,116 @@ static int pgfs_test_control(void* ctx, uint32_t cmd, void* arg) {
     return 0;
 }
 
+/* Phase 1: verify that the FTL never allocates a reserved block (SB-A/B,
+ * CP-A/B, FTL state) for a data log segment. The test reserves blocks
+ * 0..4 explicitly, then calls pgfs_alloc_segment 1000 times and asserts
+ * no seg_id in {0,1,2,3,4} was ever returned. */
+static int pgfs_test_reserved_blocks_never_allocated(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t seg_id = 0;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+    if (pgfs_ftl_init(&ctx.ftl, &opts, 4096, 8) != 0) {
+        printf("[pgfs-utest] ftl init failed\n");
+        pgfs_test_flash_free(flash);
+        return 1;
+    }
+    /* Mark blocks 0..4 reserved. */
+    for (uint32_t i = 0; i < 5; i++) {
+        pgfs_ftl_mark_reserved(&ctx.ftl, i);
+    }
+    /* Call alloc_segment 1000 times; assert no reserved block returned. */
+    for (int i = 0; i < 1000; i++) {
+        if (pgfs_alloc_segment(&ctx, &seg_id) != 0) {
+            printf("[pgfs-utest] alloc %d failed\n", i);
+            fail++;
+            break;
+        }
+        if (seg_id < 5) {
+            printf("[pgfs-utest] reserved block allocated: %u at iter %d\n",
+                   (unsigned)seg_id, i);
+            fail++;
+            break;
+        }
+    }
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 1: persist the reserved bitmap, deinit, reinit, load, and verify
+ * the reserved bitmap is identical across the roundtrip. */
+static int pgfs_test_reserved_bitmap_persists_roundtrip(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_nand_ftl_ctx_t ftl = {0};
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    pgfs_ftl_init(&ftl, &opts, 4096, 8);
+    pgfs_ftl_mark_reserved(&ftl, 0);
+    pgfs_ftl_mark_reserved(&ftl, 2);
+    pgfs_ftl_mark_reserved(&ftl, 4);
+    pgfs_ftl_mark_block_bad(&ftl, 1);
+    ftl.erase_counts[3] = 17;
+    if (pgfs_ftl_persist(&ftl, 1) != 0) {
+        printf("[pgfs-utest] persist failed\n");
+        fail++;
+    }
+    /* Snapshot the in-memory state. */
+    uint8_t snapshot[PGFS_FTL_BITMAP_BYTES(8)];
+    memcpy(snapshot, ftl.reserved_blocks_bitmap, sizeof(snapshot));
+    uint32_t reserved_count = ftl.reserved_block_count;
+    uint8_t bad_snapshot[PGFS_FTL_BITMAP_BYTES(8)];
+    memcpy(bad_snapshot, ftl.bad_blocks_bitmap, sizeof(bad_snapshot));
+    uint16_t ec_snapshot = ftl.erase_counts[3];
+    pgfs_ftl_deinit(&ftl);
+
+    /* Reload. */
+    pgfs_ftl_init(&ftl, &opts, 4096, 8);
+    if (pgfs_ftl_load(&ftl) != 0) {
+        printf("[pgfs-utest] load failed\n");
+        fail++;
+    } else {
+        if (memcmp(ftl.reserved_blocks_bitmap, snapshot, sizeof(snapshot)) != 0) {
+            printf("[pgfs-utest] reserved bitmap mismatch after roundtrip\n");
+            fail++;
+        }
+        if (ftl.reserved_block_count != reserved_count) {
+            printf("[pgfs-utest] reserved count mismatch: got=%u expected=%u\n",
+                   (unsigned)ftl.reserved_block_count, (unsigned)reserved_count);
+            fail++;
+        }
+        if (memcmp(ftl.bad_blocks_bitmap, bad_snapshot, sizeof(bad_snapshot)) != 0) {
+            printf("[pgfs-utest] bad-block bitmap mismatch after roundtrip\n");
+            fail++;
+        }
+        if (ftl.erase_counts[3] != ec_snapshot) {
+            printf("[pgfs-utest] erase count mismatch: got=%u expected=%u\n",
+                   (unsigned)ftl.erase_counts[3], (unsigned)ec_snapshot);
+            fail++;
+        }
+    }
+    pgfs_ftl_deinit(&ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 /* Phase 0: verify pgfs_layout_compute for both 64MB / 128KB and 32KB / 4KB
  * geometries. The 64MB case is the real-NAND target (MX35LF512); the 32KB
  * case is the legacy PC-UTEST profile. */
@@ -2236,6 +2346,10 @@ static int pgfs_test_alloc_prefers_low_erase_count(void) {
     if (pgfs_ftl_init(&ctx.ftl, &opts, 4096, 8) != 0) {
         printf("[pgfs-utest] ftl init failed\n"); return 1;
     }
+    /* Phase 1: blocks 0..4 are reserved by default. This test predates
+     * the reserved-bitmap, so clear the reservation on block 1 to keep
+     * the test focused on the wear-levelling semantics. */
+    pgfs_ftl_clear_reserved(&ctx.ftl, 1);
     /* Pretend blocks 2 and 3 have been erased many times. */
     ctx.ftl.erase_counts[2] = 100;
     ctx.ftl.erase_counts[3] = 50;
@@ -2491,6 +2605,8 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_repeated_add_delete_stays_stable);
     PGFS_RUN_CTEST(pgfs_test_info_fast_after_many_small_files);
     PGFS_RUN_CTEST(pgfs_test_powercut_stage_matrix_visibility);
+    PGFS_RUN_CTEST(pgfs_test_reserved_blocks_never_allocated);
+    PGFS_RUN_CTEST(pgfs_test_reserved_bitmap_persists_roundtrip);
     PGFS_RUN_CTEST(pgfs_test_alloc_prefers_low_erase_count);
     /* pgfs_test_fill_delete_rewrite_recovers_capacity omitted: depends on
      * data-log compaction not yet implemented. */

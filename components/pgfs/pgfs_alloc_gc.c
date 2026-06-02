@@ -38,14 +38,18 @@ int pgfs_alloc_segment(pgfs_mount_ctx_t *ctx, uint32_t *seg_id) {
     }
 
     /* Wear-levelling: scan from gc_next_seg_id to total_blocks and pick the
-     * non-bad block with the lowest erase count. The lowest-ec block has
-     * been written/erased the fewest times, so directing new data there
-     * spreads wear evenly across the chip. */
+     * non-bad, non-reserved block with the lowest erase count. The lowest-ec
+     * block has been written/erased the fewest times, so directing new data
+     * there spreads wear evenly across the chip. Reserved blocks (SB-A/B,
+     * CP-A/B, FTL state) are always excluded. */
     uint32_t block_id = ctx->gc_next_seg_id;
     uint32_t best_block = UINT32_MAX;
     uint16_t best_ec = UINT16_MAX;
     for (uint32_t id = block_id; id < ctx->ftl.total_blocks; id++) {
         if (pgfs_ftl_is_block_bad(&ctx->ftl, id)) {
+            continue;
+        }
+        if (pgfs_ftl_is_reserved(&ctx->ftl, id)) {
             continue;
         }
         uint16_t ec = ctx->ftl.erase_counts[id];
@@ -58,6 +62,9 @@ int pgfs_alloc_segment(pgfs_mount_ctx_t *ctx, uint32_t *seg_id) {
         /* No good block found in [block_id, total_blocks); wrap to start */
         for (uint32_t id = 1; id < block_id; id++) {
             if (pgfs_ftl_is_block_bad(&ctx->ftl, id)) {
+                continue;
+            }
+            if (pgfs_ftl_is_reserved(&ctx->ftl, id)) {
                 continue;
             }
             uint16_t ec = ctx->ftl.erase_counts[id];

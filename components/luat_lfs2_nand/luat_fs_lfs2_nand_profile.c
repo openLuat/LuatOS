@@ -60,9 +60,13 @@ typedef struct {
     void* userdata;
 } luat_vfs_lfs2_nand_meta_ctx_t;
 
-#define LFS2_NAND_WRITE_CACHE_LIMIT (256 * 1024)
-#define LFS2_NAND_WRITE_CACHE_SLOTS 8
-#define LFS2_NAND_WRITE_CACHE_CHUNK 4096
+// Cache pool sizing knobs are authoritative in luat_lfs2_nand.h
+// (LUAT_LFS2N_CACHE_POOL_BUDGET / _SLOTS / _CHUNK, each guarded by #ifndef).
+// Aliases below keep the legacy LFS2_NAND_WRITE_CACHE_* names usable inside this
+// file while guaranteeing a single source of truth in the header.
+#define LFS2_NAND_WRITE_CACHE_LIMIT LUAT_LFS2N_CACHE_POOL_BUDGET
+#define LFS2_NAND_WRITE_CACHE_SLOTS LUAT_LFS2N_CACHE_POOL_SLOTS
+#define LFS2_NAND_WRITE_CACHE_CHUNK LUAT_LFS2N_CACHE_POOL_CHUNK
 #define LFS2_NAND_SLOW_OP_US (5000u)
 
 typedef struct {

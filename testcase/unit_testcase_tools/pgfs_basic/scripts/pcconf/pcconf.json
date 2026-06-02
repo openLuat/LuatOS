@@ -1,0 +1,28 @@
+{
+	"schema_version":	1,
+	"mcu_mhz":	240,
+	"uart_udp_port_start":	9000,
+	"uart_udp_id_start":	0,
+	"uart_udp_id_count":	8,
+	"web_console":	{
+		"enabled":	1,
+		"port":	18080,
+		"refresh_interval":	5
+	},
+	"storage":	{
+		"tf_enabled":	1,
+		"nor_enabled":	1,
+		"nand_enabled":	1,
+		"tf_capacity_mb":	64,
+		"nor_capacity_mb":	16,
+		"nand_capacity_mb":	128,
+		"nor_model":	"w25q128",
+		"nand_model":	"w25n01gv"
+	},
+	"network":	{
+		"enabled":	1
+	},
+	"simulator":	{
+		"enabled":	1
+	}
+}

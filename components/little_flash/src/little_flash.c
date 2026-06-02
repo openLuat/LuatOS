@@ -2,6 +2,7 @@
 #include "little_flash.h"
 #include "little_flash_ftl.h"
 #include "little_flash_table.h"
+#include "luat_rtos.h"   /* luat_mutex_release, used in device_deinit */
 
 extern lf_err_t little_flash_port_init(little_flash_t *lf);
 
@@ -73,17 +74,18 @@ static lf_err_t little_flash_wait_busy(const little_flash_t *lf, uint32_t timeou
 static lf_err_t little_flash_reset(little_flash_t *lf){
     lf_err_t result = LF_ERR_OK;
     LF_DEBUG("little_flash_reset start");
-    result |= little_flash_wait_busy(lf,1000);
+    /* S-01: short-circuit on first error; preserve original diagnostic (no OR-accumulation). */
+    if (result == LF_ERR_OK) result = little_flash_wait_busy(lf,1000);
     LF_DEBUG("little_flash_reset after wait_busy #1 result=%d", result);
     if(lf->chip_info.type==LF_DRIVER_NOR_FLASH){
-        result |= lf->spi.transfer(lf,(uint8_t[]){LF_CMD_ENABLE_RESET}, 1,LF_NULL,0);
-        result |= lf->spi.transfer(lf,(uint8_t[]){LF_CMD_NORFLASH_RESET}, 1,LF_NULL,0);
+        if (result == LF_ERR_OK) result = lf->spi.transfer(lf,(uint8_t[]){LF_CMD_ENABLE_RESET}, 1,LF_NULL,0);
+        if (result == LF_ERR_OK) result = lf->spi.transfer(lf,(uint8_t[]){LF_CMD_NORFLASH_RESET}, 1,LF_NULL,0);
     }else{
         // nand flash
-        result |= lf->spi.transfer(lf,(uint8_t[]){LF_CMD_NANDFLASH_RESET}, 1,LF_NULL,0);
+        if (result == LF_ERR_OK) result = lf->spi.transfer(lf,(uint8_t[]){LF_CMD_NANDFLASH_RESET}, 1,LF_NULL,0);
     }
     lf->wait_ms(50);
-    result |= little_flash_wait_busy(lf,1000);
+    if (result == LF_ERR_OK) result = little_flash_wait_busy(lf,1000);
     LF_DEBUG("little_flash_reset after wait_busy #2 result=%d", result);
     if (result) return result;
     if(lf->chip_info.type==LF_DRIVER_NOR_FLASH){
@@ -91,15 +93,15 @@ static lf_err_t little_flash_reset(little_flash_t *lf){
         if(lf->chip_info.read_size==0) lf->chip_info.read_size = LF_NORFLASH_PAGE_ZISE;
         if(lf->chip_info.erase_times==0) lf->chip_info.erase_times = LF_NORFLASH_ERASE_TIMES;
         // 以下需要根据型号进行适配
-        result |= little_flash_write_status(lf,0,0x00);
+        if (result == LF_ERR_OK) result = little_flash_write_status(lf,0,0x00);
     }else{
         if(lf->chip_info.prog_size==0) lf->chip_info.prog_size = LF_NANDFLASH_PAGE_ZISE;
         if(lf->chip_info.read_size==0) lf->chip_info.read_size = LF_NANDFLASH_PAGE_ZISE;
         if(lf->chip_info.erase_times==0) lf->chip_info.erase_times = LF_NANDFLASH_ERASE_TIMES;
         // 以下需要根据型号进行适配
-        result |= little_flash_write_status(lf,LF_NANDFLASH_STATUS_REGISTER1,0x00);
+        if (result == LF_ERR_OK) result = little_flash_write_status(lf,LF_NANDFLASH_STATUS_REGISTER1,0x00);
         // ECC-E = 1, BUF = 1
-        result |= little_flash_write_status(lf,LF_NANDFLASH_STATUS_REGISTER2,(1 << 4) | (1 << 3));
+        if (result == LF_ERR_OK) result = little_flash_write_status(lf,LF_NANDFLASH_STATUS_REGISTER2,(1 << 4) | (1 << 3));
     }
     if(lf->chip_info.retry_times==0) lf->chip_info.retry_times = LF_RETRY_TIMES;
     lf->wait_10us(5);
@@ -343,6 +345,14 @@ lf_err_t little_flash_device_deinit(little_flash_t *lf){
         lf->prog_buf = NULL;
     }
 #endif /* LF_USE_HEAP */
+    /* Release the port-internal mutex handle created by port_init.
+     * port_init only allocates the mutex when lock/unlock are wired, so guard
+     * the release on lock != NULL to avoid double-freeing a NULL or unowned
+     * handle if port_init was bypassed by a direct struct initializer. */
+    if (lf->lock != NULL && lf->mutex != NULL) {
+        luat_mutex_release(lf->mutex);
+        lf->mutex = NULL;
+    }
     return LF_ERR_OK;
 }
 
@@ -429,9 +439,12 @@ lf_err_t little_flash_chip_erase(const little_flash_t *lf){
     if(little_flash_write_enabled(lf, LF_ENABLE)) goto error;
 
     if(lf->chip_info.type==LF_DRIVER_NOR_FLASH){
-        result |= lf->spi.transfer(lf,(uint8_t[]){LF_CMD_ERASE_CHIP}, 1,LF_NULL,0);
-        lf->wait_ms(lf->chip_info.capacity / lf->chip_info.erase_size * lf->chip_info.erase_times);
-        result |= little_flash_cheak_erase(lf);
+        // 修复:不再用 wait_ms 估算擦除耗时(可能比实际短,导致后续操作读到未擦完的数据),
+        // 改用 little_flash_wait_busy 轮询 SR.BUSY 位,等芯片真正完成再继续。
+        // 同时把 S-01 模式(result |=)改成短路,保留首个错误码。
+        if (result == LF_ERR_OK) result = lf->spi.transfer(lf,(uint8_t[]){LF_CMD_ERASE_CHIP}, 1,LF_NULL,0);
+        if (result == LF_ERR_OK) result = little_flash_wait_busy(lf, 1000 * 1000);  // 1s timeout for full chip erase
+        if (result == LF_ERR_OK) result = little_flash_cheak_erase(lf);
     }else{
         cmd_data[0] = lf->chip_info.erase_cmd;
         while (true){
@@ -440,10 +453,11 @@ lf_err_t little_flash_chip_erase(const little_flash_t *lf){
             cmd_data[1] = page_addr >> 16;
             cmd_data[2] = page_addr >> 8;
             cmd_data[3] = page_addr;
-            result |= lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
+            if (result == LF_ERR_OK) result = lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
             if(result) goto error;
-            lf->wait_ms(lf->chip_info.erase_times);
-            result |= little_flash_cheak_erase(lf);
+            // 修复:wait_ms 同样有 race,改用 little_flash_wait_busy 轮询 SR3.BUSY
+            if (result == LF_ERR_OK) result = little_flash_wait_busy(lf, lf->chip_info.erase_times * 1000);
+            if (result == LF_ERR_OK) result = little_flash_cheak_erase(lf);
             if(result) goto error;
             addr += lf->chip_info.erase_size;
             if (addr>=lf->chip_info.capacity){

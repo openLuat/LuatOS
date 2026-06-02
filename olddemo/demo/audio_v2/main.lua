@@ -44,8 +44,8 @@ audio_v2.on(audio_cb)
 
 
 function audio_setup_1601_evb()
-    audio_v2.config_pa_power_ctrl(true, 12, 0, 100)
-    audio_v2.config_codec_power_ctrl(false, nil, nil, 200, 10)
+    audio_v2.config_pa_power_ctrl(true, 12, 0, 100)  --PA能控制
+    audio_v2.config_codec_power_ctrl(false, nil, nil, 200, 10) --codec电源不控制，只控制播放前的空白音时长
     audio_v2.soft_volume(80)
 end
 
@@ -55,13 +55,15 @@ function audio_setup_air780ehm_evb()
         log.info("驱动序号", i, "id", audio_v2.print_probe_id(audio_v2.get_driver_id(i), true))
     end
     log.info("默认驱动序号", default_driver_index, "id", audio_v2.print_probe_id(audio_v2.get_driver_id(default_driver_index), true))
-    audio_v2.config_pa_power_ctrl(true, 1, 1, 200)
-    audio_v2.config_codec_power_ctrl(true, 2, 1, 600, 0)
+    audio_v2.config_pa_power_ctrl(true, 1, 1, 200)  --PA能控制
+    audio_v2.config_codec_power_ctrl(false, nil, nil, 600, 0) --codec电源不控制，只控制播放前的空白音时长
+
     audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
     audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16, 16)
     audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
 
     i2c.setup(i2c_id)
+    gpio.setup(2, 1) --全程都打开codec电源
     es8311.init(i2c_id)
     es8311.set_sample_rate(i2c_id,16000,256)
     es8311.set_data_bits(i2c_id,16)

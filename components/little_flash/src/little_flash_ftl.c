@@ -2,11 +2,19 @@
 #include "luat_malloc.h"
 #include <string.h>
 
+// F-10: forward declaration must come before first call site (in mark_bad_block
+// around line 67) to avoid MSVC implicit-declaring it as int() which would
+// then conflict with the explicit static void declaration.
+static void lf_ftl_bm_mark(little_flash_ftl_ctx_t *ctx, uint32_t page);
+
 static lf_err_t little_flash_ftl_wait_ready(const little_flash_t *lf, uint32_t timeout_us) {
     uint8_t status = 0;
     uint32_t waited = 0;
     lf_err_t ret;
     if (!lf) {
+        return LF_ERR_BAD_ADDRESS;
+    }
+    if (!lf->wait_10us) {
         return LF_ERR_BAD_ADDRESS;
     }
     while (waited < timeout_us) {
@@ -56,6 +64,8 @@ static void little_flash_ftl_mark_bad_block(little_flash_ftl_ctx_t *ctx, uint32_
     uint32_t i;
     for (i = start; i < end && i < ctx->page_count; i++) {
         ctx->bad[i] = 1;
+        // F-10: 同步更新 bitmap(find_spare 的 O(1) 路径依赖此同步)
+        lf_ftl_bm_mark(ctx, i);
     }
 }
 
@@ -99,6 +109,48 @@ static int little_flash_ftl_find_spare(const little_flash_ftl_ctx_t *ctx, uint32
         return -1;
     }
     start = ctx->spare_begin;
+    // F-10: bitmap 优化路径。O(words_with_free_page) 替代 O(spare_pages)
+    if (ctx->spare_bitmap && ctx->spare_bitmap_words > 0u) {
+        uint32_t start_word = start / 64u;
+        uint32_t start_bit_offset = start % 64u;
+        uint32_t end_word = (ctx->spare_end + 63u) / 64u;
+        if (end_word > ctx->spare_bitmap_words) {
+            end_word = ctx->spare_bitmap_words;
+        }
+        for (i = start_word; i < end_word; i++) {
+            uint64_t word = ctx->spare_bitmap[i];
+            // 屏蔽 start_word 中 spare_begin 之前的位
+            if (i == start_word && start_bit_offset > 0u) {
+                word |= ((1ULL << start_bit_offset) - 1ULL);
+            }
+            // 屏蔽 end_word 中 spare_end 之后的位
+            if (i == end_word - 1u) {
+                uint32_t end_bit = ctx->spare_end % 64u;
+                if (end_bit > 0u) {
+                    word |= ~((1ULL << end_bit) - 1ULL);
+                }
+            }
+            if (word != ~0ULL) {
+                // F-10: 找第一个 0 bit。优先用 GCC/Clang __builtin_ctzll;
+                // MSVC 没有 64-bit _BitScanForward(只有 32-bit),走 fallback 循环;
+                // 其他编译器也走 fallback
+                uint64_t inv = ~word;
+                uint32_t bit;
+#if defined(__GNUC__) || defined(__clang__)
+                bit = (uint32_t)__builtin_ctzll(inv);
+#else
+                bit = 0;
+                while (bit < 64u && (inv & (1ULL << bit)) == 0u) {
+                    bit++;
+                }
+#endif
+                *page = i * 64u + bit;
+                return 0;
+            }
+        }
+        return -1;
+    }
+    // 兜底:bitmap 不可用时走原 O(spare_pages) 路径
     for (i = start; i < ctx->spare_end; i++) {
         if (!ctx->bad[i] && !little_flash_ftl_page_used(ctx, i)) {
             *page = i;
@@ -106,6 +158,24 @@ static int little_flash_ftl_find_spare(const little_flash_ftl_ctx_t *ctx, uint32
         }
     }
     return -1;
+}
+
+// F-10: bitmap set-unavailable helper (marks page as used or bad)
+static void lf_ftl_bm_mark(little_flash_ftl_ctx_t *ctx, uint32_t page) {
+    uint32_t word;
+    uint32_t bit;
+    if (!ctx->spare_bitmap) {
+        return;
+    }
+    if (page >= ctx->spare_end) {
+        return;
+    }
+    word = page / 64u;
+    bit = page % 64u;
+    if (word >= ctx->spare_bitmap_words) {
+        return;
+    }
+    ctx->spare_bitmap[word] |= (1ULL << bit);
 }
 
 static int little_flash_ftl_select_metadata_region(little_flash_ftl_ctx_t *ctx, uint32_t metadata_pages) {
@@ -246,6 +316,27 @@ lf_err_t little_flash_ftl_init(little_flash_t *lf, uint8_t op_percent) {
             ctx->logical_pages++;
         }
     }
+    // F-10: 分配并初始化 spare_bitmap。bit=1 表示该 page 不可用(bad 或已用)
+    // 大小:(spare_end + 63) / 64 个 uint64,1Gbit NAND 约 1KB
+    ctx->spare_bitmap_words = (ctx->spare_end + 63u) / 64u;
+    if (ctx->spare_bitmap_words > 0u) {
+        ctx->spare_bitmap = (uint64_t *)lf->malloc(sizeof(uint64_t) * ctx->spare_bitmap_words);
+        if (!ctx->spare_bitmap) {
+            lf->free(ctx->bad);
+            lf->free(ctx->p2l);
+            lf->free(ctx->l2p);
+            lf->free(ctx);
+            return LF_ERR_NO_MEM;
+        }
+        memset(ctx->spare_bitmap, 0, sizeof(uint64_t) * ctx->spare_bitmap_words);
+        for (i = 0; i < ctx->spare_end; i++) {
+            if (ctx->bad[i] || little_flash_ftl_page_used(ctx, i)) {
+                lf_ftl_bm_mark(ctx, i);
+            }
+        }
+    } else {
+        ctx->spare_bitmap = NULL;
+    }
     ctx->free_spares = 0;
     for (i = 0; i < ctx->spare_end; i++) {
         if (!ctx->bad[i] && !little_flash_ftl_page_used(ctx, i)) {
@@ -308,6 +399,12 @@ void little_flash_ftl_deinit(little_flash_t *lf) {
     }
     if (ctx->bad) {
         lf->free(ctx->bad);
+    }
+    // F-10: 释放 spare_bitmap
+    if (ctx->spare_bitmap) {
+        lf->free(ctx->spare_bitmap);
+        ctx->spare_bitmap = NULL;
+        ctx->spare_bitmap_words = 0;
     }
     lf->free(ctx);
     if (lf->chip_info.type == LF_DRIVER_NAND_FLASH && raw_capacity) {
@@ -381,6 +478,8 @@ lf_err_t little_flash_ftl_mark_bad_and_remap(little_flash_t *lf, uint32_t logica
     ctx->p2l[current_physical] = LF_FTL_INVALID_PAGE;
     ctx->l2p[logical_page] = spare_page;
     ctx->p2l[spare_page] = logical_page;
+    // F-10: 同步标记新 spare 为已分配(bitmap 反映"坏或已用")
+    lf_ftl_bm_mark(ctx, spare_page);
     if (little_flash_ftl_meta_append_journal(lf, ctx, logical_page, spare_page) != LF_ERR_OK) {
         ctx->recover_state = LF_FTL_RECOVER_STATE_FAILED;
         return LF_ERR_ERASE;

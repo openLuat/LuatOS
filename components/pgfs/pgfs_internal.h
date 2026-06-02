@@ -52,7 +52,15 @@ typedef struct pgfs_checkpoint {
     uint16_t reserved;
     uint32_t seq;
     uint32_t total_blocks;
-    uint32_t used_blocks;
+    /**
+     * Count of data records appended to the data log since the last checkpoint.
+     *
+     * Note: this is NOT the number of erase blocks consumed on flash. It tracks
+     * how many file write/batch-commit events have been recorded as log records
+     * (and therefore may need to be replayed to rebuild state on mount).
+     * The on-disk luat_fs_info_t.block_used is derived from this counter.
+     */
+    uint32_t written_blocks;
     uint32_t flags;
     uint32_t gc_live_bytes;
     uint32_t gc_dead_bytes;
@@ -155,7 +163,6 @@ int pgfs_info_fast(pgfs_mount_ctx_t* ctx, luat_fs_info_t* out);
 int pgfs_rebuild_checkpoint_from_replay(pgfs_mount_ctx_t* ctx);
 
 int pgfs_cache_append(pgfs_file_t* f, const uint8_t* data, size_t len);
-int pgfs_cache_flush_to_log(pgfs_mount_ctx_t* ctx, pgfs_file_t* f);
 int pgfs_lock(pgfs_mount_ctx_t* ctx);
 int pgfs_unlock(pgfs_mount_ctx_t* ctx);
 int pgfs_batch_begin(pgfs_mount_ctx_t* ctx, uint32_t* out_batch_id);

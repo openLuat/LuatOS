@@ -51,7 +51,7 @@ static void pgfs_test_build_cp(pgfs_checkpoint_t* cp, uint32_t seq, uint32_t tot
     cp->version = PGFS_ONDISK_VERSION;
     cp->seq = seq;
     cp->total_blocks = total;
-    cp->used_blocks = used;
+    cp->written_blocks = used;
     cp->crc32 = 0;
     cp->crc32 = pgfs_test_crc32(cp, sizeof(*cp));
 }
@@ -1101,7 +1101,7 @@ static int pgfs_test_info_fastpath_uses_runtime_checkpoint(void) {
     ctx.checkpoint.magic = PGFS_CHECKPOINT_MAGIC;
     ctx.checkpoint.version = PGFS_ONDISK_VERSION;
     ctx.checkpoint.total_blocks = 8;
-    ctx.checkpoint.used_blocks = 3;
+    ctx.checkpoint.written_blocks = 3;
     flash.fail_read_addr = 0;
     flash.fail_read_len = PGFS_TEST_FLASH_SIZE;
     if (pgfs_info_fast(&ctx, &info) != 0) {
@@ -1113,8 +1113,8 @@ static int pgfs_test_info_fastpath_uses_runtime_checkpoint(void) {
         }
     }
 
-    /* Runtime accounting should be reflected immediately after writes update used_blocks. */
-    ctx.checkpoint.used_blocks = 5;
+    /* Runtime accounting should be reflected immediately after writes update written_blocks. */
+    ctx.checkpoint.written_blocks = 5;
     memset(&info, 0, sizeof(info));
     if (pgfs_info_fast(&ctx, &info) != 0 || info.block_used != 5 || (info.total_block - info.block_used) != 3) {
         fail++;

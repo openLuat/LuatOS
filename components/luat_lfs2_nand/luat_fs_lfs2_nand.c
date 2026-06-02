@@ -49,22 +49,27 @@ FILE* luat_vfs_lfs2_nand_base_fopen(void* userdata, const char *filename, const 
 "a+": 追加更新模式，所有之前的数据都保留，只允许在文件尾部做写入。
 */
     if (!strcmp("r+", mode) || !strcmp("r+b", mode) || !strcmp("rb+", mode)) {
-        flag = LFS_O_RDWR | LFS_O_CREAT;
+        // POSIX r+ : open for update (read/write), file MUST exist; do NOT create.
+        flag = LFS_O_RDWR;
     }
     else if(!strcmp("w+", mode) || !strcmp("w+b", mode) || !strcmp("wb+", mode)) {
+        // POSIX w+ : create-or-truncate, then open for update (read/write).
         flag = LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC;
     }
     else if(!strcmp("a+", mode) || !strcmp("a+b", mode) || !strcmp("ab+", mode)) {
-        flag = LFS_O_APPEND | LFS_O_CREAT | LFS_O_WRONLY;
+        // POSIX a+ : create-if-missing, then open for update; writes always at EOF.
+        flag = LFS_O_RDWR | LFS_O_APPEND | LFS_O_CREAT;
     }
     else if(!strcmp("w", mode) || !strcmp("wb", mode)) {
-        flag = LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC;
+        // POSIX w : create-or-truncate, write-only. (Was incorrectly RDWR.)
+        flag = LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC;
     }
     else if(!strcmp("r", mode) || !strcmp("rb", mode)) {
         flag = LFS_O_RDONLY;
     }
     else if(!strcmp("a", mode) || !strcmp("ab", mode)) {
-        flag = LFS_O_APPEND | LFS_O_CREAT | LFS_O_WRONLY;
+        // POSIX a : create-if-missing, write-only, always at EOF.
+        flag = LFS_O_WRONLY | LFS_O_APPEND | LFS_O_CREAT;
     }
     else {
         LLOGW("bad file open mode %s, fallback to 'r'", mode);
@@ -143,8 +148,12 @@ size_t luat_vfs_lfs2_nand_base_fwrite(void* userdata, const void *ptr, size_t si
     uint64_t start_us = 0;
     uint64_t cost_us = 0;
     int ret = 0;
-    if ((file->flags & LFS_O_WRONLY) != LFS_O_WRONLY && (file->flags & LFS_O_APPEND) != LFS_O_APPEND) {
-        LLOGE("open file at readonly mode, reject for write flags=%08X", file->flags);
+    // Reject writes only when the file was opened with no write capability.
+    // Acceptable write modes: WRONLY, RDWR, APPEND. RDONLY alone is rejected.
+    // Decoupled from the fopen mode parsing so this check is correct regardless
+    // of which fopen flag combination was used.
+    if (!((file->flags & LFS_O_WRONLY) || (file->flags & LFS_O_APPEND) || (file->flags & LFS_O_RDWR))) {
+        LLOGE("file not opened for writing, reject flags=%08X", file->flags);
         return 0;
     }
     start_us = luat_vfs_lfs2_nand_base_now_us();
@@ -181,6 +190,24 @@ int luat_vfs_lfs2_nand_base_rename(void* userdata, const char *old_filename, con
 }
 
 int luat_vfs_lfs2_nand_base_fexist(void* userdata, const char *filename) {
+    // Fast path: luat_lfs2_stat reads dirent metadata only, no file handle and
+    // no write-cache slot allocation. This is what littlefs's stat() is for.
+    luat_lfs2_t* fs = (luat_lfs2_t*)userdata;
+    struct luat_lfs2_info info;
+    uint64_t start_us = luat_vfs_lfs2_nand_base_now_us();
+    int stat_ret = luat_lfs2_stat(fs, filename, &info);
+    uint64_t cost_us = luat_vfs_lfs2_nand_base_now_us() - start_us;
+    if (cost_us >= LFS2_TRACE_SLOW_US || stat_ret < 0) {
+        LFS2N_CORE_TRACE("LFS2_TRACE_FEXIST stat ret=%d cost_us=%llu",
+                         stat_ret, (unsigned long long)cost_us);
+    }
+    if (stat_ret == 0 && info.type == LFS_TYPE_REG) {
+        return 1;
+    }
+    // Fallback: original open/close path. Covers stat failures (e.g. paths the
+    // dirent walk cannot resolve) and preserves the historical "regular file
+    // only" semantics — directories still return 0, matching the previous
+    // fopen("rb") + LFS_ERR_ISDIR behaviour.
     FILE* fd = luat_vfs_lfs2_nand_base_fopen(userdata, filename, "rb");
     if (fd) {
         luat_vfs_lfs2_nand_base_fclose(userdata, fd);
@@ -190,6 +217,21 @@ int luat_vfs_lfs2_nand_base_fexist(void* userdata, const char *filename) {
 }
 
 size_t luat_vfs_lfs2_nand_base_fsize(void* userdata, const char *filename) {
+    // Fast path: see fexist above. dir_find + dir_getinfo only, no file handle.
+    luat_lfs2_t* fs = (luat_lfs2_t*)userdata;
+    struct luat_lfs2_info info;
+    uint64_t start_us = luat_vfs_lfs2_nand_base_now_us();
+    int stat_ret = luat_lfs2_stat(fs, filename, &info);
+    uint64_t cost_us = luat_vfs_lfs2_nand_base_now_us() - start_us;
+    if (cost_us >= LFS2_TRACE_SLOW_US || stat_ret < 0) {
+        LFS2N_CORE_TRACE("LFS2_TRACE_FSIZE stat ret=%d cost_us=%llu",
+                         stat_ret, (unsigned long long)cost_us);
+    }
+    if (stat_ret == 0 && info.type == LFS_TYPE_REG) {
+        return info.size;
+    }
+    // Fallback: original open/close + luat_lfs2_file_size path. Preserves
+    // historical behaviour (returns 0 for missing files and directories).
     FILE *fd;
     size_t size = 0;
     fd = luat_vfs_lfs2_nand_base_fopen(userdata, filename, "rb");

@@ -121,14 +121,3 @@ int pgfs_cache_append(pgfs_file_t* f, const uint8_t* data, size_t len) {
     f->cache.len += len;
     return 0;
 }
-
-int pgfs_cache_flush_to_log(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
-    (void)ctx;
-    if (f == NULL) {
-        return -1;
-    }
-    if (f->cache.len == 0) {
-        return 0;
-    }
-    return 0;
-}

@@ -56,6 +56,10 @@ typedef struct {
     uint32_t *l2p;
     uint32_t *p2l;
     uint8_t *bad;
+    // F-10: O(1) find_spare via per-page bitmap. Bit = 1 means page is
+    // unavailable (bad OR allocated). Spans spare_begin..spare_end.
+    uint64_t *spare_bitmap;
+    uint32_t spare_bitmap_words;
     little_flash_ftl_journal_entry_t journal[LF_FTL_JOURNAL_MAX];
     uint32_t journal_count;
     little_flash_ftl_checkpoint_hdr_t cp_a;

@@ -35,20 +35,41 @@ typedef struct little_flash little_flash_t;
 
 /* assert for developer. */
 #ifdef LF_DEBUG_MODE
+#if LF_DEBUG_MODE
 #ifndef LF_DEBUG
 #define LF_DEBUG(...)  LF_PRINTF(__VA_ARGS__)
 #endif
+/* dev/debug build: trip a hard stop on failure so the bug is visible. */
 #define LF_ASSERT(EXPR)                                                         \
 if (!(EXPR))                                                                    \
 {                                                                               \
     LF_PRINTF("(%s) has assert failed at %s.", #EXPR, __FUNCTION__);            \
     while (1);                                                                  \
 }
-#else
+#else  /* LF_DEBUG_MODE == 0 (release) */
 #ifndef LF_DEBUG
 #define LF_DEBUG(...)
 #endif
-#define LF_ASSERT(EXPR)
+/* release build: log the failure but do NOT spin in while(1).
+ * A stuck while(1) on a real device bricks the unit because most BSP
+ * watchdogs cannot reset a busy loop. Logging lets the calling code
+ * (or upper layer) decide how to recover / return an error. */
+#define LF_ASSERT(EXPR)                                                         \
+if (!(EXPR))                                                                    \
+{                                                                               \
+    LF_ERROR("LF_ASSERT(%s) failed at %s:%d", #EXPR, __FUNCTION__, __LINE__);   \
+}
+#endif /* LF_DEBUG_MODE */
+#else  /* LF_DEBUG_MODE not defined at all (legacy fallback) */
+#ifndef LF_DEBUG
+#define LF_DEBUG(...)
+#endif
+/* If LF_DEBUG_MODE is not defined by the build, treat as release: log only. */
+#define LF_ASSERT(EXPR)                                                         \
+if (!(EXPR))                                                                    \
+{                                                                               \
+    LF_ERROR("LF_ASSERT(%s) failed at %s:%d", #EXPR, __FUNCTION__, __LINE__);   \
+}
 #endif
 
 #ifndef LF_NULL
@@ -282,8 +303,13 @@ struct little_flash{
     /* pre-allocated write buffer: 4+prog_size bytes, set by device_init */
     uint8_t *prog_buf;
 #endif /* LF_USE_HEAP */
-    /* user data */
-    void* user_data;
+    /**
+     * @brief port-internal mutex handle (created by port_init, released by device_deinit).
+     * @note This field is owned by the port layer; external C users MUST NOT access it.
+     *       For SPI device context, use spi.user_data instead.
+     *       Renamed from `user_data` (2026-06) to disambiguate from spi.user_data.
+     */
+    void* mutex;
     /* NAND FTL runtime context */
     void* ftl_ctx;
     uint8_t ftl_enabled;

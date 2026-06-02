@@ -569,6 +569,8 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 	if (ret) {
 		LLOGE("request id %d start driver failed, ret %d", request_block->request_id, ret);
 		request_block->is_error_stop = 1;
+	} else {
+		request_block->cb(LUAT_AUDIO_REQUEST_EVENT_DRIVER_START, NULL, 0, request_block);
 	}
 }
 

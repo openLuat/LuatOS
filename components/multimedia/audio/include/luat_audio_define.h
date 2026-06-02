@@ -73,6 +73,7 @@ enum {
     LUAT_AUDIO_TTS_EVENT_NEW_DATA,         /**< TTS 新数据可用事件 */
 
     LUAT_AUDIO_REQUEST_EVENT_START = 0,                /**< 请求开始 */
+    LUAT_AUDIO_REQUEST_EVENT_DRIVER_START,             /**< 驱动开始 */
     LUAT_AUDIO_REQUEST_EVENT_NEED_PLAY_INFO,          /**< 播放需要播放信息 */
     LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA,           /**< 播放需要新数据 */
     LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA,            /**< 录音获取到新数据 */

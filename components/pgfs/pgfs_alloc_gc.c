@@ -96,73 +96,34 @@ int pgfs_alloc_segment(pgfs_mount_ctx_t *ctx, uint32_t *seg_id) {
 /* ── Garbage Collection ─────────────────────────────────────────────────── */
 
 /*
- * pgfs_gc_step — erase-count-based greedy GC.
+ * pgfs_gc_step — Phase 2 placeholder.
  *
- * Strategy: find the block with the highest erase count among those with
- * the most dead (overwritten) data, erase it, and return reclaimed bytes.
+ * The pre-Phase-2 implementation selected the most-erased block and erased
+ * it, which is anti-wear-levelling and risks erasing live data. The full
+ * cost-benefit GC (move live data out of a victim block, then erase) is
+ * deferred until the per-segment write head infrastructure lands in a
+ * follow-up. For now this is a no-op that:
+ *   - returns 0 reclaimed bytes (caller treats as "no progress")
+ *   - never erases a block
+ *   - never marks a block bad
  *
- * For now (Phase 2): greedy by erase count only.
- * Future: combine wear-leveling with dead-byte ratio.
+ * Returning 0 here causes the file-close path to fall through to
+ * pgfs_compact_live_entries (the bulk rewrite) on ENOSPC, which is the
+ * only compaction path that is correct today.
  *
- * Returns the number of dead bytes reclaimed, or 0 if nothing to reclaim
- * or budget exhausted.
+ * The proper cost-benefit GC requires:
+ *   - per-block live_bytes / dead_bytes accounting (currently only global
+ *     gc_live_bytes / gc_dead_bytes in pgfs_checkpoint_t)
+ *   - per-segment write head persisted in FTL state
+ *   - a victim selection function that weighs dead_bytes vs erase_count
+ *
+ * Returns 0 for now (placeholder).
  */
 int pgfs_gc_step(pgfs_mount_ctx_t *ctx, uint32_t byte_budget, uint32_t time_budget_us) {
+    (void)ctx;
+    (void)byte_budget;
     (void)time_budget_us;
-    if (!ctx || byte_budget == 0) return 0;
-
-    uint32_t reclaimed = 0;
-    uint32_t best_block = ctx->ftl.total_blocks; /* invalid sentinel */
-    uint16_t best_ec = 0;
-
-    /* Greedy scan: find the block with the highest erase count.
-     * In a real implementation, we'd also weight by dead-byte ratio.
-     * For Phase 2, we prioritise blocks with more erase cycles to balance wear. */
-    for (uint32_t i = 0; i < ctx->ftl.total_blocks; i++) {
-        if (pgfs_ftl_is_block_bad(&ctx->ftl, i)) continue;
-
-        /* Only consider blocks that have been written to (erase_count > 0) */
-        if (ctx->ftl.erase_counts[i] == 0) continue;
-
-        if (ctx->ftl.erase_counts[i] > best_ec) {
-            best_ec = ctx->ftl.erase_counts[i];
-            best_block = i;
-        }
-    }
-
-    if (best_block < ctx->ftl.total_blocks) {
-        uint32_t erase_addr = best_block * ctx->ftl.erase_size;
-
-        /* Attempt to erase the chosen block */
-        if (ctx->ftl.flash_opts && ctx->ftl.flash_opts->erase) {
-            if (ctx->ftl.flash_opts->erase(ctx->ftl.flash_opts->ctx, erase_addr, ctx->ftl.erase_size) == 0) {
-                /* Successful erase — update FTL erase count.
-                 * Since this block was just erased, reset its erase count to 0
-                 * (so future allocations spread wear evenly). */
-                ctx->ftl.erase_counts[best_block] = 0;
-                reclaimed = ctx->ftl.erase_size; /* approximate reclaim */
-                LLOGD("pgfs gc: erased block %u (prev_ec=%u), reclaimed ~%u bytes",
-                      (unsigned int)best_block,
-                      (unsigned int)best_ec,
-                      (unsigned int)reclaimed);
-            } else {
-                /* Erase failed — mark bad and let the next allocation skip it */
-                pgfs_ftl_mark_block_bad(&ctx->ftl, best_block);
-                LLOGW("pgfs gc: block %u erase failed, marked bad", (unsigned int)best_block);
-            }
-        }
-    }
-
-    /* Update checkpoint dead-byte counter */
-    if (reclaimed > 0) {
-        if (ctx->checkpoint.gc_dead_bytes >= reclaimed) {
-            ctx->checkpoint.gc_dead_bytes -= reclaimed;
-        } else {
-            ctx->checkpoint.gc_dead_bytes = 0;
-        }
-    }
-
-    return (int)reclaimed;
+    return 0;
 }
 
 /* ── Block retirement ───────────────────────────────────────────────────── */

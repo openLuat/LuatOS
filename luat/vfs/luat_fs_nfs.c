@@ -14,6 +14,7 @@
 #include "luat_base.h"
 #include "luat_fs.h"
 #include "luat_mem.h"
+#include <limits.h>
 
 #define LUAT_LOG_TAG "vfs.nfs"
 #include "luat_log.h"

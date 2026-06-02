@@ -58,7 +58,7 @@ static int _g711_codec_encode(luat_audio_data_codec_t* codec, luat_audio_common_
     if (!codec || !codec->encode_ctx || !input || !output || !encoded_used_size || !encoded_output_size) {
         return -LUAT_ERROR_PARAM_INVALID;
     }
-    int ret = g711_encoder_get_data(codec->encode_ctx, input, input_size, output, encoded_output_size);
+    int ret = g711_encoder_get_data(codec->encode_ctx, (int16_t*)input, input_size, output, encoded_output_size);
     if (ret <= 0) {
         return -LUAT_ERROR_OPERATION_FAILED;
     }

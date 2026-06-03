@@ -87,6 +87,28 @@ integrations. New code MUST use `pgfs_layout_t`.
      candidate for refresh on the next GC.
    - The weak bitmap is persisted as part of the FTL state v2 record.
 
+7a. **Header ECC (Phase 3b)**
+   - Each data record header carries an 8-byte `ecc[8]` field placed
+     AFTER the CRC32 (DATA records: at offset 16; BATCH_DATA records:
+     at offset 20; BATCH_COMMIT records: at offset 16). The field is
+     sized to accommodate a full Hamming(72,64) SECDED code.
+   - The current implementation (`pgfs_ecc_hamming_encode/decode` in
+     `pgfs_ecc.c`) is a **single-byte XOR parity placeholder** — it
+     detects any single-bit or multi-bit flip in the first 8 header
+     bytes (magic..path_len, or magic..batch_id) but does NOT correct
+     it. The on-disk 8-byte field is intentionally over-sized so a
+     future change can drop in a real SECDED implementation without
+     altering the record layout.
+   - The CRC32 scope was widened to include the header prefix bytes
+     that precede the `crc32` field (12 bytes for DATA and
+     BATCH_COMMIT, 16 bytes for BATCH_DATA) so the CRC protects both
+     the header AND the path/data. The replay chains the CRC across
+     the same prefix.
+   - On ECC mismatch in the replay, the block is marked weak and the
+     record is still attempted — the CRC32 is the authoritative
+     validation. ECC failure is a hint to refresh the block, not a
+     reason to drop a still-recoverable record.
+
 8. **O(1) mount (Phase 4 scaffold)**
    - `pgfs_checkpoint_is_consistent_with_ftl(cp, ftl)` returns false
      unconditionally (placeholder). The fields are present so the
@@ -144,6 +166,9 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
   - Phase 1: `pgfs_test_reserved_blocks_never_allocated`,
     `pgfs_test_reserved_bitmap_persists_roundtrip`
   - Phase 3: `pgfs_test_weak_block_separate_from_bad`
+  - Phase 3b: `pgfs_test_ecc_encode_decode_roundtrip`,
+    `pgfs_test_ecc_decode_detects_corruption`,
+    `pgfs_test_replay_marks_block_weak_on_ecc_mismatch`
   - Phase 5: `pgfs_test_retired_does_not_mark_bad`
   - Pre-existing: wear-levelling alloc, CP-erase powercut recovery, FTL
     state skip, single-block retirement, FTL persist snapshot, FTL

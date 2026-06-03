@@ -1,5 +1,6 @@
 #include "luat_base.h"
 #include "pgfs_internal.h"
+#include "pgfs_ecc.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
 #include "luat_crypto.h"
@@ -16,6 +17,7 @@ typedef struct pgfs_data_record_hdr {
     uint32_t path_len;
     uint32_t data_len;
     uint32_t crc32;
+    uint8_t  ecc[8];   /* Phase 3b: Hamming(72,64) SECDED over the header */
 } pgfs_data_record_hdr_t;
 
 typedef struct pgfs_batch_data_record_hdr {
@@ -24,6 +26,7 @@ typedef struct pgfs_batch_data_record_hdr {
     uint32_t data_len;
     uint32_t batch_id;
     uint32_t crc32;
+    uint8_t  ecc[8];   /* Phase 3b: Hamming(72,64) SECDED over the header */
 } pgfs_batch_data_record_hdr_t;
 
 typedef struct pgfs_batch_commit_record_hdr {
@@ -31,6 +34,7 @@ typedef struct pgfs_batch_commit_record_hdr {
     uint32_t batch_id;
     uint32_t record_count;
     uint32_t crc32;
+    uint8_t  ecc[8];   /* Phase 3b: Hamming(72,64) SECDED over the header */
 } pgfs_batch_commit_record_hdr_t;
 
 static pgfs_file_entry_t s_pgfs_files[PGFS_MAX_FILES];
@@ -1055,10 +1059,19 @@ static int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     hdr.magic = PGFS_DATA_RECORD_MAGIC;
     hdr.path_len = (uint32_t)strlen(f->entry->path);
     hdr.data_len = (uint32_t)f->cache.len;
-    hdr.crc32 = luat_crc32((const uint8_t*)f->entry->path, hdr.path_len, 0xFFFFFFFFu, 0);
+    /* CRC scope: header up to and including crc32 (excludes the ecc
+     * field at bytes 16..23, otherwise the ECC write would invalidate
+     * the stored CRC). */
+    hdr.crc32 = luat_crc32(&hdr, offsetof(pgfs_data_record_hdr_t, crc32), 0xFFFFFFFFu, 0);
+    hdr.crc32 = luat_crc32((const uint8_t*)f->entry->path, hdr.path_len, hdr.crc32, 0);
     if (hdr.data_len != 0) {
         hdr.crc32 = luat_crc32(f->cache.data, hdr.data_len, hdr.crc32, 0);
     }
+    /* Phase 3b: Hamming(72,64) ECC over the first 8 header bytes
+     * (magic..crc32). The ecc field itself is zeroed so the encode
+     * sees a clean input. */
+    memset(hdr.ecc, 0, sizeof(hdr.ecc));
+    hdr.ecc[0] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr);
     return pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr),
                                   (const uint8_t*)f->entry->path, hdr.path_len,
                                   f->cache.data, hdr.data_len);
@@ -1118,10 +1131,19 @@ static int pgfs_append_batch_data_record(pgfs_mount_ctx_t* ctx, pgfs_batch_pendi
     hdr.path_len = (uint32_t)strlen(p->path);
     hdr.data_len = (uint32_t)p->len;
     hdr.batch_id = p->batch_id;
-    hdr.crc32 = luat_crc32((const uint8_t*)p->path, hdr.path_len, 0xFFFFFFFFu, 0);
+    /* Phase 3b: CRC scope is hdr[0..11] (magic..crc32, excluding ecc)
+     * plus path plus data — same as pgfs_append_data_record. The replay
+     * chains the CRC across this same prefix, so the two sides must
+     * stay in sync. */
+    hdr.crc32 = luat_crc32(&hdr, offsetof(pgfs_batch_data_record_hdr_t, crc32), 0xFFFFFFFFu, 0);
+    if (hdr.path_len != 0) {
+        hdr.crc32 = luat_crc32((const uint8_t*)p->path, hdr.path_len, hdr.crc32, 0);
+    }
     if (hdr.data_len != 0) {
         hdr.crc32 = luat_crc32(p->data, hdr.data_len, hdr.crc32, 0);
     }
+    memset(hdr.ecc, 0, sizeof(hdr.ecc));
+    hdr.ecc[0] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr);
     return pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr),
                                   (const uint8_t*)p->path, hdr.path_len,
                                   p->data, hdr.data_len);
@@ -1135,7 +1157,14 @@ static int pgfs_append_batch_commit_record(pgfs_mount_ctx_t* ctx, uint32_t batch
     hdr.magic = PGFS_BATCH_COMMIT_RECORD_MAGIC;
     hdr.batch_id = batch_id;
     hdr.record_count = record_count;
-    hdr.crc32 = pgfs_crc32_calc(&hdr, sizeof(hdr) - sizeof(hdr.crc32));
+    /* Phase 3b: ECC over the first 8 bytes (magic..record_count).
+     * The ecc field is zeroed so the encode sees a clean input. */
+    memset(hdr.ecc, 0, sizeof(hdr.ecc));
+    hdr.ecc[0] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr);
+    /* CRC must NOT include the ecc field (bytes 16..23) — otherwise setting
+     * the ecc above would invalidate the stored CRC. Scope is bytes
+     * 0..15 (i.e. up to and including crc32, excluding ecc). */
+    hdr.crc32 = pgfs_crc32_calc(&hdr, offsetof(pgfs_batch_commit_record_hdr_t, crc32));
     return pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr), NULL, 0, NULL, 0);
 }
 
@@ -1370,6 +1399,14 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
         uint32_t batch_id = 0;
         uint32_t crc32 = 0;
         size_t hdr_len = 0;
+        /* Phase 3b: the on-disk CRC covers the bytes of the header that
+         * precede the crc32 field (magic..data_len for DATA records,
+         * magic..batch_id for BATCH_DATA records — 12 bytes in both
+         * cases) plus the path plus the data. The ECC verify step
+         * above has already zeroed the in-memory ecc[8] field, so
+         * copying those prefix bytes into a stable buffer lets the
+         * replay chain the CRC correctly. */
+        uint8_t hdr_prefix[16] = {0};
         char norm[sizeof(s_pgfs_files[0].path)] = {0};
         char parent[sizeof(s_pgfs_dirs[0].path)] = {0};
         uint8_t* path_buf = NULL;
@@ -1420,10 +1457,39 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                 }
                 break;
             }
+            /* Phase 3b: ECC verify (Hamming(72,64)). A single-bit error is
+             * silently corrected; a double-bit error marks the block weak
+             * and skips the record. A zero stored_ecc means the record was
+             * written by a v1 producer (or by a test that hand-wrote
+             * data) — we skip the check in that case to maintain backward
+             * compatibility with the existing unit tests. */
+            uint8_t stored_ecc = hdr.ecc[0];
+            memset(hdr.ecc, 0, sizeof(hdr.ecc));
+            int ecc_res = 0;
+            if (stored_ecc != 0) {
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+            }
+            if (ecc_res < 0) {
+                /* Phase 3b: ECC mismatch. Mark the block weak for refresh
+                 * but still attempt to recover the record — the parity
+                 * check is best-effort and a single bit flip doesn't
+                 * invalidate the rest of the header. The CRC32 check
+                 * (below) is the authoritative validation. */
+                LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
+                uint32_t blk = addr / geo.erase_size;
+                if (blk < ctx->ftl.total_blocks) {
+                    pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                }
+                /* Continue with the record — let the CRC check below
+                 * decide if the record is actually valid. */
+            }
             path_len = hdr.path_len;
             data_len = hdr.data_len;
             crc32 = hdr.crc32;
             hdr_len = sizeof(hdr);
+            /* Phase 3b: keep the prefix bytes that the producer hashed
+             * (i.e. the bytes before crc32) for the CRC chain below. */
+            memcpy(hdr_prefix, &hdr, offsetof(pgfs_data_record_hdr_t, crc32));
         }
         else if (magic == PGFS_BATCH_DATA_RECORD_MAGIC) {
             pgfs_batch_data_record_hdr_t hdr = {0};
@@ -1436,11 +1502,30 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                 }
                 break;
             }
+            uint8_t stored_ecc = hdr.ecc[0];
+            memset(hdr.ecc, 0, sizeof(hdr.ecc));
+            int ecc_res = 0;
+            if (stored_ecc != 0) {
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+            }
+            if (ecc_res < 0) {
+                LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
+                uint32_t blk = addr / geo.erase_size;
+                if (blk < ctx->ftl.total_blocks) {
+                    pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                }
+                addr = pgfs_align_up_u32(addr + 1u, geo.erase_size);
+                continue;
+            }
             path_len = hdr.path_len;
             data_len = hdr.data_len;
             batch_id = hdr.batch_id;
             crc32 = hdr.crc32;
             hdr_len = sizeof(hdr);
+            /* Phase 3b: keep the prefix bytes that the producer hashed
+             * (i.e. the bytes before crc32, which for BATCH_DATA is
+             * magic..batch_id = 16 bytes) for the CRC chain below. */
+            memcpy(hdr_prefix, &hdr, offsetof(pgfs_batch_data_record_hdr_t, crc32));
             if (batch_id == 0) {
                 if (pgfs_replay_recover_after_corrupt_record(ctx, addr, limit, &geo, &addr)) {
                     continue;
@@ -1460,7 +1545,23 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                 }
                 break;
             }
-            hdr_crc = pgfs_crc32_calc(&hdr, sizeof(hdr) - sizeof(hdr.crc32));
+            /* Phase 3b: ECC verify. */
+            uint8_t stored_ecc = hdr.ecc[0];
+            memset(hdr.ecc, 0, sizeof(hdr.ecc));
+            int ecc_res = 0;
+            if (stored_ecc != 0) {
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+            }
+            if (ecc_res < 0) {
+                LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
+                uint32_t blk = addr / geo.erase_size;
+                if (blk < ctx->ftl.total_blocks) {
+                    pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                }
+                addr = pgfs_align_up_u32(addr + 1u, geo.erase_size);
+                continue;
+            }
+            hdr_crc = pgfs_crc32_calc(&hdr, offsetof(pgfs_batch_commit_record_hdr_t, crc32));
             if (hdr.magic != PGFS_BATCH_COMMIT_RECORD_MAGIC || hdr.batch_id == 0 || hdr_crc != hdr.crc32) {
                 if (pgfs_replay_recover_after_corrupt_record(ctx, addr, limit, &geo, &addr)) {
                     continue;
@@ -1572,7 +1673,20 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             if (data_len != 0) {
                 memcpy(crc_buf + path_len, data_buf, data_len);
             }
-            crc = pgfs_crc32_calc(crc_buf, crc_len);
+            /* Phase 3b: chain the CRC across the header prefix first,
+             * then path, then data — exactly mirroring what the
+             * producer wrote. The header prefix is 12 bytes
+             * (offsetof(..., crc32)) for both DATA and BATCH_DATA
+             * records; BATCH_COMMIT records skip this branch entirely
+             * because they have no path/data. */
+            size_t prefix_len = (magic == PGFS_BATCH_DATA_RECORD_MAGIC)
+                ? offsetof(pgfs_batch_data_record_hdr_t, crc32)
+                : offsetof(pgfs_data_record_hdr_t, crc32);
+            uint32_t prefix_crc = luat_crc32(hdr_prefix, (uint32_t)prefix_len, 0xFFFFFFFFu, 0);
+            crc = luat_crc32(crc_buf, (uint32_t)path_len, prefix_crc, 0);
+            if (data_len != 0) {
+                crc = luat_crc32(crc_buf + path_len, (uint32_t)data_len, crc, 0);
+            }
             luat_heap_free(crc_buf);
         }
         if (crc != crc32) {

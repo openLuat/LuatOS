@@ -1,9 +1,27 @@
 #include "luat_base.h"
 #include "luat_crypto.h"
 #include "pgfs_internal.h"
+#include "pgfs_ecc.h"
 #include "luat_mem.h"
 
 #ifdef LUAT_USE_PGFS_COMPONENT
+
+/* Phase 3b: helper that fills the ecc field with a Hamming(72,64) code
+ * over the first 8 header bytes (the encode reads bytes 0..7 as the
+ * 64-bit Hamming data payload). The ecc field is at the offset passed
+ * in `ecc_offset` (16 for DATA and BATCH_COMMIT, 20 for BATCH_DATA —
+ * depends on the struct layout). The remaining 7 ecc bytes are zeroed
+ * so the replay's memset-when-zeroing-ecc step is a no-op for those
+ * trailing bytes. */
+static void pgfs_test_fill_ecc_at(uint8_t* hdr, size_t ecc_offset) {
+    hdr[ecc_offset] = pgfs_ecc_hamming_encode(hdr);
+    memset(hdr + ecc_offset + 1, 0, 7);
+}
+
+/* Convenience: 16-byte header offset (DATA and BATCH_COMMIT records). */
+static void pgfs_test_fill_ecc(uint8_t* hdr) {
+    pgfs_test_fill_ecc_at(hdr, 16);
+}
 
 #define PGFS_TEST_FLASH_SIZE 0x8000u    /* 32KB — default test flash, matches original */
 #define PGFS_TEST_FLASH_LARGE_SIZE 0x1000000u  /* 16MB — for tests that need a realistic NAND layout */
@@ -17,6 +35,7 @@ typedef struct pgfs_test_data_record_hdr {
     uint32_t path_len;
     uint32_t data_len;
     uint32_t crc32;
+    uint8_t  ecc[8];   /* Phase 3b: matches production pgfs_data_record_hdr_t layout */
 } pgfs_test_data_record_hdr_t;
 
 typedef struct pgfs_test_batch_data_record_hdr {
@@ -25,6 +44,7 @@ typedef struct pgfs_test_batch_data_record_hdr {
     uint32_t data_len;
     uint32_t batch_id;
     uint32_t crc32;
+    uint8_t  ecc[8];   /* Phase 3b: matches production layout */
 } pgfs_test_batch_data_record_hdr_t;
 
 typedef struct pgfs_test_batch_commit_record_hdr {
@@ -32,6 +52,7 @@ typedef struct pgfs_test_batch_commit_record_hdr {
     uint32_t batch_id;
     uint32_t record_count;
     uint32_t crc32;
+    uint8_t  ecc[8];   /* Phase 3b: matches production layout */
 } pgfs_test_batch_commit_record_hdr_t;
 
 typedef struct {
@@ -153,17 +174,23 @@ static size_t pgfs_test_build_record(uint8_t* out, size_t outlen, const char* pa
     hdr.magic = PGFS_TEST_DATA_RECORD_MAGIC;
     hdr.path_len = (uint32_t)path_len;
     hdr.data_len = (uint32_t)data_len;
-    hdr.crc32 = pgfs_test_crc32(path, path_len);
-    if (data_len > 0) {
-        uint8_t* crc_buf = (uint8_t*)luat_heap_malloc(path_len + data_len);
-        if (crc_buf == NULL) {
-            return 0;
+    /* Phase 3b: production CRC scope is hdr[0..15] (magic..crc32,
+     * excluding the ecc[8] field) plus path plus data. Mirror that
+     * exactly so the replay can chain the same way. The hdr.crc32
+     * field is left at 0 while the prefix is hashed. */
+    {
+        uint32_t crc = luat_crc32(&hdr, offsetof(pgfs_test_data_record_hdr_t, crc32),
+                                  0xFFFFFFFFu, 0);
+        if (path_len > 0) {
+            crc = luat_crc32(path, (uint32_t)path_len, crc, 0);
         }
-        memcpy(crc_buf, path, path_len);
-        memcpy(crc_buf + path_len, data, data_len);
-        hdr.crc32 = pgfs_test_crc32(crc_buf, path_len + data_len);
-        luat_heap_free(crc_buf);
+        if (data_len > 0) {
+            crc = luat_crc32(data, (uint32_t)data_len, crc, 0);
+        }
+        hdr.crc32 = crc;
     }
+    /* Phase 3b: ECC over the first 8 header bytes (magic..crc32). */
+    pgfs_test_fill_ecc((uint8_t*)&hdr);
     memcpy(out, &hdr, sizeof(hdr));
     memcpy(out + sizeof(hdr), path, path_len);
     memcpy(out + sizeof(hdr) + path_len, data, data_len);
@@ -175,8 +202,6 @@ static size_t pgfs_test_build_batch_data_record(uint8_t* out, size_t outlen, uin
     size_t path_len = strlen(path);
     size_t data_len = strlen(data);
     size_t need = sizeof(hdr) + path_len + data_len;
-    uint8_t* crc_buf = NULL;
-    size_t crc_len = path_len + data_len;
     if (out == NULL || outlen < need || batch_id == 0) {
         return 0;
     }
@@ -184,18 +209,22 @@ static size_t pgfs_test_build_batch_data_record(uint8_t* out, size_t outlen, uin
     hdr.path_len = (uint32_t)path_len;
     hdr.data_len = (uint32_t)data_len;
     hdr.batch_id = batch_id;
-    if (crc_len > 0) {
-        crc_buf = (uint8_t*)luat_heap_malloc(crc_len);
-        if (crc_buf == NULL) {
-            return 0;
+    /* Phase 3b: chain CRC across hdr[0..15] then path then data,
+     * matching the production writer. */
+    {
+        uint32_t crc = luat_crc32(&hdr, offsetof(pgfs_test_batch_data_record_hdr_t, crc32),
+                                  0xFFFFFFFFu, 0);
+        if (path_len > 0) {
+            crc = luat_crc32(path, (uint32_t)path_len, crc, 0);
         }
-        memcpy(crc_buf, path, path_len);
         if (data_len > 0) {
-            memcpy(crc_buf + path_len, data, data_len);
+            crc = luat_crc32(data, (uint32_t)data_len, crc, 0);
         }
-        hdr.crc32 = pgfs_test_crc32(crc_buf, crc_len);
-        luat_heap_free(crc_buf);
+        hdr.crc32 = crc;
     }
+    /* BATCH_DATA has 5 32-bit fields before the ecc[8] field, so the
+     * ecc offset is 20. */
+    pgfs_test_fill_ecc_at((uint8_t*)&hdr, 20);
     memcpy(out, &hdr, sizeof(hdr));
     memcpy(out + sizeof(hdr), path, path_len);
     if (data_len > 0) {
@@ -212,7 +241,12 @@ static size_t pgfs_test_build_batch_commit_record(uint8_t* out, size_t outlen, u
     hdr.magic = PGFS_TEST_BATCH_COMMIT_RECORD_MAGIC;
     hdr.batch_id = batch_id;
     hdr.record_count = record_count;
-    hdr.crc32 = pgfs_test_crc32(&hdr, sizeof(hdr) - sizeof(hdr.crc32));
+    /* Phase 3b: ECC over the first 8 header bytes (magic..record_count)
+     * is computed BEFORE the CRC so the CRC scope is the unchanged
+     * magic..record_count bytes (offsetof(..., crc32) == 12). */
+    pgfs_test_fill_ecc((uint8_t*)&hdr);
+    hdr.crc32 = luat_crc32(&hdr, offsetof(pgfs_test_batch_commit_record_hdr_t, crc32),
+                           0xFFFFFFFFu, 0);
     memcpy(out, &hdr, sizeof(hdr));
     return sizeof(hdr);
 }
@@ -338,6 +372,171 @@ static int pgfs_test_retired_does_not_mark_bad(void) {
         printf("[pgfs-utest] retirement flag not set on CP\n");
         fail++;
     }
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 3b: pure unit test of the ECC encode/decode pair. Encode a known
+ * 8-byte pattern, decode should return 0 (no error). Then flip a single
+ * bit in the data, decode should return -1 (parity mismatch). The
+ * placeholder implementation does not attempt single-bit correction; the
+ * replay path simply marks the block weak and skips the record. */
+static int pgfs_test_ecc_encode_decode_roundtrip(void) {
+    int fail = 0;
+    uint8_t data[8] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+    uint8_t corrected[8] = {0};
+    uint8_t parity = pgfs_ecc_hamming_encode(data);
+    int res = pgfs_ecc_hamming_decode(data, parity, corrected);
+    if (res != 0) {
+        printf("[pgfs-ecc-utest] roundtrip expected 0 got %d\n", res);
+        fail++;
+    }
+    if (memcmp(corrected, data, sizeof(data)) != 0) {
+        printf("[pgfs-ecc-utest] corrected output differs from input\n");
+        fail++;
+    }
+    /* Determinism: encoding the same data twice must yield the same parity. */
+    if (parity != pgfs_ecc_hamming_encode(data)) {
+        printf("[pgfs-ecc-utest] encoder is non-deterministic\n");
+        fail++;
+    }
+    return fail;
+}
+
+/* Phase 3b: corruption in the protected bytes must be detected (decode
+ * returns -1). The replay path then marks the block weak and skips the
+ * record. */
+static int pgfs_test_ecc_decode_detects_corruption(void) {
+    int fail = 0;
+    uint8_t data[8] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+    uint8_t corrected[8] = {0};
+    uint8_t parity = pgfs_ecc_hamming_encode(data);
+    /* Flip a single bit in the data and confirm decode fails. The stored
+     * parity was computed against the original data, so a flipped bit
+     * makes the recomputed parity mismatch — decode returns -1. */
+    data[3] ^= 0x01u;
+    int res = pgfs_ecc_hamming_decode(data, parity, corrected);
+    if (res != -1) {
+        printf("[pgfs-ecc-utest] expected decode to flag a 1-bit flip with -1, got %d\n", res);
+        fail++;
+    }
+    /* Flipping a bit in the parity byte alone (with data intact) must
+     * also be detected. */
+    {
+        uint8_t data2[8] = {0xAA, 0x55, 0xCC, 0x33, 0xF0, 0x0F, 0x96, 0x69};
+        uint8_t p2 = pgfs_ecc_hamming_encode(data2);
+        uint8_t bad_p2 = (uint8_t)(p2 ^ 0x80u);
+        int r2 = pgfs_ecc_hamming_decode(data2, bad_p2, NULL);
+        if (r2 != -1) {
+            printf("[pgfs-ecc-utest] expected decode to flag a parity-byte flip with -1, got %d\n", r2);
+            fail++;
+        }
+    }
+    return fail;
+}
+
+/* Phase 3b: integration test — write a record with a corrupted ECC byte,
+ * mount, replay, and verify:
+ *   1. The block containing the record is marked weak.
+ *   2. The file IS still readable (data intact, CRC32 is the authoritative
+ *      check; ECC failure is a hint to refresh the block, not a reason to
+ *      drop the record).
+ *   3. A subsequent record written in a DIFFERENT block is also replayed
+ *      correctly (replay does not bail on the first ECC failure).
+ */
+static int pgfs_test_replay_marks_block_weak_on_ecc_mismatch(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint8_t rec1[256] = {0};
+    uint8_t rec2[256] = {0};
+    size_t rec1_len = 0;
+    size_t rec2_len = 0;
+    uint32_t erase_size = 4096u;
+    uint32_t target_block = 0;
+    uint32_t other_block = 0;
+    FILE* f = NULL;
+    char buf[32] = {0};
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    /* Record 1: written to the first data-log block, with a corrupted ECC
+     * byte (simulates a bit-flip in the parity field on real flash). */
+    rec1_len = pgfs_test_build_record(rec1, sizeof(rec1), "/phase3b/ecc_test.txt", "payload");
+    if (rec1_len == 0) {
+        return 1;
+    }
+    rec1[16] ^= 0xA5u;
+    if (pgfs_test_write(flash, PGFS_DATA_LOG_BASE_ADDR, rec1, rec1_len) != 0) {
+        return 1;
+    }
+    target_block = PGFS_DATA_LOG_BASE_ADDR / erase_size;
+
+    /* Record 2: written to the NEXT erase block with a valid ECC, to
+     * verify the replay continues past the corrupted record. */
+    rec2_len = pgfs_test_build_record(rec2, sizeof(rec2), "/phase3b/after_corrupt.txt", "after");
+    if (rec2_len == 0) {
+        return 1;
+    }
+    if (pgfs_test_write(flash, PGFS_DATA_LOG_BASE_ADDR + erase_size, rec2, rec2_len) != 0) {
+        return 1;
+    }
+    other_block = (PGFS_DATA_LOG_BASE_ADDR + erase_size) / erase_size;
+
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
+
+    if (pgfs_replay_data_log(&ctx) != 0) {
+        fail++;
+    }
+
+    /* Invariant 1: block containing the corrupted record is marked weak. */
+    if (!pgfs_ftl_is_weak(&ctx.ftl, target_block)) {
+        printf("[pgfs-ecc-utest] replay did not mark block %u weak on ECC mismatch\n",
+               (unsigned int)target_block);
+        fail++;
+    }
+    /* Invariant 1b: the OTHER block (with valid ECC) must NOT be weak. */
+    if (pgfs_ftl_is_weak(&ctx.ftl, other_block)) {
+        printf("[pgfs-ecc-utest] block %u incorrectly marked weak (had valid ECC)\n",
+               (unsigned int)other_block);
+        fail++;
+    }
+
+    /* Invariant 2: data is intact → CRC passes → file IS readable. */
+    f = pgfs_file_open(&ctx, "/phase3b/ecc_test.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-ecc-utest] file should be readable after ECC-only corruption\n");
+        fail++;
+    } else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx, buf, 1, sizeof("payload") - 1, f) != sizeof("payload") - 1 ||
+            memcmp(buf, "payload", sizeof("payload") - 1) != 0) {
+            printf("[pgfs-ecc-utest] file content mismatch after ECC-only corruption\n");
+            fail++;
+        }
+        pgfs_file_close(&ctx, f);
+    }
+
+    /* Invariant 3: replay continued to the next block, so the second file
+     * is also visible. */
+    f = pgfs_file_open(&ctx, "/phase3b/after_corrupt.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-ecc-utest] replay did not continue past ECC failure\n");
+        fail++;
+    } else {
+        pgfs_file_close(&ctx, f);
+    }
+
     pgfs_ftl_deinit(&ctx.ftl);
     pgfs_test_flash_free(flash);
     return fail;
@@ -2707,6 +2906,9 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_ftl_test_persist_populates_snapshot);
     PGFS_RUN_CTEST(pgfs_ftl_test_persist_readback_failure_keeps_snapshot);
     PGFS_RUN_CTEST(pgfs_test_weak_block_separate_from_bad);
+    PGFS_RUN_CTEST(pgfs_test_ecc_encode_decode_roundtrip);
+    PGFS_RUN_CTEST(pgfs_test_ecc_decode_detects_corruption);
+    PGFS_RUN_CTEST(pgfs_test_replay_marks_block_weak_on_ecc_mismatch);
     PGFS_RUN_CTEST(pgfs_test_retired_does_not_mark_bad);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
      * not registered in the default c_layer_selftests dispatch. It depends

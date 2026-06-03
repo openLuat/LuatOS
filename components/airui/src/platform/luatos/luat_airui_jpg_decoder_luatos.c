@@ -1,7 +1,7 @@
 /**
  * @file luat_airui_jpg_decoder_luatos.c
  * @summary LuatOS platform JPG decoder
- * @responsible Reuse the legacy LCD JPG decode path and integrate with LVGL cache
+ * @responsible Reuse luat_image JPG hardware decode path and integrate with LVGL cache
  */
 
 #include "luat_conf_bsp.h"
@@ -12,9 +12,7 @@
 #if defined(LUAT_USE_AIRUI_LUATOS)
 
 #include "luat_airui_platform_luatos.h"
-#include "luat_fs.h"
 #include "luat_image.h"
-#include "luat_mcu.h"
 #include "luat_mem.h"
 #include "lvgl9/src/draw/lv_draw_buf.h"
 #include "lvgl9/src/draw/lv_image_decoder_private.h"
@@ -25,54 +23,6 @@
 #include "luat_log.h"
 
 static bool g_luatos_jpg_decoder_registered = false;
-
-static uint64_t airui_luatos_jpg_now_us(void)
-{
-    int period = luat_mcu_us_period();
-    if (period <= 0) {
-        return luat_mcu_tick64_ms() * 1000ULL;
-    }
-    return luat_mcu_tick64() / (uint64_t)period;
-}
-
-static void airui_luatos_jpg_log_decode(const char *path, const luat_lcd_buff_info_t *buff_info, int ret, uint64_t start_us)
-{
-    uint64_t elapsed_us = 0;
-    size_t input_size = 0;
-    unsigned int width = 0;
-    unsigned int height = 0;
-    unsigned int buf_size = 0;
-
-    if (!luat_image_get_debug()) {
-        return;
-    }
-
-    elapsed_us = airui_luatos_jpg_now_us();
-    if (elapsed_us > start_us) {
-        elapsed_us -= start_us;
-    } else {
-        elapsed_us = 0;
-    }
-
-    if (path != NULL) {
-        input_size = luat_fs_fsize(path);
-    }
-
-    if (ret == 0 && buff_info != NULL) {
-        width = (unsigned int)buff_info->width;
-        height = (unsigned int)buff_info->height;
-        buf_size = (unsigned int)buff_info->len;
-    }
-
-    LLOGI("[decode] fmt=jpg mode=hw input=%uB output=%ux%u buf=%uB cost=%.3fms ret=%d src=%s",
-          (unsigned int)input_size,
-          width,
-          height,
-          buf_size,
-          (double)elapsed_us / 1000.0,
-          ret == 0 ? LUAT_IMG_OK : LUAT_IMG_ERR,
-          path ? path : "<memory>");
-}
 
 static bool airui_luatos_is_jpg_path(const char *src)
 {
@@ -96,9 +46,8 @@ static bool airui_luatos_is_jpg_path(const char *src)
 static lv_result_t airui_luatos_jpg_decoder_info(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc,
                                                   lv_image_header_t *header)
 {
-    luat_lcd_conf_t *lcd_conf;
-    uint16_t width = 0;
-    uint16_t height = 0;
+    luat_img_conf_t img_conf;
+    luat_img_info_t img_info;
     int ret;
 
     LV_UNUSED(decoder);
@@ -111,30 +60,30 @@ static lv_result_t airui_luatos_jpg_decoder_info(lv_image_decoder_t *decoder, lv
         return LV_RESULT_INVALID;
     }
 
-    lcd_conf = luat_lcd_get_default();
-    if (lcd_conf == NULL || lcd_conf->acc_hw_jpeg == 0) {
-        return LV_RESULT_INVALID;
-    }
+    memset(&img_conf, 0, sizeof(img_conf));
+    img_conf.format = LUAT_IMG_FMT_JPG;
+    img_conf.decode_mode = LUAT_IMG_DECODE_HW;
+    img_conf.source_path = (const char *)dsc->src;
 
-    ret = lcd_jpeg_info(lcd_conf, (const char *)dsc->src, &width, &height);
-    if (ret != 0 || width == 0 || height == 0) {
+    memset(&img_info, 0, sizeof(img_info));
+    ret = luat_image_probe(&img_conf, NULL, 0, &img_info);
+    if (ret != LUAT_IMG_OK || img_info.width == 0 || img_info.height == 0) {
         return LV_RESULT_INVALID;
     }
 
     header->cf = LV_COLOR_FORMAT_RGB565;
-    header->w = width;
-    header->h = height;
-    header->stride = width * sizeof(luat_color_t);
+    header->w = img_info.width;
+    header->h = img_info.height;
+    header->stride = img_info.width * sizeof(luat_color_t);
     return LV_RESULT_OK;
 }
 
 static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv_image_decoder_dsc_t *dsc)
 {
-    luat_lcd_conf_t *lcd_conf;
-    luat_lcd_buff_info_t buff_info = {0};
+    luat_img_conf_t img_conf;
+    luat_img_info_t img_info;
     lv_draw_buf_t *decoded = NULL;
     lv_draw_buf_t *adjusted = NULL;
-    uint64_t start_us = 0;
     int ret;
 
     LV_UNUSED(decoder);
@@ -147,36 +96,29 @@ static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv
         return LV_RESULT_INVALID;
     }
 
-    lcd_conf = luat_lcd_get_default();
-    if (lcd_conf == NULL || lcd_conf->acc_hw_jpeg == 0) {
-        return LV_RESULT_INVALID;
-    }
-
-    if (luat_image_get_debug()) {
-        start_us = airui_luatos_jpg_now_us();
-    }
-
     LLOGI("use hardware jpeg decode: %s", (const char *)dsc->src);
 
-    ret = lcd_jpeg_decode(lcd_conf, (const char *)dsc->src, &buff_info);
-    airui_luatos_jpg_log_decode((const char *)dsc->src, &buff_info, ret, start_us);
-    if (ret != 0 || buff_info.buff == NULL || buff_info.width == 0 || buff_info.height == 0) {
-        if (buff_info.buff != NULL) {
-            luat_heap_free(buff_info.buff);
-        }
+    memset(&img_conf, 0, sizeof(img_conf));
+    img_conf.format = LUAT_IMG_FMT_JPG;
+    img_conf.decode_mode = LUAT_IMG_DECODE_HW;
+    img_conf.source_path = (const char *)dsc->src;
+
+    memset(&img_info, 0, sizeof(img_info));
+    ret = luat_image_decode(&img_conf, NULL, 0, &img_info);
+    if (ret != LUAT_IMG_OK || img_info.data == NULL || img_info.width == 0 || img_info.height == 0) {
         return LV_RESULT_INVALID;
     }
 
     decoded = lv_malloc_zeroed(sizeof(lv_draw_buf_t));
     if (decoded == NULL) {
-        luat_heap_free(buff_info.buff);
+        luat_heap_free(img_info.data);
         return LV_RESULT_INVALID;
     }
 
-    if (lv_draw_buf_init(decoded, buff_info.width, buff_info.height, LV_COLOR_FORMAT_RGB565,
-                         buff_info.width * sizeof(luat_color_t), buff_info.buff, buff_info.len) != LV_RESULT_OK) {
+    if (lv_draw_buf_init(decoded, img_info.width, img_info.height, LV_COLOR_FORMAT_RGB565,
+                         img_info.width * sizeof(luat_color_t), img_info.data, img_info.size) != LV_RESULT_OK) {
         lv_free(decoded);
-        luat_heap_free(buff_info.buff);
+        luat_heap_free(img_info.data);
         return LV_RESULT_INVALID;
     }
 
@@ -185,8 +127,8 @@ static lv_result_t airui_luatos_jpg_decoder_open(lv_image_decoder_t *decoder, lv
     lv_draw_buf_set_flag(decoded, LV_IMAGE_FLAGS_ALLOCATED);
 
     dsc->header.cf = LV_COLOR_FORMAT_RGB565;
-    dsc->header.w = buff_info.width;
-    dsc->header.h = buff_info.height;
+    dsc->header.w = img_info.width;
+    dsc->header.h = img_info.height;
     dsc->header.stride = decoded->header.stride;
 
     adjusted = lv_image_decoder_post_process(dsc, decoded);

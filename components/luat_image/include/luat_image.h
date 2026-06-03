@@ -41,6 +41,7 @@ typedef struct {
  * Each decoder implementation provides a const instance of this struct.
  */
 typedef struct luat_img_decoder_opts {
+    int (*probe)(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
     int (*decode)(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 } luat_img_decoder_opts_t;
 
@@ -76,6 +77,9 @@ int luat_png_decode_hw(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t 
 #ifdef LUAT_USE_WEBP
 int luat_webp_decode_hw(const luat_img_conf_t *img_conf, uint8_t *in_buf, size_t in_len, luat_img_info_t* img_info);
 #endif
+
+/* Top-level probe entry point */
+int luat_image_probe(luat_img_conf_t* img_conf, uint8_t *in_buf, size_t size, luat_img_info_t* img_info);
 
 /* Top-level decode entry point */
 int luat_image_decode(luat_img_conf_t* img_conf, uint8_t *in_buf, size_t size, luat_img_info_t* img_info);

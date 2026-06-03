@@ -1,4 +1,5 @@
 #include "luat_base.h"
+#include "luat_fs.h"
 #include "luat_image.h"
 #include "luat_image_decoders_internal.h"
 #include "luat_mcu.h"
@@ -81,12 +82,37 @@ static const char* luat_image_mode_name(luat_img_decode_mode_t mode) {
     }
 }
 
+int luat_image_probe(luat_img_conf_t* img_conf, uint8_t *in_buf, size_t size, luat_img_info_t* img_info) {
+    const luat_img_decoder_opts_t* opts;
+
+    if (img_conf == NULL || img_info == NULL) {
+        return LUAT_IMG_ERR;
+    }
+
+    if ((in_buf == NULL || size == 0) && img_conf->source_path == NULL) {
+        return LUAT_IMG_ERR;
+    }
+
+    opts = luat_image_get_decoder_opts(img_conf->format, img_conf->decode_mode);
+    if (!opts || !opts->probe) {
+        LLOGW("no probe available for format=%d mode=%d", img_conf->format, img_conf->decode_mode);
+        return LUAT_IMG_ERR;
+    }
+
+    return opts->probe(img_conf, in_buf, size, img_info);
+}
+
 int luat_image_decode(luat_img_conf_t* img_conf, uint8_t *in_buf, size_t size, luat_img_info_t* img_info) {
     uint64_t start_us = 0;
     uint64_t elapsed_us = 0;
     int ret = LUAT_IMG_ERR;
+    unsigned int input_size = (unsigned int)size;
 
-    if (img_conf == NULL || in_buf == NULL || size == 0 || img_info == NULL) {
+    if (img_conf == NULL || img_info == NULL) {
+        return LUAT_IMG_ERR;
+    }
+
+    if ((in_buf == NULL || size == 0) && img_conf->source_path == NULL) {
         return LUAT_IMG_ERR;
     }
 
@@ -103,6 +129,10 @@ int luat_image_decode(luat_img_conf_t* img_conf, uint8_t *in_buf, size_t size, l
     ret = opts->decode(img_conf, in_buf, size, img_info);
 
     if (g_luat_image_debug_enabled) {
+        if (input_size == 0 && img_conf->source_path != NULL) {
+            input_size = (unsigned int)luat_fs_fsize(img_conf->source_path);
+        }
+
         elapsed_us = luat_image_now_us();
         if (elapsed_us > start_us) {
             elapsed_us -= start_us;
@@ -113,7 +143,7 @@ int luat_image_decode(luat_img_conf_t* img_conf, uint8_t *in_buf, size_t size, l
         LLOGI("[decode] fmt=%s mode=%s input=%uB output=%ux%u buf=%uB cost=%.3fms ret=%d src=%s",
               luat_image_format_name(img_conf->format),
               luat_image_mode_name(img_conf->decode_mode),
-              (unsigned int)size,
+              input_size,
               (unsigned int)img_info->width,
               (unsigned int)img_info->height,
               (unsigned int)img_info->size,

@@ -229,6 +229,7 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
     `pgfs_test_stress_write_delete_cycles`
   - Phase 6 multi-mount: `pgfs_test_multi_mount_cycle_reads_via_replay`,
     `pgfs_test_multi_mount_counters_advance`
+  - Phase 6 replay shadow: `pgfs_test_replay_shadow_detection_marks_dead_bytes`
   - Pre-existing: wear-levelling alloc, CP-erase powercut recovery, FTL
     state skip, single-block retirement, FTL persist snapshot, FTL
     persist readback failure.

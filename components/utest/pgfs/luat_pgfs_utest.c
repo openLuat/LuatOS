@@ -4016,10 +4016,13 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_gc_picks_lowest_erase_count_among_empties);
     PGFS_RUN_CTEST(pgfs_test_gc_excludes_bad_reserved_retired);
     PGFS_RUN_CTEST(pgfs_test_gc_data_move_preserves_file);
+    PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
     PGFS_RUN_CTEST(pgfs_test_stress_many_files_writes_counters);
     PGFS_RUN_CTEST(pgfs_test_stress_write_delete_cycles);
     PGFS_RUN_CTEST(pgfs_test_multi_mount_cycle_reads_via_replay);
     PGFS_RUN_CTEST(pgfs_test_multi_mount_counters_advance);
+    PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
+    PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
      * not registered in the default c_layer_selftests dispatch. It depends
      * on data-log compaction after file deletion to reset the write head,
@@ -4027,6 +4030,189 @@ int pgfs_run_c_layer_tests(void) {
      * dispatch below if needed. */
 #undef PGFS_RUN_CTEST
     return fail == 0 ? 0 : -1;
+}
+
+/* Phase 2 GC shadow detection: when a file is rewritten (multiple
+ * DATA records for the same path), the older record's bytes are
+ * dead. During replay, the old bytes are attributed to the block
+ * holding the old record (entry->last_written_block at the time of
+ * the new replay). This test writes two versions of a file via
+ * pgfs_file_open/close, clears in-memory state, and verifies that
+ * a remount + replay recovers the file AND attributes the old
+ * version's bytes to dead_bytes_per_block. */
+static int pgfs_test_replay_shadow_detection_marks_dead_bytes(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    pgfs_checkpoint_t loaded_cp = {0};
+    uint8_t v1_block = 0;
+    uint8_t v2_block = 0;
+    uint32_t total_dead_pre = 0;
+    uint32_t total_live_pre = 0;
+    uint32_t total_dead_post = 0;
+    uint32_t total_live_post = 0;
+    char buf[48] = {0};
+    const char v1_payload[] = "v1_first_version";
+    const char v2_payload[] = "v2_second_version_longer";
+    size_t v1_len = sizeof(v1_payload) - 1u;
+    size_t v2_len = sizeof(v2_payload) - 1u;
+    FILE* f = NULL;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts.control(opts.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx.layout);
+            ctx.data_log_base_addr  = ctx.layout.data_log_first_block * ctx.layout.erase_size;
+            ctx.data_log_write_addr = ctx.data_log_base_addr;
+            ctx.data_log_prepared_until = ctx.data_log_base_addr;
+        }
+    }
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
+    (void)v1_block;
+    (void)v2_block;
+    /* Write v1, then v2 (overwrite). The GC step that runs after
+     * the v2 close moves v1's data out of the way, attributing
+     * its bytes to dead_bytes_per_block. v2 is credited to
+     * live_bytes_per_block. We don't pin the exact block ids
+     * (they depend on the GC's relocation policy) — we just sum
+     * the per-block bytes and verify the totals match. */
+    f = pgfs_file_open(&ctx, "/shadow/file.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, v1_payload, 1, v1_len, f) != v1_len) fail++;
+    if (pgfs_file_close(&ctx, f) != 0) fail++;
+    f = pgfs_file_open(&ctx, "/shadow/file.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, v2_payload, 1, v2_len, f) != v2_len) fail++;
+    if (pgfs_file_close(&ctx, f) != 0) fail++;
+
+    /* Force a CP commit so the remount can read it back. */
+    if (pgfs_checkpoint_commit_pending(&ctx) != 0) {
+        fail++;
+        goto out;
+    }
+
+    /* Capture pre-reset totals: the GC step that ran after the v2
+     * close should already have attributed v1's bytes to
+     * dead_bytes. After the reset below, the replay must
+     * re-attribute them. */
+    if (ctx.ftl.dead_bytes_per_block != NULL) {
+        for (uint32_t b = 0; b < 16; b++) {
+            total_dead_pre += ctx.ftl.dead_bytes_per_block[b];
+            total_live_pre += ctx.ftl.live_bytes_per_block[b];
+        }
+    }
+    if (total_dead_pre < v1_len) {
+        printf("[pgfs-shadow-utest] pre-reset total_dead=%u, expected >= %u\n",
+               (unsigned)total_dead_pre, (unsigned)v1_len);
+        fail++;
+    }
+
+    /* Reset in-memory state to simulate unmount. The per-block
+     * dead_bytes is also zeroed so we can verify the replay's
+     * shadow detection re-attributes the dead bytes from the on-flash
+     * records. */
+    if (ctx.ftl.dead_bytes_per_block != NULL) {
+        for (uint32_t b = 0; b < 16; b++) {
+            ctx.ftl.dead_bytes_per_block[b] = 0;
+        }
+    }
+    ctx.checkpoint.gc_dead_bytes = 0;
+    pgfs_file_reset_all();
+    pgfs_ftl_deinit(&ctx.ftl);
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr  = 5 * erase_size;
+    ctx.data_log_write_addr = ctx.data_log_base_addr;
+    ctx.data_log_prepared_until = ctx.data_log_base_addr;
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts.control(opts.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx.layout);
+        }
+    }
+    if (pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16) != 0) {
+        fail++;
+        goto out;
+    }
+    if (pgfs_checkpoint_load(&ctx, &loaded_cp) != 0) {
+        printf("[pgfs-shadow-utest] remount CP load failed\n");
+        fail++;
+        goto out;
+    }
+    ctx.checkpoint = loaded_cp;
+    ctx.checkpoint_loaded = 1;
+    ctx.data_log_write_addr = ctx.data_log_base_addr
+        + (uint32_t)loaded_cp.log_tail_block * erase_size
+        + loaded_cp.log_tail_offset;
+    ctx.data_log_prepared_until = ctx.data_log_write_addr;
+    if (pgfs_replay_data_log(&ctx) != 0) {
+        printf("[pgfs-shadow-utest] remount replay failed\n");
+        fail++;
+        goto out;
+    }
+
+    /* v2 is the latest, so the file must read as v2. */
+    f = pgfs_file_open(&ctx, "/shadow/file.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-shadow-utest] file missing after shadow replay\n");
+        fail++;
+        goto out;
+    }
+    memset(buf, 0, sizeof(buf));
+    if (pgfs_file_read(&ctx, buf, 1, v2_len, f) != v2_len ||
+        memcmp(buf, v2_payload, v2_len) != 0) {
+        printf("[pgfs-shadow-utest] file content wrong (expected v2)\n");
+        fail++;
+    }
+    pgfs_file_close(&ctx, f);
+
+    /* Shadow detection: v1's bytes are now dead and attributed to
+     * v1_block. v2's bytes are live and credited to v2_block. */
+    if (ctx.ftl.dead_bytes_per_block == NULL) {
+        printf("[pgfs-shadow-utest] dead_bytes_per_block not allocated\n");
+        fail++;
+        goto out;
+    }
+    /* Sum the per-block bytes. The exact block ids depend on the GC's
+     * relocation policy (v1 may have been moved to a different block
+     * between mount #1 and the remount), so we check totals rather
+     * than per-block counts. */
+    for (uint32_t b = 0; b < 16; b++) {
+        total_dead_post += ctx.ftl.dead_bytes_per_block[b];
+        total_live_post += ctx.ftl.live_bytes_per_block[b];
+    }
+    if (total_dead_post < v1_len) {
+        printf("[pgfs-shadow-utest] post-replay total_dead=%u, expected >= %u (v1 shadow)\n",
+               (unsigned)total_dead_post, (unsigned)v1_len);
+        fail++;
+    }
+    if (total_live_post < v2_len) {
+        printf("[pgfs-shadow-utest] post-replay total_live=%u, expected >= %u (v2 live)\n",
+               (unsigned)total_live_post, (unsigned)v2_len);
+        fail++;
+    }
+    if (ctx.checkpoint.gc_dead_bytes < v1_len) {
+        printf("[pgfs-shadow-utest] post-replay gc_dead_bytes=%u, expected >= %u\n",
+               (unsigned)ctx.checkpoint.gc_dead_bytes, (unsigned)v1_len);
+        fail++;
+    }
+
+out:
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
 }
 
 int pgfs_run_c_layer_case(const char* case_name) {

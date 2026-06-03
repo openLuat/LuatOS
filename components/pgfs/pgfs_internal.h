@@ -284,7 +284,11 @@ int pgfs_file_eof(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_error(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_flush(pgfs_mount_ctx_t* ctx, FILE* stream);
 void pgfs_file_reset_all(void);
-int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename);
+/* Phase 2 GC shadow detection: read the last_written_block of the
+ * first matching file_entry. Used by tests to inspect which block a
+ * given file's most recent record landed in. Returns 0xFFFFu when no
+ * matching entry is found. */
+uint16_t pgfs_file_table_lookup_last_written(const char* path);
 int pgfs_dir_mkdir(pgfs_mount_ctx_t* ctx, const char *path);
 int pgfs_dir_rmdir(pgfs_mount_ctx_t* ctx, const char *path);
 int pgfs_dir_lsdir(pgfs_mount_ctx_t* ctx, const char *path, luat_fs_dirent_t* ents, size_t offset, size_t len);

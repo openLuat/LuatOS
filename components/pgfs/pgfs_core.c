@@ -822,6 +822,17 @@ int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
     return 0;
 }
 
+uint16_t pgfs_file_table_lookup_last_written(const char* path) {
+    if (path == NULL) return 0xFFFFu;
+    for (uint32_t i = 0; i < PGFS_MAX_FILES; i++) {
+        if (!s_pgfs_files[i].used) continue;
+        if (strcmp(s_pgfs_files[i].path, path) == 0) {
+            return s_pgfs_files[i].last_written_block;
+        }
+    }
+    return 0xFFFFu;
+}
+
 int pgfs_file_table_visit(pgfs_file_visit_fn cb, void* user_data) {
     if (cb == NULL) return 0;
     int stopped = 0;
@@ -1840,6 +1851,38 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             pgfs_account_live_block(ctx, addr, (uint32_t)record_len);
             if (old_len > 0) {
                 ctx->checkpoint.gc_dead_bytes += (uint32_t)old_len;
+                /* Phase 2 prep + shadow detection: the OLD version of
+                 * this file is now dead. Its last-known block is
+                 * entry->last_written_block (set by the previous
+                 * append or replay iteration). Attribute the dead
+                 * bytes to that block so the cost-benefit GC can
+                 * pick it. Note: if last_written_block is 0 /
+                 * 0xFFFFu (never written), the dead bytes are
+                 * unaccounted for at the block level — they still
+                 * count in the global gc_dead_bytes, just not
+                 * per-block. */
+                uint16_t old_blk = entry->last_written_block;
+                if (old_blk != 0 && old_blk != 0xFFFFu &&
+                    ctx->ftl.dead_bytes_per_block != NULL &&
+                    old_blk < ctx->ftl.total_blocks) {
+                    ctx->ftl.dead_bytes_per_block[old_blk] += (uint32_t)old_len;
+                }
+            }
+            /* Update the file's last-known block to the record we
+             * just replayed. The next replay iteration (or the
+             * close-path attribution) will use this to mark the
+             * NEXT shadow event. */
+            {
+                pgfs_flash_geometry_t geo = {0};
+                if (ctx->ftl.flash_opts != NULL && ctx->ftl.flash_opts->control != NULL &&
+                    ctx->ftl.flash_opts->control(ctx->ftl.flash_opts->ctx,
+                                                 PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+                    geo.erase_size > 0) {
+                    uint32_t new_blk = addr / geo.erase_size;
+                    if (new_blk <= 0xFFFEu) {
+                        entry->last_written_block = (uint16_t)new_blk;
+                    }
+                }
             }
             ctx->checkpoint.written_blocks += 1u;
         }

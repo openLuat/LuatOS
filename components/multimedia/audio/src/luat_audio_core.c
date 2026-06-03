@@ -176,7 +176,8 @@ static int _audio_tts_output_callback(void *data, uint32_t param, void *user_dat
 			return -1;
 		}
 	} else {
-		ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->play_codec.common_param, request_block->play_buff, request_block->one_block_len, request_block->block_nums);
+		LLOGC(luat_audio_debug_flag, "tts start, play info %u,%u,%u", request_block->play_codec.common_param.sample_rate, request_block->play_codec.common_param.data_align, request_block->play_codec.common_param.channel_nums);
+		ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->play_codec.common_param, request_block->play_buff, 0, 4);
 		if (ret) {
 			LLOGE("tts start driver failed");
 			return -1;
@@ -231,10 +232,12 @@ static void luat_audio_tts_task(void *param)
 		case LUAT_AUDIO_EV_TTS_RUN:
 			tts_request_block = (luat_audio_request_block_t *)out_event.param1;
 			if (tts_request_block->request_id == _luat_audio.current_request_block->request_id) {
-				if (tts_request_block->play_codec.opts->tts_decode(&tts_request_block->play_codec, tts_request_block->tts_data, tts_request_block->tts_data_size, tts_request_block)) {
+				if (tts_request_block->play_codec.opts->tts_decode_sync(&tts_request_block->play_codec, tts_request_block->tts_data, tts_request_block->tts_data_size, tts_request_block)) {
 					tts_request_block->is_error_stop = 1;
+					LLOGE("tts decode sync failed");
 				} else {
 					tts_request_block->is_input_end = 1;
+					LLOGC(luat_audio_debug_flag, "tts decode sync end");
 				}
 				luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_TX_NEED_DATA, (uint32_t)tts_request_block, 0, 0, 0);
 			}
@@ -550,7 +553,13 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 	request_block->cb(LUAT_AUDIO_REQUEST_EVENT_START, NULL, 0, request_block);
 	// 最后根据请求块的模式做不同的解码操作
 	if (request_block->is_tts) {	//TTS模式发送给tts_task处理
-		luat_rtos_event_send(_luat_audio.tts_task_handle, LUAT_AUDIO_EV_TTS_RUN, (uint32_t)request_block, 0, 0, 0);
+		if (request_block->play_codec.opts->is_tts_asynchronous) {
+			LLOGE("request id %d tts asynchronous mode not support", request_block->request_id);
+			request_block->is_error_stop = 1;
+			return;
+		} else {
+			luat_rtos_event_send(_luat_audio.tts_task_handle, LUAT_AUDIO_EV_TTS_RUN, (uint32_t)request_block, 0, 0, 0);
+		}
 		return;
 	} else  {	//本地文件模式
 		_audio_decode_file_start(request_block);
@@ -569,8 +578,8 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 	if (ret) {
 		LLOGE("request id %d start driver failed, ret %d", request_block->request_id, ret);
 		request_block->is_error_stop = 1;
-	} else {
-		request_block->cb(LUAT_AUDIO_REQUEST_EVENT_DRIVER_START, NULL, 0, request_block);
+	// } else {
+	// 	request_block->cb(LUAT_AUDIO_REQUEST_EVENT_DRIVER_START, NULL, 0, request_block);
 	}
 }
 
@@ -602,7 +611,7 @@ static void luat_audio_common_task(void *param)
 					request_block->is_wait_play_end = 0;
 				}
 			} else {
-				if (request_block->is_input_end && !luat_fifo_check_used_space(request_block->org_input_data_fifo)) {
+				if (request_block->is_input_end && (request_block->is_tts?1:!luat_fifo_check_used_space(request_block->org_input_data_fifo))) {
 					LLOGC(luat_audio_debug_flag, "play request end, fifo empty, stop decode");
 					request_block->is_wait_play_end = 1;
 					request_block->play_blank_data_cnt = 0;
@@ -613,7 +622,9 @@ static void luat_audio_common_task(void *param)
 							request_block->cb(LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA, NULL, 0, request_block);
 						}
 					} else if (request_block->is_tts) {
-						luat_mutex_unlock(_luat_audio.tts_wait_sem);
+						if (!request_block->is_input_end) {
+							luat_mutex_unlock(_luat_audio.tts_wait_sem);
+						}
 					} else {
 						_audio_decode_file_to_fifo(request_block);
 					}
@@ -916,7 +927,6 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 	if (ret != LUAT_ERROR_NONE) {
 		return ret;
 	}
-	request_block->play_codec.param.tts_output_callback_t = _audio_tts_output_callback;
 	if (luat_audio_data_codec_bind(&request_block->play_codec, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS), request_block) != LUAT_ERROR_NONE) {
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
@@ -935,6 +945,7 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 	request_block->is_tts = 1;
 	request_block->tts_data = (const char *)request_block->temp_buff;
 	request_block->tts_data_size = text_len;
+	request_block->play_codec.param.tts_output_callback = _audio_tts_output_callback;
 	return luat_audio_request_start(request_block, is_sync);
 }
 

@@ -843,6 +843,8 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "REQUEST_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_START)},
     //@const REQUEST_DRIVER_START number audio_v2.on回调函数传入消息值，表示请求块驱动开始
     { "REQUEST_DRIVER_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_DRIVER_START)},
+    //@const REQUEST_TTS_START number audio_v2.on回调函数传入消息值，表示请求块TTS开始
+    { "REQUEST_TTS_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_TTS_START)},
     //@const REQUEST_NEED_NEW_DATA number audio_v2.on回调函数传入消息值，表示请求块需要新的数据，需要传入新的数据
     { "REQUEST_NEED_NEW_DATA",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA)},
     //@const REQUEST_GET_NEW_DATA number audio_v2.on回调函数传入消息值，表示请求块获取新的数据

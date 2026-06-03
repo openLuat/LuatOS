@@ -1,6 +1,7 @@
 PROJECT = "audio_v2_test"
 VERSION = "1.0.1"
 log.style(1)
+mcu.hardfault(0)
 local taskName = "task_audio"
 local es8311 = require "es8311"
 local MSG_MD = "moreData"   -- 播放缓存有空余
@@ -76,11 +77,30 @@ end
 
 local function play_task()
     local i2c_id = 1
+    local line, fd = nil, nil
     local amrs = {"/luadb/alipay.amr", "/luadb/2.amr", "/luadb/10.amr", "/luadb/yuan.amr"}
     local file_data, no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed, result
     while true do
         audio_v2.play(amrs)
-        audio_v2.play("/luadb/test_16k.mp3")
+        --audio_v2.play("/luadb/test_16k.mp3")
+
+        line = nil
+        if not fd then
+            fd = io.open("/luadb/qianzw.txt")
+        end
+        if fd then
+            line = fd:read("*l")
+            if line == nil then
+                fd:close()
+                fd = nil
+            end
+        end
+        if line == nil then
+            line = "一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十"
+        end
+        line = line:trim()
+        log.info("播放内容", line)
+        audio_v2.tts(line)
         --audio_v2.play("/luadb/test_32k.mp3")
         --audio_v2.play("/luadb/test_44k.mp3")
         while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
@@ -135,4 +155,14 @@ end
 --audio_setup_1601_evb()
 audio_setup_air780ehm_evb()
 sys.taskInit(play_task)
+--定期检查ram使用情况，及时发现内存泄露
+sys.taskInit(function()
+    while true do
+        sys.wait(10000)
+        log.info("time", os.time())
+        log.info("lua", rtos.meminfo("lua"))
+        log.info("sys", rtos.meminfo("sys"))
+        log.info("psram", rtos.meminfo("psram"))
+    end
+end)
 sys.run()

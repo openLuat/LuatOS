@@ -41,10 +41,34 @@ int pgfs_ftl_on_mount(void* _ctx) {
     }
     uint32_t total_blocks = geo.capacity / geo.erase_size;
 
-    /* Init FTL context */
-    if (pgfs_ftl_init(&ctx->ftl, ctx->flash_opts, geo.erase_size, total_blocks) != 0) {
-        LLOGE("pgfs_ftl: init failed");
-        return -1;
+    /* Phase 4b: skip re-init if the FTL context was already initialised
+     * (e.g. by an early pgfs_ftl_on_mount_early call ahead of the
+     * replay path so pgfs_checkpoint_is_consistent_with_ftl can read
+     * the persisted write_head / log_tail). Calling pgfs_ftl_init
+     * again would memset the context and erase the loaded state. */
+    if (ctx->ftl.flash_opts == NULL) {
+        if (pgfs_ftl_init(&ctx->ftl, ctx->flash_opts, geo.erase_size, total_blocks) != 0) {
+            LLOGE("pgfs_ftl: init failed");
+            return -1;
+        }
+    }
+
+    /* Phase 1: mark reserved blocks (SB-A/B, CP-A/B, FTL state) as off-limits
+     * for data log segments. Falls back to fixed blocks 0..4 if the layout
+     * is uninitialised. The reserved bitmap survives an early init because
+     * it is part of the FTL state that pgfs_ftl_load restores — but we
+     * re-mark defensively in case the early path skipped the mark. */
+    if (ctx->layout.erase_size != 0 && ctx->layout.data_log_first_block > 0) {
+        pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.sb_a_block);
+        pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.sb_b_block);
+        pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.cp_a_block);
+        pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.cp_b_block);
+        pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.ftl_state_block);
+    } else {
+        /* Legacy/v1 path: reserve blocks 0..4 by default. */
+        for (uint32_t i = 0; i < PGFS_LAYOUT_RESERVED_BLOCKS && i < total_blocks; i++) {
+            pgfs_ftl_mark_reserved(&ctx->ftl, i);
+        }
     }
 
     /* Transfer inject_bad_block_once from mount ctx → FTL ctx */
@@ -58,6 +82,11 @@ int pgfs_ftl_on_mount(void* _ctx) {
     if (load_ret == 0) {
         LLOGI("pgfs_ftl: loaded %u bad blocks from flash",
                (unsigned int)ctx->ftl.bad_block_count);
+        /* Phase 6: a successful on-flash load means the FTL state v3
+         * record was found and round-tripped cleanly. Bump the counter
+         * so the multi-mount tests can assert that a remount sees
+         * the same number of loads as mounts. */
+        ctx->stats.ftl_load_count += 1;
     } else if (load_ret == 1) {
         /*
          * No FTL record found (first boot after FTL upgrade, or fresh flash).
@@ -100,6 +129,12 @@ int pgfs_ftl_on_mount(void* _ctx) {
         /* Persist immediately so next mount can load */
         if (pgfs_ftl_persist(&ctx->ftl, ctx->checkpoint.seq) != 0) {
             LLOGW("pgfs_ftl: first persist failed (non-fatal)");
+        } else {
+            /* Phase 6: first-persist succeeded. The subsequent mount
+             * cycle will load the just-written record, so the load
+             * count and the persist count both end up at 1 after a
+             * single boot. */
+            ctx->stats.ftl_persist_count += 1;
         }
     } else {
         LLOGE("pgfs_ftl: load error");
@@ -112,6 +147,28 @@ int pgfs_ftl_on_mount(void* _ctx) {
 int pgfs_ftl_on_checkpoint_commit(void* _ctx) {
     pgfs_mount_ctx_t *ctx = (pgfs_mount_ctx_t *)_ctx;
     if (!ctx || !ctx->mounted) return 0;
+    /* Phase 4b: refresh the FTL's per-segment write head from the live
+     * mount ctx so the persisted FTL state matches the CP's log_tail_*
+     * fields. The same values are mirrored onto ctx->log_tail_* by
+     * pgfs_checkpoint_store_next right before the CP is written, so
+     * persisting them here keeps CP and FTL state in sync. */
+    if (ctx->flash_opts && ctx->flash_opts->control) {
+        pgfs_flash_geometry_t geo = {0};
+        if (ctx->flash_opts->control(ctx->flash_opts->ctx,
+                                     PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+            geo.erase_size > 0 &&
+            ctx->data_log_write_addr >= ctx->data_log_base_addr) {
+            uint32_t base_block = (ctx->data_log_base_addr / geo.erase_size);
+            uint32_t write_block = (ctx->data_log_write_addr / geo.erase_size);
+            uint32_t write_off   = (ctx->data_log_write_addr % geo.erase_size);
+            if (write_block >= base_block) {
+                ctx->ftl.write_head_block  = write_block - base_block;
+                ctx->ftl.write_head_offset = (uint16_t)write_off;
+            }
+            ctx->ftl.log_tail_block  = ctx->log_tail_block;
+            ctx->ftl.log_tail_offset = ctx->log_tail_offset;
+        }
+    }
     /* Forward powercut injection: stage 3 → FTL erase; stage 4 → FTL write */
     if (ctx->inject_powercut_stage == 3) {
         ctx->ftl.powercut_inject = 1;
@@ -127,6 +184,12 @@ int pgfs_ftl_on_checkpoint_commit(void* _ctx) {
         /* Powercut injected — clear it so the next call doesn't keep failing. */
         ctx->inject_powercut_stage = 0;
         ret = 0; /* treat as success for powercut-injection tests */
+    }
+    if (ret == 0 && ctx->ftl.persist_success_count > 0) {
+        /* Phase 6: a successful FTL persist happened during this commit.
+         * Bump the counter so the multi-mount tests can assert that
+         * every CP commit was followed by a matching persist. */
+        ctx->stats.ftl_persist_count += 1;
     }
     return ret;
 }

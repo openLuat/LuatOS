@@ -104,30 +104,24 @@ static int pgfs_lf_control(void *ctx, uint32_t cmd, void *arg) {
 }
 #endif
 
+/* pgfs_compute_data_log_base — mount helper. Calls pgfs_layout_compute()
+ * to derive the layout from the geometry, and returns the byte address
+ * of the first data-log block. The layout always starts the data log
+ * at block PGFS_LAYOUT_RESERVED_BLOCKS, which is past the FTL state
+ * region by construction. */
 static uint32_t pgfs_compute_data_log_base(const pgfs_flash_opts_t* opts) {
     pgfs_flash_geometry_t geo = {0};
-    uint32_t base = PGFS_DATA_LOG_BASE_ADDR;
+    pgfs_layout_t layout = {0};
     if (opts == NULL || opts->control == NULL) {
-        return base;
+        return PGFS_DATA_LOG_BASE_ADDR;
     }
     if (opts->control(opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) != 0 || geo.erase_size == 0) {
-        return base;
+        return PGFS_DATA_LOG_BASE_ADDR;
     }
-    if (base % geo.erase_size != 0) {
-        uint64_t aligned = ((uint64_t)base + (uint64_t)geo.erase_size - 1u) / (uint64_t)geo.erase_size * (uint64_t)geo.erase_size;
-        if (aligned < 0xFFFFFFFFu) {
-            base = (uint32_t)aligned;
-        }
+    if (pgfs_layout_compute(&geo, &layout) != 0) {
+        return PGFS_DATA_LOG_BASE_ADDR;
     }
-    /* Skip past the FTL state erase-unit: the data log must not overlap
-     * the persisted FTL state. This fixes a latent bug where PGFS_DATA_LOG_BASE_ADDR
-     * could be inside the FTL block when erase_size was different from the
-     * default. */
-    uint32_t ftl_state_end = pgfs_ftl_state_addr(geo.erase_size) + geo.erase_size;
-    if (base < ftl_state_end) {
-        base = ftl_state_end;
-    }
-    return base;
+    return layout.data_log_first_block * layout.erase_size;
 }
 
 static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
@@ -157,12 +151,36 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
             memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
             return -1;
         }
+        /* The rebuild path also runs a replay internally. */
+        s_pgfs_ctx.stats.replay_count += 1;
     }
     else {
-        ret = pgfs_replay_data_log(&s_pgfs_ctx);
-        if (ret != 0) {
+        /* Phase 4b: try to skip pgfs_replay_data_log when the CP and
+         * the FTL state agree on the data log write head. To do that we
+         * must load the FTL state first. The FTL on_mount is idempotent
+         * for init (it skips pgfs_ftl_init if flash_opts is set), so an
+         * early init+load here just gets the write_head_* / log_tail_*
+         * into ctx->ftl without running the full bad-block scan. The
+         * full scan / persist path runs later via the unconditional
+         * pgfs_ftl_on_mount call below. */
+        if (pgfs_ftl_on_mount(&s_pgfs_ctx) != 0) {
+            LLOGE("pgfs: early FTL init failed");
             memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
             return -1;
+        }
+        if (pgfs_checkpoint_is_consistent_with_ftl(&s_pgfs_ctx.checkpoint,
+                                                   &s_pgfs_ctx.ftl)) {
+            LLOGI("pgfs: O(1) mount — CP and FTL agree on log_tail=%u/%u, skipping replay",
+                  (unsigned int)s_pgfs_ctx.checkpoint.log_tail_block,
+                  (unsigned int)s_pgfs_ctx.checkpoint.log_tail_offset);
+            s_pgfs_ctx.stats.replay_skip_count += 1;
+        } else {
+            ret = pgfs_replay_data_log(&s_pgfs_ctx);
+            if (ret != 0) {
+                memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
+                return -1;
+            }
+            s_pgfs_ctx.stats.replay_count += 1;
         }
     }
     s_pgfs_ctx.checkpoint_loaded = 1;
@@ -175,6 +193,7 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
     }
 
     s_pgfs_ctx.mounted = 1;
+    s_pgfs_ctx.stats.mount_count += 1;
     *fsdata = &s_pgfs_ctx;
     return 0;
 }

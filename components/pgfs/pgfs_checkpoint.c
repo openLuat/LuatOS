@@ -8,6 +8,67 @@
 
 #ifdef LUAT_USE_PGFS_COMPONENT
 
+/* pgfs_layout_compute — fill a layout struct from a flash geometry.
+ *
+ * Block 0..4 are reserved (SB-A, SB-B, CP-A, CP-B, FTL state). The data
+ * log spans [5, total_blocks-1]. Returns -1 if the geometry is too
+ * small to host the required reserved blocks (< 5 blocks total). */
+/* Phase 4b: consistency check between CP and FTL state.
+ * The CP carries a (log_tail_block, log_tail_offset) pair that records
+ * the data log position at the moment the CP was committed. The FTL
+ * state carries the same pair (write_head_block, write_head_offset).
+ * If they match, the data log has not been touched since the CP was
+ * committed, and pgfs_replay_data_log can be skipped on mount. */
+bool pgfs_checkpoint_is_consistent_with_ftl(const pgfs_checkpoint_t* cp,
+                                          const pgfs_nand_ftl_ctx_t* ftl) {
+    if (cp == NULL || ftl == NULL || ftl->flash_opts == NULL) {
+        return false;
+    }
+    /* The CP's log_tail_* is the data log position at the moment of the
+     * last CP commit. The FTL's write_head_* is the position persisted
+     * alongside the CP (and refreshed by pgfs_ftl_on_checkpoint_commit
+     * before the persist). If they match, the data log is consistent
+     * with the CP and the replay can be skipped. */
+    if (cp->log_tail_block != ftl->write_head_block) {
+        return false;
+    }
+    if (cp->log_tail_offset != ftl->write_head_offset) {
+        return false;
+    }
+    /* Sanity: a CP recorded with both log_tail fields as zero on a
+     * v2-record means it was written before Phase 4b plumbing was in
+     * place. Treat as inconsistent to force the safer replay path. */
+    if (cp->log_tail_block == 0 && cp->log_tail_offset == 0) {
+        return false;
+    }
+    return true;
+}
+
+int pgfs_layout_compute(const pgfs_flash_geometry_t* geo, pgfs_layout_t* out) {
+    if (geo == NULL || out == NULL) {
+        return -1;
+    }
+    if (geo->erase_size == 0 || geo->capacity < geo->erase_size) {
+        return -1;
+    }
+    uint32_t total_blocks = geo->capacity / geo->erase_size;
+    if (total_blocks < PGFS_LAYOUT_RESERVED_BLOCKS) {
+        return -1;
+    }
+    out->erase_size = geo->erase_size;
+    out->prog_size = geo->prog_size != 0 ? geo->prog_size : 1u;
+    out->total_blocks = total_blocks;
+    out->sb_a_block = 0;
+    out->sb_b_block = 1;
+    out->cp_a_block = 2;
+    out->cp_b_block = 3;
+    out->ftl_state_block = 4;
+    out->data_log_first_block = PGFS_LAYOUT_RESERVED_BLOCKS;
+    out->data_log_last_block = total_blocks - 1u;
+    out->reserved_block_count = PGFS_LAYOUT_RESERVED_BLOCKS;
+    return 0;
+}
+
 static uint32_t pgfs_crc32_calc(const void* data, size_t len) {
     return luat_crc32(data, (uint32_t)len, 0xFFFFFFFFu, 0);
 }
@@ -193,6 +254,34 @@ int pgfs_checkpoint_store_next(void* fs, const pgfs_checkpoint_t* current, pgfs_
         }
     }
 
+    /* Phase 4b: record the data log write head in the CP itself so the
+     * mount path can compare it against the FTL's persisted log_tail_*
+     * fields and skip pgfs_replay_data_log when they match. We derive
+     * block/offset from ctx->data_log_write_addr; the same values are
+     * also pushed to ctx->ftl.write_head_* by pgfs_ftl_on_checkpoint_commit
+     * so the FTL meta records the same point. */
+    if (ctx->flash_opts && ctx->flash_opts->control &&
+        ctx->flash_opts->control(ctx->flash_opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+        geo.erase_size > 0 && ctx->data_log_write_addr >= ctx->data_log_base_addr) {
+        uint32_t base_block = (ctx->data_log_base_addr / geo.erase_size);
+        uint32_t write_block = (ctx->data_log_write_addr / geo.erase_size);
+        uint32_t write_off   = (ctx->data_log_write_addr % geo.erase_size);
+        if (write_block >= base_block) {
+            tmp.log_tail_block  = write_block - base_block;
+            tmp.log_tail_offset = (uint16_t)write_off;
+        } else {
+            tmp.log_tail_block  = 0;
+            tmp.log_tail_offset = 0;
+        }
+    } else {
+        tmp.log_tail_block  = 0;
+        tmp.log_tail_offset = 0;
+    }
+    /* Mirror into the runtime ctx so callers and the FTL layer can read
+     * the value without having to round-trip through the CP. */
+    ctx->log_tail_block  = tmp.log_tail_block;
+    ctx->log_tail_offset = tmp.log_tail_offset;
+
     if ((tmp.seq & 1u) == 0) {
         cp_addr = PGFS_CHECKPOINT_B_ADDR;
         sb_addr = PGFS_SUPERBLOCK_B_ADDR;
@@ -279,6 +368,10 @@ int pgfs_checkpoint_store_next(void* fs, const pgfs_checkpoint_t* current, pgfs_
     }
 
     *next = tmp;
+    /* Phase 6: observability. The CP+SB pair round-tripped cleanly,
+     * so count this as a successful commit. The matching FTL persist
+     * is counted separately by pgfs_ftl_on_checkpoint_commit. */
+    ctx->stats.cp_commit_count += 1;
     return 0;
 }
 

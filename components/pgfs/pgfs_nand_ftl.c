@@ -135,6 +135,25 @@ void pgfs_ftl_mark_weak(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     }
 }
 
+/* ── Retired-block bitmap (Phase 5b) ──────────────────────────────────────── */
+
+bool pgfs_ftl_is_retired(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
+    if (!ctx || !ctx->retired_blocks_bitmap || block_id >= ctx->total_blocks) {
+        return false;
+    }
+    return pgfs_ftl_bit_get(ctx->retired_blocks_bitmap, block_id);
+}
+
+void pgfs_ftl_mark_retired(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
+    if (!ctx || !ctx->retired_blocks_bitmap || block_id >= ctx->total_blocks) {
+        return;
+    }
+    if (!pgfs_ftl_bit_get(ctx->retired_blocks_bitmap, block_id)) {
+        pgfs_ftl_bit_set(ctx->retired_blocks_bitmap, block_id);
+        ctx->retired_block_count++;
+    }
+}
+
 /* ── Public API ──────────────────────────────────────────────────────────── */
 
 int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
@@ -168,14 +187,28 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
         return -1;
     }
 
-    ctx->erase_counts = (uint16_t *)calloc(total_blocks, sizeof(uint16_t));
-    if (!ctx->erase_counts) {
+    /* Phase 5b: retired bitmap is independent of bad/weak/reserved. */
+    ctx->retired_blocks_bitmap = (uint8_t *)calloc(1, bitmap_bytes);
+    if (!ctx->retired_blocks_bitmap) {
         free(ctx->bad_blocks_bitmap);
         free(ctx->reserved_blocks_bitmap);
         free(ctx->weak_blocks_bitmap);
         ctx->bad_blocks_bitmap = NULL;
         ctx->reserved_blocks_bitmap = NULL;
         ctx->weak_blocks_bitmap = NULL;
+        return -1;
+    }
+
+    ctx->erase_counts = (uint16_t *)calloc(total_blocks, sizeof(uint16_t));
+    if (!ctx->erase_counts) {
+        free(ctx->bad_blocks_bitmap);
+        free(ctx->reserved_blocks_bitmap);
+        free(ctx->weak_blocks_bitmap);
+        free(ctx->retired_blocks_bitmap);
+        ctx->bad_blocks_bitmap = NULL;
+        ctx->reserved_blocks_bitmap = NULL;
+        ctx->weak_blocks_bitmap = NULL;
+        ctx->retired_blocks_bitmap = NULL;
         return -1;
     }
     return 0;
@@ -186,6 +219,7 @@ void pgfs_ftl_deinit(pgfs_nand_ftl_ctx_t *ctx) {
     free(ctx->bad_blocks_bitmap);
     free(ctx->reserved_blocks_bitmap);
     free(ctx->weak_blocks_bitmap);
+    free(ctx->retired_blocks_bitmap);
     free(ctx->erase_counts);
     if (ctx->last_persist_buf != NULL) {
         free(ctx->last_persist_buf);
@@ -210,8 +244,12 @@ int pgfs_ftl_find_free_block(const pgfs_nand_ftl_ctx_t *ctx,
                              uint32_t start_id,
                              uint32_t *out_block) {
     if (!ctx || !out_block) return -1;
+    /* Phase 5b: skip retired blocks just like bad ones. The two states
+     * are independent — a block can be retired-without-bad (GC moved
+     * data out) and later marked bad-on-top-of-retired if its erase
+     * then fails. */
     for (uint32_t id = start_id; id < ctx->total_blocks; id++) {
-        if (!pgfs_ftl_is_block_bad(ctx, id)) {
+        if (!pgfs_ftl_is_block_bad(ctx, id) && !pgfs_ftl_is_retired(ctx, id)) {
             *out_block = id;
             return 0;
         }
@@ -246,8 +284,8 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     uint32_t state_addr   = pgfs_ftl_state_addr(erase_size);
     uint32_t bitmap_bytes = PGFS_FTL_BITMAP_BYTES(ctx->total_blocks);
     uint32_t ec_bytes     = ctx->total_blocks * sizeof(uint16_t);
-    /* v2 layout: [meta][bad_blocks][reserved_blocks][erase_counts] */
-    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + 2u * bitmap_bytes + ec_bytes;
+    /* v3 layout (Phase 5b): [meta][bad_blocks][reserved_blocks][retired_blocks][erase_counts] */
+    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + 3u * bitmap_bytes + ec_bytes;
 
     /* Powercut injection point: fail right before erasing the FTL state
      * block. The block retains its previous content, and the next mount
@@ -274,6 +312,7 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     meta->bitmap_bytes          = bitmap_bytes;
     meta->reserved_bitmap_bytes = bitmap_bytes;
     meta->erase_count_bytes     = ec_bytes;
+    meta->retired_bitmap_bytes  = bitmap_bytes;
     /* Phase 4b: persist the data log write head so the mount path can
      * compare against the CP's log_tail_* fields. Callers (notably
      * pgfs_ftl_on_checkpoint_commit) are expected to have refreshed
@@ -285,16 +324,18 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     meta->log_tail_block_lo   = (uint16_t)(ctx->log_tail_block & 0xFFFFu);
     meta->reserved1           = 0;
 
-    /* Copy bad_blocks_bitmap + reserved_blocks_bitmap + erase_counts
-     * into staging buffer. v2 layout. */
+    /* Copy bad_blocks_bitmap + reserved_blocks_bitmap + retired_blocks_bitmap
+     * + erase_counts into staging buffer. v3 layout. */
     uint8_t  *bitmap_ptr    = buf + sizeof(pgfs_ftl_meta_t);
     uint8_t  *reserved_ptr  = bitmap_ptr + bitmap_bytes;
-    uint16_t *ec_ptr        = (uint16_t *)(reserved_ptr + bitmap_bytes);
+    uint8_t  *retired_ptr   = reserved_ptr + bitmap_bytes;
+    uint16_t *ec_ptr        = (uint16_t *)(retired_ptr + bitmap_bytes);
     memcpy(bitmap_ptr, ctx->bad_blocks_bitmap, bitmap_bytes);
     memcpy(reserved_ptr, ctx->reserved_blocks_bitmap, bitmap_bytes);
+    memcpy(retired_ptr, ctx->retired_blocks_bitmap, bitmap_bytes);
     memcpy(ec_ptr, ctx->erase_counts, ec_bytes);
 
-    /* Compute CRC over [meta + bitmap + erase_counts] */
+    /* Compute CRC over [meta + bitmaps + erase_counts] */
     meta->crc32 = 0;
     meta->crc32 = pgfs_ftl_crc32(buf, total_bytes);
 
@@ -380,7 +421,12 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
     uint32_t state_addr   = pgfs_ftl_state_addr(erase_size);
     uint32_t bitmap_bytes = PGFS_FTL_BITMAP_BYTES(ctx->total_blocks);
     uint32_t ec_bytes     = ctx->total_blocks * sizeof(uint16_t);
-    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + 2u * bitmap_bytes + ec_bytes;
+    /* Phase 5b: detect v2 records on flash and load them with the
+     * legacy 2-bitmap layout. v3 records have the retired bitmap in
+     * between. The version check below disambiguates. */
+    uint32_t total_bytes_v3 = sizeof(pgfs_ftl_meta_t) + 3u * bitmap_bytes + ec_bytes;
+    uint32_t total_bytes_v2 = sizeof(pgfs_ftl_meta_t) + 2u * bitmap_bytes + ec_bytes;
+    (void)total_bytes_v2;
 
     /* Read header first */
     pgfs_ftl_meta_t hdr;
@@ -388,14 +434,19 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         return 1; /* no record */
     }
 
-    /* Basic validation */
+    /* Basic validation — accept both v2 and v3 records, but only v3
+     * has the retired bitmap. v2 records are valid; we just treat the
+     * retired bitmap as empty. */
     if (hdr.magic != PGFS_FTL_MAGIC ||
-        hdr.version != PGFS_FTL_VERSION ||
+        (hdr.version != 2u && hdr.version != 3u) ||
         hdr.total_blocks != (uint16_t)ctx->total_blocks ||
         hdr.bitmap_bytes != bitmap_bytes ||
         hdr.erase_count_bytes != ec_bytes) {
         return 1; /* invalid */
     }
+
+    /* Pick the layout that matches the on-flash version. */
+    uint32_t total_bytes = (hdr.version == 3u) ? total_bytes_v3 : total_bytes_v2;
 
     /* Read full record */
     uint8_t *buf = (uint8_t *)malloc(total_bytes);
@@ -415,13 +466,20 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         return 1; /* corrupt */
     }
 
-    /* Extract data — v2 layout. */
+    /* Extract data — v3 layout has the retired bitmap between
+     * reserved and erase_counts; v2 layout jumps straight to erase_counts. */
     uint8_t  *bitmap_ptr   = buf + sizeof(pgfs_ftl_meta_t);
     uint8_t  *reserved_ptr = bitmap_ptr + bitmap_bytes;
-    uint16_t *ec_ptr       = (uint16_t *)(reserved_ptr + bitmap_bytes);
+    uint8_t  *retired_ptr  = (hdr.version == 3u) ? (reserved_ptr + bitmap_bytes) : NULL;
+    uint16_t *ec_ptr       = (uint16_t *)((retired_ptr != NULL) ? (retired_ptr + bitmap_bytes) : (reserved_ptr + bitmap_bytes));
 
     memcpy(ctx->bad_blocks_bitmap, bitmap_ptr, bitmap_bytes);
     memcpy(ctx->reserved_blocks_bitmap, reserved_ptr, bitmap_bytes);
+    if (retired_ptr != NULL) {
+        memcpy(ctx->retired_blocks_bitmap, retired_ptr, bitmap_bytes);
+    } else {
+        /* v2 record: retired bitmap is implicit zeros (calloc'd at init). */
+    }
     memcpy(ctx->erase_counts, ec_ptr, ec_bytes);
 
     /* Phase 4b: restore the data log write head from the persisted
@@ -440,12 +498,16 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         if (pgfs_ftl_is_reserved(ctx, i)) ctx->reserved_block_count++;
     }
 
-    /* Count bad blocks */
-    ctx->bad_block_count = 0;
-    ctx->total_erase_count = 0;
+    /* Count bad / retired / total_erase_count from the loaded bitmaps. */
+    ctx->bad_block_count     = 0;
+    ctx->retired_block_count = 0;
+    ctx->total_erase_count   = 0;
     for (uint32_t i = 0; i < ctx->total_blocks; i++) {
         if (pgfs_ftl_bit_get(ctx->bad_blocks_bitmap, i)) {
             ctx->bad_block_count++;
+        }
+        if (pgfs_ftl_bit_get(ctx->retired_blocks_bitmap, i)) {
+            ctx->retired_block_count++;
         }
         ctx->total_erase_count += ctx->erase_counts[i];
     }

@@ -377,6 +377,109 @@ static int pgfs_test_retired_does_not_mark_bad(void) {
     return fail;
 }
 
+/* Phase 5b: the FTL persist/load round-trip must preserve the retired
+ * bitmap. Mark two blocks retired, persist, then load a fresh FTL
+ * context from the same flash and verify the bits came back. Also
+ * check that retired_block_count is recomputed from the loaded bitmap
+ * (not just left at zero). */
+static int pgfs_test_retired_bitmap_persists_roundtrip(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_nand_ftl_ctx_t ftl = {0};
+    pgfs_nand_ftl_ctx_t ftl_loaded = {0};
+    uint32_t erase_size = 4096;
+    uint32_t total_blocks = 32;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    pgfs_ftl_init(&ftl, &opts, erase_size, total_blocks);
+    pgfs_ftl_mark_retired(&ftl, 3);
+    pgfs_ftl_mark_retired(&ftl, 17);
+    if (pgfs_ftl_persist(&ftl, 1) != 0) {
+        printf("[pgfs-utest] FTL persist failed\n");
+        fail++;
+    } else {
+        pgfs_ftl_init(&ftl_loaded, &opts, erase_size, total_blocks);
+        if (pgfs_ftl_load(&ftl_loaded) != 0) {
+            printf("[pgfs-utest] FTL load failed\n");
+            fail++;
+        } else {
+            if (!pgfs_ftl_is_retired(&ftl_loaded, 3) ||
+                !pgfs_ftl_is_retired(&ftl_loaded, 17)) {
+                printf("[pgfs-utest] retired bits did not survive persist/load\n");
+                fail++;
+            }
+            if (ftl_loaded.retired_block_count != 2) {
+                printf("[pgfs-utest] retired_block_count mismatch: got %u, want 2\n",
+                       (unsigned int)ftl_loaded.retired_block_count);
+                fail++;
+            }
+            /* A non-retired block must NOT be marked retired by the
+             * load path (no spurious zero-bit promotion). */
+            if (pgfs_ftl_is_retired(&ftl_loaded, 5)) {
+                printf("[pgfs-utest] block 5 incorrectly reported retired after load\n");
+                fail++;
+            }
+        }
+        pgfs_ftl_deinit(&ftl_loaded);
+    }
+
+    pgfs_ftl_deinit(&ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 5b: pgfs_ftl_find_free_block must skip retired blocks just
+ * like it skips bad ones. Mark a block retired and assert the
+ * allocator returns a different block. */
+static int pgfs_test_alloc_skips_retired_blocks(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_nand_ftl_ctx_t ftl = {0};
+    uint32_t erase_size = 4096;
+    uint32_t total_blocks = 8;
+    uint32_t out_block = 0xFFFFFFFFu;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    pgfs_ftl_init(&ftl, &opts, erase_size, total_blocks);
+    /* Mark every block as retired, then ask for a free block. The
+     * allocator must fail because every block is retired. */
+    for (uint32_t i = 0; i < total_blocks; i++) {
+        pgfs_ftl_mark_retired(&ftl, i);
+    }
+    if (pgfs_ftl_find_free_block(&ftl, 0, &out_block) == 0) {
+        printf("[pgfs-utest] find_free_block returned %u (expected failure when all blocks retired)\n",
+               (unsigned int)out_block);
+        fail++;
+    }
+    /* Now mark just one block (5) retired and verify the allocator
+     * returns a different one. */
+    pgfs_ftl_init(&ftl, &opts, erase_size, total_blocks);
+    pgfs_ftl_mark_retired(&ftl, 5);
+    if (pgfs_ftl_find_free_block(&ftl, 0, &out_block) != 0) {
+        printf("[pgfs-utest] find_free_block failed with only block 5 retired\n");
+        fail++;
+    } else if (out_block == 5) {
+        printf("[pgfs-utest] find_free_block returned the retired block %u\n",
+               (unsigned int)out_block);
+        fail++;
+    } else if (out_block >= total_blocks) {
+        printf("[pgfs-utest] find_free_block returned out-of-range block %u\n",
+               (unsigned int)out_block);
+        fail++;
+    }
+    pgfs_ftl_deinit(&ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 /* Phase 3b: pure unit test of the ECC encode/decode pair. Encode a known
  * 8-byte pattern, decode should return 0 (no error). Then flip a single
  * bit in the data, decode should return -1 (parity mismatch). The
@@ -3053,6 +3156,8 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_checkpoint_consistency_fails_on_drift);
     PGFS_RUN_CTEST(pgfs_test_ftl_persist_round_trips_write_head_and_log_tail);
     PGFS_RUN_CTEST(pgfs_test_retired_does_not_mark_bad);
+    PGFS_RUN_CTEST(pgfs_test_retired_bitmap_persists_roundtrip);
+    PGFS_RUN_CTEST(pgfs_test_alloc_skips_retired_blocks);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
      * not registered in the default c_layer_selftests dispatch. It depends
      * on data-log compaction after file deletion to reset the write head,

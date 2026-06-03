@@ -130,11 +130,21 @@ integrations. New code MUST use `pgfs_layout_t`.
      replay path). The mount path can then skip
      `pgfs_replay_data_log`.
 
-9. **Retired vs bad (Phase 5)**
+9. **Retired vs bad (Phase 5 + Phase 5b)**
    - `pgfs_mark_block_retired` no longer conflates with `pgfs_ftl_mark_block_bad`.
      Retired = GC has moved all live data out (safe to erase). Bad = at
      least one hardware erase attempt failed.
-   - The CP flag `0x01u` is still set so a remount can observe retirement.
+   - **Phase 5b**: the retired bit is now persisted in the FTL state
+     v3 record (`retired_blocks_bitmap` between the reserved bitmap
+     and the erase-count array). `pgfs_mark_block_retired` sets the
+     bit on `ctx->ftl.retired_blocks_bitmap` and the CP flag 0x01u
+     so both legacy v2 readers and the v3 loader see the retirement.
+   - The FTL allocator (`pgfs_ftl_find_free_block`) skips retired
+     blocks just like bad ones; the two states are independent
+     (retired-without-bad means GC moved data out; bad-on-top-of-
+     retired would mean an erase later failed).
+   - `pgfs_ftl_load` accepts both v2 and v3 records; a v2 record is
+     loaded with the retired bitmap implicitly zero.
 
 10. **Feature gating**
    - Use `LUAT_USE_PGFS_COMPONENT` guards in mixed modules (`little_flash`,
@@ -187,6 +197,8 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
     `pgfs_test_checkpoint_consistency_fails_on_drift`,
     `pgfs_test_ftl_persist_round_trips_write_head_and_log_tail`
   - Phase 5: `pgfs_test_retired_does_not_mark_bad`
+  - Phase 5b: `pgfs_test_retired_bitmap_persists_roundtrip`,
+    `pgfs_test_alloc_skips_retired_blocks`
   - Pre-existing: wear-levelling alloc, CP-erase powercut recovery, FTL
     state skip, single-block retirement, FTL persist snapshot, FTL
     persist readback failure.

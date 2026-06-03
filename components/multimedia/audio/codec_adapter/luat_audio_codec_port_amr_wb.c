@@ -37,6 +37,12 @@ struct state {
 	RX_State rx_state;
 };
 
+int luat_audio_codec_amr_wb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer)
+{
+    luat_buffer_write(out_buffer, "#!AMR-WB\n", 9);
+    return LUAT_ERROR_NONE;
+}
+
 int luat_audio_amr_wb_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info)
 {
     if (input_buffer->pos < 9) {
@@ -184,16 +190,7 @@ static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_p
     return LUAT_ERROR_NONE;
 }
 
-static int _amr_codec_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer)
-{
-    if (16000 == info->sample_rate) {
-        luat_buffer_write(out_buffer, "#!AMR-WB\n", 9);
-        
-    } else {
-        luat_buffer_write(out_buffer, "#!AMR\n", 6);
-    }
-    return LUAT_ERROR_NONE;
-}
+
 
 static int _amr_codec_encode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
                   const uint8_t *input, uint32_t input_size,
@@ -208,7 +205,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts = {
     .get_play_info = luat_audio_amr_wb_get_play_info,
     .pre_decode = _amr_codec_pre_decode,
     .decode = _amr_codec_decode,
-    .make_head = _amr_codec_make_head,
+    .make_head = luat_audio_codec_amr_wb_make_head,
     .encode = _amr_codec_encode,
     .tts_decode = NULL,
     .tts_set_param = NULL,

@@ -254,6 +254,9 @@ int luat_audio_amr_wb_get_play_info(struct luat_audio_data_codec *codec, luat_bu
 int luat_audio_mp3_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);
 int luat_audio_wav_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);
 
+int luat_audio_codec_amr_wb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer);
+int luat_audio_codec_amr_nb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer);
+
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_nb_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts;       

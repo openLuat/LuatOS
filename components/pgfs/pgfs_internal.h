@@ -150,6 +150,20 @@ typedef struct pgfs_diag_stats {
     uint32_t checkpoint_fallback_count;
     uint32_t powercut_inject_count;
     uint32_t badblock_inject_count;
+    /* Phase 6: lifecycle + GC observability counters. These are
+     * bumped on the relevant code paths and exposed (via
+     * pgfs_diag_stats_dump below) for the stress / multi-mount tests
+     * to assert against. */
+    uint32_t mount_count;             /* successful luat_vfs_pgfs_mount calls */
+    uint32_t replay_count;            /* full data log replays (not O(1) skip) */
+    uint32_t replay_skip_count;       /* O(1) skip path activations (Phase 4b) */
+    uint32_t replay_bytes_processed;  /* bytes scanned in the data log during replay */
+    uint32_t cp_commit_count;         /* pgfs_checkpoint_store_next successes */
+    uint32_t ftl_persist_count;       /* pgfs_ftl_persist successes */
+    uint32_t ftl_load_count;          /* pgfs_ftl_load successes */
+    uint32_t gc_step_count;           /* pgfs_gc_step invocations (any return) */
+    uint32_t gc_bytes_reclaimed;      /* sum of erase_size returned by gc_step */
+    uint32_t gc_records_moved;        /* sum of records rewritten by gc_step */
 } pgfs_diag_stats_t;
 
 typedef struct pgfs_mount_ctx {

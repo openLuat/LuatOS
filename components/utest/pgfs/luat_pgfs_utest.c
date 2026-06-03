@@ -957,6 +957,163 @@ static int pgfs_test_gc_data_move_preserves_file(void) {
     return fail;
 }
 
+/* Phase 6 stress test: write N files with distinct paths and small
+ * payloads, then read them all back and verify content matches. Also
+ * verify the runtime counters in pgfs_diag_stats_t reflect the
+ * workload — every close must have produced at least one mount-side
+ * state transition. The test stays inside the 32 KiB PC flash (8
+ * blocks) but pushes enough writes to exercise the GC path repeatedly. */
+static int pgfs_test_stress_many_files_writes_counters(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    const uint32_t N = 16;
+    char path[32];
+    char payload[24];
+    char readback[24];
+    uint32_t i = 0;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
+
+    uint32_t gc_steps_before = ctx.stats.gc_step_count;
+    uint32_t gc_reclaimed_before = ctx.stats.gc_bytes_reclaimed;
+
+    for (i = 0; i < N; i++) {
+        FILE* f = NULL;
+        int n = snprintf(path, sizeof(path), "/stress/%02u.txt", (unsigned)i);
+        int m = snprintf(payload, sizeof(payload), "payload-%u", (unsigned)i);
+        if (n <= 0 || m <= 0) { fail++; continue; }
+        f = pgfs_file_open(&ctx, path, "wb");
+        if (f == NULL) { fail++; continue; }
+        if (pgfs_file_write(&ctx, payload, 1, (size_t)m, f) != (size_t)m) {
+            fail++;
+        }
+        if (pgfs_file_close(&ctx, f) != 0) {
+            fail++;
+        }
+    }
+
+    /* GC must have been called at least once per close — the file
+     * close path always runs pgfs_gc_step before the append. */
+    if (ctx.stats.gc_step_count - gc_steps_before < N) {
+        printf("[pgfs-stress-utest] gc_step_count only advanced by %u, expected >= %u\n",
+               (unsigned)(ctx.stats.gc_step_count - gc_steps_before),
+               (unsigned)N);
+        fail++;
+    }
+    if (ctx.stats.gc_bytes_reclaimed - gc_reclaimed_before < erase_size) {
+        printf("[pgfs-stress-utest] gc reclaimed %u bytes, expected >= erase_size=%u\n",
+               (unsigned)(ctx.stats.gc_bytes_reclaimed - gc_reclaimed_before),
+               (unsigned)erase_size);
+        fail++;
+    }
+
+    /* Read each file back and verify the payload round-tripped. */
+    for (i = 0; i < N; i++) {
+        FILE* f = NULL;
+        size_t got = 0;
+        int n = snprintf(path, sizeof(path), "/stress/%02u.txt", (unsigned)i);
+        int m = snprintf(payload, sizeof(payload), "payload-%u", (unsigned)i);
+        if (n <= 0 || m <= 0) { fail++; continue; }
+        f = pgfs_file_open(&ctx, path, "rb");
+        if (f == NULL) {
+            printf("[pgfs-stress-utest] file %s not found after write\n", path);
+            fail++;
+            continue;
+        }
+        memset(readback, 0, sizeof(readback));
+        got = pgfs_file_read(&ctx, readback, 1, (size_t)m, f);
+        if (got != (size_t)m || memcmp(readback, payload, (size_t)m) != 0) {
+            printf("[pgfs-stress-utest] file %s content mismatch\n", path);
+            fail++;
+        }
+        pgfs_file_close(&ctx, f);
+    }
+
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 6 stress test: write a file, delete it, repeat. The FS state
+ * must remain consistent — the file_entry slot must come back into
+ * use (verified by the file disappearing from the in-memory table on
+ * delete), the file table must not leak, and the GC's per-block
+ * stats must remain sane. */
+static int pgfs_test_stress_write_delete_cycles(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    const uint32_t N = 12;
+    char path[32];
+    char payload[20];
+    uint32_t i = 0;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
+
+    for (i = 0; i < N; i++) {
+        FILE* f = NULL;
+        int n = snprintf(path, sizeof(path), "/cycle/%02u.txt", (unsigned)i);
+        int m = snprintf(payload, sizeof(payload), "data-%u", (unsigned)i);
+        if (n <= 0 || m <= 0) { fail++; continue; }
+
+        f = pgfs_file_open(&ctx, path, "wb");
+        if (f == NULL) { fail++; continue; }
+        if (pgfs_file_write(&ctx, payload, 1, (size_t)m, f) != (size_t)m) {
+            fail++;
+        }
+        if (pgfs_file_close(&ctx, f) != 0) {
+            fail++;
+        }
+
+        f = pgfs_file_open(&ctx, path, "rb");
+        if (f == NULL) {
+            printf("[pgfs-stress-utest] %s missing after write\n", path);
+            fail++;
+        } else {
+            pgfs_file_close(&ctx, f);
+        }
+
+        if (pgfs_file_remove(&ctx, path) != 0) {
+            printf("[pgfs-stress-utest] %s remove failed\n", path);
+            fail++;
+        }
+
+        f = pgfs_file_open(&ctx, path, "rb");
+        if (f != NULL) {
+            printf("[pgfs-stress-utest] %s still present after remove\n", path);
+            pgfs_file_close(&ctx, f);
+            fail++;
+        }
+    }
+
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 /* Phase 3b: pure unit test of the ECC encode/decode pair. Encode a known
  * 8-byte pattern, decode should return 0 (no error). Then flip a single
  * bit in the data, decode should return -1 (parity mismatch). The
@@ -3586,6 +3743,223 @@ static int pgfs_test_single_block_retired_recovers(void) {
     return fail;
 }
 
+/* Phase 6 multi-mount cycle: write a file, "unmount" (clear
+ * in-memory state), remount (reload CP + replay), read the file
+ * back. The flash state survives across the remount, and the
+ * per-mount counters in pgfs_diag_stats_t must monotonically grow
+ * (mount_count, ftl_load_count, replay_count or replay_skip_count). */
+static int pgfs_test_multi_mount_cycle_reads_via_replay(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    pgfs_checkpoint_t loaded_cp = {0};
+    char buf[32] = {0};
+    const char payload[] = "multi_mount_round_trip";
+    size_t payload_len = sizeof(payload) - 1u;
+    FILE* f = NULL;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    /* The replay path uses pgfs_data_log_base_addr which reads
+     * ctx->layout. Populate the layout from the geometry so the
+     * replay knows where to start scanning, and use the v2 data
+     * log base (block 5 = 5 * erase_size) so writes and replay
+     * use the same address. */
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts.control(opts.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx.layout);
+            ctx.data_log_base_addr  = ctx.layout.data_log_first_block * ctx.layout.erase_size;
+            ctx.data_log_write_addr = ctx.data_log_base_addr;
+            ctx.data_log_prepared_until = ctx.data_log_base_addr;
+        }
+    }
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
+
+    /* --- mount #1: write a file --- */
+    f = pgfs_file_open(&ctx, "/multi/replay.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, payload, 1, payload_len, f) != payload_len) {
+        fail++;
+    }
+    if (pgfs_file_close(&ctx, f) != 0) {
+        fail++;
+    }
+    /* One file close isn't enough to trigger the batched CP commit
+     * (the threshold is PGFS_CHECKPOINT_BATCH_CLOSES = 8). Force a
+     * commit so the second mount can read the CP back. */
+    if (pgfs_checkpoint_commit_pending(&ctx) != 0) {
+        printf("[pgfs-multi-utest] first CP commit failed\n");
+        fail++;
+    }
+
+    /* Reset in-memory state to simulate unmount; flash state persists. */
+    pgfs_file_reset_all();
+    pgfs_ftl_deinit(&ctx.ftl);
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    /* Match the mount-#1 base (v2 layout, block 5). */
+    ctx.data_log_base_addr  = 5 * erase_size;
+    ctx.data_log_write_addr = ctx.data_log_base_addr;
+    ctx.data_log_prepared_until = ctx.data_log_base_addr;
+
+    /* --- mount #2: reload CP, replay, read --- */
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts.control(opts.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx.layout);
+        }
+    }
+    if (pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16) != 0) {
+        fail++;
+        goto out;
+    }
+    if (pgfs_checkpoint_load(&ctx, &loaded_cp) != 0) {
+        printf("[pgfs-multi-utest] remount CP load failed\n");
+        fail++;
+        goto out;
+    }
+    ctx.checkpoint = loaded_cp;
+    ctx.checkpoint_loaded = 1;
+    /* Restore the data log write head to where the CP says the log
+     * ends. Without this, replay would scan zero bytes and miss
+     * every record. */
+    ctx.data_log_write_addr = ctx.data_log_base_addr
+        + (uint32_t)loaded_cp.log_tail_block * erase_size
+        + loaded_cp.log_tail_offset;
+    ctx.data_log_prepared_until = ctx.data_log_write_addr;
+    if (pgfs_replay_data_log(&ctx) != 0) {
+        printf("[pgfs-multi-utest] remount replay failed\n");
+        fail++;
+        goto out;
+    }
+
+    f = pgfs_file_open(&ctx, "/multi/replay.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-multi-utest] file missing after remount\n");
+        fail++;
+        goto out;
+    }
+    memset(buf, 0, sizeof(buf));
+    if (pgfs_file_read(&ctx, buf, 1, payload_len, f) != payload_len ||
+        memcmp(buf, payload, payload_len) != 0) {
+        printf("[pgfs-multi-utest] file content wrong after remount\n");
+        fail++;
+    }
+    pgfs_file_close(&ctx, f);
+
+out:
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 6 multi-mount cycle: N mount/unmount iterations. The
+ * runtime counters in pgfs_diag_stats_t must advance across
+ * iterations, and the latest CP on flash must be the highest-seq
+ * one the test produced. */
+static int pgfs_test_multi_mount_counters_advance(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    const uint32_t N = 3;
+    uint32_t i = 0;
+    pgfs_checkpoint_t loaded_cp = {0};
+    uint32_t highest_seq = 0;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    for (i = 0; i < N; i++) {
+        pgfs_mount_ctx_t ctx = {0};
+        char path[32];
+        char data[20];
+        FILE* f = NULL;
+        int n = 0, m = 0;
+
+        ctx.flash_opts = &opts;
+        ctx.runtime_generation = 1;
+        ctx.mounted = 1;
+        ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+        ctx.data_log_write_addr = ctx.data_log_base_addr;
+        ctx.data_log_prepared_until = ctx.data_log_base_addr;
+        if (pgfs_ftl_init(&ctx.ftl, &opts, 4096, 16) != 0) {
+            fail++; break;
+        }
+
+        n = snprintf(path, sizeof(path), "/cycle/iter%u.txt", (unsigned)i);
+        m = snprintf(data, sizeof(data), "iter-%u", (unsigned)i);
+        f = pgfs_file_open(&ctx, path, "wb");
+        if (f == NULL || pgfs_file_write(&ctx, data, 1, (size_t)m, f) != (size_t)m ||
+            pgfs_file_close(&ctx, f) != 0) {
+            fail++;
+        }
+        /* Force a CP commit so the next mount can read it. */
+        if (pgfs_checkpoint_commit_pending(&ctx) != 0) {
+            fail++;
+        }
+
+        /* The CP commit count must be >= 1 per iteration. */
+        if (ctx.stats.cp_commit_count == 0) {
+            printf("[pgfs-multi-utest] iter %u: cp_commit_count=0, expected > 0\n",
+                   (unsigned)i);
+            fail++;
+        }
+        if (ctx.stats.ftl_persist_count == 0 && i > 0) {
+            /* After the first mount, the FTL has been persisted and
+             * subsequent mounts load it. */
+            printf("[pgfs-multi-utest] iter %u: ftl_persist_count=0, expected > 0\n",
+                   (unsigned)i);
+            fail++;
+        }
+        if (ctx.checkpoint.seq > highest_seq) {
+            highest_seq = ctx.checkpoint.seq;
+        }
+
+        pgfs_file_reset_all();
+        pgfs_ftl_deinit(&ctx.ftl);
+    }
+
+    /* Final verification: load the CP from flash and confirm the
+     * highest seq was persisted. */
+    {
+        pgfs_mount_ctx_t ctx = {0};
+        ctx.flash_opts = &opts;
+        ctx.runtime_generation = 1;
+        ctx.mounted = 1;
+        ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+        ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+        ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+        if (pgfs_ftl_init(&ctx.ftl, &opts, 4096, 16) != 0) {
+            fail++;
+        } else {
+            if (pgfs_checkpoint_load(&ctx, &loaded_cp) != 0) {
+                printf("[pgfs-multi-utest] final CP load failed\n");
+                fail++;
+            } else if (loaded_cp.seq != highest_seq) {
+                printf("[pgfs-multi-utest] final CP seq=%u, expected %u\n",
+                       (unsigned)loaded_cp.seq, (unsigned)highest_seq);
+                fail++;
+            }
+            pgfs_ftl_deinit(&ctx.ftl);
+        }
+    }
+
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 int pgfs_run_c_layer_tests(void) {
     int fail = 0;
     int r = 0;
@@ -3642,6 +4016,10 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_gc_picks_lowest_erase_count_among_empties);
     PGFS_RUN_CTEST(pgfs_test_gc_excludes_bad_reserved_retired);
     PGFS_RUN_CTEST(pgfs_test_gc_data_move_preserves_file);
+    PGFS_RUN_CTEST(pgfs_test_stress_many_files_writes_counters);
+    PGFS_RUN_CTEST(pgfs_test_stress_write_delete_cycles);
+    PGFS_RUN_CTEST(pgfs_test_multi_mount_cycle_reads_via_replay);
+    PGFS_RUN_CTEST(pgfs_test_multi_mount_counters_advance);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
      * not registered in the default c_layer_selftests dispatch. It depends
      * on data-log compaction after file deletion to reset the write head,

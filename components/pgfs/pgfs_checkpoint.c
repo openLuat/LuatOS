@@ -368,6 +368,10 @@ int pgfs_checkpoint_store_next(void* fs, const pgfs_checkpoint_t* current, pgfs_
     }
 
     *next = tmp;
+    /* Phase 6: observability. The CP+SB pair round-tripped cleanly,
+     * so count this as a successful commit. The matching FTL persist
+     * is counted separately by pgfs_ftl_on_checkpoint_commit. */
+    ctx->stats.cp_commit_count += 1;
     return 0;
 }
 

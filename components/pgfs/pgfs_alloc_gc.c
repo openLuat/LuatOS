@@ -231,6 +231,7 @@ int pgfs_gc_step(pgfs_mount_ctx_t *ctx, uint32_t byte_budget, uint32_t time_budg
     if (ctx->ftl.total_blocks == 0) return 0;
 
     uint32_t victim = pgfs_gc_pick_victim(ctx);
+    int moved = 0;
     if (victim == 0xFFFFFFFFu) {
         return 0;
     }
@@ -239,7 +240,7 @@ int pgfs_gc_step(pgfs_mount_ctx_t *ctx, uint32_t byte_budget, uint32_t time_budg
      * reason, abandon the retirement so the data stays reachable. */
     if (ctx->ftl.live_bytes_per_block != NULL &&
         ctx->ftl.live_bytes_per_block[victim] > 0) {
-        int moved = pgfs_gc_rewrite_victim(ctx, victim);
+        moved = pgfs_gc_rewrite_victim(ctx, victim);
         if (moved == 0) {
             LLOGW("pgfs_gc: victim %u has live_bytes=%u but no entries to move; skipping",
                   (unsigned int)victim,
@@ -258,6 +259,15 @@ int pgfs_gc_step(pgfs_mount_ctx_t *ctx, uint32_t byte_budget, uint32_t time_budg
           (unsigned int)(ctx->ftl.live_bytes_per_block ? ctx->ftl.live_bytes_per_block[victim] : 0u),
           (unsigned int)(ctx->ftl.dead_bytes_per_block ? ctx->ftl.dead_bytes_per_block[victim] : 0u),
           (unsigned int)ctx->ftl.erase_counts[victim]);
+
+    /* Phase 6: observability counters. The step returned a real
+     * erase_size and a non-zero `moved` (or 0 for empty blocks);
+     * either way we count the step and the reclaimed bytes. */
+    ctx->stats.gc_step_count += 1;
+    ctx->stats.gc_bytes_reclaimed += ctx->ftl.erase_size;
+    if (moved > 0) {
+        ctx->stats.gc_records_moved += (uint32_t)moved;
+    }
 
     return ctx->ftl.erase_size;
 }

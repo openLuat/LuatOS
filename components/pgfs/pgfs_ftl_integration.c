@@ -82,6 +82,11 @@ int pgfs_ftl_on_mount(void* _ctx) {
     if (load_ret == 0) {
         LLOGI("pgfs_ftl: loaded %u bad blocks from flash",
                (unsigned int)ctx->ftl.bad_block_count);
+        /* Phase 6: a successful on-flash load means the FTL state v3
+         * record was found and round-tripped cleanly. Bump the counter
+         * so the multi-mount tests can assert that a remount sees
+         * the same number of loads as mounts. */
+        ctx->stats.ftl_load_count += 1;
     } else if (load_ret == 1) {
         /*
          * No FTL record found (first boot after FTL upgrade, or fresh flash).
@@ -124,6 +129,12 @@ int pgfs_ftl_on_mount(void* _ctx) {
         /* Persist immediately so next mount can load */
         if (pgfs_ftl_persist(&ctx->ftl, ctx->checkpoint.seq) != 0) {
             LLOGW("pgfs_ftl: first persist failed (non-fatal)");
+        } else {
+            /* Phase 6: first-persist succeeded. The subsequent mount
+             * cycle will load the just-written record, so the load
+             * count and the persist count both end up at 1 after a
+             * single boot. */
+            ctx->stats.ftl_persist_count += 1;
         }
     } else {
         LLOGE("pgfs_ftl: load error");
@@ -173,6 +184,12 @@ int pgfs_ftl_on_checkpoint_commit(void* _ctx) {
         /* Powercut injected — clear it so the next call doesn't keep failing. */
         ctx->inject_powercut_stage = 0;
         ret = 0; /* treat as success for powercut-injection tests */
+    }
+    if (ret == 0 && ctx->ftl.persist_success_count > 0) {
+        /* Phase 6: a successful FTL persist happened during this commit.
+         * Bump the counter so the multi-mount tests can assert that
+         * every CP commit was followed by a matching persist. */
+        ctx->stats.ftl_persist_count += 1;
     }
     return ret;
 }

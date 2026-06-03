@@ -151,6 +151,8 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
             memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
             return -1;
         }
+        /* The rebuild path also runs a replay internally. */
+        s_pgfs_ctx.stats.replay_count += 1;
     }
     else {
         /* Phase 4b: try to skip pgfs_replay_data_log when the CP and
@@ -171,12 +173,14 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
             LLOGI("pgfs: O(1) mount — CP and FTL agree on log_tail=%u/%u, skipping replay",
                   (unsigned int)s_pgfs_ctx.checkpoint.log_tail_block,
                   (unsigned int)s_pgfs_ctx.checkpoint.log_tail_offset);
+            s_pgfs_ctx.stats.replay_skip_count += 1;
         } else {
             ret = pgfs_replay_data_log(&s_pgfs_ctx);
             if (ret != 0) {
                 memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
                 return -1;
             }
+            s_pgfs_ctx.stats.replay_count += 1;
         }
     }
     s_pgfs_ctx.checkpoint_loaded = 1;
@@ -189,6 +193,7 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
     }
 
     s_pgfs_ctx.mounted = 1;
+    s_pgfs_ctx.stats.mount_count += 1;
     *fsdata = &s_pgfs_ctx;
     return 0;
 }

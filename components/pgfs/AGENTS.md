@@ -223,7 +223,12 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
   - Phase 2 GC: `pgfs_test_gc_step_returns_zero_when_nothing_to_reclaim`,
     `pgfs_test_gc_step_retires_empty_block`,
     `pgfs_test_gc_picks_lowest_erase_count_among_empties`,
-    `pgfs_test_gc_excludes_bad_reserved_retired`
+    `pgfs_test_gc_excludes_bad_reserved_retired`,
+    `pgfs_test_gc_data_move_preserves_file`
+  - Phase 6 stress: `pgfs_test_stress_many_files_writes_counters`,
+    `pgfs_test_stress_write_delete_cycles`
+  - Phase 6 multi-mount: `pgfs_test_multi_mount_cycle_reads_via_replay`,
+    `pgfs_test_multi_mount_counters_advance`
   - Pre-existing: wear-levelling alloc, CP-erase powercut recovery, FTL
     state skip, single-block retirement, FTL persist snapshot, FTL
     persist readback failure.

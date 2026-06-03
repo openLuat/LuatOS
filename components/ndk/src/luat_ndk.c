@@ -713,7 +713,7 @@ static int ndk_set_isa(luat_ndk_t *ndk, const char *isa) {
 #define MINIRV32_IMPLEMENTATION
 #include "mini-rv32ima.h"
 
-#define NDK_DEFAULT_STEP_BUDGET 32768
+#define NDK_STEP_BUDGET_UNLIMITED 0u
 #define NDK_STEP_CHUNK 256
 #define NDK_DEFAULT_ELAPSED_US 100
 #define NDK_STOP_POLL_MS 10
@@ -894,7 +894,8 @@ static int ndk_load_image(luat_ndk_t *ndk, const char *path) {
 
 static int ndk_exec_inner(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapsed_us, int32_t *retval) {
     if (!ndk || !ndk->core || !ndk->ram) return LUAT_NDK_ERR_PARAM;
-    if (step_budget == 0) step_budget = NDK_DEFAULT_STEP_BUDGET;
+    /* step_budget == 0 means "run until SYSCON exit, ecall, trap, or ndk.stop".
+     * Use ndk.stop() as the escape hatch for long-running guests. */
     if (elapsed_us == 0) elapsed_us = NDK_DEFAULT_ELAPSED_US;
 
     int32_t ret = 0;
@@ -908,14 +909,16 @@ static int ndk_exec_inner(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapse
 
     uint32_t left = step_budget;
     int rc = LUAT_NDK_OK;
+    int unlimited = (step_budget == NDK_STEP_BUDGET_UNLIMITED);
 
-    while (left > 0 && !ndk->trap_pending && !ndk_should_stop(ndk)) {
-        uint32_t chunk = left > NDK_STEP_CHUNK ? NDK_STEP_CHUNK : left;
+    while ((unlimited || left > 0) && !ndk->trap_pending && !ndk_should_stop(ndk)) {
+        uint32_t chunk = unlimited ? NDK_STEP_CHUNK
+                                  : (left > NDK_STEP_CHUNK ? NDK_STEP_CHUNK : left);
         ret = MiniRV32IMAStep(ndk, ndk->core, ndk->ram, MINIRV32_RAM_IMAGE_OFFSET, elapsed_us, chunk);
         if (ret == 0x5555) {
             return LUAT_NDK_OK;
         }
-        left -= chunk;
+        if (!unlimited) left -= chunk;
         if (ndk->core->mcause) break;
     }
 
@@ -932,7 +935,7 @@ static int ndk_exec_inner(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapse
             rc = LUAT_NDK_OK;
             if (retval) *retval = (int32_t)ndk->core->regs[10];
         }
-    } else if (left == 0) {
+    } else if (!unlimited && left == 0) {
         rc = LUAT_NDK_ERR_TIMEOUT;
     }
     return rc;

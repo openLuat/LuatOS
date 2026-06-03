@@ -7,7 +7,7 @@ This folder provides customer-facing standalone guest projects that compile into
 - `hello_world` - minimal completion flow and exchange marker write.
 - `exchange_buffer_demo` - fixed-layout request/response exchange buffer usage.
 - `gpio_hostabi_demo` - guest-side GPIO host-ABI CSR command flow.
-- `crypto_hash_demo` - guest C MD5/CRC32 hash demo.
+- `crypto_hash_demo` - guest C MD5/CRC32 hash demo (calls host CSRs 0x230/0x231).
 
 ## Customer Workflow (source -> build -> run)
 

@@ -19,6 +19,18 @@ $source = Join-Path $exampleDir "main.c"
 $linker = Join-Path $exampleDir "link.ld"
 $buildDir = Join-Path $exampleDir "build"
 
+# Include paths for luat_ndk_helper.h / luat_ndk_builtin.h / luat_ndk_abi.h.
+# $root = $PSScriptRoot = components/ndk/guest/examples
+# components/ndk/include        -> ABI + host API + builtin helpers
+# components/ndk/guest/include  -> curated guest-side helper
+$ndkInclude   = Join-Path $root "..\..\include"
+$ndkGuestIncl = Join-Path $root "..\..\guest\include"
+$ndkInclude   = (Resolve-Path $ndkInclude   -ErrorAction SilentlyContinue).Path
+$ndkGuestIncl = (Resolve-Path $ndkGuestIncl -ErrorAction SilentlyContinue).Path
+$includeArgs  = @()
+if ($ndkInclude)   { $includeArgs += @("-I", $ndkInclude)   }
+if ($ndkGuestIncl) { $includeArgs += @("-I", $ndkGuestIncl) }
+
 if (-not (Test-Path $source)) {
     throw "Missing source file: $source"
 }
@@ -96,7 +108,7 @@ if ($toolchains.Count -eq 0) {
 foreach ($tc in $toolchains) {
     Write-Host "[build] Trying $($tc.Name)..."
     try {
-        & $tc.Cc @($tc.Args + @("-o", $elf, $source))
+        & $tc.Cc @($tc.Args + $includeArgs + @("-o", $elf, $source))
         if ($LASTEXITCODE -ne 0) {
             throw "compiler exited with $LASTEXITCODE"
         }

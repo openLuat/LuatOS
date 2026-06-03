@@ -1062,9 +1062,10 @@ local function app_task(app_path)
             return "/little_flash/app_store/" .. app_name .. "/data/" .. relative_path
         end
 
-        -- 规则(8.7): 其余 / 开头的路径 → /app_store/<app_name>/data/<path>
+        -- 规则(8.7): 其余 / 开头的路径 → <mount_point>app_store/<app_name>/data/<path>
+        -- 挂载点跟随 app 安装位置，不再硬编码 /app_store/
         if path:sub(1, 1) == "/" then
-            return "/app_store/" .. app_name .. "/data" .. path
+            return mount_point .. "app_store/" .. app_name .. "/data" .. path
         end
 
         -- 无法识别的路径格式
@@ -1138,10 +1139,11 @@ local function app_task(app_path)
             return "/little_flash/app_store/" .. app_name .. "/data/" .. relative_path
         end
 
-        -- 规则(8.7): /* → /app_store/<app_name>/data/*
+        -- 规则(8.7): /* → <mount_point>app_store/<app_name>/data/*
+        -- 挂载点跟随 app 安装位置，不再硬编码 /app_store/
         if path:sub(1, 1) == "/" then
             local relative_path = path:sub(2)
-            return "/app_store/" .. app_name .. "/data/" .. relative_path
+            return mount_point .. "app_store/" .. app_name .. "/data/" .. relative_path
         end
 
         -- 无法识别的路径格式

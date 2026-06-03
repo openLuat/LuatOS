@@ -283,6 +283,7 @@ int pgfs_file_tell(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_eof(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_error(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_flush(pgfs_mount_ctx_t* ctx, FILE* stream);
+int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename);
 void pgfs_file_reset_all(void);
 /* Phase 2 GC shadow detection: read the last_written_block of the
  * first matching file_entry. Used by tests to inspect which block a

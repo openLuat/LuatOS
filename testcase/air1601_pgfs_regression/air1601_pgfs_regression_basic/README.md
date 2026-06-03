@@ -37,25 +37,29 @@ Select-String -Path "D:\github\luatos-sdk-ccm42xx-gcc\csdk\project\luatos\build\
 
 ## 烧录 + 跑测试
 
+完整命令模板、模组矩阵、关键字契约见 `/luatos-hw-test` skill。本套件的标准调用:
+
 ```powershell
 $cli = 'D:\github\luatos-cli\target\release\luatos-cli.exe'
 $soc = 'D:\github\luatos-sdk-ccm42xx-gcc\csdk\project\luatos\out\LuatOS-SoC_V1021_Air1601.soc'
 $common = 'D:\github\LuatOS\testcase\common\scripts'
 $case  = 'D:\github\LuatOS\testcase\air1601_pgfs_regression\air1601_pgfs_regression_basic\scripts'
 
-# 一次性: 烧 .soc + 烧脚本 + 抓日志判断
+# 一次性: 烧 .soc + 烧脚本 + 抓日志判断 (90s 给 W25N01 真机读慢一些缓冲)
 & $cli flash test `
   --soc $soc `
   --port COM10 `
   --baud 6000000 `
   --script $common `
   --script $case `
-  --timeout 60 `
+  --timeout 90 `
   --keyword '### OVERALL_PASS ###' `
-  --keyword '### OVERALL_FAIL ###' `
+  --fail-keyword '### OVERALL_FAIL ###' `
   --fail-keyword 'panic' `
   --fail-keyword 'hardfault'
 ```
+
+> ⚠️ **不要**把 `### OVERALL_FAIL ###` 也写成 `--keyword`!`--keyword` 是"必须出现"语义,而测试只会发 PASS 或 FAIL 之一,两个都要求会永远判 FAIL。`### OVERALL_FAIL ###` 必须是 `--fail-keyword`。本仓库 2026-06-03 之前就是这个错的写法,造成长期 false-FAIL。详见 skill §5。
 
 期望日志片段:
 

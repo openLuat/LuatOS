@@ -135,7 +135,9 @@ bsp/pc/otp.bin
 /bsp/air1601/artifacts/
 
 # Local worktrees (not to be tracked from the main checkout)
-/.claude/
+# Note: .claude/skills/ is intentionally tracked so /luatos-hw-test ships with the repo.
+/.claude/settings.local.json
+/.claude/worktrees/
 /.fleet-worktrees/
 
 # PC BSP runtime artifacts (not to be tracked)

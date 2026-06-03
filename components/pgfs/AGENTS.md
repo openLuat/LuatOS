@@ -201,6 +201,34 @@ powershell -File build_with_summary.ps1 -Arch x86 -Vm64 0 -Mode summary
 powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
 ```
 
+## PC vs Hardware Verification Matrix
+
+| 维度 | PC 验证(主战场) | 真机验证 |
+|---|---|---|
+| 套件 | `pgfs_basic`(17+ C-utest 用例) + `pgfs_regression_basic`(11 Lua 用例) | `air1601_pgfs_regression_basic`(8 Lua 用例) |
+| 覆盖范围 | FTL/GC/recovery/contract/powercut 矩阵的**全部** | NOR/NAND mount + IO 不崩 + `lf.pgfsctl` 控制 API 不崩 |
+| 跑法 | `LUAT_USE_UTEST=y` env + `pc_utest_coverage.ps1 -Suite pgfs_basic` | `luatos-cli flash test`,见 `/luatos-hw-test` skill |
+| 入口 | `pgfs.utest("case")` | production API + `lf.pgfsctl(...)` 注入 |
+
+**真机回归不重复 PC 已覆盖的 FTL/GC/契约验证**——那些用 PC 跑快、有覆盖率、可重复。真机只验证 PC 模拟不了的:真 SPI 信号完整性、真 NAND 时序、reset/上电恢复在真硬件上的行为。
+
+`lf.pgfsctl(cmd, value)`(`components/little_flash/luat_lib_little_flash.c:329-360`)真机暴露的控制 API:
+
+| cmd | value | 用途 |
+|---|---|---|
+| `lock_mode` | `"on"`/`"off"` | 切互斥锁包装(默认 off) |
+| `powercut_stage` | 阶段名字符串 | 注入下次写入失败 |
+| `corrupt_latest_cp` | bool | 强制最新 CP 校验失败,验证退到上一代 |
+| `bad_block_once` | bool | 下次 erase 标 bad-block |
+| `reset_runtime` | (无) | 强制 umount 重新 mount(测 CP 持久化) |
+| `run_c_tests` | (无) | 真机上跑 C 层 selftest(`LUAT_USE_UTEST` 开了才有) |
+
+### 真机已知限制(2026-06-03,见 `/luatos-hw-test` skill §10)
+- `reset_runtime` 在 W25N01KVZEIR NAND 上仍返回 false,`E/pgfs FTL re-init failed on runtime reset`——`fbeda6236` 只修了 v2 log_tail 一条路径;真机还有未覆盖失败点
+- `powercut_stage("before_cp")` 短形字符串没认,只认 `"before_checkpoint"` 长形
+- `test_reopen_recover` 真机 fail(写+reset+remount 后文件丢失)——持久化契约真机破坏
+- W25N01KVZEIR 在 2 MHz SPI 偶有 `Read failed at addr=N`,是信号完整性,不是 pgfs bug;频繁触发则降 SPI clock
+
 ## Current regression focus
 
 - `pgfs_basic`: generation fallback, close durability, info rebuild, control

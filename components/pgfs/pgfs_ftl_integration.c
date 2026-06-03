@@ -41,15 +41,23 @@ int pgfs_ftl_on_mount(void* _ctx) {
     }
     uint32_t total_blocks = geo.capacity / geo.erase_size;
 
-    /* Init FTL context */
-    if (pgfs_ftl_init(&ctx->ftl, ctx->flash_opts, geo.erase_size, total_blocks) != 0) {
-        LLOGE("pgfs_ftl: init failed");
-        return -1;
+    /* Phase 4b: skip re-init if the FTL context was already initialised
+     * (e.g. by an early pgfs_ftl_on_mount_early call ahead of the
+     * replay path so pgfs_checkpoint_is_consistent_with_ftl can read
+     * the persisted write_head / log_tail). Calling pgfs_ftl_init
+     * again would memset the context and erase the loaded state. */
+    if (ctx->ftl.flash_opts == NULL) {
+        if (pgfs_ftl_init(&ctx->ftl, ctx->flash_opts, geo.erase_size, total_blocks) != 0) {
+            LLOGE("pgfs_ftl: init failed");
+            return -1;
+        }
     }
 
     /* Phase 1: mark reserved blocks (SB-A/B, CP-A/B, FTL state) as off-limits
      * for data log segments. Falls back to fixed blocks 0..4 if the layout
-     * is uninitialised. */
+     * is uninitialised. The reserved bitmap survives an early init because
+     * it is part of the FTL state that pgfs_ftl_load restores — but we
+     * re-mark defensively in case the early path skipped the mark. */
     if (ctx->layout.erase_size != 0 && ctx->layout.data_log_first_block > 0) {
         pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.sb_a_block);
         pgfs_ftl_mark_reserved(&ctx->ftl, ctx->layout.sb_b_block);
@@ -128,6 +136,28 @@ int pgfs_ftl_on_mount(void* _ctx) {
 int pgfs_ftl_on_checkpoint_commit(void* _ctx) {
     pgfs_mount_ctx_t *ctx = (pgfs_mount_ctx_t *)_ctx;
     if (!ctx || !ctx->mounted) return 0;
+    /* Phase 4b: refresh the FTL's per-segment write head from the live
+     * mount ctx so the persisted FTL state matches the CP's log_tail_*
+     * fields. The same values are mirrored onto ctx->log_tail_* by
+     * pgfs_checkpoint_store_next right before the CP is written, so
+     * persisting them here keeps CP and FTL state in sync. */
+    if (ctx->flash_opts && ctx->flash_opts->control) {
+        pgfs_flash_geometry_t geo = {0};
+        if (ctx->flash_opts->control(ctx->flash_opts->ctx,
+                                     PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+            geo.erase_size > 0 &&
+            ctx->data_log_write_addr >= ctx->data_log_base_addr) {
+            uint32_t base_block = (ctx->data_log_base_addr / geo.erase_size);
+            uint32_t write_block = (ctx->data_log_write_addr / geo.erase_size);
+            uint32_t write_off   = (ctx->data_log_write_addr % geo.erase_size);
+            if (write_block >= base_block) {
+                ctx->ftl.write_head_block  = write_block - base_block;
+                ctx->ftl.write_head_offset = (uint16_t)write_off;
+            }
+            ctx->ftl.log_tail_block  = ctx->log_tail_block;
+            ctx->ftl.log_tail_offset = ctx->log_tail_offset;
+        }
+    }
     /* Forward powercut injection: stage 3 → FTL erase; stage 4 → FTL write */
     if (ctx->inject_powercut_stage == 3) {
         ctx->ftl.powercut_inject = 1;

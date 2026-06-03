@@ -542,6 +542,146 @@ static int pgfs_test_replay_marks_block_weak_on_ecc_mismatch(void) {
     return fail;
 }
 
+/* Phase 4b: unit test of the CP / FTL consistency check. The check
+ * compares cp->log_tail_block/offset with ftl->write_head_block/offset
+ * (the values persisted together by pgfs_ftl_on_checkpoint_commit).
+ * Returns true when they match (data log consistent with CP → can
+ * skip replay), false otherwise. */
+static int pgfs_test_checkpoint_consistency_matches_when_synced(void) {
+    int fail = 0;
+    pgfs_checkpoint_t cp = {0};
+    pgfs_nand_ftl_ctx_t ftl = {0};
+    /* The consistency check requires a non-NULL flash backend pointer. */
+    pgfs_flash_opts_t opts = {0};
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_ftl_init(&ftl, &opts, 4096, 16);
+
+    cp.magic = PGFS_CHECKPOINT_MAGIC;
+    cp.version = PGFS_ONDISK_VERSION;
+    cp.log_tail_block  = 5;     /* data log block 5 (just past reserved 0..4) */
+    cp.log_tail_offset = 256;   /* mid-block */
+
+    /* FTL head is in sync with CP. */
+    ftl.write_head_block  = 5;
+    ftl.write_head_offset = 256;
+
+    if (!pgfs_checkpoint_is_consistent_with_ftl(&cp, &ftl)) {
+        printf("[pgfs-cp-utest] expected consistency when CP and FTL agree\n");
+        fail++;
+    }
+
+    pgfs_ftl_deinit(&ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 4b: if the FTL's write head has advanced past the CP's log_tail
+ * (i.e. a write happened after the last CP), consistency must return
+ * false so the mount path triggers a full replay. */
+static int pgfs_test_checkpoint_consistency_fails_on_drift(void) {
+    int fail = 0;
+    pgfs_checkpoint_t cp = {0};
+    pgfs_nand_ftl_ctx_t ftl = {0};
+    pgfs_flash_opts_t opts = {0};
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_ftl_init(&ftl, &opts, 4096, 16);
+
+    cp.magic = PGFS_CHECKPOINT_MAGIC;
+    cp.version = PGFS_ONDISK_VERSION;
+    cp.log_tail_block  = 5;
+    cp.log_tail_offset = 256;
+
+    /* FTL head drifted: a write happened after CP. */
+    ftl.write_head_block  = 5;
+    ftl.write_head_offset = 512;
+
+    if (pgfs_checkpoint_is_consistent_with_ftl(&cp, &ftl)) {
+        printf("[pgfs-cp-utest] expected inconsistency on FTL-head drift\n");
+        fail++;
+    }
+    /* Block-id drift is also a hard inconsistency. */
+    ftl.write_head_block  = 6;
+    ftl.write_head_offset = 256;
+    if (pgfs_checkpoint_is_consistent_with_ftl(&cp, &ftl)) {
+        printf("[pgfs-cp-utest] expected inconsistency on block-id drift\n");
+        fail++;
+    }
+    /* Sanity guard: zero log_tail forces the safe replay path. */
+    cp.log_tail_block  = 0;
+    cp.log_tail_offset = 0;
+    ftl.write_head_block  = 0;
+    ftl.write_head_offset = 0;
+    if (pgfs_checkpoint_is_consistent_with_ftl(&cp, &ftl)) {
+        printf("[pgfs-cp-utest] expected inconsistency on legacy zero log_tail\n");
+        fail++;
+    }
+
+    pgfs_ftl_deinit(&ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 4b: integration test — after a CP+FTL commit, the FTL's
+ * persisted write_head_* matches the CP's log_tail_*, and a round-trip
+ * through pgfs_ftl_persist / pgfs_ftl_load restores them so the mount
+ * path can detect consistency. */
+static int pgfs_test_ftl_persist_round_trips_write_head_and_log_tail(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_nand_ftl_ctx_t ftl = {0};
+    pgfs_nand_ftl_ctx_t ftl_loaded = {0};
+    uint32_t erase_size = 4096;
+    uint32_t total_blocks = 32;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    /* Phase 4b: write_head_* + log_tail_* are runtime-only fields on the
+     * FTL context. Populate them, persist, then load a fresh context
+     * from the same flash and verify the values came back. */
+    pgfs_ftl_init(&ftl, &opts, erase_size, total_blocks);
+    ftl.write_head_block  = 7;
+    ftl.write_head_offset = 512;
+    ftl.log_tail_block    = 5;
+    ftl.log_tail_offset   = 256;
+    if (pgfs_ftl_persist(&ftl, 42) != 0) {
+        printf("[pgfs-cp-utest] FTL persist failed\n");
+        fail++;
+    } else {
+        pgfs_ftl_init(&ftl_loaded, &opts, erase_size, total_blocks);
+        if (pgfs_ftl_load(&ftl_loaded) != 0) {
+            printf("[pgfs-cp-utest] FTL load failed\n");
+            fail++;
+        } else {
+            if (ftl_loaded.write_head_block != 7 ||
+                ftl_loaded.write_head_offset != 512) {
+                printf("[pgfs-cp-utest] write_head roundtrip mismatch: got %u/%u\n",
+                       (unsigned int)ftl_loaded.write_head_block,
+                       (unsigned int)ftl_loaded.write_head_offset);
+                fail++;
+            }
+            if (ftl_loaded.log_tail_block != 5 ||
+                ftl_loaded.log_tail_offset != 256) {
+                printf("[pgfs-cp-utest] log_tail roundtrip mismatch: got %u/%u\n",
+                       (unsigned int)ftl_loaded.log_tail_block,
+                       (unsigned int)ftl_loaded.log_tail_offset);
+                fail++;
+            }
+        }
+        pgfs_ftl_deinit(&ftl_loaded);
+    }
+
+    pgfs_ftl_deinit(&ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 /* Phase 3: verify that a block can be marked weak independently of bad,
  * and that the weak state does not affect bad-block checks. */
 static int pgfs_test_weak_block_separate_from_bad(void) {
@@ -2909,6 +3049,9 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_ecc_encode_decode_roundtrip);
     PGFS_RUN_CTEST(pgfs_test_ecc_decode_detects_corruption);
     PGFS_RUN_CTEST(pgfs_test_replay_marks_block_weak_on_ecc_mismatch);
+    PGFS_RUN_CTEST(pgfs_test_checkpoint_consistency_matches_when_synced);
+    PGFS_RUN_CTEST(pgfs_test_checkpoint_consistency_fails_on_drift);
+    PGFS_RUN_CTEST(pgfs_test_ftl_persist_round_trips_write_head_and_log_tail);
     PGFS_RUN_CTEST(pgfs_test_retired_does_not_mark_bad);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
      * not registered in the default c_layer_selftests dispatch. It depends

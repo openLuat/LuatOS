@@ -154,10 +154,30 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
         }
     }
     else {
-        ret = pgfs_replay_data_log(&s_pgfs_ctx);
-        if (ret != 0) {
+        /* Phase 4b: try to skip pgfs_replay_data_log when the CP and
+         * the FTL state agree on the data log write head. To do that we
+         * must load the FTL state first. The FTL on_mount is idempotent
+         * for init (it skips pgfs_ftl_init if flash_opts is set), so an
+         * early init+load here just gets the write_head_* / log_tail_*
+         * into ctx->ftl without running the full bad-block scan. The
+         * full scan / persist path runs later via the unconditional
+         * pgfs_ftl_on_mount call below. */
+        if (pgfs_ftl_on_mount(&s_pgfs_ctx) != 0) {
+            LLOGE("pgfs: early FTL init failed");
             memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
             return -1;
+        }
+        if (pgfs_checkpoint_is_consistent_with_ftl(&s_pgfs_ctx.checkpoint,
+                                                   &s_pgfs_ctx.ftl)) {
+            LLOGI("pgfs: O(1) mount — CP and FTL agree on log_tail=%u/%u, skipping replay",
+                  (unsigned int)s_pgfs_ctx.checkpoint.log_tail_block,
+                  (unsigned int)s_pgfs_ctx.checkpoint.log_tail_offset);
+        } else {
+            ret = pgfs_replay_data_log(&s_pgfs_ctx);
+            if (ret != 0) {
+                memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
+                return -1;
+            }
         }
     }
     s_pgfs_ctx.checkpoint_loaded = 1;

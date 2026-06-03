@@ -274,6 +274,16 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     meta->bitmap_bytes          = bitmap_bytes;
     meta->reserved_bitmap_bytes = bitmap_bytes;
     meta->erase_count_bytes     = ec_bytes;
+    /* Phase 4b: persist the data log write head so the mount path can
+     * compare against the CP's log_tail_* fields. Callers (notably
+     * pgfs_ftl_on_checkpoint_commit) are expected to have refreshed
+     * these on ctx right before invoking pgfs_ftl_persist. */
+    meta->write_head_block    = ctx->write_head_block;
+    meta->write_head_offset   = ctx->write_head_offset;
+    meta->log_tail_block      = ctx->log_tail_block;
+    meta->log_tail_offset     = ctx->log_tail_offset;
+    meta->log_tail_block_lo   = (uint16_t)(ctx->log_tail_block & 0xFFFFu);
+    meta->reserved1           = 0;
 
     /* Copy bad_blocks_bitmap + reserved_blocks_bitmap + erase_counts
      * into staging buffer. v2 layout. */
@@ -413,6 +423,16 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
     memcpy(ctx->bad_blocks_bitmap, bitmap_ptr, bitmap_bytes);
     memcpy(ctx->reserved_blocks_bitmap, reserved_ptr, bitmap_bytes);
     memcpy(ctx->erase_counts, ec_ptr, ec_bytes);
+
+    /* Phase 4b: restore the data log write head from the persisted
+     * FTL state. These are the per-block-id values (not absolute
+     * addresses), and they describe the data log layout at the
+     * last successful CP+FTL commit. The mount path uses them to
+     * decide whether pgfs_replay_data_log can be skipped. */
+    ctx->write_head_block  = meta->write_head_block;
+    ctx->write_head_offset = meta->write_head_offset;
+    ctx->log_tail_block    = meta->log_tail_block;
+    ctx->log_tail_offset   = meta->log_tail_offset;
 
     /* Recompute reserved_block_count from the loaded bitmap. */
     ctx->reserved_block_count = 0;

@@ -109,12 +109,26 @@ integrations. New code MUST use `pgfs_layout_t`.
      validation. ECC failure is a hint to refresh the block, not a
      reason to drop a still-recoverable record.
 
-8. **O(1) mount (Phase 4 scaffold)**
-   - `pgfs_checkpoint_is_consistent_with_ftl(cp, ftl)` returns false
-     unconditionally (placeholder). The fields are present so the
-     contract is fixed for downstream phases.
-   - Activating the actual O(1) skip requires per-segment write heads
-     to be populated on every CP commit (Phase 2 follow-up work).
+8. **O(1) mount (Phase 4 + Phase 4b)**
+   - `pgfs_checkpoint_t` carries `log_tail_block` / `log_tail_offset`
+     recording the data log write head at CP commit time. These are
+     populated by `pgfs_checkpoint_store_next` from
+     `ctx->data_log_write_addr` (and the geometry's erase_size) right
+     before the CRC is computed.
+   - `pgfs_nand_ftl_ctx_t` carries matching `write_head_block` /
+     `write_head_offset` and `log_tail_block` / `log_tail_offset`.
+     `pgfs_ftl_on_checkpoint_commit` refreshes `write_head_*` from
+     `ctx->data_log_write_addr` and `log_tail_*` from the mirrored
+     `ctx->log_tail_*` right before each `pgfs_ftl_persist`. The
+     FTL meta v2 record round-trips both pairs so a future mount can
+     detect consistency.
+   - `pgfs_checkpoint_is_consistent_with_ftl` returns true when
+     `cp->log_tail_block == ftl->write_head_block &&
+      cp->log_tail_offset == ftl->write_head_offset` AND neither
+     field is zero (a zero pair is treated as "legacy v2 record
+     written before Phase 4b plumbing" and forced to the safe
+     replay path). The mount path can then skip
+     `pgfs_replay_data_log`.
 
 9. **Retired vs bad (Phase 5)**
    - `pgfs_mark_block_retired` no longer conflates with `pgfs_ftl_mark_block_bad`.
@@ -169,6 +183,9 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
   - Phase 3b: `pgfs_test_ecc_encode_decode_roundtrip`,
     `pgfs_test_ecc_decode_detects_corruption`,
     `pgfs_test_replay_marks_block_weak_on_ecc_mismatch`
+  - Phase 4b: `pgfs_test_checkpoint_consistency_matches_when_synced`,
+    `pgfs_test_checkpoint_consistency_fails_on_drift`,
+    `pgfs_test_ftl_persist_round_trips_write_head_and_log_tail`
   - Phase 5: `pgfs_test_retired_does_not_mark_bad`
   - Pre-existing: wear-levelling alloc, CP-erase powercut recovery, FTL
     state skip, single-block retirement, FTL persist snapshot, FTL

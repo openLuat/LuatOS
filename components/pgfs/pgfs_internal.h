@@ -91,6 +91,14 @@ typedef struct pgfs_checkpoint {
     uint32_t flags;
     uint32_t gc_live_bytes;
     uint32_t gc_dead_bytes;
+    /* Phase 4b: per-segment write head at the moment this CP was committed.
+     * Persisted into the FTL state alongside this CP via
+     * pgfs_ftl_on_checkpoint_commit. On mount, if the FTL's persisted
+     * log_tail_block/offset match these fields, the data log has not
+     * been touched since the CP and pgfs_replay_data_log can be skipped. */
+    uint32_t log_tail_block;
+    uint16_t log_tail_offset;
+    uint16_t log_tail_reserved;
     uint32_t crc32;
 }
 #if !defined(_MSC_VER)

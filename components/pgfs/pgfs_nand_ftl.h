@@ -100,6 +100,20 @@ typedef struct {
     uint32_t persist_success_count;
     uint32_t persist_failure_count;
 
+    /* Phase 4b: per-segment data log write head. These mirror the fields
+     * in pgfs_ftl_meta_t. write_head_block/offset are refreshed by
+     * pgfs_ftl_on_checkpoint_commit before each pgfs_ftl_persist, then
+     * persisted as part of the FTL state. log_tail_block/offset are
+     * restored by pgfs_ftl_load and used by the mount path to decide
+     * whether pgfs_replay_data_log can be skipped. Both are block-id
+     * (relative to the data log first block), not absolute addresses. */
+    uint32_t write_head_block;
+    uint16_t write_head_offset;
+    uint16_t ftl_reserved0;
+    uint32_t log_tail_block;
+    uint16_t log_tail_offset;
+    uint16_t ftl_reserved1;
+
     /* powercut injection (testing) — propagated from mount ctx at init time */
     uint8_t powercut_inject;
 } pgfs_nand_ftl_ctx_t;

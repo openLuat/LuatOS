@@ -2,6 +2,7 @@
 #include <windows.h>
 #endif
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <fenv.h>
 #include <math.h>
 #include <string.h>
@@ -1221,8 +1222,8 @@ int luat_ndk_start_thread(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapse
         luat_heap_free(arg);
         return LUAT_NDK_ERR_NOMEM;
     }
-    static volatile LONG g_thread_counter = 0;
-    ndk->thread_id = (uint32_t)(InterlockedIncrement(&g_thread_counter));
+    static volatile atomic_uint_least32_t g_thread_counter = 0;
+    ndk->thread_id = (uint32_t)atomic_fetch_add(&g_thread_counter, 1) + 1u;
     uint32_t tid = ndk->thread_id;
     ndk_unlock(ndk);
     return (int)tid;

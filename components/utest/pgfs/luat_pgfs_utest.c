@@ -630,6 +630,224 @@ static int pgfs_test_per_block_live_updates_on_write(void) {
     return fail;
 }
 
+/* Phase 2 cost-benefit GC: with no live data, no candidate has a
+ * non-zero score, so the step must return 0 (no progress) without
+ * touching the FTL state. This is the "everything is full / nothing
+ * to reclaim" baseline. */
+static int pgfs_test_gc_step_returns_zero_when_nothing_to_reclaim(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    pgfs_ftl_init(&ctx.ftl, &opts, 4096, 8);
+
+    /* Mark every data log block as reserved so there are no candidates
+     * to score. (Reserved blocks 0..4 are the default; marking all 8
+     * ensures no block is even considered.) */
+    for (uint32_t i = 0; i < 8; i++) {
+        pgfs_ftl_mark_reserved(&ctx.ftl, i);
+    }
+
+    uint32_t before_retired = ctx.ftl.retired_block_count;
+    int ret = pgfs_gc_step(&ctx, 0, 0);
+    if (ret != 0) {
+        printf("[pgfs-gc-utest] expected 0 (no candidate) got %d\n", ret);
+        fail++;
+    }
+    if (ctx.ftl.retired_block_count != before_retired) {
+        printf("[pgfs-gc-utest] retired_block_count moved from %u to %u with no work\n",
+               (unsigned int)before_retired,
+               (unsigned int)ctx.ftl.retired_block_count);
+        fail++;
+    }
+
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 2 cost-benefit GC: an empty (live_bytes == 0) data log block
+ * is the cheapest reclaim target — score = erase_size / 1. The GC step
+ * must retire it and return erase_size as the bytes reclaimed. */
+static int pgfs_test_gc_step_retires_empty_block(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    uint32_t target_block = 5;  /* first non-reserved block */
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 8);
+
+    /* Mark the reserved blocks (0..4) and leave target_block (5)
+     * eligible for GC. The block is "empty" (no live bytes). */
+    for (uint32_t i = 0; i < PGFS_LAYOUT_RESERVED_BLOCKS; i++) {
+        pgfs_ftl_mark_reserved(&ctx.ftl, i);
+    }
+    /* No file has been written, so target_block's live_bytes == 0. */
+
+    if (pgfs_ftl_is_retired(&ctx.ftl, target_block)) {
+        printf("[pgfs-gc-utest] block %u unexpectedly retired before GC\n",
+               (unsigned int)target_block);
+        fail++;
+    }
+    int ret = pgfs_gc_step(&ctx, 0, 0);
+    if (ret != (int)erase_size) {
+        printf("[pgfs-gc-utest] expected reclaim=%u got %d\n",
+               (unsigned int)erase_size, ret);
+        fail++;
+    }
+    if (!pgfs_ftl_is_retired(&ctx.ftl, target_block)) {
+        printf("[pgfs-gc-utest] block %u not retired after GC\n",
+               (unsigned int)target_block);
+        fail++;
+    }
+    /* The CP flag 0x01u must be set so a remount can observe the
+     * retirement through the CP. */
+    if ((ctx.checkpoint.flags & 0x01u) == 0) {
+        printf("[pgfs-gc-utest] retirement flag not set on CP\n");
+        fail++;
+    }
+
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 2 cost-benefit GC: the victim-selection score favours
+ * blocks with the lowest live_bytes (most reclaimable) when dead
+ * bytes are equal. Verify that with two empty data log blocks of
+ * different erase counts, the lower-ec block is picked (higher
+ * score). */
+static int pgfs_test_gc_picks_lowest_erase_count_among_empties(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    uint32_t low_ec  = 5;   /* candidate: low erase count → high score */
+    uint32_t high_ec = 6;   /* candidate: high erase count → lower score */
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 8);
+
+    /* Mark the reserved blocks (0..4) so candidates 5+ are eligible. */
+    for (uint32_t i = 0; i < PGFS_LAYOUT_RESERVED_BLOCKS; i++) {
+        pgfs_ftl_mark_reserved(&ctx.ftl, i);
+    }
+    /* Both candidate blocks stay empty (live_bytes == 0). Their
+     * different erase_counts drive the score. Block 7 (the only
+     * remaining data log block) needs a non-zero ec too so it
+     * doesn't sneak in with the default 0. */
+    ctx.ftl.erase_counts[low_ec]  = 1;
+    ctx.ftl.erase_counts[high_ec] = 100;
+    ctx.ftl.erase_counts[7]       = 50;
+
+    int ret = pgfs_gc_step(&ctx, 0, 0);
+    if (ret != (int)erase_size) {
+        printf("[pgfs-gc-utest] expected reclaim=%u got %d\n",
+               (unsigned int)erase_size, ret);
+        fail++;
+    }
+    /* The lower-EC block should have been retired (higher score). */
+    if (!pgfs_ftl_is_retired(&ctx.ftl, low_ec)) {
+        printf("[pgfs-gc-utest] low-ec block %u not retired (should win)\n",
+               (unsigned int)low_ec);
+        fail++;
+    }
+    if (pgfs_ftl_is_retired(&ctx.ftl, high_ec)) {
+        printf("[pgfs-gc-utest] high-ec block %u retired (should be skipped)\n",
+               (unsigned int)high_ec);
+        fail++;
+    }
+
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 2 cost-benefit GC: blocks marked bad, reserved, or already
+ * retired must be excluded from victim selection even if they have
+ * zero live bytes. This prevents the GC from "freeing" a block the
+ * allocator would otherwise hand out. */
+static int pgfs_test_gc_excludes_bad_reserved_retired(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 8);
+
+    /* Mark the reserved blocks (0..4) so block 5 is the first
+     * eligible candidate. Blocks 6 (reserved) and 7 (bad) are
+     * additional disqualifications. */
+    for (uint32_t i = 0; i < PGFS_LAYOUT_RESERVED_BLOCKS; i++) {
+        pgfs_ftl_mark_reserved(&ctx.ftl, i);
+    }
+    pgfs_ftl_mark_reserved(&ctx.ftl, 6);
+    pgfs_ftl_mark_block_bad(&ctx.ftl, 7);
+
+    int ret = pgfs_gc_step(&ctx, 0, 0);
+    if (ret != (int)erase_size) {
+        printf("[pgfs-gc-utest] expected reclaim=%u got %d\n",
+               (unsigned int)erase_size, ret);
+        fail++;
+    }
+    /* The bad / reserved blocks must NOT have been retired even though
+     * the GC "picked" something. */
+    if (pgfs_ftl_is_retired(&ctx.ftl, 6)) {
+        printf("[pgfs-gc-utest] reserved block 6 was retired (should be skipped)\n");
+        fail++;
+    }
+    if (pgfs_ftl_is_retired(&ctx.ftl, 7)) {
+        printf("[pgfs-gc-utest] bad block 7 was retired (should be skipped)\n");
+        fail++;
+    }
+    /* Block 5 must have been retired. */
+    if (!pgfs_ftl_is_retired(&ctx.ftl, 5)) {
+        printf("[pgfs-gc-utest] block 5 (the only good candidate) not retired\n");
+        fail++;
+    }
+
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 /* Phase 3b: pure unit test of the ECC encode/decode pair. Encode a known
  * 8-byte pattern, decode should return 0 (no error). Then flip a single
  * bit in the data, decode should return -1 (parity mismatch). The
@@ -3310,6 +3528,10 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_alloc_skips_retired_blocks);
     PGFS_RUN_CTEST(pgfs_test_live_dead_per_block_roundtrip);
     PGFS_RUN_CTEST(pgfs_test_per_block_live_updates_on_write);
+    PGFS_RUN_CTEST(pgfs_test_gc_step_returns_zero_when_nothing_to_reclaim);
+    PGFS_RUN_CTEST(pgfs_test_gc_step_retires_empty_block);
+    PGFS_RUN_CTEST(pgfs_test_gc_picks_lowest_erase_count_among_empties);
+    PGFS_RUN_CTEST(pgfs_test_gc_excludes_bad_reserved_retired);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
      * not registered in the default c_layer_selftests dispatch. It depends
      * on data-log compaction after file deletion to reset the write head,

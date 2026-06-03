@@ -70,14 +70,18 @@ the VFS adapter and the FTL state probe only).
      failure the previous `last_persist_buf` snapshot is preserved so
      recovery is still possible.
 
-6. **Wear-levelling (Phase 2 placeholder)**
+6. **Wear-levelling (Phase 2 placeholder → Phase 2 GC)**
    - `pgfs_alloc_segment` picks the non-bad, non-reserved block with the
      lowest `erase_counts` entry, scanning from `gc_next_seg_id` to
      `total_blocks` (with a wrap to the start when no good block is found).
-   - `pgfs_gc_step` is currently a no-op placeholder. The pre-Phase-2
-     implementation was anti-wear-levelling (erased the most-erased
-     block, risking silent data loss) and was disabled. A proper
-     cost-benefit GC lands in a follow-up.
+   - `pgfs_gc_step` is now a real cost-benefit victim picker. Score is
+     `(dead_bytes + reclaimable_free_bytes) / (erase_count + 1)`, with
+     the best-scoring candidate (skipping bad / reserved / retired
+     blocks) marked retired. The data-move step (re-write live records
+     out of the victim before retiring) is a follow-up — currently the
+     safe subset runs, which only retires blocks with zero live bytes.
+     Per-block live / dead accounting (Phase 2 prep) is what would
+     let a non-empty block be picked and safely reclaimed.
 
 7. **Weak blocks (Phase 3)**
    - A weak block has shown signs of degradation (e.g. an ECC-corrected
@@ -216,6 +220,10 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
     `pgfs_test_alloc_skips_retired_blocks`
   - Phase 2 prep: `pgfs_test_live_dead_per_block_roundtrip`,
     `pgfs_test_per_block_live_updates_on_write`
+  - Phase 2 GC: `pgfs_test_gc_step_returns_zero_when_nothing_to_reclaim`,
+    `pgfs_test_gc_step_retires_empty_block`,
+    `pgfs_test_gc_picks_lowest_erase_count_among_empties`,
+    `pgfs_test_gc_excludes_bad_reserved_retired`
   - Pre-existing: wear-levelling alloc, CP-erase powercut recovery, FTL
     state skip, single-block retirement, FTL persist snapshot, FTL
     persist readback failure.

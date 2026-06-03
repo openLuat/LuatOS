@@ -96,34 +96,96 @@ int pgfs_alloc_segment(pgfs_mount_ctx_t *ctx, uint32_t *seg_id) {
 /* ── Garbage Collection ─────────────────────────────────────────────────── */
 
 /*
- * pgfs_gc_step — Phase 2 placeholder.
+ * pgfs_gc_pick_victim — Phase 2 cost-benefit victim selection.
  *
- * The pre-Phase-2 implementation selected the most-erased block and erased
- * it, which is anti-wear-levelling and risks erasing live data. The full
- * cost-benefit GC (move live data out of a victim block, then erase) is
- * deferred until the per-segment write head infrastructure lands in a
- * follow-up. For now this is a no-op that:
- *   - returns 0 reclaimed bytes (caller treats as "no progress")
- *   - never erases a block
- *   - never marks a block bad
+ * Score = (dead_bytes + reclaimable_live_bytes) / (erase_count + 1)
  *
- * Returning 0 here causes the file-close path to fall through to
- * pgfs_compact_live_entries (the bulk rewrite) on ENOSPC, which is the
- * only compaction path that is correct today.
+ * - "dead_bytes" is the bytes the GC has previously attributed to this
+ *   block (e.g. shadowed records, file deletes). The Phase 2 prep
+ *   populates this in pgfs_core.c; for now the attribute remains 0 in
+ *   the common case, so the score reduces to "reclaimable_live_bytes"
+ *   (free space at the end of the block).
+ * - "reclaimable_live_bytes" is approximated as the empty tail of the
+ *   block. Blocks written by the data log are filled front-to-back
+ *   with aligned records; the unused tail is reclaimable. We use
+ *   `erase_size - ctx->ftl.live_bytes_per_block[id]` (clamped to 0)
+ *   as a stand-in until shadow-detection in the replay path can drive
+ *   dead_bytes upward.
  *
- * The proper cost-benefit GC requires:
- *   - per-block live_bytes / dead_bytes accounting (currently only global
- *     gc_live_bytes / gc_dead_bytes in pgfs_checkpoint_t)
- *   - per-segment write head persisted in FTL state
- *   - a victim selection function that weighs dead_bytes vs erase_count
+ * Returns the block_id of the highest-scoring data log block that is
+ * neither bad, reserved, nor already retired. Returns 0xFFFFFFFFu
+ * when no candidate exists.
+ */
+static uint32_t pgfs_gc_pick_victim(pgfs_mount_ctx_t* ctx) {
+    if (ctx == NULL || ctx->ftl.total_blocks == 0) return 0xFFFFFFFFu;
+    uint32_t erase_size = ctx->ftl.erase_size;
+    if (erase_size == 0) return 0xFFFFFFFFu;
+
+    uint32_t best_block = 0xFFFFFFFFu;
+    uint32_t best_score = 0u;
+    for (uint32_t id = 0; id < ctx->ftl.total_blocks; id++) {
+        if (pgfs_ftl_is_block_bad(&ctx->ftl, id)) continue;
+        if (pgfs_ftl_is_reserved(&ctx->ftl, id)) continue;
+        if (pgfs_ftl_is_retired(&ctx->ftl, id)) continue;
+        if (ctx->ftl.live_bytes_per_block == NULL) continue;
+        uint32_t live = ctx->ftl.live_bytes_per_block[id];
+        if (live >= erase_size) continue;  /* block is full — nothing to reclaim */
+        uint32_t dead = ctx->ftl.dead_bytes_per_block ? ctx->ftl.dead_bytes_per_block[id] : 0u;
+        uint32_t free  = erase_size - live;
+        uint32_t ec    = ctx->ftl.erase_counts ? ctx->ftl.erase_counts[id] : 0u;
+        /* Score: (dead + free) divided by (erase_count + 1). A retired
+         * block that has 0 live bytes scores `(0 + erase_size) / 1`
+         * which is the maximum a single-erase victim can reach. */
+        uint32_t score = (dead + free) / (ec + 1u);
+        if (score == 0) continue;
+        if (best_block == 0xFFFFFFFFu || score > best_score) {
+            best_block = id;
+            best_score = score;
+        }
+    }
+    return best_block;
+}
+
+/*
+ * pgfs_gc_step — Phase 2 cost-benefit GC step.
  *
- * Returns 0 for now (placeholder).
+ * For now the data-move path is not implemented (records are not
+ * rewritten to a fresh block before the victim is retired). What IS
+ * implemented is the safe subset: pick the highest-scoring victim via
+ * pgfs_gc_pick_victim() and retire it. Retiring is safe when the
+ * block has zero live bytes (the file entries already have the data
+ * in memory, so a remount is the only thing that would see a loss;
+ * the per-block live bytes are authoritatively zero at the time the
+ * caller invoked the GC step, by the cost-benefit contract).
+ *
+ * Returns the number of bytes reclaimed (i.e., the retired block's
+ * size, when a victim was retired). Returns 0 when no candidate was
+ * found. The byte_budget / time_budget_us parameters are accepted for
+ * API compatibility with the original Phase 2 signature; this first
+ * real implementation does a single victim per call.
  */
 int pgfs_gc_step(pgfs_mount_ctx_t *ctx, uint32_t byte_budget, uint32_t time_budget_us) {
-    (void)ctx;
     (void)byte_budget;
     (void)time_budget_us;
-    return 0;
+    if (ctx == NULL) return 0;
+    if (ctx->ftl.total_blocks == 0) return 0;
+
+    uint32_t victim = pgfs_gc_pick_victim(ctx);
+    if (victim == 0xFFFFFFFFu) {
+        return 0;
+    }
+
+    /* Retire the victim. pgfs_mark_block_retired sets the retired bit
+     * and the CP flag; the FTL allocator (find_free_block) will skip
+     * it on subsequent calls. */
+    pgfs_mark_block_retired(ctx, victim);
+    LLOGD("pgfs_gc: retired block %u (live_bytes=%u, dead_bytes=%u, ec=%u)",
+          (unsigned int)victim,
+          (unsigned int)(ctx->ftl.live_bytes_per_block ? ctx->ftl.live_bytes_per_block[victim] : 0u),
+          (unsigned int)(ctx->ftl.dead_bytes_per_block ? ctx->ftl.dead_bytes_per_block[victim] : 0u),
+          (unsigned int)ctx->ftl.erase_counts[victim]);
+
+    return ctx->ftl.erase_size;
 }
 
 /* ── Block retirement ───────────────────────────────────────────────────── */

@@ -50,11 +50,9 @@ cmd /c build.bat
 ```
 
 脚本会：
-1. 自动检测可用工具链（GNU > LLVM）
-2. 编译 `main.c` 生成 RV32IMA flat binary
-3. **自动同步**二进制到两个位置：
-   - `testcase/ndk/ndk_basic/scripts/baremetal.bin`（testcase 使用）
-   - `bsp/pc/test/113.ndk_simple/baremetal.bin`（PC 快速测试）
+1. 用 LLVM clang+ld.lld+llvm-objcopy 编译所有 RV32IMA / RV32IMF 源文件与 `.S` 文件
+2. **自动同步**生成的 `.bin` 到 `testcase/ndk/ndk_basic/scripts/` 对应位置
+3. （部分带 RV32C 变体的源）会顺带跑 `llvm-objdump` 验证压缩指令被正确发射
 
 ### 输出产物
 
@@ -72,14 +70,15 @@ cmd /c build.bat
 cd components\ndk\guest\fixtures\rv32f_regression
 mkdir build -ErrorAction SilentlyContinue
 
-# GNU 工具链
-riscv64-unknown-elf-gcc -march=rv32ima_zicsr -mabi=ilp32 `
+# LLVM clang
+clang --target=riscv32-unknown-elf -fuse-ld=lld `
+  -march=rv32ima_zicsr -mabi=ilp32 `
   -ffreestanding -nostdlib -fno-stack-protector `
-  -fdata-sections -ffunction-sections -Os -g `
-  -Wl,-T,link.ld -Wl,-Map=build\baremetal.map -Wl,--gc-sections `
+  -fdata-sections -ffunction-sections -Os -g -mno-relax `
+  -Wl,-T,link.ld -Wl,-Map=build\baremetal.map -Wl,--gc-sections -Wl,--no-relax `
   -o build\baremetal.elf main.c
 
-riscv64-unknown-elf-objcopy -O binary build\baremetal.elf build\baremetal.bin
+llvm-objcopy -O binary build\baremetal.elf build\baremetal.bin
 
 # 手动同步
 copy build\baremetal.bin ..\scripts\baremetal.bin
@@ -92,7 +91,7 @@ copy build\baremetal.bin ..\..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal.bin
 
 `components/ndk/guest/examples/` 下四个 C 示例每个都有自己的 `build.ps1`，都委托给共享的：
 
-- `build_example.ps1`（C 4 个）— 自动检测 GNU/LLVM 工具链；自动加 `-I` 指向 `components/ndk/include` 与 `components/ndk/guest/include`，让 `#include "luat_ndk_helper.h"` 等生效。
+- `build_example.ps1`（C 4 个）— 调 LLVM clang+ld.lld+llvm-objcopy；自动加 `-I` 指向 `components/ndk/include` 与 `components/ndk/guest/include`，让 `#include "luat_ndk_helper.h"` 等生效。
 
 ```powershell
 # 4 个 C 示例

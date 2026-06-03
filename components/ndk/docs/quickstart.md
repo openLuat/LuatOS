@@ -73,13 +73,15 @@ cmd /c build.bat
 
 期望输出：
 ```
-=== Building RISC-V Baremetal Guest ===
-Using GNU toolchain: riscv64-unknown-elf
+=== Building RISC-V Baremetal Guest Fixtures ===
+Using LLVM/Clang toolchain (main.c -> baremetal.bin)
 ...
-=== Build successful ===
+=== Build successful: baremetal ===
+  ELF: build\baremetal.elf
   BIN: build\baremetal.bin (315 bytes)
-...
-=== Syncing binary to target locations ===
+  MAP: build\baremetal.map
+
+=== Syncing baremetal.bin to target locations ===
   Copying to: ...\testcase\ndk\ndk_basic\scripts\baremetal.bin
   Copying to: ...\bsp\pc\test\113.ndk_simple\baremetal.bin
 === All done! ===

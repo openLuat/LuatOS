@@ -39,7 +39,7 @@ assert(ok == true, string.format("exec failed: %s mcause=%s mtval=%s", tostring(
   - `components\ndk\guest\examples\build_example.ps1`
   - `components\ndk\guest\examples\build_example.bat`
 
-`build_example.ps1` auto-detects GNU RISC-V or LLVM toolchains and prints clear error messages when no usable toolchain is present.
+`build_example.ps1` requires LLVM/Clang with RISC-V support (`clang` + `ld.lld` + `llvm-objcopy`, ≥ 16.0) and prints a clear error message when the toolchain is missing.
 
 ## Note on Testcase Compatibility
 

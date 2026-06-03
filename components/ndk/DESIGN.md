@@ -269,7 +269,7 @@ Error string map (`ndk_errstr`):
 
 ### Guest
 
-- RISC-V GNU (`riscv64-unknown-elf` / `riscv32-unknown-elf` / `riscv-none-elf`) or LLVM `clang` + `ld.lld` + `llvm-objcopy`.
+- LLVM only: `clang` + `ld.lld` + `llvm-objcopy` (≥ 16.0, with RISC-V target). Phase 3+ removed the GNU toolchain fallback.
 - Build flags: `-march=rv32ima_zicsr -mabi=ilp32 -ffreestanding -nostdlib -fno-stack-protector -fdata-sections -ffunction-sections -Os -Wl,--gc-sections`.
 - Per-example `build.ps1` delegates to `components/ndk/guest/examples/build_example.ps1`.
 - The `rust_hello_world` example uses `rustup target add riscv32imac-unknown-none-elf` + `rustup component add rust-src` + `cargo install cargo-binutils`, built by its own `build.ps1`.

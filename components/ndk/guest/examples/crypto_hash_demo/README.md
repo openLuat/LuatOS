@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Provides a buildable customer example for hash workflows. It computes MD5 and CRC32 in guest C and writes the result into the exchange buffer.
+Provides a buildable customer example for hash workflows. The guest calls the host MD5 / CRC32 CSRs (`0x230` / `0x231`) and writes the result into the exchange buffer.
 
 ## Dependencies
 
-- One supported RISC-V toolchain (GNU RISC-V or LLVM)
+- LLVM/Clang with RISC-V support: `clang` + `ld.lld` + `llvm-objcopy` (≥ 16.0)
 - PowerShell or CMD
 
 ## Build

@@ -137,9 +137,9 @@ Expected baseline: `Total: 39 passed, 0 failed`. The `ndk_basic` suite covers co
 
 These rules are enforced by the regression chain. Do not loosen them.
 
-- **Host ABI guest fixture must use `zicsr` in `-march`** — `testcase/ndk/guest/build_hostabi_v1.ps1` should use `rv32ima_zicsr` / `rv32imac_zicsr` for both GNU and LLVM paths because the fixture emits `csrr/csrrw`. Plain `rv32ima` / `rv32imac` is not robust on post-split ISA toolchains.
+- **Host ABI guest fixture must use `zicsr` in `-march`** — `testcase/ndk/guest/build_hostabi_v1.ps1` should use `rv32ima_zicsr` / `rv32imac_zicsr` because the fixture emits `csrr/csrrw`. Plain `rv32ima` / `rv32imac` is not robust on post-split ISA toolchains. (Phase 3+: LLVM only; the GNU-path note is historical.)
 
-- **`-march=rv32imac` alone is not proof that compressed instructions are present** — keep an explicit `rvc_smoke.S`, disassemble with `objdump -d -M no-aliases`, and assert the output contains `c.` mnemonics before accepting the generated RV32C binary.
+- **`-march=rv32imac` alone is not proof that compressed instructions are present** — keep an explicit `rvc_smoke.S`, disassemble with `llvm-objdump -d -M no-aliases`, and assert the output contains `c.` mnemonics before accepting the generated RV32C binary.
 
 - **Keep `.option norvc` local to CSR helper inline asm** — in `components/ndk/include/luat_ndk_builtin.h` and `testcase/ndk/guest/hostabi_v1/ndk_stubs.c`, `norvc` is an intentional fixed-width CSR boundary. Do not remove it just because the guest now supports RV32C, and do not expand it to file-global scope.
 

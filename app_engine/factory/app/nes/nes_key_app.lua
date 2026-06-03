@@ -144,14 +144,8 @@ local function create_control_callback(sname)
         local last = ctrl_last_press[sname] or 0
         if ticks_to_ms(now - last) >= CTRL_DEBOUNCE_MS then
             ctrl_last_press[sname] = now
-            -- 自启APP密码保护拦截：有密码时RETURN不直接发布NES_CTRL，改发内部事件
-            if sname == "RETURN" and _G.autostart_return_capture then
-                log.info("nes_key", "RETURN captured by autostart, redirect")
-                sys.publish("AUTOSTART_RETURN_PRESSED")
-            else
-                log.info("nes_key", "CTRL publish NES_CTRL", sname)
-                sys.publish("NES_CTRL", sname)
-            end
+            log.info("nes_key", "CTRL publish NES_CTRL", sname)
+            sys.publish("NES_CTRL", sname)
         end
     end
 end

@@ -2583,7 +2583,16 @@ local function app_task(app_path)
 
     -- 关闭窗口，从记录中移除，检查是否需要退出应用
     my_env.exwin.close = function(win_id)
-        glob_exwin.close(win_id)
+        -- 自启APP密码保护：已锁定且只剩最后一个窗口时拦截关闭
+        if _G.autostart_locked and #win_ids <= 1 then
+            my_env.log.info("exapp_window", "autostart locked, close blocked for win_id:", win_id)
+            glob_sys.publish("AUTOSTART_REQUEST_EXIT_PASSWORD")
+            return
+        end
+        local ok, err = pcall(glob_exwin.close, win_id)
+        if not ok then
+            my_env.log.warn("exapp_window", "glob_exwin.close failed:", err)
+        end
         for i, id in ipairs(win_ids) do
             if id == win_id then
                 table.remove(win_ids, i)

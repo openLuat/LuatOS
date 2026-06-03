@@ -7,9 +7,9 @@
 
 功能：
 1. fskv 持久化自启配置（开关、目标APP路径、密码）
-2. 密码验证（用于退出自启/关闭设置中的自启/重新设置自启）
-3. 开机延时3秒自动启动选定的后装APP
-4. 拦截 NES_CTRL RETURN 按键，密码保护退出自启APP
+2. 密码验证（用于关闭设置中的自启/重新设置自启）
+3. 开机延时100ms启动选定的后装APP
+4. 硬件 RETURN 键密码保护（有密码时拦截 NES_CTRL 并弹窗验证）
 ]]
 
 -- ==================== 配置常量 ====================
@@ -23,8 +23,8 @@ local CONFIG_KEYS = {
 -- ==================== 局部变量 ====================
 
 local fskv_initialized = false
-local autostart_active = false    -- 自启APP是否正在运行
-local autostart_target_path = ""  -- 当前运行的自启APP路径
+_G.autostart_locked = false
+local autostart_target_path = ""
 
 -- ==================== fskv 读写 ====================
 
@@ -33,21 +33,13 @@ local function init_fskv()
     local result = fskv.init()
     if result then
         fskv_initialized = true
-        log.info("settings_autostart", "fskv初始化成功")
-        if fskv.get(CONFIG_KEYS.ENABLED) == nil then
-            fskv.set(CONFIG_KEYS.ENABLED, "0")
-        end
-        if fskv.get(CONFIG_KEYS.PASSWORD) == nil then
-            fskv.set(CONFIG_KEYS.PASSWORD, "")
-        end
-        if fskv.get(CONFIG_KEYS.TARGET) == nil then
-            fskv.set(CONFIG_KEYS.TARGET, "")
-        end
+        if fskv.get(CONFIG_KEYS.ENABLED) == nil then fskv.set(CONFIG_KEYS.ENABLED, "0") end
+        if fskv.get(CONFIG_KEYS.PASSWORD) == nil then fskv.set(CONFIG_KEYS.PASSWORD, "") end
+        if fskv.get(CONFIG_KEYS.TARGET) == nil then fskv.set(CONFIG_KEYS.TARGET, "") end
         return true
-    else
-        log.error("settings_autostart", "fskv初始化失败")
-        return false
     end
+    log.error("settings_autostart", "fskv初始化失败")
+    return false
 end
 
 local function get_enabled()
@@ -58,7 +50,6 @@ end
 local function set_enabled(value)
     if not fskv_initialized then init_fskv() end
     fskv.set(CONFIG_KEYS.ENABLED, value and "1" or "0")
-    log.info("settings_autostart", "自启开关", value and "开" or "关")
 end
 
 local function get_target()
@@ -69,7 +60,6 @@ end
 local function set_target(path)
     if not fskv_initialized then init_fskv() end
     fskv.set(CONFIG_KEYS.TARGET, path or "")
-    log.info("settings_autostart", "自启目标", path)
 end
 
 local function get_password()
@@ -80,7 +70,6 @@ end
 local function set_password(pwd)
     if not fskv_initialized then init_fskv() end
     fskv.set(CONFIG_KEYS.PASSWORD, pwd or "")
-    log.info("settings_autostart", "密码已更新")
 end
 
 local function has_password()
@@ -88,138 +77,185 @@ local function has_password()
     return pwd ~= nil and pwd ~= ""
 end
 
--- ==================== 密码验证 ====================
-
 local function verify_password(input)
     local stored = get_password()
     if stored == "" then return true end
     return input == stored
 end
 
--- ==================== APP 自启执行 ====================
+-- ==================== 开机自启 ====================
 
-local function execute_autostart()
-    if not get_enabled() then
-        log.info("settings_autostart", "自启已关闭，跳过")
-        return
-    end
-
+sys.subscribe("OPEN_IDLE_WIN", function()
+    if not get_enabled() then return end
     local target = get_target()
-    if target == "" then
-        log.info("settings_autostart", "未设置自启目标")
-        return
-    end
+    if target == "" then return end
 
-    -- 验证目标APP是否仍然已安装
     local installed = exapp.list_installed()
     local found = false
     for _, info in pairs(installed) do
-        if info.path == target then
-            found = true
-            break
+        if info.path == target then found = true; break end
+    end
+    if not found then return end
+
+    sys.timerStart(function()
+        local ok, err = pcall(exapp.open, target)
+        if ok then
+            autostart_target_path = target
+            if has_password() then
+                _G.autostart_locked = true
+                log.info("settings_autostart", "密码锁已激活")
+            end
+            log.info("settings_autostart", "自启APP路径", target)
+        else
+            log.error("settings_autostart", "启动失败", err)
         end
+    end, 100)
+end)
+
+-- ==================== 退出自启APP密码弹窗 ====================
+
+local function show_exit_password_popup()
+    local density = _G.density_scale or 1.0
+    local screen_w, screen_h = lcd.getSize()
+    local win_w = math.floor(screen_w * 0.80)
+    local header_h = math.floor(44 * density)
+    local mg = math.floor(16 * density)
+    local input_h = math.floor(46 * density)
+    local btn_h = math.floor(44 * density)
+    local label_h = math.floor(22 * density)
+    local gap = math.floor(12 * density)
+    local content_h = mg + label_h + gap + input_h + gap + btn_h + mg
+    local win_h = header_h + content_h
+
+    local popup_container = nil
+    local popup_win = nil
+    local popup_kb = nil
+    local popup_win_id = nil
+
+    local function cleanup()
+        -- 销毁顺序：先内后外，先子后父
+        if popup_kb then pcall(popup_kb.destroy, popup_kb); popup_kb = nil end
+        if popup_win then pcall(popup_win.destroy, popup_win); popup_win = nil end
+        if popup_container then pcall(popup_container.destroy, popup_container); popup_container = nil end
+        if popup_win_id then exwin.close(popup_win_id); popup_win_id = nil end
     end
 
-    if not found then
-        log.warn("settings_autostart", "自启目标已卸载", target)
-        return
+    local function on_confirm(pwd)
+        local pwd_str = pwd or ""
+        cleanup()
+        sys.publish("AUTOSTART_EXIT_SUBMIT_PASSWORD", pwd_str)
     end
 
-    log.info("settings_autostart", "启动自启APP", target)
-    local ok, err = pcall(exapp.open, target)
-    if ok then
-        autostart_active = true
-        autostart_target_path = target
-        -- 有密码则拦截 RETURN 按键，不让 APP 直接收到 NES_CTRL
-        _G.autostart_return_capture = has_password()
-    else
-        log.error("settings_autostart", "自启APP启动失败", err)
+    local function on_create()
+        popup_container = _G.airui.container({
+            x = 0, y = 0, w = screen_w, h = screen_h,
+            color = 0x000000, color_opacity = 128,
+            parent = _G.airui.screen,
+        })
+
+        popup_kb = _G.airui.keyboard({
+            x = 0, y = -math.floor(20 * density),
+            w = screen_w, h = math.floor(240 * density),
+            mode = "text", auto_hide = true,
+            on_commit = function(self) self:hide() end,
+        })
+
+        popup_win = _G.airui.win({
+            parent = popup_container, title = "退出自启APP",
+            w = win_w, h = win_h, close_btn = false, auto_center = true,
+            style = { bg_color = 0xFFFFFF, header_bg_color = 0x007AFF, content_bg_color = 0xFFFFFF,
+                title_text_color = 0xFFFFFF, radius = 12, title_align = _G.airui.TEXT_ALIGN_CENTER,
+                header_height = header_h, content_pad = 0 },
+        })
+
+        local y_off = mg
+        _G.airui.label({
+            parent = popup_win, x = mg, y = y_off, w = win_w - 2 * mg, h = label_h,
+            text = "请输入密码以退出自启APP", font_size = math.floor(16 * density),
+            color = 0x757575, align = _G.airui.TEXT_ALIGN_CENTER,
+        })
+        y_off = y_off + label_h + gap
+
+        local pwd_input = _G.airui.textarea({
+            parent = popup_win, x = mg, y = y_off, w = win_w - 2 * mg, h = input_h,
+            text = "", placeholder = "请输入密码", max_len = 16,
+            font_size = math.floor(18 * density), keyboard = popup_kb,
+        })
+        y_off = y_off + input_h + gap
+
+        local btn_w = math.floor((win_w - 2 * mg - gap) / 2)
+        _G.airui.button({
+            parent = popup_win, x = mg, y = y_off, w = btn_w, h = btn_h,
+            text = "取消", font_size = math.floor(18 * density),
+            style = { bg_color = 0xE0E0E0, pressed_bg_color = 0xE0E0E0, text_color = 0x333333, radius = 8,
+                border_width = 1, border_color = 0xE0E0E0 },
+            on_click = function() cleanup() end,
+        })
+        _G.airui.button({
+            parent = popup_win, x = mg + btn_w + gap, y = y_off, w = btn_w, h = btn_h,
+            text = "确定", font_size = math.floor(18 * density),
+            style = { bg_color = 0x007AFF, pressed_bg_color = 0x0056B3, text_color = 0xFFFFFF, radius = 8, border_width = 0 },
+            on_click = function()
+                on_confirm(pwd_input:get_text())
+            end,
+        })
     end
+
+    popup_win_id = exwin.open({
+        on_create = on_create,
+        on_destroy = function() end,
+    })
 end
 
--- ==================== 退出自启APP（密码保护） ====================
+sys.subscribe("AUTOSTART_REQUEST_EXIT_PASSWORD", function()
+    if not _G.autostart_locked then return end
+    show_exit_password_popup()
+end)
 
-local function request_exit_autostart()
-    if not autostart_active then return end
+-- ==================== 硬件 RETURN 键拦截 ====================
 
-    if not has_password() then
-        -- 无密码，允许 APP 自行处理退出（恢复 NES_CTRL RETURN 正常发布）
-        log.info("settings_autostart", "无密码，允许正常退出")
-        _G.autostart_return_capture = false
-        autostart_active = false
-        autostart_target_path = ""
-        -- 直接发布 NES_CTRL RETURN 让 APP 退出
-        sys.publish("NES_CTRL", "RETURN")
-    else
-        -- 有密码，发布事件让UI弹出密码验证
-        log.info("settings_autostart", "需要密码验证退出自启APP")
+sys.subscribe("NES_CTRL", function(key)
+    if key == "RETURN" and _G.autostart_locked then
+        log.info("settings_autostart", "RETURN 被密码锁拦截")
         sys.publish("AUTOSTART_REQUEST_EXIT_PASSWORD")
     end
-end
+end)
 
--- 密码验证结果回调（由 UI 模块发布）
-local function on_exit_password_verified(success)
-    if success then
-        log.info("settings_autostart", "密码验证通过，退出自启APP")
-        _G.autostart_return_capture = false
-        autostart_active = false
+-- 密码提交验证（退出弹窗）
+sys.subscribe("AUTOSTART_EXIT_SUBMIT_PASSWORD", function(password)
+    if verify_password(password) then
+        log.info("settings_autostart", "密码验证通过，解除锁定")
+        _G.autostart_locked = false
+        local target = autostart_target_path
         autostart_target_path = ""
-        sys.publish("NES_CTRL", "RETURN")  -- 发送RETURN让APP自行退出
-    else
-        log.info("settings_autostart", "密码验证失败，不退出")
-    end
-end
-
--- ==================== 监听 APP 安装/卸载变化 ====================
-
-local function on_installed_updated()
-    if autostart_active and autostart_target_path ~= "" then
-        local installed = exapp.list_installed()
-        local found = false
-        for _, info in pairs(installed) do
-            if info.path == autostart_target_path then
-                found = true
-                break
+        -- 锁已解除，让 APP 的 exapp.close 自然退出
+        if target ~= "" then
+            log.info("settings_autostart", "调用 exapp.close", target)
+            local ok, err = pcall(exapp.close, target)
+            if not ok then
+                log.error("settings_autostart", "exapp.close 失败", err)
             end
         end
-        if not found then
-            log.info("settings_autostart", "自启APP已被卸载，标记为非活跃")
-            autostart_active = false
-            autostart_target_path = ""
-            _G.autostart_return_capture = false
-        end
     end
-end
+end)
 
--- ==================== 事件处理 ====================
+-- ==================== 设置页面事件 ====================
 
--- 获取自启配置（供 UI 查询）
 sys.subscribe("AUTOSTART_SETTINGS_GET", function()
-    local enabled = get_enabled()
-    local target = get_target()
-    local pwd_set = has_password()
-
     local target_name = ""
+    local target = get_target()
     if target ~= "" then
         local installed = exapp.list_installed()
         for _, info in pairs(installed) do
-            if info.path == target then
-                target_name = info.cn_name or ""
-                break
-            end
+            if info.path == target then target_name = info.cn_name or ""; break end
         end
     end
-
     sys.publish("AUTOSTART_SETTINGS_VALUE", {
-        enabled = enabled,
-        target = target,
-        target_name = target_name,
-        has_password = pwd_set,
+        enabled = get_enabled(), target = target,
+        target_name = target_name, has_password = has_password(),
     })
-    log.info("settings_autostart", "上报自启配置", enabled, target_name, pwd_set)
 end)
 
--- 设置开关（关闭时需要密码验证，开启不需要）
 sys.subscribe("AUTOSTART_SET_ENABLED", function(value, password)
     if value == false and has_password() then
         if not verify_password(password) then
@@ -228,96 +264,53 @@ sys.subscribe("AUTOSTART_SET_ENABLED", function(value, password)
         end
     end
     set_enabled(value)
+    if not value then _G.autostart_locked = false; autostart_target_path = "" end
     sys.publish("AUTOSTART_PASSWORD_RESULT", true, "")
     sys.publish("AUTOSTART_CONFIG_CHANGED")
 end)
 
--- 设置/修改自启目标APP（需要密码验证）
 sys.subscribe("AUTOSTART_SET_TARGET", function(target_path, password)
-    if has_password() then
-        if not verify_password(password) then
-            sys.publish("AUTOSTART_PASSWORD_RESULT", false, "密码错误")
-            return
-        end
+    if has_password() and not verify_password(password) then
+        sys.publish("AUTOSTART_PASSWORD_RESULT", false, "密码错误")
+        return
     end
     set_target(target_path)
     sys.publish("AUTOSTART_PASSWORD_RESULT", true, "")
     sys.publish("AUTOSTART_CONFIG_CHANGED")
-    log.info("settings_autostart", "自启目标已更新", target_path)
 end)
 
--- 设置/修改密码
 sys.subscribe("AUTOSTART_SET_PASSWORD", function(old_password, new_password)
-    if has_password() then
-        if not verify_password(old_password) then
-            sys.publish("AUTOSTART_PASSWORD_RESULT", false, "原密码错误")
-            return
-        end
+    if has_password() and not verify_password(old_password) then
+        sys.publish("AUTOSTART_PASSWORD_RESULT", false, "原密码错误")
+        return
     end
     set_password(new_password or "")
     sys.publish("AUTOSTART_PASSWORD_RESULT", true, "")
     sys.publish("AUTOSTART_CONFIG_CHANGED")
 end)
 
--- 通用密码验证
-sys.subscribe("AUTOSTART_VERIFY_PASSWORD", function(password)
-    local ok = verify_password(password)
-    sys.publish("AUTOSTART_PASSWORD_RESULT", ok, ok and "" or "密码错误")
-end)
-
--- 退出自启APP时的密码提交
-sys.subscribe("AUTOSTART_EXIT_SUBMIT_PASSWORD", function(password)
-    local ok = verify_password(password)
-    sys.publish("AUTOSTART_EXIT_PASSWORD_RESULT", ok)
-end)
-
--- 获取已安装APP列表（供UI选择APP用）
 sys.subscribe("AUTOSTART_GET_INSTALLED_APPS", function()
     local apps = {}
     local installed = exapp.list_installed()
     for _, info in pairs(installed) do
-        table.insert(apps, {
-            name = info.cn_name or "",
-            path = info.path or "",
-            icon = info.icon_path or "",
-        })
+        table.insert(apps, { name = info.cn_name or "", path = info.path or "", icon = info.icon_path or "" })
     end
-    -- 按安装时间排序（后安装的在前）
-    table.sort(apps, function(a, b)
-        return (a.name or "") < (b.name or "")
-    end)
+    table.sort(apps, function(a, b) return (a.name or "") < (b.name or "") end)
     sys.publish("AUTOSTART_INSTALLED_APPS_VALUE", apps)
 end)
 
--- 拦截 NES_CTRL RETURN 按键 → 退出自启APP
--- 注意：nes_key_app 发现有密码保护时不会发 NES_CTRL("RETURN")，
--- 而是发 AUTOSTART_RETURN_PRESSED，在此处理
-sys.subscribe("AUTOSTART_RETURN_PRESSED", function()
-    log.info("settings_autostart", "检测到RETURN按键，请求退出自启APP")
-    request_exit_autostart()
-end)
-
--- 同时保留 NES_CTRL 订阅以防未拦截到的情况
-sys.subscribe("NES_CTRL", function(key)
-    if key == "RETURN" and autostart_active then
-        log.info("settings_autostart", "NES_CTRL RETURN (fallback)")
-        request_exit_autostart()
+-- 监听卸载
+sys.subscribe("APP_STORE_INSTALLED_UPDATED", function()
+    if _G.autostart_locked and autostart_target_path ~= "" then
+        local installed = exapp.list_installed()
+        local found = false
+        for _, info in pairs(installed) do
+            if info.path == autostart_target_path then found = true; break end
+        end
+        if not found then
+            _G.autostart_locked = false; autostart_target_path = ""
+        end
     end
-end)
-
--- 监听安装变化
-sys.subscribe("APP_STORE_INSTALLED_UPDATED", on_installed_updated)
-
--- 订阅退出密码验证结果
-sys.subscribe("AUTOSTART_EXIT_PASSWORD_RESULT", on_exit_password_verified)
-
--- ==================== 开机自启延时执行 ====================
-
--- 等待 idle_win 创建完成后再延时 1 秒执行自启，确保 exwin 窗口栈已初始化
-sys.subscribe("OPEN_IDLE_WIN", function()
-    sys.timerStart(function()
-        execute_autostart()
-    end, 100)
 end)
 
 init_fskv()

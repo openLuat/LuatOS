@@ -94,46 +94,52 @@ typedef struct {
     uint16_t  out_buf_size;
     uint16_t* out_len;
     int       ret_code;       // 0=success, <0=error
-    volatile uint8_t timed_out; // 超时后 callback 负责释放
+    volatile uint8_t timed_out; // 超时标志, callback 据此决定是否 sem_release
+    volatile uint8_t refcnt;    // 引用计数: waiter(1) + slot/callback(1), 归零时销毁
 } rpc_sync_ctx_t;
 
-/* result_reg exec callback，在 reg_mutex 下调用 */
+// 统一释放 ctx 引用。最后一个释放者负责 delete sem + free ctx。
+static void rpc_sync_ctx_release(rpc_sync_ctx_t* ctx) {
+    if (ctx->refcnt == 0) return;
+    ctx->refcnt--;
+    if (ctx->refcnt == 0) {
+        luat_rtos_semaphore_delete(ctx->sem);
+        luat_heap_free(ctx);
+    }
+}
+
+/* result_reg exec callback，由 result dispatch 在锁外调用 */
 static void rpc_sync_exec(struct luat_airlink_result_reg* reg, luat_airlink_cmd_t* cmd) {
     rpc_sync_ctx_t* ctx = (rpc_sync_ctx_t*)reg->userdata;
 
-    // LLOGI("rpc_sync_exec ENTER cmd->len=%d timed_out=%d", cmd->len, (int)ctx->timed_out);
+    if (!ctx->timed_out) {
+        // cmd->data 格式: [new_pkgid:8][req_pkgid:8][result_code:2][resp payload]
+        if (cmd->len >= 18) {
+            int16_t result_code = 0;
+            memcpy(&result_code, cmd->data + 16, 2);
+            ctx->ret_code = (int)result_code;
 
-    if (ctx->timed_out) {
-        // 调用方已超时并放弃等待，由 callback 释放资源
-        luat_rtos_semaphore_delete(ctx->sem);
-        luat_heap_free(ctx);
-        return;
+            uint16_t payload_len = cmd->len - 18;
+            if (payload_len > ctx->out_buf_size) {
+                LLOGE("rpc_sync_exec: resp %u exceeds buf %u, dropping",
+                      payload_len, (unsigned)ctx->out_buf_size);
+                ctx->ret_code = AIRLINK_ERR_RPC_RESP_TOO_LARGE;
+                if (ctx->out_len) *ctx->out_len = 0;
+            } else {
+                if (ctx->out_buf && payload_len > 0) {
+                    memcpy(ctx->out_buf, cmd->data + 18, payload_len);
+                }
+                if (ctx->out_len) {
+                    *ctx->out_len = payload_len;
+                }
+            }
+        } else {
+            ctx->ret_code = -1;
+            if (ctx->out_len) *ctx->out_len = 0;
+        }
+        luat_rtos_semaphore_release(ctx->sem);
     }
-
-    // LLOGD("rpc_sync_exec cmd->len=%d", cmd->len);
-    // cmd->data 格式: [new_pkgid:8][req_pkgid:8][result_code:2][resp payload]
-    if (cmd->len >= 18) {
-        int16_t result_code = 0;
-        memcpy(&result_code, cmd->data + 16, 2);
-        // LLOGD("rpc_sync_exec result_code=%d", (int)result_code);
-        ctx->ret_code = (int)result_code;
-
-        uint16_t payload_len = cmd->len - 18;
-        if (payload_len > ctx->out_buf_size) {
-            payload_len = ctx->out_buf_size;
-        }
-        if (ctx->out_buf && payload_len > 0) {
-            memcpy(ctx->out_buf, cmd->data + 18, payload_len);
-        }
-        if (ctx->out_len) {
-            *ctx->out_len = payload_len;
-        }
-    } else {
-        ctx->ret_code = -1;
-        if (ctx->out_len) *ctx->out_len = 0;
-    }
-
-    luat_rtos_semaphore_release(ctx->sem);
+    rpc_sync_ctx_release(ctx);  // 释放 callback 引用
 }
 
 /* ------------------------------------------------------------------ */
@@ -174,6 +180,7 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
         _stats_unlock();
         return -2;
     }
+    ctx->refcnt = 1;  // waiter 引用
 
     // 生成 pkgid 并注册 result_reg
     uint64_t pkgid = luat_airlink_get_next_cmd_id();
@@ -185,14 +192,14 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
 
     if (luat_airlink_result_reg(&reg) != 0) {
         LLOGE("rpc: result_reg 已满");
-        luat_rtos_semaphore_delete(ctx->sem);
-        luat_heap_free(ctx);
+        rpc_sync_ctx_release(ctx);  // 释放 waiter 引用 (1→0 销毁)
         _stats_lock();
         g_rpc_stats.call_total++;
         g_rpc_stats.call_send_fail++;
         _stats_unlock();
-        return -2;
+        return AIRLINK_ERR_RESULT_REG_FULL;
     }
+    ctx->refcnt = 2;  // waiter + slot
 
     // 构造 RPC cmd: [pkgid:8][rpc_id:2][msg_type:1][req payload]
     uint16_t cmd_data_len = 8 + 2 + 1 + req_len;
@@ -200,8 +207,8 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
     if (cmd == NULL) {
         LLOGE("rpc: malloc cmd failed");
         luat_airlink_result_unreg(pkgid);
-        luat_rtos_semaphore_delete(ctx->sem);
-        luat_heap_free(ctx);
+        rpc_sync_ctx_release(ctx);  // slot 引用
+        rpc_sync_ctx_release(ctx);  // waiter 引用
         _stats_lock();
         g_rpc_stats.call_total++;
         g_rpc_stats.call_send_fail++;
@@ -225,8 +232,8 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
     if (send_ret != 0) {
         LLOGE("rpc: send2transport failed %d", send_ret);
         luat_airlink_result_unreg(pkgid);
-        luat_rtos_semaphore_delete(ctx->sem);
-        luat_heap_free(ctx);
+        rpc_sync_ctx_release(ctx);  // slot 引用
+        rpc_sync_ctx_release(ctx);  // waiter 引用
         _stats_lock();
         g_rpc_stats.call_total++;
         g_rpc_stats.call_send_fail++;
@@ -244,18 +251,15 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
         LLOGE("rpc: timeout after %llums (pkgid=0x%llx rpc_id=0x%04X)", elapsed_ms, pkgid, rpc_id);
         
         if (luat_airlink_result_unreg(pkgid) == 0) {
-            // 清理成功：callback 不会触发，安全释放 ctx
-            luat_rtos_semaphore_delete(ctx->sem);
-            luat_heap_free(ctx);
+            // slot 还在，callback 不会触发，回收 slot + waiter 引用
+            rpc_sync_ctx_release(ctx);  // slot
+            rpc_sync_ctx_release(ctx);  // waiter
         } else {
-            // result_unreg 在持有 reg_mutex 后未找到 slot：
-            // 说明 callback 已完成（在我们清理之前运行完毕并清空了 slot）。
-            // callback 调用了 semaphore_release 但未释放 ctx，此处负责释放。
-            ctx->timed_out = 1;  // 安全标志（防止极端情况下互斥锁超时）
-            luat_rtos_semaphore_delete(ctx->sem);
-            luat_heap_free(ctx);
+            // slot 已被 result dispatch 取走，callback 持有引用
+            ctx->timed_out = 1;
+            rpc_sync_ctx_release(ctx);  // waiter 引用，callback 后续释放剩下那份
         }
-        
+
         _stats_lock();
         g_rpc_stats.call_total++;
         g_rpc_stats.call_timeout++;
@@ -264,7 +268,7 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
         return -1; // timeout
     }
 
-    // 成功
+    // 成功: callback 已 sem_release + ctx_release，此处释放 waiter 引用
     uint64_t elapsed_ms = luat_mcu_tick64_ms() - start_tick;
     int result = ctx->ret_code;
 
@@ -273,21 +277,21 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
     if (result == 0) {
         g_rpc_stats.call_success++;
         _update_latency(elapsed_ms);
-        // LLOGD("rpc: success (took %llums resp_len=%d)", elapsed_ms, ctx->out_len ? *ctx->out_len : 0);
     } else {
         if (result == -501 || result == -502) {
             g_rpc_stats.call_decode_fail++;
             LLOGE("rpc: codec error result=%d (took %llums)", result, elapsed_ms);
+        } else if (result == AIRLINK_ERR_RPC_RESP_TOO_LARGE) {
+            g_rpc_stats.call_buf_overflow++;
+            LLOGE("rpc: resp too large (took %llums)", elapsed_ms);
         } else {
             g_rpc_stats.call_send_fail++;
             LLOGE("rpc: result error %d (took %llums)", result, elapsed_ms);
         }
     }
     _stats_unlock();
-    
-    luat_airlink_result_unreg(pkgid);
-    luat_rtos_semaphore_delete(ctx->sem);
-    luat_heap_free(ctx);
+
+    rpc_sync_ctx_release(ctx);  // 释放 waiter 引用 (最后一个引用者销毁)
     return result;
 }
 
@@ -295,7 +299,7 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
 /* nanopb typed RPC layer                                               */
 /* ------------------------------------------------------------------ */
 
-#define NB_ENC_BUF_SIZE  4096  // 通用 nanopb RPC 临时缓冲区统一升到 4 KiB，覆盖当前最大 mobile payload 3647B，并保留少量编码余量
+#define NB_ENC_BUF_SIZE  AIRLINK_RPC_MAX_PAYLOAD  // nanopb encode/decode 临时缓冲区
 
 // 静态处理表 (由 luat_airlink_rpc_nb_table.c 汇编，按宏控制哪些模块启用)
 extern const luat_airlink_rpc_nb_reg_t* const luat_airlink_rpc_nb_static_table[];
@@ -388,6 +392,28 @@ int luat_airlink_rpc_nb_call(uint8_t mode, uint16_t rpc_id,
                               const pb_msgdesc_t* req_desc, const void* req,
                               const pb_msgdesc_t* resp_desc, void* resp,
                               uint32_t timeout_ms) {
+    // 编码前预检: 请求 payload 是否超过统一上限
+    if (req_desc && req) {
+        size_t req_size = 0;
+        if (!pb_get_encoded_size(&req_size, req_desc, req)) {
+            LLOGE("rpc_nb_call: pb_get_encoded_size failed rpc_id=%04X", rpc_id);
+            _stats_lock();
+            g_rpc_stats.call_total++;
+            g_rpc_stats.call_encode_fail++;
+            _stats_unlock();
+            return -4;
+        }
+        if (req_size > AIRLINK_RPC_MAX_PAYLOAD) {
+            LLOGE("rpc_nb_call: req payload %u exceeds AIRLINK_RPC_MAX_PAYLOAD %u, rpc_id=%04X",
+                  (unsigned)req_size, (unsigned)AIRLINK_RPC_MAX_PAYLOAD, rpc_id);
+            _stats_lock();
+            g_rpc_stats.call_total++;
+            g_rpc_stats.call_encode_fail++;
+            _stats_unlock();
+            return -5;
+        }
+    }
+
     // 编码请求
     uint64_t enc_start = luat_mcu_tick64_ms();
     uint8_t* enc_buf = (uint8_t*)luat_heap_malloc(NB_ENC_BUF_SIZE);
@@ -596,9 +622,10 @@ void luat_airlink_rpc_print_stats(void) {
     luat_airlink_rpc_get_perf(&latency, &perf);
     
     LLOGI("=== RPC Statistics ===");
-    LLOGI("Call: total=%llu success=%llu timeout=%llu send_fail=%llu encode_fail=%llu decode_fail=%llu",
-          stats.call_total, stats.call_success, stats.call_timeout, 
-          stats.call_send_fail, stats.call_encode_fail, stats.call_decode_fail);
+    LLOGI("Call: total=%llu success=%llu timeout=%llu send_fail=%llu encode_fail=%llu decode_fail=%llu buf_overflow=%llu",
+          stats.call_total, stats.call_success, stats.call_timeout,
+          stats.call_send_fail, stats.call_encode_fail, stats.call_decode_fail,
+          stats.call_buf_overflow);
     LLOGI("Notify: total=%llu success=%llu encode_fail=%llu",
           stats.notify_total, stats.notify_success, stats.notify_encode_fail);
     

@@ -644,10 +644,15 @@ static int l_airlink_rpc(lua_State* L) {
     }
     uint32_t timeout_ms = (uint32_t)luaL_optinteger(L, 4, 3000);
 
-    uint8_t resp_buf[512];
+    uint8_t* resp_buf = (uint8_t*)luat_heap_malloc(AIRLINK_RPC_MAX_PAYLOAD);
+    if (!resp_buf) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "oom");
+        return 2;
+    }
     uint16_t resp_len = 0;
     int ret = luat_airlink_rpc(mode, rpc_id, req, (uint16_t)req_len,
-                                resp_buf, sizeof(resp_buf), &resp_len, timeout_ms);
+                                resp_buf, AIRLINK_RPC_MAX_PAYLOAD, &resp_len, timeout_ms);
     if (ret == 0) {
         lua_pushboolean(L, 1);
         lua_pushlstring(L, (const char*)resp_buf, resp_len);
@@ -658,6 +663,7 @@ static int l_airlink_rpc(lua_State* L) {
         lua_pushboolean(L, 0);
         lua_pushinteger(L, ret);
     }
+    luat_heap_free(resp_buf);
     return 2;
 }
 

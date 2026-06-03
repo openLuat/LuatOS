@@ -11,7 +11,6 @@ local main_container
 local device_name_label
 local model_label
 local unique_id_label
-local unique_id_hex_label
 local version_label
 local kernel_label
 local edit_win = nil
@@ -56,9 +55,6 @@ local function update_device_info(info)
     end
     if unique_id_label and info.unique_id then
         unique_id_label:set_text(info.unique_id)
-    end
-    if unique_id_hex_label and info.unique_id_hex then
-        unique_id_hex_label:set_text(info.unique_id_hex)
     end
     if version_label and info.version then
         version_label:set_text(info.version)
@@ -319,15 +315,14 @@ local function build_ui()
     local info_card = airui.container({
         parent = ct,
         x = margin, y = math.floor(110 * _G.density_scale),
-        w = card_w, h = math.floor(380 * _G.density_scale),
+        w = card_w, h = math.floor(310 * _G.density_scale),
         color = COLOR_WHITE,
         radius = 8
     })
     model_label = create_info_row(info_card, math.floor(10 * _G.density_scale), "设备型号", "--")
     unique_id_label = create_info_row(info_card, math.floor(70 * _G.density_scale), "设备 ID", "--")
-    unique_id_hex_label = create_info_row(info_card, math.floor(130 * _G.density_scale), "设备 ID (HEX)", "--")
-    version_label = create_info_row(info_card, math.floor(190 * _G.density_scale), "软件版本", "--")
-    kernel_label = create_info_row(info_card, math.floor(250 * _G.density_scale), "内核版本", "--")
+    version_label = create_info_row(info_card, math.floor(130 * _G.density_scale), "软件版本", "--")
+    kernel_label = create_info_row(info_card, math.floor(190 * _G.density_scale), "内核版本", "--")
 end
 
 local function on_create()
@@ -348,7 +343,6 @@ local function on_destroy()
     device_name_label = nil
     model_label = nil
     unique_id_label = nil
-    unique_id_hex_label = nil
     version_label = nil
     kernel_label = nil
 end

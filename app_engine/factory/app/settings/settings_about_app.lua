@@ -14,7 +14,6 @@ local device_info = {
     version = "1.0.0",
     kernel = "--",
     unique_id = "--",
-    unique_id_hex = "--"
 }
 device_info.version = _G.VERSION
 --[[
@@ -28,8 +27,8 @@ local function get_device_info()
     -- 获取MCU唯一ID（原始格式和十六进制格式）
     local ok, unique_id = pcall(mcu.unique_id)
     if ok and unique_id then
-        device_info.unique_id = unique_id
-        device_info.unique_id_hex = unique_id:toHex()
+        -- 设备 ID 直接显示十六进制格式，不再保留原始格式
+        device_info.unique_id = unique_id:toHex()
     end
     -- 获取内核固件基础名称
     local ok2, firmware = pcall(rtos.firmware)

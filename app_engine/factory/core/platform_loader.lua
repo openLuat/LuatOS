@@ -129,16 +129,11 @@ local function load_project_config(project)
                 tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
             },
             features = {
-                net_4g = false, wifi = true, ethernet = true, buzzer = false,
-                speaker = false, mic = false, sd_card = false, nand_flash = false,
-                gnss = false, bluetooth = false, can = false, rs485 = false,
-                usb_camera = false, spi_camera = false, i2c_sensor = false,
+                ethernet = true,
             },
             ui = {
-                show_4g_icon = false, show_wifi_icon = true,
-                show_buzzer_settings = false, show_brightness_slider = true,
-                show_ethernet_settings = false, show_storage_settings = true,
-                show_camera_preview = false, show_sensor_panel = false,
+                show_brightness_slider = true,
+                show_storage_settings = true,
             },
         }
     end
@@ -177,16 +172,12 @@ local function load_project_config(project)
             tp  = { model = "tp_gt911", params = { port = 0, pin_rst = 26, pin_int = gpio.WAKEUP0 } },
         },
         features = {
-            net_4g = false, wifi = true, ethernet = true, buzzer = false,
-            speaker = false, mic = false, sd_card = false, nand_flash = false,
-            gnss = false, bluetooth = false, can = false, rs485 = false,
-            usb_camera = false, spi_camera = false, i2c_sensor = false,
+            wifi = true, ethernet = true,
         },
         ui = {
-            show_4g_icon = false, show_wifi_icon = true,
-            show_buzzer_settings = false, show_brightness_slider = true,
-            show_ethernet_settings = false, show_storage_settings = true,
-            show_camera_preview = false, show_sensor_panel = false,
+            show_wifi_icon = true,
+            show_brightness_slider = true,
+            show_storage_settings = true,
         },
     }
 end
@@ -199,7 +190,6 @@ _G.project_config = load_project_config(_G.PROJECT)
 if _G.is_pc then
     _G.model_str = "PC"
     _G.project_config.chip = "PC"
-    _G.project_config.features.net_4g = false          -- PC 无 4G 硬件
     socket.dft(socket.ETH0)
     _G.mobile = {}
     function mobile.imei() return "pc_simulator" end    -- FOTA 等需要 IMEI 的场景

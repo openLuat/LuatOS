@@ -2,10 +2,13 @@
 #include <string.h>
 #include "luat_pgfs.h"
 
+#define LUAT_LOG_TAG "pgfs"
+#include "luat_log.h"
+
 #ifdef LUAT_USE_PGFS_COMPONENT
 
 #include "luat_fs.h"
-#include "pgfs_internal.h"
+#include "pgfs_internal.h"  /* includes pgfs_nand_ftl.h internally */
 #ifdef LUAT_USE_LITTLE_FLASH
 #include "little_flash.h"
 #endif
@@ -59,7 +62,20 @@ static int pgfs_lf_erase(void *ctx, uint32_t block_addr, uint32_t block_count) {
     if (bus == NULL || bus->flash == NULL || block_count == 0) {
         return -1;
     }
-    return little_flash_erase(bus->flash, bus->offset + block_addr, block_count) == LF_ERR_OK ? 0 : -1;
+    int ret = little_flash_erase(bus->flash, bus->offset + block_addr, block_count);
+
+    /* Update FTL erase counts and bad-block state */
+    pgfs_mount_ctx_t *mount_ctx = pgfs_get_mount_ctx();
+    if (mount_ctx && mount_ctx->mounted) {
+        uint32_t block_id = block_addr / bus->flash->chip_info.erase_size;
+        if (ret == LF_ERR_OK) {
+            pgfs_ftl_on_erase_success(mount_ctx, block_id);
+        } else {
+            pgfs_ftl_on_erase_failure(mount_ctx, block_id);
+        }
+    }
+
+    return ret == LF_ERR_OK ? 0 : -1;
 }
 
 static int pgfs_lf_control(void *ctx, uint32_t cmd, void *arg) {
@@ -88,22 +104,24 @@ static int pgfs_lf_control(void *ctx, uint32_t cmd, void *arg) {
 }
 #endif
 
+/* pgfs_compute_data_log_base — mount helper. Calls pgfs_layout_compute()
+ * to derive the layout from the geometry, and returns the byte address
+ * of the first data-log block. The layout always starts the data log
+ * at block PGFS_LAYOUT_RESERVED_BLOCKS, which is past the FTL state
+ * region by construction. */
 static uint32_t pgfs_compute_data_log_base(const pgfs_flash_opts_t* opts) {
     pgfs_flash_geometry_t geo = {0};
-    uint32_t base = PGFS_DATA_LOG_BASE_ADDR;
+    pgfs_layout_t layout = {0};
     if (opts == NULL || opts->control == NULL) {
-        return base;
+        return PGFS_DATA_LOG_BASE_ADDR;
     }
     if (opts->control(opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) != 0 || geo.erase_size == 0) {
-        return base;
+        return PGFS_DATA_LOG_BASE_ADDR;
     }
-    if (base % geo.erase_size != 0) {
-        uint64_t aligned = ((uint64_t)base + (uint64_t)geo.erase_size - 1u) / (uint64_t)geo.erase_size * (uint64_t)geo.erase_size;
-        if (aligned < 0xFFFFFFFFu) {
-            base = (uint32_t)aligned;
-        }
+    if (pgfs_layout_compute(&geo, &layout) != 0) {
+        return PGFS_DATA_LOG_BASE_ADDR;
     }
-    return base;
+    return layout.data_log_first_block * layout.erase_size;
 }
 
 static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
@@ -133,16 +151,49 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
             memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
             return -1;
         }
+        /* The rebuild path also runs a replay internally. */
+        s_pgfs_ctx.stats.replay_count += 1;
     }
     else {
-        ret = pgfs_replay_data_log(&s_pgfs_ctx);
-        if (ret != 0) {
+        /* Phase 4b: try to skip pgfs_replay_data_log when the CP and
+         * the FTL state agree on the data log write head. To do that we
+         * must load the FTL state first. The FTL on_mount is idempotent
+         * for init (it skips pgfs_ftl_init if flash_opts is set), so an
+         * early init+load here just gets the write_head_* / log_tail_*
+         * into ctx->ftl without running the full bad-block scan. The
+         * full scan / persist path runs later via the unconditional
+         * pgfs_ftl_on_mount call below. */
+        if (pgfs_ftl_on_mount(&s_pgfs_ctx) != 0) {
+            LLOGE("pgfs: early FTL init failed");
             memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
             return -1;
         }
+        if (pgfs_checkpoint_is_consistent_with_ftl(&s_pgfs_ctx.checkpoint,
+                                                   &s_pgfs_ctx.ftl)) {
+            LLOGI("pgfs: O(1) mount — CP and FTL agree on log_tail=%u/%u, skipping replay",
+                  (unsigned int)s_pgfs_ctx.checkpoint.log_tail_block,
+                  (unsigned int)s_pgfs_ctx.checkpoint.log_tail_offset);
+            s_pgfs_ctx.stats.replay_skip_count += 1;
+        } else {
+            ret = pgfs_replay_data_log(&s_pgfs_ctx);
+            if (ret != 0) {
+                memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
+                return -1;
+            }
+            s_pgfs_ctx.stats.replay_count += 1;
+        }
     }
     s_pgfs_ctx.checkpoint_loaded = 1;
+
+    /* NAND FTL init: try loading persisted state, fall back to factory scan */
+    if (pgfs_ftl_on_mount(&s_pgfs_ctx) != 0) {
+        LLOGE("pgfs: NAND FTL init failed");
+        memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
+        return -1;
+    }
+
     s_pgfs_ctx.mounted = 1;
+    s_pgfs_ctx.stats.mount_count += 1;
     *fsdata = &s_pgfs_ctx;
     return 0;
 }
@@ -150,8 +201,13 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
 static int luat_vfs_pgfs_umount(void* fsdata, luat_fs_conf_t *conf) {
     (void)fsdata;
     (void)conf;
-    if (s_pgfs_ctx.mounted && pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
-        return -1;
+    if (s_pgfs_ctx.mounted) {
+        /* Persist FTL state before committing checkpoint */
+        pgfs_ftl_on_checkpoint_commit(&s_pgfs_ctx);
+        if (pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
+            return -1;
+        }
+        pgfs_ftl_deinit(&s_pgfs_ctx.ftl);
     }
     pgfs_file_reset_all();
     memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
@@ -379,6 +435,18 @@ int pgfs_control_inject_powercut_stage(const char* stage) {
         s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_AFTER_APPEND;
         return 0;
     }
+    if (strcmp(stage, "after_cp_erase") == 0) {
+        s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_AFTER_CP_ERASE;
+        return 0;
+    }
+    if (strcmp(stage, "after_cp_write") == 0) {
+        s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_AFTER_CP_WRITE;
+        return 0;
+    }
+    if (strcmp(stage, "after_append_erase") == 0) {
+        s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_AFTER_APPEND_ERASE;
+        return 0;
+    }
     return -1;
 }
 
@@ -388,7 +456,20 @@ int pgfs_control_inject_corrupt_latest_cp(int enable) {
 }
 
 int pgfs_control_inject_bad_block_once(int enable) {
-    s_pgfs_ctx.inject_bad_block_once = enable ? 1 : 0;
+    if (enable) {
+        /* If FTL is already mounted, inject immediately into it.
+         * Otherwise, set flag to be picked up at mount time. */
+        if (s_pgfs_ctx.mounted) {
+            pgfs_ftl_inject_bad_block_once(&s_pgfs_ctx.ftl, 0);
+        } else {
+            s_pgfs_ctx.inject_bad_block_once = 1;
+        }
+    } else {
+        s_pgfs_ctx.inject_bad_block_once = 0;
+        if (s_pgfs_ctx.mounted) {
+            s_pgfs_ctx.ftl.inject_bad_block_once = 0;
+        }
+    }
     return 0;
 }
 
@@ -401,8 +482,20 @@ int pgfs_control_reset_runtime(void) {
     int loaded = -1;
 
     memcpy(mount_point, s_pgfs_ctx.mount_point, sizeof(mount_point));
-    if (s_pgfs_ctx.mounted && pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
-        return -1;
+    if (s_pgfs_ctx.mounted) {
+        /* v2 layout: let pgfs_checkpoint_commit_pending drive the
+         * FTL persist itself (it calls pgfs_ftl_on_checkpoint_commit
+         * after a successful CP write). Calling the FTL persist first
+         * would advance FTL.write_head past the on-flash CP's log_tail
+         * even when there are no pending writes to commit (e.g. an
+         * AFTER_APPEND injection that returned -1 before
+         * pgfs_mark_checkpoint_pending ran), which would either replay
+         * the orphan data or put FTL out of sync with the CP. */
+        if (pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
+            LLOGW("pgfs: CP commit failed on reset, falling back to on-flash state "
+                  "(orphan log records beyond the persisted log_tail will be ignored)");
+        }
+        pgfs_ftl_deinit(&s_pgfs_ctx.ftl);
     }
     pgfs_file_reset_all();
     memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
@@ -418,10 +511,36 @@ int pgfs_control_reset_runtime(void) {
         if (loaded == 0) {
             s_pgfs_ctx.checkpoint = checkpoint;
             s_pgfs_ctx.checkpoint_loaded = 1;
+            /* Restore the data log write head from the CP's log_tail_*
+             * so pgfs_replay_data_log can bound the scan to durable
+             * records. Without this, replay would walk to geo.capacity
+             * and resurrect orphan data written past the last committed
+             * CP (Test1/2 of the powercut recovery test). */
+            if (s_pgfs_ctx.checkpoint.log_tail_block != 0 ||
+                s_pgfs_ctx.checkpoint.log_tail_offset != 0) {
+                pgfs_flash_geometry_t geo = {0};
+                uint32_t erase_size = 0;
+                if (s_pgfs_ctx.flash_opts->control &&
+                    s_pgfs_ctx.flash_opts->control(s_pgfs_ctx.flash_opts->ctx,
+                                                   PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+                    geo.erase_size > 0) {
+                    erase_size = geo.erase_size;
+                    s_pgfs_ctx.data_log_write_addr =
+                        s_pgfs_ctx.data_log_base_addr +
+                        (uint32_t)s_pgfs_ctx.checkpoint.log_tail_block * erase_size +
+                        s_pgfs_ctx.checkpoint.log_tail_offset;
+                    s_pgfs_ctx.data_log_prepared_until = s_pgfs_ctx.data_log_write_addr;
+                    LLOGI("pgfs reset: replay bound by CP log_tail=%u/%u (write_addr=%u)",
+                          (unsigned int)s_pgfs_ctx.checkpoint.log_tail_block,
+                          (unsigned int)s_pgfs_ctx.checkpoint.log_tail_offset,
+                          (unsigned int)s_pgfs_ctx.data_log_write_addr);
+                }
+            }
             loaded = pgfs_replay_data_log(&s_pgfs_ctx);
             if (loaded != 0) {
                 return -1;
             }
+            s_pgfs_ctx.stats.replay_count += 1;
         }
         else {
             loaded = pgfs_rebuild_checkpoint_from_replay(&s_pgfs_ctx);
@@ -430,6 +549,11 @@ int pgfs_control_reset_runtime(void) {
             }
             s_pgfs_ctx.checkpoint_loaded = 1;
         }
+    }
+    /* Re-init NAND FTL on runtime reset */
+    if (pgfs_ftl_on_mount(&s_pgfs_ctx) != 0) {
+        LLOGE("pgfs: FTL re-init failed on runtime reset");
+        return -1;
     }
     return 0;
 }

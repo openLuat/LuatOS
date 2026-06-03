@@ -23,7 +23,8 @@ Production library files only keep thin Lua export bridges; real test logic stay
 
 4. **Test implementation style**
    - Use small, deterministic case handlers.
-   - Prefer `luaL_loadstring + lua_pcall` to validate Lua-visible behavior from C-layer entrypoints.
+   - Prefer `luaL_loadstring + lua_pcallk` for snippets that may yield (`sys.wait*`, `http.request(...).wait()`, socket async waits).
+   - Plain `lua_pcall` is fine only for purely synchronous snippets.
    - Return Lua boolean for pass/fail; avoid silent success fallbacks.
 
 ## BUILD INTEGRATION (PC)
@@ -46,10 +47,22 @@ Production library files only keep thin Lua export bridges; real test logic stay
 
 ## COVERAGE (OpenCppCoverage)
 
-- Tool script: `tools/pc_utest_coverage.ps1`
+- Tool script: `bsp\pc\pc_utest_coverage.ps1`
+- Typical usage:
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_dtls_basic`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_tcp_basic`
+- Re-running additional suites after the first build:
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_http_basic -SkipBuild`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_https_basic -SkipBuild`
+- `-Suite` and `-TestcaseScripts` are mutually exclusive
 - Requires installed executable:
   - `C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe`
-- Important pitfall: testcase script directory args passed to luatos-lua must **not** carry trailing `\`, otherwise script discovery can fail (`main.lua` not found).
+- The helper trims a trailing `\` from `-TestcaseScripts` automatically and derives `build\coverage\<suite>\`.
+- Network-facing suites currently cover:
+  - `socket.utest("dtls_loopback_psk")` via `c_utest_dtls_basic`
+  - `socket.utest("tcp_external_qq")` via `c_utest_tcp_basic`
+  - `http.utest("http_external_qq")` via `c_utest_http_basic`
+  - `http.utest("https_external_qq")` via `c_utest_https_basic`
 
 ## EXTENDING TO A NEW LIBRARY
 

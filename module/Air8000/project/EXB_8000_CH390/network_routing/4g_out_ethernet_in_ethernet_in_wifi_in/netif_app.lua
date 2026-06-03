@@ -13,6 +13,47 @@
 
 exnetif = require "exnetif"
 
+local function ip_ready_func(ip, adapter)
+    if adapter == socket.LWIP_GP then
+        -- 在位置1和2设置自定义的DNS服务器ip地址：
+        -- "223.5.5.5"，这个DNS服务器IP地址是阿里云提供的DNS服务器IP地址；
+        -- "114.114.114.114"，这个DNS服务器IP地址是国内通用的DNS服务器IP地址；
+        -- 可以加上以下两行代码，在自动获取的DNS服务器工作不稳定的情况下，这两个新增的DNS服务器会使DNS服务更加稳定可靠；
+        -- 如果使用专网卡，不要使用这两行代码；
+        -- 如果使用国外的网络，不要使用这两行代码；
+        socket.setDNS(adapter, 1, "223.5.5.5")
+        socket.setDNS(adapter, 2, "114.114.114.114")
+        log.info("netif_app.ip_ready_func", "4G IP_READY", socket.localIP(socket.LWIP_GP))
+    elseif adapter == socket.LWIP_ETH then
+        socket.setDNS(adapter, 1, "223.5.5.5")
+        socket.setDNS(adapter, 2, "114.114.114.114")
+        log.info("netif_app.ip_ready_func", "以太网1 IP_READY", ip)
+    elseif adapter == socket.LWIP_USER1 then
+        socket.setDNS(adapter, 1, "223.5.5.5")
+        socket.setDNS(adapter, 2, "114.114.114.114")
+        log.info("netif_app.ip_ready_func", "以太网2 IP_READY", ip)
+    elseif adapter == socket.LWIP_AP then
+        socket.setDNS(adapter, 1, "223.5.5.5")
+        socket.setDNS(adapter, 2, "114.114.114.114")
+        log.info("netif_app.ip_ready_func", "WiFi AP IP_READY", ip)
+    end
+end
+
+local function ip_lose_func(adapter)
+    if adapter == socket.LWIP_GP then
+        log.warn("netif_app.ip_lose_func", "4G IP_LOSE")
+    elseif adapter == socket.LWIP_ETH then
+        log.warn("netif_app.ip_lose_func", "以太网1 IP_LOSE")
+    elseif adapter == socket.LWIP_USER1 then
+        log.warn("netif_app.ip_lose_func", "以太网2 IP_LOSE")
+    elseif adapter == socket.LWIP_AP then
+        log.warn("netif_app.ip_lose_func", "WiFi AP IP_LOSE")
+    end
+end
+
+sys.subscribe("IP_READY", ip_ready_func)
+sys.subscribe("IP_LOSE", ip_lose_func)
+
 function netif_app_task_func()
     local res, res1
     -- 等待4G网络连接成功

@@ -1,8 +1,8 @@
 --[[
 @module  expvp
 @summary 通用PVP联网对战游戏框架（MQTT通信 + IOT数据存储 + 房间/匹配系统）
-@version 1.0.1
-@date    2026.05.22
+@version 1.0.2
+@date    2026.06.01
 @author  王世豪
 @description
     通用PVP联网对战游戏框架，提供：
@@ -15,20 +15,38 @@
     
     使用示例：
     local expvp = require("expvp")
+    
+    -- 1. 初始化配置
     expvp.init({
         game_name = "stick_fighter",    -- 游戏名称，用于topic前缀
         score_cls = 2,                   -- 积分分类ID
-        callbacks = {
-            on_connect = function() end,
-            on_disconnect = function() end,
-            on_peer_join = function(peer_id, peer_info) end,    -- 有玩家加入
-            on_peer_leave = function(peer_id) end,              -- 有玩家离开
-            on_peer_ready = function(peer_id, ready) end,       -- 玩家准备状态变化
-            on_game_start = function() end,                     -- 游戏开始
-            on_game_started = function(data) end,               -- 收到游戏开始通知（含房主分配的玩家信息）
-            on_game_data = function(data, from_peer) end,       -- 收到游戏数据
-        }
     })
+    
+    -- 2. 注册事件回调
+    local function event_callback(event, payload)
+        -- event: 
+            -- "connect"：MQTT 连接成功并订阅完成
+            -- "disconnect"：MQTT 连接断开
+            -- "peer_join"：有玩家加入房间
+            -- "peer_leave"：有玩家离开房间
+            -- "peer_ready"：玩家准备状态发生变化
+            -- "join_rejected"：加入房间被拒绝（如房间已满）
+            -- "match_found"：匹配系统找到对手
+            -- "game_start"：房主开始游戏
+            -- "game_data"：收到对手发送的游戏数据
+            -- "presence"：收到其他玩家的在线状态广播
+            -- "message"：收到自定义消息（结构由用户定义）
+        -- payload: 事件相关数据
+        
+        if event == "connect" then
+            log.info("expvp", "连接成功")
+        elseif event == "game_data" then
+            log.info("expvp", "收到数据:", payload.data)
+        end
+    end
+    expvp.on(event_callback)
+    
+    -- 3. 启动网络服务
     expvp.start()
 ]]
 
@@ -83,8 +101,8 @@ local game_state = {
     last_ping_time = 0,             -- 上次收到ping时间
 }
 
--- 回调函数
-local callbacks = {}
+-- 事件回调函数
+local on_event = nil
 
 -- ==================== 工具函数 ====================
 
@@ -132,7 +150,7 @@ end
 
 --[[
 @api expvp.init(user_config)
-@summary 初始化网络框架，配置游戏参数和回调函数
+@summary 初始化网络框架，配置游戏参数
 @param user_config table 配置对象
     - game_name string 游戏名称，用于MQTT topic前缀（默认"game"）
     - score_cls number 积分分类ID，用于排行榜（默认1）
@@ -141,17 +159,17 @@ end
     - mqtt_qos number MQTT QoS等级（默认0）
     - room_max_players number 房间最大人数（默认2）
     - match_timeout number 匹配超时时间（毫秒，默认30000）
-    - callbacks table 回调函数集合
-@return string 设备ID
+@return boolean 成功返回true，失败返回false
 @example
-    expvp.init({
+    local success = expvp.init({
         game_name = "stick_fighter",
         score_cls = 2,
-        callbacks = {
-            on_connect = function() end,
-            on_game_data = function(data, from) end,
-        }
     })
+    if success then
+        log.info("expvp", "初始化成功")
+    else
+        log.error("expvp", "初始化失败")
+    end
 ]]
 function expvp.init(user_config)
     -- 合并配置
@@ -165,8 +183,15 @@ function expvp.init(user_config)
         end
     end
     
-    -- 设置回调
-    callbacks = config.callbacks or {}
+    -- 检查必选参数
+    if not config.game_name or config.game_name == "" then
+        log.error('expvp', 'init failed: game_name is required')
+        return false
+    end
+    if not config.score_cls then
+        log.error('expvp', 'init failed: score_cls is required')
+        return false
+    end
     
     -- 初始化设备信息
     state.device_id = get_device_id()
@@ -177,68 +202,73 @@ function expvp.init(user_config)
     log.info('expvp', 'device_id', state.device_id)
     log.info('expvp', 'device_model', state.device_model)
     
-    return state.device_id
+    return true
+end
+
+-- ==================== 事件回调注册 ====================
+
+--[[
+@api expvp.on(cbfunc)
+@summary 注册事件回调函数
+@description
+    此函数不涉及硬件操作，直接注册回调，不通过队列
+    事件类型："connect"/"disconnect"/"peer_join"/"peer_leave"/"peer_ready"
+             "join_rejected"/"match_found"/"game_start"/"game_data"/"presence"/"message"
+@param cbfunc function 回调函数，格式: function(event, payload)
+@return boolean, string|nil 成功返回true，失败返回false和错误信息
+@usage
+    -- 定义事件回调函数
+    local function event_callback(event, payload)
+        if event == "connect" then
+            log.info("expvp", "连接成功")
+        elseif event == "game_data" then
+            log.info("expvp", "收到数据:", payload.data)
+        end
+    end
+    
+    -- 注册事件回调
+    expvp.on(event_callback)
+]]
+function expvp.on(cbfunc)
+    if type(cbfunc) ~= "function" then
+        return false, "回调必须是函数"
+    end
+    on_event = cbfunc
+    return true
 end
 
 -- ==================== 设备信息 ====================
 
 --[[
-@api expvp.get_device_id()
-@summary 获取当前设备唯一标识
-@return string 设备ID（IMEI或MAC地址）
+@api expvp.get_player_info()
+@summary 获取玩家信息
+@return table 玩家信息表
+    - device_id string 设备ID（IMEI或MAC地址）
+    - device_model string 设备型号
+    - nickname string 玩家昵称（优先使用IOT账号昵称，否则使用设备ID后6位）
 ]]
-function expvp.get_device_id()
-    return state.device_id
-end
-
---[[
-@api expvp.get_device_model()
-@summary 获取设备型号
-@return string 设备型号
-]]
-function expvp.get_device_model()
-    return state.device_model
-end
-
---[[
-@api expvp.get_nickname()
-@summary 获取玩家昵称
-@return string 玩家昵称（优先使用IOT账号昵称，否则使用设备ID后6位）
-]]
-function expvp.get_nickname()
-    return state.nickname
-end
-
---[[
-@api expvp.get_account_info()
-@summary 获取IOT账号信息
-@return table|nil 账号信息表（包含account、nickname、is_guest等字段），未登录或异常时返回nil
-]]
-function expvp.get_account_info()
-    if not exapp then return nil end
-    local ok, info = pcall(exapp.iot_get_account_info)
-    if ok and info then return info end
-    return nil
+function expvp.get_player_info()
+    return {
+        device_id = state.device_id,
+        device_model = state.device_model,
+        nickname = state.nickname,
+    }
 end
 
 -- ==================== MQTT状态 ====================
 
 --[[
-@api expvp.is_ready()
-@summary 检查MQTT是否已连接并就绪
-@return boolean 是否就绪
+@api expvp.get_network_status()
+@summary 获取网络连接状态
+@return table 网络状态表
+    - ready boolean MQTT是否已连接并就绪
+    - running boolean 网络服务是否正在运行
 ]]
-function expvp.is_ready()
-    return state.mqtt_ready
-end
-
---[[
-@api expvp.is_running()
-@summary 检查网络服务是否正在运行
-@return boolean 是否运行中
-]]
-function expvp.is_running()
-    return state.is_running
+function expvp.get_network_status()
+    return {
+        ready = state.mqtt_ready,
+        running = state.is_running,
+    }
 end
 
 -- ==================== 消息发送 ====================
@@ -297,13 +327,12 @@ end
 -- ==================== 房间系统 ====================
 
 --[[
-@api expvp.create_room(callback)
+@api expvp.create_room()
 @summary 创建新房间并成为房主
-@param callback function|nil 回调函数 function(success, room_id)
 @return string 房间ID
 @note 创建后会自动订阅房间topic并广播创建事件
 ]]
-function expvp.create_room(callback)
+function expvp.create_room()
     -- 生成简短易读的房间代码（6位数字）
     local room_code = "room_" .. tostring(os.time()):sub(-6)
     local room_id = room_code
@@ -312,6 +341,15 @@ function expvp.create_room(callback)
     room_state.is_host = true
     room_state.players = {}
     room_state.my_ready = false
+    
+    -- 把房主自己加入玩家列表
+    room_state.players[state.device_id] = {
+        device_id = state.device_id,
+        nickname = state.nickname,
+        model = state.device_model,
+        ready = false,
+        is_host = true,
+    }
     
     -- 订阅房间相关topic
     if state.mqtt_client then
@@ -328,18 +366,16 @@ function expvp.create_room(callback)
     })
     
     log.info('expvp', 'room created', room_id)
-    if callback then callback(true, room_id) end
     return room_id
 end
 
 --[[
-@api expvp.join_room(room_id, callback)
+@api expvp.join_room(room_id)
 @summary 加入指定房间
 @param room_id string 要加入的房间ID
-@param callback function|nil 回调函数 function(success)
 @note 加入后会自动订阅房间topic并发送加入请求
 ]]
-function expvp.join_room(room_id, callback)
+function expvp.join_room(room_id)
     room_state.current_room = room_id
     room_state.is_host = false
     room_state.players = {}
@@ -359,19 +395,17 @@ function expvp.join_room(room_id, callback)
     })
     
     log.info('expvp', 'joining room', room_id)
-    if callback then callback(true) end
 end
 
 --[[
-@api expvp.leave_room(callback)
+@api expvp.leave_room()
 @summary 离开当前房间
-@param callback function|nil 回调函数 function(success)
 @note 会通知其他玩家并清理房间状态
+@return boolean 是否成功离开
 ]]
-function expvp.leave_room(callback)
+function expvp.leave_room()
     if not room_state.current_room then
-        if callback then callback(false) end
-        return
+        return false
     end
     
     -- 发送离开通知
@@ -393,7 +427,7 @@ function expvp.leave_room(callback)
     room_state.my_ready = false
     room_state.game_started = false
     
-    if callback then callback(true) end
+    return true
 end
 
 --[[
@@ -417,44 +451,12 @@ function expvp.get_room_info()
 end
 
 --[[
-@api expvp.get_room_code()
-@summary 获取房间简短代码（用于分享和加入）
-@return string|nil 6位数字代码
-]]
-function expvp.get_room_code()
-    return room_state.room_code
-end
-
---[[
-@api expvp.is_host()
-@summary 检查当前设备是否为房主
-@return boolean 是否为房主
-]]
-function expvp.is_host()
-    return room_state.is_host
-end
-
---[[
-@api expvp.get_player_count()
-@summary 获取房间内玩家数量（含自己）
-@return number 玩家数量
-]]
-function expvp.get_player_count()
-    local count = 1  -- 自己
-    for _, _ in pairs(room_state.players) do
-        count = count + 1
-    end
-    return count
-end
-
---[[
-@api expvp.set_ready(ready, callback)
+@api expvp.set_ready(ready)
 @summary 设置自己的准备状态
 @param ready boolean 是否准备
-@param callback function|nil 回调函数 function(success)
-@note 所有玩家都准备后，房主会触发on_game_start回调
+@note 所有玩家都准备后，房主会触发on_game_start回调（带data参数）
 ]]
-function expvp.set_ready(ready, callback)
+function expvp.set_ready(ready)
     room_state.my_ready = ready
     if room_state.current_room then
         publish(make_room_topic(room_state.current_room, "ready"), {
@@ -463,7 +465,6 @@ function expvp.set_ready(ready, callback)
             ready = ready,
         })
     end
-    if callback then callback(true) end
 end
 
 --[[
@@ -491,7 +492,7 @@ end
 @note
     - 只有房主可以调用
     - 需要先加入房间
-    - 会触发所有玩家的on_game_started和on_game_start回调
+    - 会触发所有玩家的on_game_start回调（带data参数）
 ]]
 function expvp.start_game(player_assignments)
     if not room_state.is_host then
@@ -530,11 +531,8 @@ function expvp.start_game(player_assignments)
     
     -- 房主自己也触发回调
     room_state.game_started = true
-    if callbacks.on_game_started then
-        callbacks.on_game_started(start_data)
-    end
-    if callbacks.on_game_start then
-        callbacks.on_game_start()
+    if on_event then
+        on_event("game_start", start_data)
     end
     
     log.info('expvp', 'game started by host', room_state.current_room)
@@ -544,28 +542,29 @@ end
 -- ==================== 匹配系统 ====================
 
 --[[
-@api expvp.start_match(callback)
+@api expvp.start_match()
 @summary 开始自动匹配对手
-@param callback function|nil 回调函数 function(success, result)
-    - success=true 匹配成功
-    - success=false, result="timeout" 匹配超时
-    - success=false, result="already matching" 已在匹配中
 @note 匹配超时时间通过config.match_timeout配置（默认30秒）
+@note 匹配结果通过事件回调通知：匹配成功触发"match_found"事件，超时触发"match_timeout"事件
 ]]
-function expvp.start_match(callback)
+function expvp.start_match()
     if match_state.is_matching then
-        if callback then callback(false, "already matching") end
+        log.warn('expvp', '已经在匹配中')
+        if on_event then
+            on_event("match_timeout", {reason = "already matching"})
+        end
         return
     end
     
     match_state.is_matching = true
     match_state.matched_peers = {}
-    match_state.match_callback = callback
     
     -- 超时定时器（30秒）
     match_state.match_timer = sys.timerStart(function()
         expvp.stop_match()
-        if callback then callback(false, "timeout") end
+        if on_event then
+            on_event("match_timeout", {})
+        end
     end, config.match_timeout)
     
     -- 周期性广播匹配请求（每2秒发一次，增加被发现几率）
@@ -691,8 +690,14 @@ local function handle_room_message(topic, data)
                 host_id = state.device_id,
                 players = room_state.players,
             })
-            if callbacks.on_peer_join then
-                callbacks.on_peer_join(data.device_id, data)
+            if on_event then
+                on_event("peer_join", {
+                    device_id = data.device_id,
+                    nickname = data.nickname,
+                    device_model = data.device_model,
+                    is_host = data.is_host,
+                    ready = data.ready
+                })
             end
         end
     end
@@ -702,24 +707,37 @@ local function handle_room_message(topic, data)
         if data.rejected then
             -- 被拒绝加入
             log.warn('expvp', '加入房间被拒绝:', data.reason or '未知原因')
-            if callbacks.on_join_rejected then
-                callbacks.on_join_rejected(data.reason or '房间已满')
+            if on_event then
+                on_event("join_rejected", {reason = data.reason or '房间已满'})
             end
             room_state.current_room = nil
             return
         end
         room_state.players = data.players or {}
-        room_state.players[data.host_id] = {
-            device_id = data.host_id,
-            is_host = true,
+        -- 保留房主的完整信息（nickname、model等），只添加 is_host 标记
+        if room_state.players[data.host_id] then
+            room_state.players[data.host_id].is_host = true
+        else
+            room_state.players[data.host_id] = {
+                device_id = data.host_id,
+                is_host = true,
+            }
+        end
+        -- 把加入者自己加入玩家列表
+        room_state.players[state.device_id] = {
+            device_id = state.device_id,
+            nickname = state.nickname,
+            model = state.device_model,
+            ready = false,
+            is_host = false,
         }
     end
     
     -- 处理离开
     if data.type == "leave" then
         room_state.players[data.device_id] = nil
-        if callbacks.on_peer_leave then
-            callbacks.on_peer_leave(data.device_id)
+        if on_event then
+            on_event("peer_leave", {device_id = data.device_id})
         end
     end
     
@@ -728,31 +746,30 @@ local function handle_room_message(topic, data)
         if room_state.players[data.device_id] then
             room_state.players[data.device_id].ready = data.ready
         end
-        if callbacks.on_peer_ready then
-            callbacks.on_peer_ready(data.device_id, data.ready)
+        if on_event then
+            on_event("peer_ready", {device_id = data.device_id, ready = data.ready})
         end
     end
     
     -- 处理游戏开始（房主广播）
     if data.type == "game_start" then
         room_state.game_started = true
-        if callbacks.on_game_started then
-            callbacks.on_game_started(data)
-        end
-        if callbacks.on_game_start then
-            callbacks.on_game_start()
+        if on_event then
+            on_event("game_start", data)
         end
     end
     
     -- 处理游戏数据
-    if data.type == "game_data" and callbacks.on_game_data then
-        callbacks.on_game_data(data.data, data.from)
+    if data.type == "game_data" then
+        if on_event then
+            on_event("game_data", {data = data.data, from = data.from})
+        end
         return
     end
     
     -- 处理通用广播消息（如 input、game_state 等）
-    if callbacks.on_message then
-        callbacks.on_message(data)
+    if on_event then
+        on_event("message", data)
     end
 end
 
@@ -780,8 +797,12 @@ local function handle_match_message(data)
             target_id = data.device_id,  -- 指定匹配的对方
         })
         -- 通知回调
-        if callbacks.on_match_found then
-            callbacks.on_match_found(data.device_id, data)
+        if on_event then
+            on_event("match_found", {
+                device_id = data.device_id,
+                nickname = data.nickname,
+                device_model = data.device_model
+            })
         end
         return
     end
@@ -794,8 +815,12 @@ local function handle_match_message(data)
         if match_state.matched_peers[data.device_id] then return end
         match_state.matched_peers[data.device_id] = true
         expvp.stop_match()
-        if callbacks.on_match_found then
-            callbacks.on_match_found(data.device_id, data)
+        if on_event then
+            on_event("match_found", {
+                device_id = data.device_id,
+                nickname = data.nickname,
+                device_model = data.device_model
+            })
         end
     end
 end
@@ -823,16 +848,18 @@ local function handle_message(topic, payload)
     
     -- 处理点对点消息
     if topic:find("/data/" .. state.device_id) then
-        if data.type == "game_data" and callbacks.on_game_data then
-            callbacks.on_game_data(data.data, data.from or data.device_id)
+        if data.type == "game_data" then
+            if on_event then
+                on_event("game_data", {data = data.data, from = data.from or data.device_id})
+            end
         elseif data.type == "ping" then
             -- 自动回复pong
             expvp.send_to_device(data.device_id, {
                 type = "pong",
                 device_id = state.device_id,
             })
-        elseif callbacks.on_message then
-            callbacks.on_message(data)
+        elseif on_event then
+            on_event("message", data)
         end
         return
     end
@@ -843,14 +870,14 @@ local function handle_message(topic, payload)
         if data.matching == true and data.device_id ~= state.device_id then
             handle_match_message(data)
         end
-        if callbacks.on_presence then
-            callbacks.on_presence(data)
+        if on_event then
+            on_event("presence", data)
         end
         return
     end
     
-    if callbacks.on_message then
-        callbacks.on_message(data)
+    if on_event then
+        on_event("message", data)
     end
 end
 
@@ -867,22 +894,20 @@ local function mqtt_client_event_cbfunc(mqtt_client, event, data, payload, metas
         sys.sendMsg(config.game_name .. "_mqtt", 'MQTT_EVENT', 'CONNECT', true)
     elseif event == 'suback' then
         state.mqtt_ready = true
-        if callbacks.on_connect then
-            callbacks.on_connect()
+        if on_event then
+            on_event("connect", {})
         end
         sys.sendMsg(config.game_name .. "_mqtt", 'MQTT_EVENT', 'SUBSCRIBE', true)
     elseif event == 'recv' then
         handle_message(data, payload)
     elseif event == 'disconnect' then
         state.mqtt_ready = false
-        if callbacks.on_disconnect then
-            callbacks.on_disconnect()
+        if on_event then
+            on_event("disconnect", {})
         end
         sys.sendMsg(config.game_name .. "_mqtt", 'MQTT_EVENT', 'DISCONNECTED')
     elseif event == 'error' then
-        if callbacks.on_error then
-            callbacks.on_error()
-        end
+        -- MQTT错误事件，当前不向上层传递
         sys.sendMsg(config.game_name .. "_mqtt", 'MQTT_EVENT', 'ERROR')
     end
 end
@@ -984,7 +1009,7 @@ end
 
 --[[
 @api expvp.set_local_score(score)
-@summary 直接设置本地积分（一般用于初始化或重置）
+@summary 直接设置本地积分（用于初始化或重置）
 @param score number 积分值
 @return number 设置后的积分值
 ]]
@@ -1003,15 +1028,6 @@ function expvp.add_score(delta)
     score_state.local_score = score_state.local_score + (delta or 0)
     log.info("score", "add:", delta, "total:", score_state.local_score)
     return score_state.local_score
-end
-
---[[
-@api expvp.reset_score()
-@summary 重置本地积分为0
-]]
-function expvp.reset_score()
-    score_state.local_score = 0
-    score_state.just_deleted = false
 end
 
 --[[
@@ -1202,25 +1218,22 @@ function expvp.delete_score(callback)
 end
 
 --[[
-@api expvp.query_leaderboard(page, callback, size)
-@summary 查询排行榜（按积分降序）
-@param page number|nil 页码（默认1）
+@api expvp.query_leaderboard(callback, n)
+@summary 查询排行榜（前N名，按积分降序）
 @param callback function 回调函数 function(success, data)
-    - data.records 排行榜记录数组，每条记录包含 i1(积分)、s1(昵称)、uni_key(账号) 等字段
+    - data.records 排行榜记录数组（前N名），每条记录包含 i1(积分)、s1(昵称)、uni_key(账号) 等字段
     - data.total 总记录数
-@param size number|nil 每页条数（默认11）
+@param n number|nil 查询前N名（默认100名）
+@note 应用层拿到全部数据后自行分页，API 只负责查询
 @example
-    expvp.query_leaderboard(1, function(success, data)
-        if success and data.records then
-            for i, rec in ipairs(data.records) do
-                print(i, rec.s1, rec.i1)
-            end
-        end
-    end, 30)
+    -- 查询前30名（默认）
+    expvp.query_leaderboard(query_leaderboard_callback)
+    
+    -- 查询前50名
+    expvp.query_leaderboard(query_leaderboard_callback, 50)
 ]]
-function expvp.query_leaderboard(page, callback, size)
-    page = page or 1
-    size = size or 11
+function expvp.query_leaderboard(callback, n)
+    n = n or 30  -- 默认查前30名
 
     if not exapp then
         if callback then callback(false, "exapp not available") end
@@ -1230,8 +1243,7 @@ function expvp.query_leaderboard(page, callback, size)
     exapp.list_record({
         cls = config.score_cls,
         sort = "i1 desc",
-        size = size,
-        offset = (page - 1) * size,
+        size = n,  -- 一次查N条，应用层自己分页
     }, function(success, data)
         if success and data and data.value then
             data = data.value

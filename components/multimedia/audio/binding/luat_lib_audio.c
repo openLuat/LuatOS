@@ -676,9 +676,9 @@ static int l_audio_print_probe_id(lua_State *L) {
 @int driver_probe_id 驱动id，在不使用默认驱动时填写，绝大部分情况下都不需要填写。驱动id需要通过audio.make_probe_id合成
 @return boolean 成功返回true,否则返回false
 @usage
-audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_I2S)
+audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
 audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16)
-audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_NUMS, 1)
+audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
 */
 static int l_audio_config(lua_State *L) {
     
@@ -841,6 +841,10 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "debug",			ROREG_FUNC(l_audio_set_debug)},
     //@const REQUEST_START number audio_v2.on回调函数传入消息值，表示开始处理请求块，可以传入更多数据
     { "REQUEST_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_START)},
+    //@const REQUEST_DRIVER_START number audio_v2.on回调函数传入消息值，表示请求块驱动开始
+    { "REQUEST_DRIVER_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_DRIVER_START)},
+    //@const REQUEST_TTS_START number audio_v2.on回调函数传入消息值，表示请求块TTS开始
+    { "REQUEST_TTS_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_TTS_START)},
     //@const REQUEST_NEED_NEW_DATA number audio_v2.on回调函数传入消息值，表示请求块需要新的数据，需要传入新的数据
     { "REQUEST_NEED_NEW_DATA",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA)},
     //@const REQUEST_GET_NEW_DATA number audio_v2.on回调函数传入消息值，表示请求块获取新的数据
@@ -874,13 +878,14 @@ static const rotable_Reg_t reg_audio_v2[] =
     //@const DATA_CODEC_TYPE_OPUS number 编解码器类型OPUS
     { "DATA_CODEC_TYPE_OPUS",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_OPUS)},
     //@const DATA_CODEC_TYPE_G711 number 编解码器类型G711
-    { "DATA_CODEC_TYPE_G711",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711)},
+    { "DATA_CODEC_TYPE_G711_ULAW",		ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW)},
+    { "DATA_CODEC_TYPE_G711_ALAW",		ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW)},
     //@const CONFIG_PARAM_I2S_MODE number 驱动私有参数的I2S模式
     { "CFG_PARAM_I2S_MODE",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_MODE)},
     //@const CONFIG_PARAM_I2S_FRAME_BITS number 驱动私有参数的I2S帧位宽，需要和外部codec匹配
     { "CFG_PARAM_I2S_FRAME_BITS",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_FRAME_BITS)},
-    //@const CONFIG_PARAM_I2S_CHANNEL_NUMS number 驱动私有参数的I2S通道数，需要和外部codec匹配，codec本身有几个通道输出，这里就配置几个通道
-    { "CFG_PARAM_I2S_CHANNEL_NUMS",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_CHANNEL_NUMS)},
+    //@const CONFIG_PARAM_I2S_CHANNEL_TYPE number 驱动私有参数的I2S通道类型，需要和外部codec匹配
+    { "CFG_PARAM_I2S_CHANNEL_TYPE",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_CHANNEL_TYPE)},
     //@const CONFIG_PARAM_DAC_BIT_WIDTH number 驱动私有参数的DAC位宽
     { "CFG_PARAM_DAC_BIT_WIDTH",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_DAC_BIT_WIDTH)},
     //@const CONFIG_VALUE_I2S_MODE_I2S number 驱动私有参数的I2S模式可选值，I2S标准模式
@@ -893,6 +898,12 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "CFG_VALUE_I2S_MODE_PCMS",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_VALUE_I2S_MODE_PCMS)},
     //@const CONFIG_VALUE_I2S_MODE_PCML number 驱动私有参数的I2S模式可选值，PCML
     { "CFG_VALUE_I2S_MODE_PCML",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_VALUE_I2S_MODE_PCML)},
+    //@const CONFIG_VALUE_I2S_CHANNEL_TYPE_LEFT number 驱动私有参数的I2S通道类型可选值，左声道
+    { "CFG_VALUE_I2S_CHANNEL_TYPE_LEFT",			ROREG_INT(LUAT_AUDIO_CHANNEL_LEFT)},
+    //@const CONFIG_VALUE_I2S_CHANNEL_TYPE_RIGHT number 驱动私有参数的I2S通道类型可选值，右声道
+    { "CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT",			ROREG_INT(LUAT_AUDIO_CHANNEL_RIGHT)},
+    //@const CONFIG_VALUE_I2S_CHANNEL_TYPE_STEREO number 驱动私有参数的I2S通道类型可选值，立体声
+    { "CFG_VALUE_I2S_CHANNEL_TYPE_STEREO",			ROREG_INT(LUAT_AUDIO_CHANNEL_STEREO)},
 
 	{ NULL,            ROREG_INT(0)}
 };

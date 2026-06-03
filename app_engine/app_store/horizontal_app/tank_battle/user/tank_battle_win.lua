@@ -1,8 +1,8 @@
 --[[
 @module  tank_battle_win
 @summary 双人联网坦克大战游戏窗口模块
-@version 1.0.3
-@date    2026.05.20
+@version 1.0.4
+@date    2026.06.01
 @author  王世豪
 @description
     游戏业务层模块，负责：
@@ -15,7 +15,7 @@
 ]]
 
 -- 游戏版本号
-local GAME_VERSION = "1.0.3"
+local GAME_VERSION = "1.0.4"
 
 -- 引入网络模块（exPvP：联网对战游戏通用框架）
 local expvp = require("expvp")
@@ -254,24 +254,23 @@ end
 
 -- 获取设备ID
 local function get_device_id()
-    return expvp.get_device_id()
+    local info = expvp.get_player_info()
+    return info.device_id
 end
 
 -- 获取设备型号
 local function get_device_model()
     if not my_device_model or my_device_model == "未知" then
-        my_device_model = expvp.get_device_model()
+        local info = expvp.get_player_info()
+        my_device_model = info.device_model
     end
     return my_device_model
 end
 
 -- 获取昵称
 local function get_nickname()
-    local info = expvp.get_account_info()
-    if info and info.nickname and #info.nickname > 0 then
-        return info.nickname
-    end
-    return expvp.get_device_id():sub(-6)
+    local info = expvp.get_player_info()
+    return info.nickname
 end
 
 -- ==================== 积分系统功能 ====================
@@ -784,7 +783,7 @@ local function initGame()
     game_state.score_p2 = 0
 
     -- 重置网络模块的积分
-    expvp.reset_score()
+    expvp.set_local_score(0)
 
     -- 复位玩家按钮输入状态
     lastDirClickTime = 0  -- 重置方向点击节流
@@ -1669,7 +1668,15 @@ updateRoomUI = function()
     is_host_player = room_info.is_host
     current_room_id = room_info.room_id
     local players = room_info.players or {}
-    local player_count = expvp.get_player_count()
+    -- 计算玩家数量（players 表中已包含房主和自己，直接用 pairs 遍历）
+    local player_count = 0
+    for _ in pairs(players) do
+        player_count = player_count + 1
+    end
+    -- 如果 players 表为空（理论上不会），至少为1（自己）
+    if player_count == 0 then
+        player_count = 1
+    end
     room_has_enough = player_count >= 2
     -- 同步自己的准备状态（确保与网络模块一致）
     my_ready = room_info.my_ready
@@ -1677,6 +1684,8 @@ updateRoomUI = function()
     -- 更新状态标签
     if room_status_label then
         local room_code = room_info.room_code or (current_room_id and current_room_id:sub(-6) or "---")
+        -- 去掉 room_ 前缀
+        room_code = room_code:gsub("^room_", "")
         local status_text = "房间码: " .. room_code .. "  在线: " .. player_count .. "/2"
         room_status_label:set_text(status_text)
     end
@@ -1685,17 +1694,34 @@ updateRoomUI = function()
     local player_names = {"P1", "P2"}
     -- 构建玩家映射表: player_number -> {device_id, nickname, ready}
     local player_slots = {}
-    -- 房主（自己）是P1
-    player_slots[1] = {
-        device_id = my_device_id,
-        nickname = get_nickname() .. " [你]",
-        ready = expvp.get_room_info().my_ready,
-    }
-    -- 其他玩家按顺序填入P2
-    local slot = 2
+    -- 从 players 表中动态获取玩家信息
+    -- 先放自己（房主或加入者）
+    local slot = 1
+    if players[my_device_id] then
+        local pinfo = players[my_device_id]
+        player_slots[slot] = {
+            device_id = my_device_id,
+            nickname = (pinfo.nickname or my_device_id:sub(-6)) .. " [你]",
+            ready = room_info.my_ready,
+        }
+        slot = slot + 1
+    else
+        -- 兜底：如果 players 中没有自己，手动添加
+        player_slots[slot] = {
+            device_id = my_device_id,
+            nickname = get_nickname() .. " [你]",
+            ready = room_info.my_ready,
+        }
+        slot = slot + 1
+    end
+    -- 其他玩家按顺序填入
     for device_id, pinfo in pairs(players) do
         if device_id ~= my_device_id and slot <= 2 then
-            local pname = (pinfo.nickname or device_id:sub(-6))
+            local pname = (pinfo.nickname or "") .. ""
+            -- 如果 nickname 为空，使用 device_id 后6位
+            if pname == "" then
+                pname = device_id:sub(-6)
+            end
             player_slots[slot] = {
                 device_id = device_id,
                 nickname = pname,
@@ -1937,19 +1963,18 @@ onCreateRoom = function()
     networkMode = true
     gameState = STATE.ROOM_WAITING
     
-    -- 创建房间
-    expvp.create_room(function(success, room_id)
-        if success then
-            current_room_id = room_id
-            log.info('tank_battle', '房间创建成功:', room_id)
-            buildRoomWaitingUI()
-            showRoomWaitingUI()
-            showToast("房间已创建，等待其他玩家加入...")
-        else
-            showToast("创建房间失败")
-            showMainMenu()
-        end
-    end)
+    -- 创建房间（同步API）
+    local room_id = expvp.create_room()
+    if room_id then
+        current_room_id = room_id
+        log.info('tank_battle', '房间创建成功:', room_id)
+        buildRoomWaitingUI()
+        showRoomWaitingUI()
+        showToast("房间已创建，等待其他玩家加入...")
+    else
+        showToast("创建房间失败")
+        showMainMenu()
+    end
 end
 
 -- 加入房间弹窗（输入房间ID）
@@ -2120,18 +2145,17 @@ onJoinRoom = function(room_id)
     networkMode = true
     gameState = STATE.ROOM_WAITING
     
-    expvp.join_room(room_id, function(success)
-        if success then
-            current_room_id = room_id
-            log.info('tank_battle', '加入房间成功:', room_id)
-            buildRoomWaitingUI()
-            showRoomWaitingUI()
-            showToast("已加入房间，请点击准备")
-        else
-            showToast("加入房间失败")
-            showMainMenu()
-        end
-    end)
+    -- 先构建并显示房间UI
+    buildRoomWaitingUI()
+    showRoomWaitingUI()
+    showToast("正在加入房间...")
+    
+    -- 调用 join_room（非阻塞，结果通过事件回调通知）
+    expvp.join_room(room_id)
+    
+    -- 保存 room_id
+    current_room_id = room_id
+    log.info('tank_battle', '加入房间请求已发送:', room_id)
 end
 -- ==================== 位置同步相关函数 ====================
 
@@ -3088,95 +3112,11 @@ startQuickMatch = function()
     
     showMatchingUI()
     
-    -- 开始匹配
-    expvp.start_match(function(success, result)
-        if not success then
-            hideMatchingUI()
-            if result == "timeout" then
-                showToast("匹配超时，暂无在线玩家")
-            elseif result == "already matching" then
-                showToast("正在匹配中...")
-            end
-            showMainMenu()
-        end
-        -- 匹配成功通过 on_match_found 回调处理
-    end)
-end
-
-local function onMatchFound(peer_id, peer_info)
-    local nickname = peer_info.nickname or peer_id:sub(-6)
-    log.info('tank_battle', '匹配成功！对手:', nickname)
-    
-    hideMatchingUI()
-    
-    -- 设置对手信息
-    game_state.peer_device_id = peer_id
-    game_state.peer_device_model = peer_info.model or "未知"
-    game_state.peer_connected = true
-    
-    -- 设置游戏状态
-    expvp.set_game_playing(true, peer_id)
-    
-    -- 确定玩家编号（设备ID小的为玩家1）
-    -- 注意：device_id 可能是字符串（如MAC地址），需要安全比较
-    local my_id_num = tonumber(my_device_id)
-    local peer_id_num = tonumber(peer_id)
-    local imSmaller = false
-    if my_id_num and peer_id_num then
-        -- 双方都是数字，按数字比较
-        imSmaller = (my_id_num < peer_id_num)
-    else
-        -- 有一方不是数字，按字符串比较（结果互补，保证一方P1一方P2）
-        imSmaller = (my_device_id < peer_id)
-    end
-    networkPlayerNumber = imSmaller and 1 or 2
-    my_player_number = networkPlayerNumber  -- 匹配模式同步设置 my_player_number
-    game_state.is_server = (networkPlayerNumber == 1)
-    log.info('tank_battle', string.format('匹配结果: my_device_id=%s, peer_id=%s, my_player_number=%s',
-        tostring(my_device_id), tostring(peer_id), tostring(my_player_number)))
-    
-    -- 显示对手信息弹窗（2秒后自动开始）
-    local match_dialog = airui.container({
-        parent = main_container,
-        x = W/2 - 200, y = H/2 - 80, w = 400, h = 160,
-        color = 0x1a1a2e, radius = 16,
-    })
-    airui.label({
-        parent = match_dialog,
-        x = 0, y = 25, w = 400, h = 30,
-        text = "匹配成功！",
-        font_size = 22,
-        color = 0xf0c040,
-        align = airui.TEXT_ALIGN_CENTER,
-    })
-    airui.label({
-        parent = match_dialog,
-        x = 0, y = 60, w = 400, h = 30,
-        text = "您的对手是：",
-        font_size = 16,
-        color = 0xaaaaaa,
-        align = airui.TEXT_ALIGN_CENTER,
-    })
-    airui.label({
-        parent = match_dialog,
-        x = 0, y = 85, w = 400, h = 30,
-        text = nickname,
-        font_size = 20,
-        color = 0xf0c040,
-        align = airui.TEXT_ALIGN_CENTER,
-    })
-    -- 2秒后自动进入游戏
-    sys.timerStart(function()
-        if match_dialog then
-            match_dialog:destroy()
-            match_dialog = nil
-        end
-        showGameUI()
-        startGame()
-        if ui.mode_indicator then
-            ui.mode_indicator:set_text("联网对战 - " .. nickname)
-        end
-    end, 2000)
+    -- 开始匹配（结果通过事件通知）
+    expvp.start_match()
+    -- 匹配结果通过事件回调处理：
+    -- - 成功：触发 "match_found" 事件
+    -- - 超时：触发 "match_timeout" 事件
 end
 
 -- ==================== 发送在线广播 ====================
@@ -3251,95 +3191,168 @@ local function win_on_create()
         game_name = "tank_battle",
         score_cls = 1,
         room_max_players = 2,
-        callbacks = {
-            on_message = onNetworkMessage,
-            on_match_found = onMatchFound,
-            on_peer_join = function(peer_id, peer_info)
-                log.info('tank_battle', '玩家加入房间:', peer_info and peer_info.nickname or peer_id)
-                updateRoomUI()
-            end,
-            on_peer_leave = function(peer_id)
-                log.info('tank_battle', '玩家离开房间:', peer_id)
-                -- 游戏进行中或房间等待中，提示对方已退出
-                if gameState == STATE.PLAYING or gameState == STATE.GAME_OVER then
-                    showToast("对方已退出游戏")
-                    sys.timerStart(function()
-                        showMainMenu()
-                    end, 1500)
-                elseif gameState == STATE.ROOM_WAITING then
-                    showToast("对方已离开房间")
-                    updateRoomUI()
-                else
-                    updateRoomUI()
-                end
-            end,
-            on_peer_ready = function(peer_id, ready)
-                log.info('tank_battle', '玩家准备状态:', peer_id, ready)
-                updateRoomUI()
-            end,
-            on_game_started = function(data)
-                log.info('tank_battle', '收到游戏开始通知')
-                -- 解析玩家编号分配
-                local assignments = data.player_assignments or {}
-                my_player_number = assignments[my_device_id] or 1
-                networkMode = true
-                is_host_player = expvp.is_host()
-                -- 设置对手信息（用于兼容旧版点对点通信）
-                for device_id, pnum in pairs(assignments) do
-                    if device_id ~= my_device_id then
-                        game_state.peer_device_id = device_id
-                        break
-                    end
-                end
-                expvp.set_game_playing(true, game_state.peer_device_id)
-                
-                -- 关闭房间等待UI，开始游戏
-                hideRoomWaitingUI()
-                showGameUI()
-                startGame()
-                
-                -- 更新模式指示器
-                if ui.mode_indicator then
-                    ui.mode_indicator:set_text("联网对战 (2人房间)")
-                end
-            end,
-            on_join_rejected = function(reason)
-                showToast("加入被拒绝: " .. (reason or "未知原因"))
-                showMainMenu()
-            end,
-            on_disconnect = function()
-                if networkMode and (gameState == STATE.PLAYING or gameState == STATE.GAME_OVER) then
-                    showToast("对方已退出游戏")
-                    networkMode = false
-                    is_host_player = false
-                    game_state.peer_connected = false
-                    hideRoomWaitingUI()
-                    sys.timerStart(function()
-                        showMainMenu()
-                    end, 1500)
-                elseif networkMode and gameState == STATE.ROOM_WAITING then
-                    showToast("网络连接断开")
-                    networkMode = false
-                    is_host_player = false
-                    game_state.peer_connected = false
-                    hideRoomWaitingUI()
-                    showMainMenu()
-                elseif networkMode and gameState == STATE.WAITING then
-                    -- 匹配中对方断开
-                    showToast("对方已取消匹配")
-                    networkMode = false
-                    game_state.peer_connected = false
-                    game_state.peer_device_id = nil
-                    hideMatchingUI()
-                    showMainMenu()
-                end
-            end
-        }
     })
     
     -- 在expvp.init之后获取设备信息（init内部会初始化state）
     my_device_id = get_device_id()
     my_device_model = get_device_model()
+    
+    -- 注册事件回调
+    expvp.on(function(event, payload)
+        if event == "message" then
+            onNetworkMessage(payload)
+        elseif event == "match_found" then
+            local peer_id = payload.device_id
+            local nickname = payload.nickname or peer_id:sub(-6)
+            local peer_model = payload.device_model or "未知"
+            log.info('tank_battle', '匹配成功！对手:', nickname)
+            
+            hideMatchingUI()
+            
+            -- 设置对手信息
+            game_state.peer_device_id = peer_id
+            game_state.peer_device_model = peer_model
+            game_state.peer_connected = true
+            
+            -- 设置游戏状态
+            expvp.set_game_playing(true, peer_id)
+            
+            -- 确定玩家编号（设备ID小的为玩家1）
+            local my_id_num = tonumber(my_device_id)
+            local peer_id_num = tonumber(peer_id)
+            local imSmaller = false
+            if my_id_num and peer_id_num then
+                imSmaller = (my_id_num < peer_id_num)
+            else
+                imSmaller = (my_device_id < peer_id)
+            end
+            networkPlayerNumber = imSmaller and 1 or 2
+            my_player_number = networkPlayerNumber
+            game_state.is_server = (networkPlayerNumber == 1)
+            log.info('tank_battle', string.format('匹配结果: my_device_id=%s, peer_id=%s, my_player_number=%s',
+                tostring(my_device_id), tostring(peer_id), tostring(my_player_number)))
+            
+            -- 显示对手信息弹窗（2秒后自动开始）
+            local match_dialog = airui.container({
+                parent = main_container,
+                x = W/2 - 200, y = H/2 - 80, w = 400, h = 160,
+                color = 0x1a1a2e, radius = 16,
+            })
+            airui.label({
+                parent = match_dialog,
+                x = 0, y = 25, w = 400, h = 30,
+                text = "匹配成功！",
+                font_size = 22,
+                color = 0xf0c040,
+                align = airui.TEXT_ALIGN_CENTER,
+            })
+            airui.label({
+                parent = match_dialog,
+                x = 0, y = 60, w = 400, h = 30,
+                text = "您的对手是：",
+                font_size = 16,
+                color = 0xaaaaaa,
+                align = airui.TEXT_ALIGN_CENTER,
+            })
+            airui.label({
+                parent = match_dialog,
+                x = 0, y = 85, w = 400, h = 30,
+                text = nickname,
+                font_size = 20,
+                color = 0xf0c040,
+                align = airui.TEXT_ALIGN_CENTER,
+            })
+            -- 2秒后自动进入游戏
+            sys.timerStart(function()
+                if match_dialog then
+                    match_dialog:destroy()
+                    match_dialog = nil
+                end
+                showGameUI()
+                startGame()
+                if ui.mode_indicator then
+                    ui.mode_indicator:set_text("联网对战 - " .. nickname)
+                end
+            end, 2000)
+        elseif event == "join_rejected" then
+            log.info('tank_battle', '加入房间被拒绝:', payload.reason)
+            showToast("加入失败: " .. (payload.reason or "未知原因"))
+            showMainMenu()
+        elseif event == "peer_join" then
+            local peer_id = payload.device_id
+            local nickname = payload.nickname or peer_id:sub(-6)
+            log.info('tank_battle', '玩家加入房间:', nickname)
+            updateRoomUI()
+        elseif event == "peer_leave" then
+            log.info('tank_battle', '玩家离开房间:', payload.device_id)
+            if gameState == STATE.PLAYING or gameState == STATE.GAME_OVER then
+                showToast("对方已退出游戏")
+                sys.timerStart(function()
+                    showMainMenu()
+                end, 1500)
+            elseif gameState == STATE.ROOM_WAITING then
+                showToast("对方已离开房间")
+                updateRoomUI()
+            else
+                updateRoomUI()
+            end
+        elseif event == "peer_ready" then
+            log.info('tank_battle', '玩家准备状态:', payload.device_id, payload.ready)
+            updateRoomUI()
+        elseif event == "game_start" then
+            log.info('tank_battle', '收到游戏开始通知')
+            local assignments = payload.player_assignments or {}
+            my_player_number = assignments[my_device_id] or 1
+            networkMode = true
+            local room_info = expvp.get_room_info()
+            is_host_player = room_info.is_host
+            for device_id, pnum in pairs(assignments) do
+                if device_id ~= my_device_id then
+                    game_state.peer_device_id = device_id
+                    break
+                end
+            end
+            expvp.set_game_playing(true, game_state.peer_device_id)
+            hideRoomWaitingUI()
+            showGameUI()
+            startGame()
+            if ui.mode_indicator then
+                ui.mode_indicator:set_text("联网对战 (2人房间)")
+            end
+        elseif event == "join_rejected" then
+            showToast("加入被拒绝: " .. (payload.reason or "未知原因"))
+            showMainMenu()
+        elseif event == "disconnect" then
+            if networkMode and (gameState == STATE.PLAYING or gameState == STATE.GAME_OVER) then
+                showToast("对方已退出游戏")
+                networkMode = false
+                is_host_player = false
+                game_state.peer_connected = false
+                hideRoomWaitingUI()
+                sys.timerStart(function()
+                    showMainMenu()
+                end, 1500)
+            elseif networkMode and gameState == STATE.ROOM_WAITING then
+                showToast("网络连接断开")
+                networkMode = false
+                is_host_player = false
+                game_state.peer_connected = false
+                hideRoomWaitingUI()
+                showMainMenu()
+            elseif networkMode and gameState == STATE.WAITING then
+                showToast("对方已取消匹配")
+                networkMode = false
+                game_state.peer_connected = false
+                game_state.peer_device_id = nil
+                hideMatchingUI()
+                showMainMenu()
+            end
+        elseif event == "match_timeout" then
+            hideMatchingUI()
+            showToast("匹配超时，暂无在线玩家")
+            showMainMenu()
+        end
+    end)
     
     expvp.start()
 
@@ -3596,25 +3609,30 @@ local function rebuildLeaderboardUI()
         return
     end
 
-    -- 计算当前页的起始和结束索引（每页10个，最多显示30名）
-    local startIdx = (leaderboardPage - 1) * 10 + 1
-    local endIdx = math.min(startIdx + 9, #leaderboardData, 30)
-
-    -- 前三名背景色和文字色
+    -- 应用层分页：每页显示10条，从本地数据中取当前页
+    local pageSize = 10
+    local startIndex = (leaderboardPage - 1) * pageSize + 1
+    local endIndex = math.min(leaderboardPage * pageSize, #leaderboardData)
+    
+    -- 前三名背景色
     local medalBgColors = {
         [1] = 0xFFD700,  -- 金黄色
         [2] = 0xC0C0C0,  -- 银色
         [3] = 0xCD7F32   -- 铜黄色
     }
 
-    for i = startIdx, endIdx do
+    for i = startIndex, endIndex do
         local record = leaderboardData[i]
+        -- 计算实际排名（i 是全局索引）
+        local actualRank = i
         local nickname = (record.s1 and #record.s1 > 0) and record.s1 or "匿名"
         local score = record.i1 or 0
         local displayName = #nickname > 20 and nickname:sub(1, 20) .. ".." or nickname
 
-        local isTop3 = (i <= 3)
-        local bgColor = isTop3 and medalBgColors[i] or 0xF5F5F5  -- 前三名奖牌色，其余灰色背景
+        -- 判断是否是前三名（基于实际排名）
+        local isTop3 = (actualRank <= 3)
+        -- 前三名用奖牌色，其余用灰色背景
+        local bgColor = isTop3 and medalBgColors[actualRank] or 0xF5F5F5
         local textColor = 0x333333  -- 所有名次都用黑色字体
 
         -- 卡片容器（前三名带背景色）
@@ -3626,10 +3644,10 @@ local function rebuildLeaderboardUI()
         })
         table.insert(leaderboardItems, card)
 
-        -- 排名（左对齐）
+        -- 排名（左对齐，使用实际排名）
         local rankLabel = airui.label({
             parent = card, x = 15, y = 5, w = 50, h = 16,
-            text = tostring(i), font_size = 13,
+            text = tostring(actualRank), font_size = 13,
             color = textColor
         })
         table.insert(leaderboardItems, rankLabel)
@@ -3654,13 +3672,13 @@ local function rebuildLeaderboardUI()
         yPos = yPos + cardH + gap
     end
 
-    -- 如果当前页包含第30名，显示提示（最多显示30名）
-    if endIdx == 30 then
+    -- 如果当前页包含第100名，显示提示（最多显示100名）
+    if endIndex == 100 then
         yPos = yPos + 5
         local tipLabel = airui.label({
             parent = leaderboardMainContainer,
             x = cardX, y = yPos, w = cardW, h = 22,
-            text = "仅显示前30名积分数据",
+            text = "仅显示前100名积分数据",
             font_size = 14,
             color = 0x888888,
             align = airui.TEXT_ALIGN_CENTER
@@ -3677,41 +3695,42 @@ local function onLeaderboardQueryCallback(success, data)
             leaderboardLoadingLabel:destroy()
             leaderboardLoadingLabel = nil
         end
+        
+        -- API 返回全部数据（前100名），直接保存
         leaderboardData = data.records
         
+        -- 按积分降序排序（理论上服务器已经排序，这里做双重保证）
         table.sort(leaderboardData, function(a, b)
             return (tonumber(a.i1) or 0) > (tonumber(b.i1) or 0)
         end)
-        -- 计算总数：最多显示30名
-        local total = math.min(tonumber(data.total) or #data.records, 30)
-        leaderboardTotalPages = math.max(1, math.ceil(total / 10))
+        
+        -- 计算总页数（应用层自己分页）
+        local pageSize = 10
+        leaderboardTotalPages = math.ceil(#leaderboardData / pageSize)
+        if leaderboardTotalPages == 0 then leaderboardTotalPages = 1 end
+        
+        -- 重置到第一页
+        leaderboardPage = 1
+        
         rebuildLeaderboardUI()
     end
 end
 
--- 加载排行榜数据
+-- 加载排行榜数据（一次查前30名，应用层自己分页）
 function loadLeaderboardData()
     if leaderboardLoadingLabel then
         leaderboardLoadingLabel:set_text("加载中...")
     end
     
-    -- 使用 exapp.list_record 直接查询（支持分页，每页10条）
-    if exapp then
-        local pageSize = 10
-        local offset = (leaderboardPage - 1) * pageSize
-        exapp.list_record({cls = 1, sort = "i1 desc", size = pageSize, offset = offset}, onLeaderboardQueryCallback)
-    else
-        -- 降级使用 expvp 模块
-        expvp.query_leaderboard(leaderboardPage, function(success, data)
-            if not success or not data then
-                if leaderboardLoadingLabel then
-                    leaderboardLoadingLabel:set_text("加载失败")
-                end
-                return
+    expvp.query_leaderboard(function(success, data)
+        if not success or not data then
+            if leaderboardLoadingLabel then
+                leaderboardLoadingLabel:set_text("加载失败")
             end
-            onLeaderboardQueryCallback(success, data)
-        end, 10)
-    end
+            return
+        end
+        onLeaderboardQueryCallback(success, data)
+    end)
 end
 
 -- 打开排行榜窗口
@@ -3782,7 +3801,7 @@ function openLeaderboardWin()
                 on_click = function()
                     if leaderboardPage > 1 then
                         leaderboardPage = leaderboardPage - 1
-                        loadLeaderboardData()
+                        rebuildLeaderboardUI()
                     end
                 end
             })
@@ -3809,7 +3828,7 @@ function openLeaderboardWin()
                 on_click = function()
                     if leaderboardPage < leaderboardTotalPages then
                         leaderboardPage = leaderboardPage + 1
-                        loadLeaderboardData()
+                        rebuildLeaderboardUI()
                     end
                 end
             })
@@ -3879,31 +3898,24 @@ function openLeaderboardWin()
                         x = 160, y = 85, w = 100, h = 38,
                         text = "确认删除",
                         font_size = 15, text_color = 0xFFFFFF, bg_color = 0xCC0000, radius = 5,
-                        on_click = function()
-                            if confirmContainer then
-                                confirmContainer:destroy()
-                                confirmContainer = nil
-                            end
-                            local ok, info = pcall(exapp.iot_get_account_info)
-                            if ok and info and not info.is_guest then
-                                local account = info.account or ""
-                                local deleted = 0
-                                for _, record in ipairs(leaderboardData) do
-                                    local match = false
-                                    if record.uni_key then
-                                        match = (record.uni_key == account) or (record.uni_key:find(account, 1, true) == 1)
-                                    end
-                                    if match and record.id then
-                                        exapp.delete_record({cls = 1, id = record.id})
-                                        deleted = deleted + 1
-                                    end
-                                end
-                                -- 删除后刷新排行榜
-                                sys.timerStart(function()
-                                    loadLeaderboardData()
-                                end, 300)
-                            end
+                    on_click = function()
+                        if confirmContainer then
+                            confirmContainer:destroy()
+                            confirmContainer = nil
                         end
+                        -- 使用 expvp.delete_score 删除当前账号的所有积分记录
+                        expvp.delete_score(function(success, deleted)
+                            if success then
+                                log.info("expvp", "deleted", deleted, "score records")
+                            else
+                                log.warn("expvp", "failed to delete score records")
+                            end
+                            -- 删除后刷新排行榜
+                            sys.timerStart(function()
+                                loadLeaderboardData()
+                            end, 300)
+                        end)
+                    end
                     })
                 end
             })

@@ -108,6 +108,7 @@ CMD_DEFINE(otp_read_cb);
 #ifdef LUAT_USE_AIRLINK_RPC
 CMD_DEFINE(rpc);
 #endif
+CMD_DEFINE(fragment);
 
 __AIRLINK_CODE_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
@@ -118,6 +119,7 @@ __AIRLINK_CODE_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
 #ifdef LUAT_USE_AIRLINK_RPC
     CMD_REG(0x30,  rpc),    // 通用 RPC 请求
 #endif
+    CMD_REG(0x32,  fragment), // cmd 分片重组
 #ifdef LUAT_USE_AIRLINK_EXEC_SDATA
     CMD_REG(0x20,  sdata),
 #endif

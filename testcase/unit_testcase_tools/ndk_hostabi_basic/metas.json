@@ -1,0 +1,6 @@
+{
+    "name": "ndk_hostabi_basic",
+    "summary": "NDK host ABI foundation regression (split modules with setUp/tearDown)",
+    "platform": ["pc"],
+    "timeout": 30
+}

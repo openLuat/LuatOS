@@ -416,7 +416,12 @@ local function set_wifi_info(config)
         available[socket.LWIP_STA] = connection_states.SINGLE_NETWORK
     end
     -- 尝试连接Wi-Fi，并处理可能出现的错误
-    local success = wlan.connect(config.ssid, config.password)
+    -- 将 hex 格式的 bssid（如 "AABBCCDDEEFF"）转换为 6 字节原始数据传给 wlan.connect()
+    local bssid_bin = nil
+    if config.bssid and #config.bssid >= 12 then
+        bssid_bin = string.fromHex(config.bssid)
+    end
+    local success = wlan.connect(config.ssid, config.password, 1, bssid_bin)
     if not success then
         log.error("WiFi连接失败")
         return false
@@ -624,7 +629,12 @@ local function setup_airlink_wifi(config)
     wlan.init()
     sys.wait(1000)
     log.info("WiFi名称:", config.ssid)
-    local success = wlan.connect(config.ssid, config.password)
+    -- 将 hex 格式的 bssid（如 "AABBCCDDEEFF"）转换为 6 字节原始数据传给 wlan.connect()
+    local bssid_bin = nil
+    if config.bssid and #config.bssid >= 12 then
+        bssid_bin = string.fromHex(config.bssid)
+    end
+    local success = wlan.connect(config.ssid, config.password, 1, bssid_bin)
     if not success then
         log.error("WiFi连接失败")
         return false

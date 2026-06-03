@@ -117,6 +117,9 @@ local disconnect_reason = nil
 local user_disconnect = false
 local user_connect = false
 
+-- 标记：CONNECTED阶段是否已完成保存（避免IP_READY兜底覆盖正确密码）
+local pending_saved = false
+
 -- 当前连接尝试的暂存参数（连接成功后才持久化保存）
 local pending_connect = nil
 -- 连接超时定时器
@@ -143,19 +146,19 @@ local hw_busy = false
 -- ==================== exnetif 平台适配 ====================
 
 --[[
-构建 WiFi 配置
-@param string ssid
-@param string password
-@param table cfg - 保存的配置（可选）
-@return table - exnetif set_priority_order 的参数
+构成 WiFi 对 exnetif 的接口
+其第一个参数传入的是真正的 ssid 与 password，而函数签名中的 bssid 会在 wlan.connect 中作为检索 AP 的参数。
+这样做的目的是确保 bssid 在被 exnetif 使用之前已经转换为了正确的 6 字节二进制
+
+（bssid 出 wlan.scanResult() 时已是 toHex() 过的字符串——见 handle_scan_done，
+而 wlan.connect() 接收原始 6 字节——见 luat_lib_wlan.c:149-152）
 ]]
 local function build_network_priority(ssid, password, cfg)
     cfg = cfg or {}
     local priority = {}
 
-    if ssid and ssid ~= "" then  -- 无密码热点允许password为空
+    if ssid and ssid ~= "" then
         if is_air1601 then
-            -- Air1601/Air1602 WiFi 走 SPI 接口（SPI1, CS=8, RDY=14）
             table.insert(priority, {
                 airlink_wifi = {
                     airlink_type = airlink.MODE_SPI_MASTER,
@@ -164,11 +167,12 @@ local function build_network_priority(ssid, password, cfg)
                     airlink_rdy_pin = 14,
                     ssid = ssid,
                     password = password,
+                    bssid = cfg.bssid,
                     auto_socket_switch = (cfg.auto_socket_switch ~= false)
                 }
             })
         else
-            local wifi_cfg = { ssid = ssid, password = password }
+            local wifi_cfg = { ssid = ssid, password = password, bssid = cfg.bssid }
             if cfg.need_ping ~= nil then wifi_cfg.need_ping = cfg.need_ping end
             if cfg.local_network_mode ~= nil then wifi_cfg.local_network_mode = cfg.local_network_mode end
             if cfg.ping_ip and cfg.ping_ip ~= "" then wifi_cfg.ping_ip = cfg.ping_ip end
@@ -308,6 +312,7 @@ local function on_sta_event(evt, data)
                 ssid = pending_connect.ssid,
                 bssid = pending_connect.bssid
             })
+            pending_saved = true
             pending_connect = nil
         end
 
@@ -364,10 +369,11 @@ end
 -- IP_READY
 local function on_ip_ready(ip, adapter)
     common.handle_ip_ready(ip, adapter, wifi_state, refresh_net_info)
-    -- 兜底保存：IP拿到后再确保一次密码已落盘（CONNECTED阶段存储可能未就绪）
-    if wifi_state.current_ssid and wifi_state.current_ssid ~= "" then
+    -- 兜底保存：仅当 CONNECTED 阶段未完成保存时，IP_READY 再确保密码已落盘
+    -- 防止 CONNECTED 已正确保存后，兜底用 saved_config 的旧密码覆盖
+    if not pending_saved and wifi_state.current_ssid and wifi_state.current_ssid ~= "" then
         local pw = (saved_config and saved_config.password ~= nil) and saved_config.password or ""
-        log.info("wifi_app", "IP_READY 兜底保存:", wifi_state.current_ssid)
+        log.info("wifi_app", "IP_READY 兜底保存（CONNECTED未完成）:", wifi_state.current_ssid)
         sys.publish("WIFI_STORAGE_SAVE_REQ", {
             ssid = wifi_state.current_ssid,
             password = pw,
@@ -417,10 +423,11 @@ local function run_auto_connect()
     log.info("wifi_app", "开机自动连接")
     local vrf = auto_scan_verify()
     if vrf.verified then
-        log.info("wifi_app", "自动连接:", vrf.ssid, "信号:", vrf.signal)
+        log.info("wifi_app", "自动连接:", vrf.ssid, "信号:", vrf.signal, "bssid:", vrf.bssid or "N/A")
         sys.publish("WIFI_CONNECT_REQ", {
             ssid = vrf.ssid,
             password = vrf.password,
+            bssid = vrf.bssid,
             advanced_config = vrf.config and {
                 need_ping = vrf.config.need_ping,
                 local_network_mode = vrf.config.local_network_mode,
@@ -555,6 +562,7 @@ local function on_connect_req(data)
             advanced_config = adv,
             bssid = bssid
         }
+        pending_saved = false
 
         sys.publish("WIFI_CONNECTING", ssid)
         disconnect_reason = "config"
@@ -571,6 +579,10 @@ local function on_connect_req(data)
             if adv.ping_ip then cfg.ping_ip = adv.ping_ip end
             if adv.ping_time then cfg.ping_time = adv.ping_time end
             if adv.auto_socket_switch ~= nil then cfg.auto_socket_switch = adv.auto_socket_switch end
+        end
+        -- 把 bssid 传入 cfg，以便 build_network_priority 传递到 exnetif → wlan.connect()
+        if bssid and bssid ~= "" then
+            cfg.bssid = bssid
         end
 
         local priority = build_network_priority(ssid, password, cfg)

@@ -171,13 +171,6 @@ typedef struct luat_audio_driver_opts {
     int (*start_full_loop)(struct luat_audio_driver_ctrl *ctrl, uint32_t **play_buff, uint32_t one_play_block_len, uint32_t play_block_num,uint32_t **record_buff, uint32_t one_record_block_len, uint32_t record_block_num);
     
     /**
-     * @brief 切换录音中断使能，在start_xxx_loop函数调用后，全双工和接收模式下仍然需要自动打开
-     * @param ctrl 驱动控制器指针
-     * @param enable 使能录音中断
-     * @return int 成功返回0，失败返回负值错误码
-     */
-    int (*rx_interrupt_switch)(struct luat_audio_driver_ctrl *ctrl, uint8_t enable);
-    /**
      * @brief 启动全双工循环 (同时播放和录音), 提供播放缓冲区，录音缓存区由驱动生成，目前只有Air780EXX系列在通话时需要
      * @param ctrl 驱动控制器指针
      * @param play_buff 播放缓冲区数组指针

@@ -136,20 +136,20 @@ return {
 
 ## 五、如何适配新硬件
 
-### 4.1 新增已有芯片的新型号
+### 5.1 新增已有芯片的新型号
 
 1. 在 `config/` 创建配置文件（如 `eng_1602_5i_v4.lua`）
 2. 在 `core/platform_loader.lua` 的 `PROJECT_MAP` 中添加映射
 3. 在编译清单中添加 `require("eng_1602_5i_v4")`
 4. 在 `main.lua` 中修改 `PROJECT` 为新命名
 
-### 4.2 新增配件驱动
+### 5.2 新增配件驱动
 
 1. 在 `drv/lcd/` 或 `drv/tp/` 创建驱动文件，遵循 `init(params)` 接口
 2. 在配置文件 `hw.lcd.model` 中引用新驱动名
 3. 在 `platform_loader.lua` 编译清单中添加 `require` 声明
 
-### 4.3 PROJECT 命名规范
+### 5.3 PROJECT 命名规范
 
 ```
 {类型}_{芯片}_{尺寸}_{版本}
@@ -163,7 +163,7 @@ return {
 
 ## 六、功能模块
 
-### 5.1 核心框架
+### 6.1 核心框架
 
 | 模块 | 文件 | 职责 |
 |------|------|------|
@@ -173,7 +173,7 @@ return {
 | 业务加载器 | `app/app_main.lua` | 按序 require 所有业务模块 |
 | UI 入口 | `ui/ui_main.lua` | 加载 UI 页面，创建硬件初始化协程 |
 
-### 5.2 网络与通信
+### 6.2 网络与通信
 
 | 模块 | 文件 | 职责 |
 |------|------|------|
@@ -182,7 +182,7 @@ return {
 | WiFi 公共 | `app/wifi/wifi_app_common.lua` | 状态构建、网络刷新、扫描校验、断连原因 |
 | WiFi 存储 | `app/wifi/wifi_storage.lua` | 凭证持久化（基于 fskv） |
 
-### 5.3 业务服务
+### 6.3 业务服务
 
 | 模块 | 文件 | 职责 |
 |------|------|------|
@@ -192,7 +192,7 @@ return {
 | FOTA 升级 | `app/fota_app.lua` | 定时检查云端固件更新 |
 | IOT 账号 | `app/settings/settings_iot_app.lua` | 合宙 IoT 平台登录/登出 |
 
-### 5.4 设置与配置
+### 6.4 设置与配置
 
 | 模块 | 文件 | 职责 |
 |------|------|------|
@@ -204,7 +204,7 @@ return {
 | 存储优先级 | `app/settings/storage_pri_app.lua` | 外部应用安装位置优先级管理 |
 | 设备信息 | `app/settings/settings_about_app.lua` | 型号/唯一ID/固件版本采集 |
 
-### 5.5 UI 页面
+### 6.5 UI 页面
 
 | 窗口 | 文件 | 功能 |
 |------|------|------|

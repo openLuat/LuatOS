@@ -59,6 +59,7 @@ typedef struct luat_tp_opts {
     void (*read_done)(luat_tp_config_t* luat_tp_config);
     int (*deinit)(luat_tp_config_t* luat_tp_config);
     int (*sleep)(luat_tp_config_t* luat_tp_config);
+    int (*wakeup)(luat_tp_config_t* luat_tp_config);
 } luat_tp_opts_t;
 
 typedef enum{
@@ -84,6 +85,8 @@ int luat_tp_init(luat_tp_config_t* luat_tp_config);
 int luat_tp_irq_enable(luat_tp_config_t* luat_tp_config, uint8_t enabled);
 
 int luat_tp_sleep(luat_tp_config_t* luat_tp_config);
+
+int luat_tp_wakeup(luat_tp_config_t* luat_tp_config);
 
 
 #endif

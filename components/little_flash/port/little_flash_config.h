@@ -1,7 +1,10 @@
 #ifndef _LITTLE_FLASH_CONFIG_H_
 #define _LITTLE_FLASH_CONFIG_H_
 
+#ifndef LUAT_LOG_TAG
 #define LUAT_LOG_TAG "little_flash"
+#endif
+
 #include "luat_log.h"
 
 #ifdef __cplusplus

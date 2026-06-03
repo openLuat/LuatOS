@@ -35,7 +35,7 @@ enum {
 
     LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_MODE = 0,       /**< I2S 模式参数 */
     LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_FRAME_BITS,     /**< I2S 帧位宽参数 */
-    LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_CHANNEL_NUMS,     /**< I2S 通道数参数 */
+    LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_CHANNEL_TYPE,     /**< I2S 通道类型参数 */
     LUAT_AUDIO_DRIVER_CONFIG_PARAM_DAC_BIT_WIDTH,      /**< DAC 位宽参数 */
 
     LUAT_AUDIO_DRIVER_CONFIG_VALUE_I2S_MODE_I2S = 0,      // I2S 标准
@@ -65,13 +65,16 @@ enum {
     LUAT_AUDIO_DATA_CODEC_TYPE_TTS,        /**< TTS 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MP3,        /**< MP3 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_OPUS,       /**< OPUS 编解码器 */
-    LUAT_AUDIO_DATA_CODEC_TYPE_G711,       /**< G711 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,       /**< G711 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,       /**< G711 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MAX,        /**< 最大编解码器类型 */
 
     LUAT_AUDIO_TTS_EVENT_START = 0,        /**< TTS 开始事件 */
     LUAT_AUDIO_TTS_EVENT_NEW_DATA,         /**< TTS 新数据可用事件 */
 
     LUAT_AUDIO_REQUEST_EVENT_START = 0,                /**< 请求开始 */
+    LUAT_AUDIO_REQUEST_EVENT_DRIVER_START,             /**< 驱动开始 */
+    LUAT_AUDIO_REQUEST_EVENT_TTS_START,              /**< TTS 开始 */
     LUAT_AUDIO_REQUEST_EVENT_NEED_PLAY_INFO,          /**< 播放需要播放信息 */
     LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA,           /**< 播放需要新数据 */
     LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA,            /**< 录音获取到新数据 */

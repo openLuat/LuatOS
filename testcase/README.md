@@ -34,6 +34,33 @@ build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\unit_test
 
 注意：该运行方式不支持在同一条命令中传入多个目标测试用例目录。
 
+## C层 utest（PC 模拟器）
+
+针对 `xxx.utest("case")` 的 C 层用例，推荐把 Lua runner 放在 `testcase/unit_testcase_tools/c_utest_*/scripts/`，并用 PC 覆盖率 helper 执行：
+
+```powershell
+cd bsp\pc
+.\pc_utest_coverage.ps1 -Suite c_utest_dtls_basic
+.\pc_utest_coverage.ps1 -Suite c_utest_tcp_basic
+.\pc_utest_coverage.ps1 -Suite c_utest_http_basic -SkipBuild
+.\pc_utest_coverage.ps1 -Suite c_utest_https_basic -SkipBuild
+```
+
+- `-Suite` 与 `-TestcaseScripts` 二选一，不能同时传
+- 当前网络相关 suite：
+  - `c_utest_dtls_basic`：PC 本地 `127.0.0.1` DTLS-PSK 回环
+  - `c_utest_tcp_basic`：`www.qq.com:80` TCP 连通性
+  - `c_utest_http_basic`：`http://www.qq.com` HTTP 连通性
+  - `c_utest_https_basic`：`https://www.qq.com` HTTPS 连通性
+  - `socket_udp_limit_basic`：PC 本地 UDP `socket.rx(limit)` 读截断后丢弃剩余 datagram
+- 也可以继续直接运行模拟器：
+
+```powershell
+build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\unit_testcase_tools\c_utest_tcp_basic\scripts\
+```
+
+- 覆盖率报告输出到 `build\coverage\<suite>\html\index.html`
+
 ## 快速开始
 
 ### 1. 创建新的测试用例目录

@@ -41,7 +41,13 @@ int luat_audio_data_codec_bind(luat_audio_data_codec_t *codec, const luat_audio_
     }
     codec->input_buffer = luat_heap_malloc(opts->decode_max_output_len > opts->encode_min_input_len ? opts->encode_min_input_len : opts->decode_max_output_len);
     if (!codec->input_buffer) {
-        return -LUAT_ERROR_NO_MEMORY;
+        LLOGC(luat_audio_debug_flag, "bind audio data codec %d failed, no memory", opts->type);
+        if (!opts->is_reentrant && opts->is_hardware) {
+            if (_audio_data_codec_hardware_items[opts->type].is_busy) {
+                _audio_data_codec_hardware_items[opts->type].is_busy = 0;
+            }
+            return -LUAT_ERROR_NO_MEMORY;
+        }
     }
     codec->opts = opts;
     codec->user_data = user_data;
@@ -66,13 +72,15 @@ void luat_audio_data_codec_unbind(luat_audio_data_codec_t *codec)
     if (codec->input_buffer) {
         luat_heap_free(codec->input_buffer);
         codec->input_buffer = NULL;
-        codec->opts->deinit(codec);
     }
+    codec->opts->deinit(codec);
     if (codec->opts->is_hardware) {
         _audio_data_codec_hardware_items[codec->opts->type].is_busy = 0;
+        LLOGC(luat_audio_debug_flag, "unbind hardware data codec %d", codec->opts->type);
     }
     else {
         _audio_data_codec_software_items[codec->opts->type].is_busy = 0;
+        LLOGC(luat_audio_debug_flag, "unbind software data codec %d", codec->opts->type);
     }
     codec->opts = NULL;
 }
@@ -128,7 +136,7 @@ int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_
             // LLOGC(luat_audio_debug_flag, "decode used %d bytes, output %d bytes, input fifo %d bytes, output buffer %d bytes", used_len, out_len,
             //     luat_fifo_check_used_space(input_data_fifo), output_data_buffer->pos);
         } else {
-            //LLOGE("decode failed, ret = %d, %d, %d", ret, used_len, out_len);
+            LLOGE("decode failed, ret = %d, %d, %d", ret, used_len, out_len);
             return ret;
         }
     }
@@ -169,14 +177,7 @@ const luat_audio_data_codec_opts_t* luat_audio_data_codec_find(uint8_t type)
         LLOGE("type %d out of range, max %d", type, LUAT_AUDIO_DATA_CODEC_TYPE_MAX - 1);
         return NULL;
     }
-    if (_audio_data_codec_hardware_items[type].opts) {
-        LLOGC(luat_audio_debug_flag, "find hardware codec %d", type);
-        if (!_audio_data_codec_hardware_items[type].is_busy) {
-            return _audio_data_codec_hardware_items[type].opts;
-        } else {
-            LLOGC(luat_audio_debug_flag, "find hardware codec %d busy", type);
-        }
-    }
+
     if (_audio_data_codec_software_items[type].opts) {
         LLOGC(luat_audio_debug_flag, "find software codec %d", type);
         if (!_audio_data_codec_software_items[type].is_busy) {
@@ -185,7 +186,34 @@ const luat_audio_data_codec_opts_t* luat_audio_data_codec_find(uint8_t type)
             LLOGC(luat_audio_debug_flag, "find software codec %d busy", type);
         }
     }
+
+    if (_audio_data_codec_hardware_items[type].opts) {
+        LLOGC(luat_audio_debug_flag, "find hardware codec %d", type);
+        if (!_audio_data_codec_hardware_items[type].is_busy) {
+            return _audio_data_codec_hardware_items[type].opts;
+        } else {
+            LLOGC(luat_audio_debug_flag, "find hardware codec %d busy", type);
+        }
+    }
     LLOGE("type %d can not find in data codec", type);
+    return NULL;
+}
+
+const luat_audio_data_codec_opts_t* luat_audio_data_codec_find_hardware(uint8_t type)
+{
+    if (type >= LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
+        LLOGE("type %d out of range, max %d", type, LUAT_AUDIO_DATA_CODEC_TYPE_MAX - 1);
+        return NULL;
+    }
+    if (_audio_data_codec_hardware_items[type].opts) {
+        LLOGC(luat_audio_debug_flag, "find hardware codec %d", type);
+        if (!_audio_data_codec_hardware_items[type].is_busy) {
+            return _audio_data_codec_hardware_items[type].opts;
+        } else {
+            LLOGC(luat_audio_debug_flag, "find hardware codec %d busy", type);
+        }
+    }
+    LLOGE("type %d can not find in hardware data codec", type);
     return NULL;
 }
 

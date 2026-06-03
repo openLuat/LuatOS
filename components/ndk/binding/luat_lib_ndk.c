@@ -360,6 +360,15 @@ static int l_ndk_info(lua_State *L) {
     return 1;
 }
 
+#ifdef LUAT_USE_UTEST
+extern int luat_ndk_utest(lua_State *L, const char *case_name);
+static int l_ndk_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "lifecycle_basic");
+    lua_pushboolean(L, luat_ndk_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 static const luaL_Reg ndk_meta[] = {
     {"__gc", l_ndk_gc},
     {NULL, NULL}
@@ -374,6 +383,9 @@ static const rotable_Reg_t reg_ndk[] = {
     {"thread", ROREG_FUNC(l_ndk_thread)},
     {"stop", ROREG_FUNC(l_ndk_stop)},
     {"info", ROREG_FUNC(l_ndk_info)},
+#ifdef LUAT_USE_UTEST
+    {"utest", ROREG_FUNC(l_ndk_utest)},
+#endif
     {NULL, ROREG_INT(0)}
 };
 

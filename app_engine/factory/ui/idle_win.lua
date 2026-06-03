@@ -24,6 +24,7 @@ local status_cache = { time = "08:00", date = "1970-01-01", weekday = "星期四
 local builtin_apps = {
     { name = "设置", win = "SETTINGS", icon = "/luadb/settings.png" },
     { name = "应用市场", win = "APP_STORE", icon = "/luadb/app_store_icon.png" },
+    { name = "文件管理", win = "FILE_MANAGER", icon = "/luadb/file_manager.png" },
     { name = "网络测速", win = "SPEEDTEST", icon = "/luadb/internet_speed.png" },
 }
 

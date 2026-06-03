@@ -1,3 +1,4 @@
+#if 0
 #include "luat_base.h"
 #include "luat_common_api.h"
 #include "luat_audio_core.h"
@@ -209,3 +210,4 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts = {
     .is_hardware = 0,
     .support_detect = 1,
 };
+#endif

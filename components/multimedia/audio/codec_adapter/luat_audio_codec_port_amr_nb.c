@@ -64,6 +64,7 @@ static int _amr_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
         if (!codec->encode_ctx) {
             return -LUAT_ERROR_NO_MEMORY;
         }
+        codec->param.amr_encode_speed = 7;
     } else {
         if (codec->decode_ctx) {
             return LUAT_ERROR_NONE;
@@ -111,8 +112,8 @@ static int _amr_codec_encode(luat_audio_data_codec_t* codec, luat_audio_common_p
 {
     uint32_t out_len = 0;
 	struct encoder_state* state = (struct encoder_state*) codec->encode_ctx;
-	enum Frame_Type_3GPP frame_type = (enum Frame_Type_3GPP) codec->param.amr_param.encode_speed;
-	out_len = AMREncode(state->encCtx, state->pidSyncCtx, codec->param.amr_param.encode_speed, (Word16*) input, output, &frame_type, AMR_TX_IETF);
+	enum Frame_Type_3GPP frame_type = (enum Frame_Type_3GPP) codec->param.amr_encode_speed;
+	out_len = AMREncode(state->encCtx, state->pidSyncCtx, codec->param.amr_encode_speed, (Word16*) input, output, &frame_type, AMR_TX_IETF);
 	output[0] |= 0x04;
     *encoded_output_size = out_len;
     *encoded_used_size = 320;

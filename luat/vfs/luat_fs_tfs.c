@@ -16,6 +16,7 @@
 #include "../../components/tfs/inc/tfs.h"
 #include "../../components/tfs/inc/tfs_port.h"
 #include "../../components/tfs/inc/tfs_types.h"
+#include <limits.h>
 
 /* Must match luat_little_flash_tfs.c layout */
 typedef struct {

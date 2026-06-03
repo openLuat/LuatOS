@@ -79,7 +79,7 @@ local function play_task()
     local amrs = {"/luadb/alipay.amr", "/luadb/2.amr", "/luadb/10.amr", "/luadb/yuan.amr"}
     local file_data, no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed, result
     while true do
-        -- audio_v2.play(amrs)
+        audio_v2.play(amrs)
         audio_v2.play("/luadb/test_16k.mp3")
         --audio_v2.play("/luadb/test_32k.mp3")
         --audio_v2.play("/luadb/test_44k.mp3")

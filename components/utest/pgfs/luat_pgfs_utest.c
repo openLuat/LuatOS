@@ -480,6 +480,156 @@ static int pgfs_test_alloc_skips_retired_blocks(void) {
     return fail;
 }
 
+/* Phase 2 prep: the FTL state v4 record carries per-block live_bytes and
+ * dead_bytes arrays. Persist the arrays, then load a fresh FTL context
+ * from the same flash and verify both arrays round-trip without loss.
+ * The cost-benefit GC (the eventual replacement of the Phase 2
+ * placeholder) will use dead_bytes / erase_count to pick victims, so
+ * the per-block accounting must survive a remount. */
+static int pgfs_test_live_dead_per_block_roundtrip(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_nand_ftl_ctx_t ftl = {0};
+    pgfs_nand_ftl_ctx_t ftl_loaded = {0};
+    uint32_t erase_size = 4096;
+    uint32_t total_blocks = 16;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    pgfs_ftl_init(&ftl, &opts, erase_size, total_blocks);
+    ftl.live_bytes_per_block[3]  = 1500;
+    ftl.live_bytes_per_block[7]  = 4096;
+    ftl.dead_bytes_per_block[3]  = 200;
+    ftl.dead_bytes_per_block[11] = 1024;
+    if (pgfs_ftl_persist(&ftl, 1) != 0) {
+        printf("[pgfs-utest] FTL persist failed\n");
+        fail++;
+    } else {
+        pgfs_ftl_init(&ftl_loaded, &opts, erase_size, total_blocks);
+        if (pgfs_ftl_load(&ftl_loaded) != 0) {
+            printf("[pgfs-utest] FTL load failed\n");
+            fail++;
+        } else {
+            if (ftl_loaded.live_bytes_per_block[3] != 1500 ||
+                ftl_loaded.live_bytes_per_block[7] != 4096) {
+                printf("[pgfs-utest] live_bytes roundtrip mismatch: got %u/%u\n",
+                       (unsigned int)ftl_loaded.live_bytes_per_block[3],
+                       (unsigned int)ftl_loaded.live_bytes_per_block[7]);
+                fail++;
+            }
+            if (ftl_loaded.dead_bytes_per_block[3]  != 200 ||
+                ftl_loaded.dead_bytes_per_block[11] != 1024) {
+                printf("[pgfs-utest] dead_bytes roundtrip mismatch: got %u/%u\n",
+                       (unsigned int)ftl_loaded.dead_bytes_per_block[3],
+                       (unsigned int)ftl_loaded.dead_bytes_per_block[11]);
+                fail++;
+            }
+            /* Untouched blocks must be zero, not garbage. */
+            if (ftl_loaded.live_bytes_per_block[0] != 0 ||
+                ftl_loaded.dead_bytes_per_block[0] != 0) {
+                printf("[pgfs-utest] block 0 should be zero after load, got live=%u dead=%u\n",
+                       (unsigned int)ftl_loaded.live_bytes_per_block[0],
+                       (unsigned int)ftl_loaded.dead_bytes_per_block[0]);
+                fail++;
+            }
+        }
+        pgfs_ftl_deinit(&ftl_loaded);
+    }
+
+    pgfs_ftl_deinit(&ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Phase 2 prep: end-to-end through the production write path. A file
+ * write and a file close must each bump the per-block live counter
+ * for the block that received the DATA record, while other blocks
+ * stay at zero. */
+static int pgfs_test_per_block_live_updates_on_write(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    uint32_t data_log_base = 0;
+    uint32_t expected_block = 0;
+    uint32_t first_data_block = 0;
+    const char payload[] = "phase2_prep_payload";
+    size_t payload_len = sizeof(payload) - 1u;
+    FILE* f = NULL;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+
+    if (pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16) != 0) {
+        printf("[pgfs-utest] FTL init failed\n");
+        fail++;
+    }
+
+    /* Reserve blocks 0..4 so the data log starts at block 5. The DATA
+     * record we are about to write will land in block 5 (= erase unit
+     * containing PGFS_DATA_LOG_BASE_ADDR). */
+    for (uint32_t i = 0; i < PGFS_LAYOUT_RESERVED_BLOCKS && i < 16u; i++) {
+        pgfs_ftl_mark_reserved(&ctx.ftl, i);
+    }
+    data_log_base = PGFS_DATA_LOG_BASE_ADDR;
+    first_data_block = data_log_base / erase_size;
+    expected_block   = first_data_block;
+
+    f = pgfs_file_open(&ctx, "/phase2/live.txt", "wb");
+    if (f == NULL) {
+        printf("[pgfs-utest] file open failed\n");
+        fail++;
+    } else {
+        if (pgfs_file_write(&ctx, payload, 1, payload_len, f) != payload_len) {
+            fail++;
+        }
+        if (pgfs_file_close(&ctx, f) != 0) {
+            fail++;
+        }
+    }
+
+    /* The DATA record (header + path + data) should have landed entirely
+     * in `expected_block`. Live bytes should be > payload_len (header +
+     * path padding) and > 0; other blocks should be 0. */
+    if (ctx.ftl.live_bytes_per_block[expected_block] == 0) {
+        printf("[pgfs-utest] expected non-zero live_bytes in block %u\n",
+               (unsigned int)expected_block);
+        fail++;
+    }
+    if (ctx.ftl.live_bytes_per_block[expected_block] < payload_len) {
+        printf("[pgfs-utest] live_bytes[%u]=%u less than payload_len=%u\n",
+               (unsigned int)expected_block,
+               (unsigned int)ctx.ftl.live_bytes_per_block[expected_block],
+               (unsigned int)payload_len);
+        fail++;
+    }
+    for (uint32_t b = 0; b < 16u; b++) {
+        if (b == expected_block) continue;
+        if (ctx.ftl.live_bytes_per_block[b] != 0) {
+            printf("[pgfs-utest] block %u should be 0, got %u\n",
+                   (unsigned int)b,
+                   (unsigned int)ctx.ftl.live_bytes_per_block[b]);
+            fail++;
+        }
+    }
+
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 /* Phase 3b: pure unit test of the ECC encode/decode pair. Encode a known
  * 8-byte pattern, decode should return 0 (no error). Then flip a single
  * bit in the data, decode should return -1 (parity mismatch). The
@@ -3158,6 +3308,8 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_retired_does_not_mark_bad);
     PGFS_RUN_CTEST(pgfs_test_retired_bitmap_persists_roundtrip);
     PGFS_RUN_CTEST(pgfs_test_alloc_skips_retired_blocks);
+    PGFS_RUN_CTEST(pgfs_test_live_dead_per_block_roundtrip);
+    PGFS_RUN_CTEST(pgfs_test_per_block_live_updates_on_write);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
      * not registered in the default c_layer_selftests dispatch. It depends
      * on data-log compaction after file deletion to reset the write head,

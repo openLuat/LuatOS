@@ -211,6 +211,36 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
         ctx->retired_blocks_bitmap = NULL;
         return -1;
     }
+
+    /* Phase 2 prep / v4: per-block live/dead byte arrays. */
+    ctx->live_bytes_per_block = (uint32_t *)calloc(total_blocks, sizeof(uint32_t));
+    if (!ctx->live_bytes_per_block) {
+        free(ctx->bad_blocks_bitmap);
+        free(ctx->reserved_blocks_bitmap);
+        free(ctx->weak_blocks_bitmap);
+        free(ctx->retired_blocks_bitmap);
+        free(ctx->erase_counts);
+        ctx->bad_blocks_bitmap = NULL;
+        ctx->reserved_blocks_bitmap = NULL;
+        ctx->weak_blocks_bitmap = NULL;
+        ctx->retired_blocks_bitmap = NULL;
+        return -1;
+    }
+    ctx->dead_bytes_per_block = (uint32_t *)calloc(total_blocks, sizeof(uint32_t));
+    if (!ctx->dead_bytes_per_block) {
+        free(ctx->bad_blocks_bitmap);
+        free(ctx->reserved_blocks_bitmap);
+        free(ctx->weak_blocks_bitmap);
+        free(ctx->retired_blocks_bitmap);
+        free(ctx->erase_counts);
+        free(ctx->live_bytes_per_block);
+        ctx->bad_blocks_bitmap = NULL;
+        ctx->reserved_blocks_bitmap = NULL;
+        ctx->weak_blocks_bitmap = NULL;
+        ctx->retired_blocks_bitmap = NULL;
+        ctx->live_bytes_per_block = NULL;
+        return -1;
+    }
     return 0;
 }
 
@@ -221,6 +251,8 @@ void pgfs_ftl_deinit(pgfs_nand_ftl_ctx_t *ctx) {
     free(ctx->weak_blocks_bitmap);
     free(ctx->retired_blocks_bitmap);
     free(ctx->erase_counts);
+    free(ctx->live_bytes_per_block);
+    free(ctx->dead_bytes_per_block);
     if (ctx->last_persist_buf != NULL) {
         free(ctx->last_persist_buf);
     }
@@ -284,8 +316,11 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     uint32_t state_addr   = pgfs_ftl_state_addr(erase_size);
     uint32_t bitmap_bytes = PGFS_FTL_BITMAP_BYTES(ctx->total_blocks);
     uint32_t ec_bytes     = ctx->total_blocks * sizeof(uint16_t);
-    /* v3 layout (Phase 5b): [meta][bad_blocks][reserved_blocks][retired_blocks][erase_counts] */
-    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + 3u * bitmap_bytes + ec_bytes;
+    uint32_t live_bytes   = ctx->total_blocks * sizeof(uint32_t);
+    uint32_t dead_bytes   = ctx->total_blocks * sizeof(uint32_t);
+    /* v4 layout: [meta][bad][reserved][retired][erase_counts][live_bytes][dead_bytes] */
+    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + 3u * bitmap_bytes + ec_bytes
+                            + live_bytes + dead_bytes;
 
     /* Powercut injection point: fail right before erasing the FTL state
      * block. The block retains its previous content, and the next mount
@@ -325,17 +360,22 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     meta->reserved1           = 0;
 
     /* Copy bad_blocks_bitmap + reserved_blocks_bitmap + retired_blocks_bitmap
-     * + erase_counts into staging buffer. v3 layout. */
+     * + erase_counts + live_bytes + dead_bytes into staging buffer.
+     * v4 layout. */
     uint8_t  *bitmap_ptr    = buf + sizeof(pgfs_ftl_meta_t);
     uint8_t  *reserved_ptr  = bitmap_ptr + bitmap_bytes;
     uint8_t  *retired_ptr   = reserved_ptr + bitmap_bytes;
     uint16_t *ec_ptr        = (uint16_t *)(retired_ptr + bitmap_bytes);
+    uint32_t *live_ptr      = (uint32_t *)((uint8_t *)ec_ptr + ec_bytes);
+    uint32_t *dead_ptr      = live_ptr + ctx->total_blocks;
     memcpy(bitmap_ptr, ctx->bad_blocks_bitmap, bitmap_bytes);
     memcpy(reserved_ptr, ctx->reserved_blocks_bitmap, bitmap_bytes);
     memcpy(retired_ptr, ctx->retired_blocks_bitmap, bitmap_bytes);
     memcpy(ec_ptr, ctx->erase_counts, ec_bytes);
+    memcpy(live_ptr, ctx->live_bytes_per_block, live_bytes);
+    memcpy(dead_ptr, ctx->dead_bytes_per_block, dead_bytes);
 
-    /* Compute CRC over [meta + bitmaps + erase_counts] */
+    /* Compute CRC over [meta + bitmaps + erase_counts + live_bytes + dead_bytes] */
     meta->crc32 = 0;
     meta->crc32 = pgfs_ftl_crc32(buf, total_bytes);
 
@@ -421,8 +461,11 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
     uint32_t state_addr   = pgfs_ftl_state_addr(erase_size);
     uint32_t bitmap_bytes = PGFS_FTL_BITMAP_BYTES(ctx->total_blocks);
     uint32_t ec_bytes     = ctx->total_blocks * sizeof(uint16_t);
-    /* v3 layout: [meta][bad_blocks][reserved_blocks][retired_blocks][erase_counts] */
-    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + 3u * bitmap_bytes + ec_bytes;
+    uint32_t live_bytes   = ctx->total_blocks * sizeof(uint32_t);
+    uint32_t dead_bytes   = ctx->total_blocks * sizeof(uint32_t);
+    /* v4 layout: [meta][bad][reserved][retired][erase_counts][live_bytes][dead_bytes] */
+    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + 3u * bitmap_bytes + ec_bytes
+                            + live_bytes + dead_bytes;
 
     /* Read header first */
     pgfs_ftl_meta_t hdr;
@@ -430,7 +473,7 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         return 1; /* no record */
     }
 
-    /* Basic validation — only v3 records are accepted. */
+    /* Basic validation — only v4 records are accepted. */
     if (hdr.magic != PGFS_FTL_MAGIC ||
         hdr.version != PGFS_FTL_VERSION ||
         hdr.total_blocks != (uint16_t)ctx->total_blocks ||
@@ -457,16 +500,20 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         return 1; /* corrupt */
     }
 
-    /* Extract data — v3 layout. */
+    /* Extract data — v4 layout. */
     uint8_t  *bitmap_ptr   = buf + sizeof(pgfs_ftl_meta_t);
     uint8_t  *reserved_ptr = bitmap_ptr + bitmap_bytes;
     uint8_t  *retired_ptr  = reserved_ptr + bitmap_bytes;
     uint16_t *ec_ptr       = (uint16_t *)(retired_ptr + bitmap_bytes);
+    uint32_t *live_ptr     = (uint32_t *)((uint8_t *)ec_ptr + ec_bytes);
+    uint32_t *dead_ptr     = live_ptr + ctx->total_blocks;
 
     memcpy(ctx->bad_blocks_bitmap, bitmap_ptr, bitmap_bytes);
     memcpy(ctx->reserved_blocks_bitmap, reserved_ptr, bitmap_bytes);
     memcpy(ctx->retired_blocks_bitmap, retired_ptr, bitmap_bytes);
     memcpy(ctx->erase_counts, ec_ptr, ec_bytes);
+    memcpy(ctx->live_bytes_per_block, live_ptr, live_bytes);
+    memcpy(ctx->dead_bytes_per_block, dead_ptr, dead_bytes);
 
     /* Phase 4b: restore the data log write head from the persisted
      * FTL state. These are the per-block-id values (not absolute

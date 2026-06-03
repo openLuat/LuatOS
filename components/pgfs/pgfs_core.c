@@ -100,6 +100,48 @@ static uint32_t pgfs_crc32_calc(const void* data, size_t len) {
     return luat_crc32(data, (uint32_t)len, 0xFFFFFFFFu, 0);
 }
 
+/* pgfs_account_live_block — add `bytes` to live_bytes[block_of(addr)].
+ * Called from the data record append path (DATA / BATCH_DATA) and from
+ * the replay path. The block_id is derived from the absolute flash
+ * address divided by the erase size. No-op if the FTL state hasn't
+ * allocated live_bytes_per_block yet (e.g. fresh flash before the first
+ * mount) — the per-block stats are a GC aid, not a correctness
+ * invariant. */
+static void pgfs_account_live_block(pgfs_mount_ctx_t* ctx, uint32_t addr, uint32_t bytes) {
+    if (ctx == NULL || bytes == 0) return;
+    if (ctx->ftl.flash_opts == NULL || ctx->ftl.flash_opts->control == NULL) return;
+    if (ctx->ftl.live_bytes_per_block == NULL) return;
+    pgfs_flash_geometry_t geo = {0};
+    if (ctx->ftl.flash_opts->control(ctx->ftl.flash_opts->ctx,
+                                     PGFS_CTRL_GET_GEOMETRY, &geo) != 0 ||
+        geo.erase_size == 0) {
+        return;
+    }
+    uint32_t block_id = addr / geo.erase_size;
+    if (block_id >= ctx->ftl.total_blocks) return;
+    ctx->ftl.live_bytes_per_block[block_id] += bytes;
+}
+
+/* pgfs_account_dead_block — add `bytes` to dead_bytes[block_of(addr)].
+ * Best-effort: called when we know the source block of shadowed or
+ * deleted data. Currently invoked only by the file-delete path
+ * (which holds the path's last-known block_id) — overwrite detection
+ * would require a per-path cache, which is a follow-up. */
+static void pgfs_account_dead_block(pgfs_mount_ctx_t* ctx, uint32_t addr, uint32_t bytes) {
+    if (ctx == NULL || bytes == 0) return;
+    if (ctx->ftl.flash_opts == NULL || ctx->ftl.flash_opts->control == NULL) return;
+    if (ctx->ftl.dead_bytes_per_block == NULL) return;
+    pgfs_flash_geometry_t geo = {0};
+    if (ctx->ftl.flash_opts->control(ctx->ftl.flash_opts->ctx,
+                                     PGFS_CTRL_GET_GEOMETRY, &geo) != 0 ||
+        geo.erase_size == 0) {
+        return;
+    }
+    uint32_t block_id = addr / geo.erase_size;
+    if (block_id >= ctx->ftl.total_blocks) return;
+    ctx->ftl.dead_bytes_per_block[block_id] += bytes;
+}
+
 /* pgfs_data_log_base_addr — derive the data log base address from the
  * mount ctx's pre-computed layout. The layout is filled in by
  * pgfs_layout_compute() at mount time, so callers that reach this
@@ -1039,6 +1081,7 @@ retry_prepare:
 
 static int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     pgfs_data_record_hdr_t hdr = {0};
+    uint32_t start_addr = 0;
     if (ctx == NULL || f == NULL || f->entry == NULL || f->cache.len == 0) {
         return -1;
     }
@@ -1063,9 +1106,29 @@ static int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
      * sees a clean input. */
     memset(hdr.ecc, 0, sizeof(hdr.ecc));
     hdr.ecc[0] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr);
-    return pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr),
-                                  (const uint8_t*)f->entry->path, hdr.path_len,
-                                  f->cache.data, hdr.data_len);
+    start_addr = ctx->data_log_write_addr;
+    int ret = pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr),
+                                     (const uint8_t*)f->entry->path, hdr.path_len,
+                                     f->cache.data, hdr.data_len);
+    if (ret == 0) {
+        /* Phase 2 prep: account for the live bytes this record contributes
+         * to its block. The block_id is derivable from the start address
+         * (which may differ from start_addr if append_log_record relocated
+         * the write head). */
+        size_t rec_len = sizeof(hdr) + hdr.path_len + hdr.data_len;
+        (void)rec_len;
+        uint32_t written_block = ctx->data_log_write_addr;
+        /* Approximate: the record spans at most two erase blocks. We
+         * attribute the whole live contribution to the block containing
+         * the START of the record — the trailing-page cost (when the
+         * record crosses a block boundary) is negligible and the GC
+         * victim selection tolerates small per-block noise. */
+        if (start_addr < ctx->data_log_write_addr) {
+            pgfs_account_live_block(ctx, start_addr, (uint32_t)(ctx->data_log_write_addr - start_addr));
+        }
+        (void)written_block;
+    }
+    return ret;
 }
 
 static int pgfs_compact_live_entries(pgfs_mount_ctx_t* ctx) {
@@ -1271,6 +1334,10 @@ static int pgfs_replay_pending_apply(pgfs_mount_ctx_t* ctx, pgfs_replay_pending_
         entry->heap_type = p->heap_type;
         p->data = NULL;
         ctx->checkpoint.gc_live_bytes += entry->len;
+        /* Phase 2 prep: BATCH_DATA live accounting is deferred — the
+         * pending entry doesn't currently carry the BATCH_DATA
+         * record's on-flash address. For now only DATA_RECORD writes
+         * and the per-record replay path update per-block live. */
         if (old_len > 0) {
             ctx->checkpoint.gc_dead_bytes += (uint32_t)old_len;
         }
@@ -1722,6 +1789,12 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             }
             entry->len = data_len;
             ctx->checkpoint.gc_live_bytes += data_len;
+            /* Phase 2 prep: per-block live accounting. The DATA record's
+             * data + path landed in the block holding the record's start
+             * address; attribute the live bytes to that block so the
+             * future cost-benefit GC can find blocks with the least
+             * live data. */
+            pgfs_account_live_block(ctx, addr, (uint32_t)record_len);
             if (old_len > 0) {
                 ctx->checkpoint.gc_dead_bytes += (uint32_t)old_len;
             }

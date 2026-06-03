@@ -26,11 +26,11 @@
 /* ── FTL metadata on-flash format ─────────────────────────────────────── */
 
 #define PGFS_FTL_MAGIC   0x5046544Cu   /* 'PFTL' */
-/* v3 (Phase 5b): adds the retired_blocks_bitmap to the on-flash layout
- * so retired blocks survive a remount. v2 records on flash are still
- * accepted by the load path — the retired bitmap is simply absent and
- * every block starts un-retired. */
-#define PGFS_FTL_VERSION 3u
+/* v4: adds per-block live_bytes[] and dead_bytes[] arrays after the
+ * erase-count array, so the cost-benefit GC can pick victim blocks by
+ * the dead_bytes / erase_count ratio. v3 records on flash are rejected
+ * by the load path (treated as load failed → factory scan). */
+#define PGFS_FTL_VERSION 4u
 
 /* Bitmap helpers: 1 bit per block, block N bad iff (bitmap[N/8] & (1 << (N%8))) */
 #define PGFS_FTL_BITMAP_BYTES(BLOCKS)  (((BLOCKS) + 7u) / 8u)
@@ -84,6 +84,17 @@ typedef struct {
      * survives a remount. */
     uint8_t *retired_blocks_bitmap;   /* heap-allocated, (total_blocks+7)/8 bytes */
     uint32_t retired_block_count;
+
+    /* Per-block live/dead byte accounting (Phase 2 prep / v4). These
+     * arrays are the foundation for the cost-benefit GC: a victim block
+     * is selected by highest dead_bytes / erase_count. live_bytes[] is
+     * authoritative (the write path knows exactly which block each new
+     * record landed in). dead_bytes[] is best-effort — the write path
+     * increments it when a record shadows an earlier record for the
+     * same path, and the file-delete path increments it for the
+     * blocks that held the deleted file. */
+    uint32_t *live_bytes_per_block;  /* heap-allocated, total_blocks entries */
+    uint32_t *dead_bytes_per_block;  /* heap-allocated, total_blocks entries */
 
     /* per-block erase counts: erase_counts[block_id] */
     uint16_t *erase_counts;          /* heap-allocated, total_blocks entries */

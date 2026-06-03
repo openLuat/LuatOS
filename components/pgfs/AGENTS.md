@@ -145,6 +145,22 @@ the VFS adapter and the FTL state probe only).
      flash is treated as a load failure and triggers a fresh factory
      scan (which is acceptable: there is no production data on v2 yet).
 
+11. **Per-block live/dead accounting (Phase 2 prep / FTL v4)**
+   - `pgfs_nand_ftl_ctx_t` carries `live_bytes_per_block[]` and
+     `dead_bytes_per_block[]` arrays, both heap-allocated with
+     `total_blocks` entries. They are persisted in the FTL v4 record
+     immediately after the erase-count array.
+   - The DATA record write path (`pgfs_append_data_record`) and the
+     per-record replay path (`pgfs_replay_data_log`) attribute the
+     record's bytes to the block holding the record's start address
+     via `pgfs_account_live_block()`. Other blocks stay at zero.
+   - The global `gc_live_bytes` / `gc_dead_bytes` in the CP are kept
+     as a roll-up for `info()` and tests; per-block stats are the
+     cost-benefit GC's input.
+   - BATCH_DATA / file-delete dead attribution is a follow-up —
+     requires carrying the BATCH_DATA record's on-flash address
+     through `pgfs_replay_pending_entry_t`.
+
 10. **Feature gating**
    - Use `LUAT_USE_PGFS_COMPONENT` guards in mixed modules (`little_flash`,
      adapters).
@@ -198,6 +214,8 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
   - Phase 5: `pgfs_test_retired_does_not_mark_bad`
   - Phase 5b: `pgfs_test_retired_bitmap_persists_roundtrip`,
     `pgfs_test_alloc_skips_retired_blocks`
+  - Phase 2 prep: `pgfs_test_live_dead_per_block_roundtrip`,
+    `pgfs_test_per_block_live_updates_on_write`
   - Pre-existing: wear-levelling alloc, CP-erase powercut recovery, FTL
     state skip, single-block retirement, FTL persist snapshot, FTL
     persist readback failure.

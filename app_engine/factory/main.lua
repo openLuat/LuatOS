@@ -24,7 +24,7 @@ main.lua 是整个工厂固件的唯一入口，负责串联所有初始化阶�
 1. PROJECT 是唯一编译时变量：更换硬件只需改 PROJECT 字符串，其余全部由 platform_loader + 配置文件驱动
 2. require 顺序即初始化顺序：Lua 单线程，require 同步执行，不会出现竞态
 3. 模块编译清单在 platform_loader 头部：编译系统静态分析 pcall(require, ...) 确定打包范围
-4. exwin/exapp 是固件内置扩展库，不在 factory 仓库中，由 LuatOS SDK 提供
+4. exwin/exapp 是固件内置扩展库，不在 factory 仓库中，由 LuatOS 核心库 提供
 ]]
 
 -- ==================== 编译时配置（更换硬件只需改这三行） ====================
@@ -53,7 +53,7 @@ PROJECT：项目名，ascii string类型
 
   待实现（映射已预留，配置文件待创建）:
   "EVB_Air1601_10inch1_1024x600_000_V011"      "EVB_Air1601_7inch_1024x600_000_V011"
-  "EVB_Air1601_5inch_800x480_000_V011"
+  "EVB_Air1601_5inch_800x480_000_V011"         "EVB_Air8101_5inch_480x854_000_V010"
   "EVB_Air780EGG_3inch5_480x320_000_V014"      "EVB_Air780EHV_3inch5_480x320_000_V014"
   "EVB_Air780EHU_3inch5_480x320_000_V014"      "EVB_Air780EHM_3inch5_480x320_000_V014"
 

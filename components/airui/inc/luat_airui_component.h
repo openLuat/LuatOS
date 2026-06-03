@@ -583,6 +583,9 @@ int airui_win_set_style(lv_obj_t *win, void *L, int idx); //按样式表设置�
  * Textarea组件
  */
 lv_obj_t *airui_textarea_create_from_config(void *L, int idx);
+int airui_textarea_set_style(lv_obj_t *textarea, void *L, int idx); //按样式表设置 textarea 样式
+int airui_textarea_set_align(lv_obj_t *textarea, lv_text_align_t align); //设置文本对齐
+int airui_textarea_set_disabled(lv_obj_t *textarea, bool disabled); //设置禁用状态
 int airui_textarea_set_text(lv_obj_t *textarea, const char *text); //设置文本内容
 const char *airui_textarea_get_text(lv_obj_t *textarea); //获取文本内容
 int airui_textarea_set_mode(lv_obj_t *textarea, const char *mode); //设置模式，normal/password

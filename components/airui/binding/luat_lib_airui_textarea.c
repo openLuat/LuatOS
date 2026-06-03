@@ -37,11 +37,18 @@
  * @int config.max_len 最大字符数，默认 256
  * @string config.font 字体类型，传 "hzfont" 时启用 hzfont
  * @int config.font_size 字体大小，使用 hzfont 时生效
+ * @int config.align 文本对齐方式，使用 `airui.TEXT_ALIGN_LEFT/CENTER/RIGHT`
+ * @bool config.disabled 初始是否禁用输入，默认 false
  * @string config.text 初始文本
  * @string config.placeholder 占位提示
  * @function config.on_text_change 文本变更回调
  * @userdata config.keyboard 绑定已创建的 `airui.keyboard` userdata，用于重用共享键盘
  * @userdata config.parent 父对象，可选
+ * @table config.style 样式表
+ * @int config.style.radius 输入框圆角半径
+ * @int config.style.font_size 输入框文字字号
+ * @int config.style.bg_color 输入框背景颜色（0xRRGGBB）
+ * @int config.style.text_color 输入框字体颜色（0xRRGGBB）
  * @return userdata Textarea 对象，失败返回 nil
  */
 static int l_airui_textarea(lua_State *L) {
@@ -122,6 +129,55 @@ static int l_textarea_set_mode(lua_State *L) {
 }
 
 /**
+ * Textarea:set_style(style)
+ * @api textarea:set_style(style)
+ * @table style 样式表
+ * @int style.radius 输入框圆角半径
+ * @int style.font_size 输入框文字字号
+ * @int style.bg_color 输入框背景颜色（0xRRGGBB）
+ * @int style.text_color 输入框字体颜色（0xRRGGBB）
+ * @return nil
+ */
+static int l_textarea_set_style(lua_State *L) {
+    lv_obj_t *textarea = airui_check_component(L, 1, AIRUI_TEXTAREA_MT);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    if (airui_textarea_set_style(textarea, L, 2) != AIRUI_OK) {
+        return luaL_error(L, "failed to update textarea style");
+    }
+    return 0;
+}
+
+/**
+ * Textarea:set_align(align)
+ * @api textarea:set_align(align)
+ * @int align 文本对齐，使用 airui.TEXT_ALIGN_LEFT/CENTER/RIGHT
+ * @return nil
+ */
+static int l_textarea_set_align(lua_State *L) {
+    lv_obj_t *textarea = airui_check_component(L, 1, AIRUI_TEXTAREA_MT);
+    lv_text_align_t align = (lv_text_align_t)luaL_checkinteger(L, 2);
+    if (airui_textarea_set_align(textarea, align) != AIRUI_OK) {
+        return luaL_error(L, "unsupported textarea align: %d", (int)align);
+    }
+    return 0;
+}
+
+/**
+ * Textarea:set_disabled(disabled)
+ * @api textarea:set_disabled(disabled)
+ * @boolean disabled 是否禁用输入
+ * @return nil
+ */
+static int l_textarea_set_disabled(lua_State *L) {
+    lv_obj_t *textarea = airui_check_component(L, 1, AIRUI_TEXTAREA_MT);
+    bool disabled = lua_toboolean(L, 2);
+    if (airui_textarea_set_disabled(textarea, disabled) != AIRUI_OK) {
+        return luaL_error(L, "failed to update textarea disabled state");
+    }
+    return 0;
+}
+
+/**
  * Textarea:set_on_text_change(callback)
  * @api textarea:set_on_text_change(callback)
  * @function callback 文本变化回调
@@ -185,6 +241,9 @@ void airui_register_textarea_meta(lua_State *L) {
         {"get_text", l_textarea_get_text},
         {"set_cursor", l_textarea_set_cursor},
         {"set_mode", l_textarea_set_mode},
+        {"set_style", l_textarea_set_style},
+        {"set_align", l_textarea_set_align},
+        {"set_disabled", l_textarea_set_disabled},
         {"set_on_text_change", l_textarea_set_on_change},
         {"attach_keyboard", l_textarea_attach_keyboard},
         {"get_keyboard", l_textarea_get_keyboard},

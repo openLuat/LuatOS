@@ -38,6 +38,7 @@ static airui_ctx_t *airui_binding_get_ctx(lua_State *L_state);
 static void airui_textarea_bind_shared_keyboard(lv_obj_t *target);
 static void airui_textarea_apply_font(lv_obj_t *textarea, airui_text_font_state_t *font_state);
 static void airui_textarea_apply_password_mode(lv_obj_t *textarea, bool enabled);
+static int airui_textarea_apply_style_table(lv_obj_t *textarea, void *L, int idx);
 static void airui_textarea_focus_cb(lv_event_t *e);
 static char *airui_textarea_dup_clipped_text(const char *text, uint32_t max_len, bool *truncated);
 static int airui_textarea_apply_text_fast(lv_obj_t *textarea, const char *text);
@@ -78,6 +79,8 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     int max_len = airui_marshal_integer(L, idx, "max_len", 256);
     const char *text = airui_marshal_string(L, idx, "text", NULL);
     const char *placeholder = airui_marshal_string(L, idx, "placeholder", NULL);
+    int align = 0;
+    bool has_align = airui_marshal_integer_opt(L, idx, "align", &align);
 
     lv_obj_t *textarea = lv_textarea_create(parent);
     if (textarea == NULL) {
@@ -105,6 +108,16 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     }
     if (placeholder != NULL && placeholder[0] != '\0') {
         lv_textarea_set_placeholder_text(textarea, placeholder);
+    }
+
+    lua_getfield(L_state, idx, "style");
+    if (lua_type(L_state, -1) == LUA_TTABLE) {
+        (void)airui_textarea_apply_style_table(textarea, L_state, lua_gettop(L_state));
+    }
+    lua_pop(L_state, 1);
+
+    if (has_align) {
+        (void)airui_textarea_set_align(textarea, (lv_text_align_t)align);
     }
 
     if (text != NULL) {
@@ -139,6 +152,7 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     airui_text_font_read_config(&data->font, L, idx);
     airui_component_meta_set_user_data(meta, data, luat_heap_free);
     airui_textarea_apply_font(textarea, &data->font);
+    (void)airui_textarea_apply_style_table(textarea, L_state, idx);
 
     // 绑定 Lua on_text_change 回调
     int callback_ref = airui_component_capture_callback(L, idx, "on_text_change");
@@ -163,6 +177,10 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
         LLOGW("不存在keyboard绑定组件对象，请先创建键盘对象");
     }
     lua_pop(L_state, 1);
+
+    if (airui_marshal_bool(L, idx, "disabled", false)) {
+        (void)airui_textarea_set_disabled(textarea, true);
+    }
 
     return textarea;
 }
@@ -254,6 +272,53 @@ static void airui_textarea_apply_password_mode(lv_obj_t *textarea, bool enabled)
     lv_textarea_set_password_mode(textarea, enabled);
 }
 
+static int airui_textarea_apply_style_table(lv_obj_t *textarea, void *L, int idx)
+{
+    lua_State *L_state = (lua_State *)L;
+    int value;
+    lv_obj_t *label;
+
+    if (textarea == NULL || L_state == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    idx = lua_absindex(L_state, idx);
+    if (!lua_istable(L_state, idx)) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (airui_marshal_integer_opt(L_state, idx, "radius", &value)) {
+        lv_obj_set_style_radius(textarea, value < 0 ? 0 : value,
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+
+    if (airui_marshal_integer_opt(L_state, idx, "bg_color", &value)) {
+        lv_obj_set_style_bg_color(textarea, lv_color_hex((uint32_t)value),
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(textarea, LV_OPA_COVER,
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+
+    if (airui_marshal_integer_opt(L_state, idx, "font_size", &value) && value > 0) {
+        (void)airui_text_font_apply_hzfont(textarea, value,
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+        label = lv_textarea_get_label(textarea);
+        if (label != NULL) {
+            (void)airui_text_font_apply_hzfont(label, value,
+                (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        (void)airui_text_font_apply_hzfont(textarea, value,
+            (lv_style_selector_t)LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT);
+    }
+
+    if (airui_marshal_integer_opt(L_state, idx, "text_color", &value)) {
+        lv_obj_set_style_text_color(textarea, lv_color_hex((uint32_t)value),
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+
+    return AIRUI_OK;
+}
+
 int airui_textarea_set_mode(lv_obj_t *textarea, const char *mode)
 {
     if (textarea == NULL || mode == NULL) {
@@ -273,6 +338,70 @@ int airui_textarea_set_mode(lv_obj_t *textarea, const char *mode)
     return AIRUI_ERR_INVALID_PARAM;
 }
 
+int airui_textarea_set_style(lv_obj_t *textarea, void *L, int idx)
+{
+    lua_State *L_state = (lua_State *)L;
+
+    if (textarea == NULL || L_state == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    idx = lua_absindex(L_state, idx);
+    if (!lua_istable(L_state, idx)) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    return airui_textarea_apply_style_table(textarea, L_state, idx);
+}
+
+int airui_textarea_set_align(lv_obj_t *textarea, lv_text_align_t align)
+{
+    if (textarea == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (align != LV_TEXT_ALIGN_LEFT && align != LV_TEXT_ALIGN_CENTER && align != LV_TEXT_ALIGN_RIGHT) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_textarea_set_align(textarea, align);
+    return AIRUI_OK;
+}
+
+int airui_textarea_set_disabled(lv_obj_t *textarea, bool disabled)
+{
+    airui_component_meta_t *meta;
+    lv_obj_t *keyboard;
+
+    if (textarea == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (!disabled) {
+        lv_obj_clear_state(textarea, LV_STATE_DISABLED);
+        return AIRUI_OK;
+    }
+
+    lv_obj_add_state(textarea, LV_STATE_DISABLED);
+
+    keyboard = airui_textarea_get_keyboard(textarea);
+    if (keyboard != NULL) {
+        airui_keyboard_set_target(keyboard, NULL);
+        airui_keyboard_hide(keyboard);
+    }
+
+    meta = airui_component_meta_get(textarea);
+    if (meta != NULL && meta->ctx != NULL && airui_ctx_get_focused_textarea(meta->ctx) == textarea) {
+        airui_ctx_set_focused_textarea(meta->ctx, NULL);
+    }
+
+    if (lv_obj_has_state(textarea, LV_STATE_FOCUSED)) {
+        lv_obj_clear_state(textarea, LV_STATE_FOCUSED);
+    }
+
+    return AIRUI_OK;
+}
+
 /**
  * 焦点事件回调：维护当前系统键盘应该写入的 textarea
  */
@@ -290,6 +419,12 @@ static void airui_textarea_focus_cb(lv_event_t *e)
     }
 
     lv_event_code_t code = lv_event_get_code(e);
+    if (lv_obj_has_state(target, LV_STATE_DISABLED) &&
+        code != LV_EVENT_DEFOCUSED &&
+        code != LV_EVENT_DELETE) {
+        return;
+    }
+
     switch (code) {
         case LV_EVENT_FOCUSED:
             // 获得焦点时设置当前焦点 textarea 到上下文

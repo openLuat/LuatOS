@@ -6,31 +6,24 @@
 
 #define PGFS_SUPERBLOCK_MAGIC        0x50474653u
 #define PGFS_CHECKPOINT_MAGIC        0x50474350u
-/* On-disk format version 2: erase-aligned layout with 5 reserved blocks
- * (SB-A, SB-B, CP-A, CP-B, FTL state) and a per-segment data log.
- * v1 records on flash are treated as "fresh flash" and trigger a full
- * factory scan (see pgfs_checkpoint_load / pgfs_ftl_load). */
-#define PGFS_ONDISK_VERSION          2u
+/* On-disk format version 3: erase-aligned layout with 5 reserved blocks
+ * (SB-A, SB-B, CP-A, CP-B, FTL state) and a per-segment data log. The
+ * FTL state record (PGFS_FTL_VERSION) is independently versioned; see
+ * pgfs_nand_ftl.h. New code MUST use pgfs_layout_t for all address
+ * arithmetic — there are no legacy v1/v2 fallback paths. */
+#define PGFS_ONDISK_VERSION          3u
 
-/* Legacy address constants — kept for v1 record detection ONLY.
- * All address arithmetic in v2+ code must go through pgfs_layout_t.
- * These defines are referenced exclusively by the v1-detection probes
- * (pgfs_checkpoint_load, pgfs_ftl_load) when reading a v1-format record. */
-#define PGFS_V1_SUPERBLOCK_A_ADDR    0x0000u
-#define PGFS_V1_SUPERBLOCK_B_ADDR    0x1000u
-#define PGFS_V1_CHECKPOINT_A_ADDR    0x2000u
-#define PGFS_V1_CHECKPOINT_B_ADDR    0x3000u
-#define PGFS_V1_DATA_LOG_BASE_ADDR   0x4000u
-/* Legacy aliases for code that still references the old v1 addresses by
- * their non-V1_-prefixed name. Kept so the C unit tests (which hand-
- * construct mount contexts) and external integrations continue to
- * compile. New code MUST use pgfs_layout_t. */
-#define PGFS_SUPERBLOCK_A_ADDR        PGFS_V1_SUPERBLOCK_A_ADDR
-#define PGFS_SUPERBLOCK_B_ADDR        PGFS_V1_SUPERBLOCK_B_ADDR
-#define PGFS_CHECKPOINT_A_ADDR        PGFS_V1_CHECKPOINT_A_ADDR
-#define PGFS_CHECKPOINT_B_ADDR        PGFS_V1_CHECKPOINT_B_ADDR
-#define PGFS_DATA_LOG_BASE_ADDR       PGFS_V1_DATA_LOG_BASE_ADDR
-/* New layout: 5 reserved blocks, data log starts at block 5. */
+/* Address constants for the on-flash regions. All address arithmetic in
+ * pgfs must go through pgfs_layout_t, but these defines stay as named
+ * anchors for code that needs a specific region (e.g. tests that hand-
+ * construct a flash image, the FTL state probe, the VFS adapter's
+ * initial base address). */
+#define PGFS_SUPERBLOCK_A_ADDR        0x0000u
+#define PGFS_SUPERBLOCK_B_ADDR        0x1000u
+#define PGFS_CHECKPOINT_A_ADDR        0x2000u
+#define PGFS_CHECKPOINT_B_ADDR        0x3000u
+#define PGFS_DATA_LOG_BASE_ADDR       0x4000u
+/* 5 reserved blocks, data log starts at block 5. */
 #define PGFS_LAYOUT_RESERVED_BLOCKS  5u
 #define PGFS_DATA_RECORD_MAGIC       0x50474644u
 #define PGFS_BATCH_DATA_RECORD_MAGIC 0x50474642u

@@ -19,12 +19,6 @@
 
 #include "luat_pgfs.h"
 
-/* PGFS layout addresses needed by pgfs_nand_ftl.c.
- * These are duplicated from pgfs_internal.h to avoid circular includes. */
-#ifndef PGFS_V1_CHECKPOINT_B_ADDR
-#define PGFS_V1_CHECKPOINT_B_ADDR  0x3000u
-#endif
-
 #include <stdbool.h>
 #include <stdint.h>
 /* <string.h> only needed by the .c implementation — not needed in the header */

@@ -26,12 +26,10 @@ layout (each region = one erase unit) is:
 For 64MB / 128KB erase = 512 blocks. Data log occupies 507 blocks (~64.7MB).
 
 The layout is computed at mount by `pgfs_layout_compute(geo, &out)` and
-stored in `pgfs_mount_ctx_t.layout`. Every address arithmetic in v2+ code
-goes through this struct. Do not introduce new hardcoded address constants.
-
-Legacy v1 constants (`PGFS_SUPERBLOCK_A_ADDR`, `PGFS_DATA_LOG_BASE_ADDR`,
-etc.) are kept as aliases to the v1 addresses for tests and external
-integrations. New code MUST use `pgfs_layout_t`.
+stored in `pgfs_mount_ctx_t.layout`. Every address arithmetic in pgfs code
+goes through this struct. Do not introduce new hardcoded address constants
+beyond the named-region anchors in `pgfs_internal.h` (which exist for
+the VFS adapter and the FTL state probe only).
 
 ## Key contracts
 
@@ -46,7 +44,7 @@ integrations. New code MUST use `pgfs_layout_t`.
    - `read/write/erase/control`
    - Keep PC and device backends behind this interface.
    - Real NAND chips (W25N01GVZEIG, MX35LF512) use **128KB erase blocks**
-     with 4KB sub-page program granularity; the v2 layout is designed for
+     with 4KB sub-page program granularity; the v3 layout is designed for
      this.
 
 3. **Reserved block bitmap (Phase 1)**
@@ -54,7 +52,7 @@ integrations. New code MUST use `pgfs_layout_t`.
      be allocated for data log segments.
    - `pgfs_alloc_segment` skips reserved blocks in both the forward scan
      and the wrap-around pass.
-   - The reserved bitmap is persisted as part of the FTL state v2 record.
+   - The reserved bitmap is persisted as part of the FTL state v3 record.
 
 4. **Generation recovery**
    - Superblock/checkpoint dual-generation selection uses seq + CRC validity.
@@ -85,7 +83,7 @@ integrations. New code MUST use `pgfs_layout_t`.
    - A weak block has shown signs of degradation (e.g. an ECC-corrected
      read). It is still usable for data writes but is a first-priority
      candidate for refresh on the next GC.
-   - The weak bitmap is persisted as part of the FTL state v2 record.
+   - The weak bitmap is persisted as part of the FTL state v3 record.
 
 7a. **Header ECC (Phase 3b)**
    - Each data record header carries an 8-byte `ecc[8]` field placed
@@ -120,15 +118,14 @@ integrations. New code MUST use `pgfs_layout_t`.
      `pgfs_ftl_on_checkpoint_commit` refreshes `write_head_*` from
      `ctx->data_log_write_addr` and `log_tail_*` from the mirrored
      `ctx->log_tail_*` right before each `pgfs_ftl_persist`. The
-     FTL meta v2 record round-trips both pairs so a future mount can
+     FTL meta v3 record round-trips both pairs so a future mount can
      detect consistency.
    - `pgfs_checkpoint_is_consistent_with_ftl` returns true when
      `cp->log_tail_block == ftl->write_head_block &&
       cp->log_tail_offset == ftl->write_head_offset` AND neither
-     field is zero (a zero pair is treated as "legacy v2 record
-     written before Phase 4b plumbing" and forced to the safe
-     replay path). The mount path can then skip
-     `pgfs_replay_data_log`.
+     field is zero (a zero pair is treated as "CP record with no
+     log_tail populated yet" and forces the safe replay path). The
+     mount path can then skip `pgfs_replay_data_log`.
 
 9. **Retired vs bad (Phase 5 + Phase 5b)**
    - `pgfs_mark_block_retired` no longer conflates with `pgfs_ftl_mark_block_bad`.
@@ -138,13 +135,15 @@ integrations. New code MUST use `pgfs_layout_t`.
      v3 record (`retired_blocks_bitmap` between the reserved bitmap
      and the erase-count array). `pgfs_mark_block_retired` sets the
      bit on `ctx->ftl.retired_blocks_bitmap` and the CP flag 0x01u
-     so both legacy v2 readers and the v3 loader see the retirement.
+     so test code that reads the CP directly can also observe the
+     retirement.
    - The FTL allocator (`pgfs_ftl_find_free_block`) skips retired
      blocks just like bad ones; the two states are independent
      (retired-without-bad means GC moved data out; bad-on-top-of-
      retired would mean an erase later failed).
-   - `pgfs_ftl_load` accepts both v2 and v3 records; a v2 record is
-     loaded with the retired bitmap implicitly zero.
+   - `pgfs_ftl_load` accepts only v3 records; a stale v2 record on
+     flash is treated as a load failure and triggers a fresh factory
+     scan (which is acceptable: there is no production data on v2 yet).
 
 10. **Feature gating**
    - Use `LUAT_USE_PGFS_COMPONENT` guards in mixed modules (`little_flash`,
@@ -223,9 +222,10 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
   back to the 16MB BSS slab. Tests that assume 64MB physical flash must
   check `flash->mem_size == PGFS_TEST_FLASH_64MB_SIZE` before relying on
   it.
-- `pgfs_data_log_base_addr(ctx)` uses `ctx->layout` when available (v2
-  mount path), falling back to the legacy `data_log_base_addr` field for
-  v1-style hand-constructed test contexts.
+- `pgfs_data_log_base_addr(ctx)` reads `ctx->layout` directly; callers
+  must ensure the layout is populated (via `pgfs_layout_compute` or
+  by setting `ctx->layout` before the call) — there is no fallback
+  for uninitialised ctx.
 
 ## Common pitfalls
 

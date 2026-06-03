@@ -421,12 +421,8 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
     uint32_t state_addr   = pgfs_ftl_state_addr(erase_size);
     uint32_t bitmap_bytes = PGFS_FTL_BITMAP_BYTES(ctx->total_blocks);
     uint32_t ec_bytes     = ctx->total_blocks * sizeof(uint16_t);
-    /* Phase 5b: detect v2 records on flash and load them with the
-     * legacy 2-bitmap layout. v3 records have the retired bitmap in
-     * between. The version check below disambiguates. */
-    uint32_t total_bytes_v3 = sizeof(pgfs_ftl_meta_t) + 3u * bitmap_bytes + ec_bytes;
-    uint32_t total_bytes_v2 = sizeof(pgfs_ftl_meta_t) + 2u * bitmap_bytes + ec_bytes;
-    (void)total_bytes_v2;
+    /* v3 layout: [meta][bad_blocks][reserved_blocks][retired_blocks][erase_counts] */
+    uint32_t total_bytes  = sizeof(pgfs_ftl_meta_t) + 3u * bitmap_bytes + ec_bytes;
 
     /* Read header first */
     pgfs_ftl_meta_t hdr;
@@ -434,19 +430,14 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         return 1; /* no record */
     }
 
-    /* Basic validation — accept both v2 and v3 records, but only v3
-     * has the retired bitmap. v2 records are valid; we just treat the
-     * retired bitmap as empty. */
+    /* Basic validation — only v3 records are accepted. */
     if (hdr.magic != PGFS_FTL_MAGIC ||
-        (hdr.version != 2u && hdr.version != 3u) ||
+        hdr.version != PGFS_FTL_VERSION ||
         hdr.total_blocks != (uint16_t)ctx->total_blocks ||
         hdr.bitmap_bytes != bitmap_bytes ||
         hdr.erase_count_bytes != ec_bytes) {
         return 1; /* invalid */
     }
-
-    /* Pick the layout that matches the on-flash version. */
-    uint32_t total_bytes = (hdr.version == 3u) ? total_bytes_v3 : total_bytes_v2;
 
     /* Read full record */
     uint8_t *buf = (uint8_t *)malloc(total_bytes);
@@ -466,20 +457,15 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         return 1; /* corrupt */
     }
 
-    /* Extract data — v3 layout has the retired bitmap between
-     * reserved and erase_counts; v2 layout jumps straight to erase_counts. */
+    /* Extract data — v3 layout. */
     uint8_t  *bitmap_ptr   = buf + sizeof(pgfs_ftl_meta_t);
     uint8_t  *reserved_ptr = bitmap_ptr + bitmap_bytes;
-    uint8_t  *retired_ptr  = (hdr.version == 3u) ? (reserved_ptr + bitmap_bytes) : NULL;
-    uint16_t *ec_ptr       = (uint16_t *)((retired_ptr != NULL) ? (retired_ptr + bitmap_bytes) : (reserved_ptr + bitmap_bytes));
+    uint8_t  *retired_ptr  = reserved_ptr + bitmap_bytes;
+    uint16_t *ec_ptr       = (uint16_t *)(retired_ptr + bitmap_bytes);
 
     memcpy(ctx->bad_blocks_bitmap, bitmap_ptr, bitmap_bytes);
     memcpy(ctx->reserved_blocks_bitmap, reserved_ptr, bitmap_bytes);
-    if (retired_ptr != NULL) {
-        memcpy(ctx->retired_blocks_bitmap, retired_ptr, bitmap_bytes);
-    } else {
-        /* v2 record: retired bitmap is implicit zeros (calloc'd at init). */
-    }
+    memcpy(ctx->retired_blocks_bitmap, retired_ptr, bitmap_bytes);
     memcpy(ctx->erase_counts, ec_ptr, ec_bytes);
 
     /* Phase 4b: restore the data log write head from the persisted

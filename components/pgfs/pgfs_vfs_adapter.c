@@ -104,23 +104,22 @@ static int pgfs_lf_control(void *ctx, uint32_t cmd, void *arg) {
 }
 #endif
 
-/* pgfs_compute_data_log_base — v2+ mount helper.
- * Calls pgfs_layout_compute() to derive the layout from the geometry,
- * and returns the byte address of the first data-log block. The legacy
- * snap-past-FTL heuristic is no longer needed: the layout always starts
- * the data log at block PGFS_LAYOUT_RESERVED_BLOCKS, which is past the
- * FTL state region by construction. */
+/* pgfs_compute_data_log_base — mount helper. Calls pgfs_layout_compute()
+ * to derive the layout from the geometry, and returns the byte address
+ * of the first data-log block. The layout always starts the data log
+ * at block PGFS_LAYOUT_RESERVED_BLOCKS, which is past the FTL state
+ * region by construction. */
 static uint32_t pgfs_compute_data_log_base(const pgfs_flash_opts_t* opts) {
     pgfs_flash_geometry_t geo = {0};
     pgfs_layout_t layout = {0};
     if (opts == NULL || opts->control == NULL) {
-        return PGFS_V1_DATA_LOG_BASE_ADDR;
+        return PGFS_DATA_LOG_BASE_ADDR;
     }
     if (opts->control(opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) != 0 || geo.erase_size == 0) {
-        return PGFS_V1_DATA_LOG_BASE_ADDR;
+        return PGFS_DATA_LOG_BASE_ADDR;
     }
     if (pgfs_layout_compute(&geo, &layout) != 0) {
-        return PGFS_V1_DATA_LOG_BASE_ADDR;
+        return PGFS_DATA_LOG_BASE_ADDR;
     }
     return layout.data_log_first_block * layout.erase_size;
 }

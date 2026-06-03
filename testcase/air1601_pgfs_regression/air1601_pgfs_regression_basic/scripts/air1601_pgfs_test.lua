@@ -197,7 +197,7 @@ function M.test_reopen_recover()
     if not f2 then
         log.error("air1601.pgfs", "open(rb) after remount failed: " .. path)
         cleanup(flash)
-        return false
+        error("open(rb) after remount failed: " .. path)
     end
     local got = f2:read("*a")
     f2:close()
@@ -226,10 +226,8 @@ function M.test_pgfsctl_lock()
     log.info("air1601.pgfs", "lock_mode on -> " .. tostring(r1))
     local r2 = lf.pgfsctl("lock_mode", "off")
     log.info("air1601.pgfs", "lock_mode off -> " .. tostring(r2))
-    if not r1 or not r2 then
-        log.error("air1601.pgfs", "lock_mode toggle returned false")
-        return false
-    end
+    assert(r1 == true, "lock_mode on returned " .. tostring(r1))
+    assert(r2 == true, "lock_mode off returned " .. tostring(r2))
     return true
 end
 
@@ -243,10 +241,7 @@ function M.test_pgfsctl_powercut()
     end
     local r1 = lf.pgfsctl("powercut_stage", "before_cp")
     log.info("air1601.pgfs", "powercut_stage before_cp -> " .. tostring(r1))
-    if not r1 then
-        log.error("air1601.pgfs", "powercut_stage returned false")
-        return false
-    end
+    assert(r1 == true, "powercut_stage before_cp returned " .. tostring(r1))
     -- 立即 reset, 避免污染后续用例 (powercut 注入会让后续 fclose 失败)
     local r2 = lf.pgfsctl("reset_runtime")
     log.info("air1601.pgfs", "reset_runtime after powercut -> " .. tostring(r2))
@@ -263,10 +258,7 @@ function M.test_pgfsctl_badblock()
     end
     local r1 = lf.pgfsctl("bad_block_once", true)
     log.info("air1601.pgfs", "bad_block_once on -> " .. tostring(r1))
-    if not r1 then
-        log.error("air1601.pgfs", "bad_block_once returned false")
-        return false
-    end
+    assert(r1 == true, "bad_block_once on returned " .. tostring(r1))
     -- 关掉 inject, 避免污染
     lf.pgfsctl("bad_block_once", false)
     lf.pgfsctl("reset_runtime")
@@ -283,7 +275,8 @@ function M.test_pgfsctl_reset()
     end
     local r = lf.pgfsctl("reset_runtime")
     log.info("air1601.pgfs", "reset_runtime -> " .. tostring(r))
-    return r ~= nil and r ~= false
+    assert(r == true, "reset_runtime returned " .. tostring(r))
+    return true
 end
 
 return M

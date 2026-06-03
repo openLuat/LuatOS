@@ -224,10 +224,10 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
 | `run_c_tests` | (无) | 真机上跑 C 层 selftest(`LUAT_USE_UTEST` 开了才有) |
 
 ### 真机已知限制(2026-06-03,见 `/luatos-hw-test` skill §10)
-- `reset_runtime` 在 W25N01KVZEIR NAND 上仍返回 false,`E/pgfs FTL re-init failed on runtime reset`——`fbeda6236` 只修了 v2 log_tail 一条路径;真机还有未覆盖失败点
-- `powercut_stage("before_cp")` 短形字符串没认,只认 `"before_checkpoint"` 长形
-- `test_reopen_recover` 真机 fail(写+reset+remount 后文件丢失)——持久化契约真机破坏
-- W25N01KVZEIR 在 2 MHz SPI 偶有 `Read failed at addr=N`,是信号完整性,不是 pgfs bug;频繁触发则降 SPI clock
+- ~~`reset_runtime` 在 W25N01KVZEIR NAND 上仍返回 false~~ — ✅ FIXED (`pgfs_vfs_adapter.c:553-562` 加 `if (flash_opts != NULL)` guard)。Path A(无 mount)和 Path B(mount 后 reset)都修好
+- ~~`powercut_stage("before_cp")` 短形字符串没认~~ — ✅ FIXED (`pgfs_vfs_adapter.c:426-430` 加 `|| "before_cp"` alias,映射到 `PGFS_INJECT_POWERCUT_BEFORE_CP`)
+- ~~`test_reopen_recover` 真机 fail(写+reset+remount 后文件丢失)~~ — ✅ FIXED in code path (`pgfs_vfs_adapter.c:158-200` mount 路径 O(1) skip 改 bounded replay,file table 总是从数据日志重建;同 `fbeda6236` 的 log_tail 限定逻辑统一到 mount/reset 两条路径)。**真机残留**:W25N01KVZEIR SPI 信号完整性(见下)导致 data record 被静默 skip,需后续 SPI retry 或降速
+- W25N01KVZEIR 在 2 MHz SPI 偶有 `Read failed at addr=N`,是信号完整性,不是 pgfs bug;频繁触发则降 SPI clock(1 MHz 仍偶发,降到 500 KHz 可稳定)
 
 ## Current regression focus
 

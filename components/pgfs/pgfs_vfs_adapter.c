@@ -155,33 +155,53 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
         s_pgfs_ctx.stats.replay_count += 1;
     }
     else {
-        /* Phase 4b: try to skip pgfs_replay_data_log when the CP and
-         * the FTL state agree on the data log write head. To do that we
-         * must load the FTL state first. The FTL on_mount is idempotent
-         * for init (it skips pgfs_ftl_init if flash_opts is set), so an
-         * early init+load here just gets the write_head_* / log_tail_*
-         * into ctx->ftl without running the full bad-block scan. The
-         * full scan / persist path runs later via the unconditional
-         * pgfs_ftl_on_mount call below. */
+        /* Phase 4b: early FTL init so the persisted write_head /
+         * log_tail is available for the replay-bound calculation
+         * below. Idempotent on the second pgfs_ftl_on_mount call
+         * later in this function (it skips pgfs_ftl_init if
+         * flash_opts is set). */
         if (pgfs_ftl_on_mount(&s_pgfs_ctx) != 0) {
             LLOGE("pgfs: early FTL init failed");
             memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
             return -1;
         }
-        if (pgfs_checkpoint_is_consistent_with_ftl(&s_pgfs_ctx.checkpoint,
-                                                   &s_pgfs_ctx.ftl)) {
-            LLOGI("pgfs: O(1) mount — CP and FTL agree on log_tail=%u/%u, skipping replay",
-                  (unsigned int)s_pgfs_ctx.checkpoint.log_tail_block,
-                  (unsigned int)s_pgfs_ctx.checkpoint.log_tail_offset);
-            s_pgfs_ctx.stats.replay_skip_count += 1;
-        } else {
-            ret = pgfs_replay_data_log(&s_pgfs_ctx);
-            if (ret != 0) {
-                memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
-                return -1;
+        /* Phase 4b: bound the data log write head from the CP's
+         * log_tail_* so pgfs_replay_data_log walks only the durable
+         * region. Same logic as the fbeda6236 fix in
+         * pgfs_control_reset_runtime. Without this, replay would
+         * scan to end-of-flash and resurrect orphan records. */
+        if (s_pgfs_ctx.checkpoint.log_tail_block != 0 ||
+            s_pgfs_ctx.checkpoint.log_tail_offset != 0) {
+            pgfs_flash_geometry_t geo = {0};
+            uint32_t erase_size = 0;
+            if (s_pgfs_ctx.flash_opts->control &&
+                s_pgfs_ctx.flash_opts->control(s_pgfs_ctx.flash_opts->ctx,
+                                               PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+                geo.erase_size > 0) {
+                erase_size = geo.erase_size;
+                s_pgfs_ctx.data_log_write_addr =
+                    s_pgfs_ctx.data_log_base_addr +
+                    (uint32_t)s_pgfs_ctx.checkpoint.log_tail_block * erase_size +
+                    s_pgfs_ctx.checkpoint.log_tail_offset;
+                s_pgfs_ctx.data_log_prepared_until = s_pgfs_ctx.data_log_write_addr;
+                LLOGI("pgfs mount: replay bound by CP log_tail=%u/%u (write_addr=%u)",
+                      (unsigned int)s_pgfs_ctx.checkpoint.log_tail_block,
+                      (unsigned int)s_pgfs_ctx.checkpoint.log_tail_offset,
+                      (unsigned int)s_pgfs_ctx.data_log_write_addr);
             }
-            s_pgfs_ctx.stats.replay_count += 1;
         }
+        /* Always replay on mount. The file table is in-RAM only and
+         * must be rebuilt from the data log; the O(1) skip in the
+         * previous design was wrong because it left the file table
+         * empty after a fresh mount (test_reopen_recover bug 10.3).
+         * The replay is bounded by data_log_write_addr above, so the
+         * performance intent of the O(1) optimization is preserved. */
+        ret = pgfs_replay_data_log(&s_pgfs_ctx);
+        if (ret != 0) {
+            memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
+            return -1;
+        }
+        s_pgfs_ctx.stats.replay_count += 1;
     }
     s_pgfs_ctx.checkpoint_loaded = 1;
 
@@ -423,7 +443,8 @@ int pgfs_control_inject_powercut_stage(const char* stage) {
         s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_NONE;
         return 0;
     }
-    if (strcmp(stage, "before_checkpoint") == 0) {
+    if (strcmp(stage, "before_checkpoint") == 0 ||
+        strcmp(stage, "before_cp") == 0) {
         s_pgfs_ctx.inject_powercut_stage = PGFS_INJECT_POWERCUT_BEFORE_CP;
         return 0;
     }
@@ -550,10 +571,16 @@ int pgfs_control_reset_runtime(void) {
             s_pgfs_ctx.checkpoint_loaded = 1;
         }
     }
-    /* Re-init NAND FTL on runtime reset */
-    if (pgfs_ftl_on_mount(&s_pgfs_ctx) != 0) {
-        LLOGE("pgfs: FTL re-init failed on runtime reset");
-        return -1;
+    /* Re-init NAND FTL on runtime reset — only if a flash backend is
+     * bound. Without a prior mount (or after umount), flash_opts is
+     * NULL and there is nothing to re-init. Treat that as a no-op
+     * success so test cleanup (and idempotent reset_runtime calls)
+     * don't produce spurious "FTL re-init failed" errors. */
+    if (s_pgfs_ctx.flash_opts != NULL) {
+        if (pgfs_ftl_on_mount(&s_pgfs_ctx) != 0) {
+            LLOGE("pgfs: FTL re-init failed on runtime reset");
+            return -1;
+        }
     }
     return 0;
 }

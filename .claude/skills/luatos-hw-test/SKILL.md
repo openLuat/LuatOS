@@ -321,21 +321,36 @@ end
 
 本节登记**已知但本 skill 范围外**的真实问题。修复后请删除对应条目。
 
-### 10.1 air1601 pgfs `reset_runtime` 仍失败(2026-06-03)
+### 10.1 air1601 pgfs `reset_runtime` 仍失败 — ✅ FIXED (2026-06-03)
 - 现象:`lf.pgfsctl("reset_runtime")` 返回 `false`,日志 `E/pgfs FTL re-init failed on runtime reset`
-- master commit `fbeda6236` 只修了 v2 log_tail 一条路径,真机 NAND FTL 真机初始化还有未覆盖的失败点
-- 影响:`test_pgfsctl_reset` / 多次 cleanup 周期 → 但 testrunner 当 PASS(§7.4)
-- 修复线索:看 `pgfs_ftl_init` 在真机 W25N01KVZEIR 上的返回路径,可能是首次 mount 没 erase FTL 区时 v3 解析直接失败
+- 根因:`pgfs_control_reset_runtime` 在 `pgfs_vfs_adapter.c` 无条件调 `pgfs_ftl_on_mount`,而该函数在 `flash_opts==NULL`(无 mount 或 umount 后)时返回 -1
+- 修复:`pgfs_vfs_adapter.c:553-562` 加 `if (s_pgfs_ctx.flash_opts != NULL)` guard,Path A(无 mount)走 no-op success,Path B(mount 后 reset)正常调 re-init
+- 真机验证(COM10/air1601/W25N01KVZEIR,2 MHz SPI):`test_pgfsctl_reset` 与 `test_reopen_recover` 均报 `reset_runtime -> true`,无 `E/pgfs FTL re-init` 日志
+- PC utest:`pgfs_basic` 30+ 子用例全过
 
-### 10.2 `powercut_stage("before_cp")` 字符串不认(2026-06-03)
+### 10.2 `powercut_stage("before_cp")` 字符串不认 — ✅ FIXED (2026-06-03)
 - 现象:`lf.pgfsctl("powercut_stage", "before_cp")` 返回 `false`
-- 原因:`pgfs_control_inject_powercut_stage` 的字符串映射可能只接受 `before_checkpoint`(长形)
-- 修复线索:在该函数加一行 `before_cp` → `PGFS_INJECT_POWERCUT_BEFORE_CP` 的 alias,或把测试改成长形
+- 根因:`pgfs_vfs_adapter.c:418-451` 字符串表只认 `before_checkpoint`(长形)
+- 修复:`pgfs_vfs_adapter.c:426-430` 加 `|| "before_cp"` alias,都映射到 `PGFS_INJECT_POWERCUT_BEFORE_CP`
+- 真机验证:`test_pgfsctl_powercut` 报 `powercut_stage before_cp -> true`
+- PC utest:在 `pgfs_test_batch_api_boundaries` 加 alias 覆盖行,全过
 
-### 10.3 air1601 pgfs `test_reopen_recover` 文件丢失(2026-06-03)
+### 10.3 air1601 pgfs `test_reopen_recover` 文件丢失 — ✅ FIXED in code path (2026-06-03)
 - 现象:写入 31B + `reset_runtime` + 重 mount,读时 `open(rb) failed`,文件不存在
-- 这是**持久化契约破坏**——PC 上 `pgfs_basic.fclose_is_durable_boundary` 通过,但真机失败
-- 修复线索:可能与 10.1 同根(reset_runtime 没真正持久化 CP),也可能是 ramnand-only 路径未走 flash sync
+- 根因:`luat_vfs_pgfs_mount` 在 `pgfs_vfs_adapter.c:171-176` 走 Phase 4b "O(1) skip" 路径(CP/FTL log_tail 一致时跳 replay),但 file table 是纯内存的,跳过 replay 后 remount 的 file table 永远是空的
+- 修复:`pgfs_vfs_adapter.c:158-200` 把 mount 路径的 O(1) skip 改为 **bounded replay**:
+  1. 早调 `pgfs_ftl_on_mount` 拿 FTL 的 write_head / log_tail
+  2. 用 CP 的 `log_tail_*` 把 `data_log_write_addr` 限定到 durable 区域(同 `fbeda6236` 在 reset 路径的逻辑,统一 mount/reset 两条路径语义)
+  3. **总是**调 `pgfs_replay_data_log` — 性能保留(限定扫描范围到 `[base, log_tail]`),正确性恢复(file table 总是从数据日志重建)
+- 真机验证:remount 日志 `I/pgfs mount: replay bound by CP log_tail=1/2048 (write_addr=788480)` 出现,replay 实际跑
+- **附带**:同步把 air1601 测试脚本里 5 处 `return false` 改为 `assert(...)`/`error()`(打破 §7.4 的 虚绿 陷阱),让 testrunner 真实反映底层状态
+- **剩余 1 个真机未通过原因(非本修复范围)**:W25N01KVZEIR 在 2 MHz/1 MHz SPI 下有 `replay skip bad block read failure at addr=786432` 信号完整性问题(AGENTS.md:230 登记),导致 data record 被静默 skip。后续:加 SPI 读 retry 或降到 500 KHz。
+
+### 10.4 air1601 W25N01KVZEIR SPI 信号完整性 (NEW, 2026-06-03)
+- 现象:2 MHz SPI 偶有 `replay skip bad block read failure at addr=N`(`E/little_flash Error: Read failed`);1 MHz 时问题移到不同地址
+- 影响:长 data log 写入后,remount replay 可能因 SPI bit-flip 跳过 record,导致 test_reopen_recover fail
+- 修复线索:在 `pgfs_lf_read` 加 retry 逻辑(目前 1 次读失败就放弃);或测试时把 SPI clock 降到 500 KHz
+- 跟踪:见 `components/pgfs/AGENTS.md` §"真机已知限制"
 
 ---
 

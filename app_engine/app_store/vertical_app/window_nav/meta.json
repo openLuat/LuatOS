@@ -1,0 +1,14 @@
+{
+    "app_name_cn": "APP窗口切换示例",
+    "app_name_en": "window_nav",
+    "publish_time": "2026-06-03 12:00:00",
+    "description": "主窗口包含4个按钮，通过 publish 消息打开4个不同颜色的子窗口，子窗口仅含关闭按钮，关闭后返回主窗口",
+    "zip_size_kb": "12",
+    "origin_size_kb": "18",
+    "supported_models": {"Air8101": "Air8101"},
+    "min_firmware_version": 0,
+    "firmware_id": "all",
+    "resolution": "480x800",
+    "category": "工具",
+    "version": "1.0.0"
+}

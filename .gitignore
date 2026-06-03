@@ -138,9 +138,6 @@ bsp/pc/otp.bin
 /.claude/
 /.fleet-worktrees/
 
-# In-progress test scaffolds (not yet ready to commit)
-/testcase/unit_testcase_tools/pgfs_perf/
-
 # PC BSP runtime artifacts (not to be tracked)
 /bsp/pc/CrashDump_*.dmp
 /bsp/pc/LastCoverageResults.log

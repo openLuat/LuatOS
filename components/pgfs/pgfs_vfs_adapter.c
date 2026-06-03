@@ -483,10 +483,17 @@ int pgfs_control_reset_runtime(void) {
 
     memcpy(mount_point, s_pgfs_ctx.mount_point, sizeof(mount_point));
     if (s_pgfs_ctx.mounted) {
-        /* Persist FTL state before resetting */
-        pgfs_ftl_on_checkpoint_commit(&s_pgfs_ctx);
+        /* v2 layout: let pgfs_checkpoint_commit_pending drive the
+         * FTL persist itself (it calls pgfs_ftl_on_checkpoint_commit
+         * after a successful CP write). Calling the FTL persist first
+         * would advance FTL.write_head past the on-flash CP's log_tail
+         * even when there are no pending writes to commit (e.g. an
+         * AFTER_APPEND injection that returned -1 before
+         * pgfs_mark_checkpoint_pending ran), which would either replay
+         * the orphan data or put FTL out of sync with the CP. */
         if (pgfs_checkpoint_commit_pending(&s_pgfs_ctx) != 0) {
-            return -1;
+            LLOGW("pgfs: CP commit failed on reset, falling back to on-flash state "
+                  "(orphan log records beyond the persisted log_tail will be ignored)");
         }
         pgfs_ftl_deinit(&s_pgfs_ctx.ftl);
     }
@@ -504,10 +511,36 @@ int pgfs_control_reset_runtime(void) {
         if (loaded == 0) {
             s_pgfs_ctx.checkpoint = checkpoint;
             s_pgfs_ctx.checkpoint_loaded = 1;
+            /* Restore the data log write head from the CP's log_tail_*
+             * so pgfs_replay_data_log can bound the scan to durable
+             * records. Without this, replay would walk to geo.capacity
+             * and resurrect orphan data written past the last committed
+             * CP (Test1/2 of the powercut recovery test). */
+            if (s_pgfs_ctx.checkpoint.log_tail_block != 0 ||
+                s_pgfs_ctx.checkpoint.log_tail_offset != 0) {
+                pgfs_flash_geometry_t geo = {0};
+                uint32_t erase_size = 0;
+                if (s_pgfs_ctx.flash_opts->control &&
+                    s_pgfs_ctx.flash_opts->control(s_pgfs_ctx.flash_opts->ctx,
+                                                   PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+                    geo.erase_size > 0) {
+                    erase_size = geo.erase_size;
+                    s_pgfs_ctx.data_log_write_addr =
+                        s_pgfs_ctx.data_log_base_addr +
+                        (uint32_t)s_pgfs_ctx.checkpoint.log_tail_block * erase_size +
+                        s_pgfs_ctx.checkpoint.log_tail_offset;
+                    s_pgfs_ctx.data_log_prepared_until = s_pgfs_ctx.data_log_write_addr;
+                    LLOGI("pgfs reset: replay bound by CP log_tail=%u/%u (write_addr=%u)",
+                          (unsigned int)s_pgfs_ctx.checkpoint.log_tail_block,
+                          (unsigned int)s_pgfs_ctx.checkpoint.log_tail_offset,
+                          (unsigned int)s_pgfs_ctx.data_log_write_addr);
+                }
+            }
             loaded = pgfs_replay_data_log(&s_pgfs_ctx);
             if (loaded != 0) {
                 return -1;
             }
+            s_pgfs_ctx.stats.replay_count += 1;
         }
         else {
             loaded = pgfs_rebuild_checkpoint_from_replay(&s_pgfs_ctx);

@@ -1482,9 +1482,25 @@ static int pgfs_replay_recover_after_corrupt_record(pgfs_mount_ctx_t* ctx,
 
 int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
     pgfs_flash_geometry_t geo = {0};
-    uint32_t base = pgfs_data_log_base_addr(ctx);
+    /* Use the explicit ctx->data_log_base_addr rather than
+     * pgfs_data_log_base_addr(ctx): the helper derives the base from
+     * ctx->layout, which the unit tests don't populate (they set the
+     * field directly). Comparing against the helper's result would
+     * treat write_addr > 0 as a durable-bound even when write_addr
+     * itself is the data log base, prematurely breaking the scan
+     * before the very first record is reached. */
+    uint32_t base = ctx->data_log_base_addr;
     uint32_t addr = base;
     uint32_t limit = 0;
+    /* v2 layout: if the mount ctx restored data_log_write_addr from the
+     * CP's log_tail_*, cap the scan at that point so orphan records
+     * written past the last committed CP (e.g. a close() that crashed
+     * before checkpoint commit, leaving a record in the log but no CP
+     * entry pointing at it) do not get re-applied to the file table on
+     * remount / reset_runtime. When data_log_write_addr is still at the
+     * base (no CP was loaded or its log_tail_* are zero), fall back to
+     * the full capacity scan used by the legacy replay path. */
+    uint32_t durable_limit = 0;
     pgfs_replay_pending_entry_t pending[PGFS_MAX_BATCH_PENDING];
 
     if (ctx == NULL || ctx->flash_opts == NULL || ctx->flash_opts->read == NULL) {
@@ -1503,6 +1519,9 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
     }
     else {
         limit = 0;
+    }
+    if (ctx->data_log_write_addr > base) {
+        durable_limit = ctx->data_log_write_addr;
     }
     while (1) {
         uint32_t magic = 0;
@@ -1532,6 +1551,12 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
         size_t old_len = 0;
 
         if (limit != 0 && addr + sizeof(magic) > limit) {
+            break;
+        }
+        /* v2 durable-bound: stop once we cross the persisted log_tail
+         * (see durable_limit setup above). Anything past it is orphan
+         * data from a close() that did not reach a successful CP commit. */
+        if (durable_limit != 0 && addr >= durable_limit) {
             break;
         }
         if (pgfs_replay_flash_read(ctx, addr, &magic, sizeof(magic)) != 0) {

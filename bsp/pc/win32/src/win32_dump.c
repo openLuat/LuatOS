@@ -344,13 +344,11 @@ LONG WINAPI TopLevelExceptionFilter(void* pExceptionPointers) {
    ================================================================ */
 static BOOL WINAPI CtrlHandler(DWORD type) {
     if (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT) {
-        printf("\n====== CTRL+C: Thread Stack Dump ======\n");
+        /* Manual interruption should exit quietly.
+           Keep crash-path stack dumping only for real exceptions. */
         fflush(stdout);
-        DumpAllTasks(NULL, GetCurrentThreadId(), L);
-        fflush(stdout);
-        /* Return FALSE so the default handler runs and exits the process.
-           This is intentional: Ctrl+C on a frozen simulator should terminate. */
-        return FALSE;
+        ExitProcess(0);
+        return TRUE;
     }
     return FALSE;
 }

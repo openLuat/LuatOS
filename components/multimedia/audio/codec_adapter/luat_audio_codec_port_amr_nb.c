@@ -48,6 +48,10 @@ int luat_audio_codec_amr_nb_make_head(luat_audio_data_codec_t* codec, luat_audio
     return LUAT_ERROR_NONE;
 }
 
+void luat_audio_codec_amr_nb_pre_decode(luat_audio_data_codec_t* codec, const uint8_t *input, uint32_t input_size, uint32_t *frame_size_bytes)
+{
+    *frame_size_bytes = amr_nb_byte_len[(input[0] >> 3) & 0x0f] + 1;
+}
 
 static int _amr_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
     if (is_encode) {
@@ -85,10 +89,7 @@ static void _amr_codec_deinit(luat_audio_data_codec_t* codec) {
     }
 }
 
-static void _amr_codec_pre_decode(luat_audio_data_codec_t* codec, const uint8_t *input, uint32_t input_size, uint32_t *frame_size_bytes)
-{
-    *frame_size_bytes = amr_nb_byte_len[(input[0] >> 3) & 0x0f] + 1;
-}
+
 
 static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
                   const uint8_t *input, uint32_t input_size,
@@ -123,7 +124,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_nb_opts = {
     .init = _amr_codec_init,
     .deinit = _amr_codec_deinit,
     .get_play_info = luat_audio_amr_nb_get_play_info,
-    .pre_decode = _amr_codec_pre_decode,
+    .pre_decode = luat_audio_codec_amr_nb_pre_decode,
     .decode = _amr_codec_decode,
     .make_head = luat_audio_codec_amr_nb_make_head,
     .encode = _amr_codec_encode,

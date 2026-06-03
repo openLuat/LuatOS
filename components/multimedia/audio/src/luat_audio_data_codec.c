@@ -41,7 +41,13 @@ int luat_audio_data_codec_bind(luat_audio_data_codec_t *codec, const luat_audio_
     }
     codec->input_buffer = luat_heap_malloc(opts->decode_max_output_len > opts->encode_min_input_len ? opts->encode_min_input_len : opts->decode_max_output_len);
     if (!codec->input_buffer) {
-        return -LUAT_ERROR_NO_MEMORY;
+        LLOGC(luat_audio_debug_flag, "bind audio data codec %d failed, no memory", opts->type);
+        if (!opts->is_reentrant && opts->is_hardware) {
+            if (_audio_data_codec_hardware_items[opts->type].is_busy) {
+                _audio_data_codec_hardware_items[opts->type].is_busy = 0;
+            }
+            return -LUAT_ERROR_NO_MEMORY;
+        }
     }
     codec->opts = opts;
     codec->user_data = user_data;
@@ -66,13 +72,15 @@ void luat_audio_data_codec_unbind(luat_audio_data_codec_t *codec)
     if (codec->input_buffer) {
         luat_heap_free(codec->input_buffer);
         codec->input_buffer = NULL;
-        codec->opts->deinit(codec);
     }
+    codec->opts->deinit(codec);
     if (codec->opts->is_hardware) {
         _audio_data_codec_hardware_items[codec->opts->type].is_busy = 0;
+        LLOGC(luat_audio_debug_flag, "unbind hardware data codec %d", codec->opts->type);
     }
     else {
         _audio_data_codec_software_items[codec->opts->type].is_busy = 0;
+        LLOGC(luat_audio_debug_flag, "unbind software data codec %d", codec->opts->type);
     }
     codec->opts = NULL;
 }

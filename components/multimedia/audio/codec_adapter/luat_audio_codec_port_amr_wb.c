@@ -37,12 +37,6 @@ struct state {
 	RX_State rx_state;
 };
 
-int luat_audio_codec_amr_wb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer)
-{
-    luat_buffer_write(out_buffer, "#!AMR-WB\n", 9);
-    return LUAT_ERROR_NONE;
-}
-
 int luat_audio_amr_wb_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info)
 {
     if (input_buffer->pos < 9) {
@@ -62,6 +56,17 @@ int luat_audio_amr_wb_get_play_info(struct luat_audio_data_codec *codec, luat_bu
     } else {
         return -LUAT_ERROR_PARAM_INVALID;
     }
+    return LUAT_ERROR_NONE;
+}
+
+void luat_audio_codec_amr_wb_pre_decode(luat_audio_data_codec_t* codec, const uint8_t *input, uint32_t input_size, uint32_t *frame_size_bytes)
+{
+    *frame_size_bytes = amr_wb_byte_len[(input[0] >> 3) & 0x0f] + 1;
+}
+
+int luat_audio_codec_amr_wb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer)
+{
+    luat_buffer_write(out_buffer, "#!AMR-WB\n", 9);
     return LUAT_ERROR_NONE;
 }
 
@@ -118,10 +123,7 @@ static void _amr_codec_deinit(luat_audio_data_codec_t* codec) {
     }
 }
 
-static void _amr_codec_pre_decode(luat_audio_data_codec_t* codec, const uint8_t *input, uint32_t input_size, uint32_t *frame_size_bytes)
-{
-    *frame_size_bytes = amr_wb_byte_len[(input[0] >> 3) & 0x0f] + 1;
-}
+
 
 static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
                   const uint8_t *input, uint32_t input_size,
@@ -203,7 +205,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts = {
     .init = _amr_codec_init,
     .deinit = _amr_codec_deinit,
     .get_play_info = luat_audio_amr_wb_get_play_info,
-    .pre_decode = _amr_codec_pre_decode,
+    .pre_decode = luat_audio_codec_amr_wb_pre_decode,
     .decode = _amr_codec_decode,
     .make_head = luat_audio_codec_amr_wb_make_head,
     .encode = _amr_codec_encode,

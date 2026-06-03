@@ -40,10 +40,13 @@ function M.test_load_and_exec_hello()
     assert(ret == 0, "ndk.exec ret expected 0 (SYSCON 0x5555 exit), got " .. tostring(ret))
 
     -- 3) 读 exchange 前 16 字节, 验证 HELLO_NDK_DONE 标志
+    -- guest 走 byte 写, 数据就是纯 ASCII "HELLO_NDK_DONE\0\0"
     local data = ndk.getData(ctx, 16, 0)
     log.info("air1601.ndk", "exchange[0..15] = " .. tostring(data))
-    assert(type(data) == "string" and data:find("HELLO_NDK_DONE", 1, true),
-        "exchange marker missing, got: " .. tostring(data))
+    assert(type(data) == "string" and #data >= 16,
+        "exchange too short, got " .. tostring(#data) .. " bytes")
+    assert(data:sub(1, 14) == "HELLO_NDK_DONE",
+        "exchange marker mismatch, got: " .. tostring(data))
 
     return true
 end

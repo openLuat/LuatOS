@@ -260,11 +260,17 @@ int luat_audio_data_codec_encode_once(luat_audio_data_codec_t *codec, luat_fifo_
 int luat_audio_data_codec_register(const luat_audio_data_codec_opts_t *opts);
 
 /**
- * @brief 查找音频编解码器
+ * @brief 查找音频编解码器,先查找软件编解码器,再查找硬件编解码器
  * @param type 编解码器类型
  * @return const luat_audio_data_codec_opts_t* 编解码器选项指针，失败返回 NULL
  */
 const luat_audio_data_codec_opts_t* luat_audio_data_codec_find(uint8_t type);
+/**
+ * @brief 查找音频编解码器,只查找硬件编解码器
+ * @param type 编解码器类型
+ * @return const luat_audio_data_codec_opts_t* 编解码器选项指针，失败返回 NULL
+ */
+const luat_audio_data_codec_opts_t* luat_audio_data_codec_find_hardware(uint8_t type);
 
 int luat_audio_amr_nb_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);
 int luat_audio_amr_wb_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);

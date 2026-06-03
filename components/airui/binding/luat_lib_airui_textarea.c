@@ -33,6 +33,7 @@
  * @int config.y Y 坐标，默认 0
  * @int config.w 宽度，默认 ctx->width - x 或 200
  * @int config.h 高度，默认 120
+ * @string config.mode 模式，"normal"（默认）或 "password"；password 模式下显示 `*`
  * @int config.max_len 最大字符数，默认 256
  * @string config.font 字体类型，传 "hzfont" 时启用 hzfont
  * @int config.font_size 字体大小，使用 hzfont 时生效
@@ -106,6 +107,21 @@ static int l_textarea_set_cursor(lua_State *L) {
 }
 
 /**
+ * Textarea:set_mode(mode)
+ * @api textarea:set_mode(mode)
+ * @string mode 模式，"normal" 或 "password"
+ * @return nil
+ */
+static int l_textarea_set_mode(lua_State *L) {
+    lv_obj_t *textarea = airui_check_component(L, 1, AIRUI_TEXTAREA_MT);
+    const char *mode = luaL_checkstring(L, 2);
+    if (airui_textarea_set_mode(textarea, mode) != AIRUI_OK) {
+        return luaL_error(L, "unsupported textarea mode: %s", mode);
+    }
+    return 0;
+}
+
+/**
  * Textarea:set_on_text_change(callback)
  * @api textarea:set_on_text_change(callback)
  * @function callback 文本变化回调
@@ -168,6 +184,7 @@ void airui_register_textarea_meta(lua_State *L) {
         {"set_text", l_textarea_set_text},
         {"get_text", l_textarea_get_text},
         {"set_cursor", l_textarea_set_cursor},
+        {"set_mode", l_textarea_set_mode},
         {"set_on_text_change", l_textarea_set_on_change},
         {"attach_keyboard", l_textarea_attach_keyboard},
         {"get_keyboard", l_textarea_get_keyboard},

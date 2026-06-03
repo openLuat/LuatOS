@@ -37,6 +37,7 @@ static inline void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_
 static airui_ctx_t *airui_binding_get_ctx(lua_State *L_state);
 static void airui_textarea_bind_shared_keyboard(lv_obj_t *target);
 static void airui_textarea_apply_font(lv_obj_t *textarea, airui_text_font_state_t *font_state);
+static void airui_textarea_apply_password_mode(lv_obj_t *textarea, bool enabled);
 static void airui_textarea_focus_cb(lv_event_t *e);
 static char *airui_textarea_dup_clipped_text(const char *text, uint32_t max_len, bool *truncated);
 static int airui_textarea_apply_text_fast(lv_obj_t *textarea, const char *text);
@@ -73,6 +74,7 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     int y = airui_marshal_floor_integer(L, idx, "y", 0);
     int w = airui_marshal_floor_integer(L, idx, "w", ctx->width > 0 ? ctx->width - x : 200);
     int h = airui_marshal_floor_integer(L, idx, "h", 120);
+    const char *mode = airui_marshal_string(L, idx, "mode", NULL);
     int max_len = airui_marshal_integer(L, idx, "max_len", 256);
     const char *text = airui_marshal_string(L, idx, "text", NULL);
     const char *placeholder = airui_marshal_string(L, idx, "placeholder", NULL);
@@ -87,6 +89,17 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     lv_obj_set_size(textarea, w, h);
     lv_obj_set_style_pad_top(textarea, 2, LV_PART_MAIN);
     lv_obj_set_style_pad_bottom(textarea, 2, LV_PART_MAIN);
+
+    // 默认普通模式；显式配置后可切换到密码模式
+    if (mode != NULL) {
+        if (airui_textarea_set_mode(textarea, mode) != AIRUI_OK) {
+            LLOGW("textarea.mode 不支持: %s, 使用 normal", mode);
+        }
+    }
+    else if (airui_marshal_bool(L, idx, "password_mode", false)) {
+        (void)airui_textarea_set_mode(textarea, "password");
+    }
+
     if (max_len > 0) {
         lv_textarea_set_max_length(textarea, max_len);
     }
@@ -227,6 +240,37 @@ static void airui_textarea_apply_font(lv_obj_t *textarea, airui_text_font_state_
     }
     (void)airui_text_font_apply_hzfont(textarea, font_state->hzfont_size,
         ((lv_style_selector_t)LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT));
+}
+
+static void airui_textarea_apply_password_mode(lv_obj_t *textarea, bool enabled)
+{
+    if (textarea == NULL) {
+        return;
+    }
+
+    if (enabled) {
+        lv_textarea_set_password_bullet(textarea, "*");
+    }
+    lv_textarea_set_password_mode(textarea, enabled);
+}
+
+int airui_textarea_set_mode(lv_obj_t *textarea, const char *mode)
+{
+    if (textarea == NULL || mode == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (strcmp(mode, "normal") == 0 || strcmp(mode, "text") == 0) {
+        airui_textarea_apply_password_mode(textarea, false);
+        return AIRUI_OK;
+    }
+
+    if (strcmp(mode, "password") == 0) {
+        airui_textarea_apply_password_mode(textarea, true);
+        return AIRUI_OK;
+    }
+
+    return AIRUI_ERR_INVALID_PARAM;
 }
 
 /**

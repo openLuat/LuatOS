@@ -585,6 +585,7 @@ int airui_win_set_style(lv_obj_t *win, void *L, int idx); //按样式表设置�
 lv_obj_t *airui_textarea_create_from_config(void *L, int idx);
 int airui_textarea_set_text(lv_obj_t *textarea, const char *text); //设置文本内容
 const char *airui_textarea_get_text(lv_obj_t *textarea); //获取文本内容
+int airui_textarea_set_mode(lv_obj_t *textarea, const char *mode); //设置模式，normal/password
 int airui_textarea_set_cursor(lv_obj_t *textarea, uint32_t pos); //设置光标位置
 int airui_textarea_set_on_text_change(lv_obj_t *textarea, int callback_ref); //设置文本改变回调
 int airui_textarea_attach_keyboard(lv_obj_t *textarea, lv_obj_t *keyboard); //关联键盘

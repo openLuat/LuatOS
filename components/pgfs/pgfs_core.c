@@ -794,7 +794,6 @@ void pgfs_file_reset_all(void) {
 int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
     pgfs_file_entry_t* e = NULL;
     char norm[sizeof(s_pgfs_files[0].path)] = {0};
-    (void)ctx;
     if (filename == NULL) {
         return -1;
     }
@@ -805,11 +804,35 @@ int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
     if (e == NULL) {
         return -1;
     }
+    /* Phase 2 GC: the file's live bytes are now dead. Attribute them
+     * to the block the last DATA record landed in. Note: this only
+     * credits the most recent block — earlier records of the same
+     * path are attributed to their own blocks by the replay shadow
+     * scan, not by the runtime delete path. */
+    if (ctx != NULL && e->last_written_block != 0 && e->last_written_block != 0xFFFFu &&
+        e->len > 0 && ctx->ftl.dead_bytes_per_block != NULL &&
+        e->last_written_block < ctx->ftl.total_blocks) {
+        ctx->ftl.dead_bytes_per_block[e->last_written_block] += (uint32_t)e->len;
+        ctx->checkpoint.gc_dead_bytes += (uint32_t)e->len;
+    }
     if (e->data) {
         pgfs_heap_free_by_type(e->heap_type, e->data);
     }
     memset(e, 0, sizeof(*e));
     return 0;
+}
+
+int pgfs_file_table_visit(pgfs_file_visit_fn cb, void* user_data) {
+    if (cb == NULL) return 0;
+    int stopped = 0;
+    for (uint32_t i = 0; i < PGFS_MAX_FILES; i++) {
+        if (!s_pgfs_files[i].used) continue;
+        if (cb(&s_pgfs_files[i], user_data) != 0) {
+            stopped = 1;
+            break;
+        }
+    }
+    return stopped;
 }
 
 static int pgfs_file_reserve(pgfs_file_entry_t* e, size_t need) {
@@ -1079,7 +1102,12 @@ retry_prepare:
     return 0;
 }
 
-static int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
+/* pgfs_append_data_record — append a DATA record to the data log using
+ * the cached entry from a `pgfs_file_t`. Phase 2 GC reuses this to
+ * re-write live records out of a victim block. Exposed (non-static)
+ * so the GC in pgfs_alloc_gc.c can call it through the visitor
+ * pattern. */
+int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     pgfs_data_record_hdr_t hdr = {0};
     uint32_t start_addr = 0;
     if (ctx == NULL || f == NULL || f->entry == NULL || f->cache.len == 0) {
@@ -1125,6 +1153,21 @@ static int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
          * victim selection tolerates small per-block noise. */
         if (start_addr < ctx->data_log_write_addr) {
             pgfs_account_live_block(ctx, start_addr, (uint32_t)(ctx->data_log_write_addr - start_addr));
+        }
+        /* Phase 2 GC: remember which block this file's most recent
+         * record landed in. The file-close and file-delete paths use
+         * this to attribute the OLD data's dead bytes to the right
+         * block when the file is rewritten or removed. */
+        if (ctx->flash_opts && ctx->flash_opts->control) {
+            pgfs_flash_geometry_t geo = {0};
+            if (ctx->flash_opts->control(ctx->flash_opts->ctx,
+                                         PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+                geo.erase_size > 0) {
+                uint32_t block_id = start_addr / geo.erase_size;
+                if (block_id <= 0xFFFEu) {
+                    f->entry->last_written_block = (uint16_t)block_id;
+                }
+            }
         }
         (void)written_block;
     }
@@ -1946,6 +1989,12 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
             }
             goto finish;
         }
+        /* Phase 2 GC: capture the OLD block the previous version of
+         * this file lived in so the close path can attribute the
+         * dead bytes to that block (the new write will credit a
+         * different block via pgfs_append_data_record below). */
+        uint16_t prev_last_written = f->entry->last_written_block;
+        size_t prev_len = f->entry->len;
         t0 = luat_mcu_tick64_ms();
         (void)pgfs_gc_step(ctx, 4096, 2000);
         t_gc = luat_mcu_tick64_ms();
@@ -1967,6 +2016,19 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
                 (void)pgfs_mark_block_retired(ctx, seg_id);
                 ret = -1;
                 goto finish;
+            }
+        }
+        /* Phase 2 GC: the new write succeeded, so the OLD version is
+         * now dead. Attribute the old live bytes to the old block so
+         * the cost-benefit GC can pick it. Note: prev_len can exceed
+         * f->entry->len if cache was overwritten mid-close — that's
+         * fine, the file's "previous state" is the bytes that WERE
+         * live before the new write. */
+        if (prev_last_written != 0 && prev_last_written != 0xFFFFu && prev_len > 0) {
+            if (ctx->ftl.dead_bytes_per_block != NULL &&
+                prev_last_written < ctx->ftl.total_blocks) {
+                ctx->ftl.dead_bytes_per_block[prev_last_written] += (uint32_t)prev_len;
+                ctx->checkpoint.gc_dead_bytes += (uint32_t)prev_len;
             }
         }
         t_append = luat_mcu_tick64_ms();

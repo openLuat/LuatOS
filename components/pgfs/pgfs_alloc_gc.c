@@ -146,23 +146,83 @@ static uint32_t pgfs_gc_pick_victim(pgfs_mount_ctx_t* ctx) {
     return best_block;
 }
 
+typedef struct pgfs_gc_rewrite_ctx {
+    pgfs_mount_ctx_t* gc_ctx;
+    uint32_t gc_victim;
+    int gc_moved;
+} pgfs_gc_rewrite_ctx_t;
+
+static int pgfs_gc_rewrite_visitor(pgfs_file_entry_t* e, void* user_data) {
+    pgfs_gc_rewrite_ctx_t* r = (pgfs_gc_rewrite_ctx_t*)user_data;
+    if (e == NULL || r == NULL) return 0;
+    if (e->last_written_block != r->gc_victim) return 0;
+    if (e->data == NULL || e->len == 0) return 0;
+    /* Force the new record into a DIFFERENT block. Without this, the
+     * data log would just append the rewrite into the tail of the
+     * same block the victim came from, and the move would not
+     * actually free the victim's live bytes. Aligning to the next
+     * erase boundary gives the GC a real "this block is now empty"
+     * signal. The skipped tail is reclaimed when the data log wraps
+     * back to it (it's in the now-retired block, so the allocator
+     * won't touch it). */
+    uint32_t erase_size = r->gc_ctx->ftl.erase_size;
+    if (erase_size > 0) {
+        uint32_t cur_block = r->gc_ctx->data_log_write_addr / erase_size;
+        if (cur_block == r->gc_victim) {
+            uint32_t next = (r->gc_ctx->data_log_write_addr / erase_size + 1u) * erase_size;
+            r->gc_ctx->data_log_write_addr = next;
+            r->gc_ctx->data_log_prepared_until = next;
+        }
+    }
+    pgfs_file_t shadow = {0};
+    shadow.ctx = r->gc_ctx;
+    shadow.entry = e;
+    shadow.cache.data = e->data;
+    shadow.cache.len = e->len;
+    if (pgfs_append_data_record(r->gc_ctx, &shadow) == 0) {
+        r->gc_moved++;
+    }
+    return 0;
+}
+
+/*
+ * pgfs_gc_rewrite_victim — Phase 2 GC data-move step.
+ *
+ * For each file_entry whose `last_written_block` is the victim, re-append
+ * the entry's data to the data log (which lands in a new block). This
+ * moves the current record out of the victim so the block is safe to
+ * retire. Shadowed records left in the victim are dead and will be lost
+ * on retirement — by definition, their data is no longer reachable
+ * through the file_entry.
+ *
+ * Returns the number of records moved. Returns 0 if no entries pointed
+ * to the victim (caller can choose to skip retirement in that case).
+ */
+static int pgfs_gc_rewrite_victim(pgfs_mount_ctx_t* ctx, uint32_t victim) {
+    if (ctx == NULL) return 0;
+    pgfs_gc_rewrite_ctx_t r = { ctx, victim, 0 };
+    (void)pgfs_file_table_visit(pgfs_gc_rewrite_visitor, &r);
+    return r.gc_moved;
+}
+
 /*
  * pgfs_gc_step — Phase 2 cost-benefit GC step.
  *
- * For now the data-move path is not implemented (records are not
- * rewritten to a fresh block before the victim is retired). What IS
- * implemented is the safe subset: pick the highest-scoring victim via
- * pgfs_gc_pick_victim() and retire it. Retiring is safe when the
- * block has zero live bytes (the file entries already have the data
- * in memory, so a remount is the only thing that would see a loss;
- * the per-block live bytes are authoritatively zero at the time the
- * caller invoked the GC step, by the cost-benefit contract).
+ * 1. Pick the highest-scoring victim via pgfs_gc_pick_victim.
+ * 2. If the victim has live records (i.e. some file_entry's
+ *    last_written_block == victim), move them out via
+ *    pgfs_gc_rewrite_victim. Each moved record is re-appended to
+ *    the data log and credited to its new block by
+ *    pgfs_account_live_block.
+ * 3. Zero the victim's live_bytes and dead_bytes (the moved records
+ *    are no longer "here", the remaining shadowed records are dead
+ *    and will be lost on retirement).
+ * 4. Retire the victim via pgfs_mark_block_retired.
  *
- * Returns the number of bytes reclaimed (i.e., the retired block's
- * size, when a victim was retired). Returns 0 when no candidate was
- * found. The byte_budget / time_budget_us parameters are accepted for
- * API compatibility with the original Phase 2 signature; this first
- * real implementation does a single victim per call.
+ * Returns the number of bytes reclaimed (= erase_size) on success,
+ * 0 when no candidate was found or the move failed. byte_budget and
+ * time_budget_us are accepted for API compatibility; this first real
+ * implementation does a single victim per call.
  */
 int pgfs_gc_step(pgfs_mount_ctx_t *ctx, uint32_t byte_budget, uint32_t time_budget_us) {
     (void)byte_budget;
@@ -175,9 +235,23 @@ int pgfs_gc_step(pgfs_mount_ctx_t *ctx, uint32_t byte_budget, uint32_t time_budg
         return 0;
     }
 
-    /* Retire the victim. pgfs_mark_block_retired sets the retired bit
-     * and the CP flag; the FTL allocator (find_free_block) will skip
-     * it on subsequent calls. */
+    /* Move live data out before retiring. If the move fails for any
+     * reason, abandon the retirement so the data stays reachable. */
+    if (ctx->ftl.live_bytes_per_block != NULL &&
+        ctx->ftl.live_bytes_per_block[victim] > 0) {
+        int moved = pgfs_gc_rewrite_victim(ctx, victim);
+        if (moved == 0) {
+            LLOGW("pgfs_gc: victim %u has live_bytes=%u but no entries to move; skipping",
+                  (unsigned int)victim,
+                  (unsigned int)ctx->ftl.live_bytes_per_block[victim]);
+            return 0;
+        }
+        /* The moved records are now credited to their new blocks by
+         * pgfs_account_live_block. The victim's stats are zeroed. */
+        ctx->ftl.live_bytes_per_block[victim] = 0;
+        ctx->ftl.dead_bytes_per_block[victim] = 0;
+    }
+
     pgfs_mark_block_retired(ctx, victim);
     LLOGD("pgfs_gc: retired block %u (live_bytes=%u, dead_bytes=%u, ec=%u)",
           (unsigned int)victim,

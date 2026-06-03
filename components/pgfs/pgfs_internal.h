@@ -197,6 +197,12 @@ typedef struct pgfs_file_entry {
     uint8_t *data;
     size_t len;
     size_t cap;
+    /* Phase 2 GC: block where the most recent DATA record for this
+     * file was written. Used by the file-close / file-delete paths
+     * to attribute dead bytes to the block that held the previous
+     * version of the file. 0xFFFFu means "unknown / never written". */
+    uint16_t last_written_block;
+    uint16_t last_written_reserved;
 } pgfs_file_entry_t;
 
 typedef struct pgfs_dir_entry {
@@ -241,6 +247,17 @@ int pgfs_unlock(pgfs_mount_ctx_t* ctx);
 int pgfs_batch_begin(pgfs_mount_ctx_t* ctx, uint32_t* out_batch_id);
 int pgfs_batch_commit(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
 int pgfs_batch_abort(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
+
+/* Phase 2 GC: visit every in-use file_entry in the mount's file
+ * table. The callback receives (entry, user_data). Returning non-zero
+ * from the callback stops the iteration. Used by the cost-benefit GC
+ * to find entries whose last_written_block matches a victim. */
+typedef int (*pgfs_file_visit_fn)(pgfs_file_entry_t* entry, void* user_data);
+int pgfs_file_table_visit(pgfs_file_visit_fn cb, void* user_data);
+
+/* Phase 2 GC: re-append a DATA record from a file_t's cache. Used by
+ * the GC data-move path to copy live records out of a victim block. */
+int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, struct pgfs_file* f);
 
 FILE* pgfs_file_open(pgfs_mount_ctx_t* ctx, const char *filename, const char *mode);
 int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream);

@@ -84,4 +84,4 @@ SECTIONS
 & "$PSScriptRoot\..\build_example.ps1" -ExampleName "my_example"
 ```
 
-`build_example.ps1` 会自动把 `-I` 指向 helper 头文件所在的 `components/ndk/guest/include` 和 `components/ndk/include`。helper 暴露的 API 详见 [`api-helper.md`](./api-helper.md)。
+`build_example.ps1` 会自动把 `-I` 指向 helper 头文件所在的 `components/ndk/guest/include` 和 `components/ndk/include`。helper 暴露的 API 详见 [`api-helper.md`](./api-helper.md)。Phase 3 起仅支持 LLVM clang+ld.lld+llvm-objcopy（不再支持 GNU 工具链）。

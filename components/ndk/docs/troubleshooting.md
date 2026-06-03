@@ -2,25 +2,25 @@
 
 > 本文是 NDK 文档集的一部分。完整索引见 [`../README.md`](../README.md)。
 
-## Q1: 找不到 RISC-V 工具链
+## Q1: 找不到 LLVM 工具链
 
-**症状**：`build.bat` 报错 `No suitable RISC-V toolchain found`
+**症状**：`build.ps1` 报错 `No usable LLVM toolchain found. Need: clang, ld.lld, llvm-objcopy`
 
 **解决**：
 
-1. **选择工具链**：
-   - 推荐 xPack RISC-V GCC：https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases
-   - 下载 Windows x64 版本，解压并添加 `bin/` 到 PATH
+1. **下载 LLVM**：
+   - 推荐 [LLVM 官方预编译](https://releases.llvm.org/)（≥ 16.0，自带 RISC-V backend 与 LLD）
+   - 解压并将 `bin/` 加入 PATH
 
 2. **验证安装**：
    ```powershell
-   $env:PATH += ";C:\path\to\xpack-riscv-none-elf-gcc-12.2.0-3\bin"
-   riscv-none-elf-gcc --version
+   $env:PATH += ";C:\Program Files\LLVM\bin"
+   clang --version
+   ld.lld --version
+   llvm-objcopy --version
    ```
 
-3. **替代方案**：使用 LLVM（如果已安装）
-   - 确保 LLVM 编译时启用了 RISC-V target 且安装了 LLD 链接器
-   - 测试：`clang --target=riscv32-unknown-elf --version` 和 `ld.lld --version`
+3. **若用 MSYS2 / scoop / choco**：装 `llvm` 包即可（要 ≥ 16.0）。
 
 ## Q2: baremetal.bin 生成路径不对
 

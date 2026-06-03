@@ -46,46 +46,11 @@ $elf = Join-Path $buildDir "$stem.elf"
 $bin = Join-Path $buildDir "$stem.bin"
 $map = Join-Path $buildDir "$stem.map"
 
+# We use LLVM clang only. The GNU RISC-V toolchain was removed in
+# Phase 3 simplification — keeping only one toolchain removes the
+# "which one is it" foot-gun (different -march defaults, different
+# -mabi defaults, different C-extension handling).
 $toolchains = @()
-if ((Test-Command "riscv64-unknown-elf-gcc") -and (Test-Command "riscv64-unknown-elf-objcopy")) {
-    $toolchains += @{
-        Name = "GNU riscv64-unknown-elf"
-        Cc = "riscv64-unknown-elf-gcc"
-        Objcopy = "riscv64-unknown-elf-objcopy"
-        Args = @(
-            "-march=rv32ima_zicsr", "-mabi=ilp32",
-            "-ffreestanding", "-nostdlib", "-fno-stack-protector",
-            "-fdata-sections", "-ffunction-sections", "-Os",
-            "-Wl,-T,$linker", "-Wl,-Map,$map", "-Wl,--gc-sections"
-        )
-    }
-}
-if ((Test-Command "riscv32-unknown-elf-gcc") -and (Test-Command "riscv32-unknown-elf-objcopy")) {
-    $toolchains += @{
-        Name = "GNU riscv32-unknown-elf"
-        Cc = "riscv32-unknown-elf-gcc"
-        Objcopy = "riscv32-unknown-elf-objcopy"
-        Args = @(
-            "-march=rv32ima_zicsr", "-mabi=ilp32",
-            "-ffreestanding", "-nostdlib", "-fno-stack-protector",
-            "-fdata-sections", "-ffunction-sections", "-Os",
-            "-Wl,-T,$linker", "-Wl,-Map,$map", "-Wl,--gc-sections"
-        )
-    }
-}
-if ((Test-Command "riscv-none-elf-gcc") -and (Test-Command "riscv-none-elf-objcopy")) {
-    $toolchains += @{
-        Name = "GNU riscv-none-elf"
-        Cc = "riscv-none-elf-gcc"
-        Objcopy = "riscv-none-elf-objcopy"
-        Args = @(
-            "-march=rv32ima_zicsr", "-mabi=ilp32",
-            "-ffreestanding", "-nostdlib", "-fno-stack-protector",
-            "-fdata-sections", "-ffunction-sections", "-Os",
-            "-Wl,-T,$linker", "-Wl,-Map,$map", "-Wl,--gc-sections"
-        )
-    }
-}
 if ((Test-Command "clang") -and (Test-Command "llvm-objcopy") -and (Test-Command "ld.lld")) {
     $toolchains += @{
         Name = "LLVM clang"
@@ -102,7 +67,7 @@ if ((Test-Command "clang") -and (Test-Command "llvm-objcopy") -and (Test-Command
 }
 
 if ($toolchains.Count -eq 0) {
-    throw "No usable RISC-V toolchain found. Install one of: riscv64-unknown-elf-gcc, riscv32-unknown-elf-gcc, riscv-none-elf-gcc, or clang+ld.lld+llvm-objcopy."
+    throw "No usable LLVM toolchain found. Need: clang, ld.lld, llvm-objcopy (LLVM with RISC-V target). See https://releases.llvm.org/ — Windows builds must enable the RISC-V backend."
 }
 
 foreach ($tc in $toolchains) {

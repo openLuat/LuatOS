@@ -51,13 +51,10 @@ xmake --version
 # 检查 MSVC（在 VS Developer Command Prompt 中）
 cl
 
-# 检查 RISC-V 工具链（可选，仅重建 guest 时需要）
-riscv64-unknown-elf-gcc --version
-# 或
-riscv-none-elf-gcc --version
-# 或
+# 检查 LLVM 工具链（重建 guest 时需要）
 clang --version
 ld.lld --version
+llvm-objcopy --version
 ```
 
 ### Step 2: 克隆仓库（如果尚未）

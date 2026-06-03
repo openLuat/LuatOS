@@ -11,31 +11,17 @@
 - **构建工具**：[xmake](https://xmake.io) ≥ 2.7.0
 - **PowerShell**：5.1+ 或 PowerShell Core 7.x
 
-### Guest 镜像编译工具链（二选一）
+### Guest 镜像编译工具链（仅 LLVM）
 
-仅在需要重建 `baremetal.bin` 时必需。优先级顺序：
+Phase 3 起只支持 LLVM clang+ld.lld+llvm-objcopy。Phase 3 之前曾支持 GNU 工具链（`riscv64-unknown-elf-gcc` / `riscv32-unknown-elf-gcc` / `riscv-none-elf-gcc`），因不同工具链的 `-march` / `-mabi` / C 扩展默认不同易踩坑，已移除。
 
-1. **GNU RISC-V 工具链**（推荐）
-   - `riscv64-unknown-elf-gcc` / `riscv64-unknown-elf-objcopy`
-   - 或 `riscv32-unknown-elf-gcc` / `riscv32-unknown-elf-objcopy`
-   - 或 `riscv-none-elf-gcc` / `riscv-none-elf-objcopy`（xPack 工具链）
-   - 获取：[xPack RISC-V GCC](https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases)、[SiFive GNU Toolchain](https://github.com/sifive/freedom-tools/releases)
-
-2. **LLVM/Clang** with RISC-V 支持（备用）
-   - `clang` + `ld.lld` + `llvm-objcopy`（需要完整的 RISC-V backend 和 LLD 链接器）
-   - 获取：[LLVM 官方](https://releases.llvm.org/)，Windows 下需 RISC-V target 编译版或手动开启 target
+- **`clang`**：Windows 推荐 [LLVM 官方](https://releases.llvm.org/) 预编译版（≥ 16.0，自带 RISC-V backend 与 LLD 链接器）
+- **`ld.lld`**：随 LLVM 一同发布
+- **`llvm-objcopy`**：随 LLVM 一同发布
 
 **验证命令在 PATH 中：**
 
 ```powershell
-# GNU 工具链（任意一种）
-riscv64-unknown-elf-gcc --version
-# 或
-riscv32-unknown-elf-gcc --version
-# 或
-riscv-none-elf-gcc --version
-
-# LLVM（三个命令都需要）
 clang --version
 ld.lld --version
 llvm-objcopy --version

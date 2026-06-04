@@ -34,16 +34,16 @@ struct luat_audio_channel {
     uint32_t play_fifo_high_level;        /**< 播放缓存高水位, 不再解码数据 */
     void *play_lock_mutex;                          /**< 播放数据写入保护 */
     struct luat_audio_driver_ctrl *driver_ctrl; /**< 关联的音频驱动控制器指针 */
-    struct luat_audio_request_block *play_request_block;   /**< 当前播放请求块指针 */
-    struct luat_audio_request_block *record_request_block; /**< 当前录音请求块指针 */
+    // struct luat_audio_request_block *play_request_block;   /**< 当前播放请求块指针 */
+    // struct luat_audio_request_block *record_request_block; /**< 当前录音请求块指针 */
     uint32_t soft_volume;                          /**< 软件音量控制（0-1000） 1000为10倍 */
     // uint8_t play_state;                        /**< 当前播放状态（0=停止, 1=播放） */
     // uint8_t record_state;                      /**< 当前录音状态（0=停止, 1=录音, 2=转发） */
-    uint8_t error_record_overflow;             /**< 录音溢出错误标志位 */
     uint8_t data_align;                        /**< 数据对齐方式（2=16位, 3=24位, 4=32位, 其他8位） */
     //uint8_t record_jump_cnt;
     uint8_t user_play_stop:1;
     uint8_t user_record_stop:1;
+    uint8_t play_is_stop:1;
 };
 typedef struct luat_audio_channel luat_audio_channel_t;
 

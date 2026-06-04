@@ -42,6 +42,28 @@ int luat_audio_amr_nb_get_play_info(struct luat_audio_data_codec *codec, luat_bu
     return LUAT_ERROR_NONE;
 }
 
+void luat_audio_codec_amr_nb_set_record_info(struct luat_audio_data_codec *codec, luat_audio_common_param_t *info)
+{
+    if (info->sample_rate != 8000) {
+        info->sample_rate = 8000;
+    }
+    if (info->channel_nums != 1) {
+        info->channel_nums = 1;
+    }
+    if (info->data_align != 2) {
+        info->data_align = 2;
+    }
+    if (info->is_signed != 1) {
+        info->is_signed = 1;
+    }
+    codec->common_param.sample_rate = info->sample_rate;
+    codec->common_param.channel_nums = info->channel_nums;
+    codec->common_param.data_align = info->data_align;
+    codec->common_param.is_signed = info->is_signed;
+    codec->common_param.one_frame_sample_cnt = 160;
+    codec->common_param.one_frame_bytes = 320;
+}
+
 int luat_audio_codec_amr_nb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer)
 {
     luat_buffer_write(out_buffer, "#!AMR\n", 6);
@@ -125,16 +147,16 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_nb_opts = {
     .init = _amr_codec_init,
     .deinit = _amr_codec_deinit,
     .get_play_info = luat_audio_amr_nb_get_play_info,
+    .set_record_info = luat_audio_codec_amr_nb_set_record_info,
     .pre_decode = luat_audio_codec_amr_nb_pre_decode,
     .decode = _amr_codec_decode,
     .make_head = luat_audio_codec_amr_nb_make_head,
     .encode = _amr_codec_encode,
-    .decode_min_input_len = 0,
+    .decode_min_input_len = 1,
     .decode_max_output_len = 320,
     .encode_min_input_len = 320,
     .encode_max_output_len = 32,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_AMR_NB,
-    .is_reentrant = 1,
     .is_hardware = 0,
     .support_detect = 1,
 };

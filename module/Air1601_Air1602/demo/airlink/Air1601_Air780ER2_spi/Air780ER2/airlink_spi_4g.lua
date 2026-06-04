@@ -53,6 +53,8 @@ local dnsproxy = require("dnsproxy")
 
 -- 初始化网络，使得 Air1601 可以外挂 Air780ER2 实现 4G 联网功能
 local function init_airlink_net()
+    -- 默认RDY脚为GPIO22，但是Air780ER2核心板没有引出，所以这里配置为GPIO25
+    airlink.config(airlink.CONF_SPI_RDY, 25)
     -- 初始化airlink
     airlink.init()
     sys.wait(100)

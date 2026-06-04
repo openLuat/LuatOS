@@ -1,15 +1,10 @@
 --[[
 @module  idle_win
 @summary 首页窗口模块，融合主菜单功能，采用选项卡滑动切换
-@version 1.4
-@date    2026.04.28
+@version 1.5
+@date    2026.06.04
 @author  江访
 ]]
-
--- All variable and function names now use full readable names.
--- Layout variables defined in calc_layout().
--- Key containers: main_container, tab_view.
--- Key data: builtin_apps, external_app_cache, status_cache.
 
 local window_id = nil
 local main_container = nil
@@ -20,6 +15,14 @@ local tab_view = nil
 local current_tab_index = 0
 
 local status_cache = { time = "08:00", date = "1970-01-01", weekday = "星期四", mobile_level = -1, wifi_level = 0 }
+
+-- 自启应用状态（与 settings_auto_app 共享 fskv 数据源）
+local auto_start_enabled = false
+local auto_start_target = ""
+local auto_start_has_password = false
+
+-- 应用卡片映射表
+local app_cards = {}
 
 local builtin_apps = {
     { name = "设置", win = "SETTINGS", icon = "/luadb/settings.png" },
@@ -64,6 +67,7 @@ local COLOR_DIVIDER        = 0xE0E0E0
 local COLOR_WHITE          = 0xFFFFFF
 local COLOR_DANGER         = 0xE63946
 local COLOR_GREEN          = 0x34C759
+local COLOR_AUTOSTART      = 0xFF9800
 
 local product_name = "合宙引擎主机"
 local has_4g = _G.project_config and _G.project_config.features and _G.project_config.features.net_4g
@@ -75,6 +79,8 @@ local model_suffix = chip_name:gsub("^Air", "")
 if model_suffix ~= "" then
     product_name = "合宙引擎主机" .. model_suffix
 end
+
+-- ==================== layout ====================
 
 local function calc_layout()
     if is_landscape then
@@ -125,7 +131,6 @@ local function calc_layout()
     local gah = screen_h - top_height - page_indicator_height
 
     local mcw = is_landscape and 120 or 100
-    -- 宽屏增大最小卡片宽度，减少列数避免卡片过密
     if screen_w > 480 then
         mcw = math.max(mcw, math.floor(screen_w / 5))
     end
@@ -145,7 +150,6 @@ local function calc_layout()
     local rpp = math.max(1, math.floor(ah / (card_height + grid_margin)))
     apps_per_page = grid_columns * rpp
 
-    -- 限制每页卡片数量，避免大屏上控件过密导致滑动卡顿
     if not is_landscape and apps_per_page > 24 then
         local total_cards = 0
         local ok, installed_apps = pcall(exapp.list_installed)
@@ -162,14 +166,370 @@ local function calc_layout()
             end
         end
     end
-
 end
+
+-- ==================== 自启状态查询 ====================
+
+local function request_auto_start_state()
+    sys.publish("AUTOSTART_SETTINGS_GET")
+end
+
+-- ==================== 上下文 UI 管理 ====================
+
+local context_keyboard = nil
+local context_verify_win = nil
+local context_password_win = nil
+local context_menu_win = nil
+local action_confirm_box = nil
+
+local function destroy_context_ui()
+    if context_keyboard then pcall(context_keyboard.destroy, context_keyboard); context_keyboard = nil end
+    if context_verify_win then pcall(context_verify_win.destroy, context_verify_win); context_verify_win = nil end
+    if context_password_win then pcall(context_password_win.destroy, context_password_win); context_password_win = nil end
+    if context_menu_win then pcall(context_menu_win.destroy, context_menu_win); context_menu_win = nil end
+    if action_confirm_box then pcall(action_confirm_box.destroy, action_confirm_box); action_confirm_box = nil end
+end
+
+-- ==================== 卸载应用 ====================
+
+local function handle_uninstall_app(app)
+    local app_name = app.name or "未知"
+    action_confirm_box = airui.msgbox({
+        w = math.min(math.floor(screen_w * 0.80), 400),
+        h = math.floor(screen_h * 0.25),
+        style = { text_font_size = math.floor(16 * density_scale_val) },
+        title = "确认卸载",
+        text = "确定要卸载 " .. app_name .. " 吗？",
+        buttons = { "确定", "取消" },
+        on_action = function(self, btn_label)
+            self:destroy()
+            action_confirm_box = nil
+            if btn_label == "确定" then
+                local app_dir = app.path:match("/([^/]+)/?$") or ""
+                if app_dir ~= "" then
+                    if auto_start_target == app.path then
+                        sys.publish("AUTOSTART_SET_ENABLED", false, "")
+                    end
+                    sys.publish("APP_STORE_UNINSTALL", app_dir, "", "")
+                end
+            end
+        end
+    })
+    action_confirm_box:show()
+end
+
+-- ==================== 密码验证弹窗 ====================
+
+local function show_password_verify_popup(title_str, on_confirm, on_cancel)
+    destroy_context_ui()
+    local density = density_scale_val or 1.0
+    local win_w = math.floor(screen_w * 0.80)
+    local header_h = math.floor(44 * density)
+    local item_margin = math.floor(16 * density)
+    local input_h = math.floor(46 * density)
+    local btn_h = math.floor(44 * density)
+    local label_h = math.floor(22 * density)
+    local gap = math.floor(12 * density)
+    local content_h = item_margin + label_h + gap + input_h + gap + btn_h + item_margin
+    local win_h = header_h + content_h
+
+    context_keyboard = airui.keyboard({
+        x = 0, y = -math.floor(20 * density),
+        w = screen_w, h = math.floor(240 * density),
+        mode = "text", auto_hide = true, preview = true,
+        on_commit = function(self) self:hide() end,
+    })
+
+    local win = airui.win({
+        parent = airui.screen, title = title_str,
+        w = win_w, h = win_h, close_btn = false, auto_center = true,
+        style = { bg_color = COLOR_WHITE, header_bg_color = COLOR_PRIMARY, content_bg_color = COLOR_WHITE,
+            title_text_color = COLOR_WHITE, radius = 12, title_align = airui.TEXT_ALIGN_CENTER,
+            header_height = header_h, content_pad = 0 },
+        on_close = function()
+            destroy_context_ui()
+            if on_cancel then on_cancel() end
+        end,
+    })
+    context_verify_win = win
+
+    local y_off = item_margin
+    airui.label({
+        parent = win, x = item_margin, y = y_off, w = win_w - 2 * item_margin, h = label_h,
+        text = "请输入密码", font_size = math.floor(16 * density),
+        color = COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_CENTER,
+    })
+    y_off = y_off + label_h + gap
+
+    local pwd_input = airui.textarea({
+        parent = win, x = item_margin, y = y_off,
+        w = win_w - 2 * item_margin, h = input_h,
+        text = "", placeholder = "请输入密码", max_len = 16,
+        font_size = math.floor(18 * density), keyboard = context_keyboard,
+    })
+    y_off = y_off + input_h + gap
+
+    local btn_w = math.floor((win_w - 2 * item_margin - gap) / 2)
+    airui.button({
+        parent = win, x = item_margin, y = y_off, w = btn_w, h = btn_h,
+        text = "取消", font_size = math.floor(18 * density),
+        style = { bg_color = COLOR_DIVIDER, pressed_bg_color = COLOR_DIVIDER, text_color = COLOR_TEXT, radius = 8,
+            border_width = 1, border_color = COLOR_DIVIDER },
+        on_click = function() destroy_context_ui(); if on_cancel then on_cancel() end end,
+    })
+    airui.button({
+        parent = win, x = item_margin + btn_w + gap, y = y_off, w = btn_w, h = btn_h,
+        text = "确定", font_size = math.floor(18 * density),
+        style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE, radius = 8,
+            border_width = 0 },
+        on_click = function()
+            local pwd = pwd_input:get_text() or ""
+            destroy_context_ui()
+            if on_confirm then on_confirm(pwd) end
+        end,
+    })
+end
+
+-- ==================== 密码设置弹窗 ====================
+
+local function show_password_set_popup(on_confirm, on_cancel)
+    destroy_context_ui()
+    local density = density_scale_val or 1.0
+    local win_w = math.floor(screen_w * 0.80)
+    local header_h = math.floor(44 * density)
+    local item_margin = math.floor(16 * density)
+    local input_h = math.floor(46 * density)
+    local btn_h = math.floor(44 * density)
+    local label_h = math.floor(22 * density)
+    local gap = math.floor(10 * density)
+    local content_h = item_margin + label_h + gap + input_h + gap + btn_h + item_margin
+    local win_h = header_h + content_h
+
+    context_keyboard = airui.keyboard({
+        x = 0, y = -math.floor(20 * density),
+        w = screen_w, h = math.floor(240 * density),
+        mode = "text", auto_hide = true, preview = true,
+        on_commit = function(self) self:hide() end,
+    })
+
+    local win = airui.win({
+        parent = airui.screen, title = "设置自启密码",
+        w = win_w, h = win_h, close_btn = false, auto_center = true,
+        style = { bg_color = COLOR_WHITE, header_bg_color = COLOR_PRIMARY, content_bg_color = COLOR_WHITE,
+            title_text_color = COLOR_WHITE, radius = 12, title_align = airui.TEXT_ALIGN_CENTER,
+            header_height = header_h, content_pad = 0 },
+        on_close = function()
+            destroy_context_ui()
+            if on_cancel then on_cancel() end
+        end,
+    })
+    context_password_win = win
+
+    local element_w = win_w - 2 * item_margin
+    local y_off = item_margin
+
+    airui.label({ parent = win, x = item_margin, y = y_off, w = element_w, h = label_h,
+        text = "新密码（留空则清除密码）", font_size = math.floor(16 * density), color = COLOR_TEXT })
+    y_off = y_off + label_h + gap
+
+    local new_pwd_input = airui.textarea({
+        parent = win, x = item_margin, y = y_off, w = element_w, h = input_h,
+        text = "", placeholder = "请输入新密码或留空", max_len = 16,
+        font_size = math.floor(18 * density), keyboard = context_keyboard,
+    })
+    y_off = y_off + input_h + gap
+
+    local btn_w = math.floor((win_w - 2 * item_margin - gap) / 2)
+    airui.button({
+        parent = win, x = item_margin, y = y_off, w = btn_w, h = btn_h,
+        text = "取消", font_size = math.floor(18 * density),
+        style = { bg_color = COLOR_DIVIDER, pressed_bg_color = COLOR_DIVIDER, text_color = COLOR_TEXT, radius = 8,
+            border_width = 1, border_color = COLOR_DIVIDER },
+        on_click = function() destroy_context_ui(); if on_cancel then on_cancel() end end,
+    })
+    airui.button({
+        parent = win, x = item_margin + btn_w + gap, y = y_off, w = btn_w, h = btn_h,
+        text = "保存", font_size = math.floor(18 * density),
+        style = { bg_color = COLOR_PRIMARY, pressed_bg_color = COLOR_PRIMARY_DARK, text_color = COLOR_WHITE, radius = 8,
+            border_width = 0 },
+        on_click = function()
+            local new_pwd = new_pwd_input:get_text() or ""
+            destroy_context_ui()
+            if on_confirm then on_confirm(new_pwd) end
+        end,
+    })
+end
+
+-- ==================== 设为自启流程 ====================
+
+local function handle_set_auto_start(app)
+    if auto_start_has_password then
+        show_password_verify_popup("验证密码以设置自启", function(password)
+            sys.publish("AUTOSTART_SET_TARGET_AND_ENABLE", app.path, password)
+        end)
+    else
+        action_confirm_box = airui.msgbox({
+            w = math.min(math.floor(screen_w * 0.80), 400),
+            h = math.floor(screen_h * 0.28),
+            style = { text_font_size = math.floor(16 * density_scale_val) },
+            title = "设为自启应用",
+            text = "确认将 " .. (app.name or "未知") .. " 设为开机自启吗？\n\n无密码保护的应用可被任意取消自启。",
+            buttons = { "直接开启(不设密码)", "设置密码", "取消" },
+            on_action = function(self, btn_label)
+                self:destroy()
+                action_confirm_box = nil
+                if btn_label == "直接开启(不设密码)" then
+                    sys.publish("AUTOSTART_SET_TARGET_AND_ENABLE", app.path, "")
+                elseif btn_label == "设置密码" then
+                    show_password_set_popup(function(new_password)
+                        sys.publish("AUTOSTART_SET_PASSWORD", "", new_password or "")
+                        sys.publish("AUTOSTART_SET_TARGET_AND_ENABLE", app.path, new_password or "")
+                    end)
+                end
+            end
+        })
+        action_confirm_box:show()
+    end
+end
+
+-- ==================== 取消自启流程 ====================
+
+local function handle_cancel_auto_start(app)
+    if auto_start_has_password then
+        show_password_verify_popup("验证密码以取消自启", function(password)
+            sys.publish("AUTOSTART_SET_ENABLED", false, password)
+        end)
+    else
+        sys.publish("AUTOSTART_SET_ENABLED", false, "")
+    end
+end
+
+-- ==================== 长按上下文菜单 ====================
+
+local function show_app_context_menu(app)
+    destroy_context_ui()
+    local is_auto_start = auto_start_enabled and (auto_start_target == app.path)
+    local app_name = app.name or "未知"
+    local density = density_scale_val or 1.0
+
+    local win_w = math.floor(screen_w * 0.78)
+    local header_h = math.floor(48 * density)
+    local item_h = math.floor(56 * density)
+    local item_gap = math.floor(12 * density)
+    local icon_size = math.floor(44 * density)
+    local padding = math.floor(20 * density)
+    local gap = math.floor(12 * density)
+
+    local menu_items = {}
+    if is_auto_start then
+        menu_items = {
+            { text = "取消自启动", color = COLOR_ACCENT, action = "cancel_auto" },
+            { text = "卸载应用",   color = COLOR_DANGER, action = "uninstall" },
+        }
+    else
+        menu_items = {
+            { text = "设为自启",   color = COLOR_ACCENT,  action = "set_auto" },
+            { text = "卸载应用",   color = COLOR_DANGER,  action = "uninstall" },
+        }
+    end
+
+    local visible_count = #menu_items
+    -- 高度组成：上padding + 图标 + 间距 + (可选自启标识行) + 菜单项 + 间距 + 取消按钮 + 下padding
+    local auto_label_area = is_auto_start and (math.floor(22 * density) + gap) or 0
+    local cancel_h = math.floor(46 * density)
+    local content_h = padding + icon_size + gap + auto_label_area + visible_count * (item_h + item_gap) + gap + cancel_h + padding
+    local win_h = header_h + content_h
+
+    local win = airui.win({
+        parent = airui.screen, title = app_name,
+        w = win_w, h = win_h, close_btn = true, auto_center = true,
+        style = { bg_color = COLOR_WHITE, header_bg_color = COLOR_PRIMARY, content_bg_color = COLOR_WHITE,
+            title_text_color = COLOR_WHITE, radius = 14, title_align = airui.TEXT_ALIGN_CENTER,
+            header_height = header_h, content_pad = 0 },
+        on_close = function() context_menu_win = nil end,
+    })
+    context_menu_win = win
+
+    local y_off = padding
+    local icon_x = math.floor((win_w - icon_size) / 2)
+    local icon_src = app.icon or "/luadb/img.png"
+    airui.image({ parent = win, x = icon_x, y = y_off, w = icon_size, h = icon_size, src = icon_src })
+    y_off = y_off + icon_size + gap
+
+    if is_auto_start then
+        airui.label({
+            parent = win, x = padding, y = y_off, w = win_w - 2 * padding, h = math.floor(20 * density),
+            text = "● 已设为开机自启", font_size = math.floor(15 * density),
+            color = COLOR_ACCENT, align = airui.TEXT_ALIGN_CENTER,
+        })
+        y_off = y_off + math.floor(22 * density)
+    end
+
+    for _, item in ipairs(menu_items) do
+        airui.button({
+            parent = win, x = padding, y = y_off, w = win_w - 2 * padding, h = item_h,
+            text = item.text, font_size = math.floor(22 * density),
+            style = { bg_color = COLOR_BG, pressed_bg_color = COLOR_DIVIDER, text_color = item.color,
+                radius = 12, border_width = 1, border_color = COLOR_DIVIDER },
+            on_click = function()
+                destroy_context_ui()
+                if item.action == "set_auto" then handle_set_auto_start(app)
+                elseif item.action == "cancel_auto" then handle_cancel_auto_start(app)
+                elseif item.action == "uninstall" then handle_uninstall_app(app) end
+            end,
+        })
+        y_off = y_off + item_h + item_gap
+    end
+
+    y_off = y_off + gap
+    airui.button({
+        parent = win, x = padding, y = y_off, w = win_w - 2 * padding, h = math.floor(46 * density),
+        text = "取消", font_size = math.floor(18 * density),
+        style = { bg_color = COLOR_WHITE, pressed_bg_color = COLOR_DIVIDER, text_color = COLOR_TEXT_SECONDARY,
+            radius = 12, border_width = 0 },
+        on_click = function() destroy_context_ui() end,
+    })
+end
+
+-- ==================== 自启状态变更回调 ====================
+
+local function on_auto_start_settings(data)
+    if not data then return end
+    auto_start_enabled = data.enabled
+    auto_start_target = data.target or ""
+    auto_start_has_password = data.has_password
+    for app_path, card_data in pairs(app_cards) do
+        local container = card_data.container
+        if container then
+            local is_target = auto_start_enabled and (app_path == auto_start_target)
+            if is_target then container:set_color(0xFFF3E0, 255)
+            else container:set_color(COLOR_CARD, 0) end
+        end
+    end
+end
+
+local function on_auto_start_password_result(success, msg)
+    if not success then
+        action_confirm_box = airui.msgbox({
+            w = math.min(300, screen_w - 40), h = math.floor(screen_h * 0.20),
+            style = { text_font_size = math.floor(16 * density_scale_val) },
+            title = "提示", text = msg or "操作失败", buttons = { "确定" },
+            timeout = 2000,
+            on_action = function(self, btn_label) self:destroy(); action_confirm_box = nil end
+        })
+        action_confirm_box:show()
+    end
+end
+
+-- ==================== 页面指示器 ====================
 
 local function update_page_indicator()
     if not tab_view or not page_label then return end
     local total = tab_view:get_tab_count()
     page_label:set_text(string.format("%d/%d", current_tab_index + 1, total))
 end
+
+-- ==================== 首页构建 ====================
 
 local function build_home_page(page_container)
     local home_container = airui.container({
@@ -211,7 +571,6 @@ local function build_home_page(page_container)
     })
 
     local bsx = (screen_w - (builtin_button_width * #builtin_apps + builtin_button_spacing * (#builtin_apps - 1))) / 2
-
     for i, app in ipairs(builtin_apps) do
         local x = bsx + (i - 1) * (builtin_button_width + builtin_button_spacing)
         local c = airui.container({
@@ -221,19 +580,17 @@ local function build_home_page(page_container)
         })
         local bis = math.min(math.floor(40 * _G.density_scale), builtin_button_width - math.floor(10 * _G.density_scale))
         local bix = (builtin_button_width - bis) / 2
-        airui.image({
-            parent = c, x = bix, y = math.floor(10 * _G.density_scale),
-            w = bis, h = bis, src = app.icon
-        })
+        airui.image({ parent = c, x = bix, y = math.floor(10 * _G.density_scale), w = bis, h = bis, src = app.icon })
         airui.label({
-            parent = c, x = 0,
-            y = bis + math.floor(18 * _G.density_scale),
+            parent = c, x = 0, y = bis + math.floor(18 * _G.density_scale),
             w = builtin_button_width, h = math.floor(30 * _G.density_scale),
             text = app.name, font_size = math.floor(14 * _G.density_scale),
             color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER
         })
     end
 end
+
+-- ==================== 应用网格页面构建 ====================
 
 local function build_app_grid_page(page_container, start_idx, apps)
     local grid_container = airui.container({
@@ -243,7 +600,8 @@ local function build_app_grid_page(page_container, start_idx, apps)
     })
 
     local grid_icon_size = math.floor(32 * _G.density_scale)
-    local grid_text_font_size = math.max(math.floor(12 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h / 32 * _G.density_scale)))
+    local grid_text_font_size = math.max(math.floor(12 * _G.density_scale),
+        math.min(math.floor(18 * _G.density_scale), math.floor(screen_h / 32 * _G.density_scale)))
     local txh = grid_text_font_size * 2 + 8
 
     for i = 1, apps_per_page do
@@ -259,24 +617,30 @@ local function build_app_grid_page(page_container, start_idx, apps)
         local x = sx + col * (card_width + grid_margin)
         local y = row * (card_height + grid_margin) + grid_top_padding
 
+        local _app = app
+        local function on_long_press_handler() show_app_context_menu(_app) end
+
         local card_widget = airui.container({
             parent = grid_container, x = x, y = y, w = card_width, h = card_height,
-            radius = 12, border_width = 1,
+            radius = 12,
             on_click = function()
-                if app.is_builtin then
-                    sys.publish("OPEN_" .. app.win .. "_WIN")
-                else
-                    log.info("idle_window", "open app", app.path)
-                    exapp.open(app.path)
-                end
-            end
+                if _app.is_builtin then sys.publish("OPEN_" .. _app.win .. "_WIN")
+                else log.info("idle_window", "open app", _app.path); exapp.open(_app.path) end
+            end,
+            on_long_press = _app.is_builtin and nil or on_long_press_handler,
         })
 
-        local icon_src = app.icon
+        -- 外部应用：自启标识（用背景色而非边框，避免溢出产生滑块）
+        if not _app.is_builtin then
+            app_cards[_app.path] = { container = card_widget, name = _app.name }
+            if auto_start_enabled and (auto_start_target == _app.path) then
+                card_widget:set_color(0xFFF3E0, 255)  -- 浅橙色背景
+            end
+        end
+
+        local icon_src = _app.icon
         local ix = math.floor((card_width - grid_icon_size) / 2 + 0.5)
-        airui.image({
-            parent = card_widget, x = ix, y = 8, w = grid_icon_size, h = grid_icon_size, src = icon_src
-        })
+        airui.image({ parent = card_widget, x = ix, y = 8, w = grid_icon_size, h = grid_icon_size, src = icon_src })
 
         airui.label({
             parent = card_widget, x = 4, y = grid_icon_size + 10,
@@ -285,47 +649,37 @@ local function build_app_grid_page(page_container, start_idx, apps)
             color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER
         })
     end
-
     return grid_container
 end
 
+-- ==================== 应用页面重建 ====================
+
 local function rebuild_app_pages()
     if not tab_view then return end
-
+    app_cards = {}
     local apps = external_app_cache
     local total_apps = #apps
     local total_page_count = (total_apps == 0) and 0 or math.ceil(total_apps / apps_per_page)
-
     local current_tab_count = tab_view:get_tab_count()
     local expected_tab_count = 1 + total_page_count
 
     for i = current_tab_count - 1, expected_tab_count, -1 do
-        if page_grids[i] then
-            page_grids[i]:destroy()
-            page_grids[i] = nil
-        end
+        if page_grids[i] then page_grids[i]:destroy(); page_grids[i] = nil end
         tab_view:remove_tab(i)
     end
 
     for pi = 1, total_page_count do
         local ti = pi
         local page_start_idx = (pi - 1) * apps_per_page + 1
-
         if ti < current_tab_count then
             local ep = tab_view:get_content(ti)
             if ep then
-                if page_grids[ti] then
-                    page_grids[ti]:destroy()
-                end
-                local ng = build_app_grid_page(ep, page_start_idx, apps)
-                page_grids[ti] = ng
+                if page_grids[ti] then page_grids[ti]:destroy() end
+                page_grids[ti] = build_app_grid_page(ep, page_start_idx, apps)
             end
         else
             local np = tab_view:add_tab("")
-            if np then
-                local g = build_app_grid_page(np, page_start_idx, apps)
-                page_grids[ti] = g
-            end
+            if np then page_grids[ti] = build_app_grid_page(np, page_start_idx, apps) end
         end
     end
 
@@ -336,17 +690,15 @@ local function rebuild_app_pages()
     update_page_indicator()
 end
 
+-- ==================== 加载外部应用 ====================
+
 local function load_external_apps()
     local external_app_list = {}
     local installed_apps, _ = exapp.list_installed()
-
     for app_dir, info in pairs(installed_apps) do
         local is_builtin_flag = false
         for _, b in ipairs(builtin_apps) do
-            if info.cn_name == b.name then
-                is_builtin_flag = true
-                break
-            end
+            if info.cn_name == b.name then is_builtin_flag = true; break end
         end
         if not is_builtin_flag then
             table.insert(external_app_list, {
@@ -362,16 +714,11 @@ local function load_external_apps()
     table.sort(external_app_list, function(a, b)
         local time_a = a.install_time
         local time_b = b.install_time
-        if time_a == nil and time_b == nil then
-            return a.name < b.name
-        elseif time_a == nil then
-            return false
-        elseif time_b == nil then
-            return true
+        if time_a == nil and time_b == nil then return a.name < b.name
+        elseif time_a == nil then return false
+        elseif time_b == nil then return true
         else
-            if time_a == time_b then
-                return a.name < b.name
-            end
+            if time_a == time_b then return a.name < b.name end
             return time_a < time_b
         end
     end)
@@ -380,20 +727,16 @@ local function load_external_apps()
     rebuild_app_pages()
 end
 
--- 存储类型的中文标签映射
+-- ==================== 重复应用检测 ====================
+
 local STORAGE_LABELS = {
-    internal = "内置文件系统",
-    sd_tf = "SD/TF卡",
-    little_flash = "外挂Flash",
-    nand_flash = "外挂Flash",
+    internal = "内置文件系统", sd_tf = "SD/TF卡",
+    little_flash = "外挂Flash", nand_flash = "外挂Flash",
 }
 
--- 检查并弹窗处理重复应用冲突
 local function check_duplicates()
     local dup, dup_count = exapp.list_duplicates()
     if dup_count == 0 then return end
-
-    -- 构建弹窗文本
     local lines = {}
     local idx = 0
     local app_list = {}
@@ -408,48 +751,33 @@ local function check_duplicates()
         end
         table.insert(lines, "")
     end
-
     local dup_text = table.concat(lines, "\n")
     log.warn("idle_win", "duplicate apps detected:", dup_count, "\n", dup_text)
 
-    -- 逐个弹窗处理冲突（串行：处理完一个再处理下一个）
     local current_index = 0
     local function process_next()
         current_index = current_index + 1
-        if current_index > #app_list then
-            -- 全部处理完毕，刷新外部应用列表
-            load_external_apps()
-            return
-        end
-
+        if current_index > #app_list then load_external_apps(); return end
         local item = app_list[current_index]
         local app_name = item.app_name
         local entries = item.entries
         local cn_name = entries[1].cn_name or app_name
 
-        -- 格式化大小显示
         local function format_size(kb)
             if not kb or kb == 0 then return "未知" end
-            if kb >= 1024 then
-                return string.format("%.1f MB", kb / 1024)
-            end
+            if kb >= 1024 then return string.format("%.1f MB", kb / 1024) end
             return math.floor(kb) .. " KB"
         end
 
-        -- 构建文本：每个存储一行，显示大小
         local text_lines = {}
         for _, entry in ipairs(entries) do
             local label = STORAGE_LABELS[entry.storage_type] or entry.storage_type
-            local size_str = format_size(entry.origin_size_kb)
-            text_lines[#text_lines + 1] = label .. "：" .. size_str
+            text_lines[#text_lines + 1] = label .. "：" .. format_size(entry.origin_size_kb)
         end
         text_lines[#text_lines + 1] = ""
         text_lines[#text_lines + 1] = "未保留的副本将被自动删除。"
+        local prompt_text = "应用：" .. cn_name .. "\n\n" .. table.concat(text_lines, "\n")
 
-        local prompt_text = "应用：" .. cn_name .. "\n\n"
-            .. table.concat(text_lines, "\n")
-
-        -- 构建按钮：每个存储位置一个选项
         local buttons = {}
         for _, entry in ipairs(entries) do
             local label = STORAGE_LABELS[entry.storage_type] or entry.storage_type
@@ -457,30 +785,21 @@ local function check_duplicates()
         end
 
         local msg_box = airui.msgbox({
-            w = math.min(math.floor(screen_w * 0.85), 480),
-            h = math.floor(screen_h * 0.40),
+            w = math.min(math.floor(screen_w * 0.85), 480), h = math.floor(screen_h * 0.40),
             style = { text_font_size = math.floor(14 * _G.density_scale) },
-            title = "重复应用",
-            text = prompt_text,
-            buttons = buttons,
+            title = "重复应用", text = prompt_text, buttons = buttons,
             on_action = function(self, btn_label)
                 self:destroy()
-
-                -- 解析按钮文字，提取存储类型
                 for _, entry in ipairs(entries) do
                     local label = STORAGE_LABELS[entry.storage_type] or entry.storage_type
                     if btn_label == "保留" .. label then
                         local ok, err = exapp.resolve_duplicate(app_name, entry.storage_type)
                         if not ok then
                             log.warn("idle_win", "resolve_duplicate failed:", app_name, err)
-                            -- 失败时弹出提示，继续处理下一个
                             local err_box = airui.msgbox({
-                                w = math.min(360, screen_w - 40),
-                                h = math.floor(screen_h * 0.20),
+                                w = math.min(360, screen_w - 40), h = math.floor(screen_h * 0.20),
                                 style = { text_font_size = math.floor(14 * _G.density_scale) },
-                                title = "操作失败",
-                                text = (err or "未知错误"),
-                                buttons = { "确定" },
+                                title = "操作失败", text = (err or "未知错误"), buttons = { "确定" },
                                 on_action = function(self2, _) self2:destroy(); process_next() end
                             })
                             err_box:show()
@@ -491,16 +810,15 @@ local function check_duplicates()
                         return
                     end
                 end
-                -- 按钮未匹配（兜底），继续下一个
                 process_next()
             end
         })
         msg_box:show()
     end
-
-    -- 启动串行处理
     process_next()
 end
+
+-- ==================== 安装更新回调 ====================
 
 local function on_installed_updated()
     app_cache_dirty = true
@@ -508,22 +826,19 @@ local function on_installed_updated()
         app_rebuild_pending = true
         sys.timerStart(function()
             app_rebuild_pending = false
-            if app_cache_dirty then
-                app_cache_dirty = false
-                load_external_apps()
-            end
+            if app_cache_dirty then app_cache_dirty = false; load_external_apps() end
         end, 500)
     end
 end
+
+-- ==================== 状态更新函数 ====================
 
 local function update_time_date(time_str, date_str, weekday_str)
     if time_str then status_cache.time = time_str end
     if date_str then status_cache.date = date_str end
     if weekday_str then status_cache.weekday = weekday_str end
     if not date_label then return end
-    if big_time_label then
-        big_time_label:set_text(status_cache.time)
-    end
+    if big_time_label then big_time_label:set_text(status_cache.time) end
     date_label:set_text(status_cache.date .. " " .. status_cache.weekday)
 end
 
@@ -531,8 +846,7 @@ local function update_wifi_icon(level)
     if level == nil then return end
     status_cache.wifi_level = level
     if not wifi_icon then return end
-    local imn = "wifixinhao" .. level .. ".png"
-    wifi_icon:set_src("/luadb/" .. imn)
+    wifi_icon:set_src("/luadb/wifixinhao" .. level .. ".png")
 end
 
 local function update_mobile_icon(level)
@@ -540,40 +854,23 @@ local function update_mobile_icon(level)
     status_cache.mobile_level = level
     if not mobile_icon then return end
     local ii
-    if level == -1 then
-        ii = 6
-    elseif level == 1 then
-        ii = 5
-    else
-        ii = level - 1
-    end
-    local imn = "4Gxinhao" .. ii .. ".png"
-    mobile_icon:set_src("/luadb/" .. imn)
+    if level == -1 then ii = 6 elseif level == 1 then ii = 5 else ii = level - 1 end
+    mobile_icon:set_src("/luadb/4Gxinhao" .. ii .. ".png")
 end
 
-local function on_status_time(current_time, current_date, current_weekday)
-    update_time_date(current_time, current_date, current_weekday)
-end
+local function on_status_time(t, d, w) update_time_date(t, d, w) end
+local function on_status_wifi(level) update_wifi_icon(level) end
+local function on_status_mobile(level) update_mobile_icon(level) end
 
-local function on_status_wifi(level)
-    update_wifi_icon(level)
-end
+-- ==================== 电池充电动画 ====================
 
-local function on_status_mobile(level)
-    update_mobile_icon(level)
-end
-
--- 电池充电动画
 local charge_anim_timer = nil
 local charge_anim_value = 0
 local charge_start_level = 0
-local charge_anim_active = false  -- 标记动画是否正在运行
+local charge_anim_active = false
 
 local function stop_charge_anim()
-    if charge_anim_timer then
-        sys.timerStop(charge_anim_timer)
-        charge_anim_timer = nil
-    end
+    if charge_anim_timer then sys.timerStop(charge_anim_timer); charge_anim_timer = nil end
     charge_anim_active = false
 end
 
@@ -583,27 +880,18 @@ local function start_charge_anim(from_level)
     charge_anim_value = from_level
     charge_anim_active = true
     charge_anim_timer = sys.timerLoopStart(function()
-        if not battery_bar then
-            stop_charge_anim()
-            return
-        end
+        if not battery_bar then stop_charge_anim(); return end
         charge_anim_value = charge_anim_value + 4
-        if charge_anim_value >= 100 then
-            charge_anim_value = charge_start_level
-        end
+        if charge_anim_value >= 100 then charge_anim_value = charge_start_level end
         battery_bar:set_value(charge_anim_value)
     end, 100)
 end
 
 local function on_status_battery(data)
-    if not data or not battery_bar or not battery_label then
-        return
-    end
-
+    if not data or not battery_bar or not battery_label then return end
     local level = data.level or 0
     local charging = data.charging
     local present = data.present
-
     if not present then
         stop_charge_anim()
         battery_bar:set_value(0)
@@ -611,42 +899,31 @@ local function on_status_battery(data)
         battery_label:set_text("--")
         return
     end
-
     battery_label:set_text(level .. "%")
-
     if charging then
         battery_bar:set_indicator_color(COLOR_GREEN)
-        if not charge_anim_active then
-            -- 刚进入充电状态：启动动画，从当前电量循环到 100%
-            start_charge_anim(level)
-        else
-            -- 动画已运行中：只更新循环起点的电量值，下一个周期自动用新起点，不打断当前动画
-            charge_start_level = level
-        end
+        if not charge_anim_active then start_charge_anim(level)
+        else charge_start_level = level end
     else
         stop_charge_anim()
         battery_bar:set_value(level)
-        if level < 20 then
-            battery_bar:set_indicator_color(COLOR_DANGER)
-        elseif level < 50 then
-            battery_bar:set_indicator_color(COLOR_ACCENT)
-        else
-            battery_bar:set_indicator_color(COLOR_GREEN)
-        end
+        if level < 20 then battery_bar:set_indicator_color(COLOR_DANGER)
+        elseif level < 50 then battery_bar:set_indicator_color(COLOR_ACCENT)
+        else battery_bar:set_indicator_color(COLOR_GREEN) end
     end
 end
+
+-- ==================== 窗口生命周期 ====================
 
 local function on_create()
     calc_layout()
 
     main_container = airui.container({
-        x = 0, y = 0, w = screen_w, h = screen_h,
-        color = COLOR_BG, parent = airui.screen
+        x = 0, y = 0, w = screen_w, h = screen_h, color = COLOR_BG, parent = airui.screen
     })
 
     local sb = airui.container({
-        parent = main_container, x = 0, y = 0, w = screen_w, h = top_height,
-        color = COLOR_PRIMARY
+        parent = main_container, x = 0, y = 0, w = screen_w, h = top_height, color = COLOR_PRIMARY
     })
     local status_icon_size = math.floor(32 * _G.density_scale)
     local siy = math.floor((top_height - status_icon_size) / 2)
@@ -654,60 +931,44 @@ local function on_create()
     local plh = math.min(sfs, math.floor(24 * _G.density_scale))
     local ply = math.floor((top_height - plh) / 2)
 
-    -- 计算可见图标数量（均按配置驱动）
     local icon_wifi = has_wifi
     local icon_4g   = has_4g
     local icon_batt = has_battery
     local icon_spacing = math.floor(8 * _G.density_scale)
     local right_margin = math.floor(12 * _G.density_scale)
 
-    -- 电池组件尺寸
     local batt_w = icon_batt and math.floor(58 * _G.density_scale) or 0
     local batt_h = icon_batt and math.floor(22 * _G.density_scale) or 0
     local batt_y = icon_batt and math.floor((top_height - batt_h) / 2) or 0
 
-    -- 计算右侧区域总宽度
     local total_right_w = 0
-    if icon_batt then
-        total_right_w = batt_w
-    end
+    if icon_batt then total_right_w = batt_w end
     if icon_4g then
-        if total_right_w > 0 then
-            total_right_w = total_right_w + icon_spacing
-        end
+        if total_right_w > 0 then total_right_w = total_right_w + icon_spacing end
         total_right_w = total_right_w + status_icon_size
     end
     if icon_wifi then
-        if total_right_w > 0 then
-            total_right_w = total_right_w + icon_spacing
-        end
+        if total_right_w > 0 then total_right_w = total_right_w + icon_spacing end
         total_right_w = total_right_w + status_icon_size
     end
 
     local right_base_x = total_right_w > 0 and (screen_w - total_right_w - right_margin) or 0
-
-    -- WiFi 图标（最左侧）
     local next_x = right_base_x
     if icon_wifi then
         wifi_icon = airui.image({
-            parent = sb, x = next_x, y = siy,
-            w = status_icon_size, h = status_icon_size, src = "/luadb/wifixinhao0.png"
+            parent = sb, x = next_x, y = siy, w = status_icon_size, h = status_icon_size, src = "/luadb/wifixinhao0.png"
         })
         next_x = next_x + status_icon_size + icon_spacing
     end
-    -- 4G 图标
     if icon_4g then
         mobile_icon = airui.image({
-            parent = sb, x = next_x, y = siy,
-            w = status_icon_size, h = status_icon_size, src = "/luadb/4Gxinhao6.png"
+            parent = sb, x = next_x, y = siy, w = status_icon_size, h = status_icon_size, src = "/luadb/4Gxinhao6.png"
         })
         next_x = next_x + status_icon_size + icon_spacing
     end
-    -- 电池进度条组件（最右侧）
     if icon_batt then
         battery_container = airui.container({
-            parent = sb, x = next_x, y = batt_y, w = batt_w, h = batt_h,
-            color = 0x00000000, radius = 5,
+            parent = sb, x = next_x, y = batt_y, w = batt_w, h = batt_h, color = 0x00000000, radius = 5,
         })
         battery_bar = airui.bar({
             parent = battery_container, x = 0, y = 0, w = batt_w, h = batt_h,
@@ -715,22 +976,19 @@ local function on_create()
             indicator_color = COLOR_GREEN, bg_color = COLOR_DIVIDER, radius = 5,
         })
         battery_label = airui.label({
-            parent = battery_container, x = 0, y = math.floor(2 * _G.density_scale), w = batt_w, h = batt_h - math.floor(2 * _G.density_scale),
+            parent = battery_container, x = 0, y = math.floor(2 * _G.density_scale), w = batt_w,
+            h = batt_h - math.floor(2 * _G.density_scale),
             text = "--", font_size = math.floor(12 * _G.density_scale),
             color = COLOR_WHITE, align = airui.TEXT_ALIGN_CENTER,
         })
     end
-    -- 产品名标签（宽度自适应图标区）
     local label_w = screen_w - math.floor(20 * _G.density_scale)
     if total_right_w > 0 then
         label_w = screen_w - total_right_w - right_margin - math.floor(20 * _G.density_scale)
     end
     product_label = airui.label({
-        parent = sb,
-        x = 0, y = ply,
-        w = label_w,
-        h = plh, text = product_name, font_size = plh, color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
+        parent = sb, x = 0, y = ply, w = label_w, h = plh, text = product_name,
+        font_size = plh, color = COLOR_WHITE, align = airui.TEXT_ALIGN_CENTER
     })
 
     tab_view = airui.tabview({
@@ -767,51 +1025,43 @@ local function on_create()
     update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     update_wifi_icon(status_cache.wifi_level)
     update_mobile_icon(status_cache.mobile_level)
-
-    -- 检查重复应用冲突（首次进入 idle_win 时弹窗强制用户选择）
     check_duplicates()
 
     timer_handler = sys.timerLoopStart(function()
         update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     end, 1000)
     sys.subscribe("STATUS_TIME_UPDATED", on_status_time)
-    if has_4g then
-        sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_mobile)
-    end
-    if has_wifi then
-        sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi)
-    end
+    if has_4g then sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_mobile) end
+    if has_wifi then sys.subscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi) end
     sys.subscribe("APP_STORE_INSTALLED_UPDATED", on_installed_updated)
-    if has_battery then
-        sys.subscribe("BATTERY_STATUS", on_status_battery)
-    end
+    if has_battery then sys.subscribe("BATTERY_STATUS", on_status_battery) end
+
+    sys.subscribe("AUTOSTART_SETTINGS_VALUE", on_auto_start_settings)
+    sys.subscribe("AUTOSTART_CONFIG_CHANGED", request_auto_start_state)
+    sys.subscribe("AUTOSTART_PASSWORD_RESULT", on_auto_start_password_result)
+    request_auto_start_state()
 
     sys.publish("REQUEST_STATUS_REFRESH")
 end
 
 local function on_destroy()
-    if timer_handler then
-        sys.timerStop(timer_handler)
-        timer_handler = nil
-    end
+    if timer_handler then sys.timerStop(timer_handler); timer_handler = nil end
     sys.unsubscribe("STATUS_TIME_UPDATED", on_status_time)
-    if has_4g then
-        sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_mobile)
-    end
-    if has_wifi then
-        sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi)
-    end
+    if has_4g then sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_mobile) end
+    if has_wifi then sys.unsubscribe("STATUS_WIFI_SIGNAL_UPDATED", on_status_wifi) end
     sys.unsubscribe("APP_STORE_INSTALLED_UPDATED", on_installed_updated)
-    if has_battery then
-        sys.unsubscribe("BATTERY_STATUS", on_status_battery)
-        stop_charge_anim()
-    end
+    if has_battery then sys.unsubscribe("BATTERY_STATUS", on_status_battery); stop_charge_anim() end
+    sys.unsubscribe("AUTOSTART_SETTINGS_VALUE", on_auto_start_settings)
+    sys.unsubscribe("AUTOSTART_CONFIG_CHANGED", request_auto_start_state)
+    sys.unsubscribe("AUTOSTART_PASSWORD_RESULT", on_auto_start_password_result)
+    destroy_context_ui()
 
     if tab_view then tab_view:destroy(); tab_view = nil end
     if main_container then main_container:destroy(); main_container = nil end
     product_label = nil; big_time_label = nil; date_label = nil; wifi_icon = nil; mobile_icon = nil; qrcode_widget = nil
     battery_container = nil; battery_bar = nil; battery_label = nil
     page_label = nil; external_app_cache = {}; page_grids = {}
+    app_cards = {}
     current_tab_index = 0
 end
 
@@ -820,6 +1070,7 @@ local function on_get_focus()
     update_wifi_icon(status_cache.wifi_level)
     update_mobile_icon(status_cache.mobile_level)
     load_external_apps()
+    request_auto_start_state()
     if not timer_handler then
         timer_handler = sys.timerLoopStart(function()
             update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
@@ -828,10 +1079,7 @@ local function on_get_focus()
 end
 
 local function on_lose_focus()
-    if timer_handler then
-        sys.timerStop(timer_handler)
-        timer_handler = nil
-    end
+    if timer_handler then sys.timerStop(timer_handler); timer_handler = nil end
     stop_charge_anim()
 end
 

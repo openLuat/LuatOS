@@ -49,11 +49,11 @@ local audio_setup_param ={
     dac_delay = set_dac_delay,            -- DAC启动前冗余时间
     
     -- Air8000开发板配置pa_ctrl 和dac_ctrl 
-    -- pa_ctrl = 162,            -- 音频放大器电源控制管脚
-    -- dac_ctrl = 164,           -- 音频编解码芯片电源控制管脚
+    pa_ctrl = 162,            -- 音频放大器电源控制管脚
+    dac_ctrl = 164,           -- 音频编解码芯片电源控制管脚
     -- Air8000核心板配置pa_ctrl 和dac_ctrl 
-    pa_ctrl = 17,            -- 音频放大器电源控制管脚
-    dac_ctrl = 16,           -- 音频编解码芯片电源控制管脚  
+    -- pa_ctrl = 17,            -- 音频放大器电源控制管脚
+    -- dac_ctrl = 16,           -- 音频编解码芯片电源控制管脚  
 }
 
 

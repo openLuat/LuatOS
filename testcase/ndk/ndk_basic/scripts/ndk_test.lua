@@ -26,6 +26,7 @@ local HARDFLOAT_DIV_IMAGE_PATH = "/luadb/baremetal_hardfloat_div.bin"
 local HARDFLOAT_MINMAX_IMAGE_PATH = "/luadb/baremetal_hardfloat_minmax.bin"
 local HARDFLOAT_SQRT_IMAGE_PATH = "/luadb/baremetal_hardfloat_sqrt.bin"
 local MEM_SIZE = 32 * 1024
+local MEM_SIZE_CEILING = 512 * 1024
 local EXCHANGE_SIZE = 1024
 local INVALID_IMAGE_PATH = "/luadb/not-exists.bin"
 local NDK_FEATURE_GPIO = 1 << 3
@@ -900,8 +901,11 @@ function ndk_tests.test_ndk_default_rv32i_traps_on_compare_guest()
 end
 
 function ndk_tests.test_ndk_invalid_param_constructor_no_resource_exhaustion()
+    -- MEM_SIZE_CEILING is the new (post-Phase-3) 512 KiB RAM ceiling; +1 must
+    -- exceed it for the constructor to reject the call.
+    local oversize = MEM_SIZE_CEILING + 1
     for i = 1, 2000 do
-        local ctx, err = ndk.rv32i(IMAGE_PATH, MEM_SIZE + 1, EXCHANGE_SIZE)
+        local ctx, err = ndk.rv32i(IMAGE_PATH, oversize, EXCHANGE_SIZE)
         assert(ctx == nil, "invalid mem_size should fail, round=" .. i)
         assert(type(err) == "string" and #err > 0, "invalid mem_size should return error string")
     end

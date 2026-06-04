@@ -1,5 +1,6 @@
 #!/usr/bin/env pwsh
-# Build script for NDK Host ABI v1 guest fixtures (legacy + RV32C)
+# Build script for NDK Host ABI v1 guest fixtures (legacy + RV32C).
+# Phase 3+: LLVM clang+ld.lld+llvm-objcopy only (GNU toolchain removed).
 
 $ErrorActionPreference = "Stop"
 
@@ -15,23 +16,8 @@ $objdump = $null
 $compilerArgs = @()
 $compilerArgsRvc = @()
 
-if (Get-Command riscv32-unknown-elf-gcc -ErrorAction SilentlyContinue) {
-    $compiler = "riscv32-unknown-elf-gcc"
-    $objcopy = "riscv32-unknown-elf-objcopy"
-    $objdump = "riscv32-unknown-elf-objdump"
-    $compilerArgs = @("-march=rv32ima_zicsr", "-mabi=ilp32", "-nostdlib", "-nostartfiles")
-    $compilerArgsRvc = @("-march=rv32imac_zicsr", "-mabi=ilp32", "-nostdlib", "-nostartfiles")
-    Write-Host "[build] Using riscv32-unknown-elf toolchain"
-}
-elseif (Get-Command riscv64-unknown-elf-gcc -ErrorAction SilentlyContinue) {
-    $compiler = "riscv64-unknown-elf-gcc"
-    $objcopy = "riscv64-unknown-elf-objcopy"
-    $objdump = "riscv64-unknown-elf-objdump"
-    $compilerArgs = @("-march=rv32ima_zicsr", "-mabi=ilp32", "-nostdlib", "-nostartfiles")
-    $compilerArgsRvc = @("-march=rv32imac_zicsr", "-mabi=ilp32", "-nostdlib", "-nostartfiles")
-    Write-Host "[build] Using riscv64-unknown-elf toolchain (32-bit mode)"
-}
-elseif (Get-Command clang -ErrorAction SilentlyContinue) {
+# Phase 3+: LLVM only. Look in PATH first, then fall back to C:\LLVM\bin.
+if (Get-Command clang -ErrorAction SilentlyContinue) {
     $compiler = "clang"
     $objcopy = "llvm-objcopy"
     $objdump = "llvm-objdump"
@@ -48,7 +34,7 @@ elseif (Test-Path "C:\LLVM\bin\clang.exe") {
     Write-Host "[build] Using LLVM clang toolchain (C:\LLVM\bin)"
 }
 else {
-    Write-Error "RISC-V toolchain not found. Install riscv32-unknown-elf-gcc, riscv64-unknown-elf-gcc, or LLVM clang"
+    Write-Error "LLVM toolchain not found. Need: clang, ld.lld, llvm-objcopy, llvm-objdump (>= 16.0 with RISC-V target). Get a prebuilt LLVM from https://releases.llvm.org/ and add bin/ to PATH."
     exit 1
 }
 

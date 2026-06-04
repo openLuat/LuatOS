@@ -1,0 +1,6 @@
+{
+  "name": "air1601_ndk_helloworld_basic",
+  "summary": "Air1601 真机 NDK helloworld 验证 (RV32I guest 加载 + exec + exchange 标志位)",
+  "platform": ["air1601"],
+  "timeout": 30
+}

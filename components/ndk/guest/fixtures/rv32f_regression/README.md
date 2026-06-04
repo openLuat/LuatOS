@@ -26,7 +26,7 @@ The binaries at `testcase/ndk/ndk_basic/scripts/baremetal.bin`, `testcase/ndk/nd
 
 **Current binary characteristics:**
 - Size: ~315 bytes (may vary slightly with toolchain)
-- Toolchain: GNU riscv64-unknown-elf-gcc (preferred) or LLVM clang (fallback)
+- Toolchain: LLVM clang (≥ 16.0, with RISC-V target). Phase 3+ removed the GNU toolchain fallback.
 - Format: Flat binary loaded at 0x80000000
 
 ## Files
@@ -77,25 +77,27 @@ cmd /c build.bat
 ```
 
 The script will:
-1. Auto-detect available toolchain (GNU RISC-V preferred, LLVM fallback)
-2. Compile both guest sources with optimized flags
-3. Extract flat binaries from ELF outputs
+1. Use LLVM clang+ld.lld+llvm-objcopy to compile every guest source / `.S` file
+2. Extract flat binaries from ELF outputs
+3. For RV32C-tagged sources (`rvc_smoke.S` + RV32C artifacts), disassemble with `llvm-objdump` and verify compressed instructions (`c.`) are emitted
 4. **Automatically sync** the resulting artifacts:
    - `testcase\ndk\ndk_basic\scripts\*.bin`（完整回归二进制集合）
    - `bsp\pc\test\113.ndk_simple\baremetal.bin`（PC 快速测试镜像）
 
 Expected output:
 ```
-=== Building RISC-V Baremetal Guest ===
-Using GNU toolchain: riscv64-unknown-elf
+=== Building RISC-V Baremetal Guest Fixtures ===
+Using LLVM/Clang toolchain (main.c -> baremetal.bin)
 ...
-=== Build successful ===
+=== Build successful: baremetal ===
+  ELF: build\baremetal.elf
   BIN: build\baremetal.bin (315 bytes)
-  ...
+  MAP: build\baremetal.map
+
+=== Syncing baremetal.bin to target locations ===
 === Build successful: baremetal_fcsr ===
   BIN: build\baremetal_fcsr.bin (...)
 ...
-=== Syncing binary to target locations ===
 === All done! ===
 ```
 
@@ -107,22 +109,24 @@ For debugging or custom flags:
 cd components\ndk\guest\fixtures\rv32f_regression
 mkdir build -ErrorAction SilentlyContinue
 
-# GNU toolchain (preferred)
-riscv64-unknown-elf-gcc -march=rv32ima_zicsr -mabi=ilp32 `
+# LLVM clang (only supported toolchain since Phase 3)
+clang --target=riscv32-unknown-elf -fuse-ld=lld `
+  -march=rv32ima_zicsr -mabi=ilp32 `
   -ffreestanding -nostdlib -fno-stack-protector `
   -fdata-sections -ffunction-sections -Os -g `
   -Wl,-T,link.ld -Wl,-Map,build\baremetal.map -Wl,--gc-sections `
   -o build\baremetal.elf main.c
 
-riscv64-unknown-elf-objcopy -O binary build\baremetal.elf build\baremetal.bin
+llvm-objcopy -O binary build\baremetal.elf build\baremetal.bin
 
-riscv64-unknown-elf-gcc -march=rv32ima_zicsr -mabi=ilp32 `
+clang --target=riscv32-unknown-elf -fuse-ld=lld `
+  -march=rv32ima_zicsr -mabi=ilp32 `
   -ffreestanding -nostdlib -fno-stack-protector `
   -fdata-sections -ffunction-sections -Os -g `
   -Wl,-T,link.ld -Wl,-Map,build\baremetal_fcsr.map -Wl,--gc-sections `
   -o build\baremetal_fcsr.elf fcsr_reset.c
 
-riscv64-unknown-elf-objcopy -O binary build\baremetal_fcsr.elf build\baremetal_fcsr.bin
+llvm-objcopy -O binary build\baremetal_fcsr.elf build\baremetal_fcsr.bin
 
 # Manual sync
 copy build\baremetal.bin ..\..\..\..\..\testcase\ndk\ndk_basic\scripts\baremetal.bin
@@ -132,15 +136,11 @@ copy build\baremetal_fcsr.bin ..\scripts\baremetal_fcsr.bin
 
 ### Toolchain Requirements
 
-**Option 1: GNU RISC-V Toolchain** (preferred)
-- `riscv64-unknown-elf-gcc` / `riscv64-unknown-elf-objcopy`
-- OR `riscv32-unknown-elf-gcc` / `riscv32-unknown-elf-objcopy`
-- OR `riscv-none-elf-gcc` / `riscv-none-elf-objcopy` (xPack toolchain)
-- Download: [xPack RISC-V GCC](https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases)
-
-**Option 2: LLVM/Clang** (fallback)
-- `clang` + `ld.lld` + `llvm-objcopy` with RISC-V target support
-- Download: [LLVM Releases](https://releases.llvm.org/)
+**LLVM/Clang** (only supported toolchain since Phase 3)
+- `clang` + `ld.lld` + `llvm-objcopy` with RISC-V target support (≥ 16.0)
+- Windows: download a prebuilt LLVM from [LLVM Releases](https://releases.llvm.org/) and add `bin/` to PATH
+- Linux: install `clang` + `lld` + `llvm` from your distro's package manager (≥ 16.0)
+- macOS: `brew install llvm` then expose the LLVM bin dir to PATH
 
 See `components/ndk/README.md` for detailed setup instructions.
 

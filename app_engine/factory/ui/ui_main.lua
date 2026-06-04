@@ -35,7 +35,8 @@ require 即执行，以下按顺序发生：
 require "welcome_win"       -- 欢迎页（开机引导）
 require "idle_win"          -- 桌面/待机页（状态栏图标 + 功能入口）
 require "wifi_list_win"     -- WiFi 列表页（扫描/连接/断开）
-require "settings_win"      -- 设置主页（功能入口列表：WiFi/显示/存储/关于...）
+require "settings_win"      -- 设置主页（功能入口列表：WiFi/显示/存储/自启/关于...）
+require "settings_auto_win"  -- 后装APP自启设置页（开关/APP选择/密码设置）
 require "app_store_win"     -- 应用商店页（浏览/搜索/下载 exapp 应用）
 require "speedtest_win"     -- 测速页（延迟/下载/上传结果显示）
 require "file_manager_win"  -- 文件管理页（浏览 /app_store 目录、新建/删除文件）

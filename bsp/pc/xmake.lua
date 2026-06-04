@@ -107,6 +107,11 @@ if is_host("windows") then
     add_defines("LUAT_USE_WINDOWS")
     add_defines("_CRT_SECURE_NO_WARNINGS")
     add_cxflags("/utf-8")
+    -- Enable C11 <stdatomic.h> for components that use atomic_int etc.
+    -- (e.g. components/ndk/src/luat_ndk.c). MSVC requires this experimental flag
+    -- because C11 atomics were opt-in until VS 2019 16.8 / MSVC 19.28.
+    add_cflags("/experimental:c11atomics", {force = true})
+    add_cxflags("/experimental:c11atomics", {force = true})
     add_includedirs("win32/include")
     add_files("win32/src/**.c")
 elseif is_host("linux") then

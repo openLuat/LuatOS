@@ -19,12 +19,6 @@
 
 #include "luat_pgfs.h"
 
-/* PGFS layout addresses needed by pgfs_nand_ftl.c.
- * These are duplicated from pgfs_internal.h to avoid circular includes. */
-#ifndef PGFS_CHECKPOINT_B_ADDR
-#define PGFS_CHECKPOINT_B_ADDR  0x3000u
-#endif
-
 #include <stdbool.h>
 #include <stdint.h>
 /* <string.h> only needed by the .c implementation — not needed in the header */
@@ -32,7 +26,11 @@
 /* ── FTL metadata on-flash format ─────────────────────────────────────── */
 
 #define PGFS_FTL_MAGIC   0x5046544Cu   /* 'PFTL' */
-#define PGFS_FTL_VERSION 1u
+/* v4: adds per-block live_bytes[] and dead_bytes[] arrays after the
+ * erase-count array, so the cost-benefit GC can pick victim blocks by
+ * the dead_bytes / erase_count ratio. v3 records on flash are rejected
+ * by the load path (treated as load failed → factory scan). */
+#define PGFS_FTL_VERSION 4u
 
 /* Bitmap helpers: 1 bit per block, block N bad iff (bitmap[N/8] & (1 << (N%8))) */
 #define PGFS_FTL_BITMAP_BYTES(BLOCKS)  (((BLOCKS) + 7u) / 8u)
@@ -41,9 +39,17 @@ typedef struct pgfs_ftl_meta {
     uint32_t magic;
     uint16_t version;
     uint16_t total_blocks;   /* matches geo from control() */
-    uint32_t bitmap_bytes;   /* bytes following this header = PGFS_FTL_BITMAP_BYTES(total_blocks) */
-    uint32_t erase_count_bytes; /* bytes following bitmap = total_blocks * sizeof(uint16_t) */
-    uint32_t crc32;          /* CRC over [meta + bitmap + erase_counts] with this field = 0 */
+    uint32_t bitmap_bytes;   /* bytes for the bad-block bitmap = PGFS_FTL_BITMAP_BYTES(total_blocks) */
+    uint32_t reserved_bitmap_bytes; /* v2: bytes for the reserved-block bitmap = same as bitmap_bytes */
+    uint32_t erase_count_bytes; /* bytes for the erase-count array = total_blocks * sizeof(uint16_t) */
+    uint32_t retired_bitmap_bytes; /* v3: bytes for the retired-block bitmap = same as bitmap_bytes */
+    uint32_t write_head_block;     /* v2: current write block in the data log */
+    uint16_t write_head_offset;    /* v2: offset within write_head_block (prog-aligned) */
+    uint16_t log_tail_block_lo;    /* v2 low-16 of cp.log_tail_block (compat) */
+    uint32_t log_tail_block;       /* v2: per-segment tail block at last CP */
+    uint16_t log_tail_offset;      /* v2: tail offset at last CP */
+    uint16_t reserved1;            /* v2: padding */
+    uint32_t crc32;          /* CRC over [meta + bad_blocks + reserved_blocks + retired_blocks + erase_counts] with this field = 0 */
 } pgfs_ftl_meta_t;
 
 /* ── FTL runtime context ───────────────────────────────────────────────── */
@@ -57,6 +63,39 @@ typedef struct {
     uint8_t *bad_blocks_bitmap;      /* heap-allocated, (total_blocks+7)/8 bytes */
     uint32_t bad_block_count;
 
+    /* reserved-block bitmap: 1=reserved, 0=usable; indexed by block_id.
+     * Reserved blocks (SB-A/B, CP-A/B, FTL state) must never be allocated
+     * for data log segments. Phase 1. */
+    uint8_t *reserved_blocks_bitmap;  /* heap-allocated, (total_blocks+7)/8 bytes */
+    uint32_t reserved_block_count;
+
+    /* weak-block bitmap (Phase 3): 1=weak, 0=strong. A weak block is one
+     * that has produced an ECC-corrected read or otherwise shows signs of
+     * degradation. Weak blocks are still usable but should be the first
+     * candidates for refresh (copy-and-erase) on the next GC. */
+    uint8_t *weak_blocks_bitmap;      /* heap-allocated, (total_blocks+7)/8 bytes */
+    uint32_t weak_block_count;
+
+    /* retired-block bitmap (Phase 5b): 1=retired, 0=usable. A retired
+     * block has had all live data moved out by GC and is safe to erase
+     * (but the erase has not yet been attempted). Distinct from bad:
+     * retired is a GC-side decision, bad is a hardware-side signal. The
+     * bitmap is persisted in the v3 FTL state record so retirement
+     * survives a remount. */
+    uint8_t *retired_blocks_bitmap;   /* heap-allocated, (total_blocks+7)/8 bytes */
+    uint32_t retired_block_count;
+
+    /* Per-block live/dead byte accounting (Phase 2 prep / v4). These
+     * arrays are the foundation for the cost-benefit GC: a victim block
+     * is selected by highest dead_bytes / erase_count. live_bytes[] is
+     * authoritative (the write path knows exactly which block each new
+     * record landed in). dead_bytes[] is best-effort — the write path
+     * increments it when a record shadows an earlier record for the
+     * same path, and the file-delete path increments it for the
+     * blocks that held the deleted file. */
+    uint32_t *live_bytes_per_block;  /* heap-allocated, total_blocks entries */
+    uint32_t *dead_bytes_per_block;  /* heap-allocated, total_blocks entries */
+
     /* per-block erase counts: erase_counts[block_id] */
     uint16_t *erase_counts;          /* heap-allocated, total_blocks entries */
     uint32_t total_erase_count;     /* sum of all entries, for diagnostics */
@@ -68,6 +107,31 @@ typedef struct {
     uint8_t inject_bad_block_once;
     uint8_t inject_bad_block_flag;    /* 0=not-injected, 1=injected-this-session */
     uint32_t inject_bad_block_id;
+
+    /* last successful persist snapshot (heap-owned, NULL until first persist).
+     * Used by pgfs_ftl_persist to detect write failures: if readback verify
+     * fails, the previous on-flash snapshot is still valid for recovery. */
+    uint8_t *last_persist_buf;
+    uint32_t last_persist_size;
+    uint32_t persist_success_count;
+    uint32_t persist_failure_count;
+
+    /* Phase 4b: per-segment data log write head. These mirror the fields
+     * in pgfs_ftl_meta_t. write_head_block/offset are refreshed by
+     * pgfs_ftl_on_checkpoint_commit before each pgfs_ftl_persist, then
+     * persisted as part of the FTL state. log_tail_block/offset are
+     * restored by pgfs_ftl_load and used by the mount path to decide
+     * whether pgfs_replay_data_log can be skipped. Both are block-id
+     * (relative to the data log first block), not absolute addresses. */
+    uint32_t write_head_block;
+    uint16_t write_head_offset;
+    uint16_t ftl_reserved0;
+    uint32_t log_tail_block;
+    uint16_t log_tail_offset;
+    uint16_t ftl_reserved1;
+
+    /* powercut injection (testing) — propagated from mount ctx at init time */
+    uint8_t powercut_inject;
 } pgfs_nand_ftl_ctx_t;
 
 /* ── Public API ────────────────────────────────────────────────────────── */
@@ -103,6 +167,35 @@ bool pgfs_ftl_is_block_bad(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
 void pgfs_ftl_mark_block_bad(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
 
 /*
+ * pgfs_ftl_mark_reserved / pgfs_ftl_is_reserved — Phase 1: manage the
+ * reserved-block bitmap. Reserved blocks (SB-A/B, CP-A/B, FTL state) must
+ * never be allocated for data log segments. The bitmap is persisted as
+ * part of the FTL state.
+ */
+void pgfs_ftl_mark_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+bool pgfs_ftl_is_reserved(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+void pgfs_ftl_clear_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+
+/*
+ * Phase 3: weak-block tracking. A weak block is still readable but has
+ * shown signs of degradation (e.g. an ECC-corrected read). Weak blocks
+ * are valid data destinations but are first in line for refresh.
+ */
+void pgfs_ftl_mark_weak(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+bool pgfs_ftl_is_weak(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+
+/*
+ * Phase 5b: retired-block tracking. A retired block has had all live
+ * data moved out by GC and is safe to erase. The FTL allocator
+ * (pgfs_ftl_find_free_block) skips retired blocks just like it skips
+ * bad ones, but the two states are persisted independently so an erase
+ * failure on a retired block is observable as bad-on-top-of-retired
+ * rather than being conflated.
+ */
+void pgfs_ftl_mark_retired(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+bool pgfs_ftl_is_retired(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+
+/*
  * pgfs_ftl_find_free_block — find the next good block from a given start.
  *   ctx       : FTL context
  *   start_id  : first block to try (inclusive)
@@ -121,17 +214,25 @@ void pgfs_ftl_block_erased(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
 
 /*
  * pgfs_ftl_persist — write FTL state to flash immediately after CP area.
- *   ctx        : FTL context
+ *   ctx        : FTL context (non-const so the last-good snapshot can be
+ *                updated on success; preserved on failure)
  *   cp_seq     : checkpoint sequence number (for logging/debug)
  * Returns 0 on success, -1 on error.
  *
  * Layout written (one erase-unit starting at PGFS_FTL_STATE_ADDR):
  *   [pgfs_ftl_meta_t] [bad_blocks_bitmap] [erase_counts[]]
  *
+ * On success: ctx->last_persist_buf is updated to a copy of the buffer
+ *             just written, ctx->last_persist_size is set, and
+ *             ctx->persist_success_count is incremented.
+ * On failure: the previous ctx->last_persist_buf is preserved (if any) so
+ *             the caller can still fall back to it. ctx->persist_failure_count
+ *             is incremented.
+ *
  * PGFS_FTL_STATE_ADDR is computed as the next erase-unit after the
  * two CP slots (PGFS_CHECKPOINT_B_ADDR + erase_size).
  */
-int pgfs_ftl_persist(const pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq);
+int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq);
 
 /*
  * pgfs_ftl_load — load FTL state from flash (called at mount time).
@@ -161,5 +262,17 @@ int pgfs_ftl_scan_bad_blocks(pgfs_nand_ftl_ctx_t *ctx,
  * After the block is marked bad, inject_bad_block_flag is cleared.
  */
 void pgfs_ftl_inject_bad_block_once(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id);
+
+int pgfs_ftl_on_mount(void *ctx);
+int pgfs_ftl_on_checkpoint_commit(void *ctx);
+void pgfs_ftl_on_erase_success(void *ctx, uint32_t block_id);
+void pgfs_ftl_on_erase_failure(void *ctx, uint32_t block_id);
+
+/*
+ * pgfs_ftl_state_addr — return the byte address of the FTL state region
+ * (the erase-unit immediately after the two CP slots). Exposed so the
+ * data-log prepare path can skip this region during erase.
+ */
+uint32_t pgfs_ftl_state_addr(uint32_t erase_size);
 
 #endif /* PGFS_NAND_FTL_H */

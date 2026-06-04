@@ -1,4 +1,8 @@
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <fenv.h>
 #include <math.h>
 #include <string.h>
@@ -709,7 +713,7 @@ static int ndk_set_isa(luat_ndk_t *ndk, const char *isa) {
 #define MINIRV32_IMPLEMENTATION
 #include "mini-rv32ima.h"
 
-#define NDK_DEFAULT_STEP_BUDGET 32768
+#define NDK_STEP_BUDGET_UNLIMITED 0u
 #define NDK_STEP_CHUNK 256
 #define NDK_DEFAULT_ELAPSED_US 100
 #define NDK_STOP_POLL_MS 10
@@ -751,7 +755,7 @@ static inline void ndk_unlock(luat_ndk_t *ndk) {
     luat_rtos_exit_critical(critical);
 }
 
-static void ndk_init_fail_cleanup(luat_ndk_t *ndk) {
+static void ndk_free_fields(luat_ndk_t *ndk) {
     if (!ndk) return;
     if (ndk->ram) {
         luat_heap_free(ndk->ram);
@@ -773,13 +777,18 @@ static void ndk_init_fail_cleanup(luat_ndk_t *ndk) {
     ndk->fcsr = 0;
     ndk->flen = 0;
     ndk->isa[0] = '\0';
+    ndk->state = LUAT_NDK_STATE_DEINIT;
     ndk->lock_closing = 0;
     ndk->lock_refs = 0;
-    ndk->state = LUAT_NDK_STATE_DEINIT;
     if (ndk->lock) {
         luat_rtos_mutex_delete(ndk->lock);
         ndk->lock = NULL;
     }
+}
+
+static void ndk_init_fail_cleanup(luat_ndk_t *ndk) {
+    if (!ndk) return;
+    ndk_free_fields(ndk);
 }
 
 static bool ndk_should_stop(luat_ndk_t *ndk) {
@@ -885,7 +894,8 @@ static int ndk_load_image(luat_ndk_t *ndk, const char *path) {
 
 static int ndk_exec_inner(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapsed_us, int32_t *retval) {
     if (!ndk || !ndk->core || !ndk->ram) return LUAT_NDK_ERR_PARAM;
-    if (step_budget == 0) step_budget = NDK_DEFAULT_STEP_BUDGET;
+    /* step_budget == 0 means "run until SYSCON exit, ecall, trap, or ndk.stop".
+     * Use ndk.stop() as the escape hatch for long-running guests. */
     if (elapsed_us == 0) elapsed_us = NDK_DEFAULT_ELAPSED_US;
 
     int32_t ret = 0;
@@ -899,14 +909,16 @@ static int ndk_exec_inner(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapse
 
     uint32_t left = step_budget;
     int rc = LUAT_NDK_OK;
+    int unlimited = (step_budget == NDK_STEP_BUDGET_UNLIMITED);
 
-    while (left > 0 && !ndk->trap_pending && !ndk_should_stop(ndk)) {
-        uint32_t chunk = left > NDK_STEP_CHUNK ? NDK_STEP_CHUNK : left;
+    while ((unlimited || left > 0) && !ndk->trap_pending && !ndk_should_stop(ndk)) {
+        uint32_t chunk = unlimited ? NDK_STEP_CHUNK
+                                  : (left > NDK_STEP_CHUNK ? NDK_STEP_CHUNK : left);
         ret = MiniRV32IMAStep(ndk, ndk->core, ndk->ram, MINIRV32_RAM_IMAGE_OFFSET, elapsed_us, chunk);
         if (ret == 0x5555) {
             return LUAT_NDK_OK;
         }
-        left -= chunk;
+        if (!unlimited) left -= chunk;
         if (ndk->core->mcause) break;
     }
 
@@ -923,7 +935,7 @@ static int ndk_exec_inner(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapse
             rc = LUAT_NDK_OK;
             if (retval) *retval = (int32_t)ndk->core->regs[10];
         }
-    } else if (left == 0) {
+    } else if (!unlimited && left == 0) {
         rc = LUAT_NDK_ERR_TIMEOUT;
     }
     return rc;
@@ -1010,29 +1022,7 @@ void luat_ndk_deinit(luat_ndk_t *ndk) {
     if (!ndk->lock) {
         luat_ndk_gpio_reset(ndk);
         luat_ndk_uart_reset(ndk);
-        if (ndk->ram) {
-            luat_heap_free(ndk->ram);
-            ndk->ram = NULL;
-        }
-        if (ndk->core) {
-            luat_heap_free(ndk->core);
-            ndk->core = NULL;
-        }
-        if (ndk->image_path) {
-            luat_heap_free(ndk->image_path);
-            ndk->image_path = NULL;
-        }
-        ndk->worker = NULL;
-        ndk->state = LUAT_NDK_STATE_DEINIT;
-        ndk->stop_request = 0;
-        ndk->lock_closing = 0;
-        ndk->lock_refs = 0;
-        ndk->trap_pending = 0;
-        ndk->image_size = 0;
-        ndk->thread_id = 0;
-        ndk->fcsr = 0;
-        ndk->flen = 0;
-        ndk->isa[0] = '\0';
+        ndk_free_fields(ndk);
         return;
     }
 
@@ -1235,8 +1225,8 @@ int luat_ndk_start_thread(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapse
         luat_heap_free(arg);
         return LUAT_NDK_ERR_NOMEM;
     }
-    static uint32_t g_thread_counter = 1;
-    ndk->thread_id = g_thread_counter++;
+    static volatile atomic_uint_least32_t g_thread_counter = 0;
+    ndk->thread_id = (uint32_t)atomic_fetch_add(&g_thread_counter, 1) + 1u;
     uint32_t tid = ndk->thread_id;
     ndk_unlock(ndk);
     return (int)tid;

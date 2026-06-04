@@ -6,11 +6,7 @@ Smallest customer-facing RV32IMA guest example. It writes a text marker to excha
 
 ## Dependencies
 
-- One supported RISC-V toolchain:
-  - `riscv64-unknown-elf-gcc` + `riscv64-unknown-elf-objcopy`, or
-  - `riscv32-unknown-elf-gcc` + `riscv32-unknown-elf-objcopy`, or
-  - `riscv-none-elf-gcc` + `riscv-none-elf-objcopy`, or
-  - `clang` + `ld.lld` + `llvm-objcopy`
+- LLVM/Clang with RISC-V support: `clang` + `ld.lld` + `llvm-objcopy` (≥ 16.0)
 - PowerShell (`build.ps1`) or CMD (`build.bat`)
 
 ## Build

@@ -133,6 +133,13 @@ int pgfs_cache_flush_to_log(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     if (f->cache.len == 0) {
         return 0;
     }
+    /* Intentionally a no-op: PGFS durability boundary is at fclose, not
+     * fflush. Writing the cache to the data log here would double the
+     * I/O cost of every flush without giving callers the guarantee of
+     * "fclose is unnecessary if I called fflush" — replay still relies
+     * on the apply-cache step in fclose to make the in-memory entry
+     * visible. Callers that need explicit durability can call fclose()
+     * themselves. */
     return 0;
 }
 

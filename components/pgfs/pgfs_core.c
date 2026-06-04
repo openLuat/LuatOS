@@ -1,5 +1,6 @@
 #include "luat_base.h"
 #include "pgfs_internal.h"
+#include "pgfs_ecc.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
 #include "luat_crypto.h"
@@ -16,6 +17,7 @@ typedef struct pgfs_data_record_hdr {
     uint32_t path_len;
     uint32_t data_len;
     uint32_t crc32;
+    uint8_t  ecc[8];   /* Phase 3b: Hamming(72,64) SECDED over the header */
 } pgfs_data_record_hdr_t;
 
 typedef struct pgfs_batch_data_record_hdr {
@@ -24,6 +26,7 @@ typedef struct pgfs_batch_data_record_hdr {
     uint32_t data_len;
     uint32_t batch_id;
     uint32_t crc32;
+    uint8_t  ecc[8];   /* Phase 3b: Hamming(72,64) SECDED over the header */
 } pgfs_batch_data_record_hdr_t;
 
 typedef struct pgfs_batch_commit_record_hdr {
@@ -31,6 +34,7 @@ typedef struct pgfs_batch_commit_record_hdr {
     uint32_t batch_id;
     uint32_t record_count;
     uint32_t crc32;
+    uint8_t  ecc[8];   /* Phase 3b: Hamming(72,64) SECDED over the header */
 } pgfs_batch_commit_record_hdr_t;
 
 static pgfs_file_entry_t s_pgfs_files[PGFS_MAX_FILES];
@@ -96,11 +100,57 @@ static uint32_t pgfs_crc32_calc(const void* data, size_t len) {
     return luat_crc32(data, (uint32_t)len, 0xFFFFFFFFu, 0);
 }
 
-static uint32_t pgfs_data_log_base_addr(pgfs_mount_ctx_t* ctx) {
-    if (ctx != NULL && ctx->data_log_base_addr >= PGFS_DATA_LOG_BASE_ADDR) {
-        return ctx->data_log_base_addr;
+/* pgfs_account_live_block — add `bytes` to live_bytes[block_of(addr)].
+ * Called from the data record append path (DATA / BATCH_DATA) and from
+ * the replay path. The block_id is derived from the absolute flash
+ * address divided by the erase size. No-op if the FTL state hasn't
+ * allocated live_bytes_per_block yet (e.g. fresh flash before the first
+ * mount) — the per-block stats are a GC aid, not a correctness
+ * invariant. */
+static void pgfs_account_live_block(pgfs_mount_ctx_t* ctx, uint32_t addr, uint32_t bytes) {
+    if (ctx == NULL || bytes == 0) return;
+    if (ctx->ftl.flash_opts == NULL || ctx->ftl.flash_opts->control == NULL) return;
+    if (ctx->ftl.live_bytes_per_block == NULL) return;
+    pgfs_flash_geometry_t geo = {0};
+    if (ctx->ftl.flash_opts->control(ctx->ftl.flash_opts->ctx,
+                                     PGFS_CTRL_GET_GEOMETRY, &geo) != 0 ||
+        geo.erase_size == 0) {
+        return;
     }
-    return PGFS_DATA_LOG_BASE_ADDR;
+    uint32_t block_id = addr / geo.erase_size;
+    if (block_id >= ctx->ftl.total_blocks) return;
+    ctx->ftl.live_bytes_per_block[block_id] += bytes;
+}
+
+/* pgfs_account_dead_block — add `bytes` to dead_bytes[block_of(addr)].
+ * Best-effort: called when we know the source block of shadowed or
+ * deleted data. Currently invoked only by the file-delete path
+ * (which holds the path's last-known block_id) — overwrite detection
+ * would require a per-path cache, which is a follow-up. */
+static void pgfs_account_dead_block(pgfs_mount_ctx_t* ctx, uint32_t addr, uint32_t bytes) {
+    if (ctx == NULL || bytes == 0) return;
+    if (ctx->ftl.flash_opts == NULL || ctx->ftl.flash_opts->control == NULL) return;
+    if (ctx->ftl.dead_bytes_per_block == NULL) return;
+    pgfs_flash_geometry_t geo = {0};
+    if (ctx->ftl.flash_opts->control(ctx->ftl.flash_opts->ctx,
+                                     PGFS_CTRL_GET_GEOMETRY, &geo) != 0 ||
+        geo.erase_size == 0) {
+        return;
+    }
+    uint32_t block_id = addr / geo.erase_size;
+    if (block_id >= ctx->ftl.total_blocks) return;
+    ctx->ftl.dead_bytes_per_block[block_id] += bytes;
+}
+
+/* pgfs_data_log_base_addr — derive the data log base address from the
+ * mount ctx's pre-computed layout. The layout is filled in by
+ * pgfs_layout_compute() at mount time, so callers that reach this
+ * helper without a populated layout are misusing the API. */
+static uint32_t pgfs_data_log_base_addr(pgfs_mount_ctx_t* ctx) {
+    if (ctx == NULL || ctx->layout.erase_size == 0) {
+        return 0;
+    }
+    return ctx->layout.data_log_first_block * ctx->layout.erase_size;
 }
 
 static uint32_t pgfs_program_size(pgfs_mount_ctx_t* ctx) {
@@ -744,7 +794,6 @@ void pgfs_file_reset_all(void) {
 int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
     pgfs_file_entry_t* e = NULL;
     char norm[sizeof(s_pgfs_files[0].path)] = {0};
-    (void)ctx;
     if (filename == NULL) {
         return -1;
     }
@@ -755,11 +804,46 @@ int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
     if (e == NULL) {
         return -1;
     }
+    /* Phase 2 GC: the file's live bytes are now dead. Attribute them
+     * to the block the last DATA record landed in. Note: this only
+     * credits the most recent block — earlier records of the same
+     * path are attributed to their own blocks by the replay shadow
+     * scan, not by the runtime delete path. */
+    if (ctx != NULL && e->last_written_block != 0 && e->last_written_block != 0xFFFFu &&
+        e->len > 0 && ctx->ftl.dead_bytes_per_block != NULL &&
+        e->last_written_block < ctx->ftl.total_blocks) {
+        ctx->ftl.dead_bytes_per_block[e->last_written_block] += (uint32_t)e->len;
+        ctx->checkpoint.gc_dead_bytes += (uint32_t)e->len;
+    }
     if (e->data) {
         pgfs_heap_free_by_type(e->heap_type, e->data);
     }
     memset(e, 0, sizeof(*e));
     return 0;
+}
+
+uint16_t pgfs_file_table_lookup_last_written(const char* path) {
+    if (path == NULL) return 0xFFFFu;
+    for (uint32_t i = 0; i < PGFS_MAX_FILES; i++) {
+        if (!s_pgfs_files[i].used) continue;
+        if (strcmp(s_pgfs_files[i].path, path) == 0) {
+            return s_pgfs_files[i].last_written_block;
+        }
+    }
+    return 0xFFFFu;
+}
+
+int pgfs_file_table_visit(pgfs_file_visit_fn cb, void* user_data) {
+    if (cb == NULL) return 0;
+    int stopped = 0;
+    for (uint32_t i = 0; i < PGFS_MAX_FILES; i++) {
+        if (!s_pgfs_files[i].used) continue;
+        if (cb(&s_pgfs_files[i], user_data) != 0) {
+            stopped = 1;
+            break;
+        }
+    }
+    return stopped;
 }
 
 static int pgfs_file_reserve(pgfs_file_entry_t* e, size_t need) {
@@ -873,9 +957,30 @@ static int pgfs_prepare_data_log_region(pgfs_mount_ctx_t* ctx, uint32_t addr, si
         ctx->data_log_prepared_until = erase_end;
         return 0;
     }
-    if (ctx->flash_opts->erase(ctx->flash_opts->ctx, erase_start, erase_end - erase_start) != 0) {
-        LLOGE("prepare region erase failed addr=%u size=%u", (unsigned int)erase_start, (unsigned int)(erase_end - erase_start));
-        return -1;
+    /* Skip the FTL state erase-unit: erasing it would destroy the persisted
+     * bad-block bitmap and erase counts. If the requested range crosses the
+     * FTL state region, split the erase into two halves. */
+    uint32_t ftl_state_addr = pgfs_ftl_state_addr(geo.erase_size);
+    uint32_t ftl_state_end  = ftl_state_addr + geo.erase_size;
+    if (ftl_state_addr != 0u && erase_start < ftl_state_end && erase_end > ftl_state_addr) {
+        if (erase_start < ftl_state_addr) {
+            uint32_t mid = (ftl_state_addr < erase_end) ? ftl_state_addr : erase_end;
+            if (ctx->flash_opts->erase(ctx->flash_opts->ctx, erase_start, mid - erase_start) != 0) {
+                LLOGE("prepare region erase (pre-FTL) failed addr=%u size=%u", (unsigned int)erase_start, (unsigned int)(mid - erase_start));
+                return -1;
+            }
+        }
+        if (ftl_state_end < erase_end) {
+            if (ctx->flash_opts->erase(ctx->flash_opts->ctx, ftl_state_end, erase_end - ftl_state_end) != 0) {
+                LLOGE("prepare region erase (post-FTL) failed addr=%u size=%u", (unsigned int)ftl_state_end, (unsigned int)(erase_end - ftl_state_end));
+                return -1;
+            }
+        }
+    } else {
+        if (ctx->flash_opts->erase(ctx->flash_opts->ctx, erase_start, erase_end - erase_start) != 0) {
+            LLOGE("prepare region erase failed addr=%u size=%u", (unsigned int)erase_start, (unsigned int)(erase_end - erase_start));
+            return -1;
+        }
     }
     ctx->data_log_prepared_until = erase_end;
     return 0;
@@ -934,7 +1039,7 @@ static int pgfs_append_log_record(pgfs_mount_ctx_t* ctx, const uint8_t* hdr, siz
     uint64_t end_addr = 0;
     pgfs_flash_geometry_t geo = {0};
     uint32_t addr = 0;
-    int retried = 0;
+    int attempt = 0;
     if (ctx == NULL || hdr == NULL || hdr_len == 0 || ctx->flash_opts == NULL || ctx->flash_opts->write == NULL) {
         return -1;
     }
@@ -959,27 +1064,47 @@ retry_prepare:
         return -1;
     }
     if (pgfs_prepare_data_log_region(ctx, addr, write_len) != 0) {
-        if (!retried && pgfs_relocate_unaligned_write_head(ctx, addr, write_len, &addr) == 0) {
-            retried = 1;
+        if (attempt < 1 && pgfs_relocate_unaligned_write_head(ctx, addr, write_len, &addr) == 0) {
+            attempt++;
             LLOGW("append_data relocate write head to %u", (unsigned int)addr);
             goto retry_prepare;
         }
         return -1;
     }
+    /* Powercut injection: fail right after the region is prepared (erased)
+     * but before any record is written. Recovery should see a clean erased
+     * region and advance the write head without committing a record. */
+    if (ctx->inject_powercut_stage == PGFS_INJECT_POWERCUT_AFTER_APPEND_ERASE) {
+        ctx->inject_powercut_stage = PGFS_INJECT_POWERCUT_NONE;
+        ctx->stats.powercut_inject_count++;
+        LLOGW("append_data: powercut injected after prepare, before write");
+        return -1;
+    }
     if (ctx->flash_opts->write(ctx->flash_opts->ctx, addr, hdr, hdr_len) != 0 ||
         (path_len != 0 && ctx->flash_opts->write(ctx->flash_opts->ctx, addr + (uint32_t)hdr_len, path, path_len) != 0) ||
         (data_len != 0 && ctx->flash_opts->write(ctx->flash_opts->ctx, addr + (uint32_t)hdr_len + path_len, data, data_len) != 0)) {
-        if (!retried && ctx->flash_opts->control != NULL &&
+        /* Notify FTL that the block at addr may be suspect — a write failure
+         * often means the block has bad pages. This propagates a bad-block
+         * mark so the next allocation skips it. */
+        if (ctx->flash_opts->control != NULL &&
             ctx->flash_opts->control(ctx->flash_opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
             geo.erase_size != 0) {
-            uint32_t next_addr = pgfs_align_up_u32(addr + 1u, geo.erase_size);
-            uint64_t next_end = (uint64_t)next_addr + (uint64_t)write_len;
-            if (next_addr > addr && (geo.capacity == 0 || next_end <= geo.capacity)) {
-                LLOGW("append_data write failed at addr=%u, retry next block=%u", (unsigned int)addr, (unsigned int)next_addr);
-                addr = next_addr;
-                ctx->data_log_prepared_until = next_addr;
-                retried = 1;
-                goto retry_prepare;
+            uint32_t bad_block = addr / geo.erase_size;
+            if (bad_block < ctx->ftl.total_blocks) {
+                pgfs_ftl_on_erase_failure(ctx, bad_block);
+            }
+            /* Single retry: relocate to next block. */
+            if (attempt < 1) {
+                uint32_t next_addr = pgfs_align_up_u32(addr + 1u, geo.erase_size);
+                uint64_t next_end = (uint64_t)next_addr + (uint64_t)write_len;
+                if (next_addr > addr && (geo.capacity == 0 || next_end <= geo.capacity)) {
+                    LLOGW("append_data write failed at addr=%u, retry next block=%u (attempt=%d)",
+                          (unsigned int)addr, (unsigned int)next_addr, attempt + 1);
+                    addr = next_addr;
+                    ctx->data_log_prepared_until = next_addr;
+                    attempt++;
+                    goto retry_prepare;
+                }
             }
         }
         return -1;
@@ -988,8 +1113,14 @@ retry_prepare:
     return 0;
 }
 
-static int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
+/* pgfs_append_data_record — append a DATA record to the data log using
+ * the cached entry from a `pgfs_file_t`. Phase 2 GC reuses this to
+ * re-write live records out of a victim block. Exposed (non-static)
+ * so the GC in pgfs_alloc_gc.c can call it through the visitor
+ * pattern. */
+int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     pgfs_data_record_hdr_t hdr = {0};
+    uint32_t start_addr = 0;
     if (ctx == NULL || f == NULL || f->entry == NULL || f->cache.len == 0) {
         return -1;
     }
@@ -1001,13 +1132,57 @@ static int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     hdr.magic = PGFS_DATA_RECORD_MAGIC;
     hdr.path_len = (uint32_t)strlen(f->entry->path);
     hdr.data_len = (uint32_t)f->cache.len;
-    hdr.crc32 = luat_crc32((const uint8_t*)f->entry->path, hdr.path_len, 0xFFFFFFFFu, 0);
+    /* CRC scope: header up to and including crc32 (excludes the ecc
+     * field at bytes 16..23, otherwise the ECC write would invalidate
+     * the stored CRC). */
+    hdr.crc32 = luat_crc32(&hdr, offsetof(pgfs_data_record_hdr_t, crc32), 0xFFFFFFFFu, 0);
+    hdr.crc32 = luat_crc32((const uint8_t*)f->entry->path, hdr.path_len, hdr.crc32, 0);
     if (hdr.data_len != 0) {
         hdr.crc32 = luat_crc32(f->cache.data, hdr.data_len, hdr.crc32, 0);
     }
-    return pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr),
-                                  (const uint8_t*)f->entry->path, hdr.path_len,
-                                  f->cache.data, hdr.data_len);
+    /* Phase 3b: Hamming(72,64) ECC over the first 8 header bytes
+     * (magic..crc32). The ecc field itself is zeroed so the encode
+     * sees a clean input. */
+    memset(hdr.ecc, 0, sizeof(hdr.ecc));
+    hdr.ecc[0] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr);
+    start_addr = ctx->data_log_write_addr;
+    int ret = pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr),
+                                     (const uint8_t*)f->entry->path, hdr.path_len,
+                                     f->cache.data, hdr.data_len);
+    if (ret == 0) {
+        /* Phase 2 prep: account for the live bytes this record contributes
+         * to its block. The block_id is derivable from the start address
+         * (which may differ from start_addr if append_log_record relocated
+         * the write head). */
+        size_t rec_len = sizeof(hdr) + hdr.path_len + hdr.data_len;
+        (void)rec_len;
+        uint32_t written_block = ctx->data_log_write_addr;
+        /* Approximate: the record spans at most two erase blocks. We
+         * attribute the whole live contribution to the block containing
+         * the START of the record — the trailing-page cost (when the
+         * record crosses a block boundary) is negligible and the GC
+         * victim selection tolerates small per-block noise. */
+        if (start_addr < ctx->data_log_write_addr) {
+            pgfs_account_live_block(ctx, start_addr, (uint32_t)(ctx->data_log_write_addr - start_addr));
+        }
+        /* Phase 2 GC: remember which block this file's most recent
+         * record landed in. The file-close and file-delete paths use
+         * this to attribute the OLD data's dead bytes to the right
+         * block when the file is rewritten or removed. */
+        if (ctx->flash_opts && ctx->flash_opts->control) {
+            pgfs_flash_geometry_t geo = {0};
+            if (ctx->flash_opts->control(ctx->flash_opts->ctx,
+                                         PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+                geo.erase_size > 0) {
+                uint32_t block_id = start_addr / geo.erase_size;
+                if (block_id <= 0xFFFEu) {
+                    f->entry->last_written_block = (uint16_t)block_id;
+                }
+            }
+        }
+        (void)written_block;
+    }
+    return ret;
 }
 
 static int pgfs_compact_live_entries(pgfs_mount_ctx_t* ctx) {
@@ -1064,10 +1239,19 @@ static int pgfs_append_batch_data_record(pgfs_mount_ctx_t* ctx, pgfs_batch_pendi
     hdr.path_len = (uint32_t)strlen(p->path);
     hdr.data_len = (uint32_t)p->len;
     hdr.batch_id = p->batch_id;
-    hdr.crc32 = luat_crc32((const uint8_t*)p->path, hdr.path_len, 0xFFFFFFFFu, 0);
+    /* Phase 3b: CRC scope is hdr[0..11] (magic..crc32, excluding ecc)
+     * plus path plus data — same as pgfs_append_data_record. The replay
+     * chains the CRC across this same prefix, so the two sides must
+     * stay in sync. */
+    hdr.crc32 = luat_crc32(&hdr, offsetof(pgfs_batch_data_record_hdr_t, crc32), 0xFFFFFFFFu, 0);
+    if (hdr.path_len != 0) {
+        hdr.crc32 = luat_crc32((const uint8_t*)p->path, hdr.path_len, hdr.crc32, 0);
+    }
     if (hdr.data_len != 0) {
         hdr.crc32 = luat_crc32(p->data, hdr.data_len, hdr.crc32, 0);
     }
+    memset(hdr.ecc, 0, sizeof(hdr.ecc));
+    hdr.ecc[0] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr);
     return pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr),
                                   (const uint8_t*)p->path, hdr.path_len,
                                   p->data, hdr.data_len);
@@ -1081,7 +1265,14 @@ static int pgfs_append_batch_commit_record(pgfs_mount_ctx_t* ctx, uint32_t batch
     hdr.magic = PGFS_BATCH_COMMIT_RECORD_MAGIC;
     hdr.batch_id = batch_id;
     hdr.record_count = record_count;
-    hdr.crc32 = pgfs_crc32_calc(&hdr, sizeof(hdr) - sizeof(hdr.crc32));
+    /* Phase 3b: ECC over the first 8 bytes (magic..record_count).
+     * The ecc field is zeroed so the encode sees a clean input. */
+    memset(hdr.ecc, 0, sizeof(hdr.ecc));
+    hdr.ecc[0] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr);
+    /* CRC must NOT include the ecc field (bytes 16..23) — otherwise setting
+     * the ecc above would invalidate the stored CRC. Scope is bytes
+     * 0..15 (i.e. up to and including crc32, excluding ecc). */
+    hdr.crc32 = pgfs_crc32_calc(&hdr, offsetof(pgfs_batch_commit_record_hdr_t, crc32));
     return pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr), NULL, 0, NULL, 0);
 }
 
@@ -1197,6 +1388,10 @@ static int pgfs_replay_pending_apply(pgfs_mount_ctx_t* ctx, pgfs_replay_pending_
         entry->heap_type = p->heap_type;
         p->data = NULL;
         ctx->checkpoint.gc_live_bytes += entry->len;
+        /* Phase 2 prep: BATCH_DATA live accounting is deferred — the
+         * pending entry doesn't currently carry the BATCH_DATA
+         * record's on-flash address. For now only DATA_RECORD writes
+         * and the per-record replay path update per-block live. */
         if (old_len > 0) {
             ctx->checkpoint.gc_dead_bytes += (uint32_t)old_len;
         }
@@ -1287,9 +1482,25 @@ static int pgfs_replay_recover_after_corrupt_record(pgfs_mount_ctx_t* ctx,
 
 int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
     pgfs_flash_geometry_t geo = {0};
-    uint32_t base = pgfs_data_log_base_addr(ctx);
+    /* Use the explicit ctx->data_log_base_addr rather than
+     * pgfs_data_log_base_addr(ctx): the helper derives the base from
+     * ctx->layout, which the unit tests don't populate (they set the
+     * field directly). Comparing against the helper's result would
+     * treat write_addr > 0 as a durable-bound even when write_addr
+     * itself is the data log base, prematurely breaking the scan
+     * before the very first record is reached. */
+    uint32_t base = ctx->data_log_base_addr;
     uint32_t addr = base;
     uint32_t limit = 0;
+    /* v2 layout: if the mount ctx restored data_log_write_addr from the
+     * CP's log_tail_*, cap the scan at that point so orphan records
+     * written past the last committed CP (e.g. a close() that crashed
+     * before checkpoint commit, leaving a record in the log but no CP
+     * entry pointing at it) do not get re-applied to the file table on
+     * remount / reset_runtime. When data_log_write_addr is still at the
+     * base (no CP was loaded or its log_tail_* are zero), fall back to
+     * the full capacity scan used by the legacy replay path. */
+    uint32_t durable_limit = 0;
     pgfs_replay_pending_entry_t pending[PGFS_MAX_BATCH_PENDING];
 
     if (ctx == NULL || ctx->flash_opts == NULL || ctx->flash_opts->read == NULL) {
@@ -1309,6 +1520,9 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
     else {
         limit = 0;
     }
+    if (ctx->data_log_write_addr > base) {
+        durable_limit = ctx->data_log_write_addr;
+    }
     while (1) {
         uint32_t magic = 0;
         uint32_t path_len = 0;
@@ -1316,6 +1530,14 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
         uint32_t batch_id = 0;
         uint32_t crc32 = 0;
         size_t hdr_len = 0;
+        /* Phase 3b: the on-disk CRC covers the bytes of the header that
+         * precede the crc32 field (magic..data_len for DATA records,
+         * magic..batch_id for BATCH_DATA records — 12 bytes in both
+         * cases) plus the path plus the data. The ECC verify step
+         * above has already zeroed the in-memory ecc[8] field, so
+         * copying those prefix bytes into a stable buffer lets the
+         * replay chain the CRC correctly. */
+        uint8_t hdr_prefix[16] = {0};
         char norm[sizeof(s_pgfs_files[0].path)] = {0};
         char parent[sizeof(s_pgfs_dirs[0].path)] = {0};
         uint8_t* path_buf = NULL;
@@ -1329,6 +1551,12 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
         size_t old_len = 0;
 
         if (limit != 0 && addr + sizeof(magic) > limit) {
+            break;
+        }
+        /* v2 durable-bound: stop once we cross the persisted log_tail
+         * (see durable_limit setup above). Anything past it is orphan
+         * data from a close() that did not reach a successful CP commit. */
+        if (durable_limit != 0 && addr >= durable_limit) {
             break;
         }
         if (pgfs_replay_flash_read(ctx, addr, &magic, sizeof(magic)) != 0) {
@@ -1366,10 +1594,39 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                 }
                 break;
             }
+            /* Phase 3b: ECC verify (Hamming(72,64)). A single-bit error is
+             * silently corrected; a double-bit error marks the block weak
+             * and skips the record. A zero stored_ecc means the record was
+             * written by a v1 producer (or by a test that hand-wrote
+             * data) — we skip the check in that case to maintain backward
+             * compatibility with the existing unit tests. */
+            uint8_t stored_ecc = hdr.ecc[0];
+            memset(hdr.ecc, 0, sizeof(hdr.ecc));
+            int ecc_res = 0;
+            if (stored_ecc != 0) {
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+            }
+            if (ecc_res < 0) {
+                /* Phase 3b: ECC mismatch. Mark the block weak for refresh
+                 * but still attempt to recover the record — the parity
+                 * check is best-effort and a single bit flip doesn't
+                 * invalidate the rest of the header. The CRC32 check
+                 * (below) is the authoritative validation. */
+                LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
+                uint32_t blk = addr / geo.erase_size;
+                if (blk < ctx->ftl.total_blocks) {
+                    pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                }
+                /* Continue with the record — let the CRC check below
+                 * decide if the record is actually valid. */
+            }
             path_len = hdr.path_len;
             data_len = hdr.data_len;
             crc32 = hdr.crc32;
             hdr_len = sizeof(hdr);
+            /* Phase 3b: keep the prefix bytes that the producer hashed
+             * (i.e. the bytes before crc32) for the CRC chain below. */
+            memcpy(hdr_prefix, &hdr, offsetof(pgfs_data_record_hdr_t, crc32));
         }
         else if (magic == PGFS_BATCH_DATA_RECORD_MAGIC) {
             pgfs_batch_data_record_hdr_t hdr = {0};
@@ -1382,11 +1639,30 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                 }
                 break;
             }
+            uint8_t stored_ecc = hdr.ecc[0];
+            memset(hdr.ecc, 0, sizeof(hdr.ecc));
+            int ecc_res = 0;
+            if (stored_ecc != 0) {
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+            }
+            if (ecc_res < 0) {
+                LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
+                uint32_t blk = addr / geo.erase_size;
+                if (blk < ctx->ftl.total_blocks) {
+                    pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                }
+                addr = pgfs_align_up_u32(addr + 1u, geo.erase_size);
+                continue;
+            }
             path_len = hdr.path_len;
             data_len = hdr.data_len;
             batch_id = hdr.batch_id;
             crc32 = hdr.crc32;
             hdr_len = sizeof(hdr);
+            /* Phase 3b: keep the prefix bytes that the producer hashed
+             * (i.e. the bytes before crc32, which for BATCH_DATA is
+             * magic..batch_id = 16 bytes) for the CRC chain below. */
+            memcpy(hdr_prefix, &hdr, offsetof(pgfs_batch_data_record_hdr_t, crc32));
             if (batch_id == 0) {
                 if (pgfs_replay_recover_after_corrupt_record(ctx, addr, limit, &geo, &addr)) {
                     continue;
@@ -1406,7 +1682,23 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                 }
                 break;
             }
-            hdr_crc = pgfs_crc32_calc(&hdr, sizeof(hdr) - sizeof(hdr.crc32));
+            /* Phase 3b: ECC verify. */
+            uint8_t stored_ecc = hdr.ecc[0];
+            memset(hdr.ecc, 0, sizeof(hdr.ecc));
+            int ecc_res = 0;
+            if (stored_ecc != 0) {
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+            }
+            if (ecc_res < 0) {
+                LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
+                uint32_t blk = addr / geo.erase_size;
+                if (blk < ctx->ftl.total_blocks) {
+                    pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                }
+                addr = pgfs_align_up_u32(addr + 1u, geo.erase_size);
+                continue;
+            }
+            hdr_crc = pgfs_crc32_calc(&hdr, offsetof(pgfs_batch_commit_record_hdr_t, crc32));
             if (hdr.magic != PGFS_BATCH_COMMIT_RECORD_MAGIC || hdr.batch_id == 0 || hdr_crc != hdr.crc32) {
                 if (pgfs_replay_recover_after_corrupt_record(ctx, addr, limit, &geo, &addr)) {
                     continue;
@@ -1518,7 +1810,20 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             if (data_len != 0) {
                 memcpy(crc_buf + path_len, data_buf, data_len);
             }
-            crc = pgfs_crc32_calc(crc_buf, crc_len);
+            /* Phase 3b: chain the CRC across the header prefix first,
+             * then path, then data — exactly mirroring what the
+             * producer wrote. The header prefix is 12 bytes
+             * (offsetof(..., crc32)) for both DATA and BATCH_DATA
+             * records; BATCH_COMMIT records skip this branch entirely
+             * because they have no path/data. */
+            size_t prefix_len = (magic == PGFS_BATCH_DATA_RECORD_MAGIC)
+                ? offsetof(pgfs_batch_data_record_hdr_t, crc32)
+                : offsetof(pgfs_data_record_hdr_t, crc32);
+            uint32_t prefix_crc = luat_crc32(hdr_prefix, (uint32_t)prefix_len, 0xFFFFFFFFu, 0);
+            crc = luat_crc32(crc_buf, (uint32_t)path_len, prefix_crc, 0);
+            if (data_len != 0) {
+                crc = luat_crc32(crc_buf + path_len, (uint32_t)data_len, crc, 0);
+            }
             luat_heap_free(crc_buf);
         }
         if (crc != crc32) {
@@ -1563,8 +1868,46 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             }
             entry->len = data_len;
             ctx->checkpoint.gc_live_bytes += data_len;
+            /* Phase 2 prep: per-block live accounting. The DATA record's
+             * data + path landed in the block holding the record's start
+             * address; attribute the live bytes to that block so the
+             * future cost-benefit GC can find blocks with the least
+             * live data. */
+            pgfs_account_live_block(ctx, addr, (uint32_t)record_len);
             if (old_len > 0) {
                 ctx->checkpoint.gc_dead_bytes += (uint32_t)old_len;
+                /* Phase 2 prep + shadow detection: the OLD version of
+                 * this file is now dead. Its last-known block is
+                 * entry->last_written_block (set by the previous
+                 * append or replay iteration). Attribute the dead
+                 * bytes to that block so the cost-benefit GC can
+                 * pick it. Note: if last_written_block is 0 /
+                 * 0xFFFFu (never written), the dead bytes are
+                 * unaccounted for at the block level — they still
+                 * count in the global gc_dead_bytes, just not
+                 * per-block. */
+                uint16_t old_blk = entry->last_written_block;
+                if (old_blk != 0 && old_blk != 0xFFFFu &&
+                    ctx->ftl.dead_bytes_per_block != NULL &&
+                    old_blk < ctx->ftl.total_blocks) {
+                    ctx->ftl.dead_bytes_per_block[old_blk] += (uint32_t)old_len;
+                }
+            }
+            /* Update the file's last-known block to the record we
+             * just replayed. The next replay iteration (or the
+             * close-path attribution) will use this to mark the
+             * NEXT shadow event. */
+            {
+                pgfs_flash_geometry_t geo = {0};
+                if (ctx->ftl.flash_opts != NULL && ctx->ftl.flash_opts->control != NULL &&
+                    ctx->ftl.flash_opts->control(ctx->ftl.flash_opts->ctx,
+                                                 PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
+                    geo.erase_size > 0) {
+                    uint32_t new_blk = addr / geo.erase_size;
+                    if (new_blk <= 0xFFFEu) {
+                        entry->last_written_block = (uint16_t)new_blk;
+                    }
+                }
             }
             ctx->checkpoint.written_blocks += 1u;
         }
@@ -1714,6 +2057,12 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
             }
             goto finish;
         }
+        /* Phase 2 GC: capture the OLD block the previous version of
+         * this file lived in so the close path can attribute the
+         * dead bytes to that block (the new write will credit a
+         * different block via pgfs_append_data_record below). */
+        uint16_t prev_last_written = f->entry->last_written_block;
+        size_t prev_len = f->entry->len;
         t0 = luat_mcu_tick64_ms();
         (void)pgfs_gc_step(ctx, 4096, 2000);
         t_gc = luat_mcu_tick64_ms();
@@ -1735,6 +2084,19 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
                 (void)pgfs_mark_block_retired(ctx, seg_id);
                 ret = -1;
                 goto finish;
+            }
+        }
+        /* Phase 2 GC: the new write succeeded, so the OLD version is
+         * now dead. Attribute the old live bytes to the old block so
+         * the cost-benefit GC can pick it. Note: prev_len can exceed
+         * f->entry->len if cache was overwritten mid-close — that's
+         * fine, the file's "previous state" is the bytes that WERE
+         * live before the new write. */
+        if (prev_last_written != 0 && prev_last_written != 0xFFFFu && prev_len > 0) {
+            if (ctx->ftl.dead_bytes_per_block != NULL &&
+                prev_last_written < ctx->ftl.total_blocks) {
+                ctx->ftl.dead_bytes_per_block[prev_last_written] += (uint32_t)prev_len;
+                ctx->checkpoint.gc_dead_bytes += (uint32_t)prev_len;
             }
         }
         t_append = luat_mcu_tick64_ms();

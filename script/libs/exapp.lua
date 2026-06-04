@@ -124,6 +124,11 @@ local app_registry = {}
 -- 示例: { ["app_hello"] = { cn_name = "你好世界", path = "/app_store/app_hello/", version = "1.0.0", category = "demo", description = "示例应用", install_time = 1759161153 } }
 local installed_info = {}
 
+-- 重复应用冲突表（同一 app_name 在多个存储位置存在）
+-- key: app_name, value: { { cn_name, path, storage_type, mount_point, icon_path, version, install_time }, ... }
+-- 至少 2 个条目时才有意义，resolve_duplicate 后清空
+local duplicate_info = {}
+
 -- 已安装应用数量
 local installed_cnt = 0
 
@@ -2578,7 +2583,16 @@ local function app_task(app_path)
 
     -- 关闭窗口，从记录中移除，检查是否需要退出应用
     my_env.exwin.close = function(win_id)
-        glob_exwin.close(win_id)
+        -- 自启APP密码保护：已锁定且只剩最后一个窗口时拦截关闭
+        if _G.autostart_locked and #win_ids <= 1 then
+            my_env.log.info("exapp_window", "autostart locked, close blocked for win_id:", win_id)
+            glob_sys.publish("AUTOSTART_REQUEST_EXIT_PASSWORD")
+            return
+        end
+        local ok, err = pcall(glob_exwin.close, win_id)
+        if not ok then
+            my_env.log.warn("exapp_window", "glob_exwin.close failed:", err)
+        end
         for i, id in ipairs(win_ids) do
             if id == win_id then
                 table.remove(win_ids, i)
@@ -2983,6 +2997,118 @@ function exapp.reset_storage_calibration()
 end
 
 --[[
+    获取重复应用冲突列表
+
+    @return table 冲突表，key=app_name, value={ {cn_name, path, storage_type, mount_point, icon_path, version, install_time}, ... }
+    @return number 冲突数量
+
+    @usage
+    local dup, count = exapp.list_duplicates()
+    for app_name, entries in pairs(dup) do
+        log.info("dup app:", app_name, #entries, "copies")
+    end
+]]
+function exapp.list_duplicates()
+    local count = 0
+    for _ in pairs(duplicate_info) do count = count + 1 end
+    return duplicate_info, count
+end
+
+--[[
+    解决重复应用冲突：保留指定存储位置的副本，删除其他所有副本
+
+    @param app_name string 应用目录名称
+    @param keep_storage_type string 保留的存储类型 key（如 "internal", "sd_tf", "little_flash"）
+    @return boolean 是否成功
+    @return string|nil 失败原因（成功时 nil）
+
+    功能说明：
+    1. 校验 app_name 和 keep_storage_type 是否在冲突表中存在
+    2. 删除其他存储位置的 app 目录和 data 目录（通过 rmdir_recursive）
+    3. 删除前检查 app 是否正在运行（正在运行的跳过删除，返回错误）
+    4. 更新 installed_info，指向保留的副本
+    5. 清理 duplicate_info[app_name]
+    6. 发布 APP_STORE_INSTALLED_UPDATED 通知 UI 刷新
+]]
+function exapp.resolve_duplicate(app_name, keep_storage_type)
+    local entries = duplicate_info[app_name]
+    if not entries or #entries < 2 then
+        return false, "该应用不存在冲突"
+    end
+
+    -- 查找用户选择的保留条目
+    local keep_entry = nil
+    for _, e in ipairs(entries) do
+        if e.storage_type == keep_storage_type then
+            keep_entry = e
+            break
+        end
+    end
+    if not keep_entry then
+        return false, "指定的存储位置不在冲突列表中"
+    end
+
+    -- 删除其他副本
+    local failed_deletes = {}
+    for _, e in ipairs(entries) do
+        if e.storage_type ~= keep_storage_type then
+            -- 安全检查：正在运行的应用不能删除
+            if exapp.is_running(e.path) then
+                failed_deletes[#failed_deletes + 1] = e.storage_type .. "(正在运行)"
+                log.warn("exapp", "resolve_duplicate: skip running app:", e.path)
+            else
+                local data_dirs = build_data_dirs(app_name)
+                -- 删除 app 主目录
+                local ok = rmdir_recursive(e.path)
+                if not ok then
+                    log.warn("exapp", "resolve_duplicate: failed to remove app dir:", e.path)
+                    failed_deletes[#failed_deletes + 1] = e.storage_type .. "(删除失败)"
+                else
+                    -- 删除该副本的 data 目录
+                    for _, dd in ipairs(data_dirs) do
+                        if io.dexist(dd) then
+                            rmdir_recursive(dd)
+                        end
+                    end
+                    log.info("exapp", "resolve_duplicate: removed duplicate:", app_name, "from", e.storage_type)
+                end
+            end
+        end
+    end
+
+    if #failed_deletes > 0 then
+        return false, "部分删除失败: " .. table.concat(failed_deletes, ", ")
+    end
+
+    -- 更新 installed_info 指向保留副本
+    installed_info[app_name] = {
+        cn_name = keep_entry.cn_name,
+        path = keep_entry.path,
+        version = keep_entry.version or "1.0.0",
+        category = "unknown",
+        description = "",
+        icon_path = keep_entry.icon_path or keep_entry.path .. "icon.png",
+        installed = true,
+        has_update = false,
+        zip_size_kb = 0,
+        origin_size_kb = 0,
+        installed_size_kb = 0,
+        total_downloads = 0,
+        install_time = keep_entry.install_time,
+        storage_type = keep_entry.storage_type,
+        mount_point = keep_entry.mount_point,
+        data_dirs = build_data_dirs(app_name),
+    }
+
+    -- 清理冲突记录
+    duplicate_info[app_name] = nil
+
+    sys.publish("APP_STORE_INSTALLED_UPDATED", installed_info)
+    log.info("exapp", "resolve_duplicate: resolved", app_name, "kept", keep_storage_type)
+    return true, nil
+end
+
+--[[
     扫描应用目录（支持分页，最多不限）
 
     @param base_dir string 基础目录路径，如 "/app_store/"
@@ -3039,7 +3165,7 @@ local function scan(base_dir, storage_type)
                 -- 保存应用信息，包含 install_time 和 storage 信息
                 local app_name = app_dir.name
                 local size_kb = tonumber(meta_data.origin_size_kb) or 0
-                installed_info[app_name] = {
+                local app_data = {
                     cn_name = meta_data.app_name_cn or "unknown",
                     path = base_dir .. app_dir.name .. "/",
                     version = meta_data.version or "1.0.0",
@@ -3057,7 +3183,41 @@ local function scan(base_dir, storage_type)
                     mount_point = mount_point,
                     data_dirs = build_data_dirs(app_name),
                 }
-                log.info("exapp_init", "found app:", app_name, installed_info[app_name].cn_name, "storage:", storage_type)
+
+                if installed_info[app_name] then
+                    -- 重复应用：记录到冲突表，保留第一个扫描到的在 installed_info
+                    if not duplicate_info[app_name] then
+                        -- 首次发现冲突，先把 installed_info 里的那条也记录进去
+                        duplicate_info[app_name] = {
+                            {
+                                cn_name = installed_info[app_name].cn_name,
+                                path = installed_info[app_name].path,
+                                storage_type = installed_info[app_name].storage_type,
+                                mount_point = installed_info[app_name].mount_point,
+                                icon_path = installed_info[app_name].icon_path,
+                                version = installed_info[app_name].version,
+                                install_time = installed_info[app_name].install_time,
+                                origin_size_kb = installed_info[app_name].origin_size_kb,
+                            }
+                        }
+                    end
+                    table.insert(duplicate_info[app_name], {
+                        cn_name = app_data.cn_name,
+                        path = app_data.path,
+                        storage_type = app_data.storage_type,
+                        mount_point = app_data.mount_point,
+                        icon_path = app_data.icon_path,
+                        version = app_data.version,
+                        install_time = app_data.install_time,
+                        origin_size_kb = app_data.origin_size_kb,
+                    })
+                    log.warn("exapp_init", "duplicate app found:", app_name,
+                        "existing:", duplicate_info[app_name][1].storage_type,
+                        "new:", storage_type)
+                else
+                    installed_info[app_name] = app_data
+                    log.info("exapp_init", "found app:", app_name, app_data.cn_name, "storage:", storage_type)
+                end
                 cnt = cnt + 1
                 ::continue::
             end
@@ -3208,6 +3368,7 @@ function exapp.init(...)
 
     -- 4. 扫描所有存储位置的 app_store 目录
     installed_info = {}
+    duplicate_info = {}
     installed_cnt = 0
 
     -- 内置文件系统永远扫描
@@ -3223,6 +3384,22 @@ function exapp.init(...)
 
     installed_total_count = installed_cnt
     log.info("exapp_init", "scan completed, found", installed_cnt, "apps across all storages")
+
+    -- 6. 汇总并报告重复应用冲突
+    local dup_count = 0
+    for _ in pairs(duplicate_info) do dup_count = dup_count + 1 end
+    if dup_count > 0 then
+        log.warn("exapp_init", "duplicate apps detected:", dup_count)
+        for app_name, entries in pairs(duplicate_info) do
+            local storages = {}
+            for _, e in ipairs(entries) do
+                local label = STORAGE_DEFS[e.storage_type] and STORAGE_DEFS[e.storage_type].label or e.storage_type
+                storages[#storages + 1] = label
+            end
+            log.warn("exapp_init", "duplicate:", app_name, "storages:", table.concat(storages, ", "))
+        end
+    end
+
     sys.publish("APP_STORE_INSTALLED_UPDATED", installed_info)
 
     -- 5. 启动 IOT 自动登录
@@ -4215,6 +4392,7 @@ function exapp.uninstall_remote_app(aid, category, sort)
         end
 
         installed_info[aid] = nil
+        duplicate_info[aid] = nil
         installed_cnt = installed_cnt - 1
         installed_total_count = installed_cnt
         sys.publish("APP_STORE_INSTALLED_UPDATED", installed_info)
@@ -4343,6 +4521,7 @@ function exapp.update_remote_app(aid, url, app_name, category, sort)
 
     -- 安装新版本到目标位置
     installed_info[aid] = nil
+    duplicate_info[aid] = nil
     installed_cnt = installed_cnt - 1
     exapp.install_remote_app(aid, url, app_name, category, sort, target_root)
 end

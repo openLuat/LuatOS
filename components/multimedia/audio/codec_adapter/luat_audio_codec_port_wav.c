@@ -54,6 +54,24 @@ int luat_audio_wav_get_play_info(struct luat_audio_data_codec *codec, luat_buffe
     }
     return -LUAT_ERROR_PARAM_INVALID;
 }
+void luat_audio_codec_wav_set_record_info(struct luat_audio_data_codec *codec, luat_audio_common_param_t *info)
+{
+    if (!info->sample_rate) {
+        info->sample_rate = 8000;
+    }
+    if (!info->channel_nums) {
+        info->channel_nums = 1;
+    }
+    if (!info->data_align) {
+        info->data_align = 2;
+    }
+    info->is_signed = 1;
+    codec->common_param.sample_rate = info->sample_rate;
+    codec->common_param.channel_nums = info->channel_nums;
+    codec->common_param.data_align = info->data_align;
+    codec->common_param.one_frame_sample_cnt = info->sample_rate / 100;
+    codec->common_param.one_frame_bytes = codec->common_param.one_frame_sample_cnt * info->data_align * info->channel_nums;
+}
 
 static int _wav_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
     return LUAT_ERROR_NONE;
@@ -117,6 +135,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_wav_opts = {
     .init = _wav_codec_init,
     .deinit = _wav_codec_deinit,
     .get_play_info = luat_audio_wav_get_play_info,
+    .set_record_info = luat_audio_codec_wav_set_record_info,
     .pre_decode = NULL,
     .decode = _wav_codec_decode,
     .make_head = _wav_codec_make_head,

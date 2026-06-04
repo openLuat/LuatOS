@@ -116,6 +116,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts = {
     .init = _mp3_codec_init,
     .deinit = _mp3_codec_deinit,
     .get_play_info = luat_audio_mp3_get_play_info,
+    .set_record_info = NULL,
     .pre_decode = NULL,
     .decode = _mp3_codec_decode,
     .make_head = NULL,

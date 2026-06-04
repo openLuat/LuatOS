@@ -124,12 +124,11 @@ static int l_audio_play(lua_State *L) {
     uint8_t is_error_stop = 1;
     uint8_t priority = luaL_optinteger(L, 3, 0);
     luat_audio_driver_probe_t driver_probe = {0};
-    uint8_t codec_id = LUAT_AUDIO_DATA_CODEC_TYPE_MAX;
+    uint8_t codec_id = luaL_optinteger(L, 5, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
     if (lua_isboolean(L, 2)) {
         is_error_stop = lua_toboolean(L, 2);
     }
     driver_probe.probe_id = luaL_optinteger(L, 4, 0);
-    codec_id = luaL_optinteger(L, 5, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
     size_t file_nums = 0;
     size_t path_len = 0;
     luat_audio_play_file_info_t *info = NULL;
@@ -169,7 +168,7 @@ static int l_audio_play(lua_State *L) {
     luat_llist_add_tail(&l_req->node, &_l_audio.request_busy_list);
     result = luat_audio_request_play_files(&l_req->request, 
         (driver_probe.probe_id ? &driver_probe : NULL), 
-    luat_audio_data_codec_find(codec_id), 
+        (codec_id < LUAT_AUDIO_DATA_CODEC_TYPE_MAX) ? luat_audio_data_codec_find(codec_id) : NULL,
         info, file_nums, priority,0, _l_audio_request_callback, l_req);
     luat_heap_free(info);
     if (result) {
@@ -196,6 +195,7 @@ DONE:
 @int 优先级，0~255，值越大，优先级越高，默认0
 @int 驱动id，在不使用默认驱动时填写，绝大部分情况下都不需要填写。驱动id需要通过audio.make_probe_id合成
 @return boolean 成功返回true,否则返回false
+@return int request_index 请求索引，用于后续操作，如暂停、恢复，回调信息判断等
 @usage
 audio_v2.stream(audio_v2.DATA_CODEC_TYPE_RAW, 16000, 16, 2, true, 0, nil) --播放16000Hz, 16bit, 2ch, 有符号的PCM数据流
 */
@@ -323,10 +323,64 @@ DONE:
 }
 
 /*
-录音，待实现
+录音请求，包括2种模式，1. 保存到文件，2. 保存到buffer并回调给用户
+@api audio_v2.record(save_path, timeout, sample_rate, data_bits, channel_nums, priority, codec_id, driver_probe_id)
+@string/zbuff 保存路径，string为保存成文件，zbuff为保存到buffer并回调给用户
+@timeout 如果是保存文件，则为整体录音时间，单位秒，时间到后自动停止录音。如果是保存到buffer，则为每次回调的帧数，每一帧时间由编码器决定
+@int 希望的采样率，如果指定了codec_id，则可以留空，由编码器自己决定
+@int 希望的数据位数，8,16,24,32，如果指定了codec_id，则可以留空，由编码器自己决定
+@int 希望的通道数，1,2，如果指定了codec_id，则可以留空，由编码器自己决定
+@int 优先级，0~255，值越大，优先级越高，默认0
+@int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空，则直接返回原始PCM数据。如果不留空，会检查sample_rate和data_bits是否符合解码器的要求
+@int 驱动id，在不使用默认驱动时填写，绝大部分情况下都不需要填写。驱动id需要通过audio.make_probe_id合成
+@return boolean 成功返回true,否则返回false
+@return int request_index 请求索引，用于后续操作，如暂停、恢复，回调信息判断等
 */
 static int l_audio_record(lua_State *L) {
-    return 0;
+    int result = -1;
+    uint8_t request_index = 0;
+    uint8_t priority = luaL_optinteger(L, 6, 0);
+    luat_audio_driver_probe_t driver_probe = {0};
+    luat_audio_common_param_t common_param = {0};
+    driver_probe.probe_id = luaL_optinteger(L, 8, 0);
+    uint8_t codec_id = luaL_optinteger(L, 7, 0);
+    if (codec_id >= LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
+        goto DONE;
+    }
+    const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(codec_id);
+    if (!codec_opts) {
+        LLOGE("codec %d not found", codec_id);
+        goto DONE;
+    }
+    common_param.sample_rate = luaL_optinteger(L, 3, 0);
+    uint8_t data_bits = luaL_optinteger(L, 4, 16);
+    common_param.channel_nums = luaL_optinteger(L, 5, 1);
+    common_param.data_align = data_bits / 8;
+    common_param.is_signed = 1;
+
+
+
+    if (luat_llist_empty(&_l_audio.request_free_list)) {
+        LLOGE("audio request free list is empty");
+        goto DONE;
+    }
+    l_audio_request_t *l_req = (l_audio_request_t *)_l_audio.request_free_list.next;
+    request_index = l_req->self_index;
+    luat_llist_del(&l_req->node);
+    luat_llist_add_tail(&l_req->node, &_l_audio.request_busy_list);
+
+    if (lua_isstring(L, 1)) {
+        size_t len = 0;
+        const char *path = luaL_checklstring(L, 1, &len);
+        luat_fs_remove(path);
+    } else if (lua_isuserdata(L, 1)) {
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
+
+    }
+DONE:
+    lua_pushboolean(L, !result);
+    lua_pushinteger(L, request_index);
+    return 2;
 }
 
 /*

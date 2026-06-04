@@ -26,7 +26,8 @@
  * 包含音频文件的基本播放参数信息。
  */
 typedef struct {
-    uint32_t frame_size;        /**< 帧大小 (bytes)，文件没有到尾部前，至少需要frame_size数量的数据才可以开始解码 */
+    uint32_t one_frame_sample_cnt;        /**< 一帧样本数 (个) */
+    uint32_t one_frame_bytes;        /**< 一帧字节数 (个) */
     uint32_t sample_rate;       /**< 采样率 (Hz) */
     uint8_t channel_nums;           /**< 声道数 (1=mono, 2=stereo) */
     uint8_t data_align;         /**< 数据对齐方式 */
@@ -89,7 +90,12 @@ typedef struct luat_audio_data_codec_opts {
      * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
      */
     int (*get_play_info)(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);
-
+    /**
+     * @brief 设置录音信息
+     * @param codec 编解码器上下文指针
+     * @param info 音频信息结构指针，如果参数不合法，会修正成默认值
+     */
+    void (*set_record_info)(struct luat_audio_data_codec *codec, luat_audio_common_param_t *info);
     /**
      * @brief 预解码音频数据，获取解码后的帧大小（字节），只有decode_min_input_len为0时才需要调用此函数，说明数据帧长度是需要解析出来的，目前只有amr需要
      * @param codec 编解码器上下文指针
@@ -278,6 +284,10 @@ int luat_audio_amr_nb_get_play_info(struct luat_audio_data_codec *codec, luat_bu
 int luat_audio_amr_wb_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);
 int luat_audio_mp3_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);
 int luat_audio_wav_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info);
+
+void luat_audio_codec_amr_nb_set_record_info(struct luat_audio_data_codec *codec, luat_audio_common_param_t *info);
+void luat_audio_codec_amr_wb_set_record_info(struct luat_audio_data_codec *codec, luat_audio_common_param_t *info);
+void luat_audio_codec_wav_set_record_info(struct luat_audio_data_codec *codec, luat_audio_common_param_t *info);
 
 int luat_audio_codec_amr_wb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer);
 int luat_audio_codec_amr_nb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer);

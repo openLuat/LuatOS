@@ -38,6 +38,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_raw_opts = {
     .init = _raw_codec_init,
     .deinit = _raw_codec_deinit,
     .get_play_info = NULL,
+    .set_record_info = luat_audio_codec_wav_set_record_info,
     .pre_decode = NULL,
     .decode = _raw_codec_decode,
     .make_head = NULL,

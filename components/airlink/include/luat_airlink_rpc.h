@@ -17,7 +17,8 @@
 // 原始字节 RPC (raw bytes handler) — 仅供内部 / 客户端 call 使用
 // =====================================================================
 
-// 同步调用对端 RPC (raw bytes), 返回 0=成功, -1=超时, -2=内存不足, -3=发送失败
+// 同步调用对端 RPC (raw bytes)
+// 返回 0=成功, -1=超时, -2=内存不足, -3=发送失败, -6=响应超出缓冲区, -7=result注册表满
 // 必须在独立任务上下文调用, 不能在 airlink task 或 IRQ 中调用
 int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
                      const uint8_t* req, uint16_t req_len,
@@ -66,7 +67,8 @@ typedef struct luat_airlink_rpc_nb_reg {
 // 如需添加新 handler，请在 luat_airlink_rpc_nb_table.c 中添加静态条目
 
 // 同步调用对端 nanopb RPC (编码 req → raw call → 解码 resp)
-// 返回 0=成功, -1=超时, -2=内存不足, -3=发送失败, -4=编解码失败
+// 返回 0=成功, -1=超时, -2=内存不足, -3=发送失败
+//      -4=编解码失败, -5=请求超 AIRLINK_RPC_MAX_PAYLOAD, -6=响应超出缓冲区, -7=result注册表满
 int luat_airlink_rpc_nb_call(uint8_t mode, uint16_t rpc_id,
                               const pb_msgdesc_t* req_desc, const void* req,
                               const pb_msgdesc_t* resp_desc, void* resp,
@@ -88,6 +90,7 @@ typedef struct {
     uint64_t call_send_fail;   // 发送失败
     uint64_t call_encode_fail; // 编码失败
     uint64_t call_decode_fail; // 解码失败
+    uint64_t call_buf_overflow;// 响应缓冲区不足
     uint64_t notify_total;     // notify 总数
     uint64_t notify_success;   // notify 成功数
     uint64_t notify_encode_fail;

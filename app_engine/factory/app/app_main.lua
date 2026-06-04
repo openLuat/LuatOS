@@ -64,3 +64,6 @@ require "fota_app"
 if _G.project_config and _G.project_config.features and _G.project_config.features.nes then
     require "nes_key_app"
 end
+
+-- 文件管理模块（浏览各挂载点 /app_store 目录，支持展开/折叠、新建/删除）
+require "file_manager_app"

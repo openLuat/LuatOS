@@ -20,6 +20,10 @@
 #define LUAT_RT_CB_PARAM void *param
 #endif
 
+#ifndef __LUAT_C_CODE_IN_ISR__
+#define __LUAT_C_CODE_IN_ISR__
+#endif
+
 static __LUAT_C_CODE_IN_ISR__ LUAT_RT_RET_TYPE _audio_pa_power_on_delay_timer(LUAT_RT_CB_PARAM)
 {
 	struct luat_audio_driver_ctrl *ctrl = (struct luat_audio_driver_ctrl *)param;
@@ -156,7 +160,7 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
         ctrl->state = LUAT_AUDIO_DRIVER_STATE_ACTIVE;
         ctrl->current_play_cnt = 0;
     }
-    LLOGC(luat_audio_debug_flag, "start check commom param old %u,%u,%u,%d, new %u,%u,%u,%d", 
+    LLOGC(luat_audio_debug_flag, "start check commom param old %u-%u-%u, mode %d, new %u-%u-%u, mode %d", 
         ctrl->common_param.sample_rate, ctrl->common_param.data_align, ctrl->common_param.channel_nums, ctrl->common_param.driver_work_mode,
         common_param->sample_rate, common_param->data_align, common_param->channel_nums, common_param->driver_work_mode);
 

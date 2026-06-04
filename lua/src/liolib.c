@@ -992,7 +992,10 @@ static int io_writeFile (lua_State *L) {
   if(f == NULL)
     return 0;
   fwrite(data, 1 , len, f);
-  fclose(f);
+  if (fclose(f) != 0) {
+    lua_pushboolean(L,0);
+    return 1;
+  }
   lua_pushboolean(L,1);
   return 1;
 }

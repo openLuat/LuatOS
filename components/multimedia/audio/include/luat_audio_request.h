@@ -80,7 +80,8 @@ struct luat_audio_request_block {
     luat_fifo_t *org_input_data_fifo;            /**< 原始数据输入缓冲区 */
     luat_buffer_t out_buffer;                /**< 输出数据缓冲区 */
     luat_audio_dsp_t *dsp;                  /**< 关联的DSP处理实例 */
-    luat_audio_data_codec_t codec;          /**< 关联的编解码器实例 */
+    luat_audio_data_codec_t play_codec;          /**< 关联的播放编解码器实例 */
+    luat_audio_data_codec_t record_codec;          /**< 关联的录音编解码器实例 */
     luat_audio_channel_t *data_channel;      /**< 关联的音频通道 */
     uint8_t driver_work_mode;                /**< 驱动工作模式，见LUAT_AUDIO_DRIVER_MODE_xxx */
     uint8_t priority;                        /**< 请求优先级 (0-255)，数值越大优先级越高 */

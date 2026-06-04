@@ -24,6 +24,7 @@ local status_cache = { time = "08:00", date = "1970-01-01", weekday = "星期四
 local builtin_apps = {
     { name = "设置", win = "SETTINGS", icon = "/luadb/settings.png" },
     { name = "应用市场", win = "APP_STORE", icon = "/luadb/app_store_icon.png" },
+    { name = "文件管理", win = "FILE_MANAGER", icon = "/luadb/file_manager.png" },
     { name = "网络测速", win = "SPEEDTEST", icon = "/luadb/internet_speed.png" },
 }
 
@@ -379,6 +380,128 @@ local function load_external_apps()
     rebuild_app_pages()
 end
 
+-- 存储类型的中文标签映射
+local STORAGE_LABELS = {
+    internal = "内置文件系统",
+    sd_tf = "SD/TF卡",
+    little_flash = "外挂Flash",
+    nand_flash = "外挂Flash",
+}
+
+-- 检查并弹窗处理重复应用冲突
+local function check_duplicates()
+    local dup, dup_count = exapp.list_duplicates()
+    if dup_count == 0 then return end
+
+    -- 构建弹窗文本
+    local lines = {}
+    local idx = 0
+    local app_list = {}
+    for app_name, entries in pairs(dup) do
+        idx = idx + 1
+        app_list[idx] = { app_name = app_name, entries = entries }
+        local cn = entries[1].cn_name or app_name
+        table.insert(lines, cn .. " 在多处存储存在：")
+        for _, entry in ipairs(entries) do
+            local label = STORAGE_LABELS[entry.storage_type] or entry.storage_type
+            table.insert(lines, "  - " .. label .. ": " .. entry.path)
+        end
+        table.insert(lines, "")
+    end
+
+    local dup_text = table.concat(lines, "\n")
+    log.warn("idle_win", "duplicate apps detected:", dup_count, "\n", dup_text)
+
+    -- 逐个弹窗处理冲突（串行：处理完一个再处理下一个）
+    local current_index = 0
+    local function process_next()
+        current_index = current_index + 1
+        if current_index > #app_list then
+            -- 全部处理完毕，刷新外部应用列表
+            load_external_apps()
+            return
+        end
+
+        local item = app_list[current_index]
+        local app_name = item.app_name
+        local entries = item.entries
+        local cn_name = entries[1].cn_name or app_name
+
+        -- 格式化大小显示
+        local function format_size(kb)
+            if not kb or kb == 0 then return "未知" end
+            if kb >= 1024 then
+                return string.format("%.1f MB", kb / 1024)
+            end
+            return math.floor(kb) .. " KB"
+        end
+
+        -- 构建文本：每个存储一行，显示大小
+        local text_lines = {}
+        for _, entry in ipairs(entries) do
+            local label = STORAGE_LABELS[entry.storage_type] or entry.storage_type
+            local size_str = format_size(entry.origin_size_kb)
+            text_lines[#text_lines + 1] = label .. "：" .. size_str
+        end
+        text_lines[#text_lines + 1] = ""
+        text_lines[#text_lines + 1] = "未保留的副本将被自动删除。"
+
+        local prompt_text = "应用：" .. cn_name .. "\n\n"
+            .. table.concat(text_lines, "\n")
+
+        -- 构建按钮：每个存储位置一个选项
+        local buttons = {}
+        for _, entry in ipairs(entries) do
+            local label = STORAGE_LABELS[entry.storage_type] or entry.storage_type
+            buttons[#buttons + 1] = "保留" .. label
+        end
+
+        local msg_box = airui.msgbox({
+            w = math.min(math.floor(screen_w * 0.85), 480),
+            h = math.floor(screen_h * 0.40),
+            style = { text_font_size = math.floor(14 * _G.density_scale) },
+            title = "重复应用",
+            text = prompt_text,
+            buttons = buttons,
+            on_action = function(self, btn_label)
+                self:destroy()
+
+                -- 解析按钮文字，提取存储类型
+                for _, entry in ipairs(entries) do
+                    local label = STORAGE_LABELS[entry.storage_type] or entry.storage_type
+                    if btn_label == "保留" .. label then
+                        local ok, err = exapp.resolve_duplicate(app_name, entry.storage_type)
+                        if not ok then
+                            log.warn("idle_win", "resolve_duplicate failed:", app_name, err)
+                            -- 失败时弹出提示，继续处理下一个
+                            local err_box = airui.msgbox({
+                                w = math.min(360, screen_w - 40),
+                                h = math.floor(screen_h * 0.20),
+                                style = { text_font_size = math.floor(14 * _G.density_scale) },
+                                title = "操作失败",
+                                text = (err or "未知错误"),
+                                buttons = { "确定" },
+                                on_action = function(self2, _) self2:destroy(); process_next() end
+                            })
+                            err_box:show()
+                            return
+                        end
+                        log.info("idle_win", "resolved duplicate:", app_name, "kept:", entry.storage_type)
+                        process_next()
+                        return
+                    end
+                end
+                -- 按钮未匹配（兜底），继续下一个
+                process_next()
+            end
+        })
+        msg_box:show()
+    end
+
+    -- 启动串行处理
+    process_next()
+end
+
 local function on_installed_updated()
     app_cache_dirty = true
     if not app_rebuild_pending then
@@ -644,6 +767,9 @@ local function on_create()
     update_time_date(status_cache.time, status_cache.date, status_cache.weekday)
     update_wifi_icon(status_cache.wifi_level)
     update_mobile_icon(status_cache.mobile_level)
+
+    -- 检查重复应用冲突（首次进入 idle_win 时弹窗强制用户选择）
+    check_duplicates()
 
     timer_handler = sys.timerLoopStart(function()
         update_time_date(status_cache.time, status_cache.date, status_cache.weekday)

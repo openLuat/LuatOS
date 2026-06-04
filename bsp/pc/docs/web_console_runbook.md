@@ -113,3 +113,4 @@ cd bsp\pc
 - **脚本测试命令**：
   - PC 模拟器 Lua 测试：`build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\<suite>\scripts\`
   - Web Console 回归：优先跑 `tests\ps1\test_webc_*.ps1`
+  - C 层 utest 覆盖率：`cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_dtls_basic`（其余网络 suite 用 `-SkipBuild` 串行跑）

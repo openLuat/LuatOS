@@ -72,7 +72,7 @@ static int l_ndk_gc(lua_State *L) {
 创建并加载一个RV32镜像
 @api ndk.rv32i(path, mem_size, exchange_size, opts)
 @string path 镜像路径
-@int mem_size 可选，沙盒RAM大小，默认 LUAT_NDK_DEFAULT_RAM_SIZE，最大 LUAT_NDK_MAX_RAM_SIZE
+@int mem_size 可选，沙盒RAM大小，默认 8 KiB，最大 512 KiB（LUAT_NDK_MAX_RAM_SIZE）
 @int exchange_size 可选，交换区大小，默认 LUAT_NDK_DEFAULT_EXCHANGE_SIZE，必须小于 mem_size
 @table opts 可选，目前支持 {isa="rv32ima"|"rv32imf"}
 @return userdata ctx 成功返回上下文，失败返回 nil,err
@@ -212,7 +212,7 @@ static int l_ndk_get_data(lua_State *L) {
 同步执行镜像指令
 @api ndk.exec(ctx, opts, elapsed_us)
 @userdata ctx ndk.rv32i 返回的上下文
-@int|table opts 步数或表 {steps=步数, elapsed=每步时间us}，步数为0使用默认预算
+@int|table opts 步数或表 {steps=步数, elapsed=每步时间us}，steps=0 表示不限步数（运行到 SYSCON 退出、ecall、trap 或 ndk.stop）
 @int elapsed_us 可选，opts为数字时的步时间us
 @return boolean,int 成功返回 true,retval；失败返回 false,err,mcause,mtval。运行中调用会返回 busy
 */
@@ -266,7 +266,7 @@ static int l_ndk_reset(lua_State *L) {
 在独立线程异步执行镜像
 @api ndk.thread(ctx, opts, elapsed_us)
 @userdata ctx ndk.rv32i 返回的上下文
-@int|table opts 步数或表 {steps=步数, elapsed=每步时间us}
+@int|table opts 步数或表 {steps=步数, elapsed=每步时间us}，steps=0 表示不限步数
 @int elapsed_us 可选，opts为数字时的步时间us
 @return int 线程ID（递增），失败返回 nil,err。运行中/停止中调用会返回 busy
 */
@@ -360,6 +360,15 @@ static int l_ndk_info(lua_State *L) {
     return 1;
 }
 
+#ifdef LUAT_USE_UTEST
+extern int luat_ndk_utest(lua_State *L, const char *case_name);
+static int l_ndk_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "lifecycle_basic");
+    lua_pushboolean(L, luat_ndk_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 static const luaL_Reg ndk_meta[] = {
     {"__gc", l_ndk_gc},
     {NULL, NULL}
@@ -374,6 +383,9 @@ static const rotable_Reg_t reg_ndk[] = {
     {"thread", ROREG_FUNC(l_ndk_thread)},
     {"stop", ROREG_FUNC(l_ndk_stop)},
     {"info", ROREG_FUNC(l_ndk_info)},
+#ifdef LUAT_USE_UTEST
+    {"utest", ROREG_FUNC(l_ndk_utest)},
+#endif
     {NULL, ROREG_INT(0)}
 };
 

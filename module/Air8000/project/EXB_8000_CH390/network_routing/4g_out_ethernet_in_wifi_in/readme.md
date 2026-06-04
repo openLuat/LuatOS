@@ -13,6 +13,7 @@
 ## 演示硬件环境
 
 ![](https://docs.openluat.com/air8000/luatos/app/image/8000双网口.jpg)
+
 1、EXB_8000W_CH390 开发板一块+可上网的sim卡一张+网线一根：
 
 - sim卡插入开发板的sim卡槽

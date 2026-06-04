@@ -257,9 +257,11 @@ static void luat_mreport_adc(cJSON* mreport_data) {
 static void luat_mreport_wifi(cJSON* mreport_data) {
 #ifdef LUAT_USE_DRV_WLAN
     // wifi版本 格式为字符串，V22
-    uint8_t wifi_version[4] = {0};
+    char wifi_version[8] = {0};
     if (g_airlink_ext_dev_info.tp == 0x01) {
-        sprintf_(wifi_version, "V%d%d", g_airlink_ext_dev_info.wifi.version);
+        uint32_t version = 0;
+        memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
+        sprintf_(wifi_version, "V%u", (unsigned int)version);
     }
     cJSON_AddStringToObject(mreport_data, "wifi_ver", wifi_version);
 

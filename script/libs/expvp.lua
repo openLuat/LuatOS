@@ -342,6 +342,15 @@ function expvp.create_room()
     room_state.players = {}
     room_state.my_ready = false
     
+    -- 把房主自己加入玩家列表
+    room_state.players[state.device_id] = {
+        device_id = state.device_id,
+        nickname = state.nickname,
+        model = state.device_model,
+        ready = false,
+        is_host = true,
+    }
+    
     -- 订阅房间相关topic
     if state.mqtt_client then
         state.mqtt_client:subscribe(make_room_topic(room_id, "#"), config.mqtt_qos)
@@ -705,9 +714,22 @@ local function handle_room_message(topic, data)
             return
         end
         room_state.players = data.players or {}
-        room_state.players[data.host_id] = {
-            device_id = data.host_id,
-            is_host = true,
+        -- 保留房主的完整信息（nickname、model等），只添加 is_host 标记
+        if room_state.players[data.host_id] then
+            room_state.players[data.host_id].is_host = true
+        else
+            room_state.players[data.host_id] = {
+                device_id = data.host_id,
+                is_host = true,
+            }
+        end
+        -- 把加入者自己加入玩家列表
+        room_state.players[state.device_id] = {
+            device_id = state.device_id,
+            nickname = state.nickname,
+            model = state.device_model,
+            ready = false,
+            is_host = false,
         }
     end
     

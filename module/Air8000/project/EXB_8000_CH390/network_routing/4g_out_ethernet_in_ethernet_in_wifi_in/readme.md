@@ -14,7 +14,7 @@
 
 ![](https://docs.openluat.com/air8000/luatos/app/image/双网口modbus_tcp.jpg)
 
-1、EXB_8000W_CH390 开发板一块+可上网的sim卡一张+网线一根：
+1、EXB_8000W_CH390 工控板一块+可上网的sim卡一张+网线一根：
 
 - sim卡插入开发板的sim卡槽
 - 2根网线一端插入开发板网口，另外一端连接其他需要联网的以太网设备
@@ -27,7 +27,7 @@
 
 1、Luatools下载调试工具
 
-2、[Air8000 V2011版本固件](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
+2、[Air8000 V2036-1版本固件](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
 
 
 ## 演示核心步骤
@@ -47,4 +47,4 @@ password = "AP热点密码"
 [INFO] http执行结果 200 ... 
 ```
 
-6、其他设备通过wifi或以太网接入Air8000，其他设备都能正常上网，则表示验证成功。
+6、其他设备通过wifi或以太网接入EXB_8000W_CH390 工控板，其他设备都能正常上网，则表示验证成功。

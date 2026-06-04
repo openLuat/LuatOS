@@ -41,7 +41,7 @@ struct luat_audio_channel {
     // uint8_t record_state;                      /**< 当前录音状态（0=停止, 1=录音, 2=转发） */
     uint8_t error_record_overflow;             /**< 录音溢出错误标志位 */
     uint8_t data_align;                        /**< 数据对齐方式（2=16位, 3=24位, 4=32位, 其他8位） */
-    uint8_t record_jump_cnt;
+    //uint8_t record_jump_cnt;
     uint8_t user_play_stop:1;
     uint8_t user_record_stop:1;
 };

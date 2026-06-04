@@ -120,9 +120,8 @@
 // #define LUAT_USE_SENSOR  1
 #define LUAT_USE_SFUD  1
 #define LUAT_USE_LITTLE_FLASH 1
-#define LUAT_USE_LFS2_NAND_COMPONENT 1
 #define LUAT_USE_PGFS_COMPONENT 1
-#define LUAT_USE_LFSV3_COMPONENT 1
+#define LUAT_USE_NFS_COMPONENT  1
 // #define LUAT_USE_STATEM 1
 // 性能测试
 #define LUAT_USE_COREMARK 1
@@ -200,6 +199,8 @@
 #define NES_FRAME_SKIP      0
 #define NES_COLOR_DEPTH     16
 #define NES_COLOR_SWAP      0
+
+#define LUAT_USE_GBC        1
 
 //--------------------------------------------------
 // mGBA GBA模拟器

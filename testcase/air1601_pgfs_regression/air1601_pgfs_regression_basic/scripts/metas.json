@@ -1,0 +1,6 @@
+{
+  "name": "air1601_pgfs_regression_basic",
+  "summary": "Air1601 真机 pgfs 回归 (FTL 迁移验证)",
+  "platform": ["air1601"],
+  "timeout": 60
+}

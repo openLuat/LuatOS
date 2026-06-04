@@ -41,25 +41,25 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
             if (tlen > 0 && tlen + 4 + i + 4 <= len)
             {
                 // 计算crc16
-                // crc16_data = luat_crc16(buff + i + 4 + 4, tlen + 8, 0xFFFF, 0x1021, 0);
                 crc16_data = luat_crc16_modbus(&buff[i + 4 + 4], tlen + 8);
                 if (crc16_data == crc16)
                 {
-                    // 如果支持RPC, 那就把对应的flags设置一下
-                    #ifdef LUAT_USE_AIRLINK_RPC
+                    // 更新对端 flags, 用于能力协商
                     luat_airlink_peer_flags_update(&link->flags);
-                    #endif
                     return link;
                 }
                 else
                 {
-                    LLOGD("crc16校验失败 %d %d", crc16_data, crc16);
-                    return NULL;
+                    LLOGW("crc16校验失败 %d %d", crc16_data, crc16);
+                    // 继续扫描 buffer 中后续 magic，不因单帧 CRC 失败而丢弃后续有效帧
+                    i += 3; // 跳过当前 magic 的 4 字节 (循环末尾 i++ 会再+1)
+                    continue;
                 }
             }
             else
             {
-                LLOGD("数据长度错误 %d %d", tlen, len);
+                LLOGW("数据长度错误 tlen=%u total=%u buf_remain=%u offset=%u buf_len=%u",
+                      tlen, (unsigned)(tlen + 16), (unsigned)(len - i), (unsigned)i, (unsigned)len);
                 return NULL;
             }
         }
@@ -88,6 +88,8 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, u
     if (luat_airlink_mode_link_data_cb_get() != NULL) {
         data->flags.rpc_supported = 1;
     }
+    // 分片传输能力标记
+    data->flags.frag_supported = 1;
 
 
     memcpy(data->data, buff, len);

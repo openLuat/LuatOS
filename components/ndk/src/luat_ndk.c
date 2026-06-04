@@ -930,6 +930,44 @@ static int ndk_exec_inner(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapse
     ndk->last_mtval = ndk->core->mtval;
 
     if (ndk->trap_pending || ndk->last_mcause) {
+        /* Dump the full guest register file (x0..x31) + mcause + mtval
+         * + mepc + mstatus + mtvec. Format mirrors a real RISC-V
+         * crash dump so you can `llvm-objdump -d guest.elf` and
+         * read the same `xNN` ABI names. Two rows of 8 to keep
+         * within log line width. */
+        const uint32_t *r = ndk->core->regs;
+        LLOGE("ndk TRAP mcause=%lu mtval=0x%08lX mepc=0x%08lX",
+              (unsigned long)ndk->last_mcause,
+              (unsigned long)ndk->last_mtval,
+              (unsigned long)ndk->core->mepc);
+        LLOGE("ndk TRAP  mstatus=0x%08lX mtvec=0x%08lX extraflags=0x%08lX",
+              (unsigned long)ndk->core->mstatus,
+              (unsigned long)ndk->core->mtvec,
+              (unsigned long)ndk->core->extraflags);
+        LLOGE("ndk TRAP  x0(z)=0x%08lX  x1(ra)=0x%08lX  x2(sp)=0x%08lX  x3(gp)=0x%08lX",
+              (unsigned long)r[0], (unsigned long)r[1],
+              (unsigned long)r[2], (unsigned long)r[3]);
+        LLOGE("ndk TRAP  x4(tp)=0x%08lX  x5(t0)=0x%08lX  x6(t1)=0x%08lX  x7(t2)=0x%08lX",
+              (unsigned long)r[4], (unsigned long)r[5],
+              (unsigned long)r[6], (unsigned long)r[7]);
+        LLOGE("ndk TRAP  x8(s0)=0x%08lX  x9(s1)=0x%08lX x10(a0)=0x%08lX x11(a1)=0x%08lX",
+              (unsigned long)r[8], (unsigned long)r[9],
+              (unsigned long)r[10], (unsigned long)r[11]);
+        LLOGE("ndk TRAP x12(a2)=0x%08lX x13(a3)=0x%08lX x14(a4)=0x%08lX x15(a5)=0x%08lX",
+              (unsigned long)r[12], (unsigned long)r[13],
+              (unsigned long)r[14], (unsigned long)r[15]);
+        LLOGE("ndk TRAP x16(a6)=0x%08lX x17(a7)=0x%08lX x18(s2)=0x%08lX x19(s3)=0x%08lX",
+              (unsigned long)r[16], (unsigned long)r[17],
+              (unsigned long)r[18], (unsigned long)r[19]);
+        LLOGE("ndk TRAP x20(s4)=0x%08lX x21(s5)=0x%08lX x22(s6)=0x%08lX x23(s7)=0x%08lX",
+              (unsigned long)r[20], (unsigned long)r[21],
+              (unsigned long)r[22], (unsigned long)r[23]);
+        LLOGE("ndk TRAP x24(s8)=0x%08lX x25(s9)=0x%08lX x26(s10)=0x%08lX x27(s11)=0x%08lX",
+              (unsigned long)r[24], (unsigned long)r[25],
+              (unsigned long)r[26], (unsigned long)r[27]);
+        LLOGE("ndk TRAP x28(t3)=0x%08lX x29(t4)=0x%08lX x30(t5)=0x%08lX x31(t6)=0x%08lX",
+              (unsigned long)r[28], (unsigned long)r[29],
+              (unsigned long)r[30], (unsigned long)r[31]);
         rc = LUAT_NDK_ERR_TRAP;
         if (ndk->last_mcause == 11) {
             rc = LUAT_NDK_OK;

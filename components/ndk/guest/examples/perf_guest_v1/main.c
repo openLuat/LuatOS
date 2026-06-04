@@ -151,15 +151,23 @@ int main(void) {
 
     /* Run the algo. The algo itself does the timing measurement (so the
      * measurement is local to the work and skips any dispatcher overhead
-     * that would be the same for all algos). */
-    uint32_t produced   = 0u;
+     * that would be the same for all algos).
+     *
+     * perf_algo_fn's `out_len` parameter is IN/OUT: the caller passes
+     * the available output capacity IN, and the algo writes back the
+     * number of bytes actually produced. We seed it with `out_cap` so
+     * expansion algos (Base64: 4/3, padding) can bounds-check their
+     * output. After the call, `produced` holds the actual count. */
+    uint32_t produced   = out_cap;
     uint32_t elapsed_lo = 0u;
     uint32_t elapsed_hi = 0u;
     uint32_t status = run_algo(algo_id, (const uint8_t *)in_ptr, input_len,
                                out_ptr, &produced, &elapsed_lo, &elapsed_hi);
 
-    /* Commit the result. If the algo claimed to produce more than
-     * out_cap, truncate and downgrade to BAD_BOUNDS. */
+    /* Defensive: even if the algo reports OK, treat `produced > out_cap`
+     * as BAD_BOUNDS. (Algos that pass the cap check themselves already
+     * downgrade before returning; this is the belt-and-braces for any
+     * future algo that forgets.) */
     if (produced > out_cap) {
         produced = out_cap;
         if (status == PERF_STATUS_OK) status = PERF_STATUS_BAD_BOUNDS;

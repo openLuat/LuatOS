@@ -2,6 +2,15 @@
 
 > 本文是 NDK 文档集的一部分。完整索引见 [`../README.md`](../README.md)。
 
+## 2026-06 — `perf_guest_v1` `_start` 缺 `naked` 修复
+
+- **Bug 修复**：`components/ndk/guest/examples/perf_guest_v1/main.c` 的 `_start` 只标了 `__attribute__((noreturn))`，没标 `naked`，所以编译器仍给它生成函数 prologue（`addi sp, sp, -0x10; sw ra, 0xc(sp)`）——而 host 的 `ndk_reset_core` 把 32 个 GPR 全部 `memset` 为 0，**入口 sp=0**。Prologue 第一步 `addi sp, sp, -0x10` → sp=`0xFFFFFFF0`，第二步 `sw ra, 0xc(sp)` 写到 `0xFFFFFFFC` → `mcause=7` (store access fault) `mtval=0xFFFFFFFC`。**注意**：`mtvec` 被设成 `0x80000000`（即 guest 镜像起点），trap 后 PC 被设回 `mtvec`，所以**同一次 `ndk.exec` 调用里 trap 后又从 `_start` 重新跑，每次重新 trap**，循环直到 step budget 用完。
+- **症状**：`ndk.exec` 返回 `false, "trap", 7, 0xFFFFFFFC`。Log 里**看不到任何 guest 输出**（`vm: M0\n` / `vm: S1\n` 等一行都没有），因为 trap 发生在 `_start` prologue，第一个 `csrr 0x13B` / `ndk_lprint("S1")` 还没到。
+- **触发条件**：guest 的 `_start` 是手写 C 函数（没走 `NDK_GUEST_START` 宏）且没用 `naked` 属性，编译器就会加 prologue。`hello_world` / `exchange_buffer_demo` / `gpio_hostabi_demo` / `crypto_hash_demo` 都用 `NDK_GUEST_START` 宏（`naked` 实现的），所以**全部 4 个官方示例都掩盖了 bug**。`perf_guest_v1` 因为作者刻意避开 `NDK_GUEST_START` 宏（main.c 的注释说 "if any function is defined before main() in the source, the linker puts main() at 0x80000000"），又忘了加 `naked`，trap 必现。
+- **修复**：把 `perf_guest_v1/main.c` 的 `_start` 改成 `__attribute__((naked, noreturn))` + 内联汇编裸 `csrr 0x13B` / `mv sp` / `jalr ra, t0` / `wfi` 循环；`__test_minimal.c` / `__test_dispatch.c` 已经用 `NDK_GUEST_START` 宏不需要改。
+- **诊断建**：`bsp/pc/pclogs/luatos_pc_<ts>.log` 出现 `mcause=7 mtval=0xFFFFFFFC` 且 log 里**没有 guest 任何 `vm:` 输出** → 99% 是 `_start` prologue 路径；修复前 1 次 `ndk.exec` 会反复 trap 直到 budget 用尽。
+- **回归**：`testcase/ndk/ndk_perf_guest` 套件原本 28/31 失败（`test_md5_*` / `test_crc32_*` / `test_fnv1a_*` / `test_heapsort_*` / `test_base64_*`），本次修复**只解掉了 `_start` prologue 这一类 trap**（MD5/CRC32/FNV1A 全过）；剩余 18 个失败是独立 bug：base64 输出超过 `MAX_CHUNK=0x3c0` 触发 `BAD_BOUNDS`、heapsort C / Lua baseline 算法 bug、base64 Lua baseline 对 'f' 输入的 bug——与 `_start` 无关，留作另外 ticket。`bsp/pc/test/116.ndk_examples_smoke` 5 个 case 仍全过；`testcase/ndk/ndk_basic` 42/0、`ndk_hostabi_basic` 39/0 baseline 不变。
+
 ## 2026-06 — `NDK_GUEST_START` 链接寄存器修复
 
 - **Bug 修复**：`NDK_GUEST_START` 宏在 `98d4c79e2` 重构时把 `call main` 改成 `mv t0, %1; jalr zero, t0` 以解决 `static main` 在汇编端不可见的问题，但同时把 `ra` 的写入丢到了 `x0`。宿主 `ndk_reset_core` 把 32 个 GPR 全部 `memset` 为 0，所以 `main` 的 `ret` 跳到地址 0 → 取指违例 (`mcause=1, mtval=0`)。

@@ -157,11 +157,14 @@ tests.test_md5_smoke_vectors = function()
         "md5 baseline drift: fox sentence")
 end
 
+-- MD5 is a fixed-size hash (16 B output) so the input can be the
+-- full MAX_CHUNK=960 without exceeding the exchange buffer.
+-- We use 64/256/512/896 to cover the full range.
 local MD5_PROFILES = {
     { size = 64,  iters = 6000, warmup = 200 },
     { size = 256, iters = 4000, warmup = 120 },
     { size = 512, iters = 2000, warmup = 80  },
-    { size = 1024, iters = 1000, warmup = 40 },
+    { size = 896, iters = 1000, warmup = 40 },
 }
 
 for _, profile in ipairs(MD5_PROFILES) do
@@ -295,10 +298,13 @@ tests.test_heapsort_smoke = function()
 end
 
 local HEAPSORT_PROFILES = {
-    -- n_elems: number of int32 entries; byte size = n_elems * 4
+    -- n_elems: number of int32 entries; byte size = n_elems * 4.
+    -- Capped at n_elems=224 (= 896 B) so the payload fits in
+    -- MAX_CHUNK=960. The original draft used 256 (1024 B) which
+    -- pack_request correctly rejects as "payload too large".
     { n_elems = 16,  iters = 4000, warmup = 120 },  -- 64 B
     { n_elems = 64,  iters = 2000, warmup = 80  },  -- 256 B
-    { n_elems = 256, iters = 500,  warmup = 30  },  -- 1024 B
+    { n_elems = 224, iters = 500,  warmup = 30  },  -- 896 B
 }
 
 -- Build a deterministic but unsorted int32 payload. The sequence

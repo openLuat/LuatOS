@@ -173,6 +173,22 @@ int main(void) {
         if (status == PERF_STATUS_OK) status = PERF_STATUS_BAD_BOUNDS;
     }
 
+    /* Re-derive req from the CSR. The C compiler picked s0 to
+     * hold `req` (the volatile uint32_t*). After the algo call,
+     * s0 is supposed to be callee-preserved — and the algo's
+     * prologue/epilogue does save/restore it — but a couple of
+     * tests (notably base64 with mid-size inputs that trigger
+     * multiple inlined CSR reads inside the encoder loop) saw
+     * s0 come back corrupted to a value loaded from the algo's
+     * output buffer. Re-reading the exchange-base CSR here
+     * guarantees the next store goes to a sane address even if
+     * s0 got clobbered. The underlying root cause is still
+     * under investigation (TBD; likely a host-side compiler
+     * issue using the guest register file as scratch through an
+     * aliasing pointer). */
+    req = (volatile uint32_t *)ndk_exchange_base();
+    out = req + 4;
+
     out[0] = status;
     out[1] = produced;
 

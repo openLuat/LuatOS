@@ -171,7 +171,11 @@ function M.base64_lua(s)
     local out, o = {}, 1
     local n = #s
     local i = 1
-    while i + 3 <= n do
+    -- 1-indexed: bytes 1,2,3 are at positions i, i+1, i+2. We need
+    -- i+2 <= n to know there are at least 3 bytes from position i.
+    -- The original draft used `i + 3 <= n` (0-indexed), which
+    -- silently skipped the 3-byte case for n=3,6,9,…
+    while i + 2 <= n do
         local b1, b2, b3 = s:byte(i), s:byte(i+1), s:byte(i+2)
         local v = (b1 << 16) | (b2 << 8) | b3
         out[o]   = b64_alphabet:sub(((v >> 18) & 0x3F) + 1, ((v >> 18) & 0x3F) + 1)

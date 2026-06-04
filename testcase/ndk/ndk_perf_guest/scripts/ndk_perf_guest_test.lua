@@ -158,13 +158,13 @@ tests.test_md5_smoke_vectors = function()
 end
 
 -- MD5 is a fixed-size hash (16 B output) so the input can be the
--- full MAX_CHUNK=960 without exceeding the exchange buffer.
--- We use 64/256/512/896 to cover the full range.
+-- full MAX_CHUNK=4032 without exceeding the exchange buffer.
+-- We use 64 / 256 / 1024 / 2048 to cover the full range.
 local MD5_PROFILES = {
-    { size = 64,  iters = 6000, warmup = 200 },
-    { size = 256, iters = 4000, warmup = 120 },
-    { size = 512, iters = 2000, warmup = 80  },
-    { size = 896, iters = 1000, warmup = 40 },
+    { size = 64,   iters = 6000, warmup = 200 },
+    { size = 256,  iters = 4000, warmup = 120 },
+    { size = 1024, iters = 2000, warmup = 80  },
+    { size = 2048, iters = 1000, warmup = 40 },
 }
 
 for _, profile in ipairs(MD5_PROFILES) do
@@ -228,18 +228,16 @@ tests.test_base64_smoke_vectors = function()
         "base64 baseline drift: 'foobar'")
 end
 
--- Base64 expands by 4/3 + up to 2 padding bytes. Worst case for
--- input_len=L is 4*ceil(L/3) output bytes. With MAX_CHUNK=960 and
--- PAYLOAD_OFFSET=64 the available payload space is 960 bytes, so
--- the largest safe L is 411 (4*137=548 output + 411 input = 959 ≤ 960).
--- We use 64/192/320/384 so the profiles are clearly under the cap
--- (sizes 512 / 768 — used in the initial commit — fail with BAD_BOUNDS
--- because 512+684=1196 > 960 and 768+1024=1792 > 960).
+-- Base64 expands by 4/3 + up to 2 padding bytes. With MAX_CHUNK=4032
+-- and PAYLOAD_OFFSET=64 the available payload space is 4032 bytes.
+-- Worst case for input L is 4*ceil(L/3) output bytes; L + 4*ceil(L/3)
+-- must fit in MAX_CHUNK. Solving for L: L * 7/3 + 4 < 4032 → L < 1726.
+-- We cap at 1024 to leave plenty of headroom.
 local BASE64_PROFILES = {
-    { size = 64,  iters = 6000, warmup = 200 },
-    { size = 192, iters = 4000, warmup = 120 },
-    { size = 320, iters = 2000, warmup = 80  },
-    { size = 384, iters = 1500, warmup = 60  },
+    { size = 64,   iters = 6000, warmup = 200 },
+    { size = 256,  iters = 4000, warmup = 120 },
+    { size = 512,  iters = 2000, warmup = 80  },
+    { size = 1024, iters = 1000, warmup = 40  },
 }
 
 for _, profile in ipairs(BASE64_PROFILES) do
@@ -299,12 +297,10 @@ end
 
 local HEAPSORT_PROFILES = {
     -- n_elems: number of int32 entries; byte size = n_elems * 4.
-    -- Capped at n_elems=224 (= 896 B) so the payload fits in
-    -- MAX_CHUNK=960. The original draft used 256 (1024 B) which
-    -- pack_request correctly rejects as "payload too large".
-    { n_elems = 16,  iters = 4000, warmup = 120 },  -- 64 B
-    { n_elems = 64,  iters = 2000, warmup = 80  },  -- 256 B
-    { n_elems = 224, iters = 500,  warmup = 30  },  -- 896 B
+    -- Fits comfortably in MAX_CHUNK=4032 with the 4 KiB exchange.
+    { n_elems = 16,  iters = 4000, warmup = 120 },   -- 64 B
+    { n_elems = 64,  iters = 2000, warmup = 80  },   -- 256 B
+    { n_elems = 256, iters = 500,  warmup = 30  },   -- 1024 B
 }
 
 -- Build a deterministic but unsorted int32 payload. The sequence

@@ -38,7 +38,6 @@
 -- 引入音频设备模块
 local audio_drv = require "audio_drv"
 local exaudio = require "exaudio"
-local codec = require "codec"
 
 -- ====================== 配置区域 ======================
 
@@ -319,9 +318,19 @@ local function convert_pcm_to_amr()
     end
     
     -- 创建AMR编码器
-    local amr_coder = codec.create(codec.AMR, record_sample_rate, 4)
+    -- codec.create(type, isDecoder, quality)
+    --   第二个参数: false=编码器, true=解码器(默认)
+    --   第三个参数: 编码等级, AMR-NB 0~7(默认7), AMR-WB 0~8(默认8)
+    local amr_coder
+    if record_sample_rate == 16000 then
+        amr_coder = codec.create(codec.AMR_WB, false, 8)
+        log.info("AMR转码", "创建AMR-WB编码器(16KHz)")
+    else
+        amr_coder = codec.create(codec.AMR, false, 7)
+        log.info("AMR转码", "创建AMR-NB编码器(8KHz)")
+    end
     if not amr_coder then
-        log.error("AMR转码", "创建AMR编码器失败")
+        log.error("AMR转码", "创建AMR编码器失败，可能需要开启LUAT_USE_INTER_AMR编译选项")
         return false
     end
     
@@ -351,12 +360,14 @@ local function convert_pcm_to_amr()
         log.info("AMR转码", "使用AMR-NB格式(8KHz)")
     end
     
-    -- 计算帧大小
-    local frame_samples = record_sample_rate == 16000 and 640 or 320  -- AMR-WB: 640 samples, AMR-NB: 320 samples
-    local frame_bytes = frame_samples * 2  -- 16bit = 2 bytes per sample
+    -- 计算每帧PCM字节数(AMR编码器内部按160samples/frame处理, 支持长输入自行拆帧)
+    -- AMR-NB: 160samples×2bytes=320字节/帧, 20ms
+    -- AMR-WB: 320samples×2bytes=640字节/帧, 20ms
+    local frame_bytes = record_sample_rate == 16000 and 640 or 320
+    local read_chunk = record_sample_rate == 16000 and 6400 or 3200  -- 每次读10帧
     
     -- 创建缓冲区
-    local read_buff = zbuff.create(frame_bytes)
+    local read_buff = zbuff.create(read_chunk)
     local amr_out = zbuff.create(1024)
     
     local total_encoded = 0
@@ -364,8 +375,9 @@ local function convert_pcm_to_amr()
     local pcm_size = io.fileSize(RECORD_FILE_PATH)
     
     -- 读取并编码PCM数据
+    -- AMR编码器内部按帧处理(160samples/帧),传多帧数据也能正确处理
     while true do
-        local data = pcm_file:read(frame_bytes)
+        local data = pcm_file:read(read_chunk)
         if not data or #data < frame_bytes then
             break  -- 文件读取完毕或数据不足一帧
         end
@@ -374,17 +386,19 @@ local function convert_pcm_to_amr()
         read_buff:del()
         read_buff:copy(nil, data)
         
-        -- 使用pcall保护编码操作
+        -- 编码多帧PCM数据
         local ok, result = pcall(function()
             return codec.encode(amr_coder, read_buff, amr_out)
         end)
         
         if ok and result then
             -- 写入编码后的数据
-            amr_file:write(amr_out:query())
-            total_encoded = total_encoded + amr_out:used()
+            if amr_out:used() > 0 then
+                amr_file:write(amr_out:query())
+                total_encoded = total_encoded + amr_out:used()
+            end
         else
-            log.warn("AMR转码", "编码失败，跳过当前帧")
+            log.warn("AMR转码", "编码失败，跳过当前数据块")
         end
     end
     

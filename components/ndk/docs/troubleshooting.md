@@ -117,3 +117,16 @@ cargo install cargo-binutils
 ```
 
 `build.ps1` 会自动检测并安装 `rust-src` 与 `riscv32imac-unknown-none-elf`，但 `cargo install cargo-binutils` 不会自动装（耗时长，会打网络）。如果你不想用 `cargo-binutils`，可以在 PATH 里放一个 `llvm-objcopy` 作为替代。
+
+## Q9: 报 `mcause=1, mtval=0x0` 是什么意思？
+
+**症状**：`ndk.exec` 返回 `false, "trap", 1, 0`，`mtval` 是 0。
+
+**诊断**：`mcause=1` 是 instruction access fault，`mtval=0` 表明 faulting PC 是 0。**这条签名是 `NDK_GUEST_START` 链接寄存器损坏的指纹**——`_start` 用 `JALR x0, t0` 跳到 main 而没写 ra，main 自然 return 时跳到 host 清零的 `ra=0`，取指违例。
+
+**触发条件**：`main` 里有任何让编译器生成真实 `call`/`ret` 边界的代码（调非 inline 函数、给非 leaf helper 调栈等），且 `main` 自然 return（没调 `ndk_exit_ok()`）。所有 4 个官方示例都以 `ndk_exit_ok()` 结尾所以掩盖了 bug。
+
+**解决**：
+- 升级到包含本次修复的 NDK（`jalr ra, t0`）。
+- 临时绕路：在 `main` 末尾调 `ndk_exit_ok()`，让 host 走 SYSCON 0x5555 早退，避开 `ret`。
+- 诊断建：跑修复后的 `nonleaf_call_demo`（`components/ndk/guest/examples/nonleaf_call_demo`）如果能过 → 不是这条 bug；如果还报同样签名 → 看 RAM / `mtvec` 配置。

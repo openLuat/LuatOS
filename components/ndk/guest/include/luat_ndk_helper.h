@@ -83,6 +83,13 @@ static inline void ndk_wfi_loop(void) {
  * ignored. After main() returns, the guest parks in wfi until the host
  * either reloads the image (ndk.reset) or deinits the context.
  *
+ * main() may freely call non-inline helpers — the macro sets ra to the
+ * wfi park loop so main's natural `ret` (or any return from a callee that
+ * unwinds back to main) lands safely. Guests that just want a SYSCON exit
+ * should still call ndk_exit_ok(); guests that return naturally should
+ * configure ndk.exec with a finite step budget (steps > 0) so the host
+ * can detect completion instead of spinning in the wfi loop.
+ *
  * NOTE: `naked` is required so the compiler does not emit a function
  * prologue (sub sp / sw ra). At _start the host's sp is uninitialised
  * (often 0 or 0xFFFFFFFx), so any store to sp+offset would trap with
@@ -97,7 +104,8 @@ static inline void ndk_wfi_loop(void) {
         __asm__ volatile(                                            \
             "mv sp, %0\n"                                            \
             "mv t0, %1\n"                                            \
-            "jalr zero, t0\n"                                         \
+            "jalr ra, t0\n"        /* write ra = PC+4 so main()'s   */\
+                                   /* ret lands in the wfi park loop */\
             "1: wfi\n"                                               \
             "j 1b\n"                                                  \
             :: "r"(ndk_stack_top()), "r"(fn)                         \

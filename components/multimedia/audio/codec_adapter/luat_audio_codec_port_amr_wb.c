@@ -209,12 +209,11 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts = {
     .decode = _amr_codec_decode,
     .make_head = luat_audio_codec_amr_wb_make_head,
     .encode = _amr_codec_encode,
-    .decode_min_input_len = 0,
+    .decode_min_input_len = 1,
     .decode_max_output_len = 640,
     .encode_min_input_len = 640,
     .encode_max_output_len = 61,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_AMR_WB,
-    .is_reentrant = 1,
     .is_hardware = 0,
     .support_detect = 1,
 };

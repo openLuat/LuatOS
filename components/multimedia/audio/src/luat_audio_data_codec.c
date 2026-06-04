@@ -14,7 +14,6 @@
 
 typedef struct {
     const luat_audio_data_codec_opts_t *opts;
-    uint8_t is_busy;
 }luat_audio_data_codec_item_t;
 
 static luat_audio_data_codec_item_t _audio_data_codec_software_items[LUAT_AUDIO_DATA_CODEC_TYPE_MAX];
@@ -26,15 +25,6 @@ int luat_audio_data_codec_bind(luat_audio_data_codec_t *codec, const luat_audio_
         return -LUAT_ERROR_PARAM_INVALID;
     }
     memset(codec, 0, sizeof(luat_audio_data_codec_t));
-    if (!opts->is_reentrant && opts->is_hardware) {
-        if (_audio_data_codec_hardware_items[opts->type].is_busy) {
-            return -LUAT_ERROR_DEVICE_BUSY;
-        }
-        else {
-            _audio_data_codec_hardware_items[opts->type].is_busy = 1;
-            LLOGC(luat_audio_debug_flag, "bind hardware data codec %d, now device is busy", opts->type);
-        }
-    }
     if (codec->input_buffer) {
         luat_heap_free(codec->input_buffer);
         codec->input_buffer = NULL;
@@ -42,12 +32,7 @@ int luat_audio_data_codec_bind(luat_audio_data_codec_t *codec, const luat_audio_
     codec->input_buffer = luat_heap_malloc(opts->decode_max_output_len > opts->encode_min_input_len ? opts->encode_min_input_len : opts->decode_max_output_len);
     if (!codec->input_buffer) {
         LLOGC(luat_audio_debug_flag, "bind audio data codec %d failed, no memory", opts->type);
-        if (!opts->is_reentrant && opts->is_hardware) {
-            if (_audio_data_codec_hardware_items[opts->type].is_busy) {
-                _audio_data_codec_hardware_items[opts->type].is_busy = 0;
-            }
-            return -LUAT_ERROR_NO_MEMORY;
-        }
+        return -LUAT_ERROR_NO_MEMORY;
     }
     codec->opts = opts;
     codec->user_data = user_data;
@@ -74,14 +59,6 @@ void luat_audio_data_codec_unbind(luat_audio_data_codec_t *codec)
         codec->input_buffer = NULL;
     }
     codec->opts->deinit(codec);
-    if (codec->opts->is_hardware) {
-        _audio_data_codec_hardware_items[codec->opts->type].is_busy = 0;
-        LLOGC(luat_audio_debug_flag, "unbind hardware data codec %d", codec->opts->type);
-    }
-    else {
-        _audio_data_codec_software_items[codec->opts->type].is_busy = 0;
-        LLOGC(luat_audio_debug_flag, "unbind software data codec %d", codec->opts->type);
-    }
     codec->opts = NULL;
 }
 
@@ -99,7 +76,7 @@ int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_
     //         luat_fifo_check_used_space(input_data_fifo), output_data_buffer->pos);
 
     while ((output_data_buffer->pos + codec->opts->decode_max_output_len) <= output_data_buffer->max_len) {
-        if (codec->opts->decode_min_input_len) {
+        if (codec->opts->decode_min_input_len > 1) {
             input_data_len = luat_fifo_query(input_data_fifo, codec->input_buffer, codec->opts->decode_min_input_len);
             if (!input_data_len) {
                 LLOGC(luat_audio_debug_flag, "decode input fifo empty, decode end");
@@ -180,20 +157,12 @@ const luat_audio_data_codec_opts_t* luat_audio_data_codec_find(uint8_t type)
 
     if (_audio_data_codec_software_items[type].opts) {
         LLOGC(luat_audio_debug_flag, "find software codec %d", type);
-        if (!_audio_data_codec_software_items[type].is_busy) {
-            return _audio_data_codec_software_items[type].opts;
-        } else {
-            LLOGC(luat_audio_debug_flag, "find software codec %d busy", type);
-        }
+        return _audio_data_codec_software_items[type].opts;
     }
 
     if (_audio_data_codec_hardware_items[type].opts) {
         LLOGC(luat_audio_debug_flag, "find hardware codec %d", type);
-        if (!_audio_data_codec_hardware_items[type].is_busy) {
-            return _audio_data_codec_hardware_items[type].opts;
-        } else {
-            LLOGC(luat_audio_debug_flag, "find hardware codec %d busy", type);
-        }
+        return _audio_data_codec_hardware_items[type].opts;
     }
     LLOGE("type %d can not find in data codec", type);
     return NULL;
@@ -207,11 +176,7 @@ const luat_audio_data_codec_opts_t* luat_audio_data_codec_find_hardware(uint8_t 
     }
     if (_audio_data_codec_hardware_items[type].opts) {
         LLOGC(luat_audio_debug_flag, "find hardware codec %d", type);
-        if (!_audio_data_codec_hardware_items[type].is_busy) {
-            return _audio_data_codec_hardware_items[type].opts;
-        } else {
-            LLOGC(luat_audio_debug_flag, "find hardware codec %d busy", type);
-        }
+        return _audio_data_codec_hardware_items[type].opts;
     }
     LLOGE("type %d can not find in hardware data codec", type);
     return NULL;

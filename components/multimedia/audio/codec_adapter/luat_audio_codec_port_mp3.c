@@ -125,7 +125,6 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts = {
     .encode_min_input_len = MP3_FRAME_BEFORE_ENCODE_SIZE,
     .encode_max_output_len = MP3_FRAME_AFTER_ENCODE_SIZE,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_MP3,
-    .is_reentrant = 1,
     .is_hardware = 0,
     .support_detect = 1,
 };

@@ -79,7 +79,6 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_ulaw_opts = {
     .encode_min_input_len = 160,
     .encode_max_output_len = 160,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,
-    .is_reentrant = 1,
     .is_hardware = 0,
     .support_detect = 0,
 };
@@ -97,7 +96,6 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_alaw_opts = {
     .encode_min_input_len = 160,
     .encode_max_output_len = 160,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,
-    .is_reentrant = 1,
     .is_hardware = 0,
     .support_detect = 0,
 };

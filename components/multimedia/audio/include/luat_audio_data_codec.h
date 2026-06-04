@@ -172,13 +172,12 @@ typedef struct luat_audio_data_codec_opts {
      * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
      */
     int (*tts_set_param)(struct luat_audio_data_codec* codec, uint32_t param, uint32_t value);
-
+    
     uint32_t encode_min_input_len;                  /**< 编码1帧需要的输入长度 (字节) */
     uint32_t encode_max_output_len;                  /**< 编码1帧输出的最大长度 (字节) */
     uint32_t decode_min_input_len;                  /**< 解码最小输入长度 (字节) */
     uint32_t decode_max_output_len;                  /**< 解码最大输出长度 (字节) */
     uint8_t type;                                   /**< 编解码器类型 */
-    uint8_t is_reentrant:1;                         /**< 是否可重入 */
     uint8_t is_hardware:1;                          /**< 是否硬件编解码器 */
     uint8_t support_detect:1;                       /**< 是否支持检测文件头 */
     uint8_t support_encode_with_sync_output_ref:1;  /**< 是否支持编码参考同一时刻的播放数据同步输出数据 */

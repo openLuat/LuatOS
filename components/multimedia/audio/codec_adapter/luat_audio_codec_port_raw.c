@@ -47,7 +47,6 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_raw_opts = {
     .encode_min_input_len = LUAT_AUDIO_DATA_CACHE_LEN,
     .encode_max_output_len = LUAT_AUDIO_DATA_CACHE_LEN,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_RAW,
-    .is_reentrant = 1,
     .is_hardware = 0,
     .support_detect = 0,
 };

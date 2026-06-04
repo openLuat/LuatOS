@@ -117,3 +117,29 @@ cargo install cargo-binutils
 ```
 
 `build.ps1` 会自动检测并安装 `rust-src` 与 `riscv32imac-unknown-none-elf`，但 `cargo install cargo-binutils` 不会自动装（耗时长，会打网络）。如果你不想用 `cargo-binutils`，可以在 PATH 里放一个 `llvm-objcopy` 作为替代。
+
+## Q9: 报 `mcause=1, mtval=0x0` 是什么意思？
+
+**症状**：`ndk.exec` 返回 `false, "trap", 1, 0`，`mtval` 是 0。
+
+**诊断**：`mcause=1` 是 instruction access fault，`mtval=0` 表明 faulting PC 是 0。**这条签名是 `NDK_GUEST_START` 链接寄存器损坏的指纹**——`_start` 用 `JALR x0, t0` 跳到 main 而没写 ra，main 自然 return 时跳到 host 清零的 `ra=0`，取指违例。
+
+**触发条件**：`main` 里有任何让编译器生成真实 `call`/`ret` 边界的代码（调非 inline 函数、给非 leaf helper 调栈等），且 `main` 自然 return（没调 `ndk_exit_ok()`）。所有 4 个官方示例都以 `ndk_exit_ok()` 结尾所以掩盖了 bug。
+
+**解决**：
+- 升级到包含本次修复的 NDK（`jalr ra, t0`）。
+- 临时绕路：在 `main` 末尾调 `ndk_exit_ok()`，让 host 走 SYSCON 0x5555 早退，避开 `ret`。
+- 诊断建：跑修复后的 `nonleaf_call_demo`（`components/ndk/guest/examples/nonleaf_call_demo`）如果能过 → 不是这条 bug；如果还报同样签名 → 看 RAM / `mtvec` 配置。
+
+## Q10: 报 `mcause=7, mtval=0xFFFFFFFC` 是什么意思？
+
+**症状**：`ndk.exec` 返回 `false, "trap", 7, 0xFFFFFFFC`，**log 里看不到 guest 的任何 `vm:` 输出**（第一个 `ndk_lprint` 还没到就 trap 了）。
+
+**诊断**：`mcause=7` 是 store access fault，`mtval=0xFFFFFFFC` (= -4) 表明 guest 把 sp 当 store base 用了。**这条签名是手写 C `_start` 没标 `naked` 的指纹**——`_start` 是普通 C 函数，编译器为它生成 prologue（`addi sp, sp, -0x10; sw ra, 0xc(sp)`）；但 host 的 `ndk_reset_core` 把所有 32 个 GPR memset 为 0，**入口 sp=0**，prologue 第一步 `addi sp, sp, -0x10` 算出 sp=`0xFFFFFFF0`，第二步 `sw ra, 0xc(sp)` 写到 `0xFFFFFFFC` → store access fault。然后 PC 被 trap handler 设回 `mtvec`（=`0x80000000`，即 guest 镜像起点），下一次 `ndk.exec` 又从 `_start` 跑，再次 trap，循环直到 step budget 用尽。
+
+**触发条件**：guest 的 `_start` 是手写 C 函数（不走 `NDK_GUEST_START` 宏）且**没有 `__attribute__((naked))`**。`hello_world` / `exchange_buffer_demo` / `gpio_hostabi_demo` / `crypto_hash_demo` 都用 `NDK_GUEST_START` 宏（宏内部是 `naked`），所以**全部 4 个官方示例都掩盖了 bug**。`perf_guest_v1` 因为作者刻意避开 `NDK_GUEST_START` 宏（避免 `static main` 在汇编端不可见），又漏了 `naked`，必现 trap。
+
+**解决**：
+- **正确做法**：把 `_start` 标 `__attribute__((naked, noreturn))`，函数体只放裸汇编（`csrr t0, 0x13B; ... mv sp, t0; ... jalr ra, t0`），见 `perf_guest_v1/main.c` 修复后写法。
+- **临时绕路**：直接用 `NDK_GUEST_START(main)` 宏。
+- **诊断建议**：在 `luat_ndk.c::ndk_exec_inner` trap 出口加一行 `LLOGE("ndk TRAP mcause=%lu mtval=0x%lX pc=0x%lX sp=0x%lX ...", ...)`，如果 `mcause=7 mtval=0xFFFFFFFC sp=0xFFFFFFF0 a0..a3=0` 且 `mepc == 0x80000000+4`，**就是这条 bug**；其它路径（CSRR / LR / SC / 整数溢出）签名不同。

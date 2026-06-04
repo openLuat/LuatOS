@@ -50,10 +50,10 @@ PROJECT：项目名，ascii string类型
   "EVB_Air8101_10inch1_1024x600_000_V010"      → config/evb_8101_10i_v1.lua    10寸RGB HX8282  +WiFi+SD
   "EVB_Air8101B_5inch_480x854_000_V010"         → config/evb_8101b_5i_v1.lua     5寸RGB  ST7701S +WiFi+SD
   "EVB_Air8000A_3inch5_480x320_000_V020"       → config/evb_8000a_3i5_v0.lua   3.5寸SPI ST7796  +4G+WiFi+SD
+  "EVB_Air1601_10inch1_1024x600_000_V011"      → config/evb_1601_10i_v11.lua   10寸RGB HX8282  +WiFi(airlink)+SD
 
   待实现（映射已预留，配置文件待创建）:
-  "EVB_Air1601_10inch1_1024x600_000_V011"      "EVB_Air1601_7inch_1024x600_000_V011"
-  "EVB_Air1601_5inch_800x480_000_V011"         "EVB_Air8101_5inch_480x854_000_V010"
+  "EVB_Air1601_7inch_1024x600_000_V011"        "EVB_Air1601_5inch_800x480_000_V011"
   "EVB_Air780EGG_3inch5_480x320_000_V014"      "EVB_Air780EHV_3inch5_480x320_000_V014"
   "EVB_Air780EHU_3inch5_480x320_000_V014"      "EVB_Air780EHM_3inch5_480x320_000_V014"
 

@@ -17,7 +17,7 @@
                                                        -- 例: "Engine_Air1602_7inch_1024x600_004_V000"
                                                        --      "EVB_Air8000A_3inch5_480x320_000_V020"
     -- chip = "Air1602",                                  -- 主控芯片型号，必须从以下列表中选择:
-                                                       --   Air1601    RGB屏 + WiFi(airlink)       无4G
+                                                       --   Air1601    RGB屏 + WiFi(airlink)       无4G（6205模组 AIRLINK_UART3）
                                                        --   Air1602    同 Air1601
                                                        --   Air8000W   4G + WiFi(exnetif) + SPI屏  无蓝牙/以太网/CAN
                                                        --   Air8000A   4G + WiFi + GPS + SPI屏
@@ -125,8 +125,11 @@
                 -- global = true,     -- [可选] 是否注册为全局字体
             -- },
             -- backlight = {
+            --     -- 方式一: PWM 调光（支持亮度调节）
             --     pwm_ch = 3,          -- PWM 通道号
             --     pwm_freq = 1000,     -- PWM 频率 Hz，常用 1000（SPI屏）或 10000（RGB屏）
+            --     -- 方式二: GPIO 控制亮灭（不支持调光，背光电源直连 GPIO）
+            --     gpio_bl = 2,         -- 背光控制 GPIO（与 pwm 二选一，设了 gpio_bl 则忽略 pwm）
             -- },
             -- rotation = 180,       -- [可选,默认0] 额外旋转角度，仅 Air8101 5寸 st7701s 屏需设 180
         -- },

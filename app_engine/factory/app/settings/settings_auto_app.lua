@@ -289,6 +289,19 @@ sys.subscribe("AUTOSTART_SET_TARGET", function(target_path, password)
     sys.publish("AUTOSTART_CONFIG_CHANGED")
 end)
 
+-- 组合命令：设置目标APP并自动启用自启开关（从 idle_win 长按菜单调用）
+-- 密码校验由调用方在弹出密码验证后传入已验证的密码（空字符串表示无密码）
+sys.subscribe("AUTOSTART_SET_TARGET_AND_ENABLE", function(target_path, password)
+    if has_password() and not verify_password(password) then
+        sys.publish("AUTOSTART_PASSWORD_RESULT", false, "密码错误")
+        return
+    end
+    set_target(target_path)
+    set_enabled(true)
+    sys.publish("AUTOSTART_PASSWORD_RESULT", true, "")
+    sys.publish("AUTOSTART_CONFIG_CHANGED")
+end)
+
 sys.subscribe("AUTOSTART_SET_PASSWORD", function(old_password, new_password)
     if has_password() and not verify_password(old_password) then
         sys.publish("AUTOSTART_PASSWORD_RESULT", false, "原密码错误")

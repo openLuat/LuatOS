@@ -400,7 +400,7 @@ static void _audio_decode_current_request_play_info(luat_audio_request_block_t *
 			//没有指定解码器则需要搜索所有的解码器，解码尝试分析播放参数，找到合适的解码器
 			for (int i = 0; i < LUAT_AUDIO_DATA_CODEC_TYPE_MAX; i++) {
 				codec.opts = (luat_audio_data_codec_opts_t *)luat_audio_data_codec_find(i);
-				if (!codec.opts->support_detect) {
+				if (!codec.opts || !codec.opts->support_detect) {
 					continue;
 				}
 				if (LUAT_ERROR_NONE == luat_audio_get_play_info_from_file(&codec, &request_block->file_info[request_block->file_done_cnt])) {
@@ -958,6 +958,12 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 	if (ret != LUAT_ERROR_NONE) {
 		return ret;
 	}
+	if (!luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS)) {
+		LLOGE("request_id: %d tts codec not found", request_block->request_id);
+		luat_audio_request_deinit(request_block);
+		return -LUAT_ERROR_NO_SUCH_ID;
+	}
+
 	if (luat_audio_data_codec_bind(&request_block->play_codec, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS), request_block) != LUAT_ERROR_NONE) {
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;

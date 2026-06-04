@@ -352,6 +352,10 @@ static int l_audio_record(lua_State *L) {
         LLOGE("codec %d not found", codec_id);
         goto DONE;
     }
+    if (!codec_opts->encode && !codec_opts->encode_with_sync_output_ref) {
+        LLOGE("codec %d not support record", codec_id);
+        goto DONE;
+    }
     common_param.sample_rate = luaL_optinteger(L, 3, 0);
     uint8_t data_bits = luaL_optinteger(L, 4, 16);
     common_param.channel_nums = luaL_optinteger(L, 5, 1);
@@ -419,6 +423,10 @@ static int l_audio_get_play_info(lua_State *L) {
     const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(codec_id);
     if (!codec_opts) {
         LLOGE("codec %d not found", codec_id);
+        goto DONE;
+    }
+    if (!codec_opts->support_detect) {
+        LLOGE("codec %d not support detect file info", codec_id);
         goto DONE;
     }
     const char *data = NULL;

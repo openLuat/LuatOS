@@ -44,6 +44,7 @@ require ("evb_8101_10i_v1")   -- Air8101 EVB 10.1寸
 require ("evb_8101b_5i_v1")    -- Air8101 EVB 5寸
 require ("evb_8000a_3i5_v0")  -- Air8000A trunkey 3.5寸
 require ("evb_1601_10i_v11")  -- Air1601 EVB 10.1寸
+require ("evb_1601_7i_v11")   -- Air1601 EVB 7寸
 require ("pc_default")        -- PC 模拟器回退
 
 -- 所有 LCD 驱动（按屏幕 IC 型号分类）
@@ -85,7 +86,7 @@ local PROJECT_MAP = {
     ["EVB_Air8000A_3inch5_480x320_000_V020"]       = "evb_8000a_3i5_v0",
     -- 以下映射已预留，配置文件待实现
     ["EVB_Air1601_10inch1_1024x600_000_V011"]   = "evb_1601_10i_v11",
-    -- ["EVB_Air1601_7inch_1024x600_000_V011"]     = "evb_1601_7i_v11",
+    ["EVB_Air1601_7inch_1024x600_000_V011"]     = "evb_1601_7i_v11",
     -- ["EVB_Air1601_5inch_800x480_000_V011"]      = "evb_1601_5i_v11",
     -- ["EVB_Air780EGG_3inch5_480x320_000_V014"]   = "evb_780eg_35i_v14",
     -- ["EVB_Air780EHV_3inch5_480x320_000_V014"]   = "evb_780ehv_35i_v14",

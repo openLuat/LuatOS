@@ -42,8 +42,8 @@ PROJECT：项目名，ascii string类型
   "Engine_Air1602_10inch1_1024x600_001_V000"   → config/eng_1602_10i_v0.lua    10寸RGB HX8282  +WiFi+蜂鸣器
   "Engine_Air1602_5inch_720x1280_002_V000"     → config/eng_1602_5i_v2.lua     5寸RGB  NV3052C +WiFi
   "Engine_Air1602_5inch_720x1280_003_V000"     → config/eng_1602_5i_v3.lua     5寸RGB  NV3052C +WiFi+NAND
-  "Engine_Air1602_5inch_480x854_005_V000"       → config/eng_1602_5i_v5.lua     5寸RGB  ST7701S +WiFi+NAND
   "Engine_Air1602_7inch_1024x600_004_V000"     → config/eng_1602_7i_v4.lua     7寸RGB  HX8282  +WiFi+NAND
+  "Engine_Air1602_5inch_480x854_005_V000"       → config/eng_1602_5i_v5.lua     5寸RGB  ST7701S +WiFi+NAND
 
 
   EVB turnkey 开发板系列:
@@ -51,9 +51,9 @@ PROJECT：项目名，ascii string类型
   "EVB_Air8101B_5inch_480x854_000_V010"         → config/evb_8101b_5i_v1.lua     5寸RGB  ST7701S +WiFi+SD
   "EVB_Air8000A_3inch5_480x320_000_V020"       → config/evb_8000a_3i5_v0.lua   3.5寸SPI ST7796  +4G+WiFi+SD
   "EVB_Air1601_10inch1_1024x600_000_V011"      → config/evb_1601_10i_v11.lua   10寸RGB HX8282  +WiFi(airlink)+SD
+  "EVB_Air1601_7inch_1024x600_000_V011"        → config/evb_1601_7i_v11.lua     7寸RGB HX8282  +WiFi(airlink)+SD
 
   待实现（映射已预留，配置文件待创建）:
-  "EVB_Air1601_7inch_1024x600_000_V011"        "EVB_Air1601_5inch_800x480_000_V011"
   "EVB_Air780EGG_3inch5_480x320_000_V014"      "EVB_Air780EHV_3inch5_480x320_000_V014"
   "EVB_Air780EHU_3inch5_480x320_000_V014"      "EVB_Air780EHM_3inch5_480x320_000_V014"
 

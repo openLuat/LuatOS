@@ -4,13 +4,14 @@
 #include "luat_rtos.h"
 #include "lua.h"
 #include "lauxlib.h"
-#include "nes.h"
-#include "nes_port.h"
 #include <lvgl.h>
 #include <string.h>
 
 #ifdef LUAT_USE_AIRUI
 #ifdef LUAT_USE_NES
+
+#include "nes.h"
+#include "nes_port.h"
 
 #define LUAT_LOG_TAG "airui.nes"
 #include "luat_log.h"

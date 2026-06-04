@@ -2,6 +2,14 @@
 
 > 本文是 NDK 文档集的一部分。完整索引见 [`../README.md`](../README.md)。
 
+## 2026-06 — `NDK_GUEST_START` 链接寄存器修复
+
+- **Bug 修复**：`NDK_GUEST_START` 宏在 `98d4c79e2` 重构时把 `call main` 改成 `mv t0, %1; jalr zero, t0` 以解决 `static main` 在汇编端不可见的问题，但同时把 `ra` 的写入丢到了 `x0`。宿主 `ndk_reset_core` 把 32 个 GPR 全部 `memset` 为 0，所以 `main` 的 `ret` 跳到地址 0 → 取指违例 (`mcause=1, mtval=0`)。
+- 4 个官方示例 (`hello_world` / `exchange_buffer_demo` / `gpio_hostabi_demo` / `crypto_hash_demo`) 全部以 `ndk_exit_ok()` 结尾，host 的 stepper 在 SYSCON 0x5555 写入当次迭代就 `return`，**根本没到 main 的 `ret`** —— bug 被巧合遮住。任何让编译器为 `main` 生成真实 `call`/`ret` 边界的代码（调非 inline 函数）会立即暴露 trap。
+- 修复：`jalr zero, t0` → `jalr ra, t0`，ra 写入 `_start` 的 PC+4（即 wfi 循环入口），main 自然 return 后安全 park。
+- 回归测试：新增 `components/ndk/guest/examples/nonleaf_call_demo`（`__attribute__((noinline))` 助手 + 自然 return，无 `ndk_exit_ok`），`bsp/pc/test/116.ndk_examples_smoke/main.lua` 追加该 case 并把 "step budget 用尽但 `mcause == 0`" 识别为合法干净退出。修复后 case 5 报 `budget-exhausted-clean`，exchange[0] 写入 `compute(0,0)=0x9E3779B9`（端到端证明 non-leaf call 真的跑通）。修复前同一 case 会 `mcause=1, mtval=0`。
+- `ndk_basic` 42/0、`ndk_hostabi_basic` 39/0 baseline 不变。
+
 ## 2026-06 — 文档与 API 现代化
 
 - **NDK 升级**（本次重构）：

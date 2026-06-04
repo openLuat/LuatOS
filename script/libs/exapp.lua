@@ -1744,6 +1744,12 @@ local function app_task(app_path)
         return -1
     end
 
+    -- 禁止应用调用 airui.device_bind_touch 重新绑定触摸设备
+    my_env.airui.device_bind_touch = function(...)
+        my_env.log.error("airui", "沙箱环境不允许重新绑定触摸设备")
+        return -1
+    end
+
     -- excloud 库
     -- 功能：包装 excloud.upload_image 和 excloud.upload_audio，支持路径转换
     local function round_val(v)
@@ -2583,8 +2589,10 @@ local function app_task(app_path)
 
     -- 关闭窗口，从记录中移除，检查是否需要退出应用
     my_env.exwin.close = function(win_id)
-        -- 自启APP密码保护：已锁定且只剩最后一个窗口时拦截关闭
-        if _G.autostart_locked and #win_ids <= 1 then
+        -- 自启APP密码保护：通过 fskv 读取锁定状态，与 settings_auto_app 完全解耦
+        -- fskv key 首次未初始化时 get 返回 nil，"1" == nil 为 false，安全兜底
+        local locked = (fskv.get("app_autostart_locked") or "0") == "1"
+        if locked and #win_ids <= 1 then
             my_env.log.info("exapp_window", "autostart locked, close blocked for win_id:", win_id)
             glob_sys.publish("AUTOSTART_REQUEST_EXIT_PASSWORD")
             return

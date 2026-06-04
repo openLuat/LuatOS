@@ -97,7 +97,8 @@ static inline void ndk_wfi_loop(void) {
         __asm__ volatile(                                            \
             "mv sp, %0\n"                                            \
             "mv t0, %1\n"                                            \
-            "jalr zero, t0\n"                                         \
+            "jalr ra, t0\n"        /* write ra = PC+4 so main()'s   */\
+                                   /* ret lands in the wfi park loop */\
             "1: wfi\n"                                               \
             "j 1b\n"                                                  \
             :: "r"(ndk_stack_top()), "r"(fn)                         \

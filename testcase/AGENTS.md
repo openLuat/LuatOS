@@ -14,6 +14,10 @@ testcase/
 │   ├── testrunner.lua
 │   ├── testsuite.lua
 │   └── testreport.lua
+├── utest/            # C-layer utest suites (xxx.utest(case) bridges)
+│   ├── net/          #   tcp_basic, http_basic, https_basic, dtls_basic
+│   ├── lib/          #   core_basic, crypto_basic
+│   └── sys/          #   little_flash_basic, ndk_basic
 └── <feature>/        # Feature tests
     └── <feature>_basic/
         ├── metas.json
@@ -21,6 +25,8 @@ testcase/
             ├── main.lua
             └── <feature>_test.lua
 ```
+
+C-layer utest 套件统一住在 `testcase/utest/<group>/<suite>_basic/`,共享 `pc_utest_coverage.ps1 -Suite <suite>` 入口(详见 `testcase/README.md` 的"C层 utest"一节)。普通 Lua 单元测试仍按 `testcase/<feature>/<feature>_basic/` 摆放。
 
 ## RUNNING TESTS
 

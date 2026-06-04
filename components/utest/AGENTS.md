@@ -57,20 +57,21 @@ C-layer utest(`<lib>.utest("case")`)**仅在 PC 模拟器执行**,芯片侧 BSP 
 
 - Tool script: `bsp\pc\pc_utest_coverage.ps1`
 - Typical usage:
-  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_dtls_basic`
-  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_tcp_basic`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite dtls_basic`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite tcp_basic`
 - Re-running additional suites after the first build:
-  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_http_basic -SkipBuild`
-  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_https_basic -SkipBuild`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite http_basic -SkipBuild`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite https_basic -SkipBuild`
 - `-Suite` and `-TestcaseScripts` are mutually exclusive
 - Requires installed executable:
   - `C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe`
 - The helper trims a trailing `\` from `-TestcaseScripts` automatically and derives `build\coverage\<suite>\`.
+- `-Suite <name>` resolves under `testcase/utest/{net,lib,sys}/<name>/scripts` (C-layer utest suites) or `testcase/unit_testcase_tools/<name>/scripts` (other not-yet-migrated suites)
 - Network-facing suites currently cover:
-  - `socket.utest("dtls_loopback_psk")` via `c_utest_dtls_basic`
-  - `socket.utest("tcp_external_qq")` via `c_utest_tcp_basic`
-  - `http.utest("http_external_qq")` via `c_utest_http_basic`
-  - `http.utest("https_external_qq")` via `c_utest_https_basic`
+  - `socket.utest("dtls_loopback_psk")` via `net/dtls_basic`
+  - `socket.utest("tcp_external_qq")` via `net/tcp_basic`
+  - `http.utest("http_external_qq")` via `net/http_basic`
+  - `http.utest("https_external_qq")` via `net/https_basic`
 
 ## EXTENDING TO A NEW LIBRARY
 

@@ -36,27 +36,28 @@ build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\unit_test
 
 ## C层 utest（PC 模拟器）
 
-针对 `xxx.utest("case")` 的 C 层用例，推荐把 Lua runner 放在 `testcase/unit_testcase_tools/c_utest_*/scripts/`，并用 PC 覆盖率 helper 执行：
+针对 `xxx.utest("case")` 的 C 层用例,Lua runner 放在 `testcase/utest/<group>/<suite>/scripts/`(group ∈ `net` / `lib` / `sys`),用 PC 覆盖率 helper 执行。`-Suite <name>` 直接传裸名,helper 会在 `testcase/utest/` 各子组下自动定位:
 
 ```powershell
 cd bsp\pc
-.\pc_utest_coverage.ps1 -Suite c_utest_dtls_basic
-.\pc_utest_coverage.ps1 -Suite c_utest_tcp_basic
-.\pc_utest_coverage.ps1 -Suite c_utest_http_basic -SkipBuild
-.\pc_utest_coverage.ps1 -Suite c_utest_https_basic -SkipBuild
+.\pc_utest_coverage.ps1 -Suite dtls_basic
+.\pc_utest_coverage.ps1 -Suite tcp_basic
+.\pc_utest_coverage.ps1 -Suite http_basic -SkipBuild
+.\pc_utest_coverage.ps1 -Suite https_basic -SkipBuild
 ```
 
-- `-Suite` 与 `-TestcaseScripts` 二选一，不能同时传
-- 当前网络相关 suite：
-  - `c_utest_dtls_basic`：PC 本地 `127.0.0.1` DTLS-PSK 回环
-  - `c_utest_tcp_basic`：`www.qq.com:80` TCP 连通性
-  - `c_utest_http_basic`：`http://www.qq.com` HTTP 连通性
-  - `c_utest_https_basic`：`https://www.qq.com` HTTPS 连通性
-  - `socket_udp_limit_basic`：PC 本地 UDP `socket.rx(limit)` 读截断后丢弃剩余 datagram
-- 也可以继续直接运行模拟器：
+- `-Suite` 与 `-TestcaseScripts` 二选一,不能同时传
+- 当前网络相关 suite(`testcase/utest/net/`):
+  - `dtls_basic`:PC 本地 `127.0.0.1` DTLS-PSK 回环
+  - `tcp_basic`:`www.qq.com:80` TCP 连通性
+  - `http_basic`:`http://www.qq.com` HTTP 连通性
+  - `https_basic`:`https://www.qq.com` HTTPS 连通性
+  - `socket_udp_limit_basic`(未迁移,仍在 `unit_testcase_tools/`):PC 本地 UDP `socket.rx(limit)` 读截断后丢弃剩余 datagram
+- 其它组:`lib/core_basic`、`lib/crypto_basic`、`sys/little_flash_basic`、`sys/ndk_basic`
+- 也可以继续直接运行模拟器:
 
 ```powershell
-build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\unit_testcase_tools\c_utest_tcp_basic\scripts\
+build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\utest\net\tcp_basic\scripts\
 ```
 
 - 覆盖率报告输出到 `build\coverage\<suite>\html\index.html`

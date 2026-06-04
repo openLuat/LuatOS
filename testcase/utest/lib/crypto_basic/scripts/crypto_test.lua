@@ -1,4 +1,4 @@
-local c_utest_crypto_test = {}
+local crypto_test = {}
 
 local cjson_suite = {}
 function cjson_suite.test_cjson_utest_encode_decode_basic()
@@ -21,8 +21,8 @@ function gmssl_suite.test_gmssl_utest_sm3_known_vector()
     assert(ok == true, "gmssl.utest(sm3_known_vector) 应返回 true")
 end
 
-c_utest_crypto_test.cjson_suite = cjson_suite
-c_utest_crypto_test.rsa_suite = rsa_suite
-c_utest_crypto_test.gmssl_suite = gmssl_suite
+crypto_test.cjson_suite = cjson_suite
+crypto_test.rsa_suite = rsa_suite
+crypto_test.gmssl_suite = gmssl_suite
 
-return c_utest_crypto_test
+return crypto_test

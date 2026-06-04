@@ -63,8 +63,9 @@ struct luat_audio_request_block {
         struct {                                /**< 流媒体模式下的必须字段 */
             uint32_t *play_buff;                /**< 流媒体数据缓冲区指针 */
             uint32_t one_block_len;             /**< 每个数据块的长度 */
-            uint32_t block_nums;                /**< 数据块数量 */
             uint32_t record_fifo_enough_data_level; /**< 录音模式下，回调函数触发条件，FIFO缓冲区数据量是否足够 */
+            uint8_t block_nums;                /**< 数据块数量 */
+            uint8_t error_record_overflow;             /**< 录音溢出错误标志位 */
         };
         struct {                                /**< 文件模式下的必须字段 */
             luat_audio_play_file_info_t *file_info;  /**< 音频文件信息数组指针*/

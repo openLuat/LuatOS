@@ -24,6 +24,7 @@ enum {
 	LUAT_AUDIO_EV_RX_ENOUGH_DATA,		// 接收数据完成事件
 	LUAT_AUDIO_EV_REQUEST,			// 请求启动事件
 	LUAT_AUDIO_EV_REQUEST_CANCEL,	// 请求取消事件
+	LUAT_AUDIO_EV_PRINT,		// 请求完成事件
 	LUAT_AUDIO_EV_TTS_RUN = 0x01,
 };
 
@@ -62,18 +63,24 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 	ctrl->current_play_cnt = (ctrl->current_play_cnt + 1) & 3;
 	next_play_cnt = (ctrl->current_play_cnt + 1) & 3;
 	uint8_t *next_play_buff = ctrl->play_buff_byte + ctrl->one_play_block_len * next_play_cnt;
-	if (!_luat_audio.current_request_block->is_wait_play_end && (ctrl->data_channel->user_play_stop || !ctrl->audio_output_enable)) {	// 播放状态为停止，播放空白音
-		ctrl->opts->fill(ctrl, next_play_buff, ctrl->one_play_block_len, ctrl->opts->is_signed, ctrl->common_param.data_align);
+	if (!_luat_audio.current_request_block || (!_luat_audio.current_request_block->is_wait_play_end && (ctrl->data_channel->user_play_stop || !ctrl->audio_output_enable))) {	// 播放状态为停止，播放空白音
+		ctrl->opts->fill(ctrl, next_play_buff, ctrl->one_play_block_len, ctrl->opts->is_tx_signed, ctrl->common_param.data_align);
 		return;
 	}
-	// play数据从这里读取，只有1个消费者，所以不需要加锁
-	uint32_t read_len = luat_fifo_read(ctrl->data_channel->play_fifo, next_play_buff, ctrl->one_play_block_len);
 
-	if (read_len < ctrl->one_play_block_len) { 	// fifo没有完整的1个block
-		ctrl->opts->fill(ctrl, next_play_buff + read_len, ctrl->one_play_block_len - read_len, ctrl->opts->is_signed, ctrl->common_param.data_align);
-	}
-	if (!_luat_audio.current_request_block) {  // 没有请求块，直接返回
-		return;
+	uint32_t read_len  = luat_fifo_check_used_space(ctrl->data_channel->play_fifo);
+	if (read_len < ctrl->one_play_block_len) {	//fifo没有完整的1个block
+		if (!_luat_audio.current_request_block->is_wait_play_end) { // 播放状态为非等待播放结束，说明数据不够，填充空白音
+			ctrl->opts->fill(ctrl, next_play_buff, ctrl->one_play_block_len, ctrl->opts->is_tx_signed, ctrl->common_param.data_align);
+			luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_PRINT, 0, read_len, ctrl->one_play_block_len, 0);
+		} else { // 播放状态为等待播放结束，说明数据不够，填充剩余数据为空白音
+			read_len = luat_fifo_read(ctrl->data_channel->play_fifo, next_play_buff, ctrl->one_play_block_len);
+			if (read_len < ctrl->one_play_block_len) { 	// fifo没有完整的1个block
+				ctrl->opts->fill(ctrl, next_play_buff + read_len, ctrl->one_play_block_len - read_len, ctrl->opts->is_tx_signed, ctrl->common_param.data_align);
+			}
+		}
+	} else {
+		read_len = luat_fifo_read(ctrl->data_channel->play_fifo, next_play_buff, ctrl->one_play_block_len);
 	}
 	// soc_printf("read_len %u %d-%d-%x,%u,%x,%d", read_len, ctrl->current_play_cnt, next_play_cnt,next_play_buff,
 	// 	ctrl->one_play_block_len, _luat_audio.current_request_block,_luat_audio.current_request_block->is_wait_play_end);
@@ -695,6 +702,9 @@ static void luat_audio_common_task(void *param)
 				request_block->cb(LUAT_AUDIO_REQUEST_EVENT_END, NULL, 0, request_block);
 				luat_mutex_unlock(request_block->cancel_sem);
 			}
+			break;
+		case LUAT_AUDIO_EV_PRINT:
+			LLOGW("print from irq %d %u %u", out_event.param1, out_event.param2, out_event.param3);
 			break;
 		}
 	}

@@ -205,7 +205,8 @@ typedef struct luat_audio_driver_opts {
     uint32_t support_rx_loop:1;  /**< 是否支持录音循环 */
     uint32_t support_full_loop:1;  /**< 是否支持全双工循环 */
     uint32_t support_continue:1;  /**< 是否支持继续播放 */
-    uint32_t is_signed:1;  /**< 是否为有符号数据 */
+    uint32_t is_tx_signed:1;  /**< 是否为播放有符号数据 */
+    uint32_t is_rx_signed:1;  /**< 是否为录音有符号数据 */
 } luat_audio_driver_opts_t;
 
 /**

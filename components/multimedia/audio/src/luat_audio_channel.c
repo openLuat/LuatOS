@@ -213,8 +213,8 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
                 break;
         }
     }
-    if (is_signed != channel->driver_ctrl->opts->is_signed) { // 数据有无符号转换
-        if (channel->driver_ctrl->opts->is_signed) {
+    if (is_signed != channel->driver_ctrl->opts->is_tx_signed) { // 数据有无符号转换
+        if (channel->driver_ctrl->opts->is_tx_signed) {
             switch (data_align) {
                 case 1:
                     for(uint32_t i = 0; i < len_bytes; i++){

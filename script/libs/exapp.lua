@@ -193,6 +193,8 @@ local storage_available = {
 -- Flash 设备全局变量（防止 GC 回收导致死机）
 little_flash_spi_device = nil
 little_flash_device     = nil
+nand_flash_spi_device   = nil
+nand_flash_device       = nil
 
 -- ==============================================
 -- 存储配置管理函数
@@ -3246,9 +3248,9 @@ end
 -- 内置设备 SD 引脚配置
 -- ==============================================
 local BUILT_IN_DEVICES = {
-    Air8000 = { spi_id = 1, pin_cs = 20, speed = 2000000 },
-    Air8101 = { spi_id = 1, pin_cs = 14, speed = 2000000 },
-    Air1601 = { spi_id = 1, pin_cs = 10, speed = 2000000 },
+    Air8000 = { storage_type = "sd_tf", spi_id = 1, pin_cs = 20, speed = 2000000 },
+    Air8101 = { storage_type = "sd_tf", spi_id = 1, pin_cs = 14, speed = 2000000 },
+    Air1601 = { storage_type = "sd_tf", spi_id = 1, pin_cs = 10, speed = 2000000 },
 }
 
 -- ==============================================
@@ -3287,9 +3289,9 @@ local function mount_storage(cfg)
             return false
         end
         return true
-    elseif storage == "little_flash" or storage == "nand_flash" then
+    elseif storage == "little_flash" then
         local label = STORAGE_DEFS[storage] and STORAGE_DEFS[storage].label or "Flash"
-        log.info("exapp_init", "mounting", label, ": spi", spi_id, "cs", pin_cs)
+        log.info("exapp_init", "mounting", label, "(LFS2): spi", spi_id, "cs", pin_cs)
         -- 使用全局变量存储，避免 GC 回收导致 flash 操作死机
         little_flash_spi_device = spi.deviceSetup(spi_id, pin_cs, 0, 0, 8, speed)
         if not little_flash_spi_device then
@@ -3301,12 +3303,39 @@ local function mount_storage(cfg)
             log.warn("exapp_init", "lf.init failed")
             return false
         end
+        -- NOR Flash: 默认 LFS2 文件系统
         local ok = lf.mount(little_flash_device, mount_point)
         if not ok then
-            -- 挂载失败尝试后再试一次（可能是首次使用需要初始化）
+            -- 挂载失败后再试一次（可能是首次使用需要初始化）
             ok = lf.mount(little_flash_device, mount_point)
             if not ok then
-                log.warn("exapp_init", "lf.mount failed:", mount_point)
+                log.warn("exapp_init", "lf.mount LFS2 failed:", mount_point)
+                return false
+            end
+        end
+        log.info("exapp_init", label, "mounted at", mount_point)
+        return true
+    elseif storage == "nand_flash" then
+        local label = STORAGE_DEFS[storage] and STORAGE_DEFS[storage].label or "NAND Flash"
+        log.info("exapp_init", "mounting", label, "(TFS): spi", spi_id, "cs", pin_cs)
+        -- nand_flash 需要独立全局变量，避免和 little_flash 共用导致状态覆盖
+        nand_flash_spi_device = spi.deviceSetup(spi_id, pin_cs, 0, 0, 8, speed)
+        if not nand_flash_spi_device then
+            log.warn("exapp_init", "nand spi device setup failed")
+            return false
+        end
+        nand_flash_device = lf.init(nand_flash_spi_device)
+        if not nand_flash_device then
+            log.warn("exapp_init", "nand lf.init failed")
+            return false
+        end
+        -- NAND Flash: 必须使用 TFS 文件系统
+        local ok = lf.mount(nand_flash_device, mount_point, 0, 0, "tfs")
+        if not ok then
+            -- 挂载失败后再试一次（可能是首次使用需要初始化）
+            ok = lf.mount(nand_flash_device, mount_point, 0, 0, "tfs")
+            if not ok then
+                log.warn("exapp_init", "lf.mount TFS failed:", mount_point)
                 return false
             end
         end
@@ -3359,7 +3388,6 @@ function exapp.init(...)
             cfg = sdcard_opts
         else
             cfg = BUILT_IN_DEVICES[dev_type]
-            if cfg then cfg.storage_type = "sd_tf" end
         end
         if cfg then
             mount_storage(cfg)
@@ -3370,9 +3398,11 @@ function exapp.init(...)
     storage_available.internal = true
     storage_available.sd_tf = probe_storage("/sd/")
     storage_available.little_flash = probe_storage("/little_flash/")
+    storage_available.nand_flash = storage_available.little_flash  -- 同挂载点 /little_flash/，文件系统层在 mount 时区分
     log.info("exapp_init", "storage available: internal=", storage_available.internal,
         "sd_tf=", storage_available.sd_tf,
-        "little_flash=", storage_available.little_flash)
+        "little_flash=", storage_available.little_flash,
+        "nand_flash=", storage_available.nand_flash)
 
     -- 4. 扫描所有存储位置的 app_store 目录
     installed_info = {}

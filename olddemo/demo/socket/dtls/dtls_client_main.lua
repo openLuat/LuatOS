@@ -20,7 +20,7 @@ local dtls_client_receiver = require "dtls_client_receiver"
 local dtls_client_sender = require "dtls_client_sender"
 
 -- DTLS server地址和端口，请根据实际情况修改
-local SERVER_ADDR = "10.93.192.3"
+local SERVER_ADDR = "180.171.81.xxx"
 local SERVER_PORT = 5684
 
 -- DTLS-PSK 配置，请根据实际情况修改
@@ -43,17 +43,14 @@ local function dtls_client_main_task_func()
     local result, para1, para2
 
     while true do
-        sys.wait(5000)
+        -- sys.wait(5000)
         -- 如果当前时间点设置的默认网卡还没有连接成功，一直在这里循环等待
-        -- while not socket.adapter(socket.dft()) do
-        --     log.warn("dtls_client_main_task_func", "wait IP_READY", socket.dft())
-        --     -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
-        --     -- 或者等待1秒超时退出阻塞等待状态;
-        --     sys.waitUntil("IP_READY", 1000)
-        -- end
-        -- 获取网卡IP地址
-        local ip = netdrv.ipv4(socket.LWIP_STA)
-        log.info("dtls_client_main_task_func", "netdrv.ipv4", ip)
+        while not socket.adapter(socket.dft()) do
+            log.warn("dtls_client_main_task_func", "wait IP_READY", socket.dft())
+            -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
+            -- 或者等待1秒超时退出阻塞等待状态;
+            sys.waitUntil("IP_READY", 1000)
+        end
         -- 检测到了IP_READY消息
         log.info("dtls_client_main_task_func", "recv IP_READY", socket.dft())
 

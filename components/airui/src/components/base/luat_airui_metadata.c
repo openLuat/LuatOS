@@ -45,6 +45,8 @@ static const char *airui_component_type_name(uint8_t component_type)
             return "keyboard";
         case AIRUI_COMPONENT_LOTTIE:
             return "lottie";
+        case AIRUI_COMPONENT_SLIDER:
+            return "slider";
         case AIRUI_COMPONENT_ANIMIMG:
             return "animimg";
         case AIRUI_COMPONENT_VIDEO:

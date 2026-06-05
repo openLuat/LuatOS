@@ -36,6 +36,7 @@ typedef struct airui_component_ref airui_component_ref_t;
 #define AIRUI_TEXTAREA_MT "airui.textarea"
 #define AIRUI_KEYBOARD_MT "airui.keyboard"
 #define AIRUI_LOTTIE_MT "airui.lottie"
+#define AIRUI_SLIDER_MT "airui.slider"
 #define AIRUI_ANIMIMG_MT "airui.animimg"
 #define AIRUI_VIDEO_MT "airui.video"
 #define AIRUI_CHART_MT "airui.chart"
@@ -68,7 +69,8 @@ typedef enum {
     AIRUI_COMPONENT_SPINNER,
     AIRUI_COMPONENT_SHAPE,
     AIRUI_COMPONENT_CHECKBOX,
-    AIRUI_COMPONENT_NES
+    AIRUI_COMPONENT_NES,
+    AIRUI_COMPONENT_SLIDER
 } airui_component_type_t;
 
 /** Video 格式 */
@@ -643,6 +645,16 @@ int airui_lottie_set_loop(lv_obj_t *lottie, bool loop);
 int airui_lottie_set_speed(lv_obj_t *lottie, float speed);
 int airui_lottie_set_progress(lv_obj_t *lottie, float progress);
 int airui_lottie_destroy(lv_obj_t *lottie);
+
+/**
+ * Slider组件
+ */
+lv_obj_t *airui_slider_create_from_config(void *L, int idx);
+int airui_slider_set_value(lv_obj_t *slider, int32_t value, bool animated);
+int airui_slider_set_range(lv_obj_t *slider, int32_t min, int32_t max);
+int airui_slider_set_style(lv_obj_t *slider, void *L, int idx);
+int airui_slider_get_value(lv_obj_t *slider);
+int airui_slider_destroy(lv_obj_t *slider);
 
 /**
  * AnimImg组件

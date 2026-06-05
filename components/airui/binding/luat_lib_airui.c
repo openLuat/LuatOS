@@ -111,6 +111,10 @@ extern int airui_keyboard_create(lua_State *L);
 extern void airui_register_lottie_meta(lua_State *L);
 extern int airui_lottie_create(lua_State *L);
 
+// Slider 模块声明
+extern void airui_register_slider_meta(lua_State *L);
+extern int airui_slider_create(lua_State *L);
+
 // AnimImg 模块声明
 extern void airui_register_animimg_meta(lua_State *L);
 extern int airui_animimg_create(lua_State *L);
@@ -182,6 +186,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"textarea", ROREG_FUNC(airui_textarea_create)},
     {"keyboard", ROREG_FUNC(airui_keyboard_create)},
     {"lottie", ROREG_FUNC(airui_lottie_create)},
+    {"slider", ROREG_FUNC(airui_slider_create)},
     {"animimg", ROREG_FUNC(airui_animimg_create)},
     {"video", ROREG_FUNC(airui_video_create)},
     {"chart", ROREG_FUNC(airui_chart_create)},
@@ -266,6 +271,7 @@ LUAMOD_API int luaopen_airui(lua_State *L) {
     airui_register_textarea_meta(L);
     airui_register_keyboard_meta(L);
     airui_register_lottie_meta(L);
+    airui_register_slider_meta(L);
     airui_register_animimg_meta(L);
     airui_register_video_meta(L);
     airui_register_chart_meta(L);

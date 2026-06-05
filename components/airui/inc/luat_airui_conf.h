@@ -43,6 +43,11 @@
     #define AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR 2U
 #endif
 
+// slider 支持（可选，默认关闭；需要时由板级配置打开 LUAT_USE_AIRUI_SLIDER）
+#if defined(LUAT_USE_AIRUI_SLIDER) && LUAT_USE_AIRUI_SLIDER
+    #define LV_USE_SLIDER 1
+#endif
+
 /*=================
  * PLATFORM CONFIGURATION
  *=================*/

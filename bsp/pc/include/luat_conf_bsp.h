@@ -248,6 +248,8 @@
 
 #define LUAT_USE_AIRUI 1
 #define LUAT_USE_AIRUI_SDL2 1
+// 打开slider组件
+#define LUAT_USE_AIRUI_SLIDER 1
 
 #endif
 

@@ -21,7 +21,7 @@
 #include "../inc/tfs_types.h"
 #include "tfs_dev.h"
 
-#define TFS_CHECKPT_VERSION   5u
+#define TFS_CHECKPT_VERSION   6u
 
 /*-------------------------------------------------------------------
  *  On-NAND checkpoint structures

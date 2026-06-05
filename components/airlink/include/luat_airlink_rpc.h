@@ -17,7 +17,7 @@
 // 原始字节 RPC (raw bytes handler) — 仅供内部 / 客户端 call 使用
 // =====================================================================
 
-// 同步调用对端 RPC (raw bytes)
+// 同步调用对端 RPC (raw bytes, 信号量阻塞)
 // 返回 0=成功, -1=超时, -2=内存不足, -3=发送失败, -6=响应超出缓冲区, -7=result注册表满
 // 必须在独立任务上下文调用, 不能在 airlink task 或 IRQ 中调用
 int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
@@ -34,6 +34,12 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
 #include "pb.h"
 #include "pb_encode.h"
 #include "pb_decode.h"
+
+// nanopb lua_yieldk 同步调用 (协程中真正同步)
+int luat_airlink_rpc_nb_call_yield(lua_State* L, uint8_t mode, uint16_t rpc_id,
+                                    const pb_msgdesc_t* req_desc, const void* req,
+                                    uint32_t timeout_ms,
+                                    lua_KFunction cont, lua_KContext user_ctx);
 
 // nanopb typed handler 函数类型
 // req: 已解码的请求 struct 指针 (只读)
@@ -124,6 +130,9 @@ int luat_airlink_rpc_reset_stats(void);
 
 // 打印统计信息到日志
 void luat_airlink_rpc_print_stats(void);
+
+// 清理所有活跃 yield ctx 中协程已死亡的条目 (用于 shutdown / task delete)
+void luat_airlink_rpc_cleanup_dead_yields(void);
 
 #endif /* LUAT_USE_AIRLINK_RPC */
 

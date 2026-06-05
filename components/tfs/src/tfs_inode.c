@@ -9,6 +9,10 @@
 
 #include <string.h>
 
+#ifndef TFS_WRITE_RETRY_BLOCKS
+#define TFS_WRITE_RETRY_BLOCKS 4
+#endif
+
 /*===================================================================
  *  Allocate / free
  *===================================================================*/
@@ -47,6 +51,11 @@ void tfs_obj_free(tfs_dev_t *dev, tfs_obj_t *obj)
 {
     if (!obj)
         return;
+
+    if (obj->full_name) {
+        dev->drv.free(dev->drv.ctx, obj->full_name);
+        obj->full_name = NULL;
+    }
 
     if (obj->obj_type == TFS_OBJ_TYPE_FILE) {
         /* Free tnode tree */
@@ -139,8 +148,9 @@ int tfs_obj_write_hdr(tfs_dev_t *dev, tfs_obj_t *obj,
                       tfs_obj_hdr_t *hdr, int old_chunk)
 {
     tfs_ext_tags_t ext;
-    int            new_chunk;
-    int            rc;
+    int            new_chunk = -1;
+    int            rc = TFS_EFLASH;
+    int            attempt;
 
     memset(&ext, 0, sizeof(ext));
     ext.chunk_used       = 1;
@@ -155,14 +165,20 @@ int tfs_obj_write_hdr(tfs_dev_t *dev, tfs_obj_t *obj,
         ext.extra_file_size = obj->var.file.stored_size;
     }
 
-    new_chunk = tfs_alloc_chunk(dev, 0);
-    if (new_chunk < 0)
-        return TFS_ENOSPC;
+    for (attempt = 0; attempt < TFS_WRITE_RETRY_BLOCKS; attempt++) {
+        new_chunk = tfs_alloc_chunk(dev, 0);
+        if (new_chunk < 0)
+            return TFS_ENOSPC;
 
-    rc = tfs_chunk_write(dev, new_chunk,
-                         (const uint8_t *)hdr,
-                         (int)sizeof(tfs_obj_hdr_t),
-                         &ext);
+        rc = tfs_chunk_write(dev, new_chunk,
+                             (const uint8_t *)hdr,
+                             (int)sizeof(tfs_obj_hdr_t),
+                             &ext);
+        if (rc == TFS_OK)
+            break;
+        if (rc != TFS_EFLASH)
+            return rc;
+    }
     if (rc != TFS_OK)
         return rc;
 
@@ -176,6 +192,8 @@ int tfs_obj_write_hdr(tfs_dev_t *dev, tfs_obj_t *obj,
 void tfs_obj_make_hdr(const tfs_dev_t *dev, const tfs_obj_t *obj,
                       tfs_obj_hdr_t *hdr)
 {
+    const char *name;
+
     (void)dev;
     memset(hdr, 0xff, sizeof(*hdr));
 
@@ -189,7 +207,8 @@ void tfs_obj_make_hdr(const tfs_dev_t *dev, const tfs_obj_t *obj,
     hdr->ctime         = obj->ctime;
     hdr->rdev          = obj->rdev;
 
-    strncpy(hdr->name, obj->short_name, TFS_MAX_NAME_LEN);
+    name = obj->full_name ? obj->full_name : obj->short_name;
+    strncpy(hdr->name, name ? name : "", TFS_MAX_NAME_LEN);
     hdr->name[TFS_MAX_NAME_LEN] = '\0';
 
     if (obj->obj_type == TFS_OBJ_TYPE_FILE) {
@@ -291,14 +310,41 @@ tfs_obj_t *tfs_obj_find_by_name(tfs_dev_t *dev, tfs_obj_t *parent,
 
 void tfs_obj_cache_name(tfs_obj_t *obj, const char *name)
 {
-    if (!name)
+    tfs_dev_t *dev;
+    size_t len;
+
+    if (!obj || !name)
         return;
+
+    dev = obj->my_dev;
+    if (obj->full_name) {
+        if (dev) {
+            dev->drv.free(dev->drv.ctx, obj->full_name);
+        }
+        obj->full_name = NULL;
+    }
+
     strncpy(obj->short_name, name, TFS_SHORT_NAME_LEN);
     obj->short_name[TFS_SHORT_NAME_LEN] = '\0';
+
+    len = strlen(name);
+    if (len > TFS_MAX_NAME_LEN) {
+        len = TFS_MAX_NAME_LEN;
+    }
+    if (len > TFS_SHORT_NAME_LEN && dev && dev->drv.malloc) {
+        obj->full_name = (char *)dev->drv.malloc(dev->drv.ctx, len + 1);
+        if (obj->full_name) {
+            memcpy(obj->full_name, name, len);
+            obj->full_name[len] = '\0';
+        }
+    }
 }
 
 const char *tfs_obj_get_name(tfs_dev_t *dev, tfs_obj_t *obj)
 {
     (void)dev;
-    return obj->short_name;
+    if (!obj) {
+        return NULL;
+    }
+    return obj->full_name ? obj->full_name : obj->short_name;
 }

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "publish_time": "2026-04-14 12:00:00",
   "category": "游戏",
-  "description": "联网黑白棋",
+  "description": "联网黑白棋（AI对战、不要相信眼前的优势，要根据策略和经验来决策）",
   "resolution": "480x800",
   "supported_models": {
     "Air8101": [

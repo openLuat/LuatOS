@@ -109,7 +109,7 @@ tfs_obj_t *tfs_obj_find_by_name(tfs_dev_t *dev, tfs_obj_t *parent,
 /** Return pointer to the object's name (short_name or NAND read) */
 const char *tfs_obj_get_name(tfs_dev_t *dev, tfs_obj_t *obj);
 
-/** Cache a name into obj->short_name if it fits */
+/** Cache a name into obj->short_name, and keep full_name for long names */
 void tfs_obj_cache_name(tfs_obj_t *obj, const char *name);
 
 #endif /* TFS_INODE_H */

@@ -228,7 +228,6 @@ local function check_game_over()
 end
 
 local function computer_move()
-    log.info("computer_move: started")
     log.info("computer_move: game_started", game_started)
     log.info("computer_move: current_player", current_player)
     log.info("computer_move: computer_color", computer_color)

@@ -188,13 +188,12 @@ Word32 quant_4p_4N(                        /* (o) return 4*N bits             */
 		Word16 pos[],                         /* (i) position of the pulse 1..4  */
 		Word16 N)                             /* (i) number of bits for position */
 {
-	Word16 nb_pos, mask, n_1, tmp;
+	Word16 nb_pos, n_1, tmp;
 	Word16 posA[4], posB[4];
 	Word32 i, j, k, index;
 
 	n_1 = (Word16) (N - 1);
 	nb_pos = (1 << n_1);                  /* nb_pos = (1<<n_1); */
-	mask = vo_sub((1 << N), 1);              /* mask = ((1<<N)-1); */
 
 	i = 0;
 	j = 0;

@@ -25,6 +25,9 @@
 /** 刷新消息重试超时时间, 当前设计下刷新消息有时会发生丢失，需要支持画面刷新重试 */
 #define AIRUI_REFRESH_RETRY_TIMEOUT_MS 200U
 
+/** Image/Label/Container 等简单控件的短按/长按分界阈值，单位：毫秒 */
+#define AIRUI_RELEASE_SELECT_LONG_PRESS_MS 400U
+
 /** 多触点：Lua 回调tp订阅中最多支持的触点数（touch_active[] 数组大小） */
 #define AIRUI_TOUCH_MAX_POINTS 10
 

@@ -40,7 +40,7 @@
  * @li stretch：非等比拉伸填满控件，可能变形
  * @int config.opacity 透明度，默认 255（不透明），范围 0-255
  * @function config.on_click 点击回调函数，可选
- * @function config.on_long_press 长按回调函数，按住>=400ms触发，可选
+ * @function config.on_long_press 长按回调函数，按住>=400ms后在抬起时触发，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Image 对象
  */
@@ -167,11 +167,13 @@ static int l_image_set_on_click(lua_State *L) {
     lua_pushvalue(L, 2);
     int ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    lv_obj_add_flag(img, LV_OBJ_FLAG_CLICKABLE);
-
     airui_component_meta_t *meta = airui_component_meta_get(img);
     if (meta != NULL) {
-        airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, ref);
+        if (airui_component_enable_release_select_dispatch(meta) != AIRUI_OK ||
+            airui_component_set_callback_ref(meta, AIRUI_EVENT_CLICKED, ref) != AIRUI_OK) {
+            luaL_unref(L, LUA_REGISTRYINDEX, ref);
+            return luaL_error(L, "failed to enable image click dispatch");
+        }
     } else {
         luaL_unref(L, LUA_REGISTRYINDEX, ref);
     }
@@ -182,7 +184,7 @@ static int l_image_set_on_click(lua_State *L) {
 /**
  * Image:set_on_long_press(callback)
  * @api image:set_on_long_press(callback)
- * @function callback 长按回调
+ * @function callback 长按回调，按住>=400ms后在抬起时触发
  * @return nil
  */
 static int l_image_set_on_long_press(lua_State *L) {
@@ -192,11 +194,13 @@ static int l_image_set_on_long_press(lua_State *L) {
     lua_pushvalue(L, 2);
     int ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    lv_obj_add_flag(img, LV_OBJ_FLAG_CLICKABLE);
-
     airui_component_meta_t *meta = airui_component_meta_get(img);
     if (meta != NULL) {
-        airui_component_bind_event(meta, AIRUI_EVENT_LONG_PRESSED, ref);
+        if (airui_component_enable_release_select_dispatch(meta) != AIRUI_OK ||
+            airui_component_set_callback_ref(meta, AIRUI_EVENT_LONG_PRESSED, ref) != AIRUI_OK) {
+            luaL_unref(L, LUA_REGISTRYINDEX, ref);
+            return luaL_error(L, "failed to enable image long press dispatch");
+        }
     } else {
         luaL_unref(L, LUA_REGISTRYINDEX, ref);
     }

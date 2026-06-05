@@ -110,15 +110,25 @@ lv_obj_t *airui_label_create_from_config(void *L, int idx)
     airui_text_font_apply_to_obj(label, &data->font);
 
     int click_ref = airui_component_capture_callback(L, idx, "on_click");
-    if (click_ref != LUA_NOREF) {
-        lv_obj_add_flag(label, LV_OBJ_FLAG_CLICKABLE);
-        airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, click_ref);
-    }
-
     int long_press_ref = airui_component_capture_callback(L, idx, "on_long_press");
-    if (long_press_ref != LUA_NOREF) {
-        lv_obj_add_flag(label, LV_OBJ_FLAG_CLICKABLE);
-        airui_component_bind_event(meta, AIRUI_EVENT_LONG_PRESSED, long_press_ref);
+    if (click_ref != LUA_NOREF || long_press_ref != LUA_NOREF) {
+        if (airui_component_enable_release_select_dispatch(meta) != AIRUI_OK) {
+            if (click_ref != LUA_NOREF) {
+                luaL_unref(L_state, LUA_REGISTRYINDEX, click_ref);
+            }
+            if (long_press_ref != LUA_NOREF) {
+                luaL_unref(L_state, LUA_REGISTRYINDEX, long_press_ref);
+            }
+            lv_obj_delete(label);
+            return NULL;
+        }
+
+        if (click_ref != LUA_NOREF) {
+            airui_component_set_callback_ref(meta, AIRUI_EVENT_CLICKED, click_ref);
+        }
+        if (long_press_ref != LUA_NOREF) {
+            airui_component_set_callback_ref(meta, AIRUI_EVENT_LONG_PRESSED, long_press_ref);
+        }
     }
     
     return label;

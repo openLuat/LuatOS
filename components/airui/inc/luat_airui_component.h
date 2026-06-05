@@ -141,6 +141,9 @@ struct airui_component_meta {
     
     // 回调引用（Lua registry）
     int callback_refs[AIRUI_CALLBACK_MAX];  /**< 事件回调引用数组 */
+
+    // 简单点击/长按在抬起时统一判定的内部状态是否已安装
+    bool release_select_dispatch_installed;
     
     // 组件类型
     uint8_t component_type;
@@ -301,6 +304,20 @@ int airui_component_bind_event(
     airui_component_meta_t *meta,
     airui_event_type_t event_type,
     int callback_ref);
+
+/**
+ * 仅更新回调引用，不绑定 LVGL 原生事件。
+ * 供需要自定义点击/长按判定时使用。
+ */
+int airui_component_set_callback_ref(
+    airui_component_meta_t *meta,
+    airui_event_type_t event_type,
+    int callback_ref);
+
+/**
+ * 为简单可点击对象安装“按下计时、抬起判定短按/长按”的内部分发。
+ */
+int airui_component_enable_release_select_dispatch(airui_component_meta_t *meta);
 
 /**
  * 释放组件所有回调引用

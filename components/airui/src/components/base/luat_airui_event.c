@@ -5,6 +5,7 @@
  */
 
 #include "luat_airui_component.h"
+#include "luat_airui_conf.h"
 #include "lua.h"
 #include "lauxlib.h"
 #include "../../inc/luat_airui_binding.h"
@@ -14,6 +15,8 @@
 #include "lvgl9/src/widgets/table/lv_table.h"
 #include "lvgl9/src/widgets/table/lv_table_private.h"
 #include "lvgl9/src/misc/lv_event.h"
+#include "lvgl9/src/tick/lv_tick.h"
+#include "luat_malloc.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "airui.event"
@@ -88,6 +91,134 @@ int airui_component_capture_callback(void *L, int idx, const char *key)
     return LUA_NOREF;
 }
 
+// 按下计时、抬起判定短按/长按状态
+typedef struct {
+    bool pressed;
+    uint32_t press_tick;
+} airui_release_select_state_t;
+
+// 释放按下计时、抬起判定短按/长按状态
+static void airui_release_select_state_free(void *state_ptr)
+{
+    if (state_ptr != NULL) {
+        luat_heap_free(state_ptr);
+    }
+}
+
+// 按下计时、抬起判定短按/长按事件回调
+static void airui_release_select_event_cb(lv_event_t *e)
+{
+    airui_release_select_state_t *state = lv_event_get_user_data(e);
+    if (state == NULL) {
+        return;
+    }
+
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *obj = lv_event_get_target(e);
+    airui_component_meta_t *meta = airui_component_meta_get(obj);
+    if (meta == NULL || meta->ctx == NULL) {
+        if (code == LV_EVENT_DELETE) {
+            airui_release_select_state_free(state);
+        }
+        return;
+    }
+
+    switch (code) {
+        case LV_EVENT_PRESSED:
+            state->pressed = true;
+            state->press_tick = lv_tick_get();
+            break;
+        case LV_EVENT_PRESS_LOST:
+            state->pressed = false;
+            break;
+        case LV_EVENT_RELEASED: {
+            if (!state->pressed) {
+                break;
+            }
+
+            state->pressed = false;
+            uint32_t elapsed = lv_tick_elaps(state->press_tick);
+            bool has_click = meta->callback_refs[AIRUI_EVENT_CLICKED] != LUA_NOREF;
+            bool has_long_press = meta->callback_refs[AIRUI_EVENT_LONG_PRESSED] != LUA_NOREF;
+
+            if (has_long_press && elapsed >= AIRUI_RELEASE_SELECT_LONG_PRESS_MS) {
+                airui_component_call_callback(meta, AIRUI_EVENT_LONG_PRESSED, meta->ctx->L);
+            }
+            else if (has_click) {
+                airui_component_call_callback(meta, AIRUI_EVENT_CLICKED, meta->ctx->L);
+            }
+            break;
+        }
+        case LV_EVENT_DELETE:
+            airui_release_select_state_free(state);
+            break;
+        default:
+            break;
+    }
+}
+
+/**
+ * 设置组件回调引用
+ * @param meta 组件元数据
+ * @param event_type 事件类型
+ * @param callback_ref Lua 回调引用
+ * @return 0 成功，<0 失败
+ */
+int airui_component_set_callback_ref(
+    airui_component_meta_t *meta,
+    airui_event_type_t event_type,
+    int callback_ref)
+{
+    if (meta == NULL || meta->obj == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (event_type >= AIRUI_EVENT_MAX) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (meta->callback_refs[event_type] != LUA_NOREF) {
+        lua_State *L = (lua_State *)meta->ctx->L;
+        if (L != NULL) {
+            luaL_unref(L, LUA_REGISTRYINDEX, meta->callback_refs[event_type]);
+        }
+    }
+
+    meta->callback_refs[event_type] = callback_ref;
+    return AIRUI_OK;
+}
+
+/**
+ * 为简单可点击对象安装“按下计时、抬起判定短按/长按”的内部分发。
+ * @param meta 组件元数据
+ * @return 0 成功，<0 失败
+ */
+int airui_component_enable_release_select_dispatch(airui_component_meta_t *meta)
+{
+    if (meta == NULL || meta->obj == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (meta->release_select_dispatch_installed) {
+        return AIRUI_OK;
+    }
+
+    airui_release_select_state_t *state = luat_heap_malloc(sizeof(airui_release_select_state_t));
+    if (state == NULL) {
+        return AIRUI_ERR_NO_MEM;
+    }
+    memset(state, 0, sizeof(*state));
+
+    if (lv_obj_add_event_cb(meta->obj, airui_release_select_event_cb, LV_EVENT_ALL, state) == NULL) {
+        airui_release_select_state_free(state);
+        return AIRUI_ERR_NO_MEM;
+    }
+
+    meta->release_select_dispatch_installed = true;
+    lv_obj_add_flag(meta->obj, LV_OBJ_FLAG_CLICKABLE);
+    return AIRUI_OK;
+}
+
 /**
  * LVGL 事件回调（内部使用）
  */
@@ -150,17 +281,10 @@ int airui_component_bind_event(
     if (callback_ref == LUA_NOREF || callback_ref < 0) {
         return AIRUI_ERR_INVALID_PARAM;
     }
-    
-    // 保存回调引用
-    if (event_type < AIRUI_EVENT_MAX) {
-        // 如果已有回调，先释放
-        if (meta->callback_refs[event_type] != LUA_NOREF) {
-            lua_State *L = (lua_State *)meta->ctx->L;
-            if (L != NULL) {
-                luaL_unref(L, LUA_REGISTRYINDEX, meta->callback_refs[event_type]);
-            }
-        }
-        meta->callback_refs[event_type] = callback_ref;
+
+    int ret = airui_component_set_callback_ref(meta, event_type, callback_ref);
+    if (ret != AIRUI_OK) {
+        return ret;
     }
     
     // 绑定 LVGL 事件

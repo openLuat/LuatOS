@@ -143,8 +143,17 @@ do
     -- LCD 驱动全局接口
     _G.lcd_drv = {
         init = function()
-            -- 先初始化 LCD 硬件（发送 init commands、配置 RGB/SPI 接口）
-            local ok = lcd_model.init(cfg.hw.lcd.params)
+            local ok
+            if rtos.bsp() == "PC" then
+                -- PC 模拟器：lcd.init 正常调用初始化虚拟显示，但 lcd.cmd/data 是硬件寄存器序列，模拟器跳过
+                local real_lcd = lcd
+                local pc_lcd = setmetatable({ cmd = function() end, data = function() end }, { __index = real_lcd })
+                rawset(_G, "lcd", pc_lcd)
+                ok = lcd_model.init(cfg.hw.lcd.params)
+                rawset(_G, "lcd", real_lcd)
+            else
+                ok = lcd_model.init(cfg.hw.lcd.params)
+            end
             if ok then
                 -- 硬件就绪后立即初始化 AirUI 渲染引擎（字体、旋转、密度）
                 M.airui_init(cfg.hw.lcd)

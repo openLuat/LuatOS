@@ -121,6 +121,10 @@ static void scan_chunk(tfs_dev_t *dev, int chunk_in_nand,
     bi->bi.pages_in_use++;
     dev->n_free_chunks--;
 
+    if (ext->obj_id == TFS_OBJ_ID_CHECKPT || ext->obj_id == TFS_OBJ_ID_SUMMARY) {
+        return;
+    }
+
     if (ext->chunk_id > 0) {
         /* Data chunk: just record presence; tnode loaded lazily */
         obj = tfs_obj_find(dev, ext->obj_id);
@@ -275,10 +279,10 @@ static void wire_parents(tfs_dev_t *dev)
 /*===================================================================
  *  Post-checkpoint: rebuild tnodes and chunk_bits from NAND
  *
- *  The checkpoint saves object metadata but NOT the tnode trees
- *  (chunk_id → NAND address mappings) or chunk_bits.  After a
- *  successful checkpoint restore, scan only the non-empty blocks to
- *  rebuild these in-RAM structures cheaply.
+ *  Old checkpoints saved object metadata but NOT the tnode trees
+ *  (chunk_id -> NAND address mappings) or chunk_bits.  Keep this as
+ *  a compatibility/safety fallback for any checkpoint that cannot
+ *  restore those in-RAM structures directly.
  *===================================================================*/
 
 static void rebuild_tnodes_after_checkpt(tfs_dev_t *dev)
@@ -490,8 +494,8 @@ int tfs_core_mount(tfs_dev_t *dev)
         /* Fall back to full scan */
         rc = full_scan(dev);
         if (rc != TFS_OK) goto fail;
-    } else {
-        /* Checkpoint doesn't store tnodes or chunk_bits; rebuild them */
+    } else if (!dev->checkpt_has_tnodes) {
+        /* Legacy/incomplete checkpoint: rebuild tnodes from NAND tags. */
         rebuild_tnodes_after_checkpt(dev);
     }
 
@@ -769,9 +773,14 @@ int tfs_file_read(tfs_dev_t *dev, tfs_obj_t *obj,
         } else {
             uint8_t *tmp = (uint8_t *)dev->drv.malloc(dev->drv.ctx,
                                                      (uint32_t)chunk_sz);
+            int rc;
             if (!tmp) return TFS_ENOMEM;
 
-            tfs_chunk_read(dev, chunk_in_nand, tmp, chunk_sz, NULL);
+            rc = tfs_chunk_read(dev, chunk_in_nand, tmp, chunk_sz, NULL);
+            if (rc != TFS_OK) {
+                dev->drv.free(dev->drv.ctx, tmp);
+                return rc;
+            }
             memcpy(buf + copied, tmp + chunk_off, (size_t)to_copy);
             dev->drv.free(dev->drv.ctx, tmp);
         }
@@ -813,7 +822,10 @@ int tfs_file_write(tfs_dev_t *dev, tfs_obj_t *obj,
         if (ce->n_bytes == 0 && (chunk_off > 0 || to_write < chunk_sz)) {
             int cinn = (int)tfs_tnode_get_chunk(dev, obj, chunk_id);
             if (cinn > 0) {
-                tfs_chunk_read(dev, cinn, ce->data, chunk_sz, NULL);
+                int rc = tfs_chunk_read(dev, cinn, ce->data, chunk_sz, NULL);
+                if (rc != TFS_OK) {
+                    return rc;
+                }
                 ce->n_bytes = chunk_sz;
             } else {
                 memset(ce->data, 0, (size_t)chunk_sz);
@@ -849,7 +861,8 @@ int tfs_file_flush(tfs_dev_t *dev, tfs_obj_t *obj)
 
     if (obj->dirty) {
         rc = tfs_obj_update_hdr(dev, obj);
-        obj->dirty = 0;
+        if (rc == TFS_OK)
+            obj->dirty = 0;
     }
 
     return rc;
@@ -858,7 +871,8 @@ int tfs_file_flush(tfs_dev_t *dev, tfs_obj_t *obj)
 int tfs_file_resize(tfs_dev_t *dev, tfs_obj_t *obj, tfs_off_t new_size)
 {
     if (new_size < obj->var.file.file_size) {
-        tfs_cache_flush_obj(dev, obj);
+        int rc = tfs_cache_flush_obj(dev, obj);
+        if (rc != TFS_OK) return rc;
         tfs_tnode_shrink_worker(dev, obj, new_size, 0);
         obj->var.file.file_size   = new_size;
         obj->var.file.stored_size = new_size;
@@ -966,8 +980,7 @@ int tfs_unlink_obj(tfs_dev_t *dev, tfs_obj_t *obj)
         return TFS_OK;
     }
 
-    /* Normal unlink: this object is reclaimed immediately, so do not
-     * splice it into .deleted and leave a stale siblings link behind. */
+    /* Normal unlink: this object is reclaimed immediately. */
     obj->unlinked = 1;
     obj->dirty    = 1;
 

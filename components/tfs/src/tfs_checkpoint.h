@@ -12,6 +12,7 @@
  *   Subsequent chunks:
  *     block_info records (4 bytes each, packed)
  *     object records (variable size, terminated by TFS_OBJ_ID_NULL)
+ *     file chunk records (variable size, terminated by TFS_OBJ_ID_NULL)
  */
 
 #ifndef TFS_CHECKPOINT_H
@@ -20,7 +21,7 @@
 #include "../inc/tfs_types.h"
 #include "tfs_dev.h"
 
-#define TFS_CHECKPT_VERSION   4u
+#define TFS_CHECKPT_VERSION   5u
 
 /*-------------------------------------------------------------------
  *  On-NAND checkpoint structures
@@ -60,6 +61,12 @@ typedef struct {
     uint32_t file_size_lo;
     uint32_t file_size_hi;
 } tfs_checkpt_obj_t;
+
+typedef struct {
+    uint32_t obj_id;
+    uint32_t chunk_id;
+    uint32_t chunk_in_nand;
+} tfs_checkpt_chunk_t;
 
 /*-------------------------------------------------------------------
  *  API

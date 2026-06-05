@@ -1,3 +1,4 @@
+
 /*
  * luat_fs_tfs.c — TFS VFS adapter for LuatOS
  *
@@ -16,7 +17,6 @@
 #include "../../components/tfs/inc/tfs.h"
 #include "../../components/tfs/inc/tfs_port.h"
 #include "../../components/tfs/inc/tfs_types.h"
-#include <limits.h>
 
 /* Must match luat_little_flash_tfs.c layout */
 typedef struct {
@@ -56,12 +56,12 @@ static int tfs_make_path(luat_lf_tfs_ctx_t *ctx, const char *vfs_path,
 static int tfs_mode_to_flags(const char *mode)
 {
     if (!strcmp("r", mode) || !strcmp("rb", mode))     return TFS_O_RDONLY;
-    if (!strcmp("r+", mode) || !strcmp("r+b", mode))   return TFS_O_RDWR | TFS_O_CREAT;
+    if (!strcmp("r+", mode) || !strcmp("r+b", mode) || !strcmp("rb+", mode)) return TFS_O_RDWR | TFS_O_CREAT;
     if (!strcmp("w", mode) || !strcmp("wb", mode))     return TFS_O_RDWR | TFS_O_CREAT | TFS_O_TRUNC;
-    if (!strcmp("w+", mode) || !strcmp("w+b", mode))   return TFS_O_RDWR | TFS_O_CREAT | TFS_O_TRUNC;
+    if (!strcmp("w+", mode) || !strcmp("w+b", mode) || !strcmp("wb+", mode)) return TFS_O_RDWR | TFS_O_CREAT | TFS_O_TRUNC;
     if (!strcmp("a", mode) || !strcmp("ab", mode))     return TFS_O_APPEND | TFS_O_CREAT | TFS_O_WRONLY;
-    if (!strcmp("a+", mode) || !strcmp("a+b", mode))   return TFS_O_APPEND | TFS_O_CREAT | TFS_O_WRONLY;
-    return TFS_O_RDONLY;
+    if (!strcmp("a+", mode) || !strcmp("a+b", mode) || !strcmp("ab+", mode)) return TFS_O_APPEND | TFS_O_CREAT | TFS_O_RDWR;
+    return -1;
 }
 
 /*===================================================================
@@ -106,7 +106,9 @@ static FILE *luat_vfs_tfs_fopen(void *userdata, const char *filename, const char
     char path[TFS_MAX_PATH_LEN];
     if (!ctx || tfs_make_path(ctx, filename, path, sizeof(path)) != 0) return NULL;
 
-    int fd = tfs_open(path, tfs_mode_to_flags(mode), 0644);
+    int flags = tfs_mode_to_flags(mode);
+    if (flags < 0) return NULL;
+    int fd = tfs_open(path, flags, 0644);
     if (fd < 0) return NULL;
 
     luat_tfs_vfs_file_t *vf = (luat_tfs_vfs_file_t *)luat_heap_malloc(sizeof(*vf));
@@ -130,7 +132,8 @@ static int luat_vfs_tfs_fseek(void *userdata, FILE *stream, long off, int origin
     luat_tfs_vfs_file_t *vf = (luat_tfs_vfs_file_t *)stream;
     (void)userdata;
     if (!vf || vf->is_dir) return -1;
-    return (int)tfs_lseek(vf->tfs_fd, (tfs_off_t)off, origin);
+    tfs_off_t pos = tfs_lseek(vf->tfs_fd, (tfs_off_t)off, origin);
+    return (pos < 0) ? -1 : 0;
 }
 
 static int luat_vfs_tfs_ftell(void *userdata, FILE *stream)
@@ -250,16 +253,119 @@ static int luat_vfs_tfs_rmdir(void *userdata, const char *dirname)
     return tfs_rmdir(path) == TFS_OK ? 0 : -1;
 }
 
+static void tfs_add_size_saturating(size_t *total, size_t add)
+{
+    if (!total) {
+        return;
+    }
+    if (add > ((size_t)-1) - *total) {
+        *total = (size_t)-1;
+    } else {
+        *total += add;
+    }
+}
+
+static int tfs_join_path(char *out, size_t out_size,
+                         const char *dir, const char *name)
+{
+    size_t len;
+    const char *sep;
+    int written;
+
+    if (!out || out_size == 0 || !dir || !name) {
+        return -1;
+    }
+    len = strlen(dir);
+    sep = (len > 0 && dir[len - 1] == '/') ? "" : "/";
+    written = snprintf(out, out_size, "%s%s%s", dir, sep, name);
+    return (written > 0 && (size_t)written < out_size) ? 0 : -1;
+}
+
+static size_t tfs_dir_logical_bytes(const char *path, int depth, int *ok)
+{
+    enum { TFS_SCAN_MAX_DEPTH = 12 };
+    int dfd;
+    size_t total = 0;
+    tfs_dirent_t de;
+
+    if (!ok || *ok == 0) {
+        return 0;
+    }
+    if (!path || depth > TFS_SCAN_MAX_DEPTH) {
+        *ok = 0;
+        return 0;
+    }
+
+    dfd = tfs_opendir(path);
+    if (dfd < 0) {
+        *ok = 0;
+        return 0;
+    }
+
+    while (*ok && tfs_readdir(dfd, &de) > 0) {
+        char child[TFS_MAX_PATH_LEN];
+
+        de.d_name[sizeof(de.d_name) - 1] = '\0';
+        if (de.d_name[0] == '\0' ||
+            strcmp(de.d_name, ".") == 0 ||
+            strcmp(de.d_name, "..") == 0) {
+            continue;
+        }
+        if (tfs_join_path(child, sizeof(child), path, de.d_name) != 0) {
+            *ok = 0;
+            break;
+        }
+
+        if (de.d_type == TFS_DT_DIR) {
+            tfs_add_size_saturating(&total,
+                tfs_dir_logical_bytes(child, depth + 1, ok));
+        } else {
+            tfs_stat_t st;
+            if (tfs_stat(child, &st) == TFS_OK) {
+                tfs_add_size_saturating(&total, (size_t)st.st_size);
+            } else {
+                *ok = 0;
+                break;
+            }
+        }
+    }
+    tfs_closedir(dfd);
+    return total;
+}
+
 static int luat_vfs_tfs_info(void *userdata, const char *path, luat_fs_info_t *info)
 {
     luat_lf_tfs_ctx_t *ctx = (luat_lf_tfs_ctx_t *)userdata;
-    (void)path;
+    const size_t unit = 1024;
+    tfs_off_t total;
+    tfs_off_t free;
+    tfs_off_t used;
+    char root[TFS_MAX_PATH_LEN];
+    int logical_ok = 1;
+    size_t logical_used;
+
     if (!ctx || !info) return -1;
+
+    (void)path;
+
+    total = tfs_totalspace(ctx->dev_name);
+    free = tfs_freespace(ctx->dev_name);
+    if (total < 0 || free < 0) {
+        return -1;
+    }
+    used = (total > free) ? (total - free) : 0;
+    if (snprintf(root, sizeof(root), "/%s/", ctx->dev_name) > 0) {
+        logical_used = tfs_dir_logical_bytes(root, 0, &logical_ok);
+        if (logical_ok) {
+            used = (tfs_off_t)logical_used;
+        }
+    }
+
     memset(info, 0, sizeof(*info));
     snprintf(info->filesystem, sizeof(info->filesystem), "tfs");
-    info->total_block = (size_t)tfs_totalspace(ctx->dev_name);
-    info->block_used  = info->total_block - (size_t)tfs_freespace(ctx->dev_name);
-    info->block_size  = 1;
+    info->total_block = (size_t)((total + (tfs_off_t)unit - 1) / (tfs_off_t)unit);
+    info->block_used  = (size_t)((used + (tfs_off_t)unit - 1) / (tfs_off_t)unit);
+    info->block_size  = unit;
     return 0;
 }
 

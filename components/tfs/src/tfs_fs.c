@@ -58,6 +58,22 @@ static void set_err(int err)
     g_last_error = err;
 }
 
+static int sync_dev_checkpoint(tfs_dev_t *dev)
+{
+    int rc;
+
+    if (!dev || !dev->is_mounted)
+        return TFS_OK;
+
+    if (dev->drv.lock) dev->drv.lock(dev->drv.ctx);
+    rc = tfs_core_sync(dev);
+    if (rc != TFS_OK) {
+        tfs_checkpt_erase(dev);
+    }
+    if (dev->drv.unlock) dev->drv.unlock(dev->drv.ctx);
+    return rc;
+}
+
 static int alloc_fd(void)
 {
     int i;
@@ -291,8 +307,14 @@ int tfs_open(const char *path, int flags, uint32_t mode)
             set_err(TFS_EEXIST);
             return -1;
         }
-        if ((flags & TFS_O_TRUNC) && obj->obj_type == TFS_OBJ_TYPE_FILE)
-            tfs_file_resize(dev, obj, 0);
+        if ((flags & TFS_O_TRUNC) && obj->obj_type == TFS_OBJ_TYPE_FILE) {
+            int rc = tfs_file_resize(dev, obj, 0);
+            if (rc != TFS_OK) {
+                if (dev->drv.unlock) dev->drv.unlock(dev->drv.ctx);
+                set_err(rc);
+                return -1;
+            }
+        }
     }
 
     /* Redirect hard link to the equivalent file object */
@@ -324,12 +346,20 @@ int tfs_open(const char *path, int flags, uint32_t mode)
 int tfs_close(int fd)
 {
     tfs_fd_t *f = get_fd(fd);
+    tfs_dev_t *dev;
+    int       need_sync;
     int       rc;
     if (!f) { set_err(TFS_EBADF); return -1; }
+
+    dev = f->dev;
+    need_sync = (open_accmode(f->flags) != TFS_O_RDONLY);
 
     if (f->dev->drv.lock) f->dev->drv.lock(f->dev->drv.ctx);
     rc = tfs_file_flush(f->dev, f->obj);
     if (f->dev->drv.unlock) f->dev->drv.unlock(f->dev->drv.ctx);
+
+    if (rc == TFS_OK && need_sync)
+        rc = sync_dev_checkpoint(dev);
 
     memset(f, 0, sizeof(tfs_fd_t));
     if (rc != TFS_OK) { set_err(rc); return -1; }
@@ -417,6 +447,9 @@ int tfs_fsync(int fd)
     rc = tfs_file_flush(f->dev, f->obj);
     if (f->dev->drv.unlock) f->dev->drv.unlock(f->dev->drv.ctx);
 
+    if (rc == TFS_OK)
+        rc = sync_dev_checkpoint(f->dev);
+
     if (rc != TFS_OK) { set_err(rc); return -1; }
     return 0;
 }
@@ -455,6 +488,9 @@ int tfs_ftruncate(int fd, tfs_off_t length)
     rc = tfs_file_resize(f->dev, f->obj, length);
     if (f->dev->drv.unlock) f->dev->drv.unlock(f->dev->drv.ctx);
 
+    if (rc == TFS_OK)
+        rc = sync_dev_checkpoint(f->dev);
+
     if (rc != TFS_OK) { set_err(rc); return -1; }
     return 0;
 }
@@ -478,6 +514,9 @@ int tfs_truncate(const char *path, tfs_off_t length)
     }
     rc = tfs_file_resize(dev, obj, length);
     if (dev->drv.unlock) dev->drv.unlock(dev->drv.ctx);
+
+    if (rc == TFS_OK)
+        rc = sync_dev_checkpoint(dev);
 
     if (rc != TFS_OK) { set_err(rc); return -1; }
     return 0;
@@ -505,6 +544,9 @@ int tfs_unlink(const char *path)
     }
     rc = tfs_unlink_obj(dev, obj);
     if (dev->drv.unlock) dev->drv.unlock(dev->drv.ctx);
+
+    if (rc == TFS_OK)
+        rc = sync_dev_checkpoint(dev);
 
     if (rc != TFS_OK) { set_err(rc); return -1; }
     return 0;
@@ -548,6 +590,9 @@ int tfs_rename(const char *old_path, const char *new_path)
 
     rc = tfs_rename_obj(dev, obj, new_parent, new_name);
     if (dev->drv.unlock) dev->drv.unlock(dev->drv.ctx);
+
+    if (rc == TFS_OK)
+        rc = sync_dev_checkpoint(dev);
 
     if (rc != TFS_OK) { set_err(rc); return -1; }
     return 0;
@@ -649,6 +694,7 @@ int tfs_mkdir(const char *path, uint32_t mode)
     if (dev->drv.unlock) dev->drv.unlock(dev->drv.ctx);
 
     if (!obj) { set_err(TFS_EIO); return -1; }
+    if (sync_dev_checkpoint(dev) != TFS_OK) { set_err(TFS_EIO); return -1; }
     return 0;
 }
 
@@ -670,6 +716,9 @@ int tfs_rmdir(const char *path)
     }
     rc = tfs_unlink_obj(dev, obj);
     if (dev->drv.unlock) dev->drv.unlock(dev->drv.ctx);
+
+    if (rc == TFS_OK)
+        rc = sync_dev_checkpoint(dev);
 
     if (rc != TFS_OK) { set_err(rc); return -1; }
     return 0;

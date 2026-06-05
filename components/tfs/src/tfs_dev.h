@@ -154,6 +154,7 @@ typedef struct tfs_obj {
     uint32_t  rdev;
 
     char short_name[TFS_SHORT_NAME_LEN + 1];
+    char *full_name;
 
     uint32_t obj_type;          /* tfs_obj_type_t */
 
@@ -270,6 +271,7 @@ typedef struct tfs_dev {
     int is_mounted;
     int read_only;
     int is_checkpointed;
+    int checkpt_has_tnodes;
     int swap_endian;
 
     /* Runtime geometry (derived from param.geo) */

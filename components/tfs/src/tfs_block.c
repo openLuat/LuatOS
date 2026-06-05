@@ -283,7 +283,12 @@ int tfs_chunk_write(tfs_dev_t *dev, int chunk_in_nand,
     dev->n_page_writes++;
 
     if (rc != TFS_OK) {
+        int failed_blk = chunk_to_block(dev, chunk_in_nand);
+
         dev->n_retried_writes++;
+        tfs_block_mark_bad(dev, failed_blk);
+        if (dev->alloc_block == failed_blk)
+            dev->alloc_block = -1;
         return TFS_EFLASH;
     }
 
@@ -306,13 +311,35 @@ int tfs_chunk_read(tfs_dev_t *dev, int chunk_in_nand,
 
     memset(&pt, 0xff, sizeof(pt));
 
+    /* FIX E: initialize ext to "empty" so a failed read does not leak
+     * stale values to the caller. */
+    if (ext)
+        memset(ext, 0, sizeof(*ext));
+
     if (dev->param.inband_tags) {
         /* Read full physical page; extract tags from tail */
         uint32_t phys_sz = dev->param.geo.data_bytes_per_chunk;
         uint8_t *ibuf    = dev->inband_buf;
 
+        /* FIX E: zero ibuf so a failed read does not leak stale data */
+        memset(ibuf, 0xff, phys_sz);
+
         rc = dev->drv.read_page(dev->drv.ctx, chunk_in_nand,
                                 ibuf, phys_sz, NULL, 0);
+
+        if (rc != TFS_OK && rc != TFS_EECCFIXED) {
+            /* FIX E: read failed (e.g. NAND bus error / ECC uncorrectable).
+             * Do NOT copy ibuf to data — it would be stale or garbage. */
+            if (data && n_bytes > 0) {
+                uint32_t copy = ((uint32_t)n_bytes < dev->data_bytes_per_chunk)
+                               ? (uint32_t)n_bytes : dev->data_bytes_per_chunk;
+                memset(data, 0xff, copy);
+            }
+            dev->n_page_reads++;
+            if (rc == TFS_EECCUNFIXED)
+                dev->n_ecc_unfixed++;
+            return rc;
+        }
 
         if (data && n_bytes > 0) {
             uint32_t copy = ((uint32_t)n_bytes < dev->data_bytes_per_chunk)
@@ -324,6 +351,15 @@ int tfs_chunk_read(tfs_dev_t *dev, int chunk_in_nand,
         rc = dev->drv.read_page(dev->drv.ctx, chunk_in_nand,
                                 data, (uint32_t)n_bytes,
                                 (uint8_t *)&pt, sizeof(pt));
+        if (rc != TFS_OK && rc != TFS_EECCFIXED) {
+            /* FIX E: do not return success with garbage in data */
+            if (data && n_bytes > 0)
+                memset(data, 0xff, (uint32_t)n_bytes);
+            dev->n_page_reads++;
+            if (rc == TFS_EECCUNFIXED)
+                dev->n_ecc_unfixed++;
+            return rc;
+        }
     }
     dev->n_page_reads++;
 

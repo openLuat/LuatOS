@@ -28,6 +28,15 @@ extern luat_tp_config_t *airui_platform_luatos_get_tp_bind(void);
 /** 按键队列大小 */
 #define AIRUI_KEYPAD_QUEUE_SIZE 16
 
+/** 触摸事件缓存 */
+static luat_tp_data_t g_touch_notify_last[LUAT_TP_TOUCH_MAX];
+/** 触摸事件缓存是否有效 */
+static bool g_touch_notify_last_valid = false;
+/** 触摸事件缓存上下文 */
+static const airui_ctx_t *g_touch_notify_last_ctx = NULL;
+/** 触摸事件缓存引用计数 */
+static int g_touch_notify_last_ref = 0;
+
 /** 按键事件结构体 */
 typedef struct {
     uint32_t key; // 按键值
@@ -247,6 +256,29 @@ static void airui_luatos_notify_touch_batch(airui_ctx_t *ctx, airui_touch_point_
     airui_touch_notify(ctx, points, count);
 }
 
+// 触摸事件缓存是否变化
+static bool airui_luatos_touch_snapshot_changed(airui_ctx_t *ctx, const luat_tp_data_t *tp_data)
+{
+    if (ctx == NULL || tp_data == NULL || ctx->touch_callback_ref <= 0) {
+        return false;
+    }
+
+    if (g_touch_notify_last_ctx != ctx || g_touch_notify_last_ref != ctx->touch_callback_ref) {
+        g_touch_notify_last_valid = false;
+        g_touch_notify_last_ctx = ctx;
+        g_touch_notify_last_ref = ctx->touch_callback_ref;
+    }
+
+    if (g_touch_notify_last_valid &&
+        memcmp(g_touch_notify_last, tp_data, sizeof(g_touch_notify_last)) == 0) {
+        return false;
+    }
+
+    memcpy(g_touch_notify_last, tp_data, sizeof(g_touch_notify_last));
+    g_touch_notify_last_valid = true;
+    return true;
+}
+
 static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev_data_t *data)
 {
     if (data == NULL) {
@@ -312,7 +344,6 @@ static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_in
 
     // 仅在 slot 0 触发一次 Lua 触摸回调（收集所有触点）
     if (slot == 0) {
-        bool had_active = ctx->touch_pressed;
         airui_touch_point_t points[AIRUI_TOUCH_MAX_POINTS];
         uint8_t point_count = 0;
 
@@ -348,12 +379,8 @@ static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_in
             points[point_count].timestamp = tp_data[i].timestamp;
             point_count++;
         }
-        if (point_count > 0 || had_active) {
+        if (point_count > 0 && airui_luatos_touch_snapshot_changed(ctx, tp_data)) {
             airui_luatos_notify_touch_batch(ctx, points, point_count);
-        }
-        // 消费后清零，避免残留事件在下一次轮询中重复触发
-        for (uint8_t i = 0; i < LUAT_TP_TOUCH_MAX; i++) {
-            tp_data[i].event = TP_EVENT_TYPE_NONE;
         }
     }
 

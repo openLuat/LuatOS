@@ -193,6 +193,8 @@ local storage_available = {
 -- Flash 设备全局变量（防止 GC 回收导致死机）
 little_flash_spi_device = nil
 little_flash_device     = nil
+nand_flash_spi_device   = nil
+nand_flash_device       = nil
 
 -- ==============================================
 -- 存储配置管理函数
@@ -1744,6 +1746,12 @@ local function app_task(app_path)
         return -1
     end
 
+    -- 禁止应用调用 airui.device_bind_touch 重新绑定触摸设备
+    my_env.airui.device_bind_touch = function(...)
+        my_env.log.error("airui", "沙箱环境不允许重新绑定触摸设备")
+        return -1
+    end
+
     -- excloud 库
     -- 功能：包装 excloud.upload_image 和 excloud.upload_audio，支持路径转换
     local function round_val(v)
@@ -2583,8 +2591,10 @@ local function app_task(app_path)
 
     -- 关闭窗口，从记录中移除，检查是否需要退出应用
     my_env.exwin.close = function(win_id)
-        -- 自启APP密码保护：已锁定且只剩最后一个窗口时拦截关闭
-        if _G.autostart_locked and #win_ids <= 1 then
+        -- 自启APP密码保护：通过 fskv 读取锁定状态，与 settings_auto_app 完全解耦
+        -- fskv key 首次未初始化时 get 返回 nil，"1" == nil 为 false，安全兜底
+        local locked = (fskv.get("app_autostart_locked") or "0") == "1"
+        if locked and #win_ids <= 1 then
             my_env.log.info("exapp_window", "autostart locked, close blocked for win_id:", win_id)
             glob_sys.publish("AUTOSTART_REQUEST_EXIT_PASSWORD")
             return
@@ -3238,9 +3248,9 @@ end
 -- 内置设备 SD 引脚配置
 -- ==============================================
 local BUILT_IN_DEVICES = {
-    Air8000 = { spi_id = 1, pin_cs = 20, speed = 2000000 },
-    Air8101 = { spi_id = 1, pin_cs = 14, speed = 2000000 },
-    Air1601 = { spi_id = 1, pin_cs = 10, speed = 2000000 },
+    Air8000 = { storage_type = "sd_tf", spi_id = 1, pin_cs = 20, speed = 2000000 },
+    Air8101 = { storage_type = "sd_tf", spi_id = 1, pin_cs = 14, speed = 2000000 },
+    Air1601 = { storage_type = "sd_tf", spi_id = 1, pin_cs = 10, speed = 2000000 },
 }
 
 -- ==============================================
@@ -3279,9 +3289,9 @@ local function mount_storage(cfg)
             return false
         end
         return true
-    elseif storage == "little_flash" or storage == "nand_flash" then
+    elseif storage == "little_flash" then
         local label = STORAGE_DEFS[storage] and STORAGE_DEFS[storage].label or "Flash"
-        log.info("exapp_init", "mounting", label, ": spi", spi_id, "cs", pin_cs)
+        log.info("exapp_init", "mounting", label, "(LFS2): spi", spi_id, "cs", pin_cs)
         -- 使用全局变量存储，避免 GC 回收导致 flash 操作死机
         little_flash_spi_device = spi.deviceSetup(spi_id, pin_cs, 0, 0, 8, speed)
         if not little_flash_spi_device then
@@ -3293,12 +3303,39 @@ local function mount_storage(cfg)
             log.warn("exapp_init", "lf.init failed")
             return false
         end
+        -- NOR Flash: 默认 LFS2 文件系统
         local ok = lf.mount(little_flash_device, mount_point)
         if not ok then
-            -- 挂载失败尝试后再试一次（可能是首次使用需要初始化）
+            -- 挂载失败后再试一次（可能是首次使用需要初始化）
             ok = lf.mount(little_flash_device, mount_point)
             if not ok then
-                log.warn("exapp_init", "lf.mount failed:", mount_point)
+                log.warn("exapp_init", "lf.mount LFS2 failed:", mount_point)
+                return false
+            end
+        end
+        log.info("exapp_init", label, "mounted at", mount_point)
+        return true
+    elseif storage == "nand_flash" then
+        local label = STORAGE_DEFS[storage] and STORAGE_DEFS[storage].label or "NAND Flash"
+        log.info("exapp_init", "mounting", label, "(TFS): spi", spi_id, "cs", pin_cs)
+        -- nand_flash 需要独立全局变量，避免和 little_flash 共用导致状态覆盖
+        nand_flash_spi_device = spi.deviceSetup(spi_id, pin_cs, 0, 0, 8, speed)
+        if not nand_flash_spi_device then
+            log.warn("exapp_init", "nand spi device setup failed")
+            return false
+        end
+        nand_flash_device = lf.init(nand_flash_spi_device)
+        if not nand_flash_device then
+            log.warn("exapp_init", "nand lf.init failed")
+            return false
+        end
+        -- NAND Flash: 必须使用 TFS 文件系统
+        local ok = lf.mount(nand_flash_device, mount_point, 0, 0, "tfs")
+        if not ok then
+            -- 挂载失败后再试一次（可能是首次使用需要初始化）
+            ok = lf.mount(nand_flash_device, mount_point, 0, 0, "tfs")
+            if not ok then
+                log.warn("exapp_init", "lf.mount TFS failed:", mount_point)
                 return false
             end
         end
@@ -3351,7 +3388,6 @@ function exapp.init(...)
             cfg = sdcard_opts
         else
             cfg = BUILT_IN_DEVICES[dev_type]
-            if cfg then cfg.storage_type = "sd_tf" end
         end
         if cfg then
             mount_storage(cfg)
@@ -3362,9 +3398,11 @@ function exapp.init(...)
     storage_available.internal = true
     storage_available.sd_tf = probe_storage("/sd/")
     storage_available.little_flash = probe_storage("/little_flash/")
+    storage_available.nand_flash = storage_available.little_flash  -- 同挂载点 /little_flash/，文件系统层在 mount 时区分
     log.info("exapp_init", "storage available: internal=", storage_available.internal,
         "sd_tf=", storage_available.sd_tf,
-        "little_flash=", storage_available.little_flash)
+        "little_flash=", storage_available.little_flash,
+        "nand_flash=", storage_available.nand_flash)
 
     -- 4. 扫描所有存储位置的 app_store 目录
     installed_info = {}
@@ -4305,11 +4343,11 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
         sys.publish("APP_STORE_PROGRESS", aid, 100, "安装完成")
         report_result(aid, nil)
 
-        -- 刷新当前列表（仅一次请求，使用当前UI正确的分页参数）
+        -- 刷新当前列表（仅一次请求，保持用户当前页码不跳回第1页）
         exapp.get_app_list({
             category = remote_app_list.category,
             sort = remote_app_list.sort,
-            page = 1,
+            page = remote_app_list.page,
             size = remote_app_list.size or PAGE_LIMIT,
             query = remote_app_list.query or ""
         })
@@ -4399,11 +4437,11 @@ function exapp.uninstall_remote_app(aid, category, sort)
         sys.publish("APP_STORE_ACTION_DONE", aid, "uninstall", true)
         sys.publish("APP_STORE_PROGRESS", aid, 100, "卸载完成")
 
-        -- 卸载完成后刷新当前列表（仅一次请求）
+        -- 卸载完成后刷新当前列表（仅一次请求，保持用户当前页码不跳回第1页）
         exapp.get_app_list({
             category = remote_app_list.category,
             sort = remote_app_list.sort,
-            page = 1,
+            page = remote_app_list.page,
             size = remote_app_list.size or PAGE_LIMIT,
             query = remote_app_list.query or ""
         })

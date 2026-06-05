@@ -89,18 +89,20 @@ Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/ma
 
 - Canonical helper: `bsp\pc\pc_utest_coverage.ps1`
 - Typical usage:
-  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_dtls_basic`
-  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_tcp_basic`
-  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_http_basic -SkipBuild`
-  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite c_utest_https_basic -SkipBuild`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite dtls_basic`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite tcp_basic`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite http_basic -SkipBuild`
+  - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite https_basic -SkipBuild`
 - After the first suite build, reuse the same binary for more suites with `-SkipBuild`
 - `-Suite` and `-TestcaseScripts` are mutually exclusive; pass only one of them
+- `-Suite <name>` is resolved by scanning `testcase/utest/{net,lib,sys}/<name>/` first, then `testcase/unit_testcase_tools/<name>/` as a fallback for not-yet-migrated suites (e.g. `pgfs_basic`)
 - Coverage HTML is written to `build\coverage\<suite>\html\index.html`
-- Current network utest suites:
-  - `c_utest_dtls_basic`: PC-only DTLS-PSK loopback against `127.0.0.1`
-  - `c_utest_tcp_basic`: TCP reachability against `www.qq.com:80`
-  - `c_utest_http_basic`: HTTP reachability against `http://www.qq.com`
-  - `c_utest_https_basic`: HTTPS reachability against `https://www.qq.com`
+- C-layer utest suites (under `testcase\utest\`):
+  - `net/dtls_basic`: PC-only DTLS-PSK loopback against `127.0.0.1`
+  - `net/tcp_basic`: TCP reachability against `www.qq.com:80`
+  - `net/http_basic`: HTTP reachability against `http://www.qq.com`
+  - `net/https_basic`: HTTPS reachability against `https://www.qq.com`
+  - `lib/core_basic`, `lib/crypto_basic`, `sys/little_flash_basic`, `sys/ndk_basic`
 - Additional PC socket regression:
   - `socket_udp_limit_basic`: verifies `socket.rx(..., limit)` truncates UDP data and discards the unread datagram tail
 - DTLS loopback depends on the PC mbedTLS3 config in `include\mbedtls_config_pc_mbedtls3.h` enabling DTLS server/PSK support
@@ -117,7 +119,7 @@ cmd /c build_windows_32bit_msvc.bat   # 或 build_windows_64bit_msvc.bat
 
 # 运行（需要传两个脚本目录：common + 目标 testcase）
 cd build\out
-.\luatos-lua.exe ..\..\..\..\testcase\common\scripts\ ..\..\..\..\testcase\unit_testcase_tools\c_utest_dtls_basic\scripts\
+.\luatos-lua.exe ..\..\..\..\testcase\common\scripts\ ..\..\..\..\testcase\utest\net\dtls_basic\scripts\
 ```
 
 输出中搜索 `OVERALL_PASS` / `OVERALL_FAIL` 判断结果。

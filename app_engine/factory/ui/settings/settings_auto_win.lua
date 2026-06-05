@@ -108,7 +108,7 @@ local function show_password_input(title, on_confirm, on_cancel)
     soft_keyboard = airui.keyboard({
         x = 0, y = -math.floor(20 * _G.density_scale),
         w = screen_w, h = math.floor(240 * _G.density_scale),
-        mode = "text", auto_hide = true,
+        mode = "text", auto_hide = true, preview = true,
         on_commit = function(self) self:hide() end,
     })
 
@@ -191,7 +191,7 @@ local function show_password_edit()
     soft_keyboard = airui.keyboard({
         x = 0, y = -math.floor(20 * _G.density_scale),
         w = screen_w, h = math.floor(240 * _G.density_scale),
-        mode = "text", auto_hide = true,
+        mode = "text", auto_hide = true, preview = true,
         on_commit = function(self) self:hide() end,
     })
 
@@ -333,7 +333,7 @@ local function show_exit_password_dialog()
     soft_keyboard = airui.keyboard({
         x = 0, y = -math.floor(20 * _G.density_scale),
         w = screen_w, h = math.floor(240 * _G.density_scale),
-        mode = "text", auto_hide = true,
+        mode = "text", auto_hide = true, preview = true,
         on_commit = function(self) self:hide() end,
     })
 

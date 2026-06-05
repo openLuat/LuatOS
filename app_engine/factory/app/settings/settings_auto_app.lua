@@ -18,13 +18,22 @@ local CONFIG_KEYS = {
     ENABLED  = "app_autostart_enabled",
     TARGET   = "app_autostart_target",
     PASSWORD = "app_autostart_password",
+    LOCKED   = "app_autostart_locked",
 }
 
 -- ==================== 局部变量 ====================
 
 local fskv_initialized = false
-_G.autostart_locked = false
+local autostart_locked = false
 local autostart_target_path = ""
+
+-- fskv 持久化锁定状态，exapp.lua 直接读 fskv，无需 _G 或 publish 耦合
+local function set_locked(value)
+    autostart_locked = value
+    if fskv_initialized then
+        fskv.set(CONFIG_KEYS.LOCKED, value and "1" or "0")
+    end
+end
 
 -- ==================== fskv 读写 ====================
 
@@ -36,6 +45,7 @@ local function init_fskv()
         if fskv.get(CONFIG_KEYS.ENABLED) == nil then fskv.set(CONFIG_KEYS.ENABLED, "0") end
         if fskv.get(CONFIG_KEYS.PASSWORD) == nil then fskv.set(CONFIG_KEYS.PASSWORD, "") end
         if fskv.get(CONFIG_KEYS.TARGET) == nil then fskv.set(CONFIG_KEYS.TARGET, "") end
+        if fskv.get(CONFIG_KEYS.LOCKED) == nil then fskv.set(CONFIG_KEYS.LOCKED, "0") end
         return true
     end
     log.error("settings_autostart", "fskv初始化失败")
@@ -102,7 +112,7 @@ sys.subscribe("OPEN_IDLE_WIN", function()
         if ok then
             autostart_target_path = target
             if has_password() then
-                _G.autostart_locked = true
+                set_locked(true)
                 log.info("settings_autostart", "密码锁已激活")
             end
             log.info("settings_autostart", "自启APP路径", target)
@@ -156,7 +166,7 @@ local function show_exit_password_popup()
         popup_kb = _G.airui.keyboard({
             x = 0, y = -math.floor(20 * density),
             w = screen_w, h = math.floor(240 * density),
-            mode = "text", auto_hide = true,
+            mode = "text", auto_hide = true, preview = true,
             on_commit = function(self) self:hide() end,
         })
 
@@ -208,14 +218,14 @@ local function show_exit_password_popup()
 end
 
 sys.subscribe("AUTOSTART_REQUEST_EXIT_PASSWORD", function()
-    if not _G.autostart_locked then return end
+    if not autostart_locked then return end
     show_exit_password_popup()
 end)
 
 -- ==================== 硬件 RETURN 键拦截 ====================
 
 sys.subscribe("NES_CTRL", function(key)
-    if key == "RETURN" and _G.autostart_locked then
+    if key == "RETURN" and autostart_locked then
         log.info("settings_autostart", "RETURN 被密码锁拦截")
         sys.publish("AUTOSTART_REQUEST_EXIT_PASSWORD")
     end
@@ -225,7 +235,7 @@ end)
 sys.subscribe("AUTOSTART_EXIT_SUBMIT_PASSWORD", function(password)
     if verify_password(password) then
         log.info("settings_autostart", "密码验证通过，解除锁定")
-        _G.autostart_locked = false
+        set_locked(false)
         local target = autostart_target_path
         autostart_target_path = ""
         -- 锁已解除，让 APP 的 exapp.close 自然退出
@@ -264,7 +274,7 @@ sys.subscribe("AUTOSTART_SET_ENABLED", function(value, password)
         end
     end
     set_enabled(value)
-    if not value then _G.autostart_locked = false; autostart_target_path = "" end
+    if not value then set_locked(false); autostart_target_path = "" end
     sys.publish("AUTOSTART_PASSWORD_RESULT", true, "")
     sys.publish("AUTOSTART_CONFIG_CHANGED")
 end)
@@ -275,6 +285,19 @@ sys.subscribe("AUTOSTART_SET_TARGET", function(target_path, password)
         return
     end
     set_target(target_path)
+    sys.publish("AUTOSTART_PASSWORD_RESULT", true, "")
+    sys.publish("AUTOSTART_CONFIG_CHANGED")
+end)
+
+-- 组合命令：设置目标APP并自动启用自启开关（从 idle_win 长按菜单调用）
+-- 密码校验由调用方在弹出密码验证后传入已验证的密码（空字符串表示无密码）
+sys.subscribe("AUTOSTART_SET_TARGET_AND_ENABLE", function(target_path, password)
+    if has_password() and not verify_password(password) then
+        sys.publish("AUTOSTART_PASSWORD_RESULT", false, "密码错误")
+        return
+    end
+    set_target(target_path)
+    set_enabled(true)
     sys.publish("AUTOSTART_PASSWORD_RESULT", true, "")
     sys.publish("AUTOSTART_CONFIG_CHANGED")
 end)
@@ -301,14 +324,14 @@ end)
 
 -- 监听卸载
 sys.subscribe("APP_STORE_INSTALLED_UPDATED", function()
-    if _G.autostart_locked and autostart_target_path ~= "" then
+    if autostart_locked and autostart_target_path ~= "" then
         local installed = exapp.list_installed()
         local found = false
         for _, info in pairs(installed) do
             if info.path == autostart_target_path then found = true; break end
         end
         if not found then
-            _G.autostart_locked = false; autostart_target_path = ""
+            set_locked(false); autostart_target_path = ""
         end
     end
 end)

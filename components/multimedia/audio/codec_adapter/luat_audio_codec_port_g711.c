@@ -4,7 +4,40 @@
 #include "g711_codec/g711_codec.h"
 #include "luat_multimedia_codec.h"
 
-int _g711_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
+static int _g711_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info)
+{
+    info->channel_nums = 1;
+    info->data_align = 2;
+    info->is_signed = 1;
+    info->sample_rate = 8000;
+    *jump_offset_bytes = 0;
+    *need_bytes = 0;
+    return LUAT_ERROR_NONE;
+}
+
+void _g711_set_record_info(struct luat_audio_data_codec *codec, luat_audio_common_param_t *info)
+{
+    if (info->sample_rate != 8000) {
+        info->sample_rate = 8000;
+    }
+    if (info->channel_nums != 1) {
+        info->channel_nums = 1;
+    }
+    if (info->data_align != 2) {
+        info->data_align = 2;
+    }
+    if (info->is_signed != 1) {
+        info->is_signed = 1;
+    }
+    codec->common_param.sample_rate = info->sample_rate;
+    codec->common_param.channel_nums = info->channel_nums;
+    codec->common_param.data_align = info->data_align;
+    codec->common_param.is_signed = info->is_signed;
+    codec->common_param.one_frame_sample_cnt = 160;
+    codec->common_param.one_frame_bytes = 320;
+}
+
+static int _g711_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
     if (!codec) return -LUAT_ERROR_PARAM_INVALID;
     if (codec->opts->type != LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW && codec->opts->type != LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW) {
         return -LUAT_ERROR_PARAM_INVALID;
@@ -69,17 +102,17 @@ static int _g711_codec_encode(luat_audio_data_codec_t* codec, luat_audio_common_
 const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_ulaw_opts = {
     .init = _g711_codec_init,
     .deinit = _g711_codec_deinit,
-    .get_play_info = NULL,
+    .get_play_info = _g711_get_play_info,
+    .set_record_info = _g711_set_record_info,
     .pre_decode = NULL,
     .decode = _g711_codec_decode,
     .make_head = NULL,
     .encode = _g711_codec_encode,
     .decode_min_input_len = 160,
-    .decode_max_output_len = 320,
-    .encode_min_input_len = 160,
+    .decode_max_output_len = 160,
+    .encode_min_input_len = 320,
     .encode_max_output_len = 160,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,
-    .is_reentrant = 1,
     .is_hardware = 0,
     .support_detect = 0,
 };
@@ -87,17 +120,17 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_ulaw_opts = {
 const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_alaw_opts = {
     .init = _g711_codec_init,
     .deinit = _g711_codec_deinit,
-    .get_play_info = NULL,
+    .get_play_info = _g711_get_play_info,
+    .set_record_info = _g711_set_record_info,
     .pre_decode = NULL,
     .decode = _g711_codec_decode,
     .make_head = NULL,
     .encode = _g711_codec_encode,
     .decode_min_input_len = 160,
-    .decode_max_output_len = 320,
-    .encode_min_input_len = 160,
+    .decode_max_output_len = 160,
+    .encode_min_input_len = 320,
     .encode_max_output_len = 160,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,
-    .is_reentrant = 1,
     .is_hardware = 0,
     .support_detect = 0,
 };

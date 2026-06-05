@@ -51,6 +51,12 @@ local function judge_device()
     elseif device_name == "UIS8910" then
         model_name = "Air724UG"
         chip_name = "UIS8910"
+    elseif device_name == "Air1601" then
+        model_name = "Air1601"
+        chip_name = "CCM4211"
+    elseif device_name == "Air1602" then
+        model_name = "Air1602"
+        chip_name = "CCM4211"
     else
         log.info("未知的设备名称")
     end
@@ -77,6 +83,19 @@ function hmeta_test.test_model_demo()
         log.info("hmeta_test", "获取模组名称测试通过")
 
     elseif device_name == "Air8101" then
+
+        local found = false
+        for _, name in ipairs(model_name) do
+            if hmeta_model == name then
+                found = true
+                break
+            end
+        end
+        assert(found == true, string.format("获取模组名称测试失败: 预期 %s, 实际 %s",
+            table.concat(model_name, " 或 "), hmeta_model))
+        log.info("hmeta_test", "获取模组名称测试通过")
+
+    elseif device_name == "Air1601" or device_name == "Air1602" then
 
         local found = false
         for _, name in ipairs(model_name) do

@@ -41,7 +41,7 @@ NDK_GUEST_START(main)
 | 名称 | 用途 |
 |---|---|
 | `ndk_stack_top()` | 返回 `NDK_RAM_BASE + ndk_memory_size() - 16`（含 16 字节红区） |
-| `NDK_GUEST_START(fn)` | 宏：定义 `_start`，设置 sp，调用 `fn()`，失败后进 wfi |
+| `NDK_GUEST_START(fn)` | 宏：定义 `_start`，设置 sp，调用 `fn()`，main 返回后进 wfi；支持 non-leaf `main`（`main` 可自由调非 inline 助手或自然 return） |
 | `ndk_wfi_loop()` | 死循环 wfi |
 | `ndk_exit(code)` | 写 `code` 到 SYSCON |
 | `ndk_exit_ok()` | `ndk_exit(NDK_DONE_MARKER)` 简写 |

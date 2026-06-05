@@ -385,9 +385,9 @@ view.render_directory = function()
                 align = airui.TEXT_ALIGN_LEFT,
             })
 
-            -- 文件大小 label：右侧显示 KB，保留 1 位小数
-            local size_str = ""
+            -- 文件大小 label：仅文件显示，文件夹不显示
             if node.type == 0 then
+                local size_str = ""
                 local kb = (node.size or 0) / 1024
                 if kb < 0.1 then
                     size_str = "<0.1 KB"
@@ -396,18 +396,18 @@ view.render_directory = function()
                 else
                     size_str = string.format("%.1f KB", kb)
                 end
+                airui.label({
+                    parent = row,
+                    x = card_w - math.floor(130 * density),
+                    y = math.floor(8 * density),
+                    w = math.floor(80 * density),
+                    h = row_h - math.floor(16 * density),
+                    text = size_str,
+                    font_size = math.floor(13 * density),
+                    color = COLOR_TEXT_SECONDARY,
+                    align = airui.TEXT_ALIGN_RIGHT,
+                })
             end
-            airui.label({
-                parent = row,
-                x = card_w - math.floor(130 * density),
-                y = math.floor(8 * density),
-                w = math.floor(80 * density),
-                h = row_h - math.floor(16 * density),
-                text = size_str,
-                font_size = math.floor(13 * density),
-                color = COLOR_TEXT_SECONDARY,
-                align = airui.TEXT_ALIGN_RIGHT,
-            })
 
             if node.type == 1 then
                 local marker = node.expanded and "V" or ">"

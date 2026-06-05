@@ -1,5 +1,5 @@
 /*
- * tfs_tnode.c — Chunk-index tree for TFS
+ * tfs_tnode.c - Chunk-index tree for TFS
  *
  * The tnode tree maps chunk_id → chunk_in_nand.
  *
@@ -66,6 +66,7 @@ tfs_tnode_t *tfs_tnode_create(tfs_dev_t *dev)
      * Internal nodes have TFS_TNODES_INTERNAL pointers;
      * leaf nodes have tnode_size bytes. Use the larger. */
     uint32_t sz = dev->tnode_size;
+
     if (sz < sizeof(tfs_tnode_t))
         sz = sizeof(tfs_tnode_t);
 
@@ -105,7 +106,8 @@ void tfs_tnode_free_tree(tfs_dev_t *dev, tfs_tnode_t *tn, int level)
  *===================================================================*/
 
 static uint32_t leaf_get(const tfs_dev_t *dev,
-                        const tfs_tnode_t *leaf, uint32_t slot)
+                         const tfs_tnode_t *leaf,
+                         uint32_t slot)
 {
     if (dev->tnode_width == 16) {
         const uint16_t *p = (const uint16_t *)leaf;
@@ -117,7 +119,9 @@ static uint32_t leaf_get(const tfs_dev_t *dev,
 }
 
 static void leaf_set(const tfs_dev_t *dev,
-                     tfs_tnode_t *leaf, uint32_t slot, uint32_t val)
+                     tfs_tnode_t *leaf,
+                     uint32_t slot,
+                     uint32_t val)
 {
     if (dev->tnode_width == 16) {
         uint16_t *p = (uint16_t *)leaf;
@@ -137,21 +141,25 @@ int tfs_tnode_level_for_chunks(const tfs_dev_t *dev, int n_data_chunks)
     int level = 0;
     uint32_t capacity = TFS_TNODES_LEVEL0;
 
-    while ((int)capacity < n_data_chunks + 1 &&
+    while ((int)capacity < n_data_chunks &&
            level < TFS_TNODES_MAX_LEVEL) {
         capacity *= TFS_TNODES_INTERNAL;
         level++;
     }
+
+    (void)dev;
     return level;
 }
 
 uint32_t tfs_tnode_slots_at_level0(const tfs_dev_t *dev, int level)
 {
     uint32_t r = TFS_TNODES_LEVEL0;
-    while (level-- > 0)
+
+    while (level-- > 1)
         r *= TFS_TNODES_INTERNAL;
-    return r;
+
     (void)dev;
+    return r;
 }
 
 /*===================================================================
@@ -165,7 +173,7 @@ tfs_tnode_t *tfs_tnode_find_level0(tfs_dev_t *dev, tfs_obj_t *obj,
 {
     tfs_tnode_t *tn    = obj->var.file.top;
     int          level = obj->var.file.top_level;
-    uint32_t      offset;
+    uint32_t     offset;
 
     /* Compute bit offset for this level */
     /* Navigate internal levels */
@@ -178,6 +186,7 @@ tfs_tnode_t *tfs_tnode_find_level0(tfs_dev_t *dev, tfs_obj_t *obj,
          */
         uint32_t shift = TFS_TNODES_LEVEL0_BITS
                         + (uint32_t)(level - 1) * TFS_TNODES_INTERNAL_BITS;
+
         internal_slot = (chunk_id >> shift) & (TFS_TNODES_INTERNAL - 1u);
 
         if (!tn->internal[internal_slot]) {
@@ -205,11 +214,11 @@ tfs_tnode_t *tfs_tnode_find_level0(tfs_dev_t *dev, tfs_obj_t *obj,
  *===================================================================*/
 
 uint32_t tfs_tnode_get_chunk(tfs_dev_t *dev, tfs_obj_t *obj,
-                            uint32_t chunk_id)
+                             uint32_t chunk_id)
 {
     tfs_tnode_t *leaf;
-    uint32_t      slot;
-    uint32_t      chunk_in_nand;
+    uint32_t slot;
+    uint32_t chunk_in_nand;
 
     if (!obj->var.file.top)
         return 0;
@@ -236,8 +245,7 @@ int tfs_tnode_put_chunk(tfs_dev_t *dev, tfs_obj_t *obj,
     uint32_t      stored;
 
     /* Grow tree if needed */
-    needed_level = tfs_tnode_level_for_chunks(dev,
-                       (int)chunk_id / TFS_TNODES_LEVEL0 + 1);
+    needed_level = tfs_tnode_level_for_chunks(dev, (int)chunk_id + 1);
 
     while (obj->var.file.top_level < needed_level) {
         tfs_tnode_t *new_top = tfs_tnode_create(dev);
@@ -282,8 +290,7 @@ static void del_chunks_recursive(tfs_dev_t *dev,
                                  int *deleted_count)
 {
     uint32_t i;
-    int     cpb = (int)tfs_chunks_per_block(dev);
-    (void)cpb;
+    (void)del_hdr;
 
     if (!tn)
         return;
@@ -294,8 +301,8 @@ static void del_chunks_recursive(tfs_dev_t *dev,
         for (i = 0; i < TFS_TNODES_LEVEL0; i++) {
             uint32_t c = leaf_get(dev, tn, i);
             if (c) {
-                uint32_t chunk_id    = base_chunk_id + i;
-                tfs_off_t file_pos  = (tfs_off_t)chunk_id * chunk_size;
+                uint32_t chunk_id = base_chunk_id + i;
+                tfs_off_t file_pos = (tfs_off_t)chunk_id * chunk_size;
 
                 if (limit_size < 0 || file_pos >= limit_size) {
                     uint32_t chunk_in_nand = c - 1u + (uint32_t)dev->chunk_offset;
@@ -332,7 +339,7 @@ static void del_chunks_recursive(tfs_dev_t *dev,
 }
 
 void tfs_tnode_del_file_chunks(tfs_dev_t *dev, tfs_obj_t *obj,
-                                tfs_off_t limit_size)
+                               tfs_off_t limit_size)
 {
     int deleted_count = 0;
 
@@ -359,7 +366,7 @@ void tfs_tnode_del_file_chunks(tfs_dev_t *dev, tfs_obj_t *obj,
 }
 
 void tfs_tnode_shrink_worker(tfs_dev_t *dev, tfs_obj_t *obj,
-                              tfs_off_t limit_size, int del_hdr)
+                             tfs_off_t limit_size, int del_hdr)
 {
     (void)del_hdr;
     tfs_tnode_del_file_chunks(dev, obj, limit_size);

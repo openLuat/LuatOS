@@ -317,6 +317,8 @@ target("luatos-lua")
                     luatos.."/components/multimedia/amr_decode/amr_nb/common/include",
                     luatos.."/components/multimedia/amr_decode/amr_nb/dec/include",
                     luatos.."/components/multimedia/amr_decode/amr_wb/dec/include",
+                    luatos.."/components/multimedia/amr_decode/amr_wb/enc/include",
+                    luatos.."/components/multimedia/amr_decode/amr_wb/enc/common/include",
                     luatos.."/components/multimedia/amr_decode/opencore-amrnb",
                     luatos.."/components/multimedia/amr_decode/opencore-amrwb",
                     luatos.."/components/multimedia/amr_decode/oscl",

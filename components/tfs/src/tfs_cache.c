@@ -1,5 +1,5 @@
 /*
- * tfs_cache.c — Write cache for TFS
+ * tfs_cache.c - Write cache for TFS.
  *
  * Simple LRU write cache backed by a flat array of tfs_cache_entry_t.
  * Each entry owns a chunk-sized data buffer allocated at init time.
@@ -14,19 +14,22 @@
 
 #include <string.h>
 
+#ifndef TFS_WRITE_RETRY_BLOCKS
+#define TFS_WRITE_RETRY_BLOCKS 4
+#endif
+
 /*===================================================================
  *  Init / deinit
  *===================================================================*/
 
 int tfs_cache_init(tfs_dev_t *dev)
 {
-    int  i;
-    int  n       = TFS_CFG_N_CACHES;
-    int  chunk_sz = (int)dev->data_bytes_per_chunk;
+    int i;
+    int n = TFS_CFG_N_CACHES;
+    int chunk_sz = (int)dev->data_bytes_per_chunk;
 
-    dev->cache_mgr.n_caches      = n;
-    dev->cache_mgr.cache_last_use= 0;
-
+    dev->cache_mgr.n_caches = n;
+    dev->cache_mgr.cache_last_use = 0;
     dev->cache_mgr.cache = (tfs_cache_entry_t *)
         dev->drv.malloc(dev->drv.ctx, (uint32_t)n * sizeof(tfs_cache_entry_t));
     if (!dev->cache_mgr.cache)
@@ -66,8 +69,8 @@ void tfs_cache_deinit(tfs_dev_t *dev)
     }
 
     dev->drv.free(dev->drv.ctx, dev->cache_mgr.cache);
-    dev->cache_mgr.cache   = NULL;
-    dev->cache_mgr.n_caches= 0;
+    dev->cache_mgr.cache = NULL;
+    dev->cache_mgr.n_caches = 0;
 }
 
 /*===================================================================
@@ -88,6 +91,15 @@ tfs_cache_entry_t *tfs_cache_find(tfs_dev_t *dev,
     return NULL;
 }
 
+static void drop_mapping(tfs_cache_entry_t *ce)
+{
+    ce->dirty = 0;
+    ce->n_bytes = 0;
+    ce->object = NULL;
+    ce->chunk_id = 0;
+    ce->locked = 0;
+}
+
 /*===================================================================
  *  Internal: flush one dirty entry
  *===================================================================*/
@@ -95,27 +107,34 @@ tfs_cache_entry_t *tfs_cache_find(tfs_dev_t *dev,
 static int flush_one(tfs_dev_t *dev, tfs_cache_entry_t *ce)
 {
     tfs_ext_tags_t ext;
-    int            old_chunk;
-    int            chunk_in_nand;
-    int            rc;
+    int old_chunk;
+    int chunk_in_nand = -1;
+    int rc = TFS_EFLASH;
+    int attempt;
 
     if (!ce->dirty || !ce->object)
         return TFS_OK;
 
     memset(&ext, 0, sizeof(ext));
     ext.chunk_used = 1;
-    ext.obj_id     = ce->object->obj_id;
-    ext.chunk_id   = (uint32_t)(ce->chunk_id + 1); /* 1-indexed: 0 is reserved for obj header */
-    ext.n_bytes    = (uint32_t)ce->n_bytes;
+    ext.obj_id = ce->object->obj_id;
+    ext.chunk_id = (uint32_t)(ce->chunk_id + 1);
+    ext.n_bytes = (uint32_t)ce->n_bytes;
 
     old_chunk = (int)tfs_tnode_get_chunk(dev, ce->object,
                                          (uint32_t)ce->chunk_id);
 
-    chunk_in_nand = tfs_alloc_chunk(dev, 0);
-    if (chunk_in_nand < 0)
-        return TFS_ENOSPC;
+    for (attempt = 0; attempt < TFS_WRITE_RETRY_BLOCKS; attempt++) {
+        chunk_in_nand = tfs_alloc_chunk(dev, 0);
+        if (chunk_in_nand < 0)
+            return TFS_ENOSPC;
 
-    rc = tfs_chunk_write(dev, chunk_in_nand, ce->data, ce->n_bytes, &ext);
+        rc = tfs_chunk_write(dev, chunk_in_nand, ce->data, ce->n_bytes, &ext);
+        if (rc == TFS_OK)
+            break;
+        if (rc != TFS_EFLASH)
+            return rc;
+    }
     if (rc != TFS_OK)
         return rc;
 
@@ -133,7 +152,7 @@ static int flush_one(tfs_dev_t *dev, tfs_cache_entry_t *ce)
     else if (old_chunk == 0)
         ce->object->n_data_chunks++;
 
-    ce->dirty = 0;
+    drop_mapping(ce);
     return TFS_OK;
 }
 
@@ -142,13 +161,13 @@ static int flush_one(tfs_dev_t *dev, tfs_cache_entry_t *ce)
  *===================================================================*/
 
 tfs_cache_entry_t *tfs_cache_get(tfs_dev_t *dev,
-                                  tfs_obj_t *obj,
-                                  int chunk_id)
+                                 tfs_obj_t *obj,
+                                 int chunk_id)
 {
-    int                i;
-    tfs_cache_entry_t *found   = NULL;
-    tfs_cache_entry_t *lru     = NULL;
-    int                lru_use = dev->cache_mgr.cache_last_use + 1;
+    int i;
+    tfs_cache_entry_t *found = NULL;
+    tfs_cache_entry_t *lru = NULL;
+    int lru_use = dev->cache_mgr.cache_last_use + 1;
 
     /* Try exact match first */
     for (i = 0; i < dev->cache_mgr.n_caches; i++) {
@@ -166,7 +185,7 @@ tfs_cache_entry_t *tfs_cache_get(tfs_dev_t *dev,
             if (!ce->locked && !ce->dirty) {
                 if (ce->last_use < lru_use) {
                     lru_use = ce->last_use;
-                    lru     = ce;
+                    lru = ce;
                 }
             }
         }
@@ -174,11 +193,12 @@ tfs_cache_entry_t *tfs_cache_get(tfs_dev_t *dev,
         if (!lru)
             return NULL;   /* all slots dirty/locked */
 
-        found           = lru;
-        found->object   = obj;
+        found = lru;
+        found->object = obj;
         found->chunk_id = chunk_id;
-        found->n_bytes  = 0;
-        found->dirty    = 0;
+        found->n_bytes = 0;
+        found->dirty = 0;
+        found->locked = 0;
     }
 
     dev->cache_mgr.cache_last_use++;
@@ -230,11 +250,8 @@ void tfs_cache_invalidate_obj(tfs_dev_t *dev, tfs_obj_t *obj)
 
     for (i = 0; i < dev->cache_mgr.n_caches; i++) {
         tfs_cache_entry_t *ce = &dev->cache_mgr.cache[i];
-        if (ce->object == obj) {
-            ce->dirty   = 0;
-            ce->n_bytes = 0;
-            ce->object  = NULL;
-        }
+        if (ce->object == obj)
+            drop_mapping(ce);
     }
 }
 
@@ -246,9 +263,7 @@ void tfs_cache_invalidate_chunk(tfs_dev_t *dev, tfs_obj_t *obj,
     for (i = 0; i < dev->cache_mgr.n_caches; i++) {
         tfs_cache_entry_t *ce = &dev->cache_mgr.cache[i];
         if (ce->object == obj && ce->chunk_id == chunk_id) {
-            ce->dirty   = 0;
-            ce->n_bytes = 0;
-            ce->object  = NULL;
+            drop_mapping(ce);
             return;
         }
     }

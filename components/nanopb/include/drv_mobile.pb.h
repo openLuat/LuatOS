@@ -283,6 +283,44 @@ typedef struct _drv_mobile_MobileScellExternInfoResponse {
     drv_mobile_MobileScellExternInfo info;
 } drv_mobile_MobileScellExternInfoResponse;
 
+/* P5: mobile.scell() 组合接口，从机本地组装全部数据，一次 RPC 返回 */
+typedef struct _drv_mobile_MobileScellInfoRequest {
+    char dummy_field;
+} drv_mobile_MobileScellInfoRequest;
+
+typedef struct _drv_mobile_MobileScellInfo {
+    bool has_earfcn;
+    uint32_t earfcn;
+    bool has_pci;
+    uint32_t pci;
+    bool has_mcc;
+    uint32_t mcc;
+    bool has_mnc;
+    uint32_t mnc;
+    bool has_band;
+    uint32_t band;
+    bool has_eci;
+    uint32_t eci;
+    bool has_cid;
+    uint32_t cid;
+    bool has_tac;
+    uint32_t tac;
+    bool has_snr;
+    int32_t snr;
+    bool has_rsrp;
+    int32_t rsrp;
+    bool has_rsrq;
+    int32_t rsrq;
+    bool has_rssi;
+    int32_t rssi;
+} drv_mobile_MobileScellInfo;
+
+typedef struct _drv_mobile_MobileScellInfoResponse {
+    drv_mobile_MobileResult result;
+    bool has_info;
+    drv_mobile_MobileScellInfo info;
+} drv_mobile_MobileScellInfoResponse;
+
 /* 统一 RPC 请求 (rpc_id = 0x0700) */
 typedef struct _drv_mobile_MobileRpcRequest {
     uint32_t req_id;
@@ -294,6 +332,7 @@ typedef struct _drv_mobile_MobileRpcRequest {
         drv_mobile_MobileCellScanRequest cell_scan;
         drv_mobile_MobileScellExternInfoRequest scell_extern;
         drv_mobile_MobileGlobalStatusRequest global_status;
+        drv_mobile_MobileScellInfoRequest scell_info;
     } payload;
 } drv_mobile_MobileRpcRequest;
 
@@ -309,6 +348,7 @@ typedef struct _drv_mobile_MobileRpcResponse {
         drv_mobile_MobileCellScanResponse cell_scan;
         drv_mobile_MobileScellExternInfoResponse scell_extern;
         drv_mobile_MobileGlobalStatusResponse global_status;
+        drv_mobile_MobileScellInfoResponse scell_info;
     } payload;
 } drv_mobile_MobileRpcResponse;
 
@@ -362,6 +402,9 @@ extern "C" {
 
 
 
+
+
+
 /* Initializer values for message structs */
 #define drv_mobile_MobileResult_init_default     {false, drv_mobile_MobileResultCode_MOBILE_RES_OK, false, 0}
 #define drv_mobile_MobileSimIdentityStatusRequest_init_default {false, 0u}
@@ -387,6 +430,9 @@ extern "C" {
 #define drv_mobile_MobileScellExternInfoRequest_init_default {0}
 #define drv_mobile_MobileScellExternInfo_init_default {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
 #define drv_mobile_MobileScellExternInfoResponse_init_default {drv_mobile_MobileResult_init_default, false, drv_mobile_MobileScellExternInfo_init_default}
+#define drv_mobile_MobileScellInfoRequest_init_default {0}
+#define drv_mobile_MobileScellInfo_init_default  {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
+#define drv_mobile_MobileScellInfoResponse_init_default {drv_mobile_MobileResult_init_default, false, drv_mobile_MobileScellInfo_init_default}
 #define drv_mobile_MobileRpcRequest_init_default {0, 0, {drv_mobile_MobileSimIdentityStatusRequest_init_default}}
 #define drv_mobile_MobileRpcResponse_init_default {false, 0u, 0, {drv_mobile_MobileSimIdentityStatusResponse_init_default}}
 #define drv_mobile_MobileCellScanNotify_init_default {false, 0u, drv_mobile_MobileResult_init_default, false, 0u, false, drv_mobile_MobileCellInfo_init_default}
@@ -414,6 +460,9 @@ extern "C" {
 #define drv_mobile_MobileScellExternInfoRequest_init_zero {0}
 #define drv_mobile_MobileScellExternInfo_init_zero {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
 #define drv_mobile_MobileScellExternInfoResponse_init_zero {drv_mobile_MobileResult_init_zero, false, drv_mobile_MobileScellExternInfo_init_zero}
+#define drv_mobile_MobileScellInfoRequest_init_zero {0}
+#define drv_mobile_MobileScellInfo_init_zero     {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
+#define drv_mobile_MobileScellInfoResponse_init_zero {drv_mobile_MobileResult_init_zero, false, drv_mobile_MobileScellInfo_init_zero}
 #define drv_mobile_MobileRpcRequest_init_zero    {0, 0, {drv_mobile_MobileSimIdentityStatusRequest_init_zero}}
 #define drv_mobile_MobileRpcResponse_init_zero   {false, 0, 0, {drv_mobile_MobileSimIdentityStatusResponse_init_zero}}
 #define drv_mobile_MobileCellScanNotify_init_zero {false, 0, drv_mobile_MobileResult_init_zero, false, 0, false, drv_mobile_MobileCellInfo_init_zero}
@@ -512,6 +561,20 @@ extern "C" {
 #define drv_mobile_MobileScellExternInfo_tac_tag 8
 #define drv_mobile_MobileScellExternInfoResponse_result_tag 1
 #define drv_mobile_MobileScellExternInfoResponse_info_tag 2
+#define drv_mobile_MobileScellInfo_earfcn_tag    1
+#define drv_mobile_MobileScellInfo_pci_tag       2
+#define drv_mobile_MobileScellInfo_mcc_tag       3
+#define drv_mobile_MobileScellInfo_mnc_tag       4
+#define drv_mobile_MobileScellInfo_band_tag      5
+#define drv_mobile_MobileScellInfo_eci_tag       6
+#define drv_mobile_MobileScellInfo_cid_tag       7
+#define drv_mobile_MobileScellInfo_tac_tag       8
+#define drv_mobile_MobileScellInfo_snr_tag       9
+#define drv_mobile_MobileScellInfo_rsrp_tag      10
+#define drv_mobile_MobileScellInfo_rsrq_tag      11
+#define drv_mobile_MobileScellInfo_rssi_tag      12
+#define drv_mobile_MobileScellInfoResponse_result_tag 1
+#define drv_mobile_MobileScellInfoResponse_info_tag 2
 #define drv_mobile_MobileRpcRequest_req_id_tag   1
 #define drv_mobile_MobileRpcRequest_sim_identity_status_tag 10
 #define drv_mobile_MobileRpcRequest_signal_tag   11
@@ -519,6 +582,7 @@ extern "C" {
 #define drv_mobile_MobileRpcRequest_cell_scan_tag 13
 #define drv_mobile_MobileRpcRequest_scell_extern_tag 14
 #define drv_mobile_MobileRpcRequest_global_status_tag 15
+#define drv_mobile_MobileRpcRequest_scell_info_tag 16
 #define drv_mobile_MobileRpcResponse_req_id_tag  1
 #define drv_mobile_MobileRpcResponse_sim_identity_status_tag 10
 #define drv_mobile_MobileRpcResponse_signal_tag  11
@@ -526,6 +590,7 @@ extern "C" {
 #define drv_mobile_MobileRpcResponse_cell_scan_tag 13
 #define drv_mobile_MobileRpcResponse_scell_extern_tag 14
 #define drv_mobile_MobileRpcResponse_global_status_tag 15
+#define drv_mobile_MobileRpcResponse_scell_info_tag 16
 #define drv_mobile_MobileCellScanNotify_req_id_tag 1
 #define drv_mobile_MobileCellScanNotify_result_tag 2
 #define drv_mobile_MobileCellScanNotify_sim_id_tag 3
@@ -742,6 +807,35 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  info,              2)
 #define drv_mobile_MobileScellExternInfoResponse_result_MSGTYPE drv_mobile_MobileResult
 #define drv_mobile_MobileScellExternInfoResponse_info_MSGTYPE drv_mobile_MobileScellExternInfo
 
+#define drv_mobile_MobileScellInfoRequest_FIELDLIST(X, a) \
+
+#define drv_mobile_MobileScellInfoRequest_CALLBACK NULL
+#define drv_mobile_MobileScellInfoRequest_DEFAULT NULL
+
+#define drv_mobile_MobileScellInfo_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, UINT32,   earfcn,            1) \
+X(a, STATIC,   OPTIONAL, UINT32,   pci,               2) \
+X(a, STATIC,   OPTIONAL, UINT32,   mcc,               3) \
+X(a, STATIC,   OPTIONAL, UINT32,   mnc,               4) \
+X(a, STATIC,   OPTIONAL, UINT32,   band,              5) \
+X(a, STATIC,   OPTIONAL, UINT32,   eci,               6) \
+X(a, STATIC,   OPTIONAL, UINT32,   cid,               7) \
+X(a, STATIC,   OPTIONAL, UINT32,   tac,               8) \
+X(a, STATIC,   OPTIONAL, INT32,    snr,               9) \
+X(a, STATIC,   OPTIONAL, INT32,    rsrp,             10) \
+X(a, STATIC,   OPTIONAL, INT32,    rsrq,             11) \
+X(a, STATIC,   OPTIONAL, INT32,    rssi,             12)
+#define drv_mobile_MobileScellInfo_CALLBACK NULL
+#define drv_mobile_MobileScellInfo_DEFAULT NULL
+
+#define drv_mobile_MobileScellInfoResponse_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  result,            1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  info,              2)
+#define drv_mobile_MobileScellInfoResponse_CALLBACK NULL
+#define drv_mobile_MobileScellInfoResponse_DEFAULT NULL
+#define drv_mobile_MobileScellInfoResponse_result_MSGTYPE drv_mobile_MobileResult
+#define drv_mobile_MobileScellInfoResponse_info_MSGTYPE drv_mobile_MobileScellInfo
+
 #define drv_mobile_MobileRpcRequest_FIELDLIST(X, a) \
 X(a, STATIC,   REQUIRED, UINT32,   req_id,            1) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,sim_identity_status,payload.sim_identity_status),  10) \
@@ -749,7 +843,8 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,signal,payload.signal),  11) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,sync_cell_info,payload.sync_cell_info),  12) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,cell_scan,payload.cell_scan),  13) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,scell_extern,payload.scell_extern),  14) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (payload,global_status,payload.global_status),  15)
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,global_status,payload.global_status),  15) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,scell_info,payload.scell_info),  16)
 #define drv_mobile_MobileRpcRequest_CALLBACK NULL
 #define drv_mobile_MobileRpcRequest_DEFAULT NULL
 #define drv_mobile_MobileRpcRequest_payload_sim_identity_status_MSGTYPE drv_mobile_MobileSimIdentityStatusRequest
@@ -758,6 +853,7 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,global_status,payload.global_status)
 #define drv_mobile_MobileRpcRequest_payload_cell_scan_MSGTYPE drv_mobile_MobileCellScanRequest
 #define drv_mobile_MobileRpcRequest_payload_scell_extern_MSGTYPE drv_mobile_MobileScellExternInfoRequest
 #define drv_mobile_MobileRpcRequest_payload_global_status_MSGTYPE drv_mobile_MobileGlobalStatusRequest
+#define drv_mobile_MobileRpcRequest_payload_scell_info_MSGTYPE drv_mobile_MobileScellInfoRequest
 
 #define drv_mobile_MobileRpcResponse_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, UINT32,   req_id,            1) \
@@ -766,7 +862,8 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,signal,payload.signal),  11) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,sync_cell_info,payload.sync_cell_info),  12) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,cell_scan,payload.cell_scan),  13) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,scell_extern,payload.scell_extern),  14) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (payload,global_status,payload.global_status),  15)
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,global_status,payload.global_status),  15) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,scell_info,payload.scell_info),  16)
 #define drv_mobile_MobileRpcResponse_CALLBACK NULL
 #define drv_mobile_MobileRpcResponse_DEFAULT (const pb_byte_t*)"\x08\x00\x00"
 #define drv_mobile_MobileRpcResponse_payload_sim_identity_status_MSGTYPE drv_mobile_MobileSimIdentityStatusResponse
@@ -775,6 +872,7 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,global_status,payload.global_status)
 #define drv_mobile_MobileRpcResponse_payload_cell_scan_MSGTYPE drv_mobile_MobileCellScanResponse
 #define drv_mobile_MobileRpcResponse_payload_scell_extern_MSGTYPE drv_mobile_MobileScellExternInfoResponse
 #define drv_mobile_MobileRpcResponse_payload_global_status_MSGTYPE drv_mobile_MobileGlobalStatusResponse
+#define drv_mobile_MobileRpcResponse_payload_scell_info_MSGTYPE drv_mobile_MobileScellInfoResponse
 
 #define drv_mobile_MobileCellScanNotify_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, UINT32,   req_id,            1) \
@@ -810,6 +908,9 @@ extern const pb_msgdesc_t drv_mobile_MobileCellScanResponse_msg;
 extern const pb_msgdesc_t drv_mobile_MobileScellExternInfoRequest_msg;
 extern const pb_msgdesc_t drv_mobile_MobileScellExternInfo_msg;
 extern const pb_msgdesc_t drv_mobile_MobileScellExternInfoResponse_msg;
+extern const pb_msgdesc_t drv_mobile_MobileScellInfoRequest_msg;
+extern const pb_msgdesc_t drv_mobile_MobileScellInfo_msg;
+extern const pb_msgdesc_t drv_mobile_MobileScellInfoResponse_msg;
 extern const pb_msgdesc_t drv_mobile_MobileRpcRequest_msg;
 extern const pb_msgdesc_t drv_mobile_MobileRpcResponse_msg;
 extern const pb_msgdesc_t drv_mobile_MobileCellScanNotify_msg;
@@ -839,6 +940,9 @@ extern const pb_msgdesc_t drv_mobile_MobileCellScanNotify_msg;
 #define drv_mobile_MobileScellExternInfoRequest_fields &drv_mobile_MobileScellExternInfoRequest_msg
 #define drv_mobile_MobileScellExternInfo_fields &drv_mobile_MobileScellExternInfo_msg
 #define drv_mobile_MobileScellExternInfoResponse_fields &drv_mobile_MobileScellExternInfoResponse_msg
+#define drv_mobile_MobileScellInfoRequest_fields &drv_mobile_MobileScellInfoRequest_msg
+#define drv_mobile_MobileScellInfo_fields &drv_mobile_MobileScellInfo_msg
+#define drv_mobile_MobileScellInfoResponse_fields &drv_mobile_MobileScellInfoResponse_msg
 #define drv_mobile_MobileRpcRequest_fields &drv_mobile_MobileRpcRequest_msg
 #define drv_mobile_MobileRpcResponse_fields &drv_mobile_MobileRpcResponse_msg
 #define drv_mobile_MobileCellScanNotify_fields &drv_mobile_MobileCellScanNotify_msg
@@ -864,6 +968,9 @@ extern const pb_msgdesc_t drv_mobile_MobileCellScanNotify_msg;
 #define drv_mobile_MobileScellExternInfoRequest_size 0
 #define drv_mobile_MobileScellExternInfoResponse_size 66
 #define drv_mobile_MobileScellExternInfo_size    48
+#define drv_mobile_MobileScellInfoRequest_size   0
+#define drv_mobile_MobileScellInfoResponse_size  110
+#define drv_mobile_MobileScellInfo_size          92
 #define drv_mobile_MobileSignalInfo_size         102
 #define drv_mobile_MobileSignalRequest_size      0
 #define drv_mobile_MobileSignalResponse_size     120

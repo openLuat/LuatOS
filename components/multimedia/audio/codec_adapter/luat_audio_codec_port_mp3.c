@@ -116,6 +116,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts = {
     .init = _mp3_codec_init,
     .deinit = _mp3_codec_deinit,
     .get_play_info = luat_audio_mp3_get_play_info,
+    .set_record_info = NULL,
     .pre_decode = NULL,
     .decode = _mp3_codec_decode,
     .make_head = NULL,
@@ -125,7 +126,6 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts = {
     .encode_min_input_len = MP3_FRAME_BEFORE_ENCODE_SIZE,
     .encode_max_output_len = MP3_FRAME_AFTER_ENCODE_SIZE,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_MP3,
-    .is_reentrant = 1,
     .is_hardware = 0,
     .support_detect = 1,
 };

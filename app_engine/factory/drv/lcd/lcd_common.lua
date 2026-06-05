@@ -106,16 +106,27 @@ function M.airui_init(cfg)
 end
 
 --[[
-开启背光 PWM
-@param table cfg  包含 backlight = { pwm_ch, pwm_freq }，ch=PWM通道号，freq=频率Hz
+开启背光
+支持两种模式:
+  PWM 模式: backlight = { pwm_ch, pwm_freq } — 通过 PWM 通道调节亮度
+  GPIO 模式: backlight = { gpio_bl } — 通过 GPIO 直接控制亮灭（不支持调光）
+@param table cfg  包含 backlight 配置
 ]]
 function M.backlight_on(cfg)
     local bl = cfg.backlight or {}
-    local ch = bl.pwm_ch or 0
-    local freq = bl.pwm_freq or 1000
-    pwm.setup(ch, freq, 100)      -- 占空比 100%（最大亮度）
-    pwm.start(ch)                  -- 启动 PWM 输出
-    log.info("lcd_common", "背光已开启 ch=" .. ch .. " freq=" .. freq)
+    if bl.gpio_bl then
+        -- GPIO 背光模式: 设置 GPIO 为输出高电平，不支持亮度调节
+        gpio.setup(bl.gpio_bl, 0)
+        gpio.set(bl.gpio_bl, 1)
+        log.info("lcd_common", "背光已开启 gpio=" .. bl.gpio_bl)
+    else
+        -- PWM 背光模式（默认）
+        local ch = bl.pwm_ch or 0
+        local freq = bl.pwm_freq or 1000
+        pwm.setup(ch, freq, 100)      -- 占空比 100%（最大亮度）
+        pwm.start(ch)                  -- 启动 PWM 输出
+        log.info("lcd_common", "背光已开启 ch=" .. ch .. " freq=" .. freq)
+    end
 end
 
 -- ==================== 构建全局驱动接口（require 时自动执行） ====================
@@ -132,8 +143,17 @@ do
     -- LCD 驱动全局接口
     _G.lcd_drv = {
         init = function()
-            -- 先初始化 LCD 硬件（发送 init commands、配置 RGB/SPI 接口）
-            local ok = lcd_model.init(cfg.hw.lcd.params)
+            local ok
+            if rtos.bsp() == "PC" then
+                -- PC 模拟器：lcd.init 正常调用初始化虚拟显示，但 lcd.cmd/data 是硬件寄存器序列，模拟器跳过
+                local real_lcd = lcd
+                local pc_lcd = setmetatable({ cmd = function() end, data = function() end }, { __index = real_lcd })
+                rawset(_G, "lcd", pc_lcd)
+                ok = lcd_model.init(cfg.hw.lcd.params)
+                rawset(_G, "lcd", real_lcd)
+            else
+                ok = lcd_model.init(cfg.hw.lcd.params)
+            end
             if ok then
                 -- 硬件就绪后立即初始化 AirUI 渲染引擎（字体、旋转、密度）
                 M.airui_init(cfg.hw.lcd)

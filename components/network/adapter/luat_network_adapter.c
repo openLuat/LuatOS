@@ -1985,6 +1985,10 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 		ctrl->ca_cert = zalloc(sizeof(mbedtls_x509_crt));
 		ctrl->config = zalloc(sizeof(mbedtls_ssl_config));
 		mbedtls_ssl_config_defaults( ctrl->config, MBEDTLS_SSL_IS_CLIENT, ctrl->is_tcp?MBEDTLS_SSL_TRANSPORT_STREAM:MBEDTLS_SSL_TRANSPORT_DATAGRAM, MBEDTLS_SSL_PRESET_DEFAULT);
+		// 兼容 TLS/DTLS 1.0 ~ 1.2，max=1.2，min=1.0
+		// DTLS 版本映射：TLS 1.1(3,2)->DTLS 1.0,  TLS 1.2(3,3)->DTLS 1.2
+		mbedtls_ssl_conf_max_version(ctrl->config, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
+		mbedtls_ssl_conf_min_version(ctrl->config, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_1);
 		// ctrl->config->authmode = verify_mode;
 		mbedtls_ssl_conf_authmode(ctrl->config, verify_mode);
 		// ctrl->config->hs_timeout_min = 20000;

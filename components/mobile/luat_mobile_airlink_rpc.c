@@ -48,9 +48,7 @@ static void luat_mobile_rpc_hook_notify_once(void) {
 
 int luat_mobile_get_imei(int sim_id, char* buff, size_t buf_len) {
     int ret;
-    // LLOGD("imei req sim_id=%d len=%u", sim_id, (unsigned)buf_len);
     ret = luat_airlink_drv_rpc_mobile_get_imei((uint8_t)sim_id, buff, buf_len);
-    // LLOGD("imei resp ret=%d val=%s", ret, (ret > 0 && buff) ? buff : "nil");
     return ret;
 }
 

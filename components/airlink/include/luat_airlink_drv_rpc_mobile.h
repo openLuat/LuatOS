@@ -45,6 +45,21 @@ typedef struct {
 } luat_airlink_drv_rpc_mobile_scell_extern_info_t;
 
 typedef struct {
+    uint32_t earfcn;
+    uint32_t pci;
+    uint32_t mcc;
+    uint32_t mnc;
+    uint32_t band;
+    uint32_t eci;
+    uint32_t cid;
+    uint32_t tac;
+    int32_t snr;
+    int32_t rsrp;
+    int32_t rsrq;
+    int32_t rssi;
+} luat_airlink_drv_rpc_mobile_scell_info_t;
+
+typedef struct {
     int result;
     uint32_t req_id;
     uint8_t sim_id;
@@ -61,6 +76,41 @@ int luat_airlink_drv_rpc_mobile_sim_identity_status(
     uint8_t sim_id,
     luat_airlink_drv_rpc_mobile_sim_identity_status_t* out
 );
+
+// lua_yieldk 模式: 挂起协程, 响应到达后由 cont 解码结果
+// 调用前必须先确认 lua_isyieldable(L) 为 true
+int luat_airlink_drv_rpc_mobile_sim_identity_status_yield(
+    lua_State* L, uint8_t sim_id,
+    lua_KFunction cont, lua_KContext user_ctx
+);
+
+// 解码 sim_identity_status 响应中的 IMEI (供 Lua 包装层 post-yield 调用)
+int luat_airlink_drv_rpc_mobile_decode_imei(const uint8_t* raw, uint16_t raw_len,
+                                             char* imei, size_t imei_len);
+int luat_airlink_drv_rpc_mobile_decode_imsi(const uint8_t* raw, uint16_t raw_len,
+                                             char* imsi, size_t imsi_len);
+int luat_airlink_drv_rpc_mobile_decode_iccid(const uint8_t* raw, uint16_t raw_len,
+                                              char* iccid, size_t iccid_len);
+
+// lua_yieldk 模式: global_status (SN / MUID / register_status)
+int luat_airlink_drv_rpc_mobile_global_status_yield(
+    lua_State* L, lua_KFunction cont, lua_KContext user_ctx
+);
+int luat_airlink_drv_rpc_mobile_decode_register_status(const uint8_t* raw, uint16_t raw_len);
+int luat_airlink_drv_rpc_mobile_decode_sn(const uint8_t* raw, uint16_t raw_len,
+                                           char* sn, size_t sn_len);
+int luat_airlink_drv_rpc_mobile_decode_muid(const uint8_t* raw, uint16_t raw_len,
+                                             char* muid, size_t muid_len);
+
+// lua_yieldk 模式: signal (CSQ / RSSI / RSRP / RSRQ / SNR)
+int luat_airlink_drv_rpc_mobile_signal_yield(
+    lua_State* L, lua_KFunction cont, lua_KContext user_ctx
+);
+int luat_airlink_drv_rpc_mobile_decode_csq(const uint8_t* raw, uint16_t raw_len);
+void luat_airlink_drv_rpc_mobile_decode_signal_info(const uint8_t* raw, uint16_t raw_len,
+                                                     int16_t* rssi, int16_t* rsrp,
+                                                     int16_t* rsrq, int16_t* snr);
+
 int luat_airlink_drv_rpc_mobile_global_status(
     luat_airlink_drv_rpc_mobile_global_status_t* out
 );
@@ -76,6 +126,24 @@ int luat_airlink_drv_rpc_mobile_cell_scan(
 );
 int luat_airlink_drv_rpc_mobile_scell_extern(
     luat_airlink_drv_rpc_mobile_scell_extern_info_t* out
+);
+
+// lua_yieldk 模式: scell_extern (含 eci/cid/tac, 避免后续单独 RPC 调用阻塞)
+int luat_airlink_drv_rpc_mobile_scell_extern_yield(
+    lua_State* L, lua_KFunction cont, lua_KContext user_ctx
+);
+// 解码 scell_extern 响应中的 service cell 信息
+int luat_airlink_drv_rpc_mobile_decode_scell_extern(const uint8_t* raw, uint16_t raw_len,
+    luat_airlink_drv_rpc_mobile_scell_extern_info_t* out);
+
+// lua_yieldk 模式: mobile.scell() 组合接口，从机一次 RPC 返回全部数据
+int luat_airlink_drv_rpc_mobile_scell_yield(
+    lua_State* L, lua_KFunction cont, lua_KContext user_ctx
+);
+int luat_airlink_drv_rpc_mobile_decode_scell(const uint8_t* raw, uint16_t raw_len,
+    luat_airlink_drv_rpc_mobile_scell_info_t* out);
+int luat_airlink_drv_rpc_mobile_scell(
+    luat_airlink_drv_rpc_mobile_scell_info_t* out
 );
 
 int luat_airlink_drv_rpc_mobile_get_imei(

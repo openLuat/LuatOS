@@ -38,7 +38,7 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
             link = (airlink_link_data_t*)(buff + i);
             tlen = link->len;
             crc16 = link->crc16;
-            if (tlen > 0 && tlen + 4 + i + 4 <= len)
+            if (tlen > 0 && tlen + sizeof(airlink_link_data_t) + i <= len)
             {
                 // 计算crc16
                 crc16_data = luat_crc16_modbus(&buff[i + 4 + 4], tlen + 8);

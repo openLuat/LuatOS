@@ -3,7 +3,7 @@
 @summary 黑白棋电脑AI模块
 @version 1.0.0
 @date    2026.04.14
-@author  郭幸福
+@author  AI
 ]]
 
 local M = {}

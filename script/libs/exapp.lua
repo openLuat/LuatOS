@@ -4343,11 +4343,11 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
         sys.publish("APP_STORE_PROGRESS", aid, 100, "安装完成")
         report_result(aid, nil)
 
-        -- 刷新当前列表（仅一次请求，使用当前UI正确的分页参数）
+        -- 刷新当前列表（仅一次请求，保持用户当前页码不跳回第1页）
         exapp.get_app_list({
             category = remote_app_list.category,
             sort = remote_app_list.sort,
-            page = 1,
+            page = remote_app_list.page,
             size = remote_app_list.size or PAGE_LIMIT,
             query = remote_app_list.query or ""
         })
@@ -4437,11 +4437,11 @@ function exapp.uninstall_remote_app(aid, category, sort)
         sys.publish("APP_STORE_ACTION_DONE", aid, "uninstall", true)
         sys.publish("APP_STORE_PROGRESS", aid, 100, "卸载完成")
 
-        -- 卸载完成后刷新当前列表（仅一次请求）
+        -- 卸载完成后刷新当前列表（仅一次请求，保持用户当前页码不跳回第1页）
         exapp.get_app_list({
             category = remote_app_list.category,
             sort = remote_app_list.sort,
-            page = 1,
+            page = remote_app_list.page,
             size = remote_app_list.size or PAGE_LIMIT,
             query = remote_app_list.query or ""
         })

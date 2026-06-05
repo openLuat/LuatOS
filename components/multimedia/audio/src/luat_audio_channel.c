@@ -179,6 +179,276 @@ static void _audio_channel_play_vol_32bit(int32_t *data, uint32_t len_bytes, uin
     }   
 }
 
+void luat_audio_channel_data_change_signed(luat_data_union_t data_union, uint32_t len_bytes, uint8_t data_align,uint8_t is_signed)
+{
+    if (is_signed) {
+        switch (data_align) {
+            case 1:
+                for(uint32_t i = 0; i < len_bytes; i++){
+                    data_union.p8[i] ^= 0x80;
+                }
+                break;
+            case 2:
+                for(uint32_t i = 0; i < len_bytes >> 1; i++){
+                    data_union.p16[i] ^= 0x8000;
+                }
+                break;
+            case 3:
+                for(uint32_t i = 0; i < len_bytes >> 2; i++){
+                    data_union.p32[i] = data_union.p32[i] ^ 0x800000;
+                }
+                break;
+            case 4:
+                for(uint32_t i = 0; i < len_bytes >> 2; i++){
+                    data_union.p32[i] ^= 0x80000000;
+                }
+                break;
+            default:
+                break;
+        }
+    } else {
+        switch (data_align) {
+            case 1:
+                for(uint32_t i = 0; i < len_bytes; i++){
+                    data_union.i8[i] = data_union.p8[i] - 0x80;
+                }
+                break;
+            case 2:
+                for(uint32_t i = 0; i < len_bytes >> 1; i++){
+                    data_union.i16[i] = data_union.p16[i] - 0x8000;
+                }
+                break;
+            case 3:
+                for(uint32_t i = 0; i < len_bytes >> 2; i++){
+                    data_union.i32[i] = (data_union.p32[i]- 0x800000) & 0xffffff; 
+                }
+                break;
+            case 4:
+                for(uint32_t i = 0; i < len_bytes >> 2; i++){
+                    data_union.i32[i] = data_union.p32[i] - 0x80000000;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+
+void luat_audio_channel_data_change_align(luat_data_union_t data_union, luat_data_union_t new_data_union, uint32_t len_bytes, uint32_t pcm_data_len, uint8_t data_align, uint8_t new_data_align)
+{
+    switch (data_align) {
+        case 1:
+            switch (new_data_align) {
+                case 2:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p16[i] = data_union.p8[i] << 8;
+                    }
+                    break;
+                case 3:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p32[i] = data_union.p8[i] << 16;
+                    }
+                    break;
+                case 4:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p32[i] = data_union.p8[i] << 24;
+                    }
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case 2:
+            switch (new_data_align) {
+                case 1:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p8[i] = data_union.p16[i] >> 8;
+                    }
+                    break;
+                case 3:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p32[i] = data_union.p16[i] << 8;
+                    }
+                    break;
+                case 4:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p32[i] = data_union.p16[i] << 16;
+                    }
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case 3:
+            switch (new_data_align) {
+                case 1:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p8[i] = data_union.p32[i] >> 16;
+                    }
+                    break;
+                case 2:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p16[i] = data_union.p32[i] >> 8;
+                    }
+                    break;
+                case 4:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p32[i] = data_union.p32[i] << 8;
+                    }
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case 4:
+            switch (new_data_align) {
+                case 1:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p8[i] = data_union.p32[i] >> 24;
+                    }
+                    break;
+                case 2:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p16[i] = data_union.p32[i] >> 16;
+                    }
+                    break;
+                case 3:
+                    for (uint32_t i = 0;i < pcm_data_len;i++){
+                        new_data_union.p32[i] = (data_union.p32[i] >> 8) & 0x00FFFFFF;
+                    }
+                    break;
+                default:
+                    break;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+void luat_audio_channel_data_change_channel_nums(luat_data_union_t data_union, luat_data_union_t new_data_union, uint32_t len_bytes, uint32_t pcm_data_len, uint8_t data_align, uint8_t channel_nums, uint8_t new_channel_nums)
+{
+    uint32_t i,j;
+    uint8_t k;
+    if (channel_nums > new_channel_nums) {
+        switch (data_align) {
+            case 1:
+                if (1 == new_channel_nums) {
+                    for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j++){
+                        new_data_union.i8[j] = data_union.i8[i];
+                    }
+                } else {
+                    for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j += new_channel_nums){
+                        memcpy(&new_data_union.i8[j], &data_union.i8[i], new_channel_nums);
+                    }
+                }
+                break;
+            case 2:
+                if (1 == new_channel_nums) {
+                    for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j++){
+                        new_data_union.i16[j] = data_union.i16[i];
+                    }
+                } else {
+                    for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j+= new_channel_nums){
+                        memcpy(&new_data_union.i16[j], &data_union.i16[i], new_channel_nums << 1);
+                    }
+                }
+                break;
+            case 3:
+            case 4:
+                if (1 == new_channel_nums) {
+                    for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j++){
+                        new_data_union.i32[j] = data_union.i32[i];
+                    }
+                } else {
+                    for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j+= new_channel_nums){
+                        memcpy(&new_data_union.i32[j], &data_union.i32[i], new_channel_nums << 2);
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+    } else {
+        switch (data_align) {
+            case 1:
+                if (1 == channel_nums) {
+                    if (2 == new_channel_nums) {
+                        for(i = 0, j = 0; i < pcm_data_len; i++, j += new_channel_nums){
+                            new_data_union.i8[j] = data_union.i8[i];
+                            new_data_union.i8[j+1] = data_union.i8[i];
+                        }
+                    } else {
+                        for(i = 0, j = 0; i < pcm_data_len; i++, j += new_channel_nums){
+                            for (k = 0; k < new_channel_nums; k++){
+                                new_data_union.i8[j+k] = data_union.i8[i];
+                            }
+                        }
+                    }
+                } else {
+                    for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j += new_channel_nums){
+                        memcpy(&new_data_union.i8[j], &data_union.i8[i], channel_nums);
+                        for (k = channel_nums; k < new_channel_nums; k++){
+                            new_data_union.i8[j+k] = data_union.i8[i + channel_nums - 1];
+                        }
+                    }
+                }
+                break;
+            case 2:
+                if (1 == channel_nums) {
+                    if (2 == new_channel_nums) {
+                        for(i = 0, j = 0; i < pcm_data_len; i++, j+= new_channel_nums){
+                            new_data_union.i16[j] = data_union.i16[i];
+                            new_data_union.i16[j+1] = data_union.i16[i];
+                        }
+                    } else {
+                        for(i = 0, j = 0; i < pcm_data_len; i++, j+= new_channel_nums){
+                            for (k = 0; k < new_channel_nums; k++){
+                                new_data_union.i16[j+k] = data_union.i16[i];
+                            }
+                        }
+                    }
+                } else {
+                    for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j+= new_channel_nums){
+                        memcpy(&new_data_union.i16[j], &data_union.i16[i], channel_nums << 1);
+                        for (k = channel_nums; k < new_channel_nums; k++){
+                            new_data_union.i16[j+k] = data_union.i16[i + channel_nums - 1];
+                        }
+                    }
+                }
+                break;
+            case 3:
+            case 4:
+                if (1 == channel_nums) {
+                    if (2 == new_channel_nums) {
+                        for(i = 0, j = 0; i < pcm_data_len; i++, j+= new_channel_nums){
+                            new_data_union.i32[j] = data_union.i32[i];
+                            new_data_union.i32[j+1] = data_union.i32[i];
+                        }
+                    } else {
+                        for(i = 0, j = 0; i < pcm_data_len; i++, j+= new_channel_nums){
+                            for (k = 0; k < new_channel_nums; k++){
+                                new_data_union.i32[j+k] = data_union.i32[i];
+                            }
+                        }
+                    }
+                } else {
+                    for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j+= new_channel_nums){
+                        memcpy(&new_data_union.i32[j], &data_union.i32[i], channel_nums << 2);
+                        for (k = channel_nums; k < new_channel_nums; k++){
+                            new_data_union.i32[j+k] = data_union.i32[i + channel_nums - 1];
+                        }
+                    }
+                }
+                break;
+            default:
+                break;
+        }        
+    }
+}
+
+
 int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uint32_t len_bytes, uint32_t *written_bytes, uint8_t is_signed,uint8_t data_align, uint8_t channel_nums)
 {
     // if (!channel || !data || !written_bytes) {
@@ -188,10 +458,11 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
     uint32_t one_channel_pcm_len = rest_space / channel->driver_ctrl->common_param.channel_nums / channel->driver_ctrl->common_param.data_align;
     uint32_t max_data_bytes = one_channel_pcm_len * channel_nums * data_align;
     // LLOGC(luat_audio_debug_flag,"input param %d-%d output param %d-%d rest space %u, one_channel_pcm_len %u, max_data_bytes %u, len_bytes %u", 
-    //     channel_nums, data_align, channel->driver_ctrl->common_param.channel_nums, channel->driver_ctrl->common_param.data_align, 
+    //     data_align, channel_nums, channel->driver_ctrl->common_param.data_align, channel->driver_ctrl->common_param.channel_nums, 
     //     rest_space, one_channel_pcm_len, max_data_bytes, len_bytes);
     if (len_bytes > max_data_bytes) {
-        len_bytes = max_data_bytes;
+        *written_bytes = 0;
+        return LUAT_ERROR_NONE;
     }
     *written_bytes = len_bytes;
     luat_data_union_t data_union;
@@ -214,57 +485,7 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
         }
     }
     if (is_signed != channel->driver_ctrl->opts->is_tx_signed) { // 数据有无符号转换
-        if (channel->driver_ctrl->opts->is_tx_signed) {
-            switch (data_align) {
-                case 1:
-                    for(uint32_t i = 0; i < len_bytes; i++){
-			            data_union.p8[i] ^= 0x80;
-	                }
-                    break;
-                case 2:
-                    for(uint32_t i = 0; i < len_bytes >> 1; i++){
-			            data_union.p16[i] ^= 0x8000;
-	                }
-                    break;
-                case 3:
-                    for(uint32_t i = 0; i < len_bytes >> 2; i++){
-			            data_union.p32[i] = data_union.p32[i] ^ 0x800000;
-	                }
-                    break;
-                case 4:
-                    for(uint32_t i = 0; i < len_bytes >> 2; i++){
-			            data_union.p32[i] ^= 0x80000000;
-	                }
-                    break;
-                default:
-                    break;
-            }
-        } else {
-            switch (data_align) {
-                case 1:
-                    for(uint32_t i = 0; i < len_bytes; i++){
-			            data_union.i8[i] = data_union.p8[i] - 0x80;
-	                }
-                    break;
-                case 2:
-                    for(uint32_t i = 0; i < len_bytes >> 1; i++){
-			            data_union.i16[i] = data_union.p16[i] - 0x8000;
-	                }
-                    break;
-                case 3:
-                    for(uint32_t i = 0; i < len_bytes >> 2; i++){
-                        data_union.i32[i] = (data_union.p32[i]- 0x800000) & 0xffffff; 
-                    }
-                    break;
-                case 4:
-                    for(uint32_t i = 0; i < len_bytes >> 2; i++){
-			            data_union.i32[i] = data_union.p32[i] - 0x80000000;
-	                }
-                    break;
-                default:
-                    break;
-            }
-        }
+        luat_audio_channel_data_change_signed(data_union, len_bytes, data_align, channel->driver_ctrl->opts->is_tx_signed);
     }
 
     if (data_align == channel->driver_ctrl->common_param.data_align && channel_nums == channel->driver_ctrl->common_param.channel_nums) {
@@ -275,288 +496,113 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uin
 		luat_fifo_write(channel->play_fifo, data, len_bytes);
 		//luat_mutex_unlock(channel->play_lock_mutex);
         return LUAT_ERROR_NONE;
-    } else if (data_align == channel->driver_ctrl->common_param.data_align) { // 音频通道数匹配
+    } else { 
         uint32_t pcm_data_len, new_data_len, new_data_bytes = 0;
         luat_data_union_t new_data_union;
         new_data_union.p = NULL;
-        switch (data_align) {
-            case 1:
-                pcm_data_len = len_bytes;
-                new_data_len = (pcm_data_len / channel_nums) * channel->driver_ctrl->common_param.channel_nums;
-                new_data_bytes = new_data_len;
-                new_data_union.p = luat_heap_malloc(new_data_bytes);
-                if (!new_data_union.p) {
-                    return -LUAT_ERROR_NO_MEMORY;
-                }
-                if (channel_nums > channel->driver_ctrl->common_param.channel_nums) {    // 解码后数据通道数大于音频通道数, 需要减少数据
-                    if (1 == channel->driver_ctrl->common_param.channel_nums) {
-                        for(uint32_t i = 0, j = 0; i < pcm_data_len; i += channel_nums, j++){
-                            new_data_union.i8[j] = data_union.i8[i];
-                        }
-                    } else {
-                        for(uint32_t i = 0, j = 0; i < pcm_data_len; i += channel_nums, j += channel->driver_ctrl->common_param.channel_nums){
-                            memcpy(&new_data_union.i8[j], &data_union.i8[i], channel->driver_ctrl->common_param.channel_nums);
-                        }
+        luat_data_union_t new_data_union2;
+        new_data_union2.p = NULL;
+        if (channel_nums != channel->driver_ctrl->common_param.channel_nums) {
+            LLOGC(luat_audio_debug_flag,"channel_nums %u change to %u, len_bytes %u, data_align %u", channel_nums, channel->driver_ctrl->common_param.channel_nums, len_bytes, data_align);
+            switch (data_align) {
+                case 1:
+                    pcm_data_len = len_bytes;
+                    new_data_len = (pcm_data_len / channel_nums) * channel->driver_ctrl->common_param.channel_nums;
+                    new_data_bytes = new_data_len;
+                    new_data_union.p = luat_heap_malloc(new_data_bytes);
+                    if (!new_data_union.p) {
+                        return -LUAT_ERROR_NO_MEMORY;
                     }
-                } else {    // 解码后数据通道数小于音频通道数, 需要增加数据
-                    if (1 == channel_nums) {
-                        if (2 == channel->driver_ctrl->common_param.channel_nums) {
-                            for(uint32_t i = 0, j = 0; i < pcm_data_len; i++, j += channel->driver_ctrl->common_param.channel_nums){
-                                new_data_union.i8[j] = data_union.i8[i];
-                                new_data_union.i8[j+1] = data_union.i8[i];
-                            }
-                        } else {
-                            for(uint32_t i = 0, j = 0; i < pcm_data_len; i++, j += channel->driver_ctrl->common_param.channel_nums){
-                                for (uint8_t k = 0; k < channel->driver_ctrl->common_param.channel_nums; k++){
-                                    new_data_union.i8[j+k] = data_union.i8[i];
-                                }
-                            }
-                        }
-                    } else {
-                        for(uint32_t i = 0, j = 0; i < pcm_data_len; i += channel_nums, j += channel->driver_ctrl->common_param.channel_nums){
-                            memcpy(&new_data_union.i8[j], &data_union.i8[i], channel_nums);
-                            for (uint8_t k = channel_nums; k < channel->driver_ctrl->common_param.channel_nums; k++){
-                                new_data_union.i8[j+k] = data_union.i8[i + channel_nums - 1];
-                            }
-                        }
-                    }
-                }
-                break;
-            case 2:
-                pcm_data_len = len_bytes >> 1;
-                new_data_len = (pcm_data_len / channel_nums) * channel->driver_ctrl->common_param.channel_nums;
-                new_data_bytes = new_data_len << 1;
+                    break;
+                case 2:
+                    pcm_data_len = len_bytes >> 1;
+                    new_data_len = (pcm_data_len / channel_nums) * channel->driver_ctrl->common_param.channel_nums;
+                    new_data_bytes = new_data_len << 1;
 
-                new_data_union.p = luat_heap_malloc(new_data_bytes);
-                if (!new_data_union.p) {
-                    return -LUAT_ERROR_NO_MEMORY;
-                }
-                if (channel_nums > channel->driver_ctrl->common_param.channel_nums) {    // 解码后数据通道数大于音频通道数, 需要减少数据
-                    if (1 == channel->driver_ctrl->common_param.channel_nums) {
-                        uint32_t i,j;
-                        for(i = 0, j = 0; i < pcm_data_len; i += channel_nums, j++){
-                            new_data_union.i16[j] = data_union.i16[i];
-                        }
-                    } else {
-                        for(uint32_t i = 0, j = 0; i < pcm_data_len; i += channel_nums, j+= channel->driver_ctrl->common_param.channel_nums){
-                            memcpy(&new_data_union.i16[j], &data_union.i16[i], channel->driver_ctrl->common_param.channel_nums << 1);
-                        }
+                    new_data_union.p = luat_heap_malloc(new_data_bytes);
+                    if (!new_data_union.p) {
+                        return -LUAT_ERROR_NO_MEMORY;
                     }
-                } else {    // 解码后数据通道数小于音频通道数, 需要增加数据
-                    if (1 == channel_nums) {
-                        if (2 == channel->driver_ctrl->common_param.channel_nums) {
-                            for(uint32_t i = 0, j = 0; i < pcm_data_len; i++, j+= channel->driver_ctrl->common_param.channel_nums){
-                                new_data_union.i16[j] = data_union.i16[i];
-                                new_data_union.i16[j+1] = data_union.i16[i];
-                            }
-                        } else {
-                            for(uint32_t i = 0, j = 0; i < pcm_data_len; i++, j+= channel->driver_ctrl->common_param.channel_nums){
-                                for (uint8_t k = 0; k < channel->driver_ctrl->common_param.channel_nums; k++){
-                                    new_data_union.i16[j+k] = data_union.i16[i];
-                                }
-                            }
-                        }
-                    } else {
-                        for(uint32_t i = 0, j = 0; i < pcm_data_len; i += channel_nums, j+= channel->driver_ctrl->common_param.channel_nums){
-                            memcpy(&new_data_union.i16[j], &data_union.i16[i], channel_nums << 1);
-                            for (uint8_t k = channel_nums; k < channel->driver_ctrl->common_param.channel_nums; k++){
-                                new_data_union.i16[j+k] = data_union.i16[i + channel_nums - 1];
-                            }
-                        }
+                    break;
+                case 3:
+                case 4:
+                    pcm_data_len = len_bytes >> 2;
+                    new_data_len = (pcm_data_len / channel_nums) * channel->driver_ctrl->common_param.channel_nums;
+                    new_data_bytes = new_data_len << 2;
+                    new_data_union.p = luat_heap_malloc(new_data_bytes);
+                    if (!new_data_union.p) {
+                        return -LUAT_ERROR_NO_MEMORY;
                     }
-                }
-                break;
-            case 3:
-            case 4:
-                pcm_data_len = len_bytes >> 2;
-                new_data_len = (pcm_data_len / channel_nums) * channel->driver_ctrl->common_param.channel_nums;
-                new_data_bytes = new_data_len << 2;
-                new_data_union.p = luat_heap_malloc(new_data_bytes);
-                if (!new_data_union.p) {
-                    return -LUAT_ERROR_NO_MEMORY;
-                }
-                if (channel_nums > channel->driver_ctrl->common_param.channel_nums) {    // 解码后数据通道数大于音频通道数, 需要减少数据
-                    if (1 == channel->driver_ctrl->common_param.channel_nums) {
-                        for(uint32_t i = 0, j = 0; i < pcm_data_len; i += channel_nums, j++){
-                            new_data_union.i32[j] = data_union.i32[i];
-                        }
-                    } else {
-                        for(uint32_t i = 0, j = 0; i < pcm_data_len; i += channel_nums, j+= channel->driver_ctrl->common_param.channel_nums){
-                            memcpy(&new_data_union.i32[j], &data_union.i32[i], channel->driver_ctrl->common_param.channel_nums << 2);
-                        }
-                    }
-                } else {    // 解码后数据通道数小于音频通道数, 需要增加数据
-                    if (1 == channel_nums) {
-                        if (2 == channel->driver_ctrl->common_param.channel_nums) {
-                            for(uint32_t i = 0, j = 0; i < pcm_data_len; i++, j+= channel->driver_ctrl->common_param.channel_nums){
-                                new_data_union.i32[j] = data_union.i32[i];
-                                new_data_union.i32[j+1] = data_union.i32[i];
-                            }
-                        } else {
-                            for(uint32_t i = 0, j = 0; i < pcm_data_len; i++, j+= channel->driver_ctrl->common_param.channel_nums){
-                                for (uint8_t k = 0; k < channel->driver_ctrl->common_param.channel_nums; k++){
-                                    new_data_union.i32[j+k] = data_union.i32[i];
-                                }
-                            }
-                        }
-                    } else {
-                        for(uint32_t i = 0, j = 0; i < pcm_data_len; i += channel_nums, j+= channel->driver_ctrl->common_param.channel_nums){
-                            memcpy(&new_data_union.i32[j], &data_union.i32[i], channel_nums << 2);
-                            for (uint8_t k = channel_nums; k < channel->driver_ctrl->common_param.channel_nums; k++){
-                                new_data_union.i32[j+k] = data_union.i32[i + channel_nums - 1];
-                            }
-                        }
-                    }
-                }
-                break;
-            default:
-                return -LUAT_ERROR_PARAM_INVALID;
-                break;
+                    break;
+                default:
+                    return -LUAT_ERROR_PARAM_INVALID;
+                    break;
+            }
+            luat_audio_channel_data_change_channel_nums(data_union, new_data_union, len_bytes, pcm_data_len, data_align, channel_nums, channel->driver_ctrl->common_param.channel_nums);       
+            channel_nums = channel->driver_ctrl->common_param.channel_nums;
+            len_bytes = new_data_bytes;
         }
+        if (data_align != channel->driver_ctrl->common_param.data_align) {
+            LLOGC(luat_audio_debug_flag,"data_align %u change to %u, len_bytes %u, channel_nums %u", data_align, channel->driver_ctrl->common_param.data_align, len_bytes, channel_nums);
+            pcm_data_len = 0;
+            new_data_bytes = 0;
+            switch (data_align) {
+                case 1:
+                    pcm_data_len = len_bytes;
+                    break;
+                case 2:
+                    pcm_data_len = len_bytes >> 1;
+                    break;
+                case 3:
+                case 4:
+                    pcm_data_len = len_bytes >> 2;
+                    break;
+                default:
+                    luat_heap_free(new_data_union.p8);
+                    return -LUAT_ERROR_PARAM_INVALID;
+                    break;
+            }
+            switch (channel->driver_ctrl->common_param.data_align) {
+                case 1:
+                    new_data_bytes = pcm_data_len;
+                    break;
+                case 2:
+                    new_data_bytes = pcm_data_len << 1;
+                    break;
+                case 3:
+                case 4:
+                    new_data_bytes = pcm_data_len << 2;
+                    break;
+                default:
+                    luat_heap_free(new_data_union.p8);
+                    return -LUAT_ERROR_PARAM_INVALID;
+                    break;
+            }
+            new_data_union2.p = luat_heap_malloc(new_data_bytes);
+            if (!new_data_union2.p) {
+                luat_heap_free(new_data_union.p8);
+                return -LUAT_ERROR_NO_MEMORY;
+            }
+            if (new_data_union.p8) {
+                luat_audio_channel_data_change_align(new_data_union, new_data_union2, len_bytes, pcm_data_len, data_align, channel->driver_ctrl->common_param.data_align);
+            } else {
+                luat_audio_channel_data_change_align(data_union, new_data_union2, len_bytes, pcm_data_len, data_align, channel->driver_ctrl->common_param.data_align);
+            }
+            
+            data_align = channel->driver_ctrl->common_param.data_align;
+            len_bytes = new_data_bytes;
+        }
+
         if (channel->driver_ctrl->opts->dac_data_align) {
-            channel->driver_ctrl->opts->dac_data_align(channel->driver_ctrl, new_data_union.p, new_data_bytes, channel->driver_ctrl->common_param.data_align);
+            channel->driver_ctrl->opts->dac_data_align(channel->driver_ctrl, new_data_union.p, new_data_bytes, data_align);
         }
         luat_fifo_write(channel->play_fifo, new_data_union.p, new_data_bytes);
-        luat_heap_free(new_data_union.p8);
-    } else if (channel_nums == channel->driver_ctrl->common_param.channel_nums) {
-        uint32_t pcm_data_len, new_data_bytes = 0;
-        luat_data_union_t new_data_union;
-        new_data_union.p = NULL;
-        switch (data_align) {
-            case 1:
-                pcm_data_len = len_bytes;
-                break;
-            case 2:
-                pcm_data_len = len_bytes >> 1;
-                break;
-            case 3:
-            case 4:
-                pcm_data_len = len_bytes >> 2;
-                break;
-            default:
-                return -LUAT_ERROR_PARAM_INVALID;
-                break;
+        if (new_data_union.p8) {
+            luat_heap_free(new_data_union.p8);
         }
-        switch (channel->driver_ctrl->common_param.data_align) {
-            case 1:
-                new_data_bytes = pcm_data_len;
-                break;
-            case 2:
-                new_data_bytes = pcm_data_len << 1;
-                break;
-            case 3:
-            case 4:
-                new_data_bytes = pcm_data_len << 2;
-                break;
-            default:
-                return -LUAT_ERROR_PARAM_INVALID;
-                break;
+        if (new_data_union2.p8) {
+            luat_heap_free(new_data_union2.p8);
         }
-        new_data_union.p = luat_heap_malloc(new_data_bytes);
-        if (!new_data_union.p) {
-            return -LUAT_ERROR_NO_MEMORY;
-        }
-        switch (data_align) {
-            case 1:
-                switch (channel->driver_ctrl->common_param.data_align) {
-                    case 2:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p16[i] = data_union.p8[i] << 8;
-                        }
-                        break;
-                    case 3:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p32[i] = data_union.p8[i] << 16;
-                        }
-                        break;
-                    case 4:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p32[i] = data_union.p8[i] << 24;
-                        }
-                        break;
-                    default:
-                        return -LUAT_ERROR_PARAM_INVALID;
-                        break;
-                }
-                break;
-            case 2:
-                switch (channel->driver_ctrl->common_param.data_align) {
-                    case 1:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p8[i] = data_union.p16[i] >> 8;
-                        }
-                        break;
-                    case 3:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p32[i] = data_union.p16[i] << 8;
-                        }
-                        break;
-                    case 4:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p32[i] = data_union.p16[i] << 16;
-                        }
-                        break;
-                    default:
-                        return -LUAT_ERROR_PARAM_INVALID;
-                        break;
-                }
-                break;
-            case 3:
-                switch (channel->driver_ctrl->common_param.data_align) {
-                    case 1:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p8[i] = data_union.p32[i] >> 16;
-                        }
-                        break;
-                    case 2:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p16[i] = data_union.p32[i] >> 8;
-                        }
-                        break;
-                    case 4:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p32[i] = data_union.p32[i] << 8;
-                        }
-                        break;
-                    default:
-                        return -LUAT_ERROR_PARAM_INVALID;
-                        break;
-                }
-                break;
-            case 4:
-                switch (channel->driver_ctrl->common_param.data_align) {
-                    case 1:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p8[i] = data_union.p32[i] >> 24;
-                        }
-                        break;
-                    case 2:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p16[i] = data_union.p32[i] >> 16;
-                        }
-                        break;
-                    case 3:
-                        for (uint32_t i = 0;i < pcm_data_len;i++){
-                            new_data_union.p32[i] = (data_union.p32[i] >> 8) & 0x00FFFFFF;
-                        }
-                        break;
-                    default:
-                        return -LUAT_ERROR_PARAM_INVALID;
-                        break;
-                }
-                break;
-            default:
-                return -LUAT_ERROR_PARAM_INVALID;
-                break;
-        }
-        if (channel->driver_ctrl->opts->dac_data_align) {
-            channel->driver_ctrl->opts->dac_data_align(channel->driver_ctrl, new_data_union.p, new_data_bytes, channel->driver_ctrl->common_param.data_align);
-        }
-        luat_fifo_write(channel->play_fifo, new_data_union.p, new_data_bytes);
-        luat_heap_free(new_data_union.p8);
-    } else {
-        LLOGE("data_align not match and channel_nums not match, can not deal with data");
-        return -LUAT_ERROR_PARAM_INVALID;
     }
     return LUAT_ERROR_NONE;
 }

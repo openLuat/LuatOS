@@ -195,17 +195,26 @@ static int _audio_tts_output_callback(void *data, uint32_t param, void *user_dat
 			return -1;
 		}
 		uint32_t written_bytes;
-		ret = luat_audio_channel_write_data(request_block->data_channel, data, param, &written_bytes, request_block->play_codec.common_param.is_signed, request_block->play_codec.common_param.data_align, request_block->play_codec.common_param.channel_nums);
+		luat_buffer_write(&request_block->out_buffer, data, param);
+		ret = luat_audio_channel_write_data(request_block->data_channel, request_block->out_buffer.data, request_block->out_buffer.pos, &written_bytes, request_block->play_codec.common_param.is_signed, request_block->play_codec.common_param.data_align, request_block->play_codec.common_param.channel_nums);
 		if (ret) {
 			request_block->is_error_stop = 1;
 			LLOGE("tts write data failed");
 			return -1;
+		}
+		if (written_bytes) {
+			request_block->out_buffer.pos  = 0;
 		}
 	} else {
 		LLOGC(luat_audio_debug_flag, "tts start, play info %u,%u,%u", request_block->play_codec.common_param.sample_rate, request_block->play_codec.common_param.data_align, request_block->play_codec.common_param.channel_nums);
 		ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->play_codec.common_param, request_block->play_buff, 0, LUAT_AUDIO_PLAY_BUFFER_CNT);
 		if (ret) {
 			LLOGE("tts start driver failed");
+			return -1;
+		}
+		luat_buffer_reinit(&request_block->out_buffer, 8192);
+		if (!request_block->out_buffer.data) {
+			LLOGE("tts init output bufferfailed");
 			return -1;
 		}
 	}
@@ -485,7 +494,12 @@ static void _audio_after_decode_once(luat_audio_request_block_t *request_block, 
 			*stop = 1;
 		}
 		request_block->out_buffer.pos -= written_bytes;
+		if (!written_bytes) {
+			*stop = 1;
+			return;
+		}
 	}
+
 	uint32_t rest_bytes = luat_fifo_check_used_space(request_block->org_input_data_fifo);
 	if (request_block->is_input_end || is_file_end) {
 		if (!rest_bytes) { // 文件结束，且fifo数据为空，结束解码循环
@@ -618,7 +632,7 @@ static void luat_audio_common_task(void *param)
 	uint8_t request_change;
 	for(;;) {
 		luat_rtos_event_recv(_luat_audio.common_task_handle, 0, &out_event, NULL, 0);
-		LLOGC(luat_audio_debug_flag, "common task recv event %d", out_event.id);
+		//LLOGC(luat_audio_debug_flag, "common task recv event %d", out_event.id);
 		switch (out_event.id) {
 		case LUAT_AUDIO_EV_TX_NEED_DATA:
 			_luat_audio.decode_is_running = 1;

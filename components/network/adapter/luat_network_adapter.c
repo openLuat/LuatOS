@@ -1530,12 +1530,12 @@ void network_connect_ipv6_domain(network_ctrl_t *ctrl, uint8_t onoff)
 
 int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 {
-	int i;
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	if (local_port)
 	{
 		// G_LOCK;
 		#if 0
+		int i;
+		network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 		for (i = 0; i < adapter->opt->max_socket_num; i++)
 		{
 			if (&adapter->ctrl_table[i] != ctrl)

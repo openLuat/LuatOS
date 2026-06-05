@@ -107,7 +107,7 @@ end
 local function create_info_row(p, y, label_text, value_text)
     local is_kernel = (label_text == "内核版本")
     local row_h = math.floor((is_kernel and 120 or 70) * _G.density_scale)
-    local value_w = card_w - math.floor(150 * _G.density_scale) - math.floor(30 * _G.density_scale)
+    local value_w = card_w - math.floor(180 * _G.density_scale)
     local value_h = math.floor((is_kernel and 100 or 50) * _G.density_scale)
 
     local r = airui.container({

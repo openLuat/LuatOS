@@ -355,6 +355,14 @@ int airui_slider_set_range(lv_obj_t *slider, int32_t min, int32_t max)
     return AIRUI_ERR_NOT_SUPPORTED;
 }
 
+int airui_slider_set_style(lv_obj_t *slider, void *L, int idx)
+{
+    (void)slider;
+    (void)L;
+    (void)idx;
+    return AIRUI_ERR_NOT_SUPPORTED;
+}
+
 int airui_slider_set_mode(lv_obj_t *slider, airui_slider_mode_t mode)
 {
     (void)slider;

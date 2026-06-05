@@ -1990,7 +1990,7 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 		if (!ctrl->is_tcp)
 		{
 			// UDP(DTLS) 时强制使用 TLS/DTLS 1.2，避免配置宏未生效导致降级到 DTLS 1.0
-			#if defined(MBEDTLS_SSL_VERSION_TLS1_2)
+			#if MBEDTLS_VERSION_MAJOR >= 3
 				// mbedtls3 API
 				mbedtls_ssl_conf_max_tls_version(ctrl->config, MBEDTLS_SSL_VERSION_TLS1_2);
 				mbedtls_ssl_conf_min_tls_version(ctrl->config, MBEDTLS_SSL_VERSION_TLS1_2);

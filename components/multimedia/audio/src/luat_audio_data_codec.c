@@ -84,7 +84,7 @@ int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_
             }
             if (input_data_len < codec->opts->decode_min_input_len) {  // 输入数据不足
                 if (!is_end) {   // 最后一次解码，读取所有数据
-                    LLOGC(luat_audio_debug_flag, "decode input fifo not enough %d/%d, decode end", input_data_len, codec->opts->decode_min_input_len);
+                    LLOGC(luat_audio_debug_flag, "decode input fifo not enough %d/%d, not end, decode end", input_data_len, codec->opts->decode_min_input_len);
                     return LUAT_ERROR_NONE;
                 }
             }
@@ -97,7 +97,10 @@ int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_
             uint32_t frame_byte = 0;
             codec->opts->pre_decode(codec, codec->input_buffer, input_data_len, &frame_byte);
             if (frame_byte > input_data_len) {
-                LLOGC(luat_audio_debug_flag, "decode input fifo not enough %d/%d, decode end", input_data_len, frame_byte);
+                LLOGC(luat_audio_debug_flag, "decode input fifo not enough %d/%d/%d, decode end", input_data_len, frame_byte,is_end);
+                if (is_end) {
+                    luat_fifo_delete(input_data_fifo, input_data_fifo->size);
+                }
                 return LUAT_ERROR_NONE;
             }
         }

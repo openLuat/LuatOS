@@ -286,6 +286,7 @@ static int l_audio_input(lua_State *L) {
         LLOGC(luat_audio_debug_flag,"lua request %d not busy can not input data", request_index);
         goto DONE;
     }
+    luat_rtos_task_suspend_all();
     if (LUA_TSTRING == (lua_type(L, 2))) {
         size_t len = 0;
         data = lua_tolstring(L, 2, &len);//取出字符串数据
@@ -311,6 +312,7 @@ static int l_audio_input(lua_State *L) {
         is_end = 0;
     }
     l_req->request.is_input_end = is_end;
+    luat_rtos_task_resume_all();
 DONE:
     lua_pushboolean(L, !result);
     lua_pushinteger(L, input_len);

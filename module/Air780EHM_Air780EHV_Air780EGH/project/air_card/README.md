@@ -62,7 +62,7 @@
 
 | 工具 | 用途 | 下载地址 |
 |------|------|----------|
-| **LuaTools** | 固件烧录、脚本下载、日志查看 | [合宙官网](https://wiki.luatos.com/pages/tools.html) |
+| **LuaTools** | 固件烧录、脚本下载、日志查看 | [合宙官网](https://docs.openluat.com/common/Luatools/) |
 | **VS Code** | 代码编辑（可选） | — |
 | **串口工具** | 串口调试（如 LLCOM） | — |
 
@@ -340,7 +340,7 @@ AirLBS 为 **付费服务**，需联系合宙销售开通。在 `fota.lua` 中�
 
 | 资源 | 链接 |
 |------|------|
-| Air780EGH 模组资料 | [合宙官网](https://docs.openluat.com/air780eg/) |
+| Air780EGH 模组资料 | [合宙官网](https://docs.openluat.com/air780egh/product/air780exxpins/) |
 | 合宙 IoT 平台 | [iot.openluat.com](https://iot.openluat.com) |
 
 ---

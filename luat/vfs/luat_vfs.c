@@ -347,15 +347,22 @@ int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, s
 
     char file_path[256] = {0};
     size_t file_path_len = strlen(_DirName);
+    if (file_path_len >= sizeof(file_path) - 1)
+        return ret;
     memcpy(file_path, _DirName, file_path_len + 1);
     if (strlen(_DirName + strlen(mount->prefix))!=1){
+        if (file_path_len + 1 >= sizeof(file_path) - 1)
+            return ret;
         file_path[file_path_len] = '/';
         file_path[file_path_len + 1] = 0;
         file_path_len++;
     }
     for (size_t i = 0; i < ret; i++){
         if (ents[i].d_type==0){
-            memcpy(file_path+file_path_len, ents[i].d_name, strlen(ents[i].d_name) + 1);
+            size_t name_len = strlen(ents[i].d_name);
+            if (file_path_len + name_len >= sizeof(file_path) - 1)
+                continue;
+            memcpy(file_path+file_path_len, ents[i].d_name, name_len + 1);
             ents[i].d_size = luat_fs_fsize(file_path);
         }
     }

@@ -958,6 +958,103 @@ static int pgfs_test_gc_data_move_preserves_file(void) {
     return fail;
 }
 
+/* Phase 2 GC: verify that a block with high erase count is NOT
+ * deprioritized compared to a low-EC block with similar reclaimable
+ * space. The old formula (dead+free)/(ec+1) gave lower scores to
+ * high-EC blocks, which is the opposite of wear leveling. With the
+ * wear-leveling boost, blocks with EC above the average get an
+ * additive bonus proportional to how far above average they are,
+ * so the GC prioritizes reclaiming them. */
+static int pgfs_test_gc_wear_leveling_score(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    uint32_t total_blocks = 16;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+
+    if (pgfs_ftl_init(&ctx.ftl, &opts, erase_size, total_blocks) != 0) {
+        printf("[pgfs-gc-utest] FTL init failed\n");
+        pgfs_test_flash_free(flash);
+        return 1;
+    }
+
+    /* Mark reserved blocks 0..4. */
+    for (uint32_t i = 0; i < PGFS_LAYOUT_RESERVED_BLOCKS && i < total_blocks; i++) {
+        pgfs_ftl_mark_reserved(&ctx.ftl, i);
+    }
+
+    /* Set up a realistic erase-count distribution:
+     *   Block 5:  low EC,  half live  (2048 bytes live, 2048 bytes dead)
+     *   Block 6:  high EC, half live  (same live/dead split)
+     *   Blocks 7..15: empty (live=0),  moderate EC = 10
+     *
+     * The wear-leveling boost applies when ec > avg_ec AND live > 0.
+     * Block 6 has ec=100, avg_ec ≈ 18, live=2048 > 0 → gets a large
+     * additive bonus proportional to (ec - avg_ec)*erase_size/avg_ec.
+     * Block 5 has ec=10 ≤ avg_ec → no boost.
+     * Empty blocks (7..15) have live=0 → no boost.
+     * Expected winner: block 6 (high-EC). */
+    ctx.ftl.erase_counts[5] = 10;
+    ctx.ftl.live_bytes_per_block[5] = erase_size / 2;
+    ctx.ftl.dead_bytes_per_block[5] = erase_size / 2;
+
+    ctx.ftl.erase_counts[6] = 100;
+    ctx.ftl.live_bytes_per_block[6] = erase_size / 2;
+    ctx.ftl.dead_bytes_per_block[6] = erase_size / 2;
+
+    for (uint32_t i = 7; i < total_blocks; i++) {
+        ctx.ftl.erase_counts[i] = 10;
+        /* live and dead stay at 0 (empty blocks). */
+    }
+
+    /* With the old formula:
+     *   Block 5: score = (2048+2048)/(10+1) = 372
+     *   Block 6: score = (2048+2048)/(100+1) = 40
+     *   Block 5 (low EC) would win — bad for wear leveling.
+     * With the wear-leveling boost:
+     *   avg_ec = (10 + 100 + 10*9) / 11 = 200/11 ≈ 18
+     *   Block 5: ec=10 ≤ 18, no boost → score = 372
+     *   Block 6: ec=100 > 18, live=2048 > 0 → boost!
+     *     boost = (100-18)*4096/18 ≈ 82*227 = 18660
+     *     score = 40 + 18660 = 18700
+     *   Block 6 wins. */
+
+    /* Call pgfs_gc_pick_victim directly (white-box test). */
+    uint32_t victim = pgfs_gc_pick_victim(&ctx);
+
+    if (victim == 0xFFFFFFFFu) {
+        printf("[pgfs-gc-utest] gc_pick_victim returned no candidate\n");
+        fail++;
+    } else if (victim != 6) {
+        printf("[pgfs-gc-utest] expected victim=6 (high-EC block), got %u\n",
+               (unsigned int)victim);
+        fail++;
+    }
+
+    /* Also verify that the low-EC block 5 is NOT picked as best
+     * when a similar high-EC block (6) exists. */
+    if (victim == 5) {
+        printf("[pgfs-gc-utest] low-EC block 5 was picked over high-EC block 6 (wear-leveling broken)\n");
+        fail++;
+    }
+
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 /* Phase 6 stress test: write N files with distinct paths and small
  * payloads, then read them all back and verify content matches. Also
  * verify the runtime counters in pgfs_diag_stats_t reflect the
@@ -4144,6 +4241,7 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_gc_picks_lowest_erase_count_among_empties);
     PGFS_RUN_CTEST(pgfs_test_gc_excludes_bad_reserved_retired);
     PGFS_RUN_CTEST(pgfs_test_gc_data_move_preserves_file);
+    PGFS_RUN_CTEST(pgfs_test_gc_wear_leveling_score);
     PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
     PGFS_RUN_CTEST(pgfs_test_stress_many_files_writes_counters);
     PGFS_RUN_CTEST(pgfs_test_stress_write_delete_cycles);

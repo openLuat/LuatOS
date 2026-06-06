@@ -116,11 +116,32 @@ int pgfs_alloc_segment(pgfs_mount_ctx_t *ctx, uint32_t *seg_id) {
  * neither bad, reserved, nor already retired. Returns 0xFFFFFFFFu
  * when no candidate exists.
  */
-static uint32_t pgfs_gc_pick_victim(pgfs_mount_ctx_t* ctx) {
+uint32_t pgfs_gc_pick_victim(pgfs_mount_ctx_t* ctx) {
     if (ctx == NULL || ctx->ftl.total_blocks == 0) return 0xFFFFFFFFu;
     uint32_t erase_size = ctx->ftl.erase_size;
     if (erase_size == 0) return 0xFFFFFFFFu;
 
+    /* First pass: compute average erase count across eligible blocks.
+     * Eligible blocks are those that are not bad, not reserved, not
+     * retired, and not completely full (live < erase_size). This
+     * average is used below to detect heavily-worn blocks that need
+     * a wear-leveling score boost. */
+    uint64_t sum_ec = 0;
+    uint32_t ec_count = 0;
+    for (uint32_t id = 0; id < ctx->ftl.total_blocks; id++) {
+        if (pgfs_ftl_is_block_bad(&ctx->ftl, id)) continue;
+        if (pgfs_ftl_is_reserved(&ctx->ftl, id)) continue;
+        if (pgfs_ftl_is_retired(&ctx->ftl, id)) continue;
+        if (ctx->ftl.live_bytes_per_block == NULL) continue;
+        uint32_t live = ctx->ftl.live_bytes_per_block[id];
+        if (live >= erase_size) continue;
+        sum_ec += ctx->ftl.erase_counts ? ctx->ftl.erase_counts[id] : 0u;
+        ec_count++;
+    }
+    if (ec_count == 0) return 0xFFFFFFFFu;
+    uint32_t avg_ec = (uint32_t)(sum_ec / ec_count);
+
+    /* Second pass: score each block with a wear-leveling boost. */
     uint32_t best_block = 0xFFFFFFFFu;
     uint32_t best_score = 0u;
     for (uint32_t id = 0; id < ctx->ftl.total_blocks; id++) {
@@ -137,6 +158,22 @@ static uint32_t pgfs_gc_pick_victim(pgfs_mount_ctx_t* ctx) {
          * block that has 0 live bytes scores `(0 + erase_size) / 1`
          * which is the maximum a single-erase victim can reach. */
         uint32_t score = (dead + free) / (ec + 1u);
+
+        /* Wear-leveling boost: when a block's erase count is above the
+         * average of eligible peers, add a bonus proportional to how
+         * far above average the block is. This incentivises the GC to
+         * reclaim heavily-worn blocks (the opposite of the old cost-
+         * benefit formula without this boost, which deprioritised
+         * high-EC blocks). The boost only applies when the block still
+         * has live data; empty blocks do not need a motivating push
+         * because they cost nothing to retire. */
+        if (ec > avg_ec && avg_ec > 0 && live > 0) {
+            uint32_t boost = (uint32_t)(
+                ((uint64_t)(ec - avg_ec) * erase_size) / (uint64_t)avg_ec
+            );
+            score += boost;
+        }
+
         if (score == 0) continue;
         if (best_block == 0xFFFFFFFFu || score > best_score) {
             best_block = id;

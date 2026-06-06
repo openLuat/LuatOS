@@ -1141,32 +1141,88 @@ static int pgfs_test_ecc_encode_decode_roundtrip(void) {
     return fail;
 }
 
-/* Phase 3b: corruption in the protected bytes must be detected (decode
- * returns -1). The replay path then marks the block weak and skips the
- * record. */
+/* Phase 3b: corruption tests. Single-bit data flips are now correctable
+ * (return 1) with SECDED. Double-bit errors remain uncorrectable (return -1). */
 static int pgfs_test_ecc_decode_detects_corruption(void) {
     int fail = 0;
     uint8_t data[8] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
     uint8_t corrected[8] = {0};
     uint8_t parity = pgfs_ecc_hamming_encode(data);
-    /* Flip a single bit in the data and confirm decode fails. The stored
-     * parity was computed against the original data, so a flipped bit
-     * makes the recomputed parity mismatch — decode returns -1. */
+    uint8_t original[8];
+    memcpy(original, data, 8);
+    /* Flip a single bit in the data — SECDED corrects it (return 1). */
     data[3] ^= 0x01u;
     int res = pgfs_ecc_hamming_decode(data, parity, corrected);
-    if (res != -1) {
-        printf("[pgfs-ecc-utest] expected decode to flag a 1-bit flip with -1, got %d\n", res);
+    if (res != 1) {
+        printf("[pgfs-ecc-utest] expected decode to correct a 1-bit flip (return 1), got %d\n", res);
         fail++;
     }
-    /* Flipping a bit in the parity byte alone (with data intact) must
-     * also be detected. */
-    {
-        uint8_t data2[8] = {0xAA, 0x55, 0xCC, 0x33, 0xF0, 0x0F, 0x96, 0x69};
-        uint8_t p2 = pgfs_ecc_hamming_encode(data2);
-        uint8_t bad_p2 = (uint8_t)(p2 ^ 0x80u);
-        int r2 = pgfs_ecc_hamming_decode(data2, bad_p2, NULL);
-        if (r2 != -1) {
-            printf("[pgfs-ecc-utest] expected decode to flag a parity-byte flip with -1, got %d\n", r2);
+    if (memcmp(corrected, original, 8) != 0) {
+        printf("[pgfs-ecc-utest] corrected data does not match original after single-bit flip\n");
+        fail++;
+    }
+    return fail;
+}
+
+/* Phase 3b: verify SECDED corrects every single-bit error at all 64 data
+ * bit positions. Each bit is flipped individually, decoded, and the
+ * corrected output is compared against the original data. */
+static int pgfs_test_ecc_corrects_single_bit_errors(void) {
+    int fail = 0;
+    uint8_t original[8] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+    uint8_t data[8];
+    uint8_t parity = pgfs_ecc_hamming_encode(original);
+
+    /* Test each of the 64 bit positions */
+    for (int bit = 0; bit < 64; bit++) {
+        memcpy(data, original, 8);
+        int byte_idx = bit / 8;
+        int bit_idx = bit % 8;
+        data[byte_idx] ^= (1 << bit_idx);  /* flip one bit */
+
+        uint8_t corrected[8] = {0};
+        int res = pgfs_ecc_hamming_decode(data, parity, corrected);
+        if (res != 1) {
+            printf("[pgfs-ecc-utest] single-bit flip at bit %d: expected 1, got %d\n", bit, res);
+            fail++;
+            break;  /* one failure is enough */
+        }
+        if (memcmp(corrected, original, 8) != 0) {
+            printf("[pgfs-ecc-utest] single-bit flip at bit %d: corrected data wrong\n", bit);
+            fail++;
+            break;
+        }
+    }
+    return fail;
+}
+
+/* Phase 3b: verify SECDED detects (returns -1) for several double-bit
+ * error patterns, including adjacent bits, cross-byte, far-apart,
+ * first+last, and byte-boundary flips. */
+static int pgfs_test_ecc_detects_double_bit_errors(void) {
+    int fail = 0;
+    uint8_t original[8] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+    uint8_t parity = pgfs_ecc_hamming_encode(original);
+
+    /* Test several double-bit combinations */
+    int test_pairs[][2] = {
+        {0, 1},     /* adjacent bits, same byte */
+        {0, 8},     /* different bytes */
+        {10, 50},   /* far apart */
+        {0, 63},    /* first and last */
+        {31, 32},   /* byte boundary */
+    };
+
+    for (int t = 0; t < 5; t++) {
+        uint8_t data[8];
+        memcpy(data, original, 8);
+        int b1 = test_pairs[t][0], b2 = test_pairs[t][1];
+        data[b1/8] ^= (1 << (b1%8));
+        data[b2/8] ^= (1 << (b2%8));
+
+        int res = pgfs_ecc_hamming_decode(data, parity, NULL);
+        if (res != -1) {
+            printf("[pgfs-ecc-utest] double-bit flip at %d,%d: expected -1, got %d\n", b1, b2, res);
             fail++;
         }
     }
@@ -4017,6 +4073,8 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_weak_block_separate_from_bad);
     PGFS_RUN_CTEST(pgfs_test_ecc_encode_decode_roundtrip);
     PGFS_RUN_CTEST(pgfs_test_ecc_decode_detects_corruption);
+    PGFS_RUN_CTEST(pgfs_test_ecc_corrects_single_bit_errors);
+    PGFS_RUN_CTEST(pgfs_test_ecc_detects_double_bit_errors);
     PGFS_RUN_CTEST(pgfs_test_replay_marks_block_weak_on_ecc_mismatch);
     PGFS_RUN_CTEST(pgfs_test_checkpoint_consistency_matches_when_synced);
     PGFS_RUN_CTEST(pgfs_test_checkpoint_consistency_fails_on_drift);

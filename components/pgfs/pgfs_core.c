@@ -1604,7 +1604,14 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             memset(hdr.ecc, 0, sizeof(hdr.ecc));
             int ecc_res = 0;
             if (stored_ecc != 0) {
-                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+                uint8_t ecc_corrected[8];
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, ecc_corrected);
+                if (ecc_res == 1) {
+                    /* Single-bit error corrected — apply correction
+                     * to header before extracting fields below. */
+                    memcpy(&hdr, ecc_corrected, 8);
+                    LLOGW("replay: ECC corrected single-bit error at addr=%u", (unsigned int)addr);
+                }
             }
             if (ecc_res < 0) {
                 /* Phase 3b: ECC mismatch. Mark the block weak for refresh
@@ -1643,7 +1650,12 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             memset(hdr.ecc, 0, sizeof(hdr.ecc));
             int ecc_res = 0;
             if (stored_ecc != 0) {
-                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+                uint8_t ecc_corrected[8];
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, ecc_corrected);
+                if (ecc_res == 1) {
+                    memcpy(&hdr, ecc_corrected, 8);
+                    LLOGW("replay: ECC corrected single-bit error at addr=%u", (unsigned int)addr);
+                }
             }
             if (ecc_res < 0) {
                 LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
@@ -1687,7 +1699,12 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             memset(hdr.ecc, 0, sizeof(hdr.ecc));
             int ecc_res = 0;
             if (stored_ecc != 0) {
-                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+                uint8_t ecc_corrected[8];
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, ecc_corrected);
+                if (ecc_res == 1) {
+                    memcpy(&hdr, ecc_corrected, 8);
+                    LLOGW("replay: ECC corrected single-bit error at addr=%u", (unsigned int)addr);
+                }
             }
             if (ecc_res < 0) {
                 LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);

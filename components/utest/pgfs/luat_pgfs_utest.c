@@ -3,6 +3,7 @@
 #include "pgfs_internal.h"
 #include "pgfs_ecc.h"
 #include "luat_mem.h"
+#include "luat_rtos_legacy.h"
 
 #ifdef LUAT_USE_PGFS_COMPONENT
 
@@ -1757,6 +1758,57 @@ static int pgfs_test_lock_mode_counters(void) {
     if (ctx.stats.lock_passthrough_count != 1) {
         fail++;
     }
+    return fail;
+}
+
+/* Test: lock_mode=OFF still passes through (backward compat) */
+static int pgfs_test_lock_mode_off_passthrough(void) {
+    int fail = 0;
+    pgfs_mount_ctx_t ctx = {0};
+    ctx.lock_mode = PGFS_LOCK_MODE_OFF;
+
+    uint32_t before = ctx.stats.lock_passthrough_count;
+    if (pgfs_lock(&ctx) != 0) { fail++; }
+    if (pgfs_unlock(&ctx) != 0) { fail++; }
+    if (ctx.stats.lock_passthrough_count != before + 1) { fail++; }
+
+    return fail;
+}
+
+/* Test: lock_mode=ON uses real mutex (basic acquire/release) */
+static int pgfs_test_lock_mode_on_acquire_release(void) {
+    int fail = 0;
+    pgfs_mount_ctx_t ctx = {0};
+    ctx.lock_mode = PGFS_LOCK_MODE_ON;
+    ctx.mutex = luat_mutex_create();
+    if (ctx.mutex == NULL) {
+        printf("[pgfs-lock-utest] mutex create failed\n");
+        return 1;
+    }
+
+    uint32_t before = ctx.stats.lock_acquire_count;
+    if (pgfs_lock(&ctx) != 0) { fail++; }
+    if (pgfs_unlock(&ctx) != 0) { fail++; }
+    if (ctx.stats.lock_acquire_count != before + 1) { fail++; }
+
+    /* Double-unlock should not crash (best-effort) */
+    pgfs_unlock(&ctx);
+
+    luat_mutex_release(ctx.mutex);
+    return fail;
+}
+
+/* Test: lock_mode=ON with NULL mutex (defensive, should not crash) */
+static int pgfs_test_lock_null_mutex_safe(void) {
+    int fail = 0;
+    pgfs_mount_ctx_t ctx = {0};
+    ctx.lock_mode = PGFS_LOCK_MODE_ON;
+    ctx.mutex = NULL;  // not initialized
+
+    /* Should handle NULL mutex gracefully */
+    if (pgfs_lock(&ctx) != 0) { fail++; }
+    if (pgfs_unlock(&ctx) != 0) { fail++; }
+
     return fail;
 }
 
@@ -4039,6 +4091,9 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_pick_latest_valid_sb);
     PGFS_RUN_CTEST(pgfs_test_checkpoint_roundtrip_and_fallback);
     PGFS_RUN_CTEST(pgfs_test_lock_mode_counters);
+    PGFS_RUN_CTEST(pgfs_test_lock_mode_off_passthrough);
+    PGFS_RUN_CTEST(pgfs_test_lock_mode_on_acquire_release);
+    PGFS_RUN_CTEST(pgfs_test_lock_null_mutex_safe);
     PGFS_RUN_CTEST(pgfs_test_directory_helpers);
     PGFS_RUN_CTEST(pgfs_test_replay_restores_file_contents);
     PGFS_RUN_CTEST(pgfs_test_replay_skips_bad_block_and_recovers_next_block);

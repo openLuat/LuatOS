@@ -6,6 +6,7 @@
 
 #include "pgfs_internal.h"  /* includes pgfs_nand_ftl.h internally */
 #include "luat_mem.h"
+#include "luat_rtos_legacy.h"
 
 static void pgfs_cache_free_buffer(pgfs_file_cache_t* cache) {
     if (cache == NULL || cache->data == NULL) {
@@ -28,6 +29,11 @@ int pgfs_lock(pgfs_mount_ctx_t* ctx) {
         return -1;
     }
     if (ctx->lock_mode == PGFS_LOCK_MODE_ON) {
+        if (ctx->mutex != NULL) {
+            if (luat_mutex_lock(ctx->mutex) != 0) {
+                return -1;
+            }
+        }
         ctx->stats.lock_acquire_count++;
     }
     else {
@@ -39,6 +45,11 @@ int pgfs_lock(pgfs_mount_ctx_t* ctx) {
 int pgfs_unlock(pgfs_mount_ctx_t* ctx) {
     if (ctx == NULL) {
         return -1;
+    }
+    if (ctx->lock_mode == PGFS_LOCK_MODE_ON) {
+        if (ctx->mutex != NULL) {
+            luat_mutex_unlock(ctx->mutex);
+        }
     }
     return 0;
 }

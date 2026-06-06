@@ -8,6 +8,7 @@
 #ifdef LUAT_USE_PGFS_COMPONENT
 
 #include "luat_fs.h"
+#include "luat_rtos_legacy.h"
 #include "pgfs_internal.h"  /* includes pgfs_nand_ftl.h internally */
 #ifdef LUAT_USE_LITTLE_FLASH
 #include "little_flash.h"
@@ -140,6 +141,10 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
     s_pgfs_ctx.mount_point[mlen] = 0;
     s_pgfs_ctx.flash_opts = (const pgfs_flash_opts_t *)conf->busname;
     s_pgfs_ctx.runtime_generation = 1;
+    /* Initialize platform mutex for thread-safe operations */
+    if (s_pgfs_ctx.mutex == NULL) {
+        s_pgfs_ctx.mutex = luat_mutex_create();
+    }
     s_pgfs_ctx.data_log_base_addr = pgfs_compute_data_log_base(s_pgfs_ctx.flash_opts);
     s_pgfs_ctx.data_log_write_addr = s_pgfs_ctx.data_log_base_addr;
     s_pgfs_ctx.data_log_prepared_until = s_pgfs_ctx.data_log_base_addr;
@@ -230,6 +235,10 @@ static int luat_vfs_pgfs_umount(void* fsdata, luat_fs_conf_t *conf) {
         pgfs_ftl_deinit(&s_pgfs_ctx.ftl);
     }
     pgfs_file_reset_all();
+    if (s_pgfs_ctx.mutex != NULL) {
+        luat_mutex_release(s_pgfs_ctx.mutex);
+        s_pgfs_ctx.mutex = NULL;
+    }
     memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
     return 0;
 }
@@ -518,6 +527,10 @@ int pgfs_control_reset_runtime(void) {
         }
         pgfs_ftl_deinit(&s_pgfs_ctx.ftl);
     }
+    if (s_pgfs_ctx.mutex != NULL) {
+        luat_mutex_release(s_pgfs_ctx.mutex);
+        s_pgfs_ctx.mutex = NULL;
+    }
     pgfs_file_reset_all();
     memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
     s_pgfs_ctx.runtime_generation = next_generation == 0 ? 1 : next_generation + 1;
@@ -527,6 +540,10 @@ int pgfs_control_reset_runtime(void) {
     s_pgfs_ctx.data_log_base_addr = pgfs_compute_data_log_base(s_pgfs_ctx.flash_opts);
     s_pgfs_ctx.data_log_write_addr = s_pgfs_ctx.data_log_base_addr;
     s_pgfs_ctx.data_log_prepared_until = s_pgfs_ctx.data_log_base_addr;
+    /* Re-create platform mutex after reset */
+    if (s_pgfs_ctx.mutex == NULL) {
+        s_pgfs_ctx.mutex = luat_mutex_create();
+    }
     if (s_pgfs_ctx.flash_opts != NULL) {
         loaded = pgfs_checkpoint_load(&s_pgfs_ctx, &checkpoint);
         if (loaded == 0) {

@@ -178,6 +178,7 @@ typedef struct pgfs_mount_ctx {
     uint8_t inject_corrupt_latest_cp;
     uint16_t pending_checkpoint_writes;
     uint16_t reserved0;
+    void* mutex;                          /* platform mutex for PGFS_LOCK_MODE_ON */
     pgfs_layout_t layout;                /* computed at mount from geometry */
     pgfs_checkpoint_t checkpoint;
     uint32_t data_log_base_addr;         /* legacy field; derived from layout */

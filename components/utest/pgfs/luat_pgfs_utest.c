@@ -4031,6 +4031,116 @@ static int pgfs_test_multi_mount_counters_advance(void) {
     return fail;
 }
 
+/* Test: replay failure cleans up partial file table state.
+ * When replay is bounded (e.g., data_log_write_addr stops mid-log),
+ * files from records beyond the bound must not appear in the file
+ * table. This is the dual of the cleanup requirement: on failure,
+ * pgfs_file_reset_all() ensures the file table is empty. */
+static int pgfs_test_replay_failure_cleans_up(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint8_t rec1[256] = {0};
+    uint8_t rec2[256] = {0};
+    size_t rec1_len = 0, rec2_len = 0;
+    uint32_t erase_size = 4096;
+    FILE* f = NULL;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash;
+    opts.read = pgfs_test_read;
+    opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase;
+    opts.control = pgfs_test_control;
+
+    /* Build and write 2 valid records */
+    rec1_len = pgfs_test_build_record(rec1, sizeof(rec1), "/file1.txt", "data1");
+    rec2_len = pgfs_test_build_record(rec2, sizeof(rec2), "/file2.txt", "data2");
+    if (rec1_len == 0 || rec2_len == 0) {
+        pgfs_test_flash_free(flash);
+        return 1;
+    }
+
+    if (pgfs_test_write(flash, PGFS_DATA_LOG_BASE_ADDR, rec1, rec1_len) != 0) {
+        pgfs_test_flash_free(flash);
+        return 1;
+    }
+    if (pgfs_test_write(flash, PGFS_DATA_LOG_BASE_ADDR + (uint32_t)rec1_len, rec2, rec2_len) != 0) {
+        pgfs_test_flash_free(flash);
+        return 1;
+    }
+
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
+
+    /* First replay should succeed and restore both files */
+    if (pgfs_replay_data_log(&ctx) != 0) {
+        printf("[pgfs-replay-utest] initial replay failed unexpectedly\n");
+        fail++;
+    }
+
+    /* Verify both files are in the table */
+    f = pgfs_file_open(&ctx, "/file1.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-replay-utest] file1 missing after initial replay\n");
+        fail++;
+    } else {
+        pgfs_file_close(&ctx, f);
+    }
+    f = pgfs_file_open(&ctx, "/file2.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-replay-utest] file2 missing after initial replay\n");
+        fail++;
+    } else {
+        pgfs_file_close(&ctx, f);
+    }
+
+    /* Now simulate bounded replay: reset and replay only record 1
+     * (data_log_write_addr stops at record 1). Record 2 is beyond
+     * the durable bound and must NOT appear in the file table. */
+    pgfs_file_reset_all();
+    pgfs_ftl_deinit(&ctx.ftl);
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR + (uint32_t)rec1_len;
+    ctx.data_log_prepared_until = ctx.data_log_write_addr;
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
+
+    if (pgfs_replay_data_log(&ctx) != 0) {
+        printf("[pgfs-replay-utest] bounded replay failed unexpectedly\n");
+        fail++;
+    }
+
+    /* Record 1 should be present, record 2 should NOT */
+    f = pgfs_file_open(&ctx, "/file1.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-replay-utest] file1 missing after bounded replay\n");
+        fail++;
+    } else {
+        pgfs_file_close(&ctx, f);
+    }
+    f = pgfs_file_open(&ctx, "/file2.txt", "rb");
+    if (f != NULL) {
+        printf("[pgfs-replay-utest] file2 present but should be absent after bounded replay\n");
+        pgfs_file_close(&ctx, f);
+        fail++;
+    }
+
+    pgfs_file_reset_all();
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 int pgfs_run_c_layer_tests(void) {
     int fail = 0;
     int r = 0;
@@ -4094,6 +4204,7 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_stress_write_delete_cycles);
     PGFS_RUN_CTEST(pgfs_test_multi_mount_cycle_reads_via_replay);
     PGFS_RUN_CTEST(pgfs_test_multi_mount_counters_advance);
+    PGFS_RUN_CTEST(pgfs_test_replay_failure_cleans_up);
     PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
     PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally

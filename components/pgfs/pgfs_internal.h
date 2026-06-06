@@ -305,6 +305,7 @@ typedef struct pgfs_seg_summary {
 
 int pgfs_alloc_segment(pgfs_mount_ctx_t* ctx, uint32_t* seg_id);
 int pgfs_gc_step(pgfs_mount_ctx_t* ctx, uint32_t byte_budget, uint32_t time_budget_us);
+uint32_t pgfs_gc_pick_victim(pgfs_mount_ctx_t* ctx);
 int pgfs_mark_block_retired(pgfs_mount_ctx_t* ctx, uint32_t block_id);
 
 #endif

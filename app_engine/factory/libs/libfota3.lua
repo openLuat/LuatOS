@@ -113,7 +113,7 @@ end
   project_key:  项目密钥，默认 _G.PROJECT_KEY
   imei:         设备IMEI（4G模块），自动检测
   mac:          设备MAC（WiFi模块），自动检测
-  core_name:    固件名，默认从 rtos.firmware() 提取
+  model:        模组型号，默认 hmeta.model()
   core_id:      固件编号，默认 rtos.version(true) 第二返回值
   core_version: 固件版本号，默认 rtos.version()
   script_name:  脚本名，默认 _G.PROJECT
@@ -149,15 +149,13 @@ function libfota3.check(opts)
         core_version = v and v:gsub("^V", "") or "0"
     end
     local core_id = opts.core_id or select(2, rtos.version(true)) or "0"
-    local core_name = opts.core_name
-    if not core_name then
-        local fw = rtos.firmware()
-        if fw then
-            core_name = fw:gsub("_V%d+", ""):gsub("_%d+$", "")
-        else
-            core_name = "LuatOS-SoC_" .. rtos.bsp()
+    local model = opts.model
+    if not model then
+        if hmeta and hmeta.model then
+            model = hmeta.model()
         end
     end
+    model = model or ""
     local script_name = opts.script_name or _G.PROJECT or ""
     local script_version = opts.script_version or _G.VERSION or "0.0.0"
     local timeout = opts.timeout or DEFAULT_TIMEOUT
@@ -166,13 +164,13 @@ function libfota3.check(opts)
     local url = FOTA_CHECK_URL
         .. "?" .. id_type .. "=" .. url_encode(id_val)
         .. "&project_key=" .. url_encode(project_key)
-        .. "&core_name=" .. url_encode(core_name)
+        .. "&model=" .. url_encode(model)
         .. "&core_id=" .. url_encode(tostring(core_id))
         .. "&core_version=" .. url_encode(core_version)
         .. "&script_name=" .. url_encode(script_name)
         .. "&script_version=" .. url_encode(script_version)
 
-    log.info("libfota3", "check", "id", id_type, id_val, "core", core_name, core_id, core_version, "script", script_version)
+    log.info("libfota3", "check", "id", id_type, id_val, "model", model, "core_id", core_id, "core_version", core_version, "script", script_version)
 
     local code, headers, body = http.request("GET", url, nil, nil, {timeout = timeout}).wait()
     if code ~= 200 then
@@ -321,17 +319,14 @@ function libfota3.report_result(fota_sn, result_code)
         return false
     end
     local url = FOTA_REPORT_URL
-    local body = json.encode({
-        fota_sn = fota_sn,
-        result_code = tonumber(result_code) or 0
-    })
-    local headers = {["Content-Type"] = "application/json"}
+        .. "?fota_sn=" .. url_encode(fota_sn)
+        .. "&result_code=" .. url_encode(tostring(tonumber(result_code) or 0))
 
     log.info("libfota3", "report result", "fota_sn", fota_sn, "code", result_code)
 
     -- 最多重试1次
     for attempt = 1, 2 do
-        local code, headers, body = http.request("POST", url, headers, body, {timeout = 30000}).wait()
+        local code, headers, body = http.request("GET", url, nil, nil, {timeout = 30000}).wait()
         if code == 200 then
             log.info("libfota3", "report success")
             return true

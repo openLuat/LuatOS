@@ -528,8 +528,10 @@ function rtc_test.test_rtc_task1()
             day = 1
         }
     else
-        mobile.flymode(0, true)
-        sys.waitUntil("IP_LOSE",3000)
+        if mobile and device_name ~= "Air1601" and device_name ~= "Air1602" then
+            mobile.flymode(0, true)
+            sys.waitUntil("IP_LOSE",3000)
+        end
         rtc_expected_default = {
             year = 2000,
             min = 0,

@@ -1686,6 +1686,12 @@ local function app_task(app_path)
     my_env.xmodem = setmetatable({}, { __index = xmodem_lib })
     my_env.xmodem.send = wrap_path(xmodem_lib.send, 3, false, false)
 
+    -- videoplayer 库
+    -- 功能：包装 videoplayer.open，支持视频文件路径转换
+    local videoplayer_lib = safe_global("videoplayer")
+    my_env.videoplayer = setmetatable({}, { __index = videoplayer_lib })
+    my_env.videoplayer.open = wrap_path(videoplayer_lib.open, 1, false, nil)
+
     -- ==============================================
     -- airui 库（UI 组件沙箱包装）
     -- ==============================================
@@ -2398,19 +2404,43 @@ local function app_task(app_path)
         local config = args[1]
         local base = getmetatable(my_env.exaudio).__index
 
-        if type(config) == "table" and config.type == 0 then
-            local new_config = cp(config)
+        if type(config) ~= "table" then
+            return base.play_start(...)
+        end
 
+        local new_config = cp(config)
+        local need_resolve = false
+
+        -- type==0: 文件播放模式，翻译 content（单路径或路径数组）
+        if config.type == 0 then
             if type(config.content) == "string" then
                 local resolved = resolve_file(config.content)
                 if not resolved then return false end
                 new_config.content = resolved
+                need_resolve = true
             elseif type(config.content) == "table" then
                 local resolved = resolve_paths(config.content, false)
                 if not resolved then return false end
                 new_config.content = resolved
+                need_resolve = true
             end
+        -- type==2: 流式播放模式，将沙箱虚拟路径转为 VFS 能正确解析的形式
+        -- 不能传绝对路径（VFS 会二次映射导致路径重叠），也不能原样传 /luadb/test.pcm
+        -- （VFS 只搜 app 根目录和 data/，找不到 res/ 下的文件）。
+        -- 正确做法：resolve_file 确认文件存在后，从绝对路径中提取 app_path 之后的相对部分，
+        -- 拼接为 /luadb/<relative> 格式——VFS 按 app 根目录 + data/ 两阶搜索，
+        -- 相对路径含 "res/" 前缀时就能命中 res/ 下的音频文件。
+        elseif config.type == 2 then
+            if type(config.file_path) == "string" then
+                local resolved = resolve_file(config.file_path)
+                if not resolved then return false end
+                local relative = resolved:sub(#app_path + 1)
+                new_config.file_path = "/luadb/" .. relative
+                need_resolve = true
+            end
+        end
 
+        if need_resolve then
             return base.play_start(new_config)
         end
 

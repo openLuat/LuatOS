@@ -37,9 +37,13 @@ typedef struct {
 } l_audio_request_t;
 
 typedef struct {
+    uint64_t total_record_bytes;
     luat_llist_head request_free_list;  // 空闲请求块列表
     luat_llist_head request_busy_list;  // 正在处理请求块列表
     l_audio_request_t request_table[LUAT_AUDIO_REQUEST_MAX];  // 请求块表
+    luat_fifo_t *record_fifo;  // 录音数据FIFO
+    FILE *record_file;  // 录音文件指针
+    luat_zbuff_t *record_zbuff;  // 录音数据ZBuff
     int cb_ref; // 回调函数引用
 } l_audio_ctrl_t;
 static l_audio_ctrl_t _l_audio;

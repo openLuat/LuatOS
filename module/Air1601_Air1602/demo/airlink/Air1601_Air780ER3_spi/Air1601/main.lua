@@ -1,21 +1,21 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
 @date    2026.05.27
 @author  马梦阳
 @usage
-本demo实现Air780ER2作为Air1601的外部4G模块，通过AirLink SPI模式提供联网功能。
+本demo通过AirLink SPI模式实现Air1601外挂Air780ER3 4G模块联网功能。
 
 主要功能：
 1. 初始化看门狗
-2. 加载airlink_spi_4g模块，作为Air1601的4G模块提供网络能力
-3. 定时向Air1601发送本端状态数据
+2. 加载network_airlink模块，实现Air1601与Air780ER3的数据交互
+3. 定时发送数据给对端设备
 4. 通过HTTP GET请求测试网络连接
 
 使用说明：
-1. 配合Air1601端的network_airlink.lua使用
-2. 硬件连接：Air1601 SPI <-> Air780ER2 SPI
+1. 配合Air780ER3端的airlink_spi_4g.lua使用
+2. 硬件连接：Air1601 SPI <-> Air780ER3 SPI
 ]]
 
 --[[
@@ -28,7 +28,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "Air780ER2_slave"
+PROJECT = "Air1601_master"
 VERSION = "001.999.000"
 
 
@@ -69,11 +69,10 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
-
--- 引入airlink_spi_4g模块
-require "airlink_spi_4g"
+-- 加载功能模块
+require "network_airlink"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!
+-- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

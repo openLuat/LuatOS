@@ -1686,6 +1686,12 @@ local function app_task(app_path)
     my_env.xmodem = setmetatable({}, { __index = xmodem_lib })
     my_env.xmodem.send = wrap_path(xmodem_lib.send, 3, false, false)
 
+    -- videoplayer 库
+    -- 功能：包装 videoplayer.open，支持视频文件路径转换
+    local videoplayer_lib = safe_global("videoplayer")
+    my_env.videoplayer = setmetatable({}, { __index = videoplayer_lib })
+    my_env.videoplayer.open = wrap_path(videoplayer_lib.open, 1, false, nil)
+
     -- ==============================================
     -- airui 库（UI 组件沙箱包装）
     -- ==============================================

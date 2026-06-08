@@ -374,21 +374,49 @@ static int l_socket_config(lua_State *L)
 		network_init_tls(l_ctrl->netc, (server_cert || client_cert)?2:0);
 		if (is_udp)
 		{
-			const unsigned char *psk_id = (const unsigned char *)(client_cert ? client_cert : client_key);
-			size_t psk_id_len = client_cert ? client_cert_len : client_key_len;
-			network_set_psk_info(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len, psk_id, psk_id_len);
+			if (client_key)
+			{
+				// UDP(DTLS) 证书模式：CA + 客户端证书 + 私钥
+				if (server_cert)
+				{
+					network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len + 1);
+				}
+				if (client_cert)
+				{
+					network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len + 1,
+							(const unsigned char *)client_key, client_key_len + 1,
+							(const unsigned char *)client_password, client_password_len + 1);
+				}
+			}
+			else
+			{
+				// UDP(DTLS) PSK 模式
+				const unsigned char *psk_id = (const unsigned char *)(client_cert ? client_cert : client_key);
+				size_t psk_id_len = client_cert ? client_cert_len : client_key_len;
+				network_set_psk_info(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len, psk_id, psk_id_len);
+			}
 		}
 		else
 		{
 			if (server_cert)
 			{
-				network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len + 1);
+				if (network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len + 1) != 0)
+				{
+					LLOGE("network_set_server_cert failed");
+					lua_pushboolean(L, 0);
+					return 1;
+				}
 			}
 			if (client_cert)
 			{
-				network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len + 1,
+				if (network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len + 1,
 						(const unsigned char *)client_key, client_key_len + 1,
-						(const unsigned char *)client_password, client_password_len + 1);
+						(const unsigned char *)client_password, client_password_len + 1) != 0)
+				{
+					LLOGE("network_set_client_cert failed");
+					lua_pushboolean(L, 0);
+					return 1;
+				}
 			}
 		}
 	}

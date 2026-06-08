@@ -371,7 +371,7 @@ static int l_socket_config(lua_State *L)
 	network_set_local_port(l_ctrl->netc, local_port);
 	if (is_tls)
 	{
-		network_init_tls(l_ctrl->netc, (server_cert || client_cert)?2:0);
+		network_init_tls(l_ctrl->netc, (server_cert)?2:0);
 		if (is_udp)
 		{
 			if (client_key)

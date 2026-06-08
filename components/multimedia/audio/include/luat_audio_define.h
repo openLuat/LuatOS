@@ -121,6 +121,14 @@ enum {
 #define LUAT_AUDIO_TASK_STACK 13 * 1024
 #endif
 
+#ifndef LUAT_AUDIO_TASK_PRIORITY
+#define LUAT_AUDIO_TASK_PRIORITY 90
+#endif
+
+#ifndef LUAT_AUDIO_TTS_TASK_PRIORITY
+#define LUAT_AUDIO_TTS_TASK_PRIORITY 20
+#endif
+
 #define LUAT_AUDIO_FRAME_LOOP_CNT   4
 /**
  * @brief 音频驱动探测结构

@@ -176,12 +176,13 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
         LLOGC(luat_audio_debug_flag, "start modify common param failed %d", ret);
         return -LUAT_ERROR_OPERATION_FAILED;
     }
-    if (!one_block_len) {
-        one_block_len = ctrl->opts->tx_one_block_max_len;
-    }
+
     if (LUAT_AUDIO_DRIVER_STATE_ACTIVE == ctrl->state) {
         switch (common_param->driver_work_mode) {
             case LUAT_AUDIO_DRIVER_MODE_PLAY:
+                if (!one_block_len) {
+                    one_block_len = ctrl->opts->tx_one_block_max_len;
+                }
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
                     ret = ctrl->opts->start_full_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
                     ctrl->one_play_block_len = one_block_len;
@@ -193,6 +194,14 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
                 }
                 break;
             case LUAT_AUDIO_DRIVER_MODE_RECORD:
+                LLOGC(luat_audio_debug_flag, "record data len param %u,%u,%u", one_block_len, common_param->one_frame_bytes, ctrl->opts->rx_one_block_max_len);
+                if (!one_block_len) {
+                    one_block_len = common_param->one_frame_bytes;
+                }
+                if (one_block_len > ctrl->opts->rx_one_block_max_len) {
+                    one_block_len = ctrl->opts->rx_one_block_max_len;
+                }
+                LLOGC(luat_audio_debug_flag, "record data final len %u", one_block_len);
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
                     ret = ctrl->opts->start_full_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
                     ctrl->one_record_block_len = one_block_len;

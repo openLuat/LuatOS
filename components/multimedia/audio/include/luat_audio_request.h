@@ -59,9 +59,9 @@ struct luat_audio_request_block {
     void *done_sem;                             /**< 完成信号量，用于同步等待 */
     void *cancel_sem;                             /**< 取消信号量，用于同步等待 */
     uint8_t *temp_buff;                         /**< 临时缓冲区*/
+    uint32_t *static_play_buff;                        /**< 流媒体数据缓冲区指针 */
     union {
         struct {                                /**< 流媒体模式下的必须字段 */
-            uint32_t *play_buff;                /**< 流媒体数据缓冲区指针 */
             uint32_t one_block_len;             /**< 每个数据块的长度 */
             uint32_t record_fifo_enough_data_level; /**< 录音模式下，回调函数触发条件，FIFO缓冲区数据量是否足够 */
             uint8_t block_nums;                /**< 数据块数量 */
@@ -77,7 +77,7 @@ struct luat_audio_request_block {
             uint32_t tts_data_size;             /**< 文本转语音数据长度 */
         };
     };
-    luat_fifo_t *record_data_fifo;            /**< 录音数据缓冲区 */
+    luat_fifo_t *record_data_fifo_static;            /**< 录音数据缓冲区, 用户传入，用户自行释放*/
     luat_fifo_t *org_input_data_fifo;            /**< 原始数据输入缓冲区 */
     luat_buffer_t out_buffer;                /**< 输出数据缓冲区 */
     luat_audio_dsp_t *dsp;                  /**< 关联的DSP处理实例 */
@@ -94,6 +94,7 @@ struct luat_audio_request_block {
     uint8_t is_data_callback_stop:1;                   /**< 是否为回调函数请求停止 */
     uint8_t is_input_end:1;                   /**< 是否为输入结束请求 */
     uint8_t is_wait_play_end:1;                   /**< 是否等待播放结束 */
+    uint8_t is_record_end:1;                   /**< 是否为录音请求 */
     uint8_t is_stream_end:1;                   /**< 是否为流式请求结束 */
 };
 
@@ -163,13 +164,16 @@ int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, lu
  * 
  * @param request_block 音频请求块指针，用于存储录音参数
  * @param probe 音频驱动匹配结构，用于描述驱动的匹配条件，如果为NULL，则使用默认驱动。
- * @param record_callback_len 录音回调一次的最小音频数据长度，单位字节，允许超过驱动的rx_one_block_max_len
+ * @param codec_opts 音频解码器选项结构，用于指定要使用的音频解码器，必须指定
+ * @param common_audio_param 音频公共参数结构，用于指定希望的录音参数，必须存在，不能为NULL，但是实际使用的音频参数还是会根据编码器的要求做修改
+ * @param record_fifo 录音数据缓冲区, 用户传入，用户自行释放
+ * @param record_callback_frame_cnt 录音回调一次的最小音频数据帧数，允许超过驱动的rx_one_block_max_len
  * @param priority 请求优先级，0-255，数值越大优先级越高
  * @param cb 请求回调函数，用于在录音完成或错误时通知应用层
  * @param user_data 用户数据指针，用于传递自定义数据
  * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
-int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, uint32_t record_callback_len,uint8_t priority, 
+int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts, luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint32_t record_callback_frame_cnt, uint8_t priority, 
     luat_audio_request_cb_t cb, void *user_data);
 /**
  * @brief 通话模式，强制在最高等级

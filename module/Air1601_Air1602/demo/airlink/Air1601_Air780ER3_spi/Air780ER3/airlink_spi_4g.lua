@@ -5,7 +5,7 @@
 @date    2026.05.26
 @author  马梦阳
 @usage
-本模块实现Air780ER2作为外部4G模块外挂到Air1601的功能
+本模块实现Air780ER3作为外部4G模块外挂到Air1601的功能
 
 主要功能：
 1. AirLink SPI模式网络初始化
@@ -15,7 +15,7 @@
 5. AirLink数据收发
 6. Ping/HTTP测试（可选）
 
-硬件连接：Air780ER2 SPI <-> Air1601 SPI
+硬件连接：Air780ER3 SPI <-> Air1601 SPI
 
 使用示例：
 require("airlink_spi_4g")
@@ -51,9 +51,9 @@ local dnsproxy = require("dnsproxy")
 -- 网络初始化
 --============================================================
 
--- 初始化网络，使得 Air1601 可以外挂 Air780ER2 实现 4G 联网功能
+-- 初始化网络，使得 Air1601 可以外挂 Air780ER3 实现 4G 联网功能
 local function init_airlink_net()
-    -- 默认RDY脚为GPIO22，但是Air780ER2核心板没有引出，所以这里配置为GPIO25
+    -- 默认RDY脚为GPIO22，但是Air780ER3核心板没有引出，所以这里配置为GPIO25
     airlink.config(airlink.CONF_SPI_RDY, 25)
     -- 初始化airlink
     airlink.init()
@@ -79,7 +79,7 @@ end
 -- AirLink数据收发
 --============================================================
 
--- Air780ER2 发送数据信息给 Air1601
+-- Air780ER3 发送数据信息给 Air1601
 local function airlink_sdata_Air1601()
     while 1 do
         -- rtos.bsp()：设备硬件bsp型号；os.date()：本地时间
@@ -87,13 +87,13 @@ local function airlink_sdata_Air1601()
         log.info("发送数据给对端设备", data, "当前airlink状态", airlink.ready())
         airlink.sdata(data)
 
-        -- 此处代码用于实现 Air780ER2 网络状态的持续检测，并持续给对端设备发送网络状态信息，方便对端设备作应对处理。
+        -- 此处代码用于实现 Air780ER3 网络状态的持续检测，并持续给对端设备发送网络状态信息，方便对端设备作应对处理。
         -- 如果有需要，可以打开注释。
         -- local net_state = socket.adapter(socket.LWIP_GP)
         -- if net_state then
-        --     airlink.sdata("Air780ER2_IP_READY!!")
+        --     airlink.sdata("Air780ER3_IP_READY!!")
         -- else
-        --     airlink.sdata("Air780ER2_IP_LOSE!!")
+        --     airlink.sdata("Air780ER3_IP_LOSE!!")
         -- end
 
         sys.wait(SDATA_INTERVAL)
@@ -164,7 +164,7 @@ sys.taskInit(init_airlink_net)
 -- 启动Ping测试
 -- sys.taskInit(ping_test)
 
--- 一个简单的HTTP GET请求测试程序，用于判断 Air780ER2 的网络访问外网是否正常。
+-- 一个简单的HTTP GET请求测试程序，用于判断 Air780ER3 的网络访问外网是否正常。
 -- sys.taskInit(http_get_test)
 
 -- 发送数据给对端

@@ -2411,7 +2411,7 @@ local function app_task(app_path)
         local new_config = cp(config)
         local need_resolve = false
 
-        -- type==0: 文件播放模式，翻译 content（单路径或路径数组）
+        -- type==0: 文件播放模式，C 层 audio.play() 走裸 fopen，必须传绝对文件系统路径
         if config.type == 0 then
             if type(config.content) == "string" then
                 local resolved = resolve_file(config.content)
@@ -2424,12 +2424,9 @@ local function app_task(app_path)
                 new_config.content = resolved
                 need_resolve = true
             end
-        -- type==2: 流式播放模式，将沙箱虚拟路径转为 VFS 能正确解析的形式
-        -- 不能传绝对路径（VFS 会二次映射导致路径重叠），也不能原样传 /luadb/test.pcm
-        -- （VFS 只搜 app 根目录和 data/，找不到 res/ 下的文件）。
-        -- 正确做法：resolve_file 确认文件存在后，从绝对路径中提取 app_path 之后的相对部分，
-        -- 拼接为 /luadb/<relative> 格式——VFS 按 app 根目录 + data/ 两阶搜索，
-        -- 相对路径含 "res/" 前缀时就能命中 res/ 下的音频文件。
+        -- type==2: 流式播放模式，C 层内部通过 VFS 打开文件，需传 /luadb/<relative> 格式
+        -- resolve_file 确认文件存在后，提取 app_path 之后的相对部分拼接为 /luadb/<relative>
+        -- 不能传绝对路径（VFS 会二次映射导致 /app_store/data/app_store/... 路径重叠）
         elseif config.type == 2 then
             if type(config.file_path) == "string" then
                 local resolved = resolve_file(config.file_path)

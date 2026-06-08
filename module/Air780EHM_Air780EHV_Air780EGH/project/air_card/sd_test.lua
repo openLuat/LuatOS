@@ -18,7 +18,7 @@ local function main_task()
     end
     sys.wait(100)
     RecordingManager.init()
-    RecordingManager.check_recording_status()
+    -- RecordingManager.check_recording_status()
 end
 
 sys.taskInit(main_task)

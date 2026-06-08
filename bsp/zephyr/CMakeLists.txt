@@ -5,7 +5,7 @@ if(NOT CONFIG_LUATOS)
 endif()
 
 # Root of LuatOS repo (two levels up from this file: zephyr/ -> repo root)
-get_filename_component(LUATOS_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+get_filename_component(LUATOS_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../" ABSOLUTE)
 
 zephyr_library_named(luatos)
 

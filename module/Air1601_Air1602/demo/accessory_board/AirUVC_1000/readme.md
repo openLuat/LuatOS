@@ -5,11 +5,17 @@
 本示例主要是展示 Air1601 + AirUVC-1000 USB摄像头的使用，支持实时预览到LCD屏幕、拍照后上传到电脑(UART)、拍照后上传到合宙IOT云平台。
 
 1、main.lua：主程序入口
+
 2、camera_preview.lua：摄像头实时预览到LCD屏幕
+
 3、photo_uart_post.lua：执行拍照后，LCD显示图片，同时通过UART上传照片到电脑
+
 4、photo_to_aircloud.lua：执行拍照后，LCD显示图片，同时上传到合宙IOT云平台
+
 5、lcd_drv.lua：LCD屏幕驱动（1024x600分辨率）
+
 6、netdrv/：网络驱动目录（支持WIFI、以太网、4G、多网卡等）
+
 7、netdrv_device.lua：网络驱动选择器
 
 注意：camera_preview.lua、photo_uart_post.lua、photo_to_aircloud.lua 只能打开一个不能同时打开
@@ -22,7 +28,7 @@
 - 加载 netdrv_device.lua（可选，云平台业务需要）
 - 根据需要注释/取消注释，选择加载 camera_preview.lua 或 photo_uart_post.lua 或 photo_to_aircloud.lua
 
-### 2、网络驱动模块（netdrv/）
+### 2、网络驱动模块（netdrv/netdrv_device.lua）
 - netdrv_wifi.lua：WIFI连接
 - netdrv_eth_spi.lua：SPI以太网连接（W5500）
 - netdrv_4g.lua：4G模组连接

@@ -112,6 +112,24 @@ def test_one_app(app, idx, total):
     with open(SINGLE_APP_FILE, "w", encoding="utf-8") as f:
         json.dump(app, f, ensure_ascii=False)
 
+    # 清理上次测试残留的 /app_store/ 目录 (避免损坏的 meta.json 影响后续测试)
+    app_store = WORK_DIR / "app_store"
+    if app_store.exists():
+        import shutil
+        try:
+            shutil.rmtree(str(app_store), ignore_errors=True)
+        except Exception:
+            pass
+
+    # 清理上次测试残留的 /app_store/ 目录 (避免损坏的 meta.json 影响后续测试)
+    app_store = WORK_DIR / "app_store"
+    if app_store.exists():
+        import shutil
+        try:
+            shutil.rmtree(str(app_store), ignore_errors=True)
+        except Exception:
+            pass
+
     # 运行模拟器
     cmd = [SIMULATOR, "--dep_strip=0"] + [str(WORK_DIR / d) for d in SCRIPT_DIRS]
 
@@ -175,6 +193,7 @@ def test_one_app(app, idx, total):
         or "SIGSEGV" in combined
         or "SIGABRT" in combined
         or "SIGILL" in combined
+        or "Lua VM exit" in combined
     )
     if not crashed and exit_code != 0:
         # Windows NT status codes: 0xC0000005=ACCESS_VIOLATION, 0xC0000135=DLL_NOT_FOUND, etc.
@@ -220,14 +239,50 @@ def main():
     print("应用商店全生命周期编排器")
     print("=" * 60)
 
-    # 1. 拉取应用列表
-    print("\n[1/3] 拉取应用列表...")
-    apps = fetch_all_apps()
-    print(f"共获取到 {len(apps)} 个应用")
+    # 解析命令行参数
+    filter_file = None
+    no_cache = False
+    args = sys.argv[1:]
+    i = 0
+    while i < len(args):
+        if args[i] == "--filter" and i + 1 < len(args):
+            filter_file = args[i + 1]
+            i += 2
+        elif args[i] == "--no-cache":
+            no_cache = True
+            i += 1
+        else:
+            i += 1
+
+    # 1. 拉取应用列表 (或从过滤文件加载)
+    if filter_file:
+        print(f"\n[1/3] 从过滤文件加载过滤列表: {filter_file}")
+        with open(filter_file, "r", encoding="utf-8") as f:
+            filter_apps = json.load(f)
+        filter_aids = set(a["aid"] for a in filter_apps)
+        print(f"过滤目标: {len(filter_aids)} 个应用")
+        # 从API获取完整信息(含url)
+        all_apps = fetch_all_apps()
+        apps = [a for a in all_apps if a["aid"] in filter_aids]
+        print(f"匹配到 {len(apps)}/{len(filter_aids)} 个应用")
+        if len(apps) < len(filter_aids):
+            missing = filter_aids - set(a["aid"] for a in apps)
+            print(f"警告: {len(missing)} 个应用未在API中找到: {list(missing)[:5]}...")
+    else:
+        print("\n[1/3] 拉取应用列表...")
+        apps = fetch_all_apps()
+        print(f"共获取到 {len(apps)} 个应用")
 
     if not apps:
-        print("错误: 未获取到任何应用")
-        sys.exit(1)
+        # 回退到缓存的应用列表
+        list_file = TESTRESULT_DIR / "app_list.json"
+        if list_file.exists():
+            with open(list_file, "r", encoding="utf-8") as f:
+                apps = json.load(f)
+            print(f"API失败, 使用缓存列表: {len(apps)} 个应用")
+        else:
+            print("错误: 未获取到任何应用且无缓存")
+            sys.exit(1)
 
     # 保存应用列表
     list_file = TESTRESULT_DIR / "app_list.json"

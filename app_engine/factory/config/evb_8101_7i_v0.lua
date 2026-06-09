@@ -47,7 +47,7 @@ return {
             screen_size = 7.0,           -- 7寸屏
             font = {
                 size = 20,               -- 高分屏用 20 号字
-                path = "/NotoSansSC_subset.ttf",  -- 外部 ttf 字体（Air8101 从文件系统加载）
+                path = "/MiSans_gb2312.ttf",  -- 外部 ttf 字体（Air8101 从文件系统加载）
                 global = true,           -- 注册为全局字体
             },
             backlight = {

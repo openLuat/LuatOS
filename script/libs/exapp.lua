@@ -3194,8 +3194,8 @@ local function scan(base_dir, storage_type)
 
                 -- 解析 JSON
                 local ok, meta_data = pcall(json.decode, meta_content)
-                if not ok then
-                    log.error("exapp_init", "failed to parse meta.json:", app_dir.name, meta_data)
+                if not ok or type(meta_data) ~= "table" then
+                    log.error("exapp_init", "invalid meta.json:", app_dir.name, type(meta_data))
                     goto continue
                 end
 

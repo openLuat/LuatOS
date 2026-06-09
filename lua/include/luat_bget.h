@@ -24,11 +24,20 @@ typedef long bufsize;
                                          currently allocated. */
 #endif
 
-#if 0
+#if 1
 #define FreeWipe    1                 /* Wipe free buffers to a guaranteed
                                          pattern of garbage to trip up
                                          miscreants who attempt to use
                                          pointers into released buffers. */
+#endif
+
+/* BGET_GUARD: PC模拟器专用的堆损坏检测机制
+   - 启用真实assert(), 替代空宏 _assert_
+   - 每个分配尾部添加4字节canary(魔数0xBEEFCAFE), 释放时校验 */
+#ifdef BGET_GUARD
+#include <assert.h>
+#define BGET_CANARY_SIZE  4
+#define BGET_CANARY_MAGIC 0xBEEFCAFEU
 #endif
 
 #if 1
@@ -103,3 +112,7 @@ void luat_bstats(luat_bget_t* bg, bufsize *curalloc, bufsize *totfree, bufsize *
 // void luat_bpoold(luat_bget_t* bg, void *pool, int dumpalloc, int dumpfree);
 // int luat_bpoolv(luat_bget_t* bg, void *pool);
 bufsize luat_bstatsmaxget(luat_bget_t* bg);
+
+#ifdef BGET_GUARD
+int luat_bpoolv(luat_bget_t* bg, void *pool_start, bufsize pool_len);
+#endif

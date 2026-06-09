@@ -421,7 +421,7 @@
                                          a buffer pool. */
 #endif
 
-#if 1
+#if 0
 #define DumpData    1                 /* Define this symbol to enable the
                                          bufdump() function which allows
                                          dumping the contents of an allocated

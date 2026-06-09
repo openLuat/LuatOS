@@ -415,10 +415,10 @@
                                          buffers in a buffer pool. */
 #endif
 
-#if 1
+#if 0
 #define BufValid    1                 /* Define this symbol to enable the
                                          bpoolv() function for validating
-                                         a buffer pool. */
+                                         a buffer pool. */ 
 #endif
 
 #if 0
@@ -437,7 +437,7 @@
                                          currently allocated. */
 #endif
 
-#if 1
+#if 0
 #define FreeWipe    1                 /* Wipe free buffers to a guaranteed
                                          pattern of garbage to trip up
                                          miscreants who attempt to use

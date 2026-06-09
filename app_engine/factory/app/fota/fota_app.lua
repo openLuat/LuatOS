@@ -31,6 +31,7 @@ local network_ready = false
 local auto_timer_id = nil
 local fota_running = false
 local last_check_result = nil     -- 最近一次check结果（供下载使用）
+local last_percent = -1            -- 下载进度
 
 -- fskv 键名（仅用于设置存储）
 local KV_AUTO_CHECK  = "fota_auto_check"
@@ -69,20 +70,6 @@ local function fota_state_clear()
     end
 end
 
--- ==================== 下载进度回调 ====================
-
-local last_percent = -1
-
-local function download_progress_cb(received, total)
-    if total and total > 0 then
-        local percent = math.floor(received * 100 / total)
-        if percent ~= last_percent then
-            last_percent = percent
-            local msg = string.format("正在下载: %d%% (%d/%d KB)", percent, received // 1024, total // 1024)
-            sys.publish("FOTA_STATUS", "DOWNLOAD_PROGRESS", msg, percent)
-        end
-    end
-end
 
 -- ==================== fskv 操作（设置） ====================
 
@@ -214,14 +201,10 @@ local function do_check(is_manual)
     fota_running = false
 end
 
--- 第二步：下载并安装
+-- 第二步：下载并安装（使用 http.request fota=true，绕过 fota.wait 超时）
 local function do_download()
     if not last_check_result then
         sys.publish("FOTA_STATUS", "CHECK_FAIL", "请先检测更新", -1)
-        return
-    end
-    if not libfota3 then
-        sys.publish("FOTA_STATUS", "CHECK_FAIL", "FOTA模块未加载", -1)
         return
     end
 
@@ -231,21 +214,34 @@ local function do_download()
 
     sys.publish("FOTA_STATUS", "DOWNLOAD_START", "开始下载升级包...")
 
-    local ok, err = libfota3.download(result.url, result.sha256, download_progress_cb)
-    if not ok then
-        -- 下载失败 → 更新状态文件，标记下载失败以便上报
+    local code = http.request("GET", result.url, nil, nil, {
+        fota = true,
+        timeout = 600000,
+        callback = function(total, received)
+            if total and total > 0 then
+                local percent = math.floor(received * 100 / total)
+                if percent ~= last_percent then
+                    last_percent = percent
+                    local msg = string.format("正在下载: %d%% (%d/%d KB)", percent, received // 1024, total // 1024)
+                    sys.publish("FOTA_STATUS", "DOWNLOAD_PROGRESS", msg, percent)
+                end
+            end
+        end
+    }).wait()
+
+    if code ~= 200 then
         local state = fota_state_load()
         if state then
             state.status = "download_fail"
             fota_state_save(state)
         end
-        log.error("fota_app", "下载失败:", err)
-        sys.publish("FOTA_STATUS", "DOWNLOAD_FAIL", err or "下载失败")
+        log.error("fota_app", "下载失败, code:", code)
+        sys.publish("FOTA_STATUS", "DOWNLOAD_FAIL", "下载失败(" .. tostring(code) .. ")")
         fota_running = false
         return
     end
 
-    -- 下载成功 → 更新状态文件（download_done）
+    -- 下载+写入成功 → 更新状态文件（download_done）
     local state = fota_state_load()
     if state then
         state.status = "download_done"

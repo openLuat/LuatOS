@@ -438,7 +438,12 @@ void luat_bget_init(luat_bget_t* bg) {
    bufsize, defined in a way that the compiler will accept. */
 
 #define ESent   ((bufsize) (-(((1L << (sizeof(bufsize) * 8 - 2)) - 1) * 2) - 2))
+/* BGET_GUARD: PC模拟器启用真实assert, 嵌入式保持空宏 */
+#ifdef BGET_GUARD
+#define _assert_(x) assert(x)
+#else
 #define _assert_(x)
+#endif
 /*  BGET  --  Allocate a buffer.  */
 
 void *luat_bget(luat_bget_t* bg, bufsize requested_size)
@@ -469,6 +474,9 @@ void *luat_bget(luat_bget_t* bg, bufsize requested_size)
 
     size += sizeof(struct bhead);     /* Add overhead in allocated buffer
                                          to size required. */
+#ifdef BGET_GUARD
+    size += BGET_CANARY_SIZE;         /* Extra space for tail canary */
+#endif
 
 #ifdef BECtl
     /* If a compact function was provided in the call to bectl(), wrap
@@ -534,6 +542,10 @@ void *luat_bget(luat_bget_t* bg, bufsize requested_size)
                     bg->numget++;             /* Increment number of bget() calls */
 #endif
                     buf = (void *) ((((char *) ba) + sizeof(struct bhead)));
+#ifdef BGET_GUARD
+                    /* Write tail canary at end of user buffer */
+                    *(uint32_t*)((char*)buf + (size - sizeof(struct bhead) - BGET_CANARY_SIZE)) = BGET_CANARY_MAGIC;
+#endif
                     return buf;
                 } else {
                     struct bhead *ba;
@@ -566,6 +578,10 @@ void *luat_bget(luat_bget_t* bg, bufsize requested_size)
 
                     /* Give user buffer starting at queue links. */
                     buf =  (void *) &(b->ql);
+#ifdef BGET_GUARD
+                    /* Write tail canary at end of user buffer */
+                    *(uint32_t*)((char*)buf + (size - sizeof(struct bhead) - BGET_CANARY_SIZE)) = BGET_CANARY_MAGIC;
+#endif
                     return buf;
                 }
             }
@@ -598,7 +614,15 @@ void *luat_bgetz(luat_bget_t* bg, bufsize size)
             rsize -= sizeof(struct bhead);
         }
         _assert_(rsize >= size);
+#ifdef BGET_GUARD
+        /* Don't zero the canary area, restore it after memset */
+        rsize -= BGET_CANARY_SIZE;
+#endif
         memset(buf, 0, (MemSize) rsize);
+#ifdef BGET_GUARD
+        /* Restore canary at tail */
+        *(uint32_t*)(buf + rsize) = BGET_CANARY_MAGIC;
+#endif
     }
     return ((void *) buf);
 }
@@ -654,6 +678,22 @@ void luat_brel(luat_bget_t* bg, void *buf)
         bn = NULL;
     }
     _assert_(b->bh.bsize < 0);
+
+#ifdef BGET_GUARD
+    /* Validate tail canary before releasing — catches buffer overflow */
+    {
+        bufsize total = -b->bh.bsize;
+        bufsize user_size = total - sizeof(struct bhead) - BGET_CANARY_SIZE;
+        if (user_size > 0) {
+            uint32_t canary = *(uint32_t*)((char*)buf + user_size);
+            if (canary != BGET_CANARY_MAGIC) {
+                fprintf(stderr, "!!! BGET GUARD CORRUPTED [brel] buf=%p user_size=%ld canary=0x%08X\n",
+                        buf, (long)user_size, canary);
+                assert(!"BGET canary corrupted - buffer overflow detected");
+            }
+        }
+    }
+#endif
 
     /*  Back pointer in next buffer must be zero, indicating the
         same thing: */
@@ -786,6 +826,105 @@ void luat_bpool(luat_bget_t* bg, void *buf, bufsize len)
     _assert_((~0) == -1);
     bn->bsize = ESent;
 }
+
+/*  BPOOLV  --  Validate a buffer pool.  Walk the free list and verify
+                 all links, sizes, and FreeWipe patterns.  Returns 1 if
+                 the pool is valid, 0 if corruption is detected. */
+#ifdef BGET_GUARD
+#include <stdio.h>
+int luat_bpoolv(luat_bget_t* bg, void *pool_start, bufsize pool_len)
+{
+    struct bfhead *b = bg->freelist.ql.flink;
+    int count = 0;
+
+    /* Validate freelist sentinel links */
+    _assert_(bg->freelist.ql.blink->ql.flink == &bg->freelist);
+    _assert_(bg->freelist.ql.flink->ql.blink == &bg->freelist);
+
+    while (b != &bg->freelist) {
+        /* Check free block is within pool bounds */
+        if ((char*)b < (char*)pool_start ||
+            (char*)b + sizeof(struct bfhead) > (char*)pool_start + pool_len) {
+            fprintf(stderr, "!!! BGET bpoolv: free block %p out of pool bounds "
+                    "[%p, %p)\n", (void*)b, pool_start, (char*)pool_start + pool_len);
+            return 0;
+        }
+
+        /* Check size is positive (free block) */
+        if (b->bh.bsize <= 0) {
+            fprintf(stderr, "!!! BGET bpoolv: free block %p has invalid size %ld\n",
+                    (void*)b, (long)b->bh.bsize);
+            return 0;
+        }
+
+        /* Check size is within pool */
+        if ((char*)b + b->bh.bsize > (char*)pool_start + pool_len) {
+            fprintf(stderr, "!!! BGET bpoolv: free block %p size %ld exceeds pool end\n",
+                    (void*)b, (long)b->bh.bsize);
+            return 0;
+        }
+
+        /* Validate doubly-linked list integrity */
+        if (b->ql.blink == NULL || b->ql.flink == NULL) {
+            fprintf(stderr, "!!! BGET bpoolv: free block %p has NULL link\n", (void*)b);
+            return 0;
+        }
+        if (b->ql.blink->ql.flink != b) {
+            fprintf(stderr, "!!! BGET bpoolv: free block %p back-link broken "
+                    "(blink=%p, blink->flink=%p)\n",
+                    (void*)b, (void*)b->ql.blink, (void*)b->ql.blink->ql.flink);
+            return 0;
+        }
+        if (b->ql.flink->ql.blink != b) {
+            fprintf(stderr, "!!! BGET bpoolv: free block %p forward-link broken "
+                    "(flink=%p, flink->blink=%p)\n",
+                    (void*)b, (void*)b->ql.flink, (void*)b->ql.flink->ql.blink);
+            return 0;
+        }
+
+        /* Validate next block's prevfree pointer */
+        {
+            struct bhead *bn = BH((char*)b + b->bh.bsize);
+            if (bn->prevfree != b->bh.bsize) {
+                fprintf(stderr, "!!! BGET bpoolv: free block %p next->prevfree=%ld "
+                        "!= bsize=%ld\n",
+                        (void*)b, (long)bn->prevfree, (long)b->bh.bsize);
+                return 0;
+            }
+        }
+
+#ifdef FreeWipe
+        /* Check FreeWipe pattern: free data area should be all 0x55 */
+        if (b->bh.bsize > (bufsize)sizeof(struct bfhead)) {
+            char *data = ((char*)b) + sizeof(struct bfhead);
+            bufsize data_len = b->bh.bsize - sizeof(struct bfhead);
+            char *first_bad = NULL;
+            for (bufsize i = 0; i < data_len; i++) {
+                if (data[i] != (char)0x55) {
+                    first_bad = &data[i];
+                    break;
+                }
+            }
+            if (first_bad != NULL) {
+                fprintf(stderr, "!!! BGET bpoolv: FreeWipe violation at %p "
+                        "(offset %ld, value 0x%02X)\n",
+                        (void*)first_bad,
+                        (long)(first_bad - ((char*)b + sizeof(struct bfhead))),
+                        (unsigned char)*first_bad);
+                return 0;
+            }
+        }
+#endif
+        count++;
+        if (count > 1000000) {
+            fprintf(stderr, "!!! BGET bpoolv: free list loop detected (>1M blocks)\n");
+            return 0;
+        }
+        b = b->ql.flink;
+    }
+    return 1;
+}
+#endif /* BGET_GUARD */
 
 #ifdef BufStats
 

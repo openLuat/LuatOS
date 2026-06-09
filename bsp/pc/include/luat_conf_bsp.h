@@ -10,6 +10,10 @@
 #define LUAT_BSP_PC 1 // 定义平台标识符，供代码中使用
 
 #define LUAT_BSP_VERSION "V2032"
+
+/* BGET堆保护: 启用真实assert + tail canary + pool校验, PC模拟器调试用 */
+#define BGET_GUARD 1
+
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
 #define LUAT_USE_CMDLINE_ARGS 1
 // 启用64位虚拟机

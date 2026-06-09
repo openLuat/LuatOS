@@ -558,18 +558,26 @@ end
     - 触发垃圾回收
     - 检测内存泄漏（比较清理后内存与基准值）
 ]]
-local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, sandbox_timers)
     log.info("sandbox_cleanup", "start cleanup:", app_path)
 
-    -- 先销毁UI沙箱容器（会自动递归销毁所有子组件）
+    -- ① 先停掉所有沙箱定时器，阻止回调继续触发
+    if sandbox_timers then
+        for timer_id in pairs(sandbox_timers) do
+            _G.sys.timerStop(timer_id)
+        end
+    end
+
+    -- ② 取消所有 pub/sub 订阅
+    unsubscribe_all()
+
+    -- ③ 最后才销毁 UI 树 — 此时已无定时器或订阅可能访问它
     if sandbox_container then
         local ok, err = pcall(sandbox_container.destroy, sandbox_container)
         if not ok then
             log.warn("sandbox_cleanup", "container destroy failed:", err)
         end
     end
-
-    unsubscribe_all()
 
     if my_env and my_env.package and my_env.package.loaded then
         for module_name in pairs(my_env.package.loaded) do
@@ -718,6 +726,12 @@ local function app_task(app_path)
     -- 功能：记录应用的所有订阅，应用退出时自动取消
     -- ==============================================
     local subscriptions = {}
+
+    -- ==============================================
+    -- 【沙箱定时器管理器】记录 + 自动清理
+    -- 功能：记录应用的所有定时器，应用退出时自动停止
+    -- ==============================================
+    local sandbox_timers = {}
 
     -- 订阅消息，同时记录到订阅列表
     local function sandbox_subscribe(topic, func)
@@ -2501,6 +2515,32 @@ local function app_task(app_path)
     my_env.sys.subscribe = sandbox_subscribe
     my_env.sys.unsubscribe = sandbox_unsubscribe
 
+    -- 代理定时器函数，记录所有沙箱创建的定时器便于退出时清理
+    local _timerStart = _G.sys.timerStart
+    local _timerLoopStart = _G.sys.timerLoopStart
+    local _timerStop = _G.sys.timerStop
+
+    my_env.sys.timerStart = function(delay, cb, ...)
+        local timer_id = _timerStart(delay, cb, ...)
+        if timer_id then
+            sandbox_timers[timer_id] = true
+        end
+        return timer_id
+    end
+
+    my_env.sys.timerLoopStart = function(delay, cb, ...)
+        local timer_id = _timerLoopStart(delay, cb, ...)
+        if timer_id then
+            sandbox_timers[timer_id] = true
+        end
+        return timer_id
+    end
+
+    my_env.sys.timerStop = function(timer_id)
+        sandbox_timers[timer_id] = nil
+        return _timerStop(timer_id)
+    end
+
     -- ==============================================
     -- fskv 库（键名隔离）
     -- 功能：为每个应用的 fskv 键自动添加前缀，避免键名冲突
@@ -2661,7 +2701,7 @@ local function app_task(app_path)
     -- 加载失败，记录错误并清理沙箱
     if not f then
         my_env.log.error("app_task", "failed to load main.lua:", err)
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, sandbox_timers)
         return
     end
 
@@ -2680,7 +2720,7 @@ local function app_task(app_path)
     -- 应用异常退出，执行清理
     if not ok then
         my_env.log.error("app_task", "app crashed, starting cleanup:", app_path, result)
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, sandbox_timers)
         return
     end
 
@@ -2689,7 +2729,7 @@ local function app_task(app_path)
     -- 等待应用关闭请求
     local ret, rdata = sys.waitUntil(app_path .."_close_req")
     if rdata == "yes" then
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, sandbox_timers)
         log.info("app co quit", app_path)
     end
 end

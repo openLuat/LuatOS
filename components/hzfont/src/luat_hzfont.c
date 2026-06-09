@@ -759,10 +759,10 @@ static luat_color_t hzfont_coverage_to_color(uint8_t coverage, const luat_lcd_co
  * Post: 状态置为 READY，后续方可测宽/绘制；失败时状态为 ERROR。
  */
 int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psram) {
-    // 已初始化直接返回
+    // 已初始化直接返回成功, 避免沙箱重复初始化导致堆损坏
     if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
-        LLOGE("font already initialized");
-        return 0;
+        LLOGD("font already initialized, reuse");
+        return 1;
     }
 
     // 分配并重置缓存
@@ -848,18 +848,6 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
     return 1;
 }
 
-// 释放 hzfont 上下文并重置缓存状态
-void luat_hzfont_deinit(void) {
-    if (g_ft_ctx.state == LUAT_HZFONT_STATE_UNINIT) {
-        return;
-    }
-    hzfont_cache_clear();
-    ttf_unload(&g_ft_ctx.font);
-    hzfont_psram_chain_clear(&g_psram_chain);
-    hzfont_cache_destroy();
-    memset(&g_ft_ctx, 0, sizeof(g_ft_ctx));
-    g_ft_ctx.state = LUAT_HZFONT_STATE_UNINIT;
-}
 
 // 查询 hzfont 当前状态
 luat_hzfont_state_t luat_hzfont_get_state(void) {

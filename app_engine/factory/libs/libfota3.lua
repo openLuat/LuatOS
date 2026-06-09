@@ -83,11 +83,11 @@ local function verify_sha256(file_path, expected)
     end
     expected = expected:lower()
     -- 使用crypto库计算SHA256
-    if not crypto or not crypto.sha256 then
-        log.warn("libfota3", "crypto.sha256 not available, skip verification")
+    if not crypto or not crypto.md_file then
+        log.warn("libfota3", "crypto.md_file not available, skip verification")
         return true
     end
-    local ok, hash = pcall(crypto.sha256, file_path, "file")
+    local ok, hash = pcall(crypto.md_file, "SHA256", file_path)
     if not ok or not hash then
         log.error("libfota3", "sha256 compute failed", ok, hash)
         return false
@@ -310,7 +310,7 @@ end
 
 @api libfota3.report_result(fota_sn, result_code)
 @string fota_sn 升级序列号（check返回的fota_sn）
-@number result_code 结果码：0=成功 1=校验失败 2=写入失败 3=其他错误
+@number result_code 结果码：1=成功 2=失败 3=其他错误
 @return boolean 上报是否成功
 ]]
 function libfota3.report_result(fota_sn, result_code)
@@ -324,18 +324,34 @@ function libfota3.report_result(fota_sn, result_code)
 
     log.info("libfota3", "report result", "fota_sn", fota_sn, "code", result_code)
 
-    -- 最多重试1次
-    for attempt = 1, 2 do
-        local code, headers, body = http.request("GET", url, nil, nil, {timeout = 30000}).wait()
-        if code == 200 then
-            log.info("libfota3", "report success")
-            return true
+    local body = json.encode({
+        fota_sn = fota_sn,
+        result_code = tonumber(result_code) or 0
+    })
+    log.info("libfota3", "report body", body)
+
+    sys.taskInit(function()
+        -- 最多重试1次
+        for attempt = 1, 2 do
+            local code, headers, rsp_body = http.request("POST", FOTA_REPORT_URL,
+                {["Content-Type"] = "application/json"},
+                body,
+                {timeout = 30000}
+            ).wait()
+            log.info("libfota3", "report response", "code", code, "body", rsp_body)
+            if code == 200 and rsp_body then
+                local ok, rsp = pcall(json.decode, rsp_body)
+                if ok and rsp and rsp.code == 0 then
+                    log.info("libfota3", "report success")
+                    return
+                end
+            end
+            log.warn("libfota3", "report http error", code, "attempt", attempt)
+            if attempt == 1 then sys.wait(2000) end
         end
-        log.warn("libfota3", "report http error", code, "attempt", attempt)
-        if attempt == 1 then sys.wait(2000) end
-    end
-    log.error("libfota3", "report failed after retries")
-    return false
+        log.error("libfota3", "report failed after retries")
+    end)
+    return true
 end
 
 return libfota3

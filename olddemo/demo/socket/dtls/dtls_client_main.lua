@@ -30,6 +30,22 @@ local DTLS_PSK_IDENTITY = "luatos-dtls-id"
 -- dtls_client_main的任务名
 local TASK_NAME = dtls_client_sender.TASK_NAME
 
+-- 读取证书文件（使用luatools和脚本一起烧录，默认存放在 /luadb 目录下）
+local ca_cert      = io.readFile("/luadb/ca.crt")
+local client_cert  = io.readFile("/luadb/client.crt")
+local client_key   = io.readFile("/luadb/client.key")
+
+-- 调试打印
+log.info("cert_debug", "ca", ca_cert and #ca_cert or "nil")
+log.info("cert_debug", "client", client_cert and #client_cert or "nil")
+log.info("cert_debug", "key", client_key and #client_key or "nil")
+
+if ca_cert then
+    log.info("cert_debug", "ca_head", ca_cert:sub(1, 30))
+    log.info("cert_debug", "ca_tail", ca_cert:sub(-30))
+    local ca_md5 = crypto.md5(ca_cert)
+    log.info("ca_md5", ca_md5)
+end
 
 -- 处理未识别的消息
 local function dtls_client_main_cbfunc(msg)
@@ -56,6 +72,7 @@ local function dtls_client_main_task_func()
 
         -- 创建socket client对象
         socket_client = socket.create(nil, TASK_NAME)
+        -- socket.debug(socket_client, true)
         -- 如果创建socket client对象失败
         if not socket_client then
             log.error("dtls_client_main_task_func", "socket.create error")
@@ -64,7 +81,8 @@ local function dtls_client_main_task_func()
 
         -- 配置socket client对象为dtls client (UDP + TLS)
         -- 参数：local_port, is_udp, is_tls, keep_idle, keep_interval, keep_cnt, server_cert(psk), client_cert(psk_identity)
-        result = socket.config(socket_client, nil, true, true, nil, nil, nil, DTLS_PSK, DTLS_PSK_IDENTITY)
+        -- result = socket.config(socket_client, nil, true, true, nil, nil, nil, DTLS_PSK, DTLS_PSK_IDENTITY)   --- PSK 模式配置
+        result = socket.config(socket_client, nil, true, true, nil, nil, nil, ca_cert, client_cert, client_key) --- CA 证书模式配置
         -- 如果配置失败
         if not result then
             log.error("dtls_client_main_task_func", "socket.config error")

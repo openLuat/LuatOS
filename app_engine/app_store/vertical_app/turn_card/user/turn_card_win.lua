@@ -1,7 +1,7 @@
 --[[
 @module  turn_card_win
 @summary 炉石like卡牌对战游戏窗口模块
-@version 1.0.1
+@version 1.0.2
 @date    2026.06.04
 @author  LuatOS
 @description
@@ -14,7 +14,7 @@
 ]]
 
 -- 游戏版本号
-local GAME_VERSION = "1.0.1"
+local GAME_VERSION = "1.0.2"
 
 -- 引入网络模块（exPvP：联网对战游戏通用框架）
 local expvp = require("expvp")
@@ -576,7 +576,7 @@ end
 -- 处理积分累加与上传
 handleScore = function(scoreEarned, isWinner)
     if isWinner and scoreEarned > 0 then
-        expvp.add_score(scoreEarned)
+        expvp.add_local_score(scoreEarned)
         if networkMode then
             consecutive_wins = consecutive_wins + 1
         end
@@ -585,7 +585,7 @@ handleScore = function(scoreEarned, isWinner)
             consecutive_wins = 0  -- 联机失败重置连胜
         end
     end
-    expvp.upload_score(function(success, total)
+    expvp.upload_local_score(function(success, total)
         if success then
             log.info('turn_card', '积分上传成功, 总分: ' .. (total or 0))
         end
@@ -2791,8 +2791,6 @@ setupExpvp = function()
                     break
                 end
             end
-            expvp.set_game_playing(true, peer_device_id)
-            
             -- 关闭房间等待UI，开始游戏
             gameState = STATE.PLAYING
             hideRoomWaitingUI()
@@ -2979,7 +2977,7 @@ buildRoomWaitingUI = function()
     })
     
     -- 房间号
-    local room_code = current_room_id and current_room_id:gsub("^room_", "") or "---"
+    local room_code = current_room_id or "---"
     airui.label({
         parent = room_waiting_container,
         x = 0, y = 90, w = W, h = 24,
@@ -3030,7 +3028,7 @@ buildRoomWaitingUI = function()
     end
     
     -- 三个按钮垂直排列：准备 | 开始游戏（房主） | 离开房间
-    local btn_start_y = slot_start_y + 2 * (slot_height + 8) + 30
+    local btn_start_y = slot_start_y + 2 * (slot_height + 8) + 90
     local btn_w = 200
     local btn_h = 55
     local btn_gap = 15
@@ -3252,7 +3250,7 @@ showJoinDialog = function()
         style = { bg_color = 0x3b82f6, text_color = 0xFFFFFF, radius = 12 },
         on_click = function()
             if #join_input_text == 6 then
-                local room_id = "room_" .. join_input_text
+                local room_id = join_input_text
                 if join_dialog_container then
                     join_dialog_container:destroy()
                     join_dialog_container = nil

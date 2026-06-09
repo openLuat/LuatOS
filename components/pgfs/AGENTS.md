@@ -89,27 +89,29 @@ the VFS adapter and the FTL state probe only).
      candidate for refresh on the next GC.
    - The weak bitmap is persisted as part of the FTL state v3 record.
 
-7a. **Header ECC (Phase 3b)**
+7a. **Header ECC (Phase 3b) — ✅ REAL SECDED as of 2026-06-06**
    - Each data record header carries an 8-byte `ecc[8]` field placed
      AFTER the CRC32 (DATA records: at offset 16; BATCH_DATA records:
-     at offset 20; BATCH_COMMIT records: at offset 16). The field is
-     sized to accommodate a full Hamming(72,64) SECDED code.
-   - The current implementation (`pgfs_ecc_hamming_encode/decode` in
-     `pgfs_ecc.c`) is a **single-byte XOR parity placeholder** — it
-     detects any single-bit or multi-bit flip in the first 8 header
-     bytes (magic..path_len, or magic..batch_id) but does NOT correct
-     it. The on-disk 8-byte field is intentionally over-sized so a
-     future change can drop in a real SECDED implementation without
-     altering the record layout.
-   - The CRC32 scope was widened to include the header prefix bytes
-     that precede the `crc32` field (12 bytes for DATA and
-     BATCH_COMMIT, 16 bytes for BATCH_DATA) so the CRC protects both
-     the header AND the path/data. The replay chains the CRC across
-     the same prefix.
-   - On ECC mismatch in the replay, the block is marked weak and the
-     record is still attempted — the CRC32 is the authoritative
-     validation. ECC failure is a hint to refresh the block, not a
-     reason to drop a still-recoverable record.
+     at offset 20; BATCH_COMMIT records: at offset 16).
+   - **Implementation**: Full Hamming(72,64) SECDED in `pgfs_ecc.c`.
+     7 check bits (p[0..6]) using 1-indexed positions `(j+1) & (1<<k)`,
+     covering all 64 data bits. p[7] = XOR of all 64 data bits only
+     (NOT including check bits — including them would cause a data-bit
+     flip and its covering check-bit flip to cancel in p[7],
+     misclassifying single-bit errors as double-bit).
+   - **Decode return values**: 0 (no error / error in p[7] only),
+     1 (single-bit data error corrected at index `syndrome-1`),
+     -1 (uncorrectable double-bit error).
+   - CRC32 is the authoritative validation; ECC best-effort correction
+     is verified by CRC. If ECC incorrectly "corrects" (e.g. true
+     double-bit error with cancelling data XOR), CRC fails and the
+     record is skipped.
+   - On replay: `pgfs_ecc_hamming_decode` passes a `corrected[8]`
+     buffer; when return is 1, `memcpy(&hdr, corrected, 8)` is applied
+     BEFORE field extraction (path_len, data_len, crc32).
+   - **Known limitation**: check-bit-only errors (syndrome maps to a
+     power-of-2 position) produce `overall_mismatch == 0` and return -1.
+     Data is intact but the record is skipped; CRC32 would have passed.
 
 8. **O(1) mount (Phase 4 + Phase 4b)**
    - `pgfs_checkpoint_t` carries `log_tail_block` / `log_tail_offset`
@@ -170,6 +172,56 @@ the VFS adapter and the FTL state probe only).
      adapters).
    - Do not rely on `xmake add_defines` for this macro in PC; declare it in
      `luat_conf_bsp.h`.
+
+## P0 fixes (2026-06-06)
+
+Four P0 issues identified during code review were fixed using TDD with
+worktree isolation. Verification: `pgfs_test_compile.bat` + MSVC compile
+and run of algorithm tests (12/12 passing).
+
+### 1. ECC SECDED (`pgfs_ecc.c`) — commit `a6012b7c9`
+- Replaced XOR parity placeholder with real Hamming(72,64) SECDED
+- 1-indexed bit positions ensure all 64 data bits are covered
+- p[7] covers data bits only (not check bits) to prevent
+  single-bit→double-bit misclassification
+- Replay path in `pgfs_core.c` applies correction before field extraction
+- Tests: `pgfs_test_ecc_corrects_single_bit_errors` (all 64 bits),
+  `pgfs_test_ecc_detects_double_bit_errors` (5 patterns)
+
+### 2. Real mutex lock (`pgfs_cache_lock.c`, `pgfs_vfs_adapter.c`) — commit `72e2a7a77`
+- `pgfs_lock()` now calls `luat_mutex_lock()` when `lock_mode==ON`
+- `pgfs_unlock()` calls `luat_mutex_unlock()` when `lock_mode==ON`
+- Mutex created on mount, destroyed on umount/reset_runtime
+- NULL mutex handle handled gracefully (defensive)
+- Tests: `pgfs_test_lock_mode_off_passthrough`,
+  `pgfs_test_lock_mode_on_acquire_release`,
+  `pgfs_test_lock_null_mutex_safe`
+
+### 3. Replay cleanup on failure (`pgfs_core.c`) — commit `1735896d3`
+- `pgfs_replay_data_log()` converted to `goto cleanup` pattern
+- All 8 malloc/read/parse failure paths now call
+  `pgfs_file_reset_all()` + `pgfs_replay_pending_drop_all()`
+- Prevents partially-populated file table on fragmented heap failures
+- Test: `pgfs_test_replay_failure_cleans_up` validates bounded replay
+
+### 4. GC wear-leveling boost (`pgfs_alloc_gc.c`) — commit `7bb1b80e1`
+- Two-pass `pgfs_gc_pick_victim()`: compute avg_ec, then score with boost
+- For blocks with `ec > avg_ec && live > 0`:
+  `wear_boost = (ec - avg_ec) * erase_size / avg_ec`
+- Fixes the old formula `(dead+free)/(ec+1)` that deprioritised high-EC blocks
+- Test: `pgfs_test_gc_wear_leveling_score` verifies high-EC block picked first
+
+### Known remaining issues (P1-P3 from review)
+- Replay per-record malloc (path_buf/data_buf/crc_buf) — cleanup added but
+  still allocates per-iteration; pre-allocation would be more robust
+- Batch system has no timeout/cleanup for orphaned batches
+- O(n) linear file/dir lookup (acceptable for 512-entry bound)
+- Emergency compaction (`pgfs_compact_live_entries`) erases entire data log
+- `fflush` is documented no-op (durability boundary is fclose)
+- Weak blocks marked but never proactively migrated by GC
+- No read-only mount support
+- Path buffer fixed at 96 bytes
+- Single global `s_pgfs_ctx` prevents multi-partition
 
 ## Powercut injection stages (testing)
 
@@ -239,10 +291,16 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
   - Phase 3: `pgfs_test_weak_block_separate_from_bad`
   - Phase 3b: `pgfs_test_ecc_encode_decode_roundtrip`,
     `pgfs_test_ecc_decode_detects_corruption`,
+    `pgfs_test_ecc_corrects_single_bit_errors` (NEW P0),
+    `pgfs_test_ecc_detects_double_bit_errors` (NEW P0),
     `pgfs_test_replay_marks_block_weak_on_ecc_mismatch`
   - Phase 4b: `pgfs_test_checkpoint_consistency_matches_when_synced`,
     `pgfs_test_checkpoint_consistency_fails_on_drift`,
     `pgfs_test_ftl_persist_round_trips_write_head_and_log_tail`
+  - **Lock (P0)**: `pgfs_test_lock_mode_off_passthrough` (NEW),
+    `pgfs_test_lock_mode_on_acquire_release` (NEW),
+    `pgfs_test_lock_null_mutex_safe` (NEW)
+  - **Replay cleanup (P0)**: `pgfs_test_replay_failure_cleans_up` (NEW)
   - Phase 5: `pgfs_test_retired_does_not_mark_bad`
   - Phase 5b: `pgfs_test_retired_bitmap_persists_roundtrip`,
     `pgfs_test_alloc_skips_retired_blocks`
@@ -252,9 +310,9 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
     `pgfs_test_gc_step_retires_empty_block`,
     `pgfs_test_gc_picks_lowest_erase_count_among_empties`,
     `pgfs_test_gc_excludes_bad_reserved_retired`,
-    `pgfs_test_gc_data_move_preserves_file`
+    `pgfs_test_gc_data_move_preserves_file`,
+    `pgfs_test_gc_wear_leveling_score` (NEW P0)
   - Phase 6 stress: `pgfs_test_stress_many_files_writes_counters`,
-    `pgfs_test_stress_write_delete_cycles`
   - Phase 6 multi-mount: `pgfs_test_multi_mount_cycle_reads_via_replay`,
     `pgfs_test_multi_mount_counters_advance`
   - Phase 6 replay shadow: `pgfs_test_replay_shadow_detection_marks_dead_bytes`

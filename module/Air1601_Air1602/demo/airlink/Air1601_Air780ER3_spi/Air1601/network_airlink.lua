@@ -5,11 +5,11 @@
 @date    2026.05.27
 @author  马梦阳
 @usage
-本demo通过AirLink SPI模式实现Air1601外挂Air780ER2 4G模块联网功能。
+本demo通过AirLink SPI模式实现Air1601外挂Air780ER3 4G模块联网功能。
 
 主要功能：
 1. 初始化4G虚拟网卡（SPI模式）
-2. Air1601与Air780ER2进行数据交互
+2. Air1601与Air780ER3进行数据交互
 3. 通过HTTP GET请求测试网络连接
 
 使用示例：
@@ -45,7 +45,7 @@ local exnetif = require "exnetif"
 -- 网络初始化
 --============================================================
 
--- 初始化网络，使得Air1601可以外挂Air780ER2模块实现4G联网功能。
+-- 初始化网络，使得Air1601可以外挂Air780ER3模块实现4G联网功能。
 local function init_airlink_net()
     exnetif.set_priority_order({
         {                                               -- 开启4G虚拟网卡
@@ -65,8 +65,8 @@ end
 -- 数据收发
 --============================================================
 
--- Air1601发送数据信息给Air780ER2模块。
-local function airlink_sdata_Air780ER2()
+-- Air1601发送数据信息给Air780ER3模块。
+local function airlink_sdata_Air780ER3()
     -- 设置网络时间同步。
     -- socket.sntp()
     while 1 do
@@ -221,8 +221,8 @@ sys.taskInit(init_airlink_net)
 -- HTTP GET请求测试
 sys.taskInit(http_get_test)
 
--- Air1601发送数据信息给Air780ER2模块。
-sys.taskInit(airlink_sdata_Air780ER2)
+-- Air1601发送数据信息给Air780ER3模块。
+sys.taskInit(airlink_sdata_Air780ER3)
 
 -- 获取并打印 airlink 从机的网络信息
 sys.taskInit(log_mobile_sync_info)

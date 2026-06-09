@@ -1,9 +1,15 @@
 -- 应用商店全生命周期测试模块
--- 逐页直接HTTP拉取(绕过图标下载) → 逐个应用测试 → 汇总报告
+-- 支持两种模式:
+--   1. 批量模式: 逐页直接HTTP拉取 → 逐个应用测试 → 汇总报告
+--   2. 单app模式: 从 /testresult/single_app.json 读取一个app → 测试 → 写 /testresult/result.json
 
 local M = {}
 
-local exapp = rawget(_G, "exapp") or require("exapp")
+local exapp = rawget(_G, "exapp")
+if not exapp then
+    local ok2, mod2 = pcall(require, "exapp")
+    exapp = ok2 and mod2 or nil
+end
 
 -- =================== 配置 ===================
 
@@ -17,11 +23,11 @@ local TIMEOUT = {
     EXIT = 10000,
     UNINSTALL = 30000,
     PAGE_COOLDOWN = 10000,
-    APP_INTERVAL = 1000,
+    APP_INTERVAL = 3000,
     POLL_INTERVAL = 200,
 }
 
-local MAX_APPS = nil  -- nil = 全部
+local MAX_APPS = 10  -- nil = 全部
 
 -- =================== 辅助函数 ===================
 
@@ -305,6 +311,11 @@ function M.test_appstore_lifecycle()
             else
                 table.insert(results.failed, r)
             end
+            -- 强制GC清理沙箱残留, 防止堆损坏传播到下一个应用
+            collectgarbage("collect")
+            collectgarbage("collect")  -- 两次GC确保finalizer清理干净
+            sys.wait(2000)  -- 给后台线程时间释放资源
+            log.info("appstore_test", string.format("  内存: %d KB", math.floor(collectgarbage("count"))))
         end
 
         -- 检查是否有更多页
@@ -353,5 +364,93 @@ function M.test_appstore_lifecycle()
     assert(failed_count == 0,
         string.format("%d/%d 个应用测试失败", failed_count, total))
 end
+
+	-- =================== 单 App 模式 (供外部编排器调用) ===================
+
+	-- 从 /testresult/single_app.json 读取单个app信息, 执行4阶段测试, 结果写入 /testresult/result.json
+	-- single_app.json 格式: {'aid':'xxx','url':'https://...','name':'显示名称'}
+	-- result.json 格式: {'aid':'xxx','name':'xxx','passed':true/false,'stages':{...},'error':'...'}
+	function M.test_single_app()
+		log.info('appstore_test', '=== 单App测试模式 ===')
+
+		-- 等待网络
+		log.info('appstore_test', '等待网络就绪...')
+		local ok_ip = sys.waitUntil('IP_READY', TIMEOUT.NETWORK_READY)
+		if not ok_ip then
+			local result = {aid = '?', name = '?', passed = false, stages = {}, error = '网络未就绪'}
+			io.writeFile('/testresult/result.json', json.encode(result))
+			log.error('appstore_test', '网络未就绪, 退出')
+			os.exit(1)
+		end
+		log.info('appstore_test', '网络已就绪')
+
+		-- 读取配置
+		local cfg_raw = io.readFile('/testresult/single_app.json')
+		if not cfg_raw then
+			local result = {aid = '?', name = '?', passed = false, stages = {}, error = '无法读取 /testresult/single_app.json'}
+			io.writeFile('/testresult/result.json', json.encode(result))
+			log.error('appstore_test', result.error)
+			os.exit(1)
+		end
+		local ok, cfg = pcall(json.decode, cfg_raw)
+		if not ok or not cfg or not cfg.aid or not cfg.url then
+			local result = {aid = cfg and cfg.aid or '?', name = cfg and cfg.name or '?', passed = false, stages = {}, error = 'single_app.json 格式无效: ' .. (ok and '缺少字段' or cfg)}
+			io.writeFile('/testresult/result.json', json.encode(result))
+			log.error('appstore_test', result.error)
+			os.exit(1)
+		end
+
+		log.info('appstore_test', string.format('测试单应用: %s (aid=%s)', cfg.name or cfg.aid, cfg.aid))
+		log.info('appstore_test', '  url=' .. cfg.url)
+
+		-- 初始化 exapp (需要 AirUI + exwin)
+		if airui and airui.init then
+			airui.init(480, 854)
+		end
+
+		-- 预初始化 hzfont (PC内嵌字体)
+		if hzfont and hzfont.init then
+			hzfont.init()
+		end
+
+		-- 执行4阶段测试
+		local r = test_one_app({aid = cfg.aid, url = cfg.url, title = cfg.name or cfg.aid, name = cfg.name or cfg.aid}, 1, 1)
+
+		-- 写入结果
+		local result = {
+			aid = r.aid,
+			name = r.name,
+			passed = r.passed,
+			stages = {},
+			error = nil,
+		}
+		for stage, s in pairs(r.stages) do
+			result.stages[stage] = {ok = s.ok, err = s.err}
+			if not s.ok and not result.error then
+				result.error = stage .. ': ' .. (s.err or '?')
+			end
+		end
+		io.writeFile('/testresult/result.json', json.encode(result))
+		log.info('appstore_test', string.format('结果已写入 /testresult/result.json (passed=%s)', tostring(r.passed)))
+
+		-- 确保卸载 (如果还残留)
+		local installed = exapp.list_installed()
+		if installed[cfg.aid] then
+			log.info('appstore_test', '最终清理: 卸载 ' .. cfg.aid)
+			local received = false
+			local handler = function(rx_aid, action, rx_success)
+				if tostring(rx_aid) == cfg.aid and action == 'uninstall' then received = true end
+			end
+			sys.subscribe('APP_STORE_ACTION_DONE', handler)
+			sys.publish('APP_STORE_UNINSTALL', cfg.aid, '全部', 'recommend')
+			local ok = wait_until(function() return received end, TIMEOUT.UNINSTALL)
+			sys.unsubscribe('APP_STORE_ACTION_DONE', handler)
+		end
+
+		-- 等待一下让日志刷出
+		sys.wait(1000)
+		log.info('appstore_test', '单App测试完成, 退出')
+		os.exit(r.passed and 0 or 1)
+	end
 
 return M

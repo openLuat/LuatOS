@@ -7,7 +7,8 @@ VERSION = "1.0.0"
 exwin = require("exwin")
 local exapp_ok, exapp_err = pcall(require, "exapp")
 if not exapp_ok then
-    log.error("main", "exapp 加载失败, 请确保命令行包含 script/libs/ 路径", exapp_err)
+    log.error("main", "exapp 加载失败", exapp_err)
+    os.exit(1)  -- 快速失败, 避免后续 require 二次崩溃导致 NORESULT
 end
 
 -- 引入测试套件和测试运行器模块
@@ -18,14 +19,29 @@ appstore_test = require("appstore_test")
 
 -- 开启一个task,运行测试
 sys.taskInit(function()
-    -- 初始化 AirUI (exapp 的 get_device_info 依赖 airui)
+    -- 检查是否为单App模式 (外部编排器通过 /testresult/single_app.json 传入)
+    local single_cfg = io.readFile("/testresult/single_app.json")
+    if single_cfg then
+        log.info("main", "检测到 /testresult/single_app.json, 进入单App测试模式")
+        appstore_test.test_single_app()
+        -- test_single_app 内部会调用 os.exit(), 不会返回
+        return
+    end
+
+    -- 批量模式: 初始化 AirUI (exapp 的 get_device_info 依赖 airui)
     -- 使用 480x320 分辨率
-    local scr_w, scr_h = 480, 320
+    local scr_w, scr_h = 480, 854
     if airui and airui.init then
         log.info("main", "初始化 AirUI " .. scr_w .. "x" .. scr_h)
         airui.init(scr_w, scr_h)
     else
         log.warn("main", "airui 模块不可用, 跳过 AirUI 初始化")
+    end
+
+    -- 在沙箱外一次性初始化 hzfont (PC内嵌字体, 无需路径), 避免沙箱重复 init/deinit 导致堆损坏
+    if hzfont and hzfont.init then
+        log.info("main", "初始化 hzfont (全局共享)")
+        hzfont.init()
     end
 
     testrunner.runBatch("appstore_lifecycle", {

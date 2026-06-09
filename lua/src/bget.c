@@ -466,7 +466,7 @@
 extern char *sprintf();               /* Sun includes don't define sprintf */
 #endif
 
-//#include <assert.h>
+#include <assert.h>
 #include <string.h>
 
 #ifdef BufDump                        /* BufDump implies DumpData */
@@ -567,7 +567,7 @@ static bufsize pool_len = 0;          /* 0: no bpool calls have been made
    bufsize, defined in a way that the compiler will accept. */
 
 #define ESent   ((bufsize) (-(((1L << (sizeof(bufsize) * 8 - 2)) - 1) * 2) - 2))
-#define _assert_(x)
+#define _assert_(x) assert(x)
 /*  BGET  --  Allocate a buffer.  */
 
 void *bget(bufsize requested_size)
@@ -623,12 +623,14 @@ void *bget(bufsize requested_size)
                     best = b;
                 }
             }
+            _assert_(b->ql.flink != NULL);     /* Guard: corrupted link before following */
             b = b->ql.flink;              /* Link to next buffer */
         }
         b = best;
 #endif /* BestFit */
 
         while (b != &freelist) {
+            _assert_(b->bh.bsize > 0);         /* Guard: free block must have positive size */
             if ((bufsize) b->bh.bsize >= size) {
 
                 /* Buffer  is big enough to satisfy  the request.  Allocate it
@@ -699,6 +701,7 @@ void *bget(bufsize requested_size)
                     return buf;
                 }
             }
+            _assert_(b->ql.flink != NULL);     /* Guard: corrupted link before following */
             b = b->ql.flink;              /* Link to next buffer */
         }
 #ifdef BECtl

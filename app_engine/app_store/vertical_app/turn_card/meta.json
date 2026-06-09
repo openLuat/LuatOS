@@ -1,7 +1,7 @@
 {
   "app_name_cn": "卡牌对战",
   "app_name_en": "Turn_Card_Battle",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publish_time": "2026-06-02 12:00:00",
   "category": "游戏",
   "description": "卡牌对战游戏，支持本地对战和联网对战，竖屏480x800分辨率",

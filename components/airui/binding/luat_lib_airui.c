@@ -965,9 +965,11 @@ static int l_airui_font_load(lua_State *L) {
         if (set_global) {
             // 设置为全局默认字体
             lv_obj_set_style_text_font(lv_screen_active(), font, 0);
-            /* 更新主题字体 */
-            if (lv_theme_default_is_inited()) {lv_theme_default_deinit();}
-            lv_theme_default_init(g_ctx->display,lv_palette_main(LV_PALETTE_BLUE),lv_palette_darken(LV_PALETTE_BLUE, 2),false,font);
+            /* 更新主题字体 — 直接调用 init 原地重建 styles（不先 deinit，
+             * 避免 theme 地址变化导致已有对象引用悬空） */
+            if (lv_theme_default_is_inited()) {
+                lv_theme_default_init(g_ctx->display,lv_palette_main(LV_PALETTE_BLUE),lv_palette_darken(LV_PALETTE_BLUE, 2),false,font);
+            }
         }
 
         lua_pushlightuserdata(L, font);

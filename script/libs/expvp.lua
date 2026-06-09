@@ -1,8 +1,8 @@
 --[[
 @module  expvp
 @summary 通用PVP联网对战游戏框架（MQTT通信 + IOT数据存储 + 房间/匹配系统）
-@version 1.0.2
-@date    2026.06.01
+@version 1.0.3
+@date    2026.06.09
 @author  王世豪
 @description
     通用PVP联网对战游戏框架，提供：
@@ -78,8 +78,7 @@ local state = {
 
 -- 房间状态
 local room_state = {
-    current_room = nil,             -- 当前房间ID
-    room_code = nil,                -- 房间简短代码（6位数字）
+    current_room = nil,             -- 当前房间ID（6位纯数字）
     is_host = false,                -- 是否是房主
     players = {},                   -- 房间内的玩家 {device_id -> player_info}
     my_ready = false,               -- 自己是否准备
@@ -94,12 +93,6 @@ local match_state = {
     matched_peers = {},             -- 已处理的匹配请求（防重复）
 }
 
--- 游戏状态
-local game_state = {
-    is_playing = false,             -- 是否游戏中
-    peer_device_id = nil,           -- 对手设备ID
-    last_ping_time = 0,             -- 上次收到ping时间
-}
 
 -- 事件回调函数
 local on_event = nil
@@ -274,7 +267,7 @@ end
 -- ==================== 消息发送 ====================
 
 -- 【内部】发送消息到指定MQTT topic（自动JSON编码）
--- 仅供模块内部使用，业务代码请使用 send_to_device / broadcast_to_room / send_game_data
+-- 仅供模块内部使用，业务代码请使用 send_to_device / broadcast_to_room
 local function publish(topic, data)
     if not state.mqtt_ready or not state.mqtt_client then
         return false
@@ -306,8 +299,7 @@ function expvp.send_presence(data)
     local payload = data or {}
     payload.device_id = state.device_id
     payload.nickname = state.nickname
-    payload.model = state.device_model
-    payload.timestamp = os.time()
+    payload.device_model = state.device_model
     return publish(make_topic("presence"), payload)
 end
 
@@ -333,11 +325,9 @@ end
 @note 创建后会自动订阅房间topic并广播创建事件
 ]]
 function expvp.create_room()
-    -- 生成简短易读的房间代码（6位数字）
-    local room_code = "room_" .. tostring(os.time()):sub(-6)
-    local room_id = room_code
+    -- 生成简短易读的房间ID（6位数字）
+    local room_id = tostring(os.time()):sub(-6)
     room_state.current_room = room_id
-    room_state.room_code = room_code
     room_state.is_host = true
     room_state.players = {}
     room_state.my_ready = false
@@ -346,7 +336,7 @@ function expvp.create_room()
     room_state.players[state.device_id] = {
         device_id = state.device_id,
         nickname = state.nickname,
-        model = state.device_model,
+        device_model = state.device_model,
         ready = false,
         is_host = true,
     }
@@ -362,7 +352,7 @@ function expvp.create_room()
         device_id = state.device_id,
         room_id = room_id,
         nickname = state.nickname,
-        model = state.device_model,
+        device_model = state.device_model,
     })
     
     log.info('expvp', 'room created', room_id)
@@ -391,7 +381,7 @@ function expvp.join_room(room_id)
         type = "join_request",
         device_id = state.device_id,
         nickname = state.nickname,
-        model = state.device_model,
+        device_model = state.device_model,
     })
     
     log.info('expvp', 'joining room', room_id)
@@ -421,7 +411,6 @@ function expvp.leave_room()
     
     log.info('expvp', 'left room', room_state.current_room)
     room_state.current_room = nil
-    room_state.room_code = nil
     room_state.is_host = false
     room_state.players = {}
     room_state.my_ready = false
@@ -442,7 +431,6 @@ end
 function expvp.get_room_info()
     return {
         room_id = room_state.current_room,
-        room_code = room_state.room_code,
         is_host = room_state.is_host,
         players = room_state.players,
         my_ready = room_state.my_ready,
@@ -523,7 +511,6 @@ function expvp.start_game(player_assignments)
         room_id = room_state.current_room,
         host_id = state.device_id,
         player_assignments = assignments,
-        timestamp = os.time(),
     }
     
     -- 广播到房间
@@ -574,17 +561,15 @@ function expvp.start_match()
             type = "match_request",
             device_id = state.device_id,
             nickname = state.nickname,
-            model = state.device_model,
-            timestamp = os.time(),
+            device_model = state.device_model,
         })
         -- 同时也发到presence topic，让设备列表也能看到匹配状态
         publish(make_topic("presence"), {
             type = "presence",
             device_id = state.device_id,
             nickname = state.nickname,
-            model = state.device_model,
+            device_model = state.device_model,
             matching = true,
-            timestamp = os.time(),
         })
     end
     
@@ -623,33 +608,6 @@ function expvp.is_matching()
     return match_state.is_matching
 end
 
--- ==================== 游戏数据同步 ====================
-
---[[
-@api expvp.set_game_playing(playing, peer_id)
-@summary 设置游戏状态和对手设备ID
-@param playing boolean 是否游戏中
-@param peer_id string|nil 对手设备ID（游戏开始时传入）
-@note 设置对手ID后，可以使用 send_to_device(peer_id, {...}) 发送游戏数据
-@example
-    expvp.set_game_playing(true, opponent_id)
-    expvp.send_to_device(opponent_id, {action = "move", x = 100, y = 200})
-]]
-function expvp.set_game_playing(playing, peer_id)
-    game_state.is_playing = playing
-    game_state.peer_device_id = peer_id
-    game_state.last_ping_time = os.time()
-end
-
---[[
-@api expvp.is_peer_online()
-@summary 检查对手是否在线
-@return boolean 对手是否在线（10秒内收到过消息视为在线）
-]]
-function expvp.is_peer_online()
-    if not game_state.peer_device_id then return false end
-    return (os.time() - game_state.last_ping_time) < 10  -- 10秒内收到过消息算在线
-end
 
 -- ==================== 消息处理 ====================
 
@@ -679,7 +637,7 @@ local function handle_room_message(topic, data)
             room_state.players[data.device_id] = {
                 device_id = data.device_id,
                 nickname = data.nickname,
-                model = data.model,
+                device_model = data.device_model,
                 ready = false,
             }
             -- 回复加入确认
@@ -700,6 +658,7 @@ local function handle_room_message(topic, data)
                 })
             end
         end
+        return
     end
     
     -- 处理加入确认
@@ -727,10 +686,11 @@ local function handle_room_message(topic, data)
         room_state.players[state.device_id] = {
             device_id = state.device_id,
             nickname = state.nickname,
-            model = state.device_model,
+            device_model = state.device_model,
             ready = false,
             is_host = false,
         }
+        return
     end
     
     -- 处理离开
@@ -739,6 +699,7 @@ local function handle_room_message(topic, data)
         if on_event then
             on_event("peer_leave", {device_id = data.device_id})
         end
+        return
     end
     
     -- 处理准备状态
@@ -749,6 +710,7 @@ local function handle_room_message(topic, data)
         if on_event then
             on_event("peer_ready", {device_id = data.device_id, ready = data.ready})
         end
+        return
     end
     
     -- 处理游戏开始（房主广播）
@@ -757,6 +719,7 @@ local function handle_room_message(topic, data)
         if on_event then
             on_event("game_start", data)
         end
+        return
     end
     
     -- 处理游戏数据
@@ -793,7 +756,7 @@ local function handle_match_message(data)
             type = "match_accept",
             device_id = state.device_id,
             nickname = state.nickname,
-            model = state.device_model,
+            device_model = state.device_model,
             target_id = data.device_id,  -- 指定匹配的对方
         })
         -- 通知回调
@@ -828,11 +791,6 @@ end
 local function handle_message(topic, payload)
     local ok, data = pcall(json.decode, payload)
     if not ok or not data then return end
-    
-    -- 更新ping时间
-    if data.device_id and data.device_id ~= state.device_id then
-        game_state.last_ping_time = os.time()
-    end
     
     -- 处理房间消息
     if room_state.current_room and topic:find("/room/" .. room_state.current_room) then
@@ -1008,30 +966,19 @@ function expvp.get_local_score()
 end
 
 --[[
-@api expvp.set_local_score(score)
-@summary 直接设置本地积分（用于初始化或重置）
-@param score number 积分值
-@return number 设置后的积分值
-]]
-function expvp.set_local_score(score)
-    score_state.local_score = score or 0
-    return score_state.local_score
-end
-
---[[
-@api expvp.add_score(delta)
+@api expvp.add_local_score(delta)
 @summary 增加本地积分（游戏过程中获得积分时调用）
 @param delta number 要增加的积分值（可以为负数）
 @return number 增加后的总积分
 ]]
-function expvp.add_score(delta)
+function expvp.add_local_score(delta)
     score_state.local_score = score_state.local_score + (delta or 0)
     log.info("score", "add:", delta, "total:", score_state.local_score)
     return score_state.local_score
 end
 
 --[[
-@api expvp.upload_score(callback)
+@api expvp.upload_local_score(callback)
 @summary 上传本地积分到服务器（自动累加服务器历史积分）
 @param callback function|nil 回调函数 function(success, total_score)
 @note
@@ -1040,7 +987,7 @@ end
     - 上传成功后本地积分自动清零
     - 如果之前调用过mark_deleted/delete_score，则不叠加历史积分
 ]]
-function expvp.upload_score(callback)
+function expvp.upload_local_score(callback)
     log.info("score", "【upload】start, local:", score_state.local_score)
 
     if score_state.local_score == 0 then

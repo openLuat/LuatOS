@@ -128,4 +128,5 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts = {
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_MP3,
     .is_hardware = 0,
     .support_detect = 1,
+    .encode_raw_mode = 0,
 };

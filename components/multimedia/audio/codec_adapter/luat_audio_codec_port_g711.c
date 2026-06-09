@@ -115,6 +115,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_ulaw_opts = {
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,
     .is_hardware = 0,
     .support_detect = 0,
+    .encode_raw_mode = 0,
 };
 
 const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_alaw_opts = {
@@ -133,4 +134,5 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_alaw_opts = {
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,
     .is_hardware = 0,
     .support_detect = 0,
+    .encode_raw_mode = 0,
 };

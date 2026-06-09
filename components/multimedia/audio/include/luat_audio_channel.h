@@ -29,10 +29,11 @@
  * 通过通道选择机制实现单输出切换。
  */
 struct luat_audio_channel {
-    luat_fifo_t *play_fifo;                    /**< 播放数据FIFO缓冲区，只能在驱动回调的中断里读出，只有1个消费者 */
+    luat_fifo_t *play_fifo;                    /**< 播放数据FIFO缓冲区，只能在驱动回调的中断里读出，在audio task里写入 */
+    luat_fifo_t *record_fifo;                    /**< 录音数据FIFO缓冲区，只能在驱动回调的中断里写入，在audio task里读出 */
     uint32_t play_fifo_low_level;        /**< 播放缓存低水位, 默认为播放缓冲区大小的25%时, 触发数据请求 */
     uint32_t play_fifo_high_level;        /**< 播放缓存高水位, 不再解码数据 */
-    void *play_lock_mutex;                          /**< 播放数据写入保护 */
+    // void *play_lock_mutex;                          /**< 播放数据写入保护 */
     struct luat_audio_driver_ctrl *driver_ctrl; /**< 关联的音频驱动控制器指针 */
     // struct luat_audio_request_block *play_request_block;   /**< 当前播放请求块指针 */
     // struct luat_audio_request_block *record_request_block; /**< 当前录音请求块指针 */
@@ -51,12 +52,13 @@ typedef struct luat_audio_channel luat_audio_channel_t;
  * @brief 创建音频通道的FIFO缓冲区
  * @param channel 音频通道指针，必须指向有效的 luat_audio_channel_t 结构
  * @param play_fifo_size_power 播放FIFO缓冲区大小，必须是2的幂次方
+ * @param record_fifo_size_power 录音数据FIFO缓冲区大小，必须是2的幂次方
  * @param low_level 播放缓存低水位, 默认为播放缓冲区大小的25%时, 触发数据请求
  * @param high_level 播放缓存高水位, 不再解码数据
  * @return int 成功返回 LUAT_ERROR_NONE，失败返回其他错误码
  * 
  */
-int luat_audio_channel_create_fifo(luat_audio_channel_t *channel, uint32_t play_fifo_size_power, uint32_t low_level, uint32_t high_level);
+int luat_audio_channel_create_fifo(luat_audio_channel_t *channel, uint32_t play_fifo_size_power, uint32_t record_fifo_size_power, uint32_t low_level, uint32_t high_level);
 
 /**
  * @brief 销毁音频通道的FIFO缓冲区
@@ -112,6 +114,41 @@ int luat_audio_channel_set_soft_volume(luat_audio_channel_t *channel,uint32_t vo
  * 调用前确保 channel 指针有效且已被初始化。
  */
 int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uint32_t len_bytes, uint32_t *written_bytes, uint8_t is_signed,uint8_t data_align, uint8_t channel_nums);
-#endif
 
+/**
+ * @brief 数据有无符号转换
+ * @param data_union 数据联合体，包含要转换的音频数据
+ * @param len_bytes 数据长度（字节）
+ * @param data_align 数据对齐方式（2=16位, 3=24位, 4=32位）
+ * @param is_need_signed 是否是有符号（1=有符号，0=无符号）
+ * @return void
+ * 
+ * 调用前确保 data_union 指针有效且已被初始化。
+ * */
+void luat_audio_channel_data_change_signed(luat_data_union_t data_union, uint32_t len_bytes, uint8_t data_align,uint8_t is_need_signed);
+
+/**
+ * @brief 数据对齐方式转换
+ * @param data_union 数据联合体，包含要转换的音频数据
+ * @param new_data_union 新数据联合体，用于存储转换后的音频数据
+ * @param pcm_data_len 采样点个数
+ * @param data_align 输入数据对齐方式（1=8位, 2=16位, 3=24位, 4=32位）
+ * @param new_data_align 输出数据对齐方式（1=8位, 2=16位, 3=24位, 4=32位）
+ * @return void
+ * 
+ * 调用前确保 data_union new_data_align 指针有效且已被初始化。
+ * */
+void luat_audio_channel_data_change_align(luat_data_union_t data_union, luat_data_union_t new_data_union, uint32_t pcm_data_len, uint8_t data_align, uint8_t new_data_align);
+/**
+ * @brief 数据通道数转换
+ * @param data_union 数据联合体，包含要转换的音频数据
+ * @param new_data_union 新数据联合体，用于存储转换后的音频数据
+ * @param pcm_data_len 采样点个数
+ * @param data_align 输入数据对齐方式（1=8位, 2=16位, 3=24位, 4=32位）
+ * @param channel_nums 输入通道数
+ * @param new_channel_nums 输出通道数
+ * @return void
+ */
+void luat_audio_channel_data_change_channel_nums(luat_data_union_t data_union, luat_data_union_t new_data_union, uint32_t pcm_data_len, uint8_t data_align, uint8_t channel_nums, uint8_t new_channel_nums);
 /** @} */
+#endif

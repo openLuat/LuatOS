@@ -117,12 +117,6 @@ void luat_fifo_delete(luat_fifo_t *fifo, uint32_t size)
 	}
 }
 
-void luat_fifo_clear(luat_fifo_t *fifo)
-{
-	fifo->rpoint = 0;
-	fifo->wpoint = 0;
-}
-
 void luat_fifo_destroy(luat_fifo_t *fifo)
 {
 	if (!fifo)

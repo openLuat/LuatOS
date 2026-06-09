@@ -62,10 +62,11 @@ struct luat_audio_request_block {
     uint32_t *static_play_buff;                        /**< 流媒体数据缓冲区指针 */
     union {
         struct {                                /**< 流媒体模式下的必须字段 */
-            uint32_t one_block_len;             /**< 每个数据块的长度 */
             uint32_t record_fifo_enough_data_level; /**< 录音模式下，回调函数触发条件，FIFO缓冲区数据量是否足够 */
-            uint8_t block_nums;                /**< 数据块数量 */
-            uint8_t error_record_overflow;             /**< 录音溢出错误标志位 */
+            uint32_t static_play_buff_one_block_len;             /**< 每个数据块的长度 */
+            uint8_t static_play_buffblock_nums;                /**< 数据块数量 */
+            uint8_t error_record_overflow:1;             /**< 录音溢出错误标志位 */
+            uint8_t error_record_after_encode_overflow:1;             /**< 录音溢出错误标志位 */
         };
         struct {                                /**< 文件模式下的必须字段 */
             luat_audio_play_file_info_t *file_info;  /**< 音频文件信息数组指针*/
@@ -77,8 +78,8 @@ struct luat_audio_request_block {
             uint32_t tts_data_size;             /**< 文本转语音数据长度 */
         };
     };
-    luat_fifo_t *record_data_fifo_static;            /**< 录音数据缓冲区, 用户传入，用户自行释放*/
-    luat_fifo_t *org_input_data_fifo;            /**< 原始数据输入缓冲区 */
+    luat_fifo_t *encode_save_fifo;            /**< 录音数据缓冲区, 用户传入，用户自行释放*/
+    luat_fifo_t *org_input_data_fifo;            /**< 原始数据输入缓冲区，在audio task里读出，可能在多个地方写入，需要在写入时做线程安全保护 */
     luat_buffer_t out_buffer;                /**< 输出数据缓冲区 */
     luat_audio_dsp_t *dsp;                  /**< 关联的DSP处理实例 */
     luat_audio_data_codec_t play_codec;          /**< 关联的播放编解码器实例 */

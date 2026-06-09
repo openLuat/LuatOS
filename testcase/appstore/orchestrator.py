@@ -323,16 +323,7 @@ def main():
             skipped += 1
             continue
 
-        try:
-            result = test_one_app(app, i + 1, len(apps))
-        except Exception as ex:
-            print(f"[ERROR] 测试异常: {ex}")
-            result = {
-                "aid": aid, "name": name,
-                "passed": False, "crashed": False,
-                "stages": {}, "error": f"测试异常: {ex}",
-                "exit_code": None,
-            }
+        result = test_one_app(app, i + 1, len(apps))
         results.append(result)
 
         # 更新缓存 (通过的应用永久缓存, 失败的也记录供参考)

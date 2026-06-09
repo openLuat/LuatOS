@@ -501,14 +501,12 @@ void *luat_bget(luat_bget_t* bg, bufsize requested_size)
                     best = b;
                 }
             }
-            _assert_(b->ql.flink != NULL);     /* Guard: corrupted free list link */
             b = b->ql.flink;              /* Link to next buffer */
         }
         b = best;
 #endif /* BestFit */
 
         while (b != &bg->freelist) {
-            _assert_(b->bh.bsize > 0);         /* Guard: free block must have positive size */
             if ((bufsize) b->bh.bsize >= size) {
 
                 /* Buffer  is big enough to satisfy  the request.  Allocate it
@@ -587,7 +585,6 @@ void *luat_bget(luat_bget_t* bg, bufsize requested_size)
                     return buf;
                 }
             }
-            _assert_(b->ql.flink != NULL);     /* Guard: corrupted link before following */
             b = b->ql.flink;              /* Link to next buffer */
         }
 

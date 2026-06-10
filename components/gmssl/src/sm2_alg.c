@@ -437,10 +437,10 @@ void sm2_fp_mul(SM2_Fp r, const SM2_Fp a, const SM2_Fp b)
 	d[2] &= 0xffffffff;
 	sm2_bn_sub(r, r, d);
 
-	// 约简: 理论上最多执行 2 次, 加迭代上限防止死循环
-	{ int _reduce = 0; while (sm2_bn_cmp(r, SM2_P) >= 0 && ++_reduce <= 3) {
+	/* while r >= p do: r = r - p */
+	while (sm2_bn_cmp(r, SM2_P) >= 0) {
 		sm2_bn_sub(r, r, SM2_P);
-	}}
+	}
 }
 
 void sm2_fp_sqr(SM2_Fp r, const SM2_Fp a)
@@ -726,10 +726,10 @@ void sm2_fn_mul(SM2_BN ret, const SM2_BN a, const SM2_BN b)
 	}
 	r[7] += zl[8] << 32;
 
-	/* while r >= n do: r = r - n, 理论上最多 2 次 */
-	{ int _reduce = 0; while (sm2_bn_cmp(r, SM2_N) >= 0 && ++_reduce <= 3) {
+	/* while r >= n do: r = r - n */
+	while (sm2_bn_cmp(r, SM2_N) >= 0) {
 		sm2_bn_sub(r, r, SM2_N);
-	}}
+	}
 	sm2_bn_copy(ret, r);
 }
 

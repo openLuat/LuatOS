@@ -25,6 +25,9 @@
 
 #define LUAT_LOG_TAG "sm"
 #include "luat_log.h"
+
+extern const SM2_BN SM2_N;  /* SM2 曲线阶, 用于私钥范围校验 */
+
 #define SM3_DIGEST_LENGTH    32
 #define SM4_BLOCK_LEN 16
 #define SM2_STR_LEN 300
@@ -804,18 +807,18 @@ end
 static int l_sm2_keygen(lua_State *L)
 {
     int ret = 0;
-    SM2_SIGN_CTX ctx = {0};
-    ret = sm2_key_generate(&ctx.key);
+    SM2_KEY key = {0};
+    ret = sm2_key_generate(&key);
     if (ret != 1) {
         LLOGW("sm2_keygen %d", ret);
         return 0;
     }
     char tmp[128] = {0};
-    luat_str_tohex((const char*)ctx.key.public_key.x, 32, tmp);
+    luat_str_tohex((const char*)key.public_key.x, 32, tmp);
     lua_pushlstring(L, tmp, 64);
-    luat_str_tohex((const char*)ctx.key.public_key.y, 32, tmp);
+    luat_str_tohex((const char*)key.public_key.y, 32, tmp);
     lua_pushlstring(L, tmp, 64);
-    luat_str_tohex((const char*)ctx.key.private_key, 32, tmp);
+    luat_str_tohex((const char*)key.private_key, 32, tmp);
     lua_pushlstring(L, tmp, 64);
     return 3;
 }
@@ -900,16 +903,21 @@ static int l_sm2_ecdh(lua_State *L)
     luat_str_fromhex(pxHex,   64, (char*)peer.x);
     luat_str_fromhex(pyHex,   64, (char*)peer.y);
 
-    // sm2_key_set_private_key 会从私钥推导出公钥, sm2_do_ecdh 内部会用到
-    int ret = sm2_key_set_private_key(&key, key.private_key);
-    if (ret != 1) {
-        LLOGE("sm2ecdh: invalid private key");
-        return 0;
+    // 直接校验私钥范围并做 ECDH, 跳过 sm2_key_set_private_key 里的公钥推导
+    // sm2_key_set_private_key 内部会调用 sm2_point_mul_generator 计算公钥,
+    // 但在 ECDH 中并不需要这个公钥, 多算一次完整的点乘(~256次倍点)纯属浪费
+    {
+        SM2_BN d;
+        sm2_bn_from_bytes(d, key.private_key);
+        if (sm2_bn_is_zero(d) || sm2_bn_cmp(d, SM2_N) >= 0) {
+            LLOGE("sm2ecdh: private key out of range [1, n-1]");
+            return 0;
+        }
     }
 
-    ret = sm2_do_ecdh(&key, &peer, &out);
+    int ret = sm2_point_mul(&out, key.private_key, &peer);
     if (ret != 1) {
-        LLOGE("sm2ecdh: sm2_do_ecdh failed");
+        LLOGE("sm2ecdh: sm2_point_mul failed");
         return 0;
     }
 

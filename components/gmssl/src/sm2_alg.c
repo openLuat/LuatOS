@@ -318,8 +318,11 @@ void sm2_bn_sub(SM2_BN ret, const SM2_BN a, const SM2_BN b)
 	sm2_bn_copy(ret, r);
 }
 
+#define SM2_BN_RAND_RANGE_MAX_TRIES 100
+
 int sm2_bn_rand_range(SM2_BN r, const SM2_BN range)
 {
+	int tries = 0;
 	uint8_t buf[32];
 	do {
 		if (rand_bytes(buf, sizeof(buf)) != 1) {
@@ -327,7 +330,12 @@ int sm2_bn_rand_range(SM2_BN r, const SM2_BN range)
 			return -1;
 		}
 		sm2_bn_from_bytes(r, buf);
-	} while (sm2_bn_cmp(r, range) >= 0);
+	} while (sm2_bn_cmp(r, range) >= 0 && ++tries < SM2_BN_RAND_RANGE_MAX_TRIES);
+
+	if (tries >= SM2_BN_RAND_RANGE_MAX_TRIES) {
+		error_print();
+		return -1;
+	}
 	return 1;
 }
 
@@ -430,10 +438,10 @@ void sm2_fp_mul(SM2_Fp r, const SM2_Fp a, const SM2_Fp b)
 	d[2] &= 0xffffffff;
 	sm2_bn_sub(r, r, d);
 
-	// max times ?
-	while (sm2_bn_cmp(r, SM2_P) >= 0) {
+	// 约简: 理论上最多执行 2 次, 加迭代上限防止死循环
+	{ int _reduce = 0; while (sm2_bn_cmp(r, SM2_P) >= 0 && ++_reduce <= 3) {
 		sm2_bn_sub(r, r, SM2_P);
-	}
+	}}
 }
 
 void sm2_fp_sqr(SM2_Fp r, const SM2_Fp a)
@@ -719,11 +727,10 @@ void sm2_fn_mul(SM2_BN ret, const SM2_BN a, const SM2_BN b)
 	}
 	r[7] += zl[8] << 32;
 
-	/* while r >= p do: r = r - n */
-	while (sm2_bn_cmp(r, SM2_N) >= 0) {
+	/* while r >= n do: r = r - n, 理论上最多 2 次 */
+	{ int _reduce = 0; while (sm2_bn_cmp(r, SM2_N) >= 0 && ++_reduce <= 3) {
 		sm2_bn_sub(r, r, SM2_N);
-		//printf("r-n = "); for (i = 7; i >= 0; i--) printf("%16llx ", r[i]); printf("\n");
-	}
+	}}
 	sm2_bn_copy(ret, r);
 }
 
@@ -997,10 +1004,10 @@ void sm2_jacobian_point_sub(SM2_JACOBIAN_POINT *R, const SM2_JACOBIAN_POINT *P, 
 
 void sm2_jacobian_point_mul(SM2_JACOBIAN_POINT *R, const SM2_BN k, const SM2_JACOBIAN_POINT *P)
 {
-	char bits[257] = {0};
 	SM2_JACOBIAN_POINT _Q, *Q = &_Q;
 	SM2_JACOBIAN_POINT _T, *T = &_T;
-	int i;
+	int i, j;
+	uint64_t w;
 
 	// FIXME: point_add need affine, so we can not use point_add
 	if (!sm2_bn_is_one(P->Z)) {
@@ -1012,11 +1019,15 @@ void sm2_jacobian_point_mul(SM2_JACOBIAN_POINT *R, const SM2_BN k, const SM2_JAC
 	}
 
 	sm2_jacobian_point_set_infinity(Q);
-	sm2_bn_to_bits(k, bits);
-	for (i = 0; i < 256; i++) {
-		sm2_jacobian_point_dbl(Q, Q);
-		if (bits[i] == '1') {
-			sm2_jacobian_point_add(Q, Q, P);
+	// double-and-add: iterate k MSB-first, word 7 down to 0
+	for (i = 7; i >= 0; i--) {
+		w = k[i];
+		for (j = 0; j < 32; j++) {
+			sm2_jacobian_point_dbl(Q, Q);
+			if (w & 0x80000000) {
+				sm2_jacobian_point_add(Q, Q, P);
+			}
+			w <<= 1;
 		}
 	}
 	sm2_jacobian_point_copy(R, Q);

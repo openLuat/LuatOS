@@ -558,10 +558,15 @@ end
     - 触发垃圾回收
     - 检测内存泄漏（比较清理后内存与基准值）
 ]]
-local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
     log.info("sandbox_cleanup", "start cleanup:", app_path)
 
-    -- 先销毁UI沙箱容器（会自动递归销毁所有子组件）
+    -- 先停止所有定时器
+    if stop_all_timers then
+        stop_all_timers()
+    end
+
+    -- 再销毁UI沙箱容器（会自动递归销毁所有子组件）
     if sandbox_container then
         local ok, err = pcall(sandbox_container.destroy, sandbox_container)
         if not ok then
@@ -658,11 +663,8 @@ end
 -- 递归删除目录（用于云端卸载）
 local function rmdir_recursive(dir)
     if not io.dexist(dir) then return true end
-    -- 循环删除直到目录为空 (io.lsdir 有每批 100 项限制, 大应用可能超过)
-    local max_rounds = 10
-    for round = 1, max_rounds do
-        local ret, list = io.lsdir(dir, 100, 0)
-        if not ret or not list or #list == 0 then break end
+    local ret, list = io.lsdir(dir, 100, 0)
+    if ret then
         for _, item in ipairs(list) do
             local full_path = dir .. "/" .. item.name
             if item.type == 1 then
@@ -748,6 +750,19 @@ local function app_task(app_path)
             glob_sys.unsubscribe(sub.topic, sub.func)
         end
         subscriptions = {}
+    end
+
+    -- ==============================================
+    -- 【定时器管理器】记录应用创建的所有定时器，应用退出时集中停止
+    -- ==============================================
+    local timer_ids = {}
+
+    -- 停止所有已登记的定时器（应用退出时调用）
+    local function stop_all_timers()
+        for _, id in ipairs(timer_ids) do
+            glob_sys.timerStop(id)
+        end
+        timer_ids = {}
     end
 
     -- ==============================================
@@ -2504,6 +2519,42 @@ local function app_task(app_path)
     my_env.sys.subscribe = sandbox_subscribe
     my_env.sys.unsubscribe = sandbox_unsubscribe
 
+    -- 使用沙箱专用的定时器管理函数（登记 timer id，close 时集中停止）
+    my_env.sys.timerStart = function(period, func, ...)
+        local id = glob_sys.timerStart(period, func, ...)
+        if id then
+            table.insert(timer_ids, id)
+            my_env.log.info("timer_start", "timer registered, ID:", id, "period:", period)
+        end
+        return id
+    end
+
+    my_env.sys.timerLoopStart = function(period, func, ...)
+        local id = glob_sys.timerLoopStart(period, func, ...)
+        if id then
+            table.insert(timer_ids, id)
+            my_env.log.info("timer_loop_start", "timer registered, ID:", id, "period:", period)
+        end
+        return id
+    end
+
+    my_env.sys.timerStop = function(id)
+        if id then
+            for i = #timer_ids, 1, -1 do
+                if timer_ids[i] == id then
+                    table.remove(timer_ids, i)
+                    break
+                end
+            end
+        end
+        return glob_sys.timerStop(id)
+    end
+
+    my_env.sys.timerStopAll = function(...)
+        timer_ids = {}
+        return glob_sys.timerStopAll(...)
+    end
+
     -- ==============================================
     -- fskv 库（键名隔离）
     -- 功能：为每个应用的 fskv 键自动添加前缀，避免键名冲突
@@ -2664,7 +2715,7 @@ local function app_task(app_path)
     -- 加载失败，记录错误并清理沙箱
     if not f then
         my_env.log.error("app_task", "failed to load main.lua:", err)
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
         return
     end
 
@@ -2683,7 +2734,7 @@ local function app_task(app_path)
     -- 应用异常退出，执行清理
     if not ok then
         my_env.log.error("app_task", "app crashed, starting cleanup:", app_path, result)
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
         return
     end
 
@@ -2692,7 +2743,7 @@ local function app_task(app_path)
     -- 等待应用关闭请求
     local ret, rdata = sys.waitUntil(app_path .."_close_req")
     if rdata == "yes" then
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
         log.info("app co quit", app_path)
     end
 end
@@ -3197,8 +3248,8 @@ local function scan(base_dir, storage_type)
 
                 -- 解析 JSON
                 local ok, meta_data = pcall(json.decode, meta_content)
-                if not ok then
-                    log.error("exapp_init", "failed to parse meta.json:", app_dir.name, meta_data)
+                if not ok or type(meta_data) ~= "table" then
+                    log.error("exapp_init", "invalid meta.json:", app_dir.name, type(meta_data))
                     goto continue
                 end
 
@@ -3882,6 +3933,28 @@ end
 -- 下载文件
 local function download_file(url, dest_path, aid, target_mount)
     log.info("exapp", "downloading", url, "->", dest_path)
+
+    -- 优先使用预下载的本地 ZIP (测试加速, 避免服务器限流)
+    local local_zip = "/testresult/app_zips/" .. aid .. ".zip"
+    if io.exists(local_zip) then
+        log.info("exapp", "using pre-downloaded zip", local_zip)
+        local copy_ok = os.rename(local_zip, dest_path)
+        if not copy_ok then
+            -- os.rename 跨文件系统可能失败, 回退到读写拷贝
+            local data = io.readFile(local_zip)
+            if data then
+                io.writeFile(dest_path, data)
+                copy_ok = true
+                log.info("exapp", "copied via readFile", #data, "bytes")
+            end
+        end
+        if copy_ok then
+            log.info("exapp", "local zip install success for", aid)
+            return true
+        end
+        log.warn("exapp", "local zip copy failed, falling back to download")
+    end
+
     -- 尝试从服务器返回字段获取 zip 大小信息（若服务端支持）
     local app_entry = nil
     if remote_app_list and remote_app_list.apps then
@@ -4104,7 +4177,7 @@ local function unzip_file(zip_path, dest_dir)
         log.error("exapp", "zip integrity check failed, skipping extraction:", zip_path)
         return false
     end
-    local success = miniz.unzip(zip_path, dest_dir, true)
+    local success = miniz.unzip(zip_path, dest_dir)
     return success
 end
 

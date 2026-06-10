@@ -831,6 +831,48 @@ local function on_installed_updated()
     end
 end
 
+-- ==================== FOTA 升级弹窗 ====================
+
+local function show_fota_reboot_prompt(message)
+    local density = density_scale_val or 1.0
+    local mw = math.min(math.floor(screen_w * 0.80), 400)
+    local mh = math.floor(screen_h * 0.25)
+    local fs = math.max(14, math.min(20, math.floor(screen_h * 0.024)))
+    airui.msgbox({
+        w = mw, h = mh,
+        style = { text_font_size = fs },
+        title = "固件更新",
+        text = message or "升级包已下载完成，是否重启设备进行升级？",
+        buttons = { "稍后重启", "立即重启" },
+        on_action = function(self, btn_label)
+            self:destroy()
+            if btn_label == "立即重启" then
+                sys.publish("FOTA_CONFIRM_REBOOT")
+            end
+        end
+    })
+end
+
+local function show_fota_download_prompt(message)
+    local density = density_scale_val or 1.0
+    local mw = math.min(math.floor(screen_w * 0.80), 400)
+    local mh = math.floor(screen_h * 0.25)
+    local fs = math.max(14, math.min(20, math.floor(screen_h * 0.024)))
+    airui.msgbox({
+        w = mw, h = mh,
+        style = { text_font_size = fs },
+        title = "固件更新",
+        text = message or "检测到新版本，是否下载升级？",
+        buttons = { "取消", "开始下载" },
+        on_action = function(self, btn_label)
+            self:destroy()
+            if btn_label == "开始下载" then
+                sys.publish("FOTA_DOWNLOAD_START")
+            end
+        end
+    })
+end
+
 -- ==================== 状态更新函数 ====================
 
 local function update_time_date(time_str, date_str, weekday_str)
@@ -1039,6 +1081,8 @@ local function on_create()
     sys.subscribe("AUTOSTART_SETTINGS_VALUE", on_auto_start_settings)
     sys.subscribe("AUTOSTART_CONFIG_CHANGED", request_auto_start_state)
     sys.subscribe("AUTOSTART_PASSWORD_RESULT", on_auto_start_password_result)
+    sys.subscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
+    sys.subscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
     request_auto_start_state()
 
     sys.publish("REQUEST_STATUS_REFRESH")
@@ -1054,6 +1098,8 @@ local function on_destroy()
     sys.unsubscribe("AUTOSTART_SETTINGS_VALUE", on_auto_start_settings)
     sys.unsubscribe("AUTOSTART_CONFIG_CHANGED", request_auto_start_state)
     sys.unsubscribe("AUTOSTART_PASSWORD_RESULT", on_auto_start_password_result)
+    sys.unsubscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
+    sys.unsubscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
     destroy_context_ui()
 
     if tab_view then tab_view:destroy(); tab_view = nil end

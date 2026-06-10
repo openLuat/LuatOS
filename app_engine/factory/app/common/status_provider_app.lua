@@ -188,7 +188,6 @@ local function update_mobile_signal()
     local old_level = mobile_signal_level
     if not sim_present then
         mobile_signal_level = -1
-        log.info("status_provider", "无SIM卡，信号等级=-1")
     else
         local ok, csq = pcall(mobile.csq)
         if not ok then csq = 99 end

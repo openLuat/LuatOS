@@ -1176,6 +1176,8 @@ static void netdrv_airlink_setup(void* params) {
 	// 自动新增STA和AP的netdrv
 	luat_netdrv_conf_t conf = {0};
 	conf.impl = LUAT_NETDRV_IMPL_WHALE;
+    // Air8000 自启动airlink主机后进入休眠会出现间隔1s的定时器唤醒，影响功耗。是下面注册的netdrv会走到lwip启用arp定时器，导致休眠唤醒后频繁唤醒。
+    // 具体位置: net_lwip2.c -> net_lwip2_set_netif函数 -> platform_start_timer(prvlwip.arp_timer, 1000, 1); 
 	// 注册STA
 	conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
 	luat_netdrv_setup(&conf);

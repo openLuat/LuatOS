@@ -566,6 +566,15 @@ local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sand
         stop_all_timers()
     end
 
+    -- PC模拟器: 停止 LVGL timer, 防止 widget 销毁过程中
+    -- timer 回调触发 C 层访问已释放内存导致 C0000005 崩溃
+    if lvgltimer and lvgltimer.stop then
+        local ok, err = pcall(lvgltimer.stop)
+        if not ok then
+            log.warn("sandbox_cleanup", "lvgltimer.stop failed:", err)
+        end
+    end
+
     -- 再销毁UI沙箱容器（会自动递归销毁所有子组件）
     if sandbox_container then
         local ok, err = pcall(sandbox_container.destroy, sandbox_container)

@@ -253,6 +253,10 @@ static const luaL_Reg loadedlibs[] = {
   {"nes", luaopen_nes},
 #endif
   {"pgfs", luaopen_pgfs},
+#ifdef LUAT_USE_LVGL
+  // PC模拟器: LVGL timer 控制, 用于 sandbox_cleanup 前暂停, 防止 widget 销毁竞态
+  {"lvgltimer", luaopen_lvgltimer},
+#endif
   {NULL, NULL}
 };
 

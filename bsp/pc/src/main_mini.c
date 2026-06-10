@@ -17,6 +17,7 @@
 
 #include "luat_mem.h"
 #include "luat_timer_engine.h"
+#include "rotable2.h"
 
 
 #ifdef LUAT_USE_LWIP
@@ -216,6 +217,18 @@ static int lua_lvgl_timer_start(lua_State *L) {
 }
 static int lua_lvgl_timer_status(lua_State *L) {
     lua_pushboolean(L, lvgl_timer_enabled);
+    return 1;
+}
+
+static const rotable_Reg_t reg_lvgltimer[] = {
+    { "stop",   ROREG_FUNC(lua_lvgl_timer_stop) },
+    { "start",  ROREG_FUNC(lua_lvgl_timer_start) },
+    { "status", ROREG_FUNC(lua_lvgl_timer_status) },
+    { NULL,     ROREG_INT(0) }
+};
+
+LUAMOD_API int luaopen_lvgltimer(lua_State *L) {
+    luat_newlib2(L, reg_lvgltimer);
     return 1;
 }
 #endif

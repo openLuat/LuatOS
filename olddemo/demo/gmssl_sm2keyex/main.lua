@@ -96,16 +96,19 @@ sys.taskInit(function()
     local pkxA, pkyA, privA = gmssl.sm2keygen()
     assert(pkxA and pkyA and privA, "A长期密钥生成失败")
     log.info("SM2 KeyEx", "A 长期密钥已生成")
+    sys.wait(10)  -- 释放CPU喂狗, sm2keygen底层点乘耗时较长
 
     -- B方长期密钥
     local pkxB, pkyB, privB = gmssl.sm2keygen()
     assert(pkxB and pkyB and privB, "B长期密钥生成失败")
     log.info("SM2 KeyEx", "B 长期密钥已生成")
+    sys.wait(10)
 
     -- A方临时密钥 (rA, RA)  -- GBT32918.3 6.1节
     local rAx, rAy, rA = gmssl.sm2keygen()
     assert(rAx and rAy and rA, "A临时密钥生成失败")
     log.info("SM2 KeyEx", "A 临时密钥已生成")
+    sys.wait(10)
 
     -- B方临时密钥 (rB, RB)
     local rBx, rBy, rB = gmssl.sm2keygen()
@@ -150,6 +153,7 @@ sys.taskInit(function()
     -- 当前使用简化ECDH直接计算 [dA]*RB, 完整实现需新增 sm2_point_add() C层绑定
     local ux_A, uy_A = gmssl.sm2ecdh(privA, rBx, rBy)
     assert(ux_A and uy_A, "A侧ECDH失败")
+    sys.wait(10)
 
     -- ==================== Step 5: KDF 密钥派生 ====================
     log.info("SM2 KeyEx", "===== Step 5: KDF 派生共享密钥 =====")
@@ -162,6 +166,7 @@ sys.taskInit(function()
     local ux_B, uy_B = gmssl.sm2ecdh(privB, rAx, rAy)
     local uRaw_B = string.fromHex(ux_B) .. string.fromHex(uy_B) .. ZA .. ZB
     local KB = sm3_kdf(uRaw_B, klen)
+    sys.wait(10)
 
     log.info("SM2 KeyEx", "共享密钥 KA:", string.toHex(KA):sub(1, 20) .. "...")
     log.info("SM2 KeyEx", "共享密钥 KB:", string.toHex(KB):sub(1, 20) .. "...")

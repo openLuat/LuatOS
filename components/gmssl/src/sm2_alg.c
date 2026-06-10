@@ -19,6 +19,9 @@
 #include <gmssl/error.h>
 #include <gmssl/endian.h>
 
+/* 嵌入式平台: 长时间点乘运算中喂狗防止 WDT 复位 */
+#include "luat_wdt.h"
+
 
 #define sm2_print_bn(label,a) sm2_bn_print(stderr,0,0,label,a) // 这个不应该放在这里，应该放在测试文件中
 
@@ -1020,6 +1023,7 @@ void sm2_jacobian_point_mul(SM2_JACOBIAN_POINT *R, const SM2_BN k, const SM2_JAC
 
 	sm2_jacobian_point_set_infinity(Q);
 	// double-and-add: iterate k MSB-first, word 7 down to 0
+	// 嵌入式平台每处理 2 个 word (64 次迭代) 喂一次狗, 防止长时间点乘触发 WDT 复位
 	for (i = 7; i >= 0; i--) {
 		w = k[i];
 		for (j = 0; j < 32; j++) {
@@ -1029,6 +1033,7 @@ void sm2_jacobian_point_mul(SM2_JACOBIAN_POINT *R, const SM2_BN k, const SM2_JAC
 			}
 			w <<= 1;
 		}
+		if ((i & 1) == 0) { luat_wdt_feed(); }  // 每 2 个 word 喂狗一次
 	}
 	sm2_jacobian_point_copy(R, Q);
 }

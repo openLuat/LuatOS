@@ -207,6 +207,7 @@ int nes_audio_init(void) {
         NULL,                  /* probe = NULL → 默认驱动(DAC) */
         codec_opts,
         &common_param,
+        NES_APU_SAMPLE_PER_SYNC*2,
         0, 0,
         _nes_audio_request_cb,
         NULL);

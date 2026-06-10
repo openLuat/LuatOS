@@ -600,6 +600,22 @@ local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sand
     log.info("sandbox_cleanup", "cleanup completed:", app_path)
 end
 
+-- 分页读取目录全部条目（io.lsdir 单次上限 100，超过需翻页）
+local function lsdir_all(dir)
+    local all = {}
+    local offset = 0
+    while true do
+        local ret, list = io.lsdir(dir, 100, offset)
+        if not ret or not list or #list == 0 then break end
+        for _, item in ipairs(list) do
+            table.insert(all, item)
+        end
+        if #list < 100 then break end
+        offset = offset + 100
+    end
+    return all
+end
+
 -- 递归拷贝目录（用于更新时跨存储迁移data目录）
 -- 仅拷贝文件，跳过无法读取的项
 local function copy_data_dir(src_dir, dst_dir)
@@ -611,8 +627,7 @@ local function copy_data_dir(src_dir, dst_dir)
             return false
         end
     end
-    local ret, list = io.lsdir(src_dir, 100, 0)
-    if not ret then return false end
+    local list = lsdir_all(src_dir)
     for _, item in ipairs(list) do
         local src_path = src_dir .. item.name
         local dst_path = dst_dir .. item.name
@@ -641,8 +656,7 @@ local function copy_data_dir(src_dir, dst_dir)
             return false
         end
     end
-    local ret, list = io.lsdir(src_dir, 100, 0)
-    if not ret then return false end
+    local list = lsdir_all(src_dir)
     for _, item in ipairs(list) do
         local src_path = src_dir .. item.name
         local dst_path = dst_dir .. item.name
@@ -663,15 +677,13 @@ end
 -- 递归删除目录（用于云端卸载）
 local function rmdir_recursive(dir)
     if not io.dexist(dir) then return true end
-    local ret, list = io.lsdir(dir, 100, 0)
-    if ret then
-        for _, item in ipairs(list) do
-            local full_path = dir .. "/" .. item.name
-            if item.type == 1 then
-                rmdir_recursive(full_path)
-            else
-                os.remove(full_path)
-            end
+    local list = lsdir_all(dir)
+    for _, item in ipairs(list) do
+        local full_path = dir .. "/" .. item.name
+        if item.type == 1 then
+            rmdir_recursive(full_path)
+        else
+            os.remove(full_path)
         end
     end
     local ok = io.rmdir(dir)
@@ -852,7 +864,7 @@ local function app_task(app_path)
         "exril_5101", "exsip", "exsipclient", "exsipproto", "extalk", "extp",
         "exvib", "exvib1", "exwin", "gc032a", "gc0310", "httpdns", "httpplus",
         "lbsLoc", "lbsLoc2", "libnet", "netLed", "udpsrv",
-        "xmodem", "sys", "sysplus"
+        "xmodem", "sys", "sysplus", "airui"
     }
     local ext_libs = {}
     for _, v in ipairs(EXT_LIBS) do ext_libs[v] = true end
@@ -2401,7 +2413,11 @@ local function app_task(app_path)
         install_component(component_name)
     end
 
-    my_env.airui.font_load = wrap_config(ui.font_load, "path", 1, false, false)
+    -- airui.font_load：禁止后装APP在运行时加载字体，系统全局字体在工厂代码中统一初始化
+    my_env.airui.font_load = function(...)
+        my_env.log.error("airui", "沙箱环境不允许动态加载字体")
+        return false
+    end
 
     local excloud_lib = safe_global("excloud")
     my_env.excloud = setmetatable({}, { __index = excloud_lib })
@@ -2553,6 +2569,23 @@ local function app_task(app_path)
     my_env.sys.timerStopAll = function(...)
         timer_ids = {}
         return glob_sys.timerStopAll(...)
+    end
+
+    -- 使用沙箱专用的 taskInit（xpcall 保护 + timer_ids 追踪）
+    my_env.sys.taskInit = function(func, ...)
+        local args = {...}
+        local wrapped = function()
+            local ok, err = xpcall(func, debug.traceback, table.unpack(args))
+            if not ok then
+                my_env.log.error("taskInit", "task error:", err)
+            end
+        end
+        local id = glob_sys.taskInit(wrapped)
+        if id then
+            table.insert(timer_ids, id)
+            my_env.log.info("task_init", "task registered, ID:", id)
+        end
+        return id
     end
 
     -- ==============================================
@@ -3940,7 +3973,6 @@ local function download_file(url, dest_path, aid, target_mount)
         log.info("exapp", "using pre-downloaded zip", local_zip)
         local copy_ok = os.rename(local_zip, dest_path)
         if not copy_ok then
-            -- os.rename 跨文件系统可能失败, 回退到读写拷贝
             local data = io.readFile(local_zip)
             if data then
                 io.writeFile(dest_path, data)
@@ -4094,8 +4126,7 @@ end
 -- 计算目录大小，单位 KB（简单实现，递归统计）
 local function dir_size_kb(dir_path)
     local total = 0
-    local ret, list = io.lsdir(dir_path, 100, 0)
-    if not ret or not list then return total end
+    local list = lsdir_all(dir_path)
     for _, item in ipairs(list) do
         local full = dir_path .. (dir_path:sub(-1) == "/" and "" or "/") .. item.name
         if item.type == 1 then
@@ -4381,7 +4412,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
                 local meta_content = io.readFile(meta_path)
                 if meta_content then
                     local ok, meta_data = pcall(json.decode, meta_content)
-                    if ok then
+                    if ok and type(meta_data) == "table" then
                         -- 写入安装时间戳（本地 UTC 时间戳）和下载量
                         local install_time = os.time()
                         meta_data.install_time = install_time
@@ -4645,16 +4676,14 @@ function exapp.update_remote_app(aid, url, app_name, category, sort)
         old_path = new_app_root
     else
         -- 原地更新：删除旧版本文件（保留 data/ 目录）
-        local ret, list = io.lsdir(old_path, 100, 0)
-        if ret and list then
-            for _, item in ipairs(list) do
-                if item.name ~= "data" then
-                    local full_path = old_path .. item.name
-                    if item.type == 1 then
-                        rmdir_recursive(full_path)
-                    else
-                        os.remove(full_path)
-                    end
+        local list = lsdir_all(old_path)
+        for _, item in ipairs(list) do
+            if item.name ~= "data" then
+                local full_path = old_path .. item.name
+                if item.type == 1 then
+                    rmdir_recursive(full_path)
+                else
+                    os.remove(full_path)
                 end
             end
         end

@@ -17,7 +17,7 @@ testcase/
 ├── utest/            # C-layer utest suites (xxx.utest(case) bridges)
 │   ├── net/          #   tcp_basic, http_basic, https_basic, dtls_basic
 │   ├── lib/          #   core_basic, crypto_basic
-│   └── sys/          #   little_flash_basic, ndk_basic
+│   └── sys/          #   ndk_basic
 └── <feature>/        # Feature tests
     └── <feature>_basic/
         ├── metas.json

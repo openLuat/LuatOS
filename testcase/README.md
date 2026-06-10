@@ -53,7 +53,7 @@ cd bsp\pc
   - `http_basic`:`http://www.qq.com` HTTP 连通性
   - `https_basic`:`https://www.qq.com` HTTPS 连通性
   - `socket_udp_limit_basic`(未迁移,仍在 `unit_testcase_tools/`):PC 本地 UDP `socket.rx(limit)` 读截断后丢弃剩余 datagram
-- 其它组:`lib/core_basic`、`lib/crypto_basic`、`sys/little_flash_basic`、`sys/ndk_basic`
+- 其它组:`lib/core_basic`、`lib/crypto_basic`、`sys/ndk_basic`
 - 也可以继续直接运行模拟器:
 
 ```powershell

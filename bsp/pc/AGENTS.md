@@ -102,7 +102,7 @@ Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/ma
   - `net/tcp_basic`: TCP reachability against `www.qq.com:80`
   - `net/http_basic`: HTTP reachability against `http://www.qq.com`
   - `net/https_basic`: HTTPS reachability against `https://www.qq.com`
-  - `lib/core_basic`, `lib/crypto_basic`, `lib/miniz_basic`, `sys/little_flash_basic`, `sys/ndk_basic`
+  - `lib/core_basic`, `lib/crypto_basic`, `lib/miniz_basic`, `sys/ndk_basic`
   - `fs/pgfs_basic`: PGFS filesystem replay/FTL/gc selftests (note: one selftest `pgfs_test_replay_failure_cleans_up` is known-fail)
 - Additional PC socket regression:
   - `socket_udp_limit_basic`: verifies `socket.rx(..., limit)` truncates UDP data and discards the unread datagram tail

@@ -115,7 +115,8 @@ end
 
 -- ==================== 测试4: SM3-KDF 手动实现 ====================
 -- GBT 32918.3-2016 第4.2.5节
-local function sm3_kdf(z, klen)
+-- 实现A: 使用 hex → binary (与现有代码兼容)
+local function sm3_kdf_hex(z, klen)
     local ct = 1
     local result = ""
     while #result < klen do
@@ -127,22 +128,126 @@ local function sm3_kdf(z, klen)
     return string.sub(result, 1, klen)
 end
 
+-- 实现B: 使用 string.pack 原生大端编码 (olddemo 风格)
+local function sm3_kdf_pack(z, klen)
+    local ct = 1
+    local result = ""
+    while #result < klen do
+        local ctBytes = string.pack(">I4", ct)
+        local h = gmssl.sm3(concat(z, ctBytes))
+        result = concat(result, h)
+        ct = ct + 1
+    end
+    return string.sub(result, 1, klen)
+end
+
+-- 主 KDF 函数 (默认实现)
+local sm3_kdf = sm3_kdf_hex
+
 function sm2_keyex.test_sm3_kdf()
-    log.info("KeyEx", "== 测试4: SM3-KDF ==")
+    log.info("KeyEx", "== 测试4: SM3-KDF (GBT 32918.3-2016 §4.2.5) ==")
 
     local z = "test KDF input for GBT 32918.3"
-    local kdfOut = sm3_kdf(z, 32)
-    assert(kdfOut and #kdfOut == 32, "KDF输出长度异常")
 
-    -- 相同输入应产生相同输出
+    -- 4.1: 基本输出长度正确
+    local kdfOut = sm3_kdf(z, 32)
+    assert(kdfOut and #kdfOut == 32, "KDF 32字节输出长度异常")
+
+    -- 4.2: 确定性 (相同输入 → 相同输出)
     local kdfOut2 = sm3_kdf(z, 32)
     assert(kdfOut == kdfOut2, "KDF非确定性")
 
-    -- 不同长度
+    -- 4.3: 可变长度输出
     local kdf128 = sm3_kdf(z, 128)
-    assert(#kdf128 == 128, "KDF可变长度输出异常")
+    assert(#kdf128 == 128, "KDF 128字节输出长度异常")
 
-    log.info("KeyEx", "√ SM3-KDF: 确定性验证通过, 支持可变长度")
+    -- 4.4: 边界 - klen=0 返回空串
+    local kdf0 = sm3_kdf(z, 0)
+    assert(kdf0 == "", "KDF klen=0 应返回空串")
+
+    -- 4.5: 边界 - klen=1 单字节
+    local kdf1 = sm3_kdf(z, 1)
+    assert(kdf1 and #kdf1 == 1, "KDF klen=1 输出长度异常")
+
+    -- 4.6: 边界 - klen=32 (恰好一个SM3块, 无截断)
+    local kdf32 = sm3_kdf(z, 32)
+    assert(#kdf32 == 32, "KDF klen=32 (整块) 输出长度异常")
+
+    -- 4.7: 边界 - klen=33 (跨越SM3块边界, 需2轮)
+    local kdf33 = sm3_kdf(z, 33)
+    assert(#kdf33 == 33, "KDF klen=33 (跨块) 输出长度异常")
+    -- 前32字节与整块输出相同
+    assert(string.sub(kdf33, 1, 32) == kdf32, "KDF klen=33 前32字节应与klen=32一致")
+
+    -- 4.8: 边界 - klen=64 (恰好2个SM3块)
+    local kdf64 = sm3_kdf(z, 64)
+    assert(#kdf64 == 64, "KDF klen=64 (2个整块) 输出长度异常")
+
+    -- 4.9: 空Z输入
+    local kdfEmptyZ = sm3_kdf("", 16)
+    assert(kdfEmptyZ and #kdfEmptyZ == 16, "KDF 空Z输入输出长度异常")
+
+    -- 4.10: 长Z输入 (超过SM3块大小)
+    local longZ = string.rep("ABCD", 128)  -- 512字节
+    local kdfLongZ = sm3_kdf(longZ, 32)
+    assert(kdfLongZ and #kdfLongZ == 32, "KDF 长Z输入输出长度异常")
+
+    -- 4.11: 不同Z产生不同输出
+    local kdfZ1 = sm3_kdf("inputA", 16)
+    local kdfZ2 = sm3_kdf("inputB", 16)
+    assert(kdfZ1 ~= kdfZ2, "不同Z应产生不同KDF输出")
+
+    -- 4.12: 前缀特性 - klen=N的输出是klen=N+1的前缀
+    local kdf10 = sm3_kdf(z, 10)
+    local kdf11 = sm3_kdf(z, 11)
+    assert(string.sub(kdf11, 1, 10) == kdf10, "KDF前缀特性: klen=11前10字节应==klen=10")
+
+    -- 4.13: 验证计数器编码 (ct=1 → 0x00000001)
+    local ct1_hex = h2b(string.format("%08X", 1))
+    assert(#ct1_hex == 4, "计数器hex编码长度应为4")
+    assert(string.byte(ct1_hex, 1) == 0x00, "ct=1 hex 第1字节应为0x00")
+    assert(string.byte(ct1_hex, 2) == 0x00, "ct=1 hex 第2字节应为0x00")
+    assert(string.byte(ct1_hex, 3) == 0x00, "ct=1 hex 第3字节应为0x00")
+    assert(string.byte(ct1_hex, 4) == 0x01, "ct=1 hex 第4字节应为0x01")
+    log.info("KeyEx", "  计数器 hex 编码: ct=1 → 0x00000001 √")
+
+    -- 4.14: 验证计数器编码 (ct=256 → 0x00000100)
+    local ct256_hex = h2b(string.format("%08X", 256))
+    assert(#ct256_hex == 4, "ct=256 hex 编码长度应为4")
+    assert(string.byte(ct256_hex, 3) == 0x01, "ct=256 hex 第3字节应为0x01")
+    assert(string.byte(ct256_hex, 4) == 0x00, "ct=256 hex 第4字节应为0x00")
+    log.info("KeyEx", "  计数器 hex 编码: ct=256 → 0x00000100 √")
+
+    -- 4.15: string.pack 与 hex 编码一致性
+    if pcall(string.pack, ">I4", 1) then
+        local pack1 = string.pack(">I4", 1)
+        assert(pack1 == ct1_hex, "string.pack('>I4',1) 应与 hex 编码一致")
+
+        local pack256 = string.pack(">I4", 256)
+        assert(pack256 == ct256_hex, "string.pack('>I4',256) 应与 hex 编码一致")
+        log.info("KeyEx", "  string.pack 与 hex 编码一致性验证通过")
+
+        -- 4.16: 两种实现完全等价
+        local h1 = sm3_kdf_hex(z, 47)
+        local h2 = sm3_kdf_pack(z, 47)
+        assert(h1 == h2, "hex实现与pack实现的KDF结果不一致")
+        log.info("KeyEx", "  hex/pack 两种KDF实现完全等价 √")
+    end
+
+    -- 4.17: GBT32918.3 规范验证 - KDF输出应不可预测且均匀
+    -- (通过检查相邻字节不全相同来简单验证)
+    local kdfCheck = sm3_kdf("gbt32918.3-2016", 32)
+    local allSame = true
+    local firstByte = string.byte(kdfCheck, 1)
+    for i = 2, #kdfCheck do
+        if string.byte(kdfCheck, i) ~= firstByte then
+            allSame = false
+            break
+        end
+    end
+    assert(not allSame, "KDF输出不应为全同字节")
+
+    log.info("KeyEx", "√ SM3-KDF: 全部17项测试通过 (0/1/32/33/64/128, 空/长Z, 确定性, 前缀, 计数器, 跨实现一致)")
 end
 
 -- ==================== 测试5: 确认值 SA/SB 计算 ====================

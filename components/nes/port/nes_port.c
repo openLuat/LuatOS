@@ -162,3 +162,92 @@ void nes_log_printf(const char *fmt, ...) {
     va_end(args);
 }
 
+/* ==== NES 音频输出(audio v2 集成)==== */
+#if (NES_ENABLE_SOUND == 1)
+
+#include "luat_audio_request.h"
+#include "luat_audio_data_codec.h"
+#include "luat_common_api.h"   /* luat_fifo_t / luat_fifo_write */
+
+#define LUAT_LOG_TAG "nes.audio"
+#include "luat_log.h"
+
+static luat_audio_request_block_t s_nes_request;
+static luat_audio_request_block_t *g_nes_request = NULL;
+
+/* cb 占位:nes_sound_output → channel->play_fifo → DMA*/
+static void _nes_audio_request_cb(uint32_t event, uint8_t *data,
+                                  uint32_t len, struct luat_audio_request_block *rb) {
+    (void)event; (void)data; (void)len; (void)rb;
+}
+
+int nes_audio_init(void) {
+    if (g_nes_request) return 0;
+
+    luat_audio_common_param_t common_param = {
+        .sample_rate  = 44100,
+        .channel_nums = 1,
+        .data_align   = 1,    /* 8-bit = 1 byte */
+        .is_signed    = 0,    /* NES APU 输出无符号 PCM */
+        .driver_work_mode = LUAT_AUDIO_DRIVER_MODE_PLAY,
+    };
+
+    const luat_audio_data_codec_opts_t *codec_opts =
+        luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_RAW);
+    if (!codec_opts) {
+        LLOGW("nes: RAW codec not registered, audio disabled");
+        return -1;
+    }
+
+    g_nes_request = &s_nes_request;
+    memset(g_nes_request, 0, sizeof(luat_audio_request_block_t));
+
+    int ret = luat_audio_request_play_stream(
+        g_nes_request,
+        NULL,                  /* probe = NULL → 默认驱动(DAC) */
+        codec_opts,
+        &common_param,
+        0, 0,
+        _nes_audio_request_cb,
+        NULL);
+    if (ret != 0) {
+        LLOGE("nes: luat_audio_request_play_stream failed: %d", ret);
+        luat_heap_free(g_nes_request);
+        g_nes_request = NULL;
+        return ret;
+    }
+    return 0;
+}
+
+void nes_audio_deinit(void) {
+    if (!g_nes_request) return;
+    if (g_nes_request->org_input_data_fifo) {
+        luat_audio_request_cancel(g_nes_request);
+    }
+    luat_heap_free(g_nes_request);
+    g_nes_request = NULL;
+}
+
+int nes_sound_output(uint8_t *buffer, size_t len) {
+    if (!buffer || len == 0) return 0;
+    if (len > 1024) len = 1024;
+
+    uint32_t cr = luat_rtos_entry_critical();
+    luat_audio_request_block_t *req = g_nes_request;
+    luat_rtos_exit_critical(cr);
+
+    if (!req) return 0;
+
+    luat_audio_channel_t *channel = req->data_channel;
+    if (!channel || !channel->play_fifo) return 0;
+
+    static int16_t pcm16[1024];
+    for (size_t i = 0; i < len; i++) {
+        pcm16[i] = (int16_t)(((int)buffer[i] - 128) << 8);
+    }
+
+    luat_fifo_write(channel->play_fifo, (const uint8_t *)pcm16, (uint32_t)(len * 2));
+    return 0;
+}
+
+#endif /* NES_ENABLE_SOUND == 1 */

@@ -30,6 +30,7 @@
 #include <string.h>
 
 #include "nes_conf.h"
+#include "nes_default.h"
 
 #ifdef __cplusplus
     extern "C" {
@@ -76,8 +77,30 @@ void nes_port_clear_render_cb(void);
 void nes_set_airui_mode(int enabled);
 #endif
 
+/* ==== NES 音频输出(audio v2 集成)==== */
+#if (NES_ENABLE_SOUND == 1)
+/**
+ * @brief 初始化 NES 音频流
+ *
+ * 在 luat_lib_nes.c 的 l_nes_init 中,nes_load_file 之后、nes 任务创建之前
+ * 被调用。内部使用 audio v2 的 RAW 编解码器与默认 DAC 驱动,创建一个
+ * stream 模式的音频请求,NES APU 的 PCM 样本将经此通路播放。
+ *
+ * @return 0 成功;<0 失败(非致命,NES 仍可正常运行,仅无声)
+ */
+int nes_audio_init(void);
 
-#ifdef __cplusplus          
+/**
+ * @brief 反初始化 NES 音频流
+ *
+ * 在 luat_lib_nes.c 的 l_nes_deinit 中被调用。取消并释放
+ * nes_audio_init 创建的 stream 请求。
+ */
+void nes_audio_deinit(void);
+#endif
+
+
+#ifdef __cplusplus
     }
 #endif
 

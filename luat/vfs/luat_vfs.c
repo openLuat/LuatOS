@@ -32,7 +32,7 @@ static void vfs_unlock(luat_vfs_t *v) {
 extern const struct luat_vfs_filesystem vfs_fs_inline;
 #endif
 
-static luat_vfs_t vfs= {0};
+static luat_vfs_t vfs = {0};
 
 int luat_vfs_init(void* params) {
     (void)params;
@@ -95,6 +95,10 @@ int luat_vfs_rm_fd(FILE* fd) {
 }
 
 luat_vfs_mount_t * getmount(const char* filename) {
+    if (filename == NULL) {
+        LLOGW("mount point path is null");
+        return NULL;
+    }
     for (int j = LUAT_VFS_FILESYSTEM_MOUNT_MAX - 1; j >= 0; j--) {
         if (vfs.mounted[j].ok == 0)
             continue;
@@ -123,6 +127,13 @@ int luat_fs_mkfs(luat_fs_conf_t *conf) {
 }
 
 int luat_fs_mount(luat_fs_conf_t *conf) {
+    if (conf == NULL || conf->filesystem == NULL || conf->mount_point == NULL) {
+        return -1;
+    }
+    if (strlen(conf->mount_point) >= sizeof(vfs.mounted[0].prefix)) {
+        LLOGE("mount point too long %s", conf->mount_point);
+        return -1;
+    }
     vfs_lock(&vfs);
     //LLOGD("mount %s %s", conf->filesystem, conf->mount_point);
     for (int i = 0; i < LUAT_VFS_FILESYSTEM_MAX; i++) {
@@ -360,9 +371,13 @@ int luat_fs_remove(const char *filename) {
 }
 int luat_fs_rename(const char *old_filename, const char *new_filename) {
     vfs_lock(&vfs);
+    if (old_filename == NULL || new_filename == NULL) {
+        vfs_unlock(&vfs);
+        return -1;
+    }
     luat_vfs_mount_t *old_mount = getmount(old_filename);
     luat_vfs_mount_t *new_mount = getmount(new_filename);
-    if (old_filename == NULL || new_mount != old_mount || old_mount->fs->opts.rename == NULL) {
+    if (old_mount == NULL || new_mount != old_mount || old_mount->fs == NULL || old_mount->fs->opts.rename == NULL) {
         vfs_unlock(&vfs);
         return -1;
     }
@@ -409,7 +424,7 @@ int luat_fs_readline(char * buf, int bufsize, FILE * stream){
         return 0;
     }
     size_t tmp = (size_t)bufsize;
-    for (size_t i = 0; i <= tmp; i++){
+    for (size_t i = 0; i < tmp; i++){
         memset(buff, 0, 2);
         int len = fd->fsMount->fs->fopts.fread(fd->fsMount->userdata, buff, sizeof(char), 1, fd->fd);
         if (len>0){
@@ -426,32 +441,72 @@ int luat_fs_readline(char * buf, int bufsize, FILE * stream){
     return get_len;
 }
 
+static const char *prv_trim_dir_arg(const char *path, char *buf, size_t size) {
+    size_t len;
+    size_t trimmed;
+
+    if (path == NULL) {
+        return NULL;
+    }
+
+    len = strlen(path);
+    trimmed = len;
+    while (trimmed > 1 && path[trimmed - 1] == '/') {
+        trimmed--;
+    }
+    if (trimmed == len) {
+        return path;
+    }
+    if (trimmed >= size) {
+        return NULL;
+    }
+    memcpy(buf, path, trimmed);
+    buf[trimmed] = '\0';
+    return buf;
+}
+
 int luat_fs_mkdir(char const* _DirName) {
     vfs_lock(&vfs);
     luat_vfs_mount_t *mount = getmount(_DirName);
+    char dir_arg[256];
+    const char *rel;
     if (mount == NULL || mount->fs->opts.mkdir == NULL) {
         vfs_unlock(&vfs);
         return 0;
     }
-    int ret = mount->fs->opts.mkdir(mount->userdata,  _DirName + strlen(mount->prefix));
+    rel = prv_trim_dir_arg(_DirName + strlen(mount->prefix), dir_arg, sizeof(dir_arg));
+    if (rel == NULL) {
+        LLOGW("mkdir path too long %s", _DirName);
+        vfs_unlock(&vfs);
+        return -1;
+    }
+    int ret = mount->fs->opts.mkdir(mount->userdata, rel);
     vfs_unlock(&vfs);
     return ret;
 }
 int luat_fs_rmdir(char const* _DirName) {
     vfs_lock(&vfs);
     luat_vfs_mount_t *mount = getmount(_DirName);
+    char dir_arg[256];
+    const char *rel;
     if (mount == NULL || mount->fs->opts.rmdir == NULL) {
         vfs_unlock(&vfs);
         return 0;
     }
-    int ret = mount->fs->opts.rmdir(mount->userdata,  _DirName + strlen(mount->prefix));
+    rel = prv_trim_dir_arg(_DirName + strlen(mount->prefix), dir_arg, sizeof(dir_arg));
+    if (rel == NULL) {
+        LLOGW("rmdir path too long %s", _DirName);
+        vfs_unlock(&vfs);
+        return -1;
+    }
+    int ret = mount->fs->opts.rmdir(mount->userdata, rel);
     vfs_unlock(&vfs);
     return ret;
 }
 
 int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
     vfs_lock(&vfs);
-    if (len == 0) {
+    if (_DirName == NULL || ents == NULL || len == 0) {
         vfs_unlock(&vfs);
         return 0;
     }
@@ -466,29 +521,29 @@ int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, s
         vfs_unlock(&vfs);
         return 0;
     }
-    // LLOGD("luat_fs_lsdir _DirName:%s mount->prefix:%s dir:%s", _DirName,mount->prefix,_DirName + strlen(mount->prefix));
-    int ret = mount->fs->opts.lsdir(mount->userdata,  _DirName + strlen(mount->prefix), ents, offset, len);
+    int ret = mount->fs->opts.lsdir(mount->userdata, _DirName + strlen(mount->prefix), ents, offset, len);
     if (ret <= 0) {
         vfs_unlock(&vfs);
-        return 0;
+        return ret;
+    }
+    if ((size_t)ret > len) {
+        ret = (int)len;
     }
 
-    char file_path[256] = {0};
-    size_t file_path_len = strlen(_DirName);
-    memcpy(file_path, _DirName, file_path_len + 1);
-    if (strlen(_DirName + strlen(mount->prefix))!=1){
-        file_path[file_path_len] = '/';
-        file_path[file_path_len + 1] = 0;
-        file_path_len++;
-    }
-    for (size_t i = 0; i < ret; i++){
-        if (ents[i].d_type==0){
-            memcpy(file_path+file_path_len, ents[i].d_name, strlen(ents[i].d_name) + 1);
-            // 注意: 这里调用 luat_fs_fsize 会导致递归加锁死锁
-            // lsdir 已持有 vfs_lock, 而 fsize 也会尝试 vfs_lock
-            // 作为快速修复, 直接从相同 mount 获取大小 (不通过公共 API)
-            if (mount->fs->opts.fsize) {
+    size_t dir_len = strlen(_DirName);
+    const char *sep = (dir_len > 0 && _DirName[dir_len - 1] == '/') ? "" : "/";
+
+    for (size_t i = 0; i < (size_t)ret; i++) {
+        ents[i].d_name[sizeof(ents[i].d_name) - 1] = '\0';
+        if (ents[i].d_type == 0 && mount->fs->opts.fsize) {
+            char file_path[256];
+            int written = snprintf(file_path, sizeof(file_path), "%s%s%s", _DirName, sep, ents[i].d_name);
+            if (written > 0 && (size_t)written < sizeof(file_path)) {
                 ents[i].d_size = mount->fs->opts.fsize(mount->userdata, file_path + strlen(mount->prefix));
+            }
+            else {
+                ents[i].d_size = 0;
+                LLOGW("lsdir path too long %s/%s", _DirName, ents[i].d_name);
             }
         }
     }

@@ -22,6 +22,9 @@ log.info("main", PROJECT, VERSION)
   7. 可选：计算确认值 SA/SB
 ]]
 
+-- 死机后停机，一般用于调试状态
+mcu.hardfault(0)
+
 sys.taskInit(function()
 
     -- ==================== 参数定义 ====================
@@ -32,7 +35,7 @@ sys.taskInit(function()
     local a  = "FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFC"
     local b  = "28E9FA9E9D9F5E344D5A9E4BCF6509A7F39789F515AB8F92DDBCBD414D940E93"
 
-    -- 双方ID (协议中ZB/ZB计算需使用)
+    -- 双方ID (协议中ZA/ZB计算需使用)
     local idA = "1234567812345678"
     local idB = "8765432187654321"
 
@@ -63,8 +66,16 @@ sys.taskInit(function()
     local function sm3_kdf(z, klen)
         local ct = 1
         local result = ""
+        -- 将计数器编码为4字节大端, 优先用 string.pack, 不可用时回退手动构造
+        local function ct2bytes(n)
+            if pcall(string.pack, ">I4", n) then
+                return string.pack(">I4", n)
+            end
+            -- 回退: 手动构造4字节大端 unsigned int
+            return string.char((n >> 24) & 0xFF, (n >> 16) & 0xFF, (n >> 8) & 0xFF, n & 0xFF)
+        end
         while #result < klen do
-            local ctBytes = string.pack(">I4", ct)
+            local ctBytes = ct2bytes(ct)
             local h = gmssl.sm3(z .. ctBytes)
             result = result .. h
             ct = ct + 1
@@ -83,18 +94,22 @@ sys.taskInit(function()
 
     -- A方长期密钥
     local pkxA, pkyA, privA = gmssl.sm2keygen()
+    assert(pkxA and pkyA and privA, "A长期密钥生成失败")
     log.info("SM2 KeyEx", "A 长期密钥已生成")
 
     -- B方长期密钥
     local pkxB, pkyB, privB = gmssl.sm2keygen()
+    assert(pkxB and pkyB and privB, "B长期密钥生成失败")
     log.info("SM2 KeyEx", "B 长期密钥已生成")
 
     -- A方临时密钥 (rA, RA)  -- GBT32918.3 6.1节
     local rAx, rAy, rA = gmssl.sm2keygen()
+    assert(rAx and rAy and rA, "A临时密钥生成失败")
     log.info("SM2 KeyEx", "A 临时密钥已生成")
 
     -- B方临时密钥 (rB, RB)
     local rBx, rBy, rB = gmssl.sm2keygen()
+    assert(rBx and rBy and rB, "B临时密钥生成失败")
     log.info("SM2 KeyEx", "B 临时密钥已生成")
 
     -- ==================== Step 2: 交换公钥 ====================
@@ -131,18 +146,21 @@ sys.taskInit(function()
     end
 
     -- A侧: 使用 self私钥 × 对方临时公钥
+    -- 注意: GBT32918.3 §6.2 标准要求计算 tA=(dA+x‾1·rA) 并执行点加法 V=[h·tA](PB+[x‾2]RB)
+    -- 当前使用简化ECDH直接计算 [dA]*RB, 完整实现需新增 sm2_point_add() C层绑定
     local ux_A, uy_A = gmssl.sm2ecdh(privA, rBx, rBy)
     assert(ux_A and uy_A, "A侧ECDH失败")
 
     -- ==================== Step 5: KDF 密钥派生 ====================
     log.info("SM2 KeyEx", "===== Step 5: KDF 派生共享密钥 =====")
 
-    local uRaw_A = ux_A .. uy_A .. ZA .. ZB
+    -- sm2ecdh 返回 hex 字符串, 需转为 raw bytes 与 ZA/ZB 拼接
+    local uRaw_A = string.fromHex(ux_A) .. string.fromHex(uy_A) .. ZA .. ZB
     local KA = sm3_kdf(uRaw_A, klen)
 
     -- B侧: (实际部署时B在远端独立计算)
     local ux_B, uy_B = gmssl.sm2ecdh(privB, rAx, rAy)
-    local uRaw_B = ux_B .. uy_B .. ZA .. ZB
+    local uRaw_B = string.fromHex(ux_B) .. string.fromHex(uy_B) .. ZA .. ZB
     local KB = sm3_kdf(uRaw_B, klen)
 
     log.info("SM2 KeyEx", "共享密钥 KA:", string.toHex(KA):sub(1, 20) .. "...")
@@ -165,8 +183,9 @@ sys.taskInit(function()
     local x2 = string.fromHex(rBx) -- RB.x
     local y2 = string.fromHex(rBy) -- RB.y
 
-    local sA = confirm("\x02", uy_A, ux_A, ZA, ZB, x1, y1, x2, y2)
-    local sB = confirm("\x03", uy_B, ux_B, ZA, ZB, x1, y1, x2, y2)
+    -- sm2ecdh 返回 hex 字符串, confirm 期望 raw bytes, 需统一转换
+    local sA = confirm("\x02", string.fromHex(uy_A), string.fromHex(ux_A), ZA, ZB, x1, y1, x2, y2)
+    local sB = confirm("\x03", string.fromHex(uy_B), string.fromHex(ux_B), ZA, ZB, x1, y1, x2, y2)
 
     log.info("SM2 KeyEx", "SA=", string.toHex(sA):sub(1, 16) .. "...")
     log.info("SM2 KeyEx", "SB=", string.toHex(sB):sub(1, 16) .. "...")

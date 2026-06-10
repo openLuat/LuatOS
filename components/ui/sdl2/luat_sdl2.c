@@ -5,6 +5,7 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <SDL_syswm.h>
+#include <direct.h>   // _getcwd, _mkdir
 #endif
 
 #define LUAT_LOG_TAG "sdl2"
@@ -548,6 +549,132 @@ void luat_sdl2_blackout(void) {
 
 int luat_sdl2_is_exit_requested(void) {
     return sdl2_exit_requested;
+}
+
+// BMP 截图: 从 SDL2 renderer 读取当前屏幕内容 → 写入 24-bit BMP 文件
+int luat_sdl2_screenshot_bmp(const char* path) {
+    if (!renderer || !framebuffer) {
+        LLOGE("screenshot: renderer/framebuffer not initialized");
+        return -1;
+    }
+
+    // 处理路径: Lua VFS 使用 "/testresult/..." (开头的 / 映射到工作目录)
+    char filepath[512];
+    #if defined(_WIN32)
+    {
+        const char *src;
+        char *d = NULL;
+        size_t cwd_len;
+        char dir[512];
+        char *last;
+
+        src = path;
+        if (src[0] == '/') src++;
+        if (_getcwd(filepath, sizeof(filepath) - 2)) {
+            cwd_len = strlen(filepath);
+            if (filepath[cwd_len - 1] != '\\') {
+                filepath[cwd_len] = '\\';
+                cwd_len++;
+            }
+            d = filepath + cwd_len;
+            while (*src && (size_t)(d - filepath) < sizeof(filepath) - 1) {
+                *d++ = (*src == '/') ? '\\' : *src;
+                src++;
+            }
+            *d = '\0';
+        } else {
+            strncpy(filepath, path, sizeof(filepath) - 1);
+            filepath[sizeof(filepath) - 1] = '\0';
+        }
+
+        strncpy(dir, filepath, sizeof(dir) - 1);
+        dir[sizeof(dir) - 1] = '\0';
+        last = strrchr(dir, '\\');
+        if (last) {
+            *last = '\0';
+            _mkdir(dir);
+        }
+    }
+    #else
+    strncpy(filepath, path, sizeof(filepath) - 1);
+    filepath[sizeof(filepath) - 1] = '\0';
+    #endif
+
+    int width = (int)sdl_conf.width;
+    int height = (int)sdl_conf.height;
+    int row_size = width * 3;
+    int pad_size = (4 - (row_size % 4)) % 4;
+
+    // 先渲染 framebuffer 到 renderer (不 Present, 避免清空 back-buffer)
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, framebuffer, NULL, NULL);
+
+    // 使用 SDL_RenderReadPixels 读取渲染输出 (ARGB8888 → 最通用的格式)
+    size_t raw_size = (size_t)width * height * 4;
+    uint8_t *raw = (uint8_t*)malloc(raw_size);
+    if (!raw) {
+        LLOGE("screenshot: malloc failed");
+        return -1;
+    }
+
+    if (SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, raw, width * 4) != 0) {
+        LLOGE("screenshot: SDL_RenderReadPixels failed: %s", SDL_GetError());
+        free(raw);
+        // 恢复显示
+        SDL_RenderPresent(renderer);
+        return -1;
+    }
+
+    FILE *fp = fopen(filepath, "wb");
+    if (!fp) {
+        LLOGE("screenshot: cannot open file: %s (resolved: %s)", path, filepath);
+        free(raw);
+        SDL_RenderPresent(renderer);
+        return -1;
+    }
+
+    int image_size = (row_size + pad_size) * height;
+    uint32_t file_size = 54 + image_size;
+
+    // BMP file header (14 bytes)
+    uint8_t bmp_fh[14] = {0};
+    bmp_fh[0] = 'B'; bmp_fh[1] = 'M';
+    memcpy(&bmp_fh[2], &file_size, 4);
+    bmp_fh[10] = 54;
+
+    // DIB header (BITMAPINFOHEADER, 40 bytes)
+    uint8_t dib[40] = {0};
+    dib[0] = 40;
+    memcpy(&dib[4], &width, 4);
+    memcpy(&dib[8], &height, 4);
+    dib[12] = 1; dib[13] = 0;
+    dib[14] = 24;
+
+    fwrite(bmp_fh, 1, 14, fp);
+    fwrite(dib, 1, 40, fp);
+
+    // BMP: bottom-to-top rows, BGR byte order
+    // RenderReadPixels: top-to-bottom, ARGB byte order (A,R,G,B per pixel)
+    uint8_t pad[3] = {0, 0, 0};
+    for (int y = height - 1; y >= 0; y--) {
+        uint8_t *src_row = raw + (size_t)y * width * 4;
+        for (int x = 0; x < width; x++) {
+            uint8_t *p = src_row + x * 4;
+            // ARGB8888 on LE: p[0]=B, p[1]=G, p[2]=R, p[3]=A → BMP BGR
+            uint8_t bgr[3] = { p[0], p[1], p[2] };  // B, G, R
+            fwrite(bgr, 1, 3, fp);
+        }
+        if (pad_size) fwrite(pad, 1, pad_size, fp);
+    }
+
+    free(raw);
+    fclose(fp);
+
+    // 恢复显示 (重新 Present 当前帧)
+    SDL_RenderPresent(renderer);
+
+    LLOGD("screenshot saved: %s (%dx%d, %u bytes)", path, width, height, file_size);
+    return 0;
 }
 
 void luat_sdl2_set_upright_preview(uint8_t enable, uint16_t rotation, size_t native_width, size_t native_height) {

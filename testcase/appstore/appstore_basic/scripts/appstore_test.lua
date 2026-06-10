@@ -195,6 +195,17 @@ local function test_one_app(app, idx, total)
     end
     log.info("appstore_test", "  PASS [启动]")
 
+    -- 截图 (PC模拟器, BMP格式, C层自动创建目录)
+    if pcscreenshot and pcscreenshot.capture then
+        local ss_path = "/testresult/screenshots/" .. aid .. ".bmp"
+        local ss_ok, ss_err = pcall(pcscreenshot.capture, ss_path)
+        if ss_ok then
+            log.info("appstore_test", "  截图已保存: " .. ss_path)
+        else
+            log.warn("appstore_test", "  截图失败: " .. (ss_err or "?"))
+        end
+    end
+
     -- Exit
     ok, err = exit_app(aid, path)
     stages.exit = {ok = ok, err = err}

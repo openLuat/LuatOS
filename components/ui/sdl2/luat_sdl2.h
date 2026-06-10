@@ -23,6 +23,7 @@ void luat_sdl2_set_upright_preview(uint8_t enable, uint16_t rotation, size_t nat
 void luat_sdl2_blackout(void);
 int  luat_sdl2_is_exit_requested(void);
 void luat_sdl2_cleanup_atexit(void);
+int  luat_sdl2_screenshot_bmp(const char* path);
 
 #endif
 

@@ -232,3 +232,30 @@ LUAMOD_API int luaopen_lvgltimer(lua_State *L) {
     return 1;
 }
 #endif
+
+#ifdef LUAT_USE_AIRUI
+// PC 模拟器截图模块: pcscreenshot.capture(path)
+#include "luat_sdl2.h"
+
+static int lua_pcscreenshot_capture(lua_State *L) {
+    const char* path = luaL_checkstring(L, 1);
+    int ret = luat_sdl2_screenshot_bmp(path);
+    if (ret != 0) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "screenshot failed");
+        return 2;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static const rotable_Reg_t reg_pcscreenshot[] = {
+    { "capture", ROREG_FUNC(lua_pcscreenshot_capture) },
+    { NULL,     ROREG_INT(0) }
+};
+
+LUAMOD_API int luaopen_pcscreenshot(lua_State *L) {
+    luat_newlib2(L, reg_pcscreenshot);
+    return 1;
+}
+#endif

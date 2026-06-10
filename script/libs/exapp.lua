@@ -2401,7 +2401,11 @@ local function app_task(app_path)
         install_component(component_name)
     end
 
-    my_env.airui.font_load = wrap_config(ui.font_load, "path", 1, false, false)
+    -- airui.font_load：禁止后装APP在运行时加载字体，系统全局字体在工厂代码中统一初始化
+    my_env.airui.font_load = function(...)
+        my_env.log.error("airui", "沙箱环境不允许动态加载字体")
+        return false
+    end
 
     local excloud_lib = safe_global("excloud")
     my_env.excloud = setmetatable({}, { __index = excloud_lib })

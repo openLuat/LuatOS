@@ -468,6 +468,10 @@ int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, s
     }
     // LLOGD("luat_fs_lsdir _DirName:%s mount->prefix:%s dir:%s", _DirName,mount->prefix,_DirName + strlen(mount->prefix));
     int ret = mount->fs->opts.lsdir(mount->userdata,  _DirName + strlen(mount->prefix), ents, offset, len);
+    if (ret <= 0) {
+        vfs_unlock(&vfs);
+        return 0;
+    }
 
     char file_path[256] = {0};
     size_t file_path_len = strlen(_DirName);

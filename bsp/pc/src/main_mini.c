@@ -164,9 +164,8 @@ int main(int argc, char** argv) {
 static int luat_webc_startup(void) {
     const luat_pcconf_t* conf = luat_pcconf_get();
     int cadence = 5;
-    if (cfg_webc_port <= 0 && conf && conf->web_console_enabled) {
-        cfg_webc_port = conf->web_console_port;
-    }
+    // Web Console 仅通过命令行 --webc=<port> 显式开启,
+    // 不再从 pcconf.json 的 web_console.enabled / port 读取启动决策
     if (cfg_webc_port <= 0) {
         return 0;
     }

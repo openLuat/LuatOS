@@ -61,8 +61,8 @@ factory/
 │   ├── eng_1602_7i_v4.lua     # Air1602 7寸 V004（NAND Flash）
 │   ├── eng_1602_10i_v0.lua    # Air1602 10.1寸
 │   ├── eng_8000w_4i_v0.lua    # Air8000W 4寸
-│   ├── evb_8101_10i_v1.lua    # Air8101 10.1寸
 │   ├── evb_8101b_5i_v1.lua    # Air8101 5寸
+│   ├── evb_8101_7i_v0.lua     # Air8101 7寸 (AirLCD_1090)
 │   ├── evb_8000a_3i5_v0.lua   # Air8000A trunkey 3.5寸
 │   ├── pc_default.lua         # PC 模拟器回退
 │   └── template.lua           # 配置参数完整说明

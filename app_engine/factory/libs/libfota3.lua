@@ -263,14 +263,18 @@ function libfota3.download(url, sha256, progress_cb)
         os.remove(temp_path)
         return false, "fota初始化失败"
     end
-    local wait_start = os.clock()
-    while not fota.wait() do
-        if os.clock() - wait_start > 30 then
-            fota.finish(false)
-            os.remove(temp_path)
-            return false, "fota等待超时"
+    -- Air8101 平台 fota.wait() 永远不就绪，跳过等待直接写文件
+    local bsp = rtos.bsp():lower()
+    if not bsp:find("air8101") then
+        local wait_start = os.clock()
+        while not fota.wait() do
+            if os.clock() - wait_start > 30 then
+                fota.finish(false)
+                os.remove(temp_path)
+                return false, "fota等待超时"
+            end
+            sys.wait(100)
         end
-        sys.wait(100)
     end
 
     local result, _, cache = fota.file(temp_path)
@@ -328,7 +332,6 @@ function libfota3.report_result(fota_sn, result_code)
         fota_sn = fota_sn,
         result_code = tonumber(result_code) or 0
     })
-    log.info("libfota3", "report body", body)
 
     sys.taskInit(function()
         -- 最多重试1次
@@ -338,7 +341,6 @@ function libfota3.report_result(fota_sn, result_code)
                 body,
                 {timeout = 30000}
             ).wait()
-            log.info("libfota3", "report response", "code", code, "body", rsp_body)
             if code == 200 and rsp_body then
                 local ok, rsp = pcall(json.decode, rsp_body)
                 if ok and rsp and rsp.code == 0 then

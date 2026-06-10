@@ -1458,6 +1458,7 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 				ctrl->domain_name = NULL;
 			}
 			adapter->ctrl_busy[i] = 0;
+			ctrl->tag = 0;  // clear tag to prevent UAF via stale event pointers
 			platform_release_mutex(ctrl->mutex);
 			ctrl->mutex = NULL;
 			break;

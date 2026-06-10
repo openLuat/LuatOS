@@ -10,6 +10,8 @@
 #define LUAT_BSP_PC 1 // 定义平台标识符，供代码中使用
 
 #define LUAT_BSP_VERSION "V2032"
+// PC模拟器: Lua VM退出后1秒重启, 无需等15秒
+#define LUAT_EXIT_REBOOT_DELAY 1000
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
 #define LUAT_USE_CMDLINE_ARGS 1
 // 启用64位虚拟机

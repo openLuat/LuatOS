@@ -37,7 +37,7 @@ TESTRESULT_DIR = WORK_DIR / "testresult"
 SINGLE_APP_FILE = TESTRESULT_DIR / "single_app.json"
 RESULT_FILE = TESTRESULT_DIR / "result.json"
 
-TIMEOUT_PER_APP = 300  # 5 分钟超时
+TIMEOUT_PER_APP = 60  # 预下载模式下正常9s, 60s足够兜底
 PAGE_SIZE = 50  # 每页拉取数量
 
 # ==================== 辅助函数 ====================
@@ -121,18 +121,10 @@ def test_one_app(app, idx, total):
         except Exception:
             pass
 
-    # 清理上次测试残留的 /app_store/ 目录 (避免损坏的 meta.json 影响后续测试)
-    app_store = WORK_DIR / "app_store"
-    if app_store.exists():
-        import shutil
-        try:
-            shutil.rmtree(str(app_store), ignore_errors=True)
-        except Exception:
-            pass
-
     # 运行模拟器
     cmd = [SIMULATOR, "--dep_strip=0"] + [str(WORK_DIR / d) for d in SCRIPT_DIRS]
 
+    t_start = time.time()
     try:
         proc = subprocess.run(
             cmd,
@@ -144,14 +136,16 @@ def test_one_app(app, idx, total):
             errors="replace",
         )
     except subprocess.TimeoutExpired:
-        print(f"[TIMEOUT] ({TIMEOUT_PER_APP}s)")
+        elapsed = time.time() - t_start
+        print(f"[TIMEOUT] ({TIMEOUT_PER_APP}s, 耗时 {elapsed:.1f}s)")
         return {
             "aid": aid, "name": name,
             "passed": False, "crashed": False,
             "stages": {}, "error": f"超时 ({TIMEOUT_PER_APP}s)",
-            "exit_code": None,
+            "exit_code": None, "elapsed": elapsed,
         }
 
+    elapsed = time.time() - t_start
     exit_code = proc.returncode
 
     # 检查结果文件
@@ -167,18 +161,18 @@ def test_one_app(app, idx, total):
         error = result.get("error")
 
         if passed:
-            print(f"[PASS] PASS")
+            print(f"[PASS] PASS ({elapsed:.1f}s)")
         else:
             # 找出失败的阶段
             failed_stages = [s for s, v in stages.items() if not v.get("ok")]
             stage_str = ",".join(failed_stages) if failed_stages else "?"
-            print(f"[FAIL] FAIL [{stage_str}] {error or ''}")
+            print(f"[FAIL] FAIL ({elapsed:.1f}s) [{stage_str}] {error or ''}")
 
         return {
             "aid": aid, "name": name,
             "passed": passed, "crashed": False,
             "stages": stages, "error": error,
-            "exit_code": exit_code,
+            "exit_code": exit_code, "elapsed": elapsed,
         }
 
     # 没有结果文件 → 崩溃
@@ -219,17 +213,17 @@ def test_one_app(app, idx, total):
         crash_reason = f"NT异常 (0x{nt_code:08X})"
 
     if crashed:
-        print(f"[CRASH] CRASH (exit={exit_code}) {crash_reason[:80]}")
+        print(f"[CRASH] CRASH ({elapsed:.1f}s) (exit={exit_code}) {crash_reason[:80]}")
     elif exit_code != 0:
-        print(f"[WARN] NORESULT (exit={exit_code})")
+        print(f"[WARN] NORESULT ({elapsed:.1f}s) (exit={exit_code})")
     else:
-        print(f"[WARN] NORESULT (exit=0)")
+        print(f"[WARN] NORESULT ({elapsed:.1f}s) (exit=0)")
 
     return {
         "aid": aid, "name": name,
         "passed": False, "crashed": crashed,
         "stages": {}, "error": crash_reason,
-        "exit_code": exit_code,
+        "exit_code": exit_code, "elapsed": elapsed,
         "stderr_tail": combined[-500:],
     }
 

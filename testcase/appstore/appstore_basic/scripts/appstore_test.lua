@@ -404,8 +404,22 @@ end
 		log.info('appstore_test', '  url=' .. cfg.url)
 
 		-- 初始化 exapp (需要 AirUI + exwin)
+		-- 参考 app_engine/factory/drv/lcd/lcd_common.lua 的 PC 初始化流程
+		-- 1. lcd.init(custom, {w,h}) → PC 模拟器 SDL2 虚拟显示
+		-- 2. airui.init(w, h) → AirUI/LVGL 渲染引擎
+		-- 3. 设置 density_scale 等全局变量（app 代码依赖）
+		if rtos and rtos.bsp and rtos.bsp() == "PC" then
+			log.info("appstore_test", "PC模拟器: 初始化 LCD 480x854")
+			if lcd and lcd.init then
+				lcd.init("custom", {w = 480, h = 854})
+			end
+		end
 		if airui and airui.init then
 			airui.init(480, 854)
+			-- factory 在 airui_init 里设置这些全局变量, 测试环境需手动设置
+			_G.screen_w = 480
+			_G.screen_h = 854
+			_G.density_scale = 1.0
 		end
 
 		-- 预初始化 hzfont (PC内嵌字体)

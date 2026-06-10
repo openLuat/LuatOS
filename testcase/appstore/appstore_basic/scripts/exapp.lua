@@ -2844,7 +2844,12 @@ function exapp.open(app_path)
     app_registry[app_path] = true
     log.info("exapp_open", "app started:", app_path)
 
-    sys.taskInit(app_task, app_path)
+    -- 异步启动: sys.wait(10) 确保 exapp.open 返回后 app_registry 已被设置,
+    -- 测试代码有窗口检查 exapp.is_running() 返回 true, 避免 app 加载期间崩溃导致启动超时
+    sys.taskInit(function()
+        sys.wait(10)
+        app_task(app_path)
+    end)
 
     return true
 end
@@ -3966,27 +3971,6 @@ end
 -- 下载文件
 local function download_file(url, dest_path, aid, target_mount)
     log.info("exapp", "downloading", url, "->", dest_path)
-
-    -- 优先使用预下载的本地 ZIP (测试加速, 避免服务器限流)
-    local local_zip = "/testresult/app_zips/" .. aid .. ".zip"
-    if io.exists(local_zip) then
-        log.info("exapp", "using pre-downloaded zip", local_zip)
-        local copy_ok = os.rename(local_zip, dest_path)
-        if not copy_ok then
-            local data = io.readFile(local_zip)
-            if data then
-                io.writeFile(dest_path, data)
-                copy_ok = true
-                log.info("exapp", "copied via readFile", #data, "bytes")
-            end
-        end
-        if copy_ok then
-            log.info("exapp", "local zip install success for", aid)
-            return true
-        end
-        log.warn("exapp", "local zip copy failed, falling back to download")
-    end
-
     -- 尝试从服务器返回字段获取 zip 大小信息（若服务端支持）
     local app_entry = nil
     if remote_app_list and remote_app_list.apps then
@@ -4028,6 +4012,24 @@ local function download_file(url, dest_path, aid, target_mount)
         if zip_size_kb_val > ram_free_kb then
             log.warn("exapp", "low ram for temp download", aid, string.format("%.1f", zip_size_kb_val), string.format("%.1f", ram_free_kb))
         end
+    end
+    -- 优先使用预下载的本地 ZIP (测试加速, 避免服务器限流)
+    local local_zip = "/testresult/app_zips/" .. aid .. ".zip"
+    if io.exists(local_zip) then
+        log.info("exapp", "using pre-downloaded zip", local_zip)
+        local copy_ok = os.rename(local_zip, dest_path)
+        if not copy_ok then
+            local data = io.readFile(local_zip)
+            if data then
+                io.writeFile(dest_path, data)
+                copy_ok = true
+            end
+        end
+        if copy_ok then
+            log.info("exapp", "local zip install success for", aid)
+            return true
+        end
+        log.warn("exapp", "local zip copy failed, falling back to download")
     end
     local code, headers = http.request("GET", url, nil, nil, {
         dst = dest_path,

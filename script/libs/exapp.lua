@@ -2844,7 +2844,12 @@ function exapp.open(app_path)
     app_registry[app_path] = true
     log.info("exapp_open", "app started:", app_path)
 
-    sys.taskInit(app_task, app_path)
+    -- 异步启动: sys.wait(10) 确保 exapp.open 返回后 app_registry 已被设置,
+    -- 测试代码有窗口检查 exapp.is_running() 返回 true, 避免 app 加载期间崩溃导致启动超时
+    sys.taskInit(function()
+        sys.wait(10)
+        app_task(app_path)
+    end)
 
     return true
 end

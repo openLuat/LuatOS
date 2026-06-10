@@ -178,6 +178,8 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
     if (common_param->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_PLAY) {
         if (!one_block_len) {
             one_block_len = ctrl->opts->tx_one_block_max_len;
+        } else if (one_block_len > ctrl->opts->tx_one_block_max_len) {
+            one_block_len = ctrl->opts->tx_one_block_max_len;
         }
     } else {
         if (!one_block_len) {

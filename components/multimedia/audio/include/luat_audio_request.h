@@ -61,10 +61,10 @@ struct luat_audio_request_block {
     uint8_t *temp_buff;                         /**< 临时缓冲区*/
     uint32_t *static_play_buff;                        /**< 流媒体数据缓冲区指针 */
     union {
-        struct {                                /**< 流媒体模式下的必须字段 */
+        struct {                               
             uint32_t record_fifo_enough_data_level; /**< 录音模式下，回调函数触发条件，FIFO缓冲区数据量是否足够 */
             uint32_t static_play_buff_one_block_len;             /**< 每个数据块的长度 */
-            uint8_t static_play_buffblock_nums;                /**< 数据块数量 */
+            uint8_t static_play_buff_block_nums;                /**< 数据块数量 */
             uint8_t error_record_overflow:1;             /**< 录音溢出错误标志位 */
             uint8_t error_record_after_encode_overflow:1;             /**< 录音溢出错误标志位 */
         };
@@ -76,6 +76,9 @@ struct luat_audio_request_block {
         struct {                                /**< 文本转语音模式下的必须字段 */
             const char *tts_data;               /**< 文本转语音数据指针*/
             uint32_t tts_data_size;             /**< 文本转语音数据长度 */
+        };
+        struct {
+            uint32_t stream_one_block_len;             /**< 流媒体模式下，每个数据块的长度 */
         };
     };
     luat_fifo_t *encode_save_fifo;            /**< 录音数据缓冲区, 用户传入，用户自行释放*/
@@ -149,6 +152,8 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 * @param request_block 音频请求块指针，用于存储播放参数
 * @param probe 音频驱动匹配结构，用于描述驱动的匹配条件，如果为NULL，则使用默认驱动。
 * @param codec_opts 音频解码器选项结构，用于指定要使用的音频解码器，如果为NULL，则会自动选择合适的解码器。一般不需要指定。
+* @param common_param 音频公共参数结构，用于指定希望的播放参数，必须存在，不能为NULL，但是实际使用的音频参数还是会根据解码器的要求做修改
+* @param one_block_len 流媒体模式下，用户期望的每个数据块长度，单位字节，如果为0则由驱动决定
 * @param priority 请求优先级，0-255，数值越大优先级越高
 * @param is_sync 是否为同步请求，0-异步，1-同步
 * @param cb 请求回调函数，用于在播放完成或错误时通知应用层
@@ -156,7 +161,7 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
 */
 int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts,
-    luat_audio_common_param_t *common_param, uint8_t priority, uint8_t is_sync,
+    luat_audio_common_param_t *common_param, uint32_t one_block_len, uint8_t priority, uint8_t is_sync,
     luat_audio_request_cb_t cb, void *user_data);    
 /**
  * @brief 录音音频

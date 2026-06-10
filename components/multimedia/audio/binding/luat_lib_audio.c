@@ -240,7 +240,7 @@ static int l_audio_stream(lua_State *L) {
     result = luat_audio_request_play_stream(&l_req->request, 
         (driver_probe.probe_id ? &driver_probe : NULL), 
         codec_opts, 
-        &common_param, 
+        &common_param, 0,
         priority, 0, 
         _l_audio_request_callback, l_req);
     if (result) {

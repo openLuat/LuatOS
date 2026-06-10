@@ -651,7 +651,7 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 					_audio_decode_stream_to_fifo(request_block);
 				}
 			}
-			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->play_codec.common_param, NULL, 0, LUAT_AUDIO_DATA_BUFFER_CNT);
+			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->play_codec.common_param, NULL, request_block->is_stream ? request_block->stream_one_block_len : 0, LUAT_AUDIO_DATA_BUFFER_CNT);
 			break;
 		case LUAT_AUDIO_DRIVER_MODE_RECORD:
 			request_block->record_codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_RECORD;
@@ -673,21 +673,21 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 		request_block->is_error_stop = 1;
 	} else {
 		if (request_block->driver_work_mode != LUAT_AUDIO_DRIVER_MODE_PLAY) {
-			request_block->record_codec.record_one_frame_input_len = request_block->record_codec.common_param.one_frame_sample_cnt * request_block->data_channel->driver_ctrl->common_param.data_align * request_block->data_channel->driver_ctrl->common_param.channel_nums;
-			uint32_t base_len = request_block->record_codec.common_param.one_frame_sample_cnt;
-			uint32_t data_align_len = request_block->data_channel->driver_ctrl->common_param.data_align > request_block->record_codec.common_param.data_align ? (base_len * request_block->data_channel->driver_ctrl->common_param.data_align) : (base_len * request_block->record_codec.common_param.data_align);
-			request_block->record_codec.temp_buffer_size = request_block->data_channel->driver_ctrl->common_param.channel_nums > request_block->record_codec.common_param.channel_nums ? (data_align_len * request_block->data_channel->driver_ctrl->common_param.channel_nums) : (data_align_len * request_block->record_codec.common_param.channel_nums);
-		    LLOGC(luat_audio_debug_flag, "init temp buffer, old param %d-%d new param %d-%d, base_len %d, data_align_len %d, channel__nums_len %d",
-				request_block->data_channel->driver_ctrl->common_param.data_align, request_block->data_channel->driver_ctrl->common_param.channel_nums, request_block->record_codec.common_param.data_align, request_block->record_codec.common_param.channel_nums, base_len, data_align_len, request_block->record_codec.temp_buffer_size);
-			request_block->record_codec.temp_buffer1 = luat_heap_malloc(request_block->record_codec.temp_buffer_size * 3);
-			if (!request_block->record_codec.temp_buffer1) {
-				LLOGE("request id %d record encode input buffer failed", request_block->request_id);
-				request_block->is_error_stop = 1;
-				return;
-			}
-			LLOGC(luat_audio_debug_flag, "record encode input buffer size %u (%u/%u)", request_block->record_codec.temp_buffer_size, request_block->record_codec.record_one_frame_input_len, request_block->record_codec.common_param.one_frame_bytes);
-			request_block->record_codec.temp_buffer2 = request_block->record_codec.temp_buffer1 + request_block->record_codec.temp_buffer_size;
-			request_block->record_codec.temp_buffer3 = request_block->record_codec.temp_buffer1 + request_block->record_codec.temp_buffer_size * 2;
+			// request_block->record_codec.record_one_frame_input_len = request_block->record_codec.common_param.one_frame_sample_cnt * request_block->data_channel->driver_ctrl->common_param.data_align * request_block->data_channel->driver_ctrl->common_param.channel_nums;
+			// uint32_t base_len = request_block->record_codec.common_param.one_frame_sample_cnt;
+			// uint32_t data_align_len = request_block->data_channel->driver_ctrl->common_param.data_align > request_block->record_codec.common_param.data_align ? (base_len * request_block->data_channel->driver_ctrl->common_param.data_align) : (base_len * request_block->record_codec.common_param.data_align);
+			// request_block->record_codec.temp_buffer_size = request_block->data_channel->driver_ctrl->common_param.channel_nums > request_block->record_codec.common_param.channel_nums ? (data_align_len * request_block->data_channel->driver_ctrl->common_param.channel_nums) : (data_align_len * request_block->record_codec.common_param.channel_nums);
+		    // LLOGC(luat_audio_debug_flag, "init temp buffer, old param %d-%d new param %d-%d, base_len %d, data_align_len %d, channel__nums_len %d",
+			// 	request_block->data_channel->driver_ctrl->common_param.data_align, request_block->data_channel->driver_ctrl->common_param.channel_nums, request_block->record_codec.common_param.data_align, request_block->record_codec.common_param.channel_nums, base_len, data_align_len, request_block->record_codec.temp_buffer_size);
+			// request_block->record_codec.temp_buffer1 = luat_heap_malloc(request_block->record_codec.temp_buffer_size * 3);
+			// if (!request_block->record_codec.temp_buffer1) {
+			// 	LLOGE("request id %d record encode input buffer failed", request_block->request_id);
+			// 	request_block->is_error_stop = 1;
+			// 	return;
+			// }
+			// LLOGC(luat_audio_debug_flag, "record encode input buffer size %u (%u/%u)", request_block->record_codec.temp_buffer_size, request_block->record_codec.record_one_frame_input_len, request_block->record_codec.common_param.one_frame_bytes);
+			// request_block->record_codec.temp_buffer2 = request_block->record_codec.temp_buffer1 + request_block->record_codec.temp_buffer_size;
+			// request_block->record_codec.temp_buffer3 = request_block->record_codec.temp_buffer1 + request_block->record_codec.temp_buffer_size * 2;
 		}
 	}
 }
@@ -1072,7 +1072,7 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 }
 
 int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts,
-    luat_audio_common_param_t *common_param, uint8_t priority, uint8_t is_sync,
+    luat_audio_common_param_t *common_param, uint32_t one_block_len, uint8_t priority, uint8_t is_sync,
     luat_audio_request_cb_t cb, void *user_data)
 {
 	if (!request_block || !common_param || !codec_opts) {
@@ -1092,6 +1092,7 @@ int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, lu
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
 	request_block->play_codec.common_param = *common_param;
+	request_block->stream_one_block_len = one_block_len;
 	request_block->priority = priority;
 	request_block->is_stream = 1;
 	request_block->play_codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_PLAY;

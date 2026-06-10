@@ -21,6 +21,8 @@ void* luat_sdl2_get_window(void);
 void luat_sdl2_get_preview_size(size_t native_width, size_t native_height, size_t *preview_width, size_t *preview_height);
 void luat_sdl2_set_upright_preview(uint8_t enable, uint16_t rotation, size_t native_width, size_t native_height);
 void luat_sdl2_blackout(void);
+int  luat_sdl2_is_exit_requested(void);
+void luat_sdl2_cleanup_atexit(void);
 
 #endif
 

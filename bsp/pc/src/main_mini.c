@@ -182,18 +182,40 @@ static void luat_webc_shutdown(void) {
 // UI相关
 
 #ifdef LUAT_USE_LVGL
+static volatile int lvgl_timer_enabled = 1;
+
 static int luat_lvg_handler(lua_State* L, void* ptr) {
     (void)L;
     (void)ptr;
+    if (!lvgl_timer_enabled) return 0;
     lv_tick_inc(25);
     lv_task_handler();
     return 0;
 }
 static void lvgl_timer_cb(void* arg) {
     (void)arg;
+    if (!lvgl_timer_enabled) return;
     rtos_msg_t msg = {
         .handler = luat_lvg_handler
     };
     luat_msgbus_put(&msg, 0);
+}
+
+// 供 Lua 层在 sandbox_cleanup 前暂停 LVGL timer, 防止 widget 销毁竞态导致 C0000005
+static int lua_lvgl_timer_stop(lua_State *L) {
+    (void)L;
+    lvgl_timer_enabled = 0;
+    LLOGD("LVGL timer stopped (request from Lua)");
+    return 0;
+}
+static int lua_lvgl_timer_start(lua_State *L) {
+    (void)L;
+    lvgl_timer_enabled = 1;
+    LLOGD("LVGL timer started (request from Lua)");
+    return 0;
+}
+static int lua_lvgl_timer_status(lua_State *L) {
+    lua_pushboolean(L, lvgl_timer_enabled);
+    return 1;
 }
 #endif

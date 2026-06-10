@@ -17,6 +17,8 @@ static luat_sdl2_conf_t sdl_conf;
 static int aspect_last_window_w = 0;
 static int aspect_last_window_h = 0;
 static uint8_t aspect_adjusting_window = 0;
+static uint8_t sdl2_exit_requested = 0;
+static uint8_t sdl2_atexit_registered = 0;
 
 // 屏幕适配比例, 当画面超过屏幕长宽时，缩放到屏幕长宽的90%以内
 #define LUAT_SDL2_SCREEN_FIT_PERCENT 90
@@ -44,6 +46,18 @@ typedef struct {
 static luat_sdl2_preview_state_t preview_state;
 
 static void luat_sdl2_present_current_frame(void);
+
+// atexit handler: ensure SDL2 resources are freed on process exit (including exit())
+// Without this, D3D11 GPU resources leak and rapid process cycling causes driver exhaustion.
+static void luat_sdl2_cleanup_atexit(void) {
+    if (!framebuffer && !renderer && !window) return;
+    luat_sdl2_uninstall_native_resize_hook();
+    if (framebuffer) { SDL_DestroyTexture(framebuffer); framebuffer = NULL; }
+    if (renderer)   { SDL_DestroyRenderer(renderer); renderer = NULL; }
+    if (window)     { SDL_DestroyWindow(window); window = NULL; }
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    sdl2_atexit_registered = 0;
+}
 
 #if defined(_WIN32)
 static void luat_sdl2_refresh_window_frame(void) {
@@ -366,8 +380,8 @@ void luat_sdl2_pump_events(void) {
     // 循环处理所有等待的事件
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
-            // 当用户关闭窗口时，优雅退出程序
-            exit(0);
+            // 设置标志位, 让 main 循环自行退出, 避免 exit(0) 绕过 SDL2 清理
+            sdl2_exit_requested = 1;
         }
 #if !defined(_WIN32)
         else if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED && window != NULL && e.window.windowID == SDL_GetWindowID(window)) {
@@ -464,6 +478,13 @@ int luat_sdl2_init(luat_sdl2_conf_t *conf) {
                                     conf->width,
                                     conf->height);
     luat_sdl2_pump_events();
+
+    // 注册 atexit 处理器, 确保 exit() 时 SDL2 资源被释放
+    if (!sdl2_atexit_registered) {
+        atexit(luat_sdl2_cleanup_atexit);
+        sdl2_atexit_registered = 1;
+    }
+
     return 0;
 }
 
@@ -524,6 +545,10 @@ void luat_sdl2_blackout(void) {
 
     luat_sdl2_present_current_frame();
     luat_sdl2_pump_events();
+}
+
+int luat_sdl2_is_exit_requested(void) {
+    return sdl2_exit_requested;
 }
 
 void luat_sdl2_set_upright_preview(uint8_t enable, uint16_t rotation, size_t native_width, size_t native_height) {

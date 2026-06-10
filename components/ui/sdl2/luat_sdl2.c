@@ -47,18 +47,6 @@ static luat_sdl2_preview_state_t preview_state;
 
 static void luat_sdl2_present_current_frame(void);
 
-// atexit handler: ensure SDL2 resources are freed on process exit (including exit())
-// Without this, D3D11 GPU resources leak and rapid process cycling causes driver exhaustion.
-static void luat_sdl2_cleanup_atexit(void) {
-    if (!framebuffer && !renderer && !window) return;
-    luat_sdl2_uninstall_native_resize_hook();
-    if (framebuffer) { SDL_DestroyTexture(framebuffer); framebuffer = NULL; }
-    if (renderer)   { SDL_DestroyRenderer(renderer); renderer = NULL; }
-    if (window)     { SDL_DestroyWindow(window); window = NULL; }
-    SDL_QuitSubSystem(SDL_INIT_VIDEO);
-    sdl2_atexit_registered = 0;
-}
-
 #if defined(_WIN32)
 static void luat_sdl2_refresh_window_frame(void) {
     if (native_resize.hwnd == NULL) {
@@ -440,6 +428,17 @@ static void luat_sdl2_present_current_frame(void) {
         SDL_RenderCopy(renderer, framebuffer, NULL, NULL);
     }
     SDL_RenderPresent(renderer);
+}
+
+// atexit handler: 确保 exit() 时 SDL2 资源被释放 (GPU 资源不泄漏, 避免批量测试时驱动耗尽)
+void luat_sdl2_cleanup_atexit(void) {
+    if (!framebuffer && !renderer && !window) return;
+    luat_sdl2_uninstall_native_resize_hook();
+    if (framebuffer) { SDL_DestroyTexture(framebuffer); framebuffer = NULL; }
+    if (renderer)   { SDL_DestroyRenderer(renderer); renderer = NULL; }
+    if (window)     { SDL_DestroyWindow(window); window = NULL; }
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    sdl2_atexit_registered = 0;
 }
 
 int luat_sdl2_init(luat_sdl2_conf_t *conf) {

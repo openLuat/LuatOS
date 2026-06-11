@@ -1385,6 +1385,12 @@ void luat_audio_request_init_record_temp_buffer(luat_audio_request_block_t *requ
 	if (request_block->record_codec.common_param.data_align == request_block->data_channel->driver_ctrl->common_param.data_align && 
 		request_block->record_codec.common_param.channel_nums == request_block->data_channel->driver_ctrl->common_param.channel_nums) {
 		LLOGC(luat_audio_debug_flag, "record temp buffer codec param same as driver param");
+		luat_buffer_reinit(&request_block->record_temp_buffer, request_block->record_codec.common_param.one_frame_bytes_from_driver);
+		if (!request_block->record_temp_buffer.data) {
+			LLOGE("create record temp buffer failed, no memory");
+			request_block->is_error_stop = 1;
+			return;
+		}
 	} else {
 		uint32_t max_data_align, max_channel_nums, final_data_bytes;
 

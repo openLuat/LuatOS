@@ -145,7 +145,7 @@ int luat_audio_data_codec_encode_once(luat_audio_data_codec_t *codec, luat_buffe
     if (ref_data_buffer && codec->opts->support_encode_with_sync_output_ref) {
         ret = codec->opts->encode_with_sync_output_ref(codec, input_data_buffer->data, ref_data_buffer->data, input_data_buffer->pos, codec->input_buffer, &encoded_used_size, &encoded_output_size);
     } else {
-        ret = codec->opts->encode(codec,  input_data_buffer->data,  input_data_buffer->pos, codec->input_buffer, &encoded_output_size, &encoded_used_size);
+        ret = codec->opts->encode(codec,  input_data_buffer->data,  input_data_buffer->pos, codec->input_buffer, &encoded_used_size, &encoded_output_size);
     }
     if (!ret) {
         if (encoded_used_size != input_data_buffer->pos) {

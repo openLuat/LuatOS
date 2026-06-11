@@ -14,6 +14,7 @@
  * @{
  */
 
+#include "luat_audio_data_codec.h"
 #include "luat_base.h"
 #include "luat_rtos.h"
 #include "luat_mem.h"
@@ -31,6 +32,7 @@
 struct luat_audio_channel {
     luat_fifo_t *play_fifo;                    /**< 播放数据FIFO缓冲区，只能在驱动回调的中断里读出，在audio task里写入 */
     luat_fifo_t *record_fifo;                    /**< 录音数据FIFO缓冲区，只能在驱动回调的中断里写入，在audio task里读出 */
+    luat_fifo_t *ref_fifo;                      /**< 参考输入数据缓冲区，用于录音时消除回声抑制 */
     uint32_t play_fifo_low_level;        /**< 播放缓存低水位, 默认为播放缓冲区大小的25%时, 触发数据请求 */
     uint32_t play_fifo_high_level;        /**< 播放缓存高水位, 不再解码数据 */
     // void *play_lock_mutex;                          /**< 播放数据写入保护 */
@@ -102,19 +104,34 @@ int luat_audio_channel_set_soft_volume(luat_audio_channel_t *channel,uint32_t vo
 /**
  * @brief 写入音频通道数据
  * @param channel 音频通道指针，必须指向有效的 luat_audio_channel_t 结构
- * @param data 数据指针，指向要写入的音频数据
- * @param len_bytes 数据长度（字节）
+ * @param input_buffer 输入缓冲区指针，指向要写入的音频数据的缓冲区
+ * @param data_align_buffer 数据位数对齐缓冲区指针
+ * @param channel_nums_buffer 通道数对齐缓冲区指针
  * @param written_bytes 实际写入的字节数指针，用于返回写入的字节数
- * @param is_signed 是否有符号（1=有符号，0=无符号）
- * @param data_align 数据对齐方式（2=16位, 3=24位, 4=32位）
- * @param channel_nums 通道数（1=单声道, 2=双声道）
+ * @param codec_param 解码器的音频参数指针
  * @return int 成功返回 LUAT_ERROR_NONE，失败返回其他错误码
  * 
  * 此函数会将指定的音频数据写入音频通道的播放FIFO缓冲区。
  * 调用前确保 channel 指针有效且已被初始化。
  */
-int luat_audio_channel_write_data(luat_audio_channel_t *channel, void *data, uint32_t len_bytes, uint32_t *written_bytes, uint8_t is_signed,uint8_t data_align, uint8_t channel_nums);
+int luat_audio_channel_write_data(luat_audio_channel_t *channel, luat_buffer_t *input_buffer, luat_buffer_t *data_align_buffer, luat_buffer_t *channel_nums_buffer, uint32_t *written_bytes, luat_audio_common_param_t *codec_param);
 
+/**
+ * @brief 读取音频通道数据
+ * @param channel 音频通道指针，必须指向有效的 luat_audio_channel_t 结构
+ * @param out_buffer 输出缓冲区指针，指向存储读取的音频数据的缓冲区
+ * @param temp_buffer 临时缓冲区指针，指向存储录音FIFO数据的临时缓冲区
+ * @param data_align_buffer 数据位数对齐缓冲区指针
+ * @param channel_nums_buffer 通道数对齐缓冲区指针
+ * @param read_bytes 实际读取的字节数指针，用于返回读取的字节数
+ * @param codec_param 编码器的音频参数指针
+ * @param is_ref_fifo 是否是参考FIFO（1=是，0=否）
+ * @return int 成功返回 LUAT_ERROR_NONE，失败返回其他错误码
+ * 
+ * 此函数会从音频通道的录音FIFO缓冲区读取音频数据。
+ * 调用前确保 channel 指针有效且已被初始化。
+ */
+int luat_audio_channel_read_data(luat_audio_channel_t *channel, luat_buffer_t *out_buffer, luat_buffer_t *temp_buffer, luat_buffer_t *data_align_buffer, luat_buffer_t *channel_nums_buffer, uint32_t *read_bytes, luat_audio_common_param_t *codec_param, uint8_t is_ref_fifo);
 /**
  * @brief 数据有无符号转换
  * @param data_union 数据联合体，包含要转换的音频数据

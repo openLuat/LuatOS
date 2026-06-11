@@ -85,7 +85,7 @@ static int _g711_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_
     return LUAT_ERROR_NONE;
 }
 
-static int _g711_codec_encode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
+static int _g711_codec_encode(luat_audio_data_codec_t* codec,
                   const uint8_t *input, uint32_t input_size,
                   uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size) {
     if (!codec || !codec->encode_ctx || !input || !output || !encoded_used_size || !encoded_output_size) {

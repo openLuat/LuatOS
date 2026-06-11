@@ -29,11 +29,10 @@ int luat_audio_data_codec_bind(luat_audio_data_codec_t *codec, const luat_audio_
         luat_heap_free(codec->input_buffer);
         codec->input_buffer = NULL;
     }
-    codec->input_buffer_size = (opts->decode_max_output_len > opts->encode_min_input_len) ? opts->decode_max_output_len * 2 : opts->encode_min_input_len * 2;
-    codec->input_buffer = luat_heap_malloc(codec->input_buffer_size);
+    uint32_t input_buffer_size = (opts->decode_max_output_len > opts->encode_min_input_len) ? opts->decode_max_output_len * 2 : opts->encode_min_input_len * 2;
+    codec->input_buffer = luat_heap_malloc(input_buffer_size);
     if (!codec->input_buffer) {
         LLOGC(luat_audio_debug_flag, "bind audio data codec %d failed, no memory", opts->type);
-        codec->input_buffer_size = 0;
         return -LUAT_ERROR_NO_MEMORY;
     }
 
@@ -41,27 +40,6 @@ int luat_audio_data_codec_bind(luat_audio_data_codec_t *codec, const luat_audio_
     codec->user_data = user_data;
     return LUAT_ERROR_NONE;
 }
-
-// int luat_audio_data_codec_init_temp_buffer(luat_audio_data_codec_t *codec, luat_audio_common_param_t *new_param)
-// {
-//     uint32_t base_len = codec->opts->decode_max_output_len > codec->opts->encode_min_input_len ? codec->opts->decode_max_output_len : codec->opts->encode_min_input_len;
-//     uint32_t data_align_len = codec->common_param.data_align > new_param->data_align ? (base_len * codec->common_param.data_align / new_param->data_align) : (base_len * new_param->data_align / codec->common_param.data_align);
-//     uint32_t channel_nums_len = codec->common_param.channel_nums > new_param->channel_nums ? (data_align_len * codec->common_param.channel_nums / new_param->channel_nums) : (data_align_len * new_param->channel_nums / codec->common_param.channel_nums);
-//     LLOGC(luat_audio_debug_flag, "init temp buffer, old param %d-%d new param %d-%d, base_len %d, data_align_len %d, channel__nums_len %d",
-//          codec->common_param.data_align, codec->common_param.channel_nums, new_param->data_align, new_param->channel_nums, base_len, data_align_len, channel_nums_len);
-//     if (codec->temp_buffer1) {
-//         luat_heap_free(codec->temp_buffer1);
-//         codec->temp_buffer1 = NULL;
-//     }
-//     codec->temp_buffer1 = luat_heap_malloc(channel_nums_len * 3);
-//     if (!codec->temp_buffer1) {
-//         LLOGC(luat_audio_debug_flag, "init temp buffer failed, no memory");
-//         return -LUAT_ERROR_NO_MEMORY;
-//     }
-//     codec->temp_buffer2 = codec->temp_buffer1 + channel_nums_len;
-//     codec->temp_buffer3 = codec->temp_buffer1 + channel_nums_len * 2;
-//     return LUAT_ERROR_NONE;
-// }
 
 void luat_audio_data_codec_deinit(luat_audio_data_codec_t *codec)
 {
@@ -72,11 +50,9 @@ void luat_audio_data_codec_deinit(luat_audio_data_codec_t *codec)
         luat_heap_free(codec->input_buffer);
         codec->input_buffer = NULL;
     }
-    if (codec->temp_buffer1) {
-        luat_heap_free(codec->temp_buffer1);
-        codec->temp_buffer1 = NULL;
-        codec->temp_buffer2 = NULL;
-        codec->temp_buffer3 = NULL;
+    if (codec->ref_buffer) {
+        luat_heap_free(codec->ref_buffer);
+        codec->ref_buffer = NULL;
     }
     if (codec->opts) {
         codec->opts->deinit(codec);
@@ -153,100 +129,40 @@ int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_
     return LUAT_ERROR_NONE;
 }
 
-int luat_audio_data_codec_encode_once(luat_audio_data_codec_t *codec, luat_audio_common_param_t *input_param, luat_fifo_t *input_data_fifo, luat_fifo_t *output_data_fifo)
+int luat_audio_data_codec_encode_once(luat_audio_data_codec_t *codec, luat_buffer_t *input_data_buffer, luat_buffer_t *ref_data_buffer, luat_fifo_t *output_data_fifo)
 {
-    if (!codec || !input_data_fifo || !output_data_fifo) {
-        return -LUAT_ERROR_PARAM_INVALID;
-    }
-    uint32_t min_data_len = codec->opts->encode_max_output_len;
-    if (codec->opts->encode_raw_mode) {
-        min_data_len = codec->common_param.one_frame_bytes;
-    }
-    uint32_t len_bytes = 0;
-    uint32_t pcm_data_len = 0;
-    uint32_t new_data_len = 0;
-    uint32_t new_data_len2 = 0;
-    uint32_t out_len, used_len;
-    luat_data_union_t data_union;
-    luat_data_union_t new_data_union;
-    luat_data_union_t new_data_union2;
     int ret;
-    LLOGC(luat_audio_debug_flag, "encode once, input %u,%u-%u-%u, output %u,%u-%u-%u", codec->record_one_frame_input_len, input_param->sample_rate, input_param->data_align, input_param->channel_nums, 
-        min_data_len, codec->common_param.data_align, codec->common_param.channel_nums);
-    while ((luat_fifo_check_used_space(input_data_fifo) >= codec->record_one_frame_input_len) && (luat_fifo_check_free_space(output_data_fifo) >= min_data_len)) {
-        len_bytes =luat_fifo_read(input_data_fifo, codec->temp_buffer1, codec->record_one_frame_input_len);
-        data_union.p8 = codec->temp_buffer1;
-        if ((!codec->common_param.is_signed) != (!input_param->is_signed)) {
-            luat_audio_channel_data_change_signed(data_union, len_bytes, input_param->data_align, input_param->is_signed);
-        }
-        if (input_param->channel_nums != codec->common_param.channel_nums) {
-            switch (input_param->data_align) {
-                case 1:
-                    pcm_data_len = len_bytes;
-                    
-                    break;
-                case 2:
-                    pcm_data_len = len_bytes >> 1;
-                    break;
-                case 3:
-                case 4:
-                    pcm_data_len = len_bytes >> 2;
-                    break;
-                default:
-                    return -LUAT_ERROR_PARAM_INVALID;
-                    break;
-            }
-            new_data_len = (pcm_data_len / input_param->channel_nums) * codec->common_param.channel_nums;
-            data_union.p8 = codec->temp_buffer1;
-            new_data_union.p8 = codec->temp_buffer2;
-            luat_audio_channel_data_change_channel_nums(data_union, new_data_union, pcm_data_len, input_param->data_align, input_param->channel_nums, codec->common_param.channel_nums);
+    uint32_t encoded_used_size, encoded_output_size;
+    if (codec->opts->encode_raw_mode) {
+        if (luat_fifo_check_free_space(output_data_fifo) >= input_data_buffer->pos) {
+            luat_fifo_write(output_data_fifo, input_data_buffer->data, input_data_buffer->pos);
         } else {
-            new_data_len = len_bytes;
-            new_data_union.p8 = codec->temp_buffer1;
+            LLOGE("encode output %d bytes, rest %d bytes", input_data_buffer->pos, luat_fifo_check_free_space(output_data_fifo));
+            return -LUAT_ERROR_OPERATION_FAILED;
         }
-
-        if (input_param->data_align != codec->common_param.data_align) {
-            switch (input_param->data_align) {
-                case 1:
-                    pcm_data_len = len_bytes;
-                    break;
-                case 2:
-                    pcm_data_len = len_bytes >> 1;
-                    break;
-                case 3:
-                case 4:
-                    pcm_data_len = len_bytes >> 2;
-                    break;
-                default:
-                    return -LUAT_ERROR_PARAM_INVALID;
-                    break;
-            }
-            switch (codec->common_param.data_align) {
-                case 1:
-                    new_data_len2 = pcm_data_len;
-                    break;
-                case 2:
-                    new_data_len2 = pcm_data_len << 1;
-                    break;
-                case 3:
-                case 4:
-                    new_data_len2 = pcm_data_len << 2;
-                    break;
-                default:
-                    return -LUAT_ERROR_PARAM_INVALID;
-                    break;
-            }
-            new_data_union2.p8 = codec->temp_buffer3;
-            luat_audio_channel_data_change_align(new_data_union, new_data_union2, new_data_len2, input_param->data_align, codec->common_param.data_align);
-        } else {
-            new_data_union2.p8 = new_data_union.p8;
-            new_data_len2 = new_data_len;
-        }
-        // if (ret != LUAT_ERROR_NONE) {
-        //     return ret;
-        // }
+        return LUAT_ERROR_NONE;
     }
-    return LUAT_ERROR_NONE;
+    if (ref_data_buffer && codec->opts->support_encode_with_sync_output_ref) {
+        ret = codec->opts->encode_with_sync_output_ref(codec, input_data_buffer->data, ref_data_buffer->data, input_data_buffer->pos, codec->input_buffer, &encoded_used_size, &encoded_output_size);
+    } else {
+        ret = codec->opts->encode(codec,  input_data_buffer->data,  input_data_buffer->pos, codec->input_buffer, &encoded_output_size, &encoded_used_size);
+    }
+    if (!ret) {
+        if (encoded_used_size != input_data_buffer->pos) {
+            LLOGE("encode used %d bytes, expect used %d bytes, ret = %d", encoded_used_size, input_data_buffer->pos);
+            return -LUAT_ERROR_OPERATION_FAILED;
+        }
+        if (encoded_output_size) {
+            if (luat_fifo_check_free_space(output_data_fifo) >= encoded_output_size) {
+                luat_fifo_write(output_data_fifo, codec->input_buffer, encoded_output_size);
+            } else {
+                LLOGE("encode output %d bytes, rest %d bytes", encoded_output_size, luat_fifo_check_free_space(output_data_fifo));
+                return -LUAT_ERROR_OPERATION_FAILED;
+            }
+        }
+    }
+
+    return ret;
 }
 
 const luat_audio_data_codec_opts_t* luat_audio_data_codec_find(uint8_t type)

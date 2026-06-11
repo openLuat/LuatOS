@@ -18,7 +18,8 @@
 #include <stdint.h>
 #define LUAT_LOG_TAG "audio_v2"
 #include "luat_log.h"
-#ifdef LUAT_USE_AUDIO_V2
+//#ifdef LUAT_USE_AUDIO_V2
+#if 1
 #include "luat_common_api.h"
 #include "luat_audio_core.h"
 

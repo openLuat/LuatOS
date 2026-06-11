@@ -15,6 +15,12 @@
 #include "lodepng.h"
 #include <stdlib.h>
 
+#ifdef __LUATOS__
+#include "luat_image.h"
+#include "luat_mcu.h"
+#include <stdio.h>
+#endif
+
 /*********************
  *      DEFINES
  *********************/
@@ -167,7 +173,27 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
         return LV_RESULT_INVALID;
     }
 
+#ifdef __LUATOS__
+    uint64_t _airui_dbg_t0 = 0;
+    if (luat_image_get_debug()) {
+        _airui_dbg_t0 = luat_mcu_tick64();
+    }
+#endif
+
     lv_draw_buf_t * decoded = decode_png_data(png_data, png_data_size);
+
+#ifdef __LUATOS__
+    if (luat_image_get_debug()) {
+        uint64_t _elapsed = luat_mcu_tick64() - _airui_dbg_t0;
+        int _period = luat_mcu_us_period();
+        uint32_t _elapsed_us = (_period > 0) ? (uint32_t)(_elapsed / (uint64_t)_period) : (uint32_t)(_elapsed / 1000ULL);
+        printf("[airui][debug][lodepng] decode %dx%d cost=%u.%03ums src=%s\n",
+               decoded ? (int)dsc->header.w : 0,
+               decoded ? (int)dsc->header.h : 0,
+               _elapsed_us / 1000U, _elapsed_us % 1000U,
+               dsc->src_type == LV_IMAGE_SRC_FILE ? (const char *)dsc->src : "<mem>");
+    }
+#endif
 
     if(dsc->src_type == LV_IMAGE_SRC_FILE) lv_free((void *)png_data);
 

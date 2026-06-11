@@ -124,12 +124,11 @@ typedef struct luat_audio_data_codec_opts {
     /**
      * @brief 合成编码文件头信息
      * @param codec 编解码器上下文指针
-     * @param info 播放信息结构指针
      * @param total_len 总编码数据大小（字节）
      * @param out_buffer 输出缓冲区，会动态修改大小
      * @return 成功返回 0，失败返回负值错误码
      */
-    int (*make_head)(struct luat_audio_data_codec* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer);
+    int (*make_head)(struct luat_audio_data_codec* codec, uint32_t total_len, luat_buffer_t *out_buffer);
 
     /**
      * @brief 编码音频数据
@@ -299,8 +298,8 @@ void luat_audio_codec_amr_nb_set_record_info(struct luat_audio_data_codec *codec
 void luat_audio_codec_amr_wb_set_record_info(struct luat_audio_data_codec *codec, luat_audio_common_param_t *info);
 void luat_audio_codec_wav_set_record_info(struct luat_audio_data_codec *codec, luat_audio_common_param_t *info);
 
-int luat_audio_codec_amr_wb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer);
-int luat_audio_codec_amr_nb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer);
+int luat_audio_codec_amr_wb_make_head(luat_audio_data_codec_t* codec, uint32_t total_len, luat_buffer_t *out_buffer);
+int luat_audio_codec_amr_nb_make_head(luat_audio_data_codec_t* codec, uint32_t total_len, luat_buffer_t *out_buffer);
 void luat_audio_codec_amr_nb_pre_decode(luat_audio_data_codec_t* codec, const uint8_t *input, uint32_t input_size, uint32_t *frame_size_bytes);
 void luat_audio_codec_amr_wb_pre_decode(luat_audio_data_codec_t* codec, const uint8_t *input, uint32_t input_size, uint32_t *frame_size_bytes);
 

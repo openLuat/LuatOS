@@ -7,8 +7,10 @@ local es8311 = require "es8311"
 local MSG_MD = "moreData"   -- 播放缓存有空余
 local MSG_PD = "playDone"   -- 播放完成所有数据
 
-local buff0 = zbuff.create(16000)
-local buff1 = zbuff.create(16000)
+local record_save_buff = zbuff.create(16000)
+local record_temp_buff = zbuff.create(4000)
+local record_save_file_path = "/record.amr"
+local record_save_buff_cnt = 0
 
 local i2c_id = 1
 local stream_file_fp = nil
@@ -37,6 +39,16 @@ local function audio_cb(request_index, event, param)
                     log.info("stream fifo write", result, write_len, free_len, file_end)
                 end
             end
+        end
+    end
+    if event == audio_v2.REQUEST_GET_NEW_DATA then
+        record_save_buff_cnt = record_save_buff_cnt + 1
+        log.info("get new data", record_temp_buff:used())
+        record_save_buff:copy(nil,record_temp_buff)
+        record_temp_buff:del()
+        if record_save_buff_cnt >= 10 then
+            log.info("record_save_buff_cnt", record_save_buff_cnt)
+            audio_v2.stop(request_index)
         end
     end
 end
@@ -150,6 +162,30 @@ local function play_task()
             log.warn("mp3 file not found")
         end
         file_data = nil
+        -- 演示录音到文件然后播放
+        audio_v2.record(record_save_file_path, 10, audio_v2.DATA_CODEC_TYPE_AMR_NB)
+        while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
+            sys.wait(1000)
+        end
+        audio_v2.play(record_save_file_path)
+        while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
+            sys.wait(1000)
+        end
+        -- 演示录音到缓冲区然后播放
+        record_save_buff_cnt = 0
+        record_save_buff:del()
+        record_save_buff:copy(nil, "#!AMR\n")
+        record_temp_buff:del()
+        audio_v2.record(record_temp_buff, 10, audio_v2.DATA_CODEC_TYPE_AMR_NB)
+        while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
+            sys.wait(1000)
+        end
+        log.info("record total len", record_save_buff:used())
+        audio_v2.play(record_save_buff)
+        while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
+            sys.wait(1000)
+        end
+
     end
 end
 --audio_setup_1601_evb()

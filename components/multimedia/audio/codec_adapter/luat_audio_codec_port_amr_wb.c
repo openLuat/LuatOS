@@ -95,7 +95,7 @@ void luat_audio_codec_amr_wb_pre_decode(luat_audio_data_codec_t* codec, const ui
     *frame_size_bytes = amr_wb_byte_len[(input[0] >> 3) & 0x0f] + 1;
 }
 
-int luat_audio_codec_amr_wb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer)
+int luat_audio_codec_amr_wb_make_head(luat_audio_data_codec_t* codec, uint32_t total_len, luat_buffer_t *out_buffer)
 {
     luat_buffer_write(out_buffer, "#!AMR-WB\n", 9);
     return LUAT_ERROR_NONE;

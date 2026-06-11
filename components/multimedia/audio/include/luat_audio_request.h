@@ -65,6 +65,7 @@ struct luat_audio_request_block {
             uint32_t record_fifo_enough_data_level; /**< 录音模式下，回调函数触发条件，FIFO缓冲区数据量是否足够 */
             uint32_t static_play_buff_one_block_len;             /**< 每个数据块的长度 */
             uint8_t static_play_buff_block_nums;                /**< 数据块数量 */
+            uint8_t record_callback_frame_cnt;                /**< 录音回调一次的最小音频数据帧数, 如果为0则由驱动决定 */
             uint8_t error_record_overflow:1;             /**< 录音溢出错误标志位 */
             uint8_t error_record_ref_not_match:1;             /**< 录音数据与参考数据不匹配错误标志位 */
         };
@@ -180,13 +181,13 @@ int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, lu
  * @param codec_opts 音频解码器选项结构，用于指定要使用的音频解码器，必须指定
  * @param common_audio_param 音频公共参数结构，用于指定希望的录音参数，必须存在，不能为NULL，但是实际使用的音频参数还是会根据编码器的要求做修改
  * @param record_fifo 录音数据缓冲区, 用户传入，用户自行释放
- * @param record_callback_frame_cnt 录音回调一次的最小音频数据帧数，允许超过驱动的rx_one_block_max_len
+ * @param record_callback_frame_cnt 录音回调一次的最小音频数据帧数, 如果为0则由驱动决定
  * @param priority 请求优先级，0-255，数值越大优先级越高
  * @param cb 请求回调函数，用于在录音完成或错误时通知应用层
  * @param user_data 用户数据指针，用于传递自定义数据
  * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
-int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts, luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint32_t record_callback_frame_cnt, uint8_t priority, 
+int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts, luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt, uint8_t priority, 
     luat_audio_request_cb_t cb, void *user_data);
 /**
  * @brief 通话模式，强制在最高等级

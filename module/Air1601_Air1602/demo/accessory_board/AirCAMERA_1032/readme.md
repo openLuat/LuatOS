@@ -1,8 +1,8 @@
-# AirUVC_1000 DEMO
+# AirCAMERA_1032 DEMO
 
 ## 演示功能概述
 
-本示例主要是展示 Air1601 + AirUVC-1000 USB摄像头的使用，支持实时预览到LCD屏幕、拍照后上传到电脑(UART)、拍照后上传到合宙IOT云平台。
+本示例主要是展示 Air1601 + AirCAMERA_1032 USB摄像头的使用，支持实时预览到LCD屏幕、拍照后上传到电脑(UART)、拍照后上传到合宙IOT云平台。
 
 1、main.lua：主程序入口
 
@@ -70,7 +70,7 @@
 
 2、LCD屏幕一块（RGB接口）
 
-3、AirUVC-1000 USB摄像头模块一个
+3、AirCAMERA_1032 USB摄像头模块一个
 
 ![](https://docs.openLuat.com/cdn/image/Air1601/1601+aieuvc_1000.jpg)
 

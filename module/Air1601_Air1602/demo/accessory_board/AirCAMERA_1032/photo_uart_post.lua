@@ -1,11 +1,11 @@
 --[[
 @module  photo_uart_post
-@summary AirUVC_1000 USB摄像头单次拍照+LCD显示+UART上传应用模块
+@summary AirCAMERA_1032 USB摄像头单次拍照+LCD显示+UART上传应用模块
 @version 1.0
 @date    2026.06.08
 @author  江访
 @usage
-本demo主要使用Air1601 + AirUVC_1000 USB摄像头完成以下功能：
+本demo主要使用Air1601 + AirCAMERA_1032 USB摄像头完成以下功能：
 1、初始化USB主机模式，连接USB摄像头；
 2、初始化UART3（2000000波特率，8N1）用于上传照片到电脑；
 3、遍历USB摄像头支持的格式和分辨率，只选择MJPEG格式 + 1024x576；
@@ -19,7 +19,7 @@
 本文件没有对外接口，直接在main.lua中require "photo_uart_post"就可以加载运行。
 ]]
 
--- 12号GPIO配置（AirUVC_1000摄像头供电控制引脚），需要拉高使能
+-- 12号GPIO配置（AirCAMERA_1032摄像头供电控制引脚），需要拉高使能
 gpio.setup(12, 1, gpio.PULLUP)
 
 -- UART配置（用于上传照片到电脑）
@@ -206,7 +206,7 @@ sys.taskInit(function()
     lcd.clear(0x0000)
     lcd.setFont(lcd.font_opposansm16)
     lcd.setColor(0xFFFF, 0x0000)
-    lcd.drawStr(20, 100, "AirUVC_1000 photo + UART")
+    lcd.drawStr(20, 100, "AirCAMERA_1032  photo + UART")
     lcd.drawStr(20, 140, "Waiting camera...")
     lcd.flush()
 

@@ -1,11 +1,11 @@
 --[[
 @module  camera_preview
-@summary AirUVC_1000 USB摄像头LCD实时预览应用模块
+@summary AirCAMERA_1032 USB摄像头LCD实时预览应用模块
 @version 1.0
 @date    2026.06.08
 @author  江访
 @usage
-本demo主要使用Air1601 + AirUVC_1000 USB摄像头完成实时画面预览到LCD屏幕的功能。
+本demo主要使用Air1601 + AirCAMERA_1032 USB摄像头完成实时画面预览到LCD屏幕的功能。
 核心业务逻辑为：
 1、初始化USB主机模式并打开摄像头预览功能；
 2、监听USB摄像头连接事件；
@@ -16,7 +16,7 @@
 本文件没有对外接口，直接在main.lua中require "camera_preview"就可以加载运行。
 ]]
 
--- 12号GPIO配置（AirUVC_1000摄像头供电控制引脚），需要拉高使能
+-- 12号GPIO配置（AirCAMERA_1032摄像头供电控制引脚），需要拉高使能
 gpio.setup(12, 1, gpio.PULLUP)
 -- 关闭hardfault自动复位，方便调试摄像头异常
 mcu.hardfault(0)

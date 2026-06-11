@@ -5,7 +5,7 @@
 @date    2026.06.08
 @author  江访
 @usage
-本demo主要使用Air1601 + AirUVC_1000 USB摄像头完成以下三个应用场景的演示：
+本demo主要使用Air1601 + AirCAMERA_1032 USB摄像头完成以下三个应用场景的演示：
 1、camera_preview：摄像头实时画面预览到LCD屏幕
 2、photo_uart_post：拍照后在LCD显示并通过UART上传到电脑
 3、photo_to_aircloud：拍照后在LCD显示并上传到合宙云平台
@@ -18,7 +18,7 @@
 PROJECT：项目名，ascii string类型
 VERSION：项目版本号，"XXX.YYY.ZZZ"格式
 ]]
-PROJECT = "Air1601_AirUVC_1000_Demo"
+PROJECT = "Air1601_AirCAMERA_1032_Demo"
 VERSION = "001.000.000"
 
 -- 在日志中打印项目名和项目版本号

@@ -1,11 +1,11 @@
 --[[
 @module  photo_to_aircloud
-@summary AirUVC_1000 USB摄像头循环拍照+LCD显示+合宙云平台上传应用模块
+@summary AirCAMERA_1032 USB摄像头循环拍照+LCD显示+合宙云平台上传应用模块
 @version 2.0
 @date    2026.06.08
 @author  江访
 @usage
-本demo主要使用Air1601 + AirUVC_1000 USB摄像头完成以下功能：
+本demo主要使用Air1601 + AirCAMERA_1032 USB摄像头完成以下功能：
 1、初始化USB主机模式，连接USB摄像头；
 2、初始化excloud库并连接合宙iot.openluat.com云平台；
 3、遍历USB摄像头支持的格式和分辨率，只选择MJPEG格式 + 1024x576；
@@ -50,7 +50,7 @@ local function get_device_type_by_adapter()
     end
 end
 
--- 12号GPIO配置（AirUVC_1000摄像头供电控制引脚），需要拉高使能
+-- 12号GPIO配置（AirCAMERA_1032摄像头供电控制引脚），需要拉高使能
 gpio.setup(12, 1, gpio.PULLUP)
 
 -- 全局变量

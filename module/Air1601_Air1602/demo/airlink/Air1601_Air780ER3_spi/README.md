@@ -26,32 +26,24 @@ AirLink 通信协议说明参考：[Air780ER2/ER3简介 - AirLink 概述](https:
 
 Air780ER3 相关资料参考：[Air780ER2/ER3简介](https://docs.openluat.com/air780er2/product/)
 
+Air1601 搭配 Air780ER3 参考设计文件：[Air780ER3 模组资料](https://docs.openluat.com/air780er2/product/shouce/#air780er3)
+
 ## 演示硬件环境
 
-1、Air1601 开发板一块，拨码开关位置请参考[Air1601开发板使用说明](https://docs.openluat.com/air1601/product/file/Air1601开发板使用说明.pdf)中的”串口烧录“章节
-
-![img](https://docs.openluat.com/cdn/image/Air1601/air1601.jpg)
-
-2、Air780ER3 核心板一块，可正常上网的 SIM 卡一张
-
-<span style="color:red;">板子图片待补充</span>
+1、1、Air1601 + Air780ER3 搭配设计的开发板
 
 3、TYPE-C USB 数据线两根（一根用于 Air1601 烧录程序和日志打印，另一根用于 Air780ER3 烧录程序和日志打印）
 
-Air1601 开发板与 Air780ER3 核心板 AirLink over SPI 连接方式如下：
+Air1601 与 Air780ER3 AirLink over SPI 连接方式如下：
 
-| Air1601 开发板 | Air780ER3 核心板 |
-| -------------- | ---------------- |
-| GND            | GND              |
-| CS0            | 30/SPI0_CS       |
-| CLK1           | 33/SPI0_CLK      |
-| MISO1          | 31/SPI0_MISO     |
-| MOSI1          | 32/SPI0_MOSI     |
-| GPIO12         | 26/GPIO25        |
-
-Air1601 开发板与 Air780ER3 核心板 AirLink over SPI 连接图如下：
-
-![img](https://docs.openluat.com/cdn/image/Air1601/air1601_780er3.jpg)
+| Air1601 | Air780ER3    |
+| ------- | ------------ |
+| GND     | GND          |
+| CS0     | 30/SPI0_CS   |
+| CLK1    | 33/SPI0_CLK  |
+| MISO1   | 31/SPI0_MISO |
+| MOSI1   | 32/SPI0_MOSI |
+| GPIO12  | 26/GPIO25    |
 
 ## 演示软件环境
 

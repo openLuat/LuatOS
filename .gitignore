@@ -152,3 +152,9 @@ bsp/pc/otp.bin
 /bsp/pc/mount_test.txt
 /bsp/pc/os_test_*.txt
 /bsp/pc/test_io.txt
+
+*.dmp
+testresult/
+app_store/
+*.bin
+single_app.json

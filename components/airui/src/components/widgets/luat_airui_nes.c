@@ -176,6 +176,11 @@ static void _nes_release_data(void *user_data) {
         data->nes_thread = 0;
     }
 
+#if NES_ENABLE_SOUND
+    /* 任务退出后,先停音频再释放 nes context */
+    nes_audio_deinit();
+#endif
+
     if (data->nes_ctx) {
         nes_deinit(data->nes_ctx);
         data->nes_ctx = NULL;
@@ -294,6 +299,9 @@ lv_obj_t *airui_nes_create_from_config(void *L, int idx) {
         return NULL;
     }
     nes_load_file(data->nes_ctx, rom);
+#if NES_ENABLE_SOUND
+    nes_audio_init();   /* 失败非致命:NES 仍可运行,仅无声 */
+#endif
 
     if (luat_rtos_task_create(&data->nes_thread, 8 * 1024, 27,
                               "airui_nes", _nes_task_entry, data->nes_ctx, 0)) {

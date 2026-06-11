@@ -117,6 +117,17 @@ typedef struct {
      */
     void (*trace)(const char *fmt, ...);  /* may be NULL */
 
+    /**
+     * checkpt_anchor_read / checkpt_anchor_write — optional fast checkpoint
+     * locator stored by the port outside the TFS data area.
+     *
+     * Ports that implement this should return TFS_OK with the first checkpoint
+     * chunk and sequence number. Return TFS_EINVAL when no valid anchor exists;
+     * TFS will then fall back to scanning the NAND for checkpoint data.
+     */
+    int (*checkpt_anchor_read)(void *ctx, uint32_t *chunk, uint32_t *seq);
+    int (*checkpt_anchor_write)(void *ctx, uint32_t chunk, uint32_t seq);
+
     /** Opaque context forwarded to all callbacks above */
     void *ctx;
 } tfs_drv_t;

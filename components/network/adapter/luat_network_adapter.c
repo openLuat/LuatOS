@@ -1458,6 +1458,7 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 				ctrl->domain_name = NULL;
 			}
 			adapter->ctrl_busy[i] = 0;
+			ctrl->tag = 0;  // clear tag to prevent UAF via stale event pointers
 			platform_release_mutex(ctrl->mutex);
 			ctrl->mutex = NULL;
 			break;
@@ -1854,7 +1855,10 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 static int tls_verify(void *ctx, mbedtls_x509_crt *crt, int Index, uint32_t *result)
 {
 	network_ctrl_t *ctrl = (network_ctrl_t *)ctx;
-	DBG("%d, %08x", Index, *result);
+	char info[256];
+	memset(info, 0, sizeof(info));
+	mbedtls_x509_crt_info(info, sizeof(info) - 1, "", crt);
+	DBG("depth=%d, flags=0x%08x, cert=%s", Index, *result, info);
 	return 0;
 }
 #endif

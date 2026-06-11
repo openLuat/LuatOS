@@ -178,6 +178,7 @@ typedef struct pgfs_mount_ctx {
     uint8_t inject_corrupt_latest_cp;
     uint16_t pending_checkpoint_writes;
     uint16_t reserved0;
+    void* mutex;                          /* platform mutex for PGFS_LOCK_MODE_ON */
     pgfs_layout_t layout;                /* computed at mount from geometry */
     pgfs_checkpoint_t checkpoint;
     uint32_t data_log_base_addr;         /* legacy field; derived from layout */
@@ -305,6 +306,7 @@ typedef struct pgfs_seg_summary {
 
 int pgfs_alloc_segment(pgfs_mount_ctx_t* ctx, uint32_t* seg_id);
 int pgfs_gc_step(pgfs_mount_ctx_t* ctx, uint32_t byte_budget, uint32_t time_budget_us);
+uint32_t pgfs_gc_pick_victim(pgfs_mount_ctx_t* ctx);
 int pgfs_mark_block_retired(pgfs_mount_ctx_t* ctx, uint32_t block_id);
 
 #endif

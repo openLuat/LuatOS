@@ -31,27 +31,123 @@ static int checkpt_version_supported(uint32_t version)
     return version == TFS_CHECKPT_VERSION;
 }
 
-#if defined(__GNUC__)
-__attribute__((weak)) int tfs_checkpoint_anchor_read(void *drv_ctx,
-                                                     uint32_t *chunk,
-                                                     uint32_t *seq)
+static int checkpt_anchor_read(tfs_dev_t *dev, uint32_t *chunk, uint32_t *seq)
 {
-    (void)drv_ctx;
-    (void)chunk;
-    (void)seq;
-    return TFS_EINVAL;
+    if (!dev->drv.checkpt_anchor_read)
+        return TFS_EINVAL;
+    return dev->drv.checkpt_anchor_read(dev->drv.ctx, chunk, seq);
 }
 
-__attribute__((weak)) int tfs_checkpoint_anchor_write(void *drv_ctx,
-                                                      uint32_t chunk,
-                                                      uint32_t seq)
+static int checkpt_anchor_write(tfs_dev_t *dev, uint32_t chunk, uint32_t seq)
 {
-    (void)drv_ctx;
-    (void)chunk;
-    (void)seq;
-    return TFS_EINVAL;
+    if (!dev->drv.checkpt_anchor_write)
+        return TFS_EINVAL;
+    return dev->drv.checkpt_anchor_write(dev->drv.ctx, chunk, seq);
 }
-#endif
+
+static int checkpt_list_ensure(tfs_dev_t *dev)
+{
+    uint32_t n_blocks = dev->internal_end_block - dev->internal_start_block + 1;
+
+    if (dev->checkpt_block_list && dev->checkpt_max_blocks >= n_blocks)
+        return TFS_OK;
+
+    if (dev->checkpt_block_list) {
+        dev->drv.free(dev->drv.ctx, dev->checkpt_block_list);
+        dev->checkpt_block_list = NULL;
+        dev->checkpt_max_blocks = 0;
+    }
+
+    dev->checkpt_block_list = (int *)
+        dev->drv.malloc(dev->drv.ctx, n_blocks * (uint32_t)sizeof(int));
+    if (!dev->checkpt_block_list)
+        return TFS_ENOMEM;
+
+    dev->checkpt_max_blocks = n_blocks;
+    return TFS_OK;
+}
+
+static int checkpt_remember_block(tfs_dev_t *dev, int blk)
+{
+    uint32_t i;
+    int rc;
+
+    if (blk < (int)dev->internal_start_block ||
+        blk > (int)dev->internal_end_block)
+        return TFS_EINVAL;
+
+    rc = checkpt_list_ensure(dev);
+    if (rc != TFS_OK)
+        return rc;
+
+    for (i = 0; i < dev->blocks_in_checkpt; i++) {
+        if (dev->checkpt_block_list[i] == blk)
+            return TFS_OK;
+    }
+
+    if (dev->blocks_in_checkpt >= dev->checkpt_max_blocks)
+        return TFS_ENOSPC;
+
+    dev->checkpt_block_list[dev->blocks_in_checkpt++] = blk;
+    return TFS_OK;
+}
+
+static int checkpt_alloc_block(tfs_dev_t *dev)
+{
+    int blk;
+    int start = dev->alloc_block_finder;
+
+    if (dev->n_erased_blocks <= 0)
+        return TFS_ENOSPC;
+
+    if (start < (int)dev->internal_start_block ||
+        start > (int)dev->internal_end_block)
+        start = (int)dev->internal_start_block;
+
+    for (blk = start; blk <= (int)dev->internal_end_block; blk++) {
+        if (tfs_block_get_state(dev, blk) == TFS_BLK_STATE_EMPTY)
+            goto found;
+    }
+
+    for (blk = (int)dev->internal_start_block; blk < start; blk++) {
+        if (tfs_block_get_state(dev, blk) == TFS_BLK_STATE_EMPTY)
+            goto found;
+    }
+
+    return TFS_ENOSPC;
+
+found:
+    {
+        tfs_block_info_t *bi = tfs_get_block_info(dev, blk);
+
+        bi->bi.block_state = TFS_BLK_STATE_CHECKPOINT;
+        bi->bi.seq_number = dev->seq_number++;
+    }
+
+    dev->n_erased_blocks--;
+    dev->alloc_block_finder = blk + 1;
+    if (dev->alloc_block_finder > (int)dev->internal_end_block)
+        dev->alloc_block_finder = (int)dev->internal_start_block;
+
+    dev->checkpt_cur_block = blk;
+    dev->checkpt_next_block = 0;   /* page index within current block */
+    return checkpt_remember_block(dev, blk);
+}
+
+static int checkpt_alloc_chunk(tfs_dev_t *dev)
+{
+    int cpb = (int)tfs_chunks_per_block(dev);
+    int rc;
+
+    if (dev->checkpt_cur_block < 0 ||
+        dev->checkpt_next_block >= cpb) {
+        rc = checkpt_alloc_block(dev);
+        if (rc != TFS_OK)
+            return rc;
+    }
+
+    return dev->checkpt_cur_block * cpb + dev->checkpt_next_block++;
+}
 
 /*===================================================================
  *  Byte-stream write helpers
@@ -101,9 +197,9 @@ static int wr_flush(tfs_dev_t *dev)
     if (dev->checkpt_byte_offs == 0)
         return TFS_OK;
 
-    chunk = tfs_alloc_chunk(dev, 1);  /* use reserved blocks if needed */
+    chunk = checkpt_alloc_chunk(dev);
     if (chunk < 0)
-        return TFS_ENOSPC;
+        return chunk;
 
     memset(&ext, 0, sizeof(ext));
     ext.chunk_used  = 1;
@@ -193,29 +289,122 @@ static void mark_restored_chunk_used(tfs_dev_t *dev, uint32_t chunk)
         tfs_chunk_set_used(dev, (int)chunk);
 }
 
+static void mark_block_unavailable(tfs_dev_t *dev, int blk,
+                                   tfs_block_state_t state)
+{
+    int cpb = (int)tfs_chunks_per_block(dev);
+    int page;
+    tfs_block_info_t *bi = tfs_get_block_info(dev, blk);
+
+    if ((int)bi->bi.pages_in_use < cpb) {
+        int free_in_block = cpb - (int)bi->bi.pages_in_use;
+        dev->n_free_chunks -= free_in_block;
+        if (dev->n_free_chunks < 0)
+            dev->n_free_chunks = 0;
+    }
+
+    if (bi->bi.block_state == TFS_BLK_STATE_EMPTY &&
+        dev->n_erased_blocks > 0)
+        dev->n_erased_blocks--;
+
+    bi->bi.block_state = (uint32_t)state;
+    bi->bi.pages_in_use = cpb;
+    bi->bi.soft_del_pages = 0;
+
+    for (page = 0; page < cpb; page++)
+        tfs_chunk_set_used(dev, blk * cpb + page);
+}
+
+static int mark_restored_checkpt_blocks(tfs_dev_t *dev)
+{
+    uint32_t i;
+
+    for (i = 0; i < dev->blocks_in_checkpt; i++) {
+        int blk = dev->checkpt_block_list[i];
+
+        if (blk < (int)dev->internal_start_block ||
+            blk > (int)dev->internal_end_block)
+            return TFS_EINVAL;
+
+        mark_block_unavailable(dev, blk, TFS_BLK_STATE_CHECKPOINT);
+    }
+
+    return TFS_OK;
+}
+
+static int checkpt_read_candidate(tfs_dev_t *dev, int chunk,
+                                  tfs_ext_tags_t *ext)
+{
+    int rc;
+    int cpb = (int)tfs_chunks_per_block(dev);
+    int blk = chunk / cpb;
+
+    memset(ext, 0, sizeof(*ext));
+    rc = tfs_chunk_read(dev, chunk, dev->checkpt_buffer,
+                        (int)dev->data_bytes_per_chunk, ext);
+    if (rc == TFS_OK)
+        return TFS_OK;
+
+    if (chunk % cpb == 0 &&
+        blk >= (int)dev->internal_start_block &&
+        blk <= (int)dev->internal_end_block) {
+        tfs_block_mark_bad(dev, blk);
+        mark_block_unavailable(dev, blk, TFS_BLK_STATE_DEAD);
+    }
+
+    return rc;
+}
+
 static int rd_next_chunk(tfs_dev_t *dev)
 {
     tfs_ext_tags_t ext;
-    int            blk, chunk, found = 0;
+    int            blk, chunk, pass, found = 0;
+    int            cpb = (int)tfs_chunks_per_block(dev);
+    int            start_blk = dev->checkpt_cur_block;
 
-    /* Scan forward from checkpt_cur_chunk looking for next checkpoint chunk */
-    for (blk = dev->checkpt_cur_block;
-         blk <= (int)dev->internal_end_block && !found;
-         blk++) {
+    chunk = dev->checkpt_cur_chunk + 1;
+    if (chunk / cpb == dev->checkpt_cur_block) {
+        int rc = checkpt_read_candidate(dev, chunk, &ext);
 
-        int cpb = (int)tfs_chunks_per_block(dev);
-        int start = (blk == dev->checkpt_cur_block)
-                    ? dev->checkpt_cur_chunk + 1 : blk * cpb;
+        if (rc != TFS_OK)
+            return TFS_EINVAL;
 
-        for (chunk = start; chunk < blk * cpb + cpb; chunk++) {
-            memset(&ext, 0, sizeof(ext));
-            int rc = tfs_chunk_read(dev, chunk, dev->checkpt_buffer,
-                                    (int)dev->data_bytes_per_chunk, &ext);
+        if (ext.chunk_used &&
+            ext.obj_id == TFS_OBJ_ID_CHECKPT &&
+            (int)ext.chunk_id == dev->checkpt_page_seq &&
+            ext.seq_number >= (uint32_t)dev->checkpt_next_block &&
+            ext.n_bytes <= dev->data_bytes_per_chunk) {
 
-            if (rc == TFS_OK &&
-                ext.chunk_used &&
+            dev->checkpt_cur_chunk  = chunk;
+            dev->checkpt_byte_count = (int)ext.n_bytes;
+            dev->checkpt_byte_offs  = 0;
+            dev->checkpt_page_seq++;
+            return TFS_OK;
+        }
+
+        return TFS_EINVAL;
+    }
+
+    /* Checkpoint blocks start at page 0; search block-first only. */
+    for (pass = 0; pass < 2 && !found; pass++) {
+        int first_blk = pass == 0 ? start_blk + 1 : (int)dev->internal_start_block;
+        int last_blk = pass == 0 ? (int)dev->internal_end_block : start_blk - 1;
+
+        for (blk = first_blk; blk <= last_blk && !found; blk++) {
+            int rc;
+
+            if (dev->drv.check_bad && dev->drv.check_bad(dev->drv.ctx, blk))
+                continue;
+
+            chunk = blk * cpb;
+            rc = checkpt_read_candidate(dev, chunk, &ext);
+            if (rc != TFS_OK)
+                continue;
+
+            if (ext.chunk_used &&
                 ext.obj_id == TFS_OBJ_ID_CHECKPT &&
                 (int)ext.chunk_id == dev->checkpt_page_seq &&
+                ext.seq_number >= (uint32_t)dev->checkpt_next_block &&
                 ext.n_bytes <= dev->data_bytes_per_chunk) {
 
                 dev->checkpt_cur_chunk  = chunk;
@@ -223,8 +412,10 @@ static int rd_next_chunk(tfs_dev_t *dev)
                 dev->checkpt_byte_count = (int)ext.n_bytes;
                 dev->checkpt_byte_offs  = 0;
                 dev->checkpt_page_seq++;
+                rc = checkpt_remember_block(dev, blk);
+                if (rc != TFS_OK)
+                    return rc;
                 found = 1;
-                break;
             }
         }
     }
@@ -251,8 +442,15 @@ static int load_checkpoint_start(tfs_dev_t *dev, int chunk,
     memset(&ext, 0, sizeof(ext));
     rc = tfs_chunk_read(dev, chunk, dev->checkpt_buffer,
                         (int)dev->data_bytes_per_chunk, &ext);
-    if (rc != TFS_OK ||
-        !ext.chunk_used ||
+    if (rc != TFS_OK) {
+        if (chunk % cpb == 0) {
+            tfs_block_mark_bad(dev, blk);
+            mark_block_unavailable(dev, blk, TFS_BLK_STATE_DEAD);
+        }
+        return TFS_EINVAL;
+    }
+
+    if (!ext.chunk_used ||
         ext.obj_id != TFS_OBJ_ID_CHECKPT ||
         ext.chunk_id != 0 ||
         ext.n_bytes < sizeof(val) ||
@@ -276,6 +474,10 @@ static int load_checkpoint_start(tfs_dev_t *dev, int chunk,
         dev->checkpt_byte_count= (int)ext.n_bytes;
         dev->checkpt_sum       = 0;
         dev->checkpt_xor       = 0;
+        dev->checkpt_next_block= (int)ext.seq_number;
+        rc = checkpt_remember_block(dev, blk);
+        if (rc != TFS_OK)
+            return rc;
     }
 
     return TFS_OK;
@@ -283,7 +485,7 @@ static int load_checkpoint_start(tfs_dev_t *dev, int chunk,
 
 static int find_latest_checkpoint_start(tfs_dev_t *dev)
 {
-    int blk, chunk;
+    int blk;
     int cpb = (int)tfs_chunks_per_block(dev);
     int best_chunk = -1;
     uint32_t best_tag_seq = 0;
@@ -291,9 +493,7 @@ static int find_latest_checkpoint_start(tfs_dev_t *dev)
     uint32_t anchor_chunk = 0;
     uint32_t anchor_seq = 0;
 
-    if (tfs_checkpoint_anchor_read(dev->drv.ctx,
-                                   &anchor_chunk,
-                                   &anchor_seq) == TFS_OK) {
+    if (checkpt_anchor_read(dev, &anchor_chunk, &anchor_seq) == TFS_OK) {
         tfs_checkpt_validity_t val;
 
         if (load_checkpoint_start(dev, (int)anchor_chunk,
@@ -307,22 +507,24 @@ static int find_latest_checkpoint_start(tfs_dev_t *dev)
     for (blk = (int)dev->internal_start_block;
          blk <= (int)dev->internal_end_block;
          blk++) {
-        for (chunk = blk * cpb; chunk < (blk + 1) * cpb; chunk++) {
-            tfs_checkpt_validity_t val;
-            uint32_t tag_seq;
+        int chunk = blk * cpb;
+        tfs_checkpt_validity_t val;
+        uint32_t tag_seq;
 
-            if (load_checkpoint_start(dev, chunk, &val, &tag_seq, 0) != TFS_OK)
-                continue;
+        if (dev->drv.check_bad && dev->drv.check_bad(dev->drv.ctx, blk))
+            continue;
 
-            if (best_chunk < 0 ||
-                tag_seq > best_tag_seq ||
-                (tag_seq == best_tag_seq &&
-                 (val.seq > best_val_seq ||
-                  (val.seq == best_val_seq && chunk > best_chunk)))) {
-                best_chunk = chunk;
-                best_tag_seq = tag_seq;
-                best_val_seq = val.seq;
-            }
+        if (load_checkpoint_start(dev, chunk, &val, &tag_seq, 0) != TFS_OK)
+            continue;
+
+        if (best_chunk < 0 ||
+            tag_seq > best_tag_seq ||
+            (tag_seq == best_tag_seq &&
+             (val.seq > best_val_seq ||
+              (val.seq == best_val_seq && chunk > best_chunk)))) {
+            best_chunk = chunk;
+            best_tag_seq = tag_seq;
+            best_val_seq = val.seq;
         }
     }
 
@@ -379,7 +581,6 @@ static int write_obj_record(tfs_dev_t *dev, tfs_obj_t *obj)
 static int write_obj_chunks(tfs_dev_t *dev, tfs_obj_t *obj)
 {
     uint32_t chunk_id;
-
     uint32_t n_chunks;
     tfs_off_t n_chunks64;
 
@@ -432,11 +633,20 @@ int tfs_checkpt_write(tfs_dev_t *dev)
             return TFS_ENOMEM;
     }
 
+    tfs_checkpt_erase(dev);
+
+    rc = checkpt_list_ensure(dev);
+    if (rc != TFS_OK)
+        return rc;
+    dev->blocks_in_checkpt = 0;
+
     memset(dev->checkpt_buffer, 0xff, dev->data_bytes_per_chunk);
     dev->checkpt_byte_offs  = 0;
     dev->checkpt_byte_count = 0;
     dev->checkpt_page_seq   = 0;
     dev->checkpt_cur_chunk  = -1;
+    dev->checkpt_cur_block  = -1;
+    dev->checkpt_next_block = 0;
     dev->checkpt_sum        = 0;
     dev->checkpt_xor        = 0;
 
@@ -512,12 +722,16 @@ int tfs_checkpt_write(tfs_dev_t *dev)
     if (rc != TFS_OK) return rc;
 
     if (dev->checkpt_cur_chunk >= 0) {
-        rc = tfs_checkpoint_anchor_write(dev->drv.ctx,
-                                         (uint32_t)dev->checkpt_cur_chunk,
-                                         val.seq);
+        rc = checkpt_anchor_write(dev,
+                                  (uint32_t)dev->checkpt_cur_chunk,
+                                  val.seq);
         if (rc != TFS_OK && rc != TFS_EINVAL)
             return rc;
     }
+
+    rc = mark_restored_checkpt_blocks(dev);
+    if (rc != TFS_OK)
+        return rc;
 
     dev->is_checkpointed = 1;
     return TFS_OK;
@@ -599,6 +813,10 @@ int tfs_checkpt_read(tfs_dev_t *dev)
             return TFS_ENOMEM;
     }
 
+    rc = checkpt_list_ensure(dev);
+    if (rc != TFS_OK)
+        return rc;
+    dev->blocks_in_checkpt = 0;
     dev->checkpt_has_tnodes = 0;
 
     if (find_latest_checkpoint_start(dev) != TFS_OK)
@@ -633,8 +851,12 @@ int tfs_checkpt_read(tfs_dev_t *dev)
         if (rc != TFS_OK) return TFS_EINVAL;
         if ((int)bi->bi.pages_in_use > cpb)
             return TFS_EINVAL;
-        free_from_blocks += cpb - (int)bi->bi.pages_in_use;
-        if (bi->bi.pages_in_use == 0)
+        if (bi->bi.block_state == TFS_BLK_STATE_DEAD ||
+            bi->bi.block_state == TFS_BLK_STATE_CHECKPOINT)
+            free_from_blocks += 0;
+        else
+            free_from_blocks += cpb - (int)bi->bi.pages_in_use;
+        if (bi->bi.block_state == TFS_BLK_STATE_EMPTY)
             erased_from_blocks++;
     }
     if (free_from_blocks < 0 || free_from_blocks > total_chunks)
@@ -715,10 +937,15 @@ int tfs_checkpt_read(tfs_dev_t *dev)
         return TFS_EINVAL;
     dev->checkpt_has_tnodes = 1;
 
+    rc = mark_restored_checkpt_blocks(dev);
+    if (rc != TFS_OK)
+        return rc;
+
     /* The cdev record saved alloc_page BEFORE checkpoint chunks were written.
      * Advance past any checkpoint chunks that now occupy those pages. */
     fixup_alloc_after_checkpt(dev);
 
+    dev->is_checkpointed = 1;
     return TFS_OK;
 }
 
@@ -729,13 +956,17 @@ int tfs_checkpt_read(tfs_dev_t *dev)
 void tfs_checkpt_erase(tfs_dev_t *dev)
 {
     int blk;
+    int cpb = (int)tfs_chunks_per_block(dev);
 
     for (blk = (int)dev->internal_start_block;
          blk <= (int)dev->internal_end_block;
          blk++) {
 
-        if (tfs_block_get_state(dev, blk) == TFS_BLK_STATE_CHECKPOINT)
-            tfs_block_erase(dev, blk);
+        if (tfs_block_get_state(dev, blk) == TFS_BLK_STATE_CHECKPOINT) {
+            if (tfs_block_erase(dev, blk) == TFS_OK)
+                dev->n_free_chunks += cpb;
+        }
     }
     dev->is_checkpointed = 0;
+    dev->blocks_in_checkpt = 0;
 }

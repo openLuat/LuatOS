@@ -1502,6 +1502,7 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
      * the full capacity scan used by the legacy replay path. */
     uint32_t durable_limit = 0;
     pgfs_replay_pending_entry_t pending[PGFS_MAX_BATCH_PENDING];
+    int ret = 0;
 
     if (ctx == NULL || ctx->flash_opts == NULL || ctx->flash_opts->read == NULL) {
         return -1;
@@ -1604,7 +1605,14 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             memset(hdr.ecc, 0, sizeof(hdr.ecc));
             int ecc_res = 0;
             if (stored_ecc != 0) {
-                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+                uint8_t ecc_corrected[8];
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, ecc_corrected);
+                if (ecc_res == 1) {
+                    /* Single-bit error corrected — apply correction
+                     * to header before extracting fields below. */
+                    memcpy(&hdr, ecc_corrected, 8);
+                    LLOGW("replay: ECC corrected single-bit error at addr=%u", (unsigned int)addr);
+                }
             }
             if (ecc_res < 0) {
                 /* Phase 3b: ECC mismatch. Mark the block weak for refresh
@@ -1643,7 +1651,12 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             memset(hdr.ecc, 0, sizeof(hdr.ecc));
             int ecc_res = 0;
             if (stored_ecc != 0) {
-                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+                uint8_t ecc_corrected[8];
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, ecc_corrected);
+                if (ecc_res == 1) {
+                    memcpy(&hdr, ecc_corrected, 8);
+                    LLOGW("replay: ECC corrected single-bit error at addr=%u", (unsigned int)addr);
+                }
             }
             if (ecc_res < 0) {
                 LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
@@ -1687,7 +1700,12 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             memset(hdr.ecc, 0, sizeof(hdr.ecc));
             int ecc_res = 0;
             if (stored_ecc != 0) {
-                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, NULL);
+                uint8_t ecc_corrected[8];
+                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, ecc_corrected);
+                if (ecc_res == 1) {
+                    memcpy(&hdr, ecc_corrected, 8);
+                    LLOGW("replay: ECC corrected single-bit error at addr=%u", (unsigned int)addr);
+                }
             }
             if (ecc_res < 0) {
                 LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
@@ -1715,8 +1733,8 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                 break;
             }
             if (pgfs_replay_pending_apply(ctx, pending, hdr.batch_id) != 0) {
-                pgfs_replay_pending_drop_all(pending);
-                return -1;
+                ret = -1;
+                goto cleanup;
             }
             ctx->data_log_write_addr = (uint32_t)next_addr;
             addr = (uint32_t)next_addr;
@@ -1770,14 +1788,14 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
         }
         path_buf = (uint8_t*)luat_heap_malloc((size_t)path_len + 1u);
         if (path_buf == NULL) {
-            pgfs_replay_pending_drop_all(pending);
-            return -1;
+            ret = -1;
+            goto cleanup;
         }
         data_buf = data_len == 0 ? NULL : (uint8_t*)luat_heap_malloc((size_t)data_len);
         if (data_len != 0 && data_buf == NULL) {
             luat_heap_free(path_buf);
-            pgfs_replay_pending_drop_all(pending);
-            return -1;
+            ret = -1;
+            goto cleanup;
         }
         if (pgfs_replay_flash_read(ctx, addr + (uint32_t)hdr_len, path_buf, path_len) != 0) {
             luat_heap_free(path_buf);
@@ -1803,8 +1821,8 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             if (crc_buf == NULL) {
                 luat_heap_free(path_buf);
                 luat_heap_free(data_buf);
-                pgfs_replay_pending_drop_all(pending);
-                return -1;
+                ret = -1;
+                goto cleanup;
             }
             memcpy(crc_buf, path_buf, path_len);
             if (data_len != 0) {
@@ -1846,23 +1864,23 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             if (pgfs_path_parent(norm, parent, sizeof(parent)) != 0 || pgfs_dir_ensure_norm(parent) != 0) {
                 luat_heap_free(path_buf);
                 luat_heap_free(data_buf);
-                pgfs_replay_pending_drop_all(pending);
-                return -1;
+                ret = -1;
+                goto cleanup;
             }
             entry = pgfs_alloc_file(norm);
             if (entry == NULL) {
                 luat_heap_free(path_buf);
                 luat_heap_free(data_buf);
-                pgfs_replay_pending_drop_all(pending);
-                return -1;
+                ret = -1;
+                goto cleanup;
             }
             old_len = entry->len;
             if (data_len != 0) {
                 if (pgfs_file_reserve(entry, data_len) != 0) {
                     luat_heap_free(path_buf);
                     luat_heap_free(data_buf);
-                    pgfs_replay_pending_drop_all(pending);
-                    return -1;
+                    ret = -1;
+                    goto cleanup;
                 }
                 memcpy(entry->data, data_buf, data_len);
             }
@@ -1915,8 +1933,8 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             if (pgfs_replay_pending_stage(pending, batch_id, norm, data_buf, data_len) != 0) {
                 luat_heap_free(path_buf);
                 luat_heap_free(data_buf);
-                pgfs_replay_pending_drop_all(pending);
-                return -1;
+                ret = -1;
+                goto cleanup;
             }
         }
         ctx->data_log_write_addr = (uint32_t)next_addr;
@@ -1933,7 +1951,12 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
         ctx->data_log_prepared_until = ctx->data_log_write_addr;
     }
     ctx->pending_checkpoint_writes = 0;
-    return 0;
+    return ret;
+
+cleanup:
+    pgfs_replay_pending_drop_all(pending);
+    pgfs_file_reset_all();
+    return ret;
 }
 
 static int pgfs_apply_cache_to_entry(pgfs_file_t* f) {

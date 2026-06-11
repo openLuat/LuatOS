@@ -19,6 +19,7 @@
 #define LUAT_LOG_TAG "audio_v2"
 #include "luat_log.h"
 #ifdef LUAT_USE_AUDIO_V2
+//#if 1
 #include "luat_common_api.h"
 #include "luat_audio_core.h"
 
@@ -37,9 +38,13 @@ typedef struct {
 } l_audio_request_t;
 
 typedef struct {
+    uint64_t total_record_bytes;
     luat_llist_head request_free_list;  // 空闲请求块列表
     luat_llist_head request_busy_list;  // 正在处理请求块列表
     l_audio_request_t request_table[LUAT_AUDIO_REQUEST_MAX];  // 请求块表
+    luat_fifo_t *record_fifo;  // 录音数据FIFO
+    FILE *record_file;  // 录音文件指针
+    luat_zbuff_t *record_zbuff;  // 录音数据ZBuff
     int cb_ref; // 回调函数引用
 } l_audio_ctrl_t;
 static l_audio_ctrl_t _l_audio;
@@ -236,7 +241,7 @@ static int l_audio_stream(lua_State *L) {
     result = luat_audio_request_play_stream(&l_req->request, 
         (driver_probe.probe_id ? &driver_probe : NULL), 
         codec_opts, 
-        &common_param, 
+        &common_param, 0,
         priority, 0, 
         _l_audio_request_callback, l_req);
     if (result) {
@@ -286,6 +291,7 @@ static int l_audio_input(lua_State *L) {
         LLOGC(luat_audio_debug_flag,"lua request %d not busy can not input data", request_index);
         goto DONE;
     }
+    luat_rtos_task_suspend_all();
     if (LUA_TSTRING == (lua_type(L, 2))) {
         size_t len = 0;
         data = lua_tolstring(L, 2, &len);//取出字符串数据
@@ -311,6 +317,7 @@ static int l_audio_input(lua_State *L) {
         is_end = 0;
     }
     l_req->request.is_input_end = is_end;
+    luat_rtos_task_resume_all();
 DONE:
     lua_pushboolean(L, !result);
     lua_pushinteger(L, input_len);

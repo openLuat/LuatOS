@@ -13,6 +13,16 @@
 #define TFS_WRITE_RETRY_BLOCKS 4
 #endif
 
+static size_t tfs_bounded_strlen(const char *s, size_t max_len)
+{
+    size_t len = 0;
+
+    while (len < max_len && s[len] != '\0')
+        len++;
+
+    return len;
+}
+
 /*===================================================================
  *  Allocate / free
  *===================================================================*/
@@ -247,10 +257,12 @@ void tfs_obj_load_hdr(tfs_dev_t *dev, tfs_obj_t *obj,
         obj->var.file.file_size   = sz;
     } else if (obj->obj_type == TFS_OBJ_TYPE_SYMLINK) {
         /* Alias stored in hdr.alias */
-        size_t len = strlen(hdr->alias) + 1;
+        size_t len = tfs_bounded_strlen(hdr->alias, TFS_MAX_ALIAS_LEN) + 1;
         obj->var.symlink.alias = (char *)dev->drv.malloc(dev->drv.ctx, len);
-        if (obj->var.symlink.alias)
+        if (obj->var.symlink.alias) {
             memcpy(obj->var.symlink.alias, hdr->alias, len);
+            obj->var.symlink.alias[len - 1] = '\0';
+        }
     } else if (obj->obj_type == TFS_OBJ_TYPE_HARDLINK) {
         obj->var.hardlink.equiv_id = (uint32_t)hdr->equiv_id;
     }
@@ -327,7 +339,7 @@ void tfs_obj_cache_name(tfs_obj_t *obj, const char *name)
     strncpy(obj->short_name, name, TFS_SHORT_NAME_LEN);
     obj->short_name[TFS_SHORT_NAME_LEN] = '\0';
 
-    len = strlen(name);
+    len = tfs_bounded_strlen(name, TFS_MAX_NAME_LEN);
     if (len > TFS_MAX_NAME_LEN) {
         len = TFS_MAX_NAME_LEN;
     }

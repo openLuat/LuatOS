@@ -55,8 +55,9 @@ enum {
     LUAT_AUDIO_DRIVER_MODE_NONE = 0,       /**< 无模式 */
     LUAT_AUDIO_DRIVER_MODE_PLAY,           /**< 播放模式 */
     LUAT_AUDIO_DRIVER_MODE_RECORD,         /**< 录音模式 */
-    LUAT_AUDIO_DRIVER_MODE_CALL,           /**< 通话模式 */
-    LUAT_AUDIO_DRIVER_MODE_CALL_WITH_BUFFER,/**< 通话带缓冲区模式 */
+    LUAT_AUDIO_DRIVER_MODE_SPEECH,           /**< 通话模式 */
+    LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER,/**< 通话带缓冲区模式 */
+    LUAT_AUDIO_DRIVER_MODE_MAX,        /**< 最大驱动模式数量 */
 
     LUAT_AUDIO_DATA_CODEC_TYPE_RAW = 0,    /**< 原始音频数据编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_WAV,    /**< WAV 编解码器 */
@@ -102,10 +103,12 @@ enum {
  * 
  * @note 这个值是2的幂次方，用于计算FIFO的大小。
  */
-#ifndef LUAT_AUDIO_CHANNEL_FIFO_DEFAULT_SIZE_POWER
-#define LUAT_AUDIO_CHANNEL_FIFO_DEFAULT_SIZE_POWER (17)
+#ifndef LUAT_AUDIO_CHANNEL_PLAY_FIFO_DEFAULT_SIZE_POWER
+#define LUAT_AUDIO_CHANNEL_PLAY_FIFO_DEFAULT_SIZE_POWER (17)
 #endif
-
+#ifndef LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER
+#define LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER (15)
+#endif
 /**
  * @brief 默认音频数据编解码器输入FIFO大小
  * 
@@ -119,6 +122,14 @@ enum {
 
 #ifndef LUAT_AUDIO_TASK_STACK
 #define LUAT_AUDIO_TASK_STACK 13 * 1024
+#endif
+
+#ifndef LUAT_AUDIO_TASK_PRIORITY
+#define LUAT_AUDIO_TASK_PRIORITY 90
+#endif
+
+#ifndef LUAT_AUDIO_TTS_TASK_PRIORITY
+#define LUAT_AUDIO_TTS_TASK_PRIORITY 20
 #endif
 
 #define LUAT_AUDIO_FRAME_LOOP_CNT   4

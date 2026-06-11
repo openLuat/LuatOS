@@ -16,7 +16,8 @@ enum {
     EMS_SERVER_POWER_NORMAL = 6,
 };
 
-extern const char* ems_server_lua_code;
+extern const unsigned char ems_server_luac[];
+extern const size_t ems_server_luac_len;
 
 // 写入emergency service配置文件（单个字段）
 void luat_ems_server_write_config(uint8_t config_type, void* value);

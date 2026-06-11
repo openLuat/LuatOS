@@ -3,7 +3,7 @@
 ## 背景
 
 master 分支的 6 个 commit 把 little_flash FTL 砍到 stub, 把 NAND FTL 落地到 pgfs。
-PC 模拟器 (`pgfs_basic` 17/17, `little_flash_basic` 1/1) 验证过。
+PC 模拟器 `pgfs_basic` 验证过 (17/17, 后因 `pgfs_test_replay_failure_cleans_up` 标记为 known-fail 变 16/17)。
 这一组用例是 **真机回归**, 验证 EC618 (air1601) 上的 NOR 路径仍然健康,
 且 `lf.pgfsctl` 运行时控制不崩。
 

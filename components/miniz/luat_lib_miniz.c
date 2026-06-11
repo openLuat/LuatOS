@@ -812,12 +812,24 @@ unzip_finish:
     return 1;
 }
 
+#ifdef LUAT_USE_UTEST
+extern int luat_miniz_utest(lua_State *L, const char *case_name);
+static int l_miniz_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "compress_decompress_basic");
+    lua_pushboolean(L, luat_miniz_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_miniz[] = {
     {"compress", ROREG_FUNC(l_miniz_compress)},
     {"uncompress", ROREG_FUNC(l_miniz_uncompress)},
     #ifndef LUAT_USE_MINIZ_LITE
     {"unzip", ROREG_FUNC(l_miniz_unzip)},
+    #endif
+    #ifdef LUAT_USE_UTEST
+    {"utest", ROREG_FUNC(l_miniz_utest)},
     #endif
 
     // 放些常量

@@ -18,7 +18,7 @@
 
 ### Air780EPM 开发板
 
-![](https://docs.openluat.com/air8101/luatos/app/multinetwork/4G/image/Q5o4bXvOsoGMe7xQZK2cZ1CFnxf.png)
+![](https://docs.openluat.com/air780epm/luatos/app/driver/gpio/image/GqKkbSGGXoNIRBxnsD6c1vI1nSb.jpg)
 Air780EPM V1.3开发板一块 +TYPE-C USB 数据线一根 +可上网的sim卡一张 +4g天线一根+网线两根根：
 
 - sim卡插入开发板的sim卡槽
@@ -45,7 +45,7 @@ Air780EPM V1.3开发板一块 +TYPE-C USB 数据线一根 +可上网的sim卡一
 | UART2_RX        | CSS               |
 | UART3_RX        | SDO               |
 | UART2_TX        | SDI               |
-| nil             | INT               |
+| 22            | INT               |
 
 3、TYPE-C USB数据线一根 Air780EPM开发板和数据线的硬件接线方式为：
 

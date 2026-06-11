@@ -3,6 +3,7 @@
 #include "pgfs_internal.h"
 #include "pgfs_ecc.h"
 #include "luat_mem.h"
+#include "luat_rtos_legacy.h"
 
 #ifdef LUAT_USE_PGFS_COMPONENT
 
@@ -957,6 +958,103 @@ static int pgfs_test_gc_data_move_preserves_file(void) {
     return fail;
 }
 
+/* Phase 2 GC: verify that a block with high erase count is NOT
+ * deprioritized compared to a low-EC block with similar reclaimable
+ * space. The old formula (dead+free)/(ec+1) gave lower scores to
+ * high-EC blocks, which is the opposite of wear leveling. With the
+ * wear-leveling boost, blocks with EC above the average get an
+ * additive bonus proportional to how far above average they are,
+ * so the GC prioritizes reclaiming them. */
+static int pgfs_test_gc_wear_leveling_score(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    uint32_t total_blocks = 16;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+
+    if (pgfs_ftl_init(&ctx.ftl, &opts, erase_size, total_blocks) != 0) {
+        printf("[pgfs-gc-utest] FTL init failed\n");
+        pgfs_test_flash_free(flash);
+        return 1;
+    }
+
+    /* Mark reserved blocks 0..4. */
+    for (uint32_t i = 0; i < PGFS_LAYOUT_RESERVED_BLOCKS && i < total_blocks; i++) {
+        pgfs_ftl_mark_reserved(&ctx.ftl, i);
+    }
+
+    /* Set up a realistic erase-count distribution:
+     *   Block 5:  low EC,  half live  (2048 bytes live, 2048 bytes dead)
+     *   Block 6:  high EC, half live  (same live/dead split)
+     *   Blocks 7..15: empty (live=0),  moderate EC = 10
+     *
+     * The wear-leveling boost applies when ec > avg_ec AND live > 0.
+     * Block 6 has ec=100, avg_ec ≈ 18, live=2048 > 0 → gets a large
+     * additive bonus proportional to (ec - avg_ec)*erase_size/avg_ec.
+     * Block 5 has ec=10 ≤ avg_ec → no boost.
+     * Empty blocks (7..15) have live=0 → no boost.
+     * Expected winner: block 6 (high-EC). */
+    ctx.ftl.erase_counts[5] = 10;
+    ctx.ftl.live_bytes_per_block[5] = erase_size / 2;
+    ctx.ftl.dead_bytes_per_block[5] = erase_size / 2;
+
+    ctx.ftl.erase_counts[6] = 100;
+    ctx.ftl.live_bytes_per_block[6] = erase_size / 2;
+    ctx.ftl.dead_bytes_per_block[6] = erase_size / 2;
+
+    for (uint32_t i = 7; i < total_blocks; i++) {
+        ctx.ftl.erase_counts[i] = 10;
+        /* live and dead stay at 0 (empty blocks). */
+    }
+
+    /* With the old formula:
+     *   Block 5: score = (2048+2048)/(10+1) = 372
+     *   Block 6: score = (2048+2048)/(100+1) = 40
+     *   Block 5 (low EC) would win — bad for wear leveling.
+     * With the wear-leveling boost:
+     *   avg_ec = (10 + 100 + 10*9) / 11 = 200/11 ≈ 18
+     *   Block 5: ec=10 ≤ 18, no boost → score = 372
+     *   Block 6: ec=100 > 18, live=2048 > 0 → boost!
+     *     boost = (100-18)*4096/18 ≈ 82*227 = 18660
+     *     score = 40 + 18660 = 18700
+     *   Block 6 wins. */
+
+    /* Call pgfs_gc_pick_victim directly (white-box test). */
+    uint32_t victim = pgfs_gc_pick_victim(&ctx);
+
+    if (victim == 0xFFFFFFFFu) {
+        printf("[pgfs-gc-utest] gc_pick_victim returned no candidate\n");
+        fail++;
+    } else if (victim != 6) {
+        printf("[pgfs-gc-utest] expected victim=6 (high-EC block), got %u\n",
+               (unsigned int)victim);
+        fail++;
+    }
+
+    /* Also verify that the low-EC block 5 is NOT picked as best
+     * when a similar high-EC block (6) exists. */
+    if (victim == 5) {
+        printf("[pgfs-gc-utest] low-EC block 5 was picked over high-EC block 6 (wear-leveling broken)\n");
+        fail++;
+    }
+
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 /* Phase 6 stress test: write N files with distinct paths and small
  * payloads, then read them all back and verify content matches. Also
  * verify the runtime counters in pgfs_diag_stats_t reflect the
@@ -1141,32 +1239,88 @@ static int pgfs_test_ecc_encode_decode_roundtrip(void) {
     return fail;
 }
 
-/* Phase 3b: corruption in the protected bytes must be detected (decode
- * returns -1). The replay path then marks the block weak and skips the
- * record. */
+/* Phase 3b: corruption tests. Single-bit data flips are now correctable
+ * (return 1) with SECDED. Double-bit errors remain uncorrectable (return -1). */
 static int pgfs_test_ecc_decode_detects_corruption(void) {
     int fail = 0;
     uint8_t data[8] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
     uint8_t corrected[8] = {0};
     uint8_t parity = pgfs_ecc_hamming_encode(data);
-    /* Flip a single bit in the data and confirm decode fails. The stored
-     * parity was computed against the original data, so a flipped bit
-     * makes the recomputed parity mismatch — decode returns -1. */
+    uint8_t original[8];
+    memcpy(original, data, 8);
+    /* Flip a single bit in the data — SECDED corrects it (return 1). */
     data[3] ^= 0x01u;
     int res = pgfs_ecc_hamming_decode(data, parity, corrected);
-    if (res != -1) {
-        printf("[pgfs-ecc-utest] expected decode to flag a 1-bit flip with -1, got %d\n", res);
+    if (res != 1) {
+        printf("[pgfs-ecc-utest] expected decode to correct a 1-bit flip (return 1), got %d\n", res);
         fail++;
     }
-    /* Flipping a bit in the parity byte alone (with data intact) must
-     * also be detected. */
-    {
-        uint8_t data2[8] = {0xAA, 0x55, 0xCC, 0x33, 0xF0, 0x0F, 0x96, 0x69};
-        uint8_t p2 = pgfs_ecc_hamming_encode(data2);
-        uint8_t bad_p2 = (uint8_t)(p2 ^ 0x80u);
-        int r2 = pgfs_ecc_hamming_decode(data2, bad_p2, NULL);
-        if (r2 != -1) {
-            printf("[pgfs-ecc-utest] expected decode to flag a parity-byte flip with -1, got %d\n", r2);
+    if (memcmp(corrected, original, 8) != 0) {
+        printf("[pgfs-ecc-utest] corrected data does not match original after single-bit flip\n");
+        fail++;
+    }
+    return fail;
+}
+
+/* Phase 3b: verify SECDED corrects every single-bit error at all 64 data
+ * bit positions. Each bit is flipped individually, decoded, and the
+ * corrected output is compared against the original data. */
+static int pgfs_test_ecc_corrects_single_bit_errors(void) {
+    int fail = 0;
+    uint8_t original[8] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+    uint8_t data[8];
+    uint8_t parity = pgfs_ecc_hamming_encode(original);
+
+    /* Test each of the 64 bit positions */
+    for (int bit = 0; bit < 64; bit++) {
+        memcpy(data, original, 8);
+        int byte_idx = bit / 8;
+        int bit_idx = bit % 8;
+        data[byte_idx] ^= (1 << bit_idx);  /* flip one bit */
+
+        uint8_t corrected[8] = {0};
+        int res = pgfs_ecc_hamming_decode(data, parity, corrected);
+        if (res != 1) {
+            printf("[pgfs-ecc-utest] single-bit flip at bit %d: expected 1, got %d\n", bit, res);
+            fail++;
+            break;  /* one failure is enough */
+        }
+        if (memcmp(corrected, original, 8) != 0) {
+            printf("[pgfs-ecc-utest] single-bit flip at bit %d: corrected data wrong\n", bit);
+            fail++;
+            break;
+        }
+    }
+    return fail;
+}
+
+/* Phase 3b: verify SECDED detects (returns -1) for several double-bit
+ * error patterns, including adjacent bits, cross-byte, far-apart,
+ * first+last, and byte-boundary flips. */
+static int pgfs_test_ecc_detects_double_bit_errors(void) {
+    int fail = 0;
+    uint8_t original[8] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+    uint8_t parity = pgfs_ecc_hamming_encode(original);
+
+    /* Test several double-bit combinations */
+    int test_pairs[][2] = {
+        {0, 1},     /* adjacent bits, same byte */
+        {0, 8},     /* different bytes */
+        {10, 50},   /* far apart */
+        {0, 63},    /* first and last */
+        {31, 32},   /* byte boundary */
+    };
+
+    for (int t = 0; t < 5; t++) {
+        uint8_t data[8];
+        memcpy(data, original, 8);
+        int b1 = test_pairs[t][0], b2 = test_pairs[t][1];
+        data[b1/8] ^= (1 << (b1%8));
+        data[b2/8] ^= (1 << (b2%8));
+
+        int res = pgfs_ecc_hamming_decode(data, parity, NULL);
+        if (res != -1) {
+            printf("[pgfs-ecc-utest] double-bit flip at %d,%d: expected -1, got %d\n", b1, b2, res);
             fail++;
         }
     }
@@ -1701,6 +1855,57 @@ static int pgfs_test_lock_mode_counters(void) {
     if (ctx.stats.lock_passthrough_count != 1) {
         fail++;
     }
+    return fail;
+}
+
+/* Test: lock_mode=OFF still passes through (backward compat) */
+static int pgfs_test_lock_mode_off_passthrough(void) {
+    int fail = 0;
+    pgfs_mount_ctx_t ctx = {0};
+    ctx.lock_mode = PGFS_LOCK_MODE_OFF;
+
+    uint32_t before = ctx.stats.lock_passthrough_count;
+    if (pgfs_lock(&ctx) != 0) { fail++; }
+    if (pgfs_unlock(&ctx) != 0) { fail++; }
+    if (ctx.stats.lock_passthrough_count != before + 1) { fail++; }
+
+    return fail;
+}
+
+/* Test: lock_mode=ON uses real mutex (basic acquire/release) */
+static int pgfs_test_lock_mode_on_acquire_release(void) {
+    int fail = 0;
+    pgfs_mount_ctx_t ctx = {0};
+    ctx.lock_mode = PGFS_LOCK_MODE_ON;
+    ctx.mutex = luat_mutex_create();
+    if (ctx.mutex == NULL) {
+        printf("[pgfs-lock-utest] mutex create failed\n");
+        return 1;
+    }
+
+    uint32_t before = ctx.stats.lock_acquire_count;
+    if (pgfs_lock(&ctx) != 0) { fail++; }
+    if (pgfs_unlock(&ctx) != 0) { fail++; }
+    if (ctx.stats.lock_acquire_count != before + 1) { fail++; }
+
+    /* Double-unlock should not crash (best-effort) */
+    pgfs_unlock(&ctx);
+
+    luat_mutex_release(ctx.mutex);
+    return fail;
+}
+
+/* Test: lock_mode=ON with NULL mutex (defensive, should not crash) */
+static int pgfs_test_lock_null_mutex_safe(void) {
+    int fail = 0;
+    pgfs_mount_ctx_t ctx = {0};
+    ctx.lock_mode = PGFS_LOCK_MODE_ON;
+    ctx.mutex = NULL;  // not initialized
+
+    /* Should handle NULL mutex gracefully */
+    if (pgfs_lock(&ctx) != 0) { fail++; }
+    if (pgfs_unlock(&ctx) != 0) { fail++; }
+
     return fail;
 }
 
@@ -3975,6 +4180,116 @@ static int pgfs_test_multi_mount_counters_advance(void) {
     return fail;
 }
 
+/* Test: replay failure cleans up partial file table state.
+ * When replay is bounded (e.g., data_log_write_addr stops mid-log),
+ * files from records beyond the bound must not appear in the file
+ * table. This is the dual of the cleanup requirement: on failure,
+ * pgfs_file_reset_all() ensures the file table is empty. */
+static int pgfs_test_replay_failure_cleans_up(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint8_t rec1[256] = {0};
+    uint8_t rec2[256] = {0};
+    size_t rec1_len = 0, rec2_len = 0;
+    uint32_t erase_size = 4096;
+    FILE* f = NULL;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash;
+    opts.read = pgfs_test_read;
+    opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase;
+    opts.control = pgfs_test_control;
+
+    /* Build and write 2 valid records */
+    rec1_len = pgfs_test_build_record(rec1, sizeof(rec1), "/file1.txt", "data1");
+    rec2_len = pgfs_test_build_record(rec2, sizeof(rec2), "/file2.txt", "data2");
+    if (rec1_len == 0 || rec2_len == 0) {
+        pgfs_test_flash_free(flash);
+        return 1;
+    }
+
+    if (pgfs_test_write(flash, PGFS_DATA_LOG_BASE_ADDR, rec1, rec1_len) != 0) {
+        pgfs_test_flash_free(flash);
+        return 1;
+    }
+    if (pgfs_test_write(flash, PGFS_DATA_LOG_BASE_ADDR + (uint32_t)rec1_len, rec2, rec2_len) != 0) {
+        pgfs_test_flash_free(flash);
+        return 1;
+    }
+
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_prepared_until = PGFS_DATA_LOG_BASE_ADDR;
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
+
+    /* First replay should succeed and restore both files */
+    if (pgfs_replay_data_log(&ctx) != 0) {
+        printf("[pgfs-replay-utest] initial replay failed unexpectedly\n");
+        fail++;
+    }
+
+    /* Verify both files are in the table */
+    f = pgfs_file_open(&ctx, "/file1.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-replay-utest] file1 missing after initial replay\n");
+        fail++;
+    } else {
+        pgfs_file_close(&ctx, f);
+    }
+    f = pgfs_file_open(&ctx, "/file2.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-replay-utest] file2 missing after initial replay\n");
+        fail++;
+    } else {
+        pgfs_file_close(&ctx, f);
+    }
+
+    /* Now simulate bounded replay: reset and replay only record 1
+     * (data_log_write_addr stops at record 1). Record 2 is beyond
+     * the durable bound and must NOT appear in the file table. */
+    pgfs_file_reset_all();
+    pgfs_ftl_deinit(&ctx.ftl);
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR + (uint32_t)rec1_len;
+    ctx.data_log_prepared_until = ctx.data_log_write_addr;
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
+
+    if (pgfs_replay_data_log(&ctx) != 0) {
+        printf("[pgfs-replay-utest] bounded replay failed unexpectedly\n");
+        fail++;
+    }
+
+    /* Record 1 should be present, record 2 should NOT */
+    f = pgfs_file_open(&ctx, "/file1.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-replay-utest] file1 missing after bounded replay\n");
+        fail++;
+    } else {
+        pgfs_file_close(&ctx, f);
+    }
+    f = pgfs_file_open(&ctx, "/file2.txt", "rb");
+    if (f != NULL) {
+        printf("[pgfs-replay-utest] file2 present but should be absent after bounded replay\n");
+        pgfs_file_close(&ctx, f);
+        fail++;
+    }
+
+    pgfs_file_reset_all();
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 int pgfs_run_c_layer_tests(void) {
     int fail = 0;
     int r = 0;
@@ -3983,6 +4298,9 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_pick_latest_valid_sb);
     PGFS_RUN_CTEST(pgfs_test_checkpoint_roundtrip_and_fallback);
     PGFS_RUN_CTEST(pgfs_test_lock_mode_counters);
+    PGFS_RUN_CTEST(pgfs_test_lock_mode_off_passthrough);
+    PGFS_RUN_CTEST(pgfs_test_lock_mode_on_acquire_release);
+    PGFS_RUN_CTEST(pgfs_test_lock_null_mutex_safe);
     PGFS_RUN_CTEST(pgfs_test_directory_helpers);
     PGFS_RUN_CTEST(pgfs_test_replay_restores_file_contents);
     PGFS_RUN_CTEST(pgfs_test_replay_skips_bad_block_and_recovers_next_block);
@@ -4017,6 +4335,8 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_weak_block_separate_from_bad);
     PGFS_RUN_CTEST(pgfs_test_ecc_encode_decode_roundtrip);
     PGFS_RUN_CTEST(pgfs_test_ecc_decode_detects_corruption);
+    PGFS_RUN_CTEST(pgfs_test_ecc_corrects_single_bit_errors);
+    PGFS_RUN_CTEST(pgfs_test_ecc_detects_double_bit_errors);
     PGFS_RUN_CTEST(pgfs_test_replay_marks_block_weak_on_ecc_mismatch);
     PGFS_RUN_CTEST(pgfs_test_checkpoint_consistency_matches_when_synced);
     PGFS_RUN_CTEST(pgfs_test_checkpoint_consistency_fails_on_drift);
@@ -4031,11 +4351,13 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_gc_picks_lowest_erase_count_among_empties);
     PGFS_RUN_CTEST(pgfs_test_gc_excludes_bad_reserved_retired);
     PGFS_RUN_CTEST(pgfs_test_gc_data_move_preserves_file);
+    PGFS_RUN_CTEST(pgfs_test_gc_wear_leveling_score);
     PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
     PGFS_RUN_CTEST(pgfs_test_stress_many_files_writes_counters);
     PGFS_RUN_CTEST(pgfs_test_stress_write_delete_cycles);
     PGFS_RUN_CTEST(pgfs_test_multi_mount_cycle_reads_via_replay);
     PGFS_RUN_CTEST(pgfs_test_multi_mount_counters_advance);
+    PGFS_RUN_CTEST(pgfs_test_replay_failure_cleans_up);
     PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
     PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally

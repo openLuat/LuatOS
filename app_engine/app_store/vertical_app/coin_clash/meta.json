@@ -1,0 +1,26 @@
+{
+  "app_name_cn": "接金币对决",
+  "app_name_en": "Coin_Clash",
+  "version": "1.0.1",
+  "publish_time": "2026-06-09 12:00:00",
+  "category": "游戏",
+  "description": "双人接金币碰撞对决，支持单机对战和联网对战",
+  "resolution": "320x480",
+  "display_zoom": "fixed_resolution",
+  "supported_models": {
+    "Air8000W": [
+      {
+        "firmware_id": 14,
+        "min_firmware_version": 2034
+      }
+    ],
+    "Air8101": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": "30.0",
+  "origin_size_kb": "80.0"
+}

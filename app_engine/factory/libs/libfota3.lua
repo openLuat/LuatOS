@@ -83,11 +83,11 @@ local function verify_sha256(file_path, expected)
     end
     expected = expected:lower()
     -- 使用crypto库计算SHA256
-    if not crypto or not crypto.sha256 then
-        log.warn("libfota3", "crypto.sha256 not available, skip verification")
+    if not crypto or not crypto.md_file then
+        log.warn("libfota3", "crypto.md_file not available, skip verification")
         return true
     end
-    local ok, hash = pcall(crypto.sha256, file_path, "file")
+    local ok, hash = pcall(crypto.md_file, "SHA256", file_path)
     if not ok or not hash then
         log.error("libfota3", "sha256 compute failed", ok, hash)
         return false
@@ -113,7 +113,7 @@ end
   project_key:  项目密钥，默认 _G.PROJECT_KEY
   imei:         设备IMEI（4G模块），自动检测
   mac:          设备MAC（WiFi模块），自动检测
-  core_name:    固件名，默认从 rtos.firmware() 提取
+  model:        模组型号，默认 hmeta.model()
   core_id:      固件编号，默认 rtos.version(true) 第二返回值
   core_version: 固件版本号，默认 rtos.version()
   script_name:  脚本名，默认 _G.PROJECT
@@ -149,15 +149,13 @@ function libfota3.check(opts)
         core_version = v and v:gsub("^V", "") or "0"
     end
     local core_id = opts.core_id or select(2, rtos.version(true)) or "0"
-    local core_name = opts.core_name
-    if not core_name then
-        local fw = rtos.firmware()
-        if fw then
-            core_name = fw:gsub("_V%d+", ""):gsub("_%d+$", "")
-        else
-            core_name = "LuatOS-SoC_" .. rtos.bsp()
+    local model = opts.model
+    if not model then
+        if hmeta and hmeta.model then
+            model = hmeta.model()
         end
     end
+    model = model or ""
     local script_name = opts.script_name or _G.PROJECT or ""
     local script_version = opts.script_version or _G.VERSION or "0.0.0"
     local timeout = opts.timeout or DEFAULT_TIMEOUT
@@ -166,13 +164,13 @@ function libfota3.check(opts)
     local url = FOTA_CHECK_URL
         .. "?" .. id_type .. "=" .. url_encode(id_val)
         .. "&project_key=" .. url_encode(project_key)
-        .. "&core_name=" .. url_encode(core_name)
+        .. "&model=" .. url_encode(model)
         .. "&core_id=" .. url_encode(tostring(core_id))
         .. "&core_version=" .. url_encode(core_version)
         .. "&script_name=" .. url_encode(script_name)
         .. "&script_version=" .. url_encode(script_version)
 
-    log.info("libfota3", "check", "id", id_type, id_val, "core", core_name, core_id, core_version, "script", script_version)
+    log.info("libfota3", "check", "id", id_type, id_val, "model", model, "core_id", core_id, "core_version", core_version, "script", script_version)
 
     local code, headers, body = http.request("GET", url, nil, nil, {timeout = timeout}).wait()
     if code ~= 200 then
@@ -265,14 +263,18 @@ function libfota3.download(url, sha256, progress_cb)
         os.remove(temp_path)
         return false, "fota初始化失败"
     end
-    local wait_start = os.clock()
-    while not fota.wait() do
-        if os.clock() - wait_start > 30 then
-            fota.finish(false)
-            os.remove(temp_path)
-            return false, "fota等待超时"
+    -- Air8101 平台 fota.wait() 永远不就绪，跳过等待直接写文件
+    local bsp = rtos.bsp():lower()
+    if not bsp:find("air8101") then
+        local wait_start = os.clock()
+        while not fota.wait() do
+            if os.clock() - wait_start > 30 then
+                fota.finish(false)
+                os.remove(temp_path)
+                return false, "fota等待超时"
+            end
+            sys.wait(100)
         end
-        sys.wait(100)
     end
 
     local result, _, cache = fota.file(temp_path)
@@ -312,7 +314,7 @@ end
 
 @api libfota3.report_result(fota_sn, result_code)
 @string fota_sn 升级序列号（check返回的fota_sn）
-@number result_code 结果码：0=成功 1=校验失败 2=写入失败 3=其他错误
+@number result_code 结果码：1=成功 2=失败 3=其他错误
 @return boolean 上报是否成功
 ]]
 function libfota3.report_result(fota_sn, result_code)
@@ -321,26 +323,37 @@ function libfota3.report_result(fota_sn, result_code)
         return false
     end
     local url = FOTA_REPORT_URL
+        .. "?fota_sn=" .. url_encode(fota_sn)
+        .. "&result_code=" .. url_encode(tostring(tonumber(result_code) or 0))
+
+    log.info("libfota3", "report result", "fota_sn", fota_sn, "code", result_code)
+
     local body = json.encode({
         fota_sn = fota_sn,
         result_code = tonumber(result_code) or 0
     })
-    local headers = {["Content-Type"] = "application/json"}
 
-    log.info("libfota3", "report result", "fota_sn", fota_sn, "code", result_code)
-
-    -- 最多重试1次
-    for attempt = 1, 2 do
-        local code, headers, body = http.request("POST", url, headers, body, {timeout = 30000}).wait()
-        if code == 200 then
-            log.info("libfota3", "report success")
-            return true
+    sys.taskInit(function()
+        -- 最多重试1次
+        for attempt = 1, 2 do
+            local code, headers, rsp_body = http.request("POST", FOTA_REPORT_URL,
+                {["Content-Type"] = "application/json"},
+                body,
+                {timeout = 30000}
+            ).wait()
+            if code == 200 and rsp_body then
+                local ok, rsp = pcall(json.decode, rsp_body)
+                if ok and rsp and rsp.code == 0 then
+                    log.info("libfota3", "report success")
+                    return
+                end
+            end
+            log.warn("libfota3", "report http error", code, "attempt", attempt)
+            if attempt == 1 then sys.wait(2000) end
         end
-        log.warn("libfota3", "report http error", code, "attempt", attempt)
-        if attempt == 1 then sys.wait(2000) end
-    end
-    log.error("libfota3", "report failed after retries")
-    return false
+        log.error("libfota3", "report failed after retries")
+    end)
+    return true
 end
 
 return libfota3

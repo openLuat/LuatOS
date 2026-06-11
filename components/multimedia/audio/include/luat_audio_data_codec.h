@@ -27,7 +27,8 @@
  */
 typedef struct {
     uint32_t one_frame_sample_cnt;        /**< 一帧样本数 (个) */
-    uint32_t one_frame_bytes;        /**< 一帧字节数 (个) */
+    uint32_t one_frame_bytes_from_driver;        /**< 驱动层一帧字节数 (个) */
+    uint32_t one_frame_bytes;        /**< 编码器一帧字节数 (个) */
     uint32_t sample_rate;       /**< 采样率 (Hz) */
     uint8_t channel_nums;           /**< 声道数 (1=mono, 2=stereo) */
     uint8_t data_align;         /**< 数据对齐方式 */
@@ -133,7 +134,6 @@ typedef struct luat_audio_data_codec_opts {
     /**
      * @brief 编码音频数据
      * @param codec 编解码器上下文指针
-     * @param info 播放信息结构指针
      * @param input 输入原始音频数据缓冲区
      * @param input_size 输入数据大小（字节）
      * @param output 输出编码数据缓冲区
@@ -141,14 +141,13 @@ typedef struct luat_audio_data_codec_opts {
      * @param encoded_output_size 实际编码输出数据大小（字节）
      * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
      */
-    int (*encode)(struct luat_audio_data_codec* codec, luat_audio_common_param_t *info,
+    int (*encode)(struct luat_audio_data_codec* codec,
                   const uint8_t *input, uint32_t input_size,
                   uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size);
 
 /**
  * @brief 编码音频数据，使用同一时刻的播放数据进行一定的音频处理，仅限于部分硬件编解码器
  * @param codec 编解码器上下文指针
- * @param info 播放信息结构指针
  * @param input 输入原始音频数据缓冲区
  * @param ref_input 参考音频数据缓冲区
  * @param input_size 输入原始音频数据大小（字节），参考音频数据也必须是这个长度
@@ -157,7 +156,7 @@ typedef struct luat_audio_data_codec_opts {
  * @param encoded_output_size 实际编码输出数据大小（字节）
  * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
  */
-    int (*encode_with_sync_output_ref)(struct luat_audio_data_codec* codec, luat_audio_common_param_t *info,
+    int (*encode_with_sync_output_ref)(struct luat_audio_data_codec* codec,
                   const uint8_t *input, const uint8_t *ref_input, uint32_t input_size, 
                   uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size);
     /**
@@ -188,6 +187,8 @@ typedef struct luat_audio_data_codec_opts {
     uint8_t support_detect:1;                       /**< 是否支持检测文件头 */
     uint8_t support_encode_with_sync_output_ref:1;  /**< 是否支持编码参考同一时刻的播放数据同步输出数据 */
     uint8_t is_tts_asynchronous:1;                  /**< 是否异步TTS */
+    uint8_t encode_raw_mode:1;                      /**< 是否支持编码原始模式，直接copy原始数据，不进行任何处理 */
+
 } luat_audio_data_codec_opts_t;
 
 /**
@@ -201,6 +202,7 @@ struct luat_audio_data_codec {
     luat_audio_common_param_t common_param;           /**< 播放信息结构 */
     luat_audio_data_codec_param_u param;        /**< 编解码器参数联合体 */
     uint8_t *input_buffer;                      /**< 输入数据缓冲区 */
+    uint8_t *ref_buffer;                        /**< 参考数据缓冲区 */
 };
 
 
@@ -215,6 +217,13 @@ typedef struct luat_audio_data_codec luat_audio_data_codec_t;
  */
 int luat_audio_data_codec_bind(luat_audio_data_codec_t *codec, const luat_audio_data_codec_opts_t *opts, void *user_data);
 
+/**
+ * @brief 初始化临时缓冲区
+ * @param codec 编解码控制器上下文指针
+ * @param new_param 新的播放信息结构指针
+ * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
+ */
+//int luat_audio_data_codec_init_temp_buffer(luat_audio_data_codec_t *codec, luat_audio_common_param_t *new_param);
 /**
  * @brief 去初始化音频编解码控制器，但是不解绑编解码器
  * @param codec 编解码控制器上下文指针
@@ -254,11 +263,12 @@ int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_
 /**
  * @brief 编码音频数据一次
  * @param codec 编解码控制器上下文指针
- * @param input_data_fifo 输入数据fifo指针
- * @param output_data_buffer 输出数据缓冲区指针
+ * @param input_data_buffer 输入缓冲区指针
+ * @param ref_data_buffer 参考数据缓冲区指针
+ * @param output_data_fifo 输出数据fifo指针
  * @return int 成功返回 LUAT_ERROR_NONE，失败返回负值错误码
  */
-int luat_audio_data_codec_encode_once(luat_audio_data_codec_t *codec, luat_fifo_t *input_data_fifo, luat_buffer_t *output_data_buffer);
+int luat_audio_data_codec_encode_once(luat_audio_data_codec_t *codec, luat_buffer_t *input_data_buffer, luat_buffer_t *ref_data_buffer, luat_fifo_t *output_data_fifo);
 
 /**
  * @brief 注册音频编解码器，必须在BSP里，并且在luavm初始化前调用
@@ -293,6 +303,17 @@ int luat_audio_codec_amr_wb_make_head(luat_audio_data_codec_t* codec, luat_audio
 int luat_audio_codec_amr_nb_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer);
 void luat_audio_codec_amr_nb_pre_decode(luat_audio_data_codec_t* codec, const uint8_t *input, uint32_t input_size, uint32_t *frame_size_bytes);
 void luat_audio_codec_amr_wb_pre_decode(luat_audio_data_codec_t* codec, const uint8_t *input, uint32_t input_size, uint32_t *frame_size_bytes);
+
+int luat_audio_codec_wav_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
+                  const uint8_t *input, uint32_t input_size,
+                  uint8_t *output, 
+                  uint32_t *decoded_output_size, uint32_t *decoded_used_size);
+int luat_audio_codec_wav_codec_encode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
+                    const uint8_t *input, uint32_t input_size,
+                    uint8_t *output, 
+                    uint32_t *encoded_output_size, uint32_t *encoded_used_size);
+
+
 
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_nb_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts;

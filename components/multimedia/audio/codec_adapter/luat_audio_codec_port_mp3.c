@@ -105,12 +105,6 @@ static int _mp3_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_p
     return LUAT_ERROR_NONE;
 }     
 
-static int _mp3_codec_encode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
-                  const uint8_t *input, uint32_t input_size,
-                  uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size)
-{
-    return -LUAT_ERROR_PERMISSION_DENIED;
-}
 
 const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts = {
     .init = _mp3_codec_init,
@@ -120,7 +114,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts = {
     .pre_decode = NULL,
     .decode = _mp3_codec_decode,
     .make_head = NULL,
-    .encode = _mp3_codec_encode,
+    .encode = NULL,
     .decode_min_input_len = MP3_FRAME_AFTER_ENCODE_SIZE,
     .decode_max_output_len = MP3_FRAME_BEFORE_ENCODE_SIZE,
     .encode_min_input_len = MP3_FRAME_BEFORE_ENCODE_SIZE,
@@ -128,4 +122,5 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts = {
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_MP3,
     .is_hardware = 0,
     .support_detect = 1,
+    .encode_raw_mode = 0,
 };

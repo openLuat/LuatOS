@@ -17,13 +17,12 @@ cd bsp\pc
 
 ## 2. 启动优先级
 
-启动顺序如下：
+Web Console 只能通过命令行参数 `--webc=<port>` 显式开启，不会读取 `pcconf/pcconf.json` 中的 `web_console.enabled` 或 `web_console.port` 作为启动依据。
 
-1. 命令行 `--webc=<port>`，优先级最高
-2. `pcconf/pcconf.json` 中的 `web_console.enabled=1`
-3. 其余情况不启动 Web Console
+- 传 `--webc=<port>` → 在指定端口启动
+- 不传 → 保持关闭
 
-也就是说，**CLI 只负责显式开启**；是否自动继承端口与刷新间隔，取决于 `pcconf` 持久化配置。
+`pcconf/pcconf.json` 里 `web_console.enabled` / `web_console.port` 字段保留是为了向后兼容 Web UI 的展示与持久化，不再影响启动行为。`web_console.refresh_interval` 仍会在启动后被读取作为初始刷新间隔。
 
 ## 3. `pcconf` 目录与文件
 
@@ -44,6 +43,8 @@ pcconf/pcconf.json
 
 v1 的持久化格式是 **JSON**，由 `cJSON` 读写。当前并未把 YAML 当作一等格式支持。
 
+> ⚠️ 注意：`web_console.enabled` 与 `web_console.port` 字段仅用于 Web UI 的展示与持久化，**不影响下次启动是否拉起 Web Console**——启动判断仅由命令行 `--webc=<port>` 决定。`web_console.refresh_interval` 仍在启动后被读取作为初始刷新间隔（合法值 1/5/15）。
+
 示例骨架：
 
 ```json
@@ -54,7 +55,7 @@ v1 的持久化格式是 **JSON**，由 `cJSON` 读写。当前并未把 YAML �
   "uart_udp_id_start": 0,
   "uart_udp_id_count": 8,
   "web_console": {
-    "enabled": 1,
+    "enabled": 0,
     "port": 18080,
     "refresh_interval": 5
   },
@@ -79,9 +80,8 @@ v1 的持久化格式是 **JSON**，由 `cJSON` 读写。当前并未把 YAML �
 
 ## 4. Web Console 默认行为
 
-- 不传 `--webc` 时，CLI 路径本身不启用 Web Console
-- 如果 `pcconf/pcconf.json` 里启用了 `web_console.enabled`，则会自动继承该端口启动
-- 如果两者都没有开启项，就保持关闭；需要明确关掉时，把 `web_console.enabled` 设为 `0`
+- 不传 `--webc` 时，Web Console 始终不会启动，与 `pcconf/pcconf.json` 中 `web_console.enabled` 的值无关
+- 传 `--webc=<port>` 时，使用该端口启动；刷新间隔会读取 `pcconf.json` 中的 `web_console.refresh_interval`（合法值为 1/5/15，其余回落到 5）
 
 ## 5. 验证脚本
 

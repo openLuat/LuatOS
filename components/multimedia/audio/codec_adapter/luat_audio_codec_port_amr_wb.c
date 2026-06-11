@@ -254,7 +254,7 @@ static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_p
 
 
 
-static int _amr_codec_encode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
+static int _amr_codec_encode(luat_audio_data_codec_t* codec,
                   const uint8_t *input, uint32_t input_size,
                   uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size)
 {
@@ -287,4 +287,5 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts = {
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_AMR_WB,
     .is_hardware = 0,
     .support_detect = 1,
+    .encode_raw_mode = 0,
 };

@@ -58,17 +58,11 @@ struct luat_audio_driver_ctrl
         uint32_t *static_play_buff;  /**< 静态播放缓冲区指针，仅用于通话 */
         uint8_t *static_play_buff_byte;  /**< 静态播放缓冲区指针，8位对齐，仅用于通话 */
     };
-    volatile uint32_t last_play_cnt;  /**< 上一次播放计数 */
     volatile uint32_t current_play_cnt;  /**< 当前播放计数 */
-    volatile uint32_t current_record_cnt;  /**< 当前录音计数 */
     uint32_t one_play_block_len;  /**< 1个block播放的音频数据长度 */
     uint32_t one_record_block_len;  /**< 1个block录音的音频数据长度 */
-    union {
-        luat_audio_common_param_t common_param;  /**< 公共音频参数，如果是单工，这个仅包含播放相关参数 */
-        luat_audio_common_param_t play_param;
-    };
-    luat_audio_common_param_t record_param;  /**< 录音音频参数,仅用于单工模式，如果是双工模式，这个参数无效 */
 
+    luat_audio_common_param_t common_param;  /**< 公共音频参数 */
     /** 软件消除爆破音相关参数 */
     luat_rtos_timer_t pa_power_on_delay_timer;          /**< PA电源使能延时定时器 */
     luat_rtos_timer_t codec_ready_after_wakeup_timer;   /**< CODEC唤醒后不稳定定时器 */

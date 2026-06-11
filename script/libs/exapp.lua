@@ -1954,7 +1954,8 @@ local function app_task(app_path)
             header_font_size=1,content_pad=1,close_btn_radius=1,
             font_size=1,cell_font_size=1,cell_border_width=1,
             point_radius=1,bar_group_gap=1,bar_series_gap=1,
-            bar_radius=1,tabbar_size=1,tab_font_size=1,line_width=1
+            bar_radius=1,tabbar_size=1,tab_font_size=1,line_width=1,
+            knob_border_width=1,btn_text_font_size=1
         }
         for k, v in pairs(out) do
             if min_keys[k] and type(v) == "number" then
@@ -2078,6 +2079,14 @@ local function app_task(app_path)
                 for i = 1, rows do
                     defaults.row_height[i] = row_height
                 end
+            end
+        elseif component_name == "slider" then
+            -- slider.w默认值200, slider.h默认值20
+            if config.w == nil then
+                defaults.w = 200
+            end
+            if config.h == nil then
+                defaults.h = 20
             end
         end
         return defaults
@@ -2293,7 +2302,7 @@ local function app_task(app_path)
                     return function(_, axis, index, style) return raw_obj:set_cell_style(axis, index, style_scale(style)) end
                 end
                 if (key == "set_style" or key == "set_stype") and
-                    (component_name == "button" or component_name == "table" or component_name == "spinner" or component_name == "win" or component_name == "msgbox") then
+                    (component_name == "button" or component_name == "table" or component_name == "spinner" or component_name == "win" or component_name == "msgbox" or component_name == "slider" or component_name == "checkbox" or component_name == "textarea") then
                     return function(_, style)
                         local method = userdata_member(raw_obj, orig_index, key)
                         if type(method) ~= "function" then return false end
@@ -2417,7 +2426,7 @@ local function app_task(app_path)
     for _, component_name in ipairs({
         "label", "image", "animimg", "button", "container", "bar", "dropdown",
         "switch", "table", "keyboard", "textarea", "tabview", "chart",
-        "qrcode", "win", "msgbox", "shape", "spinner", "video", "lottie", "nes"
+        "qrcode", "win", "msgbox", "shape", "spinner", "video", "lottie", "nes", "slider"
     }) do
         install_component(component_name)
     end

@@ -30,9 +30,9 @@ Air1601 搭配 Air780ER3 参考设计文件：[Air780ER3 模组资料](https://d
 
 ## 演示硬件环境
 
-1、1、Air1601 + Air780ER3 搭配设计的开发板
+1、Air1601 + Air780ER3 搭配设计的开发板
 
-3、TYPE-C USB 数据线两根（一根用于 Air1601 烧录程序和日志打印，另一根用于 Air780ER3 烧录程序和日志打印）
+2、TYPE-C USB 数据线两根（一根用于 Air1601 烧录程序和日志打印，另一根用于 Air780ER3 烧录程序和日志打印）
 
 Air1601 与 Air780ER3 AirLink over SPI 连接方式如下：
 

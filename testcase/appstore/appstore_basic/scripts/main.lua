@@ -28,12 +28,31 @@ sys.taskInit(function()
         return
     end
 
-    -- 批量模式: 初始化 AirUI (exapp 的 get_device_info 依赖 airui)
-    -- 使用 480x320 分辨率
+    -- 批量模式: 初始化 LCD → AirUI (exapp 的 get_device_info 依赖 airui)
+    -- 使用 480x854 竖屏分辨率
     local scr_w, scr_h = 480, 854
+
+    -- PC模拟器: 必须先 lcd.init 初始化虚拟显示(SDL2窗口+帧缓冲), 再初始化 AirUI
+    -- 否则 AirUI 渲染目标为空, 导致 ACCESS_VIOLATION 崩溃
+    -- 参考 app_engine/factory/drv/lcd/lcd_common.lua 的 PC 分支处理
+    if rtos and rtos.bsp and rtos.bsp() == "PC" then
+        log.info("main", "PC模拟器: 初始化 LCD " .. scr_w .. "x" .. scr_h)
+        lcd.init("custom", {w = scr_w, h = scr_h})
+    else
+        -- 真机: lcd 已由底层固件初始化, 只需 AirUI
+        if lcd and lcd.init then
+            log.info("main", "真机: 初始化 LCD " .. scr_w .. "x" .. scr_h)
+            lcd.init(scr_w, scr_h)
+        end
+    end
+
     if airui and airui.init then
         log.info("main", "初始化 AirUI " .. scr_w .. "x" .. scr_h)
         airui.init(scr_w, scr_h)
+        -- factory 在 airui_init 里设置 density_scale/screen_w/h, 测试环境手动设置
+        _G.screen_w = scr_w
+        _G.screen_h = scr_h
+        _G.density_scale = 1.0
     else
         log.warn("main", "airui 模块不可用, 跳过 AirUI 初始化")
     end

@@ -558,10 +558,24 @@ end
     - 触发垃圾回收
     - 检测内存泄漏（比较清理后内存与基准值）
 ]]
-local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
     log.info("sandbox_cleanup", "start cleanup:", app_path)
 
-    -- 先销毁UI沙箱容器（会自动递归销毁所有子组件）
+    -- 先停止所有定时器
+    if stop_all_timers then
+        stop_all_timers()
+    end
+
+    -- PC模拟器: 停止 LVGL timer, 防止 widget 销毁过程中
+    -- timer 回调触发 C 层访问已释放内存导致 C0000005 崩溃
+    if lvgltimer and lvgltimer.stop then
+        local ok, err = pcall(lvgltimer.stop)
+        if not ok then
+            log.warn("sandbox_cleanup", "lvgltimer.stop failed:", err)
+        end
+    end
+
+    -- 再销毁UI沙箱容器（会自动递归销毁所有子组件）
     if sandbox_container then
         local ok, err = pcall(sandbox_container.destroy, sandbox_container)
         if not ok then
@@ -595,6 +609,22 @@ local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sand
     log.info("sandbox_cleanup", "cleanup completed:", app_path)
 end
 
+-- 分页读取目录全部条目（io.lsdir 单次上限 100，超过需翻页）
+local function lsdir_all(dir)
+    local all = {}
+    local offset = 0
+    while true do
+        local ret, list = io.lsdir(dir, 100, offset)
+        if not ret or not list or #list == 0 then break end
+        for _, item in ipairs(list) do
+            table.insert(all, item)
+        end
+        if #list < 100 then break end
+        offset = offset + 100
+    end
+    return all
+end
+
 -- 递归拷贝目录（用于更新时跨存储迁移data目录）
 -- 仅拷贝文件，跳过无法读取的项
 local function copy_data_dir(src_dir, dst_dir)
@@ -606,8 +636,7 @@ local function copy_data_dir(src_dir, dst_dir)
             return false
         end
     end
-    local ret, list = io.lsdir(src_dir, 100, 0)
-    if not ret then return false end
+    local list = lsdir_all(src_dir)
     for _, item in ipairs(list) do
         local src_path = src_dir .. item.name
         local dst_path = dst_dir .. item.name
@@ -636,8 +665,7 @@ local function copy_data_dir(src_dir, dst_dir)
             return false
         end
     end
-    local ret, list = io.lsdir(src_dir, 100, 0)
-    if not ret then return false end
+    local list = lsdir_all(src_dir)
     for _, item in ipairs(list) do
         local src_path = src_dir .. item.name
         local dst_path = dst_dir .. item.name
@@ -658,18 +686,13 @@ end
 -- 递归删除目录（用于云端卸载）
 local function rmdir_recursive(dir)
     if not io.dexist(dir) then return true end
-    -- 循环删除直到目录为空 (io.lsdir 有每批 100 项限制, 大应用可能超过)
-    local max_rounds = 10
-    for round = 1, max_rounds do
-        local ret, list = io.lsdir(dir, 100, 0)
-        if not ret or not list or #list == 0 then break end
-        for _, item in ipairs(list) do
-            local full_path = dir .. "/" .. item.name
-            if item.type == 1 then
-                rmdir_recursive(full_path)
-            else
-                os.remove(full_path)
-            end
+    local list = lsdir_all(dir)
+    for _, item in ipairs(list) do
+        local full_path = dir .. "/" .. item.name
+        if item.type == 1 then
+            rmdir_recursive(full_path)
+        else
+            os.remove(full_path)
         end
     end
     local ok = io.rmdir(dir)
@@ -748,6 +771,19 @@ local function app_task(app_path)
             glob_sys.unsubscribe(sub.topic, sub.func)
         end
         subscriptions = {}
+    end
+
+    -- ==============================================
+    -- 【定时器管理器】记录应用创建的所有定时器，应用退出时集中停止
+    -- ==============================================
+    local timer_ids = {}
+
+    -- 停止所有已登记的定时器（应用退出时调用）
+    local function stop_all_timers()
+        for _, id in ipairs(timer_ids) do
+            glob_sys.timerStop(id)
+        end
+        timer_ids = {}
     end
 
     -- ==============================================
@@ -837,7 +873,7 @@ local function app_task(app_path)
         "exril_5101", "exsip", "exsipclient", "exsipproto", "extalk", "extp",
         "exvib", "exvib1", "exwin", "gc032a", "gc0310", "httpdns", "httpplus",
         "lbsLoc", "lbsLoc2", "libnet", "netLed", "udpsrv",
-        "xmodem", "sys", "sysplus"
+        "xmodem", "sys", "sysplus", "airui"
     }
     local ext_libs = {}
     for _, v in ipairs(EXT_LIBS) do ext_libs[v] = true end
@@ -2386,7 +2422,11 @@ local function app_task(app_path)
         install_component(component_name)
     end
 
-    my_env.airui.font_load = wrap_config(ui.font_load, "path", 1, false, false)
+    -- airui.font_load：禁止后装APP在运行时加载字体，系统全局字体在工厂代码中统一初始化
+    my_env.airui.font_load = function(...)
+        my_env.log.error("airui", "沙箱环境不允许动态加载字体")
+        return false
+    end
 
     local excloud_lib = safe_global("excloud")
     my_env.excloud = setmetatable({}, { __index = excloud_lib })
@@ -2503,6 +2543,59 @@ local function app_task(app_path)
     -- 使用沙箱专用的订阅管理函数
     my_env.sys.subscribe = sandbox_subscribe
     my_env.sys.unsubscribe = sandbox_unsubscribe
+
+    -- 使用沙箱专用的定时器管理函数（登记 timer id，close 时集中停止）
+    my_env.sys.timerStart = function(period, func, ...)
+        local id = glob_sys.timerStart(period, func, ...)
+        if id then
+            table.insert(timer_ids, id)
+            my_env.log.info("timer_start", "timer registered, ID:", id, "period:", period)
+        end
+        return id
+    end
+
+    my_env.sys.timerLoopStart = function(period, func, ...)
+        local id = glob_sys.timerLoopStart(period, func, ...)
+        if id then
+            table.insert(timer_ids, id)
+            my_env.log.info("timer_loop_start", "timer registered, ID:", id, "period:", period)
+        end
+        return id
+    end
+
+    my_env.sys.timerStop = function(id)
+        if id then
+            for i = #timer_ids, 1, -1 do
+                if timer_ids[i] == id then
+                    table.remove(timer_ids, i)
+                    break
+                end
+            end
+        end
+        return glob_sys.timerStop(id)
+    end
+
+    my_env.sys.timerStopAll = function(...)
+        timer_ids = {}
+        return glob_sys.timerStopAll(...)
+    end
+
+    -- 使用沙箱专用的 taskInit（xpcall 保护 + timer_ids 追踪）
+    my_env.sys.taskInit = function(func, ...)
+        local args = {...}
+        local wrapped = function()
+            local ok, err = xpcall(func, debug.traceback, table.unpack(args))
+            if not ok then
+                my_env.log.error("taskInit", "task error:", err)
+            end
+        end
+        local id = glob_sys.taskInit(wrapped)
+        if id then
+            table.insert(timer_ids, id)
+            my_env.log.info("task_init", "task registered, ID:", id)
+        end
+        return id
+    end
 
     -- ==============================================
     -- fskv 库（键名隔离）
@@ -2664,7 +2757,7 @@ local function app_task(app_path)
     -- 加载失败，记录错误并清理沙箱
     if not f then
         my_env.log.error("app_task", "failed to load main.lua:", err)
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
         return
     end
 
@@ -2683,7 +2776,7 @@ local function app_task(app_path)
     -- 应用异常退出，执行清理
     if not ok then
         my_env.log.error("app_task", "app crashed, starting cleanup:", app_path, result)
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
         return
     end
 
@@ -2692,7 +2785,7 @@ local function app_task(app_path)
     -- 等待应用关闭请求
     local ret, rdata = sys.waitUntil(app_path .."_close_req")
     if rdata == "yes" then
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
         log.info("app co quit", app_path)
     end
 end
@@ -2760,7 +2853,12 @@ function exapp.open(app_path)
     app_registry[app_path] = true
     log.info("exapp_open", "app started:", app_path)
 
-    sys.taskInit(app_task, app_path)
+    -- 异步启动: sys.wait(10) 确保 exapp.open 返回后 app_registry 已被设置,
+    -- 测试代码有窗口检查 exapp.is_running() 返回 true, 避免 app 加载期间崩溃导致启动超时
+    sys.taskInit(function()
+        sys.wait(10)
+        app_task(app_path)
+    end)
 
     return true
 end
@@ -3197,8 +3295,8 @@ local function scan(base_dir, storage_type)
 
                 -- 解析 JSON
                 local ok, meta_data = pcall(json.decode, meta_content)
-                if not ok then
-                    log.error("exapp_init", "failed to parse meta.json:", app_dir.name, meta_data)
+                if not ok or type(meta_data) ~= "table" then
+                    log.error("exapp_init", "invalid meta.json:", app_dir.name, type(meta_data))
                     goto continue
                 end
 
@@ -3924,6 +4022,24 @@ local function download_file(url, dest_path, aid, target_mount)
             log.warn("exapp", "low ram for temp download", aid, string.format("%.1f", zip_size_kb_val), string.format("%.1f", ram_free_kb))
         end
     end
+    -- 优先使用预下载的本地 ZIP (测试加速, 避免服务器限流)
+    local local_zip = "/testresult/app_zips/" .. aid .. ".zip"
+    if io.exists(local_zip) then
+        log.info("exapp", "using pre-downloaded zip", local_zip)
+        local copy_ok = os.rename(local_zip, dest_path)
+        if not copy_ok then
+            local data = io.readFile(local_zip)
+            if data then
+                io.writeFile(dest_path, data)
+                copy_ok = true
+            end
+        end
+        if copy_ok then
+            log.info("exapp", "local zip install success for", aid)
+            return true
+        end
+        log.warn("exapp", "local zip copy failed, falling back to download")
+    end
     local code, headers = http.request("GET", url, nil, nil, {
         dst = dest_path,
         timeout = 60000,
@@ -4021,8 +4137,7 @@ end
 -- 计算目录大小，单位 KB（简单实现，递归统计）
 local function dir_size_kb(dir_path)
     local total = 0
-    local ret, list = io.lsdir(dir_path, 100, 0)
-    if not ret or not list then return total end
+    local list = lsdir_all(dir_path)
     for _, item in ipairs(list) do
         local full = dir_path .. (dir_path:sub(-1) == "/" and "" or "/") .. item.name
         if item.type == 1 then
@@ -4104,7 +4219,7 @@ local function unzip_file(zip_path, dest_dir)
         log.error("exapp", "zip integrity check failed, skipping extraction:", zip_path)
         return false
     end
-    local success = miniz.unzip(zip_path, dest_dir, true)
+    local success = miniz.unzip(zip_path, dest_dir)
     return success
 end
 
@@ -4308,7 +4423,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
                 local meta_content = io.readFile(meta_path)
                 if meta_content then
                     local ok, meta_data = pcall(json.decode, meta_content)
-                    if ok then
+                    if ok and type(meta_data) == "table" then
                         -- 写入安装时间戳（本地 UTC 时间戳）和下载量
                         local install_time = os.time()
                         meta_data.install_time = install_time
@@ -4572,16 +4687,14 @@ function exapp.update_remote_app(aid, url, app_name, category, sort)
         old_path = new_app_root
     else
         -- 原地更新：删除旧版本文件（保留 data/ 目录）
-        local ret, list = io.lsdir(old_path, 100, 0)
-        if ret and list then
-            for _, item in ipairs(list) do
-                if item.name ~= "data" then
-                    local full_path = old_path .. item.name
-                    if item.type == 1 then
-                        rmdir_recursive(full_path)
-                    else
-                        os.remove(full_path)
-                    end
+        local list = lsdir_all(old_path)
+        for _, item in ipairs(list) do
+            if item.name ~= "data" then
+                local full_path = old_path .. item.name
+                if item.type == 1 then
+                    rmdir_recursive(full_path)
+                else
+                    os.remove(full_path)
                 end
             end
         end

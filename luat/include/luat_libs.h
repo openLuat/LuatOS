@@ -82,6 +82,8 @@ LUAMOD_API int luaopen_zbuff( lua_State *L );
 LUAMOD_API int luaopen_sfd( lua_State *L );
 LUAMOD_API int luaopen_lfs2( lua_State *L );
 LUAMOD_API int luaopen_lvgl( lua_State *L );
+LUAMOD_API int luaopen_lvgltimer( lua_State *L );
+LUAMOD_API int luaopen_pcscreenshot( lua_State *L );
 LUAMOD_API int luaopen_airui( lua_State *L );
 
 /** ir库, 依赖gpio库*/

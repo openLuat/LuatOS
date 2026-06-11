@@ -578,7 +578,7 @@ static int close_socket_internal(int socket_id, int force)
     srv_fd     = conn->server_fd;
     cur_state  = conn->state;
     io_running = conn->io_running;
-    if (force) { conn->state = SC_CLOSED; conn->tag = 0; conn->param = NULL; }
+    if (force) { conn->state = SC_CLOSED; conn->tag = 0; }
     /* NOTE: do NOT clear conn->io_running here; the I/O thread must clear it when
      * it actually exits so that posix_create_socket won't reuse this slot too early. */
     pthread_mutex_unlock(&g_socket_mutex);

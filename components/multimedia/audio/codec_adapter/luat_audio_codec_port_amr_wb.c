@@ -285,7 +285,7 @@ static int _amr_codec_encode(luat_audio_data_codec_t* codec,
                   uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size)
 {
     *encoded_used_size = 640;
-    *encoded_output_size = _E_IF_encode(codec->encode_ctx, codec->param.amr_encode_speed, (uint16_t *)input, output, codec->param.dtx_enable);
+    *encoded_output_size = _E_IF_encode(codec->encode_ctx, codec->param.amr_encode_speed, (int16_t *)input, output, codec->param.dtx_enable);
     return LUAT_ERROR_NONE;
 }
 

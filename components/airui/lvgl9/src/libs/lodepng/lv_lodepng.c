@@ -16,9 +16,10 @@
 #include <stdlib.h>
 
 #ifdef __LUATOS__
+#define LUAT_LOG_TAG "airui.png"
+#include "luat_log.h"
 #include "luat_image.h"
 #include "luat_mcu.h"
-#include <stdio.h>
 #endif
 
 /*********************
@@ -187,11 +188,11 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
         uint64_t _elapsed = luat_mcu_tick64() - _airui_dbg_t0;
         int _period = luat_mcu_us_period();
         uint32_t _elapsed_us = (_period > 0) ? (uint32_t)(_elapsed / (uint64_t)_period) : (uint32_t)(_elapsed / 1000ULL);
-        printf("[airui][debug][lodepng] decode %dx%d cost=%u.%03ums src=%s\n",
-               decoded ? (int)dsc->header.w : 0,
-               decoded ? (int)dsc->header.h : 0,
-               _elapsed_us / 1000U, _elapsed_us % 1000U,
-               dsc->src_type == LV_IMAGE_SRC_FILE ? (const char *)dsc->src : "<mem>");
+        LLOGI("decode %dx%d cost=%u.%03ums src=%s",
+              decoded ? (int)dsc->header.w : 0,
+              decoded ? (int)dsc->header.h : 0,
+              _elapsed_us / 1000U, _elapsed_us % 1000U,
+              dsc->src_type == LV_IMAGE_SRC_FILE ? (const char *)dsc->src : "<mem>");
     }
 #endif
 

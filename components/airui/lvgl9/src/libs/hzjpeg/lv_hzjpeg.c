@@ -17,9 +17,10 @@
 #include "../../misc/lv_fs_private.h"
 
 #ifdef __LUATOS__
+#define LUAT_LOG_TAG "airui.jpg"
+#include "luat_log.h"
 #include "luat_image.h"
 #include "luat_mcu.h"
-#include <stdio.h>
 #endif
 
 /*********************
@@ -211,10 +212,10 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
         uint64_t _elapsed = luat_mcu_tick64() - _airui_dbg_t0;
         int _period = luat_mcu_us_period();
         uint32_t _elapsed_us = (_period > 0) ? (uint32_t)(_elapsed / (uint64_t)_period) : (uint32_t)(_elapsed / 1000ULL);
-        printf("[airui][debug][hzjpeg] decode %dx%d cost=%u.%03ums src=%s\n",
-               jd->width, jd->height,
-               _elapsed_us / 1000U, _elapsed_us % 1000U,
-               fn);
+        LLOGI("decode %dx%d cost=%u.%03ums src=%s",
+              jd->width, jd->height,
+              _elapsed_us / 1000U, _elapsed_us % 1000U,
+              fn);
     }
 #endif
     if(rc != JDR_OK) {

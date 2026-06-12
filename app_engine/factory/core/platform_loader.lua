@@ -58,6 +58,7 @@ require ("tp_gt911")
 
 -- 带路径前缀的模块（不在 config/ 或 drv/ 下，需完整 require 路径）
 require ("net_init")
+require ("netdrv_eth_spi")       -- SPI 以太网 CH390H 驱动（Air8101 EVB）
 
 -- ==================== 1. 平台检测 ====================
 -- hmeta.model() 返回芯片型号字符串（如 "Air1602_A10"），不可用则回退到 rtos.bsp()

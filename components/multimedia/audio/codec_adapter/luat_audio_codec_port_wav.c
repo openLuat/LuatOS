@@ -91,14 +91,14 @@ static void _wav_codec_deinit(luat_audio_data_codec_t* codec) {
 }   
 
 
-static int _wav_codec_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer)
+static int _wav_codec_make_head(luat_audio_data_codec_t* codec, uint32_t total_len, luat_buffer_t *out_buffer)
 {
     uint8_t header[44] = {0};
     uint32_t data_size = total_len;
     uint32_t file_size = data_size + 36;
-    uint16_t block_align = info->data_align * info->channel_nums;
-    uint32_t byte_rate = info->sample_rate * block_align;
-    uint16_t bits_per_sample = info->data_align * 8;
+    uint16_t block_align = codec->common_param.data_align * codec->common_param.channel_nums;
+    uint32_t byte_rate = codec->common_param.sample_rate * block_align;
+    uint16_t bits_per_sample = codec->common_param.data_align * 8;
 
     memcpy(header, "RIFF", 4);
     header[4] = file_size & 0xff;
@@ -109,8 +109,8 @@ static int _wav_codec_make_head(luat_audio_data_codec_t* codec, luat_audio_commo
     memcpy(header + 12, "fmt ", 4);
     header[16] = 16;
     header[20] = 1;
-    header[22] = info->channel_nums;
-    memcpy(header + 24, &info->sample_rate, 4);
+    header[22] = codec->common_param.channel_nums;
+    memcpy(header + 24, &codec->common_param.sample_rate, 4);
     memcpy(header + 28, &byte_rate, 4);
     header[32] = block_align & 0xff;
     header[33] = (block_align >> 8) & 0xff;

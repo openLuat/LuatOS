@@ -14,7 +14,7 @@
 
 **Air780ER2**
 
-该模块不支持二次开发，需要烧录[量产固件](https://docs.openluat.com/air780er2/product/firmware/780er2_version/)。
+模块内部已经烧录好了固件脚本，只需进行下一步操作即可。
 
 ## 演示功能概述
 
@@ -26,29 +26,21 @@ AirLink 通信协议说明参考：[Air780ER2/ER3简介 - AirLink 概述](https:
 
 Air780ER2 相关资料参考：[Air780ER2/ER3简介](https://docs.openluat.com/air780er2/product/)
 
+Air1601 搭配 Air780ER2 参考设计文件：[Air780ER2 模组资料](https://docs.openluat.com/air780er2/product/shouce/#air780er2)
+
 ## 演示硬件环境
 
-1、Air1601 开发板一块，拨码开关位置请参考[Air1601开发板使用说明](https://docs.openluat.com/air1601/product/file/Air1601开发板使用说明.pdf)中的”串口烧录“章节
+1、Air1601 + Air780ER2 搭配设计的开发板
 
-![img](https://docs.openluat.com/cdn/image/Air1601/air1601.jpg)
+2、TYPE-C USB 数据线两根（一根用于 Air1601 烧录程序和日志打印，另一根用于 Air780ER2 烧录程序和日志打印）
 
-2、Air780ER2 核心板一块，可正常上网的 SIM 卡一张
+Air1601 与 Air780ER2  AirLink over UART 连接方式如下：
 
-<span style="color:red;">板子图片待补充</span>
-
-3、TYPE-C USB 数据线两根（一根用于 Air1601 烧录程序和日志打印，另一根用于 Air780ER2 烧录程序和日志打印）
-
-Air1601 开发板与 Air780ER2 核心板 AirLink over UART 连接方式如下：
-
-| Air1601 开发板 | Air780ER2 核心板 |
-| -------------- | ---------------- |
-| RX3            | 18/U1_TXD        |
-| TX3            | 17/U1_RXD        |
-| GND            | GND              |
-
-Air1601 开发板与 Air780ER2 核心板 AirLink over UART 连接图如下：
-
-![img](https://docs.openluat.com/cdn/image/Air1601/air1601_780er2.jpg)
+| Air1601   | Air780ER2 |
+| --------- | --------- |
+| 44/U3_RXD | 18/U1_TXD |
+| 45/U3_TXD | 17/U1_RXD |
+| GND       | GND       |
 
 ## 演示软件环境
 
@@ -56,13 +48,13 @@ Air1601 开发板与 Air780ER2 核心板 AirLink over UART 连接图如下：
 
 2、Air1601 内核固件：[Air1601固件版本](https://docs.openluat.com/air1601/luatos/firmware/1601_version/)（先用最新版本进行测试，在编写本 demo 时使用的是 LuatOS-SoC_V1020_Air1601_101.soc 固件）
 
-3、Air780ER2 量产固件：[Air780ER2 固件版本](https://docs.openluat.com/air780er2/product/firmware/780er2_version/)（先用最新版本进行测试，在编写本 demo 时使用的是 Air780ER2_001.999.000_LuatOS-SoC_V2038_Air780ER2.soc 固件）
+3、Air780ER2 内部已经烧录好了固件脚本，只需进行下一步操作即可。
 
 ## 演示核心步骤
 
 1、搭建硬件环境
 
-2、Air1601 烧录内核固件+软件脚本，Air780ER2 烧录量产固件
+2、Air1601 烧录内核固件+软件脚本
 
 3、启动设备，观察日志输出：
 

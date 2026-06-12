@@ -27,7 +27,7 @@ local TIMEOUT = {
     POLL_INTERVAL = 200,
 }
 
-local MAX_APPS = 10  -- nil = 全部
+local MAX_APPS = 100  -- nil = 全部
 
 -- =================== 辅助函数 ===================
 
@@ -314,7 +314,21 @@ function M.test_appstore_lifecycle()
                 has_more = false; break
             end
 
-            local r = test_one_app(app, global_idx, page_info.total)
+            local ok_one, r = pcall(test_one_app, app, global_idx, page_info.total)
+            if not ok_one then
+                -- test_one_app 内部抛错(例如 OOM "not enough memory"),
+                -- 不打断 batch 循环, 把当前 app 标记为失败后继续测下一个.
+                log.error("appstore_test", string.format("  test_one_app 异常 [%s]: %s", app.aid or "?", tostring(r)))
+                -- 强制 fullgc 释放 OOM 时残留的对象, 给下一个 app 留出空间
+                collectgarbage("collect")
+                collectgarbage("collect")
+                r = {
+                    aid = app.aid, title = app.title, name = app.name,
+                    passed = false, install = false, launch = false,
+                    exit = false, uninstall = false,
+                    error = "exception: " .. tostring(r),
+                }
+            end
             results.total_tested = results.total_tested + 1
             table.insert(results.apps, r)
             if r.passed then

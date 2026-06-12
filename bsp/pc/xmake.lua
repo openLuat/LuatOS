@@ -286,6 +286,7 @@ target("luatos-lua")
             add_includedirs(luatos.."components/utest/include", {public = true})
         end
         add_files(luatos.."components/utest/**.c")
+        add_files("stubs/uart_dll_utest/luat_uart_dll_utest.c")
     end
 
     -- coremark

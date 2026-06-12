@@ -1361,7 +1361,7 @@ static int pgfs_test_replay_marks_block_weak_on_ecc_mismatch(void) {
     if (rec1_len == 0) {
         return 1;
     }
-    rec1[16] ^= 0xA5u;
+    rec1[16] ^= 0x5Au;
     if (pgfs_test_write(flash, PGFS_DATA_LOG_BASE_ADDR, rec1, rec1_len) != 0) {
         return 1;
     }
@@ -4211,11 +4211,12 @@ static int pgfs_test_replay_failure_cleans_up(void) {
         return 1;
     }
 
+    uint32_t rec1_storage = pgfs_test_align_prog((uint32_t)rec1_len);
     if (pgfs_test_write(flash, PGFS_DATA_LOG_BASE_ADDR, rec1, rec1_len) != 0) {
         pgfs_test_flash_free(flash);
         return 1;
     }
-    if (pgfs_test_write(flash, PGFS_DATA_LOG_BASE_ADDR + (uint32_t)rec1_len, rec2, rec2_len) != 0) {
+    if (pgfs_test_write(flash, PGFS_DATA_LOG_BASE_ADDR + rec1_storage, rec2, rec2_len) != 0) {
         pgfs_test_flash_free(flash);
         return 1;
     }
@@ -4259,8 +4260,7 @@ static int pgfs_test_replay_failure_cleans_up(void) {
     ctx.flash_opts = &opts;
     ctx.runtime_generation = 1;
     ctx.mounted = 1;
-    ctx.data_log_base_addr = PGFS_DATA_LOG_BASE_ADDR;
-    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR + (uint32_t)rec1_len;
+    ctx.data_log_write_addr = PGFS_DATA_LOG_BASE_ADDR + rec1_storage;
     ctx.data_log_prepared_until = ctx.data_log_write_addr;
     pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
 

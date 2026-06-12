@@ -45,6 +45,7 @@ typedef struct airui_component_ref airui_component_ref_t;
 #define AIRUI_SHAPE_MT "airui.shape"
 #define AIRUI_CHECKBOX_MT "airui.checkbox"
 #define AIRUI_NES_MT "airui.nes"
+#define AIRUI_CAMERA_MT "airui.camera"
 
 /** 组件类型 */
 typedef enum {
@@ -70,6 +71,7 @@ typedef enum {
     AIRUI_COMPONENT_SHAPE,
     AIRUI_COMPONENT_CHECKBOX,
     AIRUI_COMPONENT_NES,
+    AIRUI_COMPONENT_CAMERA,
     AIRUI_COMPONENT_SLIDER
 } airui_component_type_t;
 
@@ -734,6 +736,18 @@ int airui_nes_set_key(lv_obj_t *nes, int key, int pressed);
 #define AIRUI_NES_KEY_B      6
 #define AIRUI_NES_KEY_START  7
 #define AIRUI_NES_KEY_SELECT 8
+
+/**
+ * Camera 组件（摄像头预览，lv_image + 双 framebuffer RGB565 模式）
+ */
+lv_obj_t *airui_camera_create_from_config(void *L, int idx);
+int airui_camera_start(lv_obj_t *camera);
+int airui_camera_stop(lv_obj_t *camera);
+int airui_camera_destroy(lv_obj_t *camera);
+int airui_camera_push_frame(lv_obj_t *camera, const uint8_t *rgb565, uint16_t w, uint16_t h);
+void airui_camera_register_target(lv_obj_t *camera);
+void airui_camera_unregister_target(void);
+lv_obj_t *airui_camera_get_target(void);
 
 #ifdef __cplusplus
 }

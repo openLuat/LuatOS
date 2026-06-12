@@ -61,6 +61,10 @@ static const char *airui_component_type_name(uint8_t component_type)
             return "shape";
         case AIRUI_COMPONENT_CHECKBOX:
             return "checkbox";
+        case AIRUI_COMPONENT_NES:
+            return "nes";
+        case AIRUI_COMPONENT_CAMERA:
+            return "camera";
         default:
             return "unknown";
     }

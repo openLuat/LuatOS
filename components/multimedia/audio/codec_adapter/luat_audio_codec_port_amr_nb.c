@@ -87,6 +87,7 @@ static int _amr_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
             return -LUAT_ERROR_NO_MEMORY;
         }
         codec->param.amr_encode_speed = 7;
+        codec->param.dtx_enable = 1;
     } else {
         if (codec->decode_ctx) {
             return LUAT_ERROR_NONE;

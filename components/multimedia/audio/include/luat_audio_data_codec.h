@@ -42,7 +42,10 @@ typedef struct {
  * 用于存储特定编解码器的配置参数。
  */
 typedef union {
-    uint8_t amr_encode_speed;  /**< AMR编码速率参数 */
+    struct {
+        uint8_t amr_encode_speed;  /**< AMR编码速率参数 */
+        uint8_t dtx_enable; /**< 是否启用DTX */
+    };
     struct {
         /**
         * @brief tts输出回调函数
@@ -314,6 +317,8 @@ extern const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts;       
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_wav_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_raw_opts;
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_ulaw_opts;
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_alaw_opts;
 #endif
 
 /** @} */

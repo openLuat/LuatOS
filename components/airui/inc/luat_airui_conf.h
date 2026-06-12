@@ -48,6 +48,11 @@
     #define LV_USE_SLIDER 1
 #endif
 
+// camera 支持（可选，默认关闭；需要时由板级配置打开 LUAT_USE_AIRUI_CAMERA）
+#if defined(LUAT_USE_AIRUI_CAMERA) && LUAT_USE_AIRUI_CAMERA
+    #define AIRUI_USE_CAMERA 1
+#endif
+
 /*=================
  * PLATFORM CONFIGURATION
  *=================*/

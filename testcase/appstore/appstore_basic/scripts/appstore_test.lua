@@ -27,7 +27,7 @@ local TIMEOUT = {
     POLL_INTERVAL = 200,
 }
 
-local MAX_APPS = 10  -- nil = 全部
+local MAX_APPS = 100  -- nil = 全部
 
 -- =================== 辅助函数 ===================
 
@@ -40,6 +40,46 @@ local function wait_until(check_fn, timeout_ms)
         sys.wait(TIMEOUT.POLL_INTERVAL)
     end
     return true
+end
+
+-- 清理 /ram/ 下累积的临时文件
+-- 背景: PC 模拟器的 /ram/ VFS 实际由 SRAM bget (luat_heap_malloc) 4KB 块支撑,
+-- 与 Lua VM 共用同一个 4MB heap. exapp 在每次安装时会:
+--   - 写入 icon_<aid>.png (每个 1~5 KB, 几乎从不清理)
+--   - 写入 app_<aid>.zip (临时, 解压后 os.remove; 但下载失败时不清理)
+-- 这些累积会挤占 Lua VM heap, 几十个 app 后就会触发 OOM, 导致后续下载失败
+-- ("zip eocd not found"). 在每个 app 测完后主动清扫 /ram/ 顶层目录中
+-- 测试不再需要的临时文件, 把 SRAM 还给 Lua VM.
+local function cleanup_ram_temp_files()
+    -- 两阶段: 先收集匹配的文件名, 再统一删除, 避免 lsdir 翻页时受 remove 影响.
+    local to_remove = {}
+    local offset = 0
+    while true do
+        local ok, list = pcall(io.lsdir, "/ram/", 100, offset)
+        if not ok or type(list) ~= "table" or #list == 0 then
+            break
+        end
+        for _, item in ipairs(list) do
+            local name = item and item.name
+            if type(name) == "string" then
+                -- 仅清理测试期间累积的临时文件, 不动 fskv 等系统文件
+                if name:sub(1, 5) == "icon_" or name:sub(1, 4) == "app_" or name:sub(1, 5) == "temp_" then
+                    table.insert(to_remove, name)
+                end
+            end
+        end
+        if #list < 100 then break end
+        offset = offset + 100
+    end
+    local removed = 0
+    for _, name in ipairs(to_remove) do
+        if os.remove("/ram/" .. name) then
+            removed = removed + 1
+        end
+    end
+    if removed > 0 then
+        log.info("appstore_test", string.format("  清理 /ram/ 临时文件: %d 个", removed))
+    end
 end
 
 -- =================== 直接 HTTP 拉取 (完全绕过图标下载!) ===================
@@ -314,7 +354,21 @@ function M.test_appstore_lifecycle()
                 has_more = false; break
             end
 
-            local r = test_one_app(app, global_idx, page_info.total)
+            local ok_one, r = pcall(test_one_app, app, global_idx, page_info.total)
+            if not ok_one then
+                -- test_one_app 内部抛错(例如 OOM "not enough memory"),
+                -- 不打断 batch 循环, 把当前 app 标记为失败后继续测下一个.
+                log.error("appstore_test", string.format("  test_one_app 异常 [%s]: %s", app.aid or "?", tostring(r)))
+                -- 强制 fullgc 释放 OOM 时残留的对象, 给下一个 app 留出空间
+                collectgarbage("collect")
+                collectgarbage("collect")
+                r = {
+                    aid = app.aid, title = app.title, name = app.name,
+                    passed = false, install = false, launch = false,
+                    exit = false, uninstall = false,
+                    error = "exception: " .. tostring(r),
+                }
+            end
             results.total_tested = results.total_tested + 1
             table.insert(results.apps, r)
             if r.passed then
@@ -325,6 +379,10 @@ function M.test_appstore_lifecycle()
             -- 强制GC清理沙箱残留, 防止堆损坏传播到下一个应用
             collectgarbage("collect")
             collectgarbage("collect")  -- 两次GC确保finalizer清理干净
+            -- 清理 /ram/ 下累积的临时文件 (icon_*.png, app_*.zip 等)
+            -- /ram/ 实际由 SRAM bget (luat_heap_malloc) 提供, 累积会挤占 Lua VM heap,
+            -- 导致后续 app 下载/安装失败 ("zip eocd not found", OOM 等).
+            cleanup_ram_temp_files()
             sys.wait(2000)  -- 给后台线程时间释放资源
             log.info("appstore_test", string.format("  内存: %d KB", math.floor(collectgarbage("count"))))
         end

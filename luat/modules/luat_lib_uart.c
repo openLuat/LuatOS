@@ -1385,6 +1385,14 @@ static int l_uart_patch(lua_State *L)
     return 0;
 }
 
+#ifdef LUAT_USE_UTEST
+extern int luat_uart_dll_utest(lua_State *L, const char *case_name);
+static int l_uart_dll_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "dll_loaded");
+    lua_pushboolean(L, luat_uart_dll_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
 #include "rotable2.h"
 static const rotable_Reg_t reg_uart[] =
 {
@@ -1402,6 +1410,9 @@ static const rotable_Reg_t reg_uart[] =
     { "setup",      ROREG_FUNC(l_uart_setup)},
     { "exist",      ROREG_FUNC(l_uart_exist)},
 	{ "patch",      ROREG_FUNC(l_uart_patch)},
+#ifdef LUAT_USE_UTEST
+    { "dll_utest",   ROREG_FUNC(l_uart_dll_utest)},
+#endif
 #ifdef LUAT_FORCE_WIN32
     { "list",       ROREG_FUNC(l_uart_list)},
 #endif

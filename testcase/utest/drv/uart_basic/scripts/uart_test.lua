@@ -23,6 +23,13 @@ function api_suite.test_api_list_probe()
         log.warn("api", "跳过 test_api_list_probe: dll 未加载")
         return
     end
+    -- uart.list 在 luat_lib_uart.c 由 #ifdef LUAT_FORCE_WIN32 门控,
+    -- PC build 未定义该宏(见 bsp/pc/xmake.lua),所以此 API 在 PC 上不存在。
+    -- 跳过早返,避免因上游 gate 与测试环境不一致产生伪失败。
+    if uart.list == nil then
+        log.warn("api", "跳过 test_api_list_probe: uart.list 未注册(LUAT_FORCE_WIN32 未定义)")
+        return
+    end
     local list = uart.list(64)
     assert(type(list) == "table", "uart.list(64) 应返 table,实际: " .. type(list))
     assert(#list <= 64, "uart.list(64) 长度不应超过 64,实际: " .. #list)

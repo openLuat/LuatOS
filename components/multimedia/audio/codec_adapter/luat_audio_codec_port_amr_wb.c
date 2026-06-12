@@ -13,8 +13,10 @@
 #include <pvamrwbdecoder.h>
 #include <pvamrwbdecoder_cnst.h>
 #include <dtx.h>
+#if 0
 #include <voAMRWB.h>
 #include <cmnMemory.h>
+#endif
 
 static const uint8_t amr_wb_byte_len[16] = {17, 23, 32, 36, 40, 46, 50, 58, 60, 5, 0, 0, 0, 0, 0, 0};
 
@@ -38,14 +40,14 @@ struct state {
 	int16 status;
 	RX_State rx_state;
 };
-
+#if 0
 struct encoder_state {
 	VO_AUDIO_CODECAPI audioApi;
 	VO_HANDLE handle;
 	VO_MEM_OPERATOR memOperator;
 	VO_CODEC_INIT_USERDATA userData;
 };
-
+#endif
 int luat_audio_amr_wb_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info)
 {
     if (input_buffer->pos < 9) {
@@ -107,6 +109,7 @@ static int _amr_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
         if (codec->encode_ctx) {
             return LUAT_ERROR_NONE;
         }
+#if 0
         struct encoder_state* state = (struct encoder_state*) luat_heap_malloc(sizeof(struct encoder_state));
         if (!state) {
             return -LUAT_ERROR_NO_MEMORY;
@@ -131,6 +134,8 @@ static int _amr_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
         if (!codec->encode_ctx) {
             return -LUAT_ERROR_NO_MEMORY;
         }
+#endif
+        return -LUAT_ERROR_OPERATION_FAILED;
     } else {
         if (codec->decode_ctx) {
             return LUAT_ERROR_NONE;
@@ -169,10 +174,12 @@ static int _amr_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
 
 static void _amr_codec_deinit(luat_audio_data_codec_t* codec) {
     if (codec->encode_ctx) {
+#if 0
         struct encoder_state* state = (struct encoder_state*)codec->encode_ctx;
         state->audioApi.Uninit(state->handle);
         luat_heap_free(state);
         codec->encode_ctx = NULL;
+#endif
     } 
     if (codec->decode_ctx) {
         struct state* state = (struct state*)codec->decode_ctx;
@@ -258,6 +265,7 @@ static int _amr_codec_encode(luat_audio_data_codec_t* codec,
                   const uint8_t *input, uint32_t input_size,
                   uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size)
 {
+#if 0
     VO_CODECBUFFER inData, outData;
 	VO_AUDIO_OUTPUTINFO outFormat;
 	struct encoder_state* state = (struct encoder_state*) codec->encode_ctx;
@@ -269,6 +277,8 @@ static int _amr_codec_encode(luat_audio_data_codec_t* codec,
     *encoded_output_size = outData.Length;
     *encoded_used_size = 640;
     return LUAT_ERROR_NONE;
+#endif
+    return -LUAT_ERROR_OPERATION_FAILED;
 }
 
 const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts = {

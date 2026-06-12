@@ -48,6 +48,48 @@ struct encoder_state {
 	VO_CODEC_INIT_USERDATA userData;
 };
 #endif
+
+
+static void* _E_IF_init(void) {
+	struct encoder_state* state = (struct encoder_state*) luat_heap_malloc(sizeof(struct encoder_state));
+	if (!state) {
+		return NULL;
+	}
+    int frameType = VOAMRWB_RFC3267;
+	voGetAMRWBEncAPI(&state->audioApi);
+	state->memOperator.Alloc = cmnMemAlloc;
+	state->memOperator.Copy = cmnMemCopy;
+	state->memOperator.Free = cmnMemFree;
+	state->memOperator.Set = cmnMemSet;
+	state->memOperator.Check = cmnMemCheck;
+	state->userData.memflag = VO_IMF_USERMEMOPERATOR;
+	state->userData.memData = (VO_PTR)&state->memOperator;
+	state->audioApi.Init(&state->handle, VO_AUDIO_CodingAMRWB, &state->userData);
+	state->audioApi.SetParam(state->handle, VO_PID_AMRWB_FRAMETYPE, &frameType);
+	return state;
+}
+
+static void _E_IF_exit(void* s) {
+	struct encoder_state* state = (struct encoder_state*) s;
+	state->audioApi.Uninit(state->handle);
+	luat_heap_free(state);
+}
+
+static int _E_IF_encode(void* s, int mode, const short* speech, unsigned char* out, int dtx) {
+	VO_CODECBUFFER inData, outData;
+	VO_AUDIO_OUTPUTINFO outFormat;
+	struct encoder_state* state = (struct encoder_state*) s;
+
+	state->audioApi.SetParam(state->handle, VO_PID_AMRWB_MODE, &mode);
+	state->audioApi.SetParam(state->handle, VO_PID_AMRWB_DTX, &dtx);
+	inData.Buffer = (unsigned char*) speech;
+	inData.Length = 640;
+	outData.Buffer = out;
+	state->audioApi.SetInputData(state->handle, &inData);
+	state->audioApi.GetOutputData(state->handle, &outData, &outFormat);
+	return outData.Length;
+}
+
 int luat_audio_amr_wb_get_play_info(struct luat_audio_data_codec *codec, luat_buffer_t *input_buffer, uint32_t now_file_pos, uint32_t *jump_offset_bytes, uint32_t *need_bytes, luat_audio_common_param_t *info)
 {
     if (input_buffer->pos < 9) {
@@ -109,33 +151,13 @@ static int _amr_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
         if (codec->encode_ctx) {
             return LUAT_ERROR_NONE;
         }
-#if 1
-        struct encoder_state* state = (struct encoder_state*) luat_heap_malloc(sizeof(struct encoder_state));
-        if (!state) {
-            return -LUAT_ERROR_NO_MEMORY;
-        }
-        memset(state, 0, sizeof(*state));
-        int frameType = VOAMRWB_RFC3267;
-        int mode = 7;
-        int dtx = 1;
-    	voGetAMRWBEncAPI(&state->audioApi);
-    	state->memOperator.Alloc = cmnMemAlloc;
-    	state->memOperator.Copy = cmnMemCopy;
-    	state->memOperator.Free = cmnMemFree;
-    	state->memOperator.Set = cmnMemSet;
-    	state->memOperator.Check = cmnMemCheck;
-    	state->userData.memflag = VO_IMF_USERMEMOPERATOR;
-    	state->userData.memData = (VO_PTR)&state->memOperator;
-    	state->audioApi.Init(&state->handle, VO_AUDIO_CodingAMRWB, &state->userData);
-    	state->audioApi.SetParam(state->handle, VO_PID_AMRWB_FRAMETYPE, &frameType);
-        state->audioApi.SetParam(state->handle, VO_PID_AMRWB_MODE, &mode);
-	    state->audioApi.SetParam(state->handle, VO_PID_AMRWB_DTX, &dtx);
-        codec->encode_ctx = state;
+        codec->encode_ctx = _E_IF_init();
         if (!codec->encode_ctx) {
             return -LUAT_ERROR_NO_MEMORY;
         }
-#endif
-        return -LUAT_ERROR_OPERATION_FAILED;
+        codec->param.amr_encode_speed = 8;
+        codec->param.dtx_enable = 1;
+        return LUAT_ERROR_NONE;
     } else {
         if (codec->decode_ctx) {
             return LUAT_ERROR_NONE;
@@ -174,12 +196,8 @@ static int _amr_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
 
 static void _amr_codec_deinit(luat_audio_data_codec_t* codec) {
     if (codec->encode_ctx) {
-#if 1
-        struct encoder_state* state = (struct encoder_state*)codec->encode_ctx;
-        state->audioApi.Uninit(state->handle);
-        luat_heap_free(state);
+        _E_IF_exit(codec->encode_ctx);
         codec->encode_ctx = NULL;
-#endif
     } 
     if (codec->decode_ctx) {
         struct state* state = (struct state*)codec->decode_ctx;
@@ -266,20 +284,9 @@ static int _amr_codec_encode(luat_audio_data_codec_t* codec,
                   const uint8_t *input, uint32_t input_size,
                   uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size)
 {
-#if 1
-    VO_CODECBUFFER inData, outData;
-	VO_AUDIO_OUTPUTINFO outFormat;
-	struct encoder_state* state = (struct encoder_state*) codec->encode_ctx;
-    inData.Buffer = (VO_PBYTE)input;
-    inData.Length = 640;
-    outData.Buffer = output;
-    state->audioApi.SetInputData(state->handle, &inData);
-	state->audioApi.GetOutputData(state->handle, &outData, &outFormat);
-    *encoded_output_size = outData.Length;
     *encoded_used_size = 640;
+    *encoded_output_size = _E_IF_encode(codec->encode_ctx, codec->param.amr_encode_speed, (uint16_t *)input, output, codec->param.dtx_enable);
     return LUAT_ERROR_NONE;
-#endif
-    return -LUAT_ERROR_OPERATION_FAILED;
 }
 
 const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts = {

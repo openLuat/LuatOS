@@ -42,7 +42,10 @@ typedef struct {
  * 用于存储特定编解码器的配置参数。
  */
 typedef union {
-    uint8_t amr_encode_speed;  /**< AMR编码速率参数 */
+    struct {
+        uint8_t amr_encode_speed;  /**< AMR编码速率参数 */
+        uint8_t dtx_enable; /**< 是否启用DTX */
+    };
     struct {
         /**
         * @brief tts输出回调函数

@@ -13,7 +13,7 @@
 #include <pvamrwbdecoder.h>
 #include <pvamrwbdecoder_cnst.h>
 #include <dtx.h>
-#if 0
+#if 1
 #include <voAMRWB.h>
 #include <cmnMemory.h>
 #endif
@@ -40,7 +40,7 @@ struct state {
 	int16 status;
 	RX_State rx_state;
 };
-#if 0
+#if 1
 struct encoder_state {
 	VO_AUDIO_CODECAPI audioApi;
 	VO_HANDLE handle;
@@ -109,7 +109,7 @@ static int _amr_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
         if (codec->encode_ctx) {
             return LUAT_ERROR_NONE;
         }
-#if 0
+#if 1
         struct encoder_state* state = (struct encoder_state*) luat_heap_malloc(sizeof(struct encoder_state));
         if (!state) {
             return -LUAT_ERROR_NO_MEMORY;
@@ -174,7 +174,7 @@ static int _amr_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
 
 static void _amr_codec_deinit(luat_audio_data_codec_t* codec) {
     if (codec->encode_ctx) {
-#if 0
+#if 1
         struct encoder_state* state = (struct encoder_state*)codec->encode_ctx;
         state->audioApi.Uninit(state->handle);
         luat_heap_free(state);
@@ -190,23 +190,14 @@ static void _amr_codec_deinit(luat_audio_data_codec_t* codec) {
     }
 }
 
+static void _D_IF_decode(void* s, const unsigned char* in, short* out, int bfi) {
+	struct state* state = (struct state*) s;
 
-
-static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
-                  const uint8_t *input, uint32_t input_size,
-                  uint8_t *output, 
-                  uint32_t *decoded_output_size, uint32_t *decoded_used_size)
-{
-
-    memset(output, 0, 640);
-
-	struct state* state = (struct state*) codec->decode_ctx;
-
-	state->mode = (input[0] >> 3) & 0x0f;
-
+	state->mode = (in[0] >> 3) & 0x0f;
+	in++;
 
 	state->quality = 1; /* ? */
-	mime_unsorting((uint8*)&input[1], state->iInputSampleBuf, &state->frame_type, &state->mode, state->quality, &state->rx_state);
+	mime_unsorting((uint8*) in, state->iInputSampleBuf, &state->frame_type, &state->mode, state->quality, &state->rx_state);
 	
 	if ((state->frame_type == RX_NO_DATA) | (state->frame_type == RX_SPEECH_LOST)) {
 		state->mode = state->mode_old;
@@ -226,13 +217,13 @@ static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_p
 		/* set homing sequence ( no need to decode anything */
 
 		for (int16 i = 0; i < AMR_WB_PCM_FRAME; i++) {
-			output[i] = EHF_MASK;
+			out[i] = EHF_MASK;
 		}
 	} else {
 		int16 frameLength;
 		state->status = pvDecoder_AmrWb(state->mode,
 						   state->iInputSampleBuf,
-						   (int16*)output,
+						   out,
 						   &frameLength,
 						   state->st,
 						   state->frame_type,
@@ -240,7 +231,7 @@ static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_p
 	}
 
 	for (int16 i = 0; i < AMR_WB_PCM_FRAME; i++) {  /* Delete the 2 LSBs (14-bit output) */
-		output[i] &= 0xfffC;
+		out[i] &= 0xfffC;
 	}
 
 	/* if not homed: check whether current frame is a homing frame */
@@ -254,8 +245,18 @@ static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_p
 	}
 	state->reset_flag_old = state->reset_flag;
 
+}
+
+static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
+                  const uint8_t *input, uint32_t input_size,
+                  uint8_t *output, 
+                  uint32_t *decoded_output_size, uint32_t *decoded_used_size)
+{
+
+    memset(output, 0, 640);
     *decoded_used_size = amr_wb_byte_len[(input[0] >> 3) & 0x0f] + 1;
     *decoded_output_size = 640;
+    _D_IF_decode(codec->decode_ctx, input, (short*)output, 0);
     return LUAT_ERROR_NONE;
 }
 
@@ -265,7 +266,7 @@ static int _amr_codec_encode(luat_audio_data_codec_t* codec,
                   const uint8_t *input, uint32_t input_size,
                   uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size)
 {
-#if 0
+#if 1
     VO_CODECBUFFER inData, outData;
 	VO_AUDIO_OUTPUTINFO outFormat;
 	struct encoder_state* state = (struct encoder_state*) codec->encode_ctx;

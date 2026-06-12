@@ -95,7 +95,7 @@ pub extern fn luat_uart_open_extern(port: i32, baud_rate: i32, data_bits: i32, s
             Ok(r) => r,
             Err(_) => return 1,
         };
-    uart.write_request_to_send(false).unwrap();//防止之前没退出复位状态
+    uart.write_request_to_send(true).unwrap();//置位RTS,通知对端本机已准备好接收数据
 
     
     {

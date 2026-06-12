@@ -14,7 +14,7 @@
 
 **Air780ER3**
 
-该模块不支持二次开发，需要烧录[量产固件](https://docs.openluat.com/air780er2/product/firmware/780er3_version/)。
+模块内部已经烧录好了固件脚本，只需进行下一步操作即可。
 
 ## 演示功能概述
 
@@ -36,14 +36,14 @@ Air1601 搭配 Air780ER3 参考设计文件：[Air780ER3 模组资料](https://d
 
 Air1601 与 Air780ER3 AirLink over SPI 连接方式如下：
 
-| Air1601 | Air780ER3    |
-| ------- | ------------ |
-| GND     | GND          |
-| CS0     | 30/SPI0_CS   |
-| CLK1    | 33/SPI0_CLK  |
-| MISO1   | 31/SPI0_MISO |
-| MOSI1   | 32/SPI0_MOSI |
-| GPIO12  | 26/GPIO25    |
+| Air1601      | Air780ER3    |
+| ------------ | ------------ |
+| GND          | GND          |
+| 31/SPI1_CS   | 30/SPI0_CS   |
+| 39/SPI1_CLK  | 33/SPI0_CLK  |
+| 40/SPI1_MISO | 31/SPI0_MISO |
+| 41/SPI1_MOSI | 32/SPI0_MOSI |
+| 42/GPIO12    | 26/GPIO25    |
 
 ## 演示软件环境
 
@@ -51,7 +51,7 @@ Air1601 与 Air780ER3 AirLink over SPI 连接方式如下：
 
 2、Air1601 内核固件：[Air1601固件版本](https://docs.openluat.com/air1601/luatos/firmware/1601_version/)（先用最新版本进行测试，在编写本 demo 时使用的是 LuatOS-SoC_V1020_Air1601_101.soc 固件）
 
-3、Air780ER3 量产固件：[Air780ER3 固件版本](https://docs.openluat.com/air780er2/product/firmware/780er3_version/)（先用最新版本进行测试，在编写本 demo 时使用的是 Air780ER3_001.999.000_LuatOS-SoC_V2038_Air780ER3.soc 固件）
+3、Air780ER3 内部已经烧录好了固件脚本，只需进行下一步操作即可。
 
 ## 演示核心步骤
 

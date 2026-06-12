@@ -177,7 +177,6 @@ __USER_FUNC_IN_RAM__ static int on_link_data_notify(airlink_link_data_t* link) {
 
 static void unpack_data(uint8_t* buff, size_t len)
 {
-    static uint32_t rx_ok_cnt = 0;
     static uint32_t rx_fail_cnt = 0;
     static uint64_t rx_last_log_tick = 0;
     // 帧大小跟踪 (诊断用)
@@ -238,14 +237,17 @@ static void unpack_data(uint8_t* buff, size_t len)
         uint64_t tnow = luat_mcu_tick64_ms();
         if (tnow - rx_last_log_tick > 5000) {
             LLOGW("uart rx: ok=%lu fail=%lu esc_max=%u raw_max=%u last_ok=%llums ago",
-                  rx_ok_cnt, rx_fail_cnt, rx_esc_max, rx_raw_max,
+                  g_airlink_statistic.tx_pkg.ok, rx_fail_cnt, rx_esc_max, rx_raw_max,
                   (g_airlink_last_cmd_timestamp > 0) ? (tnow - g_airlink_last_cmd_timestamp) : 0);
             rx_last_log_tick = tnow;
+            g_airlink_statistic.tx_pkg.err++;
+            g_airlink_statistic.tx_pkg.total++;
         }
         return; // 解析失败
     }
     // 解析成功了
-    rx_ok_cnt++;
+    g_airlink_statistic.tx_pkg.ok++;
+    g_airlink_statistic.tx_pkg.total++;
     // 那就走uart为主模式了
     if (luat_airlink_current_mode_get() == LUAT_AIRLINK_MODE_UNKNOW) {
         // LLOGD("luat_airlink_current_mode_get is UNKNOW, set to UART");

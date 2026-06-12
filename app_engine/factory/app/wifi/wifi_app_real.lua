@@ -54,6 +54,31 @@ local is_air1601 = chip:find("Air1601") or chip:find("Air1602")
 local is_air8000 = chip:find("Air8000")
 local is_air8101 = chip:find("Air8101")
 
+-- ==================== SPI 以太网兜底辅助 ====================
+-- 根据 project_config.ethernet 构建以太网卡优先级条目
+-- 当 WiFi 关闭/断开时，以太网作为独立网卡持续可用
+local function build_ethernet_fallback()
+    if not config.features or not config.features.ethernet then
+        return nil
+    end
+    local eth_cfg = config.ethernet
+    if not eth_cfg or eth_cfg.spi_id == nil or eth_cfg.pin_cs == nil then
+        return nil
+    end
+    local eth_opts = {spi = eth_cfg.spi_id, cs = eth_cfg.pin_cs}
+    if eth_cfg.pin_irq then
+        eth_opts.irq = eth_cfg.pin_irq
+    end
+    local param = {
+        tp = netdrv.CH390,
+        opts = eth_opts,
+    }
+    if eth_cfg.pin_pwr then
+        param.pwrpin = eth_cfg.pin_pwr
+    end
+    return { ETHERNET = param }
+end
+
 -- ==================== 4G 兜底辅助 ====================
 -- 根据配置文件区分原生 4G(LWIP_GP) 和 airlink 4G(airlink_4G)
 local function build_4g_fallback()
@@ -78,6 +103,22 @@ local function build_4g_fallback()
         -- 原生 4G（Air8000/Air780E 系列）
         return { LWIP_GP = true }
     end
+end
+
+-- ==================== 构建以太网 + 4G 兜底优先级列表 ====================
+-- 用于 WiFi 关闭/断开时，确保以太网和 4G 仍然可用
+-- 优先级：以太网 → 4G
+local function build_fallback_priority()
+    local priority = {}
+    local fb_eth = build_ethernet_fallback()
+    if fb_eth then
+        table.insert(priority, fb_eth)
+    end
+    local fb_4g = build_4g_fallback()
+    if fb_4g then
+        table.insert(priority, fb_4g)
+    end
+    return priority
 end
 
 -- ==================== 配置常量 ====================
@@ -180,6 +221,12 @@ local function build_network_priority(ssid, password, cfg)
             if cfg.auto_socket_switch ~= nil then wifi_cfg.auto_socket_switch = cfg.auto_socket_switch end
             table.insert(priority, { WIFI = wifi_cfg })
         end
+    end
+
+    -- 以太网兜底（SPI CH390H）
+    local fb_eth = build_ethernet_fallback()
+    if fb_eth then
+        table.insert(priority, fb_eth)
     end
 
     -- 4G 兜底
@@ -448,11 +495,11 @@ local function on_storage_loaded(data)
     saved_config = data.config
     log.info("wifi_app", "配置加载完成:", saved_config.ssid, "enabled:", saved_config.wifi_enabled)
 
-    -- 如果 WiFi 关闭，仅启用 4G
+    -- 如果 WiFi 关闭，启用以太网 + 4G 兜底
     if not saved_config.wifi_enabled then
-        local fb_4g = build_4g_fallback()
-        if fb_4g then
-            exnetif.set_priority_order({ fb_4g })
+        local priority = build_fallback_priority()
+        if #priority > 0 then
+            exnetif.set_priority_order(priority)
         end
         return
     end
@@ -461,10 +508,10 @@ local function on_storage_loaded(data)
     if saved_config.ssid and saved_config.ssid ~= "" then  -- 无密码热点允许password为空
         sys.taskInit(run_auto_connect)
     else
-        -- 无保存 SSID 但 WiFi 开启 → 先启用 4G（如有）
-        local fb_4g = build_4g_fallback()
-        if fb_4g then
-            exnetif.set_priority_order({ fb_4g })
+        -- 无保存 SSID 但 WiFi 开启 → 先启用以太网 + 4G（如有）
+        local priority = build_fallback_priority()
+        if #priority > 0 then
+            exnetif.set_priority_order(priority)
         end
     end
     sys.taskInit(function() hw_ready = false end)
@@ -492,9 +539,9 @@ local function on_enable_req(data)
         if connect_timeout_timer then sys.timerStop(connect_timeout_timer); connect_timeout_timer = nil end
         pending_connect = nil
 
-        local fb_4g = build_4g_fallback()
-        if fb_4g then
-            exnetif.set_priority_order({ fb_4g })
+        local priority = build_fallback_priority()
+        if #priority > 0 then
+            exnetif.set_priority_order(priority)
         end
         wifi_state.connected = false
         wifi_state.ready = false
@@ -515,9 +562,9 @@ local function on_enable_req(data)
         if saved_config.ssid and saved_config.ssid ~= "" then  -- 无密码热点允许password为空
             sys.taskInit(run_auto_connect)
         else
-            local fb_4g = build_4g_fallback()
-            if fb_4g then
-                exnetif.set_priority_order({ fb_4g })
+            local priority = build_fallback_priority()
+            if #priority > 0 then
+                exnetif.set_priority_order(priority)
             end
         end
     end
@@ -607,9 +654,9 @@ local function on_disconnect_req()
     log.info("wifi_app", "断开请求")
     user_disconnect = true
     exnetif.close(nil, socket.LWIP_STA)
-    local fb_4g = build_4g_fallback()
-    if fb_4g then
-        exnetif.set_priority_order({ fb_4g })
+    local priority = build_fallback_priority()
+    if #priority > 0 then
+        exnetif.set_priority_order(priority)
     end
 end
 

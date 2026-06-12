@@ -11,7 +11,8 @@ require 即执行，main.lua 调用 require "app_main" 时以下模块按顺序�
 
   1. net_init       → 统一网络事件订阅（DNS配置、IP_READY/IP_LOSE/WLAN_STA 日志、多网状态）
   2. wifi_app       → WiFi 业务层（自动连接、扫描、配置管理），内部根据平台分发到 wifi_app_real
-  3. status_provider_app → 状态栏数据源（时间/信号/电量定时更新，发布 STATUS_UPDATE）
+  3. netdrv_eth_spi → SPI 以太网（按 features.ethernet 自检，从 config 读取参数）
+  4. status_provider_app → 状态栏数据源（时间/信号/电量定时更新，发布 STATUS_UPDATE）
   4. ntp_app        → NTP 时间同步（订阅 IP_READY，联网后自动校时）
   5. speedtest_app  → Cloudflare 测速（订阅 SPEEDTEST_START，延迟→下载→上传三阶段）
   6. settings_iot_app → IOT 平台账号登录/登出（订阅 LOGIN_REQUEST/LOGOUT_REQUEST）
@@ -36,6 +37,9 @@ require "net_init"
 
 -- 加载 wifi_app 主模块（分发器：WiFi 平台 → wifi_app_real，仅4G平台 → exnetif 4G初始化）
 require "wifi_app"
+
+-- 加载 SPI 以太网驱动模块（按 project_config.features.ethernet 自检，从 config 读取参数）
+require "netdrv_eth_spi"
 
 -- 加载状态提供 app 模块（系统时间/4G信号/WiFi信号 定时更新，发布 STATUS_UPDATE 给状态栏）
 require "status_provider_app"

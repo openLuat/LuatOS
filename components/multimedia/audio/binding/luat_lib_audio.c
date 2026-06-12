@@ -197,7 +197,9 @@ static int l_audio_play(lua_State *L) {
     uint8_t is_error_stop = 1;
     uint8_t priority = luaL_optinteger(L, 3, 0);
     luat_audio_driver_probe_t driver_probe = {0};
-    uint8_t codec_id = luaL_optinteger(L, 5, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
+    uint8_t org_codec_id = luaL_optinteger(L, 5, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
+    uint8_t codec_id = org_codec_id &~LUAT_AUDIO_DATA_CODEC_TYPE_HW;
+
     if (lua_isboolean(L, 2)) {
         is_error_stop = lua_toboolean(L, 2);
     }
@@ -249,7 +251,7 @@ static int l_audio_play(lua_State *L) {
     luat_llist_add_tail(&l_req->node, &_l_audio.request_busy_list);
     result = luat_audio_request_play_files(&l_req->request, 
         (driver_probe.probe_id ? &driver_probe : NULL), 
-        (codec_id < LUAT_AUDIO_DATA_CODEC_TYPE_MAX) ? luat_audio_data_codec_find(codec_id) : NULL,
+        (codec_id < LUAT_AUDIO_DATA_CODEC_TYPE_MAX) ? luat_audio_data_codec_find(org_codec_id) : NULL,
         info, file_nums, priority,0, _l_audio_request_callback, l_req);
     luat_heap_free(info);
     if (result) {
@@ -287,13 +289,15 @@ static int l_audio_stream(lua_State *L) {
     luat_audio_driver_probe_t driver_probe = {0};
     luat_audio_common_param_t common_param = {0};
     driver_probe.probe_id = luaL_optinteger(L, 7, 0);
-    uint8_t codec_id = luaL_checkinteger(L, 1);
+    uint8_t org_codec_id = luaL_optinteger(L, 5, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
+    uint8_t codec_id = org_codec_id &~LUAT_AUDIO_DATA_CODEC_TYPE_HW;
+
     if (codec_id >= LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
         goto DONE;
     }
-    const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(codec_id);
+    const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(org_codec_id);
     if (!codec_opts) {
-        LLOGE("codec %d not found", codec_id);
+        LLOGE("codec %d not found", org_codec_id);
         goto DONE;
     }
     common_param.sample_rate = luaL_checkinteger(L, 2);
@@ -426,11 +430,12 @@ static int l_audio_record(lua_State *L) {
     luat_audio_driver_probe_t driver_probe = {0};
     luat_audio_common_param_t common_param = {0};
     driver_probe.probe_id = luaL_optinteger(L, 8, 0);
-    uint8_t codec_id = luaL_optinteger(L, 3, 0);
+    uint8_t org_codec_id = luaL_optinteger(L, 3, 0);
+    uint8_t codec_id = org_codec_id &~LUAT_AUDIO_DATA_CODEC_TYPE_HW;
     if (codec_id >= LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
         goto DONE;
     }
-    const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(codec_id);
+    const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(org_codec_id);
     if (!codec_opts) {
         LLOGE("codec %d not found", codec_id);
         goto DONE;
@@ -1037,9 +1042,12 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "DATA_CODEC_TYPE_MP3",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_MP3)},
     //@const DATA_CODEC_TYPE_OPUS number 编解码器类型OPUS
     { "DATA_CODEC_TYPE_OPUS",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_OPUS)},
-    //@const DATA_CODEC_TYPE_G711 number 编解码器类型G711
+    //@const DATA_CODEC_TYPE_G711_ULAW number 编解码器类型G711_ULAW
     { "DATA_CODEC_TYPE_G711_ULAW",		ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW)},
+    //@const DATA_CODEC_TYPE_G711_ALAW number 编解码器类型G711_ALAW
     { "DATA_CODEC_TYPE_G711_ALAW",		ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW)},
+    //@const DATA_CODEC_TYPE_HW number 编解码器类型-硬件编解码器优先模式
+    { "DATA_CODEC_TYPE_HW",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_HW)},
     //@const CONFIG_PARAM_I2S_MODE number 驱动私有参数的I2S模式
     { "CFG_PARAM_I2S_MODE",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_MODE)},
     //@const CONFIG_PARAM_I2S_FRAME_BITS number 驱动私有参数的I2S帧位宽，需要和外部codec匹配

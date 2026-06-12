@@ -837,8 +837,7 @@ static void luat_audio_common_task(void *param)
 							continue;
 						}
 					}
-					luat_audio_data_codec_encode_once(&request_block->record_codec, &temp_record_buffer, request_block->is_need_ref_data?&temp_ref_buffer:NULL, request_block->encode_save_fifo);
-					
+					luat_audio_data_codec_encode_once(&request_block->record_codec, &temp_record_buffer, request_block->is_need_ref_data?&temp_ref_buffer:NULL, request_block->encode_save_fifo);					
 				}
 				request_block->cb(LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA, NULL, deal_bytes, request_block);
 			}

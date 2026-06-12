@@ -42,6 +42,46 @@ local function wait_until(check_fn, timeout_ms)
     return true
 end
 
+-- 清理 /ram/ 下累积的临时文件
+-- 背景: PC 模拟器的 /ram/ VFS 实际由 SRAM bget (luat_heap_malloc) 4KB 块支撑,
+-- 与 Lua VM 共用同一个 4MB heap. exapp 在每次安装时会:
+--   - 写入 icon_<aid>.png (每个 1~5 KB, 几乎从不清理)
+--   - 写入 app_<aid>.zip (临时, 解压后 os.remove; 但下载失败时不清理)
+-- 这些累积会挤占 Lua VM heap, 几十个 app 后就会触发 OOM, 导致后续下载失败
+-- ("zip eocd not found"). 在每个 app 测完后主动清扫 /ram/ 顶层目录中
+-- 测试不再需要的临时文件, 把 SRAM 还给 Lua VM.
+local function cleanup_ram_temp_files()
+    -- 两阶段: 先收集匹配的文件名, 再统一删除, 避免 lsdir 翻页时受 remove 影响.
+    local to_remove = {}
+    local offset = 0
+    while true do
+        local ok, list = pcall(io.lsdir, "/ram/", 100, offset)
+        if not ok or type(list) ~= "table" or #list == 0 then
+            break
+        end
+        for _, item in ipairs(list) do
+            local name = item and item.name
+            if type(name) == "string" then
+                -- 仅清理测试期间累积的临时文件, 不动 fskv 等系统文件
+                if name:sub(1, 5) == "icon_" or name:sub(1, 4) == "app_" or name:sub(1, 5) == "temp_" then
+                    table.insert(to_remove, name)
+                end
+            end
+        end
+        if #list < 100 then break end
+        offset = offset + 100
+    end
+    local removed = 0
+    for _, name in ipairs(to_remove) do
+        if os.remove("/ram/" .. name) then
+            removed = removed + 1
+        end
+    end
+    if removed > 0 then
+        log.info("appstore_test", string.format("  清理 /ram/ 临时文件: %d 个", removed))
+    end
+end
+
 -- =================== 直接 HTTP 拉取 (完全绕过图标下载!) ===================
 
 local function fetch_one_page_direct(page, size)
@@ -339,6 +379,10 @@ function M.test_appstore_lifecycle()
             -- 强制GC清理沙箱残留, 防止堆损坏传播到下一个应用
             collectgarbage("collect")
             collectgarbage("collect")  -- 两次GC确保finalizer清理干净
+            -- 清理 /ram/ 下累积的临时文件 (icon_*.png, app_*.zip 等)
+            -- /ram/ 实际由 SRAM bget (luat_heap_malloc) 提供, 累积会挤占 Lua VM heap,
+            -- 导致后续 app 下载/安装失败 ("zip eocd not found", OOM 等).
+            cleanup_ram_temp_files()
             sys.wait(2000)  -- 给后台线程时间释放资源
             log.info("appstore_test", string.format("  内存: %d KB", math.floor(collectgarbage("count"))))
         end

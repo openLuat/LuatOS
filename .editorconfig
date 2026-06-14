@@ -1,0 +1,48 @@
+# ── Root .editorconfig ──
+# https://editorconfig.org
+# Supported by VS Code, JetBrains, Vim, Emacs, Sublime, etc.
+# Ensures consistent whitespace / charset across worktrees.
+
+root = true
+
+[*]
+charset          = utf-8
+end_of_line      = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style     = space
+indent_size      = 4
+
+# ── Python (MCP services) ──
+[*.py]
+indent_size      = 4
+max_line_length  = 120
+
+[*.pyi]
+indent_size      = 4
+
+# ── Config / data ──
+[*.{json,yaml,yml,toml}]
+indent_size      = 2
+
+[Makefile]
+indent_style     = tab
+
+# ── Windows scripts (editors should write CRLF) ──
+[*.{bat,cmd}]
+end_of_line      = crlf
+
+[*.{ps1,psm1,psd1}]
+end_of_line      = crlf
+
+# ── Lua ──
+[*.lua]
+indent_size      = 4
+
+# ── C / C++ ──
+[*.{c,h,cpp,cc,cxx,hpp}]
+indent_size      = 4
+
+# ── Markdown ──
+[*.md]
+trim_trailing_whitespace = false

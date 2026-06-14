@@ -71,19 +71,8 @@ bsp/air640w/disk/
 bsp/air640w/tmp/
 bsp/air640w/local*
 
-# Python
-__pycache__/
+__pycache__
 *.pyc
-*.pyo
-*.egg-info/
-*.egg
-dist/
-.venv/
-venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.tox/
 
 *.tlv
 *.fs

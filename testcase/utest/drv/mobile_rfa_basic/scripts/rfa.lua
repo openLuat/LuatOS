@@ -13,7 +13,7 @@ rfa: Radio Factory Agent (RF 校准 Lua 端主控)
 local M = { _VERSION = "2.0.0" }
 M.STATE = { IDLE=0, PREP=1, CALIB=2, SELF_CAL=3, WRITE_NV=4, NST_TEST=5, DONE=6 }
 
-local uart_id_, line_buf = nil, ""
+local uart_id_, line_buf, rf_on_ = nil, "", true
 local handlers_, rfnst_tpl_ = {}, {}
 
 -- C 端桥 (沿用 luat_mobile_rf_test_* 前缀)
@@ -25,18 +25,27 @@ local function imei_get()     return mobile.rfTestImei() end
 -- 状态机
 function M.state()      return param_get("state") end
 function M.setState(s)  return param_set("state", s) end
+function M.rfOn()       return rf_on_ end
 function M.reset()
     line_buf = ""
+    rf_on_ = true
     param_set("state", 0)
-    param_set("rfCaliDone", 0)
-    param_set("rfNSTDone", 0)
-    param_set("rfCTDone", 0)
+    M.npiSet("rfCaliDone", 0, true)
+    M.npiSet("rfNSTDone", 0, true)
+    M.npiSet("rfCTDone", 0, true)
+    mobile.rfTestParam("save", 0, true)
     return true
 end
 
 -- NPI
 function M.npiGet(k)        return param_get(k) end
-function M.npiSet(k, v)     return param_set(k, v and 1 or 0) end
+function M.npiSet(k, v, no_save)
+    local r = param_set(k, v and 1 or 0)
+    if not no_save and mobile and mobile.rfTestParam then
+        mobile.rfTestParam("save", 0, true)
+    end
+    return r
+end
 
 -- IMEI
 function M.imei()           return imei_get() end
@@ -59,6 +68,7 @@ function M.dispatch(line)
     if M._erf then return "\r\nERROR\r\n" end
 
     -- 1) 私有协议优先
+    -- 注: 校准就是要在飞行模式 (CFUN=0) 下跑, 不可被 rf_on_ 门控
     local hex = line:match("^AT%+ECRFNST=(.+)$")
     if hex then return M._handle_rfnst(hex) end
 
@@ -96,7 +106,21 @@ function M._builtin_dispatch(line)
             '\r\n+ECNPICFG: "rfCaliDone":%d,"rfNSTDone":%d,"rfCTDone":%d\r\n\r\nOK\r\n',
             M.npiGet("rfCaliDone"), M.npiGet("rfNSTDone"), M.npiGet("rfCTDone"))
     end
-    if line == "AT+CFUN=0" then return "\r\nOK\r\n" end
+    if line == "AT+CFUN=0" then
+        rf_on_ = false
+        if mobile and mobile.flymode then mobile.flymode(0, true) end
+        return "\r\nOK\r\n"
+    end
+    if line == "AT+CFUN=1" then
+        rf_on_ = true
+        if mobile and mobile.flymode then mobile.flymode(0, false) end
+        return "\r\nOK\r\n"
+    end
+    if line == "AT+CFUN=4" then
+        rf_on_ = false
+        if mobile and mobile.flymode then mobile.flymode(0, true) end
+        return "\r\nOK\r\n"
+    end  -- 飞行模式别名
     if line == "AT+CPIN?"  then return "\r\n+CME ERROR: 303\r\n" end
     if line == "AT+ECCHIPVER?" then return "\r\nERROR\r\n" end
     if line == "AT+ECGMDATA?" then return "\r\nOK\r\n" end
@@ -142,11 +166,11 @@ function M.start(id, baud)
             end
         end)
     end
-    if mobile and mobile.rfTestMode then mobile.rfTestMode(id, 1) end
+    if mobile and mobile.rfTestMode then mobile.rfTestMode(id, true) end
 end
 
 function M.stop()
-    if mobile and mobile.rfTestMode then mobile.rfTestMode(uart_id_, 0) end
+    if mobile and mobile.rfTestMode then mobile.rfTestMode(uart_id_, false) end
     uart_id_ = nil
     line_buf = ""
 end

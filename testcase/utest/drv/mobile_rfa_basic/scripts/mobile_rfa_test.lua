@@ -62,8 +62,8 @@ end
 
 function c_suite.test_c_mode_input_no_crash()
     -- 无回调时调 mode/input 不应崩
-    mobile.rfTestMode(true, 1)
-    mobile.rfTestMode(false)
+    mobile.rfTestMode(1, true)
+    mobile.rfTestMode(nil, false)
     mobile.rfTestInput("AT\r\n")
     mobile.rfTestInput(nil)  -- flush
     mobile.rfTestInput("AT+CGSN=1\r\n")
@@ -90,10 +90,11 @@ function lua_suite.test_lua_binding_rfTestImeiSet()
     assert(type(mobile.rfTestImeiSet) == "function")
 end
 
-function lua_suite.test_lua_nst_aliases()
-    -- 旧 nstOnOff/nstInput 也存在, 兼容
-    assert(type(mobile.nstOnOff) == "function")
-    assert(type(mobile.nstInput) == "function")
+function lua_suite.test_lua_nst_aliases_removed()
+    -- mobile.nstOnOff / mobile.nstInput 已在阶段 4 删除 (替代为 rfTestMode/Input)
+    -- 这里反过来验证它们**不存在**, 防止有人手贱复活
+    assert(mobile.nstOnOff == nil, "nstOnOff should be removed")
+    assert(mobile.nstInput == nil, "nstInput should be removed")
 end
 
 -- ============================================================
@@ -147,7 +148,35 @@ function at_suite.test_at_ecnpicfg_query()
            "query after set has 1")
 end
 function at_suite.test_at_cfun()
-    assertResp("AT+CFUN=0", "OK")
+    local rfa = require("rfa")
+    rfa._reset_for_test()
+    -- 默认 RF 开
+    assert(rfa.rfOn() == true, "rf should be on after reset")
+    -- CFUN=0 → 关射频 (校准前的硬前置, 真机走标准 AT 切飞行模式)
+    rfa.dispatch("AT+CFUN=0")
+    assert(rfa.rfOn() == false, "rf should be off after CFUN=0")
+    -- CFUN=1 → 开射频
+    rfa.dispatch("AT+CFUN=1")
+    assert(rfa.rfOn() == true, "rf should be on after CFUN=1")
+    -- CFUN=4 → 飞行模式别名, RF 关
+    rfa.dispatch("AT+CFUN=4")
+    assert(rfa.rfOn() == false, "rf should be off after CFUN=4")
+    -- 响应文本
+    rfa._reset_for_test()
+    assert(rfa.dispatch("AT+CFUN=0"):find("OK", 1, true), "CFUN=0 returns OK")
+    rfa._reset_for_test()
+    assert(rfa.dispatch("AT+CFUN=1"):find("OK", 1, true), "CFUN=1 returns OK")
+end
+function at_suite.test_at_rfnst_runs_under_flight_mode()
+    -- 真实校准流程: AT+CFUN=0 之后立刻跑 AT+ECRFNST, 不可被门控
+    -- (F:\hardware\calrf\864317081553409_UartComm_Log_Port14.txt)
+    local rfa = require("rfa")
+    rfa._reset_for_test()
+    rfa.dispatch("AT+CFUN=0")  -- 切到飞行模式
+    assert(rfa.rfOn() == false, "rf should be off after CFUN=0")
+    local resp = rfa.dispatch("AT+ECRFNST=020408000000")
+    assert(resp:find("MT0204", 1, true),
+           "RFNST must run under flight mode, got: " .. tostring(resp))
 end
 function at_suite.test_at_cpin_no_sim()
     assertResp("AT+CPIN?", "CME ERROR")

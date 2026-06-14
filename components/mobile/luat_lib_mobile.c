@@ -1412,44 +1412,103 @@ static int l_mobile_set_band(lua_State* L) {
 	return 1;
 }
 
+/* ============================================================
+ *  新增 luat_mobile_rf_test_* 桥接层 (替代旧 luat_mobile_rfcal_*)
+ *  这层桥接只做字节 / 状态搬运, 不做 AT 派发
+ *  AT 派发由 lua/luat/rfa.lua 负责
+ * ============================================================ */
+
 /**
-RF测试开关和配置
-@api mobile.nstOnOff(onoff, uart_id)
-@boolean true开启测试模式，false关闭
-@int 串口号
-@return nil 无返回值
+RF测试:进入/退出模式 (同 nstOnOff, 推荐用这个)
+@api mobile.rfTestMode(uart_id, onoff)
+@int 串口号,默认 VUART_0
+@boolean true 进入, false 退出
+@return nil
 @usage
-mobile.nstOnOff(true, uart.VUART_0)	--打开测试模式，并且用虚拟串口发送结果
-mobile.nstOnOff(false) --关闭测试模式
+mobile.rfTestMode(uart.VUART_0, true)
+mobile.rfTestMode(nil, false)
  */
-static int l_mobile_nst_test_onoff(lua_State* L) {
-    luat_mobile_rf_test_mode(luaL_optinteger(L, 2, LUAT_VUART_ID_0), lua_toboolean(L, 1));
+static int l_mobile_rf_test_mode(lua_State* L) {
+    luat_mobile_rf_test_mode(
+        (uint8_t)luaL_optinteger(L, 1, LUAT_VUART_ID_0),
+        (uint8_t)lua_toboolean(L, 2));
     return 0;
 }
+
 /**
-RF测试数据输入
-@api mobile.nstInput(data)
-@string or zbuff 用户从串口获取的数据，注意，当获取完所有数据后，需要再传一个nil来作为传输结束
-@return nil 无返回值
+RF测试:喂入字节 (同 nstInput, 推荐用这个)
+@api mobile.rfTestInput(data)
+@string or zbuff 字节流; 传 nil 表示 flush
+@return nil
 @usage
-mobile.nstInput(uart_data)
-mobile.nstInput(nil)
+mobile.rfTestInput(uart_data)
+mobile.rfTestInput(nil)
  */
-static int l_mobile_nst_data_input(lua_State* L) {
+static int l_mobile_rf_test_input(lua_State* L) {
     size_t len = 0;
     const char *buf = NULL;
-    if(lua_isuserdata(L, 1))
-    {
+    if (lua_isuserdata(L, 1)) {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
         len = buff->used;
         buf = buff->addr;
+    } else if (lua_isstring(L, 1)) {
+        buf = lua_tolstring(L, 1, &len);
     }
-    else if (lua_isstring(L, 1))
-    {
-        buf = lua_tolstring(L, 1, &len);//取出字符串数据
-    }
-	luat_mobile_rf_test_input(buf, len);
+    luat_mobile_rf_test_input((char*)buf, (uint32_t)len);
     return 0;
+}
+
+/**
+RF测试:查询/设置 PC 端"模组"参数 (NPI 位 / 状态机 / 错误注入)
+@api mobile.rfTestParam(key, value, is_set)
+@string key  "rfCaliDone" / "rfNSTDone" / "rfCTDone" / "state" / "erfMode"
+@int value   读时忽略, 写时给值
+@boolean is_set true=写, false=读 (默认读)
+@return int   读时返回值; 写时返回 0 成功 / -1 失败
+@usage
+print(mobile.rfTestParam("state"))  -- 0
+mobile.rfTestParam("rfCaliDone", 1, true)
+ */
+static int l_mobile_rf_test_param(lua_State* L) {
+    const char *k = luaL_checkstring(L, 1);
+    int v = (int)luaL_optinteger(L, 2, 0);
+    int is_set = lua_toboolean(L, 3);
+    int rv = luat_mobile_rf_test_param(k, &v, is_set);
+    if (is_set) {
+        lua_pushinteger(L, rv);
+    } else {
+        lua_pushinteger(L, v);
+    }
+    return 1;
+}
+
+/**
+RF测试:读 IMEI 字符串 (15 位 ASCII)
+@api mobile.rfTestImei()
+@return string 15 位 IMEI, 失败返回 nil
+@usage
+print(mobile.rfTestImei())  --> 864317081553409
+ */
+static int l_mobile_rf_test_imei_get(lua_State* L) {
+    char buf[16] = {0};
+    int rv = luat_mobile_rf_test_imei_get(buf, 16);
+    if (rv != 0) { lua_pushnil(L); return 1; }
+    lua_pushlstring(L, buf, 15);
+    return 1;
+}
+
+/**
+RF测试:写 IMEI 字符串 (15 位 ASCII)
+@api mobile.rfTestImeiSet(imei)
+@string imei 15 位 IMEI
+@return int 0 成功, -1 长度错误
+@usage
+mobile.rfTestImeiSet("864317081553409")
+ */
+static int l_mobile_rf_test_imei_set(lua_State* L) {
+    const char *imei = luaL_checkstring(L, 1);
+    lua_pushinteger(L, luat_mobile_rf_test_imei_set(imei));
+    return 1;
 }
 
 /**
@@ -1539,137 +1598,6 @@ static int l_mobile_print_apn_table(lua_State* L) {
     return 0;
 }
 
-#ifdef LUAT_USE_UTEST
-/**
-C层utest桥(仅PC模拟器开启)
-@api mobile.utest(case_name)
-@string 用例名,可省略;省略/NULL 时跑默认 `rfcal_npi_bit_rw`
-@return boolean true 通过,false 失败
-@usage
-mobile.utest()                  -- 跑默认 case
-mobile.utest("rfcal_state_machine")
-*/
-extern int luat_mobile_rfcal_utest(lua_State *L, const char *case_name);
-static int l_mobile_utest(lua_State *L) {
-    const char *name = luaL_optstring(L, 1, NULL);
-    lua_pushboolean(L, luat_mobile_rfcal_utest(L, name) == 0);
-    return 1;
-}
-#endif
-
-#ifdef LUAT_USE_MOBILE_RFCAL
-/**
-RF 校准:NPI NV 位读取(rfCaliDone / rfNSTDone / rfCTDone)
-@api mobile.rfcalNpiGet(key)
-@string 键名,支持 "rfCaliDone" / "rfNSTDone" / "rfCTDone"
-@return int 0 或 1,失败返回 nil
-@usage
-print(mobile.rfcalNpiGet("rfCaliDone"))  --> 0 或 1
-*/
-static int l_mobile_rfcal_npi_get(lua_State *L) {
-    const char *key = luaL_checkstring(L, 1);
-    int v = 0;
-    int r = luat_mobile_rfcal_npi_get(key, &v);
-    if (r != 0) return 0;
-    lua_pushinteger(L, v);
-    return 1;
-}
-
-/**
-RF 校准:NPI NV 位写入
-@api mobile.rfcalNpiSet(key, val)
-@string 键名
-@int 值 0 或 1
-@return int 0 成功,非 0 失败
-@usage
-mobile.rfcalNpiSet("rfCaliDone", 1)
-*/
-static int l_mobile_rfcal_npi_set(lua_State *L) {
-    const char *key = luaL_checkstring(L, 1);
-    int val = luaL_checkinteger(L, 2);
-    lua_pushinteger(L, luat_mobile_rfcal_npi_set(key, val));
-    return 1;
-}
-
-/**
-RF 校准:获取校准状态机当前阶段
-@api mobile.rfcalState()
-@return int 0=IDLE, 1=PREP, 2=CALIB, 3=SELF_CAL, 4=WRITE_NV, 5=NST_TEST, 6=DONE
-@usage
-print(mobile.rfcalState())
-*/
-static int l_mobile_rfcal_get_state(lua_State *L) {
-    lua_pushinteger(L, luat_mobile_rfcal_get_state());
-    return 1;
-}
-
-/**
-RF 校准:复位状态机与 NPI 位域
-@api mobile.rfcalReset()
-@return int 0 成功
-@usage
-mobile.rfcalReset()
-*/
-static int l_mobile_rfcal_reset(lua_State *L) {
-    lua_pushinteger(L, luat_mobile_rfcal_reset());
-    return 1;
-}
-
-/**
-RF 校准:派发一条 AT 命令
-@api mobile.rfcalAt(line)
-@string AT 行,例如 "AT+CGSN=1" 或 "AT+ECNPICFG=rfCaliDone,1"
-@return string 响应文本(以 \r\n 分隔);未识别命令返回 nil
-@usage
-local resp = mobile.rfcalAt("AT+CGSN=1")
-print(resp)  --> \r\n+CGSN: "864317081553409"\r\n\r\nOK
-*/
-static int l_mobile_rfcal_at_dispatch(lua_State *L) {
-    const char *line = luaL_checkstring(L, 1);
-    char resp[256] = {0};
-    /* 即使未知命令,C 函数也会把 "\r\nERROR\r\n" 写入 resp,
-     * 所以总是返回 resp,让 Lua 层判断是否包含 ERROR。
-     * resp_len < 8 的极端情况(无 buffer 错误)才返 nil。
-     */
-    luat_mobile_rfcal_at_dispatch(line, resp, sizeof(resp));
-    if (resp[0] == 0) return 0;
-    lua_pushlstring(L, resp, strlen(resp));
-    return 1;
-}
-
-/**
-RF 校准:派发 AT+ECRFNST 私有协议命令
-@api mobile.rfcalRfnst(hex)
-@string hex 字符串,例如 "02040800..."
-@return string MT 响应 hex 字符串;输入错误返回 nil
-@usage
-local out = mobile.rfcalRfnst("020408000000")
-print(out)  --> MT0204...
-*/
-static int l_mobile_rfcal_rfnst(lua_State *L) {
-    const char *hex = luaL_checkstring(L, 1);
-    char out[256] = {0};
-    int r = luat_mobile_rfcal_rfnst(hex, out, sizeof(out));
-    if (r != 0) return 0;
-    lua_pushlstring(L, out, strlen(out));
-    return 1;
-}
-
-/**
-RF 校准:注入测试用 IMEI(替换 CGSN 响应)
-@api mobile.rfcalSetImei(imei)
-@string 15 位 IMEI 字符串
-@return int 0 成功,-1 长度不合法
-@usage
-mobile.rfcalSetImei("864317081553409")
-*/
-static int l_mobile_rfcal_set_imei(lua_State *L) {
-    const char *imei = luaL_checkstring(L, 1);
-    lua_pushinteger(L, luat_mobile_rfcal_set_imei(imei));
-    return 1;
-}
-#endif /* LUAT_USE_MOBILE_RFCAL */
-
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
     {"status",          ROREG_FUNC(l_mobile_status)},
@@ -1703,8 +1631,11 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"config",          ROREG_FUNC(l_mobile_config)},
 	{"getBand",          ROREG_FUNC(l_mobile_get_band)},
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
-	{"nstOnOff",          ROREG_FUNC(l_mobile_nst_test_onoff)},
-	{"nstInput",          ROREG_FUNC(l_mobile_nst_data_input)},
+	{"rfTestMode",        ROREG_FUNC(l_mobile_rf_test_mode)},
+	{"rfTestInput",       ROREG_FUNC(l_mobile_rf_test_input)},
+	{"rfTestParam",       ROREG_FUNC(l_mobile_rf_test_param)},
+	{"rfTestImei",        ROREG_FUNC(l_mobile_rf_test_imei_get)},
+	{"rfTestImeiSet",     ROREG_FUNC(l_mobile_rf_test_imei_set)},
 	{"syncTime",          ROREG_FUNC(l_mobile_sync_time)},
 	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},
 	{"vsimOnOff",          ROREG_FUNC(l_mobile_vsim_onoff)},
@@ -1770,16 +1701,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	//@const PIN_UNBLOCK number 解锁PIN码
 	{"PIN_UNBLOCK",             ROREG_INT(LUAT_SIM_PIN_UNBLOCK)},
 #ifdef LUAT_USE_UTEST
-    {"utest",                   ROREG_FUNC(l_mobile_utest)},
 #endif
 #ifdef LUAT_USE_MOBILE_RFCAL
-    {"rfcalNpiGet",             ROREG_FUNC(l_mobile_rfcal_npi_get)},
-    {"rfcalNpiSet",             ROREG_FUNC(l_mobile_rfcal_npi_set)},
-    {"rfcalState",              ROREG_FUNC(l_mobile_rfcal_get_state)},
-    {"rfcalReset",              ROREG_FUNC(l_mobile_rfcal_reset)},
-    {"rfcalAt",                 ROREG_FUNC(l_mobile_rfcal_at_dispatch)},
-    {"rfcalRfnst",              ROREG_FUNC(l_mobile_rfcal_rfnst)},
-    {"rfcalSetImei",            ROREG_FUNC(l_mobile_rfcal_set_imei)},
 #endif
     {NULL,                      ROREG_INT(0)}
 };

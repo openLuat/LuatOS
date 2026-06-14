@@ -834,87 +834,77 @@ int luat_mobile_set_band(uint8_t *band,  uint8_t total_num);
 int luat_mobile_config(uint8_t item, uint32_t value);
 
 /**
- * @brief RF测试模式
+ * @brief RF测试模式 (实化版, 原本是空桩, 现在接入 byte 透传层)
  * @param uart_id 测试结果输出的串口ID
- * @param on_off 进出测试模式，0退出 其他进入
+ * @param on_off 进出测试模式, 0 退出, 其他进入
  * @return 无
+ * @note  保留 void 签名是为了 ABI 兼容 (luatos-soc-2024 已有 void 实现)
+ *        PC 仿真: 记录 uart_id, 注册 Rx 钩子 (luat_mobile_rf_test_set_rx_cb)
+ *        真机  : power on + PWRKEY + 绑 UART 到 AT 任务
  */
 void luat_mobile_rf_test_mode(uint8_t uart_id, uint8_t on_off);
 /**
- * @brief RF测试的指令或者数据输入
- * @param data 数据，可以为空，只有为空的时候才会真正开始处理指令
- * @param data_len 数据长度，可以为0，只有为0的时候才会真正开始处理指令
+ * @brief RF测试的指令或者数据输入 (实化版)
+ * @param data 数据, 可以为空 (NULL), 只有为空的时候才会真正开始处理指令
+ * @param data_len 数据长度, 可以为 0, 只有为 0 的时候才会真正开始处理指令
  * @return 无
+ * @note  保留 void 签名 + 双语义 (data!=NULL 入队, NULL/0 触发 flush)
+ *        PC 仿真: 不做解析, 通过 rfa_rx_cb 通知 Lua (流式)
+ *        真机  : 不做 toupper, 不做解析, 直接 push 到 RIL 队列
+ *               (toupper 应在 PLAT atcReply 内部处理)
  */
 void luat_mobile_rf_test_input(char *data, uint32_t data_len);
 
-#ifdef LUAT_USE_MOBILE_RFCAL
 /**
- * @defgroup luatos_mobile_rfcal  RF 校准仿真接口
- *
- * @brief 本组接口是 PC 模拟器对合宙 EC718 模组 RF 校准流程的仿真。
- *        真机固件(library/luatos-soc-2024)后续会以同名同签名的
- *        luat_mobile_rfcal_*() 在 interface/src/luat_mobile_ec7xx.c 中实现。
- *        PC 端在 bsp/pc/port/luat_mobile_pc.c 提供桩。
- *
- * @{
+ * @brief 查询/设置 RF Test 参数 (NPI 位 / 状态机 / 错误注入)
+ *        PC 仿真: 由 s_rf_test 后端完整实现 NPI 位与状态机读写
+ *        真机   : 工厂测试固件可直接实现 NPI NV 读写; 其他 BSP 若不想
+ *                 暴露 NPI 口, 可返回 -1, 由 Lua 通过 mobile.nv/pm 处理
+ * @param key   见 LUAT_MOBILE_RF_TEST_KEY_*
+ * @param value [in/out] 读时返值, 写时给值
+ * @param is_set 0=读, 1=写
+ * @return 0 成功, -1 不支持
+ * @note  真机批量写入优化: 可先用本函数设置若干 NPI 位 (不落 flash),
+ *        再用 key="save" 调用一次以触发统一保存
  */
+int luat_mobile_rf_test_param(const char *key, int *value, int is_set);
 
 /**
- * @brief 读取 NPI NV 位域(rfCaliDone / rfNSTDone / rfCTDone)
- * @param key 位名,支持 "rfCaliDone" / "rfNSTDone" / "rfCTDone"
- * @param value[OUT] 当前值,0 或 1
- * @return 0 成功, -1 key 非法或参数为空
+ * @brief 读 IMEI 字符串 (15 位 ASCII)
+ * @param out 输出缓冲
+ * @param len 缓冲长度 (>= 16)
+ * @return 0 成功, -1 失败
  */
-int luat_mobile_rfcal_npi_get(const char *key, int *value);
+int luat_mobile_rf_test_imei_get(char *out, uint32_t len);
 
 /**
- * @brief 写入 NPI NV 位域
- * @param key 位名
- * @param value 0 或 1(其他值归一为 0/1)
- * @return 0 成功, -1 key 非法
- */
-int luat_mobile_rfcal_npi_set(const char *key, int value);
-
-/**
- * @brief 获取校准状态机当前阶段
- * @return 0=IDLE, 1=PREP, 2=CALIB, 3=SELF_CAL, 4=WRITE_NV, 5=NST_TEST, 6=DONE
- */
-int luat_mobile_rfcal_get_state(void);
-
-/**
- * @brief 复位校准状态机与 NPI 位域
- * @return 0 总是成功
- */
-int luat_mobile_rfcal_reset(void);
-
-/**
- * @brief 派发一条 AT 命令,返回响应字符串
- * @param line 输入 AT 行,例如 "AT+CGSN=1"
- * @param resp[OUT] 响应缓冲
- * @param resp_len 缓冲长度
- * @return 0 成功, -1 不识别的命令
- */
-int luat_mobile_rfcal_at_dispatch(const char *line, char *resp, uint32_t resp_len);
-
-/**
- * @brief 派发 AT+ECRFNST 私有协议命令
- * @param in_hex 输入 hex 字符串(例如 "02040800...")
- * @param out_hex[OUT] 输出 MT 响应 hex 字符串
- * @param out_hex_len 输出缓冲长度
- * @return 0 成功, -1 参数错误
- */
-int luat_mobile_rfcal_rfnst(const char *in_hex, char *out_hex, uint32_t out_hex_len);
-
-/**
- * @brief 注入测试用 IMEI(用于替换 CGSN 响应,默认 864317081553409)
+ * @brief 写 IMEI 字符串 (15 位 ASCII)
  * @param imei 15 位 ASCII
- * @return 0 成功, -1 长度不合法
+ * @return 0 成功, -1 长度错误
  */
-int luat_mobile_rfcal_set_imei(const char *imei);
+int luat_mobile_rf_test_imei_set(const char *imei);
 
-/** @} */
-#endif /* LUAT_USE_MOBILE_RFCAL */
+/* key 字符串 (只 PC 仿真有意义) */
+#define LUAT_MOBILE_RF_TEST_KEY_IMEI       "imei"      // 通过 imei_get/set 走字符串
+#define LUAT_MOBILE_RF_TEST_KEY_NPI_CALI   "rfCaliDone"
+#define LUAT_MOBILE_RF_TEST_KEY_NPI_NST    "rfNSTDone"
+#define LUAT_MOBILE_RF_TEST_KEY_NPI_CT     "rfCTDone"
+#define LUAT_MOBILE_RF_TEST_KEY_STATE      "state"     // 0=IDLE..6=DONE
+#define LUAT_MOBILE_RF_TEST_KEY_ERF_MODE   "erfMode"   // 错误注入, 单测用
+
+/* Rx 回调 (PC 仿真用, 真机无需实现) */
+typedef struct {
+    void (*on_rx)(const uint8_t *data, uint32_t len, void *ud);
+    void *userdata;
+} luat_mobile_rf_test_rx_cb_t;
+
+/**
+ * @brief 注册/注销 Rx 回调 (PC 仿真用, 真机无需)
+ *        调 NULL 表示注销
+ * @return 0 成功, -1 失败
+ */
+int luat_mobile_rf_test_set_rx_cb(const luat_mobile_rf_test_rx_cb_t *cb);
+
 
 enum
 {

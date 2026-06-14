@@ -4,13 +4,30 @@
 #include "luat_str.h"
 #include "luat_mcu.h"
 #include "luat_crypto.h"
+#include "luat_log.h"
+#define LUAT_LOG_TAG "mobile"
 #ifdef LUAT_USE_LWIP
 #include "lwip/ip_addr.h"
 #endif
 
-// #define LUAT_LOG_TAG "mobile"
-
 static uint8_t generate_imei_check_digit(const char* imei);
+
+/* ============================================================
+ *  PC 端 RF 测试状态 (rfa 回环模拟器的存储)
+ *  故意放在文件顶部, 让 luat_mobile_rf_test_mode/input 能直接引用
+ *  真机不需要这一段 (luatos-soc-2024 在 PLAT 层维护)
+ * ============================================================ */
+static struct {
+    int      state;
+    int      npi_rfCaliDone, npi_rfNSTDone, npi_rfCTDone;
+    char     imei[16];
+    int      erf_mode;
+    uint8_t  uart_id;     /* 0xff = 未进入 */
+    luat_mobile_rf_test_rx_cb_t cb;
+} s_rf_test = {
+    .state = 0,
+    .imei  = "864317081553409",  /* 默认 IMEI, 与 luatos-soc-2024 一致 */
+};
 
 int luat_mobile_get_imei(int sim_id, char* buff, size_t buf_len)
 {
@@ -310,12 +327,27 @@ int luat_mobile_config(uint8_t item, uint32_t value)
     return 0;
 }
 void luat_mobile_rf_test_mode(uint8_t uart_id, uint8_t on_off)
-{   
-
+{
+    s_rf_test.uart_id = on_off ? uart_id : 0xff;
+    if (on_off) {
+        LLOGD("rf_test: enter mode, uart=%d", uart_id);
+    } else {
+        LLOGD("rf_test: exit mode");
+    }
 }
 void luat_mobile_rf_test_input(char *data, uint32_t data_len)
 {
-    
+    // 保留原 API 的双语义: data!=NULL && len>0 透传到 Lua 回调, NULL/0 触发 flush
+    if (data && data_len) {
+        if (s_rf_test.cb.on_rx) {
+            s_rf_test.cb.on_rx((const uint8_t *)data, data_len, s_rf_test.cb.userdata);
+        }
+    } else {
+        // flush: 通知 Lua 触发切行处理 (对流式接收的 UART 接收方有意义)
+        if (s_rf_test.cb.on_rx) {
+            s_rf_test.cb.on_rx(NULL, 0, s_rf_test.cb.userdata);
+        }
+    }
 }
 uint32_t luat_mobile_sim_write_counter(void)
 {
@@ -459,123 +491,54 @@ static uint8_t generate_imei_check_digit(const char* imei) {
     return check_digit;
 }
 
-#ifdef LUAT_USE_MOBILE_RFCAL
-/*
- * RF 校准仿真:PC 端用真实日志数据驱动完整状态机实现
- *
- * 数据来源:F:\hardware\calrf\864317081553409_UartComm_Log_Port14.txt
- *          真实 EC718 模组校准会话(IMEI=864317081553409, 时间=2026-06-12-15-17)
- *
- * 状态机:0=IDLE, 1=PREP, 2=CALIB, 3=SELF_CAL, 4=WRITE_NV, 5=NST_TEST, 6=DONE
- */
+/* ============================================================
+ *  新增 luat_mobile_rf_test_param / imei_get / imei_set / set_rx_cb
+ *  这些函数**不做**任何 AT 派发, 只是 PC 端"模组"的存储后端
+ *  全部 AT 协议由 Lua rfa.* 模块负责
+ *  真机直接返回 -1 (NPI/NV 不走此口)
+ * ============================================================ */
 #include <string.h>
-#include <stdio.h>
 
-/* 模块静态状态(单实例,够 PC 仿真用) */
-static int s_rfcal_state = 0;
-static int s_npi_rfCaliDone = 0;
-static int s_npi_rfNSTDone  = 0;
-static int s_npi_rfCTDone   = 0;
-static char s_rfcal_imei[16] = "864317081553409";
-
-/* 真实日志 fixture(供将来扩展) */
-static const char* REAL_IMEI      = "864317081553409";
-static const char* REAL_TIMESTAMP = "2026-06-12-15-17";
-static const char* REAL_DAC       = "46EC46EC46EC46EC46EC46EC46EC46EC";
-
-int luat_mobile_rfcal_npi_get(const char *key, int *value) {
-    if (!key || !value) return -1;
-    if      (strcmp(key, "rfCaliDone") == 0) *value = s_npi_rfCaliDone;
-    else if (strcmp(key, "rfNSTDone")  == 0) *value = s_npi_rfNSTDone;
-    else if (strcmp(key, "rfCTDone")   == 0) *value = s_npi_rfCTDone;
-    else return -1;
-    return 0;
-}
-
-int luat_mobile_rfcal_npi_set(const char *key, int value) {
-    if (!key) return -1;
-    int v = value ? 1 : 0;
-    if      (strcmp(key, "rfCaliDone") == 0) s_npi_rfCaliDone = v;
-    else if (strcmp(key, "rfNSTDone")  == 0) s_npi_rfNSTDone  = v;
-    else if (strcmp(key, "rfCTDone")   == 0) s_npi_rfCTDone   = v;
-    else return -1;
-    return 0;
-}
-
-int luat_mobile_rfcal_get_state(void) {
-    return s_rfcal_state;
-}
-
-int luat_mobile_rfcal_reset(void) {
-    s_rfcal_state = 0;
-    s_npi_rfCaliDone = s_npi_rfNSTDone = s_npi_rfCTDone = 0;
-    return 0;
-}
-
-int luat_mobile_rfcal_set_imei(const char *imei) {
-    if (!imei || strlen(imei) != 15) return -1;
-    memcpy(s_rfcal_imei, imei, 15);
-    s_rfcal_imei[15] = 0;
-    return 0;
-}
-
-int luat_mobile_rfcal_at_dispatch(const char *line, char *resp, uint32_t resp_len) {
-    if (!line || !resp || resp_len < 8) return -1;
-    /* 关键:具体命令必须在通用 "AT" 前缀检查之前,否则 "AT+CGSN=1"
-     * 会被 strncmp(line, "AT", 2) 优先匹配,导致具体分支无法触发
-     */
-    if (strncmp(line, "AT+CGSN=1", 9) == 0) {
-        snprintf(resp, resp_len, "\r\n+CGSN: \"%s\"\r\n\r\nOK\r\n", s_rfcal_imei);
-        if (s_rfcal_state < 1) s_rfcal_state = 1;  /* PREP */
-    } else if (strncmp(line, "AT+ECNPICFG=rfCaliDone,1", 24) == 0) {
-        s_npi_rfCaliDone = 1;
-        s_rfcal_state = 4;  /* WRITE_NV */
-        snprintf(resp, resp_len, "\r\nOK\r\n");
-    } else if (strncmp(line, "AT+ECNPICFG=rfCaliDone,0", 24) == 0) {
-        s_npi_rfCaliDone = 0;
-        snprintf(resp, resp_len, "\r\nOK\r\n");
-    } else if (strncmp(line, "AT+ECNPICFG=rfNSTDone,1", 23) == 0) {
-        s_npi_rfNSTDone = 1;
-        s_rfcal_state = 6;  /* DONE */
-        snprintf(resp, resp_len, "\r\nOK\r\n");
-    } else if (strncmp(line, "AT+ECNPICFG=rfCTDone,1", 22) == 0) {
-        s_npi_rfCTDone = 1;
-        snprintf(resp, resp_len, "\r\nOK\r\n");
-    } else if (strncmp(line, "AT+ECNPICFG?", 12) == 0) {
-        snprintf(resp, resp_len,
-            "\r\n+ECNPICFG: \"rfCaliDone\":%d,\"rfNSTDone\":%d,\"rfCTDone\":%d\r\n\r\nOK\r\n",
-            s_npi_rfCaliDone, s_npi_rfNSTDone, s_npi_rfCTDone);
-    } else if (strncmp(line, "AT+CFUN=0", 9) == 0) {
-        snprintf(resp, resp_len, "\r\nOK\r\n");
-    } else if (strncmp(line, "AT+CPIN?", 8) == 0) {
-        /* 真实日志:校准环境无 SIM,返 +CME ERROR: 303 */
-        snprintf(resp, resp_len, "\r\n+CME ERROR: 303\r\n");
-    } else if (strncmp(line, "AT+ECCHIPVER?", 13) == 0) {
-        /* 真实日志:ECCHIPVER 固件未实现,返 ERROR */
-        snprintf(resp, resp_len, "\r\nERROR\r\n");
-    } else if (strncmp(line, "AT+ECGMDATA?", 12) == 0) {
-        snprintf(resp, resp_len, "\r\nOK\r\n");
-    } else if (strncmp(line, "ATE", 3) == 0) {
-        snprintf(resp, resp_len, "%s\r\nOK\r\n", line);
-    } else if (strncmp(line, "AT", 2) == 0) {
-        snprintf(resp, resp_len, "%s\r\nOK\r\n", line);
+int luat_mobile_rf_test_set_rx_cb(const luat_mobile_rf_test_rx_cb_t *cb) {
+    if (cb) {
+        s_rf_test.cb = *cb;
     } else {
-        snprintf(resp, resp_len, "\r\nERROR\r\n");
-        return -1;
+        s_rf_test.cb.on_rx = NULL;
+        s_rf_test.cb.userdata = NULL;
     }
     return 0;
 }
 
-int luat_mobile_rfcal_rfnst(const char *in_hex, char *out_hex, uint32_t out_hex_len) {
-    if (!in_hex || !out_hex) return -1;
-    if (strlen(in_hex) < 4) return -1;
-    /* 真实协议响应格式:MT + cmdId 2B + retStatus 4B + dataLen 4B + crc 4B + payload
-     * PC 桩简化:把输入的 cmdId 字节回显,保持 retStatus=0(成功),dataLen=1 字节
-     * 真实日志样例:MT0000880100010000...   cmdId=0x0008, retStatus=0x01000000
-     */
-    snprintf(out_hex, out_hex_len, "MT%.4s00000001000000000000", in_hex);
-    /* 状态推进:任何 cmdId 都视为进入 CALIB 阶段 */
-    if (s_rfcal_state < 2) s_rfcal_state = 2;
+int luat_mobile_rf_test_param(const char *key, int *value, int is_set) {
+    if (!key || !value) return -1;
+    if (is_set) {
+        if      (!strcmp(key, "save"))                        return 0; /* PC 仿真无需落 flash, no-op */
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_CALI)) s_rf_test.npi_rfCaliDone = !!*value;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_NST))  s_rf_test.npi_rfNSTDone  = !!*value;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_CT))   s_rf_test.npi_rfCTDone   = !!*value;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_STATE))    s_rf_test.state          = *value;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_ERF_MODE)) s_rf_test.erf_mode       = !!*value;
+        else return -1;
+    } else {
+        if      (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_CALI)) *value = s_rf_test.npi_rfCaliDone;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_NST))  *value = s_rf_test.npi_rfNSTDone;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_CT))   *value = s_rf_test.npi_rfCTDone;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_STATE))    *value = s_rf_test.state;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_ERF_MODE)) *value = s_rf_test.erf_mode;
+        else return -1;
+    }
     return 0;
 }
-#endif /* LUAT_USE_MOBILE_RFCAL */
+
+int luat_mobile_rf_test_imei_get(char *out, uint32_t len) {
+    if (!out || len < 16) return -1;
+    memcpy(out, s_rf_test.imei, 16);
+    return 0;
+}
+
+int luat_mobile_rf_test_imei_set(const char *imei) {
+    if (!imei || strlen(imei) != 15) return -1;
+    memcpy(s_rf_test.imei, imei, 15);
+    s_rf_test.imei[15] = 0;
+    return 0;
+}

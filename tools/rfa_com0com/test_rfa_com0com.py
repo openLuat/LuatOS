@@ -38,24 +38,40 @@ except ImportError:
 
 
 # 基础套件:对应 7 段校准流程的关键命令
+# 真实校准日志 (F:\hardware\calrf\864317081553409_UartComm_Log_Port14.txt) 的顺序:
+#   AT / ATE0 / AT+CPIN? / AT+CFUN=0 / AT+ECCHIPVER? / AT+ECGMDATA? / AT+CGSN=1
+#   / AT+ECNPICFG=rfCaliDone,0 / AT+ECRFNST=... (校准在此飞行模式下跑)
+#   / AT+ECNPICFG=rfCaliDone,1 / AT+ECNPICFG?
 BASIC_CASES = [
     # (发送, 期望包含的响应片段, 描述)
     (b"AT\r\n",                              b"OK",                "AT 握手"),
     (b"ATE0\r\n",                            b"OK",                "关回显"),
-    (b"AT+CFUN=0\r\n",                       b"OK",                "关射频"),
-    (b"AT+ECNPICFG=rfCaliDone,0\r\n",        b"OK",                "清校准标志"),
+    (b"AT+CPIN?\r\n",                        b"CME ERROR",         "无 SIM,工具忽略"),
+    (b"AT+CFUN=0\r\n",                       b"OK",                "关射频 (校准前硬前置)"),
+    (b"AT+CFUN=1\r\n",                       b"OK",                "开射频 (退出飞行模式)"),
+    (b"AT+ECCHIPVER?\r\n",                   b"ERROR",             "未实现,工具忽略"),
+    (b"AT+ECGMDATA?\r\n",                    b"OK",                "空操作"),
     (b"AT+CGSN=1\r\n",                       b"864317081553409",   "读 IMEI (默认)"),
+    (b"AT+ECNPICFG=rfCaliDone,0\r\n",        b"OK",                "清校准标志"),
     (b"AT+ECNPICFG=rfCaliDone,1\r\n",        b"OK",                "置校准完成"),
     (b"AT+ECNPICFG?\r\n",                    b"rfCaliDone",        "回读 NPI 配置"),
     (b"AT+ECNPICFG=rfNSTDone,1\r\n",         b"OK",                "置 NST 完成"),
 ]
 
-# 完整套件:在 BASIC 基础上加 RFNST 私有协议
-FULL_CASES = BASIC_CASES + [
+# 完整套件:在 BASIC 基础上加 RFNST 私有协议 (校准就是要在 CFUN=0 之后跑)
+FULL_CASES = [
+    (b"AT\r\n",                              b"OK",                "AT 握手"),
+    (b"ATE0\r\n",                            b"OK",                "关回显"),
+    (b"AT+CFUN=0\r\n",                       b"OK",                "关射频 (校准前硬前置)"),
+    (b"AT+ECNPICFG=rfCaliDone,0\r\n",        b"OK",                "清校准标志"),
+    (b"AT+CGSN=1\r\n",                       b"864317081553409",   "读 IMEI (默认)"),
     (b"AT+ECRFNST=02040800000000000000000000000000\r\n",
-     b"MT0204",                              "RFNST cmdId=0x04"),
+     b"MT0204",                              "RFNST cmdId=0x04 (飞行模式下跑)"),
     (b"AT+ECRFNST=02030000000000000000000000000000\r\n",
-     b"MT0203",                              "RFNST cmdId=0x03"),
+     b"MT0203",                              "RFNST cmdId=0x03 (飞行模式下跑)"),
+    (b"AT+CFUN=1\r\n",                       b"OK",                "退出飞行模式"),
+    (b"AT+ECNPICFG=rfCaliDone,1\r\n",        b"OK",                "置校准完成"),
+    (b"AT+ECNPICFG?\r\n",                    b"rfCaliDone",        "回读 NPI 配置"),
     (b"AT+BOGUS\r\n",                        b"ERROR",             "未知命令应返 ERROR"),
 ]
 

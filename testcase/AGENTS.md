@@ -17,7 +17,9 @@ testcase/
 ├── utest/            # C-layer utest suites (xxx.utest(case) bridges)
 │   ├── net/          #   tcp_basic, http_basic, https_basic, dtls_basic
 │   ├── lib/          #   core_basic, crypto_basic
-│   └── sys/          #   ndk_basic
+│   ├── sys/          #   ndk_basic
+│   ├── fs/           #   pgfs_basic
+│   └── drv/          #   uart_basic, mobile_rfcal_basic
 └── <feature>/        # Feature tests
     └── <feature>_basic/
         ├── metas.json
@@ -51,6 +53,38 @@ build/out/luatos-lua.exe \
   ```
 - `metas.json` 的 `platform` 字段当前没有任何 runner 消费,只是文档;但请按实际填(`["pc"]` / `["air1601"]` / `["air1601","air8000"]`),给人读。
 - ⚠️ **testrunner 的"虚绿"陷阱**:`testsuite.lua` 用 `pcall` 包测试函数,**返回 `false` 不算 FAIL**,只有抛 lua 错误才算。要让失败可见,用 `assert(ok, "...")`,不要 `if not ok then return false`。
+
+### RF 校准套件 (mobile_rfcal_basic)
+
+PC 模拟器侧的 RF 校准仿真测试,4 个 suite 共 23 个 case:
+
+| Suite | 数量 | 覆盖 |
+|-------|------|------|
+| `c_suite` | 6 | NPI rw / 状态机 / IMEI 注入 / AT 握手 / RFNST / reset(走 `mobile.utest()` C 桥) |
+| `lua_suite` | 5 | `mobile.rfcalNpiGet/Set/State/At/Rfnst/SetImei` Lua 绑定 |
+| `at_suite` | 3 | `mobile.rfcalAt()` 派发表 + 真实日志回放 |
+| `rfa_suite` | 9 | `lua/luat/rfcal_at_server.lua` 的 `dispatch` / `feed` 纯函数 |
+
+跑法同其他 utest 套件:
+
+```bash
+cd bsp/pc
+.\pc_utest_coverage.ps1 -Suite mobile_rfcal_basic
+```
+
+**端到端 com0com 回归** (需先 `setup_com0com_pair.ps1` 配对 COM5<->COM6):
+
+```bash
+# 终端 1: 启动 LuatOS AT server
+cd bsp/pc/build/out
+./luatos-lua.exe ../../../../testcase/common/scripts/ \
+                ../../../../tools/rfcal_com0com/at_server_main/
+
+# 终端 2: Python 驱动
+python tools/rfcal_com0com/test_rfcal_com0com.py --port COM5 --suite basic
+```
+
+详细 API、状态机说明、真机对接指南见 `components/mobile/README_rfcal.md`。
 
 ## CREATING TESTS
 

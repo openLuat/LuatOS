@@ -848,6 +848,74 @@ void luat_mobile_rf_test_mode(uint8_t uart_id, uint8_t on_off);
  */
 void luat_mobile_rf_test_input(char *data, uint32_t data_len);
 
+#ifdef LUAT_USE_MOBILE_RFCAL
+/**
+ * @defgroup luatos_mobile_rfcal  RF 校准仿真接口
+ *
+ * @brief 本组接口是 PC 模拟器对合宙 EC718 模组 RF 校准流程的仿真。
+ *        真机固件(library/luatos-soc-2024)后续会以同名同签名的
+ *        luat_mobile_rfcal_*() 在 interface/src/luat_mobile_ec7xx.c 中实现。
+ *        PC 端在 bsp/pc/port/luat_mobile_pc.c 提供桩。
+ *
+ * @{
+ */
+
+/**
+ * @brief 读取 NPI NV 位域(rfCaliDone / rfNSTDone / rfCTDone)
+ * @param key 位名,支持 "rfCaliDone" / "rfNSTDone" / "rfCTDone"
+ * @param value[OUT] 当前值,0 或 1
+ * @return 0 成功, -1 key 非法或参数为空
+ */
+int luat_mobile_rfcal_npi_get(const char *key, int *value);
+
+/**
+ * @brief 写入 NPI NV 位域
+ * @param key 位名
+ * @param value 0 或 1(其他值归一为 0/1)
+ * @return 0 成功, -1 key 非法
+ */
+int luat_mobile_rfcal_npi_set(const char *key, int value);
+
+/**
+ * @brief 获取校准状态机当前阶段
+ * @return 0=IDLE, 1=PREP, 2=CALIB, 3=SELF_CAL, 4=WRITE_NV, 5=NST_TEST, 6=DONE
+ */
+int luat_mobile_rfcal_get_state(void);
+
+/**
+ * @brief 复位校准状态机与 NPI 位域
+ * @return 0 总是成功
+ */
+int luat_mobile_rfcal_reset(void);
+
+/**
+ * @brief 派发一条 AT 命令,返回响应字符串
+ * @param line 输入 AT 行,例如 "AT+CGSN=1"
+ * @param resp[OUT] 响应缓冲
+ * @param resp_len 缓冲长度
+ * @return 0 成功, -1 不识别的命令
+ */
+int luat_mobile_rfcal_at_dispatch(const char *line, char *resp, uint32_t resp_len);
+
+/**
+ * @brief 派发 AT+ECRFNST 私有协议命令
+ * @param in_hex 输入 hex 字符串(例如 "02040800...")
+ * @param out_hex[OUT] 输出 MT 响应 hex 字符串
+ * @param out_hex_len 输出缓冲长度
+ * @return 0 成功, -1 参数错误
+ */
+int luat_mobile_rfcal_rfnst(const char *in_hex, char *out_hex, uint32_t out_hex_len);
+
+/**
+ * @brief 注入测试用 IMEI(用于替换 CGSN 响应,默认 864317081553409)
+ * @param imei 15 位 ASCII
+ * @return 0 成功, -1 长度不合法
+ */
+int luat_mobile_rfcal_set_imei(const char *imei);
+
+/** @} */
+#endif /* LUAT_USE_MOBILE_RFCAL */
+
 enum
 {
 	MOBILE_CONF_RESELTOWEAKNCELL = 1,

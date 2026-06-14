@@ -455,6 +455,127 @@ static uint8_t generate_imei_check_digit(const char* imei) {
     
     // 计算校验位：使得总和能被10整除的数字
     uint8_t check_digit = (10 - (sum % 10)) % 10;
-    
+
     return check_digit;
 }
+
+#ifdef LUAT_USE_MOBILE_RFCAL
+/*
+ * RF 校准仿真:PC 端用真实日志数据驱动完整状态机实现
+ *
+ * 数据来源:F:\hardware\calrf\864317081553409_UartComm_Log_Port14.txt
+ *          真实 EC718 模组校准会话(IMEI=864317081553409, 时间=2026-06-12-15-17)
+ *
+ * 状态机:0=IDLE, 1=PREP, 2=CALIB, 3=SELF_CAL, 4=WRITE_NV, 5=NST_TEST, 6=DONE
+ */
+#include <string.h>
+#include <stdio.h>
+
+/* 模块静态状态(单实例,够 PC 仿真用) */
+static int s_rfcal_state = 0;
+static int s_npi_rfCaliDone = 0;
+static int s_npi_rfNSTDone  = 0;
+static int s_npi_rfCTDone   = 0;
+static char s_rfcal_imei[16] = "864317081553409";
+
+/* 真实日志 fixture(供将来扩展) */
+static const char* REAL_IMEI      = "864317081553409";
+static const char* REAL_TIMESTAMP = "2026-06-12-15-17";
+static const char* REAL_DAC       = "46EC46EC46EC46EC46EC46EC46EC46EC";
+
+int luat_mobile_rfcal_npi_get(const char *key, int *value) {
+    if (!key || !value) return -1;
+    if      (strcmp(key, "rfCaliDone") == 0) *value = s_npi_rfCaliDone;
+    else if (strcmp(key, "rfNSTDone")  == 0) *value = s_npi_rfNSTDone;
+    else if (strcmp(key, "rfCTDone")   == 0) *value = s_npi_rfCTDone;
+    else return -1;
+    return 0;
+}
+
+int luat_mobile_rfcal_npi_set(const char *key, int value) {
+    if (!key) return -1;
+    int v = value ? 1 : 0;
+    if      (strcmp(key, "rfCaliDone") == 0) s_npi_rfCaliDone = v;
+    else if (strcmp(key, "rfNSTDone")  == 0) s_npi_rfNSTDone  = v;
+    else if (strcmp(key, "rfCTDone")   == 0) s_npi_rfCTDone   = v;
+    else return -1;
+    return 0;
+}
+
+int luat_mobile_rfcal_get_state(void) {
+    return s_rfcal_state;
+}
+
+int luat_mobile_rfcal_reset(void) {
+    s_rfcal_state = 0;
+    s_npi_rfCaliDone = s_npi_rfNSTDone = s_npi_rfCTDone = 0;
+    return 0;
+}
+
+int luat_mobile_rfcal_set_imei(const char *imei) {
+    if (!imei || strlen(imei) != 15) return -1;
+    memcpy(s_rfcal_imei, imei, 15);
+    s_rfcal_imei[15] = 0;
+    return 0;
+}
+
+int luat_mobile_rfcal_at_dispatch(const char *line, char *resp, uint32_t resp_len) {
+    if (!line || !resp || resp_len < 8) return -1;
+    /* 关键:具体命令必须在通用 "AT" 前缀检查之前,否则 "AT+CGSN=1"
+     * 会被 strncmp(line, "AT", 2) 优先匹配,导致具体分支无法触发
+     */
+    if (strncmp(line, "AT+CGSN=1", 9) == 0) {
+        snprintf(resp, resp_len, "\r\n+CGSN: \"%s\"\r\n\r\nOK\r\n", s_rfcal_imei);
+        if (s_rfcal_state < 1) s_rfcal_state = 1;  /* PREP */
+    } else if (strncmp(line, "AT+ECNPICFG=rfCaliDone,1", 24) == 0) {
+        s_npi_rfCaliDone = 1;
+        s_rfcal_state = 4;  /* WRITE_NV */
+        snprintf(resp, resp_len, "\r\nOK\r\n");
+    } else if (strncmp(line, "AT+ECNPICFG=rfCaliDone,0", 24) == 0) {
+        s_npi_rfCaliDone = 0;
+        snprintf(resp, resp_len, "\r\nOK\r\n");
+    } else if (strncmp(line, "AT+ECNPICFG=rfNSTDone,1", 23) == 0) {
+        s_npi_rfNSTDone = 1;
+        s_rfcal_state = 6;  /* DONE */
+        snprintf(resp, resp_len, "\r\nOK\r\n");
+    } else if (strncmp(line, "AT+ECNPICFG=rfCTDone,1", 22) == 0) {
+        s_npi_rfCTDone = 1;
+        snprintf(resp, resp_len, "\r\nOK\r\n");
+    } else if (strncmp(line, "AT+ECNPICFG?", 12) == 0) {
+        snprintf(resp, resp_len,
+            "\r\n+ECNPICFG: \"rfCaliDone\":%d,\"rfNSTDone\":%d,\"rfCTDone\":%d\r\n\r\nOK\r\n",
+            s_npi_rfCaliDone, s_npi_rfNSTDone, s_npi_rfCTDone);
+    } else if (strncmp(line, "AT+CFUN=0", 9) == 0) {
+        snprintf(resp, resp_len, "\r\nOK\r\n");
+    } else if (strncmp(line, "AT+CPIN?", 8) == 0) {
+        /* 真实日志:校准环境无 SIM,返 +CME ERROR: 303 */
+        snprintf(resp, resp_len, "\r\n+CME ERROR: 303\r\n");
+    } else if (strncmp(line, "AT+ECCHIPVER?", 13) == 0) {
+        /* 真实日志:ECCHIPVER 固件未实现,返 ERROR */
+        snprintf(resp, resp_len, "\r\nERROR\r\n");
+    } else if (strncmp(line, "AT+ECGMDATA?", 12) == 0) {
+        snprintf(resp, resp_len, "\r\nOK\r\n");
+    } else if (strncmp(line, "ATE", 3) == 0) {
+        snprintf(resp, resp_len, "%s\r\nOK\r\n", line);
+    } else if (strncmp(line, "AT", 2) == 0) {
+        snprintf(resp, resp_len, "%s\r\nOK\r\n", line);
+    } else {
+        snprintf(resp, resp_len, "\r\nERROR\r\n");
+        return -1;
+    }
+    return 0;
+}
+
+int luat_mobile_rfcal_rfnst(const char *in_hex, char *out_hex, uint32_t out_hex_len) {
+    if (!in_hex || !out_hex) return -1;
+    if (strlen(in_hex) < 4) return -1;
+    /* 真实协议响应格式:MT + cmdId 2B + retStatus 4B + dataLen 4B + crc 4B + payload
+     * PC 桩简化:把输入的 cmdId 字节回显,保持 retStatus=0(成功),dataLen=1 字节
+     * 真实日志样例:MT0000880100010000...   cmdId=0x0008, retStatus=0x01000000
+     */
+    snprintf(out_hex, out_hex_len, "MT%.4s00000001000000000000", in_hex);
+    /* 状态推进:任何 cmdId 都视为进入 CALIB 阶段 */
+    if (s_rfcal_state < 2) s_rfcal_state = 2;
+    return 0;
+}
+#endif /* LUAT_USE_MOBILE_RFCAL */

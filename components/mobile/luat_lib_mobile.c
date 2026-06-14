@@ -1539,6 +1539,137 @@ static int l_mobile_print_apn_table(lua_State* L) {
     return 0;
 }
 
+#ifdef LUAT_USE_UTEST
+/**
+C层utest桥(仅PC模拟器开启)
+@api mobile.utest(case_name)
+@string 用例名,可省略;省略/NULL 时跑默认 `rfcal_npi_bit_rw`
+@return boolean true 通过,false 失败
+@usage
+mobile.utest()                  -- 跑默认 case
+mobile.utest("rfcal_state_machine")
+*/
+extern int luat_mobile_rfcal_utest(lua_State *L, const char *case_name);
+static int l_mobile_utest(lua_State *L) {
+    const char *name = luaL_optstring(L, 1, NULL);
+    lua_pushboolean(L, luat_mobile_rfcal_utest(L, name) == 0);
+    return 1;
+}
+#endif
+
+#ifdef LUAT_USE_MOBILE_RFCAL
+/**
+RF 校准:NPI NV 位读取(rfCaliDone / rfNSTDone / rfCTDone)
+@api mobile.rfcalNpiGet(key)
+@string 键名,支持 "rfCaliDone" / "rfNSTDone" / "rfCTDone"
+@return int 0 或 1,失败返回 nil
+@usage
+print(mobile.rfcalNpiGet("rfCaliDone"))  --> 0 或 1
+*/
+static int l_mobile_rfcal_npi_get(lua_State *L) {
+    const char *key = luaL_checkstring(L, 1);
+    int v = 0;
+    int r = luat_mobile_rfcal_npi_get(key, &v);
+    if (r != 0) return 0;
+    lua_pushinteger(L, v);
+    return 1;
+}
+
+/**
+RF 校准:NPI NV 位写入
+@api mobile.rfcalNpiSet(key, val)
+@string 键名
+@int 值 0 或 1
+@return int 0 成功,非 0 失败
+@usage
+mobile.rfcalNpiSet("rfCaliDone", 1)
+*/
+static int l_mobile_rfcal_npi_set(lua_State *L) {
+    const char *key = luaL_checkstring(L, 1);
+    int val = luaL_checkinteger(L, 2);
+    lua_pushinteger(L, luat_mobile_rfcal_npi_set(key, val));
+    return 1;
+}
+
+/**
+RF 校准:获取校准状态机当前阶段
+@api mobile.rfcalState()
+@return int 0=IDLE, 1=PREP, 2=CALIB, 3=SELF_CAL, 4=WRITE_NV, 5=NST_TEST, 6=DONE
+@usage
+print(mobile.rfcalState())
+*/
+static int l_mobile_rfcal_get_state(lua_State *L) {
+    lua_pushinteger(L, luat_mobile_rfcal_get_state());
+    return 1;
+}
+
+/**
+RF 校准:复位状态机与 NPI 位域
+@api mobile.rfcalReset()
+@return int 0 成功
+@usage
+mobile.rfcalReset()
+*/
+static int l_mobile_rfcal_reset(lua_State *L) {
+    lua_pushinteger(L, luat_mobile_rfcal_reset());
+    return 1;
+}
+
+/**
+RF 校准:派发一条 AT 命令
+@api mobile.rfcalAt(line)
+@string AT 行,例如 "AT+CGSN=1" 或 "AT+ECNPICFG=rfCaliDone,1"
+@return string 响应文本(以 \r\n 分隔);未识别命令返回 nil
+@usage
+local resp = mobile.rfcalAt("AT+CGSN=1")
+print(resp)  --> \r\n+CGSN: "864317081553409"\r\n\r\nOK
+*/
+static int l_mobile_rfcal_at_dispatch(lua_State *L) {
+    const char *line = luaL_checkstring(L, 1);
+    char resp[256] = {0};
+    /* 即使未知命令,C 函数也会把 "\r\nERROR\r\n" 写入 resp,
+     * 所以总是返回 resp,让 Lua 层判断是否包含 ERROR。
+     * resp_len < 8 的极端情况(无 buffer 错误)才返 nil。
+     */
+    luat_mobile_rfcal_at_dispatch(line, resp, sizeof(resp));
+    if (resp[0] == 0) return 0;
+    lua_pushlstring(L, resp, strlen(resp));
+    return 1;
+}
+
+/**
+RF 校准:派发 AT+ECRFNST 私有协议命令
+@api mobile.rfcalRfnst(hex)
+@string hex 字符串,例如 "02040800..."
+@return string MT 响应 hex 字符串;输入错误返回 nil
+@usage
+local out = mobile.rfcalRfnst("020408000000")
+print(out)  --> MT0204...
+*/
+static int l_mobile_rfcal_rfnst(lua_State *L) {
+    const char *hex = luaL_checkstring(L, 1);
+    char out[256] = {0};
+    int r = luat_mobile_rfcal_rfnst(hex, out, sizeof(out));
+    if (r != 0) return 0;
+    lua_pushlstring(L, out, strlen(out));
+    return 1;
+}
+
+/**
+RF 校准:注入测试用 IMEI(替换 CGSN 响应)
+@api mobile.rfcalSetImei(imei)
+@string 15 位 IMEI 字符串
+@return int 0 成功,-1 长度不合法
+@usage
+mobile.rfcalSetImei("864317081553409")
+*/
+static int l_mobile_rfcal_set_imei(lua_State *L) {
+    const char *imei = luaL_checkstring(L, 1);
+    lua_pushinteger(L, luat_mobile_rfcal_set_imei(imei));
+    return 1;
+}
+#endif /* LUAT_USE_MOBILE_RFCAL */
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
     {"status",          ROREG_FUNC(l_mobile_status)},
@@ -1638,6 +1769,18 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"PIN_DISABLE",             ROREG_INT(LUAT_SIM_PIN_DISABLE)},
 	//@const PIN_UNBLOCK number 解锁PIN码
 	{"PIN_UNBLOCK",             ROREG_INT(LUAT_SIM_PIN_UNBLOCK)},
+#ifdef LUAT_USE_UTEST
+    {"utest",                   ROREG_FUNC(l_mobile_utest)},
+#endif
+#ifdef LUAT_USE_MOBILE_RFCAL
+    {"rfcalNpiGet",             ROREG_FUNC(l_mobile_rfcal_npi_get)},
+    {"rfcalNpiSet",             ROREG_FUNC(l_mobile_rfcal_npi_set)},
+    {"rfcalState",              ROREG_FUNC(l_mobile_rfcal_get_state)},
+    {"rfcalReset",              ROREG_FUNC(l_mobile_rfcal_reset)},
+    {"rfcalAt",                 ROREG_FUNC(l_mobile_rfcal_at_dispatch)},
+    {"rfcalRfnst",              ROREG_FUNC(l_mobile_rfcal_rfnst)},
+    {"rfcalSetImei",            ROREG_FUNC(l_mobile_rfcal_set_imei)},
+#endif
     {NULL,                      ROREG_INT(0)}
 };
 

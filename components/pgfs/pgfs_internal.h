@@ -25,6 +25,25 @@
 #define PGFS_DATA_LOG_BASE_ADDR       0x4000u
 /* 5 reserved blocks, data log starts at block 5. */
 #define PGFS_LAYOUT_RESERVED_BLOCKS  5u
+
+/* PGFS minimum supported partition size: 8MB.
+ *
+ * Budget rationale (approximate, worst-case steady state):
+ *   - FTL metadata block:  ~256KB  (bitmap + erase counts + v4 record)
+ *   - 2x superblock:       ~8KB    (4KB each, on 4KB erase unit)
+ *   - 2x checkpoint:       ~8KB    (4KB each)
+ *   - Segment allocator:   needs 64x 128KB blocks  = 8MB
+ *
+ * Partitions smaller than 8MB cannot sustain the segment allocator
+ * and produce "FTL no free blocks" failures under any real workload.
+ * The vfs_uniform_pgfs suite's 256KB test partition is a hard case of
+ * this; the 30-case suite needs 16MB (the size of
+ * s_pgfs_test_flash_slab in luat_pgfs_utest.c) to score >16/30.
+ *
+ * Defined in pgfs_internal.h so both the VFS adapter mount path and
+ * any future C-side tests (e.g. fuzzer, layout_compute) share the
+ * same gate. */
+#define PGFS_MIN_PARTITION_BYTES  (8u * 1024u * 1024u)
 #define PGFS_DATA_RECORD_MAGIC       0x50474644u
 #define PGFS_BATCH_DATA_RECORD_MAGIC 0x50474642u
 #define PGFS_BATCH_COMMIT_RECORD_MAGIC 0x50474643u

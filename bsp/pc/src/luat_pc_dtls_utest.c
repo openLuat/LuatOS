@@ -4,6 +4,9 @@
 #include "luat_crypto.h"
 #include "luat_pc_dtls_utest.h"
 
+#define LUAT_LOG_TAG "pc_dtls_utest"
+#include "luat_log.h"
+
 
 #include <pthread.h>
 #include <string.h>
@@ -20,7 +23,9 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/net_sockets.h"
+#include "mbedtls/pk.h"
 #include "mbedtls/ssl.h"
+#include "mbedtls/x509_crt.h"
 
 typedef struct dtls_utest_timer {
     uint64_t start_ms;
@@ -72,6 +77,15 @@ struct luat_pc_dtls_utest_server {
     char psk_id[DTLS_UTEST_MAX_PSK_ID_LEN];
     uint8_t psk[DTLS_UTEST_MAX_PSK_LEN];
     size_t psk_len;
+    /* Cert mode (only used when use_certs != 0; PSK path leaves these zeroed). */
+    uint8_t *ca_pem;
+    size_t   ca_pem_len;
+    uint8_t *srv_cert_pem;
+    size_t   srv_cert_pem_len;
+    uint8_t *srv_key_pem;
+    size_t   srv_key_pem_len;
+    int      use_certs;
+    int      require_client_cert;
 };
 
 static void dtls_utest_set_error(luat_pc_dtls_utest_server_t *server, const char *stage) {
@@ -238,6 +252,12 @@ static void *dtls_utest_server_thread(void *arg) {
     mbedtls_ctr_drbg_context ctr_drbg;
     mbedtls_entropy_context entropy;
     dtls_utest_timer_t timer;
+    /* Cert mode state lives at function scope so the SSL config can keep
+     * references to it for the entire lifetime of this thread. */
+    mbedtls_x509_crt ca_chain;
+    mbedtls_x509_crt srv_crt;
+    mbedtls_pk_context srv_key;
+    int certs_inited = 0;
     unsigned char client_ip[32];
     unsigned char io_buf[256];
     size_t client_ip_len = 0;
@@ -276,17 +296,57 @@ static void *dtls_utest_server_thread(void *arg) {
     }
 
     mbedtls_ssl_conf_rng(&conf, mbedtls_ctr_drbg_random, &ctr_drbg);
-    mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_NONE);
     mbedtls_ssl_conf_dtls_cookies(&conf, NULL, NULL, NULL);
     mbedtls_ssl_conf_read_timeout(&conf, DTLS_UTEST_POLL_MS);
 
-    ret = mbedtls_ssl_conf_psk(&conf,
-                               server->psk,
-                               server->psk_len,
-                               (const unsigned char *)server->psk_id,
-                               strlen(server->psk_id));
-    if (ret != 0) {
-        goto cleanup;
+    if (server->use_certs) {
+        mbedtls_x509_crt_init(&ca_chain);
+        mbedtls_x509_crt_init(&srv_crt);
+        mbedtls_pk_init(&srv_key);
+        certs_inited = 1;
+
+        /* mbedtls_x509_crt_parse / pk_parse_key expect length including the
+         * trailing NUL produced by PEM encoders, so caller appends it. */
+        ret = mbedtls_x509_crt_parse(&ca_chain,
+                                     server->ca_pem,
+                                     server->ca_pem_len);
+        if (ret != 0) {
+            LLOGE("parse ca_pem failed: -0x%x", (unsigned int)-ret);
+            goto cleanup;
+        }
+        ret = mbedtls_x509_crt_parse(&srv_crt,
+                                     server->srv_cert_pem,
+                                     server->srv_cert_pem_len);
+        if (ret != 0) {
+            LLOGE("parse srv_cert_pem failed: -0x%x", (unsigned int)-ret);
+            goto cleanup;
+        }
+        ret = mbedtls_pk_parse_key(&srv_key,
+                                   server->srv_key_pem,
+                                   server->srv_key_pem_len,
+                                   NULL, 0,
+                                   mbedtls_ctr_drbg_random, &ctr_drbg);
+        if (ret != 0) {
+            LLOGE("parse srv_key_pem failed: -0x%x", (unsigned int)-ret);
+            goto cleanup;
+        }
+        mbedtls_ssl_conf_ca_chain(&conf, &ca_chain, NULL);
+        mbedtls_ssl_conf_own_cert(&conf, &srv_crt, &srv_key);
+        mbedtls_ssl_conf_authmode(&conf,
+            server->require_client_cert ? MBEDTLS_SSL_VERIFY_REQUIRED : MBEDTLS_SSL_VERIFY_NONE);
+        /* DO NOT free ca_chain/srv_crt/srv_key here — the SSL config retains
+         * pointers to them and the handshake may use them later. They will be
+         * freed in the cleanup section after the SSL config is freed. */
+    } else {
+        mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_NONE);
+        ret = mbedtls_ssl_conf_psk(&conf,
+                                   server->psk,
+                                   server->psk_len,
+                                   (const unsigned char *)server->psk_id,
+                                   strlen(server->psk_id));
+        if (ret != 0) {
+            goto cleanup;
+        }
     }
 
     ret = mbedtls_ssl_setup(&ssl, &conf);
@@ -372,6 +432,11 @@ cleanup:
     mbedtls_net_free(&listen_fd);
     mbedtls_ssl_free(&ssl);
     mbedtls_ssl_config_free(&conf);
+    if (certs_inited) {
+        mbedtls_x509_crt_free(&ca_chain);
+        mbedtls_x509_crt_free(&srv_crt);
+        mbedtls_pk_free(&srv_key);
+    }
     mbedtls_ctr_drbg_free(&ctr_drbg);
     mbedtls_entropy_free(&entropy);
     server->done = 1;
@@ -401,6 +466,64 @@ int luat_pc_dtls_utest_server_start(luat_pc_dtls_utest_server_t **out_server,
     dtls_utest_set_error(server, "helper_start_failed");
 
     if (pthread_create(&server->thread, NULL, dtls_utest_server_thread, server) != 0) {
+        luat_heap_free(server);
+        return -1;
+    }
+    server->thread_started = 1;
+    *out_server = server;
+    return 0;
+}
+
+int luat_pc_dtls_utest_server_start_cert(luat_pc_dtls_utest_server_t **out_server,
+                                         const uint8_t *ca_pem,
+                                         size_t ca_pem_len,
+                                         const uint8_t *srv_cert_pem,
+                                         size_t srv_cert_pem_len,
+                                         const uint8_t *srv_key_pem,
+                                         size_t srv_key_pem_len,
+                                         int require_client_cert) {
+    luat_pc_dtls_utest_server_t *server;
+
+    if (!out_server || !ca_pem || ca_pem_len == 0 ||
+        !srv_cert_pem || srv_cert_pem_len == 0 ||
+        !srv_key_pem || srv_key_pem_len == 0) {
+        return -1;
+    }
+
+    server = luat_heap_malloc(sizeof(luat_pc_dtls_utest_server_t));
+    if (!server) {
+        return -1;
+    }
+    memset(server, 0, sizeof(luat_pc_dtls_utest_server_t));
+    server->result = -1;
+
+    /* PEM strings are dup'd into the server struct so the caller can free
+     * its buffers immediately after this call returns. */
+    server->ca_pem = (uint8_t *)luat_heap_malloc(ca_pem_len);
+    server->srv_cert_pem = (uint8_t *)luat_heap_malloc(srv_cert_pem_len);
+    server->srv_key_pem = (uint8_t *)luat_heap_malloc(srv_key_pem_len);
+    if (!server->ca_pem || !server->srv_cert_pem || !server->srv_key_pem) {
+        if (server->ca_pem) luat_heap_free(server->ca_pem);
+        if (server->srv_cert_pem) luat_heap_free(server->srv_cert_pem);
+        if (server->srv_key_pem) luat_heap_free(server->srv_key_pem);
+        luat_heap_free(server);
+        return -1;
+    }
+    memcpy(server->ca_pem, ca_pem, ca_pem_len);
+    server->ca_pem_len = ca_pem_len;
+    memcpy(server->srv_cert_pem, srv_cert_pem, srv_cert_pem_len);
+    server->srv_cert_pem_len = srv_cert_pem_len;
+    memcpy(server->srv_key_pem, srv_key_pem, srv_key_pem_len);
+    server->srv_key_pem_len = srv_key_pem_len;
+    server->use_certs = 1;
+    server->require_client_cert = require_client_cert ? 1 : 0;
+
+    dtls_utest_set_error(server, "helper_start_failed");
+
+    if (pthread_create(&server->thread, NULL, dtls_utest_server_thread, server) != 0) {
+        luat_heap_free(server->ca_pem);
+        luat_heap_free(server->srv_cert_pem);
+        luat_heap_free(server->srv_key_pem);
         luat_heap_free(server);
         return -1;
     }
@@ -462,6 +585,18 @@ int luat_pc_dtls_utest_server_stop(luat_pc_dtls_utest_server_t *server,
         pthread_join(server->thread, NULL);
     }
     result = server->result;
+    if (server->ca_pem) {
+        luat_heap_free(server->ca_pem);
+        server->ca_pem = NULL;
+    }
+    if (server->srv_cert_pem) {
+        luat_heap_free(server->srv_cert_pem);
+        server->srv_cert_pem = NULL;
+    }
+    if (server->srv_key_pem) {
+        luat_heap_free(server->srv_key_pem);
+        server->srv_key_pem = NULL;
+    }
     luat_heap_free(server);
     return result;
 }

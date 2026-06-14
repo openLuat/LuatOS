@@ -69,9 +69,17 @@ C-layer utest(`<lib>.utest("case")`)**仅在 PC 模拟器执行**,芯片侧 BSP 
 - `-Suite <name>` resolves under `testcase/utest/{net,lib,sys}/<name>/scripts` (C-layer utest suites) or `testcase/unit_testcase_tools/<name>/scripts` (other not-yet-migrated suites)
 - Network-facing suites currently cover:
   - `socket.utest("dtls_loopback_psk")` via `net/dtls_basic`
+  - `socket.utest("dtls_loopback_cert")` via `net/dtls_basic` (one-way cert, client uses CA to verify server)
+  - `socket.utest("dtls_loopback_cert_mismatch")` via `net/dtls_basic` (CA 不匹配, expect reject)
+  - `socket.utest("dtls_loopback_mtls")` via `net/dtls_basic` (mTLS 双向认证)
+  - `socket.utest("dtls_cert_parse_boundary")` via `net/dtls_basic` (bad PEM strings)
   - `socket.utest("tcp_external_qq")` via `net/tcp_basic`
   - `http.utest("http_external_qq")` via `net/http_basic`
   - `http.utest("https_external_qq")` via `net/https_basic`
+
+  - DTLS cert/mTLS suites use pre-generated PEM assets under
+    `testcase/utest/net/dtls_basic/certs/`; regenerate via
+    `bash testcase/utest/net/dtls_basic/certs/gen_certs.sh` if expired.
 
 ## EXTENDING TO A NEW LIBRARY
 

@@ -33,7 +33,30 @@
 
 ## posix
 
-(empty)
+### posix::test_dir_nested_mkdir_auto_parent  [med]
+- **Expected**: `io.mkdir("a/b/c")` 在父目录 b 不存在时应自动创建 (与 ram 行为一致)
+- **Actual**: `io.mkdir` 失败, 不创建父目录
+- **Source**: `luat/vfs/luat_fs_posix.c:200-208` (直接调原生 `mkdir`, 不会递归创建父目录)
+- **Repro**:
+  1. `io.mkdir("vfs_dir_a/b/c")` (b 不存在)
+- **Tags**: fs=posix, mode=mkdir, feature=dir
+
+### posix::test_edge_deep_nesting  [low]
+- **Expected**: `io.mkdir` 应能创建 7 级嵌套目录 (a/b/c/d/e/f/g)
+- **Actual**: `io.mkdir` 失败, 因为中间父目录 (a, a/b, …) 不存在
+- **Source**: `luat/vfs/luat_fs_posix.c:200-208` (同上, 单一 `mkdir` 调用)
+- **Repro**:
+  1. `io.mkdir("vfs_edge_deep/a/b/c/d/e/f/g")`
+- **Tags**: fs=posix, mode=mkdir, feature=dir
+
+### posix::test_meta_rename_overwrite  [low]
+- **Expected**: `os.rename` 覆盖已存在目标文件应成功
+- **Actual**: `os.rename` 失败, 源文件保持不变
+- **Source**: `luat/vfs/luat_fs_posix.c:105-112` (直接调原生 `rename`; Windows 不允许 overwrite existing target)
+- **Repro**:
+  1. `mkdir d; io.open("d/from.txt","wb"); io.open("d/to.txt","wb")`
+  2. `os.rename("d/from.txt", "d/to.txt")`
+- **Tags**: fs=posix, mode=rename, feature=meta, platform=windows
 
 ## lfs2
 
@@ -79,11 +102,48 @@
 
 ## fatfs
 
-(empty)
+### fatfs::setup_module_not_found  [high]
+- **Expected**: 当 `fatfs` 模块在 PC BSP 中不可用时, `mount_fatfs.setup()` 应返回 false 让 `main.lua` 自跳过整个测试套
+- **Actual**: `mount_fatfs.lua:9` 的 `require("fatfs")` 在 PC BSP 上直接抛出 "module 'fatfs' not found", VM 在 `main.lua` 检测 `fs_ok` 之前就崩溃退出, 测试套根本没有 self-skip 机会
+- **Source**: `testcase/utest/fs/vfs_uniform/scripts/mount_fatfs.lua:9`
+- **Repro**:
+  1. 在 PC 模拟器上跑 `vfs_uniform_fatfs`
+  2. `mount_fatfs.setup()` 里 `require("fatfs")` 失败, 抛错
+  3. 错误沿着 `require` 链 `vfs_uniform_mount.lua -> mount_fatfs.lua` 一路冒泡, VM 退出
+  4. `main.lua` 的 `if not fs_ok then ... os.exit(0) end` 永远不会执行
+- **Tags**: fs=fatfs, mode=pc, feature=framework-bootstrap
+
+### fatfs::pc_build_fatfs_module_unavailable  [high]
+- **Expected**: PC BSP 应当能 `require("fatfs")` 加载内置 fatfs 模块 (因为 `LUAT_USE_FATFS` 已在 `bsp/pc/include/luat_conf_bsp.h:145` 定义, 且 `luaopen_fatfs` 在 `bsp/pc/port/luat_base_mini.c:160` 注册)
+- **Actual**: 当前 PC 二进制 `bsp/pc/build/out/luatos-lua.exe` 对 `require("fatfs")` 返回 "module not found", 同样 `require("uart")`/`require("json")` 等内置模块也都失败; 只有 `io`/`os`/`string`/`log`/`rtos` 这类 globals 仍可用. 整个 fatfs 测试套无法在 PC 上执行
+- **Source**: `bsp/pc/port/luat_base_mini.c:159-161` (注册) vs PC BSP 实际加载行为
+- **Repro**:
+  1. 写 `print(type(require("fatfs")))` 的最小 main.lua
+  2. 用 `bsp/pc/build/out/luatos-lua.exe ... /tmp/test/` 跑
+  3. 输出 `module 'fatfs' not found` 然后 `Lua VM exit!! reboot in 1000ms`
+- **Tags**: fs=fatfs, mode=pc, feature=module-registration
 
 ## tfs
 
-(empty)
+### tfs::tfs_mount_format_name_marker  [high]
+- **Expected**: `lf.mount(flash, "/tfs0", 0, 256*1024, {fs="tfs"})` 在 PC 模拟器空白 flash 上应返回 true, mount 后 VFS 即可在 /tfs0 上读写文件
+- **Actual**: 第一次 `lf.mount` 返回 false, 日志显示 `tfs: format ret=0 read_errors=0` (format 成功) 紧接着 `tfs: open name marker failed` 和 `tfs: format mount failed`, 之后才出现 `tfs: anchor written chunk=0 seq=4096`; 二次 mount 找到 anchor 但仍 `tfs: open name marker failed` 触发 `tfs: probe failed, reformatting`, 再次 `tfs: open name marker failed` 后 `tfs: format or mount failed`
+- **Source**: `components/little_flash/luat_little_flash_tfs.c:478` (`lf_tfs_write_name_marker` 中 `tfs_open` 失败) 与 `:1226` (`tfs: format mount failed`)
+- **Repro**:
+  1. 在 PC 上跑 `D:/github/LuatOS/bsp/pc/build/out/luatos-lua.exe` 并加载 vfs_uniform_tfs/scripts
+  2. `mount_tfs.lua` 调 `spi.deviceSetup(1,255,...)` + `lf.init(spidev)` + `lf.mount(flash,"/tfs0",0,256*1024,{fs="tfs"})`
+  3. 观察: format ret=0 → open name marker failed → format mount failed, 紧接着 anchor 写入但 mount 仍失败
+- **Tags**: fs=tfs, mode=mount, feature=format-name-marker
+
+### tfs::all_tests_skipped_mount_unavailable  [high]
+- **Expected**: 30 个共享用例应在 /tfs0 上运行, 大部分通过
+- **Actual**: 30 个用例全部 0/0 跳过, 因为 tfs mount 失败直接 `os.exit(0)`, 没有任何用例被执行
+- **Source**: 测试 `main.lua` 在 `mount.setup()` 返回 false 时退出; 根因是 tfs mount bug
+- **Repro**:
+  1. 跑 vfs_uniform_tfs (与上面 tfs_mount_format_name_marker 同一触发条件)
+  2. 日志最后两行: `tfs mount 失败` + `tfs FS 不可用, 退出`
+- **Tags**: fs=tfs, mode=run, feature=suite-execution
+
 
 ## pgfs
 

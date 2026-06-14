@@ -2,7 +2,7 @@
 rfa AT server 入口(com0com 端到端测试用)
 ==========================================
 
-替代 rfcal_at_server 入口,内部用 lua/luat/rfa.lua
+替代 rfcal_at_server 入口,内部用 script/libs/rfa.lua
 
 启动方法:
   cd bsp/pc/build/out
@@ -30,14 +30,14 @@ local baud = tonumber(os.getenv("UART_BAUD")) or 115200
 
 -- require 路径:PC 模拟器 VFS 不支持 ../ 相对路径
 -- 优先从当前目录或 common/scripts 同级目录加载
--- 实际生产代码在 lua/luat/rfa.lua
+-- 实际生产代码在 script/libs/rfa.lua
 local rfa
 local ok, mod = pcall(require, "rfa")
 if ok and mod then
     rfa = mod
 else
-    -- 退化:尝试从 common/scripts 同级目录加载
-    package.path = package.path .. ";../../../lua/luat/?.lua;../../../../lua/luat/?.lua"
+    -- 退化:尝试从 script/libs 加载
+    package.path = package.path .. ";../../../script/libs/?.lua;../../../../script/libs/?.lua"
     rfa = require "rfa"
 end
 

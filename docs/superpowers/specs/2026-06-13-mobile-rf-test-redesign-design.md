@@ -16,7 +16,7 @@ LuatOS `mobile` 库的 RF 校准功能彻底重写. **C 端退化为 UART 字节
 
 1. 实化原 `luat_mobile_rf_test_mode` / `luat_mobile_rf_test_input` 空桩
 2. 新增 4 个 C 函数: `param` (状态存取) / `imei_get` / `imei_set` / `set_rx_cb`
-3. 新增 Lua 模块 `lua/luat/rfa.lua`, 完整接管 AT 协议 (12+ 条)
+3. 新增 Lua 模块 `script/libs/rfa.lua`, 完整接管 AT 协议 (12+ 条)
 4. PC 端保留"协议回环模拟器" 让 Lua 端可独立运行单测
 5. 删旧 `mobile.nst*` (2 个) 和 `mobile.rfcal*` (7 个) Lua 绑定
 6. 删旧 `lua/luat/rfcal_at_server.lua` / `testcase/utest/drv/mobile_rfcal_basic/` / `tools/rfcal_com0com/`
@@ -101,7 +101,7 @@ void luat_mobile_rf_test_input(char *data, uint32_t data_len) {
 }
 ```
 
-### 3. Lua 端 `rfa.*` API (`lua/luat/rfa.lua`)
+### 3. Lua 端 `rfa.*` API (`script/libs/rfa.lua`)
 
 ```lua
 local M = { _VERSION = "2.0.0" }
@@ -112,7 +112,7 @@ function M.state()      return mobile.rfTestParam("state", 0, nil) end
 function M.setState(s)  return mobile.rfTestParam("state", s, true) end
 function M.reset()      ... end
 function M.npiGet(k)    return mobile.rfTestParam(k, 0, nil) end
-function M.npiSet(k, v) return mobile.rfTestParam(k, v and 1 or 0, true) end
+function M.npiSet(k, v) return mobile.rfTestParam(k, (v == true or v == 1) and 1 or 0, true) end
 function M.imei()       return mobile.rfTestImei() end
 function M.setImei(s)   return mobile.rfTestImeiSet(s) == 0 end
 
@@ -189,9 +189,9 @@ function M.stop()           -- mobile.rfTestMode(uart_id_, false)
 - `oldmodule/Air780E/demo/rf_test/main.lua` — 加 deprecation 注释
 
 ### 新增 (Create)
-- `lua/luat/rfa.lua`
-- `testcase/utest/drv/mobile_rfa_basic/{metas.json,scripts/main.lua,scripts/mobile_rfa_test.lua,scripts/rfa.lua}`
-- `tools/rfa_com0com/{at_server_main/main.lua,at_server_main/rfa.lua,setup_com0com_pair.ps1,test_rfa_com0com.py}`
+- `script/libs/rfa.lua`
+- `testcase/utest/drv/mobile_rfa_basic/{metas.json,scripts/main.lua,scripts/mobile_rfa_test.lua}`
+- `tools/rfa_com0com/{at_server_main/main.lua,setup_com0com_pair.ps1,test_rfa_com0com.py}`
 - `components/mobile/README_rfa.md`
 
 ### 删除 (Delete)

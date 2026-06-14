@@ -15,13 +15,11 @@
 ## File Structure
 
 ### New (Create)
-- `lua/luat/rfa.lua` — Lua 端 rfa.* 模块
+- `script/libs/rfa.lua` — Lua 端 rfa.* 模块
 - `testcase/utest/drv/mobile_rfa_basic/metas.json`
 - `testcase/utest/drv/mobile_rfa_basic/scripts/main.lua`
 - `testcase/utest/drv/mobile_rfa_basic/scripts/mobile_rfa_test.lua` — 13 case
-- `testcase/utest/drv/mobile_rfa_basic/scripts/rfa.lua` — 本地副本 (同 test 模式)
 - `tools/rfa_com0com/at_server_main/main.lua`
-- `tools/rfa_com0com/at_server_main/rfa.lua`
 - `tools/rfa_com0com/setup_com0com_pair.ps1`
 - `tools/rfa_com0com/test_rfa_com0com.py`
 - `components/mobile/README_rfa.md`
@@ -59,18 +57,17 @@
 - [x] **Step 7:** 编译 `cd bsp/pc && powershell -Command "& '.\build_windows_32bit_msvc.bat'"`
 - [x] **Step 8:** 烟雾测试 `mobile_rf_test_smoke` 14/14 全过
 
-## Task 2: 新增 lua/luat/rfa.lua + 新 utest 套件 ✅
+## Task 2: 新增 script/libs/rfa.lua + 新 utest 套件 ✅
 
-**Files:** `lua/luat/rfa.lua`, `testcase/utest/drv/mobile_rfa_basic/`
+**Files:** `script/libs/rfa.lua`, `testcase/utest/drv/mobile_rfa_basic/`
 
-**Commit:** `feat(lua): add lua/luat/rfa.lua state machine + dispatch`
+**Commit:** `feat(lua): add script/libs/rfa.lua state machine + dispatch`
 
-- [x] **Step 1:** 新建 `lua/luat/rfa.lua` (~200 行, 状态机 7 阶段 + 派发表 + 扩展点)
+- [x] **Step 1:** 新建 `script/libs/rfa.lua` (~200 行, 状态机 7 阶段 + 派发表 + 扩展点)
 - [x] **Step 2:** 新建 `testcase/utest/drv/mobile_rfa_basic/metas.json`
 - [x] **Step 3:** 新建 `testcase/utest/drv/mobile_rfa_basic/scripts/main.lua`
 - [x] **Step 4:** 新建 `testcase/utest/drv/mobile_rfa_basic/scripts/mobile_rfa_test.lua` (4 套件, 13 case)
-- [x] **Step 5:** 复制 `rfa.lua` 到 `testcase/utest/drv/mobile_rfa_basic/scripts/rfa.lua` (同 test 模式)
-- [x] **Step 6:** 跑测试 `./luatos-lua.exe ../../../../testcase/common/scripts/ ../../../../testcase/utest/drv/mobile_rfa_basic/scripts/`
+- [x] **Step 5:** 跑测试 `./luatos-lua.exe ../../../../testcase/common/scripts/ ../../../../testcase/utest/drv/mobile_rfa_basic/scripts/ ../../../../script/libs/`
 - [x] **Step 7:** 验证 `### OVERALL_PASS ### mobile_rfa_basic`
 
 ## Task 3: 迁移 com0com 工具 (双轨运行期) ✅
@@ -81,10 +78,9 @@
 
 - [x] **Step 1:** `mkdir -p tools/rfa_com0com/at_server_main`
 - [x] **Step 2:** 复制 `setup_com0com_pair.ps1` 到 `tools/rfa_com0com/`
-- [x] **Step 3:** 新建 `tools/rfa_com0com/at_server_main/main.lua` (改用 rfa, 内部 mobile.rfTest* 桥)
-- [x] **Step 4:** 复制 `rfa.lua` 到 `tools/rfa_com0com/at_server_main/rfa.lua` (本地副本)
-- [x] **Step 5:** 新建 `tools/rfa_com0com/test_rfa_com0com.py` (复制 + 改名 + 注释更新)
-- [x] **Step 6:** 验证 `tools/rfcal_com0com/` 仍存在 (双轨)
+- [x] **Step 3:** 新建 `tools/rfa_com0com/at_server_main/main.lua` (改用 rfa, 内部 mobile.rfTest* 桥, 通过 script/libs 加载)
+- [x] **Step 4:** 新建 `tools/rfa_com0com/test_rfa_com0com.py` (复制 + 改名 + 注释更新)
+- [x] **Step 5:** 验证 `tools/rfcal_com0com/` 仍存在 (双轨)
 
 ## Task 4: 删旧代码 (rfcal_* + nst_* + 旧 utest/demos) ✅
 
@@ -158,7 +154,7 @@
 
 ```
 1. refactor(mobile): realize luat_mobile_rf_test_mode/input; add param/imei/set_rx_cb
-2. feat(lua): add lua/luat/rfa.lua state machine + dispatch
+2. feat(lua): add script/libs/rfa.lua state machine + dispatch
 3. feat(com0com): migrate rfcal_com0com → rfa_com0com (双轨运行期)
 4. refactor(mobile): remove old luat_mobile_rfcal_* and nst_*
 5. docs(mobile): spec + plan for rfa redesign

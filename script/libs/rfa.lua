@@ -40,7 +40,9 @@ end
 -- NPI
 function M.npiGet(k)        return param_get(k) end
 function M.npiSet(k, v, no_save)
-    local r = param_set(k, v and 1 or 0)
+    -- Lua 中 0 是 truthy, 不能直接用 `v and 1 or 0`
+    local val = (v == true or v == 1) and 1 or 0
+    local r = param_set(k, val)
     if not no_save and mobile and mobile.rfTestParam then
         mobile.rfTestParam("save", 0, true)
     end

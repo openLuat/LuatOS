@@ -1415,7 +1415,7 @@ static int l_mobile_set_band(lua_State* L) {
 /* ============================================================
  *  新增 luat_mobile_rf_test_* 桥接层 (替代旧 luat_mobile_rfcal_*)
  *  这层桥接只做字节 / 状态搬运, 不做 AT 派发
- *  AT 派发由 lua/luat/rfa.lua 负责
+ *  AT 派发由 script/libs/rfa.lua 负责
  * ============================================================ */
 
 /**
@@ -1631,14 +1631,18 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"config",          ROREG_FUNC(l_mobile_config)},
 	{"getBand",          ROREG_FUNC(l_mobile_get_band)},
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
+#ifdef LUAT_USE_MOBILE_RFA
 	{"rfTestMode",        ROREG_FUNC(l_mobile_rf_test_mode)},
 	{"rfTestInput",       ROREG_FUNC(l_mobile_rf_test_input)},
 	{"rfTestParam",       ROREG_FUNC(l_mobile_rf_test_param)},
 	{"rfTestImei",        ROREG_FUNC(l_mobile_rf_test_imei_get)},
 	{"rfTestImeiSet",     ROREG_FUNC(l_mobile_rf_test_imei_set)},
-	{"syncTime",          ROREG_FUNC(l_mobile_sync_time)},
+#endif
+#ifdef LUAT_USE_VSIM
 	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},
 	{"vsimOnOff",          ROREG_FUNC(l_mobile_vsim_onoff)},
+#endif
+	{"syncTime",          ROREG_FUNC(l_mobile_sync_time)},
 	{"apnTableInit",          ROREG_FUNC(l_mobile_init_apn_table)},
 	{"apnTableAdd",          ROREG_FUNC(l_mobile_add_apn_table)},
 	{"apnTablePrint",          ROREG_FUNC(l_mobile_print_apn_table)},
@@ -1700,10 +1704,6 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"PIN_DISABLE",             ROREG_INT(LUAT_SIM_PIN_DISABLE)},
 	//@const PIN_UNBLOCK number 解锁PIN码
 	{"PIN_UNBLOCK",             ROREG_INT(LUAT_SIM_PIN_UNBLOCK)},
-#ifdef LUAT_USE_UTEST
-#endif
-#ifdef LUAT_USE_MOBILE_RFCAL
-#endif
     {NULL,                      ROREG_INT(0)}
 };
 

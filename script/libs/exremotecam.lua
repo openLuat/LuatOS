@@ -71,6 +71,8 @@ local camera_id, camera_buff
 @string camera_param.text OSD文本内容，需用竖线分隔
 @number camera_param.x 显示位置的X坐标
 @number camera_param.y 显示位置的Y坐标
+@string camera_param.username 摄像头登录用户名（可选，默认为"admin"）
+@string camera_param.password 摄像头登录密码（可选，默认为"Air123456"）
 @return boolean 返回值
  false：OSD设置失败
  true：OSD设置成功
@@ -82,7 +84,9 @@ local osd_param = {
     channel = 1,
     text = "温度: 25℃|湿度: 60%|设备ID: 001",
     x = 100,
-    y = 200
+    y = 200,
+    username = "admin",
+    password = "Air123456"
 }
 local result = exremotecam.osd(osd_param)
 log.info("osd", "设置结果: " .. result)
@@ -94,7 +98,9 @@ local osd_param = {
     channel = 3,  -- 第3通道
     text = "通道3|监控区域: 大厅|时间: " .. os.date("%Y-%m-%d %H:%M:%S"),
     x = 100,
-    y = 200
+    y = 200,
+    username = "admin",
+    password = "Air123456"
 }
 local result = exremotecam.osd(osd_param)
 log.info("osd", "设置结果: " .. result)
@@ -148,6 +154,8 @@ end
 @string camera_param.host 摄像头/NVR的IP地址
 @number camera_param.channel 摄像头通道号（主要用于NVR）
 @string camera_param.save_path 照片保存路径（可选，默认为"/sd/1.jpeg"）
+@string camera_param.username 摄像头登录用户名（可选，默认为"admin"）
+@string camera_param.password 摄像头登录密码（可选，默认为"Air123456"）
 @return number 返回值
  0：拍照失败
  1：拍照成功，并且照片保存到指定路径
@@ -158,7 +166,9 @@ local photo_param = {
     brand = "dhcam",
     host = "192.168.1.100",
     channel = 0,
-    save_path = "/sd/camera1.jpeg"
+    save_path = "/sd/camera1.jpeg",
+    username = "admin",
+    password = "Air123456"
 }
 local result = exremotecam.get_photo(photo_param)
 log.info("get_photo", "拍照结果: " .. result)
@@ -167,7 +177,9 @@ log.info("get_photo", "拍照结果: " .. result)
 local photo_param = {
     brand = "dhcam",
     host = "192.168.1.100",
-    channel = 2  -- 第2通道
+    channel = 2,  -- 第2通道
+    username = "admin",
+    password = "Air123456"
 }
 local result = exremotecam.get_photo(photo_param)
 log.info("get_photo", "拍照结果: " .. result)

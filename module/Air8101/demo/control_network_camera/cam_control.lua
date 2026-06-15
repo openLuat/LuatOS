@@ -11,7 +11,7 @@
 
 特性：
 - 支持大华摄像头OSD文字显示
-- 智能路径选择：SD卡挂载时保存到/sd/，未挂载时保存到/luadb/
+- 智能路径选择：SD卡挂载时保存到/sd/，未挂载时保存到/ram/
 - 自动照片上传到air32.cn测试服务器
 
 本文件没有对外接口，直接在main.lua中require "cam_control"就可以加载运行。
@@ -72,7 +72,7 @@ local function camera_start()
     log.info("开始运行OSD操作")
     
     -- 配置大华摄像头OSD，分六行依次显示 1111 2222 3333 4444 5555 6666
-    exremotecam.osd({brand = "dhcam", host = "192.168.1.108", channel = 0, text = "1111|2222|3333|4444|5555|6666", x = 0, y = 2000})
+    exremotecam.osd({brand = "dhcam", host = "192.168.1.108", channel = 0, text = "1111|2222|3333|4444|5555|6666", x = 0, y = 2000, username = "admin", password = "Air123456"})
 
     log.info("开始运行抓图操作")
     -- 判断SD卡状态，选择保存路径
@@ -81,12 +81,12 @@ local function camera_start()
         save_path = "/sd/" .. photo_save_addr
         log.info("SD卡已挂载", "照片将保存到:", save_path)
     else
-        save_path = "/luadb/" .. photo_save_addr
+        save_path = "/ram/" .. photo_save_addr
         log.info("SD卡未挂载", "照片将保存到:", save_path)
     end
     
     -- 执行拍照操作
-    local result = exremotecam.get_photo({brand = "dhcam", host = "192.168.1.108", channel = 1, save_path = save_path})
+    local result = exremotecam.get_photo({brand = "dhcam", host = "192.168.1.108", channel = 1, save_path = save_path, username = "admin", password = "Air123456"})
     
     if result == 1 then
         log.info("拍照成功", "照片已保存到:", save_path)

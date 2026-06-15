@@ -6,6 +6,7 @@
  */
 
 #include "tfs_block.h"
+#include "tfs_checkpoint.h"
 #include "../inc/tfs_config.h"
 
 #include <string.h>
@@ -32,6 +33,28 @@ static inline int block_ext_to_int(const tfs_dev_t *dev, int b)
 static inline int block_int_to_ext(const tfs_dev_t *dev, int b)
 {
     return b + dev->block_offset;
+}
+
+static int buffer_is_erased(const uint8_t *data, uint32_t len)
+{
+    uint32_t i;
+
+    for (i = 0; i < len; i++) {
+        if (data[i] != 0xff)
+            return 0;
+    }
+    return 1;
+}
+
+static void invalidate_checkpoint_before_mutation(tfs_dev_t *dev)
+{
+    if (!dev || dev->checkpt_open_write) {
+        return;
+    }
+    if (dev->is_checkpointed) {
+        tfs_checkpt_erase(dev);
+    }
+    dev->is_checkpointed = 0;
 }
 
 /*===================================================================
@@ -115,6 +138,52 @@ int tfs_block_erase(tfs_dev_t *dev, int block_in_nand)
     return TFS_OK;
 }
 
+int tfs_block_prepare_empty(tfs_dev_t *dev, int block_in_nand)
+{
+    tfs_block_info_t *bi = tfs_get_block_info(dev, block_in_nand);
+    int               cpb = (int)tfs_chunks_per_block(dev);
+    int               blk_int = block_ext_to_int(dev, block_in_nand);
+    int               rc;
+
+    if (bi->bi.block_state != TFS_BLK_STATE_EMPTY)
+        return TFS_EINVAL;
+
+    rc = dev->drv.erase_block(dev->drv.ctx, block_in_nand);
+    dev->n_erasures++;
+
+    if (rc != TFS_OK) {
+        dev->n_erase_failures++;
+        if (dev->n_erased_blocks > 0)
+            dev->n_erased_blocks--;
+        if (dev->n_free_chunks >= cpb)
+            dev->n_free_chunks -= cpb;
+        else
+            dev->n_free_chunks = 0;
+        tfs_block_mark_bad(dev, block_in_nand);
+        bi->bi.pages_in_use = cpb;
+        bi->bi.soft_del_pages = 0;
+        bi->bi.needs_retiring = 1;
+        memset(dev->chunk_bits + blk_int * dev->chunk_bit_stride,
+               0xff, (size_t)dev->chunk_bit_stride);
+        return TFS_EFLASH;
+    }
+
+    bi->bi.pages_in_use    = 0;
+    bi->bi.soft_del_pages  = 0;
+    bi->bi.block_state     = TFS_BLK_STATE_EMPTY;
+    bi->bi.seq_number      = 0;
+    bi->bi.gc_prioritise   = 0;
+    bi->bi.has_summary     = 0;
+    bi->bi.has_shrink_hdr  = 0;
+    bi->bi.needs_retiring  = 0;
+    bi->bi.skip_erased_chk = 0;
+    bi->bi.ecc_strikes     = 0;
+
+    memset(dev->chunk_bits + blk_int * dev->chunk_bit_stride,
+           0, (size_t)dev->chunk_bit_stride);
+    return TFS_OK;
+}
+
 /*===================================================================
  *  Bad block
  *===================================================================*/
@@ -122,14 +191,43 @@ int tfs_block_erase(tfs_dev_t *dev, int block_in_nand)
 void tfs_block_mark_bad(tfs_dev_t *dev, int block_in_nand)
 {
     tfs_block_info_t *bi = tfs_get_block_info(dev, block_in_nand);
+    int already_dead = (bi->bi.block_state == TFS_BLK_STATE_DEAD);
 
     bi->bi.block_state = TFS_BLK_STATE_DEAD;
 
-    if (dev->param.disable_bad_block_marking)
+    if (dev->param.disable_bad_block_marking || already_dead)
         return;
 
     dev->drv.mark_bad(dev->drv.ctx, block_in_nand);
     dev->n_retired_blocks++;
+}
+
+static void tfs_block_retire_failed_write(tfs_dev_t *dev, int block_in_nand)
+{
+    tfs_block_info_t *bi = tfs_get_block_info(dev, block_in_nand);
+    int cpb = (int)tfs_chunks_per_block(dev);
+    int page;
+
+    if ((int)bi->bi.pages_in_use < cpb) {
+        int free_in_block = cpb - (int)bi->bi.pages_in_use;
+        if (dev->n_free_chunks >= free_in_block)
+            dev->n_free_chunks -= free_in_block;
+        else
+            dev->n_free_chunks = 0;
+    }
+
+    if (bi->bi.block_state == TFS_BLK_STATE_EMPTY &&
+        dev->n_erased_blocks > 0) {
+        dev->n_erased_blocks--;
+    }
+
+    tfs_block_mark_bad(dev, block_in_nand);
+    bi->bi.pages_in_use = cpb;
+    bi->bi.soft_del_pages = 0;
+    bi->bi.needs_retiring = 1;
+
+    for (page = 0; page < cpb; page++)
+        tfs_chunk_set_used(dev, block_in_nand * cpb + page);
 }
 
 void tfs_block_retire(tfs_dev_t *dev, int block_in_nand)
@@ -171,19 +269,43 @@ tfs_block_state_t tfs_block_get_state(const tfs_dev_t *dev,
  *  Chunk allocation
  *===================================================================*/
 
+int tfs_user_reserved_blocks(tfs_dev_t *dev)
+{
+    int reserved = TFS_CFG_RESERVED_BLOCKS;
+
+#if TFS_CFG_CHECKPOINT
+    int checkpt_reserved = tfs_checkpt_required_blocks(dev);
+
+    if (checkpt_reserved > reserved)
+        reserved = checkpt_reserved;
+#endif
+
+    return reserved;
+}
+
 int tfs_alloc_chunk(tfs_dev_t *dev, int use_resvd)
 {
     int   blk, page, chunk;
-    int   reserved = use_resvd ? 0 : TFS_CFG_RESERVED_BLOCKS;
+    int   reserved = use_resvd ? 0 : tfs_user_reserved_blocks(dev);
+    int   cpb = (int)tfs_chunks_per_block(dev);
+
+    if (!use_resvd) {
+        int reserved_chunks = reserved * cpb;
+
+        if (dev->n_erased_blocks <= reserved ||
+            dev->n_free_chunks <= reserved_chunks)
+            return -1;
+    }
 
     /* Try current alloc block first */
     if (dev->alloc_block >= 0) {
         tfs_block_info_t *bi = tfs_get_block_info(dev, dev->alloc_block);
+        if (dev->alloc_block == 0 && dev->alloc_page == 0)
+            dev->alloc_page = 1;
         if (bi->bi.block_state == TFS_BLK_STATE_ALLOCATING &&
-            (int)dev->alloc_page < (int)tfs_chunks_per_block(dev)) {
+            (int)dev->alloc_page < cpb) {
 
-            chunk = dev->alloc_block * (int)tfs_chunks_per_block(dev)
-                    + (int)dev->alloc_page;
+            chunk = dev->alloc_block * cpb + (int)dev->alloc_page;
             dev->alloc_page++;
             return chunk;
         }
@@ -201,16 +323,26 @@ int tfs_alloc_chunk(tfs_dev_t *dev, int use_resvd)
 
         tfs_block_info_t *bi = tfs_get_block_info(dev, blk);
         if (bi->bi.block_state == TFS_BLK_STATE_EMPTY) {
+            if (tfs_block_prepare_empty(dev, blk) != TFS_OK) {
+                if (dev->n_erased_blocks <= reserved)
+                    return -1;
+                continue;
+            }
+            bi = tfs_get_block_info(dev, blk);
             bi->bi.block_state = TFS_BLK_STATE_ALLOCATING;
             bi->bi.seq_number  = dev->seq_number++;
 
             dev->alloc_block       = blk;
-            dev->alloc_page        = 1;
+            page = (blk == 0) ? 1 : 0;
+            dev->alloc_page        = (uint32_t)page + 1;
             dev->alloc_block_finder= blk + 1;
             dev->n_erased_blocks--;
 
-            page  = 0;
-            chunk = blk * (int)tfs_chunks_per_block(dev) + page;
+            if (page >= cpb) {
+                dev->alloc_block = -1;
+                continue;
+            }
+            chunk = blk * cpb + page;
             return chunk;
         }
     }
@@ -223,16 +355,26 @@ int tfs_alloc_chunk(tfs_dev_t *dev, int use_resvd)
 
         tfs_block_info_t *bi = tfs_get_block_info(dev, blk);
         if (bi->bi.block_state == TFS_BLK_STATE_EMPTY) {
+            if (tfs_block_prepare_empty(dev, blk) != TFS_OK) {
+                if (dev->n_erased_blocks <= reserved)
+                    return -1;
+                continue;
+            }
+            bi = tfs_get_block_info(dev, blk);
             bi->bi.block_state = TFS_BLK_STATE_ALLOCATING;
             bi->bi.seq_number  = dev->seq_number++;
 
             dev->alloc_block       = blk;
-            dev->alloc_page        = 1;
+            page = (blk == 0) ? 1 : 0;
+            dev->alloc_page        = (uint32_t)page + 1;
             dev->alloc_block_finder= blk + 1;
             dev->n_erased_blocks--;
 
-            page  = 0;
-            chunk = blk * (int)tfs_chunks_per_block(dev) + page;
+            if (page >= cpb) {
+                dev->alloc_block = -1;
+                continue;
+            }
+            chunk = blk * cpb + page;
             return chunk;
         }
     }
@@ -251,6 +393,8 @@ int tfs_chunk_write(tfs_dev_t *dev, int chunk_in_nand,
     tfs_packed_tags2_t pt;
     tfs_block_info_t  *bi;
     int                blk, rc;
+
+    invalidate_checkpoint_before_mutation(dev);
 
     ext->seq_number = tfs_get_block_info(dev,
                            chunk_to_block(dev, chunk_in_nand))->bi.seq_number;
@@ -286,9 +430,11 @@ int tfs_chunk_write(tfs_dev_t *dev, int chunk_in_nand,
         int failed_blk = chunk_to_block(dev, chunk_in_nand);
 
         dev->n_retried_writes++;
-        tfs_block_mark_bad(dev, failed_blk);
+        tfs_block_retire_failed_write(dev, failed_blk);
         if (dev->alloc_block == failed_blk)
             dev->alloc_block = -1;
+        if (dev->checkpt_cur_block == failed_blk)
+            dev->checkpt_cur_block = -1;
         return TFS_EFLASH;
     }
 
@@ -308,6 +454,8 @@ int tfs_chunk_read(tfs_dev_t *dev, int chunk_in_nand,
 {
     tfs_packed_tags2_t pt;
     int                rc;
+    uint8_t           *inband_page = NULL;
+    uint32_t           inband_phys_sz = 0;
 
     memset(&pt, 0xff, sizeof(pt));
     if (ext)
@@ -318,6 +466,8 @@ int tfs_chunk_read(tfs_dev_t *dev, int chunk_in_nand,
         uint32_t phys_sz = dev->param.geo.data_bytes_per_chunk;
         uint8_t *ibuf    = dev->inband_buf;
 
+        inband_page = ibuf;
+        inband_phys_sz = phys_sz;
         memset(ibuf, 0xff, phys_sz);
         rc = dev->drv.read_page(dev->drv.ctx, chunk_in_nand,
                                 ibuf, phys_sz, NULL, 0);
@@ -370,6 +520,22 @@ int tfs_chunk_read(tfs_dev_t *dev, int chunk_in_nand,
             dev->n_tags_ecc_fixed++;
         else if (tags_ecc == TFS_ECC_RESULT_UNFIXED)
             dev->n_tags_ecc_unfixed++;
+
+        if (dev->param.inband_tags &&
+            !ext->chunk_used &&
+            inband_page &&
+            !buffer_is_erased(inband_page, inband_phys_sz)) {
+            /*
+             * A torn/old inband page can have erased-looking tags while the
+             * data area is still programmed.  Treat it as dirty so mount
+             * will never allocate the containing block as EMPTY.
+             */
+            ext->chunk_used = 1;
+            ext->obj_id = 0xffffffffu;
+            ext->chunk_id = 0;
+            ext->n_bytes = 0;
+            ext->ecc_result = TFS_ECC_RESULT_UNFIXED;
+        }
     }
 
     if (rc == TFS_EECCUNFIXED)
@@ -384,8 +550,13 @@ void tfs_chunk_delete(tfs_dev_t *dev, int chunk_in_nand,
     tfs_block_info_t *bi;
     int               blk;
 
+    invalidate_checkpoint_before_mutation(dev);
+
     blk = chunk_to_block(dev, chunk_in_nand);
     bi  = tfs_get_block_info(dev, blk);
+
+    if (!tfs_chunk_is_used(dev, chunk_in_nand))
+        return;
 
     tfs_chunk_set_free(dev, chunk_in_nand);
     bi->bi.soft_del_pages++;

@@ -762,7 +762,6 @@ static int voip_session_start(voip_ctx_t *ctx)
     int adapter_index = ctx->config.adapter;
     luat_ip_addr_t remote_ip = {0};
     network_ctrl_t *netc;
-    int ret;
     if (adapter_index < 0) adapter_index = NW_ADAPTER_INDEX_LWIP_GPRS;
     netc = network_alloc_ctrl((uint8_t)adapter_index);
     if (!netc) {

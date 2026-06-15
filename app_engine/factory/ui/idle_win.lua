@@ -4,6 +4,28 @@
 @version 1.5
 @date    2026.06.04
 @author  江访
+
+消息协议（订阅/发布）:
+订阅: OPEN_IDLE_WIN                    → 创建桌面窗口
+订阅: STATUS_TIME_UPDATED(time, date, weekday)  → 更新时间/日期显示
+订阅: STATUS_SIGNAL_UPDATED(level)     → 更新 4G 信号图标
+订阅: STATUS_WIFI_SIGNAL_UPDATED(level) → 更新 WiFi 信号图标
+订阅: APP_STORE_INSTALLED_UPDATED      → 应用列表变更，刷新桌面应用网格
+订阅: BATTERY_STATUS({present, level, charging}) → 更新电池图标
+订阅: AUTOSTART_SETTINGS_VALUE({enabled, target, ...}) → 自启状态
+订阅: AUTOSTART_CONFIG_CHANGED         → 自启配置变更，重新查询
+订阅: AUTOSTART_PASSWORD_RESULT(success, msg) → 密码操作结果
+订阅: FOTA_PROMPT_REBOOT(msg)          → FOTA 下载完成弹窗
+订阅: FOTA_PROMPT_DOWNLOAD(msg)        → FOTA 新版本弹窗
+发布: REQUEST_STATUS_REFRESH           → 请求刷新所有状态栏数据
+发布: OPEN_SETTINGS_WIN / OPEN_APP_STORE_WIN / OPEN_FILE_MANAGER_WIN / OPEN_SPEEDTEST_WIN → 内置功能入口
+发布: APP_STORE_UNINSTALL(dir, cat, sort)    → 卸载应用（长按菜单）
+发布: AUTOSTART_SETTINGS_GET           → 查询自启状态
+发布: AUTOSTART_SET_TARGET_AND_ENABLE(path, pwd) → 设置自启
+发布: AUTOSTART_SET_ENABLED(enabled, pwd)     → 启用/禁用自启
+发布: AUTOSTART_SET_PASSWORD(old, new)        → 修改自启密码
+发布: FOTA_CONFIRM_REBOOT              → 用户确认重启升级
+发布: FOTA_DOWNLOAD_START              → 用户确认下载
 ]]
 
 local window_id = nil
@@ -834,6 +856,8 @@ end
 -- ==================== FOTA 升级弹窗 ====================
 
 local function show_fota_reboot_prompt(message)
+    -- 如果 settings_fota_win 已打开，由它处理弹窗，避免重复
+    if _G._fota_settings_open then return end
     local density = density_scale_val or 1.0
     local mw = math.min(math.floor(screen_w * 0.80), 400)
     local mh = math.floor(screen_h * 0.25)
@@ -854,6 +878,8 @@ local function show_fota_reboot_prompt(message)
 end
 
 local function show_fota_download_prompt(message)
+    -- 如果 settings_fota_win 已打开，由它处理弹窗，避免重复
+    if _G._fota_settings_open then return end
     local density = density_scale_val or 1.0
     local mw = math.min(math.floor(screen_w * 0.80), 400)
     local mh = math.floor(screen_h * 0.25)

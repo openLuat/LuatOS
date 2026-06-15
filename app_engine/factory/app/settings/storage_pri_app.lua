@@ -4,6 +4,10 @@
 @version 2.0
 @date    2026.05.22
 @author  江访
+
+消息协议（订阅/发布）:
+订阅: SETTINGS_APP_INIT              → 按 config 配置初始化外部存储
+发布: 无
 @usage
 读取 project_config.features + storage 配置，按需初始化外部存储。
 ]]

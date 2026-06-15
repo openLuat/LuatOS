@@ -4,6 +4,14 @@
 @version 1.1
 @date    2026.05.12
 @author  江访
+
+消息协议（订阅/发布）:
+订阅: IOT_LOGIN_REQUEST(account, password)    → 登录 IoT 平台
+订阅: IOT_LOGOUT_REQUEST                     → 登出 IoT 平台
+订阅: IOT_GET_ACCOUNT_INFO                   → 获取当前账号信息
+发布: IOT_LOGIN_RESULT({success, account, error}) → 登录结果
+发布: IOT_LOGOUT_RESULT({success, error})         → 登出结果
+发布: IOT_ACCOUNT_INFO(info) / nil               → 账号信息
 ]]
 -- naming: fn(2-5char), var(2-4char)
 

@@ -9,6 +9,18 @@
 1. 延迟与抖动测试（5次采样取最小值）
 2. 下载速度测试（32KB 文件）
 3. 上传速度测试（16KB 数据）
+
+消息协议（订阅/发布）:
+订阅: SPEEDTEST_START           → 启动测速流程
+订阅: SPEEDTEST_CANCEL          → 取消当前测速
+订阅: IP_READY                  → 标记网络已连接
+订阅: IP_LOSE(adapter)          → 标记网络断开（需验证所有网卡）
+
+发布: SPDTEST_STARTED            → 测速开始（UI 切换按钮状态）
+发布: SPDTEST_STATUS(msg)        → 测速阶段状态文本
+发布: SPDTEST_RESULT({download, upload, ping, jitter}) → 测速结果
+发布: SPDTEST_FINISHED           → 测速结束（UI 恢复按钮状态）
+
 测速结果通过 SPDTEST_RESULT 事件发布。
 ]]
 

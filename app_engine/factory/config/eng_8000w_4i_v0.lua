@@ -28,7 +28,7 @@ return {
             params = {
                 port = lcd.HWID_0,      -- SPI 端口 0
                 pin_rst = 36,            -- 复位引脚
-                pin_pwr = 28,            -- 背光供电 GPIO
+                -- pin_pwr = 28,            -- 背光供电 GPIO
                 direction = 0,           -- 0° 方向
                 w = 320,                 -- 水平分辨率
                 h = 480,                 -- 竖直分辨率

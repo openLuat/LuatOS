@@ -5,15 +5,26 @@
 @date    2026.05.27
 @author  江访
 @usage
+本文件为合宙整机成品FOTA升级功能模块，核心业务逻辑为：
+1、调用 libfota3.check() 向服务器检查是否有新版本可用；
+2、如有新版本，调用 libfota3.download() 下载升级包并写入flash；
+3、下载完成后，调用 libfota3.report_result() 向服务器上报升级结果；
+
+本文件的对外接口有3个：
+1、libfota3.check(opts)：检查新版本
+2、libfota3.download(url, sha256, progress_cb)：下载并刷写升级包
+3、libfota3.report_result(fota_sn, result_code)：上报升级结果
+
 -- 检查更新
 local libfota3 = require("libfota3")
 local result, err = libfota3.check()
 if result and result.code == 0 then
     log.info("有新版本", result.script_version, result.size)
-    -- 下载升级
-    local ok, err2 = libfota3.download(result.url, result.sha256, function(r, t)
-        log.info("进度", r, t)
-    end)
+    -- 下载升级（定义进度回调函数）
+    local function download_progress_func(received_bytes, total_bytes)
+        log.info("进度", received_bytes, total_bytes)
+    end
+    local ok, err2 = libfota3.download(result.url, result.sha256, download_progress_func)
     if ok then
         -- 重启前上报成功
         libfota3.report_result(result.fota_sn, 0)
@@ -49,6 +60,9 @@ local function url_encode(s)
     s = s:gsub("\n", "%%0A")
     return s
 end
+
+-- 获取设备标识（IMEI/MAC/UID），按优先级自动检测
+-- 4G模组优先使用IMEI，WiFi模组使用MAC，兜底使用MCU唯一ID
 local function get_device_id()
     if mobile and mobile.imei then
         local ok, imei = pcall(mobile.imei)
@@ -121,6 +135,13 @@ end
   timeout:      超时毫秒，默认 120000
 @return table|nil 成功返回 {code, core_version, script_version, size, sha256, fota_sn, url, msg}
 @return string|nil 失败原因
+@usage
+-- 检查新版本
+local libfota3 = require("libfota3")
+local result, err = libfota3.check()
+if result and result.code == 0 then
+    log.info("有新版本", result.script_version, result.size)
+end
 ]]
 function libfota3.check(opts)
     opts = opts or {}
@@ -205,6 +226,15 @@ end
 @function progress_cb 进度回调 function(received_bytes, total_bytes) end（可选）
 @return boolean 成功返回true
 @return string|nil 失败原因
+@usage
+-- 下载升级包（含进度回调）
+local function download_progress_func(received_bytes, total_bytes)
+    log.info("进度", received_bytes, total_bytes)
+end
+local ok, err = libfota3.download(result.url, result.sha256, download_progress_func)
+if ok then
+    log.info("下载并刷写完成")
+end
 ]]
 function libfota3.download(url, sha256, progress_cb)
     if not url or url == "" then
@@ -213,7 +243,7 @@ function libfota3.download(url, sha256, progress_cb)
 
     -- 确定临时文件路径
     local temp_path = "/ram/fota_update.bin"
-    -- PSAM空间不足时回退到内置文件系统
+    -- PSRAM空间不足时回退到内置文件系统
     local psram_total, psram_used = rtos.meminfo("psram")
     local psram_free = psram_total and psram_used and (psram_total - psram_used) or 0
     if psram_free < 512 * 1024 then  -- 不足512KB时回退
@@ -225,14 +255,17 @@ function libfota3.download(url, sha256, progress_cb)
 
     log.info("libfota3", "download", url, "->", temp_path)
 
+    -- 下载进度回调函数
+    local function download_progress_callback_func(total, received)
+        if progress_cb and total and total > 0 then
+            progress_cb(received, total)
+        end
+    end
+
     local code, headers = http.request("GET", url, nil, nil, {
         dst = temp_path,
         timeout = 600000,  -- 10分钟超时
-        callback = function(total, received)
-            if progress_cb and total and total > 0 then
-                progress_cb(received, total)
-            end
-        end
+        callback = download_progress_callback_func
     }).wait()
 
     if code ~= 200 then
@@ -316,6 +349,10 @@ end
 @string fota_sn 升级序列号（check返回的fota_sn）
 @number result_code 结果码：1=成功 2=失败 3=其他错误
 @return boolean 上报是否成功
+@usage
+-- 重启前上报成功
+libfota3.report_result(result.fota_sn, 0)
+rtos.reboot()
 ]]
 function libfota3.report_result(fota_sn, result_code)
     if not fota_sn or fota_sn == "" then
@@ -333,8 +370,8 @@ function libfota3.report_result(fota_sn, result_code)
         result_code = tonumber(result_code) or 0
     })
 
-    sys.taskInit(function()
-        -- 最多重试1次
+    -- 上报任务协程（最多重试1次）
+    local function report_result_task_func()
         for attempt = 1, 2 do
             local code, headers, rsp_body = http.request("POST", FOTA_REPORT_URL,
                 {["Content-Type"] = "application/json"},
@@ -352,7 +389,8 @@ function libfota3.report_result(fota_sn, result_code)
             if attempt == 1 then sys.wait(2000) end
         end
         log.error("libfota3", "report failed after retries")
-    end)
+    end
+    sys.taskInit(report_result_task_func)
     return true
 end
 

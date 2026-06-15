@@ -6,6 +6,26 @@
 @author  江访
 @usage
 本模块为蜂鸣器(触摸反馈)业务逻辑层，管理PWM蜂鸣器的开关、发声时长、音量，订阅触摸事件驱动反馈。
+
+消息协议（订阅/发布）:
+订阅: SETTINGS_APP_INIT               → 初始化
+订阅: BUZZER_GET_ENABLED              → 查询音效开关
+订阅: BUZZER_SET_ENABLED(value)       → 设置音效开关
+订阅: BUZZER_GET_DURATION             → 查询蜂鸣时长
+订阅: BUZZER_SET_DURATION(value)      → 设置蜂鸣时长
+订阅: BUZZER_GET_VOLUME               → 查询音量
+订阅: BUZZER_SET_VOLUME(value)        → 设置音量
+订阅: BUZZER_PLAY_TEST                → 播放测试音
+订阅: BUZZER_DURATION_DECREASE        → 蜂鸣时长-1
+订阅: BUZZER_DURATION_INCREASE        → 蜂鸣时长+1
+订阅: BUZZER_VOLUME_DECREASE          → 音量-1
+订阅: BUZZER_VOLUME_INCREASE          → 音量+1
+发布: BUZZER_ENABLED_VALUE(value)     → 音效开关状态
+发布: BUZZER_ENABLED_CHANGED(value)   → 音效开关变化
+发布: BUZZER_DURATION_VALUE(value)    → 蜂鸣时长值
+发布: BUZZER_DURATION_CHANGED(value)  → 蜂鸣时长变化
+发布: BUZZER_VOLUME_VALUE(value)      → 音量值
+发布: BUZZER_VOLUME_CHANGED(value)    → 音量变化
 ]]
 
 -- ==================== 配置常量 ====================

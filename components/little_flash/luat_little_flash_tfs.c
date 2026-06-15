@@ -318,7 +318,16 @@ static int lf_tfs_looks_blank(luat_lf_tfs_ctx_t *ctx)
 
     blank = 1;
     for (offset = 0; offset < probe_size; offset += page_size) {
-        if (little_flash_read(ctx->flash, ctx->offset + offset, page_buf, page_size) != LF_ERR_OK) {
+        uint8_t status = 0;
+
+        if (lf_tfs_read_flash(ctx,
+                              ctx->offset + offset,
+                              page_buf,
+                              page_size,
+                              &status) != LF_ERR_OK) {
+            LLOGW("tfs: blank probe read failed offset=%u status=0x%02X",
+                  (unsigned int)offset,
+                  (unsigned int)status);
             blank = 0;
             break;
         }
@@ -530,24 +539,66 @@ static int lf_tfs_write_page(void *ctx, uint32_t page,
 
     addr = c->offset + page * c->flash->chip_info.prog_size;
     if (data && data_len > 0) {
-        if (little_flash_write(c->flash, addr, data, data_len) != LF_ERR_OK) {
-            LLOGE("tfs: write_page failed page=%u", (unsigned int)page);
-            return TFS_EFLASH;
-        }
+        uint8_t *verify = NULL;
+        uint8_t status = 0;
 
         if (c->is_nand) {
-            uint8_t *verify = (uint8_t *)luat_heap_malloc(data_len);
-            uint8_t status = 0;
-            int verify_ok = 0;
             uint32_t mismatch = data_len;
             uint32_t i;
 
+            verify = (uint8_t *)luat_heap_malloc(data_len);
             if (!verify) {
                 LLOGE("tfs: write verify alloc failed page=%u len=%u",
                       (unsigned int)page,
                       (unsigned int)data_len);
                 return TFS_ENOMEM;
             }
+
+            if (lf_tfs_read_flash(c, addr, verify, data_len, &status) != LF_ERR_OK) {
+                c->write_verify_error_count++;
+                if (c->write_verify_error_count <= 8) {
+                    LLOGW("tfs: write precheck read error page=%u status=0x%02X count=%u",
+                          (unsigned int)page,
+                          (unsigned int)status,
+                          (unsigned int)c->write_verify_error_count);
+                }
+                luat_heap_free(verify);
+                return TFS_EFLASH;
+            }
+
+            for (i = 0; i < data_len; i++) {
+                if (verify[i] != 0xff) {
+                    mismatch = i;
+                    break;
+                }
+            }
+
+            if (mismatch < data_len) {
+                c->write_verify_error_count++;
+                if (c->write_verify_error_count <= 8) {
+                    LLOGW("tfs: write target not blank page=%u off=%u val=%02X count=%u",
+                          (unsigned int)page,
+                          (unsigned int)mismatch,
+                          (unsigned int)verify[mismatch],
+                          (unsigned int)c->write_verify_error_count);
+                }
+                luat_heap_free(verify);
+                return TFS_EFLASH;
+            }
+        }
+
+        if (little_flash_write(c->flash, addr, data, data_len) != LF_ERR_OK) {
+            LLOGE("tfs: write_page failed page=%u", (unsigned int)page);
+            if (verify) {
+                luat_heap_free(verify);
+            }
+            return TFS_EFLASH;
+        }
+
+        if (c->is_nand) {
+            int verify_ok = 0;
+            uint32_t mismatch = data_len;
+            uint32_t i;
 
             if (lf_tfs_read_flash(c, addr, verify, data_len, &status) == LF_ERR_OK &&
                 memcmp(verify, data, data_len) == 0) {
@@ -565,7 +616,7 @@ static int lf_tfs_write_page(void *ctx, uint32_t page,
                 c->write_verify_error_count++;
                 if (c->write_verify_error_count <= 8) {
                     if (mismatch < data_len) {
-                        LLOGE("tfs: write verify failed page=%u status=0x%02X off=%u exp=%02X got=%02X count=%u",
+                        LLOGW("tfs: write verify mismatch page=%u status=0x%02X off=%u exp=%02X got=%02X count=%u",
                               (unsigned int)page,
                               (unsigned int)status,
                               (unsigned int)mismatch,
@@ -573,7 +624,7 @@ static int lf_tfs_write_page(void *ctx, uint32_t page,
                               (unsigned int)verify[mismatch],
                               (unsigned int)c->write_verify_error_count);
                     } else {
-                        LLOGE("tfs: write verify failed page=%u status=0x%02X count=%u",
+                        LLOGW("tfs: write verify mismatch page=%u status=0x%02X count=%u",
                               (unsigned int)page,
                               (unsigned int)status,
                               (unsigned int)c->write_verify_error_count);
@@ -946,6 +997,50 @@ static int lf_tfs_erase_block(void *ctx, uint32_t block)
     if (little_flash_erase(c->flash, addr, block_size) != LF_ERR_OK) {
         LLOGE("tfs: erase_block failed block=%u", (unsigned int)block);
         return TFS_EFLASH;
+    }
+
+    if (c->is_nand) {
+        uint32_t page_size = c->flash->chip_info.prog_size;
+        uint32_t cpb = page_size ? (block_size / page_size) : 0;
+        uint8_t *page_buf;
+        uint32_t i;
+
+        if (page_size == 0 || cpb == 0) {
+            return TFS_EFLASH;
+        }
+
+        page_buf = (uint8_t *)luat_heap_malloc(page_size);
+        if (!page_buf) {
+            LLOGE("tfs: erase verify alloc failed block=%u",
+                  (unsigned int)block);
+            return TFS_ENOMEM;
+        }
+
+        for (i = 0; i < cpb; i++) {
+            uint32_t page_addr = addr + i * page_size;
+            uint8_t status = 0;
+
+            memset(page_buf, 0x00, page_size);
+            if (lf_tfs_read_flash(c,
+                                  page_addr,
+                                  page_buf,
+                                  page_size,
+                                  &status) != LF_ERR_OK ||
+                !lf_tfs_is_all_ff(page_buf, page_size)) {
+                LLOGE("tfs: erase verify failed block=%u page=%u status=0x%02X first=%02X%02X%02X%02X",
+                      (unsigned int)block,
+                      (unsigned int)i,
+                      (unsigned int)status,
+                      (unsigned int)page_buf[0],
+                      (unsigned int)page_buf[1],
+                      (unsigned int)page_buf[2],
+                      (unsigned int)page_buf[3]);
+                luat_heap_free(page_buf);
+                return TFS_EFLASH;
+            }
+        }
+
+        luat_heap_free(page_buf);
     }
 
     if (c->oob_ram && c->oob_per_chunk > 0) {

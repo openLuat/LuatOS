@@ -4,6 +4,15 @@
 @version 1.1
 @date    2026.04.16
 @author  江访
+
+消息协议（订阅/发布）:
+订阅: OPEN_WIFI_LIST_WIN            → 创建 WiFi 列表窗口
+订阅: WIFI_STATUS_UPDATED(status)   → WiFi 状态更新
+订阅: WIFI_SCAN_DONE(results)       → 扫描结果返回
+订阅: WIFI_SCAN_TIMEOUT             → 扫描超时
+发布: WIFI_SCAN_REQ                 → 请求扫描
+发布: WIFI_GET_STATUS_REQ           → 获取当前状态
+发布: OPEN_WIFI_CONNECT_WIN({ssid, ...}) → 打开连接窗口
 ]]
 
 require "wifi_connect_win"

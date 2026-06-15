@@ -12,9 +12,19 @@
 4. 开机后读取状态文件 → 根据版本比对判断升级结果 → 上报服务器 → 删除状态文件
 5. 上报完成后（无论成功失败），进行下次升级检查
 
-事件接口（与 settings_fota_win.lua 兼容）：
-  订阅: FOTA_CHECK_NOW / FOTA_CHECK_AUTO / FOTA_CONFIRM_REBOOT / FOTA_GET_SETTINGS / FOTA_SAVE_SETTINGS
-  发布: FOTA_STATUS / FOTA_PROMPT_DOWNLOAD / FOTA_PROMPT_REBOOT / FOTA_SETTINGS / FOTA_AUTO_PROMPT_UPGRADE
+消息协议（订阅/发布）:
+订阅: FOTA_CHECK_NOW              → 手动检测升级
+订阅: FOTA_CHECK_AUTO             → 定时自动检测升级
+订阅: FOTA_DOWNLOAD_START         → 开始下载升级包（用户确认后有新版本时）
+订阅: FOTA_CONFIRM_REBOOT         → 用户确认重启设备
+订阅: FOTA_GET_SETTINGS           → 获取升级设置（自动检测开关+间隔）
+订阅: FOTA_SAVE_SETTINGS(auto,interval) → 保存升级设置
+
+发布: FOTA_STATUS(status, msg, percent) → 升级状态（CHECKING/NEW_VERSION/CHECK_FAIL/...）
+发布: FOTA_PROMPT_DOWNLOAD(msg)        → 手动检测到新版本，弹窗询问是否下载
+发布: FOTA_AUTO_PROMPT_UPGRADE(msg)     → 自动检测到新版本，弹窗询问是否下载
+发布: FOTA_PROMPT_REBOOT(msg)          → 下载完成，弹窗询问是否重启
+发布: FOTA_SETTINGS(auto, interval)    → 返回升级设置
 ]]
 
 -- ==================== 防御性加载 ====================

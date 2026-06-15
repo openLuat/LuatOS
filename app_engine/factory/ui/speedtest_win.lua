@@ -4,6 +4,15 @@
 @version 1.0.0
 @date    2026.04.28
 @author  江访
+
+消息协议（订阅/发布）:
+订阅: OPEN_SPEEDTEST_WIN       → 创建测速窗口
+订阅: SPDTEST_STARTED          → 测速开始，按钮置灰
+订阅: SPDTEST_RESULT({download, upload, ping, jitter}) → 显示结果
+订阅: SPDTEST_STATUS(msg)      → 更新状态文本
+订阅: SPDTEST_FINISHED         → 测速结束，恢复按钮
+发布: SPEEDTEST_START          → 触发测速（点击开始按钮）
+发布: SPEEDTEST_CANCEL         → 取消测速（窗口销毁时）
 ]]
 
 local window_id = nil

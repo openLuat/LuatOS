@@ -143,6 +143,7 @@ typedef struct tfs_obj {
     uint16_t         n_hard_links;  /* ref count: hardlinks pointing to this file */
 
     struct tfs_obj *parent;
+    uint32_t        checkpt_parent_id;
     tfs_list_t      siblings;
 
     int      hdr_chunk;        /* Where is the header on NAND? */

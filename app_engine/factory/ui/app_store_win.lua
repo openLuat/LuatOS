@@ -1,11 +1,27 @@
 --[[
 @module app_store_win
-@summary 应用市场窗口
+@summary 应用市场窗口，无状态设计，纯消息驱动
 @version 1.0.4
 @date 2026.04.14
 @author 江访
 @usage
 本文件为应用市场窗口的UI实现，遵循无状态设计原则，核心功能为：
+
+消息协议（订阅/发布）:
+订阅: OPEN_APP_STORE_WIN              → 创建应用市场窗口
+订阅: APP_STORE_LIST_UPDATED(apps, page_info) → 应用列表返回
+订阅: APP_STORE_INSTALLED_UPDATED(new_installed) → 已安装列表更新
+订阅: APP_STORE_PROGRESS(aid, percent, text) → 下载进度
+订阅: APP_STORE_ACTION_DONE(aid, action, success) → 安装/卸载/更新完成
+订阅: APP_STORE_ERROR(msg)            → 错误信息
+订阅: APP_STORE_ICON_READY(aid, icon_path) → 图标下载完成
+
+发布: APP_STORE_GET_LIST(category, sort, page, size, query) → 请求列表
+发布: APP_STORE_SYNC_INSTALLED        → 同步已安装列表
+发布: APP_STORE_INSTALL(aid, url, name, cat, sort)  → 安装应用
+发布: APP_STORE_UNINSTALL(aid, cat, sort)            → 卸载应用
+发布: APP_STORE_UPDATE(aid, url, name, cat, sort)    → 更新应用
+
 1. 提供应用市场的用户界面，包括分类选择、排序、搜索、分页显示
 2. 通过exapp模块获取应用列表和已安装应用信息
 3. 处理用户操作（安装、卸载、更新应用）并发布相应消息

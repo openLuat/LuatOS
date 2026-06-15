@@ -4,6 +4,7 @@
 
 #include "tfs_inode.h"
 #include "tfs_block.h"
+#include "tfs_core.h"
 #include "tfs_tnode.h"
 #include "../inc/tfs_config.h"
 
@@ -176,9 +177,11 @@ int tfs_obj_write_hdr(tfs_dev_t *dev, tfs_obj_t *obj,
     }
 
     for (attempt = 0; attempt < TFS_WRITE_RETRY_BLOCKS; attempt++) {
-        new_chunk = tfs_alloc_chunk(dev, 0);
-        if (new_chunk < 0)
-            return TFS_ENOSPC;
+        rc = tfs_alloc_chunk_or_gc(dev,
+                                   (obj->deleted || obj->unlinked) ? 1 : 0,
+                                   &new_chunk);
+        if (rc != TFS_OK)
+            return rc;
 
         rc = tfs_chunk_write(dev, new_chunk,
                              (const uint8_t *)hdr,

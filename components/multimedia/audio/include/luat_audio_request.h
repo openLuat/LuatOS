@@ -89,7 +89,7 @@ struct luat_audio_request_block {
     luat_buffer_t data_align_buffer;                /**< 数据对齐调整用临时缓冲区 */
     luat_buffer_t channel_nums_buffer;                /**< 通道数量对齐用临时缓冲区 */
 
-    luat_audio_dsp_t *dsp;                  /**< 关联的DSP处理实例 */
+    luat_audio_dsp_t dsp;                  /**< 关联的DSP处理实例 */
     luat_audio_data_codec_t play_codec;          /**< 关联的播放编解码器实例 */
     luat_audio_data_codec_t record_codec;          /**< 关联的录音编解码器实例 */
     luat_audio_channel_t *data_channel;      /**< 关联的音频通道 */
@@ -131,7 +131,7 @@ typedef struct luat_audio_request_block luat_audio_request_block_t;
  */
 int luat_audio_request_play_files(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts, luat_audio_play_file_info_t *files, uint32_t files_num, 
     uint8_t priority, uint8_t is_sync,
-    luat_audio_request_cb_t cb, void *user_data);
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);
 
 /**
 * @brief 播放文本转语音
@@ -150,7 +150,7 @@ int luat_audio_request_play_files(luat_audio_request_block_t *request_block, lua
 */
 int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const char *text, uint32_t text_len, 
     uint8_t priority, uint8_t is_sync,
-    luat_audio_request_cb_t cb, void *user_data);
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);
 
 /**
 * @brief 播放流式音频
@@ -170,7 +170,7 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 */
 int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts,
     luat_audio_common_param_t *common_param, uint32_t one_block_len, uint8_t priority, uint8_t is_sync,
-    luat_audio_request_cb_t cb, void *user_data);    
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);    
 /**
  * @brief 录音音频
  * 
@@ -187,14 +187,22 @@ int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, lu
  * @param user_data 用户数据指针，用于传递自定义数据
  * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
-int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts, luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt, uint8_t priority, 
-    luat_audio_request_cb_t cb, void *user_data);
+int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, 
+    const luat_audio_data_codec_opts_t *codec_opts, 
+    luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt, 
+    uint8_t priority, 
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);
 /**
  * @brief 通话模式，强制在最高等级
  * 
  * 
  * @param request_block 音频请求块指针，用于存储通话参数
  * @param probe 音频驱动匹配结构，用于描述驱动的匹配条件，如果为NULL，则使用默认驱动。
+ * @param play_codec_opts 音频解码器选项结构，用于指定要使用的音频解码器，必须指定
+ * @param record_codec_opts 音频解码器选项结构，用于指定要使用的音频解码器，必须指定
+ * @param common_audio_param 音频公共参数结构，用于指定希望的录音参数，必须存在，不能为NULL，但是实际使用的音频参数还是会根据编码器的要求做修改
+ * @param record_fifo 录音数据缓冲区, 用户传入，用户自行释放
+ * @param record_callback_frame_cnt 录音回调一次的最小音频数据帧数, 如果为0则由驱动决定
  * @param tx_buff 通话数据缓冲区指针，用于存储通话数据，一般不需要，目前只有air780exxLTE通话需要需要指定
  * @param one_block_len 双工模式下每个数据块的长度，单位字节，同时也是录音回调一次的音频数据长度，注意不能超过驱动的tx_one_block_max_len和rx_one_block_max_len
  * @param block_num 双工模式下数据块数量
@@ -203,8 +211,10 @@ int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_au
  * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
 int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, 
+    const luat_audio_data_codec_opts_t *play_codec_opts, const luat_audio_data_codec_opts_t *record_codec_opts,
+    luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt,
     uint32_t *tx_buff, uint32_t one_block_len, uint8_t block_num,
-    luat_audio_request_cb_t cb, void *user_data);
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);
 
 // 低等级接口，除非用户需要自行处理解码器，dsp等，否则一般不需要主动调用
 /**

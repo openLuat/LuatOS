@@ -219,8 +219,16 @@ uint32_t tfs_tnode_get_chunk(tfs_dev_t *dev, tfs_obj_t *obj,
     tfs_tnode_t *leaf;
     uint32_t slot;
     uint32_t chunk_in_nand;
+    uint32_t capacity;
+    int level;
 
     if (!obj->var.file.top)
+        return 0;
+
+    capacity = TFS_TNODES_LEVEL0;
+    for (level = 0; level < obj->var.file.top_level; level++)
+        capacity *= TFS_TNODES_INTERNAL;
+    if (chunk_id >= capacity)
         return 0;
 
     leaf = tfs_tnode_find_level0(dev, obj, chunk_id, &slot, 0);

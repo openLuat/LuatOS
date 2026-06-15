@@ -1029,5 +1029,16 @@ function crypto_tests.test_cipher_multiple_rounds()
     end
 end
 
+-- trng 返回值不全为0测试
+function crypto_tests.test_trng_not_all_zeros()
+    log.info("crypto_tests", "开始 trng 非全0测试")
+    local hex = crypto.trng(32):toHex()
+    assert(#hex == 64,
+        string.format("TRNG(32) 转Hex长度应为64, 实际: %d", #hex))
+    assert(hex ~= string.rep("0", 64),
+        string.format("TRNG(32) 返回全0异常: %s", hex))
+    log.info("crypto_tests", "trng 非全0测试通过, 结果: " .. hex)
+end
+
 return crypto_tests
 

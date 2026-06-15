@@ -6,6 +6,18 @@
 @author  江访
 @usage
 本模块为状态提供器应用模块，主要功能包括：
+
+消息协议（订阅/发布）:
+订阅: WIFI_CONNECTED(ssid)          → 开启 RSSI 轮询（由 wifi_app 发布）
+订阅: WIFI_DISCONNECTED(reason)    → 停止 RSSI 轮询，图标归零
+订阅: IP_READY                     → 开始 RSSI 定时轮询
+订阅: SIM_IND(st, vl)              → 更新 SIM 卡状态和 4G 信号
+订阅: REQUEST_STATUS_REFRESH       → 重新发布当前所有状态
+
+发布: STATUS_TIME_UPDATED(time, date, weekday)      → 时间更新（每秒）
+发布: STATUS_SIGNAL_UPDATED(level)                   → 4G 信号等级更新
+发布: STATUS_WIFI_SIGNAL_UPDATED(level)              → WiFi 信号等级更新 (0-5)
+
 1、管理时间信息，每秒更新当前时间、日期、星期；
 2、管理WiFi信号强度，通过监听WIFI_CONNECTED/DISCONNECTED事件控制RSSI轮询；
 3、提供状态查询接口供其他模块调用；

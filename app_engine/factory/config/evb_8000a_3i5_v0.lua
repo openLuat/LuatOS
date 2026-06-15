@@ -17,7 +17,6 @@ return {
     -- ===== 引脚功能复用 =====
     pins = {
         { pin = 31, func = "PWM0" },  -- PWM0: 背光调光
-        { pin = 35, func = "PWM4" },  -- PWM4
     },
 
     -- ===== GPIO 上电时序: LCD供电 + TP I2C上拉 =====

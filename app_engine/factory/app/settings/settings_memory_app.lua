@@ -6,6 +6,10 @@
 @author  江访
 @usage
 本模块为内存信息业务逻辑层，通过 rtos.meminfo 获取系统/Lua VM/PSRAM 内存信息并上报。
+
+消息协议（订阅/发布）:
+订阅: MEMORY_INFO_GET                → 查询内存信息
+发布: MEMORY_INFO({total, used, ...}) → 内存信息返回值
 ]]
 --[[
 @function get_memory_info

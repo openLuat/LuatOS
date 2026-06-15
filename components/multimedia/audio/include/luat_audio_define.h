@@ -68,6 +68,7 @@ enum {
     LUAT_AUDIO_DATA_CODEC_TYPE_OPUS,       /**< OPUS 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,       /**< G711_ULAW 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,       /**< G711_ALAW 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_NO_OP,        /**< 无操作编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MAX,        /**< 最大编解码器类型 */
     LUAT_AUDIO_DATA_CODEC_TYPE_HW = 0x80, /**< 编解码器类型-硬件编解码器优先模式 */
 

@@ -39,6 +39,16 @@ int  tfs_chunk_is_used(const tfs_dev_t *dev, int chunk_in_nand);
 int tfs_block_erase(tfs_dev_t *dev, int block_in_nand);
 
 /**
+ * tfs_block_prepare_empty — re-erase an EMPTY block before allocation.
+ *
+ * A restored checkpoint can occasionally describe an old checkpoint block as
+ * EMPTY while the physical NAND still contains stale pages.  This helper
+ * confirms the block is physically erased without changing the free/erased
+ * counters on success.
+ */
+int tfs_block_prepare_empty(tfs_dev_t *dev, int block_in_nand);
+
+/**
  * tfs_block_mark_bad — call driver mark_bad and update block state
  */
 void tfs_block_mark_bad(tfs_dev_t *dev, int block_in_nand);
@@ -58,6 +68,12 @@ void tfs_block_retire(tfs_dev_t *dev, int block_in_nand);
  * Return: chunk number in NAND (≥0) or -1 on failure
  */
 int tfs_alloc_chunk(tfs_dev_t *dev, int use_resvd);
+
+/**
+ * tfs_user_reserved_blocks — erased blocks held back from normal writes.
+ * Includes GC headroom plus checkpoint space estimate.
+ */
+int tfs_user_reserved_blocks(tfs_dev_t *dev);
 
 /*-------------------------------------------------------------------
  *  Chunk I/O

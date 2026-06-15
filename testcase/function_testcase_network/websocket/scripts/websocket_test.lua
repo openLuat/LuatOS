@@ -38,7 +38,8 @@ local function send_test_data(client, state, param)
     local is_single_test = false
 
     if type(param) == "string" then
-        if state.sent_count >= 10 then
+        local total_tests = state.total_tests or 10
+        if state.sent_count >= total_tests then
             return false
         end
         test_case_name = param
@@ -171,6 +172,7 @@ end
 -- 二进制数据回环测试
 function websocket_tests.test_WebsocketEcho_binary()
     local test_case_name = "二进制数据"
+    local total_tests = 10
     local wsc = websocket.create(nil, echo_server)
     assert(wsc ~= nil, "WebSocket 客户端创建失败了")
 
@@ -187,6 +189,7 @@ function websocket_tests.test_WebsocketEcho_binary()
         received_data = {},
         send_timer = nil,
         test_complete = false,
+        total_tests = total_tests,
         test_error = nil,
         ws_closed = false
     }
@@ -197,21 +200,8 @@ function websocket_tests.test_WebsocketEcho_binary()
         if event == "conack" then
             log.info("WebSocket连接成功")
             
-            -- 立即发送第一次
+            -- 连接成功后发送第一次，后续在每次收到回显后继续发送，直到完成10次回环
             send_test_data(wsc, test_state, test_case_name)
-            
-            -- 启动定时器，每3秒发送一次
-            test_state.send_timer = sys.timerLoopStart(function()
-                if test_state.sent_count < 10 then
-                    send_test_data(wsc, test_state, test_case_name)
-                end
-                if test_state.sent_count >= 10 then
-                    if test_state.send_timer then
-                        sys.timerStop(test_state.send_timer)
-                        test_state.send_timer = nil
-                    end
-                end
-            end, 3000)
             
         elseif event == "recv" then
             if data then
@@ -227,7 +217,7 @@ function websocket_tests.test_WebsocketEcho_binary()
                     end
                 end
                 
-                if test_state.received_count >= 10 then
+                if test_state.received_count >= total_tests then
                     test_state.test_complete = true
                     log.info("测试完成，准备关闭连接")
                     if test_state.send_timer then
@@ -237,6 +227,8 @@ function websocket_tests.test_WebsocketEcho_binary()
                     ws_client:autoreconn(false)
                     ws_client:close()
                     test_state.ws_closed = true
+                elseif test_state.sent_count < total_tests then
+                    send_test_data(ws_client, test_state, test_case_name)
                 end
             end
             
@@ -265,10 +257,13 @@ function websocket_tests.test_WebsocketEcho_binary()
     assert(connect_result == true, "WebSocket 连接请求发送失败")
     log.info("正在连接WebSocket服务器...")
 
-    local start = os.time()
-    while not test_state.test_complete and os.time() - start <= 60 do
-        sys.wait(1000)
-        if os.time() - start > 0 and (os.time() - start) % 10 == 0 then
+    local start = mcu.ticks()
+    local last_log = start
+    while not test_state.test_complete and mcu.ticks() - start <= 60000 do
+        sys.wait(10)
+        local now = mcu.ticks()
+        if now - last_log >= 10000 then
+            last_log = now
             log.info("测试进度", string.format("已发送:%d, 已接收:%d", 
                 test_state.sent_count, test_state.received_count))
         end
@@ -287,8 +282,8 @@ function websocket_tests.test_WebsocketEcho_binary()
     assert(test_state.test_error == nil, string.format("WebSocket错误: %s", test_state.test_error or "未知错误"))
     assert(test_state.test_complete == true, 
         string.format("测试超时，已发送:%d, 已接收:%d", test_state.sent_count, test_state.received_count))
-    assert(test_state.sent_count == 10, string.format("应发送10次，实际%d次", test_state.sent_count))
-    assert(test_state.received_count == 10, string.format("应接收10次，实际%d次", test_state.received_count))
+    assert(test_state.sent_count == total_tests, string.format("应发送%d次，实际%d次", total_tests, test_state.sent_count))
+    assert(test_state.received_count == total_tests, string.format("应接收%d次，实际%d次", total_tests, test_state.received_count))
     
     log.info("========== 二进制数据回环测试通过 ==========")
 end
@@ -332,18 +327,6 @@ function websocket_tests.test_WebsocketEcho_all_formats()
             log.info(string.format("开始测试%d种格式，总共%d次", total_formats, total_tests))
 
             send_test_data(wsc, test_state, test_cases_list)
-            
-            test_state.send_timer = sys.timerLoopStart(function()
-                if test_state.sent_count < total_tests then
-                    send_test_data(wsc, test_state, test_cases_list)
-                end
-                if test_state.sent_count >= total_tests then
-                    if test_state.send_timer then
-                        sys.timerStop(test_state.send_timer)
-                        test_state.send_timer = nil
-                    end
-                end
-            end, 3000)
 
         elseif event == "recv" then
             if data then
@@ -370,7 +353,8 @@ function websocket_tests.test_WebsocketEcho_all_formats()
                         sys.timerStop(test_state.send_timer)
                         test_state.send_timer = nil
                     end
-                    -- wsc:close()
+                elseif test_state.sent_count < total_tests then
+                    send_test_data(ws_client, test_state, test_cases_list)
                 end
             end
 
@@ -399,10 +383,13 @@ function websocket_tests.test_WebsocketEcho_all_formats()
     assert(connect_result == true, "WebSocket 连接请求发送失败")
     log.info("正在连接WebSocket服务器...")
 
-    local start = os.time()
-    while not test_state.test_complete and os.time() - start <= 120 do
-        sys.wait(1000)
-        if os.time() - start > 0 and (os.time() - start) % 10 == 0 then
+    local start = mcu.ticks()
+    local last_log = start
+    while not test_state.test_complete and mcu.ticks() - start <= 120000 do
+        sys.wait(10)
+        local now = mcu.ticks()
+        if now - last_log >= 10000 then
+            last_log = now
             log.info("测试进度", string.format("已发送:%d, 已接收:%d", 
                 test_state.sent_count, test_state.received_count))
         end
@@ -868,7 +855,7 @@ function websocket_tests.test_WebsocketKeepalive()
     local keepalive_test_state = {
         connected = false,
         last_recv_time = 0,
-        ping_received = false,
+        test_error = nil,
         monitor_timer = nil
     }
     
@@ -883,22 +870,14 @@ function websocket_tests.test_WebsocketKeepalive()
                 local now = os.time()
                 local elapsed = now - keepalive_test_state.last_recv_time
                 
-                if elapsed > 15 and keepalive_test_state.connected then
-                    log.warn("心跳异常", "已超过15秒未收到任何数据")
-                else
-                    log.info("心跳状态正常", "距上次接收:", elapsed, "秒")
+                if keepalive_test_state.connected then
+                    log.info("心跳连接保持中", "距上次应用数据:", elapsed, "秒")
                 end
             end, 5000)
             
         elseif event == "recv" then
             keepalive_test_state.last_recv_time = os.time()
             log.info("收到数据", "内容:", data, "长度:", #data)
-            
-            -- 检查是否为心跳响应
-            if data == "ping" or data == "pong" or string.find(data or "", "ping") then
-                keepalive_test_state.ping_received = true
-                log.info("收到心跳响应")
-            end
             
         elseif event == "disconnect" then
             log.warn("连接断开")
@@ -910,6 +889,8 @@ function websocket_tests.test_WebsocketKeepalive()
             
         elseif event == "error" then
             log.error("WebSocket错误", data)
+            keepalive_test_state.test_error = data or "未知错误"
+            keepalive_test_state.connected = false
             if keepalive_test_state.monitor_timer then
                 sys.timerStop(keepalive_test_state.monitor_timer)
                 keepalive_test_state.monitor_timer = nil
@@ -937,9 +918,9 @@ function websocket_tests.test_WebsocketKeepalive()
         sys.wait(5000)  -- 等待5秒，观察心跳
     end
     
-    -- 保持连接一段时间，观察心跳
-    log.info("保持连接30秒，观察心跳...")
-    sys.wait(30000)
+    -- 保持连接一段时间，验证心跳期间连接不断开
+    log.info("保持连接15秒，验证心跳期间连接不断开...")
+    sys.wait(15000)
     
     -- 清理定时器
     if keepalive_test_state.monitor_timer then
@@ -947,6 +928,8 @@ function websocket_tests.test_WebsocketKeepalive()
         keepalive_test_state.monitor_timer = nil
     end
     
+    assert(keepalive_test_state.test_error == nil, string.format("WebSocket错误: %s", keepalive_test_state.test_error or "未知错误"))
+    assert(keepalive_test_state.connected == true, "心跳测试期间连接断开")
     wsc:close()
     log.info("心跳测试完成")
 end

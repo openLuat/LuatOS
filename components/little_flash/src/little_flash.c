@@ -406,38 +406,129 @@ static lf_err_t little_flash_cheak_read(const little_flash_t *lf){
     return result;
 }
 
+static lf_err_t little_flash_nand_reset_config(const little_flash_t *lf)
+{
+    lf_err_t result = LF_ERR_OK;
+
+    if (!lf || lf->chip_info.type != LF_DRIVER_NAND_FLASH) {
+        return LF_ERR_OK;
+    }
+
+    result |= little_flash_wait_busy(lf, 1000);
+    result |= lf->spi.transfer(lf, (uint8_t[]){LF_CMD_NANDFLASH_RESET}, 1, LF_NULL, 0);
+    if (lf->wait_ms) {
+        lf->wait_ms(50);
+    }
+    result |= little_flash_wait_busy(lf, 1000);
+    if (result) {
+        return result;
+    }
+
+    result |= little_flash_write_status(lf, LF_NANDFLASH_STATUS_REGISTER1, 0x00);
+    result |= little_flash_write_status(lf,
+                                        LF_NANDFLASH_STATUS_REGISTER2,
+                                        (1 << 4) | (1 << 3));
+    if (lf->wait_10us) {
+        lf->wait_10us(5);
+    }
+    return result;
+}
+
+static lf_err_t little_flash_nand_erase_page_addr(const little_flash_t *lf,
+                                                  uint32_t page_addr)
+{
+    lf_err_t result = LF_ERR_OK;
+    uint8_t cmd_data[4];
+    uint8_t status = 0;
+    uint32_t retry;
+
+    if (!lf || lf->chip_info.type != LF_DRIVER_NAND_FLASH) {
+        return LF_ERR_ERASE;
+    }
+
+    cmd_data[0] = lf->chip_info.erase_cmd;
+    cmd_data[1] = page_addr >> 16;
+    cmd_data[2] = page_addr >> 8;
+    cmd_data[3] = page_addr;
+
+    for (retry = 0; retry < 3; retry++) {
+        if (retry > 0) {
+            LF_WARNING("nand erase retry page=%u status=0x%02X retry=%u",
+                       (unsigned int)page_addr,
+                       (unsigned int)status,
+                       (unsigned int)retry);
+            (void)little_flash_nand_reset_config(lf);
+        }
+
+        if(little_flash_write_enabled(lf, LF_ENABLE)) {
+            return LF_ERR_ERASE;
+        }
+        result = lf->spi.transfer(lf, cmd_data, 4, LF_NULL, 0);
+        if(result) {
+            return LF_ERR_ERASE;
+        }
+        lf->wait_ms(lf->chip_info.erase_times);
+
+        result = little_flash_wait_busy(lf, 1000 * 1000);
+        if (!result) {
+            result = little_flash_read_status(lf, LF_NANDFLASH_STATUS_REGISTER3, &status);
+        }
+        if (!result &&
+            (status & 0x04) == 0 &&
+            (status & LF_STATUS_REGISTER_WEL) == 0) {
+            return LF_ERR_OK;
+        }
+    }
+
+    LF_ERROR("Error: NAND erase page=%u failed status=0x%02X.",
+             (unsigned int)page_addr,
+             (unsigned int)status);
+    return LF_ERR_ERASE;
+}
+
 lf_err_t little_flash_chip_erase(const little_flash_t *lf){
     lf_err_t result = LF_ERR_OK;
-    uint32_t addr = 0;
-    uint8_t cmd_data[4];
 
     if (lf->lock) {
         lf->lock(lf);
     }
 
-    if(little_flash_write_enabled(lf, LF_ENABLE)) goto error;
-
     if(lf->chip_info.type==LF_DRIVER_NOR_FLASH){
+        if(little_flash_write_enabled(lf, LF_ENABLE)) goto error;
         result |= lf->spi.transfer(lf,(uint8_t[]){LF_CMD_ERASE_CHIP}, 1,LF_NULL,0);
         lf->wait_ms(lf->chip_info.capacity / lf->chip_info.erase_size * lf->chip_info.erase_times);
         result |= little_flash_cheak_erase(lf);
     }else{
-        cmd_data[0] = lf->chip_info.erase_cmd;
-        while (true){
-            if(little_flash_write_enabled(lf, LF_ENABLE)) goto error;
-            uint32_t page_addr = addr/lf->chip_info.prog_size;
-            cmd_data[1] = page_addr >> 16;
-            cmd_data[2] = page_addr >> 8;
-            cmd_data[3] = page_addr;
-            result |= lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
+        uint32_t page_size = lf->chip_info.prog_size ? lf->chip_info.prog_size : lf->chip_info.read_size;
+        uint32_t pages_per_block = page_size ? (lf->chip_info.erase_size / page_size) : 0;
+        uint32_t block_count = lf->chip_info.erase_size ? (lf->chip_info.capacity / lf->chip_info.erase_size) : 0;
+        uint32_t block;
+
+        if (pages_per_block == 0 || block_count == 0) {
+            goto error;
+        }
+
+        LF_DEBUG("nand chip erase blocks=%u pages_per_block=%u last_page=%u",
+                 (unsigned int)block_count,
+                 (unsigned int)pages_per_block,
+                 (unsigned int)((block_count - 1) * pages_per_block));
+        for (block = 0; block < block_count; block++) {
+            uint32_t page_addr = block * pages_per_block;
+            uint8_t status = 0;
+
+            result = little_flash_nand_erase_page_addr(lf, page_addr);
             if(result) goto error;
-            lf->wait_ms(lf->chip_info.erase_times);
-            result |= little_flash_cheak_erase(lf);
-            if(result) goto error;
-            addr += lf->chip_info.erase_size;
-            if (addr>=lf->chip_info.capacity){
-                break;
+            if (block == 0 || block + 1 == block_count) {
+                (void)little_flash_read_status(lf, LF_NANDFLASH_STATUS_REGISTER3, &status);
+                LF_DEBUG("nand chip erase block=%u page=%u status=0x%02X",
+                         (unsigned int)block,
+                         (unsigned int)page_addr,
+                         (unsigned int)status);
             }
+        }
+        result |= little_flash_nand_reset_config(lf);
+        if(result) {
+            goto error;
         }
     }
 
@@ -483,25 +574,23 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
     }
     erase_len = len + erase_off;// 修正擦除长度,长度对齐擦除起始位置
     while (erase_len){
-        if(little_flash_write_enabled(lf, LF_ENABLE)) goto error;
-
         if (lf->chip_info.type==LF_DRIVER_NAND_FLASH) {
-            /* identity mapping: logical erase_addr == physical page address */
-            cmd_data[1] = erase_addr >> 16;
-            cmd_data[2] = erase_addr >> 8;
-            cmd_data[3] = erase_addr;
+            if (little_flash_nand_erase_page_addr(lf, erase_addr) != LF_ERR_OK) {
+                goto error;
+            }
         }
         else {
+            if(little_flash_write_enabled(lf, LF_ENABLE)) goto error;
             cmd_data[1] = erase_addr >> 16;
             cmd_data[2] = erase_addr >> 8;
             cmd_data[3] = erase_addr;
-        }
-        lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
+            lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
 
-        lf->wait_ms(lf->chip_info.erase_times);
-        // LF_ERROR("erase_times:%d",lf->chip_info.erase_times);
-        if(little_flash_cheak_erase(lf)) {
-            goto error;
+            lf->wait_ms(lf->chip_info.erase_times);
+            // LF_ERROR("erase_times:%d",lf->chip_info.erase_times);
+            if(little_flash_cheak_erase(lf)) {
+                goto error;
+            }
         }
 
         erase_addr += (lf->chip_info.type==LF_DRIVER_NAND_FLASH)?lf->chip_info.erase_size/lf->chip_info.read_size:lf->chip_info.erase_size;

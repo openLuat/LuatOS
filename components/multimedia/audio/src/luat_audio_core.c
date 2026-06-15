@@ -715,14 +715,14 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->record_codec.common_param, NULL, request_block->record_fifo_enough_data_level, LUAT_AUDIO_DATA_BUFFER_CNT);
 			luat_audio_request_init_play_temp_buffer(request_block);
 			luat_audio_request_init_record_temp_buffer(request_block);
-			request_block->is_need_ref_data = 0;
+			request_block->is_need_ref_data = 1;
 			break;
 		case LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER:
 			request_block->record_codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER;
 			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->record_codec.common_param, request_block->static_play_buff, request_block->record_fifo_enough_data_level, LUAT_AUDIO_DATA_BUFFER_CNT);
 			luat_audio_request_init_play_temp_buffer(request_block);
 			luat_audio_request_init_record_temp_buffer(request_block);
-			request_block->is_need_ref_data = 0;
+			request_block->is_need_ref_data = 1;
 			break;
 		default:
 			break;
@@ -1280,6 +1280,7 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 	request_block->static_play_buff_block_nums = block_num;
 	request_block->record_callback_frame_cnt = record_callback_frame_cnt;
 	request_block->is_stream = 1;
+	request_block->is_need_ref_data = 1;
 	return luat_audio_request_start(request_block, 0);
 }
 

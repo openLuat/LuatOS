@@ -2,7 +2,7 @@ local websocket_tests = {}
 
 -- 测试服务器
 local test_server = "ws://airtest.openluat.com:2900/websocket"
-local echo_server = "ws://echo.airtun.air32.cn/ws/echo2"
+local echo_server = "ws://airtest.openluat.com:2900/websocket"
 
 -- 测试数据
 local test_cases = {
@@ -178,7 +178,7 @@ function websocket_tests.test_WebsocketEcho_binary()
         Auth = "Basic ABCDEGG",
         TestType = "echo_test"
     })
-    wsc:autoreconn(true)
+    wsc:autoreconn(false)
 
     local test_state = {
         sent_count = 0,
@@ -186,7 +186,9 @@ function websocket_tests.test_WebsocketEcho_binary()
         sent_data = {},
         received_data = {},
         send_timer = nil,
-        test_complete = false
+        test_complete = false,
+        test_error = nil,
+        ws_closed = false
     }
     
     wsc:on(function(ws_client, event, data, fin, optcode)
@@ -232,7 +234,9 @@ function websocket_tests.test_WebsocketEcho_binary()
                         sys.timerStop(test_state.send_timer)
                         test_state.send_timer = nil
                     end
-                    wsc:close()
+                    ws_client:autoreconn(false)
+                    ws_client:close()
+                    test_state.ws_closed = true
                 end
             end
             
@@ -249,7 +253,11 @@ function websocket_tests.test_WebsocketEcho_binary()
                 sys.timerStop(test_state.send_timer)
                 test_state.send_timer = nil
             end
-            assert(false, string.format("WebSocket错误: %s", data or "未知错误"))
+            test_state.test_error = data or "未知错误"
+            test_state.test_complete = true
+            ws_client:autoreconn(false)
+            ws_client:close()
+            test_state.ws_closed = true
         end
     end)
 
@@ -270,7 +278,13 @@ function websocket_tests.test_WebsocketEcho_binary()
         sys.timerStop(test_state.send_timer)
         test_state.send_timer = nil
     end
+    wsc:autoreconn(false)
+    if not test_state.ws_closed then
+        wsc:close()
+        test_state.ws_closed = true
+    end
     
+    assert(test_state.test_error == nil, string.format("WebSocket错误: %s", test_state.test_error or "未知错误"))
     assert(test_state.test_complete == true, 
         string.format("测试超时，已发送:%d, 已接收:%d", test_state.sent_count, test_state.received_count))
     assert(test_state.sent_count == 10, string.format("应发送10次，实际%d次", test_state.sent_count))
@@ -297,7 +311,7 @@ function websocket_tests.test_WebsocketEcho_all_formats()
     end)
     assert(success == true, "参数类型为table,设置自定义请求头失败")
 
-    wsc:autoreconn(true)
+    wsc:autoreconn(false)
 
     local test_state = {
         sent_count = 0,
@@ -305,7 +319,9 @@ function websocket_tests.test_WebsocketEcho_all_formats()
         sent_data = {},
         received_data = {},
         send_timer = nil,
-        test_complete = false
+        test_complete = false,
+        test_error = nil,
+        ws_closed = false
     }
 
     wsc:on(function(ws_client, event, data, fin, optcode)
@@ -367,7 +383,15 @@ function websocket_tests.test_WebsocketEcho_all_formats()
 
         elseif event == "error" then
             log.error("WebSocket错误", data)
-            assert(false, string.format("WebSocket错误: %s", data or "未知错误"))
+            if test_state.send_timer then
+                sys.timerStop(test_state.send_timer)
+                test_state.send_timer = nil
+            end
+            test_state.test_error = data or "未知错误"
+            test_state.test_complete = true
+            ws_client:autoreconn(false)
+            ws_client:close()
+            test_state.ws_closed = true
         end
     end)
 
@@ -388,7 +412,9 @@ function websocket_tests.test_WebsocketEcho_all_formats()
         sys.timerStop(test_state.send_timer)
         test_state.send_timer = nil
     end
+    wsc:autoreconn(false)
 
+    assert(test_state.test_error == nil, string.format("WebSocket错误: %s", test_state.test_error or "未知错误"))
     assert(test_state.test_complete == true, 
         string.format("测试超时，已发送:%d, 已接收:%d", test_state.sent_count, test_state.received_count))
     assert(test_state.sent_count == total_tests,

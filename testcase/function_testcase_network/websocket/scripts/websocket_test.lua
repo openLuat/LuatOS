@@ -2,7 +2,7 @@ local websocket_tests = {}
 
 -- 测试服务器
 local test_server = "ws://airtest.openluat.com:2900/websocket"
-local echo_server = "ws://airtest.openluat.com:2900/websocket"
+local echo_server = "ws://echo.airtun.air32.cn/ws/echo2"
 
 -- 测试数据
 local test_cases = {

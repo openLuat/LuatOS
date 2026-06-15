@@ -296,10 +296,28 @@ local function test_04_big_io()
     f = io.open(big, "rb")
     if not f then return false end
     local first = f:read(CHUNK)
-    f:seek("end", -CHUNK); local last = f:read(CHUNK)
+    -- 用绝对偏移定位末块, 避免 vfs 对 seek("end", -N) 语义的差异
+    local seek_pos = TOTAL - CHUNK
+    local pos, serr = f:seek("set", seek_pos)
+    log.info("sd", string.format("seek to %d ret=%s err=%s",
+        seek_pos, tostring(pos), tostring(serr)))
+    local last = f:read(CHUNK)
     f:close()
-    if first ~= pattern or last ~= pattern then
-        log.error("sd", "read-back 校验失败")
+    if first ~= pattern then
+        log.error("sd", string.format(
+            "首块校验失败 first_len=%d expect_len=%d",
+            first and #first or 0, #pattern))
+        return false
+    end
+    if last ~= pattern then
+        log.error("sd", string.format(
+            "末块校验失败 last_len=%d expect_len=%d",
+            last and #last or 0, #pattern))
+        if last and #last >= 4 then
+            log.error("sd", string.format(
+                "末块前 4 字节: %02X %02X %02X %02X (期望 5A A5 33 CC)",
+                last:byte(1), last:byte(2), last:byte(3), last:byte(4)))
+        end
         return false
     end
     log.info("sd", "read-back 校验 OK (32KB)")

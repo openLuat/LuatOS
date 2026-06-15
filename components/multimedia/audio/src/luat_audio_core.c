@@ -61,11 +61,15 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 	volatile uint32_t next_play_cnt;
 	ctrl->current_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
 	// soc_printf("current_play_cnt %d", ctrl->current_play_cnt);
-	if (ctrl->common_param.driver_work_mode == LUAT_AUDIO_DRIVER_MODE_RECORD) {
-		return;
-	}
-	if (!_luat_audio.current_request_block || (!_luat_audio.current_request_block->is_wait_play_end && (ctrl->data_channel->user_play_stop || !ctrl->audio_output_enable))) {
+	if (!_luat_audio.current_request_block ) {
 		goto CHECK_FILL_BLANK;
+	} else {
+		if (_luat_audio.current_request_block->play_codec.opts->type == LUAT_AUDIO_DATA_CODEC_TYPE_NO_OP) {
+			return;
+		}
+		if (!_luat_audio.current_request_block->is_wait_play_end && (ctrl->data_channel->user_play_stop || !ctrl->audio_output_enable)) {
+			goto CHECK_FILL_BLANK;
+		}
 	}
 
 	next_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
@@ -1209,6 +1213,11 @@ int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_au
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
+	if (luat_audio_data_codec_bind(&request_block->play_codec, &luat_audio_data_codec_no_op_opts, request_block)) {
+		luat_audio_request_deinit(request_block);
+		return -LUAT_ERROR_OPERATION_FAILED;
+	}
+	
 	if (request_block->record_codec.opts->init(&request_block->record_codec, 1) != LUAT_ERROR_NONE) {
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
@@ -1219,6 +1228,48 @@ int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_au
 	request_block->record_callback_frame_cnt = record_callback_frame_cnt;
 	//LLOGC(luat_audio_debug_flag, "record_one_frame_len: %d , callback_frame_cnt: %d", request_block->record_codec.common_param.one_frame_bytes, record_callback_frame_cnt);
 	//request_block->record_fifo_enough_data_level = record_callback_frame_cnt * request_block->record_codec.common_param.one_frame_bytes;
+	return luat_audio_request_start(request_block, 0);
+}
+
+int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, 
+    const luat_audio_data_codec_opts_t *play_codec_opts, const luat_audio_data_codec_opts_t *record_codec_opts,
+    luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt,
+    uint32_t *tx_buff, uint32_t one_block_len, uint8_t block_num,
+    luat_audio_request_cb_t cb, void *user_data)
+{
+	if (!request_block || !common_audio_param || !play_codec_opts || !record_codec_opts || !record_fifo || (!record_codec_opts->encode && !record_codec_opts->encode_with_sync_output_ref)) {
+		return -LUAT_ERROR_PARAM_INVALID;
+	}
+	
+	int ret = luat_audio_request_prepare(request_block, probe, tx_buff?LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER:LUAT_AUDIO_DRIVER_MODE_SPEECH, cb, user_data);
+	if (ret != LUAT_ERROR_NONE) {
+		return ret;
+	}
+	if (luat_audio_data_codec_bind(&request_block->record_codec, record_codec_opts, request_block)) {
+		luat_audio_request_deinit(request_block);
+		return -LUAT_ERROR_OPERATION_FAILED;
+	}
+	if (luat_audio_data_codec_bind(&request_block->play_codec, play_codec_opts, request_block)) {
+		luat_audio_request_deinit(request_block);
+		return -LUAT_ERROR_OPERATION_FAILED;
+	}
+	if (request_block->record_codec.opts->init(&request_block->record_codec, 1) != LUAT_ERROR_NONE) {
+		luat_audio_request_deinit(request_block);
+		return -LUAT_ERROR_OPERATION_FAILED;
+	}
+	if (request_block->play_codec.opts->init(&request_block->play_codec, 0) != LUAT_ERROR_NONE) {
+		luat_audio_request_deinit(request_block);
+		return -LUAT_ERROR_OPERATION_FAILED;
+	}
+	request_block->record_codec.opts->set_record_info(&request_block->record_codec, common_audio_param);
+	request_block->play_codec.common_param = *common_audio_param;
+	request_block->encode_save_fifo = record_fifo;
+	request_block->priority = 255;
+	request_block->static_play_buff = tx_buff;
+	request_block->static_play_buff_one_block_len = one_block_len;
+	request_block->static_play_buff_block_nums = block_num;
+	request_block->record_callback_frame_cnt = record_callback_frame_cnt;
+	request_block->is_stream = 1;
 	return luat_audio_request_start(request_block, 0);
 }
 
@@ -1233,6 +1284,7 @@ void luat_audio_base_init(void)
 #ifdef __LUATOS__
 	l_audio_init();
 #endif
+	luat_audio_data_codec_register(&luat_audio_data_codec_no_op_opts);
 }
 
 void luat_audio_debug_switch(uint8_t on_off)

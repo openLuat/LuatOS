@@ -319,6 +319,7 @@ extern const luat_audio_data_codec_opts_t luat_audio_data_codec_wav_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_raw_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_ulaw_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_alaw_opts;
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_no_op_opts;
 #endif
 
 /** @} */

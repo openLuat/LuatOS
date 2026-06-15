@@ -1,6 +1,5 @@
-
+#if 0
 #include "audioCfg.h"   //struct AudioConfig_t
-
 const AudioConfig_t audio_cfg_default =
 {
 	.amrEncodeBypass = 0,
@@ -13,7 +12,7 @@ const AudioConfig_t audio_cfg_default =
 #if defined(TX_AEC)
 	    .CVT_AEC = {
 	    .bypass = 0,
-	    .delay = 0,//yww if>= 0,use this value//ori = 100, modify to 10(10*4=40ms)
+		.delay = 10,//yww if>= 0,use this value//ori = 100, modify to 10(10*4=40ms)
 	    .cngMode = 1,
 	    .echoMode = 3,//ori=1,default=3
 	    .nlpFlag = 1,
@@ -187,3 +186,4 @@ const AudioConfig_t audio_cfg_default =
 	},
 };
 
+#endif

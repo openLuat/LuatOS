@@ -511,6 +511,8 @@ static int rd_next_chunk(tfs_dev_t *dev)
             dev->checkpt_byte_count = (int)ext.n_bytes;
             dev->checkpt_byte_offs  = 0;
             dev->checkpt_page_seq++;
+            if (ext.seq_number > dev->checkpt_max_seq)
+                dev->checkpt_max_seq = ext.seq_number;
             return TFS_OK;
         }
 
@@ -544,6 +546,8 @@ static int rd_next_chunk(tfs_dev_t *dev)
                 dev->checkpt_byte_count = (int)ext.n_bytes;
                 dev->checkpt_byte_offs  = 0;
                 dev->checkpt_page_seq++;
+                if (ext.seq_number > dev->checkpt_max_seq)
+                    dev->checkpt_max_seq = ext.seq_number;
                 rc = checkpt_remember_block(dev, blk);
                 if (rc != TFS_OK)
                     return rc;
@@ -607,6 +611,7 @@ static int load_checkpoint_start(tfs_dev_t *dev, int chunk,
         dev->checkpt_sum       = 0;
         dev->checkpt_xor       = 0;
         dev->checkpt_next_block= (int)ext.seq_number;
+        dev->checkpt_max_seq   = ext.seq_number;
         rc = checkpt_remember_block(dev, blk);
         if (rc != TFS_OK)
             return rc;
@@ -1048,6 +1053,7 @@ int tfs_checkpt_read(tfs_dev_t *dev)
         return rc;
     dev->blocks_in_checkpt = 0;
     dev->checkpt_has_tnodes = 0;
+    dev->checkpt_max_seq = 0;
 
     if (find_latest_checkpoint_start(dev) != TFS_OK)
         return TFS_EINVAL;
@@ -1069,6 +1075,10 @@ int tfs_checkpt_read(tfs_dev_t *dev)
     dev->oldest_dirty_seq = cdev.oldest_dirty_seq;
     dev->n_deleted_files  = (int)cdev.n_deleted_files;
     dev->n_unlinked_files = (int)cdev.n_unlinked_files;
+    dev->checkpt_base_seq = cdev.seq_number;
+    dev->checkpt_base_alloc_block = (int)cdev.alloc_block;
+    dev->checkpt_base_alloc_page = (uint32_t)cdev.alloc_page;
+    dev->checkpt_delta_chunks = 0;
 
     /* 3. Block info */
     n_blocks = dev->internal_end_block - dev->internal_start_block + 1;
@@ -1175,6 +1185,13 @@ int tfs_checkpt_read(tfs_dev_t *dev)
     rc = mark_restored_checkpt_blocks(dev);
     if (rc != TFS_OK)
         return rc;
+
+    if (dev->checkpt_max_seq >= dev->checkpt_base_seq &&
+        dev->checkpt_max_seq < TFS_HIGHEST_SEQ_NUMBER) {
+        dev->checkpt_base_seq = dev->checkpt_max_seq + 1;
+        if (dev->seq_number < dev->checkpt_base_seq)
+            dev->seq_number = dev->checkpt_base_seq;
+    }
 
     /* The cdev record saved alloc_page BEFORE checkpoint chunks were written.
      * Advance past any checkpoint chunks that now occupy those pages. */

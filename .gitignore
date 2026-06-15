@@ -127,6 +127,7 @@ bsp/pc/otp.bin
 .mavis/
 .antigravitycli/
 .opencode/
+/docs/superpowers
 # Media artifacts accidentally saved at repo root by tooling
 /matrix-media-*.mp4
 /pgfs_flow.mp4

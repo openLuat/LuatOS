@@ -252,7 +252,7 @@ static int l_audio_play(lua_State *L) {
     result = luat_audio_request_play_files(&l_req->request, 
         (driver_probe.probe_id ? &driver_probe : NULL), 
         (codec_id < LUAT_AUDIO_DATA_CODEC_TYPE_MAX) ? luat_audio_data_codec_find(org_codec_id) : NULL,
-        info, file_nums, priority,0, _l_audio_request_callback, l_req);
+        info, file_nums, priority,0, _l_audio_request_callback, l_req, NULL);
     luat_heap_free(info);
     if (result) {
         luat_llist_del(&l_req->node);
@@ -323,7 +323,7 @@ static int l_audio_stream(lua_State *L) {
         codec_opts, 
         &common_param, 0,
         priority, 0, 
-        _l_audio_request_callback, l_req);
+        _l_audio_request_callback, l_req, NULL);
     if (result) {
         luat_llist_del(&l_req->node);
         luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
@@ -471,11 +471,11 @@ static int l_audio_record(lua_State *L) {
             LLOGE("open file %s failed", path);
             goto DONE;
         }
-        result = luat_audio_request_record(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, codec_opts,&common_param, _l_audio.record_fifo, 10, priority, _l_audio_request_callback, l_req);
+        result = luat_audio_request_record(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, codec_opts,&common_param, _l_audio.record_fifo, 10, priority, _l_audio_request_callback, l_req, NULL);
     } else if (lua_isuserdata(L, 1)) {
         l_req->is_record_file = 0;
         l_req->record_zbuff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
-        result = luat_audio_request_record(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, codec_opts,&common_param, _l_audio.record_fifo, l_req->record_timeout_or_callback_frame, priority, _l_audio_request_callback, l_req);
+        result = luat_audio_request_record(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, codec_opts,&common_param, _l_audio.record_fifo, l_req->record_timeout_or_callback_frame, priority, _l_audio_request_callback, l_req, NULL);
     }
     if (result) {
         luat_llist_del(&l_req->node);
@@ -596,7 +596,7 @@ static int l_audio_tts(lua_State *L) {
     luat_llist_del(&l_req->node);
     luat_llist_add_tail(&l_req->node, &_l_audio.request_busy_list);
     result = luat_audio_request_play_tts(&l_req->request, 
-        (driver_probe.probe_id ? &driver_probe : NULL), buf, len, priority, 0,_l_audio_request_callback, l_req);
+        (driver_probe.probe_id ? &driver_probe : NULL), buf, len, priority, 0,_l_audio_request_callback, l_req, NULL);
     if (result) {
         luat_llist_del(&l_req->node);
         luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);

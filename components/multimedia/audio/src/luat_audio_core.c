@@ -486,12 +486,6 @@ static void _audio_decode_current_request_play_info(luat_audio_request_block_t *
  */
 static void _audio_decode_file_start(luat_audio_request_block_t *request_block)
 {
-	luat_fifo_destroy(request_block->org_input_data_fifo);
-	request_block->org_input_data_fifo = luat_fifo_create(LUAT_AUDIO_DATA_CODEC_INPUT_FIFO_DEFAULT_SIZE_POWER);
-	if (!request_block->org_input_data_fifo) {
-		LLOGE("create org input data fifo failed, no memory");
-		request_block->is_error_stop = 1;
-	}
 	if (!request_block->is_stream) {
 		_audio_decode_current_request_play_info(request_block);
 	}
@@ -1089,7 +1083,7 @@ int luat_audio_request_prepare(luat_audio_request_block_t *request_block, luat_a
 }
 
 int luat_audio_request_play_files(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts, luat_audio_play_file_info_t *files, uint32_t files_num, uint8_t priority, uint8_t is_sync,
-    luat_audio_request_cb_t cb, void *user_data)
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts)
 {
 	if (!request_block) {
 		return -LUAT_ERROR_PARAM_INVALID;
@@ -1097,6 +1091,10 @@ int luat_audio_request_play_files(luat_audio_request_block_t *request_block, lua
 	int ret = luat_audio_request_prepare(request_block, probe, LUAT_AUDIO_DRIVER_MODE_PLAY, cb, user_data);
 	if (ret != LUAT_ERROR_NONE) {
 		return ret;
+	}
+	request_block->org_input_data_fifo = luat_fifo_create(LUAT_AUDIO_DATA_CODEC_INPUT_FIFO_DEFAULT_SIZE_POWER);
+	if (!request_block->org_input_data_fifo) {
+		return -LUAT_ERROR_NO_MEMORY;
 	}
 	if (codec_opts) {
 		
@@ -1132,7 +1130,7 @@ int luat_audio_request_play_files(luat_audio_request_block_t *request_block, lua
 }
 
 int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const char *text, uint32_t text_len, uint8_t priority, uint8_t is_sync,
-    luat_audio_request_cb_t cb, void *user_data)
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts)
 {
 	if (!request_block) {
 		return -LUAT_ERROR_PARAM_INVALID;
@@ -1140,6 +1138,10 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 	int ret = luat_audio_request_prepare(request_block, probe, LUAT_AUDIO_DRIVER_MODE_PLAY, cb, user_data);
 	if (ret != LUAT_ERROR_NONE) {
 		return ret;
+	}
+	request_block->org_input_data_fifo = luat_fifo_create(LUAT_AUDIO_DATA_CODEC_INPUT_FIFO_DEFAULT_SIZE_POWER);
+	if (!request_block->org_input_data_fifo) {
+		return -LUAT_ERROR_NO_MEMORY;
 	}
 	if (!luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS)) {
 		LLOGE("request_id: %d tts codec not found", request_block->request_id);
@@ -1171,7 +1173,7 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 
 int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts,
     luat_audio_common_param_t *common_param, uint32_t one_block_len, uint8_t priority, uint8_t is_sync,
-    luat_audio_request_cb_t cb, void *user_data)
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts)
 {
 	if (!request_block || !common_param || !codec_opts) {
 		return -LUAT_ERROR_PARAM_INVALID;
@@ -1180,7 +1182,10 @@ int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, lu
 	if (ret != LUAT_ERROR_NONE) {
 		return ret;
 	}
-
+	request_block->org_input_data_fifo = luat_fifo_create(LUAT_AUDIO_DATA_CODEC_INPUT_FIFO_DEFAULT_SIZE_POWER);
+	if (!request_block->org_input_data_fifo) {
+		return -LUAT_ERROR_NO_MEMORY;
+	}
 	if (luat_audio_data_codec_bind(&request_block->play_codec, codec_opts, request_block)) {
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
@@ -1199,7 +1204,7 @@ int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, lu
 
 int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts, 
 	luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt, uint8_t priority, 
-    luat_audio_request_cb_t cb, void *user_data)
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts)
 {
 	if (!request_block || !common_audio_param || !codec_opts || !record_fifo || (!codec_opts->encode && !codec_opts->encode_with_sync_output_ref)) {
 		return -LUAT_ERROR_PARAM_INVALID;
@@ -1235,7 +1240,7 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
     const luat_audio_data_codec_opts_t *play_codec_opts, const luat_audio_data_codec_opts_t *record_codec_opts,
     luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt,
     uint32_t *tx_buff, uint32_t one_block_len, uint8_t block_num,
-    luat_audio_request_cb_t cb, void *user_data)
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts)
 {
 	if (!request_block || !common_audio_param || !play_codec_opts || !record_codec_opts || !record_fifo || (!record_codec_opts->encode && !record_codec_opts->encode_with_sync_output_ref)) {
 		return -LUAT_ERROR_PARAM_INVALID;
@@ -1245,6 +1250,11 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 	if (ret != LUAT_ERROR_NONE) {
 		return ret;
 	}
+	request_block->org_input_data_fifo = luat_fifo_create(LUAT_AUDIO_DATA_CODEC_INPUT_FIFO_DEFAULT_SIZE_POWER);
+	if (!request_block->org_input_data_fifo) {
+		return -LUAT_ERROR_NO_MEMORY;
+	}
+
 	if (luat_audio_data_codec_bind(&request_block->record_codec, record_codec_opts, request_block)) {
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;

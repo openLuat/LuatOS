@@ -89,7 +89,7 @@ struct luat_audio_request_block {
     luat_buffer_t data_align_buffer;                /**< 数据对齐调整用临时缓冲区 */
     luat_buffer_t channel_nums_buffer;                /**< 通道数量对齐用临时缓冲区 */
 
-    luat_audio_dsp_t *dsp;                  /**< 关联的DSP处理实例 */
+    luat_audio_dsp_t dsp;                  /**< 关联的DSP处理实例 */
     luat_audio_data_codec_t play_codec;          /**< 关联的播放编解码器实例 */
     luat_audio_data_codec_t record_codec;          /**< 关联的录音编解码器实例 */
     luat_audio_channel_t *data_channel;      /**< 关联的音频通道 */
@@ -131,7 +131,7 @@ typedef struct luat_audio_request_block luat_audio_request_block_t;
  */
 int luat_audio_request_play_files(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts, luat_audio_play_file_info_t *files, uint32_t files_num, 
     uint8_t priority, uint8_t is_sync,
-    luat_audio_request_cb_t cb, void *user_data);
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);
 
 /**
 * @brief 播放文本转语音
@@ -150,7 +150,7 @@ int luat_audio_request_play_files(luat_audio_request_block_t *request_block, lua
 */
 int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const char *text, uint32_t text_len, 
     uint8_t priority, uint8_t is_sync,
-    luat_audio_request_cb_t cb, void *user_data);
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);
 
 /**
 * @brief 播放流式音频
@@ -170,7 +170,7 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 */
 int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts,
     luat_audio_common_param_t *common_param, uint32_t one_block_len, uint8_t priority, uint8_t is_sync,
-    luat_audio_request_cb_t cb, void *user_data);    
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);    
 /**
  * @brief 录音音频
  * 
@@ -191,7 +191,7 @@ int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_au
     const luat_audio_data_codec_opts_t *codec_opts, 
     luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt, 
     uint8_t priority, 
-    luat_audio_request_cb_t cb, void *user_data);
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);
 /**
  * @brief 通话模式，强制在最高等级
  * 
@@ -214,7 +214,7 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
     const luat_audio_data_codec_opts_t *play_codec_opts, const luat_audio_data_codec_opts_t *record_codec_opts,
     luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt,
     uint32_t *tx_buff, uint32_t one_block_len, uint8_t block_num,
-    luat_audio_request_cb_t cb, void *user_data);
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);
 
 // 低等级接口，除非用户需要自行处理解码器，dsp等，否则一般不需要主动调用
 /**

@@ -41,9 +41,6 @@ function lcd_drv_init()
     log.info("lcd.init", result)
 
     if result then
-        -- 显示设置
-        lcd.setupBuff(nil, true)
-        lcd.autoFlush(false)
 
         -- 初始化AirUI
         local width, height = lcd.getSize()

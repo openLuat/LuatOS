@@ -29,9 +29,11 @@
 
 ### 2.3 交互组件演示
 1.  **`airui_switch.lua`** - 开关组件演示
-2.  **`airui_dropdown.lua`** - 下拉框组件演示
-3.  **`airui_input.lua`** - 输入框和虚拟键盘演示
-4.  **`airui_msgbox.lua`** - 消息框组件演示
+2.  **`airui_checkbox.lua`** - 复选框组件演示
+3.  **`airui_slider.lua`** - 滑块组件演示
+4.  **`airui_dropdown.lua`** - 下拉框组件演示
+5.  **`airui_input.lua`** - 输入框和虚拟键盘演示
+6.  **`airui_msgbox.lua`** - 消息框组件演示
 
 ### 2.4 布局与高级组件演示
 1.  **`airui_table.lua`** - 表格组件演示
@@ -49,7 +51,10 @@
 4.  **`airui_video.lua`** - 视频组件演示（MJPG播放）
 
 ### 2.6 字体渲染演示
-1.  **`airui_hzfont.lua`** / **`hzfont_page.lua`** - HzFont 矢量字体特性演示
+1.  **`airui_hzfont.lua`** - NotoSansSC_subset 矢量字体全貌展示（需配套字体文件）
+
+### 2.7 系统功能演示
+1.  **`airui_sleep.lua`** - AirUI 休眠管理演示（三级联动休眠与唤醒）
 
 ## 三、演示效果
 
@@ -109,6 +114,9 @@
 2. 比如：需要演示下拉框组件，将 main.lua 文件中的-- require("airui_dropdown") 改为 require("airui_dropdown") ，并把其他加载的组件改为注释状态。
 
 ![](https://docs.openluat.com/cdn/image/AirUI_选择加载程序.png)
+
+> **注意：** 本 demo 使用 `NotoSansSC_subset.ttf` 作为中文字体文件。PC 模拟器运行前，需将 `NotoSansSC_subset.ttf` 文件放入 Luatools 内置 PC 模拟器的根目录下，路径为：`luatools\resource\LuatOS_PC\LuatOS-SoC_V最新版本_PC`。否则模拟器中文字体无法正常显示。
+
 
 
 ## 五、真实设备演示硬件环境
@@ -263,6 +271,7 @@ require("tp_drv")
 -- require("airui_bar")  --动态进度条演示
 -- require("airui_dropdown")  --下拉框演示
 -- require("airui_switch")  --开关组件演示
+-- require("airui_checkbox")  --复选框组件演示
 -- require("airui_msgbox")  --消息框组件演示
 -- require("airui_input")  --输入框和键盘演示
 -- require("airui_tabview")  --选项卡演示
@@ -277,13 +286,15 @@ require("airui_all_component") --所有组件综合演示
 -- require("airui_shape")  -- 形状组件演示
 -- require("airui_spinner")  -- 加载指示器组件演示
 -- require("airui_video")  -- 视频组件演示
+-- require("airui_slider")  -- 滑块组件演示
+-- require("airui_sleep")  -- AirUI休眠管理演示
 ```
 
 ### 7.3 软件烧录步骤
 
 1. 使用 Luatools 烧录对应型号的最新内核固件
 2. 下载本项目所有脚本文件
-3. 按[hzfont加载外置字体方式](https://docs.openluat.com/osapi/core/hzfont/#ttf)下载所需字体文件并加载至文件系统
+3. 按[hzfont加载外置字体方式](https://docs.openluat.com/osapi/core/hzfont/#ttf)下载所需字体文件并加载至文件系统；本 demo 配套的 **`NotoSansSC_subset.ttf`** 需与 lua 脚本文件一同烧录
 4. 将演示图片文件（如 `logo.jpg`、`dingwei_50x50.png` 等）同.lua脚本文件一起烧录到脚本分区
 5. 动画图像(animimg)演示需要 `fly_man_01.png` ~ `fly_man_04.png` 多帧图片资源
 6. 视频(video)演示需要 `fly_man.mjpg` MJPG视频资源
@@ -323,4 +334,4 @@ require("airui_all_component") --所有组件综合演示
 
 ## 九、扩展开发
 
-本演示 demo 所有接口都在 [AirUI核心库](https://docs.openluat.com/osapi/core/airui/)内有详细说明，如需实现更丰富的自定义功能可按接口说明实现。
+本演示 demo 所有接口都在 [AirUI核心库](https://docs.openluat.com/osapi/core/airui/)内有详细说明，如需实现更丰富的自定义功能可按接口说明实现。�

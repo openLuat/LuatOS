@@ -1,8 +1,8 @@
 --[[
 @module  slider_page
 @summary 滑块组件演示
-@version 1.0
-@date    2026.06.11
+@version 1.1
+@date    2026.06.12
 @author  江访
 @usage
 本文件演示airui.slider组件的用法，包括创建、值设置、取值范围修改、样式设置和销毁。
@@ -11,7 +11,7 @@
 local function ui_main()
     -- ========== 基础 Slider ==========
     local slider1 = airui.slider({
-        x = 40, y = 40, w = 320, h = 24,
+        x = 240, y = 40, w = 320, h = 24,
         min = 0,
         max = 100,
         value = 35,
@@ -21,9 +21,16 @@ local function ui_main()
     })
     log.info("airui", "slider1 created", slider1 ~= nil, "init value", slider1:get_value())
 
+    -- ========== 显示当前值的 Label ==========
+    local value_label = airui.label({
+        x = 240, y = 72, w = 320, h = 28,
+        text = "当前值: 35",
+        font_size = 16,
+    })
+
     -- ========== 自定义样式的 Slider ==========
     local slider2 = airui.slider({
-        x = 40, y = 90, w = 320, h = 24,
+        x = 240, y = 120, w = 320, h = 24,
         min = 0,
         max = 100,
         value = 60,
@@ -47,18 +54,11 @@ local function ui_main()
     })
     log.info("airui", "slider2 created", slider2 ~= nil)
 
-    -- ========== 显示当前值的 Label ==========
-    local value_label = airui.label({
-        x = 380, y = 40, w = 80, h = 28,
-        text = "val: 35",
-        font_size = 16,
-    })
-
-    -- ========== 控制按钮 ==========
+    -- ========== 控制按钮（居中排列）==========
     -- 设置 slider1 值为 75
     airui.button({
-        text = "Set Slider 75",
-        x = 40, y = 160, w = 150, h = 44,
+        text = "设置值 75",
+        x = 230, y = 180, w = 160, h = 44,
         on_click = function()
             if slider1 and not slider1:is_destroyed() then
                 slider1:set_value(75, true)
@@ -67,10 +67,10 @@ local function ui_main()
         end
     })
 
-    -- 切换 slider1 样式
+    -- 切换 slider1 样式（随机颜色）
     airui.button({
-        text = "Toggle Style",
-        x = 210, y = 160, w = 150, h = 44,
+        text = "切换样式",
+        x = 410, y = 180, w = 160, h = 44,
         on_click = function()
             if slider1 and not slider1:is_destroyed() then
                 slider1:set_style({
@@ -84,8 +84,8 @@ local function ui_main()
 
     -- 修改 slider2 取值范围
     airui.button({
-        text = "Set Range 0-200",
-        x = 40, y = 220, w = 150, h = 44,
+        text = "范围 0-200",
+        x = 230, y = 240, w = 160, h = 44,
         on_click = function()
             if slider2 and not slider2:is_destroyed() then
                 slider2:set_range(0, 200)
@@ -96,8 +96,8 @@ local function ui_main()
 
     -- 销毁 slider1
     airui.button({
-        text = "Destroy S1",
-        x = 210, y = 220, w = 150, h = 44,
+        text = "销毁 S1",
+        x = 410, y = 240, w = 160, h = 44,
         on_click = function()
             if slider1 and not slider1:is_destroyed() then
                 slider1:destroy()
@@ -111,7 +111,7 @@ local function ui_main()
     -- 定时更新值显示
     sys.timerLoopStart(function()
         if slider1 and not slider1:is_destroyed() then
-            value_label:set_text("val: " .. slider1:get_value())
+            value_label:set_text("当前值: " .. slider1:get_value())
         end
     end, 500)
 end

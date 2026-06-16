@@ -48,7 +48,7 @@ local function netdrv_multiple_task_func()
     exnetif.set_priority_order(
         {
 
-            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air8000开发板验证
+            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air780EHV开发板验证
             {
                 ETHERNET = {
                     -- 供电使能GPIO

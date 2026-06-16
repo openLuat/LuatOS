@@ -1,8 +1,8 @@
 --[[
 @module  expvp
 @summary 通用PVP联网对战游戏框架（MQTT通信 + IOT数据存储 + 房间/匹配系统）
-@version 1.0.3
-@date    2026.06.09
+@version 1.0.4
+@date    2026.06.16
 @author  王世豪
 @description
     通用PVP联网对战游戏框架，提供：
@@ -30,7 +30,8 @@
             -- "peer_join"：有玩家加入房间
             -- "peer_leave"：有玩家离开房间
             -- "peer_ready"：玩家准备状态发生变化
-            -- "join_rejected"：加入房间被拒绝（如房间已满）
+            -- "join_success"：加入房间成功
+            -- "join_rejected"：加入房间被拒绝（如房间已满/房间不存在）
             -- "match_found"：匹配系统找到对手
             -- "game_start"：房主开始游戏
             -- "game_data"：收到对手发送的游戏数据
@@ -62,6 +63,7 @@ local DEFAULT_CONFIG = {
     score_cls = 1,
     room_max_players = 2,           -- 房间最大人数（默认2人对战）
     match_timeout = 30000,          -- 匹配超时时间（毫秒）
+    join_timeout = 5000,            -- 加入房间等待房主确认超时时间（毫秒）
 }
 
 -- ==================== 状态 ====================
@@ -79,6 +81,8 @@ local state = {
 -- 房间状态
 local room_state = {
     current_room = nil,             -- 当前房间ID（6位纯数字）
+    pending_room = nil,             -- 正在申请加入、等待房主确认的房间ID
+    join_timer = nil,               -- 加入房间确认超时定时器
     is_host = false,                -- 是否是房主
     players = {},                   -- 房间内的玩家 {device_id -> player_info}
     my_ready = false,               -- 自己是否准备
@@ -137,6 +141,14 @@ end
 -- 生成房间Topic
 local function make_room_topic(room_id, name)
     return config.game_name .. "/room/" .. room_id .. "/" .. name
+end
+
+local function clear_join_pending()
+    if room_state.join_timer then
+        sys.timerStop(room_state.join_timer)
+        room_state.join_timer = nil
+    end
+    room_state.pending_room = nil
 end
 
 -- ==================== 初始化 ====================
@@ -206,7 +218,7 @@ end
 @description
     此函数不涉及硬件操作，直接注册回调，不通过队列
     事件类型："connect"/"disconnect"/"peer_join"/"peer_leave"/"peer_ready"
-             "join_rejected"/"match_found"/"game_start"/"game_data"/"presence"/"message"
+             "join_success"/"join_rejected"/"match_found"/"game_start"/"game_data"/"presence"/"message"
 @param cbfunc function 回调函数，格式: function(event, payload)
 @return boolean, string|nil 成功返回true，失败返回false和错误信息
 @usage
@@ -327,6 +339,7 @@ end
 function expvp.create_room()
     -- 生成简短易读的房间ID（6位数字）
     local room_id = tostring(os.time()):sub(-6)
+    clear_join_pending()
     room_state.current_room = room_id
     room_state.is_host = true
     room_state.players = {}
@@ -366,12 +379,24 @@ end
 @note 加入后会自动订阅房间topic并发送加入请求
 ]]
 function expvp.join_room(room_id)
-    room_state.current_room = room_id
+    if not room_id or not tostring(room_id):match("^%d%d%d%d%d%d$") then
+        log.warn('expvp', 'invalid room id', room_id or '')
+        if on_event then
+            on_event("join_rejected", {reason = "房间号无效"})
+        end
+        return false
+    end
+
+    room_id = tostring(room_id)
+    clear_join_pending()
+    room_state.current_room = nil
+    room_state.pending_room = room_id
     room_state.is_host = false
     room_state.players = {}
     room_state.my_ready = false
+    room_state.game_started = false
     
-    -- 订阅房间相关topic
+    -- 订阅房间相关topic，等待房主确认后才正式进入房间
     if state.mqtt_client then
         state.mqtt_client:subscribe(make_room_topic(room_id, "#"), config.mqtt_qos)
     end
@@ -383,8 +408,25 @@ function expvp.join_room(room_id)
         nickname = state.nickname,
         device_model = state.device_model,
     })
+
+    room_state.join_timer = sys.timerStart(function()
+        if room_state.pending_room ~= room_id then return end
+        if state.mqtt_client then
+            state.mqtt_client:unsubscribe(make_room_topic(room_id, "#"))
+        end
+        clear_join_pending()
+        room_state.current_room = nil
+        room_state.players = {}
+        room_state.my_ready = false
+        room_state.game_started = false
+        log.warn('expvp', 'join room timeout', room_id)
+        if on_event then
+            on_event("join_rejected", {reason = "房间不存在或房主无响应"})
+        end
+    end, config.join_timeout)
     
     log.info('expvp', 'joining room', room_id)
+    return true
 end
 
 --[[
@@ -394,9 +436,18 @@ end
 @return boolean 是否成功离开
 ]]
 function expvp.leave_room()
+    if room_state.pending_room and not room_state.current_room then
+        local room_id = room_state.pending_room
+        if state.mqtt_client then
+            state.mqtt_client:unsubscribe(make_room_topic(room_id, "#"))
+        end
+        clear_join_pending()
+        return true
+    end
     if not room_state.current_room then
         return false
     end
+    clear_join_pending()
     
     -- 发送离开通知
     publish(make_room_topic(room_state.current_room, "leave"), {
@@ -612,7 +663,8 @@ end
 -- ==================== 消息处理 ====================
 
 local function handle_room_message(topic, data)
-    if not room_state.current_room then return end
+    local active_room = room_state.current_room or room_state.pending_room
+    if not active_room then return end
     
     -- 处理加入请求
     if data.type == "join_request" and room_state.is_host then
@@ -663,15 +715,26 @@ local function handle_room_message(topic, data)
     
     -- 处理加入确认
     if data.type == "join_ack" and data.to == state.device_id then
+        if room_state.pending_room and data.room_id ~= room_state.pending_room then return end
         if data.rejected then
             -- 被拒绝加入
+            local rejected_room = room_state.pending_room or room_state.current_room
             log.warn('expvp', '加入房间被拒绝:', data.reason or '未知原因')
+            if state.mqtt_client and rejected_room then
+                state.mqtt_client:unsubscribe(make_room_topic(rejected_room, "#"))
+            end
+            clear_join_pending()
+            room_state.current_room = nil
+            room_state.players = {}
+            room_state.my_ready = false
+            room_state.game_started = false
             if on_event then
                 on_event("join_rejected", {reason = data.reason or '房间已满'})
             end
-            room_state.current_room = nil
             return
         end
+        clear_join_pending()
+        room_state.current_room = data.room_id or active_room
         room_state.players = data.players or {}
         -- 保留房主的完整信息（nickname、model等），只添加 is_host 标记
         if room_state.players[data.host_id] then
@@ -690,6 +753,9 @@ local function handle_room_message(topic, data)
             ready = false,
             is_host = false,
         }
+        if on_event then
+            on_event("join_success", {room_id = room_state.current_room, host_id = data.host_id, players = room_state.players})
+        end
         return
     end
     
@@ -793,7 +859,8 @@ local function handle_message(topic, payload)
     if not ok or not data then return end
     
     -- 处理房间消息
-    if room_state.current_room and topic:find("/room/" .. room_state.current_room) then
+    local active_room = room_state.current_room or room_state.pending_room
+    if active_room and topic:find("/room/" .. active_room) then
         handle_room_message(topic, data)
         return
     end

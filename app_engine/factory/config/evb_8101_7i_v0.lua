@@ -37,6 +37,7 @@ return {
         { pin = 32, dir = 0, level = 1 },  -- SPI0_CS1 = GPIO32 拉高（SD 卡片选）
         { pin = 49, dir = 0, level = 1 },  -- SPI0_CS2 = GPIO49 拉高（NAND Flash 片选）
         { pin = 34, dir = 0, level = 1 },  -- SPI0_CS0 = GPIO34 拉高（以太网 CH390H 片选）
+        { pin = 52, dir = 0, level = 1 },  -- MODBUS_EN
     },
 
     -- ===== 硬件配置 =====
@@ -78,7 +79,7 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        -- wifi = true,                     -- 启用 WiFi（exnetif 模式）
+        wifi = true,                     -- 启用 WiFi（exnetif 模式）
         ethernet = true,                 -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
         -- sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
         -- nand_flash = true,               -- 启用 NAND Flash（需配 storage.nand_flash）

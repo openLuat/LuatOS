@@ -342,32 +342,35 @@ function sm2_keyex.test_full_key_exchange()
     assert(ZB and #ZB == 32, "ZB计算失败")
     log.info("KeyEx", "√ ZA/ZB计算完成")
 
-    -- ===== 第6.2节第5步: A侧计算 =====
-    -- A1) 计算 x1 = 2^127 + (RA.x & 1)
-    local x1Value = tonumber(rAx:sub(63,64), 16) -- 最后一字节
-    -- w = 2^127 + (x1 & 1)  (简化, h=1)
-    -- A2) 计算 tA = (privA + rA * w) mod n  (简化处理)
-    -- 实际国密中w需要从x1计算, 这里用简化验证
-    -- A3) 计算点 U = [h·tA](PA+PB) 实际上规范中:
-    --     实际运算: U = [h*tA](PB + RB)  其中h=1
+    -- ===== 第6.2节: A侧计算 (完整协议) =====
+    -- keXHat: x̄ = 2^127 + (x & (2^127-1))
+    local function keXHat(xHex)
+        local low128 = xHex:sub(33, 64)
+        local hi = tonumber(low128:sub(1, 2), 16)
+        hi = (hi & 0x7F) | 0x80
+        return string.rep("0", 32) .. string.format("%02X", hi) .. low128:sub(3)
+    end
 
-    -- 用点乘计算 RB + PB: 由于sm2_point_add未暴露,用ECDH验证协商一致性即可
-    -- 这里验证: A用privA和B的临时公钥做ECDH + B用privB和A的临时公钥做ECDH
-    -- 两者应得到相同结果, 证明底层点乘运算正确
+    -- A侧
+    local tA = gmssl.sm2bnadd(privA, gmssl.sm2bnmul(keXHat(rAx), rA))
+    local ux_A, uy_A = gmssl.sm2pointmul(keXHat(rBx), rBx, rBy)
+    local vx_A, vy_A = gmssl.sm2pointadd(pkxB, pkyB, ux_A, uy_A)
+    local Vx_A, Vy_A = gmssl.sm2pointmul(tA, vx_A, vy_A)
 
-    local ux_A, uy_A = gmssl.sm2ecdh(privA, rBx, rBy)  -- [privA]*RB
-    local ux_B, uy_B = gmssl.sm2ecdh(privB, rAx, rAy)  -- [privB]*RA
+    -- B侧
+    local tB = gmssl.sm2bnadd(privB, gmssl.sm2bnmul(keXHat(rBx), rB))
+    local ux_B, uy_B = gmssl.sm2pointmul(keXHat(rAx), rAx, rAy)
+    local vx_B, vy_B = gmssl.sm2pointadd(pkxA, pkyA, ux_B, uy_B)
+    local Vx_B, Vy_B = gmssl.sm2pointmul(tB, vx_B, vy_B)
 
-    assert(ux_A and uy_A, "A侧ECDH失败")
-    assert(ux_B and uy_B, "B侧ECDH失败")
+    -- 验证协商点一致
+    assert(Vx_A == Vx_B and Vy_A == Vy_B, "协商点V不一致!")
 
-    -- ===== 第6.2节第6步: KDF派生共享密钥 =====
-    -- KA = KDF(xU || yU || ZA || ZB, klen)
-    local klen = 16  -- 128位共享密钥
-    local uRaw_A = concat(ux_A, uy_A, ZA, ZB)
-    local uRaw_B = concat(ux_B, uy_B, ZA, ZB)
-    local KA = sm3_kdf(uRaw_A, klen)
-    local KB = sm3_kdf(uRaw_B, klen)
+    -- ===== KDF派生共享密钥 =====
+    local klen = 16
+    local uRaw = concat(h2b(Vx_A), h2b(Vy_A), ZA, ZB)
+    local KA = sm3_kdf(uRaw, klen)
+    local KB = sm3_kdf(concat(h2b(Vx_B), h2b(Vy_B), ZA, ZB), klen)
 
     -- ===== 验证: KA == KB (密钥协商一致性) =====
     assert(KA == KB, "密钥协商不一致! KA != KB")

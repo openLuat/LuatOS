@@ -47,6 +47,7 @@ end
 #include "luat_log.h"
 
 #include "mbedtls/pk.h"
+#include "mbedtls/build_info.h"
 
 #ifdef LUAT_USE_UTEST
 extern int luat_rsa_utest(lua_State *L, const char *case_name);
@@ -76,6 +77,11 @@ local res = rsa.encrypt((io.readFile("/luadb/public.pem")), "abc")
 log.info("rsa", "encrypt", res and #res or 0, res and res:toHex() or "")
 */
 static int l_rsa_encrypt(lua_State* L) {
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    (void)L;
+    LLOGW("rsa.encrypt is not supported by mbedtls4 legacy PK API");
+    return 0;
+#else
     int ret = 0;
     size_t ilen = 0;
     size_t keylen = 0;
@@ -102,6 +108,7 @@ static int l_rsa_encrypt(lua_State* L) {
     }
     lua_pushlstring(L, buff, olen);
     return 1;
+#endif
 }
 
 /*
@@ -118,6 +125,11 @@ local dst = rsa.decrypt((io.readFile("/luadb/privkey.pem")), res, "")
 log.info("rsa", "decrypt", dst and #dst or 0, dst and dst:toHex() or "")
 */
 static int l_rsa_decrypt(lua_State* L) {
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    (void)L;
+    LLOGW("rsa.decrypt is not supported by mbedtls4 legacy PK API");
+    return 0;
+#else
     int ret = 0;
     size_t ilen = 0;
     size_t keylen = 0;
@@ -156,6 +168,7 @@ static int l_rsa_decrypt(lua_State* L) {
     }
     lua_pushlstring(L, buff, olen);
     return 1;
+#endif
 }
 
 /*

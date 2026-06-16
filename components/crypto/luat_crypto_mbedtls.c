@@ -114,6 +114,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     if (!strcmp("PKCS7", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_PKCS7);
     }
+#if MBEDTLS_VERSION_NUMBER < 0x04000000
     else if (!strcmp("ZERO", cctx->pad) || !strcmp("ZEROS", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_ZEROS);
     }
@@ -123,6 +124,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     else if (!strcmp("ZEROS_AND_LEN", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_ZEROS_AND_LEN);
     }
+#endif
     else {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_NONE);
     }
@@ -539,7 +541,10 @@ int luat_crypto_pk_sign(int md_type,
     if (luat_pk_is_pem(privkey, privkey_len)) {
         pem_buf = luat_pk_dup_pem(privkey, privkey_len);
         if (!pem_buf) goto cleanup;
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+        ret = mbedtls_pk_parse_key(&pk, pem_buf, privkey_len + 1,
+                                   (const uint8_t *)password, pwd_len);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
         ret = mbedtls_pk_parse_key(&pk, pem_buf, privkey_len + 1,
                                    (const uint8_t *)password, pwd_len,
                                    luat_pk_rng_cb, NULL);
@@ -551,7 +556,10 @@ int luat_crypto_pk_sign(int md_type,
         pem_buf = NULL;
     } else {
         /* DER 格式 */
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+        ret = mbedtls_pk_parse_key(&pk, privkey, privkey_len,
+                                   (const uint8_t *)password, pwd_len);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
         ret = mbedtls_pk_parse_key(&pk, privkey, privkey_len,
                                    (const uint8_t *)password, pwd_len,
                                    luat_pk_rng_cb, NULL);
@@ -576,7 +584,10 @@ int luat_crypto_pk_sign(int md_type,
 
     /* 执行签名 */
     size_t sig_len = 0;
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    ret = mbedtls_pk_sign(&pk, luat_md_to_mbedtls(md_type), hash, hash_len,
+                          *sig_out, sig_max, &sig_len);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
     ret = mbedtls_pk_sign(&pk, luat_md_to_mbedtls(md_type), hash, hash_len,
                           *sig_out, sig_max, &sig_len,
                           luat_pk_rng_cb, NULL);
@@ -649,7 +660,10 @@ const char *luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_priva
         pem_buf = luat_pk_dup_pem(key, key_len);
         if (!pem_buf) goto done;
         if (is_private) {
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+            ret = mbedtls_pk_parse_key(&pk, pem_buf, key_len + 1,
+                                       NULL, 0);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
             ret = mbedtls_pk_parse_key(&pk, pem_buf, key_len + 1,
                                        NULL, 0, luat_pk_rng_cb, NULL);
 #else
@@ -662,7 +676,9 @@ const char *luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_priva
         pem_buf = NULL;
     } else {
         if (is_private) {
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+            ret = mbedtls_pk_parse_key(&pk, key, key_len, NULL, 0);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
             ret = mbedtls_pk_parse_key(&pk, key, key_len,
                                        NULL, 0, luat_pk_rng_cb, NULL);
 #else
@@ -674,6 +690,16 @@ const char *luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_priva
     }
 
     if (ret == 0) {
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+        psa_key_type_t psa_type = mbedtls_pk_get_key_type(&pk);
+        if (PSA_KEY_TYPE_IS_RSA(psa_type)) {
+            type_str = "rsa";
+        } else if (PSA_KEY_TYPE_IS_ECC(psa_type)) {
+            type_str = "ec";
+        } else {
+            type_str = "unknown";
+        }
+#else
         switch (mbedtls_pk_get_type(&pk)) {
             case MBEDTLS_PK_RSA:      type_str = "rsa";     break;
             case MBEDTLS_PK_ECKEY:    type_str = "ec";      break;
@@ -682,6 +708,7 @@ const char *luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_priva
             case MBEDTLS_PK_OPAQUE:   type_str = "opaque";  break;
             default:                  type_str = "unknown";  break;
         }
+#endif
     }
 
 done:
@@ -689,7 +716,7 @@ done:
     return type_str;
 }
 
-#if defined(MBEDTLS_PK_WRITE_C) && defined(MBEDTLS_GENPRIME)
+#if defined(MBEDTLS_PK_WRITE_C) && defined(MBEDTLS_GENPRIME) && MBEDTLS_VERSION_NUMBER < 0x04000000
 #include "mbedtls/rsa.h"
 #include "mbedtls/ecp.h"
 

@@ -29,8 +29,8 @@ local function find_ext_root()
     return candidate  -- xmake will emit a clear missing-file error if path is still wrong
 end
 local luatos_ext_root = find_ext_root()
--- 2表示mbedtls 2.18.x，3表示mbedtls 3.x
-local mbedtls_version = 3
+-- 2表示mbedtls 2.18.x，3表示mbedtls 3.x，4表示mbedtls 4.x
+local mbedtls_version = 4
 
 add_requires("gmssl")
 add_packages("gmssl")
@@ -82,6 +82,8 @@ add_defines("__LUATOS__", "__XMAKE_BUILD__")
 -- mbedtls使用本地自定义配置
 if mbedtls_version == 2 then
     add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc_mbedtls218.h\"")
+elseif mbedtls_version == 4 then
+    add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc_mbedtls4.h\"")
 else
     add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc_mbedtls3.h\"")
 end
@@ -163,7 +165,7 @@ target("luatos-lua")
 
     if is_host("windows") then
         add_packages("pthreads4w")
-        add_links("ws2_32", "iphlpapi")
+        add_links("ws2_32", "iphlpapi", "bcrypt")
     end
 
     -- i2c-tools
@@ -229,6 +231,11 @@ target("luatos-lua")
     if mbedtls_version == 2 then
         add_thirdparty_files(luatos.."components/mbedtls/library/*.c")
         add_includedirs(luatos.."components/mbedtls/include")
+    elseif mbedtls_version == 4 then
+        local mbedtls4_path = luatos.."components/mbedtls4/"
+        add_defines("MBEDTLS_ALLOW_PRIVATE_ACCESS")
+        add_includedirs(mbedtls4_path.."include", mbedtls4_path.."library")
+        add_thirdparty_files(mbedtls4_path.."library/*.c")
     else
         add_thirdparty_files(luatos.."components/mbedtls3/library/*.c")
         add_includedirs(luatos.."components/mbedtls3/include")

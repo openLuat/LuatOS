@@ -49,13 +49,19 @@ BASIC_CASES = [
     (b"AT+CPIN?\r\n",                        b"CME ERROR",         "无 SIM,工具忽略"),
     (b"AT+CFUN=0\r\n",                       b"OK",                "关射频 (校准前硬前置)"),
     (b"AT+CFUN=1\r\n",                       b"OK",                "开射频 (退出飞行模式)"),
-    (b"AT+ECCHIPVER?\r\n",                   b"ERROR",             "未实现,工具忽略"),
-    (b"AT+ECGMDATA?\r\n",                    b"OK",                "空操作"),
+    (b"AT+ECCHIPVER?\r\n",                   b"+ECCHIPVER:",       "读芯片版本"),
+    (b"AT+ECGMDATA?\r\n",                    b"OK",                "读 Golden 数据"),
     (b"AT+CGSN=1\r\n",                       b"864317081553409",   "读 IMEI (默认)"),
     (b"AT+ECNPICFG=rfCaliDone,0\r\n",        b"OK",                "清校准标志"),
     (b"AT+ECNPICFG=rfCaliDone,1\r\n",        b"OK",                "置校准完成"),
     (b"AT+ECNPICFG?\r\n",                    b"rfCaliDone",        "回读 NPI 配置"),
     (b"AT+ECNPICFG=rfNSTDone,1\r\n",         b"OK",                "置 NST 完成"),
+    (b"AT+ECCGSN=1,123456789012345\r\n",     b"OK",                "写 IMEI"),
+    (b"AT+CGSN=1\r\n",                        b"123456789012345",   "读回新 IMEI"),
+    (b"AT+ECBAND=?\r\n",                      b"+ECBAND:",          "查支持 Band"),
+    (b"AT+ECICCID\r\n",                        b"OK",                "读 ICCID"),
+    (b"AT+ECPMUCFG=0\r\n",                    b"OK",                "设置 PMU"),
+    (b"AT+ECFACCHK=1\r\n",                    b"+ECFACCHK:",        "查 NV 头"),
 ]
 
 # 完整套件:在 BASIC 基础上加 RFNST 私有协议 (校准就是要在 CFUN=0 之后跑)
@@ -73,6 +79,7 @@ FULL_CASES = [
     (b"AT+ECNPICFG=rfCaliDone,1\r\n",        b"OK",                "置校准完成"),
     (b"AT+ECNPICFG?\r\n",                    b"rfCaliDone",        "回读 NPI 配置"),
     (b"AT+BOGUS\r\n",                        b"ERROR",             "未知命令应返 ERROR"),
+    (b"AT+ECCGSN=1,864317081553409\r\n",     b"OK",                "恢复默认 IMEI"),
 ]
 
 

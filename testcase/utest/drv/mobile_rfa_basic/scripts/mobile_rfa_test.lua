@@ -131,21 +131,26 @@ function at_suite.test_at_ecnpicfg_set()
     assertResp("AT+ECNPICFG=rfCaliDone,0", "OK")
     assertResp("AT+ECNPICFG=rfNSTDone,0", "OK")
     assertResp("AT+ECNPICFG=rfCTDone,0", "OK")
+    -- 带引号和对齐 AT 固件的多组 key-value
+    assertResp('AT+ECNPICFG="rfCaliDone",1,"rfNSTDone",1', "OK")
+    assertResp('AT+ECNPICFG="rfCaliDone",0,"rfNSTDone",0,"rfCTDone",0', "OK")
 end
 function at_suite.test_at_ecnpicfg_query()
     local rfa = require("rfa")
     rfa._reset_for_test()
-    -- 默认 0
+    -- 默认 0, 格式对齐 AT 固件: "rfNSTDone":%d, 后面有空格
     local resp = rfa.dispatch("AT+ECNPICFG?")
-    assert(resp:find("rfCaliDone", 1, true), "query has rfCaliDone")
-    assert(resp:find("rfNSTDone", 1, true), "query has rfNSTDone")
-    assert(resp:find("rfCTDone", 1, true), "query has rfCTDone")
+    assert(resp:find('"rfCaliDone":0', 1, true), "query has rfCaliDone:0")
+    assert(resp:find('"rfNSTDone":0', 1, true), "query has rfNSTDone:0")
+    assert(resp:find('"rfCTDone":0', 1, true), "query has rfCTDone:0")
     -- 置 1 后再查
     rfa.npiSet("rfCaliDone", 1)
     local resp2 = rfa.dispatch("AT+ECNPICFG?")
-    assert(resp2:find("rfCaliDone.:1", 1, false) or resp2:find("rfCaliDone%:1", 1, false)
-           or resp2:find("rfCaliDone.*1", 1, false),
-           "query after set has 1")
+    assert(resp2:find('"rfCaliDone":1', 1, true), "query after set has rfCaliDone:1")
+end
+function at_suite.test_at_ecnpicfg_test()
+    assertResp("AT+ECNPICFG=?", "+ECNPICFG:<option>,<setting>")
+    assertResp("AT+ECNPICFG=?", "OK")
 end
 function at_suite.test_at_cfun()
     local rfa = require("rfa")
@@ -181,14 +186,61 @@ end
 function at_suite.test_at_cpin_no_sim()
     assertResp("AT+CPIN?", "CME ERROR")
 end
-function at_suite.test_at_chipver_unsupported()
-    assertResp("AT+ECCHIPVER?", "ERROR")
+function at_suite.test_at_chipver()
+    assertResp("AT+ECCHIPVER?", "+ECCHIPVER:")
+    assertResp("AT+ECCHIPVER?", "OK")
 end
 function at_suite.test_at_ecgmdata()
+    local rfa = require("rfa")
+    rfa._reset_for_test()
     assertResp("AT+ECGMDATA?", "OK")
+    if mobile and mobile.rfTestGmDataSet then
+        mobile.rfTestGmDataSet("test_golden_data")
+        local resp = rfa.dispatch("AT+ECGMDATA?")
+        assert(resp:find("test_golden_data", 1, true), "GMDATA read back")
+    end
 end
 function at_suite.test_at_unknown()
     assertResp("AT+FOOBAR=1", "ERROR")
+end
+
+function at_suite.test_at_ecrst()
+    assertResp("AT+ECRST", "OK")
+end
+
+function at_suite.test_at_eccgsn()
+    local rfa = require("rfa")
+    rfa._reset_for_test()
+    local orig = rfa.imei()
+    assertResp("AT+ECCGSN=1,123456789012345", "OK")
+    assert(rfa.imei() == "123456789012345", "ECCGSN updated IMEI")
+    -- invalid length
+    local resp = rfa.dispatch("AT+ECCGSN=1,12345")
+    assert(resp:find("ERROR", 1, true), "short imei rejected")
+    rfa.setImei(orig)
+end
+
+function at_suite.test_at_ecband()
+    assertResp("AT+ECBAND=?", "+ECBAND:")
+    assertResp("AT+ECBAND=?", "OK")
+end
+
+function at_suite.test_at_eciccid()
+    local rfa = require("rfa")
+    local resp = rfa.dispatch("AT+ECICCID")
+    assert(type(resp) == "string", "ECICCID returns string")
+    assert(resp:find("OK", 1, true), "ECICCID ends with OK")
+end
+
+function at_suite.test_at_ecpmucfg()
+    assertResp("AT+ECPMUCFG=0", "OK")
+    assertResp("AT+ECPMUCFG=1,1", "OK")
+    assertResp("AT+ECPMUCFG?", "+ECPMUCFG:")
+end
+
+function at_suite.test_at_ecfacchk()
+    assertResp("AT+ECFACCHK=1", "+ECFACCHK:")
+    assertResp("AT+ECFACCHK=1", "OK")
 end
 
 -- ============================================================

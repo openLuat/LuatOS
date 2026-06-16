@@ -61,7 +61,6 @@ struct luat_audio_driver_ctrl
     volatile uint32_t current_play_cnt;  /**< 当前播放计数 */
     uint32_t one_play_block_len;  /**< 1个block播放的音频数据长度 */
     uint32_t one_record_block_len;  /**< 1个block录音的音频数据长度 */
-
     luat_audio_common_param_t common_param;  /**< 公共音频参数 */
     /** 软件消除爆破音相关参数 */
     luat_rtos_timer_t pa_power_on_delay_timer;          /**< PA电源使能延时定时器 */

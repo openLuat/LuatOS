@@ -929,23 +929,178 @@ static int l_sm2_ecdh(lua_State *L)
     return 2;
 }
 
+/*
+SM2椭圆曲线点加运算: R = P + Q
+@api gmssl.sm2pointadd(px1, py1, px2, py2)
+@string 点P的x坐标, HEX字符串(64字符)
+@string 点P的y坐标, HEX字符串(64字符)
+@string 点Q的x坐标, HEX字符串(64字符)
+@string 点Q的y坐标, HEX字符串(64字符)
+@return string 结果点R的x坐标, HEX字符串(64字符), 失败返回nil
+@return string 结果点R的y坐标, HEX字符串(64字符), 失败返回nil
+@usage
+-- 计算 R = P + Q (用于 GBT 32918.3-2016 SM2密钥交换协议的 [h*t]*(P+Q) 步骤)
+local rx, ry = gmssl.sm2pointadd(px1, py1, px2, py2)
+-- 本函数用于 SM2 密钥交换协议 GB/T 32918.3-2016
+*/
+static int l_sm2_point_add(lua_State *L)
+{
+    size_t px1Len = 0, py1Len = 0, px2Len = 0, py2Len = 0;
+    const char *px1Hex = luaL_checklstring(L, 1, &px1Len);
+    const char *py1Hex = luaL_checklstring(L, 2, &py1Len);
+    const char *px2Hex = luaL_checklstring(L, 3, &px2Len);
+    const char *py2Hex = luaL_checklstring(L, 4, &py2Len);
+
+    if (px1Len != 64 || py1Len != 64 || px2Len != 64 || py2Len != 64) {
+        LLOGE("sm2pointadd: all params must be 64-char HEX strings, got %d/%d/%d/%d",
+              px1Len, py1Len, px2Len, py2Len);
+        return 0;
+    }
+
+    SM2_POINT P = {0};
+    SM2_POINT Q = {0};
+    SM2_POINT R = {0};
+
+    luat_str_fromhex(px1Hex, 64, (char*)P.x);
+    luat_str_fromhex(py1Hex, 64, (char*)P.y);
+    luat_str_fromhex(px2Hex, 64, (char*)Q.x);
+    luat_str_fromhex(py2Hex, 64, (char*)Q.y);
+
+    if (sm2_point_add(&R, &P, &Q) != 1) {
+        LLOGE("sm2pointadd: sm2_point_add failed");
+        return 0;
+    }
+
+    char tmp[128];
+    luat_str_tohex((const char*)R.x, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    luat_str_tohex((const char*)R.y, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 2;
+}
+
+/*
+SM2判断点是否在椭圆曲线上
+@api gmssl.sm2pointisoncurve(px, py)
+@string 点P的x坐标, HEX字符串(64字符)
+@string 点P的y坐标, HEX字符串(64字符)
+@return boolean 点在曲线上返回true, 否则返回false
+@usage
+-- 用于 GBT 32918.3-2016 SM2密钥交换协议的公钥合法性校验
+local ok = gmssl.sm2pointisoncurve(px, py)
+-- 本函数用于 SM2 密钥交换协议, 协议要求校验对方临时公钥是否在曲线上
+*/
+static int l_sm2_point_is_on_curve(lua_State *L)
+{
+    size_t pxLen = 0, pyLen = 0;
+    const char *pxHex = luaL_checklstring(L, 1, &pxLen);
+    const char *pyHex = luaL_checklstring(L, 2, &pyLen);
+
+    if (pxLen != 64 || pyLen != 64) {
+        LLOGE("sm2pointisoncurve: px/py must be 64-char HEX strings, got %d/%d",
+              pxLen, pyLen);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    SM2_POINT P = {0};
+    luat_str_fromhex(pxHex, 64, (char*)P.x);
+    luat_str_fromhex(pyHex, 64, (char*)P.y);
+
+    int ret = sm2_point_is_on_curve(&P);
+    lua_pushboolean(L, ret == 1 ? 1 : 0);
+    return 1;
+}
+
+/*
+SM2 GF(n)模加: r = (a + b) mod n
+@api gmssl.sm2bnadd(a, b)
+@string 操作数a, HEX字符串(64字符), 256-bit大整数
+@string 操作数b, HEX字符串(64字符), 256-bit大整数
+@return string 结果r, HEX字符串(64字符), (a+b) mod SM2曲线阶n
+@usage
+-- GBT 32918.3-2016 SM2密钥交换协议中的模n大数运算
+local r = gmssl.sm2bnadd(aHex, bHex)
+*/
+static int l_sm2_fn_add(lua_State *L)
+{
+    size_t aLen = 0, bLen = 0;
+    const char *aHex = luaL_checklstring(L, 1, &aLen);
+    const char *bHex = luaL_checklstring(L, 2, &bLen);
+
+    if (aLen != 64 || bLen != 64) {
+        LLOGE("sm2bnadd: a/b must be 64-char HEX strings, got %d/%d", aLen, bLen);
+        return 0;
+    }
+
+    SM2_Fn a, b, r;
+    sm2_bn_from_hex(a, aHex);
+    sm2_bn_from_hex(b, bHex);
+    sm2_fn_add(r, a, b);
+
+    uint8_t buf[32];
+    char tmp[128];
+    sm2_bn_to_bytes(r, buf);
+    luat_str_tohex((const char*)buf, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 1;
+}
+
+/*
+SM2 GF(n)模乘: r = (a * b) mod n
+@api gmssl.sm2bnmul(a, b)
+@string 操作数a, HEX字符串(64字符), 256-bit大整数
+@string 操作数b, HEX字符串(64字符), 256-bit大整数
+@return string 结果r, HEX字符串(64字符), (a*b) mod SM2曲线阶n
+@usage
+-- GBT 32918.3-2016 SM2密钥交换协议中的模n大数运算
+local r = gmssl.sm2bnmul(aHex, bHex)
+*/
+static int l_sm2_fn_mul(lua_State *L)
+{
+    size_t aLen = 0, bLen = 0;
+    const char *aHex = luaL_checklstring(L, 1, &aLen);
+    const char *bHex = luaL_checklstring(L, 2, &bLen);
+
+    if (aLen != 64 || bLen != 64) {
+        LLOGE("sm2bnmul: a/b must be 64-char HEX strings, got %d/%d", aLen, bLen);
+        return 0;
+    }
+
+    SM2_Fn a, b, r;
+    sm2_bn_from_hex(a, aHex);
+    sm2_bn_from_hex(b, bHex);
+    sm2_fn_mul(r, a, b);
+
+    uint8_t buf[32];
+    char tmp[128];
+    sm2_bn_to_bytes(r, buf);
+    luat_str_tohex((const char*)buf, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_gmssl[] =
 {
-    { "sm2encrypt",      ROREG_FUNC(l_sm2_encrypt)},
-    { "sm2decrypt",      ROREG_FUNC(l_sm2_decrypt)},
-    { "sm3update",       ROREG_FUNC(l_sm3_update)},
-    { "sm3",             ROREG_FUNC(l_sm3_update)},
-    { "sm3hmac",         ROREG_FUNC(l_sm3hmac_update)},
-    { "sm4encrypt",      ROREG_FUNC(l_sm4_encrypt)},
-    { "sm4decrypt",      ROREG_FUNC(l_sm4_decrypt)},
-    { "sm2sign",         ROREG_FUNC(l_sm2_sign)},
-    { "sm2verify",       ROREG_FUNC(l_sm2_verify)},
-    { "sm2keygen",       ROREG_FUNC(l_sm2_keygen)},
-    { "sm2pointmul",     ROREG_FUNC(l_sm2_point_mul)},
-    { "sm2ecdh",         ROREG_FUNC(l_sm2_ecdh)},
+    { "sm2encrypt",        ROREG_FUNC(l_sm2_encrypt)},
+    { "sm2decrypt",        ROREG_FUNC(l_sm2_decrypt)},
+    { "sm3update",         ROREG_FUNC(l_sm3_update)},
+    { "sm3",               ROREG_FUNC(l_sm3_update)},
+    { "sm3hmac",           ROREG_FUNC(l_sm3hmac_update)},
+    { "sm4encrypt",        ROREG_FUNC(l_sm4_encrypt)},
+    { "sm4decrypt",        ROREG_FUNC(l_sm4_decrypt)},
+    { "sm2sign",           ROREG_FUNC(l_sm2_sign)},
+    { "sm2verify",         ROREG_FUNC(l_sm2_verify)},
+    { "sm2keygen",         ROREG_FUNC(l_sm2_keygen)},
+    { "sm2pointmul",       ROREG_FUNC(l_sm2_point_mul)},
+    { "sm2ecdh",           ROREG_FUNC(l_sm2_ecdh)},
+    { "sm2pointadd",       ROREG_FUNC(l_sm2_point_add)},
+    { "sm2pointisoncurve", ROREG_FUNC(l_sm2_point_is_on_curve)},
+    { "sm2bnadd",          ROREG_FUNC(l_sm2_fn_add)},
+    { "sm2bnmul",          ROREG_FUNC(l_sm2_fn_mul)},
 #ifdef LUAT_USE_UTEST
-    { "utest",           ROREG_FUNC(l_gmssl_utest)},
+    { "utest",             ROREG_FUNC(l_gmssl_utest)},
 #endif
 
 	{ NULL,             ROREG_INT(0) }

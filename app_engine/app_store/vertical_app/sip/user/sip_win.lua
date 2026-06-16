@@ -12,8 +12,12 @@ local main_container = nil
 local keyboard = nil
 
 -- ==================== 屏幕自适应 ====================
--- local W, H = 480, 800
 local W, H = 480, 320
+local project_name = (_G.project_config and _G.project_config.name) or ""
+local w_str, h_str = project_name:match("_(%d+)x(%d+)_")
+if w_str and h_str then
+    W, H = tonumber(w_str), tonumber(h_str)
+end
 local SCALE = 1.0
 
 local function update_screen_size()
@@ -132,6 +136,87 @@ local tab_views = {}
 local app_subview = "tab"
 local app_chat_view = nil
 
+-- 自动登录状态
+local is_auto_login = false
+local current_login_mode = "manual"
+local progress_bar = nil
+local progress_label = nil
+local progress_timer = nil
+local login_in_progress = false
+local login_timeout_timer = nil
+
+-- 前向声明：show_page 在 show_login_timeout_popup 之后定义
+local show_page
+
+local function show_login_timeout_popup()
+    if progress_timer then sys.timerStop(progress_timer); progress_timer = nil end
+    if login_timeout_timer then sys.timerStop(login_timeout_timer); login_timeout_timer = nil end
+
+    local content_text = current_login_mode == "auto"
+        and "账号不存在，请联系厂家处理！"
+        or "请确认账号存在并正确填写账号信息！"
+
+    -- 动态创建弹窗，保证在最顶层
+    local mask = airui.container({
+        parent = airui.screen,
+        x = 0, y = 0,
+        w = W, h = H,
+        color = 0x000000,
+        opacity = 128,
+    })
+    local card_w, card_h = s(280), s(180)
+    local card = airui.container({
+        parent = mask,
+        x = (W - card_w) / 2, y = (H - card_h) / 2,
+        w = card_w, h = card_h,
+        color = 0xFFFFFF,
+        radius = s(12),
+    })
+    airui.label({
+        parent = card,
+        x = 0, y = s(10),
+        w = card_w, h = s(24),
+        text = "提示",
+        font_size = s(16),
+        color = C.TEXT,
+        align = airui.TEXT_ALIGN_CENTER,
+    })
+    airui.label({
+        parent = card,
+        x = s(16), y = s(38),
+        w = card_w - s(32), h = s(80),
+        text = content_text,
+        font_size = s(12),
+        color = C.TEXT,
+    })
+    local ok_btn = airui.container({
+        parent = card,
+        x = (card_w - s(100)) / 2, y = card_h - s(42),
+        w = s(100), h = s(32),
+        color = C.PRIMARY,
+        radius = s(6),
+        on_click = function()
+            if current_login_mode == "auto" then
+                show_page("welcome")
+            else
+                show_page("login")
+            end
+            sys.timerStart(function()
+                mask:destroy()
+            end, 100)
+        end
+    })
+    airui.label({
+        parent = ok_btn,
+        x = 0, y = 0,
+        w = s(100), h = s(32),
+        text = "确定",
+        font_size = s(14),
+        color = 0xFFFFFF,
+        align = airui.TEXT_ALIGN_CENTER,
+    })
+end
+
 local switch_tab
 local show_app_tab
 local show_app_subview
@@ -162,7 +247,7 @@ local function log_widget_state(tag, widget, hidden_expected)
     log.info("sip_win", tag, "destroyed=", destroyed, "hidden_expected=", hidden_expected)
 end
 
-local function show_page(name)
+function show_page(name)
     log.info("sip_win", "show_page:", name)
     -- if name == "incoming" then
     --     log.error("sip_win", "===== show_page(incoming) 调用栈 =====")
@@ -225,6 +310,8 @@ local function close_app()
     sys.taskInit(function()
         sip_service.hangup()
         sip_service.logout()
+        sip_data.set_user(nil)
+        current_login_mode = "manual"
         if win_id then
             exwin.close(win_id)
         end
@@ -649,9 +736,9 @@ local function create_page_welcome()
     airui.container({ parent = page, x = 0, y = math.floor(H * 0.5), w = W, h = math.floor(H * 0.5), color = 0xFFFFFF })
 
     local card_w = s(320)
-    local card_h = s(330)
+    local card_h = s(360)
     local card_x = (W - card_w) / 2
-    local card_y = (H - card_h) / 2 - s(30)
+    local card_y = math.max(s(10), (H - card_h) / 2 - s(10))
 
     local card = airui.container({
         parent = page,
@@ -699,49 +786,98 @@ local function create_page_welcome()
         align = airui.TEXT_ALIGN_CENTER
     })
 
-    -- 主按钮：使用 SIP 账户
     local btn_h = s(42)
     local btn_w = s(272)
     local btn_x = (card_w - btn_w) / 2
 
+    -- 主按钮：自动登录
     local primary_btn = airui.container({
         parent = card,
-        x = btn_x, y = s(175),
+        x = btn_x, y = s(170),
         w = btn_w, h = btn_h,
         color = 0xFF5E00,
         radius = s(14),
         on_click = function()
-            show_page("login")
+            -- 检查网络就绪
+            local adapter = socket and socket.dft and socket.dft() or nil
+            local adapter_ready = (socket and socket.adapter and adapter ~= nil) and not not socket.adapter(adapter) or false
+            if not adapter_ready then
+                toast("请先连接网络")
+                return
+            end
+
+            is_auto_login = true
+            current_login_mode = "auto"
+            login_in_progress = true
+            local acc = sip_config.get_auto_account()
+            local sip_cfg = {
+                sip_server_addr = acc.sip_server_addr,
+                sip_server_port = acc.sip_server_port,
+                sip_domain = acc.sip_domain,
+                sip_username = acc.sip_username,
+                sip_password = acc.sip_password,
+                sip_transport = string.lower(acc.sip_transport or "UDP"),
+                adapter = acc.adapter,
+            }
+            log.info("sip_win", "auto_login", "user=", acc.sip_username, "server=", acc.sip_server_addr)
+            sip_data.set_user(acc.sip_username)
+            -- 初始化进度条
+            if progress_bar then progress_bar:set_value(0, false) end
+            if progress_label then progress_label:set_text("0%") end
+            show_page("progress")
+            -- 启动进度条定时器（最多到80，登录成功才跳到100）
+            if progress_timer then sys.timerStop(progress_timer) end
+            if login_timeout_timer then sys.timerStop(login_timeout_timer) end
+            local progress_value = 0
+            progress_timer = sys.timerLoopStart(function()
+                progress_value = progress_value + 20
+                if progress_value > 80 then progress_value = 80 end
+                if progress_bar then progress_bar:set_value(progress_value, true) end
+                if progress_label then progress_label:set_text(tostring(progress_value) .. "%") end
+            end, 1000)
+            -- 5秒超时检查
+            login_timeout_timer = sys.timerStart(function()
+                login_in_progress = false
+                show_login_timeout_popup()
+            end, 5000)
+            sys.taskInit(function()
+                sip_service.logout()
+                local ok = sip_service.login(sip_cfg)
+                if not ok then
+                    log.warn("sip_win", "auto_login init failed")
+                end
+            end)
         end
     })
     airui.label({
         parent = primary_btn,
         x = 0, y = 0,
         w = btn_w, h = btn_h,
-        text = "使用 SIP 账户",
+        text = "自动登录",
         font_size = s(16),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_CENTER
     })
 
-    -- 次要按钮
+    -- 次要按钮：手动登录
     local secondary_btn = airui.container({
         parent = card,
-        x = btn_x, y = s(228),
+        x = btn_x, y = s(225),
         w = btn_w, h = btn_h,
         color = 0xFFF6EB,
         radius = s(14),
         border_color = 0xFFD4A3,
         border_width = 1,
         on_click = function()
-            toast("创建账户功能为预留入口")
+            current_login_mode = "manual"
+            show_page("login")
         end
     })
     airui.label({
         parent = secondary_btn,
         x = 0, y = 0,
         w = btn_w, h = btn_h,
-        text = "创建账户",
+        text = "手动登录",
         font_size = s(16),
         color = 0xF06000,
         align = airui.TEXT_ALIGN_CENTER
@@ -750,7 +886,7 @@ local function create_page_welcome()
     -- 返回主界面按钮
     local back_btn = airui.container({
         parent = card,
-        x = btn_x, y = s(281),
+        x = btn_x, y = s(280),
         w = btn_w, h = btn_h,
         color = 0xFFF6EB,
         radius = s(14),
@@ -771,6 +907,59 @@ local function create_page_welcome()
     })
 
     pages.welcome = page
+end
+
+-- ==================== 创建 Progress 页面 ====================
+local function create_page_progress()
+    local page = airui.container({
+        parent = main_container,
+        x = 0, y = 0,
+        w = W, h = H,
+        color = C.BG,
+    })
+
+    local bar_w = s(300)
+    local bar_h = s(16)
+    local bar_x = (W - bar_w) / 2
+    local bar_y = (H - bar_h) / 2 - s(20)
+
+    -- 标题
+    airui.label({
+        parent = page,
+        x = 0, y = bar_y - s(50),
+        w = W, h = s(30),
+        text = "正在登录...",
+        font_size = s(18),
+        color = C.TEXT,
+        align = airui.TEXT_ALIGN_CENTER,
+    })
+
+    -- 进度条
+    progress_bar = airui.bar({
+        parent = page,
+        x = bar_x, y = bar_y,
+        w = bar_w, h = bar_h,
+        value = 0,
+        min = 0,
+        max = 100,
+        radius = s(8),
+        bg_color = 0xE0E0E0,
+        indicator_color = C.PRIMARY,
+    })
+
+    -- 进度百分比
+    progress_label = airui.label({
+        parent = page,
+        x = bar_x, y = bar_y + bar_h + s(10),
+        w = bar_w, h = s(20),
+        text = "0%",
+        font_size = s(14),
+        color = C.TEXT,
+        align = airui.TEXT_ALIGN_CENTER,
+    })
+
+    page:hide()
+    pages.progress = page
 end
 
 -- ==================== 创建 Login 页面 ====================
@@ -987,6 +1176,7 @@ local function create_page_login()
             account.display_name = (ln ~= "" and ln) or un
 
             sip_config.save_account(account)
+            sip_data.set_user(un)
 
             -- 启动 SIP 服务
             local sip_cfg = {
@@ -1000,7 +1190,28 @@ local function create_page_login()
                 adapter = adapter,
             }
 
-            toast("正在登录...")
+            is_auto_login = false
+            current_login_mode = "manual"
+            login_in_progress = true
+            -- 进入进度条页面
+            if progress_bar then progress_bar:set_value(0, false) end
+            if progress_label then progress_label:set_text("0%") end
+            show_page("progress")
+            -- 启动进度条定时器（最多到80，登录成功才跳到100）
+            if progress_timer then sys.timerStop(progress_timer) end
+            if login_timeout_timer then sys.timerStop(login_timeout_timer) end
+            local progress_value = 0
+            progress_timer = sys.timerLoopStart(function()
+                progress_value = progress_value + 20
+                if progress_value > 80 then progress_value = 80 end
+                if progress_bar then progress_bar:set_value(progress_value, true) end
+                if progress_label then progress_label:set_text(tostring(progress_value) .. "%") end
+            end, 1000)
+            -- 5秒超时检查
+            login_timeout_timer = sys.timerStart(function()
+                login_in_progress = false
+                show_login_timeout_popup()
+            end, 5000)
 
             sys.taskInit(function()
                 -- 如果 SIP 已在运行，先注销清除旧状态
@@ -1008,8 +1219,7 @@ local function create_page_login()
 
                 local ok = sip_service.login(sip_cfg)
                 if not ok then
-                    toast("登录失败")
-                    sip_config.set_logged_in(false)
+                    log.warn("sip_win", "manual_login init failed")
                 end
                 -- 注册成功/失败的页面跳转由 SIP_EVT_REGISTER_OK / SIP_EVT_REGISTER_FAILED 处理
             end)
@@ -1038,6 +1248,13 @@ local app_fab = nil
 local app_dialpad = nil
 local fab_visible = false
 local dialpad_visible = false
+local new_chat_form = nil
+local new_chat_num_input = nil
+local new_chat_content_input = nil
+local chat_input_area = nil
+local is_new_chat_form_visible = false
+local is_history_mode = false
+local history_btn = nil
 local app_tab_contacts = nil
 local app_tab_records = nil
 local app_tab_chats = nil
@@ -1056,6 +1273,11 @@ local pending_add_number = ""
 local delete_dialog_mask = nil
 local delete_dialog_name_label = nil
 local pending_delete_num = ""
+
+-- 联系人状态弹窗
+local offline_dialog_mask = nil
+local offline_dialog_content = nil
+local abnormal_dialog_mask = nil
 
 
 local function create_page_app()
@@ -1079,11 +1301,32 @@ local function create_page_app()
         color = C.PRIMARY,
     })
 
+    -- 返回按钮（回到欢迎页）
+    local back_to_welcome_btn = airui.container({
+        parent = app_header,
+        x = s(8), y = s(8),
+        w = s(55), h = s(32),
+        color = 0xFFFFFF,
+        radius = s(16),
+        on_click = function()
+            show_page("welcome")
+        end
+    })
+    airui.label({
+        parent = back_to_welcome_btn,
+        x = 0, y = (s(32) - s(16)) / 2,
+        w = s(55), h = s(32),
+        text = "返回",
+        font_size = s(14),
+        color = C.PRIMARY,
+        align = airui.TEXT_ALIGN_CENTER
+    })
+
     app_title_label = airui.label({
         parent = app_header,
-        x = s(50), y = s(8),
+        x = s(48), y = s(8),
         w = W - s(160), h = s(32),
-        text = "联系人",
+        text = "",
         font_size = s(16),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_CENTER
@@ -1102,10 +1345,11 @@ local function create_page_app()
     })
     airui.label({
         parent = exit_btn,
-        x = 0, y = 0,
+        -- x = 0, y = 0,
+        x = 0, y = (s(32) - s(14)) / 2,
         w = s(55), h = s(32),
         text = "退出",
-        font_size = s(12),
+        font_size = s(14),
         color = C.PRIMARY,
         align = airui.TEXT_ALIGN_CENTER
     })
@@ -1181,17 +1425,33 @@ local function create_page_app()
         color = C.PRIMARY,
         radius = s(26),
         on_click = function()
-            dialpad_visible = not dialpad_visible
-            set_hidden_safe(app_dialpad, not dialpad_visible)
-            log.info("sip_win", "dialpad_toggle:", dialpad_visible)
+            if last_app_tab == "chats" then
+                -- 聊天页：显示新建消息表单
+                show_app_subview("chat")
+                is_new_chat_form_visible = true
+                if new_chat_form then
+                    new_chat_form:open()
+                    if chat_messages_container then chat_messages_container:hide() end
+                    if chat_input_area then chat_input_area:hide() end
+                    if chat_header_title then chat_header_title:set_text("新建信息") end
+                end
+                log.info("sip_win", "new_chat_form_show")
+            else
+                -- 联系人页：切换拨号盘
+                dialpad_visible = not dialpad_visible
+                set_hidden_safe(app_dialpad, not dialpad_visible)
+                set_hidden_safe(app_nav, dialpad_visible)
+                log.info("sip_win", "dialpad_toggle:", dialpad_visible)
+            end
         end
     })
     airui.label({
         parent = app_fab,
-        x = 0, y = 0,
+        -- x = 0, y = 0,
+        x = 0, y = (s(52) - s(30)) / 2,
         w = s(52), h = s(52),
         text = "+",
-        font_size = s(24),
+        font_size = s(30),
         color = 0xFFFFFF,
         align = airui.TEXT_ALIGN_CENTER
     })
@@ -1200,8 +1460,8 @@ local function create_page_app()
     -- 拨号盘面板
     app_dialpad = airui.container({
         parent = page,
-        x = s(20), y = H - nav_h - s(280),
-        w = W - s(40), h = s(260),
+        x = s(20), y = H - s(310),
+        w = W - s(40), h = s(300),
         color = 0xFFFFFF,
         radius = s(20),
     })
@@ -1219,6 +1479,30 @@ local function create_page_app()
         align = airui.TEXT_ALIGN_CENTER
     })
     ui_refs.dial_display = dial_display
+
+    -- 返回按钮
+    local dialpad_back_btn = airui.container({
+        parent = app_dialpad,
+        x = W - s(40) - s(34), y = s(6),
+        w = s(28), h = s(28),
+        color = 0xEEEEEE,
+        radius = s(14),
+        on_click = function()
+            dialpad_visible = false
+            set_hidden_safe(app_dialpad, true)
+            set_hidden_safe(app_nav, false)
+            switch_tab("contacts")
+        end
+    })
+    airui.label({
+        parent = dialpad_back_btn,
+        x = 0, y = 0,
+        w = s(28), h = s(28),
+        text = "×",
+        font_size = s(16),
+        color = 0x666666,
+        align = airui.TEXT_ALIGN_CENTER
+    })
 
     -- 数字键盘
     local keys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#" }
@@ -1285,7 +1569,7 @@ local function create_page_app()
             end
         end
     })
-    airui.label({ parent = back_btn2, x = 0, y = 0, w = func_w, h = key_h, text = "⌫", font_size = s(14), color = C.TEXT, align = airui.TEXT_ALIGN_CENTER })
+    airui.label({ parent = back_btn2, x = 0, y = 0, w = func_w, h = key_h, text = "删除", font_size = s(14), color = C.TEXT, align = airui.TEXT_ALIGN_CENTER })
 
     local dial_btn = airui.container({
         parent = app_dialpad,
@@ -1304,7 +1588,9 @@ local function create_page_app()
                 local ok = sip_service.dial(tostring(dial_number_value))
                 if not ok then
                     toast("拨号失败，请检查网络或账号状态")
-                    hide_call_screen()
+                    sys.timerStart(function()
+                        hide_call_screen()
+                    end, 2000)
                 end
             end
         end
@@ -1561,6 +1847,133 @@ local function create_page_app()
         align = airui.TEXT_ALIGN_CENTER
     })
 
+    -- ==================== 离线状态提示弹窗 ====================
+    offline_dialog_mask = airui.container({
+        parent = page,
+        x = 0, y = 0,
+        w = W, h = H,
+        color = 0x000000,
+        opacity = 128,
+        on_click = function()
+            offline_dialog_mask:set_hidden(true)
+        end
+    })
+    offline_dialog_mask:set_hidden(true)
+
+    local off_card_w, off_card_h = s(280), s(200)
+    local off_card_x = (W - off_card_w) / 2
+    local off_card_y = (H - off_card_h) / 2
+    local off_card = airui.container({
+        parent = offline_dialog_mask,
+        x = off_card_x, y = off_card_y,
+        w = off_card_w, h = off_card_h,
+        color = 0xFFFFFF,
+        radius = s(12),
+        on_click = function() end
+    })
+
+    airui.label({
+        parent = off_card,
+        x = 0, y = s(10),
+        w = off_card_w, h = s(24),
+        text = "提示",
+        font_size = s(16),
+        color = C.TEXT,
+        align = airui.TEXT_ALIGN_CENTER
+    })
+
+    offline_dialog_content = airui.label({
+        parent = off_card,
+        x = s(16), y = s(38),
+        w = off_card_w - s(32) - s(85), h = s(110),
+        text = " ",
+        font_size = s(11),
+        color = C.TEXT,
+    })
+
+    airui.image({
+        parent = off_card,
+        x = off_card_w - s(90), y = s(48),
+        w = s(80), h = s(80),
+        src = "/luadb/sip_call.png",
+        fit = "contain",
+    })
+
+    local off_ok_btn = airui.container({
+        parent = off_card,
+        x = (off_card_w - s(100)) / 2, y = off_card_h - s(42),
+        w = s(100), h = s(32),
+        color = C.PRIMARY,
+        radius = s(6),
+        on_click = function()
+            offline_dialog_mask:set_hidden(true)
+        end
+    })
+    airui.label({
+        parent = off_ok_btn,
+        x = 0, y = 0,
+        w = s(100), h = s(32),
+        text = "确定",
+        font_size = s(14),
+        color = 0xFFFFFF,
+        align = airui.TEXT_ALIGN_CENTER
+    })
+
+    -- ==================== 状态异常提示弹窗 ====================
+    abnormal_dialog_mask = airui.container({
+        parent = page,
+        x = 0, y = 0,
+        w = W, h = H,
+        color = 0x000000,
+        opacity = 128,
+        on_click = function()
+            abnormal_dialog_mask:set_hidden(true)
+        end
+    })
+    abnormal_dialog_mask:set_hidden(true)
+
+    local abn_card_w, abn_card_h = s(260), s(140)
+    local abn_card_x = (W - abn_card_w) / 2
+    local abn_card_y = (H - abn_card_h) / 2
+    local abn_card = airui.container({
+        parent = abnormal_dialog_mask,
+        x = abn_card_x, y = abn_card_y,
+        w = abn_card_w, h = abn_card_h,
+        color = 0xFFFFFF,
+        radius = s(12),
+        on_click = function() end
+    })
+
+    airui.label({
+        parent = abn_card,
+        x = 0, y = s(24),
+        w = abn_card_w, h = s(24),
+        text = "联系人状态异常",
+        font_size = s(14),
+        color = C.TEXT,
+        align = airui.TEXT_ALIGN_CENTER
+    })
+
+    local abn_ok_btn = airui.container({
+        parent = abn_card,
+        x = (abn_card_w - s(100)) / 2, y = abn_card_h - s(42),
+        w = s(100), h = s(32),
+        color = C.PRIMARY,
+        radius = s(6),
+        on_click = function()
+            abnormal_dialog_mask:set_hidden(true)
+        end
+    })
+    airui.label({
+        parent = abn_ok_btn,
+        x = 0, y = 0,
+        w = s(100), h = s(32),
+        text = "确定",
+        font_size = s(14),
+        color = 0xFFFFFF,
+        align = airui.TEXT_ALIGN_CENTER
+    })
+
     pages.app = page
 end
 
@@ -1589,15 +2002,33 @@ local function refresh_contacts()
             color = C.CARD,
             radius = s(14),
             on_click = function()
-                if not is_pc_simulator() and sip_service.get_status() ~= "STATE_READY" then
-                    toast("正在注册中，请稍候后再拨号")
-                    return
-                end
-                show_call_screen(c.num, c.name)
-                local ok = sip_service.dial(tostring(c.num))
-                if not ok then
-                    toast("拨号失败")
-                    hide_call_screen()
+                -- local status = c.online_status or 1
+                local status = c.online_status or 0
+                if status == 0 then
+                    if current_login_mode == "auto" then
+                        local auto_account = sip_config.get_auto_account()
+                        local linphone_num = tostring(tonumber(auto_account.sip_username) + 1)
+                        local linphone_pw = auto_account.sip_password or ""
+                        local content = "请下载LinPhone安卓手机客户端并登录账号：\n账号：" .. linphone_num .. "\n密码：" .. linphone_pw .. "\n服务器地址：180.152.6.34:8910\n传输协议：UDP"
+                        if offline_dialog_content then offline_dialog_content:set_text(content) end
+                    else
+                        local content = "此账号当前为离线状态，可以下载LinPhone安卓手机客户端\n并登录此账号进行测试"
+                        if offline_dialog_content then offline_dialog_content:set_text(content) end
+                    end
+                    if offline_dialog_mask then offline_dialog_mask:set_hidden(false) end
+                elseif status == 2 then
+                    if abnormal_dialog_mask then abnormal_dialog_mask:set_hidden(false) end
+                else
+                    if not is_pc_simulator() and sip_service.get_status() ~= "STATE_READY" then
+                        toast("正在注册中，请稍候后再拨号")
+                        return
+                    end
+                    show_call_screen(c.num, c.name)
+                    local ok = sip_service.dial(tostring(c.num))
+                    if not ok then
+                        toast("拨号失败")
+                        hide_call_screen()
+                    end
                 end
             end,
         })
@@ -1631,11 +2062,27 @@ local function refresh_contacts()
             color = C.TEXT,
         })
 
+        -- 在线状态圆点
+        local status_colors = {
+            [0] = C.DANGER,
+            [1] = C.SUCCESS,
+            [2] = C.DIALED,
+        }
+        local dot_color = status_colors[c.online_status or 0] or C.TEXT_HINT
+        airui.container({
+            parent = row,
+            -- x = s(55), y = s(28) + (s(18) - s(10)) / 2,
+            x = s(55), y = s(28) + (s(18) - s(10)) / 3,
+            w = s(10), h = s(10),
+            color = dot_color,
+            radius = s(5),
+        })
+
         -- 号码
         airui.label({
             parent = row,
-            x = s(55), y = s(28),
-            w = W - s(155), h = s(18),
+            x = s(68), y = s(28),
+            w = W - s(168), h = s(18),
             text = c.num,
             font_size = s(11),
             color = C.TEXT_SECOND,
@@ -1719,9 +2166,14 @@ local function refresh_records()
                     toast("正在注册中，请稍候后再拨号")
                     return
                 end
-                local display_name = r.name ~= "" and r.name or r.num
-                show_call_screen(r.num, display_name)
-                local ok = sip_service.dial(tostring(r.num))
+                local call_num = (r.num or "")
+                if call_num == "" then
+                    toast("号码为空，无法拨号")
+                    return
+                end
+                local display_name = ((r.name or "") ~= "") and r.name or call_num
+                show_call_screen(call_num, display_name)
+                local ok = sip_service.dial(call_num)
                 if not ok then
                     toast("拨号失败")
                     hide_call_screen()
@@ -1751,7 +2203,10 @@ local function refresh_records()
             align = airui.TEXT_ALIGN_CENTER
         })
 
-        local display_name = r.name ~= "" and r.name or r.num
+        local display_name = ((r.name or "") ~= "") and r.name or (r.num or "")
+        if display_name == "" then
+            display_name = "未知号码"
+        end
         airui.label({
             parent = row,
             x = s(48), y = s(8),
@@ -1761,7 +2216,7 @@ local function refresh_records()
             color = C.TEXT,
         })
 
-        local sub_text = r.name ~= "" and (r.num .. " · " .. (type_labels[r.type] or "")) or (type_labels[r.type] or "")
+        local sub_text = ((r.name or "") ~= "") and ((r.num or "") .. " · " .. (type_labels[r.type] or "")) or (type_labels[r.type] or "")
         airui.label({
             parent = row,
             x = s(48), y = s(28),
@@ -1891,13 +2346,29 @@ local profile_inputs = {}
 
 local function refresh_profile()
     if not tab_views.profile then return end
-    account = sip_config.get_account()
+    if current_login_mode == "auto" then
+        account = sip_config.get_auto_account()
+    else
+        account = sip_config.get_account()
+    end
     if profile_inputs.p_username then profile_inputs.p_username:set_text(tostring(account.sip_username or "")) end
     if profile_inputs.p_password then profile_inputs.p_password:set_text(tostring(account.sip_password or "")) end
     if profile_inputs.p_server_address then profile_inputs.p_server_address:set_text(tostring(account.sip_server_address or "")) end
     if profile_inputs.p_domain then profile_inputs.p_domain:set_text(tostring(account.sip_domain or "")) end
     if profile_inputs.p_server_port then profile_inputs.p_server_port:set_text(tostring(account.sip_server_port or 5060)) end
     if profile_inputs.p_display then profile_inputs.p_display:set_text(tostring(account.display_name or "")) end
+end
+
+local function update_app_header_title()
+    if not app_title_label then return end
+    local account
+    if current_login_mode == "auto" then
+        account = sip_config.get_auto_account()
+    else
+        account = sip_config.get_account()
+    end
+    local username = account and account.sip_username or ""
+    app_title_label:set_text(username ~= "" and username or "未登录")
 end
 
 show_app_subview = function(view_name)
@@ -1942,18 +2413,16 @@ switch_tab = function(tab_name, keep_dialpad)
         set_hidden_safe(view, name ~= tab_name)
         log_widget_state("tab_view:" .. name, view, name ~= tab_name)
     end
-    -- 更新标题
-    local titles = { contacts = "联系人", records = "通话记录", chats = "聊天", profile = "我的" }
-    if app_title_label then
-        app_title_label:set_text(titles[tab_name] or "")
-    end
+    -- 更新标题为当前登录用户名
+    update_app_header_title()
     -- FAB 控制：联系人页显示拨号盘按钮，聊天页显示新建聊天按钮
-    fab_visible = (tab_name == "contacts")
+    fab_visible = (tab_name == "contacts" or tab_name == "chats")
     set_hidden_safe(app_fab, not fab_visible)
     -- 隐藏拨号盘（除非保留）
     if not keep_dialpad then
         dialpad_visible = false
         set_hidden_safe(app_dialpad, true)
+        set_hidden_safe(app_nav, false)
     end
     -- 刷新对应页面
     if tab_name == "contacts" then refresh_contacts() end
@@ -2047,7 +2516,11 @@ local function create_tab_views()
         y = y + field_h + s(10)
     end
 
-    account = sip_config.get_account()
+    if current_login_mode == "auto" then
+        account = sip_config.get_auto_account()
+    else
+        account = sip_config.get_account()
+    end
     add_profile_field("用户名", "p_username", account.sip_username)
     add_profile_field("密码", "p_password", account.sip_password)
     add_profile_field("服务器地址 *", "p_server_address", account.sip_server_address)
@@ -2120,6 +2593,7 @@ local function create_tab_views()
             sys.taskInit(function()
                 sip_service.hangup()
                 sip_service.logout()
+                sip_data.set_user(nil)
                 sip_config.set_logged_in(false)
                 sip_config.clear_account()
                 show_page("welcome")
@@ -2144,10 +2618,14 @@ local chat_input_text = nil
 local chat_header_title = nil
 
 open_chat = function(num)
-    log.info("sip_win", "open_chat:", num)
+    log.info("sip_win", "open_chat:", num, "history_mode:", is_history_mode)
     current_chat_num = num
     show_page("app")
     show_app_subview("chat")
+
+    -- 隐藏新建消息表单
+    is_new_chat_form_visible = false
+    if new_chat_form then new_chat_form:hide() end
 
     local contact_name = sip_data.get_contact_name(num)
     local display_name = contact_name and (contact_name .. "（" .. num .. "）") or num
@@ -2155,57 +2633,144 @@ open_chat = function(num)
         chat_header_title:set_text(display_name)
     end
 
+    -- 控制输入区显示/隐藏
+    if is_history_mode then
+        if chat_input_area then chat_input_area:hide() end
+        if history_btn then history_btn:set_hidden(true) end
+    else
+        if chat_input_area then chat_input_area:open() end
+        if history_btn then history_btn:set_hidden(false) end
+    end
+
     -- 刷新消息列表
     if chat_messages_container then
         chat_messages_container:destroy()
     end
 
-    chat_messages_container = airui.container({
-        parent = app_chat_view,
-        x = 0, y = s(48),
-        w = W, h = H - s(48) - s(58) - s(50),
-        color = 0xFFF8F0,
-        scrollable = true,
-    })
-
     local messages = sip_data.get_messages(num)
     local msg_h = s(50)
-    local y = s(10)
+    local msg_height = s(16) + msg_h + s(10)
 
-    for i, m in ipairs(messages) do
-        local is_out = (m.dir == "out")
-        local bubble_w = math.min(s(280), W - s(80))
-        local bubble_x = is_out and (W - bubble_w - s(15)) or s(15)
+    if is_history_mode then
+        -- 历史模式：倒序显示全部消息，隐藏输入框，扩展容器高度
+        local container_h = H - s(48)
+        chat_messages_container = airui.container({
+            parent = app_chat_view,
+            x = 0, y = s(48),
+            w = W, h = container_h,
+            color = 0xFFF8F0,
+            scrollable = true,
+        })
 
-        -- 时间
-        airui.label({
-            parent = chat_messages_container,
-            x = bubble_x, y = y,
-            w = bubble_w, h = s(16),
-            text = m.time or "",
-            font_size = s(10),
-            color = 0x9C8B7D,
-            align = is_out and airui.TEXT_ALIGN_RIGHT or airui.TEXT_ALIGN_LEFT
-        })
-        y = y + s(16)
+        local y = s(10)
+        for i = #messages, 1, -1 do
+            local m = messages[i]
+            local is_out = (m.dir == "out")
+            local bubble_w = math.min(s(280), W - s(80))
+            local bubble_x = is_out and (W - bubble_w - s(15)) or s(15)
 
-        -- 气泡
-        local bubble = airui.container({
-            parent = chat_messages_container,
-            x = bubble_x, y = y,
-            w = bubble_w, h = msg_h,
-            color = is_out and C.PRIMARY or C.CARD,
-            radius = s(12),
+            -- 时间
+            airui.label({
+                parent = chat_messages_container,
+                x = bubble_x, y = y,
+                w = bubble_w, h = s(16),
+                text = m.time or "",
+                font_size = s(10),
+                color = 0x9C8B7D,
+                align = is_out and airui.TEXT_ALIGN_RIGHT or airui.TEXT_ALIGN_LEFT
+            })
+            y = y + s(16)
+
+            -- 气泡
+            local bubble = airui.container({
+                parent = chat_messages_container,
+                x = bubble_x, y = y,
+                w = bubble_w, h = msg_h,
+                color = is_out and C.PRIMARY or C.CARD,
+                radius = s(12),
+            })
+            airui.label({
+                parent = bubble,
+                x = s(8), y = s(6),
+                w = bubble_w - s(16), h = msg_h - s(12),
+                text = m.text or "",
+                font_size = s(13),
+                color = is_out and 0xFFFFFF or C.TEXT,
+            })
+            y = y + msg_h + s(10)
+        end
+
+        -- 滚动到顶部，显示最新消息
+        if chat_messages_container.scroll_to_y and #messages > 0 then
+            chat_messages_container:scroll_to_y(0, false)
+        end
+    else
+        -- 正常模式：正序显示，显示输入框
+        local container_h = H - s(48) - s(50)
+        chat_messages_container = airui.container({
+            parent = app_chat_view,
+            x = 0, y = s(48),
+            w = W, h = container_h,
+            color = 0xFFF8F0,
+            scrollable = true,
         })
-        airui.label({
-            parent = bubble,
-            x = s(8), y = s(6),
-            w = bubble_w - s(16), h = msg_h - s(12),
-            text = m.text or "",
-            font_size = s(13),
-            color = is_out and 0xFFFFFF or C.TEXT,
-        })
-        y = y + msg_h + s(10)
+
+        local has_scroll = chat_messages_container.scroll_to_y ~= nil
+        local start_idx = 1
+        local y = s(10)
+
+        if not has_scroll then
+            -- 旧固件：限制显示最近N条，确保最新消息可见
+            local max_display = math.max(1, math.floor(container_h / msg_height))
+            start_idx = math.max(1, #messages - max_display + 1)
+            local display_count = #messages - start_idx + 1
+            local total_display_h = display_count * msg_height
+            if total_display_h < container_h then
+                y = s(10) + (container_h - total_display_h)
+            end
+        end
+
+        for i = start_idx, #messages do
+            local m = messages[i]
+            local is_out = (m.dir == "out")
+            local bubble_w = math.min(s(280), W - s(80))
+            local bubble_x = is_out and (W - bubble_w - s(15)) or s(15)
+
+            -- 时间
+            airui.label({
+                parent = chat_messages_container,
+                x = bubble_x, y = y,
+                w = bubble_w, h = s(16),
+                text = m.time or "",
+                font_size = s(10),
+                color = 0x9C8B7D,
+                align = is_out and airui.TEXT_ALIGN_RIGHT or airui.TEXT_ALIGN_LEFT
+            })
+            y = y + s(16)
+
+            -- 气泡
+            local bubble = airui.container({
+                parent = chat_messages_container,
+                x = bubble_x, y = y,
+                w = bubble_w, h = msg_h,
+                color = is_out and C.PRIMARY or C.CARD,
+                radius = s(12),
+            })
+            airui.label({
+                parent = bubble,
+                x = s(8), y = s(6),
+                w = bubble_w - s(16), h = msg_h - s(12),
+                text = m.text or "",
+                font_size = s(13),
+                color = is_out and 0xFFFFFF or C.TEXT,
+            })
+            y = y + msg_h + s(10)
+        end
+
+        -- 新固件：滚动到底部显示最新消息
+        if has_scroll and #messages > 0 then
+            chat_messages_container:scroll_to_y(999999, false)
+        end
     end
 
 end
@@ -2235,7 +2800,24 @@ local function create_page_chat()
         color = C.PRIMARY,
         on_click = function()
             log.info("sip_win", "chat_back_click")
-            show_app_tab("chats")
+            if is_history_mode then
+                -- 从历史记录返回正常聊天界面
+                is_history_mode = false
+                if current_chat_num then
+                    open_chat(current_chat_num)
+                end
+                return
+            end
+            if is_new_chat_form_visible then
+                -- 从新建消息表单返回
+                is_new_chat_form_visible = false
+                new_chat_form:hide()
+                if chat_messages_container then chat_messages_container:open() end
+                if chat_input_area then chat_input_area:open() end
+                if chat_header_title then chat_header_title:set_text("聊天记录") end
+            else
+                show_app_tab("chats")
+            end
         end
     })
     airui.label({
@@ -2258,17 +2840,41 @@ local function create_page_chat()
         align = airui.TEXT_ALIGN_CENTER
     })
 
+    -- 历史记录按钮
+    history_btn = airui.container({
+        parent = header,
+        x = W - s(70), y = s(5),
+        w = s(70), h = s(38),
+        color = C.PRIMARY,
+        on_click = function()
+            is_history_mode = not is_history_mode
+            if current_chat_num then
+                open_chat(current_chat_num)
+            end
+        end
+    })
+    airui.label({
+        parent = history_btn,
+        x = 0, y = 0,
+        w = s(70), h = s(38),
+        text = "历史记录",
+        font_size = s(16),
+        color = 0xFFFFFF,
+        align = airui.TEXT_ALIGN_CENTER
+    })
+
     -- 输入区
     local input_h = s(50)
     local input_area = airui.container({
         parent = page,
-        x = 0, y = H - s(58) - input_h,
+        x = 0, y = H - input_h,
         w = W, h = input_h,
         color = C.CARD,
         border_top_color = 0xFFE0BA,
         border_top_width = 1,
     })
 
+    chat_input_area = input_area
     chat_input_text = airui.textarea({
         parent = input_area,
         x = s(8), y = s(8),
@@ -2305,6 +2911,7 @@ local function create_page_chat()
                 chat_input_text:set_text("")
             end
 
+            is_history_mode = false
             open_chat(current_chat_num)
             refresh_chats()
         end
@@ -2319,47 +2926,139 @@ local function create_page_chat()
         align = airui.TEXT_ALIGN_CENTER
     })
 
-    -- 底部导航（复用 App 的样式）
-    local nav_h = s(58)
-    local nav = airui.container({
+    -- ==================== 新建消息表单 ====================
+    new_chat_form = airui.container({
         parent = page,
-        x = 0, y = H - nav_h,
-        w = W, h = nav_h,
-        color = 0xFFFFFF,
-        border_top_color = 0xFFE0BA,
-        border_top_width = 1,
+        x = 0, y = s(48),
+        w = W, h = H - s(48),
+        color = C.BG,
+        scrollable = true,
     })
+    new_chat_form:hide()
 
-    local nav_tabs = {
-        { key = "contacts", label = "联系人" },
-        { key = "records",  label = "通话记录" },
-        { key = "chats",    label = "聊天", active = true },
-        { key = "profile",  label = "我的" },
-    }
+    local form_y = s(10)
 
-    local nav_w = W / #nav_tabs
-    for i, tab in ipairs(nav_tabs) do
-        local nx = (i - 1) * nav_w
-        local item = airui.container({
-            parent = nav,
-            x = nx, y = 0,
-            w = nav_w, h = nav_h,
-            color = 0xFFFFFF,
-            on_click = function()
-                log.info("sip_win", "chat_nav_click:", tab.key)
-                show_app_tab(tab.key)
+    -- 对方号码
+    airui.label({
+        parent = new_chat_form,
+        x = s(15), y = form_y,
+        w = W - s(30), h = s(18),
+        text = "对方号码",
+        font_size = s(12),
+        color = C.TEXT,
+    })
+    form_y = form_y + s(20)
+
+    new_chat_num_input = airui.textarea({
+        parent = new_chat_form,
+        x = s(15), y = form_y,
+        w = W - s(30), h = s(36),
+        text = "",
+        placeholder = "输入对方号码",
+        font_size = s(14),
+        max_len = 64,
+        keyboard = keyboard,
+        radius = s(10),
+        bg_color = 0xFFFFFF,
+        border_color = C.BORDER,
+        border_width = 1,
+    })
+    form_y = form_y + s(42)
+
+    -- 确定按钮
+    local confirm_btn = airui.container({
+        parent = new_chat_form,
+        x = s(15), y = form_y,
+        w = s(80), h = s(32),
+        color = C.PRIMARY,
+        radius = s(6),
+        on_click = function()
+            local num = new_chat_num_input and new_chat_num_input:get_text() or ""
+            num = string.gsub(num, "^%s*(.-)%s*$", "%1")
+            if num == "" then
+                toast("请输入对方号码")
+                return
             end
-        })
-        airui.label({
-            parent = item,
-            x = 0, y = s(18),
-            w = nav_w, h = s(24),
-            text = tab.label,
-            font_size = s(11),
-            color = tab.active and C.NAV_ACTIVE or C.NAV_INACTIVE,
-            align = airui.TEXT_ALIGN_CENTER
-        })
-    end
+            toast("请输入消息内容")
+        end
+    })
+    airui.label({
+        parent = confirm_btn,
+        x = 0, y = 0,
+        w = s(80), h = s(32),
+        text = "确定",
+        font_size = s(13),
+        color = 0xFFFFFF,
+        align = airui.TEXT_ALIGN_CENTER
+    })
+    form_y = form_y + s(42)
+
+    -- 消息内容
+    airui.label({
+        parent = new_chat_form,
+        x = s(15), y = form_y,
+        w = W - s(30), h = s(18),
+        text = "消息内容",
+        font_size = s(12),
+        color = C.TEXT,
+    })
+    form_y = form_y + s(20)
+
+    new_chat_content_input = airui.textarea({
+        parent = new_chat_form,
+        x = s(15), y = form_y,
+        w = W - s(30), h = s(50),
+        text = "",
+        placeholder = "输入消息内容",
+        font_size = s(14),
+        max_len = 512,
+        keyboard = keyboard,
+        radius = s(10),
+        bg_color = 0xFFFFFF,
+        border_color = C.BORDER,
+        border_width = 1,
+    })
+    form_y = form_y + s(56)
+
+    -- 发送按钮
+    local new_send_btn = airui.container({
+        parent = new_chat_form,
+        x = W - s(85), y = form_y,
+        w = s(70), h = s(32),
+        color = C.PRIMARY,
+        radius = s(6),
+        on_click = function()
+            local num = new_chat_num_input and new_chat_num_input:get_text() or ""
+            num = string.gsub(num, "^%s*(.-)%s*$", "%1")
+            if num == "" then
+                toast("请输入对方号码")
+                return
+            end
+            local text = new_chat_content_input and new_chat_content_input:get_text() or ""
+            text = string.gsub(text, "^%s*(.-)%s*$", "%1")
+            if text == "" then
+                toast("请输入消息内容")
+                return
+            end
+            local tm = now_time()
+            sip_data.add_message(num, "out", tm, text)
+            sip_service.send_message(num, text)
+            if new_chat_num_input then new_chat_num_input:set_text("") end
+            if new_chat_content_input then new_chat_content_input:set_text("") end
+            if new_chat_form then new_chat_form:hide() end
+            open_chat(num)
+            refresh_chats()
+        end
+    })
+    airui.label({
+        parent = new_send_btn,
+        x = 0, y = 0,
+        w = s(70), h = s(32),
+        text = "发送",
+        font_size = s(13),
+        color = 0xFFFFFF,
+        align = airui.TEXT_ALIGN_CENTER
+    })
 
 end
 
@@ -2367,17 +3066,41 @@ end
 sys.subscribe("SIP_EVT_REGISTER_OK", function(data)
     log.info("sip_win", "注册成功")
     sip_config.set_logged_in(true)
-    toast("登录成功")
-    -- 从登录页自动进入app
-    if current_page == "login" then
-        show_app_tab("contacts")
+    login_in_progress = false
+    if login_timeout_timer then
+        sys.timerStop(login_timeout_timer)
+        login_timeout_timer = nil
+    end
+    if progress_timer then
+        sys.timerStop(progress_timer)
+        progress_timer = nil
+    end
+    if progress_bar then progress_bar:set_value(100, true) end
+    if progress_label then progress_label:set_text("100%") end
+    if is_auto_login then
+        -- 自动登录流程：停顿500ms后切页
+        sys.timerStart(function()
+            local auto_account = sip_config.get_auto_account()
+            local contact_num = tostring(tonumber(auto_account.sip_username) + 1)
+            sip_data.add_contact(contact_num, "SIP通话测试")
+            contacts = sip_data.get_contacts()
+            refresh_contacts()
+            show_app_tab("contacts")
+            is_auto_login = false
+        end, 500)
+    else
+        toast("登录成功")
+        -- 从登录页自动进入app
+        sys.timerStart(function()
+            show_app_tab("contacts")
+        end, 500)
     end
 end)
 
 sys.subscribe("SIP_EVT_REGISTER_FAILED", function(data)
     log.error("sip_win", "注册失败")
     sip_config.set_logged_in(false)
-    toast("登录失败，请检查账号或网络")
+    login_in_progress = false
 end)
 
 sys.subscribe("SIP_EVT_INCOMING", function(from_num)
@@ -2440,8 +3163,10 @@ sys.subscribe("SIP_EVT_ENDED", function(reason)
         else
             rtype = "dialed"
         end
-        sip_data.add_record("今天", rtype, current_call_num, now_time())
-        refresh_records()
+        if current_call_num and current_call_num ~= "" then
+            sip_data.add_record("今天", rtype, current_call_num, now_time())
+            refresh_records()
+        end
     end
 
     -- 关闭拨号界面或来电弹窗
@@ -2454,10 +3179,15 @@ end)
 
 sys.subscribe("SIP_EVT_MESSAGE_RX", function(from_num, body)
     log.info("sip_win", "收到消息:", from_num, body)
+    if body and string.sub(body, 1, 5) == "<?xml" then
+        log.info("sip_win", "忽略 IMDN 回执")
+        return
+    end
     local tm = now_time()
     sip_data.add_message(from_num, "in", tm, body or "")
     refresh_chats()
     if current_page == "app" and app_subview == "chat" and current_chat_num == from_num then
+        is_history_mode = false
         open_chat(from_num)
     end
     toast("新消息: " .. (body or ""))
@@ -2490,6 +3220,7 @@ local function on_create()
     create_page_chat()
     create_call_screen()
     create_incoming_screen()
+    create_page_progress()
     create_tab_views()
 
     -- 每次打开都进入欢迎界面，由用户手动登录
@@ -2510,6 +3241,10 @@ local function on_destroy()
     if toast_timer then
         sys.timerStop(toast_timer)
         toast_timer = nil
+    end
+    if progress_timer then
+        sys.timerStop(progress_timer)
+        progress_timer = nil
     end
     if keyboard then
         keyboard:destroy()

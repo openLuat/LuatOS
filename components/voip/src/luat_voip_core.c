@@ -190,7 +190,7 @@ static void voip_fill_play_slot(voip_ctx_t *ctx, uint8_t slot_idx)
     }
 #endif
     if (ctx->trace_on) {
-        LLOGD("fill play slot %u", slot_idx);
+        LLOGE("fill play slot %u", slot_idx);
     }
 }
 
@@ -401,18 +401,19 @@ static void voip_do_tx(voip_ctx_t *ctx, const int16_t *mic_pcm)
     tx_pcm = voip_prepare_tx_pcm(ctx, mic_pcm);
     memcpy(pcm, tx_pcm, ctx->frame_bytes);
 
-    /* G.711 编码 */
+
+    /* 编码 */
     uint32_t out_len = 0;
-    int ret = g711_encoder_get_data(ctx->encoder, pcm, ctx->frame_samples,
-                                    ctx->tx_g711_buf, &out_len);
-    if (ret != 1 || out_len == 0) {
-        LLOGW("g711 encode failed");
+    uint32_t used = 0;
+    int ret = LUAT_ERROR_NONE;
+    ret = ctx->codec_encoder.opts->encode(&ctx->codec_encoder,  (const uint8_t *)pcm,  ctx->frame_samples, ctx->tx_g711_buf, &used, &out_len);
+    if (ret != LUAT_ERROR_NONE || out_len == 0) {
+        LLOGW("encode failed ret=%d used=%u out_len=%u", ret, used, out_len);
         return;
     }
     /* RTP 打包 */
     uint16_t rtp_len = 0;
-    ret = voip_pack_rtp_packet(&ctx->rtp_tx, ctx->tx_g711_buf, (uint16_t)out_len,
-                               ctx->rtp_packet_buf, (uint16_t)(VOIP_RTP_HEADER_LEN + ctx->frame_samples), &rtp_len);
+    ret = voip_pack_rtp_packet(&ctx->rtp_tx, ctx->tx_g711_buf, (uint16_t)out_len, ctx->rtp_packet_buf, (uint16_t)(VOIP_RTP_HEADER_LEN + ctx->frame_samples), &rtp_len);
     if (ret < 0) return;
 
     /* UDP 发送 */
@@ -424,7 +425,7 @@ static void voip_do_tx(voip_ctx_t *ctx, const int16_t *mic_pcm)
     ctx->stats.tx_bytes += rtp_len;
 }
 
-/* RX: 从 UDP socket 读取所有待处理数据 → RTP 解析 → G.711 解码 → JB push */
+/* RX: 从 UDP socket 读取所有待处理数据 → RTP 解析 → 解码 → JB push */
 static void voip_do_rx(voip_ctx_t *ctx)
 {
     if (!ctx->netc) return;
@@ -435,9 +436,7 @@ static void voip_do_rx(voip_ctx_t *ctx)
 
     while (1) {
 
-        int rd = network_socket_receive(netc, ctx->udp_rx_buf, ctx->udp_rx_buf_size,
-                                        0, &remote_ip, &remote_port);
-        // LLOGE("voip_do_rx: got udp packet, len=%d", rd);
+        int rd = network_socket_receive(netc, ctx->udp_rx_buf, ctx->udp_rx_buf_size, 0, &remote_ip, &remote_port);
         if (rd <= 0) 
         {
             break;
@@ -474,17 +473,16 @@ static void voip_do_rx(voip_ctx_t *ctx)
         ctx->stats.last_rx_seq = parsed.sequence;
         ctx->stats.last_rx_seq_valid = 1;
 
-        /* G.711 解码 */
         uint32_t pcm_len = 0;
         uint32_t used = 0;
-        ret = g711_decoder_get_data(ctx->decoder, parsed.payload, parsed.payload_len,
-                                    ctx->rx_pcm_buf, &pcm_len, &used);
-        if (ret == 1 && pcm_len > 0) {
+
+        ret = ctx->codec_decoder.opts->decode(&ctx->codec_decoder, NULL, parsed.payload, parsed.payload_len, (uint8_t *)ctx->rx_pcm_buf, &pcm_len, &used);
+
+        if (ret == LUAT_ERROR_NONE && pcm_len > 0) {
             voip_jb_push(ctx->jb, parsed.sequence, ctx->rx_pcm_buf);
         }
         else {
-            // ctx->stats.rx_bad_payload++;
-            LLOGE("g711 decode failed, ret=%d pcm_len=%u used=%u", ret, pcm_len, used);
+            LLOGE("decode failed, ret=%d pcm_len=%u used=%u", ret, pcm_len, used);
         }
     }
 }
@@ -655,8 +653,12 @@ static void voip_cleanup(voip_ctx_t *ctx)
 
 
     /* 释放 codec */
-    if (ctx->encoder) { g711_encoder_destroy(ctx->encoder); ctx->encoder = NULL; }
-    if (ctx->decoder) { g711_decoder_destroy(ctx->decoder); ctx->decoder = NULL; }
+    // if (ctx->encoder) { g711_encoder_destroy(ctx->encoder); ctx->encoder = NULL; }
+    // if (ctx->decoder) { g711_decoder_destroy(ctx->decoder); ctx->decoder = NULL; }
+
+        /* 释放 codec */
+    luat_audio_data_codec_unbind(&ctx->codec_encoder);
+    luat_audio_data_codec_unbind(&ctx->codec_decoder);
 
     /* 释放 AEC */
     voip_aec_cleanup(ctx);
@@ -696,97 +698,107 @@ static int voip_session_start(voip_ctx_t *ctx)
           ptime);
     LLOGE("voio origin: samples=%d", ctx->config.sample_rate);
     LLOGE("voio frame: samples=%d bytes=%d", ctx->frame_samples, ctx->frame_bytes);
+    // const luat_audio_data_codec_opts_t *codec_opts = NULL;
 
+    uint8_t codec_type = VOIP_CODEC_PCMA;
     if (ctx->config.codec == VOIP_CODEC_PCMA) {
-        ctx->g711_type = LUAT_MULTIMEDIA_DATA_TYPE_ALAW;
         ctx->rtp_payload_type = VOIP_RTP_PT_PCMA;
+        codec_type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW;
     } else {
-        ctx->g711_type = LUAT_MULTIMEDIA_DATA_TYPE_ULAW;
         ctx->rtp_payload_type = VOIP_RTP_PT_PCMU;
+        codec_type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW;
     }
+
+    int ret = luat_audio_data_codec_bind(&ctx->codec_encoder, luat_audio_data_codec_find(codec_type), NULL);
+    if (ret != LUAT_ERROR_NONE) {
+        LLOGE("codec encoder bind failed type=%u ret=%d", codec_type, ret);
+        goto start_failed;
+    }
+    LLOGE("codec encoder bind success type=%u", codec_type);
+    ret = luat_audio_data_codec_bind(&ctx->codec_decoder, luat_audio_data_codec_find(codec_type), NULL);
+    if (ret != LUAT_ERROR_NONE) {
+        LLOGE("codec decoder bind failed type=%u ret=%d", codec_type, ret);
+        luat_audio_data_codec_unbind(&ctx->codec_encoder);
+        goto start_failed;
+    }
+
+    ret = ctx->codec_encoder.opts->init(&ctx->codec_encoder, 1);
+    if (ret != LUAT_ERROR_NONE) {
+        LLOGE("codec encoder init failed type=%u ret=%d", codec_type, ret);
+        luat_audio_data_codec_unbind(&ctx->codec_encoder);
+        luat_audio_data_codec_unbind(&ctx->codec_decoder);
+        goto start_failed;
+    }
+
+    ret = ctx->codec_decoder.opts->init(&ctx->codec_decoder, 0);
+    if (ret != LUAT_ERROR_NONE) {
+        LLOGE("codec decoder init failed type=%u ret=%d", codec_type, ret);
+        luat_audio_data_codec_unbind(&ctx->codec_encoder);
+        luat_audio_data_codec_unbind(&ctx->codec_decoder);
+        goto start_failed;
+    }
+
 
     if (voip_alloc_buffers(ctx) < 0) {
         LLOGE("voip buffer alloc failed");
         goto start_failed;
     }
 
-    ctx->encoder = g711_encoder_create(ctx->g711_type);
-    ctx->decoder = g711_decoder_create(ctx->g711_type);
-    if (!ctx->encoder || !ctx->decoder) {
-        LLOGE("g711 codec create failed");
-        goto start_failed;
-    }
 
-    {
-        uint16_t jb_depth = ctx->config.jitter_depth ? ctx->config.jitter_depth : VOIP_JB_DEPTH_DEFAULT;
-        ctx->jb = voip_jb_create(jb_depth, VOIP_JB_DEFAULT_MAX_PENDING, ctx->frame_samples);
-        if (!ctx->jb) {
-            LLOGE("jitter buffer create failed");
-            goto start_failed;
-        }
+    uint16_t jb_depth = ctx->config.jitter_depth ? ctx->config.jitter_depth : VOIP_JB_DEPTH_DEFAULT;
+    ctx->jb = voip_jb_create(jb_depth, VOIP_JB_DEFAULT_MAX_PENDING, ctx->frame_samples);
+    if (!ctx->jb) {
+        LLOGE("jitter buffer create failed");
+        goto start_failed;
     }
 
     if (voip_aec_init(ctx) != 0) {
         goto start_failed;
     }
-
+    
     voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, sample_rate, ptime);
 
-    {
 
-
-        int adapter_index = ctx->config.adapter;
-        luat_ip_addr_t remote_ip = {0};
-        network_ctrl_t *netc;
-        int ret;
-
-        if (adapter_index < 0) adapter_index = NW_ADAPTER_INDEX_LWIP_GPRS;
-
-        netc = network_alloc_ctrl((uint8_t)adapter_index);
-        if (!netc) {
-            LLOGE("network alloc ctrl failed");
-            goto start_failed;
-        }
-        ctx->netc = netc;
-
-        network_init_ctrl(netc, NULL, voip_net_cb, ctx);
-        network_set_base_mode(netc, 0 /* UDP */, 0, 0, 0, 0, 0);
-
-        if (ctx->config.local_port) {
-            network_set_local_port(netc, ctx->config.local_port);
-        }
-
-        ipaddr_aton(ctx->config.remote_ip, &remote_ip);
-        if (!network_ip_is_vaild(&remote_ip)) {
-            LLOGE("invalid remote ip: %s", ctx->config.remote_ip);
-            goto start_failed;
-        }
-
-        ret = network_connect(netc, NULL, 0, &remote_ip, ctx->config.remote_port, 5000);
-        if (ret < 0) {
-            LLOGE("udp connect failed: %d", ret);
-            goto start_failed;
-        }
+    int adapter_index = ctx->config.adapter;
+    luat_ip_addr_t remote_ip = {0};
+    network_ctrl_t *netc;
+    if (adapter_index < 0) adapter_index = NW_ADAPTER_INDEX_LWIP_GPRS;
+    netc = network_alloc_ctrl((uint8_t)adapter_index);
+    if (!netc) {
+        LLOGE("network alloc ctrl failed");
+        goto start_failed;
     }
+    ctx->netc = netc;
+    network_init_ctrl(netc, NULL, voip_net_cb, ctx);
+    network_set_base_mode(netc, 0 /* UDP */, 0, 0, 0, 0, 0);
+    if (ctx->config.local_port) {
+        network_set_local_port(netc, ctx->config.local_port);
+    }
+    ipaddr_aton(ctx->config.remote_ip, &remote_ip);
+    if (!network_ip_is_vaild(&remote_ip)) {
+        LLOGE("invalid remote ip: %s", ctx->config.remote_ip);
+        goto start_failed;
+    }
+    ret = network_connect(netc, NULL, 0, &remote_ip, ctx->config.remote_port, 5000);
+    if (ret < 0) {
+        LLOGE("udp connect failed: %d", ret);
+        goto start_failed;
+    }
+    
 
-    LLOGE("udp socket created and connected to %s:%d",ctx->config.remote_ip, ctx->config.remote_port);
     if (voip_start_audio(ctx, sample_rate) != 0) {
         goto start_failed;
     }
-    LLOGE("audio started: multimedia_id=%d sample_rate=%d backend=%d", ctx->config.multimedia_id, sample_rate, ctx->audio_backend);
 
-    {
-        uint32_t stats_ms = ctx->config.stats_interval_ms ? ctx->config.stats_interval_ms : VOIP_STATS_INTERVAL_DEFAULT;
-        if (stats_ms > 0) {
-            luat_rtos_timer_start(ctx->stats_timer, stats_ms, 1, voip_stats_timer_cb, NULL);
-        }
+
+    uint32_t stats_ms = ctx->config.stats_interval_ms ? ctx->config.stats_interval_ms : VOIP_STATS_INTERVAL_DEFAULT;
+    if (stats_ms > 0) {
+        luat_rtos_timer_start(ctx->stats_timer, stats_ms, 1, voip_stats_timer_cb, NULL);
     }
+
 
     ctx->state = VOIP_STATE_RUNNING;
     voip_notify_lua(VOIP_CB_STATE, VOIP_STATE_RUNNING);
-    LLOGI("voip running: %s:%d codec=%d ptime=%d",
-          ctx->config.remote_ip, ctx->config.remote_port,
-          ctx->config.codec, ptime);
     return 0;
 
 start_failed:
@@ -823,7 +835,7 @@ static int voip_runtime_init(voip_ctx_t *ctx)
     ctx->state = VOIP_STATE_IDLE;
     luat_rtos_timer_create(&ctx->stats_timer);
 
-    ret = luat_rtos_task_create(&ctx->task_handle, 4096, 50, "voip", voip_task_entry, ctx, 32);
+    ret = luat_rtos_task_create(&ctx->task_handle, 8 * 1024, 50, "voip", voip_task_entry, ctx, 32);
     if (ret != 0) {
         LLOGE("voip task create failed: %d", ret);
         ctx->state = VOIP_STATE_IDLE;
@@ -845,7 +857,6 @@ static void voip_task_entry(void *param)
     while (1) {
         int ret = luat_rtos_event_recv(ctx->task_handle, 0, &event, NULL, (uint32_t)LUAT_WAIT_FOREVER);
         if (ret != 0) continue;
-
         switch (event.id) {
         case VOIP_EVENT_START:
             if (ctx->state == VOIP_STATE_IDLE || ctx->state == VOIP_STATE_STARTING) {
@@ -856,7 +867,6 @@ static void voip_task_entry(void *param)
 
         case VOIP_EVENT_STOP:
             if (ctx->state == VOIP_STATE_RUNNING || ctx->state == VOIP_STATE_STARTING || ctx->state == VOIP_STATE_ERROR) {
-                LLOGD("voip stop event");
                 voip_session_stop(ctx, 1);
             }
             break;

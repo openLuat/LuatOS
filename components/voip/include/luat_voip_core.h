@@ -18,7 +18,7 @@
 #include "luat_base.h"
 #include "luat_rtos.h"
 #include "luat_voip_jitterbuf.h"
-
+#include "luat_audio_data_codec.h"
 /* ======================== 配置 ======================== */
 
 #define VOIP_MAX_IP_LEN         48
@@ -150,6 +150,9 @@ typedef struct {
     /* Codec */
     void *encoder;              /* g711 encoder handle */
     void *decoder;              /* g711 decoder handle */
+
+    luat_audio_data_codec_t codec_encoder;  /* Codec 配置和状态 */
+    luat_audio_data_codec_t codec_decoder; /* Codec 配置和状态 */
     uint8_t g711_type;          /* G711_TYPE_ULAW / G711_TYPE_ALAW */
     uint8_t rtp_payload_type;   /* 0=PCMU, 8=PCMA */
 

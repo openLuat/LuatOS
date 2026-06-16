@@ -4475,9 +4475,20 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
             end
         end
 
-        sys.publish("APP_STORE_ACTION_DONE", aid, "install", true)
-        sys.publish("APP_STORE_PROGRESS", aid, 100, "安装完成")
-        report_result(aid, nil)
+        -- 验证安装是否成功：installed_info中已有该aid记录说明meta.json已成功处理
+        if installed_info[aid] then
+            sys.publish("APP_STORE_ACTION_DONE", aid, "install", true)
+            sys.publish("APP_STORE_PROGRESS", aid, 100, "安装完成")
+            report_result(aid, nil)
+        else
+            -- 安装失败：解压后应用数据异常（目录不存在、meta.json缺失或损坏等）
+            if io.dexist(app_path) then
+                rmdir_recursive(app_path)
+            end
+            sys.publish("APP_STORE_ERROR", "安装失败：应用数据异常，请重试")
+            sys.publish("APP_STORE_ACTION_DONE", aid, "install", false)
+            report_result(aid, "安装失败：应用数据异常")
+        end
 
         -- 刷新当前列表（仅一次请求，保持用户当前页码不跳回第1页）
         exapp.get_app_list({

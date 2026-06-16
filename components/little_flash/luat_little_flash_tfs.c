@@ -1342,7 +1342,12 @@ void *flash_tfs_lf(little_flash_t *flash, size_t offset, size_t maxsize)
         if (ret == TFS_OK) {
             tfs_dev_t *dev = tfs_core_find_dev(ctx->dev_name);
             if (dev && !dev->is_checkpointed) {
-                LLOGD("tfs: checkpoint missing or old, sync after full scan");
+                if (dev->checkpt_delta_chunks > 0) {
+                    LLOGD("tfs: checkpoint delta replayed chunks=%d, sync after recovery",
+                          dev->checkpt_delta_chunks);
+                } else {
+                    LLOGD("tfs: checkpoint missing or old, sync after scan");
+                }
                 need_sync = 1;
             }
         }

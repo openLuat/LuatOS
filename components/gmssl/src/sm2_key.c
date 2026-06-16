@@ -26,11 +26,14 @@
 extern const SM2_BN SM2_N;
 
 
+#define SM2_KEYGEN_MAX_TRIES 100
+
 int sm2_key_generate(SM2_KEY *key)
 {
 	SM2_BN x;
 	SM2_BN y;
 	SM2_JACOBIAN_POINT _P, *P = &_P;
+	int tries = 0;
 
 	if (!key) {
 		error_print();
@@ -43,7 +46,12 @@ int sm2_key_generate(SM2_KEY *key)
 			error_print();
 			return -1;
 		}
-	} while (sm2_bn_is_zero(x));
+	} while (sm2_bn_is_zero(x) && ++tries < SM2_KEYGEN_MAX_TRIES);
+
+	if (tries >= SM2_KEYGEN_MAX_TRIES) {
+		error_print();
+		return -1;
+	}
 	sm2_bn_to_bytes(x, key->private_key);
 
 	sm2_jacobian_point_mul_generator(P, x);

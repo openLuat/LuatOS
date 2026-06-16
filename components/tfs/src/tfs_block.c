@@ -51,9 +51,11 @@ static void invalidate_checkpoint_before_mutation(tfs_dev_t *dev)
     if (!dev || dev->checkpt_open_write) {
         return;
     }
-    if (dev->is_checkpointed) {
-        tfs_checkpt_erase(dev);
-    }
+    /*
+     * Keep the old checkpoint blocks as a mount-time base.  A later sync will
+     * erase and replace them; a power loss before sync can replay newer pages
+     * incrementally instead of scanning the whole NAND.
+     */
     dev->is_checkpointed = 0;
 }
 

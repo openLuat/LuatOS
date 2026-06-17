@@ -110,7 +110,6 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
             ret = LUAT_ERROR_NONE;
             if (!source->is_input_end) {
                 ret = luat_audio_data_read_to_fifo(&source->file_info[source->file_done_cnt], source->decode_input_fifo, &is_file_end);
-
             }
             if (ret < 0) {
                 LLOGC(luat_audio_debug_flag, "read file %d failed", source->file_done_cnt, ret);

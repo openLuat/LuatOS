@@ -383,7 +383,6 @@ static void luat_audio_tts_task(void *param)
 	}
 }
 
-
 /**
  * @brief 解码当前请求块的播放信息
  * @param request_block 请求块
@@ -518,10 +517,23 @@ static void _audio_decode_stream_to_fifo(luat_audio_request_block_t *request_blo
 	int ret;
 
 	while (!stop && !request_block->is_error_stop && !request_block->is_user_stop && (luat_fifo_check_used_space(request_block->data_channel->play_fifo) < request_block->data_channel->play_fifo_high_level)) {	//fifo剩余数据不足高水位，需要请求更多数据
-		ret =luat_audio_data_codec_decode_once(&request_block->play_codec, 
-			request_block->org_input_data_fifo, 
-			&request_block->out_buffer, 
-			request_block->is_input_end);
+		if (request_block->extern_play_source) {
+			ret = luat_audio_extern_source_decode(request_block->extern_play_source);
+			if (!ret) {
+				uint32_t copy_bytes = request_block->out_buffer.max_len -request_block->out_buffer.pos;
+				luat_buffer_write(&request_block->out_buffer, request_block->extern_play_source->decode_output_buffer.data, copy_bytes);
+				luat_buffer_remove_data(&request_block->extern_play_source->decode_output_buffer, copy_bytes);
+			}
+			if (request_block->extern_play_source->is_decode_finish) {
+				_audio_extern_source_finish(request_block->extern_play_source);
+			}
+		} else {
+			ret =luat_audio_data_codec_decode_once(&request_block->play_codec, 
+				request_block->org_input_data_fifo, 
+				&request_block->out_buffer, 
+				request_block->is_input_end);
+		}
+		
 		if (ret) {
 			LLOGE("decode failed, ret = %d", ret);
 			request_block->is_error_stop = 1;
@@ -784,6 +796,7 @@ static void luat_audio_common_task(void *param)
 				temp_ref_buffer.max_len = request_block->record_codec.common_param.one_frame_bytes;
 				int ret;
 				uint8_t stop = 0;
+				uint8_t is_need_ref_data = request_block->is_need_ref_data;
 				if (request_block->is_record_dummy_data) {
 					continue;
 				}
@@ -814,7 +827,32 @@ static void luat_audio_common_task(void *param)
 							continue;
 						}
 					}
-					luat_audio_data_codec_encode_once(&request_block->record_codec, &temp_record_buffer, request_block->is_need_ref_data?&temp_ref_buffer:NULL, request_block->encode_save_fifo);					
+					if (request_block->extern_record_source) {
+						ret = luat_audio_extern_source_decode(request_block->extern_record_source);
+						if (!ret) {
+							if (!request_block->extern_record_source->is_decode_finish) {
+								temp_record_buffer.data = request_block->extern_record_source->decode_output_buffer.data;
+								temp_record_buffer.pos = 0;
+								is_need_ref_data = 0;
+								if (request_block->extern_record_source->decode_output_buffer.pos < temp_record_buffer.max_len) {
+									LLOGC(luat_audio_debug_flag, "extern record source decode output buffer pos %d, need %d", request_block->extern_record_source->decode_output_buffer.pos, temp_record_buffer.max_len);
+									uint32_t dummy_data_len = temp_record_buffer.max_len - request_block->extern_record_source->decode_output_buffer.pos;
+									request_block->data_channel->driver_ctrl->opts->fill(request_block->data_channel->driver_ctrl, 
+										request_block->extern_record_source->decode_output_buffer.data + request_block->extern_record_source->decode_output_buffer.pos, 
+										dummy_data_len, request_block->record_codec.common_param.is_signed,
+										request_block->record_codec.common_param.data_align);
+									request_block->extern_record_source->decode_output_buffer.pos = 0;
+								} else {
+									request_block->extern_record_source->decode_output_buffer.pos -= temp_record_buffer.max_len;
+								}
+							} else {
+								_audio_extern_source_finish(request_block->extern_record_source);
+							}
+						} else {
+							_audio_extern_source_finish(request_block->extern_record_source);
+						}
+					}
+					luat_audio_data_codec_encode_once(&request_block->record_codec, &temp_record_buffer, is_need_ref_data?&temp_ref_buffer:NULL, request_block->encode_save_fifo);
 				}
 				request_block->cb(LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA, NULL, deal_bytes, request_block);
 			}
@@ -884,17 +922,26 @@ static void luat_audio_common_task(void *param)
 				extern_source->is_error_stop = 1;
 			} else {
 				request_block = _luat_audio.current_request_block;
-				if (extern_source->is_add_record) {
-					if (request_block->extern_record_source) {
-						extern_source->is_error_stop = 1;
-					} else {
-						request_block->extern_record_source = extern_source;
-					}
+				if (request_block->is_error_stop || request_block->is_user_stop || request_block->is_stream_end) {
+					LLOGC(luat_audio_debug_flag, "request_id: %d is error stop, user stop, or stream end", request_block->request_id);
+					extern_source->is_error_stop = 1;
+				}
+				if (request_block->driver_work_mode < LUAT_AUDIO_DRIVER_MODE_SPEECH) {
+					LLOGC(luat_audio_debug_flag, "request_id: %d is not speech, can not use extern source", request_block->request_id);
+					extern_source->is_error_stop = 1;
 				} else {
-					if (request_block->extern_play_source) {
-						extern_source->is_error_stop = 1;
+					if (extern_source->is_add_record) {
+						if (request_block->extern_record_source) {
+							extern_source->is_error_stop = 1;
+						} else {
+							request_block->extern_record_source = extern_source;
+						}
 					} else {
-						request_block->extern_play_source = extern_source;
+						if (request_block->extern_play_source) {
+							extern_source->is_error_stop = 1;
+						} else {
+							request_block->extern_play_source = extern_source;
+						}
 					}
 				}
 				if (!extern_source->is_error_stop) {

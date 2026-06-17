@@ -741,15 +741,15 @@ static int l_pkg_evt_cb(lua_State *L, void* ptr) {
     if (!lua_isfunction(L, -1)) { lua_pop(L, 1); luat_heap_free(m); return 0; }
     lua_pushinteger(L, m->id);
     lua_pushinteger(L, m->event);
-    // arg3: zbuff userdata (userdata 内存由 Lua 分配, GC 时不会被 zbuff 释放, 需要在回调里 free)
+    // arg3: zbuff userdata (PSRAM 分配, GC 时由 zbuff __gc 自动按 type 释放)
     luat_zbuff_t* z = (luat_zbuff_t*)lua_newuserdata(L, sizeof(luat_zbuff_t));
     luaL_setmetatable(L, LUAT_ZBUFF_TYPE);
     memset(z, 0, sizeof(luat_zbuff_t));
-    z->type = LUAT_HEAP_AUTO;
+    z->type = LUAT_HEAP_PSRAM;
     z->len  = m->len;
     z->used = m->len;
     if (m->len > 0) {
-        z->addr = (uint8_t*)luat_heap_malloc(m->len);
+        z->addr = (uint8_t*)luat_heap_opt_malloc(LUAT_HEAP_PSRAM, m->len);
         if (z->addr) {
             memcpy(z->addr, m->buff, m->len);
         } else {

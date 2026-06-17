@@ -396,12 +396,16 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             //print_erp_pkg(ch->rxbuff, len);
             // 先经过netdrv过滤器
             // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
-            // 集中入口: 截获 / NAPT / netif 注入 都在 luat_netdrv_pkg_input 里
+            // 替换原 napt_pkg_input 调用为 pkg_input (内含 EVT_PKG 截获检查)
             ret = luat_netdrv_pkg_input(ch->adapter_id, LUAT_NETDRV_PKG_FROM_HW,
                                         ch->rxbuff, (uint16_t)(len - 4));
-            if (ret < 0) {
-                LLOGE("luat_netdrv_pkg_input 错误 adapter %d ret %d", ch->adapter_id, ret);
-                return 1;
+            if (ret == 0) {
+                // napt 未消费, 继续注入 netif (原逻辑)
+                ret = luat_netdrv_netif_input_proxy(ch->netdrv->netif, ch->rxbuff, len - 4);
+                if (ret) {
+                    LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);
+                    return 1;
+                }
             }
         }
         // 很好, RX数据处理完成了

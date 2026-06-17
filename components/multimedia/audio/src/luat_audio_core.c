@@ -528,10 +528,15 @@ static void _audio_decode_stream_to_fifo(luat_audio_request_block_t *request_blo
 				_audio_extern_source_finish(request_block->extern_play_source);
 			}
 		} else {
+			uint32_t last_bytes = request_block->out_buffer.pos;
 			ret =luat_audio_data_codec_decode_once(&request_block->play_codec, 
 				request_block->org_input_data_fifo, 
 				&request_block->out_buffer, 
 				request_block->is_input_end);
+			if (request_block->out_buffer.pos == last_bytes) {
+				LLOGC(luat_audio_debug_flag, "decode once, no data output");
+				stop = 1;
+			}
 		}
 		
 		if (ret) {

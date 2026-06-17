@@ -39,10 +39,6 @@ lcd.init("nv3041a", {
 }, spi_lcd)
 
 sys.taskInit(function()
-    -- 开启缓冲区, 刷屏速度回加快, 但也消耗2倍屏幕分辨率的内存
-    if lcd_use_buff then
-        lcd.setupBuff() -- 使用lua内存, 只需要选一种
-    end
 
     local function tp_callBack(tp_device,tp_data)
         sys.publish("TP",tp_device,tp_data)

@@ -53,7 +53,7 @@ local function tp_drv_init()
 
     sys.wait(100)
     -- 初始化硬件I2C
-    i2c.setup(0, i2c.SLOW) -- 初始化I2C 0，设置为低速模式
+    i2c.setup(1, i2c.SLOW) -- 初始化I2C 0，设置为低速模式
 
     -- 此处触摸IC数据读取使用的是软件I2C接口
     -- 参数说明：
@@ -63,7 +63,12 @@ local function tp_drv_init()
     -- pin_int: 中断引脚编号
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
-    local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0})
+
+    -- Air8000 开发板 触摸输出代码,可以测试UI功能无法测试低功耗模式1
+    local result = tp.init("gt911", { port = 1, pin_rst = 0xff, pin_int = gpio.WAKEUP0})
+
+    -- Air8000 核心板 触摸输出代码，可以测试全部功能，包括低功耗模式1
+    -- local result = tp.init("gt911", { port = 1, pin_rst = 0xff, pin_int = 2})
 
     log.info("tp.init", result)
 

@@ -15,10 +15,16 @@ if platform == "Air8000" then
     -- Air8000引脚配置
     pins.setup(17, "UART1_RXD")
     pins.setup(16, "UART1_TXD")
-    pins.setup(25, "UART3_RXD")
-    pins.setup(26, "UART3_TXD")
+
+    pins.setup(39, "UART3_RXD")
+    pins.setup(38, "UART3_TXD")
+
+    -- pins.setup(25, "UART3_RXD")
+    -- pins.setup(26, "UART3_TXD")
+
     pins.setup(48, "UART11_RXD")
     pins.setup(49, "UART11_TXD")
+
     pins.setup(60, "UART12_TXD")
     pins.setup(59, "UART12_RXD")
 

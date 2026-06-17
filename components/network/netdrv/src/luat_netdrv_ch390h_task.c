@@ -397,7 +397,8 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             // 先经过netdrv过滤器
             // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
             // 集中入口: 截获 / NAPT / netif 注入 都在 luat_netdrv_pkg_input 里
-            ret = luat_netdrv_pkg_input(ch->adapter_id, ch->rxbuff, (uint16_t)(len - 4));
+            ret = luat_netdrv_pkg_input(ch->adapter_id, LUAT_NETDRV_PKG_FROM_HW,
+                                        ch->rxbuff, (uint16_t)(len - 4));
             if (ret < 0) {
                 LLOGE("luat_netdrv_pkg_input 错误 adapter %d ret %d", ch->adapter_id, ret);
                 return 1;

@@ -18,7 +18,7 @@
 #include "luat_wdt.h"
 
 #include "luat_rtos.h"
-#include "luat_netdrv_event.h"
+#include "luat_netdrv_pkg.h"
 
 #define LUAT_LOG_TAG "netdrv.ch390x"
 #include "luat_log.h"
@@ -396,22 +396,11 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             //print_erp_pkg(ch->rxbuff, len);
             // 先经过netdrv过滤器
             // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
-            if (luat_netdrv_has_pkg_cb(ch->adapter_id)) {
-                // [HOOK FROM_HW + 截获] 回调已注册, 包交给 Lua 后不再走 NAPT/LWIP
-                luat_netdrv_fire_pkg_event(ch->adapter_id, LUAT_NETDRV_PKG_FROM_HW,
-                                            ch->rxbuff, (uint16_t)(len - 4));
-            } else {
-                // 原始流程
-                ret = luat_netdrv_napt_pkg_input(ch->adapter_id, ch->rxbuff, len - 4);
-                // LLOGD("napt ret %d", ret);
-                if (ret == 0) {
-                    // 如果返回值是0, 那就是继续处理, 输入到netif
-                    ret = luat_netdrv_netif_input_proxy(ch->netdrv->netif, ch->rxbuff, len - 4);
-                    if (ret) {
-                        LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);
-                        return 1;
-                    }
-                }
+            // 集中入口: 截获 / NAPT / netif 注入 都在 luat_netdrv_pkg_input 里
+            ret = luat_netdrv_pkg_input(ch->adapter_id, ch->rxbuff, (uint16_t)(len - 4));
+            if (ret < 0) {
+                LLOGE("luat_netdrv_pkg_input 错误 adapter %d ret %d", ch->adapter_id, ret);
+                return 1;
             }
         }
         // 很好, RX数据处理完成了

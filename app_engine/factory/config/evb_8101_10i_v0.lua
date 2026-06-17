@@ -1,6 +1,6 @@
 --[[
 @module  config.evb_8101_10i_v0
-@summary Air8101 EVB 7寸1024x600 RGB屏(HX8282) + AirLCD_1100 配置文件
+@summary Air8101 EVB 10寸1024x600 RGB屏(HX8282) + AirLCD_1100 配置文件
 @version 1.0
 @date    2026.06.17
 @author  江访
@@ -42,7 +42,7 @@ return {
 
     -- ===== 硬件配置 =====
     hw = {
-        -- 屏幕: HX8282 RGB 7寸 1024×600（AirLCD_1100 模组，四合一芯片无需 SPI 初始化引脚）
+        -- 屏幕: HX8282 RGB 10寸 1024×600（AirLCD_1100 模组，四合一芯片无需 SPI 初始化引脚）
         lcd = {
             model = "lcd_hx8282_10in",
             params = {

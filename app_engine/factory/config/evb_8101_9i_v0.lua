@@ -1,5 +1,5 @@
 --[[
-@module  config.evb_8101_7i_v0
+@module  config.evb_8101_9i_v0
 @summary Air8101 EVB 7寸1024x600 RGB屏(HX8282) + AirLCD_1090 配置文件
 @version 1.0
 @date    2026.06.09

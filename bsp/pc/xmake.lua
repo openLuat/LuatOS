@@ -30,7 +30,7 @@ local function find_ext_root()
 end
 local luatos_ext_root = find_ext_root()
 -- 2表示mbedtls 2.18.x，3表示mbedtls 3.x，4表示mbedtls 4.x
-local mbedtls_version = 2
+local mbedtls_version = 3
 
 add_requires("gmssl")
 add_packages("gmssl")

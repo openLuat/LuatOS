@@ -31,6 +31,7 @@ log.info("simid", mobile.simid())
 
 #include "luat_mobile.h"
 #include "luat_network_adapter.h"
+#include <string.h>
 
 #define LUAT_LOG_TAG "mobile"
 #include "luat_log.h"
@@ -1512,6 +1513,70 @@ static int l_mobile_rf_test_imei_set(lua_State* L) {
 }
 
 /**
+RF测试:读 Golden Unit 数据
+@api mobile.rfTestGmData()
+@return string 数据字符串, 失败返回 nil
+@usage
+print(mobile.rfTestGmData())
+ */
+static int l_mobile_rf_test_gmdata_get(lua_State* L) {
+    size_t len = luaL_optinteger(L, 1, 2048);
+    if (len < 1 || len > 8192) len = 2048;
+    char *buf = luat_heap_malloc(len);
+    if (!buf) { lua_pushnil(L); return 1; }
+    int rv = luat_mobile_rf_test_gmdata_get(buf, len);
+    if (rv > 0) {
+        lua_pushlstring(L, buf, rv);
+    } else {
+        lua_pushnil(L);
+    }
+    luat_heap_free(buf);
+    return 1;
+}
+
+/**
+RF测试:写 Golden Unit 数据
+@api mobile.rfTestGmDataSet(data)
+@string data 数据字符串
+@return int 0 成功, -1 失败
+@usage
+mobile.rfTestGmDataSet("golden data")
+ */
+static int l_mobile_rf_test_gmdata_set(lua_State* L) {
+    size_t len = 0;
+    const char *data = luaL_checklstring(L, 1, &len);
+    lua_pushinteger(L, luat_mobile_rf_test_gmdata_set(data, len));
+    return 1;
+}
+
+/**
+RF测试: NST 校准/非信令指令同步处理
+@api mobile.rfTestNst(hex)
+@string hex 输入的 hex 字符串, 如 "02040900..."
+@return int  0 成功, -2 CRC 错误, -3 数据块索引错误, 其他错误
+@return string/nil  成功且有输出时返回响应字符串 (如 "MT0204..."), 否则 nil
+@usage
+local rc, resp = mobile.rfTestNst("02040900010003000500080022002600270028002900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000034126000076A")
+ */
+static int l_mobile_rf_test_nst(lua_State* L) {
+    size_t hex_len = 0;
+    const char *hex = luaL_checklstring(L, 1, &hex_len);
+    uint32_t out_len = 8000;
+    char *out = luat_heap_malloc(out_len);
+    if (!out) { lua_pushnil(L); lua_pushnil(L); return 2; }
+    memset(out, 0, out_len);
+    int rc = luat_mobile_rf_test_nst(hex, (uint32_t)hex_len, out, &out_len);
+    lua_pushinteger(L, rc);
+    if (rc == 0 && out_len > 0) {
+        lua_pushlstring(L, out, out_len);
+    } else {
+        lua_pushnil(L);
+    }
+    luat_heap_free(out);
+    return 2;
+}
+
+/**
 初始化内置默认虚拟卡功能(不可用)
 @api mobile.vsimInit()
 @return nil 无返回值
@@ -1637,6 +1702,9 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"rfTestParam",       ROREG_FUNC(l_mobile_rf_test_param)},
 	{"rfTestImei",        ROREG_FUNC(l_mobile_rf_test_imei_get)},
 	{"rfTestImeiSet",     ROREG_FUNC(l_mobile_rf_test_imei_set)},
+	{"rfTestGmData",      ROREG_FUNC(l_mobile_rf_test_gmdata_get)},
+	{"rfTestGmDataSet",   ROREG_FUNC(l_mobile_rf_test_gmdata_set)},
+	{"rfTestNst",         ROREG_FUNC(l_mobile_rf_test_nst)},
 #endif
 #ifdef LUAT_USE_VSIM
 	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},

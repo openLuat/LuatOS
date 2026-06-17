@@ -41,6 +41,7 @@ typedef struct {
  * 
  */
 typedef struct {
+    struct luat_audio_request_block *request;        /**< 音频请求块 */
     luat_audio_data_codec_t codec;          /**< 关联的播放编解码器实例 */
     uint8_t *temp_buff;                         /**< 临时缓冲区*/
     union {
@@ -54,13 +55,15 @@ typedef struct {
             uint32_t tts_data_size;             /**< 文本转语音数据长度 */
         };
     };
-    luat_fifo_t *decode_output_fifo;           /**< 解码后输出缓冲区，用于存储解码后的音频数据，只有附加到录音通道的时候需要 */
+    // luat_fifo_t *decode_output_fifo;           /**< 解码后输出缓冲区，用于存储解码后的音频数据，只有附加到录音通道的时候需要 */
     luat_fifo_t *decode_input_fifo;            /**< 解码前输入缓冲区，用于存储编码过的音频数据*/
-    luat_buffer_t out_buffer;                  /**< 临时输出缓冲区，用于临时存储解码后的音频数据 */
+    luat_buffer_t decode_output_buffer;                  /**< 解码后输出缓冲区，用于临时存储解码后的音频数据 */
     uint8_t is_stream:1;                       /**< 是否为流式请求 */
     uint8_t is_tts:1;                          /**< 是否为文本转语音请求 */
     uint8_t is_input_end:1;                   /**< 是否为输入结束请求 */
     uint8_t is_error_stop:1;                   /**< 是否为错误停止 */
+    uint8_t is_decode_done:1;                  /**< 是否为解码完成 */
+    uint8_t is_add_record:1;                   /**< 是否附加到录音通道 */
 }luat_audio_extern_source_t;
 
 /**

@@ -86,6 +86,11 @@ enum {
     LUAT_AUDIO_REQUEST_EVENT_END,                     /**< 请求结束 */
     LUAT_AUDIO_REQUEST_EVENT_EXTERNAL_SOURCE_DECODE_DONE,         /**< 外部源解码完成 */
     LUAT_AUDIO_REQUEST_EVENT_MAX = 255,
+
+    LUAT_AUDIO_DRIVER_PARAM_TX_MAX_LEN = 0,     /**< 播放最大缓存长度参数 */
+    LUAT_AUDIO_DRIVER_PARAM_RX_MAX_LEN,         /**< 录音最大缓存长度参数 */
+
+    LUAT_AUDIO_DATA_CODEC_PARAM_ENCODE_INPUT_LEN = 0,         /**< 编码1帧需要的输入数据长度参数 */
 };
 
 #ifndef LUAT_AUDIO_DATA_CACHE_LEN

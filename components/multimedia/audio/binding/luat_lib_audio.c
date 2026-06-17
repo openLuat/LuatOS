@@ -8,6 +8,7 @@
 @tag LUAT_USE_AUDIO_V2
 */
 #include "luat_audio_data_codec.h"
+#include "luat_audio_define.h"
 #include "luat_audio_request.h"
 #include "luat_base.h"
 #include "luat_msgbus.h"
@@ -984,6 +985,39 @@ static int l_audio_get_driver_id(lua_State *L) {
 }
 
 /*
+获取音频驱动参数
+@api audio_v2.get_driver_param(driver_probe_id, param)
+@int driver_probe_id 驱动id，驱动id需要通过audio.make_probe_id合成，留空就获取默认音频驱动参数
+@int param 驱动参数，见DRIVER_PARAM_xxx常量
+@return int 驱动参数值
+@usage
+local result = audio_v2.get_driver_param(driver_probe_id, audio_v2.DRIVER_PARAM_RX_MAX_LEN)
+log.info(result)
+@*/
+static int l_audio_get_driver_param(lua_State *L) {
+    luat_audio_driver_probe_t driver_probe = {0};
+    driver_probe.probe_id = luaL_optinteger(L, 1, 0);
+    uint32_t param = luaL_optinteger(L, 2, 0);
+    luat_audio_driver_ctrl_t *driver_ctrl = luat_audio_driver_probe(driver_probe.probe_id ? &driver_probe : NULL);
+    if (driver_ctrl) {
+        switch (param) {
+            case LUAT_AUDIO_DRIVER_PARAM_TX_MAX_LEN:
+                lua_pushinteger(L, driver_ctrl->opts->tx_one_block_max_len);
+                break;
+            case LUAT_AUDIO_DRIVER_PARAM_RX_MAX_LEN:
+                lua_pushinteger(L, driver_ctrl->opts->rx_one_block_max_len);
+                break;
+            default:
+                lua_pushinteger(L, 0);
+        }
+        return 1;
+    } else {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+}
+
+/*
 分解音频驱动id，并返回详细信息
 @api audio_v2.print_probe_id(driver_probe_id, is_string)
 @int driver_probe_id 驱动id，驱动id需要通过audio.make_probe_id合成
@@ -1116,6 +1150,38 @@ static int l_audio_config_codec_power_ctrl(lua_State *L) {
     return 1;
 }
 
+/*
+获取编解码器的参数
+@api audio_v2.get_codec_param(id,param)
+@int id 编解码器id
+@int param 编解码器参数，见audio_v2.DATA_CODEC_PARAM_xxx常量
+@return int codec参数值
+@usage
+local len = audio_v2.get_codec_param(audio_v2.DATA_CODEC_PARAM_ENCODE_INPUT_LEN)    --获取编码1帧需要的输入数据长度
+*/
+static int l_audio_get_codec_param(lua_State *L) {
+    uint8_t org_codec_id = luaL_optinteger(L, 1, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
+    uint8_t codec_id = org_codec_id & ~LUAT_AUDIO_DATA_CODEC_TYPE_HW;
+    if (codec_id >= LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(org_codec_id);
+    if (!codec_opts) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    switch (codec_id) {
+        case LUAT_AUDIO_DATA_CODEC_PARAM_ENCODE_INPUT_LEN:
+            lua_pushinteger(L, codec_opts->encode_min_input_len);
+            break;
+        default:
+            lua_pushinteger(L, 0);
+            break;
+    }
+    return 1;
+}
+
 /**
 注册audio事件回调
 @api    audio_v2.on(func)
@@ -1183,9 +1249,11 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "set_default_driver",			ROREG_FUNC(l_audio_set_default_driver)},
     { "get_driver_info",			ROREG_FUNC(l_audio_get_driver_info)},
     { "get_driver_id",			ROREG_FUNC(l_audio_get_driver_id)},
+    { "get_driver_param",			ROREG_FUNC(l_audio_get_driver_param)},
     { "print_probe_id",			ROREG_FUNC(l_audio_print_probe_id)},
     { "config_pa_power_ctrl",		ROREG_FUNC(l_audio_config_pa_power_ctrl)},
     { "config_codec_power_ctrl",			ROREG_FUNC(l_audio_config_codec_power_ctrl)},
+    { "get_codec_param",			ROREG_FUNC(l_audio_get_codec_param)},
     { "on",				ROREG_FUNC(l_audio_on)},
     { "debug",			ROREG_FUNC(l_audio_set_debug)},
     //@const REQUEST_START number audio_v2.on回调函数传入消息值，表示开始处理请求块，可以传入更多数据
@@ -1256,7 +1324,12 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT",			ROREG_INT(LUAT_AUDIO_CHANNEL_RIGHT)},
     //@const CONFIG_VALUE_I2S_CHANNEL_TYPE_STEREO number 驱动私有参数的I2S通道类型可选值，立体声
     { "CFG_VALUE_I2S_CHANNEL_TYPE_STEREO",			ROREG_INT(LUAT_AUDIO_CHANNEL_STEREO)},
-
+    //@const DRIVER_PARAM_TX_MAX_LEN number 驱动放音单个buffer最大长度
+    { "DRIVER_PARAM_TX_MAX_LEN",			ROREG_INT(LUAT_AUDIO_DRIVER_PARAM_TX_MAX_LEN)},
+    //@const DRIVER_PARAM_RX_MAX_LEN number 驱动录音单个buffer最大长度
+    { "DRIVER_PARAM_RX_MAX_LEN",			ROREG_INT(LUAT_AUDIO_DRIVER_PARAM_RX_MAX_LEN)},
+    //@const DATA_CODEC_PARAM_ENCODE_INPUT_LEN number 编码1帧需要的输入数据长度
+    { "DATA_CODEC_PARAM_ENCODE_INPUT_LEN",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_PARAM_ENCODE_INPUT_LEN)},
 	{ NULL,            ROREG_INT(0)}
 };
 

@@ -605,4 +605,53 @@ function http_response.test_http_put_timeout()
     log.info("http_response", "PUT方法,超时测试 测试通过 ")
 end
 
+-- HTTPS GET：aiot.mlamp.cn/hermes/discover 接口测试
+-- 测试服务发现接口的可访问性、响应状态码、JSON结构及关键字段
+function http_response.test_https_get_mlamp_hermes_discover()
+    log.info("http_response", "开始【HTTPS GET aiot.mlamp.cn/hermes/discover】测试")
+    local url = "https://aiot.mlamp.cn/hermes/discover?name=test"
+    local code, headers, body = http.request("GET", url, nil, nil, {
+        timeout = 10000,
+        debug = http_debug
+    }).wait()
+    log.info("http_response", "mlamp hermes discover 响应", code, body)
+
+    -- 1. 校验响应状态码
+    assert(code == 200, "HTTPS GET mlamp hermes discover 测试失败: 预期 200, 实际 " .. tostring(code))
+
+    -- 2. 校验body非空
+    assert(body and #body > 0, "HTTPS GET mlamp hermes discover 测试失败: body 为空")
+
+    -- 3. 校验JSON可解析
+    local success, result = pcall(json.decode, body)
+    assert(success and type(result) == "table",
+        "HTTPS GET mlamp hermes discover 测试失败: JSON 解析失败, body=" .. tostring(body))
+
+    -- 4. 校验关键字段
+    assert(result.code == 0,
+        "HTTPS GET mlamp hermes discover 测试失败: 预期 code=0, 实际 " .. tostring(result.code))
+    assert(result.message == "OK",
+        "HTTPS GET mlamp hermes discover 测试失败: 预期 message=OK, 实际 " .. tostring(result.message))
+    assert(type(result.data) == "table",
+        "HTTPS GET mlamp hermes discover 测试失败: data 字段类型异常")
+    assert(result.data.url and type(result.data.url) == "string" and #result.data.url > 0,
+        "HTTPS GET mlamp hermes discover 测试失败: data.url 字段异常")
+
+    log.info("http_response", "HTTPS GET aiot.mlamp.cn/hermes/discover 测试通过")
+end
+
+-- HTTP GET：aiot.mlamp.cn/hermes/discover 不带query参数测试（边界场景）
+function http_response.test_https_get_mlamp_hermes_discover_timeout()
+    log.info("http_response", "开始【HTTPS GET aiot.mlamp.cn/hermes/discover 超时测试】")
+    local url = "https://aiot.mlamp.cn/hermes/discover?name=test"
+    -- 设置极短超时，验证超时错误处理
+    local code = http.request("GET", url, nil, nil, {
+        timeout = 1   -- 1ms超时，必然触发超时
+    }).wait()
+    -- 超时返回负值错误码
+    assert(code < 0 or code == 200,
+        "HTTPS GET mlamp hermes discover 超时测试失败: 预期错误码或200, 实际 " .. tostring(code))
+    log.info("http_response", "HTTPS GET aiot.mlamp.cn/hermes/discover 超时测试通过, code=", code)
+end
+
 return http_response

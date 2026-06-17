@@ -47,8 +47,8 @@ PROJECT：项目名，ascii string类型
 
 
   EVB turnkey 开发板系列:
-  "EVB_Air8101_AirLCD_1090_000_V020"            → config/evb_8101_7i_v0.lua     7寸RGB HX8282  +WiFi+SD+NAND
-  "EVB_Air8101_AirLCD_1100_000_V020"            → config/evb_8101_10i_v0.lua    7寸RGB HX8282  +WiFi+SD+NAND
+  "EVB_Air8101_AirLCD_1090_000_V020"            → config/evb_8101_9i_v0.lua     9寸RGB HX8282  +WiFi+SD+NAND
+  "EVB_Air8101_AirLCD_1100_000_V020"            → config/evb_8101_10i_v0.lua    10寸RGB HX8282  +WiFi+SD+NAND
   "EVB_Air8101B_5inch_480x854_000_V010"         → config/evb_8101b_5i_v1.lua     5寸RGB  ST7701S +WiFi+SD
   "EVB_Air8000A_3inch5_480x320_000_V020"       → config/evb_8000a_3i5_v0.lua   3.5寸SPI ST7796  +4G+WiFi+SD
   "EVB_Air1601_10inch1_1024x600_000_V011"      → config/evb_1601_10i_v11.lua   10寸RGB HX8282  +WiFi(airlink)+SD

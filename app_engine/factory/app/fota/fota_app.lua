@@ -137,19 +137,21 @@ local function report_last_upgrade()
     log.info("fota_app", string.format("core_version:old=%s  new=%s  cur=%s", old_core_version, new_core_version, cur_core_version))
     log.info("fota_app", string.format("script_ver:  old=%s  new=%s  cur=%s", old_script_version, new_script_version, cur_script_version))
 
-    -- 判断升级结果：core 或 script 任一变化即为成功
-    local core_changed = (cur_core_version ~= old_core_version) or (cur_core_id ~= old_core_id)
-    local script_changed = (cur_script_version ~= old_script_version)
+    -- 判断升级结果：当前版本是否达到服务器期望的目标版本
+    local core_match = (cur_core_version == new_core_version) and (cur_core_id == new_core_id)
+    local script_match = (cur_script_version == new_script_version)
     local result_code = 3  -- 默认：其他错误
 
-    if core_changed or script_changed then
+    if core_match and script_match then
         result_code = 1  -- 升级成功
         log.info("fota_app", "upgrade success",
-            "core_changed", core_changed,
-            "script_changed", script_changed)
+            "target_core", new_core_id, new_core_version,
+            "target_script", new_script_version)
     else
-        result_code = 2  -- 无变化，升级失败
-        log.info("fota_app", "upgrade failed, no version change")
+        result_code = 2  -- 未达到期望版本，升级失败
+        log.info("fota_app", "upgrade failed, version mismatch",
+            "expected", new_core_id, new_core_version, new_script_version,
+            "actual", cur_core_id, cur_core_version, cur_script_version)
     end
 
     if libfota3 and state.fota_sn and state.fota_sn ~= "" then

@@ -151,8 +151,18 @@ int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file
  * @param source 外部音频源指针
  */
 void luat_audio_extern_source_deinit(luat_audio_extern_source_t *source);
-
+/**
+ * @brief 解码外部音频源
+ * @param source 外部音频源指针
+ * @return int LUAT_ERROR_NONE 表示成功，其他值表示失败
+ */
 int luat_audio_extern_source_decode(luat_audio_extern_source_t *source);
+/**
+ * @brief 检查外部音频源是否匹配请求
+ * @param source 外部音频源指针
+ * @return int LUAT_ERROR_NONE 表示成功，其他值表示失败
+ */
+int luat_audio_extern_source_check(luat_audio_extern_source_t *source);
 
 #ifdef __LUATOS__
 void l_audio_init(void);

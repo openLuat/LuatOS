@@ -80,10 +80,27 @@ static void _audio_decode_extern_source_play_info(luat_audio_extern_source_t *so
     }
 }
 
+int luat_audio_extern_source_check(luat_audio_extern_source_t *source)
+{
+    luat_audio_data_codec_t *check_codec = source->is_add_record? &source->request->record_codec : &source->request->play_codec;
+    if (source->codec.common_param.sample_rate != check_codec->common_param.sample_rate) {
+        LLOGE("sample_rate not match, source %d, request %d", source->codec.common_param.sample_rate, check_codec->common_param.sample_rate);
+        return -LUAT_ERROR_PERMISSION_DENIED;
+    }
+    if (source->codec.common_param.data_align != check_codec->common_param.data_align) {
+        LLOGE("data_align not match, source %d, request %d", source->codec.common_param.data_align, check_codec->common_param.data_align);
+        return -LUAT_ERROR_PERMISSION_DENIED;
+    }
+    if (source->codec.common_param.channel_nums != check_codec->common_param.channel_nums) {
+        LLOGE("channel_nums not match, source %d, request %d", source->codec.common_param.channel_nums, check_codec->common_param.channel_nums);
+        return -LUAT_ERROR_PERMISSION_DENIED;
+    }
+    return LUAT_ERROR_NONE;
+}
 
 int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
 {
-    if (source->is_decode_done || source->is_error_stop || source->is_tts) {
+    if (source->is_done || source->is_decode_finish || source->is_error_stop || source->is_tts) {
         return LUAT_ERROR_NONE;
     }
     uint8_t is_file_end = 0;
@@ -127,7 +144,7 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
         }
 
         if (source->is_input_end && !luat_fifo_check_used_space(source->decode_input_fifo) && !source->decode_output_buffer.pos) {
-            source->is_decode_done = 1;
+            source->is_decode_finish = 1;
             LLOGC(luat_audio_debug_flag, "decode done");
             return LUAT_ERROR_NONE;
         }
@@ -138,7 +155,7 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
     return LUAT_ERROR_NONE;
 ERROR:
     source->is_error_stop = 1;
-    source->is_decode_done = 1;
+    source->is_decode_finish = 1;
     return -LUAT_ERROR_OPERATION_FAILED;
 }
 
@@ -169,24 +186,24 @@ int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file
             ret = -LUAT_ERROR_NO_SUCH_ID;
             goto ERROR;
         }
-        luat_audio_data_codec_t *check_codec = source->is_add_record? &source->request->record_codec : &source->request->play_codec;
-        if (source->codec.common_param.sample_rate != check_codec->common_param.sample_rate) {
-            LLOGE("sample_rate not match, source %d, request %d", source->codec.common_param.sample_rate, check_codec->common_param.sample_rate);
-            ret = -LUAT_ERROR_PERMISSION_DENIED;
-            goto ERROR;
-        }
-        if (source->codec.common_param.data_align != check_codec->common_param.data_align) {
-            LLOGE("data_align not match, source %d, request %d", source->codec.common_param.data_align, check_codec->common_param.data_align);
-            ret = -LUAT_ERROR_PERMISSION_DENIED;
-            goto ERROR;
-        }
-        if (source->codec.common_param.channel_nums != check_codec->common_param.channel_nums) {
-            LLOGE("channel_nums not match, source %d, request %d", source->codec.common_param.channel_nums, check_codec->common_param.channel_nums);
+    }
+    if (source->is_tts) {
+
+        if (!luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS)) {
+            LLOGE("tts codec not found");
             ret = -LUAT_ERROR_PERMISSION_DENIED;
             goto ERROR;
         }
 
-    } else if (source->is_tts) {
+        if (luat_audio_data_codec_bind(&source->codec, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS), source) != LUAT_ERROR_NONE) {
+            ret = -LUAT_ERROR_PERMISSION_DENIED;
+            goto ERROR;
+        }
+        if (source->codec.opts->init(&source->codec, 0) != LUAT_ERROR_NONE) {
+            ret = -LUAT_ERROR_PERMISSION_DENIED;
+            goto ERROR;
+        }
+
         source->temp_buff = luat_heap_malloc(files_num_or_tts_data_len);
         if (!source->temp_buff) {
             ret = -LUAT_ERROR_NO_MEMORY;
@@ -195,6 +212,8 @@ int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file
         memcpy(source->temp_buff, file_info_or_tts_data, files_num_or_tts_data_len);
         source->tts_data = (const char *)source->temp_buff;
         source->tts_data_size = files_num_or_tts_data_len;
+    } else {
+
     }
     if (!source->is_tts) {
         source->decode_input_fifo = luat_fifo_create(LUAT_AUDIO_DATA_CODEC_INPUT_FIFO_DEFAULT_SIZE_POWER);
@@ -218,6 +237,11 @@ ERROR:
 
 void luat_audio_extern_source_deinit(luat_audio_extern_source_t *source)
 {
+    if (source->is_done) {
+        LLOGC(luat_audio_debug_flag, "extern source %p deinit already done", source);
+        return;
+    }
+    source->is_done = 1;
     luat_buffer_deinit(&source->decode_output_buffer);
     luat_fifo_destroy(source->decode_input_fifo);
     // luat_fifo_destroy(source->decode_output_fifo);
@@ -231,7 +255,7 @@ void luat_audio_extern_source_deinit(luat_audio_extern_source_t *source)
     }
     luat_heap_free(source->temp_buff);
     luat_audio_data_codec_unbind(&source->codec);
-    memset(source, 0, sizeof(luat_audio_extern_source_t));
+    LLOGC(luat_audio_debug_flag, "extern source %p deinit done", source);
 }
 
 int luat_audio_get_play_info_from_file(luat_audio_data_codec_t *codec, luat_audio_play_file_info_t *play_file)

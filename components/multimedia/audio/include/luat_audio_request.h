@@ -62,9 +62,11 @@ typedef struct {
     uint8_t is_tts:1;                          /**< 是否为文本转语音请求 */
     uint8_t is_input_end:1;                   /**< 是否为输入结束请求 */
     uint8_t is_error_stop:1;                   /**< 是否为错误停止 */
-    uint8_t is_decode_done:1;                  /**< 是否为解码完成 */
+    uint8_t is_user_stop:1;
+    uint8_t is_decode_finish:1;                  /**< 是否为解码完成 */
     uint8_t is_add_record:1;                   /**< 是否附加到录音通道 */
-}luat_audio_extern_source_t;
+    uint8_t is_done:1;                          /**< 是否为完成 */
+   }luat_audio_extern_source_t;
 
 /**
  * @brief 音频请求回调函数
@@ -252,7 +254,6 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 /**
 * @brief 附加音频文件作为双工模式下的第三方数据源
 * 
-* @param request_block 音频请求块指针
 * @param source 第三方数据源
 * @param info 音频文件信息指针，用于指定要使用的的音频文件信息
 * @param files_num 音频文件数量
@@ -260,43 +261,38 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 * @param is_add_record 是否附加到录音通道，0-附加到播放通道，1-附加到录音通道
 * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
 */
-int luat_audio_request_add_source_files(luat_audio_request_block_t *request_block, luat_audio_extern_source_t *source, luat_audio_play_file_info_t *info, size_t files_num,
+int luat_audio_request_add_source_files(luat_audio_extern_source_t *source, luat_audio_play_file_info_t *info, size_t files_num,
     const luat_audio_data_codec_opts_t *codec_opts, uint8_t is_add_record);
 
 /**
 * @brief 附加TTS文本作为双工模式下的第三方数据源
 * 
-* @param request_block 音频请求块指针
 * @param source 第三方数据源
 * @param text TTS文本数据指针
 * @param text_len TTS文本数据长度
 * @param is_add_record 是否附加到录音通道，0-附加到播放通道，1-附加到录音通道
 * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
 */
-int luat_audio_request_add_source_tts(luat_audio_request_block_t *request_block, luat_audio_extern_source_t *source, const char *text, uint32_t text_len, uint8_t is_add_record);
+int luat_audio_request_add_source_tts(luat_audio_extern_source_t *source, const char *text, uint32_t text_len, uint8_t is_add_record);
 
 /**
 * @brief 附加音频流作为双工模式下的第三方数据源
 * 
-* @param request_block 音频请求块指针
 * @param source 第三方数据源
 * @param codec_opts 音频解码器选项结构，用于指定要使用的音频解码器，必须指定
 * @param common_param 音频公共参数结构，用于指定流数据的音频参数（采样率、声道数等），必须存在，不能为NULL
 * @param is_add_record 是否附加到录音通道，0-附加到播放通道，1-附加到录音通道
 * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
 */
-int luat_audio_request_add_source_stream(luat_audio_request_block_t *request_block, luat_audio_extern_source_t *source, const luat_audio_data_codec_opts_t *codec_opts, const luat_audio_common_param_t *common_param, uint8_t is_add_record);  
+int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, const luat_audio_data_codec_opts_t *codec_opts, const luat_audio_common_param_t *common_param, uint8_t is_add_record);  
 
 /**
 * @brief 删除第三方数据源
 * 
-* @param request_block 音频请求块指针
 * @param source 第三方数据源，如果不指定，则看下面的参数决定
-* @param is_all 是否删除所有数据源，0-只删除指定的source，1-删除所有数据源
-* @param is_record 是否操作录音通道，0-操作播放通道，1-操作录音通道
-* @return LUAT_ERROR_NONE 表示成功，其他值表示失败
+* @return void
 */
-int luat_audio_request_delete_source(luat_audio_request_block_t *request_block, luat_audio_extern_source_t *source, uint8_t is_all, uint8_t is_record);
+void luat_audio_request_delete_source(luat_audio_extern_source_t *source);
 
 // 低等级接口，除非用户需要自行处理解码器，dsp等，否则一般不需要主动调用
 /**

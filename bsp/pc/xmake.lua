@@ -30,7 +30,7 @@ local function find_ext_root()
 end
 local luatos_ext_root = find_ext_root()
 -- 2表示mbedtls 2.18.x，3表示mbedtls 3.x，4表示mbedtls 4.x
-local mbedtls_version = 4
+local mbedtls_version = 2
 
 add_requires("gmssl")
 add_packages("gmssl")
@@ -149,6 +149,9 @@ target("luatos-lua")
     -- fatfs 在 luat_conf_bsp.h 里已经 #define LUAT_USE_FATFS / LUAT_USE_FS_VFS,
     -- 不需要在 xmake 重复 add_defines(还会触发 MSVC C4005 重定义 warning)。
     add_files("src/*.c",{public = true})
+    if mbedtls_version == 2 then
+        remove_files("src/luat_pc_dtls_utest.c")
+    end
     add_files("port/**.c")
 
     add_thirdparty_files(luatos.."lua/src/*.c")

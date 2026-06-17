@@ -327,7 +327,7 @@ static void *dtls_utest_server_thread(void *arg) {
                                    server->srv_key_pem,
                                    server->srv_key_pem_len,
                                    NULL, 0
-#if MBEDTLS_VERSION_NUMBER < 0x04000000
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000 && MBEDTLS_VERSION_NUMBER < 0x04000000
                                    , mbedtls_ctr_drbg_random, &ctr_drbg
 #endif
                                    );

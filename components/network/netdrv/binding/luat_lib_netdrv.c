@@ -850,15 +850,15 @@ static void do_send_raw_to_hw(void* args) {
 直接向 netdrv 链路投递原始数据包
 @api netdrv.send_raw(id, target, zbuff, len)
 @int 网络适配器编号
-@int 投递目标: netdrv.TO_HW / netdrv.TO_LWIP / netdrv.TO_NAPT
+@int 投递目标: netdrv.CH_HW / netdrv.CH_LWIP / netdrv.CH_NAPT
 @zbuff 待发送的 zbuff, used 长度即默认发送长度
 @int 可选, 发送长度(<= zbuff.used), 默认 zbuff.used
 @return int 实际进入发送队列的字节数, 失败返回 nil+err
 @usage
 -- 立即以默认长度发送
-netdrv.send_raw(socket.LWIP_ETH, netdrv.TO_HW, zb)
+netdrv.send_raw(socket.LWIP_ETH, netdrv.CH_HW, zb)
 -- 只发前 64 字节
-netdrv.send_raw(socket.LWIP_ETH, netdrv.TO_HW, zb, 64)
+netdrv.send_raw(socket.LWIP_ETH, netdrv.CH_HW, zb, 64)
 */
 static int l_netdrv_send_raw(lua_State *L) {
     int id     = luaL_checkinteger(L, 1);
@@ -870,7 +870,7 @@ static int l_netdrv_send_raw(lua_State *L) {
     if (len_in > 0xFFFF) len_in = 0xFFFF;
     uint16_t len = (uint16_t)len_in;
 
-    if (target == LUAT_NETDRV_PKG_TO_HW) {
+    if (target == LUAT_NETDRV_CH_HW) {
         luat_netdrv_t* drv = luat_netdrv_get(id);
         if (!drv || !drv->dataout) {
             lua_pushnil(L);
@@ -910,7 +910,7 @@ static int l_netdrv_send_raw(lua_State *L) {
         lua_pushinteger(L, len);
         return 1;
     }
-    else if (target == LUAT_NETDRV_PKG_TO_LWIP || target == LUAT_NETDRV_PKG_TO_NAPT) {
+    else if (target == LUAT_NETDRV_CH_LWIP || target == LUAT_NETDRV_CH_NAPT) {
         return luaL_error(L, "send_raw target 0x%X not yet implemented", target);
     }
     return luaL_error(L, "unknown send_raw target %d", target);
@@ -962,14 +962,12 @@ static const rotable_Reg_t reg_netdrv[] =
     //@const EVT_SOCKET number 事件类型-socket事件
     { "EVT_SOCKET",     ROREG_INT(1)}, // socket事件
 
-    //@const FROM_HW number 数据包来源/方向-物理层RX
-    { "FROM_HW",        ROREG_INT(0x10)},
-    //@const TO_HW number send_raw 目标-直接发物理硬件
-    { "TO_HW",          ROREG_INT(0x20)},
-    //@const TO_LWIP number send_raw 目标-注入LWIP(未来)
-    { "TO_LWIP",        ROREG_INT(0x30)},
-    //@const TO_NAPT number send_raw 目标-送NAPT(未来)
-    { "TO_NAPT",        ROREG_INT(0x40)},
+    //@const CH_HW number 数据包通道-物理硬件 (HW RX = FROM_HW, send_raw target TO_HW)
+    { "CH_HW",          ROREG_INT(0x10)},
+    //@const CH_LWIP number 数据包通道-LWIP协议栈 (send_raw target TO_LWIP, 未来 FROM_LWIP)
+    { "CH_LWIP",        ROREG_INT(0x20)},
+    //@const CH_NAPT number 数据包通道-NAPT层 (send_raw target TO_NAPT, 未来 FROM_NAPT)
+    { "CH_NAPT",        ROREG_INT(0x30)},
     //@const EVT_PKG number 事件类型-数据包事件
     { "EVT_PKG",        ROREG_INT(2)},
 

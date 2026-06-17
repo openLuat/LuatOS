@@ -1,14 +1,18 @@
 local M = {}
 
--- T1: 5 个常量存在且值正确
+-- T1: 4 个常量存在且值正确 (通道 + 事件类型)
 function M.test_pkg_constants()
     assert(type(netdrv) == "userdata", "netdrv 模块不存在")
     assert(netdrv.EVT_PKG == 2,   "EVT_PKG 应为 2, 实际 " .. tostring(netdrv.EVT_PKG))
-    assert(netdrv.FROM_HW == 0x10, "FROM_HW 应为 0x10, 实际 " .. tostring(netdrv.FROM_HW))
-    assert(netdrv.TO_HW   == 0x20, "TO_HW 应为 0x20, 实际 " .. tostring(netdrv.TO_HW))
-    assert(netdrv.TO_LWIP == 0x30, "TO_LWIP 应为 0x30, 实际 " .. tostring(netdrv.TO_LWIP))
-    assert(netdrv.TO_NAPT == 0x40, "TO_NAPT 应为 0x40, 实际 " .. tostring(netdrv.TO_NAPT))
+    assert(netdrv.CH_HW   == 0x10, "CH_HW 应为 0x10, 实际 " .. tostring(netdrv.CH_HW))
+    assert(netdrv.CH_LWIP == 0x20, "CH_LWIP 应为 0x20, 实际 " .. tostring(netdrv.CH_LWIP))
+    assert(netdrv.CH_NAPT == 0x30, "CH_NAPT 应为 0x30, 实际 " .. tostring(netdrv.CH_NAPT))
     assert(netdrv.EVT_SOCKET == 1, "EVT_SOCKET 应保持为 1, 实际 " .. tostring(netdrv.EVT_SOCKET))
+    -- 旧名 FROM_*/TO_* 应该已经移除, 不应该再存在
+    assert(netdrv.FROM_HW == nil, "旧名 FROM_HW 应已移除")
+    assert(netdrv.TO_HW   == nil, "旧名 TO_HW 应已移除")
+    assert(netdrv.TO_LWIP == nil, "旧名 TO_LWIP 应已移除")
+    assert(netdrv.TO_NAPT == nil, "旧名 TO_NAPT 应已移除")
 end
 
 -- T2: send_raw 函数已注册
@@ -20,7 +24,7 @@ end
 function M.test_send_raw_invalid_adapter()
     local z = zbuff.create(64)
     z:write(string.char(1,2,3,4))
-    local r1, r2 = netdrv.send_raw(99, netdrv.TO_HW, z)
+    local r1, r2 = netdrv.send_raw(99, netdrv.CH_HW, z)
     assert(r1 == nil, "应返回 nil, 实际 " .. tostring(r1))
     assert(type(r2) == "string", "应返回 err string, 实际 " .. type(r2))
 end
@@ -28,7 +32,7 @@ end
 -- T4: send_raw 在 zbuff 长度为 0 时返回 nil+err
 function M.test_send_raw_empty_zbuff()
     local z = zbuff.create(64)
-    local r1, r2 = netdrv.send_raw(socket.LWIP_ETH, netdrv.TO_HW, z)
+    local r1, r2 = netdrv.send_raw(socket.LWIP_ETH, netdrv.CH_HW, z)
     assert(r1 == nil, "空 zbuff 应返回 nil, 实际 " .. tostring(r1))
     assert(type(r2) == "string")
 end
@@ -42,12 +46,12 @@ function M.test_send_raw_unknown_target()
     assert(type(err) == "string", "err 应为字符串")
 end
 
--- T6: send_raw 对 TO_LWIP / TO_NAPT 抛"not implemented"
+-- T6: send_raw 对 CH_LWIP / CH_NAPT 抛"not implemented"
 function M.test_send_raw_future_targets()
     local z = zbuff.create(64)
     z:write(string.char(1,2,3,4))
-    local ok1 = pcall(netdrv.send_raw, socket.LWIP_ETH, netdrv.TO_LWIP, z)
-    local ok2 = pcall(netdrv.send_raw, socket.LWIP_ETH, netdrv.TO_NAPT, z)
+    local ok1 = pcall(netdrv.send_raw, socket.LWIP_ETH, netdrv.CH_LWIP, z)
+    local ok2 = pcall(netdrv.send_raw, socket.LWIP_ETH, netdrv.CH_NAPT, z)
     -- PC 环境 adapter 不可用也可能先报错; 至少不能 panic
     -- 期望 (但不强制) 两个都返回 false 表示 not implemented
 end
@@ -68,7 +72,7 @@ end
 function M.test_send_raw_default_len()
     local z = zbuff.create(64)
     z:write(string.char(0xDE, 0xAD, 0xBE, 0xEF))
-    local r1, r2 = netdrv.send_raw(99, netdrv.TO_HW, z)
+    local r1, r2 = netdrv.send_raw(99, netdrv.CH_HW, z)
     assert(r1 == nil, "无效 adapter 应返回 nil")
 end
 

@@ -2,7 +2,7 @@
 #define LUAT_NETDRV_PKG_H
 
 #include <stdint.h>
-#include "luat_netdrv_event.h"  // 提供 LUAT_NETDRV_PKG_FROM_HW 等常量与回调原型
+#include "luat_netdrv_event.h"  // 提供 LUAT_NETDRV_CH_HW 等常量与回调原型
 
 /**
  * 硬件驱动层统一的包入口 (从 napt_pkg_input 升级而来, 加 EVT_PKG 截获)
@@ -16,7 +16,7 @@
  *     即可, 其它逻辑 (ret == 0 时继续 netif_input_proxy 等) 完全不变
  *
  * 参数 event 区分包来源 (来自哪个链路阶段):
- *   - LUAT_NETDRV_PKG_FROM_HW (0x10): 硬件 RX, 流程是 截获检查 -> napt_pkg_input
+ *   - LUAT_NETDRV_CH_HW (0x10): 硬件通道, 流程是 截获检查 -> napt_pkg_input
  *   - (future) FROM_LWIP         : LWIP TX linkoutput, 流程是 截获检查 -> drv->dataout
  *
  * 返回值 (与原 napt_pkg_input 兼容):

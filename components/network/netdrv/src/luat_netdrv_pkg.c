@@ -35,7 +35,7 @@
 static int pkg_input_from_hw(uint8_t id, uint8_t* buff, uint16_t len) {
     // 1. Lua 截获: 已注册 EVT_PKG 回调, 包交给 Lua 后不再走 NAPT/LWIP
     if (luat_netdrv_has_pkg_cb(id)) {
-        luat_netdrv_fire_pkg_event(id, LUAT_NETDRV_PKG_FROM_HW, buff, len);
+        luat_netdrv_fire_pkg_event(id, LUAT_NETDRV_CH_HW, buff, len);
         return 1;
     }
     // 2. 原 NAPT 处理 (返回值语义不变: 0=未消费需继续, 非0=已消费)
@@ -47,12 +47,14 @@ int luat_netdrv_pkg_input(uint8_t id, uint8_t event, uint8_t* buff, uint16_t len
         return -1;
     }
     switch (event) {
-        case LUAT_NETDRV_PKG_FROM_HW:
+        case LUAT_NETDRV_CH_HW:
             return pkg_input_from_hw(id, buff, len);
-        // case LUAT_NETDRV_PKG_FROM_LWIP:   // 未来: LWIP TX 拦截
+        // case LUAT_NETDRV_CH_LWIP:   // 未来: LWIP TX 拦截
         //     return pkg_input_from_lwip(...);
+        // case LUAT_NETDRV_CH_NAPT:   // 未来: NAPT 拦截
+        //     return pkg_input_from_napt(...);
         default:
-            LLOGW("netdrv_pkg_input: 未知 event 0x%X adapter %d", event, id);
+            LLOGW("netdrv_pkg_input: 未知 channel 0x%X adapter %d", event, id);
             return -1;
     }
 }

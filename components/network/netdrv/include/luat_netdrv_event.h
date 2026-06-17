@@ -31,11 +31,11 @@ typedef struct netdrv_tcp_evt {
 typedef void (*luat_netdrv_tcp_evt_cb)(netdrv_tcp_evt_t* evt, void* userdata);
 
 
-// 数据包事件宏(放文件末尾)
-#define LUAT_NETDRV_PKG_FROM_HW   0x10
-#define LUAT_NETDRV_PKG_TO_HW     0x20
-#define LUAT_NETDRV_PKG_TO_LWIP   0x30
-#define LUAT_NETDRV_PKG_TO_NAPT   0x40
+// 通道宏 (ch = channel, 统一表示包在协议栈中的环节)
+// 同一通道既可作 send_raw 的 target, 也可作 pkg_input 的 event / fire_pkg_event 的 event 参数
+#define LUAT_NETDRV_CH_HW       0x10  // 物理硬件 (RX 自 HW = FROM_HW; TX 至 HW = TO_HW)
+#define LUAT_NETDRV_CH_LWIP     0x20  // LWIP 协议栈 (TX 至 LWIP = TO_LWIP; 未来 FROM_LWIP)
+#define LUAT_NETDRV_CH_NAPT     0x30  // NAPT 层 (TX 至 NAPT = TO_NAPT; 未来 FROM_NAPT)
 
 // 数据包事件结构 + 回调类型
 typedef struct luat_netdrv_pkg_evt {

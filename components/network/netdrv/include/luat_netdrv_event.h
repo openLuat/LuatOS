@@ -31,11 +31,29 @@ typedef struct netdrv_tcp_evt {
 typedef void (*luat_netdrv_tcp_evt_cb)(netdrv_tcp_evt_t* evt, void* userdata);
 
 
+// 数据包事件宏(放文件末尾)
+#define LUAT_NETDRV_PKG_FROM_HW   0x10
+#define LUAT_NETDRV_PKG_TO_HW     0x20
+#define LUAT_NETDRV_PKG_TO_LWIP   0x30
+#define LUAT_NETDRV_PKG_TO_NAPT   0x40
+
+// 数据包事件结构 + 回调类型
+typedef struct luat_netdrv_pkg_evt {
+    uint8_t  id;
+    uint8_t  event;
+    uint8_t* buff;
+    uint16_t len;
+} luat_netdrv_pkg_evt_t;
+
+typedef void (*luat_netdrv_pkg_evt_cb)(luat_netdrv_pkg_evt_t* evt, void* userdata);
+
+
 typedef struct netdrv_tcpevt_reg {
     uint8_t id; // 网络适配器ID
     uint8_t flags; // 事件标志, 标识
     luat_netdrv_tcp_evt_cb cb; // TCP事件回调函数
     void* userdata; // 用户数据, 可用于回调时传递额外信息
+    luat_netdrv_pkg_evt_cb pkg_cb; // 数据包事件回调函数
 }netdrv_tcpevt_reg_t;
 
 void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t flags, luat_netdrv_tcp_evt_cb cb, void* userdata);
@@ -45,5 +63,10 @@ void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ct
 void luat_netdrv_send_ip_event(luat_netdrv_t* drv, uint8_t ready);
 
 void luat_netdrv_set_link_updown(luat_netdrv_t* drv, uint8_t updown);
+
+// 三个公开函数声明
+void luat_netdrv_register_pkg_event_cb(uint8_t id, luat_netdrv_pkg_evt_cb cb, void* userdata);
+int  luat_netdrv_has_pkg_cb(uint8_t id);
+void luat_netdrv_fire_pkg_event(uint8_t id, uint8_t event, uint8_t* buff, uint16_t len);
 
 #endif

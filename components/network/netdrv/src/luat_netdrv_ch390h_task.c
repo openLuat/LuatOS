@@ -396,18 +396,21 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             //print_erp_pkg(ch->rxbuff, len);
             // 先经过netdrv过滤器
             // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
-            ret = luat_netdrv_napt_pkg_input(ch->adapter_id, ch->rxbuff, len - 4);
-            // LLOGD("napt ret %d", ret);
-            if (ret != 0) {
-                // 不需要输入到LWIP了
-                // LLOGD("napt说不需要注入lwip了");
-            }
-            else {
-                // 如果返回值是0, 那就是继续处理, 输入到netif
-                ret = luat_netdrv_netif_input_proxy(ch->netdrv->netif, ch->rxbuff, len - 4);
-                if (ret) {
-                    LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);
-                    return 1;
+            if (luat_netdrv_has_pkg_cb(ch->adapter_id)) {
+                // [HOOK FROM_HW + 截获] 回调已注册, 包交给 Lua 后不再走 NAPT/LWIP
+                luat_netdrv_fire_pkg_event(ch->adapter_id, LUAT_NETDRV_PKG_FROM_HW,
+                                            ch->rxbuff, (uint16_t)(len - 4));
+            } else {
+                // 原始流程
+                ret = luat_netdrv_napt_pkg_input(ch->adapter_id, ch->rxbuff, len - 4);
+                // LLOGD("napt ret %d", ret);
+                if (ret == 0) {
+                    // 如果返回值是0, 那就是继续处理, 输入到netif
+                    ret = luat_netdrv_netif_input_proxy(ch->netdrv->netif, ch->rxbuff, len - 4);
+                    if (ret) {
+                        LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);
+                        return 1;
+                    }
                 }
             }
         }

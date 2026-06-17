@@ -15,6 +15,7 @@
 #include "luat_msgbus.h"
 #include "luat_timer.h"
 #include "luat_rtos.h"
+#include "luat_zbuff.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_napt.h"
 #include "luat_netdrv_drv.h"
@@ -24,6 +25,7 @@
 
 #include "lwip/ip.h"
 #include "lwip/ip4.h"
+#include "lwip/tcpip.h"
 
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
@@ -540,6 +542,7 @@ end)
 extern int l_icmp_ping(lua_State *L);
 
 static int s_socket_evt_ref[NW_ADAPTER_QTY] = {0};
+static int s_pkg_evt_ref[NW_ADAPTER_QTY] = {0};
 
 static int l_socket_evt_cb(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -702,16 +705,107 @@ netdrv.on(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, params)
     end
 end)
 */
+// EVT_PKG: 数据包事件 C 入口 + Lua 派发
+typedef struct pkg_evt_msg {
+    uint8_t  id;
+    uint8_t  event;
+    uint16_t len;
+    uint8_t  buff[4];
+} pkg_evt_msg_t;
+
+// tcpip/ch390h 线程 -> Lua 主线程
+static int l_pkg_evt_cb(lua_State *L, void* ptr);
+
+// C 回调入口: fire 路径最终走到这里
+static void luat_pkg_evt_cb(luat_netdrv_pkg_evt_t* evt, void* userdata) {
+    (void)userdata;
+    if (!evt || !evt->buff || evt->len == 0) return;
+    pkg_evt_msg_t* m = (pkg_evt_msg_t*)luat_heap_malloc(sizeof(pkg_evt_msg_t) + evt->len - 4);
+    if (!m) return;
+    m->id    = evt->id;
+    m->event = evt->event;
+    m->len   = evt->len;
+    memcpy(m->buff, evt->buff, evt->len);
+    rtos_msg_t msg = {0};
+    msg.handler = l_pkg_evt_cb;
+    msg.ptr = m;
+    luat_msgbus_put(&msg, 0);
+}
+
+static int l_pkg_evt_cb(lua_State *L, void* ptr) {
+    if (L == NULL || ptr == NULL) return 0;
+    pkg_evt_msg_t* m = (pkg_evt_msg_t*)ptr;
+    int ref = s_pkg_evt_ref[m->id];
+    if (ref == 0) { luat_heap_free(m); return 0; }
+    lua_geti(L, LUA_REGISTRYINDEX, ref);
+    if (!lua_isfunction(L, -1)) { lua_pop(L, 1); luat_heap_free(m); return 0; }
+    lua_pushinteger(L, m->id);
+    lua_pushinteger(L, m->event);
+    // arg3: zbuff userdata (userdata 内存由 Lua 分配, GC 时不会被 zbuff 释放, 需要在回调里 free)
+    luat_zbuff_t* z = (luat_zbuff_t*)lua_newuserdata(L, sizeof(luat_zbuff_t));
+    luaL_setmetatable(L, LUAT_ZBUFF_TYPE);
+    memset(z, 0, sizeof(luat_zbuff_t));
+    z->type = LUAT_HEAP_AUTO;
+    z->len  = m->len;
+    z->used = m->len;
+    if (m->len > 0) {
+        z->addr = (uint8_t*)luat_heap_malloc(m->len);
+        if (z->addr) {
+            memcpy(z->addr, m->buff, m->len);
+        } else {
+            z->len = 0;
+            z->used = 0;
+        }
+    }
+    lua_call(L, 3, 0);
+    luat_heap_free(m);
+    return 0;
+}
+
 static int l_netdrv_on(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     if (id < 0) {
         return 0; // 非法id
     }
+    int event_id = luaL_checkinteger(L, 2);
+    // EVT_PKG (event_id == 2) 走专属分支, 即便 netdrv/netif 不可用也允许幂等关闭
+    if (event_id == 2) {
+        // nil 关闭 -> 幂等 true
+        if (lua_isnil(L, 3)) {
+            if (s_pkg_evt_ref[id]) {
+                luaL_unref(L, LUA_REGISTRYINDEX, s_pkg_evt_ref[id]);
+                s_pkg_evt_ref[id] = 0;
+            }
+            luat_netdrv_register_pkg_event_cb(id, NULL, NULL);
+            lua_pushboolean(L, 1);
+            return 1;
+        }
+        // 非函数参数 -> 拒绝
+        if (!lua_isfunction(L, 3)) {
+            lua_pushnil(L);
+            return 1;
+        }
+        // 注册前确认 netif 可用
+        luat_netdrv_t* nd = luat_netdrv_get(id);
+        if (nd == NULL || nd->netif == NULL) {
+            LLOGW("netdrv %d 无 netif, 无法注册 EVT_PKG", id);
+            lua_pushnil(L);
+            return 1;
+        }
+        lua_pushvalue(L, 3);
+        int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        if (s_pkg_evt_ref[id]) {
+            luaL_unref(L, LUA_REGISTRYINDEX, s_pkg_evt_ref[id]);
+        }
+        s_pkg_evt_ref[id] = ref;
+        luat_netdrv_register_pkg_event_cb(id, luat_pkg_evt_cb, NULL);
+        lua_pushboolean(L, 1);
+        return 1;
+    }
     luat_netdrv_t* netdrv = luat_netdrv_get(id);
     if (netdrv == NULL || netdrv->netif == NULL) {
         return 0;
     }
-    int event_id = luaL_checkinteger(L, 2);
     if (event_id == 0) {
         if (s_socket_evt_ref[id]) {
             luaL_unref(L, LUA_REGISTRYINDEX, s_socket_evt_ref[id]);
@@ -736,6 +830,92 @@ static int l_netdrv_on(lua_State *L) {
     return 0;
 }
 
+// send_raw: 把 zbuff 原始数据按 target 方向投到 netdrv 链路
+typedef struct netdrv_send_msg {
+    luat_netdrv_t* drv;
+    uint16_t len;
+    uint8_t buff[4]; // flexible array
+} netdrv_send_msg_t;
+
+static void do_send_raw_to_hw(void* args) {
+    netdrv_send_msg_t* m = (netdrv_send_msg_t*)args;
+    if (m == NULL) return;
+    if (m->drv && m->drv->dataout) {
+        m->drv->dataout(m->drv, m->drv->userdata, m->buff, m->len);
+    }
+    luat_heap_free(m);
+}
+
+/*
+直接向 netdrv 链路投递原始数据包
+@api netdrv.send_raw(id, target, zbuff, len)
+@int 网络适配器编号
+@int 投递目标: netdrv.TO_HW / netdrv.TO_LWIP / netdrv.TO_NAPT
+@zbuff 待发送的 zbuff, used 长度即默认发送长度
+@int 可选, 发送长度(<= zbuff.used), 默认 zbuff.used
+@return int 实际进入发送队列的字节数, 失败返回 nil+err
+@usage
+-- 立即以默认长度发送
+netdrv.send_raw(socket.LWIP_ETH, netdrv.TO_HW, zb)
+-- 只发前 64 字节
+netdrv.send_raw(socket.LWIP_ETH, netdrv.TO_HW, zb, 64)
+*/
+static int l_netdrv_send_raw(lua_State *L) {
+    int id     = luaL_checkinteger(L, 1);
+    int target = luaL_checkinteger(L, 2);
+    luat_zbuff_t* buff = (luat_zbuff_t*)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE);
+    size_t used = buff ? buff->used : 0;
+    int len_in = (int)luaL_optinteger(L, 4, (lua_Integer)used);
+    if (len_in < 0) len_in = 0;
+    if (len_in > 0xFFFF) len_in = 0xFFFF;
+    uint16_t len = (uint16_t)len_in;
+
+    if (target == LUAT_NETDRV_PKG_TO_HW) {
+        luat_netdrv_t* drv = luat_netdrv_get(id);
+        if (!drv || !drv->dataout) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "netdrv not available");
+            return 2;
+        }
+        if (!buff || !buff->addr) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "zbuff invalid");
+            return 2;
+        }
+        if (len == 0) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "len is 0");
+            return 2;
+        }
+        if (len > buff->used) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "len out of range");
+            return 2;
+        }
+        netdrv_send_msg_t* m = (netdrv_send_msg_t*)luat_heap_malloc(sizeof(netdrv_send_msg_t) + len - 4);
+        if (!m) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "oom");
+            return 2;
+        }
+        m->drv = drv;
+        m->len = len;
+        memcpy(m->buff, buff->addr, len);
+        if (tcpip_callback_with_block(do_send_raw_to_hw, m, 0) != ERR_OK) {
+            luat_heap_free(m);
+            lua_pushnil(L);
+            lua_pushliteral(L, "tcpip queue full");
+            return 2;
+        }
+        lua_pushinteger(L, len);
+        return 1;
+    }
+    else if (target == LUAT_NETDRV_PKG_TO_LWIP || target == LUAT_NETDRV_PKG_TO_NAPT) {
+        return luaL_error(L, "send_raw target 0x%X not yet implemented", target);
+    }
+    return luaL_error(L, "unknown send_raw target %d", target);
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
 {
@@ -750,6 +930,7 @@ static const rotable_Reg_t reg_netdrv[] =
     { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
     { "on",             ROREG_FUNC(l_netdrv_on)},
+    { "send_raw",       ROREG_FUNC(l_netdrv_send_raw)},
 #ifdef LUAT_USE_MREPORT
     { "mreport",        ROREG_FUNC(l_mreport_config)},
 #endif
@@ -780,6 +961,17 @@ static const rotable_Reg_t reg_netdrv[] =
 
     //@const EVT_SOCKET number 事件类型-socket事件
     { "EVT_SOCKET",     ROREG_INT(1)}, // socket事件
+
+    //@const FROM_HW number 数据包来源/方向-物理层RX
+    { "FROM_HW",        ROREG_INT(0x10)},
+    //@const TO_HW number send_raw 目标-直接发物理硬件
+    { "TO_HW",          ROREG_INT(0x20)},
+    //@const TO_LWIP number send_raw 目标-注入LWIP(未来)
+    { "TO_LWIP",        ROREG_INT(0x30)},
+    //@const TO_NAPT number send_raw 目标-送NAPT(未来)
+    { "TO_NAPT",        ROREG_INT(0x40)},
+    //@const EVT_PKG number 事件类型-数据包事件
+    { "EVT_PKG",        ROREG_INT(2)},
 
 	{ NULL,             ROREG_INT(0) }
 };

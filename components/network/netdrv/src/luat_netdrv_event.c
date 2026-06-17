@@ -221,3 +221,31 @@ void luat_netdrv_set_link_updown(luat_netdrv_t* drv, uint8_t updown) {
         tcpip_callback(luat_netdrv_set_link_down, drv);
     }
 }
+
+void luat_netdrv_register_pkg_event_cb(uint8_t id, luat_netdrv_pkg_evt_cb cb, void* userdata) {
+    if (id >= NW_ADAPTER_QTY) {
+        LLOGE("无效的PKG事件注册ID %d", id);
+        return;
+    }
+    if (cb == NULL) {
+        // 注销回调
+        s_tcpevt_regs[id].pkg_cb = NULL;
+        return;
+    }
+    s_tcpevt_regs[id].pkg_cb = cb;
+    s_tcpevt_regs[id].userdata = userdata;
+}
+
+int luat_netdrv_has_pkg_cb(uint8_t id) {
+    if (id >= NW_ADAPTER_QTY) return 0;
+    return s_tcpevt_regs[id].pkg_cb != NULL;
+}
+
+__NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_pkg_event(uint8_t id, uint8_t event,
+                                                       uint8_t* buff, uint16_t len) {
+    if (id >= NW_ADAPTER_QTY) return;
+    luat_netdrv_pkg_evt_cb cb = s_tcpevt_regs[id].pkg_cb;
+    if (cb == NULL) return;
+    luat_netdrv_pkg_evt_t evt = { .id = id, .event = event, .buff = buff, .len = len };
+    cb(&evt, s_tcpevt_regs[id].userdata);
+}

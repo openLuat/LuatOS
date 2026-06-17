@@ -1,16 +1,9 @@
-#include "luat_audio_data_codec.h"
-#include "luat_audio_define.h"
-#include "luat_audio_driver.h"
 #include "luat_base.h"
 #include "luat_audio_core.h"
-#include "luat_audio_request.h"
-#include "luat_audio_channel.h"
 #include "luat_common_api.h"
 #include "luat_fs.h"
-#include "luat_malloc.h"
 #include "luat_rtos.h"
 #include "luat_mem.h"
-#include "luat_rtos_legacy.h"
 #include <string.h>
 #include <sys/_types.h>
 #define LUAT_LOG_TAG "audio_core"
@@ -308,104 +301,6 @@ static void luat_audio_tts_task(void *param)
 	}
 }
 
-/**
- * @brief 从文件读取数据到FIFO
- * @param decode_file 解码文件信息
- * @param input_data_fifo 输入数据FIFO
- * @param is_file_end 是否为结束请求
- * @return int 读取的字节数
- */
-static int _audio_data_read_to_fifo(luat_audio_play_file_info_t *decode_file, luat_fifo_t *input_data_fifo, uint8_t *is_file_end)
-{
-	uint32_t need_len = luat_fifo_check_free_space(input_data_fifo);
-    uint32_t done_len = 0;
-    uint32_t read_len;
-    if (!decode_file->rom_data_len) {
-        uint8_t temp[1024];
-        int ret;
-        while (done_len < need_len) {
-            read_len = ((need_len - done_len) > sizeof(temp))? sizeof(temp) : (need_len - done_len);
-            ret = luat_fs_fread(temp, read_len, 1, decode_file->fd);
-            if (ret < 0) {
-				*is_file_end = 1;
-                return -LUAT_ERROR_OPERATION_FAILED;
-            } else {
-                done_len += ret;
-                if (ret) {
-                    luat_fifo_write(input_data_fifo, temp, ret);
-                }
-                if (ret < read_len) {
-					*is_file_end = 1;
-                    break;
-                }
-            }
-        }
-        return done_len;
-    } else {
-        read_len = ((decode_file->rom_data_len - decode_file->rom_data_offset) > need_len) ? need_len : (decode_file->rom_data_len - decode_file->rom_data_offset);
-        luat_fifo_write(input_data_fifo, decode_file->rom_data + decode_file->rom_data_offset, read_len);
-        decode_file->rom_data_offset += read_len;
-		if (decode_file->rom_data_offset >= decode_file->rom_data_len) {
-			*is_file_end = 1;
-		}
-        return read_len;
-    }
-}
-
-/**
- * @brief 从文件读取数据到缓冲区
- * @param decode_file 解码文件信息
- * @param buffer 缓冲区
- * @param need_len 读取的字节数
- * @return int 读取的字节数
- */
-static int _audio_data_read_to_buffer(luat_audio_play_file_info_t *decode_file, uint8_t *buffer, uint32_t need_len)
-{
-    if (!decode_file->rom_data_len) {
-		return luat_fs_fread(buffer, need_len, 1, decode_file->fd);
-    } else {
-        uint32_t read_len = ((decode_file->rom_data_len - decode_file->rom_data_offset) > need_len) ? need_len : (decode_file->rom_data_len - decode_file->rom_data_offset);
-		memcpy(buffer, decode_file->rom_data + decode_file->rom_data_offset, read_len);
-        decode_file->rom_data_offset += read_len;
-        return read_len;
-    }
-}
-
-/**
- * @brief 文件定位
- * @param decode_file 解码文件信息
- * @param offset 宁位偏移量
- * @param origin 宁位参考点
- * @return int 定位后的偏移量
- */
-static int _audio_data_seek(luat_audio_play_file_info_t *decode_file, int offset, int origin)
-{
-    if (!decode_file->rom_data_len) {
-        return luat_fs_fseek(decode_file->fd, offset, origin);
-    } else {
-		switch(origin)
-		{
-		case SEEK_SET:
-			if (offset < decode_file->rom_data_len) {
-				decode_file->rom_data_offset = offset;
-			} else {
-				decode_file->rom_data_offset = decode_file->rom_data_len;
-			}
-			break;
-		case SEEK_CUR:
-			if ((offset + decode_file->rom_data_offset) < decode_file->rom_data_len) {
-				decode_file->rom_data_offset += offset;
-			} else {
-				decode_file->rom_data_offset = offset;
-			}
-			break;
-		case SEEK_END:
-			decode_file->rom_data_offset = decode_file->rom_data_len - offset;
-			break;
-		}
-		return decode_file->rom_data_offset;
-    }
-}
 
 /**
  * @brief 解码当前请求块的播放信息
@@ -564,7 +459,7 @@ static void _audio_decode_file_to_fifo(luat_audio_request_block_t *request_block
 		error = 0;
 		ret = 0;
 		if (!request_block->is_input_end) {
-			ret = _audio_data_read_to_fifo(&request_block->file_info[request_block->file_done_cnt], request_block->org_input_data_fifo, &is_file_end);
+			ret = luat_audio_data_read_to_fifo(&request_block->file_info[request_block->file_done_cnt], request_block->org_input_data_fifo, &is_file_end);
 		}
 		// 有没有读取错误
 		if (ret < 0) {
@@ -1303,67 +1198,7 @@ void luat_audio_debug_switch(uint8_t on_off)
 	luat_audio_debug_flag = on_off;
 }
 
-int luat_audio_get_play_info_from_file(luat_audio_data_codec_t *codec, luat_audio_play_file_info_t *play_file)
-{
-    if (!codec || !play_file) {
-        return -LUAT_ERROR_PARAM_INVALID;
-    }
-    int read_len;
-    luat_buffer_t input_buffer;
-    uint8_t temp[44];
-    uint32_t jump_offset_bytes = 0;
-    uint32_t need_bytes = 0;
-	volatile uint32_t now_file_pos = 0;
-	_audio_data_seek(play_file, now_file_pos, SEEK_SET);
-    input_buffer.data = temp;
-    input_buffer.pos = 0;
-    input_buffer.max_len = sizeof(temp);
-    codec->common_param.sample_rate = 0;
-    read_len = _audio_data_read_to_buffer(play_file, input_buffer.data, input_buffer.max_len);
-    if (read_len != sizeof(temp)) {
-        return -LUAT_ERROR_OPERATION_FAILED;
-    }
-    input_buffer.pos = read_len;
-    int ret =codec->opts->get_play_info(codec, &input_buffer, now_file_pos,&jump_offset_bytes, &need_bytes, &codec->common_param);
-    if (ret) {
-		LLOGC(luat_audio_debug_flag, "codec type %d, get common param failed, ret: %d", codec->opts->type, ret);
-        return ret;
-    }
-	now_file_pos = jump_offset_bytes;
-    memset(&input_buffer, 0, sizeof(input_buffer));
-    uint8_t retry_count = 0;
-    while (!codec->common_param.sample_rate && retry_count < 5) {
-        _audio_data_seek(play_file, jump_offset_bytes, SEEK_SET);
-        luat_buffer_reinit(&input_buffer, need_bytes);
-        read_len = _audio_data_read_to_buffer(play_file, input_buffer.data, input_buffer.max_len);
-        if (read_len != need_bytes) {
-			ret = -LUAT_ERROR_OPERATION_FAILED;
-			retry_count = 5;
-        }
-        input_buffer.pos = read_len;
-        jump_offset_bytes = 0;
-        need_bytes = 0;
-        ret =codec->opts->get_play_info(codec, &input_buffer, now_file_pos,&jump_offset_bytes, &need_bytes, &codec->common_param);
-        if (ret) {
-            retry_count = 5;
-        }
-		now_file_pos = jump_offset_bytes;
-        retry_count++;
-    }
-	luat_buffer_deinit(&input_buffer);
-	if (ret) {
-		LLOGC(luat_audio_debug_flag, "codec type %d, get common param failed, ret: %d, retry %d times, jump_offset_bytes: %d, need_bytes: %d", codec->opts->type, ret, retry_count, jump_offset_bytes, need_bytes);
-		return ret;
-	}
-    if (!codec->common_param.sample_rate) {
-        // LLOGC(luat_audio_debug_flag, "codec type %d, get common param failed, retry %d times", codec->opts->type, retry_count);
-        return -LUAT_ERROR_OPERATION_FAILED;
-    }
-    _audio_data_seek(play_file, jump_offset_bytes, SEEK_SET);
-	LLOGC(luat_audio_debug_flag, "detect ok %u-%d-%d-%d, data start pos %d", codec->common_param.sample_rate, codec->common_param.data_align,codec->common_param.channel_nums, 
-		codec->common_param.is_signed, jump_offset_bytes);
-    return LUAT_ERROR_NONE;
-}
+
 
 uint8_t luat_audio_is_request_all_done(luat_audio_driver_ctrl_t *ctrl)
 {

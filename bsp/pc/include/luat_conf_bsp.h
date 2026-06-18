@@ -43,6 +43,9 @@
 #define LUAT_USE_NETDRV_OPENVPN 1
 #define LUAT_USE_NETDRV_WG 1
 
+// ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试)
+#define LUAT_USE_ICMP 1
+
 #define LUAT_USE_AIRLINK 1
 #define LUAT_USE_AIRLINK_SPI_MASTER 1
 #define LUAT_USE_AIRLINK_UART 1

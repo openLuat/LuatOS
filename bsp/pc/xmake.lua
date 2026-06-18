@@ -493,6 +493,10 @@ target("luatos-lua")
         add_includedirs(luatos .. "components/network/netdrv/include")
         add_files(luatos .. "components/network/netdrv/**.c")
 
+        -- ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试, 需要 netdrv + icmp)
+        add_includedirs(luatos .. "components/network/icmp/include")
+        add_files(luatos .. "components/network/icmp/**.c")
+
         -- 添加airlink
         add_includedirs(luatos .. "components/airlink/include")
         add_files(luatos .. "components/airlink/**.c")

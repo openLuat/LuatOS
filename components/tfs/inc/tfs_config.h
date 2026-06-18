@@ -56,7 +56,7 @@
 /* Minimum erased blocks held back so checkpoint can still be written when
  * user data approaches ENOSPC. These are logical reserves, not fixed blocks. */
 #ifndef TFS_CFG_CHECKPOINT_RESERVED_BLOCKS
-#  define TFS_CFG_CHECKPOINT_RESERVED_BLOCKS 16
+#  define TFS_CFG_CHECKPOINT_RESERVED_BLOCKS 32
 #endif
 
 /* Extra blocks added to the estimated checkpoint footprint. */
@@ -85,6 +85,18 @@
 /* Enable checkpoint write on unmount / sync */
 #ifndef TFS_CFG_CHECKPOINT
 #  define TFS_CFG_CHECKPOINT        1
+#endif
+
+/* Automatically write a checkpoint after this many successful closes since
+ * the previous checkpoint. 0 disables close-count based auto checkpointing. */
+#ifndef TFS_CFG_AUTOCHECKPOINT_CLOSES
+#  define TFS_CFG_AUTOCHECKPOINT_CLOSES 8
+#endif
+
+/* Automatically write a checkpoint after this many NAND page mutations since
+ * the previous checkpoint. 0 disables page-count based auto checkpointing. */
+#ifndef TFS_CFG_AUTOCHECKPOINT_CHUNKS
+#  define TFS_CFG_AUTOCHECKPOINT_CHUNKS 2048
 #endif
 
 /* Enable per-block summary chunk for fast scan */

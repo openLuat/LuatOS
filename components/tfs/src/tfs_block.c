@@ -59,6 +59,14 @@ static void invalidate_checkpoint_before_mutation(tfs_dev_t *dev)
     dev->is_checkpointed = 0;
 }
 
+static void note_checkpoint_dirty_chunk(tfs_dev_t *dev)
+{
+    if (!dev || dev->checkpt_open_write || !dev->is_mounted) {
+        return;
+    }
+    dev->checkpt_dirty_chunks++;
+}
+
 /*===================================================================
  *  Chunk bitmap
  *===================================================================*/
@@ -455,6 +463,7 @@ int tfs_chunk_write(tfs_dev_t *dev, int chunk_in_nand,
     bi  = tfs_get_block_info(dev, blk);
     bi->bi.pages_in_use++;
     dev->n_free_chunks--;
+    note_checkpoint_dirty_chunk(dev);
 
     return TFS_OK;
 }
@@ -572,6 +581,7 @@ void tfs_chunk_delete(tfs_dev_t *dev, int chunk_in_nand,
     tfs_chunk_set_free(dev, chunk_in_nand);
     bi->bi.soft_del_pages++;
     dev->n_free_chunks++;
+    note_checkpoint_dirty_chunk(dev);
 
     (void)mark_flash;  /* NAND pages cannot be overwritten; erase entire block */
 }

@@ -783,16 +783,24 @@ int tfs_checkpt_required_blocks(const tfs_dev_t *dev)
     uint32_t i;
     uint32_t block_count;
     uint32_t cpb;
+    int      min_blocks;
     int      blocks;
 
     if (!dev)
         return TFS_CFG_CHECKPOINT_RESERVED_BLOCKS;
 
+    block_count = dev->internal_end_block - dev->internal_start_block + 1u;
+    min_blocks = TFS_CFG_CHECKPOINT_RESERVED_BLOCKS;
+    if ((uint32_t)min_blocks * 4u >= block_count) {
+        min_blocks = (int)(block_count / 4u);
+        if (min_blocks < 4)
+            min_blocks = 4;
+    }
+
     cpb = tfs_chunks_per_block(dev);
     if (cpb <= 1 || dev->data_bytes_per_chunk == 0)
-        return TFS_CFG_CHECKPOINT_RESERVED_BLOCKS;
+        return min_blocks;
 
-    block_count = dev->internal_end_block - dev->internal_start_block + 1u;
     bytes = sizeof(tfs_checkpt_validity_t) +
             sizeof(tfs_checkpt_dev_t) +
             ((uint64_t)block_count * 2u * sizeof(uint32_t)) +
@@ -819,8 +827,8 @@ int tfs_checkpt_required_blocks(const tfs_dev_t *dev)
     blocks = (int)((bytes + block_payload - 1u) / block_payload);
     blocks += TFS_CFG_CHECKPOINT_SPARE_BLOCKS;
 
-    if (blocks < TFS_CFG_CHECKPOINT_RESERVED_BLOCKS)
-        blocks = TFS_CFG_CHECKPOINT_RESERVED_BLOCKS;
+    if (blocks < min_blocks)
+        blocks = min_blocks;
 
     return blocks;
 }
@@ -1061,6 +1069,8 @@ static int tfs_checkpt_write_once(tfs_dev_t *dev)
     checkpt_erase_block_list(dev, old_blocks, old_count);
 
     dev->is_checkpointed = 1;
+    dev->checkpt_dirty_chunks = 0;
+    dev->checkpt_dirty_closes = 0;
     rc = TFS_OK;
     goto out;
 

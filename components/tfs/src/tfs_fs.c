@@ -339,6 +339,10 @@ int tfs_close(int fd)
 
     if (f->dev->drv.lock) f->dev->drv.lock(f->dev->drv.ctx);
     rc = tfs_file_flush(f->dev, f->obj);
+    if (rc == TFS_OK && !f->dev->is_checkpointed) {
+        f->dev->checkpt_dirty_closes++;
+        (void)tfs_core_maybe_checkpoint(f->dev, 0);
+    }
     if (f->dev->drv.unlock) f->dev->drv.unlock(f->dev->drv.ctx);
 
     memset(f, 0, sizeof(tfs_fd_t));
@@ -425,6 +429,8 @@ int tfs_fsync(int fd)
 
     if (f->dev->drv.lock) f->dev->drv.lock(f->dev->drv.ctx);
     rc = tfs_file_flush(f->dev, f->obj);
+    if (rc == TFS_OK)
+        rc = tfs_core_maybe_checkpoint(f->dev, 1);
     if (f->dev->drv.unlock) f->dev->drv.unlock(f->dev->drv.ctx);
 
     if (rc != TFS_OK) { set_err(rc); return -1; }

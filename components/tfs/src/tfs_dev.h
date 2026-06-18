@@ -384,6 +384,8 @@ typedef struct tfs_dev {
     int      checkpt_base_alloc_block;
     uint32_t checkpt_base_alloc_page;
     int      checkpt_delta_chunks;
+    uint32_t checkpt_dirty_chunks;
+    uint32_t checkpt_dirty_closes;
 
     tfs_tnode_t *tn_swap_buffer;
 

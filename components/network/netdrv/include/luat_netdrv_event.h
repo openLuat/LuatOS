@@ -55,15 +55,23 @@ typedef struct luat_netdrv_pkg_evt {
 typedef void (*luat_netdrv_pkg_evt_cb)(luat_netdrv_pkg_evt_t* evt, void* userdata);
 
 
-typedef struct netdrv_tcpevt_reg {
-    uint8_t id; // 网络适配器ID
-    uint8_t flags; // 事件标志, 标识
-    luat_netdrv_tcp_evt_cb cb; // TCP事件回调函数
-    void* socket_userdata; // socket 事件的用户数据 (与 pkg_userdata 分开, 避免互相覆盖)
-    luat_netdrv_pkg_evt_cb pkg_cb; // 数据包事件回调函数
-    void* pkg_userdata; // 数据包事件的用户数据
-    uint8_t pkg_layers; // 数据包事件订阅的 layer bitmask (LUAT_NETDRV_CH_HW/LWIP/NAPT)
-}netdrv_tcpevt_reg_t;
+// Socket 事件注册表项 (TCP/UDP/DNS/LINK 等 socket 状态事件)
+// 与 pkg 事件完全独立,各自走自己的数组 (避免一个 id 同时订阅两种事件时互相污染字段)
+typedef struct netdrv_socket_evt_reg {
+    uint8_t id;             // 网络适配器ID
+    uint8_t flags;          // 事件标志 bitmask, 标识订阅的子事件 (TCP/UDP/DNS/LINK)
+    luat_netdrv_tcp_evt_cb cb; // TCP事件回调函数 (NULL = 未订阅)
+    void* socket_userdata;  // socket 事件的用户数据
+} netdrv_socket_evt_reg_t;
+
+// PKG 事件注册表项 (HW/LWIP/NAPT 各通道数据包事件)
+// 独立于 socket 事件表, 字段专属 PKG 语义
+typedef struct netdrv_pkg_evt_reg {
+    uint8_t id;             // 网络适配器ID
+    luat_netdrv_pkg_evt_cb cb; // 数据包事件回调函数 (NULL = 未订阅)
+    void* pkg_userdata;     // 数据包事件的用户数据
+    uint8_t pkg_layers;     // 订阅的 layer bitmask (LUAT_NETDRV_CH_HW/LWIP/NAPT), 0 = 未指定
+} netdrv_pkg_evt_reg_t;
 
 void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t flags, luat_netdrv_tcp_evt_cb cb, void* userdata);
 

@@ -4,8 +4,6 @@
 #include "luat_rtos.h"
 #include "luat_mem.h"
 #include "luat_spi.h"
-#define LUAT_LOG_TAG "lflash"
-#include "luat_log.h"
 
 static lf_err_t little_flash_spi_transfer(const little_flash_t *lf,uint8_t *tx_buf, uint32_t tx_len, uint8_t *rx_buf, uint32_t rx_len){
     lf_err_t result = LF_ERR_OK;

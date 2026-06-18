@@ -83,9 +83,8 @@ local PROJECT_MAP = {
     ["Engine_Air1602_5inch_480x854_005_V000"]      = "eng_1602_5i_v5",
     ["Engine_Air1602_7inch_1024x600_004_V000"]     = "eng_1602_7i_v4",
     -- EVB turnkey 开发板系列（已实现）
-    ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_7i_v0",
+    ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",
     ["EVB_Air8101_AirLCD_1100_000_V020"]            = "evb_8101_10i_v0",
-    ["EVB_Air8101_5inch_800x480_000_V010"]         = "evb_8101b_5i_v1",
     ["EVB_Air8000A_3inch5_480x320_000_V020"]       = "evb_8000a_3i5_v0",
     -- 以下映射已预留，配置文件待实现
     ["EVB_Air1601_10inch1_1024x600_000_V011"]   = "evb_1601_10i_v11",

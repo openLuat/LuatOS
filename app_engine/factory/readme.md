@@ -14,9 +14,9 @@
 | 7 | Air1601 | turnkey开发板套装 | EVB_Air1601_V1.1；AirLCD 10.1寸屏；AirSHT30；AirVOC_1000；AirCAMERA_1030 | 1024*600 10.1寸RGB触摸屏；4G；Wifi；以太网；蓝牙；tf/sd卡；喇叭；CAN；RS485；200万像素USB摄像头；I2C传感器 | EVB_Air1601_10inch1_1024x600_000_V011 | | |
 | 8 | Air1601 | turnkey开发板套装 | EVB_Air1601_V1.1；AirLCD 7寸屏；AirSHT30；AirVOC_1000；AirCAMERA_1030 | 1024*600 7寸RGB触摸屏；4G；Wifi；以太网；蓝牙；tf/sd卡；喇叭；CAN；RS485；200万像素USB摄像头；I2C传感器 | EVB_Air1601_7inch_1024x600_000_V011 | | |
 | 9 | Air1601 | turnkey开发板+配件板 | EVB_Air1601_V1.1；AirLCD_1020；AirSHT30；AirVOC_1000；AirCAMERA_1030 | 800*480 5寸RGB触摸屏；4G；Wifi；以太网；蓝牙；tf/sd卡；喇叭；CAN；RS485；200万像素USB摄像头；I2C传感器 | EVB_Air1601_5inch_800x480_000_V011 | | |
-| 10 | Air8101 | 引擎主机 | EVB_Air8101_V1.0 | 1024*600 10.1寸RGB触摸屏；4G；Wifi；以太网；tf/sd卡；MIC；喇叭；CAN；200万像素USB摄像头 | EVB_Air8101_10inch1_1024x600_000_V010 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101_10inch1_1024x600_000_V010_back_view.png"> |
-| 11 | Air8101B | 引擎主机 | 合宙引擎 8101B V002 | 854*480 5寸RGB触摸屏；Wifi | EVB_Air8101B_5inch_480x854_000_V010 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101B_5inch_480x854_000_V010_back_view.png"> |
-| 12 | Air8101 | 引擎主机 | 合宙引擎 8101 V002 | 854*480 5寸RGB触摸屏；Wifi | EVB_Air8101_5inch_480x854_000_V010 | | |
+| 10 | Air8101 | 引擎主机 | EVB_Air8101_V1.0；AirLCD_1090 | 1024*600 9寸RGB触摸屏；Wifi；以太网 | EVB_Air8101_AirLCD_1090_000_V020 | | |
+| 11 | Air8101 | 引擎主机 | EVB_Air8101_V1.0；AirLCD_1100 | 1024*600 10寸RGB触摸屏；Wifi；以太网 | EVB_Air8101_AirLCD_1100_000_V020 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101_10inch1_1024x600_000_V010_back_view.png"> |
+| 12 | Air8101B | 引擎主机 | 合宙引擎 8101B V002 | 480*854 5寸RGB触摸屏；Wifi | EVB_Air8101B_5inch_480x854_000_V010 | | <img src="https://docs.openLuat.com/cdn/image/EVB_Air8101B_5inch_480x854_000_V010_back_view.png"> |
 
 ---
 
@@ -61,8 +61,9 @@ factory/
 │   ├── eng_1602_7i_v4.lua     # Air1602 7寸 V004（NAND Flash）
 │   ├── eng_1602_10i_v0.lua    # Air1602 10.1寸
 │   ├── eng_8000w_4i_v0.lua    # Air8000W 4寸
-│   ├── evb_8101b_5i_v1.lua    # Air8101 5寸
-│   ├── evb_8101_7i_v0.lua     # Air8101 7寸 (AirLCD_1090)
+│   ├── evb_8101b_5i_v1.lua    # Air8101B 5寸
+│   ├── evb_8101_9i_v0.lua     # Air8101 9寸 (AirLCD_1090)
+│   ├── evb_8101_10i_v0.lua    # Air8101 10寸 (AirLCD_1100)
 │   ├── evb_8000a_3i5_v0.lua   # Air8000A trunkey 3.5寸
 │   ├── pc_default.lua         # PC 模拟器回退
 │   └── template.lua           # 配置参数完整说明
@@ -291,6 +292,4 @@ PROJECT = "Engine_Air1602_5inch_720x1280_003_V000"
 4. **WiFi 无法扫描**：Air160x 系列检查 airlink `pin_cs`/`pin_rdy` 配置，Air8000W/Air8101 检查 exnetif 配置
 5. **4G 无信号**：检查 SIM 卡是否插入、`features.net_4g` 是否设为 true、芯片是否支持 4G
 6. **存储页面卡顿**：NAND Flash 的 `io.fsstat` 耗时较长（2-8 秒），页面使用两阶段加载避免 UI 冻结
-7. **图片无法显示**：确认图片资源已正确烧录到脚本分区
-8. **字体显示异常**：确认字体文件已正确烧录，或使用固件内置字库
-9. **设备名称不保存**：确认 fskv 存储空间正常
+7. **图片无法显示**：确认图片资源已正确烧录到�

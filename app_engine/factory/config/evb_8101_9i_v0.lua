@@ -1,8 +1,8 @@
 --[[
 @module  config.evb_8101_9i_v0
-@summary Air8101 EVB 7寸1024x600 RGB屏(HX8282) + AirLCD_1090 配置文件
-@version 1.0
-@date    2026.06.09
+@summary Air8101 EVB 9寸1024x600 RGB屏(HX8282) + AirLCD_1090 配置文件
+@version 1.1
+@date    2026.06.18
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -42,7 +42,7 @@ return {
 
     -- ===== 硬件配置 =====
     hw = {
-        -- 屏幕: HX8282 RGB 7寸 1024×600（AirLCD_1090 模组，四合一芯片无需 SPI 初始化引脚）
+        -- 屏幕: HX8282 RGB 9寸 1024×600（AirLCD_1090 模组，四合一芯片无需 SPI 初始化引脚）
         lcd = {
             model = "lcd_hx8282_10in",
             params = {
@@ -53,7 +53,7 @@ return {
                 h = 600,                 -- 竖直分辨率
             },
             need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
-            screen_size = 7.0,           -- 7寸屏
+            screen_size = 9.0,           -- 9寸屏
             font = {
                 size = 20,               -- 高分屏用 20 号字
                 path = "/MiSans_gb2312.ttf",  -- 外部 ttf 字体（Air8101 从文件系统加载）

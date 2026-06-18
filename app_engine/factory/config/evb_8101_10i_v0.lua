@@ -1,8 +1,8 @@
 --[[
 @module  config.evb_8101_10i_v0
 @summary Air8101 EVB 10寸1024x600 RGB屏(HX8282) + AirLCD_1100 配置文件
-@version 1.0
-@date    2026.06.17
+@version 1.1
+@date    2026.06.18
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -53,7 +53,7 @@ return {
                 h = 600,                 -- 竖直分辨率
             },
             need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
-            screen_size = 7.0,           -- 7寸屏
+            screen_size = 10.0,          -- 10寸屏
             font = {
                 size = 20,               -- 高分屏用 20 号字
                 path = "/MiSans_gb2312.ttf",  -- 外部 ttf 字体（Air8101 从文件系统加载）

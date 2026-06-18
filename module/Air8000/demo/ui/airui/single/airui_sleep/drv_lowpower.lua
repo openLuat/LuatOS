@@ -494,9 +494,9 @@ local function set_lowpower_func_item()
     -- 可能你会打开GNSS的备电电源开关和GSensor的电源开关，用于保存GNSS的定位数据和快速获取定位数据或者实现GSensor的震动中断唤醒功能
     -- 根据自己的项目需求决定：进入低功耗模式前，是否需要关闭GNSS的备电电源开关和GSensor的电源开关
     -- 此处默认使用的是配置为输入下拉的方式来关闭，默认代码没有打开，这行代码打开后可以减少88uA左右的功耗
-    if module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
-        gpio.setup(24, nil, gpio.PULLDOWN)
-    end
+    -- if module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
+    --     gpio.setup(24, nil, gpio.PULLDOWN)
+    -- end
 
 
 

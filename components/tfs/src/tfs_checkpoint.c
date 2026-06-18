@@ -155,6 +155,97 @@ static int checkpt_remember_block(tfs_dev_t *dev, int blk)
     return TFS_OK;
 }
 
+static int checkpt_block_in_list(const int *blocks, uint32_t count, int blk)
+{
+    uint32_t i;
+
+    if (!blocks)
+        return 0;
+
+    for (i = 0; i < count; i++) {
+        if (blocks[i] == blk)
+            return 1;
+    }
+
+    return 0;
+}
+
+static void checkpt_make_empty_block_info(tfs_block_info_t *bi)
+{
+    memset(bi, 0, sizeof(*bi));
+    bi->bi.block_state = TFS_BLK_STATE_EMPTY;
+}
+
+static void checkpt_erase_block_list(tfs_dev_t *dev,
+                                     const int *blocks,
+                                     uint32_t count)
+{
+    uint32_t i;
+    int erased_any = 0;
+
+    for (i = 0; i < count; i++) {
+        int blk = blocks[i];
+
+        if (blk < (int)dev->internal_start_block ||
+            blk > (int)dev->internal_end_block)
+            continue;
+
+        if (tfs_block_get_state(dev, blk) == TFS_BLK_STATE_CHECKPOINT) {
+            (void)tfs_block_erase(dev, blk);
+            erased_any = 1;
+        }
+    }
+
+    if (erased_any)
+        checkpt_recount_space(dev);
+}
+
+static int checkpt_save_current_blocks(tfs_dev_t *dev,
+                                       int **blocks_out,
+                                       uint32_t *count_out)
+{
+    int *blocks = NULL;
+    uint32_t count = dev->blocks_in_checkpt;
+
+    if (!blocks_out || !count_out)
+        return TFS_EINVAL;
+
+    *blocks_out = NULL;
+    *count_out = 0;
+
+    if (count == 0)
+        return TFS_OK;
+
+    blocks = (int *)dev->drv.malloc(dev->drv.ctx,
+                                    count * (uint32_t)sizeof(int));
+    if (!blocks)
+        return TFS_ENOMEM;
+
+    memcpy(blocks, dev->checkpt_block_list,
+           count * (uint32_t)sizeof(int));
+    *blocks_out = blocks;
+    *count_out = count;
+    return TFS_OK;
+}
+
+static void checkpt_restore_saved_blocks(tfs_dev_t *dev,
+                                         const int *blocks,
+                                         uint32_t count)
+{
+    if (!blocks || count == 0) {
+        dev->blocks_in_checkpt = 0;
+        return;
+    }
+
+    if (dev->checkpt_block_list && dev->checkpt_max_blocks >= count) {
+        memcpy(dev->checkpt_block_list, blocks,
+               count * (uint32_t)sizeof(int));
+        dev->blocks_in_checkpt = count;
+    } else {
+        dev->blocks_in_checkpt = 0;
+    }
+}
+
 static int checkpt_alloc_block(tfs_dev_t *dev)
 {
     int blk;
@@ -813,6 +904,9 @@ static int tfs_checkpt_write_once(tfs_dev_t *dev)
     tfs_checkpt_validity_t val;
     tfs_checkpt_dev_t      cdev;
     uint32_t                i, blk;
+    int                    *old_blocks = NULL;
+    uint32_t                old_count = 0;
+    int                     required_blocks;
     int                    rc;
 
     if (dev->param.skip_checkpt_wr)
@@ -826,15 +920,39 @@ static int tfs_checkpt_write_once(tfs_dev_t *dev)
             return TFS_ENOMEM;
     }
 
-    tfs_checkpt_erase(dev);
-
-    rc = checkpt_make_space(dev, tfs_checkpt_required_blocks(dev));
-    if (rc != TFS_OK)
-        return rc;
-
     rc = checkpt_list_ensure(dev);
     if (rc != TFS_OK)
         return rc;
+
+    rc = checkpt_save_current_blocks(dev, &old_blocks, &old_count);
+    if (rc != TFS_OK)
+        return rc;
+
+    /*
+     * Keep the previous checkpoint and anchor valid until the replacement is
+     * fully written.  With an old checkpoint present, do not run GC before
+     * publishing the new anchor: GC could erase chunks referenced by that old
+     * checkpoint and make a mid-sync power loss unrecoverable from the anchor.
+     */
+    required_blocks = tfs_checkpt_required_blocks(dev);
+    if (old_count > 0) {
+        if (dev->n_erased_blocks < required_blocks) {
+            if (dev->drv.trace) {
+                dev->drv.trace("tfs: checkpoint no space old=%u erased=%d required=%d free=%d",
+                               (unsigned int)old_count,
+                               dev->n_erased_blocks,
+                               required_blocks,
+                               dev->n_free_chunks);
+            }
+            rc = TFS_ENOSPC;
+            goto out;
+        }
+    } else {
+        rc = checkpt_make_space(dev, required_blocks);
+        if (rc != TFS_OK)
+            goto out;
+    }
+
     dev->blocks_in_checkpt = 0;
 
     memset(dev->checkpt_buffer, 0xff, dev->data_bytes_per_chunk);
@@ -852,28 +970,38 @@ static int tfs_checkpt_write_once(tfs_dev_t *dev)
     val.version = TFS_CHECKPT_VERSION;
     val.seq     = dev->seq_number;
     rc = wr_bytes(dev, &val, sizeof(val));
-    if (rc != TFS_OK) return rc;
+    if (rc != TFS_OK) goto fail_new;
 
     /* 2. Device state */
     memset(&cdev, 0, sizeof(cdev));
-    cdev.n_erased_blocks  = (uint32_t)dev->n_erased_blocks;
+    cdev.n_erased_blocks  = (uint32_t)(dev->n_erased_blocks +
+                                       (int)old_count);
     cdev.alloc_block      = (uint32_t)dev->alloc_block;
     cdev.alloc_page       = (uint32_t)dev->alloc_page;
-    cdev.n_free_chunks    = (uint32_t)dev->n_free_chunks;
+    cdev.n_free_chunks    = (uint32_t)(dev->n_free_chunks +
+                                       (int)old_count *
+                                       (int)tfs_chunks_per_block(dev));
     cdev.seq_number       = dev->seq_number;
     cdev.oldest_dirty_seq = dev->oldest_dirty_seq;
     cdev.n_deleted_files  = (uint32_t)dev->n_deleted_files;
     cdev.n_unlinked_files = (uint32_t)dev->n_unlinked_files;
     rc = wr_bytes(dev, &cdev, sizeof(cdev));
-    if (rc != TFS_OK) return rc;
+    if (rc != TFS_OK) goto fail_new;
 
     /* 3. Block info */
     for (blk = dev->internal_start_block; blk <= dev->internal_end_block; blk++) {
-        tfs_block_info_t *bi = tfs_get_block_info(dev, (int)blk);
-        rc = wr_u32(dev, bi->as_u32[0]);
-        if (rc != TFS_OK) return rc;
-        rc = wr_u32(dev, bi->as_u32[1]);
-        if (rc != TFS_OK) return rc;
+        tfs_block_info_t bi;
+
+        if (checkpt_block_in_list(old_blocks, old_count, (int)blk)) {
+            checkpt_make_empty_block_info(&bi);
+        } else {
+            bi = *tfs_get_block_info(dev, (int)blk);
+        }
+
+        rc = wr_u32(dev, bi.as_u32[0]);
+        if (rc != TFS_OK) goto fail_new;
+        rc = wr_u32(dev, bi.as_u32[1]);
+        if (rc != TFS_OK) goto fail_new;
     }
 
     /* 4. Objects */
@@ -882,7 +1010,7 @@ static int tfs_checkpt_write_once(tfs_dev_t *dev)
         tfs_list_for_each_entry(obj, &dev->obj_bucket[i].list, hash_link) {
             if (!obj->fake) {
                 rc = write_obj_record(dev, obj);
-                if (rc != TFS_OK) return rc;
+                if (rc != TFS_OK) goto fail_new;
             }
         }
     }
@@ -892,7 +1020,7 @@ static int tfs_checkpt_write_once(tfs_dev_t *dev)
         tfs_checkpt_obj_t term;
         memset(&term, 0, sizeof(term));
         rc = wr_bytes(dev, &term, sizeof(term));
-        if (rc != TFS_OK) return rc;
+        if (rc != TFS_OK) goto fail_new;
     }
 
     /* 5. File chunk mappings */
@@ -901,7 +1029,7 @@ static int tfs_checkpt_write_once(tfs_dev_t *dev)
         tfs_list_for_each_entry(obj, &dev->obj_bucket[i].list, hash_link) {
             if (!obj->fake) {
                 rc = write_obj_chunks(dev, obj);
-                if (rc != TFS_OK) return rc;
+                if (rc != TFS_OK) goto fail_new;
             }
         }
     }
@@ -911,27 +1039,50 @@ static int tfs_checkpt_write_once(tfs_dev_t *dev)
         tfs_checkpt_chunk_t term;
         memset(&term, 0, sizeof(term));
         rc = wr_bytes(dev, &term, sizeof(term));
-        if (rc != TFS_OK) return rc;
+        if (rc != TFS_OK) goto fail_new;
     }
 
     /* Flush final partial chunk */
     rc = wr_flush(dev);
-    if (rc != TFS_OK) return rc;
+    if (rc != TFS_OK) goto fail_new;
+
+    rc = mark_restored_checkpt_blocks(dev);
+    if (rc != TFS_OK)
+        goto fail_new;
 
     if (dev->checkpt_cur_chunk >= 0) {
         rc = checkpt_anchor_write(dev,
                                   (uint32_t)dev->checkpt_cur_chunk,
                                   val.seq);
         if (rc != TFS_OK && rc != TFS_EINVAL)
-            return rc;
+            goto fail_new;
     }
 
-    rc = mark_restored_checkpt_blocks(dev);
-    if (rc != TFS_OK)
-        return rc;
+    checkpt_erase_block_list(dev, old_blocks, old_count);
 
     dev->is_checkpointed = 1;
-    return TFS_OK;
+    rc = TFS_OK;
+    goto out;
+
+fail_new:
+    if (dev->drv.trace) {
+        dev->drv.trace("tfs: checkpoint replacement failed rc=%d old=%u new=%u erased=%d required=%d free=%d",
+                       rc,
+                       (unsigned int)old_count,
+                       (unsigned int)dev->blocks_in_checkpt,
+                       dev->n_erased_blocks,
+                       required_blocks,
+                       dev->n_free_chunks);
+    }
+    checkpt_erase_block_list(dev, dev->checkpt_block_list,
+                             dev->blocks_in_checkpt);
+    checkpt_restore_saved_blocks(dev, old_blocks, old_count);
+    dev->is_checkpointed = 0;
+
+out:
+    if (old_blocks)
+        dev->drv.free(dev->drv.ctx, old_blocks);
+    return rc;
 }
 
 int tfs_checkpt_write(tfs_dev_t *dev)
@@ -951,11 +1102,10 @@ int tfs_checkpt_write(tfs_dev_t *dev)
             return TFS_OK;
 
         /*
-         * A write failure retires the offending block in tfs_chunk_write().
-         * Erase any partial checkpoint stream and retry from scratch so the
-         * next allocation can choose a different block.
+         * tfs_checkpt_write_once() preserves the previous checkpoint and
+         * erases only the failed replacement stream.  Retry flash failures so
+         * the next allocation can choose a different block.
          */
-        tfs_checkpt_erase(dev);
         dev->checkpt_cur_chunk  = -1;
         dev->checkpt_cur_block  = -1;
         dev->checkpt_next_block = 0;

@@ -716,6 +716,56 @@ static void scan_finish_delta_block(tfs_dev_t *dev, int blk)
     }
 }
 
+static void scan_mark_block_erased_after_checkpt(tfs_dev_t *dev, int blk)
+{
+    int blk_int = blk - dev->block_offset;
+    tfs_block_info_t *bi = tfs_get_block_info(dev, blk);
+
+    if (blk_int >= 0 && blk_int < (int)tfs_total_blocks(dev)) {
+        memset(dev->chunk_bits + blk_int * dev->chunk_bit_stride,
+               0, (size_t)dev->chunk_bit_stride);
+    }
+
+    memset(bi, 0, sizeof(*bi));
+    bi->bi.block_state = TFS_BLK_STATE_EMPTY;
+}
+
+static void scan_recount_space_after_delta(tfs_dev_t *dev)
+{
+    int blk;
+    int cpb = (int)tfs_chunks_per_block(dev);
+    int erased_blocks = 0;
+    int free_chunks = 0;
+
+    for (blk = (int)dev->internal_start_block;
+         blk <= (int)dev->internal_end_block;
+         blk++) {
+        tfs_block_info_t *bi = tfs_get_block_info(dev, blk);
+
+        if (bi->bi.block_state == TFS_BLK_STATE_DEAD ||
+            bi->bi.block_state == TFS_BLK_STATE_CHECKPOINT) {
+            continue;
+        }
+
+        if (bi->bi.block_state == TFS_BLK_STATE_EMPTY) {
+            erased_blocks++;
+            free_chunks += cpb;
+            continue;
+        }
+
+        if ((int)bi->bi.pages_in_use > cpb)
+            bi->bi.pages_in_use = cpb;
+        if ((int)bi->bi.soft_del_pages > (int)bi->bi.pages_in_use)
+            bi->bi.soft_del_pages = bi->bi.pages_in_use;
+
+        free_chunks += cpb - (int)bi->bi.pages_in_use +
+                       (int)bi->bi.soft_del_pages;
+    }
+
+    dev->n_erased_blocks = erased_blocks;
+    dev->n_free_chunks = free_chunks;
+}
+
 static int scan_delta_probe_block(tfs_dev_t *dev, int blk,
                                   uint16_t *scan_from)
 {
@@ -746,8 +796,11 @@ static int scan_delta_probe_block(tfs_dev_t *dev, int blk,
         return TFS_OK;
     }
 
-    if (!ext.chunk_used)
+    if (!ext.chunk_used) {
+        if (bi->bi.block_state != TFS_BLK_STATE_EMPTY)
+            scan_mark_block_erased_after_checkpt(dev, blk);
         return TFS_OK;
+    }
 
     if (bi->bi.block_state == TFS_BLK_STATE_EMPTY) {
         if (dev->n_erased_blocks > 0)
@@ -836,6 +889,8 @@ static int scan_delta_after_checkpt(tfs_dev_t *dev)
     rc = scan_delta_pass(dev, scan_from, 1);
     if (rc != TFS_OK)
         goto out;
+
+    scan_recount_space_after_delta(dev);
 
     if (dev->checkpt_delta_chunks > 0)
         dev->is_checkpointed = 0;
@@ -1266,7 +1321,7 @@ int tfs_core_sync(tfs_dev_t *dev)
     rc = tfs_cache_flush_all(dev);
     if (rc != TFS_OK) return rc;
 
-    if (!dev->param.skip_checkpt_wr) {
+    if (!dev->param.skip_checkpt_wr && !dev->is_checkpointed) {
         rc = tfs_checkpt_write(dev);
     }
 

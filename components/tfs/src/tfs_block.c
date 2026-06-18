@@ -278,6 +278,15 @@ int tfs_user_reserved_blocks(tfs_dev_t *dev)
 #if TFS_CFG_CHECKPOINT
     int checkpt_reserved = tfs_checkpt_required_blocks(dev);
 
+    /*
+     * Checkpoint replacement is two-phase: keep the old checkpoint valid while
+     * writing the new one, then publish the new anchor.  User writes therefore
+     * must leave room for both the current checkpoint footprint and the next
+     * replacement stream.
+     */
+    if (checkpt_reserved < (int)(0x7fffffff / 2))
+        checkpt_reserved *= 2;
+
     if (checkpt_reserved > reserved)
         reserved = checkpt_reserved;
 #endif

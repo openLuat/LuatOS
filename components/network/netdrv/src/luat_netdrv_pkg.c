@@ -6,24 +6,30 @@
  *            是否继续 netif_input_proxy 等) 保持不变.
  * pkg_output: 集中所有 drv->dataout 调用入口 (薄包装), 与 pkg_input 对称.
  *
- * 数据流 (HW 当前实现的 src):
+ * 数据流:
  *
- *   driver -> luat_netdrv_pkg_input(id, src=HW, buff, len)
+ *   RX 入口 (src=CH_HW):
+ *     driver -> luat_netdrv_pkg_input(id, src=HW, buff, len)
  *               |
- *               +--(has_pkg_cb)--> fire_pkg_event(src=HW) -> 不阻断 NAPT, return NAPT_ret
- *               +--(else)--------> luat_netdrv_napt_pkg_input(...)
+ *               +--(has_pkg_cb)--> fire_pkg_event(src=HW)  // 被动观察, 不消耗 buffer
+ *               +-- 任何情况      -> napt_pkg_input(...)
  *                                         |
  *                                         +--(consumed)----> return non-zero
  *                                         +--(not consumed)-> return 0  (调用方继续 netif_input_proxy)
  *
- *   LWIP 出口 (注册即拦截):
+ *   TX 出口拦截 (src=CH_LWIP, 注册即消费):
  *     LWIP linkoutput -> pkg_input(id, src=LWIP, buff, len)
  *               |
  *               +--(has_pkg_cb)--> fire_pkg_event(src=LWIP) -> return 1  (consumed, 跳原 dataout)
  *               +--(else)--------> return 0  (调用方继续原 linkoutput -> dataout)
  *
- *   TX 出口 (HW dst):
+ *   TX 出口 (dst=CH_HW):
  *     luat_netdrv_pkg_output(id, dst=HW, buff, len) -> drv->dataout(...)
+ *
+ * 注意: EVT_PKG 在 HW 路径上是"被动观察"语义, fire 不消耗原 buffer, 不阻断
+ * NAPT/LWIP/bk72xx 后续流程. 旧实现 fire 后直接 return 1 会让 airlink 端
+ * BK72XX wifi 的 drv->dataout 硬件环回被静默跳过, 用户注册一个只读计数器就
+ * 会破坏 wifi TX, 因此保留"fire 后照常走 NAPT"的语义.
  */
 
 #include "luat_base.h"
@@ -35,33 +41,21 @@
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
 
-// FROM_HW 处理: 截获检查 -> napt_pkg_input
-// 修正: EVT_PKG 是被动观察语义, 不应阻断 NAPT/LWIP/bk72xx 后续流程.
-// 旧实现 fire 后直接 return 1, 会让 airlink 端 BK72XX wifi 的 drv->dataout
-// 硬件环回被静默跳过, 用户注册一个只读计数器就会破坏 wifi TX.
-// 新实现: 先把包通知给 Lua (fire 是只读副本, 不消耗原 buffer), 然后照常
-// 走 NAPT; NAPT 决定包是否被消费. fire 失败也照常继续走 NAPT, 不应让一个
-// 注册的观察者阻断真实的数据通路.
-__NETDRV_CODE_IN_RAM__ static int pkg_input_from_hw(uint8_t id, uint8_t* buff, uint16_t len) {
-    // 1. Lua 被动观察: 不消耗, 不阻断 NAPT
-    if (luat_netdrv_has_pkg_cb(id)) {
-        luat_netdrv_fire_pkg_event(id, LUAT_NETDRV_CH_HW, buff, len);
-    }
-    // 2. 原 NAPT 处理 (返回值语义不变: 0=未消费需继续, 非0=已消费)
-    return luat_netdrv_napt_pkg_input(id, buff, (size_t)len);
-}
-
 __NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_input(uint8_t id, uint8_t src, uint8_t* buff, uint16_t len) {
     if (buff == NULL || len == 0) {
         return -1;
     }
     switch (src) {
         case LUAT_NETDRV_CH_HW:
-            return pkg_input_from_hw(id, buff, len);
+            // RX 入口: 被动观察 (fire 不消耗, 不阻断) + 原 NAPT 处理
+            if (luat_netdrv_has_pkg_cb(id)) {
+                luat_netdrv_fire_pkg_event(id, LUAT_NETDRV_CH_HW, buff, len);
+            }
+            return luat_netdrv_napt_pkg_input(id, buff, (size_t)len);
         case LUAT_NETDRV_CH_LWIP: {
-            // LWIP 出口: 用户已声明拦截即不再走原 dataout 流程.
+            // TX 出口: 注册即消费, 调用方跳过 dataout
             //   - 没有 pkg_cb 注册: 返回 0, 调用方继续原 linkoutput (HW 出口)
-            //   - 有 pkg_cb 注册:   fire 后返回 1 (consumed), 调用方跳过 dataout
+            //   - 有 pkg_cb 注册:   fire 后返回 1, 调用方跳过 dataout
             // Lua 侧可继续用 netdrv.send_raw(CH_HW/CH_LWIP) 注入应答或转发到其它网卡.
             if (luat_netdrv_has_pkg_cb(id)) {
                 luat_netdrv_fire_pkg_event(id, LUAT_NETDRV_CH_LWIP, buff, len);
@@ -70,7 +64,6 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_input(uint8_t id, uint8_t src, uint8_
             return 0;
         }
         // case LUAT_NETDRV_CH_NAPT:   // 未来: NAPT 拦截
-        //     return pkg_input_from_napt(...);
         default:
             LLOGW("netdrv_pkg_input: 未知 channel 0x%X adapter %d", src, id);
             return -1;

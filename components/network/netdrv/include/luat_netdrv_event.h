@@ -65,12 +65,13 @@ typedef struct netdrv_socket_evt_reg {
 } netdrv_socket_evt_reg_t;
 
 // PKG 事件注册表项 (HW/LWIP/NAPT 各通道数据包事件)
-// 独立于 socket 事件表, 字段专属 PKG 语义
+// 独立于 socket 事件表, 字段专属 PKG 语义.
+// 字段顺序对齐 netdrv_socket_evt_reg_t: id -> 订阅配置 -> cb -> userdata.
 typedef struct netdrv_pkg_evt_reg {
     uint8_t id;             // 网络适配器ID
+    uint8_t pkg_layers;     // 订阅的 layer bitmask (LUAT_NETDRV_CH_HW/LWIP/NAPT), 0 = 未指定
     luat_netdrv_pkg_evt_cb cb; // 数据包事件回调函数 (NULL = 未订阅)
     void* pkg_userdata;     // 数据包事件的用户数据
-    uint8_t pkg_layers;     // 订阅的 layer bitmask (LUAT_NETDRV_CH_HW/LWIP/NAPT), 0 = 未指定
 } netdrv_pkg_evt_reg_t;
 
 void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t flags, luat_netdrv_tcp_evt_cb cb, void* userdata);

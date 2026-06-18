@@ -411,7 +411,7 @@ local function set_lowpower_func_item()
     -- 此处代码默认没有进入飞行模式；如果需要进入飞行模式，打开下面的一行代码
     -- 在vbat供电3.8v的状态下，进入飞行模式，可以减少1mA到1.5mA的功耗（和天线性能以及网络环境有关系，以自己的实际硬件+实际网络环境测试数据为准）
     -- 在关闭其他功能的情况下，飞行模式+低功耗状态，待机电流在40多uA到70多uA左右
-    mobile.flymode(0, true)
+    -- mobile.flymode(0, true)
 
 
 
@@ -464,13 +464,13 @@ local function set_lowpower_func_item()
     --
     -- 总之：如果在进入低功耗模式1之后，还要使用ID为100以上的GPIO输出保持功能，则将此处下面的几行代码注释掉，不要彻底关闭WiFi芯片，但是会增加42uA左右的功耗
     --       如果在进入低功耗模式1之后，不需要使用ID为100以上的GPIO、UART11、UART12、WiFi数传功能，则打开下面几行代码，彻底关闭WiFi芯片，会减少42uA左右的功耗
-    if module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000W" then
-        if pm.WIFI then
-            pm.power(pm.WIFI, 0)
-        else
-            gpio.setup(23, nil, gpio.PULLDOWN)
-        end
-    end
+    -- if module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000W" then
+    --     if pm.WIFI then
+    --         pm.power(pm.WIFI, 0)
+    --     else
+    --         gpio.setup(23, nil, gpio.PULLDOWN)
+    --     end
+    -- end
 
 
 
@@ -494,9 +494,9 @@ local function set_lowpower_func_item()
     -- 可能你会打开GNSS的备电电源开关和GSensor的电源开关，用于保存GNSS的定位数据和快速获取定位数据或者实现GSensor的震动中断唤醒功能
     -- 根据自己的项目需求决定：进入低功耗模式前，是否需要关闭GNSS的备电电源开关和GSensor的电源开关
     -- 此处默认使用的是配置为输入下拉的方式来关闭，默认代码没有打开，这行代码打开后可以减少88uA左右的功耗
-    if module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
-        gpio.setup(24, nil, gpio.PULLDOWN)
-    end
+    -- if module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
+    --     gpio.setup(24, nil, gpio.PULLDOWN)
+    -- end
 
 
 

@@ -52,8 +52,9 @@ typedef struct netdrv_tcpevt_reg {
     uint8_t id; // 网络适配器ID
     uint8_t flags; // 事件标志, 标识
     luat_netdrv_tcp_evt_cb cb; // TCP事件回调函数
-    void* userdata; // 用户数据, 可用于回调时传递额外信息
+    void* socket_userdata; // socket 事件的用户数据 (与 pkg_userdata 分开, 避免互相覆盖)
     luat_netdrv_pkg_evt_cb pkg_cb; // 数据包事件回调函数
+    void* pkg_userdata; // 数据包事件的用户数据
 }netdrv_tcpevt_reg_t;
 
 void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t flags, luat_netdrv_tcp_evt_cb cb, void* userdata);

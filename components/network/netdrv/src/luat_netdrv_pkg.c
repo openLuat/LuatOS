@@ -32,17 +32,22 @@
 #include "luat_log.h"
 
 // FROM_HW 处理: 截获检查 -> napt_pkg_input
-static int pkg_input_from_hw(uint8_t id, uint8_t* buff, uint16_t len) {
-    // 1. Lua 截获: 已注册 EVT_PKG 回调, 包交给 Lua 后不再走 NAPT/LWIP
+// 修正: EVT_PKG 是被动观察语义, 不应阻断 NAPT/LWIP/bk72xx 后续流程.
+// 旧实现 fire 后直接 return 1, 会让 airlink 端 BK72XX wifi 的 drv->dataout
+// 硬件环回被静默跳过, 用户注册一个只读计数器就会破坏 wifi TX.
+// 新实现: 先把包通知给 Lua (fire 是只读副本, 不消耗原 buffer), 然后照常
+// 走 NAPT; NAPT 决定包是否被消费. fire 失败也照常继续走 NAPT, 不应让一个
+// 注册的观察者阻断真实的数据通路.
+__NETDRV_CODE_IN_RAM__ static int pkg_input_from_hw(uint8_t id, uint8_t* buff, uint16_t len) {
+    // 1. Lua 被动观察: 不消耗, 不阻断 NAPT
     if (luat_netdrv_has_pkg_cb(id)) {
         luat_netdrv_fire_pkg_event(id, LUAT_NETDRV_CH_HW, buff, len);
-        return 1;
     }
     // 2. 原 NAPT 处理 (返回值语义不变: 0=未消费需继续, 非0=已消费)
     return luat_netdrv_napt_pkg_input(id, buff, (size_t)len);
 }
 
-int luat_netdrv_pkg_input(uint8_t id, uint8_t event, uint8_t* buff, uint16_t len) {
+__NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_input(uint8_t id, uint8_t event, uint8_t* buff, uint16_t len) {
     if (buff == NULL || len == 0) {
         return -1;
     }

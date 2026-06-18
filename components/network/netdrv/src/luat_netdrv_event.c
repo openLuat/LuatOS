@@ -22,12 +22,12 @@ void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t evt_flags, luat_n
     }
     if (evt_flags == 0) {
         s_tcpevt_regs[id].cb = NULL;
-        s_tcpevt_regs[id].userdata = NULL;
+        s_tcpevt_regs[id].socket_userdata = NULL;
         return;
     }
     s_tcpevt_regs[id].flags = evt_flags;
     s_tcpevt_regs[id].cb = cb;
-    s_tcpevt_regs[id].userdata = userdata;
+    s_tcpevt_regs[id].socket_userdata = userdata;
     // LLOGD("socket event cb adapter %d, flags=0x%02X userdata=%p", id, evt_flags, userdata);
 }
 
@@ -76,7 +76,7 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event
     evt.local_port = ctrl->local_port;
     evt.remote_port = ctrl->remote_port;
     evt.userdata = ctrl->user_data;
-    s_tcpevt_regs[adapter_id].cb(&evt, s_tcpevt_regs[adapter_id].userdata);
+    s_tcpevt_regs[adapter_id].cb(&evt, s_tcpevt_regs[adapter_id].socket_userdata);
 }
 
 // IP 事件, 分成 IP_READY 和 IP_LOSE
@@ -228,12 +228,13 @@ void luat_netdrv_register_pkg_event_cb(uint8_t id, luat_netdrv_pkg_evt_cb cb, vo
         return;
     }
     if (cb == NULL) {
-        // 注销回调
+        // 注销回调: 同时清掉 pkg_userdata, 与 socket 注销路径对称
         s_tcpevt_regs[id].pkg_cb = NULL;
+        s_tcpevt_regs[id].pkg_userdata = NULL;
         return;
     }
     s_tcpevt_regs[id].pkg_cb = cb;
-    s_tcpevt_regs[id].userdata = userdata;
+    s_tcpevt_regs[id].pkg_userdata = userdata;
 }
 
 int luat_netdrv_has_pkg_cb(uint8_t id) {
@@ -247,5 +248,5 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_pkg_event(uint8_t id, uint8_t event
     luat_netdrv_pkg_evt_cb cb = s_tcpevt_regs[id].pkg_cb;
     if (cb == NULL) return;
     luat_netdrv_pkg_evt_t evt = { .id = id, .event = event, .buff = buff, .len = len };
-    cb(&evt, s_tcpevt_regs[id].userdata);
+    cb(&evt, s_tcpevt_regs[id].pkg_userdata);
 }

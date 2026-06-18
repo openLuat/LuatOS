@@ -757,7 +757,13 @@ static int l_pkg_evt_cb(lua_State *L, void* ptr) {
             z->used = 0;
         }
     }
-    lua_call(L, 3, 0);
+    // 修正: 改用 lua_pcall, 用户回调内任意 error() 都会 longjmp 跳过
+    // luat_heap_free(m) 造成 m 泄漏. pcall 形式无论成功失败都走同一释放路径.
+    if (lua_pcall(L, 3, 0, 0) != LUA_OK) {
+        // 错误信息留在栈顶, 让 msgbus 调度器取走记日志或上行抛出
+        LLOGW("netdrv EVT_PKG callback error: %s", lua_tostring(L, -1));
+        lua_pop(L, 1);
+    }
     luat_heap_free(m);
     return 0;
 }
@@ -766,6 +772,13 @@ static int l_netdrv_on(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     if (id < 0) {
         return 0; // 非法id
+    }
+    // 防御: id 必须落在 [0, NW_ADAPTER_QTY) 区间, 否则下面 s_pkg_evt_ref[id]
+    // 与 s_socket_evt_ref[id] 会越界访问. 早期 netdrv_get 守卫被 event_id
+    // 检查前置后必须补回此守卫.
+    if (id >= NW_ADAPTER_QTY) {
+        LLOGW("netdrv.on id %d 越界 (>= %d)", id, NW_ADAPTER_QTY);
+        return 0;
     }
     int event_id = luaL_checkinteger(L, 2);
     // EVT_PKG (event_id == 2) 走专属分支, 即便 netdrv/netif 不可用也允许幂等关闭

@@ -22,6 +22,13 @@ extern airlink_statistic_t g_airlink_statistic;
 
 __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata) {
     uint8_t adapter_id = cmd->data[0];
+    // 防御: cmd->len == 0 时 cmd->len - 1 在 uint16_t 下会绕回 0xFFFF
+    // 进而把 64KB 当作包长度丢进 napt_pkg_input, 触发缓冲区越界.
+    // cmd->len < 2 时 payload 长度不足 1 字节, 也不可处理.
+    if (cmd->len < 2) {
+        g_airlink_statistic.rx_ip.drop += 1;
+        return 0;
+    }
     g_airlink_statistic.rx_ip.total += 1;
     g_airlink_statistic.rx_bytes.total += cmd->len - 1;
     // LLOGD("收到IP包 长度 %d 适配器 %d", cmd->len - 1, adapter_id);
@@ -35,8 +42,12 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd
     ret = luat_netdrv_pkg_input(adapter_id, LUAT_NETDRV_CH_HW,
                                 cmd->data + 1, (uint16_t)(cmd->len - 1));
     if (ret != 0) {
-        g_airlink_statistic.rx_napt_ip.total += 1;
-        g_airlink_statistic.rx_napt_bytes.total += cmd->len - 1;
+        // 仅当 NAPT 真正消费时 (+= 1) 才计入 rx_napt_ip, 避免 -1 错误
+        // 与 0 长度空包被错误地算成 NAPT 成功
+        if (ret > 0) {
+            g_airlink_statistic.rx_napt_ip.total += 1;
+            g_airlink_statistic.rx_napt_bytes.total += cmd->len - 1;
+        }
         // LLOGD("NAPT/Lua 已处理, 不需要转发给具体的netdrv了");
         return 0;
     }

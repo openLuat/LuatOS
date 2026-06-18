@@ -93,10 +93,17 @@ function M.test_evt_pkg_deregister_with_nil()
     assert(ok2 == true, "EVT_PKG 用 nil 关闭应返回 true, 实际 " .. tostring(ok2))
 end
 
--- T11: EVT_PKG nil 关闭对无 netdrv 的 adapter 不 panic
+-- T11: EVT_PKG 越界 id 应被拒绝, 不能 OOB 访问 s_pkg_evt_ref[id]
 function M.test_evt_pkg_deregister_invalid_adapter()
-    local ok = netdrv.on(99, netdrv.EVT_PKG, nil)
-    assert(ok == true, "无 netdrv 的 adapter 用 nil 关闭也应返回 true(幂等), 实际 " .. tostring(ok))
+    -- id=99 远超 NW_ADAPTER_QTY, 函数应早返 0 (无返回值), 不可 OOB 读 ref 数组
+    local ret = netdrv.on(99, netdrv.EVT_PKG, nil)
+    assert(ret == nil, "越界 id 应被拒绝, 实际 " .. tostring(ret))
+end
+
+-- T12: EVT_SOCKET 越界 id 同样应被拒绝, 不再依赖 netdrv_get 早返保护
+function M.test_socket_deregister_invalid_adapter()
+    local ret = netdrv.on(99, 0, nil)
+    assert(ret == nil, "越界 id 应被拒绝, 实际 " .. tostring(ret))
 end
 
 return M

@@ -374,18 +374,28 @@ static int l_socket_config(lua_State *L)
 		network_init_tls(l_ctrl->netc, (server_cert)?2:0);
 		if (is_udp)
 		{
-			if (client_key)
+			if (client_key || (server_cert && !client_cert))
 			{
-				// UDP(DTLS) 证书模式：CA + 客户端证书 + 私钥
+				// UDP(DTLS) 证书模式:client_key 非空 = mTLS;或 server_cert 非空且 client_cert 空 = 单向 CA 校验
 				if (server_cert)
 				{
-					network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len + 1);
+					if (network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len + 1) != 0)
+					{
+						LLOGE("network_set_server_cert failed (DTLS)");
+						lua_pushboolean(L, 0);
+						return 1;
+					}
 				}
 				if (client_cert)
 				{
-					network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len + 1,
+					if (network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len + 1,
 							(const unsigned char *)client_key, client_key_len + 1,
-							(const unsigned char *)client_password, client_password_len + 1);
+							(const unsigned char *)client_password, client_password_len + 1) != 0)
+					{
+						LLOGE("network_set_client_cert failed (DTLS)");
+						lua_pushboolean(L, 0);
+						return 1;
+					}
 				}
 			}
 			else

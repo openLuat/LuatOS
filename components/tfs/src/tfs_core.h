@@ -45,6 +45,12 @@ int tfs_gc(tfs_dev_t *dev, int aggressive);
  */
 int tfs_gc_enough_space(tfs_dev_t *dev);
 
+/**
+ * tfs_alloc_chunk_or_gc — allocate a chunk, running enough GC passes to
+ * satisfy the normal-write reserve when possible.
+ */
+int tfs_alloc_chunk_or_gc(tfs_dev_t *dev, int use_resvd, int *chunk_out);
+
 /*-------------------------------------------------------------------
  *  File data I/O (used by tfs_fs.c)
  *-------------------------------------------------------------------*/

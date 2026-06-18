@@ -6,6 +6,13 @@
 @author  江访
 @usage
 本模块为存储业务逻辑层，通过 io.fsstat 获取文件系统容量/已用/可用空间信息并上报。
+
+消息协议（订阅/发布）:
+订阅: STORAGE_GET_INFO              → 查询挂载点 '/' 的存储信息
+订阅: STORAGE_GET_INFO_LIST         → 查询所有挂载点的存储信息列表
+订阅: STORAGE_GET_INFO_FAST         → 快速查询（并行获取各挂载点信息）
+发布: STORAGE_INFO({total, used, free, used_percent}) → 单挂载点信息
+发布: STORAGE_INFO_LIST(list)       → 所有挂载点信息列表
 ]]
 
 -- ==================== 存储信息 ====================

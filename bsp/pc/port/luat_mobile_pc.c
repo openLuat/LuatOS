@@ -4,13 +4,36 @@
 #include "luat_str.h"
 #include "luat_mcu.h"
 #include "luat_crypto.h"
+#include "luat_log.h"
+#define LUAT_LOG_TAG "mobile"
 #ifdef LUAT_USE_LWIP
 #include "lwip/ip_addr.h"
 #endif
 
-// #define LUAT_LOG_TAG "mobile"
-
 static uint8_t generate_imei_check_digit(const char* imei);
+
+/* ============================================================
+ *  PC 端 RF 测试状态 (rfa 回环模拟器的存储)
+ *  故意放在文件顶部, 让 luat_mobile_rf_test_mode/input 能直接引用
+ *  真机不需要这一段 (luatos-soc-2024 在 PLAT 层维护)
+ * ============================================================ */
+static struct {
+    int      state;
+    int      npi_rfCaliDone, npi_rfNSTDone, npi_rfCTDone;
+    char     imei[16];
+    int      erf_mode;
+    int      pmu_enable, pmu_mode;
+    int      chip_ver;
+    int      band_list;
+    int      fac_chk;
+    char     gmdata[2049];
+    uint8_t  uart_id;     /* 0xff = 未进入 */
+    luat_mobile_rf_test_rx_cb_t cb;
+} s_rf_test = {
+    .state = 0,
+    .imei  = "864317081553409",  /* 默认 IMEI, 与 luatos-soc-2024 一致 */
+    .band_list = 0xFFFFFFFF,     /* PC 仿真默认支持全部 band */
+};
 
 int luat_mobile_get_imei(int sim_id, char* buff, size_t buf_len)
 {
@@ -310,12 +333,27 @@ int luat_mobile_config(uint8_t item, uint32_t value)
     return 0;
 }
 void luat_mobile_rf_test_mode(uint8_t uart_id, uint8_t on_off)
-{   
-
+{
+    s_rf_test.uart_id = on_off ? uart_id : 0xff;
+    if (on_off) {
+        LLOGD("rf_test: enter mode, uart=%d", uart_id);
+    } else {
+        LLOGD("rf_test: exit mode");
+    }
 }
 void luat_mobile_rf_test_input(char *data, uint32_t data_len)
 {
-    
+    // 保留原 API 的双语义: data!=NULL && len>0 透传到 Lua 回调, NULL/0 触发 flush
+    if (data && data_len) {
+        if (s_rf_test.cb.on_rx) {
+            s_rf_test.cb.on_rx((const uint8_t *)data, data_len, s_rf_test.cb.userdata);
+        }
+    } else {
+        // flush: 通知 Lua 触发切行处理 (对流式接收的 UART 接收方有意义)
+        if (s_rf_test.cb.on_rx) {
+            s_rf_test.cb.on_rx(NULL, 0, s_rf_test.cb.userdata);
+        }
+    }
 }
 uint32_t luat_mobile_sim_write_counter(void)
 {
@@ -455,6 +493,104 @@ static uint8_t generate_imei_check_digit(const char* imei) {
     
     // 计算校验位：使得总和能被10整除的数字
     uint8_t check_digit = (10 - (sum % 10)) % 10;
-    
+
     return check_digit;
+}
+
+/* ============================================================
+ *  新增 luat_mobile_rf_test_param / imei_get / imei_set / set_rx_cb
+ *  这些函数**不做**任何 AT 派发, 只是 PC 端"模组"的存储后端
+ *  全部 AT 协议由 Lua rfa.* 模块负责
+ *  真机直接返回 -1 (NPI/NV 不走此口)
+ * ============================================================ */
+#include <string.h>
+
+int luat_mobile_rf_test_set_rx_cb(const luat_mobile_rf_test_rx_cb_t *cb) {
+    if (cb) {
+        s_rf_test.cb = *cb;
+    } else {
+        s_rf_test.cb.on_rx = NULL;
+        s_rf_test.cb.userdata = NULL;
+    }
+    return 0;
+}
+
+int luat_mobile_rf_test_param(const char *key, int *value, int is_set) {
+    if (!key || !value) return -1;
+    if (is_set) {
+        if      (!strcmp(key, "save"))                        return 0; /* PC 仿真无需落 flash, no-op */
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_CALI)) s_rf_test.npi_rfCaliDone = !!*value;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_NST))  s_rf_test.npi_rfNSTDone  = !!*value;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_CT))   s_rf_test.npi_rfCTDone   = !!*value;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_STATE))    s_rf_test.state          = *value;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_ERF_MODE)) s_rf_test.erf_mode       = !!*value;
+        else if (!strcmp(key, "pmuEnable"))                      s_rf_test.pmu_enable     = !!*value;
+        else if (!strcmp(key, "pmuMode"))                        s_rf_test.pmu_mode       = *value;
+        else if (!strcmp(key, "chipVer"))                        s_rf_test.chip_ver       = *value;
+        else if (!strcmp(key, "bandList"))                       s_rf_test.band_list      = *value;
+        else if (!strcmp(key, "facChk"))                         s_rf_test.fac_chk        = !!*value;
+        else return -1;
+    } else {
+        if      (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_CALI)) *value = s_rf_test.npi_rfCaliDone;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_NST))  *value = s_rf_test.npi_rfNSTDone;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_NPI_CT))   *value = s_rf_test.npi_rfCTDone;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_STATE))    *value = s_rf_test.state;
+        else if (!strcmp(key, LUAT_MOBILE_RF_TEST_KEY_ERF_MODE)) *value = s_rf_test.erf_mode;
+        else if (!strcmp(key, "pmuEnable"))                      *value = s_rf_test.pmu_enable;
+        else if (!strcmp(key, "pmuMode"))                        *value = s_rf_test.pmu_mode;
+        else if (!strcmp(key, "chipVer"))                        *value = s_rf_test.chip_ver;
+        else if (!strcmp(key, "bandList"))                       *value = s_rf_test.band_list;
+        else if (!strcmp(key, "facChk"))                         *value = s_rf_test.fac_chk;
+        else return -1;
+    }
+    return 0;
+}
+
+int luat_mobile_rf_test_imei_get(char *out, uint32_t len) {
+    if (!out || len < 16) return -1;
+    memcpy(out, s_rf_test.imei, 16);
+    return 0;
+}
+
+int luat_mobile_rf_test_imei_set(const char *imei) {
+    if (!imei || strlen(imei) != 15) return -1;
+    memcpy(s_rf_test.imei, imei, 15);
+    s_rf_test.imei[15] = 0;
+    return 0;
+}
+
+
+int luat_mobile_rf_test_gmdata_get(char *out, uint32_t len)
+{
+    if (!out || len == 0) return -1;
+    uint32_t slen = strlen(s_rf_test.gmdata);
+    uint32_t cp = (slen < len) ? slen : (len - 1);
+    memcpy(out, s_rf_test.gmdata, cp);
+    out[cp] = '\0';
+    return (int)cp;
+}
+
+int luat_mobile_rf_test_gmdata_set(const char *data, uint32_t len)
+{
+    if (!data) {
+        s_rf_test.gmdata[0] = '\0';
+        return 0;
+    }
+    if (len >= sizeof(s_rf_test.gmdata)) len = sizeof(s_rf_test.gmdata) - 1;
+    memcpy(s_rf_test.gmdata, data, len);
+    s_rf_test.gmdata[len] = '\0';
+    return 0;
+}
+
+/* PC 仿真桩: 没有真正的 RfAtNstCmdPreHandle, 返回占位 MT 响应 */
+int luat_mobile_rf_test_nst(const char *data_hex, uint32_t hex_len, char *out, uint32_t *out_len)
+{
+    if (!data_hex || !out || !out_len || hex_len < 4) return -1;
+    char cmd[5] = {0};
+    memcpy(cmd, data_hex, 4);
+    cmd[4] = '\0';
+    int n = snprintf(out, *out_len, "MT%s00000001000000000000", cmd);
+    if (n < 0 || (uint32_t)n >= *out_len) return -1;
+    *out_len = (uint32_t)n;
+    return 0;
 }

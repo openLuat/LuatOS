@@ -143,6 +143,7 @@ typedef struct tfs_obj {
     uint16_t         n_hard_links;  /* ref count: hardlinks pointing to this file */
 
     struct tfs_obj *parent;
+    uint32_t        checkpt_parent_id;
     tfs_list_t      siblings;
 
     int      hdr_chunk;        /* Where is the header on NAND? */
@@ -378,6 +379,11 @@ typedef struct tfs_dev {
     uint32_t checkpt_sum;
     uint32_t checkpt_xor;
     int     checkpoint_blocks_required;
+    uint32_t checkpt_max_seq;
+    uint32_t checkpt_base_seq;
+    int      checkpt_base_alloc_block;
+    uint32_t checkpt_base_alloc_page;
+    int      checkpt_delta_chunks;
 
     tfs_tnode_t *tn_swap_buffer;
 

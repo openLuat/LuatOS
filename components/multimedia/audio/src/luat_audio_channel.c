@@ -584,6 +584,7 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, luat_buffer_t *
                 return ret;
             }
             if (new_data_bytes > channel_nums_buffer->max_len) {
+                LLOGE("channel_nums_buffer max_len %u, new_data_bytes %u", channel_nums_buffer->max_len, new_data_bytes);
                 return -LUAT_ERROR_NO_MEMORY;
             }
             new_data_union.p = channel_nums_buffer->data;
@@ -600,10 +601,11 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, luat_buffer_t *
             if (ret != LUAT_ERROR_NONE) {
                 return ret;
             }
-            if (new_data_bytes > channel_nums_buffer->max_len) {
+            if (new_data_bytes > data_align_buffer->max_len) {
+                LLOGE("data_align_buffer max_len %u, new_data_bytes %u", data_align_buffer->max_len, new_data_bytes);
                 return -LUAT_ERROR_NO_MEMORY;
             }
-            new_data_union2.p = channel_nums_buffer->data;
+            new_data_union2.p = data_align_buffer->data;
             if (new_data_union.p8) {
                 luat_audio_channel_data_change_align(new_data_union, new_data_union2, pcm_data_len, codec_param->data_align, channel->driver_ctrl->common_param.data_align);
             } else {
@@ -660,6 +662,7 @@ int luat_audio_channel_read_data(luat_audio_channel_t *channel, luat_buffer_t *o
             return ret;
         }
         if (new_data_bytes > channel_nums_buffer->max_len) {
+            LLOGE("channel_nums_buffer max_len %u, new_data_bytes %u", channel_nums_buffer->max_len, new_data_bytes);
             return -LUAT_ERROR_NO_MEMORY;
         }
         new_data_union.p = channel_nums_buffer->data;
@@ -676,10 +679,11 @@ int luat_audio_channel_read_data(luat_audio_channel_t *channel, luat_buffer_t *o
         if (ret != LUAT_ERROR_NONE) {
             return ret;
         }
-        if (new_data_bytes > channel_nums_buffer->max_len) {
+        if (new_data_bytes > data_align_buffer->max_len) {
+            LLOGE("data_align_buffer max_len %u, new_data_bytes %u", data_align_buffer->max_len, new_data_bytes);
             return -LUAT_ERROR_NO_MEMORY;
         }
-        new_data_union2.p = channel_nums_buffer->data;
+        new_data_union2.p = data_align_buffer->data;
         if (new_data_union.p8) {
             luat_audio_channel_data_change_align(new_data_union, new_data_union2, pcm_data_len, channel->driver_ctrl->common_param.data_align, codec_param->data_align);
         } else {

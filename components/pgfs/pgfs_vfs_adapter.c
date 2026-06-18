@@ -145,6 +145,23 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
     if (s_pgfs_ctx.mutex == NULL) {
         s_pgfs_ctx.mutex = luat_mutex_create();
     }
+    /* TDD gate: reject partitions smaller than 8MB.
+     * 256KB-class utest partitions cannot host the FTL metadata
+     * (~256KB) + 2x superblock + 2x CP + 64 segments of 128KB
+     * blocks. They cause "no free blocks" failures in the FTL. */
+    {
+        pgfs_flash_geometry_t geo = {0};
+        if (s_pgfs_ctx.flash_opts->control &&
+            s_pgfs_ctx.flash_opts->control(s_pgfs_ctx.flash_opts->ctx,
+                                           PGFS_CTRL_GET_GEOMETRY, &geo) == 0) {
+            if (geo.capacity < PGFS_MIN_PARTITION_BYTES) {
+                LLOGE("pgfs: partition too small (%u bytes), need >= %u",
+                      (unsigned)geo.capacity, (unsigned)PGFS_MIN_PARTITION_BYTES);
+                memset(&s_pgfs_ctx, 0, sizeof(s_pgfs_ctx));
+                return -1;
+            }
+        }
+    }
     s_pgfs_ctx.data_log_base_addr = pgfs_compute_data_log_base(s_pgfs_ctx.flash_opts);
     s_pgfs_ctx.data_log_write_addr = s_pgfs_ctx.data_log_base_addr;
     s_pgfs_ctx.data_log_prepared_until = s_pgfs_ctx.data_log_base_addr;

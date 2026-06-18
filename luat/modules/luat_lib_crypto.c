@@ -1150,12 +1150,3 @@ LUAMOD_API int luaopen_crypto( lua_State *L ) {
     lua_pop(L, 1);
     return 1;
 }
-
-// 添加几个默认实现
-#ifndef LUAT_COMPILER_NOWEAK
-LUAT_WEAK int luat_crypto_trng(char* buff, size_t len) {
-    memset(buff, 0, len);
-    return 0;
-}
-
-#endif

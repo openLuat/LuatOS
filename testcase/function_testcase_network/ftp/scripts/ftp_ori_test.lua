@@ -28,47 +28,35 @@ local TEST_CONFIG = {
 -- 记录每个适配器的测试结果（包括错误信息）
 local adapter_test_results = {}
 
+-- 记录已触发联网动作的适配器，避免在脚本启动阶段一次性全部连接
+local adapter_connect_started = {}
+
 -- 网络适配器配置表 - 根据设备类型动态生成
 local ALL_ADAPTERS = {}
 
 -- 设备类型判断和适配器配置
 if device_name == "Air8000" then
     -- Air8000: 支持4G和WiFi STA
-    local ssid = "luatos1234"
-    local password = "12341234"
-    pcall(function()
-        wlan.connect(ssid, password, 1)
-    end)
     ALL_ADAPTERS = {
         {name = "4G网卡(LWIP_GP)", adapter = socket.LWIP_GP, type = "cellular", expected_supported = true},
-        {name = "WiFi网卡(LWIP_STA)", adapter = socket.LWIP_STA, type = "wifi", expected_supported = true},
+        {name = "WiFi网卡(LWIP_STA)", adapter = socket.LWIP_STA, type = "wifi", expected_supported = true, ssid = "luatos1234", password = "12341234"},
         {name = "默认(nil)", adapter = nil, type = "default", expected_supported = true}
     }
 elseif device_name == "Air780EPM" or device_name == "Air780EHM" or device_name == "Air780EHV" or 
        device_name == "Air780EGH" or device_name == "Air780EGG" or device_name == "Air780EGP" then
     -- Air780系列: 支持4G，WiFi不支持（用于测试错误处理）
-    pcall(function()
-        local ssid = "luatos1234"
-        local password = "12341234"
-        wlan.connect(ssid, password, 1)
-    end)
     -- 先测试不支持的WiFi网卡（预期报错），再测试支持的4G网卡
     ALL_ADAPTERS = {
-        {name = "WiFi网卡(LWIP_STA)", adapter = socket.LWIP_STA, type = "wifi", expected_supported = false},
+        {name = "WiFi网卡(LWIP_STA)", adapter = socket.LWIP_STA, type = "wifi", expected_supported = false, ssid = "luatos1234", password = "12341234"},
         {name = "4G网卡(LWIP_GP)", adapter = socket.LWIP_GP, type = "cellular", expected_supported = true},
         {name = "默认(nil)", adapter = nil, type = "default", expected_supported = true}
     }
 elseif device_name == "Air8101" then
     -- Air8101: 支持WiFi，4G不支持（用于测试错误处理）
-    local ssid = "luatos1234"
-    local password = "12341234"
-    pcall(function()
-        wlan.connect(ssid, password, 1)
-    end)
     -- 先测试不支持的4G网卡（预期报错），再测试支持的WiFi网卡
     ALL_ADAPTERS = {
         {name = "4G网卡(LWIP_GP)", adapter = socket.LWIP_GP, type = "cellular", expected_supported = false},
-        {name = "WiFi网卡(LWIP_STA)", adapter = socket.LWIP_STA, type = "wifi", expected_supported = true},
+        {name = "WiFi网卡(LWIP_STA)", adapter = socket.LWIP_STA, type = "wifi", expected_supported = true, ssid = "luatos1234", password = "12341234"},
         {name = "默认(nil)", adapter = nil, type = "default", expected_supported = true}
     }
 else
@@ -124,9 +112,79 @@ local function test_start(adapter_name, name)
     ensure_ftp_closed()
 end
 
+-- 按需触发网卡连接：只有轮到某个适配器测试时，才连接该适配器对应的网络
+local function prepare_adapter_network(adapter_info)
+    if adapter_connect_started[adapter_info.name] then
+        return true
+    end
+
+    adapter_connect_started[adapter_info.name] = true
+
+    if adapter_info.type == "wifi" then
+        log.info("ftp_test", string.format("按需连接WiFi网卡 [%s]，SSID: %s", adapter_info.name, tostring(adapter_info.ssid)))
+        local ok, err = pcall(function()
+            wlan.connect(adapter_info.ssid, adapter_info.password, 1)
+        end)
+        if not ok then
+            log.warn("ftp_test", string.format("WiFi网卡 [%s] 连接动作触发失败: %s", adapter_info.name, tostring(err)))
+            return false, tostring(err)
+        end
+
+        if adapter_info.expected_supported == true then
+            local wait_start = mcu.ticks()
+            while not socket.adapter(adapter_info.adapter) do
+                if mcu.ticks() - wait_start >= TEST_CONFIG.connect_timeout then
+                    return false, "等待WiFi网卡就绪超时"
+                end
+                sys.waitUntil("IP_READY", 1000)
+            end
+        end
+    elseif adapter_info.type == "cellular" then
+        log.info("ftp_test", string.format("轮到4G网卡 [%s] 测试，等待蜂窝网络就绪", adapter_info.name))
+        if adapter_info.expected_supported == true then
+            local wait_start = mcu.ticks()
+            while not socket.adapter(adapter_info.adapter) do
+                if mcu.ticks() - wait_start >= TEST_CONFIG.connect_timeout then
+                    return false, "等待4G网卡就绪超时"
+                end
+                sys.waitUntil("IP_READY", 1000)
+            end
+        end
+    else
+        log.info("ftp_test", string.format("轮到默认网卡 [%s] 测试，等待默认网络就绪", adapter_info.name))
+        if adapter_info.expected_supported == true then
+            local wait_start = mcu.ticks()
+            while not socket.adapter() do
+                if mcu.ticks() - wait_start >= TEST_CONFIG.connect_timeout then
+                    return false, "等待默认网卡就绪超时"
+                end
+                sys.waitUntil("IP_READY", 1000)
+            end
+        end
+    end
+
+    return true
+end
+
 -- 尝试连接指定适配器（不预先检查网卡状态，直接尝试，用于捕获错误）
-local function try_connect_adapter(adapter, adapter_name, expected_supported)
+local function try_connect_adapter(adapter_info)
+    local adapter = adapter_info.adapter
+    local adapter_name = adapter_info.name
+    local expected_supported = adapter_info.expected_supported
+
     log.info("ftp_test", string.format("尝试连接适配器 [%s] (预期支持: %s)...", adapter_name, tostring(expected_supported)))
+
+    local prepare_ok, prepare_err = prepare_adapter_network(adapter_info)
+    if not prepare_ok and expected_supported == true then
+        adapter_test_results[adapter_name] = {
+            connected = false,
+            error = prepare_err,
+            error_type = "adapter_not_ready",
+            expected_supported = expected_supported,
+            actual_supported = false
+        }
+        assert(false, string.format("适配器[%s] 预期支持但联网动作失败: %s", adapter_name, tostring(prepare_err)))
+    end
     
     -- 可选：打印网卡状态用于调试
     if TEST_CONFIG.precheck_adapter_ready then
@@ -344,7 +402,7 @@ local function run_test_on_adapters(test_name, test_func)
         log.info("ftp_test", string.format("测试[%s]: 尝试适配器 [%s] (预期支持: %s)", test_name, name, tostring(expected_supported)))
         
         -- 尝试连接（会捕获所有错误，内部包含assert验证）
-        local connect_ok, connect_err, error_type = try_connect_adapter(adapter, name, expected_supported)
+        local connect_ok, connect_err, error_type = try_connect_adapter(adapter_info)
         
         if connect_ok then
             -- 连接成功，执行具体测试

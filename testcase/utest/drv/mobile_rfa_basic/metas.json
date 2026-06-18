@@ -1,0 +1,9 @@
+{
+    "timeout": 60,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "Luat端 mobile.rfa (PC): 状态机 / AT 派发 / 私有协议 / rfa 模块"
+}

@@ -81,8 +81,8 @@ require("tp_drv")
 -- require("airui_tabview")  --选项卡演示
 -- require("airui_table") --表格演示
 -- require("airui_win")  --标签窗口演示
--- require("airui_all_component") --所有组件综合演示
-require("airui_sleep")  -- AirUI休眠管理演示
+require("airui_all_component") --所有组件综合演示
+-- require("airui_sleep")  -- AirUI休眠管理演示,AirUI休眠需要使用Air8000核心板，并且将tp_drv.lua中tp.init的参数配置为pin_int = 2
 -- require("airui_switch_page")  --页面切换演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
 -- require("airui_chart")  --图表组件演示
@@ -91,7 +91,7 @@ require("airui_sleep")  -- AirUI休眠管理演示
 -- require("airui_shape")  -- 形状组件演示
 -- require("airui_spinner")  -- 加载指示器组件演示
 -- require("airui_video")  -- 视频组件演示
--- require("airui_slider")  -- 滑块组件演示
+-- require("airui_slider")  -- 滑块组件演示，Air8000 不支持
 
 -- 用户代码已结束
 -- 结尾总是这一句

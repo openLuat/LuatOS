@@ -42,7 +42,7 @@ typedef struct {
 
 /* Field widths/shifts within packed chunk_id word when extra info present */
 #define TFS_EXTRA_OBJECT_TYPE_SHIFT 28
-#define TFS_EXTRA_OBJECT_TYPE_MASK  0x0fu
+#define TFS_EXTRA_OBJECT_TYPE_MASK  0x07u
 
 /*-------------------------------------------------------------------
  *  API

@@ -219,6 +219,8 @@ end
 @number dahua_param.channel 摄像头通道号，默认为全局的DH_channel
 @number dahua_param.x OSD显示的X坐标，默认为0
 @number dahua_param.y OSD显示的Y坐标，默认为0
+@string dahua_param.username 摄像头登录用户名（可选，默认为"admin"）
+@string dahua_param.password 摄像头登录密码（可选，默认为"Air123456"）
 @return boolean 返回值
  false：OSD设置失败
  true：OSD设置成功
@@ -303,6 +305,8 @@ end
 @string dahua_param.host 摄像头/NVR的IP地址
 @number dahua_param.channel 摄像头通道号
 @string dahua_param.save_path 照片保存路径（可选，默认为"/sd/1.jpeg"）
+@string dahua_param.username 摄像头登录用户名（可选，默认为"admin"）
+@string dahua_param.password 摄像头登录密码（可选，默认为"Air123456"）
 @return number 返回值
  0：拍照失败
  1：拍照成功，并且照片保存到指定路径

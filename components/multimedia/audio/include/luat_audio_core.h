@@ -110,37 +110,59 @@ void luat_audio_driver_event_callback(uint32_t event, uint8_t *rx_data, uint32_t
 uint8_t luat_audio_is_request_all_done(luat_audio_driver_ctrl_t *ctrl);
 
 /**
- * @brief 简易文件解码结构
- * 
+ * @brief 从文件读取数据到FIFO
+ * @param decode_file 解码文件信息
+ * @param input_data_fifo 输入数据FIFO
+ * @param is_file_end 是否为结束请求
+ * @return int 读取的字节数
  */
-typedef struct {
-    luat_audio_data_codec_t codec;          /**< 关联的播放编解码器实例 */
-    uint8_t *temp_buff;                         /**< 临时缓冲区*/
-    union {
-        struct {                                /**< 文件模式下的必须字段 */
-            luat_audio_play_file_info_t *file_info;  /**< 音频文件信息数组指针*/
-            uint32_t file_info_cnt;                  /**< 音频文件信息数组的元素数量 */
-            uint32_t file_done_cnt;                  /**< 已处理的文件信息数量 */
-        };
-        struct {                                /**< 文本转语音模式下的必须字段 */
-            const char *tts_data;               /**< 文本转语音数据指针*/
-            uint32_t tts_data_size;             /**< 文本转语音数据长度 */
-        };
-    };
-    luat_fifo_t *decode_save_fifo;            /**< 解码后数据缓冲区*/
-    luat_fifo_t *org_input_data_fifo;            /**< 原始数据输入缓冲区，在audio task里读出，可能在多个地方写入，需要在写入时做线程安全保护 */
-    luat_buffer_t out_buffer;                /**< 输出数据缓冲区 */
-    uint8_t is_stream:1;                       /**< 是否为流式请求 */
-    uint8_t is_tts:1;                          /**< 是否为文本转语音请求 */
-    uint8_t is_input_end:1;                   /**< 是否为输入结束请求 */
-    uint8_t is_stream_end:1;                   /**< 是否为流式请求结束 */
-}luat_audio_decode_file_ctrl_t;
+int luat_audio_data_read_to_fifo(luat_audio_play_file_info_t *decode_file, luat_fifo_t *input_data_fifo, uint8_t *is_file_end);
 
-int luat_audio_decode_file_start(luat_audio_decode_file_ctrl_t *ctrl,const luat_audio_data_codec_opts_t *codec_opts, luat_audio_play_file_info_t *files, uint32_t files_num, 
-    luat_audio_request_cb_t cb, void *user_data);
 
-int luat_audio_decode_tts_start(luat_audio_decode_file_ctrl_t *ctrl,const char *text, uint32_t text_len, 
-    luat_audio_request_cb_t cb, void *user_data);
+/**
+ * @brief 从文件读取数据到缓冲区
+ * @param decode_file 解码文件信息
+ * @param buffer 缓冲区
+ * @param need_len 读取的字节数
+ * @return int 读取的字节数
+ */
+int luat_audio_data_read_to_buffer(luat_audio_play_file_info_t *decode_file, uint8_t *buffer, uint32_t need_len);
+
+/**
+ * @brief 文件定位
+ * @param decode_file 解码文件信息
+ * @param offset 宁位偏移量
+ * @param origin 宁位参考点
+ * @return int 定位后的偏移量
+ */
+int luat_audio_data_seek(luat_audio_play_file_info_t *decode_file, int offset, int origin);
+
+/**
+ * @brief 初始化外部音频源
+ * @param source 外部音频源指针
+ * @param file_info_or_tts_data 文件信息或TTS数据指针
+ * @param files_num_or_tts_data_len 文件信息或TTS数据长度
+ * @return int LUAT_ERROR_NONE 表示成功，其他值表示失败
+ */
+int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file_info_or_tts_data, uint32_t files_num_or_tts_data_len);
+
+/**
+ * @brief 反初始化外部音频源
+ * @param source 外部音频源指针
+ */
+void luat_audio_extern_source_deinit(luat_audio_extern_source_t *source);
+/**
+ * @brief 解码外部音频源
+ * @param source 外部音频源指针
+ * @return int LUAT_ERROR_NONE 表示成功，其他值表示失败
+ */
+int luat_audio_extern_source_decode(luat_audio_extern_source_t *source);
+/**
+ * @brief 检查外部音频源是否匹配请求
+ * @param source 外部音频源指针
+ * @return int LUAT_ERROR_NONE 表示成功，其他值表示失败
+ */
+int luat_audio_extern_source_check(luat_audio_extern_source_t *source);
 
 #ifdef __LUATOS__
 void l_audio_init(void);

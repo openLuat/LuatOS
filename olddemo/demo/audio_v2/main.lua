@@ -55,6 +55,11 @@ end
 audio_v2.debug(true)
 audio_v2.on(audio_cb)
 
+function audio_setup_8101()
+    audio_v2.config_pa_power_ctrl(true, 28, 0, 100)  --PA能控制
+    audio_v2.config_codec_power_ctrl(false, nil, nil, 200, 10) --codec电源不控制，只控制播放前的空白音时长
+    audio_v2.soft_volume(80)
+end
 
 function audio_setup_1601_evb()
     audio_v2.config_pa_power_ctrl(true, 12, 0, 100)  --PA能控制
@@ -188,8 +193,11 @@ local function play_task()
 
     end
 end
---audio_setup_1601_evb()
+
+-- audio_setup_1601_evb()
 audio_setup_air780ehm_evb()
+-- audio_setup_8101()
+
 sys.taskInit(play_task)
 --定期检查ram使用情况，及时发现内存泄露
 sys.taskInit(function()

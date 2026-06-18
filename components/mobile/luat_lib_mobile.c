@@ -31,6 +31,7 @@ log.info("simid", mobile.simid())
 
 #include "luat_mobile.h"
 #include "luat_network_adapter.h"
+#include <string.h>
 
 #define LUAT_LOG_TAG "mobile"
 #include "luat_log.h"
@@ -1412,44 +1413,167 @@ static int l_mobile_set_band(lua_State* L) {
 	return 1;
 }
 
+/* ============================================================
+ *  新增 luat_mobile_rf_test_* 桥接层 (替代旧 luat_mobile_rfcal_*)
+ *  这层桥接只做字节 / 状态搬运, 不做 AT 派发
+ *  AT 派发由 script/libs/rfa.lua 负责
+ * ============================================================ */
+
 /**
-RF测试开关和配置
-@api mobile.nstOnOff(onoff, uart_id)
-@boolean true开启测试模式，false关闭
-@int 串口号
-@return nil 无返回值
+RF测试:进入/退出模式 (同 nstOnOff, 推荐用这个)
+@api mobile.rfTestMode(uart_id, onoff)
+@int 串口号,默认 VUART_0
+@boolean true 进入, false 退出
+@return nil
 @usage
-mobile.nstOnOff(true, uart.VUART_0)	--打开测试模式，并且用虚拟串口发送结果
-mobile.nstOnOff(false) --关闭测试模式
+mobile.rfTestMode(uart.VUART_0, true)
+mobile.rfTestMode(nil, false)
  */
-static int l_mobile_nst_test_onoff(lua_State* L) {
-    luat_mobile_rf_test_mode(luaL_optinteger(L, 2, LUAT_VUART_ID_0), lua_toboolean(L, 1));
+static int l_mobile_rf_test_mode(lua_State* L) {
+    luat_mobile_rf_test_mode(
+        (uint8_t)luaL_optinteger(L, 1, LUAT_VUART_ID_0),
+        (uint8_t)lua_toboolean(L, 2));
     return 0;
 }
+
 /**
-RF测试数据输入
-@api mobile.nstInput(data)
-@string or zbuff 用户从串口获取的数据，注意，当获取完所有数据后，需要再传一个nil来作为传输结束
-@return nil 无返回值
+RF测试:喂入字节 (同 nstInput, 推荐用这个)
+@api mobile.rfTestInput(data)
+@string or zbuff 字节流; 传 nil 表示 flush
+@return nil
 @usage
-mobile.nstInput(uart_data)
-mobile.nstInput(nil)
+mobile.rfTestInput(uart_data)
+mobile.rfTestInput(nil)
  */
-static int l_mobile_nst_data_input(lua_State* L) {
+static int l_mobile_rf_test_input(lua_State* L) {
     size_t len = 0;
     const char *buf = NULL;
-    if(lua_isuserdata(L, 1))
-    {
+    if (lua_isuserdata(L, 1)) {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
         len = buff->used;
         buf = buff->addr;
+    } else if (lua_isstring(L, 1)) {
+        buf = lua_tolstring(L, 1, &len);
     }
-    else if (lua_isstring(L, 1))
-    {
-        buf = lua_tolstring(L, 1, &len);//取出字符串数据
-    }
-	luat_mobile_rf_test_input(buf, len);
+    luat_mobile_rf_test_input((char*)buf, (uint32_t)len);
     return 0;
+}
+
+/**
+RF测试:查询/设置 PC 端"模组"参数 (NPI 位 / 状态机 / 错误注入)
+@api mobile.rfTestParam(key, value, is_set)
+@string key  "rfCaliDone" / "rfNSTDone" / "rfCTDone" / "state" / "erfMode"
+@int value   读时忽略, 写时给值
+@boolean is_set true=写, false=读 (默认读)
+@return int   读时返回值; 写时返回 0 成功 / -1 失败
+@usage
+print(mobile.rfTestParam("state"))  -- 0
+mobile.rfTestParam("rfCaliDone", 1, true)
+ */
+static int l_mobile_rf_test_param(lua_State* L) {
+    const char *k = luaL_checkstring(L, 1);
+    int v = (int)luaL_optinteger(L, 2, 0);
+    int is_set = lua_toboolean(L, 3);
+    int rv = luat_mobile_rf_test_param(k, &v, is_set);
+    if (is_set) {
+        lua_pushinteger(L, rv);
+    } else {
+        lua_pushinteger(L, v);
+    }
+    return 1;
+}
+
+/**
+RF测试:读 IMEI 字符串 (15 位 ASCII)
+@api mobile.rfTestImei()
+@return string 15 位 IMEI, 失败返回 nil
+@usage
+print(mobile.rfTestImei())  --> 864317081553409
+ */
+static int l_mobile_rf_test_imei_get(lua_State* L) {
+    char buf[16] = {0};
+    int rv = luat_mobile_rf_test_imei_get(buf, 16);
+    if (rv != 0) { lua_pushnil(L); return 1; }
+    lua_pushlstring(L, buf, 15);
+    return 1;
+}
+
+/**
+RF测试:写 IMEI 字符串 (15 位 ASCII)
+@api mobile.rfTestImeiSet(imei)
+@string imei 15 位 IMEI
+@return int 0 成功, -1 长度错误
+@usage
+mobile.rfTestImeiSet("864317081553409")
+ */
+static int l_mobile_rf_test_imei_set(lua_State* L) {
+    const char *imei = luaL_checkstring(L, 1);
+    lua_pushinteger(L, luat_mobile_rf_test_imei_set(imei));
+    return 1;
+}
+
+/**
+RF测试:读 Golden Unit 数据
+@api mobile.rfTestGmData()
+@return string 数据字符串, 失败返回 nil
+@usage
+print(mobile.rfTestGmData())
+ */
+static int l_mobile_rf_test_gmdata_get(lua_State* L) {
+    size_t len = luaL_optinteger(L, 1, 2048);
+    if (len < 1 || len > 8192) len = 2048;
+    char *buf = luat_heap_malloc(len);
+    if (!buf) { lua_pushnil(L); return 1; }
+    int rv = luat_mobile_rf_test_gmdata_get(buf, len);
+    if (rv > 0) {
+        lua_pushlstring(L, buf, rv);
+    } else {
+        lua_pushnil(L);
+    }
+    luat_heap_free(buf);
+    return 1;
+}
+
+/**
+RF测试:写 Golden Unit 数据
+@api mobile.rfTestGmDataSet(data)
+@string data 数据字符串
+@return int 0 成功, -1 失败
+@usage
+mobile.rfTestGmDataSet("golden data")
+ */
+static int l_mobile_rf_test_gmdata_set(lua_State* L) {
+    size_t len = 0;
+    const char *data = luaL_checklstring(L, 1, &len);
+    lua_pushinteger(L, luat_mobile_rf_test_gmdata_set(data, len));
+    return 1;
+}
+
+/**
+RF测试: NST 校准/非信令指令同步处理
+@api mobile.rfTestNst(hex)
+@string hex 输入的 hex 字符串, 如 "02040900..."
+@return int  0 成功, -2 CRC 错误, -3 数据块索引错误, 其他错误
+@return string/nil  成功且有输出时返回响应字符串 (如 "MT0204..."), 否则 nil
+@usage
+local rc, resp = mobile.rfTestNst("02040900010003000500080022002600270028002900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000034126000076A")
+ */
+static int l_mobile_rf_test_nst(lua_State* L) {
+    size_t hex_len = 0;
+    const char *hex = luaL_checklstring(L, 1, &hex_len);
+    uint32_t out_len = 8000;
+    char *out = luat_heap_malloc(out_len);
+    if (!out) { lua_pushnil(L); lua_pushnil(L); return 2; }
+    memset(out, 0, out_len);
+    int rc = luat_mobile_rf_test_nst(hex, (uint32_t)hex_len, out, &out_len);
+    lua_pushinteger(L, rc);
+    if (rc == 0 && out_len > 0) {
+        lua_pushlstring(L, out, out_len);
+    } else {
+        lua_pushnil(L);
+    }
+    luat_heap_free(out);
+    return 2;
 }
 
 /**
@@ -1572,11 +1696,21 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"config",          ROREG_FUNC(l_mobile_config)},
 	{"getBand",          ROREG_FUNC(l_mobile_get_band)},
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
-	{"nstOnOff",          ROREG_FUNC(l_mobile_nst_test_onoff)},
-	{"nstInput",          ROREG_FUNC(l_mobile_nst_data_input)},
-	{"syncTime",          ROREG_FUNC(l_mobile_sync_time)},
+#ifdef LUAT_USE_MOBILE_RFA
+	{"rfTestMode",        ROREG_FUNC(l_mobile_rf_test_mode)},
+	{"rfTestInput",       ROREG_FUNC(l_mobile_rf_test_input)},
+	{"rfTestParam",       ROREG_FUNC(l_mobile_rf_test_param)},
+	{"rfTestImei",        ROREG_FUNC(l_mobile_rf_test_imei_get)},
+	{"rfTestImeiSet",     ROREG_FUNC(l_mobile_rf_test_imei_set)},
+	{"rfTestGmData",      ROREG_FUNC(l_mobile_rf_test_gmdata_get)},
+	{"rfTestGmDataSet",   ROREG_FUNC(l_mobile_rf_test_gmdata_set)},
+	{"rfTestNst",         ROREG_FUNC(l_mobile_rf_test_nst)},
+#endif
+#ifdef LUAT_USE_VSIM
 	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},
 	{"vsimOnOff",          ROREG_FUNC(l_mobile_vsim_onoff)},
+#endif
+	{"syncTime",          ROREG_FUNC(l_mobile_sync_time)},
 	{"apnTableInit",          ROREG_FUNC(l_mobile_init_apn_table)},
 	{"apnTableAdd",          ROREG_FUNC(l_mobile_add_apn_table)},
 	{"apnTablePrint",          ROREG_FUNC(l_mobile_print_apn_table)},

@@ -14,6 +14,13 @@
   3. WLAN STA 状态日志：WiFi 连接/断开/认证等中间状态的追踪日志
   4. 多网融合状态日志：exnetif 发布的当前活跃网络类型和适配器编号
 
+  消息协议（纯订阅，无发布）:
+  订阅: IP_READY(ip, adapter)                          → DNS 配置 + 日志
+  订阅: IP_LOSE(adapter)                               → 日志
+  订阅: WLAN_STA_INC(evt, data)                        → 日志
+  订阅: EXLIB_NETDRV_NETWORK_STATUS(net_type, adapter) → 日志
+  发布: 无
+
 === 历史背景 ===
 
 原先分散在三个独立模块中：

@@ -4041,7 +4041,9 @@ local function download_file(url, dest_path, aid, target_mount)
             end
         end
     }).wait()
+
     if code == 200 then
+        -- 以下校验段（原逻辑保持不变）
         -- 详细日志：服务端返回的各字段大小 vs 实际下载大小
         local fsz = io.fileSize(dest_path) or 0
         local content_len = headers and headers["content-length"]
@@ -4116,13 +4118,91 @@ local function download_file(url, dest_path, aid, target_mount)
             end
         end
         return true
-    else
-        local err_msg = http_error_msg(code)
-        log.error("exapp", "download failed for", aid, "code:", code, err_msg)
-        -- 下载失败，清理已下载的文件
-        if dest_path and io.exists(dest_path) then os.remove(dest_path) end
-        return false, err_msg
     end
+
+    -- ============================================================
+    -- 一次性下载失败 → 内部自动尝试断点续传（不做网络错误弹窗）
+    -- 用 Range 请求剩余部分，只有最终续传也失败才返回 false
+    -- ============================================================
+    log.info("exapp", "initial download failed for", aid, "code:", code, "try resume...")
+
+    local partial_size = (io.exists(dest_path) and io.fileSize(dest_path)) or 0
+
+    -- 用 HEAD 获取总大小
+    local total_size = nil
+    local head_code, head_headers = http.request("HEAD", url, nil, nil, { timeout = 10000 }).wait()
+    if head_code == 200 then
+        total_size = tonumber(head_headers and head_headers["content-length"])
+    end
+
+    -- 有部分数据 + 知道总大小 + 没下完 → Range 请求剩余部分
+    if partial_size > 0 and total_size and total_size > 0 and partial_size < total_size then
+        local resume_code, resume_headers, resume_body = http.request("GET", url,
+            {["Range"] = string.format("bytes=%d-", partial_size)},
+            nil, { timeout = 60000 }).wait()
+
+        if resume_code == 206 or resume_code == 200 then
+            local f, open_err = io.open(dest_path, "ab")
+            if f then
+                f:write(resume_body)
+                f:close()
+
+                sys.publish("APP_STORE_PROGRESS", aid, 100, "下载完成")
+
+                -- 校验续传结果
+                local fsz = io.fileSize(dest_path) or 0
+                log.info("exapp", "resume ok for", aid, "partial:", partial_size, "total:", total_size, "actual:", fsz)
+
+                -- 对齐 total_size
+                if total_size > 0 and fsz > 0 then
+                    local byte_diff = math.abs(fsz - total_size)
+                    if byte_diff > 512 then
+                        log.warn("exapp", "resume size mismatch for", aid, "actual:", fsz, "expected:", total_size)
+                        if io.exists(dest_path) then os.remove(dest_path) end
+                        return false, string.format("文件大小不匹配(%d vs %d)", fsz, total_size)
+                    end
+                end
+
+                -- 再走一次服务端 zip_size_b/zip_size_kb 校验
+                local zip_size_kb_resume = app_entry and tonumber(tostring(app_entry.zip_size_kb)) or nil
+                local zip_size_b_resume = app_entry and tonumber(tostring(app_entry.zip_size_b)) or nil
+                if zip_size_b_resume and zip_size_b_resume > 0 and fsz > 0 then
+                    local byte_diff = math.abs(fsz - zip_size_b_resume)
+                    local byte_tolerance = math.max(zip_size_b_resume * 0.05, 5120)
+                    if byte_diff > byte_tolerance then
+                        local kb_ok = false
+                        if zip_size_kb_resume and zip_size_kb_resume > 0 then
+                            local actual_kb = math.floor(fsz / 1024)
+                            local kb_diff = math.abs(actual_kb - zip_size_kb_resume)
+                            if kb_diff <= math.min(math.max(zip_size_kb_resume * 0.05, 1), 20) then
+                                kb_ok = true
+                            end
+                        end
+                        if not kb_ok then
+                            if io.exists(dest_path) then os.remove(dest_path) end
+                            return false, "文件大小不匹配，服务器记录" .. zip_size_b_resume .. "字节，实际" .. fsz .. "字节"
+                        end
+                    end
+                elseif zip_size_kb_resume and zip_size_kb_resume > 0 and fsz > 0 then
+                    local actual_kb = math.floor(fsz / 1024)
+                    local diff = math.abs(actual_kb - zip_size_kb_resume)
+                    if diff > math.min(math.max(zip_size_kb_resume * 0.05, 1), 20) then
+                        if io.exists(dest_path) then os.remove(dest_path) end
+                        return false, "文件大小不匹配(" .. actual_kb .. " vs " .. zip_size_kb_resume .. "KB)"
+                    end
+                end
+
+                return true
+            else
+                log.warn("exapp", "resume open partial file failed:", dest_path, open_err)
+            end
+        end
+    end
+
+    -- 续传也失败 → 清理并返回 false
+    log.error("exapp", "download failed and resume also failed for", aid, "code:", code)
+    if dest_path and io.exists(dest_path) then os.remove(dest_path) end
+    return false, http_error_msg(code)
 end
 
 -- 计算目录大小，单位 KB（简单实现，递归统计）
@@ -4475,9 +4555,20 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
             end
         end
 
-        sys.publish("APP_STORE_ACTION_DONE", aid, "install", true)
-        sys.publish("APP_STORE_PROGRESS", aid, 100, "安装完成")
-        report_result(aid, nil)
+        -- 验证安装是否成功：installed_info中已有该aid记录说明meta.json已成功处理
+        if installed_info[aid] then
+            sys.publish("APP_STORE_ACTION_DONE", aid, "install", true)
+            sys.publish("APP_STORE_PROGRESS", aid, 100, "安装完成")
+            report_result(aid, nil)
+        else
+            -- 安装失败：解压后应用数据异常（目录不存在、meta.json缺失或损坏等）
+            if io.dexist(app_path) then
+                rmdir_recursive(app_path)
+            end
+            sys.publish("APP_STORE_ERROR", "安装失败：应用数据异常，请重试")
+            sys.publish("APP_STORE_ACTION_DONE", aid, "install", false)
+            report_result(aid, "安装失败：应用数据异常")
+        end
 
         -- 刷新当前列表（仅一次请求，保持用户当前页码不跳回第1页）
         exapp.get_app_list({

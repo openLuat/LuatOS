@@ -144,6 +144,8 @@ target("luatos-lua")
     set_targetdir("$(builddir)/out")
 
     add_defines("LUAT_BSP_PC")
+    -- fatfs 在 luat_conf_bsp.h 里已经 #define LUAT_USE_FATFS / LUAT_USE_FS_VFS,
+    -- 不需要在 xmake 重复 add_defines(还会触发 MSVC C4005 重定义 warning)。
     add_files("src/*.c",{public = true})
     add_files("port/**.c")
 
@@ -286,6 +288,7 @@ target("luatos-lua")
             add_includedirs(luatos.."components/utest/include", {public = true})
         end
         add_files(luatos.."components/utest/**.c")
+        add_files("stubs/uart_dll_utest/luat_uart_dll_utest.c")
     end
 
     -- coremark

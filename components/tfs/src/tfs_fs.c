@@ -187,7 +187,11 @@ int tfs_remove_device(const char *name)
     int i;
     for (i = 0; i < g_n_devices; i++) {
         if (g_devices[i] && strcmp(g_devices[i]->param.name, name) == 0) {
-            tfs_core_unmount(g_devices[i]);
+            int rc = tfs_core_unmount(g_devices[i]);
+            if (rc != TFS_OK) {
+                set_err(rc);
+                return rc;
+            }
             tfs_core_remove_device(g_devices[i]);
             g_devices[i]->drv.free(g_devices[i]->drv.ctx, g_devices[i]);
             g_devices[i] = NULL;

@@ -11,6 +11,11 @@
 3. 时间同步成功，获取本地时间和UTC时间
 4. 按默认间隔循环同步
 
+消息协议（订阅/发布）:
+订阅: IP_READY                 → 触发 NTP 同步
+订阅: NTP_ERROR(err_info)      → 同步过程发生错误日志
+发布: 无（底层固件 sntp 成功后发布 NTP_UPDATE，本模块无需再转发）
+
 == 与其他模块的关系 ==
 wifi_app 在 IP_READY 后通过 start_connectivity_verification() 等待 NTP_UPDATE
 事件，以此判断"真实联网"是否成功。NTP_UPDATE 由底层固件在 socket.sntp()

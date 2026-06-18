@@ -1,0 +1,6 @@
+{
+  "name": "vfs_uniform_ram",
+  "summary": "VFS 统一接口在 ram 上的回归测试",
+  "platform": ["pc"],
+  "timeout": 300
+}

@@ -54,9 +54,6 @@ local function lcd_drv_init()
     log.info("lcd.init", result)
 
     if result then
-        -- 开启缓冲区, 刷屏速度会加快, 但也消耗2倍屏幕分辨率的内存
-        -- lcd.setupBuff(nil, true)
-        -- lcd.autoFlush(false)
 
         -- 初始化AirUI
         local width, height = lcd.getSize()

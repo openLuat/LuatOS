@@ -168,43 +168,48 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
     ctx->flash_opts    = flash_opts;
 
     size_t bitmap_bytes = PGFS_FTL_BITMAP_BYTES(total_blocks);
-    ctx->bad_blocks_bitmap = (uint8_t *)calloc(1, bitmap_bytes);
+    ctx->bad_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
+    if (ctx->bad_blocks_bitmap) memset(ctx->bad_blocks_bitmap, 0, bitmap_bytes);
     if (!ctx->bad_blocks_bitmap) return -1;
 
-    ctx->reserved_blocks_bitmap = (uint8_t *)calloc(1, bitmap_bytes);
+    ctx->reserved_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
+    if (ctx->reserved_blocks_bitmap) memset(ctx->reserved_blocks_bitmap, 0, bitmap_bytes);
     if (!ctx->reserved_blocks_bitmap) {
-        free(ctx->bad_blocks_bitmap);
+        luat_heap_free(ctx->bad_blocks_bitmap);
         ctx->bad_blocks_bitmap = NULL;
         return -1;
     }
 
-    ctx->weak_blocks_bitmap = (uint8_t *)calloc(1, bitmap_bytes);
+    ctx->weak_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
+    if (ctx->weak_blocks_bitmap) memset(ctx->weak_blocks_bitmap, 0, bitmap_bytes);
     if (!ctx->weak_blocks_bitmap) {
-        free(ctx->bad_blocks_bitmap);
-        free(ctx->reserved_blocks_bitmap);
+        luat_heap_free(ctx->bad_blocks_bitmap);
+        luat_heap_free(ctx->reserved_blocks_bitmap);
         ctx->bad_blocks_bitmap = NULL;
         ctx->reserved_blocks_bitmap = NULL;
         return -1;
     }
 
     /* Phase 5b: retired bitmap is independent of bad/weak/reserved. */
-    ctx->retired_blocks_bitmap = (uint8_t *)calloc(1, bitmap_bytes);
+    ctx->retired_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
+    if (ctx->retired_blocks_bitmap) memset(ctx->retired_blocks_bitmap, 0, bitmap_bytes);
     if (!ctx->retired_blocks_bitmap) {
-        free(ctx->bad_blocks_bitmap);
-        free(ctx->reserved_blocks_bitmap);
-        free(ctx->weak_blocks_bitmap);
+        luat_heap_free(ctx->bad_blocks_bitmap);
+        luat_heap_free(ctx->reserved_blocks_bitmap);
+        luat_heap_free(ctx->weak_blocks_bitmap);
         ctx->bad_blocks_bitmap = NULL;
         ctx->reserved_blocks_bitmap = NULL;
         ctx->weak_blocks_bitmap = NULL;
         return -1;
     }
 
-    ctx->erase_counts = (uint16_t *)calloc(total_blocks, sizeof(uint16_t));
+    ctx->erase_counts = (uint16_t *)luat_heap_malloc(total_blocks * sizeof(uint16_t));
+    if (ctx->erase_counts) memset(ctx->erase_counts, 0, total_blocks * sizeof(uint16_t));
     if (!ctx->erase_counts) {
-        free(ctx->bad_blocks_bitmap);
-        free(ctx->reserved_blocks_bitmap);
-        free(ctx->weak_blocks_bitmap);
-        free(ctx->retired_blocks_bitmap);
+        luat_heap_free(ctx->bad_blocks_bitmap);
+        luat_heap_free(ctx->reserved_blocks_bitmap);
+        luat_heap_free(ctx->weak_blocks_bitmap);
+        luat_heap_free(ctx->retired_blocks_bitmap);
         ctx->bad_blocks_bitmap = NULL;
         ctx->reserved_blocks_bitmap = NULL;
         ctx->weak_blocks_bitmap = NULL;
@@ -213,31 +218,35 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
     }
 
     /* Phase 2 prep / v4: per-block live/dead byte arrays. */
-    ctx->live_bytes_per_block = (uint32_t *)calloc(total_blocks, sizeof(uint32_t));
+    ctx->live_bytes_per_block = (uint32_t *)luat_heap_malloc(total_blocks * sizeof(uint32_t));
+    if (ctx->live_bytes_per_block) memset(ctx->live_bytes_per_block, 0, total_blocks * sizeof(uint32_t));
     if (!ctx->live_bytes_per_block) {
-        free(ctx->bad_blocks_bitmap);
-        free(ctx->reserved_blocks_bitmap);
-        free(ctx->weak_blocks_bitmap);
-        free(ctx->retired_blocks_bitmap);
-        free(ctx->erase_counts);
+        luat_heap_free(ctx->bad_blocks_bitmap);
+        luat_heap_free(ctx->reserved_blocks_bitmap);
+        luat_heap_free(ctx->weak_blocks_bitmap);
+        luat_heap_free(ctx->retired_blocks_bitmap);
+        luat_heap_free(ctx->erase_counts);
         ctx->bad_blocks_bitmap = NULL;
         ctx->reserved_blocks_bitmap = NULL;
         ctx->weak_blocks_bitmap = NULL;
         ctx->retired_blocks_bitmap = NULL;
+        ctx->erase_counts = NULL;
         return -1;
     }
-    ctx->dead_bytes_per_block = (uint32_t *)calloc(total_blocks, sizeof(uint32_t));
+    ctx->dead_bytes_per_block = (uint32_t *)luat_heap_malloc(total_blocks * sizeof(uint32_t));
+    if (ctx->dead_bytes_per_block) memset(ctx->dead_bytes_per_block, 0, total_blocks * sizeof(uint32_t));
     if (!ctx->dead_bytes_per_block) {
-        free(ctx->bad_blocks_bitmap);
-        free(ctx->reserved_blocks_bitmap);
-        free(ctx->weak_blocks_bitmap);
-        free(ctx->retired_blocks_bitmap);
-        free(ctx->erase_counts);
-        free(ctx->live_bytes_per_block);
+        luat_heap_free(ctx->bad_blocks_bitmap);
+        luat_heap_free(ctx->reserved_blocks_bitmap);
+        luat_heap_free(ctx->weak_blocks_bitmap);
+        luat_heap_free(ctx->retired_blocks_bitmap);
+        luat_heap_free(ctx->erase_counts);
+        luat_heap_free(ctx->live_bytes_per_block);
         ctx->bad_blocks_bitmap = NULL;
         ctx->reserved_blocks_bitmap = NULL;
         ctx->weak_blocks_bitmap = NULL;
         ctx->retired_blocks_bitmap = NULL;
+        ctx->erase_counts = NULL;
         ctx->live_bytes_per_block = NULL;
         return -1;
     }
@@ -246,15 +255,15 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
 
 void pgfs_ftl_deinit(pgfs_nand_ftl_ctx_t *ctx) {
     if (!ctx) return;
-    free(ctx->bad_blocks_bitmap);
-    free(ctx->reserved_blocks_bitmap);
-    free(ctx->weak_blocks_bitmap);
-    free(ctx->retired_blocks_bitmap);
-    free(ctx->erase_counts);
-    free(ctx->live_bytes_per_block);
-    free(ctx->dead_bytes_per_block);
+    luat_heap_free(ctx->bad_blocks_bitmap);
+    luat_heap_free(ctx->reserved_blocks_bitmap);
+    luat_heap_free(ctx->weak_blocks_bitmap);
+    luat_heap_free(ctx->retired_blocks_bitmap);
+    luat_heap_free(ctx->erase_counts);
+    luat_heap_free(ctx->live_bytes_per_block);
+    luat_heap_free(ctx->dead_bytes_per_block);
     if (ctx->last_persist_buf != NULL) {
-        free(ctx->last_persist_buf);
+        luat_heap_free(ctx->last_persist_buf);
     }
     memset(ctx, 0, sizeof(*ctx));
 }
@@ -382,7 +391,7 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     /* Erase FTL state erase-unit */
     if (pgfs_ftl_flash_erase(ctx->flash_opts, state_addr, erase_size) != 0) {
         LLOGE("pgfs_ftl_persist: erase failed at addr=%u", (unsigned int)state_addr);
-        free(buf);
+        luat_heap_free(buf);
         ctx->persist_failure_count++;
         return -1;
     }
@@ -395,14 +404,14 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
         ctx->powercut_inject = 0;
         ctx->persist_failure_count++;
         LLOGW("pgfs_ftl_persist: powercut injected after FTL erase, before write");
-        free(buf);
+        luat_heap_free(buf);
         return -1;
     }
 
     /* Write FTL state */
     if (pgfs_ftl_flash_write(ctx->flash_opts, state_addr, buf, total_bytes) != 0) {
         LLOGE("pgfs_ftl_persist: write failed at addr=%u", (unsigned int)state_addr);
-        free(buf);
+        luat_heap_free(buf);
         ctx->persist_failure_count++;
         return -1;
     }
@@ -411,12 +420,12 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
      * If the readback fails or the CRC doesn't match, the on-flash content
      * is corrupt; we MUST NOT update last_persist_buf in that case so the
      * next mount can still recover from the previous snapshot. */
-    uint8_t *verify_buf = (uint8_t *)malloc(total_bytes);
+    uint8_t *verify_buf = (uint8_t *)luat_heap_malloc(total_bytes);
     if (verify_buf == NULL) {
         /* Allocation failure is non-fatal for the on-flash write itself:
          * the write succeeded. Take ownership of buf for snapshot. */
         if (ctx->last_persist_buf != NULL) {
-            free(ctx->last_persist_buf);
+            luat_heap_free(ctx->last_persist_buf);
         }
         ctx->last_persist_buf = buf;
         ctx->last_persist_size = total_bytes;
@@ -433,18 +442,18 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
             readback_ok = 1;
         }
     }
-    free(verify_buf);
+    luat_heap_free(verify_buf);
     if (!readback_ok) {
         LLOGE("pgfs_ftl_persist: readback verify failed at addr=%u, keeping old snapshot",
               (unsigned int)state_addr);
-        free(buf);
+        luat_heap_free(buf);
         ctx->persist_failure_count++;
         return -1;
     }
 
     /* Success: take ownership of buf for the new snapshot, free the old one. */
     if (ctx->last_persist_buf != NULL) {
-        free(ctx->last_persist_buf);
+        luat_heap_free(ctx->last_persist_buf);
     }
     ctx->last_persist_buf = buf;
     ctx->last_persist_size = total_bytes;
@@ -483,11 +492,11 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
     }
 
     /* Read full record */
-    uint8_t *buf = (uint8_t *)malloc(total_bytes);
+    uint8_t *buf = (uint8_t *)luat_heap_malloc(total_bytes);
     if (!buf) return -1;
 
     if (pgfs_ftl_flash_read(ctx->flash_opts, state_addr, buf, total_bytes) != 0) {
-        free(buf);
+        luat_heap_free(buf);
         return -1;
     }
 
@@ -496,7 +505,7 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
     uint32_t stored_crc   = meta->crc32;
     meta->crc32 = 0;
     if (pgfs_ftl_crc32(buf, total_bytes) != stored_crc) {
-        free(buf);
+        luat_heap_free(buf);
         return 1; /* corrupt */
     }
 
@@ -545,7 +554,7 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         ctx->total_erase_count += ctx->erase_counts[i];
     }
 
-    free(buf);
+    luat_heap_free(buf);
     return 0;
 }
 

@@ -2,7 +2,52 @@
 PROJECT = "appstore_test"
 VERSION = "1.0.0"
 
+-- app 沙箱内 Lua 错误不应导致整个 VM 重启或 assert 退出。
+-- 设置 _G.COROUTINE_ERROR_ROLL_BACK / RESTART 为 false 后,
+-- 协程错误仅以 log.error 记录 traceback, 不会触发 VM 重启,
+-- testrunner 的流程继续运行, 后续阶段检测到 app 异常后会标记失败。
+_G.COROUTINE_ERROR_ROLL_BACK = false
+_G.COROUTINE_ERROR_RESTART   = false
+
 -- 引入必须的库 (顺序: exwin 必须在 exapp 之前加载, 因为 exapp 的 UI 沙箱依赖 exwin)
+_G.sys = require("sys")
+
+-- sys.run 默认实现是 while true do sys.safeRun() end, 任何未捕获错误
+-- (例如 app 触发 LUA_ERRMEM "not enough memory") 都会让循环退出 ->
+-- main chunk 结束 -> luat_main_call() 返回 -> "Lua VM exit!! reboot in 1000ms".
+-- 测试场景下覆写 sys.run, 把 safeRun 用 pcall 包起来, 错误只记录不退出,
+-- testrunner 后续阶段可以正常超时收尾并写 result.json.
+--
+-- 持续 OOM 保护: 如果连续 N 次 safeRun 都 OOM 且 fullgc 也救不回,
+-- 说明 4MB Lua heap 已被业务长期引用占满, 继续刷屏没有意义,
+-- 主动 os.exit(2) 让外层 orchestrator 拉起新进程.
+local SAFE_RUN_OOM_THRESHOLD = 50
+function sys.run()
+    local oom_streak = 0
+    while true do
+        local ok, err = pcall(sys.safeRun)
+        if ok then
+            oom_streak = 0
+        else
+            local msg = tostring(err)
+            log.error("sys.run", "safeRun error caught and skipped:", msg)
+            -- 主动 fullgc 释放内存, 避免下一次 safeRun 立即再 OOM 形成刷屏循环
+            collectgarbage("collect")
+            collectgarbage("collect")
+            if msg:find("not enough memory", 1, true) then
+                oom_streak = oom_streak + 1
+                if oom_streak >= SAFE_RUN_OOM_THRESHOLD then
+                    log.error("sys.run", string.format(
+                        "连续 %d 次 OOM, Lua heap 已无法回收, 进程退出让 orchestrator 重启",
+                        oom_streak))
+                    os.exit(2)
+                end
+            else
+                oom_streak = 0
+            end
+        end
+    end
+end
 -- exwin.lua 定义的是 local exwin = {}, 需要手动设为全局变量供 exapp.lua 使用
 exwin = require("exwin")
 local exapp_ok, exapp_err = pcall(require, "exapp")
@@ -64,7 +109,7 @@ sys.taskInit(function()
     end
 
     testrunner.runBatch("appstore_lifecycle", {
-        {testTable = appstore_test, testcase = "应用商店全生命周期测试"}
+        {testTable = appstore_test, testcase = "应用商店全生命周期测试", only = "test_appstore_lifecycle"}
     })
 end)
 

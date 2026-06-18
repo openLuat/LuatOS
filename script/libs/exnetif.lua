@@ -152,7 +152,8 @@ local function http_dnstest(adaptertest)
         available[adaptertest] = connection_states.CONNECTED
         log.info(type_to_string(adaptertest) .. "网卡httpdns域名解析成功")
     else
-        log.info(type_to_string(adaptertest) .. "网卡httpdns域名解析失败")
+        log.info(type_to_string(adaptertest) .. "网卡httpdns域名解析失败，重置为OPENED")
+        available[adaptertest] = connection_states.OPENED
     end
     log.info("httpdns", "baidu.com", ip)
 end
@@ -166,6 +167,14 @@ local function ping_request(adaptertest)
             else
                 icmp.setup(adaptertest)
                 icmp.ping(adaptertest, eth_ping_ip)
+                -- ICMP超时处理：ping失败时重置状态，避免卡在CONNECTING
+                sys.timerStart(function()
+                    if available[adaptertest] == connection_states.CONNECTING then
+                        log.warn(type_to_string(adaptertest) .. "网卡PING超时，重置为OPENED")
+                        available[adaptertest] = connection_states.OPENED
+                        apply_priority()
+                    end
+                end, ping_time)
             end
         end
         if adaptertest == socket.LWIP_STA then
@@ -174,18 +183,18 @@ local function ping_request(adaptertest)
             else
                 icmp.setup(adaptertest)
                 icmp.ping(adaptertest, wifi_ping_ip)
+                -- ICMP超时处理：ping失败时重置状态，避免卡在CONNECTING
+                sys.timerStart(function()
+                    if available[adaptertest] == connection_states.CONNECTING then
+                        log.warn(type_to_string(adaptertest) .. "网卡PING超时，重置为OPENED")
+                        available[adaptertest] = connection_states.OPENED
+                        apply_priority()
+                    end
+                end, ping_time)
             end
         end
         if adaptertest == socket.LWIP_GP or adaptertest == socket.LWIP_GP_GW then
-            if eth_ping_ip ~= nil then
-                icmp.setup(adaptertest)
-                icmp.ping(adaptertest, eth_ping_ip)
-            elseif wifi_ping_ip ~= nil then
-                icmp.setup(adaptertest)
-                icmp.ping(adaptertest, wifi_ping_ip)
-            else
-                http_dnstest(adaptertest)
-            end
+            http_dnstest(adaptertest)
         end
     else
         log.info(type_to_string(adaptertest) .. "配置了不需要ping，直接切换为CONNECTED状态")

@@ -68,6 +68,7 @@ enum {
     LUAT_AUDIO_DATA_CODEC_TYPE_OPUS,       /**< OPUS 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,       /**< G711_ULAW 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,       /**< G711_ALAW 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_NO_OP,        /**< 无操作编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MAX,        /**< 最大编解码器类型 */
     LUAT_AUDIO_DATA_CODEC_TYPE_HW = 0x80, /**< 编解码器类型-硬件编解码器优先模式 */
 
@@ -75,15 +76,21 @@ enum {
     LUAT_AUDIO_TTS_EVENT_START = 0,        /**< TTS 开始事件 */
     LUAT_AUDIO_TTS_EVENT_NEW_DATA,         /**< TTS 新数据可用事件 */
 
-    LUAT_AUDIO_REQUEST_EVENT_START = 0,                /**< 请求开始 */
-    LUAT_AUDIO_REQUEST_EVENT_DRIVER_START,             /**< 驱动开始 */
+    LUAT_AUDIO_REQUEST_EVENT_START = 0,                 /**< 请求开始 */
+    LUAT_AUDIO_REQUEST_EVENT_DRIVER_START,              /**< 驱动开始 */
     LUAT_AUDIO_REQUEST_EVENT_TTS_START,              /**< TTS 开始 */
     LUAT_AUDIO_REQUEST_EVENT_NEED_PLAY_INFO,          /**< 播放需要播放信息 */
     LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA,           /**< 播放需要新数据 */
     LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA,            /**< 录音获取到新数据 */
     LUAT_AUDIO_REQUEST_EVENT_DECODE_DONE,             /**< 解码完成 */
     LUAT_AUDIO_REQUEST_EVENT_END,                     /**< 请求结束 */
+    LUAT_AUDIO_REQUEST_EVENT_EXTERNAL_SOURCE_DECODE_DONE,         /**< 外部源解码完成 */
     LUAT_AUDIO_REQUEST_EVENT_MAX = 255,
+
+    LUAT_AUDIO_DRIVER_PARAM_TX_MAX_LEN = 0,     /**< 播放最大缓存长度参数 */
+    LUAT_AUDIO_DRIVER_PARAM_RX_MAX_LEN,         /**< 录音最大缓存长度参数 */
+
+    LUAT_AUDIO_DATA_CODEC_PARAM_ENCODE_INPUT_LEN = 0,         /**< 编码1帧需要的输入数据长度参数 */
 };
 
 #ifndef LUAT_AUDIO_DATA_CACHE_LEN

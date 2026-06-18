@@ -144,8 +144,8 @@ local A_16 = {"airui", "audio.tts", "cc", "camera", "fastlz", "fatfs", "lf", "au
               "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "socket", "spi", "string",
               "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
-local A_17 = {"airui", "nes", "cc", "fastlz", "fatfs", "lf", "ble", "libgnss", "sfud", "yhm27xx", "sms", "otp", "eink",
-              "tp", "lcd", "u8g2", "adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp",
+local A_17 = {"airui", "nes", "fastlz", "fatfs", "lf", "ble", "libgnss", "otp",
+              "tp", "lcd","hzfont", "yhm27xx", "sms", "adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp",
               "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth",
               "iperf", "json", "log", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm",
               "protobuf", "pwm", "rsa", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt",

@@ -80,8 +80,16 @@ static int luat_vfs_tfs_umount(void *userdata, luat_fs_conf_t *conf)
 {
     (void)conf;
     luat_lf_tfs_ctx_t *ctx = (luat_lf_tfs_ctx_t *)userdata;
+    int rc;
+
     if (!ctx || !ctx->is_mounted) return -1;
-    tfs_unmount(ctx->dev_name);
+
+    rc = tfs_unmount(ctx->dev_name);
+    if (rc != TFS_OK) {
+        LLOGE("tfs: unmount sync failed %d", rc);
+        return -1;
+    }
+
     tfs_remove_device(ctx->dev_name);
     ctx->is_mounted = 0;
     if (ctx->oob_ram) { luat_heap_free(ctx->oob_ram); ctx->oob_ram = NULL; }

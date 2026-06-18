@@ -21,7 +21,7 @@
 #include "../inc/tfs_types.h"
 #include "tfs_dev.h"
 
-#define TFS_CHECKPT_VERSION   6u
+#define TFS_CHECKPT_VERSION   7u
 
 /*-------------------------------------------------------------------
  *  On-NAND checkpoint structures
@@ -60,6 +60,7 @@ typedef struct {
     uint32_t n_data_chunks;
     uint32_t file_size_lo;
     uint32_t file_size_hi;
+    char     name[TFS_MAX_NAME_LEN + 1];
 } tfs_checkpt_obj_t;
 
 typedef struct {

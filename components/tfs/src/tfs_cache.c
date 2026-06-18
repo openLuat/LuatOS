@@ -9,6 +9,7 @@
 
 #include "tfs_cache.h"
 #include "tfs_block.h"
+#include "tfs_core.h"
 #include "tfs_tnode.h"
 #include "../inc/tfs_config.h"
 
@@ -125,9 +126,9 @@ static int flush_one(tfs_dev_t *dev, tfs_cache_entry_t *ce)
                                          (uint32_t)ce->chunk_id);
 
     for (attempt = 0; attempt < TFS_WRITE_RETRY_BLOCKS; attempt++) {
-        chunk_in_nand = tfs_alloc_chunk(dev, 0);
-        if (chunk_in_nand < 0)
-            return TFS_ENOSPC;
+        rc = tfs_alloc_chunk_or_gc(dev, 0, &chunk_in_nand);
+        if (rc != TFS_OK)
+            return rc;
 
         rc = tfs_chunk_write(dev, chunk_in_nand, ce->data, ce->n_bytes, &ext);
         if (rc == TFS_OK)

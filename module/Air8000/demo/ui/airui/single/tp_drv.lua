@@ -65,6 +65,9 @@ local function tp_drv_init()
     -- h: 触摸面板高度
     local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0})
 
+    -- Air8000 核心板 触摸输出代码，可以测试全部功能，包括低功耗模式1
+    -- local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = 2})
+
     log.info("tp.init", result)
 
     -- 保存 TP 设备对象到全局变量，供休眠模块使用（tp.sleep 需要设备对象引用）

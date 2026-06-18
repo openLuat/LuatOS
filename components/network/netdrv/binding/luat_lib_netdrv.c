@@ -846,6 +846,28 @@ static void do_send_raw_to_hw(void* args) {
     luat_heap_free(m);
 }
 
+// CH_LWIP: 跳过 NAPT, 直接注入 LWIP (相当于 post-NAPT 入口)
+static void do_send_raw_to_lwip(void* args) {
+    netdrv_send_msg_t* m = (netdrv_send_msg_t*)args;
+    if (m == NULL) return;
+    if (m->drv && m->drv->netif) {
+        luat_netdrv_netif_input_proxy(m->drv->netif, m->buff, m->len);
+    }
+    luat_heap_free(m);
+}
+
+// CH_NAPT: 先过 NAPT, 未消费则继续到 LWIP (相当于 pre-NAPT 入口)
+static void do_send_raw_to_napt(void* args) {
+    netdrv_send_msg_t* m = (netdrv_send_msg_t*)args;
+    if (m == NULL) return;
+    int napt_ret = luat_netdrv_napt_pkg_input(m->drv->id, m->buff, (size_t)m->len);
+    if (napt_ret == 0 && m->drv && m->drv->netif) {
+        // NAPT 未消费, 继续注入 LWIP
+        luat_netdrv_netif_input_proxy(m->drv->netif, m->buff, m->len);
+    }
+    luat_heap_free(m);
+}
+
 /*
 直接向 netdrv 链路投递原始数据包
 @api netdrv.send_raw(id, target, zbuff, len)
@@ -910,8 +932,87 @@ static int l_netdrv_send_raw(lua_State *L) {
         lua_pushinteger(L, len);
         return 1;
     }
-    else if (target == LUAT_NETDRV_CH_LWIP || target == LUAT_NETDRV_CH_NAPT) {
-        return luaL_error(L, "send_raw target 0x%X not yet implemented", target);
+    else if (target == LUAT_NETDRV_CH_LWIP) {
+        // CH_LWIP: 跳过 NAPT, 直接注入 LWIP
+        luat_netdrv_t* drv = luat_netdrv_get(id);
+        if (!drv || !drv->netif) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "netdrv not available");
+            return 2;
+        }
+        if (!buff || !buff->addr) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "zbuff invalid");
+            return 2;
+        }
+        if (len == 0) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "len is 0");
+            return 2;
+        }
+        if (len > buff->used) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "len out of range");
+            return 2;
+        }
+        netdrv_send_msg_t* m = (netdrv_send_msg_t*)luat_heap_malloc(sizeof(netdrv_send_msg_t) + len - 4);
+        if (!m) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "oom");
+            return 2;
+        }
+        m->drv = drv;
+        m->len = len;
+        memcpy(m->buff, buff->addr, len);
+        if (tcpip_callback_with_block(do_send_raw_to_lwip, m, 0) != ERR_OK) {
+            luat_heap_free(m);
+            lua_pushnil(L);
+            lua_pushliteral(L, "tcpip queue full");
+            return 2;
+        }
+        lua_pushinteger(L, len);
+        return 1;
+    }
+    else if (target == LUAT_NETDRV_CH_NAPT) {
+        // CH_NAPT: 先过 NAPT, 未消费则注入 LWIP
+        luat_netdrv_t* drv = luat_netdrv_get(id);
+        if (!drv || !drv->netif) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "netdrv not available");
+            return 2;
+        }
+        if (!buff || !buff->addr) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "zbuff invalid");
+            return 2;
+        }
+        if (len == 0) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "len is 0");
+            return 2;
+        }
+        if (len > buff->used) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "len out of range");
+            return 2;
+        }
+        netdrv_send_msg_t* m = (netdrv_send_msg_t*)luat_heap_malloc(sizeof(netdrv_send_msg_t) + len - 4);
+        if (!m) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "oom");
+            return 2;
+        }
+        m->drv = drv;
+        m->len = len;
+        memcpy(m->buff, buff->addr, len);
+        if (tcpip_callback_with_block(do_send_raw_to_napt, m, 0) != ERR_OK) {
+            luat_heap_free(m);
+            lua_pushnil(L);
+            lua_pushliteral(L, "tcpip queue full");
+            return 2;
+        }
+        lua_pushinteger(L, len);
+        return 1;
     }
     return luaL_error(L, "unknown send_raw target %d", target);
 }

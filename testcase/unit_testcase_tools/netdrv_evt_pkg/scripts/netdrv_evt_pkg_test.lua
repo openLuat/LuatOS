@@ -46,14 +46,25 @@ function M.test_send_raw_unknown_target()
     assert(type(err) == "string", "err 应为字符串")
 end
 
--- T6: send_raw 对 CH_LWIP / CH_NAPT 抛"not implemented"
+-- T6: send_raw 对 CH_LWIP / CH_NAPT 在 PC 环境下不 panic
+-- (PC 上 LWIP_ETH 通常未配置 netif, send_raw 会返回 nil+err,
+--  但不能再因为 "not implemented" 抛 lua_error)
 function M.test_send_raw_future_targets()
     local z = zbuff.create(64)
     z:write(string.char(1,2,3,4))
-    local ok1 = pcall(netdrv.send_raw, socket.LWIP_ETH, netdrv.CH_LWIP, z)
-    local ok2 = pcall(netdrv.send_raw, socket.LWIP_ETH, netdrv.CH_NAPT, z)
-    -- PC 环境 adapter 不可用也可能先报错; 至少不能 panic
-    -- 期望 (但不强制) 两个都返回 false 表示 not implemented
+    -- CH_LWIP
+    local ok1, r1, r2 = pcall(netdrv.send_raw, socket.LWIP_ETH, netdrv.CH_LWIP, z)
+    assert(ok1, "CH_LWIP 不应抛 lua_error, err=" .. tostring(r1))
+    -- PC 上无 netif 时应该返回 nil + err 字符串, 而不是抛错
+    if r1 == nil then
+        assert(type(r2) == "string", "CH_LWIP 无 netif 应返 err string, 实际 " .. type(r2))
+    end
+    -- CH_NAPT
+    local ok2, r3, r4 = pcall(netdrv.send_raw, socket.LWIP_ETH, netdrv.CH_NAPT, z)
+    assert(ok2, "CH_NAPT 不应抛 lua_error, err=" .. tostring(r3))
+    if r3 == nil then
+        assert(type(r4) == "string", "CH_NAPT 无 netif 应返 err string, 实际 " .. type(r4))
+    end
 end
 
 -- T7: EVT_PKG 在无 netif 的 adapter 上注册应返回 false/nil

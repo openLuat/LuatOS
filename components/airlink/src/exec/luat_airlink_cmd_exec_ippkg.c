@@ -12,6 +12,7 @@
 #include "luat_fota.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_napt.h"
+#include "luat_netdrv_pkg.h"
 #include "luat_network_adapter.h"
 
 #define LUAT_LOG_TAG "airlink"
@@ -26,15 +27,17 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd
     // LLOGD("收到IP包 长度 %d 适配器 %d", cmd->len - 1, adapter_id);
     // luat_airlink_print_mac_pkg(cmd->data + 1, cmd->len - 1);
     // luat_airlink_hexdump("收到IP包", cmd->data + 1, cmd->len - 1);
-    // 首先, NAPT处理一下
+    // 集中入口: pkg_input 内含 EVT_PKG 截获检查, 再走 NAPT
+    // 返回值语义与 napt_pkg_input 兼容 (0=未消费需继续, 非0=已消费)
     int ret = 0;
     luat_netdrv_t* drv = NULL;
 
-    ret = luat_netdrv_napt_pkg_input(adapter_id, cmd->data + 1, cmd->len - 1);
+    ret = luat_netdrv_pkg_input(adapter_id, LUAT_NETDRV_CH_HW,
+                                cmd->data + 1, (uint16_t)(cmd->len - 1));
     if (ret != 0) {
         g_airlink_statistic.rx_napt_ip.total += 1;
         g_airlink_statistic.rx_napt_bytes.total += cmd->len - 1;
-        // LLOGD("NAPT说已经处理完成, 不需要转发给具体的netdrv了");
+        // LLOGD("NAPT/Lua 已处理, 不需要转发给具体的netdrv了");
         return 0;
     }
     drv = luat_netdrv_get(adapter_id);

@@ -587,15 +587,22 @@ static void do_send_raw_to_napt(void* args) {
 直接向 netdrv 链路投递原始数据包
 @api netdrv.send_raw(id, target, zbuff, len)
 @int 网络适配器编号
-@int 投递目标: netdrv.CH_HW / netdrv.CH_LWIP / netdrv.CH_NAPT
+@int 投递目标 (target/dst):
+  - netdrv.CH_HW   = 0x10: 走 dataout 发到物理硬件 (HW TX 出口)
+  - netdrv.CH_LWIP = 0x20: 跳过 NAPT, 直接注入 LWIP (相当于 RX 方向 post-NAPT 入口)
+  - netdrv.CH_NAPT = 0x30: 先过 NAPT, 未消费则注入 LWIP (相当于 RX 方向 pre-NAPT 入口)
 @zbuff 待发送的 zbuff, used 长度即默认发送长度
 @int 可选, 发送长度(<= zbuff.used), 默认 zbuff.used
 @return int 实际进入发送队列的字节数, 失败返回 nil+err
 @usage
--- 立即以默认长度发送
+-- 立即以默认长度发到硬件
 netdrv.send_raw(socket.LWIP_ETH, netdrv.CH_HW, zb)
 -- 只发前 64 字节
 netdrv.send_raw(socket.LWIP_ETH, netdrv.CH_HW, zb, 64)
+-- 注入 LWIP (作为入向包, 等同收到一个网络包)
+netdrv.send_raw(socket.LWIP_ETH, netdrv.CH_LWIP, fake_response_zb)
+-- 走 NAPT 路径 (走完 NAPT 后再注入 LWIP)
+netdrv.send_raw(socket.LWIP_GP, netdrv.CH_NAPT, app_zb)
 */
 static int l_netdrv_send_raw(lua_State *L) {
     int id     = luaL_checkinteger(L, 1);
@@ -607,129 +614,66 @@ static int l_netdrv_send_raw(lua_State *L) {
     if (len_in > 0xFFFF) len_in = 0xFFFF;
     uint16_t len = (uint16_t)len_in;
 
-    if (target == LUAT_NETDRV_CH_HW) {
-        luat_netdrv_t* drv = luat_netdrv_get(id);
-        if (!drv || !drv->dataout) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "netdrv not available");
-            return 2;
-        }
-        if (!buff || !buff->addr) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "zbuff invalid");
-            return 2;
-        }
-        if (len == 0) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "len is 0");
-            return 2;
-        }
-        if (len > buff->used) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "len out of range");
-            return 2;
-        }
-        netdrv_send_msg_t* m = (netdrv_send_msg_t*)luat_heap_malloc(sizeof(netdrv_send_msg_t) + len - 4);
-        if (!m) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "oom");
-            return 2;
-        }
-        m->drv = drv;
-        m->len = len;
-        memcpy(m->buff, buff->addr, len);
-        if (tcpip_callback_with_block(do_send_raw_to_hw, m, 0) != ERR_OK) {
-            luat_heap_free(m);
-            lua_pushnil(L);
-            lua_pushliteral(L, "tcpip queue full");
-            return 2;
-        }
-        lua_pushinteger(L, len);
-        return 1;
+    // target -> 队列提交函数 + 各自 netdrv 前置依赖 (dataout / netif)
+    // 注: helper/need_msg 必须在 switch 外声明 (MSVC C89 不允许 case 内任意位置定义变量)
+    void (*helper)(void*) = NULL;
+    const char* need_msg = NULL;
+    switch (target) {
+        case LUAT_NETDRV_CH_HW:
+            helper   = do_send_raw_to_hw;
+            need_msg = "netdrv has no dataout";
+            break;
+        case LUAT_NETDRV_CH_LWIP:
+            helper   = do_send_raw_to_lwip;
+            need_msg = "netdrv has no netif";
+            break;
+        case LUAT_NETDRV_CH_NAPT:
+            helper   = do_send_raw_to_napt;
+            need_msg = "netdrv has no netif";
+            break;
+        default:
+            return luaL_error(L, "unknown send_raw target %d", target);
     }
-    else if (target == LUAT_NETDRV_CH_LWIP) {
-        // CH_LWIP: 跳过 NAPT, 直接注入 LWIP
-        luat_netdrv_t* drv = luat_netdrv_get(id);
-        if (!drv || !drv->netif) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "netdrv not available");
-            return 2;
-        }
-        if (!buff || !buff->addr) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "zbuff invalid");
-            return 2;
-        }
-        if (len == 0) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "len is 0");
-            return 2;
-        }
-        if (len > buff->used) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "len out of range");
-            return 2;
-        }
-        netdrv_send_msg_t* m = (netdrv_send_msg_t*)luat_heap_malloc(sizeof(netdrv_send_msg_t) + len - 4);
-        if (!m) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "oom");
-            return 2;
-        }
-        m->drv = drv;
-        m->len = len;
-        memcpy(m->buff, buff->addr, len);
-        if (tcpip_callback_with_block(do_send_raw_to_lwip, m, 0) != ERR_OK) {
-            luat_heap_free(m);
-            lua_pushnil(L);
-            lua_pushliteral(L, "tcpip queue full");
-            return 2;
-        }
-        lua_pushinteger(L, len);
-        return 1;
+
+    // 共同前置: drv 存在 + target 特定依赖 (dataout / netif)
+    // 注: error 字符串用 lua_pushstring 而非 lua_pushliteral, 因后者是宏
+    // "" s 拼接, 要求 s 必须是字符串字面量, 不能传 const char* 变量.
+    luat_netdrv_t* drv = luat_netdrv_get(id);
+    if (drv == NULL) {
+        lua_pushnil(L); lua_pushliteral(L, "netdrv not available"); return 2;
     }
-    else if (target == LUAT_NETDRV_CH_NAPT) {
-        // CH_NAPT: 先过 NAPT, 未消费则注入 LWIP
-        luat_netdrv_t* drv = luat_netdrv_get(id);
-        if (!drv || !drv->netif) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "netdrv not available");
-            return 2;
-        }
-        if (!buff || !buff->addr) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "zbuff invalid");
-            return 2;
-        }
-        if (len == 0) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "len is 0");
-            return 2;
-        }
-        if (len > buff->used) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "len out of range");
-            return 2;
-        }
-        netdrv_send_msg_t* m = (netdrv_send_msg_t*)luat_heap_malloc(sizeof(netdrv_send_msg_t) + len - 4);
-        if (!m) {
-            lua_pushnil(L);
-            lua_pushliteral(L, "oom");
-            return 2;
-        }
-        m->drv = drv;
-        m->len = len;
-        memcpy(m->buff, buff->addr, len);
-        if (tcpip_callback_with_block(do_send_raw_to_napt, m, 0) != ERR_OK) {
-            luat_heap_free(m);
-            lua_pushnil(L);
-            lua_pushliteral(L, "tcpip queue full");
-            return 2;
-        }
-        lua_pushinteger(L, len);
-        return 1;
+    if (target == LUAT_NETDRV_CH_HW && drv->dataout == NULL) {
+        lua_pushnil(L); lua_pushstring(L, need_msg); return 2;
     }
-    return luaL_error(L, "unknown send_raw target %d", target);
+    if ((target == LUAT_NETDRV_CH_LWIP || target == LUAT_NETDRV_CH_NAPT)
+        && drv->netif == NULL) {
+        lua_pushnil(L); lua_pushstring(L, need_msg); return 2;
+    }
+    // 共同前置: zbuff 合法 + len 合法
+    if (buff == NULL || buff->addr == NULL) {
+        lua_pushnil(L); lua_pushliteral(L, "zbuff invalid"); return 2;
+    }
+    if (len == 0) {
+        lua_pushnil(L); lua_pushliteral(L, "len is 0"); return 2;
+    }
+    if (len > buff->used) {
+        lua_pushnil(L); lua_pushliteral(L, "len out of range"); return 2;
+    }
+
+    // 入队: 拷贝到 netdrv_send_msg_t, 由对应 helper 在 tcpip 线程处理
+    netdrv_send_msg_t* m = (netdrv_send_msg_t*)luat_heap_malloc(sizeof(netdrv_send_msg_t) + len - 4);
+    if (m == NULL) {
+        lua_pushnil(L); lua_pushliteral(L, "oom"); return 2;
+    }
+    m->drv = drv;
+    m->len = len;
+    memcpy(m->buff, buff->addr, len);
+    if (tcpip_callback_with_block(helper, m, 0) != ERR_OK) {
+        luat_heap_free(m);
+        lua_pushnil(L); lua_pushliteral(L, "tcpip queue full"); return 2;
+    }
+    lua_pushinteger(L, len);
+    return 1;
 }
 
 #include "rotable2.h"

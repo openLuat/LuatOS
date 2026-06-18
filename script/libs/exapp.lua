@@ -115,6 +115,9 @@
 
 local exapp = {}
 
+-- 加载 httpplus 用于断点续传（每次创建新连接，WiFi 断线恢复后不受内部状态影响）
+local httpplus = require("httpplus")
+
 -- 应用管理表：记录每个正在运行的应用
 -- key: app_path (如 "/app_store/app_hello/"), value: 应用信息
 local app_registry = {}
@@ -4060,96 +4063,139 @@ local function download_file(url, dest_path, aid, target_mount)
             "actual_bytes:", fsz,
             "actual_kb:", string.format("%.1f", fsz / 1024))
 
-        -- 校验1：zip_size_b 字节级对比（服务端字段，精度高但可能存在偏差）
-        if zip_size_b and zip_size_b > 0 and fsz > 0 then
-            local byte_diff = math.abs(fsz - zip_size_b)
-            -- 允许最大5%或5KB偏差（服务端zip_size_b可能不准）
-            local byte_tolerance = math.max(zip_size_b * 0.05, 5120)
-            if byte_diff > byte_tolerance then
-                log.warn("exapp", "zip_size_b mismatch for", aid, "actual:", fsz, "expected:", zip_size_b, "diff:", byte_diff)
-                -- zip_size_b 不通过时，再走 zip_size_kb 验证一次再决定是否失败
-                local kb_ok = false
-                if zip_size_kb and zip_size_kb > 0 then
-                    local actual_kb = math.floor(fsz / 1024)
-                    local kb_diff = math.abs(actual_kb - zip_size_kb)
-                    if kb_diff <= math.min(math.max(zip_size_kb * 0.05, 1), 20) then
-                        kb_ok = true
-                    end
-                end
-                if not kb_ok then
-                    if io.exists(dest_path) then os.remove(dest_path) end
-                    return false, "文件大小不匹配，服务器记录" .. zip_size_b .. "字节，实际" .. fsz .. "字节"
-                end
-                log.info("exapp", "zip_size_b mismatch but kb ok for", aid, fsz, zip_size_b, zip_size_kb)
-            elseif byte_diff > 0 then
-                log.info("exapp", "zip_size_b minor diff for", aid, fsz, zip_size_b, "diff:", byte_diff)
-            end
-        -- 校验2：zip_size_kb 兜底（服务器未返回 zip_size_b 时使用）
-        elseif zip_size_kb and zip_size_kb > 0 and fsz > 0 then
-            local actual_kb = math.floor(fsz / 1024)
-            local diff = math.abs(actual_kb - zip_size_kb)
-            local diff_percent = math.abs(actual_kb - zip_size_kb) / zip_size_kb * 100
-            -- 允许5%差异或最多20KB差异，取较小值（对小文件更严格）
-            if diff > math.min(math.max(zip_size_kb * 0.05, 1), 20) then
-                log.warn("exapp", "download size mismatch for", aid, actual_kb, zip_size_kb, "diff:", diff, "KB", string.format("%.1f", diff_percent), "%")
-                if io.exists(dest_path) then os.remove(dest_path) end
-                return false, "文件大小不匹配(" .. actual_kb .. " vs " .. zip_size_kb .. "KB)"
-            elseif diff > 0 then
-                log.info("exapp", "download size minor mismatch for", aid, actual_kb, zip_size_kb, "diff:", diff, "KB", string.format("%.1f", diff_percent), "%")
+        -- 判断是否是完整下载：有 Content-Length 且与文件大小一致
+        local is_complete = true
+        if content_len then
+            local cl = tonumber(content_len)
+            if cl and cl > 0 and fsz > 0 and math.abs(fsz - cl) > 512 then
+                is_complete = false
             end
         end
-        -- Content-MD5 完整性校验（阿里云OSS返回的MD5，base64编码）
-        local content_md5 = headers and headers["content-md5"]
-        if content_md5 and type(content_md5) == "string" and #content_md5 > 0 then
-            local ok_decode, md5_bin = pcall(crypto.base64_decode, content_md5)
-            if ok_decode and md5_bin and #md5_bin == 16 then
-                local expected_hex = md5_bin:toHex():lower()
-                local actual_hex = crypto.md_file("MD5", dest_path)
-                if actual_hex then
-                    if actual_hex:lower() ~= expected_hex then
-                        log.error("exapp", "MD5 mismatch for", aid,
-                            "expected:", expected_hex,
-                            "actual:", actual_hex)
-                        if io.exists(dest_path) then os.remove(dest_path) end
-                        return false, "文件损坏(MD5不匹配)"
+
+        local size_ok = false
+        if is_complete then
+            if zip_size_b and zip_size_b > 0 and fsz > 0 then
+                local byte_diff = math.abs(fsz - zip_size_b)
+                if byte_diff <= math.max(zip_size_b * 0.05, 5120) then
+                    size_ok = true
+                else
+                    -- zip_size_b 不通过时，再走 zip_size_kb 验证
+                    if zip_size_kb and zip_size_kb > 0 then
+                        local actual_kb = math.floor(fsz / 1024)
+                        local kb_diff = math.abs(actual_kb - zip_size_kb)
+                        if kb_diff <= math.min(math.max(zip_size_kb * 0.05, 1), 20) then
+                            size_ok = true
+                        end
                     end
-                    log.info("exapp", "MD5 verified for", aid, expected_hex)
                 end
+            elseif zip_size_kb and zip_size_kb > 0 and fsz > 0 then
+                local actual_kb = math.floor(fsz / 1024)
+                local diff = math.abs(actual_kb - zip_size_kb)
+                if diff <= math.min(math.max(zip_size_kb * 0.05, 1), 20) then
+                    size_ok = true
+                end
+            else
+                -- 没有任何服务端大小参考，信任 Content-Length
+                size_ok = is_complete
+            end
+
+            if size_ok then
+                -- Content-MD5 完整性校验
+                local content_md5 = headers and headers["content-md5"]
+                if content_md5 and type(content_md5) == "string" and #content_md5 > 0 then
+                    local ok_decode, md5_bin = pcall(crypto.base64_decode, content_md5)
+                    if ok_decode and md5_bin and #md5_bin == 16 then
+                        local expected_hex = md5_bin:toHex():lower()
+                        local actual_hex = crypto.md_file("MD5", dest_path)
+                        if actual_hex then
+                            if actual_hex:lower() ~= expected_hex then
+                                log.error("exapp", "MD5 mismatch for", aid,
+                                    "expected:", expected_hex,
+                                    "actual:", actual_hex)
+                                if io.exists(dest_path) then os.remove(dest_path) end
+                                return false, "文件损坏(MD5不匹配)"
+                            end
+                            log.info("exapp", "MD5 verified for", aid, expected_hex)
+                        end
+                    end
+                end
+                return true
             end
         end
-        return true
+
+        -- 文件大小不匹配，但已下载了部分数据 → 不走 return false，继续走 resume 续传
+        log.warn("exapp", "partial download detected for", aid,
+            "actual:", fsz, "content_len:", content_len or "nil",
+            "zip_size_b:", zip_size_b or "nil",
+            "falling through to resume")
     end
 
     -- ============================================================
     -- 一次性下载失败 → 内部循环自动续传，直到完成
+    -- 使用 httpplus（每次新建连接，WiFi 断开重连后不会因为内部状态损坏而失败）
     -- 每块用 dst 流式写入到临时块文件再逐段追加（无 RAM 积压）
     -- ============================================================
     log.info("exapp", "initial download failed for", aid, "code:", code, "try resume...")
-
-    local total_size = nil
-    local head_code, head_headers = http.request("HEAD", url, nil, nil, { timeout = 10000 }).wait()
-    if head_code == 200 then
-        total_size = tonumber(head_headers and head_headers["content-length"])
-    end
-    if not (total_size and total_size > 0) then
-        log.error("exapp", "cannot get total size for resume", aid)
-        if io.exists(dest_path) then os.remove(dest_path) end
-        return false, http_error_msg(code)
-    end
 
     local partial_size = (io.exists(dest_path) and io.fileSize(dest_path)) or 0
     local stalled_count = 0
     local MAX_STALLED = 10  -- 连续 10 次无进度则判定失败
 
+    -- 先把 total_size 查出来，查不到就等重试
+    -- 注意：http 核心层不支持 HEAD 方法，用 httpplus 的 GET + Range: bytes=0-0 替代
+    local total_size = nil
+    while not (total_size and total_size > 0) do
+        local probe_code, probe_resp = httpplus.request({
+            url = url,
+            method = "GET",
+            headers = {["Range"] = "bytes=0-0"},
+            timeout = 15,
+            no_cache_body = true,
+        })
+        if probe_code == 206 and probe_resp and probe_resp.headers then
+            -- httpplus 保留 header 原大小写，两种写法都试一下
+            local content_range = probe_resp.headers["Content-Range"]
+                or probe_resp.headers["content-range"]
+            if content_range then
+                total_size = tonumber(content_range:match("/(%d+)"))
+            end
+        end
+        if not (total_size and total_size > 0) then
+            stalled_count = stalled_count + 1
+            if stalled_count >= MAX_STALLED then
+                log.error("exapp", "resume probe stalled for", aid)
+                if io.exists(dest_path) then os.remove(dest_path) end
+                return false, "网络异常，下载中断"
+            end
+            log.warn("exapp", "resume probe failed, retry", stalled_count, aid)
+            sys.waitUntil("IP_READY", 5000)
+        end
+    end
+
+    stalled_count = 0  -- 重置计数器，进入数据下载阶段
+
     while partial_size < total_size do
         local range_str = string.format("bytes=%d-", partial_size)
-        -- 块文件路径（与目标文件同目录，避免跨存储问题）
         local chunk_path = dest_path .. ".chunk"
 
-        -- dst 流式写入块文件，不经过 RAM
-        local resume_code = http.request("GET", url,
-            {["Range"] = range_str}, nil,
-            { dst = chunk_path, timeout = 30000 }).wait()
+        -- httpplus 使用 dst 流式写入块文件，不经过 RAM
+        -- 每次请求创建新连接，断线恢复后不会因内部状态损坏而失败
+        -- 用 callback 累加推送下载进度（recv_len 是本次回调片段大小，需累加）
+        local chunk_received = 0
+        local resume_code = httpplus.request({
+            url = url,
+            method = "GET",
+            headers = {["Range"] = range_str},
+            dst = chunk_path,
+            timeout = 30,
+            callback = function(total_len, recv_len, recv_data, userdata)
+                chunk_received = chunk_received + (recv_len or 0)
+                local cur = partial_size + chunk_received
+                local percent = math.floor(cur * 100 / total_size)
+                sys.publish("APP_STORE_PROGRESS", aid, math.min(percent, 99),
+                    string.format("下载中 %d%%", math.min(percent, 99)))
+            end,
+        })
 
         if (resume_code == 206 or resume_code == 200) and io.exists(chunk_path) then
             -- 以 4KB 缓冲区从块文件逐段追加到目标文件
@@ -4189,6 +4235,10 @@ local function download_file(url, dest_path, aid, target_mount)
             if io.exists(chunk_path) then os.remove(chunk_path) end
             log.warn("exapp", "resume chunk failed for", aid, "code:", resume_code,
                 "partial:", partial_size, "/", total_size, "stalled:", stalled_count)
+            -- 网络暂不可用，等 IP_READY 事件（WiFi 重连或 4G 切换完成会触发）
+            if type(resume_code) == "number" and resume_code < 0 then
+                sys.waitUntil("IP_READY", 5000)
+            end
         end
 
         if stalled_count >= MAX_STALLED then

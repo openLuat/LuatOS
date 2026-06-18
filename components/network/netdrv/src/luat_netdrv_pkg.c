@@ -54,12 +54,45 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_input(uint8_t id, uint8_t event, uint
     switch (event) {
         case LUAT_NETDRV_CH_HW:
             return pkg_input_from_hw(id, buff, len);
-        // case LUAT_NETDRV_CH_LWIP:   // 未来: LWIP TX 拦截
-        //     return pkg_input_from_lwip(...);
+        case LUAT_NETDRV_CH_LWIP: {
+            // LWIP 出口: 用户已声明拦截即不再走原 dataout 流程.
+            //   - 没有 pkg_cb 注册: 返回 0, 调用方继续原 linkoutput (HW 出口)
+            //   - 有 pkg_cb 注册:   fire 后返回 1 (consumed), 调用方跳过 dataout
+            // Lua 侧可继续用 netdrv.send_raw(CH_HW/CH_LWIP) 注入应答或转发到其它网卡.
+            if (luat_netdrv_has_pkg_cb(id)) {
+                luat_netdrv_fire_pkg_event(id, LUAT_NETDRV_CH_LWIP, buff, len);
+                return 1;
+            }
+            return 0;
+        }
         // case LUAT_NETDRV_CH_NAPT:   // 未来: NAPT 拦截
         //     return pkg_input_from_napt(...);
         default:
             LLOGW("netdrv_pkg_input: 未知 channel 0x%X adapter %d", event, id);
+            return -1;
+    }
+}
+
+// 硬件 TX 出口的薄包装, 与 pkg_input 对称. 集中所有 drv->dataout 调用点,
+// 后续要加 TX 通道拦截 / 统计 / 模拟器注入只需改这一处.
+// 本轮不做 fire_pkg_event 拦截, 仅做 null 检查 + 转发 (行为完全等价于原直接调用).
+__NETDRV_CODE_IN_RAM__ int luat_netdrv_pkg_output(uint8_t id, uint8_t event, uint8_t* buff, uint16_t len) {
+    if (buff == NULL || len == 0) {
+        return -1;
+    }
+    luat_netdrv_t* drv = luat_netdrv_get(id);
+    if (drv == NULL || drv->dataout == NULL) {
+        LLOGW("netdrv_pkg_output: adapter %d 不可用或无 dataout", id);
+        return -1;
+    }
+    switch (event) {
+        case LUAT_NETDRV_CH_HW:
+            drv->dataout(drv, drv->userdata, buff, len);
+            return 0;
+        // case LUAT_NETDRV_CH_LWIP:   // 未来: LWIP TX 拦截
+        // case LUAT_NETDRV_CH_NAPT:   // 未来: NAPT TX 拦截
+        default:
+            LLOGW("netdrv_pkg_output: 未知 channel 0x%X adapter %d", event, id);
             return -1;
     }
 }

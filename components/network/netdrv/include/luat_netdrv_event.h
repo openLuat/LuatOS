@@ -55,6 +55,7 @@ typedef struct netdrv_tcpevt_reg {
     void* socket_userdata; // socket 事件的用户数据 (与 pkg_userdata 分开, 避免互相覆盖)
     luat_netdrv_pkg_evt_cb pkg_cb; // 数据包事件回调函数
     void* pkg_userdata; // 数据包事件的用户数据
+    uint8_t pkg_layers; // 数据包事件订阅的 layer bitmask (LUAT_NETDRV_CH_HW/LWIP/NAPT)
 }netdrv_tcpevt_reg_t;
 
 void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t flags, luat_netdrv_tcp_evt_cb cb, void* userdata);
@@ -69,5 +70,9 @@ void luat_netdrv_set_link_updown(luat_netdrv_t* drv, uint8_t updown);
 void luat_netdrv_register_pkg_event_cb(uint8_t id, luat_netdrv_pkg_evt_cb cb, void* userdata);
 int  luat_netdrv_has_pkg_cb(uint8_t id);
 void luat_netdrv_fire_pkg_event(uint8_t id, uint8_t event, uint8_t* buff, uint16_t len);
+
+// 设置数据包事件订阅的 layer bitmask
+// (与 register_pkg_event_cb 配对使用, register 时默认 layer=LUAT_NETDRV_CH_HW)
+void luat_netdrv_set_pkg_layer(uint8_t id, uint8_t layer_mask);
 
 #endif

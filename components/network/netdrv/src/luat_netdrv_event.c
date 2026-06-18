@@ -231,10 +231,24 @@ void luat_netdrv_register_pkg_event_cb(uint8_t id, luat_netdrv_pkg_evt_cb cb, vo
         // 注销回调: 同时清掉 pkg_userdata, 与 socket 注销路径对称
         s_tcpevt_regs[id].pkg_cb = NULL;
         s_tcpevt_regs[id].pkg_userdata = NULL;
+        s_tcpevt_regs[id].pkg_layers = 0;
         return;
     }
     s_tcpevt_regs[id].pkg_cb = cb;
     s_tcpevt_regs[id].pkg_userdata = userdata;
+    // 默认订阅 HW 通道, 保持旧 API 行为兼容; 调用方可通过
+    // luat_netdrv_set_pkg_layer 改成 LWIP/NAPT 等其它通道.
+    if (s_tcpevt_regs[id].pkg_layers == 0) {
+        s_tcpevt_regs[id].pkg_layers = LUAT_NETDRV_CH_HW;
+    }
+}
+
+void luat_netdrv_set_pkg_layer(uint8_t id, uint8_t layer_mask) {
+    if (id >= NW_ADAPTER_QTY) {
+        LLOGE("无效的PKG layer设置ID %d", id);
+        return;
+    }
+    s_tcpevt_regs[id].pkg_layers = layer_mask;
 }
 
 int luat_netdrv_has_pkg_cb(uint8_t id) {
@@ -245,8 +259,11 @@ int luat_netdrv_has_pkg_cb(uint8_t id) {
 __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_pkg_event(uint8_t id, uint8_t event,
                                                        uint8_t* buff, uint16_t len) {
     if (id >= NW_ADAPTER_QTY) return;
-    luat_netdrv_pkg_evt_cb cb = s_tcpevt_regs[id].pkg_cb;
-    if (cb == NULL) return;
+    netdrv_tcpevt_reg_t* reg = &s_tcpevt_regs[id];
+    if (reg->pkg_cb == NULL) return;
+    // layer 过滤: 只 fire 该 id 订阅的 layer. 旧 API 默认订阅 HW,
+    // 新 API 通过 set_pkg_layer 选择其它 layer.
+    if (!(reg->pkg_layers & event)) return;
     luat_netdrv_pkg_evt_t evt = { .id = id, .event = event, .buff = buff, .len = len };
-    cb(&evt, s_tcpevt_regs[id].pkg_userdata);
+    reg->pkg_cb(&evt, reg->pkg_userdata);
 }

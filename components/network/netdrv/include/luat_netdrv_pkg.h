@@ -17,7 +17,8 @@
  *
  * 参数 event 区分包来源 (来自哪个链路阶段):
  *   - LUAT_NETDRV_CH_HW (0x10): 硬件通道, 流程是 截获检查 -> napt_pkg_input
- *   - (future) FROM_LWIP         : LWIP TX linkoutput, 流程是 截获检查 -> drv->dataout
+ *   - LUAT_NETDRV_CH_LWIP (0x20): LWIP 出口, 流程是 截获检查 -> (return 0 走原 linkoutput)
+ *   - (future) LUAT_NETDRV_CH_NAPT (0x30): NAPT 输入, 暂未启用
  *
  * 返回值 (与原 napt_pkg_input 兼容):
  *   0  = NAPT 未消费, 调用方应继续注入 LWIP (或对应 event 的下游链路)
@@ -25,5 +26,17 @@
  *  -1   = 错误 (adapter 异常 / buff 空 / 未知 event)
  */
 int luat_netdrv_pkg_input(uint8_t id, uint8_t event, uint8_t* buff, uint16_t len);
+
+/**
+ * 硬件驱动层统一的包出口 (TX)
+ * 与 pkg_input 对称,集中所有 netdrv->dataout 调用入口.
+ *   - LUAT_NETDRV_CH_HW (0x10): 硬件通道,流程是 调 drv->dataout
+ *   - (future) LUAT_NETDRV_CH_LWIP/CH_NAPT: 未来按需扩展
+ *
+ * 返回值:
+ *   0  = 已发出
+ *  -1  = 失败 (adapter 缺失 / dataout 为空 / buff 为空 / 未知 event)
+ */
+int luat_netdrv_pkg_output(uint8_t id, uint8_t event, uint8_t* buff, uint16_t len);
 
 #endif

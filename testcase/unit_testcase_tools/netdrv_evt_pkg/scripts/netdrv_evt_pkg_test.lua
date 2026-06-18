@@ -106,4 +106,46 @@ function M.test_socket_deregister_invalid_adapter()
     assert(ret == nil, "越界 id 应被拒绝, 实际 " .. tostring(ret))
 end
 
+-- T13: opts.layer="hw" 注册应不报错 (向后兼容)
+function M.test_evt_pkg_opts_layer_hw()
+    local ok = netdrv.on(socket.LWIP_ETH, netdrv.EVT_PKG, nil, {layer="hw"})
+    assert(ok == true, "opts.layer='hw' 应被接受, 实际 " .. tostring(ok))
+end
+
+-- T14: opts.layer="lwip" 注册应不报错 (新功能)
+function M.test_evt_pkg_opts_layer_lwip()
+    local ok = netdrv.on(socket.LWIP_ETH, netdrv.EVT_PKG, nil, {layer="lwip"})
+    assert(ok == true, "opts.layer='lwip' 应被接受, 实际 " .. tostring(ok))
+end
+
+-- T15: opts.layer="napt" 注册应不报错
+function M.test_evt_pkg_opts_layer_napt()
+    local ok = netdrv.on(socket.LWIP_ETH, netdrv.EVT_PKG, nil, {layer="napt"})
+    assert(ok == true, "opts.layer='napt' 应被接受, 实际 " .. tostring(ok))
+end
+
+-- T16: opts.layer=netdrv.CH_LWIP (整数形式) 应被接受
+function M.test_evt_pkg_opts_layer_int()
+    local ok = netdrv.on(socket.LWIP_ETH, netdrv.EVT_PKG, nil, {layer=netdrv.CH_LWIP})
+    assert(ok == true, "opts.layer=CH_LWIP 应被接受, 实际 " .. tostring(ok))
+end
+
+-- T17: opts.layer 非法字符串应被忽略 (不报错, 用默认 HW)
+function M.test_evt_pkg_opts_layer_invalid_string()
+    local ok = netdrv.on(socket.LWIP_ETH, netdrv.EVT_PKG, nil, {layer="bogus"})
+    assert(ok == true, "opts.layer 非法字符串应静默忽略, 实际 " .. tostring(ok))
+end
+
+-- T18: opts.layer 非法数值应被忽略
+function M.test_evt_pkg_opts_layer_invalid_int()
+    local ok = netdrv.on(socket.LWIP_ETH, netdrv.EVT_PKG, nil, {layer=0x99})
+    assert(ok == true, "opts.layer 非法数值应静默忽略, 实际 " .. tostring(ok))
+end
+
+-- T19: 不传 opts 应向后兼容 (默认 HW)
+function M.test_evt_pkg_no_opts_backward_compat()
+    local ok = netdrv.on(socket.LWIP_ETH, netdrv.EVT_PKG, nil)
+    assert(ok == true, "不传 opts 应向后兼容, 实际 " .. tostring(ok))
+end
+
 return M

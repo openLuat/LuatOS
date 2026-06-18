@@ -204,6 +204,17 @@ err_t ch390_netif_output(struct netif *netif, struct pbuf *p) {
         if (ch->status == CH390H_STATUS_STOPPED) {
             return ERR_IF;
         }
+        // LWIP 层拦截: 用户已声明拦截 (layer="lwip") 则原 dataout 流程被吞掉.
+        // 注意: pbuf 可能是多片链表, 仅当单片 (p->next == NULL) 且
+        // 首片 payload 长度 >= tot_len 时才能直接传 payload 指针.
+        // 返回 0 = 未拦截, 1 = 已拦截 (跳过 ch390h_dataout_pbuf).
+        if (p != NULL && p->tot_len > 0 && p->next == NULL && p->len >= p->tot_len) {
+            int intercepted = luat_netdrv_pkg_input(ch->netdrv->id, LUAT_NETDRV_CH_LWIP, p->payload, p->tot_len);
+            if (intercepted != 0) {
+                // Lua 已拿走控制权, 原 TX 包不入 spi 队列 (Lua 自己 send_raw)
+                break;
+            }
+        }
         ch390h_dataout_pbuf(ch, p);
         break;
     }

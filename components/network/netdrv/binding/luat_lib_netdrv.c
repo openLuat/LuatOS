@@ -776,16 +776,16 @@ static const rotable_Reg_t reg_netdrv[] =
     { "RESET_SOFT",     ROREG_INT(0x102)},
 
     //@const EVT_SOCKET number 事件类型-socket事件
-    { "EVT_SOCKET",     ROREG_INT(1)}, // socket事件
+    { "EVT_SOCKET",     ROREG_INT(LUAT_NETDRV_EVT_SOCKET)},
 
     //@const CH_HW number 数据包通道-物理硬件 (HW RX = FROM_HW, send_raw target TO_HW)
-    { "CH_HW",          ROREG_INT(0x10)},
+    { "CH_HW",          ROREG_INT(LUAT_NETDRV_CH_HW)},
     //@const CH_LWIP number 数据包通道-LWIP协议栈 (send_raw target TO_LWIP, 未来 FROM_LWIP)
-    { "CH_LWIP",        ROREG_INT(0x20)},
+    { "CH_LWIP",        ROREG_INT(LUAT_NETDRV_CH_LWIP)},
     //@const CH_NAPT number 数据包通道-NAPT层 (send_raw target TO_NAPT, 未来 FROM_NAPT)
-    { "CH_NAPT",        ROREG_INT(0x30)},
+    { "CH_NAPT",        ROREG_INT(LUAT_NETDRV_CH_NAPT)},
     //@const EVT_PKG number 事件类型-数据包事件
-    { "EVT_PKG",        ROREG_INT(2)},
+    { "EVT_PKG",        ROREG_INT(LUAT_NETDRV_EVT_PKG)},
 
 	{ NULL,             ROREG_INT(0) }
 };

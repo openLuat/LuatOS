@@ -280,8 +280,8 @@ int l_netdrv_on(lua_State *L) {
         return 0;
     }
     int event_id = luaL_checkinteger(L, 2);
-    // EVT_PKG (event_id == 2) 走专属分支, 即便 netdrv/netif 不可用也允许幂等关闭
-    if (event_id == 2) {
+    // EVT_PKG 走专属分支, 即便 netdrv/netif 不可用也允许幂等关闭
+    if (event_id == LUAT_NETDRV_EVT_PKG) {
         // nil 关闭 -> 幂等 true
         if (lua_isnil(L, 3)) {
             if (s_pkg_evt_ref[id]) {
@@ -343,7 +343,7 @@ int l_netdrv_on(lua_State *L) {
     if (netdrv == NULL || netdrv->netif == NULL) {
         return 0;
     }
-    if (event_id == 0) {
+    if (event_id == LUAT_NETDRV_EVT_OFF) {
         if (s_socket_evt_ref[id]) {
             luaL_unref(L, LUA_REGISTRYINDEX, s_socket_evt_ref[id]);
             s_socket_evt_ref[id] = 0;
@@ -352,7 +352,7 @@ int l_netdrv_on(lua_State *L) {
         lua_pushboolean(L, 1);
         return 1;
     }
-    else if (event_id == 1) {
+    else if (event_id == LUAT_NETDRV_EVT_SOCKET) {
         if (!lua_isfunction(L, 3)) {
             return 0;
         }

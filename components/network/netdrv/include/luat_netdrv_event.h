@@ -32,10 +32,17 @@ typedef void (*luat_netdrv_tcp_evt_cb)(netdrv_tcp_evt_t* evt, void* userdata);
 
 
 // 通道宏 (ch = channel, 统一表示包在协议栈中的环节)
-// 同一通道既可作 send_raw 的 target, 也可作 pkg_input 的 event / fire_pkg_event 的 event 参数
+// 同一通道既可作 send_raw 的 target, 也可作 pkg_input 的 src / pkg_output 的 dst / fire_pkg_event 的 layer
 #define LUAT_NETDRV_CH_HW       0x10  // 物理硬件 (RX 自 HW = FROM_HW; TX 至 HW = TO_HW)
 #define LUAT_NETDRV_CH_LWIP     0x20  // LWIP 协议栈 (TX 至 LWIP = TO_LWIP; 未来 FROM_LWIP)
 #define LUAT_NETDRV_CH_NAPT     0x30  // NAPT 层 (TX 至 NAPT = TO_NAPT; 未来 FROM_NAPT)
+
+// 用户层 API 用的 event 类型常量 (netdrv.on 第二参数 / reg_netdrv[] 的 EVT_* 常量值)
+// 与上面的 enum { TCP/UDP/DNS/LINK } 是不同的概念: 这里指"用户订阅哪种事件类型",
+// enum 指"具体哪一种 socket 状态" (内部事件细分), 不混用.
+#define LUAT_NETDRV_EVT_OFF      0     // 关闭 socket 事件 (deregister, 仅 EVT_SOCKET 路径使用)
+#define LUAT_NETDRV_EVT_SOCKET   1     // 旧 socket 连接状态事件 (已细分到 TCP/UDP/DNS/LINK)
+#define LUAT_NETDRV_EVT_PKG      2     // 数据包事件 (HW/LWIP/NAPT 各通道通用, 通过 opts.layer 选通道)
 
 // 数据包事件结构 + 回调类型
 typedef struct luat_netdrv_pkg_evt {

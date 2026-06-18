@@ -4375,14 +4375,22 @@ end
 
 
 -- 解压ZIP
-local function unzip_file(zip_path, dest_dir)
-    log.info("exapp", "extracting", zip_path, "->", dest_dir)
+-- zip_path: ZIP文件路径
+-- dest_dir: 目标目录
+-- timeout: 超时时间(毫秒)，nil表示使用默认值(30秒)
+local function unzip_file(zip_path, dest_dir, timeout)
+    log.info("exapp", "extracting", zip_path, "->", dest_dir, timeout and ("timeout:"..timeout.."ms") or "")
     -- 先做轻量级完整性校验
     if not check_zip_eocd(zip_path) then
         log.error("exapp", "zip integrity check failed, skipping extraction:", zip_path)
         return false
     end
-    local success = miniz.unzip(zip_path, dest_dir)
+    local success
+    if timeout then
+        success = miniz.unzip(zip_path, dest_dir, true, timeout)
+    else
+        success = miniz.unzip(zip_path, dest_dir)
+    end
     return success
 end
 
@@ -4494,6 +4502,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
         -- 临时文件：优先/ram/（内存盘速度快），空间不足时回退到目标文件系统
         -- PSRAM需满足 zip_size×1.3（含缓冲），否则下载到目标文件系统
         local zip_need_kb = 300  -- 默认兜底值
+        local origin_size_kb = nil  -- 从 remote_app_list 获取
         if remote_app_list and remote_app_list.apps then
             for _, it in ipairs(remote_app_list.apps) do
                 if tostring(it.aid) == tostring(aid) then
@@ -4503,6 +4512,8 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
                     elseif estimated_size_kb then
                         zip_need_kb = math.ceil(estimated_size_kb * 0.3)
                     end
+                    -- 保存解压后大小用于解压超时估算
+                    origin_size_kb = tonumber(it.origin_size_kb) or z or nil
                     break
                 end
             end
@@ -4548,7 +4559,9 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
         end
 
         sys.publish("APP_STORE_PROGRESS", aid, 0, "解压中")
-        if not unzip_file(temp_path, root_path .. "/") then
+        -- 服务器返回 origin_size_kb 是解压后大小，按 100KB/s 估算超时，最少 30 秒
+        local unzip_timeout = math.max(30000, math.ceil((origin_size_kb or 0) / 100) * 1000)
+        if not unzip_file(temp_path, root_path .. "/", unzip_timeout) then
             -- 解压失败，清理下载的压缩包和目标目录
             os.remove(temp_path)
             -- 如果已经解压出目录，尝试清理部分数据

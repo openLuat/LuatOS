@@ -8,7 +8,7 @@
 通过 SPI 外挂 CH390H 芯片的以太网卡驱动，从 project_config 读取参数。
 require 即自动运行，内部按 features.ethernet 自检。
 
-配置示例（evb_8101_7i_v0.lua）：
+配置示例（evb_8101_10i_v0.lua）：
   features = { ethernet = true, ... }
   ethernet = {
       spi_id = 0,          -- SPI 接口 ID

@@ -41,8 +41,8 @@ require ("eng_1602_7i_v0")    -- Air1602 7寸
 require ("eng_1602_7i_v4")    -- Air1602 7寸 V004 (NAND)
 require ("eng_1602_10i_v0")   -- Air1602 10.1寸
 require ("evb_8101b_5i_v1")    -- Air8101 EVB 5寸 (800x480)
-require ("evb_8101_7i_v0")     -- Air8101 EVB 7寸 (AirLCD_1090)
-require ("evb_8101_10i_v0")    -- Air8101 EVB 7寸 (AirLCD_1100)
+require ("evb_8101_9i_v0")     -- Air8101 EVB 9寸 (AirLCD_1090)
+require ("evb_8101_10i_v0")    -- Air8101 EVB 10.1寸 (AirLCD_1100)
 require ("evb_8000a_3i5_v0")  -- Air8000A trunkey 3.5寸
 require ("evb_1601_10i_v11")  -- Air1601 EVB 10.1寸
 require ("evb_1601_7i_v11")   -- Air1601 EVB 7寸

@@ -2698,6 +2698,88 @@ local function app_task(app_path)
     my_env.nes.init = wrap_path(_G.nes and _G.nes.init, 1, false, false)
 
     -- ==============================================
+    -- httpsrv 库（HTTP 服务器）
+    -- 功能：包装 httpsrv.start，拦截静态文件请求，通过沙箱路径解析服务应用资源
+    --
+    -- 背景：C 层 httpsrv 的静态文件服务固化为只查 /luadb/ 目录，
+    -- 但后装 APP 的文件位于 /app_store/<app_name>/ 下，导致静态文件全部 404。
+    --
+    -- 解决方案：包装 httpsrv.start，将回调包装一层沙箱回调。
+    -- 沙箱回调拦截 GET/HEAD 请求，通过 resolve_file 将 /luadb/xxx
+    -- 解析为应用实际路径（经沙箱 io 读取），实现静态文件服务。
+    -- 非静态文件请求或文件不存在时，回退到用户原始回调。
+    --
+    -- 注意：httpsrv 是 C 核心库，始终存在于 _G，无需加 EXT_LIBS。
+    -- ==============================================
+    local glob_httpsrv = _G.httpsrv
+    my_env.httpsrv = setmetatable({}, { __index = glob_httpsrv })
+
+    if glob_httpsrv then
+        -- MIME 类型映射表（静态文件服务用）
+        local MIME_TYPES = {
+            html = "text/html; charset=utf-8",
+            htm  = "text/html; charset=utf-8",
+            css  = "text/css",
+            js   = "application/javascript",
+            json = "application/json",
+            png  = "image/png",
+            jpg  = "image/jpeg",
+            jpeg = "image/jpeg",
+            gif  = "image/gif",
+            svg  = "image/svg+xml",
+            ico  = "image/x-icon",
+            txt  = "text/plain; charset=utf-8",
+            xml  = "application/xml",
+            woff2 = "font/woff2",
+            woff  = "font/woff",
+            ttf   = "font/ttf",
+            eot   = "application/vnd.ms-fontobject",
+            pdf   = "application/pdf",
+            zip   = "application/zip",
+            gz    = "application/gzip",
+            map   = "application/json",
+        }
+
+        my_env.httpsrv.start = function(port, user_callback, adapter)
+            if not user_callback then
+                return glob_httpsrv.start(port, nil, adapter)
+            end
+
+            local function sandbox_callback(fd, method, uri, headers, body)
+                -- 对 GET/HEAD 请求尝试静态文件服务（通过沙箱路径解析）
+                if uri and (method == "GET" or method == "HEAD") then
+                    local file_path
+                    if uri == "/" or uri == "" then
+                        file_path = "/luadb/index.html"
+                    else
+                        local relative = uri:match("^/(.+)$")
+                        if relative and #relative > 0 then
+                            file_path = "/luadb/" .. relative
+                        end
+                    end
+
+                    if file_path then
+                        local resolved = resolve_file(file_path)
+                        if resolved and io.exists(resolved) then
+                            local data = io.readFile(resolved)
+                            if data then
+                                local ext = resolved:lower():match("%.([^%.]+)$")
+                                local ct = MIME_TYPES[ext] or "application/octet-stream"
+                                return 200, { ["Content-Type"] = ct }, data
+                            end
+                        end
+                    end
+                end
+
+                -- 非 GET/HEAD 或文件不存在，交给用户回调
+                return user_callback(fd, method, uri, headers, body)
+            end
+
+            return glob_httpsrv.start(port, sandbox_callback, adapter)
+        end
+    end
+
+    -- ==============================================
     -- exwin 库（窗口管理）
     -- 功能：跟踪应用打开的窗口，窗口全部关闭时自动退出应用
     -- ==============================================

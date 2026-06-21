@@ -208,6 +208,7 @@
 #define GBC_COLOR_DEPTH     16
 #define GBC_COLOR_SWAP      0
 #define GBC_ROM_STREAM      1
+#define GBC_ENABLE_SRAM_SAVE 0
 
 //--------------------------------------------------
 // mGBA GBA模拟器

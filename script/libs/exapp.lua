@@ -2126,6 +2126,11 @@ local function app_task(app_path)
                 new_config.rom = resolve_file(new_config.rom)
                 if not new_config.rom then return nil end
             end
+        elseif component_name == "gbc" then
+            if type(new_config.rom) == "string" then
+                new_config.rom = resolve_file(new_config.rom)
+                if not new_config.rom then return nil end
+            end
         end
         return new_config
     end
@@ -2429,7 +2434,7 @@ local function app_task(app_path)
     for _, component_name in ipairs({
         "label", "image", "animimg", "button", "container", "bar", "dropdown",
         "switch", "table", "keyboard", "textarea", "tabview", "chart",
-        "qrcode", "win", "msgbox", "shape", "spinner", "video", "lottie", "nes", "slider"
+        "qrcode", "win", "msgbox", "shape", "spinner", "video", "lottie", "nes", "gbc","slider"
     }) do
         install_component(component_name)
     end
@@ -2696,6 +2701,11 @@ local function app_task(app_path)
     -- 功能：包装 nes.init，将第一个参数（ROM 文件路径）经沙箱路径解析后传给原始函数
     my_env.nes = setmetatable({}, { __index = _G.nes })
     my_env.nes.init = wrap_path(_G.nes and _G.nes.init, 1, false, false)
+    
+    -- gbc 库
+    -- 功能：包装 gbc.init，将第一个参数（ROM 文件路径）经沙箱路径解析后传给原始函数
+    my_env.gbc = setmetatable({}, { __index = _G.gbc })
+    my_env.gbc.init = wrap_path(_G.gbc and _G.gbc.init, 1, false, false)
 
     -- ==============================================
     -- httpsrv 库（HTTP 服务器）

@@ -204,6 +204,10 @@
 #define NES_COLOR_SWAP      0
 
 #define LUAT_USE_GBC        1
+#define GBC_FRAME_SKIP      0
+#define GBC_COLOR_DEPTH     16
+#define GBC_COLOR_SWAP      0
+#define GBC_ROM_STREAM      1
 
 //--------------------------------------------------
 // mGBA GBA模拟器

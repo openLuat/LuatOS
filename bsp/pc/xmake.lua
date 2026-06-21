@@ -538,6 +538,7 @@ target("luatos-lua")
     add_includedirs(luatos.."components/gbc/port")
     add_files(luatos.."components/gbc/src/**.c")
     add_files(luatos.."components/gbc/port/gbc_luatos_port.c")
+    add_files(luatos.."components/gbc/port/gbc_airui_video.c")
     add_files(luatos.."components/gbc/luat_lib_gbc.c")
 
     if use_gui then

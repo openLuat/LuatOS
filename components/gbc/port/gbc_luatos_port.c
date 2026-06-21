@@ -14,7 +14,35 @@
 #endif
 
 #include "gbc.h"
+#include "gbc_port.h"
 #include <stdarg.h>
+
+#ifdef LUAT_USE_AIRUI
+#include "gbc_airui_video.h"
+static int g_gbc_airui_mode = 0;
+
+void gbc_set_airui_mode(int enabled) {
+    g_gbc_airui_mode = enabled;
+}
+#endif
+
+static gbc_port_render_cb_t g_render_cb = { NULL, NULL, NULL };
+
+void gbc_port_set_render_cb(gbc_port_render_cb_t *cb) {
+    if (cb) {
+        g_render_cb = *cb;
+    } else {
+        g_render_cb.draw  = NULL;
+        g_render_cb.frame = NULL;
+        g_render_cb.ctx   = NULL;
+    }
+}
+
+void gbc_port_clear_render_cb(void) {
+    g_render_cb.draw  = NULL;
+    g_render_cb.frame = NULL;
+    g_render_cb.ctx   = NULL;
+}
 
 /* --- memory ---------------------------------------------------------------- */
 
@@ -133,6 +161,15 @@ int gbc_deinitex(gbc_t *gbc)
 
 int gbc_draw(int x1, int y1, int x2, int y2, gbc_color_t *color_data)
 {
+    if (g_render_cb.draw) {
+        return g_render_cb.draw(g_render_cb.ctx, x1, y1, x2, y2, color_data);
+    }
+#ifdef LUAT_USE_AIRUI
+    if (g_gbc_airui_mode) {
+        return gbc_airui_video_draw(NULL, (size_t)x1, (size_t)y1,
+                                    (size_t)x2, (size_t)y2, color_data);
+    }
+#endif
 #ifdef LUAT_USE_GUI
     return luat_lcd_draw(gbc_lcd_conf,
                          (int16_t)x1, (int16_t)y1,
@@ -147,7 +184,28 @@ int gbc_draw(int x1, int y1, int x2, int y2, gbc_color_t *color_data)
 void gbc_frame(gbc_t *gbc)
 {
     (void)gbc;
-    /* ~60 fps: sleep ~16ms per frame, same cadence as the NES port */
+    if (g_render_cb.frame) {
+        g_render_cb.frame(g_render_cb.ctx);
+        /* 走 widget 路径时也维持节流，避免过快 */
+#ifdef LUAT_BSP_PC
+        luat_rtos_task_sleep(15);
+#else
+        luat_rtos_task_sleep(1);
+#endif
+        return;
+    }
+#ifdef LUAT_USE_AIRUI
+    if (g_gbc_airui_mode) {
+        gbc_airui_video_frame(NULL);
+#ifdef LUAT_BSP_PC
+        luat_rtos_task_sleep(15);
+#else
+        luat_rtos_task_sleep(1);
+#endif
+        return;
+    }
+#endif
+    /* LCD fallback：~60 fps 节流 */
 #ifdef LUAT_BSP_PC
     luat_rtos_task_sleep(16);
 #else

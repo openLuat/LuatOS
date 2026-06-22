@@ -8,7 +8,11 @@
 #include "luat_timer.h"
 #include "luat_rtos.h"
 #include "luat_gpio.h"
-#include "luat_ota.h"
+
+// bsp 可在 luat_conf_bsp.h 里覆盖该值, 未覆盖时默认 15s
+#ifndef LUAT_EXIT_REBOOT_DELAY
+#define LUAT_EXIT_REBOOT_DELAY 15000
+#endif
 #ifdef LUAT_USE_EMS_SERVER
 #include "luat_ems_server.h"
 #endif
@@ -341,12 +345,6 @@ int luat_main (void) {
 
   // 1. 初始化文件系统
   luat_fs_init();
-#ifdef LUAT_USE_OTA
-  if (luat_ota_exec() == 0) {
-    luat_os_reboot(5);
-  }
-#endif
-
 
   luat_main_call();
   LLOGE("Lua VM exit!! reboot in %dms", LUAT_EXIT_REBOOT_DELAY);

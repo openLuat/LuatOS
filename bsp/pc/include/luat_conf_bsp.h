@@ -134,7 +134,6 @@
 #define LUAT_CONF_FSKV_CUSTOM 1
 // FFT 库开关
 #define LUAT_USE_FFT 1
-// #define LUAT_USE_OTA 1
 // #define LUAT_USE_I2CTOOLS 1
 // #define LUAT_USE_LORA 1
 #define LUAT_USE_LORA2 1

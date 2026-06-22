@@ -59,6 +59,6 @@ Air8101烧录Air8101_slave文件夹下的 main.lua：主程序入口，network_a
 
 5、启动设备，观察日志输出：
 下图为Air780EPM日志输出截图。
-![](https://docs.openluat.com/air8101/luatos/app/network_routing/4G/image/image-20250604182632243.png)
+![](https://docs.openluat.com/air8101/luatos/app/network_routing/4G/static/Z3xNbCG9DodzCjxzOAicdNkzndh.png)
 下图为Air8101日志输出截图。
-![](https://docs.openluat.com/air8101/luatos/app/network_routing/4G/image/image-20250604182828467.png)
+![](https://docs.openluat.com/air8101/luatos/app/network_routing/4G/static/FJKIbFev5oZcJ7xRl4ackXw4nue.png)

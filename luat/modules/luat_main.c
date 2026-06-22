@@ -354,10 +354,11 @@ int luat_main (void) {
     luat_wdt_feed();
     luat_timer_mdelay(1000);
   }
-  luat_ota_reboot(1000);
+  luat_timer_mdelay(1000);
 #else
-  luat_ota_reboot(LUAT_EXIT_REBOOT_DELAY);
+  luat_timer_mdelay(LUAT_EXIT_REBOOT_DELAY);
 #endif
+  luat_os_reboot(1);
   // 往下是肯定不会被执行的
   return 0;
 }

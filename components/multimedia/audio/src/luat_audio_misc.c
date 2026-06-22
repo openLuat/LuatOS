@@ -133,6 +133,7 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
             }
         }
         uint32_t before_pos = source->decode_output_buffer.pos;
+        // LLOGC(luat_audio_debug_flag, "decode once before, output pos %u, is_input_end %d, is_file_end %d, input_fifo %u", before_pos, source->is_input_end, is_file_end, luat_fifo_check_used_space(source->decode_input_fifo));
         ret =luat_audio_data_codec_decode_once(&source->codec, 
             source->decode_input_fifo, 
             &source->decode_output_buffer, 
@@ -141,6 +142,7 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
             LLOGE("decode once failed, ret %d", ret);
             goto ERROR;
         }
+        // LLOGC(luat_audio_debug_flag, "decode once after, output pos %u, is_input_end %d, is_file_end %d, input_fifo %u", before_pos, source->is_input_end, is_file_end, luat_fifo_check_used_space(source->decode_input_fifo));
 
         if (source->is_input_end && !luat_fifo_check_used_space(source->decode_input_fifo) && !source->decode_output_buffer.pos) {
             source->is_decode_finish = 1;
@@ -153,12 +155,13 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
     }
     return LUAT_ERROR_NONE;
 ERROR:
+    LLOGE("extern source decode error, ret %d", ret);
     source->is_error_stop = 1;
     source->is_decode_finish = 1;
-    return -LUAT_ERROR_OPERATION_FAILED;
+    return ret;
 }
 
-int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file_info_or_tts_data, uint32_t files_num_or_tts_data_len)
+int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file_info_or_tts_data, uint32_t files_num_or_tts_data_len, void *user_data)
 {
     int ret = LUAT_ERROR_NONE;
     if (!source->is_tts && !source->is_stream) { // 初始化文件源
@@ -228,6 +231,7 @@ int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file
         ret = -LUAT_ERROR_NO_MEMORY;
         goto ERROR;
     }
+    source->user_data = user_data;
     return ret;
 ERROR:
     luat_audio_extern_source_deinit(source);

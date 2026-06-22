@@ -42,6 +42,7 @@ typedef struct {
  */
 typedef struct {
     struct luat_audio_request_block *request;        /**< 音频请求块 */
+    void *user_data;                                /**< 用户数据指针 */
     luat_audio_data_codec_t codec;          /**< 关联的播放编解码器实例 */
     uint8_t *temp_buff;                         /**< 临时缓冲区*/
     union {
@@ -259,10 +260,11 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 * @param files_num 音频文件数量
 * @param codec_opts 音频解码器选项结构，用于指定要使用的音频解码器，可以不指定，通过分析文件自行决定
 * @param is_add_record 是否附加到录音通道，0-附加到播放通道，1-附加到录音通道
+* @param user_data 用户数据指针，用于传递自定义数据
 * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
 */
 int luat_audio_request_add_source_files(luat_audio_extern_source_t *source, luat_audio_play_file_info_t *info, size_t files_num,
-    const luat_audio_data_codec_opts_t *codec_opts, uint8_t is_add_record);
+    const luat_audio_data_codec_opts_t *codec_opts, uint8_t is_add_record, void *user_data);
 
 /**
 * @brief 附加TTS文本作为双工模式下的第三方数据源
@@ -271,9 +273,10 @@ int luat_audio_request_add_source_files(luat_audio_extern_source_t *source, luat
 * @param text TTS文本数据指针
 * @param text_len TTS文本数据长度
 * @param is_add_record 是否附加到录音通道，0-附加到播放通道，1-附加到录音通道
+* @param user_data 用户数据指针，用于传递自定义数据
 * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
 */
-int luat_audio_request_add_source_tts(luat_audio_extern_source_t *source, const char *text, uint32_t text_len, uint8_t is_add_record);
+int luat_audio_request_add_source_tts(luat_audio_extern_source_t *source, const char *text, uint32_t text_len, uint8_t is_add_record, void *user_data);
 
 /**
 * @brief 附加音频流作为双工模式下的第三方数据源
@@ -282,9 +285,10 @@ int luat_audio_request_add_source_tts(luat_audio_extern_source_t *source, const 
 * @param codec_opts 音频解码器选项结构，用于指定要使用的音频解码器，必须指定
 * @param common_param 音频公共参数结构，用于指定流数据的音频参数（采样率、声道数等），必须存在，不能为NULL
 * @param is_add_record 是否附加到录音通道，0-附加到播放通道，1-附加到录音通道
+* @param user_data 用户数据指针，用于传递自定义数据
 * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
 */
-int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, const luat_audio_data_codec_opts_t *codec_opts, const luat_audio_common_param_t *common_param, uint8_t is_add_record);  
+int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, const luat_audio_data_codec_opts_t *codec_opts, const luat_audio_common_param_t *common_param, uint8_t is_add_record, void *user_data);  
 
 /**
 * @brief 删除第三方数据源

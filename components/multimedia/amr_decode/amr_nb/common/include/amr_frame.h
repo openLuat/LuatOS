@@ -40,8 +40,8 @@ terms listed above has been obtained from the copyright holder.
 *
 *****************************************************************************
 */
-#ifndef frame_h
-#define frame_h "$Id $"
+#ifndef __frame_h__
+#define __frame_h__ "$Id $"
 
 /*
 *****************************************************************************

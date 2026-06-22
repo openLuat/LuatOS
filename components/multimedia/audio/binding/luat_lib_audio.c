@@ -87,8 +87,7 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
             l_req->request.is_data_callback_stop = 0;
             break;
         case LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA:
-            switch (l_req->request.driver_work_mode) {
-            case LUAT_AUDIO_DRIVER_MODE_RECORD:
+            if (l_req->request.driver_work_mode >= LUAT_AUDIO_DRIVER_MODE_RECORD) {
                 _l_audio.total_driver_record_bytes += msg->arg2;
                 uint32_t read_size = 0;
                 if (l_req->is_record_file) {
@@ -130,7 +129,7 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
                     }
                 }
                 break;
-            }
+            }           
             break;
         case LUAT_AUDIO_REQUEST_EVENT_END:
             l_req->is_busy = 0;

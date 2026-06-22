@@ -152,6 +152,9 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
         if (before_pos == source->decode_output_buffer.pos) {
             return LUAT_ERROR_NONE;
         }
+        if (source->decode_output_buffer.pos >= source->decode_low_level) {
+            return LUAT_ERROR_NONE;
+        }
     }
     return LUAT_ERROR_NONE;
 ERROR:
@@ -221,11 +224,13 @@ int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file
         source->decode_input_fifo = luat_fifo_create(LUAT_AUDIO_DATA_CODEC_INPUT_FIFO_DEFAULT_SIZE_POWER);
     }
     if (source->is_add_record) { //附加在录音通道，输出缓存长度需要看单次录音数量和解码输出长度
+        source->decode_low_level = source->request->record_fifo_enough_data_level;
         uint32_t size = source->request->record_fifo_enough_data_level > source->codec.opts->decode_max_output_len?
         source->request->record_fifo_enough_data_level : source->codec.opts->decode_max_output_len;
-        luat_buffer_init(&source->decode_output_buffer, size * 3);
+        luat_buffer_init(&source->decode_output_buffer, size * 2);
     } else {
-        luat_buffer_init(&source->decode_output_buffer, source->codec.opts->decode_max_output_len * 3);
+        source->decode_low_level = source->codec.opts->decode_max_output_len;
+        luat_buffer_init(&source->decode_output_buffer, source->codec.opts->decode_max_output_len * 2);
     }
     if (!source->decode_output_buffer.data || !source->decode_input_fifo) {
         ret = -LUAT_ERROR_NO_MEMORY;

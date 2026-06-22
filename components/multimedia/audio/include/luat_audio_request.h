@@ -59,7 +59,8 @@ typedef struct {
     uint32_t decode_low_level;
     // luat_fifo_t *decode_output_fifo;           /**< 解码后输出缓冲区，用于存储解码后的音频数据，只有附加到录音通道的时候需要 */
     luat_fifo_t *decode_input_fifo;            /**< 解码前输入缓冲区，用于存储编码过的音频数据*/
-    luat_buffer_t decode_output_buffer;                  /**< 解码后输出缓冲区，用于临时存储解码后的音频数据 */
+    luat_buffer_t decode_output_temp_buffer;     /**< 解码后输出临时缓冲区，用于临时存储解码后的音频数据 */
+    luat_buffer_t decode_output_buffer;           /**< 解码后输出缓冲区，用于存储解码后的音频数据 */
     uint8_t is_stream:1;                       /**< 是否为流式请求 */
     uint8_t is_tts:1;                          /**< 是否为文本转语音请求 */
     uint8_t is_input_end:1;                   /**< 是否为输入结束请求 */

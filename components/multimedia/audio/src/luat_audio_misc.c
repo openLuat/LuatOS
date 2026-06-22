@@ -98,6 +98,14 @@ int luat_audio_extern_source_check(luat_audio_extern_source_t *source)
     return LUAT_ERROR_NONE;
 }
 
+void luat_audio_extern_source_check_finish(luat_audio_extern_source_t *source)
+{
+    if (source->is_input_end && !luat_fifo_check_used_space(source->decode_input_fifo) && !source->decode_output_buffer.pos) {
+        source->is_decode_finish = 1;
+        LLOGC(luat_audio_debug_flag, "extern source decode done");
+    }
+}
+
 int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
 {
     if (source->is_done || source->is_decode_finish || source->is_error_stop || source->is_tts) {
@@ -112,7 +120,7 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
                 ret = luat_audio_data_read_to_fifo(&source->file_info[source->file_done_cnt], source->decode_input_fifo, &is_file_end);
             }
             if (ret < 0) {
-                LLOGC(luat_audio_debug_flag, "read file %d failed", source->file_done_cnt, ret);
+                LLOGC(luat_audio_debug_flag, "extern source read file %d failed", source->file_done_cnt, ret);
                 if (source->file_info[source->file_done_cnt].fail_continue) {
                     is_file_end = 1;
                 } else {
@@ -122,7 +130,7 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
             if (is_file_end) { //读到文件结尾了，看看是否还有文件文件读	
                 if (!source->is_input_end) {
                     source->file_done_cnt++;
-                    LLOGC(luat_audio_debug_flag, "decode file to fifo done,file_done_cnt %d, total %d", source->file_done_cnt, source->file_info_cnt);
+                    LLOGC(luat_audio_debug_flag, "extern source decode file to fifo done,file_done_cnt %d, total %d", source->file_done_cnt, source->file_info_cnt);
                 }
                 if (source->file_done_cnt >= source->file_info_cnt) {	//全部文件读取完成
                     source->is_input_end = 1;
@@ -132,24 +140,27 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
                 }
             }
         }
-        uint32_t before_pos = source->decode_output_buffer.pos;
+        source->decode_output_temp_buffer.pos = 0;
         // LLOGC(luat_audio_debug_flag, "decode once before, output pos %u, is_input_end %d, is_file_end %d, input_fifo %u", before_pos, source->is_input_end, is_file_end, luat_fifo_check_used_space(source->decode_input_fifo));
         ret =luat_audio_data_codec_decode_once(&source->codec, 
             source->decode_input_fifo, 
-            &source->decode_output_buffer, 
+            &source->decode_output_temp_buffer, 
             source->is_input_end || is_file_end);
         if (ret) {
-            LLOGE("decode once failed, ret %d", ret);
+            LLOGE("extern source decode once failed, ret %d", ret);
             goto ERROR;
         }
         // LLOGC(luat_audio_debug_flag, "decode once after, output pos %u, is_input_end %d, is_file_end %d, input_fifo %u", before_pos, source->is_input_end, is_file_end, luat_fifo_check_used_space(source->decode_input_fifo));
-
-        if (source->is_input_end && !luat_fifo_check_used_space(source->decode_input_fifo) && !source->decode_output_buffer.pos) {
-            source->is_decode_finish = 1;
-            LLOGC(luat_audio_debug_flag, "decode done");
-            return LUAT_ERROR_NONE;
-        }
-        if (before_pos == source->decode_output_buffer.pos) {
+        if (source->decode_output_temp_buffer.pos) {
+            luat_rtos_task_suspend_all();
+            luat_buffer_write(&source->decode_output_buffer, source->decode_output_temp_buffer.data, source->decode_output_temp_buffer.pos);
+            luat_rtos_task_resume_all();
+        } else {
+            if (source->is_input_end && !luat_fifo_check_used_space(source->decode_input_fifo) && !source->decode_output_buffer.pos) {
+                source->is_decode_finish = 1;
+                LLOGC(luat_audio_debug_flag, "extern sourcedecode done");
+                return LUAT_ERROR_NONE;
+            }
             return LUAT_ERROR_NONE;
         }
         if (source->decode_output_buffer.pos >= source->decode_low_level) {
@@ -223,6 +234,7 @@ int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file
     if (!source->is_tts) {
         source->decode_input_fifo = luat_fifo_create(LUAT_AUDIO_DATA_CODEC_INPUT_FIFO_DEFAULT_SIZE_POWER);
     }
+    luat_buffer_init(&source->decode_output_temp_buffer, source->codec.opts->decode_max_output_len + 128);
     if (source->is_add_record) { //附加在录音通道，输出缓存长度需要看单次录音数量和解码输出长度
         source->decode_low_level = source->request->record_fifo_enough_data_level;
         uint32_t size = source->request->record_fifo_enough_data_level > source->codec.opts->decode_max_output_len?
@@ -251,6 +263,7 @@ void luat_audio_extern_source_deinit(luat_audio_extern_source_t *source)
     }
     source->is_done = 1;
     luat_buffer_deinit(&source->decode_output_buffer);
+    luat_buffer_deinit(&source->decode_output_temp_buffer);
     luat_fifo_destroy(source->decode_input_fifo);
     // luat_fifo_destroy(source->decode_output_fifo);
     if (!source->is_tts && !source->is_stream) {

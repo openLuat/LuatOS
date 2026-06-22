@@ -145,6 +145,9 @@ int luat_audio_data_codec_encode_once(luat_audio_data_codec_t *codec, luat_buffe
     if (ref_data_buffer && codec->opts->support_encode_with_sync_output_ref) {
         ret = codec->opts->encode_with_sync_output_ref(codec, input_data_buffer->data, ref_data_buffer->data, input_data_buffer->pos, codec->input_buffer, &encoded_used_size, &encoded_output_size);
     } else {
+        // int16_t *pcm = (int16_t *)input_data_buffer->data;
+        // uint32_t pcm_len = input_data_buffer->pos >> 1;
+        // LLOGC(luat_audio_debug_flag, "%d,%d,%d,%d,%d %d,%d,%d,%d", input_data_buffer->pos, pcm[0], pcm[1], pcm[2], pcm[3], pcm[pcm_len - 4], pcm[pcm_len - 3], pcm[pcm_len - 2], pcm[pcm_len - 1]);
         ret = codec->opts->encode(codec,  input_data_buffer->data,  input_data_buffer->pos, codec->input_buffer, &encoded_used_size, &encoded_output_size);
     }
     if (!ret) {

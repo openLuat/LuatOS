@@ -40,30 +40,38 @@ LuatOS/
 │   ├── modules/      # C implementations of Lua libraries
 │   ├── vfs/          # Virtual file system
 │   └── weak/         # Weak reference implementations
-├── components/       # Extension libraries
-│   ├── network/      # Network stacks (LwIP, MQTT, HTTP)
+├── components/       # Extension libraries (90+ components)
+│   ├── network/      # Network stacks (LwIP, MQTT, HTTP, NDK)
 │   ├── airui/        # GUI framework (LVGL 9 based)
+│   ├── ndk/          # NDK socket adapter (RV32C sim + hosting)
+│   ├── pgfs/         # PGFS flash filesystem
+│   ├── luat_image/   # Unified image decoding (JPG/PNG/WebP)
 │   ├── mbedtls/      # Cryptography library
-│   ├── fatfs/        # File system
 │   └── ...           # Bluetooth, audio, sensors, etc.
 ├── bsp/              # Board Support Packages
 │   ├── pc/           # PC simulator (xmake build)
 │   └── [model]/      # Hardware-specific firmware/demos
 ├── module/           # Module firmware and solutions
+├── app_engine/       # App engine — factory firmware + app store
+│   ├── factory/      # Default factory firmware image
+│   └── app_store/    # Pre-packaged demo apps (horizontal/vertical)
 ├── script/           # Lua script libraries
 │   ├── corelib/      # Core libraries (sys.lua, etc.)
 │   ├── libs/         # External driver libraries
 │   └── turnkey/      # Ready-to-use project templates
-├── testcase/         # Test suites
+├── testcase/         # Test suites (utest + feature tests)
 ├── tools/            # Auxiliary tools
-└── build/            # Build output directory
+├── docs/             # Documentation (known issues, RFA, VFS)
+├── skill-packs/      # Cowork skill packages (luatos-dev/docs/demo-spec)
+├── build/            # Build output directory
+└── bsp/pc/build/     # PC simulator build output
 ```
 
 ---
 
 ## Component AGENTS.md Standard
 
-Several sub-directories carry their own `AGENTS.md` (`luat/`, `script/`, `testcase/`, `bsp/pc/`, `components/network/`, `components/airui/`, `components/airlink/`, `components/serialization/protobuf/`, `components/utest/`, `components/ndk/`). Use the following rule to decide whether a new component needs one.
+Several sub-directories carry their own `AGENTS.md` — `luat/`, `script/`, `testcase/`, `bsp/pc/`, `components/network/`, `components/airui/`, `components/airlink/`, `components/luat_image/`, `components/pgfs/`, `components/serialization/protobuf/`, `components/utest/`, `components/ndk/`, `testcase/appstore/`, `testcase/utest/fs/vfs_uniform/`. Use the following rule to decide whether a new component needs one.
 
 **Create a component-level `AGENTS.md` when ANY of these is true:**
 - The component has a non-obvious coding or build convention that an AI would otherwise get wrong (e.g. `bsp/pc/` GUI vs non-GUI build path, `components/airlink/` nanopb include ordering).
@@ -292,14 +300,21 @@ Before reporting task completion, verify:
 | File | Description |
 |------|-------------|
 | `bsp/pc/xmake.lua` | PC simulator build configuration |
+| `bsp/pc/build_with_summary.ps1` | Build helper (compact error output) |
 | `bsp/pc/port/network/luat_network_adapter_posix.c` | PC network adapter |
 | `luat/include/luat.h` | Core header file |
+| `luat/include/luat_conf_bsp.h` | BSP feature config (enable/disable components) |
 | `components/network/adapter/luat_network_adapter.c` | Network framework state machine |
 | `components/network/adapter/luat_network_adapter.h` | Network adapter API definitions |
 | `components/network/adapter/luat_lib_socket.c` | Socket Lua bindings |
+| `components/ndk/src/luat_ndk.c` | NDK socket adapter |
+| `components/pgfs/src/pgfs.c` | PGFS flash filesystem core |
+| `components/luat_image/luat_image.c` | Image decoder dispatch table |
 | `script/corelib/sys.lua` | Lua task system core |
+| `testcase/common/scripts/testrunner.lua` | Test framework |
 | `module/<model>/core` | Module firmware description |
-| `.github/workflows/` | CI/CD configuration |
+| `app_engine/factory/main.lua` | Factory firmware entry point |
+| `.github/workflows/windows-build.yml` | CI configuration (Windows matrix build) |
 
 ---
 
@@ -418,8 +433,6 @@ end
 - `player/video_decode/avcodec/h264/libavutil/atomic_gcc.h` — 加 `#ifdef _MSC_VER` 用 volatile 实现原子操作
 - `player/video_decode/avcodec/h264/libavutil/mem.c` — 加 `#ifdef _MSC_VER` 映射对齐内存分配
 
-### Debug Records
-
 ### PC 模拟器测试脚本必须调用 `os.exit(0)`
 
 **症状**：Lua 任务执行完毕（日志正常打印），但进程永远不退出，挂在 `sys.run()` 处。
@@ -483,6 +496,8 @@ See `components/ndk/AGENTS.md` § 开发要点 for the canonical list (zicsr `-m
 - **Official Documentation**: https://docs.openluat.com/
 - **API Reference**: https://docs.openluat.com/osapi/
 - **Third-party Tools**: LuatOS IDE Helper (https://gitee.com/tianyiw/LuatOS-ide-helper)
+- **Project docs**: `docs/` — `known_issues.md`, `vfs_uniform_results.md`, `rfa/`, `superpowers/`
+- **skill-packs/**: Cowork skill packages for LuatOS dev/docs/demo-spec (see `skill-packs/README.txt`)
 
 ---
 

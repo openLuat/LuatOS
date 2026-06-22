@@ -59,7 +59,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
                 { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)write_buf, .recv_buff = NULL, .len = write_size },
                 { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)read_buf,  .recv_buff = NULL, .len = read_size  },
             };
-            LLOGD("sfud[bus=%d] trans_msgs SEND+RECV w=%u r=%u", spi_flash->id, (unsigned)write_size, (unsigned)read_size);
+            // LLOGD("sfud[bus=%d] trans_msgs SEND+RECV w=%u r=%u", spi_flash->id, (unsigned)write_size, (unsigned)read_size);
             int r = luat_spi_trans_msgs(spi_flash -> id, msgs, 2);
             if (r < 0) {
                 LLOGE("sfud[bus=%d] trans_msgs SEND+RECV failed rc=%d", spi_flash->id, r);
@@ -69,7 +69,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
             luat_spi_msg_t msgs[1] = {
                 { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)write_buf, .recv_buff = NULL, .len = write_size },
             };
-            LLOGD("sfud[bus=%d] trans_msgs SEND w=%u", spi_flash->id, (unsigned)write_size);
+            // LLOGD("sfud[bus=%d] trans_msgs SEND w=%u", spi_flash->id, (unsigned)write_size);
             int r = luat_spi_trans_msgs(spi_flash -> id, msgs, 1);
             if (r < 0) {
                 LLOGE("sfud[bus=%d] trans_msgs SEND failed rc=%d", spi_flash->id, r);
@@ -79,7 +79,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
             luat_spi_msg_t msgs[1] = {
                 { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)read_buf, .recv_buff = NULL, .len = read_size },
             };
-            LLOGD("sfud[bus=%d] trans_msgs RECV r=%u", spi_flash->id, (unsigned)read_size);
+            // LLOGD("sfud[bus=%d] trans_msgs RECV r=%u", spi_flash->id, (unsigned)read_size);
             int r = luat_spi_trans_msgs(spi_flash -> id, msgs, 1);
             if (r < 0) {
                 LLOGE("sfud[bus=%d] trans_msgs RECV failed rc=%d", spi_flash->id, r);
@@ -95,7 +95,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
                 { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)write_buf, .recv_buff = NULL, .len = write_size },
                 { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)read_buf,  .recv_buff = NULL, .len = read_size  },
             };
-            LLOGD("sfud[dev] device_trans_msgs SEND+RECV w=%u r=%u", (unsigned)write_size, (unsigned)read_size);
+            // LLOGD("sfud[dev] device_trans_msgs SEND+RECV w=%u r=%u", (unsigned)write_size, (unsigned)read_size);
             int r = luat_spi_device_trans_msgs(spi_dev, msgs, 2);
             if (r < 0) {
                 LLOGE("sfud[dev] device_trans_msgs SEND+RECV failed rc=%d", r);
@@ -105,7 +105,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
             luat_spi_msg_t msgs[1] = {
                 { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)write_buf, .recv_buff = NULL, .len = write_size },
             };
-            LLOGD("sfud[dev] device_trans_msgs SEND w=%u", (unsigned)write_size);
+            // LLOGD("sfud[dev] device_trans_msgs SEND w=%u", (unsigned)write_size);
             int r = luat_spi_device_trans_msgs(spi_dev, msgs, 1);
             if (r < 0) {
                 LLOGE("sfud[dev] device_trans_msgs SEND failed rc=%d", r);
@@ -115,7 +115,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
             luat_spi_msg_t msgs[1] = {
                 { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)read_buf, .recv_buff = NULL, .len = read_size },
             };
-            LLOGD("sfud[dev] device_trans_msgs RECV r=%u", (unsigned)read_size);
+            // LLOGD("sfud[dev] device_trans_msgs RECV r=%u", (unsigned)read_size);
             int r = luat_spi_device_trans_msgs(spi_dev, msgs, 1);
             if (r < 0) {
                 LLOGE("sfud[dev] device_trans_msgs RECV failed rc=%d", r);

@@ -593,7 +593,7 @@ static void luat_spitf_init(luat_spitf_ctrl_t *spitf)
 			{ .mode = LUAT_SPI_MSG_SEND, .buff = spitf->TempData, .recv_buff = NULL, .len = spitf->ResetCnt },
 			{ .mode = LUAT_SPI_MSG_RECV, .buff = spitf->TempData, .recv_buff = NULL, .len = spitf->ResetCnt },
 		};
-		LLOGD("spitf reset trans_msgs SEND+RECV bus=%d len=%u", spitf->SpiID, (unsigned)spitf->ResetCnt);
+		// LLOGD("spitf reset trans_msgs SEND+RECV bus=%d len=%u", spitf->SpiID, (unsigned)spitf->ResetCnt);
 		int r = luat_spi_trans_msgs(spitf->SpiID, msgs, 2);
 		if (r < 0) {
 			LLOGE("spitf reset trans_msgs failed rc=%d", r);
@@ -606,7 +606,7 @@ static void luat_spitf_init(luat_spitf_ctrl_t *spitf)
 			{ .mode = LUAT_SPI_MSG_SEND, .buff = spitf->TempData, .recv_buff = NULL, .len = spitf->ResetCnt },
 			{ .mode = LUAT_SPI_MSG_RECV, .buff = spitf->TempData, .recv_buff = NULL, .len = spitf->ResetCnt },
 		};
-		LLOGD("spitf idle  trans_msgs SEND+RECV bus=%d len=%u", spitf->SpiID, (unsigned)spitf->ResetCnt);
+		// LLOGD("spitf idle  trans_msgs SEND+RECV bus=%d len=%u", spitf->SpiID, (unsigned)spitf->ResetCnt);
 		int r = luat_spi_trans_msgs(spitf->SpiID, msgs, 2);
 		if (r < 0) {
 			LLOGE("spitf idle  trans_msgs failed rc=%d", r);

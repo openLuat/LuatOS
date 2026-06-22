@@ -1492,13 +1492,9 @@ int luat_spi_trans_msgs(int spi_id, luat_spi_msg_t* msgs, size_t count) {
     }
     uint8_t cs = pc_spi_route_get_active_cs(spi_id);
     pc_spi_backend_t backend = pc_spi_route_backend(spi_id, cs);
-#ifdef LUAT_USE_WINDOWS
-    int ch347_open = g_ch3470_DevIsOpened ? 1 : 0;
-#else
-    int ch347_open = 0;
-#endif
-    LLOGD("luat_spi_trans_msgs ENTER bus=%d cs=%u count=%u backend=%d ch347=%d",
-          spi_id, (unsigned)cs, (unsigned)count, (int)backend, ch347_open);
+    // LLOGD("luat_spi_trans_msgs ENTER bus=%d cs=%u count=%u backend=%d ch347=%d",
+    //       spi_id, (unsigned)cs, (unsigned)count, (int)backend,
+    //       g_ch3470_DevIsOpened ? 1 : 0);
     for (size_t i = 0; i < count; i++) {
         luat_spi_msg_t* m = &msgs[i];
         switch (m->mode) {
@@ -1606,12 +1602,8 @@ int luat_spi_xfer2(int spi_id, const uint8_t* tx, uint8_t* rx, size_t len) {
     if (win32spis[spi_id].open == 0) {
         return -1;
     }
-#ifdef LUAT_USE_WINDOWS
-    int ch347_open2 = g_ch3470_DevIsOpened ? 1 : 0;
-#else
-    int ch347_open2 = 0;
-#endif
-    LLOGD("luat_spi_xfer2 ENTER bus=%d len=%u ch347=%d", spi_id, (unsigned)len, ch347_open2);
+    // LLOGD("luat_spi_xfer2 ENTER bus=%d len=%u ch347=%d", spi_id, (unsigned)len,
+    //       g_ch3470_DevIsOpened ? 1 : 0);
     #ifdef LUAT_USE_WINDOWS
     if (g_ch3470_DevIsOpened) {
         int r = luat_ch347_spi_transfer(spi_id, (const char*)tx, len, (char*)rx, len);

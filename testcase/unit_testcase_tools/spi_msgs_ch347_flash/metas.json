@@ -1,0 +1,9 @@
+{
+    "timeout" : 60,
+    "model" : {
+        "pc": [1]
+    },
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "PC sim + CH347/CH340 USB-SPI bridge + 真实 SPI NOR flash, 验证 luat_spi_trans_msgs / luat_spi_xfer2 已生效"
+}

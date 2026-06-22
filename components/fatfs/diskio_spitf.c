@@ -585,9 +585,33 @@ static void luat_spitf_init(luat_spitf_ctrl_t *spitf)
 	spitf->CmdCnt = 40;
 	memset(spitf->TempData, 0xff, spitf->ResetCnt);
 	luat_gpio_set(spitf->CSPin, 0);
-	luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, spitf->ResetCnt, (char *)spitf->TempData, spitf->ResetCnt);
+	{
+		/* SD reset 80 clock pulse (cs low)，msg-only：[SEND, RECV]
+		 * 主路径 cmd/data 仍走旧 luat_spi_transfer（等待 PC vsd 状态机 msg 化）。
+		 * TODO: msg-ize after PC vsd state-machine refactor */
+		luat_spi_msg_t msgs[2] = {
+			{ .mode = LUAT_SPI_MSG_SEND, .buff = spitf->TempData, .recv_buff = NULL, .len = spitf->ResetCnt },
+			{ .mode = LUAT_SPI_MSG_RECV, .buff = spitf->TempData, .recv_buff = NULL, .len = spitf->ResetCnt },
+		};
+		LLOGD("spitf reset trans_msgs SEND+RECV bus=%d len=%u", spitf->SpiID, (unsigned)spitf->ResetCnt);
+		int r = luat_spi_trans_msgs(spitf->SpiID, msgs, 2);
+		if (r < 0) {
+			LLOGE("spitf reset trans_msgs failed rc=%d", r);
+		}
+	}
 	luat_gpio_set(spitf->CSPin, 1);
-	luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, spitf->ResetCnt, (char *)spitf->TempData, spitf->ResetCnt);
+	{
+		/* SD idle 80 clock pulse (cs high) */
+		luat_spi_msg_t msgs[2] = {
+			{ .mode = LUAT_SPI_MSG_SEND, .buff = spitf->TempData, .recv_buff = NULL, .len = spitf->ResetCnt },
+			{ .mode = LUAT_SPI_MSG_RECV, .buff = spitf->TempData, .recv_buff = NULL, .len = spitf->ResetCnt },
+		};
+		LLOGD("spitf idle  trans_msgs SEND+RECV bus=%d len=%u", spitf->SpiID, (unsigned)spitf->ResetCnt);
+		int r = luat_spi_trans_msgs(spitf->SpiID, msgs, 2);
+		if (r < 0) {
+			LLOGE("spitf idle  trans_msgs failed rc=%d", r);
+		}
+	}
 	spitf->SDSC = 0;
 	if (luat_spitf_cmd(spitf, CMD0, 0, 1))
 	{

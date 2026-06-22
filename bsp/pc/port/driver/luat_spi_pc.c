@@ -1476,6 +1476,157 @@ int luat_spi_change_speed(int spi_id, uint32_t speed){
     return 0;
 }
 
+// New msg-based SPI APIs - 详见 luat_spi.h 中 luat_spi_msg_t 与 luat_spi_trans_msgs / luat_spi_xfer2 的定义
+int luat_spi_trans_msgs(int spi_id, luat_spi_msg_t* msgs, size_t count) {
+    if (!pc_spi_bus_is_valid(spi_id)) {
+        return -1;
+    }
+    if (count == 0) {
+        return 0;
+    }
+    if (msgs == NULL) {
+        return -1;
+    }
+    if (win32spis[spi_id].open == 0) {
+        return -1;
+    }
+    uint8_t cs = pc_spi_route_get_active_cs(spi_id);
+    pc_spi_backend_t backend = pc_spi_route_backend(spi_id, cs);
+#ifdef LUAT_USE_WINDOWS
+    int ch347_open = g_ch3470_DevIsOpened ? 1 : 0;
+#else
+    int ch347_open = 0;
+#endif
+    LLOGD("luat_spi_trans_msgs ENTER bus=%d cs=%u count=%u backend=%d ch347=%d",
+          spi_id, (unsigned)cs, (unsigned)count, (int)backend, ch347_open);
+    for (size_t i = 0; i < count; i++) {
+        luat_spi_msg_t* m = &msgs[i];
+        switch (m->mode) {
+            case LUAT_SPI_MSG_SEND: {
+                if (m->len == 0) break;
+                if (m->buff == NULL) return -1;
+                #ifdef LUAT_USE_WINDOWS
+                if (g_ch3470_DevIsOpened) {
+                    /* 关键: 相邻 SEND -> RECV 必须合并为一次 luat_ch347_spi_transfer
+                     * 才能在同一次 CS 拉低周期内完成. CH347 半双工分支会调
+                     * CH347SPI_WriteRead, CS 全程保持; 否则 SPI flash 命令会丢失.
+                     */
+                    if (i + 1 < count
+                        && msgs[i + 1].mode == LUAT_SPI_MSG_RECV
+                        && msgs[i + 1].buff != NULL
+                        && msgs[i + 1].len > 0) {
+                        if (luat_ch347_spi_transfer(spi_id,
+                                                    (const char*)m->buff, m->len,
+                                                    (char*)msgs[i + 1].buff, msgs[i + 1].len) < 0) {
+                            return -1;
+                        }
+                        i++;
+                        break;
+                    }
+                    if (luat_ch347_spi_transfer(spi_id, (const char*)m->buff, m->len, NULL, 0) < 0) return -1;
+                    break;
+                }
+                #endif
+                if (i + 1 < count
+                    && msgs[i + 1].mode == LUAT_SPI_MSG_RECV
+                    && backend != PC_SPI_BACKEND_NONE
+                    && msgs[i + 1].buff != NULL
+                    && msgs[i + 1].len > 0) {
+                    int r = pc_spi_route_transfer(spi_id,
+                                                  (const char*)m->buff, m->len,
+                                                  (char*)msgs[i + 1].buff, msgs[i + 1].len,
+                                                  cs);
+                    if (r < 0) return -1;
+                    i++;
+                    break;
+                }
+                int r = pc_spi_route_send(spi_id, (const char*)m->buff, m->len, cs);
+                if (r < 0 && backend != PC_SPI_BACKEND_NONE) return -1;
+                break;
+            }
+            case LUAT_SPI_MSG_RECV: {
+                if (m->len == 0) break;
+                if (m->buff == NULL) return -1;
+                #ifdef LUAT_USE_WINDOWS
+                if (g_ch3470_DevIsOpened) {
+                    if (luat_ch347_spi_recv(spi_id, (char*)m->buff, m->len) < 0) return -1;
+                    break;
+                }
+                #endif
+                int r = pc_spi_route_recv(spi_id, (char*)m->buff, m->len, cs);
+                if (r < 0 && backend != PC_SPI_BACKEND_NONE) return -1;
+                if (r < 0) {
+                    memset(m->buff, 0xFF, m->len);
+                }
+                break;
+            }
+            case LUAT_SPI_MSG_PAUSE_US: {
+                uint32_t us = (m->len > 0xFFFFFFFFu) ? 0xFFFFFFFFu : (uint32_t)m->len;
+                pc_spi_apply_delay_us(us);
+                break;
+            }
+            case LUAT_SPI_MSG_PAUSE_MS: {
+                uint64_t total_us = (uint64_t)m->len * 1000ull;
+                if (total_us > 0xFFFFFFFFu) {
+                    while (total_us > 0xFFFFFFFFu) {
+                        pc_spi_apply_delay_us(0xFFFFFFFFu);
+                        total_us -= 0xFFFFFFFFu;
+                    }
+                }
+                pc_spi_apply_delay_us((uint32_t)total_us);
+                break;
+            }
+            case LUAT_SPI_MSG_XFER: {
+                if (m->len == 0) break;
+                if (m->buff == NULL || m->recv_buff == NULL) return -1;
+                #ifdef LUAT_USE_WINDOWS
+                if (g_ch3470_DevIsOpened) {
+                    if (luat_ch347_spi_transfer(spi_id, (const char*)m->buff, m->len, (char*)m->recv_buff, m->len) < 0) return -1;
+                    break;
+                }
+                #endif
+                if (backend != PC_SPI_BACKEND_NONE) return -1;
+                memcpy(m->recv_buff, m->buff, m->len);
+                break;
+            }
+            default:
+                return -1;
+        }
+    }
+    return 0;
+}
+
+int luat_spi_xfer2(int spi_id, const uint8_t* tx, uint8_t* rx, size_t len) {
+    if (!pc_spi_bus_is_valid(spi_id)) {
+        return -1;
+    }
+    if (tx == NULL || rx == NULL || len == 0) {
+        return -1;
+    }
+    if (win32spis[spi_id].open == 0) {
+        return -1;
+    }
+#ifdef LUAT_USE_WINDOWS
+    int ch347_open2 = g_ch3470_DevIsOpened ? 1 : 0;
+#else
+    int ch347_open2 = 0;
+#endif
+    LLOGD("luat_spi_xfer2 ENTER bus=%d len=%u ch347=%d", spi_id, (unsigned)len, ch347_open2);
+    #ifdef LUAT_USE_WINDOWS
+    if (g_ch3470_DevIsOpened) {
+        int r = luat_ch347_spi_transfer(spi_id, (const char*)tx, len, (char*)rx, len);
+        return (r < 0) ? -1 : (int)len;
+    }
+    #endif
+    uint8_t cs = pc_spi_route_get_active_cs(spi_id);
+    pc_spi_backend_t backend = pc_spi_route_backend(spi_id, cs);
+    if (backend == PC_SPI_BACKEND_NONE) {
+        memcpy(rx, tx, len);
+        return (int)len;
+    }
+    return -1;
+}
+
 #ifdef LUAT_USE_LCD
 #include "luat_lcd.h"
 

@@ -1932,7 +1932,9 @@ int network_set_client_cert(network_ctrl_t *ctrl,
     	DBG("%08x", -ret);
     	goto ERROR_OUT;
     }
-	#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+	#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+	ret = mbedtls_pk_parse_key( pkey, key, keylen, pwd, pwdlen );
+	#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
 	ret = mbedtls_pk_parse_key( pkey, key, keylen, pwd, pwdlen , tls_random, NULL);
 	#else
     ret = mbedtls_pk_parse_key( pkey, key, keylen, pwd, pwdlen );
@@ -2013,7 +2015,9 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 		#endif
 		// ctrl->config->f_rng = tls_random;
 		// ctrl->config->p_rng = NULL;
+		#if MBEDTLS_VERSION_NUMBER < 0x04000000
 		mbedtls_ssl_conf_rng(ctrl->config, tls_random, NULL);
+		#endif
 		// ctrl->config->f_dbg = tls_dbg;
 		// ctrl->config->p_dbg = NULL;
 		mbedtls_ssl_conf_dbg(ctrl->config, tls_dbg, NULL);

@@ -59,7 +59,6 @@ local function lcd_drv_init()
     log.info("lcd.init", result)
 
     if result then
-
         -- 初始化AirUI
         local width, height = lcd.getSize()
         local result = airui.init(width, height)
@@ -74,19 +73,20 @@ local function lcd_drv_init()
             airui.font_load({
                 type = "hzfont",   -- 字体类型，可选 "hzfont" 或 "bin"
                 path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+                -- path = "/luadb/NotoSansSC_subset.ttf", -- 展示NotoSansSC_subset自定义字体
                 size = 20,         -- 字体大小，默认 16
                 cache_size = 1048, -- 缓存字数大小，默认 2048
                 antialias = 1,     -- 抗锯齿等级1-3，默认 1
             })
-        else
-            -- Air8101使用104号固件将字体文件烧录到文件系统，从文件系统中加载hzfont字库，从而支持12-255号中文显示
+        elseif rtos.bsp() == "PC" then
+            -- PC模拟器使用外部TTF字体文件（与lua脚本同目录），完整展示字体特性
             airui.font_load({
-                type = "hzfont",             -- 字体类型，可选 "hzfont" 或 "bin"
-                path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
-                size = 20,                   -- 字体大小，默认 16
-                cache_size = 1048,           -- 缓存字数大小，默认 2048
-                antialias = 1,               -- 抗锯齿等级1-3，默认 1
-                -- load_to_psram= true,
+                type = "hzfont",
+                path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+                -- path = "/luadb/NotoSansSC_subset.ttf", -- 展示NotoSansSC_subset自定义字体
+                size = 20,
+                cache_size = 2048,
+                antialias = 3,               -- 高抗锯齿等级，展示字体边缘平滑特性
                 global = true
             })
         end
@@ -96,9 +96,7 @@ local function lcd_drv_init()
 
         -- 打印查询结果
         log.info("airui", "version -> " .. version_result)
-
     end
-
 end
 
 lcd_drv_init()

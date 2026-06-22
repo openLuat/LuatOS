@@ -486,7 +486,10 @@ static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
                                   cfg->client_cert_len);
     if (ret) { LLOGE("client cert parse failed: %d", ret); return ret; }
 
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    ret = mbedtls_pk_parse_key(&cli->client_key, (const unsigned char *)cfg->client_key_pem,
+                                cfg->client_key_len, NULL, 0);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
     ret = mbedtls_pk_parse_key(&cli->client_key, (const unsigned char *)cfg->client_key_pem,
                                 cfg->client_key_len, NULL, 0, mbedtls_ctr_drbg_random, &cli->drbg);
 #else
@@ -508,7 +511,9 @@ static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
     ret = mbedtls_ssl_conf_own_cert(&cli->conf, &cli->client_cert, &cli->client_key);
     if (ret) { LLOGE("ssl conf cert failed: %d", ret); return ret; }
 
+#if MBEDTLS_VERSION_NUMBER < 0x04000000
     mbedtls_ssl_conf_rng(&cli->conf, mbedtls_ctr_drbg_random, &cli->drbg);
+#endif
 
 #if MBEDTLS_VERSION_NUMBER >= 0x03000000 && defined(MBEDTLS_SSL_PROTO_TLS1_3)
     mbedtls_ssl_conf_max_tls_version(&cli->conf, MBEDTLS_SSL_VERSION_TLS1_3);

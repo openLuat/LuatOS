@@ -295,7 +295,9 @@ static void *dtls_utest_server_thread(void *arg) {
         goto cleanup;
     }
 
+#if MBEDTLS_VERSION_NUMBER < 0x04000000
     mbedtls_ssl_conf_rng(&conf, mbedtls_ctr_drbg_random, &ctr_drbg);
+#endif
     mbedtls_ssl_conf_dtls_cookies(&conf, NULL, NULL, NULL);
     mbedtls_ssl_conf_read_timeout(&conf, DTLS_UTEST_POLL_MS);
 
@@ -324,8 +326,11 @@ static void *dtls_utest_server_thread(void *arg) {
         ret = mbedtls_pk_parse_key(&srv_key,
                                    server->srv_key_pem,
                                    server->srv_key_pem_len,
-                                   NULL, 0,
-                                   mbedtls_ctr_drbg_random, &ctr_drbg);
+                                   NULL, 0
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000 && MBEDTLS_VERSION_NUMBER < 0x04000000
+                                   , mbedtls_ctr_drbg_random, &ctr_drbg
+#endif
+                                   );
         if (ret != 0) {
             LLOGE("parse srv_key_pem failed: -0x%x", (unsigned int)-ret);
             goto cleanup;

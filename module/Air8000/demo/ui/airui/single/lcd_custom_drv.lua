@@ -38,7 +38,7 @@ local function lcd_drv_init()
     -- Air8000开发板上，使能lcd供电的ldo电源开关
     -- 如果你使用的不是Air8000开发板，而是自己设计的硬件，需要根据实际情况来配置电源使能
     gpio.setup(141, 1)
-    
+
     local result = lcd.init("custom",
         {
             -- 背光控制引脚GPIO端口号
@@ -50,17 +50,17 @@ local function lcd_drv_init()
             -- 使用lcd.wakeup接口唤醒lcd后，需要手动控通过gpio接口打开背光；
             pin_pwr = 1,
 
-            port = lcd.HWID_0, -- 驱动端口
-            pin_rst = 2,       -- lcd复位引脚
-            direction = 0,     -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
-            w = 320,           -- lcd 水平分辨率
-            h = 480,           -- lcd 竖直分辨率
-            xoffset = 0,       -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
-            yoffset = 0,       -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
+            port = lcd.HWID_0,                             -- 驱动端口
+            pin_rst = 2,                                   -- lcd复位引脚
+            direction = 0,                                 -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
+            w = 320,                                       -- lcd 水平分辨率
+            h = 480,                                       -- lcd 竖直分辨率
+            xoffset = 0,                                   -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
+            yoffset = 0,                                   -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
             bus_speed = 80000000,
-            sleepcmd = 0x10,             -- 睡眠命令：SLPIN命令，进入睡眠模式
-            wakecmd = 0x11,              -- 唤醒命令：SLPOUT命令，退出睡眠模式
-            interface_mode = lcd.WIRE_4_BIT_8_INTERFACE_I,  -- 接口模式：4线SPI 8bit模式I
+            sleepcmd = 0x10,                               -- 睡眠命令：SLPIN命令，进入睡眠模式
+            wakecmd = 0x11,                                -- 唤醒命令：SLPOUT命令，退出睡眠模式
+            interface_mode = lcd.WIRE_4_BIT_8_INTERFACE_I, -- 接口模式：4线SPI 8bit模式I
         })
 
     log.info("lcd.init", result)
@@ -135,7 +135,6 @@ local function lcd_drv_init()
     -------------------------------------自定义初始化配置（结束）-------------------------------------------
 
     if result then
-
         -- 初始化AirUI
         local width, height = lcd.getSize()
         local result = airui.init(width, height)
@@ -150,19 +149,20 @@ local function lcd_drv_init()
             airui.font_load({
                 type = "hzfont",   -- 字体类型，可选 "hzfont" 或 "bin"
                 path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+                -- path = "/luadb/NotoSansSC_subset.ttf", -- 展示NotoSansSC_subset自定义字体
                 size = 20,         -- 字体大小，默认 16
                 cache_size = 1048, -- 缓存字数大小，默认 2048
                 antialias = 1,     -- 抗锯齿等级1-3，默认 1
             })
-        else
-            -- Air8101使用104号固件将字体文件烧录到文件系统，从文件系统中加载hzfont字库，从而支持12-255号中文显示
+        elseif rtos.bsp() == "PC" then
+            -- PC模拟器使用外部TTF字体文件（与lua脚本同目录），完整展示字体特性
             airui.font_load({
-                type = "hzfont",             -- 字体类型，可选 "hzfont" 或 "bin"
-                path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
-                size = 20,                   -- 字体大小，默认 16
-                cache_size = 1048,           -- 缓存字数大小，默认 2048
-                antialias = 1,               -- 抗锯齿等级1-3，默认 1
-                -- load_to_psram= true,
+                type = "hzfont",
+                path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+                -- path = "/luadb/NotoSansSC_subset.ttf", -- 展示NotoSansSC_subset自定义字体
+                size = 20,
+                cache_size = 2048,
+                antialias = 3,               -- 高抗锯齿等级，展示字体边缘平滑特性
                 global = true
             })
         end
@@ -172,9 +172,7 @@ local function lcd_drv_init()
 
         -- 打印查询结果
         log.info("airui", "version -> " .. version_result)
-
     end
-
 end
 
 lcd_drv_init()

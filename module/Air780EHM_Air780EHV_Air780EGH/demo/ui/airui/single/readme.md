@@ -54,7 +54,8 @@
 4.  **`airui_video.lua`** - 视频组件演示（MJPG播放）
 
 ### 2.6 字体渲染演示
-1.  **`airui_hzfont.lua`** - HzFont 矢量字体特性演示
+1.  **`airui_hzfont.lua`** - HzFont 内置矢量字体特性演示（支持12-255号无级缩放、抗锯齿）
+2.  **`airui_custom_hzfont.lua`** - 自定义TTF矢量字体全貌展示（需配套TTF字体文件烧录至文件系统）
 
 ### 2.7 系统管理演示
 1.  **`airui_sleep.lua`** - AirUI 深度休眠管理演示
@@ -221,6 +222,12 @@
 
 - [点击下载Air780EHM最新版本内核固件](https://docs.openluat.com/air780ehm/luatos/firmware/version/)，demo所使用的是LuatOS-SoC_V2024_Air780EHM 14/114号固件
 
+### 6.3 自定义字体使用
+- [字体制作和烧录说明](https://docs.openluat.com/common/luatos_font_guide/#_3)
+
+- 在main.lua种选择 require("airui_custom_hzfont")  -- 自定义矢量字体演示（需配套TTF字体文件）
+- lcd初始化代码中选择 path = "/luadb/NotoSansSC_subset.ttf", -- 展示NotoSansSC_subset自定义字体
+
 
 ## 七、快速开始
 
@@ -263,7 +270,7 @@ require("tp_drv")
 require("airui_all_component") --所有组件综合演示
 -- require("airui_switch_page")  --页面切换演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
--- require("airui_chart")  --图表组件演示
+-- require("airui_custom_hzfont")  --自定义矢量字体演示（需配套TTF字体文件烧录至文件系统）
 -- require("airui_qrcode") --二维码组件演示
 -- require("airui_animimg")  -- 动画图像组件演示
 -- require("airui_shape")  -- 形状组件演示

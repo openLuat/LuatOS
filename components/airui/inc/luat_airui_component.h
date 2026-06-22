@@ -45,6 +45,7 @@ typedef struct airui_component_ref airui_component_ref_t;
 #define AIRUI_SHAPE_MT "airui.shape"
 #define AIRUI_CHECKBOX_MT "airui.checkbox"
 #define AIRUI_NES_MT "airui.nes"
+#define AIRUI_GBC_MT "airui.gbc"
 #define AIRUI_CAMERA_MT "airui.camera"
 
 /** 组件类型 */
@@ -71,6 +72,7 @@ typedef enum {
     AIRUI_COMPONENT_SHAPE,
     AIRUI_COMPONENT_CHECKBOX,
     AIRUI_COMPONENT_NES,
+    AIRUI_COMPONENT_GBC,
     AIRUI_COMPONENT_CAMERA,
     AIRUI_COMPONENT_SLIDER
 } airui_component_type_t;
@@ -736,6 +738,22 @@ int airui_nes_set_key(lv_obj_t *nes, int key, int pressed);
 #define AIRUI_NES_KEY_B      6
 #define AIRUI_NES_KEY_START  7
 #define AIRUI_NES_KEY_SELECT 8
+
+/**
+ * GBC 组件（GBC 模拟器嵌入式播放）
+ */
+lv_obj_t *airui_gbc_create_from_config(void *L, int idx);
+int airui_gbc_destroy(lv_obj_t *gbc);
+int airui_gbc_set_key(lv_obj_t *gbc, int key, int pressed);
+
+#define AIRUI_GBC_KEY_UP     1
+#define AIRUI_GBC_KEY_DOWN   2
+#define AIRUI_GBC_KEY_LEFT   3
+#define AIRUI_GBC_KEY_RIGHT  4
+#define AIRUI_GBC_KEY_A      5
+#define AIRUI_GBC_KEY_B      6
+#define AIRUI_GBC_KEY_START  7
+#define AIRUI_GBC_KEY_SELECT 8
 
 /**
  * Camera 组件（摄像头预览，lv_image + 双 framebuffer RGB565 模式）

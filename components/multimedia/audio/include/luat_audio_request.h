@@ -143,9 +143,9 @@ struct luat_audio_request_block {
     uint8_t is_input_end:1;                   /**< 是否为输入结束请求 */
     uint8_t is_wait_play_end:1;                   /**< 是否等待播放结束 */
     uint8_t is_stream_end:1;                   /**< 是否为流式请求结束 */
-    uint8_t is_record_dummy_data:1;                       /**< 是否为录音特殊数据，一般为指定文件数据或者TTS数据 */
     uint8_t is_record_end:1;                   /**< 是否为录音请求 */
     uint8_t is_need_ref_data:1;                   /**< 是否需要保存参考数据 */
+
    };
 
 typedef struct luat_audio_request_block luat_audio_request_block_t;

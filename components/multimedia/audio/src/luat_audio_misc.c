@@ -158,12 +158,9 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
         } else {
             if (source->is_input_end && !luat_fifo_check_used_space(source->decode_input_fifo) && !source->decode_output_buffer.pos) {
                 source->is_decode_finish = 1;
-                LLOGC(luat_audio_debug_flag, "extern sourcedecode done");
+                LLOGC(luat_audio_debug_flag, "extern source decode done");
                 return LUAT_ERROR_NONE;
             }
-            return LUAT_ERROR_NONE;
-        }
-        if (source->decode_output_buffer.pos >= source->decode_low_level) {
             return LUAT_ERROR_NONE;
         }
     }
@@ -212,16 +209,19 @@ int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file
         }
 
         if (luat_audio_data_codec_bind(&source->codec, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS), source) != LUAT_ERROR_NONE) {
+            LLOGE("extern source bind tts codec failed");
             ret = -LUAT_ERROR_PERMISSION_DENIED;
             goto ERROR;
         }
         if (source->codec.opts->init(&source->codec, 0) != LUAT_ERROR_NONE) {
+            LLOGE("extern source init tts codec failed");
             ret = -LUAT_ERROR_PERMISSION_DENIED;
             goto ERROR;
         }
 
         source->temp_buff = luat_heap_malloc(files_num_or_tts_data_len);
         if (!source->temp_buff) {
+            LLOGE("extern source malloc tts data failed");
             ret = -LUAT_ERROR_NO_MEMORY;
             goto ERROR;
         }
@@ -233,18 +233,24 @@ int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file
     }
     if (!source->is_tts) {
         source->decode_input_fifo = luat_fifo_create(LUAT_AUDIO_DATA_CODEC_INPUT_FIFO_DEFAULT_SIZE_POWER);
+        if (!source->decode_input_fifo) {
+            LLOGE("extern source create input fifo failed");
+            ret = -LUAT_ERROR_NO_MEMORY;
+            goto ERROR;
+        }
     }
     luat_buffer_init(&source->decode_output_temp_buffer, source->codec.opts->decode_max_output_len + 128);
     if (source->is_add_record) { //附加在录音通道，输出缓存长度需要看单次录音数量和解码输出长度
         source->decode_low_level = source->request->record_fifo_enough_data_level;
         uint32_t size = source->request->record_fifo_enough_data_level > source->codec.opts->decode_max_output_len?
         source->request->record_fifo_enough_data_level : source->codec.opts->decode_max_output_len;
-        luat_buffer_init(&source->decode_output_buffer, size * 2);
+        luat_buffer_init(&source->decode_output_buffer, size * 3);
     } else {
         source->decode_low_level = source->codec.opts->decode_max_output_len;
-        luat_buffer_init(&source->decode_output_buffer, source->codec.opts->decode_max_output_len * 2);
+        luat_buffer_init(&source->decode_output_buffer, source->codec.opts->decode_max_output_len * 3);
     }
-    if (!source->decode_output_buffer.data || !source->decode_input_fifo) {
+    if (!source->decode_output_buffer.data || !source->decode_output_temp_buffer.data) {
+        LLOGE("extern source init output buffer or input fifo failed");
         ret = -LUAT_ERROR_NO_MEMORY;
         goto ERROR;
     }
@@ -265,7 +271,6 @@ void luat_audio_extern_source_deinit(luat_audio_extern_source_t *source)
     luat_buffer_deinit(&source->decode_output_buffer);
     luat_buffer_deinit(&source->decode_output_temp_buffer);
     luat_fifo_destroy(source->decode_input_fifo);
-    // luat_fifo_destroy(source->decode_output_fifo);
     if (!source->is_tts && !source->is_stream) {
         for (int i = 0; i < source->file_info_cnt; i++) {
             if (!source->file_info[i].rom_data_len && source->file_info[i].fd) {

@@ -874,14 +874,28 @@ DONE:
 /*
 停止指定的音频请求
 @api audio_v2.stop(request_index)
-@int request_index 请求索引，通过audio_v2.play_files，audio_v2.stream，audio_v2.speech，audio_v2.record或audio_v2.tts返回
+@int request_index 请求索引，通过audio_v2.play_files，audio_v2.stream，audio_v2.speech，audio_v2.record, audio_v2.tts或者audio_v2.extern_source返回
 @return nil
 @usage
 local result, index = audio_v2.play("xxxxxx")
 audio_v2.stop(index)
 */
 static int l_audio_stop(lua_State *L) {
-    uint8_t request_index = luaL_checkinteger(L, 1);
+    uint32_t request_index = luaL_checkinteger(L, 1);
+    if (request_index & LUAT_AUDIO_EXTERN_SOURCE_INDEX_FLAG) {
+        request_index &= ~LUAT_AUDIO_EXTERN_SOURCE_INDEX_FLAG;
+        if (request_index >= LUAT_AUDIO_EXTERN_SOURCE_MAX) {
+            return 0;
+        }
+        l_audio_extern_source_t *l_extern_source = &_l_audio.extern_source_table[request_index];
+        if (l_extern_source->is_busy) {
+            luat_audio_request_delete_source(&l_extern_source->extern_source);
+            luat_llist_del(&l_extern_source->node);
+            luat_llist_add_tail(&l_extern_source->node, &_l_audio.extern_source_free_list);
+        } else {
+            LLOGC(luat_audio_debug_flag,"lua extern source %d not busy", request_index);
+        }
+    }
     if (request_index  >= LUAT_AUDIO_REQUEST_MAX) {
         return 0;
     }

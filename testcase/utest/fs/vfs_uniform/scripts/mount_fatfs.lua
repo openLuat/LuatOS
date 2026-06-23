@@ -11,6 +11,8 @@ local M = {}
 function M.setup()
 
     local tf_dev = spi.deviceSetup(20, 23, 0, 8, 24*1000*1000)
+    -- 保活: spi userdata 被 GC 后 fatfs 后端野指针, 后续 IO 全失败.
+    M.spidev = tf_dev
     -- fatfs.mount 返回 (bool, int): 第一值 true/false, 第二值 FR_OK(0) 或错误码
     local ok, err = fatfs.mount(fatfs.SPI, "/fatfs", tf_dev)
     assert(ok, "fatfs mount failed: " .. tostring(err))

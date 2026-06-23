@@ -1,19 +1,12 @@
 --[[
 @module  preview
 @summary AirCAMERA_1032 USB摄像头 + excamera扩展库 + AIRUI camera组件预览
-@version 1.0
+@version 1.2
 @date    2026.06.23
 @author  江访
 @usage
 本demo使用excamera扩展库 + AIRUI camera组件实现USB摄像头实时画面预览。
-画面嵌入AIRUI组件树，切换按钮与画面共存。
-
-核心流程：
-1. LCD驱动初始化（main.lua中完成）
-2. 触摸初始化 → 绑定AIRUI输入
-3. airui.camera 创建预览控件 + 操作按钮
-4. 点击"开始预览" → excamera.open() + preview() → 画面自动推送到组件
-5. 点击"停止预览" → 停止推流，释放摄像头资源
+布局：左侧全屏预览画面，右侧操作控制面板。
 
 注意：
 - 预览组件只允许同时存在一个
@@ -21,10 +14,6 @@
   （excamera.close 含 sys.wait，只能在协程中调用）
 ]]
 
-
-
-
--- excamera扩展库
 local excamera = require "excamera"
 
 -- 全局变量
@@ -33,35 +22,48 @@ local status_label = nil      -- 状态标签
 local toggle_btn = nil        -- 开始/停止切换按钮
 local ctrl_btn = nil          -- 销毁/创建切换按钮
 
--- 目标分辨率（与LCD匹配）
+-- 目标分辨率
 local SENSOR_W = 640
 local SENSOR_H = 480
 local LCD_W = 1024
 local LCD_H = 600
 
--- 摄像头控件区域（左侧画面）
-local CAM_X = 0
-local CAM_Y = 50
-local CAM_W = SENSOR_W
-local CAM_H = SENSOR_H
+-- 布局尺寸
+local PREVIEW_X = 0
+local PREVIEW_Y = 0
+local PREVIEW_W = 680          -- 左侧预览区域宽度
+local PREVIEW_H = 600
 
--- 右侧按钮区域
-local BTN_X = 660
-local BTN_W = 340
-local BTN_H = 50
-local BTN_GAP = 12
-local BTN_START_Y = 80
+local PANEL_X = 690            -- 右侧面板起始X
+local PANEL_W = LCD_W - PANEL_X - 16  -- 右侧面板宽度（~318）
+local PANEL_H = 560
+local PANEL_Y = 20
 
--- 状态枚举
-local STATE_PREVIEW_IDLE = 0      -- 无控件/无预览
-local STATE_CREATED = 1           -- 控件已创建，未预览
-local STATE_PREVIEWING = 2        -- 预览运行中
-local app_state = STATE_PREVIEW_IDLE
+local BTN_W = PANEL_W
+local BTN_H = 48
+local BTN_GAP = 14
 
 -- 12号GPIO拉高（AirCAMERA_1032摄像头供电控制引脚）
 gpio.setup(12, 1, gpio.PULLUP)
 -- 关闭hardfault自动复位，方便调试摄像头异常
 mcu.hardfault(0)
+
+-- 状态枚举
+local STATE_IDLE = 0
+local STATE_CREATED = 1
+local STATE_PREVIEWING = 2
+local STATE_WAITING = 3
+local app_state = STATE_IDLE
+
+-- 颜色
+local COLOR_BLUE = 0x1565C0
+local COLOR_ORANGE = 0xEF6C00
+local COLOR_GREEN = 0x2E7D32
+local COLOR_RED = 0xC62828
+local COLOR_PANEL_BG = 0x1E1E2E
+local COLOR_TEXT = 0xCDD6F4
+local COLOR_TEXT_DIM = 0x9399B2
+local COLOR_BORDER = 0x45475A
 
 -- 更新状态标签
 local function update_status(text)
@@ -71,18 +73,12 @@ local function update_status(text)
     log.info("preview", text)
 end
 
--- 按钮状态颜色
-local COLOR_BLUE = 0x1565C0      -- 开始预览
-local COLOR_ORANGE = 0xEF6C00    -- 停止预览
-local COLOR_GREEN = 0x2E7D32     -- 创建组件
-local COLOR_RED = 0xC62828       -- 销毁组件
-
--- 同步切换按钮状态（文字+颜色）
+-- 同步切换按钮
 local function sync_toggle_btn()
     if not toggle_btn then
         return
     end
-    if app_state == STATE_PREVIEWING then
+    if app_state == STATE_PREVIEWING or app_state == STATE_WAITING then
         toggle_btn:set_text("停止预览")
         toggle_btn:set_style({bg_color = COLOR_ORANGE, pressed_bg_color = COLOR_ORANGE, text_color = 0xFFFFFF})
     else
@@ -91,7 +87,7 @@ local function sync_toggle_btn()
     end
 end
 
--- 同步控制按钮状态（文字+颜色）
+-- 同步控制按钮
 local function sync_ctrl_btn()
     if not ctrl_btn then
         return
@@ -108,21 +104,20 @@ end
 -- 创建AIRUI camera组件
 local function create_widget()
     if camera_widget and not camera_widget:is_destroyed() then
-        log.warn("camera_preview_airui", "控件已存在")
         return true
     end
     camera_widget = airui.camera({
         parent = airui.screen,
-        x = CAM_X, y = CAM_Y,
-        w = CAM_W, h = CAM_H,
+        x = PREVIEW_X, y = PREVIEW_Y,
+        w = PREVIEW_W, h = PREVIEW_H,
         auto_start = false,
     })
     if not camera_widget then
-        update_status("AIRUI camera控件创建失败")
+        update_status("camera组件创建失败")
         return false
     end
     app_state = STATE_CREATED
-    update_status("控件已创建")
+    update_status("组件已创建")
     return true
 end
 
@@ -132,19 +127,19 @@ local function destroy_widget()
         camera_widget:destroy()
     end
     camera_widget = nil
-    app_state = STATE_PREVIEW_IDLE
-    update_status("控件已销毁")
+    app_state = STATE_IDLE
+    update_status("组件已销毁")
 end
 
 -- 注册并启动AIRUI camera控件
 local function register_camera_widget()
     if not camera_widget or camera_widget:is_destroyed() then
-        log.warn("camera_preview_airui", "widget not available")
         return false
     end
     camera_widget:register()
     camera_widget:start()
     app_state = STATE_PREVIEWING
+    sync_toggle_btn()
     update_status("预览运行中 " .. SENSOR_W .. "x" .. SENSOR_H)
     return true
 end
@@ -153,30 +148,25 @@ end
 local function preview_callback(event, ...)
     if event == "connected" then
         local app_id = select(1, ...)
-        log.info("camera_preview_airui", "USB摄像头已连接, app_id:", app_id)
+        log.info("preview", "USB摄像头已连接, app_id:", app_id)
         register_camera_widget()
     elseif event == "disconnected" then
-        local app_id = select(1, ...)
-        log.info("camera_preview_airui", "USB摄像头已断开, app_id:", app_id)
         app_state = STATE_CREATED
+        sync_toggle_btn()
         update_status("摄像头已断开")
     elseif event == "error" then
         local msg = select(1, ...)
-        log.warn("camera_preview_airui", "摄像头错误:", msg)
-    elseif event == "frame" then
-        -- 帧数据由底层自动推送到AIRUI camera控件
+        log.warn("preview", "摄像头错误:", msg)
     end
 end
 
--- 开始预览（在协程中执行）
+-- 开始预览
 local function start_preview()
     if not camera_widget or camera_widget:is_destroyed() then
-        log.warn("camera_preview_airui", "请先创建控件")
+        log.warn("preview", "请先创建组件")
         return
     end
-
-    if app_state == STATE_PREVIEWING then
-        log.warn("camera_preview_airui", "预览已在运行")
+    if app_state == STATE_PREVIEWING or app_state == STATE_WAITING then
         return
     end
 
@@ -196,9 +186,7 @@ local function start_preview()
     end
     ok = excamera.preview(preview_callback)
     if ok then
-        -- 先切到等待状态，按钮显示"停止预览"禁止用户重复点击
-        -- EV_CONNECT 触发后 register_camera_widget() 会同步切到 STATE_PREVIEWING
-        app_state = STATE_PREVIEWING
+        app_state = STATE_WAITING
         sync_toggle_btn()
         update_status("等待摄像头连接...")
     else
@@ -207,90 +195,120 @@ local function start_preview()
     end
 end
 
--- 停止预览（在协程中执行，excamera.close含sys.wait）
+-- 停止预览
 local function stop_preview()
+    if app_state ~= STATE_PREVIEWING and app_state ~= STATE_WAITING then
+        return
+    end
     if camera_widget and not camera_widget:is_destroyed() then
         camera_widget:stop()
     end
     excamera.close()
     app_state = STATE_CREATED
+    sync_toggle_btn()
     update_status("预览已停止")
 end
 
--- 辅助函数：创建按钮（返回按钮对象）
-local function create_button(text, x, y, w, h, color, cb)
-    local btn = airui.button({
+-- 辅：创建按钮
+local function new_btn(text, x, y, w, h, color, cb)
+    return airui.button({
         parent = airui.screen,
         x = x, y = y, w = w, h = h,
-        text = text,
-        font_size = 20,
+        text = text, font_size = 20,
         style = {
-            bg_color = color,
-            pressed_bg_color = color,
-            text_color = 0xFFFFFF,
-            radius = 8,
-            border_width = 0,
+            bg_color = color, pressed_bg_color = color,
+            text_color = 0xFFFFFF, radius = 8, border_width = 0,
         },
         on_click = cb,
     })
-    return btn
 end
 
--- 按钮回调：只发布消息，不执行耗时操作
--- （on_click在LVGL事件循环中运行，非协程，不能调用sys.wait）
-local function on_toggle_preview()
-    sys.publish("CAMERA_CMD", "toggle_preview")
+-- 按钮回调：发消息转协程
+local function on_toggle()
+    sys.publish("CAMERA_CMD", "toggle")
 end
-
-local function on_ctrl_widget()
-    sys.publish("CAMERA_CMD", "ctrl_widget")
+local function on_ctrl()
+    sys.publish("CAMERA_CMD", "ctrl")
 end
 
 -- 主任务
 sys.taskInit(function()
-    -- 1. 创建状态标签
+    -- 左侧：预览画面分隔线（竖线装饰）
+    airui.container({
+        parent = airui.screen,
+        x = PREVIEW_W, y = 0, w = 2, h = LCD_H,
+        color = COLOR_BORDER,
+    })
+
+    -- 右侧：控制面板背景
+    airui.container({
+        parent = airui.screen,
+        x = PANEL_X, y = PANEL_Y, w = PANEL_W, h = PANEL_H,
+        color = COLOR_PANEL_BG, radius = 12,
+    })
+
+    -- 面板标题
+    airui.label({
+        parent = airui.screen,
+        x = PANEL_X, y = PANEL_Y + 16, w = PANEL_W, h = 32,
+        text = "摄像头控制", font_size = 22,
+        color = COLOR_TEXT,
+    })
+
+    -- 分隔线
+    airui.label({
+        parent = airui.screen,
+        x = PANEL_X + 8, y = PANEL_Y + 56, w = PANEL_W - 16, h = 1,
+        text = "", font_size = 1,
+        style = {bg_color = COLOR_BORDER, border_width = 0},
+    })
+
+    -- 状态标签
     status_label = airui.label({
         parent = airui.screen,
-        x = 10, y = 10, w = 620, h = 30,
-        text = "等待初始化...",
-        font_size = 18,
+        x = PANEL_X + 8, y = PANEL_Y + 72, w = PANEL_W - 16, h = 48,
+        text = "初始化中...", font_size = 16,
+        color = COLOR_TEXT_DIM,
     })
-    update_status("初始化中...")
 
-    -- 2. 自动创建摄像头控件
+    -- 分辨率信息
+    airui.label({
+        parent = airui.screen,
+        x = PANEL_X + 8, y = PANEL_Y + 118, w = PANEL_W - 16, h = 24,
+        text = string.format("分辨率 %dx%d  MJPEG", SENSOR_W, SENSOR_H),
+        font_size = 14, color = COLOR_TEXT_DIM,
+    })
+
+    -- 按钮起始Y
+    local by = PANEL_Y + 170
+
+    -- 切换按钮（开始/停止预览）
+    toggle_btn = new_btn("开始预览", PANEL_X, by, BTN_W, BTN_H, COLOR_BLUE, on_toggle)
+    by = by + BTN_H + BTN_GAP
+
+    -- 控制按钮（创建/销毁组件）
+    ctrl_btn = new_btn("创建组件", PANEL_X, by, BTN_W, BTN_H, COLOR_GREEN, on_ctrl)
+
+    -- 自动创建组件
     create_widget()
-
-    -- 3. 右侧创建操作按钮
-    local by = BTN_START_Y
-
-    toggle_btn = create_button("开始预览", BTN_X, by, BTN_W, BTN_H, COLOR_BLUE, on_toggle_preview)
-    by = by + BTN_H + BTN_GAP
-
-    ctrl_btn = create_button("创建组件", BTN_X, by, BTN_W, BTN_H, COLOR_GREEN, on_ctrl_widget)
-    by = by + BTN_H + BTN_GAP
-
     sync_ctrl_btn()
     sync_toggle_btn()
+    update_status("点击开始预览启动摄像头")
 
-    -- 4. 等待用户点击"开始预览"按钮启动
-    -- 不自动启动，给用户点击"开始预览"的机会
-    update_status("请点击开始预览")
-
-    -- 5. 消息循环：处理按钮发来的命令
+    -- 消息循环
     while true do
         local _, cmd = sys.waitUntil("CAMERA_CMD")
-        if cmd == "toggle_preview" then
-            if app_state == STATE_PREVIEWING then
+        if cmd == "toggle" then
+            if app_state == STATE_PREVIEWING or app_state == STATE_WAITING then
                 stop_preview()
             else
                 start_preview()
             end
             sync_toggle_btn()
             sync_ctrl_btn()
-        elseif cmd == "ctrl_widget" then
+        elseif cmd == "ctrl" then
             if camera_widget and not camera_widget:is_destroyed() then
-                -- 如果预览运行中，先停止
-                if app_state == STATE_PREVIEWING then
+                if app_state == STATE_PREVIEWING or app_state == STATE_WAITING then
                     stop_preview()
                 end
                 destroy_widget()

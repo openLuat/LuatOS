@@ -1086,13 +1086,13 @@ static int l_cc_answer_call(lua_State* L) {
 @return bool 成功与否
  */
 static int l_cc_speech_init(lua_State* L) {
-    uint8_t multimedia_id = luaL_optinteger(L, 1, 0);
+    uint32_t multimedia_id = luaL_optinteger(L, 1, 0);
     if (luat_mobile_speech_init(multimedia_id,mobile_voice_data_input)){
         lua_pushboolean(L, 0);
         return 1;
     }
     luat_cc.record_timer = luat_create_rtos_timer(download_data_callback, NULL, NULL);
-    luat_rtos_task_create(&luat_cc.task_handle, 4*1024, 100, "volte", luat_volte_task, multimedia_id, 64);
+    luat_rtos_task_create(&luat_cc.task_handle, 4*1024, 100, "volte", luat_volte_task, (void *)multimedia_id, 64);
     lua_pushboolean(L, 1);
     return 1;
 }

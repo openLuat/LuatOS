@@ -4,7 +4,7 @@
 
 LuatOS 音频子系统采用**分层解耦 + 面向接口**的设计思想，驱动、编解码器、DSP 算法均可插件式注册。核心框架通过**一个统一的控制器**管理请求、驱动、通道，支持多优先级请求抢占、多模式（播放/录音/通话/TTS）、多数据源（文件/ROM数组/流式）。
 
-上层通过 Lua 脚本 API（`audio_v2` 模块，详见第十四章）和扩展库 `exaudio.lua` 暴露给开发者，底层硬件驱动通过函数指针表实现硬件无关的框架设计。
+上层通过 Lua 脚本 API（`audio_v2` 模块，详见第十四章）暴露给开发者，底层硬件驱动通过函数指针表实现硬件无关的框架设计。
 
 ---
 
@@ -42,7 +42,6 @@ audio/
 ┌──────────────────────────────────────────────────────────────────┐
 │                    Lua 层                                         │
 │  audio_v2.play() / audio_v2.stream() / audio_v2.tts() / audio_v2.on()               │
-│  exaudio.lua (扩展封装: 优先级队列/多文件播放/回调管理)            │
 ├──────────────────────────────────────────────────────────────────┤
 │                    C 上层 API（luat_audio_request_xxx）            │
 │  play_files / play_tts / record / speech / prepare / cancel      │
@@ -894,30 +893,7 @@ org_input_data_fifo
 
 ---
 
-## 十二、`exaudio.lua` 扩展库
-
-`exaudio.lua` 是基于 `audio_v2` C API 的纯 Lua 扩展层，提供更高级的功能封装：
-
-| 函数 | 功能 |
-|------|------|
-| `exaudio.setup(param)` | 初始化音频硬件（支持 es8311/tm8211/dac 三种模型）|
-| `exaudio.play_start(configs, priority, cbfnc)` | 多优先级队列播放（文件/TTS/流）|
-| `exaudio.play_stop()` | 停止播放 |
-| `exaudio.play_stream_write(data)` | 流式写入数据（写入队列，由 audio.MORE_DATA 事件驱动）|
-| `exaudio.record_start(format, time, path_or_cb, cbfnc)` | 录音启动 |
-| `exaudio.record_stop()` | 停止录音 |
-| `exaudio.vol(vol)` | 设置音量 |
-| `exaudio.pm(mode)` | 设置电源管理模式 |
-
-**核心特性**：
-- **优先级队列**：`play_start` 支持优先级参数，高优先级请求可打断低优先级
-- **多文件一致性检查**：连续播放多个文件时，自动检查采样率/声道数/位深一致性
-- **流式数据队列**：`play_stream_write` 写入队列，由 `audio.MORE_DATA` 事件逐一消费
-- **自动电源管理**：play_start / record_start 自动 RESUME，播放/录音完成自动 SHUTDOWN
-
----
-
-## 十三、调试与诊断
+## 十二、调试与诊断
 
 - 全局调试标志 `luat_audio_debug_flag`（默认为 1），通过 `luat_audio_debug_switch()` 控制
 - 各模块使用 `LLOGC(luat_audio_debug_flag, ...)` 条件编译日志

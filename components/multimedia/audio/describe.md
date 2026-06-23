@@ -1067,15 +1067,15 @@ end)
 
 ---
 
-#### `audio_v2.input(request_index, data, is_end)`
+#### `audio_v2.input(request_or_source_index, data, is_end)`
 
-向流模式请求的输入 FIFO 推送音频数据。与 `stream` 搭配使用，在 `REQUEST_NEED_NEW_DATA` 回调中调用此函数将数据喂给解码器。
+向流模式请求或外部音频源的输入 FIFO 推送音频数据。与 `stream` 搭配使用，在 `REQUEST_NEED_NEW_DATA` 回调中调用此函数将数据喂给解码器。也可用于向 `extern_source` 推入流式数据。
 
 **参数**：
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `request_index` | int | 请求索引，由 `audio_v2.stream` 返回 |
+| `request_or_source_index` | int | 请求索引（由 `audio_v2.stream` 返回）或外部音频源索引（由 `audio_v2.extern_source` 返回）|
 | `data` | string/zbuff | 要推送的音频数据。支持 Lua string 或 zbuff 对象 |
 | `is_end` | boolean | 可选。是否为最后一帧数据。`true` 表示数据发送完毕，解码器处理完剩余数据后将结束播放。默认 `false` |
 
@@ -1109,22 +1109,67 @@ audio_v2.input(req_id, last_data, true)
 ```
 
 **注意**：
-- 必须在 `stream` 返回的 `request_index` 有效且请求处于 busy 状态时调用
+- 必须在 `stream` 返回的 `request_index` 有效且请求处于 busy 状态时调用，或 `extern_source` 返回的 `source_index` 有效时调用
 - 写入的数据量受 `org_input_data_fifo` 剩余空间限制（默认 16KB），超出部分将被截断
 - 使用 zbuff 传入时，写入成功后 zbuff 的 `used` 指针会自动前移（消耗已写数据）
 - 设置 `is_end = true` 后，解码器消费完 FIFO 中所有数据后会结束播放并触发 `REQUEST_END`
+- 当传入 `extern_source` 返回的 `source_index` 时，需注意该索引高位带有 `0x80` 标记位，`input` 函数会自动识别
 
 ---
 
-#### `audio_v2.stop(request_index)`
+#### `audio_v2.extern_source(request_index, source, is_add_record, codec_id, sample_rate, data_bits, channel_nums, is_signed)`
 
-停止正在播放的请求。
+对讲中附加额外的音频数据源。与 `speech` 搭配使用，在全双工通话通道上叠加播放额外的音频文件、TTS 文本或 PCM 数据。额外音频的参数必须和对讲的参数一致，否则会失败。
 
 **参数**：
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `request_index` | int | 请求索引，由 `audio_v2.play`、`audio_v2.stream` 或 `audio_v2.tts` 返回 |
+| `request_index` | int | 请求索引，通过 `audio_v2.speech` 返回 |
+| `source` | table/string/zbuff | 音频数据源。table 为文件路径列表（即使单个文件也要用 table）；string 为 TTS 文本；zbuff 为音频数据 |
+| `is_add_record` | boolean | 可选。是否添加到录音通道，默认 `false`（添加到播放通道） |
+| `codec_id` | int | 可选。解码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则通过输入数据自行判断 |
+| `sample_rate` | int | 可选。采样率（Hz），指定 RAW 编解码器时必填 |
+| `data_bits` | int | 可选。数据位数 8/16/24/32，指定 RAW 编解码器时必填。默认 16 |
+| `channel_nums` | int | 可选。声道数 1/2，指定 RAW 编解码器时必填。默认 1 |
+| `is_signed` | boolean | 可选。数据是否有符号，默认 `true` |
+
+**返回值**：
+
+| 返回值 | 类型 | 说明 |
+|--------|------|------|
+| 成功标志 | boolean | 成功返回 `true`，否则返回 `false` |
+| source_index | int | 外部音频源索引，可用于 `audio_v2.input` 或 `audio_v2.stop` 操作（需带上 `EXT_SRC_INDEX_FLAG`）|
+
+**示例**：
+
+```lua
+-- 启动对讲
+local ok, req_id = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_AMR_WB, save_buffer, 10)
+
+-- 在对讲中附加额外的音频文件播放
+audio_v2.extern_source(req_id, {"/test_16k.mp3"})
+
+-- 附加 TTS 文本
+audio_v2.extern_source(req_id, "请注意安全")
+```
+
+**注意**：
+- 最多同时支持 2 个外部音频源（`LUAT_AUDIO_EXTERN_SOURCE_MAX`）
+- source_index 返回值最高位带标记位（`0x80`），传递给 `audio_v2.input` 或 `audio_v2.stop` 时可自动识别
+- `audio_v2.on` 回调中可通过 `EXT_SRC_DONE` 事件监听外部音频源播放完成
+
+---
+
+#### `audio_v2.stop(request_index)`
+
+停止正在播放的请求或外部音频源。
+
+**参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `request_index` | int | 请求索引，由 `audio_v2.play`、`audio_v2.stream`、`audio_v2.speech`、`audio_v2.record`、`audio_v2.tts` 返回的请求索引，或由 `audio_v2.extern_source` 返回的外部音频源索引 |
 
 **返回值**：无
 
@@ -1245,13 +1290,87 @@ local ok, jump, need, rate, bits, ch, sig = audio_v2.get_play_info(buff, audio_v
 
 ---
 
-#### `audio_v2.record()` — ⚠️ 待实现
+#### `audio_v2.record(codec_id, save_buffer, record_callback_cnt, priority, sample_rate, data_bits, channel_nums, driver_probe_id)`
 
-录音功能。当前版本暂未实现，声明为框架预留接口。
+录音请求，支持两种模式：保存到文件，或保存到 zbuff 并通过回调返回数据。
 
-#### `audio_v2.speech()` — ⚠️ 待实现
+**参数**：
 
-通话（对讲）功能。当前版本暂未实现，声明为框架预留接口。
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `save_buffer` | string/zbuff | 保存目标。string 为文件路径，录音保存到文件；zbuff 为缓冲区，录音数据通过回调返回 |
+| `record_callback_cnt` | int | 保存到文件时为录音总时长（秒），时间到自动停止；保存到 zbuff 时为每次回调的帧数，每帧时长由编码器决定 |
+| `codec_id` | int | 编码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则直接返回原始 PCM 数据 |
+| `priority` | int | 可选。优先级（0~255），值越大优先级越高。默认 0 |
+| `sample_rate` | int | 可选。希望的采样率，指定了 codec_id 则可留空，由编码器决定 |
+| `data_bits` | int | 可选。数据位数 8/16/24/32，指定了 codec_id 则可留空 |
+| `channel_nums` | int | 可选。声道数 1/2，指定了 codec_id 则可留空 |
+| `driver_probe_id` | int | 可选。驱动 ID，不使用默认驱动时填写 |
+
+**返回值**：
+
+| 返回值 | 类型 | 说明 |
+|--------|------|------|
+| 成功标志 | boolean | 成功返回 `true`，否则返回 `false` |
+| request_index | int | 请求索引，用于停止、回调区分等后续操作 |
+
+**示例**：
+
+```lua
+-- 录音到 zbuff，编码器为 AMR_WB，每 10 帧回调一次
+local save_buffer = zbuff.create(10240)
+local ok, req_id = audio_v2.record(audio_v2.DATA_CODEC_TYPE_AMR_WB, save_buffer, 10)
+
+-- 录音到文件，编码器为 AMR_WB，录音 10 秒结束
+local ok, req_id = audio_v2.record(audio_v2.DATA_CODEC_TYPE_AMR_WB, "/save.amr", 10)
+```
+
+**注意**：
+- 保存到 zbuff 模式时，通过 `audio_v2.on` 回调的 `REQUEST_GET_NEW_DATA` 事件获取录音数据，`param` 为本次回调的驱动数据大小
+- 保存到文件模式时，录音时长由 `record_callback_cnt` 控制，时间到达后自动结束并触发 `REQUEST_END`
+- 编码器需支持 `encode` 操作，不支持编码的编解码器（如 MP3）不能用于录音
+
+---
+
+#### `audio_v2.speech(record_codec_id, save_buffer, record_callback_cnt, play_codec_id, sample_rate, data_bits, channel_nums, driver_probe_id)`
+
+全双工通话（对讲）模式。同时进行录音和播放，适用于对讲、VoIP 等实时通话场景。
+
+**参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `record_codec_id` | int | 录音编码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则直接返回原始 PCM 数据 |
+| `save_buffer` | zbuff | 录音数据回调时保存的 zbuff 缓冲区 |
+| `record_callback_cnt` | int | 每次录音回调的帧数，每帧时长由编码器决定 |
+| `play_codec_id` | int | 可选。播放解码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则与录音编码器相同 |
+| `sample_rate` | int | 可选。希望的采样率，指定了 codec_id 则可留空 |
+| `data_bits` | int | 可选。数据位数 8/16/24/32，默认 16 |
+| `channel_nums` | int | 可选。声道数 1/2，默认 1 |
+| `driver_probe_id` | int | 可选。驱动 ID，不使用默认驱动时填写 |
+
+**返回值**：
+
+| 返回值 | 类型 | 说明 |
+|--------|------|------|
+| 成功标志 | boolean | 成功返回 `true`，否则返回 `false` |
+| request_index | int | 请求索引，用于停止、暂停、附加外部音源等后续操作 |
+
+**示例**：
+
+```lua
+-- 双工对讲模式，编码器为 AMR_WB，每 10 帧回调一次
+local save_buffer = zbuff.create(10240)
+local ok, req_id = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_AMR_WB, save_buffer, 10)
+
+-- 使用 audio_v2.extern_source 附加外部音源到通话中
+audio_v2.extern_source(req_id, {"/test_16k.mp3"})
+```
+
+**注意**：
+- 全双工模式需要驱动支持全双工能力（`support_full_loop` 或 `support_full_loop_with_play_buff`）
+- 通过 `audio_v2.on` 回调的 `REQUEST_GET_NEW_DATA` 事件获取对讲的录音数据
+- 可通过 `audio_v2.extern_source` 在此通话通道上附加额外的播放音源
 
 ---
 
@@ -1285,10 +1404,12 @@ function(request_index, event, param)
 |---------|-----|---------|-------|
 | `audio_v2.REQUEST_START` | 0 | 开始处理请求 | 无意义 |
 | `audio_v2.REQUEST_DRIVER_START` | 1 | 请求块驱动已启动（硬件开始输出） | 无意义 |
-| `audio_v2.REQUEST_NEED_NEW_DATA` | 2 | 播放需要更多数据（流模式） | 无意义 |
-| `audio_v2.REQUEST_GET_NEW_DATA` | 3 | 获取到新录音数据 | zbuff 序号（录音专用）|
-| `audio_v2.REQUEST_DECODE_DONE` | 4 | 请求解码完成（预留） | 无意义 |
-| `audio_v2.REQUEST_END` | 5 | 请求块处理完成（正常/出错/停止） | 无意义 |
+| `audio_v2.REQUEST_TTS_START` | 2 | TTS 开始播放 | 无意义 |
+| `audio_v2.REQUEST_NEED_NEW_DATA` | 4 | 播放需要更多数据（流模式） | 无意义 |
+| `audio_v2.REQUEST_GET_NEW_DATA` | 5 | 获取到新录音数据 | 本次回调获取到的驱动数据大小 |
+| `audio_v2.REQUEST_DECODE_DONE` | 6 | 请求解码完成 | 无意义 |
+| `audio_v2.REQUEST_END` | 7 | 请求块处理完成（正常/出错/停止） | 无意义 |
+| `audio_v2.EXT_SRC_DONE` | 8 | 外部音频源（extern_source）解码完成 | `param=0` 表示播放路径完成，`param=1` 表示单个文件播放完成 |
 
 **示例**：
 
@@ -1449,6 +1570,73 @@ log.info("驱动总数:", all_nums, "默认驱动索引:", default_index)
 local all_nums, default_index = audio_v2.get_driver_info()
 local driver_id = audio_v2.get_driver_id(default_index)
 log.info("默认驱动ID:", driver_id)
+```
+
+---
+
+#### `audio_v2.get_driver_param(driver_probe_id, param)`
+
+获取音频驱动的参数信息，如播放/录音单 block 最大长度等。
+
+**参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `driver_probe_id` | int | 驱动 ID，需通过 `audio_v2.make_probe_id` 合成。0 表示默认驱动 |
+| `param` | int | 要查询的参数索引，见 `DRIVER_PARAM_*` 常量 |
+
+**返回值**：
+
+| 返回值 | 类型 | 说明 |
+|--------|------|------|
+| value | int | 查询到的参数值。驱动未找到时返回 0 |
+
+**可查询参数**：
+
+| 参数常量 | 值 | 说明 |
+|---------|-----|------|
+| `audio_v2.DRIVER_PARAM_TX_MAX_LEN` | 0 | 播放单 block 最大长度（字节，8 字节对齐）|
+| `audio_v2.DRIVER_PARAM_RX_MAX_LEN` | 1 | 录音单 block 最大长度（字节，8 字节对齐）|
+
+**示例**：
+
+```lua
+-- 查询默认驱动的播放 block 最大长度
+local max_tx_len = audio_v2.get_driver_param(0, audio_v2.DRIVER_PARAM_TX_MAX_LEN)
+log.info("TX max len:", max_tx_len)
+```
+
+---
+
+#### `audio_v2.get_codec_param(codec_id, param)`
+
+获取编解码器的参数信息，如编码一帧所需的最小输入数据长度。
+
+**参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `codec_id` | int | 编解码器 ID，见 `DATA_CODEC_TYPE_*` 常量 |
+| `param` | int | 要查询的参数索引，见 `DATA_CODEC_PARAM_*` 常量 |
+
+**返回值**：
+
+| 返回值 | 类型 | 说明 |
+|--------|------|------|
+| value | int | 查询到的参数值。编解码器未找到时返回 0 |
+
+**可查询参数**：
+
+| 参数常量 | 值 | 说明 |
+|---------|-----|------|
+| `audio_v2.DATA_CODEC_PARAM_ENCODE_INPUT_LEN` | 0 | 编码一帧需要的输入数据长度（字节）|
+
+**示例**：
+
+```lua
+-- 查询 AMR_NB 编码器一帧需要的输入长度
+local need_len = audio_v2.get_codec_param(audio_v2.DATA_CODEC_TYPE_AMR_NB, audio_v2.DATA_CODEC_PARAM_ENCODE_INPUT_LEN)
+log.info("AMR_NB encode input len:", need_len)
 ```
 
 ---
@@ -1698,10 +1886,12 @@ audio_v2.shutdown(true, true, true, pid)
 |--------|-----|------|
 | `audio_v2.REQUEST_START` | 0 | 开始处理请求 |
 | `audio_v2.REQUEST_DRIVER_START` | 1 | 请求块驱动已启动（硬件开始输出）|
-| `audio_v2.REQUEST_NEED_NEW_DATA` | 2 | 需要新的播放数据（流模式）|
-| `audio_v2.REQUEST_GET_NEW_DATA` | 3 | 获取到新录音数据 |
-| `audio_v2.REQUEST_DECODE_DONE` | 4 | 解码完成（预留）|
-| `audio_v2.REQUEST_END` | 5 | 请求处理完成 |
+| `audio_v2.REQUEST_TTS_START` | 2 | TTS 开始播放 |
+| `audio_v2.REQUEST_NEED_NEW_DATA` | 4 | 需要新的播放数据（流模式）|
+| `audio_v2.REQUEST_GET_NEW_DATA` | 5 | 获取到新录音数据 |
+| `audio_v2.REQUEST_DECODE_DONE` | 6 | 解码完成 |
+| `audio_v2.REQUEST_END` | 7 | 请求处理完成 |
+| `audio_v2.EXT_SRC_DONE` | 8 | 外部音频源解码完成 |
 
 #### 驱动总线类型常量（用于 `make_probe_id` / `print_probe_id`）
 
@@ -1726,6 +1916,21 @@ audio_v2.shutdown(true, true, true, pid)
 | `audio_v2.DATA_CODEC_TYPE_OPUS` | 6 | OPUS 编解码器 |
 | `audio_v2.DATA_CODEC_TYPE_G711_ULAW` | 7 | G711 μ-Law 编解码器 |
 | `audio_v2.DATA_CODEC_TYPE_G711_ALAW` | 8 | G711 A-Law 编解码器 |
+| `audio_v2.DATA_CODEC_TYPE_NO_OP` | 9 | 无操作编解码器（占位使用）|
+| `audio_v2.DATA_CODEC_TYPE_HW` | 0x80 | 硬件编解码器优先模式，与上述 type 值按位或使用 |
+
+#### 驱动参数查询常量（用于 `audio_v2.get_driver_param` 的 `param`）
+
+| 常量名 | 值 | 说明 |
+|--------|-----|------|
+| `audio_v2.DRIVER_PARAM_TX_MAX_LEN` | 0 | 播放单 block 最大长度（字节，8 字节对齐）|
+| `audio_v2.DRIVER_PARAM_RX_MAX_LEN` | 1 | 录音单 block 最大长度（字节，8 字节对齐）|
+
+#### 编解码器参数查询常量（用于 `audio_v2.get_codec_param` 的 `param`）
+
+| 常量名 | 值 | 说明 |
+|--------|-----|------|
+| `audio_v2.DATA_CODEC_PARAM_ENCODE_INPUT_LEN` | 0 | 编码一帧需要的输入数据长度（字节）|
 
 #### 驱动私有参数常量（用于 `audio_v2.config` 的 `config_param`）
 

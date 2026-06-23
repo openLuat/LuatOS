@@ -7,7 +7,7 @@
 @usage
 本文件管理所有UI页面，包括主页和各个演示页面。
 ]]
-
+require("excamera") -- 摄像头预览库，供 airui_camera_preview 页面使用   
 require("airui_home")
 require("airui_label")
 require("airui_button")
@@ -31,6 +31,7 @@ require("airui_shape")
 require("airui_spinner")
 require("airui_video")
 require("airui_all_component")
+require("airui_camera_preview")
 
 -- 当前显示的页面
 local current_page = nil
@@ -68,7 +69,8 @@ local pages = {
     shape = "airui_shape",                      -- 形状演示
     spinner = "airui_spinner",                  -- 加载指示器演示
     video = "airui_video",                      -- 视频演示
-    all_component = "airui_all_component",  -- 所有组件演示
+    all_component = "airui_all_component",      -- 所有组件演示
+    camera_preview = "airui_camera_preview",    -- 摄像头预览演示
 }
 
 -- 显示指定页面

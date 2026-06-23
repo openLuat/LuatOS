@@ -1,0 +1,9 @@
+{
+    "timeout": 30,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "netdrv LWIP 层拦截 + send_raw 注回应答 闭环测试 (whale 设备, PC 模拟器)"
+}

@@ -43,6 +43,9 @@
 #define LUAT_USE_NETDRV_OPENVPN 1
 #define LUAT_USE_NETDRV_WG 1
 
+// ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试)
+#define LUAT_USE_ICMP 1
+
 #define LUAT_USE_AIRLINK 1
 #define LUAT_USE_AIRLINK_SPI_MASTER 1
 #define LUAT_USE_AIRLINK_UART 1
@@ -134,7 +137,6 @@
 #define LUAT_CONF_FSKV_CUSTOM 1
 // FFT 库开关
 #define LUAT_USE_FFT 1
-// #define LUAT_USE_OTA 1
 // #define LUAT_USE_I2CTOOLS 1
 // #define LUAT_USE_LORA 1
 #define LUAT_USE_LORA2 1

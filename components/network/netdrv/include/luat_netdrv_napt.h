@@ -6,6 +6,7 @@
 #include "lwip/ip.h"
 #include "lwip/etharp.h"
 #include "luat_netdrv.h"
+#include "luat_netdrv_pkg.h"
 #include <string.h>
 
 // NAPT公共类型别名
@@ -155,17 +156,17 @@ static inline int napt_output_to_lan(napt_ctx_t* ctx,
         return 1;
     }
     if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
-        dst->dataout(dst, dst->userdata, ctx->eth, ctx->len);
+        luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ctx->eth, ctx->len);
     }
     else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
         memcpy(buff, mapping->inet_mac, 6);
         memcpy(buff + 6, dst->netif->hwaddr, 6);
         memcpy(buff + 12, "\x08\x00", 2);
         memcpy(buff + 14, ip_hdr, ctx->len);
-        dst->dataout(dst, dst->userdata, buff, ctx->len + 14);
+        luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, buff, ctx->len + 14);
     }
     else {
-        dst->dataout(dst, dst->userdata, ip_hdr, ctx->len);
+        luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len);
     }
     return 1;
 }
@@ -183,22 +184,22 @@ static inline int napt_output_to_wan(napt_ctx_t* ctx,
         if (ctx->eth) {
             memcpy(ctx->eth->dest.addr, gw->gw_mac, 6);
             memcpy(ctx->eth->src.addr, gw->netif->hwaddr, 6);
-            gw->dataout(gw, gw->userdata, ctx->eth, ctx->len);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ctx->eth, ctx->len);
         }
         else {
             memcpy(buff, gw->gw_mac, 6);
             memcpy(buff + 6, gw->netif->hwaddr, 6);
             memcpy(buff + 12, "\x08\x00", 2);
             memcpy(buff + 14, ip_hdr, ctx->len);
-            gw->dataout(gw, gw->userdata, buff, ctx->len + 14);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, buff, ctx->len + 14);
         }
     }
     else {
         if (ctx->eth) {
-            gw->dataout(gw, gw->userdata, ip_hdr, ctx->len - 14);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len - 14);
         }
         else {
-            gw->dataout(gw, gw->userdata, ip_hdr, ctx->len);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len);
         }
     }
     return 1;

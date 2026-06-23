@@ -51,6 +51,8 @@ LUAMOD_API int luaopen_sfud( lua_State *L );
 LUAMOD_API int luaopen_little_flash( lua_State *L );
 /** pgfs库*/
 LUAMOD_API int luaopen_pgfs( lua_State *L );
+/** tfs库, PC utest only */
+LUAMOD_API int luaopen_tfs( lua_State *L );
 /** utest库*/
 // LUAMOD_API int luaopen_utest( lua_State *L );
 /** mqtt库*/

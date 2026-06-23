@@ -18,7 +18,7 @@
 #include "luat_wdt.h"
 
 #include "luat_rtos.h"
-#include "luat_netdrv_event.h"
+#include "luat_netdrv_pkg.h"
 
 #define LUAT_LOG_TAG "netdrv.ch390x"
 #include "luat_log.h"
@@ -203,6 +203,17 @@ err_t ch390_netif_output(struct netif *netif, struct pbuf *p) {
         }
         if (ch->status == CH390H_STATUS_STOPPED) {
             return ERR_IF;
+        }
+        // LWIP 层拦截: 用户已声明拦截 (layer="lwip") 则原 dataout 流程被吞掉.
+        // 注意: pbuf 可能是多片链表, 仅当单片 (p->next == NULL) 且
+        // 首片 payload 长度 >= tot_len 时才能直接传 payload 指针.
+        // 返回 0 = 未拦截, 1 = 已拦截 (跳过 ch390h_dataout_pbuf).
+        if (p != NULL && p->tot_len > 0 && p->next == NULL && p->len >= p->tot_len) {
+            int intercepted = luat_netdrv_pkg_input(ch->netdrv->id, LUAT_NETDRV_CH_LWIP, p->payload, p->tot_len);
+            if (intercepted != 0) {
+                // Lua 已拿走控制权, 原 TX 包不入 spi 队列 (Lua 自己 send_raw)
+                break;
+            }
         }
         ch390h_dataout_pbuf(ch, p);
         break;
@@ -396,14 +407,11 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             //print_erp_pkg(ch->rxbuff, len);
             // 先经过netdrv过滤器
             // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
-            ret = luat_netdrv_napt_pkg_input(ch->adapter_id, ch->rxbuff, len - 4);
-            // LLOGD("napt ret %d", ret);
-            if (ret != 0) {
-                // 不需要输入到LWIP了
-                // LLOGD("napt说不需要注入lwip了");
-            }
-            else {
-                // 如果返回值是0, 那就是继续处理, 输入到netif
+            // 替换原 napt_pkg_input 调用为 pkg_input (内含 EVT_PKG 截获检查)
+            ret = luat_netdrv_pkg_input(ch->adapter_id, LUAT_NETDRV_CH_HW,
+                                        ch->rxbuff, (uint16_t)(len - 4));
+            if (ret == 0) {
+                // napt 未消费, 继续注入 netif (原逻辑)
                 ret = luat_netdrv_netif_input_proxy(ch->netdrv->netif, ch->rxbuff, len - 4);
                 if (ret) {
                     LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);

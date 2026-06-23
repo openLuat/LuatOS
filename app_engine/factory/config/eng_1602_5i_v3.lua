@@ -64,6 +64,7 @@ return {
     features = {
         wifi = true,                     -- 启用 WiFi
         nand_flash = true,               -- 启用 NAND Flash 存储
+        nes = true,                      -- 启用 NES 游戏按键（需配 nes_keys）
     },
 
     -- ===== NES 游戏按键绑定 =====

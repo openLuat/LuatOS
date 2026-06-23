@@ -15,9 +15,18 @@ local record_save_buff_cnt = 0
 local i2c_id = 1
 local stream_file_fp = nil
 local stream_request_index = nil
+local speech_request_index = nil
+local speech_extern_source_index = nil
+local speech_test = false
+
 local function audio_cb(request_index, event, param)
     log.info("audio_cb", request_index, event, param)
-    if stream_file_fp and request_index == stream_request_index then
+    if speech_test then
+        if event == audio_v2.EXT_SRC_DONE then
+            record_save_buff_cnt = 450  -- 第三方数据源完成后，为了让测试快速结束，假装录音完成450次了
+            log.info("ext src done")
+        end
+    elseif stream_file_fp and request_index == stream_request_index then
         if event == audio_v2.REQUEST_NEED_NEW_DATA then
             local result, write_len, free_len = audio_v2.input(stream_request_index)
             log.info("stream fifo", result, free_len)
@@ -46,9 +55,17 @@ local function audio_cb(request_index, event, param)
         log.info("get new data", record_temp_buff:used())
         record_save_buff:copy(nil,record_temp_buff)
         record_temp_buff:del()
-        if record_save_buff_cnt >= 10 then
+        if speech_test then
+            record_save_buff:del()
             log.info("record_save_buff_cnt", record_save_buff_cnt)
-            audio_v2.stop(request_index)
+            if record_save_buff_cnt >= 500 then
+                audio_v2.stop(speech_request_index)
+            end
+        else
+            if record_save_buff_cnt >= 20 then
+                log.info("record_save_buff_cnt", record_save_buff_cnt)
+                audio_v2.stop(request_index)
+            end
         end
     end
 end
@@ -87,8 +104,8 @@ function audio_setup_air780ehm_evb()
     es8311.set_data_bits(i2c_id,16)
     es8311.set_format(i2c_id)
     es8311.resume(i2c_id)
-    es8311.set_voice_vol(i2c_id,60)
-    es8311.set_mic_vol(i2c_id,80)
+    es8311.set_voice_vol(i2c_id,57)
+    es8311.set_mic_vol(i2c_id,85)
     --es8311.standby(i2c_id)
 end
 
@@ -99,8 +116,6 @@ local function play_task()
     local file_data, no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed, result
     while true do
         audio_v2.play(amrs)
-        --audio_v2.play("/luadb/test_16k.mp3")
-
         line = nil
         if not fd then
             fd = io.open("/luadb/qianzw.txt")
@@ -118,8 +133,6 @@ local function play_task()
         line = line:trim()
         log.info("播放内容", line)
         audio_v2.tts(line)
-        --audio_v2.play("/luadb/test_32k.mp3")
-        --audio_v2.play("/luadb/test_44k.mp3")
         while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
             sys.wait(1000)
         end
@@ -190,7 +203,30 @@ local function play_task()
         while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
             sys.wait(1000)
         end
-
+        -- 演示对讲模式
+        speech_test = true
+        result, speech_request_index = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_AMR_WB|audio_v2.DATA_CODEC_TYPE_HW, record_temp_buff, 5)
+        -- 演示对讲时往放音通道播放文件
+        result, speech_extern_source_index = audio_v2.extern_source(speech_request_index, {"/luadb/test_16k.mp3"}, false)
+        -- 演示对讲时往放音通道播放tts
+        -- result, speech_extern_source_index = audio_v2.extern_source(speech_request_index, "你好，一二三四五六七八九十，测试一下，测试一下，测试结束", false)
+        -- 演示对讲时往录音通道播放文件
+        -- result, speech_extern_source_index = audio_v2.extern_source(speech_request_index, {"/luadb/test_16k.mp3"}, true)
+        -- 演示对讲时往录音通道播放tts
+        -- result, speech_extern_source_index = audio_v2.extern_source(speech_request_index, "你好，一二三四五六七八九十，测试一下，测试一下，测试结束", true)
+        -- log.info("source", result, speech_extern_source_index)
+        -- sys.wait(2000)
+        -- 演示提前结束第三方数据源
+        -- audio_v2.stop(speech_extern_source_index)
+        while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
+            sys.wait(1000)
+        end
+        speech_test = false
+        record_save_buff_cnt = 0
+        --定期检查ram使用情况，及时发现内存泄露
+        log.info("lua", rtos.meminfo("lua"))
+        log.info("sys", rtos.meminfo("sys"))
+        log.info("psram", rtos.meminfo("psram"))
     end
 end
 
@@ -199,14 +235,5 @@ audio_setup_air780ehm_evb()
 -- audio_setup_8101()
 
 sys.taskInit(play_task)
---定期检查ram使用情况，及时发现内存泄露
-sys.taskInit(function()
-    while true do
-        sys.wait(10000)
-        log.info("time", os.time())
-        log.info("lua", rtos.meminfo("lua"))
-        log.info("sys", rtos.meminfo("sys"))
-        log.info("psram", rtos.meminfo("psram"))
-    end
-end)
+
 sys.run()

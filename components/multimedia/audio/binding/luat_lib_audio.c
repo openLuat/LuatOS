@@ -750,7 +750,7 @@ DONE:
 }
 
 /*
-对讲中附加额外的音频数据
+对讲中附加额外的音频数据，额外音频的参数必须和对讲的参数一致，否则会失败而没有任何作用
 @api audio_v2.extern_source(request_index, source, is_add_record,codec_id, sample_rate, data_bits, channel_nums, is_signed)
 @int request_index 请求索引，通过audio_v2.speech返回的
 @table/string/zbuff 输入数据，table表示播放文件，string表示播放tts，zbuff表示播放音频数据，如果只播放一个文件也要用table

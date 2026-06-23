@@ -78,7 +78,7 @@ lcd_drv = require "lcd_drv"
 -- 2、使用extp扩展库驱动的extp_drv.lua
 -- 根据自己的需求，启用两者中的任何一种都可以
 -- 也可以不启用任何一种，不使用触摸面板功能
-tp_drv = require "tp_drv"
+require "tp_drv"
 -- tp_drv = require "extp_drv"
 
 
@@ -99,6 +99,10 @@ tp_drv = require "tp_drv"
 -- 实现多页面切换、触摸事件分发和界面渲染功能
 -- 包含主页、lcd核心库功能演示页和自定义字体演示页
 require "ui_main"
+
+
+-- 加载GC032A摄像头配置表，供camera_preview_page摄像头预览使用
+require "gc032a"
 
 
 -- 用户代码已结束

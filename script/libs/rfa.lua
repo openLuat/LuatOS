@@ -176,18 +176,29 @@ function M._builtin_dispatch(line)
         if mobile and mobile.flymode then mobile.flymode(0, true) end
         return "\r\nOK\r\n"
     end  -- 飞行模式别名
-    if line == "AT+CPIN?"  then return "\r\n+CME ERROR: 10\r\n" end
+    if line == "AT+CPIN?"  then return rf_on_ and (mobile.simPin() and "\r\n+CPIN: READY\r\n\r\nOK\r\n" or "\r\n+CME ERROR: 10\r\n") or "\r\n+CME ERROR: 304\r\n" end
 
     -- AT+ECRST: software reset
     if line == "AT+ECRST" then
-        if mobile and mobile.restart then mobile.restart() end
+        if mobile and rtos.reboot then sys.timerStart(rtos.reboot, 100) end
         return "\r\nOK\r\n"
     end
 
     -- AT+ECCGSN=<type>,<sn/imei>: write IMEI/SN
-    local cg_type, cg_val = line:match("^AT%+ECCGSN=(%d),(.+)$")
+    -- 优先匹配带引号格式: AT+ECCGSN="IMEI","862323089123503"
+    local cg_type, cg_val = line:match('^AT%+ECCGSN=%s*"([^"]+)"%s*,%s*"([^"]+)"%s*$')
+
+    -- 兼容不带引号格式: AT+ECCGSN=IMEI,862323089123503
+    if not cg_type then
+        cg_type, cg_val = line:match('^AT%+ECCGSN=%s*([^,]+)%s*,%s*(%S+)%s*$')
+    end
+
     if cg_type then
-        if cg_type == "1" and #cg_val == 15 then
+        -- 去除首尾可能残留的引号（防御性）
+        cg_type = cg_type:gsub('^"', ''):gsub('"$', '')
+        cg_val  = cg_val:gsub('^"', ''):gsub('"$', '')
+        
+        if cg_type == "IMEI" and #cg_val == 15 then
             if M.setImei(cg_val) then
                 return "\r\nOK\r\n"
             end
@@ -211,11 +222,55 @@ function M._builtin_dispatch(line)
         return "\r\nOK\r\n"
     end
 
-    -- AT+ECCHIPVER?: chip version (placeholder until C backend ready)
+    -- AT+ECCHIPVER?: chip version (use hmeta.chip() when available)
     if line == "AT+ECCHIPVER?" then
-        local ver = (mobile and mobile.rfTestParam)
-                    and mobile.rfTestParam("chipVer") or 0
-        return string.format("\r\n+ECCHIPVER: %d\r\n\r\nOK\r\n", ver)
+        local ver = ""
+        if hmeta and hmeta.chip then
+            ver = hmeta.chip()
+        elseif mobile and mobile.rfTestParam then
+            ver = mobile.rfTestParam("chipVer") or 0
+        else
+            ver = 0
+        end
+        return string.format("\r\n+ECCHIPVER:%s\r\n\r\nOK\r\n", ver)
+    end
+
+    -- ATI: module version
+    if line == "ATI" then
+        local version = "Unknown"
+        if rtos and rtos.version then
+            local ver = rtos.version()
+            local model = (hmeta and hmeta.model) and hmeta.model() or ""
+            if model ~= "" then
+                local suffix = #model > 3 and model:sub(4) or model
+                version = "LuatOS_" .. suffix .. "_" .. ver
+            else
+                version = ver
+            end
+        end
+        return "\r\n" .. version .. "\r\n\r\nOK\r\n"
+    end
+
+    -- AT+MUID?: MUID query
+    if line == "AT+MUID?" then
+        local muid = (mobile and mobile.muid) and mobile.muid() or ""
+        return string.format("\r\n+MUID: %s\r\n\r\nOK\r\n", muid)
+    end
+
+    -- AT*I: module version and detailed information
+    if line == "AT*I" then
+        local model   = (hmeta and hmeta.model) and hmeta.model() or ""
+        local hwver   = (hmeta and hmeta.hwver) and hmeta.hwver() or ""
+        local suffix = (model ~= "" and #model > 3) and model:sub(4) or (model ~= "" and model or "Unknown")
+        local version = "LuatOS_" .. suffix .. "_" .. ((rtos and rtos.version) and rtos.version() or "Unknown")
+        local imei    = (mobile and mobile.imei) and mobile.imei() or ""
+        local iccid   = (mobile and mobile.iccid) and mobile.iccid() or ""
+        local imsi    = (mobile and mobile.imsi) and mobile.imsi() or ""
+        local buildtm = os.date("%Y-%m-%d %H:%M:%S")
+        local info = string.format(
+            "Manufacturer: LuatOS\r\nModel: %s\r\nRevision: %s\r\nHWver: %s\r\nBuildtime: %s\r\nIMEI: %s\r\nICCID: %s\r\nIMSI: %s",
+            model, version, hwver, buildtm, imei, iccid, imsi)
+        return "\r\n" .. info .. "\r\n\r\nOK\r\n"
     end
 
     -- AT+ECBAND=?: supported bands (placeholder until C backend ready)

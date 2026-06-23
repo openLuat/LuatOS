@@ -208,6 +208,27 @@ function at_suite.test_at_ecrst()
     assertResp("AT+ECRST", "OK")
 end
 
+function at_suite.test_at_ati()
+    assertResp("ATI", "OK")
+    local rfa = require("rfa")
+    rfa._reset_for_test()
+    local resp = rfa.dispatch("ATI")
+    assert(resp:find("AirM2M_", 1, true) or resp:find("V", 1, true), "ATI returns version info, got: " .. tostring(resp))
+end
+
+function at_suite.test_at_muid()
+    assertResp("AT+MUID?", "+MUID:")
+    assertResp("AT+MUID?", "OK")
+end
+
+function at_suite.test_at_atxi()
+    assertResp("AT*I", "Manufacturer:")
+    assertResp("AT*I", "Model:")
+    assertResp("AT*I", "Revision:")
+    assertResp("AT*I", "IMEI:")
+    assertResp("AT*I", "OK")
+end
+
 function at_suite.test_at_eccgsn()
     local rfa = require("rfa")
     rfa._reset_for_test()

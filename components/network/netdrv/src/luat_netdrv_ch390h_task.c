@@ -263,7 +263,9 @@ static int check_vid_pid(ch390h_t* ch) {
             warn_vid_pid_tm = tnow;
         }
         // 连续多次失败后回退到初始状态
-        if (ch->vid_pid_error_count >= 20 && ch->status >= 2) {
+        // 注意: STOPPED (=4) 也满足 status >= 2, 必须排除, 否则休眠时 SPI 读不到 VID/PID
+        // 会把人为设的 STOPPED 错误回退成 0, 引发 ch390_task_main 退出 FOREVER 等待.
+        if (ch->vid_pid_error_count >= 20 && ch->status >= 2 && ch->status != CH390H_STATUS_STOPPED) {
             LLOGE("VID/PID检查连续失败超过阈值，回退到初始状态");
             ch->status = 0;
             ch->init_done = 0;
@@ -442,7 +444,13 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
     int ret = 0;
     for (size_t i = 0; i < MAX_CH390H_NUM; i++)
     {
-        if (ch390h_drvs[i] != NULL && ch390h_drvs[i]->init_step) {
+        /* 修复: 进入 task_loop_one 之前必须排除 STOPPED 设备.
+         * 否则 task_loop_one 会执行 check_vid_pid -> 失败累加 vid_pid_error_count
+         * -> >=20 次时把 status 从 STOPPED 错误回退成 0 -> any_active 永远为 1
+         * -> ch390_task_main 永远不进 LUAT_WAIT_FOREVER, 1Hz 唤醒回不去低功耗. */
+        if (ch390h_drvs[i] != NULL
+            && ch390h_drvs[i]->init_step
+            && ch390h_drvs[i]->status != CH390H_STATUS_STOPPED) {
             ret += task_loop_one(ch390h_drvs[i], ch == ch390h_drvs[i] ? cs : NULL);
         }
     }

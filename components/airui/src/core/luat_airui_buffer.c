@@ -39,14 +39,14 @@ void *airui_buffer_alloc(airui_ctx_t *ctx, size_t size, airui_buffer_owner_t own
     // 扩展数组容量
     if (buf_mgr->count >= buf_mgr->capacity) {
         size_t new_capacity = buf_mgr->capacity == 0 ? 4 : buf_mgr->capacity * 2;
-        void **new_buffers = luat_heap_calloc(new_capacity, sizeof(void *));
-        size_t *new_sizes = luat_heap_calloc(new_capacity, sizeof(size_t));
-        airui_buffer_owner_t *new_owners = luat_heap_calloc(new_capacity, sizeof(airui_buffer_owner_t));
+        void **new_buffers = luat_heap_opt_calloc(LUAT_HEAP_SRAM, new_capacity, sizeof(void *));
+        size_t *new_sizes = luat_heap_opt_calloc(LUAT_HEAP_SRAM, new_capacity, sizeof(size_t));
+        airui_buffer_owner_t *new_owners = luat_heap_opt_calloc(LUAT_HEAP_SRAM, new_capacity, sizeof(airui_buffer_owner_t));
         
         if (new_buffers == NULL || new_sizes == NULL || new_owners == NULL) {
-            luat_heap_free(new_buffers);
-            luat_heap_free(new_sizes);
-            luat_heap_free(new_owners);
+            luat_heap_opt_free(LUAT_HEAP_SRAM, new_buffers);
+            luat_heap_opt_free(LUAT_HEAP_SRAM, new_sizes);
+            luat_heap_opt_free(LUAT_HEAP_SRAM, new_owners);
             return NULL;
         }
 
@@ -56,9 +56,9 @@ void *airui_buffer_alloc(airui_ctx_t *ctx, size_t size, airui_buffer_owner_t own
             memcpy(new_owners, buf_mgr->owners, buf_mgr->count * sizeof(airui_buffer_owner_t));
         }
 
-        luat_heap_free(buf_mgr->buffers);
-        luat_heap_free(buf_mgr->sizes);
-        luat_heap_free(buf_mgr->owners);
+        luat_heap_opt_free(LUAT_HEAP_SRAM, buf_mgr->buffers);
+        luat_heap_opt_free(LUAT_HEAP_SRAM, buf_mgr->sizes);
+        luat_heap_opt_free(LUAT_HEAP_SRAM, buf_mgr->owners);
         
         buf_mgr->buffers = new_buffers;
         buf_mgr->sizes = new_sizes;
@@ -123,7 +123,7 @@ void airui_buffer_free(airui_ctx_t *ctx, void *buffer)
  */
 airui_buffer_t *airui_buffer_create(void)
 {
-    return (airui_buffer_t *)luat_heap_calloc(1, sizeof(airui_buffer_t));
+    return (airui_buffer_t *)luat_heap_opt_calloc(LUAT_HEAP_SRAM, 1, sizeof(airui_buffer_t));
 }
 
 /**
@@ -154,12 +154,12 @@ void airui_buffer_free_all(airui_ctx_t *ctx)
     }
     
     // 释放数组
-    luat_heap_free(buf_mgr->buffers);
-    luat_heap_free(buf_mgr->sizes);
-    luat_heap_free(buf_mgr->owners);
+    luat_heap_opt_free(LUAT_HEAP_SRAM, buf_mgr->buffers);
+    luat_heap_opt_free(LUAT_HEAP_SRAM, buf_mgr->sizes);
+    luat_heap_opt_free(LUAT_HEAP_SRAM, buf_mgr->owners);
     
     // 释放管理器
-    luat_heap_free(buf_mgr);
+    luat_heap_opt_free(LUAT_HEAP_SRAM, buf_mgr);
     ctx->buffer = NULL;
 }
 

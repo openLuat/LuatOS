@@ -82,7 +82,7 @@
 #### 5.2.1 LCD 显示屏接线
 
 <table>
-<tr> <td>Air8000核心板</td><td>AirLCD_1010配件板</td></tr>
+<tr> <td>Air8000核心板</td><td>AirLCD_1000配件板</td></tr>
 <tr> <td>LCD_CLK</td><td>SCLK/CLK</td></tr>
 <tr> <td>LCD_CS</td><td>CS</td></tr>
 <tr> <td>LCD_RST</td><td>RES/RST</td></tr>

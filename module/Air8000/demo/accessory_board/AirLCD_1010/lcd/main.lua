@@ -101,10 +101,6 @@ require "tp_drv"
 require "ui_main"
 
 
--- 加载GC032A摄像头配置表，供camera_preview_page摄像头预览使用
-require "gc032a"
-
-
 -- 用户代码已结束
 -- 结尾总是这一句
 sys.run()

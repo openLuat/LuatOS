@@ -35,6 +35,7 @@ end
 ]]
 
 local function lcd_drv_init()
+    pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
     local result = lcd.init("st7796",
         {
             pin_rst = 36,                          -- 复位引脚

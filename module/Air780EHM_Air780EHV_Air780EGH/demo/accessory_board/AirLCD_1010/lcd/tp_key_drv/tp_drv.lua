@@ -59,7 +59,14 @@ local function tp_drv_init()
         return false
     end
 
-    result = tp.init("gt911", {port = 1, pin_rst = 0xFF, pin_int = 24, w = 320, h = 480}, tp_callback)
+    -- 根据硬件环境选择触摸中断引脚
+    if HARDWARE_ENV == "DEV_BOARD" then
+        -- 开发板：pin_int = gpio.WAKEUP0
+        result = tp.init("gt911", { port = 1, pin_rst = 0xff, pin_int = gpio.WAKEUP0}, tp_callback)
+    else
+        -- 核心板（默认）：pin_int = 24
+        result = tp.init("gt911", {port = 1, pin_rst = 0xFF, pin_int = 24, w = 320, h = 480}, tp_callback)
+    end
 
     log.info("tp.init", result)
 

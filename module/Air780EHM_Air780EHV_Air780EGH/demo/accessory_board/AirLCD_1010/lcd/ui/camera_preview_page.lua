@@ -1,8 +1,8 @@
 --[[
 @module  camera_preview_page
-@summary 摄像头页面：进入即预览，点击拍照，照片可保存/删除
-@version 1.1
-@date    2026.06.23
+@summary 摄像头页面：进入即预览，点击拍照，照片可保存/删除（AirLCD_1010触摸版，Air780EHM 系统中文）
+@version 1.0
+@date    2026.06.24
 @author  陈取德
 ]]
 
@@ -10,6 +10,11 @@ require "gc032a"
 local excamera = require "excamera"
 
 local camera_preview_page = {}
+
+-- 硬件参数（Air780EHM：i2c1, camera_pwr=2）
+local I2C_ID = 1
+local CAM_PWR = 2
+local CAM_PWDN = 5
 
 -- 页面状态
 local page_state = "idle"       -- idle / preview / taking_photo / show_photo
@@ -20,8 +25,7 @@ local preview_task_running = false
 -- 左上角返回（show_photo时有效）
 local back_button = { x1 = 10, y1 = 10, x2 = 80, y2 = 50 }
 
--- 显示照片页按钮（仅保留保存和删除，下方两个按钮）
--- 保存/删除按钮在照片下方的操作区
+-- 显示照片页按钮（保存和删除，下方两个按钮）
 local photo_buttons = {
     save   = { x1 = 30,  y1 = 380, x2 = 140, y2 = 450 },
     delete = { x1 = 180, y1 = 380, x2 = 290, y2 = 450 }
@@ -39,9 +43,9 @@ local function start_camera_flow()
     sys.taskInit(function()
         -- === 阶段1：纯画面预览 ===
         local param_preview = {
-            id = "gc032a", i2c_id = 0, work_mode = 2,
+            id = "gc032a", i2c_id = I2C_ID, work_mode = 2,
             save_path = "ZBUFF",
-            camera_pwr = 147, camera_pwdn = 5, camera_light = nil
+            camera_pwr = CAM_PWR, camera_pwdn = CAM_PWDN, camera_light = nil
         }
         local ok = excamera.open(param_preview)
         camera_opened = ok
@@ -69,9 +73,9 @@ local function start_camera_flow()
         -- === 阶段2：拍照 ===
         if page_state == "taking_photo" then
             local param_capture = {
-                id = "gc032a", i2c_id = 0, work_mode = 0,
+                id = "gc032a", i2c_id = I2C_ID, work_mode = 0,
                 save_path = "/photo.jpg",
-                camera_pwr = 147, camera_pwdn = 5, camera_light = nil
+                camera_pwr = CAM_PWR, camera_pwdn = CAM_PWDN, camera_light = nil
             }
             local ok = excamera.open(param_capture)
             if ok then
@@ -101,7 +105,6 @@ function camera_preview_page.on_enter()
     page_state = "idle"
     photo_saved = false
     start_camera_flow()
-    -- 等 task 启动后 page_state 会变成 "preview"
 end
 
 
@@ -124,7 +127,7 @@ function camera_preview_page.draw()
         -- 全屏显示照片
         lcd.showImage(0, 0, "/photo.jpg")
 
-        -- 返回按钮（灰色，和其他页面一致）
+        -- 返回按钮（灰色）
         lcd.fill(back_button.x1, back_button.y1, back_button.x2, back_button.y2, 0xC618)
         lcd.setColor(0x07E0, 0x0000)
         lcd.drawStr(35, 35, "返回", 0x0000)
@@ -153,7 +156,6 @@ function camera_preview_page.draw()
         lcd.fill(back_button.x1, back_button.y1, back_button.x2, back_button.y2, 0xC618)
         lcd.setColor(0x07E0, 0x0000)
         lcd.drawStr(35, 35, "返回", 0x0000)
-
     end
 end
 
@@ -184,7 +186,7 @@ function camera_preview_page.handle_touch(x, y, switch_page)
         end
 
     elseif page_state == "preview" then
-        -- 预览期间右上角返回主页
+        -- 预览期间左上角返回主页
         if x >= back_button.x1 and x <= back_button.x2 and
            y >= back_button.y1 and y <= back_button.y2 then
             preview_task_running = false
@@ -209,7 +211,7 @@ function camera_preview_page.on_leave()
         excamera.close()
         camera_opened = false
     end
-    i2c.setup(0, i2c.SLOW)
+    i2c.setup(I2C_ID, i2c.SLOW)
 end
 
 return camera_preview_page

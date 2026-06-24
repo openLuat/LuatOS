@@ -125,8 +125,6 @@ function excamera.open(camera_param)
                 cam_pwr = gpio.setup(camera_param.camera_pwr, 1)
             end
         end
-        -- 等待电源稳定后再解除复位，确保GC032A内部PLL正确初始化
-        sys.wait(50)
         -- 判断是否需要管理摄像头pwdn开关
         if type(camera_param.camera_pwdn) == "number" then
             -- WIFI芯片与4G芯片之间通讯是有延迟的，所以使用WIFI端GPIO时需要增加不少于5毫秒的延时，确保GPIO的配置发送到WIFI芯片并且执行生效；
@@ -166,8 +164,6 @@ function excamera.open(camera_param)
                 result = i2c.send(camera_param.i2c_id, camera_module.i2c_slave_addr, camera_module.init_cmds[i], 1)
                 if not result then
                     log.error("excamera.open", "i2c.send失败")
-                    camera.close(camera_id)
-                    camera_id = nil
                     return false
                 end
             end
@@ -232,7 +228,7 @@ function excamera.open(camera_param)
     -- 注意：USB/DVP 摄像头的回调在 excamera.preview() 中通过 camera.on(id, "usb_raw", ...) 注册
     --       C 层代码中 scanned 和 usb_raw 是 if/else if 互斥关系
     --       如果同时注册 scanned，USB 事件的 usb_raw 分支永远无法执行
-    if camera_type == "SPI" then
+    if camera_type == "SPI" or camera_type == "DVP" then
         camera.on(camera_id, "scanned", function(id, str)
             -- 如果返回字符串，表示扫码成功并获得结果
             if type(str) == 'string' then
@@ -337,7 +333,7 @@ function excamera.photo(x, y, w, h)
             log.info("拍照完成")
         else
             -- 拍照超时
-            log.info("拍照成功，无照片生成")
+            log.info("拍照超时")
             return false
         end
     else
@@ -493,20 +489,20 @@ function excamera.preview(cb)
         return true
     end
 
-    -- SPI摄像头：启动数据采集，硬件直接输出到LCD
-    if camera_type == "SPI" then
+    -- SPI/DVP摄像头：启动数据采集，硬件直接输出到LCD
+    if camera_type == "SPI" or camera_type == "DVP" then
         if not camera.start(camera_id) then
-            log.error("excamera.preview", "SPI摄像头启动失败")
+            log.error("excamera.preview", camera_type .. "摄像头启动失败")
             return false
         end
         if not camera.preview(camera_id, true) then
-            log.error("excamera.preview", "SPI摄像头预览启动失败")
+            log.error("excamera.preview", camera_type .. "摄像头预览启动失败")
             camera.stop(camera_id)
             return false
         end
         preview_active = true
         preview_cb = cb
-        log.info("excamera.preview", "SPI摄像头预览已启动")
+        log.info("excamera.preview", camera_type .. "摄像头预览已启动")
         return true
     end
 
@@ -518,10 +514,17 @@ function excamera.preview(cb)
         -- 确保USB掉电→设为主机模式→上电，触发USB重新枚举产生EV_CONNECT事件
         -- 注意：camera.on(USB, "usb_raw") 必须在掉电之后注册，
         --       否则 USB 栈重置会丢失已注册的回调
-        pm.power(pm.USB, false)
+        -- 某些平台（如Air8101）固件可能未编译usb核心库，需要保护访问
+        -- if pm.power then
+        --     pm.power(pm.USB, false)
+        -- end
         sys.wait(500)
-        usb.mode(0, usb.HOST)
-        pm.power(pm.USB, true)
+        if usb and usb.mode then
+            usb.mode(0, usb.HOST)
+        end
+        if pm.power then
+            pm.power(pm.USB, true)
+        end
 
         -- 等待USB栈稳定后再注册回调（枚举约需1~2秒完成）
         sys.wait(100)
@@ -641,8 +644,8 @@ function excamera.close(remain_zbuff)
         preview_cb = nil
         camera_param_backup = nil
 
-        -- SPI摄像头：关闭硬件预览，停止数据采集
-        if camera_type == "SPI" then
+        -- SPI/DVP摄像头：关闭硬件预览，停止数据采集
+        if camera_type == "SPI" or camera_type == "DVP" then
             camera.preview(camera_id, false)
             camera.stop(camera_id)
             camera.close(camera_id)
@@ -696,19 +699,19 @@ function excamera.close(remain_zbuff)
     if camera_type == "SPI" then
         i2c.close(camera_i2c)
     end
-    -- 先拉高PWDN（硬件复位），再掉电——确保PWDN在掉电前到达传感器
-    pcall(cam_pwdn, 1)
-    if cam_pwdn_wifi then
-        sys.wait(50)
-    end
     -- 保护执行摄像头使能关闭，如果上面没有配置摄像头使能管脚，该函数也不会报错
     pcall(cam_pwr, 0)
+    -- 如果供电管脚是WIFI芯片控制，需要增加延时确保GPIO配置生效
+    if cam_pwr_wifi then
+        sys.wait(10)
+    end
+    -- 保护执行摄像头开关关闭，如果上面没有配置摄像头开关管脚，该函数也不会报错
+    pcall(cam_pwdn, 1)
     -- 如果摄像头开关管脚是WIFI芯片控制，需要增加延时确保GPIO配置生效
     if cam_pwdn_wifi then
         sys.wait(10)
     end
-    -- 等待传感器内部电荷充分泄放，确保下次上电时I2C从机能正确复位
-    sys.wait(50)
+
     -- 如果使用了内存缓冲区，释放相关资源
     if type(path) == "userdata" and not remain_zbuff then
         -- 置空缓冲区引用，便于垃圾回收

@@ -504,13 +504,40 @@ static void ch390_task_main(void* args) {
             }
             count = 0;
         }
-        if (s_ch390h_mode == 0) {
+        // 进入低功耗前会通过 netdrv.ctrl(LWIP_ETH, CTRL_UPDOWN, 0) 把所有 CH390 设备置为 STOPPED
+        // 此时既无需 5ms 轮询，也无需 1Hz 心跳，直接 FOREVER 等待新消息（CTRL_UPDOWN=1 重新启动时会派发新事件）
+        int any_active = 0;
+        for (size_t i = 0; i < MAX_CH390H_NUM; i++) {
+            if (ch390h_drvs[i] != NULL && ch390h_drvs[i]->status != CH390H_STATUS_STOPPED) {
+                any_active = 1;
+                break;
+            }
+        }
+        if (!any_active) {
+            ret = task_wait_msg(LUAT_WAIT_FOREVER);
+        }
+        else if (s_ch390h_mode == 0) {
             ret = task_wait_msg(5);
         }
         else {
             ret = task_wait_msg(1000);
         }
     }
+}
+
+void luat_ch390h_task_wakeup(void) {
+    if (qt == NULL) {
+        return;
+    }
+    uint32_t len = 0;
+    luat_rtos_queue_get_cnt(qt, &len);
+    if (len > 4) {
+        return;
+    }
+    pkg_evt_t evt = {
+        .id = 2
+    };
+    luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
 }
 
 void luat_ch390h_task_start(void) {

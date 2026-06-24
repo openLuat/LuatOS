@@ -84,6 +84,15 @@
 #include LWIP_HOOK_FILENAME
 #endif
 
+/* 低功耗按需启停回调：通知 adapter 层网关 MAC 解析状态变化 */
+#if !defined(LUAT_NETDRV_ARP_TIMER_ALWAYS_ON)
+extern void net_lwip2_notify_gw_mac_state(struct netif *netif, uint8_t valid);
+
+/* 本文件局部日志 tag (与 net_lwip2.c 共用 net) */
+#define LUAT_LOG_TAG "net"
+#include "luat_log.h"
+#endif
+
 /** Re-request a used ARP entry 1 minute before it would expire to prevent
  *  breaking a steadily used connection because the ARP entry timed out. */
 #define ARP_AGE_REREQUEST_USED_UNICAST   (ARP_MAXAGE - 30)
@@ -190,6 +199,15 @@ free_etharp_q(struct etharp_q_entry *q)
 static void
 etharp_free_entry(int i)
 {
+#if !defined(LUAT_NETDRV_ARP_TIMER_ALWAYS_ON)
+  /* 释放前：若是网关条目，通知 adapter 层 gw_mac 失效 */
+  if (arp_table[i].netif != NULL && arp_table[i].state != ETHARP_STATE_EMPTY) {
+    if (ip4_addr_cmp(&arp_table[i].ipaddr, netif_ip4_gw(arp_table[i].netif))) {
+      LLOGI("arp_pm: free_entry idx=%d is GATEWAY -> notify invalid", i);
+      net_lwip2_notify_gw_mac_state(arp_table[i].netif, 0);
+    }
+  }
+#endif
   /* remove from SNMP ARP index tree */
   mib2_remove_arp_entry(arp_table[i].netif, &arp_table[i].ipaddr);
   /* and empty packet queue */
@@ -482,6 +500,16 @@ etharp_update_arp_entry(struct netif *netif, const ip4_addr_t *ipaddr, struct et
   arp_table[i].netif = netif;
   /* insert in SNMP ARP index tree */
   mib2_add_arp_entry(netif, &arp_table[i].ipaddr);
+
+#if !defined(LUAT_NETDRV_ARP_TIMER_ALWAYS_ON)
+  /* 解析成功：若 ipaddr 与 netif 的网关一致，通知 adapter 层 gw_mac 已解析 */
+  if (arp_table[i].state >= ETHARP_STATE_STABLE
+      && ip4_addr_cmp(ipaddr, netif_ip4_gw(netif))) {
+    LLOGI("arp_pm: update_entry idx=%d STABLE GATEWAY ip=%u.%u.%u.%u -> notify valid",
+          i, ip4_addr1(ipaddr), ip4_addr2(ipaddr), ip4_addr3(ipaddr), ip4_addr4(ipaddr));
+    net_lwip2_notify_gw_mac_state(netif, 1);
+  }
+#endif
 
   LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_update_arp_entry: updating stable entry %"S16_F"\n", i));
   /* update address */

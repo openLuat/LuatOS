@@ -20,6 +20,9 @@
 
 ch390h_t* ch390h_drvs[MAX_CH390H_NUM]; // 最多支持5个CH390H同时操作
 
+// 由 ch390_task.c 实现, 用于 CTRL_UPDOWN=1 重启时主动唤醒可能处于 FOREVER 等待的 task
+extern void luat_ch390h_task_wakeup(void);
+
 #ifdef LUAT_USE_NETDRV_LWIP_ARP
 extern err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp);
 extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
@@ -93,6 +96,8 @@ static int ch390h_ctrl(luat_netdrv_t* drv, void* userdata, int cmd, void* buff, 
                 luat_netdrv_set_link_updown(drv, 1);
                 //tcpip_callback_with_block((tcpip_callback_fn)ch390h_netif_down_cb, drv->netif, 1);
                 LLOGI("adapter %d restart requested", ch->adapter_id);
+                // 唤醒可能处于 FOREVER 等待的 ch390h_task, 让它立刻重新走初始化流程
+                luat_ch390h_task_wakeup();
             }
             return 0;
         }

@@ -271,6 +271,19 @@ static int check_vid_pid(ch390h_t* ch) {
             ch->init_done = 0;
             ch->vid_pid_error_count = 0;
         }
+        /* 硬件问题 (未接线 / LDO 未开 / SPI 干扰) 时 status 始终停在 0,
+         * 永远读不到 VID/PID, 但 task 仍以 1Hz 不断重试, 导致功耗居高不下.
+         * 累计失败超过 50 次后, 主动转入 STOPPED 状态让 task 进 FOREVER,
+         * 业务侧检测到链路异常可调 netdrv.ctrl(CTRL_UPDOWN, 1) 重新拉起. */
+        if (ch->vid_pid_error_count >= 50 && ch->status == 0) {
+            LLOGE("VID/PID 持续失败 %d 次, CH390 硬件不可用, 进入 STOPPED 节能态. "
+                  "请检查 spi=%d cs=%d 接线 / LDO / 中断脚后, "
+                  "通过 netdrv.ctrl(LWIP_ETH, CTRL_UPDOWN, 1) 重新尝试初始化.",
+                  ch->vid_pid_error_count, ch->spiid, ch->cspin);
+            ch->status = CH390H_STATUS_STOPPED;
+            ch->init_done = 0;
+            ch->vid_pid_error_count = 0;
+        }
         return -1;
     }
     ch->vid_pid_error_count = 0;

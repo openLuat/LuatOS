@@ -48,12 +48,6 @@ typedef struct
 	struct udp_pcb *dns_udp[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	HANDLE dns_timer[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	uint8_t next_socket_index;
-	HANDLE arp_timer;
-	/* ARP 1000ms 定时器低功耗按需启停 + 显式休眠路径状态 */
-	uint8_t arp_timer_running;        /* 当前 1000ms 定时器是否在跑 (0/1) */
-	uint8_t arp_timer_sleep_saved;    /* 进 sleep 前的 running 快照 */
-	uint8_t arp_timer_in_sleep;       /* 已下发 sleep_prepare、尚未 wakeup_resume */
-	uint8_t gw_mac_valid[NW_ADAPTER_INDEX_LWIP_NETIF_QTY]; /* 每个 adapter 的网关 MAC 解析状态 */
 	dhcp_client_info_t *dhcpc[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 }net_lwip2_ctrl_struct;
 
@@ -74,22 +68,12 @@ void net_lwip2_set_link_state(uint8_t adapter_index, uint8_t updown);
 void net_lwip2_set_dhcp_client(uint8_t adapter_index, dhcp_client_info_t *dhcp_client);
 
 #ifdef LUAT_USE_NETDRV_LWIP_ARP
-/* 进 sleep 前调用：强制停止 ARP 1000ms 定时器并保存运行态。
- * 定义 LUAT_NETDRV_ARP_TIMER_ALWAYS_ON 时为 no-op，上层 PM 代码可无差别调用。 */
+/* ARP 1000ms 周期定时器已被移除. 以下 API 保留为空 stub, 仅用于 ABI 兼容,
+ * 调用方无需修改即可继续编译. 历史实现见 commit b4de806e0. */
 void net_lwip2_arp_timer_sleep_prepare(void);
-
-/* 唤醒后调用：按 saved 或当前 need 重新评估并恢复。
- * 定义 LUAT_NETDRV_ARP_TIMER_ALWAYS_ON 时为 no-op。 */
 void net_lwip2_arp_timer_wakeup_resume(void);
-
-/* 按需启停（供 ARP 解析回调使用，内部转事件投递）。
- * 定义 LUAT_NETDRV_ARP_TIMER_ALWAYS_ON 时为 no-op。 */
 void net_lwip2_arp_timer_request_start(uint8_t adapter_index);
 void net_lwip2_arp_timer_request_stop(uint8_t adapter_index);
-
-/* 由 ARP 解析路径通知 adapter 层：网关 MAC 是否已解析。
- * 第一参数传入对应的 netif，由 adapter 层自行反查 adapter_index，避免依赖 netif->state 类型。
- * 定义 LUAT_NETDRV_ARP_TIMER_ALWAYS_ON 时为 no-op。 */
 void net_lwip2_notify_gw_mac_state(struct netif *netif, uint8_t valid);
 #endif
 

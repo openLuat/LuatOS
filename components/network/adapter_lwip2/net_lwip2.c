@@ -23,7 +23,7 @@
 #define SOCKET_BUF_LEN	(3 * TCP_MSS)
 #endif
 
-extern void luat_netdrv_etharp_tmr(void);
+extern void luat_netdrv_etharp_tmr(void);  /* 历史 ARP tick 实现, 现已废弃, 仅保留 symbol 以兼容 link */
 static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 
 enum
@@ -46,11 +46,6 @@ enum
 	EV_LWIP_FAST_TIMER,
 	EV_LWIP_NETIF_SET_IP,
 	EV_LWIP_NETIF_IPV6_BY_MAC,
-	EV_LWIP_ARP_TIMER,
-	EV_LWIP_ARP_TIMER_CTRL_START,
-	EV_LWIP_ARP_TIMER_CTRL_STOP,
-	EV_LWIP_ARP_TIMER_SLEEP,
-	EV_LWIP_ARP_TIMER_RESUME,
 };
 
 #define SOCKET_LOCK(ID)		platform_lock_mutex(prvlwip.socket[ID].mutex)
@@ -77,65 +72,9 @@ static LUAT_RT_RET_TYPE net_lwip2_timer_cb(LUAT_RT_CB_PARAM)
 	return LUAT_RT_RET;
 }
 
-#ifdef LUAT_USE_NETDRV_LWIP_ARP
-static LUAT_RT_RET_TYPE net_lwip_arp_timer_cb(LUAT_RT_CB_PARAM)
-{
-	platform_send_event(NULL, (uint32_t)EV_LWIP_ARP_TIMER, 0, 0, (uint32_t)param);
-	return LUAT_RT_RET;
-}
-
-#ifndef LUAT_NETDRV_ARP_TIMER_ALWAYS_ON
-/* 在 lwip task 中调用：真实下发 platform_start_timer */
-static void net_lwip2_arp_timer_apply_start(void)
-{
-	if (!prvlwip.arp_timer_running && !prvlwip.arp_timer_in_sleep) {
-		if (prvlwip.arp_timer) {
-			LLOGI("arp_pm: apply_start running=0 in_sleep=0 -> start 1000ms");
-			platform_start_timer(prvlwip.arp_timer, 1000, 1);
-			prvlwip.arp_timer_running = 1;
-		} else {
-			LLOGD("arp_pm: apply_start skip (timer==NULL)");
-		}
-	} else {
-		LLOGD("arp_pm: apply_start skip running=%u in_sleep=%u",
-			prvlwip.arp_timer_running, prvlwip.arp_timer_in_sleep);
-	}
-}
-
-/* 在 lwip task 中调用：真实下发 platform_stop_timer */
-static void net_lwip2_arp_timer_apply_stop(void)
-{
-	if (prvlwip.arp_timer_running) {
-		if (prvlwip.arp_timer) {
-			LLOGI("arp_pm: apply_stop running=1 -> stop");
-			platform_stop_timer(prvlwip.arp_timer);
-		}
-		prvlwip.arp_timer_running = 0;
-	} else {
-		LLOGD("arp_pm: apply_stop skip (already stopped)");
-	}
-}
-
-/* 扫描全部 adapter，判断是否仍需要 ARP 周期。
- * 一个 adapter "需要 ARP" 的充要条件：admin up + link up + 网关 MAC 尚未解析。
- * 只 admin up 但 link down 时 ARP 报文也发不出去，所以也不应让定时器空转。 */
-static int net_lwip2_any_adapter_need_arp(void)
-{
-	uint8_t i;
-	for (i = 0; i < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; i++) {
-		if (prvlwip.lwip_netif[i] != NULL
-			&& netif_is_up(prvlwip.lwip_netif[i])
-			&& netif_is_link_up(prvlwip.lwip_netif[i])
-			&& prvlwip.gw_mac_valid[i] == 0) {
-			LLOGD("arp_pm: any_need_arp YES adapter=%u (admin_up=1 link_up=1 gw_mac_valid=0)", i);
-			return 1;
-		}
-	}
-	LLOGD("arp_pm: any_need_arp NO");
-	return 0;
-}
-#endif /* !LUAT_NETDRV_ARP_TIMER_ALWAYS_ON */
-#endif /* LUAT_USE_NETDRV_LWIP_ARP */
+/* ARP 1000ms 周期定时器已被完全移除. etharp 表通过收包/SET_IP 路径维护即可短时间
+ * 保持网关 MAC 解析. 长时间运行可能导致 gw_mac 缓存过期, 仅用于功耗测试场景.
+ * 如需恢复定时器, 回滚到 commit b4de806e0. */
 
 void net_lwip2_init(uint8_t adapter_index)
 {
@@ -156,17 +95,6 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 	if (0 == prvlwip_inited) {
 		prvlwip_inited = 1;
 		net_lwip2_init(adapter_index);
-		#ifdef LUAT_USE_NETDRV_LWIP_ARP
-		prvlwip.arp_timer = platform_create_timer(net_lwip_arp_timer_cb, (void *)NULL, NULL);
-		#ifdef LUAT_NETDRV_ARP_TIMER_ALWAYS_ON
-		LLOGI("arp_pm: INIT adapter=%u ALWAYS_ON, start 1000ms", adapter_index);
-		platform_start_timer(prvlwip.arp_timer, 1000, 1);
-		prvlwip.arp_timer_running = 1;
-		#else
-		LLOGI("arp_pm: INIT adapter=%u on-demand mode, timer created (stopped)", adapter_index);
-		prvlwip.arp_timer_running = 0;
-		#endif
-		#endif
 	}
 	if (NULL == prvlwip.dns_client[adapter_index]) {
 		prvlwip.dns_client[adapter_index] = luat_heap_zalloc(sizeof(dns_client_t));
@@ -1012,27 +940,6 @@ static void net_lwip2_task(void *param)
 	case EV_LWIP_NETIF_LINK_STATE:
 		{
 			uint8_t idx = event.Param3;
-#ifndef LUAT_NETDRV_ARP_TIMER_ALWAYS_ON
-			/* 注意: 这里是 link state 事件, 必须用 netif_is_link_up() 判断 link 层状态,
-			 * 不能用 netif_is_up() (它是 admin state). CH390 收到 CTRL_UPDOWN=0 时
-			 * 只会 netif_set_link_down, 而 netif 的 admin state 仍是 UP, 误用 netif_is_up
-			 * 会导致 link down 时被错判为 LINK_UP 而重新启动 ARP 定时器. */
-			if (prvlwip.lwip_netif[idx] != NULL
-				&& netif_is_up(prvlwip.lwip_netif[idx])
-				&& netif_is_link_up(prvlwip.lwip_netif[idx])) {
-				/* link up：gw_mac 尚未解析，复位后尝试启动定时器 */
-				LLOGI("arp_pm: LINK_UP adapter=%u -> reset gw_mac_valid & try start", idx);
-				prvlwip.gw_mac_valid[idx] = 0;
-				net_lwip2_arp_timer_apply_start();
-			} else {
-				/* link down：清 gw_mac 状态，若全部 adapter 均不需要则停 */
-				LLOGI("arp_pm: LINK_DOWN adapter=%u -> clear gw_mac_valid & maybe stop", idx);
-				prvlwip.gw_mac_valid[idx] = 0;
-				if (!net_lwip2_any_adapter_need_arp()) {
-					net_lwip2_arp_timer_apply_stop();
-				}
-			}
-#endif
 			net_lwip2_check_network_ready(idx);
 		}
 		break;
@@ -1055,48 +962,8 @@ static void net_lwip2_task(void *param)
 		}
 		netif_set_addr(prvlwip.lwip_netif[adapter_index], &ip4, &netmask4, &gw4);
 		luat_heap_free(ips);
-#ifndef LUAT_NETDRV_ARP_TIMER_ALWAYS_ON
-		/* IP 地址变更：网关可能变了，复位 gw_mac_valid 并尝试启动定时器 */
-		LLOGI("arp_pm: SET_IP adapter=%u -> reset gw_mac_valid & try start", adapter_index);
-		prvlwip.gw_mac_valid[adapter_index] = 0;
-		net_lwip2_arp_timer_apply_start();
-#endif
 		net_lwip2_check_network_ready(adapter_index);
 		break;
-#ifdef LUAT_USE_NETDRV_LWIP_ARP
-	case EV_LWIP_ARP_TIMER:
-		LLOGD("arp_pm: TICK etharp_tmr");
-		luat_netdrv_etharp_tmr();
-		break;
-#ifndef LUAT_NETDRV_ARP_TIMER_ALWAYS_ON
-	case EV_LWIP_ARP_TIMER_CTRL_START:
-		LLOGD("arp_pm: EVENT CTRL_START");
-		net_lwip2_arp_timer_apply_start();
-		break;
-	case EV_LWIP_ARP_TIMER_CTRL_STOP:
-		LLOGD("arp_pm: EVENT CTRL_STOP");
-		if (!net_lwip2_any_adapter_need_arp()) {
-			net_lwip2_arp_timer_apply_stop();
-		}
-		break;
-	case EV_LWIP_ARP_TIMER_SLEEP:
-		LLOGI("arp_pm: EVENT SLEEP saved=%u running=%u",
-			prvlwip.arp_timer_running, prvlwip.arp_timer_running);
-		prvlwip.arp_timer_sleep_saved = prvlwip.arp_timer_running;
-		net_lwip2_arp_timer_apply_stop();
-		prvlwip.arp_timer_in_sleep = 1;
-		break;
-	case EV_LWIP_ARP_TIMER_RESUME:
-		LLOGI("arp_pm: EVENT RESUME saved=%u in_sleep=%u",
-			prvlwip.arp_timer_sleep_saved, prvlwip.arp_timer_in_sleep);
-		prvlwip.arp_timer_in_sleep = 0;
-		if (prvlwip.arp_timer_sleep_saved || net_lwip2_any_adapter_need_arp()) {
-			net_lwip2_arp_timer_apply_start();
-		}
-		prvlwip.arp_timer_sleep_saved = 0;
-		break;
-#endif /* !LUAT_NETDRV_ARP_TIMER_ALWAYS_ON */
-#endif
 	default:
 		NET_DBG("unknow event %x,%x", event.ID, event.Param1);
 		break;
@@ -1814,72 +1681,16 @@ static int32_t net_lwip2_dummy_callback(void *pData, void *pParam)
 	return 0;
 }
 
-/* ===== ARP 1000ms 定时器低功耗控制：公共 API ===== */
+/* ===== ARP 1000ms 定时器低功耗控制：公共 API =====
+ * 定时器实现已被完全移除. 保留 API 为空 stub 以维持 ABI 兼容,
+ * 调用方 (luat_lib_netdrv.c arpSleep/arpResume, luat_netdrv_lwip_etharp.c
+ * 的 gw_mac 通知) 无需修改即可继续编译. 历史实现见 commit b4de806e0. */
 #ifdef LUAT_USE_NETDRV_LWIP_ARP
-
-#ifdef LUAT_NETDRV_ARP_TIMER_ALWAYS_ON
-/* 回退模式：API 退化为空函数，保持 ABI 兼容，上层 PM 代码可无差别调用 */
 void net_lwip2_arp_timer_sleep_prepare(void) {}
 void net_lwip2_arp_timer_wakeup_resume(void) {}
 void net_lwip2_arp_timer_request_start(uint8_t adapter_index) { (void)adapter_index; }
 void net_lwip2_arp_timer_request_stop(uint8_t adapter_index) { (void)adapter_index; }
 void net_lwip2_notify_gw_mac_state(struct netif *netif, uint8_t valid) { (void)netif; (void)valid; }
-#else
-/* 按需 + 休眠路径模式：所有操作通过 platform_send_event 投递到 lwip task */
-void net_lwip2_arp_timer_sleep_prepare(void)
-{
-	LLOGI("arp_pm: API sleep_prepare -> post EV_SLEEP");
-	platform_send_event(NULL, (uint32_t)EV_LWIP_ARP_TIMER_SLEEP, 0, 0, 0);
-}
-
-void net_lwip2_arp_timer_wakeup_resume(void)
-{
-	LLOGI("arp_pm: API wakeup_resume -> post EV_RESUME");
-	platform_send_event(NULL, (uint32_t)EV_LWIP_ARP_TIMER_RESUME, 0, 0, 0);
-}
-
-void net_lwip2_arp_timer_request_start(uint8_t adapter_index)
-{
-	LLOGD("arp_pm: API request_start adapter=%u -> post EV_CTRL_START", adapter_index);
-	platform_send_event(NULL, (uint32_t)EV_LWIP_ARP_TIMER_CTRL_START, adapter_index, 0, 0);
-}
-
-void net_lwip2_arp_timer_request_stop(uint8_t adapter_index)
-{
-	LLOGD("arp_pm: API request_stop adapter=%u -> post EV_CTRL_STOP", adapter_index);
-	platform_send_event(NULL, (uint32_t)EV_LWIP_ARP_TIMER_CTRL_STOP, adapter_index, 0, 0);
-}
-
-void net_lwip2_notify_gw_mac_state(struct netif *netif, uint8_t valid)
-{
-	uint8_t i;
-	uint8_t adapter_index = 0xFF;
-	/* 遍历查找匹配的 adapter_index */
-	for (i = 0; i < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; i++) {
-		if (prvlwip.lwip_netif[i] == netif) {
-			adapter_index = i;
-			break;
-		}
-	}
-	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
-		LLOGD("arp_pm: notify_gw_mac unknown netif=%p valid=%u, ignore", netif, valid);
-		return; /* 不认识的 netif，忽略 */
-	}
-	if (prvlwip.gw_mac_valid[adapter_index] != valid) {
-		LLOGI("arp_pm: notify_gw_mac adapter=%u %u -> %u",
-			adapter_index, prvlwip.gw_mac_valid[adapter_index], valid);
-		prvlwip.gw_mac_valid[adapter_index] = valid;
-		if (valid) {
-			net_lwip2_arp_timer_request_stop(adapter_index);
-		} else {
-			net_lwip2_arp_timer_request_start(adapter_index);
-		}
-	} else {
-		LLOGD("arp_pm: notify_gw_mac adapter=%u no change (valid=%u)",
-			adapter_index, valid);
-	}
-}
-#endif /* LUAT_NETDRV_ARP_TIMER_ALWAYS_ON */
 #endif /* LUAT_USE_NETDRV_LWIP_ARP */
 
 static void net_lwip2_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *user_data)

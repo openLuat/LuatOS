@@ -23,7 +23,6 @@
 #define SOCKET_BUF_LEN	(3 * TCP_MSS)
 #endif
 
-extern void luat_netdrv_etharp_tmr(void);  /* 历史 ARP tick 实现, 现已废弃, 仅保留 symbol 以兼容 link */
 static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 
 enum

@@ -229,48 +229,13 @@ etharp_free_entry(int i)
 }
 
 /**
- * Clears expired entries in the ARP table.
+ * (removed) luat_netdrv_etharp_tmr
  *
- * This function should be called every ARP_TMR_INTERVAL milliseconds (1 second),
- * in order to expire entries in the ARP table.
+ * ARP 1000ms 周期定时器已被完全移除. 该函数原本承担 ARP 表项老化 (ctime++ /
+ * ARP_MAXAGE)、PENDING 表项重发、STABLE_REREQUESTING_1/2 状态推进等职责.
+ * 移除后 etharp 表项不再老化, 仅依赖收包/SET_IP 路径维护, 仅用于功耗测试场景.
+ * 如需恢复, 回滚到 commit b4de806e0.
  */
-void
-luat_netdrv_etharp_tmr(void)
-{
-  int i;
-
-  LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_timer\n"));
-  /* remove expired entries from the ARP table */
-  for (i = 0; i < ARP_TABLE_SIZE; ++i) {
-    u8_t state = arp_table[i].state;
-    if (state != ETHARP_STATE_EMPTY
-#if ETHARP_SUPPORT_STATIC_ENTRIES
-        && (state != ETHARP_STATE_STATIC)
-#endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
-       ) {
-      arp_table[i].ctime++;
-      if ((arp_table[i].ctime >= ARP_MAXAGE) ||
-          ((arp_table[i].state == ETHARP_STATE_PENDING)  &&
-           (arp_table[i].ctime >= ARP_MAXPENDING))) {
-        /* pending or stable entry has become old! */
-        LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_timer: expired %s entry %d.\n",
-                                   arp_table[i].state >= ETHARP_STATE_STABLE ? "stable" : "pending", i));
-        /* clean up entries that have just been expired */
-        etharp_free_entry(i);
-      } else if (arp_table[i].state == ETHARP_STATE_STABLE_REREQUESTING_1) {
-        /* Don't send more than one request every 2 seconds. */
-        arp_table[i].state = ETHARP_STATE_STABLE_REREQUESTING_2;
-      } else if (arp_table[i].state == ETHARP_STATE_STABLE_REREQUESTING_2) {
-        /* Reset state to stable, so that the next transmitted packet will
-           re-send an ARP request. */
-        arp_table[i].state = ETHARP_STATE_STABLE;
-      } else if (arp_table[i].state == ETHARP_STATE_PENDING) {
-        /* still pending, resend an ARP query */
-        luat_netdrv_etharp_request(arp_table[i].netif, &arp_table[i].ipaddr);
-      }
-    }
-  }
-}
 
 /**
  * Search the ARP table for a matching or new entry.

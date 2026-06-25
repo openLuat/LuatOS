@@ -64,7 +64,7 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 		goto CHECK_FILL_BLANK;
 	} else {
 
-		if (_luat_audio.current_request_block->play_codec.tx_no_callback) { // 解码器要求发送不使用回调函数，目前只有移芯平台的通话时需要
+		if (_luat_audio.current_request_block->play_codec.tx_no_callback) { // 解码器要求发送不使用回调函数
 			if (_luat_audio.current_request_block->is_save_play_data) {
 				luat_fifo_write(_luat_audio.current_request_block->play_save_fifo, ctrl->play_buff_byte + ctrl->one_play_block_len * last_play_cnt, ctrl->one_play_block_len);
 			}
@@ -1360,7 +1360,7 @@ int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_au
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
-	
+	request_block->play_codec.opts->init(&request_block->play_codec, 0);
 	if (request_block->record_codec.opts->init(&request_block->record_codec, 1) != LUAT_ERROR_NONE) {
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
@@ -1413,7 +1413,7 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 
 	request_block->record_codec.opts->set_record_info(&request_block->record_codec, common_audio_param);
 	request_block->play_codec.common_param = *common_audio_param;
-	request_block->play_save_fifo = record_fifo;
+	request_block->record_save_fifo = record_fifo;
 	request_block->priority = 255;
 	request_block->static_play_buff = tx_buff;
 	request_block->static_play_buff_one_block_len = one_block_len;

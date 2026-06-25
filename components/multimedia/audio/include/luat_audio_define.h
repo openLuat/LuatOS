@@ -68,7 +68,8 @@ enum {
     LUAT_AUDIO_DATA_CODEC_TYPE_OPUS,       /**< OPUS 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,       /**< G711_ULAW 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,       /**< G711_ALAW 编解码器 */
-    LUAT_AUDIO_DATA_CODEC_TYPE_NO_OP,        /**< 无操作编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_NO_OP,        /**< 无操作编解码器*/
+    LUAT_AUDIO_DATA_CODEC_TYPE_CC,        /**< 通话专用编解码器，用于通话中的音频数据编码解码，一般由BSP自行决定 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MAX,        /**< 最大编解码器类型 */
     LUAT_AUDIO_DATA_CODEC_TYPE_HW = 0x80, /**< 编解码器类型-硬件编解码器优先模式 */
 
@@ -134,7 +135,7 @@ enum {
 #endif
 
 #ifndef LUAT_AUDIO_TASK_PRIORITY
-#define LUAT_AUDIO_TASK_PRIORITY 90
+#define LUAT_AUDIO_TASK_PRIORITY 100
 #endif
 
 #ifndef LUAT_AUDIO_TTS_TASK_PRIORITY

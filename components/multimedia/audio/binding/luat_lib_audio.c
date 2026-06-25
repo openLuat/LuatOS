@@ -762,9 +762,10 @@ DONE:
 @int 通道数，1,2，如果指定解码器是RAW，不能留空
 @boolean 是否有符号数据，默认true
 @return boolean 成功返回true,否则返回false
+@return int 外部音频源索引，用于后续操作，如停止播放
 @usage
 local result, request_index = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_AMR_WB, save_buffer, 10)
-audio_v2.source(request_index, {"/test_16k.mp3"})
+audio_v2.extern_source(request_index, {"/test_16k.mp3"})
 */
 static int l_audio_extern_source(lua_State *L) {
     int result = -1;

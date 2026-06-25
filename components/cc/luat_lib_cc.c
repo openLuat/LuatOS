@@ -11,6 +11,7 @@
 */
 
 #include "luat_base.h"
+#ifndef LUAT_USE_AUDIO_V2
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
@@ -1211,4 +1212,4 @@ void luat_cc_play_tone(uint32_t param)
 	if (!param) luat_cc.upload_need_stop = 1;
 	luat_rtos_event_send(luat_cc.task_handle, VOLTE_EVENT_PLAY_TONE, param, 0, 0, 0);
 }
-
+#endif

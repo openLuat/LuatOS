@@ -3,8 +3,8 @@
 #include "luat_common_api.h"
 #include "luat_mem.h"
 #include <string.h>
-
 static int _raw_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
+    codec->tx_no_callback = 1;
     return LUAT_ERROR_NONE;
 }
 

@@ -118,7 +118,8 @@ struct luat_audio_request_block {
             uint32_t stream_one_block_len;             /**< 流媒体模式下，每个数据块的长度 */
         };
     };
-    luat_fifo_t *encode_save_fifo;            /**< 录音数据缓冲区, 用户传入，用户自行释放*/
+    luat_fifo_t *play_save_fifo;            /**< 播放保存数据FIFO */
+    luat_fifo_t *record_save_fifo;            /**< 录音保存数据FIFO */
     luat_fifo_t *org_input_data_fifo;            /**< 原始数据输入缓冲区，在audio task里读出，可能在多个地方写入，需要在写入时做线程安全保护 */
     luat_buffer_t out_buffer;                /**< 输出数据缓冲区 */
     luat_buffer_t record_temp_buffer;                /**< 录音数据缓冲区 */
@@ -145,6 +146,7 @@ struct luat_audio_request_block {
     uint8_t is_stream_end:1;                   /**< 是否为流式请求结束 */
     uint8_t is_record_end:1;                   /**< 是否为录音请求 */
     uint8_t is_need_ref_data:1;                   /**< 是否需要保存参考数据 */
+    uint8_t is_save_play_data:1;                   /**< 是否保存播放数据 */
 
    };
 

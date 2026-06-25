@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_sys.h"
 #include "luat_mobile.h"
+#include "luat_hmeta.h"
 #include "luat_str.h"
 #include "luat_mcu.h"
 #include "luat_crypto.h"
@@ -21,6 +22,7 @@ static struct {
     int      state;
     int      npi_rfCaliDone, npi_rfNSTDone, npi_rfCTDone;
     char     imei[16];
+    char     muid[65];
     int      erf_mode;
     int      pmu_enable, pmu_mode;
     int      chip_ver;
@@ -79,6 +81,20 @@ int luat_mobile_set_sn(char* buff, uint8_t buf_len)
 }
 int luat_mobile_get_muid(char* buff, size_t buf_len)
 {
+    size_t len = strlen(s_rf_test.muid);
+    if (len == 0) return 0;
+    if (len >= buf_len) len = buf_len - 1;
+    memcpy(buff, s_rf_test.muid, len);
+    buff[len] = '\0';
+    return (int)len;
+}
+
+int luat_mobile_set_muid(const char* muid, size_t len)
+{
+    if (muid == NULL) return -1;
+    if (len >= sizeof(s_rf_test.muid)) len = sizeof(s_rf_test.muid) - 1;
+    memcpy(s_rf_test.muid, muid, len);
+    s_rf_test.muid[len] = '\0';
     return 0;
 }
 int luat_mobile_get_iccid(int sim_id, char* buff, size_t buf_len)
@@ -592,5 +608,32 @@ int luat_mobile_rf_test_nst(const char *data_hex, uint32_t hex_len, char *out, u
     int n = snprintf(out, *out_len, "MT%s00000001000000000000", cmd);
     if (n < 0 || (uint32_t)n >= *out_len) return -1;
     *out_len = (uint32_t)n;
+    return 0;
+}
+
+int luat_mobile_rf_test_version(char *out, size_t out_len)
+{
+    if (!out || out_len == 0) return -1;
+    char model[32] = "Air780EPM_A11";
+    char hmodel[32] = {0};
+    if (luat_hmeta_model_name(hmodel) > 0 && hmodel[0]) {
+        strncpy(model, hmodel, sizeof(model) - 1);
+        model[sizeof(model) - 1] = '\0';
+    }
+    int n = snprintf(out, out_len,
+        "+CP VER: 0x%x \n+RfTable VER: v%d.%d \n+Customer Moduler: %s\n+PaModel: %s\n+AsmModel: %s\n+CalcTime: %s\n+XoType: %s",
+        0x20250207, 4, 2, model, "XP5733_17", "SKY13418", "2026-06-12-08-09", "dcxo");
+    if (n < 0 || (size_t)n >= out_len) return -1;
+    return 0;
+}
+
+int luat_mobile_rf_test_band_list(char *out, size_t out_len)
+{
+    if (!out || out_len == 0) return -1;
+    const char *bands = "1,3,5,8,34,38,39,40,41";
+    size_t len = strlen(bands);
+    if (len >= out_len) len = out_len - 1;
+    memcpy(out, bands, len);
+    out[len] = '\0';
     return 0;
 }

@@ -60,6 +60,27 @@ function c_suite.test_c_imei_inject()
     assert(mobile.rfTestImei() == orig, "imei reset")
 end
 
+function c_suite.test_c_muid_rw()
+    if not mobile.muidSet then return end
+    local orig = mobile.muid() or ""
+    mobile.muidSet("20260612080903A826406A6434325623")
+    assert(mobile.muid() == "20260612080903A826406A6434325623", "muid get after set")
+    -- 恢复
+    mobile.muidSet(orig)
+    local restored = mobile.muid() or ""
+    assert(restored == orig, "muid reset")
+end
+
+function c_suite.test_c_rf_test_version()
+    if not mobile.rfTestVersion then return end
+    local ver = mobile.rfTestVersion()
+    assert(type(ver) == "string" and #ver > 0, "rfTestVersion returns string")
+    assert(ver:find("+CP VER:", 1, true), "version has +CP VER")
+    assert(ver:find("+RfTable VER:", 1, true), "version has +RfTable VER")
+    assert(ver:find("+Customer Moduler:", 1, true), "version has +Customer Moduler")
+    assert(ver:find("+XoType:", 1, true), "version has +XoType")
+end
+
 function c_suite.test_c_mode_input_no_crash()
     -- 无回调时调 mode/input 不应崩
     mobile.rfTestMode(1, true)
@@ -88,6 +109,12 @@ function lua_suite.test_lua_binding_rfTestImei()
 end
 function lua_suite.test_lua_binding_rfTestImeiSet()
     assert(type(mobile.rfTestImeiSet) == "function")
+end
+function lua_suite.test_lua_binding_muidSet()
+    assert(type(mobile.muidSet) == "function")
+end
+function lua_suite.test_lua_binding_rfTestVersion()
+    assert(type(mobile.rfTestVersion) == "function")
 end
 
 function lua_suite.test_lua_nst_aliases_removed()
@@ -219,6 +246,63 @@ end
 function at_suite.test_at_muid()
     assertResp("AT+MUID?", "+MUID:")
     assertResp("AT+MUID?", "OK")
+end
+
+function at_suite.test_at_muid_set()
+    if not mobile.muidSet then return end
+    local rfa = require("rfa")
+    rfa._reset_for_test()
+    assertResp('AT+MUID="20260612080903A826406A6434325623"', "OK")
+    assert(mobile.muid() == "20260612080903A826406A6434325623", "muid set via AT")
+end
+
+function at_suite.test_at_cgmr()
+    assertResp("AT+CGMR", "+CGMR:")
+    assertResp("AT+CGMR", "OK")
+    local rfa = require("rfa")
+    rfa._reset_for_test()
+    local resp = rfa.dispatch("AT+CGMR")
+    -- 产线工具日志中为 AirM2M_ 前缀
+    assert(resp:find("AirM2M_", 1, true), "CGMR returns AirM2M_ prefix, got: " .. resp)
+end
+
+function at_suite.test_at_ccid()
+    assertResp("AT+CCID", "OK")
+    local rfa = require("rfa")
+    rfa._reset_for_test()
+    local resp = rfa.dispatch("AT+CCID")
+    -- 裸 ICCID，无 +CCID: 前缀
+    assert(not resp:find("+CCID:", 1, true), "AT+CCID should not have +CCID: prefix")
+end
+
+function at_suite.test_at_ecband_query()
+    assertResp("AT+ECBAND?", "+ECBAND:")
+    assertResp("AT+ECBAND?", "OK")
+    local rfa = require("rfa")
+    rfa._reset_for_test()
+    local resp = rfa.dispatch("AT+ECBAND?")
+    -- AT+ECBAND? 返回 +ECBAND: 1,3,5,... ; AT+ECBAND=? 返回 +ECBAND: (1,3,5,...)
+    assert(resp:find("+ECBAND: 1,", 1, true) or resp:find("+ECBAND: 1", 1, true), "ECBAND? returns current bands")
+    assert(not resp:find("+ECBAND: (", 1, true), "ECBAND? should not have parentheses")
+end
+
+function at_suite.test_at_ecversion()
+    if not mobile.rfTestVersion then return end
+    assertResp("AT+ECVERSION?", "+CP VER:")
+    assertResp("AT+ECVERSION?", "+RfTable VER:")
+    assertResp("AT+ECVERSION?", "+Customer Moduler:")
+    assertResp("AT+ECVERSION?", "+XoType:")
+    assertResp("AT+ECVERSION?", "OK")
+end
+
+function at_suite.test_at_produc()
+    assertResp("AT+PRODUC", "OK")
+end
+
+function at_suite.test_at_atq0()
+    assertResp("AT+ATQ0", "OK")
+    assertResp("ATQ0", "OK")
+    assertResp("ATQ1", "OK")
 end
 
 function at_suite.test_at_atxi()

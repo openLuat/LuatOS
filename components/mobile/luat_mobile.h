@@ -65,6 +65,15 @@ int luat_mobile_set_sn(char* buff, uint8_t buf_len);
 int luat_mobile_get_muid(char* buff, size_t buf_len);
 
 /**
+ * @brief 设置MUID
+ *
+ * @param muid MUID字符串
+ * @param len MUID长度
+ * @return int = 0成功， = -1失败
+ */
+int luat_mobile_set_muid(const char* muid, size_t len);
+
+/**
  * @brief 获取SIM卡的ICCID
  * 
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
@@ -930,6 +939,25 @@ int luat_mobile_rf_test_nst(const char *data_hex, uint32_t hex_len, char *out, u
  * @return 0 成功, -1 失败
  */
 int luat_mobile_rf_test_set_rx_cb(const luat_mobile_rf_test_rx_cb_t *cb);
+
+/**
+ * @brief 读取 RF/CP 版本及模块信息，用于 AT+ECVERSION?
+ *        输出为 AT 响应体多行字符串（不含首尾的 \r\n 和 OK），例如：
+ *        +CP VER: 0x20250207 \n+RfTable VER: v4.2 \n+Customer Moduler: Air780EPM_A11\n...
+ * @param out    输出缓冲区
+ * @param out_len 缓冲区大小，建议 >= 256
+ * @return  0 成功, -1 失败
+ */
+int luat_mobile_rf_test_version(char *out, size_t out_len);
+
+/**
+ * @brief 读取支持的频段列表，用于 AT+ECBAND? / AT+ECBAND=?
+ *        输出为逗号分隔的频段号字符串，例如 "1,3,5,8,34,38,39,40,41"
+ * @param out    输出缓冲区
+ * @param out_len 缓冲区大小，建议 >= 64
+ * @return  0 成功, -1 失败
+ */
+int luat_mobile_rf_test_band_list(char *out, size_t out_len);
 
 
 enum

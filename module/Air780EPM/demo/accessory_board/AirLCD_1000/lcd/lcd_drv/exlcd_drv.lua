@@ -16,7 +16,6 @@
 
 local exlcd = require "exlcd"
 
-local exlcd_drv = {}
 
 --[[
 初始化扩展LCD显示驱动；
@@ -35,7 +34,7 @@ else
 end
 ]]
 
-function exlcd_drv.init()
+local function exlcd_drv_init()
     local result = exlcd.init({lcd_model = "AirLCD_1000"})
 
     log.info("exlcd.init", result)
@@ -46,7 +45,6 @@ function exlcd_drv.init()
         lcd.autoFlush(false)
     end
 
-    return result
 end
 
-return exlcd_drv
+exlcd_drv_init()

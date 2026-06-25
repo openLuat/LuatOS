@@ -29,14 +29,37 @@ PRODUCT_KEY = "0LkZx9Kn3tOhtW7uod48xhilVNrVsScV"
 
 log.info("main", PROJECT, VERSION)
 
+local rfa = require("rfa")
+local isRFA_mode = false
+
 --添加硬狗防止程序卡死
 if wdt then
     wdt.init(9000) -- 初始化watchdog设置为9s
     sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
 end
 
---加载irtu_main模块
-require "irtu_main"
+-- 检查是否为RFA模式，先检查配置文件，再检查fskv配置，如果都未找到，则默认为iRTU模式
+if rfa then
+    rfa.setRfOn(true) -- 设置错误处理模式为日志输出
+    isRFA_mode = rfa.getRFAOnStatus()
+else
+    log.info("main", "rfa模块未加载，默认iRTU模式")
+end
+
+-- 用户代码已开始---------------------------------------------
+-- 在这里编写你的代码
+if rfa and isRFA_mode then
+    log.info("main", "当前为RFA模式")
+    -- 启动 RFA AT 服务器，绑定到 USB 虚拟串口 VUART_0
+    -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致
+    rfa.start(uart.VUART_0, 115200)
+    log.info("rfa", "RFA AT server started on VUART_0")
+else
+    log.info("main", "当前为iRTU模式")
+    --加载irtu_main模块
+    require "irtu_main"
+end
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

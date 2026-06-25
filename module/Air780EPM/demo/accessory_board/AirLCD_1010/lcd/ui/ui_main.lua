@@ -22,6 +22,7 @@
 local home_page = require "home_page"
 local lcd_page = require "lcd_page"
 local customer_font_page = require "customer_font_page"
+local camera_preview_page = require "camera_preview_page"
 
 -- 当前页面状态
 local current_page = "home"
@@ -33,7 +34,7 @@ frame_time = 20*1000
 
 @api switch_page(new_page)
 @string new_page 目标页面名称
-@valid_values "home", "lcd", "customer_font"
+@valid_values "home", "lcd", "customer_font", "camera_preview"
 @return nil
 
 @usage
@@ -48,6 +49,8 @@ local function switch_page(new_page)
         lcd_page.on_leave()
     elseif current_page == "customer_font" and customer_font_page.on_leave then
         customer_font_page.on_leave()
+    elseif current_page == "camera_preview" and camera_preview_page.on_leave then
+        camera_preview_page.on_leave()
     end
 
     last_page = current_page
@@ -60,6 +63,8 @@ local function switch_page(new_page)
         lcd_page.on_enter()
     elseif new_page == "customer_font" and customer_font_page.on_enter then
         customer_font_page.on_enter()
+    elseif new_page == "camera_preview" and camera_preview_page.on_enter then
+        camera_preview_page.on_enter()
     end
 
     log.info("ui_main", "切换到页面:", current_page)
@@ -86,6 +91,8 @@ local function handle_touch_event(event, x, y)
             return lcd_page.handle_touch(x, y, switch_page)
         elseif current_page == "customer_font" then
             return customer_font_page.handle_touch(x, y, switch_page)
+        elseif current_page == "camera_preview" then
+            return camera_preview_page.handle_touch(x, y, switch_page)
         end
     end
     return false
@@ -109,22 +116,32 @@ local function ui_main()
     end
 
     while true do
-        -- 根据当前页面绘制内容
-        if current_page == "home" then
-            home_page.draw()
-        elseif current_page == "lcd" then
-            lcd_page.draw()
-        elseif current_page == "customer_font" then
-            customer_font_page.draw()
-        end
+        -- 纯画面预览模式：硬件直接输出画面，跳过draw/flush
+        if current_page == "camera_preview" and camera_preview_page.is_preview_raw() then
+            -- 等待触摸事件500ms，不刷新LCD
+            local result, event, x, y = sys.waitUntil("BASE_TOUCH_EVENT", 500)
+            if result then
+                handle_touch_event(event, x, y)
+            end
+        else
+            -- 其他页面：正常绘制和刷新
+            if current_page == "home" then
+                home_page.draw()
+            elseif current_page == "lcd" then
+                lcd_page.draw()
+            elseif current_page == "customer_font" then
+                customer_font_page.draw()
+            elseif current_page == "camera_preview" then
+                camera_preview_page.draw()
+            end
 
-        lcd.flush()
+            lcd.flush()
 
-
-        -- 等待触摸事件
-        local result, event, x, y = sys.waitUntil("BASE_TOUCH_EVENT",frame_time)
-        if result then
-            handle_touch_event(event, x, y)
+            -- 等待触摸事件
+            local result, event, x, y = sys.waitUntil("BASE_TOUCH_EVENT",frame_time)
+            if result then
+                handle_touch_event(event, x, y)
+            end
         end
     end
 end

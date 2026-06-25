@@ -67,14 +67,7 @@ void net_lwip2_set_link_state(uint8_t adapter_index, uint8_t updown);
 
 void net_lwip2_set_dhcp_client(uint8_t adapter_index, dhcp_client_info_t *dhcp_client);
 
-#ifdef LUAT_USE_NETDRV_LWIP_ARP
-/* ARP 1000ms 周期定时器已被移除. 以下 API 保留为空 stub, 仅用于 ABI 兼容,
- * 调用方无需修改即可继续编译. 历史实现见 commit b4de806e0. */
-void net_lwip2_arp_timer_sleep_prepare(void);
-void net_lwip2_arp_timer_wakeup_resume(void);
-void net_lwip2_arp_timer_request_start(uint8_t adapter_index);
-void net_lwip2_arp_timer_request_stop(uint8_t adapter_index);
-void net_lwip2_notify_gw_mac_state(struct netif *netif, uint8_t valid);
-#endif
+/* ARP 1000ms 周期定时器及其所有公共 API 已被完全移除.
+ * 历史实现见 commit b4de806e0. */
 
 #endif

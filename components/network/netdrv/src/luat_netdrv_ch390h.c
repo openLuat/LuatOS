@@ -79,6 +79,7 @@ static int ch390h_ctrl(luat_netdrv_t* drv, void* userdata, int cmd, void* buff, 
         case LUAT_NETDRV_CTRL_UPDOWN: {
             int updown = (int)buff;
             if (updown == 0) {
+                ch->sleep_requested = 1;   // 标记业务侧已请求休眠, 允许 check_vid_pid 路径自杀转 STOPPED
                 ch->status = CH390H_STATUS_STOPPED;
                 ch->init_done = 0;
                 luat_ch390h_set_rx(ch, 0);
@@ -88,6 +89,7 @@ static int ch390h_ctrl(luat_netdrv_t* drv, void* userdata, int cmd, void* buff, 
                 LLOGI("adapter %d stopped and phy down", ch->adapter_id);
             }
             else {
+                ch->sleep_requested = 0;   // 清除休眠请求, 恢复"正常运行时只自愈不自杀"行为
                 ch->status = 0;
                 ch->init_done = 0;
                 ch->rx_error_count = 0;

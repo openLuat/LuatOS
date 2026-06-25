@@ -271,14 +271,15 @@ static int check_vid_pid(ch390h_t* ch) {
             ch->init_done = 0;
             ch->vid_pid_error_count = 0;
         }
-        /* 硬件问题 (未接线 / LDO 未开 / SPI 干扰) 时 status 始终停在 0,
-         * 永远读不到 VID/PID, 但 task 仍以 1Hz 不断重试, 导致功耗居高不下.
-         * 累计失败超过 50 次后, 主动转入 STOPPED 状态让 task 进 FOREVER,
-         * 业务侧检测到链路异常可调 netdrv.ctrl(CTRL_UPDOWN, 1) 重新拉起. */
-        if (ch->vid_pid_error_count >= 50 && ch->status == 0) {
-            LLOGE("VID/PID 持续失败 %d 次, CH390 硬件不可用, 进入 STOPPED 节能态. "
-                  "请检查 spi=%d cs=%d 接线 / LDO / 中断脚后, "
-                  "通过 netdrv.ctrl(LWIP_ETH, CTRL_UPDOWN, 1) 重新尝试初始化.",
+        /* 仅当业务侧通过 CTRL_UPDOWN=0 显式请求了休眠 (sleep_requested=1) 时,
+         * 才允许在 VID/PID 持续失败后自杀转 STOPPED. 这样:
+         *  - 正常运行期间瞬时干扰 / 网线意外抖动 / SPI 偶发失败 ->
+         *    走 status=2->0->2 自愈循环, 不会卡 STOPPED;
+         *  - 业务侧主动请求休眠后, 若 SPI 已停 / PHY 已下电导致读不到 VID/PID ->
+         *    转 STOPPED 让 task 进 FOREVER, 不再贡献 1Hz 唤醒. */
+        if (ch->vid_pid_error_count >= 50 && ch->status == 0 && ch->sleep_requested) {
+            LLOGE("VID/PID 持续失败 %d 次 (休眠请求中), 进入 STOPPED 节能态. "
+                  "spi=%d cs=%d. 唤醒后会通过 netdrv.ctrl(CTRL_UPDOWN,1) 重新拉起.",
                   ch->vid_pid_error_count, ch->spiid, ch->cspin);
             ch->status = CH390H_STATUS_STOPPED;
             ch->init_done = 0;

@@ -676,42 +676,9 @@ static int l_netdrv_send_raw(lua_State *L) {
     return 1;
 }
 
-/*
-休眠前主动停止 ARP 1000ms 定时器。
-@api netdrv.arpSleep()
-@return boolean 是否成功投递了停止事件
-@usage
--- 进入 pm.power(pm.WORK_MODE, 1) 之前调用
-netdrv.arpSleep()
-pm.power(pm.WORK_MODE, 1)
-*/
-static int l_netdrv_arp_sleep(lua_State *L) {
-#if defined(LUAT_USE_NETDRV_LWIP_ARP) && !defined(LUAT_NETDRV_ARP_TIMER_ALWAYS_ON)
-    net_lwip2_arp_timer_sleep_prepare();
-    lua_pushboolean(L, 1);
-#else
-    lua_pushboolean(L, 0);
-#endif
-    return 1;
-}
-
-/*
-唤醒后恢复 ARP 1000ms 定时器（仅当休眠前确实停过且当前仍有 adapter 需要 ARP 时才会真正启动）。
-@api netdrv.arpResume()
-@return boolean 是否成功投递了恢复事件
-@usage
--- 唤醒回调里调用
-netdrv.arpResume()
-*/
-static int l_netdrv_arp_resume(lua_State *L) {
-#if defined(LUAT_USE_NETDRV_LWIP_ARP) && !defined(LUAT_NETDRV_ARP_TIMER_ALWAYS_ON)
-    net_lwip2_arp_timer_wakeup_resume();
-    lua_pushboolean(L, 1);
-#else
-    lua_pushboolean(L, 0);
-#endif
-    return 1;
-}
+/* netdrv.arpSleep / netdrv.arpResume 已被移除.
+ * ARP 1000ms 定时器整体已删除, 业务侧无需再为休眠主动停止它.
+ * 历史实现见 commit b4de806e0. */
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
@@ -728,8 +695,6 @@ static const rotable_Reg_t reg_netdrv[] =
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
     { "on",             ROREG_FUNC(l_netdrv_on)},
     { "send_raw",       ROREG_FUNC(l_netdrv_send_raw)},
-    { "arpSleep",       ROREG_FUNC(l_netdrv_arp_sleep)},
-    { "arpResume",      ROREG_FUNC(l_netdrv_arp_resume)},
 #ifdef LUAT_USE_MREPORT
     { "mreport",        ROREG_FUNC(l_mreport_config)},
 #endif

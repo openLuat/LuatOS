@@ -1680,17 +1680,9 @@ static int32_t net_lwip2_dummy_callback(void *pData, void *pParam)
 	return 0;
 }
 
-/* ===== ARP 1000ms 定时器低功耗控制：公共 API =====
- * 定时器实现已被完全移除. 保留 API 为空 stub 以维持 ABI 兼容,
- * 调用方 (luat_lib_netdrv.c arpSleep/arpResume, luat_netdrv_lwip_etharp.c
- * 的 gw_mac 通知) 无需修改即可继续编译. 历史实现见 commit b4de806e0. */
-#ifdef LUAT_USE_NETDRV_LWIP_ARP
-void net_lwip2_arp_timer_sleep_prepare(void) {}
-void net_lwip2_arp_timer_wakeup_resume(void) {}
-void net_lwip2_arp_timer_request_start(uint8_t adapter_index) { (void)adapter_index; }
-void net_lwip2_arp_timer_request_stop(uint8_t adapter_index) { (void)adapter_index; }
-void net_lwip2_notify_gw_mac_state(struct netif *netif, uint8_t valid) { (void)netif; (void)valid; }
-#endif /* LUAT_USE_NETDRV_LWIP_ARP */
+/* ARP 1000ms 定时器及其所有公共 API (sleep_prepare/wakeup_resume/
+ * request_start/request_stop/notify_gw_mac_state) 已被完全移除.
+ * 历史实现见 commit b4de806e0. */
 
 static void net_lwip2_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *user_data)
 {

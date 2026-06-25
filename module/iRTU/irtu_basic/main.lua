@@ -40,7 +40,6 @@ end
 
 -- 检查是否为RFA模式，先检查配置文件，再检查fskv配置，如果都未找到，则默认为iRTU模式
 if rfa then
-    rfa.setRfOn(true) -- 设置错误处理模式为日志输出
     isRFA_mode = rfa.getRFAOnStatus()
 else
     log.info("main", "rfa模块未加载，默认iRTU模式")

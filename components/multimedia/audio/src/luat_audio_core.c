@@ -70,7 +70,6 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 	if (!_luat_audio.current_request_block ) {
 		goto CHECK_FILL_BLANK;
 	} else {
-
 		if (_luat_audio.current_request_block->play_codec.tx_no_callback) { // 解码器要求发送不使用回调函数
 			if (_luat_audio.current_request_block->is_save_play_data) {
 				luat_fifo_write(_luat_audio.current_request_block->play_save_fifo, ctrl->play_buff_byte + ctrl->one_play_block_len * last_play_cnt, ctrl->one_play_block_len);
@@ -867,7 +866,7 @@ static void luat_audio_common_task(void *param)
 				uint8_t stop = 0;
 				uint8_t is_need_ref_data = request_block->is_need_ref_data;
 				deal_bytes = 0;
-				while (!stop) {
+				while (!stop && !request_block->is_record_end) {
 					read_bytes = 0;
 					temp_record_buffer.pos = 0;
 					ret =luat_audio_channel_read_data(request_block->data_channel, &temp_record_buffer, &request_block->record_temp_buffer, 
@@ -916,7 +915,9 @@ static void luat_audio_common_task(void *param)
 					}
 					
 				}
-				request_block->cb(LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA, NULL, deal_bytes, request_block);
+				if (!request_block->is_record_end) {
+					request_block->cb(LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA, NULL, deal_bytes, request_block);
+				}
 				if (request_block->extern_record_source) {
 					luat_mutex_unlock(_luat_audio.tts_or_extern_source_wait_sem);
 				}

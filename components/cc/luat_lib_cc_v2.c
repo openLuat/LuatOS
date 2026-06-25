@@ -358,7 +358,7 @@ static int l_cc_speech_init(lua_State* L) {
         lua_pushboolean(L, 0);
         return 1;
     }
-    luat_rtos_task_create(&_l_cc.task_handle, 4*1024, 100, "volte", _l_cc_volte_task, NULL, 0);
+    luat_rtos_task_create(&_l_cc.task_handle, 4*1024, 50, "volte", _l_cc_volte_task, NULL, 0);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -590,14 +590,12 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
 	luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_VOICE_START, (uint32_t)play_buff_byte, one_play_block_len, play_block_cnt, 0);
 }
 
-void luat_cc_start_upload(void)
-{
-	_l_cc.upload_enable = 1;
-}
-
 void luat_cc_play_tone(uint32_t param)
 {   
-    if (!param) _l_cc.upload_enable = 0;
+    if (!param)  {
+        _l_cc.upload_enable = 0;
+        _l_cc.cc_request.is_record_end = 1;
+    }
 	luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_PLAY_TONE, param, 0, 0, 0);
 }
 #endif

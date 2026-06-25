@@ -10,7 +10,7 @@
 LUAT_WEAK int luat_spi_device_setup(luat_spi_device_t* spi_dev) {
     luat_spi_bus_setup(spi_dev);
     if (spi_dev->spi_config.cs != 255)
-        luat_gpio_mode(spi_dev->spi_config.cs, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // CS
+        luat_gpio_mode(spi_dev->spi_config.cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH); // CS
     return 0;
 }
 

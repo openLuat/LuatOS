@@ -11,11 +11,8 @@
 3、实现按键防抖功能，防止误触发；
 4、对外发布按键消息；
 
-本文件的对外接口有1个：
-1、key_drv.init()：初始化按键驱动；
 ]]
 
-local key_drv = {}
 
 -- 按键定义
 local key_boot = 0           -- GPIO0按键（BOOT键）
@@ -50,12 +47,12 @@ end
 @return bool 初始化只会返回true
 
 @usage
-local result = key_drv.init()
+local result = key_drv_init()
 if result then
     log.info("按键驱动初始化成功")
 end
 ]]
-function key_drv.init()
+local function key_drv_init()
     gpio.setup(key_boot, handle_boot_key, gpio.PULLDOWN, gpio.BOTH)
     gpio.debounce(key_boot, 50, 0)     -- 防抖，防止频繁触发
 
@@ -66,5 +63,4 @@ function key_drv.init()
     return true
 end
 
-key_drv.init()
-return key_drv
+key_drv_init()

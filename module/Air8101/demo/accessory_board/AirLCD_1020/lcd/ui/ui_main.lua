@@ -21,6 +21,8 @@
 local home_page = require "home_page"
 local lcd_page = require "lcd_page"
 local customer_font_page = require "customer_font_page"
+local dvp_camera_page = require "dvp_camera_page"
+local usb_camera_page = require "usb_camera_page"
 
 -- 当前页面状态
 local current_page = "home"
@@ -47,6 +49,10 @@ local function switch_page(new_page)
         lcd_page.on_leave()
     elseif current_page == "customer_font_page" and customer_font_page.on_leave then
         customer_font_page.on_leave()
+    elseif current_page == "dvp_camera" and dvp_camera_page.on_leave then
+        dvp_camera_page.on_leave()
+    elseif current_page == "usb_camera" and usb_camera_page.on_leave then
+        usb_camera_page.on_leave()
     end
 
     last_page = current_page
@@ -59,6 +65,10 @@ local function switch_page(new_page)
         lcd_page.on_enter()
     elseif new_page == "customer_font_page" and customer_font_page.on_enter then
         customer_font_page.on_enter()
+    elseif new_page == "dvp_camera" and dvp_camera_page.on_enter then
+        dvp_camera_page.on_enter()
+    elseif new_page == "usb_camera" and usb_camera_page.on_enter then
+        usb_camera_page.on_enter()
     end
 
     log.info("ui_main", "切换到页面:", current_page)
@@ -85,6 +95,10 @@ local function handle_touch_event(event, x, y)
             return lcd_page.handle_touch(x, y, switch_page)
         elseif current_page == "customer_font_page" then
             return customer_font_page.handle_touch(x, y, switch_page)
+        elseif current_page == "dvp_camera" then
+            return dvp_camera_page.handle_touch(x, y, switch_page)
+        elseif current_page == "usb_camera" then
+            return usb_camera_page.handle_touch(x, y, switch_page)
         end
     end
     return false
@@ -98,11 +112,6 @@ end
 @return nil
 ]]
 local function ui_main()
-    
-
-    
-
-
     -- 默认使用系统自带的12号中文字体
     lcd.setFont(lcd.font_opposansm12_chinese)
 
@@ -119,6 +128,10 @@ local function ui_main()
             lcd_page.draw()
         elseif current_page == "customer_font_page" then
             customer_font_page.draw()
+        elseif current_page == "dvp_camera" then
+            dvp_camera_page.draw()
+        elseif current_page == "usb_camera" then
+            usb_camera_page.draw()
         end
 
         lcd.flush()

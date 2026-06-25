@@ -1,0 +1,353 @@
+# CC_DEMO 项目说明（Air8201G）
+
+## 项目概述
+
+本项目是基于 Air8201G 的语音通信演示demo，实现了三种语音通话应用场景（三选一）：基础通话功能模块、TTS循环播放与通话处理功能模块、以及通话录音功能模块。
+
+> Air8201G 基于 Air780EGH 模组，整机板上**板载 ES8311 音频编解码芯片**，无需外挂 AirAUDIO 配件板即可使用 cc 语音通话功能。
+
+## 关于 Air8201G 音频引脚
+
+本目录下 `audio_drv.lua` 中的 `audio_configs` 已按 Air8201G 整机板的硬件配置好，引脚对应关系如下：
+
+```lua
+local audio_configs = {
+    model    = "es8311",   -- 板载编解码芯片为 ES8311
+    i2c_id   = 0,          -- ES8311 挂在 I2C0 上
+    pa_ctrl  = 25,         -- 音频放大器(PA)电源控制管脚
+    dac_ctrl = 2,          -- 音频编解码芯片(ES8311)电源控制管脚
+}
+```
+
+若将本 demo 移植到自制板，请根据实际硬件接线修改 `i2c_id`、`pa_ctrl`、`dac_ctrl` 等参数。
+
+## 文件结构
+
+- main.lua: 主程序入口，支持三选一演示模式
+- audio_drv.lua: 管理音频设备初始化与控制
+- cc_app.lua: 实现基础通话业务逻辑以及通话录音
+- cc_tts_app.lua: 实现TTS循环播放与通话业务逻辑
+- cc_record_save.lua: 通话录音功能模块，仅支持SD卡存储
+
+## 功能模块说明
+
+### 功能一：基础通话功能（默认启用）
+
+1. **音频设备初始化与控制**：配置并管理ES8311音频编解码芯片和扬声器功放，包括I2C、I2S接口设置及音量控制。
+
+2. **完整通话业务逻辑处理**：实现4种通话场景，包括呼入和呼出的各种情况处理。
+
+   按照自己的通话需求启用对应的Lua文件，其余注释掉；
+
+   - (1)呼入，主动挂断（响铃3次后自动拒接）；
+
+   - (2)呼入，自动接听，接听消息识别打印，主动挂断，挂断消息识别打印；
+
+   - (3)呼入，自动接听，接听消息识别打印，等待对方挂断，挂断消息识别打印；
+
+   - (4)呼出，对方接通，接听消息识别打印，建立通话后一段时间，等待对方挂断，挂断消息识别打印；
+
+3. **通话状态监控与日志记录**：实时记录通话状态变化及相关信息。
+
+### 功能二：TTS循环播放与通话处理
+
+1. **音频设备初始化与控制**：使用exaudio.setup统一配置ES8311音频编解码芯片和扬声器功放，包括I2C、I2S接口设置及音量控制。
+
+2. **TTS循环播放功能**：
+   - 循环播放"支付宝到账，1千万元"语音提示
+   - 支持音量调节（默认设置为50）
+   - 播放完成后自动重新播放
+
+3. **来电自动接听功能**：
+   - 来电响铃2声后自动接听
+   - 通话过程中自动暂停TTS播放
+   - 通话结束后自动恢复TTS播放
+   - 来电时自动关闭音频输出，避免POP音
+
+### 场景三：通话录音功能模块（cc_record_save.lua）
+
+1. **模块功能概述**：
+   - 实现呼入自动接听功能（响2声后自动接听）
+   - 支持通话录音功能，保存为PCM格式
+   - 录音文件仅支持SD卡
+
+2. **功能说明**：
+   - 来电自动接听：响铃2声后自动接听来电
+   - 通话录音：自动开始录音，对方挂断后停止录音
+   - 存储方式：优先保存到SD卡，无卡或卡挂载失败时不录音
+
+3. **录音功能特性**：
+   - 录音文件保存为PCM格式：/sd/record_call.pcm（SD卡）
+   - 只保存上行数据（包含本地声音和网络回声）
+   - 下行数据自动跳过，避免重复存储
+   - 支持SD卡自动挂载和空间检测
+   - 仅支持SD卡存储，必须插入SD卡才能使用录音功能
+
+4. **使用方式**：
+   - 本模块仅支持呼入自动接听功能
+   - 录音文件仅支持SD卡存储，必须插入SD卡才能使用录音功能
+   - 录音文件为原始PCM格式，普通播放器无法播放，需要Audacity等支持原始音频播放器的软件播放
+
+## 演示硬件环境
+
+1、Air8201G 整机板一块（板载 ES8311 音频编解码芯片）
+
+2、喇叭一个（接到整机板的喇叭接口）
+
+3、TYPE-C USB数据线一根
+
+- Air8201G 整机板通过FPC线同BTB扩展板连接起来；
+
+- TYPE-C USB数据线插到BTB扩展板的TYPE-C USB座子，另外一端连接电脑USB口；
+
+## 演示软件环境
+
+1、[Luatools下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)
+
+2、[Air8201G 固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)，选择支持CC和TTS功能的固件。
+
+3、luatos需要的脚本和资源文件
+
+- 本目录下的脚本文件；
+
+- 准备好软件环境之后，将本目录下的项目文件烧录到 Air8201G 中。
+
+4、lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
+
+## 相关软件资料
+
+1、cc库   https://docs.openluat.com/osapi/core/cc/
+
+2、exaudio - 音频扩展库  https://docs.openluat.com/osapi/ext/exaudio/
+
+3、CC_IND -- 通话状态变化
+
+  "READY":通话准备完成，可以拨打电话或者呼入电话了
+
+  "INCOMINGCALL"：有电话呼入
+  
+  "CONNECTED"：电话已经接通
+
+  "DISCONNECTED"：电话被对方挂断
+
+  "SPEECH_START"：通话开始
+
+  "MAKE_CALL_OK"：拨打电话请求成功
+
+  "MAKE_CALL_FAILED"：拨打电话请求失败
+
+  "ANSWER_CALL_DONE"：接听电话请求完成
+
+  "HANGUP_CALL_DONE"：挂断电话请求完成
+
+  "PLAY"：开始有音频输出
+
+## 演示核心步骤
+
+1、搭建好硬件环境
+
+2、根据需求配置演示功能：
+
+   - 编辑main.lua文件，选择需要演示的功能
+   - 功能一（基础通话功能模块）：取消注释 `require "cc_app"`，注释掉 `require "cc_tts_app"` 和 `require "cc_record_save"`
+   - 功能二（TTS循环播放与通话处理功能模块）：注释掉 `require "cc_app"`，取消注释 `require "cc_tts_app"`，注释掉 `require "cc_record_save"`
+   - 功能三（通话录音功能模块）：注释掉 `require "cc_app"` 和 `require "cc_tts_app"`，取消注释 `require "cc_record_save"`
+
+3、功能一场景四需要修改测试号码：
+
+   - 编辑cc_app.lua文件中的 `local TEST_PHONE_NUMBER = "10086"`，修改为自己测试时要拨打的电话号码
+
+4、Luatools烧录内核固件和修改后的demo脚本代码
+
+5、烧录成功后，自动开机运行
+
+6、运行程序，观察日志输出了解系统状态
+
+### 功能一：基础通话功能
+
+#### 场景1 呼入立即挂断
+
+当设备启动并初始化完成后，打印READY和电话系统初始化完成。
+
+当有来电时，会打印INCOMINGCALL，并开始计数响铃次数。
+
+响铃3次后，自动拒接来电，打印拒接来电和挂断完成。
+
+类似以下日志：
+
+``` lua
+I/user.cc_app 通话业务逻辑模块加载完成，当前场景: 1
+I/user.exaudio_device 使用exaudio.setup初始化音频设备
+I/user.exaudio_device exaudio.setup初始化成功
+I/user.CC状态 READY
+I/user.exaudio_device 通话录音已启用
+I/user.cc_app 电话系统初始化完成
+I/user.CC状态 INCOMINGCALL
+I/user.场景1 收到来电，号码: 139XXXXXXXX 响铃次数: 1
+I/user.CC状态 INCOMINGCALL
+I/user.场景1 收到来电，号码: 139XXXXXXXX 响铃次数: 2
+I/user.CC状态 INCOMINGCALL
+I/user.场景1 收到来电，号码: 139XXXXXXXX 响铃次数: 3
+I/user.场景1 拒接来电
+I/user.CC状态 HANGUP_CALL_DONE
+I/user.场景1 挂断完成
+``` 
+
+#### 场景2 呼入自动接听+10秒后主动挂断
+
+来电响铃2次后自动接听，通话建立10秒后设备会自动挂断。通话期间持续进行双向录音。
+
+类似以下日志：
+
+``` lua
+I/user.cc_app 通话业务逻辑模块加载完成，当前场景: 2
+I/user.exaudio_device 使用exaudio.setup初始化音频设备
+I/user.exaudio_device exaudio.setup初始化成功
+I/user.CC状态 READY
+I/user.exaudio_device 通话录音已启用
+I/user.cc_app 电话系统初始化完成
+I/user.CC状态 PLAY
+I/user.CC状态 INCOMINGCALL   
+I/user.场景2 收到来电，号码: 139xxxxxxxx 响铃次数: 1  
+I/user.场景2 收到来电，号码: 139xxxxxxxx 响铃次数: 2  
+I/user.场景2 自动接听来电   
+I/user.场景2 接听完成，等待通话建立             
+I/user.场景2 通话已建立，开始计时  
+I/user.场景2 10秒挂断定时器创建成功，ID: 2097153
+I/user.录音 上行数据，位于缓存 1 缓存1数据量 6400 缓存2数据量 0
+I/user.通话质量 2
+I/user.CC状态 HANGUP_CALL_DONE
+I/user.场景2 通话结束
+I/user.场景2 已取消挂断定时器 
+```
+
+#### 场景3 呼入自动接听+等待对方挂断
+
+呼入主动接听并等待对方主动挂断。通话期间持续进行双向录音。
+
+类似以下日志：
+
+``` lua
+I/user.cc_app 通话业务逻辑模块加载完成，当前场景: 3
+I/user.exaudio_device 使用exaudio.setup初始化音频设备
+I/user.exaudio_device exaudio.setup初始化成功
+I/user.CC状态 READY
+I/user.exaudio_device 通话录音已启用
+I/user.cc_app 电话系统初始化完成
+I/user.CC状态 PLAY
+I/user.CC状态 INCOMINGCALL   
+I/user.场景2 收到来电，号码: 139xxxxxxxx 响铃次数: 1  
+I/user.场景2 收到来电，号码: 139xxxxxxxx 响铃次数: 2  
+I/user.场景2 自动接听来电  
+I/user.场景3 电话已接通，电话号码: 139xxxxxxxx
+I/user.录音 上行数据，位于缓存 1 缓存1数据量 6400 缓存2数据量 0
+I/user.通话质量 2
+I/user.CC状态 DISCONNECTED
+I/user.场景3 通话结束对方挂断
+```
+
+#### 场景4 主动呼出预设号码并等待对方挂断
+
+类似以下效果：
+
+``` lua
+I/user.cc_app 通话业务逻辑模块加载完成，当前场景: 4
+I/user.exaudio_device 使用exaudio.setup初始化音频设备
+I/user.exaudio_device exaudio.setup初始化成功
+I/user.CC状态 READY
+I/user.exaudio_device 通话录音已启用
+I/user.cc_app 电话系统初始化完成
+I/user.场景4 开始拨打 139xxxxxxxx
+I/user.CC状态 MAKE_CALL_OK
+I/user.CC状态 PLAY
+I/user.录音 上行数据，位于缓存 1 缓存1数据量 6400 缓存2数据量 0
+I/user.通话质量 2
+I/user.CC状态 DISCONNECTED
+I/user.场景4 通话结束（对方挂断）
+```
+
+### 功能二：TTS循环播放与通话处理
+
+#### TTS循环播放功能
+
+设备启动后会自动循环播放"支付宝到账，1千万元"语音提示，播放完成后间隔1秒继续播放。
+
+类似以下日志：
+
+``` lua
+I/user.cc_app TTS循环播放与通话处理模块加载完成
+I/user.exaudio_device 使用exaudio.setup初始化音频设备
+I/user.exaudio_device exaudio.setup初始化成功
+I/user.CC状态 READY
+I/user.exaudio_device 通话录音已启用
+I/user.cc_app 电话系统初始化完成
+I/user.开始播放TTS
+I/user.播放完成 true
+I/user.开始播放TTS
+I/user.播放完成 true
+```
+
+#### 来电自动接听功能
+
+当有来电时，设备会响铃2声后自动接听，通话过程中暂停TTS播放，通话结束后恢复播放。
+
+类似以下日志：
+
+``` lua
+I/user.CC状态 INCOMINGCALL
+I/user.场景3 收到来电，号码: 139XXXXXXXX 响铃次数: 1
+I/user.CC状态 INCOMINGCALL
+I/user.场景3 收到来电，号码: 139XXXXXXXX 响铃次数: 2
+I/user.场景3 自动接听来电
+I/user.场景3 电话已接通，电话号码: 139XXXXXXXX
+I/user.录音 上行数据，位于缓存 1 缓存1数据量 6400 缓存2数据量 0
+I/user.通话质量 2
+I/user.CC状态 DISCONNECTED
+I/user.场景3 通话结束对方挂断
+I/user.开始播放TTS
+I/user.播放完成 true
+```
+
+### 功能三：通话录音功能模块
+
+#### 呼入自动接听与录音功能
+
+设备启动后初始化通话系统，当有来电时自动接听并开始录音，通话结束后停止录音并保存文件。
+
+类似以下日志：
+
+``` lua
+I/user.cc_app 通话录音功能模块加载完成
+I/user.exaudio_device 使用exaudio.setup初始化音频设备
+I/user.exaudio_device exaudio.setup初始化成功
+I/user.CC状态 READY
+I/user.exaudio_device 通话录音已启用
+I/user.cc_app 电话系统初始化完成
+I/user.CC状态 INCOMINGCALL
+I/user.场景3 收到来电，号码: 139XXXXXXXX 响铃次数: 1
+I/user.CC状态 INCOMINGCALL
+I/user.场景3 收到来电，号码: 139XXXXXXXX 响铃次数: 2
+I/user.场景3 自动接听来电
+I/user.场景3 电话已接通，电话号码: 139XXXXXXXX
+I/user.录音文件 SD卡挂载成功，录音文件将保存到SD卡
+I/user.录音文件 创建录音文件成功:/sd/record_call.pcm
+I/user.录音 上行数据，位于缓存 1 缓存1数据量 6400 缓存2数据量 0
+I/user.通话质量 2
+I/user.CC状态 DISCONNECTED
+I/user.场景3 通话结束对方挂断
+I/user.录音文件 录音完成 文件大小: 102400 字节 录音时长: 10.5 秒 路径: /sd/record_call.pcm
+```
+
+#### SD卡存储要求
+
+必须插入SD卡才能使用录音功能，无SD卡时录音功能不可用：
+
+``` lua
+I/user.录音文件 SD卡挂载失败，录音功能不可用
+I/user.录音文件 无法创建录音文件，请插入SD卡
+```
+
+
+## **异常处理**
+
+1、如出现I2C通讯异常的情况，请检查 ES8311 的 I2C 总线(I2C0)是否正常上拉；也可使用exmux库来管理i2c总线的上拉状态，详情请参考[exmux扩展库介绍文档](https://docs.openluat.com/osapi/ext/exmux/)。

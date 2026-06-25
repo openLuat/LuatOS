@@ -19,9 +19,9 @@
 #include "luat_log.h"
 
 #define AIRLINK_UART_RAW_FRAME_MAX (4096)
-#define TEST_BUFF_SIZE (4096)             // s_txbuff / s_rxbuff 大小 (临时缓冲)
+#define UART_BUFF_SIZE (4096)             // s_txbuff / s_rxbuff 大小 (临时缓冲)
 #define UNPACK_BUFF_SIZE (8 * 1024)       // rxbuf 环形缓冲区大小
-#define UART_ESC_FRAME_MAX   (TEST_BUFF_SIZE)  // 单帧转义后最大长度, 与 s_txbuff/s_rxbuff 一致
+#define UART_ESC_FRAME_MAX   (UART_BUFF_SIZE)  // 单帧转义后最大长度, 与 s_txbuff/s_rxbuff 一致
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"
@@ -36,7 +36,7 @@
 #ifdef LUAT_CONF_AIRLINK_MODE_WAIT
 #define AIRLINK_MODE_WAIT_TIMEOUT 100
 #else
-#define AIRLINK_MODE_WAIT_TIMEOUT 15*1000
+#define AIRLINK_MODE_WAIT_TIMEOUT 500
 #endif
 
 extern airlink_statistic_t g_airlink_statistic;
@@ -70,14 +70,14 @@ static int luat_airlink_uart_ensure_buffers(void)
     uint8_t *new_rxbuf = NULL;
 
     if (g_airlink_uart.s_txbuff == NULL) {
-        new_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+        new_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, UART_BUFF_SIZE);
         if (new_txbuff == NULL) {
             goto alloc_failed;
         }
         g_airlink_uart.s_txbuff = new_txbuff;
     }
     if (g_airlink_uart.s_rxbuff == NULL) {
-        new_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+        new_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, UART_BUFF_SIZE);
         if (new_rxbuff == NULL) {
             goto alloc_failed;
         }
@@ -106,7 +106,7 @@ alloc_failed:
         luat_heap_opt_free(AIRLINK_MEM_TYPE, new_rxbuf);
         g_airlink_uart.rxbuf = NULL;
     }
-    LLOGE("uart buffer alloc failed tx=%u rx=%u unpack=%u", (unsigned)TEST_BUFF_SIZE, (unsigned)TEST_BUFF_SIZE, (unsigned)UNPACK_BUFF_SIZE);
+    LLOGE("uart buffer alloc failed tx=%u rx=%u unpack=%u", (unsigned)UART_BUFF_SIZE, (unsigned)UART_BUFF_SIZE, (unsigned)UNPACK_BUFF_SIZE);
     return -1;
 }
 
@@ -389,9 +389,9 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
                 }
                 luat_airlink_cmd_free(item.cmd);
             }
-            if ((packed_len * 2 + 2) > TEST_BUFF_SIZE) {
+            if ((packed_len * 2 + 2) > UART_BUFF_SIZE) {
                 LLOGE("uart tx: escaped frame too large raw=%u worst=%u limit=%u — dropping (consider enabling frag)",
-                      (unsigned)packed_len, (unsigned)(packed_len * 2 + 2), (unsigned)TEST_BUFF_SIZE);
+                      (unsigned)packed_len, (unsigned)(packed_len * 2 + 2), (unsigned)UART_BUFF_SIZE);
                 g_airlink_statistic.tx_pkg.drop++;
                 continue;
             }

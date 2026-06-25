@@ -1,13 +1,13 @@
 --[[
 @module  home_page
-@summary 主页模块，提供应用入口和导航功能
-@version 1.1
-@date    2025.11.20
+@summary 主页模块，提供应用入口和导航功能（触摸版）
+@version 1.2
+@date    2026.06.24
 @author  江访
 @usage
 本模块为主页面功能模块，主要功能包括：
 1、绘制主页面UI界面，显示应用标题和功能介绍；
-2、提供三个功能按钮：LCD演示、矢量字体演示、自定义字体演示；
+2、提供三个功能按钮：LCD演示、摄像头、自定义字体；
 3、处理主页面的触摸事件，实现页面导航；
 
 对外接口：
@@ -17,15 +17,11 @@
 
 local home_page = {}
 
--- 屏幕尺寸
-local width, height = lcd.getSize()
-
-local center_x = math.floor(width / 2)
-
--- 按钮区域定义
+-- 按钮区域定义（竖排三等宽居中）
 local buttons = {
-    lcd_page = { x1 = 10, y1 = 350, x2 = 150, y2 = 420 },
-    customer_font_page = { x1 = 170, y1 = 350, x2 = 310, y2 = 420 }
+    lcd_page          = { x1 = 60, y1 = 100, x2 = 260, y2 = 180 },
+    camera_preview    = { x1 = 60, y1 = 200, x2 = 260, y2 = 280 },
+    customer_font_page = { x1 = 60, y1 = 300, x2 = 260, y2 = 380 }
 }
 
 local title = "合宙lcd演示系统"
@@ -45,22 +41,25 @@ function home_page.draw()
     lcd.setFont(lcd.font_opposansm12_chinese)
 
     -- 显示标题
-    -- 后续V2020版本以上支持lcd核心库的固件会新增lcd.getStrWidth(title)接口获取文本宽度，对齐、居中、换行可使用
-    -- lcd.drawStr(center_x - lcd.getStrWidth(title) / 2, 50, title, 0x0000) -- 自动居中
-    lcd.drawStr(106, 50, title, 0x0000)
+    lcd.drawStr(106, 30, title, 0x0000)
 
     -- 显示说明文字
-    lcd.drawStr(46, 68, content1, 0x0000)
+    lcd.drawStr(46, 50, content1, 0x0000)
 
-    -- 绘制LCD演示按钮
+    -- 绘制LCD演示按钮（蓝色）
     lcd.fill(buttons.lcd_page.x1, buttons.lcd_page.y1,
         buttons.lcd_page.x2, buttons.lcd_page.y2, 0x001F)
-    lcd.drawStr(40, 390, "lcd核心库演示", 0xFFFF)
+    lcd.drawStr(130, 138, "lcd核心库演示", 0xFFFF)
 
-    -- 绘制自定义字体演示按钮
+    -- 绘制摄像头按钮（橙色）
+    lcd.fill(buttons.camera_preview.x1, buttons.camera_preview.y1,
+        buttons.camera_preview.x2, buttons.camera_preview.y2, 0xFCC0)
+    lcd.drawStr(120, 238, "摄像头:点击拍照", 0xFFFF)
+
+    -- 绘制自定义字体演示按钮（绿色）
     lcd.fill(buttons.customer_font_page.x1, buttons.customer_font_page.y1,
         buttons.customer_font_page.x2, buttons.customer_font_page.y2, 0x07E0)
-    lcd.drawStr(205, 390, "自定义字体", 0xFFFF)
+    lcd.drawStr(125, 338, "自定义字体", 0xFFFF)
 end
 
 --[[
@@ -77,6 +76,13 @@ function home_page.handle_touch(x, y, switch_page)
     if x >= buttons.lcd_page.x1 and x <= buttons.lcd_page.x2 and
         y >= buttons.lcd_page.y1 and y <= buttons.lcd_page.y2 then
         switch_page("lcd")
+        return true
+    end
+
+    -- 检查摄像头按钮
+    if x >= buttons.camera_preview.x1 and x <= buttons.camera_preview.x2 and
+        y >= buttons.camera_preview.y1 and y <= buttons.camera_preview.y2 then
+        switch_page("camera_preview")
         return true
     end
 

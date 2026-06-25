@@ -31,6 +31,7 @@ enum{
 	CC_EVENT_VOICE_START,
 	CC_EVENT_HANGUP,
 	CC_EVENT_CALL_READY,
+    CC_EVENT_VOICE_START_RECORD,
 
     CC_MSG_AUDIO_START = 0,
     CC_MSG_EXTERNAL_SOURCE_DECODE_DONE,
@@ -274,6 +275,7 @@ static void _l_cc_volte_task(void *param){
                     luat_msgbus_put(&msg, 0);
                 } else {
                     _l_cc.upload_enable = 0;
+                    _l_cc.cc_request.is_record_end = 1;
                 }
                 _l_cc.is_audio_start = 1;
                 LLOGD("CC_EVENT_VOICE_START request speech success, update upload enable %d", _l_cc.upload_enable);
@@ -285,6 +287,10 @@ static void _l_cc_volte_task(void *param){
 		case CC_EVENT_HANGUP:
 			luat_mobile_hangup_call(event.param1);
 			break;
+        case CC_EVENT_VOICE_START_RECORD:
+        	_l_cc.upload_enable = 1;
+            _l_cc.cc_request.is_record_end = 0;
+            break;
 		}
 	}
 }
@@ -588,6 +594,11 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
     _l_cc.cc_param.data_align = data_align;
     _l_cc.cc_param.channel_nums = channel_nums;
 	luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_VOICE_START, (uint32_t)play_buff_byte, one_play_block_len, play_block_cnt, 0);
+}
+
+void luat_cc_upload_enable(void)
+{
+    luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_VOICE_START_RECORD, 0, 0, 0, 0);
 }
 
 void luat_cc_play_tone(uint32_t param)

@@ -698,6 +698,7 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 		}
 	}
 	if (check_rx_fifo) {
+		request_block->data_channel->driver_ctrl->opts->modify_audio_common_param(request_block->data_channel->driver_ctrl, request_block->record_codec.common_param.sample_rate, request_block->record_codec.common_param.data_align,request_block->record_codec.common_param.channel_nums);
 		if (!request_block->data_channel->record_fifo) {
 			LLOGD("driver 0x%x create record fifo", request_block->data_channel->driver_ctrl->probe.probe_id);
 			request_block->data_channel->record_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER);

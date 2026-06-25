@@ -76,6 +76,11 @@ int luat_mobile_get_muid(char* buff, size_t buf_len) {
     return luat_airlink_drv_rpc_mobile_get_muid(buff, buf_len);
 }
 
+int luat_mobile_set_muid(const char* muid, size_t len) {
+    (void)muid; (void)len;
+    return -1;
+}
+
 uint8_t luat_mobile_get_sim_ready(int id) {
     uint8_t sim_ready = 0;
     if (luat_airlink_drv_rpc_mobile_get_sim_ready((uint8_t)id, &sim_ready) != 0) {
@@ -454,6 +459,16 @@ int luat_mobile_rf_test_imei_get(char *out, uint32_t len) {
 
 int luat_mobile_rf_test_imei_set(const char *imei) {
     (void)imei;
+    return -1;
+}
+
+int luat_mobile_rf_test_version(char *out, size_t out_len) {
+    (void)out; (void)out_len;
+    return -1;
+}
+
+int luat_mobile_rf_test_band_list(char *out, size_t out_len) {
+    (void)out; (void)out_len;
     return -1;
 }
 

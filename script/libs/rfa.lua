@@ -66,9 +66,21 @@ function M._reset_for_test() line_buf = ""; M.reset() end
 function M.register(cmd_prefix, fn)         handlers_[cmd_prefix] = fn end
 function M.registerRfnst(cmd_id_hex, fn)    rfnst_tpl_[cmd_id_hex:upper()] = fn end
 
+-- AT 命令头部（到第一个 = 或 ? 为止）不区分大小写，参数保持原样
+local function _normalize_at(line)
+    if not line or #line == 0 then return line end
+    local sep = line:find("[=?]", 1)
+    if sep then
+        return line:sub(1, sep - 1):upper() .. line:sub(sep)
+    else
+        return line:upper()
+    end
+end
+
 -- 派发 (纯函数)
 function M.dispatch(line)
     if not line or #line == 0 then return nil end
+    line = _normalize_at(line)
     if M._erf then return "\r\nERROR\r\n" end
 
     -- 1) 私有协议优先
@@ -91,8 +103,23 @@ function M.dispatch(line)
 end
 
 function M._builtin_dispatch(line)
-    if line == "AT" or line:match("^ATE%d*$") then
+    if line == "AT" or line:match("^ATE%d*$") or line:match("^ATQ[01]?$") or line:match("^AT%+ATQ[01]?$") then
         return "\r\nOK\r\n"
+    end
+    -- AT+CGMR: firmware revision (align with AT firmware ate product)
+    if line == "AT+CGMR" then
+        local version = "Unknown"
+        if rtos and rtos.version then
+            local ver = rtos.version()
+            local model = (hmeta and hmeta.model) and hmeta.model() or ""
+            if model ~= "" then
+                local suffix = #model > 3 and model:sub(4) or model
+                version = "AirM2M_" .. suffix .. "_" .. ver
+            else
+                version = ver
+            end
+        end
+        return '\r\n+CGMR: "' .. version .. '"\r\n\r\nOK\r\n'
     end
     if line == "AT+CGSN" then
         M.setState(math.max(M.state(), M.STATE.PREP))
@@ -197,7 +224,10 @@ function M._builtin_dispatch(line)
         -- 去除首尾可能残留的引号（防御性）
         cg_type = cg_type:gsub('^"', ''):gsub('"$', '')
         cg_val  = cg_val:gsub('^"', ''):gsub('"$', '')
-        
+        -- 兼容 AT 固件中的数字类型：1=IMEI
+        if cg_type == "1" then cg_type = "IMEI" end
+        cg_type = cg_type:upper()
+
         if cg_type == "IMEI" and #cg_val == 15 then
             if M.setImei(cg_val) then
                 return "\r\nOK\r\n"
@@ -251,10 +281,26 @@ function M._builtin_dispatch(line)
         return "\r\n" .. version .. "\r\n\r\nOK\r\n"
     end
 
-    -- AT+MUID?: MUID query
+    -- AT+MUID: MUID query / write
     if line == "AT+MUID?" then
-        local muid = (mobile and mobile.muid) and mobile.muid() or ""
+        local muid_fn = mobile and mobile.muid
+        log.info("rfa", "AT+MUID? muid_fn", type(muid_fn))
+        local raw_muid = muid_fn and muid_fn()
+        log.info("rfa", "AT+MUID? raw", type(raw_muid), raw_muid and #raw_muid or 0)
+        local muid = raw_muid or ""
         return string.format("\r\n+MUID: %s\r\n\r\nOK\r\n", muid)
+    end
+    -- AT+MUID="<muid>" or AT+MUID=<muid>: write MUID
+    -- [^"]* 支持 AT+MUID="" 清空 MUID
+    local muid_val = line:match('^AT%+MUID="([^"]*)"$')
+    if not muid_val then
+        muid_val = line:match("^AT%+MUID=(%S+)$")
+    end
+    if muid_val then
+        if mobile and mobile.muidSet then
+            mobile.muidSet(muid_val)
+        end
+        return "\r\nOK\r\n"
     end
 
     -- AT*I: module version and detailed information
@@ -273,12 +319,76 @@ function M._builtin_dispatch(line)
         return "\r\n" .. info .. "\r\n\r\nOK\r\n"
     end
 
-    -- AT+ECBAND=?: supported bands (placeholder until C backend ready)
+    -- helper: get band list string, prefer rfTestBandList API
+    local function band_list_str()
+        if mobile and mobile.rfTestBandList then
+            local s = mobile.rfTestBandList()
+            if s and #s > 0 then return s end
+        end
+        local bands = (mobile and mobile.rfTestParam) and mobile.rfTestParam("bandList") or 0
+        log.error("rfa.lua", string.format("rfa: bandList=%d", bands))
+        if bands and bands ~= 0 then
+            return tostring(bands)
+        end
+        return "1,3,5,8,34,38,39,40,41"
+    end
+    -- AT+ECBAND=?: supported bands (align with AT firmware devECBAND)
     if line == "AT+ECBAND=?" then
-        local bands = (mobile and mobile.rfTestParam)
-                      and mobile.rfTestParam("bandList") or 0
-        return string.format("\r\n+ECBAND: (%s)\r\n\r\nOK\r\n",
-                             bands ~= 0 and tostring(bands) or "1,3,5,8,34,38,39,40,41")
+        return string.format("\r\n+ECBAND: (%s)\r\n\r\nOK\r\n", band_list_str())
+    end
+    -- AT+ECBAND?: current bands (align with AT firmware devECBAND)
+    if line == "AT+ECBAND?" then
+
+        return string.format("\r\n+ECBAND: %s\r\n\r\nOK\r\n", band_list_str())
+    end
+
+    -- AT+CCID: raw ICCID (no +CCID: prefix, align with AT firmware amCCID)
+    if line == "AT+CCID" then
+        local iccid = ""
+        if mobile and mobile.iccid then
+            iccid = mobile.iccid()
+        end
+        if iccid and #iccid > 0 then
+            return '\r\n' .. iccid .. '\r\n\r\nOK\r\n'
+        end
+        return "\r\nOK\r\n"
+    end
+
+    -- AT+ECVERSION?: RF/CP version info (align with AT firmware pdECVERSION)
+    if line == "AT+ECVERSION?" then
+        local info
+        if mobile and mobile.rfTestVersion then
+            local v = mobile.rfTestVersion()
+            if type(v) == "table" then
+                info = string.format(
+                    "+CP VER: 0x%x \n+RfTable VER: v%d.%d \n+Customer Moduler: %s\n+PaModel: %s\n+AsmModel: %s\n+CalcTime: %s\n+XoType: %s",
+                    v.cpVer or 0x20260000,
+                    v.rfTableVerMajor or 4, v.rfTableVerMinor or 2,
+                    v.customerModule or "EC7XX",
+                    v.paModel or "XP5733_17",
+                    v.asmModel or "SKY13418",
+                    v.calcTime or "2026-00-00-00-00",
+                    v.xoType or "dcxo")
+            elseif type(v) == "string" and #v > 0 then
+                info = v
+            end
+        end
+        if not info then
+            -- fallback: compose from hmeta + defaults to keep format identical
+            local model = (hmeta and hmeta.model) and hmeta.model() or "EC7XX"
+            info = string.format(
+                "+CP VER: 0x%x \n+RfTable VER: v%d.%d \n+Customer Moduler: %s\n+PaModel: %s\n+AsmModel: %s\n+CalcTime: %s\n+XoType: %s",
+                0x20260000, 4, 2, model, "XP5733_17", "SKY13418", os.date("%Y-%m-%d-%H-%M"), "dcxo")
+        end
+        return "\r\n" .. info .. "\r\n\r\nOK\r\n"
+    end
+
+    -- AT+PRODUC: production mode enter (not documented in manual, tool expects OK)
+    if line == "AT+PRODUC" then
+        if mobile and mobile.rfTestParam then
+            mobile.rfTestParam("prodMode", 1, true)
+        end
+        return "\r\nOK\r\n"
     end
 
     -- AT+ECICCID: ICCID

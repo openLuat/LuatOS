@@ -31,6 +31,9 @@ enum{
 	CC_EVENT_VOICE_START,
 	CC_EVENT_HANGUP,
 	CC_EVENT_CALL_READY,
+
+    CC_MSG_AUDIO_START = 0,
+    CC_MSG_EXTERNAL_SOURCE_DECODE_DONE,
 };
 
 //播放控制
@@ -66,7 +69,7 @@ static luat_cc_ctrl_t _l_cc;
 
 extern const int16_t ringback_8k_data[8000];
 
-static int l_cc_handler(lua_State *L, void* ptr) {
+static int _l_cc_handler(lua_State *L, void* ptr) {
     (void)ptr;
     //LLOGD("l_uart_handler");
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -85,68 +88,103 @@ static int l_cc_handler(lua_State *L, void* ptr) {
     return 1;
 }
 
+static int _l_cc_audio_start(lua_State *L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    if (lua_getglobal(L, "sys_pub") != LUA_TFUNCTION) {
+        return 0;
+    };
+    lua_pushstring(L, "CC_IND");
+    switch (msg->arg1) {
+    case CC_MSG_AUDIO_START:
+        lua_pushstring(L, "AUDIO_START");
+        break;
+    case CC_MSG_EXTERNAL_SOURCE_DECODE_DONE:
+        lua_pushstring(L, "EXT_SRC_DONE");
+        break;
+    }
+    lua_call(L, 2, 0);
+    return 0;
+}
+
 static void _l_cc_audio_ring_request_callback(uint32_t event, uint8_t *data, uint32_t param, struct luat_audio_request_block *request_block) {
-    if (_l_cc.is_play_ring && !_l_cc.is_play_user_ring) {   //在播放默认振铃
-        if (luat_fifo_check_free_space(_l_cc.ring_request.org_input_data_fifo) >= sizeof(ringback_8k_data)) {
-            if (!_l_cc.tone_data_cnt) {
-                luat_fifo_write(_l_cc.ring_request.org_input_data_fifo, ringback_8k_data, sizeof(ringback_8k_data));
-                _l_cc.tone_data_cnt = 1;
-            } else {
-                uint16_t blank_data[1000] = {0};
-                for (uint8_t i = 0; i < 8; i++) {
-                    luat_fifo_write(_l_cc.ring_request.org_input_data_fifo, blank_data, sizeof(blank_data));
-                }
-                _l_cc.tone_data_cnt++;
-                if (_l_cc.tone_data_cnt >= 3) { //2秒空白音之后，播放下一个振铃
-                    _l_cc.tone_data_cnt = 0;
+    if (event == LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA) {
+        if (_l_cc.is_play_ring && !_l_cc.is_play_user_ring) {   //在播放默认振铃
+            if (luat_fifo_check_free_space(_l_cc.ring_request.org_input_data_fifo) >= sizeof(ringback_8k_data)) {
+                if (!_l_cc.tone_data_cnt) {
+                    luat_fifo_write(_l_cc.ring_request.org_input_data_fifo, ringback_8k_data, sizeof(ringback_8k_data));
+                    _l_cc.tone_data_cnt = 1;
+                } else {
+                    uint16_t blank_data[1000] = {0};
+                    for (uint8_t i = 0; i < 8; i++) {
+                        luat_fifo_write(_l_cc.ring_request.org_input_data_fifo, blank_data, sizeof(blank_data));
+                    }
+                    _l_cc.tone_data_cnt++;
+                    if (_l_cc.tone_data_cnt >= 3) { //2秒空白音之后，播放下一个振铃
+                        _l_cc.tone_data_cnt = 0;
+                    }
                 }
             }
         }
     }
+
 }
 
 static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, uint32_t param, struct luat_audio_request_block *request_block) {
 	luat_zbuff_t *buff;
-    if (_l_cc.upload_enable) {    //在通话状态中
-        if (_l_cc.record_on_off) { //通话录音中
-            uint32_t zbuff_rest_data_len;
-            uint32_t fifo_read_len;
-            // 录音数据写入用户zbuff
-            buff = _l_cc.up_buff[_l_cc.record_up_zbuff_point];
-            zbuff_rest_data_len = buff->len - buff->used;
-            fifo_read_len = luat_fifo_read(_l_cc.record_save_fifo, buff->addr + buff->used, zbuff_rest_data_len);
-            buff->used += fifo_read_len;
-            if (buff->used >= buff->len) {  //zbuff满了，需要上传了
-                rtos_msg_t msg;
-				msg.handler = l_cc_handler;
-				msg.arg2 = _l_cc.record_up_zbuff_point;
-				msg.arg1 = 0;
-				luat_msgbus_put(&msg, 0);
-				_l_cc.record_up_zbuff_point = !_l_cc.record_up_zbuff_point;
-				_l_cc.up_buff[_l_cc.record_up_zbuff_point]->used = 0;
+    rtos_msg_t msg;
+    switch (event) {
+    case LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA:
+        if (_l_cc.upload_enable) {    //在通话状态中
+            if (_l_cc.record_on_off) { //通话录音中
+                uint32_t zbuff_rest_data_len;
+                uint32_t fifo_read_len;
+                // 录音数据写入用户zbuff
+                buff = _l_cc.up_buff[_l_cc.record_up_zbuff_point];
+                zbuff_rest_data_len = buff->len - buff->used;
+                fifo_read_len = luat_fifo_read(_l_cc.record_save_fifo, buff->addr + buff->used, zbuff_rest_data_len);
+                buff->used += fifo_read_len;
+                if (buff->used >= buff->len) {  //zbuff满了，需要上传了
+                    msg.handler = _l_cc_handler;
+                    msg.arg2 = _l_cc.record_up_zbuff_point;
+                    msg.arg1 = 0;
+                    luat_msgbus_put(&msg, 0);
+                    _l_cc.record_up_zbuff_point = !_l_cc.record_up_zbuff_point;
+                    _l_cc.up_buff[_l_cc.record_up_zbuff_point]->used = 0;
+                }
+                // 放音数据写入用户zbuff
+                buff = _l_cc.down_buff[_l_cc.record_down_zbuff_point];
+                zbuff_rest_data_len = buff->len - buff->used;
+                fifo_read_len = luat_fifo_read(_l_cc.play_save_fifo, buff->addr + buff->used, zbuff_rest_data_len);
+                buff->used += fifo_read_len;
+                if (buff->used >= buff->len) {  //zbuff满了，需要上传了
+                    msg.handler = _l_cc_handler;
+                    msg.arg2 = _l_cc.record_down_zbuff_point;
+                    msg.arg1 = 1;
+                    luat_msgbus_put(&msg, 0);
+                    _l_cc.record_down_zbuff_point = !_l_cc.record_down_zbuff_point;
+                    _l_cc.down_buff[_l_cc.record_down_zbuff_point]->used = 0;
+                }
+                
+            } else {
+                luat_fifo_delete_all(_l_cc.record_save_fifo);
+                luat_fifo_delete_all(_l_cc.play_save_fifo);
             }
-            // 放音数据写入用户zbuff
-            buff = _l_cc.down_buff[_l_cc.record_down_zbuff_point];
-            zbuff_rest_data_len = buff->len - buff->used;
-            fifo_read_len = luat_fifo_read(_l_cc.play_save_fifo, buff->addr + buff->used, zbuff_rest_data_len);
-            buff->used += fifo_read_len;
-            if (buff->used >= buff->len) {  //zbuff满了，需要上传了
-                rtos_msg_t msg;
-				msg.handler = l_cc_handler;
-				msg.arg2 = _l_cc.record_down_zbuff_point;
-				msg.arg1 = 1;
-				luat_msgbus_put(&msg, 0);
-				_l_cc.record_down_zbuff_point = !_l_cc.record_down_zbuff_point;
-				_l_cc.down_buff[_l_cc.record_down_zbuff_point]->used = 0;
-            }
-            
         } else {
             luat_fifo_delete_all(_l_cc.record_save_fifo);
             luat_fifo_delete_all(_l_cc.play_save_fifo);
         }
-    } else {
-        luat_fifo_delete_all(_l_cc.record_save_fifo);
-        luat_fifo_delete_all(_l_cc.play_save_fifo);
+        break;
+    case LUAT_AUDIO_REQUEST_EVENT_START:
+        if (_l_cc.upload_enable && _l_cc.record_on_off) {
+            _l_cc.cc_request.play_save_fifo = _l_cc.play_save_fifo;
+            _l_cc.cc_request.is_save_play_data = 1;
+        }
+        break;
+    case LUAT_AUDIO_REQUEST_EVENT_EXTERNAL_SOURCE_DECODE_DONE:
+        msg.handler = _l_cc_audio_start;
+        msg.arg1 = CC_MSG_EXTERNAL_SOURCE_DECODE_DONE;
+        luat_msgbus_put(&msg, 0);
+        break;
     }
 }
 
@@ -170,10 +208,10 @@ static void _l_cc_volte_task(void *param){
                 if (_l_cc.is_audio_start) {
                     if (_l_cc.is_play_ring) {
                         LLOGD("VOLTE_EVENT_PLAY_STOP stop play ring");
-                        luat_audio_request_cancel(&_l_cc.ring_request);
+                        luat_audio_request_cancel_immediate(&_l_cc.ring_request);
                     } else {
                         LLOGD("VOLTE_EVENT_PLAY_STOP stop play voice");
-                        luat_audio_request_cancel(&_l_cc.cc_request);
+                        luat_audio_request_cancel_immediate(&_l_cc.cc_request);
                     }
                 } else {
                     LLOGE("VOLTE_EVENT_PLAY_STOP but NO audio start");
@@ -210,18 +248,35 @@ static void _l_cc_volte_task(void *param){
 			break;
 		case CC_EVENT_VOICE_START:
             LLOGD("CC_EVENT_VOICE_START");
-            if (_l_cc.is_play_ring) {
-                luat_audio_request_cancel(&_l_cc.ring_request);
-                _l_cc.is_play_ring = 0;
+            if (_l_cc.is_audio_start) {
+                if (_l_cc.is_play_ring) {
+                    luat_audio_request_cancel_immediate(&_l_cc.ring_request);
+                    LLOGD("stop play ring");
+                    _l_cc.is_play_ring = 0;
+                } else {
+                    luat_audio_request_cancel_immediate(&_l_cc.cc_request);
+                    LLOGD("stop play voice");
+                }
+
             }
-            ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, NULL, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_CC), &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)(event.param1), event.param2, event.param3, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, NULL);
+            const luat_audio_data_codec_opts_t* codec_opts = luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_CC);
+            if (!codec_opts) {
+                LLOGE("CC_EVENT_VOICE_START codec_opts is NULL");
+                break;
+            }
+            ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)(event.param1), event.param2, event.param3, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, NULL);
             if (!ret) {
-                _l_cc.cc_request.play_save_fifo = _l_cc.play_save_fifo;
-                _l_cc.cc_request.is_save_play_data = 1;
                 if (_l_cc.request_upload_enable) {
                     _l_cc.upload_enable = 1;
+                    rtos_msg_t msg;
+                    msg.handler = _l_cc_audio_start;
+                    msg.arg1 = CC_MSG_AUDIO_START;
+                    luat_msgbus_put(&msg, 0);
+                } else {
+                    _l_cc.upload_enable = 0;
                 }
                 _l_cc.is_audio_start = 1;
+                LLOGD("CC_EVENT_VOICE_START request speech success, update upload enable %d", _l_cc.upload_enable);
             } else {
                 LLOGE("CC_EVENT_VOICE_START request speech failed, ret %d", ret);
             }
@@ -404,7 +459,7 @@ static int l_cc_on(lua_State *L) {
 通话中附加额外的音频数据，额外音频的参数必须和通话的参数一致，否则会失败而没有任何作用
 @api cc.extern_source(source, is_add_record, codec_id, sample_rate, data_bits, channel_nums, is_signed)
 @table/string/zbuff/nil 输入数据，table表示播放文件，string表示播放tts，zbuff表示播放音频数据，如果只播放一个文件也要用table,nil表示停止当前第三方数据播放
-@boolean 是否添加到下行通道，false添加到上行通道，true添加到下行通道，默认false，往对端播放第三方数据源，目前只支持上行通道
+@boolean 是否添加到上行通道，true添加到上行通道，false添加到下行通道，默认true，往对端播放第三方数据源，目前只支持上行通道
 @boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空则通过输入数据自行判断
 @int 采样率，如果指定解码器是RAW，不能留空
@@ -487,7 +542,7 @@ static int l_cc_extern_source(lua_State *L) {
             goto DONE;
         }
         for (size_t i = 0; i < file_nums; i++) {
-            lua_rawgeti(L, 2, 1 + i);
+            lua_rawgeti(L, 1, 1 + i);
             info[i].path = (void*)lua_tolstring(L, -1, &path_len);
             info[i].fail_continue = !is_error_stop;
             info[i].rom_data_len = 0;
@@ -497,7 +552,6 @@ static int l_cc_extern_source(lua_State *L) {
     }
     if (!result) {
         _l_cc.is_play_extern_source = 1;
-        LLOGI("cc extern source play success");
     } else {
         LLOGE("cc extern source play failed");
     }
@@ -534,6 +588,11 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
     _l_cc.cc_param.data_align = data_align;
     _l_cc.cc_param.channel_nums = channel_nums;
 	luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_VOICE_START, (uint32_t)play_buff_byte, one_play_block_len, play_block_cnt, 0);
+}
+
+void luat_cc_start_upload(void)
+{
+	_l_cc.upload_enable = 1;
 }
 
 void luat_cc_play_tone(uint32_t param)

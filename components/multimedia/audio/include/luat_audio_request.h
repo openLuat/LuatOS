@@ -147,8 +147,8 @@ struct luat_audio_request_block {
     uint8_t is_record_end:1;                   /**< 是否为录音请求 */
     uint8_t is_need_ref_data:1;                   /**< 是否需要保存参考数据 */
     uint8_t is_save_play_data:1;                   /**< 是否保存播放数据 */
-
-   };
+    uint8_t is_stop_immediate:1;                   /**< 是否立即停止 */
+};
 
 typedef struct luat_audio_request_block luat_audio_request_block_t;
 
@@ -354,6 +354,15 @@ int luat_audio_request_start(luat_audio_request_block_t *request_block, uint8_t 
  * @param request_block 音频请求结构体指针，包含请求的详细信息
  */
 void luat_audio_request_cancel(luat_audio_request_block_t *request_block);
+
+/**
+ * @brief 立即取消音频请求
+ * 
+ * 此函数用于立即取消已提交的音频请求，同时释放掉请求的资源，自动调用luat_audio_request_deinit
+ * 
+ * @param request_block 音频请求结构体指针，包含请求的详细信息
+ */
+void luat_audio_request_cancel_immediate(luat_audio_request_block_t *request_block);
 /**
  * @brief 初始化播放临时缓冲区
  * 

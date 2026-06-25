@@ -10,7 +10,7 @@
 #include "luat_log.h"
 #include "luat_gpio.h"
 #define LUAT_AUDIO_DATA_BUFFER_CNT	4
-unsigned char luat_audio_debug_flag = 1;	// 调试标志位
+unsigned char luat_audio_debug_flag;	// 调试标志位
 enum {
 	LUAT_AUDIO_EV_TX_NEED_DATA = 0x01,	// 放音需要更多数据事件
 	LUAT_AUDIO_EV_TX_NO_DATA,			// 放音数据完成事件
@@ -57,8 +57,15 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 {
 	volatile uint32_t next_play_cnt;
 	volatile uint32_t last_play_cnt = ctrl->current_play_cnt;
+	if (ctrl->static_play_buffer_cnt) {
+		ctrl->current_play_cnt++;
+		if (ctrl->current_play_cnt >= ctrl->static_play_buffer_cnt) {
+			ctrl->current_play_cnt = 0;
+		}
+	} else {
+		ctrl->current_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
+	}
 	
-	ctrl->current_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
 	// soc_printf("current_play_cnt %d", ctrl->current_play_cnt);
 	if (!_luat_audio.current_request_block ) {
 		goto CHECK_FILL_BLANK;
@@ -675,7 +682,7 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 		default:
 			check_tx_fifo = 1;
 			check_rx_fifo = 1;
-			check_ref_fifo = 1;
+			check_ref_fifo = request_block->is_need_ref_data;
 			break;
 	}	
 	if (check_tx_fifo) {
@@ -902,7 +909,12 @@ static void luat_audio_common_task(void *param)
 								request_block->record_codec.common_param.data_align);
 						}
 					}
-					luat_audio_data_codec_encode_once(&request_block->record_codec, &temp_record_buffer, is_need_ref_data?&temp_ref_buffer:NULL, request_block->record_save_fifo);
+					if (!request_block->record_save_fifo) {
+						LLOGE("request id %d record save fifo is null", request_block->request_id);
+					} else {
+						luat_audio_data_codec_encode_once(&request_block->record_codec, &temp_record_buffer, is_need_ref_data?&temp_ref_buffer:NULL, request_block->record_save_fifo);
+					}
+					
 				}
 				request_block->cb(LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA, NULL, deal_bytes, request_block);
 				if (request_block->extern_record_source) {
@@ -955,7 +967,11 @@ static void luat_audio_common_task(void *param)
 			luat_llist_del(&request_block->node);
 			luat_mutex_unlock(_luat_audio.request_lock);
 			if (_luat_audio.current_request_block && (_luat_audio.current_request_block->request_id == request_block->request_id)) {
-				_audio_current_request_stop();
+				if (!request_block->is_stop_immediate) {
+					_audio_current_request_stop();
+				} else {
+					_audio_request_finish();
+				}
 			} else {
 				luat_audio_request_deinit(request_block);
 				request_block->cb(LUAT_AUDIO_REQUEST_EVENT_END, NULL, 0, request_block);
@@ -1198,6 +1214,19 @@ void luat_audio_request_cancel(luat_audio_request_block_t *request_block)
 	return;
 }
 
+void luat_audio_request_cancel_immediate(luat_audio_request_block_t *request_block)
+{
+	void *done_sem = luat_mutex_create();
+	luat_mutex_lock(done_sem);
+	request_block->cancel_sem = done_sem;
+	request_block->is_stop_immediate = 1;
+	luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_REQUEST_CANCEL, (uint32_t)request_block, 0, 0, 0);
+	luat_mutex_lock(done_sem);
+	luat_mutex_release(done_sem);
+	LLOGC(luat_audio_debug_flag, "request_id: %d cancel", request_block->request_id);
+	return;
+}
+
 int luat_audio_request_prepare(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, uint8_t driver_work_mode, 
     luat_audio_request_cb_t cb, void *user_data)
 {
@@ -1426,6 +1455,7 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 	} else {
 		request_block->is_need_ref_data = 0;
 	}
+	luat_rtos_task_sleep(10);
 	return luat_audio_request_start(request_block, 0);
 }
 

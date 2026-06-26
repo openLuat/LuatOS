@@ -263,9 +263,25 @@ static int check_vid_pid(ch390h_t* ch) {
             warn_vid_pid_tm = tnow;
         }
         // 连续多次失败后回退到初始状态
-        if (ch->vid_pid_error_count >= 20 && ch->status >= 2) {
+        // 注意: STOPPED (=4) 也满足 status >= 2, 必须排除, 否则休眠时 SPI 读不到 VID/PID
+        // 会把人为设的 STOPPED 错误回退成 0, 引发 ch390_task_main 退出 FOREVER 等待.
+        if (ch->vid_pid_error_count >= 20 && ch->status >= 2 && ch->status != CH390H_STATUS_STOPPED) {
             LLOGE("VID/PID检查连续失败超过阈值，回退到初始状态");
             ch->status = 0;
+            ch->init_done = 0;
+            ch->vid_pid_error_count = 0;
+        }
+        /* 仅当业务侧通过 CTRL_UPDOWN=0 显式请求了休眠 (sleep_requested=1) 时,
+         * 才允许在 VID/PID 持续失败后自杀转 STOPPED. 这样:
+         *  - 正常运行期间瞬时干扰 / 网线意外抖动 / SPI 偶发失败 ->
+         *    走 status=2->0->2 自愈循环, 不会卡 STOPPED;
+         *  - 业务侧主动请求休眠后, 若 SPI 已停 / PHY 已下电导致读不到 VID/PID ->
+         *    转 STOPPED 让 task 进 FOREVER, 不再贡献 1Hz 唤醒. */
+        if (ch->vid_pid_error_count >= 50 && ch->status == 0 && ch->sleep_requested) {
+            LLOGE("VID/PID 持续失败 %d 次 (休眠请求中), 进入 STOPPED 节能态. "
+                  "spi=%d cs=%d. 唤醒后会通过 netdrv.ctrl(CTRL_UPDOWN,1) 重新拉起.",
+                  ch->vid_pid_error_count, ch->spiid, ch->cspin);
+            ch->status = CH390H_STATUS_STOPPED;
             ch->init_done = 0;
             ch->vid_pid_error_count = 0;
         }
@@ -442,7 +458,13 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
     int ret = 0;
     for (size_t i = 0; i < MAX_CH390H_NUM; i++)
     {
-        if (ch390h_drvs[i] != NULL && ch390h_drvs[i]->init_step) {
+        /* 修复: 进入 task_loop_one 之前必须排除 STOPPED 设备.
+         * 否则 task_loop_one 会执行 check_vid_pid -> 失败累加 vid_pid_error_count
+         * -> >=20 次时把 status 从 STOPPED 错误回退成 0 -> any_active 永远为 1
+         * -> ch390_task_main 永远不进 LUAT_WAIT_FOREVER, 1Hz 唤醒回不去低功耗. */
+        if (ch390h_drvs[i] != NULL
+            && ch390h_drvs[i]->init_step
+            && ch390h_drvs[i]->status != CH390H_STATUS_STOPPED) {
             ret += task_loop_one(ch390h_drvs[i], ch == ch390h_drvs[i] ? cs : NULL);
         }
     }
@@ -504,13 +526,40 @@ static void ch390_task_main(void* args) {
             }
             count = 0;
         }
-        if (s_ch390h_mode == 0) {
+        // 进入低功耗前会通过 netdrv.ctrl(LWIP_ETH, CTRL_UPDOWN, 0) 把所有 CH390 设备置为 STOPPED
+        // 此时既无需 5ms 轮询，也无需 1Hz 心跳，直接 FOREVER 等待新消息（CTRL_UPDOWN=1 重新启动时会派发新事件）
+        int any_active = 0;
+        for (size_t i = 0; i < MAX_CH390H_NUM; i++) {
+            if (ch390h_drvs[i] != NULL && ch390h_drvs[i]->status != CH390H_STATUS_STOPPED) {
+                any_active = 1;
+                break;
+            }
+        }
+        if (!any_active) {
+            ret = task_wait_msg(LUAT_WAIT_FOREVER);
+        }
+        else if (s_ch390h_mode == 0) {
             ret = task_wait_msg(5);
         }
         else {
             ret = task_wait_msg(1000);
         }
     }
+}
+
+void luat_ch390h_task_wakeup(void) {
+    if (qt == NULL) {
+        return;
+    }
+    uint32_t len = 0;
+    luat_rtos_queue_get_cnt(qt, &len);
+    if (len > 4) {
+        return;
+    }
+    pkg_evt_t evt = {
+        .id = 2
+    };
+    luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
 }
 
 void luat_ch390h_task_start(void) {

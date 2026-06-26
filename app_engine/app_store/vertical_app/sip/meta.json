@@ -1,0 +1,24 @@
+{
+  "app_name_cn": "SIP电话",
+  "app_name_en": "sip_app",
+  "version": "1.0.0",
+  "publish_time": "2026-05-28 12:00:00",
+  "category": "工具",
+  "description": "嵌入式物联网 SIP 电话应用，支持 SIP 注册、语音通话、即时消息、联系人管理",
+  "resolution": "480x320",
+  "display_zoom":"adaptive",
+  "supported_models": {
+    "Air8000": [
+      {
+        "firmware_id": 104,
+        "min_firmware_version": 2010
+      },
+      {
+        "firmware_id": 105,
+        "min_firmware_version": 2010
+      }
+    ]
+  },
+  "zip_size_kb": 200,
+  "origin_size_kb": 600
+}

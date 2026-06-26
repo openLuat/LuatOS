@@ -292,6 +292,12 @@ function mcu_tests.test_mcu_uniqueId_length()
     local chip = hmeta.chip()
     if chip == "ec718hm" or chip == "ec718pm" then
         assert(#id == 8, string.format("ec718hm/ec718pm平台mcu.unique_id()长度应为8字节, 实际 %d字节", #id))
+    elseif chip =="CCM4211" then
+               assert(#id == 6, string.format("CCM4211平台mcu.unique_id()长度应为6字节, 实际 %d字节", #id))
+    elseif chip == "BK7258" then
+    assert(#id == 5, string.format("BK7258平台mcu.unique_id()长度应为5字节, 实际 %d字节", #id))
+    else
+        assert(#id <= 32, string.format("设备唯一ID长度超限: 最大32字节, 实际 %d 字节", #id))
     end
 end
 

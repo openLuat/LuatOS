@@ -25,8 +25,9 @@
 static inline bool ndk_addr_valid(luat_ndk_t *ctx, uint32_t addr, size_t len) {
     if (!ctx) return false;
     if (addr < MINIRV32_RAM_IMAGE_OFFSET) return false;
-    uint64_t start = (uint64_t)(addr - MINIRV32_RAM_IMAGE_OFFSET);
-    uint64_t end = start + len;
+    // Use uint64_t to avoid overflow when addr is near UINT32_MAX
+    uint64_t start = (uint64_t)addr - (uint64_t)MINIRV32_RAM_IMAGE_OFFSET;
+    uint64_t end = start + (uint64_t)len;
     return end <= ctx->ram_size;
 }
 

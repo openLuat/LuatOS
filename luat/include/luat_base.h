@@ -33,6 +33,7 @@
 
 #include "stdint.h"
 #include "string.h"
+#include "limits.h"
 #include "luat_types.h"
 
 #ifdef __LUATOS__ 
@@ -42,7 +43,6 @@
 #include "lstate.h"
 // luaopen_xxx 代表各种库, 2021.09.26起独立一个头文件
 #include "luat_libs.h"
-
 /**
  * LuatOS主入口函数, 从这里开始就交由LuatOS控制了.
  * 集成时,该函数应在独立的thread/task中启动

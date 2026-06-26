@@ -1,0 +1,9 @@
+{
+    "timeout": 90,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "miniz C层utest: 压缩/解压核心逻辑"
+}

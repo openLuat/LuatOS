@@ -26,14 +26,18 @@ local osd_param = {
     channel = 0,  -- 摄像头通道号
     text = "行1|行2|行3",  -- OSD文本内容，需用竖线分隔，格式如"1111|2222|3333|4444"
     x = 0,  -- 显示位置的X坐标
-    y = 2000  -- 显示位置的Y坐标
+    y = 2000,  -- 显示位置的Y坐标
+    username = "admin",  -- 摄像头登录用户名
+    password = "Air123456"  -- 摄像头登录密码
 }
 
 -- 拍照功能参数配置表
 local photo_param = {
     brand = "dhcam",  -- 摄像头品牌，当前仅支持"dhcam"(大华)
     host = "192.168.1.108",  -- 摄像头/NVR的IP地址
-    channel = 0  -- 摄像头通道号
+    channel = 0,  -- 摄像头通道号
+    username = "admin",  -- 摄像头登录用户名
+    password = "Air123456"  -- 摄像头登录密码
 }
 
 function camera_start()
@@ -130,7 +134,9 @@ function exremotecam.osd(camera_param)
         data = camera_param.text,
         channel = camera_param.channel or 0,
         x = camera_param.x or 0,
-        y = camera_param.y or 0
+        y = camera_param.y or 0,
+        username = camera_param.username,
+        password = camera_param.password
     })
 end
 
@@ -188,7 +194,9 @@ function exremotecam.get_photo(camera_param)
         return dhcam.take_picture({
             host = camera_param.host,
             channel = camera_param.channel or 0,
-            save_path = camera_param.save_path or "/sd/1.jpeg"
+            save_path = camera_param.save_path or "/sd/1.jpeg",
+            username = camera_param.username,
+            password = camera_param.password
         })
     -- 后续可添加其他品牌的处理
     -- elseif brand == "Hikvision" then

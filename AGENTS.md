@@ -61,6 +61,27 @@ LuatOS/
 
 ---
 
+## Component AGENTS.md Standard
+
+Several sub-directories carry their own `AGENTS.md` (`luat/`, `script/`, `testcase/`, `bsp/pc/`, `components/network/`, `components/airui/`, `components/airlink/`, `components/serialization/protobuf/`, `components/utest/`, `components/ndk/`). Use the following rule to decide whether a new component needs one.
+
+**Create a component-level `AGENTS.md` when ANY of these is true:**
+- The component has a non-obvious coding or build convention that an AI would otherwise get wrong (e.g. `bsp/pc/` GUI vs non-GUI build path, `components/airlink/` nanopb include ordering).
+- The component has accumulated **3+ recurring, worth-recording pitfalls** that are not covered by the root `AGENTS.md` (e.g. `components/serialization/protobuf/` ARM stack-slot debugging).
+- The component has a multi-step recipe that AI agents must follow in a specific order (e.g. `components/ndk/` regression chain).
+
+**Do NOT create a component-level `AGENTS.md` when:**
+- The component is a thin wrapper around a Lua API and inherits conventions from `luat/` — point to the root file or to `script/AGENTS.md` instead.
+- The content would just duplicate the root `AGENTS.md` Build & Test Commands section.
+- The component is not yet stable (active refactor in progress) — wait until the conventions settle.
+
+**Style requirements for any new `AGENTS.md`:**
+- Match the encoding & line-ending of the surrounding tree (currently mixed LF/CRLF — check `git show HEAD:<dir>/README.md` first).
+- Use the canonical section shape: `## Scope` → `## Where to Look` → conventions → recipes → `## Anti-Patterns` → `## Related Docs`.
+- Keep it a **single point of authority**: if the root `AGENTS.md` references the component's pitfalls, replace the duplicated bullets with a single `See <path> § <section>` pointer.
+
+---
+
 ## Build & Test Commands
 
 ### PC Simulator (Development & Testing)
@@ -137,6 +158,12 @@ build/out/luatos-lua.exe ../../testcase/common/scripts/ ../../testcase/unit_test
 - Follow existing patterns in `luat/modules/`
 - Use `luat_` prefix for all public APIs
 - Document functions with Doxygen-style comments
+
+**Quality & Safety (project-wide C conventions):**
+- **Address arithmetic**: use `uint64_t` as an intermediate when computing differences of two `uint32_t` addresses/offsets — direct subtraction on `uint32_t` silently wraps at zero. Cast each operand to `uint64_t` *before* the subtraction.
+- **Atomic counters**: any counter touched by more than one thread (e.g. `ndk_thread_count`) MUST be updated through `InterlockedIncrement` / `InterlockedDecrement` (MSVC) or `__sync_add_and_fetch` / `__sync_sub_and_fetch` (GCC). Plain `++` / `--` on a shared counter is a data race.
+- **Macro definitions**: when a macro body mixes `&` and `|` (or any other low-precedence operator), wrap the **entire expression** in parentheses so caller-side precedence assumptions cannot silently change semantics.
+- **Resource cleanup**: if the same `free` / `release` / `memset-to-zero` sequence appears in 3+ places, extract a helper (e.g. `ndk_free_fields()` in `components/ndk/src/luat_ndk.c`) rather than duplicating the pattern.
 
 ### Lua Code (Scripts & Applications)
 
@@ -273,8 +300,6 @@ Before reporting task completion, verify:
 | `script/corelib/sys.lua` | Lua task system core |
 | `module/<model>/core` | Module firmware description |
 | `.github/workflows/` | CI/CD configuration |
-| `.github/copilot-instructions.md` | GitHub Copilot specific instructions |
-| `QWEN.md` | Project context and documentation |
 
 ---
 
@@ -303,14 +328,7 @@ Before reporting task completion, verify:
 
 ### AirLink / nanopb RPC Pitfalls
 
-- **`#ifdef LUAT_USE_AIRLINK_RPC` must NOT appear before `#include "luat_base.h"`** — the feature macros (`LUAT_USE_*`) are provided by `luat_conf_bsp.h` which is pulled in through `luat_base.h`. If you guard the entire file contents with `#ifdef LUAT_USE_AIRLINK_RPC` but only include `luat_base.h` inside the guard, the preprocessor sees the macro as undefined and skips the whole file → silent linker errors (`LNK2001` unresolved external).  
-  **Fix**: always put `#include "luat_base.h"` as the very first include, before any `#ifdef LUAT_USE_*` guard.
-
-- **nanopb struct name prefix depends on `package` in the `.proto` file** — without a `package` directive, the generated type is `SdataNotify` (bare name). With `package drv_sdata;` it would be `drv_sdata_SdataNotify`. Check the actual generated `.pb.h` before writing C code that uses the types.
-
-- **Static table file needs `luat_base.h` too** — `luat_airlink_rpc_nb_table.c` only includes `luat_airlink_rpc.h`, which does not transitively include `luat_conf_bsp.h`. Add `#include "luat_base.h"` before the `#ifdef LUAT_USE_AIRLINK_RPC` guard.
-
-- **`drv_sdata.pb.c` is generated into `include/` by the nanopb generator** — after running `nanopb_generator.exe --output-dir=../include`, manually copy/move the `.pb.c` file to `src/` so the build system compiles it. The `.pb.h` stays in `include/`.
+See `components/airlink/AGENTS.md` § 常见陷阱 for the canonical list (include ordering, nanopb type prefixes, `.pb.c` output location, sdata path, UART chunked write).
 
 ### Git 换行符污染（CRLF vs LF）
 
@@ -458,15 +476,7 @@ player SDK 的 `plat_support.c` 通过 `#ifdef __LUATOS__` 将 `ad_fopen/fread/f
 
 ### NDK RV32C / Host ABI 经验
 
-- **Host ABI guest fixture 既然用了 CSR 指令，就必须带 `zicsr` 编译** —— `testcase/ndk/guest/build_hostabi_v1.ps1` 要统一使用 `-march=rv32ima_zicsr` / `-march=rv32imac_zicsr`（GNU 和 LLVM 路径都一样）。只写 `rv32ima` / `rv32imac` 在新工具链上可能直接拒绝 `csrr/csrrw`。
-
-- **验证 RV32C 不能只看 `-march=rv32imac`** —— 要保留显式 `rvc_smoke.S`，再用反汇编验证真的生成了压缩指令。实践上可用 `objdump -d -M no-aliases` 后检查输出里是否出现 `c.` mnemonic，再决定是否拷贝测试二进制。
-
-- **`.option norvc` 要继续局部保留在 CSR helper 的 inline asm 里** —— `components/ndk/include/luat_ndk_builtin.h` 和 `testcase/ndk/guest/hostabi_v1/ndk_stubs.c` 中的 `norvc` 是刻意的“固定宽度 CSR 编码”边界，不要因为 guest 已支持 RV32C 就删掉，也不要提升成文件级全局指令。
-
-- **mini-rv32ima 做 RV32C 支持时，核心点是“两段式取指 + 2 字节对齐”** —— 先读低 16 bit，再根据 `ir16 & 0x3` 决定是 16 bit 还是 32 bit 指令；PC 对齐从 4 字节降为 2 字节；不支持的压缩编码以及全零半字 `0x0000` 都应该报非法指令 trap，而不是静默当 NOP。
-
-- **当前 NDK RV32C 的标准回归链路**：先跑 `testcase\ndk\guest\build_hostabi_v1.ps1`，再跑 `testcase\ndk\ndk_basic\guest\build.ps1`，然后用 `bsp\pc\build_windows_32bit_msvc.bat` 重建 PC 模拟器，最后分别执行 `testcase\ndk\ndk_basic\scripts\` 和 `testcase\ndk\ndk_hostabi_basic\scripts\`。
+See `components/ndk/AGENTS.md` § 开发要点 for the canonical list (zicsr `-march`, RV32C disassembly verification, `.option norvc` scope, mini-rv32ima two-stage fetch, NDK regression chain).
 
 ---
 

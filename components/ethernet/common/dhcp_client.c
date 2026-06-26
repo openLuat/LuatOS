@@ -106,7 +106,8 @@ void make_ip4_dhcp_discover_msg(dhcp_client_info_t *dhcp, Buffer_Struct *out)
 	};
 	out->Pos = 0;
 	dhcp->xid++;
-	make_ip4_dhcp_msg_base(dhcp, 0x8000, out);
+	// make_ip4_dhcp_msg_base(dhcp, 0x8000, out);
+	make_ip4_dhcp_msg_base(dhcp, 0, out);
 	ip4_dhcp_msg_add_integer_option(DHCP_OPTION_MESSAGE_TYPE, DHCP_OPTION_MESSAGE_TYPE_LEN, DHCP_DISCOVER, out);
 	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_PARAMETER_REQUEST_LIST, dhcp_discover_request_options, sizeof(dhcp_discover_request_options), out);
 	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_HOSTNAME, (uint8_t*)dhcp->name, strlen(dhcp->name), out);
@@ -330,7 +331,7 @@ __CHECK:
 
 int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out, uint32_t *remote_ip)
 {
-	uint16_t flag = 0x8000;
+	uint16_t flag = 0;
 	*remote_ip = 0xffffffff;
 	int result = 0;
 	uint64_t tnow = luat_mcu_tick64_ms();

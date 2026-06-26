@@ -237,6 +237,11 @@ function dhcam.set_osd(dahua_param)
     local channel = dahua_param.channel or DH_channel           -- 通道号 如果没填用默认值0
     local x = dahua_param.x or 0  -- x坐标 如果没填用默认值为0
     local y = dahua_param.y or 0  -- y坐标 如果没填用默认值为0
+    -- 摄像头账号密码，如果用户传入则覆盖默认值
+    local username = dahua_param.username or DAHUA_MD5Param.username
+    local password = dahua_param.password or DAHUA_MD5Param.password
+    DAHUA_MD5Param.username = username
+    DAHUA_MD5Param.password = password
     
     -- 构建OSD位置参数字符串
     dh_osd_param.position = "&VideoWidget["..channel.."].CustomTitle[1].Rect[0]="..x.."&VideoWidget["..channel.."].CustomTitle[1].Rect[1]="..y.."&VideoWidget["..channel.."].CustomTitle[1].Rect[2]=0".."&VideoWidget["..channel.."].CustomTitle[1].Rect[3]=0"
@@ -314,6 +319,11 @@ function dhcam.take_picture(dahua_param)
     local host = dahua_param.host or "192.168.1.108"
     local channel = dahua_param.channel or 0
     local save_path = dahua_param.save_path or "/sd/1.jpeg"  -- 默认保存路径
+    -- 摄像头账号密码，如果用户传入则覆盖默认值
+    local username = dahua_param.username or DAHUA_MD5Param.username
+    local password = dahua_param.password or DAHUA_MD5Param.password
+    DAHUA_MD5Param.username = username
+    DAHUA_MD5Param.password = password
     
     -- 构建拍照请求参数
     local photo_params = "channel=" .. channel

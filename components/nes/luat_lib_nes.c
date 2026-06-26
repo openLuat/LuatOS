@@ -119,6 +119,9 @@ static int l_nes_init(lua_State *L) {
         return 0;
     }
     nes_load_file(nes, nes_rom);
+#if NES_ENABLE_SOUND
+    nes_audio_init();   /* 失败非致命:NES 仍可运行,仅无声 */
+#endif
     if (luat_rtos_task_create(&nes_thread, 8*1024, 27, "nes", nes_task, nes, 0)){
         return 0;
     }
@@ -139,6 +142,9 @@ static int l_nes_deinit(lua_State *L) {
         nes = NULL;
         ctx->nes_quit = 1;
     }
+#if NES_ENABLE_SOUND
+    nes_audio_deinit();   /* 先停音频,缩短 DAC 残留噪音 */
+#endif
     return 0;
 }
 

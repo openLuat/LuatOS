@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>炉石like · 统一竖长卡牌 | 卡牌对战</title>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background: #0a0f1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', 'Courier New', monospace;
+            margin: 0;
+            padding: 12px;
+        }
+        .game-wrapper {
+            background: #1e2a2e;
+            border-radius: 36px;
+            padding: 12px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.1);
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 24px;
+            box-shadow: 0 0 0 3px #aa8e66, 0 12px 28px black;
+            cursor: pointer;
+            background: #1f2f2a;
+        }
+        .action-bar {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 14px;
+        }
+        button {
+            background: #2e2c2a;
+            border: none;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 6px 20px;
+            border-radius: 48px;
+            color: #fae6c3;
+            cursor: pointer;
+            box-shadow: 0 3px 0 #171412;
+            transition: 0.05s linear;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+        .status-msg {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            background: #000000aa;
+            backdrop-filter: blur(4px);
+            padding: 6px 18px;
+            border-radius: 60px;
+            display: inline-block;
+            width: auto;
+            color: #ffe3b0;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+<div>
+    <div class="game-wrapper">
+        <canvas id="gameCanvas" width="480" height="800"></canvas>
+        <div class="action-bar">
+            <button id="endTurnBtn">🔮 结束回合</button>
+            <button id="resetGameBtn">✨ 重新开局</button>
+        </div>
+        <div id="gameMsg" class="status-msg">🔥 点击卡牌 → 再点击头像/随从即可攻击/施法 🔥</div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = 480, H = 800;
+
+        const SPELL_LIB = [
+            { id: 0, name: "🔥炎术士学徒", cost: 1, atk: 1, hp: 2, type: "minion", desc: "1费随从" },
+            { id: 1, name: "❄️寒冰箭", cost: 2, atk: 0, hp: 0, type: "spell", damage: 3, desc: "造成3点伤害" },
+            { id: 2, name: "🐉蓝龙幼崽", cost: 3, atk: 2, hp: 4, type: "minion", desc: "龙族新星" },
+            { id: 3, name: "✨奥术智慧", cost: 2, atk: 0, hp: 0, type: "spell", draw: 2, desc: "抽2张牌" },
+            { id: 4, name: "⚡闪电箭", cost: 1, atk: 0, hp: 0, type: "spell", damage: 2, desc: "造成2点伤害" },
+            { id: 5, name: "🌙暗影魔", cost: 2, atk: 2, hp: 2, type: "minion", desc: "虚空造物" },
+            { id: 6, name: "💢地狱火", cost: 4, atk: 4, hp: 4, type: "minion", desc: "毁灭之力" },
+            { id: 7, name: "🛡️法力护盾", cost: 2, atk: 0, hp: 0, type: "spell", armor: 5, desc: "获得5点护甲" }
+        ];
+
+        function buildBaseDeck() {
+            return [
+                { ...SPELL_LIB[0] }, { ...SPELL_LIB[0] },  
+                { ...SPELL_LIB[4] }, { ...SPELL_LIB[1] }, 
+                { ...SPELL_LIB[3] }, { ...SPELL_LIB[5] }, 
+                { ...SPELL_LIB[2] }, { ...SPELL_LIB[7] }
+            ];
+        }
+
+        let game = {
+            turn: "player",
+            player: {
+                hero: { name: "大法师艾琳", hp: 30, maxHp: 30, armor: 0 },
+                mana: 1, maxMana: 1, 
+                deck: [], hand: [], board: [], graveyard: [],
+                lastPlayedCard: null
+            },
+            ai: {
+                hero: { name: "暗影祭司", hp: 30, maxHp: 30, armor: 0 },
+                mana: 1, maxMana: 1,
+                deck: [], hand: [], board: [], graveyard: [],
+                lastPlayedCard: null
+            },
+            waitingForTarget: false,
+            pendingAction: null,
+            logMessage: "✨ 奥术对决开始！玩家先手",
+            gameOver: false,
+            winner: null,
+            heroPowerUsed: false,
+            publicLog: []
+        };
+
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function reshuffleDeck(side) {
+            let target = game[side];
+            if(target.deck.length === 0 && target.graveyard.length > 0) {
+                target.deck = shuffleArray([...target.graveyard]);
+                target.graveyard = [];
+                addLog(`🔄 ${side === 'player' ? '玩家' : 'AI'} 牌库已空，重新洗牌！`, true);
+                return true;
+            }
+            return false;
+        }
+
+        function drawCard(side) {
+            let target = game[side];
+            if(target.deck.length === 0) reshuffleDeck(side);
+            if(target.deck.length === 0) return;
+            
+            let card = target.deck.shift();
+            if(target.hand.length >= 6) {
+                target.graveyard.push(card);
+                addLog(`⚠️ 手牌已满，${card.name} 被移入弃牌堆`);
+                return;
+            }
+            target.hand.push(card);
+            addLog(`${side === 'player' ? '玩家' : 'AI'} 抽到: ${card.name}`);
+            render();
+        }
+
+        function resetAttackMarks(side) {
+            game[side].board.forEach(m => { m.canAttack = true; });
+        }
+
+        function addLog(msg, isImportant = false) {
+            game.logMessage = msg;
+            const msgDiv = document.getElementById('gameMsg');
+            if(msgDiv) {
+                msgDiv.innerText = msg;
+                if(isImportant) {
+                    msgDiv.style.background = "#4a2e1eaa";
+                    setTimeout(() => msgDiv.style.background = "#000000aa", 1200);
+                }
+            }
+            setTimeout(() => {
+                if(document.getElementById('gameMsg') && document.getElementById('gameMsg').innerText === msg)
+                    document.getElementById('gameMsg').innerText = "🔮 点击卡牌→头像/随从 | 结束回合按钮";
+            }, 2800);
+        }
+
+        function registerPlay(side, cardName, cardType) {
+            game.publicLog.unshift({ side, cardName, cardType, timestamp: Date.now() });
+            if(game.publicLog.length > 5) game.publicLog.pop();
+            if(side === 'player') {
+                game.player.lastPlayedCard = { name: cardName, type: cardType };
+            } else {
+                game.ai.lastPlayedCard = { name: cardName, type: cardType };
+            }
+        }
+
+        function checkGameOver() {
+            if(game.player.hero.hp <= 0) {
+                game.gameOver = true;
+                game.winner = "ai";
+                addLog("💀 游戏结束！ 暗影祭司获胜 💀", true);
+                render();
+                return true;
+            } else if(game.ai.hero.hp <= 0) {
+                game.gameOver = true;
+                game.winner = "player";
+                addLog("🏆 胜利！ 大法师净化了暗影 💎", true);
+                render();
+                return true;
+            }
+            return false;
+        }
+
+        function startTurn(side) {
+            if(game.gameOver) return;
+            let p = game[side];
+            p.maxMana = Math.min(10, p.maxMana + 1);
+            p.mana = p.maxMana;
+            drawCard(side);
+            resetAttackMarks(side);
+            game.heroPowerUsed = false;
+            render();
+        }
+
+        function prepareHeroPower(side) {
+            if(game.gameOver) return false;
+            if(game.turn !== side) { addLog("现在不是你的回合"); return false; }
+            if(game.heroPowerUsed) { addLog("英雄技能每回合只能使用一次！"); return false; }
+            let caster = game[side];
+            if(caster.mana < 2) { addLog("英雄技能需要2点法力值"); return false; }
+            
+            game.waitingForTarget = true;
+            game.pendingAction = { type: "hero_power", side: side };
+            addLog(`🔥 火焰冲击 → 点击敌方英雄头像或敌方随从施放`, true);
+            render();
+            return true;
+        }
+
+        function executeHeroPower(side, targetType, targetIdx) {
+            let caster = game[side];
+            let enemySide = side === "player" ? "ai" : "player";
+            
+            if(caster.mana < 2) { addLog("法力不足，无法使用英雄技能"); return false; }
+            if(game.heroPowerUsed) { addLog("英雄技能已经使用过了"); return false; }
+            
+            if(targetType === "hero") {
+                let enemyHero = game[enemySide].hero;
+                enemyHero.hp = Math.max(0, enemyHero.hp - 1);
+                addLog(`🔥 火焰冲击 → 对敌方英雄造成1点伤害`, true);
+                caster.mana -= 2;
+                game.heroPowerUsed = true;
+                registerPlay(side, "英雄技能", "skill");
+                checkGameOver();
+                render();
+                return true;
+            } else if(targetType === "minion") {
+                let board = game[enemySide].board;
+                if(targetIdx < 0 || targetIdx >= board.length) return false;
+                let targetMinion = board[targetIdx];
+                targetMinion.hp -= 1;
+                addLog(`🔥 火焰冲击 → 对 ${targetMinion.name} 造成1点伤害`, true);
+                if(targetMinion.hp <= 0) {
+                    let deadCard = { ...targetMinion, isDead: true };
+                    game[enemySide].graveyard.push(deadCard);
+                    board.splice(targetIdx,1);
+                    addLog(`💀 随从 ${targetMinion.name} 被消灭`);
+                }
+                caster.mana -= 2;
+                game.heroPowerUsed = true;
+                registerPlay(side, "英雄技能", "skill");
+                checkGameOver();
+                render();
+                return true;
+            }
+            return false;
+        }
+
+        function playCard(side, handIdx) {
+            if(game.gameOver) return false;
+            if(game.turn !== side) { addLog("现在不是你的回合"); return false; }
+            let playerObj = game[side];
+            let card = playerObj.hand[handIdx];
+            if(!card) return false;
+            if(playerObj.mana < card.cost) {
+                addLog(`法力不足 (需要 ${card.cost})`);
+                return false;
+            }
+            
+            if(card.type === "minion") {
+                if(playerObj.board.length >= 5) {
+                    addLog("战场已满 (最多5个随从)");
+                    return false;
+                }
+                playerObj.mana -= card.cost;
+                let newMinion = {
+                    id: card.id, name: card.name, atk: card.atk, hp: card.hp, maxHp: card.hp, canAttack: true
+                };
+                playerObj.board.push(newMinion);
+                playerObj.hand.splice(handIdx,1);
+                playerObj.graveyard.push(card);
+                addLog(`✨ ${side==='player'?'玩家':'AI'} 召唤 ${card.name} (${card.atk}/${card.hp})`, true);
+                registerPlay(side, card.name, "minion");
+                render();
+                return true;
+            }
+            else if(card.type === "spell") {
+                if(card.damage) {
+                    game.waitingForTarget = true;
+                    game.pendingAction = { type: "spell_damage", side: side, card: card, handIdx: handIdx };
+                    addLog(`🎯 ${card.name} 需要选择目标 (点击敌方英雄头像或随从)`);
+                    render();
+                    return true;
+                }
+                else if(card.armor) {
+                    playerObj.mana -= card.cost;
+                    playerObj.hero.armor += card.armor;
+                    playerObj.hand.splice(handIdx,1);
+                    playerObj.graveyard.push(card);
+                    addLog(`🛡️ ${card.name} 赋予 ${card.armor} 点护甲`, true);
+                    registerPlay(side, card.name, "spell");
+                    render();
+                    return true;
+                }
+                else if(card.draw) {
+                    playerObj.mana -= card.cost;
+                    playerObj.hand.splice(handIdx,1);
+                    playerObj.graveyard.push(card);
+                    addLog(`📖 ${card.name} 抽 ${card.draw} 张牌`, true);
+                    for(let i=0;i<card.draw;i++) drawCard(side);
+                    registerPlay(side, card.name, "spell");
+                    render();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function applyDamageSpell(side, card, targetType, targetIdx) {
+            let caster = game[side];
+            let enemySide = side === "player" ? "ai" : "player";
+            if(caster.mana < card.cost) return false;
+            caster.mana -= card.cost;
+            let handIdx = game.pendingAction.handIdx;
+            caster.hand.splice(handIdx,1);
+            caster.graveyard.push(card);
+            registerPlay(side, card.name, "spell");
+            
+            if(targetType === "hero") {
+                let enemyHero = game[enemySide].hero;
+                enemyHero.hp = Math.max(0, enemyHero.hp - card.damage);
+                addLog(`💥 ${card.name} 对敌方英雄造成 ${card.damage} 伤害`, true);
+            } else {
+                let board = game[enemySide].board;
+                if(targetIdx < 0 || targetIdx >= board.length) return false;
+                let minion = board[targetIdx];
+                minion.hp -= card.damage;
+                addLog(`💥 ${card.name} 对 ${minion.name} 造成 ${card.damage} 伤害`, true);
+                if(minion.hp <= 0) {
+                    let deadCard = { ...minion, isDead: true };
+                    game[enemySide].graveyard.push(deadCard);
+                    board.splice(targetIdx,1);
+                    addLog(`💀 ${minion.name} 被消灭`);
+                }
+            }
+            checkGameOver();
+            game.waitingForTarget = false;
+            game.pendingAction = null;
+            render();
+            return true;
+        }
+
+        function requestAttack(side, boardIdx) {
+            if(game.gameOver) return false;
+            if(game.turn !== side) { addLog("不是你的回合"); return false; }
+            let minion = game[side].board[boardIdx];
+            if(!minion.canAttack) { addLog("该随从已攻击过"); return false; }
+            game.waitingForTarget = true;
+            game.pendingAction = { type: "attack", side: side, attackerIdx: boardIdx, attacker: minion };
+            addLog(`⚔️ 选择攻击目标: 点击敌方英雄头像 或 敌方随从`);
+            render();
+            return true;
+        }
+
+        function applyAttack(attackerSide, attackerIdx, targetType, targetIdx) {
+            let attacker = game[attackerSide].board[attackerIdx];
+            if(!attacker || !attacker.canAttack) return false;
+            let enemySide = attackerSide === "player" ? "ai" : "player";
+            if(targetType === "hero") {
+                let enemyHero = game[enemySide].hero;
+                let dmg = attacker.atk;
+                enemyHero.hp = Math.max(0, enemyHero.hp - dmg);
+                addLog(`🗡️ ${attacker.name} 攻击英雄造成 ${dmg} 伤害`, true);
+                attacker.canAttack = false;
+                checkGameOver();
+            } else {
+                let enemyBoard = game[enemySide].board;
+                if(targetIdx < 0 || targetIdx >= enemyBoard.length) return false;
+                let defender = enemyBoard[targetIdx];
+                let attDmg = attacker.atk, defDmg = defender.atk;
+                defender.hp -= attDmg;
+                attacker.hp -= defDmg;
+                addLog(`⚔️ ${attacker.name}(${attacker.atk}) ↔ ${defender.name}(${defender.atk})`, true);
+                if(defender.hp <= 0) {
+                    let deadCard = { ...defender, isDead: true };
+                    game[enemySide].graveyard.push(deadCard);
+                    enemyBoard.splice(targetIdx,1);
+                    addLog(`💀 ${defender.name} 被消灭`);
+                }
+                if(attacker.hp <= 0) {
+                    let deadCard = { ...attacker, isDead: true };
+                    game[attackerSide].graveyard.push(deadCard);
+                    let idx = game[attackerSide].board.findIndex(m => m === attacker);
+                    if(idx !== -1) game[attackerSide].board.splice(idx,1);
+                    addLog(`💔 ${attacker.name} 战死`);
+                } else {
+                    attacker.canAttack = false;
+                }
+                checkGameOver();
+            }
+            game.waitingForTarget = false;
+            game.pendingAction = null;
+            render();
+            return true;
+        }
+
+        function endTurn() {
+            if(game.gameOver) return;
+            if(game.turn !== "player") { addLog("现在是AI回合"); return; }
+            game.waitingForTarget = false;
+            game.pendingAction = null;
+            game.turn = "ai";
+            addLog("🤖 AI 回合开始", true);
+            startTurn("ai");
+            render();
+            setTimeout(() => aiTurn(), 550);
+        }
+
+        async function aiTurn() {
+            if(game.gameOver || game.turn !== "ai") return;
+            await new Promise(r => setTimeout(r, 380));
+            if(game.gameOver || game.turn !== "ai") return;
+            let ai = game.ai, opp = game.player;
+            if(!game.heroPowerUsed && ai.mana >= 2 && (opp.hero.hp <= 25 || opp.board.length>0)) {
+                let targetType = "hero", targetIdx = -1;
+                if(opp.board.length > 0 && Math.random()<0.6) {
+                    targetType = "minion";
+                    let lowHealth = opp.board.reduce((a,b)=> (a.hp < b.hp ? a : b), opp.board[0]);
+                    targetIdx = opp.board.indexOf(lowHealth);
+                }
+                executeHeroPower("ai", targetType, targetIdx);
+                await new Promise(r => setTimeout(r, 420));
+            }
+            if(game.gameOver) return;
+            for(let i=0; i<ai.hand.length; i++) {
+                let card = ai.hand[i];
+                if(ai.mana >= card.cost) {
+                    if(card.type === "spell" && card.damage) {
+                        let targetIdx = -1, targetType = "minion";
+                        if(opp.board.length > 0 && opp.board.some(m => m.hp <= card.damage)) {
+                            let targetMinion = opp.board.find(m => m.hp <= card.damage);
+                            targetIdx = opp.board.indexOf(targetMinion);
+                        } else if(opp.board.length > 0) targetIdx = 0;
+                        else targetType = "hero";
+                        ai.mana -= card.cost;
+                        ai.hand.splice(i,1);
+                        ai.graveyard.push(card);
+                        registerPlay("ai", card.name, "spell");
+                        if(targetType === "hero") {
+                            opp.hero.hp = Math.max(0, opp.hero.hp - card.damage);
+                            addLog(`🤖 AI 施放 ${card.name} 对英雄造成 ${card.damage} 伤害`, true);
+                        } else if(targetIdx !== -1) {
+                            let m = opp.board[targetIdx];
+                            m.hp -= card.damage;
+                            addLog(`🤖 AI 施放 ${card.name} 对 ${m.name} 造成 ${card.damage} 伤害`, true);
+                            if(m.hp <=0) {
+                                let deadCard = { ...m, isDead: true };
+                                opp.graveyard.push(deadCard);
+                                opp.board.splice(targetIdx,1);
+                            }
+                        }
+                        checkGameOver(); i--; await new Promise(r => setTimeout(r, 500));
+                        if(game.gameOver) { render(); return; }
+                        continue;
+                    }
+                    else if(card.type === "spell" && card.draw) {
+                        ai.mana -= card.cost; ai.hand.splice(i,1);
+                        ai.graveyard.push(card);
+                        registerPlay("ai", card.name, "spell");
+                        for(let d=0; d<card.draw; d++) drawCard("ai");
+                        addLog(`🤖 AI 使用 ${card.name} 抽牌`, true);
+                        i--; await new Promise(r => setTimeout(r, 400));
+                    }
+                    else if(card.type === "spell" && card.armor && ai.hero.hp < 26) {
+                        ai.mana -= card.cost; ai.hand.splice(i,1);
+                        ai.graveyard.push(card);
+                        registerPlay("ai", card.name, "spell");
+                        ai.hero.armor += card.armor;
+                        addLog(`🤖 AI 使用 ${card.name} +${card.armor} 护甲`, true);
+                        i--; await new Promise(r => setTimeout(r, 400));
+                    }
+                }
+            }
+            for(let i=0; i<ai.hand.length; i++) {
+                let card = ai.hand[i];
+                if(card.type === "minion" && ai.mana >= card.cost && ai.board.length < 5) {
+                    ai.mana -= card.cost;
+                    ai.board.push({ id: card.id, name: card.name, atk: card.atk, hp: card.hp, maxHp: card.hp, canAttack: true });
+                    ai.hand.splice(i,1);
+                    ai.graveyard.push(card);
+                    registerPlay("ai", card.name, "minion");
+                    addLog(`🤖 AI 召唤 ${card.name} (${card.atk}/${card.hp})`, true);
+                    i--; await new Promise(r => setTimeout(r, 450));
+                }
+            }
+            render();
+            await new Promise(r => setTimeout(r, 450));
+            for(let i=0; i<ai.board.length; i++) {
+                let minion = ai.board[i];
+                if(minion.canAttack) {
+                    let targetType = "hero", targetIdx = -1;
+                    if(opp.board.length > 0) {
+                        let weakest = opp.board.reduce((a,b)=> (a.hp < b.hp ? a : b), opp.board[0]);
+                        targetIdx = opp.board.indexOf(weakest);
+                        targetType = "minion";
+                    }
+                    if(targetType === "hero") {
+                        opp.hero.hp = Math.max(0, opp.hero.hp - minion.atk);
+                        addLog(`🤖 AI ${minion.name} 攻击英雄造成 ${minion.atk} 伤害`, true);
+                    } else {
+                        let defender = opp.board[targetIdx];
+                        let myAtk = minion.atk, defAtk = defender.atk;
+                        defender.hp -= myAtk; minion.hp -= defAtk;
+                        addLog(`🤖 AI ${minion.name} 攻击 ${defender.name} 造成 ${myAtk}/${defAtk} 伤害`, true);
+                        if(defender.hp <= 0) {
+                            let deadCard = { ...defender, isDead: true };
+                            opp.graveyard.push(deadCard);
+                            opp.board.splice(targetIdx,1);
+                        }
+                        if(minion.hp <= 0) { 
+                            let deadCard = { ...minion, isDead: true };
+                            ai.graveyard.push(deadCard);
+                            ai.board.splice(i,1); i--; 
+                        }
+                        else minion.canAttack = false;
+                    }
+                    if(minion.canAttack !== undefined && minion.hp > 0) minion.canAttack = false;
+                    render(); await new Promise(r => setTimeout(r, 450));
+                    if(checkGameOver()) return;
+                }
+            }
+            if(game.gameOver) return;
+            game.turn = "player";
+            addLog("🔮 你的回合！法力水晶已刷新", true);
+            startTurn("player");
+            render();
+        }
+
+        function initGame() {
+            let baseDeck = buildBaseDeck();
+            game.player.deck = shuffleArray(baseDeck.map(c => ({ ...c })));
+            game.ai.deck = shuffleArray(baseDeck.map(c => ({ ...c })));
+            game.player.hand = [];
+            game.ai.hand = [];
+            game.player.board = [];
+            game.ai.board = [];
+            game.player.graveyard = [];
+            game.ai.graveyard = [];
+            game.player.hero = { name: "大法师艾琳", hp: 30, maxHp: 30, armor: 0 };
+            game.ai.hero = { name: "暗影祭司", hp: 30, maxHp: 30, armor: 0 };
+            game.player.mana = 1; game.player.maxMana = 1;
+            game.ai.mana = 1; game.ai.maxMana = 1;
+            game.turn = "player";
+            game.waitingForTarget = false;
+            game.pendingAction = null;
+            game.gameOver = false;
+            game.winner = null;
+            game.heroPowerUsed = false;
+            game.publicLog = [];
+            game.player.lastPlayedCard = null;
+            game.ai.lastPlayedCard = null;
+            for(let i=0;i<3;i++) drawCard("player");
+            for(let i=0;i<3;i++) drawCard("ai");
+            if(!game.player.hand.some(c => c.cost === 1) && game.player.hand.length>0) {
+                game.player.hand[0] = { ...SPELL_LIB[0] };
+                addLog("✨ 命运干预: 一张1费学徒加入手牌");
+            }
+            addLog("🃏 新对局！玩家先手，法力水晶[1]", true);
+            render();
+        }
+
+        // ========= 绘图函数 - 统一竖长卡牌风格 =========
+        function drawRoundedRect(x,y,w,h,r){
+            ctx.beginPath();
+            ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+            ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+            ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+            ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+            ctx.fill();
+        }
+
+        function drawLastPlayCard(x, y, cardName, type) {
+            ctx.fillStyle = "#2f2a24";
+            drawRoundedRect(x, y, 115, 52, 8);
+            ctx.fillStyle = type === "minion" ? "#9bbf8a" : "#ceaa7a";
+            ctx.font = "bold 10px monospace";
+            let displayName = cardName.length > 10 ? cardName.slice(0, 9) + ".." : cardName;
+            ctx.fillText(displayName, x + 5, y + 20);
+            ctx.fillStyle = "#ffe5b4";
+            ctx.font = "bold 9px monospace";
+            ctx.fillText(type === "minion" ? "⚔️ 随从" : "✨ 法术", x + 5, y + 38);
+            ctx.fillStyle = "#fbd26a";
+            ctx.font = "bold 8px monospace";
+            ctx.fillText("上次出牌", x + 30, y + 48);
+        }
+
+        // 竖长形随从卡牌 (宽度70，高度92)
+        function drawMinionCard(x, y, name, atk, hp, canAttack) {
+            const cardW = 70;
+            const cardH = 92;
+            ctx.fillStyle = "#4a3a2a";
+            drawRoundedRect(x, y, cardW, cardH, 6);
+            ctx.fillStyle = "#6f8a64";
+            drawRoundedRect(x+2, y+2, cardW-4, cardH-4, 5);
+            // 随从图标
+            ctx.fillStyle = "#fff2cf";
+            ctx.font = "bold 14px monospace";
+            ctx.fillText("⚔️", x+cardW/2-8, y+22);
+            // 名称
+            let shortName = name.length > 6 ? name.slice(0,5)+".." : name;
+            ctx.fillStyle = "#2a2a1a";
+            ctx.font = "bold 9px monospace";
+            ctx.fillText(shortName, x+cardW/2-15, y+48);
+            // 攻击/生命值
+            ctx.fillStyle = "#ffb059";
+            ctx.font = "bold 11px monospace";
+            ctx.fillText(`⚔️${atk}  ❤️${hp}`, x+cardW/2-20, y+72);
+            // 攻击标记 (如果已攻击)
+            if(!canAttack) {
+                ctx.fillStyle = "#aa8888aa";
+                ctx.font = "bold 10px monospace";
+                ctx.fillText("已攻击", x+cardW/2-12, y+88);
+            }
+        }
+
+        // 公共记录竖长卡牌 (宽度58，高度92)
+        function drawPublicCard(x, y, cardName, cardType, side) {
+            const cardW = 58;
+            const cardH = 92;
+            ctx.fillStyle = side === "player" ? "#3a6a3a" : "#6a3a3a";
+            drawRoundedRect(x, y, cardW, cardH, 6);
+            ctx.fillStyle = cardType === "minion" ? "#8aae7a" : "#be9a6a";
+            drawRoundedRect(x+2, y+2, cardW-4, cardH-4, 5);
+            ctx.fillStyle = side === "player" ? "#d4ffb0" : "#ffd4a0";
+            ctx.font = "bold 13px monospace";
+            ctx.fillText(side === "player" ? "🧙" : "👤", x+cardW/2-8, y+20);
+            let shortName = cardName.length > 5 ? cardName.slice(0,4)+".." : cardName;
+            ctx.fillStyle = "#2a2a1a";
+            ctx.font = "bold 8px monospace";
+            ctx.fillText(shortName, x+cardW/2-14, y+48);
+            ctx.fillStyle = cardType === "minion" ? "#4a7a2a" : "#9a6a3a";
+            ctx.font = "bold 8px monospace";
+            ctx.fillText(cardType === "minion" ? "随从" : "法术", x+cardW/2-10, y+70);
+            ctx.fillStyle = "#d4c88a";
+            ctx.beginPath();
+            ctx.arc(x+cardW/2, y+cardH-8, 3, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        function drawStatusBar(x, y, name, hp, maxHp, mana, maxMana, armor) {
+            const BAR_WIDTH = 140;
+            ctx.font = "bold 12px monospace";
+            ctx.fillStyle = "#f9e6cf";
+            ctx.fillText(name, x, y-2);
+            let hpPercent = hp / maxHp;
+            ctx.fillStyle = "#6a1e1e";
+            ctx.fillRect(x, y, BAR_WIDTH, 10);
+            ctx.fillStyle = "#dc5e5e";
+            ctx.fillRect(x, y, BAR_WIDTH * hpPercent, 10);
+            ctx.fillStyle = "#fcd0a0";
+            ctx.font = "bold 10px monospace";
+            ctx.fillText(`❤️ ${hp}/${maxHp}`, x+4, y+9);
+            if(armor > 0) {
+                ctx.fillStyle = "#a0b0cc";
+                ctx.fillText(`🛡️${armor}`, x + BAR_WIDTH - 30, y+9);
+            }
+            ctx.fillStyle = "#2a5f6b";
+            ctx.fillRect(x, y+14, BAR_WIDTH, 10);
+            let manaPercent = mana / maxMana;
+            ctx.fillStyle = "#71d5e0";
+            ctx.fillRect(x, y+14, BAR_WIDTH * manaPercent, 10);
+            ctx.fillStyle = "#cbe7f0";
+            ctx.font = "bold 10px monospace";
+            ctx.fillText(`💧 ${mana}/${maxMana}`, x+4, y+25);
+        }
+
+        function render() {
+            ctx.clearRect(0,0,W,H);
+            ctx.fillStyle = "#1a2e24";
+            ctx.fillRect(0,0,W,H);
+
+            // 敌方区域
+            ctx.fillStyle = "#3a2a2a";
+            ctx.beginPath(); ctx.arc(35, 42, 26, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "#f7d98c"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(35,42,26,0,Math.PI*2); ctx.stroke();
+            ctx.fillStyle="#ffecb3"; ctx.font="bold 22px monospace"; ctx.fillText("👤", 20, 54);
+            drawStatusBar(70, 32, game.ai.hero.name, game.ai.hero.hp, game.ai.hero.maxHp, game.ai.mana, game.ai.maxMana, game.ai.hero.armor);
+            if(game.ai.lastPlayedCard) drawLastPlayCard(215, 6, game.ai.lastPlayedCard.name, game.ai.lastPlayedCard.type);
+            
+            // 敌方随从 - 竖长卡牌
+            let eb = game.ai.board;
+            let startXMinion = 12;
+            let cardWMinion = 70;
+            let gapMinion = 8;
+            for(let i=0;i<eb.length;i++){
+                let m=eb[i];
+                let x = startXMinion + i * (cardWMinion + gapMinion);
+                drawMinionCard(x, 85, m.name, m.atk, m.hp, m.canAttack);
+            }
+            
+            // 公共出牌区 - 竖长卡牌横向排列
+            ctx.fillStyle = "#0f221ccc";
+            drawRoundedRect(10, 185, 460, 125, 16);
+            ctx.fillStyle = "#f7eac5";
+            ctx.font = "bold 13px monospace";
+            ctx.fillText("📜 公共出牌记录 (最新)", 155, 208);
+            
+            let startXPublic = 16;
+            let cardWPublic = 58;
+            let gapPublic = 8;
+            let maxCards = Math.min(game.publicLog.length, 6);
+            for(let i = 0; i < maxCards; i++) {
+                let rec = game.publicLog[i];
+                let x = startXPublic + i * (cardWPublic + gapPublic);
+                drawPublicCard(x, 222, rec.cardName, rec.cardType, rec.side);
+            }
+            if(maxCards === 0) {
+                ctx.fillStyle = "#aaa880";
+                ctx.font = "13px monospace";
+                ctx.fillText("暂无出牌记录", 185, 275);
+            }
+            
+            // 玩家战场区 - 竖长卡牌
+            ctx.fillStyle = "#2f4d3b";
+            drawRoundedRect(10, 430, 460, 105, 16);
+            let pb = game.player.board;
+            for(let i=0;i<pb.length;i++){
+                let m=pb[i];
+                let x = startXMinion + i * (cardWMinion + gapMinion);
+                drawMinionCard(x, 440, m.name, m.atk, m.hp, m.canAttack);
+            }
+            
+            // 玩家英雄区域
+            ctx.fillStyle = "#2a4a3a";
+            ctx.beginPath(); ctx.arc(35, 588, 26, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "#f7d98c"; ctx.beginPath(); ctx.arc(35,588,26,0,Math.PI*2); ctx.stroke();
+            ctx.fillStyle="#ffecb3"; ctx.font="bold 22px monospace"; ctx.fillText("🧙", 20, 600);
+            drawStatusBar(70, 578, game.player.hero.name, game.player.hero.hp, game.player.hero.maxHp, game.player.mana, game.player.maxMana, game.player.hero.armor);
+            if(game.player.lastPlayedCard) drawLastPlayCard(215, 560, game.player.lastPlayedCard.name, game.player.lastPlayedCard.type);
+            
+            // 手牌区
+            let hand = game.player.hand;
+            const hY = 670;
+            const handCardW = 68;
+            const handCardH = 80;
+            for(let i=0;i<hand.length;i++){
+                let c=hand[i];
+                let x = 12 + (handCardW+6)*i;
+                ctx.fillStyle="#4c3824"; drawRoundedRect(x,hY,handCardW,handCardH,6);
+                ctx.fillStyle="#f8dd9c"; ctx.font = "bold 13px monospace";
+                ctx.fillText(`${c.cost}`, x+5, hY+18);
+                ctx.fillStyle="#eef2e0"; ctx.font = "bold 9px monospace";
+                let shortName = c.name.length>6 ? c.name.slice(0,5)+".." : c.name;
+                ctx.fillText(shortName, x+4, hY+46);
+                if(c.type==="minion") ctx.fillStyle="#b3d9a0"; else ctx.fillStyle="#dfb27a";
+                ctx.font = "bold 9px monospace";
+                ctx.fillText(c.type==="minion"?`${c.atk}/${c.hp}`:"法术", x+6, hY+68);
+            }
+            
+            // 英雄技能按钮
+            ctx.fillStyle = "#35281c";
+            drawRoundedRect(360, 740, 105, 48, 20);
+            ctx.fillStyle = "#f9bc6e";
+            ctx.font = "bold 12px monospace";
+            ctx.fillText("🔥 英雄技", 370, 765);
+            ctx.fillText("(2费)", 392, 782);
+            
+            ctx.font = "bold 16px monospace";
+            ctx.fillStyle = game.turn==="player"?"#b9ffb0":"#dfaf7a";
+            ctx.fillText(game.turn==="player"?"⚡ 玩家回合":"🤖 AI回合", W-125, 35);
+            
+            if(game.waitingForTarget && game.turn==="player"){
+                ctx.fillStyle = "#ffe48fcc";
+                ctx.font = "bold 14px monospace";
+                ctx.fillText("🎯 点击敌方头像或随从", W/2-110, 375);
+            }
+            
+            if(game.gameOver){
+                ctx.fillStyle = "#000000aa";
+                ctx.fillRect(0,0,W,H);
+                ctx.font = "bold 26px monospace";
+                ctx.fillStyle = "#f5e7a3";
+                ctx.fillText(game.winner==="player"?"✨ 胜利 ✨":"💀 失败 💀", W/2-75, H/2);
+            }
+        }
+        
+        function handleCanvasClick(e) {
+            if(game.gameOver) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let clickX = (e.clientX - rect.left) * scaleX;
+            let clickY = (e.clientY - rect.top) * scaleY;
+            
+            const enemyAvatarRect = { x: 10, y: 18, w: 55, h: 55 };
+            if(game.waitingForTarget && game.turn === "player") {
+                if(clickX > enemyAvatarRect.x && clickX < enemyAvatarRect.x+enemyAvatarRect.w && clickY > enemyAvatarRect.y && clickY < enemyAvatarRect.y+enemyAvatarRect.h) {
+                    if(game.pendingAction && game.pendingAction.type === "spell_damage") {
+                        applyDamageSpell("player", game.pendingAction.card, "hero", -1);
+                    } else if(game.pendingAction && game.pendingAction.type === "attack") {
+                        applyAttack("player", game.pendingAction.attackerIdx, "hero", -1);
+                    } else if(game.pendingAction && game.pendingAction.type === "hero_power") {
+                        executeHeroPower("player", "hero", -1);
+                        game.waitingForTarget = false; game.pendingAction = null;
+                    }
+                    return;
+                }
+                const enemyBoard = game.ai.board;
+                const startY = 85, slotW = 70, slotH = 92, startX = 12, gapX = 8;
+                for(let i=0; i<enemyBoard.length && i<5; i++) {
+                    let slotX = startX + (slotW+gapX)*i;
+                    if(clickX > slotX && clickX < slotX+slotW && clickY > startY && clickY < startY+slotH) {
+                        if(game.pendingAction && game.pendingAction.type === "spell_damage") {
+                            applyDamageSpell("player", game.pendingAction.card, "minion", i);
+                        } else if(game.pendingAction && game.pendingAction.type === "attack") {
+                            applyAttack("player", game.pendingAction.attackerIdx, "minion", i);
+                        } else if(game.pendingAction && game.pendingAction.type === "hero_power") {
+                            executeHeroPower("player", "minion", i);
+                            game.waitingForTarget = false; game.pendingAction = null;
+                        }
+                        return;
+                    }
+                }
+                addLog("❌ 无效目标，请点击敌方英雄头像或敌方随从");
+                return;
+            }
+            
+            if(game.turn === "player" && !game.waitingForTarget && !game.gameOver) {
+                if(clickX > 360 && clickX < 465 && clickY > 740 && clickY < 788) {
+                    prepareHeroPower("player");
+                    return;
+                }
+                const handYStart = 670, handH = 80;
+                if(clickY > handYStart && clickY < handYStart+handH) {
+                    let hand = game.player.hand;
+                    const cardW = 68, cardH = 80, startX = 12, gap = 6;
+                    for(let i=0; i<hand.length; i++) {
+                        let cardX = startX + (cardW+gap)*i;
+                        if(clickX > cardX && clickX < cardX+cardW && clickY > handYStart && clickY < handYStart+cardH) {
+                            playCard("player", i);
+                            return;
+                        }
+                    }
+                }
+                const myBoardY = 440, boardH = 92;
+                if(clickY > myBoardY && clickY < myBoardY+boardH) {
+                    let myBoard = game.player.board;
+                    const startX = 12, slotW = 70, gapX = 8;
+                    for(let i=0; i<myBoard.length; i++) {
+                        let slotX = startX + (slotW+gapX)*i;
+                        if(clickX > slotX && clickX < slotX+slotW) {
+                            requestAttack("player", i);
+                            return;
+                        }
+                    }
+                }
+                addLog("点击手牌施法 / 点击己方随从攻击 / 右下英雄技能");
+            }
+        }
+        
+        canvas.addEventListener('click', handleCanvasClick);
+        document.getElementById('endTurnBtn').addEventListener('click', () => { if(!game.gameOver && game.turn==="player") endTurn(); });
+        document.getElementById('resetGameBtn').addEventListener('click', () => { initGame(); if(game.turn==="ai") setTimeout(aiTurn,200); });
+        
+        initGame();
+    })();
+</script>
+</body>
+</html>

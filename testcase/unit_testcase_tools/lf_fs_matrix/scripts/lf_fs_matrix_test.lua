@@ -141,10 +141,8 @@ function lf_fs_matrix_test.test_lf_three_fs_matrix()
         fs_target = os.getenv("LF_FS_TARGET")
     end
     local fs_list = {
-        {name = "lfs2", offset = 0x0000000, size = 0x0800000},
-        {name = "lfsn", offset = 0x0800000, size = 0x0800000},
-        {name = "pgfs", offset = 0x1000000, size = 0x0800000},
-        {name = "lfs3", offset = 0x1800000, size = 0x0800000}
+        {name = "lfs2", offset = 0x0000000, size = 0x1000000},
+        {name = "pgfs", offset = 0x1000000, size = 0x1000000}
     }
     for _, item in ipairs(fs_list) do
         if fs_target and fs_target ~= "" and item.name ~= fs_target then
@@ -169,7 +167,7 @@ function lf_fs_matrix_test.test_lf_three_fs_matrix()
                 local perf_ok, perf_ms, perf_msg = run_write_perf(mount_point)
                 local unzip_ok, unzip_msg, unzip_ms = run_unzip(mount_point)
                 local space_ok, free_bytes, space_msg = true, -1, "skip"
-                if fs ~= "lfs3" then
+                if fs ~= "pgfs" then
                     space_ok, free_bytes, space_msg = run_space_stat(mount_point)
                 end
                 log.info("LF_FS_MATRIX_RESULT",

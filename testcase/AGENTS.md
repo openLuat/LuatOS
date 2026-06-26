@@ -14,6 +14,10 @@ testcase/
 │   ├── testrunner.lua
 │   ├── testsuite.lua
 │   └── testreport.lua
+├── utest/            # C-layer utest suites (xxx.utest(case) bridges)
+│   ├── net/          #   tcp_basic, http_basic, https_basic, dtls_basic
+│   ├── lib/          #   core_basic, crypto_basic
+│   └── sys/          #   ndk_basic
 └── <feature>/        # Feature tests
     └── <feature>_basic/
         ├── metas.json
@@ -21,6 +25,8 @@ testcase/
             ├── main.lua
             └── <feature>_test.lua
 ```
+
+C-layer utest 套件统一住在 `testcase/utest/<group>/<suite>_basic/`,共享 `pc_utest_coverage.ps1 -Suite <suite>` 入口(详见 `testcase/README.md` 的"C层 utest"一节)。普通 Lua 单元测试仍按 `testcase/<feature>/<feature>_basic/` 摆放。
 
 ## RUNNING TESTS
 
@@ -30,6 +36,21 @@ build/out/luatos-lua.exe \
     ../../testcase/common/scripts/ \
     ../../testcase/<feature>/<feature>_basic/scripts/
 ```
+
+### Running on Real Hardware
+
+真机走 `luatos-cli flash test`,**完整流程、模组矩阵、关键字契约、故障树详见 `/luatos-hw-test` skill**。本节只记 testcase 这边必须遵守的约定:
+
+- 终态契约:`### OVERALL_PASS ###` / `### OVERALL_FAIL ###` 由 `testrunner.runBatch` 通过 `log.info` 发出,是 luatos-cli 判定 PASS/FAIL 的唯一锚点。**不要在测试里直接 print 这两个字符串绕过 testrunner**。
+- 真机 testcase 的 `main.lua` 必须有 WDT 喂狗任务,否则长用例(>10 秒)会被看门狗重启:
+  ```lua
+  if wdt and wdt.init then
+      wdt.init(9000)
+      sys.taskInit(function() while true do sys.wait(1000); if wdt.feed then wdt.feed() end end end)
+  end
+  ```
+- `metas.json` 的 `platform` 字段当前没有任何 runner 消费,只是文档;但请按实际填(`["pc"]` / `["air1601"]` / `["air1601","air8000"]`),给人读。
+- ⚠️ **testrunner 的"虚绿"陷阱**:`testsuite.lua` 用 `pcall` 包测试函数,**返回 `false` 不算 FAIL**,只有抛 lua 错误才算。要让失败可见,用 `assert(ok, "...")`,不要 `if not ok then return false`。
 
 ## CREATING TESTS
 

@@ -375,6 +375,29 @@ static int mobile_fill_scell_extern(
     return 0;
 }
 
+static int mobile_fill_scell(
+    const drv_mobile_MobileScellInfo* src,
+    luat_airlink_drv_rpc_mobile_scell_info_t* out
+) {
+    if (!out) return -EINVAL;
+    memset(out, 0, sizeof(*out));
+    if (!src) return 0;
+
+    out->earfcn = src->has_earfcn ? src->earfcn : 0;
+    out->pci    = src->has_pci    ? src->pci    : 0;
+    out->mcc    = src->has_mcc    ? src->mcc    : 0;
+    out->mnc    = src->has_mnc    ? src->mnc    : 0;
+    out->band   = src->has_band   ? src->band   : 0;
+    out->eci    = src->has_eci    ? src->eci    : 0;
+    out->cid    = src->has_cid    ? src->cid    : 0;
+    out->tac    = src->has_tac    ? src->tac    : 0;
+    out->snr    = src->has_snr    ? src->snr    : 0;
+    out->rsrp   = src->has_rsrp   ? src->rsrp   : 0;
+    out->rsrq   = src->has_rsrq   ? src->rsrq   : 0;
+    out->rssi   = src->has_rssi   ? src->rssi   : 0;
+    return 0;
+}
+
 static int mobile_notify_handler(lua_State* L, void* ptr) {
     struct mobile_notify_ctx* ctx = (struct mobile_notify_ctx*)ptr;
     (void)L;
@@ -391,6 +414,305 @@ static int mobile_notify_handler(lua_State* L, void* ptr) {
     luat_heap_opt_free(AIRLINK_MEM_TYPE, ctx);
     return 0;
 }
+
+int luat_airlink_drv_rpc_mobile_sim_identity_status_yield(
+    lua_State* L, uint8_t sim_id,
+    lua_KFunction cont, lua_KContext user_ctx
+) {
+    drv_mobile_MobileRpcRequest req = drv_mobile_MobileRpcRequest_init_zero;
+    int mode;
+
+    req.req_id = mobile_next_req_id();
+    req.which_payload = drv_mobile_MobileRpcRequest_sim_identity_status_tag;
+    req.payload.sim_identity_status.has_sim_id = true;
+    req.payload.sim_identity_status.sim_id = sim_id;
+
+    mode = luat_airlink_current_mode_get();
+    if (mode < 0) mode = LUAT_AIRLINK_MODE_UART;
+
+    return luat_airlink_rpc_nb_call_yield(
+        L, (uint8_t)mode,
+        AIRLINK_DRV_RPC_ID_MOBILE,
+        drv_mobile_MobileRpcRequest_fields, &req,
+        AIRLINK_DRV_RPC_MOBILE_TIMEOUT_FAST_MS,
+        cont, user_ctx
+    );
+}
+
+int luat_airlink_drv_rpc_mobile_decode_imei(const uint8_t* raw, uint16_t raw_len,
+                                             char* imei, size_t imei_len) {
+    if (!raw || !raw_len || !imei || !imei_len) return -EINVAL;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer(raw, raw_len);
+    if (!pb_decode(&istream, drv_mobile_MobileRpcResponse_fields, &resp)) return -4;
+    if (resp.which_payload != drv_mobile_MobileRpcResponse_sim_identity_status_tag)
+        return AIRLINK_DRV_RPC_MOBILE_PROTO_ERR;
+    int rc = mobile_result_check(&resp.payload.sim_identity_status.result);
+    if (rc != 0) return rc;
+    if (!resp.payload.sim_identity_status.has_status) {
+        imei[0] = 0;
+        return 0;
+    }
+    return mobile_copy_string_field(imei, imei_len,
+        resp.payload.sim_identity_status.status.imei,
+        sizeof(resp.payload.sim_identity_status.status.imei));
+}
+
+int luat_airlink_drv_rpc_mobile_decode_imsi(const uint8_t* raw, uint16_t raw_len,
+                                             char* imsi, size_t imsi_len) {
+    if (!raw || !raw_len || !imsi || !imsi_len) return -EINVAL;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer(raw, raw_len);
+    if (!pb_decode(&istream, drv_mobile_MobileRpcResponse_fields, &resp)) return -4;
+    if (resp.which_payload != drv_mobile_MobileRpcResponse_sim_identity_status_tag)
+        return AIRLINK_DRV_RPC_MOBILE_PROTO_ERR;
+    int rc = mobile_result_check(&resp.payload.sim_identity_status.result);
+    if (rc != 0) return rc;
+    if (!resp.payload.sim_identity_status.has_status) {
+        imsi[0] = 0;
+        return 0;
+    }
+    return mobile_copy_string_field(imsi, imsi_len,
+        resp.payload.sim_identity_status.status.imsi,
+        sizeof(resp.payload.sim_identity_status.status.imsi));
+}
+
+/* ---- global_status yield + decoders ---- */
+
+int luat_airlink_drv_rpc_mobile_global_status_yield(
+    lua_State* L, lua_KFunction cont, lua_KContext user_ctx
+) {
+    drv_mobile_MobileRpcRequest req = drv_mobile_MobileRpcRequest_init_zero;
+    int mode;
+
+    req.req_id = mobile_next_req_id();
+    req.which_payload = drv_mobile_MobileRpcRequest_global_status_tag;
+
+    mode = luat_airlink_current_mode_get();
+    if (mode < 0) mode = LUAT_AIRLINK_MODE_UART;
+
+    return luat_airlink_rpc_nb_call_yield(
+        L, (uint8_t)mode,
+        AIRLINK_DRV_RPC_ID_MOBILE,
+        drv_mobile_MobileRpcRequest_fields, &req,
+        AIRLINK_DRV_RPC_MOBILE_TIMEOUT_FAST_MS,
+        cont, user_ctx
+    );
+}
+
+int luat_airlink_drv_rpc_mobile_decode_register_status(const uint8_t* raw, uint16_t raw_len) {
+    if (!raw || !raw_len) return LUAT_MOBILE_STATUS_UNREGISTER;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer(raw, raw_len);
+    if (!pb_decode(&istream, drv_mobile_MobileRpcResponse_fields, &resp)) return LUAT_MOBILE_STATUS_UNREGISTER;
+    if (resp.which_payload != drv_mobile_MobileRpcResponse_global_status_tag)
+        return LUAT_MOBILE_STATUS_UNREGISTER;
+    int rc = mobile_result_check(&resp.payload.global_status.result);
+    if (rc != 0) return LUAT_MOBILE_STATUS_UNREGISTER;
+    if (!resp.payload.global_status.has_status) return LUAT_MOBILE_STATUS_UNREGISTER;
+    if (!resp.payload.global_status.status.has_register_status) return LUAT_MOBILE_STATUS_UNREGISTER;
+    return (int)resp.payload.global_status.status.register_status;
+}
+
+int luat_airlink_drv_rpc_mobile_decode_sn(const uint8_t* raw, uint16_t raw_len,
+                                           char* sn, size_t sn_len) {
+    if (!raw || !raw_len || !sn || !sn_len) return -EINVAL;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer(raw, raw_len);
+    if (!pb_decode(&istream, drv_mobile_MobileRpcResponse_fields, &resp)) return -4;
+    if (resp.which_payload != drv_mobile_MobileRpcResponse_global_status_tag)
+        return AIRLINK_DRV_RPC_MOBILE_PROTO_ERR;
+    int rc = mobile_result_check(&resp.payload.global_status.result);
+    if (rc != 0) return rc;
+    if (!resp.payload.global_status.has_status) {
+        sn[0] = 0;
+        return 0;
+    }
+    return mobile_copy_string_field(sn, sn_len,
+        resp.payload.global_status.status.sn,
+        sizeof(resp.payload.global_status.status.sn));
+}
+
+int luat_airlink_drv_rpc_mobile_decode_muid(const uint8_t* raw, uint16_t raw_len,
+                                             char* muid, size_t muid_len) {
+    if (!raw || !raw_len || !muid || !muid_len) return -EINVAL;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer(raw, raw_len);
+    if (!pb_decode(&istream, drv_mobile_MobileRpcResponse_fields, &resp)) return -4;
+    if (resp.which_payload != drv_mobile_MobileRpcResponse_global_status_tag)
+        return AIRLINK_DRV_RPC_MOBILE_PROTO_ERR;
+    int rc = mobile_result_check(&resp.payload.global_status.result);
+    if (rc != 0) return rc;
+    if (!resp.payload.global_status.has_status) {
+        muid[0] = 0;
+        return 0;
+    }
+    return mobile_copy_string_field(muid, muid_len,
+        resp.payload.global_status.status.muid,
+        sizeof(resp.payload.global_status.status.muid));
+}
+
+/* ---- signal yield + decoders ---- */
+
+/* ---- scell_extern yield + decoder ---- */
+
+int luat_airlink_drv_rpc_mobile_scell_extern_yield(
+    lua_State* L, lua_KFunction cont, lua_KContext user_ctx
+) {
+    drv_mobile_MobileRpcRequest req = drv_mobile_MobileRpcRequest_init_zero;
+    int mode;
+
+    req.req_id = mobile_next_req_id();
+    req.which_payload = drv_mobile_MobileRpcRequest_scell_extern_tag;
+
+    mode = luat_airlink_current_mode_get();
+    if (mode < 0) mode = LUAT_AIRLINK_MODE_UART;
+
+    return luat_airlink_rpc_nb_call_yield(
+        L, (uint8_t)mode,
+        AIRLINK_DRV_RPC_ID_MOBILE,
+        drv_mobile_MobileRpcRequest_fields, &req,
+        AIRLINK_DRV_RPC_MOBILE_TIMEOUT_FAST_MS,
+        cont, user_ctx
+    );
+}
+
+int luat_airlink_drv_rpc_mobile_decode_scell_extern(const uint8_t* raw, uint16_t raw_len,
+    luat_airlink_drv_rpc_mobile_scell_extern_info_t* out) {
+    if (!raw || !raw_len || !out) return -EINVAL;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer(raw, raw_len);
+    if (!pb_decode(&istream, drv_mobile_MobileRpcResponse_fields, &resp)) return -4;
+    if (resp.which_payload != drv_mobile_MobileRpcResponse_scell_extern_tag)
+        return AIRLINK_DRV_RPC_MOBILE_PROTO_ERR;
+    int rc = mobile_result_check(&resp.payload.scell_extern.result);
+    if (rc != 0) return rc;
+    return mobile_fill_scell_extern(
+        resp.payload.scell_extern.has_info ? &resp.payload.scell_extern.info : NULL,
+        out
+    );
+}
+
+/* ---- scell (mobile.scell()) yield + decoder ---- */
+
+int luat_airlink_drv_rpc_mobile_scell_yield(
+    lua_State* L, lua_KFunction cont, lua_KContext user_ctx
+) {
+    drv_mobile_MobileRpcRequest req = drv_mobile_MobileRpcRequest_init_zero;
+    int mode;
+
+    req.req_id = mobile_next_req_id();
+    req.which_payload = drv_mobile_MobileRpcRequest_scell_info_tag;
+
+    mode = luat_airlink_current_mode_get();
+    if (mode < 0) mode = LUAT_AIRLINK_MODE_UART;
+
+    return luat_airlink_rpc_nb_call_yield(
+        L, (uint8_t)mode,
+        AIRLINK_DRV_RPC_ID_MOBILE,
+        drv_mobile_MobileRpcRequest_fields, &req,
+        AIRLINK_DRV_RPC_MOBILE_TIMEOUT_MID_MS,
+        cont, user_ctx
+    );
+}
+
+int luat_airlink_drv_rpc_mobile_decode_scell(const uint8_t* raw, uint16_t raw_len,
+    luat_airlink_drv_rpc_mobile_scell_info_t* out) {
+    if (!raw || !raw_len || !out) return -EINVAL;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer(raw, raw_len);
+    if (!pb_decode(&istream, drv_mobile_MobileRpcResponse_fields, &resp)) return -4;
+    if (resp.which_payload != drv_mobile_MobileRpcResponse_scell_info_tag)
+        return AIRLINK_DRV_RPC_MOBILE_PROTO_ERR;
+    int rc = mobile_result_check(&resp.payload.scell_info.result);
+    if (rc != 0) return rc;
+    return mobile_fill_scell(
+        resp.payload.scell_info.has_info ? &resp.payload.scell_info.info : NULL,
+        out
+    );
+}
+
+int luat_airlink_drv_rpc_mobile_signal_yield(
+    lua_State* L, lua_KFunction cont, lua_KContext user_ctx
+) {
+    drv_mobile_MobileRpcRequest req = drv_mobile_MobileRpcRequest_init_zero;
+    int mode;
+
+    req.req_id = mobile_next_req_id();
+    req.which_payload = drv_mobile_MobileRpcRequest_signal_tag;
+
+    mode = luat_airlink_current_mode_get();
+    if (mode < 0) mode = LUAT_AIRLINK_MODE_UART;
+
+    return luat_airlink_rpc_nb_call_yield(
+        L, (uint8_t)mode,
+        AIRLINK_DRV_RPC_ID_MOBILE,
+        drv_mobile_MobileRpcRequest_fields, &req,
+        AIRLINK_DRV_RPC_MOBILE_TIMEOUT_FAST_MS,
+        cont, user_ctx
+    );
+}
+
+int luat_airlink_drv_rpc_mobile_decode_csq(const uint8_t* raw, uint16_t raw_len) {
+    if (!raw || !raw_len) return 0;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer(raw, raw_len);
+    if (!pb_decode(&istream, drv_mobile_MobileRpcResponse_fields, &resp)) return 0;
+    if (resp.which_payload != drv_mobile_MobileRpcResponse_signal_tag) return 0;
+    int rc = mobile_result_check(&resp.payload.signal.result);
+    if (rc != 0) return 0;
+    if (!resp.payload.signal.has_info) return 0;
+    if (!resp.payload.signal.info.has_csq) return 0;
+    return (int)resp.payload.signal.info.csq;
+}
+
+void luat_airlink_drv_rpc_mobile_decode_signal_info(const uint8_t* raw, uint16_t raw_len,
+                                                     int16_t* rssi, int16_t* rsrp,
+                                                     int16_t* rsrq, int16_t* snr) {
+    if (rssi) *rssi = 0;
+    if (rsrp) *rsrp = 0;
+    if (rsrq) *rsrq = 0;
+    if (snr)  *snr  = 0;
+    if (!raw || !raw_len) return;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer(raw, raw_len);
+    if (!pb_decode(&istream, drv_mobile_MobileRpcResponse_fields, &resp)) return;
+    if (resp.which_payload != drv_mobile_MobileRpcResponse_signal_tag) return;
+    if (mobile_result_check(&resp.payload.signal.result) != 0) return;
+    if (!resp.payload.signal.has_info) return;
+    const drv_mobile_MobileSignalInfo* info = &resp.payload.signal.info;
+    if (info->has_lte_valid && info->lte_valid) {
+        if (info->lte.has_rssi && rssi) *rssi = (int16_t)info->lte.rssi;
+        if (info->lte.has_rsrp && rsrp) *rsrp = (int16_t)info->lte.rsrp;
+        if (info->lte.has_rsrq && rsrq) *rsrq = (int16_t)info->lte.rsrq;
+        if (info->lte.has_snr  && snr)  *snr  = (int16_t)info->lte.snr;
+    } else if (info->has_gw_valid && info->gw_valid) {
+        if (info->gw.has_rssi && rssi) *rssi = info->gw.rssi;
+        if (info->gw.has_rscp && rsrp) *rsrp = (int16_t)info->gw.rscp;
+        if (info->gw.has_ecno && rsrq) *rsrq = (int16_t)info->gw.ecno;
+    }
+}
+
+int luat_airlink_drv_rpc_mobile_decode_iccid(const uint8_t* raw, uint16_t raw_len,
+                                              char* iccid, size_t iccid_len) {
+    if (!raw || !raw_len || !iccid || !iccid_len) return -EINVAL;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer(raw, raw_len);
+    if (!pb_decode(&istream, drv_mobile_MobileRpcResponse_fields, &resp)) return -4;
+    if (resp.which_payload != drv_mobile_MobileRpcResponse_sim_identity_status_tag)
+        return AIRLINK_DRV_RPC_MOBILE_PROTO_ERR;
+    int rc = mobile_result_check(&resp.payload.sim_identity_status.result);
+    if (rc != 0) return rc;
+    if (!resp.payload.sim_identity_status.has_status) {
+        iccid[0] = 0;
+        return 0;
+    }
+    return mobile_copy_string_field(iccid, iccid_len,
+        resp.payload.sim_identity_status.status.iccid,
+        sizeof(resp.payload.sim_identity_status.status.iccid));
+}
+
+/* ---- sync helpers (unchanged) ---- */
 
 int luat_airlink_drv_rpc_mobile_sim_identity_status(
     uint8_t sim_id,
@@ -532,6 +854,29 @@ int luat_airlink_drv_rpc_mobile_scell_extern(
     if (rc != 0) return rc;
     return mobile_fill_scell_extern(
         resp.payload.scell_extern.has_info ? &resp.payload.scell_extern.info : NULL,
+        out
+    );
+}
+
+int luat_airlink_drv_rpc_mobile_scell(
+    luat_airlink_drv_rpc_mobile_scell_info_t* out
+) {
+    drv_mobile_MobileRpcRequest req = drv_mobile_MobileRpcRequest_init_zero;
+    drv_mobile_MobileRpcResponse resp = drv_mobile_MobileRpcResponse_init_zero;
+    int rc;
+
+    if (!out) return -EINVAL;
+
+    req.req_id = mobile_next_req_id();
+    req.which_payload = drv_mobile_MobileRpcRequest_scell_info_tag;
+
+    rc = mobile_do_call(&req, &resp, drv_mobile_MobileRpcResponse_scell_info_tag, MOBILE_CALL_TIER_MID, 1);
+    if (rc != 0) return rc;
+
+    rc = mobile_result_check(&resp.payload.scell_info.result);
+    if (rc != 0) return rc;
+    return mobile_fill_scell(
+        resp.payload.scell_info.has_info ? &resp.payload.scell_info.info : NULL,
         out
     );
 }

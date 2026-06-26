@@ -124,6 +124,11 @@ local app_registry = {}
 -- 示例: { ["app_hello"] = { cn_name = "你好世界", path = "/app_store/app_hello/", version = "1.0.0", category = "demo", description = "示例应用", install_time = 1759161153 } }
 local installed_info = {}
 
+-- 重复应用冲突表（同一 app_name 在多个存储位置存在）
+-- key: app_name, value: { { cn_name, path, storage_type, mount_point, icon_path, version, install_time }, ... }
+-- 至少 2 个条目时才有意义，resolve_duplicate 后清空
+local duplicate_info = {}
+
 -- 已安装应用数量
 local installed_cnt = 0
 
@@ -188,6 +193,8 @@ local storage_available = {
 -- Flash 设备全局变量（防止 GC 回收导致死机）
 little_flash_spi_device = nil
 little_flash_device     = nil
+nand_flash_spi_device   = nil
+nand_flash_device       = nil
 
 -- ==============================================
 -- 存储配置管理函数
@@ -551,10 +558,24 @@ end
     - 触发垃圾回收
     - 检测内存泄漏（比较清理后内存与基准值）
 ]]
-local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
     log.info("sandbox_cleanup", "start cleanup:", app_path)
 
-    -- 先销毁UI沙箱容器（会自动递归销毁所有子组件）
+    -- 先停止所有定时器
+    if stop_all_timers then
+        stop_all_timers()
+    end
+
+    -- PC模拟器: 停止 LVGL timer, 防止 widget 销毁过程中
+    -- timer 回调触发 C 层访问已释放内存导致 C0000005 崩溃
+    if lvgltimer and lvgltimer.stop then
+        local ok, err = pcall(lvgltimer.stop)
+        if not ok then
+            log.warn("sandbox_cleanup", "lvgltimer.stop failed:", err)
+        end
+    end
+
+    -- 再销毁UI沙箱容器（会自动递归销毁所有子组件）
     if sandbox_container then
         local ok, err = pcall(sandbox_container.destroy, sandbox_container)
         if not ok then
@@ -588,6 +609,22 @@ local function sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sand
     log.info("sandbox_cleanup", "cleanup completed:", app_path)
 end
 
+-- 分页读取目录全部条目（io.lsdir 单次上限 100，超过需翻页）
+local function lsdir_all(dir)
+    local all = {}
+    local offset = 0
+    while true do
+        local ret, list = io.lsdir(dir, 100, offset)
+        if not ret or not list or #list == 0 then break end
+        for _, item in ipairs(list) do
+            table.insert(all, item)
+        end
+        if #list < 100 then break end
+        offset = offset + 100
+    end
+    return all
+end
+
 -- 递归拷贝目录（用于更新时跨存储迁移data目录）
 -- 仅拷贝文件，跳过无法读取的项
 local function copy_data_dir(src_dir, dst_dir)
@@ -599,8 +636,7 @@ local function copy_data_dir(src_dir, dst_dir)
             return false
         end
     end
-    local ret, list = io.lsdir(src_dir, 100, 0)
-    if not ret then return false end
+    local list = lsdir_all(src_dir)
     for _, item in ipairs(list) do
         local src_path = src_dir .. item.name
         local dst_path = dst_dir .. item.name
@@ -629,8 +665,7 @@ local function copy_data_dir(src_dir, dst_dir)
             return false
         end
     end
-    local ret, list = io.lsdir(src_dir, 100, 0)
-    if not ret then return false end
+    local list = lsdir_all(src_dir)
     for _, item in ipairs(list) do
         local src_path = src_dir .. item.name
         local dst_path = dst_dir .. item.name
@@ -651,15 +686,13 @@ end
 -- 递归删除目录（用于云端卸载）
 local function rmdir_recursive(dir)
     if not io.dexist(dir) then return true end
-    local ret, list = io.lsdir(dir, 100, 0)
-    if ret then
-        for _, item in ipairs(list) do
-            local full_path = dir .. "/" .. item.name
-            if item.type == 1 then
-                rmdir_recursive(full_path)
-            else
-                os.remove(full_path)
-            end
+    local list = lsdir_all(dir)
+    for _, item in ipairs(list) do
+        local full_path = dir .. "/" .. item.name
+        if item.type == 1 then
+            rmdir_recursive(full_path)
+        else
+            os.remove(full_path)
         end
     end
     local ok = io.rmdir(dir)
@@ -738,6 +771,19 @@ local function app_task(app_path)
             glob_sys.unsubscribe(sub.topic, sub.func)
         end
         subscriptions = {}
+    end
+
+    -- ==============================================
+    -- 【定时器管理器】记录应用创建的所有定时器，应用退出时集中停止
+    -- ==============================================
+    local timer_ids = {}
+
+    -- 停止所有已登记的定时器（应用退出时调用）
+    local function stop_all_timers()
+        for _, id in ipairs(timer_ids) do
+            glob_sys.timerStop(id)
+        end
+        timer_ids = {}
     end
 
     -- ==============================================
@@ -827,7 +873,7 @@ local function app_task(app_path)
         "exril_5101", "exsip", "exsipclient", "exsipproto", "extalk", "extp",
         "exvib", "exvib1", "exwin", "gc032a", "gc0310", "httpdns", "httpplus",
         "lbsLoc", "lbsLoc2", "libnet", "netLed", "udpsrv",
-        "xmodem", "sys", "sysplus"
+        "xmodem", "sys", "sysplus", "airui"
     }
     local ext_libs = {}
     for _, v in ipairs(EXT_LIBS) do ext_libs[v] = true end
@@ -980,7 +1026,7 @@ local function app_task(app_path)
         end
 
         -- 特殊处理：meta.json 请求
-        -- 优先使用应用目录下的 meta.json，如果不存在则报错
+        -- 只查应用根目录
         if path == "/luadb/meta.json" then
             local meta_path = app_path .. "meta.json"
             if io.exists(meta_path) then return meta_path end
@@ -1013,12 +1059,30 @@ local function app_task(app_path)
                         if io.exists(p) then return p end
                     end
                 else
-                    -- 非Lua文件：先在原始相对路径查找（如 /luadb/data/xxx），
-                    -- 再在 res/ 下查找（兼容 /luadb/xxx → res/xxx 的惯例）
-                    local direct_path = app_path .. relative_path
-                    if io.exists(direct_path) then return direct_path end
-                    local res_path = app_path .. "res/" .. relative_path
-                    if io.exists(res_path) then return res_path end
+                    -- 非Lua文件
+                    local ext = relative_path:sub(-4):lower()
+                    local is_bare = not relative_path:find("/")
+                    if is_bare and (ext == ".png" or ext == ".jpg") then
+                        -- 裸 .png/.jpg：优先在 res/ 下查找
+                        local res_path = app_path .. "res/" .. relative_path
+                        if io.exists(res_path) then return res_path end
+                        local direct_path = app_path .. relative_path
+                        if io.exists(direct_path) then return direct_path end
+                    elseif is_bare then
+                        -- 其他裸文件（不限格式）：根目录 → data/ → res/
+                        local search_paths = {
+                            app_path .. relative_path,
+                            app_path .. "data/" .. relative_path,
+                            app_path .. "res/" .. relative_path,
+                        }
+                        for _, p in ipairs(search_paths) do
+                            if io.exists(p) then return p end
+                        end
+                    else
+                        -- 含子目录的路径：直接用
+                        local direct_path = app_path .. relative_path
+                        if io.exists(direct_path) then return direct_path end
+                    end
                 end
             end
             -- 文件未找到，记录错误日志
@@ -1044,9 +1108,10 @@ local function app_task(app_path)
             return "/little_flash/app_store/" .. app_name .. "/data/" .. relative_path
         end
 
-        -- 规则(8.7): 其余 / 开头的路径 → /app_store/<app_name>/data/<path>
+        -- 规则(8.7): 其余 / 开头的路径 → <mount_point>app_store/<app_name>/data/<path>
+        -- 挂载点跟随 app 安装位置，不再硬编码 /app_store/
         if path:sub(1, 1) == "/" then
-            return "/app_store/" .. app_name .. "/data" .. path
+            return mount_point .. "app_store/" .. app_name .. "/data" .. path
         end
 
         -- 无法识别的路径格式
@@ -1120,10 +1185,11 @@ local function app_task(app_path)
             return "/little_flash/app_store/" .. app_name .. "/data/" .. relative_path
         end
 
-        -- 规则(8.7): /* → /app_store/<app_name>/data/*
+        -- 规则(8.7): /* → <mount_point>app_store/<app_name>/data/*
+        -- 挂载点跟随 app 安装位置，不再硬编码 /app_store/
         if path:sub(1, 1) == "/" then
             local relative_path = path:sub(2)
-            return "/app_store/" .. app_name .. "/data/" .. relative_path
+            return mount_point .. "app_store/" .. app_name .. "/data/" .. relative_path
         end
 
         -- 无法识别的路径格式
@@ -1659,6 +1725,12 @@ local function app_task(app_path)
     my_env.xmodem = setmetatable({}, { __index = xmodem_lib })
     my_env.xmodem.send = wrap_path(xmodem_lib.send, 3, false, false)
 
+    -- videoplayer 库
+    -- 功能：包装 videoplayer.open，支持视频文件路径转换
+    local videoplayer_lib = safe_global("videoplayer")
+    my_env.videoplayer = setmetatable({}, { __index = videoplayer_lib })
+    my_env.videoplayer.open = wrap_path(videoplayer_lib.open, 1, false, nil)
+
     -- ==============================================
     -- airui 库（UI 组件沙箱包装）
     -- ==============================================
@@ -1716,6 +1788,12 @@ local function app_task(app_path)
     my_env.tp = setmetatable({}, { __index = tp_lib })
     my_env.tp.init = function(...)
         my_env.log.error("tp", "沙箱环境不允许重新初始化触摸面板")
+        return -1
+    end
+
+    -- 禁止应用调用 airui.device_bind_touch 重新绑定触摸设备
+    my_env.airui.device_bind_touch = function(...)
+        my_env.log.error("airui", "沙箱环境不允许重新绑定触摸设备")
         return -1
     end
 
@@ -1876,7 +1954,8 @@ local function app_task(app_path)
             header_font_size=1,content_pad=1,close_btn_radius=1,
             font_size=1,cell_font_size=1,cell_border_width=1,
             point_radius=1,bar_group_gap=1,bar_series_gap=1,
-            bar_radius=1,tabbar_size=1,tab_font_size=1,line_width=1
+            bar_radius=1,tabbar_size=1,tab_font_size=1,line_width=1,
+            knob_border_width=1,btn_text_font_size=1
         }
         for k, v in pairs(out) do
             if min_keys[k] and type(v) == "number" then
@@ -2000,6 +2079,14 @@ local function app_task(app_path)
                 for i = 1, rows do
                     defaults.row_height[i] = row_height
                 end
+            end
+        elseif component_name == "slider" then
+            -- slider.w默认值200, slider.h默认值20
+            if config.w == nil then
+                defaults.w = 200
+            end
+            if config.h == nil then
+                defaults.h = 20
             end
         end
         return defaults
@@ -2215,7 +2302,7 @@ local function app_task(app_path)
                     return function(_, axis, index, style) return raw_obj:set_cell_style(axis, index, style_scale(style)) end
                 end
                 if (key == "set_style" or key == "set_stype") and
-                    (component_name == "button" or component_name == "table" or component_name == "spinner" or component_name == "win" or component_name == "msgbox") then
+                    (component_name == "button" or component_name == "table" or component_name == "spinner" or component_name == "win" or component_name == "msgbox" or component_name == "slider" or component_name == "checkbox" or component_name == "textarea") then
                     return function(_, style)
                         local method = userdata_member(raw_obj, orig_index, key)
                         if type(method) ~= "function" then return false end
@@ -2339,12 +2426,16 @@ local function app_task(app_path)
     for _, component_name in ipairs({
         "label", "image", "animimg", "button", "container", "bar", "dropdown",
         "switch", "table", "keyboard", "textarea", "tabview", "chart",
-        "qrcode", "win", "msgbox", "shape", "spinner", "video", "lottie", "nes"
+        "qrcode", "win", "msgbox", "shape", "spinner", "video", "lottie", "nes", "slider"
     }) do
         install_component(component_name)
     end
 
-    my_env.airui.font_load = wrap_config(ui.font_load, "path", 1, false, false)
+    -- airui.font_load：禁止后装APP在运行时加载字体，系统全局字体在工厂代码中统一初始化
+    my_env.airui.font_load = function(...)
+        my_env.log.error("airui", "沙箱环境不允许动态加载字体")
+        return false
+    end
 
     local excloud_lib = safe_global("excloud")
     my_env.excloud = setmetatable({}, { __index = excloud_lib })
@@ -2365,19 +2456,40 @@ local function app_task(app_path)
         local config = args[1]
         local base = getmetatable(my_env.exaudio).__index
 
-        if type(config) == "table" and config.type == 0 then
-            local new_config = cp(config)
+        if type(config) ~= "table" then
+            return base.play_start(...)
+        end
 
+        local new_config = cp(config)
+        local need_resolve = false
+
+        -- type==0: 文件播放模式，C 层 audio.play() 走裸 fopen，必须传绝对文件系统路径
+        if config.type == 0 then
             if type(config.content) == "string" then
                 local resolved = resolve_file(config.content)
                 if not resolved then return false end
                 new_config.content = resolved
+                need_resolve = true
             elseif type(config.content) == "table" then
                 local resolved = resolve_paths(config.content, false)
                 if not resolved then return false end
                 new_config.content = resolved
+                need_resolve = true
             end
+        -- type==2: 流式播放模式，C 层内部通过 VFS 打开文件，需传 /luadb/<relative> 格式
+        -- resolve_file 确认文件存在后，提取 app_path 之后的相对部分拼接为 /luadb/<relative>
+        -- 不能传绝对路径（VFS 会二次映射导致 /app_store/data/app_store/... 路径重叠）
+        elseif config.type == 2 then
+            if type(config.file_path) == "string" then
+                local resolved = resolve_file(config.file_path)
+                if not resolved then return false end
+                local relative = resolved:sub(#app_path + 1)
+                new_config.file_path = "/luadb/" .. relative
+                need_resolve = true
+            end
+        end
 
+        if need_resolve then
             return base.play_start(new_config)
         end
 
@@ -2440,6 +2552,59 @@ local function app_task(app_path)
     -- 使用沙箱专用的订阅管理函数
     my_env.sys.subscribe = sandbox_subscribe
     my_env.sys.unsubscribe = sandbox_unsubscribe
+
+    -- 使用沙箱专用的定时器管理函数（登记 timer id，close 时集中停止）
+    my_env.sys.timerStart = function(period, func, ...)
+        local id = glob_sys.timerStart(period, func, ...)
+        if id then
+            table.insert(timer_ids, id)
+            my_env.log.info("timer_start", "timer registered, ID:", id, "period:", period)
+        end
+        return id
+    end
+
+    my_env.sys.timerLoopStart = function(period, func, ...)
+        local id = glob_sys.timerLoopStart(period, func, ...)
+        if id then
+            table.insert(timer_ids, id)
+            my_env.log.info("timer_loop_start", "timer registered, ID:", id, "period:", period)
+        end
+        return id
+    end
+
+    my_env.sys.timerStop = function(id)
+        if id then
+            for i = #timer_ids, 1, -1 do
+                if timer_ids[i] == id then
+                    table.remove(timer_ids, i)
+                    break
+                end
+            end
+        end
+        return glob_sys.timerStop(id)
+    end
+
+    my_env.sys.timerStopAll = function(...)
+        timer_ids = {}
+        return glob_sys.timerStopAll(...)
+    end
+
+    -- 使用沙箱专用的 taskInit（xpcall 保护 + timer_ids 追踪）
+    my_env.sys.taskInit = function(func, ...)
+        local args = {...}
+        local wrapped = function()
+            local ok, err = xpcall(func, debug.traceback, table.unpack(args))
+            if not ok then
+                my_env.log.error("taskInit", "task error:", err)
+            end
+        end
+        local id = glob_sys.taskInit(wrapped)
+        if id then
+            table.insert(timer_ids, id)
+            my_env.log.info("task_init", "task registered, ID:", id)
+        end
+        return id
+    end
 
     -- ==============================================
     -- fskv 库（键名隔离）
@@ -2558,7 +2723,18 @@ local function app_task(app_path)
 
     -- 关闭窗口，从记录中移除，检查是否需要退出应用
     my_env.exwin.close = function(win_id)
-        glob_exwin.close(win_id)
+        -- 自启APP密码保护：通过 fskv 读取锁定状态，与 settings_auto_app 完全解耦
+        -- fskv key 首次未初始化时 get 返回 nil，"1" == nil 为 false，安全兜底
+        local locked = (fskv.get("app_autostart_locked") or "0") == "1"
+        if locked and #win_ids <= 1 then
+            my_env.log.info("exapp_window", "autostart locked, close blocked for win_id:", win_id)
+            glob_sys.publish("AUTOSTART_REQUEST_EXIT_PASSWORD")
+            return
+        end
+        local ok, err = pcall(glob_exwin.close, win_id)
+        if not ok then
+            my_env.log.warn("exapp_window", "glob_exwin.close failed:", err)
+        end
         for i, id in ipairs(win_ids) do
             if id == win_id then
                 table.remove(win_ids, i)
@@ -2590,7 +2766,7 @@ local function app_task(app_path)
     -- 加载失败，记录错误并清理沙箱
     if not f then
         my_env.log.error("app_task", "failed to load main.lua:", err)
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
         return
     end
 
@@ -2609,7 +2785,7 @@ local function app_task(app_path)
     -- 应用异常退出，执行清理
     if not ok then
         my_env.log.error("app_task", "app crashed, starting cleanup:", app_path, result)
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
         return
     end
 
@@ -2618,7 +2794,7 @@ local function app_task(app_path)
     -- 等待应用关闭请求
     local ret, rdata = sys.waitUntil(app_path .."_close_req")
     if rdata == "yes" then
-        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container)
+        sandbox_cleanup(app_path, my_env, unsubscribe_all, mem_base, sandbox_container, stop_all_timers)
         log.info("app co quit", app_path)
     end
 end
@@ -2686,7 +2862,12 @@ function exapp.open(app_path)
     app_registry[app_path] = true
     log.info("exapp_open", "app started:", app_path)
 
-    sys.taskInit(app_task, app_path)
+    -- 异步启动: sys.wait(10) 确保 exapp.open 返回后 app_registry 已被设置,
+    -- 测试代码有窗口检查 exapp.is_running() 返回 true, 避免 app 加载期间崩溃导致启动超时
+    sys.taskInit(function()
+        sys.wait(10)
+        app_task(app_path)
+    end)
 
     return true
 end
@@ -2963,6 +3144,118 @@ function exapp.reset_storage_calibration()
 end
 
 --[[
+    获取重复应用冲突列表
+
+    @return table 冲突表，key=app_name, value={ {cn_name, path, storage_type, mount_point, icon_path, version, install_time}, ... }
+    @return number 冲突数量
+
+    @usage
+    local dup, count = exapp.list_duplicates()
+    for app_name, entries in pairs(dup) do
+        log.info("dup app:", app_name, #entries, "copies")
+    end
+]]
+function exapp.list_duplicates()
+    local count = 0
+    for _ in pairs(duplicate_info) do count = count + 1 end
+    return duplicate_info, count
+end
+
+--[[
+    解决重复应用冲突：保留指定存储位置的副本，删除其他所有副本
+
+    @param app_name string 应用目录名称
+    @param keep_storage_type string 保留的存储类型 key（如 "internal", "sd_tf", "little_flash"）
+    @return boolean 是否成功
+    @return string|nil 失败原因（成功时 nil）
+
+    功能说明：
+    1. 校验 app_name 和 keep_storage_type 是否在冲突表中存在
+    2. 删除其他存储位置的 app 目录和 data 目录（通过 rmdir_recursive）
+    3. 删除前检查 app 是否正在运行（正在运行的跳过删除，返回错误）
+    4. 更新 installed_info，指向保留的副本
+    5. 清理 duplicate_info[app_name]
+    6. 发布 APP_STORE_INSTALLED_UPDATED 通知 UI 刷新
+]]
+function exapp.resolve_duplicate(app_name, keep_storage_type)
+    local entries = duplicate_info[app_name]
+    if not entries or #entries < 2 then
+        return false, "该应用不存在冲突"
+    end
+
+    -- 查找用户选择的保留条目
+    local keep_entry = nil
+    for _, e in ipairs(entries) do
+        if e.storage_type == keep_storage_type then
+            keep_entry = e
+            break
+        end
+    end
+    if not keep_entry then
+        return false, "指定的存储位置不在冲突列表中"
+    end
+
+    -- 删除其他副本
+    local failed_deletes = {}
+    for _, e in ipairs(entries) do
+        if e.storage_type ~= keep_storage_type then
+            -- 安全检查：正在运行的应用不能删除
+            if exapp.is_running(e.path) then
+                failed_deletes[#failed_deletes + 1] = e.storage_type .. "(正在运行)"
+                log.warn("exapp", "resolve_duplicate: skip running app:", e.path)
+            else
+                local data_dirs = build_data_dirs(app_name)
+                -- 删除 app 主目录
+                local ok = rmdir_recursive(e.path)
+                if not ok then
+                    log.warn("exapp", "resolve_duplicate: failed to remove app dir:", e.path)
+                    failed_deletes[#failed_deletes + 1] = e.storage_type .. "(删除失败)"
+                else
+                    -- 删除该副本的 data 目录
+                    for _, dd in ipairs(data_dirs) do
+                        if io.dexist(dd) then
+                            rmdir_recursive(dd)
+                        end
+                    end
+                    log.info("exapp", "resolve_duplicate: removed duplicate:", app_name, "from", e.storage_type)
+                end
+            end
+        end
+    end
+
+    if #failed_deletes > 0 then
+        return false, "部分删除失败: " .. table.concat(failed_deletes, ", ")
+    end
+
+    -- 更新 installed_info 指向保留副本
+    installed_info[app_name] = {
+        cn_name = keep_entry.cn_name,
+        path = keep_entry.path,
+        version = keep_entry.version or "1.0.0",
+        category = "unknown",
+        description = "",
+        icon_path = keep_entry.icon_path or keep_entry.path .. "icon.png",
+        installed = true,
+        has_update = false,
+        zip_size_kb = 0,
+        origin_size_kb = 0,
+        installed_size_kb = 0,
+        total_downloads = 0,
+        install_time = keep_entry.install_time,
+        storage_type = keep_entry.storage_type,
+        mount_point = keep_entry.mount_point,
+        data_dirs = build_data_dirs(app_name),
+    }
+
+    -- 清理冲突记录
+    duplicate_info[app_name] = nil
+
+    sys.publish("APP_STORE_INSTALLED_UPDATED", installed_info)
+    log.info("exapp", "resolve_duplicate: resolved", app_name, "kept", keep_storage_type)
+    return true, nil
+end
+
+--[[
     扫描应用目录（支持分页，最多不限）
 
     @param base_dir string 基础目录路径，如 "/app_store/"
@@ -3011,15 +3304,15 @@ local function scan(base_dir, storage_type)
 
                 -- 解析 JSON
                 local ok, meta_data = pcall(json.decode, meta_content)
-                if not ok then
-                    log.error("exapp_init", "failed to parse meta.json:", app_dir.name, meta_data)
+                if not ok or type(meta_data) ~= "table" then
+                    log.error("exapp_init", "invalid meta.json:", app_dir.name, type(meta_data))
                     goto continue
                 end
 
                 -- 保存应用信息，包含 install_time 和 storage 信息
                 local app_name = app_dir.name
                 local size_kb = tonumber(meta_data.origin_size_kb) or 0
-                installed_info[app_name] = {
+                local app_data = {
                     cn_name = meta_data.app_name_cn or "unknown",
                     path = base_dir .. app_dir.name .. "/",
                     version = meta_data.version or "1.0.0",
@@ -3037,7 +3330,41 @@ local function scan(base_dir, storage_type)
                     mount_point = mount_point,
                     data_dirs = build_data_dirs(app_name),
                 }
-                log.info("exapp_init", "found app:", app_name, installed_info[app_name].cn_name, "storage:", storage_type)
+
+                if installed_info[app_name] then
+                    -- 重复应用：记录到冲突表，保留第一个扫描到的在 installed_info
+                    if not duplicate_info[app_name] then
+                        -- 首次发现冲突，先把 installed_info 里的那条也记录进去
+                        duplicate_info[app_name] = {
+                            {
+                                cn_name = installed_info[app_name].cn_name,
+                                path = installed_info[app_name].path,
+                                storage_type = installed_info[app_name].storage_type,
+                                mount_point = installed_info[app_name].mount_point,
+                                icon_path = installed_info[app_name].icon_path,
+                                version = installed_info[app_name].version,
+                                install_time = installed_info[app_name].install_time,
+                                origin_size_kb = installed_info[app_name].origin_size_kb,
+                            }
+                        }
+                    end
+                    table.insert(duplicate_info[app_name], {
+                        cn_name = app_data.cn_name,
+                        path = app_data.path,
+                        storage_type = app_data.storage_type,
+                        mount_point = app_data.mount_point,
+                        icon_path = app_data.icon_path,
+                        version = app_data.version,
+                        install_time = app_data.install_time,
+                        origin_size_kb = app_data.origin_size_kb,
+                    })
+                    log.warn("exapp_init", "duplicate app found:", app_name,
+                        "existing:", duplicate_info[app_name][1].storage_type,
+                        "new:", storage_type)
+                else
+                    installed_info[app_name] = app_data
+                    log.info("exapp_init", "found app:", app_name, app_data.cn_name, "storage:", storage_type)
+                end
                 cnt = cnt + 1
                 ::continue::
             end
@@ -3058,9 +3385,9 @@ end
 -- 内置设备 SD 引脚配置
 -- ==============================================
 local BUILT_IN_DEVICES = {
-    Air8000 = { spi_id = 1, pin_cs = 20, speed = 2000000 },
-    Air8101 = { spi_id = 1, pin_cs = 14, speed = 2000000 },
-    Air1601 = { spi_id = 1, pin_cs = 10, speed = 2000000 },
+    Air8000 = { storage_type = "sd_tf", spi_id = 1, pin_cs = 20, speed = 2000000 },
+    Air8101 = { storage_type = "sd_tf", spi_id = 1, pin_cs = 14, speed = 2000000 },
+    Air1601 = { storage_type = "sd_tf", spi_id = 1, pin_cs = 10, speed = 2000000 },
 }
 
 -- ==============================================
@@ -3099,9 +3426,9 @@ local function mount_storage(cfg)
             return false
         end
         return true
-    elseif storage == "little_flash" or storage == "nand_flash" then
+    elseif storage == "little_flash" then
         local label = STORAGE_DEFS[storage] and STORAGE_DEFS[storage].label or "Flash"
-        log.info("exapp_init", "mounting", label, ": spi", spi_id, "cs", pin_cs)
+        log.info("exapp_init", "mounting", label, "(LFS2): spi", spi_id, "cs", pin_cs)
         -- 使用全局变量存储，避免 GC 回收导致 flash 操作死机
         little_flash_spi_device = spi.deviceSetup(spi_id, pin_cs, 0, 0, 8, speed)
         if not little_flash_spi_device then
@@ -3113,12 +3440,39 @@ local function mount_storage(cfg)
             log.warn("exapp_init", "lf.init failed")
             return false
         end
+        -- NOR Flash: 默认 LFS2 文件系统
         local ok = lf.mount(little_flash_device, mount_point)
         if not ok then
-            -- 挂载失败尝试后再试一次（可能是首次使用需要初始化）
+            -- 挂载失败后再试一次（可能是首次使用需要初始化）
             ok = lf.mount(little_flash_device, mount_point)
             if not ok then
-                log.warn("exapp_init", "lf.mount failed:", mount_point)
+                log.warn("exapp_init", "lf.mount LFS2 failed:", mount_point)
+                return false
+            end
+        end
+        log.info("exapp_init", label, "mounted at", mount_point)
+        return true
+    elseif storage == "nand_flash" then
+        local label = STORAGE_DEFS[storage] and STORAGE_DEFS[storage].label or "NAND Flash"
+        log.info("exapp_init", "mounting", label, "(TFS): spi", spi_id, "cs", pin_cs)
+        -- nand_flash 需要独立全局变量，避免和 little_flash 共用导致状态覆盖
+        nand_flash_spi_device = spi.deviceSetup(spi_id, pin_cs, 0, 0, 8, speed)
+        if not nand_flash_spi_device then
+            log.warn("exapp_init", "nand spi device setup failed")
+            return false
+        end
+        nand_flash_device = lf.init(nand_flash_spi_device)
+        if not nand_flash_device then
+            log.warn("exapp_init", "nand lf.init failed")
+            return false
+        end
+        -- NAND Flash: 必须使用 TFS 文件系统
+        local ok = lf.mount(nand_flash_device, mount_point, 0, 0, "tfs")
+        if not ok then
+            -- 挂载失败后再试一次（可能是首次使用需要初始化）
+            ok = lf.mount(nand_flash_device, mount_point, 0, 0, "tfs")
+            if not ok then
+                log.warn("exapp_init", "lf.mount TFS failed:", mount_point)
                 return false
             end
         end
@@ -3171,7 +3525,6 @@ function exapp.init(...)
             cfg = sdcard_opts
         else
             cfg = BUILT_IN_DEVICES[dev_type]
-            if cfg then cfg.storage_type = "sd_tf" end
         end
         if cfg then
             mount_storage(cfg)
@@ -3182,12 +3535,15 @@ function exapp.init(...)
     storage_available.internal = true
     storage_available.sd_tf = probe_storage("/sd/")
     storage_available.little_flash = probe_storage("/little_flash/")
+    storage_available.nand_flash = storage_available.little_flash  -- 同挂载点 /little_flash/，文件系统层在 mount 时区分
     log.info("exapp_init", "storage available: internal=", storage_available.internal,
         "sd_tf=", storage_available.sd_tf,
-        "little_flash=", storage_available.little_flash)
+        "little_flash=", storage_available.little_flash,
+        "nand_flash=", storage_available.nand_flash)
 
     -- 4. 扫描所有存储位置的 app_store 目录
     installed_info = {}
+    duplicate_info = {}
     installed_cnt = 0
 
     -- 内置文件系统永远扫描
@@ -3203,6 +3559,22 @@ function exapp.init(...)
 
     installed_total_count = installed_cnt
     log.info("exapp_init", "scan completed, found", installed_cnt, "apps across all storages")
+
+    -- 6. 汇总并报告重复应用冲突
+    local dup_count = 0
+    for _ in pairs(duplicate_info) do dup_count = dup_count + 1 end
+    if dup_count > 0 then
+        log.warn("exapp_init", "duplicate apps detected:", dup_count)
+        for app_name, entries in pairs(duplicate_info) do
+            local storages = {}
+            for _, e in ipairs(entries) do
+                local label = STORAGE_DEFS[e.storage_type] and STORAGE_DEFS[e.storage_type].label or e.storage_type
+                storages[#storages + 1] = label
+            end
+            log.warn("exapp_init", "duplicate:", app_name, "storages:", table.concat(storages, ", "))
+        end
+    end
+
     sys.publish("APP_STORE_INSTALLED_UPDATED", installed_info)
 
     -- 5. 启动 IOT 自动登录
@@ -3756,8 +4128,7 @@ end
 -- 计算目录大小，单位 KB（简单实现，递归统计）
 local function dir_size_kb(dir_path)
     local total = 0
-    local ret, list = io.lsdir(dir_path, 100, 0)
-    if not ret or not list then return total end
+    local list = lsdir_all(dir_path)
     for _, item in ipairs(list) do
         local full = dir_path .. (dir_path:sub(-1) == "/" and "" or "/") .. item.name
         if item.type == 1 then
@@ -4043,7 +4414,7 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
                 local meta_content = io.readFile(meta_path)
                 if meta_content then
                     local ok, meta_data = pcall(json.decode, meta_content)
-                    if ok then
+                    if ok and type(meta_data) == "table" then
                         -- 写入安装时间戳（本地 UTC 时间戳）和下载量
                         local install_time = os.time()
                         meta_data.install_time = install_time
@@ -4108,11 +4479,11 @@ function exapp.install_remote_app(aid, url, app_name, category, sort, _target_ro
         sys.publish("APP_STORE_PROGRESS", aid, 100, "安装完成")
         report_result(aid, nil)
 
-        -- 刷新当前列表（仅一次请求，使用当前UI正确的分页参数）
+        -- 刷新当前列表（仅一次请求，保持用户当前页码不跳回第1页）
         exapp.get_app_list({
             category = remote_app_list.category,
             sort = remote_app_list.sort,
-            page = 1,
+            page = remote_app_list.page,
             size = remote_app_list.size or PAGE_LIMIT,
             query = remote_app_list.query or ""
         })
@@ -4195,17 +4566,18 @@ function exapp.uninstall_remote_app(aid, category, sort)
         end
 
         installed_info[aid] = nil
+        duplicate_info[aid] = nil
         installed_cnt = installed_cnt - 1
         installed_total_count = installed_cnt
         sys.publish("APP_STORE_INSTALLED_UPDATED", installed_info)
         sys.publish("APP_STORE_ACTION_DONE", aid, "uninstall", true)
         sys.publish("APP_STORE_PROGRESS", aid, 100, "卸载完成")
 
-        -- 卸载完成后刷新当前列表（仅一次请求）
+        -- 卸载完成后刷新当前列表（仅一次请求，保持用户当前页码不跳回第1页）
         exapp.get_app_list({
             category = remote_app_list.category,
             sort = remote_app_list.sort,
-            page = 1,
+            page = remote_app_list.page,
             size = remote_app_list.size or PAGE_LIMIT,
             query = remote_app_list.query or ""
         })
@@ -4306,16 +4678,14 @@ function exapp.update_remote_app(aid, url, app_name, category, sort)
         old_path = new_app_root
     else
         -- 原地更新：删除旧版本文件（保留 data/ 目录）
-        local ret, list = io.lsdir(old_path, 100, 0)
-        if ret and list then
-            for _, item in ipairs(list) do
-                if item.name ~= "data" then
-                    local full_path = old_path .. item.name
-                    if item.type == 1 then
-                        rmdir_recursive(full_path)
-                    else
-                        os.remove(full_path)
-                    end
+        local list = lsdir_all(old_path)
+        for _, item in ipairs(list) do
+            if item.name ~= "data" then
+                local full_path = old_path .. item.name
+                if item.type == 1 then
+                    rmdir_recursive(full_path)
+                else
+                    os.remove(full_path)
                 end
             end
         end
@@ -4323,6 +4693,7 @@ function exapp.update_remote_app(aid, url, app_name, category, sort)
 
     -- 安装新版本到目标位置
     installed_info[aid] = nil
+    duplicate_info[aid] = nil
     installed_cnt = installed_cnt - 1
     exapp.install_remote_app(aid, url, app_name, category, sort, target_root)
 end

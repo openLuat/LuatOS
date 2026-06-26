@@ -746,7 +746,8 @@ extern "C"
     } tdefl_sym_freq;
     static tdefl_sym_freq *tdefl_radix_sort_syms(mz_uint num_syms, tdefl_sym_freq *pSyms0, tdefl_sym_freq *pSyms1)
     {
-        mz_uint32 total_passes = 2, pass_shift, pass, i, hist[256 * 2];
+        mz_uint32 total_passes = 2, pass_shift, pass, i;
+        static mz_uint32 hist[256 * 2];
         tdefl_sym_freq *pCur_syms = pSyms0, *pNew_syms = pSyms1;
         MZ_CLEAR_ARR(hist);
         for (i = 0; i < num_syms; i++)
@@ -874,7 +875,8 @@ extern "C"
         }
         else
         {
-            tdefl_sym_freq syms0[TDEFL_MAX_HUFF_SYMBOLS], syms1[TDEFL_MAX_HUFF_SYMBOLS], *pSyms;
+            static tdefl_sym_freq syms0[TDEFL_MAX_HUFF_SYMBOLS], syms1[TDEFL_MAX_HUFF_SYMBOLS];
+            tdefl_sym_freq *pSyms;
             int num_used_syms = 0;
             const mz_uint16 *pSym_count = &d->m_huff_count[table_num][0];
             for (i = 0; i < table_len; i++)

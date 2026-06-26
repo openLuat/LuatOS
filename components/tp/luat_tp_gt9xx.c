@@ -500,7 +500,32 @@ exit_:
 }
 
 static int tp_gt9xx_sleep(luat_tp_config_t* luat_tp_config){
+    if (luat_tp_config->pin_int != LUAT_GPIO_NONE){
+        luat_tp_irq_enable(luat_tp_config, 0);
+        luat_gpio_mode(luat_tp_config->pin_int, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);
+        luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_LOW);
+    }
+    luat_rtos_task_sleep(5);
     return tp_i2c_write_reg16(luat_tp_config, GT9XX_COMMAND_REG, (uint8_t[]){0x05}, 1);
+}
+
+static int tp_gt9xx_wakeup(luat_tp_config_t* luat_tp_config){
+    if (luat_tp_config->pin_int != LUAT_GPIO_NONE){
+        luat_gpio_mode(luat_tp_config->pin_int, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
+        luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_HIGH);
+
+        luat_rtos_task_sleep(5);
+
+        luat_gpio_t gpio = {0};
+        gpio.pin = luat_tp_config->pin_int;
+        gpio.mode = Luat_GPIO_IRQ;
+        gpio.pull = Luat_GPIO_DEFAULT;
+        gpio.irq = luat_tp_config->int_type;
+        gpio.irq_cb = luat_tp_irq_cb;
+        gpio.irq_args = luat_tp_config;
+        luat_gpio_setup(&gpio);
+    }
+    return 0;
 }
 
 luat_tp_opts_t tp_config_gt9xx = {
@@ -510,4 +535,5 @@ luat_tp_opts_t tp_config_gt9xx = {
     .read = tp_gt9xx_read,
 	.read_done = tp_gt9xx_read_done,
     .sleep = tp_gt9xx_sleep,
+    .wakeup = tp_gt9xx_wakeup,
 };

@@ -320,4 +320,3 @@ local function open_handler()
 end
 
 sys.subscribe("OPEN_FOTA_WIN", open_handler)
-                                                                                              

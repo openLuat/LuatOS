@@ -17,13 +17,16 @@
 // 通用设置
 
 /** AIRUI 库版本号 */
-#define AIRUI_VERSION "1.2.2"
+#define AIRUI_VERSION "1.2.3"
 
 /** AIRUI 自动刷新周期，单位：毫秒 */
 #define AIRUI_REFRESH_PERIOD_MS 33
 
 /** 刷新消息重试超时时间, 当前设计下刷新消息有时会发生丢失，需要支持画面刷新重试 */
 #define AIRUI_REFRESH_RETRY_TIMEOUT_MS 200U
+
+/** Image/Label/Container 等简单控件的短按/长按分界阈值，单位：毫秒 */
+#define AIRUI_RELEASE_SELECT_LONG_PRESS_MS 400U
 
 /** 多触点：Lua 回调tp订阅中最多支持的触点数（touch_active[] 数组大小） */
 #define AIRUI_TOUCH_MAX_POINTS 10
@@ -38,6 +41,16 @@
     #define AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR LUAT_USE_AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR
 #else
     #define AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR 2U
+#endif
+
+// slider 支持（可选，默认关闭；需要时由板级配置打开 LUAT_USE_AIRUI_SLIDER）
+#if defined(LUAT_USE_AIRUI_SLIDER) && LUAT_USE_AIRUI_SLIDER
+    #define LV_USE_SLIDER 1
+#endif
+
+// camera 支持（可选，默认关闭；需要时由板级配置打开 LUAT_USE_AIRUI_CAMERA）
+#if defined(LUAT_USE_AIRUI_CAMERA) && LUAT_USE_AIRUI_CAMERA
+    #define AIRUI_USE_CAMERA 1
 #endif
 
 /*=================

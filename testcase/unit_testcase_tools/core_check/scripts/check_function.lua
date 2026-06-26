@@ -5,7 +5,7 @@ local A = _G
 local rtos_bsp = rtos.bsp()
 local mouble, core_value, _ = rtos.version(true)
 -- 0号版本，所有库都有的table，方便新库的增加时候的检查
-local B = {"lvgl", "cc", "audio.tts", "airtalk", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf", "io",
+local B = {"lvgl", "cc", "nes", "audio.tts", "airtalk", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf", "io",
            "lcd.font_opposansm12_chinese", "audio", "i2s", "ble", "libgnss", "sfud", "yhm27xx", "ymodem", "otp", "adc",
            "airlink", "bit64", "can", "crypto", "eink", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "ht1621",
            "http", "httpsrv", "i2c", "iconv", "ioqueue", "iotauth", "iperf", "json", "lcd", "log", "lora2", "mcu",
@@ -144,6 +144,13 @@ local A_16 = {"airui", "audio.tts", "cc", "camera", "fastlz", "fatfs", "lf", "au
               "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "socket", "spi", "string",
               "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
+local A_17 = {"airui", "nes", "cc", "fastlz", "fatfs", "lf", "ble", "libgnss", "sfud", "yhm27xx", "sms", "otp", "eink",
+              "tp", "lcd", "u8g2", "adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp",
+              "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth",
+              "iperf", "json", "log", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm",
+              "protobuf", "pwm", "rsa", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt",
+              "websocket", "wlan", "xxtea", "zbuff"}
+
 local A_size = {
     [1] = {
         fs_size = 768,
@@ -210,6 +217,10 @@ local A_size = {
     [16] = {
         fs_size = 384,
         script_size = 384
+    },
+    [17] = {
+        fs_size = 1024,
+        script_size = 512
     }
 
 }
@@ -223,11 +234,11 @@ local B_1 = {"camera", "eink", "tp", "lcd", "u8g2", "protobuf", "adc", "airlink"
              "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff"}
 
 -- 2号固件
-local B_2 = {"camera", "lcd", "u8g2", "protobuf", "adc", "bit64", "can", "crypto", "errDump", "fota", "fskv",
-             "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth",
-             "iperf", "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack",
-             "pins", "pm", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string", "sys", "sysplus", "uart",
-             "wdt", "websocket", "wlan", "xxtea", "zbuff"}
+local B_2 = {"camera", "lcd", "u8g2", "protobuf", "adc", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp",
+             "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf",
+             "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm",
+             "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt",
+             "websocket", "wlan", "xxtea", "zbuff"}
 
 -- 3号固件
 local B_3 = {"libgnss", "protobuf", "adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp",
@@ -257,13 +268,13 @@ local B_6 = {"adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fsk
              "rtos", "sms", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea",
              "zbuff"}
 
-local B_7 = {"lcd", "u8g2", "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv","iperf", "io", "json", "log",
-             "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins", "pm", "pwm", "rtc", "rtos",
-             "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
+local B_7 = {"lcd", "u8g2", "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv", "iperf", "io", "json",
+             "log", "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins", "pm", "pwm", "rtc",
+             "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
 
-local B_8 = {"airlink","lcd", "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv", "io", "json", "log", "iperf",
-             "websocket", "fastlz", "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins", "pm",
-             "pwm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
+local B_8 = {"airlink", "lcd", "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv", "io", "json", "log",
+             "iperf", "websocket", "fastlz", "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins",
+             "pm", "pwm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
 local B_size = {
     [1] = {
         fs_size = 168,
@@ -305,8 +316,7 @@ local C_1 = {"bit64", "adc", "airlink", "fft", "protobuf", "iconv", "rsa", "xxte
              "ble", "fastlz", "lcd", "lf", "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio",
              "hmeta", "http", "httpsrv", "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz",
              "mqtt", "netdrv", "os", "pack", "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus",
-             "uart", "wdt", "websocket", "wlan", "zbuff", "u8g2", "codec", "audio",
-             "i2s"}
+             "uart", "wdt", "websocket", "wlan", "zbuff", "u8g2", "codec", "audio", "i2s"}
 
 local C_2 = {"bit64", "adc", "airlink", "camera", "fatfs", "hzfont", "can", "pins", "ble", "fastlz", "lcd", "lf", "otp",
              "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv", "i2c", "io",
@@ -465,6 +475,8 @@ local function getConfigByCore()
             config_table = A_15
         elseif table_name == "A_16" then
             config_table = A_16
+        elseif table_name == "A_17" then
+            config_table = A_17
         else
             log.error("未知的配置表名:", table_name)
         end
@@ -667,7 +679,7 @@ function check_core.test_mouble_check()
             table.insert(finalMissing, libName)
         end
     end
---缺失库检查
+    -- 缺失库检查
     if is_ec718hm then
         log.info("当前检查的模块为", rtos_bsp)
         if #finalMissing == 1 and finalMissing[1] == "ble" then

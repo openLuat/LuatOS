@@ -95,7 +95,7 @@ pub extern fn luat_uart_open_extern(port: i32, baud_rate: i32, data_bits: i32, s
             Ok(r) => r,
             Err(_) => return 1,
         };
-    uart.write_request_to_send(false).unwrap();//防止之前没退出复位状态
+    uart.write_request_to_send(true).unwrap();//置位RTS,通知对端本机已准备好接收数据
 
     
     {
@@ -231,6 +231,11 @@ pub extern fn luat_uart_read_extern(port: i32, buff: *mut u8, len: usize) -> i32
         Some(b) => b,
         _ => return 0
     };
+
+    // 查询模式：返回可用字节数而不读取
+    if buff.is_null() && len == 0 {
+        return read_buff.len() as i32;
+    }
 
     //判断下缓冲区有没有那么大，别超了
     let len = if read_buff.len() >= len {

@@ -88,4 +88,6 @@ int luat_i2s_txbuff_info(uint8_t id, size_t *buffsize, size_t* remain);
 int luat_i2s_rxbuff_info(uint8_t id, size_t *buffsize, size_t* remain);
 
 int luat_i2s_set_user_data(uint8_t id, void *user_data);
+
+int luat_i2s_audio_driver_register(uint8_t bus_id);
 #endif

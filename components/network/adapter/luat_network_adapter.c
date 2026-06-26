@@ -1458,6 +1458,7 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 				ctrl->domain_name = NULL;
 			}
 			adapter->ctrl_busy[i] = 0;
+			ctrl->tag = 0;  // clear tag to prevent UAF via stale event pointers
 			platform_release_mutex(ctrl->mutex);
 			ctrl->mutex = NULL;
 			break;
@@ -1530,12 +1531,12 @@ void network_connect_ipv6_domain(network_ctrl_t *ctrl, uint8_t onoff)
 
 int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 {
-	int i;
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	if (local_port)
 	{
 		// G_LOCK;
 		#if 0
+		int i;
+		network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 		for (i = 0; i < adapter->opt->max_socket_num; i++)
 		{
 			if (&adapter->ctrl_table[i] != ctrl)
@@ -1854,7 +1855,10 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 static int tls_verify(void *ctx, mbedtls_x509_crt *crt, int Index, uint32_t *result)
 {
 	network_ctrl_t *ctrl = (network_ctrl_t *)ctx;
-	DBG("%d, %08x", Index, *result);
+	char info[256];
+	memset(info, 0, sizeof(info));
+	mbedtls_x509_crt_info(info, sizeof(info) - 1, "", crt);
+	DBG("depth=%d, flags=0x%08x, cert=%s", Index, *result, info);
 	return 0;
 }
 #endif
@@ -1985,6 +1989,22 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 		ctrl->ca_cert = zalloc(sizeof(mbedtls_x509_crt));
 		ctrl->config = zalloc(sizeof(mbedtls_ssl_config));
 		mbedtls_ssl_config_defaults( ctrl->config, MBEDTLS_SSL_IS_CLIENT, ctrl->is_tcp?MBEDTLS_SSL_TRANSPORT_STREAM:MBEDTLS_SSL_TRANSPORT_DATAGRAM, MBEDTLS_SSL_PRESET_DEFAULT);
+		#if defined(MBEDTLS_SSL_PROTO_DTLS)
+		// TCP(TLS) 时走默认版本协商逻辑
+		if (!ctrl->is_tcp)
+		{
+			// UDP(DTLS) 时强制使用 TLS/DTLS 1.2，避免配置宏未生效导致降级到 DTLS 1.0
+			#if MBEDTLS_VERSION_MAJOR >= 3
+				// mbedtls3 API
+				mbedtls_ssl_conf_max_tls_version(ctrl->config, MBEDTLS_SSL_VERSION_TLS1_2);
+				mbedtls_ssl_conf_min_tls_version(ctrl->config, MBEDTLS_SSL_VERSION_TLS1_2);
+			#else
+				// mbedtls2 API
+				mbedtls_ssl_conf_max_version(ctrl->config, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
+				mbedtls_ssl_conf_min_version(ctrl->config, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
+			#endif
+		}
+		#endif
 		// ctrl->config->authmode = verify_mode;
 		mbedtls_ssl_conf_authmode(ctrl->config, verify_mode);
 		// ctrl->config->hs_timeout_min = 20000;

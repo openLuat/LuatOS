@@ -5,8 +5,8 @@
 Add a new PC-only C-layer DTLS regression suite that matches the existing TCP/HTTP/HTTPS utest pattern:
 
 - Lua-visible entrypoint: `socket.utest("dtls_loopback_psk")`
-- Runner suite: `testcase\unit_testcase_tools\c_utest_dtls_basic\`
-- Coverage path: `bsp\pc\pc_utest_coverage.ps1 -Suite c_utest_dtls_basic`
+- Runner suite: `testcase\utest\net\dtls_basic\`
+- Coverage path: `bsp\pc\pc_utest_coverage.ps1 -Suite dtls_basic`
 
 The DTLS test must be deterministic and local. It will use a tiny PC-only DTLS-PSK echo helper bound to `127.0.0.1` so the client side exercises the real `socket` public API without depending on any external network service.
 
@@ -21,7 +21,7 @@ The current repository already has:
 The current repository does **not** have:
 
 - a DTLS utest suite
-- a DTLS testcase runner under `testcase\unit_testcase_tools\`
+- a DTLS testcase runner under `testcase\utest\net\`
 - a reusable DTLS loopback peer for the PC simulator
 
 The current generic network stack initializes TLS as client mode only, so this change must not try to turn the generic product network layer into a general DTLS server implementation.
@@ -45,7 +45,7 @@ Use a split design:
 
 - `components\utest\socket\luat_socket_utest.c` owns the client-side utest case and Lua bridge.
 - `bsp\pc` owns a tiny DTLS-PSK echo helper that exists only to serve this PC regression.
-- `testcase\unit_testcase_tools\c_utest_dtls_basic\` mirrors the existing C-layer suite structure.
+- `testcase\utest\net\dtls_basic\` mirrors the existing C-layer suite structure.
 
 This keeps the product-side path realistic while keeping the server fixture isolated and easy to reason about.
 
@@ -79,9 +79,9 @@ The helper is a test fixture, not a public runtime feature.
 
 Add:
 
-- `testcase\unit_testcase_tools\c_utest_dtls_basic\metas.json`
-- `testcase\unit_testcase_tools\c_utest_dtls_basic\scripts\main.lua`
-- `testcase\unit_testcase_tools\c_utest_dtls_basic\scripts\c_utest_dtls_test.lua`
+- `testcase\utest\net\dtls_basic\metas.json`
+- `testcase\utest\net\dtls_basic\scripts\main.lua`
+- `testcase\utest\net\dtls_basic\scripts\dtls_test.lua`
 
 The runner should assert:
 
@@ -141,9 +141,9 @@ The final implementation must pass:
 
 1. non-UTEST PC build
 2. UTEST PC build
-3. plain `c_utest_dtls_basic`
-4. coverage `c_utest_dtls_basic`
-5. a rerun of the existing `c_utest_tcp_basic`, `c_utest_http_basic`, and `c_utest_https_basic` suites to prove the new helper does not regress the current chain
+3. plain `dtls_basic`
+4. coverage `dtls_basic`
+5. a rerun of the existing `tcp_basic`, `http_basic`, and `https_basic` suites to prove the new helper does not regress the current chain
 
 ## Documentation impact
 
@@ -161,9 +161,9 @@ Only add DTLS-specific usage and verification notes that are needed for this new
 - `components\utest\socket\luat_socket_utest.c`
 - `bsp\pc\src\` new DTLS helper source
 - `bsp\pc\include\` new DTLS helper header
-- `testcase\unit_testcase_tools\c_utest_dtls_basic\metas.json`
-- `testcase\unit_testcase_tools\c_utest_dtls_basic\scripts\main.lua`
-- `testcase\unit_testcase_tools\c_utest_dtls_basic\scripts\c_utest_dtls_test.lua`
+- `testcase\utest\net\dtls_basic\metas.json`
+- `testcase\utest\net\dtls_basic\scripts\main.lua`
+- `testcase\utest\net\dtls_basic\scripts\dtls_test.lua`
 - docs listed above, only if implementation changes require updated instructions
 
 ## Why this design

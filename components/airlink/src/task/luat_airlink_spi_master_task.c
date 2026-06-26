@@ -18,9 +18,7 @@
 #include "luat_log.h"
 
 #define MASTER_SPI_ID g_airlink_spi_conf.spi_id
-// 当前 mobile RPC 最大 payload 约 3647B，再加 4B airlink cmd 头和 12B link 头后约 3663B；
-// SPI 原始帧缓冲统一取 4096B，既能覆盖当前上限，也给 transport 元数据留出余量。
-#define TEST_BUFF_SIZE (4096)
+#define TEST_BUFF_SIZE (1600)
 
 #define AIRLINK_SPI_CS_PIN g_airlink_spi_conf.cs_pin
 #define AIRLINK_SPI_RDY_PIN g_airlink_spi_conf.rdy_pin

@@ -1,0 +1,42 @@
+{
+  "app_name_cn" : "弹球大作战",
+  "app_name_en" : "Pinball_War",
+  "version" : "1.0.0",
+  "publish_time" : "2026-05-26 14:00:00",
+  "category" : "游戏",
+  "description" : "基于MQTT的双人联机弹球对战游戏，支持实时对战",
+  "resolution" : "320x480",
+  "display_zoom" : "fixed_resolution",
+  "resources" : [
+     "/luadb/jiandan.png",
+     "/luadb/putong.png",
+     "/luadb/kunnan.png",
+     "/luadb/youxi.png",
+     "/luadb/lianwang.png",
+     "/luadb/tuichu.png"
+    ],
+  "supported_models" : {
+    "Air8000W" : [ 
+      {
+        "firmware_id" : 14,
+        "min_firmware_version" : 2034
+      }, 
+      {
+        "firmware_id" : 14,
+        "min_firmware_version" : 2034
+      } 
+    ],
+    "Air8101" : [
+        {
+          "firmware_id" : 104,
+          "min_firmware_version" : 2010
+        },
+        {
+          "firmware_id" : 105,
+          "min_firmware_version" : 2010
+        }
+      ]
+  },
+  "zip_size_kb" : "20.0",
+  "origin_size_kb" : "60.0"
+}

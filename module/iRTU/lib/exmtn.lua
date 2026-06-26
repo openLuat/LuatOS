@@ -2,7 +2,8 @@
 @module  exmtn
 @summary 运维日志扩展库，负责日志的持久化存储
 @version 1.0
-@date    2024.11
+@date    2025.12.9
+@author  zengeshuai
 @usage
 exmtn.init(1, 0)  -- 初始化，1个块，缓存写入
 exmtn.log("info", "tag", "message", 123)  -- 输出运维日志

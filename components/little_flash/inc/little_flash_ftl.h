@@ -1,3 +1,10 @@
+/*
+ * little_flash FTL public API.
+ * NOTE: As of this version, the little_flash FTL layer has been stripped to
+ * identity-mapping stubs. Real NAND FTL (bad-block management, wear-levelling,
+ * GC) is now owned by pgfs. little_flash NAND operations go directly to the
+ * raw chip via identity page-address translation.
+ */
 #ifndef _LITTLE_FLASH_FTL_H_
 #define _LITTLE_FLASH_FTL_H_
 

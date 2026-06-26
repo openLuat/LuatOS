@@ -47,6 +47,7 @@ end
 -- SDL2 仅在 GUI 模式下需要
 if env_enabled("LUAT_USE_GUI") then
     add_requires("libsdl2")
+    add_packages("libsdl2")
 end
 
 local function thirdparty_file_options()
@@ -106,6 +107,11 @@ if is_host("windows") then
     add_defines("LUAT_USE_WINDOWS")
     add_defines("_CRT_SECURE_NO_WARNINGS")
     add_cxflags("/utf-8")
+    -- Enable C11 <stdatomic.h> for components that use atomic_int etc.
+    -- (e.g. components/ndk/src/luat_ndk.c). MSVC requires this experimental flag
+    -- because C11 atomics were opt-in until VS 2019 16.8 / MSVC 19.28.
+    add_cflags("/experimental:c11atomics", {force = true})
+    add_cxflags("/experimental:c11atomics", {force = true})
     add_includedirs("win32/include")
     add_files("win32/src/**.c")
 elseif is_host("linux") then
@@ -199,15 +205,8 @@ target("luatos-lua")
     remove_files(luatos .. "luat/vfs/luat_fs_onefile.c")
     -- lfs
     add_includedirs(luatos.."components/lfs")
-    add_includedirs(luatos.."components/luat_lfs2_nand")
-    add_thirdparty_files(luatos.."components/lfs/*.c")
 
-    -- lfsv3 (littlefs v3) - only core files; bd/ runners/ tests/ are excluded
-    add_includedirs(luatos.."components/lfsv3")
-    add_thirdparty_files(luatos.."components/lfsv3/lfs3.c")
-    add_thirdparty_files(luatos.."components/lfsv3/lfs3_util.c")
-    add_defines("LFS3_NO_DEBUG")  -- suppress per-operation debug prints
-    add_defines("LFS3_NO_INFO")   -- suppress "Formatting/Mounted littlefs" info lines
+    add_thirdparty_files(luatos.."components/lfs/*.c")
 
     -- add_files(luatos.."components/sfd/*.c")
     -- lua-cjson
@@ -318,6 +317,8 @@ target("luatos-lua")
                     luatos.."/components/multimedia/amr_decode/amr_nb/common/include",
                     luatos.."/components/multimedia/amr_decode/amr_nb/dec/include",
                     luatos.."/components/multimedia/amr_decode/amr_wb/dec/include",
+                    luatos.."/components/multimedia/amr_decode/amr_wb/enc/include",
+                    luatos.."/components/multimedia/amr_decode/amr_wb/enc/common/include",
                     luatos.."/components/multimedia/amr_decode/opencore-amrnb",
                     luatos.."/components/multimedia/amr_decode/opencore-amrwb",
                     luatos.."/components/multimedia/amr_decode/oscl",
@@ -436,27 +437,13 @@ target("luatos-lua")
     add_includedirs(luatos.."components/little_flash/inc",{public = true})
     add_includedirs(luatos.."components/little_flash/port",{public = true})
     add_files(luatos.."components/little_flash/**.c")
-    add_defines("LUAT_USE_LFS2_NAND_COMPONENT")
-    add_define_from_env("LUAT_LFS2N_CACHE_POOL_BUDGET")
-    add_define_from_env("LUAT_LFS2N_CACHE_POOL_SLOTS")
-    add_define_from_env("LUAT_LFS2N_CACHE_POOL_CHUNK")
-    add_define_from_env("LUAT_LFS2N_FILE_CACHE_LIMIT")
-    add_define_from_env("LUAT_LFS2N_WRITEBACK_FLUSH_CADENCE_US")
-    add_define_from_env("LUAT_LFS2N_WRITEBACK_PRESSURE_HIGH_PCT")
-    add_define_from_env("LUAT_LFS2N_WRITEBACK_PRESSURE_LOW_PCT")
-    add_define_from_env("LUAT_LFS2N_WRITEBACK_RESERVE_PCT")
-    add_define_from_env("LUAT_LFS2N_WRITEBACK_RESERVE_URGENT_PCT")
-    add_define_from_env("LUAT_LFS2N_WRITEBACK_RESERVE_DEFER_US")
-    add_define_from_env("LUAT_LFS2N_META_REFRESH_MIN_INTERVAL_US")
-    add_define_from_env("LUAT_LFS2N_META_REFRESH_MAX_DELAY_US")
-    add_includedirs(luatos.."components/luat_lfs2_nand",{public = true})
-    add_files(luatos.."components/luat_lfs2_nand/**.c")
     add_includedirs(luatos.."components/pgfs",{public = true})
     add_files(luatos.."components/pgfs/**.c")
+    add_defines("LUAT_USE_PGFS_COMPONENT=1")
 
-    -- nfs (NAND File System)
-    add_includedirs(luatos.."components/nfs/inc",{public = true})
-    add_files(luatos.."components/nfs/src/**.c")
+    -- tfs (Tiny File System)
+    add_includedirs(luatos.."components/tfs/inc",{public = true})
+    add_files(luatos.."components/tfs/src/**.c")
 
     -- 添加mreport
     -- add_includedirs(luatos.."components/mreport/include",{public = true})

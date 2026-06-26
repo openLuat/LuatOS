@@ -24,7 +24,7 @@ main.lua 是整个工厂固件的唯一入口，负责串联所有初始化阶�
 1. PROJECT 是唯一编译时变量：更换硬件只需改 PROJECT 字符串，其余全部由 platform_loader + 配置文件驱动
 2. require 顺序即初始化顺序：Lua 单线程，require 同步执行，不会出现竞态
 3. 模块编译清单在 platform_loader 头部：编译系统静态分析 pcall(require, ...) 确定打包范围
-4. exwin/exapp 是固件内置扩展库，不在 factory 仓库中，由 LuatOS SDK 提供
+4. exwin/exapp 是固件内置扩展库，不在 factory 仓库中，由 LuatOS 核心库 提供
 ]]
 
 -- ==================== 编译时配置（更换硬件只需改这三行） ====================
@@ -42,18 +42,18 @@ PROJECT：项目名，ascii string类型
   "Engine_Air1602_10inch1_1024x600_001_V000"   → config/eng_1602_10i_v0.lua    10寸RGB HX8282  +WiFi+蜂鸣器
   "Engine_Air1602_5inch_720x1280_002_V000"     → config/eng_1602_5i_v2.lua     5寸RGB  NV3052C +WiFi
   "Engine_Air1602_5inch_720x1280_003_V000"     → config/eng_1602_5i_v3.lua     5寸RGB  NV3052C +WiFi+NAND
-  "Engine_Air1602_5inch_480x854_005_V000"       → config/eng_1602_5i_v5.lua     5寸RGB  ST7701S +WiFi+NAND
   "Engine_Air1602_7inch_1024x600_004_V000"     → config/eng_1602_7i_v4.lua     7寸RGB  HX8282  +WiFi+NAND
+  "Engine_Air1602_5inch_480x854_005_V000"       → config/eng_1602_5i_v5.lua     5寸RGB  ST7701S +WiFi+NAND
 
 
   EVB turnkey 开发板系列:
-  "EVB_Air8101_10inch1_1024x600_000_V010"      → config/evb_8101_10i_v1.lua    10寸RGB HX8282  +WiFi+SD
+  "EVB_Air8101_AirLCD_1090_000_V020"            → config/evb_8101_7i_v0.lua     7寸RGB HX8282  +WiFi+SD+NAND
   "EVB_Air8101B_5inch_480x854_000_V010"         → config/evb_8101b_5i_v1.lua     5寸RGB  ST7701S +WiFi+SD
   "EVB_Air8000A_3inch5_480x320_000_V020"       → config/evb_8000a_3i5_v0.lua   3.5寸SPI ST7796  +4G+WiFi+SD
+  "EVB_Air1601_10inch1_1024x600_000_V011"      → config/evb_1601_10i_v11.lua   10寸RGB HX8282  +WiFi(airlink)+SD
+  "EVB_Air1601_7inch_1024x600_000_V011"        → config/evb_1601_7i_v11.lua     7寸RGB HX8282  +WiFi(airlink)+SD
 
   待实现（映射已预留，配置文件待创建）:
-  "EVB_Air1601_10inch1_1024x600_000_V011"      "EVB_Air1601_7inch_1024x600_000_V011"
-  "EVB_Air1601_5inch_800x480_000_V011"
   "EVB_Air780EGG_3inch5_480x320_000_V014"      "EVB_Air780EHV_3inch5_480x320_000_V014"
   "EVB_Air780EHU_3inch5_480x320_000_V014"      "EVB_Air780EHM_3inch5_480x320_000_V014"
 
@@ -73,8 +73,8 @@ VERSION：项目版本号，ascii string类型
 ]]
 -- main.lua - 程序入口文件
 PROJECT = "Engine_Air1602_5inch_480x854_005_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
-VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
-PROJECT_KEY = "vMzSTFa5YG3GBMdqR5hxrKXClkwWPnZp"    -- 项目密钥，FOTA 云端鉴权
+VERSION = "001.999.005"                               -- 固件版本号，用于 FOTA 升级比对
+PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)

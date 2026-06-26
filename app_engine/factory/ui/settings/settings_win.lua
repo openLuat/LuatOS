@@ -14,6 +14,7 @@ require "settings_sound_win"
 require "wifi_list_win"
 require "settings_iot_win"
 require "settings_fota_win"
+require "settings_auto_win"
 local titlebar = require "settings_titlebar"
 
 local window_id = nil
@@ -123,6 +124,7 @@ local function build_ui()
     if has_buzzer and ui.show_buzzer_settings then
         y = add_card("触摸音效", "OPEN_SOUND_WIN", y)
     end
+    y = add_card("后装APP自启", "OPEN_AUTOSTART_WIN", y)
     add_card("关于设置", "OPEN_ABOUT_WIN", y)
 end
 

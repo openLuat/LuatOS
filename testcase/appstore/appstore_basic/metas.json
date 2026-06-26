@@ -1,0 +1,7 @@
+{
+    "timeout": 7200,
+    "model": {},
+    "action_count": 1,
+    "priority": 3,
+    "description": "应用商店逐个应用下载-启动-退出-卸载 全生命周期测试"
+}

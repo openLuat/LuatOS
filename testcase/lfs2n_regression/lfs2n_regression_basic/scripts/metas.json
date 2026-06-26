@@ -1,6 +1,0 @@
-{
-  "description": "LFS2N Regression Test - mount/write/unzip profile on /lfs2n",
-  "requires": ["lfsn"],
-  "version": "1.0.0",
-  "timeout": 120
-}

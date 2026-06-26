@@ -1,6 +1,7 @@
 sys.taskInit(function()
     sys.wait(100)
-    local ctx, err = ndk.rv32i("/luadb/baremetal.bin", 32 * 1024, 1024)
+    -- regression for NDK 512K ceiling (replaces the old 32K smoke test)
+    local ctx, err = ndk.rv32i("/luadb/baremetal.bin", 512 * 1024, 1024)
     if not ctx then
         log.error("ndk", err)
         os.exit(1)
@@ -8,6 +9,7 @@ sys.taskInit(function()
     end
     local info = ndk.info(ctx)
     log.info("ndk", "mem", info.mem, "exchange", info.exchange, "running", info.running)
+    assert(info.mem == 512 * 1024, "expected 512KiB RAM ceiling, got " .. tostring(info.mem))
 
     local wrote, wrote_err = ndk.setData(ctx, "hello ndk")
     assert(wrote and wrote ~= false, "ndk.setData failed: " .. tostring(wrote_err))

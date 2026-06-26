@@ -1,0 +1,6 @@
+{
+    "name": "uart_zbuff_basic",
+    "summary": "UART zbuff mode regression (PC simulator only)",
+    "platform": ["pc"],
+    "timeout": 30
+}

@@ -94,6 +94,15 @@ try {
     Pass "pcconf 关闭通过"
 
     Write-Host ""
+    Write-Host "=== 测试 1b: pcconf 启用时仍不应自动启动 (仅 --webc 可启用) ===" -ForegroundColor Cyan
+    Save-Pcconf 1 18981 5
+    $r1b = Run-And-Capture @() 3000
+    if ($r1b.Output -match "web console.*127\.0\.0\.1:\d+") {
+        Fail "web_console.enabled=1 也不应自动启动 web console, 仅 --webc 可启用`n$($r1b.Output)"
+    }
+    Pass "pcconf 启用但无 --webc 也保持关闭"
+
+    Write-Host ""
     Write-Host "=== 测试 2: 端口 0 应明确拒绝 ===" -ForegroundColor Cyan
     $r2 = Run-And-Capture @("--webc=0")
     if ($r2.Code -eq 0) { Fail "非法 --webc=0 应失败退出`n$($r2.Output)" }

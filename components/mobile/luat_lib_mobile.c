@@ -40,6 +40,10 @@ extern void net_lwip_check_switch(uint8_t onoff);
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"
 #endif
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+#include "luat_airlink_rpc.h"
+#include "luat_airlink_drv_rpc_mobile.h"
+#endif
 /**
 获取IMEI
 @api mobile.imei(index)
@@ -48,22 +52,264 @@ extern void net_lwip_check_switch(uint8_t onoff);
 @usgae
 -- 注意, 当前所有模块只支持单待,所以IMEI总是同一个
  */
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+// lua_yieldk 的 continuation: 解码 raw_bytes → IMEI 字符串
+// lua_yieldk continuation: RPC 响应到达后 lua_resume 恢复协程, 从栈上 raw_bytes 解码 IMEI
+static int imei_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushnil(L);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    char imei[16] = {0};
+    int ret = luat_airlink_drv_rpc_mobile_decode_imei(
+        (const uint8_t*)raw, (uint16_t)raw_len, imei, sizeof(imei));
+    if (ret > 0) {
+        lua_pushlstring(L, imei, strlen(imei));
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+static int imsi_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushnil(L);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    char imsi[16] = {0};
+    int ret = luat_airlink_drv_rpc_mobile_decode_imsi(
+        (const uint8_t*)raw, (uint16_t)raw_len, imsi, sizeof(imsi));
+    if (ret > 0) {
+        lua_pushlstring(L, imsi, strlen(imsi));
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+static int iccid_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushnil(L);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    char iccid[21] = {0};
+    int ret = luat_airlink_drv_rpc_mobile_decode_iccid(
+        (const uint8_t*)raw, (uint16_t)raw_len, iccid, sizeof(iccid));
+    if (ret > 0) {
+        lua_pushlstring(L, iccid, strlen(iccid));
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+static int sn_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushnil(L);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    char sn[33] = {0};
+    int ret = luat_airlink_drv_rpc_mobile_decode_sn(
+        (const uint8_t*)raw, (uint16_t)raw_len, sn, sizeof(sn));
+    if (ret > 0) {
+        lua_pushlstring(L, sn, ret);
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+static int muid_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushnil(L);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    char muid[33] = {0};
+    int ret = luat_airlink_drv_rpc_mobile_decode_muid(
+        (const uint8_t*)raw, (uint16_t)raw_len, muid, sizeof(muid));
+    if (ret > 0) {
+        lua_pushlstring(L, muid, strlen(muid));
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+static int status_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushinteger(L, LUAT_MOBILE_STATUS_UNREGISTER);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    int reg = luat_airlink_drv_rpc_mobile_decode_register_status(
+        (const uint8_t*)raw, (uint16_t)raw_len);
+    lua_pushinteger(L, reg);
+    return 1;
+}
+
+static int csq_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    int csq = luat_airlink_drv_rpc_mobile_decode_csq(
+        (const uint8_t*)raw, (uint16_t)raw_len);
+    lua_pushinteger(L, csq);
+    return 1;
+}
+
+static int rssi_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    int16_t rssi = 0;
+    luat_airlink_drv_rpc_mobile_decode_signal_info(
+        (const uint8_t*)raw, (uint16_t)raw_len, &rssi, NULL, NULL, NULL);
+    lua_pushinteger(L, rssi);
+    return 1;
+}
+
+static int rsrp_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    int16_t rsrp = 0;
+    luat_airlink_drv_rpc_mobile_decode_signal_info(
+        (const uint8_t*)raw, (uint16_t)raw_len, NULL, &rsrp, NULL, NULL);
+    lua_pushinteger(L, rsrp);
+    return 1;
+}
+
+static int rsrq_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    int16_t rsrq = 0;
+    luat_airlink_drv_rpc_mobile_decode_signal_info(
+        (const uint8_t*)raw, (uint16_t)raw_len, NULL, NULL, &rsrq, NULL);
+    lua_pushinteger(L, rsrq);
+    return 1;
+}
+
+static int snr_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+    int16_t snr = 0;
+    luat_airlink_drv_rpc_mobile_decode_signal_info(
+        (const uint8_t*)raw, (uint16_t)raw_len, NULL, NULL, NULL, &snr);
+    lua_pushinteger(L, snr);
+    return 1;
+}
+
+static int scell_yield_cont(lua_State* L, int status, lua_KContext k_ctx) {
+    (void)k_ctx;
+    if (status != LUA_OK) {
+        lua_newtable(L);
+        return 1;
+    }
+    size_t raw_len = 0;
+    const char* raw = lua_tolstring(L, -1, &raw_len);
+
+    luat_airlink_drv_rpc_mobile_scell_info_t scell;
+    int ret = luat_airlink_drv_rpc_mobile_decode_scell(
+        (const uint8_t*)raw, (uint16_t)raw_len, &scell);
+    if (ret != 0) {
+        lua_newtable(L);
+        return 1;
+    }
+
+    lua_newtable(L);
+
+    lua_pushinteger(L, (lua_Integer)scell.mcc);
+    lua_setfield(L, -2, "mcc");
+    lua_pushinteger(L, (lua_Integer)scell.mnc);
+    lua_setfield(L, -2, "mnc");
+    lua_pushinteger(L, (lua_Integer)scell.earfcn);
+    lua_setfield(L, -2, "earfcn");
+    lua_pushinteger(L, (lua_Integer)scell.pci);
+    lua_setfield(L, -2, "pci");
+    lua_pushinteger(L, (lua_Integer)scell.band);
+    lua_setfield(L, -2, "band");
+
+    lua_pushinteger(L, (lua_Integer)scell.eci);
+    lua_setfield(L, -2, "eci");
+    lua_pushinteger(L, (lua_Integer)scell.cid);
+    lua_setfield(L, -2, "cid");
+    lua_pushinteger(L, (lua_Integer)scell.tac);
+    lua_setfield(L, -2, "tac");
+
+    lua_pushinteger(L, (lua_Integer)scell.snr);
+    lua_setfield(L, -2, "snr");
+    lua_pushinteger(L, (lua_Integer)scell.rsrp);
+    lua_setfield(L, -2, "rsrp");
+    lua_pushinteger(L, (lua_Integer)scell.rsrq);
+    lua_setfield(L, -2, "rsrq");
+    lua_pushinteger(L, (lua_Integer)scell.rssi);
+    lua_setfield(L, -2, "rssi");
+
+    return 1;
+}
+#endif
+
 static int l_mobile_imei(lua_State* L) {
     char buff[24] = {0};
-    // size_t len = 0;
-    // size_t wlen = 0;
     int ret = 0;
     int index = luaL_optinteger(L, 1, 0);
+
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    // 协程上下文走 lua_yieldk 非阻塞路径, 非协程上下文 (如 timer 回调) 走下方阻塞路径
+    if (lua_isyieldable(L)) {
+        ret = luat_airlink_drv_rpc_mobile_sim_identity_status_yield(
+            L, (uint8_t)index, imei_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushnil(L);
+            return 1;
+        }
+        // lua_yieldk 挂起协程, 响应到达后 imei_yield_cont 恢复并设置返回值
+        return 0;
+    }
+#endif
+
     ret = luat_mobile_get_imei(index, buff, 24);
-    // if (lua_isstring(L, 2)) {
-    //     const char* wbuff = luaL_checklstring(L, 2, &wlen);
-    //     if (wlen >= 15) {
-    //         ret = luat_mobile_set_imei(index, wbuff, wlen);
-    //         LLOGI("IMEI write %d %s ret %d", index, wbuff, ret);
-    //     }
-    // }
     if (ret > 0) {
-        buff[23] = 0x00; // 确保能结束
+        buff[23] = 0x00;
         lua_pushlstring(L, buff, strlen(buff));
     }
     else
@@ -85,6 +331,17 @@ static int l_mobile_imsi(lua_State* L) {
     // size_t wlen = 0;
     int ret = 0;
     int index = luaL_optinteger(L, 1, 0);
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        ret = luat_airlink_drv_rpc_mobile_sim_identity_status_yield(
+            L, (uint8_t)index, imsi_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushnil(L);
+            return 1;
+        }
+        return 0;
+    }
+#endif
     ret = luat_mobile_get_imsi(index, buff, 24);
     // if (lua_isstring(L, 2)) {
     //     const char* wbuff = luaL_checklstring(L, 2, &wlen);
@@ -118,6 +375,17 @@ static int l_mobile_sn(lua_State* L) {
     // size_t len = 0;
     // size_t wlen = 0;
     int ret = 0;
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        ret = luat_airlink_drv_rpc_mobile_global_status_yield(
+            L, sn_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushnil(L);
+            return 1;
+        }
+        return 0;
+    }
+#endif
     ret = luat_mobile_get_sn(buff, 32);
     // if (lua_isstring(L, 1)) {
     //     const char* wbuff = luaL_checklstring(L, 1, &wlen);
@@ -146,6 +414,17 @@ static int l_mobile_muid(lua_State* L) {
     // size_t len = 0;
     // size_t wlen = 0;
     int ret = 0;
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        ret = luat_airlink_drv_rpc_mobile_global_status_yield(
+            L, muid_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushnil(L);
+            return 1;
+        }
+        return 0;
+    }
+#endif
     ret = luat_mobile_get_muid(buff, 32);
     if (lua_isstring(L, 1)) {
         // const char* wbuff = luaL_checklstring(L, 1, &wlen);
@@ -175,6 +454,17 @@ static int l_mobile_iccid(lua_State* L) {
     // size_t wlen = 0;
     int ret = 0;
     int index = luaL_optinteger(L, 1, 0);
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        ret = luat_airlink_drv_rpc_mobile_sim_identity_status_yield(
+            L, (uint8_t)index, iccid_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushnil(L);
+            return 1;
+        }
+        return 0;
+    }
+#endif
     ret = luat_mobile_get_iccid(index, buff, 24);
     if (ret > 0) {        
         buff[23] = 0x00; // 确保能结束
@@ -426,6 +716,17 @@ static int l_mobile_ipv6(lua_State* L) {
 static int l_mobile_csq(lua_State* L) {
     // luat_mobile_signal_strength_info_t info = {0};
     uint8_t csq = 0;
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        int ret = luat_airlink_drv_rpc_mobile_signal_yield(
+            L, csq_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+        return 0;
+    }
+#endif
     if (luat_mobile_get_signal_strength(&csq) == 0) {
         lua_pushinteger(L, (int)csq);
     }
@@ -441,6 +742,17 @@ static int l_mobile_csq(lua_State* L) {
 @return int 当前rssi值,若失败返回0. 范围 0 到 -114, 越小越好
  */
 static int l_mobile_rssi(lua_State* L) {
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        int ret = luat_airlink_drv_rpc_mobile_signal_yield(
+            L, rssi_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+        return 0;
+    }
+#endif
     luat_mobile_signal_strength_info_t info = {0};
     if (luat_mobile_get_signal_strength_info(&info) == 0) {
         lua_pushinteger(L, info.lte_signal_strength.rssi);
@@ -457,6 +769,17 @@ static int l_mobile_rssi(lua_State* L) {
 @return int 当前rsrp值,若失败返回0. 取值范围: -44 ~ -140 ，值越大越好
  */
 static int l_mobile_rsrp(lua_State* L) {
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        int ret = luat_airlink_drv_rpc_mobile_signal_yield(
+            L, rsrp_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+        return 0;
+    }
+#endif
     luat_mobile_signal_strength_info_t info = {0};
     if (luat_mobile_get_signal_strength_info(&info) == 0) {
         lua_pushinteger(L, info.lte_signal_strength.rsrp);
@@ -473,6 +796,17 @@ static int l_mobile_rsrp(lua_State* L) {
 @return int 当前rsrq值,若失败返回0.  取值范围: -3 ~ -19.5 ，值越大越好
  */
 static int l_mobile_rsrq(lua_State* L) {
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        int ret = luat_airlink_drv_rpc_mobile_signal_yield(
+            L, rsrq_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+        return 0;
+    }
+#endif
     luat_mobile_signal_strength_info_t info = {0};
     if (luat_mobile_get_signal_strength_info(&info) == 0) {
         lua_pushinteger(L, info.lte_signal_strength.rsrq);
@@ -489,6 +823,17 @@ static int l_mobile_rsrq(lua_State* L) {
 @return int 当前snq值,若失败返回0.范围 0 - 30, 越大越好
  */
 static int l_mobile_snr(lua_State* L) {
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        int ret = luat_airlink_drv_rpc_mobile_signal_yield(
+            L, snr_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+        return 0;
+    }
+#endif
     luat_mobile_signal_strength_info_t info = {0};
     if (luat_mobile_get_signal_strength_info(&info) == 0) {
         lua_pushinteger(L, info.lte_signal_strength.snr);
@@ -583,7 +928,18 @@ log.info("cell", json.encode(mobile.scell()))
 }
  */
 static int l_mobile_scell_extern_info(lua_State* L) {
-	luat_mobile_scell_extern_info_t info = {0};
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        int ret = luat_airlink_drv_rpc_mobile_scell_yield(
+            L, scell_yield_cont, 0);
+        if (ret < 0) {
+            lua_newtable(L);
+            return 1;
+        }
+        return 0;
+    }
+#endif
+    luat_mobile_scell_extern_info_t info = {0};
     int ret = 0;
     ret = luat_mobile_get_extern_service_cell_info(&info);
     if (ret) {
@@ -707,6 +1063,17 @@ static int l_mobile_sync_time(lua_State* L) {
 -- 不能使用本API判断联网状态, 可联网状态应该以连上目标服务器为准
  */
 static int l_mobile_status(lua_State* L) {
+#if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    if (lua_isyieldable(L)) {
+        int ret = luat_airlink_drv_rpc_mobile_global_status_yield(
+            L, status_yield_cont, 0);
+        if (ret < 0) {
+            lua_pushinteger(L, LUAT_MOBILE_STATUS_UNREGISTER);
+            return 1;
+        }
+        return 0;
+    }
+#endif
     int LUAT_MOBILE_REGISTER_STATUS_E = luat_mobile_get_register_status();
     lua_pushinteger(L, LUAT_MOBILE_REGISTER_STATUS_E);
     return 1;
@@ -1171,6 +1538,7 @@ static int l_mobile_print_apn_table(lua_State* L) {
 	luat_mobile_print_apn_by_mcc_mnc(mcc, mnc);
     return 0;
 }
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
     {"status",          ROREG_FUNC(l_mobile_status)},

@@ -29,7 +29,7 @@
  * @int config.border_color 边框颜色（0xRRGGBB），不传或小于 0 时不绘制边框
  * @int config.border_width 边框宽度，默认 1；需与 border_color 同时有效才显示边框
  * @function config.on_click 点击回调函数，可选；传入时容器可点击
- * @function config.on_long_press 长按回调函数，按住>=400ms触发，可选
+ * @function config.on_long_press 长按回调函数，按住>=400ms后在抬起时触发，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Container 对象；创建失败时返回 nil
  */
@@ -70,14 +70,23 @@ static int l_container_set_on_click(lua_State *L) {
     lua_pushvalue(L, 2);
     int ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    airui_container_set_on_click(container, ref);
+    airui_component_meta_t *meta = airui_component_meta_get(container);
+    if (meta != NULL) {
+        if (airui_component_enable_release_select_dispatch(meta) != AIRUI_OK ||
+            airui_component_set_callback_ref(meta, AIRUI_EVENT_CLICKED, ref) != AIRUI_OK) {
+            luaL_unref(L, LUA_REGISTRYINDEX, ref);
+            return luaL_error(L, "failed to enable container click dispatch");
+        }
+    } else {
+        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+    }
     return 0;
 }
 
 /**
  * Container:set_on_long_press(callback)
  * @api container:set_on_long_press(callback)
- * @function callback 长按回调函数
+ * @function callback 长按回调函数，按住>=400ms后在抬起时触发
  */
 static int l_container_set_on_long_press(lua_State *L) {
     lv_obj_t *container = airui_check_component(L, 1, AIRUI_CONTAINER_MT);
@@ -86,7 +95,16 @@ static int l_container_set_on_long_press(lua_State *L) {
     lua_pushvalue(L, 2);
     int ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    airui_container_set_on_long_press(container, ref);
+    airui_component_meta_t *meta = airui_component_meta_get(container);
+    if (meta != NULL) {
+        if (airui_component_enable_release_select_dispatch(meta) != AIRUI_OK ||
+            airui_component_set_callback_ref(meta, AIRUI_EVENT_LONG_PRESSED, ref) != AIRUI_OK) {
+            luaL_unref(L, LUA_REGISTRYINDEX, ref);
+            return luaL_error(L, "failed to enable container long press dispatch");
+        }
+    } else {
+        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+    }
     return 0;
 }
 

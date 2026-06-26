@@ -1,0 +1,7 @@
+{
+  "name": "ndk_perf_guest",
+  "summary": "NDK guest-C-implemented algorithm perf vs pure-Lua baseline. Cross-platform: PC + air1601 (COM10).",
+  "platform": ["pc", "air1601"],
+  "timeout": 180,
+  "image": "perf_guest_v1.bin"
+}

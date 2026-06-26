@@ -28,6 +28,11 @@ enum {
     LUAT_AIRLINK_MODE_UNKNOW = -1
 };
 
+#define AIRLINK_CMD_FRAGMENT  0x32  // cmd-level fragmentation
+#define AIRLINK_RPC_MAX_PAYLOAD  4096  // RPC payload 统一上限, 覆盖最大 mobile payload 3647B
+#define AIRLINK_ERR_RESULT_REG_FULL  -7  // result 注册表满
+#define AIRLINK_ERR_RPC_RESP_TOO_LARGE  -6  // 响应 payload 超出接收缓冲区
+
 
 typedef struct luat_airlink_cmd
 {
@@ -43,7 +48,8 @@ typedef struct airlink_flags {
     uint32_t irq_ready: 1; // 是否切换到IRQ模式
     uint32_t irq_pin: 4;   // 中断管脚号, 这是传给SLAVE的, 从 GPIO12(GPIO140)开始算
     uint32_t rpc_supported: 1; // 是否支持nanopb RPC指令 (cmd 0x30)
-    uint32_t reserved: 23; // 保留位, 用于扩展
+    uint32_t frag_supported: 1; // 是否支持cmd分片传输 (cmd 0x32)
+    uint32_t reserved: 22; // 保留位, 用于扩展
 }airlink_flags_t;
 
 typedef struct airlink_link_data {
@@ -207,6 +213,9 @@ int luat_airlink_current_mode_get(void);
 // 上层调用 luat_airlink_peer_rpc_supported() 来查询对端是否支持 nanopb RPC.
 void luat_airlink_peer_flags_update(const airlink_flags_t* flags);
 int luat_airlink_peer_rpc_supported(void);
+int luat_airlink_peer_frag_supported(void);
+uint16_t luat_airlink_transport_max_data_len(uint8_t mode);
+int luat_airlink_cmd_exec_fragment(luat_airlink_cmd_t* cmd, void* userdata);
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"

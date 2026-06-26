@@ -23,4 +23,5 @@ if fe.sd_card or fe.nand_flash then
     require "storage_pri_app"       -- 外部存储初始化（仅当有SD卡/NAND Flash）
 end
 require "settings_memory_app"   -- 系统内存/Vm/PSRAM 信息查询
+require "settings_auto_app" -- 后装APP开机自启管理（fskv 持久化 + 密码验证 + NES_CTRL 退出拦截）
 sys.publish("SETTINGS_APP_INIT")  -- 等待fskv就绪后再发布 SETTINGS_APP_INIT 事件，确保配置模块先行初始化

@@ -7,18 +7,16 @@
 @demo multimedia
 @tag LUAT_USE_AUDIO_V2
 */
-#include "luat_audio_channel.h"
-#include "luat_audio_data_codec.h"
-#include "luat_audio_define.h"
-#include "luat_audio_driver.h"
 #include "luat_audio_request.h"
 #include "luat_base.h"
 #include "luat_msgbus.h"
 #include "luat_zbuff.h"
+#include "luat_fs.h"
 #include <stdint.h>
 #define LUAT_LOG_TAG "audio_v2"
 #include "luat_log.h"
 #ifdef LUAT_USE_AUDIO_V2
+//#if 1
 #include "luat_common_api.h"
 #include "luat_audio_core.h"
 
@@ -30,16 +28,26 @@
 
 typedef struct {
     luat_llist_head node;
+    union {
+        FILE *record_file_fd;  // 录音文件指针
+        luat_zbuff_t *record_zbuff;  // 录音数据ZBuff
+    };
+    uint32_t record_timeout_or_callback_frame;  // 录音超时或回调帧数
     uint8_t self_index;
-    uint8_t is_busy;
-    uint8_t pad[2];
+    uint8_t is_busy:1;
+    uint8_t is_record_file:1;
     luat_audio_request_block_t request;
 } l_audio_request_t;
 
 typedef struct {
+    uint64_t total_driver_record_bytes;
+    uint64_t target_driver_record_bytes;
+    uint64_t total_record_bytes;
     luat_llist_head request_free_list;  // 空闲请求块列表
     luat_llist_head request_busy_list;  // 正在处理请求块列表
     l_audio_request_t request_table[LUAT_AUDIO_REQUEST_MAX];  // 请求块表
+    luat_fifo_t *record_fifo;  // 录音数据FIFO
+    uint8_t temp[4096];
     int cb_ref; // 回调函数引用
 } l_audio_ctrl_t;
 static l_audio_ctrl_t _l_audio;
@@ -50,11 +58,58 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
     luat_data_union_t u_data;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     u_data.u32 = msg->arg1;
+    uint8_t no_callback = 0;
     if (u_data.u8[0] < LUAT_AUDIO_REQUEST_MAX) {
         l_audio_request_t *l_req = &_l_audio.request_table[u_data.u8[0]];
         switch (u_data.u8[1]) {
         case LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA:
             l_req->request.is_data_callback_stop = 0;
+            break;
+        case LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA:
+            switch (l_req->request.driver_work_mode) {
+            case LUAT_AUDIO_DRIVER_MODE_RECORD:
+                _l_audio.total_driver_record_bytes += msg->arg2;
+                uint32_t read_size = 0;
+                if (l_req->is_record_file) {
+                    for(;;) {
+                        read_size = luat_fifo_read(_l_audio.record_fifo, _l_audio.temp, sizeof(_l_audio.temp));
+                        if (read_size == 0) {
+                            break;
+                        }
+                        luat_fs_fwrite(_l_audio.temp, read_size, 1, l_req->record_file_fd);
+                        _l_audio.total_record_bytes += read_size;
+                    }
+                    if (_l_audio.total_driver_record_bytes >= _l_audio.target_driver_record_bytes) {
+                        luat_buffer_t out_buffer;
+                        out_buffer.data = _l_audio.temp;
+                        out_buffer.pos = 0;
+                        out_buffer.max_len = sizeof(_l_audio.temp);
+                        l_req->request.record_codec.opts->make_head(&l_req->request.record_codec, _l_audio.total_record_bytes, &out_buffer);
+                        luat_fs_fseek(l_req->record_file_fd, 0, SEEK_SET);
+                        luat_fs_fwrite(out_buffer.data, out_buffer.pos, 1, l_req->record_file_fd);
+                        luat_audio_request_cancel(&l_req->request);
+                        luat_fs_fclose(l_req->record_file_fd);
+                        LLOGC(luat_audio_debug_flag,"lua request %d record file close, total_record_bytes: %llu", u_data.u8[0], _l_audio.total_record_bytes);
+                        l_req->record_file_fd = NULL;
+                    }
+                    no_callback = 1;
+                } else {
+                    for(;;) {
+                        read_size = luat_fifo_read(_l_audio.record_fifo, _l_audio.temp, sizeof(_l_audio.temp));
+                        if (read_size == 0) {
+                            break;
+                        }
+                        if ((l_req->record_zbuff->used + read_size) > l_req->record_zbuff->len) {
+                            if (__zbuff_resize(l_req->record_zbuff, (l_req->record_zbuff->used + read_size) * 2)) {
+                                break;
+                            }
+                        }
+                        memcpy(l_req->record_zbuff->addr + l_req->record_zbuff->used, _l_audio.temp, read_size);
+                        l_req->record_zbuff->used += read_size;
+                    }
+                }
+                break;
+            }
             break;
         case LUAT_AUDIO_REQUEST_EVENT_END:
             l_req->is_busy = 0;
@@ -62,8 +117,25 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
             luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
             LLOGC(luat_audio_debug_flag,"lua request %d end", u_data.u8[0]);
             break;
+        case LUAT_AUDIO_REQUEST_EVENT_DRIVER_START:
+            if (l_req->request.driver_work_mode == LUAT_AUDIO_DRIVER_MODE_RECORD) {
+                luat_fifo_clear(_l_audio.record_fifo);
+                if (l_req->is_record_file) {
+                    _l_audio.total_driver_record_bytes = 0;
+                    _l_audio.total_record_bytes = 0;
+                    _l_audio.target_driver_record_bytes = l_req->record_timeout_or_callback_frame * l_req->request.data_channel->driver_ctrl->common_param.sample_rate * l_req->request.data_channel->driver_ctrl->common_param.data_align * l_req->request.data_channel->driver_ctrl->common_param.channel_nums;
+                    LLOGC(luat_audio_debug_flag,"lua request %d record driver param %u-%u-%u, target record bytes %llu", l_req->self_index, l_req->request.data_channel->driver_ctrl->common_param.sample_rate, l_req->request.data_channel->driver_ctrl->common_param.data_align, l_req->request.data_channel->driver_ctrl->common_param.channel_nums, _l_audio.target_driver_record_bytes);
+                    luat_buffer_t out_buffer;
+                    out_buffer.data = _l_audio.temp;
+                    out_buffer.pos = 0;
+                    out_buffer.max_len = sizeof(_l_audio.temp);
+                    l_req->request.record_codec.opts->make_head(&l_req->request.record_codec, 0, &out_buffer);
+                    luat_fs_fwrite(out_buffer.data, out_buffer.pos, 1, l_req->record_file_fd);
+                }
+            }
+            break;
         }
-        if (_l_audio.cb_ref) {
+        if (_l_audio.cb_ref && !no_callback) {
             lua_geti(L, LUA_REGISTRYINDEX, _l_audio.cb_ref);
             if (lua_isfunction(L, -1)) {
                 lua_pushinteger(L, u_data.u8[0]);
@@ -103,12 +175,13 @@ void l_audio_init(void)
         _l_audio.request_table[i].self_index = i;
         luat_llist_add_tail(&_l_audio.request_table[i].node, &_l_audio.request_free_list);
     }
+    _l_audio.record_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER);
 }
 
 /*
 播放N个文件。考虑到读SD卡速度比较慢而拖累luavm进程的速度，所以尽量使用本API
 @api audio_v2.play(path, err_stop, priority, driver_probe_id, codec_id)
-@string/table 文件名，如果是table，则表示连续播放多个文件
+@string/table/zbuff 如果是string，则表示文件名，如果是table，则表示连续播放多个文件，如果是zbuff，则表示播放zbuff中的数据
 @boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @int 优先级，0~255，值越大，优先级越高，默认0
 @int 驱动id，在不使用默认驱动时填写，绝大部分情况下都不需要填写。驱动id需要通过audio.make_probe_id合成
@@ -124,12 +197,13 @@ static int l_audio_play(lua_State *L) {
     uint8_t is_error_stop = 1;
     uint8_t priority = luaL_optinteger(L, 3, 0);
     luat_audio_driver_probe_t driver_probe = {0};
-    uint8_t codec_id = LUAT_AUDIO_DATA_CODEC_TYPE_MAX;
+    uint8_t org_codec_id = luaL_optinteger(L, 5, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
+    uint8_t codec_id = org_codec_id &~LUAT_AUDIO_DATA_CODEC_TYPE_HW;
+
     if (lua_isboolean(L, 2)) {
         is_error_stop = lua_toboolean(L, 2);
     }
     driver_probe.probe_id = luaL_optinteger(L, 4, 0);
-    codec_id = luaL_optinteger(L, 5, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
     size_t file_nums = 0;
     size_t path_len = 0;
     luat_audio_play_file_info_t *info = NULL;
@@ -156,7 +230,15 @@ static int l_audio_play(lua_State *L) {
         info[0].fail_continue = !is_error_stop;
         info[0].rom_data_len = 0;
         file_nums = 1;
+    } else if(lua_isuserdata(L, 1)) {
+        info = (luat_audio_play_file_info_t *)luat_heap_calloc(1, sizeof(luat_audio_play_file_info_t));
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
+        info[0].rom_data = buff->addr;
+        info[0].fail_continue = !is_error_stop;
+        info[0].rom_data_len = buff->used;
+        file_nums = 1;
     } else {
+        LLOGE("play unknow input");
     	goto DONE;
     }
     if (luat_llist_empty(&_l_audio.request_free_list)) {
@@ -169,7 +251,7 @@ static int l_audio_play(lua_State *L) {
     luat_llist_add_tail(&l_req->node, &_l_audio.request_busy_list);
     result = luat_audio_request_play_files(&l_req->request, 
         (driver_probe.probe_id ? &driver_probe : NULL), 
-    luat_audio_data_codec_find(codec_id), 
+        (codec_id < LUAT_AUDIO_DATA_CODEC_TYPE_MAX) ? luat_audio_data_codec_find(org_codec_id) : NULL,
         info, file_nums, priority,0, _l_audio_request_callback, l_req);
     luat_heap_free(info);
     if (result) {
@@ -196,6 +278,7 @@ DONE:
 @int 优先级，0~255，值越大，优先级越高，默认0
 @int 驱动id，在不使用默认驱动时填写，绝大部分情况下都不需要填写。驱动id需要通过audio.make_probe_id合成
 @return boolean 成功返回true,否则返回false
+@return int request_index 请求索引，用于后续操作，如暂停、恢复，回调信息判断等
 @usage
 audio_v2.stream(audio_v2.DATA_CODEC_TYPE_RAW, 16000, 16, 2, true, 0, nil) --播放16000Hz, 16bit, 2ch, 有符号的PCM数据流
 */
@@ -206,13 +289,15 @@ static int l_audio_stream(lua_State *L) {
     luat_audio_driver_probe_t driver_probe = {0};
     luat_audio_common_param_t common_param = {0};
     driver_probe.probe_id = luaL_optinteger(L, 7, 0);
-    uint8_t codec_id = luaL_checkinteger(L, 1);
+    uint8_t org_codec_id = luaL_optinteger(L, 5, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
+    uint8_t codec_id = org_codec_id &~LUAT_AUDIO_DATA_CODEC_TYPE_HW;
+
     if (codec_id >= LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
         goto DONE;
     }
-    const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(codec_id);
+    const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(org_codec_id);
     if (!codec_opts) {
-        LLOGE("codec %d not found", codec_id);
+        LLOGE("codec %d not found", org_codec_id);
         goto DONE;
     }
     common_param.sample_rate = luaL_checkinteger(L, 2);
@@ -236,7 +321,7 @@ static int l_audio_stream(lua_State *L) {
     result = luat_audio_request_play_stream(&l_req->request, 
         (driver_probe.probe_id ? &driver_probe : NULL), 
         codec_opts, 
-        &common_param, 
+        &common_param, 0,
         priority, 0, 
         _l_audio_request_callback, l_req);
     if (result) {
@@ -286,6 +371,7 @@ static int l_audio_input(lua_State *L) {
         LLOGC(luat_audio_debug_flag,"lua request %d not busy can not input data", request_index);
         goto DONE;
     }
+    luat_rtos_task_suspend_all();
     if (LUA_TSTRING == (lua_type(L, 2))) {
         size_t len = 0;
         data = lua_tolstring(L, 2, &len);//取出字符串数据
@@ -311,6 +397,7 @@ static int l_audio_input(lua_State *L) {
         is_end = 0;
     }
     l_req->request.is_input_end = is_end;
+    luat_rtos_task_resume_all();
 DONE:
     lua_pushboolean(L, !result);
     lua_pushinteger(L, input_len);
@@ -323,10 +410,84 @@ DONE:
 }
 
 /*
-录音，待实现
+录音请求，包括2种模式，1. 保存到文件，2. 保存到buffer并回调给用户
+@api audio_v2.record(save_path, timeout, codec_id, priority, sample_rate, data_bits, channel_nums, driver_probe_id)
+@string/zbuff 保存路径，string为保存成文件，zbuff为保存到buffer并回调给用户
+@timeout 如果是保存文件，则为整体录音时间，单位秒，时间到后自动停止录音。如果是保存到buffer，则为每次回调的帧数，每一帧时间由编码器决定
+@int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空，则直接返回原始PCM数据。如果不留空，会检查sample_rate和data_bits是否符合解码器的要求
+@int 优先级，0~255，值越大，优先级越高，默认0
+@int 希望的采样率，如果指定了codec_id，则可以留空，由编码器自己决定
+@int 希望的数据位数，8,16,24,32，如果指定了codec_id，则可以留空，由编码器自己决定
+@int 希望的通道数，1,2，如果指定了codec_id，则可以留空，由编码器自己决定
+@int 驱动id，在不使用默认驱动时填写，绝大部分情况下都不需要填写。驱动id需要通过audio.make_probe_id合成
+@return boolean 成功返回true,否则返回false
+@return int request_index 请求索引，用于后续操作，如暂停、恢复，回调信息判断等
 */
 static int l_audio_record(lua_State *L) {
-    return 0;
+    int result = -1;
+    uint8_t request_index = 0;
+    uint8_t priority = luaL_optinteger(L, 4, 0);
+    luat_audio_driver_probe_t driver_probe = {0};
+    luat_audio_common_param_t common_param = {0};
+    driver_probe.probe_id = luaL_optinteger(L, 8, 0);
+    uint8_t org_codec_id = luaL_optinteger(L, 3, 0);
+    uint8_t codec_id = org_codec_id &~LUAT_AUDIO_DATA_CODEC_TYPE_HW;
+    if (codec_id >= LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
+        goto DONE;
+    }
+    const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(org_codec_id);
+    if (!codec_opts) {
+        LLOGE("codec %d not found", codec_id);
+        goto DONE;
+    }
+    if (!codec_opts->encode && !codec_opts->encode_with_sync_output_ref) {
+        LLOGE("codec %d not support record", codec_id);
+        goto DONE;
+    }
+    common_param.sample_rate = luaL_optinteger(L, 5, 0);
+    uint8_t data_bits = luaL_optinteger(L, 6, 16);
+    common_param.channel_nums = luaL_optinteger(L, 7, 1);
+    common_param.data_align = data_bits / 8;
+    common_param.is_signed = 1;
+
+
+
+    if (luat_llist_empty(&_l_audio.request_free_list)) {
+        LLOGE("audio request free list is empty");
+        goto DONE;
+    }
+    l_audio_request_t *l_req = (l_audio_request_t *)_l_audio.request_free_list.next;
+    request_index = l_req->self_index;
+    luat_llist_del(&l_req->node);
+    luat_llist_add_tail(&l_req->node, &_l_audio.request_busy_list);
+    l_req->record_timeout_or_callback_frame = luaL_optinteger(L, 2, 0);
+    if (lua_isstring(L, 1)) {
+        size_t len = 0;
+        const char *path = luaL_checklstring(L, 1, &len);
+        luat_fs_remove(path);
+        l_req->is_record_file = 1;
+        l_req->record_file_fd = luat_fs_fopen(path, "wb+");
+        if (!l_req->record_file_fd) {
+            LLOGE("open file %s failed", path);
+            goto DONE;
+        }
+        result = luat_audio_request_record(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, codec_opts,&common_param, _l_audio.record_fifo, 10, priority, _l_audio_request_callback, l_req);
+    } else if (lua_isuserdata(L, 1)) {
+        l_req->is_record_file = 0;
+        l_req->record_zbuff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
+        result = luat_audio_request_record(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, codec_opts,&common_param, _l_audio.record_fifo, l_req->record_timeout_or_callback_frame, priority, _l_audio_request_callback, l_req);
+    }
+    if (result) {
+        luat_llist_del(&l_req->node);
+        luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
+    } else {
+        LLOGC(luat_audio_debug_flag,"lua request %d start", l_req->self_index);
+        l_req->is_busy = 1;
+    }
+DONE:
+    lua_pushboolean(L, !result);
+    lua_pushinteger(L, request_index);
+    return 2;
 }
 
 /*
@@ -365,6 +526,10 @@ static int l_audio_get_play_info(lua_State *L) {
     const luat_audio_data_codec_opts_t *codec_opts = luat_audio_data_codec_find(codec_id);
     if (!codec_opts) {
         LLOGE("codec %d not found", codec_id);
+        goto DONE;
+    }
+    if (!codec_opts->support_detect) {
+        LLOGE("codec %d not support detect file info", codec_id);
         goto DONE;
     }
     const char *data = NULL;
@@ -676,9 +841,9 @@ static int l_audio_print_probe_id(lua_State *L) {
 @int driver_probe_id 驱动id，在不使用默认驱动时填写，绝大部分情况下都不需要填写。驱动id需要通过audio.make_probe_id合成
 @return boolean 成功返回true,否则返回false
 @usage
-audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_I2S)
+audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
 audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16)
-audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_NUMS, 1)
+audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
 */
 static int l_audio_config(lua_State *L) {
     
@@ -784,7 +949,7 @@ end)
 event和param可能出现的值
   audio_v2.REQUEST_START 	开始处理请求, param无意义
   audio_v2.REQUEST_NEED_NEW_DATA 	需要新的数据, param无意义
-  audio_v2.REQUEST_GET_NEW_DATA 	获取到新数据, param为zbuff序号. 录音才有这个回调
+  audio_v2.REQUEST_GET_NEW_DATA 	获取到新数据, param为本次回调获取到的驱动数据大小
   audio_v2.REQUEST_DECODE_DONE 	    请求处理完成, param无意义
   audio_v2.REQUEST_END 	请求块处理完成, param无意义
 */
@@ -841,6 +1006,10 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "debug",			ROREG_FUNC(l_audio_set_debug)},
     //@const REQUEST_START number audio_v2.on回调函数传入消息值，表示开始处理请求块，可以传入更多数据
     { "REQUEST_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_START)},
+    //@const REQUEST_DRIVER_START number audio_v2.on回调函数传入消息值，表示请求块驱动开始
+    { "REQUEST_DRIVER_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_DRIVER_START)},
+    //@const REQUEST_TTS_START number audio_v2.on回调函数传入消息值，表示请求块TTS开始
+    { "REQUEST_TTS_START",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_TTS_START)},
     //@const REQUEST_NEED_NEW_DATA number audio_v2.on回调函数传入消息值，表示请求块需要新的数据，需要传入新的数据
     { "REQUEST_NEED_NEW_DATA",			ROREG_INT(LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA)},
     //@const REQUEST_GET_NEW_DATA number audio_v2.on回调函数传入消息值，表示请求块获取新的数据
@@ -873,15 +1042,18 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "DATA_CODEC_TYPE_MP3",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_MP3)},
     //@const DATA_CODEC_TYPE_OPUS number 编解码器类型OPUS
     { "DATA_CODEC_TYPE_OPUS",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_OPUS)},
-    //@const DATA_CODEC_TYPE_G711 number 编解码器类型G711
+    //@const DATA_CODEC_TYPE_G711_ULAW number 编解码器类型G711_ULAW
     { "DATA_CODEC_TYPE_G711_ULAW",		ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW)},
+    //@const DATA_CODEC_TYPE_G711_ALAW number 编解码器类型G711_ALAW
     { "DATA_CODEC_TYPE_G711_ALAW",		ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW)},
+    //@const DATA_CODEC_TYPE_HW number 编解码器类型-硬件编解码器优先模式
+    { "DATA_CODEC_TYPE_HW",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_HW)},
     //@const CONFIG_PARAM_I2S_MODE number 驱动私有参数的I2S模式
     { "CFG_PARAM_I2S_MODE",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_MODE)},
     //@const CONFIG_PARAM_I2S_FRAME_BITS number 驱动私有参数的I2S帧位宽，需要和外部codec匹配
     { "CFG_PARAM_I2S_FRAME_BITS",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_FRAME_BITS)},
-    //@const CONFIG_PARAM_I2S_CHANNEL_NUMS number 驱动私有参数的I2S通道数，需要和外部codec匹配，codec本身有几个通道输出，这里就配置几个通道
-    { "CFG_PARAM_I2S_CHANNEL_NUMS",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_CHANNEL_NUMS)},
+    //@const CONFIG_PARAM_I2S_CHANNEL_TYPE number 驱动私有参数的I2S通道类型，需要和外部codec匹配
+    { "CFG_PARAM_I2S_CHANNEL_TYPE",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_CHANNEL_TYPE)},
     //@const CONFIG_PARAM_DAC_BIT_WIDTH number 驱动私有参数的DAC位宽
     { "CFG_PARAM_DAC_BIT_WIDTH",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_DAC_BIT_WIDTH)},
     //@const CONFIG_VALUE_I2S_MODE_I2S number 驱动私有参数的I2S模式可选值，I2S标准模式
@@ -894,6 +1066,12 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "CFG_VALUE_I2S_MODE_PCMS",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_VALUE_I2S_MODE_PCMS)},
     //@const CONFIG_VALUE_I2S_MODE_PCML number 驱动私有参数的I2S模式可选值，PCML
     { "CFG_VALUE_I2S_MODE_PCML",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_VALUE_I2S_MODE_PCML)},
+    //@const CONFIG_VALUE_I2S_CHANNEL_TYPE_LEFT number 驱动私有参数的I2S通道类型可选值，左声道
+    { "CFG_VALUE_I2S_CHANNEL_TYPE_LEFT",			ROREG_INT(LUAT_AUDIO_CHANNEL_LEFT)},
+    //@const CONFIG_VALUE_I2S_CHANNEL_TYPE_RIGHT number 驱动私有参数的I2S通道类型可选值，右声道
+    { "CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT",			ROREG_INT(LUAT_AUDIO_CHANNEL_RIGHT)},
+    //@const CONFIG_VALUE_I2S_CHANNEL_TYPE_STEREO number 驱动私有参数的I2S通道类型可选值，立体声
+    { "CFG_VALUE_I2S_CHANNEL_TYPE_STEREO",			ROREG_INT(LUAT_AUDIO_CHANNEL_STEREO)},
 
 	{ NULL,            ROREG_INT(0)}
 };

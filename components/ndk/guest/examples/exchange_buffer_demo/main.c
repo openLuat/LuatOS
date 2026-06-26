@@ -1,9 +1,11 @@
-#include <stdint.h>
-
-#define NDK_RAM_BASE    0x80000000u
-#define NDK_EXCHANGE    0x11110000u
-#define NDK_SYSCON      0x11100000u
-#define NDK_DONE_MARKER 0x5555u
+/*
+ * exchange_buffer_demo — exercise the host<->guest exchange buffer.
+ *
+ * The host writes a small request into the first 16 bytes; the guest
+ * computes sum / xor / verdict and stores them into the result region
+ * (bytes 16-31) of the exchange buffer. Then exits via SYSCON 0x5555.
+ */
+#include "luat_ndk_helper.h"
 
 typedef struct {
     uint32_t a;
@@ -19,34 +21,25 @@ typedef struct {
     uint32_t reserved;
 } exchange_result_t;
 
-static uint32_t ndk_memory_size(void) {
-    uint32_t size = 0;
-    __asm__ volatile(".option norvc\ncsrr %0, 0x13B" : "=r"(size));
-    return size;
-}
-
 static int main(void) {
-    volatile exchange_request_t* req = (volatile exchange_request_t*)NDK_EXCHANGE;
-    volatile exchange_result_t* out = (volatile exchange_result_t*)(NDK_EXCHANGE + 16u);
+    volatile exchange_request_t *req =
+        (volatile exchange_request_t *)ndk_exchange_ptr();
+    volatile exchange_result_t *out =
+        (volatile exchange_result_t *)(ndk_exchange_ptr() + 16u);
 
-    req->a = 0x12345678u;
-    req->b = 0x9ABCDEF0u;
-    req->control = 0xA5A50001u;
+    ndk_exchange_write_u32(0,  0x12345678u);          /* req->a */
+    ndk_exchange_write_u32(4,  0x9ABCDEF0u);          /* req->b */
+    ndk_exchange_write_u32(8,  0xA5A50001u);          /* req->control */
+    ndk_exchange_write_u32(12, 0u);                   /* req->reserved */
 
-    out->sum = req->a + req->b;
-    out->xorv = req->a ^ req->b;
-    out->verdict = (req->control == 0xA5A50001u) ? 0x900Du : 0xBADu;
+    ndk_exchange_write_u32(16, req->a + req->b);                          /* out->sum */
+    ndk_exchange_write_u32(20, req->a ^ req->b);                          /* out->xorv */
+    ndk_exchange_write_u32(24,
+        (req->control == 0xA5A50001u) ? 0x900Du : 0xBADu);                /* out->verdict */
+    ndk_exchange_write_u32(28, 0u);                                       /* out->reserved */
 
-    *(volatile uint32_t*)NDK_SYSCON = NDK_DONE_MARKER;
+    ndk_exit_ok();
     return 0;
 }
 
-__attribute__((noreturn)) void _start(void) {
-    uintptr_t sp_top = (uintptr_t)(NDK_RAM_BASE + ndk_memory_size() - 16u);
-    __asm__ volatile("mv sp, %0" :: "r"(sp_top));
-    (void)main();
-    while (1) {
-        __asm__ volatile("wfi");
-    }
-}
-
+NDK_GUEST_START(main)

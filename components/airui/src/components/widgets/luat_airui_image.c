@@ -112,19 +112,27 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx)
         return NULL;
     }
     
-    // 绑定点击事件（仅当用户提供回调）
+    // 绑定点击/长按事件（长按统一在抬起时判定）
     int callback_ref = airui_component_capture_callback(L, idx, "on_click");
-    if (callback_ref != LUA_NOREF) {  // LUA_NOREF
-        // 使图片成为可点击对象（默认 LVGL Image 不响应点击事件）
-        lv_obj_add_flag(img, LV_OBJ_FLAG_CLICKABLE);
-        airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
-    }
-
-    // 绑定长按事件（仅当用户提供回调）
     int long_press_ref = airui_component_capture_callback(L, idx, "on_long_press");
-    if (long_press_ref != LUA_NOREF) {
-        lv_obj_add_flag(img, LV_OBJ_FLAG_CLICKABLE);
-        airui_component_bind_event(meta, AIRUI_EVENT_LONG_PRESSED, long_press_ref);
+    if (callback_ref != LUA_NOREF || long_press_ref != LUA_NOREF) {
+        if (airui_component_enable_release_select_dispatch(meta) != AIRUI_OK) {
+            if (callback_ref != LUA_NOREF) {
+                luaL_unref(L_state, LUA_REGISTRYINDEX, callback_ref);
+            }
+            if (long_press_ref != LUA_NOREF) {
+                luaL_unref(L_state, LUA_REGISTRYINDEX, long_press_ref);
+            }
+            lv_obj_delete(img);
+            return NULL;
+        }
+
+        if (callback_ref != LUA_NOREF) {
+            airui_component_set_callback_ref(meta, AIRUI_EVENT_CLICKED, callback_ref);
+        }
+        if (long_press_ref != LUA_NOREF) {
+            airui_component_set_callback_ref(meta, AIRUI_EVENT_LONG_PRESSED, long_press_ref);
+        }
     }
     
     return img;

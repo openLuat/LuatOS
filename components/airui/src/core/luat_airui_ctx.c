@@ -30,6 +30,7 @@ static int airui_start_runtime_timers(airui_ctx_t *ctx);
 static void airui_stop_runtime_timers(airui_ctx_t *ctx);
 static void airui_pause_lvgl_timers(airui_ctx_t *ctx);
 static void airui_resume_lvgl_timers(airui_ctx_t *ctx);
+static void airui_set_sleep_mode(airui_ctx_t *ctx, airui_sleep_mode_t mode);
 
 static void airui_feed_wdt_if_enabled(void)
 {
@@ -79,6 +80,11 @@ static void display_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t 
 {
     airui_ctx_t *ctx = (airui_ctx_t *)lv_display_get_user_data(disp);
     if (ctx == NULL || ctx->ops == NULL || ctx->ops->display_ops == NULL) {
+        return;
+    }
+
+    if (airui_is_sleeping(ctx)) {
+        lv_display_flush_ready(disp);
         return;
     }
     
@@ -145,7 +151,7 @@ static int airui_refresh_msg_handler(lua_State *L, void *ptr) {
         handled_seq = ctx->refresh_posted_seq;
     }
 
-    if (ctx->sleeping) {
+    if (airui_is_deep_sleeping(ctx)) {
         if (handled_seq > ctx->refresh_handled_seq) {
             ctx->refresh_handled_seq = handled_seq;
         }
@@ -167,7 +173,7 @@ static void airui_refresh_timer_cb(LUAT_RT_CB_PARAM) {
     uint32_t next_seq = 0;
     uint32_t now = 0;
     bool has_unhandled = false;
-    if (ctx == NULL || ctx->sleeping) {
+    if (ctx == NULL || airui_is_deep_sleeping(ctx)) {
         return;
     }
 
@@ -350,6 +356,17 @@ static void airui_resume_lvgl_timers(airui_ctx_t *ctx)
     }
 }
 
+// 设置休眠模式
+static void airui_set_sleep_mode(airui_ctx_t *ctx, airui_sleep_mode_t mode)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    ctx->sleep_mode = mode;
+    ctx->sleeping = (mode != AIRUI_SLEEP_MODE_NONE);
+}
+
 /**
  * 创建 AIRUI 上下文对象
  * @param ctx 上下文指针（输出）
@@ -366,6 +383,7 @@ int airui_ctx_create(airui_ctx_t *ctx, const airui_platform_ops_t *ops)
     memset(ctx, 0, sizeof(airui_ctx_t));
     ctx->touch_last_state = AIRUI_TOUCH_STATE_NONE;
     ctx->sleep_power_down_lcd = true;
+    airui_set_sleep_mode(ctx, AIRUI_SLEEP_MODE_NONE);
     
     // 如果没有传入 ops，则根据编译时宏定义自动选择
     if (ops == NULL) {
@@ -576,8 +594,14 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     return AIRUI_OK;
 }
 
-// 休眠 AIRUI
+// 兼容旧 API：无参数时默认进入深度睡眠
 int airui_sleep(airui_ctx_t *ctx)
+{
+    return airui_sleep_ex(ctx, AIRUI_SLEEP_MODE_DEEP);
+}
+
+// 休眠 AIRUI，支持指定休眠模式
+int airui_sleep_ex(airui_ctx_t *ctx, airui_sleep_mode_t mode)
 {
     int ret = AIRUI_OK;
 
@@ -586,37 +610,70 @@ int airui_sleep(airui_ctx_t *ctx)
         return AIRUI_ERR_NOT_INITIALIZED;
     }
 
-    if (ctx->sleeping) {
+    if (mode != AIRUI_SLEEP_MODE_LIGHT && mode != AIRUI_SLEEP_MODE_DEEP) {
+        LLOGE("airui_sleep invalid mode=%d ctx=%p", (int)mode, ctx);
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (airui_is_sleeping(ctx)) {
         LLOGW("airui_sleep ignored already sleeping ctx=%p", ctx);
         return AIRUI_OK;
     }
 
-    airui_pause_lvgl_timers(ctx);
+    if (mode == AIRUI_SLEEP_MODE_DEEP) {
+        airui_pause_lvgl_timers(ctx);
 
-    if (ctx->tick_rtos_timer != NULL) {
-        luat_rtos_timer_stop((luat_rtos_timer_t)ctx->tick_rtos_timer);
+        if (ctx->tick_rtos_timer != NULL) {
+            luat_rtos_timer_stop((luat_rtos_timer_t)ctx->tick_rtos_timer);
+        }
+        if (ctx->refresh_rtos_timer != NULL) {
+            luat_rtos_timer_stop((luat_rtos_timer_t)ctx->refresh_rtos_timer);
+        }
+
+        ctx->refresh_posted_seq = 0;
+        ctx->refresh_handled_seq = 0;
+        ctx->refresh_last_post_tick = 0;
     }
-    if (ctx->refresh_rtos_timer != NULL) {
-        luat_rtos_timer_stop((luat_rtos_timer_t)ctx->refresh_rtos_timer);
-    }
 
-    ctx->refresh_posted_seq = 0;
-    ctx->refresh_handled_seq = 0;
-    ctx->refresh_last_post_tick = 0;
+    airui_set_sleep_mode(ctx, mode);
 
-    ctx->sleeping = true;
-
-    if (ctx->ops != NULL && ctx->ops->display_ops != NULL && ctx->ops->display_ops->suspend != NULL) {
-        ret = ctx->ops->display_ops->suspend(ctx);
+    if (mode == AIRUI_SLEEP_MODE_DEEP &&
+        ctx->ops != NULL &&
+        ctx->ops->input_ops != NULL &&
+        ctx->ops->input_ops->suspend != NULL) {
+        ret = ctx->ops->input_ops->suspend(ctx, mode);
         if (ret != 0) {
-            ctx->sleeping = false;
-            LLOGE("airui_sleep suspend failed restore runtime ctx=%p", ctx);
+            airui_set_sleep_mode(ctx, AIRUI_SLEEP_MODE_NONE);
             airui_resume_lvgl_timers(ctx);
             if (ctx->tick_rtos_timer != NULL) {
                 luat_rtos_timer_start((luat_rtos_timer_t)ctx->tick_rtos_timer, 5, 1, airui_lv_tick_timer_handler, NULL);
             }
             if (ctx->refresh_rtos_timer != NULL) {
                 luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
+            }
+            return ret;
+        }
+    }
+
+    if (ctx->ops != NULL && ctx->ops->display_ops != NULL && ctx->ops->display_ops->suspend != NULL) {
+        ret = ctx->ops->display_ops->suspend(ctx);
+        if (ret != 0) {
+            if (mode == AIRUI_SLEEP_MODE_DEEP &&
+                ctx->ops != NULL &&
+                ctx->ops->input_ops != NULL &&
+                ctx->ops->input_ops->resume != NULL) {
+                ctx->ops->input_ops->resume(ctx, mode);
+            }
+            airui_set_sleep_mode(ctx, AIRUI_SLEEP_MODE_NONE);
+            LLOGE("airui_sleep suspend failed restore runtime ctx=%p", ctx);
+            if (mode == AIRUI_SLEEP_MODE_DEEP) {
+                airui_resume_lvgl_timers(ctx);
+                if (ctx->tick_rtos_timer != NULL) {
+                    luat_rtos_timer_start((luat_rtos_timer_t)ctx->tick_rtos_timer, 5, 1, airui_lv_tick_timer_handler, NULL);
+                }
+                if (ctx->refresh_rtos_timer != NULL) {
+                    luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
+                }
             }
             return ret;
         }
@@ -635,7 +692,9 @@ int airui_wakeup(airui_ctx_t *ctx, bool auto_refresh)
         return AIRUI_ERR_NOT_INITIALIZED;
     }
 
-    if (!ctx->sleeping) {
+    airui_sleep_mode_t prev_mode = airui_get_sleep_mode(ctx);
+
+    if (!airui_is_sleeping(ctx)) {
         LLOGW("airui_wakeup ignored not sleeping ctx=%p", ctx);
         return AIRUI_OK;
     }
@@ -647,26 +706,38 @@ int airui_wakeup(airui_ctx_t *ctx, bool auto_refresh)
         }
     }
 
-    if (ctx->tick_rtos_timer != NULL) {
-        ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->tick_rtos_timer, 5, 1, airui_lv_tick_timer_handler, NULL);
-        if (ret != 0) {
-            LLOGE("airui_wakeup start tick_rtos_timer failed ret=%d ctx=%p", ret, ctx);
-            return AIRUI_ERR_PLATFORM_ERROR;
+    if (prev_mode == AIRUI_SLEEP_MODE_DEEP) {
+        if (ctx->ops != NULL &&
+            ctx->ops->input_ops != NULL &&
+            ctx->ops->input_ops->resume != NULL) {
+            ret = ctx->ops->input_ops->resume(ctx, prev_mode);
+            if (ret != 0) {
+                return ret;
+            }
         }
-    }
-    if (ctx->refresh_rtos_timer != NULL) {
-        ctx->refresh_posted_seq = 0;
-        ctx->refresh_handled_seq = 0;
-        ctx->refresh_last_post_tick = 0;
-        ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
-        if (ret != 0) {
-            LLOGE("airui_wakeup start refresh_rtos_timer failed ret=%d ctx=%p", ret, ctx);
-            return AIRUI_ERR_PLATFORM_ERROR;
+
+        if (ctx->tick_rtos_timer != NULL) {
+            ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->tick_rtos_timer, 5, 1, airui_lv_tick_timer_handler, NULL);
+            if (ret != 0) {
+                LLOGE("airui_wakeup start tick_rtos_timer failed ret=%d ctx=%p", ret, ctx);
+                return AIRUI_ERR_PLATFORM_ERROR;
+            }
         }
+        if (ctx->refresh_rtos_timer != NULL) {
+            ctx->refresh_posted_seq = 0;
+            ctx->refresh_handled_seq = 0;
+            ctx->refresh_last_post_tick = 0;
+            ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
+            if (ret != 0) {
+                LLOGE("airui_wakeup start refresh_rtos_timer failed ret=%d ctx=%p", ret, ctx);
+                return AIRUI_ERR_PLATFORM_ERROR;
+            }
+        }
+
+        airui_resume_lvgl_timers(ctx);
     }
 
-    airui_resume_lvgl_timers(ctx);
-    ctx->sleeping = false;
+    airui_set_sleep_mode(ctx, AIRUI_SLEEP_MODE_NONE);
     if (auto_refresh) {
         lv_obj_t *act_scr = lv_display_get_screen_active(ctx->display);
         if (act_scr != NULL) {
@@ -687,7 +758,7 @@ int airui_full_refresh(airui_ctx_t *ctx)
         return AIRUI_ERR_NOT_INITIALIZED;
     }
 
-    if (ctx->sleeping) {
+    if (airui_is_sleeping(ctx)) {
         LLOGW("airui_full_refresh ignored while sleeping ctx=%p", ctx);
         return AIRUI_ERR_PLATFORM_ERROR;
     }
@@ -701,6 +772,12 @@ int airui_full_refresh(airui_ctx_t *ctx)
     lv_obj_invalidate(act_scr);
     lv_refr_now(ctx->display);
     return AIRUI_OK;
+}
+
+// 获取当前休眠模式
+airui_sleep_mode_t airui_get_sleep_mode(const airui_ctx_t *ctx)
+{
+    return ctx == NULL ? AIRUI_SLEEP_MODE_NONE : ctx->sleep_mode;
 }
 
 /**

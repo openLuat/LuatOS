@@ -45,8 +45,8 @@ end
 
 -- 鼠标移动完成后的动作：放大搜索图标，关闭窗口，发布事件
 local function on_mouse_arrive()
-    exwin.close(window_id)
     sys.publish("OPEN_IDLE_WIN")
+    exwin.close(window_id)
 end
 
 -- 鼠标移动一步
@@ -68,7 +68,7 @@ local function move_mouse_step(tx, ty)
         end
         search_icon:set_zoom(ZOOM_STEP1)
         mouse_img:destroy()
-        sys.timerStart(on_mouse_arrive, 2500)
+        sys.timerStart(on_mouse_arrive, 100)
     else
         -- 继续移动
         local sx = (dx / dt) * MOUSE_SPEED

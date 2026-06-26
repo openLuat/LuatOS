@@ -6,7 +6,7 @@ Shows a minimal GPIO host-ABI flow from guest side: config, write, and read via 
 
 ## Dependencies
 
-- One supported RISC-V toolchain (GNU RISC-V or LLVM)
+- LLVM/Clang with RISC-V support: `clang` + `ld.lld` + `llvm-objcopy` (≥ 16.0)
 - Host runtime with GPIO host-ABI enabled for meaningful status codes
 - PowerShell or CMD
 

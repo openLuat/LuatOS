@@ -6,7 +6,7 @@ Demonstrates a simple request/response layout in the NDK exchange buffer using f
 
 ## Dependencies
 
-- One supported RISC-V toolchain (GNU RISC-V or LLVM; same detection as `build_example.ps1`)
+- LLVM/Clang with RISC-V support: `clang` + `ld.lld` + `llvm-objcopy` (≥ 16.0)
 - PowerShell or CMD
 
 ## Build

@@ -36,6 +36,7 @@ typedef struct airui_component_ref airui_component_ref_t;
 #define AIRUI_TEXTAREA_MT "airui.textarea"
 #define AIRUI_KEYBOARD_MT "airui.keyboard"
 #define AIRUI_LOTTIE_MT "airui.lottie"
+#define AIRUI_SLIDER_MT "airui.slider"
 #define AIRUI_ANIMIMG_MT "airui.animimg"
 #define AIRUI_VIDEO_MT "airui.video"
 #define AIRUI_CHART_MT "airui.chart"
@@ -44,6 +45,7 @@ typedef struct airui_component_ref airui_component_ref_t;
 #define AIRUI_SHAPE_MT "airui.shape"
 #define AIRUI_CHECKBOX_MT "airui.checkbox"
 #define AIRUI_NES_MT "airui.nes"
+#define AIRUI_CAMERA_MT "airui.camera"
 
 /** 组件类型 */
 typedef enum {
@@ -68,7 +70,9 @@ typedef enum {
     AIRUI_COMPONENT_SPINNER,
     AIRUI_COMPONENT_SHAPE,
     AIRUI_COMPONENT_CHECKBOX,
-    AIRUI_COMPONENT_NES
+    AIRUI_COMPONENT_NES,
+    AIRUI_COMPONENT_CAMERA,
+    AIRUI_COMPONENT_SLIDER
 } airui_component_type_t;
 
 /** Video 格式 */
@@ -141,6 +145,9 @@ struct airui_component_meta {
     
     // 回调引用（Lua registry）
     int callback_refs[AIRUI_CALLBACK_MAX];  /**< 事件回调引用数组 */
+
+    // 简单点击/长按在抬起时统一判定的内部状态是否已安装
+    bool release_select_dispatch_installed;
     
     // 组件类型
     uint8_t component_type;
@@ -301,6 +308,20 @@ int airui_component_bind_event(
     airui_component_meta_t *meta,
     airui_event_type_t event_type,
     int callback_ref);
+
+/**
+ * 仅更新回调引用，不绑定 LVGL 原生事件。
+ * 供需要自定义点击/长按判定时使用。
+ */
+int airui_component_set_callback_ref(
+    airui_component_meta_t *meta,
+    airui_event_type_t event_type,
+    int callback_ref);
+
+/**
+ * 为简单可点击对象安装“按下计时、抬起判定短按/长按”的内部分发。
+ */
+int airui_component_enable_release_select_dispatch(airui_component_meta_t *meta);
 
 /**
  * 释放组件所有回调引用
@@ -583,8 +604,12 @@ int airui_win_set_style(lv_obj_t *win, void *L, int idx); //按样式表设置�
  * Textarea组件
  */
 lv_obj_t *airui_textarea_create_from_config(void *L, int idx);
+int airui_textarea_set_style(lv_obj_t *textarea, void *L, int idx); //按样式表设置 textarea 样式
+int airui_textarea_set_align(lv_obj_t *textarea, lv_text_align_t align); //设置文本对齐
+int airui_textarea_set_disabled(lv_obj_t *textarea, bool disabled); //设置禁用状态
 int airui_textarea_set_text(lv_obj_t *textarea, const char *text); //设置文本内容
 const char *airui_textarea_get_text(lv_obj_t *textarea); //获取文本内容
+int airui_textarea_set_mode(lv_obj_t *textarea, const char *mode); //设置模式，normal/password
 int airui_textarea_set_cursor(lv_obj_t *textarea, uint32_t pos); //设置光标位置
 int airui_textarea_set_on_text_change(lv_obj_t *textarea, int callback_ref); //设置文本改变回调
 int airui_textarea_attach_keyboard(lv_obj_t *textarea, lv_obj_t *keyboard); //关联键盘
@@ -622,6 +647,16 @@ int airui_lottie_set_loop(lv_obj_t *lottie, bool loop);
 int airui_lottie_set_speed(lv_obj_t *lottie, float speed);
 int airui_lottie_set_progress(lv_obj_t *lottie, float progress);
 int airui_lottie_destroy(lv_obj_t *lottie);
+
+/**
+ * Slider组件
+ */
+lv_obj_t *airui_slider_create_from_config(void *L, int idx);
+int airui_slider_set_value(lv_obj_t *slider, int32_t value, bool animated);
+int airui_slider_set_range(lv_obj_t *slider, int32_t min, int32_t max);
+int airui_slider_set_style(lv_obj_t *slider, void *L, int idx);
+int airui_slider_get_value(lv_obj_t *slider);
+int airui_slider_destroy(lv_obj_t *slider);
 
 /**
  * AnimImg组件
@@ -701,6 +736,18 @@ int airui_nes_set_key(lv_obj_t *nes, int key, int pressed);
 #define AIRUI_NES_KEY_B      6
 #define AIRUI_NES_KEY_START  7
 #define AIRUI_NES_KEY_SELECT 8
+
+/**
+ * Camera 组件（摄像头预览，lv_image + 双 framebuffer RGB565 模式）
+ */
+lv_obj_t *airui_camera_create_from_config(void *L, int idx);
+int airui_camera_start(lv_obj_t *camera);
+int airui_camera_stop(lv_obj_t *camera);
+int airui_camera_destroy(lv_obj_t *camera);
+int airui_camera_push_frame(lv_obj_t *camera, const uint8_t *rgb565, uint16_t w, uint16_t h);
+void airui_camera_register_target(lv_obj_t *camera);
+void airui_camera_unregister_target(void);
+lv_obj_t *airui_camera_get_target(void);
 
 #ifdef __cplusplus
 }

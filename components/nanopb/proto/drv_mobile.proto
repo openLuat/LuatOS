@@ -198,6 +198,32 @@ message MobileScellExternInfoResponse {
     optional MobileScellExternInfo info   = 2;
 }
 
+// P5: mobile.scell() 组合接口，从机本地组装全部数据，一次 RPC 返回
+message MobileScellInfoRequest {
+    reserved 1;
+    reserved "sim_id";
+}
+
+message MobileScellInfo {
+    optional uint32 earfcn = 1;
+    optional uint32 pci    = 2;
+    optional uint32 mcc    = 3;
+    optional uint32 mnc    = 4;
+    optional uint32 band   = 5;
+    optional uint32 eci    = 6;
+    optional uint32 cid    = 7;
+    optional uint32 tac    = 8;
+    optional int32  snr    = 9;
+    optional int32  rsrp   = 10;
+    optional int32  rsrq   = 11;
+    optional int32  rssi   = 12;
+}
+
+message MobileScellInfoResponse {
+    required MobileResult    result = 1;
+    optional MobileScellInfo info   = 2;
+}
+
 // 统一 RPC 请求 (rpc_id = 0x0700)
 message MobileRpcRequest {
     required uint32 req_id = 1;
@@ -208,6 +234,7 @@ message MobileRpcRequest {
         MobileCellScanRequest          cell_scan           = 13;
         MobileScellExternInfoRequest   scell_extern        = 14;
         MobileGlobalStatusRequest      global_status       = 15;
+        MobileScellInfoRequest         scell_info          = 16;
     }
 }
 
@@ -221,6 +248,7 @@ message MobileRpcResponse {
         MobileCellScanResponse          cell_scan           = 13;
         MobileScellExternInfoResponse   scell_extern        = 14;
         MobileGlobalStatusResponse      global_status       = 15;
+        MobileScellInfoResponse         scell_info          = 16;
     }
 }
 

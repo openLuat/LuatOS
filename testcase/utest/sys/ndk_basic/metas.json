@@ -1,0 +1,9 @@
+{
+    "timeout": 30,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "C-layer NDK utest bridge tests"
+}

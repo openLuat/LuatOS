@@ -17,6 +17,7 @@
 
 #include "luat_mem.h"
 #include "luat_timer_engine.h"
+#include "rotable2.h"
 
 
 #ifdef LUAT_USE_LWIP
@@ -164,9 +165,8 @@ int main(int argc, char** argv) {
 static int luat_webc_startup(void) {
     const luat_pcconf_t* conf = luat_pcconf_get();
     int cadence = 5;
-    if (cfg_webc_port <= 0 && conf && conf->web_console_enabled) {
-        cfg_webc_port = conf->web_console_port;
-    }
+    // Web Console 仅通过命令行 --webc=<port> 显式开启,
+    // 不再从 pcconf.json 的 web_console.enabled / port 读取启动决策
     if (cfg_webc_port <= 0) {
         return 0;
     }
@@ -183,18 +183,79 @@ static void luat_webc_shutdown(void) {
 // UI相关
 
 #ifdef LUAT_USE_LVGL
+static volatile int lvgl_timer_enabled = 1;
+
 static int luat_lvg_handler(lua_State* L, void* ptr) {
     (void)L;
     (void)ptr;
+    if (!lvgl_timer_enabled) return 0;
     lv_tick_inc(25);
     lv_task_handler();
     return 0;
 }
 static void lvgl_timer_cb(void* arg) {
     (void)arg;
+    if (!lvgl_timer_enabled) return;
     rtos_msg_t msg = {
         .handler = luat_lvg_handler
     };
     luat_msgbus_put(&msg, 0);
+}
+
+// 供 Lua 层在 sandbox_cleanup 前暂停 LVGL timer, 防止 widget 销毁竞态导致 C0000005
+static int lua_lvgl_timer_stop(lua_State *L) {
+    (void)L;
+    lvgl_timer_enabled = 0;
+    LLOGD("LVGL timer stopped (request from Lua)");
+    return 0;
+}
+static int lua_lvgl_timer_start(lua_State *L) {
+    (void)L;
+    lvgl_timer_enabled = 1;
+    LLOGD("LVGL timer started (request from Lua)");
+    return 0;
+}
+static int lua_lvgl_timer_status(lua_State *L) {
+    lua_pushboolean(L, lvgl_timer_enabled);
+    return 1;
+}
+
+static const rotable_Reg_t reg_lvgltimer[] = {
+    { "stop",   ROREG_FUNC(lua_lvgl_timer_stop) },
+    { "start",  ROREG_FUNC(lua_lvgl_timer_start) },
+    { "status", ROREG_FUNC(lua_lvgl_timer_status) },
+    { NULL,     ROREG_INT(0) }
+};
+
+LUAMOD_API int luaopen_lvgltimer(lua_State *L) {
+    luat_newlib2(L, reg_lvgltimer);
+    return 1;
+}
+#endif
+
+#ifdef LUAT_USE_AIRUI
+// PC 模拟器截图模块: pcscreenshot.capture(path)
+#include "luat_sdl2.h"
+
+static int lua_pcscreenshot_capture(lua_State *L) {
+    const char* path = luaL_checkstring(L, 1);
+    int ret = luat_sdl2_screenshot_bmp(path);
+    if (ret != 0) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "screenshot failed");
+        return 2;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static const rotable_Reg_t reg_pcscreenshot[] = {
+    { "capture", ROREG_FUNC(lua_pcscreenshot_capture) },
+    { NULL,     ROREG_INT(0) }
+};
+
+LUAMOD_API int luaopen_pcscreenshot(lua_State *L) {
+    luat_newlib2(L, reg_pcscreenshot);
+    return 1;
 }
 #endif

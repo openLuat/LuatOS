@@ -7,7 +7,7 @@
 #include "luat_rtos.h"
 
 #ifndef LUAT_NDK_MAX_RAM_SIZE
-#define LUAT_NDK_MAX_RAM_SIZE (32 * 1024)
+#define LUAT_NDK_MAX_RAM_SIZE (512 * 1024)
 #endif
 
 #ifndef LUAT_NDK_DEFAULT_RAM_SIZE

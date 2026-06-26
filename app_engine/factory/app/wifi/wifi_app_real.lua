@@ -54,6 +54,31 @@ local is_air1601 = chip:find("Air1601") or chip:find("Air1602")
 local is_air8000 = chip:find("Air8000")
 local is_air8101 = chip:find("Air8101")
 
+-- ==================== SPI 以太网兜底辅助 ====================
+-- 根据 project_config.ethernet 构建以太网卡优先级条目
+-- 当 WiFi 关闭/断开时，以太网作为独立网卡持续可用
+local function build_ethernet_fallback()
+    if not config.features or not config.features.ethernet then
+        return nil
+    end
+    local eth_cfg = config.ethernet
+    if not eth_cfg or eth_cfg.spi_id == nil or eth_cfg.pin_cs == nil then
+        return nil
+    end
+    local eth_opts = {spi = eth_cfg.spi_id, cs = eth_cfg.pin_cs}
+    if eth_cfg.pin_irq then
+        eth_opts.irq = eth_cfg.pin_irq
+    end
+    local param = {
+        tp = netdrv.CH390,
+        opts = eth_opts,
+    }
+    if eth_cfg.pin_pwr then
+        param.pwrpin = eth_cfg.pin_pwr
+    end
+    return { ETHERNET = param }
+end
+
 -- ==================== 4G 兜底辅助 ====================
 -- 根据配置文件区分原生 4G(LWIP_GP) 和 airlink 4G(airlink_4G)
 local function build_4g_fallback()
@@ -78,6 +103,22 @@ local function build_4g_fallback()
         -- 原生 4G（Air8000/Air780E 系列）
         return { LWIP_GP = true }
     end
+end
+
+-- ==================== 构建以太网 + 4G 兜底优先级列表 ====================
+-- 用于 WiFi 关闭/断开时，确保以太网和 4G 仍然可用
+-- 优先级：以太网 → 4G
+local function build_fallback_priority()
+    local priority = {}
+    local fb_eth = build_ethernet_fallback()
+    if fb_eth then
+        table.insert(priority, fb_eth)
+    end
+    local fb_4g = build_4g_fallback()
+    if fb_4g then
+        table.insert(priority, fb_4g)
+    end
+    return priority
 end
 
 -- ==================== 配置常量 ====================
@@ -146,19 +187,19 @@ local hw_busy = false
 -- ==================== exnetif 平台适配 ====================
 
 --[[
-构建 WiFi 配置
-@param string ssid
-@param string password
-@param table cfg - 保存的配置（可选）
-@return table - exnetif set_priority_order 的参数
+构成 WiFi 对 exnetif 的接口
+其第一个参数传入的是真正的 ssid 与 password，而函数签名中的 bssid 会在 wlan.connect 中作为检索 AP 的参数。
+这样做的目的是确保 bssid 在被 exnetif 使用之前已经转换为了正确的 6 字节二进制
+
+（bssid 出 wlan.scanResult() 时已是 toHex() 过的字符串——见 handle_scan_done，
+而 wlan.connect() 接收原始 6 字节——见 luat_lib_wlan.c:149-152）
 ]]
 local function build_network_priority(ssid, password, cfg)
     cfg = cfg or {}
     local priority = {}
 
-    if ssid and ssid ~= "" then  -- 无密码热点允许password为空
+    if ssid and ssid ~= "" then
         if is_air1601 then
-            -- Air1601/Air1602 WiFi 走 SPI 接口（SPI1, CS=8, RDY=14）
             table.insert(priority, {
                 airlink_wifi = {
                     airlink_type = airlink.MODE_SPI_MASTER,
@@ -167,11 +208,12 @@ local function build_network_priority(ssid, password, cfg)
                     airlink_rdy_pin = 14,
                     ssid = ssid,
                     password = password,
+                    bssid = cfg.bssid,
                     auto_socket_switch = (cfg.auto_socket_switch ~= false)
                 }
             })
         else
-            local wifi_cfg = { ssid = ssid, password = password }
+            local wifi_cfg = { ssid = ssid, password = password, bssid = cfg.bssid }
             if cfg.need_ping ~= nil then wifi_cfg.need_ping = cfg.need_ping end
             if cfg.local_network_mode ~= nil then wifi_cfg.local_network_mode = cfg.local_network_mode end
             if cfg.ping_ip and cfg.ping_ip ~= "" then wifi_cfg.ping_ip = cfg.ping_ip end
@@ -179,6 +221,12 @@ local function build_network_priority(ssid, password, cfg)
             if cfg.auto_socket_switch ~= nil then wifi_cfg.auto_socket_switch = cfg.auto_socket_switch end
             table.insert(priority, { WIFI = wifi_cfg })
         end
+    end
+
+    -- 以太网兜底（SPI CH390H）
+    local fb_eth = build_ethernet_fallback()
+    if fb_eth then
+        table.insert(priority, fb_eth)
     end
 
     -- 4G 兜底
@@ -422,10 +470,11 @@ local function run_auto_connect()
     log.info("wifi_app", "开机自动连接")
     local vrf = auto_scan_verify()
     if vrf.verified then
-        log.info("wifi_app", "自动连接:", vrf.ssid, "信号:", vrf.signal)
+        log.info("wifi_app", "自动连接:", vrf.ssid, "信号:", vrf.signal, "bssid:", vrf.bssid or "N/A")
         sys.publish("WIFI_CONNECT_REQ", {
             ssid = vrf.ssid,
             password = vrf.password,
+            bssid = vrf.bssid,
             advanced_config = vrf.config and {
                 need_ping = vrf.config.need_ping,
                 local_network_mode = vrf.config.local_network_mode,
@@ -446,11 +495,11 @@ local function on_storage_loaded(data)
     saved_config = data.config
     log.info("wifi_app", "配置加载完成:", saved_config.ssid, "enabled:", saved_config.wifi_enabled)
 
-    -- 如果 WiFi 关闭，仅启用 4G
+    -- 如果 WiFi 关闭，启用以太网 + 4G 兜底
     if not saved_config.wifi_enabled then
-        local fb_4g = build_4g_fallback()
-        if fb_4g then
-            exnetif.set_priority_order({ fb_4g })
+        local priority = build_fallback_priority()
+        if #priority > 0 then
+            exnetif.set_priority_order(priority)
         end
         return
     end
@@ -459,10 +508,10 @@ local function on_storage_loaded(data)
     if saved_config.ssid and saved_config.ssid ~= "" then  -- 无密码热点允许password为空
         sys.taskInit(run_auto_connect)
     else
-        -- 无保存 SSID 但 WiFi 开启 → 先启用 4G（如有）
-        local fb_4g = build_4g_fallback()
-        if fb_4g then
-            exnetif.set_priority_order({ fb_4g })
+        -- 无保存 SSID 但 WiFi 开启 → 先启用以太网 + 4G（如有）
+        local priority = build_fallback_priority()
+        if #priority > 0 then
+            exnetif.set_priority_order(priority)
         end
     end
     sys.taskInit(function() hw_ready = false end)
@@ -490,9 +539,9 @@ local function on_enable_req(data)
         if connect_timeout_timer then sys.timerStop(connect_timeout_timer); connect_timeout_timer = nil end
         pending_connect = nil
 
-        local fb_4g = build_4g_fallback()
-        if fb_4g then
-            exnetif.set_priority_order({ fb_4g })
+        local priority = build_fallback_priority()
+        if #priority > 0 then
+            exnetif.set_priority_order(priority)
         end
         wifi_state.connected = false
         wifi_state.ready = false
@@ -513,9 +562,9 @@ local function on_enable_req(data)
         if saved_config.ssid and saved_config.ssid ~= "" then  -- 无密码热点允许password为空
             sys.taskInit(run_auto_connect)
         else
-            local fb_4g = build_4g_fallback()
-            if fb_4g then
-                exnetif.set_priority_order({ fb_4g })
+            local priority = build_fallback_priority()
+            if #priority > 0 then
+                exnetif.set_priority_order(priority)
             end
         end
     end
@@ -578,6 +627,10 @@ local function on_connect_req(data)
             if adv.ping_time then cfg.ping_time = adv.ping_time end
             if adv.auto_socket_switch ~= nil then cfg.auto_socket_switch = adv.auto_socket_switch end
         end
+        -- 把 bssid 传入 cfg，以便 build_network_priority 传递到 exnetif → wlan.connect()
+        if bssid and bssid ~= "" then
+            cfg.bssid = bssid
+        end
 
         local priority = build_network_priority(ssid, password, cfg)
         local ok = exnetif.set_priority_order(priority)
@@ -601,9 +654,9 @@ local function on_disconnect_req()
     log.info("wifi_app", "断开请求")
     user_disconnect = true
     exnetif.close(nil, socket.LWIP_STA)
-    local fb_4g = build_4g_fallback()
-    if fb_4g then
-        exnetif.set_priority_order({ fb_4g })
+    local priority = build_fallback_priority()
+    if #priority > 0 then
+        exnetif.set_priority_order(priority)
     end
 end
 

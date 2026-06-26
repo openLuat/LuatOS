@@ -366,7 +366,13 @@ void luat_fifo_delete(luat_fifo_t *fifo, uint32_t size);
  * @note 清空后读写指针都回到起点，但数据内容仍然存在
  * @note 如果需要释放内存，使用 luat_fifo_destroy
  */
-void luat_fifo_clear(luat_fifo_t *fifo);
+static inline void luat_fifo_clear(luat_fifo_t *fifo)
+{
+	if (fifo) {
+		fifo->rpoint = 0;
+		fifo->wpoint = 0;
+	}
+}
 
 /**
  * @brief 销毁 FIFO 队列

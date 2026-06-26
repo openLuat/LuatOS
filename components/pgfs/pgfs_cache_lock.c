@@ -1,8 +1,12 @@
 #include "luat_base.h"
-#include "pgfs_internal.h"
-#include "luat_mem.h"
 #define LUAT_LOG_TAG "pgfs"
 #include "luat_log.h"
+
+#ifdef LUAT_USE_PGFS_COMPONENT
+
+#include "pgfs_internal.h"  /* includes pgfs_nand_ftl.h internally */
+#include "luat_mem.h"
+#include "luat_rtos_legacy.h"
 
 static void pgfs_cache_free_buffer(pgfs_file_cache_t* cache) {
     if (cache == NULL || cache->data == NULL) {
@@ -25,6 +29,11 @@ int pgfs_lock(pgfs_mount_ctx_t* ctx) {
         return -1;
     }
     if (ctx->lock_mode == PGFS_LOCK_MODE_ON) {
+        if (ctx->mutex != NULL) {
+            if (luat_mutex_lock(ctx->mutex) != 0) {
+                return -1;
+            }
+        }
         ctx->stats.lock_acquire_count++;
     }
     else {
@@ -36,6 +45,11 @@ int pgfs_lock(pgfs_mount_ctx_t* ctx) {
 int pgfs_unlock(pgfs_mount_ctx_t* ctx) {
     if (ctx == NULL) {
         return -1;
+    }
+    if (ctx->lock_mode == PGFS_LOCK_MODE_ON) {
+        if (ctx->mutex != NULL) {
+            luat_mutex_unlock(ctx->mutex);
+        }
     }
     return 0;
 }
@@ -130,5 +144,14 @@ int pgfs_cache_flush_to_log(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     if (f->cache.len == 0) {
         return 0;
     }
+    /* Intentionally a no-op: PGFS durability boundary is at fclose, not
+     * fflush. Writing the cache to the data log here would double the
+     * I/O cost of every flush without giving callers the guarantee of
+     * "fclose is unnecessary if I called fflush" — replay still relies
+     * on the apply-cache step in fclose to make the in-memory entry
+     * visible. Callers that need explicit durability can call fclose()
+     * themselves. */
     return 0;
 }
+
+#endif /* LUAT_USE_PGFS_COMPONENT */

@@ -54,14 +54,26 @@ int luat_audio_wav_get_play_info(struct luat_audio_data_codec *codec, luat_buffe
     }
     return -LUAT_ERROR_PARAM_INVALID;
 }
-
-static int _wav_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
-    return LUAT_ERROR_NONE;
+void luat_audio_codec_wav_set_record_info(struct luat_audio_data_codec *codec, luat_audio_common_param_t *info)
+{
+    if (!info->sample_rate) {
+        info->sample_rate = 8000;
+    }
+    if (!info->channel_nums) {
+        info->channel_nums = 1;
+    }
+    if (!info->data_align) {
+        info->data_align = 2;
+    }
+    info->is_signed = 1;
+    codec->common_param.sample_rate = info->sample_rate;
+    codec->common_param.channel_nums = info->channel_nums;
+    codec->common_param.data_align = info->data_align;
+    codec->common_param.one_frame_sample_cnt = info->sample_rate / 100;
+    codec->common_param.one_frame_bytes = codec->common_param.one_frame_sample_cnt * info->data_align * info->channel_nums;
 }
-static void _wav_codec_deinit(luat_audio_data_codec_t* codec) {
-}   
 
-static int _wav_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
+int luat_audio_codec_wav_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
                   const uint8_t *input, uint32_t input_size,
                   uint8_t *output, 
                   uint32_t *decoded_output_size, uint32_t *decoded_used_size) 
@@ -71,14 +83,22 @@ static int _wav_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_p
     *decoded_used_size = input_size;
     return LUAT_ERROR_NONE;
 }
-static int _wav_codec_make_head(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info, uint32_t total_len, luat_buffer_t *out_buffer)
+
+static int _wav_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
+    return LUAT_ERROR_NONE;
+}
+static void _wav_codec_deinit(luat_audio_data_codec_t* codec) {
+}   
+
+
+static int _wav_codec_make_head(luat_audio_data_codec_t* codec, uint32_t total_len, luat_buffer_t *out_buffer)
 {
     uint8_t header[44] = {0};
     uint32_t data_size = total_len;
     uint32_t file_size = data_size + 36;
-    uint16_t block_align = info->data_align * info->channel_nums;
-    uint32_t byte_rate = info->sample_rate * block_align;
-    uint16_t bits_per_sample = info->data_align * 8;
+    uint16_t block_align = codec->common_param.data_align * codec->common_param.channel_nums;
+    uint32_t byte_rate = codec->common_param.sample_rate * block_align;
+    uint16_t bits_per_sample = codec->common_param.data_align * 8;
 
     memcpy(header, "RIFF", 4);
     header[4] = file_size & 0xff;
@@ -89,8 +109,8 @@ static int _wav_codec_make_head(luat_audio_data_codec_t* codec, luat_audio_commo
     memcpy(header + 12, "fmt ", 4);
     header[16] = 16;
     header[20] = 1;
-    header[22] = info->channel_nums;
-    memcpy(header + 24, &info->sample_rate, 4);
+    header[22] = codec->common_param.channel_nums;
+    memcpy(header + 24, &codec->common_param.sample_rate, 4);
     memcpy(header + 28, &byte_rate, 4);
     header[32] = block_align & 0xff;
     header[33] = (block_align >> 8) & 0xff;
@@ -103,30 +123,23 @@ static int _wav_codec_make_head(luat_audio_data_codec_t* codec, luat_audio_commo
     return LUAT_ERROR_NONE;
 }
 
-static int _wav_codec_encode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
-                  const uint8_t *input, uint32_t input_size,
-                  uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size)
-{
-    memcpy(output, input, input_size);
-    *encoded_output_size = input_size;
-    *encoded_used_size = input_size;
-    return LUAT_ERROR_NONE;
-}
+
 
 const luat_audio_data_codec_opts_t luat_audio_data_codec_wav_opts = {
     .init = _wav_codec_init,
     .deinit = _wav_codec_deinit,
     .get_play_info = luat_audio_wav_get_play_info,
+    .set_record_info = luat_audio_codec_wav_set_record_info,
     .pre_decode = NULL,
-    .decode = _wav_codec_decode,
+    .decode = luat_audio_codec_wav_codec_decode,
     .make_head = _wav_codec_make_head,
-    .encode = _wav_codec_encode,
+    .encode = NULL,
     .decode_min_input_len = LUAT_AUDIO_DATA_CACHE_LEN,
     .decode_max_output_len = LUAT_AUDIO_DATA_CACHE_LEN,
     .encode_min_input_len = LUAT_AUDIO_DATA_CACHE_LEN,
     .encode_max_output_len = LUAT_AUDIO_DATA_CACHE_LEN,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_WAV,
-    .is_reentrant = 1,
     .is_hardware = 0,
     .support_detect = 1,
+    .encode_raw_mode = 1,
 };

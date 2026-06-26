@@ -164,8 +164,8 @@ typedef struct {
 | `LUAT_AUDIO_DRIVER_EVENT_*` | `TX_ONE_BLOCK_DONE=0, RX_ONE_BLOCK_DONE` | 中断回调事件 |
 | `LUAT_AUDIO_DRIVER_STATE_*` | `IDLE=0, INITED, ACTIVE, RUNNING` | 驱动状态机 |
 | `LUAT_AUDIO_DRIVER_MODE_*` | `NONE=0, PLAY, RECORD, CALL, CALL_WITH_BUFFER` | 驱动工作模式 |
-| `LUAT_AUDIO_DATA_CODEC_TYPE_*` | `RAW=0, WAV=1, AMR_NB=2, AMR_WB=3, TTS=4, MP3=5, OPUS=6, G711=7, MAX=8` | 编解码器标识 |
-| `LUAT_AUDIO_REQUEST_EVENT_*` | `START=0, NEED_NEW_DATA, GET_NEW_DATA, DECODE_DONE, END, ALL_PLAY_DATA_DONE` | 请求回调事件 |
+| `LUAT_AUDIO_DATA_CODEC_TYPE_*` | `RAW=0, WAV=1, AMR_NB=2, AMR_WB=3, TTS=4, MP3=5, OPUS=6, G711_ULAW=7, G711_ALAW=8, MAX=9` | 编解码器标识 |
+| `LUAT_AUDIO_REQUEST_EVENT_*` | `START=0, DRIVER_START=1, NEED_NEW_DATA=2, GET_NEW_DATA=3, DECODE_DONE=4, END=5, ALL_PLAY_DATA_DONE=6` | 请求回调事件 |
 
 #### 平台可配置常量
 
@@ -735,6 +735,7 @@ luat_audio_request_start(request_block, 1);
 | 事件 | 触发时机 | data/len |
 |------|---------|---------|
 | `EVENT_START` | 请求开始处理 | NULL |
+| `EVENT_DRIVER_START` | 请求块硬件驱动已启动 | NULL |
 | `EVENT_NEED_NEW_DATA` | 流模式需要更多数据 | NULL |
 | `EVENT_GET_NEW_DATA` | 录音数据可用（FIFO 数据 ≥ 水位）| rx_data / len |
 | `EVENT_DECODE_DONE` | 文件解码完成（预留）| NULL |
@@ -886,7 +887,8 @@ org_input_data_fifo
 | TTS | 4 | - | - | - | - |
 | MP3 | 5 | 1792 | 4608 | ✅ | ❌ |
 | OPUS | 6 | - | - | - | - |
-| G711 | 7 | - | - | - | - |
+| G711 μ-Law | 7 | - | - | - | - |
+| G711 A-Law | 8 | - | - | - | - |
 
 注：OPUS 和 G711 的适配代码当前被 `#if 0` 注释，未处于激活状态。
 
@@ -1282,10 +1284,11 @@ function(request_index, event, param)
 | 事件常量 | 值 | 触发时机 | param |
 |---------|-----|---------|-------|
 | `audio_v2.REQUEST_START` | 0 | 开始处理请求 | 无意义 |
-| `audio_v2.REQUEST_NEED_NEW_DATA` | 1 | 播放需要更多数据（流模式） | 无意义 |
-| `audio_v2.REQUEST_GET_NEW_DATA` | 2 | 获取到新录音数据 | zbuff 序号（录音专用）|
-| `audio_v2.REQUEST_DECODE_DONE` | 3 | 请求解码完成（预留） | 无意义 |
-| `audio_v2.REQUEST_END` | 4 | 请求块处理完成（正常/出错/停止） | 无意义 |
+| `audio_v2.REQUEST_DRIVER_START` | 1 | 请求块驱动已启动（硬件开始输出） | 无意义 |
+| `audio_v2.REQUEST_NEED_NEW_DATA` | 2 | 播放需要更多数据（流模式） | 无意义 |
+| `audio_v2.REQUEST_GET_NEW_DATA` | 3 | 获取到新录音数据 | zbuff 序号（录音专用）|
+| `audio_v2.REQUEST_DECODE_DONE` | 4 | 请求解码完成（预留） | 无意义 |
+| `audio_v2.REQUEST_END` | 5 | 请求块处理完成（正常/出错/停止） | 无意义 |
 
 **示例**：
 
@@ -1293,6 +1296,8 @@ function(request_index, event, param)
 audio_v2.on(function(request_index, event, param)
     if event == audio_v2.REQUEST_START then
         log.info("audio", "请求", request_index, "开始播放")
+    elseif event == audio_v2.REQUEST_DRIVER_START then
+        log.info("audio", "请求", request_index, "驱动已启动")
     elseif event == audio_v2.REQUEST_END then
         log.info("audio", "请求", request_index, "播放结束")
     elseif event == audio_v2.REQUEST_NEED_NEW_DATA then
@@ -1511,7 +1516,7 @@ local tx_type, tx_id, rx_type, rx_id = audio_v2.print_probe_id(pid, false)
 |---------|-----|------|-------------|
 | `CFG_PARAM_I2S_MODE` | 0 | I2S 通信模式 | `CFG_VALUE_I2S_MODE_I2S`(0) / `LSB`(1) / `MSB`(2) / `PCMS`(3) / `PCML`(4) |
 | `CFG_PARAM_I2S_FRAME_BITS` | 1 | I2S 帧位宽，需与外部 CODEC 匹配 | 16 / 24 / 32 等 |
-| `CFG_PARAM_I2S_CHANNEL_NUMS` | 2 | I2S 通道数，需与外部 CODEC 匹配 | 1=Mono, 2=Stereo |
+| `CFG_PARAM_I2S_CHANNEL_TYPE` | 2 | I2S 声道输出类型，需与外部 CODEC 匹配 | `CFG_VALUE_I2S_CHANNEL_TYPE_LEFT`(左声道) / `RIGHT`(右声道) / `STEREO`(立体声) |
 | `CFG_PARAM_DAC_BIT_WIDTH` | 3 | DAC 位宽 | 8 / 16 / 24 / 32 |
 
 **返回值**：
@@ -1523,10 +1528,10 @@ local tx_type, tx_id, rx_type, rx_id = audio_v2.print_probe_id(pid, false)
 **示例**：
 
 ```lua
--- 配置 I2S0：标准 I2S 模式，16bit 帧位宽，单声道
+-- 配置 I2S0：标准 I2S 模式，16bit 帧位宽，立体声输出
 audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_I2S)
 audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16)
-audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_NUMS, 1)
+audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_STEREO)
 
 -- 配置 DAC0：16bit 位宽
 audio_v2.config(audio_v2.CFG_PARAM_DAC_BIT_WIDTH, 16)
@@ -1692,10 +1697,11 @@ audio_v2.shutdown(true, true, true, pid)
 | 常量名 | 值 | 说明 |
 |--------|-----|------|
 | `audio_v2.REQUEST_START` | 0 | 开始处理请求 |
-| `audio_v2.REQUEST_NEED_NEW_DATA` | 1 | 需要新的播放数据（流模式）|
-| `audio_v2.REQUEST_GET_NEW_DATA` | 2 | 获取到新录音数据 |
-| `audio_v2.REQUEST_DECODE_DONE` | 3 | 解码完成（预留）|
-| `audio_v2.REQUEST_END` | 4 | 请求处理完成 |
+| `audio_v2.REQUEST_DRIVER_START` | 1 | 请求块驱动已启动（硬件开始输出）|
+| `audio_v2.REQUEST_NEED_NEW_DATA` | 2 | 需要新的播放数据（流模式）|
+| `audio_v2.REQUEST_GET_NEW_DATA` | 3 | 获取到新录音数据 |
+| `audio_v2.REQUEST_DECODE_DONE` | 4 | 解码完成（预留）|
+| `audio_v2.REQUEST_END` | 5 | 请求处理完成 |
 
 #### 驱动总线类型常量（用于 `make_probe_id` / `print_probe_id`）
 
@@ -1718,7 +1724,8 @@ audio_v2.shutdown(true, true, true, pid)
 | `audio_v2.DATA_CODEC_TYPE_TTS` | 4 | TTS 文本转语音 |
 | `audio_v2.DATA_CODEC_TYPE_MP3` | 5 | MP3 编解码器 |
 | `audio_v2.DATA_CODEC_TYPE_OPUS` | 6 | OPUS 编解码器 |
-| `audio_v2.DATA_CODEC_TYPE_G711` | 7 | G711 编解码器 |
+| `audio_v2.DATA_CODEC_TYPE_G711_ULAW` | 7 | G711 μ-Law 编解码器 |
+| `audio_v2.DATA_CODEC_TYPE_G711_ALAW` | 8 | G711 A-Law 编解码器 |
 
 #### 驱动私有参数常量（用于 `audio_v2.config` 的 `config_param`）
 
@@ -1726,7 +1733,7 @@ audio_v2.shutdown(true, true, true, pid)
 |--------|-----|------|
 | `audio_v2.CFG_PARAM_I2S_MODE` | 0 | I2S 通信模式 |
 | `audio_v2.CFG_PARAM_I2S_FRAME_BITS` | 1 | I2S 帧位宽 |
-| `audio_v2.CFG_PARAM_I2S_CHANNEL_NUMS` | 2 | I2S 通道数 |
+| `audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE` | 2 | I2S 声道输出类型 |
 | `audio_v2.CFG_PARAM_DAC_BIT_WIDTH` | 3 | DAC 位宽 |
 
 #### I2S 模式取值常量（用于 `audio_v2.config` 的 `config_value1`，配合 `CFG_PARAM_I2S_MODE`）
@@ -1738,6 +1745,14 @@ audio_v2.shutdown(true, true, true, pid)
 | `audio_v2.CFG_VALUE_I2S_MODE_MSB` | 2 | MSB 格式（右对齐）|
 | `audio_v2.CFG_VALUE_I2S_MODE_PCMS` | 3 | PCM 短帧格式 |
 | `audio_v2.CFG_VALUE_I2S_MODE_PCML` | 4 | PCM 长帧格式 |
+
+#### I2S 声道类型取值常量（用于 `audio_v2.config` 的 `config_value1`，配合 `CFG_PARAM_I2S_CHANNEL_TYPE`）
+
+| 常量名 | 值 | 说明 |
+|--------|-----|------|
+| `audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_LEFT` | 0 | 左声道输出 |
+| `audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT` | 1 | 右声道输出 |
+| `audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_STEREO` | 2 | 立体声输出 |
 
 ---
 
@@ -1779,7 +1794,7 @@ local pid = audio_v2.make_probe_id(audio_v2.DRIVER_TYPE_I2S, 0,
                                    audio_v2.DRIVER_TYPE_I2S, 0)
 audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_I2S, nil, pid)
 audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16, nil, pid)
-audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_NUMS, 2, nil, pid)
+audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_STEREO)
 
 -- 2. 配置电源管理
 audio_v2.config_pa_power_ctrl(true, 12, 1, 100)

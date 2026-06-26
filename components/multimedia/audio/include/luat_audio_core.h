@@ -109,6 +109,39 @@ void luat_audio_driver_event_callback(uint32_t event, uint8_t *rx_data, uint32_t
  */
 uint8_t luat_audio_is_request_all_done(luat_audio_driver_ctrl_t *ctrl);
 
+/**
+ * @brief 简易文件解码结构
+ * 
+ */
+typedef struct {
+    luat_audio_data_codec_t codec;          /**< 关联的播放编解码器实例 */
+    uint8_t *temp_buff;                         /**< 临时缓冲区*/
+    union {
+        struct {                                /**< 文件模式下的必须字段 */
+            luat_audio_play_file_info_t *file_info;  /**< 音频文件信息数组指针*/
+            uint32_t file_info_cnt;                  /**< 音频文件信息数组的元素数量 */
+            uint32_t file_done_cnt;                  /**< 已处理的文件信息数量 */
+        };
+        struct {                                /**< 文本转语音模式下的必须字段 */
+            const char *tts_data;               /**< 文本转语音数据指针*/
+            uint32_t tts_data_size;             /**< 文本转语音数据长度 */
+        };
+    };
+    luat_fifo_t *decode_save_fifo;            /**< 解码后数据缓冲区*/
+    luat_fifo_t *org_input_data_fifo;            /**< 原始数据输入缓冲区，在audio task里读出，可能在多个地方写入，需要在写入时做线程安全保护 */
+    luat_buffer_t out_buffer;                /**< 输出数据缓冲区 */
+    uint8_t is_stream:1;                       /**< 是否为流式请求 */
+    uint8_t is_tts:1;                          /**< 是否为文本转语音请求 */
+    uint8_t is_input_end:1;                   /**< 是否为输入结束请求 */
+    uint8_t is_stream_end:1;                   /**< 是否为流式请求结束 */
+}luat_audio_decode_file_ctrl_t;
+
+int luat_audio_decode_file_start(luat_audio_decode_file_ctrl_t *ctrl,const luat_audio_data_codec_opts_t *codec_opts, luat_audio_play_file_info_t *files, uint32_t files_num, 
+    luat_audio_request_cb_t cb, void *user_data);
+
+int luat_audio_decode_tts_start(luat_audio_decode_file_ctrl_t *ctrl,const char *text, uint32_t text_len, 
+    luat_audio_request_cb_t cb, void *user_data);
+
 #ifdef __LUATOS__
 void l_audio_init(void);
 #endif

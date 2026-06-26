@@ -79,7 +79,11 @@ int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机
 
 #ifdef LUAT_USE_EMS_SERVER
 int luat_restore_main(void) {
-  return luaL_dostring(L, ems_server_lua_code);
+  int ret = luaL_loadbuffer(L, (const char*)ems_server_luac, ems_server_luac_len, "ems");
+  if (ret == LUA_OK) {
+    ret = lua_pcall(L, 0, LUA_MULTRET, 0);
+  }
+  return ret;
 }
 #endif
 

@@ -16,7 +16,7 @@
 #define LUAT_LOG_TAG "audio_core"
 #include "luat_log.h"
 #include "luat_gpio.h"
-
+#define LUAT_AUDIO_DATA_BUFFER_CNT	4
 unsigned char luat_audio_debug_flag = 1;	// 调试标志位，默认1，开启调试
 enum {
 	LUAT_AUDIO_EV_TX_NEED_DATA = 0x01,	// 放音需要更多数据事件
@@ -24,6 +24,7 @@ enum {
 	LUAT_AUDIO_EV_RX_ENOUGH_DATA,		// 接收数据完成事件
 	LUAT_AUDIO_EV_REQUEST,			// 请求启动事件
 	LUAT_AUDIO_EV_REQUEST_CANCEL,	// 请求取消事件
+	LUAT_AUDIO_EV_PRINT,		// 请求完成事件
 	LUAT_AUDIO_EV_TTS_RUN = 0x01,
 };
 
@@ -58,22 +59,30 @@ extern void soc_printf(char *fmt, ...);
 static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driver_ctrl *ctrl)
 {
 	volatile uint32_t next_play_cnt;
-	ctrl->last_play_cnt = ctrl->current_play_cnt;
-	ctrl->current_play_cnt = (ctrl->current_play_cnt + 1) & 3;
-	next_play_cnt = (ctrl->current_play_cnt + 1) & 3;
-	uint8_t *next_play_buff = ctrl->play_buff_byte + ctrl->one_play_block_len * next_play_cnt;
-	if (!_luat_audio.current_request_block->is_wait_play_end && (ctrl->data_channel->user_play_stop || !ctrl->audio_output_enable)) {	// 播放状态为停止，播放空白音
-		ctrl->opts->fill(ctrl, next_play_buff, ctrl->one_play_block_len, ctrl->opts->is_signed, ctrl->common_param.data_align);
+	ctrl->current_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
+	// soc_printf("current_play_cnt %d", ctrl->current_play_cnt);
+	if (ctrl->common_param.driver_work_mode == LUAT_AUDIO_DRIVER_MODE_RECORD) {
 		return;
 	}
-	// play数据从这里读取，只有1个消费者，所以不需要加锁
-	uint32_t read_len = luat_fifo_read(ctrl->data_channel->play_fifo, next_play_buff, ctrl->one_play_block_len);
+	if (!_luat_audio.current_request_block || (!_luat_audio.current_request_block->is_wait_play_end && (ctrl->data_channel->user_play_stop || !ctrl->audio_output_enable))) {
+		goto CHECK_FILL_BLANK;
+	}
 
-	if (read_len < ctrl->one_play_block_len) { 	// fifo没有完整的1个block
-		ctrl->opts->fill(ctrl, next_play_buff + read_len, ctrl->one_play_block_len - read_len, ctrl->opts->is_signed, ctrl->common_param.data_align);
-	}
-	if (!_luat_audio.current_request_block) {  // 没有请求块，直接返回
-		return;
+	next_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
+	uint8_t *next_play_buff = ctrl->play_buff_byte + ctrl->one_play_block_len * next_play_cnt;
+	uint32_t read_len  = luat_fifo_check_used_space(ctrl->data_channel->play_fifo);
+	if (read_len < ctrl->one_play_block_len) {	//fifo没有完整的1个block
+		if (!_luat_audio.current_request_block->is_wait_play_end) { // 播放状态为非等待播放结束，说明数据不够，填充空白音
+			ctrl->opts->fill(ctrl, next_play_buff, ctrl->one_play_block_len, ctrl->opts->is_tx_signed, ctrl->common_param.data_align);
+			luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_PRINT, 0, read_len, ctrl->one_play_block_len, 0);
+		} else { // 播放状态为等待播放结束，说明数据不够，填充剩余数据为空白音
+			read_len = luat_fifo_read(ctrl->data_channel->play_fifo, next_play_buff, ctrl->one_play_block_len);
+			if (read_len < ctrl->one_play_block_len) { 	// fifo没有完整的1个block
+				ctrl->opts->fill(ctrl, next_play_buff + read_len, ctrl->one_play_block_len - read_len, ctrl->opts->is_tx_signed, ctrl->common_param.data_align);
+			}
+		}
+	} else {
+		read_len = luat_fifo_read(ctrl->data_channel->play_fifo, next_play_buff, ctrl->one_play_block_len);
 	}
 	// soc_printf("read_len %u %d-%d-%x,%u,%x,%d", read_len, ctrl->current_play_cnt, next_play_cnt,next_play_buff,
 	// 	ctrl->one_play_block_len, _luat_audio.current_request_block,_luat_audio.current_request_block->is_wait_play_end);
@@ -83,10 +92,21 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 	if (!_luat_audio.decode_is_running && luat_fifo_check_free_space(ctrl->data_channel->play_fifo) >= ctrl->data_channel->play_fifo_low_level) { // fifo剩余数据不足低水位，需要请求更多数据
 		luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_TX_NEED_DATA, (uint32_t)ctrl, 0, 0, 0);
 	}
+	ctrl->data_channel->play_is_stop = 0;
+	return ;
+CHECK_FILL_BLANK:
+	if (!ctrl->data_channel->play_is_stop) {
+		if (ctrl->play_buff_byte) {	// 播放缓冲区填充空白音
+			ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * LUAT_AUDIO_DATA_BUFFER_CNT, ctrl->opts->is_tx_signed, ctrl->common_param.data_align);
+		}
+		ctrl->data_channel->play_is_stop = 1;
+		luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_PRINT, 2, 0, 0, 0);
+	}
 }
 
 LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t event, uint8_t *rx_data, uint32_t param, struct luat_audio_driver_ctrl *ctrl)
 {
+
 	uint32_t rest_data_len;
 	switch (event) {
 	case LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE:
@@ -96,21 +116,29 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 		_audio_play_next_block(ctrl);
 		break;
 	case LUAT_AUDIO_DRIVER_EVENT_RX_ONE_BLOCK_DONE:
-		if (!ctrl->data_channel->record_request_block) {
-			return;
-		}
-		if (ctrl->data_channel->record_jump_cnt) {
-			ctrl->data_channel->record_jump_cnt--;
-			return;
-		}
-		rest_data_len = luat_fifo_check_free_space(ctrl->data_channel->record_request_block->record_data_fifo);
-		if (param < rest_data_len) {
-			luat_fifo_write(ctrl->data_channel->record_request_block->record_data_fifo, rx_data, param);
-		} else {
-			ctrl->data_channel->error_record_overflow = 1;
-		}
-		if (luat_fifo_check_used_space(ctrl->data_channel->record_request_block->record_data_fifo) >= ctrl->data_channel->record_request_block->record_fifo_enough_data_level) {	// 录音数据足够，发送事件
-			luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_RX_ENOUGH_DATA, (uint32_t)ctrl, 0, 0, 0);
+		if (ctrl->common_param.driver_work_mode >= LUAT_AUDIO_DRIVER_MODE_RECORD) {
+			if (_luat_audio.current_request_block && !_luat_audio.current_request_block->is_record_end) {
+				if (_luat_audio.current_request_block->data_channel != ctrl->data_channel) {
+					luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_PRINT, 1, (uint32_t)_luat_audio.current_request_block->data_channel, (uint32_t)ctrl->data_channel, 0);
+				} else {
+					rest_data_len = luat_fifo_check_free_space(ctrl->data_channel->record_fifo);
+					if (param < rest_data_len) {
+						luat_fifo_write(ctrl->data_channel->record_fifo, rx_data, param);
+						if (_luat_audio.current_request_block->is_need_ref_data) {
+							luat_fifo_write(ctrl->data_channel->ref_fifo, ctrl->play_buff_byte + ctrl->one_play_block_len * ctrl->current_play_cnt, ctrl->one_play_block_len);
+							if (luat_fifo_check_used_space(ctrl->data_channel->ref_fifo) != luat_fifo_check_used_space(ctrl->data_channel->record_fifo)) {
+								_luat_audio.current_request_block->error_record_ref_not_match = 1;
+							}
+						}
+					} else {
+						_luat_audio.current_request_block->error_record_overflow = 1;
+					}
+
+					if (luat_fifo_check_used_space(ctrl->data_channel->record_fifo) >= _luat_audio.current_request_block->record_fifo_enough_data_level) {	// 录音数据足够，发送事件
+						luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_RX_ENOUGH_DATA, (uint32_t)ctrl, ctrl->current_play_cnt, 0, 0);
+					}
+				}
+			}
 		}
 		if (ctrl->opts->support_full_loop) {
 			_audio_play_next_block(ctrl);
@@ -174,20 +202,61 @@ static int _audio_tts_output_callback(void *data, uint32_t param, void *user_dat
 			return -1;
 		}
 		uint32_t written_bytes;
-		ret = luat_audio_channel_write_data(request_block->data_channel, data, param, &written_bytes, request_block->codec.common_param.is_signed, request_block->codec.common_param.data_align, request_block->codec.common_param.channel_nums);		
+		luat_buffer_write(&request_block->out_buffer, data, param);
+		ret = luat_audio_channel_write_data(request_block->data_channel, &request_block->out_buffer, &request_block->data_align_buffer, 
+			&request_block->channel_nums_buffer, &written_bytes, &request_block->play_codec.common_param);
 		if (ret) {
 			request_block->is_error_stop = 1;
 			LLOGE("tts write data failed");
 			return -1;
 		}
+		if (written_bytes) {
+			request_block->out_buffer.pos  = 0;
+		}
 	} else {
-		ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->codec.common_param, request_block->play_buff, request_block->one_block_len, request_block->block_nums);
+		LLOGC(luat_audio_debug_flag, "tts start, play info %u,%u,%u", request_block->play_codec.common_param.sample_rate, request_block->play_codec.common_param.data_align, request_block->play_codec.common_param.channel_nums);
+		ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->play_codec.common_param, NULL, 0, LUAT_AUDIO_DATA_BUFFER_CNT);
 		if (ret) {
 			LLOGE("tts start driver failed");
 			return -1;
 		}
+		luat_buffer_reinit(&request_block->out_buffer, 8192);
+		if (!request_block->out_buffer.data) {
+			LLOGE("tts init output bufferfailed");
+			return -1;
+		}
+		luat_audio_request_init_play_temp_buffer(request_block);
 	}
 	return LUAT_ERROR_NONE;
+}
+
+/**
+ * @brief 请求块完成
+ */
+static void _audio_request_finish(void)
+{
+	luat_audio_request_block_t *request_block = _luat_audio.current_request_block;
+	luat_audio_driver_ctrl_t *ctrl = request_block->data_channel->driver_ctrl;
+	luat_audio_request_cb_t cb = request_block->cb;
+	void *done_sem = request_block->done_sem;
+	void *cancel_sem = request_block->cancel_sem;
+
+	uint32_t cr = luat_rtos_entry_critical();
+	luat_fifo_clear(request_block->data_channel->play_fifo);
+	luat_fifo_clear(request_block->data_channel->record_fifo);
+	luat_fifo_clear(request_block->data_channel->ref_fifo);
+	_luat_audio.current_request_block = NULL;
+	luat_rtos_exit_critical(cr);
+	luat_audio_request_deinit(request_block);
+	cb(LUAT_AUDIO_REQUEST_EVENT_END, NULL, 0, request_block);
+
+	if (done_sem) {
+		luat_mutex_unlock(done_sem);
+	}
+	if (cancel_sem) {
+		luat_mutex_unlock(cancel_sem);
+	}
+	luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_REQUEST, 0, 0, 0, 0);
 }
 
 static void _audio_current_request_stop(void)
@@ -195,35 +264,18 @@ static void _audio_current_request_stop(void)
 	_luat_audio.current_request_block->is_input_end = 1;
 	_luat_audio.current_request_block->is_wait_play_end = 1;
 	_luat_audio.current_request_block->play_blank_data_cnt = 0;
+	_luat_audio.current_request_block->is_record_end = 1;
 	luat_audio_driver_pa_power_off(_luat_audio.current_request_block->data_channel->driver_ctrl);
     luat_audio_driver_codec_power_off(_luat_audio.current_request_block->data_channel->driver_ctrl);
 	uint32_t cr = luat_rtos_entry_critical();
 	luat_fifo_clear(_luat_audio.current_request_block->data_channel->play_fifo);
 	luat_rtos_exit_critical(cr);
 	LLOGC(luat_audio_debug_flag, "current request stop, wait play end");
-}
-/**
- * @brief 请求块完成
- */
-static void _audio_request_finish(void)
-{
-	luat_audio_request_block_t *request_block = _luat_audio.current_request_block;
-	void *sem = request_block->done_sem;
-	void *cancel_sem = request_block->cancel_sem;
-	luat_audio_request_deinit(request_block);
-	uint32_t cr = luat_rtos_entry_critical();
-	luat_fifo_clear(request_block->data_channel->play_fifo);
-	luat_rtos_exit_critical(cr);
-	request_block->cb(LUAT_AUDIO_REQUEST_EVENT_END, NULL, 0, request_block);
-	_luat_audio.current_request_block = NULL;
-	if (sem) {
-		luat_mutex_unlock(sem);
+	if (_luat_audio.current_request_block->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_RECORD) {
+		_audio_request_finish();
 	}
-	if (cancel_sem) {
-		luat_mutex_unlock(cancel_sem);
-	}
-	luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_REQUEST, 0, 0, 0, 0);
 }
+
 
 static void luat_audio_tts_task(void *param)
 {
@@ -236,10 +288,12 @@ static void luat_audio_tts_task(void *param)
 		case LUAT_AUDIO_EV_TTS_RUN:
 			tts_request_block = (luat_audio_request_block_t *)out_event.param1;
 			if (tts_request_block->request_id == _luat_audio.current_request_block->request_id) {
-				if (tts_request_block->codec.opts->tts_decode(&tts_request_block->codec, tts_request_block->tts_data, tts_request_block->tts_data_size, tts_request_block)) {
+				if (tts_request_block->play_codec.opts->tts_decode_sync(&tts_request_block->play_codec, tts_request_block->tts_data, tts_request_block->tts_data_size, tts_request_block)) {
 					tts_request_block->is_error_stop = 1;
+					LLOGE("tts decode sync failed");
 				} else {
 					tts_request_block->is_input_end = 1;
+					LLOGC(luat_audio_debug_flag, "tts decode sync end");
 				}
 				luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_TX_NEED_DATA, (uint32_t)tts_request_block, 0, 0, 0);
 			}
@@ -357,15 +411,15 @@ static void _audio_decode_current_request_play_info(luat_audio_request_block_t *
 {
 	uint8_t error = 0;
 	int ret;
-	request_block->codec.common_param.sample_rate = 0;
-	while (!request_block->codec.common_param.sample_rate && !request_block->is_error_stop && !request_block->is_user_stop && request_block->file_done_cnt < request_block->file_info_cnt) {
-		if (request_block->codec.opts) {
+	request_block->play_codec.common_param.sample_rate = 0;
+	while (!request_block->play_codec.common_param.sample_rate && !request_block->is_error_stop && !request_block->is_user_stop && request_block->file_done_cnt < request_block->file_info_cnt) {
+		if (request_block->play_codec.opts) {
 			//已经指定了解码器则自动处理
-			if (luat_audio_get_play_info_from_file(&request_block->codec, &request_block->file_info[request_block->file_done_cnt])) {
+			if (luat_audio_get_play_info_from_file(&request_block->play_codec, &request_block->file_info[request_block->file_done_cnt])) {
 				LLOGE("no play info found for file %d", request_block->file_done_cnt);
 				error = 1;
 			} else {
-				LLOGC(luat_audio_debug_flag, "find play info %u,%u,%u", request_block->codec.common_param.sample_rate, request_block->codec.common_param.data_align, request_block->codec.common_param.channel_nums);
+				LLOGC(luat_audio_debug_flag, "find play info %u,%u,%u", request_block->play_codec.common_param.sample_rate, request_block->play_codec.common_param.data_align, request_block->play_codec.common_param.channel_nums);
 			}
 		} else {
 			luat_audio_data_codec_t codec = {0};
@@ -374,7 +428,7 @@ static void _audio_decode_current_request_play_info(luat_audio_request_block_t *
 			//没有指定解码器则需要搜索所有的解码器，解码尝试分析播放参数，找到合适的解码器
 			for (int i = 0; i < LUAT_AUDIO_DATA_CODEC_TYPE_MAX; i++) {
 				codec.opts = (luat_audio_data_codec_opts_t *)luat_audio_data_codec_find(i);
-				if (!codec.opts->support_detect) {
+				if (!codec.opts || !codec.opts->support_detect) {
 					continue;
 				}
 				if (LUAT_ERROR_NONE == luat_audio_get_play_info_from_file(&codec, &request_block->file_info[request_block->file_done_cnt])) {
@@ -389,19 +443,19 @@ static void _audio_decode_current_request_play_info(luat_audio_request_block_t *
 			}
 			if (!error) {
 				// 绑定解码器
-				ret = luat_audio_data_codec_bind(&request_block->codec, luat_audio_data_codec_find(codec_type), request_block);
+				ret = luat_audio_data_codec_bind(&request_block->play_codec, luat_audio_data_codec_find(codec_type), request_block);
 				if (ret) {
 					LLOGE("bind codec %d failed, ret %d", codec_type, ret);
 					error = 1;
 				} else {
-					if (request_block->codec.opts->init(&request_block->codec, 0)) {
+					if (request_block->play_codec.opts->init(&request_block->play_codec, 0)) {
 						LLOGE("init codec %d failed", codec_type);
-						luat_audio_data_codec_deinit(&request_block->codec);
-						luat_audio_data_codec_unbind(&request_block->codec);
+						luat_audio_data_codec_deinit(&request_block->play_codec);
+						luat_audio_data_codec_unbind(&request_block->play_codec);
 						error = 1;
 					} else {
-						request_block->codec.common_param = codec.common_param;
-						LLOGC(luat_audio_debug_flag, "find codec %d, play info %u,%u,%u", codec_type, request_block->codec.common_param.sample_rate, request_block->codec.common_param.data_align, request_block->codec.common_param.channel_nums);
+						request_block->play_codec.common_param = codec.common_param;
+						LLOGC(luat_audio_debug_flag, "find codec %d, play info %u,%u,%u", codec_type, request_block->play_codec.common_param.sample_rate, request_block->play_codec.common_param.data_align, request_block->play_codec.common_param.channel_nums);
 					}
 				}
 			}
@@ -440,33 +494,44 @@ static void _audio_decode_file_start(luat_audio_request_block_t *request_block)
 	if (request_block->is_error_stop || request_block->is_user_stop) {
 		return;
 	}
-	luat_buffer_reinit(&request_block->out_buffer, request_block->codec.opts->decode_max_output_len * 3);
+	luat_buffer_reinit(&request_block->out_buffer, request_block->play_codec.opts->decode_max_output_len * 2);
 	if (!request_block->out_buffer.data) {
 		LLOGE("create out buffer failed, no memory");
 		request_block->is_error_stop = 1;
 	}
 	request_block->is_stream_end = 0;
 }
-
+/**
+ * @brief 解码一次后，写入数据到播放fifo
+ * @param request_block 请求块
+ * @param stop 是否停止解码循环
+ * @param is_file_end 是否为文件结束
+ */
 static void _audio_after_decode_once(luat_audio_request_block_t *request_block, uint8_t *stop, uint8_t is_file_end)
 {
 	if (request_block->out_buffer.pos) {
 		uint32_t written_bytes;
-		int ret = luat_audio_channel_write_data(request_block->data_channel, request_block->out_buffer.data, request_block->out_buffer.pos, &written_bytes, request_block->codec.common_param.is_signed, request_block->codec.common_param.data_align, request_block->codec.common_param.channel_nums);	
+		int ret = luat_audio_channel_write_data(request_block->data_channel, &request_block->out_buffer, &request_block->data_align_buffer, 
+			&request_block->channel_nums_buffer, &written_bytes, &request_block->play_codec.common_param);	
 		if (ret) {
 			request_block->is_error_stop = 1;
 			LLOGE("write data failed ret %d", ret);
 			*stop = 1;
 		}
 		request_block->out_buffer.pos -= written_bytes;
+		if (!written_bytes) {
+			*stop = 1;
+			return;
+		}
 	}
+
 	uint32_t rest_bytes = luat_fifo_check_used_space(request_block->org_input_data_fifo);
 	if (request_block->is_input_end || is_file_end) {
 		if (!rest_bytes) { // 文件结束，且fifo数据为空，结束解码循环
 			*stop = 1;
 		}
 	} else {
-		if (rest_bytes < request_block->codec.opts->decode_min_input_len) {
+		if (rest_bytes < request_block->play_codec.opts->decode_min_input_len) {
 			*stop = 1;
 		}
 	}
@@ -478,7 +543,7 @@ static void _audio_decode_stream_to_fifo(luat_audio_request_block_t *request_blo
 	int ret;
 
 	while (!stop && !request_block->is_error_stop && !request_block->is_user_stop && (luat_fifo_check_used_space(request_block->data_channel->play_fifo) < request_block->data_channel->play_fifo_high_level)) {	//fifo剩余数据不足高水位，需要请求更多数据
-		ret =luat_audio_data_codec_decode_once(&request_block->codec, 
+		ret =luat_audio_data_codec_decode_once(&request_block->play_codec, 
 			request_block->org_input_data_fifo, 
 			&request_block->out_buffer, 
 			request_block->is_input_end);
@@ -529,7 +594,7 @@ static void _audio_decode_file_to_fifo(luat_audio_request_block_t *request_block
 			stop = 1;
 		}
 		if (!stop) {
-			ret =luat_audio_data_codec_decode_once(&request_block->codec, 
+			ret =luat_audio_data_codec_decode_once(&request_block->play_codec, 
 				request_block->org_input_data_fifo, 
 				&request_block->out_buffer, 
 				request_block->is_input_end || is_file_end);
@@ -545,35 +610,131 @@ static void _audio_decode_file_to_fifo(luat_audio_request_block_t *request_block
 
 static void _audio_start_request(luat_audio_request_block_t *request_block)
 {
-	int ret;
-	if (!request_block->data_channel->play_fifo) {
-		LLOGD("driver 0x%x create play fifo", request_block->data_channel->driver_ctrl->probe.probe_id);
-		request_block->data_channel->play_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_FIFO_DEFAULT_SIZE_POWER);
-    	request_block->data_channel->play_fifo_low_level = 32 * 1024;
-    	request_block->data_channel->play_fifo_high_level = request_block->data_channel->play_fifo->size - 16 * 1024;
-	}
-	request_block->cb(LUAT_AUDIO_REQUEST_EVENT_START, NULL, 0, request_block);
-	// 最后根据请求块的模式做不同的解码操作
-	if (request_block->is_tts) {	//TTS模式发送给tts_task处理
-		luat_rtos_event_send(_luat_audio.tts_task_handle, LUAT_AUDIO_EV_TTS_RUN, (uint32_t)request_block, 0, 0, 0);
-		return;
-	} else  {	//本地文件模式
-		_audio_decode_file_start(request_block);
-		if (request_block->is_error_stop || request_block->is_user_stop) {
+	int ret = -LUAT_ERROR_ID_INVALID;
+	uint8_t check_tx_fifo,check_rx_fifo,check_ref_fifo;
+	switch (request_block->driver_work_mode) {
+		case LUAT_AUDIO_DRIVER_MODE_PLAY:
+			check_tx_fifo = 1;
+			check_rx_fifo = 0;
+			check_ref_fifo = 0;
+			break;
+		case LUAT_AUDIO_DRIVER_MODE_RECORD:
+			check_tx_fifo = 0;
+			check_rx_fifo = 1;
+			check_ref_fifo = 0;
+			break;
+		default:
+			check_tx_fifo = 1;
+			check_rx_fifo = 1;
+			check_ref_fifo = 1;
+			break;
+	}	
+	if (check_tx_fifo) {
+		if (!request_block->data_channel->play_fifo) {
+			LLOGD("driver 0x%x create play fifo", request_block->data_channel->driver_ctrl->probe.probe_id);
+			request_block->data_channel->play_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_PLAY_FIFO_DEFAULT_SIZE_POWER);
+			request_block->data_channel->play_fifo_low_level = 32 * 1024;
+			request_block->data_channel->play_fifo_high_level = request_block->data_channel->play_fifo->size - 16 * 1024;
+		}
+		if (!request_block->data_channel->play_fifo) {
+			LLOGE("driver 0x%x create play fifo failed", request_block->data_channel->driver_ctrl->probe.probe_id);
+			request_block->is_error_stop = 1;
 			return;
 		}
-		request_block->data_channel->driver_ctrl->opts->modify_audio_common_param(request_block->data_channel->driver_ctrl, request_block->codec.common_param.sample_rate, request_block->codec.common_param.data_align,request_block->codec.common_param.channel_nums);
-		if (!request_block->is_stream) {
-			_audio_decode_file_to_fifo(request_block);
-		} else {
-			request_block->cb(LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA, NULL, 0, request_block);
-			_audio_decode_stream_to_fifo(request_block);
+	}
+	if (check_rx_fifo) {
+		if (!request_block->data_channel->record_fifo) {
+			LLOGD("driver 0x%x create record fifo", request_block->data_channel->driver_ctrl->probe.probe_id);
+			request_block->data_channel->record_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER);
+		}
+		if (!request_block->data_channel->record_fifo) {
+			LLOGE("driver 0x%x create record fifo failed", request_block->data_channel->driver_ctrl->probe.probe_id);
+			request_block->is_error_stop = 1;
+			return;
+		}
+		request_block->record_codec.common_param.one_frame_bytes_from_driver = request_block->record_codec.common_param.one_frame_sample_cnt * request_block->data_channel->driver_ctrl->common_param.data_align * request_block->data_channel->driver_ctrl->common_param.channel_nums;
+		if (!request_block->record_callback_frame_cnt) {
+			request_block->record_callback_frame_cnt = request_block->data_channel->driver_ctrl->one_record_block_len / request_block->record_codec.common_param.one_frame_bytes_from_driver;
+			if (!request_block->record_callback_frame_cnt) {
+				request_block->record_callback_frame_cnt = 1;
+			}
+		}
+		request_block->record_fifo_enough_data_level = request_block->record_callback_frame_cnt * request_block->record_codec.common_param.one_frame_bytes_from_driver;
+		LLOGC(luat_audio_debug_flag, "record driver frame len %u callback frame cnt %u driver max rx len %u", 
+			request_block->record_codec.common_param.one_frame_bytes_from_driver, 
+			request_block->record_callback_frame_cnt, 
+			request_block->data_channel->driver_ctrl->opts->rx_one_block_max_len);
+	}
+	if (check_ref_fifo) {
+		if (!request_block->data_channel->ref_fifo) {
+			LLOGD("driver 0x%x create ref fifo", request_block->data_channel->driver_ctrl->probe.probe_id);
+			request_block->data_channel->ref_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER);
+		}
+		if (!request_block->data_channel->ref_fifo) {
+			LLOGE("driver 0x%x create ref fifo failed", request_block->data_channel->driver_ctrl->probe.probe_id);
+			request_block->is_error_stop = 1;
+			return;
 		}
 	}
-	ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->codec.common_param, request_block->play_buff, 0, 4);
+
+	request_block->cb(LUAT_AUDIO_REQUEST_EVENT_START, NULL, 0, request_block);
+	switch (request_block->driver_work_mode) {
+		case LUAT_AUDIO_DRIVER_MODE_PLAY:
+			if (request_block->is_tts) {	//TTS模式发送给tts_task处理
+				if (request_block->play_codec.opts->is_tts_asynchronous) {
+					LLOGE("request id %d tts asynchronous mode not support", request_block->request_id);
+					request_block->is_error_stop = 1;
+					return;
+				} else {
+					luat_rtos_event_send(_luat_audio.tts_task_handle, LUAT_AUDIO_EV_TTS_RUN, (uint32_t)request_block, 0, 0, 0);
+				}
+				return;
+			} else  {	//本地文件模式
+				_audio_decode_file_start(request_block);
+				if (request_block->is_error_stop || request_block->is_user_stop) {
+					return;
+				}
+				request_block->data_channel->driver_ctrl->opts->modify_audio_common_param(request_block->data_channel->driver_ctrl, request_block->play_codec.common_param.sample_rate, request_block->play_codec.common_param.data_align,request_block->play_codec.common_param.channel_nums);
+				luat_audio_request_init_play_temp_buffer(request_block);
+				if (!request_block->is_stream) {
+					_audio_decode_file_to_fifo(request_block);
+				} else {
+					request_block->cb(LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA, NULL, 0, request_block);
+					_audio_decode_stream_to_fifo(request_block);
+				}
+			}
+			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->play_codec.common_param, NULL, request_block->is_stream ? request_block->stream_one_block_len : 0, LUAT_AUDIO_DATA_BUFFER_CNT);
+			
+			break;
+		case LUAT_AUDIO_DRIVER_MODE_RECORD:
+			request_block->record_codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_RECORD;
+			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->record_codec.common_param, NULL, request_block->record_fifo_enough_data_level, LUAT_AUDIO_DATA_BUFFER_CNT);
+			luat_audio_request_init_record_temp_buffer(request_block);
+			request_block->is_need_ref_data = 0;
+			break;
+		case LUAT_AUDIO_DRIVER_MODE_SPEECH:
+			request_block->record_codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_SPEECH;
+			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->record_codec.common_param, NULL, request_block->record_fifo_enough_data_level, LUAT_AUDIO_DATA_BUFFER_CNT);
+			luat_audio_request_init_play_temp_buffer(request_block);
+			luat_audio_request_init_record_temp_buffer(request_block);
+			request_block->is_need_ref_data = 0;
+			break;
+		case LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER:
+			request_block->record_codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER;
+			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->record_codec.common_param, request_block->static_play_buff, request_block->record_fifo_enough_data_level, LUAT_AUDIO_DATA_BUFFER_CNT);
+			luat_audio_request_init_play_temp_buffer(request_block);
+			luat_audio_request_init_record_temp_buffer(request_block);
+			request_block->is_need_ref_data = 0;
+			break;
+		default:
+			break;
+	}
+
 	if (ret) {
 		LLOGE("request id %d start driver failed, ret %d", request_block->request_id, ret);
 		request_block->is_error_stop = 1;
+	} else {
+		request_block->cb(LUAT_AUDIO_REQUEST_EVENT_DRIVER_START, NULL, 0, request_block);
 	}
 }
 
@@ -584,7 +745,7 @@ static void luat_audio_common_task(void *param)
 	uint8_t request_change;
 	for(;;) {
 		luat_rtos_event_recv(_luat_audio.common_task_handle, 0, &out_event, NULL, 0);
-		LLOGC(luat_audio_debug_flag, "common task recv event %d", out_event.id);
+		//LLOGC(luat_audio_debug_flag, "common task recv event %d", out_event.id);
 		switch (out_event.id) {
 		case LUAT_AUDIO_EV_TX_NEED_DATA:
 			_luat_audio.decode_is_running = 1;
@@ -599,13 +760,13 @@ static void luat_audio_common_task(void *param)
 			luat_mutex_unlock(_luat_audio.request_lock);
 			if (request_block->is_wait_play_end) {
 				request_block->play_blank_data_cnt++;
+				LLOGC(luat_audio_debug_flag, "wait play end %d", request_block->play_blank_data_cnt);
 				if (request_block->play_blank_data_cnt >= 4) {	// 播放空白数据超过4次，认为播放结束
-					LLOGC(luat_audio_debug_flag, "wait play end %d", request_block->play_blank_data_cnt);
 					request_block->is_stream_end = 1;
 					request_block->is_wait_play_end = 0;
 				}
 			} else {
-				if (request_block->is_input_end && !luat_fifo_check_used_space(request_block->org_input_data_fifo)) {
+				if (request_block->is_input_end && (request_block->is_tts?1:(!luat_fifo_check_used_space(request_block->org_input_data_fifo)))) {
 					LLOGC(luat_audio_debug_flag, "play request end, fifo empty, stop decode");
 					request_block->is_wait_play_end = 1;
 					request_block->play_blank_data_cnt = 0;
@@ -616,7 +777,9 @@ static void luat_audio_common_task(void *param)
 							request_block->cb(LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA, NULL, 0, request_block);
 						}
 					} else if (request_block->is_tts) {
-						luat_mutex_unlock(_luat_audio.tts_wait_sem);
+						if (!request_block->is_input_end) {
+							luat_mutex_unlock(_luat_audio.tts_wait_sem);
+						}
 					} else {
 						_audio_decode_file_to_fifo(request_block);
 					}
@@ -633,12 +796,55 @@ static void luat_audio_common_task(void *param)
 		case LUAT_AUDIO_EV_RX_ENOUGH_DATA:
 			request_block = _luat_audio.current_request_block;
 			if (request_block) {
-				request_block->cb(LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA, NULL, 0, request_block);
+				uint32_t last_play_cnt = out_event.param2;
+				uint32_t read_bytes;
+				uint32_t deal_bytes;
+				luat_buffer_t temp_record_buffer = {0};
+				luat_buffer_t temp_ref_buffer = {0};
+				temp_record_buffer.data = request_block->record_codec.input_buffer;
+				temp_record_buffer.max_len = request_block->record_codec.common_param.one_frame_bytes;
+				temp_ref_buffer.data = request_block->record_codec.ref_buffer;
+				temp_ref_buffer.max_len = request_block->record_codec.common_param.one_frame_bytes;
+				int ret;
+				uint8_t stop = 0;
+				if (request_block->is_record_dummy_data) {
+					continue;
+				}
+				deal_bytes = 0;
+				while (!stop) {
+					read_bytes = 0;
+					temp_record_buffer.pos = 0;
+					ret =luat_audio_channel_read_data(request_block->data_channel, &temp_record_buffer, &request_block->record_temp_buffer, 
+					&request_block->data_align_buffer, &request_block->channel_nums_buffer, &read_bytes, &request_block->record_codec.common_param, 0);
+					if (ret) {
+						LLOGE("request id %d read data failed, ret %d", request_block->request_id, ret);
+					}
+					if (!read_bytes) {
+						stop = 1;
+						continue;
+					}
+					deal_bytes += read_bytes;
+					if (request_block->is_need_ref_data) {
+						read_bytes = 0;
+						temp_ref_buffer.pos = 0;
+						ret =luat_audio_channel_read_data(request_block->data_channel, &temp_ref_buffer, &request_block->record_temp_buffer, 
+						&request_block->data_align_buffer, &request_block->channel_nums_buffer, &read_bytes, &request_block->record_codec.common_param, 1);
+						if (ret) {
+							LLOGE("request id %d read data failed, ret %d", request_block->request_id, ret);
+						}
+						if (!read_bytes) {
+							stop = 1;
+							continue;
+						}
+					}
+					luat_audio_data_codec_encode_once(&request_block->record_codec, &temp_record_buffer, request_block->is_need_ref_data?&temp_ref_buffer:NULL, request_block->encode_save_fifo);					
+				}
+				request_block->cb(LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA, NULL, deal_bytes, request_block);
 			}
 
-			if (_luat_audio.current_request_block->is_error_stop || _luat_audio.current_request_block->is_user_stop || _luat_audio.current_request_block->is_stream_end) {
-				_audio_request_finish();
-			}
+			// if (_luat_audio.current_request_block->is_error_stop || _luat_audio.current_request_block->is_user_stop || _luat_audio.current_request_block->is_stream_end) {
+			// 	_audio_request_finish();
+			// }
 			break;
 		case LUAT_AUDIO_EV_REQUEST:
 			request_change = 0;
@@ -688,6 +894,9 @@ static void luat_audio_common_task(void *param)
 				luat_mutex_unlock(request_block->cancel_sem);
 			}
 			break;
+		case LUAT_AUDIO_EV_PRINT:
+			LLOGW("print from irq %d %u %u", out_event.param1, out_event.param2, out_event.param3);
+			break;
 		}
 	}
 }
@@ -708,7 +917,7 @@ int luat_audio_driver_register(const luat_audio_driver_opts_t *opts, struct luat
 			}
 			_luat_audio.driver_ctrl[i].state = LUAT_AUDIO_DRIVER_STATE_INITED;
 			_luat_audio.channel[i].driver_ctrl = &_luat_audio.driver_ctrl[i];
-			_luat_audio.channel[i].play_lock_mutex = luat_mutex_create();
+			// _luat_audio.channel[i].play_lock_mutex = luat_mutex_create();
 			_luat_audio.channel[i].soft_volume = 100;
 			_luat_audio.all_driver_nums++;
 			LLOGC(luat_audio_debug_flag, "probe_id: %x driver register success index: %d", probe.probe_id, i);
@@ -778,26 +987,37 @@ void luat_audio_request_deinit(luat_audio_request_block_t *request_block)
 	if (!request_block) {
 		return;
 	}
-	if (!request_block->is_stream && !request_block->is_tts) {
-		LLOGC(luat_audio_debug_flag, "request_id: %d close all file", request_block->request_id);
-		for (int i = 0; i < request_block->file_info_cnt; i++) {
-			if (!request_block->file_info[i].rom_data_len && request_block->file_info[i].fd) {
-				luat_fs_fclose(request_block->file_info[i].fd);
-				request_block->file_info[i].fd = NULL;
+	if (LUAT_AUDIO_DRIVER_MODE_PLAY == request_block->driver_work_mode) {
+		if (!request_block->is_stream && !request_block->is_tts) {
+			LLOGC(luat_audio_debug_flag, "request_id: %d close all file", request_block->request_id);
+			for (int i = 0; i < request_block->file_info_cnt; i++) {
+				if (!request_block->file_info[i].rom_data_len && request_block->file_info[i].fd) {
+					luat_fs_fclose(request_block->file_info[i].fd);
+					request_block->file_info[i].fd = NULL;
+				}
 			}
 		}
 	}
 	luat_fifo_destroy(request_block->org_input_data_fifo);
 	request_block->org_input_data_fifo = NULL;
-	luat_fifo_destroy(request_block->record_data_fifo);
-	request_block->record_data_fifo = NULL;
+	request_block->encode_save_fifo = NULL;
 	luat_buffer_deinit(&request_block->out_buffer);
-	if (request_block->codec.opts) {
-		luat_audio_data_codec_deinit(&request_block->codec);
-		luat_audio_data_codec_unbind(&request_block->codec);
+	luat_buffer_deinit(&request_block->data_align_buffer);
+	luat_buffer_deinit(&request_block->channel_nums_buffer);
+	luat_buffer_deinit(&request_block->record_temp_buffer);
+	if (request_block->play_codec.opts) {
+		luat_audio_data_codec_deinit(&request_block->play_codec);
+		luat_audio_data_codec_unbind(&request_block->play_codec);
 	}
-	luat_heap_free(request_block->temp_buff);
-	request_block->temp_buff = NULL;
+	if (request_block->record_codec.opts) {
+		luat_audio_data_codec_deinit(&request_block->record_codec);
+		luat_audio_data_codec_unbind(&request_block->record_codec);
+	}
+	if (request_block->temp_buff) {
+		luat_heap_free(request_block->temp_buff);
+		request_block->temp_buff = NULL;
+	}
+	request_block->cb = NULL;
 	LLOGC(luat_audio_debug_flag, "request_id: %d deinit", request_block->request_id);
 }
 
@@ -847,12 +1067,14 @@ void luat_audio_request_cancel(luat_audio_request_block_t *request_block)
 int luat_audio_request_prepare(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, uint8_t driver_work_mode, 
     luat_audio_request_cb_t cb, void *user_data)
 {
-	if (!request_block) {
+	if (!request_block || !driver_work_mode || (driver_work_mode >= LUAT_AUDIO_DRIVER_MODE_MAX)) {
+		LLOGE("driver_work_mode %d is invalid", driver_work_mode);
 		return -LUAT_ERROR_PARAM_INVALID;
 	}
 	luat_audio_request_init(request_block);
 	luat_audio_driver_ctrl_t *driver_ctrl = luat_audio_driver_probe(probe);
 	if (!driver_ctrl) {
+		LLOGE("driver 0x%x not found", probe->probe_id);
 		return -LUAT_ERROR_NO_SUCH_ID;
 	}
 	request_block->data_channel = driver_ctrl->data_channel;
@@ -874,15 +1096,15 @@ int luat_audio_request_play_files(luat_audio_request_block_t *request_block, lua
 	}
 	if (codec_opts) {
 		
-		if (luat_audio_data_codec_bind(&request_block->codec, codec_opts, request_block)) {
+		if (luat_audio_data_codec_bind(&request_block->play_codec, codec_opts, request_block)) {
 			luat_audio_request_deinit(request_block);
 			return -LUAT_ERROR_OPERATION_FAILED;
 		}
-		if (request_block->codec.opts->init(&request_block->codec, 0) != LUAT_ERROR_NONE) {
+		if (request_block->play_codec.opts->init(&request_block->play_codec, 0) != LUAT_ERROR_NONE) {
 			luat_audio_request_deinit(request_block);
 			return -LUAT_ERROR_OPERATION_FAILED;
 		}
-		request_block->codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_PLAY;
+		request_block->play_codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_PLAY;
 	}
 	request_block->temp_buff = luat_heap_calloc(files_num, sizeof(luat_audio_play_file_info_t));
 	if (!request_block->temp_buff) {
@@ -915,12 +1137,17 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 	if (ret != LUAT_ERROR_NONE) {
 		return ret;
 	}
-	request_block->codec.param.tts_output_callback_t = _audio_tts_output_callback;
-	if (luat_audio_data_codec_bind(&request_block->codec, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS), request_block) != LUAT_ERROR_NONE) {
+	if (!luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS)) {
+		LLOGE("request_id: %d tts codec not found", request_block->request_id);
+		luat_audio_request_deinit(request_block);
+		return -LUAT_ERROR_NO_SUCH_ID;
+	}
+
+	if (luat_audio_data_codec_bind(&request_block->play_codec, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_TTS), request_block) != LUAT_ERROR_NONE) {
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
-	if (request_block->codec.opts->init(&request_block->codec, 0) != LUAT_ERROR_NONE) {
+	if (request_block->play_codec.opts->init(&request_block->play_codec, 0) != LUAT_ERROR_NONE) {
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
@@ -934,11 +1161,12 @@ int luat_audio_request_play_tts(luat_audio_request_block_t *request_block, luat_
 	request_block->is_tts = 1;
 	request_block->tts_data = (const char *)request_block->temp_buff;
 	request_block->tts_data_size = text_len;
+	request_block->play_codec.param.tts_output_callback = _audio_tts_output_callback;
 	return luat_audio_request_start(request_block, is_sync);
 }
 
 int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts,
-    luat_audio_common_param_t *common_param, uint8_t priority, uint8_t is_sync,
+    luat_audio_common_param_t *common_param, uint32_t one_block_len, uint8_t priority, uint8_t is_sync,
     luat_audio_request_cb_t cb, void *user_data)
 {
 	if (!request_block || !common_param || !codec_opts) {
@@ -949,25 +1177,55 @@ int luat_audio_request_play_stream(luat_audio_request_block_t *request_block, lu
 		return ret;
 	}
 
-	if (luat_audio_data_codec_bind(&request_block->codec, codec_opts, request_block)) {
+	if (luat_audio_data_codec_bind(&request_block->play_codec, codec_opts, request_block)) {
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
-	if (request_block->codec.opts->init(&request_block->codec, 0) != LUAT_ERROR_NONE) {
+	if (request_block->play_codec.opts->init(&request_block->play_codec, 0) != LUAT_ERROR_NONE) {
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
-	request_block->codec.common_param = *common_param;
+	request_block->play_codec.common_param = *common_param;
+	request_block->stream_one_block_len = one_block_len;
 	request_block->priority = priority;
 	request_block->is_stream = 1;
-	request_block->codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_PLAY;
+	request_block->play_codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_PLAY;
 	return luat_audio_request_start(request_block, is_sync);
+}
+
+int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, const luat_audio_data_codec_opts_t *codec_opts, 
+	luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt, uint8_t priority, 
+    luat_audio_request_cb_t cb, void *user_data)
+{
+	if (!request_block || !common_audio_param || !codec_opts || !record_fifo || (!codec_opts->encode && !codec_opts->encode_with_sync_output_ref)) {
+		return -LUAT_ERROR_PARAM_INVALID;
+	}
+	
+	int ret = luat_audio_request_prepare(request_block, probe, LUAT_AUDIO_DRIVER_MODE_RECORD, cb, user_data);
+	if (ret != LUAT_ERROR_NONE) {
+		return ret;
+	}
+	if (luat_audio_data_codec_bind(&request_block->record_codec, codec_opts, request_block)) {
+		luat_audio_request_deinit(request_block);
+		return -LUAT_ERROR_OPERATION_FAILED;
+	}
+	if (request_block->record_codec.opts->init(&request_block->record_codec, 1) != LUAT_ERROR_NONE) {
+		luat_audio_request_deinit(request_block);
+		return -LUAT_ERROR_OPERATION_FAILED;
+	}
+	request_block->record_codec.opts->set_record_info(&request_block->record_codec, common_audio_param);
+	request_block->encode_save_fifo = record_fifo;
+	request_block->priority = priority;
+	request_block->record_callback_frame_cnt = record_callback_frame_cnt;
+	//LLOGC(luat_audio_debug_flag, "record_one_frame_len: %d , callback_frame_cnt: %d", request_block->record_codec.common_param.one_frame_bytes, record_callback_frame_cnt);
+	//request_block->record_fifo_enough_data_level = record_callback_frame_cnt * request_block->record_codec.common_param.one_frame_bytes;
+	return luat_audio_request_start(request_block, 0);
 }
 
 void luat_audio_base_init(void)
 {
-	luat_rtos_task_create(&_luat_audio.common_task_handle, LUAT_AUDIO_TASK_STACK, 90, "luat_audio", luat_audio_common_task, NULL, 64);
-	luat_rtos_task_create(&_luat_audio.tts_task_handle, LUAT_AUDIO_TASK_STACK, 20, "luat_tts", luat_audio_tts_task, NULL, 0);
+	luat_rtos_task_create(&_luat_audio.common_task_handle, LUAT_AUDIO_TASK_STACK, LUAT_AUDIO_TASK_PRIORITY, "luat_audio", luat_audio_common_task, NULL, 64);
+	luat_rtos_task_create(&_luat_audio.tts_task_handle, LUAT_AUDIO_TASK_STACK, LUAT_AUDIO_TTS_TASK_PRIORITY, "luat_tts", luat_audio_tts_task, NULL, 0);
 	_luat_audio.request_lock = luat_mutex_create();
 	_luat_audio.tts_wait_sem = luat_mutex_create();
 	luat_mutex_lock(_luat_audio.tts_wait_sem);
@@ -1070,4 +1328,126 @@ uint8_t luat_audio_is_request_all_done(luat_audio_driver_ctrl_t *ctrl)
 	}
 	
 	return result;
+}
+
+void luat_audio_request_init_play_temp_buffer(luat_audio_request_block_t *request_block)
+{
+	if (request_block->play_codec.common_param.data_align == request_block->data_channel->driver_ctrl->common_param.data_align && 
+		request_block->play_codec.common_param.channel_nums == request_block->data_channel->driver_ctrl->common_param.channel_nums) {
+		LLOGC(luat_audio_debug_flag, "play temp buffer codec param same as driver param");
+	} else {
+		uint32_t data_align_len, channel_nums_len;
+		if (request_block->play_codec.common_param.data_align >= request_block->data_channel->driver_ctrl->common_param.data_align) {
+			data_align_len = request_block->out_buffer.max_len;
+		} else {
+			data_align_len = request_block->out_buffer.max_len * request_block->data_channel->driver_ctrl->common_param.data_align / request_block->play_codec.common_param.data_align;
+		}
+		if (request_block->play_codec.common_param.channel_nums >= request_block->data_channel->driver_ctrl->common_param.channel_nums) {
+			channel_nums_len = data_align_len;
+		} else {
+			channel_nums_len = data_align_len * request_block->data_channel->driver_ctrl->common_param.channel_nums / request_block->play_codec.common_param.channel_nums;
+		}
+		LLOGC(luat_audio_debug_flag, "check play temp buffer codec param %u %u-%u, driver param %u %u-%u", 
+			request_block->out_buffer.max_len, 
+			request_block->play_codec.common_param.data_align, 
+			request_block->play_codec.common_param.channel_nums, 	
+			channel_nums_len,		
+			request_block->data_channel->driver_ctrl->common_param.data_align, 
+			request_block->data_channel->driver_ctrl->common_param.channel_nums
+			);
+		if (request_block->data_align_buffer.max_len < channel_nums_len) {
+			luat_buffer_reinit(&request_block->data_align_buffer, channel_nums_len);
+			if (!request_block->data_align_buffer.data) {
+				LLOGE("create data align buffer failed, no memory");
+				request_block->is_error_stop = 1;
+				return;
+			}
+		}
+		if (request_block->channel_nums_buffer.max_len < channel_nums_len) {
+			luat_buffer_reinit(&request_block->channel_nums_buffer, channel_nums_len);
+			if (!request_block->channel_nums_buffer.data) {
+				LLOGE("create channel nums buffer failed, no memory");
+				request_block->is_error_stop = 1;
+				return;
+			}
+		}
+	}
+}
+
+void luat_audio_request_init_record_temp_buffer(luat_audio_request_block_t *request_block)
+{
+	if (request_block->record_codec.input_buffer) {
+		luat_heap_free(request_block->record_codec.input_buffer);
+		request_block->record_codec.input_buffer = luat_heap_malloc(request_block->record_codec.common_param.one_frame_bytes);
+		if (!request_block->record_codec.input_buffer) {
+			LLOGE("request id %d record codec input buffer failed", request_block->request_id);
+			request_block->is_error_stop = 1;
+			return;
+		}
+		if (request_block->record_codec.ref_buffer) {
+			luat_heap_free(request_block->record_codec.ref_buffer);
+			request_block->record_codec.ref_buffer = NULL;
+		}
+		request_block->record_codec.ref_buffer = luat_heap_malloc(request_block->record_codec.common_param.one_frame_bytes);
+		if (!request_block->record_codec.ref_buffer) {
+			LLOGE("request id %d record codec ref buffer failed", request_block->request_id);
+			request_block->is_error_stop = 1;
+			return;
+		}
+	}
+
+	if (request_block->record_codec.common_param.data_align == request_block->data_channel->driver_ctrl->common_param.data_align && 
+		request_block->record_codec.common_param.channel_nums == request_block->data_channel->driver_ctrl->common_param.channel_nums) {
+		LLOGC(luat_audio_debug_flag, "record temp buffer codec param same as driver param");
+		luat_buffer_reinit(&request_block->record_temp_buffer, request_block->record_codec.common_param.one_frame_bytes_from_driver);
+		if (!request_block->record_temp_buffer.data) {
+			LLOGE("create record temp buffer failed, no memory");
+			request_block->is_error_stop = 1;
+			return;
+		}
+	} else {
+		uint32_t max_data_align, max_channel_nums, final_data_bytes;
+
+		if (request_block->record_codec.common_param.data_align >= request_block->data_channel->driver_ctrl->common_param.data_align) {
+			max_data_align = request_block->record_codec.common_param.data_align;
+		} else {
+			max_data_align = request_block->data_channel->driver_ctrl->common_param.data_align;
+		}
+		if (request_block->record_codec.common_param.channel_nums >= request_block->data_channel->driver_ctrl->common_param.channel_nums) {
+			max_channel_nums = request_block->record_codec.common_param.channel_nums;
+		} else {
+			max_channel_nums = request_block->data_channel->driver_ctrl->common_param.channel_nums;
+		}
+		final_data_bytes = max_data_align * max_channel_nums * request_block->record_codec.common_param.one_frame_sample_cnt;
+		LLOGC(luat_audio_debug_flag, "check record temp buffer codec param %u %u-%u, driver param %u %u-%u", 
+			request_block->out_buffer.max_len, 
+			request_block->play_codec.common_param.data_align, 
+			request_block->play_codec.common_param.channel_nums, 	
+			final_data_bytes,		
+			request_block->data_channel->driver_ctrl->common_param.data_align, 
+			request_block->data_channel->driver_ctrl->common_param.channel_nums
+			);
+		if (request_block->data_align_buffer.max_len < final_data_bytes) {
+			luat_buffer_reinit(&request_block->data_align_buffer, final_data_bytes);
+			if (!request_block->data_align_buffer.data) {
+				LLOGE("create data align buffer failed, no memory");
+				request_block->is_error_stop = 1;
+				return;
+			}
+		}
+		if (request_block->channel_nums_buffer.max_len < final_data_bytes) {
+			luat_buffer_reinit(&request_block->channel_nums_buffer, final_data_bytes);
+			if (!request_block->channel_nums_buffer.data) {
+				LLOGE("create channel nums buffer failed, no memory");
+				request_block->is_error_stop = 1;
+				return;
+			}
+		}
+		luat_buffer_reinit(&request_block->record_temp_buffer, final_data_bytes);
+		if (!request_block->record_temp_buffer.data) {
+			LLOGE("create record temp buffer failed, no memory");
+			request_block->is_error_stop = 1;
+			return;
+		}
+	}
 }

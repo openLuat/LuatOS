@@ -74,7 +74,7 @@ static void luat_pcconf_set_defaults(void) {
     g_pcconf.uart_udp_port_start = 9000;
     g_pcconf.uart_udp_id_start = 0;
     g_pcconf.uart_udp_id_count = 8;
-    g_pcconf.web_console_enabled = 1;
+    g_pcconf.web_console_enabled = 0; // 仅 UI 展示与持久化用; 启动判断只看命令行 --webc=<port>, 不读这里
     g_pcconf.web_console_port = LUAT_PCCONF_WEB_PORT_DEFAULT;
     g_pcconf.web_console_refresh_interval = LUAT_PCCONF_WEB_REFRESH_DEFAULT;
     g_pcconf.tf_enabled = 1;

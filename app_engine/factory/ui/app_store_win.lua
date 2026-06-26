@@ -520,7 +520,7 @@ local function create_ui()
         default_index = 0,
         style = { bg_color = COLOR_CARD, border_color = COLOR_DIVIDER, radius = stbr },
         on_change = function(self, idx, option_value)
-            local sort_map = { "recommend", "idAsc", "timeAsc", "timeDesc", "hot", "downloads", "updatePriority" }
+            local sort_map = { "recommend", "serial_asc", "upload_time_asc", "upload_time_desc", "weekly_download_desc", "total_download_desc", "update_time_desc" }
             current_sort = sort_map[idx + 1] or "recommend"
             current_page = 1
             publish_get_list()

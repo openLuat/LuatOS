@@ -1,0 +1,5 @@
+{
+    "name": "air1601_pgfs_perf",
+    "description": "Air1601 PGFS 性能测试",
+    "timeout": 120
+}

@@ -773,6 +773,18 @@ MINIRV32_STEPPROTO
 					uint32_t microop = ( ir >> 12 ) & 0x7;
 					if( (microop & 3) ) // It's a Zicsr function.
 					{
+						/* Save guest a0-a7 across the OTHERCSR_READ/WRITE
+						 * dispatch. Those macros call C host functions that
+						 * are free to clobber caller-save registers per the
+						 * C ABI; without this save, the guest's a0 (and
+						 * friends) get corrupted by the time the next guest
+						 * instruction runs. Symptom: a subsequent store like
+						 * `sw ..., 0x10(a0)` traps with mcause=7 /
+						 * mtval=0xFFFFFFFC because a0 has been clobbered. */
+						uint32_t __csr_saved[8];
+						for( int __csr_i = 0; __csr_i < 8; __csr_i++ )
+							__csr_saved[__csr_i] = state->regs[__csr_i];
+
 						int rs1imm = (ir >> 15) & 0x1f;
 						uint32_t rs1 = REG(rs1imm);
 						uint32_t writeval = rs1;
@@ -833,6 +845,11 @@ MINIRV32_STEPPROTO
 							MINIRV32_OTHERCSR_WRITE( csrno, writeval );
 							break;
 						}
+
+						/* Restore the guest a0-a7 we saved before the dispatch
+						 * (see comment at the top of the if-block). */
+						for( int __csr_i = 0; __csr_i < 8; __csr_i++ )
+							state->regs[__csr_i] = __csr_saved[__csr_i];
 					}
 					else if( microop == 0x0 ) // "SYSTEM" 0b000
 					{

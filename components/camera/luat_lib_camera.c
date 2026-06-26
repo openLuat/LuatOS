@@ -808,7 +808,7 @@ static int l_camera_cache(lua_State *L) {
     zbuff[2] = luaL_testudata(L, 5, LUAT_ZBUFF_TYPE);
     if (zbuff[2])
     {
-    	cache[2] = (uint32_t *)zbuff[2]->addr;
+    	cache[2] = zbuff[2]->addr;
     	max_size = (max_size > zbuff[2]->len)?zbuff[2]->len:max_size;
     	zbuff_num = 3;
     }

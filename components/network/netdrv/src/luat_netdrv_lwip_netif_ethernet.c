@@ -38,6 +38,7 @@
  *
  */
 #include "luat_base.h"
+#include "luat_netdrv_lwip_compat.h"
 #include "lwip/opt.h"
 
 #if (LWIP_ARP || LWIP_ETHERNET) && defined(LUAT_USE_NETDRV_LWIP_ARP)
@@ -182,8 +183,8 @@ luat_netdrv_ethernet_input(struct pbuf *p, struct netif *netif)
         LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("Can't move over header in packet"));
         goto free_and_return;
       } else {
-        /* pass to IP layer */
-        ip4_input(p, netif);
+        /* pass to IP layer (LuatOS netdrv compat shim, see luat_netdrv_lwip_compat.c) */
+        luat_netdrv_ip4_input(p, netif);
       }
       break;
 

@@ -20,8 +20,6 @@ typedef enum {
 
 // 初始化 hzfont 库并加载指定字体，建立缓存（可选加载到 PSRAM）
 int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psram);
-// 释放 hzfont 资源并清理缓存
-void luat_hzfont_deinit(void);
 // 查询当前 hzfont 状态
 luat_hzfont_state_t luat_hzfont_get_state(void);
 // 估算一段 UTF-8 字符串的像素宽度

@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
-# Build script for RISC-V baremetal guest firmware
-# Supports GNU toolchain (preferred) and LLVM/Clang fallback
+# Build script for RISC-V baremetal guest firmware.
+# Phase 3+: LLVM clang+ld.lld+llvm-objcopy only (GNU toolchain removed).
 
 $ErrorActionPreference = "Stop"
 
@@ -242,57 +242,6 @@ function Test-Command {
     }
 }
 
-function Build-With-GNU {
-    param(
-        [string]$Prefix,
-        [hashtable]$Artifact
-    )
-    
-    $GCC = "${Prefix}-gcc"
-    $OBJCOPY = "${Prefix}-objcopy"
-    $elfOutput = "$BUILD_DIR\$($Artifact.Stem).elf"
-    $binOutput = "$BUILD_DIR\$($Artifact.Stem).bin"
-    $mapOutput = "$BUILD_DIR\$($Artifact.Stem).map"
-    $march = if ($Artifact.ContainsKey("March") -and $Artifact.March) { $Artifact.March } else { "rv32ima_zicsr" }
-    $mabi = if ($Artifact.ContainsKey("Mabi") -and $Artifact.Mabi) { $Artifact.Mabi } else { "ilp32" }
-    $extraCFlags = if ($Artifact.ContainsKey("CFlags") -and $Artifact.CFlags) { @($Artifact.CFlags) } else { @() }
-    
-    Write-Host "Using GNU toolchain: $Prefix ($($Artifact.Source) -> $($Artifact.Stem).bin)" -ForegroundColor Green
-    
-    # Compile and link
-    $gcc_args = @(
-        "-march=$march",
-        "-mabi=$mabi",
-        "-ffreestanding",
-        "-nostdlib",
-        "-fno-stack-protector",
-        "-fdata-sections",
-        "-ffunction-sections",
-        "-Os",
-        "-g",
-        $extraCFlags,
-        "-Wl,-T,$LINKER_SCRIPT",
-        "-Wl,-Map,$mapOutput",
-        "-Wl,--gc-sections",
-        "-o", $elfOutput,
-        $Artifact.Source
-    )
-    
-    Write-Host "Compiling: $GCC $($gcc_args -join ' ')"
-    & $GCC $gcc_args
-    if ($LASTEXITCODE -ne 0) {
-        throw "Compilation failed with exit code $LASTEXITCODE"
-    }
-    
-    # Extract binary
-    Write-Host "Extracting binary: $OBJCOPY -O binary $elfOutput $binOutput"
-    & $OBJCOPY -O binary $elfOutput $binOutput
-    if ($LASTEXITCODE -ne 0) {
-        throw "Binary extraction failed with exit code $LASTEXITCODE"
-    }
-    
-    return
-}
 
 function Build-With-LLVM {
     param([hashtable]$Artifact)
@@ -442,56 +391,19 @@ if (-not (Test-Path $BUILD_DIR)) {
     New-Item -ItemType Directory -Path $BUILD_DIR | Out-Null
 }
 
-# Toolchain detection priority: GNU riscv64 > GNU riscv32 > GNU riscv-none > LLVM
-$buildCandidates = @()
-
-if (Test-Command "riscv64-unknown-elf-gcc") {
-    $buildCandidates += @{
-        Name = "GNU riscv64"
-        Action = { param($artifact) Build-With-GNU -Prefix "riscv64-unknown-elf" -Artifact $artifact }
-        Objdump = "riscv64-unknown-elf-objdump"
-    }
-}
-if (Test-Command "riscv32-unknown-elf-gcc") {
-    $buildCandidates += @{
-        Name = "GNU riscv32"
-        Action = { param($artifact) Build-With-GNU -Prefix "riscv32-unknown-elf" -Artifact $artifact }
-        Objdump = "riscv32-unknown-elf-objdump"
-    }
-}
-if (Test-Command "riscv-none-elf-gcc") {
-    $buildCandidates += @{
-        Name = "GNU riscv-none"
-        Action = { param($artifact) Build-With-GNU -Prefix "riscv-none-elf" -Artifact $artifact }
-        Objdump = "riscv-none-elf-objdump"
-    }
-}
-if ((Test-Command "clang") -and (Test-Command "ld.lld") -and (Test-Command "llvm-objcopy")) {
-    $buildCandidates += @{
-        Name = "LLVM/Clang"
-        Action = { param($artifact) Build-With-LLVM -Artifact $artifact }
-        Objdump = "llvm-objdump"
-    }
-}
-
-if ($buildCandidates.Count -eq 0) {
-    Write-Host "`n=== ERROR: No suitable RISC-V toolchain found ===" -ForegroundColor Red
-    Write-Host "Please install one of the following:" -ForegroundColor Yellow
-    Write-Host "  1. GNU RISC-V toolchain (riscv64-unknown-elf-gcc, riscv32-unknown-elf-gcc, or riscv-none-elf-gcc)"
-    Write-Host "  2. LLVM/Clang with RISC-V support (clang + ld.lld + llvm-objcopy)"
-    Write-Host "`nSee components\ndk\guest\fixtures\rv32f_regression\README.md for installation instructions." -ForegroundColor Yellow
+# Toolchain: LLVM only (Phase 3 simplification)
+if (-not ((Test-Command "clang") -and (Test-Command "ld.lld") -and (Test-Command "llvm-objcopy"))) {
+    Write-Host "`n=== ERROR: LLVM toolchain not found ===" -ForegroundColor Red
+    Write-Host "Need: clang, ld.lld, llvm-objcopy (LLVM with RISC-V target, >= 16.0)" -ForegroundColor Yellow
+    Write-Host "Get a prebuilt LLVM from https://releases.llvm.org/ and add bin/ to PATH." -ForegroundColor Yellow
     exit 1
 }
 
-foreach ($candidate in $buildCandidates) {
-    try {
-        Build-AllArtifacts -BuildAction $candidate.Action -Objdump $candidate.Objdump
-        Write-Host "`n=== All done! ===" -ForegroundColor Green
-        Write-Host "Guest binaries rebuilt and synced successfully."
-        exit 0
-    } catch {
-        Write-Warning "$($candidate.Name) toolchain detected but build failed: $_"
-    }
+try {
+    Build-AllArtifacts -BuildAction ${function:Build-With-LLVM} -Objdump "llvm-objdump"
+    Write-Host "`n=== All done! ===" -ForegroundColor Green
+    Write-Host "Guest binaries rebuilt and synced successfully."
+    exit 0
+} catch {
+    throw "LLVM build failed: $_"
 }
-
-throw "All detected RISC-V toolchains failed to build the guest fixtures."

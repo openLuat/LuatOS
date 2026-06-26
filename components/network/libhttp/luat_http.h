@@ -95,6 +95,7 @@ typedef struct{
 	uint16_t remote_port; 		/**< 远程端口号 */
 	uint8_t is_tls;             // 是否SSL
 	uint8_t custom_host;        /**< 是否自定义Host了*/
+	uint8_t custom_connection;        /**< 是否自定义Host了*/
 	uint8_t is_post;
 	uint8_t re_request_count;
 	void* timeout_timer;			/**< timeout_timer 定时器*/

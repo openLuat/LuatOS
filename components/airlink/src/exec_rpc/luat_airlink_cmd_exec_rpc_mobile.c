@@ -439,6 +439,77 @@ static int mobile_fill_scell_extern_response(drv_mobile_MobileScellExternInfoRes
     return 0;
 }
 
+static int mobile_fill_scell_response(drv_mobile_MobileScellInfoResponse* payload) {
+    luat_mobile_scell_extern_info_t info;
+    luat_mobile_signal_strength_info_t sig_info;
+    uint32_t eci = 0;
+    uint16_t tac = 0;
+    int ret = 0;
+    int band = 0;
+
+    memset(&info, 0, sizeof(info));
+    ret = luat_mobile_get_extern_service_cell_info(&info);
+    if (ret != 0) {
+        mobile_set_result_fail(&payload->result, ret);
+        return 0;
+    }
+
+    payload->has_info = true;
+    payload->info.has_earfcn = true;
+    payload->info.earfcn = info.earfcn;
+    payload->info.has_pci = true;
+    payload->info.pci = info.pci;
+    payload->info.has_mcc = true;
+    payload->info.mcc = mobile_bcd16_to_decimal(info.mcc);
+    payload->info.has_mnc = true;
+    payload->info.mnc = mobile_bcd16_to_decimal(info.mnc);
+
+    band = luat_mobile_get_band_from_earfcn(info.earfcn);
+    if (band >= 0) {
+        payload->info.has_band = true;
+        payload->info.band = (uint32_t)band;
+    }
+
+    ret = luat_mobile_get_service_cell_identifier(&eci);
+    if (ret != 0) {
+        mobile_set_result_fail(&payload->result, ret);
+        return 0;
+    }
+    payload->info.has_eci = true;
+    payload->info.eci = eci;
+    payload->info.has_cid = true;
+    payload->info.cid = eci;
+
+    ret = luat_mobile_get_service_tac_or_lac(&tac);
+    if (ret != 0) {
+        mobile_set_result_fail(&payload->result, ret);
+        return 0;
+    }
+    payload->info.has_tac = true;
+    payload->info.tac = tac;
+
+    memset(&sig_info, 0, sizeof(sig_info));
+    ret = luat_mobile_get_signal_strength_info(&sig_info);
+    if (ret == 0) {
+        if (sig_info.luat_mobile_lte_signal_strength_vaild) {
+            payload->info.has_snr  = true;
+            payload->info.snr  = sig_info.lte_signal_strength.snr;
+            payload->info.has_rsrp = true;
+            payload->info.rsrp = sig_info.lte_signal_strength.rsrp;
+            payload->info.has_rsrq = true;
+            payload->info.rsrq = sig_info.lte_signal_strength.rsrq;
+            payload->info.has_rssi = true;
+            payload->info.rssi = sig_info.lte_signal_strength.rssi;
+        } else if (sig_info.luat_mobile_gw_signal_strength_vaild) {
+            payload->info.has_rssi = true;
+            payload->info.rssi = sig_info.gw_signal_strength.rssi;
+        }
+    }
+
+    mobile_set_result_ok(&payload->result);
+    return 0;
+}
+
 static int mobile_rpc_ensure_scan_lock(void) {
     if (s_mobile_cell_scan_lock) {
         return 0;
@@ -492,6 +563,9 @@ static drv_mobile_MobileResult* mobile_exec_result_ptr(drv_mobile_MobileRpcRespo
     case drv_mobile_MobileRpcRequest_scell_extern_tag:
         resp->which_payload = drv_mobile_MobileRpcResponse_scell_extern_tag;
         return &resp->payload.scell_extern.result;
+    case drv_mobile_MobileRpcRequest_scell_info_tag:
+        resp->which_payload = drv_mobile_MobileRpcResponse_scell_info_tag;
+        return &resp->payload.scell_info.result;
     case drv_mobile_MobileRpcRequest_global_status_tag:
     default:
         resp->which_payload = drv_mobile_MobileRpcResponse_global_status_tag;
@@ -815,6 +889,14 @@ static int mobile_rpc_handler(uint16_t rpc_id,
         }
         LLOGD("mobile scell_extern ret=%d", op_ret);
         break;
+    case drv_mobile_MobileRpcRequest_scell_info_tag:
+        resp->which_payload = drv_mobile_MobileRpcResponse_scell_info_tag;
+        op_ret = mobile_fill_scell_response(&resp->payload.scell_info);
+        if (op_ret == 0) {
+            op_ret = mobile_result_status(&resp->payload.scell_info.result);
+        }
+        LLOGD("mobile scell_info ret=%d", op_ret);
+        break;
     default:
         LLOGW("mobile_rpc: 未知 which_payload=%d", (int)req->which_payload);
         return -1;
@@ -843,6 +925,9 @@ static drv_mobile_MobileResult* mobile_stub_result_ptr(drv_mobile_MobileRpcRespo
     case drv_mobile_MobileRpcRequest_scell_extern_tag:
         resp->which_payload = drv_mobile_MobileRpcResponse_scell_extern_tag;
         return &resp->payload.scell_extern.result;
+    case drv_mobile_MobileRpcRequest_scell_info_tag:
+        resp->which_payload = drv_mobile_MobileRpcResponse_scell_info_tag;
+        return &resp->payload.scell_info.result;
     case drv_mobile_MobileRpcRequest_global_status_tag:
     default:
         resp->which_payload = drv_mobile_MobileRpcResponse_global_status_tag;

@@ -74,7 +74,7 @@ log.info("main", PROJECT, VERSION)
 -- 如果只测试TF卡操作，不需要联网，请注释掉下面的网络相关模块
 -- 如果需要 HTTP 下载或者上传功能时，需先完成联网配置，请取消注释网络相关模块
 -- 加载网络驱动设备功能模块，在netdrv_device.lua文件中修改自己使用的联网方式
- require"netdrv_device"
+-- require"netdrv_device"
 
 
 --[[在加载以下三个功能时，建议分别打开进行测试，因为文件操作，http下载功能和http大文件上传功能是异步操作。
@@ -83,11 +83,11 @@ log.info("main", PROJECT, VERSION)
 不符合正常的业务逻辑，用户在参考编程的时候也要注意。]]
 
 -- 加载tf卡测试应用模块（不需要网络）
--- require "tfcard_app"
+ require "tfcard_app"
 -- 加载HTTP下载存入TF卡功能演示模块（需要先启用网络功能）
 -- require "http_download_file"
 -- 加载HTTP上传文件到服务器的功能演示模块（需要先启用网络功能）
- require "http_upload_file"
+-- require "http_upload_file"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

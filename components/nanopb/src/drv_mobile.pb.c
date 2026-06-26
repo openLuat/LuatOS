@@ -78,6 +78,15 @@ PB_BIND(drv_mobile_MobileScellExternInfo, drv_mobile_MobileScellExternInfo, AUTO
 PB_BIND(drv_mobile_MobileScellExternInfoResponse, drv_mobile_MobileScellExternInfoResponse, AUTO)
 
 
+PB_BIND(drv_mobile_MobileScellInfoRequest, drv_mobile_MobileScellInfoRequest, AUTO)
+
+
+PB_BIND(drv_mobile_MobileScellInfo, drv_mobile_MobileScellInfo, AUTO)
+
+
+PB_BIND(drv_mobile_MobileScellInfoResponse, drv_mobile_MobileScellInfoResponse, AUTO)
+
+
 PB_BIND(drv_mobile_MobileRpcRequest, drv_mobile_MobileRpcRequest, AUTO)
 
 

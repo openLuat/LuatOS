@@ -21,7 +21,35 @@ $commonScripts = "..\..\testcase\common\scripts"
 
 if (-not [string]::IsNullOrWhiteSpace($Suite)) {
     $suiteName = $Suite
-    $testcaseScriptsPath = "..\..\testcase\unit_testcase_tools\$Suite\scripts"
+    # 套件可能位于 testcase/utest/{net,lib,sys}/<Suite>/scripts (C 层 utest 套件,2026-06 起的新位置)
+    # 或位于 testcase/unit_testcase_tools/<Suite>/scripts (尚未迁移的其它套件,如 pgfs_basic)
+    $candidateRoots = @(
+        "..\..\testcase\utest",
+        "..\..\testcase\unit_testcase_tools"
+    )
+    $found = @()
+    foreach ($root in $candidateRoots) {
+        $rootAbs = Join-Path $pcDir $root
+        if (-not (Test-Path $rootAbs)) { continue }
+        Get-ChildItem -Path $rootAbs -Directory -Recurse -Depth 1 -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -eq $Suite -and (Test-Path (Join-Path $_.FullName "scripts")) } |
+            ForEach-Object { $found += $_.FullName }
+    }
+    if ($found.Count -eq 0) {
+        throw "Suite '$Suite' not found under testcase/utest/* or testcase/unit_testcase_tools/."
+    }
+    if ($found.Count -gt 1) {
+        throw "Suite '$Suite' is ambiguous, matched: $($found -join '; ')"
+    }
+    Push-Location $pcDir
+    try {
+        $testcaseScriptsPath = (Resolve-Path -Relative -Path (Join-Path $found[0] "scripts"))
+    }
+    finally {
+        Pop-Location
+    }
+    $resolvedGroup = Split-Path (Split-Path $found[0] -Parent) -Leaf
+    Write-Host "[coverage] Resolved -Suite $Suite -> $($found[0])\scripts (group=$resolvedGroup)"
 }
 else {
     $testcaseScriptsPath = $TestcaseScripts.TrimEnd('\')

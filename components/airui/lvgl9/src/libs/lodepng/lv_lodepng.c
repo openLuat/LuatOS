@@ -147,20 +147,9 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, lv_image_decoder_d
             uint32_t rn;
             lv_fs_read(&dsc->file, buf, sizeof(buf), &rn);
 
-            if(rn != sizeof(buf)) {
-#ifdef __LUATOS__
-                LLOGE("probe fail: 读取 PNG 头失败, read=%u need=%u src=%s",
-                      (unsigned)rn, (unsigned)sizeof(buf), airui_png_src_path(dsc));
-#endif
-                return LV_RESULT_INVALID;
-            }
+            if(rn != sizeof(buf)) return LV_RESULT_INVALID;
 
-            if(lv_memcmp(buf, magic, sizeof(magic)) != 0) {
-#ifdef __LUATOS__
-                LLOGE("probe fail: 非 PNG 文件(魔数不匹配) src=%s", airui_png_src_path(dsc));
-#endif
-                return LV_RESULT_INVALID;
-            }
+            if(lv_memcmp(buf, magic, sizeof(magic)) != 0) return LV_RESULT_INVALID;
 
             size = (uint32_t *)&buf[16];
         }
@@ -170,18 +159,8 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, lv_image_decoder_d
             const uint32_t data_size = img_dsc->data_size;
             size = ((uint32_t *)img_dsc->data) + 4;
 
-            if(data_size < sizeof(magic)) {
-#ifdef __LUATOS__
-                LLOGE("probe fail: 内存 PNG 数据过短 size=%u", (unsigned)data_size);
-#endif
-                return LV_RESULT_INVALID;
-            }
-            if(lv_memcmp(img_dsc->data, magic, sizeof(magic)) != 0) {
-#ifdef __LUATOS__
-                LLOGE("probe fail: 内存 PNG 魔数不匹配 size=%u", (unsigned)data_size);
-#endif
-                return LV_RESULT_INVALID;
-            }
+            if(data_size < sizeof(magic)) return LV_RESULT_INVALID;
+            if(lv_memcmp(img_dsc->data, magic, sizeof(magic)) != 0) return LV_RESULT_INVALID;
         }
 
         /*Save the data in the header*/
@@ -193,9 +172,6 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, lv_image_decoder_d
         return LV_RESULT_OK;
     }
 
-#ifdef __LUATOS__
-    LLOGE("probe fail: 不支持的图片源类型 type=%d", (int)src_type);
-#endif
     return LV_RESULT_INVALID;         /*If didn't succeeded earlier then it's an error*/
 }
 

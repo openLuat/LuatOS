@@ -176,9 +176,6 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, lv_image_decoder_d
     LV_UNUSED(decoder);
 
     if(dsc->src_type != LV_IMAGE_SRC_FILE) {
-#ifdef __LUATOS__
-        LLOGE("probe fail: 仅支持文件路径 JPG, type=%d", (int)dsc->src_type);
-#endif
         return LV_RESULT_INVALID;
     }
 
@@ -186,16 +183,10 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, lv_image_decoder_d
     const char * ext = lv_fs_get_ext(src);
     bool is_jpeg_ext = (lv_strcmp(ext, "jpg") == 0) || (lv_strcmp(ext, "jpeg") == 0);
     if(!is_jpeg_ext) {
-#ifdef __LUATOS__
-        LLOGE("probe fail: 扩展名不是 jpg/jpeg src=%s ext=%s", src, ext ? ext : "?");
-#endif
         return LV_RESULT_INVALID;
     }
 
     if(!is_jpeg_file(&dsc->file)) {
-#ifdef __LUATOS__
-        LLOGE("probe fail: 非 JPEG 文件(魔数不匹配) src=%s", src);
-#endif
         return LV_RESULT_INVALID;
     }
 
@@ -203,9 +194,6 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, lv_image_decoder_d
     uint32_t height = 0;
     uint32_t orientation = 0;
     if(!get_jpeg_head_info(&dsc->file, &width, &height, &orientation)) {
-#ifdef __LUATOS__
-        LLOGE("probe fail: 无法解析 JPEG 头信息 src=%s", src);
-#endif
         return LV_RESULT_INVALID;
     }
 

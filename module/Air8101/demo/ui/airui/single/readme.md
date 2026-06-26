@@ -51,7 +51,8 @@
 4.  **`airui_video.lua`** - 视频组件演示（MJPG播放）
 
 ### 2.6 字体渲染演示
-1.  **`airui_hzfont.lua`** - NotoSansSC_subset 矢量字体全貌展示（需配套字体文件）
+1.  **`airui_hzfont.lua`** - HzFont 内置矢量字体特性演示（支持12-255号无级缩放、多文种混排）
+2.  **`airui_custom_hzfont.lua`** - NotoSansSC_subset 自定义矢量字体全貌展示（需配套TTF字体文件）
 
 ### 2.7 系统功能演示
 1.  **`airui_sleep.lua`** - AirUI 休眠管理演示（三级联动休眠与唤醒）
@@ -243,6 +244,12 @@
 
 - [点击下载Air8101最新版本内核固件](https://docs.openluat.com/air8101/luatos/firmware/)，demo所使用的是LuatOS-SoC_V2004_Air8101 104号固件
 
+### 6.3 自定义字体使用
+- [字体制作和烧录说明](https://docs.openluat.com/common/luatos_font_guide/#_3)
+
+- 在main.lua种选择 require("airui_custom_hzfont")  -- 自定义矢量字体演示（需配套TTF字体文件）
+- lcd初始化代码中选择 path = "/luadb/NotoSansSC_subset.ttf", -- 展示NotoSansSC_subset自定义字体
+
 
 ## 七、快速开始
 
@@ -271,7 +278,6 @@ require("tp_drv")
 -- require("airui_bar")  --动态进度条演示
 -- require("airui_dropdown")  --下拉框演示
 -- require("airui_switch")  --开关组件演示
--- require("airui_checkbox")  --复选框组件演示
 -- require("airui_msgbox")  --消息框组件演示
 -- require("airui_input")  --输入框和键盘演示
 -- require("airui_tabview")  --选项卡演示
@@ -279,15 +285,16 @@ require("tp_drv")
 -- require("airui_win")  --标签窗口演示
 require("airui_all_component") --所有组件综合演示
 -- require("airui_switch_page")  --页面切换演示
--- require("airui_hzfont")  --内置软件矢量字体演示
+-- require("airui_hzfont")  -- HzFont内置矢量字体演示
+-- require("airui_custom_hzfont")  -- 自定义矢量字体演示（需配套TTF字体文件）
 -- require("airui_chart")  -- 图表组件演示
 -- require("airui_qrcode")  -- 二维码组件演示
 -- require("airui_animimg")  -- 动画图像组件演示
 -- require("airui_shape")  -- 形状组件演示
 -- require("airui_spinner")  -- 加载指示器组件演示
 -- require("airui_video")  -- 视频组件演示
+-- require("airui_sleep")  -- AirUI休眠管理演示，Air8101模块暂时不支持低功耗
 -- require("airui_slider")  -- 滑块组件演示
--- require("airui_sleep")  -- AirUI休眠管理演示
 ```
 
 ### 7.3 软件烧录步骤
@@ -334,4 +341,4 @@ require("airui_all_component") --所有组件综合演示
 
 ## 九、扩展开发
 
-本演示 demo 所有接口都在 [AirUI核心库](https://docs.openluat.com/osapi/core/airui/)内有详细说明，如需实现更丰富的自定义功能可按接口说明实现。�
+本演示 demo 所有接口都在 [AirUI核心库](https://docs.openluat.com/osapi/core/airui/)内有详细说明，如需实现更丰富的自定义功能可按接口说明实现。

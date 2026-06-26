@@ -27,6 +27,7 @@ int tfs_core_mount  (tfs_dev_t *dev);
 int tfs_core_unmount(tfs_dev_t *dev);
 int tfs_core_format (tfs_dev_t *dev);
 int tfs_core_sync   (tfs_dev_t *dev);
+int tfs_core_maybe_checkpoint(tfs_dev_t *dev, int force);
 
 /*-------------------------------------------------------------------
  *  Garbage collection

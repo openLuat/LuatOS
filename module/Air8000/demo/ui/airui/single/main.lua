@@ -85,6 +85,7 @@ require("airui_all_component") --所有组件综合演示
 -- require("airui_sleep")  -- AirUI休眠管理演示,AirUI休眠需要使用Air8000核心板，并且将tp_drv.lua中tp.init的参数配置为pin_int = 2
 -- require("airui_switch_page")  --页面切换演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
+-- require("airui_custom_hzfont")  --自定义矢量字体演示
 -- require("airui_chart")  --图表组件演示
 -- require("airui_qrcode") --二维码组件演示
 -- require("airui_animimg")  -- 动画图像组件演示

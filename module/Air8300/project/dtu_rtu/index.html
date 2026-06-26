@@ -1,0 +1,1130 @@
+      
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=960, initial-scale=1.0">
+    <title>数据采集器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: #0a0a0a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .device-frame {
+            width: 960px;
+            height: 640px;
+            background: #1a1a1a;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.1), inset 0 -2px 4px rgba(0,0,0,0.3);
+            padding: 8px;
+            position: relative;
+        }
+        .screen {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        .window {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+        }
+        .window.active { display: flex; }
+        .boot-screen {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            justify-content: center;
+            align-items: center;
+            animation: bootFade 1.5s ease-out forwards;
+        }
+        @keyframes bootFade {
+            0% { opacity: 0; transform: scale(0.95); }
+            20% { opacity: 1; transform: scale(1); }
+            80% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.05); }
+        }
+        .boot-logo {
+            width: 100px;
+            height: 100px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .boot-text {
+            color: #fff;
+            font-size: 24px;
+            font-weight: 600;
+            margin-top: 24px;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 10px rgba(0,212,255,0.5);
+        }
+        .boot-version { color: rgba(255,255,255,0.5); font-size: 14px; margin-top: 8px; }
+        .standby-screen {
+            background: linear-gradient(180deg, #0d1b2a 0%, #1b263b 100%);
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        .clock-display { text-align: center; color: #fff; }
+        .time {
+            font-size: 96px;
+            font-weight: 200;
+            letter-spacing: 4px;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 20px rgba(0,212,255,0.3);
+            line-height: 1;
+        }
+        .date { font-size: 20px; color: rgba(255,255,255,0.6); margin-top: 12px; letter-spacing: 1px; }
+        .standby-hint {
+            position: absolute;
+            bottom: 40px;
+            color: rgba(255,255,255,0.4);
+            font-size: 16px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+        .status-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 32px;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 16px;
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+        }
+        .menu-screen { background: linear-gradient(180deg, #f0f2f5 0%, #e4e7eb 100%); }
+        .menu-header {
+            height: 56px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .back-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.3); }
+        .menu-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 24px;
+            padding: 40px;
+            align-content: center;
+        }
+        .menu-item {
+            background: #fff;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        .menu-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+        .menu-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .menu-item:nth-child(1) .menu-icon { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .menu-item:nth-child(2) .menu-icon { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .menu-item:nth-child(3) .menu-icon { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .menu-item:nth-child(4) .menu-icon { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        .menu-label { font-size: 17px; color: #4a5568; font-weight: 500; }
+        .function-screen { background: #f5f7fa; display: none; }
+        .function-screen.active { display: flex; }
+        .func-header {
+            height: 56px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .func-content { flex: 1; padding: 16px; overflow-y: auto; }
+        .func-title { font-size: 16px; color: #444; margin-bottom: 12px; font-weight: 600; }
+        .control-group {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .control-row:last-child { border-bottom: none; }
+        .control-label { font-size: 15px; color: #333; }
+        .control-value { font-size: 15px; color: #667eea; font-weight: 600; }
+        .switch {
+            width: 52px;
+            height: 28px;
+            background: #ddd;
+            border-radius: 14px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .switch.active { background: #667eea; }
+        .switch::after {
+            content: '';
+            width: 22px;
+            height: 22px;
+            background: #fff;
+            border-radius: 50%;
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            transition: all 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .switch.active::after { left: 27px; }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+        .btn-secondary { background: #e4e7eb; color: #333; }
+        .btn-danger { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%); color: #fff; }
+        .btn-success { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: #fff; }
+        .btn-warning { background: linear-gradient(135deg, #ffa502 0%, #ff6348 100%); color: #fff; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        .btn-small { padding: 5px 10px; font-size: 12px; }
+        .slider-container { display: flex; align-items: center; gap: 8px; }
+        .slider {
+            flex: 1;
+            height: 6px;
+            background: #e4e7eb;
+            border-radius: 3px;
+            position: relative;
+            cursor: pointer;
+        }
+        .slider-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+            width: 50%;
+        }
+        .slider-thumb {
+            width: 14px;
+            height: 14px;
+            background: #fff;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            left: 50%;
+            cursor: grab;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .input-field {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .input-field:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        .select-box {
+            width: 130px;
+            padding: 5px 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 18px;
+            background: #e4e7eb;
+            border-radius: 9px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 9px;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            background: #f0f0f0;
+        }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; }
+        .status-dot.online { background: #43e97b; box-shadow: 0 0 4px #43e97b; }
+        .status-dot.offline { background: #ff6b6b; }
+        .status-dot.warning { background: #fee140; }
+        .data-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            padding: 10px;
+            color: #fff;
+        }
+        .data-value { font-size: 22px; font-weight: 700; margin: 3px 0; }
+        .data-label { font-size: 10px; opacity: 0.9; }
+        .chart-area {
+            height: 80px;
+            background: #fff;
+            border-radius: 8px;
+            padding: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        .chart-line {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            right: 8px;
+            height: 50px;
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+        }
+        .chart-bar {
+            flex: 1;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            border-radius: 2px 2px 0 0;
+            opacity: 0.8;
+        }
+        .log-area {
+            height: 70px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 9px;
+            color: #00ff88;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+        .log-entry { margin-bottom: 2px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+        .network-status-card { background: #fff; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+        .network-item { display: flex; align-items: center; padding: 8px 0; font-size: 15px; border-bottom: 1px solid #f0f0f0; }
+        .network-item:last-child { border-bottom: none; }
+        .network-icon { width: 20px; text-align: center; margin-right: 8px; }
+        .signal-bars { display: flex; gap: 2px; align-items: flex-end; }
+        .signal-bar { width: 4px; background: #43e97b; border-radius: 1px; }
+        .signal-bar:nth-child(1) { height: 4px; }
+        .signal-bar:nth-child(2) { height: 7px; }
+        .signal-bar:nth-child(3) { height: 10px; }
+        .signal-bar:nth-child(4) { height: 13px; }
+        .signal-bar:nth-child(5) { height: 16px; background: #ddd; }
+        .priority-list { display: flex; flex-direction: column; gap: 6px; }
+        .priority-item { display: flex; align-items: center; padding: 6px 10px; background: #f8f9fa; border-radius: 6px; font-size: 12px; cursor: move; }
+        .priority-rank { width: 20px; height: 20px; background: #667eea; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; margin-right: 10px; }
+        .comm-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+        .comm-tab { flex: 1; padding: 8px 6px; background: #e4e7eb; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+        .comm-tab.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+        .register-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+        .register-table th, .register-table td { padding: 4px 6px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+        .register-table th { background: #f8f9fa; font-weight: 600; }
+        .upgrade-stage { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .stage-item { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: #999; }
+        .stage-item.active { color: #667eea; }
+        .stage-item.completed { color: #43e97b; }
+        .stage-icon { width: 24px; height: 24px; border-radius: 50%; background: #e4e7eb; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; font-size: 12px; }
+        .stage-item.active .stage-icon { background: #667eea; color: #fff; }
+        .stage-item.completed .stage-icon { background: #43e97b; color: #fff; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 11px; border-bottom: 1px solid #f0f0f0; }
+        .history-status { padding: 2px 6px; border-radius: 4px; font-size: 9px; }
+        .history-status.success { background: #d4edda; color: #155724; }
+        .history-status.fail { background: #f8d7da; color: #721c24; }
+        .history-status.rollback { background: #fff3cd; color: #856404; }
+        .backup-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f8f9fa; border-radius: 6px; margin-bottom: 6px; font-size: 11px; }
+        .backup-actions { display: flex; gap: 4px; }
+        .io-light { width: 10px; height: 10px; border-radius: 50%; background: #ddd; }
+        .io-light.on { background: #43e97b; box-shadow: 0 0 4px #43e97b; }
+        .io-panel-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 8px; }
+        .io-panel-item { text-align: center; padding: 6px 4px; background: #f8f9fa; border-radius: 6px; }
+        .io-panel-label { font-size: 9px; color: #666; margin-bottom: 4px; }
+        .io-panel-value { font-size: 11px; font-weight: 600; color: #333; }
+        .io-panel-light { width: 12px; height: 12px; border-radius: 50%; background: #ddd; margin: 0 auto 4px; }
+        .io-panel-light.on { background: #43e97b; box-shadow: 0 0 4px #43e97b; }
+        .io-panel-light.off { background: #ff6b6b; }
+        .alarm-item { display: flex; align-items: center; gap: 8px; padding: 6px; background: #fff3cd; border-radius: 6px; margin-bottom: 4px; font-size: 11px; }
+        .alarm-item.error { background: #f8d7da; }
+        .do-control-item { text-align: center; padding: 8px 4px; background: #f8f9fa; border-radius: 8px; }
+        .do-label { font-size: 10px; color: #666; margin-bottom: 6px; }
+        .do-mode { font-size: 9px; color: #999; margin-top: 4px; }
+        .ao-control-item { padding: 10px; background: #f8f9fa; border-radius: 8px; }
+        .ao-value-display { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; }
+        .batch-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+        .batch-buttons .btn { flex: 1; min-width: 60px; }
+        .flash-stage { display: flex; justify-content: space-between; font-size: 10px; color: #666; margin-bottom: 6px; }
+        .flash-stage-item { text-align: center; }
+        .flash-stage-item.active { color: #667eea; font-weight: 600; }
+        .flash-stage-item.completed { color: #43e97b; }
+        .security-status { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+        .security-icon { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+        .security-icon.ok { background: #d4edda; color: #155724; }
+        .security-icon.fail { background: #f8d7da; color: #721c24; }
+        .func-content::-webkit-scrollbar { width: 4px; }
+        .func-content::-webkit-scrollbar-track { background: transparent; }
+        .func-content::-webkit-scrollbar-thumb { background: rgba(102, 126, 234, 0.3); border-radius: 2px; }
+    </style>
+</head>
+<body>
+    <div class="device-frame">
+        <div class="screen">
+            <div class="window boot-screen active" id="bootWindow">
+                <div class="boot-logo"></div>
+                <div class="boot-text">系统启动中</div>
+                <div class="boot-version">Embedded OS v3.0.0</div>
+            </div>
+            <div class="window standby-screen" id="standbyWindow">
+                <div class="status-bar">
+                    <span id="standbyStatusTime">12:00</span>
+                    <div class="status-icons">
+                        <span id="standbyNetwork">📶</span>
+                        <span>🔋</span>
+                    </div>
+                </div>
+                <div class="clock-display">
+                    <div class="time" id="mainTime">12:00</div>
+                    <div class="date" id="mainDate">2026年4月7日 星期二</div>
+                </div>
+                <div class="standby-hint">点击屏幕进入主菜单</div>
+            </div>
+            <div class="window menu-screen" id="menuWindow">
+                <div class="menu-header">
+                    <button class="back-btn" onclick="showStandby()">←</button>
+                    <span>主菜单</span>
+                    <span style="width: 32px;"></span>
+                </div>
+                <div class="menu-grid">
+                    <div class="menu-item" onclick="showFunction('network')"><div class="menu-icon">🌐</div><span class="menu-label">网络</span></div>
+                    <div class="menu-item" onclick="showFunction('comm')"><div class="menu-icon">📡</div><span class="menu-label">通讯</span></div>
+                    <div class="menu-item" onclick="showFunction('monitor')"><div class="menu-icon">📊</div><span class="menu-label">监控</span></div>
+                    <div class="menu-item" onclick="showFunction('control')"><div class="menu-icon">🎮</div><span class="menu-label">控制</span></div>
+                    <div class="menu-item" onclick="showFunction('upgrade')"><div class="menu-icon">⬆️</div><span class="menu-label">升级</span></div>
+                    <div class="menu-item" onclick="showFunction('config')"><div class="menu-icon">⚙️</div><span class="menu-label">配置</span></div>
+                </div>
+            </div>
+            <div class="window function-screen" id="networkWindow">
+                <div class="func-header"><button class="back-btn" onclick="showMenu()">←</button><span>🌐 多网融合管理</span></div>
+                <div class="func-content">
+                    <!-- 网络状态总览 -->
+                    <div class="network-status-card">
+                        <div class="func-title">网络状态</div>
+                        <div class="network-item" id="netWifi"><span class="network-icon">📶</span><span style="flex:1;">WiFi</span><span class="status-indicator" id="netWifiBadge"><span class="status-dot offline"></span>--</span><span id="netWifiRssi" style="font-size:11px;color:#999;margin-left:6px;"></span></div>
+                        <div class="network-item" id="netEth1"><span class="network-icon">🔌</span><span style="flex:1;">网口1</span><span class="status-indicator" id="netEth1Badge"><span class="status-dot offline"></span>--</span></div>
+                        <div class="network-item" id="netEth2"><span class="network-icon">🔌</span><span style="flex:1;">网口2</span><span class="status-indicator" id="netEth2Badge"><span class="status-dot offline"></span>--</span></div>
+                        <div class="network-item" id="net4g"><span class="network-icon">📡</span><span style="flex:1;">4G</span><span class="status-indicator" id="net4gBadge"><span class="status-dot offline"></span>--</span><span class="signal-bars" style="margin-left:8px;" id="sigBars"><span class="signal-bar"></span><span class="signal-bar"></span><span class="signal-bar"></span><span class="signal-bar"></span><span class="signal-bar"></span></span></div>
+                    </div>
+
+                    <!-- WiFi 配置 -->
+                    <div class="control-group">
+                        <div class="func-title">WiFi 配置</div>
+                        <div class="control-row"><span class="control-label">SSID</span><input type="text" class="input-field" id="wifiSsid" value="" style="width:150px;"></div>
+                        <div class="control-row"><span class="control-label">密码</span><input type="password" class="input-field" id="wifiPwd" value="" style="width:150px;"></div>
+                        <div class="grid-2" style="margin-top:8px;">
+                            <button class="btn btn-primary" onclick="saveWifiConfig()">保存</button>
+                            <button class="btn btn-secondary" onclick="scanWifi()">扫描</button>
+                        </div>
+                        <div id="scanResults" style="display:none;margin-top:8px;font-size:12px;max-height:100px;overflow-y:auto;"></div>
+                    </div>
+
+                    <!-- 网口1 详情 -->
+                    <div class="control-group">
+                        <div class="func-title">网口1 (192.168.1.183)</div>
+                        <div class="control-row"><span class="control-label">IP</span><span class="control-value" id="detEth1Ip">--</span></div>
+                        <div class="control-row"><span class="control-label">掩码</span><span class="control-value" id="detEth1Mask">--</span></div>
+                        <div class="control-row"><span class="control-label">网关</span><span class="control-value" id="detEth1Gw">--</span></div>
+                    </div>
+
+                    <!-- 网口2 详情 -->
+                    <div class="control-group">
+                        <div class="func-title">网口2 (192.168.1.185) — Modbus TCP :502</div>
+                        <div class="control-row"><span class="control-label">IP</span><span class="control-value" id="detEth2Ip">--</span></div>
+                        <div class="control-row"><span class="control-label">掩码</span><span class="control-value" id="detEth2Mask">--</span></div>
+                        <div class="control-row"><span class="control-label">网关</span><span class="control-value" id="detEth2Gw">--</span></div>
+                    </div>
+
+                    <!-- 4G 详情 -->
+                    <div class="control-group">
+                        <div class="func-title">4G 信号检测</div>
+                        <div class="control-row"><span class="control-label">运营商</span><span class="control-value" id="det4gOp">--</span></div>
+                        <div class="control-row"><span class="control-label">信号</span><span class="control-value" id="det4gCsq">--</span></div>
+                        <div class="control-row"><span class="control-label">SIM卡状态</span><span class="status-indicator" id="det4gSim"><span class="status-dot offline"></span>--</span></div>
+                        <div class="control-row"><span class="control-label">IMEI</span><span class="control-value" style="font-size:11px;" id="det4gImei">--</span></div>
+                        <div class="control-row"><span class="control-label">ICCID</span><span class="control-value" style="font-size:10px;" id="det4gIccid">--</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="window function-screen" id="commWindow">
+                <div class="func-header"><button class="back-btn" onclick="showMenu()">←</button><span>📡 多协议主从站管理</span></div>
+                <div class="func-content">
+                    <div class="comm-tabs">
+                        <button class="comm-tab active" onclick="switchCommTab(this,'rs485master')">RS485主站</button>
+                        <button class="comm-tab" onclick="switchCommTab(this,'rs485slave')">RS485从站</button>
+                        <button class="comm-tab" onclick="switchCommTab(this,'modbustcp')">Modbus TCP从站</button>
+                    </div>
+                    <div id="rs485master-panel" class="comm-panel">
+                        <div class="control-group">
+                            <div class="func-title">RS485主站 — 温湿度传感器</div>
+                            <div class="control-row"><span class="control-label">接口</span><span class="control-value">UART1, GPIO37方向</span></div>
+                            <div class="control-row"><span class="control-label">波特率</span><span class="control-value">9600, 8N1</span></div>
+                            <div class="control-row"><span class="control-label">从站地址</span><span class="control-value">1</span></div>
+                            <div class="control-row"><span class="control-label">寄存器</span><span class="control-value">0x001E (温度+湿度)</span></div>
+                            <div class="control-row"><span class="control-label">当前温度</span><span class="control-value" id="commTemp">--</span></div>
+                            <div class="control-row"><span class="control-label">当前湿度</span><span class="control-value" id="commHumi">--</span></div>
+                            <div class="control-row"><span class="control-label">传感器状态</span><span class="status-indicator" id="commMasterStatus"><span class="status-dot offline"></span>--</span></div>
+                        </div>
+                        <div class="control-group">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span class="func-title" style="margin:0;">传感器读取日志</span><button class="btn btn-small btn-secondary" onclick="clearLog('commLog')">清空</button></div>
+                            <div class="log-area" id="commLog"><div class="log-entry">等待传感器数据...</div></div>
+                        </div>
+                    </div>
+                    <div id="rs485slave-panel" class="comm-panel" style="display:none;">
+                        <div class="control-group">
+                            <div class="func-title">RS485从站 — 连接电脑</div>
+                            <div class="control-row"><span class="control-label">接口</span><span class="control-value">UART3, GPIO36方向</span></div>
+                            <div class="control-row"><span class="control-label">波特率</span><span class="control-value">9600, 8N1</span></div>
+                            <div class="control-row"><span class="control-label">本机地址</span><span class="control-value">1</span></div>
+                            <div class="control-row"><span class="control-label">功能码</span><span class="control-value">03 (读保持寄存器)</span></div>
+                            <div class="control-row"><span class="control-label">寄存器范围</span><span class="control-value">0x0000 - 0x003B</span></div>
+                        </div>
+                        <div class="control-group">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span class="func-title" style="margin:0;">Modbus 请求日志</span><button class="btn btn-small btn-secondary" onclick="clearLog('slaveLog')">清空</button></div>
+                            <div class="log-area" id="slaveLog"><div class="log-entry">等待主站请求...</div></div>
+                        </div>
+                    </div>
+                    <div id="modbustcp-panel" class="comm-panel" style="display:none;">
+                        <div class="control-group">
+                            <div class="func-title">Modbus TCP 从站 — 网口2</div>
+                            <div class="control-row"><span class="control-label">IP地址</span><span class="control-value">192.168.1.185</span></div>
+                            <div class="control-row"><span class="control-label">端口</span><span class="control-value">502</span></div>
+                            <div class="control-row"><span class="control-label">从站地址</span><span class="control-value">1</span></div>
+                            <div class="control-row"><span class="control-label">协议</span><span class="control-value">Modbus TCP (MBAP+PDU)</span></div>
+                            <div class="control-row"><span class="control-label">状态</span><span class="status-indicator" id="commTcpStatus"><span class="status-dot online"></span>运行中</span></div>
+                        </div>
+                        <div class="control-group">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span class="func-title" style="margin:0;">TCP 请求日志</span><button class="btn btn-small btn-secondary" onclick="clearLog('tcpLog')">清空</button></div>
+                            <div class="log-area" id="tcpLog"><div class="log-entry">等待TCP请求...</div></div>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="func-title">寄存器映射表</div>
+                        <table class="register-table" id="commRegTable">
+                            <tr><th>地址</th><th>寄存器数</th><th>数据项</th><th>当前值</th></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="window function-screen" id="upgradeWindow">
+                <div class="func-header"><button class="back-btn" onclick="showMenu()">←</button><span>⬆️ FOTA远程升级</span></div>
+                <div class="func-content">
+                    <div class="control-group">
+                        <div class="func-title">当前版本</div>
+                        <div class="control-row"><span class="control-label">Core版本</span><span class="control-value" id="fotaCoreVer">--</span></div>
+                        <div class="control-row"><span class="control-label">Script版本</span><span class="control-value" id="fotaScriptVer">--</span></div>
+                        <div class="control-row"><span class="control-label">IMEI</span><span class="control-value" style="font-size:11px;" id="fotaImei">--</span></div>
+                    </div>
+                    <div class="control-group">
+                        <div class="func-title">升级操作</div>
+                        <div id="fotaStatus" style="margin-bottom:8px;font-size:14px;color:#667eea;"></div>
+                        <div class="grid-2">
+                            <button class="btn btn-primary" id="fotaCheckBtn" onclick="fotaCheck()">检查更新</button>
+                            <button class="btn btn-success" id="fotaDownloadBtn" onclick="fotaDownload()" disabled>开始下载</button>
+                        </div>
+                        <div class="progress-bar" style="margin-top:8px;display:none;" id="fotaProgressBar">
+                            <div class="progress-fill" id="fotaProgressFill" style="width:0%">0%</div>
+                        </div>
+                        <button class="btn btn-warning" id="fotaRebootBtn" onclick="fotaReboot()" style="margin-top:8px;display:none;">立即重启</button>
+                    </div>
+                    <div class="control-group">
+                        <div class="func-title">升级历史</div>
+                        <div id="fotaHistory"><div style="font-size:12px;color:#999;">暂无记录</div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="window function-screen" id="configWindow">
+                <div class="func-header"><button class="back-btn" onclick="showMenu()">←</button><span>⚙️ 参数配置管理</span></div>
+                <div class="func-content">
+                    <div class="control-group">
+                        <div class="func-title">设备信息</div>
+                        <div class="control-row"><span class="control-label">项目名称</span><span class="control-value" id="cfgProject">--</span></div>
+                        <div class="control-row"><span class="control-label">固件版本</span><span class="control-value" id="cfgVersion">--</span></div>
+                        <div class="control-row"><span class="control-label">IMEI</span><span class="control-value" style="font-size:11px;" id="cfgImei">--</span></div>
+                        <div class="control-row"><span class="control-label">ICCID</span><span class="control-value" style="font-size:10px;" id="cfgIccid">--</span></div>
+                        <div class="control-row"><span class="control-label">NTP时间</span><span class="control-value" style="font-size:12px;" id="cfgNtpTime">--</span></div>
+                    </div>
+                    <div class="control-group">
+                        <div class="func-title">设备配置</div>
+                        <div class="control-row"><span class="control-label">设备名称</span><input type="text" class="input-field" id="cfgDevName" style="width:150px;"></div>
+                        <div class="control-row"><span class="control-label">NTP服务器</span><input type="text" class="input-field" id="cfgNtpServer" style="width:150px;"></div>
+                        <div class="control-row"><span class="control-label">时区</span><select class="select-box" id="cfgTimezone"><option>UTC-12</option><option>UTC-8</option><option>UTC-5</option><option>UTC+0</option><option>UTC+8</option><option>UTC+9</option></select></div>
+                    </div>
+                    <div class="control-group">
+                        <div class="func-title">功耗模式</div>
+                        <div class="control-row">
+                            <span class="control-label">模式</span>
+                            <select class="select-box" id="cfgPowerMode" onchange="onPowerModeChange()">
+                                <option value="normal">常规模式</option>
+                                <option value="lowpower">低功耗模式</option>
+                                <option value="psm">PSM+深度休眠</option>
+                            </select>
+                        </div>
+                        <div class="control-row" id="psmRow" style="display:none">
+                            <span class="control-label">唤醒间隔(秒)</span>
+                            <input type="number" class="input-field" id="cfgPsmInterval" value="300" min="30" style="width:100px;">
+                        </div>
+                        <button class="btn btn-primary" onclick="savePowerMode()" style="margin-top:8px;">应用</button>
+                    </div>
+                    <div class="control-group">
+                        <div class="func-title">实时数据</div>
+                        <div class="grid-4">
+                            <div class="data-card"><div class="data-label">环境温度</div><div class="data-value" style="font-size:16px;" id="cfgTemp">--°C</div></div>
+                            <div class="data-card" style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);"><div class="data-label">CPU温度</div><div class="data-value" style="font-size:16px;" id="cfgCpu">--°C</div></div>
+                            <div class="data-card" style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);"><div class="data-label">VBAT电压</div><div class="data-value" style="font-size:16px;" id="cfgVbat">--V</div></div>
+                            <div class="data-card" style="background:linear-gradient(135deg,#43e97b 0%,#38f9d7 100%);"><div class="data-label">运行状态</div><div class="data-value" style="font-size:14px;" id="cfgRunStatus">正常</div></div>
+                        </div>
+                    </div>
+                    <div class="grid-2" style="margin-top:8px;">
+                        <button class="btn btn-primary" onclick="saveDeviceConfig()">保存配置</button>
+                        <button class="btn btn-danger" onclick="resetConfig()">恢复默认</button>
+                    </div>
+                </div>
+            </div>
+            <div class="window function-screen" id="monitorWindow">
+                <div class="func-header"><button class="back-btn" onclick="showMenu()">←</button><span>📊 实时状态监控</span></div>
+                <div class="func-content">
+                    <div class="control-group">
+                        <div class="func-title">IO状态面板</div>
+                        <div style="margin-bottom:12px;"><div style="font-size:13px;color:#666;margin-bottom:6px;">6路DI (GPIO)</div><div class="io-panel-grid" id="monDI"></div></div>
+                        <div style="margin-bottom:12px;"><div style="font-size:13px;color:#666;margin-bottom:6px;">6路DO (GPIO)</div><div class="io-panel-grid" id="monDO"></div></div>
+                        <div class="grid-2"><div><div style="font-size:13px;color:#666;margin-bottom:6px;">6路AI实时值(mA)</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><span style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">AI1:12.5</span><span style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">AI2:15.2</span><span style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">AI3:8.7</span><span style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">AI4:18.3</span><span style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">AI5:10.1</span><span style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">AI6:14.6</span></div></div><div><div style="font-size:13px;color:#666;margin-bottom:6px;">2路AO设定值(mA)</div><div style="display:flex;gap:6px;"><span style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">AO1:16.0</span><span style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">AO2:12.0</span></div></div></div>
+                    </div>
+                    <div class="control-group">
+                        <div class="func-title">系统资源</div>
+                        <div class="grid-4">
+                            <div class="data-card" style="text-align:center;"><div class="data-label">CPU温度</div><div class="data-value" style="font-size:18px;" id="monCpu">--°C</div></div>
+                            <div class="data-card" style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);text-align:center;"><div class="data-label">4G信号</div><div class="data-value" style="font-size:18px;" id="monSig">--</div></div>
+                            <div class="data-card" style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);text-align:center;"><div class="data-label">VBAT</div><div class="data-value" style="font-size:18px;" id="monVbat">--V</div></div>
+                            <div class="data-card" style="background:linear-gradient(135deg,#43e97b 0%,#38f9d7 100%);text-align:center;"><div class="data-label">运行时间</div><div class="data-value" style="font-size:16px;" id="monUp">--</div></div>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="func-title">告警信息</div>
+                        <div id="monAlarm"><div style="font-size:12px;color:#999;">暂无告警</div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="window function-screen" id="controlWindow">
+                <div class="func-header"><button class="back-btn" onclick="showMenu()">←</button><span>🎮 设备控制面板</span></div>
+                <div class="func-content">
+                    <div class="control-group">
+                        <div class="func-title">6路DO控制 (GPIO)</div>
+                        <div class="grid-3" id="ctrlDO"></div>
+                        <div style="margin-top:10px;display:flex;gap:6px;">
+                            <button class="btn btn-small btn-success" onclick="gpioAll(1)">全开</button>
+                            <button class="btn btn-small btn-danger" onclick="gpioAll(0)">全关</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="func-title">批量控制</div>
+                        <div style="display:flex;gap:6px;">
+                            <button class="btn btn-small btn-success" onclick="gpioAll(1)">全开</button>
+                            <button class="btn btn-small btn-danger" onclick="gpioAll(0)">全关</button>
+                            <button class="btn btn-small btn-warning" onclick="gpioAll(2)">交替</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="func-title">控制日志</div>
+                        <div class="log-area" id="ctrlLog" style="height:60px;"><div class="log-entry">就绪</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script>
+        function logAction(msg){fetch('/api/log?msg='+encodeURIComponent(msg)).catch(function(){});}
+        function switchWindow(windowId) {
+            document.querySelectorAll('.window').forEach(w=>w.classList.remove('active'));
+            const target=document.getElementById(windowId);
+            target.classList.add('active');
+            target.classList.add('fade-in');
+            setTimeout(()=>target.classList.remove('fade-in'),300);
+        }
+        function showStandby(){switchWindow('standbyWindow');}
+        function showMenu(){logAction('打开 主菜单');switchWindow('menuWindow');}
+        function showFunction(funcName){
+            var names={network:'网络管理',comm:'通讯管理',monitor:'监控面板',control:'控制面板',upgrade:'FOTA升级',config:'系统配置'};
+            logAction('打开 '+(names[funcName]||funcName));
+            switchWindow(funcName+'Window');
+        }
+        function toggleSwitch(element,name){
+            element.classList.toggle('active');
+            const state=element.classList.contains('active')?'开启':'关闭';
+            if(name)logAction(name+' → '+state);
+            if(name)showToast(name+' 已'+state);
+        }
+        function adjustSlider(event,slider){
+            const rect=slider.getBoundingClientRect();
+            const x=event.clientX-rect.left;
+            const percent=Math.max(0,Math.min(100,(x/rect.width)*100));
+            slider.querySelector('.slider-fill').style.width=percent+'%';
+            slider.querySelector('.slider-thumb').style.left=percent+'%';
+            const valueSpan=slider.parentElement.querySelector('span:last-child');
+            if(valueSpan){
+                if(valueSpan.textContent.includes('%'))valueSpan.textContent=Math.round(percent)+'%';
+                else if(valueSpan.textContent.includes('s')&&!valueSpan.textContent.includes('ms'))valueSpan.textContent=Math.round(percent/10+1)+'s';
+                else if(valueSpan.textContent.includes('ms'))valueSpan.textContent=Math.round(percent*2+50)+'ms';
+                else if(valueSpan.textContent.includes('小时'))valueSpan.textContent=Math.round(percent/20+1)+'小时';
+                else if(valueSpan.textContent.includes('A'))valueSpan.textContent=(percent/40).toFixed(1)+'A';
+            }
+        }
+        function adjustAO(event,slider,channel){
+            const rect=slider.getBoundingClientRect();
+            const x=event.clientX-rect.left;
+            const percent=Math.max(0,Math.min(100,(x/rect.width)*100));
+            slider.querySelector('.slider-fill').style.width=percent+'%';
+            slider.querySelector('.slider-thumb').style.left=percent+'%';
+            const ma=(4+percent/100*16).toFixed(1);
+            document.getElementById('ao'+channel+'-value').textContent=ma+'mA ('+Math.round(percent)+'%)';
+            slider.parentElement.querySelector('input').value=ma;
+        }
+        function setAO(channel,value){
+            const ma=parseFloat(value);
+            const percent=(ma-4)/16*100;
+            document.getElementById('ao'+channel+'-value').textContent=ma.toFixed(1)+'mA ('+Math.round(percent)+'%)';
+        }
+        function showToast(message){
+            const toast=document.getElementById('toast');
+            toast.textContent=message;
+            toast.classList.add('show');
+            setTimeout(()=>toast.classList.remove('show'),2000);
+        }
+        function switchCommTab(tab,panel){
+            document.querySelectorAll('.comm-tab').forEach(t=>t.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelectorAll('.comm-panel').forEach(p=>p.style.display='none');
+            document.getElementById(panel+'-panel').style.display='block';
+        }
+        function toggleDOMode(channel){
+            const modeEl=document.getElementById('do'+channel+'-mode');
+            modeEl.textContent=modeEl.textContent==='手动'?'自动':'手动';
+            showToast('DO'+channel+' 切换为'+modeEl.textContent+'模式');
+        }
+        function batchDO(action){
+            const switches=document.querySelectorAll('#controlWindow .grid-3 .switch');
+            switches.forEach((sw,idx)=>{
+                if(action==='allOn')sw.classList.add('active');
+                else if(action==='allOff')sw.classList.remove('active');
+                else if(action==='alternate'){if(idx%2===0)sw.classList.add('active');else sw.classList.remove('active');}
+            });
+            showToast(action==='allOn'?'全部开启':action==='allOff'?'全部关闭':action==='alternate'?'交替模式':'自定义模式');
+        }
+        function sendModbusCmd(){
+            const func=document.getElementById('modbusFunc').value;
+            const response=document.getElementById('modbusResponse');
+            const time=new Date().toLocaleTimeString('zh-CN',{hour12:false});
+            response.innerHTML='<div class="log-entry">['+time+'] TX: 01 '+func+' 00 00 00 0A C5 CD</div><div class="log-entry">['+time+'] RX: 01 '+func+' 14 00 64 00 C8...</div>';
+            showToast('Modbus指令已发送');
+        }
+        function checkUpgrade(){showToast('检查更新中...');setTimeout(()=>showToast('当前已是最新版本'),1500);}
+        function saveConfig(){showToast('配置保存中...');setTimeout(()=>showToast('配置已保存到Flash'),1000);}
+        function clearLog(id){document.getElementById(id).innerHTML='<div class="log-entry">日志已清空</div>';}
+        function startFlash(){
+            const progress=document.getElementById('flashProgress');
+            const log=document.getElementById('flashLog');
+            let width=0;
+            progress.textContent='擦除中...';
+            const interval=setInterval(()=>{
+                width+=Math.random()*20;
+                if(width>=100){
+                    width=100;
+                    clearInterval(interval);
+                    progress.textContent='刷写完成';
+                    log.innerHTML+='<div class="log-entry">['+new Date().toLocaleTimeString('zh-CN',{hour12:false})+'] 刷写完成!</div>';
+                    showToast('固件刷写成功！');
+                }else if(width<30)progress.textContent='擦除中...';
+                else if(width<80)progress.textContent='编程中... '+Math.round(width)+'%';
+                else progress.textContent='验证中...';
+                progress.style.width=width+'%';
+            },300);
+        }
+        function updateTime(){
+            const now=new Date();
+            const hours=String(now.getHours()).padStart(2,'0');
+            const minutes=String(now.getMinutes()).padStart(2,'0');
+            const timeStr=hours+':'+minutes;
+            document.getElementById('mainTime').textContent=timeStr;
+            document.getElementById('standbyStatusTime').textContent=timeStr;
+            const weekdays=['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+            const dateStr=now.getFullYear()+'年'+String(now.getMonth()+1).padStart(2,'0')+'月'+String(now.getDate()).padStart(2,'0')+'日 '+weekdays[now.getDay()];
+            document.getElementById('mainDate').textContent=dateStr;
+        }
+        setInterval(updateTime,1000);
+        updateTime();
+        setTimeout(()=>showStandby(),1500);
+        document.getElementById('standbyWindow').addEventListener('click',function(e){if(!e.target.closest('.status-bar'))showMenu();});
+        logAction('页面加载完成');
+
+        // ========== 网络管理 ==========
+        function saveWifiConfig(){
+            var data={}; var ssid=document.getElementById('wifiSsid').value.trim();
+            var pwd=document.getElementById('wifiPwd').value;
+            if(ssid)data.wifi_ssid=ssid; if(pwd)data.wifi_pwd=pwd;
+            if(Object.keys(data).length===0){showToast('未修改');return;}
+            fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+            .then(function(r){return r.json()}).then(function(res){showToast(res.code===0?'配置已保存，WiFi正在重连...':'保存失败');}).catch(function(){showToast('请求失败')});
+        }
+
+        function scanWifi(){
+            var btn=event.target; btn.textContent='扫描中...';btn.disabled=true;
+            fetch('/api/wifi/scan',{method:'POST'}).then(function(){
+                showToast('正在扫描，3秒后查看结果');
+                setTimeout(function(){
+                    fetch('/api/wifi/scan').then(function(r){return r.json()}).then(function(res){
+                        if(res.code===0&&res.data&&res.data.length>0){
+                            var html=''; for(var i=0;i<res.data.length;i++){
+                                var ap=res.data[i];
+                                html+='<div class="control-row" style="cursor:pointer;font-size:12px;" onclick="document.getElementById(\'wifiSsid\').value=\''+ap.ssid.replace(/'/g,'')+'\';document.getElementById(\'scanResults\').style.display=\'none\';">';
+                                html+='<span>'+ap.ssid+'</span><span style="color:#667eea;">'+ap.rssi+'dBm</span></div>';
+                            }
+                            document.getElementById('scanResults').innerHTML=html;
+                            document.getElementById('scanResults').style.display='block';
+                        }else{showToast('未扫描到WiFi');}
+                    }).catch(function(){showToast('获取失败')});
+                    btn.textContent='扫描';btn.disabled=false;
+                },3000);
+            }).catch(function(){showToast('扫描请求失败');btn.textContent='扫描';btn.disabled=false;});
+        }
+
+        function renderSigBars(csq){
+            var bars=document.querySelectorAll('#sigBars .signal-bar');
+            var level=Math.min(5,Math.max(0,Math.ceil((csq+115)/6)));
+            for(var i=0;i<bars.length;i++)bars[i].style.background=i<level?'#43e97b':'#ddd';
+        }
+
+        function updateNetworkUI(net){
+            function d(ok){return ok?'<span class="status-dot online"></span>':'<span class="status-dot offline"></span>';}
+            document.getElementById('netWifiBadge').innerHTML=d(net.wifi.ready)+(net.wifi.ready?net.wifi.ip:'离线');
+            document.getElementById('netWifiRssi').textContent=net.wifi.rssi?net.wifi.rssi+'dBm':'';
+            document.getElementById('netEth1Badge').innerHTML=d(net.eth1.ready)+(net.eth1.ready?net.eth1.ip:'离线');
+            document.getElementById('detEth1Ip').textContent=net.eth1.ip||'--';document.getElementById('detEth1Mask').textContent=net.eth1.mask||'--';document.getElementById('detEth1Gw').textContent=net.eth1.gw||'--';
+            document.getElementById('netEth2Badge').innerHTML=d(net.eth2.ready)+(net.eth2.ready?net.eth2.ip:'离线');
+            document.getElementById('detEth2Ip').textContent=net.eth2.ip||'--';document.getElementById('detEth2Mask').textContent=net.eth2.mask||'--';document.getElementById('detEth2Gw').textContent=net.eth2.gw||'--';
+            var g4=net.net4g;
+            document.getElementById('net4gBadge').innerHTML=d(g4.ready)+(g4.ready?'在线':'离线');
+            renderSigBars(g4.csq||0);
+            document.getElementById('det4gOp').textContent=g4.operator||'--';
+            document.getElementById('det4gCsq').textContent=(g4.csq||0)+'dBm';
+            document.getElementById('det4gSim').innerHTML=(g4.sim_ready?'<span class="status-dot online"></span>正常':'<span class="status-dot offline"></span>无卡');
+            document.getElementById('det4gImei').textContent=g4.imei||'--';
+            document.getElementById('det4gIccid').textContent=g4.iccid||'--';
+        }
+
+        // ========== 配置管理 ==========
+        function loadAllConfig(){
+            fetch('/api/config').then(function(r){return r.json()}).then(function(res){
+                if(res.code===0&&res.data){
+                    var e;
+                    e=document.getElementById('wifiSsid'); if(e)e.value=res.data.wifi_ssid||'';
+                    e=document.getElementById('wifiPwd'); if(e){e.value='';e.placeholder='留空不修改';}
+                    e=document.getElementById('cfgDevName'); if(e)e.value=res.data.device_name||'Air8000';
+                    e=document.getElementById('cfgNtpServer'); if(e)e.value=res.data.ntp_server||'ntp.aliyun.com';
+                    e=document.getElementById('cfgTimezone'); if(e){for(var i=0;i<e.options.length;i++){if(e.options[i].value===res.data.timezone)e.selectedIndex=i;}}
+                    e=document.getElementById('cfgPowerMode'); if(e&&res.data.power_mode){e.value=res.data.power_mode;onPowerModeChange();}
+                    e=document.getElementById('cfgPsmInterval'); if(e)e.value=res.data.psm_interval||300;
+                }
+            }).catch(function(){});
+        }
+
+        loadAllConfig();
+
+        function saveDeviceConfig(){
+            var data={};
+            data.device_name=document.getElementById('cfgDevName').value.trim();
+            data.ntp_server=document.getElementById('cfgNtpServer').value.trim();
+            data.timezone=document.getElementById('cfgTimezone').value;
+            fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+            .then(function(r){return r.json()}).then(function(res){
+                showToast(res.code===0?'配置已保存':'保存失败');
+            }).catch(function(){showToast('请求失败')});
+        }
+        function resetConfig(){
+            if(!confirm('确认恢复默认配置？'))return;
+            fetch('/api/reset',{method:'POST'}).then(function(r){return r.json()}).then(function(res){
+                if(res.code===0){showToast('已恢复, 请重启模块'); loadAllConfig();}
+                else showToast('操作失败');
+            }).catch(function(){showToast('请求失败')});
+        }
+        function onPowerModeChange(){
+            var m=document.getElementById('cfgPowerMode').value;
+            document.getElementById('psmRow').style.display=(m==='normal')?'none':'';
+        }
+        function savePowerMode(){
+            var m=document.getElementById('cfgPowerMode').value;
+            if(m==='psm'&&!confirm('PSM+模式下Web界面不可用, 确定?'))return;
+            var d={power_mode:m};
+            if(m!=='normal')d.psm_interval=parseInt(document.getElementById('cfgPsmInterval').value)||300;
+            fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})
+            .then(function(r){return r.json()}).then(function(res){
+                showToast(res.code===0?'已应用':'失败');
+            }).catch(function(){showToast('请求失败')});
+        }
+        function updateConfigUI(dev,sensor){
+            if(dev){
+                document.getElementById('cfgProject').textContent=dev.project||'--';
+                document.getElementById('cfgVersion').textContent=dev.fw_version||'--';
+                document.getElementById('cfgImei').textContent=dev.imei||'--';
+                document.getElementById('cfgIccid').textContent=dev.iccid||'--';
+                document.getElementById('cfgNtpTime').textContent=dev.ntp_time||'--';
+            }
+            if(sensor){
+                document.getElementById('cfgTemp').textContent=(sensor.temperature||0).toFixed(1)+'°C';
+                document.getElementById('cfgCpu').textContent=(sensor.cpu_temperature||0).toFixed(1)+'°C';
+                document.getElementById('cfgVbat').textContent=(sensor.vbat_voltage||0).toFixed(2)+'V';
+            }
+        }
+
+        // 每3秒刷新网络状态
+        function refreshNetwork(){
+            fetch('/api/status').then(function(r){return r.json()}).then(function(res){
+                if(res.code===0&&res.data){
+                    var s=res.data.sensor, d=res.data.device;
+                    try{updateConfigUI(d,s);}catch(e){}
+                    if(res.data.network)try{updateNetworkUI(res.data.network);}catch(e){}
+                    try{updateCommUI(res.data.comm);}catch(e){}
+                    // 监控页
+                    var el;
+                    if(s){el=document.getElementById('monCpu'); if(el)el.textContent=(s.cpu_temperature||0).toFixed(1)+'°C';
+                    el=document.getElementById('monSig'); if(el)el.textContent=(s.signal_strength||0)+' dBm';
+                    el=document.getElementById('monVbat'); if(el)el.textContent=(s.vbat_voltage||0).toFixed(2)+'V';}
+                    if(d){el=document.getElementById('monUp'); if(el)el.textContent=d.ntp_time||'--';}
+                }
+            }).catch(function(e){});
+        }
+        refreshNetwork();
+        setInterval(refreshNetwork,3000);
+
+        // 通讯状态刷新
+        function updateCommUI(d){
+            if(!d)return;
+            var m=d.rs485_master;
+            var e;
+            e=document.getElementById('commTemp'); if(e)e.textContent=m.temperature?m.temperature.toFixed(1)+' ℃':'--';
+            e=document.getElementById('commHumi'); if(e)e.textContent=m.humidity?m.humidity.toFixed(1)+' %RH':'--';
+            e=document.getElementById('commMasterStatus'); if(e)e.innerHTML=(m.status==='ok'?'<span class="status-dot online"></span>正常':'<span class="status-dot offline"></span>超时');
+            e=document.getElementById('commTcpStatus'); if(e)e.innerHTML='<span class="status-dot online"></span>运行中';
+            // 寄存器表
+            if(d.registers&&d.registers.length>0){
+                var html='<tr><th>地址</th><th>寄存器数</th><th>数据项</th><th>当前值</th></tr>';
+                for(var i=0;i<d.registers.length;i++){
+                    var r=d.registers[i];
+                    html+='<tr><td>'+r.addr+'</td><td>'+r.cnt+'</td><td>'+r.name+'</td><td>'+r.value+'</td></tr>';
+                }
+                e=document.getElementById('commRegTable'); if(e)e.innerHTML=html;
+            }
+            // 传感器日志
+            if(d.log&&d.log.length>0){
+                var logHtml='';
+                for(var i=d.log.length-1;i>=0;i--){
+                    logHtml+='<div class="log-entry">'+d.log[i]+'</div>';
+                }
+                e=document.getElementById('commLog'); if(e)e.innerHTML=logHtml;
+            }
+            // 从站日志（RS485）
+            if(d.slave_log&&d.slave_log.length>0){
+                var sh='';
+                for(var i=d.slave_log.length-1;i>=0;i--){
+                    sh+='<div class="log-entry">'+d.slave_log[i]+'</div>';
+                }
+                e=document.getElementById('slaveLog'); if(e)e.innerHTML=sh;
+            }
+            // TCP日志
+            if(d.tcp_log&&d.tcp_log.length>0){
+                var th='';
+                for(var i=d.tcp_log.length-1;i>=0;i--){
+                    th+='<div class="log-entry">'+d.tcp_log[i]+'</div>';
+                }
+                e=document.getElementById('tcpLog'); if(e)e.innerHTML=th;
+            }
+        }
+        function refreshComm(){
+        }
+
+        // ========== FOTA 升级 ==========
+        function fotaPoll(){
+            fetch('/api/fota/status').then(function(r){return r.json()}).then(function(res){
+                if(!res.data)return; var d=res.data;
+                document.getElementById('fotaStatus').textContent=d.msg||'';
+                if(d.status==='new_version'){document.getElementById('fotaDownloadBtn').disabled=false;}
+                if(d.status==='downloading'){
+                    document.getElementById('fotaProgressBar').style.display='block';
+                    document.getElementById('fotaProgressFill').style.width=d.progress+'%';
+                    document.getElementById('fotaProgressFill').textContent=d.progress+'%';
+                    document.getElementById('fotaCheckBtn').disabled=true;
+                }
+                if(d.status==='download_done'){
+                    document.getElementById('fotaDownloadBtn').disabled=true;
+                    document.getElementById('fotaRebootBtn').style.display='block';
+                }
+            }).catch(function(){});
+        }
+        function fotaCheck(){
+            document.getElementById('fotaCheckBtn').disabled=true;
+            document.getElementById('fotaStatus').textContent='正在检查更新...';
+            fetch('/api/fota/check',{method:'POST'}).then(function(){setTimeout(fotaPoll,2000);}).catch(function(){document.getElementById('fotaCheckBtn').disabled=false;});
+        }
+        function fotaDownload(){
+            document.getElementById('fotaDownloadBtn').disabled=true;
+            document.getElementById('fotaStatus').textContent='正在下载...';
+            fetch('/api/fota/download',{method:'POST'}).then(function(){
+                var iv=setInterval(function(){fotaPoll();},2000);
+                setTimeout(function(){clearInterval(iv);},120000);
+            }).catch(function(){document.getElementById('fotaDownloadBtn').disabled=false;});
+        }
+        function fotaReboot(){
+            if(!confirm('确定重启模组?'))return;
+            fetch('/api/fota/reboot',{method:'POST'}).then(function(){showToast('模组即将重启...')});
+        }
+        function fotaInit(){
+            fetch('/api/status').then(function(r){return r.json()}).then(function(res){
+                if(res.data&&res.data.device){
+                    document.getElementById('fotaCoreVer').textContent=res.data.device.fw_version||'--';
+                    document.getElementById('fotaScriptVer').textContent=res.data.device.version||'--';
+                    document.getElementById('fotaImei').textContent=res.data.device.imei||'--';
+                }
+            }).catch(function(){});
+            fotaPoll();
+        }
+        fotaInit();
+
+        // ========== GPIO 监控/控制 ==========
+        var DO_PINS=[146,147,153,140,141,1], DI_PINS=[2,3,160,162];
+        var doStates={},diStates={};
+        function refreshGPIO(){
+            // GPIO 状态
+            fetch('/api/gpio/list').then(function(r){return r.json()}).then(function(res){
+                if(!res.data)return; var d=res.data;
+                // 监控页 DI
+                var h='',dd=d.di_pins||{}; for(var i=0;i<4;i++){var st=dd[DI_PINS[i]];diStates[DI_PINS[i]]=st;h+='<div class="io-panel-item"><div class="io-panel-light '+(st?'on':'off')+'"></div><div class="io-panel-label">DI'+(i+1)+'</div></div>';}
+                document.getElementById('monDI').innerHTML=h;
+                // 监控页 DO
+                h='';var doo=d.do_pins||{}; for(var i=0;i<6;i++){var st=doo[DO_PINS[i]];doStates[DO_PINS[i]]=st;h+='<div class="io-panel-item"><div class="io-panel-light '+(st?'on':'off')+'"></div><div class="io-panel-label">DO'+(i+1)+'</div></div>';}
+                document.getElementById('monDO').innerHTML=h;
+                // 控制页 DO 开关
+                h=''; for(var i=0;i<6;i++){var pin=DO_PINS[i];h+='<div class="do-control-item"><div class="do-label">DO'+(i+1)+'</div><div class="switch'+(doStates[pin]?' active':'')+'" onclick="gpioToggle('+pin+',this)"></div></div>';}
+                document.getElementById('ctrlDO').innerHTML=h;
+            }).catch(function(){});
+        }
+        function gpioToggle(pin,el){
+            el.classList.toggle('active'); var st=el.classList.contains('active');
+            doStates[pin]=st;
+            fetch('/api/gpio/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:pin,state:st})}).catch(function(){});
+            var lg=document.getElementById('ctrlLog'); if(lg)lg.innerHTML='<div class="log-entry">[auto] GPIO'+pin+'='+(st?'ON':'OFF')+'</div>'+lg.innerHTML;
+        }
+        function gpioAll(st){
+            if(st===2){ for(var i=0;i<6;i++){var s=(i%2===0);doStates[DO_PINS[i]]=s;fetch('/api/gpio/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:DO_PINS[i],state:s})}).catch(function(){});} }
+            else{ for(var i=0;i<6;i++){doStates[DO_PINS[i]]=st;fetch('/api/gpio/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:DO_PINS[i],state:st})}).catch(function(){});} }
+            refreshGPIO();
+            var lg=document.getElementById('ctrlLog'); if(lg)lg.innerHTML='<div class="log-entry">[auto] '+(st===2?'交替':st?'全开':'全关')+'</div>'+lg.innerHTML;
+        }
+        refreshGPIO(); setInterval(refreshGPIO,3000);
+    </script>
+</body>
+</html>
+
+    

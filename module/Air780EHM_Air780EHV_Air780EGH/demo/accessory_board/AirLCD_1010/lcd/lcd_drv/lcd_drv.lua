@@ -35,19 +35,20 @@ end
 ]]
 
 local function lcd_drv_init()
+    pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
     local result = lcd.init("st7796",
         {
-            pin_rst = 36,                          -- 复位引脚
-            pin_pwr = 1,                           -- 背光控制引脚GPIO的ID号
-            port = lcd.HWID_0,                     -- 驱动端口
+            pin_rst = 36,      -- 复位引脚
+            pin_pwr = 1,       -- 背光控制引脚GPIO的ID号
+            port = lcd.HWID_0, -- 驱动端口
             -- pin_dc = 0xFF,                      -- lcd数据/命令选择引脚GPIO ID号，使用lcd 专用 SPI 接口 lcd.HWID_0不需要填此参数，使用通用SPI接口需要赋值
-            direction = 0,                         -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
-            w = 320,                               -- lcd 水平分辨率
-            h = 480,                               -- lcd 竖直分辨率
-            xoffset = 0,                           -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
-            yoffset = 0,                           -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
-            sleepcmd = 0X10,                       -- 睡眠命令，默认0X10
-            wakecmd = 0X11,                        -- 唤醒命令，默认0X11
+            direction = 0,     -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
+            w = 320,           -- lcd 水平分辨率
+            h = 480,           -- lcd 竖直分辨率
+            xoffset = 0,       -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
+            yoffset = 0,       -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
+            sleepcmd = 0X10,   -- 睡眠命令，默认0X10
+            wakecmd = 0X11,    -- 唤醒命令，默认0X11
             -- bus_speed = 50*1000*1000,                            -- SPI总线速度,不填默认50M，若速率要求更高需要进行设置
             -- interface_mode = lcd.WIRE_4_BIT_8_INTERFACE_I,       -- lcd模式，默认lcd.WIRE_4_BIT_8_INTERFACE_I
             -- direction0 = {0x36,0x00},                            -- 0°方向的命令，(不同屏幕ic会有差异)
@@ -72,8 +73,10 @@ local function lcd_drv_init()
         -- 显示设置
         lcd.setupBuff(nil, true)
         lcd.autoFlush(false)
+        log.info("LCD初始化成功")
+    else
+        log.error("LCD初始化失败")
     end
-
 end
 
 lcd_drv_init()

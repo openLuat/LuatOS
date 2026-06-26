@@ -15,6 +15,7 @@
 #include "luat_msgbus.h"
 #include "luat_timer.h"
 #include "luat_rtos.h"
+#include "luat_zbuff.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_napt.h"
 #include "luat_netdrv_drv.h"
@@ -24,6 +25,7 @@
 
 #include "lwip/ip.h"
 #include "lwip/ip4.h"
+#include "lwip/tcpip.h"
 
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
@@ -539,201 +541,139 @@ end)
 */
 extern int l_icmp_ping(lua_State *L);
 
-static int s_socket_evt_ref[NW_ADAPTER_QTY] = {0};
+// netdrv 事件 Lua 绑定 (l_netdrv_on + 内部 static 状态/回调) 已拆分到
+// components/network/netdrv/binding/luat_lib_netdrv_event.c,
+// 这里仅通过 extern 引用, reg_netdrv[] 的 {"on", ...} 条目照旧有效.
+extern int l_netdrv_on(lua_State *L);
 
-static int l_socket_evt_cb(lua_State *L, void* ptr) {
-    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    netdrv_tcp_evt_t* evt = (netdrv_tcp_evt_t*)ptr;
-    int ref = s_socket_evt_ref[evt->id];
-    if (ref == 0) {
-        LLOGW("socket evt cb no lua ref");
-        luat_heap_free(ptr);
-        return 0;
-    }
-    // LLOGD("socket evt cb %d %d lua function %d", evt->id, evt->flags, ref);
-    // 取出函数
-    lua_geti(L, LUA_REGISTRYINDEX, ref);
-    if (!lua_isfunction(L, -1)) {
-        LLOGW("socket evt cb ref not function");
-        lua_pop(L, 1);
-        luat_heap_free(ptr);
-        return 0;
-    }
-    lua_pushinteger(L, evt->id);
-    switch (evt->flags)
-    {
-    case 0x81:
-        lua_pushstring(L, "create");
-        break;
-    case 0x82:
-        lua_pushstring(L, "release");
-        break;
-    case 0x83:
-        lua_pushstring(L, "connecting");
-        break;
-    case EV_NW_TIMEOUT - EV_NW_RESET:
-        lua_pushstring(L, "timeout");
-        break;
-    case EV_NW_SOCKET_CLOSE_OK - EV_NW_RESET:
-        lua_pushstring(L, "closed");
-        break;
-    case EV_NW_SOCKET_CONNECT_OK - EV_NW_RESET:
-        lua_pushstring(L, "connected");
-        break;
-    case EV_NW_SOCKET_REMOTE_CLOSE - EV_NW_RESET:
-        lua_pushstring(L, "remote_close");
-        break;
-    case EV_NW_SOCKET_ERROR - EV_NW_RESET:
-        lua_pushstring(L, "error");
-        break;
-    case EV_NW_DNS_RESULT - EV_NW_RESET:
-        lua_pushstring(L, "dns_result");
-        break;
-    
-    default:
-        lua_pushstring(L, "unknown");
-        break;
-    }
-    lua_newtable(L);
-    // 填充参数表 远端ip, 远端端口, 本地ip, 本地端口
-    char buff[32] = {0};
-    if (!ip_addr_isany(&evt->remote_ip)) {
-        ipaddr_ntoa_r(&evt->remote_ip, buff, 32);
-        lua_pushstring(L, buff);
-        lua_setfield(L, -2, "remote_ip");
-    }
+// send_raw: 把 zbuff 原始数据按 target 方向投到 netdrv 链路
+typedef struct netdrv_send_msg {
+    luat_netdrv_t* drv;
+    uint16_t len;
+    uint8_t buff[4]; // flexible array
+} netdrv_send_msg_t;
 
-    if (!ip_addr_isany(&evt->online_ip)) {
-        ipaddr_ntoa_r(&evt->online_ip, buff, 32);
-        lua_pushstring(L, buff);
-        lua_setfield(L, -2, "online_ip");
-    }
-
-    lua_pushinteger(L, evt->remote_port);
-    lua_setfield(L, -2, "remote_port");
-
-    switch (evt->proto)
-    {
-    case 1:
-        lua_pushstring(L, "tcp");
-        break;
-    case 2:
-        lua_pushstring(L, "udp");
-        break;
-    case 3:
-        lua_pushstring(L, "http");
-        break;
-    case 4:
-        lua_pushstring(L, "mqtt");
-        break;
-    case 5:
-        lua_pushstring(L, "websocket");
-        break;
-    default:
-        lua_pushstring(L, "unknown");
-        break;
-    }
-    lua_setfield(L, -2, "proto");
-
-    // p = ipaddr_ntoa_r(&evt->local_ip, buff, 32);
-    // lua_pushstring(L, p);
-    // lua_setfield(L, -2, "local_ip");
-
-    // lua_pushinteger(L, evt->local_port);
-    // lua_setfield(L, -2, "local_port");
-
-    if (evt->domain_name[0]) {
-        lua_pushstring(L, evt->domain_name);
-        lua_setfield(L, -2, "domain_name");
-    }
-
-    lua_call(L, 3, 0);
-    // 释放内存
-    luat_heap_free(ptr);
-
-    return 0;
+static void do_send_raw_to_hw(void* args) {
+    netdrv_send_msg_t* m = (netdrv_send_msg_t*)args;
+    if (m == NULL) return;
+    // 走统一出口 pkg_output: null 检查 + drv->dataout 在那里集中处理
+    luat_netdrv_pkg_output(m->drv->id, LUAT_NETDRV_CH_HW, m->buff, m->len);
+    luat_heap_free(m);
 }
 
-static void luat_socket_evt_cb(netdrv_tcp_evt_t* evt, void* userdata) {
-    rtos_msg_t msg = {0};
-    msg.handler = l_socket_evt_cb;
-    msg.ptr = luat_heap_malloc(sizeof(netdrv_tcp_evt_t));
-    if (msg.ptr == NULL) {
-        LLOGE("socket evt cb no mem");
-        return;
+// CH_LWIP: 跳过 NAPT, 直接注入 LWIP (相当于 post-NAPT 入口)
+static void do_send_raw_to_lwip(void* args) {
+    netdrv_send_msg_t* m = (netdrv_send_msg_t*)args;
+    if (m == NULL) return;
+    if (m->drv && m->drv->netif) {
+        luat_netdrv_netif_input_proxy(m->drv->netif, m->buff, m->len);
     }
-    memcpy(msg.ptr, evt, sizeof(netdrv_tcp_evt_t));
-    luat_msgbus_put(&msg, 0);
+    luat_heap_free(m);
 }
 
-// 监听socket事件
+// CH_NAPT: 先过 NAPT, 未消费则继续到 LWIP (相当于 pre-NAPT 入口)
+static void do_send_raw_to_napt(void* args) {
+    netdrv_send_msg_t* m = (netdrv_send_msg_t*)args;
+    if (m == NULL) return;
+    int napt_ret = luat_netdrv_napt_pkg_input(m->drv->id, m->buff, (size_t)m->len);
+    if (napt_ret == 0 && m->drv && m->drv->netif) {
+        // NAPT 未消费, 继续注入 LWIP
+        luat_netdrv_netif_input_proxy(m->drv->netif, m->buff, m->len);
+    }
+    luat_heap_free(m);
+}
+
 /*
-订阅网络事件
-@api netdrv.on(adapter_id, event_type, callback)
-@int 网络适配器的id
-@int 事件总类型, 当前支持 netdrv.EVT_SOCKET
-@function 回调函数 function(id, event, params)
-@return bool 成功与否,成功返回true,否则返回nil
+直接向 netdrv 链路投递原始数据包
+@api netdrv.send_raw(id, target, zbuff, len)
+@int 网络适配器编号
+@int 投递目标 (target/dst):
+  - netdrv.CH_HW   = 0x10: 走 dataout 发到物理硬件 (HW TX 出口)
+  - netdrv.CH_LWIP = 0x20: 跳过 NAPT, 直接注入 LWIP (相当于 RX 方向 post-NAPT 入口)
+  - netdrv.CH_NAPT = 0x30: 先过 NAPT, 未消费则注入 LWIP (相当于 RX 方向 pre-NAPT 入口)
+@zbuff 待发送的 zbuff, used 长度即默认发送长度
+@int 可选, 发送长度(<= zbuff.used), 默认 zbuff.used
+@return int 实际进入发送队列的字节数, 失败返回 nil+err
 @usage
--- 订阅socket连接状态变化事件
-netdrv.on(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, params)
-    -- id 是网络适配器id
-    -- event是事件id, 字符串类型, 
-        - create 创建socket对象
-        - release 释放socket对象
-        - connecting 正在连接, 域名解析成功后出现
-        - connected 连接成功, TCP三次握手成功后出现
-        - closed 连接关闭
-        - remote_close 远程关闭, 网络中断,或者服务器主动断开
-        - timeout dns解析超时,或者tcp连接超时
-        - error 错误,包括一切异常错误
-    -- params是参数表
-        - remote_ip 远端ip地址,未必存在
-        - remote_port 远端端口,未必存在
-        - online_ip 实际连接的ip地址,未必存在
-        - domain_name 远端域名,如果是通过域名连接的话, release时没有这个值, create时也没有
-    log.info("netdrv", "socket event", id, event, json.encode(params or {}))
-    if params then
-        -- params里会有remote_ip, remote_port等信息, 可按需获取
-        local remote_ip = params.remote_ip
-        local remote_port = params.remote_port
-        local domain_name = params.domain_name
-        log.info("netdrv", "socket event", "remote_ip", remote_ip, "remote_port", remote_port, "domain_name", domain_name)
-    end
-end)
+-- 立即以默认长度发到硬件
+netdrv.send_raw(socket.LWIP_ETH, netdrv.CH_HW, zb)
+-- 只发前 64 字节
+netdrv.send_raw(socket.LWIP_ETH, netdrv.CH_HW, zb, 64)
+-- 注入 LWIP (作为入向包, 等同收到一个网络包)
+netdrv.send_raw(socket.LWIP_ETH, netdrv.CH_LWIP, fake_response_zb)
+-- 走 NAPT 路径 (走完 NAPT 后再注入 LWIP)
+netdrv.send_raw(socket.LWIP_GP, netdrv.CH_NAPT, app_zb)
 */
-static int l_netdrv_on(lua_State *L) {
-    int id = luaL_checkinteger(L, 1);
-    if (id < 0) {
-        return 0; // 非法id
+static int l_netdrv_send_raw(lua_State *L) {
+    int id     = luaL_checkinteger(L, 1);
+    int target = luaL_checkinteger(L, 2);
+    luat_zbuff_t* buff = (luat_zbuff_t*)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE);
+    size_t used = buff ? buff->used : 0;
+    int len_in = (int)luaL_optinteger(L, 4, (lua_Integer)used);
+    if (len_in < 0) len_in = 0;
+    if (len_in > 0xFFFF) len_in = 0xFFFF;
+    uint16_t len = (uint16_t)len_in;
+
+    // target -> 队列提交函数 + 各自 netdrv 前置依赖 (dataout / netif)
+    // 注: helper/need_msg 必须在 switch 外声明 (MSVC C89 不允许 case 内任意位置定义变量)
+    void (*helper)(void*) = NULL;
+    const char* need_msg = NULL;
+    switch (target) {
+        case LUAT_NETDRV_CH_HW:
+            helper   = do_send_raw_to_hw;
+            need_msg = "netdrv has no dataout";
+            break;
+        case LUAT_NETDRV_CH_LWIP:
+            helper   = do_send_raw_to_lwip;
+            need_msg = "netdrv has no netif";
+            break;
+        case LUAT_NETDRV_CH_NAPT:
+            helper   = do_send_raw_to_napt;
+            need_msg = "netdrv has no netif";
+            break;
+        default:
+            return luaL_error(L, "unknown send_raw target %d", target);
     }
-    luat_netdrv_t* netdrv = luat_netdrv_get(id);
-    if (netdrv == NULL || netdrv->netif == NULL) {
-        return 0;
+
+    // 共同前置: drv 存在 + target 特定依赖 (dataout / netif)
+    // 注: error 字符串用 lua_pushstring 而非 lua_pushliteral, 因后者是宏
+    // "" s 拼接, 要求 s 必须是字符串字面量, 不能传 const char* 变量.
+    luat_netdrv_t* drv = luat_netdrv_get(id);
+    if (drv == NULL) {
+        lua_pushnil(L); lua_pushliteral(L, "netdrv not available"); return 2;
     }
-    int event_id = luaL_checkinteger(L, 2);
-    if (event_id == 0) {
-        if (s_socket_evt_ref[id]) {
-            luaL_unref(L, LUA_REGISTRYINDEX, s_socket_evt_ref[id]);
-            s_socket_evt_ref[id] = 0;
-        }
-        luat_netdrv_register_socket_event_cb(id, 0, NULL, NULL);
-        lua_pushboolean(L, 1);
-        return 1;
+    if (target == LUAT_NETDRV_CH_HW && drv->dataout == NULL) {
+        lua_pushnil(L); lua_pushstring(L, need_msg); return 2;
     }
-    else if (event_id == 1) {
-        if (!lua_isfunction(L, 3)) {
-            return 0;
-        }
-        lua_pushvalue(L, 3);
-        s_socket_evt_ref[id] = luaL_ref(L, LUA_REGISTRYINDEX);
-        // LLOGD("register socket event cb %d", s_socket_evt_ref[id]);
-        luat_netdrv_register_socket_event_cb(id, 0xFF, luat_socket_evt_cb, NULL);
-        lua_pushboolean(L, 1);
-        return 1;
+    if ((target == LUAT_NETDRV_CH_LWIP || target == LUAT_NETDRV_CH_NAPT)
+        && drv->netif == NULL) {
+        lua_pushnil(L); lua_pushstring(L, need_msg); return 2;
     }
-    LLOGW("not support event type %d", event_id);
-    return 0;
+    // 共同前置: zbuff 合法 + len 合法
+    if (buff == NULL || buff->addr == NULL) {
+        lua_pushnil(L); lua_pushliteral(L, "zbuff invalid"); return 2;
+    }
+    if (len == 0) {
+        lua_pushnil(L); lua_pushliteral(L, "len is 0"); return 2;
+    }
+    if (len > buff->used) {
+        lua_pushnil(L); lua_pushliteral(L, "len out of range"); return 2;
+    }
+
+    // 入队: 拷贝到 netdrv_send_msg_t, 由对应 helper 在 tcpip 线程处理
+    netdrv_send_msg_t* m = (netdrv_send_msg_t*)luat_heap_malloc(sizeof(netdrv_send_msg_t) + len - 4);
+    if (m == NULL) {
+        lua_pushnil(L); lua_pushliteral(L, "oom"); return 2;
+    }
+    m->drv = drv;
+    m->len = len;
+    memcpy(m->buff, buff->addr, len);
+    if (tcpip_callback_with_block(helper, m, 0) != ERR_OK) {
+        luat_heap_free(m);
+        lua_pushnil(L); lua_pushliteral(L, "tcpip queue full"); return 2;
+    }
+    lua_pushinteger(L, len);
+    return 1;
 }
 
 #include "rotable2.h"
@@ -750,6 +690,7 @@ static const rotable_Reg_t reg_netdrv[] =
     { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
     { "on",             ROREG_FUNC(l_netdrv_on)},
+    { "send_raw",       ROREG_FUNC(l_netdrv_send_raw)},
 #ifdef LUAT_USE_MREPORT
     { "mreport",        ROREG_FUNC(l_mreport_config)},
 #endif
@@ -779,7 +720,16 @@ static const rotable_Reg_t reg_netdrv[] =
     { "RESET_SOFT",     ROREG_INT(0x102)},
 
     //@const EVT_SOCKET number 事件类型-socket事件
-    { "EVT_SOCKET",     ROREG_INT(1)}, // socket事件
+    { "EVT_SOCKET",     ROREG_INT(LUAT_NETDRV_EVT_SOCKET)},
+
+    //@const CH_HW number 数据包通道-物理硬件 (HW RX = FROM_HW, send_raw target TO_HW)
+    { "CH_HW",          ROREG_INT(LUAT_NETDRV_CH_HW)},
+    //@const CH_LWIP number 数据包通道-LWIP协议栈 (send_raw target TO_LWIP, 未来 FROM_LWIP)
+    { "CH_LWIP",        ROREG_INT(LUAT_NETDRV_CH_LWIP)},
+    //@const CH_NAPT number 数据包通道-NAPT层 (send_raw target TO_NAPT, 未来 FROM_NAPT)
+    { "CH_NAPT",        ROREG_INT(LUAT_NETDRV_CH_NAPT)},
+    //@const EVT_PKG number 事件类型-数据包事件
+    { "EVT_PKG",        ROREG_INT(LUAT_NETDRV_EVT_PKG)},
 
 	{ NULL,             ROREG_INT(0) }
 };

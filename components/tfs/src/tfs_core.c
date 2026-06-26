@@ -892,8 +892,10 @@ static int scan_delta_after_checkpt(tfs_dev_t *dev)
 
     scan_recount_space_after_delta(dev);
 
-    if (dev->checkpt_delta_chunks > 0)
+    if (dev->checkpt_delta_chunks > 0) {
         dev->is_checkpointed = 0;
+        dev->checkpt_dirty_chunks = (uint32_t)dev->checkpt_delta_chunks;
+    }
 
 out:
     dev->drv.free(dev->drv.ctx, scan_from);
@@ -1323,9 +1325,36 @@ int tfs_core_sync(tfs_dev_t *dev)
 
     if (!dev->param.skip_checkpt_wr && !dev->is_checkpointed) {
         rc = tfs_checkpt_write(dev);
+        if (rc == TFS_OK) {
+            dev->checkpt_dirty_chunks = 0;
+            dev->checkpt_dirty_closes = 0;
+        }
     }
 
     return rc;
+}
+
+int tfs_core_maybe_checkpoint(tfs_dev_t *dev, int force)
+{
+    int by_close = 0;
+    int by_chunks = 0;
+
+    if (!dev || dev->param.skip_checkpt_wr || dev->is_checkpointed) {
+        return TFS_OK;
+    }
+
+#if TFS_CFG_AUTOCHECKPOINT_CLOSES > 0
+    by_close = dev->checkpt_dirty_closes >= TFS_CFG_AUTOCHECKPOINT_CLOSES;
+#endif
+#if TFS_CFG_AUTOCHECKPOINT_CHUNKS > 0
+    by_chunks = dev->checkpt_dirty_chunks >= TFS_CFG_AUTOCHECKPOINT_CHUNKS;
+#endif
+
+    if (!force && !by_close && !by_chunks) {
+        return TFS_OK;
+    }
+
+    return tfs_core_sync(dev);
 }
 
 /*===================================================================
@@ -1336,13 +1365,24 @@ int tfs_core_unmount(tfs_dev_t *dev)
 {
     uint32_t i;
     int rc;
+    int checkpt_rc = TFS_OK;
 
     if (!dev->is_mounted)
         return TFS_OK;
 
-    rc = tfs_core_sync(dev);
+    rc = tfs_cache_flush_all(dev);
     if (rc != TFS_OK)
         return rc;
+
+    if (!dev->param.skip_checkpt_wr && !dev->is_checkpointed) {
+        checkpt_rc = tfs_checkpt_write(dev);
+        if (checkpt_rc == TFS_OK) {
+            dev->checkpt_dirty_chunks = 0;
+            dev->checkpt_dirty_closes = 0;
+        } else if (dev->drv.trace) {
+            dev->drv.trace("tfs: unmount checkpoint skipped rc=%d", checkpt_rc);
+        }
+    }
 
     /* Free all objects */
     for (i = 0; i < TFS_OBJ_BUCKETS; i++) {
@@ -1374,7 +1414,7 @@ int tfs_core_unmount(tfs_dev_t *dev)
         dev->drv.deinit(dev->drv.ctx);
 
     dev->is_mounted = 0;
-    return rc;
+    return TFS_OK;
 }
 
 /*===================================================================

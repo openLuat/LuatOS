@@ -54,6 +54,10 @@ function M.setup()
         log.warn("vfs_uniform", "spi.deviceSetup 失败")
         return false
     end
+    -- 保活: 防止 Lua GC 回收 spi userdata 导致 lf 后端野指针.
+    -- 模块表 M 由调用方持有 (main.lua 里的 mount 局部), 整个 run() 期间都活着.
+    M.spidev = spidev
+
     local flash = lf.init(spidev)
     if not flash then
         log.warn("vfs_uniform", "lf.init 失败")

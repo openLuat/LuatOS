@@ -1,0 +1,6 @@
+#ifndef LUATOS_MBEDTLS4_COMPAT_ENTROPY_H
+#define LUATOS_MBEDTLS4_COMPAT_ENTROPY_H
+
+#include "mbedtls/private/entropy.h"
+
+#endif /* LUATOS_MBEDTLS4_COMPAT_ENTROPY_H */

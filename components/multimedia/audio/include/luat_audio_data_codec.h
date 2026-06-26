@@ -205,6 +205,7 @@ struct luat_audio_data_codec {
     luat_audio_data_codec_param_u param;        /**< 编解码器参数联合体 */
     uint8_t *input_buffer;                      /**< 输入数据缓冲区 */
     uint8_t *ref_buffer;                        /**< 参考数据缓冲区 */
+    uint8_t tx_no_callback:1;                   /**< 发送时是否不使用回调函数 */
 };
 
 

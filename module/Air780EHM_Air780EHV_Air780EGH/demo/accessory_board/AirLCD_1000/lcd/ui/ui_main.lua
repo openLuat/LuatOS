@@ -18,6 +18,7 @@
 local home_page = require "home_page"
 local lcd_page = require "lcd_page"
 local customer_font_page = require "customer_font_page"
+local camera_preview_page = require "camera_preview_page"
 
 -- 当前页面状态
 local current_page = "home"
@@ -31,7 +32,7 @@ frame_time = 20 * 1000
 @api switch_page(new_page)
 @summary 执行页面切换操作
 @string new_page 目标页面名称
-@valid_values "home", "lcd", "customer_font"
+@valid_values "home", "lcd", "customer_font", "camera_preview"
 @return nil
 
 @usage
@@ -51,6 +52,8 @@ local function switch_page(new_page)
         lcd_page.on_leave()
     elseif current_page == "customer_font" and customer_font_page.on_leave then
         customer_font_page.on_leave()
+    elseif current_page == "camera_preview" and camera_preview_page.on_leave then
+        camera_preview_page.on_leave()
     end
 
     last_page = current_page
@@ -63,6 +66,8 @@ local function switch_page(new_page)
         lcd_page.on_enter()
     elseif new_page == "customer_font" and customer_font_page.on_enter then
         customer_font_page.on_enter()
+    elseif new_page == "camera_preview" and camera_preview_page.on_enter then
+        camera_preview_page.on_enter()
     end
 
     log.info("ui_main", "已切换到页面:", current_page)
@@ -91,6 +96,11 @@ local function handle_key_event(key_event)
         if current_page == "home" then
             -- 主页：向右移动光标
             return home_page.handle_key("next", switch_page)
+        elseif current_page == "camera_preview" then
+            -- 摄像头页面：焦点切换或返回
+            if camera_preview_page.handle_key then
+                return camera_preview_page.handle_key("boot_up", switch_page)
+            end
         end
         -- 其他页面BOOT键无功能
         return false
@@ -107,6 +117,10 @@ local function handle_key_event(key_event)
             -- 自定义字体页面：返回首页
             if customer_font_page.handle_key then
                 return customer_font_page.handle_key("pwr_up", switch_page)
+            end
+        elseif current_page == "camera_preview" then
+            if camera_preview_page.handle_key then
+                return camera_preview_page.handle_key("pwr_up", switch_page)
             end
         end
     end
@@ -127,16 +141,6 @@ end
 sys.taskInit(ui_main)
 ]]
 local function ui_main()
-    if not lcd_drv.init() then
-        log.error("ui_main", "显示初始化失败")
-        return
-    end
-
-    -- 初始化按键驱动
-    if not key_drv.init() then
-        log.error("ui_main", "按键驱动初始化失败")
-        return
-    end
 
     -- 默认使用系统自带的12号中文字体
     lcd.setFont(lcd.font_opposansm12_chinese)
@@ -147,21 +151,33 @@ local function ui_main()
     end
 
     while true do
-        -- 根据当前页面绘制内容
-        if current_page == "home" then
-            home_page.draw()
-        elseif current_page == "lcd" then
-            lcd_page.draw()
-        elseif current_page == "customer_font" then
-            customer_font_page.draw()
-        end
+        -- 纯画面预览模式：硬件直接输出画面，跳过draw/flush
+        if current_page == "camera_preview" and camera_preview_page.is_preview_raw() then
+            -- 等待按键事件500ms，不刷新LCD
+            local result, key_event = sys.waitUntil("KEY_EVENT", 500)
+            if result then
+                handle_key_event(key_event)
+            end
+        else
+            -- 其他页面：正常绘制和刷新
+            -- 根据当前页面绘制内容
+            if current_page == "home" then
+                home_page.draw()
+            elseif current_page == "lcd" then
+                lcd_page.draw()
+            elseif current_page == "customer_font" then
+                customer_font_page.draw()
+            elseif current_page == "camera_preview" then
+                camera_preview_page.draw()
+            end
 
-        lcd.flush()
+            lcd.flush()
 
-        -- 等待按键事件
-        local result, key_event = sys.waitUntil("KEY_EVENT", frame_time)
-        if result then
-            handle_key_event(key_event)
+            -- 等待按键事件
+            local result, key_event = sys.waitUntil("KEY_EVENT", frame_time)
+            if result then
+                handle_key_event(key_event)
+            end
         end
     end
 end

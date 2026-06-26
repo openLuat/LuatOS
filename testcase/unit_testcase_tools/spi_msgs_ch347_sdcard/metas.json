@@ -1,0 +1,9 @@
+{
+    "timeout" : 90,
+    "model" : {
+        "pc": [1]
+    },
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "PC sim + CH347 + 真实 TF/SD 卡: 通过 fatfs.SPI 验证 luat_spi_trans_msgs 在 SD reset/idle 80-clock 路径上生效, 并跑完整文件操作回环 (参考 AirMICROSD_1010 demo)"
+}

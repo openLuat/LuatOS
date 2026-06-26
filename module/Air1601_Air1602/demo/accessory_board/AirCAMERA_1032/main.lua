@@ -36,22 +36,23 @@ end
 
 -- 加载LCD驱动模块（三个业务都需要LCD显示，必须加载）
 require "lcd_drv"
+require "tp_drv"
 
 -- 加载网络驱动模块（仅 photo_to_aircloud 业务需要联网，其他业务请注释掉本行）
 -- netdrv_device.lua 内部按需选择 WIFI / 以太网 / 4G / 多网卡，请到该文件内自行切换
- require "netdrv_device"
+--  require "netdrv_device"
 
--- 以下三个业务模块只能三选一打开，不能同时打开 ---------------------
+-- 以下三个业务模块只能选一个打开，不能同时打开 ---------------------
 
--- 1、加载摄像头预览应用模块：USB摄像头实时画面预览到LCD屏幕
--- require "camera_preview"
+-- 1、加载摄像头预览应用模块（AIRUI组件方式：画面嵌入组件树，按钮与画面共存）
+require "preview"
 
--- 2、加载拍照+LCD显示+UART上传应用模块：拍一张照片在LCD显示并通过UART发送到电脑
+-- 2、加载拍照+LCD显示+UART上传应用模块
 -- require "photo_uart_post"
 
--- 3、加载拍照+LCD显示+云平台上传应用模块：拍一张照片在LCD显示并上传到合宙云平台
+-- 3、加载拍照+LCD显示+云平台上传应用模块
 --    使用该模块时需要同时打开上方的 netdrv_device 加载语句
- require "photo_to_aircloud"
+--  require "photo_to_aircloud"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

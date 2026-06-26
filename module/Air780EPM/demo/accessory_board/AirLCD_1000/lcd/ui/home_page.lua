@@ -1,12 +1,12 @@
 --[[
 @module  home_page
 @summary 主页模块，提供应用入口和导航功能
-@version 1.0
-@date    2025.12.8
+@version 1.1
+@date    2026.06.24
 @author  江访
 @usage
 本模块为主页模块，核心业务逻辑为：
-1、提供应用入口和导航功能，支持LCD演示和自定义字体演示两个功能选项；
+1、提供应用入口和导航功能；
 2、显示系统标题和操作提示信息；
 3、管理功能按钮的选中状态，支持光标指示器；
 4、处理主页面的按键事件，支持BOOT键选择和PWR键确认；
@@ -22,14 +22,29 @@
 
 local home_page = {}
 
--- 按钮区域定义（调整为2个按钮）
+-- 按钮区域定义（竖排三等宽居中）
 local buttons = {
-    { name = "lcd", text = "LCD演示", x1 = 40, y1 = 150, x2 = 140, y2 = 240, color = 0x001F }, -- 蓝色
-    { name = "customer_font", text = "自定义字体", x1 = 180, y1 = 150, x2 = 280, y2 = 240, color = 0xF800 } -- 红色
+    {name = "lcd",              text = "LCD演示",        x1 = 60, y1 = 100, x2 = 260, y2 = 180, color = 0x001F},
+    {name = "camera_preview",   text = "摄像头:点击拍照",  x1 = 60, y1 = 200, x2 = 260, y2 = 280, color = 0xFCC0},
+    {name = "customer_font",    text = "自定义字体",     x1 = 60, y1 = 300, x2 = 260, y2 = 380, color = 0x07E0}
 }
 
 -- 当前选中项索引
 local selected_index = 1
+
+local title = "合宙lcd演示系统"
+local content1 = "本页面使用的是12号自定义点阵字体"
+local hint = "boot键:选择 pwr键:确认"
+
+-- Air780EPM 使用自定义点阵字体显示中文
+local function set_title_font()
+    lcd.setFontFile("/luadb/customer_font_22.bin")
+end
+
+local function set_body_font()
+    lcd.setFontFile("/luadb/customer_font_12.bin")
+end
+
 
 --[[
 绘制光标指示
@@ -40,8 +55,8 @@ local function draw_cursor()
     local btn = buttons[selected_index]
 
     -- 在选中按钮周围绘制矩形光标
-    lcd.drawRectangle(btn.x1 - 4, btn.y1 - 4, btn.x2 + 4, btn.y2 + 4, 0xFFFF) -- 白色外框
-    lcd.drawRectangle(btn.x1 - 3, btn.y1 - 3, btn.x2 + 3, btn.y2 + 3, 0x0000) -- 黑色内框
+    lcd.drawRectangle(btn.x1 - 2, btn.y1 - 2, btn.x2 + 2, btn.y2 + 2, 0x3186)  -- 蓝色外框
+    lcd.drawRectangle(btn.x1 - 1, btn.y1 - 1, btn.x2 + 1, btn.y2 + 1, 0x0000)  -- 黑色内框
 end
 
 --[[
@@ -52,43 +67,38 @@ end
 ]]
 function home_page.draw()
     lcd.clear()
-    -- 显示标题，使用22号自定义字体
     lcd.setColor(0xFFFF, 0x0000)
-    lcd.setFontFile("/luadb/customer_font_22.bin")
 
-    -- 顶部标题栏
-    lcd.fill(0, 0, 320, 60, 0x001F) -- 蓝色背景
-    lcd.drawStr(80, 39, "合宙LCD演示系统", 0xFFFF) -- 白色文字
+    -- 显示标题，使用22号自定义字体
+    set_title_font()
+    lcd.drawStr(106, 30, title, 0x0000)
 
-    -- 显示演示内容,使用12号自定义字体
-    lcd.setFontFile("/luadb/customer_font_12.bin")
+    -- 显示说明文字，使用12号自定义字体
+    set_body_font()
+    lcd.drawStr(46, 50, content1, 0x0000)
 
     -- 绘制所有按钮
     for i, btn in ipairs(buttons) do
         local color = btn.color
+        if i == selected_index then
+            -- 选中状态：颜色稍微变亮
+            color = color + 0x0842
+        end
 
-        -- 绘制按钮背景
         lcd.fill(btn.x1, btn.y1, btn.x2, btn.y2, color)
 
-        -- 绘制按钮文字（居中）
-        local text_x = btn.x1 + (btn.x2 - btn.x1) / 2 - 25
-        local text_y = btn.y1 + (btn.y2 - btn.y1) / 2
-
-        lcd.drawStr(text_x, text_y, btn.text, 0xFFFF)
-
-        -- 绘制按钮边框
-        lcd.drawRectangle(btn.x1, btn.y1, btn.x2, btn.y2, 0x0000)
+        -- 绘制按钮文字
+        if btn.name == "lcd" then
+            lcd.drawStr(130, 138, "LCD演示", 0xFFFF)
+        elseif btn.name == "camera_preview" then
+            lcd.drawStr(120, 238, "摄像头:点击拍照", 0xFFFF)
+        elseif btn.name == "customer_font" then
+            lcd.drawStr(125, 338, "自定义字体", 0xFFFF)
+        end
     end
 
     -- 绘制光标指示
     draw_cursor()
-
-    -- 底部状态栏
-    lcd.fill(0, 380, 320, 480, 0x001F) -- 蓝色背景
-    lcd.drawStr(20, 405, "当前页面: 主页", 0xFFFF)
-    lcd.drawStr(30, 430, "- BOOT键: 选择选项", 0xFFFF)
-    lcd.drawStr(30, 450, "- PWR键: 确认进入", 0xFFFF)
-    lcd.drawStr(30, 470, "- 中文仅支持自定义点阵字体", 0xFFFF)
 end
 
 --[[
@@ -96,7 +106,7 @@ end
 @api home_page.handle_key(key_type, switch_page)
 @summary 处理主页按键事件
 @string key_type 按键类型
-@valid_values "confirm", "next", "prev"
+@valid_values "confirm", "next", "prev", "back"
 @function switch_page 页面切换回调函数
 @return bool 事件处理成功返回true，否则返回false
 ]]
@@ -104,18 +114,17 @@ function home_page.handle_key(key_type, switch_page)
     log.info("home_page.handle_key", "key_type:", key_type, "selected_index:", selected_index)
 
     if key_type == "confirm" then
-        -- 确认键：切换到选中的页面
         local btn = buttons[selected_index]
         switch_page(btn.name)
         return true
     elseif key_type == "right" or key_type == "next" then
-        -- 向右/下一个
         selected_index = selected_index % #buttons + 1
         return true
     elseif key_type == "left" or key_type == "prev" then
-        -- 向左/上一个
         selected_index = (selected_index - 2) % #buttons + 1
         return true
+    elseif key_type == "back" then
+        return false
     end
     return false
 end
@@ -127,32 +136,10 @@ end
 @return nil
 ]]
 function home_page.on_enter()
-    selected_index = 1 -- 默认选中第一个
+    selected_index = 1
 end
 
---[[
-页面离开时执行清理操作；
-@api home_page.on_leave()
-@summary 页面离开时清理
-@return nil
-]]
 function home_page.on_leave()
-    -- 可以在这里执行清理操作
-end
-
---[[
-获取当前选中项信息；
-@api home_page.get_selected_info()
-@summary 获取当前选中项信息
-@return table 包含选中项信息的表
-]]
-function home_page.get_selected_info()
-    local btn = buttons[selected_index]
-    return {
-        index = selected_index,
-        name = btn.name,
-        text = btn.text
-    }
 end
 
 return home_page

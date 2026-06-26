@@ -78,6 +78,7 @@ struct luat_audio_driver_ctrl
     uint8_t codec_power_state:1;                        /**< CODEC电源状态 */
     uint8_t codec_ready_state:1;                        /**< CODEC是否稳定 */
     uint8_t audio_output_enable:1;                      /**< 是否使能音频输出 */
+    uint8_t cache_sync_enable:1;                        /**< 是否使能缓存同步 */
     /** 状态参数 */
     volatile uint8_t state;                             /**< 驱动状态 */
 };
@@ -182,6 +183,8 @@ typedef struct luat_audio_driver_opts {
      * @return int 成功返回0，失败返回负值错误码
      */
     int (*start_full_loop_with_play_buff)(struct luat_audio_driver_ctrl *ctrl, uint32_t *play_buff, uint32_t one_play_block_len, uint32_t play_block_num,uint32_t **record_buff, uint32_t one_record_block_len, uint32_t record_block_num);
+    
+    void (*cache_sync)(struct luat_audio_driver_ctrl *ctrl, void *data, uint32_t len_bytes);
     /**
      * @brief 停止播放循环、录音循环或全双工循环，必须保证成功
      * @param ctrl 驱动控制器指针

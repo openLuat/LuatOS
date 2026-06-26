@@ -31,6 +31,8 @@
 
 #include "luat_spi.h"
 #include "luat_rtos.h"
+#define LUAT_LOG_TAG "sfud"
+#include "luat_log.h"
 // static char log_buf[256];
 
 // void sfud_log_debug(const char *file, const long line, const char *format, ...);
@@ -52,15 +54,35 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
         luat_spi_t* spi_flash = (luat_spi_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
         luat_spi_lock(spi_flash -> id);
         if (write_size && read_size) {
-            if (luat_spi_transfer(spi_flash -> id, (const char*)write_buf, write_size, (char*)read_buf, read_size) <= 0) {
+            /* msg-only 路径：[SEND, RECV] 半双工事务 */
+            luat_spi_msg_t msgs[2] = {
+                { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)write_buf, .recv_buff = NULL, .len = write_size },
+                { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)read_buf,  .recv_buff = NULL, .len = read_size  },
+            };
+            // LLOGD("sfud[bus=%d] trans_msgs SEND+RECV w=%u r=%u", spi_flash->id, (unsigned)write_size, (unsigned)read_size);
+            int r = luat_spi_trans_msgs(spi_flash -> id, msgs, 2);
+            if (r < 0) {
+                LLOGE("sfud[bus=%d] trans_msgs SEND+RECV failed rc=%d", spi_flash->id, r);
                 result = SFUD_ERR_TIMEOUT;
             }
         } else if (write_size) {
-            if (luat_spi_send(spi_flash -> id,  (const char*)write_buf, write_size) <= 0) {
+            luat_spi_msg_t msgs[1] = {
+                { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)write_buf, .recv_buff = NULL, .len = write_size },
+            };
+            // LLOGD("sfud[bus=%d] trans_msgs SEND w=%u", spi_flash->id, (unsigned)write_size);
+            int r = luat_spi_trans_msgs(spi_flash -> id, msgs, 1);
+            if (r < 0) {
+                LLOGE("sfud[bus=%d] trans_msgs SEND failed rc=%d", spi_flash->id, r);
                 result = SFUD_ERR_WRITE;
             }
         } else {
-            if (luat_spi_recv(spi_flash -> id, (char*)read_buf, read_size) <= 0) {
+            luat_spi_msg_t msgs[1] = {
+                { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)read_buf, .recv_buff = NULL, .len = read_size },
+            };
+            // LLOGD("sfud[bus=%d] trans_msgs RECV r=%u", spi_flash->id, (unsigned)read_size);
+            int r = luat_spi_trans_msgs(spi_flash -> id, msgs, 1);
+            if (r < 0) {
+                LLOGE("sfud[bus=%d] trans_msgs RECV failed rc=%d", spi_flash->id, r);
                 result = SFUD_ERR_READ;
             }
         }
@@ -69,15 +91,34 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
     else if ( type == LUAT_TYPE_SPI_DEVICE ) {
         luat_spi_device_t* spi_dev = (luat_spi_device_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
         if (write_size && read_size) {
-            if (luat_spi_device_transfer(spi_dev , (const char*)write_buf, write_size, (char*)read_buf, read_size) <= 0) {
+            luat_spi_msg_t msgs[2] = {
+                { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)write_buf, .recv_buff = NULL, .len = write_size },
+                { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)read_buf,  .recv_buff = NULL, .len = read_size  },
+            };
+            // LLOGD("sfud[dev] device_trans_msgs SEND+RECV w=%u r=%u", (unsigned)write_size, (unsigned)read_size);
+            int r = luat_spi_device_trans_msgs(spi_dev, msgs, 2);
+            if (r < 0) {
+                LLOGE("sfud[dev] device_trans_msgs SEND+RECV failed rc=%d", r);
                 result = SFUD_ERR_TIMEOUT;
             }
         } else if (write_size) {
-            if (luat_spi_device_send(spi_dev ,  (const char*)write_buf, write_size) <= 0) {
+            luat_spi_msg_t msgs[1] = {
+                { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)write_buf, .recv_buff = NULL, .len = write_size },
+            };
+            // LLOGD("sfud[dev] device_trans_msgs SEND w=%u", (unsigned)write_size);
+            int r = luat_spi_device_trans_msgs(spi_dev, msgs, 1);
+            if (r < 0) {
+                LLOGE("sfud[dev] device_trans_msgs SEND failed rc=%d", r);
                 result = SFUD_ERR_WRITE;
             }
         } else {
-            if (luat_spi_device_recv(spi_dev , (char*)read_buf, read_size) <= 0) {
+            luat_spi_msg_t msgs[1] = {
+                { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)read_buf, .recv_buff = NULL, .len = read_size },
+            };
+            // LLOGD("sfud[dev] device_trans_msgs RECV r=%u", (unsigned)read_size);
+            int r = luat_spi_device_trans_msgs(spi_dev, msgs, 1);
+            if (r < 0) {
+                LLOGE("sfud[dev] device_trans_msgs RECV failed rc=%d", r);
                 result = SFUD_ERR_READ;
             }
         }

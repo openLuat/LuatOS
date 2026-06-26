@@ -358,6 +358,16 @@ static inline uint32_t luat_fifo_check_used_space(luat_fifo_t *fifo)
 void luat_fifo_delete(luat_fifo_t *fifo, uint32_t size);
 
 /**
+ * @brief 删除 FIFO 队列中的所有数据（仅移动读指针）
+ * @param fifo FIFO 队列指针
+ */
+static inline void luat_fifo_delete_all(luat_fifo_t *fifo) 
+{
+	if (fifo) {
+		fifo->rpoint = fifo->wpoint;
+	}
+}
+/**
  * @brief 清空 FIFO 队列
  *
  * 重置读写指针，丢弃队列中的所有数据。

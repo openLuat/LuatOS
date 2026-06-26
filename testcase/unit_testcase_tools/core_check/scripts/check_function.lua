@@ -293,7 +293,7 @@ local B_size = {
         script_size = 368
     },
     [5] = {
-        fs_size = 192,
+        fs_size = 168,
         script_size = 256
     },
 

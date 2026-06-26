@@ -2144,7 +2144,9 @@ void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t stat
     case LUAT_MOBILE_EVENT_CC:
         switch(status){
         case LUAT_MOBILE_CC_SPEECH_START:
+        #ifndef LUAT_USE_AUDIO_V2
         	luat_cc_start_speech(index+1);
+        #endif
             break;
         case LUAT_MOBILE_CC_PLAY:
         	luat_cc_play_tone(index);

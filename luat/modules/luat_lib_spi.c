@@ -365,7 +365,13 @@ static int l_spi_transfer(lua_State *L) {
         int ret = luat_spi_transfer(id, send_buff, send_length, recv_buff, recv_length);
         luat_spi_unlock(id);
         if (ret > 0) {
-            lua_pushlstring(L, recv_buff, ret);
+            // 防御: recv_length=0 时 recv_buff 为 NULL, 但底层 transfer
+            // 在 send-only 路径仍可能返回 send_length>0; 此时 recv_buff 不可解引用.
+            if (recv_buff != NULL && recv_length > 0) {
+                lua_pushlstring(L, recv_buff, ret);
+            } else {
+                lua_pushlstring(L, "", 0);
+            }
             luat_heap_free(recv_buff);
             return 1;
         }

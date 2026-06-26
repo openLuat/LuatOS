@@ -142,9 +142,10 @@ int luat_audio_data_seek(luat_audio_play_file_info_t *decode_file, int offset, i
  * @param source 外部音频源指针
  * @param file_info_or_tts_data 文件信息或TTS数据指针
  * @param files_num_or_tts_data_len 文件信息或TTS数据长度
+ * @param user_data 用户数据指针
  * @return int LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
-int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file_info_or_tts_data, uint32_t files_num_or_tts_data_len);
+int luat_audio_extern_source_init(luat_audio_extern_source_t *source, void *file_info_or_tts_data, uint32_t files_num_or_tts_data_len, void *user_data);
 
 /**
  * @brief 反初始化外部音频源
@@ -163,7 +164,11 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source);
  * @return int LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
 int luat_audio_extern_source_check(luat_audio_extern_source_t *source);
-
+/**
+ * @brief 检查外部音频源是否完成解码
+ * @param source 外部音频源指针
+ */
+void luat_audio_extern_source_check_finish(luat_audio_extern_source_t *source);
 #ifdef __LUATOS__
 void l_audio_init(void);
 #endif

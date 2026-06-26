@@ -4,7 +4,7 @@
 
 LuatOS 音频子系统采用**分层解耦 + 面向接口**的设计思想，驱动、编解码器、DSP 算法均可插件式注册。核心框架通过**一个统一的控制器**管理请求、驱动、通道，支持多优先级请求抢占、多模式（播放/录音/通话/TTS）、多数据源（文件/ROM数组/流式）。
 
-上层通过 Lua 脚本 API（`audio_v2` 模块，详见第十四章）和扩展库 `exaudio.lua` 暴露给开发者，底层硬件驱动通过函数指针表实现硬件无关的框架设计。
+上层通过 Lua 脚本 API（`audio_v2` 模块，详见第十三章）暴露给开发者，底层硬件驱动通过函数指针表实现硬件无关的框架设计。
 
 ---
 
@@ -18,19 +18,23 @@ audio/
 │   ├── luat_audio_driver.h      # 驱动抽象层定义（opts函数表、ctrl控制器、电源管理）
 │   ├── luat_audio_data_codec.h  # 编解码器抽象层定义（opts函数表、common_param、注册/绑定/查找）
 │   ├── luat_audio_channel.h     # 通道管理层定义（FIFO、音量、播放/录音状态）
-│   ├── luat_audio_request.h     # 请求块定义 & 高级 API（play_files/play_tts/record/speech）
+│   ├── luat_audio_request.h     # 请求块定义 & 高级 API（play_files/play_tts/record/speech/source）
 │   └── luat_audio_dsp.h        # DSP 处理抽象层定义（create/destroy/process 三接口）
 ├── src/                         # 核心源文件
 │   ├── luat_audio_core.c        # 核心逻辑（任务调度/状态机/请求排队/优先级抢占/音源读写）
 │   ├── luat_audio_data_codec.c  # 编解码器注册/绑定/查找/编解码循环（软件+硬件双数组管理）
 │   ├── luat_audio_driver.c      # 驱动通用逻辑（PA/CODEC 电源管理时序/启动/停止/反激活/填充静音）
-│   └── luat_audio_channel.c     # 通道数据写入（位宽转换/声道数转换/音量控制/符号转换）
+│   ├── luat_audio_channel.c     # 通道数据写入（位宽转换/声道数转换/音量控制/符号转换）
+│   └── luat_audio_misc.c       # 杂项工具（extern_source 参数校验、文件播放信息自动搜索）
 ├── codec_adapter/               # 编解码器适配层（每个文件对应一种编解码器）
-│   ├── luat_audio_codec_port_wav.c   # WAV 编解码器（无压缩直通+WAV头解析/生成）
+│   ├── luat_audio_codec_port_raw.c   # RAW 编解码器（PCM 直通，使用 WAV 编解码器的 decode/encode）
+│   ├── luat_audio_codec_port_wav.c   # WAV 编解码器（PCM 直通+WAV头解析/生成）
 │   ├── luat_audio_codec_port_mp3.c   # MP3 编解码器（基于 minimp3，仅解码）
-│   ├── luat_audio_codec_port_amr.c   # AMR-NB/AMR-WB 编解码器（基于 3GPP 参考实现）
-│   ├── luat_audio_codec_port_opus.c  # OPUS 编解码器（基于 libopus，旧版注释代码）
-│   └── luat_audio_codec_port_g711.c  # G711 A-Law/μ-Law 编解码器（旧版注释代码）
+│   ├── luat_audio_codec_port_amr_nb.c  # AMR-NB 编解码器（8kHz，独立实现）
+│   ├── luat_audio_codec_port_amr_wb.c  # AMR-WB 编解码器（16kHz，独立实现）
+│   ├── luat_audio_codec_port_opus.c  # OPUS 编解码器（基于 libopus，旧版注释代码 `#if 0`）
+│   ├── luat_audio_codec_port_g711.c  # G711 A-Law/μ-Law 编解码器（已激活，固定 8kHz/1ch/16bit）
+│   └── luat_audio_codec_port_no_op.c # NO_OP 编解码器（占位，无实际操作）
 └── describe.md                 # 本文件
 ```
 
@@ -42,13 +46,12 @@ audio/
 ┌──────────────────────────────────────────────────────────────────┐
 │                    Lua 层                                         │
 │  audio_v2.play() / audio_v2.stream() / audio_v2.tts() / audio_v2.on()               │
-│  exaudio.lua (扩展封装: 优先级队列/多文件播放/回调管理)            │
 ├──────────────────────────────────────────────────────────────────┤
 │                    C 上层 API（luat_audio_request_xxx）            │
 │  play_files / play_tts / record / speech / prepare / cancel      │
 ├──────────────────────────────────────────────────────────────────┤
 │                  核心调度层（luat_audio_core.c）                    │
-│  common_task（优先级90） · tts_task（优先级20） · 请求链表管理       │
+│  common_task（优先级100） · tts_task（优先级20） · 请求链表管理       │
 │  优先级排序 · 中断事件回调 · 文件/ROM数据源抽象 · 自动编解码器搜索   │
 ├───────────────┬──────────────┬───────────────────────────────────┤
 │  通道层         │  编解码器层   │  驱动层                           │
@@ -74,7 +77,7 @@ typedef struct {
     luat_audio_driver_ctrl_t driver_ctrl[LUAT_AUDIO_DRIVER_MAX]; // 驱动控制器数组（最多4个）
     luat_audio_channel_t channel[LUAT_AUDIO_DRIVER_MAX]; // 通道数组（与驱动一一对应）
     luat_audio_request_block_t *current_request_block; // 当前正在处理的请求
-    luat_rtos_task_handle common_task_handle;  // 通用任务句柄（优先级90, 栈13KB, 事件队列64）
+    luat_rtos_task_handle common_task_handle;  // 通用任务句柄（优先级100, 栈13KB, 事件队列64）
     luat_rtos_task_handle tts_task_handle;    // TTS 独立任务句柄（优先级20, 栈13KB）
     void *request_lock;                       // 请求链表操作互斥锁
     void *tts_wait_sem;                       // TTS 等待信号量（初始锁定）
@@ -93,7 +96,7 @@ typedef struct {
     uint8_t channel_nums;         // 声道数（1=Mono, 2=Stereo）
     uint8_t data_align;           // 位宽对齐（1=8位, 2=16位, 3=24位, 4=32位）
     uint8_t is_signed;            // 有无符号（1=有符号, 0=无符号）
-    uint8_t driver_work_mode;     // 工作模式（PLAY/RECORD/CALL/CALL_WITH_BUFFER）
+    uint8_t driver_work_mode;     // 工作模式（PLAY/RECORD/SPEECH/SPEECH_WITH_BUFFER）
 } luat_audio_common_param_t;
 ```
 
@@ -105,10 +108,12 @@ typedef struct {
 |------|------|------|
 | `opts` | `const luat_audio_driver_opts_t*` | 驱动函数表指针 |
 | `driver_data` | `void*` | 驱动私有数据 |
+| `user_data` | `void*` | 用户自定义数据 |
 | `data_channel` | `luat_audio_channel_t*` | 关联通道指针 |
 | `probe` | `luat_audio_driver_probe_t` | 驱动匹配条件（bus_type, bus_id）|
 | `play_buff / record_buff` | `union {uint32_t*, uint8_t*}` | 播放/录音 DMA 缓冲 |
-| `last_play_cnt / current_play_cnt` | `volatile uint32_t` | 播放计数（环形）|
+| `static_play_buff` | `union {uint32_t*, uint8_t*}` | 静态播放缓冲区（仅用于通话模式）|
+| `current_play_cnt` | `volatile uint32_t` | 当前播放计数 |
 | `one_play_block_len / one_record_block_len` | `uint32_t` | 单 block 大小 |
 | `common_param` | `luat_audio_common_param_t` | 驱动当前公共参数 |
 | `pa_power_* / codec_power_*` | 多位域 | 电源管理状态 |
@@ -121,34 +126,40 @@ typedef struct {
 | `node` | 链表节点（用于请求队列管理）|
 | `request_id` | 自增唯一请求 ID |
 | `cb` | 请求事件回调函数 |
-| `done_sem` | 同步模式信号量 |
+| `user_data` | 用户数据指针 |
+| `done_sem / cancel_sem` | 同步/取消信号量 |
 | `temp_buff` | 临时缓冲区（文件信息/文本/其他）|
 | `file_info / file_info_cnt / file_done_cnt` | 文件播放列表 |
 | `tts_data / tts_data_size` | TTS 文本数据 |
-| `play_buff / one_block_len / block_nums` | 流模式驱动缓冲参数 |
-| `record_data_fifo` | 录音数据 FIFO |
-| `org_input_data_fifo` | 原始编码数据 FIFO |
-| `out_buffer` | 解码输出 PCM 缓冲区 |
-| `dsp` | DSP 处理实例（预留）|
-| `codec` | 编解码器实例 |
+| `play_save_fifo` | 播放保存数据 FIFO |
+| `record_save_fifo` | 录音保存数据 FIFO |
+| `org_input_data_fifo` | 原始编码数据 FIFO（流式输入）|
+| `out_buffer / record_temp_buffer / data_align_buffer / channel_nums_buffer` | 多用途缓冲区 |
+| `play_codec / record_codec` | 播放/录音编解码器实例（分离管理）|
+| `extern_play_source / extern_record_source` | 外部播放/录音源指针 |
+| `dsp` | DSP 处理实例 |
 | `data_channel` | 关联音频通道 |
 | `priority` | 优先级（0-255，数值越大优先级越高）|
 | `driver_work_mode` | 驱动工作模式 |
 | `is_stream / is_tts / is_stream_end` | 请求类型标志 |
 | `is_user_stop / is_error_stop` | 停止标志 |
-| `is_file_end / is_wait_play_end` | 文件播放状态 |
+| `is_data_callback_stop` | 回调请求停止标志 |
+| `is_input_end / is_wait_play_end` | 输入结束/等待播放结束标志 |
+| `is_need_ref_data / is_save_play_data` | 参考数据/保存播放数据标志 |
 
 ### 4.5 `luat_audio_channel_t`（`luat_audio_channel.h`）
 
 | 字段 | 说明 |
 |------|------|
 | `play_fifo` | 播放 FIFO（中断上下文消费，仅1个消费者）|
-| `play_fifo_low_level` | 低水位（默认 2^15 字节，触发数据请求）|
+| `record_fifo` | 录音 FIFO（中断上下文写入，audio task 读出）|
+| `ref_fifo` | 参考输入数据 FIFO（用于回声消除）|
+| `play_fifo_low_level` | 低水位（默认 25%，触发数据请求）|
 | `play_fifo_high_level` | 高水位（FIFO 满的阈值，停止解码）|
-| `play_lock_mutex` | 写入保护互斥锁 |
 | `driver_ctrl` | 关联驱动控制器 |
 | `soft_vol` | 软件音量（0-1000，默认100=原始音量）|
-| `user_play_stop / user_record_stop` | 用户停止标志 |
+| `data_align` | 数据对齐方式 |
+| `user_play_stop / user_record_stop / play_is_stop` | 播放/录音停止标志 |
 
 ---
 
@@ -163,18 +174,29 @@ typedef struct {
 | `LUAT_AUDIO_DRIVER_CONFIG_PARAM_*` | `I2S_MODE=0, I2S_FRAME_TYPE, DAC_BIT_WIDTH` | 驱动私有参数索引 |
 | `LUAT_AUDIO_DRIVER_EVENT_*` | `TX_ONE_BLOCK_DONE=0, RX_ONE_BLOCK_DONE` | 中断回调事件 |
 | `LUAT_AUDIO_DRIVER_STATE_*` | `IDLE=0, INITED, ACTIVE, RUNNING` | 驱动状态机 |
-| `LUAT_AUDIO_DRIVER_MODE_*` | `NONE=0, PLAY, RECORD, CALL, CALL_WITH_BUFFER` | 驱动工作模式 |
+| `LUAT_AUDIO_DRIVER_MODE_*` | `NONE=0, PLAY, RECORD, SPEECH, SPEECH_WITH_BUFFER` | 驱动工作模式 |
 | `LUAT_AUDIO_DATA_CODEC_TYPE_*` | `RAW=0, WAV=1, AMR_NB=2, AMR_WB=3, TTS=4, MP3=5, OPUS=6, G711_ULAW=7, G711_ALAW=8, MAX=9` | 编解码器标识 |
-| `LUAT_AUDIO_REQUEST_EVENT_*` | `START=0, DRIVER_START=1, NEED_NEW_DATA=2, GET_NEW_DATA=3, DECODE_DONE=4, END=5, ALL_PLAY_DATA_DONE=6` | 请求回调事件 |
+| `LUAT_AUDIO_REQUEST_EVENT_*` | `START=0, DRIVER_START=1, TTS_START=2, NEED_PLAY_INFO=3, NEED_NEW_DATA=4, GET_NEW_DATA=5, DECODE_DONE=6, END=7, EXT_SRC_DONE=8` | 请求回调事件 |
 
 #### 平台可配置常量
 
 | 宏 | 默认值 | 说明 |
 |----|--------|------|
 | `LUAT_AUDIO_DRIVER_MAX` | 4 | 最大驱动数量 |
-| `LUAT_AUDIO_CHANNEL_FIFO_DEFAULT_SIZE_POWER` | 17 | 播放 FIFO 大小 = 2^17 = 128KB |
+| `LUAT_AUDIO_CHANNEL_PLAY_FIFO_DEFAULT_SIZE_POWER` | 17 | 播放 FIFO 大小 = 2^17 = 128KB |
+| `LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER` | 15 | 录音 FIFO 大小 = 2^15 = 32KB |
 | `LUAT_AUDIO_DATA_CODEC_INPUT_FIFO_DEFAULT_SIZE_POWER` | 14 | 编解码器输入 FIFO = 2^14 = 16KB |
 | `LUAT_AUDIO_TASK_STACK` | 13*1024 | 音频任务栈大小 |
+
+#### 驱动工作模式（用于 `driver_work_mode`）
+
+| 枚举值 | 说明 |
+|--------|------|
+| `LUAT_AUDIO_DRIVER_MODE_NONE` | 无模式 |
+| `LUAT_AUDIO_DRIVER_MODE_PLAY` | 播放模式 |
+| `LUAT_AUDIO_DRIVER_MODE_RECORD` | 录音模式 |
+| `LUAT_AUDIO_DRIVER_MODE_SPEECH` | 通话模式（全双工）|
+| `LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER` | 通话带外部缓冲区模式（如 LTE 通话）|
 
 ---
 
@@ -191,7 +213,7 @@ typedef struct luat_audio_driver_probe {
 
 驱动通过 `(bus_type, bus_id)` 元组匹配。`luat_audio_driver_probe(NULL)` 返回默认驱动。最多支持 4 个驱动并行注册。
 
-#### 操作函数表（`luat_audio_driver_opts_t` — 13 个函数指针 + 能力描述字段）
+#### 操作函数表（`luat_audio_driver_opts_t` — 15 个函数指针 + 能力描述字段）
 
 | 函数 | 说明 |
 |------|------|
@@ -199,12 +221,13 @@ typedef struct luat_audio_driver_probe {
 | `config_private_param` | 配置 I2S 模式/帧格式/DAC 位宽等私有参数 |
 | `activate` | 激活（退出低功耗、提供 I2S MCLK）|
 | `modify_audio_common_param` | 配置采样率/位宽/声道 |
-| `fill` | 填充空白音到 DMA 缓存（静音数据）|
+| `dac_data_align` | DAC 数据右对齐（仅右对齐 DAC 需要）|
+| `fill` | 填充空白音到 DMA 缓存（静音数据），签名 `fill(ctrl, play_buff, len_bytes, is_signed, align)` |
 | `start_tx_loop` | 启动播放 DMA 循环 |
 | `start_rx_loop` | 启动录音 DMA 循环 |
 | `start_full_loop` | 启动全双工 DMA 循环 |
-| `rx_interrupt_switch` | 切换录音中断使能 |
 | `start_full_loop_with_play_buff` | 全双工 + 外部播放缓冲（如 LTE 通话）|
+| `cache_sync` | 缓存同步（cache sync，部分平台需要）|
 | `stop` | 停止 DMA 循环 |
 | `deactivate` | 反激活（进低功耗、关 MCLK）|
 | `deinit` | 反初始化（释放硬件资源）|
@@ -219,7 +242,8 @@ typedef struct luat_audio_driver_probe {
 | `support_rx_loop` | 是否支持录音循环 |
 | `support_full_loop` | 是否支持全双工循环 |
 | `support_continue` | 是否支持继续播放 |
-| `is_signed` | 驱动数据是否为有符号格式 |
+| `is_tx_signed` | 播放数据是否为有符号格式 |
+| `is_rx_signed` | 录音数据是否为有符号格式 |
 
 #### 驱动状态机
 
@@ -257,8 +281,8 @@ luat_audio_driver_start() 调用时：
   ③ 根据 driver_work_mode 启动对应循环:
      PLAY              → support_full_loop ? start_full_loop : start_tx_loop
      RECORD            → support_full_loop ? start_full_loop : start_rx_loop
-     CALL              → start_full_loop (必须支持全双工)
-     CALL_WITH_BUFFER  → start_full_loop_with_play_buff
+     SPEECH              → start_full_loop (必须支持全双工)
+     SPEECH_WITH_BUFFER  → start_full_loop_with_play_buff
 
   ④ state = RUNNING
 
@@ -285,6 +309,8 @@ PA/CODEC 下电（外部调用）:
 
 #### 填充空白音策略（`luat_audio_driver_fill_default`）
 
+函数签名：`fill(ctrl, play_buff, len_bytes, is_signed, align)`
+
 | 有符号 | 位宽 | 填充值 |
 |--------|------|--------|
 | 是 | 任意 | `0x00` （静音 = 零）|
@@ -310,11 +336,13 @@ PA/CODEC 下电（外部调用）:
 | `init` | 初始化编解码器实例（分配解码器/编码器上下文）|
 | `deinit` | 释放编解码器实例 |
 | `get_play_info` | 解析文件头获取播放参数（支持多轮读取）|
+| `set_record_info` | 设置编码录音参数（不合法参数会修正为默认值）|
 | `pre_decode` | 预解码获取帧大小（AMR 变长帧需要）|
 | `decode` | 解码一帧数据（编码 PCM → PCM）|
 | `make_head` | 生成编码文件头（WAV/AMR）|
 | `encode` | 编码一帧数据（PCM → 编码格式）|
-| `tts_decode` | TTS 文本转语音 |
+| `encode_with_sync_output_ref` | 带参考数据的同步编码（部分硬件编解码器支持，用于回声消除）|
+| `tts_decode_sync` | TTS 文本转语音（同步模式）|
 | `tts_set_param` | 设置 TTS 参数 |
 
 **编解码器属性**：
@@ -325,6 +353,9 @@ PA/CODEC 下电（外部调用）:
 | `is_reentrant` | 是否可重入（可同时多实例使用）|
 | `is_hardware` | 是否硬件编解码器（不可重入，用 is_busy 保护）|
 | `support_detect` | 是否支持文件头自动检测 |
+| `support_encode_with_sync_output_ref` | 是否支持带参考数据的同步编码 |
+| `is_tts_asynchronous` | 是否异步 TTS |
+| `encode_raw_mode` | 是否原始编码模式（直接拷贝，不处理）|
 | `decode_min_input_len` | 解码最小输入长度（0 表示变长帧，需 pre_decode）|
 | `decode_max_output_len` | 解码最大输出长度 |
 | `encode_min_input_len` | 编码最小输入长度 |
@@ -367,6 +398,18 @@ while (output_buffer 有空间) {
 
 #### 已实现的编解码器适配器
 
+##### RAW 编解码器（`luat_audio_codec_port_raw.c`）
+
+| 属性 | 值 |
+|------|-----|
+| type | `LUAT_AUDIO_DATA_CODEC_TYPE_RAW` |
+| 可重入 | 是 |
+| 硬件加速 | 否 |
+| 支持自动检测 | 否 |
+| `encode_raw_mode` | 1 |
+
+RAW 编解码器为**纯直通模式**，decode/encode 直接复用 WAV 编解码器的对应函数。不作任何编解码处理，PCM 数据直接通过。`encode_raw_mode=1` 标记原始编码模式。
+
 ##### WAV 编解码器（`luat_audio_codec_port_wav.c`）
 
 | 属性 | 值 |
@@ -380,6 +423,7 @@ while (output_buffer 有空间) {
 
 WAV 解码是**直通模式**（PCM 不压缩，输入直接复制到输出）。仅支持 16 位 PCM WAV。
 `get_play_info` 解析 RIFF/WAVE 文件头，遍历 chunk 定位到 `data` 块。
+支持编码（生成 WAV 文件头 + PCM 数据），通过 `set_record_info` 设置录音参数。
 
 ##### MP3 编解码器（`luat_audio_codec_port_mp3.c`）
 
@@ -395,20 +439,41 @@ WAV 解码是**直通模式**（PCM 不压缩，输入直接复制到输出）�
 基于 [minimp3](https://github.com/lieff/minimp3) 实现，**仅支持解码**，不支持编码。
 `get_play_info` 支持跳过 ID3v2 标签头。
 
-##### AMR-NB / AMR-WB 编解码器（`luat_audio_codec_port_amr.c`）
+##### AMR-NB 编解码器（`luat_audio_codec_port_amr_nb.c`）
 
-| 属性 | AMR-NB | AMR-WB |
-|------|--------|--------|
-| type | `AMR_NB` | `AMR_WB` |
-| 采样率 | 8000 Hz | 16000 Hz |
-| 帧大小 | 320 字节 PCM | 640 字节 PCM |
-| `decode_min_input_len` | 0（变长帧）| 0（变长帧）|
-| `decode_max_output_len` | 320 | 640 |
-| 文件头 | `#!AMR\n` | `#!AMR-WB\n` |
+| 属性 | 值 |
+|------|-----|
+| type | `LUAT_AUDIO_DATA_CODEC_TYPE_AMR_NB` |
+| 采样率 | 8000 Hz |
+| 帧大小 | 320 字节 PCM |
+| 可重入 | 是 |
+| 硬件加速 | 否 |
+| 支持自动检测 | 是 |
+| `decode_min_input_len` | 0（变长帧）|
+| `decode_max_output_len` | 320 |
+| 文件头 | `#!AMR\n` |
 
-基于 3GPP 参考实现（`interf_dec.h` / `interf_enc.h`）。支持编解码。
-变长帧通过 `pre_decode` 从帧头提取 mode 查找 `amr_nb_byte_len[]` / `amr_wb_byte_len[]` 表。
-`get_play_info` 通过魔术字 `#!AMR\n` / `#!AMR-WB\n` 识别。
+基于 3GPP 参考实现（`sp_dec.h` / `interf_enc.h`）。支持编解码。
+变长帧通过 `pre_decode` 从帧头提取 mode 查找 `amr_nb_byte_len[]` 表。
+`get_play_info` 通过魔术字 `#!AMR\n` 识别。
+
+##### AMR-WB 编解码器（`luat_audio_codec_port_amr_wb.c`）
+
+| 属性 | 值 |
+|------|-----|
+| type | `LUAT_AUDIO_DATA_CODEC_TYPE_AMR_WB` |
+| 采样率 | 16000 Hz |
+| 帧大小 | 640 字节 PCM |
+| 可重入 | 是 |
+| 硬件加速 | 否 |
+| 支持自动检测 | 是 |
+| `decode_min_input_len` | 0（变长帧）|
+| `decode_max_output_len` | 640 |
+| 文件头 | `#!AMR-WB\n` |
+
+基于 3GPP 参考实现（`pvamrwbdecoder_api.h` / `voAMRWB.h`）。支持编解码。
+变长帧通过 `pre_decode` 从帧头提取 mode 查找 `amr_wb_byte_len[]` 表。
+`get_play_info` 通过魔术字 `#!AMR-WB\n` 识别。
 
 ##### OPUS 编解码器（`luat_audio_codec_port_opus.c`）
 
@@ -416,7 +481,20 @@ WAV 解码是**直通模式**（PCM 不压缩，输入直接复制到输出）�
 
 ##### G711 编解码器（`luat_audio_codec_port_g711.c`）
 
-当前为**注释代码**（`#if 0`）。基于 `g711_codec/g711_codec.h`。固定 8kHz 采样率，单声道，8 位深度。
+当前已**激活**，基于 `g711_codec/g711_codec.h`。固定 8kHz 采样率，单声道，16bit 深度。
+支持自动检测和编解码。
+
+##### NO_OP 编解码器（`luat_audio_codec_port_no_op.c`）
+
+| 属性 | 值 |
+|------|-----|
+| type | `LUAT_AUDIO_DATA_CODEC_TYPE_NO_OP` |
+| 可重入 | 是 |
+| 硬件加速 | 否 |
+| 支持自动检测 | 否 |
+| `encode_raw_mode` | 1 |
+
+NO_OP 编解码器为**占位模式**。init 时设置 `tx_no_callback=1`（发送时不回调），decode/encode 均为 NULL。适用于不需要编解码处理的占位场景。
 
 ---
 
@@ -496,8 +574,12 @@ WAV 解码是**直通模式**（PCM 不压缩，输入直接复制到输出）�
 | `luat_audio_request_play_files` | 播放文件列表（支持文件路径/ROM 数组）| ✅ 已实现 |
 | `luat_audio_request_play_tts` | TTS 文本转语音播放 | ✅ 已实现 |
 | `luat_audio_request_play_stream` | 流模式音频播放（指定 codec + common_param）| ✅ 已实现 |
-| `luat_audio_request_record` | 录音（声明未实现）| ⚠️ 声明仅为框架预留 |
-| `luat_audio_request_speech` | 通话（声明未实现）| ⚠️ 声明仅为框架预留 |
+| `luat_audio_request_record` | 录音 | ✅ 已实现 |
+| `luat_audio_request_speech` | 全双工通话（对讲模式）| ✅ 已实现 |
+| `luat_audio_request_add_source_files` | 外部源：添加文件列表 | ✅ 已实现 |
+| `luat_audio_request_add_source_tts` | 外部源：添加 TTS 文本 | ✅ 已实现 |
+| `luat_audio_request_add_source_stream` | 外部源：添加流式数据 | ✅ 已实现 |
+| `luat_audio_request_delete_source` | 删除外部源 | ✅ 已实现 |
 | `luat_audio_request_prepare` | 低级 API：请求准备 | ✅ 已实现 |
 | `luat_audio_request_cancel` | 取消请求 | ✅ 已实现 |
 | `luat_audio_request_start` | 提交请求（同步/异步）| ✅ 已实现 |
@@ -508,12 +590,14 @@ WAV 解码是**直通模式**（PCM 不压缩，输入直接复制到输出）�
 |--------|------|------|
 | 文件播放 | `file_info[]` | 每个文件可指定 path/fd/rom_data/rom_data_len/fail_continue |
 | TTS | `tts_data / tts_data_size` | 待合成文本 |
-| 流播放 | `union { play_buff / one_block_len / block_nums }` | 低级流式数据缓冲区参数；高级流 API 使用 `org_input_data_fifo` + `REQUEST_NEED_NEW_DATA` 回调驱动 |
-| 录音 | `record_data_fifo` | 录音数据 FIFO |
-| 解码 | `codec` | 编解码器实例（含 common_param）|
-| | `org_input_data_fifo` | 原始编码数据输入 FIFO |
-| | `out_buffer` | 解码输出 PCM 缓冲区 |
-| 同步 | `done_sem` | 同步模式：用互斥锁阻塞等待 |
+| 流播放 | `union { stream_one_block_len }` | 流式数据块参数；高级流 API 使用 `org_input_data_fifo` + `REQUEST_NEED_NEW_DATA` 回调驱动 |
+| 播放存储 | `play_save_fifo` | 播放保存数据 FIFO |
+| 录音存储 | `record_save_fifo` | 录音保存数据 FIFO |
+| 编解码 | `play_codec / record_codec` | 播放/录音编解码器实例（分离管理，含各自 common_param）|
+| 外部源 | `extern_play_source / extern_record_source` | 外部播放/录音源指针 |
+| 数据缓冲 | `org_input_data_fifo` | 原始编码数据输入 FIFO |
+| | `out_buffer / record_temp_buffer / data_align_buffer / channel_nums_buffer` | 多用途缓冲区 |
+| 同步 | `done_sem / cancel_sem` | 同步模式：信号量阻塞等待 |
 
 #### 数据源抽象
 
@@ -547,7 +631,7 @@ typedef struct {
 ```
 BSP 启动时（luavm 初始化前）:
   luat_audio_base_init()
-    ├─ 创建 common_task（优先级 90，栈 13KB，事件队列 64）
+    ├─ 创建 common_task（优先级 100，栈 13KB，事件队列 64）
     ├─ 创建 tts_task（优先级 20，栈 13KB）
     ├─ 创建 request_lock 互斥锁
     ├─ 创建 tts_wait_sem 并立即加锁
@@ -636,8 +720,8 @@ luat_audio_driver_start(ctrl, common_param, play_buff, one_block_len, block_nums
   ├─ 根据 mode 选择启动函数:
   │   ├─ PLAY       → support_full_loop ? start_full_loop : start_tx_loop
   │   ├─ RECORD     → support_full_loop ? start_full_loop : start_rx_loop
-  │   ├─ CALL       → start_full_loop
-  │   └─ CALL_WITH_BUFFER → start_full_loop_with_play_buff
+  │   ├─ SPEECH     → start_full_loop
+  │   └─ SPEECH_WITH_BUFFER → start_full_loop_with_play_buff
   ├─ state = RUNNING
   ├─ CODEC 上电 → codec_ready_after_wakeup_timer → codec_ready_state=1
   ├─ PA 上电 → pa_power_on_delay_timer → pa_power_state=1
@@ -848,13 +932,13 @@ org_input_data_fifo
 
 | 文件 | 导出函数数 | 主要函数 |
 |------|-----------|---------|
-| `luat_audio_core.h` | 4 | `base_init`, `debug_switch`, `driver_register`, `driver_probe`, `driver_set_default`, `get_play_info_from_file`, `driver_event_callback` |
+| `luat_audio_core.h` | 12 | `base_init`, `debug_switch`, `driver_register`, `driver_probe`, `driver_set_default`, `driver_get_ctrl_info`, `get_play_info_from_file`, `driver_event_callback`, `is_request_all_done`, `data_read_to_fifo`, `data_read_to_buffer`, `data_seek`, `extern_source_init/deinit/decode/check/check_finish` |
 | `luat_audio_driver.h` | 11 | `config_pa_power`, `config_codec_power`, `config_private_param`, `config_audio_common_param`, `change_sample_rate`, `start`, `pa_power_off`, `codec_power_off`, `stop`, `deactivate`, `fill_default` |
 | `luat_audio_data_codec.h` | 8 | `register`, `bind`, `init`, `deinit`, `unbind`, `decode_once`, `encode_once`, `find` |
-| `luat_audio_channel.h` | 5 | `create_fifo`, `destroy_fifo`, `play`, `record`, `write_data` |
-| `luat_audio_request.h` | 10 | `play_files`, `play_tts`, `play_stream`, `record`(⚠未实现), `speech`(⚠未实现), `prepare`, `cancel`, `init`, `deinit`, `start` |
+| `luat_audio_channel.h` | 9 | `create_fifo`, `destroy_fifo`, `play`, `record`, `set_soft_volume`, `write_data`, `read_data`, `data_change_signed`, `data_change_align`, `data_change_channel_nums` |
+| `luat_audio_request.h` | 14 | `play_files`, `play_tts`, `play_stream`, `record`, `speech`, `add_source_files`, `add_source_tts`, `add_source_stream`, `delete_source`, `prepare`, `cancel`, `init`, `deinit`, `start` |
 
-总 API 数量：约 **41** 个公开函数（其中 2 个声明但未实现）。
+总 API 数量：约 **43** 个公开函数。
 
 ### 内部函数（`luat_audio_core.c` static）
 
@@ -874,50 +958,35 @@ org_input_data_fifo
 | `_audio_start_request` | 启动请求（驱动启动/回调通知/TTS 事件发送）|
 | `_audio_request_finish` | 请求完成处理（释放资源+回调+排队处理）|
 
+### luat_audio_misc.c 内部函数
+
+| 函数 | 功能 |
+|------|------|
+| `_audio_decode_extern_source_play_info` | 外部源文件播放信息自动搜索和解码器绑定 |
+| `luat_audio_extern_source_check` | 外部源参数校验（采样率/位宽/声道数与请求一致性检查） |
+
 ---
 
 ## 十一、编解码器适配层参数一览
 
 | 编解码器 | 类型 | 输入最小长度 | 输出最大长度 | 自动检测 | 编码 |
 |---------|------|------------|------------|---------|------|
-| RAW | 0 | 4096 | 4096 | ❌ | ✅ |
+| RAW | 0 | 8000 | 8000 | ❌ | ✅ |
 | WAV | 1 | 4096 | 4096 | ✅ | ✅ |
 | AMR-NB | 2 | 0（变长）| 320 | ✅ | ✅ |
 | AMR-WB | 3 | 0（变长）| 640 | ✅ | ✅ |
 | TTS | 4 | - | - | - | - |
 | MP3 | 5 | 1792 | 4608 | ✅ | ❌ |
 | OPUS | 6 | - | - | - | - |
-| G711 μ-Law | 7 | - | - | - | - |
-| G711 A-Law | 8 | - | - | - | - |
+| G711 μ-Law | 7 | 固定 8kHz/1ch/16bit | - | - | - |
+| G711 A-Law | 8 | 固定 8kHz/1ch/16bit | - | - | - |
+| NO_OP | 9 | 8000 | 8000 | ❌ | ✅ |
 
-注：OPUS 和 G711 的适配代码当前被 `#if 0` 注释，未处于激活状态。
-
----
-
-## 十二、`exaudio.lua` 扩展库
-
-`exaudio.lua` 是基于 `audio_v2` C API 的纯 Lua 扩展层，提供更高级的功能封装：
-
-| 函数 | 功能 |
-|------|------|
-| `exaudio.setup(param)` | 初始化音频硬件（支持 es8311/tm8211/dac 三种模型）|
-| `exaudio.play_start(configs, priority, cbfnc)` | 多优先级队列播放（文件/TTS/流）|
-| `exaudio.play_stop()` | 停止播放 |
-| `exaudio.play_stream_write(data)` | 流式写入数据（写入队列，由 audio.MORE_DATA 事件驱动）|
-| `exaudio.record_start(format, time, path_or_cb, cbfnc)` | 录音启动 |
-| `exaudio.record_stop()` | 停止录音 |
-| `exaudio.vol(vol)` | 设置音量 |
-| `exaudio.pm(mode)` | 设置电源管理模式 |
-
-**核心特性**：
-- **优先级队列**：`play_start` 支持优先级参数，高优先级请求可打断低优先级
-- **多文件一致性检查**：连续播放多个文件时，自动检查采样率/声道数/位深一致性
-- **流式数据队列**：`play_stream_write` 写入队列，由 `audio.MORE_DATA` 事件逐一消费
-- **自动电源管理**：play_start / record_start 自动 RESUME，播放/录音完成自动 SHUTDOWN
+注：OPUS 适配代码当前被 `#if 0` 注释，未处于激活状态。RAW 和 NO_OP 编解码器使用 `encode_raw_mode=1`（直接拷贝原始数据，不进行编解码处理）。G711 已激活，固定 8kHz 采样率、单声道、16bit 深度。
 
 ---
 
-## 十三、调试与诊断
+## 十二、调试与诊断
 
 - 全局调试标志 `luat_audio_debug_flag`（默认为 1），通过 `luat_audio_debug_switch()` 控制
 - 各模块使用 `LLOGC(luat_audio_debug_flag, ...)` 条件编译日志
@@ -935,11 +1004,11 @@ org_input_data_fifo
 
 ---
 
-## 十四、audio_v2 Lua API 文档（`luat_lib_audio.c`）
+## 十三、audio_v2 Lua API 文档（`luat_lib_audio.c`）
 
 `audio_v2` 是 LuatOS 新一代音频框架的 Lua C 绑定层，提供了完整的音频播放、流式音频、TTS、事件回调、驱动管理等功能的 Lua 接口。使用前需确保固件启用了 `LUAT_USE_AUDIO_V2`。
 
-### 14.1 请求类 API
+### 13.1 请求类 API
 
 #### `audio_v2.play(path, err_stop, priority, driver_probe_id, codec_id)`
 
@@ -1067,15 +1136,15 @@ end)
 
 ---
 
-#### `audio_v2.input(request_index, data, is_end)`
+#### `audio_v2.input(request_or_source_index, data, is_end)`
 
-向流模式请求的输入 FIFO 推送音频数据。与 `stream` 搭配使用，在 `REQUEST_NEED_NEW_DATA` 回调中调用此函数将数据喂给解码器。
+向流模式请求或外部音频源的输入 FIFO 推送音频数据。与 `stream` 搭配使用，在 `REQUEST_NEED_NEW_DATA` 回调中调用此函数将数据喂给解码器。也可用于向 `extern_source` 推入流式数据。
 
 **参数**：
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `request_index` | int | 请求索引，由 `audio_v2.stream` 返回 |
+| `request_or_source_index` | int | 请求索引（由 `audio_v2.stream` 返回）或外部音频源索引（由 `audio_v2.extern_source` 返回）|
 | `data` | string/zbuff | 要推送的音频数据。支持 Lua string 或 zbuff 对象 |
 | `is_end` | boolean | 可选。是否为最后一帧数据。`true` 表示数据发送完毕，解码器处理完剩余数据后将结束播放。默认 `false` |
 
@@ -1109,22 +1178,67 @@ audio_v2.input(req_id, last_data, true)
 ```
 
 **注意**：
-- 必须在 `stream` 返回的 `request_index` 有效且请求处于 busy 状态时调用
+- 必须在 `stream` 返回的 `request_index` 有效且请求处于 busy 状态时调用，或 `extern_source` 返回的 `source_index` 有效时调用
 - 写入的数据量受 `org_input_data_fifo` 剩余空间限制（默认 16KB），超出部分将被截断
 - 使用 zbuff 传入时，写入成功后 zbuff 的 `used` 指针会自动前移（消耗已写数据）
 - 设置 `is_end = true` 后，解码器消费完 FIFO 中所有数据后会结束播放并触发 `REQUEST_END`
+- 当传入 `extern_source` 返回的 `source_index` 时，需注意该索引高位带有 `0x80` 标记位，`input` 函数会自动识别
 
 ---
 
-#### `audio_v2.stop(request_index)`
+#### `audio_v2.extern_source(request_index, source, is_add_record, codec_id, sample_rate, data_bits, channel_nums, is_signed)`
 
-停止正在播放的请求。
+对讲中附加额外的音频数据源。与 `speech` 搭配使用，在全双工通话通道上叠加播放额外的音频文件、TTS 文本或 PCM 数据。额外音频的参数必须和对讲的参数一致，否则会失败。
 
 **参数**：
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `request_index` | int | 请求索引，由 `audio_v2.play`、`audio_v2.stream` 或 `audio_v2.tts` 返回 |
+| `request_index` | int | 请求索引，通过 `audio_v2.speech` 返回 |
+| `source` | table/string/zbuff | 音频数据源。table 为文件路径列表（即使单个文件也要用 table）；string 为 TTS 文本；zbuff 为音频数据 |
+| `is_add_record` | boolean | 可选。是否添加到录音通道，默认 `false`（添加到播放通道） |
+| `codec_id` | int | 可选。解码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则通过输入数据自行判断 |
+| `sample_rate` | int | 可选。采样率（Hz），指定 RAW 编解码器时必填 |
+| `data_bits` | int | 可选。数据位数 8/16/24/32，指定 RAW 编解码器时必填。默认 16 |
+| `channel_nums` | int | 可选。声道数 1/2，指定 RAW 编解码器时必填。默认 1 |
+| `is_signed` | boolean | 可选。数据是否有符号，默认 `true` |
+
+**返回值**：
+
+| 返回值 | 类型 | 说明 |
+|--------|------|------|
+| 成功标志 | boolean | 成功返回 `true`，否则返回 `false` |
+| source_index | int | 外部音频源索引，可用于 `audio_v2.input` 或 `audio_v2.stop` 操作（需带上 `EXT_SRC_INDEX_FLAG`）|
+
+**示例**：
+
+```lua
+-- 启动对讲
+local ok, req_id = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_AMR_WB, save_buffer, 10)
+
+-- 在对讲中附加额外的音频文件播放
+audio_v2.extern_source(req_id, {"/test_16k.mp3"})
+
+-- 附加 TTS 文本
+audio_v2.extern_source(req_id, "请注意安全")
+```
+
+**注意**：
+- 最多同时支持 2 个外部音频源（`LUAT_AUDIO_EXTERN_SOURCE_MAX`）
+- source_index 返回值最高位带标记位（`0x80`），传递给 `audio_v2.input` 或 `audio_v2.stop` 时可自动识别
+- `audio_v2.on` 回调中可通过 `EXT_SRC_DONE` 事件监听外部音频源播放完成
+
+---
+
+#### `audio_v2.stop(request_index)`
+
+停止正在播放的请求或外部音频源。
+
+**参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `request_index` | int | 请求索引，由 `audio_v2.play`、`audio_v2.stream`、`audio_v2.speech`、`audio_v2.record`、`audio_v2.tts` 返回的请求索引，或由 `audio_v2.extern_source` 返回的外部音频源索引 |
 
 **返回值**：无
 
@@ -1245,17 +1359,91 @@ local ok, jump, need, rate, bits, ch, sig = audio_v2.get_play_info(buff, audio_v
 
 ---
 
-#### `audio_v2.record()` — ⚠️ 待实现
+#### `audio_v2.record(codec_id, save_buffer, record_callback_cnt, priority, sample_rate, data_bits, channel_nums, driver_probe_id)`
 
-录音功能。当前版本暂未实现，声明为框架预留接口。
+录音请求，支持两种模式：保存到文件，或保存到 zbuff 并通过回调返回数据。
 
-#### `audio_v2.speech()` — ⚠️ 待实现
+**参数**：
 
-通话（对讲）功能。当前版本暂未实现，声明为框架预留接口。
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `save_buffer` | string/zbuff | 保存目标。string 为文件路径，录音保存到文件；zbuff 为缓冲区，录音数据通过回调返回 |
+| `record_callback_cnt` | int | 保存到文件时为录音总时长（秒），时间到自动停止；保存到 zbuff 时为每次回调的帧数，每帧时长由编码器决定 |
+| `codec_id` | int | 编码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则直接返回原始 PCM 数据 |
+| `priority` | int | 可选。优先级（0~255），值越大优先级越高。默认 0 |
+| `sample_rate` | int | 可选。希望的采样率，指定了 codec_id 则可留空，由编码器决定 |
+| `data_bits` | int | 可选。数据位数 8/16/24/32，指定了 codec_id 则可留空 |
+| `channel_nums` | int | 可选。声道数 1/2，指定了 codec_id 则可留空 |
+| `driver_probe_id` | int | 可选。驱动 ID，不使用默认驱动时填写 |
+
+**返回值**：
+
+| 返回值 | 类型 | 说明 |
+|--------|------|------|
+| 成功标志 | boolean | 成功返回 `true`，否则返回 `false` |
+| request_index | int | 请求索引，用于停止、回调区分等后续操作 |
+
+**示例**：
+
+```lua
+-- 录音到 zbuff，编码器为 AMR_WB，每 10 帧回调一次
+local save_buffer = zbuff.create(10240)
+local ok, req_id = audio_v2.record(audio_v2.DATA_CODEC_TYPE_AMR_WB, save_buffer, 10)
+
+-- 录音到文件，编码器为 AMR_WB，录音 10 秒结束
+local ok, req_id = audio_v2.record(audio_v2.DATA_CODEC_TYPE_AMR_WB, "/save.amr", 10)
+```
+
+**注意**：
+- 保存到 zbuff 模式时，通过 `audio_v2.on` 回调的 `REQUEST_GET_NEW_DATA` 事件获取录音数据，`param` 为本次回调的驱动数据大小
+- 保存到文件模式时，录音时长由 `record_callback_cnt` 控制，时间到达后自动结束并触发 `REQUEST_END`
+- 编码器需支持 `encode` 操作，不支持编码的编解码器（如 MP3）不能用于录音
 
 ---
 
-### 14.2 事件回调 API
+#### `audio_v2.speech(record_codec_id, save_buffer, record_callback_cnt, play_codec_id, sample_rate, data_bits, channel_nums, driver_probe_id)`
+
+全双工通话（对讲）模式。同时进行录音和播放，适用于对讲、VoIP 等实时通话场景。
+
+**参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `record_codec_id` | int | 录音编码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则直接返回原始 PCM 数据 |
+| `save_buffer` | zbuff | 录音数据回调时保存的 zbuff 缓冲区 |
+| `record_callback_cnt` | int | 每次录音回调的帧数，每帧时长由编码器决定 |
+| `play_codec_id` | int | 可选。播放解码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则与录音编码器相同 |
+| `sample_rate` | int | 可选。希望的采样率，指定了 codec_id 则可留空 |
+| `data_bits` | int | 可选。数据位数 8/16/24/32，默认 16 |
+| `channel_nums` | int | 可选。声道数 1/2，默认 1 |
+| `driver_probe_id` | int | 可选。驱动 ID，不使用默认驱动时填写 |
+
+**返回值**：
+
+| 返回值 | 类型 | 说明 |
+|--------|------|------|
+| 成功标志 | boolean | 成功返回 `true`，否则返回 `false` |
+| request_index | int | 请求索引，用于停止、暂停、附加外部音源等后续操作 |
+
+**示例**：
+
+```lua
+-- 双工对讲模式，编码器为 AMR_WB，每 10 帧回调一次
+local save_buffer = zbuff.create(10240)
+local ok, req_id = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_AMR_WB, save_buffer, 10)
+
+-- 使用 audio_v2.extern_source 附加外部音源到通话中
+audio_v2.extern_source(req_id, {"/test_16k.mp3"})
+```
+
+**注意**：
+- 全双工模式需要驱动支持全双工能力（`support_full_loop` 或 `support_full_loop_with_play_buff`）
+- 通过 `audio_v2.on` 回调的 `REQUEST_GET_NEW_DATA` 事件获取对讲的录音数据
+- 可通过 `audio_v2.extern_source` 在此通话通道上附加额外的播放音源
+
+---
+
+### 13.2 事件回调 API
 
 #### `audio_v2.on(func)`
 
@@ -1285,10 +1473,12 @@ function(request_index, event, param)
 |---------|-----|---------|-------|
 | `audio_v2.REQUEST_START` | 0 | 开始处理请求 | 无意义 |
 | `audio_v2.REQUEST_DRIVER_START` | 1 | 请求块驱动已启动（硬件开始输出） | 无意义 |
-| `audio_v2.REQUEST_NEED_NEW_DATA` | 2 | 播放需要更多数据（流模式） | 无意义 |
-| `audio_v2.REQUEST_GET_NEW_DATA` | 3 | 获取到新录音数据 | zbuff 序号（录音专用）|
-| `audio_v2.REQUEST_DECODE_DONE` | 4 | 请求解码完成（预留） | 无意义 |
-| `audio_v2.REQUEST_END` | 5 | 请求块处理完成（正常/出错/停止） | 无意义 |
+| `audio_v2.REQUEST_TTS_START` | 2 | TTS 开始播放 | 无意义 |
+| `audio_v2.REQUEST_NEED_NEW_DATA` | 4 | 播放需要更多数据（流模式） | 无意义 |
+| `audio_v2.REQUEST_GET_NEW_DATA` | 5 | 获取到新录音数据 | 本次回调获取到的驱动数据大小 |
+| `audio_v2.REQUEST_DECODE_DONE` | 6 | 请求解码完成 | 无意义 |
+| `audio_v2.REQUEST_END` | 7 | 请求块处理完成（正常/出错/停止） | 无意义 |
+| `audio_v2.EXT_SRC_DONE` | 8 | 外部音频源（extern_source）解码完成 | `param=0` 表示播放路径完成，`param=1` 表示单个文件播放完成 |
 
 **示例**：
 
@@ -1333,7 +1523,7 @@ audio_v2.debug(false)  -- 关闭调试
 
 ---
 
-### 14.3 驱动管理 API
+### 13.3 驱动管理 API
 
 #### `audio_v2.make_probe_id(tx_bus_type, tx_bus_id, rx_bus_type, rx_bus_id)`
 
@@ -1449,6 +1639,73 @@ log.info("驱动总数:", all_nums, "默认驱动索引:", default_index)
 local all_nums, default_index = audio_v2.get_driver_info()
 local driver_id = audio_v2.get_driver_id(default_index)
 log.info("默认驱动ID:", driver_id)
+```
+
+---
+
+#### `audio_v2.get_driver_param(driver_probe_id, param)`
+
+获取音频驱动的参数信息，如播放/录音单 block 最大长度等。
+
+**参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `driver_probe_id` | int | 驱动 ID，需通过 `audio_v2.make_probe_id` 合成。0 表示默认驱动 |
+| `param` | int | 要查询的参数索引，见 `DRIVER_PARAM_*` 常量 |
+
+**返回值**：
+
+| 返回值 | 类型 | 说明 |
+|--------|------|------|
+| value | int | 查询到的参数值。驱动未找到时返回 0 |
+
+**可查询参数**：
+
+| 参数常量 | 值 | 说明 |
+|---------|-----|------|
+| `audio_v2.DRIVER_PARAM_TX_MAX_LEN` | 0 | 播放单 block 最大长度（字节，8 字节对齐）|
+| `audio_v2.DRIVER_PARAM_RX_MAX_LEN` | 1 | 录音单 block 最大长度（字节，8 字节对齐）|
+
+**示例**：
+
+```lua
+-- 查询默认驱动的播放 block 最大长度
+local max_tx_len = audio_v2.get_driver_param(0, audio_v2.DRIVER_PARAM_TX_MAX_LEN)
+log.info("TX max len:", max_tx_len)
+```
+
+---
+
+#### `audio_v2.get_codec_param(codec_id, param)`
+
+获取编解码器的参数信息，如编码一帧所需的最小输入数据长度。
+
+**参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `codec_id` | int | 编解码器 ID，见 `DATA_CODEC_TYPE_*` 常量 |
+| `param` | int | 要查询的参数索引，见 `DATA_CODEC_PARAM_*` 常量 |
+
+**返回值**：
+
+| 返回值 | 类型 | 说明 |
+|--------|------|------|
+| value | int | 查询到的参数值。编解码器未找到时返回 0 |
+
+**可查询参数**：
+
+| 参数常量 | 值 | 说明 |
+|---------|-----|------|
+| `audio_v2.DATA_CODEC_PARAM_ENCODE_INPUT_LEN` | 0 | 编码一帧需要的输入数据长度（字节）|
+
+**示例**：
+
+```lua
+-- 查询 AMR_NB 编码器一帧需要的输入长度
+local need_len = audio_v2.get_codec_param(audio_v2.DATA_CODEC_TYPE_AMR_NB, audio_v2.DATA_CODEC_PARAM_ENCODE_INPUT_LEN)
+log.info("AMR_NB encode input len:", need_len)
 ```
 
 ---
@@ -1586,7 +1843,7 @@ audio_v2.soft_volume(150, driver_probe_id)
 
 ---
 
-### 14.4 电源管理 API
+### 13.4 电源管理 API
 
 #### `audio_v2.config_pa_power_ctrl(pa_power_ctrl_enable, pa_power_pin, pa_power_on_level, pa_power_on_delay_time_ms, driver_probe_id)`
 
@@ -1690,7 +1947,7 @@ audio_v2.shutdown(true, true, true, pid)
 
 ---
 
-### 14.5 常量定义
+### 13.5 常量定义
 
 #### 请求事件常量（用于 `audio_v2.on` 回调）
 
@@ -1698,10 +1955,12 @@ audio_v2.shutdown(true, true, true, pid)
 |--------|-----|------|
 | `audio_v2.REQUEST_START` | 0 | 开始处理请求 |
 | `audio_v2.REQUEST_DRIVER_START` | 1 | 请求块驱动已启动（硬件开始输出）|
-| `audio_v2.REQUEST_NEED_NEW_DATA` | 2 | 需要新的播放数据（流模式）|
-| `audio_v2.REQUEST_GET_NEW_DATA` | 3 | 获取到新录音数据 |
-| `audio_v2.REQUEST_DECODE_DONE` | 4 | 解码完成（预留）|
-| `audio_v2.REQUEST_END` | 5 | 请求处理完成 |
+| `audio_v2.REQUEST_TTS_START` | 2 | TTS 开始播放 |
+| `audio_v2.REQUEST_NEED_NEW_DATA` | 4 | 需要新的播放数据（流模式）|
+| `audio_v2.REQUEST_GET_NEW_DATA` | 5 | 获取到新录音数据 |
+| `audio_v2.REQUEST_DECODE_DONE` | 6 | 解码完成 |
+| `audio_v2.REQUEST_END` | 7 | 请求处理完成 |
+| `audio_v2.EXT_SRC_DONE` | 8 | 外部音频源解码完成 |
 
 #### 驱动总线类型常量（用于 `make_probe_id` / `print_probe_id`）
 
@@ -1726,6 +1985,22 @@ audio_v2.shutdown(true, true, true, pid)
 | `audio_v2.DATA_CODEC_TYPE_OPUS` | 6 | OPUS 编解码器 |
 | `audio_v2.DATA_CODEC_TYPE_G711_ULAW` | 7 | G711 μ-Law 编解码器 |
 | `audio_v2.DATA_CODEC_TYPE_G711_ALAW` | 8 | G711 A-Law 编解码器 |
+| `audio_v2.DATA_CODEC_TYPE_NO_OP` | 9 | 无操作编解码器（占位使用）|
+| `audio_v2.DATA_CODEC_TYPE_CC` | 10 | 通话专用编解码器（由 BSP 自行决定）|
+| `audio_v2.DATA_CODEC_TYPE_HW` | 0x80 | 硬件编解码器优先模式，与上述 type 值按位或使用 |
+
+#### 驱动参数查询常量（用于 `audio_v2.get_driver_param` 的 `param`）
+
+| 常量名 | 值 | 说明 |
+|--------|-----|------|
+| `audio_v2.DRIVER_PARAM_TX_MAX_LEN` | 0 | 播放单 block 最大长度（字节，8 字节对齐）|
+| `audio_v2.DRIVER_PARAM_RX_MAX_LEN` | 1 | 录音单 block 最大长度（字节，8 字节对齐）|
+
+#### 编解码器参数查询常量（用于 `audio_v2.get_codec_param` 的 `param`）
+
+| 常量名 | 值 | 说明 |
+|--------|-----|------|
+| `audio_v2.DATA_CODEC_PARAM_ENCODE_INPUT_LEN` | 0 | 编码一帧需要的输入数据长度（字节）|
 
 #### 驱动私有参数常量（用于 `audio_v2.config` 的 `config_param`）
 
@@ -1756,7 +2031,7 @@ audio_v2.shutdown(true, true, true, pid)
 
 ---
 
-### 14.6 完整使用示例
+### 13.6 完整使用示例
 
 #### 基础播放
 

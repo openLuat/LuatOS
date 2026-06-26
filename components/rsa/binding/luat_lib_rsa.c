@@ -47,6 +47,10 @@ end
 #include "luat_log.h"
 
 #include "mbedtls/pk.h"
+#include "mbedtls/version.h"
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+#include "psa/crypto.h"
+#endif
 
 #ifdef LUAT_USE_UTEST
 extern int luat_rsa_utest(lua_State *L, const char *case_name);
@@ -76,6 +80,67 @@ local res = rsa.encrypt((io.readFile("/luadb/public.pem")), "abc")
 log.info("rsa", "encrypt", res and #res or 0, res and res:toHex() or "")
 */
 static int l_rsa_encrypt(lua_State* L) {
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    int ret = 0;
+    psa_status_t status = PSA_ERROR_GENERIC_ERROR;
+    size_t ilen = 0;
+    size_t keylen = 0;
+    size_t olen = 0;
+    char buff[1024];
+    const char* key = luaL_checklstring(L, 1, &keylen);
+    const char* data = luaL_checklstring(L, 2, &ilen);
+    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+
+    mbedtls_pk_context ctx_pk;
+    mbedtls_pk_init(&ctx_pk);
+
+    status = psa_crypto_init();
+    if (status != PSA_SUCCESS) {
+        LLOGW("psa_crypto_init %d", (int)status);
+        goto cleanup;
+    }
+
+    ret = mbedtls_pk_parse_public_key(&ctx_pk, (const unsigned char*)key, keylen + 1);
+    if (ret) {
+        LLOGW("bad public key %04X", -ret);
+        goto cleanup;
+    }
+
+    ret = mbedtls_pk_get_psa_attributes(&ctx_pk, PSA_KEY_USAGE_ENCRYPT, &attributes);
+    if (ret) {
+        LLOGW("pk get psa attributes %04X", -ret);
+        goto cleanup;
+    }
+    psa_set_key_algorithm(&attributes, PSA_ALG_RSA_PKCS1V15_CRYPT);
+
+    ret = mbedtls_pk_import_into_psa(&ctx_pk, &attributes, &key_id);
+    if (ret) {
+        LLOGW("pk import into psa %04X", -ret);
+        goto cleanup;
+    }
+
+    status = psa_asymmetric_encrypt(key_id, PSA_ALG_RSA_PKCS1V15_CRYPT,
+                                    (const uint8_t *)data, ilen,
+                                    NULL, 0,
+                                    (uint8_t *)buff, sizeof(buff), &olen);
+    if (status != PSA_SUCCESS) {
+        LLOGW("psa_asymmetric_encrypt %d", (int)status);
+        goto cleanup;
+    }
+
+    lua_pushlstring(L, buff, olen);
+    psa_destroy_key(key_id);
+    psa_reset_key_attributes(&attributes);
+    mbedtls_pk_free(&ctx_pk);
+    return 1;
+
+cleanup:
+    psa_destroy_key(key_id);
+    psa_reset_key_attributes(&attributes);
+    mbedtls_pk_free(&ctx_pk);
+    return 0;
+#else
     int ret = 0;
     size_t ilen = 0;
     size_t keylen = 0;
@@ -102,6 +167,7 @@ static int l_rsa_encrypt(lua_State* L) {
     }
     lua_pushlstring(L, buff, olen);
     return 1;
+#endif
 }
 
 /*
@@ -118,6 +184,77 @@ local dst = rsa.decrypt((io.readFile("/luadb/privkey.pem")), res, "")
 log.info("rsa", "decrypt", dst and #dst or 0, dst and dst:toHex() or "")
 */
 static int l_rsa_decrypt(lua_State* L) {
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    int ret = 0;
+    psa_status_t status = PSA_ERROR_GENERIC_ERROR;
+    size_t ilen = 0;
+    size_t keylen = 0;
+    size_t rsa_len = 0;
+    size_t olen = 0;
+    size_t pwdlen = 0;
+    char buff[1024];
+    const char* key = luaL_checklstring(L, 1, &keylen);
+    const char* data = luaL_checklstring(L, 2, &ilen);
+    const char* pwd = luaL_optlstring(L, 3, "", &pwdlen);
+    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+
+    mbedtls_pk_context ctx_pk;
+    mbedtls_pk_init(&ctx_pk);
+
+    status = psa_crypto_init();
+    if (status != PSA_SUCCESS) {
+        LLOGW("psa_crypto_init %d", (int)status);
+        goto cleanup;
+    }
+
+    ret = mbedtls_pk_parse_key(&ctx_pk, (const unsigned char*)key, keylen + 1,
+                               (const unsigned char*)pwd, pwdlen);
+    if (ret) {
+        LLOGW("bad private key %04X", -ret);
+        goto cleanup;
+    }
+
+    rsa_len = (mbedtls_pk_get_bitlen(&ctx_pk) + 7 ) / 8;
+    if (rsa_len != ilen) {
+        LLOGW("data len NOT match expect %d but %d", rsa_len, ilen);
+        goto cleanup;
+    }
+
+    ret = mbedtls_pk_get_psa_attributes(&ctx_pk, PSA_KEY_USAGE_DECRYPT, &attributes);
+    if (ret) {
+        LLOGW("pk get psa attributes %04X", -ret);
+        goto cleanup;
+    }
+    psa_set_key_algorithm(&attributes, PSA_ALG_RSA_PKCS1V15_CRYPT);
+
+    ret = mbedtls_pk_import_into_psa(&ctx_pk, &attributes, &key_id);
+    if (ret) {
+        LLOGW("pk import into psa %04X", -ret);
+        goto cleanup;
+    }
+
+    status = psa_asymmetric_decrypt(key_id, PSA_ALG_RSA_PKCS1V15_CRYPT,
+                                    (const uint8_t *)data, ilen,
+                                    NULL, 0,
+                                    (uint8_t *)buff, sizeof(buff), &olen);
+    if (status != PSA_SUCCESS) {
+        LLOGW("psa_asymmetric_decrypt %d", (int)status);
+        goto cleanup;
+    }
+
+    lua_pushlstring(L, buff, olen);
+    psa_destroy_key(key_id);
+    psa_reset_key_attributes(&attributes);
+    mbedtls_pk_free(&ctx_pk);
+    return 1;
+
+cleanup:
+    psa_destroy_key(key_id);
+    psa_reset_key_attributes(&attributes);
+    mbedtls_pk_free(&ctx_pk);
+    return 0;
+#else
     int ret = 0;
     size_t ilen = 0;
     size_t keylen = 0;
@@ -156,6 +293,7 @@ static int l_rsa_decrypt(lua_State* L) {
     }
     lua_pushlstring(L, buff, olen);
     return 1;
+#endif
 }
 
 /*

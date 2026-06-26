@@ -9,7 +9,7 @@
 
 #define LUAT_BSP_PC 1 // 定义平台标识符，供代码中使用
 
-#define LUAT_BSP_VERSION "V2032"
+#define LUAT_BSP_VERSION "V2033"
 // PC模拟器: Lua VM退出后1秒重启, 无需等15秒
 #define LUAT_EXIT_REBOOT_DELAY 1000
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
@@ -42,6 +42,9 @@
 #define LUAT_USE_NETDRV_CH390H 1
 #define LUAT_USE_NETDRV_OPENVPN 1
 #define LUAT_USE_NETDRV_WG 1
+
+// ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试)
+#define LUAT_USE_ICMP 1
 
 #define LUAT_USE_AIRLINK 1
 #define LUAT_USE_AIRLINK_SPI_MASTER 1
@@ -134,7 +137,6 @@
 #define LUAT_CONF_FSKV_CUSTOM 1
 // FFT 库开关
 #define LUAT_USE_FFT 1
-// #define LUAT_USE_OTA 1
 // #define LUAT_USE_I2CTOOLS 1
 // #define LUAT_USE_LORA 1
 #define LUAT_USE_LORA2 1
@@ -204,6 +206,11 @@
 #define NES_COLOR_SWAP      0
 
 #define LUAT_USE_GBC        1
+#define GBC_FRAME_SKIP      0
+#define GBC_COLOR_DEPTH     16
+#define GBC_COLOR_SWAP      0
+#define GBC_ROM_STREAM      1
+#define GBC_ENABLE_SRAM_SAVE 0
 
 //--------------------------------------------------
 // mGBA GBA模拟器

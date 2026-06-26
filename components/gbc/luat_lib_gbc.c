@@ -1,4 +1,3 @@
-
 /*
 @module  gbc
 @summary GBC模拟器
@@ -13,7 +12,12 @@
 #include "luat_msgbus.h"
 
 #include "gbc.h"
+#include "gbc_port.h"
 #include "gbc_joypad.h"
+
+#ifdef LUAT_USE_AIRUI
+#include "gbc_airui_video.h"
+#endif
 
 #define LUAT_LOG_TAG "gbc"
 #include "luat_log.h"
@@ -31,7 +35,13 @@ enum {
 
 static luat_rtos_task_handle gbc_thread;
 static gbc_t *gbc = NULL;
+static int g_gbc_airui_active = 0;   /* 当前是否在 legacy airui_video 模式 */
 static int _gbc_cleanup_handler(lua_State *L, void *ptr);
+
+/* 提供给 gbc_airui_video.c 取得当前 emulator context */
+gbc_t *luat_gbc_get_global_ctx(void) {
+    return gbc;
+}
 
 void gbc_task(void *param)
 {
@@ -49,18 +59,75 @@ void gbc_task(void *param)
 
 /*
 gbc模拟器初始化
-@api gbc.init(file_path)
+@api gbc.init(file_path[, opts])
 @string file_path ROM文件路径
+@table[opt] opts 配置项，可选字段：
+  - mode       : "lcd"（默认）/ "airui"，"airui" 走 LVGL9 全屏适配器
+  - scale      : 1-3，仅 airui 模式生效
+  - show_controls : true/false，仅 airui 模式生效
 @return bool 成功返回true,否则返回false
 @usage
+-- LCD 模式
 gbc.init("/luadb/game.gb")
+-- AirUI legacy 全屏模式
+gbc.init("/luadb/game.gb", {mode="airui", scale=2, show_controls=true})
 */
 static int l_gbc_init(lua_State *L)
 {
     const char *rom_path = luaL_checkstring(L, 1);
+
+    /* 解析 opts */
+    const char *mode = "lcd";
+    int scale = 1;
+    int show_controls = 1;
+    if (lua_istable(L, 2)) {
+        lua_getfield(L, 2, "mode");
+        if (lua_isstring(L, -1)) mode = lua_tostring(L, -1);
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "scale");
+        if (lua_isinteger(L, -1)) {
+            scale = (int)lua_tointeger(L, -1);
+            if (scale < 1) scale = 1;
+            if (scale > 3) scale = 3;
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "show_controls");
+        if (lua_isboolean(L, -1)) {
+            show_controls = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
+    }
+
+    int use_airui = 0;
+#ifdef LUAT_USE_AIRUI
+    if (strcmp(mode, "airui") == 0) {
+        gbc_airui_video_config_t cfg;
+        gbc_airui_video_get_default_config(&cfg);
+        cfg.scale = scale;
+        cfg.show_controls = show_controls;
+        if (!gbc_airui_video_init(&cfg)) {
+            LLOGE("gbc_airui_video_init failed");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        gbc_set_airui_mode(1);
+        use_airui = 1;
+        g_gbc_airui_active = 1;
+    }
+#endif
+
     gbc = gbc_init();
     if (!gbc) {
         LLOGE("gbc_init failed");
+#ifdef LUAT_USE_AIRUI
+        if (use_airui) {
+            gbc_airui_video_deinit(NULL);
+            gbc_set_airui_mode(0);
+            g_gbc_airui_active = 0;
+        }
+#endif
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -68,6 +135,13 @@ static int l_gbc_init(lua_State *L)
         LLOGE("gbc_load_file failed: %s", rom_path);
         gbc_deinit(gbc);
         gbc = NULL;
+#ifdef LUAT_USE_AIRUI
+        if (use_airui) {
+            gbc_airui_video_deinit(NULL);
+            gbc_set_airui_mode(0);
+            g_gbc_airui_active = 0;
+        }
+#endif
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -75,6 +149,13 @@ static int l_gbc_init(lua_State *L)
         LLOGE("gbc task create failed");
         gbc_deinit(gbc);
         gbc = NULL;
+#ifdef LUAT_USE_AIRUI
+        if (use_airui) {
+            gbc_airui_video_deinit(NULL);
+            gbc_set_airui_mode(0);
+            g_gbc_airui_active = 0;
+        }
+#endif
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -94,6 +175,7 @@ static int l_gbc_deinit(lua_State *L)
     if (gbc) {
         gbc->gbc_quit = 1;
     }
+    /* airui 模式下由 cleanup handler 在 emulator 真正退出后拆 UI */
     return 0;
 }
 
@@ -102,6 +184,16 @@ static int _gbc_cleanup_handler(lua_State *L, void *ptr)
     (void)L;
     gbc_t *ctx = (gbc_t *)ptr;
     if (!ctx) return 0;
+
+    /* 先关闭 airui legacy 适配器（顺序与 nes 一致） */
+#ifdef LUAT_USE_AIRUI
+    if (g_gbc_airui_active) {
+        gbc_airui_video_deinit(NULL);
+        gbc_set_airui_mode(0);
+        g_gbc_airui_active = 0;
+    }
+#endif
+
     gbc_deinit(ctx);
     if (gbc == NULL || gbc == ctx) {
         gbc = NULL;
@@ -154,6 +246,12 @@ end
 */
 static int l_gbc_quit_requested(lua_State *L)
 {
+#ifdef LUAT_USE_AIRUI
+    if (g_gbc_airui_active && gbc_airui_video_quit_requested(NULL)) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+#endif
     lua_pushboolean(L, gbc != NULL && gbc->gbc_quit);
     return 1;
 }

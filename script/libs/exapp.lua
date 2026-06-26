@@ -3932,7 +3932,7 @@ function exapp.get_app_list(params)
 
 
     if category ~= "已安装" and not network_ready then
-        sys.publish("APP_STORE_ERROR", "当前无网络，请先连接WiFi")
+        sys.publish("APP_STORE_ERROR", "当前无网络，请先连接网络")
         return false
     end
 
@@ -4533,7 +4533,7 @@ exapp.install_remote_app("app_hello", "https://example.com/app.zip", "Hello App"
 ]]
 function exapp.install_remote_app(aid, url, app_name, category, sort, _target_root)
     if not network_ready then
-        sys.publish("APP_STORE_ERROR", "当前无网络，请先连接WiFi")
+        sys.publish("APP_STORE_ERROR", "当前无网络，请先连接网络")
         return
     end
 
@@ -5159,7 +5159,7 @@ end)
 function exapp.add_record(params, appid, callback)
     if not network_ready then
         log.warn("exapp_database", "add_record: network not ready")
-        if callback then callback(false, "当前无网络，请先连接WiFi") end
+        if callback then callback(false, "当前无网络，请先连接网络") end
         return
     end
     local body = {
@@ -5219,7 +5219,7 @@ end)
 function exapp.list_record(params, appid, callback)
     if not network_ready then
         log.warn("exapp_database", "list_record: network not ready")
-        if callback then callback(false, "当前无网络，请先连接WiFi") end
+        if callback then callback(false, "当前无网络，请先连接网络") end
         return
     end
     local body = {
@@ -5267,7 +5267,7 @@ end)
 function exapp.delete_record(params, appid, callback)
     if not network_ready then
         log.warn("exapp_database", "delete_record: network not ready")
-        if callback then callback(false, "当前无网络，请先连接WiFi") end
+        if callback then callback(false, "当前无网络，请先连接网络") end
         return
     end
     if not params.id then

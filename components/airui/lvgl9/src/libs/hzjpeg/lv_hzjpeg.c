@@ -21,6 +21,68 @@
 #include "luat_log.h"
 #include "luat_image.h"
 #include "luat_mcu.h"
+#include "../../misc/cache/lv_cache.h"
+
+static const char * airui_jpg_err_name(JRESULT rc)
+{
+    switch(rc) {
+        case JDR_OK:   return "JDR_OK";
+        case JDR_INTR: return "JDR_INTR";
+        case JDR_INP:  return "JDR_INP";
+        case JDR_MEM1: return "JDR_MEM1";
+        case JDR_MEM2: return "JDR_MEM2";
+        case JDR_PAR:  return "JDR_PAR";
+        case JDR_FMT1: return "JDR_FMT1";
+        case JDR_FMT2: return "JDR_FMT2";
+        case JDR_FMT3: return "JDR_FMT3";
+        default:       return "JDR_UNKNOWN";
+    }
+}
+
+/** 将 tjpgd 错误码转为便于排查的中文说明 */
+static const char * airui_jpg_err_hint(JRESULT rc)
+{
+    switch(rc) {
+        case JDR_MEM1:
+            return "解码内存池不足(检查 PSRAM/LVGL 堆剩余)";
+        case JDR_MEM2:
+            return "输入流缓冲不足(工作缓冲仅 4096 字节)";
+        case JDR_INP:
+            return "文件读取失败或 JPEG 数据流异常终止";
+        case JDR_FMT1:
+            return "JPEG 数据格式错误(文件可能已损坏)";
+        case JDR_FMT2:
+            return "JPEG 格式正确但不受当前解码器支持";
+        case JDR_FMT3:
+            return "不支持 Progressive JPEG，请转换为 Baseline JPEG";
+        case JDR_PAR:
+            return "解码参数错误";
+        case JDR_INTR:
+            return "输出回调中断解码";
+        default:
+            return "未知 JPEG 解码错误";
+    }
+}
+
+static const char * airui_jpg_src_path(const lv_image_decoder_dsc_t * dsc)
+{
+    if(dsc != NULL && dsc->src_type == LV_IMAGE_SRC_FILE && dsc->src != NULL) {
+        return (const char *)dsc->src;
+    }
+    return "<mem>";
+}
+
+static uint32_t airui_jpg_cache_max_bytes(void)
+{
+    lv_cache_t * cache = LV_GLOBAL_DEFAULT()->img_cache;
+    if(cache == NULL) return 0;
+    return (uint32_t)lv_cache_get_max_size(cache, NULL);
+}
+
+static uint32_t airui_jpg_rgb888_buf_size(uint32_t w, uint32_t h)
+{
+    return (uint32_t)w * h * 3U;
+}
 #endif
 
 /*********************
@@ -114,6 +176,9 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, lv_image_decoder_d
     LV_UNUSED(decoder);
 
     if(dsc->src_type != LV_IMAGE_SRC_FILE) {
+#ifdef __LUATOS__
+        LLOGE("probe fail: 仅支持文件路径 JPG, type=%d", (int)dsc->src_type);
+#endif
         return LV_RESULT_INVALID;
     }
 
@@ -121,10 +186,16 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, lv_image_decoder_d
     const char * ext = lv_fs_get_ext(src);
     bool is_jpeg_ext = (lv_strcmp(ext, "jpg") == 0) || (lv_strcmp(ext, "jpeg") == 0);
     if(!is_jpeg_ext) {
+#ifdef __LUATOS__
+        LLOGE("probe fail: 扩展名不是 jpg/jpeg src=%s ext=%s", src, ext ? ext : "?");
+#endif
         return LV_RESULT_INVALID;
     }
 
     if(!is_jpeg_file(&dsc->file)) {
+#ifdef __LUATOS__
+        LLOGE("probe fail: 非 JPEG 文件(魔数不匹配) src=%s", src);
+#endif
         return LV_RESULT_INVALID;
     }
 
@@ -132,6 +203,9 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, lv_image_decoder_d
     uint32_t height = 0;
     uint32_t orientation = 0;
     if(!get_jpeg_head_info(&dsc->file, &width, &height, &orientation)) {
+#ifdef __LUATOS__
+        LLOGE("probe fail: 无法解析 JPEG 头信息 src=%s", src);
+#endif
         return LV_RESULT_INVALID;
     }
 
@@ -148,6 +222,9 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
     LV_UNUSED(decoder);
 
     if(dsc->src_type != LV_IMAGE_SRC_FILE) {
+#ifdef __LUATOS__
+        LLOGE("open fail: 仅支持文件路径 JPG, type=%d", (int)dsc->src_type);
+#endif
         return LV_RESULT_INVALID;
     }
 
@@ -159,12 +236,22 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
     lv_draw_buf_t * decoded = NULL;
     lv_draw_buf_t * adjusted = NULL;
     bool file_opened = false;
+    JRESULT rc = JDR_OK;
+    uint32_t out_w = 0;
+    uint32_t out_h = 0;
 
     if(file == NULL || session == NULL || jd == NULL || workbuf == NULL) {
+#ifdef __LUATOS__
+        LLOGE("open fail: 会话资源分配失败 src=%s file=%p session=%p jd=%p workbuf=%p",
+              fn, (void *)file, (void *)session, (void *)jd, (void *)workbuf);
+#endif
         goto failed;
     }
 
     if(lv_fs_open(file, fn, LV_FS_MODE_RD) != LV_FS_RES_OK) {
+#ifdef __LUATOS__
+        LLOGE("open fail: 无法打开 JPG 文件 src=%s", fn);
+#endif
         goto failed;
     }
     file_opened = true;
@@ -178,21 +265,32 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
     }
 
     if(lv_fs_seek(file, 0, LV_FS_SEEK_SET) != LV_FS_RES_OK) {
+#ifdef __LUATOS__
+        LLOGE("open fail: 文件 seek 失败 src=%s", fn);
+#endif
         goto failed;
     }
 
-    JRESULT rc = jd_prepare(jd, input_func, workbuf, HZJPEG_WORKBUFF_SIZE, session);
+    rc = jd_prepare(jd, input_func, workbuf, HZJPEG_WORKBUFF_SIZE, session);
     if(rc != JDR_OK) {
+#ifdef __LUATOS__
+        LLOGE("open fail: jd_prepare err=%d (%s) hint=%s src=%s",
+              (int)rc, airui_jpg_err_name(rc), airui_jpg_err_hint(rc), fn);
+#endif
         if(rc == JDR_FMT3) {
             LV_LOG_WARN("progressive JPEG is not supported: %s", fn);
         }
         goto failed;
     }
 
-    uint32_t out_w = (session->orientation % 180U) ? jd->height : jd->width;
-    uint32_t out_h = (session->orientation % 180U) ? jd->width : jd->height;
+    out_w = (session->orientation % 180U) ? jd->height : jd->width;
+    out_h = (session->orientation % 180U) ? jd->width : jd->height;
     decoded = lv_draw_buf_create_ex(image_cache_draw_buf_handlers, out_w, out_h, LV_COLOR_FORMAT_RGB888, LV_STRIDE_AUTO);
     if(decoded == NULL) {
+#ifdef __LUATOS__
+        LLOGE("open fail: 像素缓冲分配失败 src=%s %ux%u need_buf=%u (RGB888, w*h*3)",
+              fn, (unsigned)out_w, (unsigned)out_h, airui_jpg_rgb888_buf_size(out_w, out_h));
+#endif
         goto failed;
     }
 
@@ -219,11 +317,20 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
     }
 #endif
     if(rc != JDR_OK) {
+#ifdef __LUATOS__
+        LLOGE("decode fail: jd_decomp err=%d (%s) hint=%s src=%s raw=%ux%u out=%ux%u",
+              (int)rc, airui_jpg_err_name(rc), airui_jpg_err_hint(rc), fn,
+              (unsigned)jd->width, (unsigned)jd->height, (unsigned)out_w, (unsigned)out_h);
+#endif
         goto failed;
     }
 
     adjusted = lv_image_decoder_post_process(dsc, decoded);
     if(adjusted == NULL) {
+#ifdef __LUATOS__
+        LLOGE("open fail: 解码后处理失败(步幅对齐/预乘 alpha 可能 OOM) src=%s %ux%u data_size=%u",
+              fn, (unsigned)out_w, (unsigned)out_h, (unsigned)decoded->data_size);
+#endif
         goto failed;
     }
 
@@ -252,6 +359,11 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
 
     lv_cache_entry_t * entry = lv_image_decoder_add_to_cache(decoder, &search_key, decoded, NULL);
     if(entry == NULL) {
+#ifdef __LUATOS__
+        LLOGE("open fail: 写入图片缓存失败 src=%s data_size=%u cache_max=%u "
+              "(解码结果大于缓存上限时会被拒绝，或缓存驱逐失败)",
+              fn, (unsigned)decoded->data_size, airui_jpg_cache_max_bytes());
+#endif
         goto failed;
     }
 

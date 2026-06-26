@@ -70,6 +70,11 @@ return {
         wifi = true,                     -- 启用 WiFi
     },
 
+    -- ===== 统一网络配置（优先级从高到低）=====
+    network = {
+        { type = "wifi_native" },        -- 自带 WiFi（Air8101B）
+    },
+
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
         show_wifi_icon = true,           -- 桌面顶栏 WiFi 图标

@@ -72,6 +72,12 @@ return {
         sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
     },
 
+    -- ===== 统一网络配置（优先级从高到低）=====
+    network = {
+        { type = "wifi_native" },        -- 自带 WiFi 优先
+        { type = "4g_native" },          -- 自带 4G 兜底
+    },
+
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
         show_4g_icon = true,             -- 桌面顶栏 4G 图标 ← 配 net_4g 时打开

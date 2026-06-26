@@ -73,6 +73,26 @@ return {
         wifi = true,                     -- 启用 WiFi（airlink 模式，6205 芯片 AIRLINK_UART3）
         sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
         ethernet = true,                 -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
+        -- net_4g = true,                   -- × 4G未启用，但UI会显示4G信号图标
+    },
+
+    -- ===== 统一网络配置（优先级从高到低）=====
+    -- Air1601 的 Airlink WiFi 和 Airlink 4G 都使用 UART3，硬件上二者只能开启一个
+    -- 启用 WiFi 时注释 4G，启用 4G 时注释 WiFi
+    network = {
+        -- Airlink UART WiFi（6205 模组，占用 UART3）
+        { type = "wifi_airlink_uart",
+          uart_id = 3, baud = 2000000 },
+
+        -- Airlink UART 4G（外挂 Air780EPM，也使用 UART3，与 WiFi 互斥）
+        -- {
+        --     type = "4g_airlink_uart",
+        --     uart_id = 3, baud = 2000000,
+        --     adapter = socket.LWIP_GP_GW,
+        -- },
+
+        { type = "eth_spi", chip = "CH390",              -- SPI 以太网兜底
+          spi_id = 1, cs_pin = 14 },
     },
 
     -- ===== UI 显示控制（只写 = true 的项）=====
@@ -88,13 +108,5 @@ return {
             pin_cs = 8,                  -- 片选 CS 引脚 GPIO8
             speed = 40000000,            -- SPI 时钟频率 Hz（高速卡推荐 20MHz+）
         },
-    },
-
-     -- ===== 以太网: SPI0 外挂 CH390H 芯片 =====
-    ethernet = {
-        spi_id = 1,                  -- SPI0 总线（与 SD、NAND 共用）
-        pin_cs  = 14,                -- SPI0_CS0（以太网 CH390H 片选）
-        -- pin_irq = 51,                 -- ETH_INT=GPIO9（CH390H 中断引脚）
-        -- pin_pwr = 53,             -- 供电已由 power_on 的 LAN_EN 处理，不重复配置
     },
 }

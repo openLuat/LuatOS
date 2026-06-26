@@ -74,7 +74,7 @@ struct etharp_q_entry {
 #endif /* ARP_QUEUEING */
 
 // #define etharp_init() /* Compatibility define, no init needed. */
-void luat_netdrv_etharp_tmr(void);
+/* luat_netdrv_etharp_tmr() 已被移除, 详见 luat_netdrv_lwip_etharp.c 内的说明注释. */
 ssize_t luat_netdrv_etharp_find_addr(struct netif *netif, const ip4_addr_t *ipaddr,
          struct eth_addr **eth_ret, const ip4_addr_t **ip_ret);
 int luat_netdrv_etharp_get_entry(size_t i, ip4_addr_t **ipaddr, struct netif **netif, struct eth_addr **eth_ret);

@@ -676,6 +676,10 @@ static int l_netdrv_send_raw(lua_State *L) {
     return 1;
 }
 
+/* netdrv.arpSleep / netdrv.arpResume 已被移除.
+ * ARP 1000ms 定时器整体已删除, 业务侧无需再为休眠主动停止它.
+ * 历史实现见 commit b4de806e0. */
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
 {

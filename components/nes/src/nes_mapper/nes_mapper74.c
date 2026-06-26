@@ -32,9 +32,9 @@ typedef struct {
     uint8_t irq_counter;
     uint8_t irq_reload;
     uint8_t irq_enabled;
-    uint8_t prg_bank_count; /* number of 8KB PRG banks */
-    uint8_t chr_bank_count; /* number of 1KB CHR-ROM banks */
-    uint8_t chr_ram[2048];  /* 2KB CHR-RAM for bank values 8 and 9 */
+    uint16_t prg_bank_count; /* number of 8KB PRG banks */
+    uint16_t chr_bank_count; /* number of 1KB CHR-ROM banks */
+    uint8_t chr_ram[2048];   /* 2KB CHR-RAM for bank values 8 and 9 */
 } nes_mapper74_t;
 
 static void nes_mapper_deinit(nes_t* nes) {
@@ -46,7 +46,7 @@ static void nes_mapper_deinit(nes_t* nes) {
  * Load a single 1KB CHR slot.  Bank values 8 and 9 map to the first and
  * second 1KB page of the embedded chr_ram; all other values use CHR-ROM.
  */
-static void mapper74_load_chr1k(nes_t* nes, nes_mapper74_t* m, uint8_t slot, uint8_t bank) {
+static void mapper74_load_chr1k(nes_t* nes, nes_mapper74_t* m, uint8_t slot, uint16_t bank) {
     if (bank == 8u || bank == 9u) {
         nes->nes_ppu.pattern_table[slot] = m->chr_ram + (bank - 8u) * 1024u;
     } else if (m->chr_bank_count > 0) {
@@ -56,10 +56,10 @@ static void mapper74_load_chr1k(nes_t* nes, nes_mapper74_t* m, uint8_t slot, uin
 
 static void mapper74_update_banks(nes_t* nes) {
     nes_mapper74_t* m = (nes_mapper74_t*)nes->nes_mapper.mapper_register;
-    uint8_t prg_mode = (m->bank_select >> 6) & 1u;
-    uint8_t chr_mode = (m->bank_select >> 7) & 1u;
-    uint8_t last     = m->prg_bank_count - 1u;
-    uint8_t slast    = m->prg_bank_count - 2u;
+    uint8_t prg_mode = (m->bank_select >> 6) & 1u;  /* bit 6 = PRG bank mode */
+    uint8_t chr_mode = (m->bank_select >> 7) & 1u;  /* bit 7 = CHR A12 inversion */
+    uint16_t last    = m->prg_bank_count - 1u;
+    uint16_t slast   = m->prg_bank_count - 2u;
 
     /* PRG banking (same as MMC3) */
     if (prg_mode == 0u) {
@@ -80,15 +80,15 @@ static void mapper74_update_banks(nes_t* nes) {
         mapper74_load_chr1k(nes, m, 1, m->bank_values[0] | 0x01u);
         mapper74_load_chr1k(nes, m, 2, m->bank_values[1] & 0xFEu);
         mapper74_load_chr1k(nes, m, 3, m->bank_values[1] | 0x01u);
-        mapper74_load_chr1k(nes, m, 4, m->bank_values[2]);
-        mapper74_load_chr1k(nes, m, 5, m->bank_values[3]);
-        mapper74_load_chr1k(nes, m, 6, m->bank_values[4]);
-        mapper74_load_chr1k(nes, m, 7, m->bank_values[5]);
+        mapper74_load_chr1k(nes, m, 4, (uint16_t)m->bank_values[2]);
+        mapper74_load_chr1k(nes, m, 5, (uint16_t)m->bank_values[3]);
+        mapper74_load_chr1k(nes, m, 6, (uint16_t)m->bank_values[4]);
+        mapper74_load_chr1k(nes, m, 7, (uint16_t)m->bank_values[5]);
     } else {
-        mapper74_load_chr1k(nes, m, 0, m->bank_values[2]);
-        mapper74_load_chr1k(nes, m, 1, m->bank_values[3]);
-        mapper74_load_chr1k(nes, m, 2, m->bank_values[4]);
-        mapper74_load_chr1k(nes, m, 3, m->bank_values[5]);
+        mapper74_load_chr1k(nes, m, 0, (uint16_t)m->bank_values[2]);
+        mapper74_load_chr1k(nes, m, 1, (uint16_t)m->bank_values[3]);
+        mapper74_load_chr1k(nes, m, 2, (uint16_t)m->bank_values[4]);
+        mapper74_load_chr1k(nes, m, 3, (uint16_t)m->bank_values[5]);
         mapper74_load_chr1k(nes, m, 4, m->bank_values[0] & 0xFEu);
         mapper74_load_chr1k(nes, m, 5, m->bank_values[0] | 0x01u);
         mapper74_load_chr1k(nes, m, 6, m->bank_values[1] & 0xFEu);
@@ -104,11 +104,20 @@ static void nes_mapper_init(nes_t* nes) {
     nes_mapper74_t* m = (nes_mapper74_t*)nes->nes_mapper.mapper_register;
     nes_memset(m, 0, sizeof(nes_mapper74_t));
 
-    m->prg_bank_count = (uint8_t)(nes->nes_rom.prg_rom_size * 2u);
-    m->chr_bank_count = (uint8_t)(nes->nes_rom.chr_rom_size * 8u);
+    m->prg_bank_count = (uint16_t)(nes->nes_rom.prg_rom_size * 2u);
+    m->chr_bank_count = (uint16_t)(nes->nes_rom.chr_rom_size * 8u);
 
     m->bank_values[6] = 0;
     m->bank_values[7] = 1;
+
+    /* Allocate WRAM unconditionally: Dragon Ball Z3 and similar RPGs use
+     * $6000-$7FFF for working RAM regardless of the save-RAM header flag. */
+    if (nes->nes_rom.sram == NULL) {
+        nes->nes_rom.sram = (uint8_t*)nes_malloc(SRAM_SIZE);
+        if (nes->nes_rom.sram != NULL) {
+            nes_memset(nes->nes_rom.sram, 0, SRAM_SIZE);
+        }
+    }
 
     mapper74_update_banks(nes);
 }
@@ -146,6 +155,7 @@ static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
         m->irq_latch = data;
         break;
     case 0xC001:
+        m->irq_counter = 0;
         m->irq_reload = 1;
         break;
     case 0xE000:
@@ -160,22 +170,24 @@ static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     }
 }
 
-/* Scanline IRQ — identical to MMC3. */
+/* Scanline IRQ — identical to MMC3 (mapper 4).
+ * IRQ fires ONLY when the counter decrements to 0, not when it reloads to 0.
+ * https://www.nesdev.org/wiki/MMC3#IRQ_Specifics
+ */
 static void nes_mapper_hsync(nes_t* nes) {
     nes_mapper74_t* m = (nes_mapper74_t*)nes->nes_mapper.mapper_register;
     if (nes->nes_ppu.MASK_b == 0 && nes->nes_ppu.MASK_s == 0) return;
 
     if (m->irq_counter == 0 || m->irq_reload) {
         m->irq_counter = m->irq_latch;
+        m->irq_reload = 0;
+        /* reload to 0 does NOT fire IRQ */
     } else {
         m->irq_counter--;
+        if (m->irq_counter == 0 && m->irq_enabled) {
+            nes_cpu_irq(nes);
+        }
     }
-
-    if (m->irq_counter == 0 && m->irq_enabled) {
-        nes_cpu_irq(nes);
-    }
-
-    m->irq_reload = 0;
 }
 
 int nes_mapper74_init(nes_t* nes) {

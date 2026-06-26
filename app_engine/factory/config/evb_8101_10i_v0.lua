@@ -85,6 +85,13 @@ return {
         -- nand_flash = true,               -- 启用 NAND Flash（需配 storage.nand_flash）
     },
 
+    -- ===== 统一网络配置（优先级从高到低）=====
+    network = {
+        { type = "wifi_native" },                        -- 自带 WiFi 优先
+        { type = "eth_spi", chip = "CH390",              -- SPI 以太网兜底
+          spi_id = 0, cs_pin = 34, irq_pin = 9 },
+    },
+
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
         show_wifi_icon = true,           -- 桌面顶栏 WiFi 图标

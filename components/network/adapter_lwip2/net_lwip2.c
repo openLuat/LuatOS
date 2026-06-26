@@ -23,7 +23,6 @@
 #define SOCKET_BUF_LEN	(3 * TCP_MSS)
 #endif
 
-extern void luat_netdrv_etharp_tmr(void);
 static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 
 enum
@@ -46,7 +45,6 @@ enum
 	EV_LWIP_FAST_TIMER,
 	EV_LWIP_NETIF_SET_IP,
 	EV_LWIP_NETIF_IPV6_BY_MAC,
-	EV_LWIP_ARP_TIMER,
 };
 
 #define SOCKET_LOCK(ID)		platform_lock_mutex(prvlwip.socket[ID].mutex)
@@ -73,13 +71,9 @@ static LUAT_RT_RET_TYPE net_lwip2_timer_cb(LUAT_RT_CB_PARAM)
 	return LUAT_RT_RET;
 }
 
-#ifdef LUAT_USE_NETDRV_LWIP_ARP
-static LUAT_RT_RET_TYPE net_lwip_arp_timer_cb(LUAT_RT_CB_PARAM)
-{
-	platform_send_event(NULL, (uint32_t)EV_LWIP_ARP_TIMER, 0, 0, (uint32_t)param);
-	return LUAT_RT_RET;
-}
-#endif
+/* ARP 1000ms 周期定时器已被完全移除. etharp 表通过收包/SET_IP 路径维护即可短时间
+ * 保持网关 MAC 解析. 长时间运行可能导致 gw_mac 缓存过期, 仅用于功耗测试场景.
+ * 如需恢复定时器, 回滚到 commit b4de806e0. */
 
 void net_lwip2_init(uint8_t adapter_index)
 {
@@ -100,10 +94,6 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 	if (0 == prvlwip_inited) {
 		prvlwip_inited = 1;
 		net_lwip2_init(adapter_index);
-		#ifdef LUAT_USE_NETDRV_LWIP_ARP
-		prvlwip.arp_timer = platform_create_timer(net_lwip_arp_timer_cb, (void *)NULL, NULL);
-		platform_start_timer(prvlwip.arp_timer, 1000, 1);
-		#endif
 	}
 	if (NULL == prvlwip.dns_client[adapter_index]) {
 		prvlwip.dns_client[adapter_index] = luat_heap_zalloc(sizeof(dns_client_t));
@@ -947,7 +937,10 @@ static void net_lwip2_task(void *param)
 		// LLOGD("event EV_LWIP_SOCKET_CLOSE DONE");
 		break;
 	case EV_LWIP_NETIF_LINK_STATE:
-		net_lwip2_check_network_ready(event.Param3);
+		{
+			uint8_t idx = event.Param3;
+			net_lwip2_check_network_ready(idx);
+		}
 		break;
 	case EV_LWIP_NETIF_SET_IP:
 		ips = (ip_addr_t*)event.Param1;
@@ -970,11 +963,6 @@ static void net_lwip2_task(void *param)
 		luat_heap_free(ips);
 		net_lwip2_check_network_ready(adapter_index);
 		break;
-	#ifdef LUAT_USE_NETDRV_LWIP_ARP
-	case EV_LWIP_ARP_TIMER:
-		luat_netdrv_etharp_tmr();
-		break;
-	#endif
 	default:
 		NET_DBG("unknow event %x,%x", event.ID, event.Param1);
 		break;
@@ -1691,6 +1679,10 @@ static int32_t net_lwip2_dummy_callback(void *pData, void *pParam)
 {
 	return 0;
 }
+
+/* ARP 1000ms 定时器及其所有公共 API (sleep_prepare/wakeup_resume/
+ * request_start/request_stop/notify_gw_mac_state) 已被完全移除.
+ * 历史实现见 commit b4de806e0. */
 
 static void net_lwip2_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *user_data)
 {

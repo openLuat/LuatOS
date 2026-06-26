@@ -1375,7 +1375,7 @@ int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_au
 	luat_audio_common_param_t *common_audio_param, luat_fifo_t *record_fifo, uint8_t record_callback_frame_cnt, uint8_t priority, 
     luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts)
 {
-	if (!request_block || !common_audio_param || !codec_opts || !record_fifo || (!codec_opts->encode && !codec_opts->encode_with_sync_output_ref)) {
+	if (!request_block || !common_audio_param || !codec_opts || !record_fifo || (!codec_opts->encode && !codec_opts->encode_with_sync_output_ref && !codec_opts->encode_raw_mode)) {
 		return -LUAT_ERROR_PARAM_INVALID;
 	}
 	

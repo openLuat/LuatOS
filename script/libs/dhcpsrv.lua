@@ -274,9 +274,12 @@ local function dhcp_pkg_handle(srv, pkg)
 end
 
 local function dhcp_task(srv)
-    while 1 do
+    while not srv.stop do
         -- log.info("ulwip", "等待DHCP数据")
         local result, data = sys.waitUntil(srv.udp_topic, 1000)
+        if srv.stop then
+            break
+        end
         if result then
             -- log.info("ulwip", "收到dhcp数据包", data:toHex())
             -- 解析DHCP数据包
@@ -286,6 +289,31 @@ local function dhcp_task(srv)
                 dhcp_pkg_handle(srv, pkg)
             end
         end
+    end
+    log.info(TAG, "dhcp_task exit, adapter", srv.opts and srv.opts.adapter)
+end
+
+--[[
+停止一个由 dhcpsrv.create 创建的 DHCP 服务器，主要用于进入低功耗前关闭 1Hz 协程，避免周期性唤醒。
+调用本函数后，srv.task 会在最多一秒内自然退出，srv.udp 也会被关闭。
+@api dhcpsrv.stop(srv)
+@table dhcpsrv.create 返回的服务器对象
+@return nil
+@usage
+local mydhcpsrv = dhcpsrv.create({adapter = socket.LWIP_ETH})
+-- 进入低功耗前
+dhcpsrv.stop(mydhcpsrv)
+]]
+function dhcpsrv.stop(srv)
+    if not srv or srv.stop then
+        return
+    end
+    srv.stop = true
+    -- 立即唤醒一次 waitUntil, 让协程检测 stop 标志后退出
+    sys.publish(srv.udp_topic)
+    if srv.udp and srv.udp.close then
+        srv.udp:close()
+        srv.udp = nil
     end
 end
 

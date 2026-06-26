@@ -181,7 +181,7 @@ local function play_task()
         end
         file_data = nil
         -- 演示录音到文件然后播放
-        audio_v2.record(record_save_file_path, 10, audio_v2.DATA_CODEC_TYPE_AMR_NB)
+        audio_v2.record(record_save_file_path, 10, audio_v2.DATA_CODEC_TYPE_WAV)
         while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
             sys.wait(1000)
         end

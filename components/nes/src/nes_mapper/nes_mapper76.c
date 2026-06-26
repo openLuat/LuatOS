@@ -17,10 +17,9 @@
 #include "nes.h"
 
 /* https://www.nesdev.org/wiki/INES_Mapper_076
- * Mapper 76 — Namco 3446 (Digital Devil Story: Megami Tensei II).
- * Like mapper 88 (Namco 118) but CHR layout is INVERTED:
- *   R0/R1 → 2KB CHR at PPU $1000/$1800 (upper 4KB)
- *   R2-R5 → 1KB CHR at PPU $0000-$0C00 (lower 4KB)
+ * Mapper 76 - Namco 3446 (Digital Devil Story: Megami Tensei).
+ * Namco 108 variant with a 2KB CHR page size:
+ *   R2-R5 -> 2KB CHR at PPU $0000/$0800/$1000/$1800
  *   R6/R7 → 8KB PRG at $8000/$A000; $C000-$FFFF fixed to last two banks.
  * No IRQ, no mirroring control.
  */
@@ -57,27 +56,21 @@ static void nes_mapper_init(nes_t* nes) {
     }
 }
 
+static inline void mapper76_load_chr_2k(nes_t* nes, uint8_t slot, uint8_t bank) {
+    uint16_t base = (uint16_t)bank * 2u;
+    nes_load_chrrom_1k(nes, (uint8_t)(slot * 2u), base);
+    nes_load_chrrom_1k(nes, (uint8_t)(slot * 2u + 1u), (uint16_t)(base + 1u));
+}
+
 static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     mapper76_t* r = (mapper76_t*)nes->nes_mapper.mapper_register;
     if (address & 1u) {
         uint8_t bank = data & 0x3Fu;
         switch (r->reg_select) {
-        /* R0/R1 → 2KB at PPU $1000/$1800 (upper 4KB) */
-        case 0:
-            r->chr[0] = bank;
-            nes_load_chrrom_1k(nes, 4, (uint8_t)(bank * 2u));
-            nes_load_chrrom_1k(nes, 5, (uint8_t)(bank * 2u + 1u));
-            break;
-        case 1:
-            r->chr[1] = bank;
-            nes_load_chrrom_1k(nes, 6, (uint8_t)(bank * 2u));
-            nes_load_chrrom_1k(nes, 7, (uint8_t)(bank * 2u + 1u));
-            break;
-        /* R2-R5 → 1KB at PPU $0000-$0C00 (lower 4KB) */
-        case 2: r->chr[2] = bank; nes_load_chrrom_1k(nes, 0, bank); break;
-        case 3: r->chr[3] = bank; nes_load_chrrom_1k(nes, 1, bank); break;
-        case 4: r->chr[4] = bank; nes_load_chrrom_1k(nes, 2, bank); break;
-        case 5: r->chr[5] = bank; nes_load_chrrom_1k(nes, 3, bank); break;
+        case 2: r->chr[2] = bank; mapper76_load_chr_2k(nes, 0, bank); break;
+        case 3: r->chr[3] = bank; mapper76_load_chr_2k(nes, 1, bank); break;
+        case 4: r->chr[4] = bank; mapper76_load_chr_2k(nes, 2, bank); break;
+        case 5: r->chr[5] = bank; mapper76_load_chr_2k(nes, 3, bank); break;
         case 6: r->prg[0] = bank; nes_load_prgrom_8k(nes, 0, bank); break;
         case 7: r->prg[1] = bank; nes_load_prgrom_8k(nes, 1, bank); break;
         default: break;

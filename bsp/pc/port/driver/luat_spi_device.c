@@ -12,7 +12,7 @@
 // luat_spi_device_t* 在lua层看到的是一个userdata
 int luat_spi_device_setup(luat_spi_device_t* spi_dev) {
     luat_spi_bus_setup(spi_dev);
-    luat_gpio_mode(spi_dev->spi_config.cs, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // CS
+    luat_gpio_mode(spi_dev->spi_config.cs, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, Luat_GPIO_HIGH); // CS
     return 0;
 }
 

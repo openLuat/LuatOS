@@ -1,45 +1,47 @@
 --[[
 @module  app_main
 @summary 应用主入口模块，负责按顺序加载所有业务功能模块
-@version 1.2
-@date    2026.05.06
+@version 1.3
+@date    2026.06.26
 @author  江访
 
 === 执行流程 ===
 
 require 即执行，main.lua 调用 require "app_main" 时以下模块按顺序加载：
 
-  1. net_init       → 统一网络事件订阅（DNS配置、IP_READY/IP_LOSE/WLAN_STA 日志、多网状态）
-  2. wifi_app       → WiFi 业务层（自动连接、扫描、配置管理），内部根据平台分发到 wifi_app_real
-  3. netdrv_eth_spi → SPI 以太网（按 features.ethernet 自检，从 config 读取参数）
+  1. net_manager    → 统一网络管理器（读取 config.network，构建 exnetif 优先级列表）
+                     替代旧的 wifi_app + netdrv_eth_spi，初始化所有非WiFi兜底网络
+  2. net_init       → 统一网络事件订阅（DNS配置、IP_READY/IP_LOSE/WLAN_STA 日志）
+  3. wifi_app_real  → WiFi 业务层（自动连接、扫描、UI交互），不再做4G/以太网初始化
   4. status_provider_app → 状态栏数据源（时间/信号/电量定时更新，发布 STATUS_UPDATE）
-  4. ntp_app        → NTP 时间同步（订阅 IP_READY，联网后自动校时）
-  5. speedtest_app  → Cloudflare 测速（订阅 SPEEDTEST_START，延迟→下载→上传三阶段）
-  6. settings_iot_app → IOT 平台账号登录/登出（订阅 LOGIN_REQUEST/LOGOUT_REQUEST）
-  7. settings_app   → 设置主框架（加载所有设置子模块，fskv 持久化配置）
-  8. fota_app       → 固件 OTA 升级（订阅 IP_READY，定时检查云端新版本）
+  5. ntp_app        → NTP 时间同步（订阅 IP_READY，联网后自动校时）
+  6. speedtest_app  → Cloudflare 测速（订阅 SPEEDTEST_START）
+  7. settings_iot_app → IOT 平台账号登录/登出
+  8. settings_app   → 设置主框架（fskv 持久化配置）
+  9. fota_app       → 固件 OTA 升级
 
-=== 关键设计决策 ===
+=== 网络架构变化 ===
 
-1. require 顺序即初始化顺序：Lua 单线程，每个模块 require 时注册事件订阅、启动定时器，
-   互不阻塞。顺序考虑：网络基础设施 → 依赖网络的服务 → 独立设置 → OTA
-
-2. 不做条件 require：app_main 对所有平台加载相同模块列表，模块内部根据 project_config
-   自行判断是否激活。例如 wifi_app 对仅 4G 平台（Air780E）走 exnetif 纯 4G 路径
-
-3. 事件驱动解耦：模块之间不直接调用，通过 sys.publish/subscribe 通信。
-   例如 ntp_app 和 fota_app 都订阅 IP_READY，但互不知晓对方存在
+旧: wifi_app (分发) → wifi_app_real (混合4G/WiFi/以太网) + netdrv_eth_spi
+新: net_manager (统一读 config → exnetif.set_priority_order)
+    wifi_app_real (仅 WiFi 扫描/连接/UI 交互)
 ]]
 
--- 加载统一网络初始化模块（DNS/IP/WLAN事件管理，基于 exnetif 多网融合）
--- 必须在 wifi_app 之前加载，提供网卡状态日志和 DNS 配置基础设施
+-- 加载统一网络管理器（require 时不初始化，只注册接口）
+-- 替代旧的 require "wifi_app" + require "netdrv_eth_spi"
+-- 必须在 net_init 之前加载，使 exnetif IP 事件能被 net_init 正常订阅
+local net_manager = require "net_manager"
+
+-- 传入 project_config，初始化 net_manager 并启动兜底网络
+-- 此时 _G.project_config 已在 platform_loader 中加载完成
+net_manager.init(_G.project_config)
+
+-- 加载统一网络事件订阅模块（DNS配置、IP_READY/IP_LOSE/WLAN_STA 日志）
 require "net_init"
 
--- 加载 wifi_app 主模块（分发器：WiFi 平台 → wifi_app_real，仅4G平台 → exnetif 4G初始化）
-require "wifi_app"
-
--- 加载 SPI 以太网驱动模块（按 project_config.features.ethernet 自检，从 config 读取参数）
-require "netdrv_eth_spi"
+-- 加载 WiFi 业务层（仅 WiFi 扫描/连接/配置管理，不含4G/以太网初始化）
+-- net_manager 已处理所有非WiFi网络的初始化兜底
+require "wifi_app_real"
 
 -- 加载状态提供 app 模块（系统时间/4G信号/WiFi信号 定时更新，发布 STATUS_UPDATE 给状态栏）
 require "status_provider_app"

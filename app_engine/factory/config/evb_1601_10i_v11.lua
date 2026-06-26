@@ -85,11 +85,11 @@ return {
           uart_id = 3, baud = 2000000 },
 
         -- Airlink UART 4G（外挂 Air780EPM，也使用 UART3，与 WiFi 互斥）
-        -- {
-        --     type = "4g_airlink_uart",
-        --     uart_id = 3, baud = 2000000,
-        --     adapter = socket.LWIP_GP_GW,
-        -- },
+        {
+            type = "4g_airlink_uart",
+            uart_id = 3, baud = 2000000,
+            adapter = socket.LWIP_GP_GW,
+        },
 
         { type = "eth_spi", chip = "CH390",              -- SPI 以太网兜底
           spi_id = 1, cs_pin = 14 },

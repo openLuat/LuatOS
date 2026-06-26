@@ -276,6 +276,7 @@ int nes_mapper253_init(nes_t* nes);
 int nes_mapper254_init(nes_t* nes);
 int nes_mapper255_init(nes_t* nes);
 /* NES 2.0 mappers Plane 1 table 256~511 */
+#if NES_ENABLE_PLANE1_MAPPERS
 int nes_mapper256_init(nes_t* nes);
 int nes_mapper257_init(nes_t* nes);
 int nes_mapper258_init(nes_t* nes);
@@ -532,8 +533,11 @@ int nes_mapper508_init(nes_t* nes);
 int nes_mapper509_init(nes_t* nes);
 int nes_mapper510_init(nes_t* nes);
 int nes_mapper511_init(nes_t* nes);
+#endif
 /* NES 2.0 mappers Plane 2 table 512~767 */
+#if NES_ENABLE_PLANE2_MAPPERS
 
+#endif
 
 #if (NES_ROM_STREAM == 1)
 

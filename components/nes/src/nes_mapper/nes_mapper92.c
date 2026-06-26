@@ -16,17 +16,18 @@
 
 #include "nes.h"
 
-/* https://www.nesdev.org/wiki/INES_Mapper_092
- * Jaleco JF-19 — 16KB PRG switchable + 8KB CHR switchable.
+/* FCEUX boards/72.cpp
+ * Jaleco JF-19 — fixed first 16KB PRG + switchable upper 16KB PRG,
+ * with 8KB CHR switchable.
  * Write $8000-$FFFF:
- *   bit[7] = 1 → PRG 16KB bank = data[3:0] for $8000-$BFFF
- *   bit[6] = 1 → CHR 8KB bank = data[5:0]
- * Fixed last 16KB at $C000-$FFFF.
+ *   bit[7] = 1 -> PRG 16KB bank = data[3:0] for $C000-$FFFF
+ *   bit[6] = 1 -> CHR 8KB bank = data[3:0]
+ * Fixed first 16KB at $8000-$BFFF.
  */
 
 static void nes_mapper_init(nes_t* nes) {
     nes_load_prgrom_16k(nes, 0, 0);
-    nes_load_prgrom_16k(nes, 1, (uint16_t)(nes->nes_rom.prg_rom_size - 1));
+    nes_load_prgrom_16k(nes, 1, 0);
     if (nes->nes_rom.chr_rom_size > 0) {
         nes_load_chrrom_8k(nes, 0, 0);
     }
@@ -35,10 +36,10 @@ static void nes_mapper_init(nes_t* nes) {
 static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     (void)address;
     if (data & 0x80u) {
-        nes_load_prgrom_16k(nes, 0, (uint16_t)(data & 0x0Fu));
+        nes_load_prgrom_16k(nes, 1, (uint16_t)(data & 0x0Fu));
     }
     if ((data & 0x40u) && nes->nes_rom.chr_rom_size > 0) {
-        nes_load_chrrom_8k(nes, 0, (uint8_t)(data & 0x3Fu));
+        nes_load_chrrom_8k(nes, 0, (uint16_t)(data & 0x0Fu));
     }
 }
 

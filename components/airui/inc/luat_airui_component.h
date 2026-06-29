@@ -702,6 +702,7 @@ int airui_chart_remove_series(lv_obj_t *chart, uint32_t series_index);
 int airui_chart_remove_last_series(lv_obj_t *chart);
 int airui_chart_set_axis_config(lv_obj_t *chart, bool is_x, bool enable, int32_t min, int32_t max, uint32_t ticks, const char *unit);
 int airui_chart_set_legend_enabled(lv_obj_t *chart, bool enable);
+int airui_chart_set_fill_fade(lv_obj_t *chart, bool enable, const lv_color_t *color, int opa_start, int opa_end);
 
 /**
  * Checkbox 组件

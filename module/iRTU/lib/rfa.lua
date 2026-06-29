@@ -10,10 +10,10 @@ rfa: Radio Factory Agent (RF 校准 Lua 端主控)
   - 跨 PC 仿真和真机: 行为完全一致 (C 端只做字节透传)
 ]]
 
-local M = { _VERSION = "2.0.0" }
+local M = { _VERSION = "1.0.1" }
 M.STATE = { IDLE=0, PREP=1, CALIB=2, SELF_CAL=3, WRITE_NV=4, NST_TEST=5, DONE=6 }
 
-local uart_id_, line_buf, rf_on_, rf_mode_ = nil, "", true, 0
+local uart_id_, line_buf, rf_on_, rf_mode_, echo_on_, cereg_mode_ = nil, "", true, 0, true, 0
 local handlers_, rfnst_tpl_ = {}, {}
 M._CFG_FILE_PATH = "/factory.cfg"
 M._cmd_q = {}
@@ -32,6 +32,8 @@ function M.rfOn()       return rf_on_ end
 function M.reset()
     line_buf = ""
     rf_on_ = true
+    echo_on_ = true
+    cereg_mode_ = 0
     param_set("state", 0)
     M.npiSet("rfCaliDone", 0, true)
     M.npiSet("rfNSTDone", 0, true)
@@ -61,7 +63,7 @@ end
 
 -- 单测辅助
 function M.setErrMode(on)   M._erf = on; param_set("erfMode", on and 1 or 0) end
-function M._reset_for_test() line_buf = ""; M.reset() end
+function M._reset_for_test() line_buf = ""; echo_on_ = true; cereg_mode_ = 0; M.reset() end
 
 -- 扩展点
 function M.register(cmd_prefix, fn)         handlers_[cmd_prefix] = fn end
@@ -104,7 +106,16 @@ function M.dispatch(line)
 end
 
 function M._builtin_dispatch(line)
-    if line == "AT" or line:match("^ATE%d*$") or line:match("^ATQ[01]?$") or line:match("^AT%+ATQ[01]?$") then
+    -- ATE0/ATE1: 指令回显控制
+    if line == "ATE0" then
+        echo_on_ = false
+        return "\r\nOK\r\n"
+    end
+    if line == "ATE" or line == "ATE1" then
+        echo_on_ = true
+        return "\r\nOK\r\n"
+    end
+    if line == "AT" or line:match("^ATQ[01]?$") or line:match("^AT%+ATQ[01]?$") then
         return "\r\nOK\r\n"
     end
     -- AT+CGMR: firmware revision (align with AT firmware ate product)
@@ -115,7 +126,7 @@ function M._builtin_dispatch(line)
             local model = (hmeta and hmeta.model) and hmeta.model() or ""
             if model ~= "" then
                 local suffix = #model > 3 and model:sub(4) or model
-                version = "AirM2M_" .. suffix .. "_" .. ver
+                version = "AirM2M_" .. suffix .. "_" .. ver .. "_LTE_LuatOS"
             else
                 version = ver
             end
@@ -399,7 +410,7 @@ function M._builtin_dispatch(line)
             iccid = mobile.iccid()
         end
         if iccid and #iccid > 0 then
-            return '\r\n+ECICCID: "' .. iccid .. '"\r\n\r\nOK\r\n'
+            return '\r\n+ECICCID: ' .. iccid .. '\r\n\r\nOK\r\n'
         end
         return "\r\nOK\r\n"
     end
@@ -439,6 +450,36 @@ function M._builtin_dispatch(line)
     -- AT+SETCFG?: get config (placeholder until C backend ready)
     if line == "AT+SETCFG?" then
         return string.format("\r\n+SETCFG: \"rfa_mode\",\"%s\"\r\n\r\nOK\r\n", M.getRFAOnStatus() and "true" or "false")
+    end
+
+    -- AT+CEREG: EPS network registration status (align with AT firmware)
+    if line == "AT+CEREG" then
+        return "\r\nOK\r\n"
+    end
+    if line == "AT+CEREG?" then
+        local stat = (mobile and mobile.status) and mobile.status() or 4
+        local resp = string.format("\r\n+CEREG: %d,%d", cereg_mode_, stat)
+        -- 注册成功且能拿到位置信息时，附加 tac/ci/AcT
+        if stat == 5 then
+            local tac = (mobile and mobile.tac) and mobile.tac() or 0
+            local eci = (mobile and mobile.eci) and mobile.eci() or 0
+            if tac and tac > 0 and eci and eci > 0 then
+                resp = string.format('%s,"%04X","%08X",7', resp, tac, eci)
+            end
+        end
+        return resp .. "\r\n\r\nOK\r\n"
+    end
+    if line == "AT+CEREG=?" then
+        return "\r\n+CEREG: (0,1,2,3,4,5)\r\n\r\nOK\r\n"
+    end
+    local cereg_n = line:match("^AT%+CEREG=(%d)$")
+    if cereg_n then
+        local n = tonumber(cereg_n)
+        if n and n >= 0 and n <= 5 then
+            cereg_mode_ = n
+            return "\r\nOK\r\n"
+        end
+        return "\r\n+CME ERROR: 50\r\n"
     end
 
     return "\r\nERROR\r\n"
@@ -596,6 +637,10 @@ function M.start(id, baud)
             until s == "" or not s
             if #chunk > 0 then
                 for _, line in ipairs(M.feed(chunk)) do
+                    -- 指令回显：在返回结果前先把收到的指令发回去
+                    if echo_on_ and uart.write then
+                        uart.write(uart_id, line .. "\r\n")
+                    end
                     local resp = M.dispatch(line)
                     if resp and uart.write then uart.write(uart_id, resp) end
                 end

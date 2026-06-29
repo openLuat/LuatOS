@@ -40,6 +40,8 @@ require ("eng_1602_5i_v5")    -- Air1602 5寸 V005 (ST7701S+NAND)
 require ("eng_1602_7i_v0")    -- Air1602 7寸
 require ("eng_1602_7i_v4")    -- Air1602 7寸 V004 (NAND)
 require ("eng_1602_10i_v0")   -- Air1602 10.1寸
+require ("eng_1602_9i_v09421")     -- Air1602 9寸 AirLCD_1090
+require ("eng_1602_10i_v10421")    -- Air1602 10寸 AirLCD_1100
 require ("evb_8101b_5i_v1")    -- Air8101 EVB 5寸 (800x480)
 require ("evb_8101_5i_v0")     -- Air8101 EVB 5寸 (AirLCD_1020, H050IWV 800x480)
 require ("evb_8101_9i_v0")     -- Air8101 EVB 9寸 (AirLCD_1090)
@@ -84,6 +86,8 @@ local PROJECT_MAP = {
     ["Engine_Air1602_5inch_720x1280_003_V000"]     = "eng_1602_5i_v3",
     ["Engine_Air1602_5inch_480x854_005_V000"]      = "eng_1602_5i_v5",
     ["Engine_Air1602_7inch_1024x600_004_V000"]     = "eng_1602_7i_v4",
+    ["Engine_Air1602_AirLCD_1090_09421_V000"]     = "eng_1602_9i_v09421",
+    ["Engine_Air1602_AirLCD_1100_10421_V000"]     = "eng_1602_10i_v10421",
     -- EVB turnkey 开发板系列（已实现）
     ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",
     ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",

@@ -283,7 +283,7 @@ local function on_sta_event(evt, data)
             sys.timerStop(connect_timeout_timer)
             connect_timeout_timer = nil
         end
-        -- 连接成功后才持久化保存密码（修复：错误密码不会被保存）
+        -- 连接成功后才持久化保存密码：等待 L2 关联成功确认密码有效，再写到 fskv
         if pending_connect then
             sys.publish("WIFI_STORAGE_SAVE_REQ", {
                 ssid = pending_connect.ssid,
@@ -295,6 +295,17 @@ local function on_sta_event(evt, data)
                 ssid = pending_connect.ssid,
                 bssid = pending_connect.bssid
             })
+            -- 同步更新内存 saved_config，确保 IP_READY 兜底和自动重连读到最新密码
+            if pending_connect.ssid then saved_config.ssid = pending_connect.ssid end
+            saved_config.password = pending_connect.password
+            if pending_connect.advanced_config then
+                local ac = pending_connect.advanced_config
+                if ac.need_ping ~= nil then saved_config.need_ping = ac.need_ping end
+                if ac.local_network_mode ~= nil then saved_config.local_network_mode = ac.local_network_mode end
+                if ac.ping_ip then saved_config.ping_ip = ac.ping_ip end
+                if ac.ping_time then saved_config.ping_time = ac.ping_time end
+                if ac.auto_socket_switch ~= nil then saved_config.auto_socket_switch = ac.auto_socket_switch end
+            end
             pending_saved = true
             pending_connect = nil
         end
@@ -305,26 +316,32 @@ local function on_sta_event(evt, data)
             sys.timerStop(connect_timeout_timer)
             connect_timeout_timer = nil
         end
+        -- 配置前断开（exnetif.close 触发的 side-effect），不视为真正的连接失败
+        if disconnect_reason == "config" then
+            log.info("wifi_app", "配置前断开，跳过事件处理")
+            disconnect_reason = nil
+            -- pending_connect 保留，等后续 CONNECTED 事件再保存
+            return
+        end
         if user_connect then
-            log.info("wifi_app", "用户发起的连接失败，重置状态")
-            last_connect = nil
-            -- 用户主动连接失败：若为认证类错误（密码错误等），标记失败
-            -- 仅对从未成功过的记录生效（wifi_storage内部保护）
+            -- 用户主动连接过程中断连：需区分是 exnetif.set_priority_order 内部
+            -- wlan.connect 重连前清理还是真正的连接失败（密码错误等）
             if pending_connect and pending_connect.ssid then
                 local reason_code = data
                 -- 认证/密码类错误码：258(密码错误)、202(802.11认证被拒)、13(四次握手MIC校验失败)
                 if reason_code == 258 or reason_code == 202 or reason_code == 13 then
+                    log.info("wifi_app", "用户发起的连接失败（认证错误）:", reason_code)
+                    last_connect = nil
                     sys.publish("WIFI_STORAGE_MARK_FAILED_REQ", {ssid = pending_connect.ssid})
+                    pending_connect = nil
+                else
+                    -- 其他断开（如 wlan.connect 内部先断开再连接），保留 pending_connect
+                    log.info("wifi_app", "用户连接中的断连（非认证错误，保留 pending_connect）: reason=", reason_code)
+                    return  -- 不向下执行，保持 pending_connect 等 CONNECTED
                 end
-                pending_connect = nil
             end
         elseif last_connect == "DISCONNECTED" then
             log.info("wifi_app", "已断开状态，跳过重复事件")
-            return
-        end
-        if disconnect_reason == "config" then
-            log.info("wifi_app", "配置前断开，跳过事件处理")
-            disconnect_reason = nil
             return
         end
         wifi_state.connected = false
@@ -352,8 +369,8 @@ end
 -- IP_READY
 local function on_ip_ready(ip, adapter)
     common.handle_ip_ready(ip, adapter, wifi_state, refresh_net_info)
-    -- 兜底保存：仅当 CONNECTED 阶段未完成保存时，IP_READY 再确保密码已落盘
-    -- 防止 CONNECTED 已正确保存后，兜底用 saved_config 的旧密码覆盖
+    -- 兜底保存：仅当 CONNECTED 阶段未完成保存时，IP_READY 再次确保密码落盘
+    -- pending_saved 标志防止重复写入覆盖正确密码
     if not pending_saved and wifi_state.current_ssid and wifi_state.current_ssid ~= "" then
         local pw = (saved_config and saved_config.password ~= nil) and saved_config.password or ""
         log.info("wifi_app", "IP_READY 兜底保存（CONNECTED未完成）:", wifi_state.current_ssid)
@@ -538,7 +555,7 @@ local function on_connect_req(data)
         if saved_config and not saved_config.wifi_enabled then return end
 
         -- 暂存连接参数，连接成功后由 on_sta_event CONNECTED 分支持久化保存
-        -- 修复：不再提前保存密码，错误密码不会被记录
+        -- 不在连接请求阶段写入 fskv，避免错误密码被记录下来
         pending_connect = {
             ssid = ssid,
             password = password,

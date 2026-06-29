@@ -22,6 +22,8 @@ typedef struct {
     uint8_t  reg_select;
     uint8_t  prg[3];        /* $8000, $A000, $C000 bank indices */
     uint8_t  chr[8];        /* 1KB CHR bank indices */
+    uint8_t  prg6_bank;     /* $6000-$7FFF PRG ROM bank (when prg6_ram_en=0) */
+    uint8_t  prg6_ram_en;   /* 1 = WRAM at $6000-$7FFF, 0 = PRG ROM */
     uint8_t  irq_timer_en;
     uint8_t  irq_counter_en;
     uint16_t irq_counter;
@@ -39,9 +41,9 @@ static void mapper69_update_prg(nes_t* nes) {
 static void mapper69_update_chr(nes_t* nes) {
     nes_mapper69_t* m = (nes_mapper69_t*)nes->nes_mapper.mapper_register;
     if (nes->nes_rom.chr_rom_size == 0) return;
-    uint8_t chr_banks = (uint8_t)(nes->nes_rom.chr_rom_size * 8); /* 8KB units -> 1KB units */
+    uint16_t chr_banks = (uint16_t)(nes->nes_rom.chr_rom_size * 8); /* 8KB units -> 1KB units */
     for (int i = 0; i < 8; i++) {
-        nes_load_chrrom_1k(nes, (uint8_t)i, m->chr[i] % chr_banks);
+        nes_load_chrrom_1k(nes, (uint8_t)i, (uint16_t)(m->chr[i] % chr_banks));
     }
 }
 
@@ -55,10 +57,20 @@ static void nes_mapper_init(nes_t* nes) {
     m->prg[0]          = 0;
     m->prg[1]          = 1;
     m->prg[2]          = 2;
+    m->prg6_bank       = 0;
+    m->prg6_ram_en     = 0;
     m->irq_timer_en    = 0;
     m->irq_counter_en  = 0;
     m->irq_counter     = 0;
     for (int i = 0; i < 8; i++) m->chr[i] = (uint8_t)i;
+
+    /* Allocate WRAM for $6000-$7FFF (FME-7 register 8 RAM mode) */
+    if (nes->nes_rom.sram == NULL) {
+        nes->nes_rom.sram = (uint8_t*)nes_malloc(SRAM_SIZE);
+        if (nes->nes_rom.sram != NULL) {
+            nes_memset(nes->nes_rom.sram, 0, SRAM_SIZE);
+        }
+    }
 
     if (nes->nes_rom.chr_rom_size == 0) {
         nes_load_chrrom_8k(nes, 0, 0);
@@ -94,7 +106,9 @@ static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
         mapper69_update_chr(nes);
         break;
     case 0x8:
-        /* PRG at $6000 — SRAM/WRAM banking, skip for MCU target */
+        /* $6000-$7FFF bank: bit6=RAM/ROM select, bits[5:0]=PRG ROM bank */
+        m->prg6_bank   = data & 0x3Fu;
+        m->prg6_ram_en = (data >> 6u) & 1u;
         break;
     case 0x9:
         /* 8KB PRG bank at $8000 */
@@ -139,23 +153,46 @@ static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
 }
 
 /*
- * 16-bit cycle counter: decrements every CPU cycle when both timer and
- * counter enable bits are set.  Fires IRQ on unsigned underflow (0 -> 0xFFFF).
+ * $6000-$7FFF read: route to WRAM (register 8 bit6=1) or PRG ROM bank
+ * (register 8 bit6=0, bank selected by bits[5:0]).
+ */
+static uint8_t nes_mapper_read_sram(nes_t* nes, uint16_t address) {
+    nes_mapper69_t* m = (nes_mapper69_t*)nes->nes_mapper.mapper_register;
+    if (m->prg6_ram_en) {
+        if (nes->nes_rom.sram != NULL)
+            return nes->nes_rom.sram[address & 0x1FFFu];
+        return 0xFF;
+    }
+    /* PRG ROM mode: read from banked 8KB PRG ROM */
+    if (nes->nes_rom.prg_rom != NULL) {
+        uint32_t prg_8k_count = (uint32_t)nes->nes_rom.prg_rom_size * 2u;
+        uint32_t bank = (uint32_t)(m->prg6_bank) % prg_8k_count;
+        return nes->nes_rom.prg_rom[bank * 8192u + (address & 0x1FFFu)];
+    }
+    return 0xFF;
+}
+
+/*
+ * 16-bit cycle counter: decrements every CPU cycle when counter enable
+ * (bit7 of reg $D) is set.  IRQ fires on unsigned underflow only when
+ * IRQ enable (bit0 of reg $D) is also set.
+ * NESdev: counter decrements regardless of IRQ enable bit.
  */
 static void nes_mapper_cpu_clock(nes_t* nes, uint16_t cycles) {
     nes_mapper69_t* m = (nes_mapper69_t*)nes->nes_mapper.mapper_register;
-    if (!(m->irq_timer_en && m->irq_counter_en)) return;
+    if (!m->irq_timer_en) return;
     uint16_t prev = m->irq_counter;
     m->irq_counter -= cycles;
-    if (m->irq_counter > prev) {  /* unsigned underflow */
+    if (m->irq_counter_en && m->irq_counter > prev) {  /* unsigned underflow → IRQ */
         nes_cpu_irq(nes);
     }
 }
 
 int nes_mapper69_init(nes_t* nes) {
-    nes->nes_mapper.mapper_init      = nes_mapper_init;
-    nes->nes_mapper.mapper_deinit    = nes_mapper_deinit;
-    nes->nes_mapper.mapper_write     = nes_mapper_write;
-    nes->nes_mapper.mapper_cpu_clock = nes_mapper_cpu_clock;
+    nes->nes_mapper.mapper_init        = nes_mapper_init;
+    nes->nes_mapper.mapper_deinit      = nes_mapper_deinit;
+    nes->nes_mapper.mapper_write       = nes_mapper_write;
+    nes->nes_mapper.mapper_read_sram   = nes_mapper_read_sram;
+    nes->nes_mapper.mapper_cpu_clock   = nes_mapper_cpu_clock;
     return NES_OK;
 }

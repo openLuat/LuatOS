@@ -37,6 +37,9 @@ typedef struct ch390h
     uint32_t total_tx_drop;  // 总丢弃发送包数
     uint32_t total_rx_drop;  // 总丢弃接收包数
     uint8_t flow_control;  // 流控状态：0=正常 1=背压中
+    uint8_t sleep_requested;  // 业务侧通过 CTRL_UPDOWN=0 请求进入休眠态: 1=请求中, 0=正常运行
+                              // 仅在该位为 1 时, check_vid_pid 的 "持续失败 -> STOPPED" 自杀路径才会生效;
+                              // 正常运行时即使 SPI 短时失败也只走原有的 status=2->0->2 自愈循环.
 }ch390h_t;
 
 #define CH390H_STATUS_STOPPED 4

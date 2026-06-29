@@ -85,6 +85,13 @@ return {
         -- nand_flash = true,               -- 启用 NAND Flash（需配 storage.nand_flash）
     },
 
+    -- ===== 统一网络配置（优先级从高到低）=====
+    network = {
+        { type = "wifi_native" },                        -- 自带 WiFi 优先
+        { type = "eth_spi", chip = "CH390",              -- SPI 以太网兜底
+          spi_id = 0, cs_pin = 34, irq_pin = 9 },
+    },
+
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
         show_wifi_icon = true,           -- 桌面顶栏 WiFi 图标
@@ -106,13 +113,5 @@ return {
         --     pin_cs = 49,                 -- SPI0_CS2
         --     speed = 20000000,            -- SPI 时钟频率 Hz
         -- },
-    },
-
-    -- ===== 以太网: SPI0 外挂 CH390H 芯片 =====
-    ethernet = {
-        spi_id = 0,                  -- SPI0 总线（与 SD、NAND 共用）
-        pin_cs  = 34,                -- SPI0_CS0（以太网 CH390H 片选）
-        pin_irq = 9,                 -- ETH_INT=GPIO9（CH390H 中断引脚）
-        -- pin_pwr = 53,             -- 供电已由 power_on 的 LAN_EN 处理，不重复配置
     },
 }

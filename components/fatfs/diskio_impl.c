@@ -38,9 +38,9 @@ DSTATUS disk_initialize (BYTE pdrv) {
 	}
 	if (FATFS_POWER_PIN != 0xff)
 	{
-		luat_gpio_mode(FATFS_POWER_PIN, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, 0);
+		luat_gpio_mode(FATFS_POWER_PIN, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 0);
 		luat_timer_mdelay(FATFS_POWER_DELAY);
-		luat_gpio_mode(FATFS_POWER_PIN, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, 1);
+		luat_gpio_mode(FATFS_POWER_PIN, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
 	}
 	return disks[pdrv].opts->initialize(disks[pdrv].userdata);
 }

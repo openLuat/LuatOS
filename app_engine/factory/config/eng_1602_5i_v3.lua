@@ -67,6 +67,12 @@ return {
         nes = true,                      -- 启用 NES 游戏按键（需配 nes_keys）
     },
 
+    -- ===== 统一网络配置（优先级从高到低）=====
+    network = {
+        { type = "wifi_airlink_spi",     -- Airlink SPI WiFi 外挂模组
+          spi_id = 1, cs_pin = 8, rdy_pin = 14 },
+    },
+
     -- ===== NES 游戏按键绑定 =====
     -- 方向键: 支持 8 方向组合 + 持续按住
     -- 动作键: A 和 B，200ms 内先后按下触发 NES_COMBO("AB") 组合事件

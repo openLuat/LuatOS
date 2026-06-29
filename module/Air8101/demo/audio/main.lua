@@ -2,15 +2,19 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2026.04.16
+@date    2026.06.26
 @author  拓毅恒
 @usage
 本demo演示的核心功能为：
-1、play_stream: 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
+1、play_file: 播放音频文件，支持MP3/AMR/WAV格式，循环交替播放
 
-2、record_pcm_file: 录音到文件（PCM格式）
+2、play_tts: TTS文字转语音，循环播放5种音色
 
-3、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
+3、play_stream: 流式播放音频，支持PCM/MP3/AMR/WAV格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用
+
+4、test.pcm: 用于测试pcm 流式播放
+
+注意：Air8101仅支持play_stream播放，其他功能需要用Air8101B来测试
 
 
 更多说明参考本目录下的readme.md文件
@@ -55,9 +59,10 @@ log.info("main", PROJECT, VERSION)
 -- end, 3000)
 
 
--- 加载模拟音频播放模块
-require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用
--- require "record_pcm_file"        -- 录音到文件（PCM格式）
+-- 加载音频播放模块
+require "play_file"         -- 播放音频文件（MP3/AMR/WAV格式）
+-- require "play_tts"          -- TTS文字转语音播放
+-- require "play_stream"        -- 流式播放音频，支持PCM/MP3/AMR/WAV格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -32,11 +32,12 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 PROJECT = "Air8300_DataCollector"
-VERSION = "001.999.000"
+VERSION = "001.999.001"
 
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
+log.info("2044版本升级成功")
 
 
 

@@ -88,39 +88,38 @@ end
 -- 获取设备标识，用于FOTA服务器识别设备
 -- 返回值：设备标识类型（"imei"/"mac"）和标识值，获取失败返回 nil
 local function get_device_id()
-    -- 优先使用 mobile.imei：蜂窝网络设备（如4G模组）的标准标识
-    if mobile and mobile.imei then
+    local model = hmeta.model()
+
+    -- 4G模组走IMEI
+    if model:find("^Air780E")         -- Air780Exx 系列模组
+        or model:find("^Air8000")     -- Air8000 系列模组
+        or model:find("^Air700") then -- Air700 系列模组
         -- 使用 pcall 包装：防止 API 不可用或调用失败导致程序崩溃
         local ok, imei = pcall(mobile.imei)
         -- 验证 IMEI 长度：确保获取到的标识有效（IMEI 标准长度为15位）
         if ok and imei and #tostring(imei) >= 10 then
             return "imei", tostring(imei)
         end
-    end
 
-    -- 备选方案：使用 wlan.getMac（WiFi设备的MAC地址）
-    -- WiFi设备没有IMEI，使用MAC地址作为唯一标识
-    if wlan and wlan.getMac then
+        -- WiFi/MCU模组走MAC地址
+    elseif model:find("^Air8101") then -- Air8101 系列模组
         -- 使用 pcall 包装：防止 API 不可用或调用失败导致程序崩溃
         local ok, mac = pcall(wlan.getMac)
         -- 验证 MAC 地址长度：确保获取到的标识有效（MAC地址标准长度为12位十六进制）
         if ok and mac and #tostring(mac) >= 12 then
             return "mac", tostring(mac)
         end
+
+        -- 部分模组需要使用 mcu.unique_id()
+    elseif model:find("^Air1601")      -- Air1601 系列模组
+        or model:find("^Air1602")      -- Air1602 系列模组
+        or model:find("^Air1780") then -- Air1780 系列模组
+        -- 使用 pcall 包装：防止 API 不可用或调用失败导致程序崩溃
+        local ok, uid = pcall(mcu.unique_id)
+        if ok and uid then
+            return "uid", tostring(uid)
+        end
     end
-
-    -- 按照文档上的方案，没说让用户自己定义设备ID，暂不启用
-    -- if _G.IMEI and #tostring(_G.IMEI) >= 10 then
-    --     return "imei", tostring(_G.IMEI)
-    -- end
-
-    -- 按照文档上的方案，只有说填IMEI或者MAC，没有说填unique_id，暂不启用
-    -- if mcu and mcu.unique_id then
-    --     local ok, uid = pcall(mcu.unique_id)
-    --     if ok and uid then
-    --         return "uid", tostring(uid)
-    --     end
-    -- end
 
     -- 所有方案都失败，返回 nil
     return nil, nil

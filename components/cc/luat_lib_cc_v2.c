@@ -65,6 +65,7 @@ typedef struct
 	uint8_t upload_enable:1;
     uint8_t request_upload_enable:1;
     uint8_t is_play_extern_source:1;     //是否播放第三方数据源
+    uint8_t is_true_start:1;
 }luat_cc_ctrl_t;
 
 static luat_cc_ctrl_t _l_cc;
@@ -93,13 +94,19 @@ static int _l_cc_handler(lua_State *L, void* ptr) {
 
 static int _l_cc_audio_start(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    if (!_l_cc.is_true_start) {
+        return 0;
+    }
     if (lua_getglobal(L, "sys_pub") != LUA_TFUNCTION) {
         return 0;
     };
     lua_pushstring(L, "CC_IND");
     switch (msg->arg1) {
     case CC_MSG_AUDIO_START:
-        lua_pushstring(L, "AUDIO_START");
+        if (_l_cc.is_true_start) {
+             lua_pushstring(L, "AUDIO_START");
+        }
+       
         break;
     case CC_MSG_EXTERNAL_SOURCE_DECODE_DONE:
         lua_pushstring(L, "EXT_SRC_DONE");
@@ -114,6 +121,7 @@ static void _l_cc_audio_ring_request_callback(uint32_t event, uint8_t *data, uin
     if (event == LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA) {
         if (_l_cc.is_play_ring && !_l_cc.is_play_user_ring) {   //在播放默认振铃
             if (luat_fifo_check_free_space(_l_cc.ring_request.org_input_data_fifo) >= sizeof(ringback_8k_data)) {
+                
                 if (!_l_cc.tone_data_cnt) {
                     luat_fifo_write(_l_cc.ring_request.org_input_data_fifo, ringback_8k_data, sizeof(ringback_8k_data));
                     _l_cc.tone_data_cnt = 1;
@@ -493,6 +501,10 @@ static int l_cc_extern_source(lua_State *L) {
         LLOGE("cc extern source is busy");
         goto DONE;
     }
+    if (!_l_cc.is_true_start) {
+        LLOGE("cc is not true start");
+        goto DONE;
+    }
     luat_audio_common_param_t common_param = {0};
     common_param.sample_rate = luaL_optinteger(L, 5, 0);
     uint8_t data_bits = luaL_optinteger(L, 6, 16);
@@ -590,8 +602,9 @@ LUAMOD_API int luaopen_cc( lua_State *L ) {
     return 1;
 }
 
-void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, uint32_t play_block_cnt, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t record_callback_cnt_level, uint8_t need_upload)
+void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, uint32_t play_block_cnt, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t record_callback_cnt_level, uint8_t need_upload, uint8_t true_start)
 {
+    _l_cc.is_true_start = true_start;
 	_l_cc.request_upload_enable = need_upload;
     _l_cc.record_callback_cnt_level = record_callback_cnt_level;
     _l_cc.cc_param.sample_rate = sample_rate;
@@ -611,7 +624,7 @@ void luat_cc_play_tone(uint32_t param)
         _l_cc.upload_enable = 0;
         _l_cc.cc_request.is_record_end = 1;
         _l_cc.tone_data_cnt = 0;
-        LLOGD("play tone param = 0");
+        _l_cc.is_true_start = 0;
     }
 	luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_PLAY_TONE, param, 0, 0, 0);
 }

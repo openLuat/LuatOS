@@ -42,6 +42,7 @@ sys.subscribe("CC_IND", function(state)
 		cnt = cnt + 1
 		if cnt > 1 then
 			cc.accept(0)
+			cnt = 0
 		end
     elseif state == "AUDIO_START" then
 		-- 可以往对端发送额外的音频数据
@@ -49,6 +50,7 @@ sys.subscribe("CC_IND", function(state)
         cc.extern_source("你好，测试一下，测试一下，测试一下")
     elseif state == "HANGUP_CALL_DONE" or state == "MAKE_CALL_FAILED" or state == "DISCONNECTED" then
 		-- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
+        cnt = 0
 	end
 end)
 
@@ -73,7 +75,7 @@ function audio_setup_air780ehm_evb()
     es8311.set_data_bits(i2c_id,16)
     es8311.set_format(i2c_id)
     es8311.resume(i2c_id)
-    es8311.set_voice_vol(i2c_id,57)
+    es8311.set_voice_vol(i2c_id,50)
     es8311.set_mic_vol(i2c_id,85)
     --es8311.standby(i2c_id)
 end

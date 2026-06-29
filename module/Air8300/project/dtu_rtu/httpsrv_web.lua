@@ -37,7 +37,7 @@ local function get_device_info()
         imei = mobile.imei() or "",
         iccid = mobile.iccid() or "",
         csq = mobile.csq() or 0,
-        fw_version = rtos.version() or "",
+        fw_version = rtos.firmware() or "",
         project = PROJECT or "SOCKET_LONG_CONNECTION",
         version = VERSION or "001.999.000",
         device_name = c.device_name or "Air8000",
@@ -326,16 +326,21 @@ local function handle_http_request(fd, method, uri, headers, body)
         sys.taskInit(function() fota_app.check() end)
         return 200, {}, json.encode({code=0})
     end
-    if uri == "/api/fota/download" and method == "POST" then
-        sys.taskInit(function() fota_app.download() end)
-        return 200, {}, json.encode({code=0})
-    end
     if uri == "/api/fota/reboot" and method == "POST" then
-        fota_app.reboot()
+        sys.wait(500); rtos.reboot()
         return 200, {}, json.encode({code=0})
     end
     if uri == "/api/fota/status" then
         return 200, {}, json.encode({code=0, data=fota_app.get_status()})
+    end
+    if uri == "/api/fota/config" then
+        if method == "POST" then
+            local ok, tbl = pcall(json.decode, body or "{}")
+            if ok then fota_app.config({auto=tbl.auto, interval=tbl.interval}); return 200, {}, json.encode({code=0}) end
+            return 400, {}, json.encode({code=-1})
+        else
+            return 200, {}, json.encode({code=0, data=fota_app.get_config()})
+        end
     end
     
     -- API: 通讯状态
@@ -370,7 +375,7 @@ sys.taskInit(function()
     local server_ip = socket.localIP(ADAPTER) or "192.168.1.183"
     log.info("httpsrv", "网口1已就绪, IP:", server_ip)
     
-    -- 启动 HTTP 服务器
+    -- 启动 HTTP 服务器（网口1）
     httpsrv.start(SERVER_PORT, handle_http_request, ADAPTER)
     
     log.info("httpsrv", "HTTP Web服务器已启动")
@@ -382,6 +387,20 @@ sys.taskInit(function()
         sys.wait(60000)
         log.info("httpsrv", "Web服务器运行中, 访问 http://" .. socket.localIP(ADAPTER))
     end
+end)
+
+-- WiFi AP 热点 HTTP 服务器（电脑可通过 WiFi 直连访问）
+sys.taskInit(function()
+    local AP_ADAPTER = socket.LWIP_AP
+    log.info("httpsrv", "等待WiFi AP就绪...")
+    while not netdrv.ready(AP_ADAPTER) do
+        sys.wait(1000)
+    end
+    sys.wait(1000)
+    local ap_ip = socket.localIP(AP_ADAPTER) or "192.168.4.1"
+    httpsrv.start(SERVER_PORT, handle_http_request, AP_ADAPTER)
+    log.info("httpsrv", "WiFi AP Web服务器已启动")
+    log.info("httpsrv", "WiFi访问: http://" .. ap_ip)
 end)
 
 log.info("httpsrv", "Web管理模块加载完成")

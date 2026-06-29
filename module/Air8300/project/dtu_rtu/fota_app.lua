@@ -1,82 +1,102 @@
 --[[
 @module  fota_app
-@summary FOTA 远程升级封装（libfota3 两步协议）
-@version 1.0 / 2026.06.12
+@summary FOTA 升级封装（libfota3 v2.0）
+@version 2.0 / 2026.06.22
 ]]
 
 local libfota3 = require("libfota3")
 local M = {}
 
-local g_status = "idle"       -- idle / checking / new_version / downloading / download_done / error
+local g_stage = "idle"       -- idle/checking/new_version/downloading/download_done/error/rebooting
 local g_msg = ""
-local g_new_version = ""
+local g_version = ""
+local g_size = 0
 local g_progress = 0
-local g_fota_sn = nil
-local g_download_url = nil
-local g_sha256 = nil
+local g_history = {}
+local g_auto = false
+local g_interval = 86400
 
-function M.check()
-    g_status = "checking"
-    g_msg = "正在检查更新..."
-    log.info("fota", "开始检查更新")
-    local result, err = libfota3.check({
-        project_key = "47J0PYMJzOCXwjXQ0bpqhXkoq9KMgDgi",
+-- 加载升级历史
+local function load_history()
+    local raw = fskv.get("FOTA_HISTORY")
+    if raw and #raw > 0 then
+        local ok, t = pcall(json.decode, raw)
+        if ok and type(t) == "table" then g_history = t end
+    end
+end
+load_history()
+
+local function save_history(ver, status)
+    table.insert(g_history, 1, {time=os.date("%m-%d %H:%M"), ver=ver, status=status})
+    if #g_history > 10 then g_history[#g_history] = nil end
+    fskv.set("FOTA_HISTORY", json.encode(g_history))
+end
+
+-- 状态回调
+local function on_status(status, msg, percent)
+    log.info("fota", status, msg or "", percent or 0)
+    if status == "checking" then
+        g_stage = "checking"; g_msg = "检测中..."
+    elseif status == "new_version" then
+        g_stage = "new_version"; g_msg = msg or ""; g_version = msg or ""
+    elseif status == "no_new_version" then
+        g_stage = "idle"; g_msg = "已是最新版本"
+    elseif status == "download_start" then
+        g_stage = "downloading"; g_msg = "下载中"; g_progress = 0
+    elseif status == "downloading" then
+        g_progress = percent or 0
+    elseif status == "download_done" then
+        g_stage = "download_done"; g_msg = "下载完成, 请重启"; save_history(g_version, "成功")
+    elseif status == "download_fail" then
+        g_stage = "error"; g_msg = msg or "下载失败"; save_history(g_version, "失败:"..(msg or ""))
+    elseif status == "check_fail" then
+        g_stage = "error"; g_msg = msg or "检测失败"
+    elseif status == "rebooting" then
+        g_stage = "rebooting"; g_msg = "重启中..."
+    end
+end
+
+-- 确认回调（自动确认，下载后自动重启）
+local function on_confirm(action, info, callback)
+    callback(true)
+end
+
+function M.start(auto, interval)
+    g_auto = auto or false
+    g_interval = interval or 86400
+    libfota3.request({
+        project_key = "iYxeZKfyaP6YGHczPWW4EYoH0HbTxtLz",
+        script_name = "Air8300_DataCollector",
+        script_version = VERSION or "001.999.000",
+        auto = auto or false,
+        interval = interval or 86400,
+        on_status = on_status,
+        on_confirm = on_confirm,
     })
-    if not result then
-        g_status = "error"
-        g_msg = "检查失败: " .. tostring(err or "网络错误")
-        return false
-    end
-    if result.code == 0 then
-        g_status = "new_version"
-        g_new_version = result.script_version or "?"
-        g_fota_sn = result.fota_sn
-        g_download_url = result.url
-        g_sha256 = result.sha256
-        g_msg = "发现新版本: " .. g_new_version .. ", " .. (result.size or 0) .. "字节"
-        log.info("fota", g_msg)
-        return true
-    else
-        g_status = "idle"
-        g_msg = result.msg or "已是最新版本"
-        return false
-    end
 end
 
-function M.download()
-    if not g_download_url then return false, "请先检查更新" end
-    g_status = "downloading"
-    g_progress = 0
-    log.info("fota", "开始下载", g_download_url)
-    local ok, err = libfota3.download(g_download_url, g_sha256, function(rx, total)
-        g_progress = total > 0 and math.floor(rx * 100 / total) or 0
-    end)
-    if ok then
-        g_status = "download_done"
-        g_msg = "下载完成，请重启模组"
-        log.info("fota", "下载完成")
-        return true
-    else
-        g_status = "error"
-        g_msg = "下载失败: " .. tostring(err or "未知")
-        return false, err
-    end
+function M.check() libfota3.check_update() end
+function M.config(cfg)
+    if cfg.auto ~= nil then g_auto = cfg.auto end
+    if cfg.interval ~= nil then g_interval = cfg.interval end
+    libfota3.config(cfg)
 end
 
-function M.reboot()
-    log.info("fota", "用户触发重启")
-    sys.wait(500)
-    rtos.reboot()
+function M.get_config()
+    return {auto = g_auto, interval = g_interval}
 end
 
 function M.get_status()
     return {
-        status = g_status,
+        stage = g_stage,
         msg = g_msg,
-        new_version = g_new_version,
+        version = g_version,
         progress = g_progress,
-        fota_sn = g_fota_sn,
+        history = g_history,
     }
 end
+
+-- 启动时加载（auto=false，手动模式）
+M.start(false)
 
 return M

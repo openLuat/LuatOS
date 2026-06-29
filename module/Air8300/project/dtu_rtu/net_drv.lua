@@ -7,6 +7,7 @@
 
 local exnetif = require "exnetif"
 local net_config = require "net_config"
+local dhcpsrv = require "dhcpsrv"
 local M = {}
 
 local OPERATOR_MAP = {
@@ -66,6 +67,13 @@ sys.taskInit(function()
     wlan.init()
     wlan.connect(c.wifi_ssid, c.wifi_pwd, 1)
     log.info("net_drv", "WiFi连接中 SSID:", c.wifi_ssid)
+
+    -- WiFi AP 热点：让电脑直连设备访问 Web
+    wlan.createAP(c.ap_ssid or "Air8300", c.ap_pwd or "12345678")
+    netdrv.ipv4(socket.LWIP_AP, c.ap_ip or "192.168.4.1", c.ap_mask or "255.255.255.0", c.ap_gw or "192.168.4.1")
+    while not netdrv.ready(socket.LWIP_AP) do sys.wait(100) end
+    dhcpsrv.create({adapter = socket.LWIP_AP})
+    log.info("net_drv", "WiFi AP就绪 SSID:", c.ap_ssid or "Air8300", "IP:", socket.localIP(socket.LWIP_AP))
 end)
 
 sys.subscribe("NET_CONFIG_UPDATED", function(cfg)

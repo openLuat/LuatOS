@@ -11,6 +11,7 @@
 */
 
 #include "luat_audio_data_codec.h"
+#include "luat_audio_driver.h"
 #include "luat_audio_request.h"
 #include "luat_base.h"
 #ifdef LUAT_USE_AUDIO_V2
@@ -75,6 +76,7 @@ static int _l_cc_handler(lua_State *L, void* ptr) {
     //LLOGD("l_uart_handler");
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
+
     if (_l_cc.record_on_off && _l_cc.record_cb)
     {
     	lua_geti(L, LUA_REGISTRYINDEX, _l_cc.record_cb);
@@ -101,6 +103,7 @@ static int _l_cc_audio_start(lua_State *L, void* ptr) {
         break;
     case CC_MSG_EXTERNAL_SOURCE_DECODE_DONE:
         lua_pushstring(L, "EXT_SRC_DONE");
+        _l_cc.is_play_extern_source = 0;
         break;
     }
     lua_call(L, 2, 0);
@@ -219,6 +222,7 @@ static void _l_cc_volte_task(void *param){
                 }
                 _l_cc.is_audio_start = 0;
                 _l_cc.is_play_ring = 0;
+                luat_audio_driver_stop(luat_audio_driver_probe(NULL));
                 break;
             }
             else
@@ -606,6 +610,8 @@ void luat_cc_play_tone(uint32_t param)
     if (!param)  {
         _l_cc.upload_enable = 0;
         _l_cc.cc_request.is_record_end = 1;
+        _l_cc.tone_data_cnt = 0;
+        LLOGD("play tone param = 0");
     }
 	luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_PLAY_TONE, param, 0, 0, 0);
 }

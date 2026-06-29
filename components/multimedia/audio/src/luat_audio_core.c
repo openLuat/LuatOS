@@ -1056,7 +1056,7 @@ int luat_audio_driver_register(const luat_audio_driver_opts_t *opts, struct luat
 			_luat_audio.driver_ctrl[i].probe = probe;
 			_luat_audio.driver_ctrl[i].data_channel = &_luat_audio.channel[i];
 			if (opts->init(&_luat_audio.driver_ctrl[i])) {
-				LLOGE("probe_id: %x driver init failed, can not register", probe.probe_id);
+				LLOGE("probe_id: 0x%08x driver init failed, can not register", probe.probe_id);
 				memset(&_luat_audio.driver_ctrl[i], 0, sizeof(luat_audio_driver_ctrl_t));
 				return -LUAT_ERROR_OPERATION_FAILED; // 驱动注册失败，初始化失败
 			}
@@ -1065,11 +1065,11 @@ int luat_audio_driver_register(const luat_audio_driver_opts_t *opts, struct luat
 			// _luat_audio.channel[i].play_lock_mutex = luat_mutex_create();
 			_luat_audio.channel[i].soft_volume = 100;
 			_luat_audio.all_driver_nums++;
-			LLOGC(luat_audio_debug_flag, "probe_id: %x driver register success index: %d", probe.probe_id, i);
+			LLOGC(luat_audio_debug_flag, "probe_id: 0x%08x driver register success index: %d", probe.probe_id, i);
 			return LUAT_ERROR_NONE;
 		}
 	}
-	LLOGE("driver %x register failed, max driver count is %d", probe.probe_id, LUAT_AUDIO_DRIVER_MAX);
+	LLOGE("driver 0x%08x register failed, max driver count is %d", probe.probe_id, LUAT_AUDIO_DRIVER_MAX);
 	return -LUAT_ERROR_ID_INVALID; // 驱动注册失败，超过最大支持数量
 }
 
@@ -1101,6 +1101,7 @@ int luat_audio_driver_set_default(luat_audio_driver_probe_t *probe)
 	for (i = 0; i < LUAT_AUDIO_DRIVER_MAX; i++) {
 		if (_luat_audio.driver_ctrl[i].opts != NULL && _luat_audio.driver_ctrl[i].probe.probe_id == probe->probe_id) {
 			_luat_audio.default_driver_index = i;
+			LLOGC(luat_audio_debug_flag, "set default driver index: %d probe_id: %x", i, probe->probe_id);
 			return LUAT_ERROR_NONE;
 		}
 	}

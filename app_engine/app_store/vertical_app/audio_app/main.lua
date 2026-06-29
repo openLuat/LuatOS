@@ -5,6 +5,7 @@ log.info("main", PROJECT, VERSION)
 
 require "audio_main_win"
 require "audio_play_win"
+require "audio_stream_win"
 sys.publish("OPEN_AUDIO_WIN")
 if audio_open then
     audio_open()

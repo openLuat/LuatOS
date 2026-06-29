@@ -47,6 +47,14 @@ local function get_module_type()
             return "air1601"
         elseif model_lower:find("air1602") then
             return "air1602"
+        elseif model_lower:find("air8101") then
+            return "air8101"
+        elseif model_lower:find("air780ehm") then
+            return "air780ehm"
+        elseif model_lower:find("air780ehv") then
+            return "air780ehv"
+        elseif model_lower:find("air780egh") then
+            return "air780egh"
         end
     end
     return "other"
@@ -57,7 +65,7 @@ local MODULE_TYPE = get_module_type()
 
 -- 判断使用audio_v2还是audio
 -- Air1601和Air1602使用audio_v2，其他模组使用audio
-local USE_AUDIO_V2 = (MODULE_TYPE == "air1601" or MODULE_TYPE == "air1602")
+local USE_AUDIO_V2 = (MODULE_TYPE == "air1601" or MODULE_TYPE == "air1602" or MODULE_TYPE == "air8101" or MODULE_TYPE == "air780ehm" or MODULE_TYPE == "air780ehv" or MODULE_TYPE == "air780egh")
 
 -- ==================== 常量定义 ====================
 local I2S_ID = 0
@@ -169,6 +177,12 @@ local audio_stream_queue = {
 -- audio_v2相关变量
 local audio_v2_request_index = nil  -- 当前播放请求的索引
 local audio_v2_record_request_index = nil  -- 当前录音请求的索引
+local audio_v2_stream_file_fp = nil  -- 流式播放文件句柄(audio_v2模式)
+local audio_v2_stream_codec_id = nil  -- 流式播放codec_id(audio_v2模式)
+local audio_v2_stream_data_start = nil  -- 流式播放数据起始位置(audio_v2模式)
+local audio_v2_record_zbuff = nil  -- 录音zbuff（audio_v2回调模式）
+local audio_v2_stream_end_marked = false  -- 标记流式结束（队列模式）
+local audio_v2_es8311_drv = nil  -- ES8311驱动引用（audio_v2模式）
 
 -- ==================== 工具函数 ====================
 -- 参数检查
@@ -261,41 +275,101 @@ end
 -- ==================== audio_v2 回调处理 ====================
 local function audio_v2_callback(request_index, event, param)
     if event == audio_v2.REQUEST_START then
+        audio_v2_request_index = request_index
         log.info("exaudio", "audio_v2播放开始", request_index)
     elseif event == audio_v2.REQUEST_NEED_NEW_DATA then
         -- 流式播放需要更多数据
-        local data = audio_stream_queue_pop()
-        if data then
-            -- audio_v2流式播放数据写入
-            local ok, written, free_len = audio_v2.input(request_index, data, false)
-            if not ok then
-                log.warn("exaudio", "audio_v2.input写入失败")
+        -- 参考olddemo/demo/audio_v2/main.lua: 先调用input()检查FIFO剩余空间
+        -- 优先使用文件句柄方式
+        if audio_v2_stream_file_fp and request_index == audio_v2_request_index then
+            -- 文件流模式：先获取FIFO剩余空间，再循环写入
+            local result, write_len, free_len = audio_v2.input(request_index)
+            if result and free_len then
+                while free_len > 0 do
+                    local data = audio_v2_stream_file_fp:read(4096)
+                    if data then
+                        if #data < 4096 then
+                            result, write_len, free_len = audio_v2.input(request_index, data, true)
+                            break
+                        else
+                            result, write_len, free_len = audio_v2.input(request_index, data, false)
+                            if not result then break end
+                        end
+                    else
+                        audio_v2.input(request_index, nil, true)
+                        break
+                    end
+                end
+            end
+        else
+            -- 队列模式：用户通过play_stream_write写入数据，循环填充直到FIFO满或队列空
+            local result, write_len, free_len = audio_v2.input(request_index)
+            if result and free_len then
+                while free_len > 0 do
+                    local data = audio_stream_queue_pop()
+                    if data then
+                        result, write_len, free_len = audio_v2.input(request_index, data, false)
+                        if not result then break end
+                        -- 处理partial write：audio_v2.input()只写入free_len能容纳的部分，剩余放回队列
+                        if write_len and write_len < #data then
+                            local remaining = data:sub(write_len + 1)
+                            table.insert(audio_stream_queue.data, 1, {index = 0, value = remaining})
+                            break
+                        end
+                    else
+                        break
+                    end
+                end
+            end
+            -- while循环可能因partial write/FIFO满等原因退出而不走else分支，
+            -- 所以此处统一检查：只有队列真正空了才发结束标记
+            if audio_v2_stream_end_marked and #audio_stream_queue.data == 0 then
+                audio_v2.input(request_index, "", true)
+                audio_v2_stream_end_marked = false
             end
         end
     elseif event == audio_v2.REQUEST_GET_NEW_DATA then
         -- 录音数据
-        if type(audio_record_param.path) == "function" then
-            -- 获取录音数据
-            log.info("exaudio", "audio_v2获取录音数据", param)
+        if type(audio_record_param.path) == "function" and audio_v2_record_zbuff then
+            local total = audio_v2_record_zbuff:used()
+            if total > 0 then
+                audio_record_param.path(audio_v2_record_zbuff, total)
+                audio_v2_record_zbuff:del()
+            end
         end
     elseif event == audio_v2.REQUEST_END then
-        log.info("exaudio", "audio_v2播放结束", request_index)
+        log.info("exaudio", "audio_v2请求结束", request_index)
         
-        if type(audio_play_param.cbfnc) == "function" then
-            audio_play_param.cbfnc(exaudio.PLAY_DONE)
-        end
-        
-        -- 检查是否有下一个播放请求
-        if #audio_play_queue.requests > 0 then
-            -- 播放下一个请求
-            exaudio.play_start(audio_play_queue.requests[1].configs)
-        else
-            -- 没有更多请求，清空状态
+        -- 判断是录音结束还是播放结束
+        if audio_v2_record_request_index == request_index then
+            -- 录音结束
+            audio_v2_record_request_index = nil
+            audio_v2_record_zbuff = nil
+            if type(audio_record_param.cbfnc) == "function" then
+                audio_record_param.cbfnc(exaudio.RECORD_DONE)
+            end
+            -- 录音不发布EX_MSG_PLAY_DONE
+        elseif audio_v2_request_index == request_index then
+            -- 播放结束
+            -- 关闭文件句柄
+            if audio_v2_stream_file_fp then
+                audio_v2_stream_file_fp:close()
+                audio_v2_stream_file_fp = nil
+            end
+            
+            if type(audio_play_param.cbfnc) == "function" then
+                audio_play_param.cbfnc(exaudio.PLAY_DONE)
+            end
+            
+            -- audio_v2 自带优先级管理，下一个请求会自动播放
             audio_v2_request_index = nil
+            audio_v2_stream_codec_id = nil
+            audio_v2_stream_data_start = nil
+            audio_v2_stream_end_marked = false
             audio_play_queue.current_priority = 0
+            
+            sys.publish(EX_MSG_PLAY_DONE)
         end
-        
-        sys.publish(EX_MSG_PLAY_DONE)
     end
 end
 
@@ -373,11 +447,11 @@ local function audio_v2_setup()
         -- DAC模式（Air1601等使用内置DAC的模组）
         log.info("exaudio.setup", "audio_v2 DAC模式初始化")
     elseif audio_setup_param.model == "es8311" then
-        -- ES8311 I2S模式（Air1602等使用ES8311的模组）
+        -- ES8311 I2S模式（Air780EHM等使用ES8311的模组）
         log.info("exaudio.setup", "audio_v2 ES8311模式初始化")
         
         -- I2C配置
-        if not i2c.setup(audio_setup_param.i2c_id, i2c.FAST) then
+        if not i2c.setup(audio_setup_param.i2c_id) then
             log.error("I2C初始化失败")
             return false
         end
@@ -420,36 +494,63 @@ local function audio_v2_setup()
     -- 注册audio_v2事件回调
     audio_v2.on(audio_v2_callback)
     
-    -- 配置PA电源控制
+    -- 配置PA电源控制（参考olddemo的pa_delay=200）
     if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
         audio_v2.config_pa_power_ctrl(
             true,  -- 使能PA电源控制
             audio_setup_param.pa_ctrl,  -- PA控制引脚
             audio_setup_param.pa_on_level,  -- PA使能电平
-            audio_setup_param.pa_delay or 100  -- 延时
+            audio_setup_param.pa_delay or 200  -- 延时
         )
     end
     
-    -- ES8311模式下配置CODEC电源控制
+    -- ES8311模式下：Codec电源由手动GPIO控制（不交给audio_v2），防止断电后ES8311寄存器丢失
     if audio_setup_param.model == "es8311" then
-        -- 配置CODEC电源控制
+        -- 手动打开CODEC电源并保持常开（参考olddemo: gpio.setup(2,1)）
         if audio_setup_param.dac_ctrl and audio_setup_param.dac_ctrl > 0 then
-            audio_v2.config_codec_power_ctrl(
-                true,  -- 使能CODEC电源控制
-                audio_setup_param.dac_ctrl,  -- CODEC控制引脚
-                1,  -- 高电平使能
-                audio_setup_param.dac_delay or 200,  -- 上电等待时间
-                audio_setup_param.dac_time_delay or 10  -- 下电延时
-            )
+            gpio.setup(audio_setup_param.dac_ctrl, 1)
         end
         
-        -- 检查ES8311芯片连接
-        if not read_es8311_id() then
-            log.error("ES8311通讯失败，请检查硬件")
-            return false
+        -- 配置audio_v2 I2S参数
+        audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
+        audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, audio_setup_param.i2s_framebit or 16, audio_setup_param.i2s_framebit or 16)
+        audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
+        
+        -- 初始化ES8311编解码器
+        local es8311_ok
+        es8311_ok, audio_v2_es8311_drv = pcall(require, "es8311")
+        if es8311_ok and audio_v2_es8311_drv then
+            sys.wait(10)
+            
+            -- 检查ES8311芯片连接
+            if not read_es8311_id() then
+                log.error("ES8311通讯失败，请检查硬件")
+                return false
+            end
+            
+            if audio_v2_es8311_drv.init(audio_setup_param.i2c_id) then
+                audio_v2_es8311_drv.set_sample_rate(audio_setup_param.i2c_id, audio_setup_param.i2s_sample or 16000, 256)
+                audio_v2_es8311_drv.set_data_bits(audio_setup_param.i2c_id, audio_setup_param.bits_per_sample or 16)
+                audio_v2_es8311_drv.set_format(audio_setup_param.i2c_id)
+                audio_v2_es8311_drv.resume(audio_setup_param.i2c_id)
+                audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id, 60)
+                audio_v2_es8311_drv.set_mic_vol(audio_setup_param.i2c_id, mic_vol)
+                log.info("exaudio.setup", "ES8311初始化完成")
+            else
+                log.error("ES8311芯片初始化失败")
+                return false
+            end
+        else
+            log.warn("exaudio.setup", "未找到es8311驱动模块")
         end
+
+
+        -- ES8311模式下初始化完成后进入低功耗休眠（只关PA，不关Codec电源，防止配置丢失）
+        audio_v2.shutdown(false, false, true)
+    else
+        -- DAC等其他模式下初始化完成后进入低功耗休眠
+        audio_v2.shutdown(false, true, true)
     end
-    
     log.info("exaudio.setup", "audio_v2初始化完成")
     return true
 end
@@ -935,12 +1036,6 @@ function exaudio.play_start(playConfigs)
         -- 设置默认优先级
         playConfigs.priority = playConfigs.priority or 0
         
-        -- 创建播放请求
-        local request = {
-            priority = playConfigs.priority,
-            configs = playConfigs
-        }
-        
         -- audio_v2播放
         local play_type = playConfigs.type
         local ok, req_id = false, nil
@@ -952,7 +1047,13 @@ function exaudio.play_start(playConfigs)
             end
             
             -- 使用audio_v2.play播放文件
-            ok, req_id = audio_v2.play(playConfigs.content, true, playConfigs.priority)
+            ok, req_id = audio_v2.play(
+                playConfigs.content, 
+                playConfigs.err_stop ~= false,  -- 默认true
+                playConfigs.priority,
+                playConfigs.driver_probe_id,
+                playConfigs.codec_id
+            )
             if ok then
                 audio_v2_request_index = req_id
                 audio_play_param.cbfnc = playConfigs.cbfnc
@@ -965,7 +1066,11 @@ function exaudio.play_start(playConfigs)
                 return false
             end
             
-            ok, req_id = audio_v2.tts(playConfigs.content, playConfigs.priority)
+            ok, req_id = audio_v2.tts(
+                playConfigs.content, 
+                playConfigs.priority,
+                playConfigs.driver_probe_id
+            )
             if ok then
                 audio_v2_request_index = req_id
                 audio_play_param.cbfnc = playConfigs.cbfnc
@@ -974,30 +1079,136 @@ function exaudio.play_start(playConfigs)
             
         elseif play_type == 2 then  -- 流式播放
             -- audio_v2流式播放
+            -- 未指定codec_id时默认0(RAW/PCM)
             if not playConfigs.codec_id then
-                log.error("流式播放需要指定codec_id")
-                return false
+                --流式播放未指定codec_id时默认RAW/PCM
+                playConfigs.codec_id = 0
             end
             
-            -- 设置默认参数
-            playConfigs.sample_rate = playConfigs.sample_rate or 16000
-            playConfigs.data_bits = playConfigs.data_bits or 16
-            playConfigs.channel_nums = playConfigs.channel_nums or 1
-            playConfigs.is_signed = playConfigs.is_signed ~= false  -- 默认true
+            -- 兼容旧版参数名
+            local sample_rate = playConfigs.sample_rate or playConfigs.sampling_rate
+            local data_bits = playConfigs.data_bits or playConfigs.sampling_depth or 16
+            local is_signed
+            if playConfigs.is_signed ~= nil then
+                is_signed = playConfigs.is_signed  -- 保持boolean不变，直接传给stream
+            elseif playConfigs.signed_or_unsigned ~= nil then
+                is_signed = playConfigs.signed_or_unsigned
+            else
+                is_signed = true  -- 默认有符号
+            end
+            local channel_nums = playConfigs.channel_nums or playConfigs.channels or 1
+            local priority = playConfigs.priority or 0
+            local driver_probe_id = playConfigs.driver_probe_id or AUDIO_V2_DRIVER_ID
             
+            -- 对于MP3/AMR/WAV格式，从文件解析真实采样率（参考olddemo）
+            local file_path = playConfigs.file_path
+            if file_path and (playConfigs.codec_id == 5 or playConfigs.codec_id == 2 or playConfigs.codec_id == 3 or playConfigs.codec_id == 1) then
+                local fp = io.open(file_path, "rb")
+                if fp then
+                    local file_data = fp:read(12)
+                    if file_data and #file_data > 0 then
+                        local no_error, next_pos, need_len, parsed_sample_rate, parsed_data_bits, parsed_channel_nums, parsed_is_signed = 
+                            audio_v2.get_play_info(file_data, playConfigs.codec_id, 0)
+                        if no_error then
+                            if parsed_sample_rate and parsed_sample_rate > 0 then
+                                sample_rate = parsed_sample_rate
+                                data_bits = parsed_data_bits or data_bits
+                                channel_nums = parsed_channel_nums or channel_nums
+                                if parsed_is_signed ~= nil then
+                                    is_signed = parsed_is_signed  -- 保持boolean
+                                end
+                                log.info("exaudio", "从文件解析到采样率:", sample_rate, "bits:", data_bits, 
+                                         "ch:", channel_nums, "signed:", is_signed)
+                            else
+                                -- sample_rate为0，重试
+                                local retry_count = 0
+                                while retry_count < 6 and no_error and (not parsed_sample_rate or parsed_sample_rate == 0) do
+                                    log.info("exaudio", "seek", next_pos, "need", need_len)
+                                    fp:seek("set", next_pos)
+                                    file_data = fp:read(need_len)
+                                    if file_data then
+                                        no_error, next_pos, need_len, parsed_sample_rate, parsed_data_bits, parsed_channel_nums, parsed_is_signed = 
+                                            audio_v2.get_play_info(file_data, playConfigs.codec_id, next_pos)
+                                        retry_count = retry_count + 1
+                                    else
+                                        break
+                                    end
+                                end
+                                if no_error and parsed_sample_rate and parsed_sample_rate > 0 then
+                                    sample_rate = parsed_sample_rate
+                                    data_bits = parsed_data_bits or data_bits
+                                    channel_nums = parsed_channel_nums or channel_nums
+                                    if parsed_is_signed ~= nil then
+                                        is_signed = parsed_is_signed  -- 保持boolean
+                                    end
+                                    log.info("exaudio", "从文件解析到采样率:", sample_rate, "bits:", data_bits, 
+                                             "ch:", channel_nums, "signed:", is_signed, "retries:", retry_count)
+                                else
+                                    log.warn("exaudio", "无法从文件解析采样率，使用默认值", "retries:", retry_count)
+                                end
+                            end
+                        else
+                            log.warn("exaudio", "get_play_info解析失败，使用默认值")
+                        end
+                    end
+                    fp:close()
+                end
+            end
+            
+            -- 默认采样率
+            if not sample_rate or sample_rate <= 0 then
+                if playConfigs.codec_id == 0 then
+                    sample_rate = 16000
+                elseif playConfigs.codec_id == 1 then
+                    sample_rate = 44100
+                elseif playConfigs.codec_id == 2 then
+                    sample_rate = 8000
+                elseif playConfigs.codec_id == 3 then
+                    sample_rate = 16000
+                elseif playConfigs.codec_id == 5 then
+                    sample_rate = 44100
+                else
+                    sample_rate = 16000
+                end
+                log.info("exaudio", "codec_id", playConfigs.codec_id, "使用默认采样率:", sample_rate)
+            end
+            
+            log.info("exaudio", "调用stream: cid=", playConfigs.codec_id, "sr=", sample_rate, 
+                     "bits=", data_bits, "ch=", channel_nums, "sig=", is_signed, "pri=", priority)
             ok, req_id = audio_v2.stream(
                 playConfigs.codec_id,
-                playConfigs.sample_rate,
-                playConfigs.data_bits,
-                playConfigs.channel_nums,
-                playConfigs.is_signed,
-                playConfigs.priority
+                sample_rate,
+                data_bits,
+                channel_nums,
+                is_signed,
+                priority
             )
+            log.info("exaudio", "stream返回: ok=", ok, "req_id=", req_id)
             
             if ok then
                 audio_v2_request_index = req_id
+                audio_v2_stream_codec_id = playConfigs.codec_id
                 audio_play_param.cbfnc = playConfigs.cbfnc
-                log.info("exaudio", "audio_v2流式播放启动成功, request_index:", req_id)
+                
+                -- 如果有file_path，打开文件用于回调中循环读取
+                if file_path then
+                    local fp = io.open(file_path, "rb")
+                    if fp then
+                        -- 跳转到数据起始位置
+                        local data_start = playConfigs.data_start or 0
+                        if data_start > 0 then
+                            fp:seek("set", data_start)
+                        end
+                        audio_v2_stream_file_fp = fp
+                        audio_v2_stream_data_start = data_start
+                        log.info("exaudio", "流式播放文件已打开:", file_path, "data_start:", data_start)
+                    else
+                        log.warn("exaudio", "无法打开流式播放文件:", file_path)
+                    end
+                end
+                
+                log.info("exaudio", "audio_v2流式播放启动成功, request_index:", req_id, 
+                         "采样率:", sample_rate, "codec_id:", playConfigs.codec_id)
             else
                 log.error("exaudio", "audio_v2流式播放启动失败")
             end
@@ -1063,17 +1274,47 @@ end
 -- @return free_len FIFO剩余空间(audio_v2)
 function exaudio.play_stream_write(data, is_end)
     if USE_AUDIO_V2 then
-        -- audio_v2模式使用audio_v2.input写入数据
+        -- audio_v2模式：入队列，由NEED_NEW_DATA回调批量写入FIFO
         if not audio_v2_request_index then
             log.error("audio_v2流式播放未启动")
             return false
         end
         
-        local ok, written, free_len = audio_v2.input(audio_v2_request_index, data, is_end or false)
-        if not ok then
-            log.warn("audio_v2.input失败")
+        -- 如果有文件句柄，由回调自动处理，忽略用户的手动写入
+        if audio_v2_stream_file_fp then
+            log.info("exaudio", "文件流模式，忽略手动写入")
+            return true
         end
-        return ok, written, free_len
+        
+        -- 数据入队列
+        audio_stream_queue_push(data)
+        if is_end then
+            -- is_end=true标记在队列数据被回调消耗完后生效
+            audio_v2_stream_end_marked = true
+        end
+        
+        -- 立即尝试刷新队列：入队后马上尝试写入audio_v2 FIFO，
+        -- 避免等NEED_NEW_DATA 250ms后才轮到写入导致FIFO欠载/噪音。
+        -- 数据安全留在队列等NEED_NEW_DATA写入。
+        local flush_ok, flush_free = audio_v2.input(audio_v2_request_index)
+        if flush_ok and flush_free and flush_free > 0 then
+            while flush_free > 0 do
+                local qdata = audio_stream_queue_pop()
+                if qdata then
+                    local _, flush_written, flush_free = audio_v2.input(audio_v2_request_index, qdata, false)
+                    if flush_written and flush_written < #qdata then
+                        -- partial write: 剩余放回队列头部
+                        local remain = qdata:sub(flush_written + 1)
+                        table.insert(audio_stream_queue.data, 1, {index = 0, value = remain})
+                        break
+                    end
+                else
+                    break
+                end
+            end
+        end
+        
+        return true
     end
     
     -- audio模式：插入队列，由audio.MORE_DATA回调处理
@@ -1086,18 +1327,33 @@ function exaudio.play_stop(stopConfigs)
     if USE_AUDIO_V2 then
         -- audio_v2停止播放
         if audio_v2_request_index then
+            -- 关闭文件句柄
+            if audio_v2_stream_file_fp then
+                audio_v2_stream_file_fp:close()
+                audio_v2_stream_file_fp = nil
+            end
+            
             audio_v2.stop(audio_v2_request_index)
             audio_v2_request_index = nil
+            audio_v2_stream_codec_id = nil
+            audio_v2_stream_data_start = nil
             audio_play_queue.current_priority = 0
+            audio_v2.shutdown(false, true, true)
             return true
         end
         return false
     end
-    
+
     -- 强制要求传入配置表参数
     if not stopConfigs or type(stopConfigs) ~= "table" then
         log.error("停止播放必须传入配置表参数，格式: {type = 0|1|2}")
         log.error("type参数说明: 0=文件播放, 1=TTS播放, 2=流式播放")
+        return false
+    end
+
+    -- 检查播放类型参数
+    if not check_param(stopConfigs.type, "number", "type") then
+        log.error("停止播放需要指定type参数(0:文件,1:TTS,2:流式)")
         return false
     end
     
@@ -1136,8 +1392,8 @@ end
 -- 检查播放是否结束
 function exaudio.is_end()
     if USE_AUDIO_V2 then
-        -- audio_v2模式下，如果没有请求索引，则认为已结束
-        return audio_v2_request_index == nil
+        -- audio_v2使用is_all_done判断是否所有请求结束
+        return audio_v2.is_all_done()
     end
     return audio.isEnd(MULTIMEDIA_ID)
 end
@@ -1151,15 +1407,19 @@ function exaudio.get_error()
     return audio.getError(MULTIMEDIA_ID)
 end
 
+-- audio_v2录音格式转码表
+local audio_v2_record_codec_map = {
+    [exaudio.AMR_NB]   = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_AMR_NB or 2, sr = 8000,  bits = 16 },
+    [exaudio.AMR_WB]   = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_AMR_WB or 3, sr = 16000, bits = 16 },
+    [exaudio.PCM_8000]  = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW or 0,    sr = 8000,  bits = 16 },
+    [exaudio.PCM_16000] = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW or 0,    sr = 16000, bits = 16 },
+    [exaudio.PCM_24000] = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW or 0,    sr = 24000, bits = 16 },
+    [exaudio.PCM_32000] = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW or 0,    sr = 32000, bits = 16 },
+    [exaudio.PCM_48000] = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW or 0,    sr = 48000, bits = 16 },
+}
+
 -- 开始录音
 function exaudio.record_start(recodConfigs)
-    if USE_AUDIO_V2 then
-        log.warn("audio_v2模式录音功能暂未完全适配")
-        return false
-    end
-    
-    -- 恢复audio.RESUME工作模式
-    audio.pm(MULTIMEDIA_ID, audio.RESUME)
     if not recodConfigs or type(recodConfigs) ~= "table" then
         log.error("录音配置必须为table类型")
         return false
@@ -1173,20 +1433,16 @@ function exaudio.record_start(recodConfigs)
 
     -- 处理录音时间
     if recodConfigs.time ~= nil then
-        if check_param(recodConfigs.time, "number", "time") then
-            if recodConfigs.time == 0 then
-                audio_record_param.time = 0
-                log.warn("exaudio.record_start", "录音时间设置为0，将无限录音")
-                log.warn("exaudio.record_start", "提示：请调用exaudio.record_stop()手动停止录音")
-            elseif recodConfigs.time < 0 then
-                log.error("录音时间不能为负数")
-                return false
-            else
-                audio_record_param.time = recodConfigs.time
-                log.info("exaudio.record_start", string.format("将录音%d秒", audio_record_param.time))
-            end
-        else
+        if recodConfigs.time == 0 then
+            audio_record_param.time = 0
+            log.warn("exaudio.record_start", "录音时间设置为0，将无限录音")
+            log.warn("exaudio.record_start", "提示：请调用exaudio.record_stop()手动停止录音")
+        elseif recodConfigs.time < 0 then
+            log.error("录音时间不能为负数")
             return false
+        else
+            audio_record_param.time = recodConfigs.time
+            log.info("exaudio.record_start", string.format("将录音%d秒", audio_record_param.time))
         end
     else
         audio_record_param.time = 0
@@ -1200,6 +1456,68 @@ function exaudio.record_start(recodConfigs)
         return false
     end
     audio_record_param.path = recodConfigs.path
+
+    -- 处理回调函数
+    if recodConfigs.cbfnc ~= nil then
+        if type(recodConfigs.cbfnc) ~= "function" then
+            log.error("cbfnc必须为函数类型")
+            return false
+        end
+        audio_record_param.cbfnc = recodConfigs.cbfnc
+    else
+        audio_record_param.cbfnc = nil
+    end
+
+    if USE_AUDIO_V2 then
+        local fmt = audio_v2_record_codec_map[audio_record_param.format]
+        if not fmt then
+            log.error("不支持的录音格式")
+            return false
+        end
+        
+        local path_type = type(audio_record_param.path)
+        local ok, req_id
+        
+        if path_type == "string" then
+            ok, req_id = audio_v2.record(
+                audio_record_param.path,  -- 文件路径
+                audio_record_param.time,  -- 录制时长（秒）
+                fmt.codec_id,             -- 编解码器ID
+                0,                        -- priority
+                fmt.sr,                   -- 采样率
+                fmt.bits,                 -- 位深
+                audio_setup_param.channels or 1  -- 声道数
+            )
+        elseif path_type == "function" then
+            -- 创建录音zbuff
+            audio_v2_record_zbuff = zbuff.create(48000)
+            ok, req_id = audio_v2.record(
+                audio_v2_record_zbuff,    -- zbuff缓冲区
+                audio_record_param.time,  -- 录制时长（秒）
+                fmt.codec_id,             -- 编解码器ID
+                0,                        -- priority
+                fmt.sr,                   -- 采样率
+                fmt.bits,                 -- 位深
+                audio_setup_param.channels or 1  -- 声道数
+            )
+        else
+            log.error("录音路径必须为字符串或函数")
+            return false
+        end
+        
+        if ok then
+            audio_v2_record_request_index = req_id
+            log.info("exaudio", "audio_v2录音已开始, req_id:", req_id)
+        else
+            audio_v2_record_zbuff = nil
+            log.error("exaudio", "audio_v2录音启动失败")
+        end
+        return ok
+    end
+    
+    -- ========== audio模式录音 ==========
+    -- 恢复audio.RESUME工作模式
+    audio.pm(MULTIMEDIA_ID, audio.RESUME)
 
     -- 转换录音格式
     local recod_format, amr_quailty
@@ -1221,17 +1539,6 @@ function exaudio.record_start(recodConfigs)
         recod_format = 48000
     end
 
-    -- 处理回调函数
-    if recodConfigs.cbfnc ~= nil then
-        if check_param(recodConfigs.cbfnc, "function", "cbfnc") then
-            audio_record_param.cbfnc = recodConfigs.cbfnc
-        else
-            return false
-        end
-    else
-        audio_record_param.cbfnc = nil
-    end
-    -- 开始录音
     local path_type = type(audio_record_param.path)
     if path_type == "string" then
         return audio.record(
@@ -1265,7 +1572,25 @@ end
 -- 停止录音
 function exaudio.record_stop()
     if USE_AUDIO_V2 then
-        log.warn("audio_v2模式录音功能暂未完全适配")
+        if audio_v2_record_request_index then
+            -- 停止录音前，如果有回调模式，处理zbuff中剩余数据
+            if type(audio_record_param.path) == "function" and audio_v2_record_zbuff then
+                local left = audio_v2_record_zbuff:used()
+                if left > 0 then
+                    audio_record_param.path(audio_v2_record_zbuff, left)
+                    audio_v2_record_zbuff:del()
+                end
+                -- zbuff模式必须调stop让C层停止
+                audio_v2.stop(audio_v2_record_request_index)
+                audio_v2_record_request_index = nil
+                audio_v2_record_zbuff = nil
+                return true
+            end
+            -- 文件录音：不调stop，让C层自然结束（timeout到期后自动回收REQUEST_END）。
+            -- 不清空audio_v2_record_request_index，等待REQUEST_END回调来清空。
+            -- 调stop会导致文件未保存/REQUEST_END不触发，参考olddemo只轮询is_all_done从不主动stop录音。
+            return true
+        end
         return false
     end
     
@@ -1306,6 +1631,11 @@ end
 -- 设置麦克风音量
 function exaudio.mic_vol(record_volume)
     if USE_AUDIO_V2 then
+        if audio_setup_param.model == "es8311" and audio_v2_es8311_drv then
+            audio_v2_es8311_drv.set_mic_vol(audio_setup_param.i2c_id, record_volume)
+            mic_vol = record_volume
+            return true
+        end
         log.warn("audio_v2模式麦克风音量设置暂未完全适配")
         return false
     end
@@ -1327,14 +1657,20 @@ end
 -- @return 是否成功
 function exaudio.finish(data)
     if USE_AUDIO_V2 then
-        -- audio_v2流式播放结束：发送最后一帧数据并标记is_end=true
-        if audio_v2_request_index and data then
-            local ok, written, free_len = audio_v2.input(audio_v2_request_index, data, true)
-            return ok
-        elseif audio_v2_request_index then
-            -- 如果没有数据，直接发送空数据标记结束
-            local ok, written, free_len = audio_v2.input(audio_v2_request_index, "", true)
-            return ok
+        -- audio_v2流式播放结束
+        if audio_v2_request_index then
+            -- 如果有文件句柄，由回调自动处理结束，这里不干预
+            if audio_v2_stream_file_fp then
+                log.info("exaudio", "文件流模式，等待回调自动处理结束")
+                return true
+            end
+            
+            -- 队列模式：入队列后标记结束，由NEED_NEW_DATA回调在队列清空后发结束信号
+            if data then
+                audio_stream_queue_push(data)
+            end
+            audio_v2_stream_end_marked = true
+            return true
         end
         return false
     end
@@ -1398,6 +1734,157 @@ end
 -- 获取当前使用的音频模式
 function exaudio.get_audio_mode()
     return USE_AUDIO_V2 and "audio_v2" or "audio"
+end
+
+-- ==================== 流式播放辅助函数（仅audio_v2模式支持） ====================
+
+--[[
+@description 从音频文件解析播放信息（采样率、位宽、声道数等）
+@api exaudio.parse_audio_info(file_path, codec_id)
+@string file_path 音频文件路径
+@number codec_id 编解码器ID (0=PCM, 1=WAV, 2=AMR_NB, 3=AMR_WB, 5=MP3)
+@return table 成功返回包含音频信息的table，失败返回nil
+@usage
+local info = exaudio.parse_audio_info("/luadb/test.mp3", 5)
+if info then
+    log.info("采样率:", info.sample_rate)
+    log.info("位宽:", info.data_bits)
+    log.info("声道数:", info.channel_nums)
+end
+注意：此函数仅在audio_v2模式下可用
+]]
+function exaudio.parse_audio_info(file_path, codec_id)
+    if not file_path or type(file_path) ~= "string" then
+        log.error("parse_audio_info: file_path must be string")
+        return nil
+    end
+    
+    if not codec_id or type(codec_id) ~= "number" then
+        log.error("parse_audio_info: codec_id must be number")
+        return nil
+    end
+    
+    -- PCM格式是原始音频数据，没有文件头，直接返回默认值
+    if codec_id == 0 then
+        log.info("parse_audio_info: PCM format, use default values")
+        return {sample_rate = 16000, data_bits = 16, channel_nums = 1, is_signed = true, data_start = 0}
+    end
+    
+    local fp = io.open(file_path, "rb")
+    if not fp then
+        log.error("parse_audio_info: cannot open file", file_path)
+        return nil
+    end
+    
+    -- 参考olddemo/demo/audio_v2/main.lua的MP3解析重试逻辑
+    -- 先读取12字节进行初始解析
+    local file_data = fp:read(12)
+    if not file_data or #file_data == 0 then
+        log.error("parse_audio_info: file read failed", file_path)
+        fp:close()
+        return nil
+    end
+    
+    -- 使用audio_v2.get_play_info解析文件头
+    local no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed = 
+        audio_v2.get_play_info(file_data, codec_id, 0)
+    
+    log.info("parse_audio_info", "get_play_info result:", no_error, "sample_rate:", sample_rate, "next_pos:", next_pos, "need_len:", need_len)
+    
+    if no_error then
+        if sample_rate and sample_rate > 0 then
+            -- 解析成功，跳转到数据起始位置
+            log.info("exaudio.parse_audio_info", file_path, "sample_rate:", sample_rate, 
+                     "bits:", data_bits, "channels:", channel_nums)
+            fp:close()
+            return {
+                sample_rate = sample_rate,
+                data_bits = data_bits or 16,
+                channel_nums = channel_nums or 1,
+                is_signed = (is_signed ~= false),
+                data_start = next_pos
+            }
+        else
+            -- sample_rate为0或nil，需要读取更多数据重试（参考olddemo的重试逻辑）
+            log.info("parse_audio_info", "sample_rate is", sample_rate, "need retry")
+            local retry_count = 0
+            while retry_count < 6 and no_error and (not sample_rate or sample_rate == 0) do
+                log.info("parse_audio_info", "seek", next_pos, "need", need_len)
+                fp:seek("set", next_pos)
+                file_data = fp:read(need_len)
+                if file_data then
+                    log.info("parse_audio_info", "read", #file_data)
+                    no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed = 
+                        audio_v2.get_play_info(file_data, codec_id, next_pos)
+                    retry_count = retry_count + 1
+                else
+                    break
+                end
+            end
+            
+            if no_error and sample_rate and sample_rate > 0 then
+                log.info("exaudio.parse_audio_info", file_path, "sample_rate:", sample_rate, 
+                         "bits:", data_bits, "channels:", channel_nums, "retries:", retry_count)
+                fp:close()
+                return {
+                    sample_rate = sample_rate,
+                    data_bits = data_bits or 16,
+                    channel_nums = channel_nums or 1,
+                    is_signed = is_signed ~= false,
+                    data_start = next_pos
+                }
+            else
+                log.warn("parse_audio_info: retry failed, use default values", file_path, "retries:", retry_count)
+            end
+        end
+    else
+        log.warn("parse_audio_info: get_play_info error", file_path)
+    end
+    
+    -- 解析失败，返回false
+    log.info("parse_audio_info: parse failed, return nil for", file_path)
+    fp:close()
+    return false
+end
+
+--[[
+@description 获取推荐流式播放缓冲区大小
+@api exaudio.get_stream_buffer_size_by_codec(codec_id)
+@number codec_id 编解码器ID (0=PCM, 1=WAV, 2=AMR_NB, 3=AMR_WB, 5=MP3)
+@return number 推荐的缓冲区大小（字节）
+@usage
+local buffer_size = exaudio.get_stream_buffer_size_by_codec(5)  -- MP3推荐大小
+注意：此函数仅在audio_v2模式下可用
+]]
+function exaudio.get_stream_buffer_size_by_codec(codec_id)
+    local buffer_sizes = {
+        [0] = 4096,   -- PCM: 4KB
+        [1] = 4096,   -- WAV: 4KB
+        [2] = 640,    -- AMR_NB: 640字节（帧较小）
+        [3] = 640,    -- AMR_WB: 640字节
+        [5] = 1792,   -- MP3: 1792字节（帧大小）
+    }
+    return buffer_sizes[codec_id] or 4096
+end
+
+--[[
+@description 获取流式播放推荐等待时间
+@api exaudio.get_stream_wait_ms(codec_id)
+@number codec_id 编解码器ID (0=PCM, 1=WAV, 2=AMR_NB, 3=AMR_WB, 5=MP3)
+@return number 推荐的等待时间（毫秒）
+@usage
+local wait_ms = exaudio.get_stream_wait_ms(5)  -- MP3推荐等待时间
+注意：此函数仅在audio_v2模式下可用
+]]
+function exaudio.get_stream_wait_ms(codec_id)
+    local wait_times = {
+        [0] = 20,     -- PCM: 20ms
+        [1] = 20,     -- WAV: 20ms
+        [2] = 80,     -- AMR_NB: 80ms
+        [3] = 80,     -- AMR_WB: 80ms
+        [5] = 100,    -- MP3: 100ms
+    }
+    return wait_times[codec_id] or 20
 end
 
 return exaudio

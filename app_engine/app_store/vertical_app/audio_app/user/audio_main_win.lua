@@ -10,6 +10,25 @@ local destroyed = false
 local SCREEN_W = 480
 local SCREEN_H = 800
 
+-- fskv存储键
+local FSKV_VOLUME_KEY = "audio_vol"
+
+-- 从fskv读取音量，默认75
+local function load_volume()
+    local saved = fskv.get(FSKV_VOLUME_KEY)
+    if saved and type(saved) == "number" then
+        log.info("audio", "从fskv读取音量:", saved)
+        return math.max(0, math.min(100, saved))
+    end
+    log.info("audio", "fskv无保存音量，使用默认75, saved类型:", type(saved))
+    return 75
+end
+
+local function save_volume()
+    local ok = fskv.set(FSKV_VOLUME_KEY, volume)
+    log.info("audio", "保存音量到fskv:", volume, "结果:", ok)
+end
+
 -- 颜色定义
 local COLOR_BG = 0x1A1A2E
 local COLOR_CARD_BG = 0x252542
@@ -23,7 +42,7 @@ local COLOR_ERROR = 0xF43F5E
 
 -- 音频系统状态
 local audio_state = false
-local volume = 75
+local volume = load_volume()
 local sd_mounted = false
 
 -- UI元素引用
@@ -42,6 +61,18 @@ local audio_core = nil
 local exwin = exwin
 if not exwin then
     exwin = require "exwin"
+end
+
+-- 检测模组是否支持流式播放
+local function is_stream_supported()
+    local model = hmeta and hmeta.model and hmeta.model()
+    if model then
+        local m = model:lower()
+        if m:find("air1601") or m:find("air1602") then
+            return true
+        end
+    end
+    return false
 end
 
 -- 更新音量显示
@@ -351,6 +382,7 @@ local function create_volume_card(parent)
         minus_btn:set_on_click(function()
             volume = math.max(0, volume - 5)
             log.info("audio", "音量减小:", volume)
+            save_volume()
             update_volume_display()
             if audio_core and audio_state then
                 audio_core.set_volume(volume)
@@ -374,6 +406,7 @@ local function create_volume_card(parent)
         volume = pos * 5
         if volume < 0 then volume = 0 end
         if volume > 100 then volume = 100 end
+        save_volume()
         update_volume_display()
         if audio_core and audio_state then
             audio_core.set_volume(volume)
@@ -415,6 +448,7 @@ local function create_volume_card(parent)
         plus_btn:set_on_click(function()
             volume = math.min(100, volume + 5)
             log.info("audio", "音量增大:", volume)
+            save_volume()
             update_volume_display()
             if audio_core and audio_state then
                 audio_core.set_volume(volume)
@@ -523,7 +557,7 @@ local function create_ui()
         330,
         "/luadb/play_audio.png",
         "播放音频",
-        "播放MP3/AMR/PCM文件",
+        "播放MP3/AMR/WAV文件",
         function()
             if audio_state then
                 sys.publish("OPEN_AUDIO_PLAY_WIN")
@@ -533,7 +567,7 @@ local function create_ui()
                 -- 在UI上显示提示
                 local tip_label = airui.label({
                     parent = main_container,
-                    x = 100,
+                    x = 120,
                     y = 400,
                     w = 280,
                     h = 40,
@@ -552,6 +586,42 @@ local function create_ui()
             end
         end
     )
+    
+    -- 创建流式播放卡片
+    if is_stream_supported() then
+        create_function_card(
+            main_container,
+            430,
+            "/luadb/play_stream.png",
+            "流式播放",
+            "流式播放MP3/AMR/WAV/PCM",
+            function()
+                if audio_state then
+                    sys.publish("OPEN_AUDIO_STREAM_WIN")
+                    log.info("audio", "打开流式播放界面")
+                else
+                    log.warn("audio_main", "请先开启音频系统")
+                    local tip_label = airui.label({
+                        parent = main_container,
+                        x = 120,
+                        y = 500,
+                        w = 280,
+                        h = 40,
+                        text = "请先开启音频系统",
+                        color = COLOR_ERROR,
+                        font_size = 16,
+                        align = "center",
+                    })
+                    sys.taskInit(function()
+                        sys.wait(2000)
+                        if tip_label then
+                            tip_label:destroy()
+                        end
+                    end)
+                end
+            end
+        )
+    end
     
     -- 底部版本信息
     airui.label({

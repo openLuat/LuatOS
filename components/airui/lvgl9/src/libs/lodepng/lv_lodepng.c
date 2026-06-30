@@ -58,6 +58,40 @@ static uint32_t airui_png_cache_max_bytes(void)
     if(cache == NULL) return 0;
     return (uint32_t)lv_cache_get_max_size(cache, NULL);
 }
+
+/** 图片缓存启用时，单张解码像素缓冲必须满足 w*h*4 <= LV_CACHE_DEF_SIZE */
+static bool airui_png_reject_cache_too_large(const lv_image_decoder_dsc_t * dsc)
+{
+    if(dsc == NULL || dsc->args.no_cache || !lv_image_cache_is_enabled()) {
+        return false;
+    }
+
+    uint32_t cache_max = airui_png_cache_max_bytes();
+    if(cache_max == 0) {
+        return false;
+    }
+
+    uint32_t w = (uint32_t)dsc->header.w;
+    uint32_t h = (uint32_t)dsc->header.h;
+    uint32_t need_buf = w * h * 4U;
+    if(need_buf <= cache_max) {
+        return false;
+    }
+
+    LLOGE("open fail: 图片 %ux%u 过大，解码需 w*h*4=%u 字节，超过单图上限 %u 字节，无法显示 src=%s (请缩小图片，要求 w*h*4 <= %u)",
+          (unsigned)w, (unsigned)h, need_buf, cache_max, airui_png_src_path(dsc), cache_max);
+    return true;
+}
+
+static void airui_png_open_fail_cleanup(lv_image_decoder_dsc_t * dsc, lv_draw_buf_t * decoded)
+{
+    if(decoded != NULL) {
+        lv_draw_buf_destroy(decoded);
+    }
+    if(dsc != NULL) {
+        dsc->decoded = NULL;
+    }
+}
 #endif
 
 /*********************
@@ -220,6 +254,13 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
     }
 
 #ifdef __LUATOS__
+    if(airui_png_reject_cache_too_large(dsc)) {
+        LV_PROFILER_DECODER_END_TAG("lv_lodepng_decoder_open");
+        return LV_RESULT_INVALID;
+    }
+#endif
+
+#ifdef __LUATOS__
     uint64_t _airui_dbg_t0 = 0;
     if (luat_image_get_debug()) {
         _airui_dbg_t0 = luat_mcu_tick64();
@@ -285,6 +326,21 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
         return LV_RESULT_OK;
     }
 
+#ifdef __LUATOS__
+    {
+        uint32_t cache_max = airui_png_cache_max_bytes();
+        if(cache_max > 0 && decoded->data_size > cache_max) {
+            LLOGE("open fail: 图片 %dx%d 过大，解码像素缓冲 %u 字节，超过单图上限 %u 字节，无法显示 src=%s (请缩小图片，要求 w*h*4 <= %u)",
+                  (int)dsc->header.w, (int)dsc->header.h,
+                  (unsigned)decoded->data_size, cache_max,
+                  airui_png_src_path(dsc), cache_max);
+            airui_png_open_fail_cleanup(dsc, decoded);
+            LV_PROFILER_DECODER_END_TAG("lv_lodepng_decoder_open");
+            return LV_RESULT_INVALID;
+        }
+    }
+#endif
+
     /*Add the decoded image to the cache*/
     lv_image_cache_data_t search_key;
     search_key.src_type = dsc->src_type;
@@ -295,9 +351,12 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
 
     if(entry == NULL) {
 #ifdef __LUATOS__
-        LLOGE("open fail: 写入图片缓存失败 src=%s data_size=%u cache_max=%u "
-              "(解码结果大于缓存上限时会被拒绝，或缓存驱逐失败)",
-              airui_png_src_path(dsc), (unsigned)decoded->data_size, airui_png_cache_max_bytes());
+        LLOGE("open fail: 写入图片缓存失败 src=%s data_size=%u (请缩小图片)",
+              airui_png_src_path(dsc), (unsigned)decoded->data_size);
+        airui_png_open_fail_cleanup(dsc, decoded);
+#else
+        lv_draw_buf_destroy(decoded);
+        dsc->decoded = NULL;
 #endif
         LV_PROFILER_DECODER_END_TAG("lv_lodepng_decoder_open");
         return LV_RESULT_INVALID;
@@ -333,10 +392,17 @@ static lv_draw_buf_t * decode_png_data(const void * png_data, size_t png_data_si
     if(error) {
         if(decoded != NULL)  lv_draw_buf_destroy(decoded);
 #ifdef __LUATOS__
-        LLOGE("decode fail: lodepng_decode32 err=%u (%s) hint=%s insize=%u %ux%u need_buf=%u",
-              error, lodepng_error_text(error), airui_lodepng_err_hint(error, png_width, png_height),
-              (unsigned)png_data_size, png_width, png_height,
-              (unsigned)((uint32_t)png_width * png_height * 4U));
+        if(error == 83) {
+            uint32_t need_buf = (uint32_t)png_width * png_height * 4U;
+            LLOGE("decode fail: lodepng_decode32 err=%u (%s) hint=解码像素缓冲分配失败（%ux%u图片需要%u的连续内存，当前连续内存不足，请缩小图片）",
+                  error, lodepng_error_text(error), png_width, png_height, (unsigned)need_buf);
+        }
+        else {
+            LLOGE("decode fail: lodepng_decode32 err=%u (%s) hint=%s insize=%u %ux%u need_buf=%u",
+                  error, lodepng_error_text(error), airui_lodepng_err_hint(error, png_width, png_height),
+                  (unsigned)png_data_size, png_width, png_height,
+                  (unsigned)((uint32_t)png_width * png_height * 4U));
+        }
 #endif
         return NULL;
     }

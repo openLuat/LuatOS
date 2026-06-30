@@ -83,6 +83,36 @@ static uint32_t airui_jpg_rgb888_buf_size(uint32_t w, uint32_t h)
 {
     return (uint32_t)w * h * 3U;
 }
+
+static bool airui_jpg_should_check_cache(const lv_image_decoder_dsc_t * dsc)
+{
+    return dsc != NULL && !dsc->args.no_cache && lv_image_cache_is_enabled();
+}
+
+/** 图片缓存启用时，单张解码像素缓冲必须满足 w*h*3 <= 单图上限 */
+static bool airui_jpg_reject_cache_too_large(const char * src, uint32_t w, uint32_t h)
+{
+    uint32_t cache_max = airui_jpg_cache_max_bytes();
+    if(cache_max == 0) {
+        return false;
+    }
+
+    uint32_t need_buf = airui_jpg_rgb888_buf_size(w, h);
+    if(need_buf <= cache_max) {
+        return false;
+    }
+
+    LLOGE("open fail: 图片 %ux%u 过大，解码需 w*h*3=%u 字节，超过单图上限 %u 字节，无法显示 src=%s (请缩小图片，要求 w*h*3 <= %u)",
+          (unsigned)w, (unsigned)h, need_buf, cache_max, src, cache_max);
+    return true;
+}
+
+static void airui_jpg_log_alloc_fail(const char * src, uint32_t w, uint32_t h)
+{
+    uint32_t need_buf = airui_jpg_rgb888_buf_size(w, h);
+    LLOGE("decode fail: hzjpeg alloc fail hint=解码像素缓冲分配失败（%ux%u图片需要%u的连续内存，当前连续内存不足，请缩小图片） src=%s",
+          (unsigned)w, (unsigned)h, (unsigned)need_buf, src);
+}
 #endif
 
 /*********************
@@ -217,6 +247,14 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
     }
 
     const char * fn = dsc->src;
+
+#ifdef __LUATOS__
+    if(airui_jpg_should_check_cache(dsc) &&
+       airui_jpg_reject_cache_too_large(fn, (uint32_t)dsc->header.w, (uint32_t)dsc->header.h)) {
+        return LV_RESULT_INVALID;
+    }
+#endif
+
     lv_fs_file_t * file = lv_malloc(sizeof(lv_fs_file_t));
     hzjpeg_session_t * session = lv_malloc_zeroed(sizeof(hzjpeg_session_t));
     JDEC * jd = lv_malloc(sizeof(JDEC));
@@ -273,11 +311,11 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
 
     out_w = (session->orientation % 180U) ? jd->height : jd->width;
     out_h = (session->orientation % 180U) ? jd->width : jd->height;
+
     decoded = lv_draw_buf_create_ex(image_cache_draw_buf_handlers, out_w, out_h, LV_COLOR_FORMAT_RGB888, LV_STRIDE_AUTO);
     if(decoded == NULL) {
 #ifdef __LUATOS__
-        LLOGE("open fail: 像素缓冲分配失败 src=%s %ux%u need_buf=%u (RGB888, w*h*3)",
-              fn, (unsigned)out_w, (unsigned)out_h, airui_jpg_rgb888_buf_size(out_w, out_h));
+        airui_jpg_log_alloc_fail(fn, out_w, out_h);
 #endif
         goto failed;
     }
@@ -306,9 +344,14 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
 #endif
     if(rc != JDR_OK) {
 #ifdef __LUATOS__
-        LLOGE("decode fail: jd_decomp err=%d (%s) hint=%s src=%s raw=%ux%u out=%ux%u",
-              (int)rc, airui_jpg_err_name(rc), airui_jpg_err_hint(rc), fn,
-              (unsigned)jd->width, (unsigned)jd->height, (unsigned)out_w, (unsigned)out_h);
+        if(rc == JDR_MEM1) {
+            airui_jpg_log_alloc_fail(fn, out_w, out_h);
+        }
+        else {
+            LLOGE("decode fail: jd_decomp err=%d (%s) hint=%s src=%s raw=%ux%u out=%ux%u",
+                  (int)rc, airui_jpg_err_name(rc), airui_jpg_err_hint(rc), fn,
+                  (unsigned)jd->width, (unsigned)jd->height, (unsigned)out_w, (unsigned)out_h);
+        }
 #endif
         goto failed;
     }
@@ -340,6 +383,18 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
         return LV_RESULT_OK;
     }
 
+#ifdef __LUATOS__
+    {
+        uint32_t cache_max = airui_jpg_cache_max_bytes();
+        if(cache_max > 0 && decoded->data_size > cache_max) {
+            LLOGE("open fail: 图片 %ux%u 过大，解码像素缓冲 %u 字节，超过单图上限 %u 字节，无法显示 src=%s (请缩小图片，要求 w*h*3 <= %u)",
+                  (unsigned)out_w, (unsigned)out_h,
+                  (unsigned)decoded->data_size, cache_max, fn, cache_max);
+            goto failed;
+        }
+    }
+#endif
+
     lv_image_cache_data_t search_key;
     search_key.src_type = dsc->src_type;
     search_key.src = dsc->src;
@@ -348,9 +403,8 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
     lv_cache_entry_t * entry = lv_image_decoder_add_to_cache(decoder, &search_key, decoded, NULL);
     if(entry == NULL) {
 #ifdef __LUATOS__
-        LLOGE("open fail: 写入图片缓存失败 src=%s data_size=%u cache_max=%u "
-              "(解码结果大于缓存上限时会被拒绝，或缓存驱逐失败)",
-              fn, (unsigned)decoded->data_size, airui_jpg_cache_max_bytes());
+        LLOGE("open fail: 写入图片缓存失败 src=%s data_size=%u (请缩小图片)",
+              fn, (unsigned)decoded->data_size);
 #endif
         goto failed;
     }
@@ -359,6 +413,8 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
     return LV_RESULT_OK;
 
 failed:
+    dsc->decoded = NULL;
+    dsc->user_data = NULL;
     if(adjusted != NULL && adjusted != decoded) {
         lv_draw_buf_destroy(adjusted);
     }

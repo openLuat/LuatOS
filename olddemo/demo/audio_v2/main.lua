@@ -104,7 +104,7 @@ function audio_setup_air780ehm_evb()
     es8311.set_data_bits(i2c_id,16)
     es8311.set_format(i2c_id)
     es8311.resume(i2c_id)
-    es8311.set_voice_vol(i2c_id,57)
+    es8311.set_voice_vol(i2c_id,50)
     es8311.set_mic_vol(i2c_id,85)
     --es8311.standby(i2c_id)
 end

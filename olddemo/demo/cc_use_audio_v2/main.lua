@@ -40,14 +40,14 @@ sys.subscribe("CC_IND", function(state)
         sys.publish("CC_READY")
     elseif state == "INCOMINGCALL" then
 		cnt = cnt + 1
-		if cnt > 1 then
+		if cnt > 2 then
 			cc.accept(0)
 			cnt = 0
 		end
     elseif state == "AUDIO_START" then
 		-- 可以往对端发送额外的音频数据
         -- cc.extern_source({"/luadb/test_16k.mp3"})
-        cc.extern_source("你好，测试一下，测试一下，测试一下")
+        -- cc.extern_source("你好，测试一下，测试一下，测试一下")
     elseif state == "HANGUP_CALL_DONE" or state == "MAKE_CALL_FAILED" or state == "DISCONNECTED" then
 		-- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
         cnt = 0

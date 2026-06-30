@@ -146,7 +146,7 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
     rtos_msg_t msg;
     switch (event) {
     case LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA:
-        if (_l_cc.upload_enable) {    //在通话状态中
+        if (_l_cc.upload_enable && _l_cc.is_true_start) {    //在通话状态中
             if (_l_cc.record_on_off) { //通话录音中
                 uint32_t zbuff_rest_data_len;
                 uint32_t fifo_read_len;
@@ -205,7 +205,7 @@ static int _l_cc_play_default_ring(void) {
     common_param.sample_rate = 8000;
     common_param.channel_nums = 1;
     common_param.data_align = 2;
-    return luat_audio_request_play_stream(&_l_cc.ring_request, NULL, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_RAW), &common_param, 0, 255, 0, _l_cc_audio_ring_request_callback, &_l_cc.ring_request, NULL);
+    return luat_audio_request_play_stream(&_l_cc.ring_request, NULL, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_RAW), &common_param, 4000, 200, 0, _l_cc_audio_ring_request_callback, &_l_cc.ring_request, NULL);
 }
 
 static void _l_cc_volte_task(void *param){

@@ -145,8 +145,8 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
                 if (l_req->is_record_file) {
                     _l_audio.total_driver_record_bytes = 0;
                     _l_audio.total_record_bytes = 0;
-                    _l_audio.target_driver_record_bytes = l_req->record_timeout_or_callback_frame * l_req->request.data_channel->driver_ctrl->common_param.sample_rate * l_req->request.data_channel->driver_ctrl->common_param.data_align * l_req->request.data_channel->driver_ctrl->common_param.channel_nums;
-                    LLOGC(luat_audio_debug_flag,"lua request %d record driver param %u-%u-%u, target record bytes %llu", l_req->self_index, l_req->request.data_channel->driver_ctrl->common_param.sample_rate, l_req->request.data_channel->driver_ctrl->common_param.data_align, l_req->request.data_channel->driver_ctrl->common_param.channel_nums, _l_audio.target_driver_record_bytes);
+                    _l_audio.target_driver_record_bytes = l_req->record_timeout_or_callback_frame * l_req->request.data_channel->driver_ctrl->rx_param.sample_rate * l_req->request.data_channel->driver_ctrl->rx_param.data_align * l_req->request.data_channel->driver_ctrl->rx_param.channel_nums;
+                    LLOGC(luat_audio_debug_flag,"lua request %d record driver param %u-%u-%u, target record bytes %llu", l_req->self_index, l_req->request.data_channel->driver_ctrl->rx_param.sample_rate, l_req->request.data_channel->driver_ctrl->rx_param.data_align, l_req->request.data_channel->driver_ctrl->rx_param.channel_nums, _l_audio.target_driver_record_bytes);
                     if (l_req->request.record_codec.opts->make_head) {
                         luat_buffer_t out_buffer;
                         out_buffer.data = _l_audio.temp;

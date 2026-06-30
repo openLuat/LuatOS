@@ -25,7 +25,6 @@ static void _audio_decode_extern_source_play_info(luat_audio_extern_source_t *so
             }
         } else {
             luat_audio_data_codec_t codec = {0};
-            codec.common_param.driver_work_mode = LUAT_AUDIO_DRIVER_MODE_PLAY;
             uint8_t codec_type = 255;
             //没有指定解码器则需要搜索所有的解码器，解码尝试分析播放参数，找到合适的解码器
             for (int i = 0; i < LUAT_AUDIO_DATA_CODEC_TYPE_MAX; i++) {

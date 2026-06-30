@@ -62,13 +62,16 @@ struct luat_audio_driver_ctrl
     uint32_t static_play_buffer_cnt;
     uint32_t one_play_block_len;  /**< 1个block播放的音频数据长度 */
     uint32_t one_record_block_len;  /**< 1个block录音的音频数据长度 */
-    luat_audio_common_param_t common_param;  /**< 公共音频参数 */
+    luat_audio_common_param_t tx_param;  /**< 发送音频参数 */
+    luat_audio_common_param_t rx_param;  /**< 接收音频参数 */
     /** 软件消除爆破音相关参数 */
     luat_rtos_timer_t pa_power_on_delay_timer;          /**< PA电源使能延时定时器 */
     luat_rtos_timer_t codec_ready_after_wakeup_timer;   /**< CODEC唤醒后不稳定定时器 */
     uint16_t pa_power_on_delay_time_ms;                 /**< PA电源使能延时时间，单位：毫秒 */
     uint16_t codec_power_off_delay_time_ms;             /**< CODEC电源关闭后延时时间，单位：毫秒 */
     uint32_t codec_ready_after_wakeup_time_ms;          /**< CODEC唤醒后不稳定时间，单位：毫秒 */
+    uint8_t driver_work_mode;                           /**< 当前工作模式 */
+    uint8_t request_work_mode;                          /**< 请求工作模式 */
     uint8_t pa_power_pin;                               /**< PA电源控制引脚 */
     uint8_t codec_power_pin;                            /**< CODEC电源控制引脚 */
     uint8_t pa_power_ctrl_enable:1;                     /**< 是否使能PA电源控制 */
@@ -120,9 +123,10 @@ typedef struct luat_audio_driver_opts {
      * @param sample_rate 采样率 (Hz)
      * @param data_bits 数据位数 (8-32位)
      * @param channel_nums 声道数量
+     * @param is_rx_dir 是否为接收方向，0为发送方向，1为接收方向
      * @return int 成功返回0，失败返回负值错误码
      */
-    int (*modify_audio_common_param)(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_bits, uint8_t channel_nums);
+    int (*modify_audio_common_param)(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_bits, uint8_t channel_nums, uint8_t is_rx_dir);
 
     /**
      * @brief 对齐音频数据，只有右对齐的DAC驱动才需要
@@ -260,28 +264,31 @@ int luat_audio_driver_config_private_param(struct luat_audio_driver_ctrl *ctrl, 
  * @param sample_rate 采样率
  * @param data_align 数据对齐方式 (1-2-3-4对应8-16-24-32位)
  * @param channel_nums 声道数量
+ * @param is_rx_dir 是否为接收方向，0为发送方向，1为接收方向
  * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
  */
-int luat_audio_driver_config_audio_common_param(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums);
+int luat_audio_driver_config_audio_common_param(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t is_rx_dir);
 
 /**
  * @brief 改变音频驱动的采样率
  * @param ctrl 驱动控制器指针
- * @param sample_rate 采样率
+ * @param sample_rate 采样率 (Hz)
+ * @param is_rx_dir 是否为接收方向，0为发送方向，1为接收方向
  * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
  */
-int luat_audio_driver_change_sample_rate(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate);
+int luat_audio_driver_change_sample_rate(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t is_rx_dir);
 
 /**
  * @brief 启动音频驱动的播放循环、录音循环或全双工循环
  * @param ctrl 驱动控制器指针
- * @param common_param 公共参数结构指针
+ * @param tx_param 发送方向参数结构指针
+ * @param rx_param 接收方向参数结构指针
  * @param play_buff 播放缓冲区数组指针
  * @param one_block_len 单个缓冲区块长度 (字节)
  * @param block_nums 缓冲区块数量
  * @return int 成功返回LUAT_ERROR_NONE，失败返回负值错误码
  */
-int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_common_param_t *play_info, uint32_t *play_buff, uint32_t one_block_len, uint8_t block_nums);
+int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_common_param_t *tx_param, luat_audio_common_param_t *rx_param, uint32_t *play_buff, uint32_t one_block_len, uint8_t block_nums);
 /**
  * @brief 关闭音频驱动的PA电源
  * @param ctrl 驱动控制器指针

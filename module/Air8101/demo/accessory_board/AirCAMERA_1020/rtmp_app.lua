@@ -234,8 +234,8 @@ end
 -- 内存检查函数
 local function memory_check()
     while true do
-        -- 等待20秒
-        sys.wait(1000)
+        -- 等待10秒
+        sys.wait(10000)
         -- 打印系统内存使用信息
         log.info("系统内存使用情况", rtos.meminfo("sys"))
         -- 打印Lua虚拟机内存使用信息

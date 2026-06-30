@@ -14,7 +14,7 @@
 
 5、netdrv_wifi.lua：连接 WIFI
 
-注意：take_photo_http_post.lua 和 video_http_post.lua 只能打开一个不能同时打开
+注意：take_photo_http_post.lua 和 video_http_post.lua 和 rtmp_app.lua 只能打开一个不能同时打开
 
 ## 演示功能概述
 

@@ -35,13 +35,13 @@
 | L                 | L               |
 | GND               | GND             |
 
-![](https://docs.openluat.com/air780epm/luatos/app/driver/can/image/VGHJbqeJVobFHYxx11Dcy2a8ngf.png)
+![](https://docs.openluat.com/air780ehv/luatos/app/driver/can/image/SVetbsv0toYNwaxPrJIclXZAn8e.png)
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air780EPM V2016版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)（理论上，最新发布的固件都可以）
+2、[Air780EHM V2040版本固件](https://docs.openluat.com/air780epm/luatos/firmware/780ehm_version/)、[Air780EHV V2040版本固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)、[Air780EGH V2040版本固件](https://docs.openluat.com/air780egh/luatos/firmware/780egg%26780egh_version/)（理论上，最新发布的固件都可以）
 
 3、PC端的USB_CAN调试工具上位机软件；ZCANPRO和UCANFDtoCANFDNETTool
 ![](https://docs.openluat.com/air780epm/luatos/app/driver/can/image/usb-can-1.png)
@@ -59,10 +59,10 @@
 4、烧录成功后，代码会自动运行，查看打印日志，如果正常运行，会打印can初始化和can收发数据等相关信息。
 
 5、can_normal：
-![](https://docs.openluat.com/air780epm/luatos/app/driver/can/image/780EPM-can1.png)
+![](https://docs.openluat.com/air780ehv/luatos/app/driver/can/image/can1.png)
 
 6、can_self_test：
-![](https://docs.openluat.com/air780epm/luatos/app/driver/can/image/780EPM-can2.png)
+![](https://docs.openluat.com/air780ehv/luatos/app/driver/can/image/can2.png)
 
 7、can_sleep：
-![](https://docs.openluat.com/air780epm/luatos/app/driver/can/image/780EPM-can3.png)
+![](https://docs.openluat.com/air780ehv/luatos/app/driver/can/image/can3.png)

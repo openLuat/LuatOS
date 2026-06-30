@@ -1,7 +1,7 @@
 {
   "app_name_cn": "1A2B猜数字",
   "app_name_en": "1A2B",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "publish_time": "2026-05-12 12:00:00",
   "category": "游戏",
   "description": "经典1A2B猜数字游戏，支持自定义位数、历史记录和横竖屏自适应",
@@ -20,5 +20,6 @@
     ]
   },
   "zip_size_kb": 100,
-  "origin_size_kb": 300
+  "origin_size_kb": 300,
+  "appid": "100218"
 }

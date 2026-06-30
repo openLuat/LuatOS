@@ -445,6 +445,8 @@ __USER_FUNC_IN_RAM__ static void uart_receive_task(void *param)
         }
         #endif
 
+        luat_airlink_check_link_timeout();
+
         while (1) {
             static uint64_t uart_read_last_log = 0;
             uart_id = g_airlink_spi_conf.uart_id;

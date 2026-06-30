@@ -259,3 +259,5 @@ extern luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 #endif
 
 void luat_netdrv_napt_set_gw(int adapter_id);
+/* Air8000: get current NAPT gateway adapter_id, < 0 when disabled */
+int  luat_netdrv_napt_get_gw_adapter(void);

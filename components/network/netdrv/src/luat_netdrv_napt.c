@@ -43,16 +43,20 @@ static void napt_sync_gw_netif(int adapter_id) {
     if (drv->netif == real_netif) return;
     uint32_t old_ip = drv->netif ? ip_addr_get_ip4_u32(&drv->netif->ip_addr) : 0;
     uint32_t new_ip = ip_addr_get_ip4_u32(&real_netif->ip_addr);
-    /* Air8000 fix: reject sync if new IP looks like a different 10.x LAN (RNDIS LAN IP) */
+    /* Air8000 fix (v2): Precise pointer check - reject sync ONLY when new netif
+     * is the registered RNDIS/USB netdrv's netif. The previous heuristic
+     * ('10.x with different b2') would false-positive multi-network fusion cases
+     * where both WANs are 10.x in different /16 segments
+     * (e.g. GPRS APN 10.x + Ethernet 10.y). */
     if (old_ip != 0 && new_ip != old_ip) {
-        uint8_t _b1o = (uint8_t)((old_ip >>  0) & 0xFF);
-        uint8_t _b1n = (uint8_t)((new_ip >>  0) & 0xFF);
-        uint8_t _b2o = (uint8_t)((old_ip >>  8) & 0xFF);
-        uint8_t _b2n = (uint8_t)((new_ip >>  8) & 0xFF);
-        if (_b1o == 10 && _b1n == 10 && _b2o != _b2n) {
-            LLOGW("NAPT netif sync REJECT: adapter=%d old IP %08X vs new IP %08X (RNDIS LAN suspected), keep old netif", adapter_id, old_ip, new_ip);
+    #ifdef NW_ADAPTER_INDEX_USB
+        luat_netdrv_t* _usb_drv = luat_netdrv_get(NW_ADAPTER_INDEX_USB);
+        if (_usb_drv != NULL && _usb_drv->netif != NULL && real_netif == _usb_drv->netif) {
+            LLOGW("NAPT netif sync REJECT: adapter=%d new netif is USB/RNDIS (IP %08X), keep original (IP %08X)",
+                  adapter_id, new_ip, old_ip);
             return;
         }
+    #endif
     }
     LLOGI("NAPT netif sync: adapter=%d old=%p(IP %08X) -> new=%p(IP %08X)", adapter_id, drv->netif, old_ip, real_netif, new_ip);
     drv->netif = real_netif;
@@ -272,4 +276,10 @@ void luat_netdrv_napt_set_gw(int adapter_id) {
             }
         }
     }
+}
+
+
+/* Air8000: expose current NAPT gateway adapter_id (used by CSDK wrap_ip_input.c) */
+int luat_netdrv_napt_get_gw_adapter(void) {
+    return s_gw_adapter_id;
 }

@@ -43,9 +43,20 @@ static void napt_sync_gw_netif(int adapter_id) {
     if (drv->netif == real_netif) return;
     uint32_t old_ip = drv->netif ? ip_addr_get_ip4_u32(&drv->netif->ip_addr) : 0;
     uint32_t new_ip = ip_addr_get_ip4_u32(&real_netif->ip_addr);
+    /* Air8000 fix: reject sync if new IP looks like a different 10.x LAN (RNDIS LAN IP) */
+    if (old_ip != 0 && new_ip != old_ip) {
+        uint8_t _b1o = (uint8_t)((old_ip >>  0) & 0xFF);
+        uint8_t _b1n = (uint8_t)((new_ip >>  0) & 0xFF);
+        uint8_t _b2o = (uint8_t)((old_ip >>  8) & 0xFF);
+        uint8_t _b2n = (uint8_t)((new_ip >>  8) & 0xFF);
+        if (_b1o == 10 && _b1n == 10 && _b2o != _b2n) {
+            LLOGW("NAPT netif sync REJECT: adapter=%d old IP %08X vs new IP %08X (RNDIS LAN suspected), keep old netif", adapter_id, old_ip, new_ip);
+            return;
+        }
+    }
     LLOGI("NAPT netif sync: adapter=%d old=%p(IP %08X) -> new=%p(IP %08X)", adapter_id, drv->netif, old_ip, real_netif, new_ip);
     drv->netif = real_netif;
-    #endif
+        #endif
 }
 
 #if !defined(LUAT_USE_PSRAM) && !defined(LUAT_USE_NETDRV_NAPT)
@@ -54,6 +65,14 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
 }
 #else
 __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
+    /* Air8000 诊断: 入口采样,区分 wnet/lan 来源, 重点观察 AP 上行包是否到达 */
+    static uint32_t _air8k_in_cnt = 0;
+    int _air8k_log = ((_air8k_in_cnt++ & 0x1F) == 0);
+    int _air8k_is_wnet_arg = (s_gw_adapter_id == id);
+    if (_air8k_log) {
+        LLOGD("[AIR8000][napt_in] id=%d len=%u is_wnet=%d gw_ad=%d cnt=%u",
+              id, (unsigned)len, _air8k_is_wnet_arg, s_gw_adapter_id, (unsigned)_air8k_in_cnt);
+    }
     if (s_gw_adapter_id < 0) {
         // LLOGD("NAPT 未开启");
         return 0; // NAPT没有开启
@@ -238,4 +257,19 @@ void luat_netdrv_napt_disable(void) {
     luat_netdrv_napt_udp_cleanup();
     luat_netdrv_napt_icmp_cleanup();
     s_gw_adapter_id = -1;
+}
+void luat_netdrv_napt_set_gw(int adapter_id) {
+    LLOGD("NAPT set_gw: adapter=%d", adapter_id);
+    s_gw_adapter_id = adapter_id;
+    napt_sync_gw_netif(adapter_id);
+    if (adapter_id > 0) {
+        luat_netdrv_t* gw = luat_netdrv_get(adapter_id);
+        if (gw && gw->netif) {
+            ip4_addr_t* gw_ip = &gw->netif->gw;
+            if (!ip4_addr_isany(gw_ip)) {
+                err_t err = etharp_query(gw->netif, gw_ip, NULL);
+                LLOGD("NAPT set_gw: ARP query gw=%08X result=%d", gw_ip->addr, err);
+            }
+        }
+    }
 }

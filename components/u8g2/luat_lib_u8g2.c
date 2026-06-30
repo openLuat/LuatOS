@@ -1414,6 +1414,12 @@ LUAT_WEAK uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t
 }
 #endif
 
+// 仅 PC 模拟器(luat_u8g2_sdl2.c)使用,暴露 file-static 变量给 override
+void luat_u8g2_get_bus_ids(int* i2c_id_out, int* spi_id_out) {
+    if (i2c_id_out) *i2c_id_out = i2c_id;
+    if (spi_id_out) *spi_id_out = spi_id;
+}
+
 int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
     u8g2_t* u8g2 = &conf->u8g2;
     const luat_u8g2_dev_reg_t* devreg = NULL;

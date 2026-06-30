@@ -558,6 +558,8 @@ target("luatos-lua")
     if use_gui then
         add_packages("libsdl2")
         add_files("ui/*.c")
+        -- 非 GUI 构建用的 u8g2 no-op stub;GUI 构建里 luat_u8g2_sdl2.c 才是强定义,会与之冲突
+        remove_files("ui/luat_u8g2_pc.c")
         add_defines("U8G2_USE_LARGE_FONTS=1")
 
         -- sdl2
@@ -566,6 +568,8 @@ target("luatos-lua")
         -- u8g2
         add_includedirs(luatos.."components/u8g2")
         add_files(luatos.."components/u8g2/*.c")
+        -- u8g2 SDL2 模拟器(覆盖 LUAT_WEAK luat_u8g2_setup,i2c_id==21 / spi_id==21 时启用)
+        add_files("ui/luat_u8g2_sdl2.c")
         -- lcd
         add_includedirs(luatos.."components/lcd")
         add_includedirs(luatos.."components/luat_image/include")

@@ -47,21 +47,21 @@ static void napt_sync_gw_netif(int adapter_id) {
      * v2 (precise) layer alone is INSUFFICIENT because napt_enable runs BEFORE
      * luat_netdrv_rndis_link_up() assigns netdrv_rndis.netif, so the USB drv
      * netif is still NULL at sync time and the precise check passes.
-     * v3 adds an SDK-side layer: query net_lwip_get_netif(NW_ADAPTER_INDEX_USB),
+     * v3 adds an SDK-side layer: query net_lwip_get_netif(NW_ADAPTER_INDEX_LWIP_USB),
      * which works as soon as SDK registers the RNDIS netif (even before LuatOS
      * sees it). This catches the RNDIS pollution at NAPT enable time, while
      * still avoiding the 10.x heuristic false-positives. */
     if (old_ip != 0 && new_ip != old_ip) {
-    #ifdef NW_ADAPTER_INDEX_USB
+    #ifdef NW_ADAPTER_INDEX_LWIP_USB
         /* Layer 1: LuatOS USB netdrv (available after rndis_link_up) */
-        luat_netdrv_t* _usb_drv = luat_netdrv_get(NW_ADAPTER_INDEX_USB);
+        luat_netdrv_t* _usb_drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_USB);
         if (_usb_drv != NULL && _usb_drv->netif != NULL && real_netif == _usb_drv->netif) {
             LLOGW("NAPT netif sync REJECT (L1 luat-usb): adapter=%d new netif is USB/RNDIS (IP %08X), keep original (IP %08X)",
                   adapter_id, new_ip, old_ip);
             return;
         }
         /* Layer 2: SDK-side lookup (works before LuatOS USB drv is wired up) */
-        struct netif* _sdk_usb_netif = net_lwip_get_netif(NW_ADAPTER_INDEX_USB);
+        struct netif* _sdk_usb_netif = net_lwip_get_netif(NW_ADAPTER_INDEX_LWIP_USB);
         if (_sdk_usb_netif != NULL && real_netif == _sdk_usb_netif) {
             LLOGW("NAPT netif sync REJECT (L2 sdk-usb): adapter=%d new netif is SDK RNDIS (IP %08X), keep original (IP %08X)",
                   adapter_id, new_ip, old_ip);

@@ -14,7 +14,7 @@
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air780epm/luatos/app/driver/eth/image/RFSvb75NRoEWqYxfCRVcVrOKnsf.jpg)
+![](https://docs.openluat.com/air780ehv/luatos/app/driver/can/image/AJWAbN02Bo4OgGxM1uUcSC0onOc.jpg)
 
 1、Air780EPM V1.3版本开发板一块：
 

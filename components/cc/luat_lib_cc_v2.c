@@ -376,7 +376,7 @@ static int l_cc_speech_init(lua_State* L) {
         lua_pushboolean(L, 0);
         return 1;
     }
-    luat_rtos_task_create(&_l_cc.task_handle, 4*1024, 50, "volte", _l_cc_volte_task, NULL, 0);
+    luat_rtos_task_create(&_l_cc.task_handle, 4*1024, 100, "volte", _l_cc_volte_task, NULL, 0);
     lua_pushboolean(L, 1);
     return 1;
 }

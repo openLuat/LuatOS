@@ -66,10 +66,11 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 		ctrl->current_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
 	}
 	
-	// soc_printf("current_play_cnt %d", ctrl->current_play_cnt);
+	//soc_printf("%d,%x", ctrl->current_play_cnt, _luat_audio.current_request_block);
 	if (!_luat_audio.current_request_block ) {
 		goto CHECK_FILL_BLANK;
 	} else {
+		//soc_printf("%d,%d", _luat_audio.current_request_block->play_codec.tx_no_callback, _luat_audio.current_request_block->is_save_play_data);
 		if (_luat_audio.current_request_block->play_codec.tx_no_callback) { // 解码器要求发送不使用回调函数
 			if (_luat_audio.current_request_block->is_save_play_data) {
 				luat_fifo_write(_luat_audio.current_request_block->play_save_fifo, ctrl->play_buff_byte + ctrl->one_play_block_len * last_play_cnt, ctrl->one_play_block_len);

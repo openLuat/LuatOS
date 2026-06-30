@@ -13,7 +13,7 @@
 ]] --
 PROJECT = "Air8201G-Turnkey"
 VERSION = "001.000.005"
-PRODUCT_KEY = "abc"
+PRODUCT_KEY = "sh5g0OTP7ThOSlGKmE5jiEMbOBqQWyw9"
 
 -- 模块导入（蓝牙暂时禁用）
 local excloud_module = require "excloud_module"

@@ -251,8 +251,9 @@ function report.send_status()
     log.info("REPORT", "发送状态上报")
 
     local system_info = get_system_info()
-    local battery_level = mypower.get_battery_level()
-    local battery_voltage = mypower.get_battery_voltage()
+    local battery_level = mypower.get_battery_level()          -- 百分比(0-100)，用于 BATTERY_LEVEL 字段
+    local battery_voltage = mypower.get_battery_voltage()      -- V（保留两位小数）
+    local battery_voltage_mv = mypower.get_battery_voltage_mv() -- mV，用于 VOLTAGE 字段
     local is_charging = mypower.is_charging()
     local location = mygps.get_location()
     local current_time = os.time()
@@ -272,6 +273,7 @@ function report.send_status()
             value = system_info.iccid or ""
         },
         {
+            -- BATTERY_LEVEL(771) 上报电量百分比(0-100)，量程：3.3V=0% ~ 4.15V=100%
             field_meaning = excloud.FIELD_MEANINGS.BATTERY_LEVEL,
             data_type = excloud.DATA_TYPES.INTEGER,
             value = battery_level
@@ -509,12 +511,30 @@ function report.send_location()
         return false, "无位置"
     end
 
-    local ok, err = excloud_module.send_location(
-        location.lat,
-        location.lng,
-        location.accuracy,
-        location.source
-    )
+    local data = {
+        {
+            field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
+            data_type     = excloud.DATA_TYPES.FLOAT,
+            value         = location.lat
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
+            data_type     = excloud.DATA_TYPES.FLOAT,
+            value         = location.lng
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.LOCATION_METHOD,
+            data_type     = excloud.DATA_TYPES.ASCII,
+            value         = location.source or "UNKNOWN"
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = os.time()
+        }
+    }
+
+    local ok, err = excloud.send(data, false)
 
     if ok then
         log.info("REPORT", "位置上报发送成功:", location.lat, location.lng)
@@ -529,13 +549,28 @@ end
 function report.send_battery()
     log.info("REPORT", "发送电池上报")
 
-    local battery = mypower.get_battery_level()
+    local battery_level = mypower.get_battery_level()      -- 电量百分比(0-100)
+    local battery_mv = mypower.get_battery_voltage_mv()    -- 电压(mV)
     local is_charging = mypower.is_charging()
 
-    local ok, err = excloud_module.send_battery(battery, is_charging)
+    local data = {
+        {
+            -- BATTERY_LEVEL(771) 上报电量百分比(0-100)，量程：3.3V=0% ~ 4.15V=100%
+            field_meaning = excloud.FIELD_MEANINGS.BATTERY_LEVEL,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = battery_level
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = os.time()
+        }
+    }
+
+    local ok, err = excloud.send(data, false)
 
     if ok then
-        log.info("REPORT", "电池上报发送成功:", battery .. "%", "充电中:", is_charging)
+        log.info("REPORT", "电池上报发送成功:", battery_level .. "%", battery_mv .. "mV", "充电中:", is_charging)
     else
         log.error("REPORT", "电池上报发送失败:", err)
     end
@@ -547,9 +582,43 @@ end
 function report.send_system_status()
     log.info("REPORT", "发送系统状态上报")
 
-    local system_info = get_system_info()
+    local info = get_system_info()
 
-    local ok, err = excloud_module.send_system_status(system_info)
+    local data = {
+        {
+            field_meaning = excloud.FIELD_MEANINGS.SIGNAL_STRENGTH_4G,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = info.signal or 0
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.SIM_ICCID,
+            data_type     = excloud.DATA_TYPES.ASCII,
+            value         = info.iccid or ""
+        },
+        {
+            -- ENV_TEMPERATURE(263) 表示 CPU 温度/环境温度
+            field_meaning = excloud.FIELD_MEANINGS.ENV_TEMPERATURE,
+            data_type     = excloud.DATA_TYPES.FLOAT,
+            value         = (info.temperature or 0) / 1000
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = os.time()
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.BOOT_REASON,
+            data_type     = excloud.DATA_TYPES.ASCII,
+            value         = info.reboot_reason or "0,0,0"
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.BOOT_COUNT,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = info.reboot_count or 0
+        }
+    }
+
+    local ok, err = excloud.send(data, false)
 
     if ok then
         log.info("REPORT", "系统状态上报发送成功")

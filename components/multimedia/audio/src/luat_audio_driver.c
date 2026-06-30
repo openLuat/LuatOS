@@ -214,6 +214,7 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
         ctrl->one_play_block_len = 0;
         ctrl->one_record_block_len = 0;
         ctrl->current_play_cnt = 0;
+        ctrl->static_play_buffer_cnt = 0;
         switch (ctrl->request_work_mode) {
             case LUAT_AUDIO_DRIVER_MODE_PLAY:
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
@@ -240,7 +241,6 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
                 }
                 break;
             case LUAT_AUDIO_DRIVER_MODE_SPEECH:
-                ctrl->static_play_buffer_cnt = 0;
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
                     ret = ctrl->opts->start_full_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
                     ctrl->one_play_block_len = one_block_len;
@@ -294,7 +294,7 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
     LLOGC(luat_audio_debug_flag, "start check codec ready %d , param %u", ctrl->codec_ready_state,
         ctrl->codec_ready_after_wakeup_time_ms);
     if (!ctrl->codec_ready_state) {
-        if (ctrl->codec_ready_after_wakeup_time_ms) {
+        if (ctrl->codec_ready_after_wakeup_time_ms && (ctrl->driver_work_mode < LUAT_AUDIO_DRIVER_MODE_SPEECH)) {
             luat_start_rtos_timer(ctrl->codec_ready_after_wakeup_timer, ctrl->codec_ready_after_wakeup_time_ms, 0);
         } else {
             ctrl->codec_ready_state = 1;

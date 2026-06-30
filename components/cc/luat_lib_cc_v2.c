@@ -28,11 +28,8 @@
 #define LUAT_LOG_TAG "cc"
 #include "luat_log.h"
 enum{
-	CC_EVENT_PLAY_TONE = 1,
-	CC_EVENT_VOICE_START,
 	CC_EVENT_HANGUP,
 	CC_EVENT_CALL_READY,
-    CC_EVENT_VOICE_START_RECORD,
 
     CC_MSG_AUDIO_START = 0,
     CC_MSG_EXTERNAL_SOURCE_DECODE_DONE,
@@ -63,7 +60,6 @@ typedef struct
 	uint8_t is_force_ring:1;     //是否强制播放振铃
 	uint8_t record_on_off:1;
 	uint8_t upload_enable:1;
-    uint8_t request_upload_enable:1;
     uint8_t is_play_extern_source:1;     //是否播放第三方数据源
     uint8_t is_true_start:1;
 }luat_cc_ctrl_t;
@@ -118,6 +114,7 @@ static int _l_cc_audio_start(lua_State *L, void* ptr) {
 }
 
 static void _l_cc_audio_ring_request_callback(uint32_t event, uint8_t *data, uint32_t param, struct luat_audio_request_block *request_block) {
+    // LLOGD("EVENT: %d", event);
     if (event == LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA) {
         if (_l_cc.is_play_ring && !_l_cc.is_play_user_ring) {   //在播放默认振铃
             if (luat_fifo_check_free_space(_l_cc.ring_request.org_input_data_fifo) >= sizeof(ringback_8k_data)) {
@@ -205,7 +202,9 @@ static int _l_cc_play_default_ring(void) {
     common_param.sample_rate = 8000;
     common_param.channel_nums = 1;
     common_param.data_align = 2;
-    return luat_audio_request_play_stream(&_l_cc.ring_request, NULL, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_RAW), &common_param, 4000, 200, 0, _l_cc_audio_ring_request_callback, &_l_cc.ring_request, NULL);
+    _l_cc.is_play_ring = 1;
+    _l_cc.is_audio_start = 1;
+    return luat_audio_request_play_stream(&_l_cc.ring_request, NULL, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_RAW), &common_param, 2000, 200, 0, _l_cc_audio_ring_request_callback, &_l_cc.ring_request, NULL);
 }
 
 static void _l_cc_volte_task(void *param){
@@ -215,95 +214,10 @@ static void _l_cc_volte_task(void *param){
 		luat_rtos_event_recv(_l_cc.task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
 		switch(event.id)
 		{
-		case CC_EVENT_PLAY_TONE:
-            if (LUAT_MOBILE_CC_PLAY_STOP == event.param1){
-                if (_l_cc.is_audio_start) {
-                    if (_l_cc.is_play_ring) {
-                        LLOGD("VOLTE_EVENT_PLAY_STOP stop play ring");
-                        luat_audio_request_cancel_immediate(&_l_cc.ring_request);
-                    } else {
-                        LLOGD("VOLTE_EVENT_PLAY_STOP stop play voice");
-                        luat_audio_request_cancel_immediate(&_l_cc.cc_request);
-                    }
-                } else {
-                    LLOGE("VOLTE_EVENT_PLAY_STOP but NO audio start");
-                }
-                _l_cc.is_audio_start = 0;
-                _l_cc.is_play_ring = 0;
-                luat_audio_driver_stop(luat_audio_driver_probe(NULL));
-                break;
-            }
-            else
-            {
-            	LLOGD("play tone %d", event.param1);
-                switch (event.param1) {
-                    case LUAT_MOBILE_CC_PLAY_DIAL_TONE:
-                        if (!_l_cc.is_play_user_ring) {
-                            ret = _l_cc_play_default_ring();
-                        }
-                        break;
-                    case LUAT_MOBILE_CC_PLAY_CALL_INCOMINGCALL_RINGING:
-                        if (!_l_cc.is_play_user_ring) {
-                            ret = _l_cc_play_default_ring();
-                        }
-                        break;
-                    default:
-                        ret = _l_cc_play_default_ring();
-                        break;
-                }
-                if (ret < 0) {
-                    LLOGE("VOLTE_EVENT_PLAY_TONE play default ring failed, ret %d", ret);
-                } else {
-                    _l_cc.is_play_ring = 1;
-                    _l_cc.is_audio_start = 1;
-                }
-            }
-			break;
-		case CC_EVENT_VOICE_START:
-            LLOGD("CC_EVENT_VOICE_START");
-            if (_l_cc.is_audio_start) {
-                if (_l_cc.is_play_ring) {
-                    luat_audio_request_cancel_immediate(&_l_cc.ring_request);
-                    LLOGD("stop play ring");
-                    _l_cc.is_play_ring = 0;
-                } else {
-                    luat_audio_request_cancel_immediate(&_l_cc.cc_request);
-                    LLOGD("stop play voice");
-                }
-
-            }
-            const luat_audio_data_codec_opts_t* codec_opts = luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_CC);
-            if (!codec_opts) {
-                LLOGE("CC_EVENT_VOICE_START codec_opts is NULL");
-                break;
-            }
-            ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)(event.param1), event.param2, event.param3, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, NULL);
-            if (!ret) {
-                if (_l_cc.request_upload_enable) {
-                    _l_cc.upload_enable = 1;
-                    rtos_msg_t msg;
-                    msg.handler = _l_cc_audio_start;
-                    msg.arg1 = CC_MSG_AUDIO_START;
-                    luat_msgbus_put(&msg, 0);
-                } else {
-                    _l_cc.upload_enable = 0;
-                    _l_cc.cc_request.is_record_end = 1;
-                }
-                _l_cc.is_audio_start = 1;
-                LLOGD("CC_EVENT_VOICE_START request speech success, update upload enable %d", _l_cc.upload_enable);
-            } else {
-                LLOGE("CC_EVENT_VOICE_START request speech failed, ret %d", ret);
-            }
-
-			break;
 		case CC_EVENT_HANGUP:
 			luat_mobile_hangup_call(event.param1);
 			break;
-        case CC_EVENT_VOICE_START_RECORD:
-        	_l_cc.upload_enable = 1;
-            _l_cc.cc_request.is_record_end = 0;
-            break;
-		}
+        }
 	}
 }
 
@@ -602,30 +516,87 @@ LUAMOD_API int luaopen_cc( lua_State *L ) {
     return 1;
 }
 
+void luat_cc_start_upload(void)
+{
+    _l_cc.upload_enable = 1;
+    _l_cc.cc_request.is_record_end = 0;
+}
+
 void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, uint32_t play_block_cnt, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t record_callback_cnt_level, uint8_t need_upload, uint8_t true_start)
 {
     _l_cc.is_true_start = true_start;
-	_l_cc.request_upload_enable = need_upload;
+	_l_cc.upload_enable = need_upload;
     _l_cc.record_callback_cnt_level = record_callback_cnt_level;
     _l_cc.cc_param.sample_rate = sample_rate;
     _l_cc.cc_param.data_align = data_align;
     _l_cc.cc_param.channel_nums = channel_nums;
-	luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_VOICE_START, (uint32_t)play_buff_byte, one_play_block_len, play_block_cnt, 0);
-}
-
-void luat_cc_upload_enable(void)
-{
-    luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_VOICE_START_RECORD, 0, 0, 0, 0);
+    int ret;
+    const luat_audio_data_codec_opts_t* codec_opts = luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_CC);
+    if (!codec_opts) {
+        LLOGE("CC_EVENT_VOICE_START codec_opts is NULL");
+        return;
+    }
+    ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)play_buff_byte, one_play_block_len, play_block_cnt, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, NULL);
+    if (!ret) {
+        if (_l_cc.upload_enable) {
+            rtos_msg_t msg;
+            msg.handler = _l_cc_audio_start;
+            msg.arg1 = CC_MSG_AUDIO_START;
+            luat_msgbus_put(&msg, 0);
+        } else {
+            _l_cc.cc_request.is_record_end = 1;
+        }
+        _l_cc.is_audio_start = 1;
+        LLOGD("CC_EVENT_VOICE_START request speech success, update upload enable %d", _l_cc.upload_enable);
+    } else {
+        LLOGE("CC_EVENT_VOICE_START request speech failed, ret %d", ret);
+    }
 }
 
 void luat_cc_play_tone(uint32_t param)
 {   
-    if (!param)  {
+    int ret = LUAT_ERROR_NONE;
+    switch (param)
+    {
+    case LUAT_MOBILE_CC_PLAY_STOP:
         _l_cc.upload_enable = 0;
         _l_cc.cc_request.is_record_end = 1;
         _l_cc.tone_data_cnt = 0;
         _l_cc.is_true_start = 0;
+
+
+        if (_l_cc.ring_request.org_input_data_fifo) {
+            LLOGD("VOLTE_EVENT_PLAY_STOP stop play ring");
+            luat_audio_request_cancel_immediate(&_l_cc.ring_request);
+        }
+        if (_l_cc.cc_request.org_input_data_fifo) {
+            LLOGD("VOLTE_EVENT_PLAY_STOP stop play voice");
+            luat_audio_request_cancel_immediate(&_l_cc.cc_request);
+        }
+
+        _l_cc.is_audio_start = 0;
+        _l_cc.is_play_ring = 0;
+        luat_audio_driver_stop(luat_audio_driver_probe(NULL));
+        break;
+    case LUAT_MOBILE_CC_PLAY_DIAL_TONE:
+        if (!_l_cc.is_play_user_ring) {
+            ret = _l_cc_play_default_ring();
+        }
+        break;
+    case LUAT_MOBILE_CC_PLAY_CALL_INCOMINGCALL_RINGING:
+        if (!_l_cc.is_play_user_ring) {
+            ret = _l_cc_play_default_ring();
+        }
+        break;
+    default:
+        ret = _l_cc_play_default_ring();
+        break;
     }
-	luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_PLAY_TONE, param, 0, 0, 0);
+    if (ret < 0) {
+        LLOGE("VOLTE_EVENT_PLAY_TONE play default ring failed, ret %d", ret);
+        _l_cc.is_audio_start = 0;
+        _l_cc.is_play_ring = 0;
+    } else {
+    }
 }
 #endif

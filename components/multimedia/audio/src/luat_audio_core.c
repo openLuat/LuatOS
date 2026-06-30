@@ -66,7 +66,7 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 		ctrl->current_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
 	}
 	
-	//soc_printf("%d,%x", ctrl->current_play_cnt, _luat_audio.current_request_block);
+	//soc_printf("%d", ctrl->current_play_cnt);
 	if (!_luat_audio.current_request_block ) {
 		goto CHECK_FILL_BLANK;
 	} else {
@@ -318,15 +318,12 @@ static void _audio_request_finish(void)
 	luat_audio_request_cb_t cb = request_block->cb;
 	void *done_sem = request_block->done_sem;
 	void *cancel_sem = request_block->cancel_sem;
-
+	_audio_extern_source_finish(request_block->extern_play_source, 1);
+	_audio_extern_source_finish(request_block->extern_record_source, 1);
 	uint32_t cr = luat_rtos_entry_critical();
 	luat_fifo_clear(request_block->data_channel->play_fifo);
 	luat_fifo_clear(request_block->data_channel->record_fifo);
 	luat_fifo_clear(request_block->data_channel->ref_fifo);
-
-	_audio_extern_source_finish(request_block->extern_play_source, 1);
-	_audio_extern_source_finish(request_block->extern_record_source, 1);
-
 	_luat_audio.current_request_block = NULL;
 	luat_rtos_exit_critical(cr);
 	luat_audio_request_deinit(request_block);
@@ -787,6 +784,10 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 		LLOGE("request id %d start driver failed, ret %d", request_block->request_id, ret);
 		request_block->is_error_stop = 1;
 	} else {
+		// LLOGC(luat_audio_debug_flag, "play buffer param %u-%u, %u-%u, %u-%u", 
+		// 	luat_fifo_check_used_space(request_block->org_input_data_fifo),luat_fifo_check_free_space(request_block->org_input_data_fifo),
+		// 	luat_fifo_check_used_space(request_block->data_channel->play_fifo),luat_fifo_check_free_space(request_block->data_channel->play_fifo),
+		// 	request_block->out_buffer.pos, request_block->out_buffer.max_len);
 		request_block->cb(LUAT_AUDIO_REQUEST_EVENT_DRIVER_START, NULL, 0, request_block);
 	}
 }
@@ -953,7 +954,9 @@ static void luat_audio_common_task(void *param)
 			luat_mutex_unlock(_luat_audio.request_lock);
 			if (request_change) {
 				// 请求块有变化，需要重新播放
-				luat_rtos_task_sleep(1);	// 让低优先级的task能返回结果
+				if (_luat_audio.current_request_block->priority != 255) {
+					luat_rtos_task_sleep(1);	// 不是speech的情况下，让低优先级的task能返回结果
+				}
 				_audio_start_request(_luat_audio.current_request_block);
 				if (_luat_audio.current_request_block->is_error_stop || _luat_audio.current_request_block->is_user_stop || _luat_audio.current_request_block->is_stream_end) {	// 启动请求块失败，将当前工作请求块设置为NULL，并且重新触发一下请求事件
 					_audio_request_finish();
@@ -969,6 +972,12 @@ static void luat_audio_common_task(void *param)
 				if (!request_block->is_stop_immediate) {
 					_audio_current_request_stop();
 				} else {
+					_luat_audio.current_request_block->is_input_end = 1;
+					_luat_audio.current_request_block->is_wait_play_end = 1;
+					_luat_audio.current_request_block->play_blank_data_cnt = 0;
+					_luat_audio.current_request_block->is_record_end = 1;
+					luat_audio_driver_pa_power_off(_luat_audio.current_request_block->data_channel->driver_ctrl);
+					luat_audio_driver_codec_power_off(_luat_audio.current_request_block->data_channel->driver_ctrl);
 					_audio_request_finish();
 				}
 			} else {
@@ -1440,6 +1449,9 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 
 	request_block->record_codec.opts->set_record_info(&request_block->record_codec, common_audio_param);
 	request_block->play_codec.common_param = *common_audio_param;
+	// LLOGC(luat_audio_debug_flag, "speech sample_rate: %d-%d", 
+	// 	request_block->play_codec.common_param.sample_rate, 
+	// 	request_block->record_codec.common_param.sample_rate);
 	request_block->record_save_fifo = record_fifo;
 	request_block->priority = 255;
 	request_block->static_play_buff = tx_buff;
@@ -1453,7 +1465,6 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 	} else {
 		request_block->is_need_ref_data = 0;
 	}
-	luat_rtos_task_sleep(10);
 	return luat_audio_request_start(request_block, 0);
 }
 

@@ -43,18 +43,40 @@ static void napt_sync_gw_netif(int adapter_id) {
     if (drv->netif == real_netif) return;
     uint32_t old_ip = drv->netif ? ip_addr_get_ip4_u32(&drv->netif->ip_addr) : 0;
     uint32_t new_ip = ip_addr_get_ip4_u32(&real_netif->ip_addr);
-    /* Air8000 fix (v2): Precise pointer check - reject sync ONLY when new netif
-     * is the registered RNDIS/USB netdrv's netif. The previous heuristic
-     * ('10.x with different b2') would false-positive multi-network fusion cases
-     * where both WANs are 10.x in different /16 segments
-     * (e.g. GPRS APN 10.x + Ethernet 10.y). */
+    /* Air8000 fix (v3): Two-layer RNDIS detection.
+     * v2 (precise) layer alone is INSUFFICIENT because napt_enable runs BEFORE
+     * luat_netdrv_rndis_link_up() assigns netdrv_rndis.netif, so the USB drv
+     * netif is still NULL at sync time and the precise check passes.
+     * v3 adds an SDK-side layer: query net_lwip_get_netif(NW_ADAPTER_INDEX_USB),
+     * which works as soon as SDK registers the RNDIS netif (even before LuatOS
+     * sees it). This catches the RNDIS pollution at NAPT enable time, while
+     * still avoiding the 10.x heuristic false-positives. */
     if (old_ip != 0 && new_ip != old_ip) {
     #ifdef NW_ADAPTER_INDEX_USB
+        /* Layer 1: LuatOS USB netdrv (available after rndis_link_up) */
         luat_netdrv_t* _usb_drv = luat_netdrv_get(NW_ADAPTER_INDEX_USB);
         if (_usb_drv != NULL && _usb_drv->netif != NULL && real_netif == _usb_drv->netif) {
-            LLOGW("NAPT netif sync REJECT: adapter=%d new netif is USB/RNDIS (IP %08X), keep original (IP %08X)",
+            LLOGW("NAPT netif sync REJECT (L1 luat-usb): adapter=%d new netif is USB/RNDIS (IP %08X), keep original (IP %08X)",
                   adapter_id, new_ip, old_ip);
             return;
+        }
+        /* Layer 2: SDK-side lookup (works before LuatOS USB drv is wired up) */
+        struct netif* _sdk_usb_netif = net_lwip_get_netif(NW_ADAPTER_INDEX_USB);
+        if (_sdk_usb_netif != NULL && real_netif == _sdk_usb_netif) {
+            LLOGW("NAPT netif sync REJECT (L2 sdk-usb): adapter=%d new netif is SDK RNDIS (IP %08X), keep original (IP %08X)",
+                  adapter_id, new_ip, old_ip);
+            return;
+        }
+        /* Layer 3: IP-equal compare. Works when SDK pollutes via DATA (not pointer):
+         * if new_ip equals USB netif's IP, the GPRS slot was overwritten with RNDIS LAN IP.
+         * Safe vs multi-10.x because Eth/STA WAN IPs would never equal RNDIS LAN IP. */
+        if (_sdk_usb_netif != NULL) {
+            uint32_t _usb_ip = ip_addr_get_ip4_u32(&_sdk_usb_netif->ip_addr);
+            if (_usb_ip != 0 && new_ip == _usb_ip) {
+                LLOGW("NAPT netif sync REJECT (L3 ip-eq-rndis): adapter=%d new IP %08X equals USB/RNDIS IP, keep original (IP %08X)",
+                      adapter_id, new_ip, old_ip);
+                return;
+            }
         }
     #endif
     }

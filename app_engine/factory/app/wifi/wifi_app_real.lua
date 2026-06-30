@@ -118,6 +118,9 @@ end
 local hw_ready = false
 local hw_busy = false
 
+-- Air1601 Airlink 硬件是否已完成 GPIO 复位+PULLDOWN（只需做一次）
+local airlink_hw_inited = false
+
 -- ==================== exnetif 平台适配 ====================
 
 --[[
@@ -167,14 +170,22 @@ local function air1601_scan_init()
     elseif wifi_cfg.type == "wifi_airlink_uart" then
         -- UART 模式：先做硬件初始化，再配置 UART 参数
         -- 使能 WiFi 模组后，将 GPIO 释放为 UART 功能（Air1601: GPIO22=TX, GPIO23=RX）
-        local wifi_en = gpio.setup(12, 0)
-        gpio.setup(22, nil, gpio.PULLDOWN)
-        gpio.setup(23, nil, gpio.PULLDOWN)
-        sys.wait(1000)
-        wifi_en(1)
-        sys.wait(1000)
-        gpio.close(22)
-        gpio.close(23)
+        if not airlink_hw_inited then
+            -- 首次：复位模组 + 配置 UART 引脚
+            local wifi_en = gpio.setup(12, 0)
+            gpio.setup(22, nil, gpio.PULLDOWN)
+            gpio.setup(23, nil, gpio.PULLDOWN)
+            sys.wait(1000)
+            wifi_en(1)
+            sys.wait(1000)
+            gpio.close(22)
+            gpio.close(23)
+            airlink_hw_inited = true
+        else
+            -- 非首次：模块已上电运行中，跳过 GPIO 复位，直接重启 UART
+            uart.close(wifi_cfg.uart_id or 3)
+            sys.wait(20)
+        end
 
         local uart_id = wifi_cfg.uart_id or 3
         local baud = wifi_cfg.baud or 2000000
@@ -188,16 +199,7 @@ local function air1601_scan_init()
         return false
     end
     sys.wait(1000)
-    local to = 0
-    while not airlink.ready() do
-        sys.wait(100)
-        to = to + 100
-        if to >= 30000 then
-            log.error("wifi_app", "airlink 初始化超时")
-            hw_busy = false
-            return false
-        end
-    end
+
     wlan.init()
     wlan.setMode(wlan.STATIONAP)
     wlan.disconnect()
@@ -408,37 +410,36 @@ local function on_scan_timeout()
     common.handle_scan_timeout({})
 end
 
--- ==================== 自动连接 ====================
+-- ==================== 自动连接（直连模式）====================
 
-local function auto_scan_verify()
-    return common.auto_scan_and_verify(saved_config, SCAN_TIMEOUT + 5000)
-end
-
+--[[
+自动连接：不经过扫描，直接用 fskv 中的 SSID 直连。
+适用于 UART Airlink 模块（冷启动后扫描需等待 30s 以上才能出结果，
+但 wlan.connect 可在 3~5s 完成）。
+对于 SPI Airlink 和原生 WiFi，扫描时延短，直连同样更快。
+]]
 local function run_auto_connect()
     if not saved_config.wifi_enabled then return end
     if wifi_state.connected then
-        sys.publish("WIFI_SCAN_REQ")
+        log.info("wifi_app", "开机自动连接: 已连接，跳过")
         return
     end
-    log.info("wifi_app", "开机自动连接")
-    local vrf = auto_scan_verify()
-    if vrf.verified then
-        log.info("wifi_app", "自动连接:", vrf.ssid, "信号:", vrf.signal, "bssid:", vrf.bssid or "N/A")
-        sys.publish("WIFI_CONNECT_REQ", {
-            ssid = vrf.ssid,
-            password = vrf.password,
-            bssid = vrf.bssid,
-            advanced_config = vrf.config and {
-                need_ping = vrf.config.need_ping,
-                local_network_mode = vrf.config.local_network_mode,
-                ping_ip = vrf.config.ping_ip,
-                ping_time = vrf.config.ping_time,
-                auto_socket_switch = vrf.config.auto_socket_switch,
-            }
-        })
-    else
-        log.info("wifi_app", "附近没有已保存网络")
+    if not saved_config.ssid or saved_config.ssid == "" then
+        log.info("wifi_app", "开机自动连接: fskv 无已保存 SSID，跳过")
+        return
     end
+    log.info("wifi_app", "开机自动连接:", saved_config.ssid)
+    sys.publish("WIFI_CONNECT_REQ", {
+        ssid = saved_config.ssid,
+        password = saved_config.password or "",
+        advanced_config = {
+            need_ping = saved_config.need_ping,
+            local_network_mode = saved_config.local_network_mode,
+            ping_ip = saved_config.ping_ip,
+            ping_time = saved_config.ping_time,
+            auto_socket_switch = saved_config.auto_socket_switch,
+        }
+    })
 end
 
 -- ==================== 请求处理 ====================

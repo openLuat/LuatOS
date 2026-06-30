@@ -82,6 +82,10 @@ static const luat_u8g2_dev_reg_t devregs[] = {
     {.name="ssd1306_128x32", .w=128, .h=32, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x32_univision_f},       // ssd1306 128x32,I2C
     {.name="st7565", .w=132, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7565_ea_dogm132_f},       // st7565 128x32,SPI
     {.name="st7565_jlx12864g109pc",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7565_jlx12864g109pc_f}, // 2023年8月4日 晶联讯12864G-109-PC,12864G-139-P
+    #ifdef LUAT_USE_U8G2_DRV_ST7305
+    {.name="st7305_200x200", .w=200, .h=200, .spi_i2c=1, .devcb=u8g2_Setup_st7305_200x200_f},       // st7305 200x200, 1bpp, SPI (3-wire CAD-011)
+    {.name="st7305_168x384", .w=168, .h=384, .spi_i2c=1, .devcb=u8g2_Setup_st7305_168x384_f},       // st7305 168x384, 1bpp, SPI (3-wire CAD-011)
+    #endif
     {.name="custom",  .w=0,   .h=0,  .spi_i2c=0, .devcb=u8g2_Setup_custom_i2c_noname_f},                  // custom,I2C
     {.name="custom",  .w=0,   .h=0,  .spi_i2c=1, .devcb=u8g2_Setup_custom_noname_f},                      // custom,SPI
     {.name=NULL} // 结尾用,必须加.
@@ -1413,6 +1417,12 @@ LUAT_WEAK uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t
     return u8x8_luat_byte_4wire_hw_spi_default(u8x8, msg, arg_int, arg_ptr);
 }
 #endif
+
+// 仅 PC 模拟器(luat_u8g2_sdl2.c)使用,暴露 file-static 变量给 override
+void luat_u8g2_get_bus_ids(int* i2c_id_out, int* spi_id_out) {
+    if (i2c_id_out) *i2c_id_out = i2c_id;
+    if (spi_id_out) *spi_id_out = spi_id;
+}
 
 int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
     u8g2_t* u8g2 = &conf->u8g2;

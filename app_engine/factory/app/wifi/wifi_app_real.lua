@@ -202,8 +202,11 @@ local function air1601_scan_init()
 
     wlan.init()
     wlan.setMode(wlan.STATIONAP)
-    wlan.disconnect()
-    sys.wait(500)
+    -- 仅在未连接时调用 disconnect，避免破坏已有 WiFi 连接
+    if not wifi_state.connected then
+        wlan.disconnect()
+        sys.wait(500)
+    end
     return true
 end
 
@@ -364,6 +367,13 @@ local function on_sta_event(evt, data)
         if user_disconnect then
             user_disconnect = false
             sys.publish("WIFI_SCAN_REQ")
+        else
+            -- 非用户主动断开的断连（如扫描引起、信号丢失等），尝试自动重连
+            sys.taskInit(function()
+                log.info("wifi_app", "WiFi非主动断开，尝试自动重连")
+                sys.wait(1000)  -- 等1秒确保底层状态稳定
+                try_auto_reconnect()
+            end)
         end
     end
 end
@@ -468,7 +478,10 @@ local function on_storage_loaded(data)
             exnetif.set_priority_order(priority)
         end
     end
-    sys.taskInit(function() hw_ready = false end)
+    -- 仅在未连接时重置 hw_ready，否则会破坏已有连接（air1601_scan_init 会重新初始化硬件并断开连接）
+    if not wifi_state.connected then
+        sys.taskInit(function() hw_ready = false end)
+    end
 end
 
 -- WIFI_STORAGE_SET_ENABLED_RSP
@@ -639,6 +652,57 @@ local function on_storage_ready(data)
     common.on_storage_init_rsp(data)
 end
 
+-- ==================== 自动重连 ====================
+
+--[[
+自动重连到已保存的 WiFi 网络（非用户主动断开时使用）
+检查 saved_config 中是否有可用的 SSID，执行连接
+]]
+local function try_auto_reconnect()
+    if not saved_config.wifi_enabled then
+        log.info("wifi_app", "自动重连: WiFi 已关闭，跳过")
+        return
+    end
+    if not saved_config.ssid or saved_config.ssid == "" then
+        log.info("wifi_app", "自动重连: 无已保存 SSID，跳过")
+        return
+    end
+    -- 如果重连时已经连上了（例如其他模块刚好连上了），跳过
+    if wifi_state.connected and wifi_state.ready then
+        log.info("wifi_app", "自动重连: 已连接且就绪，跳过")
+        return
+    end
+    log.info("wifi_app", "自动重连:", saved_config.ssid)
+    sys.publish("WIFI_CONNECT_REQ", {
+        ssid = saved_config.ssid,
+        password = saved_config.password or "",
+        advanced_config = {
+            need_ping = saved_config.need_ping,
+            local_network_mode = saved_config.local_network_mode,
+            ping_ip = saved_config.ping_ip,
+            ping_time = saved_config.ping_time,
+            auto_socket_switch = saved_config.auto_socket_switch,
+        }
+    })
+end
+
+--[[
+监听 exnetif 网络状态变化：当所有网络都断开时，尝试重连 WiFi
+这是用于"以太网断开后，WiFi 能自动补上"的场景
+]]
+local function on_network_status(net_type, net_adapter)
+    if net_type then
+        -- 有可用网络，不做特殊处理
+        return
+    end
+    -- net_type == nil && net_adapter == -1：所有网络已断开
+    log.info("wifi_app", "所有网络断开，尝试 WiFi 自动重连")
+    sys.taskInit(function()
+        sys.wait(500)  -- 等 0.5 秒确保状态稳定
+        try_auto_reconnect()
+    end)
+end
+
 -- ==================== 初始化 ====================
 
 sys.subscribe("WLAN_STA_INC", on_sta_event)
@@ -656,6 +720,7 @@ sys.subscribe("WIFI_GET_CONFIG_REQ", on_get_config)
 sys.subscribe("WIFI_GET_SAVED_LIST_REQ", on_get_saved_list)
 sys.subscribe("WIFI_STORAGE_GET_SAVED_LIST_RSP", on_saved_list_rsp)
 sys.subscribe("WIFI_STORAGE_INIT_RSP", on_storage_ready)
+sys.subscribe("EXLIB_NETDRV_NETWORK_STATUS", on_network_status)
 
 log.info("wifi_app", "初始化")
 sys.publish("WIFI_STORAGE_INIT_REQ")

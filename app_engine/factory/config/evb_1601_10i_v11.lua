@@ -73,7 +73,6 @@ return {
         wifi = true,                     -- 启用 WiFi（airlink 模式，6205 芯片 AIRLINK_UART3）
         sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
         ethernet = true,                 -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
-        -- net_4g = true,                   -- × 4G未启用，但UI会显示4G信号图标
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====

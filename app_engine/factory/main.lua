@@ -76,7 +76,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "Engine_Air1602_AirLCD_1090_09421_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
+PROJECT = "Engine_Air1602_5inch_480x854_005_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
 VERSION = "001.999.005"                               -- 固件版本号，用于 FOTA 升级比对
 PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
 

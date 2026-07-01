@@ -1,7 +1,7 @@
 local gnss={}
 
 local exvib=require "exvib"
-exgnss=require "exgnss"
+local exgnss=require "exgnss"
 local default=require "default"
 
 local dtu
@@ -91,7 +91,20 @@ function gnss.locateMessage(mode)
     end
     if mode.custom then
         if mode.custom_data:match("function(.+)end") then
-            return loadstring(mode.custom_data:match("function(.+)end"))()
+            local ok, result = pcall(function()
+                local func = loadstring(mode.custom_data:match("function(.+)end"))
+                if func then
+                    return func()
+                end
+                return nil
+            end)
+            if ok then
+                return result
+            else
+                log.error("gnss", "执行自定义定位消息函数失败:", result)
+                log.error("gnss", "函数执行堆栈:", debug.traceback())
+                return nil
+            end
         end
     end
     log.info("sendjason",json.encode(sendtable,"5f"))

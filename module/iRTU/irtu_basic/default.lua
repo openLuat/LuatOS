@@ -210,7 +210,14 @@ end
 
 -- 自定义任务执行函数
 function pcall_task(func)
-    log.info("pcall", pcall(func))
+    log.info("pcall", "开始执行用户自定义任务")
+    local ok, err = pcall(func)
+    if not ok then
+        log.error("pcall", "用户自定义任务执行失败:", err)
+        log.error("pcall", "任务执行堆栈:", debug.traceback())
+    else
+        log.info("pcall", "用户自定义任务执行成功")
+    end
 end
 
 -- 自定义任务执行函数
@@ -218,7 +225,15 @@ function load_task()
     if dtu.task and #dtu.task ~= 0 then
         for i = 1, #dtu.task do
             if dtu.task[i] and dtu.task[i]:match("function(.+)end") then
-                sys.taskInit(pcall_task,loadstring(dtu.task[i]:match("function(.+)end")))
+                local ok, func = pcall(function()
+                    return loadstring(dtu.task[i]:match("function(.+)end"))
+                end)
+                if ok and func then
+                    sys.taskInit(pcall_task, func)
+                else
+                    log.error("default", "加载用户自定义任务函数失败:", func)
+                    log.error("default", "任务加载堆栈:", debug.traceback())
+                end
             end
         end
     end

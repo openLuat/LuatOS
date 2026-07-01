@@ -183,6 +183,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_AUDIO
   {"audio", luaopen_multimedia_audio},
 #endif
+#ifdef LUAT_USE_AUDIO_V2
+  {"audio_v2", luaopen_audio_v2},
+#endif
 #ifdef LUAT_USE_SQLITE3
   {"sqlite3",    luaopen_sqlite3},
 #endif

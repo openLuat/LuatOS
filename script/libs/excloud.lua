@@ -481,12 +481,12 @@ local function parse_message(data)
 
     -- 解析头部（16字节: 设备ID 8B + 序列号 2B + 数据长度 2B + flags 4B）
     -- local device_id = data:sub(1, 8)
-    local sequence = from_big_endian(data, 9, 2)
+    local sequence_num = from_big_endian(data, 9, 2)
     local data_length = from_big_endian(data, 11, 2)
     local flags = from_big_endian(data, 13, 4)
 
     local header = {
-        sequence = sequence,
+        sequence_num = sequence_num,
         data_length = data_length,
         protocol_version = flags % 16,
         need_reply = (bit.band(flags, 16) ~= 0),

@@ -82,7 +82,7 @@ size_t luat_vfs_posix_fread(void* userdata, void *ptr, size_t size, size_t nmemb
     // LLOGD("fread %p %d %d", stream, size * nmemb, ret);
     if (ret <= 0)
         return 0;
-    return ret;
+    return ret * size;
 }
 size_t luat_vfs_posix_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     (void)userdata;

@@ -1,7 +1,7 @@
 local gnss={}
 
 local exvib=require "exvib"
-local exgnss=require "exgnss"
+exgnss=require "exgnss"
 local default=require "default"
 
 local dtu

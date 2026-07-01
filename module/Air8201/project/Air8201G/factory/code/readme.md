@@ -533,6 +533,18 @@ GNSS 在 60s 内未定位成功        ← 外层判定失败 ❌
 
 ---
 
+### 2026-06-03
+
+GPS 定位非阻塞化。
+
+- **开机单独执行一次 GPS 定位**：`main.lua` 在 `mygps.init()` 后调用 `mygps.start_gnss_async()`，后台异步、超时 60s。
+- **上报不再强制等 GPS**：`report_task` 中 GNSS 改为 `mygps.start_gnss_async()` 后台触发，LBS 或已有 GPS 缓存任一有效即上报。
+- **新增并发保护**：`mygps` 增加 `gnss_running` 标记 + `start_gnss_async()` 接口，防止后台与上报任务重复 open GNSS。
+
+**变更文件**：[main.lua](file:///d:/Air8201G/挂载项目测试软件/user/main.lua)、[mygps.lua](file:///d:/Air8201G/挂载项目测试软件/user/mygps.lua)、[report.lua](file:///d:/Air8201G/挂载项目测试软件/user/report.lua)
+
+---
+
 ### 后续计划占位
 
 > 后续每次升级在此处以日期为标题追加 `### YYYY-MM-DD` 章节即可。

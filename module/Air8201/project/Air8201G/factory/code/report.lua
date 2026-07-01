@@ -632,8 +632,9 @@ end
 -- 定时上报任务
 -- 上报前流程：
 --   ① 刷新 LBS 定位（同步阻塞，最长 LBS_TIMEOUT_MS）
---   ② 判断是否需要触发 GNSS（每 GNSS_REQUEST_INTERVAL 一次，同步阻塞最长 60s）
---   ③ 调用 send_status 发送 TLV（含定位结果 + GNSS_RESULT）
+--   ② 判断是否需要触发 GNSS（每 GNSS_REQUEST_INTERVAL 一次）：
+--      → 后台异步触发，不阻塞上报（下次上报会带上 GNSS 最新结果）
+--   ③ 只要 LBS 或 GNSS 有任一有效定位即调用 send_status 上报，不强制等待 GNSS
 -- @param reason string 本次上报原因（REPORT_REASON 枚举值），默认 TIMER
 local function report_task(reason)
     current_report_reason = reason or REPORT_REASON.TIMER
@@ -644,26 +645,25 @@ local function report_task(reason)
         return
     end
 
-    -- ① 上报前刷新 LBS（同步）
+    -- ① 上报前刷新 LBS（同步，快速）
     log.info("REPORT", "[1/3] 上报前刷新 LBS ...")
     local lbs_ok = mygps.do_lbs_once_sync()
     log.info("REPORT", "[1/3] LBS 完成, ok=" .. tostring(lbs_ok))
 
-    -- ② 判断是否需要触发 GNSS（每 30min 一次）
+    -- ② 判断是否需要触发 GNSS（每 30min 一次）—— 后台异步执行，不阻塞上报
     local now_sec = os.time()
     local need_gnss = (last_gnss_trigger_sec == 0)
                       or ((now_sec - last_gnss_trigger_sec) * 1000 >= GNSS_REQUEST_INTERVAL)
     if need_gnss then
-        log.info("REPORT", "[2/3] 触发 GNSS 定位 (距上次=" .. (now_sec - last_gnss_trigger_sec) .. "s)")
+        log.info("REPORT", "[2/3] 后台触发 GNSS 定位 (距上次=" .. (now_sec - last_gnss_trigger_sec) .. "s)")
         last_gnss_trigger_sec = now_sec
-        local gnss_ok = mygps.do_gnss_once_sync()
-        log.info("REPORT", "[2/3] GNSS 完成, ok=" .. tostring(gnss_ok))
+        mygps.start_gnss_async()   -- 异步，不阻塞本次上报
     else
         local remain_s = math.floor((GNSS_REQUEST_INTERVAL - (now_sec - last_gnss_trigger_sec) * 1000) / 1000)
         log.info("REPORT", "[2/3] 跳过 GNSS（距下次还需 " .. remain_s .. "s）")
     end
 
-    -- ③ 发送 TLV
+    -- ③ 发送 TLV（LBS 或已有 GNSS 缓存定位有效即上报，不强制等待 GNSS）
     log.info("REPORT", "[3/3] 发送 TLV ...")
     report.send_status()
 end

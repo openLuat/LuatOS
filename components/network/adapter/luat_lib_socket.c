@@ -1485,8 +1485,8 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{ "LWIP_AP",     		ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_AP)},
 	//@const LWIP_GP number 使用LWIP协议栈的移动蜂窝模块，值为1
 	{ "LWIP_GP",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_GPRS)},
-	//@const USB number 使用LWIP协议栈的USB网卡，值为16
-	{ "USB",     			ROREG_INT(NW_ADAPTER_INDEX_LWIP_USB)},
+	//@const USB number 使用LWIP协议栈的USB网卡，值为6
+	{ "USB",     			ROREG_INT(NW_ADAPTER_INDEX_USB)},
 	//@const LINK number LINK事件
     { "LINK",           	ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
     //@const ON_LINE number ON_LINE事件

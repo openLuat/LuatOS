@@ -14,18 +14,18 @@
 6、exnetif.update_wifi(config)：运行时更新WiFi账号密码,用于引擎主机等需要动态获取WiFi凭证的场景
 
 -- 版本更新说明
--- 版本号：202607021200
--- 1、更新时间：2026-07-02 12:00
--- 2、更新内容
---    新增exnetif.version()接口
---    支持exnetif库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
-
 -- 版本号：202607022100
 -- 1、更新时间：2026-07-02 21:00
 -- 2、更新内容
 --    新增exnetif.update_wifi(config)接口
 --    修复： 1601 多网融合设置以太网 airlink over uart 4g顺序后，以太网断开后 4g网络连不上问题，ip_lose_handle 网卡掉线时遗漏恢复 OPENED 网卡
 --    修复： 1601引擎主机的gpio设置与开发板不同，原airlink_wifi_hardware_init函数会导致引擎主机按键中断失效，airlink_wifi_hardware_init 支持 UART/SPI 双模式，目前改为了手动配置
+
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exnetif.version()接口
+--    支持exnetif库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 local exnetif = {}
 

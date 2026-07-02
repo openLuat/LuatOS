@@ -67,7 +67,7 @@ local audio_play_param ={
     type= 2,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
                             -- 如果是tts,内容格式见:https://docs.openluat.com/osapi/ext/exaudio/#tts_2
-                            -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
+                            -- 流式播放，支持PCM/MP3/AMR/WAV格式,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
     cbfnc = play_end,            -- 播放完毕回调函数
     sampling_rate = 16000,  -- 采样率,仅为流式播放起作用
     sampling_depth =  16,   -- 采样位位深,仅流式播放的时候才有作用

@@ -60,7 +60,7 @@
 - 通过流式传输不断填入播放的音频数据
 - 通过powerkey按键进行音量减小
 - 通过boot按键进行音量增加
-- 仅支持PCM格式音频
+- 支持PCM/MP3/AMR/WAV格式音频
 
 ### 4、录音到文件功能 - AMR格式（record_amr_file.lua）
 

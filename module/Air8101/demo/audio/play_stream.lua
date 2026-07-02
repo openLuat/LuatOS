@@ -38,7 +38,7 @@ end
 
 -- 流式播放音频播放的配置
 local audio_play_param ={
-    codec_id = 0,                   -- 编解码器ID：0表示RAW/PCM直通模式
+    codec_id = 0,                   -- 编解码器ID：0=RAW/PCM, 1=WAV, 2=AMR_NB, 3=AMR_WB, 4=TTS, 5=MP3
     type= 2,                -- 播放类型，如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
     cbfnc = play_end,            -- 播放完毕回调函数
     sampling_rate = 16000,  -- 采样率,仅为流式播放起作用

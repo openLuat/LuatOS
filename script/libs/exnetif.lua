@@ -5,12 +5,13 @@
 @date    2025.06.26
 @author  wjq
 @usage
-本文件的对外接口有5个：
+本文件的对外接口有6个：
 1、exnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络(需要在task中调用)
 2、exnetif.notify_status(cb_fnc)：设置网络状态变化回调函数
 3、exnetif.setproxy(adapter, main_adapter,other_configs)：配置网络代理实现多网融合(需要在task中调用)
 4、exnetif.check_network_status(interval),检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
 5、exnetif.close(type, adapter)：关闭指定网卡,内核固件版本号需>=2020
+6、exnetif.update_wifi(config)：运行时更新WiFi账号密码,用于引擎主机等需要动态获取WiFi凭证的场景
 
 -- 版本更新说明
 -- 版本号：202607021200
@@ -18,6 +19,13 @@
 -- 2、更新内容
 --    新增exnetif.version()接口
 --    支持exnetif库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
+
+-- 版本号：202607022100
+-- 1、更新时间：2026-07-02 21:00
+-- 2、更新内容
+--    新增exnetif.update_wifi(config)接口
+--    修复： 1601 多网融合设置以太网 airlink over uart 4g顺序后，以太网断开后 4g网络连不上问题，ip_lose_handle 网卡掉线时遗漏恢复 OPENED 网卡
+--    修复： 1601引擎主机的gpio设置与开发板不同，原airlink_wifi_hardware_init函数会导致引擎主机按键中断失效，airlink_wifi_hardware_init 支持 UART/SPI 双模式，目前改为了手动配置
 ]]
 local exnetif = {}
 
@@ -235,6 +243,14 @@ local function ip_lose_handle(adapter)
     end
     if current_active == adapter then
         log.info(type_to_string(adapter) .. " 失效，切换到其他网络")
+        -- 当前活跃网卡下线时，检查其他网卡是否物理连接还在
+        -- 若其他网卡实际有IP但在OPENED状态，说明之前被IP_LOSE误标记，需触发重验证
+        for _, net_type in ipairs(current_priority) do
+            if net_type ~= adapter and available[net_type] == connection_states.OPENED and socket.localIP(net_type) then
+                log.info(type_to_string(net_type) .. " 有IP但状态为OPENED，触发重验证")
+                available[net_type] = connection_states.CONNECTING
+            end
+        end
         apply_priority()
     end
 end
@@ -575,27 +591,48 @@ local function setup_airlink_4G(config)
 end
 
 -- Air1601 WiFi硬件初始化
--- 使能6205模组（GPIO12拉高），配置UART3引脚（GPIO22/23）
-local function airlink_wifi_hardware_init()
-    -- WiFi使能GPIO（Air1601核心板，GPIO12拉高使能6205模组）
-    local wifi_en = gpio.setup(12, 0)
+-- UART模式：拉高使能GPIO，配置UART3引脚（GPIO22/23）
+-- SPI模式：仅拉高使能GPIO，不操作UART引脚
+local function airlink_wifi_hardware_init(config)
+    -- WiFi使能GPIO（需通过config.airlink_wifi_en_pin显式传入，无默认值）
+    local wifi_en = nil
+    if type(config.airlink_wifi_en_pin) == "number" then
+        wifi_en = gpio.setup(config.airlink_wifi_en_pin, 0)
+    end
 
-    -- 将串口对应的GPIO设置为输入拉低模式
-    gpio.setup(22, nil, gpio.PULLDOWN)
-    gpio.setup(23, nil, gpio.PULLDOWN)
-    sys.wait(1000)
-    wifi_en(1) -- 拉高WiFi使能GPIO
-    sys.wait(1000)
-    -- 关闭串口对应的GPIO引脚功能
-    gpio.close(22)
-    gpio.close(23)
+    -- UART模式：将串口对应的GPIO设置为输入拉低模式，初始化完成后关闭
+    if config.airlink_type == airlink.MODE_UART then
+        -- 串口RX引脚（可通过config.airlink_wifi_uart_rx_pin自定义，不传则默认GPIO22）
+        local uart_rx_pin = 22
+        if type(config.airlink_wifi_uart_rx_pin) == "number" then
+            uart_rx_pin = config.airlink_wifi_uart_rx_pin
+        end
+        -- 串口TX引脚（可通过config.airlink_wifi_uart_tx_pin自定义，不传则默认GPIO23）
+        local uart_tx_pin = 23
+        if type(config.airlink_wifi_uart_tx_pin) == "number" then
+            uart_tx_pin = config.airlink_wifi_uart_tx_pin
+        end
+        gpio.setup(uart_rx_pin, nil, gpio.PULLDOWN)
+        gpio.setup(uart_tx_pin, nil, gpio.PULLDOWN)
+        sys.wait(1000)
+        if wifi_en then wifi_en(1) end -- 拉高WiFi使能GPIO
+        sys.wait(1000)
+        -- 关闭串口对应的GPIO引脚功能
+        gpio.close(uart_rx_pin)
+        gpio.close(uart_tx_pin)
+    else
+        -- SPI模式：仅延时后拉高使能
+        sys.wait(1000)
+        if wifi_en then wifi_en(1) end -- 拉高WiFi使能GPIO
+        sys.wait(1000)
+    end
     log.info("airlink_wifi_hardware_init", "6205模组硬件初始化完成")
 end
 
--- airlink_wifi网卡开启（Air1601 E WiFi方案）
+-- airlink_wifi网卡开启（Air1601  WiFi方案）
 local function setup_airlink_wifi(config)
     -- 先进行WiFi硬件初始化
-    airlink_wifi_hardware_init()
+    airlink_wifi_hardware_init(config)
 
     if config.auto_socket_switch ~= nil then
         auto_socket_switch = config.auto_socket_switch
@@ -1356,6 +1393,80 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
 end
 
 --[[
+运行时更新WiFi账号密码。用于如下场景：设备先通过4G/以太网上线获取WiFi凭证，再动态更新WiFi连接信息。
+@api exnetif.update_wifi(config)
+@table config WiFi配置表
+@return boolean 成功返回true，失败返回false
+@usage
+    -- 场景：设备通过4G上线后，从服务端获取WiFi账号密码，动态更新
+    exnetif.update_wifi({
+        ssid = "new_wifi_ssid",
+        password = "new_wifi_password",
+        bssid = "AABBCCDDEEFF"  -- 可选，指定BSSID
+    })
+    -- 如果WiFi之前未初始化（未在set_priority_order中配置），会自动初始化并加入优先级列表
+]]
+function exnetif.update_wifi(config)
+    if type(config) ~= "table" or not config.ssid then
+        log.error("exnetif.update_wifi", "参数错误，请传入包含ssid的配置表")
+        return false
+    end
+    local adapter = socket.LWIP_STA
+    local current_state = available[adapter]
+    log.info("exnetif.update_wifi", "当前WiFi状态:", current_state, "新SSID:", config.ssid)
+
+    if current_state == connection_states.DISCONNECTED then
+        -- WiFi从未初始化，完整初始化流程
+        wlan.init()
+        -- 订阅socket连接状态变化事件
+        if not single_network_mode and netdrv.on then
+            socket_state_detection(adapter)
+        end
+    else
+        -- WiFi已初始化，断开后重连
+        wlan.disconnect()
+        sys.wait(500) -- 等待断开完成
+    end
+    -- 设置WiFi状态（初始化或重连都统一设）
+    if not single_network_mode then
+        available[adapter] = connection_states.OPENED
+    else
+        available[adapter] = connection_states.SINGLE_NETWORK
+    end
+
+    -- 将WiFi加入优先级列表（如果尚未加入），默认插入到最高优先级位置
+    local found = false
+    for _, net_type in ipairs(current_priority) do
+        if net_type == adapter then
+            found = true
+            break
+        end
+    end
+    if not found then
+        table.insert(current_priority, 1, adapter)
+        socket.dft(adapter)
+        log.info("exnetif.update_wifi", "WiFi已加入优先级列表")
+    end
+
+    -- 连接新的WiFi
+    local bssid_bin = nil
+    if config.bssid and #config.bssid >= 12 then
+        bssid_bin = string.fromHex(config.bssid)
+    end
+    local success = wlan.connect(config.ssid, config.password, 1, bssid_bin)
+    if not success then
+        log.error("exnetif.update_wifi", "WiFi连接失败")
+        return false
+    end
+    -- 更新连通性检测IP（如果有传）
+    if config.ping_ip then
+        wifi_ping_ip = config.ping_ip
+    end
+    log.info("exnetif.update_wifi", "WiFi凭证更新完成，等待连接")
+    return true
+end
+
+--[[
 关闭网卡功能。(内核固件版本号需>=2020)
 @api exnetif.close(type,adapter)
 @param type boolean 是否为多网融合
@@ -1411,7 +1522,7 @@ end
 exnetif.version()
 ]]
 function exnetif.version()
-    return "202607021200"
+    return "202607022100"
 end
 
 log.debug("exnetif", "version -> " .. exnetif.version())

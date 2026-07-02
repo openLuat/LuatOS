@@ -164,7 +164,7 @@ local audio_record_param = {
 -- ==================== 内部变量 ====================
 local pcm_buff0 = nil
 local pcm_buff1 = nil
-local voice_vol = 65
+local voice_vol = 70
 local mic_vol = 80
 
 -- 定义全局队列表
@@ -538,7 +538,7 @@ local function audio_v2_setup()
                 audio_v2_es8311_drv.set_data_bits(audio_setup_param.i2c_id, audio_setup_param.bits_per_sample or 16)
                 audio_v2_es8311_drv.set_format(audio_setup_param.i2c_id)
                 audio_v2_es8311_drv.resume(audio_setup_param.i2c_id)
-                audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id, 60)
+                audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id, voice_vol)
                 audio_v2_es8311_drv.set_mic_vol(audio_setup_param.i2c_id, mic_vol)
                 log.info("exaudio.setup", "ES8311初始化完成")
             else

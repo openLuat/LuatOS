@@ -718,13 +718,9 @@ static void scan_finish_delta_block(tfs_dev_t *dev, int blk)
 
 static void scan_mark_block_erased_after_checkpt(tfs_dev_t *dev, int blk)
 {
-    int blk_int = blk - dev->block_offset;
     tfs_block_info_t *bi = tfs_get_block_info(dev, blk);
 
-    if (blk_int >= 0 && blk_int < (int)tfs_total_blocks(dev)) {
-        memset(dev->chunk_bits + blk_int * dev->chunk_bit_stride,
-               0, (size_t)dev->chunk_bit_stride);
-    }
+    tfs_chunk_bitmap_fill_block(dev, blk, 0);
 
     memset(bi, 0, sizeof(*bi));
     bi->bi.block_state = TFS_BLK_STATE_EMPTY;

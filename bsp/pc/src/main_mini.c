@@ -19,6 +19,10 @@
 #include "luat_timer_engine.h"
 #include "rotable2.h"
 
+#ifdef LUAT_USE_AUDIO_V2
+#include "luat_audio_core.h"
+#include "luat_audio_pc.h"
+#endif
 
 #ifdef LUAT_USE_LWIP
 #include "lwip/tcpip.h"
@@ -124,6 +128,11 @@ int main(int argc, char** argv) {
     #endif
     luat_fs_init();
     luat_network_init();
+#ifdef LUAT_USE_AUDIO_V2
+    luat_audio_base_init();
+    luat_audio_driver_register_all();
+    luat_audio_data_codec_register_all();
+#endif
 
     // 如果luadb_mod被修改过，那么直接以luadb_mod偏移32bytes作为luadb
 

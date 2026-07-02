@@ -253,7 +253,6 @@ static int _audio_tts_output_callback(void *data, uint32_t param, void *user_dat
 static int _audio_extern_source_tts_output_callback(void *data, uint32_t param, void *user_data)
 {
 	luat_audio_extern_source_t *source = (luat_audio_extern_source_t *)user_data;
-	int ret;
 	if (data) {
 		while(!source->is_user_stop && ((source->decode_output_buffer.pos + param) > source->decode_output_buffer.max_len)) {
 			LLOGC(luat_audio_debug_flag, "extrern source full, tts wait %d", source->decode_output_buffer.pos);
@@ -314,7 +313,7 @@ static void _audio_extern_source_finish(luat_audio_extern_source_t *extern_sourc
 static void _audio_request_finish(void)
 {
 	luat_audio_request_block_t *request_block = _luat_audio.current_request_block;
-	luat_audio_driver_ctrl_t *ctrl = request_block->data_channel->driver_ctrl;
+	// luat_audio_driver_ctrl_t *ctrl = request_block->data_channel->driver_ctrl;
 	luat_audio_request_cb_t cb = request_block->cb;
 	void *done_sem = request_block->done_sem;
 	void *cancel_sem = request_block->cancel_sem;
@@ -852,7 +851,6 @@ static void luat_audio_common_task(void *param)
 		case LUAT_AUDIO_EV_RX_ENOUGH_DATA:
 			request_block = _luat_audio.current_request_block;
 			if (request_block) {
-				uint32_t last_play_cnt = out_event.param2;
 				uint32_t read_bytes;
 				uint32_t deal_bytes;
 				luat_buffer_t temp_record_buffer = {0};

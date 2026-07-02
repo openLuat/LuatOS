@@ -24,7 +24,7 @@ local gsensor = require "gsensor"
 local report = require "report"
 local excloud = require "excloud"
 local global_config = require "global_config"
-local ota_manegement = require "ota_manegement"
+-- local ota_manegement = require "ota_manegement"
 
 -- ========== 全局配置/统计模块尽早初始化 ==========
 -- 必须在其他模块开始统计计数前完成 FSKV 初始化
@@ -36,7 +36,7 @@ global_config.dump_stats()
 -- 开机首次：等 IP_READY 后主动检查
 -- 周期：每 24 小时检查一次
 -- 手动：PWRKEY 短按时立即检查（独立于周期定时器）
-ota_manegement.init()
+-- ota_manegement.init()
 
 -- SIM 卡热插拔功能，通过gpio中断通过上下边沿电平触发中断
 -- 设置防抖，使用wakeup6脚，常量为gpio.WAKEUP6

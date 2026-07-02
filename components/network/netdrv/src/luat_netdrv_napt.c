@@ -80,6 +80,16 @@ static void napt_sync_gw_netif(int adapter_id) {
         }
     #endif
     }
+    /* Air8000 fix L4: \u591a PDP context \u4fdd\u62a4.
+     * SDK \u5c42 net_lwip_get_netif() \u5355\u69fd\u8fd4\u56de prvlwip.lwip_netif,
+     * \u5f53 CP \u4fa7\u6fc0\u6d3b\u591a\u4e2a PDP (IMS/VoLTE/eMBMS) \u65f6\u4f1a\u88ab\u540e\u6fc0\u6d3b\u7684\u8986\u76d6,
+     * \u5bfc\u81f4 gw netif \u5207\u5230\u975e\u9ed8\u8ba4 PDP context. \u8fd0\u8425\u5546 GTP \u9694\u79bb\u4e0b, luaNAPT \u4e0a\u884c src
+     * \u5199\u6210 IMS PDP IP \u4f1a\u76f4\u63a5\u4e22\u3002 \u53ea\u8981 old_ip \u5df2\u6709\u503c\u4e14 new_ip \u4e0d\u540c, \u5c31\u4fdd\u7559 old\u3002 */
+    if (old_ip != 0 && new_ip != old_ip) {
+        LLOGW("NAPT netif sync REJECT (L4 multi-pdp): adapter=%d new IP %08X old IP %08X, keep original (\u907f\u514d IMS/\u5907\u4efd PDP \u62a2\u5360 gw netif)",
+              adapter_id, new_ip, old_ip);
+        return;
+    }
     LLOGI("NAPT netif sync: adapter=%d old=%p(IP %08X) -> new=%p(IP %08X)", adapter_id, drv->netif, old_ip, real_netif, new_ip);
     drv->netif = real_netif;
         #endif

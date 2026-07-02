@@ -6,6 +6,15 @@ extern lf_err_t little_flash_port_init(little_flash_t *lf);
 
 static const little_flash_chipinfo_t little_flash_table[] = LITTLE_FLASH_CHIP_TABLE;
 
+static uint32_t little_flash_prog_buf_len(const little_flash_t *lf)
+{
+    uint32_t len = lf->chip_info.prog_size;
+    if (lf->chip_info.type == LF_DRIVER_NAND_FLASH) {
+        len += lf->chip_info.spare_size;
+    }
+    return 4 + len;
+}
+
 lf_err_t little_flash_write_status(const little_flash_t *lf, uint8_t address, uint8_t status){
     lf_err_t result = LF_ERR_OK;
     uint8_t cmd_data[3]={0};
@@ -94,6 +103,7 @@ static lf_err_t little_flash_reset(little_flash_t *lf){
     }else{
         if(lf->chip_info.prog_size==0) lf->chip_info.prog_size = LF_NANDFLASH_PAGE_ZISE;
         if(lf->chip_info.read_size==0) lf->chip_info.read_size = LF_NANDFLASH_PAGE_ZISE;
+        if(lf->chip_info.spare_size==0) lf->chip_info.spare_size = LF_NANDFLASH_SPARE_SIZE;
         if(lf->chip_info.erase_times==0) lf->chip_info.erase_times = LF_NANDFLASH_ERASE_TIMES;
         // 以下需要根据型号进行适配
         result |= little_flash_write_status(lf,LF_NANDFLASH_STATUS_REGISTER1,0x00);
@@ -105,7 +115,7 @@ static lf_err_t little_flash_reset(little_flash_t *lf){
 #ifdef LF_USE_HEAP
     /* Allocate a persistent write buffer to avoid per-call malloc in little_flash_write */
     if (lf->prog_buf == NULL && lf->malloc != NULL && lf->chip_info.prog_size > 0) {
-        lf->prog_buf = (uint8_t *)lf->malloc(4 + lf->chip_info.prog_size);
+        lf->prog_buf = (uint8_t *)lf->malloc(little_flash_prog_buf_len(lf));
     }
 #endif /* LF_USE_HEAP */
     LF_DEBUG("little_flash_reset done");
@@ -785,6 +795,265 @@ static int little_flash_is_all_ff(const uint8_t* data, uint32_t len) {
         }
     }
     return 1;
+}
+
+static lf_err_t little_flash_nand_check_page_oob_args(const little_flash_t *lf,
+                                                      uint32_t page,
+                                                      uint16_t data_off,
+                                                      const void *data,
+                                                      uint32_t data_len,
+                                                      uint16_t oob_off,
+                                                      const void *oob,
+                                                      uint32_t oob_len)
+{
+    uint32_t page_size;
+    uint32_t spare_size;
+    uint32_t page_count;
+
+    if (!lf || lf->chip_info.type != LF_DRIVER_NAND_FLASH) {
+        return LF_ERR_BAD_ADDRESS;
+    }
+    page_size = lf->chip_info.prog_size;
+    spare_size = lf->chip_info.spare_size;
+    if (page_size == 0 || lf->chip_info.capacity == 0) {
+        return LF_ERR_BAD_ADDRESS;
+    }
+    page_count = lf->chip_info.capacity / page_size;
+    if (page >= page_count) {
+        return LF_ERR_BAD_ADDRESS;
+    }
+    if ((data_len > 0 && !data) || (oob_len > 0 && !oob)) {
+        return LF_ERR_BAD_ADDRESS;
+    }
+    if (data_off > page_size || data_len > page_size - data_off) {
+        return LF_ERR_BAD_ADDRESS;
+    }
+    if (oob_len > 0) {
+        if (spare_size == 0 || oob_off > spare_size || oob_len > spare_size - oob_off) {
+            return LF_ERR_BAD_ADDRESS;
+        }
+    }
+    return LF_ERR_OK;
+}
+
+lf_err_t little_flash_nand_read_page_oob(const little_flash_t *lf, uint32_t page,
+                                         uint16_t data_off, uint8_t *data, uint32_t data_len,
+                                         uint16_t oob_off, uint8_t *oob, uint32_t oob_len,
+                                         uint8_t *status_out)
+{
+    lf_err_t result;
+    uint8_t cmd_data[4];
+    uint8_t status = 0xff;
+    uint8_t ecc;
+    uint32_t page_size;
+
+    if (status_out) {
+        *status_out = status;
+    }
+    result = little_flash_nand_check_page_oob_args(lf, page,
+                                                   data_off, data, data_len,
+                                                   oob_off, oob, oob_len);
+    if (result != LF_ERR_OK) {
+        return result;
+    }
+    if (data_len == 0 && oob_len == 0) {
+        return LF_ERR_OK;
+    }
+
+    page_size = lf->chip_info.prog_size;
+    if (lf->lock) {
+        lf->lock(lf);
+    }
+
+    cmd_data[0] = LF_NANDFLASH_PAGE_DATA_READ;
+    cmd_data[1] = page >> 16;
+    cmd_data[2] = page >> 8;
+    cmd_data[3] = page;
+    result = lf->spi.transfer(lf, cmd_data, 4, LF_NULL, 0);
+    if (result != LF_ERR_OK) {
+        goto error;
+    }
+    result = little_flash_wait_busy(lf, 60);
+    if (result != LF_ERR_OK) {
+        goto error;
+    }
+    result = little_flash_read_status(lf, LF_NANDFLASH_STATUS_REGISTER3, &status);
+    if (status_out) {
+        *status_out = status;
+    }
+    if (result != LF_ERR_OK) {
+        goto error;
+    }
+    ecc = (status & 0x30) >> 4;
+
+    if (data_len > 0) {
+        cmd_data[0] = LF_CMD_READ_DATA;
+        cmd_data[1] = data_off >> 8;
+        cmd_data[2] = data_off;
+        cmd_data[3] = 0;
+        result = lf->spi.transfer(lf, cmd_data, 4, data, data_len);
+        if (result != LF_ERR_OK || (ecc >= 2 && !little_flash_is_all_ff(data, data_len))) {
+            goto error;
+        }
+    }
+
+    if (oob_len > 0) {
+        uint16_t column = (uint16_t)(page_size + oob_off);
+
+        cmd_data[0] = LF_CMD_READ_DATA;
+        cmd_data[1] = column >> 8;
+        cmd_data[2] = column;
+        cmd_data[3] = 0;
+        result = lf->spi.transfer(lf, cmd_data, 4, oob, oob_len);
+        if (result != LF_ERR_OK || (ecc >= 2 && !little_flash_is_all_ff(oob, oob_len))) {
+            goto error;
+        }
+    }
+
+    if (lf->unlock) {
+        lf->unlock(lf);
+    }
+    return LF_ERR_OK;
+
+error:
+    if (lf->unlock) {
+        lf->unlock(lf);
+    }
+    return LF_ERR_READ;
+}
+
+lf_err_t little_flash_nand_write_page_oob(const little_flash_t *lf, uint32_t page,
+                                          uint16_t data_off, const uint8_t *data, uint32_t data_len,
+                                          uint16_t oob_off, const uint8_t *oob, uint32_t oob_len,
+                                          uint8_t *status_out)
+{
+    lf_err_t result;
+    uint32_t page_size;
+    uint32_t cache_len;
+    uint8_t status = 0xff;
+#ifdef LF_USE_HEAP
+    uint8_t *cmd_data;
+    bool buf_from_heap = false;
+#else
+    uint8_t cmd_data[3 + LF_NANDFLASH_PAGE_ZISE + LF_NANDFLASH_SPARE_SIZE];
+#endif /* LF_USE_HEAP */
+
+    if (status_out) {
+        *status_out = status;
+    }
+    result = little_flash_nand_check_page_oob_args(lf, page,
+                                                   data_off, data, data_len,
+                                                   oob_off, oob, oob_len);
+    if (result != LF_ERR_OK) {
+        return result;
+    }
+    if (data_len == 0 && oob_len == 0) {
+        return LF_ERR_OK;
+    }
+
+    page_size = lf->chip_info.prog_size;
+    cache_len = page_size + lf->chip_info.spare_size;
+#ifndef LF_USE_HEAP
+    if (cache_len > LF_NANDFLASH_PAGE_ZISE + LF_NANDFLASH_SPARE_SIZE) {
+        return LF_ERR_BAD_ADDRESS;
+    }
+#endif /* LF_USE_HEAP */
+
+#ifdef LF_USE_HEAP
+    if (lf->prog_buf != NULL) {
+        cmd_data = lf->prog_buf;
+    } else {
+        if (!lf->malloc) {
+            return LF_ERR_NO_MEM;
+        }
+        cmd_data = (uint8_t *)lf->malloc(3 + cache_len);
+        if (!cmd_data) {
+            return LF_ERR_NO_MEM;
+        }
+        buf_from_heap = true;
+    }
+#endif /* LF_USE_HEAP */
+
+    if (lf->lock) {
+        lf->lock(lf);
+    }
+
+    result = little_flash_wait_busy(lf, 100);
+    if (result != LF_ERR_OK) {
+        goto error;
+    }
+    result = little_flash_write_enabled(lf, LF_ENABLE);
+    if (result != LF_ERR_OK) {
+        goto error;
+    }
+
+    memset(&cmd_data[3], 0xff, cache_len);
+    if (data_len > 0) {
+        memcpy(&cmd_data[3 + data_off], data, data_len);
+    }
+    if (oob_len > 0) {
+        memcpy(&cmd_data[3 + page_size + oob_off], oob, oob_len);
+    }
+
+    cmd_data[0] = LF_CMD_PROG_DATA;
+    cmd_data[1] = 0;
+    cmd_data[2] = 0;
+    result = lf->spi.transfer(lf, cmd_data, 3 + cache_len, LF_NULL, 0);
+    if (result != LF_ERR_OK) {
+        goto error;
+    }
+    result = little_flash_wait_busy(lf, 100);
+    if (result != LF_ERR_OK) {
+        goto error;
+    }
+
+    cmd_data[0] = LF_NANDFLASH_PAGE_PROG_EXEC;
+    cmd_data[1] = page >> 16;
+    cmd_data[2] = page >> 8;
+    cmd_data[3] = page;
+    result = lf->spi.transfer(lf, cmd_data, 4, LF_NULL, 0);
+    if (result != LF_ERR_OK) {
+        goto error;
+    }
+    result = little_flash_cheak_write(lf);
+    (void)little_flash_read_status(lf, LF_NANDFLASH_STATUS_REGISTER3, &status);
+    if (status_out) {
+        *status_out = status;
+    }
+    if (result != LF_ERR_OK) {
+        goto error;
+    }
+
+    result = little_flash_write_enabled(lf, LF_DISABLE);
+    if (result != LF_ERR_OK) {
+        goto error;
+    }
+
+#ifdef LF_USE_HEAP
+    if (buf_from_heap) {
+        lf->free(cmd_data);
+    }
+#endif /* LF_USE_HEAP */
+    if (lf->unlock) {
+        lf->unlock(lf);
+    }
+    return LF_ERR_OK;
+
+error:
+    (void)little_flash_read_status(lf, LF_NANDFLASH_STATUS_REGISTER3, &status);
+    if (status_out) {
+        *status_out = status;
+    }
+    (void)little_flash_write_enabled(lf, LF_DISABLE);
+#ifdef LF_USE_HEAP
+    if (buf_from_heap) {
+        lf->free(cmd_data);
+    }
+#endif /* LF_USE_HEAP */
+    if (lf->unlock) {
+        lf->unlock(lf);
+    }
+    return LF_ERR_WRITE;
 }
 
 lf_err_t little_flash_read(const little_flash_t *lf, uint32_t addr, uint8_t *data, uint32_t len){

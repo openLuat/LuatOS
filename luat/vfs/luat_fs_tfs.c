@@ -17,16 +17,7 @@
 #include "../../components/tfs/inc/tfs.h"
 #include "../../components/tfs/inc/tfs_port.h"
 #include "../../components/tfs/inc/tfs_types.h"
-
-/* Must match luat_little_flash_tfs.c layout */
-typedef struct {
-    void           *flash;
-    uint32_t        offset, maxsize;
-    char            dev_name[16];
-    int             is_mounted, is_nand;
-    void           *oob_ram;
-    uint32_t        oob_per_chunk, total_chunks;
-} luat_lf_tfs_ctx_t;
+#include "../../components/little_flash/inc/luat_little_flash_tfs.h"
 
 typedef struct { int tfs_fd; int is_dir; } luat_tfs_vfs_file_t;
 
@@ -183,7 +174,7 @@ static size_t luat_vfs_tfs_fread(void *userdata, void *ptr, size_t size, size_t 
     (void)userdata;
     if (!vf || vf->is_dir || !ptr || size * nmemb == 0) return 0;
     int n = tfs_read(vf->tfs_fd, ptr, (int)(size * nmemb));
-    return (n > 0) ? (size_t)n / size : 0;
+    return (n > 0) ? (size_t)n : 0;
 }
 
 static size_t luat_vfs_tfs_fwrite(void *userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream)

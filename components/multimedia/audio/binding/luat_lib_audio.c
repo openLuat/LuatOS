@@ -43,6 +43,7 @@ typedef struct {
     uint8_t self_index;
     uint8_t is_busy:1;
     uint8_t is_record_file:1;
+    uint8_t is_record_finish:1;
     luat_audio_request_block_t request;
 } l_audio_request_t;
 
@@ -91,6 +92,10 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
                 _l_audio.total_driver_record_bytes += msg->arg2;
                 uint32_t read_size = 0;
                 if (l_req->is_record_file) {
+                    if (l_req->is_record_finish) {
+                        luat_fifo_delete_all(_l_audio.record_fifo);
+                        break;
+                    }
                     for(;;) {
                         read_size = luat_fifo_read(_l_audio.record_fifo, _l_audio.temp, sizeof(_l_audio.temp));
                         if (read_size == 0) {
@@ -113,6 +118,7 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
                         luat_fs_fclose(l_req->record_file_fd);
                         LLOGC(luat_audio_debug_flag,"lua request %d record file close, total_record_bytes: %llu", u_data.u8[0], _l_audio.total_record_bytes);
                         l_req->record_file_fd = NULL;
+                        l_req->is_record_finish = 1;
                     }
                     no_callback = 1;
                 } else {
@@ -638,6 +644,7 @@ static int l_audio_record(lua_State *L) {
     luat_llist_del(&l_req->node);
     luat_llist_add_tail(&l_req->node, &_l_audio.request_busy_list);
     l_req->record_timeout_or_callback_frame = luaL_optinteger(L, 2, 0);
+    l_req->is_record_finish = 0;
     if (lua_isstring(L, 1)) {
         size_t len = 0;
         const char *path = luaL_checklstring(L, 1, &len);
@@ -1006,8 +1013,8 @@ static int l_audio_soft_volume(lua_State *L) {
 @int rx_bus_id 接收总线id，见DRIVER_TYPE_xxx常量
 @return int 驱动id
 @usage
-probe_id = audio_v2.make_probe_id(LUAT_AUDIO_DRIVER_TYPE_I2S, 0, LUAT_AUDIO_DRIVER_TYPE_I2S, 0) --i2s0双工
-probe_id = audio_v2.make_probe_id(LUAT_AUDIO_DRIVER_TYPE_DAC, 0, LUAT_AUDIO_DRIVER_TYPE_NONE, 0) --dac0单工
+probe_id = audio_v2.make_probe_id(audio_v2.DRIVER_TYPE_I2S, 0, audio_v2.DRIVER_TYPE_I2S, 0) --i2s0双工
+probe_id = audio_v2.make_probe_id(audio_v2.DRIVER_TYPE_DAC, 0, audio_v2.DRIVER_TYPE_NONE, 0) --dac0单工
 */
 static int l_audio_make_probe_id(lua_State *L) {
 	luat_audio_driver_probe_t probe;
@@ -1015,6 +1022,7 @@ static int l_audio_make_probe_id(lua_State *L) {
     probe.tx_bus_id = luaL_optinteger(L, 2, 0);
     probe.rx_bus_type = luaL_optinteger(L, 3, LUAT_AUDIO_DRIVER_TYPE_NONE);
     probe.rx_bus_id = luaL_optinteger(L, 4, 0);
+    LLOGC(luat_audio_debug_flag, "make_probe_id: %d %d %d %d", probe.tx_bus_type, probe.tx_bus_id, probe.rx_bus_type, probe.rx_bus_id);
     lua_pushinteger(L, probe.probe_id);
     return 1;
 }

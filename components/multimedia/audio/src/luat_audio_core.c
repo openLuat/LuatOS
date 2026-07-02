@@ -1106,6 +1106,7 @@ int luat_audio_driver_set_default(luat_audio_driver_probe_t *probe)
 			return LUAT_ERROR_NONE;
 		}
 	}
+	LLOGE("set default driver index failed, probe_id: %x", probe->probe_id);
 	return -LUAT_ERROR_PARAM_INVALID;
 }
 

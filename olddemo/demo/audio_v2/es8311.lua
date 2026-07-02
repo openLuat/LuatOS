@@ -82,7 +82,20 @@ end
 -- @param reg_addr 寄存器地址
 -- @param data 要写入的数据 (单字节)
 local function write_reg(i2c_id, reg_addr, data)
-    i2c.send(i2c_id, 0x18, string.char(reg_addr, data)) -- ES8311 I2C 器件地址为 0x18
+    local result,read_data
+    result = i2c.send(i2c_id, 0x18, string.char(reg_addr, data)) -- ES8311 I2C 器件地址为 0x18
+    if result then
+        read_data = i2c.readReg(i2c_id, 0x18, reg_addr, 1)
+        if read_data and #read_data > 0 then
+            read_data = string.byte(read_data, 1)
+            if data ~= read_data then
+                log.error("es8311 write_reg failed reg_addr", reg_addr, "read data", read_data, "write data", data)
+            end
+        end
+    else
+        log.error("es8311 write_reg failed")
+    end
+
 end
 
 -- I2C 读寄存器
@@ -260,7 +273,9 @@ end
 -- @return true=初始化成功, false=芯片ID校验失败
 function es8311.init(i2c_id, voltage)
     if voltage == nil then voltage = 0x00 end   -- voltage = 0x00 3.3v, 0x01 1.8V
-
+	write_reg(i2c_id, 0x44, 0x08)
+	write_reg(i2c_id, 0x44, 0x08)
+	write_reg(i2c_id, 0x10, 0x61)
     -- 读取芯片 ID 进行校验 (寄存器 0xFD=CHIP_ID1, 0xFE=CHIP_ID2, 0xFF=CHIP_VER)
     local temp1 = read_reg(i2c_id, 0xFD)
     local temp2 = read_reg(i2c_id, 0xFE)

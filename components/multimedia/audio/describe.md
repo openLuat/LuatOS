@@ -91,16 +91,19 @@ typedef struct {
 
 ```c
 typedef struct {
-    uint32_t frame_size;          // 帧大小（bytes）
-    uint32_t sample_rate;         // 采样率（Hz）
-    uint8_t channel_nums;         // 声道数（1=Mono, 2=Stereo）
-    uint8_t data_align;           // 位宽对齐（1=8位, 2=16位, 3=24位, 4=32位）
-    uint8_t is_signed;            // 有无符号（1=有符号, 0=无符号）
-    uint8_t driver_work_mode;     // 工作模式（PLAY/RECORD/SPEECH/SPEECH_WITH_BUFFER）
+    uint32_t one_frame_sample_cnt;            // 一帧样本数（个）
+    uint32_t one_frame_bytes_from_driver;     // 驱动层一帧字节数（字节）
+    uint32_t one_frame_bytes;                 // 编码器一帧字节数（字节）
+    uint32_t sample_rate;                     // 采样率（Hz）
+    uint8_t channel_nums;                     // 声道数（1=mono, 2=stereo）
+    uint8_t data_align;                       // 数据对齐方式（1=8位, 2=16位, 3=24位, 4=32位）
+    uint8_t is_signed;                        // 是否有符号（1=有符号, 0=无符号）
 } luat_audio_common_param_t;
 ```
 
-此结构在编解码器和驱动控制器中**各有一份**，构成音频数据的完整描述。通道层处理时以此对比输入与驱动的参数差异。
+此结构在编解码器、驱动的发送端和接收端**各有一份**，构成音频数据的完整描述。通道层处理时以此对比输入与驱动的参数差异。
+
+**变更说明**：`driver_work_mode` 已从此结构中移除，改为由 `luat_audio_driver_ctrl_t` 的 `driver_work_mode` / `request_work_mode` 字段独立管理（详见 4.3 节）。
 
 ### 4.3 `luat_audio_driver_ctrl_t`（`luat_audio_driver.h`）
 
@@ -115,7 +118,10 @@ typedef struct {
 | `static_play_buff` | `union {uint32_t*, uint8_t*}` | 静态播放缓冲区（仅用于通话模式）|
 | `current_play_cnt` | `volatile uint32_t` | 当前播放计数 |
 | `one_play_block_len / one_record_block_len` | `uint32_t` | 单 block 大小 |
-| `common_param` | `luat_audio_common_param_t` | 驱动当前公共参数 |
+| `tx_param` | `luat_audio_common_param_t` | 发送方向（播放）公共参数 |
+| `rx_param` | `luat_audio_common_param_t` | 接收方向（录音）公共参数 |
+| `driver_work_mode` | `uint8_t` | 驱动当前工作模式（PLAY/RECORD/SPEECH/SPEECH_WITH_BUFFER）|
+| `request_work_mode` | `uint8_t` | 请求期望的工作模式（与 `driver_work_mode` 分离，支持模式切换）|
 | `pa_power_* / codec_power_*` | 多位域 | 电源管理状态 |
 | `state` | `volatile uint8_t` | 驱动状态机 |
 
@@ -220,7 +226,7 @@ typedef struct luat_audio_driver_probe {
 | `init` | 初始化硬件（DMA/GPIO/时钟配置）|
 | `config_private_param` | 配置 I2S 模式/帧格式/DAC 位宽等私有参数 |
 | `activate` | 激活（退出低功耗、提供 I2S MCLK）|
-| `modify_audio_common_param` | 配置采样率/位宽/声道 |
+| `modify_audio_common_param` | 配置采样率/位宽/声道；新增 `is_rx_dir` 参数区分发送/接收方向 |
 | `dac_data_align` | DAC 数据右对齐（仅右对齐 DAC 需要）|
 | `fill` | 填充空白音到 DMA 缓存（静音数据），签名 `fill(ctrl, play_buff, len_bytes, is_signed, align)` |
 | `start_tx_loop` | 启动播放 DMA 循环 |
@@ -269,22 +275,24 @@ INITED
 #### PA/CODEC 电源管理时序
 
 ```
-luat_audio_driver_start() 调用时：
+luat_audio_driver_start(ctrl, tx_param, rx_param, ...) 调用时：
 
   ① 检查当前状态
      [INITED] → opts->activate() → state=ACTIVE
      [ACTIVE] → 跳过
-     [RUNNING且模式切换] → opts->stop() → state=ACTIVE
+     [RUNNING 且 request_work_mode ≠ driver_work_mode] → opts->stop()
 
-  ② opts->modify_audio_common_param()    // 设置采样率/位宽/声道
+  ② opts->modify_audio_common_param(tx_param, ..., 0)    // 设置发送方向采样率/位宽/声道
+     opts->modify_audio_common_param(rx_param, ..., 1)    // 设置接收方向参数（全双工/录音时）
 
-  ③ 根据 driver_work_mode 启动对应循环:
+  ③ 根据 request_work_mode 启动对应循环:
      PLAY              → support_full_loop ? start_full_loop : start_tx_loop
      RECORD            → support_full_loop ? start_full_loop : start_rx_loop
      SPEECH              → start_full_loop (必须支持全双工)
      SPEECH_WITH_BUFFER  → start_full_loop_with_play_buff
 
-  ④ state = RUNNING
+  ④ driver_work_mode = request_work_mode
+     state = RUNNING
 
   ⑤ CODEC 上电:
      - gpio_set(codec_power_pin, on_level)
@@ -424,6 +432,11 @@ RAW 编解码器为**纯直通模式**，decode/encode 直接复用 WAV 编解�
 WAV 解码是**直通模式**（PCM 不压缩，输入直接复制到输出）。仅支持 16 位 PCM WAV。
 `get_play_info` 解析 RIFF/WAVE 文件头，遍历 chunk 定位到 `data` 块。
 支持编码（生成 WAV 文件头 + PCM 数据），通过 `set_record_info` 设置录音参数。
+
+**最近变更**：
+- `set_record_info` 中强制设置 `codec->common_param.is_signed = 1`（修复 WAV 录音时符号位未正确设置的问题）
+- `make_head` 调用处增加空指针检查（`if (opts->make_head)`），兼容无 `make_head` 的编解码器
+- 录音编解码器有效性检查新增 `encode_raw_mode` 判断（`!encode && !encode_with_sync_output_ref && !encode_raw_mode` 才视为不支持录音）
 
 ##### MP3 编解码器（`luat_audio_codec_port_mp3.c`）
 
@@ -713,21 +726,28 @@ common_task 收到 EV_REQUEST:
 ### 6.3 驱动启动流程
 
 ```
-luat_audio_driver_start(ctrl, common_param, play_buff, one_block_len, block_nums)
+luat_audio_driver_start(ctrl, tx_param, rx_param, play_buff, one_block_len, block_nums)
   ├─ [INITED] opts->activate() → state=ACTIVE
-  ├─ [RUNNING 且模式切换] opts->stop() → state=ACTIVE
-  ├─ opts->modify_audio_common_param()
-  ├─ 根据 mode 选择启动函数:
+  ├─ [RUNNING 且 request_work_mode ≠ driver_work_mode] opts->stop() → state=ACTIVE
+  ├─ opts->modify_audio_common_param(tx_param, ..., 0)  // 配置发送方向
+  ├─ opts->modify_audio_common_param(rx_param, ..., 1)  // 配置接收方向（仅全双工/录音时）
+  ├─ 根据 request_work_mode 选择启动函数:
   │   ├─ PLAY       → support_full_loop ? start_full_loop : start_tx_loop
   │   ├─ RECORD     → support_full_loop ? start_full_loop : start_rx_loop
   │   ├─ SPEECH     → start_full_loop
   │   └─ SPEECH_WITH_BUFFER → start_full_loop_with_play_buff
+  ├─ driver_work_mode = request_work_mode
   ├─ state = RUNNING
   ├─ CODEC 上电 → codec_ready_after_wakeup_timer → codec_ready_state=1
   ├─ PA 上电 → pa_power_on_delay_timer → pa_power_state=1
   └─ codec_power_state && codec_ready_state && pa_power_state
       → audio_output_enable = 1
 ```
+
+**变更说明**：
+- 参数由单个 `common_param` 拆分为 `tx_param` + `rx_param`，支持发送/接收参数独立配置
+- 模式切换判断从 `common_param->driver_work_mode` 改为 `request_work_mode` vs `driver_work_mode`
+- `modify_audio_common_param` 新增 `is_rx_dir` 参数，`0`=发送方向，`1`=接收方向
 
 ### 6.4 TTS 独立任务流程
 
@@ -859,9 +879,13 @@ ADC / I2S 硬件输入
 driver->record_buff[]（DMA 双/多缓冲）
   ↓ [中断回调 — luat_audio_driver_event_callback]
 channel->record_request_block->record_data_fifo
-  ↓ [common_task — EVENT_RX_ENOUGH_DATA]
+  ↓ [common_task — 编解码器编码 → temp_record_buffer]
+deal_bytes += temp_record_buffer.pos   ← 使用编解码器处理后的字节数
+  ↓ [EVENT_RX_ENOUGH_DATA]
 回调 EVENT_GET_NEW_DATA → 用户取走录音数据
 ```
+
+**变更说明**：录音回调的已处理字节数计算从 `read_bytes`（驱动原始数据）改为 `temp_record_buffer.pos`（编解码器编码后的数据），确保不同驱动因 block 大小差异导致的数据量不一致问题。
 
 ### 播放数据流（流模式）
 
@@ -919,6 +943,8 @@ org_input_data_fifo
 | **TTS 隔离** | 独立低优先级任务处理，不阻塞主播放流程 |
 | **自动编解码器识别** | 遍历所有 `support_detect` 编解码器，逐一代用 `get_play_info` 尝试 |
 | **双数据源** | 统一抽象文件（`luat_fs_f*`）和内存数组（`memcpy`）两种数据源 |
+| **Tx/Rx 参数分离** | 驱动控制器 `common_param` 拆分为 `tx_param` + `rx_param`，播放和录音采样率/位宽/声道独立配置 |
+| **工作模式分离** | 新增 `request_work_mode` 和 `driver_work_mode`，请求模式与实际驱动模式解耦，支持模式平滑切换 |
 | **文件列表播放** | `file_info[]` 数组支持连续播放多个文件，`fail_continue` 控制失败是否跳过 |
 | **FIFO 水位控制** | 低水位触发数据请求、高水位停止解码，兼顾实时性和 DMA 缓冲深度 |
 | **驱动状态机** | IDLE → INITED → ACTIVE → RUNNING 四级状态，确保各阶段资源正确管理 |
@@ -932,13 +958,19 @@ org_input_data_fifo
 
 | 文件 | 导出函数数 | 主要函数 |
 |------|-----------|---------|
-| `luat_audio_core.h` | 12 | `base_init`, `debug_switch`, `driver_register`, `driver_probe`, `driver_set_default`, `driver_get_ctrl_info`, `get_play_info_from_file`, `driver_event_callback`, `is_request_all_done`, `data_read_to_fifo`, `data_read_to_buffer`, `data_seek`, `extern_source_init/deinit/decode/check/check_finish` |
-| `luat_audio_driver.h` | 11 | `config_pa_power`, `config_codec_power`, `config_private_param`, `config_audio_common_param`, `change_sample_rate`, `start`, `pa_power_off`, `codec_power_off`, `stop`, `deactivate`, `fill_default` |
+| `luat_audio_core.h` | 13 | `base_init`, `debug_switch`, `driver_register`, `driver_probe`, `driver_set_default`, `driver_get_ctrl_info`, `get_play_info_from_file`, `driver_event_callback`, `is_request_all_done`, `data_read_to_fifo`, `data_read_to_buffer`, `data_seek`, `extern_source_init/deinit/decode/check/check_finish` |
+| `luat_audio_driver.h` | 11 | `config_pa_power`, `config_codec_power`, `config_private_param`, `config_audio_common_param(sample_rate, data_align, channel_nums, is_rx_dir)`, `change_sample_rate(sample_rate, is_rx_dir)`, `start(tx_param, rx_param, play_buff, one_block_len, block_nums)`, `pa_power_off`, `codec_power_off`, `stop`, `deactivate`, `fill_default` |
 | `luat_audio_data_codec.h` | 8 | `register`, `bind`, `init`, `deinit`, `unbind`, `decode_once`, `encode_once`, `find` |
 | `luat_audio_channel.h` | 9 | `create_fifo`, `destroy_fifo`, `play`, `record`, `set_soft_volume`, `write_data`, `read_data`, `data_change_signed`, `data_change_align`, `data_change_channel_nums` |
 | `luat_audio_request.h` | 14 | `play_files`, `play_tts`, `play_stream`, `record`, `speech`, `add_source_files`, `add_source_tts`, `add_source_stream`, `delete_source`, `prepare`, `cancel`, `init`, `deinit`, `start` |
 
 总 API 数量：约 **43** 个公开函数。
+
+**驱动 API 变更说明**：
+- `luat_audio_driver_start()` 签名从 `(ctrl, common_param, play_buff, ...)` 改为 `(ctrl, tx_param, rx_param, play_buff, ...)`，发送和接收参数独立传递
+- `luat_audio_driver_config_audio_common_param()` 新增 `is_rx_dir` 参数
+- `luat_audio_driver_change_sample_rate()` 新增 `is_rx_dir` 参数
+- `modify_audio_common_param` 函数指针新增 `is_rx_dir` 参数（`0`=发送方向，`1`=接收方向）
 
 ### 内部函数（`luat_audio_core.c` static）
 
@@ -1133,6 +1165,7 @@ end)
 - `stream` 模式**必须**指定 `codec_id`，不会自动识别解码器
 - 流模式不会自动结束，需要应用层在数据发送完毕后调用 `audio_v2.stop()` 停止播放
 - RAW 编解码器（`DATA_CODEC_TYPE_RAW`）不做任何解码，数据直通到音频通道，适合预先处理好的 PCM 数据
+- `driver_work_mode` 已从 `common_param` 中移除，由驱动层 `luat_audio_driver_start()` 通过 `request_work_mode` 自动管理，请求初始化时无需手动设置
 
 ---
 
@@ -1397,7 +1430,9 @@ local ok, req_id = audio_v2.record(audio_v2.DATA_CODEC_TYPE_AMR_WB, "/save.amr",
 **注意**：
 - 保存到 zbuff 模式时，通过 `audio_v2.on` 回调的 `REQUEST_GET_NEW_DATA` 事件获取录音数据，`param` 为本次回调的驱动数据大小
 - 保存到文件模式时，录音时长由 `record_callback_cnt` 控制，时间到达后自动结束并触发 `REQUEST_END`
-- 编码器需支持 `encode` 操作，不支持编码的编解码器（如 MP3）不能用于录音
+- 编码器需支持 `encode` 操作（或设置 `encode_raw_mode=1`），不支持编码的编解码器（如 MP3）不能用于录音
+- 录音回调的 `deal_bytes` 计算已从驱动原始字节数改为编解码器处理后的字节数（`temp_record_buffer.pos`），确保不同驱动的 block 大小差异不影响数据量统计
+- Lua 绑定层新增 `is_record_finish` 标志，防止录音文件保存完成后对已关闭文件句柄的重复写入导致死机
 
 ---
 

@@ -98,6 +98,7 @@ function audio_setup_1602_engine_v0004()
     gpio.setup(49, 0) --全程都打开codec电源
     sys.wait(100)
     gpio.set(49, 1)
+    sys.wait(100)
     es8311.init(i2c_id)
     es8311.set_sample_rate(i2c_id,16000,256)
     es8311.set_data_bits(i2c_id,16)

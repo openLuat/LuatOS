@@ -568,7 +568,7 @@ static void _audio_after_decode_once(luat_audio_request_block_t *request_block, 
 static void _audio_decode_stream_to_fifo(luat_audio_request_block_t *request_block)
 {
 	uint8_t stop = 0;
-	int ret;
+	int ret = LUAT_ERROR_NONE;
 
 	while (!stop && !request_block->is_error_stop && !request_block->is_user_stop && (luat_fifo_check_used_space(request_block->data_channel->play_fifo) < request_block->data_channel->play_fifo_high_level)) {	//fifo剩余数据不足高水位，需要请求更多数据
 		if (request_block->extern_play_source) {
@@ -682,7 +682,6 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 	}	
 	if (check_tx_fifo) {
 		if (!request_block->data_channel->play_fifo) {
-			LLOGD("driver 0x%x create play fifo", request_block->data_channel->driver_ctrl->probe.probe_id);
 			request_block->data_channel->play_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_PLAY_FIFO_DEFAULT_SIZE_POWER);
 			request_block->data_channel->play_fifo_low_level = 32 * 1024;
 			request_block->data_channel->play_fifo_high_level = request_block->data_channel->play_fifo->size - 16 * 1024;
@@ -696,7 +695,6 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 	if (check_rx_fifo) {
 		request_block->data_channel->driver_ctrl->opts->modify_audio_common_param(request_block->data_channel->driver_ctrl, request_block->record_codec.common_param.sample_rate, request_block->record_codec.common_param.data_align,request_block->record_codec.common_param.channel_nums, 1);
 		if (!request_block->data_channel->record_fifo) {
-			LLOGD("driver 0x%x create record fifo", request_block->data_channel->driver_ctrl->probe.probe_id);
 			request_block->data_channel->record_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER);
 		}
 		if (!request_block->data_channel->record_fifo) {
@@ -719,7 +717,6 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 	}
 	if (check_ref_fifo) {
 		if (!request_block->data_channel->ref_fifo) {
-			LLOGD("driver 0x%x create ref fifo", request_block->data_channel->driver_ctrl->probe.probe_id);
 			request_block->data_channel->ref_fifo = luat_fifo_create(LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER);
 		}
 		if (!request_block->data_channel->ref_fifo) {
@@ -875,7 +872,7 @@ static void luat_audio_common_task(void *param)
 						stop = 1;
 						continue;
 					}
-					deal_bytes += read_bytes;
+					deal_bytes += temp_record_buffer.pos;
 					if (request_block->is_need_ref_data) {
 						read_bytes = 0;
 						temp_ref_buffer.pos = 0;

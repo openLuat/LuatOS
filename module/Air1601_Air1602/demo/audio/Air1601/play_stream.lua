@@ -1,14 +1,14 @@
 --[[
 @module  play_stream
 @summary 流式播放
-@version 1.2
-@date    2026.06.26
+@version 1.0
+@date    2026.07.02
 @author  拓毅恒
 @usage
 
 注意：
-1. Air8101使用内置DAC输出音频，无需外部音频编解码芯片
-2. 需要固件版本>=V1018才可播放音频
+1. Air1601使用内置DAC输出音频，无需外部音频编解码芯片
+2. 需要固件版本>=V1024才可播放音频
 
 本文件为流式播放应用功能模块，核心业务逻辑为：
 1、初始化后启动流式播放
@@ -22,8 +22,8 @@ local exaudio = require("exaudio")
 -- 音频初始化设置参数 (DAC模式)
 local audio_setup_param ={
     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
-    
-    pa_ctrl = 27,             -- 音频放大器电源控制管脚
+
+    pa_ctrl = 12,             -- 音频放大器电源控制管脚
     pa_on_level = 1,          -- PA打开电平
     pa_delay = 10            -- PA延时
 }

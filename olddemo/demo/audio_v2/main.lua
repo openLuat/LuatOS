@@ -12,7 +12,7 @@ local record_temp_buff = zbuff.create(4000)
 local record_save_file_path = "/record.amr"
 local record_save_buff_cnt = 0
 
-local i2c_id = 1
+
 local stream_file_fp = nil
 local stream_request_index = nil
 local speech_request_index = nil
@@ -23,7 +23,7 @@ local function audio_cb(request_index, event, param)
     log.info("audio_cb", request_index, event, param)
     if speech_test then
         if event == audio_v2.EXT_SRC_DONE then
-            record_save_buff_cnt = 450  -- 第三方数据源完成后，为了让测试快速结束，假装录音完成450次了
+            record_save_buff_cnt = 400  -- 第三方数据源完成后，为了让测试快速结束，假装录音完成400次了
             log.info("ext src done")
         end
     elseif stream_file_fp and request_index == stream_request_index then
@@ -78,10 +78,39 @@ function audio_setup_8101()
     audio_v2.soft_volume(80)
 end
 
+function audio_setup_1602_engine_v0004()
+    local probe_id = audio_v2.make_probe_id(audio_v2.DRIVER_TYPE_DAC, 0, audio_v2.DRIVER_TYPE_I2S, 1)
+    audio_v2.set_default_driver(probe_id)
+
+    local all_nums, default_driver_index = audio_v2.get_driver_info()
+    for i = 0, all_nums - 1 do
+        log.info("驱动序号", i, "id", audio_v2.print_probe_id(audio_v2.get_driver_id(i), true))
+    end
+
+    log.info("默认驱动序号", default_driver_index, "id", audio_v2.print_probe_id(audio_v2.get_driver_id(default_driver_index), true))
+
+    audio_v2.config_pa_power_ctrl(true, 45, 1, 100)  --PA能控制
+    audio_v2.config_codec_power_ctrl(false, nil, nil, 200, 10) --codec电源不控制，只控制播放前的空白音时长
+    audio_v2.soft_volume(70)
+
+    local i2c_id = 1
+    i2c.setup(i2c_id)
+    gpio.setup(49, 0) --全程都打开codec电源
+    sys.wait(100)
+    gpio.set(49, 1)
+    es8311.init(i2c_id)
+    es8311.set_sample_rate(i2c_id,16000,256)
+    es8311.set_data_bits(i2c_id,16)
+    es8311.set_format(i2c_id)
+    es8311.resume(i2c_id)
+    es8311.set_voice_vol(i2c_id,50)
+    es8311.set_mic_vol(i2c_id,85)
+end
+
 function audio_setup_1601_evb()
     audio_v2.config_pa_power_ctrl(true, 12, 0, 100)  --PA能控制
     audio_v2.config_codec_power_ctrl(false, nil, nil, 200, 10) --codec电源不控制，只控制播放前的空白音时长
-    audio_v2.soft_volume(80)
+    audio_v2.soft_volume(70)
 end
 
 function audio_setup_air780ehm_evb()
@@ -90,13 +119,14 @@ function audio_setup_air780ehm_evb()
         log.info("驱动序号", i, "id", audio_v2.print_probe_id(audio_v2.get_driver_id(i), true))
     end
     log.info("默认驱动序号", default_driver_index, "id", audio_v2.print_probe_id(audio_v2.get_driver_id(default_driver_index), true))
+
     audio_v2.config_pa_power_ctrl(true, 1, 1, 200)  --PA能控制
     audio_v2.config_codec_power_ctrl(false, nil, nil, 600, 0) --codec电源不控制，只控制播放前的空白音时长
 
-    audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
+    audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_I2S)
     audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16, 16)
     audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
-
+    local i2c_id = 1
     i2c.setup(i2c_id)
     gpio.setup(2, 1) --全程都打开codec电源
     es8311.init(i2c_id)
@@ -110,7 +140,12 @@ function audio_setup_air780ehm_evb()
 end
 
 local function play_task()
-    local i2c_id = 1
+
+    -- audio_setup_1601_evb()
+    -- audio_setup_air780ehm_evb()
+    -- audio_setup_8101()
+    audio_setup_1602_engine_v0004()
+
     local line, fd = nil, nil
     local amrs = {"/luadb/alipay.amr", "/luadb/2.amr", "/luadb/10.amr", "/luadb/yuan.amr"}
     local file_data, no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed, result
@@ -230,9 +265,6 @@ local function play_task()
     end
 end
 
--- audio_setup_1601_evb()
-audio_setup_air780ehm_evb()
--- audio_setup_8101()
 
 sys.taskInit(play_task)
 

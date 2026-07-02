@@ -1,4 +1,4 @@
--- extp.lua - 触摸系统模块
+﻿-- extp.lua - 触摸系统模块
 --[[
 @module  extp
 @summary 触摸系统拓展库
@@ -25,6 +25,13 @@ SWIPE_UP、SWIPE_DOWN、SINGLE_TAP、LONG_PRESS
 5、extp.set_long_press_threshold(threshold)：设置长按判定阈值
 
 所有触摸事件均通过sys.publish("BASE_TOUCH_EVENT", event_type, ...)发布
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增extp.version()接口
+--    支持extp库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local extp = {}
@@ -428,5 +435,17 @@ function extp.init(param)
     log.error("extp", "PC触摸回退失败")
     return false
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+extp.version()
+]]
+function extp.version()
+    return "202607021200"
+end
+
+log.debug("extp", "version -> " .. extp.version())
 
 return extp

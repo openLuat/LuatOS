@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module excamera
 @summary excamera扩展库
 @version 1.1
@@ -78,6 +78,13 @@ sys.taskInit(function()
 end)
 
 sys.run()
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增excamera.version()接口
+--    支持excamera库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]] --
 local excamera = {}
 local h, w
@@ -725,5 +732,17 @@ function excamera.close(remain_zbuff)
     usb_opened = false
     camera_param_backup = nil
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+excamera.version()
+]]
+function excamera.version()
+    return "202607021200"
+end
+
+log.debug("excamera", "version -> " .. excamera.version())
 
 return excamera

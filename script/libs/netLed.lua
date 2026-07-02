@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module netLed
 @summary netLed 网络状态指示灯
 @version 1.0
@@ -21,6 +21,13 @@ log.info("mobile.status()", mobile.status())
         end
    end
 end)
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增netLed.version()接口
+--    支持netLed库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
  
 netLed = {}
@@ -245,5 +252,17 @@ sys.subscribe("SIM_IND", function(para) if simError~=(para~="RDY") and simError~
 sys.subscribe("IP_LOSE", function() if gprsAttached then gprsAttached=false netLed.setState() end log.info("mobile", "IP_LOSE", (adapter or -1) == socket.LWIP_GP) end)
 sys.subscribe("IP_READY", function(ip, adapter) if gprsAttached~=adapter then gprsAttached=adapter netLed.setState() end log.info("mobile", "IP_READY", ip, (adapter or -1) == socket.LWIP_GP) end)
 sys.subscribe("SOCKET_ACTIVE", function(active) if socketConnected~=active then socketConnected=active netLed.setState() end end)
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+netLed.version()
+]]
+function netLed.version()
+    return "202607021200"
+end
+
+log.debug("netLed", "version -> " .. netLed.version())
 
 return netLed

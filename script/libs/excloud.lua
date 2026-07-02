@@ -595,7 +595,7 @@ end
 -- 发送鉴权请求
 local function send_auth_request()
     if not config.auth_key then
-        log.error("[excloud]没有配置auth_key，无法发送鉴权请求")
+        log.error("[excloud]没有auth_key，无法发送鉴权请求")
         return false, "No auth key configured"
     end
     local auth_data
@@ -2136,12 +2136,12 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 
 --[[
 获取库版本信息
-@return string 年月日时分，例如： "20260702100"
+@return string 年月日时分，例如： "20260702190"
 @usage
 excloud.version()
 ]]
 function excloud.version()
-    return "20260702100"
+    return "20260702190"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

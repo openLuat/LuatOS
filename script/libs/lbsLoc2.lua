@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module lbsLoc2
 @summary 基站定位v2
 @version 1.0
@@ -29,6 +29,13 @@ sys.taskInit(function()
         sys.wait(60000)
     end
 end)
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增lbsLoc2.version()接口
+--    支持lbsLoc2库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local lbsLoc2 = {}
@@ -223,5 +230,17 @@ function lbsLoc2.request(timeout, host, port, reqTime)
     end
     rxbuff:del()
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+lbsLoc2.version()
+]]
+function lbsLoc2.version()
+    return "202607021200"
+end
+
+log.debug("lbsLoc2", "version -> " .. lbsLoc2.version())
 
 return lbsLoc2

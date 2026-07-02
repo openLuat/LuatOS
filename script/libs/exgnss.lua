@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exgnss
 @summary exgnss扩展库
 @version 1.0
@@ -117,6 +117,13 @@ local function gnss_state(event, ticks)
 end
 sys.subscribe("GNSS_STATE",gnss_state)
 
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exgnss.version()接口
+--    支持exgnss库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 local exgnss = {}
 --gnss开启标志，true表示开启状态，false或者nil表示关闭状态
@@ -1062,4 +1069,16 @@ function exgnss.last_loc()
         return jdata 
     end
 end
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exgnss.version()
+]]
+function exgnss.version()
+    return "202607021200"
+end
+
+log.debug("exgnss", "version -> " .. exgnss.version())
+
 return exgnss

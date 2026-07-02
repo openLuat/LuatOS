@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exfotawifi
 @summary 用于Air8000/8000A/8000W型号模组自动升级WIFI
 @version 1.0.4
@@ -26,6 +26,13 @@ end
 
 -- 启动WiFi自动更新任务
 sys.taskInit(fota_wifi_task)
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exfotawifi.version()接口
+--    支持exfotawifi库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 local exfotawifi = {}
 local is_request = false -- 标记是否正在执行request任务
@@ -255,5 +262,17 @@ function exfotawifi.request(config_url)
     is_request = false
     return fota_result
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exfotawifi.version()
+]]
+function exfotawifi.version()
+    return "202607021200"
+end
+
+log.debug("exfotawifi", "version -> " .. exfotawifi.version())
 
 return exfotawifi

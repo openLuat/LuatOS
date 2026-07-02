@@ -85,7 +85,9 @@ local audio_setup_param = {
 
     i2s_sample = 16000,         -- I2S采样率
     bits_per_sample = 16,       -- I2S录音位深
-    i2s_framebit = 16           -- I2S通道位宽
+    i2s_framebit = 16,           -- I2S通道位宽
+
+    audio_mode = "auto"  -- 音频框架版本选择: "auto"用默认, "new"新框架, "old"旧框架
 }
 
 -- ========== 工具函数 ==========

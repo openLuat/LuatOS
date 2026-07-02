@@ -12,11 +12,13 @@
 
 6、record_pcm_file.lua：流式录音到文件功能模块，演示PCM格式音频录制；
 
-7、http_download_play.lua：HTTP下载播放功能模块，演示从网络下载音频文件并播放；
+7、http_stream_test.lua：HTTP边下边播功能模块，演示使用httpplus下载音频数据，支持PCM/AMR/MP3/WAV格式流式播放；
 
-8、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
+8、http_download_play.lua：HTTP下载播放功能模块，演示从网络下载音频文件并播放；
 
-9、test.pcm：用于测试PCM流式播放的示例音频文件；
+9、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
+
+10、test.pcm：用于测试PCM流式播放的示例音频文件；
 
 **注意:目前不支持录音和放音同时进行**
 
@@ -58,7 +60,7 @@
 - 通过流式传输不断填入播放的音频数据
 - 通过powerkey按键进行音量减小
 - 通过boot按键进行音量增加
-- 仅支持PCM格式音频
+- 支持PCM/MP3/AMR/WAV格式音频
 
 ### 4、录音到文件功能 - AMR格式（record_amr_file.lua）
 
@@ -73,6 +75,28 @@
 - 通过powerkey/boot按键开始或停止录音/播放
 - 支持流式录音和播放
 - 支持16kHz采样率、16位采样深度、有符号PCM数据
+
+### 6、HTTP边下边播功能（http_stream_test.lua）
+
+- 使用httpplus进行HTTP下载，边下边播
+- 支持PCM/AMR/MP3/WAV格式的HTTP流式播放
+- PCM格式默认16kHz、16位、有符号、单声道
+- AMR/MP3/WAV格式会自动解析文件头获取真实采样率
+- 使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
+
+**运行结果示例：**
+
+```lua
+I/user.开始播放音频文件
+I/user.exaudio.setup audio_mode=new，切换到新音频框架
+I/user.exaudio.setup 当前使用新音频框架
+I/user.exaudio.setup audio_v2 ES8311模式初始化
+I/user.exaudio.setup ES8311初始化完成
+I/user.exaudio.setup audio_v2初始化完成
+I/user.exaudio audio_v2播放开始 0
+I/user.exaudio audio_v2播放完毕 0
+I/user.播放完成 true
+```
 
 ## 演示硬件环境
 
@@ -117,6 +141,7 @@ local audio_setup_param ={
 require "play_file"
 -- require "play_tts"
 -- require "play_stream"
+-- require "http_stream_test"
 -- require "http_download_play"
 -- require "record_amr_file"
 -- require "record_pcm_file"
@@ -157,6 +182,7 @@ local audio_setup_param ={
 require "play_file"
 -- require "play_tts"
 -- require "play_stream"
+-- require "http_stream_test"
 -- require "http_download_play"
 
 -- 因为AirAUDIO_1020配件板没有麦克风接口，所以不支持录音功能。
@@ -205,6 +231,7 @@ require "play_file"
 ├── play_stream.lua        # 流式音频播放功能模块，支持PCM格式流式播放
 ├── record_amr_file.lua    # 录音到文件功能模块，支持AMR格式录音
 ├── record_pcm_file.lua    # 流式录音到文件功能模块，支持PCM格式录音
+├── http_stream_test.lua   # HTTP边下边播功能模块，支持PCM/AMR/MP3/WAV格式流式播放
 ├── http_download_play.lua # HTTP下载播放功能模块，支持从网络下载音频文件并播放
 ├── sample-6s.mp3          # 示例音频文件，用于播放测试
 ├── test.pcm               # 示例PCM音频文件，用于流式播放测试

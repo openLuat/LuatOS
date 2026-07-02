@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @summary exril_5101扩展库
 @version 1.7
 @date    2026.4.16
@@ -71,6 +71,13 @@ exril_5101.mode(exril_5101.MODE_AT, mode_switch_callback)
 队列系统说明：
 - 所有API调用自动加入操作队列，确保同一时间只有一个操作在执行
 - 队列系统内部管理，用户无需额外处理
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exril_5101.version()接口
+--    支持exril_5101库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local exril_5101 = {}
@@ -3888,5 +3895,17 @@ function exril_5101.config_uart(uart_id, baudrate)
     vwrite = uart.write
     vread = uart.read
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exril_5101.version()
+]]
+function exril_5101.version()
+    return "202607021200"
+end
+
+log.debug("exril_5101", "version -> " .. exril_5101.version())
 
 return exril_5101

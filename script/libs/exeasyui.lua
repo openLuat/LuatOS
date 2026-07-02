@@ -1,4 +1,4 @@
---[[
+﻿--[[
 exEasyUI v1.7.6
 作者：曾帅、江访
 日期：2026-01-28
@@ -24,6 +24,13 @@ exEasyUI v1.7.6
     progress_bar、
     window、
 6. 对外接口导出
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exeasyui.version()接口
+--    支持exeasyui库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local ui                              = {
@@ -4122,3 +4129,16 @@ function ui.renderFrame()
 end
 
 return ui
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exeasyui.version()
+]]
+function exeasyui.version()
+    return "202607021200"
+end
+
+log.debug("exeasyui", "version -> " .. exeasyui.version())
+return exeasyui

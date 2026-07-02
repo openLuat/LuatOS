@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exvib
 @summary exvib 三轴加速度传感器扩展库
 @version 1.0
@@ -109,6 +109,13 @@ end
 
 sys.taskInit(vib_fnc)
 
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exvib.version()接口
+--    支持exvib库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 local exvib={}
 local i2cId=0
@@ -297,5 +304,17 @@ function exvib.close()
     log.info("exvib close..")
 end
 
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exvib.version()
+]]
+function exvib.version()
+    return "202607021200"
+end
+
+log.debug("exvib", "version -> " .. exvib.version())
 
 return exvib

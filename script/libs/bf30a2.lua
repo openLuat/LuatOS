@@ -1,3 +1,13 @@
+﻿--[[
+@module bf30a2
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增bf30a2.version()接口
+--    支持bf30a2库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
+]]
 local config = {
 	mode = 0,
     is_msb = 0,
@@ -23,4 +33,17 @@ local config = {
                  {0xd3, 0x0c}, {0xd4, 0x16}, {0xee, 0x06}, {0xef, 0x04}, {0x55, 0x34}, {0x56, 0x9c}, {0xb1, 0x98},
                  {0xb2, 0x98}, {0xb3, 0xc4}, {0xb4, 0x0c}, {0xa0, 0x8f}, {0x13, 0x07}}
 }
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+bf30a2.version()
+]]
+function bf30a2.version()
+    return "202607021200"
+end
+
+log.debug("bf30a2", "version -> " .. bf30a2.version())
+
 return config

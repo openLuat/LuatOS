@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exaudio
 @summary exaudio扩展库
 @version 1.9
@@ -34,6 +34,13 @@
         4. exaudio.play_stream_write(data),流式音频数据,单次写入的长度修改为根据每秒播放数据量来确定
         5. 低功耗自动控制，exaudio.setup默认SHUTDOWN模式,exaudio.play_start和exaudio.record_start会自动切换到RESUME模式,播放完成或录音完成，会自动切换到SHUTDOWN模式
 @usage
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exaudio.version()接口
+--    支持exaudio库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 local exaudio = {}
 
@@ -157,7 +164,7 @@ local audio_record_param = {
 -- ==================== 内部变量 ====================
 local pcm_buff0 = nil
 local pcm_buff1 = nil
-local voice_vol = 65
+local voice_vol = 70
 local mic_vol = 80
 
 -- 定义全局队列表
@@ -531,7 +538,7 @@ local function audio_v2_setup()
                 audio_v2_es8311_drv.set_data_bits(audio_setup_param.i2c_id, audio_setup_param.bits_per_sample or 16)
                 audio_v2_es8311_drv.set_format(audio_setup_param.i2c_id)
                 audio_v2_es8311_drv.resume(audio_setup_param.i2c_id)
-                audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id, 60)
+                audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id, voice_vol)
                 audio_v2_es8311_drv.set_mic_vol(audio_setup_param.i2c_id, mic_vol)
                 log.info("exaudio.setup", "ES8311初始化完成")
             else
@@ -1899,5 +1906,17 @@ function exaudio.get_stream_wait_ms(codec_id)
     }
     return wait_times[codec_id] or 20
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exaudio.version()
+]]
+function exaudio.version()
+    return "202607021200"
+end
+
+log.debug("exaudio", "version -> " .. exaudio.version())
 
 return exaudio

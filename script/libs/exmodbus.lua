@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exmodbus
 @summary exmodbus 控制Modbus RTU/ASCII/TCP主站/从站通信
 @version 1.0
@@ -12,6 +12,13 @@
 4、modbus:destroy()：销毁 modbus 主站/从站实例对象
 5、modbus:on(callback)：从站注册回调接口，用于处理主站发起的请求（仅适用于 RTU、ASCII、TCP 从站模式）
 6、exmodbus.debug(enable)：设置 debug 开关，开启后会打印接收和发送的原始数据
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exmodbus.version()接口
+--    支持exmodbus库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 local exmodbus = {}
 
@@ -403,5 +410,17 @@ end
 --]]
 -- 该接口在各个子文件中，此处仅用作注释
 -- modbus:on(callback)
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exmodbus.version()
+]]
+function exmodbus.version()
+    return "202607021200"
+end
+
+log.debug("exmodbus", "version -> " .. exmodbus.version())
 
 return exmodbus

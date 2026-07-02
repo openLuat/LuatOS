@@ -13,7 +13,7 @@
 ]] --
 PROJECT = "Air8201G-Turnkey"
 VERSION = "001.000.005"
-PRODUCT_KEY = "abc"
+PRODUCT_KEY = "sh5g0OTP7ThOSlGKmE5jiEMbOBqQWyw9"
 
 -- 模块导入（蓝牙暂时禁用）
 local excloud_module = require "excloud_module"
@@ -130,9 +130,14 @@ local function start_system()
     init_flags.gps_ready = true
     log.info("MAIN", "GPS module initialized (LBS+GNSS 按需同步调用模式)")
 
+    -- 开机时单独执行一次 GPS 定位（后台异步，超时 60s，不阻塞其他初始化与上报）
+    -- 定位结果写入缓存，后续上报会自动带上；上报本身不强制等待 GPS
+    mygps.start_gnss_async()
+    log.info("MAIN", "开机 GPS 定位已后台启动（超时 60s，不阻塞上报）")
+
     -- 不再独立启动 LBS/GNSS 定时循环，由 report 模块在每次上报前按需触发：
     --   - LBS：每次上报前刷新（5min/次）
-    --   - GNSS：每 30min 触发一次，超时 60s 失败放弃
+    --   - GNSS：每 30min 触发一次（后台异步，不阻塞上报）
 
     -- 等待网络就绪后启动excloud
     sys.taskInit(function()

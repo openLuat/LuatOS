@@ -421,7 +421,21 @@ cmd.rrpc = {
         return "rrpc,gnssclose,OK" 
     end,
     ["upconfig"] = function(t)sys.publish("UPDATE_DTU_CNF") return "rrpc,upconfig,OK" end,
-    ["function"] = function(t)log.info("rrpc,function:", table.concat(t, ",")) return "rrpc,function," .. (loadstring(table.concat(t, ","))() or "OK") end,
+    ["function"] = function(t)
+        log.info("rrpc,function:", table.concat(t, ","))
+        local ok, result = pcall(function()
+            local func = loadstring(table.concat(t, ","))
+            if func then
+                return func() or "OK"
+            end
+            return "ERROR"
+        end)
+        if not ok then
+            log.error("rrpc,function", "执行失败:", result)
+            return "rrpc,function,ERROR"
+        end
+        return "rrpc,function," .. tostring(result)
+    end,
     ["simcross"] = function(t) 
         if tonumber(t[1])==1 or tonumber(t[1])==0 or tonumber(t[1])==2 then
             mobile.flymode(0, true)
@@ -582,9 +596,18 @@ local function autoSampl(uid, t)
                 if t[i] ~= "" then 
                     write(uid, (dtulib.fromHexnew(t[i]))) end
             else
-                local res, msg = pcall(loadstring(str))
-                if res then
+                local res, msg = pcall(function()
+                    local func = loadstring(str)
+                    if func then
+                        return func()
+                    end
+                    return nil
+                end)
+                if res and msg then
                     sys.publish("NET_SENT_RDY_" .. uid, msg)
+                elseif not res then
+                    log.error("autoSampl", "执行自动任务失败:", msg)
+                    log.error("autoSampl", "任务执行堆栈:", debug.traceback())
                 end
             end
             sys.wait(t[1])

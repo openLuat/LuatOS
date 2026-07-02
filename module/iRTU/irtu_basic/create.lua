@@ -110,7 +110,20 @@ end
 ---------------------------------------------------------- DTU的网络任务部分 ----------------------------------------------------------
 local function conver(str)
     if str:match("function(.+)end") then
-        return loadstring(str:match("function(.+)end"))()
+        local ok, result = pcall(function()
+            local func = loadstring(str:match("function(.+)end"))
+            if func then
+                return func()
+            end
+            return nil
+        end)
+        if ok then
+            return result
+        else
+            log.error("create", "执行用户自定义函数失败:", result)
+            log.error("create", "函数执行堆栈:", debug.traceback())
+            return nil
+        end
     end
     local hex = str:sub(1, 2):lower() == "0x"
     str = hex and str:sub(3, -1) or str
@@ -177,8 +190,29 @@ local function tcpTask(dName, cid, pios, reg,upprot, dwprot, sockettype,prot, pi
     if not ping or ping == "" then
         ping = "0x00"
     end
-    local dwprotFnc = dwprot and dwprot[cid] and dwprot[cid] ~= "" and loadstring(dwprot[cid]:match("function(.+)end"))
-    local upprotFnc = upprot and upprot[cid] and upprot[cid] ~= "" and loadstring(upprot[cid]:match("function(.+)end"))
+    local dwprotFnc = nil
+    if dwprot and dwprot[cid] and dwprot[cid] ~= "" then
+        local ok, func = pcall(function()
+            return loadstring(dwprot[cid]:match("function(.+)end"))
+        end)
+        if ok then
+            dwprotFnc = func
+        else
+            log.error("create", "加载下行自定义协议函数失败:", func)
+        end
+    end
+    
+    local upprotFnc = nil
+    if upprot and upprot[cid] and upprot[cid] ~= "" then
+        local ok, func = pcall(function()
+            return loadstring(upprot[cid]:match("function(.+)end"))
+        end)
+        if ok then
+            upprotFnc = func
+        else
+            log.error("create", "加载上行自定义协议函数失败:", func)
+        end
+    end
     local tx_buff = zbuff.create(1024)
     local rx_buff = zbuff.create(1024)
     local idx = 0
@@ -509,8 +543,29 @@ local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr
     if type(pub) == "string" then
         pub = listTopic(pub, addImei)
     end
-    local dwprotFnc = dwprot and dwprot[cid] and dwprot[cid] ~= "" and loadstring(dwprot[cid]:match("function(.+)end"))
-    local upprotFnc = upprot and upprot[cid] and upprot[cid] ~= "" and loadstring(upprot[cid]:match("function(.+)end"))
+    local dwprotFnc = nil
+    if dwprot and dwprot[cid] and dwprot[cid] ~= "" then
+        local ok, func = pcall(function()
+            return loadstring(dwprot[cid]:match("function(.+)end"))
+        end)
+        if ok then
+            dwprotFnc = func
+        else
+            log.error("create", "加载下行自定义协议函数失败:", func)
+        end
+    end
+    
+    local upprotFnc = nil
+    if upprot and upprot[cid] and upprot[cid] ~= "" then
+        local ok, func = pcall(function()
+            return loadstring(upprot[cid]:match("function(.+)end"))
+        end)
+        if ok then
+            upprotFnc = func
+        else
+            log.error("create", "加载上行自定义协议函数失败:", func)
+        end
+    end
 
     -- log.info("MQTT HOST:PORT", addr, port)
     -- log.info("MQTT clientID,user,pwd", clientID, conver(usr), conver(pwd))
@@ -851,8 +906,29 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
         -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
         sys.waitUntil("IP_READY", 1000)
     end
-    local dwprotFnc = dwprot and dwprot[cid] and dwprot[cid] ~= "" and loadstring(dwprot[cid]:match("function(.+)end"))
-    local upprotFnc = upprot and upprot[cid] and upprot[cid] ~= "" and loadstring(upprot[cid]:match("function(.+)end"))
+    local dwprotFnc = nil
+    if dwprot and dwprot[cid] and dwprot[cid] ~= "" then
+        local ok, func = pcall(function()
+            return loadstring(dwprot[cid]:match("function(.+)end"))
+        end)
+        if ok then
+            dwprotFnc = func
+        else
+            log.error("create", "加载下行自定义协议函数失败:", func)
+        end
+    end
+    
+    local upprotFnc = nil
+    if upprot and upprot[cid] and upprot[cid] ~= "" then
+        local ok, func = pcall(function()
+            return loadstring(upprot[cid]:match("function(.+)end"))
+        end)
+        if ok then
+            upprotFnc = func
+        else
+            log.error("create", "加载上行自定义协议函数失败:", func)
+        end
+    end
     excloud.on(function(event, data)
         log.info("用户回调函数", event, json.encode(data))
     

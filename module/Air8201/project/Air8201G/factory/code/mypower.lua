@@ -18,8 +18,9 @@
 local mypower = {}
 
 -- ========== 硬编码常量 ==========
-local BATTERY_FULL_MV            = 4150    -- 满电电压(mV)
-local BATTERY_EMPTY_MV           = 3400    -- 关机电压(mV) - 用户指定 3.4V
+local BATTERY_FULL_MV            = 4150    -- 满电电压(mV) = 4.15V → 100%
+local BATTERY_PERCENT_EMPTY_MV   = 3300    -- 电量0%电压(mV) = 3.3V → 0%（显示用）
+local BATTERY_EMPTY_MV           = 3400    -- 关机保护电压(mV) = 3.4V（低于此值自动关机保护电池）
 local BATTERY_DIVIDER_HIGH       = 1000    -- 分压电阻高边(kΩ)：BAT->1MΩ->ADC0->300kΩ->GND
 local BATTERY_DIVIDER_LOW        = 300     -- 分压电阻低边(kΩ)
 local BATTERY_ADC_OFFSET_MV      = 140     -- ADC 测量补偿值(mV)，与花生宠物一致
@@ -103,9 +104,10 @@ end
 -- 计算电池电量百分比（线性映射）
 -- 用户指定：3.4V=0%（关机阈值），4.2V=100%
 local function calculate_level(voltage_mv)
+    -- 电量百分比量程：3.3V(3300mV)=0% ~ 4.15V(4150mV)=100%
     if voltage_mv >= BATTERY_FULL_MV then return 100 end
-    if voltage_mv <= BATTERY_EMPTY_MV then return 0 end
-    return math.floor((voltage_mv - BATTERY_EMPTY_MV) / (BATTERY_FULL_MV - BATTERY_EMPTY_MV) * 100)
+    if voltage_mv <= BATTERY_PERCENT_EMPTY_MV then return 0 end
+    return math.floor((voltage_mv - BATTERY_PERCENT_EMPTY_MV) / (BATTERY_FULL_MV - BATTERY_PERCENT_EMPTY_MV) * 100)
 end
 
 -- 估算充满电所需时间（仅充电中有效）

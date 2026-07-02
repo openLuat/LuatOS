@@ -108,6 +108,7 @@
 #define LUAT_USE_I2S  1
 #define LUAT_USE_MEDIA 1
 #define LUAT_USE_AUDIO 1
+#define LUAT_USE_AUDIO_V2 1
 #define LUAT_SUPPORT_AMR 1
 #define LUAT_SUPPORT_OPUS   1
 #define LUAT_USE_AUDIO_G711 1
@@ -207,6 +208,7 @@
 #define NES_FRAME_SKIP      0
 #define NES_COLOR_DEPTH     16
 #define NES_COLOR_SWAP      0
+#define NES_ENABLE_HEAVY_MAPPERS 1
 
 #define LUAT_USE_GBC        1
 #define GBC_FRAME_SKIP      0

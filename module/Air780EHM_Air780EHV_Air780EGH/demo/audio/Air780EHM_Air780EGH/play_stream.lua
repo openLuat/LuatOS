@@ -52,6 +52,8 @@ local audio_setup_param ={
     
     pa_ctrl = 26,         -- 音频放大器电源控制管脚
     dac_ctrl = 2,        --  音频编解码芯片电源控制管脚
+
+    audio_mode = "auto"  -- 音频框架版本选择: "auto"用默认, "new"新框架, "old"旧框架
 }
 
 -- 播放完成回调

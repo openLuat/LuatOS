@@ -78,4 +78,7 @@ int luat_airlink_syspub_addbool(const uint8_t b, uint8_t *dst, uint32_t limit);
 
 int luat_airlink_syspub_send(uint8_t* buff, size_t len);
 
+// 由传输层周期性调用，检测从机是否超时断开，自动设对应网卡 link down
+void luat_airlink_check_link_timeout(void);
+
 #endif /* LUAT_AIRLINK_DEVINFO_H */

@@ -48,6 +48,9 @@ local gnss_last_result = {
     timestamp = 0,         -- 最近一次 GNSS 尝试时间
 }
 
+-- GNSS 正在定位标记：防止后台任务与上报任务并发重复 open GNSS
+local gnss_running = false
+
 -- 初始化定位模块
 function mygps.init()
     log.info("GPS", "Initializing GPS module v2.0...")
@@ -128,6 +131,13 @@ function mygps.do_gnss_once_sync()
         return false, 0, 0
     end
 
+    -- 并发保护：已有一次 GNSS 定位在执行中则直接返回，避免重复 open 硬件
+    if gnss_running then
+        log.warn("GPS", "GNSS 定位已在进行中，跳过本次重复请求")
+        return false, 0, 0
+    end
+    gnss_running = true
+
     gnss_last_result.ok = false
     gnss_last_result.timestamp = os.time()
 
@@ -207,12 +217,14 @@ function mygps.do_gnss_once_sync()
     if not awakened then
         log.warn("GPS", "GNSS 等待回调超时（外层兜底），主动关闭")
         pcall(function() exgnss.close(exgnss.TIMERORSUC, {tag = "report_gnss"}) end)
+        gnss_running = false
         return false, 0, 0
     end
 
     -- ✅ 使用 cb 内捕获的快照进行判定（不再依赖 libgnss 当前状态）
     if not snapshot.fixed then
         log.warn("GPS", "GNSS 在 " .. GNSS_TIMEOUT_SEC .. "s 内未定位成功（cb 快照 fixed=false）")
+        gnss_running = false
         return false, 0, 0
     end
 
@@ -238,6 +250,7 @@ function mygps.do_gnss_once_sync()
     log.info("GPS", "GNSS 定位成功:", lat_num, lng_num,
                     "速度:", snapshot.speed,
                     "卫星数:", snapshot.sv)
+    gnss_running = false
     return true, lat_num, lng_num
 end
 
@@ -250,6 +263,25 @@ end
 -- @return table { ok=bool, lat=num, lng=num, timestamp=num }
 function mygps.get_last_gnss_result()
     return gnss_last_result
+end
+
+-- 后台异步触发一次 GNSS 定位（不阻塞，供开机时单独执行）
+-- 超时 60 秒（GNSS_TIMEOUT_SEC），定位成功/失败均更新缓存
+function mygps.start_gnss_async()
+    if not GNSS_ENABLED then
+        log.warn("GPS", "GNSS 已禁用，start_gnss_async 跳过")
+        return
+    end
+    if gnss_running then
+        log.warn("GPS", "GNSS 定位已在进行中，start_gnss_async 跳过重复请求")
+        return
+    end
+
+    sys.taskInit(function()
+        log.info("GPS", "后台 GNSS 定位开始, timeout=" .. GNSS_TIMEOUT_SEC .. "s ...")
+        mygps.do_gnss_once_sync()
+        log.info("GPS", "后台 GNSS 定位完成")
+    end)
 end
 
 -- 获取 GNSS 状态查询接口（保留兼容）

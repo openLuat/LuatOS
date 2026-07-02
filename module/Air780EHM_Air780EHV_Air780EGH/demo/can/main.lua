@@ -1,43 +1,16 @@
 --[[
 @module  main
-@summary LuatOS语音通话应用主入口，负责加载功能模块
-@version 1.1
-@date    2026.03.13
-@author  拓毅恒
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 1.0
+@date    2025.11.25
+@author  魏健强
 @usage
-本demo演示四种语音通话应用场景（四选一）：
-
-场景一：基础通话功能（默认启用）
-- 音频设备初始化与控制
-- 完整通话业务逻辑处理（4种通话场景）
-- 通话状态监控与日志记录
-
-场景二：TTS循环播放与通话处理
-- TTS语音循环播放功能
-- 来电自动接听与通话处理
-- 通话录音功能
-
-场景三：通话录音文件保存
-- 通话录音功能（上行和下行数据分别保存）
-- 支持4种通话场景的录音
-- SD卡文件存储管理
-
-场景四：通话中播放外部音频
-- 来电自动接听或主动拨出
-- 通话中播放文件或TTS给对方
-- 本demo使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
-
-使用说明：
-根据需求启用对应的功能模块，注释掉不需要的模块
-- 启用基础通话功能：require "cc_app"
-- 启用TTS循环播放功能：require "cc_tts_app"
-- 启用通话录音文件保存功能：require "cc_record_save"
-- 启用通话中播放外部音频功能：require "play_audio_during_cc"
-
-更多说明参考本目录下的readme.md文件
+本demo演示的核心功能为：
+演示can功能的使用：
+1. can正常工作模式
+2. can自测模式，自发自收
+3. can休眠模式
 ]]
-
-
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
@@ -47,13 +20,13 @@ VERSION：项目版本号，ascii string类型
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
-]]
-PROJECT = "VOICE_CALL_DEMO"
+]]-- Luatools需要PROJECT和VERSION这两个信息
+PROJECT = "can"
 VERSION = "001.999.000"
+
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-
 
 
 
@@ -66,10 +39,12 @@ log.info("main", PROJECT, VERSION)
 --     errDump.config(true, 600)
 -- end
 
+
 -- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
 -- 可以使用合宙的iot.openluat.com平台进行远程升级
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
+
 
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
@@ -80,23 +55,11 @@ log.info("main", PROJECT, VERSION)
 -- end, 3000)
 
 
-
--- 仅加载必要的功能模块
-require "audio_drv"  -- 音频设备管理模块
-
--- 加载通话业务逻辑模块（四选一）
--- 场景一：基础通话功能（默认启用）
-require "cc_app"
--- 场景二：TTS循环播放与通话处理模块
--- 测试TTS循环播放与通话处理模块，取消注释下一行
--- require "cc_tts_app"
--- 场景三：通话录音功能模块（通话录音文件保存）
--- 测试通话并保存通话录音，取消注释下一行
--- require "cc_record_save"
--- 场景四：通话中播放外部音频（文件/TTS）
--- 测试通话中播放文件或TTS，取消注释下一行
--- require "play_audio_during_cc"
+require "can_normal"
+-- require "can_self_test"
+-- require "can_sleep"
 
 -- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!
+-- sys.run()之后后面不要加任何语句!!!!!

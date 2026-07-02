@@ -251,8 +251,9 @@ function report.send_status()
     log.info("REPORT", "发送状态上报")
 
     local system_info = get_system_info()
-    local battery_level = mypower.get_battery_level()
-    local battery_voltage = mypower.get_battery_voltage()
+    local battery_level = mypower.get_battery_level()          -- 百分比(0-100)，用于 BATTERY_LEVEL 字段
+    local battery_voltage = mypower.get_battery_voltage()      -- V（保留两位小数）
+    local battery_voltage_mv = mypower.get_battery_voltage_mv() -- mV，用于 VOLTAGE 字段
     local is_charging = mypower.is_charging()
     local location = mygps.get_location()
     local current_time = os.time()
@@ -272,6 +273,7 @@ function report.send_status()
             value = system_info.iccid or ""
         },
         {
+            -- BATTERY_LEVEL(771) 上报电量百分比(0-100)，量程：3.3V=0% ~ 4.15V=100%
             field_meaning = excloud.FIELD_MEANINGS.BATTERY_LEVEL,
             data_type = excloud.DATA_TYPES.INTEGER,
             value = battery_level
@@ -509,12 +511,30 @@ function report.send_location()
         return false, "无位置"
     end
 
-    local ok, err = excloud_module.send_location(
-        location.lat,
-        location.lng,
-        location.accuracy,
-        location.source
-    )
+    local data = {
+        {
+            field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
+            data_type     = excloud.DATA_TYPES.FLOAT,
+            value         = location.lat
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
+            data_type     = excloud.DATA_TYPES.FLOAT,
+            value         = location.lng
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.LOCATION_METHOD,
+            data_type     = excloud.DATA_TYPES.ASCII,
+            value         = location.source or "UNKNOWN"
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = os.time()
+        }
+    }
+
+    local ok, err = excloud.send(data, false)
 
     if ok then
         log.info("REPORT", "位置上报发送成功:", location.lat, location.lng)
@@ -529,13 +549,28 @@ end
 function report.send_battery()
     log.info("REPORT", "发送电池上报")
 
-    local battery = mypower.get_battery_level()
+    local battery_level = mypower.get_battery_level()      -- 电量百分比(0-100)
+    local battery_mv = mypower.get_battery_voltage_mv()    -- 电压(mV)
     local is_charging = mypower.is_charging()
 
-    local ok, err = excloud_module.send_battery(battery, is_charging)
+    local data = {
+        {
+            -- BATTERY_LEVEL(771) 上报电量百分比(0-100)，量程：3.3V=0% ~ 4.15V=100%
+            field_meaning = excloud.FIELD_MEANINGS.BATTERY_LEVEL,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = battery_level
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = os.time()
+        }
+    }
+
+    local ok, err = excloud.send(data, false)
 
     if ok then
-        log.info("REPORT", "电池上报发送成功:", battery .. "%", "充电中:", is_charging)
+        log.info("REPORT", "电池上报发送成功:", battery_level .. "%", battery_mv .. "mV", "充电中:", is_charging)
     else
         log.error("REPORT", "电池上报发送失败:", err)
     end
@@ -547,9 +582,43 @@ end
 function report.send_system_status()
     log.info("REPORT", "发送系统状态上报")
 
-    local system_info = get_system_info()
+    local info = get_system_info()
 
-    local ok, err = excloud_module.send_system_status(system_info)
+    local data = {
+        {
+            field_meaning = excloud.FIELD_MEANINGS.SIGNAL_STRENGTH_4G,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = info.signal or 0
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.SIM_ICCID,
+            data_type     = excloud.DATA_TYPES.ASCII,
+            value         = info.iccid or ""
+        },
+        {
+            -- ENV_TEMPERATURE(263) 表示 CPU 温度/环境温度
+            field_meaning = excloud.FIELD_MEANINGS.ENV_TEMPERATURE,
+            data_type     = excloud.DATA_TYPES.FLOAT,
+            value         = (info.temperature or 0) / 1000
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = os.time()
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.BOOT_REASON,
+            data_type     = excloud.DATA_TYPES.ASCII,
+            value         = info.reboot_reason or "0,0,0"
+        },
+        {
+            field_meaning = excloud.FIELD_MEANINGS.BOOT_COUNT,
+            data_type     = excloud.DATA_TYPES.INTEGER,
+            value         = info.reboot_count or 0
+        }
+    }
+
+    local ok, err = excloud.send(data, false)
 
     if ok then
         log.info("REPORT", "系统状态上报发送成功")
@@ -563,8 +632,9 @@ end
 -- 定时上报任务
 -- 上报前流程：
 --   ① 刷新 LBS 定位（同步阻塞，最长 LBS_TIMEOUT_MS）
---   ② 判断是否需要触发 GNSS（每 GNSS_REQUEST_INTERVAL 一次，同步阻塞最长 60s）
---   ③ 调用 send_status 发送 TLV（含定位结果 + GNSS_RESULT）
+--   ② 判断是否需要触发 GNSS（每 GNSS_REQUEST_INTERVAL 一次）：
+--      → 后台异步触发，不阻塞上报（下次上报会带上 GNSS 最新结果）
+--   ③ 只要 LBS 或 GNSS 有任一有效定位即调用 send_status 上报，不强制等待 GNSS
 -- @param reason string 本次上报原因（REPORT_REASON 枚举值），默认 TIMER
 local function report_task(reason)
     current_report_reason = reason or REPORT_REASON.TIMER
@@ -575,26 +645,25 @@ local function report_task(reason)
         return
     end
 
-    -- ① 上报前刷新 LBS（同步）
+    -- ① 上报前刷新 LBS（同步，快速）
     log.info("REPORT", "[1/3] 上报前刷新 LBS ...")
     local lbs_ok = mygps.do_lbs_once_sync()
     log.info("REPORT", "[1/3] LBS 完成, ok=" .. tostring(lbs_ok))
 
-    -- ② 判断是否需要触发 GNSS（每 30min 一次）
+    -- ② 判断是否需要触发 GNSS（每 30min 一次）—— 后台异步执行，不阻塞上报
     local now_sec = os.time()
     local need_gnss = (last_gnss_trigger_sec == 0)
                       or ((now_sec - last_gnss_trigger_sec) * 1000 >= GNSS_REQUEST_INTERVAL)
     if need_gnss then
-        log.info("REPORT", "[2/3] 触发 GNSS 定位 (距上次=" .. (now_sec - last_gnss_trigger_sec) .. "s)")
+        log.info("REPORT", "[2/3] 后台触发 GNSS 定位 (距上次=" .. (now_sec - last_gnss_trigger_sec) .. "s)")
         last_gnss_trigger_sec = now_sec
-        local gnss_ok = mygps.do_gnss_once_sync()
-        log.info("REPORT", "[2/3] GNSS 完成, ok=" .. tostring(gnss_ok))
+        mygps.start_gnss_async()   -- 异步，不阻塞本次上报
     else
         local remain_s = math.floor((GNSS_REQUEST_INTERVAL - (now_sec - last_gnss_trigger_sec) * 1000) / 1000)
         log.info("REPORT", "[2/3] 跳过 GNSS（距下次还需 " .. remain_s .. "s）")
     end
 
-    -- ③ 发送 TLV
+    -- ③ 发送 TLV（LBS 或已有 GNSS 缓存定位有效即上报，不强制等待 GNSS）
     log.info("REPORT", "[3/3] 发送 TLV ...")
     report.send_status()
 end

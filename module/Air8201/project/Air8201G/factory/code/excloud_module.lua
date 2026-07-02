@@ -15,7 +15,8 @@ local excloud = require "excloud"
 local global_config = require "global_config"
 
 -- ========== 硬编码常量（原 config.excloud 默认值） ==========
-local AUTH_KEY            = "tJMyP71DEubItiXa62w2ddkG3wum8wPm" -- 用户项目密钥
+-- 用户项目密钥已从本模块移除，统一从 main.lua 的全局变量 _G.PRODUCT_KEY 读取
+-- 请确保 main.lua 中已正确定义：PRODUCT_KEY = "你的项目KEY"
 local DEVICE_TYPE         = 1            -- 设备类型: 1-4G, 2-WiFi, 9-虚拟设备
 local TRANSPORT           = "tcp"        -- 传输协议
 local AUTO_RECONNECT      = true         -- 自动重连
@@ -108,8 +109,12 @@ local function on_excloud_event(event, data)
             -- 已启动状态下会直接跳过，避免重复 stop+start 抖动（轻量）
             start_heartbeat_if_needed()
 
-            -- 上报设备上线状态（库内置 device_status 包，占用 1 个底层 sequence_num，不影响业务 SN）
-            excloud_module.send_device_status("online")
+            -- 上报设备上线状态（仅 1 个 TIMESTAMP 字段，最小负载）
+            excloud.send({{
+                field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
+                data_type     = excloud.DATA_TYPES.INTEGER,
+                value         = os.time()
+            }}, true)
         else
             log.error("EXCLOUD", "Connection failed:", data.error or "unknown")
             is_connected = false
@@ -162,6 +167,14 @@ end
 function excloud_module.init()
     log.info("EXCLOUD", "Initializing excloud...")
 
+    -- 统一从 main.lua 的全局变量 PRODUCT_KEY 获取项目密钥
+    local auth_key = _G.PRODUCT_KEY
+    if not auth_key or auth_key == "" then
+        log.error("EXCLOUD", "PRODUCT_KEY 未配置，请在 main.lua 中定义 PRODUCT_KEY = \"你的项目KEY\"")
+        return false
+    end
+    log.info("EXCLOUD", "使用 PRODUCT_KEY:", auth_key)
+
     excloud.on(on_excloud_event)
 
     local ok, err_msg = excloud.setup({
@@ -174,7 +187,7 @@ function excloud_module.init()
         mtn_log_enabled    = MTN_LOG_ENABLED,
         mtn_log_blocks     = MTN_LOG_BLOCKS,
         mtn_log_write_way  = excloud.MTN_LOG_ADD_WRITE,
-        auth_key           = AUTH_KEY
+        auth_key           = auth_key
     })
 
     if not ok then
@@ -219,116 +232,6 @@ function excloud_module.send(data, is_urgent)
     end
 
     return ok, err_msg
-end
-
--- 发送设备状态
-function excloud_module.send_device_status(status)
-    log.info("EXCLOUD", "Sending device status:", status)
-
-    local data = {
-        {
-            field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
-            data_type = excloud.DATA_TYPES.INTEGER,
-            value = os.time()
-        }
-    }
-
-    return excloud_module.send(data, true)
-end
-
--- 发送定位数据
-function excloud_module.send_location(lat, lng, accuracy, source)
-    log.info("EXCLOUD", "Sending location:", lat, lng, accuracy, source)
-
-    local data = {
-        {
-            field_meaning = excloud.FIELD_MEANINGS.GNSS_LATITUDE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = lat
-        },
-        {
-            field_meaning = excloud.FIELD_MEANINGS.GNSS_LONGITUDE,
-            data_type = excloud.DATA_TYPES.FLOAT,
-            value = lng
-        },
-        {
-            field_meaning = excloud.FIELD_MEANINGS.LOCATION_METHOD,
-            data_type = excloud.DATA_TYPES.ASCII,
-            value = source
-        },
-        {
-            field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
-            data_type = excloud.DATA_TYPES.INTEGER,
-            value = os.time()
-        }
-    }
-
-    return excloud_module.send(data, false)
-end
-
--- 发送电池状态
-function excloud_module.send_battery(level, is_charging)
-    log.info("EXCLOUD", "Sending battery status:", level, is_charging)
-
-    local data = {
-        {
-            field_meaning = excloud.FIELD_MEANINGS.BATTERY_LEVEL,
-            data_type = excloud.DATA_TYPES.INTEGER,
-            value = level
-        },
-        {
-            field_meaning = excloud.FIELD_MEANINGS.CHARGING_STATUS,
-            data_type = excloud.DATA_TYPES.INTEGER,
-            value = is_charging and 1 or 0
-        },
-        {
-            field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
-            data_type = excloud.DATA_TYPES.INTEGER,
-            value = os.time()
-        }
-    }
-
-    return excloud_module.send(data, false)
-end
-
--- 发送系统状态
-function excloud_module.send_system_status(info)
-    log.info("EXCLOUD", "Sending system status")
-
-    local data = {
-        {
-            field_meaning = excloud.FIELD_MEANINGS.SIGNAL_STRENGTH_4G,
-            data_type = excloud.DATA_TYPES.INTEGER,
-            value = info.signal or 0
-        },
-        {
-            field_meaning = excloud.FIELD_MEANINGS.SIM_ICCID,
-            data_type = excloud.DATA_TYPES.ASCII,
-            value = info.iccid or ""
-        },
-        {
-            field_meaning = excloud.FIELD_MEANINGS.CPU_TEMPERATURE,
-            data_type = excloud.DATA_TYPES.INTEGER,
-            value = info.temperature or 0
-        },
-        {
-            field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP,
-            data_type = excloud.DATA_TYPES.INTEGER,
-            value = os.time()
-        },
-        {
-            field_meaning = excloud.FIELD_MEANINGS.REBOOT_REASON,
-            data_type = excloud.DATA_TYPES.UNICODE,
-            value = info.reboot_reason or ""
-        },
-        {
-            field_meaning = excloud.FIELD_MEANINGS.REBOOT_COUNT,
-            data_type = excloud.DATA_TYPES.INTEGER,
-            value = info.reboot_count or 0
-        }
-    }
-
-    return excloud_module.send(data, false)
 end
 
 -- 上传运维日志

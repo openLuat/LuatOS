@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module libfota2
 @summary fota升级v2
 @version 1.1
@@ -42,6 +42,13 @@ libfota2.request(libfota_cb, opts)
 sys.timerLoopStart(libfota2.request, 4*3600*1000, libfota_cb)
 -- 自建平台
 sys.timerLoopStart(libfota2.request, 4*3600*1000, libfota_cb, opts)
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增libfota2.version()接口
+--    支持libfota2库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local libfota2 = {}
@@ -233,5 +240,17 @@ function libfota2.request(cbFnc, opts)
     log.info("libfota2.version", opts.version)
     sys.taskInit(fota_task, cbFnc, opts)
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+libfota2.version()
+]]
+function libfota2.version()
+    return "202607021200"
+end
+
+log.debug("libfota2", "version -> " .. libfota2.version())
 
 return libfota2

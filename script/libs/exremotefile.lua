@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exremotefile
 @summary exremotefile 远程文件管理系统扩展库，提供AP热点创建、SD卡挂载、SERVER文件管理服务器等功能，支持文件浏览、上传、下载和删除操作。
 @version 1.2
@@ -24,6 +24,13 @@ V1.0：
 -- 如果使用自定义配置，则需要根据配置中的server_addr和server_port参数来访问文件管理服务器。
 
 2、exremotefile.close()：关闭远程文件管理系统，停止AP热点和关闭HTTP服务器（不卸载SD卡）
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exremotefile.version()接口
+--    支持exremotefile库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 -- 导入必要的模块
@@ -1611,5 +1618,17 @@ function exremotefile.close()
     is_initialized = false
     log.info("exremotefile", "文件管理系统已关闭")
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exremotefile.version()
+]]
+function exremotefile.version()
+    return "202607021200"
+end
+
+log.debug("exremotefile", "version -> " .. exremotefile.version())
 
 return exremotefile

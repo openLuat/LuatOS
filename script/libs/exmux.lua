@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exmux
 @summary I2C和SPI设备管理扩展库
 @version 1.0.0
@@ -52,6 +52,13 @@ exmux.open("i2c1")
 
 -- 关闭SPI1分组（关闭相关电源和片选，降低功耗）
 exmux.close("spi1")
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exmux.version()接口
+--    支持exmux库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local exmux = {}
@@ -212,5 +219,17 @@ function exmux.close(name)
     log.info("exmux", "分组 " .. name .. " 关闭成功")
     return true
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exmux.version()
+]]
+function exmux.version()
+    return "202607021200"
+end
+
+log.debug("exmux", "version -> " .. exmux.version())
 
 return exmux

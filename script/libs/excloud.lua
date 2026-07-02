@@ -37,6 +37,13 @@
 14. excloud.set_upload_callback(cb) - 设置文件上传回调函数
 15. excloud.get_qrinfo() - 获取二维码信息
 16. excloud.get_mtn_log_status() - 获取运维日志状态
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增excloud.version()接口
+--    支持excloud库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]] local excloud = {}
 local httpplus = require "httpplus"
 local exmtn = require "exmtn"
@@ -73,7 +80,7 @@ local config = {
     client_cert = nil, -- 客户端证书
     client_key = nil, -- 客户端私钥
     client_password = nil, -- 客户端私钥口令
-    use_getip = true, -- 是否使用getip服务发现
+    use_getip = true, -- 是否使用getip服务发现(必须强制实现，因为目前通过getip服务请求设备所属的项目key)
     ipv6 = false, -- 是否优先IPv6
     -- getip配置
     getip_url = "https://gps.openluat.com/iam/iot/getip",
@@ -538,7 +545,7 @@ end
 -- 发送鉴权请求
 local function send_auth_request()
     if not config.auth_key then
-        log.error("[excloud]没有配置auth_key，无法发送鉴权请求")
+        log.error("[excloud]没有auth_key，无法发送鉴权请求")
         return false, "No auth key configured"
     end
     local auth_data
@@ -560,6 +567,7 @@ local function send_auth_request()
         data_type = DATA_TYPES.ASCII,
         value = auth_data
     }}
+    log.info("[excloud]", "发送鉴权请求")
     return excloud.send(message, true, true)
 end
 
@@ -759,7 +767,12 @@ function excloud.getip(getip_type)
     end
 
     -- 构建key（HH版本的key验证逻辑）
+    -- 最新版本，key已经没用，在getip的应答报文中，会返回真正的key，但是getip请求时必须存在key这个字段，所以随便填写一个，后台不会去判断这个key
+    config.auth_key = "unusedkey"
     local key = config.auth_key and (config.auth_key .. "-" .. config.device_id) or config.device_id
+    if config.device_type == 1 then
+        key = key .. "-" .. mobile.muid()
+    end
     log.info("[excloud]getip", "类型:", getip_type, "key:", key)
 
     -- 执行HTTP请求
@@ -781,8 +794,10 @@ function excloud.getip(getip_type)
 
     -- 读取响应体
     local response_body = response.body:toStr()
-    log.info("[excloud]getip响应", "HTTP:", code, "Body:",
-        #response_body > 128 and string.sub(response_body, 1, 128) .. "..." or response_body)
+    -- log.info("[excloud]getip响应", "HTTP:", code, "Body:",
+    --     #response_body > 128 and string.sub(response_body, 1, 128) .. "..." or response_body)
+
+    log.info("[excloud]getip响应", "HTTP:", code, "Body:", response_body)
 
     if not response_body or response_body == "" then
         log.error("[excloud]getip请求失败", "响应体为空")
@@ -882,8 +897,8 @@ function excloud.getip(getip_type)
             if config.current_conninfo.password then
                 config.password = config.current_conninfo.password
             end
-            -- 如果服务器返回了auth_key，且本地没有设置，则保存
-            if config.current_conninfo.auth_key and not config.auth_key then
+            -- 如果服务器返回了auth_key，则保存使用
+            if config.current_conninfo.auth_key then
                 config.auth_key = config.current_conninfo.auth_key
                 log.info("[excloud]自动获取到auth_key")
             end
@@ -894,8 +909,8 @@ function excloud.getip(getip_type)
                 log.info("[excloud]更新UDP认证密钥")
             end
 
-            -- 如果服务器返回了auth_key，且本地没有设置，则保存
-            if config.current_conninfo.auth_key and not config.auth_key then
+            -- 如果服务器返回了auth_key，则保存使用
+            if config.current_conninfo.auth_key then
                 config.auth_key = config.current_conninfo.auth_key
                 log.info("[excloud]自动获取到auth_key")
             end
@@ -1568,7 +1583,13 @@ function excloud.setup(params)
     end
 
     for k, v in pairs(params) do
-        config[k] = v
+        if k == "auth_key" then
+            log.warn("excloud.setup", "不再需要主动配置auth_key")
+        elseif k == "use_getip" then
+            log.warn("excloud.setup", "不再需要主动配置use_getip")
+        else
+            config[k] = v
+        end
     end
 
     if config.device_type == 1 then
@@ -2061,5 +2082,17 @@ excloud.FIELD_MEANINGS = FIELD_MEANINGS
 excloud.MTN_LOG_STATUS = MTN_LOG_STATUS
 excloud.MTN_LOG_CACHE_WRITE = exmtn.CACHE_WRITE
 excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+excloud.version()
+]]
+function excloud.version()
+    return "202607021200"
+end
+
+log.debug("excloud", "version -> " .. excloud.version())
 
 return excloud

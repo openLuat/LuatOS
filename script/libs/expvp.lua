@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module  expvp
 @summary 通用PVP联网对战游戏框架（MQTT通信 + IOT数据存储 + 房间/匹配系统）
 @version 1.0.4
@@ -49,6 +49,13 @@
     
     -- 3. 启动网络服务
     expvp.start()
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增expvp.version()接口
+--    支持expvp库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local expvp = {}
@@ -1267,5 +1274,17 @@ function expvp.query_leaderboard(callback, n)
         end
     end)
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+expvp.version()
+]]
+function expvp.version()
+    return "202607021200"
+end
+
+log.debug("expvp", "version -> " .. expvp.version())
 
 return expvp

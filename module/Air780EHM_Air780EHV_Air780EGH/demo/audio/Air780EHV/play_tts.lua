@@ -48,6 +48,8 @@ local audio_setup_param ={
     
     pa_ctrl = gpio.AUDIOPA_EN,         -- 音频放大器电源控制管脚
     dac_ctrl = 20,        --  音频编解码芯片电源控制管脚,780ehv 默认使用20
+    
+    audio_mode = "auto"  -- 音频框架版本选择: "auto"用默认, "new"新框架, "old"旧框架
 }
 
 local function play_end(event)

@@ -48,6 +48,14 @@ local PWRKEY_SHUTDOWN_HOLD_MS    = 7000    -- 长按 7 秒触发关机
 -- 低电压关机保护开关
 local LOW_VOLTAGE_SHUTDOWN_ENABLED = true
 
+-- ========== 红灯（LED）配置 ==========
+local RED_LED_PIN        = 16      -- 红灯控制引脚 GPIO16
+local RED_LED_ON_LEVEL   = 1       -- 点亮电平（高电平点亮；若硬件为低电平点亮则改为 0）
+local RED_LED_BLINK_ON_MS  = 200   -- 单次闪烁点亮时长(ms)
+local RED_LED_BLINK_OFF_MS = 200   -- 单次闪烁熄灭时长(ms)
+local RED_LED_DEFAULT_TIMES = 3    -- 默认闪烁次数
+local red_led_inited     = false   -- GPIO16 是否已初始化为输出模式
+
 -- ========== 模块状态 ==========
 local battery_state = {
     voltage_mv = 0,
@@ -147,6 +155,37 @@ local function setup_vbus_listener()
     end
 end
 
+-- ========== 红灯闪烁 ==========
+-- 初始化红灯 GPIO16 为输出模式（幂等，仅首次真正配置）
+local function red_led_init()
+    if red_led_inited then return end
+    gpio.setup(RED_LED_PIN, RED_LED_ON_LEVEL == 1 and 0 or 1)  -- 输出模式，初始为熄灭电平
+    red_led_inited = true
+    log.info("POWER", "红灯 GPIO" .. RED_LED_PIN .. " 已初始化为输出模式")
+end
+
+-- 红灯闪烁指定次数（同步阻塞，须在 task 中调用）
+-- @param times number 闪烁次数，默认 RED_LED_DEFAULT_TIMES(3)
+function mypower.blink_red_led(times)
+    times = tonumber(times) or RED_LED_DEFAULT_TIMES
+    if times <= 0 then times = RED_LED_DEFAULT_TIMES end
+
+    red_led_init()
+
+    local off_level = (RED_LED_ON_LEVEL == 1) and 0 or 1
+    log.info("POWER", "红灯闪烁 " .. times .. " 次")
+
+    for i = 1, times do
+        gpio.set(RED_LED_PIN, RED_LED_ON_LEVEL)   -- 点亮
+        sys.wait(RED_LED_BLINK_ON_MS)
+        gpio.set(RED_LED_PIN, off_level)          -- 熄灭
+        sys.wait(RED_LED_BLINK_OFF_MS)
+    end
+
+    -- 结束后确保熄灭
+    gpio.set(RED_LED_PIN, off_level)
+end
+
 -- ========== 软关机 ==========
 -- 软关机（调用合宙官方 pm.shutdown 接口）
 -- 仅 Air780E/Air700E/Air780EP 等移芯 CAT1 平台系列支持
@@ -154,7 +193,9 @@ end
 function mypower.shutdown(reason)
     reason = reason or "manual"
     log.warn("POWER", "===> 即将关机, reason=" .. tostring(reason))
-        pm.shutdown()
+    -- 关机前红灯闪烁 3 次，提示即将关机（同步阻塞，闪完再关机）
+    mypower.blink_red_led(RED_LED_DEFAULT_TIMES)
+    pm.shutdown()
 end
 
 -- ========== PWRKEY 长按 7 秒关机监听（轮询累计法 v2）==========
@@ -218,6 +259,10 @@ local function start_pwrkey_poll_task()
                     -- 已弹起：未满 7 秒，视为短按
                     log.info("POWER", "PWRKEY 已弹起（累计按下 " .. low_count
                                       .. " 秒，未满 " .. PWRKEY_SHUTDOWN_HOLD_SEC .. " 秒）→ 短按")
+                    -- 短按红灯闪烁 3 次（测试红灯），独立 task 不阻塞轮询循环
+                    sys.taskInit(function()
+                        mypower.blink_red_led(RED_LED_DEFAULT_TIMES)
+                    end)
                     sys.publish("PWRKEY_SHORT_PRESS")
                     -- 兼容旧逻辑：main.lua 中是 waitUntil("PWRKEY_WAKEUP")
                     sys.publish("PWRKEY_WAKEUP")
@@ -287,6 +332,10 @@ end
 -- ========== 进入低功耗常驻模式 ==========
 -- 低功耗模式下：4G 保持在线（长连接）、CPU 降频、定时器/中断可唤醒、AGPIO 保电平
 function mypower.enter_lowpower()
+
+    -- 进入低功耗常驻前红灯闪烁 3 次，提示开机完成即将进入 MODE1
+    mypower.blink_red_led(RED_LED_DEFAULT_TIMES)
+
     log.info("POWER", "进入低功耗常驻模式: pm.power(pm.WORK_MODE, 1)")
     pm.power(pm.WORK_MODE, 1)
     -- pm.power(pm.USB, 1)

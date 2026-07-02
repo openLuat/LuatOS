@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module libfota
 @summary libfota fota升级
 @version 1.0
@@ -45,6 +45,13 @@ libfota.request(libfota_cb,"http://xxxxxx.com/xxx/upgrade?version=" .. _G.VERSIO
 sys.timerLoopStart(libfota.request, 4*3600*1000, libfota_cb)
 -- 自建平台
 sys.timerLoopStart(libfota.request, 4*3600*1000, libfota_cb, "http://xxxxxx.com/xxx/upgrade?version=" .. _G.VERSION)
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增libfota.version()接口
+--    支持libfota库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local libfota = {}
@@ -146,6 +153,18 @@ fota升级
 function libfota.request(cbFnc,ota_url,storge_location, len, param1,ota_port,libfota_timeout,server_cert, client_cert, client_key, client_password, show_otaurl)
     sys.taskInit(fota_task, cbFnc,storge_location, len, param1,ota_url, ota_port,libfota_timeout or 180000,server_cert, client_cert, client_key, client_password, show_otaurl)
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+libfota.version()
+]]
+function libfota.version()
+    return "202607021200"
+end
+
+log.debug("libfota", "version -> " .. libfota.version())
 
 return libfota
 

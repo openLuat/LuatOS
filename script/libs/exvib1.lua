@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @summary exvib1扩展库
 @version 1.0
 @date    2025.09.07
@@ -44,6 +44,13 @@ exvib1.open({
 
 
 以下为exvib1扩展库两个函数的详细说明及代码实现：
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exvib1.version()接口
+--    支持exvib1库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local exvib1 = {}
@@ -207,5 +214,17 @@ function exvib1.close()
     sys.timerStop(fsm)
     reset()
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exvib1.version()
+]]
+function exvib1.version()
+    return "202607021200"
+end
+
+log.debug("exvib1", "version -> " .. exvib1.version())
 
 return exvib1

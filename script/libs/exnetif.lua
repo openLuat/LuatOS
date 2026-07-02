@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exnetif
 @summary exnetif 控制网络优先级（以太网->WIFI->4G）根据优先级选择上网的网卡。简化开启多网融合的操作，4G作为数据出口给WIFI,以太网设备上网，以太网作为数据出口给WIFI,Air8000上网，WIFI作为数据出口给Air8000,以太网上网。
 @version 1.0
@@ -11,6 +11,13 @@
 3、exnetif.setproxy(adapter, main_adapter,other_configs)：配置网络代理实现多网融合(需要在task中调用)
 4、exnetif.check_network_status(interval),检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
 5、exnetif.close(type, adapter)：关闭指定网卡,内核固件版本号需>=2020
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exnetif.version()接口
+--    支持exnetif库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 local exnetif = {}
 
@@ -1396,5 +1403,17 @@ function exnetif.close(type, adapter)
     end
 end
 
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exnetif.version()
+]]
+function exnetif.version()
+    return "202607021200"
+end
+
+log.debug("exnetif", "version -> " .. exnetif.version())
 
 return exnetif

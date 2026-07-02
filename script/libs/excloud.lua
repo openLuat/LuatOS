@@ -37,6 +37,13 @@
 14. excloud.set_upload_callback(cb) - 设置文件上传回调函数
 15. excloud.get_qrinfo() - 获取二维码信息
 16. excloud.get_mtn_log_status() - 获取运维日志状态
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增excloud.version()接口
+--    支持excloud库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]] local excloud = {}
 local httpplus = require "httpplus"
 local exmtn = require "exmtn"
@@ -2075,5 +2082,17 @@ excloud.FIELD_MEANINGS = FIELD_MEANINGS
 excloud.MTN_LOG_STATUS = MTN_LOG_STATUS
 excloud.MTN_LOG_CACHE_WRITE = exmtn.CACHE_WRITE
 excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+excloud.version()
+]]
+function excloud.version()
+    return "202607021200"
+end
+
+log.debug("excloud", "version -> " .. excloud.version())
 
 return excloud

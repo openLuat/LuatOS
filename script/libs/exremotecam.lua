@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exremotecam
 @summary exremotecam 远程摄像头控制扩展库，提供统一的摄像头OSD文字显示设置和拍照功能API。
 @version 1.0
@@ -55,6 +55,13 @@ function camera_start()
 end
 
 sys.taskInit(camera_start)
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exremotecam.version()接口
+--    支持exremotecam库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local exremotecam = {}
@@ -235,5 +242,17 @@ function exremotecam.get_photo(camera_param)
         log.info("get_photo","型号填写错误或暂不支持！！！")
     end
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exremotecam.version()
+]]
+function exremotecam.version()
+    return "202607021200"
+end
+
+log.debug("exremotecam", "version -> " .. exremotecam.version())
 
 return exremotecam

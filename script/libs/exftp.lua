@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module  exftp
 @summary FTP客户端库
 @version 1.1
@@ -6,6 +6,13 @@
 @author  魏健强（维护）
 @tag    LUAT_USE_NETWORK
 @usage  
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exftp.version()接口
+--    支持exftp库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local exftp = {}
@@ -926,6 +933,18 @@ function exftp:close()
     self.state = STATE.DISCONNECTED
 
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exftp.version()
+]]
+function exftp.version()
+    return "202607021200"
+end
+
+log.debug("exftp", "version -> " .. exftp.version())
 
 return exftp
 

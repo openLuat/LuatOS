@@ -568,7 +568,7 @@ static void _audio_after_decode_once(luat_audio_request_block_t *request_block, 
 static void _audio_decode_stream_to_fifo(luat_audio_request_block_t *request_block)
 {
 	uint8_t stop = 0;
-	int ret;
+	int ret = LUAT_ERROR_NONE;
 
 	while (!stop && !request_block->is_error_stop && !request_block->is_user_stop && (luat_fifo_check_used_space(request_block->data_channel->play_fifo) < request_block->data_channel->play_fifo_high_level)) {	//fifo剩余数据不足高水位，需要请求更多数据
 		if (request_block->extern_play_source) {

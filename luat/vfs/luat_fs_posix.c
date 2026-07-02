@@ -88,12 +88,14 @@ size_t luat_vfs_posix_fread(void* userdata, void *ptr, size_t size, size_t nmemb
 }
 size_t luat_vfs_posix_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     (void)userdata;
-    int ret = fwrite(ptr, size, nmemb, stream);
+    // 统一以 size=1、nmemb=总字节数 调用平台 fwrite,返回值即实际写入字节数,
+    // 避免部分写入(如磁盘满、EINTR)时返回虚假的完整写入数量
+    size_t ret = fwrite(ptr, 1, size * nmemb, stream);
     // LLOGD("fwrite %p %d %d", stream, size * nmemb, ret);
     if (ret <= 0)
         return 0;
     fflush(stream);
-    return size * nmemb;
+    return ret;
 }
 
 int luat_vfs_posix_fflush(void* userdata, FILE *stream) {

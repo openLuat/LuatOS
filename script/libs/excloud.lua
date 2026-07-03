@@ -39,12 +39,18 @@
 16. excloud.get_mtn_log_status() - 获取运维日志状态
 
 -- 版本更新说明
+-
+-- 版本号：202607031547
+-- 1、更新时间：2026-07-03 15:47
+-- 2、更新内容
+--    不再需要用户在应用脚本中主动设置device_type，而是excloud内部根据模组型号自动判断
+-
 -- 版本号：202607021200
 -- 1、更新时间：2026-07-02 12:00
 -- 2、更新内容
 --    新增excloud.version()接口
 --    支持excloud库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
-]] 
+]]
 
 local excloud = {}
 local httpplus = require "httpplus"
@@ -52,54 +58,54 @@ local exmtn = require "exmtn"
 
 local config = {
     -- 核心配置
-    device_type = 1, -- 设备类型: 1=4G, 2=WiFi, 4=以太网, 9=虚拟设备
-    device_id = "", -- 设备ID（自动获取）
-    protocol_version = 2, -- 协议版本号
-    transport = "", -- 传输协议: "tcp" / "udp" / "mqtt"
-    host = "", -- 服务器地址
-    port = nil, -- 服务器端口
-    auth_key = nil, -- 用户项目密钥
-    keepalive = 300, -- MQTT心跳间隔（秒）
+    device_type = 1,         -- 设备类型: 1=4G主控, 2=WiFi主控, 3=MCU主控, 9=虚拟设备
+    device_id = "",          -- 设备ID（自动获取）
+    protocol_version = 2,    -- 协议版本号
+    transport = "",          -- 传输协议: "tcp" / "udp" / "mqtt"
+    host = "",               -- 服务器地址
+    port = nil,              -- 服务器端口
+    auth_key = nil,          -- 用户项目密钥
+    keepalive = 300,         -- MQTT心跳间隔（秒）
     -- 重连配置
-    auto_reconnect = true, -- 是否自动重连
+    auto_reconnect = true,   -- 是否自动重连
     reconnect_interval = 10, -- 重连间隔（秒）
-    max_reconnect = 3, -- 最大重连次数（超限后重新getip）
-    timeout = 30, -- 连接超时（秒）
+    max_reconnect = 3,       -- 最大重连次数（超限后重新getip）
+    timeout = 30,            -- 连接超时（秒）
     -- MQTT配置
-    qos = 0, -- MQTT QoS等级
-    retain = 0, -- MQTT retain标志
-    clean_session = true, -- MQTT clean session
-    ssl = false, -- SSL/TLS配置
-    username = nil, -- MQTT用户名
-    password = nil, -- MQTT密码
-    udp_auth_key = nil, -- UDP鉴权密钥
+    qos = 0,                 -- MQTT QoS等级
+    retain = 0,              -- MQTT retain标志
+    clean_session = true,    -- MQTT clean session
+    ssl = false,             -- SSL/TLS配置
+    username = nil,          -- MQTT用户名
+    password = nil,          -- MQTT密码
+    udp_auth_key = nil,      -- UDP鉴权密钥
     -- Socket底层参数
-    local_port = nil, -- 本地端口（nil=自动分配）
-    keep_idle = nil, -- TCP keepalive idle时间
-    keep_interval = nil, -- TCP keepalive 探测间隔
-    keep_cnt = nil, -- TCP keepalive 探测次数
-    server_cert = nil, -- 服务器CA证书
-    client_cert = nil, -- 客户端证书
-    client_key = nil, -- 客户端私钥
-    client_password = nil, -- 客户端私钥口令
-    use_getip = true, -- 是否使用getip服务发现(必须强制实现，因为目前通过getip服务请求设备所属的项目key)
-    ipv6 = false, -- 是否优先IPv6
+    local_port = nil,        -- 本地端口（nil=自动分配）
+    keep_idle = nil,         -- TCP keepalive idle时间
+    keep_interval = nil,     -- TCP keepalive 探测间隔
+    keep_cnt = nil,          -- TCP keepalive 探测次数
+    server_cert = nil,       -- 服务器CA证书
+    client_cert = nil,       -- 客户端证书
+    client_key = nil,        -- 客户端私钥
+    client_password = nil,   -- 客户端私钥口令
+    use_getip = true,        -- 是否使用getip服务发现(必须强制实现，因为目前通过getip服务请求设备所属的项目key)
+    ipv6 = false,            -- 是否优先IPv6
     -- getip配置
     getip_url = "https://gps.openluat.com/iam/iot/getip",
-    current_conninfo = {}, -- 当前getip返回的连接信息
-    current_imginfo = nil, -- 当前图片上传配置
-    current_audinfo = nil, -- 当前音频上传配置
-    current_mtninfo = nil, -- 当前运维日志上传配置
-    current_qrinfo = nil, -- 当前二维码信息
-    getip_retry_count = 0, -- getip当前重试次数
-    max_getip_retry = 3, -- getip最大重试次数
+    current_conninfo = {},                -- 当前getip返回的连接信息
+    current_imginfo = nil,                -- 当前图片上传配置
+    current_audinfo = nil,                -- 当前音频上传配置
+    current_mtninfo = nil,                -- 当前运维日志上传配置
+    current_qrinfo = nil,                 -- 当前二维码信息
+    getip_retry_count = 0,                -- getip当前重试次数
+    max_getip_retry = 3,                  -- getip最大重试次数
     -- 虚拟设备
-    virtual_phone_number = nil, -- 虚拟设备手机号（11位）
-    virtual_serial_num = 0, -- 虚拟设备序列号（0-999）
+    virtual_phone_number = nil,           -- 虚拟设备手机号（11位）
+    virtual_serial_num = 0,               -- 虚拟设备序列号（0-999）
     -- 运维日志
-    mtn_log_enabled = false, -- 是否启用运维日志
-    aircloud_mtn_log_enabled = false, -- 是否启用AirCloud运维日志
-    mtn_log_blocks = 1, -- 运维日志每个文件的块数
+    mtn_log_enabled = false,              -- 是否启用运维日志
+    aircloud_mtn_log_enabled = false,     -- 是否启用AirCloud运维日志
+    mtn_log_blocks = 1,                   -- 运维日志每个文件的块数
     mtn_log_write_way = exmtn.CACHE_WRITE -- 运维日志写入方式，测试上传时使用直接写盘，避免缓存未落盘导致文件大小为0
 }
 
@@ -176,101 +182,101 @@ end
 -- 数据类型定义（bit12-15 嵌入 field_type 中）
 local DATA_TYPES = {
     INTEGER = 0x0, -- 整数（4字节大端）
-    FLOAT = 0x1, -- 浮点数（当前为*1000整数编码，非IEEE 754）
+    FLOAT = 0x1,   -- 浮点数（当前为*1000整数编码，非IEEE 754）
     BOOLEAN = 0x2, -- 布尔值（1字节，0/1）
-    ASCII = 0x3, -- ASCII字符串
-    BINARY = 0x4, -- 二进制数据
-    UNICODE = 0x5 -- Unicode字符串
+    ASCII = 0x3,   -- ASCII字符串
+    BINARY = 0x4,  -- 二进制数据
+    UNICODE = 0x5  -- Unicode字符串
 }
 
 -- 运维日志上传状态
 local MTN_LOG_STATUS = {
-    START = 0, -- 开始上传
+    START = 0,   -- 开始上传
     SUCCESS = 1, -- 上传成功
-    FAILED = 2 -- 上传失败
+    FAILED = 2   -- 上传失败
 }
 -- 字段含义定义（值与注释来源：合宙IOT通用报文协议AirCloud 1.0）
 local FIELD_MEANINGS = {
     -- 控制信令 (16-27)
-    AUTH_REQUEST = 16, -- 鉴权请求（上行）
-    AUTH_RESPONSE = 17, -- 鉴权回复（下行）
-    REPORT_RESPONSE = 18, -- 上报回应（下行）
-    CONTROL_COMMAND = 19, -- 控制命令（下行）
-    CONTROL_RESPONSE = 20, -- 控制回应（上行）
-    IRTU_DOWN = 21, -- iRTU下行命令
-    IRTU_UP = 22, -- iRTU上行回复
-    FILE_UPLOAD_START = 23, -- 文件上传开始通知
-    FILE_UPLOAD_FINISH = 24, -- 文件上传完成通知
-    MTN_LOG_UPLOAD_REQ_SIGNAL = 25, -- 运维日志上传请求（下行）
-    MTN_LOG_UPLOAD_RESP_SIGNAL = 26, -- 运维日志上传响应（上行）
+    AUTH_REQUEST = 16,                 -- 鉴权请求（上行）
+    AUTH_RESPONSE = 17,                -- 鉴权回复（下行）
+    REPORT_RESPONSE = 18,              -- 上报回应（下行）
+    CONTROL_COMMAND = 19,              -- 控制命令（下行）
+    CONTROL_RESPONSE = 20,             -- 控制回应（上行）
+    IRTU_DOWN = 21,                    -- iRTU下行命令
+    IRTU_UP = 22,                      -- iRTU上行回复
+    FILE_UPLOAD_START = 23,            -- 文件上传开始通知
+    FILE_UPLOAD_FINISH = 24,           -- 文件上传完成通知
+    MTN_LOG_UPLOAD_REQ_SIGNAL = 25,    -- 运维日志上传请求（下行）
+    MTN_LOG_UPLOAD_RESP_SIGNAL = 26,   -- 运维日志上传响应（上行）
     MTN_LOG_UPLOAD_STATUS_SIGNAL = 27, -- 运维日志上传状态（上行）
     -- 传感类 (256-264)
-    TEMPERATURE = 256, -- 温度
-    HUMIDITY = 257, -- 湿度
-    PARTICULATE = 258, -- 颗粒数
-    ACIDITY = 259, -- 酸度
-    ALKALINITY = 260, -- 碱度
-    ALTITUDE = 261, -- 海拔
-    WATER_LEVEL = 262, -- 水位
-    ENV_TEMPERATURE = 263, -- CPU温度/环境温度
-    POWER_METERING = 264, -- 电量计量
+    TEMPERATURE = 256,                 -- 温度
+    HUMIDITY = 257,                    -- 湿度
+    PARTICULATE = 258,                 -- 颗粒数
+    ACIDITY = 259,                     -- 酸度
+    ALKALINITY = 260,                  -- 碱度
+    ALTITUDE = 261,                    -- 海拔
+    WATER_LEVEL = 262,                 -- 水位
+    ENV_TEMPERATURE = 263,             -- CPU温度/环境温度
+    POWER_METERING = 264,              -- 电量计量
     -- 资产管理 (512-521)
-    GNSS_LONGITUDE = 512, -- GNSS经度
-    GNSS_LATITUDE = 513, -- GNSS纬度
-    SPEED = 514, -- 行驶速度
-    GNSS_CN = 515, -- 最强4颗GNSS卫星的CN
-    SATELLITES_TOTAL = 516, -- 搜到的所有卫星数
-    SATELLITES_VISIBLE = 517, -- 可见卫星数
-    HEADING = 518, -- 航向角
-    LOCATION_METHOD = 519, -- 基站定位/GNSS定位标识
-    GNSS_INFO = 520, -- GNSS芯片型号和固件版本
-    DIRECTION = 521, -- 方向
+    GNSS_LONGITUDE = 512,              -- GNSS经度
+    GNSS_LATITUDE = 513,               -- GNSS纬度
+    SPEED = 514,                       -- 行驶速度
+    GNSS_CN = 515,                     -- 最强4颗GNSS卫星的CN
+    SATELLITES_TOTAL = 516,            -- 搜到的所有卫星数
+    SATELLITES_VISIBLE = 517,          -- 可见卫星数
+    HEADING = 518,                     -- 航向角
+    LOCATION_METHOD = 519,             -- 基站定位/GNSS定位标识
+    GNSS_INFO = 520,                   -- GNSS芯片型号和固件版本
+    DIRECTION = 521,                   -- 方向
     -- 设备参数 (768-799)
-    HEIGHT = 768, -- 高度
-    WIDTH = 769, -- 宽度
-    ROTATION_SPEED = 770, -- 转速
-    BATTERY_LEVEL = 771, -- 电量（mV）
-    SERVING_CELL = 772, -- 驻留频段
-    CELL_INFO = 773, -- 驻留小区和邻区
-    COMPONENT_MODEL = 774, -- 元器件型号
-    GPIO_LEVEL = 775, -- GPIO高低电平
-    BOOT_REASON = 776, -- 开机原因
-    BOOT_COUNT = 777, -- 开机次数
-    SLEEP_MODE = 778, -- 休眠模式
-    WAKE_INTERVAL = 779, -- 定时唤醒间隔
-    NETWORK_IP_TYPE = 780, -- 设备入网IP类型
-    NETWORK_TYPE = 781, -- 当前联网方式
-    SIGNAL_STRENGTH_4G = 782, -- 4G信号强度
-    SIM_ICCID = 783, -- SIM卡ICCID
-    DEVICE_ID = 798, -- 设备号（IMEI）
-    VOLTAGE = 799, -- 电压
+    HEIGHT = 768,                      -- 高度
+    WIDTH = 769,                       -- 宽度
+    ROTATION_SPEED = 770,              -- 转速
+    BATTERY_LEVEL = 771,               -- 电量（mV）
+    SERVING_CELL = 772,                -- 驻留频段
+    CELL_INFO = 773,                   -- 驻留小区和邻区
+    COMPONENT_MODEL = 774,             -- 元器件型号
+    GPIO_LEVEL = 775,                  -- GPIO高低电平
+    BOOT_REASON = 776,                 -- 开机原因
+    BOOT_COUNT = 777,                  -- 开机次数
+    SLEEP_MODE = 778,                  -- 休眠模式
+    WAKE_INTERVAL = 779,               -- 定时唤醒间隔
+    NETWORK_IP_TYPE = 780,             -- 设备入网IP类型
+    NETWORK_TYPE = 781,                -- 当前联网方式
+    SIGNAL_STRENGTH_4G = 782,          -- 4G信号强度
+    SIM_ICCID = 783,                   -- SIM卡ICCID
+    DEVICE_ID = 798,                   -- 设备号（IMEI）
+    VOLTAGE = 799,                     -- 电压
     -- 文件上传 (784-787)
-    FILE_UPLOAD_TYPE = 784, -- 文件上传类型（1:图片, 2:音频）
-    FILE_NAME = 785, -- 文件名称
-    FILE_SIZE = 786, -- 文件大小
-    UPLOAD_RESULT_STATUS = 787, -- 上传结果状态
+    FILE_UPLOAD_TYPE = 784,            -- 文件上传类型（1:图片, 2:音频）
+    FILE_NAME = 785,                   -- 文件名称
+    FILE_SIZE = 786,                   -- 文件大小
+    UPLOAD_RESULT_STATUS = 787,        -- 上传结果状态
     -- 运维日志 (788-792)
-    MTN_LOG_FILE_INDEX = 788, -- 运维日志文件序号
-    MTN_LOG_FILE_TOTAL = 789, -- 运维日志文件总数
-    MTN_LOG_FILE_SIZE = 790, -- 运维日志文件大小
+    MTN_LOG_FILE_INDEX = 788,          -- 运维日志文件序号
+    MTN_LOG_FILE_TOTAL = 789,          -- 运维日志文件总数
+    MTN_LOG_FILE_SIZE = 790,           -- 运维日志文件大小
     MTN_LOG_UPLOAD_STATUS_FIELD = 791, -- 运维日志上传状态
-    MTN_LOG_FILE_NAME = 792, -- 运维日志文件名称
+    MTN_LOG_FILE_NAME = 792,           -- 运维日志文件名称
     -- 工牌 (793-797)
-    BADGE_TOTAL_DISK = 793, -- 工牌总磁盘空间
-    BADGE_AVAILABLE_DISK = 794, -- 工牌剩余磁盘空间
-    BADGE_TOTAL_MEM = 795, -- 工牌总内存
-    BADGE_AVAILABLE_MEM = 796, -- 工牌剩余内存
-    BADGE_RECORD_COUNT = 797, -- 工牌录音数量
+    BADGE_TOTAL_DISK = 793,            -- 工牌总磁盘空间
+    BADGE_AVAILABLE_DISK = 794,        -- 工牌剩余磁盘空间
+    BADGE_TOTAL_MEM = 795,             -- 工牌总内存
+    BADGE_AVAILABLE_MEM = 796,         -- 工牌剩余内存
+    BADGE_RECORD_COUNT = 797,          -- 工牌录音数量
     -- 软件数据 (1024-1029)
-    LUA_CORE_ERROR = 1024, -- Lua核心库错误上报
-    LUA_EXT_ERROR = 1025, -- Lua扩展卡错误上报
-    LUA_APP_ERROR = 1026, -- Lua业务错误上报
-    FIRMWARE_VERSION = 1027, -- 固件版本号
-    SMS_FORWARD = 1028, -- SMS转发
-    CALL_FORWARD = 1029, -- 来电转发
+    LUA_CORE_ERROR = 1024,             -- Lua核心库错误上报
+    LUA_EXT_ERROR = 1025,              -- Lua扩展卡错误上报
+    LUA_APP_ERROR = 1026,              -- Lua业务错误上报
+    FIRMWARE_VERSION = 1027,           -- 固件版本号
+    SMS_FORWARD = 1028,                -- SMS转发
+    CALL_FORWARD = 1029,               -- 来电转发
     -- 设备无关数据 (1280-1281)
-    TIMESTAMP = 1280, -- 时间戳
-    RANDOM_DATA = 1281 -- 无意义数据
+    TIMESTAMP = 1280,                  -- 时间戳
+    RANDOM_DATA = 1281                 -- 无意义数据
 }
 
 -- 大端编码
@@ -324,8 +330,8 @@ local function get_device_id_by_type()
         return imei
     elseif config.device_type == 2 then
         return wlan.getMac(nil, true)
-    elseif config.device_type == 4 then
-        return netdrv.mac(socket.LWIP_ETH)
+    elseif config.device_type == 3 then
+        return mcu.unique_id():toHex()
     elseif config.device_type == 9 then
         if not config.virtual_phone_number then
             return nil, "虚拟设备需要配置 virtual_phone_number"
@@ -359,7 +365,7 @@ local function packDeviceInfo(deviceType, deviceId)
     end
 
     -- 设备类型字节
-    local result = {string.char(deviceType)}
+    local result = { string.char(deviceType) }
 
     -- 清理设备ID（移除非数字和字母字符，并转换为大写）
     local cleanId = deviceId:gsub("[^%w]", ""):upper()
@@ -468,7 +474,7 @@ local function build_header(need_reply, is_udp_transport, data_length)
     -- 消息标识字段
     local flags = config.protocol_version -- bit0-3: 协议版本号
     if need_reply then
-        flags = flags + 16 -- bit4: 是否需要回复
+        flags = flags + 16                -- bit4: 是否需要回复
     end
     if is_udp_transport then
         flags = flags + 32 -- bit5: 是否是UDP承载
@@ -476,7 +482,7 @@ local function build_header(need_reply, is_udp_transport, data_length)
     log.info("[excloud]构建消息头", "seq:", sequence_num, "len:", data_length, "flags:", flags, "dev:",
         device_id_binary and string.toHex(device_id_binary) or "nil")
     return device_id_binary .. to_big_endian(sequence_num, 2) .. to_big_endian(data_length, 2) ..
-               to_big_endian(flags, 4)
+        to_big_endian(flags, 4)
 end
 
 --[[
@@ -599,7 +605,7 @@ local function parse_message(data)
 
         local field_type = from_big_endian(data, offset, 2)
         local type = math.floor(field_type / 0x1000) -- bit12-15
-        local field = field_type % 0x1000 -- bit0-11
+        local field = field_type % 0x1000            -- bit0-11
         local length = from_big_endian(data, offset + 2, 2)
 
         -- offset 指向 field_type 的第 1 字节，TLV 最后 1 字节位置是 offset + 3 + length
@@ -636,22 +642,15 @@ local function send_auth_request()
     local auth_data
     if config.device_type == 1 then
         auth_data = config.auth_key .. "-" .. config.device_id .. "-" .. mobile.muid()
-    elseif config.device_type == 2 then
-        auth_data = config.auth_key .. "-" .. config.device_id .. "-" .. mcu.unique_id():toHex()
-    elseif config.device_type == 4 then -- 以太网设备
-        auth_data = config.auth_key .. "-" .. config.device_id:gsub("[^%w]", ""):upper() .. "-" ..
-                        mcu.unique_id():toHex()
-    elseif config.device_type == 9 then -- 虚拟设备
-        auth_data = config.auth_key .. "-" .. config.device_id
     else
         auth_data = config.auth_key .. "-" .. config.device_id
     end
 
-    local message = {{
+    local message = { {
         field_meaning = FIELD_MEANINGS.AUTH_REQUEST,
         data_type = DATA_TYPES.ASCII,
         value = auth_data
-    }}
+    } }
     log.info("[excloud]", "发送鉴权请求")
     return excloud.send(message, true, true)
 end
@@ -726,11 +725,11 @@ local function handle_mtn_log_upload_request()
     log.info("开始处理运维日志上传请求", "文件总数:", total_files, "最新序号:", latest_index)
 
     -- 发送运维日志上传响应
-    local response_ok, err_msg = excloud.send({{
+    local response_ok, err_msg = excloud.send({ {
         field_meaning = FIELD_MEANINGS.MTN_LOG_UPLOAD_RESP_SIGNAL,
         data_type = DATA_TYPES.BINARY,
         value = build_mtn_log_response_tlv(total_files, latest_index)
-    }}, false)
+    } }, false)
 
     if not response_ok then
         log.error("发送运维日志上传响应失败: " .. err_msg)
@@ -747,7 +746,7 @@ end
 
 -- MTN状态通知辅助函数
 local function send_mtn_status(index, status)
-    excloud.send({{
+    excloud.send({ {
         field_meaning = FIELD_MEANINGS.MTN_LOG_UPLOAD_STATUS_SIGNAL,
         data_type = DATA_TYPES.BINARY,
         value = json.encode({
@@ -755,7 +754,7 @@ local function send_mtn_status(index, status)
             status = status,
             timestamp = os.time()
         })
-    }}, false)
+    } }, false)
 end
 
 -- 上传运维日志文件（逐个上传扫描到的日志文件）
@@ -1076,7 +1075,7 @@ end
 
 -- 文件上传通知(start/finish统一)
 local function send_file_upload_notify(notify_field, file_type, file_name, file_size, upload_ok)
-    local tlvs = {{
+    local tlvs = { {
         field_meaning = notify_field,
         data_type = DATA_TYPES.INTEGER,
         value = 0
@@ -1088,7 +1087,7 @@ local function send_file_upload_notify(notify_field, file_type, file_name, file_
         field_meaning = FIELD_MEANINGS.FILE_NAME,
         data_type = DATA_TYPES.ASCII,
         value = file_name
-    }}
+    } }
     if file_size then
         tlvs[#tlvs + 1] = {
             field_meaning = FIELD_MEANINGS.FILE_SIZE,
@@ -1186,7 +1185,7 @@ local function do_upload_file(file_type, file_path, file_name, upload_info)
             -- 流式写入：文件字段
             body_zbuff:write("--" .. boundary .. "\r\n")
             body_zbuff:write("Content-Disposition: form-data; name=\"" .. (upload_info.data_key or "f") ..
-                                 "\"; filename=\"" .. file_name .. "\"\r\n")
+                "\"; filename=\"" .. file_name .. "\"\r\n")
             body_zbuff:write("Content-Type: application/octet-stream\r\n\r\n")
 
             -- 直接写入原ZBUFF数据（用query+write，避免额外内存分配）
@@ -1438,7 +1437,7 @@ schedule_reconnect = function()
     end
     reconnect_count = reconnect_count + 1
     log.info("[excloud]安排第 " .. reconnect_count .. "/" .. config.max_reconnect .. " 次重连，等待 " ..
-                 config.reconnect_interval .. " 秒")
+        config.reconnect_interval .. " 秒")
 
     if reconnect_count >= config.max_reconnect then
         log.info("[excloud]到达最大重连次数 " .. reconnect_count .. "/" .. config.max_reconnect)
@@ -1705,6 +1704,26 @@ local function mqtt_client_event_cbfunc(connected, event, data, payload, metas)
     end
 end
 
+-- 根据模组型号自动获取设备类型
+local function get_device_type()
+    if rtos.bsp() == "PC" then
+        return 9
+    else
+        local model = hmeta.model()
+
+        if model:find("^Air780E") or model:find("^Air8000") or model:find("^Air700") then
+            return 1
+        elseif model:find("^Air8101") then 
+            return 2
+        elseif model:find("^Air1601") or model:find("^Air1602") or model:find("^Air1780") then 
+            return 3
+        else
+            log.warn("get_device_type", "未知设备类型:", model)
+            return 0xFF
+        end
+    end
+end
+
 function excloud.setup(params)
     if is_open then
         return false, "excloud is already open"
@@ -1715,10 +1734,14 @@ function excloud.setup(params)
             log.warn("excloud.setup", "不再需要主动配置auth_key")
         elseif k == "use_getip" then
             log.warn("excloud.setup", "不再需要主动配置use_getip")
+        elseif k == "device_type" then
+            log.warn("excloud.setup", "不再需要主动配置device_type")
         else
             config[k] = v
         end
     end
+
+    config.device_type = get_device_type()
 
     local device_id, device_id_err = get_device_id_by_type()
     if not device_id then
@@ -1842,7 +1865,7 @@ function excloud.open()
             log.info("[excloud]服务器信息获取成功", "host:", config.host, "port:", config.port, "transport:",
                 config.transport)
 
-            for _, f in ipairs({"imginfo", "audinfo", "mtninfo", "qrinfo"}) do
+            for _, f in ipairs({ "imginfo", "audinfo", "mtninfo", "qrinfo" }) do
                 if result[f] then
                     config["current_" .. f] = result[f]
                 end
@@ -2193,7 +2216,7 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 excloud.version()
 ]]
 function excloud.version()
-    return "202607031100"
+    return "202607031547"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

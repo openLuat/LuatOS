@@ -58,7 +58,7 @@ uint32_t luat_fifo_write(luat_fifo_t *fifo, const void *buf, uint32_t size)
     else
     {
         memcpy(fifo->data + w, buf, tail);
-        memcpy(fifo->data, buf + tail, size - tail);
+        memcpy(fifo->data, (uint8_t *)buf + tail, size - tail);
     }
     fifo->wpoint += size;
     return size;

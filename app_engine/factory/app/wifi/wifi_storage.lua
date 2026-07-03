@@ -26,7 +26,7 @@
 ]]
 
 local CONFIG_KEY = "wifi_app_config"
-local SAVED_LIST_FILE = "/wifi_saved_list.json"
+local SAVED_LIST_KEY = "wifi_saved_list"
 
 local config = {
     wifi_enabled = false,
@@ -76,45 +76,32 @@ end
 
 --[[
 @function save_saved_list
-@summary 将已保存网络列表保存到文件
+@summary 将已保存网络列表保存到 fskv
 @return boolean - 保存成功返回true，失败返回false
 ]]
 local function save_saved_list()
-    local data = json.encode(saved_list)
-    local f = io.open(SAVED_LIST_FILE, "w")
-    if f then
-        f:write(data)
-        f:close()
+    local result = fskv.set(SAVED_LIST_KEY, saved_list)
+    if result then
         log.info("wifi_storage", "已保存网络列表保存成功，数量:", #saved_list)
-        return true
     else
         log.error("wifi_storage", "已保存网络列表保存失败")
-        return false
     end
+    return result
 end
 
 --[[
 @function load_saved_list
-@summary 从文件加载已保存网络列表
+@summary 从 fskv 加载已保存网络列表
 ]]
 local function load_saved_list()
-    local f = io.open(SAVED_LIST_FILE, "r")
-    log.info("wifi_storage", "尝试从已保存网络列表文件加载:", SAVED_LIST_FILE)
-    if f then
-        log.info("wifi_storage", "已保存网络列表文件打开成功")
-        local data = f:read("*a")
-        f:close()
-        if data then
-            local ok_decoded, decoded_list = pcall(json.decode, data)
-            if ok_decoded and type(decoded_list) == "table" then
-                saved_list = decoded_list
-                log.info("wifi_storage", "已保存网络列表加载成功，数量:", #saved_list)
-                return
-            end
-        end
+    local loaded = fskv.get(SAVED_LIST_KEY)
+    if loaded and type(loaded) == "table" then
+        saved_list = loaded
+        log.info("wifi_storage", "已保存网络列表加载成功，数量:", #saved_list)
+    else
+        saved_list = {}
+        log.info("wifi_storage", "已保存网络列表为空，使用默认值")
     end
-    saved_list = {}
-    log.info("wifi_storage", "已保存网络列表文件加载失败，使用默认值")
 end
 
 --[[
@@ -240,6 +227,28 @@ local function mark_failed(ssid)
 end
 
 --[[
+@function remove_saved_network
+@summary 从已保存网络列表中删除指定网络
+@param string ssid - 要删除的 WiFi SSID
+@return number - 删除的条目数量
+]]
+local function remove_saved_network(ssid)
+    if not ssid or ssid == "" then return 0 end
+    local count = 0
+    for i = #saved_list, 1, -1 do
+        if saved_list[i].ssid == ssid then
+            table.remove(saved_list, i)
+            count = count + 1
+        end
+    end
+    if count > 0 then
+        save_saved_list()
+        log.info("wifi_storage", "删除已保存网络:", ssid, "删除条目:", count)
+    end
+    return count
+end
+
+--[[
 @function on_init_req
 @summary 处理 WIFI_STORAGE_INIT_REQ 事件处理
 ]]
@@ -312,6 +321,12 @@ local function on_init_request()
             local count = mark_failed(data.ssid)
             sys.publish("WIFI_STORAGE_MARK_FAILED_RSP", {success = count > 0, count = count})
         end)
+
+        -- 新事件：删除已保存网络
+        sys.subscribe("WIFI_STORAGE_REMOVE_REQ", function(data)
+            local count = remove_saved_network(data.ssid)
+            sys.publish("WIFI_STORAGE_REMOVE_RSP", {success = count > 0, count = count, ssid = data.ssid})
+        end)
     else
         log.error("wifi_storage", "fskv 初始化失败，使用默认配置继续运行")
         -- 初始化失败时，仍然注册事件处理器并发布加载响应
@@ -345,6 +360,11 @@ local function on_init_request()
         sys.subscribe("WIFI_STORAGE_MARK_FAILED_REQ", function(data)
             log.warn("wifi_storage", "存储不可用，跳过标记连接失败:", data.ssid)
             sys.publish("WIFI_STORAGE_MARK_FAILED_RSP", {success = false, count = 0})
+        end)
+
+        sys.subscribe("WIFI_STORAGE_REMOVE_REQ", function(data)
+            log.warn("wifi_storage", "存储不可用，跳过删除已保存网络:", data.ssid)
+            sys.publish("WIFI_STORAGE_REMOVE_RSP", {success = false, count = 0, ssid = data.ssid})
         end)
     end
 

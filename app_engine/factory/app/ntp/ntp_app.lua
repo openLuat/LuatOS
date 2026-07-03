@@ -80,9 +80,10 @@ local function ntp_sync_task()
     log.info("ntp_app", "检测到IP_READY，默认网卡:", socket.dft())
 
     -- 网络就绪后开始NTP循环同步
+    local max_retries = 10
+    local retries = 0
     while true do
         log.info("ntp_app", "开始NTP时间同步")
-        -- 使用默认NTP服务器（ntp.aliyun.com）
         socket.sntp()
 
         -- 等待同步结果（NTP_UPDATE由底层在SNTP成功后发布）
@@ -90,14 +91,21 @@ local function ntp_sync_task()
 
         if success then
             log.info("ntp_app", "时间同步成功")
+            retries = 0
             print_time_detail()
             print_high_precision_time()
             -- 同步成功后等待5分钟再次同步
             sys.wait(300 * 1000)
         else
-            log.warn("ntp_app", "时间同步失败，10秒后重试")
-            -- 同步失败等待10秒重试
-            sys.wait(10 * 1000)
+            retries = retries + 1
+            if retries >= max_retries then
+                log.warn("ntp_app", "连续失败", max_retries, "次，等待网络恢复")
+                sys.waitUntil("IP_READY")
+                retries = 0
+            else
+                log.warn("ntp_app", "时间同步失败(", retries, "/", max_retries, ")，10秒后重试")
+                sys.wait(10 * 1000)
+            end
         end
     end
 end

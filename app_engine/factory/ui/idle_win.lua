@@ -28,9 +28,11 @@
 发布: FOTA_DOWNLOAD_START              → 用户确认下载
 ]]
 
+local exnetif = require "exnetif"
+
 local window_id = nil
 local main_container = nil
-local product_label, big_time_label, date_label, wifi_icon, mobile_icon, qrcode_widget
+local product_label, big_time_label, date_label, wifi_icon, mobile_icon, ethernet_icon, qrcode_widget
 local battery_container, battery_bar, battery_label
 local page_label = nil
 local tab_view = nil
@@ -96,6 +98,19 @@ local has_4g = _G.project_config and _G.project_config.features and _G.project_c
 local has_wifi = _G.project_config and _G.project_config.features and _G.project_config.features.wifi
 local has_battery = _G.project_config and _G.project_config.features and _G.project_config.features.battery
     and _G.project_config and _G.project_config.ui and _G.project_config.ui.show_battery_icon
+local has_eth = false
+if _G.project_config then
+    local cf = _G.project_config.network or {}
+    for _, nc in ipairs(cf) do
+        if nc.type and nc.type:find("eth", 1, true) then
+            has_eth = true
+            break
+        end
+    end
+    if not has_eth then
+        has_eth = _G.project_config.features and _G.project_config.features.ethernet
+    end
+end
 local chip_name = (_G.project_config and _G.project_config.chip) or ""
 local model_suffix = chip_name:gsub("^Air", "")
 if model_suffix ~= "" then
@@ -926,6 +941,17 @@ local function update_mobile_icon(level)
     mobile_icon:set_src("/luadb/4Gxinhao" .. ii .. ".png")
 end
 
+local function update_ethernet_icon(state)
+    if not ethernet_icon then return end
+    if state == 1 then
+        ethernet_icon:set_src("/luadb/ethernet.png")
+    elseif state == 2 then
+        ethernet_icon:set_src("/luadb/ethernet_link_down.png")
+    else
+        ethernet_icon:set_src("/luadb/ethernet_fault.png")
+    end
+end
+
 local function on_status_time(t, d, w) update_time_date(t, d, w) end
 local function on_status_wifi(level) update_wifi_icon(level) end
 local function on_status_mobile(level) update_mobile_icon(level) end
@@ -998,6 +1024,7 @@ local function on_create()
 
     local icon_wifi = has_wifi
     local icon_4g   = has_4g
+    local icon_eth  = has_eth
     local icon_batt = has_battery
     local icon_spacing = math.floor(8 * _G.density_scale)
     local right_margin = math.floor(12 * _G.density_scale)
@@ -1012,6 +1039,10 @@ local function on_create()
         if total_right_w > 0 then total_right_w = total_right_w + icon_spacing end
         total_right_w = total_right_w + status_icon_size
     end
+    if icon_eth then
+        if total_right_w > 0 then total_right_w = total_right_w + icon_spacing end
+        total_right_w = total_right_w + status_icon_size
+    end
     if icon_wifi then
         if total_right_w > 0 then total_right_w = total_right_w + icon_spacing end
         total_right_w = total_right_w + status_icon_size
@@ -1019,6 +1050,12 @@ local function on_create()
 
     local right_base_x = total_right_w > 0 and (screen_w - total_right_w - right_margin) or 0
     local next_x = right_base_x
+    if icon_eth then
+        ethernet_icon = airui.image({
+            parent = sb, x = next_x, y = siy, w = status_icon_size, h = status_icon_size, src = "/luadb/ethernet_link_down.png"
+        })
+        next_x = next_x + status_icon_size + icon_spacing
+    end
     if icon_wifi then
         wifi_icon = airui.image({
             parent = sb, x = next_x, y = siy, w = status_icon_size, h = status_icon_size, src = "/luadb/wifixinhao0.png"
@@ -1106,6 +1143,24 @@ local function on_create()
     sys.subscribe("AUTOSTART_PASSWORD_RESULT", on_auto_start_password_result)
     sys.subscribe("FOTA_PROMPT_REBOOT", show_fota_reboot_prompt)
     sys.subscribe("FOTA_PROMPT_DOWNLOAD", show_fota_download_prompt)
+    if has_eth then
+        sys.subscribe("EXLIB_NETDRV_NETWORK_STATUS", function(net_type, adapter)
+            if net_type == "Ethernet" or net_type == "8101SPIETH" or net_type == "ETHUSER1" then
+                update_ethernet_icon(1)
+            end
+        end)
+        -- 直接监听以太网 IP 状态变化（插拔/获取IP/断线均触发）
+        sys.subscribe("IP_READY", function(ip, adapter)
+            if adapter == socket.LWIP_ETH or adapter == socket.LWIP_USER1 then
+                update_ethernet_icon(1)
+            end
+        end)
+        sys.subscribe("IP_LOSE", function(adapter)
+            if adapter == socket.LWIP_ETH or adapter == socket.LWIP_USER1 then
+                update_ethernet_icon(2)
+            end
+        end)
+    end
     request_auto_start_state()
 
     sys.publish("REQUEST_STATUS_REFRESH")
@@ -1127,7 +1182,7 @@ local function on_destroy()
 
     if tab_view then tab_view:destroy(); tab_view = nil end
     if main_container then main_container:destroy(); main_container = nil end
-    product_label = nil; big_time_label = nil; date_label = nil; wifi_icon = nil; mobile_icon = nil; qrcode_widget = nil
+    product_label = nil; big_time_label = nil; date_label = nil; wifi_icon = nil; mobile_icon = nil; ethernet_icon = nil; qrcode_widget = nil
     battery_container = nil; battery_bar = nil; battery_label = nil
     page_label = nil; external_app_cache = {}; page_grids = {}
     app_cards = {}

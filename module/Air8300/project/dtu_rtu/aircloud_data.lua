@@ -26,58 +26,6 @@
 
 local excloud = require "excloud"
 
--- 直接解析 raw data 提取 JSON 命令
-sys.subscribe("EXCLOUD_RAW_MSG", function(data)
-    if #data < 21 then return end
-    -- data: 16B header + 2B field_type + 2B length + NB value
-    local function b2int(i) return data:byte(i)*256 + data:byte(i+1) end
-    local vlen = b2int(19)
-    if #data < 20 + vlen then return end
-    local val = data:sub(21, 20 + vlen)
-    local ok, cmd = pcall(json.decode, val)
-    if not ok or type(cmd) ~= "table" or not cmd.type then return end
-    log.info("aircloud", "收到命令:", val)
-    local resp = {}
-    if cmd.type == "read_all" then
-        adc.open(adc.CH_CPU); resp.cpu_temp = adc.get(adc.CH_CPU) / 1000; adc.close(adc.CH_CPU)
-        adc.open(adc.CH_VBAT); resp.vbat = adc.get(adc.CH_VBAT) / 1000; adc.close(adc.CH_VBAT)
-        resp.temperature = rtu_temp or 0; resp.humidity = rtu_hum or 0
-        resp.latitude = lat or ""; resp.longitude = lng or ""
-        resp.csq = mobile.csq() or 0; resp.imei = mobile.imei() or ""; resp.iccid = mobile.iccid() or ""
-        resp.timestamp = os.time()
-    elseif cmd.type == "read_temp" then
-        resp.temperature = rtu_temp or 0
-    elseif cmd.type == "read_humi" then
-        resp.humidity = rtu_hum or 0
-    elseif cmd.type == "read_vbat" then
-        adc.open(adc.CH_VBAT); resp.vbat = adc.get(adc.CH_VBAT) / 1000; adc.close(adc.CH_VBAT)
-    elseif cmd.type == "read_cpu" then
-        adc.open(adc.CH_CPU); resp.cpu_temp = adc.get(adc.CH_CPU) / 1000; adc.close(adc.CH_CPU)
-    elseif cmd.type == "read_lat" then
-        resp.latitude = lat or ""
-    elseif cmd.type == "read_lng" then
-        resp.longitude = lng or ""
-    elseif cmd.type == "read_csq" then
-        resp.csq = mobile.csq() or 0
-    elseif cmd.type == "read_imei" then
-        resp.imei = mobile.imei() or ""
-    elseif cmd.type == "read_iccid" then
-        resp.iccid = mobile.iccid() or ""
-    elseif cmd.type == "read_time" then
-        resp.timestamp = os.time()
-    else
-        resp = {error="未知命令", cmd=cmd.type or ""}
-    end
-    excloud.send({{field_meaning=excloud.FIELD_MEANINGS.CONTROL_RESPONSE, data_type=excloud.DATA_TYPES.ASCII, value=json.encode(resp)}}, false)
-end)
-
--- AirCloud 服务器配置（请填入实际值）
-local AIRcloud_CONFIG = {
-    host = "124.71.128.165",
-    port = 9108,
-    auth_key = "47J0PYMJzOCXwjXQ0bpqhXkoq9KMgDgi",
-}
-
 -- 经纬度
 local lat, lng = nil, nil
 sys.subscribe("Airlbs_LOCATION_UPDATE", function(new_lat, new_lng)
@@ -110,7 +58,49 @@ excloud.on(function(event, data)
             log.info("认证失败: " .. (data.message or "?"))
         end
     elseif event == "message" then
-        log.info("收到消息, seq:", data.header and data.header.sequence)
+        log.info("收到消息, seq:", data.header and data.header.sequence_num)
+        for _, tlv in ipairs(data.tlvs or {}) do
+            if tlv.field == excloud.FIELD_MEANINGS.CONTROL_COMMAND then
+                local ok, cmd = pcall(json.decode, tostring(tlv.value))
+                if not ok or type(cmd) ~= "table" or not cmd.type then
+                    log.info("aircloud", "无效命令:", tostring(tlv.value))
+                else
+                    log.info("aircloud", "收到命令:", cmd.type)
+                    local resp = {}
+                    if cmd.type == "read_all" then
+                        adc.open(adc.CH_CPU); resp.cpu_temp = adc.get(adc.CH_CPU) / 1000; adc.close(adc.CH_CPU)
+                        adc.open(adc.CH_VBAT); resp.vbat = adc.get(adc.CH_VBAT) / 1000; adc.close(adc.CH_VBAT)
+                        resp.temperature = rtu_temp or 0; resp.humidity = rtu_hum or 0
+                        resp.latitude = lat or ""; resp.longitude = lng or ""
+                        resp.csq = mobile.csq() or 0; resp.imei = mobile.imei() or ""; resp.iccid = mobile.iccid() or ""
+                        resp.timestamp = os.time()
+                    elseif cmd.type == "read_temp" then
+                        resp.temperature = rtu_temp or 0
+                    elseif cmd.type == "read_humi" then
+                        resp.humidity = rtu_hum or 0
+                    elseif cmd.type == "read_vbat" then
+                        adc.open(adc.CH_VBAT); resp.vbat = adc.get(adc.CH_VBAT) / 1000; adc.close(adc.CH_VBAT)
+                    elseif cmd.type == "read_cpu" then
+                        adc.open(adc.CH_CPU); resp.cpu_temp = adc.get(adc.CH_CPU) / 1000; adc.close(adc.CH_CPU)
+                    elseif cmd.type == "read_lat" then
+                        resp.latitude = lat or ""
+                    elseif cmd.type == "read_lng" then
+                        resp.longitude = lng or ""
+                    elseif cmd.type == "read_csq" then
+                        resp.csq = mobile.csq() or 0
+                    elseif cmd.type == "read_imei" then
+                        resp.imei = mobile.imei() or ""
+                    elseif cmd.type == "read_iccid" then
+                        resp.iccid = mobile.iccid() or ""
+                    elseif cmd.type == "read_time" then
+                        resp.timestamp = os.time()
+                    else
+                        resp = {error="未知命令", cmd=cmd.type or ""}
+                    end
+                    excloud.send({{field_meaning=excloud.FIELD_MEANINGS.CONTROL_RESPONSE, data_type=excloud.DATA_TYPES.ASCII, value=json.encode(resp)}}, false)
+                end
+            end
+        end
     elseif event == "disconnect" then
         log.warn("与服务器断开连接")
     elseif event == "reconnect_failed" then
@@ -136,9 +126,7 @@ sys.taskInit(function()
     -- 配置 excloud
     local ok, err = excloud.setup({
         device_type = 1,
-        host = AIRcloud_CONFIG.host,
-        port = AIRcloud_CONFIG.port,
-        auth_key = AIRcloud_CONFIG.auth_key,
+        use_getip = true, -- 使用getip服务
         transport = "tcp",
         auto_reconnect = true,
         reconnect_interval = 10,
@@ -154,7 +142,7 @@ sys.taskInit(function()
 
     -- 定时上报
     while true do
-        sys.wait(60000)
+        sys.wait(60000) --间隔1分钟上传一次，此间隔可根据实际情况自行选择
 
         -- 系统数据：发送时实时读取（系统API，不会重复采集传感器）
         local rssi = mobile.csq() or 0
@@ -192,3 +180,4 @@ sys.taskInit(function()
         end
     end
 end)
+

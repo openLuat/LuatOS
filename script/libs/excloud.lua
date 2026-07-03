@@ -517,6 +517,41 @@ function excloud.build_tlv(field_meaning, data_type, value)
     return true, tlv_data
 end
 
+--[[
+解析TLV字段
+@api excloud.parse_tlv(data, startPos)
+@string data 包含 TLV 数据的二进制字符串
+@number startPos 开始解析的位置，默认为 1
+@return table tlv_info 解析后的 TLV 信息表，包含 field、type、length、raw_value、value 字段
+@return number new_pos 解析完成后的新位置，用于继续解析后续的 TLV 字段
+@return string error 解析失败时返回的错误信息
+]]
+function excloud.parse_tlv(data, startPos)
+    startPos = startPos or 1
+    if not data or #data < startPos + 3 then
+        return nil, startPos, "TLV data too short"
+    end
+
+    local field_type = from_big_endian(data, startPos, 2)
+    local length = from_big_endian(data, startPos + 2, 2)
+    if #data < startPos + 3 + length then
+        return nil, startPos, "TLV value incomplete"
+    end
+
+    local data_type = math.floor(field_type / 0x1000)
+    local field = field_type % 0x1000
+    local value = data:sub(startPos + 4, startPos + 3 + length)
+    local decoded_value = decode_value(data_type, value)
+
+    return {
+        field = field,
+        type = data_type,
+        length = length,
+        raw_value = value,
+        value = decoded_value
+    }, startPos + 4 + length
+end
+
 -- 解析消息
 local function parse_message(data)
     if #data < 16 then
@@ -815,7 +850,14 @@ local function parse_data(data)
             return
         elseif tlv.field == FIELD_MEANINGS.AUTH_RESPONSE then
             is_authenticated = true
-            log.info("[excloud]鉴权成功")
+            log.info("[excloud]鉴权成功", tlv.value)
+            if callback_func then
+                callback_func("auth_result", {
+                    success = true,
+                    message = tlv.value,
+                    sequence_num = message.header and message.header.sequence_num or nil
+                })
+            end
         end
     end
 
@@ -1344,12 +1386,11 @@ function excloud.upload_audio(file_data, file_name)
 end
 
 -- 记录运维日志
-function excloud.mtn_log(level, tag, ...)
+function excloud.mtn_log(tag, ...)
     if not config.mtn_log_enabled then
         return false, "运维日志功能已禁用"
     end
-    exmtn.log(level, tag, ...)
-    return true
+    return exmtn.log("info", tag, ...)
 end
 
 -- 获取二维码信息
@@ -1374,13 +1415,18 @@ function excloud.get_mtn_log_status()
         total_size = total_size + file.size
     end
 
+    local last_error = nil
+    if type(exmtn.get_last_error) == "function" then
+        last_error = exmtn.get_last_error()
+    end
+
     return {
         enabled = true,
         config = config_info,
         file_count = #log_files,
         total_size = total_size,
         files = log_files,
-        last_error = exmtn.get_last_error()
+        last_error = last_error
     }
 end
 
@@ -1410,11 +1456,15 @@ schedule_reconnect = function()
 
                     reconnect_count = 0
 
-                    excloud.close()
+                    cleanup_connection()
+                    stop_connect_timeout()
+                    is_connected = false
+                    is_authenticated = false
                     sys.wait(200)
                     excloud.open()
                 else
                     log.error("[excloud]重新获取服务器信息失败，将在网络恢复后重试")
+                    heartbeat_was_running = heartbeat_was_running or is_heartbeat_running
                     if callback_func then
                         callback_func("reconnect_failed", {
                             count = reconnect_count,
@@ -2064,7 +2114,8 @@ function excloud.status()
         is_connected = is_connected,
         is_authenticated = is_authenticated,
         sequence_num = sequence_num,
-        reconnect_count = reconnect_count
+        reconnect_count = reconnect_count,
+        pending_messages = 0
     }
 end
 
@@ -2119,7 +2170,8 @@ function excloud.get_server_info()
         conninfo = config.current_conninfo,
         imginfo = config.current_imginfo,
         audinfo = config.current_audinfo,
-        mtninfo = config.current_mtninfo
+        mtninfo = config.current_mtninfo,
+        qrinfo = config.current_qrinfo
     }
 end
 
@@ -2136,12 +2188,12 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 
 --[[
 获取库版本信息
-@return string 年月日时分，例如： "20260702190"
+@return string 年月日时分，例如： "202607021900"
 @usage
 excloud.version()
 ]]
 function excloud.version()
-    return "20260702190"
+    return "202607021900"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

@@ -2193,7 +2193,7 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 excloud.version()
 ]]
 function excloud.version()
-    return "202607021900"
+    return "202607031100"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

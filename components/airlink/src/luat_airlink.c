@@ -211,10 +211,12 @@ void luat_airlink_peer_flags_update(const airlink_flags_t* flags) {
     if (flags) {
         static uint8_t peer_flags_logged = 0;
         g_airlink_peer_flags = *flags;
-        if (!peer_flags_logged) {
+        if (!peer_flags_logged || luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp > 2500) {
             LLOGI("peer flags: rpc=%u frag=%u raw=0x%08lX",
                   flags->rpc_supported, flags->frag_supported, *(uint32_t*)flags);
             peer_flags_logged = 1;
+            // 对端重连后重新发送本端设备信息，确保对端能拿到最新状态
+            luat_airlink_self_dev_info_notify();
         }
     }
 }

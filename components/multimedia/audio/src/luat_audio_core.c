@@ -156,9 +156,10 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 					} else {
 						_luat_audio.current_request_block->error_record_overflow = 1;
 					}
-
-					if (luat_fifo_check_used_space(ctrl->data_channel->record_fifo) >= _luat_audio.current_request_block->record_fifo_enough_data_level) {	// 录音数据足够，发送事件
+					_luat_audio.current_request_block->record_frame_cnt_check++;
+					if (_luat_audio.current_request_block->record_frame_cnt_check >= _luat_audio.current_request_block->record_callback_frame_cnt) {	// 录音数据足够，发送事件
 						luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_RX_ENOUGH_DATA, (uint32_t)ctrl, ctrl->current_play_cnt, 0, 0);
+						_luat_audio.current_request_block->record_frame_cnt_check = 0;
 					}
 				}
 			}
@@ -709,6 +710,7 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 				request_block->record_callback_frame_cnt = 1;
 			}
 		}
+		request_block->record_frame_cnt_check = 0;
 		request_block->record_fifo_enough_data_level = request_block->record_callback_frame_cnt * request_block->record_codec.common_param.one_frame_bytes_from_driver;
 		LLOGC(luat_audio_debug_flag, "record driver frame len %u callback frame cnt %u driver max rx len %u", 
 			request_block->record_codec.common_param.one_frame_bytes_from_driver, 
@@ -797,7 +799,7 @@ static void luat_audio_common_task(void *param)
 	uint8_t request_change;
 	for(;;) {
 		luat_rtos_event_recv(_luat_audio.common_task_handle, 0, &out_event, NULL, 0);
-		//LLOGC(luat_audio_debug_flag, "common task recv event %d", out_event.id);
+		// LLOGC(luat_audio_debug_flag, "common task recv event %d", out_event.id);
 		switch (out_event.id) {
 		case LUAT_AUDIO_EV_TX_NEED_DATA:
 			_luat_audio.decode_is_running = 1;
@@ -850,6 +852,7 @@ static void luat_audio_common_task(void *param)
 			if (request_block) {
 				uint32_t read_bytes;
 				uint32_t deal_bytes;
+				uint8_t deal_frame_cnt = 0;
 				luat_buffer_t temp_record_buffer = {0};
 				luat_buffer_t temp_ref_buffer = {0};
 				temp_record_buffer.data = request_block->record_codec.input_buffer;
@@ -872,6 +875,7 @@ static void luat_audio_common_task(void *param)
 						stop = 1;
 						continue;
 					}
+
 					deal_bytes += temp_record_buffer.pos;
 					if (request_block->is_need_ref_data) {
 						read_bytes = 0;
@@ -902,12 +906,15 @@ static void luat_audio_common_task(void *param)
 								request_block->record_codec.common_param.data_align);
 						}
 					}
+					deal_frame_cnt++;
 					if (!request_block->record_save_fifo) {
 						LLOGE("request id %d record save fifo is null", request_block->request_id);
 					} else {
 						luat_audio_data_codec_encode_once(&request_block->record_codec, &temp_record_buffer, is_need_ref_data?&temp_ref_buffer:NULL, request_block->record_save_fifo);
 					}
-					
+					if (deal_frame_cnt >= request_block->record_callback_frame_cnt) {
+						stop =1;
+					}
 				}
 				if (!request_block->is_record_end) {
 					request_block->cb(LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA, NULL, deal_bytes, request_block);

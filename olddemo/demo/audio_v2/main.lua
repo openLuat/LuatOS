@@ -7,7 +7,7 @@ local es8311 = require "es8311"
 local MSG_MD = "moreData"   -- 播放缓存有空余
 local MSG_PD = "playDone"   -- 播放完成所有数据
 
-local record_save_buff = zbuff.create(16000)
+local record_save_buff = zbuff.create(40000)
 local record_temp_buff = zbuff.create(4000)
 local record_save_file_path = "/record.amr"
 local record_save_buff_cnt = 0
@@ -78,6 +78,7 @@ function audio_setup_8101()
 end
 
 function audio_setup_1602_engine_v0004()
+    -- V0004用的I2S1接ES8311，所以要改默认驱动，用I2S2接ES8311板子的不需要修改
     local probe_id = audio_v2.make_probe_id(audio_v2.DRIVER_TYPE_DAC, 0, audio_v2.DRIVER_TYPE_I2S, 1)
     audio_v2.set_default_driver(probe_id)
 
@@ -90,7 +91,7 @@ function audio_setup_1602_engine_v0004()
 
     audio_v2.config_pa_power_ctrl(true, 45, 1, 100)  --PA能控制
     audio_v2.config_codec_power_ctrl(false, nil, nil, 200, 10) --codec电源不控制，只控制播放前的空白音时长
-    audio_v2.soft_volume(70)
+    audio_v2.soft_volume(60)
 
     local i2c_id = 1
     i2c.setup(i2c_id)
@@ -104,7 +105,7 @@ function audio_setup_1602_engine_v0004()
     es8311.set_format(i2c_id)
     es8311.resume(i2c_id)
     es8311.set_voice_vol(i2c_id,50)
-    es8311.set_mic_vol(i2c_id,75)
+    es8311.set_mic_vol(i2c_id,65)
 end
 
 function audio_setup_1601_evb()
@@ -216,7 +217,7 @@ local function play_task()
         end
         file_data = nil
         -- 演示录音到文件然后播放
-        audio_v2.record(record_save_file_path, 5, audio_v2.DATA_CODEC_TYPE_WAV, 0, 16000, 16, 2)
+        audio_v2.record(record_save_file_path, 5, audio_v2.DATA_CODEC_TYPE_WAV, 0, 8000, 16, 2)
         while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
             sys.wait(1000)
         end

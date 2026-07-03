@@ -203,8 +203,6 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             one_block_len = ctrl->opts->tx_one_block_max_len;
         }
     } else {
-        LLOGC(luat_audio_debug_flag, "start check rx param one frame bytes %u %u,%u,%u", rx_param->one_frame_bytes_from_driver, 
-            ctrl->rx_param.sample_rate, ctrl->rx_param.data_align, ctrl->rx_param.channel_nums);
         if (!one_block_len) {
             one_block_len = rx_param->one_frame_bytes_from_driver;
         }
@@ -248,11 +246,13 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
                     ctrl->one_play_block_len = one_block_len;
                     ctrl->one_record_block_len = one_block_len;
                 } else if (ctrl->opts->support_tx_loop && ctrl->opts->support_rx_loop){  // 支持单向发送模式
-                    ret = ctrl->opts->start_tx_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
+                    uint32_t tx_one_block_len = rx_param->one_frame_sample_cnt * ctrl->tx_param.data_align * ctrl->tx_param.channel_nums;
+                    ret = ctrl->opts->start_tx_loop(ctrl, &ctrl->play_buff, tx_one_block_len, block_nums);
+                    ctrl->one_play_block_len = tx_one_block_len;
                     if (!ret) {
-                        ret = ctrl->opts->start_rx_loop(ctrl, &ctrl->record_buff, one_block_len, block_nums);
-                        ctrl->one_record_block_len = one_block_len;
+                        uint32_t rx_one_block_len = rx_param->one_frame_sample_cnt * ctrl->rx_param.data_align * ctrl->rx_param.channel_nums;
+                        ret = ctrl->opts->start_rx_loop(ctrl, &ctrl->record_buff, rx_one_block_len, block_nums);
+                        ctrl->one_record_block_len = rx_one_block_len;
                     }
                 } else {
                     ret = -LUAT_ERROR_PERMISSION_DENIED;

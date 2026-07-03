@@ -1,8 +1,7 @@
 {
     "timeout" : 120,
     "model" : {
-        "air780ehm": [1, 102],
-        "air8000":   [1, 103]
+        "pc": [1]
     },
     "action_count" : 1,
     "priority" : 5,

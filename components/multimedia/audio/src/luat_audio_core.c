@@ -156,10 +156,9 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 					} else {
 						_luat_audio.current_request_block->error_record_overflow = 1;
 					}
-					_luat_audio.current_request_block->record_frame_cnt_check++;
-					if (_luat_audio.current_request_block->record_frame_cnt_check >= _luat_audio.current_request_block->record_callback_frame_cnt) {	// 录音数据足够，发送事件
+
+					if (luat_fifo_check_used_space(ctrl->data_channel->record_fifo) >= _luat_audio.current_request_block->record_fifo_enough_data_level) {	// 录音数据足够，发送事件
 						luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_RX_ENOUGH_DATA, (uint32_t)ctrl, ctrl->current_play_cnt, 0, 0);
-						_luat_audio.current_request_block->record_frame_cnt_check = 0;
 					}
 				}
 			}
@@ -710,7 +709,6 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 				request_block->record_callback_frame_cnt = 1;
 			}
 		}
-		request_block->record_frame_cnt_check = 0;
 		request_block->record_fifo_enough_data_level = request_block->record_callback_frame_cnt * request_block->record_codec.common_param.one_frame_bytes_from_driver;
 		LLOGC(luat_audio_debug_flag, "record driver frame len %u callback frame cnt %u driver max rx len %u", 
 			request_block->record_codec.common_param.one_frame_bytes_from_driver, 

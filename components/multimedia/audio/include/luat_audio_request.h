@@ -102,7 +102,6 @@ struct luat_audio_request_block {
             uint32_t static_play_buff_one_block_len;             /**< 每个数据块的长度 */
             uint8_t static_play_buff_block_nums;                /**< 数据块数量 */
             uint8_t record_callback_frame_cnt;                /**< 录音回调一次的最小音频数据帧数, 如果为0则由驱动决定 */
-            uint8_t record_frame_cnt_check;             /**< 录音数据帧数检查，到达指定帧数后触发回调 */
             uint8_t error_record_overflow:1;             /**< 录音溢出错误标志位 */
             uint8_t error_record_ref_not_match:1;             /**< 录音数据与参考数据不匹配错误标志位 */
         };

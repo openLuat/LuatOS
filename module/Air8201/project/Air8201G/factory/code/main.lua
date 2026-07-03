@@ -35,8 +35,7 @@ global_config.init()
 global_config.dump_stats()
 
 -- ========== OTA 远程升级管理（基于 libfota3 + 合宙 iot 平台）==========
--- 自动：libfota3 内置定时器，支持时间戳持久化（跨重启延续）
--- 手动：PWRKEY 短按时立即检查（独立于自动定时器）
+-- 开机首次自动检测，之后每 12 小时检测一次
 ota_manegement.init()
 
 -- SIM 卡热插拔功能，通过gpio中断通过上下边沿电平触发中断

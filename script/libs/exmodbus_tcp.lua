@@ -1,15 +1,4 @@
-﻿--[[
-@module exmodbus_tcp
-@summary Modbus TCP 协议
-
--- 版本更新说明
--- 版本号：202607021200
--- 1、更新时间：2026-07-02 12:00
--- 2、更新内容
---    新增exmodbus_tcp.version()接口
---    支持exmodbus_tcp库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
-]]
--- 定义类结构；
+﻿-- 定义类结构；
 local modbus = {}                            -- 定义 modbus 实例的元表；
 modbus.__index = modbus                      -- 定义 modbus 实例的索引元方法，用于访问实例的属性；
 modbus.__metatable = "instance is protected" -- 定义 modbus 实例的元表，防止外部修改；
@@ -1329,16 +1318,3 @@ function modbus:on(callback)
 end
 
 return { create = create }
-
---[[
-获取库版本信息
-@return string 年月日时分，例如： "202606300102"
-@usage
-exmodbus_tcp.version()
-]]
-function exmodbus_tcp.version()
-    return "202607021200"
-end
-
-log.debug("exmodbus_tcp", "version -> " .. exmodbus_tcp.version())
-return exmodbus_tcp

@@ -1318,7 +1318,20 @@ static int l_audio_on(lua_State *L) {
 	}
     return 0;
 }
-
+/**
+判断请求块是否正在处理
+@api audio_v2.is_busy(request_index)
+@int request_index 请求索引
+@return boolean 是否正在处理
+@usage
+local is_busy = audio_v2.is_busy(1)    --判断请求块1是否正在处理
+*/
+static int l_audio_is_request_busy(lua_State *L) {
+    uint8_t request_index = luaL_optinteger(L, 1, 0);
+    l_audio_request_t *l_req = &_l_audio.request_table[request_index];
+    lua_pushboolean(L, l_req->is_busy);
+    return 1;
+}
 
 /*
 配置调试信息输出
@@ -1349,6 +1362,7 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "config",			ROREG_FUNC(l_audio_config)},
     { "get_play_info",		ROREG_FUNC(l_audio_get_play_info)},
     { "is_all_done",			ROREG_FUNC(l_audio_is_request_all_done)},
+    { "is_busy",			ROREG_FUNC(l_audio_is_request_busy)},
     { "soft_volume",			ROREG_FUNC(l_audio_soft_volume)},
     { "make_probe_id",			ROREG_FUNC(l_audio_make_probe_id)},
     { "set_default_driver",			ROREG_FUNC(l_audio_set_default_driver)},

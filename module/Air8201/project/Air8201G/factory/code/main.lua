@@ -12,7 +12,7 @@
          软件从启动到运行全程工作在低功耗模式 pm.power(pm.WORK_MODE, 1) 下。
 ]] --
 PROJECT = "Air8201G-Turnkey"
-VERSION = "001.000.005"
+VERSION = "001.999.006"
 PRODUCT_KEY = "9TTEMS6YwgpsjV7GE6B6kWyDrOAWMaL9"
 
 log.info("项目信息:", PROJECT, VERSION, PRODUCT_KEY)

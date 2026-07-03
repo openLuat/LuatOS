@@ -487,7 +487,6 @@ static int _audio_channel_check_channel_nums_param(uint32_t len_bytes, uint32_t 
 
 static int _audio_channel_check_data_align_param(uint32_t len_bytes, uint32_t *pcm_data_len, uint32_t *new_data_bytes, luat_audio_common_param_t *old_param, luat_audio_common_param_t *new_param)
 {
-    uint32_t new_data_len;
     switch (old_param->data_align) {
         case 1:
             *pcm_data_len = len_bytes;
@@ -578,7 +577,7 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, luat_buffer_t *
         new_data_union2.p = NULL;
         void *final_data = input_buffer->data;
         if (codec_param->channel_nums != channel->driver_ctrl->tx_param.channel_nums) {
-            LLOGC(luat_audio_debug_flag,"write channel channel_nums %u change to %u, len_bytes %u, data_align %u", codec_param->channel_nums, channel->driver_ctrl->tx_param.channel_nums, len_bytes, codec_param->data_align);
+            // LLOGC(luat_audio_debug_flag,"write channel channel_nums %u change to %u, len_bytes %u, data_align %u", codec_param->channel_nums, channel->driver_ctrl->tx_param.channel_nums, len_bytes, codec_param->data_align);
             ret = _audio_channel_check_channel_nums_param(len_bytes, &pcm_data_len, &new_data_bytes, codec_param, &channel->driver_ctrl->tx_param);
             if (ret != LUAT_ERROR_NONE) {
                 return ret;
@@ -594,7 +593,7 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, luat_buffer_t *
         }
         uint8_t new_data_align = codec_param->data_align;
         if (codec_param->data_align != channel->driver_ctrl->tx_param.data_align) {
-            LLOGC(luat_audio_debug_flag,"write channel data_align %u change to %u, len_bytes %u, channel_nums %u", codec_param->data_align, channel->driver_ctrl->tx_param.data_align, len_bytes, channel->driver_ctrl->tx_param.channel_nums);
+            // LLOGC(luat_audio_debug_flag,"write channel data_align %u change to %u, len_bytes %u, channel_nums %u", codec_param->data_align, channel->driver_ctrl->tx_param.data_align, len_bytes, channel->driver_ctrl->tx_param.channel_nums);
             pcm_data_len = 0;
             new_data_bytes = 0;
             ret = _audio_channel_check_data_align_param(len_bytes, &pcm_data_len, &new_data_bytes, codec_param, &channel->driver_ctrl->tx_param);
@@ -656,7 +655,7 @@ int luat_audio_channel_read_data(luat_audio_channel_t *channel, luat_buffer_t *o
     void *final_data = data_union.p8;
     int ret = 0;
     if (codec_param->channel_nums != channel->driver_ctrl->rx_param.channel_nums) {
-        LLOGC(luat_audio_debug_flag,"read channel channel_nums %u change to %u, len_bytes %u, data_align %u", channel->driver_ctrl->rx_param.channel_nums, codec_param->channel_nums, len_bytes, channel->driver_ctrl->rx_param.data_align);
+        // LLOGC(luat_audio_debug_flag,"read channel channel_nums %u change to %u, len_bytes %u, data_align %u", channel->driver_ctrl->rx_param.channel_nums, codec_param->channel_nums, len_bytes, channel->driver_ctrl->rx_param.data_align);
         ret = _audio_channel_check_channel_nums_param(len_bytes, &pcm_data_len, &new_data_bytes, &channel->driver_ctrl->rx_param, codec_param);
         if (ret != LUAT_ERROR_NONE) {
             return ret;
@@ -672,7 +671,7 @@ int luat_audio_channel_read_data(luat_audio_channel_t *channel, luat_buffer_t *o
     }
 
     if (codec_param->data_align != channel->driver_ctrl->rx_param.data_align) {
-        LLOGC(luat_audio_debug_flag,"read channel data_align %u change to %u, len_bytes %u, channel_nums %u", channel->driver_ctrl->rx_param.data_align, codec_param->data_align, len_bytes, codec_param->channel_nums);
+        //LLOGC(luat_audio_debug_flag,"read channel data_align %u change to %u, len_bytes %u, channel_nums %u", channel->driver_ctrl->rx_param.data_align, codec_param->data_align, len_bytes, codec_param->channel_nums);
         pcm_data_len = 0;
         new_data_bytes = 0;
         ret = _audio_channel_check_data_align_param(len_bytes, &pcm_data_len, &new_data_bytes, codec_param, &channel->driver_ctrl->rx_param);

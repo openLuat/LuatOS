@@ -545,6 +545,51 @@ GPS 定位非阻塞化。
 
 ---
 
+### 2026-07-02
+
+OTA 模块从 libfota2 重写为 libfota3。
+
+#### 1. OTA 模块重写（基于 libfota3）
+
+**修改文件**：[ota_manegement.lua](file:///d:/Air8201G/挂载项目测试软件/user/ota_manegement.lua)
+
+**变更原因**：libfota2 功能简单（仅回调结果码），升级为 libfota3 获得更丰富的状态反馈、内置定时器管理、时间戳持久化等能力。
+
+**主要变更**：
+- 替换 `require "libfota2"` → `require "libfota3"`
+- 删除手动管理的定时器（`period_timer_id`、`in_progress_timer_id`）和并发控制（`fota_in_progress`），均由 libfota3 内置管理
+- 删除 `boot_task`（联网等待 + 首次检查），libfota3 内置自动定时检测
+- 新增 FSKV 持久化配置（key: `ota_cfg`），存储 `auto`/`interval` 参数
+- 新增 `ota_manegement.config(opts)` 接口，全量透传 `libfota3.config()`，仅 `auto`/`interval` 持久化
+- 保留 `ota_manegement.check_now()` 手动触发接口
+- 保留 PWRKEY 短按监听（订阅 `PWRKEY_SHORT_PRESS` 事件）
+- 状态回调统一 INFO 级别日志
+
+**接口变化**：
+
+| 接口 | v1 (libfota2) | v2 (libfota3) |
+|------|---------------|---------------|
+| `init()` | 启动 boot_task + pwrkey_listener_task | 读取 FSKV 配置 + 启动 libfota3 + pwrkey_listener_task |
+| `check_now()` | `do_request("MANUAL")` | `libfota3.check_update()` |
+| `config(opts)` | 无 | 新增：透传 libfota3.config + 持久化 auto/interval |
+| `get_config()` | 无 | 新增：返回当前配置 |
+
+#### 2. main.lua 注释更新
+
+**修改文件**：[main.lua](file:///d:/Air8201G/挂载项目测试软件/user/main.lua)
+
+- OTA 区域注释从"基于 libfota2"更新为"基于 libfota3"
+- 注释说明更新为 libfota3 特性（内置定时器、时间戳持久化）
+
+#### 当日变更文件清单
+
+| 文件 | 主要内容 |
+|------|----------|
+| [ota_manegement.lua](file:///d:/Air8201G/挂载项目测试软件/user/ota_manegement.lua) | 重写：libfota2 → libfota3，新增 config/get_config 接口 |
+| [main.lua](file:///d:/Air8201G/挂载项目测试软件/user/main.lua) | OTA 区域注释更新 |
+
+---
+
 ### 后续计划占位
 
 > 后续每次升级在此处以日期为标题追加 `### YYYY-MM-DD` 章节即可。

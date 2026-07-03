@@ -70,7 +70,7 @@ void luat_audio_codec_wav_set_record_info(struct luat_audio_data_codec *codec, l
     codec->common_param.channel_nums = info->channel_nums;
     codec->common_param.data_align = info->data_align;
     codec->common_param.is_signed = 1;
-    codec->common_param.one_frame_sample_cnt = info->sample_rate / 100;
+    codec->common_param.one_frame_sample_cnt = info->sample_rate / 50;
     codec->common_param.one_frame_bytes = codec->common_param.one_frame_sample_cnt * info->data_align * info->channel_nums;
     LLOGC(luat_audio_debug_flag, "wav record info %d %d %d %d", 
         codec->common_param.sample_rate, codec->common_param.data_align, codec->common_param.channel_nums, codec->common_param.is_signed);

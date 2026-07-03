@@ -23,7 +23,7 @@ local function audio_cb(request_index, event, param)
     log.info("audio_cb", request_index, event, param)
     if speech_test then
         if event == audio_v2.EXT_SRC_DONE then
-            record_save_buff_cnt = 400  -- 第三方数据源完成后，为了让测试快速结束，假装录音完成400次了
+            record_save_buff_cnt = 450  -- 第三方数据源完成后，为了让测试快速结束，假装录音完成400次了
             log.info("ext src done")
         end
     elseif stream_file_fp and request_index == stream_request_index then
@@ -56,14 +56,13 @@ local function audio_cb(request_index, event, param)
         record_save_buff:copy(nil,record_temp_buff)
         record_temp_buff:del()
         if speech_test then
-            record_save_buff:del()
-            log.info("record_save_buff_cnt", record_save_buff_cnt)
+            --log.info("record_save_buff_cnt", record_save_buff_cnt)
             if record_save_buff_cnt >= 500 then
                 audio_v2.stop(speech_request_index)
             end
         else
             if record_save_buff_cnt >= 20 then
-                log.info("record_save_buff_cnt", record_save_buff_cnt)
+                --log.info("record_save_buff_cnt", record_save_buff_cnt)
                 audio_v2.stop(request_index)
             end
         end
@@ -105,7 +104,7 @@ function audio_setup_1602_engine_v0004()
     es8311.set_format(i2c_id)
     es8311.resume(i2c_id)
     es8311.set_voice_vol(i2c_id,50)
-    es8311.set_mic_vol(i2c_id,85)
+    es8311.set_mic_vol(i2c_id,75)
 end
 
 function audio_setup_1601_evb()
@@ -131,7 +130,7 @@ function audio_setup_air780ehm_evb()
     i2c.setup(i2c_id)
     gpio.setup(2, 1) --全程都打开codec电源
     es8311.init(i2c_id)
-    es8311.set_sample_rate(i2c_id,16000,256)
+    es8311.set_sample_rate(i2c_id,8000,256)
     es8311.set_data_bits(i2c_id,16)
     es8311.set_format(i2c_id)
     es8311.resume(i2c_id)
@@ -217,7 +216,7 @@ local function play_task()
         end
         file_data = nil
         -- 演示录音到文件然后播放
-        audio_v2.record(record_save_file_path, 10, audio_v2.DATA_CODEC_TYPE_WAV)
+        audio_v2.record(record_save_file_path, 5, audio_v2.DATA_CODEC_TYPE_WAV, 0, 16000, 16, 2)
         while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
             sys.wait(1000)
         end
@@ -230,7 +229,7 @@ local function play_task()
         record_save_buff:del()
         record_save_buff:copy(nil, "#!AMR\n")
         record_temp_buff:del()
-        audio_v2.record(record_temp_buff, 10, audio_v2.DATA_CODEC_TYPE_AMR_NB)
+        audio_v2.record(record_temp_buff, 5, audio_v2.DATA_CODEC_TYPE_AMR_NB)
         while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
             sys.wait(1000)
         end
@@ -241,6 +240,9 @@ local function play_task()
         end
         -- 演示对讲模式
         speech_test = true
+        record_save_buff:del()
+        record_save_buff:copy(nil, "#!AMR-WB\n")
+        record_temp_buff:del()
         result, speech_request_index = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_AMR_WB|audio_v2.DATA_CODEC_TYPE_HW, record_temp_buff, 5)
         -- 演示对讲时往放音通道播放文件
         result, speech_extern_source_index = audio_v2.extern_source(speech_request_index, {"/luadb/test_16k.mp3"}, false)
@@ -254,6 +256,11 @@ local function play_task()
         -- sys.wait(2000)
         -- 演示提前结束第三方数据源
         -- audio_v2.stop(speech_extern_source_index)
+        while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
+            sys.wait(1000)
+        end
+        log.info("record total len", record_save_buff:used())
+        audio_v2.play(record_save_buff)
         while not audio_v2.is_all_done() do --简单的看看有没有都播放完，实际需要在回调里判断+消息通知task
             sys.wait(1000)
         end

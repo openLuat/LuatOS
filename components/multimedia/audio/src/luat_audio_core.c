@@ -756,7 +756,7 @@ static void _audio_start_request(luat_audio_request_block_t *request_block)
 			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->play_codec.common_param, NULL, NULL, request_block->is_stream ? request_block->stream_one_block_len : 0, LUAT_AUDIO_DATA_BUFFER_CNT);
 			break;
 		case LUAT_AUDIO_DRIVER_MODE_RECORD:
-			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, &request_block->record_codec.common_param, NULL, NULL, request_block->record_fifo_enough_data_level, LUAT_AUDIO_DATA_BUFFER_CNT);
+			ret = luat_audio_driver_start(request_block->data_channel->driver_ctrl, NULL, &request_block->record_codec.common_param, NULL, request_block->record_fifo_enough_data_level, LUAT_AUDIO_DATA_BUFFER_CNT);
 			luat_audio_request_init_record_temp_buffer(request_block);
 			request_block->is_need_ref_data = 0;
 			break;

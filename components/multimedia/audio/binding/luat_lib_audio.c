@@ -590,7 +590,7 @@ DONE:
 
 /*
 录音请求，包括2种模式，1. 保存到文件，2. 保存到buffer并回调给用户
-@api audio_v2.record(codec_id, save_buffer, record_callback_cnt, one_play_block_len, sample_rate, data_bits, channel_nums, driver_probe_id)
+@api audio_v2.record(codec_id, save_buffer, record_callback_cnt, priority, sample_rate, data_bits, channel_nums, driver_probe_id)
 @string/zbuff 保存路径，string为保存成文件，zbuff为保存到buffer并回调给用户
 @int 如果是保存文件，则为整体录音时间，单位秒，时间到后自动停止录音。如果是保存到buffer，则为每次回调的帧数，每一帧时间由编码器决定
 @int 编码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空，则直接返回原始PCM数据。如果不留空，会检查sample_rate和data_bits是否符合解码器的要求

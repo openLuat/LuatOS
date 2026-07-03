@@ -203,11 +203,13 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             one_block_len = ctrl->opts->tx_one_block_max_len;
         }
     } else {
+        LLOGC(luat_audio_debug_flag, "start check rx param one frame bytes %u %u,%u,%u", rx_param->one_frame_bytes_from_driver, 
+            ctrl->rx_param.sample_rate, ctrl->rx_param.data_align, ctrl->rx_param.channel_nums);
         if (!one_block_len) {
-            one_block_len = rx_param->one_frame_bytes;
+            one_block_len = rx_param->one_frame_bytes_from_driver;
         }
         if (one_block_len > ctrl->opts->rx_one_block_max_len) {
-            one_block_len = ctrl->opts->rx_one_block_max_len;
+            one_block_len = rx_param->one_frame_bytes_from_driver;
         }
     }
     if (LUAT_AUDIO_DRIVER_STATE_ACTIVE == ctrl->state) {

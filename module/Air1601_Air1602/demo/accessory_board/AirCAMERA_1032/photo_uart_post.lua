@@ -33,8 +33,8 @@ log.info("photo_uart_post", "UART初始化结果", uart_result)
 
 -- 摄像头参数
 local frame_type = camera.FORMAT_MJPG         -- 使用MJPEG格式
-local sensor_w = 1024                         -- 目标分辨率宽度
-local sensor_h = 576                          -- 目标分辨率高度
+local sensor_w = 1280                         -- 目标分辨率宽度
+local sensor_h = 720                          -- 目标分辨率高度
 local usb_app_id = nil                        -- USB摄像头应用ID
 local captured = false                        -- 是否已拍照标志位（用于保证只拍一张）
 local save_path = "/ram/photo.jpg"            -- 照片保存路径

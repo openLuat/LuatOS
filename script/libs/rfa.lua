@@ -8,13 +8,6 @@ rfa: Radio Factory Agent (RF 校准 Lua 端主控)
   - 私有协议 AT+ECRFNST 优先走 C 后端 mobile.rfTestNst (真机调用 RfAtNstCmdPreHandle)
   - 状态存取经 mobile.rfTestParam 走 PC 仿真器
   - 跨 PC 仿真和真机: 行为完全一致 (C 端只做字节透传)
-
--- 版本更新说明
--- 版本号：202607021200
--- 1、更新时间：2026-07-02 12:00
--- 2、更新内容
---    新增rfa.version()接口
---    支持rfa库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local M = { _VERSION = "1.0.1" }
@@ -706,17 +699,5 @@ function M.getRFAOnStatus()
 
     return false
 end
-
---[[
-获取库版本信息
-@return string 年月日时分，例如： "202606300102"
-@usage
-rfa.version()
-]]
-function rfa.version()
-    return "202607021200"
-end
-
-log.debug("rfa", "version -> " .. rfa.version())
 
 return M

@@ -43,6 +43,8 @@ PROJECT：项目名，ascii string类型
   "Engine_Air1602_5inch_720x1280_002_V000"     → config/eng_1602_5i_v2.lua     5寸RGB  NV3052C +WiFi
   "Engine_Air1602_5inch_720x1280_003_V000"     → config/eng_1602_5i_v3.lua     5寸RGB  NV3052C +WiFi+NAND
   "Engine_Air1602_7inch_1024x600_004_V000"     → config/eng_1602_7i_v4.lua     7寸RGB  HX8282  +WiFi+NAND
+  "Engine_Air1602_AirLCD_1090_09421_V000"   → config/eng_1602_9i_v09421.lua   9寸RGB  HX8282  +WiFi+NAND+NES+电池
+  "Engine_Air1602_AirLCD_1100_10421_V000"   → config/eng_1602_10i_v10421.lua  10寸RGB HX8282  +WiFi+NAND+NES+电池
   "Engine_Air1602_5inch_480x854_005_V000"       → config/eng_1602_5i_v5.lua     5寸RGB  ST7701S +WiFi+NAND
 
 
@@ -74,7 +76,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "EVB_Air8101_AirLCD_1020_000_V020"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
+PROJECT = "Engine_Air1602_5inch_480x854_005_V000"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
 VERSION = "001.999.005"                               -- 固件版本号，用于 FOTA 升级比对
 PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
 

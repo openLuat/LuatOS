@@ -83,11 +83,77 @@ static inline void chunk_bitmap_byte_bit(const tfs_dev_t *dev,
     *bit_mask = (uint8_t)(1u << (page & 7));
 }
 
+static int chunk_bitmap_index_valid(const tfs_dev_t *dev,
+                                    int chunk_in_nand,
+                                    int byte_idx)
+{
+    int max_idx = (int)tfs_total_blocks(dev) * dev->chunk_bit_stride;
+
+    if (byte_idx >= 0 && byte_idx < max_idx) {
+        return 1;
+    }
+
+    if (dev && dev->drv.trace) {
+        dev->drv.trace("tfs: chunk bitmap out of range chunk=%d byte=%d max=%d start=%u end=%u cpb=%u",
+                       chunk_in_nand,
+                       byte_idx,
+                       max_idx,
+                       (unsigned int)dev->internal_start_block,
+                       (unsigned int)dev->internal_end_block,
+                       (unsigned int)tfs_chunks_per_block(dev));
+    }
+    return 0;
+}
+
+static int chunk_bitmap_block_valid(const tfs_dev_t *dev,
+                                    int block_in_nand,
+                                    int blk_int)
+{
+    int max_blk = (int)tfs_total_blocks(dev);
+
+    if (blk_int >= 0 && blk_int < max_blk) {
+        return 1;
+    }
+
+    if (dev && dev->drv.trace) {
+        dev->drv.trace("tfs: chunk bitmap block out of range block=%d idx=%d max=%d start=%u end=%u",
+                       block_in_nand,
+                       blk_int,
+                       max_blk,
+                       (unsigned int)dev->internal_start_block,
+                       (unsigned int)dev->internal_end_block);
+    }
+    return 0;
+}
+
+void tfs_chunk_bitmap_fill_block(tfs_dev_t *dev,
+                                 int block_in_nand,
+                                 uint8_t value)
+{
+    int blk_int;
+
+    if (!dev || !dev->chunk_bits || dev->chunk_bit_stride <= 0) {
+        return;
+    }
+
+    blk_int = block_ext_to_int(dev, block_in_nand);
+    if (!chunk_bitmap_block_valid(dev, block_in_nand, blk_int)) {
+        return;
+    }
+
+    memset(dev->chunk_bits + blk_int * dev->chunk_bit_stride,
+           value,
+           (size_t)dev->chunk_bit_stride);
+}
+
 void tfs_chunk_set_used(tfs_dev_t *dev, int chunk_in_nand)
 {
     int     byte_idx;
     uint8_t  bit_mask;
     chunk_bitmap_byte_bit(dev, chunk_in_nand, &byte_idx, &bit_mask);
+    if (!chunk_bitmap_index_valid(dev, chunk_in_nand, byte_idx)) {
+        return;
+    }
     dev->chunk_bits[byte_idx] |= bit_mask;
 }
 
@@ -96,6 +162,9 @@ void tfs_chunk_set_free(tfs_dev_t *dev, int chunk_in_nand)
     int     byte_idx;
     uint8_t  bit_mask;
     chunk_bitmap_byte_bit(dev, chunk_in_nand, &byte_idx, &bit_mask);
+    if (!chunk_bitmap_index_valid(dev, chunk_in_nand, byte_idx)) {
+        return;
+    }
     dev->chunk_bits[byte_idx] &= (uint8_t)~bit_mask;
 }
 
@@ -104,6 +173,9 @@ int tfs_chunk_is_used(const tfs_dev_t *dev, int chunk_in_nand)
     int     byte_idx;
     uint8_t  bit_mask;
     chunk_bitmap_byte_bit(dev, chunk_in_nand, &byte_idx, &bit_mask);
+    if (!chunk_bitmap_index_valid(dev, chunk_in_nand, byte_idx)) {
+        return 0;
+    }
     return (dev->chunk_bits[byte_idx] & bit_mask) != 0;
 }
 
@@ -137,12 +209,7 @@ int tfs_block_erase(tfs_dev_t *dev, int block_in_nand)
     bi->bi.skip_erased_chk = 0;
     bi->bi.ecc_strikes     = 0;
 
-    /* Clear chunk bitmap for this block */
-    {
-        int blk_int = block_ext_to_int(dev, block_in_nand);
-        memset(dev->chunk_bits + blk_int * dev->chunk_bit_stride,
-               0, (size_t)dev->chunk_bit_stride);
-    }
+    tfs_chunk_bitmap_fill_block(dev, block_in_nand, 0);
 
     dev->n_erased_blocks++;
     return TFS_OK;
@@ -152,7 +219,6 @@ int tfs_block_prepare_empty(tfs_dev_t *dev, int block_in_nand)
 {
     tfs_block_info_t *bi = tfs_get_block_info(dev, block_in_nand);
     int               cpb = (int)tfs_chunks_per_block(dev);
-    int               blk_int = block_ext_to_int(dev, block_in_nand);
     int               rc;
 
     if (bi->bi.block_state != TFS_BLK_STATE_EMPTY)
@@ -173,8 +239,7 @@ int tfs_block_prepare_empty(tfs_dev_t *dev, int block_in_nand)
         bi->bi.pages_in_use = cpb;
         bi->bi.soft_del_pages = 0;
         bi->bi.needs_retiring = 1;
-        memset(dev->chunk_bits + blk_int * dev->chunk_bit_stride,
-               0xff, (size_t)dev->chunk_bit_stride);
+        tfs_chunk_bitmap_fill_block(dev, block_in_nand, 0xff);
         return TFS_EFLASH;
     }
 
@@ -189,8 +254,7 @@ int tfs_block_prepare_empty(tfs_dev_t *dev, int block_in_nand)
     bi->bi.skip_erased_chk = 0;
     bi->bi.ecc_strikes     = 0;
 
-    memset(dev->chunk_bits + blk_int * dev->chunk_bit_stride,
-           0, (size_t)dev->chunk_bit_stride);
+    tfs_chunk_bitmap_fill_block(dev, block_in_nand, 0);
     return TFS_OK;
 }
 
@@ -413,6 +477,12 @@ int tfs_chunk_write(tfs_dev_t *dev, int chunk_in_nand,
     tfs_block_info_t  *bi;
     int                blk, rc;
 
+    if (!dev || !ext || n_bytes < 0 ||
+        (uint32_t)n_bytes > dev->data_bytes_per_chunk ||
+        (n_bytes > 0 && !data)) {
+        return TFS_EINVAL;
+    }
+
     invalidate_checkpoint_before_mutation(dev);
 
     ext->seq_number = tfs_get_block_info(dev,
@@ -448,13 +518,15 @@ int tfs_chunk_write(tfs_dev_t *dev, int chunk_in_nand,
     if (rc != TFS_OK) {
         int failed_blk = chunk_to_block(dev, chunk_in_nand);
 
-        dev->n_retried_writes++;
-        tfs_block_retire_failed_write(dev, failed_blk);
-        if (dev->alloc_block == failed_blk)
-            dev->alloc_block = -1;
-        if (dev->checkpt_cur_block == failed_blk)
-            dev->checkpt_cur_block = -1;
-        return TFS_EFLASH;
+        if (rc == TFS_EFLASH) {
+            dev->n_retried_writes++;
+            tfs_block_retire_failed_write(dev, failed_blk);
+            if (dev->alloc_block == failed_blk)
+                dev->alloc_block = -1;
+            if (dev->checkpt_cur_block == failed_blk)
+                dev->checkpt_cur_block = -1;
+        }
+        return rc;
     }
 
     /* Bookkeeping */

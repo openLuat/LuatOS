@@ -171,7 +171,7 @@ function camera_preview_page.handle_touch(x, y, switch_page)
             os.remove("/photo.jpg")
             photo_saved = false
             start_camera_flow()
-            -- 等待新 task 执行到 preview 状态，让 ui_main 进入预览分支（不刷新 LCD）
+            -- 延时100ms避免触摸触发i2c波动影响摄像头I2C通信
             sys.wait(100)
             return true
         end

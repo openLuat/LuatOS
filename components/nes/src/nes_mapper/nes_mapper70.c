@@ -21,13 +21,24 @@
 /*
  * Write to $8000-$FFFF:
  *   7  bit  0
- *   PPPP CCCC
+ *   MPPP CCCC
  *   |||| ||||
  *   |||| ++++-- 8KB CHR bank at $0000-$1FFF
- *   ++++------- 16KB PRG bank at $8000-$BFFF; $C000-$FFFF fixed to last bank
+ *   |+++------- 16KB PRG bank at $8000-$BFFF; $C000-$FFFF fixed to last bank
+ *   +---------- one-screen mirroring select on mapper152-style boards
  *
- * Mirroring is fixed from the ROM header (no in-cart control).
+ * Mapper 70 is nominally hard-wired mirroring, but several iNES dumps use the
+ * mapper152 wiring under mapper 70.  Match Mesen2's compatibility behavior:
+ * start as vertical, then enable one-screen A/B mirroring if bit7 is ever set.
  */
+
+typedef struct {
+    uint8_t mirroring_control;
+} nes_mapper70_t;
+
+static uint8_t mapper70_uses_mirroring_control(nes_t* nes) {
+    return nes->nes_rom.prg_rom_size <= 8u;
+}
 
 static void nes_mapper_deinit(nes_t* nes) {
     nes_free(nes->nes_mapper.mapper_register);
@@ -35,16 +46,40 @@ static void nes_mapper_deinit(nes_t* nes) {
 }
 
 static void nes_mapper_init(nes_t* nes) {
+    if (nes->nes_mapper.mapper_register == NULL) {
+        nes->nes_mapper.mapper_register = nes_malloc(sizeof(nes_mapper70_t));
+        if (nes->nes_mapper.mapper_register == NULL) {
+            NES_LOG_ERROR("mapper70: failed to allocate register state\n");
+        }
+    }
+
+    nes_mapper70_t* m = (nes_mapper70_t*)nes->nes_mapper.mapper_register;
+    if (m != NULL) {
+        m->mirroring_control = 0;
+    }
+
     nes_load_prgrom_16k(nes, 0, 0);
     nes_load_prgrom_16k(nes, 1, (uint16_t)(nes->nes_rom.prg_rom_size - 1));
     nes_load_chrrom_8k(nes, 0, 0);
-    nes_ppu_screen_mirrors(nes, nes->nes_rom.mirroring_type ? NES_MIRROR_VERTICAL : NES_MIRROR_HORIZONTAL);
+    nes_ppu_screen_mirrors(nes, mapper70_uses_mirroring_control(nes) ? NES_MIRROR_VERTICAL : NES_MIRROR_AUTO);
 }
 
 static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     (void)address;
-    nes_load_prgrom_16k(nes, 0, ((data >> 4) & 0x0F) % nes->nes_rom.prg_rom_size);
-    nes_load_chrrom_8k(nes, 0, (data & 0x0F) % nes->nes_rom.chr_rom_size);
+
+    nes_mapper70_t* m = (nes_mapper70_t*)nes->nes_mapper.mapper_register;
+    uint8_t mirror_control = mapper70_uses_mirroring_control(nes);
+    if (mirror_control && m != NULL) {
+        if (data & 0x80u) {
+            m->mirroring_control = 1;
+        }
+        if (m->mirroring_control) {
+            nes_ppu_screen_mirrors(nes, (data & 0x80u) ? NES_MIRROR_ONE_SCREEN1 : NES_MIRROR_ONE_SCREEN0);
+        }
+    }
+
+    nes_load_prgrom_16k(nes, 0, (uint16_t)((data >> 4) & (mirror_control ? 0x07u : 0x0Fu)));
+    nes_load_chrrom_8k(nes, 0, (uint16_t)(data & 0x0Fu));
 }
 
 int nes_mapper70_init(nes_t* nes) {

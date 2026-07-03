@@ -40,6 +40,8 @@ require ("eng_1602_5i_v5")    -- Air1602 5寸 V005 (ST7701S+NAND)
 require ("eng_1602_7i_v0")    -- Air1602 7寸
 require ("eng_1602_7i_v4")    -- Air1602 7寸 V004 (NAND)
 require ("eng_1602_10i_v0")   -- Air1602 10.1寸
+require ("eng_1602_9i_v09421")     -- Air1602 9寸 AirLCD_1090
+require ("eng_1602_10i_v10421")    -- Air1602 10寸 AirLCD_1100
 require ("evb_8101b_5i_v1")    -- Air8101 EVB 5寸 (800x480)
 require ("evb_8101_5i_v0")     -- Air8101 EVB 5寸 (AirLCD_1020, H050IWV 800x480)
 require ("evb_8101_9i_v0")     -- Air8101 EVB 9寸 (AirLCD_1090)
@@ -60,8 +62,8 @@ require ("lcd_hx8282_10in")   -- RGB HX8282 (7/10.1寸 1024×600 通用)
 require ("tp_gt911")
 
 -- 带路径前缀的模块（不在 config/ 或 drv/ 下，需完整 require 路径）
+require ("net_manager")              -- 统一网络管理器（编译打包用，require 时不初始化）
 require ("net_init")
-require ("netdrv_eth_spi")       -- SPI 以太网 CH390H 驱动（Air8101 EVB）
 
 -- ==================== 1. 平台检测 ====================
 -- hmeta.model() 返回芯片型号字符串（如 "Air1602_A10"），不可用则回退到 rtos.bsp()
@@ -84,6 +86,8 @@ local PROJECT_MAP = {
     ["Engine_Air1602_5inch_720x1280_003_V000"]     = "eng_1602_5i_v3",
     ["Engine_Air1602_5inch_480x854_005_V000"]      = "eng_1602_5i_v5",
     ["Engine_Air1602_7inch_1024x600_004_V000"]     = "eng_1602_7i_v4",
+    ["Engine_Air1602_AirLCD_1090_09421_V000"]     = "eng_1602_9i_v09421",
+    ["Engine_Air1602_AirLCD_1100_10421_V000"]     = "eng_1602_10i_v10421",
     -- EVB turnkey 开发板系列（已实现）
     ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",
     ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",

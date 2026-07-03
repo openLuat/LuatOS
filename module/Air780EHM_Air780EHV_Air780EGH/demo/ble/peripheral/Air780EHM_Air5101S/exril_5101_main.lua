@@ -68,6 +68,7 @@ end
 
 -- 初始化配置
 local function init_config()
+
     log.info("exril_5101_main", "========== 配置初始化 ==========")
     
     -- 1. 获取当前工作模式

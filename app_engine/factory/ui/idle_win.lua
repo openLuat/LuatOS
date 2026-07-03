@@ -934,7 +934,6 @@ local function on_status_mobile(level) update_mobile_icon(level) end
 
 local charge_anim_timer = nil
 local charge_anim_value = 0
-local charge_start_level = 0
 local charge_anim_active = false
 
 local function stop_charge_anim()
@@ -942,15 +941,14 @@ local function stop_charge_anim()
     charge_anim_active = false
 end
 
-local function start_charge_anim(from_level)
+local function start_charge_anim()
     stop_charge_anim()
-    charge_start_level = from_level
-    charge_anim_value = from_level
+    charge_anim_value = 0
     charge_anim_active = true
     charge_anim_timer = sys.timerLoopStart(function()
         if not battery_bar then stop_charge_anim(); return end
         charge_anim_value = charge_anim_value + 4
-        if charge_anim_value >= 100 then charge_anim_value = charge_start_level end
+        if charge_anim_value > 100 then charge_anim_value = 0 end
         battery_bar:set_value(charge_anim_value)
     end, 100)
 end
@@ -970,8 +968,7 @@ local function on_status_battery(data)
     battery_label:set_text(level .. "%")
     if charging then
         battery_bar:set_indicator_color(COLOR_GREEN)
-        if not charge_anim_active then start_charge_anim(level)
-        else charge_start_level = level end
+        if not charge_anim_active then start_charge_anim() end
     else
         stop_charge_anim()
         battery_bar:set_value(level)

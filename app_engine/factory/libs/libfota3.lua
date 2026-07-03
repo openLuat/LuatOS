@@ -64,28 +64,40 @@ end
 -- 获取设备标识（IMEI/MAC/UID），按优先级自动检测
 -- 4G模组优先使用IMEI，WiFi模组使用MAC，兜底使用MCU唯一ID
 local function get_device_id()
-    if mobile and mobile.imei then
+    local model = hmeta.model()
+
+    -- 4G模组走IMEI
+    if model:find("^Air780E")         -- Air780Exx 系列模组
+        or model:find("^Air8000")     -- Air8000 系列模组
+        or model:find("^Air700") then -- Air700 系列模组
+        -- 使用 pcall 包装：防止 API 不可用或调用失败导致程序崩溃
         local ok, imei = pcall(mobile.imei)
+        -- 验证 IMEI 长度：确保获取到的标识有效（IMEI 标准长度为15位）
         if ok and imei and #tostring(imei) >= 10 then
             return "imei", tostring(imei)
         end
-    end
-    if wlan and wlan.getMac then
+
+        -- WiFi/MCU模组走MAC地址
+    elseif model:find("^Air8101") then -- Air8101 系列模组
+        -- 使用 pcall 包装：防止 API 不可用或调用失败导致程序崩溃
         local ok, mac = pcall(wlan.getMac)
+        -- 验证 MAC 地址长度：确保获取到的标识有效（MAC地址标准长度为12位十六进制）
         if ok and mac and #tostring(mac) >= 12 then
             return "mac", tostring(mac)
         end
-    end
-    if _G.IMEI and #tostring(_G.IMEI) >= 10 then
-        return "imei", tostring(_G.IMEI)
-    end
-    -- 兜底：MCU唯一ID（WiFi-only模组如Air1601等无IMEI/MAC时使用）
-    if mcu and mcu.unique_id then
+
+        -- 部分模组需要使用 mcu.unique_id()
+    elseif model:find("^Air1601")      -- Air1601 系列模组
+        or model:find("^Air1602")      -- Air1602 系列模组
+        or model:find("^Air1780") then -- Air1780 系列模组
+        -- 使用 pcall 包装：防止 API 不可用或调用失败导致程序崩溃
         local ok, uid = pcall(mcu.unique_id)
         if ok and uid then
             return "uid", tostring(uid)
         end
     end
+
+    -- 所有方案都失败，返回 nil
     return nil, nil
 end
 

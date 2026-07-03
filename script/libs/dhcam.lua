@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module dhcam
 @summary 大华摄像头功能模块，为exremotecam主模块提供大华摄像头的具体实现
 @version 1.0
@@ -12,6 +12,13 @@
     使用时，需要按照以下顺序加载模块：
         require "dhcam" -- 首先加载具体型号的摄像头功能模块（如大华）
         require "exremotecam" -- 然后加载exremotecam主模块
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增dhcam.version()接口
+--    支持dhcam库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local dhcam = {}
@@ -435,4 +442,16 @@ end
 
 -- 注册大华摄像头模块
 _G.dhcam = dhcam
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+dhcam.version()
+]]
+function dhcam.version()
+    return "202607021200"
+end
+
+log.debug("dhcam", "version -> " .. dhcam.version())
+
 return dhcam

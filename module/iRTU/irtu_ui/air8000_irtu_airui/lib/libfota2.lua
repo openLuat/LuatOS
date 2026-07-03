@@ -44,7 +44,6 @@ sys.timerLoopStart(libfota2.request, 4*3600*1000, libfota_cb)
 sys.timerLoopStart(libfota2.request, 4*3600*1000, libfota_cb, opts)
 ]]
 
-
 local libfota2 = {}
 
 -- 单独判断下服务器下发的数据是不是"{"开头"}"结尾的字符串
@@ -52,6 +51,28 @@ local function isjson(str)
     local start, _ = string.find(str, "^%{")
     local _, end_ = string.find(str, "%}$")
     return start == 1 and end_ == #str and string.sub(str, 2, #str - 1):find("%B{") == nil
+end
+
+-- 根据模组型号自动获取设备标识查询串
+local function get_device_query()
+    local model = hmeta.model()
+
+    -- 4G模组走IMEI
+    if model:find("^Air780E")         -- Air780Exx 系列模组
+        or model:find("^Air8000")     -- Air8000 系列模组
+        or model:find("^Air700") then -- Air700 系列模组
+        return "imei=" .. mobile.imei()
+
+        -- WiFi/MCU模组走MAC地址
+    elseif model:find("^Air8101") then -- Air8101 系列模组
+        return "mac=" .. wlan.getMac()
+
+        -- 部分模组需要使用 mcu.unique_id()
+    elseif model:find("^Air1601")      -- Air1601 系列模组
+        or model:find("^Air1602")      -- Air1602 系列模组
+        or model:find("^Air1780") then -- Air1780 系列模组
+        return "mac=" .. mcu.unique_id():toHex()
+    end
 end
 
 local function fota_task(cbFnc, opts)
@@ -181,13 +202,7 @@ function libfota2.request(cbFnc, opts)
         end
         -- 补齐imei参数
         if not opts.imei then
-            if mobile then
-                query = "imei=" .. mobile.imei()
-            elseif wlan and wlan.getMac then
-                query = "mac=" .. wlan.getMac()
-            else
-                query = "uid=" .. mcu.unique_id():toHex()
-            end
+            query = get_device_query()
         end
 
         -- 然后拼接到最终的url里
@@ -207,7 +222,7 @@ function libfota2.request(cbFnc, opts)
         opts.method = "GET"
     end
     log.info("fota.url", opts.method, opts.url)
-    log.info("fota.imei/mac/uid", query)
+    log.info("fota.imei/mac", query)
     log.info("fota.project_key", opts.project_key)
     log.info("fota.firmware_name", opts.firmware_name)
     log.info("fota.version", opts.version)

@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module extalk
 @summary extalk扩展库
 @version 1.1.2
@@ -17,6 +17,13 @@
     extalk.start("remote_device_id")
     -- 结束对讲
     extalk.stop()
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增extalk.version()接口
+--    支持extalk库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local extalk = {}
@@ -653,5 +660,17 @@ function extalk.stop()
     extalk.speech_off(true, true)
     return true
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+extalk.version()
+]]
+function extalk.version()
+    return "202607021200"
+end
+
+log.debug("extalk", "version -> " .. extalk.version())
 
 return extalk

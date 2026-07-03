@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module httpplus
 @summary http库的补充
 @version 1.0
@@ -36,6 +36,13 @@
 -- 支持 下载大文件,不限大小,需要搭配回调函数， 2026.1.9 新增
 -- 支持 文件下载到本地
 -- 支持 fota升级
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增httpplus.version()接口
+--    支持httpplus库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 
@@ -1062,5 +1069,17 @@ function httpplus.request(opts)
     
     return opts.resp_code, opts.resp
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+httpplus.version()
+]]
+function httpplus.version()
+    return "202607021200"
+end
+
+log.debug("httpplus", "version -> " .. httpplus.version())
 
 return httpplus

@@ -1,4 +1,4 @@
---[[
+﻿--[[
     exapp.lua - 扩展应用管理库
     @module exapp
     @summary 提供沙箱环境运行应用的能力，支持本地应用管理和云端应用市场
@@ -107,6 +107,13 @@
     注意事项：
     1. 文件访问会被自动映射到应用目录，支持跨存储写入（/ram/、/sd/、/little_flash/ 映射到各存储的 app 私有 data 区）
     2. 应用异常可能会导致重启，也可能不会影响主线程和其他应用的运行，取决于异常代码的执行逻辑是在全局环境还是应用沙箱环境中
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exapp.version()接口
+--    支持exapp库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 -- ==============================================
@@ -3932,7 +3939,7 @@ function exapp.get_app_list(params)
 
 
     if category ~= "已安装" and not network_ready then
-        sys.publish("APP_STORE_ERROR", "当前无网络，请先连接WiFi")
+        sys.publish("APP_STORE_ERROR", "当前无网络，请先连接网络")
         return false
     end
 
@@ -4533,7 +4540,7 @@ exapp.install_remote_app("app_hello", "https://example.com/app.zip", "Hello App"
 ]]
 function exapp.install_remote_app(aid, url, app_name, category, sort, _target_root)
     if not network_ready then
-        sys.publish("APP_STORE_ERROR", "当前无网络，请先连接WiFi")
+        sys.publish("APP_STORE_ERROR", "当前无网络，请先连接网络")
         return
     end
 
@@ -5159,7 +5166,7 @@ end)
 function exapp.add_record(params, appid, callback)
     if not network_ready then
         log.warn("exapp_database", "add_record: network not ready")
-        if callback then callback(false, "当前无网络，请先连接WiFi") end
+        if callback then callback(false, "当前无网络，请先连接网络") end
         return
     end
     local body = {
@@ -5219,7 +5226,7 @@ end)
 function exapp.list_record(params, appid, callback)
     if not network_ready then
         log.warn("exapp_database", "list_record: network not ready")
-        if callback then callback(false, "当前无网络，请先连接WiFi") end
+        if callback then callback(false, "当前无网络，请先连接网络") end
         return
     end
     local body = {
@@ -5267,7 +5274,7 @@ end)
 function exapp.delete_record(params, appid, callback)
     if not network_ready then
         log.warn("exapp_database", "delete_record: network not ready")
-        if callback then callback(false, "当前无网络，请先连接WiFi") end
+        if callback then callback(false, "当前无网络，请先连接网络") end
         return
     end
     if not params.id then
@@ -5345,4 +5352,16 @@ sys.subscribe("STORAGE_PRIORITY_CHANGED", function(priority_list)
 end)
 
 log.info("exapp", "loaded")
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exapp.version()
+]]
+function exapp.version()
+    return "202607021200"
+end
+
+log.debug("exapp", "version -> " .. exapp.version())
+
 return exapp

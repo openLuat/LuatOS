@@ -13,8 +13,6 @@
 #define I2S_MAX_DEVICE 1
 #endif
 
-#ifdef LUAT_USE_GUI
-
 #include <SDL2/SDL.h>
 
 typedef struct {
@@ -221,62 +219,6 @@ int luat_i2s_txbuff_info(uint8_t id, size_t *buffsize, size_t* remain) {
     *remain = queued;
     return 0;
 }
-
-#else /* !LUAT_USE_GUI - stub implementations without SDL */
-
-static luat_i2s_conf_t g_i2s_conf[I2S_MAX_DEVICE];
-
-int luat_i2s_setup(const luat_i2s_conf_t *conf) {
-    if (conf == NULL || conf->id >= I2S_MAX_DEVICE) return -1;
-    memcpy(&g_i2s_conf[conf->id], conf, sizeof(luat_i2s_conf_t));
-    LLOGW("i2s[%d] SDL not available (no GUI build)", conf->id);
-    return 0;
-}
-
-int luat_i2s_modify(uint8_t id, uint8_t channel_format, uint8_t data_bits, uint32_t sample_rate) {
-    if (id >= I2S_MAX_DEVICE) return -1;
-    g_i2s_conf[id].channel_format = channel_format;
-    g_i2s_conf[id].data_bits = data_bits;
-    g_i2s_conf[id].sample_rate = sample_rate;
-    return 0;
-}
-
-int luat_i2s_send(uint8_t id, uint8_t* buff, size_t len) {
-    (void)id; (void)buff; (void)len;
-    return -1;
-}
-
-int luat_i2s_pause(uint8_t id) {
-    if (id >= I2S_MAX_DEVICE) return -1;
-    g_i2s_conf[id].state = LUAT_I2S_STATE_STOP;
-    return 0;
-}
-
-int luat_i2s_resume(uint8_t id) {
-    if (id >= I2S_MAX_DEVICE) return -1;
-    g_i2s_conf[id].state = LUAT_I2S_STATE_RUNING;
-    return 0;
-}
-
-int luat_i2s_close(uint8_t id) {
-    if (id >= I2S_MAX_DEVICE) return -1;
-    g_i2s_conf[id].state = LUAT_I2S_STATE_STOP;
-    return 0;
-}
-
-luat_i2s_conf_t *luat_i2s_get_config(uint8_t id) {
-    if (id >= I2S_MAX_DEVICE) return NULL;
-    return &g_i2s_conf[id];
-}
-
-int luat_i2s_txbuff_info(uint8_t id, size_t *buffsize, size_t* remain) {
-    if (id >= I2S_MAX_DEVICE || buffsize == NULL || remain == NULL) return -1;
-    *buffsize = 0;
-    *remain = 0;
-    return -1;
-}
-
-#endif /* LUAT_USE_GUI */
 
 int luat_i2s_recv(uint8_t id, uint8_t* buff, size_t len) {
     (void)buff;

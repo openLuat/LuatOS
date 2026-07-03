@@ -1,9 +1,16 @@
---[[
+﻿--[[
 @module libnet
 @summary libnet 在socket库基础上的同步阻塞api，socket库本身是异步非阻塞api
 @version 1.0
 @date    2023.03.16
 @author  lisiqi
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增libnet.version()接口
+--    支持libnet库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local libnet = {}
@@ -210,5 +217,17 @@ function libnet.ping(id, ip, timeout, len)
 		return false
 	end
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+libnet.version()
+]]
+function libnet.version()
+    return "202607021200"
+end
+
+log.debug("libnet", "version -> " .. libnet.version())
 
 return libnet

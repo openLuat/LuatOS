@@ -45,7 +45,7 @@ log.info("main", PROJECT, VERSION)
 -- end, 3000)
 
 -- 导入netdrv_4g联网状态模块
-require "netdrv_4g"
+-- require "netdrv_4g"
 
 -- 导入gc032a配置表
 require "gc032a"

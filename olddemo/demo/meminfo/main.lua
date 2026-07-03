@@ -13,12 +13,14 @@ end
 sys.taskInit(function()
     local count = 1
     while 1 do
-        sys.wait(1000)
+        sys.wait(500)
         log.info("luatos", "hi", count, os.date())
         -- lua内存
         log.info("lua", rtos.meminfo())
         -- sys内存
         log.info("sys", rtos.meminfo("sys"))
+        -- psram内存
+        log.info("psram", rtos.meminfo("psram"))
         count = count + 1
     end
 end)

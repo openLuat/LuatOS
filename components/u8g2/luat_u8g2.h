@@ -25,6 +25,9 @@ uint8_t u8x8_d_custom_noname(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *a
 
 int luat_u8g2_setup(luat_u8g2_conf_t *conf);
 
+// 仅 PC 模拟器(luat_u8g2_sdl2.c)使用,暴露 file-static i2c_id/spi_id 给 override
+void luat_u8g2_get_bus_ids(int* i2c_id_out, int* spi_id_out);
+
 int luat_u8g2_close(luat_u8g2_conf_t *conf);
 
 void luat_u8g2_set_ascii_indentation(uint8_t value);

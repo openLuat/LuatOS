@@ -176,9 +176,15 @@ size_t luat_vfs_romfs_fread(void *userdata, void *ptr, size_t size, size_t nmemb
     // LLOGD("fread %p %p %d %d", userdata, stream, fd->size, fd->offset);
     // LLOGD("fread2 %p %p %d %d", userdata, stream, size * nmemb, fd->offset);
     size_t read_size = size * nmemb;
-    if (fd->offset + read_size > toInt32(fd->file.size))
+    uint32_t file_size = toInt32(fd->file.size);
+    // 已到/越过文件末尾时直接返回,避免 file_size - fd->offset 在 size_t 下溢导致越界读
+    if (fd->offset >= file_size)
     {
-        read_size = toInt32(fd->file.size) - fd->offset;
+        return 0;
+    }
+    if (fd->offset + read_size > file_size)
+    {
+        read_size = file_size - fd->offset;
     }
     // memcpy(ptr, FDATA(fd) + fd->offset, read_size);
     fs->read(fs->userdata, ptr, fd->offset + fd->addr + sizeof(romfs_file_t), read_size);

@@ -131,7 +131,7 @@ static int luat_i2c_sht20_recv(void* buff, size_t len) {
 }
 
 int luat_i2c_exist(int id) {
-    return id == 0;
+    return id == 0 || id == 21; // id == 21的时候,代表PC模拟器的u8g2 oled模拟
 }
 
 int luat_i2c_setup(int id, int speed) {

@@ -107,6 +107,7 @@ uint32_t luat_fifo_query(luat_fifo_t *fifo, uint8_t *buf, uint32_t size)
 
 void luat_fifo_delete(luat_fifo_t *fifo, uint32_t size)
 {
+	if (!fifo) return;
 	if ((fifo->rpoint + size) >= fifo->wpoint)
 	{
 		fifo->rpoint = fifo->wpoint;

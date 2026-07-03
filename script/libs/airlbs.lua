@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module airlbs
 @summary airlbs 定位服务(收费服务，需自行联系销售申请)
 @version 1.0
@@ -10,6 +10,13 @@
 -- lbsloc比lbsloc2多了一个请求地址文本的功能。
 -- lbsloc 和 lbsloc2 都是免费LBS定位的实现方式；
 -- airlbs 扩展库是收费 LBS 的实现方式。
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增airlbs.version()接口
+--    支持airlbs库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]] 
 
 
@@ -307,6 +314,18 @@ function airlbs.get_address(param)
         return false, "网络请求失败"
     end
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+airlbs.version()
+]]
+function airlbs.version()
+    return "202607021200"
+end
+
+log.debug("airlbs", "version -> " .. airlbs.version())
 
 return airlbs
 

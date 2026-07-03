@@ -28,6 +28,10 @@ void tfs_chunk_set_free(tfs_dev_t *dev, int chunk_in_nand);
 /** Return 1 if chunk is in-use, 0 if free */
 int  tfs_chunk_is_used(const tfs_dev_t *dev, int chunk_in_nand);
 
+/** Fill one block's in-RAM chunk bitmap, with block-range validation. */
+void tfs_chunk_bitmap_fill_block(tfs_dev_t *dev, int block_in_nand,
+                                 uint8_t value);
+
 /*-------------------------------------------------------------------
  *  Block erase / bad-block management
  *-------------------------------------------------------------------*/

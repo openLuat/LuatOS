@@ -718,13 +718,9 @@ static void scan_finish_delta_block(tfs_dev_t *dev, int blk)
 
 static void scan_mark_block_erased_after_checkpt(tfs_dev_t *dev, int blk)
 {
-    int blk_int = blk - dev->block_offset;
     tfs_block_info_t *bi = tfs_get_block_info(dev, blk);
 
-    if (blk_int >= 0 && blk_int < (int)tfs_total_blocks(dev)) {
-        memset(dev->chunk_bits + blk_int * dev->chunk_bit_stride,
-               0, (size_t)dev->chunk_bit_stride);
-    }
+    tfs_chunk_bitmap_fill_block(dev, blk, 0);
 
     memset(bi, 0, sizeof(*bi));
     bi->bi.block_state = TFS_BLK_STATE_EMPTY;
@@ -1492,12 +1488,17 @@ static int gc_copy_block(tfs_dev_t *dev, int blk)
         /* Write live chunk to new location */
         {
             int new_chunk = tfs_alloc_chunk(dev, 1);
+            int copy_bytes = (ext.n_bytes <= dev->data_bytes_per_chunk)
+                           ? (int)ext.n_bytes
+                           : (int)dev->data_bytes_per_chunk;
             if (new_chunk < 0) {
                 dev->drv.free(dev->drv.ctx, buf);
                 return TFS_ENOSPC;
             }
 
-            rc = tfs_chunk_write(dev, new_chunk, buf, (int)ext.n_bytes, &ext);
+            /* Object headers use 0xffff as the tag n_bytes sentinel. The
+             * physical GC copy still contains one page, never 65535 bytes. */
+            rc = tfs_chunk_write(dev, new_chunk, buf, copy_bytes, &ext);
             if (rc != TFS_OK) {
                 dev->drv.free(dev->drv.ctx, buf);
                 return rc;

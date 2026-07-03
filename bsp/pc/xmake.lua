@@ -44,11 +44,9 @@ if is_host("windows") then
     add_requires("pthreads4w")
 end
 
--- SDL2 仅在 GUI 模式下需要
-if env_enabled("LUAT_USE_GUI") then
-    add_requires("libsdl2")
-    add_packages("libsdl2")
-end
+-- audio_v2 默认使用 SDL2 音频设备；GUI 构建同时复用该依赖。
+add_requires("libsdl2")
+add_packages("libsdl2")
 
 local function thirdparty_file_options()
     if is_host("windows") then
@@ -325,6 +323,7 @@ target("luatos-lua")
 
     -- audio
     add_includedirs(luatos.."/components/multimedia/",
+                    luatos.."/components/multimedia/audio/include",
                     luatos.."/components/multimedia/mp3_decode",
                     luatos.."/components/multimedia/amr_decode/amr_common/dec/include",
                     luatos.."/components/multimedia/amr_decode/amr_nb/common/include",
@@ -343,6 +342,17 @@ target("luatos-lua")
             luatos.."/components/multimedia/g711_codec/**.c",
             luatos.."/components/multimedia/dtmf_codec/**.c",
             luatos.."/components/multimedia/vtool/**.c")
+
+        add_includedirs(luatos.."/components/common_api/include", {public = true})
+        add_files(luatos.."/components/common_api/src/luat_common_api.c")
+        add_files(luatos.."/components/multimedia/audio/src/*.c")
+        add_files(luatos.."/components/multimedia/audio/binding/luat_lib_audio.c")
+        add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_no_op.c")
+        add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_raw.c")
+        add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_wav.c")
+        add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_mp3.c")
+        add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_nb.c")
+        add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_wb.c")
 
     -- opus
     add_defines("OPUS_ARM_ASM","USE_ALLOCA","FIXED_POINT=1","OPUS_BUILD=1")
@@ -558,6 +568,8 @@ target("luatos-lua")
     if use_gui then
         add_packages("libsdl2")
         add_files("ui/*.c")
+        -- 非 GUI 构建用的 u8g2 no-op stub;GUI 构建里 luat_u8g2_sdl2.c 才是强定义,会与之冲突
+        remove_files("ui/luat_u8g2_pc.c")
         add_defines("U8G2_USE_LARGE_FONTS=1")
 
         -- sdl2
@@ -566,6 +578,8 @@ target("luatos-lua")
         -- u8g2
         add_includedirs(luatos.."components/u8g2")
         add_files(luatos.."components/u8g2/*.c")
+        -- u8g2 SDL2 模拟器(覆盖 LUAT_WEAK luat_u8g2_setup,i2c_id==21 / spi_id==21 时启用)
+        add_files("ui/luat_u8g2_sdl2.c")
         -- lcd
         add_includedirs(luatos.."components/lcd")
         add_includedirs(luatos.."components/luat_image/include")

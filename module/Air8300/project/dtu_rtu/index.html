@@ -620,19 +620,24 @@
                     </div>
                     <div class="control-group">
                         <div class="func-title">升级操作</div>
-                        <div id="fotaStatus" style="margin-bottom:8px;font-size:14px;color:#667eea;"></div>
-                        <div class="grid-2">
+                        <div class="upgrade-stage" id="fotaStages">
+                            <div class="stage-item" id="fotaStg0"><div class="stage-icon">○</div><span>检测</span></div>
+                            <div class="stage-item" id="fotaStg1"><div class="stage-icon">○</div><span>下载</span></div>
+                            <div class="stage-item" id="fotaStg2"><div class="stage-icon">○</div><span>完成</span></div>
+                        </div>
+                        <div id="fotaStatus" style="margin-bottom:6px;font-size:14px;color:#667eea;"></div>
+                        <div style="display:flex;gap:6px;">
                             <button class="btn btn-primary" id="fotaCheckBtn" onclick="fotaCheck()">检查更新</button>
-                            <button class="btn btn-success" id="fotaDownloadBtn" onclick="fotaDownload()" disabled>开始下载</button>
+                            <button class="btn btn-warning" id="fotaRebootBtn" onclick="fotaReboot()" style="display:none;">立即重启</button>
                         </div>
                         <div class="progress-bar" style="margin-top:8px;display:none;" id="fotaProgressBar">
                             <div class="progress-fill" id="fotaProgressFill" style="width:0%">0%</div>
                         </div>
-                        <button class="btn btn-warning" id="fotaRebootBtn" onclick="fotaReboot()" style="margin-top:8px;display:none;">立即重启</button>
                     </div>
                     <div class="control-group">
-                        <div class="func-title">升级历史</div>
-                        <div id="fotaHistory"><div style="font-size:12px;color:#999;">暂无记录</div></div>
+                        <div class="func-title">自动检查</div>
+                        <div class="control-row"><span class="control-label">启用</span><div class="switch" id="fotaAutoSwitch" onclick="fotaToggleAuto()"></div></div>
+                        <div class="control-row"><span class="control-label">间隔</span><select class="select-box" id="fotaInterval" onchange="fotaSaveConfig()"><option value="60">60秒(测试)</option><option value="3600">1小时</option><option value="21600">6小时</option><option value="86400" selected>24小时</option></select></div>
                     </div>
                 </div>
             </div>
@@ -642,7 +647,7 @@
                     <div class="control-group">
                         <div class="func-title">设备信息</div>
                         <div class="control-row"><span class="control-label">项目名称</span><span class="control-value" id="cfgProject">--</span></div>
-                        <div class="control-row"><span class="control-label">固件版本</span><span class="control-value" id="cfgVersion">--</span></div>
+                        <div class="control-row"><span class="control-label">内核固件</span><span class="control-value" id="cfgVersion">--</span></div>
                         <div class="control-row"><span class="control-label">IMEI</span><span class="control-value" style="font-size:11px;" id="cfgImei">--</span></div>
                         <div class="control-row"><span class="control-label">ICCID</span><span class="control-value" style="font-size:10px;" id="cfgIccid">--</span></div>
                         <div class="control-row"><span class="control-label">NTP时间</span><span class="control-value" style="font-size:12px;" id="cfgNtpTime">--</span></div>
@@ -821,7 +826,6 @@
             response.innerHTML='<div class="log-entry">['+time+'] TX: 01 '+func+' 00 00 00 0A C5 CD</div><div class="log-entry">['+time+'] RX: 01 '+func+' 14 00 64 00 C8...</div>';
             showToast('Modbus指令已发送');
         }
-        function checkUpgrade(){showToast('检查更新中...');setTimeout(()=>showToast('当前已是最新版本'),1500);}
         function saveConfig(){showToast('配置保存中...');setTimeout(()=>showToast('配置已保存到Flash'),1000);}
         function clearLog(id){document.getElementById(id).innerHTML='<div class="log-entry">日志已清空</div>';}
         function startFlash(){
@@ -891,9 +895,10 @@
             }).catch(function(){showToast('扫描请求失败');btn.textContent='扫描';btn.disabled=false;});
         }
 
-        function renderSigBars(csq){
+        function renderSigBars(rssi){
             var bars=document.querySelectorAll('#sigBars .signal-bar');
-            var level=Math.min(5,Math.max(0,Math.ceil((csq+115)/6)));
+            if(rssi==null){for(var i=0;i<bars.length;i++)bars[i].style.background='#ddd';return;}
+            var level=Math.min(5,Math.max(0,Math.ceil((rssi+115)/6)));
             for(var i=0;i<bars.length;i++)bars[i].style.background=i<level?'#43e97b':'#ddd';
         }
 
@@ -907,7 +912,7 @@
             document.getElementById('detEth2Ip').textContent=net.eth2.ip||'--';document.getElementById('detEth2Mask').textContent=net.eth2.mask||'--';document.getElementById('detEth2Gw').textContent=net.eth2.gw||'--';
             var g4=net.net4g;
             document.getElementById('net4gBadge').innerHTML=d(g4.ready)+(g4.ready?'在线':'离线');
-            renderSigBars(g4.csq||0);
+            renderSigBars(g4.ready&&g4.rssi!=null?g4.rssi:null);
             document.getElementById('det4gOp').textContent=g4.operator||'--';
             document.getElementById('det4gCsq').textContent=(g4.csq||0)+'dBm';
             document.getElementById('det4gSim').innerHTML=(g4.sim_ready?'<span class="status-dot online"></span>正常':'<span class="status-dot offline"></span>无卡');
@@ -1046,39 +1051,54 @@
         }
 
         // ========== FOTA 升级 ==========
+        var fotaAuto=false,fotaInterval=86400;
+        function fotaSetStages(stage){
+            var stages=['fotaStg0','fotaStg1','fotaStg2'];
+            var icons={checking:'●',new_version:'✓',downloading:'●',download_done:'✓',idle:'○',error:'✗',rebooting:'○'};
+            var idx={checking:0,new_version:1,downloading:1,download_done:2,idle:-1,error:-1,rebooting:2};
+            for(var i=0;i<stages.length;i++){var el=document.getElementById(stages[i]); if(el){el.classList.remove('active','completed');el.querySelector('.stage-icon').textContent='○';}}
+            var n=idx[stage]||-1;
+            for(var i=0;i<=n;i++){var el=document.getElementById(stages[i]); if(el){el.classList.add('completed');el.querySelector('.stage-icon').textContent='✓';}}
+            if(n>=0){var el=document.getElementById(stages[n]); if(el&&stage!=='download_done'&&stage!=='new_version'){el.classList.add('active');el.querySelector('.stage-icon').textContent='●';}}
+        }
         function fotaPoll(){
             fetch('/api/fota/status').then(function(r){return r.json()}).then(function(res){
                 if(!res.data)return; var d=res.data;
                 document.getElementById('fotaStatus').textContent=d.msg||'';
-                if(d.status==='new_version'){document.getElementById('fotaDownloadBtn').disabled=false;}
-                if(d.status==='downloading'){
+                fotaSetStages(d.stage);
+                if(d.stage==='downloading'){
                     document.getElementById('fotaProgressBar').style.display='block';
                     document.getElementById('fotaProgressFill').style.width=d.progress+'%';
                     document.getElementById('fotaProgressFill').textContent=d.progress+'%';
+                } else {
+                    document.getElementById('fotaProgressBar').style.display='none';
+                    document.getElementById('fotaProgressFill').style.width='0%';
+                }
+                if(d.stage==='download_done'){
+                    document.getElementById('fotaRebootBtn').style.display='block';
                     document.getElementById('fotaCheckBtn').disabled=true;
                 }
-                if(d.status==='download_done'){
-                    document.getElementById('fotaDownloadBtn').disabled=true;
-                    document.getElementById('fotaRebootBtn').style.display='block';
+                if(d.stage==='idle'||d.stage==='error'){
+                    document.getElementById('fotaCheckBtn').disabled=false;
                 }
             }).catch(function(){});
         }
         function fotaCheck(){
             document.getElementById('fotaCheckBtn').disabled=true;
-            document.getElementById('fotaStatus').textContent='正在检查更新...';
-            fetch('/api/fota/check',{method:'POST'}).then(function(){setTimeout(fotaPoll,2000);}).catch(function(){document.getElementById('fotaCheckBtn').disabled=false;});
-        }
-        function fotaDownload(){
-            document.getElementById('fotaDownloadBtn').disabled=true;
-            document.getElementById('fotaStatus').textContent='正在下载...';
-            fetch('/api/fota/download',{method:'POST'}).then(function(){
-                var iv=setInterval(function(){fotaPoll();},2000);
-                setTimeout(function(){clearInterval(iv);},120000);
-            }).catch(function(){document.getElementById('fotaDownloadBtn').disabled=false;});
+            document.getElementById('fotaStatus').textContent='检查中...';
+            fetch('/api/fota/check',{method:'POST'}).then(function(){var iv=setInterval(function(){fotaPoll();},2000);setTimeout(function(){clearInterval(iv);},120000);}).catch(function(){document.getElementById('fotaCheckBtn').disabled=false;});
         }
         function fotaReboot(){
             if(!confirm('确定重启模组?'))return;
-            fetch('/api/fota/reboot',{method:'POST'}).then(function(){showToast('模组即将重启...')});
+            fetch('/api/fota/reboot',{method:'POST'}).then(function(){showToast('重启中...')});
+        }
+        function fotaToggleAuto(){
+            var el=document.getElementById('fotaAutoSwitch'); el.classList.toggle('active');
+            fotaAuto=el.classList.contains('active'); fotaSaveConfig();
+        }
+        function fotaSaveConfig(){
+            var iv=parseInt(document.getElementById('fotaInterval').value)||86400;
+            fetch('/api/fota/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auto:fotaAuto,interval:iv})}).catch(function(){});
         }
         function fotaInit(){
             fetch('/api/status').then(function(r){return r.json()}).then(function(res){
@@ -1088,7 +1108,17 @@
                     document.getElementById('fotaImei').textContent=res.data.device.imei||'--';
                 }
             }).catch(function(){});
-            fotaPoll();
+            fetch('/api/fota/config').then(function(r){return r.json()}).then(function(res){
+                if(res.code===0&&res.data){
+                    fotaAuto=res.data.auto||false;
+                    fotaInterval=res.data.interval||86400;
+                    var sw=document.getElementById('fotaAutoSwitch');
+                    if(fotaAuto)sw.classList.add('active');else sw.classList.remove('active');
+                    var sel=document.getElementById('fotaInterval');
+                    if(sel)sel.value=fotaInterval;
+                }
+            }).catch(function(){});
+            fotaPoll(); setInterval(fotaPoll,3000);
         }
         fotaInit();
 

@@ -46,80 +46,14 @@ require "wifi_storage"
 local common = require "wifi_app_common"
 local exnetif = require "exnetif"
 
+-- 统一网络管理器：用于构建 WiFi 优先级/兜底网络（替代本地 build_*_fallback 函数）
+local net_manager = require "net_manager"
+
 -- ==================== 平台检测 ====================
 -- 基于配置文件驱动，不再依赖 _G.model_str
 local config = _G.project_config or {}
 local chip = config.chip or ""
 local is_air1601 = chip:find("Air1601") or chip:find("Air1602")
-local is_air8000 = chip:find("Air8000")
-local is_air8101 = chip:find("Air8101")
-
--- ==================== SPI 以太网兜底辅助 ====================
--- 根据 project_config.ethernet 构建以太网卡优先级条目
--- 当 WiFi 关闭/断开时，以太网作为独立网卡持续可用
-local function build_ethernet_fallback()
-    if not config.features or not config.features.ethernet then
-        return nil
-    end
-    local eth_cfg = config.ethernet
-    if not eth_cfg or eth_cfg.spi_id == nil or eth_cfg.pin_cs == nil then
-        return nil
-    end
-    local eth_opts = {spi = eth_cfg.spi_id, cs = eth_cfg.pin_cs}
-    if eth_cfg.pin_irq then
-        eth_opts.irq = eth_cfg.pin_irq
-    end
-    local param = {
-        tp = netdrv.CH390,
-        opts = eth_opts,
-    }
-    if eth_cfg.pin_pwr then
-        param.pwrpin = eth_cfg.pin_pwr
-    end
-    return { ETHERNET = param }
-end
-
--- ==================== 4G 兜底辅助 ====================
--- 根据配置文件区分原生 4G(LWIP_GP) 和 airlink 4G(airlink_4G)
-local function build_4g_fallback()
-    if not config.features or not config.features.net_4g then
-        return nil
-    end
-    local net_cfg = config.features.net_4g_config or {}
-    if net_cfg.type == "airlink" then
-        -- airlink 4G（Air1601/Air8101 + Air780EPM 外挂模组）
-        local acfg = {
-            airlink_type = net_cfg.airlink_type,
-            auto_socket_switch = (net_cfg.auto_socket_switch ~= false),
-        }
-        if net_cfg.airlink_spi_id then acfg.airlink_spi_id = net_cfg.airlink_spi_id end
-        if net_cfg.airlink_cs_pin then acfg.airlink_cs_pin = net_cfg.airlink_cs_pin end
-        if net_cfg.airlink_rdy_pin then acfg.airlink_rdy_pin = net_cfg.airlink_rdy_pin end
-        if net_cfg.airlink_uart_id then acfg.airlink_uart_id = net_cfg.airlink_uart_id end
-        if net_cfg.airlink_uart_baud then acfg.airlink_uart_baud = net_cfg.airlink_uart_baud end
-        if net_cfg.airlink_adapter then acfg.airlink_adapter = net_cfg.airlink_adapter end
-        return { airlink_4G = acfg }
-    else
-        -- 原生 4G（Air8000/Air780E 系列）
-        return { LWIP_GP = true }
-    end
-end
-
--- ==================== 构建以太网 + 4G 兜底优先级列表 ====================
--- 用于 WiFi 关闭/断开时，确保以太网和 4G 仍然可用
--- 优先级：以太网 → 4G
-local function build_fallback_priority()
-    local priority = {}
-    local fb_eth = build_ethernet_fallback()
-    if fb_eth then
-        table.insert(priority, fb_eth)
-    end
-    local fb_4g = build_4g_fallback()
-    if fb_4g then
-        table.insert(priority, fb_4g)
-    end
-    return priority
-end
 
 -- ==================== 配置常量 ====================
 local SCAN_TIMEOUT = 15000
@@ -184,88 +118,95 @@ end
 local hw_ready = false
 local hw_busy = false
 
+-- Air1601 Airlink 硬件是否已完成 GPIO 复位+PULLDOWN（只需做一次）
+local airlink_hw_inited = false
+
 -- ==================== exnetif 平台适配 ====================
 
 --[[
-构成 WiFi 对 exnetif 的接口
-其第一个参数传入的是真正的 ssid 与 password，而函数签名中的 bssid 会在 wlan.connect 中作为检索 AP 的参数。
-这样做的目的是确保 bssid 在被 exnetif 使用之前已经转换为了正确的 6 字节二进制
-
-（bssid 出 wlan.scanResult() 时已是 toHex() 过的字符串——见 handle_scan_done，
-而 wlan.connect() 接收原始 6 字节——见 luat_lib_wlan.c:149-152）
+构建带 WiFi 的完整优先级列表，委托给 net_manager
+@param ssid string
+@param password string
+@param cfg table  高级配置（need_ping, local_network_mode, ping_ip, ping_time, auto_socket_switch, bssid）
+@return table  优先级列表
 ]]
 local function build_network_priority(ssid, password, cfg)
     cfg = cfg or {}
-    local priority = {}
-
-    if ssid and ssid ~= "" then
-        if is_air1601 then
-            table.insert(priority, {
-                airlink_wifi = {
-                    airlink_type = airlink.MODE_SPI_MASTER,
-                    airlink_spi_id = 1,
-                    airlink_cs_pin = 8,
-                    airlink_rdy_pin = 14,
-                    ssid = ssid,
-                    password = password,
-                    bssid = cfg.bssid,
-                    auto_socket_switch = (cfg.auto_socket_switch ~= false)
-                }
-            })
-        else
-            local wifi_cfg = { ssid = ssid, password = password, bssid = cfg.bssid }
-            if cfg.need_ping ~= nil then wifi_cfg.need_ping = cfg.need_ping end
-            if cfg.local_network_mode ~= nil then wifi_cfg.local_network_mode = cfg.local_network_mode end
-            if cfg.ping_ip and cfg.ping_ip ~= "" then wifi_cfg.ping_ip = cfg.ping_ip end
-            if cfg.ping_time then wifi_cfg.ping_time = tonumber(cfg.ping_time) or 10000 end
-            if cfg.auto_socket_switch ~= nil then wifi_cfg.auto_socket_switch = cfg.auto_socket_switch end
-            table.insert(priority, { WIFI = wifi_cfg })
-        end
+    local adv = nil
+    if cfg.need_ping ~= nil or cfg.local_network_mode ~= nil or cfg.ping_ip or cfg.ping_time then
+        adv = {}
+        if cfg.need_ping ~= nil then adv.need_ping = cfg.need_ping end
+        if cfg.local_network_mode ~= nil then adv.local_network_mode = cfg.local_network_mode end
+        if cfg.ping_ip then adv.ping_ip = cfg.ping_ip end
+        if cfg.ping_time then adv.ping_time = cfg.ping_time end
+        if cfg.auto_socket_switch ~= nil then adv.auto_socket_switch = cfg.auto_socket_switch end
     end
-
-    -- 以太网兜底（SPI CH390H）
-    local fb_eth = build_ethernet_fallback()
-    if fb_eth then
-        table.insert(priority, fb_eth)
-    end
-
-    -- 4G 兜底
-    local fb_4g = build_4g_fallback()
-    if fb_4g then
-        table.insert(priority, fb_4g)
-    end
-
-    return priority
+    local bssid = cfg.bssid
+    return net_manager.build_wifi_priority(ssid, password, bssid, adv)
 end
 
 --[[
-Air1601 airlink 硬件初始化（仅用于扫描，不发起连接）
+Airlink WiFi 硬件初始化（仅用于扫描，不发起连接）
+参数从 net_manager 读取，不再硬编码
 @return boolean
 ]]
 local function air1601_scan_init()
-    -- GPIO55 Airlink_PWR 上电时序已移至 platform_loader POWER_ON 阶段
-    airlink.config(airlink.CONF_SPI_ID, 1)
-    airlink.config(airlink.CONF_SPI_CS, 8)
-    airlink.config(airlink.CONF_SPI_RDY, 14)
-    airlink.config(airlink.CONF_SPI_SPEED, 20 * 1000000)
-    airlink.init()
-    netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
-    airlink.start(airlink.MODE_SPI_MASTER)
-    sys.wait(1000)
-    local to = 0
-    while not airlink.ready() do
-        sys.wait(100)
-        to = to + 100
-        if to >= 30000 then
-            log.error("wifi_app", "airlink 初始化超时")
-            hw_busy = false
-            return false
-        end
+    -- 从 net_manager 读取 Airlink WiFi 硬件参数
+    local wifi_cfg = net_manager.get_wifi_hw_config()
+    if not wifi_cfg then
+        log.error("wifi_app", "未找到 Airlink WiFi 配置")
+        return false
     end
+
+    if wifi_cfg.type == "wifi_airlink_spi" then
+        -- SPI 模式
+        airlink.config(airlink.CONF_SPI_ID, wifi_cfg.spi_id or 1)
+        airlink.config(airlink.CONF_SPI_CS, wifi_cfg.cs_pin or 8)
+        airlink.config(airlink.CONF_SPI_RDY, wifi_cfg.rdy_pin or 14)
+        airlink.config(airlink.CONF_SPI_SPEED, wifi_cfg.speed or (20 * 1000000))
+        airlink.init()
+        netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
+        airlink.start(airlink.MODE_SPI_MASTER)
+    elseif wifi_cfg.type == "wifi_airlink_uart" then
+        -- UART 模式：先做硬件初始化，再配置 UART 参数
+        -- 使能 WiFi 模组后，将 GPIO 释放为 UART 功能（Air1601: GPIO22=TX, GPIO23=RX）
+        if not airlink_hw_inited then
+            -- 首次：复位模组 + 配置 UART 引脚
+            local wifi_en = gpio.setup(12, 0)
+            gpio.setup(22, nil, gpio.PULLDOWN)
+            gpio.setup(23, nil, gpio.PULLDOWN)
+            sys.wait(1000)
+            wifi_en(1)
+            sys.wait(1000)
+            gpio.close(22)
+            gpio.close(23)
+            airlink_hw_inited = true
+        else
+            -- 非首次：模块已上电运行中，跳过 GPIO 复位，直接重启 UART
+            uart.close(wifi_cfg.uart_id or 3)
+            sys.wait(20)
+        end
+
+        local uart_id = wifi_cfg.uart_id or 3
+        local baud = wifi_cfg.baud or 2000000
+        uart.setup(uart_id, baud, 8, 1)
+        airlink.config(airlink.CONF_UART_ID, uart_id)
+        airlink.init()
+        netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
+        airlink.start(airlink.MODE_UART)
+    else
+        log.error("wifi_app", "不支持的 Airlink WiFi 类型:", wifi_cfg.type)
+        return false
+    end
+    sys.wait(1000)
+
     wlan.init()
     wlan.setMode(wlan.STATIONAP)
-    wlan.disconnect()
-    sys.wait(500)
+    -- 仅在未连接时调用 disconnect，避免破坏已有 WiFi 连接
+    if not wifi_state.connected then
+        wlan.disconnect()
+        sys.wait(500)
+    end
     return true
 end
 
@@ -347,7 +288,7 @@ local function on_sta_event(evt, data)
             sys.timerStop(connect_timeout_timer)
             connect_timeout_timer = nil
         end
-        -- 连接成功后才持久化保存密码（修复：错误密码不会被保存）
+        -- 连接成功后才持久化保存密码：等待 L2 关联成功确认密码有效，再写到 fskv
         if pending_connect then
             sys.publish("WIFI_STORAGE_SAVE_REQ", {
                 ssid = pending_connect.ssid,
@@ -359,6 +300,17 @@ local function on_sta_event(evt, data)
                 ssid = pending_connect.ssid,
                 bssid = pending_connect.bssid
             })
+            -- 同步更新内存 saved_config，确保 IP_READY 兜底和自动重连读到最新密码
+            if pending_connect.ssid then saved_config.ssid = pending_connect.ssid end
+            saved_config.password = pending_connect.password
+            if pending_connect.advanced_config then
+                local ac = pending_connect.advanced_config
+                if ac.need_ping ~= nil then saved_config.need_ping = ac.need_ping end
+                if ac.local_network_mode ~= nil then saved_config.local_network_mode = ac.local_network_mode end
+                if ac.ping_ip then saved_config.ping_ip = ac.ping_ip end
+                if ac.ping_time then saved_config.ping_time = ac.ping_time end
+                if ac.auto_socket_switch ~= nil then saved_config.auto_socket_switch = ac.auto_socket_switch end
+            end
             pending_saved = true
             pending_connect = nil
         end
@@ -369,26 +321,32 @@ local function on_sta_event(evt, data)
             sys.timerStop(connect_timeout_timer)
             connect_timeout_timer = nil
         end
+        -- 配置前断开（exnetif.close 触发的 side-effect），不视为真正的连接失败
+        if disconnect_reason == "config" then
+            log.info("wifi_app", "配置前断开，跳过事件处理")
+            disconnect_reason = nil
+            -- pending_connect 保留，等后续 CONNECTED 事件再保存
+            return
+        end
         if user_connect then
-            log.info("wifi_app", "用户发起的连接失败，重置状态")
-            last_connect = nil
-            -- 用户主动连接失败：若为认证类错误（密码错误等），标记失败
-            -- 仅对从未成功过的记录生效（wifi_storage内部保护）
+            -- 用户主动连接过程中断连：需区分是 exnetif.set_priority_order 内部
+            -- wlan.connect 重连前清理还是真正的连接失败（密码错误等）
             if pending_connect and pending_connect.ssid then
                 local reason_code = data
                 -- 认证/密码类错误码：258(密码错误)、202(802.11认证被拒)、13(四次握手MIC校验失败)
                 if reason_code == 258 or reason_code == 202 or reason_code == 13 then
+                    log.info("wifi_app", "用户发起的连接失败（认证错误）:", reason_code)
+                    last_connect = nil
                     sys.publish("WIFI_STORAGE_MARK_FAILED_REQ", {ssid = pending_connect.ssid})
+                    pending_connect = nil
+                else
+                    -- 其他断开（如 wlan.connect 内部先断开再连接），保留 pending_connect
+                    log.info("wifi_app", "用户连接中的断连（非认证错误，保留 pending_connect）: reason=", reason_code)
+                    return  -- 不向下执行，保持 pending_connect 等 CONNECTED
                 end
-                pending_connect = nil
             end
         elseif last_connect == "DISCONNECTED" then
             log.info("wifi_app", "已断开状态，跳过重复事件")
-            return
-        end
-        if disconnect_reason == "config" then
-            log.info("wifi_app", "配置前断开，跳过事件处理")
-            disconnect_reason = nil
             return
         end
         wifi_state.connected = false
@@ -409,6 +367,13 @@ local function on_sta_event(evt, data)
         if user_disconnect then
             user_disconnect = false
             sys.publish("WIFI_SCAN_REQ")
+        else
+            -- 非用户主动断开的断连（如扫描引起、信号丢失等），尝试自动重连
+            sys.taskInit(function()
+                log.info("wifi_app", "WiFi非主动断开，尝试自动重连")
+                sys.wait(1000)  -- 等1秒确保底层状态稳定
+                try_auto_reconnect()
+            end)
         end
     end
 end
@@ -416,8 +381,8 @@ end
 -- IP_READY
 local function on_ip_ready(ip, adapter)
     common.handle_ip_ready(ip, adapter, wifi_state, refresh_net_info)
-    -- 兜底保存：仅当 CONNECTED 阶段未完成保存时，IP_READY 再确保密码已落盘
-    -- 防止 CONNECTED 已正确保存后，兜底用 saved_config 的旧密码覆盖
+    -- 兜底保存：仅当 CONNECTED 阶段未完成保存时，IP_READY 再次确保密码落盘
+    -- pending_saved 标志防止重复写入覆盖正确密码
     if not pending_saved and wifi_state.current_ssid and wifi_state.current_ssid ~= "" then
         local pw = (saved_config and saved_config.password ~= nil) and saved_config.password or ""
         log.info("wifi_app", "IP_READY 兜底保存（CONNECTED未完成）:", wifi_state.current_ssid)
@@ -455,37 +420,36 @@ local function on_scan_timeout()
     common.handle_scan_timeout({})
 end
 
--- ==================== 自动连接 ====================
+-- ==================== 自动连接（直连模式）====================
 
-local function auto_scan_verify()
-    return common.auto_scan_and_verify(saved_config, SCAN_TIMEOUT + 5000)
-end
-
+--[[
+自动连接：不经过扫描，直接用 fskv 中的 SSID 直连。
+适用于 UART Airlink 模块（冷启动后扫描需等待 30s 以上才能出结果，
+但 wlan.connect 可在 3~5s 完成）。
+对于 SPI Airlink 和原生 WiFi，扫描时延短，直连同样更快。
+]]
 local function run_auto_connect()
     if not saved_config.wifi_enabled then return end
     if wifi_state.connected then
-        sys.publish("WIFI_SCAN_REQ")
+        log.info("wifi_app", "开机自动连接: 已连接，跳过")
         return
     end
-    log.info("wifi_app", "开机自动连接")
-    local vrf = auto_scan_verify()
-    if vrf.verified then
-        log.info("wifi_app", "自动连接:", vrf.ssid, "信号:", vrf.signal, "bssid:", vrf.bssid or "N/A")
-        sys.publish("WIFI_CONNECT_REQ", {
-            ssid = vrf.ssid,
-            password = vrf.password,
-            bssid = vrf.bssid,
-            advanced_config = vrf.config and {
-                need_ping = vrf.config.need_ping,
-                local_network_mode = vrf.config.local_network_mode,
-                ping_ip = vrf.config.ping_ip,
-                ping_time = vrf.config.ping_time,
-                auto_socket_switch = vrf.config.auto_socket_switch,
-            }
-        })
-    else
-        log.info("wifi_app", "附近没有已保存网络")
+    if not saved_config.ssid or saved_config.ssid == "" then
+        log.info("wifi_app", "开机自动连接: fskv 无已保存 SSID，跳过")
+        return
     end
+    log.info("wifi_app", "开机自动连接:", saved_config.ssid)
+    sys.publish("WIFI_CONNECT_REQ", {
+        ssid = saved_config.ssid,
+        password = saved_config.password or "",
+        advanced_config = {
+            need_ping = saved_config.need_ping,
+            local_network_mode = saved_config.local_network_mode,
+            ping_ip = saved_config.ping_ip,
+            ping_time = saved_config.ping_time,
+            auto_socket_switch = saved_config.auto_socket_switch,
+        }
+    })
 end
 
 -- ==================== 请求处理 ====================
@@ -497,7 +461,7 @@ local function on_storage_loaded(data)
 
     -- 如果 WiFi 关闭，启用以太网 + 4G 兜底
     if not saved_config.wifi_enabled then
-        local priority = build_fallback_priority()
+        local priority = net_manager.build_no_wifi_priority()
         if #priority > 0 then
             exnetif.set_priority_order(priority)
         end
@@ -509,12 +473,15 @@ local function on_storage_loaded(data)
         sys.taskInit(run_auto_connect)
     else
         -- 无保存 SSID 但 WiFi 开启 → 先启用以太网 + 4G（如有）
-        local priority = build_fallback_priority()
+        local priority = net_manager.build_no_wifi_priority()
         if #priority > 0 then
             exnetif.set_priority_order(priority)
         end
     end
-    sys.taskInit(function() hw_ready = false end)
+    -- 仅在未连接时重置 hw_ready，否则会破坏已有连接（air1601_scan_init 会重新初始化硬件并断开连接）
+    if not wifi_state.connected then
+        sys.taskInit(function() hw_ready = false end)
+    end
 end
 
 -- WIFI_STORAGE_SET_ENABLED_RSP
@@ -539,7 +506,7 @@ local function on_enable_req(data)
         if connect_timeout_timer then sys.timerStop(connect_timeout_timer); connect_timeout_timer = nil end
         pending_connect = nil
 
-        local priority = build_fallback_priority()
+        local priority = net_manager.build_no_wifi_priority()
         if #priority > 0 then
             exnetif.set_priority_order(priority)
         end
@@ -562,7 +529,7 @@ local function on_enable_req(data)
         if saved_config.ssid and saved_config.ssid ~= "" then  -- 无密码热点允许password为空
             sys.taskInit(run_auto_connect)
         else
-            local priority = build_fallback_priority()
+            local priority = net_manager.build_no_wifi_priority()
             if #priority > 0 then
                 exnetif.set_priority_order(priority)
             end
@@ -602,7 +569,7 @@ local function on_connect_req(data)
         if saved_config and not saved_config.wifi_enabled then return end
 
         -- 暂存连接参数，连接成功后由 on_sta_event CONNECTED 分支持久化保存
-        -- 修复：不再提前保存密码，错误密码不会被记录
+        -- 不在连接请求阶段写入 fskv，避免错误密码被记录下来
         pending_connect = {
             ssid = ssid,
             password = password,
@@ -654,7 +621,7 @@ local function on_disconnect_req()
     log.info("wifi_app", "断开请求")
     user_disconnect = true
     exnetif.close(nil, socket.LWIP_STA)
-    local priority = build_fallback_priority()
+    local priority = net_manager.build_no_wifi_priority()
     if #priority > 0 then
         exnetif.set_priority_order(priority)
     end
@@ -685,6 +652,57 @@ local function on_storage_ready(data)
     common.on_storage_init_rsp(data)
 end
 
+-- ==================== 自动重连 ====================
+
+--[[
+自动重连到已保存的 WiFi 网络（非用户主动断开时使用）
+检查 saved_config 中是否有可用的 SSID，执行连接
+]]
+local function try_auto_reconnect()
+    if not saved_config.wifi_enabled then
+        log.info("wifi_app", "自动重连: WiFi 已关闭，跳过")
+        return
+    end
+    if not saved_config.ssid or saved_config.ssid == "" then
+        log.info("wifi_app", "自动重连: 无已保存 SSID，跳过")
+        return
+    end
+    -- 如果重连时已经连上了（例如其他模块刚好连上了），跳过
+    if wifi_state.connected and wifi_state.ready then
+        log.info("wifi_app", "自动重连: 已连接且就绪，跳过")
+        return
+    end
+    log.info("wifi_app", "自动重连:", saved_config.ssid)
+    sys.publish("WIFI_CONNECT_REQ", {
+        ssid = saved_config.ssid,
+        password = saved_config.password or "",
+        advanced_config = {
+            need_ping = saved_config.need_ping,
+            local_network_mode = saved_config.local_network_mode,
+            ping_ip = saved_config.ping_ip,
+            ping_time = saved_config.ping_time,
+            auto_socket_switch = saved_config.auto_socket_switch,
+        }
+    })
+end
+
+--[[
+监听 exnetif 网络状态变化：当所有网络都断开时，尝试重连 WiFi
+这是用于"以太网断开后，WiFi 能自动补上"的场景
+]]
+local function on_network_status(net_type, net_adapter)
+    if net_type then
+        -- 有可用网络，不做特殊处理
+        return
+    end
+    -- net_type == nil && net_adapter == -1：所有网络已断开
+    log.info("wifi_app", "所有网络断开，尝试 WiFi 自动重连")
+    sys.taskInit(function()
+        sys.wait(500)  -- 等 0.5 秒确保状态稳定
+        try_auto_reconnect()
+    end)
+end
+
 -- ==================== 初始化 ====================
 
 sys.subscribe("WLAN_STA_INC", on_sta_event)
@@ -702,6 +720,7 @@ sys.subscribe("WIFI_GET_CONFIG_REQ", on_get_config)
 sys.subscribe("WIFI_GET_SAVED_LIST_REQ", on_get_saved_list)
 sys.subscribe("WIFI_STORAGE_GET_SAVED_LIST_RSP", on_saved_list_rsp)
 sys.subscribe("WIFI_STORAGE_INIT_RSP", on_storage_ready)
+sys.subscribe("EXLIB_NETDRV_NETWORK_STATUS", on_network_status)
 
 log.info("wifi_app", "初始化")
 sys.publish("WIFI_STORAGE_INIT_REQ")

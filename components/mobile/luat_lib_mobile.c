@@ -415,6 +415,7 @@ static int l_mobile_muid(lua_State* L) {
     // size_t len = 0;
     // size_t wlen = 0;
     int ret = 0;
+    LLOGI("l_mobile_muid called");
 #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
     if (lua_isyieldable(L)) {
         ret = luat_airlink_drv_rpc_mobile_global_status_yield(
@@ -426,7 +427,8 @@ static int l_mobile_muid(lua_State* L) {
         return 0;
     }
 #endif
-    ret = luat_mobile_get_muid(buff, 32);
+    ret = luat_mobile_get_muid(buff, sizeof(buff));
+    LLOGI("l_mobile_muid ret=%d", ret);
     if (lua_isstring(L, 1)) {
         // const char* wbuff = luaL_checklstring(L, 1, &wlen);
         // if (wlen >= 15) {
@@ -439,6 +441,19 @@ static int l_mobile_muid(lua_State* L) {
     }
     else
         lua_pushnil(L);
+    return 1;
+}
+
+/**
+设置MUID
+@api mobile.muidSet(muid)
+@string muid MUID字符串
+@return int 0成功, -1失败
+ */
+static int l_mobile_muid_set(lua_State* L) {
+    size_t len = 0;
+    const char *muid = luaL_checklstring(L, 1, &len);
+    lua_pushinteger(L, luat_mobile_set_muid(muid, len));
     return 1;
 }
 
@@ -1576,6 +1591,43 @@ static int l_mobile_rf_test_nst(lua_State* L) {
     return 2;
 }
 
+
+/**
+RF测试:读取 RF/CP 版本及模块信息
+@api mobile.rfTestVersion()
+@return string AT+ECVERSION? 响应体多行字符串,失败返回nil
+@usage
+local info = mobile.rfTestVersion()
+ */
+static int l_mobile_rf_test_version(lua_State* L) {
+    char buf[512] = {0};
+    int rv = luat_mobile_rf_test_version(buf, sizeof(buf));
+    if (rv == 0 && buf[0]) {
+        lua_pushstring(L, buf);
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+/**
+RF测试:读取支持的频段列表
+@api mobile.rfTestBandList()
+@return string 逗号分隔的频段列表,失败返回nil
+@usage
+local bands = mobile.rfTestBandList()
+ */
+static int l_mobile_rf_test_band_list(lua_State* L) {
+    char buf[128] = {0};
+    int rv = luat_mobile_rf_test_band_list(buf, sizeof(buf));
+    if (rv == 0 && buf[0]) {
+        lua_pushstring(L, buf);
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
 /**
 初始化内置默认虚拟卡功能(不可用)
 @api mobile.vsimInit()
@@ -1672,6 +1724,9 @@ static const rotable_Reg_t reg_mobile[] = {
     {"iccid",           ROREG_FUNC(l_mobile_iccid)},
 	{"number",          ROREG_FUNC(l_mobile_number)},
     {"muid",            ROREG_FUNC(l_mobile_muid)},
+#ifdef LUAT_USE_MOBILE_RFA
+    {"muidSet",         ROREG_FUNC(l_mobile_muid_set)},
+#endif
     {"apn",             ROREG_FUNC(l_mobile_apn)},
 	{"ipv6",            ROREG_FUNC(l_mobile_ipv6)},
     {"csq",             ROREG_FUNC(l_mobile_csq)},
@@ -1705,6 +1760,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"rfTestGmData",      ROREG_FUNC(l_mobile_rf_test_gmdata_get)},
 	{"rfTestGmDataSet",   ROREG_FUNC(l_mobile_rf_test_gmdata_set)},
 	{"rfTestNst",         ROREG_FUNC(l_mobile_rf_test_nst)},
+	{"rfTestVersion",     ROREG_FUNC(l_mobile_rf_test_version)},
+	{"rfTestBandList",    ROREG_FUNC(l_mobile_rf_test_band_list)},
 #endif
 #ifdef LUAT_USE_VSIM
 	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},

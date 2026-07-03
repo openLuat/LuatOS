@@ -33,7 +33,6 @@ typedef struct {
     uint8_t channel_nums;           /**< 声道数 (1=mono, 2=stereo) */
     uint8_t data_align;         /**< 数据对齐方式 */
     uint8_t is_signed;          /**< 是否有符号数据 */
-    uint8_t driver_work_mode;          /**< 工作模式 */
 } luat_audio_common_param_t;
 
 /**

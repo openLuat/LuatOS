@@ -1,4 +1,4 @@
---[[
+﻿--[[
 rfa: Radio Factory Agent (RF 校准 Lua 端主控)
 ================================================
 设计:
@@ -8,13 +8,21 @@ rfa: Radio Factory Agent (RF 校准 Lua 端主控)
   - 私有协议 AT+ECRFNST 优先走 C 后端 mobile.rfTestNst (真机调用 RfAtNstCmdPreHandle)
   - 状态存取经 mobile.rfTestParam 走 PC 仿真器
   - 跨 PC 仿真和真机: 行为完全一致 (C 端只做字节透传)
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增rfa.version()接口
+--    支持rfa库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
-local M = { _VERSION = "2.0.0" }
+local M = { _VERSION = "1.0.1" }
 M.STATE = { IDLE=0, PREP=1, CALIB=2, SELF_CAL=3, WRITE_NV=4, NST_TEST=5, DONE=6 }
 
-local uart_id_, line_buf, rf_on_ = nil, "", true
+local uart_id_, line_buf, rf_on_, rf_mode_, echo_on_, cereg_mode_ = nil, "", true, 0, true, 0
 local handlers_, rfnst_tpl_ = {}, {}
+M._CFG_FILE_PATH = "/factory.cfg"
 M._cmd_q = {}
 M._q_running = false
 
@@ -31,6 +39,8 @@ function M.rfOn()       return rf_on_ end
 function M.reset()
     line_buf = ""
     rf_on_ = true
+    echo_on_ = true
+    cereg_mode_ = 0
     param_set("state", 0)
     M.npiSet("rfCaliDone", 0, true)
     M.npiSet("rfNSTDone", 0, true)
@@ -60,15 +70,27 @@ end
 
 -- 单测辅助
 function M.setErrMode(on)   M._erf = on; param_set("erfMode", on and 1 or 0) end
-function M._reset_for_test() line_buf = ""; M.reset() end
+function M._reset_for_test() line_buf = ""; echo_on_ = true; cereg_mode_ = 0; M.reset() end
 
 -- 扩展点
 function M.register(cmd_prefix, fn)         handlers_[cmd_prefix] = fn end
 function M.registerRfnst(cmd_id_hex, fn)    rfnst_tpl_[cmd_id_hex:upper()] = fn end
 
+-- AT 命令头部（到第一个 = 或 ? 为止）不区分大小写，参数保持原样
+local function _normalize_at(line)
+    if not line or #line == 0 then return line end
+    local sep = line:find("[=?]", 1)
+    if sep then
+        return line:sub(1, sep - 1):upper() .. line:sub(sep)
+    else
+        return line:upper()
+    end
+end
+
 -- 派发 (纯函数)
 function M.dispatch(line)
     if not line or #line == 0 then return nil end
+    line = _normalize_at(line)
     if M._erf then return "\r\nERROR\r\n" end
 
     -- 1) 私有协议优先
@@ -91,8 +113,32 @@ function M.dispatch(line)
 end
 
 function M._builtin_dispatch(line)
-    if line == "AT" or line:match("^ATE%d*$") then
+    -- ATE0/ATE1: 指令回显控制
+    if line == "ATE0" then
+        echo_on_ = false
         return "\r\nOK\r\n"
+    end
+    if line == "ATE" or line == "ATE1" then
+        echo_on_ = true
+        return "\r\nOK\r\n"
+    end
+    if line == "AT" or line:match("^ATQ[01]?$") or line:match("^AT%+ATQ[01]?$") then
+        return "\r\nOK\r\n"
+    end
+    -- AT+CGMR: firmware revision (align with AT firmware ate product)
+    if line == "AT+CGMR" then
+        local version = "Unknown"
+        if rtos and rtos.version then
+            local ver = rtos.version()
+            local model = (hmeta and hmeta.model) and hmeta.model() or ""
+            if model ~= "" then
+                local suffix = #model > 3 and model:sub(4) or model
+                version = "AirM2M_" .. suffix .. "_" .. ver .. "_LTE_LuatOS"
+            else
+                version = ver
+            end
+        end
+        return '\r\n+CGMR: "' .. version .. '"\r\n\r\nOK\r\n'
     end
     if line == "AT+CGSN" then
         M.setState(math.max(M.state(), M.STATE.PREP))
@@ -197,7 +243,10 @@ function M._builtin_dispatch(line)
         -- 去除首尾可能残留的引号（防御性）
         cg_type = cg_type:gsub('^"', ''):gsub('"$', '')
         cg_val  = cg_val:gsub('^"', ''):gsub('"$', '')
-        
+        -- 兼容 AT 固件中的数字类型：1=IMEI
+        if cg_type == "1" then cg_type = "IMEI" end
+        cg_type = cg_type:upper()
+
         if cg_type == "IMEI" and #cg_val == 15 then
             if M.setImei(cg_val) then
                 return "\r\nOK\r\n"
@@ -251,10 +300,26 @@ function M._builtin_dispatch(line)
         return "\r\n" .. version .. "\r\n\r\nOK\r\n"
     end
 
-    -- AT+MUID?: MUID query
+    -- AT+MUID: MUID query / write
     if line == "AT+MUID?" then
-        local muid = (mobile and mobile.muid) and mobile.muid() or ""
+        local muid_fn = mobile and mobile.muid
+        log.info("rfa", "AT+MUID? muid_fn", type(muid_fn))
+        local raw_muid = muid_fn and muid_fn()
+        log.info("rfa", "AT+MUID? raw", type(raw_muid), raw_muid and #raw_muid or 0)
+        local muid = raw_muid or ""
         return string.format("\r\n+MUID: %s\r\n\r\nOK\r\n", muid)
+    end
+    -- AT+MUID="<muid>" or AT+MUID=<muid>: write MUID
+    -- [^"]* 支持 AT+MUID="" 清空 MUID
+    local muid_val = line:match('^AT%+MUID="([^"]*)"$')
+    if not muid_val then
+        muid_val = line:match("^AT%+MUID=(%S+)$")
+    end
+    if muid_val then
+        if mobile and mobile.muidSet then
+            mobile.muidSet(muid_val)
+        end
+        return "\r\nOK\r\n"
     end
 
     -- AT*I: module version and detailed information
@@ -273,12 +338,76 @@ function M._builtin_dispatch(line)
         return "\r\n" .. info .. "\r\n\r\nOK\r\n"
     end
 
-    -- AT+ECBAND=?: supported bands (placeholder until C backend ready)
+    -- helper: get band list string, prefer rfTestBandList API
+    local function band_list_str()
+        if mobile and mobile.rfTestBandList then
+            local s = mobile.rfTestBandList()
+            if s and #s > 0 then return s end
+        end
+        local bands = (mobile and mobile.rfTestParam) and mobile.rfTestParam("bandList") or 0
+        log.error("rfa.lua", string.format("rfa: bandList=%d", bands))
+        if bands and bands ~= 0 then
+            return tostring(bands)
+        end
+        return "1,3,5,8,34,38,39,40,41"
+    end
+    -- AT+ECBAND=?: supported bands (align with AT firmware devECBAND)
     if line == "AT+ECBAND=?" then
-        local bands = (mobile and mobile.rfTestParam)
-                      and mobile.rfTestParam("bandList") or 0
-        return string.format("\r\n+ECBAND: (%s)\r\n\r\nOK\r\n",
-                             bands ~= 0 and tostring(bands) or "1,3,5,8,34,38,39,40,41")
+        return string.format("\r\n+ECBAND: (%s)\r\n\r\nOK\r\n", band_list_str())
+    end
+    -- AT+ECBAND?: current bands (align with AT firmware devECBAND)
+    if line == "AT+ECBAND?" then
+
+        return string.format("\r\n+ECBAND: %s\r\n\r\nOK\r\n", band_list_str())
+    end
+
+    -- AT+CCID: raw ICCID (no +CCID: prefix, align with AT firmware amCCID)
+    if line == "AT+CCID" then
+        local iccid = ""
+        if mobile and mobile.iccid then
+            iccid = mobile.iccid()
+        end
+        if iccid and #iccid > 0 then
+            return '\r\n' .. iccid .. '\r\n\r\nOK\r\n'
+        end
+        return "\r\nOK\r\n"
+    end
+
+    -- AT+ECVERSION?: RF/CP version info (align with AT firmware pdECVERSION)
+    if line == "AT+ECVERSION?" then
+        local info
+        if mobile and mobile.rfTestVersion then
+            local v = mobile.rfTestVersion()
+            if type(v) == "table" then
+                info = string.format(
+                    "+CP VER: 0x%x \n+RfTable VER: v%d.%d \n+Customer Moduler: %s\n+PaModel: %s\n+AsmModel: %s\n+CalcTime: %s\n+XoType: %s",
+                    v.cpVer or 0x20260000,
+                    v.rfTableVerMajor or 4, v.rfTableVerMinor or 2,
+                    v.customerModule or "EC7XX",
+                    v.paModel or "XP5733_17",
+                    v.asmModel or "SKY13418",
+                    v.calcTime or "2026-00-00-00-00",
+                    v.xoType or "dcxo")
+            elseif type(v) == "string" and #v > 0 then
+                info = v
+            end
+        end
+        if not info then
+            -- fallback: compose from hmeta + defaults to keep format identical
+            local model = (hmeta and hmeta.model) and hmeta.model() or "EC7XX"
+            info = string.format(
+                "+CP VER: 0x%x \n+RfTable VER: v%d.%d \n+Customer Moduler: %s\n+PaModel: %s\n+AsmModel: %s\n+CalcTime: %s\n+XoType: %s",
+                0x20260000, 4, 2, model, "XP5733_17", "SKY13418", os.date("%Y-%m-%d-%H-%M"), "dcxo")
+        end
+        return "\r\n" .. info .. "\r\n\r\nOK\r\n"
+    end
+
+    -- AT+PRODUC: production mode enter (not documented in manual, tool expects OK)
+    if line == "AT+PRODUC" then
+        if mobile and mobile.rfTestParam then
+            mobile.rfTestParam("prodMode", 1, true)
+        end
+        return "\r\nOK\r\n"
     end
 
     -- AT+ECICCID: ICCID
@@ -288,7 +417,7 @@ function M._builtin_dispatch(line)
             iccid = mobile.iccid()
         end
         if iccid and #iccid > 0 then
-            return '\r\n+ECICCID: "' .. iccid .. '"\r\n\r\nOK\r\n'
+            return '\r\n+ECICCID: ' .. iccid .. '\r\n\r\nOK\r\n'
         end
         return "\r\nOK\r\n"
     end
@@ -314,6 +443,50 @@ function M._builtin_dispatch(line)
     if line == "AT+ECFACCHK=1" then
         local chk = (mobile and mobile.rfTestParam) and mobile.rfTestParam("facChk") or 0
         return string.format("\r\n+ECFACCHK: %d\r\n\r\nOK\r\n", chk)
+    end
+
+    -- AT+SETCFG: set config (placeholder until C backend ready)
+    -- AT+SETCFG="rfa_mode","true"  // set rfa_mode to true
+    -- AT+SETCFG="rfa_mode","false" // set rfa_mode to false
+    local cfg, val = line:match("^AT%+SETCFG=\"(.-)\",\"(.-)\"$")
+    if cfg and val then
+        M.setRfOn(val == "true")
+        return "\r\nOK\r\n"
+    end
+
+    -- AT+SETCFG?: get config (placeholder until C backend ready)
+    if line == "AT+SETCFG?" then
+        return string.format("\r\n+SETCFG: \"rfa_mode\",\"%s\"\r\n\r\nOK\r\n", M.getRFAOnStatus() and "true" or "false")
+    end
+
+    -- AT+CEREG: EPS network registration status (align with AT firmware)
+    if line == "AT+CEREG" then
+        return "\r\nOK\r\n"
+    end
+    if line == "AT+CEREG?" then
+        local stat = (mobile and mobile.status) and mobile.status() or 4
+        local resp = string.format("\r\n+CEREG: %d,%d", cereg_mode_, stat)
+        -- 注册成功且能拿到位置信息时，附加 tac/ci/AcT
+        if stat == 5 then
+            local tac = (mobile and mobile.tac) and mobile.tac() or 0
+            local eci = (mobile and mobile.eci) and mobile.eci() or 0
+            if tac and tac > 0 and eci and eci > 0 then
+                resp = string.format('%s,"%04X","%08X",7', resp, tac, eci)
+            end
+        end
+        return resp .. "\r\n\r\nOK\r\n"
+    end
+    if line == "AT+CEREG=?" then
+        return "\r\n+CEREG: (0,1,2,3,4,5)\r\n\r\nOK\r\n"
+    end
+    local cereg_n = line:match("^AT%+CEREG=(%d)$")
+    if cereg_n then
+        local n = tonumber(cereg_n)
+        if n and n >= 0 and n <= 5 then
+            cereg_mode_ = n
+            return "\r\nOK\r\n"
+        end
+        return "\r\n+CME ERROR: 50\r\n"
     end
 
     return "\r\nERROR\r\n"
@@ -471,6 +644,10 @@ function M.start(id, baud)
             until s == "" or not s
             if #chunk > 0 then
                 for _, line in ipairs(M.feed(chunk)) do
+                    -- 指令回显：在返回结果前先把收到的指令发回去
+                    if echo_on_ and uart.write then
+                        uart.write(uart_id, line .. "\r\n")
+                    end
                     local resp = M.dispatch(line)
                     if resp and uart.write then uart.write(uart_id, resp) end
                 end
@@ -485,5 +662,61 @@ function M.stop()
     uart_id_ = nil
     line_buf = ""
 end
+
+-- 设置 RF 校准模式功能开关 (true=on, false=off)
+function M.setRfOn(on)
+    rf_mode_ = on and true or false
+
+    local f = io.open(M._CFG_FILE_PATH, "w+")
+    log.info("配置文件路径: ", M._CFG_FILE_PATH)
+    if f then
+        f:write(string.format("{\"isRFA_mode\":%d}\n", rf_mode_ and 1 or 0))
+        f:close()
+    else
+        log.info("main", "写配置文件失败")
+    end
+    fskv.init()
+    fskv.set("isRFA_mode", rf_mode_ and 1 or 0)
+    return true
+end
+
+-- 获取 RF 校准模式功能开关状态 (return true=on, false=off)
+function M.getRFAOnStatus()
+    local f = io.open(M._CFG_FILE_PATH, "r")
+    log.info("配置文件路径: ", M._CFG_FILE_PATH)
+    if f then
+        log.info("main", "读取配置文件成功")
+        local data = f:read("*a")
+        f:close()
+        if data then
+            local cfg = json.decode(data)
+            if cfg and cfg.isRFA_mode then
+                return true
+            end
+        end
+    else
+        log.info("main", "读取配置文件失败")
+    end
+
+    fskv.init()
+    if fskv.get("isRFA_mode") == 1 then
+        log.info("main", "读取fskv配置成功")
+        return true
+    end
+
+    return false
+end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+rfa.version()
+]]
+function rfa.version()
+    return "202607021200"
+end
+
+log.debug("rfa", "version -> " .. rfa.version())
 
 return M

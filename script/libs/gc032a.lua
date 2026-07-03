@@ -1,3 +1,14 @@
+﻿--[[
+@module gc032a
+@summary GC032A camera configuration
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增gc032a.version()接口
+--    支持gc032a库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
+]]
 local config = {
     mode = 1,
     is_msb = 1,
@@ -57,4 +68,17 @@ local config = {
                  {0x2c, 0xce}, {0x2d, 0x01}, {0x2e, 0xce}, {0x2f, 0x01}, {0x30, 0xce}, {0x31, 0x01}, {0x32, 0xce},
                  {0x33, 0x01}, {0x34, 0xce}, {0x3c, 0x10}, {0xfe, 0x00}, {0x44, 0x03}}
 }
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+gc032a.version()
+]]
+function gc032a.version()
+    return "202607021200"
+end
+
+log.debug("gc032a", "version -> " .. gc032a.version())
+
 return config

@@ -50,6 +50,7 @@ int luat_audio_wav_get_play_info(struct luat_audio_data_codec *codec, luat_buffe
         }
         *jump_offset_bytes = pos + 8;
         *need_bytes = 0;
+        LLOGC(luat_audio_debug_flag, "wav file info %d %d %d %d", info->sample_rate, info->data_align, info->channel_nums, info->is_signed);
         return LUAT_ERROR_NONE;
     }
     return -LUAT_ERROR_PARAM_INVALID;
@@ -65,12 +66,14 @@ void luat_audio_codec_wav_set_record_info(struct luat_audio_data_codec *codec, l
     if (!info->data_align) {
         info->data_align = 2;
     }
-    info->is_signed = 1;
     codec->common_param.sample_rate = info->sample_rate;
     codec->common_param.channel_nums = info->channel_nums;
     codec->common_param.data_align = info->data_align;
-    codec->common_param.one_frame_sample_cnt = info->sample_rate / 100;
+    codec->common_param.is_signed = 1;
+    codec->common_param.one_frame_sample_cnt = info->sample_rate / 50;
     codec->common_param.one_frame_bytes = codec->common_param.one_frame_sample_cnt * info->data_align * info->channel_nums;
+    LLOGC(luat_audio_debug_flag, "wav record info %d %d %d %d", 
+        codec->common_param.sample_rate, codec->common_param.data_align, codec->common_param.channel_nums, codec->common_param.is_signed);
 }
 
 int luat_audio_codec_wav_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,

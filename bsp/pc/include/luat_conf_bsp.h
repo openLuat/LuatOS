@@ -108,6 +108,7 @@
 #define LUAT_USE_I2S  1
 #define LUAT_USE_MEDIA 1
 #define LUAT_USE_AUDIO 1
+#define LUAT_USE_AUDIO_V2 1
 #define LUAT_SUPPORT_AMR 1
 #define LUAT_SUPPORT_OPUS   1
 #define LUAT_USE_AUDIO_G711 1
@@ -193,6 +194,9 @@
 
 // U8G2 在 GUI/非 GUI PC 构建中都需要保留。
 #define LUAT_USE_U8G2 1
+// 启用 ST7305 单色 OLED 屏驱动(常见 200x200/122x250/168x384 规格)
+// 与 components/u8g2/luat_lib_u8g2.c 的 devregs 联动,默认走 200x200 1bpp 入口
+#define LUAT_USE_U8G2_DRV_ST7305 1
 #ifndef LUAT_USE_GUI
 // EINK 仅在非 GUI PC 构建中启用，对齐 xmake 的非 GUI 源码范围。
 #define LUAT_USE_EINK 1
@@ -204,6 +208,7 @@
 #define NES_FRAME_SKIP      0
 #define NES_COLOR_DEPTH     16
 #define NES_COLOR_SWAP      0
+#define NES_ENABLE_HEAVY_MAPPERS 1
 
 #define LUAT_USE_GBC        1
 #define GBC_FRAME_SKIP      0

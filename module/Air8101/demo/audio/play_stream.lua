@@ -2,33 +2,30 @@
 @module  play_stream
 @summary 流式播放
 @version 1.2
-@date    2026.04.21
+@date    2026.06.26
 @author  拓毅恒
 @usage
 
 注意：
-1. 如果搭配AirAUDIO_1000 音频板测试，需将AirAUDIO_1000 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
-2. 需要固件版本>=V2014才可播放音频，V2012及以下固件在播放中无法触发 audio.MORE_DATA 回调，会导致无法播放流式音频
+1. Air8101使用内置DAC输出音频，无需外部音频编解码芯片
+2. 需要固件版本>=V1018才可播放音频
 
 本文件为流式播放应用功能模块，核心业务逻辑为：
-1、创建一个播放流式音频task（task_audio）
-2、创建一个模拟获取流式音频的task（audio_get_data）
-3、此task通过流式传输不断向exaudio.play_stream_write填入播放的音频
-4、播放task 不断播放传入流式音频
-5、使用GPIO8按键进行音量减小，点击GPIO9按键进行音量增加
+1、初始化后启动流式播放
+2、读取test.pcm文件数据，通过exaudio.play_stream_write写入播放
+3、播放task不断播放传入流式音频
 本文件没有对外接口，直接在main.lua中require "play_stream"就可以加载运行；
 ]]
 
-exaudio = require("exaudio")
+local exaudio = require("exaudio")
 
--- 音频初始化设置参数,exaudio.setup 传入参数 (DAC模式)
+-- 音频初始化设置参数 (DAC模式)
 local audio_setup_param ={
     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
     
-    pa_ctrl = 28,             -- 音频放大器电源控制管脚
-    pa_on_level = 0,          -- PA打开电平
-    pa_delay = 10,            -- PA延时
-    dac_ch = 0,               -- DAC通道号
+    pa_ctrl = 27,             -- 音频放大器电源控制管脚
+    pa_on_level = 1,          -- PA打开电平
+    pa_delay = 10            -- PA延时
 }
 
 -- 播放完成回调
@@ -41,48 +38,13 @@ end
 
 -- 流式播放音频播放的配置
 local audio_play_param ={
-    type= 2,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
-                            -- 如果是播放文件,支持mp3,amr,wav格式
-                            -- 如果是tts,内容格式见:https://wiki.luatos.com/chips/air780e/tts.html?highlight=tts
-                            -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
+    codec_id = 0,                   -- 编解码器ID：0=RAW/PCM, 1=WAV, 2=AMR_NB, 3=AMR_WB, 4=TTS, 5=MP3
+    type= 2,                -- 播放类型，如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
     cbfnc = play_end,            -- 播放完毕回调函数
     sampling_rate = 16000,  -- 采样率,仅为流式播放起作用
     sampling_depth =  16,   -- 采样位位深,仅流式播放的时候才有作用
     signed_or_unsigned = true  -- PCM 的数据是否有符号，仅为流式播放起作用
 }
-
----------------------------------
----通过GPIO8按键增大音量---
----------------------------------
-local volume_number = 50
-local function add_volume()
-    volume_number = volume_number + 20
-    if volume_number > 100 then
-        volume_number = 100
-    end
-    log.info("增大音量",volume_number)
-    exaudio.vol(volume_number)
-end
-
-gpio.setup(9, add_volume, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(9, 200, 1)
-
----------------------------------
----通过GPIO5按键减小音量-------
----------------------------------
-
-local function down_volume()
-    volume_number = volume_number - 15
-    if volume_number < 0 then
-        volume_number = 0
-    end
-    log.info("减小音量",volume_number)
-    exaudio.vol(volume_number)
-end
-
-gpio.setup(8, down_volume, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(8, 200, 1)   -- 防抖，防止频繁触发
-
 
 ---------------------------------
 ---------模拟获取音频task---------

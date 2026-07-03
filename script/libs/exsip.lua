@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exsip
 @summary SIP/VoIP 电话扩展库，简化 SIP 客户端使用
 @version 1.0
@@ -48,6 +48,13 @@ exsip.start()
 
 -- 挂断通话
 -- exsip.hangUp()
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exsip.version()接口
+--    支持exsip库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 exaudio = require "exaudio"
 
@@ -714,5 +721,17 @@ function exsip.is_voip_running()
     end
     return false
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exsip.version()
+]]
+function exsip.version()
+    return "202607021200"
+end
+
+log.debug("exsip", "version -> " .. exsip.version())
 
 return exsip

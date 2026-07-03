@@ -500,7 +500,7 @@ local function on_disconnected(scan_results, code)
     if connecting_container then connecting_container:hide() end
     airui.msgbox({ text = "WiFi 连接失败: " .. scan_results, buttons = { "确定" }, timeout = 3000, on_action = function(s) s:destroy() end })
     update_saved_list()
-    -- 保留当前扫描结果列表，不清空（修复：原来 update_wifi_list({}) 会清空附近WiFi列表）
+    -- 不清空扫描结果列表，避免附近 WiFi 列表闪烁消失
     update_wifi_list(current_scan_results)
 end
 

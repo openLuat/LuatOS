@@ -34,7 +34,7 @@
 
 ---
 
-## 二、功能列表（截止 2026.05.27）
+## 二、功能列表（截止 2026.07.02）
 
 | # | 功能模块 | 文件 | 简述 |
 |---|---|---|---|
@@ -45,6 +45,7 @@
 | 5 | Gsensor | [gsensor.lua](file:///d:/Air8201G/挂载项目测试软件/user/gsensor.lua) | DA267 初始化、震动中断检测、震动事件发布 |
 | 6 | GNSS/LBS | [mygps.lua](file:///d:/Air8201G/挂载项目测试软件/user/mygps.lua) | LBS 基站定位、GNSS 卫星定位、定位结果缓存 |
 | 7 | 蓝牙 | [myble.lua](file:///d:/Air8201G/挂载项目测试软件/user/myble.lua) | BLE 外设广播（当前禁用） |
+| 8 | OTA 远程升级 | [ota_manegement.lua](file:///d:/Air8201G/挂载项目测试软件/user/ota_manegement.lua) | 基于 libfota3 + 合宙 IoT 平台，自动定时检测 + PWRKEY 手动触发 |
 
 ---
 
@@ -59,7 +60,11 @@ main.lua require 各模块
    ↓
 SIM 热插拔中断配置（WAKEUP2）
    ↓
-mypower.init() → 电池采样 + PWRKEY 长按监听
+global_config.init() → FSKV 初始化 + 运行统计
+   ↓
+ota_manegement.init() → OTA 配置加载 + 启动 libfota3 + PWRKEY 监听
+   ↓
+mypower.init() → 电池采样 + PWRKEY 长按监听 + 进入低功耗常驻
    ↓
 gsensor.init() → DA267 初始化 + 震动中断
    ↓
@@ -71,6 +76,11 @@ report.start() → 首次 PWRKEY 上报 + 启动定时上报循环
    ↓
 sys.run() 主循环
 ```
+
+**OTA 触发机制（libfota3）**：
+- **自动检测**：libfota3 内置定时器，默认每 24 小时一次，支持时间戳持久化（跨重启延续）
+- **手动触发**：PWRKEY 短按事件 → `libfota3.check_update()`
+- **配置持久化**：`auto`/`interval` 参数存储在 FSKV（key: `ota_cfg`）
 
 ### 3.2 上报逻辑
 

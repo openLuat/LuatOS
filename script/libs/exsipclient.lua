@@ -38,13 +38,6 @@ sip.start({
 1、回调运行在 socket 回调或 SIP 任务中，应保持短小，避免长时间阻塞
 2、如果服务器要求 TCP 或 TLS，请同步匹配 transport 和底层 socket 配置
 3、Contact 使用本地 IP 和端口，若设备位于 NAT 后，需要服务端支持 rport 或 received 等机制
-
--- 版本更新说明
--- 版本号：202607021200
--- 1、更新时间：2026-07-02 12:00
--- 2、更新内容
---    新增exsipclient.version()接口
---    支持exsipclient库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 local proto = require "exsipproto"
 
@@ -1860,16 +1853,5 @@ function M.message(target, text)
         text = text
     })
 end
---[[
-获取库版本信息
-@return string 年月日时分，例如： "202606300102"
-@usage
-exsipclient.version()
-]]
-function exsipclient.version()
-    return "202607021200"
-end
-
-log.debug("exsipclient", "version -> " .. exsipclient.version())
 
 return M

@@ -18,12 +18,6 @@ local auth = proto.digest_auth({
     uri = "sip:example.com"
 })
 
--- 版本更新说明
--- 版本号：202607021200
--- 1、更新时间：2026-07-02 12:00
--- 2、更新内容
---    新增exsipproto.version()接口
---    支持exsipproto库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 local crypto = assert(_G.crypto, "crypto is required (MD5). Please enable crypto in firmware")
 
@@ -661,17 +655,5 @@ function M.parse_sdp(sdp)
 
     return out
 end
-
---[[
-获取库版本信息
-@return string 年月日时分，例如： "202606300102"
-@usage
-exsipproto.version()
-]]
-function exsipproto.version()
-    return "202607021200"
-end
-
-log.debug("exsipproto", "version -> " .. exsipproto.version())
 
 return M

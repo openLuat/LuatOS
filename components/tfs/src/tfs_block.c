@@ -477,6 +477,12 @@ int tfs_chunk_write(tfs_dev_t *dev, int chunk_in_nand,
     tfs_block_info_t  *bi;
     int                blk, rc;
 
+    if (!dev || !ext || n_bytes < 0 ||
+        (uint32_t)n_bytes > dev->data_bytes_per_chunk ||
+        (n_bytes > 0 && !data)) {
+        return TFS_EINVAL;
+    }
+
     invalidate_checkpoint_before_mutation(dev);
 
     ext->seq_number = tfs_get_block_info(dev,
@@ -512,13 +518,15 @@ int tfs_chunk_write(tfs_dev_t *dev, int chunk_in_nand,
     if (rc != TFS_OK) {
         int failed_blk = chunk_to_block(dev, chunk_in_nand);
 
-        dev->n_retried_writes++;
-        tfs_block_retire_failed_write(dev, failed_blk);
-        if (dev->alloc_block == failed_blk)
-            dev->alloc_block = -1;
-        if (dev->checkpt_cur_block == failed_blk)
-            dev->checkpt_cur_block = -1;
-        return TFS_EFLASH;
+        if (rc == TFS_EFLASH) {
+            dev->n_retried_writes++;
+            tfs_block_retire_failed_write(dev, failed_blk);
+            if (dev->alloc_block == failed_blk)
+                dev->alloc_block = -1;
+            if (dev->checkpt_cur_block == failed_blk)
+                dev->checkpt_cur_block = -1;
+        }
+        return rc;
     }
 
     /* Bookkeeping */

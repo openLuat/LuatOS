@@ -638,6 +638,20 @@ static int lf_tfs_hw_oob_bounds_ok(luat_lf_tfs_ctx_t *ctx, uint32_t oob_len)
     return oob_len <= ctx->oob_per_chunk - LF_TFS_OOB_TAGS_OFFSET;
 }
 
+static int lf_tfs_hw_oob_error(lf_err_t ret, int program_op)
+{
+    if (ret == LF_ERR_BAD_ADDRESS) {
+        return TFS_EINVAL;
+    }
+    if (ret == LF_ERR_NO_MEM) {
+        return TFS_ENOMEM;
+    }
+    if (program_op && ret == LF_ERR_WRITE) {
+        return TFS_EFLASH;
+    }
+    return TFS_EIO;
+}
+
 static int lf_tfs_hw_oob_write_page(luat_lf_tfs_ctx_t *c, uint32_t page,
                                     const uint8_t *data, uint32_t data_len,
                                     const uint8_t *oob, uint32_t oob_len)
@@ -651,10 +665,21 @@ static int lf_tfs_hw_oob_write_page(luat_lf_tfs_ctx_t *c, uint32_t page,
     if (!c || !c->flash) {
         return TFS_FAIL;
     }
-    if ((!data || data_len == 0) && (!oob || oob_len == 0)) {
+    if (data_len == 0 && oob_len == 0) {
         return TFS_OK;
     }
-    if (oob && !lf_tfs_hw_oob_bounds_ok(c, oob_len)) {
+    if (page >= c->total_chunks ||
+        data_len > c->flash->chip_info.prog_size ||
+        (data_len > 0 && !data) ||
+        (oob_len > 0 && !oob) ||
+        !lf_tfs_hw_oob_bounds_ok(c, oob_len)) {
+        LLOGW("tfs: hw oob invalid write args page=%u total=%u data_len=%u page_size=%u oob_len=%u spare=%u",
+              (unsigned int)page,
+              (unsigned int)c->total_chunks,
+              (unsigned int)data_len,
+              (unsigned int)c->flash->chip_info.prog_size,
+              (unsigned int)oob_len,
+              (unsigned int)c->oob_per_chunk);
         return TFS_EINVAL;
     }
 
@@ -680,12 +705,13 @@ static int lf_tfs_hw_oob_write_page(luat_lf_tfs_ctx_t *c, uint32_t page,
                                           LF_TFS_OOB_TAGS_OFFSET,
                                           verify_oob, verify_oob ? oob_len : 0,
                                           &status);
-    if (ret != LF_ERR_OK ||
-        (verify && !lf_tfs_is_all_ff(verify, data_len)) ||
-        (verify_oob && !lf_tfs_is_all_ff(verify_oob, oob_len))) {
-        LLOGW("tfs: hw oob write target not blank page=%u phys=%u status=0x%02X ret=%d",
+    if (ret != LF_ERR_OK) {
+        int tfs_ret = lf_tfs_hw_oob_error(ret, 0);
+        LLOGW("tfs: hw oob write precheck failed page=%u phys=%u data_len=%u oob_len=%u status=0x%02X ret=%d",
               (unsigned int)page,
               (unsigned int)phys_page,
+              (unsigned int)data_len,
+              (unsigned int)oob_len,
               (unsigned int)status,
               ret);
         if (verify) {
@@ -694,7 +720,22 @@ static int lf_tfs_hw_oob_write_page(luat_lf_tfs_ctx_t *c, uint32_t page,
         if (verify_oob) {
             luat_heap_free(verify_oob);
         }
-        return TFS_EFLASH;
+        return tfs_ret;
+    }
+    if ((verify && !lf_tfs_is_all_ff(verify, data_len)) ||
+        (verify_oob && !lf_tfs_is_all_ff(verify_oob, oob_len))) {
+        LLOGW("tfs: hw oob write target not blank page=%u phys=%u data_len=%u oob_len=%u",
+              (unsigned int)page,
+              (unsigned int)phys_page,
+              (unsigned int)data_len,
+              (unsigned int)oob_len);
+        if (verify) {
+            luat_heap_free(verify);
+        }
+        if (verify_oob) {
+            luat_heap_free(verify_oob);
+        }
+        return TFS_EINVAL;
     }
 
     ret = little_flash_nand_write_page_oob(c->flash, phys_page,
@@ -703,6 +744,7 @@ static int lf_tfs_hw_oob_write_page(luat_lf_tfs_ctx_t *c, uint32_t page,
                                            oob, oob ? oob_len : 0,
                                            &status);
     if (ret != LF_ERR_OK) {
+        int tfs_ret = lf_tfs_hw_oob_error(ret, 1);
         LLOGE("tfs: hw oob write_page failed page=%u phys=%u status=0x%02X ret=%d",
               (unsigned int)page,
               (unsigned int)phys_page,
@@ -714,7 +756,7 @@ static int lf_tfs_hw_oob_write_page(luat_lf_tfs_ctx_t *c, uint32_t page,
         if (verify_oob) {
             luat_heap_free(verify_oob);
         }
-        return TFS_EFLASH;
+        return tfs_ret;
     }
 
     ret = little_flash_nand_read_page_oob(c->flash, phys_page,
@@ -722,14 +764,29 @@ static int lf_tfs_hw_oob_write_page(luat_lf_tfs_ctx_t *c, uint32_t page,
                                           LF_TFS_OOB_TAGS_OFFSET,
                                           verify_oob, verify_oob ? oob_len : 0,
                                           &status);
-    if (ret != LF_ERR_OK ||
-        (verify && memcmp(verify, data, data_len) != 0) ||
-        (verify_oob && memcmp(verify_oob, oob, oob_len) != 0)) {
-        LLOGW("tfs: hw oob write verify failed page=%u phys=%u status=0x%02X ret=%d",
+    if (ret != LF_ERR_OK) {
+        int tfs_ret = lf_tfs_hw_oob_error(ret, 0);
+        LLOGW("tfs: hw oob write verify read failed page=%u phys=%u status=0x%02X ret=%d",
               (unsigned int)page,
               (unsigned int)phys_page,
               (unsigned int)status,
               ret);
+        if (verify) {
+            luat_heap_free(verify);
+        }
+        if (verify_oob) {
+            luat_heap_free(verify_oob);
+        }
+        return tfs_ret;
+    }
+    if ((verify && memcmp(verify, data, data_len) != 0) ||
+        (verify_oob && memcmp(verify_oob, oob, oob_len) != 0)) {
+        LLOGW("tfs: hw oob write verify mismatch page=%u phys=%u data_len=%u oob_len=%u status=0x%02X",
+              (unsigned int)page,
+              (unsigned int)phys_page,
+              (unsigned int)data_len,
+              (unsigned int)oob_len,
+              (unsigned int)status);
         if (verify) {
             luat_heap_free(verify);
         }

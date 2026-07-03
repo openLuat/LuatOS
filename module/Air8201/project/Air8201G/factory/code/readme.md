@@ -45,7 +45,7 @@
 | 5 | Gsensor | [gsensor.lua](file:///d:/Air8201G/挂载项目测试软件/user/gsensor.lua) | DA267 初始化、震动中断检测、震动事件发布 |
 | 6 | GNSS/LBS | [mygps.lua](file:///d:/Air8201G/挂载项目测试软件/user/mygps.lua) | LBS 基站定位、GNSS 卫星定位、定位结果缓存 |
 | 7 | 蓝牙 | [myble.lua](file:///d:/Air8201G/挂载项目测试软件/user/myble.lua) | BLE 外设广播（当前禁用） |
-| 8 | OTA 远程升级 | [ota_manegement.lua](file:///d:/Air8201G/挂载项目测试软件/user/ota_manegement.lua) | 基于 libfota3 + 合宙 IoT 平台，自动定时检测 + PWRKEY 手动触发 |
+| 8 | OTA 远程升级 | [ota_manegement.lua](file:///d:/Air8201G/挂载项目测试软件/user/ota_manegement.lua) | 基于 libfota3 + 合宙 IoT 平台，开机自动检测 + 每 12 小时周期检测 |
 
 ---
 
@@ -62,7 +62,7 @@ SIM 热插拔中断配置（WAKEUP2）
    ↓
 global_config.init() → FSKV 初始化 + 运行统计
    ↓
-ota_manegement.init() → OTA 配置加载 + 启动 libfota3 + PWRKEY 监听
+ota_manegement.init() → 启动 libfota3 自动检测
    ↓
 mypower.init() → 电池采样 + PWRKEY 长按监听 + 进入低功耗常驻
    ↓
@@ -78,9 +78,8 @@ sys.run() 主循环
 ```
 
 **OTA 触发机制（libfota3）**：
-- **自动检测**：libfota3 内置定时器，默认每 24 小时一次，支持时间戳持久化（跨重启延续）
-- **手动触发**：PWRKEY 短按事件 → `libfota3.check_update()`
-- **配置持久化**：`auto`/`interval` 参数存储在 FSKV（key: `ota_cfg`）
+- **开机首次**：自动检测升级
+- **周期检测**：每 12 小时自动检测一次
 
 ### 3.2 上报逻辑
 
@@ -569,20 +568,17 @@ OTA 模块从 libfota2 重写为 libfota3。
 - 替换 `require "libfota2"` → `require "libfota3"`
 - 删除手动管理的定时器（`period_timer_id`、`in_progress_timer_id`）和并发控制（`fota_in_progress`），均由 libfota3 内置管理
 - 删除 `boot_task`（联网等待 + 首次检查），libfota3 内置自动定时检测
-- 新增 FSKV 持久化配置（key: `ota_cfg`），存储 `auto`/`interval` 参数
-- 新增 `ota_manegement.config(opts)` 接口，全量透传 `libfota3.config()`，仅 `auto`/`interval` 持久化
-- 保留 `ota_manegement.check_now()` 手动触发接口
-- 保留 PWRKEY 短按监听（订阅 `PWRKEY_SHORT_PRESS` 事件）
+- 删除 FSKV 持久化配置、PWRKEY 监听、config/get_config 接口
 - 状态回调统一 INFO 级别日志
 
 **接口变化**：
 
 | 接口 | v1 (libfota2) | v2 (libfota3) |
 |------|---------------|---------------|
-| `init()` | 启动 boot_task + pwrkey_listener_task | 读取 FSKV 配置 + 启动 libfota3 + pwrkey_listener_task |
-| `check_now()` | `do_request("MANUAL")` | `libfota3.check_update()` |
-| `config(opts)` | 无 | 新增：透传 libfota3.config + 持久化 auto/interval |
-| `get_config()` | 无 | 新增：返回当前配置 |
+| `init()` | 启动 boot_task + pwrkey_listener_task | 启动 libfota3 自动检测（开机首次 + 每 12 小时） |
+| `check_now()` | `do_request("MANUAL")` | 已删除 |
+| `config(opts)` | 无 | 已删除 |
+| `get_config()` | 无 | 已删除 |
 
 #### 2. main.lua 注释更新
 
@@ -595,7 +591,7 @@ OTA 模块从 libfota2 重写为 libfota3。
 
 | 文件 | 主要内容 |
 |------|----------|
-| [ota_manegement.lua](file:///d:/Air8201G/挂载项目测试软件/user/ota_manegement.lua) | 重写：libfota2 → libfota3，新增 config/get_config 接口 |
+| [ota_manegement.lua](file:///d:/Air8201G/挂载项目测试软件/user/ota_manegement.lua) | 重写：libfota2 → libfota3，精简为仅 init() 接口 |
 | [main.lua](file:///d:/Air8201G/挂载项目测试软件/user/main.lua) | OTA 区域注释更新 |
 
 ---

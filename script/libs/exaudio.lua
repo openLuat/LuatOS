@@ -1,10 +1,12 @@
 ﻿--[[
 @module exaudio
 @summary exaudio扩展库
-@version 1.9
-@date    2026.7.1
+@version 2.0
+@date    2026.7.3
 @author  拓毅恒
 @updates
+    v2.0 2026.7.3
+        1. 修复流式播放偶尔播放不完整的问题
     v1.9 2026.7.1
         1. 调整音频框架默认选择：780EXX系列、8000系列默认旧框架
         2. 新增audio_mode参数，支持在setup中强制切换音频框架（"new"/"old"）
@@ -291,14 +293,21 @@ local function audio_v2_callback(request_index, event, param)
             local result, write_len, free_len = audio_v2.input(request_index)
             if result and free_len then
                 while free_len > 0 do
-                    local data = audio_v2_stream_file_fp:read(4096)
+                    -- 每次读取不超过FIFO剩余空间，避免partial write导致数据丢失
+                    local read_size = free_len > 4096 and 4096 or free_len
+                    local data = audio_v2_stream_file_fp:read(read_size)
                     if data then
-                        if #data < 4096 then
-                            result, write_len, free_len = audio_v2.input(request_index, data, true)
+                        local is_end = #data < read_size
+                        result, write_len, free_len = audio_v2.input(request_index, data, is_end)
+                        if not result then break end
+                        -- 处理partial write：把未写入部分回退到文件，下次NEED_NEW_DATA继续读取
+                        if write_len and write_len < #data then
+                            local current_pos = audio_v2_stream_file_fp:seek("cur", 0)
+                            audio_v2_stream_file_fp:seek("set", current_pos - (#data - write_len))
                             break
-                        else
-                            result, write_len, free_len = audio_v2.input(request_index, data, false)
-                            if not result then break end
+                        end
+                        if is_end then
+                            break
                         end
                     else
                         audio_v2.input(request_index, nil, true)
@@ -1304,32 +1313,12 @@ function exaudio.play_stream_write(data, is_end)
             return true
         end
         
-        -- 数据入队列
+        -- 数据入队列，由audio_v2回调（NEED_NEW_DATA）统一写入FIFO。
+        -- 注意：不在HTTP/网络回调里直接调用audio_v2.input()，避免总线错误/解码异常。
         audio_stream_queue_push(data)
         if is_end then
             -- is_end=true标记在队列数据被回调消耗完后生效
             audio_v2_stream_end_marked = true
-        end
-        
-        -- 立即尝试刷新队列：入队后马上尝试写入audio_v2 FIFO，
-        -- 避免等NEED_NEW_DATA 250ms后才轮到写入导致FIFO欠载/噪音。
-        -- 数据安全留在队列等NEED_NEW_DATA写入。
-        local flush_ok, flush_free = audio_v2.input(audio_v2_request_index)
-        if flush_ok and flush_free and flush_free > 0 then
-            while flush_free > 0 do
-                local qdata = audio_stream_queue_pop()
-                if qdata then
-                    local _, flush_written, flush_free = audio_v2.input(audio_v2_request_index, qdata, false)
-                    if flush_written and flush_written < #qdata then
-                        -- partial write: 剩余放回队列头部
-                        local remain = qdata:sub(flush_written + 1)
-                        table.insert(audio_stream_queue.data, 1, {index = 0, value = remain})
-                        break
-                    end
-                else
-                    break
-                end
-            end
         end
         
         return true

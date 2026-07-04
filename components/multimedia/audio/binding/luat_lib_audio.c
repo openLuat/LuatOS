@@ -655,7 +655,7 @@ static int l_audio_record(lua_State *L) {
             LLOGE("open file %s failed", path);
             goto DONE;
         }
-        result = luat_audio_request_record(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, codec_opts,&common_param, _l_audio.record_fifo, 10, priority, _l_audio_request_callback, l_req, NULL);
+        result = luat_audio_request_record(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, codec_opts,&common_param, _l_audio.record_fifo, 5, priority, _l_audio_request_callback, l_req, NULL);
     } else if (lua_isuserdata(L, 1)) {
         l_req->is_record_file = 0;
         l_req->record_zbuff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));

@@ -137,7 +137,7 @@ int luat_audio_data_codec_encode_once(luat_audio_data_codec_t *codec, luat_buffe
         if (luat_fifo_check_free_space(output_data_fifo) >= input_data_buffer->pos) {
             luat_fifo_write(output_data_fifo, input_data_buffer->data, input_data_buffer->pos);
         } else {
-            LLOGE("encode output %d bytes, rest %d bytes", input_data_buffer->pos, luat_fifo_check_free_space(output_data_fifo));
+            LLOGE("encode output %d bytes, rest %d/%d bytes", input_data_buffer->pos, luat_fifo_check_free_space(output_data_fifo), output_data_fifo->size);
             return -LUAT_ERROR_OPERATION_FAILED;
         }
         return LUAT_ERROR_NONE;

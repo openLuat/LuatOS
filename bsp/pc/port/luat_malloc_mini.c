@@ -95,6 +95,14 @@ void* luat_heap_zalloc(size_t _size) {
     }
     return ptr;
 }
+
+void* luat_heap_memalign(size_t alignment, size_t size) {
+    if (alignment <= SizeQuant) {
+        return luat_heap_malloc(size);
+    }
+    LLOGW("luat_heap_memalign: unsupported alignment=%zu size=%zu", alignment, size);
+    return NULL;
+}
 //------------------------------------------------
 
 //------------------------------------------------
@@ -227,6 +235,14 @@ void* luat_heap_opt_zalloc(LUAT_HEAP_TYPE_E type,size_t size){
         memset(ptr, 0, size);
     }
     return ptr;
+}
+
+void* luat_heap_opt_memalign(LUAT_HEAP_TYPE_E type, size_t alignment, size_t size){
+    if (alignment > SizeQuant) {
+        LLOGW("luat_heap_opt_memalign: unsupported alignment=%zu size=%zu", alignment, size);
+        return NULL;
+    }
+    return luat_heap_opt_malloc(type, size);
 }
 
 void luat_meminfo_opt_sys(LUAT_HEAP_TYPE_E type,size_t* total, size_t* used, size_t* max_used){

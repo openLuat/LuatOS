@@ -32,9 +32,11 @@ require 即执行，main.lua 调用 require "app_main" 时以下模块按顺序�
 -- 必须在 net_init 之前加载，使 exnetif IP 事件能被 net_init 正常订阅
 local net_manager = require "net_manager"
 
--- 传入 project_config，初始化 net_manager 并启动兜底网络
--- 此时 _G.project_config 已在 platform_loader 中加载完成
-net_manager.init(_G.project_config)
+-- 传入 project_config，在 task 中初始化 net_manager 并启动所有网络
+-- exnetif.set_priority_order 内部使用 sys.wait()，必须在 task 中调用
+sys.taskInit(function()
+    net_manager.init(_G.project_config)
+end)
 
 -- 加载统一网络事件订阅模块（DNS配置、IP_READY/IP_LOSE/WLAN_STA 日志）
 require "net_init"

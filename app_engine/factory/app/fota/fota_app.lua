@@ -378,7 +378,7 @@ sys.taskInit(function()
 
     -- 4. 无论上次是否成功，都进行升级检查
     if auto then
-        sys.wait(3000)
+        sys.wait(5000)
         sys.publish("FOTA_CHECK_AUTO")
     end
 end)

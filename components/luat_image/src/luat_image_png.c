@@ -46,7 +46,8 @@ static int png_read_file_to_buf(const char *path, png_input_t *input)
         return LUAT_IMG_ERR;
     }
 
-    buf = (uint8_t *)luat_heap_malloc((size_t)fsize);
+    /* HW decoder on CCM42xx requires 8-byte aligned image_addr. */
+    buf = (uint8_t *)luat_heap_memalign(8, (size_t)fsize);
     if (buf == NULL) {
         LLOGE("oom: png file buf %ld bytes", fsize);
         luat_fs_fclose(fd);

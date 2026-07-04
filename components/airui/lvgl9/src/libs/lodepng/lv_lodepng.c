@@ -20,6 +20,78 @@
 #include "luat_log.h"
 #include "luat_image.h"
 #include "luat_mcu.h"
+#include "../../misc/cache/lv_cache.h"
+
+/** 将 lodepng 错误码转为便于排查的中文说明 */
+static const char * airui_lodepng_err_hint(unsigned error, unsigned w, unsigned h)
+{
+    switch(error) {
+        case 83:
+            return "解码像素缓冲分配失败(需 w*h*4 字节 ARGB8888，检查 PSRAM/LVGL 堆剩余)";
+        case 48:
+            return "PNG 文件不完整或已损坏";
+        case 49:
+            return "PNG 头 IHDR 块无效";
+        case 89:
+            return "PNG 文件格式无效";
+        case 91:
+            return "zlib 解压后数据长度与预期不符";
+        default:
+            break;
+    }
+    (void)w;
+    (void)h;
+    return lodepng_error_text(error);
+}
+
+static const char * airui_png_src_path(const lv_image_decoder_dsc_t * dsc)
+{
+    if(dsc != NULL && dsc->src_type == LV_IMAGE_SRC_FILE && dsc->src != NULL) {
+        return (const char *)dsc->src;
+    }
+    return "<mem>";
+}
+
+static uint32_t airui_png_cache_max_bytes(void)
+{
+    lv_cache_t * cache = LV_GLOBAL_DEFAULT()->img_cache;
+    if(cache == NULL) return 0;
+    return (uint32_t)lv_cache_get_max_size(cache, NULL);
+}
+
+/** 图片缓存启用时，单张解码像素缓冲必须满足 w*h*4 <= LV_CACHE_DEF_SIZE */
+static bool airui_png_reject_cache_too_large(const lv_image_decoder_dsc_t * dsc)
+{
+    if(dsc == NULL || dsc->args.no_cache || !lv_image_cache_is_enabled()) {
+        return false;
+    }
+
+    uint32_t cache_max = airui_png_cache_max_bytes();
+    if(cache_max == 0) {
+        return false;
+    }
+
+    uint32_t w = (uint32_t)dsc->header.w;
+    uint32_t h = (uint32_t)dsc->header.h;
+    uint32_t need_buf = w * h * 4U;
+    if(need_buf <= cache_max) {
+        return false;
+    }
+
+    LLOGE("open fail: 图片 %ux%u 过大，解码需 w*h*4=%u 字节，超过单图上限 %u 字节，无法显示 src=%s (请缩小图片，要求 w*h*4 <= %u)",
+          (unsigned)w, (unsigned)h, need_buf, cache_max, airui_png_src_path(dsc), cache_max);
+    return true;
+}
+
+static void airui_png_open_fail_cleanup(lv_image_decoder_dsc_t * dsc, lv_draw_buf_t * decoded)
+{
+    if(decoded != NULL) {
+        lv_draw_buf_destroy(decoded);
+    }
+    if(dsc != NULL) {
+        dsc->decoded = NULL;
+    }
+}
 #endif
 
 /*********************
@@ -159,6 +231,10 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
             if(png_data != NULL) {
                 lv_free((void *)png_data);
             }
+#ifdef __LUATOS__
+            LLOGE("load fail: 无法加载 PNG 文件 src=%s err=%u (%s) hint=%s",
+                  fn, error, lodepng_error_text(error), airui_lodepng_err_hint(error, 0, 0));
+#endif
             LV_LOG_WARN("error %u: %s\n", error, lodepng_error_text(error));
             LV_PROFILER_DECODER_END_TAG("lv_lodepng_decoder_open");
             return LV_RESULT_INVALID;
@@ -170,9 +246,19 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
         png_data_size = img_dsc->data_size;
     }
     else {
+#ifdef __LUATOS__
+        LLOGE("open fail: 不支持的图片源类型 type=%d", (int)dsc->src_type);
+#endif
         LV_PROFILER_DECODER_END_TAG("lv_lodepng_decoder_open");
         return LV_RESULT_INVALID;
     }
+
+#ifdef __LUATOS__
+    if(airui_png_reject_cache_too_large(dsc)) {
+        LV_PROFILER_DECODER_END_TAG("lv_lodepng_decoder_open");
+        return LV_RESULT_INVALID;
+    }
+#endif
 
 #ifdef __LUATOS__
     uint64_t _airui_dbg_t0 = 0;
@@ -199,6 +285,11 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
     if(dsc->src_type == LV_IMAGE_SRC_FILE) lv_free((void *)png_data);
 
     if(!decoded) {
+#ifdef __LUATOS__
+        LLOGE("open fail: PNG 解码失败 src=%s insize=%u expect=%dx%d (详见上方 lodepng_decode32 日志)",
+              airui_png_src_path(dsc), (unsigned)png_data_size,
+              (int)dsc->header.w, (int)dsc->header.h);
+#endif
         LV_LOG_WARN("Error decoding PNG");
         LV_PROFILER_DECODER_END_TAG("lv_lodepng_decoder_open");
         return LV_RESULT_INVALID;
@@ -206,6 +297,11 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
 
     lv_draw_buf_t * adjusted = lv_image_decoder_post_process(dsc, decoded);
     if(adjusted == NULL) {
+#ifdef __LUATOS__
+        LLOGE("open fail: 解码后处理失败(步幅对齐/预乘 alpha 可能 OOM) src=%s %dx%d data_size=%u",
+              airui_png_src_path(dsc), (int)dsc->header.w, (int)dsc->header.h,
+              (unsigned)decoded->data_size);
+#endif
         lv_draw_buf_destroy(decoded);
         LV_PROFILER_DECODER_END_TAG("lv_lodepng_decoder_open");
         return LV_RESULT_INVALID;
@@ -230,6 +326,21 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
         return LV_RESULT_OK;
     }
 
+#ifdef __LUATOS__
+    {
+        uint32_t cache_max = airui_png_cache_max_bytes();
+        if(cache_max > 0 && decoded->data_size > cache_max) {
+            LLOGE("open fail: 图片 %dx%d 过大，解码像素缓冲 %u 字节，超过单图上限 %u 字节，无法显示 src=%s (请缩小图片，要求 w*h*4 <= %u)",
+                  (int)dsc->header.w, (int)dsc->header.h,
+                  (unsigned)decoded->data_size, cache_max,
+                  airui_png_src_path(dsc), cache_max);
+            airui_png_open_fail_cleanup(dsc, decoded);
+            LV_PROFILER_DECODER_END_TAG("lv_lodepng_decoder_open");
+            return LV_RESULT_INVALID;
+        }
+    }
+#endif
+
     /*Add the decoded image to the cache*/
     lv_image_cache_data_t search_key;
     search_key.src_type = dsc->src_type;
@@ -239,6 +350,14 @@ static lv_result_t decoder_open(lv_image_decoder_t * decoder, lv_image_decoder_d
     lv_cache_entry_t * entry = lv_image_decoder_add_to_cache(decoder, &search_key, decoded, NULL);
 
     if(entry == NULL) {
+#ifdef __LUATOS__
+        LLOGE("open fail: 写入图片缓存失败 src=%s data_size=%u (请缩小图片)",
+              airui_png_src_path(dsc), (unsigned)decoded->data_size);
+        airui_png_open_fail_cleanup(dsc, decoded);
+#else
+        lv_draw_buf_destroy(decoded);
+        dsc->decoded = NULL;
+#endif
         LV_PROFILER_DECODER_END_TAG("lv_lodepng_decoder_open");
         return LV_RESULT_INVALID;
     }
@@ -272,6 +391,19 @@ static lv_draw_buf_t * decode_png_data(const void * png_data, size_t png_data_si
     unsigned error = lodepng_decode32((unsigned char **)&decoded, &png_width, &png_height, png_data, png_data_size);
     if(error) {
         if(decoded != NULL)  lv_draw_buf_destroy(decoded);
+#ifdef __LUATOS__
+        if(error == 83) {
+            uint32_t need_buf = (uint32_t)png_width * png_height * 4U;
+            LLOGE("decode fail: lodepng_decode32 err=%u (%s) hint=解码像素缓冲分配失败（%ux%u图片需要%u的连续内存，当前连续内存不足，请缩小图片）",
+                  error, lodepng_error_text(error), png_width, png_height, (unsigned)need_buf);
+        }
+        else {
+            LLOGE("decode fail: lodepng_decode32 err=%u (%s) hint=%s insize=%u %ux%u need_buf=%u",
+                  error, lodepng_error_text(error), airui_lodepng_err_hint(error, png_width, png_height),
+                  (unsigned)png_data_size, png_width, png_height,
+                  (unsigned)((uint32_t)png_width * png_height * 4U));
+        }
+#endif
         return NULL;
     }
 

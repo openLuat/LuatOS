@@ -1,22 +1,23 @@
 --[[
-@module  http_stream_test
+@module  http_stream_play
 @summary HTTP音频流式播放（边下边播）
 @version 1.0
-@date    2026.06.24
-@author  LuatOS
+@date    2026.07.03
+@author  拓毅恒
 @usage
-参考play_stream.lua和record_pcm_file.lua的实现方式，通过exaudio扩展库进行流式播放
 使用httpplus进行HTTP下载，边下边播
 
 注意：
-1. 支持PCM/AMR/MP3/WAV格式的HTTP边下边播
-2. 依赖exaudio扩展库自动初始化音频硬件和ES8311编解码器，使用新音频框架
-3. 本demo使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
-4. PCM格式默认16kHz、16位、有符号、单声道
-5. AMR/MP3/WAV格式会自动解析文件头获取真实采样率
+1. 如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+2. 使用 AirAUDIO_1020 时，仅需在`audio_setup_param`修改 `model="tm8211"` 并移除 `i2c_id` 配置即可支持播放功能
+3. 支持PCM/AMR/MP3/WAV格式的HTTP边下边播
+4. 依赖exaudio扩展库自动初始化音频硬件和ES8311编解码器，使用新音频框架
+5. 本demo使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
+6. PCM格式默认16kHz、16位、有符号、单声道
+7. AMR/MP3/WAV格式会自动解析文件头获取真实采样率
 ]]
 
-PROJECT = "http_stream_test"
+PROJECT = "http_stream_play"
 VERSION = "1.0"
 
 local exaudio = require "exaudio"
@@ -25,32 +26,12 @@ local httpplus = require("httpplus")
 -- HTTP音频文件URL（可替换为AMR/MP3/WAV/PCM的URL）
 local AUDIO_URL = "https://appstoreoss.luatos.com/iot-apps/res/100617/sample-6s.mp3"
 
--- 根据版本号自适应设置dac_delay
-local set_dac_delay = 0
-local version = rtos.version()
-local version_num = 0
-if version then
-    local num_str = version:match("V(%d+)")
-    if num_str then
-        version_num = tonumber(num_str)
-    end
-end
-
-if version_num and version_num >= 2026 then
-    -- 固件版本≥V2026，dac_delay单位为100ms
-    set_dac_delay = 6
-else
-    -- 固件版本＜V2026，dac_delay单位为1ms
-    set_dac_delay = 600
-end
-
--- 音频初始化设置参数（由用户配置，参考 play_stream.lua 的格式）
+-- 音频初始化设置参数
 local audio_setup_param = {
     model = "es8311",          -- 编解码器类型: "es8311"、"tm8211"、"dac"
     i2c_id = 1,                -- I2C接口编号
     
-    -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
-    dac_delay = set_dac_delay, -- DAC启动前冗余时间
+    dac_delay = 6, -- DAC启动前冗余时间
     
     pa_ctrl = 26,              -- 音频放大器电源控制管脚
     dac_ctrl = 2,              -- 音频编解码芯片电源控制管脚
@@ -119,7 +100,7 @@ local function play_task()
         return
     end
 
-    -- 初始化音频硬件（ES8311编解码器由exaudio自动初始化）
+    -- 初始化音频硬件
     if not exaudio.setup(audio_setup_param) then
         log.error("音频硬件初始化失败")
         return
@@ -143,7 +124,7 @@ local function play_task()
     local warm_buf = {}
     local parse_pos = 0
 
-    -- 通过httpplus下载音频数据，边下边播
+    -- 下载音频数据，边下边播
     httpplus.request({
         url = AUDIO_URL, timeout = 90,
         is_big_file = true,
@@ -155,7 +136,7 @@ local function play_task()
             stats.http_chunks = stats.http_chunks + 1
             if stats.http_start_tick == 0 then stats.http_start_tick = mcu.ticks2() end
 
-            -- 未启动stream时：先解析文件头，或PCM直接启动
+            -- 未启动stream时：先解析文件头，如果是PCM，则直接启动
             if not stream_started then
                 if need_header_parse then
                     -- AMR/MP3/WAV：先缓冲数据，解析文件头获取真实采样率/声道数

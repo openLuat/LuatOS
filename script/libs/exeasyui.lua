@@ -4128,17 +4128,16 @@ function ui.renderFrame()
     return nil -- 返回空值
 end
 
-return ui
-
 --[[
 获取库版本信息
 @return string 年月日时分，例如： "202606300102"
 @usage
-exeasyui.version()
+ui.version()
 ]]
-function exeasyui.version()
+function ui.version()
     return "202607021200"
 end
 
-log.debug("exeasyui", "version -> " .. exeasyui.version())
-return exeasyui
+log.debug("exeasyui", "version -> " .. ui.version())
+
+return ui

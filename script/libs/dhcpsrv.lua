@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module dhcpsrv
 @summary DHCP服务器端
 @version 1.0.0

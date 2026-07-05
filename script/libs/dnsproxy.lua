@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module dnsproxy
 @summary DNS代理转发
 @version 1.0

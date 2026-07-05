@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exremotefile
 @summary exremotefile 远程文件管理系统扩展库，提供AP热点创建、SD卡挂载、SERVER文件管理服务器等功能，支持文件浏览、上传、下载和删除操作。
 @version 1.2

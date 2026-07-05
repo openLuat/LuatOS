@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module  exmtn
 @summary 运维日志扩展库，负责日志的持久化存储
 @version 1.0

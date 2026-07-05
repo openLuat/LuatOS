@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module lbsLoc
 @summary lbsLoc 发送基站定位请求
 @version 1.0

@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exmodbus
 @summary exmodbus 控制Modbus RTU/ASCII/TCP主站/从站通信
 @version 1.0

@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module extalk
 @summary extalk扩展库
 @version 1.1.2

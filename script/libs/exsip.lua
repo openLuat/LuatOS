@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exsip
 @summary SIP/VoIP 电话扩展库，简化 SIP 客户端使用
 @version 1.0

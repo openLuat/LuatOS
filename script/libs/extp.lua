@@ -1,4 +1,4 @@
-﻿-- extp.lua - 触摸系统模块
+-- extp.lua - 触摸系统模块
 --[[
 @module  extp
 @summary 触摸系统拓展库

@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module libnet
 @summary libnet 在socket库基础上的同步阻塞api，socket库本身是异步非阻塞api
 @version 1.0

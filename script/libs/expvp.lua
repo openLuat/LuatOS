@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module  expvp
 @summary 通用PVP联网对战游戏框架（MQTT通信 + IOT数据存储 + 房间/匹配系统）
 @version 1.0.4

@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exsipproto
 @summary SIP 协议辅助库，提供报文解析、Digest 鉴权、SIP 请求/响应构造、SDP 与媒体协商工具。
 @usage

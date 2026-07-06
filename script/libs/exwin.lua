@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module  exwin
 @summary UI窗口管理扩展库
 @version 1.0.0

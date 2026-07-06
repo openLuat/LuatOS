@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module httpplus
 @summary http库的补充
 @version 1.0

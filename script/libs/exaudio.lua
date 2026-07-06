@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exaudio
 @summary exaudio扩展库
 @version 2.0

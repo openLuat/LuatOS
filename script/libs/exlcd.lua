@@ -1,4 +1,4 @@
-﻿-- exlcd.lua
+-- exlcd.lua
 --[[
 @module  exlcd
 @summary LCD显示拓展库

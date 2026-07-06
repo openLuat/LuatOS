@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exsipclient
 @summary SIP 信令客户端，支持 REGISTER、呼叫信令、MESSAGE、UDP/TCP 以及 401/407 Digest 认证。
 @usage

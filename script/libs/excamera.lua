@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module excamera
 @summary excamera扩展库
 @version 1.1

@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module lbsLoc2
 @summary 基站定位v2
 @version 1.0

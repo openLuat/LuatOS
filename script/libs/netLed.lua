@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module netLed
 @summary netLed 网络状态指示灯
 @version 1.0

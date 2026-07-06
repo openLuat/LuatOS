@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exmux
 @summary I2C和SPI设备管理扩展库
 @version 1.0.0

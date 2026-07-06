@@ -1,4 +1,4 @@
-﻿local config = {
+local config = {
     mode = 1,
     is_msb = 1,
     rx_bit = 2,

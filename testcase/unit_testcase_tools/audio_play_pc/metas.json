@@ -5,5 +5,5 @@
     },
     "action_count" : 1,
     "priority" : 5,
-    "description" : "PC模拟器audio.play MP3基础回归"
+    "description" : "PC模拟器audio与audio_v2播放、录音、全双工基础回归"
 }

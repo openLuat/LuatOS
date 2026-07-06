@@ -8,12 +8,6 @@
 #include "luat_netdrv.h"
 #include "luat_netdrv_pkg.h"
 #include <string.h>
-/* Air8000 诊断: 让 inline 中的 LLOGD 可用 */
-#ifndef LUAT_LOG_TAG
-#define LUAT_LOG_TAG "netdrv.napt.h"
-#endif
-#include "luat_log.h"
-
 // NAPT公共类型别名
 #ifndef NAPT_TYPE_ALIASES
 #define NAPT_TYPE_ALIASES
@@ -152,38 +146,18 @@ static inline int napt_output_to_lan(napt_ctx_t* ctx,
                                      struct ip_hdr* ip_hdr,
                                      uint8_t* buff)
 {
-    /* Air8000 诊断: 采样打印 output_to_lan 入口关键字段 */
-    static uint32_t _air8k_o2l_cnt = 0;
-    int _air8k_log = ((_air8k_o2l_cnt++ & 0x0F) == 0);
-    if (_air8k_log) {
-        LLOGD("[AIR8000][o2l][ENTER] ctx_eth=%p ctx_len=%u mapping{ad_id=%d inet_ip=0x%08x inet_port=%u inet_mac=%02x:%02x:%02x:%02x:%02x:%02x} ip_dst=0x%08x cnt=%u",
-              ctx->eth, (unsigned)ctx->len, mapping->adapter_id,
-              (unsigned)mapping->inet_ip, (unsigned)mapping->inet_port,
-              mapping->inet_mac[0], mapping->inet_mac[1], mapping->inet_mac[2],
-              mapping->inet_mac[3], mapping->inet_mac[4], mapping->inet_mac[5],
-              (unsigned)ip_hdr->dest.addr, (unsigned)_air8k_o2l_cnt);
-    }
     if (ctx->eth) {
         memcpy(ctx->eth->src.addr, ctx->net->netif->hwaddr, 6);
         memcpy(ctx->eth->dest.addr, mapping->inet_mac, 6);
     }
     luat_netdrv_t* dst = luat_netdrv_get(mapping->adapter_id);
     if (dst == NULL || !dst->dataout) {
-        LLOGW("[AIR8000][o2l][DROP] dst=%p dataout=%p ad_id=%d (静默丢包!!! mapping指向无效netdrv)",
-              dst, (dst ? (void*)dst->dataout : NULL), mapping->adapter_id);
         return 1;
     }
     if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
-        if (_air8k_log) LLOGD("[AIR8000][o2l][BR1-eth+etharp] dst->id=%d ctx_len=%u", dst->id, (unsigned)ctx->len);
         luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ctx->eth, ctx->len);
     }
     else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
-        if (_air8k_log) LLOGD("[AIR8000][o2l][BR2-rawIP+etharp] dst->id=%d build_eth_hdr ctx_len=%u total=%u inet_mac=%02x:%02x:%02x:%02x:%02x:%02x hw=%02x:%02x:%02x:%02x:%02x:%02x",
-              dst->id, (unsigned)ctx->len, (unsigned)(ctx->len+14),
-              mapping->inet_mac[0], mapping->inet_mac[1], mapping->inet_mac[2],
-              mapping->inet_mac[3], mapping->inet_mac[4], mapping->inet_mac[5],
-              dst->netif->hwaddr[0], dst->netif->hwaddr[1], dst->netif->hwaddr[2],
-              dst->netif->hwaddr[3], dst->netif->hwaddr[4], dst->netif->hwaddr[5]);
         memcpy(buff, mapping->inet_mac, 6);
         memcpy(buff + 6, dst->netif->hwaddr, 6);
         memcpy(buff + 12, "\x08\x00", 2);
@@ -191,7 +165,6 @@ static inline int napt_output_to_lan(napt_ctx_t* ctx,
         luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, buff, ctx->len + 14);
     }
     else {
-        if (_air8k_log) LLOGD("[AIR8000][o2l][BR3-noEth] dst->id=%d ctx_len=%u dst_flags=0x%x", dst->id, (unsigned)ctx->len, dst->netif->flags);
         luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len);
     }
     return 1;

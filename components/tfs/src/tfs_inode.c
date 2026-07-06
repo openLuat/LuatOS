@@ -250,6 +250,7 @@ void tfs_obj_load_hdr(tfs_dev_t *dev, tfs_obj_t *obj,
     obj->ctime      = hdr->ctime;
     obj->rdev       = hdr->rdev;
     obj->hdr_chunk  = chunk_in_nand;
+    obj->checkpt_parent_id = hdr->parent_obj_id;
 
     tfs_obj_cache_name(obj, hdr->name);
 

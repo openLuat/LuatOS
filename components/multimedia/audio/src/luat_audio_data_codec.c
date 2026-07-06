@@ -24,11 +24,10 @@ int luat_audio_data_codec_bind(luat_audio_data_codec_t *codec, const luat_audio_
     if (!codec || !opts) {
         return -LUAT_ERROR_PARAM_INVALID;
     }
-    memset(codec, 0, sizeof(luat_audio_data_codec_t));
     if (codec->input_buffer) {
-        luat_heap_free(codec->input_buffer);
-        codec->input_buffer = NULL;
+        LLOGW("codec %x input_buffer maybe not free", codec);
     }
+    memset(codec, 0, sizeof(luat_audio_data_codec_t));
     uint32_t input_buffer_size = (opts->decode_max_output_len > opts->encode_min_input_len) ? opts->decode_max_output_len * 2 : opts->encode_min_input_len * 2;
     codec->input_buffer = luat_heap_malloc(input_buffer_size);
     if (!codec->input_buffer) {

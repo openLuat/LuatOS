@@ -144,7 +144,7 @@ struct luat_audio_request_block {
     uint8_t is_input_end:1;                   /**< 是否为输入结束请求 */
     uint8_t is_wait_play_end:1;                   /**< 是否等待播放结束 */
     uint8_t is_stream_end:1;                   /**< 是否为流式请求结束 */
-    uint8_t is_record_end:1;                   /**< 是否为录音请求 */
+    uint8_t is_record_need_stop:1;                   /**< 是否为录音请求 */
     uint8_t is_need_ref_data:1;                   /**< 是否需要保存参考数据 */
     uint8_t is_save_play_data:1;                   /**< 是否保存播放数据 */
     uint8_t is_stop_immediate:1;                   /**< 是否立即停止 */
@@ -380,5 +380,14 @@ void luat_audio_request_init_play_temp_buffer(luat_audio_request_block_t *reques
  */
 void luat_audio_request_init_record_temp_buffer(luat_audio_request_block_t *request_block);
 
+/**
+ * @brief 暂停录音通道
+ * 
+ * 此函数用于快速暂停录音通道
+ * 
+ * @param request_block 音频请求结构体指针，包含请求的详细信息
+ * @param is_pause 是否暂停录音通道，0-继续录音，1-暂停录音通道
+ */
+void luat_audio_request_record_pause(luat_audio_request_block_t *request_block, uint8_t is_pause);
 /** @} */
 #endif

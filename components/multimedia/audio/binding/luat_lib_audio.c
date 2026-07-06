@@ -12,10 +12,12 @@
 #include "luat_audio_define.h"
 #include "luat_audio_request.h"
 #include "luat_base.h"
+#include "luat_malloc.h"
 #include "luat_msgbus.h"
 #include "luat_zbuff.h"
 #include "luat_fs.h"
 #include <stdint.h>
+#include <stdlib.h>
 #define LUAT_LOG_TAG "audio_v2"
 #include "luat_log.h"
 #ifdef LUAT_USE_AUDIO_V2
@@ -36,7 +38,7 @@
 typedef struct {
     luat_llist_head node;
     union {
-        FILE *record_file_fd;  // 录音文件指针
+        char *record_file_path;  // 录音文件路径
         luat_zbuff_t *record_zbuff;  // 录音数据ZBuff
     };
     uint32_t record_timeout_or_callback_frame;  // 录音超时或回调帧数
@@ -59,8 +61,7 @@ typedef struct {
 
 
 typedef struct {
-    uint64_t total_driver_record_bytes;
-    uint64_t target_driver_record_bytes;
+    uint64_t target_record_bytes;
     uint64_t total_record_bytes;
     luat_llist_head request_free_list;  // 空闲请求块列表
     luat_llist_head request_busy_list;  // 正在处理请求块列表
@@ -69,7 +70,7 @@ typedef struct {
     l_audio_request_t request_table[LUAT_AUDIO_REQUEST_MAX];  // 请求块表
     l_audio_extern_source_t extern_source_table[LUAT_AUDIO_EXTERN_SOURCE_MAX];  // 外部音频源表
     luat_fifo_t *record_fifo;  // 录音数据FIFO
-    uint8_t temp[4096];
+    uint8_t temp[LUAT_AUDIO_DATA_CACHE_LEN];
     int cb_ref; // 回调函数引用
 } l_audio_ctrl_t;
 static l_audio_ctrl_t _l_audio;
@@ -89,10 +90,16 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
             break;
         case LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA:
             if (l_req->request.driver_work_mode >= LUAT_AUDIO_DRIVER_MODE_RECORD) {
-                _l_audio.total_driver_record_bytes += msg->arg2;
+                _l_audio.total_record_bytes += msg->arg2;
                 uint32_t read_size = 0;
                 if (l_req->is_record_file) {
                     if (l_req->is_record_finish) {
+                        luat_fifo_delete_all(_l_audio.record_fifo);
+                        break;
+                    }
+                    FILE *fd = luat_fs_fopen(l_req->record_file_path, "a+");
+                    if (!fd) {
+                        LLOGE("open file %s failed", l_req->record_file_path);
                         luat_fifo_delete_all(_l_audio.record_fifo);
                         break;
                     }
@@ -101,23 +108,29 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
                         if (read_size == 0) {
                             break;
                         }
-                        luat_fs_fwrite(_l_audio.temp, read_size, 1, l_req->record_file_fd);
+
+                        luat_fs_fwrite(_l_audio.temp, read_size, 1, fd);
                         _l_audio.total_record_bytes += read_size;
                     }
-                    if (_l_audio.total_driver_record_bytes >= _l_audio.target_driver_record_bytes) {
+                    luat_fs_fclose(fd);
+                    LLOGC(luat_audio_debug_flag,"lua request %d record file write, total_record_bytes: %llu/%llu", u_data.u8[0], _l_audio.total_record_bytes, _l_audio.target_record_bytes);
+                    if (_l_audio.total_record_bytes >= _l_audio.target_record_bytes) {
+                        luat_audio_request_record_pause(&l_req->request, 1);
                         if (l_req->request.record_codec.opts->make_head) {
                             luat_buffer_t out_buffer;
                             out_buffer.data = _l_audio.temp;
                             out_buffer.pos = 0;
                             out_buffer.max_len = sizeof(_l_audio.temp);
                             l_req->request.record_codec.opts->make_head(&l_req->request.record_codec, _l_audio.total_record_bytes, &out_buffer);
-                            luat_fs_fseek(l_req->record_file_fd, 0, SEEK_SET);
-                            luat_fs_fwrite(out_buffer.data, out_buffer.pos, 1, l_req->record_file_fd);
+                            fd = luat_fs_fopen(l_req->record_file_path, "rb+");
+                            luat_fs_fseek(fd, 0, SEEK_SET);
+                            luat_fs_fwrite(out_buffer.data, out_buffer.pos, 1, fd);
+                            luat_fs_fclose(fd);
                         }
+                        LLOGC(luat_audio_debug_flag,"lua request %d record end", u_data.u8[0]);
                         luat_audio_request_cancel(&l_req->request);
-                        luat_fs_fclose(l_req->record_file_fd);
-                        LLOGC(luat_audio_debug_flag,"lua request %d record file close, total_record_bytes: %llu", u_data.u8[0], _l_audio.total_record_bytes);
-                        l_req->record_file_fd = NULL;
+                        luat_heap_alloc(NULL, l_req->record_file_path, 0, 0);
+                        l_req->record_file_path = NULL;
                         l_req->is_record_finish = 1;
                     }
                     no_callback = 1;
@@ -149,17 +162,18 @@ static int _l_audio_handler(lua_State *L, void* ptr) {
             if (l_req->request.driver_work_mode == LUAT_AUDIO_DRIVER_MODE_RECORD) {
                 luat_fifo_clear(_l_audio.record_fifo);
                 if (l_req->is_record_file) {
-                    _l_audio.total_driver_record_bytes = 0;
                     _l_audio.total_record_bytes = 0;
-                    _l_audio.target_driver_record_bytes = l_req->record_timeout_or_callback_frame * l_req->request.data_channel->driver_ctrl->rx_param.sample_rate * l_req->request.data_channel->driver_ctrl->rx_param.data_align * l_req->request.data_channel->driver_ctrl->rx_param.channel_nums;
-                    LLOGC(luat_audio_debug_flag,"lua request %d record driver param %u-%u-%u, target record bytes %llu", l_req->self_index, l_req->request.data_channel->driver_ctrl->rx_param.sample_rate, l_req->request.data_channel->driver_ctrl->rx_param.data_align, l_req->request.data_channel->driver_ctrl->rx_param.channel_nums, _l_audio.target_driver_record_bytes);
+                    _l_audio.target_record_bytes = l_req->record_timeout_or_callback_frame * l_req->request.record_codec.common_param.sample_rate * l_req->request.record_codec.common_param.data_align * l_req->request.record_codec.common_param.channel_nums;
+                    LLOGC(luat_audio_debug_flag,"lua request %d record driver param %u-%u-%u, target record bytes %llu", l_req->self_index, l_req->request.data_channel->driver_ctrl->rx_param.sample_rate, l_req->request.data_channel->driver_ctrl->rx_param.data_align, l_req->request.data_channel->driver_ctrl->rx_param.channel_nums, _l_audio.target_record_bytes);
                     if (l_req->request.record_codec.opts->make_head) {
                         luat_buffer_t out_buffer;
                         out_buffer.data = _l_audio.temp;
                         out_buffer.pos = 0;
                         out_buffer.max_len = sizeof(_l_audio.temp);
                         l_req->request.record_codec.opts->make_head(&l_req->request.record_codec, 0, &out_buffer);
-                        luat_fs_fwrite(out_buffer.data, out_buffer.pos, 1, l_req->record_file_fd);
+                        FILE *fd = luat_fs_fopen(l_req->record_file_path, "a+");
+                        luat_fs_fwrite(out_buffer.data, out_buffer.pos, 1, fd);
+                        luat_fs_fclose(fd);
                     }
                 }
             }
@@ -650,11 +664,19 @@ static int l_audio_record(lua_State *L) {
         const char *path = luaL_checklstring(L, 1, &len);
         luat_fs_remove(path);
         l_req->is_record_file = 1;
-        l_req->record_file_fd = luat_fs_fopen(path, "wb+");
-        if (!l_req->record_file_fd) {
+        FILE *fd = luat_fs_fopen(path, "wb+");
+        if (!fd) {
             LLOGE("open file %s failed", path);
             goto DONE;
         }
+        luat_fs_fclose(fd);
+        l_req->record_file_path = luat_heap_alloc(NULL, NULL, 0, len + 1);
+        if (!l_req->record_file_path) {
+            LLOGE("malloc file path failed");
+            goto DONE;
+        }
+        memcpy(l_req->record_file_path, path, len);
+        l_req->record_file_path[len] = '\0';
         result = luat_audio_request_record(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, codec_opts,&common_param, _l_audio.record_fifo, 5, priority, _l_audio_request_callback, l_req, NULL);
     } else if (lua_isuserdata(L, 1)) {
         l_req->is_record_file = 0;
@@ -671,6 +693,71 @@ static int l_audio_record(lua_State *L) {
 DONE:
     lua_pushboolean(L, !result);
     lua_pushinteger(L, request_index);
+    return 2;
+}
+
+/**
+ * @brief 生成音频文件的头信息
+ * @api audio_v2.make_head(record_codec_id, total_len, sample_rate, data_bits, channel_nums)
+ * @int record_codec_id 录音编码器id，见audio_v2.DATA_CODEC_TYPE_XXX，绝对不可以留空
+ * @int total_len 总数据长度，单位字节
+ * @int sample_rate 编码器的采样率，如果是固定采样率的编码器，可以留空，由编码器自己决定
+ * @int data_bits 编码器的数据位数，8,16,24,32，如果是固定数据位数的编码器，可以留空，由编码器自己决定
+ * @int channel_nums 编码器的通道数，1,2，如果是固定通道数的编码器，可以留空，由编码器自己决定
+ * @return boolean 成功返回true,否则返回false
+ * @return string 头信息,如果失败，返回NIL
+ */
+
+static int l_audio_make_head(lua_State *L)
+{
+    int ret = -1;
+    char *head = NULL;
+    size_t head_len = 0;
+    uint8_t org_record_codec_id = luaL_optinteger(L, 1, LUAT_AUDIO_DATA_CODEC_TYPE_MAX);
+    uint8_t codec_id = org_record_codec_id &~LUAT_AUDIO_DATA_CODEC_TYPE_HW;
+    if (codec_id >= LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
+        goto DONE;
+    }
+    const luat_audio_data_codec_opts_t *record_codec_opts = luat_audio_data_codec_find(org_record_codec_id);
+    if (!record_codec_opts) {
+        LLOGE("codec %d not found", codec_id);
+        goto DONE;
+    }
+    if (!record_codec_opts->make_head) {
+        LLOGE("codec %d not support make_head", codec_id);
+        goto DONE;
+    }
+    uint32_t total_len = luaL_optinteger(L, 2, 0);
+    luat_audio_data_codec_t codec = {0};
+    ret = luat_audio_data_codec_bind(&codec, record_codec_opts, NULL);
+    if (ret < 0) {
+        LLOGE("bind codec failed");
+        goto DONE;
+    }
+
+    codec.common_param.sample_rate = luaL_optinteger(L, 3, 0);
+    uint8_t data_bits = luaL_optinteger(L, 4, 16);
+    codec.common_param.channel_nums = luaL_optinteger(L, 5, 1);
+    codec.common_param.data_align = data_bits / 8;
+    codec.common_param.is_signed = 1;
+    luat_buffer_t head_buf = {0};
+    head_buf.data = _l_audio.temp;
+    head_buf.max_len = LUAT_AUDIO_DATA_CACHE_LEN;
+    ret = record_codec_opts->make_head(&codec, total_len, &head_buf);
+    luat_audio_data_codec_unbind(&codec);
+    if (ret < 0) {
+        LLOGE("make_head failed");
+        goto DONE;
+    }
+    head = head_buf.data;
+    head_len = head_buf.pos;
+DONE:
+    lua_pushboolean(L, !ret);
+    if (head) {
+        lua_pushlstring(L, head, head_len);
+    } else {
+        lua_pushnil(L);
+    }
     return 2;
 }
 
@@ -876,6 +963,9 @@ static int l_audio_extern_source(lua_State *L) {
     }
 
 DONE:
+    if (info) {
+        luat_heap_free(info);
+    }
     lua_pushboolean(L, !result);
     if (!result) {
         extern_source_index = l_extern_source->self_index|LUAT_AUDIO_EXTERN_SOURCE_INDEX_FLAG;
@@ -1356,6 +1446,7 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "pause",			ROREG_FUNC(l_audio_pause)},
     { "stream",			ROREG_FUNC(l_audio_stream)},
     { "record",			ROREG_FUNC(l_audio_record)},
+    {"make_head",			ROREG_FUNC(l_audio_make_head)},
     { "speech",			ROREG_FUNC(l_audio_speech)},
     { "extern_source",			ROREG_FUNC(l_audio_extern_source)},
     { "shutdown",			ROREG_FUNC(l_audio_shutdown)},

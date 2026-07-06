@@ -140,7 +140,7 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 		break;
 	case LUAT_AUDIO_DRIVER_EVENT_RX_ONE_BLOCK_DONE:
 		if (ctrl->driver_work_mode >= LUAT_AUDIO_DRIVER_MODE_RECORD) {
-			if (_luat_audio.current_request_block && !_luat_audio.current_request_block->is_record_end) {
+			if (_luat_audio.current_request_block && !_luat_audio.current_request_block->is_record_need_stop) {
 				if (_luat_audio.current_request_block->data_channel != ctrl->data_channel) {
 					luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_PRINT, 1, (uint32_t)_luat_audio.current_request_block->data_channel, (uint32_t)ctrl->data_channel, 0);
 				} else {
@@ -342,7 +342,7 @@ static void _audio_current_request_stop(void)
 	_luat_audio.current_request_block->is_input_end = 1;
 	_luat_audio.current_request_block->is_wait_play_end = 1;
 	_luat_audio.current_request_block->play_blank_data_cnt = 0;
-	_luat_audio.current_request_block->is_record_end = 1;
+	_luat_audio.current_request_block->is_record_need_stop = 1;
 	luat_audio_driver_pa_power_off(_luat_audio.current_request_block->data_channel->driver_ctrl);
     luat_audio_driver_codec_power_off(_luat_audio.current_request_block->data_channel->driver_ctrl);
 	uint32_t cr = luat_rtos_entry_critical();
@@ -861,7 +861,7 @@ static void luat_audio_common_task(void *param)
 				uint8_t stop = 0;
 				uint8_t is_need_ref_data = request_block->is_need_ref_data;
 				deal_bytes = 0;
-				while (!stop && !request_block->is_record_end) {
+				while (!stop && !request_block->is_record_need_stop) {
 					read_bytes = 0;
 					temp_record_buffer.pos = 0;
 					ret =luat_audio_channel_read_data(request_block->data_channel, &temp_record_buffer, &request_block->record_temp_buffer, 
@@ -873,7 +873,6 @@ static void luat_audio_common_task(void *param)
 						stop = 1;
 						continue;
 					}
-
 					deal_bytes += temp_record_buffer.pos;
 					if (request_block->is_need_ref_data) {
 						read_bytes = 0;
@@ -914,7 +913,7 @@ static void luat_audio_common_task(void *param)
 						stop =1;
 					}
 				}
-				if (!request_block->is_record_end) {
+				if (!request_block->is_record_need_stop) {
 					request_block->cb(LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA, NULL, deal_bytes, request_block);
 				}
 				if (request_block->extern_record_source) {
@@ -975,7 +974,7 @@ static void luat_audio_common_task(void *param)
 					_luat_audio.current_request_block->is_input_end = 1;
 					_luat_audio.current_request_block->is_wait_play_end = 1;
 					_luat_audio.current_request_block->play_blank_data_cnt = 0;
-					_luat_audio.current_request_block->is_record_end = 1;
+					_luat_audio.current_request_block->is_record_need_stop = 1;
 					luat_audio_driver_pa_power_off(_luat_audio.current_request_block->data_channel->driver_ctrl);
 					luat_audio_driver_codec_power_off(_luat_audio.current_request_block->data_channel->driver_ctrl);
 					_audio_request_finish();
@@ -1727,4 +1726,9 @@ void luat_audio_request_init_record_temp_buffer(luat_audio_request_block_t *requ
 			return;
 		}
 	}
+}
+
+void luat_audio_request_record_pause(luat_audio_request_block_t *request_block, uint8_t is_pause)
+{
+	request_block->is_record_need_stop = is_pause;
 }

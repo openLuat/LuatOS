@@ -186,16 +186,18 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
     }
     if (tx_param) {
         ret = ctrl->opts->modify_audio_common_param(ctrl, tx_param->sample_rate, tx_param->data_align, tx_param->channel_nums, 0);
+        if (ret) {
+            return -LUAT_ERROR_OPERATION_FAILED;
+        }
     }
-    if (ret) {
-        return -LUAT_ERROR_OPERATION_FAILED;
-    }
+
     if (rx_param) {
         ret = ctrl->opts->modify_audio_common_param(ctrl, rx_param->sample_rate, rx_param->data_align, rx_param->channel_nums, 1);
+        if (ret) {
+            return -LUAT_ERROR_OPERATION_FAILED;
+        }
     }
-    if (ret) {
-        return -LUAT_ERROR_OPERATION_FAILED;
-    }
+
     if (ctrl->request_work_mode == LUAT_AUDIO_DRIVER_MODE_PLAY) {
         if (!one_block_len) {
             one_block_len = ctrl->opts->tx_one_block_max_len;

@@ -5,5 +5,5 @@
     },
     "action_count": 1,
     "priority": 5,
-    "description": "ndk lifecycle regression testcase (PC)"
+    "description": "ndk basic testcase (split modules with setUp/tearDown)"
 }

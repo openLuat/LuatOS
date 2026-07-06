@@ -71,7 +71,7 @@ LuatOS/
 
 ## Component AGENTS.md Standard
 
-Several sub-directories carry their own `AGENTS.md` — `luat/`, `script/`, `testcase/`, `bsp/pc/`, `components/network/`, `components/airui/`, `components/airlink/`, `components/luat_image/`, `components/pgfs/`, `components/serialization/protobuf/`, `components/utest/`, `components/ndk/`, `testcase/appstore/`, `testcase/utest/fs/vfs_uniform/`. Use the following rule to decide whether a new component needs one.
+Several sub-directories carry their own `AGENTS.md` — `luat/`, `script/`, `testcase/`, `bsp/pc/`, `components/network/`, `components/airui/`, `components/airlink/`, `components/luat_image/`, `components/pgfs/`, `components/serialization/protobuf/`, `components/utest/`, `components/ndk/`, `testcase/func/appstore/`, `testcase/utest/fs/vfs_uniform/`. Use the following rule to decide whether a new component needs one.
 
 **Create a component-level `AGENTS.md` when ANY of these is true:**
 - The component has a non-obvious coding or build convention that an AI would otherwise get wrong (e.g. `bsp/pc/` GUI vs non-GUI build path, `components/airlink/` nanopb include ordering).
@@ -128,7 +128,7 @@ All scripts accept an optional `full` argument to force a clean rebuild: `cmd /c
 build/out/luatos-lua.exe ../../testcase/common/scripts/ ../../testcase/<feature>/<feature>_basic/scripts/
 
 # Example
-build/out/luatos-lua.exe ../../testcase/common/scripts/ ../../testcase/unit_testcase_tools/mreport/scripts/
+build/out/luatos-lua.exe ../../testcase/common/scripts/ ../../testcase/unit/tools/mreport/scripts/
 ```
 
 ### Creating New Tests

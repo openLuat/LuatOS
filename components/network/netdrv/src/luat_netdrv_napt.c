@@ -101,14 +101,6 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
 }
 #else
 __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
-    /* Air8000 诊断: 入口采样,区分 wnet/lan 来源, 重点观察 AP 上行包是否到达 */
-    static uint32_t _air8k_in_cnt = 0;
-    int _air8k_log = ((_air8k_in_cnt++ & 0x1F) == 0);
-    int _air8k_is_wnet_arg = (s_gw_adapter_id == id);
-    if (_air8k_log) {
-        LLOGD("[AIR8000][napt_in] id=%d len=%u is_wnet=%d gw_ad=%d cnt=%u",
-              id, (unsigned)len, _air8k_is_wnet_arg, s_gw_adapter_id, (unsigned)_air8k_in_cnt);
-    }
     if (s_gw_adapter_id < 0) {
         // LLOGD("NAPT 未开启");
         return 0; // NAPT没有开启

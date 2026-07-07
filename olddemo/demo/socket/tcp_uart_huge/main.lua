@@ -3,8 +3,7 @@ socket客户端演示
 
 包括但不限于以下模组
 1. EC618系列 -- Air780E/Air780EG/Air600E/Air700E
-2. ESP32系列 -- ESP32C3/ESP32S3/ESP32C2
-3. 其他适配了socket层的bsp
+2. 其他适配了socket层的bsp
 
 支持的协议有: TCP/UDP/TLS-TCP/DTLS, 更高层级的协议,如http有单独的库
 
@@ -78,7 +77,7 @@ sys.taskInit(function()
     -- 统一联网函数, 可自行删减
     ----------------------------
     if wlan and wlan.connect then
-        -- wifi 联网, ESP32系列均支持, 要根据实际情况修改ssid和password!!
+        -- wifi 联网, 带 wlan 模块的模组均支持, 要根据实际情况修改ssid和password!!
         local ssid = "luatos1234"
         local password = "12341234"
         log.info("wifi", ssid, password)

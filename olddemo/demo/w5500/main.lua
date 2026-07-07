@@ -41,10 +41,7 @@ sys.taskInit(function()
     -- 下列默认选取的GPIO不是强制的, 可以替换成其他GPIO的
     local rtos_bsp = rtos.bsp()
     log.info("setup w5500 for", rtos_bsp)
-    if rtos_bsp:startsWith("ESP32") then
-        -- ESP32C3, GPIO5接SCS, GPIO6接IRQ/INT, GPIO8接RST
-        w5500.init(2, 20000000, 5, 6, 8)
-    elseif rtos_bsp:startsWith("EC618") then
+    if rtos_bsp:startsWith("EC618") then
         -- EC618系列, 如Air780E/Air600E/Air700E
         -- GPIO8接SCS, GPIO1接IRQ/INT, GPIO22接RST
         w5500.init(0, 25600000, 8, 1, 22)

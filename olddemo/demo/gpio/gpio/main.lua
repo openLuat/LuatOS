@@ -27,11 +27,7 @@ end
 --【HaoSir2022】于2022年4月21日增加
 local rtos_bsp = rtos.bsp()
 function pinx() -- 根据不同开发板，给LED赋值不同的gpio引脚编号
-    if rtos_bsp == "ESP32C3" then -- ESP32C3开发板的引脚
-        return 12, 13, 255 -- 开发板上就2个灯
-    elseif rtos_bsp == "ESP32S3" then -- ESP32C3开发板的引脚
-        return 10, 11, 255 -- 开发板上就2个灯
-    elseif rtos_bsp == "EC618" then -- Air780E开发板引脚
+    if rtos_bsp == "EC618" then -- Air780E开发板引脚
         return 27, 255, 255 -- AIR780E开发板上就一个灯
     elseif string.find(rtos_bsp,"Air780EQ") or string.find(rtos_bsp,"EC716E") then -- Air780EQ开发板引脚
         return 14, 255, 255 -- AIR780EQ开发板上就一个灯

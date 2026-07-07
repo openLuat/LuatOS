@@ -9,13 +9,7 @@ local testAdc = {}
 
 local rtos_bsp = rtos.bsp()
 function adc_pin() -- 根据不同开发板，设置ADC编号
-    if rtos_bsp == "ESP32C3" then -- ESP32C3开发板ADC编号
-        return 0,1,2,3,adc.CH_CPU , 255
-    elseif rtos_bsp == "ESP32C2" then -- ESP32C2开发板ADC编号
-        return 0,1,2,3,adc.CH_CPU , 255
-    elseif rtos_bsp == "ESP32S3" then -- ESP32S3开发板ADC编号
-        return 0,1,2,3,adc.CH_CPU , 255
-    elseif rtos_bsp == "EC618" then --Air780E开发板ADC编号
+    if rtos_bsp == "EC618" then --Air780E开发板ADC编号
         -- 默认不开启分压,范围是0-1.2v精度高
         -- 设置分压要在adc.open之前设置，否则无效!!
         -- adc.setRange(adc.ADC_RANGE_3_8)

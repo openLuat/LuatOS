@@ -37,11 +37,7 @@ local rtos_bsp = rtos.bsp()
 
 -- spi_id,pin_reset,pin_dc,pin_cs,pin_busy
 function eink_pin()
-    if rtos_bsp == "ESP32C3" then
-        return 2,10,6,7,11
-    elseif rtos_bsp == "ESP32S3" then
-        return 2,16,15,14,13
-    elseif rtos_bsp == "EC618" then
+    if rtos_bsp == "EC618" then
         return 0,1,10,8,22
     elseif string.find(rtos_bsp,"EC718") then
         return 0,10,14,8,15

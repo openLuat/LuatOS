@@ -26,7 +26,7 @@ sys.taskInit(function()
     -- 统一联网函数, 可自行删减
     ----------------------------
     if wlan and wlan.connect then
-        -- wifi 联网, ESP32系列均支持
+        -- wifi 联网, 带 wlan 模块的模组均支持
         local ssid = "luatos1234"
         local password = "12341234"
         log.info("wifi", ssid, password)
@@ -63,7 +63,6 @@ sys.taskInit(function()
     local ret, device_id = sys.waitUntil("net_ready")
     sys.wait(1000)
     -- 对于Cat.1模块, 移动/电信卡, 通常会下发基站时间,  那么sntp就不是必要的, 而联通卡通常不会下发, 就需要sntp了
-    -- 对应ESP32系列模块, 固件默认也会执行sntp, 所以手动调用sntp也是可选的
     -- sntp内置了几个常用的ntp服务器, 也支持自选服务器
     while 1 do
         -- 使用内置的ntp服务器地址, 包括阿里ntp

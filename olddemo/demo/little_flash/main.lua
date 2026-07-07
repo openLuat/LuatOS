@@ -16,11 +16,7 @@ end
 -- spi_id,pin_cs
 local function little_flash_spi_pin()
     local rtos_bsp = rtos.bsp()
-    if rtos_bsp == "ESP32C3" then
-        return 2,7
-    elseif rtos_bsp == "ESP32S3" then
-        return 2,14
-    elseif rtos_bsp == "EC618" then
+    if rtos_bsp == "EC618" then
         return 0,8
     elseif string.find(rtos_bsp,"EC718") then
         return 0,8

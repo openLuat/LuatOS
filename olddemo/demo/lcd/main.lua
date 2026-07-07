@@ -28,11 +28,7 @@ local chip_type = hmeta.chip()
 -- 根据不同的BSP返回不同的值
 -- spi_id,pin_reset,pin_dc,pin_cs,bl
 function lcd_pin()
-    if rtos_bsp == "ESP32C3" then
-        return 2,10,6,7,11
-    elseif rtos_bsp == "ESP32S3" then
-        return 2,16,15,14,13
-    elseif rtos_bsp == "EC618" then
+    if rtos_bsp == "EC618" then
         return 0,1,10,8,22
     elseif string.find(rtos_bsp,"EC718") or string.find(chip_type,"EC718") then
         return lcd.HWID_0,36,0xff,0xff,25 -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持

@@ -21,7 +21,7 @@ sys.taskInit(function()
     -- 统一联网函数, 可自行删减
     ----------------------------
     if wlan and wlan.connect then
-        -- wifi 联网, ESP32系列均支持, 要根据实际情况修改ssid和password!!
+        -- wifi 联网, 带 wlan 模块的模组均支持, 要根据实际情况修改ssid和password!!
         local ssid = "luatos1234"
         local password = "12341234"
         log.info("wifi", ssid, password)

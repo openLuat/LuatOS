@@ -16,12 +16,7 @@ local sys = require "sys"
 _G.sysplus = require("sysplus")
 
 function pinx()
-    local bsp = rtos.bsp()
-    if bsp:startsWith("ESP32") then
-        return 0, 2
-    else
-        return 0, 1
-    end
+    return 0, 1
 end
 
 local i2cid, irq_pin = pinx()

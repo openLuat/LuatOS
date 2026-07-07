@@ -22,11 +22,7 @@ local rtos_bsp = rtos.bsp()
 
 -- spi_id,pin_cs,pin_reset,pin_busy,pin_dio1
 local function lora_pin()
-    if rtos_bsp == "ESP32C3" then
-        return 2,7,6,11,5
-    elseif rtos_bsp == "ESP32S3" then
-        return 2,14,15,13,12
-    elseif rtos_bsp == "EC618" then
+    if rtos_bsp == "EC618" then
         return 0,8,1,18,19
     elseif string.find(rtos_bsp,"EC718") then
         return 0,8,1,31,32

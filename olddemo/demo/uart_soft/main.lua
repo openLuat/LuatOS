@@ -17,11 +17,7 @@ log.info("main", "soft uart demo")
 
 local function resouce()
     local rtos_bsp = rtos.bsp()
-    if rtos_bsp == "ESP32C3" then
-        return nil,nil,nil,nil,nil,nil,nil
-    elseif rtos_bsp == "ESP32S3" then
-        return nil,nil,nil,nil,nil,nil,nil
-    elseif rtos_bsp == "EC618" then
+    if rtos_bsp == "EC618" then
         return 17,0,1,2,19200,0,-1
 	elseif string.find(rtos_bsp,"EC718")then
         return 2,0,3,2,9600,0,0

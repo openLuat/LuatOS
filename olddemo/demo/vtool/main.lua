@@ -10,11 +10,7 @@ local rtos_bsp = rtos.bsp()
 
 -- spi_id,pin_cs
 local function fatfs_spi_pin()
-    if rtos_bsp == "ESP32C3" then
-        return 2, 7
-    elseif rtos_bsp == "ESP32S3" then
-        return 2, 14
-    elseif rtos_bsp == "EC618" then
+    if rtos_bsp == "EC618" then
         return 0, 8
     elseif string.find(rtos_bsp,"EC718") then
         return 0, 8

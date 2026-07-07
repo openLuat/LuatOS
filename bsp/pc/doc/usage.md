@@ -51,7 +51,7 @@ luatos-pc.exe test/001.helloworld/main.lua ../LuatOS/demo/gmssl/
 ## 加载luatools项目文件直接启动
 
 ```bash
-luatos-pc.exe --llt=D:/luatools/project/air101_gpio.ini
+luatos-pc.exe --llt=D:/luatools/project/air780epm_gpio.ini
 ```
 
 ## 加载luadb镜像文件启动

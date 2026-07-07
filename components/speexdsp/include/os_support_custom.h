@@ -6,6 +6,9 @@
 
 #include "luat_mem.h"
 
+#undef EXPORT
+#define EXPORT
+
 #define OVERRIDE_SPEEX_ALLOC
 static inline void *speex_alloc(int size) {
     return luat_heap_calloc(1, size);

@@ -142,9 +142,6 @@ function audio_setup()
         audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "tm8211", i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
         -- audio.vol(multimedia_id, voice_vol)
 		]]
-    elseif bsp == "AIR105" then
-        -- Air105开发板支持DAC直接输出
-        audio.config(0, 25, 1, 3, 100)
     else
         -- 其他板子未支持
         while 1 do

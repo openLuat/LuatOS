@@ -155,9 +155,6 @@ function audio_setup()
         audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "tm8211", i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
         -- audio.vol(multimedia_id, voice_vol)
 		]]
-    elseif bsp == "AIR105" then
-        -- Air105开发板支持DAC直接输出
-        audio.config(0, 25, 1, 3, 100)
     else
         -- 其他板子未支持
         while 1 do
@@ -229,11 +226,7 @@ local function audio_task()
     while true do
         log.info("开始播放")
         -- 两个列表前后播放
-        if rtos.bsp() == "AIR105" then
-            result = audio.play(0, "/luadb/test_32k.mp3")
-        else
-            result = audio.play(0, counter % 2 == 1 and amrs or mp3s)
-        end
+        result = audio.play(0, counter % 2 == 1 and amrs or mp3s)
         counter = counter + 1
         if result then
         --等待音频通道的回调消息，或者切换歌曲的消息

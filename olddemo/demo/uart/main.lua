@@ -39,7 +39,6 @@ uart.on(uartid, "receive", function(id, len)
             log.info("uart", "receive", id, #s, s)
             -- log.info("uart", "receive", id, #s, s:toHex())
         end
-        -- 如使用2024.5.13之前编译的ESP32C3/ESP32S3固件, 恢复下面的代码可以正常工作
         -- if #s == len then
         --     break
         -- end

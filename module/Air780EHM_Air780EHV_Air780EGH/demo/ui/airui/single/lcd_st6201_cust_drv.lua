@@ -34,7 +34,21 @@ else
 end
 ]]
 
+-- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，
+--屏幕旋转只需要更改ST6201_direction的值即可
+local ST6201_direction = 0
+local width, height = 480, 272
+local HorizontalFlag = false
+
 local function lcd_drv_init()
+
+    if ST6201_direction % 2 == 0 then
+        HorizontalFlag = true
+        width, height = 480, 272
+    else
+        HorizontalFlag = false
+        width, height = 272, 480
+    end
     local result = lcd.init("custom",
         {
             -- 背光控制引脚GPIO端口号
@@ -46,10 +60,10 @@ local function lcd_drv_init()
             -- 使用lcd.wakeup接口唤醒lcd后，需要手动控通过gpio接口打开背光；
             
             port = lcd.HWID_0,                             -- 驱动端口
-            w = 480,                                       -- lcd 水平分辨率
-            h = 272,                                       -- lcd 竖直分辨率
+            w = width,                                     -- lcd 水平分辨率
+            h = height,                                    -- lcd 竖直分辨率
             pin_pwr = 1,
-            direction = 0,                                 -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
+            direction = ST6201_direction,                    -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
             xoffset = 0,                                   -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
             yoffset = 0,                                   -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
             bus_speed = 80*1000*1000,
@@ -72,7 +86,18 @@ local function lcd_drv_init()
     lcd.cmd(0x3A, string.char(0x01)); 
     sys.wait(10)
     --设置扫描方向为BGR顺序（配合 rb_swap）
-    lcd.cmd(0x36, string.char(0x00)); 
+    --如果需要改变显示方向，需要同步更改lcd.init中的direction参数、w/h参数以及0x36,0x2A/0x2B的参数
+    --例如，
+    --如果需要旋转180°，则需要将lcd.init中的direction参数设置为2，0x36的参数将设置为0xC0,其余不变
+    --如果需要旋转90°，则需要将lcd.init中的direction参数设置为1，0x36的参数将设置为0xA0，w/h参数值需要交换,0x2A/0x2B参数值交换
+    --如果需要旋转270°，则需要将lcd.init中的direction参数设置为3，0x36的参数将设置为0x20,w/h参数值需要交换,0x2A/0x2B参数值交换
+    --即：
+    --0°: w=480,h=272,0x36=0x00, 0x2A=0x00,0x00,0x01,0xDF, 0x2B=0x00,0x00,0x01,0x0F
+    --180°: w=480,h=272,0x36=0xC0, 0x2A=0x00,0x00,0x01,0xDF, 0x2B=0x00,0x01,0x0F
+    --90°: w=272,h=480,0x36=0xA0, 0x2A=0x00,0x00,0x01,0x0F, 0x2B=0x00,0x00,0x01,0xDF
+    --270°: w=272,h=480,0x36=0x60, 0x2A=0x00,0x00,0x01,0x0F, 0x2B=0x00,0x00,0x01,0xDF
+    local madctl_values = {0x00, 0xA0, 0xC0, 0x60}
+    lcd.cmd(0x36, string.char(madctl_values[ST6201_direction+1]))
     sys.wait(1)  -- BGR 顺序（配合 rb_swap）
     --
     lcd.cmd(0x40, string.char(0x00))
@@ -82,10 +107,15 @@ local function lcd_drv_init()
     lcd.cmd(0x21); 
     sys.wait(120)
 
+    if HorizontalFlag then
     -- 设置全屏地址窗口（列 0~479，行 0~271）
-    lcd.cmd(0x2A, string.char(0x00, 0x00, 0x01, 0xDF))
-    lcd.cmd(0x2B, string.char(0x00, 0x00, 0x01, 0x0F))
-
+        lcd.cmd(0x2A, string.char(0x00, 0x00, 0x01, 0xDF))
+        lcd.cmd(0x2B, string.char(0x00, 0x00, 0x01, 0x0F))
+    else
+    -- 设置全屏地址窗口（列 0~271，行 0~479）
+        lcd.cmd(0x2A, string.char(0x00, 0x00, 0x01, 0x0F))
+        lcd.cmd(0x2B, string.char(0x00, 0x00, 0x01, 0xDF))
+    end
     --开启显示
     lcd.cmd(0x29); 
     --必须等待20ms保持稳定
@@ -146,8 +176,8 @@ local function lcd_drv_init()
         end
     end
 
-    -- 通知 lcd_app 任务：LCD 与 AirUI 初始化已完成
-    sys.publish("ST6201_LCD_AIRUI_READY")
 end
 
-sys.taskInit(lcd_drv_init)
+
+lcd_drv_init()
+

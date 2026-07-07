@@ -69,7 +69,7 @@ void SX126xWakeup2( lora_device_t* lora_device){
 
 void SX126xWriteCommand2( lora_device_t* lora_device,RadioCommands_t command, uint8_t *buffer, uint16_t size ){
     SX126xCheckDeviceReady2( lora_device );
-    uint8_t cmd[1+size];
+    uint8_t cmd[256];
     cmd[0] = (uint8_t)command;
     memcpy(cmd+1,buffer,size);
     lora_spi_transfer(lora_device, cmd, 1+size,NULL,0);
@@ -87,7 +87,7 @@ void SX126xReadCommand2( lora_device_t* lora_device,RadioCommands_t command, uin
 
 void SX126xWriteRegister2s2(lora_device_t* lora_device, uint16_t address, uint8_t *buffer, uint16_t size ){
     SX126xCheckDeviceReady2( lora_device );
-    uint8_t cmd[3+size];
+    uint8_t cmd[256];
     cmd[0] = RADIO_WRITE_REGISTER;
     cmd[1] = (address & 0xFF00 ) >> 8;
     cmd[2] = address & 0x00FF;
@@ -115,7 +115,7 @@ uint8_t SX126xReadRegister2( lora_device_t* lora_device,uint16_t address ){
 
 void SX126xWriteBuffer2( lora_device_t* lora_device,uint8_t offset, uint8_t *buffer, uint8_t size ){
     SX126xCheckDeviceReady2( lora_device);
-    uint8_t cmd[2+size];
+    uint8_t cmd[256];
     cmd[0] = RADIO_WRITE_BUFFER;
     cmd[1] = offset;
     memcpy(cmd+2,buffer,size);

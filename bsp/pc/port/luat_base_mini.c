@@ -267,6 +267,9 @@ static const luaL_Reg loadedlibs[] = {
   // PC模拟器截图: pcscreenshot.capture(path) → BMP 文件
   {"pcscreenshot", luaopen_pcscreenshot},
 #endif
+#ifdef LUAT_USE_LORA2
+  {"lora2", luaopen_lora2},
+#endif
   {NULL, NULL}
 };
 

@@ -565,6 +565,10 @@ target("luatos-lua")
     add_files(luatos.."components/gbc/port/gbc_airui_video.c")
     add_files(luatos.."components/gbc/luat_lib_gbc.c")
 
+    -- 关联编译lora2库
+    add_includedirs(luatos.."components/lora2")
+    add_files(luatos.."components/lora2/**.c")
+
     if use_gui then
         add_packages("libsdl2")
         add_files("ui/*.c")

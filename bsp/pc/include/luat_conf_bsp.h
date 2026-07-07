@@ -141,6 +141,8 @@
 // #define LUAT_USE_I2CTOOLS 1
 // #define LUAT_USE_LORA 1
 #define LUAT_USE_LORA2 1
+// lora2 是否支持 FSK/GFSK 调制，默认开启以保持兼容；不需要时注释掉可节省 flash
+#define LUAT_USE_LORA2_FSK 1
 // #define LUAT_USE_MAX30102 1
 // #define LUAT_USE_MLX90640 1
 #define LUAT_USE_YMODEM 1

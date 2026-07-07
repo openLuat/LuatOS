@@ -144,12 +144,12 @@ local A_16 = {"airui", "audio.tts", "cc", "camera", "fastlz", "fatfs", "lf", "au
               "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "socket", "spi", "string",
               "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
-local A_17 = {"airui", "nes", "fastlz", "fatfs", "lf", "ble", "libgnss", "otp",
-              "tp", "lcd","hzfont", "yhm27xx", "sms", "adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp",
-              "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth",
-              "iperf", "json", "log", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm",
-              "protobuf", "pwm", "rsa", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt",
-              "websocket", "wlan", "xxtea", "zbuff"}
+local A_17 = {"airui", "nes", "fastlz", "fatfs", "lf", "ble", "libgnss", "otp", "tp", "lcd", "hzfont", "yhm27xx", "sms",
+              "adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta",
+              "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf", "json", "log", "mcu",
+              "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa",
+              "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea",
+              "zbuff"}
 
 local A_size = {
     [1] = {
@@ -241,32 +241,31 @@ local B_2 = {"camera", "lcd", "u8g2", "protobuf", "adc", "bit64", "can", "crypto
              "websocket", "wlan", "xxtea", "zbuff"}
 
 -- 3号固件
-local B_3 = {"libgnss", "protobuf", "adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp",
-             "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf",
-             "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm",
-             "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt",
-             "websocket", "wlan", "xxtea", "zbuff"}
+local B_3 = {"libgnss", "protobuf", "adc", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio",
+             "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf", "json", "log",
+             "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm", "pwm", "rsa",
+             "rtc", "rtos", "sms", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan",
+             "xxtea", "zbuff"}
 
 -- 4号固件
-local B_4 = {"lf", "libgnss", "otp", "fft", "protobuf", "adc", "airlink", "bit64", "can", "crypto", "errDump", "fota",
+local B_4 = {"lf", "libgnss", "otp", "fft", "protobuf", "adc", "bit64", "can", "crypto", "errDump", "fota", "fskv",
+             "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth",
+             "iperf", "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack",
+             "pins", "pm", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string", "sys", "sysplus", "uart",
+             "wdt", "websocket", "wlan", "xxtea", "zbuff"}
+
+-- 5号固件
+local B_5 = {"camera", "lf", "libgnss", "otp", "fft", "protobuf", "adc", "bit64", "can", "crypto", "errDump", "fota",
              "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue",
              "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os",
              "pack", "pins", "pm", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string", "sys", "sysplus",
              "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff"}
 
--- 5号固件
-local B_5 = {"camera", "lf", "libgnss", "otp", "fft", "protobuf", "adc", "airlink", "bit64", "can", "crypto", "errDump",
-             "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io",
-             "ioqueue", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv",
-             "onewire", "os", "pack", "pins", "pm", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string",
-             "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff"}
-
 -- 6号固件
-local B_6 = {"adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta",
-             "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf", "json", "log", "lora2",
-             "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm", "pwm", "rsa", "rtc",
-             "rtos", "sms", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea",
-             "zbuff"}
+local B_6 = {"adc", "bit64", "can", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621",
+             "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf", "json", "log", "lora2", "mcu",
+             "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm", "pwm", "rsa", "rtc", "rtos",
+             "sms", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff"}
 
 local B_7 = {"lcd", "u8g2", "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv", "iperf", "io", "json",
              "log", "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins", "pm", "pwm", "rtc",
@@ -275,6 +274,15 @@ local B_7 = {"lcd", "u8g2", "adc", "crypto", "errDump", "fota", "fskv", "gpio", 
 local B_8 = {"airlink", "lcd", "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv", "io", "json", "log",
              "iperf", "websocket", "fastlz", "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins",
              "pm", "pwm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
+
+local B_9 = {"airlink", "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv", "io", "json", "log",
+             "iperf", "websocket", "fastlz", "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins",
+             "pm", "pwm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
+
+local B_10 = {"libgnss", "protobuf", "adc", "bit64", "can", "crypto", "errDump", "fota", "fskv", "fastlz", "gmssl",
+              "gpio", "hmeta", "http", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf", "json", "log", "mcu",
+              "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm", "pwm", "rsa", "rtc", "rtos",
+              "sms", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff"}
 local B_size = {
     [1] = {
         fs_size = 168,
@@ -308,6 +316,14 @@ local B_size = {
     [8] = {
         fs_size = 168,
         script_size = 288
+    },
+    [9] = {
+        fs_size = 168,
+        script_size = 288
+    },
+    [10] = {
+        fs_size = 168,
+        script_size = 384
     }
 }
 
@@ -498,7 +514,12 @@ local function getConfigByCore()
             config_table = B_7
         elseif table_name == "B_8" then
             config_table = B_8
+        elseif table_name == "B_9" then
+            config_table = B_9
+        elseif table_name == "B_10" then
+            config_table = B_10
         else
+
             log.error("未知的配置表名:", table_name)
         end
 

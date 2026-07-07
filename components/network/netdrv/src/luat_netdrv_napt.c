@@ -43,9 +43,56 @@ static void napt_sync_gw_netif(int adapter_id) {
     if (drv->netif == real_netif) return;
     uint32_t old_ip = drv->netif ? ip_addr_get_ip4_u32(&drv->netif->ip_addr) : 0;
     uint32_t new_ip = ip_addr_get_ip4_u32(&real_netif->ip_addr);
+    /* Air8000 fix (v3): Two-layer RNDIS detection.
+     * v2 (precise) layer alone is INSUFFICIENT because napt_enable runs BEFORE
+     * luat_netdrv_rndis_link_up() assigns netdrv_rndis.netif, so the USB drv
+     * netif is still NULL at sync time and the precise check passes.
+     * v3 adds an SDK-side layer: query net_lwip_get_netif(NW_ADAPTER_INDEX_LWIP_USB),
+     * which works as soon as SDK registers the RNDIS netif (even before LuatOS
+     * sees it). This catches the RNDIS pollution at NAPT enable time, while
+     * still avoiding the 10.x heuristic false-positives. */
+    if (old_ip != 0 && new_ip != old_ip) {
+    #ifdef NW_ADAPTER_INDEX_LWIP_USB
+        /* Layer 1: LuatOS USB netdrv (available after rndis_link_up) */
+        luat_netdrv_t* _usb_drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_USB);
+        if (_usb_drv != NULL && _usb_drv->netif != NULL && real_netif == _usb_drv->netif) {
+            LLOGW("NAPT netif sync REJECT (L1 luat-usb): adapter=%d new netif is USB/RNDIS (IP %08X), keep original (IP %08X)",
+                  adapter_id, new_ip, old_ip);
+            return;
+        }
+        /* Layer 2: SDK-side lookup (works before LuatOS USB drv is wired up) */
+        struct netif* _sdk_usb_netif = net_lwip_get_netif(NW_ADAPTER_INDEX_LWIP_USB);
+        if (_sdk_usb_netif != NULL && real_netif == _sdk_usb_netif) {
+            LLOGW("NAPT netif sync REJECT (L2 sdk-usb): adapter=%d new netif is SDK RNDIS (IP %08X), keep original (IP %08X)",
+                  adapter_id, new_ip, old_ip);
+            return;
+        }
+        /* Layer 3: IP-equal compare. Works when SDK pollutes via DATA (not pointer):
+         * if new_ip equals USB netif's IP, the GPRS slot was overwritten with RNDIS LAN IP.
+         * Safe vs multi-10.x because Eth/STA WAN IPs would never equal RNDIS LAN IP. */
+        if (_sdk_usb_netif != NULL) {
+            uint32_t _usb_ip = ip_addr_get_ip4_u32(&_sdk_usb_netif->ip_addr);
+            if (_usb_ip != 0 && new_ip == _usb_ip) {
+                LLOGW("NAPT netif sync REJECT (L3 ip-eq-rndis): adapter=%d new IP %08X equals USB/RNDIS IP, keep original (IP %08X)",
+                      adapter_id, new_ip, old_ip);
+                return;
+            }
+        }
+    #endif
+    }
+    /* Air8000 fix L4: \u591a PDP context \u4fdd\u62a4.
+     * SDK \u5c42 net_lwip_get_netif() \u5355\u69fd\u8fd4\u56de prvlwip.lwip_netif,
+     * \u5f53 CP \u4fa7\u6fc0\u6d3b\u591a\u4e2a PDP (IMS/VoLTE/eMBMS) \u65f6\u4f1a\u88ab\u540e\u6fc0\u6d3b\u7684\u8986\u76d6,
+     * \u5bfc\u81f4 gw netif \u5207\u5230\u975e\u9ed8\u8ba4 PDP context. \u8fd0\u8425\u5546 GTP \u9694\u79bb\u4e0b, luaNAPT \u4e0a\u884c src
+     * \u5199\u6210 IMS PDP IP \u4f1a\u76f4\u63a5\u4e22\u3002 \u53ea\u8981 old_ip \u5df2\u6709\u503c\u4e14 new_ip \u4e0d\u540c, \u5c31\u4fdd\u7559 old\u3002 */
+    if (old_ip != 0 && new_ip != old_ip) {
+        LLOGW("NAPT netif sync REJECT (L4 multi-pdp): adapter=%d new IP %08X old IP %08X, keep original (\u907f\u514d IMS/\u5907\u4efd PDP \u62a2\u5360 gw netif)",
+              adapter_id, new_ip, old_ip);
+        return;
+    }
     LLOGI("NAPT netif sync: adapter=%d old=%p(IP %08X) -> new=%p(IP %08X)", adapter_id, drv->netif, old_ip, real_netif, new_ip);
     drv->netif = real_netif;
-    #endif
+        #endif
 }
 
 #if !defined(LUAT_USE_PSRAM) && !defined(LUAT_USE_NETDRV_NAPT)
@@ -238,4 +285,25 @@ void luat_netdrv_napt_disable(void) {
     luat_netdrv_napt_udp_cleanup();
     luat_netdrv_napt_icmp_cleanup();
     s_gw_adapter_id = -1;
+}
+void luat_netdrv_napt_set_gw(int adapter_id) {
+    LLOGD("NAPT set_gw: adapter=%d", adapter_id);
+    s_gw_adapter_id = adapter_id;
+    napt_sync_gw_netif(adapter_id);
+    if (adapter_id > 0) {
+        luat_netdrv_t* gw = luat_netdrv_get(adapter_id);
+        if (gw && gw->netif) {
+            ip4_addr_t* gw_ip = &gw->netif->gw;
+            if (!ip4_addr_isany(gw_ip)) {
+                err_t err = etharp_query(gw->netif, gw_ip, NULL);
+                LLOGD("NAPT set_gw: ARP query gw=%08X result=%d", gw_ip->addr, err);
+            }
+        }
+    }
+}
+
+
+/* Air8000: expose current NAPT gateway adapter_id (used by CSDK wrap_ip_input.c) */
+int luat_netdrv_napt_get_gw_adapter(void) {
+    return s_gw_adapter_id;
 }

@@ -104,9 +104,10 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		prvlwip.dns_udp[adapter_index] = udp_new();
 		prvlwip.dns_udp[adapter_index]->recv = net_lwip2_dns_recv_cb;
 		prvlwip.dns_udp[adapter_index]->recv_arg = adapter_index;
-		#if LWIP_VERSION_MAJOR == 2 && LWIP_VERSION_MINOR >= 1
-		//udp_bind_netif(prvlwip.dns_udp[adapter_index], netif);
-		#endif
+		// #if LWIP_VERSION_MAJOR == 2 && LWIP_VERSION_MINOR >= 1
+		extern void udp_bind_netif(struct udp_pcb *pcb, const struct netif* netif);
+		udp_bind_netif(prvlwip.dns_udp[adapter_index], netif);
+		// #endif
 		int tmp = adapter_index;
 		prvlwip.dns_timer[adapter_index] = platform_create_timer(net_lwip2_timer_cb, (void *)tmp, NULL);
 	}
@@ -820,6 +821,13 @@ static void net_lwip2_task(void *param)
 		}
 		else
 		{
+			// Air8000 multi-net: pin Lua/socket UDP PCB to current adapter's netif
+			// so udp_input_local_match's netif_idx filter prevents cross-netif
+			// (e.g. RNDIS broadcast) hijack of AP/ETH dhcpsrv.lua UDP PCB.
+			if (prvlwip.lwip_netif[adapter_index]) {
+				extern void udp_bind_netif(struct udp_pcb *pcb, const struct netif *netif);
+				udp_bind_netif(prvlwip.socket[socket_id].pcb.udp, prvlwip.lwip_netif[adapter_index]);
+			}
 			// NET_DBG("udp bind %d", prvlwip.socket[socket_id].local_port);
 			error = udp_bind(prvlwip.socket[socket_id].pcb.udp, local_ip, prvlwip.socket[socket_id].local_port);
 			if (error) {
@@ -1195,6 +1203,11 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 		prvlwip.socket[socket_id].pcb.udp = udp_new();
 		if (prvlwip.socket[socket_id].pcb.udp)
 		{
+			// Air8000 multi-net: pin Lua/socket UDP PCB early to current adapter netif
+			if (prvlwip.lwip_netif[adapter_index]) {
+				extern void udp_bind_netif(struct udp_pcb *pcb, const struct netif *netif);
+				udp_bind_netif(prvlwip.socket[socket_id].pcb.udp, prvlwip.lwip_netif[adapter_index]);
+			}
 			prvlwip.socket[socket_id].pcb.udp->recv_arg = uPV.p;
 			prvlwip.socket[socket_id].pcb.udp->recv = net_lwip2_udp_recv_cb;
 			prvlwip.socket[socket_id].pcb.udp->so_options |= SOF_BROADCAST|SOF_REUSEADDR;

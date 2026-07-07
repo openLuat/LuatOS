@@ -95,7 +95,7 @@ Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/ma
   - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite https_basic -SkipBuild`
 - After the first suite build, reuse the same binary for more suites with `-SkipBuild`
 - `-Suite` and `-TestcaseScripts` are mutually exclusive; pass only one of them
-- `-Suite <name>` is resolved by scanning `testcase/utest/{net,lib,sys,fs}/<name>/` first, then `testcase/unit_testcase_tools/<name>/` as a fallback
+- `-Suite <name>` is resolved by scanning `testcase/utest/{net,lib,sys,fs}/<name>/` first, then `testcase/unit/<domain>/<name>/` and `testcase/func/<domain>/<name>/` as fallbacks
 - Coverage HTML is written to `build\coverage\<suite>\html\index.html`
 - C-layer utest suites (under `testcase\utest\`):
   - `net/dtls_basic`: PC-only DTLS-PSK loopback against `127.0.0.1`

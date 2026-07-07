@@ -41,9 +41,13 @@ local IS_DIAL = false
 -- 主动拨出时的目标号码（IS_DIAL=true时有效）
 local DIAL_NUMBER = "10000"
 
--- 音频播放
-local PLAY_SOURCE = {"/luadb/test_16k.mp3"}     -- 播放文件模式，注意单个文件也要用table
--- local PLAY_SOURCE = "你好，测试一下，123456789"  -- 播放TTS模式
+-- 播放模式选择（二选一）：
+local PLAY_MODE = "FILE"         -- "FILE"播放文件, "TTS"播放文本
+-- 文件播放模式（PLAY_MODE="FILE"时生效）：
+local PLAY_FILE_8K = "/luadb/test_8k.mp3"     -- 8K通话时播放的文件
+local PLAY_FILE_16K = "/luadb/test_16k.mp3"   -- 16K通话时播放的文件
+-- TTS播放模式（PLAY_MODE="TTS"时生效）：
+local PLAY_TTS_TEXT = "你好，测试一下，123456789"
 
 -- ====================== 全局状态变量 ======================
 local call_counter = 0                 -- 响铃计数器
@@ -78,6 +82,20 @@ local function handle_outgoing_call(status)
     end
 end
 
+-- 根据模式和通话质量获取播放源
+local function get_play_source_by_quality(cc_quality)
+    if PLAY_MODE == "TTS" then
+        return PLAY_TTS_TEXT
+    end
+    -- 文件模式：根据通话质量选择对应的音频文件
+    if cc_quality == 1 then
+        return {PLAY_FILE_8K}
+    elseif cc_quality == 2 then
+        return {PLAY_FILE_16K}
+    end
+    return {PLAY_FILE_16K}
+end
+
 -- 通话中播放外部音频（接通音频通道后触发）
 local function play_extern_source()
     local quality = cc.quality()
@@ -85,13 +103,15 @@ local function play_extern_source()
 
     -- 先清理上一次通话可能残留的extern_source状态，确保第二次也能播放
     cc.extern_source()
+    -- 根据模式获取播放源
+    local play_source = get_play_source_by_quality(quality)
     -- 播放音频
-    local ok = cc.extern_source(PLAY_SOURCE)
+    local ok = cc.extern_source(play_source)
     if ok then
-        if type(PLAY_SOURCE) == "table" then
-            log.info("extern_demo", "开始播放文件:", PLAY_SOURCE[1])
-        elseif type(PLAY_SOURCE) == "string" then
-            log.info("extern_demo", "开始播放TTS:", PLAY_SOURCE)
+        if type(play_source) == "table" then
+            log.info("extern_demo", "开始播放文件:", play_source[1])
+        elseif type(play_source) == "string" then
+            log.info("extern_demo", "开始播放TTS:", play_source)
         end
     else
         log.error("extern_demo", "播放失败，可能音频参数与通话不匹配")
@@ -114,7 +134,7 @@ sys.subscribe("CC_IND", function(status)
         play_extern_source()
     end
 
-    -- SPEECH_START：通话开始（录音回调会同时触发）
+    -- SPEECH_START：通话开始
     if status == "SPEECH_START" then
         is_connected = true
         log.info("extern_demo", "通话已建立")
@@ -151,7 +171,7 @@ local function init_cc()
     cc.init(audio_drv.getMultimediaId())
 
     log.info("cc_extern_source_demo", IS_DIAL and "主动拨号模式" or "来电接听模式")
-    log.info("cc_extern_source_demo", "播放源: ", type(PLAY_SOURCE) == "table" and "FILE" or "TTS")
+    log.info("cc_extern_source_demo", "播放模式: ", PLAY_MODE)
     log.info("cc_extern_source_demo", "电话系统初始化完成")
 end
 

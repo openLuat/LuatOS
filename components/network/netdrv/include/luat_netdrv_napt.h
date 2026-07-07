@@ -8,7 +8,6 @@
 #include "luat_netdrv.h"
 #include "luat_netdrv_pkg.h"
 #include <string.h>
-
 // NAPT公共类型别名
 #ifndef NAPT_TYPE_ALIASES
 #define NAPT_TYPE_ALIASES
@@ -231,3 +230,7 @@ extern luat_netdrv_napt_ctx_t *g_napt_tcp_ctx;
 extern luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 
 #endif
+
+void luat_netdrv_napt_set_gw(int adapter_id);
+/* Air8000: get current NAPT gateway adapter_id, < 0 when disabled */
+int  luat_netdrv_napt_get_gw_adapter(void);

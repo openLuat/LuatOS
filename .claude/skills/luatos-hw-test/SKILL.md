@@ -135,7 +135,7 @@ SOC='D:\github\luatos-sdk-ccm42xx-gcc\csdk\project\luatos\out\LuatOS-SoC_V1021_A
 # 错!这要求 PASS 和 FAIL 都出现,而测试只会发一个,永远判 FAIL
 --keyword '### OVERALL_PASS ###' --keyword '### OVERALL_FAIL ###'
 ```
-本仓库 `testcase/air1601_pgfs_regression/air1601_pgfs_regression_basic/README.md` 在 2026-06-03 之前就是这么写的,人为造成 false-FAIL。
+本仓库 `testcase/platform/air1601/pgfs_regression/air1601_pgfs_regression_basic/README.md` 在 2026-06-03 之前就是这么写的,人为造成 false-FAIL。
 
 ### 5.3 ❌ 子串污染
 - `--fail-keyword 'panic'` 会匹配 `no_panic_seen`、`panic_recovery_test` 等无害字符串
@@ -173,7 +173,7 @@ for l in data.get('boot_log', []):
 
 ## 7. 写一个新真机 testcase
 
-目录结构(参考 `testcase/air1601_pgfs_regression/air1601_pgfs_regression_basic/`):
+目录结构(参考 `testcase/platform/air1601/pgfs_regression/air1601_pgfs_regression_basic/`):
 ```
 testcase/<feature>/<feature>_basic/
 ├── README.md                     # 该套件如何编译/刷/跑(指向本 skill)

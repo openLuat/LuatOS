@@ -20,9 +20,11 @@
  *
  * \author    Gregory Cristian ( Semtech )
  */
+#include "luat_base.h"
 #include <math.h>
 #include <string.h>
 #include <stdbool.h>
+#include "luat_conf_bsp.h"
 #include "radio.h"
 #include "sx126x.h"
 #include "sx126x-board.h"
@@ -361,6 +363,7 @@ typedef struct
     uint8_t  RegValue;
 }FskBandwidth_t;
 
+#ifdef LUAT_USE_LORA2_FSK
 /*!
  * Precomputed FSK bandwidth registers values
  */
@@ -384,11 +387,12 @@ static const FskBandwidth_t FskBandwidths[] =
     { 156200, 0x1A },
     { 187200, 0x12 },
     { 234300, 0x0A },
-    { 312000, 0x19 },
-    { 373600, 0x11 },
-    { 467000, 0x09 },
-    { 500000, 0x00 }, // Invalid Bandwidth
+    { 312000 , 0x19 },
+    { 373600 , 0x11 },
+    { 467000 , 0x09 },
+    { 500000 , 0x00 }, // Invalid Bandwidth
 };
+#endif
 
 static const RadioLoRaBandwidths_t Bandwidths[] = { LORA_BW_125, LORA_BW_250, LORA_BW_500 };
 
@@ -404,7 +408,7 @@ static double RadioLoRaSymbTime[3][6] = {{ 32.768, 16.384, 8.192, 4.096, 2.048, 
 /*!
  * \brief DIO 0 IRQ callback
  */
-static void RadioOnDioIrq( lora_device_t* lora_device );
+static void RadioOnDioIrq( void );
 
 /*!
  * \brief Tx timeout timer callback
@@ -451,6 +455,7 @@ static RadioPublicNetwork_t RadioPublicNetwork = { false };
 //TimerEvent_t TxTimeoutTimer;
 //TimerEvent_t RxTimeoutTimer;
 
+#ifdef LUAT_USE_LORA2_FSK
 /*!
  * Returns the known FSK bandwidth registers value
  *
@@ -476,6 +481,7 @@ static uint8_t RadioGetFskBandwidthRegValue( lora_device_t* lora_device,uint32_t
     // ERROR: Value not found
     while( 1 );
 }
+#endif
 
 void RadioEventsInit2(lora_device_t* lora_device,RadioEvents_t *events){
     memcpy(&lora_device->RadioEvents,events,sizeof(RadioEvents_t));
@@ -501,7 +507,7 @@ static RadioState_t RadioGetStatus( lora_device_t* lora_device )
             return RF_TX_RUNNING;
         case MODE_RX:
             return RF_RX_RUNNING;
-        case RF_CAD:
+        case MODE_CAD:
             return RF_CAD;
         default:
             return RF_IDLE;
@@ -512,6 +518,7 @@ static void RadioSetModem(lora_device_t* lora_device, RadioModems_t modem )
 {
     switch( modem )
     {
+#ifdef LUAT_USE_LORA2_FSK
     default:
     case MODEM_FSK:
         SX126xSetPacketType2(  lora_device,PACKET_TYPE_GFSK );
@@ -519,6 +526,7 @@ static void RadioSetModem(lora_device_t* lora_device, RadioModems_t modem )
         // Thus, we also reset the RadioPublicNetwork variable
         RadioPublicNetwork.Current = false;
         break;
+#endif
     case MODEM_LORA:
         SX126xSetPacketType2(  lora_device,PACKET_TYPE_LORA );
         // Public/Private network register is reset when switching modems
@@ -594,6 +602,58 @@ static uint32_t RadioRandom( lora_device_t* lora_device )
     return rnd;
 }
 
+static void RadioApplyLoRaConfig( lora_device_t* lora_device, uint32_t bandwidth,
+                          uint32_t datarate, uint8_t coderate, uint16_t preambleLen,
+                          bool fixLen, bool crcOn, bool iqInverted, bool LowDatarateOptimize )
+{
+    lora_device->SX126x.ModulationParams.PacketType = PACKET_TYPE_LORA;
+    lora_device->SX126x.ModulationParams.Params.LoRa.SpreadingFactor = ( RadioLoRaSpreadingFactors_t )datarate;
+    lora_device->SX126x.ModulationParams.Params.LoRa.Bandwidth = Bandwidths[bandwidth];
+    lora_device->SX126x.ModulationParams.Params.LoRa.CodingRate = ( RadioLoRaCodingRates_t )coderate;
+
+    if (LowDatarateOptimize){
+        lora_device->SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x01;
+    }else{
+        if( ( ( bandwidth == 0 ) && ( ( datarate == 11 ) || ( datarate == 12 ) ) ) ||
+        ( ( bandwidth == 1 ) && ( datarate == 12 ) ) )
+        {
+            lora_device->SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x01;
+        }
+        else
+        {
+            lora_device->SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x00;
+        }
+    }
+
+    lora_device->SX126x.PacketParams.PacketType = PACKET_TYPE_LORA;
+
+    if( ( lora_device->SX126x.ModulationParams.Params.LoRa.SpreadingFactor == LORA_SF5 ) ||
+        ( lora_device->SX126x.ModulationParams.Params.LoRa.SpreadingFactor == LORA_SF6 ) )
+    {
+        if( preambleLen < 12 )
+        {
+            lora_device->SX126x.PacketParams.Params.LoRa.PreambleLength = 12;
+        }
+        else
+        {
+            lora_device->SX126x.PacketParams.Params.LoRa.PreambleLength = preambleLen;
+        }
+    }
+    else
+    {
+        lora_device->SX126x.PacketParams.Params.LoRa.PreambleLength = preambleLen;
+    }
+
+    lora_device->SX126x.PacketParams.Params.LoRa.HeaderType = ( RadioLoRaPacketLengthsMode_t )fixLen;
+    lora_device->SX126x.PacketParams.Params.LoRa.PayloadLength = lora_device->MaxPayloadLength;
+    lora_device->SX126x.PacketParams.Params.LoRa.CrcMode = ( RadioLoRaCrcModes_t )crcOn;
+    lora_device->SX126x.PacketParams.Params.LoRa.InvertIQ = ( RadioLoRaIQModes_t )iqInverted;
+
+    RadioSetModem( lora_device, MODEM_LORA );
+    SX126xSetModulationParams2( lora_device, &lora_device->SX126x.ModulationParams );
+    SX126xSetPacketParams2( lora_device, &lora_device->SX126x.PacketParams );
+}
+
 static void RadioSetRxConfig( lora_device_t* lora_device,RadioModems_t modem, uint32_t bandwidth,
                          uint32_t datarate, uint8_t coderate,
                          uint32_t bandwidthAfc, uint16_t preambleLen,
@@ -616,6 +676,7 @@ static void RadioSetRxConfig( lora_device_t* lora_device,RadioModems_t modem, ui
 
     switch( modem )
     {
+#ifdef LUAT_USE_LORA2_FSK
         case MODEM_FSK:
             SX126xSetStopRxTimerOnPreambleDetect2( lora_device,false );
             lora_device->SX126x.ModulationParams.PacketType = PACKET_TYPE_GFSK;
@@ -650,57 +711,12 @@ static void RadioSetRxConfig( lora_device_t* lora_device,RadioModems_t modem, ui
 
             // RxTimeout = ( uint32_t )( symbTimeout * ( ( 1.0 / ( double )datarate ) * 8.0 ) * 1000 );
             break;
+#endif
 
         case MODEM_LORA:
             SX126xSetStopRxTimerOnPreambleDetect2(lora_device, false );
             SX126xSetLoRaSymbNumTimeout2( lora_device,symbTimeout );
-            lora_device->SX126x.ModulationParams.PacketType = PACKET_TYPE_LORA;
-            lora_device->SX126x.ModulationParams.Params.LoRa.SpreadingFactor = ( RadioLoRaSpreadingFactors_t )datarate;
-            lora_device->SX126x.ModulationParams.Params.LoRa.Bandwidth = Bandwidths[bandwidth];
-            lora_device->SX126x.ModulationParams.Params.LoRa.CodingRate = ( RadioLoRaCodingRates_t )coderate;
-
-            if (LowDatarateOptimize){
-                lora_device->SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x01;
-            }else{
-                if( ( ( bandwidth == 0 ) && ( ( datarate == 11 ) || ( datarate == 12 ) ) ) ||
-                ( ( bandwidth == 1 ) && ( datarate == 12 ) ) )
-                {
-                    lora_device->SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x01;
-                }
-                else
-                {
-                    lora_device->SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x00;
-                }
-            }
-
-            lora_device->SX126x.PacketParams.PacketType = PACKET_TYPE_LORA;
-
-            if( ( lora_device->SX126x.ModulationParams.Params.LoRa.SpreadingFactor == LORA_SF5 ) ||
-                ( lora_device->SX126x.ModulationParams.Params.LoRa.SpreadingFactor == LORA_SF6 ) )
-            {
-                if( preambleLen < 12 )
-                {
-                    lora_device->SX126x.PacketParams.Params.LoRa.PreambleLength = 12;
-                }
-                else
-                {
-                    lora_device->SX126x.PacketParams.Params.LoRa.PreambleLength = preambleLen;
-                }
-            }
-            else
-            {
-                lora_device->SX126x.PacketParams.Params.LoRa.PreambleLength = preambleLen;
-            }
-
-            lora_device->SX126x.PacketParams.Params.LoRa.HeaderType = ( RadioLoRaPacketLengthsMode_t )fixLen;
-
-            lora_device->SX126x.PacketParams.Params.LoRa.PayloadLength = lora_device->MaxPayloadLength;
-            lora_device->SX126x.PacketParams.Params.LoRa.CrcMode = ( RadioLoRaCrcModes_t )crcOn;
-            lora_device->SX126x.PacketParams.Params.LoRa.InvertIQ = ( RadioLoRaIQModes_t )iqInverted;
-
-            RadioSetModem( lora_device,( lora_device->SX126x.ModulationParams.PacketType == PACKET_TYPE_GFSK ) ? MODEM_FSK : MODEM_LORA );
-            SX126xSetModulationParams2( lora_device,&lora_device->SX126x.ModulationParams );
-            SX126xSetPacketParams2( lora_device,&lora_device->SX126x.PacketParams );
+            RadioApplyLoRaConfig( lora_device, bandwidth, datarate, coderate, preambleLen, fixLen, crcOn, iqInverted, LowDatarateOptimize );
 
             // Timeout Max, Timeout handled directly in SetRx function
             //  RxTimeout = 0xFFFF;
@@ -718,6 +734,7 @@ static void RadioSetTxConfig( lora_device_t* lora_device,RadioModems_t modem, in
 
     switch( modem )
     {
+#ifdef LUAT_USE_LORA2_FSK
         case MODEM_FSK:
             lora_device->SX126x.ModulationParams.PacketType = PACKET_TYPE_GFSK;
             lora_device->SX126x.ModulationParams.Params.Gfsk.BitRate = datarate;
@@ -750,55 +767,11 @@ static void RadioSetTxConfig( lora_device_t* lora_device,RadioModems_t modem, in
             SX126xSetSyncWord2( lora_device,( uint8_t[] ){ 0xC1, 0x94, 0xC1, 0x00, 0x00, 0x00, 0x00, 0x00 } );
             SX126xSetWhiteningSeed2( lora_device,0x01FF );
             break;
+#endif
 
         case MODEM_LORA:
-            lora_device->SX126x.ModulationParams.PacketType = PACKET_TYPE_LORA;
-            lora_device->SX126x.ModulationParams.Params.LoRa.SpreadingFactor = ( RadioLoRaSpreadingFactors_t ) datarate;
-            lora_device->SX126x.ModulationParams.Params.LoRa.Bandwidth =  Bandwidths[bandwidth];
-            lora_device->SX126x.ModulationParams.Params.LoRa.CodingRate= ( RadioLoRaCodingRates_t )coderate;
-
-            if (LowDatarateOptimize){
-                lora_device->SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x01;
-            }else{
-                if( ( ( bandwidth == 0 ) && ( ( datarate == 11 ) || ( datarate == 12 ) ) ) ||
-                ( ( bandwidth == 1 ) && ( datarate == 12 ) ) )
-                {
-                    lora_device->SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x01;
-                }
-                else
-                {
-                    lora_device->SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x00;
-                }
-            }
-
-            lora_device->SX126x.PacketParams.PacketType = PACKET_TYPE_LORA;
-
-            if( ( lora_device->SX126x.ModulationParams.Params.LoRa.SpreadingFactor == LORA_SF5 ) ||
-                ( lora_device->SX126x.ModulationParams.Params.LoRa.SpreadingFactor == LORA_SF6 ) )
-            {
-                if( preambleLen < 12 )
-                {
-                    lora_device->SX126x.PacketParams.Params.LoRa.PreambleLength = 12;
-                }
-                else
-                {
-                    lora_device->SX126x.PacketParams.Params.LoRa.PreambleLength = preambleLen;
-                }
-            }
-            else
-            {
-                lora_device->SX126x.PacketParams.Params.LoRa.PreambleLength = preambleLen;
-            }
-
-            lora_device->SX126x.PacketParams.Params.LoRa.HeaderType = ( RadioLoRaPacketLengthsMode_t )fixLen;
-            lora_device->SX126x.PacketParams.Params.LoRa.PayloadLength = lora_device->MaxPayloadLength;
-            lora_device->SX126x.PacketParams.Params.LoRa.CrcMode = ( RadioLoRaCrcModes_t )crcOn;
-            lora_device->SX126x.PacketParams.Params.LoRa.InvertIQ = ( RadioLoRaIQModes_t )iqInverted;
-
             RadioStandby( lora_device);
-            RadioSetModem( lora_device,( lora_device->SX126x.ModulationParams.PacketType == PACKET_TYPE_GFSK ) ? MODEM_FSK : MODEM_LORA );
-            SX126xSetModulationParams2( lora_device,&lora_device->SX126x.ModulationParams );
-            SX126xSetPacketParams2( lora_device,&lora_device->SX126x.PacketParams );
+            RadioApplyLoRaConfig( lora_device, bandwidth, datarate, coderate, preambleLen, fixLen, crcOn, iqInverted, LowDatarateOptimize );
             break;
     }
     SX126xSetRfTxPower2( lora_device,power );
@@ -816,6 +789,7 @@ static uint32_t RadioTimeOnAir( lora_device_t* lora_device,RadioModems_t modem, 
 
     switch( modem )
     {
+#ifdef LUAT_USE_LORA2_FSK
     case MODEM_FSK:
         {
            airTime = rint( ( 8 * ( lora_device->SX126x.PacketParams.Params.Gfsk.PreambleLength +
@@ -826,6 +800,7 @@ static uint32_t RadioTimeOnAir( lora_device_t* lora_device,RadioModems_t modem, 
                                      lora_device->SX126x.ModulationParams.Params.Gfsk.BitRate ) * 1e3 );
         }
         break;
+#endif
     case MODEM_LORA:
         {
             double ts = RadioLoRaSymbTime[lora_device->SX126x.ModulationParams.Params.LoRa.Bandwidth - 4][12 - lora_device->SX126x.ModulationParams.Params.LoRa.SpreadingFactor];
@@ -861,10 +836,12 @@ static void RadioSend( lora_device_t* lora_device,uint8_t *buffer, uint8_t size 
     {
         lora_device->SX126x.PacketParams.Params.LoRa.PayloadLength = size;
     }
+#ifdef LUAT_USE_LORA2_FSK
     else
     {
         lora_device->SX126x.PacketParams.Params.Gfsk.PayloadLength = size;
     }
+#endif
     SX126xSetPacketParams2( lora_device,&lora_device->SX126x.PacketParams );
 
     SX126xSendPayload2( lora_device, buffer, size, 0 );
@@ -990,6 +967,7 @@ static void RadioSetMaxPayloadLength( lora_device_t* lora_device,RadioModems_t m
         lora_device->SX126x.PacketParams.Params.LoRa.PayloadLength = lora_device->MaxPayloadLength = max;
         SX126xSetPacketParams2( lora_device,&lora_device->SX126x.PacketParams );
     }
+#ifdef LUAT_USE_LORA2_FSK
     else
     {
         if( lora_device->SX126x.PacketParams.Params.Gfsk.HeaderType == RADIO_PACKET_VARIABLE_LENGTH )
@@ -998,6 +976,7 @@ static void RadioSetMaxPayloadLength( lora_device_t* lora_device,RadioModems_t m
             SX126xSetPacketParams2( lora_device,&lora_device->SX126x.PacketParams );
         }
     }
+#endif
 }
 
 static void RadioSetPublicNetwork( lora_device_t* lora_device,bool enable )
@@ -1040,7 +1019,7 @@ static void RadioOnRxTimeoutIrq( lora_device_t* lora_device )
     }
 }
 
-static void RadioOnDioIrq( lora_device_t* lora_device )
+static void RadioOnDioIrq( void )
 {
 
 }

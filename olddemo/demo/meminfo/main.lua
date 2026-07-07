@@ -11,8 +11,10 @@ if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
 end
 
 sys.taskInit(function()
+    gpio.setup(27, 0, gpio.PULLUP)
     local count = 1
     while 1 do
+        gpio.toggle(27)
         sys.wait(500)
         log.info("luatos", "hi", count, os.date())
         -- lua内存

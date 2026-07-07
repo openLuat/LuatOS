@@ -16,13 +16,7 @@ _G.sys = require("sys")
 eink_pin函数会返回对应bsp的 spi_id,pin_reset,pin_dc,pin_cs,pin_busy 值,下方函数有注释
 spi_id对应引脚参考对应芯片/模组手册,使用开发板的话看开发板原理图
 
-举例AIR101：
-AIR101就看bsp判断分支 rtos_bsp == "AIR101"
-返回的 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00 依次为 spi_id,pin_reset,pin_dc,pin_cs,pin_busy
-spi_id为0就看芯片手册spi0引脚定义，即 SCLK=PB02, MOSI=PB05, MISO=PB03 因为只需要输出所以不需要miso引脚,miso引脚用作了pin_reset
-所以AIR101接线为 Pin_RSCL:PB02, Pin_RSDA:PB05, Pin_RES:PB03, Pin_DC:PB01, Pin_CS:PB04, Pin_BUSY:PB00
-
-再举例EC618：
+举例EC618：
 EC618就看bsp判断分支 rtos_bsp == "EC618"
 返回的 0,1,10,8,22 依次为 spi_id,pin_reset,pin_dc,pin_cs,pin_busy
 spi_id为0就看芯片手册spi0引脚定义，即 SCLK=GPIO11, MOSI=GPIO9, MISO=GPIO10 因为只需要输出所以不需要miso引脚,miso引脚用作了pin_dc
@@ -42,14 +36,8 @@ spi_id为0就看芯片手册spi0引脚定义，即 SCLK=GPIO11, MOSI=GPIO9, MISO
 local rtos_bsp = rtos.bsp()
 
 -- spi_id,pin_reset,pin_dc,pin_cs,pin_busy
-function eink_pin()     
-    if rtos_bsp == "AIR101" then
-        return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
-    elseif rtos_bsp == "AIR103" then
-        return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
-    elseif rtos_bsp == "AIR105" then
-        return 5,pin.PC12,pin.PE08,pin.PC14,pin.PE09
-    elseif rtos_bsp == "ESP32C3" then
+function eink_pin()
+    if rtos_bsp == "ESP32C3" then
         return 2,10,6,7,11
     elseif rtos_bsp == "ESP32S3" then
         return 2,16,15,14,13

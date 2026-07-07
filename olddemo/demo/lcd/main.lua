@@ -12,30 +12,7 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
--- UI带屏的项目一般不需要低功耗了吧, Air101/Air103设置到最高性能
-if mcu and (rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103" or rtos.bsp() == "AIR601" ) then
-    mcu.setClk(240)
-end
-
---[[
--- LCD接法示例
-LCD管脚       Air780E管脚    Air101/Air103管脚   Air105管脚         
-GND          GND            GND                 GND                 
-VCC          3.3V           3.3V                3.3V                
-SCL          (GPIO11)       (PB02/SPI0_SCK)     (PC15/HSPI_SCK)     
-SDA          (GPIO09)       (PB05/SPI0_MOSI)    (PC13/HSPI_MOSI)    
-RES          (GPIO01)       (PB03/GPIO19)       (PC12/HSPI_MISO)    
-DC           (GPIO10)       (PB01/GPIO17)       (PE08)              
-CS           (GPIO08)       (PB04/GPIO20)       (PC14/HSPI_CS)      
-BL(可以不接)  (GPIO22)       (PB00/GPIO16)       (PE09)              
-
-
-提示:
-1. 只使用SPI的时钟线(SCK)和数据输出线(MOSI), 其他均为GPIO脚
-2. 数据输入(MISO)和片选(CS), 虽然是SPI, 但已复用为GPIO, 并非固定,是可以自由修改成其他脚
-3. 若使用多个SPI设备, 那么RES/CS请选用非SPI功能脚
-4. BL可以不接的, 若使用Air10x屏幕扩展板,对准排针插上即可
-]]
+-- LCD接法参考各芯片手册的 SPI 引脚映射
 
 --添加硬狗防止程序卡死
 if wdt then
@@ -51,14 +28,7 @@ local chip_type = hmeta.chip()
 -- 根据不同的BSP返回不同的值
 -- spi_id,pin_reset,pin_dc,pin_cs,bl
 function lcd_pin()
-    if rtos_bsp == "AIR101" then
-        return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
-        -- return lcd.HWID_0,pin.PA07,pin.PA12,pin.PA14,pin.PA02 -- sdio模拟spi
-    elseif rtos_bsp == "AIR103" then
-        return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
-    elseif rtos_bsp == "AIR105" then
-        return 5,pin.PC12,pin.PE08,pin.PC14,pin.PE09
-    elseif rtos_bsp == "ESP32C3" then
+    if rtos_bsp == "ESP32C3" then
         return 2,10,6,7,11
     elseif rtos_bsp == "ESP32S3" then
         return 2,16,15,14,13
@@ -130,12 +100,6 @@ else
 	-- lcd.init("jd9261t_inited",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 540,h = 540,xoffset = 0,yoffset = 0,interface_mode=lcd.QSPI_MODE,bus_speed=60000000,flush_rate=400,vbp=10,vfp=108,vs=2},spi_lcd)
 	-- lcd.init("jd9261t_inited",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 720,h = 720,xoffset = 0,yoffset = 0,interface_mode=lcd.QSPI_MODE,bus_speed=60000000,flush_rate=300,vbp=10,vfp=160,vs=2},spi_lcd)
 	-- lcd_use_buff = true
-
-    -- air101 sdio模拟spi 驱动测试屏幕
-    -- lcd.init("nv3041a",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset, pin_cs = pin_cs,
-    --                     bus_speed = 120*1000*1000, direction = 0,w = 480,h = 272,
-    --                     xoffset = 0,yoffset = 0,endianness_swap = true },
-    --                     spi_lcd)
 
 end
 

@@ -10,11 +10,11 @@ _G.sys = require("sys")
 接线要求:
 
 SPI 使用常规4线解法
-开发板(Air105)         TF模块
-PB3                    CS
-PB2(SPI2_CLK)          CLK
-PB4(SPI2_MISO)         MOSI
-PB5(SPI2_MISO)         MISO
+开发板                  TF模块
+SPIx_CS                CS
+SPIx_CLK               CLK
+SPIx_MOSI              MOSI
+SPIx_MISO              MISO
 3.3V                   VCC
 GND                    GND
 
@@ -32,14 +32,8 @@ https://detail.tmall.com/item.htm?abbucket=10&id=634710962749&ns=1&spm=a21n57.1.
 local rtos_bsp = rtos.bsp()
 
 -- spi_id,pin_cs
-local function fatfs_spi_pin()     
-    if rtos_bsp == "AIR101" then
-        return 0, pin.PB04
-    elseif rtos_bsp == "AIR103" then
-        return 0, pin.PB04
-    elseif rtos_bsp == "AIR105" then
-        return 2, pin.PB03
-    elseif rtos_bsp == "ESP32C3" then
+local function fatfs_spi_pin()
+    if rtos_bsp == "ESP32C3" then
         return 2, 7
     elseif rtos_bsp == "ESP32S3" then
         return 2, 14

@@ -11,7 +11,6 @@ _G.sysplus = require("sysplus")
 srv = require("tcpsrv")
 
 
--- 因为这是通用demo, air101/air103跑满速才不至于太慢-_-
 if mcu then
     mcu.setClk(240)
 end
@@ -34,11 +33,6 @@ sys.taskInit(function()
         -- EC618系列, 如Air780E/Air600E/Air700E
         -- mobile.simid(2) -- 自动切换SIM卡, 按需启用
         -- 模块默认会自动联网, 无需额外的操作
-    elseif w5500 then
-        -- w5500 以太网
-        w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
-        w5500.config() --默认是DHCP模式
-        w5500.bind(socket.ETH0)
     elseif socket then
         -- 适配了socket库也OK, 就当1秒联网吧
         sys.timerStart(sys.publish, 1000, "IP_READY")

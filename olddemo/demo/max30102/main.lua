@@ -19,10 +19,6 @@ function pinx()
     local bsp = rtos.bsp()
     if bsp:startsWith("ESP32") then
         return 0, 2
-    elseif bsp == "AIR105" then
-        return 0, pin.PC05
-    elseif bsp == "AIR101" or bsp == "AIR103" or bsp == "AIR601" then
-        return 0, 10
     else
         return 0, 1
     end

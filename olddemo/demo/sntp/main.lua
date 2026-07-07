@@ -42,11 +42,7 @@ sys.taskInit(function()
         -- LED = gpio.setup(27, 0, gpio.PULLUP)
         device_id = mobile.imei()
     elseif w5500 then
-        -- w5500 以太网, 当前仅Air105支持
-        w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
-        w5500.config() --默认是DHCP模式
-        w5500.bind(socket.ETH0)
-        -- LED = gpio.setup(62, 0, gpio.PULLUP)
+        -- TODO: w5500.init(...) 按当前 BSP 实际接线填写, 参考 demo/w5500/main.lua
     elseif socket then
         -- 适配的socket库也OK
         -- 没有其他操作, 单纯给个注释说明

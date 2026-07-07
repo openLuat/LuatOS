@@ -64,6 +64,9 @@
    instead of having a hard constraint.
 
 */
+#ifndef EXPORT
+#define EXPORT
+#endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"

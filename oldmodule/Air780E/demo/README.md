@@ -26,7 +26,6 @@
 |[gpio_irq](https://gitee.com/openLuat/LuatOS/tree/master/demo/gpio_irq/)|io中断|gpio|所有||
 |[hello_world](https://gitee.com/openLuat/LuatOS/tree/master/demo/hello_world/)|最简示例|无|所有||
 |[i2c](https://gitee.com/openLuat/LuatOS/tree/master/demo/i2c/)|IIC总线|i2c|所有|演示i2c基本操作|
-|[ir](https://gitee.com/openLuat/LuatOS/tree/master/demo/ir/)|红外|ir|air105|当前仅支持接收|
 |[json](https://gitee.com/openLuat/LuatOS/tree/master/demo/json/)|JSON编解码|json|所有||
 |[lcd](https://gitee.com/openLuat/LuatOS/tree/master/demo/lcd/)|SPI屏驱|lcd,spi|所有||
 |[lcd_custom](https://gitee.com/openLuat/LuatOS/tree/master/demo/lcd_custom/)|自定义LCD屏驱|lcd,spi|所有|自定义LCD驱动|
@@ -42,9 +41,8 @@
 |[sfud](https://gitee.com/openLuat/LuatOS/tree/master/demo/sfud/)|通用FLASH读写|sfud,spi|所有||
 |[sht20](https://gitee.com/openLuat/LuatOS/tree/master/demo/sht20/)|温湿度传感器|i2c|所有||
 |[sht30](https://gitee.com/openLuat/LuatOS/tree/master/demo/sht30/)|温湿度传感器|i2c|所有||
-|[socket](https://gitee.com/openLuat/LuatOS/tree/master/demo/socket/)|网络套接字|socket|air105/air780e||
+|[socket](https://gitee.com/openLuat/LuatOS/tree/master/demo/socket/)|网络套接字|socket|air780e||
 |[spi](https://gitee.com/openLuat/LuatOS/tree/master/demo/spi/)|SPI库演示|spi|所有||
-|[statem](https://gitee.com/openLuat/LuatOS/tree/master/demo/statem/)|io状态机|statem|所有|air105推荐用ioqueue|
 |[sys_timerStart](https://gitee.com/openLuat/LuatOS/tree/master/demo/sys_timerStart/)|演示定时运行|sys|所有||
 |[u8g2](https://gitee.com/openLuat/LuatOS/tree/master/demo/u8g2/)|单色OLED屏驱|u8g2|所有||
 |[uart](https://gitee.com/openLuat/LuatOS/tree/master/demo/uart/)|UART演示|uart|所有||

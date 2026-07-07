@@ -49,18 +49,12 @@ static int l_adc_open(lua_State *L) {
 }
 
 /**
-设置ADC的测量范围，注意这个和具体芯片有关，目前只支持air105/Air780EXXX系列
+设置ADC的测量范围
 @api adc.setRange(range)
-@int range参数,与具体设备有关,比如air105填adc.ADC_RANGE_1_8和adc.ADC_RANGE_3_6
+@int range参数,与具体设备有关
 @return nil 无返回值
 @usage
 -- 本函数要在调用adc.open之前就调用, 之后调用无效!!!
-
--- 关闭air105内部分压
-adc.setRange(adc.ADC_RANGE_1_8)
--- 打开air105内部分压
-adc.setRange(adc.ADC_RANGE_3_6)
-
 
 -- Air780EXXX支持多种，但是建议用以下2种
 adc.setRange(adc.ADC_RANGE_MIN) -- 关闭分压
@@ -148,9 +142,9 @@ static const rotable_Reg_t reg_adc[] =
     { "read" ,           ROREG_FUNC(l_adc_read)},
     { "get" ,            ROREG_FUNC(l_adc_get)},
     { "close" ,          ROREG_FUNC(l_adc_close)},
-	//@const ADC_RANGE_3_6 number air105的ADC分压电阻开启，范围0~3.76V
+	//@const ADC_RANGE_3_6 number ADC分压电阻开启，范围0~3.76V
 	{ "ADC_RANGE_3_6",   ROREG_INT(1)},
-	//@const ADC_RANGE_1_8 number air105的ADC分压电阻关闭，范围0~1.88V
+	//@const ADC_RANGE_1_8 number ADC分压电阻关闭，范围0~1.88V
 	{ "ADC_RANGE_1_8",   ROREG_INT(0)},
 	//@const ADC_RANGE_3_8 number air780E开启ADC0,1分压电阻，范围0~3.8V，将要废弃，不建议使用
 	{ "ADC_RANGE_3_8",   ROREG_INT(LUAT_ADC_AIO_RANGE_3_8)},

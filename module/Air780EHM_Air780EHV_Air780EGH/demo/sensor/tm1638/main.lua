@@ -64,9 +64,6 @@ log.info("main", PROJECT, VERSION)
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载 exs_tm1638 扩展库
-exs_tm1638 = require "exs_tm1638"
-
 -- 加载 tm1638_demo.lua 演示模块
 require "tm1638_demo"
 

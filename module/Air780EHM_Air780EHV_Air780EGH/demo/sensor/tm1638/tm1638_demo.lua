@@ -9,6 +9,9 @@
 通过 exs_tm1638 扩展库的 API 逐一演示数码管显示、LED 控制、按键检测等功能。
 ]]
 
+-- 加载 exs_tm1638 扩展库
+local exs_tm1638 = require "exs_tm1638"
+
 -- 演示字符串显示
 local function demo_string()
     log.info("tm1638_demo", "===== [1/7] 字符串显示 =====")
@@ -89,6 +92,7 @@ local function demo_keys()
     while elapsed < timeout do
         local key = exs_tm1638.get_key()
         if key then
+            exs_tm1638.clear()
             log.info("tm1638_demo", "检测到按键, 编码:", key)
             local key_str = string.format("K%02d", key)
             exs_tm1638.set_display(key_str)

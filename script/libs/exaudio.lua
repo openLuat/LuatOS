@@ -6,8 +6,10 @@
 @author  拓毅恒
 @updates
     v2.1 2026.7.8
-        1. 新增exaudio.make_probe_id()函数，封装audio_v2.make_probe_id()，用于合成音频驱动ID
-        2. 新增700系列和1780系列模组音频框架默认选择，700系列和1780系列模组默认使用旧音频框架
+        1. 移除exaudio.shutdown()，合并到exaudio.pm()中
+        2. exaudio.pm()新增新音频框架支持
+        3. 新增exaudio.parse_audio_info()函数，用于从音频文件解析播放信息
+        4. 新增Air700/Air1780系列模组检测
     v2.0 2026.7.3
         1. 修复流式播放偶尔播放不完整的问题
     v1.9 2026.7.1
@@ -41,6 +43,12 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202607081647
+-- 1、更新时间：2026-07-08 16:47
+--    移除exaudio.shutdown()，统一合并到exaudio.pm()中
+--    exaudio.pm()新增新音频框架支持
+--    新增exaudio.make_probe_id()函数，用于合成音频驱动ID
+--    新增Air700/Air1780系列模组检测
 -- 版本号：202607021200
 -- 1、更新时间：2026-07-02 12:00
 -- 2、更新内容
@@ -1698,54 +1706,47 @@ function exaudio.finish(data)
     return false
 end
 
--- 休眠控制(audio模式)
+-- 休眠控制
 -- @param pm_mode 休眠模式: audio.SHUTDOWN/audio.RESUME
 -- @return 是否成功
+-- @usage
+-- exaudio.pm(audio.SHUTDOWN)
+-- exaudio.pm(audio.RESUME)
 function exaudio.pm(pm_mode)
     if USE_AUDIO_V2 then
-        log.warn("audio_v2模式请使用exaudio.shutdown()进行电源管理")
+        -- 新框架：使用audio_v2.shutdown + es8311操作进入休眠
+        if not audio_v2 then
+            log.error("exaudio.pm", "audio_v2模块未加载")
+            return false
+        end
+        local es8311_ok, es8311_drv = pcall(require, "es8311")
+        if pm_mode == audio.SHUTDOWN then
+            -- SHUTDOWN：下电ES8311，关闭PA，保持驱动和CODEC以备快速恢复
+            if es8311_ok and es8311_drv then
+                es8311_drv.power_down(audio_setup_param.i2c_id or 0)
+            end
+            audio_v2.shutdown(true, false, true)
+            return true
+        elseif pm_mode == audio.RESUME then
+            -- RESUME：恢复ES8311，确保所有模块处于工作状态
+            if es8311_ok and es8311_drv then
+                es8311_drv.init(audio_setup_param.i2c_id or 0)
+                es8311_drv.resume(audio_setup_param.i2c_id or 0)
+                es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, voice_vol)
+                es8311_drv.set_mic_vol(audio_setup_param.i2c_id or 0, mic_vol)
+            end
+            audio_v2.shutdown(false, false, false)
+            return true
+        end
+        log.warn("exaudio.pm", "不支持的模式:", pm_mode)
         return false
     end
-    
+
+    -- 旧框架：直接调用audio.pm
     if audio.pm then
         return audio.pm(MULTIMEDIA_ID, pm_mode)
     end
     return false
-end
-
--- 休眠控制(audio_v2模式)
--- @api exaudio.shutdown(driver_power_off, codec_power_off, pa_power_off, driver_probe_id)
--- @param driver_power_off boolean 是否关闭驱动。true会调用stop+deactivate停止驱动并释放资源
--- @param codec_power_off boolean 是否关闭外部CODEC电源（需事先通过setup配置引脚）
--- @param pa_power_off boolean 是否关闭PA功放电源（需事先通过setup配置引脚）
--- @param driver_probe_id int 可选。驱动ID，不使用默认驱动时填写
--- @return boolean 是否成功
--- @usage
--- -- 完整下电：关闭PA → 关闭CODEC → 停止驱动
--- exaudio.shutdown(true, true, true)
--- -- 仅关闭PA，保持驱动和CODEC运行
--- exaudio.shutdown(false, false, true)
--- -- 对指定驱动执行下电
--- local pid = exaudio.make_probe_id(audio_v2.DRIVER_TYPE_I2S, 0, audio_v2.DRIVER_TYPE_I2S, 0)
--- exaudio.shutdown(true, true, true, pid)
-function exaudio.shutdown(driver_power_off, codec_power_off, pa_power_off, driver_probe_id)
-    if not USE_AUDIO_V2 then
-        log.warn("audio模式请使用exaudio.pm()进行休眠控制")
-        return false
-    end
-    
-    if not audio_v2 then
-        log.error("audio_v2模块未加载")
-        return false
-    end
-    
-    -- 如果所有参数都为nil，则执行完整下电
-    local do_driver = driver_power_off ~= false
-    local do_codec = codec_power_off ~= false
-    local do_pa = pa_power_off ~= false
-    
-    audio_v2.shutdown(do_driver, do_codec, do_pa, driver_probe_id)
-    return true
 end
 
 -- 获取当前使用的音频模式
@@ -1899,7 +1900,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202607081021"
+    return "202607081647"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

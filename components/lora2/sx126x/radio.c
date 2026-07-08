@@ -526,6 +526,10 @@ static void RadioSetModem(lora_device_t* lora_device, RadioModems_t modem )
         // Thus, we also reset the RadioPublicNetwork variable
         RadioPublicNetwork.Current = false;
         break;
+#else
+    default:
+    case MODEM_FSK:
+        break;
 #endif
     case MODEM_LORA:
         SX126xSetPacketType2(  lora_device,PACKET_TYPE_LORA );
@@ -711,6 +715,9 @@ static void RadioSetRxConfig( lora_device_t* lora_device,RadioModems_t modem, ui
 
             // RxTimeout = ( uint32_t )( symbTimeout * ( ( 1.0 / ( double )datarate ) * 8.0 ) * 1000 );
             break;
+#else
+        case MODEM_FSK:
+            break;
 #endif
 
         case MODEM_LORA:
@@ -767,6 +774,9 @@ static void RadioSetTxConfig( lora_device_t* lora_device,RadioModems_t modem, in
             SX126xSetSyncWord2( lora_device,( uint8_t[] ){ 0xC1, 0x94, 0xC1, 0x00, 0x00, 0x00, 0x00, 0x00 } );
             SX126xSetWhiteningSeed2( lora_device,0x01FF );
             break;
+#else
+        case MODEM_FSK:
+            break;
 #endif
 
         case MODEM_LORA:
@@ -799,6 +809,9 @@ static uint32_t RadioTimeOnAir( lora_device_t* lora_device,RadioModems_t modem, 
                                      ( ( lora_device->SX126x.PacketParams.Params.Gfsk.CrcLength == RADIO_CRC_2_BYTES ) ? 2.0 : 0 ) ) /
                                      lora_device->SX126x.ModulationParams.Params.Gfsk.BitRate ) * 1e3 );
         }
+        break;
+#else
+    case MODEM_FSK:
         break;
 #endif
     case MODEM_LORA:

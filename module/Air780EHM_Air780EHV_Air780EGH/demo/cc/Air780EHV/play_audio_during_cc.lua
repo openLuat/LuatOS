@@ -2,7 +2,7 @@
 @module  play_audio_during_cc
 @summary 通话中播放音频（文件/TTS）
 @version 1.0
-@date    2026.06.30
+@date    2026.07.08
 @author  拓毅恒
 @usage
 本模块演示在VoLTE通话中给对方播放音频文件或TTS文本。

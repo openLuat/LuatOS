@@ -2,7 +2,7 @@
 @module  play_audio_during_cc
 @summary 通话中播放音频（文件/TTS）
 @version 1.0
-@date    2026.06.30
+@date    2026.07.08
 @author  拓毅恒
 @usage
 本模块演示在VoLTE通话中给对方播放音频文件或TTS文本。
@@ -43,7 +43,7 @@ local IS_DIAL = false
 local DIAL_NUMBER = "10000"
 
 -- 播放模式选择（二选一）：
-local PLAY_MODE = "FILE"         -- "FILE"播放文件, "TTS"播放文本
+local PLAY_MODE = "TTS"         -- "FILE"播放文件, "TTS"播放文本
 -- 文件播放模式（PLAY_MODE="FILE"时生效）：
 local PLAY_FILE_8K = "/luadb/test_8k.mp3"     -- 8K通话时播放的文件
 local PLAY_FILE_16K = "/luadb/test_16k.mp3"   -- 16K通话时播放的文件

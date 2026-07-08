@@ -65,8 +65,8 @@ def parse_log_text(text: str):
     }
 
 
-def run_probe(simulator: Path, common_scripts: Path, probe_scripts: Path):
-    cmd = [str(simulator), str(common_scripts), str(probe_scripts)]
+def run_probe(simulator: Path, probe_scripts: Path):
+    cmd = [str(simulator), str(probe_scripts)]
     proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     text = (proc.stdout or "") + (proc.stderr or "")
     return proc.returncode, text
@@ -77,7 +77,7 @@ def main():
     parser.add_argument("--log", type=Path, help="Parse an existing probe log instead of running simulator")
     parser.add_argument("--simulator", type=Path, default=Path("bsp/pc/build/out/luatos-lua.exe"))
     parser.add_argument("--common", type=Path, default=Path("testcase/common/scripts"))
-    parser.add_argument("--probe", type=Path, default=Path("testcase/unit/fs/pgfs_nes_unzip_probe/scripts"))
+    parser.add_argument("--probe", type=Path, default=Path("bsp/pc/test/139.pgfs_nes_unzip_probe"))
     parser.add_argument("--max-elapsed-s", type=float, default=DEFAULT_MAX_ELAPSED_S)
     parser.add_argument("--max-close-total-ms", type=int, default=DEFAULT_MAX_CLOSE_TOTAL_MS)
     parser.add_argument("--max-close-p95-ms", type=int, default=DEFAULT_MAX_CLOSE_P95_MS)
@@ -88,7 +88,7 @@ def main():
         text = args.log.read_text(encoding="utf-8", errors="replace")
         rc = 0
     else:
-        rc, text = run_probe(args.simulator, args.common, args.probe)
+        rc, text = run_probe(args.simulator, args.probe)
 
     parsed = parse_log_text(text)
 

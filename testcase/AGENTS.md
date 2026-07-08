@@ -21,8 +21,8 @@ testcase/
 │   ├── fs/           #   pgfs_basic
 │   └── drv/          #   uart_basic, mobile_rfa_basic
 ├── unit/             # Lua unit tests, grouped by functional domain
-│   ├── driver/       #   adc, uart, spi, i2c, webp
-│   ├── fs/           #   fs, ramfs, lf_fs_matrix, pgfs_*
+│   ├── driver/       #   adc, uart, spi, i2c, webp (PC-only camera demo 见 bsp/pc/test/)
+│   ├── fs/           #   fs, ramfs, lf_fs_matrix, pgfs_regression (PC-only PGFS 手动/探测脚本 见 bsp/pc/test/)
 │   ├── crypto/       #   crypto, gmssl, rsa, xxtea
 │   ├── net/          #   canself, sntp, netdrv_*
 │   ├── io/
@@ -31,7 +31,7 @@ testcase/
 │   ├── middleware/   #   libgnss, protobuf, sqlite3
 │   ├── media/        #   audio_*, hzfont
 │   ├── perf/         #   fastlz, fft, miniz, pack, perf_basic
-│   └── tools/        #   mreport, pcconf
+│   └── tools/        #   mreport, pcconf (memprof 验证脚本 见 bsp/pc/test/)
 ├── func/             # Functional / integration / scenario tests
 │   ├── network/      #   TCP, UDP, http, mqtt, websocket, ...
 │   ├── airlink/
@@ -50,6 +50,8 @@ testcase/
 ```
 
 C-layer utest 套件统一住在 `testcase/utest/<group>/<suite>_basic/`,共享 `pc_utest_coverage.ps1 -Suite <suite>` 入口(详见 `testcase/README.md` 的"C层 utest"一节)。普通 Lua 单元测试按 `testcase/unit/<domain>/<feature>/` 摆放,功能/集成测试按 `testcase/func/<domain>/<feature>/` 摆放,平台专属测试按 `testcase/platform/<chip>/<feature>/` 摆放。
+
+**PC-only / demo 脚本归属**：仅能在 PC 模拟器运行、且不依赖 `testrunner`/`testsuite` 标准测试框架的独立脚本（如摄像头 demo、AirLink loopback、memprof 验证、CH347+SD 卡验证、PGFS 手动/探测脚本等），应放在 `bsp/pc/test/<编号>.<名称>/main.lua`，而不是 `testcase/`。详见 `bsp/pc/AGENTS.md` 的 "PC 模拟器测试脚本" 章节。
 
 ## RUNNING TESTS
 

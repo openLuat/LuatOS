@@ -1,10 +1,13 @@
---[[
+﻿--[[
 @module exaudio
 @summary exaudio扩展库
-@version 2.0
-@date    2026.7.3
+@version 2.1
+@date    2026.7.8
 @author  拓毅恒
 @updates
+    v2.1 2026.7.8
+        1. 新增exaudio.make_probe_id()函数，封装audio_v2.make_probe_id()，用于合成音频驱动ID
+        2. 新增700系列和1780系列模组音频框架默认选择，700系列和1780系列模组默认使用旧音频框架
     v2.0 2026.7.3
         1. 修复流式播放偶尔播放不完整的问题
     v1.9 2026.7.1
@@ -62,6 +65,10 @@ local function get_module_type()
             return "air780e"       -- 780EXX系列
         elseif model_lower:find("air8000") then
             return "air8000"      -- 8000系列
+        elseif model_lower:find("air700") then
+            return "air700"       -- Air700系列
+        elseif model_lower:find("air1780") then
+            return "air1780"      -- Air1780系列
         end
     end
     return "other"
@@ -71,8 +78,8 @@ end
 local MODULE_TYPE = get_module_type()
 
 -- 判断使用audio_v2还是audio
--- 780EXX系列、8000系列默认用audio，其余（8101、160X等）默认用audio_v2
-local USE_AUDIO_V2 = (MODULE_TYPE ~= "air780e" and MODULE_TYPE ~= "air8000")
+-- 780EXX系列、8000系列、Air700系列、Air1780系列默认用audio，其余（8101、160X等）默认用audio_v2
+local USE_AUDIO_V2 = (MODULE_TYPE ~= "air780e" and MODULE_TYPE ~= "air8000" and MODULE_TYPE ~= "air700" and MODULE_TYPE ~= "air1780")
 
 -- ==================== 常量定义 ====================
 local I2S_ID = 0
@@ -1719,7 +1726,7 @@ end
 -- -- 仅关闭PA，保持驱动和CODEC运行
 -- exaudio.shutdown(false, false, true)
 -- -- 对指定驱动执行下电
--- local pid = audio_v2.make_probe_id(audio_v2.DRIVER_TYPE_I2S, 0, audio_v2.DRIVER_TYPE_I2S, 0)
+-- local pid = exaudio.make_probe_id(audio_v2.DRIVER_TYPE_I2S, 0, audio_v2.DRIVER_TYPE_I2S, 0)
 -- exaudio.shutdown(true, true, true, pid)
 function exaudio.shutdown(driver_power_off, codec_power_off, pa_power_off, driver_probe_id)
     if not USE_AUDIO_V2 then
@@ -1744,6 +1751,35 @@ end
 -- 获取当前使用的音频模式
 function exaudio.get_audio_mode()
     return USE_AUDIO_V2 and "audio_v2" or "audio"
+end
+
+-- 合成音频驱动ID（仅audio_v2模式支持）
+-- 用于在不使用默认驱动时，指定driver_probe_id参数
+-- @api exaudio.make_probe_id(tx_bus_type, tx_bus_id, rx_bus_type, rx_bus_id)
+-- @int tx_bus_type 发送总线类型，见audio_v2.DRIVER_TYPE_xxx常量(DRIVER_TYPE_NONE/I2S/DAC/ADC/USB)
+-- @int tx_bus_id 发送总线id
+-- @int rx_bus_type 接收总线类型，见audio_v2.DRIVER_TYPE_xxx常量
+-- @int rx_bus_id 接收总线id
+-- @return int 驱动ID，传入其他audio_v2函数的driver_probe_id参数；audio模式下返回nil
+-- @usage
+-- -- I2S0双工驱动（可同时播放和录音）
+-- local pid = exaudio.make_probe_id(audio_v2.DRIVER_TYPE_I2S, 0, audio_v2.DRIVER_TYPE_I2S, 0)
+-- -- DAC0单工驱动（仅播放）
+-- local pid = exaudio.make_probe_id(audio_v2.DRIVER_TYPE_DAC, 0, audio_v2.DRIVER_TYPE_NONE, 0)
+-- -- 使用合成的驱动ID进行下电操作
+-- exaudio.shutdown(true, true, true, pid)
+function exaudio.make_probe_id(tx_bus_type, tx_bus_id, rx_bus_type, rx_bus_id)
+    if not USE_AUDIO_V2 then
+        log.warn("exaudio.make_probe_id", "仅新音频框架支持")
+        return nil
+    end
+
+    if not audio_v2 then
+        log.error("exaudio.make_probe_id", "新音频框架未加载")
+        return nil
+    end
+
+    return audio_v2.make_probe_id(tx_bus_type, tx_bus_id, rx_bus_type, rx_bus_id)
 end
 
 -- ==================== 流式播放辅助函数（仅audio_v2模式支持） ====================
@@ -1857,53 +1893,13 @@ function exaudio.parse_audio_info(file_path, codec_id)
 end
 
 --[[
-@description 获取推荐流式播放缓冲区大小
-@api exaudio.get_stream_buffer_size_by_codec(codec_id)
-@number codec_id 编解码器ID (0=PCM, 1=WAV, 2=AMR_NB, 3=AMR_WB, 5=MP3)
-@return number 推荐的缓冲区大小（字节）
-@usage
-local buffer_size = exaudio.get_stream_buffer_size_by_codec(5)  -- MP3推荐大小
-注意：此函数仅在audio_v2模式下可用
-]]
-function exaudio.get_stream_buffer_size_by_codec(codec_id)
-    local buffer_sizes = {
-        [0] = 4096,   -- PCM: 4KB
-        [1] = 4096,   -- WAV: 4KB
-        [2] = 640,    -- AMR_NB: 640字节（帧较小）
-        [3] = 640,    -- AMR_WB: 640字节
-        [5] = 1792,   -- MP3: 1792字节（帧大小）
-    }
-    return buffer_sizes[codec_id] or 4096
-end
-
---[[
-@description 获取流式播放推荐等待时间
-@api exaudio.get_stream_wait_ms(codec_id)
-@number codec_id 编解码器ID (0=PCM, 1=WAV, 2=AMR_NB, 3=AMR_WB, 5=MP3)
-@return number 推荐的等待时间（毫秒）
-@usage
-local wait_ms = exaudio.get_stream_wait_ms(5)  -- MP3推荐等待时间
-注意：此函数仅在audio_v2模式下可用
-]]
-function exaudio.get_stream_wait_ms(codec_id)
-    local wait_times = {
-        [0] = 20,     -- PCM: 20ms
-        [1] = 20,     -- WAV: 20ms
-        [2] = 80,     -- AMR_NB: 80ms
-        [3] = 80,     -- AMR_WB: 80ms
-        [5] = 100,    -- MP3: 100ms
-    }
-    return wait_times[codec_id] or 20
-end
-
---[[
 获取库版本信息
 @return string 年月日时分，例如： "202606300102"
 @usage
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202607021200"
+    return "202607081021"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

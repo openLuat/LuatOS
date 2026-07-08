@@ -42,6 +42,7 @@
 #define LUAT_USE_NETDRV_CH390H 1
 #define LUAT_USE_NETDRV_OPENVPN 1
 #define LUAT_USE_NETDRV_WG 1
+#define LUAT_USE_NETDRV_LWIP_ARP 1
 
 // ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试)
 #define LUAT_USE_ICMP 1
@@ -114,6 +115,8 @@
 // #define LUAT_SUPPORT_OPUS   1
 #define LUAT_USE_AUDIO_G711 1
 #define LUAT_USE_AUDIO_DTMF 1
+#define LUAT_USE_VOIP 1
+#define LUAT_USE_RECORD 1
 
 //----------------------------
 // 常用工具库, 按需启用, cjson和pack是强烈推荐启用的

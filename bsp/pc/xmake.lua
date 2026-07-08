@@ -363,6 +363,11 @@ target("luatos-lua")
         add_links("Mf", "mfplat", "mfreadwrite", "mfuuid", "windowscodecs", "ole32", "oleaut32")
     end
 
+    -- voip
+    add_includedirs(luatos.."components/voip/include")
+    add_files(luatos.."components/voip/src/*.c")
+    add_files(luatos.."components/voip/binding/*.c")
+
     -- opus
     add_defines("OPUS_ARM_ASM","USE_ALLOCA","FIXED_POINT=1","OPUS_BUILD=1")
     add_includedirs(luatos.."/components/multimedia/opus",
@@ -390,6 +395,10 @@ target("luatos-lua")
     add_includedirs(luatos .. "components/network/adapter", {public = true})
     add_includedirs(luatos .. "components/ethernet/common", {public = true})
     add_files(luatos .. "components/network/adapter/*.c")
+
+    -- rtp
+    add_includedirs(luatos.."components/network/rtp",{public = true})
+    add_files(luatos.."components/network/rtp/*.c")
 
     -- 网络上层协议
     -- http_parser
@@ -552,6 +561,7 @@ target("luatos-lua")
         add_includedirs(luatos .. "components/wlan")
         add_files(luatos .. "components/wlan/luat_lib_wlan.c")
         add_files("port/driver/luat_wlan_pc.c")
+        add_files("port/driver/luat_audio_compat.c")
         if os.getenv("LUAT_USE_WLAN_NATIVE") == "y" then
             add_defines("LUAT_USE_WLAN_NATIVE")
             if is_plat("windows") then

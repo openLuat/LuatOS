@@ -264,6 +264,16 @@ int luat_i2s_set_user_data(uint8_t id, void *user_data) {
     return 0;
 }
 
+int luat_i2s_save_old_config(uint8_t id) {
+    (void)id;
+    return -1; /* PC simulator uses audio_v2 path, no need to save I2S config */
+}
+
+int luat_i2s_load_old_config(uint8_t id) {
+    (void)id;
+    return 0;
+}
+
 LUAT_WEAK int l_i2s_play(lua_State *L) {
     LLOGD("i2s.play not supported on PC");
     return 0;

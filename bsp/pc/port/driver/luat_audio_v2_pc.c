@@ -7,8 +7,10 @@
 #include "luat_audio_driver.h"
 #include "luat_common_api.h"
 #include <SDL2/SDL.h>
+#include "luat_i2s.h"
 #include <limits.h>
 #include <string.h>
+#include <math.h>
 
 #define LUAT_LOG_TAG "audio_v2.pc"
 #include "luat_log.h"
@@ -36,6 +38,8 @@ typedef struct {
     uint32_t rx_block_pos;
     uint32_t tx_block_offset;
     uint32_t rx_block_offset;
+    uint8_t tx_buffer_external;
+    uint8_t rx_buffer_external;
 } pc_audio_v2_driver_t;
 
 static pc_audio_v2_driver_t g_pc_audio_v2;
@@ -114,8 +118,10 @@ static void SDLCALL pc_audio_tx_callback(void *userdata, Uint8 *stream, int len)
         if (driver->tx_block_offset == driver->tx_block_len) {
             driver->tx_block_offset = 0;
             driver->tx_block_pos = (driver->tx_block_pos + 1) % driver->tx_block_num;
-            luat_audio_driver_event_callback(LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE,
-                                             NULL, 0, driver->ctrl);
+            if (!driver->ctrl->opts->support_full_loop) {
+                luat_audio_driver_event_callback(LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE,
+                                                 NULL, 0, driver->ctrl);
+            }
         }
     }
 }
@@ -129,6 +135,12 @@ static void SDLCALL pc_audio_rx_callback(void *userdata, Uint8 *stream, int len)
         !driver->rx_block_len || !driver->rx_block_num) {
         return;
     }
+
+    /* If device is being closed, don't process */
+    if (!driver->rx_device) {
+        return;
+    }
+
     while (rest > 0) {
         uint32_t block_rest = driver->rx_block_len - driver->rx_block_offset;
         uint32_t copy_len = block_rest < (uint32_t)rest ? block_rest : (uint32_t)rest;
@@ -141,8 +153,15 @@ static void SDLCALL pc_audio_rx_callback(void *userdata, Uint8 *stream, int len)
         if (driver->rx_block_offset == driver->rx_block_len) {
             driver->rx_block_offset = 0;
             driver->rx_block_pos = (driver->rx_block_pos + 1) % driver->rx_block_num;
-            luat_audio_driver_event_callback(LUAT_AUDIO_DRIVER_EVENT_RX_ONE_BLOCK_DONE,
-                                             block, driver->rx_block_len, driver->ctrl);
+            if (!driver->ctrl->opts->support_full_loop) {
+                luat_audio_driver_event_callback(LUAT_AUDIO_DRIVER_EVENT_RX_ONE_BLOCK_DONE,
+                                                 block, driver->rx_block_len, driver->ctrl);
+            }
+            /* Bridge to legacy I2S callback for voip compatibility */
+            luat_i2s_conf_t *i2s = luat_i2s_get_config(0);
+            if (i2s && i2s->luat_i2s_event_callback) {
+                i2s->luat_i2s_event_callback(0, LUAT_I2S_EVENT_RX_DONE, block, driver->rx_block_len, i2s->userdata);
+            }
         }
     }
 }
@@ -150,14 +169,15 @@ static void SDLCALL pc_audio_rx_callback(void *userdata, Uint8 *stream, int len)
 static void pc_audio_close_tx(pc_audio_v2_driver_t *driver)
 {
     if (driver->tx_device) {
-        SDL_PauseAudioDevice(driver->tx_device, 1);
+        /* 直接关闭设备，SDL_CloseAudioDevice 会立即停止所有音频处理 */
         SDL_CloseAudioDevice(driver->tx_device);
         driver->tx_device = 0;
     }
-    if (driver->tx_buffer) {
+    if (driver->tx_buffer && !driver->tx_buffer_external) {
         SDL_free(driver->tx_buffer);
-        driver->tx_buffer = NULL;
     }
+    driver->tx_buffer = NULL;
+    driver->tx_buffer_external = 0;
     driver->tx_block_len = 0;
     driver->tx_block_num = 0;
     driver->tx_block_pos = 0;
@@ -167,7 +187,7 @@ static void pc_audio_close_tx(pc_audio_v2_driver_t *driver)
 static void pc_audio_close_rx(pc_audio_v2_driver_t *driver)
 {
     if (driver->rx_device) {
-        SDL_PauseAudioDevice(driver->rx_device, 1);
+        /* 直接关闭设备 */
         SDL_CloseAudioDevice(driver->rx_device);
         driver->rx_device = 0;
     }
@@ -396,8 +416,80 @@ static int pc_audio_start_rx(luat_audio_driver_ctrl_t *ctrl, uint32_t **record_b
     }
     LLOGI("input ready: %s, %uHz %uch %ubit block=%u x %u",
           SDL_GetAudioDeviceName(0, 1) ? SDL_GetAudioDeviceName(0, 1) : "default",
-           ctrl->rx_param.sample_rate, ctrl->rx_param.channel_nums,
-           ctrl->rx_param.data_align * 8U, one_block_len, block_num);
+           ctrl->rx_param.sample_rate, ctrl->tx_param.channel_nums,
+           ctrl->tx_param.data_align * 8U, one_block_len, block_num);
+    SDL_PauseAudioDevice(driver->rx_device, 0);
+    return LUAT_ERROR_NONE;
+}
+
+static int pc_audio_start_full_loop_with_play_buff(luat_audio_driver_ctrl_t *ctrl, uint32_t *play_buff,
+                             uint32_t one_play_block_len, uint32_t play_block_num,
+                             uint32_t **record_buff, uint32_t one_record_block_len, uint32_t record_block_num)
+{
+    pc_audio_v2_driver_t *driver = (pc_audio_v2_driver_t *)ctrl->driver_data;
+    SDL_AudioSpec spec;
+    size_t total_len;
+
+    if (!driver || !play_buff || !record_buff || !one_play_block_len || !play_block_num ||
+        !one_record_block_len || !record_block_num || driver->tx_device || driver->tx_buffer) {
+        return -LUAT_ERROR_PARAM_INVALID;
+    }
+
+    if (pc_audio_make_spec(ctrl, &ctrl->tx_param, one_play_block_len, pc_audio_tx_callback, &spec)) {
+        return -LUAT_ERROR_PARAM_INVALID;
+    }
+
+    driver->tx_buffer = (uint8_t *)play_buff;
+    driver->tx_buffer_external = 1;
+    driver->tx_block_len = one_play_block_len;
+    driver->tx_block_num = play_block_num;
+    driver->tx_block_pos = 0;
+    driver->tx_block_offset = 0;
+    ctrl->one_play_block_len = one_play_block_len;
+
+    driver->tx_device = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, 0);
+    if (!driver->tx_device) {
+        LLOGE("open default output failed: %s", SDL_GetError());
+        driver->tx_buffer = NULL;
+        driver->tx_buffer_external = 0;
+        return -LUAT_ERROR_OPERATION_FAILED;
+    }
+    SDL_PauseAudioDevice(driver->tx_device, 0);
+
+    if (pc_audio_make_spec(ctrl, &ctrl->rx_param, one_record_block_len, pc_audio_rx_callback, &spec)) {
+        pc_audio_close_tx(driver);
+        return -LUAT_ERROR_PARAM_INVALID;
+    }
+    total_len = (size_t)one_record_block_len * record_block_num;
+    if (total_len > UINT_MAX) {
+        pc_audio_close_tx(driver);
+        return -LUAT_ERROR_PARAM_OVERFLOW;
+    }
+
+    driver->rx_buffer = (uint8_t *)SDL_calloc(1, total_len);
+    if (!driver->rx_buffer) {
+        pc_audio_close_tx(driver);
+        return -LUAT_ERROR_NO_MEMORY;
+    }
+    driver->rx_block_len = one_record_block_len;
+    driver->rx_block_num = record_block_num;
+    driver->rx_block_pos = 0;
+    driver->rx_block_offset = 0;
+    *record_buff = (uint32_t *)driver->rx_buffer;
+    ctrl->one_record_block_len = one_record_block_len;
+
+    driver->rx_device = SDL_OpenAudioDevice(NULL, 1, &spec, NULL, 0);
+    if (!driver->rx_device) {
+        LLOGE("open default input failed: %s", SDL_GetError());
+        pc_audio_close_tx(driver);
+        pc_audio_close_rx(driver);
+        *record_buff = NULL;
+        return -LUAT_ERROR_OPERATION_FAILED;
+    }
+    LLOGI("full-duplex with external play buffer ready: %uHz %uch %ubit play=%u x %u record=%u x %u",
+          ctrl->tx_param.sample_rate, ctrl->tx_param.channel_nums,
+          ctrl->tx_param.data_align * 8U, one_play_block_len, play_block_num,
+          one_record_block_len, record_block_num);
     SDL_PauseAudioDevice(driver->rx_device, 0);
     return LUAT_ERROR_NONE;
 }
@@ -438,7 +530,7 @@ const luat_audio_driver_opts_t luat_audio_sdl_opts = {
     .start_tx_loop = pc_audio_start_tx,
     .start_rx_loop = pc_audio_start_rx,
     .start_full_loop = NULL,
-    .start_full_loop_with_play_buff = NULL,
+    .start_full_loop_with_play_buff = pc_audio_start_full_loop_with_play_buff,
     .cache_sync = NULL,
     .stop = pc_audio_stop,
     .deactivate = pc_audio_deactivate,
@@ -447,7 +539,7 @@ const luat_audio_driver_opts_t luat_audio_sdl_opts = {
     .rx_one_block_max_len = PC_AUDIO_MAX_BLOCK_LEN,
     .support_tx_loop = 1,
     .support_rx_loop = 1,
-    .support_full_loop = 0,
+    .support_full_loop = 1,
     .support_continue = 1,
     .is_tx_signed = 1,
     .is_rx_signed = 1,

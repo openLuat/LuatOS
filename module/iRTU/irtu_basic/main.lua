@@ -38,10 +38,10 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
 end
 
--- 检查是否为RFA模式
--- 通过自发送 AT+ECNPICFG? 查询 rfCaliDone 和 rfNSTDone
--- 两者都为1表示RFA校准流程全部通过，不进入RFA模式；否则进入RFA校准模式
-if rfa then
+-- 检查是否为RFA模式, 用mobile.rfTestParam接口是否存在来判断当前固件是否支持RFA模式
+if rfa and mobile.rfTestParam then
+    -- 通过自发送 AT+ECNPICFG? 查询 rfCaliDone 和 rfNSTDone
+    -- 两者都为1表示RFA校准流程全部通过，不进入RFA模式；否则进入RFA校准模式
     local resp = rfa.dispatch("AT+ECNPICFG?")
     local rfCaliDone, rfNSTDone = 0, 0
     if resp then
@@ -63,7 +63,7 @@ end
 
 -- 用户代码已开始---------------------------------------------
 -- 在这里编写你的代码
-if rfa and isRFA_mode then
+if rfa and mobile.rfTestParam and isRFA_mode then
     log.info("main", "当前为RFA模式")
     -- 启动 RFA AT 服务器，绑定到 USB 虚拟串口 VUART_0
     -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致

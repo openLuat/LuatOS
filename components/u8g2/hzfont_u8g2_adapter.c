@@ -10,6 +10,7 @@
 #include "luat_base.h"
 #if defined(LUAT_USE_HZFONT) && defined(LUAT_USE_U8G2)
 #include "hzfont_u8g2_adapter.h"
+#include "luat_u8g2.h"
 #include "luat_hzfont.h"
 #include "luat_log.h"
 #include "luat_mem.h"
@@ -25,14 +26,12 @@
 // 默认灰度阈值
 #define HZFONT_DEFAULT_THRESHOLD 128
 
-/**
- * U8G2用户数据结构
- * 用于在u8g2上下文中存储HzFont相关信息
- */
-typedef struct {
-    void* hzfont;                    /**< HzFont字体对象 */
-    uint8_t is_hzfont_enabled;        /**< 是否启用HzFont */
-} u8g2_hzfont_userdata_t;
+static luat_u8g2_conf_t* hzfont_u8g2_get_conf(u8g2_t* u8g2) {
+    if (!u8g2) {
+        return NULL;
+    }
+    return (luat_u8g2_conf_t*)u8g2->u8x8.user_ptr;
+}
 
 /**
  * 初始化HzFont U8G2适配器
@@ -146,33 +145,32 @@ int hzfont_u8g2_set_font(u8g2_t* u8g2, void* font_ptr) {
         return HZFONT_U8G2_ERR_UNINIT;
     }
 
-    // 创建或获取用户数据
-    u8g2_hzfont_userdata_t* userdata = (u8g2_hzfont_userdata_t*)u8g2->u8x8.user_ptr;
-    if (!userdata) {
-        userdata = (u8g2_hzfont_userdata_t*)luat_heap_malloc(sizeof(u8g2_hzfont_userdata_t));
-        if (!userdata) {
-            return HZFONT_U8G2_ERR_NO_MEMORY;
-        }
-        memset(userdata, 0, sizeof(u8g2_hzfont_userdata_t));
-        u8g2->u8x8.user_ptr = userdata;
+    luat_u8g2_conf_t* conf = hzfont_u8g2_get_conf(u8g2);
+    if (!conf) {
+        return HZFONT_U8G2_ERR_NOT_READY;
+    }
+
+    if (conf->hzfont == font_ptr) {
+        conf->is_hzfont_enabled = font_ptr != NULL;
+        return HZFONT_U8G2_ERR_OK;
     }
 
     // 释放旧的HzFont对象
-    if (userdata->hzfont) {
-        hzfont_u8g2_free_font(userdata->hzfont);
+    if (conf->hzfont) {
+        hzfont_u8g2_free_font(conf->hzfont);
     }
 
     // 设置新的HzFont对象
     if (font_ptr) {
         hzfont_u8g2_ref_font(font_ptr);
-        userdata->hzfont = font_ptr;
-        userdata->is_hzfont_enabled = 1;
+        conf->hzfont = font_ptr;
+        conf->is_hzfont_enabled = 1;
     } else {
-        userdata->hzfont = NULL;
-        userdata->is_hzfont_enabled = 0;
+        conf->hzfont = NULL;
+        conf->is_hzfont_enabled = 0;
     }
 
-    LLOGD("Set HzFont for U8G2: enabled=%d", userdata->is_hzfont_enabled);
+    LLOGD("Set HzFont for U8G2: enabled=%d", conf->is_hzfont_enabled);
     return HZFONT_U8G2_ERR_OK;
 }
 
@@ -263,12 +261,12 @@ uint16_t hzfont_u8g2_draw_text(u8g2_t* u8g2, u8g2_uint_t x, u8g2_uint_t y, const
     }
 
     // 检查是否使用HzFont
-    u8g2_hzfont_userdata_t* userdata = (u8g2_hzfont_userdata_t*)u8g2->u8x8.user_ptr;
-    if (!userdata || !userdata->is_hzfont_enabled || !userdata->hzfont) {
+    luat_u8g2_conf_t* conf = hzfont_u8g2_get_conf(u8g2);
+    if (!conf || !conf->is_hzfont_enabled || !conf->hzfont) {
         return 0;
     }
 
-    hzfont_u8g2_font_t* font = (hzfont_u8g2_font_t*)userdata->hzfont;
+    hzfont_u8g2_font_t* font = (hzfont_u8g2_font_t*)conf->hzfont;
 
     // 如果调用者指定了字号/抗锯齿，则使用调用者的值；否则使用SetHzFont设置的默认值
     uint8_t use_font_size = (font_size != 0) ? font_size : font->font_size;
@@ -393,12 +391,12 @@ int hzfont_u8g2_is_hzfont(u8g2_t* u8g2) {
         return 0;
     }
 
-    u8g2_hzfont_userdata_t* userdata = (u8g2_hzfont_userdata_t*)u8g2->u8x8.user_ptr;
-    if (!userdata) {
+    luat_u8g2_conf_t* conf = hzfont_u8g2_get_conf(u8g2);
+    if (!conf) {
         return 0;
     }
 
-    return userdata->is_hzfont_enabled;
+    return conf->is_hzfont_enabled;
 }
 
 /**
@@ -409,12 +407,12 @@ hzfont_u8g2_font_t* hzfont_u8g2_get_font(u8g2_t* u8g2) {
         return NULL;
     }
 
-    u8g2_hzfont_userdata_t* userdata = (u8g2_hzfont_userdata_t*)u8g2->u8x8.user_ptr;
-    if (!userdata) {
+    luat_u8g2_conf_t* conf = hzfont_u8g2_get_conf(u8g2);
+    if (!conf) {
         return NULL;
     }
 
-    return (hzfont_u8g2_font_t*)userdata->hzfont;
+    return (hzfont_u8g2_font_t*)conf->hzfont;
 }
 
 /**

@@ -13,6 +13,7 @@
 */
 #include "luat_base.h"
 #include "luat_mem.h"
+#include <string.h>
 
 #include "luat_u8g2.h"
 #include "luat_gpio.h"
@@ -71,10 +72,10 @@ static const luat_u8g2_dev_reg_t devregs[] = {
     {.name="ssd1306", .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_ssd1306_128x64_noname_f},           // ssd1306 128x64,SPI
     {.name="ssd1309", .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1309_i2c_128x64_noname2_f},           // ssd1309 128x64,I2C
     {.name="ssd1309", .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_ssd1309_128x64_noname2_f},           // ssd1309 128x64,SPI
-    {.name="ssd1322", .w=256, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1322_nhd_256x64_f},              // ssd1322 128x64
+    {.name="ssd1322", .w=256, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_ssd1322_nhd_256x64_f},              // ssd1322 256x64,SPI
     {.name="sh1106",  .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_sh1106_i2c_128x64_noname_f},        // sh1106 128x64,I2C
     {.name="sh1106",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_sh1106_128x64_noname_f},        // sh1106 128x64,SPI
-    {.name="sh1107",  .w=64, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // sh1107 64x128
+    {.name="sh1107",  .w=64, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_sh1107_i2c_64x128_f},       // sh1107 64x128
     {.name="sh1107_128x128",  .w=128, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_sh1107_i2c_128x128_f},       // sh1107 64x128
     {.name="sh1108",  .w=160, .h=160, .spi_i2c=0, .devcb=u8g2_Setup_sh1108_i2c_160x160_f},          // sh1108 160x160
     {.name="st7567",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7567_jlx12864_f},                 // st7567 128x64
@@ -106,6 +107,12 @@ u8g2显示屏初始化
 -- i2c_sda: 数值软件i2c时数据线的GPIO编号
 -- spi_id、spi_res、spi_dc、spi_cs: 数值,硬件spi的SPI编号,复位GPIO编号,DC线的GPIO编号, CS线的GPIO编号
 -- x_offset: 数值,X轴偏移量,默认按驱动走, 2023.11.10新增的配置项
+-- ic="custom"时第二个table必须包含width/height
+-- tile_w/tile_h: 可选,默认ceil(width/8)、ceil(height/8)
+-- flush_mode: 可选,默认u8g2.flush_page;另支持flush_page_arg、flush_window_gray4、flush_window_2row_lut
+-- hvline/cad_mode: 可选,默认值由flush_mode决定;不兼容的hvline会初始化失败
+-- flush_window_2row_lut还需要column_start,row_offset可选且默认0
+-- initcmd元素:0x0001xxxx延时、0x0002xx命令、0x0003xx数据
 
 -- 初始化硬件i2c的ssd1306
 u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_hw",i2c_id=0}) -- direction 可选0 90 180 270
@@ -114,7 +121,281 @@ u8g2.begin({ic = "ssd1306",direction = 0,mode="spi_hw_4pin",spi_id=0,spi_res=20,
 -- 初始化软件i2c的ssd1306
 u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
 */
+static int luat_u8g2_table_integer(lua_State *L, int index, const char *key, lua_Integer *value)
+{
+    int found = 0;
+    lua_getfield(L, index, key);
+    if (lua_isinteger(L, -1)) {
+        *value = lua_tointeger(L, -1);
+        found = 1;
+    }
+    lua_pop(L, 1);
+    return found;
+}
+
+static void luat_u8g2_release_allocations(luat_u8g2_conf_t *u8g2_conf)
+{
+    luat_u8g2_custom_t *custom;
+    if (u8g2_conf == NULL)
+        return;
+#ifdef LUAT_USE_HZFONT
+    if (u8g2_conf->hzfont != NULL) {
+        hzfont_u8g2_free_font(u8g2_conf->hzfont);
+        u8g2_conf->hzfont = NULL;
+        u8g2_conf->is_hzfont_enabled = 0;
+    }
+#endif
+    if (u8g2_conf->buff_ptr != NULL) {
+        luat_heap_free(u8g2_conf->buff_ptr);
+        u8g2_conf->buff_ptr = NULL;
+    }
+    custom = (luat_u8g2_custom_t *)u8g2_conf->userdata;
+    if (custom != NULL) {
+        if (custom->initcmd != NULL)
+            luat_heap_free(custom->initcmd);
+        luat_heap_free(custom);
+        u8g2_conf->userdata = NULL;
+    }
+}
+
+static int luat_u8g2_parse_custom(lua_State *L, int index, luat_u8g2_conf_t *u8g2_conf,
+                                  int x_offset)
+{
+    luat_u8g2_custom_t *custom;
+    lua_Integer value;
+    uint8_t expected_hvline;
+    uint8_t default_cad;
+    uint32_t tile_pixel_w;
+    uint32_t tile_pixel_h;
+
+    if (!lua_istable(L, index)) {
+        LLOGE("custom config table is required");
+        return 4;
+    }
+
+    custom = (luat_u8g2_custom_t *)luat_heap_calloc(1, sizeof(luat_u8g2_custom_t));
+    if (custom == NULL)
+        return 3;
+    u8g2_conf->userdata = custom;
+
+    if (!luat_u8g2_table_integer(L, index, "width", &value) || value <= 0 || value > UINT16_MAX) {
+        LLOGE("custom width must be 1..65535");
+        return 4;
+    }
+    u8g2_conf->w = (uint16_t)value;
+    if (!luat_u8g2_table_integer(L, index, "height", &value) || value <= 0 || value > UINT16_MAX) {
+        LLOGE("custom height must be 1..65535");
+        return 4;
+    }
+    u8g2_conf->h = (uint16_t)value;
+
+    custom->tile_w = (uint8_t)((u8g2_conf->w + 7u) / 8u);
+    custom->tile_h = (uint8_t)((u8g2_conf->h + 7u) / 8u);
+    if (luat_u8g2_table_integer(L, index, "tile_w", &value)) {
+        if (value <= 0 || value > UINT8_MAX) {
+            LLOGE("custom tile_w must be 1..255");
+            return 4;
+        }
+        custom->tile_w = (uint8_t)value;
+    }
+    if (luat_u8g2_table_integer(L, index, "tile_h", &value)) {
+        if (value <= 0 || value > UINT8_MAX) {
+            LLOGE("custom tile_h must be 1..255");
+            return 4;
+        }
+        custom->tile_h = (uint8_t)value;
+    }
+    if (custom->tile_w == 0 || custom->tile_h == 0) {
+        LLOGE("custom dimensions exceed the tile limit");
+        return 4;
+    }
+
+    tile_pixel_w = (uint32_t)custom->tile_w * 8u;
+    tile_pixel_h = (uint32_t)custom->tile_h * 8u;
+    if (tile_pixel_w < u8g2_conf->w || tile_pixel_h < u8g2_conf->h) {
+        LLOGE("custom tile size does not cover %ux%u", u8g2_conf->w, u8g2_conf->h);
+        return 4;
+    }
+
+    custom->flush_mode = LUAT_U8G2_FLUSH_PAGE;
+    if (luat_u8g2_table_integer(L, index, "flush_mode", &value)) {
+        if (value < LUAT_U8G2_FLUSH_PAGE || value > LUAT_U8G2_FLUSH_WINDOW_2ROW_LUT) {
+            LLOGE("invalid custom flush_mode %d", (int)value);
+            return 4;
+        }
+        custom->flush_mode = (uint8_t)value;
+    }
+
+    expected_hvline = custom->flush_mode == LUAT_U8G2_FLUSH_WINDOW_2ROW_LUT
+        ? LUAT_U8G2_HVLINE_HORIZONTAL_RIGHT : LUAT_U8G2_HVLINE_VERTICAL_TOP;
+    default_cad = custom->flush_mode == LUAT_U8G2_FLUSH_PAGE ||
+                  custom->flush_mode == LUAT_U8G2_FLUSH_PAGE_ARG
+        ? LUAT_U8G2_CAD_001 : LUAT_U8G2_CAD_011;
+    custom->hvline = expected_hvline;
+    custom->cad_mode = default_cad;
+
+    if (luat_u8g2_table_integer(L, index, "hvline", &value)) {
+        if (value != expected_hvline) {
+            LLOGE("hvline %d is incompatible with flush_mode %d", (int)value, custom->flush_mode);
+            return 4;
+        }
+        custom->hvline = (uint8_t)value;
+    }
+    if (luat_u8g2_table_integer(L, index, "cad_mode", &value)) {
+        if (value != LUAT_U8G2_CAD_001 && value != LUAT_U8G2_CAD_011 &&
+            value != LUAT_U8G2_CAD_100) {
+            LLOGE("invalid custom cad_mode %d", (int)value);
+            return 4;
+        }
+        custom->cad_mode = (uint8_t)value;
+    }
+    if ((pinType == 1 || pinType == 2) && custom->cad_mode == LUAT_U8G2_CAD_100) {
+        LLOGE("cad_100 is not supported by I2C custom mode");
+        return 4;
+    }
+
+    if (luat_u8g2_table_integer(L, index, "column_start", &value)) {
+        if (value < 0 || value > UINT8_MAX) {
+            LLOGE("custom column_start must be 0..255");
+            return 4;
+        }
+        custom->column_start = (uint8_t)value;
+        custom->has_column_start = 1;
+    }
+    if (luat_u8g2_table_integer(L, index, "row_offset", &value)) {
+        if (value < 0 || value > UINT8_MAX) {
+            LLOGE("custom row_offset must be 0..255");
+            return 4;
+        }
+        custom->row_offset = (uint8_t)value;
+    }
+
+    if (custom->flush_mode == LUAT_U8G2_FLUSH_PAGE) {
+        if (custom->tile_h > 16) {
+            LLOGE("flush_page supports at most 16 tile rows; use flush_page_arg");
+            return 4;
+        }
+        if (tile_pixel_w > 256u || x_offset > (int)(256u - tile_pixel_w)) {
+            LLOGE("flush_page column address exceeds 8-bit range");
+            return 4;
+        }
+    }
+    else if (custom->flush_mode == LUAT_U8G2_FLUSH_PAGE_ARG) {
+        if (tile_pixel_w > 256u || x_offset > (int)(256u - tile_pixel_w)) {
+            LLOGE("flush_page_arg column address exceeds 8-bit range");
+            return 4;
+        }
+    }
+    else if (custom->flush_mode == LUAT_U8G2_FLUSH_WINDOW_GRAY4) {
+        if (custom->tile_h > 32 || (uint32_t)custom->tile_w * 2u > 256u ||
+            x_offset > (int)(256u - (uint32_t)custom->tile_w * 2u)) {
+            LLOGE("flush_window_gray4 address exceeds 8-bit range");
+            return 4;
+        }
+    }
+    else {
+        uint32_t columns = ((uint32_t)custom->tile_w + 2u) / 3u * 2u;
+        if (!custom->has_column_start) {
+            LLOGE("flush_window_2row_lut requires column_start");
+            return 4;
+        }
+        if ((uint32_t)custom->column_start + columns > 256u ||
+            (uint32_t)custom->row_offset + (uint32_t)custom->tile_h * 4u > 256u) {
+            LLOGE("flush_window_2row_lut address exceeds 8-bit range");
+            return 4;
+        }
+    }
+
+    if (luat_u8g2_table_integer(L, index, "sleepcmd", &value)) {
+        if (value < 0 || value > UINT8_MAX) {
+            LLOGE("custom sleepcmd must be 0..255");
+            return 4;
+        }
+        u8g2_conf->sleepcmd = (uint8_t)value;
+        custom->has_sleepcmd = 1;
+    }
+    if (luat_u8g2_table_integer(L, index, "wakecmd", &value)) {
+        if (value < 0 || value > UINT8_MAX) {
+            LLOGE("custom wakecmd must be 0..255");
+            return 4;
+        }
+        u8g2_conf->wakecmd = (uint8_t)value;
+        custom->has_wakecmd = 1;
+    }
+
+    lua_getfield(L, index, "initcmd");
+    if (!lua_isnil(L, -1)) {
+        size_t i;
+        if (!lua_istable(L, -1)) {
+            lua_pop(L, 1);
+            LLOGE("custom initcmd must be a table");
+            return 4;
+        }
+        custom->init_cmd_count = lua_rawlen(L, -1);
+        if (custom->init_cmd_count > 0) {
+            if (custom->init_cmd_count > SIZE_MAX / sizeof(uint32_t)) {
+                lua_pop(L, 1);
+                return 3;
+            }
+            custom->initcmd = (uint32_t *)luat_heap_malloc(custom->init_cmd_count * sizeof(uint32_t));
+            if (custom->initcmd == NULL) {
+                lua_pop(L, 1);
+                return 3;
+            }
+            for (i = 1; i <= custom->init_cmd_count; i++) {
+                lua_Integer init_value;
+                uint8_t init_type;
+                lua_geti(L, -1, i);
+                if (!lua_isinteger(L, -1)) {
+                    lua_pop(L, 2);
+                    LLOGE("custom initcmd[%u] must be an integer", (unsigned)i);
+                    return 4;
+                }
+                init_value = lua_tointeger(L, -1);
+                if (init_value < 0 || (uint64_t)init_value > UINT32_MAX) {
+                    lua_pop(L, 2);
+                    LLOGE("custom initcmd[%u] is outside uint32 range", (unsigned)i);
+                    return 4;
+                }
+                init_type = (uint8_t)(((uint32_t)init_value >> 16) & 0xffu);
+                if (init_type > 3) {
+                    lua_pop(L, 2);
+                    LLOGE("custom initcmd[%u] has invalid type %u", (unsigned)i, init_type);
+                    return 4;
+                }
+                custom->initcmd[i - 1] = (uint32_t)init_value;
+                lua_pop(L, 1);
+            }
+        }
+    }
+    lua_pop(L, 1);
+
+    custom->display_info.chip_enable_level = 0;
+    custom->display_info.chip_disable_level = 1;
+    custom->display_info.post_chip_enable_wait_ns = 20;
+    custom->display_info.pre_chip_disable_wait_ns = 10;
+    custom->display_info.reset_pulse_width_ms = 100;
+    custom->display_info.post_reset_wait_ms = 100;
+    custom->display_info.sda_setup_time_ns = 50;
+    custom->display_info.sck_pulse_width_ns = 50;
+    custom->display_info.sck_clock_hz = custom->flush_mode == LUAT_U8G2_FLUSH_WINDOW_2ROW_LUT
+        ? 2000000UL : (custom->flush_mode == LUAT_U8G2_FLUSH_WINDOW_GRAY4 ? 10000000UL : 10000000UL);
+    custom->display_info.spi_mode = 0;
+    custom->display_info.i2c_bus_clock_100kHz = 4;
+    custom->display_info.data_setup_time_ns = 40;
+    custom->display_info.write_pulse_width_ns = 150;
+    custom->display_info.tile_width = custom->tile_w;
+    custom->display_info.tile_height = custom->tile_h;
+    custom->display_info.default_x_offset = x_offset >= 0 ? (uint8_t)x_offset : 0;
+    custom->display_info.flipmode_x_offset = custom->display_info.default_x_offset;
+    custom->display_info.pixel_width = u8g2_conf->w;
+    custom->display_info.pixel_height = u8g2_conf->h;
+    return 0;
+}
+
 static int l_u8g2_begin(lua_State *L) {
+    int result = 4;
+    int setup_result;
     if (conf != NULL) {
         LLOGW("disp is aready inited");
         lua_pushinteger(L, 2);
@@ -126,9 +407,23 @@ static int l_u8g2_begin(lua_State *L) {
         lua_pushinteger(L, 3);
         return 1;
     }
+    memset(conf, 0, sizeof(luat_u8g2_conf_t));
+    strcpy(conf->cname, "ssd1306");
+    conf->lua_ref = LUA_NOREF;
     conf->u8g2.u8x8.user_ptr = conf;
     conf->direction = U8G2_R0;
-    char mode[12] = {0};
+    pinType = 255;
+    i2c_id = 0;
+    i2c_speed = 0;
+    i2c_scl = 0;
+    i2c_sda = 0;
+    spi_id = 0;
+    spi_res = 0;
+    spi_dc = 0;
+    spi_cs = 0;
+    spi_clk = 0;
+    spi_mosi = 0;
+    char mode[17] = {0};
     size_t mode_len = 0;
     int x_offset = -255;
     if (lua_istable(L, 1)) {
@@ -136,8 +431,15 @@ static int l_u8g2_begin(lua_State *L) {
         lua_pushliteral(L, "ic");
         lua_gettable(L, 1);
         if (lua_isstring(L, -1)) {
-            conf->cname = (char*)luaL_checkstring(L, -1);
-            //LLOGD("using ic: %s",conf.cname);
+            size_t ic_len = 0;
+            const char *ic = lua_tolstring(L, -1, &ic_len);
+            if (ic_len == 0 || ic_len >= sizeof(conf->cname)) {
+                LLOGE("ic name is empty or too long");
+                lua_pop(L, 1);
+                goto begin_fail;
+            }
+            memcpy(conf->cname, ic, ic_len);
+            conf->cname[ic_len] = '\0';
         }
         lua_pop(L, 1);
 
@@ -171,25 +473,28 @@ static int l_u8g2_begin(lua_State *L) {
         lua_gettable(L, 1);
         if (!lua_isstring(L, -1)) {
             LLOGE("need mode!!!");
-            return 0;
+            lua_pop(L, 1);
+            goto begin_fail;
         }
         const char* tmp = luaL_checklstring(L, -1, &mode_len);
         if (mode_len < 1 || mode_len > 16) {
             LLOGE("mode string too short or too long!!");
-            return 0;
+            lua_pop(L, 1);
+            goto begin_fail;
         }
-        memcpy(mode, tmp, strlen(tmp));
+        memcpy(mode, tmp, mode_len);
+        mode[mode_len] = '\0';
         lua_pop(L, 1);
         for (size_t i = 0; i < sizeof(mode_strs) / sizeof(const char*); i++)
         {
-            if (strcmp(mode_strs[i], tmp) == 0) {
+            if (strcmp(mode_strs[i], mode) == 0) {
                 pinType = i + 1;
                 break;
             }
         }
         if (pinType == 255) {
-            LLOGE("no such mode [%s]", tmp);
-            return 0;
+            LLOGE("no such mode [%s]", mode);
+            goto begin_fail;
         }
 
         lua_pushliteral(L, "i2c_scl");
@@ -271,57 +576,27 @@ static int l_u8g2_begin(lua_State *L) {
         lua_pop(L, 1);
     }
 
-    if (lua_istable(L, 2) && strcmp("custom", conf->cname) == 0){
-        lua_pushliteral(L, "width");
-        lua_gettable(L, 2);
-        if (lua_isinteger(L, -1)) {
-            conf->w = luaL_checkinteger(L, -1);
-        }
-        lua_pop(L, 1);
+    if (pinType == 255) {
+        LLOGE("u8g2 begin config table and mode are required");
+        goto begin_fail;
+    }
+    if (x_offset != -255 && (x_offset < 0 || x_offset > UINT8_MAX)) {
+        LLOGE("x_offset must be 0..255");
+        goto begin_fail;
+    }
 
-        lua_pushliteral(L, "height");
-        lua_gettable(L, 2);
-        if (lua_isinteger(L, -1)) {
-            conf->h = luaL_checkinteger(L, -1);
-        }
-        lua_pop(L, 1);
-
-        lua_pushliteral(L, "sleepcmd");
-        lua_gettable(L, 2);
-        if (lua_isinteger(L, -1)) {
-            conf->sleepcmd = luaL_checkinteger(L, -1);
-        }
-        lua_pop(L, 1);
-
-        lua_pushliteral(L, "wakecmd");
-        lua_gettable(L, 2);
-        if (lua_isinteger(L, -1)) {
-            conf->wakecmd = luaL_checkinteger(L, -1);
-        }
-        lua_pop(L, 1);
-
-        luat_u8g2_custom_t *cst = luat_heap_malloc(sizeof(luat_u8g2_custom_t));
-        lua_pushstring(L, "initcmd");
-        lua_gettable(L, 2);
-        if (lua_istable(L, -1)) {
-            cst->init_cmd_count = lua_rawlen(L, -1);
-            cst->initcmd = luat_heap_malloc(cst->init_cmd_count * sizeof(uint32_t));
-            for (size_t i = 1; i <= cst->init_cmd_count; i++){
-                lua_geti(L, -1, i);
-                cst->initcmd[i-1] = luaL_checkinteger(L, -1);
-                lua_pop(L, 1);
-            }
-        }
-        lua_pop(L, 1);
-        conf->userdata = cst;
+    if (strcmp("custom", conf->cname) == 0) {
+        result = luat_u8g2_parse_custom(L, 2, conf, x_offset == -255 ? 0 : x_offset);
+        if (result != 0)
+            goto begin_fail;
     }
 
     LLOGD("driver %s mode %s", conf->cname, mode);
-    if (luat_u8g2_setup(conf)) {
-        conf = NULL;
+    setup_result = luat_u8g2_setup(conf);
+    if (setup_result != 0) {
         LLOGW("disp init fail");
-        lua_pushinteger(L, 4);
-        return 1; // 初始化失败
+        result = setup_result == -2 ? 3 : 4;
+        goto begin_fail;
     }
     if (x_offset != -255) {
         LLOGD("设置x偏移量 %d", x_offset);
@@ -331,6 +606,12 @@ static int l_u8g2_begin(lua_State *L) {
     conf->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     u8g2_SetFont(&conf->u8g2, u8g2_font_ncenB08_tr); // 设置默认字体
     lua_pushinteger(L, 1);
+    return 1;
+
+begin_fail:
+    luat_u8g2_release_allocations(conf);
+    conf = NULL;
+    lua_pushinteger(L, result);
     return 1;
 }
 
@@ -342,21 +623,17 @@ static int l_u8g2_begin(lua_State *L) {
 u8g2.close()
 */
 static int l_u8g2_close(lua_State *L) {
+    luat_u8g2_conf_t *closing;
+    int lua_ref;
     if (conf == NULL) return 0;
-    if (conf->lua_ref != 0) {
-        lua_geti(L, LUA_REGISTRYINDEX, conf->lua_ref);
-        if (lua_isuserdata(L, -1)) {
-            luaL_unref(L, LUA_REGISTRYINDEX, conf->lua_ref);
-        }
-        conf->lua_ref = 0;
-    }
-    // buff也得释放掉
-    if (conf->buff_ptr != NULL) {
-        luat_heap_free(conf->buff_ptr);
-        conf->buff_ptr = NULL;
-    }
+    closing = conf;
+    lua_ref = closing->lua_ref;
+    luat_u8g2_close(closing);
+    luat_u8g2_release_allocations(closing);
+    closing->lua_ref = LUA_NOREF;
     conf = NULL;
-    lua_gc(L, LUA_GCCOLLECT, 0);
+    if (lua_ref != LUA_NOREF && lua_ref != LUA_REFNIL)
+        luaL_unref(L, LUA_REGISTRYINDEX, lua_ref);
     lua_gc(L, LUA_GCCOLLECT, 0);
     return 0;
 }
@@ -1096,6 +1373,8 @@ static int l_u8g2_set_hzfont(lua_State* L) {
 
     // 设置到U8G2
     int ret = hzfont_u8g2_set_font(&conf->u8g2, font);
+    // set_font成功时已增加引用；释放创建者持有的引用，失败时直接销毁
+    hzfont_u8g2_free_font(font);
     lua_pushboolean(L, ret == 0);
     return 1;
 }
@@ -1337,6 +1616,25 @@ static const rotable_Reg_t reg_u8g2[] =
     { "font_zfull_r16_chinese", ROREG_PTR((void*)u8g2_font_zfull_r16_chinese)},
 #endif
 
+    //@const flush_page number 标准分页寻址刷新
+    { "flush_page", ROREG_INT(LUAT_U8G2_FLUSH_PAGE)},
+    //@const flush_page_arg number 分页命令后带页参数的刷新
+    { "flush_page_arg", ROREG_INT(LUAT_U8G2_FLUSH_PAGE_ARG)},
+    //@const flush_window_gray4 number 窗口寻址并将1bpp转换为4bpp灰阶
+    { "flush_window_gray4", ROREG_INT(LUAT_U8G2_FLUSH_WINDOW_GRAY4)},
+    //@const flush_window_2row_lut number 双行查表打包窗口刷新
+    { "flush_window_2row_lut", ROREG_INT(LUAT_U8G2_FLUSH_WINDOW_2ROW_LUT)},
+    //@const vertical_top number U8g2纵向字节布局
+    { "vertical_top", ROREG_INT(LUAT_U8G2_HVLINE_VERTICAL_TOP)},
+    //@const horizontal_right number U8g2横向字节布局
+    { "horizontal_right", ROREG_INT(LUAT_U8G2_HVLINE_HORIZONTAL_RIGHT)},
+    //@const cad_001 number CAD 001命令参数数据模式
+    { "cad_001", ROREG_INT(LUAT_U8G2_CAD_001)},
+    //@const cad_011 number CAD 011命令参数数据模式
+    { "cad_011", ROREG_INT(LUAT_U8G2_CAD_011)},
+    //@const cad_100 number CAD 100命令参数数据模式
+    { "cad_100", ROREG_INT(LUAT_U8G2_CAD_100)},
+
     //@const DRAW_UPPER_RIGHT number 上右
     { "DRAW_UPPER_RIGHT",        ROREG_INT(U8G2_DRAW_UPPER_RIGHT)},
     //@const DRAW_UPPER_LEFT number 上左
@@ -1400,7 +1698,7 @@ static const luat_u8g2_dev_reg_t* search_dev_reg(luat_u8g2_conf_t *conf, uint16_
         }
         dev_reg_index ++;
     }
-    return &devregs[0];
+    return NULL;
 }
 
 #ifndef LUAT_COMPILER_NOWEAK
@@ -1427,10 +1725,12 @@ void luat_u8g2_get_bus_ids(int* i2c_id_out, int* spi_id_out) {
 int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
     u8g2_t* u8g2 = &conf->u8g2;
     const luat_u8g2_dev_reg_t* devreg = NULL;
+    uint16_t is_spi = pinType >= 3 && pinType <= 5;
+    size_t buffer_size;
     // LLOGD("pinType %d", pinType);
-    devreg = search_dev_reg(conf, pinType == 5?1:0);
+    devreg = search_dev_reg(conf, is_spi);
     if (devreg == NULL) {
-        LLOGD("unkown dev %s", conf->cname);
+        LLOGE("unknown dev %s for %s", conf->cname, is_spi ? "SPI" : "I2C");
         return -1;
     }
     // LLOGD("devreg name:%s spi_i2c:%d", devreg->name,devreg->spi_i2c);
@@ -1467,11 +1767,20 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         LLOGI("no such u8g2 mode!!");
         return -1;
     }
-    u8g2_InitDisplay(u8g2);
 #ifdef U8G2_USE_DYNAMIC_ALLOC
-    conf->buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
+    buffer_size = u8g2_GetBufferSize(u8g2);
+    if (buffer_size == 0) {
+        LLOGE("invalid u8g2 buffer size");
+        return -1;
+    }
+    conf->buff_ptr = (uint8_t *)luat_heap_malloc(buffer_size);
+    if (conf->buff_ptr == NULL) {
+        LLOGE("u8g2 framebuffer alloc failed, size=%u", (unsigned)buffer_size);
+        return -2;
+    }
     u8g2_SetBufferPtr(u8g2, conf->buff_ptr);
 #endif
+    u8g2_InitDisplay(u8g2);
     u8g2_SetPowerSave(u8g2, 0);
     return 0;
 }
@@ -1516,7 +1825,6 @@ uint8_t u8x8_luat_byte_hw_i2c_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int
 
 int hw_spi_begin(uint8_t spi_mode, uint32_t max_hz, uint8_t cs_pin )
 {
-
     luat_spi_t u8g2_spi = {0};
     u8g2_spi.id = spi_id;
     switch(spi_mode)
@@ -1764,6 +2072,4 @@ uint8_t u8x8_luat_gpio_and_delay_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_
     }
     return 1;
 }
-
-
 

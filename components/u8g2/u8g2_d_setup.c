@@ -5,21 +5,44 @@
 
 #if defined(__LUATOS__)
 #include "luat_u8g2.h"
+
+static u8x8_msg_cb u8g2_custom_get_cad(uint8_t cad_mode, uint8_t is_i2c)
+{
+  if (is_i2c) {
+    if (cad_mode == LUAT_U8G2_CAD_011)
+      return u8x8_cad_011_ssd13xx_i2c;
+    return u8x8_cad_ssd13xx_fast_i2c;
+  }
+  if (cad_mode == LUAT_U8G2_CAD_011)
+    return u8x8_cad_011;
+  if (cad_mode == LUAT_U8G2_CAD_100)
+    return u8x8_cad_100;
+  return u8x8_cad_001;
+}
+
+static void u8g2_setup_custom_common(u8g2_t *u8g2, const u8g2_cb_t *rotation,
+  u8x8_msg_cb byte_cb, u8x8_msg_cb gpio_and_delay_cb, uint8_t is_i2c)
+{
+  luat_u8g2_conf_t *conf = (luat_u8g2_conf_t *)u8g2->u8x8.user_ptr;
+  luat_u8g2_custom_t *custom = (luat_u8g2_custom_t *)conf->userdata;
+  u8g2_draw_ll_hvline_cb hvline_cb = u8g2_ll_hvline_vertical_top_lsb;
+
+  if (custom->hvline == LUAT_U8G2_HVLINE_HORIZONTAL_RIGHT)
+    hvline_cb = u8g2_ll_hvline_horizontal_right_lsb;
+
+  u8g2_SetupDisplay(u8g2, u8x8_d_custom_noname,
+    u8g2_custom_get_cad(custom->cad_mode, is_i2c), byte_cb, gpio_and_delay_cb);
+  u8g2_SetupBuffer(u8g2, NULL, custom->tile_h, hvline_cb, rotation);
+}
+
 /* custom f */
 void u8g2_Setup_custom_i2c_noname_f(u8g2_t *u8g2, const u8g2_cb_t *rotation, u8x8_msg_cb byte_cb, u8x8_msg_cb gpio_and_delay_cb)
 {
-  uint8_t tile_buf_height;
-  uint8_t *buf;
-  // u8g2_SetupDisplay(u8g2, u8x8_d_custom_noname, u8x8_cad_custom_fast_i2c, byte_cb, gpio_and_delay_cb);
-  u8g2_SetupDisplay(u8g2, u8x8_d_ssd1306_128x64_noname, u8x8_cad_ssd13xx_fast_i2c, byte_cb, gpio_and_delay_cb);
-  buf = u8g2_m_16_8_f(&tile_buf_height);
-  u8g2_SetupBuffer(u8g2, buf, tile_buf_height, u8g2_ll_hvline_vertical_top_lsb, rotation);
+  u8g2_setup_custom_common(u8g2, rotation, byte_cb, gpio_and_delay_cb, 1);
 }
 void u8g2_Setup_custom_noname_f(u8g2_t *u8g2, const u8g2_cb_t *rotation, u8x8_msg_cb byte_cb, u8x8_msg_cb gpio_and_delay_cb)
 {
-  luat_u8g2_conf_t* conf = (luat_u8g2_conf_t*)u8g2->u8x8.user_ptr;
-  u8g2_SetupDisplay(u8g2, u8x8_d_custom_noname, u8x8_cad_001, byte_cb, gpio_and_delay_cb);
-  u8g2_SetupBuffer(u8g2, 0, conf->h/8, u8g2_ll_hvline_vertical_top_lsb, rotation);
+  u8g2_setup_custom_common(u8g2, rotation, byte_cb, gpio_and_delay_cb, 0);
 }
 #endif
 

@@ -1,6 +1,5 @@
 PROJECT = "camera_pc_basic"
 VERSION = "1.0.0"
-sys = require("sys")
 
 sys.taskInit(function()
     local cap_path = "/pc_capture.jpg"
@@ -8,8 +7,10 @@ sys.taskInit(function()
     camera.on(0, "scanned", function(id, evt)
         if evt == true then
             log.info("camera", "capture done")
+            sys.publish("capture_done")
         elseif evt == false then
             log.error("camera", "capture failed")
+            sys.publish("capture_done")
         elseif type(evt) == "number" then
             log.info("camera", "raw frame size", evt)
         end

@@ -37,6 +37,8 @@ typedef struct {
     uint16_t crop_y;
     uint16_t crop_w;
     uint16_t crop_h;
+    uint8_t is_mjpg;     /**< current stream subtype is MJPG */
+    size_t capture_size; /**< actual MJPG frame size from last read */
 } pc_camera_ctx_t;
 
 static pc_camera_ctx_t g_cameras[1] = {0};
@@ -259,11 +261,27 @@ static int pc_read_frame(pc_camera_ctx_t *ctx, uint8_t *rgb24_out, uint16_t *rgb
     hr = pBuffer->lpVtbl->Lock(pBuffer, &pData, &cbMax, &cbBuffer);
     if (SUCCEEDED(hr)) {
         if (IsEqualGUID(&subtype, &MFVideoFormat_RGB24)) {
+            ctx->is_mjpg = 0;
             if (rgb565_out) rgb24_to_rgb565((uint8_t*)pData, rgb565_out, ctx->width, ctx->height);
             if (rgb24_out) memcpy(rgb24_out, pData, ctx->width * ctx->height * 3);
         } else if (IsEqualGUID(&subtype, &MFVideoFormat_YUY2)) {
+            ctx->is_mjpg = 0;
             if (rgb565_out) yuy2_to_rgb565((uint8_t*)pData, rgb565_out, ctx->width, ctx->height);
             if (rgb24_out) yuy2_to_rgb24((uint8_t*)pData, rgb24_out, ctx->width, ctx->height);
+        } else if (IsEqualGUID(&subtype, &MFVideoFormat_MJPG)) {
+            ctx->is_mjpg = 1;
+            if (rgb565_out) {
+                /* MJPG stream can not directly produce RGB565 */
+                LLOGE("MJPG can not convert to RGB565");
+                hr = E_FAIL;
+            }
+            if (rgb24_out && cbBuffer <= (DWORD)(ctx->width * ctx->height)) {
+                memcpy(rgb24_out, pData, cbBuffer);
+                ctx->capture_size = cbBuffer;
+            } else if (rgb24_out) {
+                LLOGE("MJPG frame too large for buffer");
+                hr = E_FAIL;
+            }
         } else {
             LLOGE("unsupported subtype %08X-%04X-%04X", subtype.Data1, subtype.Data2, subtype.Data3);
             hr = E_FAIL;
@@ -355,12 +373,15 @@ int luat_camera_init(luat_camera_conf_t *conf) {
         pc_mf_deinit();
         return -1;
     }
+    g_cameras[0].is_mjpg = 0;
     if (pc_reader_set_format(reader, w, h, &MFVideoFormat_RGB24) != 0 &&
-        pc_reader_set_format(reader, w, h, &MFVideoFormat_YUY2) != 0) {
+        pc_reader_set_format(reader, w, h, &MFVideoFormat_YUY2) != 0 &&
+        pc_reader_set_format(reader, w, h, &MFVideoFormat_MJPG) != 0) {
         reader->lpVtbl->Release(reader);
         pc_mf_deinit();
         return -1;
     }
+    g_cameras[0].is_mjpg = 1;
     g_cameras[0].reader = reader;
 #else
     (void)w; (void)h;
@@ -374,6 +395,8 @@ int luat_camera_init(luat_camera_conf_t *conf) {
     g_cameras[0].quality = 90;
     g_cameras[0].mode = LUAT_CAMERA_MODE_AUTO;
     g_cameras[0].running = 0;
+    g_cameras[0].is_mjpg = 0;
+    g_cameras[0].capture_size = 0;
 
     if (conf && conf->async) {
         extern void luat_camera_async_init_result(int result);
@@ -447,23 +470,31 @@ int luat_camera_capture(int id, uint8_t quality, const char *path) {
     pc_camera_ctx_t *ctx = pc_camera_get(id);
     if (!ctx || !ctx->reader) return -1;
 
-    int img_size = ctx->width * ctx->height * 3;
-    uint8_t *rgb24 = (uint8_t *)luat_heap_malloc(img_size);
-    if (!rgb24) return -1;
+    /* MJPG stream: frame buffer is compressed, allocate larger. */
+    int img_size = ctx->is_mjpg ? (ctx->width * ctx->height) : (ctx->width * ctx->height * 3);
+    uint8_t *frame_buf = (uint8_t *)luat_heap_malloc(img_size);
+    if (!frame_buf) return -1;
     int ok = -1;
     uint8_t *jpeg = NULL;
     size_t jsize = 0;
-    if (pc_read_frame(ctx, rgb24, NULL) == 0 &&
-        pc_rgb24_to_jpeg(rgb24, ctx->width, ctx->height, map_quality(quality), &jpeg, &jsize) == 0) {
-        FILE *fd = luat_fs_fopen(path, "wb");
-        if (fd) {
-            luat_fs_fwrite(jpeg, 1, jsize, fd);
-            luat_fs_fclose(fd);
-            ok = 0;
+    if (pc_read_frame(ctx, frame_buf, NULL) == 0) {
+        if (ctx->is_mjpg) {
+            jpeg = frame_buf;
+            jsize = ctx->capture_size > 0 ? ctx->capture_size : img_size;
+        } else if (pc_rgb24_to_jpeg(frame_buf, ctx->width, ctx->height, map_quality(quality), &jpeg, &jsize) == 0) {
+            /* jpeg allocated by pc_rgb24_to_jpeg */
         }
-        luat_heap_free(jpeg);
+        if (jpeg && jsize > 0) {
+            FILE *fd = luat_fs_fopen(path, "wb");
+            if (fd) {
+                luat_fs_fwrite(jpeg, 1, jsize, fd);
+                luat_fs_fclose(fd);
+                ok = 0;
+            }
+            if (!ctx->is_mjpg) luat_heap_free(jpeg);
+        }
     }
-    luat_heap_free(rgb24);
+    luat_heap_free(frame_buf);
     luat_msgbug_put2(l_camera_handler, NULL, id, ok ? 0 : 1, 0);
     return ok;
 #endif

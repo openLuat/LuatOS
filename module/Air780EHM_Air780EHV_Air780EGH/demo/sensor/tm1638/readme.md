@@ -199,4 +199,4 @@ require "tm1638_demo"
 
 ### 6.7 扩展功能建议
 
-exs_tm1638 更多接口的使用可以查看 [exs_tm1638 扩展库说明](https://docs.openluat.com/osapi/ext/exs_tm1638/)
+exs_tm1638 更多接口的使用可以查看 [exs_tm1638 扩展库说明](https://docs.openluat.com/osapi/ext/sensor/exs_tm1638/)

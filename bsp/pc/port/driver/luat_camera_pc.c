@@ -189,9 +189,10 @@ static void yuy2_to_rgb24(const uint8_t *src, uint8_t *dst, int w, int h) {
                 if (g < 0) g = 0; else if (g > 255) g = 255;
                 if (b < 0) b = 0; else if (b > 255) b = 255;
                 uint8_t *d = dst + (y * w + x + k) * 3;
-                d[0] = (uint8_t)r;
+                /* WIC JPEG encoder expects BGR order. */
+                d[0] = (uint8_t)b;
                 d[1] = (uint8_t)g;
-                d[2] = (uint8_t)b;
+                d[2] = (uint8_t)r;
             }
         }
     }

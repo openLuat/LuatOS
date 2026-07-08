@@ -27,14 +27,7 @@
 
 ## 三、显示效果
 
-<table>
-<tr>
-<td>数码管字符串<br/></td><td>LED 指示灯<br/></td><td>日期/时钟/温度<br/></td></tr>
-<tr>
-<td>显示 8 位数字、字母、<br/>带小数点的数值</td>
-<td>8 颗 LED 指示灯<br/>逐个控制、跑马灯</td>
-<td>YY-MM-DD 日期<br/>HH-MM-SS 时钟<br/>XX°C / XX°F 温度</td></tr>
-</table>
+![](https://docs.openluat.com/cdn/image//Air780EGP_tm1638.png)
 
 ## 四、演示硬件环境
 
@@ -42,6 +35,7 @@
 
 - Air780EHM/Air780EHV/Air780EGH 核心板 × 1
 - TM1638 数码管模块（8 位数码管 + 8 个 LED 指示灯 + 8 个按键） × 1
+  demo所演示的TM1638数码管[购买链接](https://item.taobao.com/item.htm?abbucket=12&id=862890736053&mi_id=0000hQbdi599Ci7xSkwlh3JRFNce012vqjQLR8ZnTZt0bG8&ns=1&spm=a21n57.1.hoverItem.7&utparam=%7B%22aplus_abtest%22%3A%22224c84d139b925f8f3d8268f9e91b200%22%7D&xxc=taobaoSearch)
 - 母对母杜邦线 × 5
 - TYPE-C 数据线 × 1
 
@@ -66,7 +60,6 @@
 
 > 说明：TM1638 模块通常还带有 VCC 和 GND 引脚，直接连接核心板的 VDD_EXT（3.3V）和 GND 即可。接线时注意杜邦线不宜过长，以免通信不稳定。
 
-![](https://docs.openluat.com/cdn/image//Air780EGP_tm1638.png)
 
 ## 五、演示软件环境
 
@@ -76,11 +69,11 @@
 
 ### 5.2 内核固件
 
-- [点击下载Air780EHM系列最新版本内核固件](https://docs.openluat.com/air780epm/luatos/firmware/780ehm_version/)，demo所使用的是 LuatOS-SoC_V2044_Air780EHM 1号固件
+- [点击下载Air780EHM系列最新版本内核固件](https://docs.openluat.com/air780epm/luatos/firmware/780ehm_version/)，demo所使用的是 LuatOS-SoC_V2046_Air780EHM 1号固件
 
-- [点击下载Air780EHV系列最新版本内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)，demo所使用的是 LuatOS-SoC_V2044_Air780EHV 1号固件
+- [点击下载Air780EHV系列最新版本内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)，demo所使用的是 LuatOS-SoC_V2046_Air780EHV 1号固件
 
-- [点击下载Air780EGH系列最新版本内核固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)，demo所使用的是 LuatOS-SoC_V2044_Air780EGH 1号固件
+- [点击下载Air780EGH系列最新版本内核固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)，demo所使用的是 LuatOS-SoC_V2046_Air780EGH 1号固件
 
 ### 5.3 脚本文件
 
@@ -95,6 +88,7 @@
 1. 按照接线表将 TM1638 模块连接到核心板
 2. 确保电源连接正确，通过 TYPE-C USB 口供电
 3. 检查所有接线无误，避免短路
+4. 
 
 ### 6.2 软件配置
 
@@ -198,13 +192,10 @@ require "tm1638_demo"
 4. **亮度无法调节**：
 
    - 确认调用 `set_brightness()` 时参数为 0~7
-   - 检查 exs_tm1638 扩展库版本是否支持
 
 5. **显示内容错乱**：
 
    - 检查杜邦线是否过长导致通信不稳定
-   - 确认 write_mode 配置正确（推荐使用 "auto"）
-   - 尝试降低 CLK 频率或缩短接线距离
 
 ### 6.7 扩展功能建议
 

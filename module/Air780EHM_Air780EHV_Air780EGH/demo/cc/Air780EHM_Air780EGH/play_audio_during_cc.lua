@@ -156,8 +156,8 @@ local function handle_cc_ind(status)
             sys.timerStart(handle_dial_timer, 1000)
         end
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
-        -- 通话结束，关闭PA节省功耗，保留driver下次通话时快速恢复
-        exaudio.shutdown(false, true, false)
+        -- 通话结束，关闭PA保留driver下次通话时快速恢复
+        exaudio.pm(audio.SHUTDOWN)
         is_connected = false
         call_counter = 0
         log.info("play_audio_during_cc", "通话结束")

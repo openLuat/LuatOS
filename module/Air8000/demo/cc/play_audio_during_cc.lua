@@ -44,7 +44,7 @@ local IS_DIAL = false
 local DIAL_NUMBER = "10000"
 
 -- 播放模式选择（二选一）：
-local PLAY_MODE = "TTS"         -- "FILE"播放文件, "TTS"播放文本
+local PLAY_MODE = "FILE"         -- "FILE"播放文件, "TTS"播放文本
 -- 文件播放模式（PLAY_MODE="FILE"时生效）：
 local PLAY_FILE_8K = "/luadb/test_8k.mp3"     -- 8K通话时播放的文件
 local PLAY_FILE_16K = "/luadb/test_16k.mp3"   -- 16K通话时播放的文件
@@ -156,8 +156,8 @@ local function handle_cc_ind(status)
             sys.timerStart(handle_dial_timer, 1000)
         end
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
-        -- 通话结束，关闭PA节省功耗，保留driver下次通话时快速恢复
-        exaudio.shutdown(false, true, false)
+        -- 通话结束，关闭PA保留driver下次通话时快速恢复
+        exaudio.pm(audio.SHUTDOWN)
         is_connected = false
         call_counter = 0
         log.info("play_audio_during_cc", "通话结束")

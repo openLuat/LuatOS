@@ -1,0 +1,6 @@
+{
+    "name": "camera_pc_basic",
+    "desc": "PC 模拟器 Media Foundation 摄像头基本功能验证",
+    "runtime": "lua",
+    "target": "pc"
+}

@@ -100,6 +100,7 @@
 #define LUAT_USE_MOBILE_RFA 1
 #define LUAT_USE_SMS 1
 #define LUAT_USE_WLAN 1
+#define LUAT_USE_CAMERA 1
 
 #define LUAT_USE_IOTAUTH 1
 #define LUAT_USE_MINIZ 1

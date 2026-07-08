@@ -399,6 +399,12 @@ target("luatos-lua")
     add_includedirs(luatos.."components/network/websocket",{public = true})
     add_files(luatos.."components/network/websocket/*.c")
 
+    -- rtmp
+    add_defines("LUAT_USE_RTMP=1")
+    add_includedirs(luatos.."components/rtmp/include",{public = true})
+    add_files(luatos.."components/rtmp/src/*.c")
+    add_files(luatos.."components/rtmp/binding/*.c")
+
     -- sntp
     add_includedirs(luatos.."components/network/libsntp",{public = true})
     add_files(luatos.."components/network/libsntp/*.c")

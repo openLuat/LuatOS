@@ -139,6 +139,9 @@ static const luaL_Reg loadedlibs[] = {
   {"errDump", luaopen_errdump},
   {"httpsrv", luaopen_httpsrv},
 #endif
+#ifdef LUAT_USE_RTMP
+  {"rtmp", luaopen_rtmp},
+#endif
 #ifdef LUAT_USE_ERCOAP
   {"ercoap", luaopen_ercoap},
 #endif
@@ -182,6 +185,9 @@ static const luaL_Reg loadedlibs[] = {
 #endif
 #ifdef LUAT_USE_AUDIO
   {"audio", luaopen_multimedia_audio},
+#endif
+#ifdef LUAT_USE_CAMERA
+  {"camera", luaopen_camera},
 #endif
 #ifdef LUAT_USE_AUDIO_V2
   {"audio_v2", luaopen_audio_v2},

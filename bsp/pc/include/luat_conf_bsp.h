@@ -100,6 +100,7 @@
 #define LUAT_USE_MOBILE_RFA 1
 #define LUAT_USE_SMS 1
 #define LUAT_USE_WLAN 1
+#define LUAT_USE_CAMERA 1
 
 #define LUAT_USE_IOTAUTH 1
 #define LUAT_USE_MINIZ 1
@@ -110,7 +111,7 @@
 #define LUAT_USE_AUDIO 1
 #define LUAT_USE_AUDIO_V2 1
 #define LUAT_SUPPORT_AMR 1
-#define LUAT_SUPPORT_OPUS   1
+// #define LUAT_SUPPORT_OPUS   1
 #define LUAT_USE_AUDIO_G711 1
 #define LUAT_USE_AUDIO_DTMF 1
 

@@ -354,6 +354,15 @@ target("luatos-lua")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_nb.c")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_wb.c")
 
+    -- camera（PC 模拟器摄像头支持；Windows 下走 Media Foundation，其他平台空实现）
+    add_includedirs(luatos.."components/camera")
+    add_includedirs(luatos.."components/lcd")   -- luat_camera.h 需要 luat_lcd_conf_t
+    add_files(luatos.."components/camera/luat_camera.c")
+    add_files(luatos.."components/camera/luat_lib_camera.c")
+    if is_host("windows") then
+        add_links("Mf", "mfplat", "mfreadwrite", "mfuuid", "windowscodecs", "ole32", "oleaut32")
+    end
+
     -- opus
     add_defines("OPUS_ARM_ASM","USE_ALLOCA","FIXED_POINT=1","OPUS_BUILD=1")
     add_includedirs(luatos.."/components/multimedia/opus",
@@ -398,6 +407,12 @@ target("luatos-lua")
     -- websocket
     add_includedirs(luatos.."components/network/websocket",{public = true})
     add_files(luatos.."components/network/websocket/*.c")
+
+    -- rtmp
+    add_defines("LUAT_USE_RTMP=1")
+    add_includedirs(luatos.."components/rtmp/include",{public = true})
+    add_files(luatos.."components/rtmp/src/*.c")
+    add_files(luatos.."components/rtmp/binding/*.c")
 
     -- sntp
     add_includedirs(luatos.."components/network/libsntp",{public = true})

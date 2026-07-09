@@ -16,6 +16,7 @@
 #include "luat_audio_channel.h"
 #include "luat_audio_data_codec.h"
 #include "luat_audio_driver.h"
+#include "luat_audio_dsp.h"
 #include "luat_audio_request.h"
 
 /**
@@ -161,9 +162,11 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source);
 /**
  * @brief 检查外部音频源是否匹配请求
  * @param source 外部音频源指针
+ * @param check_codec 需要匹配的音频编解码器指针
+ * @param dsp 音频DSP结构指针
  * @return int LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
-int luat_audio_extern_source_check(luat_audio_extern_source_t *source);
+int luat_audio_extern_source_check(luat_audio_extern_source_t *source, luat_audio_data_codec_t *check_codec, luat_audio_dsp_t *dsp);
 /**
  * @brief 检查外部音频源是否完成解码
  * @param source 外部音频源指针

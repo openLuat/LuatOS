@@ -763,7 +763,7 @@ DONE:
 
 /*
 全双工模式，可用于对讲
-@api audio_v2.speech(record_codec_id, save_buffer, record_callback_cnt, play_codec_id,one_play_block_len, sample_rate, data_bits, channel_nums, driver_probe_id)
+@api audio_v2.speech(record_codec_id, save_buffer, record_callback_cnt, play_codec_id,one_play_block_len, sample_rate, data_bits, channel_nums, driver_probe_id, dsp_type)
 @int 录音编码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空，则直接返回原始PCM数据。如果不留空，会检查sample_rate和data_bits是否符合解码器的要求
 @zbuff 录音数据回调时保存的buffer
 @int 每次录音回调的帧数，每一帧时间由编码器决定
@@ -772,6 +772,7 @@ DONE:
 @int 希望的数据位数，8,16,24,32，如果指定了codec_id，则可以留空，由编码器自己决定
 @int 希望的通道数，1,2，如果指定了codec_id，则可以留空，由编码器自己决定
 @int 驱动id，在不使用默认驱动时填写，绝大部分情况下都不需要填写。驱动id需要通过audio.make_probe_id合成
+@int dsp类型，见audio_v2.DSP_TYPE_XXX，如果留空，则由BSP决定具体使用哪个dsp类型
 @return boolean 成功返回true,否则返回false
 @return int request_index 请求索引，用于后续操作，如暂停、恢复，回调信息判断等
 @usage
@@ -781,6 +782,7 @@ local result, request_index = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_AMR_WB, s
 static int l_audio_speech(lua_State *L) {
     int result = -1;
     uint8_t request_index = 0;
+    uint8_t dsp_type = luaL_optinteger(L, 9, LUAT_AUDIO_DSP_DEFAULT_TYPE);
     luat_audio_driver_probe_t driver_probe = {0};
     luat_audio_common_param_t common_param = {0};
     driver_probe.probe_id = luaL_optinteger(L, 8, 0);
@@ -834,7 +836,7 @@ static int l_audio_speech(lua_State *L) {
     l_req->is_record_file = 0;
     l_req->record_zbuff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
     result = luat_audio_request_speech(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, play_codec_opts, record_codec_opts, &common_param, _l_audio.record_fifo, l_req->record_timeout_or_callback_frame,  
-        NULL, 0, 0,_l_audio_request_callback, l_req, NULL);
+        NULL, 0, 0,_l_audio_request_callback, l_req, luat_audio_dsp_get_opts(dsp_type));
     if (result) {
         luat_llist_del(&l_req->node);
         luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
@@ -1512,6 +1514,8 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "DATA_CODEC_TYPE_G711_ALAW",		ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW)},
     //@const DATA_CODEC_TYPE_HW number 编解码器类型-硬件编解码器优先模式
     { "DATA_CODEC_TYPE_HW",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_HW)},
+    //@const DSP_TYPE_SPEEXDSP number dsp类型speexdsp
+    { "DSP_TYPE_SPEEXDSP",			ROREG_INT(LUAT_AUDIO_DSP_TYPE_SPEEXDSP)},
     //@const CONFIG_PARAM_I2S_MODE number 驱动私有参数的I2S模式
     { "CFG_PARAM_I2S_MODE",			ROREG_INT(LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_MODE)},
     //@const CONFIG_PARAM_I2S_FRAME_BITS number 驱动私有参数的I2S帧位宽，需要和外部codec匹配

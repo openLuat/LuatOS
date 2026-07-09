@@ -79,13 +79,28 @@ static void _audio_decode_extern_source_play_info(luat_audio_extern_source_t *so
     }
 }
 
-int luat_audio_extern_source_check(luat_audio_extern_source_t *source)
+int luat_audio_extern_source_check(luat_audio_extern_source_t *source, luat_audio_data_codec_t *check_codec, luat_audio_dsp_t *dsp)
 {
-    luat_audio_data_codec_t *check_codec = source->is_add_record? &source->request->record_codec : &source->request->play_codec;
     if (source->codec.common_param.sample_rate != check_codec->common_param.sample_rate) {
-        LLOGE("sample_rate not match, source %d, request %d", source->codec.common_param.sample_rate, check_codec->common_param.sample_rate);
-        return -LUAT_ERROR_PERMISSION_DENIED;
+        if (dsp && dsp->opts && dsp->opts->resample) {
+            LLOGC(luat_audio_debug_flag, "use dsp resample %u -> %u", source->codec.common_param.sample_rate, check_codec->common_param.sample_rate);
+            uint32_t resample_rate = (check_codec->common_param.sample_rate / source->codec.common_param.sample_rate) + 1;
+            luat_buffer_reinit(&source->resample_output_temp_buffer, resample_rate * source->decode_output_temp_buffer.max_len);
+            if (!source->resample_output_temp_buffer.data) {
+                LLOGE("resample_output_temp_buffer create failed");
+                return -LUAT_ERROR_NO_MEMORY;
+            }
+            source->resample_ctx = dsp->opts->create_resample_ctx(dsp, &source->codec.common_param, &check_codec->common_param, LUAT_AUDIO_RESAMPLE_DEFAULT_QUALITY);
+            if (!source->resample_ctx) {
+                LLOGE("create_resample_ctx failed");
+                return -LUAT_ERROR_PERMISSION_DENIED;
+            }
+        } else {
+                LLOGE("sample_rate not match, source %d, request %d", source->codec.common_param.sample_rate, check_codec->common_param.sample_rate);
+                return -LUAT_ERROR_PERMISSION_DENIED;
+        }
     }
+
     if (source->codec.common_param.data_align != check_codec->common_param.data_align) {
         LLOGE("data_align not match, source %d, request %d", source->codec.common_param.data_align, check_codec->common_param.data_align);
         return -LUAT_ERROR_PERMISSION_DENIED;
@@ -112,6 +127,7 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
     }
     uint8_t is_file_end = 0;
     int ret = LUAT_ERROR_NONE;
+    uint32_t resample_used, resample_output_size;
     for(;;) {
         if (!source->is_stream) {   //从文件里读取数据
             ret = LUAT_ERROR_NONE;
@@ -151,9 +167,22 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
         }
         // LLOGC(luat_audio_debug_flag, "decode once after, output pos %u, is_input_end %d, is_file_end %d, input_fifo %u", before_pos, source->is_input_end, is_file_end, luat_fifo_check_used_space(source->decode_input_fifo));
         if (source->decode_output_temp_buffer.pos) {
-            luat_rtos_task_suspend_all();
-            luat_buffer_write(&source->decode_output_buffer, source->decode_output_temp_buffer.data, source->decode_output_temp_buffer.pos);
-            luat_rtos_task_resume_all();
+            if (source->resample_ctx){
+                ret = source->request->dsp.opts->resample(&source->request->dsp, 
+                    &source->codec.common_param, source->resample_ctx,
+                    (uint32_t *)source->decode_output_temp_buffer.data, source->decode_output_temp_buffer.pos / source->codec.common_param.data_align, 
+                    (uint32_t *)source->resample_output_temp_buffer.data, source->resample_output_temp_buffer.max_len / source->codec.common_param.data_align,
+                &resample_used, &resample_output_size);
+                luat_buffer_remove_data(&source->decode_output_temp_buffer, resample_used * source->codec.common_param.data_align);
+                luat_rtos_task_suspend_all();
+                luat_buffer_write(&source->decode_output_buffer, source->resample_output_temp_buffer.data, resample_output_size * source->codec.common_param.data_align);
+                luat_rtos_task_resume_all();
+            } else {
+                luat_rtos_task_suspend_all();
+                luat_buffer_write(&source->decode_output_buffer, source->decode_output_temp_buffer.data, source->decode_output_temp_buffer.pos);
+                luat_rtos_task_resume_all();
+            }
+
         } else {
             if (source->is_input_end && !luat_fifo_check_used_space(source->decode_input_fifo) && !source->decode_output_buffer.pos) {
                 source->is_decode_finish = 1;
@@ -269,6 +298,11 @@ void luat_audio_extern_source_deinit(luat_audio_extern_source_t *source)
     source->is_done = 1;
     luat_buffer_deinit(&source->decode_output_buffer);
     luat_buffer_deinit(&source->decode_output_temp_buffer);
+    luat_buffer_deinit(&source->resample_output_temp_buffer);
+    if (source->resample_ctx) {
+        source->request->dsp.opts->destroy_resample_ctx(&source->request->dsp, source->resample_ctx);
+    }
+    source->resample_ctx = NULL;
     luat_fifo_destroy(source->decode_input_fifo);
     if (!source->is_tts && !source->is_stream) {
         for (int i = 0; i < source->file_info_cnt; i++) {
@@ -356,7 +390,7 @@ int luat_audio_data_read_to_fifo(luat_audio_play_file_info_t *decode_file, luat_
 {
 	uint32_t need_len = luat_fifo_check_free_space(input_data_fifo);
     uint32_t done_len = 0;
-    uint32_t read_len;
+    int read_len;
     if (!decode_file->rom_data_len) {
         uint8_t temp[1024];
         int ret;

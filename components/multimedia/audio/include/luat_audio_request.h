@@ -56,10 +56,12 @@ typedef struct {
             uint32_t tts_data_size;             /**< 文本转语音数据长度 */
         };
     };
+    void *resample_ctx;                         /**< 重采样上下文指针 */
     uint32_t decode_low_level;
     // luat_fifo_t *decode_output_fifo;           /**< 解码后输出缓冲区，用于存储解码后的音频数据，只有附加到录音通道的时候需要 */
     luat_fifo_t *decode_input_fifo;            /**< 解码前输入缓冲区，用于存储编码过的音频数据*/
     luat_buffer_t decode_output_temp_buffer;     /**< 解码后输出临时缓冲区，用于临时存储解码后的音频数据 */
+    luat_buffer_t resample_output_temp_buffer;     /**< 重采样后输出临时缓冲区，用于临时存储重采样后的音频数据 */
     luat_buffer_t decode_output_buffer;           /**< 解码后输出缓冲区，用于存储解码后的音频数据 */
     uint8_t is_stream:1;                       /**< 是否为流式请求 */
     uint8_t is_tts:1;                          /**< 是否为文本转语音请求 */
@@ -97,7 +99,7 @@ struct luat_audio_request_block {
     uint8_t *temp_buff;                         /**< 临时缓冲区*/
     uint32_t *static_play_buff;                        /**< 流媒体数据缓冲区指针 */
     union {
-        struct {                               
+        struct {
             uint32_t record_fifo_enough_data_level; /**< 录音模式下，回调函数触发条件，FIFO缓冲区数据量是否足够 */
             uint32_t static_play_buff_one_block_len;             /**< 每个数据块的长度 */
             uint8_t static_play_buff_block_nums;                /**< 数据块数量 */
@@ -118,6 +120,7 @@ struct luat_audio_request_block {
             uint32_t stream_one_block_len;             /**< 流媒体模式下，每个数据块的长度 */
         };
     };
+    uint32_t record_callback_bytes;                /**< 录音回调一次的最小音频数据字节数, 如果为0则由驱动决定 */
     luat_fifo_t *play_save_fifo;            /**< 播放保存数据FIFO */
     luat_fifo_t *record_save_fifo;            /**< 录音保存数据FIFO */
     luat_fifo_t *org_input_data_fifo;            /**< 原始数据输入缓冲区，在audio task里读出，可能在多个地方写入，需要在写入时做线程安全保护 */
@@ -129,6 +132,8 @@ struct luat_audio_request_block {
     luat_audio_dsp_t dsp;                  /**< 关联的DSP处理实例 */
     luat_audio_data_codec_t play_codec;          /**< 关联的播放编解码器实例 */
     luat_audio_data_codec_t record_codec;          /**< 关联的录音编解码器实例 */
+    void *echo_ctx;
+    void *preprocess_ctx;
     luat_audio_channel_t *data_channel;      /**< 关联的音频通道 */
     luat_audio_extern_source_t *extern_play_source;      /**< 关联的外部播放解码源 */
     luat_audio_extern_source_t *extern_record_source;      /**< 关联的外部录音解码源 */
@@ -248,6 +253,7 @@ int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_au
  * @param block_num 双工模式下数据块数量
  * @param cb 请求回调函数，用于在播放完成或错误时通知应用层
  * @param user_data 用户数据指针，用于传递自定义数据
+ * @param dsp_opts 音频DSP选项结构，用于指定要使用的音频DSP，如果不指定，则由BSP自行决定
  * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
 int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, 
@@ -312,10 +318,11 @@ void luat_audio_request_delete_source(luat_audio_extern_source_t *source);
  * @param driver_work_mode 驱动工作模式，见LUAT_AUDIO_DRIVER_MODE_xxx
  * @param cb 请求回调函数，用于在请求完成或错误时通知应用层
  * @param user_data 用户数据指针，用于传递自定义数据
+ * @param dsp_opts 音频DSP选项结构，用于指定要使用的音频DSP，如果不指定，则由BSP自行决定
  * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
  */
 int luat_audio_request_prepare(luat_audio_request_block_t *request_block, luat_audio_driver_probe_t *probe, uint8_t driver_work_mode, 
-    luat_audio_request_cb_t cb, void *user_data);
+    luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts);
 
 /**
  * @brief 初始化音频请求块，一般不需要主动调用，由luat_audio_request_prepare自动调用

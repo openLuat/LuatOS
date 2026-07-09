@@ -31,7 +31,8 @@ enum {
     LUAT_AUDIO_DRIVER_TYPE_USB,            /**< USB 音频驱动 */
     LUAT_AUDIO_DRIVER_TYPE_MAX = 255,            /**< 最大驱动类型 */
 
-
+    LUAT_AUDIO_DSP_TYPE_SPEEXDSP = 0,        /**< SpeexDSP 音频处理 */
+    LUAT_AUDIO_DSP_TYPE_MAX,            /**< 最大DSP类型 */
 
     LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_MODE = 0,       /**< I2S 模式参数 */
     LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_FRAME_BITS,     /**< I2S 帧位宽参数 */
@@ -92,6 +93,8 @@ enum {
     LUAT_AUDIO_DRIVER_PARAM_RX_MAX_LEN,         /**< 录音最大缓存长度参数 */
 
     LUAT_AUDIO_DATA_CODEC_PARAM_ENCODE_INPUT_LEN = 0,         /**< 编码1帧需要的输入数据长度参数 */
+
+
 };
 
 #ifndef LUAT_AUDIO_DATA_CACHE_LEN
@@ -140,6 +143,14 @@ enum {
 
 #ifndef LUAT_AUDIO_TTS_TASK_PRIORITY
 #define LUAT_AUDIO_TTS_TASK_PRIORITY 20
+#endif
+
+#ifndef LUAT_AUDIO_DSP_DEFAULT_TYPE
+#define LUAT_AUDIO_DSP_DEFAULT_TYPE LUAT_AUDIO_DSP_TYPE_SPEEXDSP
+#endif
+
+#ifndef LUAT_AUDIO_RESAMPLE_DEFAULT_QUALITY
+#define LUAT_AUDIO_RESAMPLE_DEFAULT_QUALITY 10
 #endif
 
 #define LUAT_AUDIO_FRAME_LOOP_CNT   4

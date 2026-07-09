@@ -120,11 +120,14 @@ static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_p
                   uint8_t *output, 
                   uint32_t *decoded_output_size, uint32_t *decoded_used_size)
 {
-    memset(output, 0, 320);
+    
     *decoded_used_size = amr_nb_byte_len[(input[0] >> 3) & 0x0f] + 1;
 	unsigned char type = (input[0] >> 3) & 0x0f;
 	AMRDecode(codec->decode_ctx, (enum Frame_Type_3GPP) type, (UWord8*)&input[1], (Word16*)output, MIME_IETF);
-    *decoded_output_size = 320;
+    if (type > 7) {
+        memset(output, 0, 320);
+        *decoded_output_size = 320;
+    }
     return LUAT_ERROR_NONE;
 }
 

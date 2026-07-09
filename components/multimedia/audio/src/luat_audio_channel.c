@@ -623,26 +623,31 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, luat_buffer_t *
     return LUAT_ERROR_NONE;
 }
 
-int luat_audio_channel_read_data(luat_audio_channel_t *channel, luat_buffer_t *out_buffer, luat_buffer_t *temp_buffer, luat_buffer_t *data_align_buffer, luat_buffer_t *channel_nums_buffer, uint32_t *read_bytes, luat_audio_common_param_t *codec_param, uint8_t is_ref_fifo)
+int luat_audio_channel_read_data(luat_audio_channel_t *channel, uint32_t one_frame_bytes_from_driver, luat_buffer_t *out_buffer, luat_buffer_t *temp_buffer, luat_buffer_t *data_align_buffer, luat_buffer_t *channel_nums_buffer, uint32_t *read_bytes, luat_audio_common_param_t *codec_param, uint8_t is_ref_fifo)
 {
     luat_fifo_t *source_fifo = is_ref_fifo ? channel->ref_fifo : channel->record_fifo;
+    uint8_t is_driver_signed = is_ref_fifo ? channel->driver_ctrl->opts->is_tx_signed : channel->driver_ctrl->opts->is_rx_signed;
+    uint8_t driver_data_align = is_ref_fifo ? channel->driver_ctrl->tx_param.data_align : channel->driver_ctrl->rx_param.data_align;
+    uint8_t driver_channel_nums = is_ref_fifo ? channel->driver_ctrl->tx_param.channel_nums : channel->driver_ctrl->rx_param.channel_nums;
+    // LLOGC(luat_audio_debug_flag,"read channel data, is ref %d, one_frame_bytes_from_driver %d, check param %d-%d-%d %d-%d-%d", is_ref_fifo, one_frame_bytes_from_driver,
+    //     driver_data_align, driver_channel_nums, is_driver_signed, codec_param->data_align, codec_param->channel_nums, codec_param->is_signed);
     uint32_t used_space = luat_fifo_check_used_space(source_fifo);
     *read_bytes = 0;
-    if (used_space < codec_param->one_frame_bytes_from_driver) {
+    if (used_space < one_frame_bytes_from_driver) {
         return LUAT_ERROR_NONE;
     }
     if ((out_buffer->max_len - out_buffer->pos) < codec_param->one_frame_bytes) {
         return LUAT_ERROR_NONE;
     }
-    luat_fifo_read(source_fifo, temp_buffer->data, codec_param->one_frame_bytes_from_driver);
-    *read_bytes = codec_param->one_frame_bytes_from_driver;
-    uint32_t len_bytes = codec_param->one_frame_bytes_from_driver;
+    luat_fifo_read(source_fifo, temp_buffer->data, one_frame_bytes_from_driver);
+    *read_bytes = one_frame_bytes_from_driver;
+    uint32_t len_bytes = one_frame_bytes_from_driver;
     luat_data_union_t data_union;
     data_union.p8 = temp_buffer->data;
-    if ((!channel->driver_ctrl->opts->is_rx_signed) != (!codec_param->is_signed)) { // 数据有无符号转换
+    if ((!is_driver_signed) != (!codec_param->is_signed)) { // 数据有无符号转换
         luat_audio_channel_data_change_signed(data_union, len_bytes, codec_param->data_align, codec_param->is_signed);
     }
-    if (codec_param->data_align == channel->driver_ctrl->rx_param.data_align && codec_param->channel_nums == channel->driver_ctrl->rx_param.channel_nums) {
+    if (codec_param->data_align == driver_data_align && codec_param->channel_nums == driver_channel_nums) {
         memcpy(out_buffer->data, data_union.p8, len_bytes);
         out_buffer->pos = len_bytes;
         return LUAT_ERROR_NONE;
@@ -654,7 +659,7 @@ int luat_audio_channel_read_data(luat_audio_channel_t *channel, luat_buffer_t *o
     new_data_union2.p = NULL;
     void *final_data = data_union.p8;
     int ret = 0;
-    if (codec_param->channel_nums != channel->driver_ctrl->rx_param.channel_nums) {
+    if (codec_param->channel_nums != driver_channel_nums) {
         // LLOGC(luat_audio_debug_flag,"read channel channel_nums %u change to %u, len_bytes %u, data_align %u", channel->driver_ctrl->rx_param.channel_nums, codec_param->channel_nums, len_bytes, channel->driver_ctrl->rx_param.data_align);
         ret = _audio_channel_check_channel_nums_param(len_bytes, &pcm_data_len, &new_data_bytes, &channel->driver_ctrl->rx_param, codec_param);
         if (ret != LUAT_ERROR_NONE) {
@@ -670,7 +675,7 @@ int luat_audio_channel_read_data(luat_audio_channel_t *channel, luat_buffer_t *o
         final_data = new_data_union.p8;
     }
 
-    if (codec_param->data_align != channel->driver_ctrl->rx_param.data_align) {
+    if (codec_param->data_align != driver_data_align) {
         //LLOGC(luat_audio_debug_flag,"read channel data_align %u change to %u, len_bytes %u, channel_nums %u", channel->driver_ctrl->rx_param.data_align, codec_param->data_align, len_bytes, codec_param->channel_nums);
         pcm_data_len = 0;
         new_data_bytes = 0;

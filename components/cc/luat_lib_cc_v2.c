@@ -11,7 +11,9 @@
 */
 
 #include "luat_audio_data_codec.h"
+#include "luat_audio_define.h"
 #include "luat_audio_driver.h"
+#include "luat_audio_dsp.h"
 #include "luat_audio_request.h"
 #include "luat_base.h"
 #ifdef LUAT_USE_AUDIO_V2
@@ -539,7 +541,7 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
         LLOGE("CC_EVENT_VOICE_START codec_opts is NULL");
         return;
     }
-    ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)play_buff_byte, one_play_block_len, play_block_cnt, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, NULL);
+    ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)play_buff_byte, one_play_block_len, play_block_cnt, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, luat_audio_dsp_get_opts(LUAT_AUDIO_DSP_DEFAULT_TYPE));
     if (!ret) {
         if (_l_cc.upload_enable) {
             rtos_msg_t msg;

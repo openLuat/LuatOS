@@ -1477,7 +1477,7 @@ int luat_audio_request_record(luat_audio_request_block_t *request_block, luat_au
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
-	if (request_block->dsp.opts) {
+	if (request_block->dsp.opts && !request_block->record_codec.opts->encode_with_sync_output_ref) {
 		request_block->preprocess_ctx = request_block->dsp.opts->create_preprocess_ctx(&request_block->dsp, &request_block->record_codec.common_param);
 	}
 	request_block->record_codec.opts->set_record_info(&request_block->record_codec, common_audio_param);
@@ -1534,11 +1534,12 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 	request_block->static_play_buff_block_nums = block_num;
 	request_block->record_callback_frame_cnt = record_callback_frame_cnt;
 	request_block->is_stream = 1;
-	if (request_block->dsp.opts && !record_codec_opts->encode_with_sync_output_ref) {
+	if (request_block->dsp.opts && !request_block->record_codec.opts->encode_with_sync_output_ref) {
+		LLOGC(luat_audio_debug_flag, "speech usd dsp for echo");
 		request_block->echo_ctx = request_block->dsp.opts->create_echo_ctx(&request_block->dsp, &request_block->record_codec.common_param, request_block->record_codec.common_param.one_frame_sample_cnt * 5);
 		request_block->preprocess_ctx = request_block->dsp.opts->create_preprocess_ctx(&request_block->dsp, &request_block->record_codec.common_param);
 	}
-	LLOGC(luat_audio_debug_flag, "record data align: %d , play data align: %d", request_block->record_codec.common_param.data_align, request_block->play_codec.common_param.data_align);
+
 	if (request_block->dsp.opts || record_codec_opts->encode_with_sync_output_ref) {
 		LLOGC(luat_audio_debug_flag, "speech need save ref data");
 		request_block->is_need_ref_data = 1;

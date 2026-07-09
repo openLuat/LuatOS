@@ -505,14 +505,14 @@ local function set_psm_func_item()
     -- 2、做AGPIO使用时，功能特性以及如何配置可以将功耗降到最低，参考上文中“第三类功能配置项：通用AGPIO”的说明
     -- 3、做WAKEUP使用时，功能特性以及如何配置可以将功耗降到最低，参考上文中“第四类功能配置项：通用WAKEUP”的说明
     -- if module == "Air780EPM" or module == "Air780EHM" or module == "Air780EHU" or module == "Air780EHN" or module == "Air780EGH" or module == "Air780EGP" or module == "Air780EGG" then
-    --     gpio.setup(gpio.WAKEUP3, nil, gpio.PULLDOWN)
+    --     gpio.setup(20, nil, gpio.PULLDOWN)
     -- end
     -- 
     -- if module == "Air780EPM" or module == "Air780EHM" or module == "Air780EHU" or module == "Air780EHN" or module == "Air780EHV" then
-    --     gpio.setup(gpio.WAKEUP4, nil, gpio.PULLDOWN)
+    --     gpio.setup(21, nil, gpio.PULLDOWN)
     -- end
     -- 
-    -- gpio.setup(gpio.WAKEUP5, nil, gpio.PULLDOWN)
+    -- gpio.setup(22, nil, gpio.PULLDOWN)
 
 
     -- 第八类功能配置项：PWR_KEY

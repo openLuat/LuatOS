@@ -272,12 +272,11 @@ static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_p
 {
     uint8_t type = (input[0] >> 3) & 0x0f;
     *decoded_used_size = amr_wb_byte_len[type] + 1;
-    *decoded_output_size = 640;
     _D_IF_decode(codec->decode_ctx, input, (short*)output, 0);
     if (type > 8) {
         memset(output, 0, 640);
-        *decoded_output_size = 640;
     }
+    *decoded_output_size = 640;
     return LUAT_ERROR_NONE;
 }
 

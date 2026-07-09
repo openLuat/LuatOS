@@ -99,7 +99,6 @@ typedef struct luat_audio_dsp_opts {
      * @param input 输入音频数据缓冲区
      * @param ref_input 参考输入（用于回声消除等算法），可为NULL
      * @param output 输出音频数据缓冲区
-     * @param output_bytes 输出音频数据大小（单位：字节）
      * @return 处理结果，0表示成功，负值表示失败
      */
     int (*process)(struct luat_audio_dsp* dsp, 
@@ -107,7 +106,7 @@ typedef struct luat_audio_dsp_opts {
                   void *echo_ctx, void *preprocess_ctx,
                   const void *input,
                   const void *ref_input,
-                  uint32_t *output, uint32_t *output_bytes);
+                  uint32_t *output);
     
     /**
      * @brief 重采样音频数据

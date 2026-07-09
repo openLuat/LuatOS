@@ -126,8 +126,8 @@ static int _amr_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_p
 	AMRDecode(codec->decode_ctx, (enum Frame_Type_3GPP) type, (UWord8*)&input[1], (Word16*)output, MIME_IETF);
     if (type > 7) {
         memset(output, 0, 320);
-        *decoded_output_size = 320;
     }
+    *decoded_output_size = 320;
     return LUAT_ERROR_NONE;
 }
 

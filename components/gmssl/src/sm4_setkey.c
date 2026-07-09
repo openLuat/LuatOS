@@ -12,11 +12,11 @@
 #include <gmssl/endian.h>
 #include <gmssl/sm4_lcl.h>
 
-static uint32_t FK[4] = {
+static const uint32_t FK[4] = {
 	0xa3b1bac6, 0x56aa3350, 0x677d9197, 0xb27022dc,
 };
 
-static uint32_t CK[32] = {
+static const uint32_t CK[32] = {
 	0x00070e15, 0x1c232a31, 0x383f464d, 0x545b6269,
 	0x70777e85, 0x8c939aa1, 0xa8afb6bd, 0xc4cbd2d9,
 	0xe0e7eef5, 0xfc030a11, 0x181f262d, 0x343b4249,

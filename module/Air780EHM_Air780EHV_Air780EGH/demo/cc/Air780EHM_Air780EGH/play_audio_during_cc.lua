@@ -15,12 +15,14 @@
 
 注意事项：
 1. 本demo使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
-2. 传入音频文件时（如{"/luadb/test_16k.mp3"}），框架自动从文件头解析
+2. 使用本demo时需要确认audio_drv.lua中初始化配置的音频框架audio_mode = "new" 才能播放
+3. 传入音频文件时（如{"/luadb/test_16k.mp3"}），框架自动从文件头解析
    采样率、位宽、声道数等参数，并与当前通话参数自动校验
-3. 校验不匹配会静默失败
-4. 准备音频文件时需注意：
+4. 校验不匹配会静默失败
+5. 准备音频文件时需注意：
    - 确保文件是16bit、单声道的MP3文件
    - 最好准备两种采样率的文件（8K和16K各一份），运行时通过cc.quality()判断后选择
+6. 当前V2046固件 TTS 仅支持16K通话质量播放，8K时会静默失败
 
 常用cc.extern_source调用示例：
 1. 播放文件：   cc.extern_source({"/luadb/test_16k.mp3"})       -- 框架自动识别
@@ -61,10 +63,10 @@ local function handle_incoming_call(status)
         -- 获取来电号码
         caller_number = cc.lastNum() or "未知号码"
         call_counter = call_counter + 1
-        log.info("extern_demo", "收到来电，号码:", caller_number, "响铃次数:", call_counter)
+        log.info("play_audio_during_cc", "收到来电，号码:", caller_number, "响铃次数:", call_counter)
         -- 响铃2声后自动接听
         if call_counter >= 2 then
-            log.info("extern_demo", "自动接听来电")
+            log.info("play_audio_during_cc", "自动接听来电")
             cc.accept(0)
             call_counter = 0
         end
@@ -74,11 +76,11 @@ end
 -- 主动拨号模式
 local function handle_outgoing_call(status)
     if status == "MAKE_CALL_OK" then
-        log.info("extern_demo", "拨号请求成功")
+        log.info("play_audio_during_cc", "拨号请求成功")
     elseif status == "CONNECTED" then
-        log.info("extern_demo", "电话已接通")
+        log.info("play_audio_during_cc", "电话已接通")
     elseif status == "MAKE_CALL_FAILED" then
-        log.info("extern_demo", "拨号失败")
+        log.info("play_audio_during_cc", "拨号失败")
     end
 end
 
@@ -99,7 +101,7 @@ end
 -- 通话中播放外部音频（接通音频通道后触发）
 local function play_extern_source()
     local quality = cc.quality()
-    log.info("extern_demo", "通话质量:", quality, "(1=8K低音质, 2=16K高音质)")
+    log.info("play_audio_during_cc", "通话质量:", quality, "(1=8K低音质, 2=16K高音质)")
 
     -- 先清理上一次通话可能残留的extern_source状态，确保第二次也能播放
     cc.extern_source()
@@ -109,17 +111,23 @@ local function play_extern_source()
     local ok = cc.extern_source(play_source)
     if ok then
         if type(play_source) == "table" then
-            log.info("extern_demo", "开始播放文件:", play_source[1])
+            log.info("play_audio_during_cc", "开始播放文件:", play_source[1])
         elseif type(play_source) == "string" then
-            log.info("extern_demo", "开始播放TTS:", play_source)
+            log.info("play_audio_during_cc", "开始播放TTS:", play_source)
         end
     else
-        log.error("extern_demo", "播放失败，可能音频参数与通话不匹配")
+        log.error("play_audio_during_cc", "播放失败，可能音频参数与通话不匹配")
     end
 end
 
--- ====================== 主事件处理器 ======================
-sys.subscribe("CC_IND", function(status)
+-- 主动拨号模式的定时拨号处理
+local function handle_dial_timer()
+    log.info("play_audio_during_cc", "开始拨号:", DIAL_NUMBER)
+    cc.dial(0, DIAL_NUMBER)
+end
+
+-- CC_IND事件处理器
+local function handle_cc_ind(status)
     log.info("CC状态", status)
 
     -- 根据模式分发事件
@@ -137,7 +145,7 @@ sys.subscribe("CC_IND", function(status)
     -- SPEECH_START：通话开始
     if status == "SPEECH_START" then
         is_connected = true
-        log.info("extern_demo", "通话已建立")
+        log.info("play_audio_during_cc", "通话已建立")
     end
 
     -- 需要处理的通用状态
@@ -145,19 +153,19 @@ sys.subscribe("CC_IND", function(status)
         sys.publish("CC_READY")  -- 发布系统就绪事件
         -- 主动拨号模式：电话系统就绪后自动拨号
         if IS_DIAL then
-            sys.timerStart(function()
-                log.info("extern_demo", "开始拨号:", DIAL_NUMBER)
-                cc.dial(0, DIAL_NUMBER)
-            end, 1000)
+            sys.timerStart(handle_dial_timer, 1000)
         end
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
-        -- 通话结束，关闭PA节省功耗，保留driver下次通话时快速恢复
-        exaudio.shutdown(false, false, true)
+        -- 通话结束，关闭PA保留driver下次通话时快速恢复
+        exaudio.pm(audio.SHUTDOWN)
         is_connected = false
         call_counter = 0
-        log.info("extern_demo", "通话结束")
+        log.info("play_audio_during_cc", "通话结束")
     end
-end)
+end
+
+-- ====================== 主事件处理器 ======================
+sys.subscribe("CC_IND", handle_cc_ind)
 
 -- ====================== 电话系统初始化 ======================
 local function init_cc()
@@ -170,12 +178,12 @@ local function init_cc()
     -- 初始化电话功能
     cc.init(audio_drv.getMultimediaId())
 
-    log.info("cc_extern_source_demo", IS_DIAL and "主动拨号模式" or "来电接听模式")
-    log.info("cc_extern_source_demo", "播放模式: ", PLAY_MODE)
-    log.info("cc_extern_source_demo", "电话系统初始化完成")
+    log.info("play_audio_during_cc", IS_DIAL and "主动拨号模式" or "来电接听模式")
+    log.info("play_audio_during_cc", "播放模式: ", PLAY_MODE)
+    log.info("play_audio_during_cc", "电话系统初始化完成")
 end
 
 -- 启动初始化任务
 sys.taskInit(init_cc)
 
-log.info("cc_extern_source_demo", "通话外部音频播放模块加载完成")
+log.info("play_audio_during_cc", "通话外部音频播放模块加载完成")

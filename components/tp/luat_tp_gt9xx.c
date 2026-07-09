@@ -15,6 +15,7 @@
 #define GT927_PRODUCT_ID_CODE       (0x00373239)  // "927" ASCII code
 #define GT1158_PRODUCT_ID_CODE      (0x38353131)  // "1158" ASCII code
 #define GT9157_PRODUCT_ID_CODE      (0x37353139)  // "9157" ASCII code
+#define GT9271_PRODUCT_ID_CODE      (0x31373239)  // "9271" ASCII code
 
 #define GT9XX_COMMAND_REG           (0x8040)
 
@@ -210,16 +211,16 @@ static int tp_gt9xx_detect(luat_tp_config_t* luat_tp_config){
     uint32_t product_id = 0;
     luat_tp_config->address = GT9XX_ADDRESS0;
     tp_i2c_read_reg16(luat_tp_config, GT9XX_PRODUCT_ID, &product_id, sizeof(product_id), 1);
-    // LLOGI("TP detect read product id:0x%08X", product_id);
-    if (product_id == GT911_PRODUCT_ID_CODE || product_id == GT927_PRODUCT_ID_CODE || product_id == GT1158_PRODUCT_ID_CODE){
-        LLOGI("TP find device GT9XX ,address:0x%02X",luat_tp_config->address);
+    LLOGI("TP detect read product id:0x%08X", product_id);
+    if (product_id == GT911_PRODUCT_ID_CODE || product_id == GT927_PRODUCT_ID_CODE || product_id == GT1158_PRODUCT_ID_CODE || product_id == GT9271_PRODUCT_ID_CODE){
+        // LLOGI("TP find device GT9XX ,address:0x%02X",luat_tp_config->address);
         return 0;
     }else{
         luat_tp_config->address = GT9XX_ADDRESS1;
         tp_i2c_read_reg16(luat_tp_config, GT9XX_PRODUCT_ID, &product_id, sizeof(product_id), 1);
-        // LLOGI("TP detect read product id:0x%08X", product_id);
-        if (product_id == GT911_PRODUCT_ID_CODE || product_id == GT927_PRODUCT_ID_CODE || product_id == GT1158_PRODUCT_ID_CODE){
-            LLOGI("TP find device GT9XX ,address:0x%02X",luat_tp_config->address);
+        LLOGI("TP detect read product id:0x%08X", product_id);
+        if (product_id == GT911_PRODUCT_ID_CODE || product_id == GT927_PRODUCT_ID_CODE || product_id == GT1158_PRODUCT_ID_CODE || product_id == GT9271_PRODUCT_ID_CODE){
+            // LLOGI("TP find device GT9XX ,address:0x%02X",luat_tp_config->address);
             return 0;
         }else{
             return -1;

@@ -31,11 +31,11 @@
 
 
 #include "nndsp.h"
-#include "arch.h"
+#include "celt/arch.h"
 #include "nnet.h"
-#include "os_support.h"
-#include "pitch.h"
-#include "mathops.h"
+#include "celt/os_support.h"
+#include "celt/pitch.h"
+#include "celt/mathops.h"
 
 #include <math.h>
 

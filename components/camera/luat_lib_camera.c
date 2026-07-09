@@ -452,6 +452,8 @@ static int l_camera_close(lua_State *L) {
     return 1;
 }
 
+#ifndef LUAT_BSP_PC
+
 LUAT_WEAK int luat_camera_setup(int id, luat_spi_camera_t *conf, void * callback, void *param) {
     LLOGD("not support yet");
     return -1;
@@ -563,6 +565,7 @@ LUAT_WEAK int luat_usb_camera_stream_set_jump_frame_cnt(uint8_t app_id, uint8_t 
 {
 	return -1;
 }
+#endif
 /**
 camera拍照
 @api camera.capture(id, save_path, quality, x, y, w, h)

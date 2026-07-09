@@ -35,16 +35,16 @@
 #include <stdio.h>
 #endif
 
-#include "mathops.h"
-#include "kiss_fft.h"
-#include "celt.h"
-#include "modes.h"
-#include "arch.h"
-#include "quant_bands.h"
+#include "celt/mathops.h"
+#include "celt/kiss_fft.h"
+#include "celt/celt.h"
+#include "celt/modes.h"
+#include "celt/arch.h"
+#include "celt/quant_bands.h"
 #include "analysis.h"
 #include "mlp.h"
-#include "stack_alloc.h"
-#include "float_cast.h"
+#include "celt/stack_alloc.h"
+#include "celt/float_cast.h"
 
 #ifndef M_PI
 #define M_PI 3.141592653

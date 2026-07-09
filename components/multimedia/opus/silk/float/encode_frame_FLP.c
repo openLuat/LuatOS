@@ -31,8 +31,8 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdlib.h>
 #include "main_FLP.h"
-#include "tuning_parameters.h"
-#include "stack_alloc.h"
+#include "silk/tuning_parameters.h"
+#include "celt/stack_alloc.h"
 
 /* Low Bitrate Redundancy (LBRR) encoding. Reuse all parameters but encode with lower bitrate */
 static OPUS_INLINE void silk_LBRR_encode_FLP(

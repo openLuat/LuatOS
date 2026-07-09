@@ -32,7 +32,7 @@
 #define VEC_NEON_H
 
 #include <arm_neon.h>
-#include "os_support.h"
+#include "celt/os_support.h"
 
 #if defined(__arm__) && !defined(__aarch64__) && (__ARM_ARCH < 8 || !defined(__clang__))
 /* Emulate vcvtnq_s32_f32() for ARMv7 Neon. */

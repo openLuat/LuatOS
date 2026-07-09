@@ -31,7 +31,7 @@
 #include "lpcnet.h"
 #include "dred_config.h"
 #include "dred_rdovae.h"
-#include "entcode.h"
+#include "celt/entcode.h"
 #include "lpcnet_private.h"
 #include "dred_rdovae_enc.h"
 #include "dred_rdovae_enc_data.h"

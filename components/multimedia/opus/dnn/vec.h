@@ -31,8 +31,8 @@
 
 #include "opus_types.h"
 #include <math.h>
-#include "arch.h"
-#include "x86/x86_arch_macros.h"
+#include "celt/arch.h"
+#include "celt/x86/x86_arch_macros.h"
 
 
 #if defined(__AVX__) || defined(__SSE2__)
@@ -41,7 +41,7 @@
 #include "vec_neon.h"
 #else
 
-#include "os_support.h"
+#include "celt/os_support.h"
 
 #define MAX_INPUTS (2048)
 

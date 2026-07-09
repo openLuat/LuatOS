@@ -29,8 +29,8 @@
 #include "config.h"
 #endif
 
-#include "arm/armcpu.h"
-#include "nnet.h"
+#include "celt/arm/armcpu.h"
+#include "dnn/nnet.h"
 
 #if defined(OPUS_HAVE_RTCD)
 

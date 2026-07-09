@@ -31,22 +31,22 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "typedef.h"
 #include "SigProc_FIX.h"
 #include "define.h"
-#include "entenc.h"
-#include "entdec.h"
+#include "celt/entenc.h"
+#include "celt/entdec.h"
 
 #ifdef ENABLE_DEEP_PLC
-#include "lpcnet.h"
-#include "lpcnet_private.h"
+#include "dnn/lpcnet.h"
+#include "dnn/lpcnet_private.h"
 #endif
 
 #ifdef ENABLE_DRED
-#include "dred_encoder.h"
-#include "dred_decoder.h"
+#include "dnn/dred_encoder.h"
+#include "dnn/dred_decoder.h"
 #endif
 
 #ifdef ENABLE_OSCE
-#include "osce_config.h"
-#include "osce_structs.h"
+#include "dnn/osce_config.h"
+#include "dnn/osce_structs.h"
 #endif
 
 #ifdef __cplusplus

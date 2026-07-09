@@ -36,9 +36,9 @@
 #endif
 
 #include <arm_neon.h>
-#include "../float_cast.h"
-#include "../mathops.h"
-#include "../pitch.h"
+#include "celt/float_cast.h"
+#include "celt/mathops.h"
+#include "celt/pitch.h"
 #include <stddef.h>
 #if defined(OPUS_CHECK_ASM)
 #include <stdlib.h>

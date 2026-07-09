@@ -29,7 +29,7 @@
 #include "config.h"
 #endif
 
-#include "x86/x86_arch_macros.h"
+#include "celt/x86/x86_arch_macros.h"
 
 #ifndef __SSE4_1__
 #error nnet_sse4_1.c is being compiled without SSE4.1 enabled
@@ -37,4 +37,4 @@
 
 #define RTCD_ARCH sse4_1
 
-#include "nnet_arch.h"
+#include "dnn/nnet_arch.h"

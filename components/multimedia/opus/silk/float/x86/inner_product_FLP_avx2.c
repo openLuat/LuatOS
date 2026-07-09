@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "config.h"
 #endif
 
-#include "SigProc_FLP.h"
+#include "silk/float/SigProc_FLP.h"
 #include <immintrin.h>
 
 

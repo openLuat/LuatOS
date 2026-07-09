@@ -39,27 +39,27 @@
 #endif
 
 #include <stdarg.h>
-#include "celt.h"
+#include "celt/celt.h"
 #include "opus.h"
-#include "entdec.h"
-#include "modes.h"
-#include "API.h"
-#include "stack_alloc.h"
-#include "float_cast.h"
+#include "celt/entdec.h"
+#include "celt/modes.h"
+#include "silk/API.h"
+#include "celt/stack_alloc.h"
+#include "celt/float_cast.h"
 #include "opus_private.h"
-#include "os_support.h"
-#include "structs.h"
-#include "define.h"
-#include "mathops.h"
-#include "cpu_support.h"
+#include "celt/os_support.h"
+#include "silk/structs.h"
+#include "silk/define.h"
+#include "celt/mathops.h"
+#include "celt/cpu_support.h"
 
 #ifdef ENABLE_DEEP_PLC
-#include "dred_rdovae_dec_data.h"
-#include "dred_rdovae_dec.h"
+#include "dnn/dred_rdovae_dec_data.h"
+#include "dnn/dred_rdovae_dec.h"
 #endif
 
 #ifdef ENABLE_OSCE
-#include "osce.h"
+#include "dnn/osce.h"
 #endif
 
 struct OpusDecoder {

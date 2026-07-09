@@ -29,9 +29,9 @@
 #ifndef OPUS_PRIVATE_H
 #define OPUS_PRIVATE_H
 
-#include "arch.h"
+#include "celt/arch.h"
 #include "opus.h"
-#include "celt.h"
+#include "celt/celt.h"
 
 #include <stdarg.h> /* va_list */
 #include <stddef.h> /* offsetof */

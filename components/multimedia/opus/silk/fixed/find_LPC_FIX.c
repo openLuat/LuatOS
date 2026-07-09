@@ -30,8 +30,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "main_FIX.h"
-#include "stack_alloc.h"
-#include "tuning_parameters.h"
+#include "celt/stack_alloc.h"
+#include "silk/tuning_parameters.h"
 
 /* Finds LPC vector from correlations, and converts to NLSF */
 void silk_find_LPC_FIX(

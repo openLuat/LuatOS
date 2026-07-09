@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "main_FLP.h"
-#include "tuning_parameters.h"
+#include "silk/tuning_parameters.h"
 
 void silk_find_LTP_FLP(
     silk_float                      XX[ MAX_NB_SUBFR * LTP_ORDER * LTP_ORDER ], /* O    Weight for LTP quantization         */

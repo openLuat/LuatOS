@@ -167,6 +167,19 @@ SC_IDLE → SC_USED → SC_CONNECTING → SC_CONNECTED → SC_CLOSING → SC_CLO
 | **Accept target readiness** | The target handle must be initialized but not connected. |
 | **Thread safety** | Async callbacks may run on a different thread; be careful with Lua state access. |
 
+## PC 模拟器测试脚本
+
+独立 PC 脚本存放在 `bsp/pc/test/<编号>.<名称>/main.lua`，不依赖 `testcase/common` 的 `testrunner`/`testsuite` 框架。新增脚本时从当前最大编号续编。
+
+这些脚本用于验证 PC 模拟器特有功能或需要真实 PC 外设（摄像头、CH347、网卡模拟等）的场景，与 `testcase/` 中正式测试框架分离。
+
+示例运行方式：
+
+```powershell
+cd bsp/pc/build/out
+./luatos-lua.exe ../../../test/131.camera_pc/
+```
+
 ## WHERE TO LOOK
 
 | Task | Location |

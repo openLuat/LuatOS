@@ -29,7 +29,7 @@
 #include "config.h"
 #endif
 
-#include "x86/x86_arch_macros.h"
+#include "celt/x86/x86_arch_macros.h"
 
 #ifndef __SSE2__
 #error nnet_sse2.c is being compiled without SSE2 enabled
@@ -37,4 +37,4 @@
 
 #define RTCD_ARCH sse2
 
-#include "nnet_arch.h"
+#include "dnn/nnet_arch.h"

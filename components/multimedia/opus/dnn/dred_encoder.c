@@ -41,8 +41,8 @@
 #include "celt/entenc.h"
 
 #include "dred_decoder.h"
-#include "float_cast.h"
-#include "os_support.h"
+#include "celt/float_cast.h"
+#include "celt/os_support.h"
 #include "celt/laplace.h"
 #include "dred_rdovae_stats_data.h"
 

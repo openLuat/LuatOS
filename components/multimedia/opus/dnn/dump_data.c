@@ -36,13 +36,13 @@
 #include "common.h"
 #include <math.h>
 #include "freq.h"
-#include "pitch.h"
-#include "arch.h"
+#include "celt/pitch.h"
+#include "celt/arch.h"
 #include <assert.h>
 #include "lpcnet.h"
 #include "lpcnet_private.h"
-#include "os_support.h"
-#include "cpu_support.h"
+#include "celt/os_support.h"
+#include "celt/cpu_support.h"
 
 #include "mini_kfft.c"
 

@@ -32,10 +32,10 @@
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #include <smmintrin.h>
-#include "celt_lpc.h"
-#include "stack_alloc.h"
-#include "mathops.h"
-#include "pitch.h"
+#include "celt/celt_lpc.h"
+#include "celt/stack_alloc.h"
+#include "celt/mathops.h"
+#include "celt/pitch.h"
 #include "x86cpu.h"
 
 #if defined(FIXED_POINT)

@@ -51,7 +51,7 @@
 
 
 #ifdef ENABLE_DEEP_PLC
-#include "lpcnet.h"
+#include "dnn/lpcnet.h"
 #endif
 
 #ifdef __cplusplus

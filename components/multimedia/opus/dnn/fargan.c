@@ -29,14 +29,14 @@
 #endif
 
 #include "fargan.h"
-#include "os_support.h"
+#include "celt/os_support.h"
 #include "freq.h"
 #include "fargan_data.h"
 #include "lpcnet.h"
-#include "pitch.h"
+#include "celt/pitch.h"
 #include "nnet.h"
 #include "lpcnet_private.h"
-#include "cpu_support.h"
+#include "celt/cpu_support.h"
 
 #define FARGAN_FEATURES (NB_FEATURES)
 

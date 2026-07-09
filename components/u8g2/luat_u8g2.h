@@ -2,9 +2,38 @@
 #include "luat_base.h"
 #include "u8g2.h"
 
+enum {
+    LUAT_U8G2_FLUSH_PAGE = 0,
+    LUAT_U8G2_FLUSH_PAGE_ARG,
+    LUAT_U8G2_FLUSH_WINDOW_GRAY4,
+    LUAT_U8G2_FLUSH_WINDOW_2ROW_LUT,
+};
+
+enum {
+    LUAT_U8G2_HVLINE_VERTICAL_TOP = 0,
+    LUAT_U8G2_HVLINE_HORIZONTAL_RIGHT,
+};
+
+enum {
+    LUAT_U8G2_CAD_001 = 1,
+    LUAT_U8G2_CAD_011 = 11,
+    LUAT_U8G2_CAD_100 = 100,
+};
+
 typedef struct luat_u8g2_custom {
     size_t init_cmd_count;
     uint32_t *initcmd; // 实际命令长度与init_cmd_count相同
+    u8x8_display_info_t display_info;
+    uint8_t flush_mode;
+    uint8_t hvline;
+    uint8_t cad_mode;
+    uint8_t tile_w;
+    uint8_t tile_h;
+    uint8_t column_start;
+    uint8_t row_offset;
+    uint8_t has_column_start;
+    uint8_t has_sleepcmd;
+    uint8_t has_wakecmd;
 }luat_u8g2_custom_t;
 
 typedef struct luat_u8g2_conf
@@ -14,11 +43,15 @@ typedef struct luat_u8g2_conf
     uint8_t sleepcmd;
     uint8_t wakecmd;
     int lua_ref;
-    char* cname; // 控制器名称, 例如SSD1306
+    char cname[32]; // 控制器名称, 例如SSD1306
     u8g2_t u8g2;
     const u8g2_cb_t* direction;//方向 
     uint8_t* buff_ptr;
     void* userdata;
+#ifdef LUAT_USE_HZFONT
+    void* hzfont;
+    uint8_t is_hzfont_enabled;
+#endif
 } luat_u8g2_conf_t;
 
 uint8_t u8x8_d_custom_noname(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);

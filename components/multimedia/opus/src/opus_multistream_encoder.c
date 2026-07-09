@@ -32,16 +32,16 @@
 #include "opus_multistream.h"
 #include "opus.h"
 #include "opus_private.h"
-#include "stack_alloc.h"
+#include "celt/stack_alloc.h"
 #include <stdarg.h>
-#include "float_cast.h"
-#include "os_support.h"
-#include "mathops.h"
-#include "mdct.h"
-#include "modes.h"
-#include "bands.h"
-#include "quant_bands.h"
-#include "pitch.h"
+#include "celt/float_cast.h"
+#include "celt/os_support.h"
+#include "celt/mathops.h"
+#include "celt/mdct.h"
+#include "celt/modes.h"
+#include "celt/bands.h"
+#include "celt/quant_bands.h"
+#include "celt/pitch.h"
 
 typedef struct {
    int nb_streams;

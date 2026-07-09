@@ -524,8 +524,13 @@ end
 function bit64_context.test_show_unsigned()
     log.info("bit64_context", "开始 64bit数据格式化按照无符号方式打印测试")
     local date = -123456
-    local computation = tonumber(bit64.show(bit64.to64(date), 10, true))
-    local expectation = 18446744073709428160
+    local computation = bit64.show(bit64.to64(date), 10, true)
+    local expectation
+    if luatos_version_system == 32 then
+        expectation = "4294843840"
+    else
+        expectation = "18446744073709428160"
+    end
     assert(computation == expectation,
         string.format(
             "64bit数据格式化按照无符号方式打印测试失败: 预期 %s, 实际 %s, 当前bit位数 %s",

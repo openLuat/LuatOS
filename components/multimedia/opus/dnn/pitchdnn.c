@@ -4,7 +4,7 @@
 
 #include <math.h>
 #include "pitchdnn.h"
-#include "os_support.h"
+#include "celt/os_support.h"
 #include "nnet.h"
 #include "lpcnet_private.h"
 

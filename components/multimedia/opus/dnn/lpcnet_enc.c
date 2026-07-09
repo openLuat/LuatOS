@@ -31,19 +31,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "kiss_fft.h"
+#include "celt/kiss_fft.h"
 #include "common.h"
 #include <math.h>
 #include "freq.h"
-#include "pitch.h"
-#include "arch.h"
+#include "celt/pitch.h"
+#include "celt/arch.h"
 #include <assert.h>
 #include "lpcnet_private.h"
 #include "lpcnet.h"
-#include "os_support.h"
-#include "_kiss_fft_guts.h"
-#include "celt_lpc.h"
-#include "mathops.h"
+#include "celt/os_support.h"
+#include "celt/_kiss_fft_guts.h"
+#include "celt/celt_lpc.h"
+#include "celt/mathops.h"
 
 
 int lpcnet_encoder_get_size(void) {

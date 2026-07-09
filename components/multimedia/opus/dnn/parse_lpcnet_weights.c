@@ -31,7 +31,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "nnet.h"
-#include "os_support.h"
+#include "celt/os_support.h"
 
 #define SPARSE_BLOCK_SIZE 32
 

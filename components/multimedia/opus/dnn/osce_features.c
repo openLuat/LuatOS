@@ -38,10 +38,10 @@
 /*#define DEBUG_PRING*/
 /*******/
 
-#include "stack_alloc.h"
+#include "celt/stack_alloc.h"
 #include "osce_features.h"
-#include "kiss_fft.h"
-#include "os_support.h"
+#include "celt/kiss_fft.h"
+#include "celt/os_support.h"
 #include "osce.h"
 #include "freq.h"
 

@@ -42,6 +42,7 @@
 #define LUAT_USE_NETDRV_CH390H 1
 #define LUAT_USE_NETDRV_OPENVPN 1
 #define LUAT_USE_NETDRV_WG 1
+#define LUAT_USE_NETDRV_LWIP_ARP 1
 
 // ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试)
 #define LUAT_USE_ICMP 1
@@ -100,6 +101,7 @@
 #define LUAT_USE_MOBILE_RFA 1
 #define LUAT_USE_SMS 1
 #define LUAT_USE_WLAN 1
+#define LUAT_USE_CAMERA 1
 
 #define LUAT_USE_IOTAUTH 1
 #define LUAT_USE_MINIZ 1
@@ -110,9 +112,11 @@
 #define LUAT_USE_AUDIO 1
 #define LUAT_USE_AUDIO_V2 1
 #define LUAT_SUPPORT_AMR 1
-#define LUAT_SUPPORT_OPUS   1
+// #define LUAT_SUPPORT_OPUS   1
 #define LUAT_USE_AUDIO_G711 1
 #define LUAT_USE_AUDIO_DTMF 1
+#define LUAT_USE_VOIP 1
+#define LUAT_USE_RECORD 1
 
 //----------------------------
 // 常用工具库, 按需启用, cjson和pack是强烈推荐启用的
@@ -196,9 +200,6 @@
 
 // U8G2 在 GUI/非 GUI PC 构建中都需要保留。
 #define LUAT_USE_U8G2 1
-// 启用 ST7305 单色 OLED 屏驱动(常见 200x200/122x250/168x384 规格)
-// 与 components/u8g2/luat_lib_u8g2.c 的 devregs 联动,默认走 200x200 1bpp 入口
-#define LUAT_USE_U8G2_DRV_ST7305 1
 #ifndef LUAT_USE_GUI
 // EINK 仅在非 GUI PC 构建中启用，对齐 xmake 的非 GUI 源码范围。
 #define LUAT_USE_EINK 1

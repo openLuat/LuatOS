@@ -10,7 +10,7 @@
 
 #include <gmssl/sm4.h>
 #include <gmssl/endian.h>
-#include "sm4_lcl.h"
+#include <gmssl/sm4_lcl.h>
 
 static uint32_t FK[4] = {
 	0xa3b1bac6, 0x56aa3350, 0x677d9197, 0xb27022dc,

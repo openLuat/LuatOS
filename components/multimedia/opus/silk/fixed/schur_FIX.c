@@ -29,7 +29,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "config.h"
 #endif
 
-#include "SigProc_FIX.h"
+#include "silk/SigProc_FIX.h"
 
 /* Faster than schur64(), but much less accurate.                       */
 /* uses SMLAWB(), requiring armv5E and higher.                          */

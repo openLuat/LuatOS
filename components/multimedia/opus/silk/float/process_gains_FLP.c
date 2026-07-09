@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "main_FLP.h"
-#include "tuning_parameters.h"
+#include "silk/tuning_parameters.h"
 
 /* Processing of gains */
 void silk_process_gains_FLP(

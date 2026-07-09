@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "main.h"
-#include "stack_alloc.h"
+#include "celt/stack_alloc.h"
 
 /* Silk VAD noise level estimation */
 # if !defined(OPUS_X86_MAY_HAVE_SSE4_1)

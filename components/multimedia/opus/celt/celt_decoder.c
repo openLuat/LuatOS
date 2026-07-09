@@ -52,8 +52,8 @@
 #include "vq.h"
 
 #ifdef ENABLE_DEEP_PLC
-#include "lpcnet.h"
-#include "lpcnet_private.h"
+#include "dnn/lpcnet.h"
+#include "dnn/lpcnet_private.h"
 #endif
 
 /* The maximum pitch lag to allow in the pitch-based PLC. It's possible to save

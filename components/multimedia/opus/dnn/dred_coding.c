@@ -32,7 +32,7 @@
 #include <math.h>
 
 #include "celt/entenc.h"
-#include "os_support.h"
+#include "celt/os_support.h"
 #include "dred_config.h"
 #include "dred_coding.h"
 

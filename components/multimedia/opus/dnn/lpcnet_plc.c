@@ -31,9 +31,9 @@
 #include "lpcnet_private.h"
 #include "lpcnet.h"
 #include "plc_data.h"
-#include "os_support.h"
+#include "celt/os_support.h"
 #include "common.h"
-#include "cpu_support.h"
+#include "celt/cpu_support.h"
 
 #ifndef M_PI
 #define M_PI 3.141592653

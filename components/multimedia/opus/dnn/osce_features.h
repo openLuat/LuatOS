@@ -29,7 +29,7 @@
 #define OSCE_FEATURES_H
 
 
-#include "structs.h"
+#include "silk/structs.h"
 #include "opus_types.h"
 
 #define OSCE_NUMBITS_BUGFIX

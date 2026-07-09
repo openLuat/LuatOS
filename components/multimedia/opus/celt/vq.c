@@ -38,7 +38,7 @@
 #include "bands.h"
 #include "rate.h"
 #include "pitch.h"
-#include "SigProc_FIX.h"
+#include "silk/SigProc_FIX.h"
 
 #if defined(FIXED_POINT)
 void norm_scaleup(celt_norm *X, int N, int shift) {
@@ -374,7 +374,7 @@ opus_val16 op_pvq_search_c(celt_norm *X, int *iy, int K, int N, int arch)
 }
 
 #ifdef ENABLE_QEXT
-#include "macros.h"
+#include "silk/macros.h"
 
 static opus_val32 op_pvq_search_N2(const celt_norm *X, int *iy, int *up_iy, int K, int up, int *refine, int shift) {
    opus_val32 sum;

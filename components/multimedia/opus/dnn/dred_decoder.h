@@ -31,7 +31,7 @@
 #include "opus.h"
 #include "dred_config.h"
 #include "dred_rdovae.h"
-#include "entcode.h"
+#include "celt/entcode.h"
 #include "dred_rdovae_constants.h"
 
 struct OpusDRED {

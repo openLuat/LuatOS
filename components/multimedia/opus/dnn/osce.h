@@ -40,7 +40,7 @@
 #include "nndsp.h"
 #include "nnet.h"
 #include "osce_structs.h"
-#include "structs.h"
+#include "silk/structs.h"
 
 
 #define OSCE_MODE_SILK_ONLY     1000

@@ -369,15 +369,10 @@ target("luatos-lua")
     add_files(luatos.."components/voip/binding/*.c")
 
     -- opus
+    -- 只暴露 opus 根目录和公共 API 目录，避免 celt/silk/src 等内部短文件名头文件全局冲突
     add_defines("OPUS_ARM_ASM","USE_ALLOCA","FIXED_POINT=1","OPUS_BUILD=1")
     add_includedirs(luatos.."/components/multimedia/opus",
-                    luatos.."/components/multimedia/opus/include",
-                    luatos.."/components/multimedia/opus/src",
-                    luatos.."/components/multimedia/opus/celt",
-                    luatos.."/components/multimedia/opus/celt/arm",
-                    luatos.."/components/multimedia/opus/silk",
-                    luatos.."/components/multimedia/opus/silk/arm",
-                    luatos.."/components/multimedia/opus/silk/fixed"
+                    luatos.."/components/multimedia/opus/include"
                     )
     add_thirdparty_files(  luatos.."/components/multimedia/opus/celt/*.c|opus_custom_demo.c",
                 luatos.."/components/multimedia/opus/celt/arm/armcpu.c",

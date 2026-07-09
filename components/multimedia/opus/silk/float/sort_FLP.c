@@ -33,7 +33,7 @@ POSSIBILITY OF SUCH DAMAGE.
 /* Best case:  O(n)   for an already sorted array           */
 /* Worst case: O(n^2) for an inversely sorted array         */
 
-#include "typedef.h"
+#include "silk/typedef.h"
 #include "SigProc_FLP.h"
 
 void silk_insertion_sort_decreasing_FLP(

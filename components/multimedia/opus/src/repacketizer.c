@@ -31,8 +31,8 @@
 
 #include "opus.h"
 #include "opus_private.h"
-#include "os_support.h"
-#include "stack_alloc.h"
+#include "celt/os_support.h"
+#include "celt/stack_alloc.h"
 
 
 int opus_repacketizer_get_size(void)

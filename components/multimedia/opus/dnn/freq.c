@@ -31,14 +31,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "kiss_fft.h"
+#include "celt/kiss_fft.h"
 #include <math.h>
 #include "freq.h"
-#include "pitch.h"
-#include "arch.h"
+#include "celt/pitch.h"
+#include "celt/arch.h"
 #include "burg.h"
 #include <assert.h>
-#include "os_support.h"
+#include "celt/os_support.h"
 
 #define SQUARE(x) ((x)*(x))
 

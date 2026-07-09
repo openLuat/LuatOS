@@ -47,13 +47,13 @@
 #endif
 #endif
 
-#include "mdct.h"
-#include "kiss_fft.h"
-#include "_kiss_fft_guts.h"
+#include "celt/mdct.h"
+#include "celt/kiss_fft.h"
+#include "celt/_kiss_fft_guts.h"
 #include <math.h>
-#include "os_support.h"
-#include "mathops.h"
-#include "stack_alloc.h"
+#include "celt/os_support.h"
+#include "celt/mathops.h"
+#include "celt/stack_alloc.h"
 
 #if defined (__mips_dsp)
 static inline int S_MUL_ADD_PSR(int a, int b, int c, int d, int shift) {

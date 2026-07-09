@@ -30,8 +30,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "SigProc_FLP.h"
-#include "tuning_parameters.h"
-#include "define.h"
+#include "silk/tuning_parameters.h"
+#include "silk/define.h"
 
 #define MAX_FRAME_SIZE              384 /* subfr_length * nb_subfr = ( 0.005 * 16000 + 16 ) * 4 = 384*/
 

@@ -28,7 +28,7 @@
 # define MATHOPS_ARM_H
 
 #include "armcpu.h"
-#include "cpu_support.h"
+#include "celt/cpu_support.h"
 #include "opus_defines.h"
 
 # if !defined(DISABLE_FLOAT_API) && defined(OPUS_ARM_MAY_HAVE_NEON_INTR)

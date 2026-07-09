@@ -28,7 +28,7 @@
 #ifndef DNN_X86_H
 #define DNN_X86_H
 
-#include "cpu_support.h"
+#include "celt/cpu_support.h"
 #include "opus_types.h"
 
 #if defined(OPUS_X86_MAY_HAVE_SSE2)

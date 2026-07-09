@@ -32,10 +32,10 @@
 #include "opus_multistream.h"
 #include "opus.h"
 #include "opus_private.h"
-#include "stack_alloc.h"
+#include "celt/stack_alloc.h"
 #include <stdarg.h>
-#include "float_cast.h"
-#include "os_support.h"
+#include "celt/float_cast.h"
+#include "celt/os_support.h"
 
 /* DECODER */
 

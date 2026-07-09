@@ -31,7 +31,7 @@
 #include "config.h"
 #endif
 
-#include "os_support.h"
+#include "celt/os_support.h"
 #include "dred_decoder.h"
 #include "dred_coding.h"
 #include "celt/entdec.h"

@@ -31,11 +31,11 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "control.h"
 #include "typedef.h"
 #include "errors.h"
-#include "entenc.h"
-#include "entdec.h"
+#include "celt/entenc.h"
+#include "celt/entdec.h"
 
 #ifdef ENABLE_DEEP_PLC
-#include "lpcnet_private.h"
+#include "dnn/lpcnet_private.h"
 #endif
 
 #ifdef __cplusplus

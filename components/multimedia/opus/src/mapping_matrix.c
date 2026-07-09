@@ -29,8 +29,8 @@
 #include "config.h"
 #endif
 
-#include "arch.h"
-#include "float_cast.h"
+#include "celt/arch.h"
+#include "celt/float_cast.h"
 #include "opus_private.h"
 #include "opus_defines.h"
 #include "mapping_matrix.h"

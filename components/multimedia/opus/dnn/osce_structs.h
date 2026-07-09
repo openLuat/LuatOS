@@ -38,7 +38,7 @@
 #endif
 #ifndef DISABLE_BBWENET
 #include "bbwenet_data.h"
-#include "resampler_structs.h"
+#include "silk/resampler_structs.h"
 #endif
 #include "nndsp.h"
 #include "nnet.h"

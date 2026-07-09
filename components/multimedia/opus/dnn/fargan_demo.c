@@ -32,16 +32,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "arch.h"
+#include "celt/arch.h"
 #include "lpcnet.h"
 #include "freq.h"
-#include "os_support.h"
+#include "celt/os_support.h"
 #include "fargan.h"
-#include "cpu_support.h"
+#include "celt/cpu_support.h"
 #include "dred_rdovae_dec.h"
 #include "dred_rdovae_dec_data.h"
 #include "dred_rdovae_stats_data.h"
-#include "entdec.h"
+#include "celt/entdec.h"
 
 #ifdef USE_WEIGHTS_FILE
 # if __unix__

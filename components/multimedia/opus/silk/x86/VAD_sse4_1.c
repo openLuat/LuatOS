@@ -33,8 +33,8 @@
 #include <emmintrin.h>
 #include <smmintrin.h>
 
-#include "main.h"
-#include "stack_alloc.h"
+#include "silk/main.h"
+#include "celt/stack_alloc.h"
 
 /* Weighting factors for tilt measure */
 static const opus_int32 tiltWeights[ VAD_N_BANDS ] = { 30000, 6000, -12000, -12000 };

@@ -23,13 +23,8 @@ ch390h_t* ch390h_drvs[MAX_CH390H_NUM]; // 最多支持5个CH390H同时操作
 // 由 ch390_task.c 实现, 用于 CTRL_UPDOWN=1 重启时主动唤醒可能处于 FOREVER 等待的 task
 extern void luat_ch390h_task_wakeup(void);
 
-#ifdef LUAT_USE_NETDRV_LWIP_ARP
 extern err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp);
 extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
-#else
-#define luat_netdrv_netif_input_main netif_input
-#define luat_netdrv_etharp_output ulwip_etharp_output
-#endif
 
 extern err_t ch390_netif_output(struct netif *netif, struct pbuf *p);
 

@@ -1053,11 +1053,11 @@ static const rotable_Reg_t reg_camera[] =
     { "CONF_UVC_RESOLUTION",               ROREG_INT(LUAT_CAMERA_CONF_UVC_RESOLUTION)},
 
     //@const FORMAT_RAW number USB摄像头数据流类型无压缩原始图像
-    { "FORMAT_RAW",               ROREG_INT(0)},
+    { "FORMAT_RAW",               ROREG_INT(LUAT_CAMERA_UVC_FORMAT_RAW)},
     //@const FORMAT_MJPG number USB摄像头的数据流类型mjpg
-    { "FORMAT_MJPG",               ROREG_INT(1)},
+    { "FORMAT_MJPG",               ROREG_INT(LUAT_CAMERA_UVC_FORMAT_MJPEG)},
     //@const FORMAT_H264 number USB摄像头的数据流类型H264
-    { "FORMAT_H264",               ROREG_INT(2)},
+    { "FORMAT_H264",               ROREG_INT(LUAT_CAMERA_UVC_FORMAT_H264)},
 	{ NULL,          ROREG_INT(0)}
 };
 

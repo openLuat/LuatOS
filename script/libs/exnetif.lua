@@ -1,19 +1,28 @@
---[[
+﻿--[[
 @module exnetif
 @summary exnetif 控制网络优先级（以太网->WIFI->4G）根据优先级选择上网的网卡。简化开启多网融合的操作，4G作为数据出口给WIFI,以太网设备上网，以太网作为数据出口给WIFI,Air8000上网，WIFI作为数据出口给Air8000,以太网上网。
 @version 1.0
 @date    2025.06.26
-@author  wjq
+@author  王城钧
 @usage
-本文件的对外接口有6个：
+本文件的对外接口有7个：
 1、exnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络(需要在task中调用)
 2、exnetif.notify_status(cb_fnc)：设置网络状态变化回调函数
 3、exnetif.setproxy(adapter, main_adapter,other_configs)：配置网络代理实现多网融合(需要在task中调用)
 4、exnetif.check_network_status(interval),检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
-5、exnetif.close(type, adapter)：关闭指定网卡,内核固件版本号需>=2020
+5、exnetif.close(type, adapter)：关闭网卡功能或多网融合,内核固件版本需为2026年1月后的固件
 6、exnetif.update_wifi(config)：运行时更新WiFi账号密码,用于引擎主机等需要动态获取WiFi凭证的场景
+7、exnetif.version()：获取库文件版本信息
 
 -- 版本更新说明
+-- 版本号：202607100900
+-- 1、更新时间：2026-07-10 09:00
+-- 2、更新内容
+--    exnetif.close(true)：完整实现关闭多网融合功能（停止 DHCP 服务器→关闭 DNS 代理→禁用 NAPT→停止代理网卡服务）
+--    exnetif.close(false, socket.LWIP_GP_GW)：支持关闭 airlink 4G 网卡（仅设置 DISCONNECTED 状态+apply_priority，无硬件操作）
+--    setproxy：保存 DHCP 服务器引用和代理网卡列表，支持多次 setproxy 后的全部清理
+--    修复 proxy_state 单值覆盖问题：多次 setproxy 的代理网卡改为数组累积，close(true) 遍历全部关闭
+
 -- 版本号：202607022100
 -- 1、更新时间：2026-07-02 21:00
 -- 2、更新内容
@@ -87,6 +96,13 @@ end
 local eth_cfg = {
     [socket.LWIP_ETH] = {},
     [socket.LWIP_USER1] = {}
+}
+
+-- 多网融合状态记录（供 close(true) 清理使用）
+local proxy_state = {
+    dhcp_servers = {},     -- DHCP 服务器对象列表，由 setproxy 创建
+    proxy_adapters = {},   -- 使用网络的网卡列表 (如 {socket.LWIP_AP, socket.LWIP_ETH})
+    main_adapter = nil,    -- 提供网络的网卡 (如 socket.LWIP_GP / socket.LWIP_STA)
 }
 
 -- 订阅socket连接状态变化事件，socket出现异常时修改网卡状态
@@ -1270,12 +1286,12 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         -- 创建 DHCP 服务器，为连接到以太网的设备分配 IP 地址。
         log.info("netdrv", "创建dhcp服务器, 供以太网使用")
         if other_configs.adapter_gw then
-            dhcpsrv.create({
+            proxy_state.dhcp_servers[#proxy_state.dhcp_servers + 1] = dhcpsrv.create({
                 adapter = socket.LWIP_ETH,
                 gw = other_configs.adapter_gw
             })
         else
-            dhcpsrv.create({
+            proxy_state.dhcp_servers[#proxy_state.dhcp_servers + 1] = dhcpsrv.create({
                 adapter = socket.LWIP_ETH,
                 gw = {192, 168, 5, 1}
             })
@@ -1305,12 +1321,12 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         -- 创建 DHCP 服务器，为连接到 WiFi AP 的设备分配 IP 地址。
         log.info("netdrv", "创建dhcp服务器, 供AP使用")
         if other_configs.adapter_gw then
-            dhcpsrv.create({
+            proxy_state.dhcp_servers[#proxy_state.dhcp_servers + 1] = dhcpsrv.create({
                 adapter = socket.LWIP_AP,
                 gw = other_configs.adapter_gw
             })
         else
-            dhcpsrv.create({
+            proxy_state.dhcp_servers[#proxy_state.dhcp_servers + 1] = dhcpsrv.create({
                 adapter = socket.LWIP_AP
             })
         end
@@ -1373,12 +1389,12 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         -- 创建 DHCP 服务器，为连接到以太网的设备分配 IP 地址。
         log.info("netdrv", "创建dhcp服务器, 供以太网使用")
         if other_configs.adapter_gw then
-            dhcpsrv.create({
+            proxy_state.dhcp_servers[#proxy_state.dhcp_servers + 1] = dhcpsrv.create({
                 adapter = socket.LWIP_USER1,
                 gw = other_configs.adapter_gw
             })
         else
-            dhcpsrv.create({
+            proxy_state.dhcp_servers[#proxy_state.dhcp_servers + 1] = dhcpsrv.create({
                 adapter = socket.LWIP_USER1,
                 gw = {192, 168, 5, 1}
             })
@@ -1389,6 +1405,9 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
 
     dnsproxy.setup(adapter, main_adapter)
     netdrv.napt(main_adapter)
+    -- 保存多网融合状态，供 close(true) 清理
+    proxy_state.proxy_adapters[#proxy_state.proxy_adapters + 1] = adapter
+    proxy_state.main_adapter = main_adapter
     return true
 end
 
@@ -1467,18 +1486,68 @@ function exnetif.update_wifi(config)
 end
 
 --[[
-关闭网卡功能。(内核固件版本号需>=2020)
+关闭网卡功能。(内核固件版本需要是2026.1月及以后的固件)
 @api exnetif.close(type,adapter)
-@param type boolean 是否为多网融合
-@param adapter number 需要关闭的网卡
+@param type boolean 是否为多网融合(true=关闭多网融合, false=关闭单个网卡)
+@param adapter number 需要关闭的网卡，可选值: socket.LWIP_ETH/LWIP_USER1/LWIP_STA/LWIP_AP/LWIP_GP/LWIP_GP_GW
+     各网卡关闭行为:
+       LWIP_ETH   -> 拉低供电+关SPI+netdrv.ctrl(adapter,netdrv.CTRL_UPDOWN,0)（需固件为2026.1月及以后的固件）
+       LWIP_USER1 -> 同LWIP_ETH（需固件为2026.1月及以后的固件）
+       LWIP_STA   -> wlan.disconnect() 断开WiFi连接
+       LWIP_AP    -> wlan.stopAP() 停止热点
+       LWIP_GP    -> mobile.flymode(nil,true) 进飞行模式
+       LWIP_GP_GW -> 仅设状态 DISCONNECTED + apply_priority，无硬件操作（airlink无独立stop接口）
+     关闭后恢复: 重新调用 set_priority_order 将网卡加入优先级列表
 @return boolean 操作结果
 @usage
-    exnetif.close(true) --关闭多网融合功能
-    exnetif.close(false,socket.LWIP_ETH)  --关闭优先级中的以太网网卡
+    exnetif.close(true) --关闭多网融合功能（停止DHCP服务器、DNS代理、NAPT，恢复各网卡独立状态）
+    exnetif.close(false,socket.LWIP_ETH)  --关闭以太网网卡
+    exnetif.close(false,socket.LWIP_AP)   --关闭WiFi AP热点
+    exnetif.close(false,socket.LWIP_STA)  --关闭WiFi STA
+    exnetif.close(false,socket.LWIP_GP)   --关闭4G（飞行模式）
 ]]
 function exnetif.close(type, adapter)
     if type == true then
-        -- TODO: 目前dhcpsrv扩展库，dnsproxy扩展库和napt没有关闭接口
+        -- 关闭多网融合：停止 DHCP 服务器、DNS 代理、NAPT，恢复各网卡独立状态
+        log.info("exnetif", "关闭多网融合功能")
+
+        -- 1. 停止所有 DHCP 服务器
+        if #proxy_state.dhcp_servers > 0 then
+            for _, srv in ipairs(proxy_state.dhcp_servers) do
+                dhcpsrv.stop(srv)
+            end
+            proxy_state.dhcp_servers = {}
+            log.info("exnetif", "DHCP 服务器已全部停止")
+        end
+
+        -- 2. 关闭 DNS 代理
+        dnsproxy.close()
+        log.info("exnetif", "DNS 代理已关闭")
+
+        -- 3. 禁用 NAPT
+        if proxy_state.main_adapter then
+            netdrv.napt(-1)
+            log.info("exnetif", "NAPT 已禁用")
+        end
+
+        -- 4. 关闭所有使用网络的网卡服务（AP 停止热点，ETH/USER1 关闭 PHY）
+        for _, adapter in ipairs(proxy_state.proxy_adapters) do
+            if adapter == socket.LWIP_AP then
+                wlan.stopAP()
+                log.info("exnetif", "AP 热点已停止")
+            elseif adapter == socket.LWIP_ETH or adapter == socket.LWIP_USER1 then
+                if netdrv.CTRL_UPDOWN then
+                    netdrv.ctrl(adapter, netdrv.CTRL_UPDOWN, 0)
+                    log.info("exnetif", "以太网 PHY 已关闭 (adapter=" .. tostring(adapter) .. ")")
+                end
+            end
+        end
+
+        -- 5. 清理状态记录
+        proxy_state.proxy_adapters = {}
+        proxy_state.main_adapter = nil
+
+        return true
     else
         if adapter == nil then
             log.error("请指定需要关闭的网卡")
@@ -1507,6 +1576,10 @@ function exnetif.close(type, adapter)
             wlan.disconnect()
         elseif adapter == socket.LWIP_GP then
             mobile.flymode(nil, true)
+        elseif adapter == socket.LWIP_GP_GW then
+            -- airlink 4G 网卡：无底层硬件关闭操作
+            -- airlink 是共享 UART 桥梁，没有独立 stop 接口
+            -- 仅通过 available[gp_gw]=DISCONNECTED + apply_priority() 实现网卡切换
         end
         log.info("exnetif", "关闭网卡功能", type_to_string(adapter))
         apply_priority()
@@ -1522,7 +1595,7 @@ end
 exnetif.version()
 ]]
 function exnetif.version()
-    return "202607022100"
+    return "202607100900"
 end
 
 log.debug("exnetif", "version -> " .. exnetif.version())

@@ -21,13 +21,8 @@
 #define LUAT_LOG_TAG "netdrv.whale"
 #include "luat_log.h"
 
-#ifdef LUAT_USE_NETDRV_LWIP_ARP
 extern err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp);
 extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
-#else
-#define luat_netdrv_netif_input_main netif_input
-#define luat_netdrv_etharp_output ulwip_etharp_output
-#endif
 
 static err_t luat_netif_init(struct netif *netif);
 static err_t netif_output(struct netif *netif, struct pbuf *p);

@@ -54,6 +54,11 @@ enum
 	// USB摄像头配置项
 	LUAT_CAMERA_CONF_UVC_FORMAT = 0x300,
 	LUAT_CAMERA_CONF_UVC_RESOLUTION,
+
+    // USB 摄像头数据格式
+    LUAT_CAMERA_UVC_FORMAT_RAW = 0,
+    LUAT_CAMERA_UVC_FORMAT_MJPEG,
+    LUAT_CAMERA_UVC_FORMAT_H264,
 };
 
 typedef struct luat_camera_conf

@@ -5,7 +5,8 @@
 #define LUAT_LOG_TAG "display_sdl"
 #include "luat_log.h"
 
-static int sdl_init(luat_display_t *disp) {
+static int sdl_init(luat_display_t *disp) 
+{
     luat_sdl2_conf_t cfg = {
         .width = disp->width,
         .height = disp->height,
@@ -18,28 +19,27 @@ static int sdl_init(luat_display_t *disp) {
     return ret;
 }
 
-static int sdl_deinit(luat_display_t *disp) {
+static int sdl_deinit(luat_display_t *disp) 
+{
     luat_sdl2_conf_t cfg = {0};
     luat_sdl2_deinit(&cfg);
     return 0;
 }
 
-static int sdl_write_cmd(luat_display_t *disp, uint8_t cmd) {
+
+
+static int sdl_fb_probe(struct luat_display_fb_info *info) 
+{
     return 0;
 }
 
-static int sdl_write_data(luat_display_t *disp, const uint8_t *data, uint32_t len) {
+static int sdl_set_layer(struct luat_display_layer_data *layer_data) 
+{
     return 0;
 }
 
-static int sdl_write_cmd_data(luat_display_t *disp, uint8_t cmd,
-                               const uint8_t *data, uint32_t len) {
-    return 0;
-}
-
-static int sdl_fb_flush(luat_display_t *disp,
-                         int16_t x1, int16_t y1, int16_t x2, int16_t y2,
-                         const void *data) {
+static int sdl_fb_flush(luat_display_t *disp,int16_t x1, int16_t y1, int16_t x2, int16_t y2, const void *data, enum disp_rotate rotation) 
+{
     const void *src = data ? data : disp->fb_info.addr;
     if (src == NULL) {
         return 0;
@@ -53,17 +53,25 @@ static int sdl_fb_flush(luat_display_t *disp,
     return 0;
 }
 
-static int sdl_pan_display(luat_display_t *disp) {
+static int sdl_wait_vsync(luat_display_t *disp) 
+{
     return 0;
 }
 
-const luat_display_if_ops_t if_ops_sdl = {
+static int sdl_pan_display(luat_display_t *disp) 
+{
+    return 0;
+}
+
+
+struct luat_display_funcs sdl_funcs = {
     .name = "sdl",
-    .write_cmd      = sdl_write_cmd,
-    .write_data     = sdl_write_data,
-    .write_cmd_data = sdl_write_cmd_data,
-    .fb_flush       = sdl_fb_flush,
-    .pan_display    = sdl_pan_display,
-    .init           = sdl_init,
-    .deinit         = sdl_deinit,
+    .fb_probe = sdl_fb_probe,
+    .set_layer = sdl_set_layer,
+    .fb_flush = sdl_fb_flush,
+    .wait_vsync = sdl_wait_vsync,
+    .pan_display = sdl_pan_display,
 };
+
+
+

@@ -19,31 +19,36 @@ display.flush()
 
 #include "luat_base.h"
 #include "luat_display.h"
+#include "luat_display_panel_comm.h"        // 包含面板列表和查找函数
+#include "luat_display_if_comm.h"           // 包含接口函数列表
+
 #include "luat_mem.h"
 
 #define LUAT_LOG_TAG "display"
 #include "luat_log.h"
 
-extern const luat_display_panel_ops_t panel_ops_st7789;
-extern const luat_display_if_ops_t if_ops_rgb;
-extern const luat_display_if_ops_t if_ops_sdl;
 
 typedef struct {
     const char *name;
-    const luat_display_if_ops_t *ops;
+    struct luat_display_funcs *funcs;
 } display_if_reg_t;
 
-static const display_if_reg_t if_regs[] = {
-    {"rgb", &if_ops_rgb},
-    {"sdl", &if_ops_sdl},
+static const display_if_reg_t if_regs[] = 
+{
+    {"rgb", &rgb_funcs},
+    {"dsi", &dsi_funcs},
+    {"spi", &spi_funcs},
+    {"sdl", &sdl_funcs},
     {"",    NULL}
 };
 
-static const luat_display_if_ops_t* get_if_ops(const char *name) {
-    for (size_t i = 0; i < sizeof(if_regs) / sizeof(if_regs[0]); i++) {
+static struct luat_display_funcs *get_interface_funcs(const char *name) 
+{
+    for (size_t i = 0; i < sizeof(if_regs) / sizeof(if_regs[0]); i++) 
+    {
         if (if_regs[i].name[0] == '\0') break;
         if (strcmp(if_regs[i].name, name) == 0) {
-            return if_regs[i].ops;
+            return if_regs[i].funcs;
         }
     }
     return NULL;
@@ -51,19 +56,37 @@ static const luat_display_if_ops_t* get_if_ops(const char *name) {
 
 typedef struct {
     const char *name;
-    const luat_display_panel_ops_t *ops;
+    const char *interface;
+    const luat_display_panel *panel;
 } display_panel_reg_t;
 
-static const display_panel_reg_t panel_regs[] = {
-    {"st7789",  &panel_ops_st7789},
+/*显示面板列表*/
+static const display_panel_reg_t panel_regs[] = 
+{
+    {"custom", "rgb",  &rgb_panel_custom},
+    {"custom", "lvds", &rgb_panel_custom},
+    {"custom", "dsi",  &rgb_panel_custom},
+    {"custom", "spi",  &rgb_panel_custom},
+
+    {"st7789", "spi",  &spi_panel_st7789},
+    {"ili9341", "spi", &spi_panel_ili9341},
+    {"st7701s", "spi", &rgb_panel_st7701s},
+    {"st7701s", "dsi", &dsi_panel_st7701s},
     {"",        NULL}
 };
 
-static const luat_display_panel_ops_t* get_panel_ops(const char *name) {
-    for (size_t i = 0; i < sizeof(panel_regs) / sizeof(panel_regs[0]); i++) {
-        if (panel_regs[i].name[0] == '\0') break;
-        if (strcmp(panel_regs[i].name, name) == 0) {
-            return panel_regs[i].ops;
+/*查找显示面板*/
+static const luat_display_panel* get_panel(const char *name, const char *interface) 
+{
+    for (size_t i = 0; i < sizeof(panel_regs) / sizeof(panel_regs[0]); i++) 
+    {
+        if (panel_regs[i].name[0] == '\0' || panel_regs[i].interface[0] == '\0') {
+            break;
+        }
+        if (strcmp(panel_regs[i].name, name) == 0 && 
+            strcmp(panel_regs[i].interface, interface) == 0) 
+        {
+            return panel_regs[i].panel;
         }
     }
     return NULL;
@@ -94,44 +117,60 @@ static const luat_display_panel_ops_t* get_panel_ops(const char *name) {
  * @int config.pclk_polarity PCLK 极性，默认 0(下降沿)
  * @return bool 成功返回 true，失败返回 false 和错误信息
  */
-static int l_display_init(lua_State *L) {
-    luat_display_t *disp = luat_heap_zalloc(sizeof(luat_display_t));
-    if (disp == NULL) {
+static int l_display_init(lua_State *L) 
+{
+    /*获取面板名称*/
+    const char *panel_name = luaL_checkstring(L, 1);
+
+    /*检查配置表是否为表类型*/
+    luaL_checktype(L, 2, LUA_TTABLE);
+
+    /*获取接口类型（必填）*/
+    char iface_buf[16] = {0};
+    lua_getfield(L, 2, "interface");
+    if (!lua_isstring(L, -1)) {
+        lua_pop(L, 1);
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "config.interface is required (e.g. 'spi', 'rgb', 'dsi', 'dbi')");
+        return 2;
+    }
+    strncpy(iface_buf, lua_tostring(L, -1), sizeof(iface_buf) - 1);
+    lua_pop(L, 1);
+
+    luat_display_t *L_disp = luat_heap_zalloc(sizeof(luat_display_t));
+
+    if (L_disp == NULL) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, "alloc display fail");
         return 2;
     }
 
-    const char *panel_name = luaL_checkstring(L, 1);
-
-    disp->panel_ops = get_panel_ops(panel_name);
-    if (disp->panel_ops == NULL) {
-        luat_heap_free(disp);
+    /*查找显示面板*/
+    L_disp->panel = get_panel(panel_name, iface_buf);
+    
+    if (L_disp->panel == NULL) {
+        luat_heap_free(L_disp);
         lua_pushboolean(L, 0);
-        lua_pushstring(L, "unknown panel");
+        lua_pushstring(L, "unknown panel or interface");
         return 2;
     }
 
-    disp->if_ops = &if_ops_rgb;
-
-    luaL_checktype(L, 2, LUA_TTABLE);
-
-    {
-        const char *iface = NULL;
-        lua_getfield(L, 2, "interface");
-        if (lua_isstring(L, -1)) {
-            iface = lua_tostring(L, -1);
-        }
-        lua_pop(L, 1);
-        if (iface) {
-            const luat_display_if_ops_t *ops = get_if_ops(iface);
-            if (ops) {
-                disp->if_ops = ops;
-            } else {
-                LLOGW("unknown interface '%s', using default", iface);
-            }
-        }
+    /*根据接口类型获取显示函数*/
+    struct luat_display_funcs *funcs = get_interface_funcs(iface_buf);
+    if (funcs == NULL) {
+        luat_heap_free(L_disp);
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "unknown interface");
+        return 2;
     }
+
+    L_disp->funcs = funcs;
+
+
+
+#ifdef LUAT_USE_LCD_SDL2
+        
+#endif
 
     lua_getfield(L, 2, "w");
     disp->width = luaL_optinteger(L, -1, 240);

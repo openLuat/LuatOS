@@ -5,11 +5,11 @@
 @author  合宙（合并HH+QD版本）
 @usage
 -- 应用场景
-该扩展库适用于各种物联网设备（如4G/WiFi/以太网设备）与云端服务器进行数据交互的场景。
+该扩展库适用于各种物联网设备（如4G/WiFi/MCU/模拟器虚拟设备）与云端服务器进行数据交互的场景。
 可用于设备状态上报、数据采集、远程控制等物联网应用。
 
 实现的功能：
-1. 支持多种设备类型（4G/WiFi/以太网/虚拟设备）的接入认证
+1. 支持多种设备类型（4G/WiFi/MCU/虚拟设备）的接入认证
 2. 提供TCP、UDP、MQTT三种传输协议选择
 3. 实现设备与云端的双向通信（数据上报和命令下发）
 4. 支持数据的TLV格式编解码
@@ -39,6 +39,11 @@
 16. excloud.get_mtn_log_status() - 获取运维日志状态
 
 -- 版本更新说明
+-
+-- 版本号：202607091431
+-- 1、更新时间：2026-07-09 14:31
+-- 2、更新内容
+--    修复“设备为MCU主控类型Air1601/1601/1780系列产品时，报文中设备id编码出错”的问题
 -
 -- 版本号：202607031547
 -- 1、更新时间：2026-07-03 15:47
@@ -303,7 +308,7 @@ local function from_big_endian(data, start, length)
     return value
 end
 
--- MAC地址编码（type=2 WiFi / type=4 以太网共用，消除重复代码）
+-- MAC地址编码（type=2 WiFi / type=3 MCU共用，消除重复代码）
 local function pack_mac_address(cleanId)
     cleanId = cleanId:gsub("[^0-9A-Fa-f]", "")
     if #cleanId < 12 then
@@ -360,8 +365,8 @@ end
 -- 将设备ID进行编码
 local function packDeviceInfo(deviceType, deviceId)
     -- 验证设备类型
-    if deviceType ~= 1 and deviceType ~= 2 and deviceType ~= 4 and deviceType ~= 9 then
-        log.info("[excloud]设备类型错误: 支持的类型为 1(4G)/2(WiFi)/4(以太网)/9(虚拟设备)")
+    if deviceType ~= 1 and deviceType ~= 2 and deviceType ~= 3 and deviceType ~= 9 then
+        log.info("[excloud]设备类型错误: 支持的类型为 1(4G)/2(WiFi)/3(MCU)/9(虚拟设备)")
     end
 
     -- 设备类型字节
@@ -381,8 +386,8 @@ local function packDeviceInfo(deviceType, deviceId)
             local byte = (tonumber(cleanId:sub(i, i)) * 16) + tonumber(cleanId:sub(i + 1, i + 1))
             table.insert(result, string.char(byte))
         end
-    elseif deviceType == 2 or deviceType == 4 then
-        -- WiFi / 以太网设备 - MAC地址处理（统一编码）
+    elseif deviceType == 2 or deviceType == 3 then
+        -- WiFi / MCU设备 - MAC地址处理（统一编码）
         local mac_bytes = pack_mac_address(cleanId)
         for _, byte in ipairs(mac_bytes) do
             table.insert(result, byte)
@@ -2216,7 +2221,7 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 excloud.version()
 ]]
 function excloud.version()
-    return "202607031547"
+    return "202607091431"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

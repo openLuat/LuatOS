@@ -354,6 +354,32 @@ target("luatos-lua")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_nb.c")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_wb.c")
 
+    -- audio_dsp（SpeexDSP 适配层，可选外部组件）
+    -- 源码位于 luatos-ext-components/audio_dsp，与 vedio_player 类似按需集成。
+    -- 环境变量 LUAT_USE_AUDIO_DSP=y 强制启用，=n 强制禁用；未设置时按目录存在性自动检测。
+    local use_audio_dsp = false
+    local audio_dsp_src = luatos_ext_root .. "/audio_dsp"
+    if os.isdir(audio_dsp_src) then
+        local env_audio_dsp = os.getenv("LUAT_USE_AUDIO_DSP")
+        if env_audio_dsp ~= "n" then
+            use_audio_dsp = true
+        end
+    elseif os.getenv("LUAT_USE_AUDIO_DSP") == "y" then
+        print("Warning: LUAT_USE_AUDIO_DSP=y but audio_dsp not found at: " .. audio_dsp_src)
+    end
+
+    if use_audio_dsp then
+        add_defines("LUAT_USE_AUDIO_DSP=1")
+        add_defines("FIXED_POINT")
+        audio_dsp_src = audio_dsp_src:gsub("\\", "/")
+        audio_dsp_src = audio_dsp_src:gsub("/$", "")
+
+        add_includedirs(audio_dsp_src .. "/include")
+        add_includedirs(audio_dsp_src .. "/speexdsp/include")
+        add_files(audio_dsp_src .. "/port/*.c")
+        add_thirdparty_files(audio_dsp_src .. "/speexdsp/src/*.c")
+    end
+
     -- camera（PC 模拟器摄像头支持；Windows 下走 Media Foundation，其他平台空实现）
     add_includedirs(luatos.."components/camera")
     add_includedirs(luatos.."components/lcd")   -- luat_camera.h 需要 luat_lcd_conf_t

@@ -2,7 +2,7 @@
 @module  play_audio_during_cc
 @summary 通话中播放音频（文件/TTS）
 @version 1.0
-@date    2026.06.30
+@date    2026.07.08
 @author  拓毅恒
 @usage
 本模块演示在VoLTE通话中给对方播放音频文件或TTS文本。
@@ -19,16 +19,14 @@
 3. 传入音频文件时（如{"/luadb/test_16k.mp3"}），框架自动从文件头解析
    采样率、位宽、声道数等参数，并与当前通话参数自动校验
 4. 校验不匹配会静默失败
-5. 准备音频文件时需注意：
-   - 确保文件是16bit、单声道的MP3文件
-   - 最好准备两种采样率的文件（8K和16K各一份），运行时通过cc.quality()判断后选择
-6. 当前V2046固件 TTS 仅支持16K通话质量播放，8K时会静默失败
+5. 准备音频文件时需注意：确保文件是16bit、单声道的MP3文件
+6. V2046固件 TTS 仅支持16K通话质量播放，8K时会静默失败
+7. V2048及以上固件已添加16K/8K自适应播放，往对端播放只需要准备1个16K单通道的文件即可，TTS也支持在8K通话质量下播放
 
 常用cc.extern_source调用示例：
 1. 播放文件：   cc.extern_source({"/luadb/test_16k.mp3"})       -- 框架自动识别
 2. 播放TTS：   cc.extern_source("你好，测试一下")                
-3. 裸PCM数据： cc.extern_source(pcm_zbuff, nil, audio_v2.DATA_CODEC_TYPE_RAW, 8000, 16, 1, true)
-4. 停止播放：  cc.extern_source(nil)
+3. 停止播放：  cc.extern_source(nil)
 ]]
 
 -- 引入音频设备模块
@@ -43,13 +41,9 @@ local IS_DIAL = false
 -- 主动拨出时的目标号码（IS_DIAL=true时有效）
 local DIAL_NUMBER = "10000"
 
--- 播放模式选择（二选一）：
-local PLAY_MODE = "FILE"         -- "FILE"播放文件, "TTS"播放文本
--- 文件播放模式（PLAY_MODE="FILE"时生效）：
-local PLAY_FILE_8K = "/luadb/test_8k.mp3"     -- 8K通话时播放的文件
-local PLAY_FILE_16K = "/luadb/test_16k.mp3"   -- 16K通话时播放的文件
--- TTS播放模式（PLAY_MODE="TTS"时生效）：
-local PLAY_TTS_TEXT = "你好，测试一下，123456789"
+-- 音频播放
+local PLAY_SOURCE = {"/luadb/test_16k.mp3"}     -- 播放文件模式，注意单个文件也要用table
+-- local PLAY_SOURCE = "你好，测试一下，123456789"  -- 播放TTS模式
 
 -- ====================== 全局状态变量 ======================
 local call_counter = 0                 -- 响铃计数器
@@ -84,20 +78,6 @@ local function handle_outgoing_call(status)
     end
 end
 
--- 根据模式和通话质量获取播放源
-local function get_play_source_by_quality(cc_quality)
-    if PLAY_MODE == "TTS" then
-        return PLAY_TTS_TEXT
-    end
-    -- 文件模式：根据通话质量选择对应的音频文件
-    if cc_quality == 1 then
-        return {PLAY_FILE_8K}
-    elseif cc_quality == 2 then
-        return {PLAY_FILE_16K}
-    end
-    return {PLAY_FILE_16K}
-end
-
 -- 通话中播放外部音频（接通音频通道后触发）
 local function play_extern_source()
     local quality = cc.quality()
@@ -105,15 +85,13 @@ local function play_extern_source()
 
     -- 先清理上一次通话可能残留的extern_source状态，确保第二次也能播放
     cc.extern_source()
-    -- 根据模式获取播放源
-    local play_source = get_play_source_by_quality(quality)
     -- 播放音频
-    local ok = cc.extern_source(play_source)
+    local ok = cc.extern_source(PLAY_SOURCE)
     if ok then
-        if type(play_source) == "table" then
-            log.info("play_audio_during_cc", "开始播放文件:", play_source[1])
-        elseif type(play_source) == "string" then
-            log.info("play_audio_during_cc", "开始播放TTS:", play_source)
+        if type(PLAY_SOURCE) == "table" then
+            log.info("extern_demo", "开始播放文件:", PLAY_SOURCE[1])
+        elseif type(PLAY_SOURCE) == "string" then
+            log.info("extern_demo", "开始播放TTS:", PLAY_SOURCE)
         end
     else
         log.error("play_audio_during_cc", "播放失败，可能音频参数与通话不匹配")
@@ -179,7 +157,7 @@ local function init_cc()
     cc.init(audio_drv.getMultimediaId())
 
     log.info("play_audio_during_cc", IS_DIAL and "主动拨号模式" or "来电接听模式")
-    log.info("play_audio_during_cc", "播放模式: ", PLAY_MODE)
+    log.info("cc_extern_source_demo", "播放模式: ", type(PLAY_SOURCE) == "table" and "FILE" or "TTS")
     log.info("play_audio_during_cc", "电话系统初始化完成")
 end
 

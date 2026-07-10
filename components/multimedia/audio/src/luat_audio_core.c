@@ -254,7 +254,8 @@ static int _audio_tts_output_callback(void *data, uint32_t param, void *user_dat
 static int _audio_extern_source_tts_output_callback(void *data, uint32_t param, void *user_data)
 {
 	luat_audio_extern_source_t *source = (luat_audio_extern_source_t *)user_data;
-	int ret, resample_used, resample_output_size;
+	int ret;
+	uint32_t resample_used, resample_output_size;
 	if (data) {
 		while(!source->is_user_stop && ((source->decode_output_buffer.pos + param) > source->decode_output_buffer.max_len)) {
 			LLOGC(luat_audio_debug_flag, "extrern source full, tts wait %d", source->decode_output_buffer.pos);
@@ -269,6 +270,9 @@ static int _audio_extern_source_tts_output_callback(void *data, uint32_t param, 
 				(uint32_t *)data, param / source->codec.common_param.data_align,
 				(uint32_t *)source->resample_output_temp_buffer.data, source->resample_output_temp_buffer.max_len / source->codec.common_param.data_align,
 			&resample_used, &resample_output_size);
+			if (ret) {
+				LLOGE("resample failed");
+			}
 			luat_rtos_task_suspend_all();
 			luat_buffer_write(&source->decode_output_buffer, source->resample_output_temp_buffer.data, resample_output_size * source->codec.common_param.data_align);
 			luat_rtos_task_resume_all();

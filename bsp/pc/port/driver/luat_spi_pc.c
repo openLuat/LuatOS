@@ -8,11 +8,15 @@
 #ifdef LUAT_USE_WINDOWS
 #include "luat_ch347_pc.h"
 #include <windows.h>
+#include <direct.h>
+#else
+#include <sys/stat.h>
+#include <strings.h>
+#define _stricmp strcasecmp
 #endif
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <direct.h>
 #include <unistd.h>
 
 // 模拟SPI在win32下的实现
@@ -893,7 +897,11 @@ static int pc_vsd_open_or_create(pc_vsd_t* sim, int create_if_missing) {
         }
     }
     if (!sim->fp && create_if_missing) {
+#ifdef LUAT_USE_WINDOWS
         _mkdir("spidrv");
+#else
+        mkdir("spidrv", 0755);
+#endif
         sim->fp = fopen(sim->image_path, "wb+");
         if (!sim->fp) {
             return -1;

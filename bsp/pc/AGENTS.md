@@ -61,14 +61,39 @@ Examples:
 |--------|-------------|
 | `build_linux_32bit.sh` | 32-bit i386 |
 | `build_linux_32bit_armv6.sh` | 32-bit ARMv6 |
-| `build_linux_64bit.sh` | 64-bit |
-| `build_linux_64bit_gui.sh` | 64-bit, GUI |
+| `build_linux_64bit.sh` | 64-bit x86_64 (requires gcc multilib) |
+| `build_linux_64bit_gui.sh` | 64-bit x86_64 GUI (requires gcc multilib) |
+| `build_linux_aarch64.sh` | 64-bit ARM/AArch64 native |
+| `build_linux_aarch64_gui.sh` | 64-bit ARM/AArch64 native GUI |
 
 Recommended:
-- Non-GUI verification: `./build_linux_64bit.sh`
-- GUI / AirUI verification: `./build_linux_64bit_gui.sh`
+- Non-GUI verification: `./build_linux_64bit.sh` (x86_64) or `./build_linux_aarch64.sh` (ARM64)
+- GUI / AirUI verification: `./build_linux_64bit_gui.sh` (x86_64) or `./build_linux_aarch64_gui.sh` (ARM64)
 - Full output: append `full`
 - Clean rebuild: append `clean`
+
+#### AArch64 / ARM64 native build
+
+On AArch64 hosts (e.g. Raspberry Pi 4/5, ARM cloud instances, Apple Silicon Linux VMs), the x86_64 helper scripts will fail because the toolchain does not support `-m32`/`-m64`. Use the `build_linux_aarch64*.sh` scripts instead.
+
+Required system packages (Ubuntu/Debian example):
+
+```bash
+sudo apt-get install -y libsdl2-dev libx11-dev libxau-dev libxdmcp-dev \
+    xorg-dev libssl-dev libasound2-dev libpulse-dev libwayland-dev \
+    libxkbcommon-dev libudev-dev libdbus-1-dev libibus-1.0-dev libdecor-0-dev
+```
+
+Then build:
+
+```bash
+cd bsp/pc
+./build_linux_aarch64.sh
+```
+
+Notes:
+- The AArch64 build defines `LUAT_CONF_USE_LIBSYS_SOURCE` so that the inline `sys.lua` / `sysplus.lua` are loaded as source rather than precompiled 32-bit luac, avoiding `size_t size mismatch` errors on 64-bit platforms.
+- `xmake` refuses to run as root by default; set `XMAKE_ROOT=y` or pass `--root` if you are building as root.
 
 ### macOS
 

@@ -2,10 +2,14 @@
 #define LUAT_LOG_TAG "audio_dsp"
 #include "luat_log.h"
 
+#ifdef LUAT_USE_AUDIO_DSP
 extern const luat_audio_dsp_opts_t luat_audio_dsp_speexdsp_opts;
 static const luat_audio_dsp_opts_t* _table[LUAT_AUDIO_DSP_TYPE_MAX] = {
     &luat_audio_dsp_speexdsp_opts,
 };
+#else
+static const luat_audio_dsp_opts_t* _table[LUAT_AUDIO_DSP_TYPE_MAX] = {NULL};
+#endif
 
 const luat_audio_dsp_opts_t *luat_audio_dsp_get_opts(uint8_t type)
 {

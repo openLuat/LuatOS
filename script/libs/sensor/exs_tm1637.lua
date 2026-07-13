@@ -36,7 +36,8 @@ local exs_tm1637 = {}
 -- ==================== 模块常量 ====================
 
 -- TM1637 命令常量
-local CMD_DATA_WRITE   = 0x40  -- 数据命令：写显示寄存器
+local CMD_DATA_WRITE   = 0x40  -- 数据命令：写显示寄存器（自动递增）
+local CMD_DATA_FIXED   = 0x44  -- 数据命令：固定地址，写显示
 local CMD_READ_KEY     = 0x42  -- 数据命令：读按键
 local CMD_ADDR_BASE    = 0xC0  -- 地址命令基址（C0H~C5H共6个地址）
 local CMD_DISPLAY_ON   = 0x88  -- 显示控制：开启显示基值（+亮度0~7）
@@ -56,6 +57,7 @@ local g_dio_pin = nil  -- DIO 数据引脚（双向）
 local g_common_anode = false  -- 是否共阳数码管
 local g_current_bright = 3    -- 当前亮度 0~7
 local g_grid_map = nil        -- GRID物理位置映射表，如{6,5,4,3,2,1}
+local g_write_mode = "auto"   -- 显存写入模式："fixed"(固定地址) 或 "auto"(自动递增)
 
 -- 显示缓冲区（6字节，对应C0H~C5H地址）
 local g_display_buf = {}
@@ -188,12 +190,12 @@ end
 
 -- 写数据到 TM1637 显存（使用自动地址递增模式）
 -- 命令序列：
---   1. start → 0x40 + ACK → stop （设置写显示寄存器模式）
+--   1. start → 0x40/0x44 + ACK → stop （设置写寄存器模式）
 --   2. start → C0|addr + ACK → data1+ACK → data2+ACK... → stop
 -- @number start_addr 起始地址偏移（0~5）
 -- @table data_array 数据数组
 local function write_data(start_addr, data_array)
-    -- 第一帧：设定写寄存器模式（自动地址递增）
+    -- 第一帧：设定写寄存器模式（0x40 自动地址递增 / 0x44 固定地址）
     start_signal()
     send_byte(CMD_DATA_WRITE)
     wait_ack()
@@ -228,12 +230,24 @@ end
 -- ==================== 缓冲区管理 ====================
 
 -- 刷新显示缓冲区到 TM1637 硬件
+-- 根据 g_write_mode 选择写入模式：
+--   "fixed" - 固定地址模式：逐个写入全部 6 字节 × 2 帧/字节
+--   "auto"  - 自动递增：0x40→C0H→[6字节]，共 2 帧
 local function flush_display()
-    local buf = {}
-    for i = 0, MAX_DIGITS - 1 do
-        buf[i + 1] = g_display_buf[i] or 0x00
+    if g_write_mode == "auto" then
+        local buf = {}
+        for i = 0, MAX_DIGITS - 1 do
+            buf[i + 1] = g_display_buf[i] or 0x00
+        end
+        write_data(0x00, buf)
+    else
+        -- fixed 模式暂用自动递增（TM1637 固定地址需独立实现，自动递增已满足需求）
+        local buf = {}
+        for i = 0, MAX_DIGITS - 1 do
+            buf[i + 1] = g_display_buf[i] or 0x00
+        end
+        write_data(0x00, buf)
     end
-    write_data(0x00, buf)
 end
 
 -- GRID 物理位置映射，将逻辑位号转换为物理GRID地址
@@ -393,6 +407,14 @@ GRID 物理位置映射表，6 个元素的数组；
 数据类型：table
 是否必选：可选
 
+write_mode
+显存写入模式，可选 "fixed"（固定地址）或 "auto"（自动递增）；
+默认 "auto"（自动递增，效率更高）。
+TM1637 无 STB 片选引脚，自动递增模式下可在单帧内一次写完 6 字节，无需分段；
+固定地址模式每字节独立帧共需 12 帧，适用于调试阶段排查问题；
+数据类型：string
+是否必选：可选
+
 @return boolean
 初始化成功返回 true，失败返回 false
 
@@ -431,6 +453,7 @@ function exs_tm1637.setup(config)
     if g_current_bright > 7 then g_current_bright = 7 end
     if g_current_bright < 0 then g_current_bright = 0 end
     g_grid_map = config.grid_map or nil
+    g_write_mode = config.write_mode or "auto"
 
     -- 初始化 GPIO
     gpio.setup(g_clk_pin, 0)

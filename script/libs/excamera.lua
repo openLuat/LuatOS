@@ -231,11 +231,11 @@ function excamera.open(camera_param)
     -- 保存摄像头配置参数，供 preview() 使用
     camera_param_backup = camera_param
 
-    -- 注册摄像头事件回调处理（仅 SPI 摄像头需要 scanned 回调）
+    -- 注册摄像头事件回调处理（仅 SPI / DVP / USB 摄像头需要 scanned 回调）
     -- 注意：USB/DVP 摄像头的回调在 excamera.preview() 中通过 camera.on(id, "usb_raw", ...) 注册
     --       C 层代码中 scanned 和 usb_raw 是 if/else if 互斥关系
-    --       如果同时注册 scanned，USB 事件的 usb_raw 分支永远无法执行
-    if camera_type == "SPI" or camera_type == "DVP" then
+    --       preview() 中会主动清除 scanned，避免冲突
+    if camera_type == "SPI" or camera_type == "DVP" or camera_type == "USB" then
         camera.on(camera_id, "scanned", function(id, str)
             -- 如果返回字符串，表示扫码成功并获得结果
             if type(str) == 'string' then
@@ -538,6 +538,8 @@ function excamera.preview(cb)
 
         -- 注册摄像头事件回调（连接/断开/新帧/异常）
         -- 必须在掉电重枚举之后注册，否则USB栈重置会丢失回调
+        -- 清除 scanned 回调，避免与 usb_raw 在 l_camera_handler 中的二选一冲突
+        camera.on(camera.USB, "scanned", nil)
         camera.on(camera.USB, "usb_raw", function(app_id, event, param)
             if not preview_active then
                 return

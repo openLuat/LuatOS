@@ -1,8 +1,8 @@
 --[[
 @module  exs_tm1638
 @summary TM1638 数码管驱动扩展库（10段×8位 + 24个按键 + 8颗LED）
-@version 1.0
-@date    2026.07.07
+@version 2.0
+@date    2026.07.13
 @author  江访
 @usage
 本文件为 TM1638 驱动芯片的 LuatOS 扩展库，核心功能为：
@@ -13,7 +13,7 @@
 5、8 级亮度调节
 
 本文件的对外接口有 9 个：
-1、exs_tm1638.init(config)：初始化 TM1638
+1、exs_tm1638.setup(config)：初始化 TM1638
 2、exs_tm1638.set_brightness(level)：设置亮度
 3、exs_tm1638.clear()：清空显示和LED
 4、exs_tm1638.set_display(str, offset)：数码管显示字符串
@@ -23,15 +23,12 @@
 8、exs_tm1638.version()：获取版本号
 
 -- 版本更新说明
--- 版本号：202607071200
--- 1、更新时间：2026-07-07 12:00
+-- 版本号：202607131200
+-- 1、更新时间：2026-07-13 12:00
 -- 2、更新内容
-  - 首次发布，实现 TM1638 基础驱动功能
-  - 支持数码管显示（10 段 ×8 位）
-  - 支持 LED 指示灯独立控制
-  - 支持按键扫描（轮询 + 回调两种方式）
-  - 支持 8 级亮度调节
-  - 支持共阴/共阳数码管切换
+  - 第二版，初始化接口由 init 更名为 setup
+  - 统一 TM1637/TM1640/TM1650/AiP650E 的初始化接口命名
+  - 修复 GPIO 引脚初始化时序
 ]]
 
 local exs_tm1638 = {}
@@ -354,7 +351,7 @@ end
 --[[
 初始化 TM1638 驱动芯片，配置通信引脚和初始参数
 
-@api exs_tm1638.init(config)
+@api exs_tm1638.setup(config)
 
 @table config
 初始化配置表，包含以下键：
@@ -389,7 +386,7 @@ common_anode
 
 grid_map
 GRID 物理位置映射表，8 个元素的数组；
-默认 nil（不映射）。可通过 init() 适配 PCB 走线。设置 "12345678" 若显示为 "87654321"，说明顺序完全相反，填入 {8,7,6,5,4,3,2,1} 即可修正
+默认 nil（不映射）。可通过 setup() 适配 PCB 走线。设置 "12345678" 若显示为 "87654321"，说明顺序完全相反，填入 {8,7,6,5,4,3,2,1} 即可修正
 数据类型：table
 是否必选：可选
 
@@ -406,7 +403,7 @@ write_mode
 
 @usage
 -- 基础初始化
-local result = exs_tm1638.init({
+local result = exs_tm1638.setup({
     clk    = 27,
     dio    = 26,
     stb    = 28,
@@ -414,7 +411,7 @@ local result = exs_tm1638.init({
 })
 
 -- 共阳数码管初始化
-local result = exs_tm1638.init({
+local result = exs_tm1638.setup({
     clk          = 27,
     dio          = 26,
     stb          = 28,
@@ -422,14 +419,14 @@ local result = exs_tm1638.init({
     common_anode = true,
 })
 ]]
-function exs_tm1638.init(config)
+function exs_tm1638.setup(config)
     -- 参数检查
     if type(config) ~= "table" then
-        log.error("exs_tm1638.init 参数错误：config 应为 table 类型")
+        log.error("exs_tm1638.setup 参数错误：config 应为 table 类型")
         return false
     end
     if not config.clk or not config.dio or not config.stb then
-        log.error("exs_tm1638.init 参数错误：clk、dio、stb 均为必填")
+        log.error("exs_tm1638.setup 参数错误：clk、dio、stb 均为必填")
         return false
     end
 
@@ -856,7 +853,7 @@ local ver = exs_tm1638.version()
 log.info("exs_tm1638", "版本号:", ver)
 ]]
 function exs_tm1638.version()
-    return "202607071200"
+    return "202607131200"
 end
 
 log.debug("exs_tm1638", "version -> " .. exs_tm1638.version())

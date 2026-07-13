@@ -34,6 +34,7 @@ static int s_gw_adapter_id = -1;
 // 用于解决 PDP 重激活后 drvs[]->netif 指针过时的问题
 static void napt_sync_gw_netif(int adapter_id) {
     #ifdef  __USE_SDK_LWIP__
+    extern struct netif * net_lwip_get_netif(uint8_t adapter_index);
     if (adapter_id != NW_ADAPTER_INDEX_LWIP_GPRS)
         return;
     luat_netdrv_t* drv = luat_netdrv_get(adapter_id);

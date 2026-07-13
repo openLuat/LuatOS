@@ -95,7 +95,6 @@
 在 `main.lua` 中加载对应的演示模块：
 
 ```lua
-
 -- 加载 tm1638_demo.lua 演示模块
 require "tm1638_demo"
 

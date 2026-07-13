@@ -1,8 +1,8 @@
 --[[
 @module excamera
 @summary excamera扩展库
-@version 1.1
-@date    2026.06.23
+@version 1.2
+@date    2026.07.13
 @author  陈取德
 @usage
    用法实例
@@ -80,11 +80,11 @@ end)
 sys.run()
 
 -- 版本更新说明
--- 版本号：202607021200
--- 1、更新时间：2026-07-02 12:00
+-- 版本号：202607131400
+-- 1、更新时间：2026-07-13 14:00
 -- 2、更新内容
---    新增excamera.version()接口
---    支持excamera库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
+--    USB摄像头支持open()→photo()拍照模式，无需先调用preview()
+--    修复：USB摄像头拍照时CAPTURE_DONE事件不触发导致超时的问题
 ]] --
 local excamera = {}
 local h, w
@@ -231,11 +231,11 @@ function excamera.open(camera_param)
     -- 保存摄像头配置参数，供 preview() 使用
     camera_param_backup = camera_param
 
-    -- 注册摄像头事件回调处理（仅 SPI 摄像头需要 scanned 回调）
+    -- 注册摄像头事件回调处理（仅 SPI / DVP / USB 摄像头需要 scanned 回调）
     -- 注意：USB/DVP 摄像头的回调在 excamera.preview() 中通过 camera.on(id, "usb_raw", ...) 注册
     --       C 层代码中 scanned 和 usb_raw 是 if/else if 互斥关系
-    --       如果同时注册 scanned，USB 事件的 usb_raw 分支永远无法执行
-    if camera_type == "SPI" or camera_type == "DVP" then
+    --       preview() 中会主动清除 scanned，避免冲突
+    if camera_type == "SPI" or camera_type == "DVP" or camera_type == "USB" then
         camera.on(camera_id, "scanned", function(id, str)
             -- 如果返回字符串，表示扫码成功并获得结果
             if type(str) == 'string' then
@@ -538,6 +538,8 @@ function excamera.preview(cb)
 
         -- 注册摄像头事件回调（连接/断开/新帧/异常）
         -- 必须在掉电重枚举之后注册，否则USB栈重置会丢失回调
+        -- 清除 scanned 回调，避免与 usb_raw 在 l_camera_handler 中的二选一冲突
+        camera.on(camera.USB, "scanned", nil)
         camera.on(camera.USB, "usb_raw", function(app_id, event, param)
             if not preview_active then
                 return
@@ -740,7 +742,7 @@ end
 excamera.version()
 ]]
 function excamera.version()
-    return "202607021200"
+    return "202607131400"
 end
 
 log.debug("excamera", "version -> " .. excamera.version())

@@ -2,23 +2,25 @@
 
 ## 演示功能概述
 
-本示例主要是展示 Air1601 + AirCAMERA_1032 USB摄像头的使用，支持实时预览到LCD屏幕、拍照后上传到电脑(UART)、拍照后上传到合宙IOT云平台。
+本示例主要是展示 Air1601 + AirCAMERA_1032 USB摄像头的使用，支持实时预览到LCD屏幕、拍照后上传到电脑(UART)、拍照后上传到合宙IOT云平台、H.264编码与上传。
 
 1、main.lua：主程序入口
 
-2、camera_preview.lua：摄像头实时预览到LCD屏幕
+2、preview.lua：摄像头实时预览到LCD屏幕
 
 3、photo_uart_post.lua：执行拍照后，LCD显示图片，同时通过UART上传照片到电脑
 
 4、photo_to_aircloud.lua：执行拍照后，LCD显示图片，同时上传到合宙IOT云平台
 
-5、lcd_drv.lua：LCD屏幕驱动（1024x600分辨率）
+5、h264_power_test.lua：H.264编码与上传（支持仅编码、编码+本地保存、编码+串口上传、编码+AirCloud上传四种模式）
 
-6、netdrv/：网络驱动目录（支持WIFI、以太网、4G、多网卡等）
+6、lcd_drv.lua：LCD屏幕驱动（1024x600分辨率）
 
-7、netdrv_device.lua：网络驱动选择器
+7、netdrv/：网络驱动目录（支持WIFI、以太网、4G、多网卡等）
 
-注意：camera_preview.lua、photo_uart_post.lua、photo_to_aircloud.lua 只能打开一个不能同时打开
+8、netdrv_device.lua：网络驱动选择器
+
+注意：preview.lua、photo_uart_post.lua、photo_to_aircloud.lua、h264_power_test.lua 只能打开一个不能同时打开
 
 ## 演示功能概述
 
@@ -26,7 +28,7 @@
 - 初始化项目信息和版本号
 - 初始化看门狗，并定时喂狗
 - 加载 netdrv_device.lua（可选，云平台业务需要）
-- 根据需要注释/取消注释，选择加载 camera_preview.lua 或 photo_uart_post.lua 或 photo_to_aircloud.lua
+- 默认已启用 photo_uart_post.lua（拍照+LCD显示+UART上传），如需其他业务模块请注释/取消注释切换
 
 ### 2、网络驱动模块（netdrv/netdrv_device.lua）
 - netdrv_wifi.lua：WIFI连接
@@ -63,6 +65,19 @@
 - LCD显示图片
 - 调用excloud.upload_image上传图片到合宙IOT云平台
 - 支持多种网络（WIFI/4G/以太网），自动通过socket.dft()判断当前默认网卡
+
+### 6、H.264编码与上传模块（h264_power_test.lua）
+- 初始化USB主机模式连接UVC摄像头
+- 枚举摄像头支持的格式和分辨率，选择H.264格式、1280x720分辨率
+- 配置双缓冲帧数据区，缓冲区大小按分辨率自适应
+- 支持四种工作模式：
+  - 模式1：仅编码（不保存、不上传）
+  - 模式2：编码+本地保存（保存到SD卡，文件保留）
+  - 模式3：编码+保存+串口上传（文件保留）
+  - 模式4：编码+保存+AirCloud上传（使用excloud上传到合宙云平台）
+- 支持SPI SD卡挂载（片选GPIO8），挂载失败自动回退到/ram路径
+- 模式3使用UART3（2Mbps波特率）上传文件
+- 模式4自动初始化excloud，支持网络自动检测和重连
 
 ## 演示硬件环境
 
@@ -329,10 +344,52 @@ Air1601开发板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另�
 ![](https://docs.openLuat.com/cdn/image/Air1601/aiecloud.png)
 
 
+### **使用h264_power_test H.264编码与上传的核心步骤**
+
+1、搭建硬件环境：
+   - 模式1/2：仅需Air1601开发板+AirCAMERA_1032摄像头
+   - 模式3：需额外连接USB转TTL模块到UART3
+   - 模式4：需根据选择的网络模块连接WIFI/4G/以太网
+
+2、打开main.lua文件中 require "h264_power_test"，注释掉其他业务模块
+
+3、修改h264_power_test.lua中的配置：
+   - TEST_MODE：选择工作模式（1/2/3/4）
+   - RECORD_SECONDS：录制时长（秒），仅模式2/3/4
+   - LOOP_INTERVAL：循环间隔（秒），仅模式2/3/4
+   - PROJECT_AUTH_KEY：合宙IOT平台项目密钥，仅模式4
+
+4、模式2/3/4确保SD卡已插入（格式为FAT32），否则自动回退到/ram路径
+
+5、电脑端打开串口工具（如SSCOM串口助手），选择对应串口，配置好波特率（3000000），勾选"接收数据到文件"（仅模式3）
+
+6、烧录DEMO代码
+
+7、等待USB摄像头连接，根据TEST_MODE执行对应操作：
+   - 模式1：持续编码，不上传不保存
+   - 模式2：循环录制并保存到SD卡/ram，文件保留（video_时间戳.h264）
+   - 模式3：录制+保存+UART上传文件
+   - 模式4：录制+保存+AirCloud上传文件
+
+8、操作完成后断电或复位即可，录制文件需定期手动清理
+
+9、LUATOOLS会有如下打印;
+```lua
+[2026-07-09 10:00:00.000][LTOS/N][000000001.000]:I/user.h264_test 启动，工作模式 1
+[2026-07-09 10:00:00.200][LTOS/N][000000001.200]:I/user.h264_test USB 摄像头已连接，app id 0
+[2026-07-09 10:00:00.500][LTOS/N][000000001.500]:I/user.h264_test 摄像头已就绪
+[2026-07-09 10:00:00.501][LTOS/N][000000001.501]:I/user.h264_test 模式1：仅编码（不保存不上传），持续运行...
+[2026-07-09 10:00:02.501][LTOS/N][000000003.501]:I/user.h264_test 模式1 运行中... 帧数 100
+```
+
 ## 注意事项
 
 1、netdrv_device.lua中只能打开一个网络驱动，不能同时打开多个
 
-2、photo_uart_post.lua和photo_to_aircloud.lua和camera_preview.lua只能打开一个，不能同时打开
+2、preview.lua、photo_uart_post.lua、photo_to_aircloud.lua、h264_power_test.lua只能打开一个，不能同时打开
 
 3、本示例不使用excamera库，而是直接使用camera库的原始API，Air1601当前版本不支持camera.capture()接口
+
+4、h264_power_test.lua的模式2/3/4会保留录制文件（video_时间戳.h264），需定期手动清理SD卡/ram空间
+
+5、h264_power_test.lua的模式4会自动初始化excloud，无需额外加载netdrv_device

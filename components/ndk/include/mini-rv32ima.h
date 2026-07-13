@@ -885,6 +885,7 @@ MINIRV32_STEPPROTO
 						trap = (2+1); 				// Note micrrop 0b100 == undefined.
 					break;
 				}
+				#if 0
 				case 0x43: // FMADD.S (0b1000011)
 				{
 					uint32_t rs1 = (ir >> 15) & 0x1f;
@@ -1243,6 +1244,7 @@ MINIRV32_STEPPROTO
 					}
 					break;
 				}
+				#endif
 				case 0x2f: // RV32A (0b00101111)
 				{
 					uint32_t rs1 = REG((ir >> 15) & 0x1f);

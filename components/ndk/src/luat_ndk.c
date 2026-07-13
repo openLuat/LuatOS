@@ -33,7 +33,7 @@ enum {
     NDK_FSGNJ_NEGATE = 1,
     NDK_FSGNJ_XOR = 2
 };
-
+#if 0
 #if defined(__GNUC__) || defined(__clang__)
 #pragma STDC FENV_ACCESS ON
 #endif
@@ -662,6 +662,7 @@ static int ndk_fcvt_w_s(luat_ndk_t *ctx, uint32_t rs1_bits, uint32_t rm, bool is
     ndk_merge_fflags(ctx, fflags);
     return 1;
 }
+#endif
 
 static int ndk_set_isa(luat_ndk_t *ndk, const char *isa) {
     const char *selected = isa;

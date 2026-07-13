@@ -273,6 +273,76 @@ static int l_voip_get_state(lua_State *L)
     return 1;
 }
 
+/*
+设置音频工作模式
+@api voip.setAudioMode(mode)
+@int mode 0: I2S直接硬件模式, 1: 桥接模式
+@return boolean 成功返回true
+@usage
+voip.setAudioMode(voip.AUDIO_MODE_BRIDGE)
+*/
+static int l_voip_set_audio_mode(lua_State *L)
+{
+    int mode = luaL_checkinteger(L, 1);
+    int ret = voip_set_audio_mode((voip_audio_mode_t)mode);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
+注入上行PCM数据（桥接模式）
+外部采集的PCM数据送入voip，编码后通过RTP发送
+@api voip.pcmIn(data)
+@string data 16bit单声道PCM数据（小端字节序）
+@return int 实际消耗的样本数
+@usage
+local consumed = voip.pcmIn(pcm_data)
+*/
+static int l_voip_pcm_in(lua_State *L)
+{
+    size_t len = 0;
+    const char *data = luaL_checklstring(L, 1, &len);
+    if (len == 0) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    uint16_t samples = (uint16_t)(len / sizeof(int16_t));
+    int ret = voip_bridge_pcm_in((const int16_t *)data, samples);
+    lua_pushinteger(L, ret);
+    return 1;
+}
+
+/*
+取出下行PCM数据（桥接模式）
+从voip获取SIP服务器发送过来的解码后PCM数据，用于播放
+@api voip.pcmOut(max_samples)
+@int max_samples 最大请求样本数
+@return string 解码后的PCM数据，无数据返回nil
+@usage
+local pcm = voip.pcmOut(160)
+*/
+static int l_voip_pcm_out(lua_State *L)
+{
+    uint16_t max_samples = (uint16_t)luaL_checkinteger(L, 1);
+    if (max_samples == 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    int16_t *buf = (int16_t *)luat_heap_malloc(max_samples * sizeof(int16_t));
+    if (!buf) {
+        lua_pushnil(L);
+        return 1;
+    }
+    int ret = voip_bridge_pcm_out(buf, max_samples);
+    if (ret > 0) {
+        lua_pushlstring(L, (const char *)buf, (size_t)ret * sizeof(int16_t));
+    } else {
+        lua_pushnil(L);
+    }
+    luat_heap_free(buf);
+    return 1;
+}
+
 #include "rotable2.h"
 
 static const rotable_Reg_t reg_voip[] =
@@ -284,9 +354,15 @@ static const rotable_Reg_t reg_voip[] =
     { "isRunning",  ROREG_FUNC(l_voip_is_running)},
     { "getState",   ROREG_FUNC(l_voip_get_state)},
 
+    { "setAudioMode", ROREG_FUNC(l_voip_set_audio_mode)},
+    { "pcmIn",      ROREG_FUNC(l_voip_pcm_in)},
+    { "pcmOut",     ROREG_FUNC(l_voip_pcm_out)},
+
     /* 常量 */
     { "PCMU",       ROREG_INT(VOIP_CODEC_PCMU)},
     { "PCMA",       ROREG_INT(VOIP_CODEC_PCMA)},
+    { "AUDIO_MODE_I2S",   ROREG_INT(VOIP_AUDIO_MODE_I2S)},
+    { "AUDIO_MODE_BRIDGE", ROREG_INT(VOIP_AUDIO_MODE_BRIDGE)},
 
     { NULL,         ROREG_INT(0)}
 };

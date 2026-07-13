@@ -84,6 +84,10 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 
 	next_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
 	uint8_t *next_play_buff = ctrl->play_buff_byte + ctrl->one_play_block_len * next_play_cnt;
+	if (ctrl->static_play_buffer_cnt) {
+		next_play_cnt = (ctrl->current_play_cnt + 1) % ctrl->static_play_buffer_cnt;
+		next_play_buff = ctrl->play_buff_byte + ctrl->one_play_block_len * next_play_cnt;
+	}
 	uint32_t read_len  = luat_fifo_check_used_space(ctrl->data_channel->play_fifo);
 	if (read_len < ctrl->one_play_block_len) {	//fifo没有完整的1个block
 		if ((_luat_audio.current_request_block->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_PLAY) && !_luat_audio.current_request_block->is_wait_play_end) { // 播放状态为非等待播放结束，说明数据不够，填充空白音
@@ -120,7 +124,11 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 CHECK_FILL_BLANK:
 	if (!ctrl->data_channel->play_is_stop) {
 		if (ctrl->play_buff_byte) {	// 播放缓冲区填充空白音
-			ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * LUAT_AUDIO_DATA_BUFFER_CNT, ctrl->opts->is_tx_signed, ctrl->tx_param.data_align);
+			if (ctrl->static_play_buffer_cnt) {
+				ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * ctrl->static_play_buffer_cnt, ctrl->opts->is_tx_signed, ctrl->tx_param.data_align);
+			} else {
+				ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * LUAT_AUDIO_DATA_BUFFER_CNT, ctrl->opts->is_tx_signed, ctrl->tx_param.data_align);
+			}
 		}
 		ctrl->data_channel->play_is_stop = 1;
 		luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_PRINT, 2, 0, 0, 0);
@@ -133,7 +141,7 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 	uint32_t rest_data_len;
 	switch (event) {
 	case LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE:
-		if (ctrl->opts->support_full_loop) {
+		if (ctrl->opts->support_full_loop && ctrl->driver_work_mode != LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER) {
 			return;
 		}
 		_audio_play_next_block(ctrl);
@@ -1499,7 +1507,7 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
     uint32_t *tx_buff, uint32_t one_block_len, uint8_t block_num,
     luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts)
 {
-	if (!request_block || !common_audio_param || !play_codec_opts || !record_codec_opts || !record_fifo || (!record_codec_opts->encode && !record_codec_opts->encode_with_sync_output_ref)) {
+	if (!request_block || !common_audio_param || !play_codec_opts || !record_codec_opts || !record_fifo || (!record_codec_opts->encode && !record_codec_opts->encode_with_sync_output_ref && !record_codec_opts->encode_raw_mode)) {
 		return -LUAT_ERROR_PARAM_INVALID;
 	}
 	

@@ -72,8 +72,38 @@ local modules = {
     http_server = nil
 }
 
+-- 检测780EXX系列（外挂Air6205，需要airlink初始化）
+local function is_780exx()
+    local model = hmeta and hmeta.model and hmeta.model() or ""
+    local model_lower = model:lower()
+    return model_lower:find("air780e") == 1
+end
+
+-- 初始化Air6205 airlink UART通道（780EXX系列外挂Air6205时需要）
+-- 仅建立UART通信通道，不连接任何WiFi，后续由wlan.createAP开AP
+local function init_air6205_airlink()
+    log.info("WIFI", "初始化Air6205 airlink UART通道")
+    gpio.setup(12, nil, gpio.PULLDOWN)
+    gpio.setup(13, nil, gpio.PULLDOWN)
+    sys.wait(2000)
+    gpio.close(12)
+    gpio.close(13)
+    uart.setup(2, 2000000, 8, 1)
+    sys.wait(100)
+    airlink.config(airlink.CONF_UART_ID, 2)
+    airlink.init()
+    netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
+    airlink.start(airlink.MODE_UART)
+    sys.wait(2000)
+    log.info("WIFI", "Air6205 airlink通道已建立")
+end
+
 -- 创建AP热点
 local function create_ap(ap_opts, server_opts)
+    -- 780EXX系列外挂Air6205，需要先初始化airlink UART通道
+    if is_780exx() then
+        init_air6205_airlink()
+    end
     log.info("WIFI", "创建AP热点: " .. ap_opts.ap_ssid)
     log.info("WIFI", "AP密码: " .. ap_opts.ap_pwd)
     
@@ -97,6 +127,9 @@ local function create_ap(ap_opts, server_opts)
     
     -- 创建DHCP服务器
     dhcpsrv.create({adapter=socket.LWIP_AP})
+    
+    -- 额外等待AP网卡完全就绪（airlink外挂Air6205需要更多时间）
+    sys.wait(2000)
     
     -- 发布AP创建完成事件
     sys.publish("AP_CREATE_OK")

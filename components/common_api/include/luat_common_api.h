@@ -490,4 +490,41 @@ int luat_buffer_write(luat_buffer_t *buffer, const void *data, uint32_t len);
  * @note 如果 len >= pos，则清空整个缓冲区
  */
 void luat_buffer_remove_data(luat_buffer_t *buffer, uint32_t len);
+
+
+/**
+ * @brief 图像裁剪函数
+ *
+ * 从原始图像中裁剪出指定矩形区域，支持任意像素深度（如 RGB565、RGB888、RGBA8888 等）。
+ * 原始图像数据按行优先（row-major）顺序存储。
+ *
+ * @param src_data 原始图像数据地址
+ * @param bytes_per_pixel 每个像素的字节数（如 RGB565 为 2，RGB888 为 3，RGBA8888 为 4）
+ * @param src_width 原始图像宽度（像素）
+ * @param src_height 原始图像高度（像素）
+ * @param dst_data 输出缓存地址，需预先分配 dst_width * dst_height * bytes_per_pixel 字节的空间
+ * @param dst_width 裁剪区域宽度（像素）
+ * @param dst_height 裁剪区域高度（像素）
+ * @param crop_x 裁剪起始 X 坐标（像素），相对于原始图像左上角
+ * @param crop_y 裁剪起始 Y 坐标（像素），相对于原始图像左上角
+ * @return 0 成功，-1 参数错误（空指针、尺寸为零或裁剪区域越界）
+ *
+ * @par 使用示例:
+ * @code
+ * // 从 320x240 的 RGB565 图像中裁剪出 (10, 20) 到 (100, 120) 区域
+ * uint8_t dst[91 * 101 * 2];
+ * int ret = luat_image_crop(src, 2, 320, 240, dst, 91, 101, 10, 20);
+ * if (ret == LUAT_ERROR_NONE) {
+ *     // dst 包含裁剪后的图像数据
+ * }
+ * else {
+ *     // 裁剪失败，一般是参数输入错误
+ * }
+ * @endcode
+ */
+int luat_image_crop(const uint8_t *src_data, uint32_t bytes_per_pixel,
+                    uint32_t src_width, uint32_t src_height,
+                    uint8_t *dst_data,
+                    uint32_t dst_width, uint32_t dst_height,
+                    uint32_t crop_x, uint32_t crop_y);
 #endif

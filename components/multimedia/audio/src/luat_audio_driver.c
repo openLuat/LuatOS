@@ -7,6 +7,9 @@
 #define LUAT_LOG_TAG "audio_drv"
 #include "luat_log.h"
 #include "luat_gpio.h"
+#ifdef LUAT_USE_DRV_GPIO
+#include "luat/drv_gpio.h"
+#endif
 
 #ifdef LUAT_CSDK_CONFIG_FILE
 #include LUAT_CSDK_CONFIG_FILE
@@ -27,7 +30,12 @@
 static __LUAT_C_CODE_IN_ISR__ LUAT_RT_RET_TYPE _audio_pa_power_on_delay_timer(LUAT_RT_CB_PARAM)
 {
 	struct luat_audio_driver_ctrl *ctrl = (struct luat_audio_driver_ctrl *)param;
+    #ifdef LUAT_USE_DRV_GPIO
+    luat_drv_gpio_set(ctrl->pa_power_pin, ctrl->pa_power_on_level);
+    #else
 	luat_gpio_set(ctrl->pa_power_pin, ctrl->pa_power_on_level);
+    #endif
+
     ctrl->pa_power_state = 1;
     LLOGC(luat_audio_debug_flag, "audio driver pa power on delay timer expire");
     if (ctrl->pa_power_state && ctrl->codec_power_state && ctrl->codec_ready_state) {
@@ -68,8 +76,13 @@ int luat_audio_driver_config_pa_power_ctrl(struct luat_audio_driver_ctrl *ctrl, 
         cfg.mode = LUAT_GPIO_OUTPUT;
         cfg.pull = LUAT_GPIO_DEFAULT;
         cfg.output_level = !pa_power_on_level; 
+        #ifdef LUAT_USE_DRV_GPIO
+        luat_drv_gpio_open(&cfg);
+        luat_drv_gpio_set(pa_power_pin, !pa_power_on_level);
+        #else
         luat_gpio_open(&cfg);
         luat_gpio_set(pa_power_pin, !pa_power_on_level);
+        #endif
     }
     return 0;
 }
@@ -96,8 +109,13 @@ int luat_audio_driver_config_codec_power_ctrl(struct luat_audio_driver_ctrl *ctr
         cfg.mode = LUAT_GPIO_OUTPUT;
         cfg.pull = LUAT_GPIO_DEFAULT;
         cfg.output_level = !codec_power_on_level; 
+        #ifdef LUAT_USE_DRV_GPIO
+        luat_drv_gpio_open(&cfg);
+        luat_drv_gpio_set(codec_power_pin, !codec_power_on_level);
+        #else
         luat_gpio_open(&cfg);
         luat_gpio_set(codec_power_pin, !codec_power_on_level);
+        #endif
     }
     return 0;
 }
@@ -290,7 +308,11 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
         ctrl->codec_power_ctrl_enable, ctrl->codec_power_pin, ctrl->codec_power_on_level);
     if (!ctrl->codec_power_state) {
         if (ctrl->codec_power_ctrl_enable) {
+            #ifdef LUAT_USE_DRV_GPIO
+            luat_drv_gpio_set(ctrl->codec_power_pin, ctrl->codec_power_on_level);
+            #else
             luat_gpio_set(ctrl->codec_power_pin, ctrl->codec_power_on_level);
+            #endif
         }
         ctrl->codec_power_state = 1;
         ctrl->codec_ready_state = 0;
@@ -311,7 +333,11 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             if (ctrl->pa_power_on_delay_time_ms) {
                 luat_start_rtos_timer(ctrl->pa_power_on_delay_timer, ctrl->pa_power_on_delay_time_ms, 0);
             } else {
+                #ifdef LUAT_USE_DRV_GPIO
+                luat_drv_gpio_set(ctrl->pa_power_pin, ctrl->pa_power_on_level);
+                #else
                 luat_gpio_set(ctrl->pa_power_pin, ctrl->pa_power_on_level);
+                #endif
                 ctrl->pa_power_state = 1;
             }
         } else {
@@ -331,7 +357,11 @@ void luat_audio_driver_pa_power_off(struct luat_audio_driver_ctrl *ctrl)
         return;
     }
     if (ctrl->pa_power_ctrl_enable) {
+        #ifdef LUAT_USE_DRV_GPIO
+        luat_drv_gpio_set(ctrl->pa_power_pin, !ctrl->pa_power_on_level);
+        #else
         luat_gpio_set(ctrl->pa_power_pin, !ctrl->pa_power_on_level);
+        #endif
         ctrl->pa_power_state = 0;
     } else {
         ctrl->pa_power_state = 0;
@@ -348,7 +378,11 @@ void luat_audio_driver_codec_power_off(struct luat_audio_driver_ctrl *ctrl)
         if (ctrl->codec_power_off_delay_time_ms) {
             luat_rtos_task_sleep(ctrl->codec_power_off_delay_time_ms);
         }
+        #ifdef LUAT_USE_DRV_GPIO
+        luat_drv_gpio_set(ctrl->codec_power_pin, !ctrl->codec_power_on_level);
+        #else
         luat_gpio_set(ctrl->codec_power_pin, !ctrl->codec_power_on_level);
+        #endif
         ctrl->codec_power_state = 0;
         ctrl->codec_ready_state = 0;
     } else {

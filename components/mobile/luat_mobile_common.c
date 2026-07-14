@@ -135,10 +135,14 @@ int luat_mobile_find_apn_by_mcc_mnc(uint16_t mcc, uint16_t mnc, apn_info_t *info
 	return result;
 }
 
+#if !defined(CHIP_EC718) && !defined(CHIP_EC716) && !defined(CHIP_EC618)
 LUAT_WEAK int get_apn_info_by_static(uint16_t mcc, uint16_t mnc, apn_info_t *info)
 {
 	return -1;
 }
+#else
+int get_apn_info_by_static(uint16_t mcc, uint16_t mnc, apn_info_t *info);
+#endif
 
 void luat_mobile_print_apn_by_mcc_mnc(uint16_t mcc, uint16_t mnc)
 {

@@ -37,6 +37,7 @@ local sensor_w = 1280                         -- 目标分辨率宽度
 local sensor_h = 720                          -- 目标分辨率高度
 local usb_app_id = nil                        -- USB摄像头应用ID
 local captured = false                        -- 是否已拍照标志位（用于保证只拍一张）
+local frame_count = 0                         -- 帧计数器，跳过前5帧，用第6帧拍照
 local save_path = "/ram/photo.jpg"            -- 照片保存路径
 
 -- 双缓冲帧数据区，按分辨率自适应大小
@@ -61,6 +62,7 @@ local function usb_cb(usb_id, class, app_id, event, param1, param2, param3)
                 "hub地址", param1, "端口", param2, "地址", param3)
             usb_app_id = nil
             captured = false
+            frame_count = 0
         end
     end
 end
@@ -70,6 +72,11 @@ end
 local function camera_cb(app_id, event, param)
     -- 接收到一帧图像数据
     if event == usb.EV_NEW_RX then
+        frame_count = frame_count + 1
+        if frame_count < 6 then
+            log.info("photo_uart_post", "丢弃第", frame_count, "帧")
+            return
+        end
         -- 只拍一次，避免重复处理
         if not captured then
             -- 根据param判断使用哪个缓冲区
@@ -168,6 +175,7 @@ local function camera_cb(app_id, event, param)
         log.info("photo_uart_post", "usb摄像头 app id", app_id, "已断开")
         usb_app_id = nil
         captured = false
+        frame_count = 0
         return
     end
 

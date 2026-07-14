@@ -116,6 +116,7 @@ if is_host("windows") then
     add_files("win32/src/**.c")
 elseif is_host("linux") then
     add_defines("LUA_USE_LINUX")
+    add_defines("LUAT_CONF_USE_LIBSYS_SOURCE")
     add_cflags("-ffunction-sections -fdata-sections")
     add_cflags("-Wno-unused-parameter -Wno-unused-function -Wno-unused-variable")
     add_ldflags("-Wl,--gc-sections")
@@ -146,7 +147,10 @@ target("luatos-lua")
     add_defines("LUAT_BSP_PC")
     -- fatfs 在 luat_conf_bsp.h 里已经 #define LUAT_USE_FATFS / LUAT_USE_FS_VFS,
     -- 不需要在 xmake 重复 add_defines(还会触发 MSVC C4005 重定义 warning)。
-    add_files("src/*.c",{public = true})
+    add_files("src/*.c|luat_luadb_mod.c",{public = true})
+    if is_host("windows") then
+        add_files("src/luat_luadb_mod.c")
+    end
     if mbedtls_version == 2 then
         remove_files("src/luat_pc_dtls_utest.c")
     end

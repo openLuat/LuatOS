@@ -395,14 +395,14 @@ end
 -- set_lowpower_func_item()中会自动对模组型号进行判断，避免对不包含GNSS/Gsensor/Audio Codec芯片或者CHG_DET（WAKEUP6）功能的模组进行误配置
 -- 在进入低功耗模式前，根据自己的实际项目需求，配置一些必要的功能项，可以在满足项目功能需求的背景下，让功耗降到最低
 -- 
--- 关于 WAKEUP0 ~ WAKEUP5 管脚如何关闭才能让功耗降到最低的说明：
---    1、 要想让某个管脚关闭，我们一般需要在软件中将该管脚配置为输入模式，不过 WAKEUP0 ~ WAKEUP2 与 WAKEUP3 ~ WAKEUP5 在配置为输入模式时，需要特别注意；
---    2、 因为 WAKEUP0 ~ WAKEUP2 是独立的 WANEKUP 管脚，使用 gpio.setup() 接口配置为输入模式时，可以只有输入功能，而没有唤醒功能，第一个参数需要填写为 gpio.WAKEUP0/gpio.WAKEUP1/gpio.WAKEUP2；
---    3、 而 WAKEUP3 ~ WAKEUP5 既是 AGPIOWAKEUP 管脚（对应 AGPIOWU0 ~ AGPIOWU2），也是 GPIO 管脚（对应 GPIO20 ~ GPIO22），使用 gpio.setup() 接口配置为输入模式时，
---       如果第一个参数填写为 gpio.WAKEUP3/gpio.WAKEUP4/gpio.WAKEUP5 ，那么内核中统一会配置为 输入唤醒 功能，当 WAKEUP3 ~ WAKEUP5 引脚的电平发生变化时，会触发中断，导致模组唤醒，无法真正实现关闭；
---       所以，在关闭 WAKEUP3 ~ WAKEUP5 管脚时，使用 gpio.setup() 接口配置为输入模式时，第一个参数应该填写为 20 ~ 22 ，即对应的 GPIO 号，这样才能真正关闭 WAKEUP3 ~ WAKEUP5 管脚，避免模组唤醒功能的触发。
---    4、 在 2046 及之前的版本中，WAKEUP0 ~ WAKEUP2 配置为输入模式时也会触发唤醒功能，需要特别注意这个情况，在 2048 及之后版本中，WAKEUP0 ~ WAKEUP2 配置为输入模式时不会触发唤醒功能；
---       WAKEUP3 ~ WAKEUP5 管脚只需要在使用 gpio.setup() 接口配置为输入模式时，将第一个参数填写为 20 ~ 22 ，即可真正关闭 WAKEUP3 ~ WAKEUP5 管脚，与内核固件版本无关。
+-- 关于 WAKEUP0 ~ WAEKUP6、PWR_KEY 管脚如何配置才能正确关闭的说明：
+-- 1、 要想让某个管脚关闭，我们一般需要在软件中将该管脚配置为输入模式，不过 WAKEUP0 ~ WAEKUP6、PWR_KEY 管脚在配置为输入模式时，需要特别注意；
+-- 2、 WAKEUP0 ~ WAEKUP2、WAEKUP6、PWR_KEY ：这些管脚是独立的 WAEKUP 管脚，在使用 gpio.setup() 接口配置为输入模式时，可以只有输入功能，而没有唤醒功能
+--     在 V2046 及之前的版本中，WAEKUP0 ~ WAEKUP2、WAEKUP6、PWR_KEY 管脚在配置为输入模式时，不仅有输入功能，还有唤醒功能；
+--     在 V2048 及之后的版本中，WAEKUP0 ~ WAEKUP2、WAEKUP6、PWR_KEY 管脚在配置为输入模式时，没有唤醒功能，只有输入功能；
+-- 3、 WAKEUP3 ~ WAKEUP5 ：这些管脚不仅是 AGPIOWAKEUP 管脚（对应 AGPIOWU0 ~ AGPIOWU2），也是 GPIO 管脚（对应 GPIO20 ~ GPIO22），使用 gpio.setup() 接口配置为输入模式时：
+--     如果第一个参数填写为 gpio.WAKEUP3/gpio.WAKEUP4/gpio.WAKEUP5 ，那么内核中统一会配置为 输入唤醒 功能，当 WAKEUP3 ~ WAKEUP5 引脚的电平发生变化时，会触发中断，导致模组唤醒，无法真正实现关闭；
+--     所以，在关闭 WAKEUP3 ~ WAKEUP5 管脚时，使用 gpio.setup() 接口配置为输入模式时，第一个参数应该填写为 20 ~ 22 ，即对应的 GPIO 号，这样才能真正关闭 WAKEUP3 ~ WAKEUP5 管脚，与内核固件版本无关。
 local function set_lowpower_func_item()
     -- 第一类功能配置项：飞行模式
     -- 通过配置飞行模式可以有效关闭4G芯片的4G网络能力
@@ -509,7 +509,9 @@ local function set_lowpower_func_item()
     -- 可以在此处关闭，也可以在具体的外围电路软件功能模块代码文件中关闭
     -- 
     -- 特别注意：
-    -- 1、 在 2046 及之前的版本中，WAKEUP0 ~ WAKEUP2 配置为输入模式时也会触发唤醒功能，需要特别注意这个情况，在 2048 及之后版本中，WAKEUP0 ~ WAKEUP2 配置为输入模式时不会触发唤醒功能；
+    -- 1、 WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 管脚在配置为输入模式时，由于内核固件的不同，需要注意
+--         V2046 及之前的版本中，WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 在配置为输入模式时，不仅有输入功能，还有唤醒功能；
+--         V2048 及之后的版本中，WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 在配置为输入模式时，没有唤醒功能，只有输入功能；
     -- gpio.setup(gpio.WAKEUP0, nil, gpio.PULLDOWN)
 
 
@@ -530,7 +532,9 @@ local function set_lowpower_func_item()
     -- 可以在此处关闭，也可以在具体的外围电路软件功能模块代码文件中关闭
     -- 
     -- 特别注意：
-    -- 1、 在 2046 及之前的版本中，WAKEUP0 ~ WAKEUP2 配置为输入模式时也会触发唤醒功能，需要特别注意这个情况，在 2048 及之后版本中，WAKEUP0 ~ WAKEUP2 配置为输入模式时不会触发唤醒功能；
+    -- 1、 WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 管脚在配置为输入模式时，由于内核固件的不同，需要注意
+--         V2046 及之前的版本中，WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 在配置为输入模式时，不仅有输入功能，还有唤醒功能；
+--         V2048 及之后的版本中，WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 在配置为输入模式时，没有唤醒功能，只有输入功能；
     -- gpio.setup(gpio.WAKEUP1, nil, gpio.PULLDOWN)
 
 
@@ -552,7 +556,7 @@ local function set_lowpower_func_item()
     -- 3、做WAKEUP使用时，功能特性以及如何配置可以将功耗降到最低，参考上文中“第四类功能配置项：通用WAKEUP”的说明
     -- 
     -- 特别注意：
-    -- 1、 在使用 gpio.setup() 接口配置为输入模式关闭 AGPIOWU 管脚时，需要将第一个参数填写为 GPIO 号，及 20/21/22，这样真能真正关闭 AGPIOWU 管脚；
+    -- 1、 在使用 gpio.setup() 接口配置为输入模式关闭 AGPIOWU 管脚时，需要将第一个参数填写为 GPIO 号，及 20/21/22，这样才能真正关闭 AGPIOWU 管脚；
     -- 2、 如果第一个参数填写的是 gpio.WAEKUP3/WAKEUP4/WAKEUP5，那么会无法真正关闭 APGIOWU 管脚，当管脚电平发生变化时，还会触发唤醒功能；
     -- if module == "Air780EPM" or module == "Air780EHM" or module == "Air780EHU" or module == "Air780EHN" or module == "Air780EGH" or module == "Air780EGP" or module == "Air780EGG" then
     --     gpio.setup(20, nil, gpio.PULLDOWN)
@@ -576,6 +580,11 @@ local function set_lowpower_func_item()
     -- 需要提醒的是，PWR_KEY引脚如果硬件设计为接地自动开机，通常会增加系统功耗；以Air780EXX系列每个模组的核心板为例，如果一直按下开机键，则会增加系统功耗15uA左右
     -- 根据自己的项目需求决定：进入低功耗模式前，是否需要关闭PWR_KEY功能
     -- 一旦关闭，如果你项目中使用了这个功能引脚，意味着这个功能引脚有关的功能将无法正常工作，例如无法中断唤醒
+    -- 
+    -- 特别注意：
+    -- 1、 WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 管脚在配置为输入模式时，由于内核固件的不同，需要注意
+--         V2046 及之前的版本中，WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 在配置为输入模式时，不仅有输入功能，还有唤醒功能；
+--         V2048 及之后的版本中，WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 在配置为输入模式时，没有唤醒功能，只有输入功能；
     -- gpio.setup(gpio.PWR_KEY, nil, gpio.PULLDOWN)
 
 
@@ -598,7 +607,10 @@ local function set_lowpower_func_item()
     -- 一旦关闭，如果你项目中使用了这个功能引脚，意味着这个功能引脚有关的功能将无法正常工作，例如无法中断唤醒
     -- 
     -- 特别注意：
-    -- 1、 CHG_DET 管脚需要使用 gpio.close() 接口关闭，使用 gpio.setup() 接口配置为输入模式会导致模组被误触发唤醒；
+    -- 1、 WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 管脚在配置为输入模式时，由于内核固件的不同，需要注意
+--         V2046 及之前的版本中，WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 在配置为输入模式时，不仅有输入功能，还有唤醒功能；
+--         V2048 及之后的版本中，WAEKUP0 ~ WAKEUP2、WAEKUP6、PWR_KEY 在配置为输入模式时，没有唤醒功能，只有输入功能；
+--  -- 2、 在使用 gpio.setup() 接口配置为输入模式时，第一个参数既可以是 gpio.WAEKUP6，也可以是 gpio.CHG_DET，功能上是一致的；
     -- if module == "Air780EHU" or module == "Air780EHN" or module == "Air780EHV" or module == "Air780EGH" or module == "Air780EGP" or module == "Air780EGG" then
     --     gpio.close(gpio.CHG_DET)
     -- end

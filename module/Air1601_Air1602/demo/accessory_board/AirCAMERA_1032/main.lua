@@ -5,12 +5,13 @@
 @date    2026.06.08
 @author  江访
 @usage
-本demo主要使用Air1601 + AirCAMERA_1032 USB摄像头完成以下三个应用场景的演示：
+本demo主要使用Air1601 + AirCAMERA_1032 USB摄像头完成以下四个应用场景的演示：
 1、camera_preview：摄像头实时画面预览到LCD屏幕
 2、photo_uart_post：拍照后在LCD显示并通过UART上传到电脑
 3、photo_to_aircloud：拍照后在LCD显示并上传到合宙云平台
+4、h264_power_test：H.264功耗分阶段测试（支持仅编码、编码+本地保存、编码+串口上传、编码+AirCloud上传四种模式）
 
-注意：以下三个业务模块只能三选一打开，不能同时打开
+注意：以下四个业务模块只能四选一打开，不能同时打开
 ]]
 
 --[[
@@ -42,17 +43,21 @@ require "tp_drv"
 -- netdrv_device.lua 内部按需选择 WIFI / 以太网 / 4G / 多网卡，请到该文件内自行切换
 --  require "netdrv_device"
 
--- 以下三个业务模块只能选一个打开，不能同时打开 ---------------------
+-- 以下四个业务模块只能选一个打开，不能同时打开 ---------------------
 
 -- 1、加载摄像头预览应用模块（AIRUI组件方式：画面嵌入组件树，按钮与画面共存）
- require "preview"
+-- require "preview"
 
 -- 2、加载拍照+LCD显示+UART上传应用模块
--- require "photo_uart_post"
+ require "photo_uart_post"
 
 -- 3、加载拍照+LCD显示+云平台上传应用模块
 --    使用该模块时需要同时打开上方的 netdrv_device 加载语句
 --  require "photo_to_aircloud"
+
+-- 4、加载H.264功耗分阶段测试应用模块（支持仅编码、编码+本地保存、编码+串口上传、编码+AirCloud上传四种模式）
+--    使用该模块时需要根据TEST_MODE配置，模式4需要网络连接
+--  require "h264_power_test"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

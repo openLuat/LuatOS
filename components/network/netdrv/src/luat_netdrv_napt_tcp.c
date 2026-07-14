@@ -35,6 +35,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     }
     // uint64_t tnow = luat_mcu_tick64_ms();
     luat_netdrv_napt_tcpudp_t mapping = {0};
+    uint16_t ip_hdr_len = (uint16_t)ntohs(IPH_LEN(ip_hdr));
     if (ctx->is_wnet) {
         // 这是从外网到内网的TCP包
         // LLOGD("wnet.search dst port %d", ntohs(tcp_hdr->dest));
@@ -61,11 +62,8 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             }
             else
             {
-                tcp_hdr->chksum = alg_tcpudphdr_chksum(ip_hdr->src.addr,
-                                                       ip_hdr->dest.addr,
-                                                       IP_PROTO_TCP,
-                                                       (u16 *)tcp_hdr,
-                                                       ntohs(ip_hdr->_len) - iphdr_len);
+                tcp_hdr->chksum = napt_inet_chksum_pseudo(ip_hdr, IP_PROTO_TCP,
+                                                          tcp_hdr, ip_hdr_len - iphdr_len);
             }
             return napt_output_to_lan(ctx, &mapping, ip_hdr, tcp_buff);
         }
@@ -93,8 +91,8 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             tcp_sum = napt_chksum_replace_u32(tcp_sum, old_src_ip, new_src_ip);
             tcp_hdr->chksum = napt_chksum_replace_u16(tcp_sum, old_src_port, mapping.wnet_local_port);
         } else {
-            tcp_hdr->chksum = alg_tcpudphdr_chksum(ip_hdr->src.addr, ip_hdr->dest.addr,
-                IP_PROTO_TCP, (u16*)tcp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
+            tcp_hdr->chksum = napt_inet_chksum_pseudo(ip_hdr, IP_PROTO_TCP,
+                                                      tcp_hdr, ip_hdr_len - iphdr_len);
         }
         return napt_output_to_wan(ctx, gw, ip_hdr, tcp_buff);
     }

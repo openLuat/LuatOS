@@ -20,7 +20,11 @@ typedef struct {
     uint8_t *framebuffers[2];
     size_t framebuffer_size;
     uint8_t framebuffer_index;
-    bool framebuffer_dirty;
+    volatile bool framebuffer_dirty;
+    volatile bool src_pending;
+    volatile bool size_pending;
+    uint16_t pending_w;
+    uint16_t pending_h;
     lv_coord_t requested_width;
     lv_coord_t requested_height;
     uint16_t frame_width;
@@ -79,13 +83,19 @@ static uint8_t *airui_camera_get_next_framebuffer(airui_camera_data_t *data)
     return data->framebuffers[(data->framebuffer_index + 1u) & 0x1u];
 }
 
-static int airui_camera_ensure_framebuffer(lv_obj_t *camera, airui_camera_data_t *data, uint16_t width, uint16_t height)
+/*
+ * push 路径专用：仅分配缓冲与更新元数据，禁止任何 LVGL API。
+ * img_dsc 的最终绑定与 lv_image_set_src 留给 timer。
+ */
+static int airui_camera_ensure_framebuffer(airui_camera_data_t *data, uint16_t width, uint16_t height)
 {
     size_t fb_size;
     uint8_t *new_buf0;
     uint8_t *new_buf1;
+    int need_alloc;
+    int need_set_src;
 
-    if (camera == NULL || data == NULL || width == 0 || height == 0) {
+    if (data == NULL || width == 0 || height == 0) {
         return -1;
     }
 
@@ -94,14 +104,17 @@ static int airui_camera_ensure_framebuffer(lv_obj_t *camera, airui_camera_data_t
         return -1;
     }
 
-    if (data->framebuffers[0] == NULL || data->framebuffers[1] == NULL || data->framebuffer_size != fb_size) {
+    need_alloc = (data->framebuffers[0] == NULL || data->framebuffers[1] == NULL || data->framebuffer_size != fb_size);
+    if (need_alloc) {
         new_buf0 = (uint8_t *)luat_heap_malloc(fb_size);
         if (new_buf0 == NULL) {
+            LLOGE("fb0 alloc fail size=%u", (unsigned)fb_size);
             return -1;
         }
         new_buf1 = (uint8_t *)luat_heap_malloc(fb_size);
         if (new_buf1 == NULL) {
             luat_heap_free(new_buf0);
+            LLOGE("fb1 alloc fail size=%u", (unsigned)fb_size);
             return -1;
         }
         if (data->framebuffers[0] != NULL) {
@@ -116,8 +129,15 @@ static int airui_camera_ensure_framebuffer(lv_obj_t *camera, airui_camera_data_t
         data->framebuffer_index = 0;
     }
 
+    need_set_src = need_alloc ||
+                   data->frame_width != width ||
+                   data->frame_height != height ||
+                   data->img_dsc.data == NULL;
+
     data->frame_width = width;
     data->frame_height = height;
+
+    /* 预填 dsc 头；data 指针在 timer swap 时再绑定到当前显示缓冲 */
     data->img_dsc.header.magic = LV_IMAGE_HEADER_MAGIC;
     data->img_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
     data->img_dsc.header.w = width;
@@ -125,12 +145,20 @@ static int airui_camera_ensure_framebuffer(lv_obj_t *camera, airui_camera_data_t
     data->img_dsc.header.stride = (uint32_t)width * 2u;
     data->img_dsc.header.flags = 0;
     data->img_dsc.data_size = fb_size;
-    data->img_dsc.data = data->framebuffers[data->framebuffer_index];
     data->img_dsc.reserved = NULL;
     data->img_dsc.reserved_2 = NULL;
 
-    lv_image_set_src(camera, &data->img_dsc);
+    if (need_set_src) {
+        data->src_pending = true;
+    }
     return 0;
+}
+
+static void airui_camera_timer_apply_img_dsc(lv_obj_t *camera, airui_camera_data_t *data)
+{
+    data->img_dsc.data = data->framebuffers[data->framebuffer_index];
+    lv_image_set_src(camera, &data->img_dsc);
+    data->src_pending = false;
 }
 
 static void airui_camera_timer_cb(lv_timer_t *timer)
@@ -153,12 +181,22 @@ static void airui_camera_timer_cb(lv_timer_t *timer)
         return;
     }
 
+    if (data->size_pending) {
+        lv_obj_set_size(camera, (lv_coord_t)data->pending_w, (lv_coord_t)data->pending_h);
+        data->size_pending = false;
+    }
+
     if (data->framebuffer_dirty) {
         data->framebuffer_index = (uint8_t)((data->framebuffer_index + 1u) & 0x1u);
-        data->img_dsc.data = data->framebuffers[data->framebuffer_index];
-        lv_image_set_src(camera, &data->img_dsc);
+        airui_camera_timer_apply_img_dsc(camera, data);
         lv_obj_invalidate(camera);
         data->framebuffer_dirty = false;
+    } else if (data->src_pending) {
+        /* 首帧分配后尚未 dirty 已处理时，仍需绑定 dsc */
+        if (data->framebuffers[data->framebuffer_index] != NULL) {
+            airui_camera_timer_apply_img_dsc(camera, data);
+            lv_obj_invalidate(camera);
+        }
     }
 }
 
@@ -176,16 +214,23 @@ int airui_camera_push_frame(lv_obj_t *camera, const uint8_t *rgb565, uint16_t w,
         return -1;
     }
 
+    /* dirty 未消费：丢帧，避免覆盖等待显示的 next buffer */
+    if (data->framebuffer_dirty) {
+        return 0;
+    }
+
     if (!data->size_checked) {
         data->size_checked = true;
         if (data->requested_width != (lv_coord_t)w || data->requested_height != (lv_coord_t)h) {
             LLOGW("camera: size mismatch, requested=%dx%d actual=%dx%d",
                   (int)data->requested_width, (int)data->requested_height, (int)w, (int)h);
-            lv_obj_set_size(camera, (lv_coord_t)w, (lv_coord_t)h);
+            data->pending_w = w;
+            data->pending_h = h;
+            data->size_pending = true;
         }
     }
 
-    if (airui_camera_ensure_framebuffer(camera, data, w, h) != 0) {
+    if (airui_camera_ensure_framebuffer(data, w, h) != 0) {
         return -1;
     }
 
@@ -198,6 +243,7 @@ int airui_camera_push_frame(lv_obj_t *camera, const uint8_t *rgb565, uint16_t w,
         memcpy(target_buf, rgb565, data->framebuffer_size);
     }
 
+    /* 先写像素，再置 dirty；LVGL API 仅由 timer 执行 */
     data->framebuffer_dirty = true;
     return 0;
 }

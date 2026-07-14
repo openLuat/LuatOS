@@ -582,7 +582,7 @@ local function setup_airlink_4G(config)
         if config.airlink_uart_id then
             -- 配置UART参数
             local uart_baud = config.airlink_uart_baud or 2000000
-            uart.setup(config.airlink_uart_id, uart_baud, 8, 1)
+            uart.setup(config.airlink_uart_id, uart_baud, 8, 1, uart.NONE, uart.LSB, 8192)
             airlink.config(airlink.CONF_UART_ID, config.airlink_uart_id)
         end
     end
@@ -676,7 +676,7 @@ local function setup_airlink_wifi(config)
     elseif is_uart_mode then
         if config.airlink_uart_id then
             local uart_baud = config.airlink_uart_baud or 2000000
-            uart.setup(config.airlink_uart_id, uart_baud, 8, 1)
+            uart.setup(config.airlink_uart_id, uart_baud, 8, 1, uart.NONE, uart.LSB, 8192)
             airlink.config(airlink.CONF_UART_ID, config.airlink_uart_id)
         end
     end

@@ -1,13 +1,13 @@
 --[[
 @module  netif_app
-@summary netif_app 网络管理模块,开启多网融合功能，wifi提供网络供wifi和以太网设备上网
+@summary netif_app 网络管理模块,开启多网融合功能，wifi提供网络供wifi设备上网
 @version 1.0
 @date    2026.07.02
 @author  王城钧
 @usage
 本文件为网络管理模块，核心业务逻辑为：
 1.设置多网融合功能，演示动态切换WiFi上游网络（WiFi A → 以太网 → WiFi B → 以太网）
-2、http测试以太网网络
+2、http测试wifi网络
 本文件没有对外接口，直接在main.lua中require "netif_app"就可以加载运行；
 ]]
 exnetif = require "exnetif"
@@ -99,11 +99,11 @@ function netif_app_task_func()
     -- WiFi A 和 WiFi B 的配置（请替换为实际SSID和密码）
     local wifi_a_config = {
         ssid = "116",
-        password = "hezhou88888888"
+        password = "wangshuai123"
     }
     local wifi_b_config = {
-        ssid = "hezhou",
-        password = "hezhou88888888"
+        ssid = "xiaoshuai",
+        password = "2894551470"
     }
 
     -- 切换到WiFi A后等待多长时间再切到WiFi B（单位：毫秒）

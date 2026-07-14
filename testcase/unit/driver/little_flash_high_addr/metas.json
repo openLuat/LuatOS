@@ -1,0 +1,6 @@
+{
+  "name": "little_flash_high_addr",
+  "summary": "Verify little_flash (lf) can read/write/erase and mount LFS2 above 16 MB on 256 Mbit NOR flash",
+  "platform": ["pc", "air1601", "air1602", "ec618"],
+  "timeout": 120
+}

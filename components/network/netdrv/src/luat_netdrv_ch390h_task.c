@@ -30,13 +30,8 @@ typedef struct pkg_evt
     ch390h_t *ch;
 }pkg_evt_t;
 
-#ifdef LUAT_USE_NETDRV_LWIP_ARP
 extern err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp);
 extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
-#else
-#define luat_netdrv_netif_input_main netif_input
-#define luat_netdrv_etharp_output ulwip_etharp_output
-#endif
 
 extern ch390h_t* ch390h_drvs[MAX_CH390H_NUM];
 

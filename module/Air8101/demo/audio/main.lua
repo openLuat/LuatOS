@@ -12,7 +12,11 @@
 
 3、play_stream: 流式播放音频，支持PCM/MP3/AMR/WAV格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用
 
-4、test.pcm: 用于测试pcm 流式播放
+4、record_amr_file: 录音到文件（AMR格式）
+
+5、record_pcm_file: 录音到文件（PCM格式）
+
+6、test.pcm: 用于测试pcm 流式播放
 
 注意：Air8101仅支持play_stream播放，其他功能需要用Air8101B来测试
 
@@ -63,6 +67,9 @@ log.info("main", PROJECT, VERSION)
 require "play_file"         -- 播放音频文件（MP3/AMR/WAV格式）
 -- require "play_tts"          -- TTS文字转语音播放
 -- require "play_stream"        -- 流式播放音频，支持PCM/MP3/AMR/WAV格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用
+-- require "record_amr_file"   -- 录音到文件（AMR格式）
+-- require "record_pcm_file"   -- 录音到文件（PCM格式）
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

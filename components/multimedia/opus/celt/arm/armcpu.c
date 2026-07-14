@@ -34,10 +34,10 @@
 #ifdef OPUS_HAVE_RTCD
 
 #include "armcpu.h"
-#include "cpu_support.h"
-#include "os_support.h"
+#include "celt/cpu_support.h"
+#include "celt/os_support.h"
 #include "opus_types.h"
-#include "arch.h"
+#include "celt/arch.h"
 
 #define OPUS_CPU_ARM_V4_FLAG    (1<<OPUS_ARCH_ARM_V4)
 #define OPUS_CPU_ARM_EDSP_FLAG  (1<<OPUS_ARCH_ARM_EDSP)

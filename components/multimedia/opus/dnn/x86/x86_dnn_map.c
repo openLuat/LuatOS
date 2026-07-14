@@ -29,8 +29,8 @@
 #include "config.h"
 #endif
 
-#include "x86/x86cpu.h"
-#include "nnet.h"
+#include "celt/x86/x86cpu.h"
+#include "dnn/nnet.h"
 
 #if defined(OPUS_HAVE_RTCD)
 

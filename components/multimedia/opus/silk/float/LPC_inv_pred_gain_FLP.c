@@ -29,9 +29,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "config.h"
 #endif
 
-#include "SigProc_FIX.h"
+#include "silk/SigProc_FIX.h"
 #include "SigProc_FLP.h"
-#include "define.h"
+#include "silk/define.h"
 
 /* compute inverse of LPC prediction gain, and                          */
 /* test if LPC coefficients are stable (all poles within unit circle)   */

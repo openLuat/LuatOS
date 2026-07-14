@@ -29,13 +29,13 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "config.h"
 #endif
 #ifdef FIXED_POINT
-#include "main_FIX.h"
+#include "silk/fixed/main_FIX.h"
 #define silk_encoder_state_Fxx      silk_encoder_state_FIX
 #else
-#include "main_FLP.h"
+#include "silk/float/main_FLP.h"
 #define silk_encoder_state_Fxx      silk_encoder_state_FLP
 #endif
-#include "stack_alloc.h"
+#include "celt/stack_alloc.h"
 #include "tuning_parameters.h"
 #include "pitch_est_defines.h"
 

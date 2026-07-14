@@ -4,6 +4,8 @@
 @version 1.0
 @date    2021.10.22
 @tag LUAT_USE_LCDSEG
+@usage
+-- 本库当前没有任何主推模组是支持的
 */
 
 #include "luat_base.h"
@@ -15,8 +17,8 @@
 @api lcdseg.setup(bias, duty, vlcd, com_number, fresh_rate, com_mark, seg_mark)
 @int bias值,通常为 1/3 bias, 对应 lcdseg.BIAS_ONETHIRD
 @int duty值,通常为 1/4 duty, 对应 lcdseg.DUTY_ONEFOURTH
-@int 电压, 单位100mV, 例如2.7v写27. air103支持的值有 27/29/31/33
-@int COM脚的数量, 取决于具体模块, air103支持1-4
+@int 电压, 单位100mV, 例如2.7v写27
+@int COM脚的数量, 取决于具体模块
 @int 刷新率,通常为60, 对应60HZ
 @int COM启用与否的掩码, 默认为0xFF,全部启用.若只启用COM0/COM1, 则0x03
 @int seg启用与否的掩码, 默认为0xFFFFFFFF,即全部启用. 若只启用前16个, 0xFFFF

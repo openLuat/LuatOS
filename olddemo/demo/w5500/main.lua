@@ -41,23 +41,14 @@ sys.taskInit(function()
     -- 下列默认选取的GPIO不是强制的, 可以替换成其他GPIO的
     local rtos_bsp = rtos.bsp()
     log.info("setup w5500 for", rtos_bsp)
-    if rtos_bsp:startsWith("ESP32") then
-        -- ESP32C3, GPIO5接SCS, GPIO6接IRQ/INT, GPIO8接RST
-        w5500.init(2, 20000000, 5, 6, 8) 
-    elseif rtos_bsp:startsWith("EC618") then
+    if rtos_bsp:startsWith("EC618") then
         -- EC618系列, 如Air780E/Air600E/Air700E
         -- GPIO8接SCS, GPIO1接IRQ/INT, GPIO22接RST
-        w5500.init(0, 25600000, 8, 1, 22) 
+        w5500.init(0, 25600000, 8, 1, 22)
     elseif rtos_bsp:startsWith("EC718") then
         -- EC718P系列, 如Air780EP/Air780EPV
         -- GPIO8接SCS, GPIO29接IRQ/INT, GPIO30接RST
         w5500.init(0, 25600000, 8, 29, 30)
-    elseif rtos_bsp == "AIR101" or rtos_bsp == "AIR103" or rtos_bsp == "AIR601" then
-        -- PA1接SCS, PB01接IRQ/INT, PA7接RST
-        w5500.init(0, 20000000, pin.PA01, pin.PB01, pin.PA07)
-    elseif rtos_bsp == "AIR105" then
-        -- PC14接SCS, PC01接IRQ/INT, PC00接RST
-        w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
     else
         -- 其他不认识的bsp, 循环提示一下吧
         while 1 do

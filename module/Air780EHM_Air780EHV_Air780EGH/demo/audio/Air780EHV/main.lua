@@ -17,9 +17,13 @@
 
 5、record_pcm_file: 录音到文件（PCM格式）
 
-6、sample-6s、10.amr: 用于测试本地mp3文件播放
+6、http_download_play: HTTP下载音频文件播放，支持MP3/AMR/PCM格式，自动识别，支持SD卡存储
 
-7、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
+7、http_stream_play: HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
+
+8、sample-6s.mp3、10.amr: 用于测试本地文件播放
+
+9、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
 
 
 更多说明参考本目录下的readme.md文件
@@ -68,9 +72,11 @@ log.info("main", PROJECT, VERSION)
 require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
 -- require "play_tts"      -- 支持文字转普通话输出需要固件支持
 -- require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
+-- require "play_loop"     -- 流式播放音频文件（MP3/AMR/WAV格式），需要使用新音频框架
 -- require "record_amr_file"        -- 录音到文件（AMR格式） 
 -- require "record_pcm_file"        -- 录音到文件（PCM格式）
 -- require "http_download_play"     -- HTTP下载音频文件播放，支持MP3/AMR/PCM格式，自动识别，支持SD卡存储
+-- require "http_stream_play"     -- HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

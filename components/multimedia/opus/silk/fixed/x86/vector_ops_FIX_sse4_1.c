@@ -32,10 +32,10 @@
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #include <smmintrin.h>
-#include "main.h"
+#include "silk/main.h"
 
-#include "SigProc_FIX.h"
-#include "pitch.h"
+#include "silk/SigProc_FIX.h"
+#include "celt/pitch.h"
 #include "celt/x86/x86cpu.h"
 
 opus_int64 silk_inner_prod16_sse4_1(

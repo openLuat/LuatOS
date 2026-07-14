@@ -1,4 +1,4 @@
-﻿-- 定义类结构；
+-- 定义类结构；
 local modbus = {}                            -- 定义 modbus 实例的元表；
 modbus.__index = modbus                      -- 定义 modbus 实例的索引元方法，用于访问实例的属性；
 modbus.__metatable = "instance is protected" -- 定义 modbus 实例的元表，防止外部修改；

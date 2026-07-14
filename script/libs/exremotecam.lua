@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exremotecam
 @summary exremotecam 远程摄像头控制扩展库，提供统一的摄像头OSD文字显示设置和拍照功能API。
 @version 1.0

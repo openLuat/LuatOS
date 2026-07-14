@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module  exftp
 @summary FTP客户端库
 @version 1.1

@@ -40,7 +40,7 @@ try {
     $psi.RedirectStandardError = $true
     $psi.CreateNoWindow = $true
     $commonScripts = (Resolve-Path (Join-Path $PSScriptRoot "..\..\testcase\common\scripts")).Path
-    $pcconfScripts = (Resolve-Path (Join-Path $PSScriptRoot "..\..\testcase\unit_testcase_tools\pcconf\scripts")).Path
+    $pcconfScripts = (Resolve-Path (Join-Path $PSScriptRoot "..\..\testcase\unit\tools\pcconf\scripts")).Path
     $psi.Arguments = '"' + $commonScripts + '" "' + $pcconfScripts + '"'
 
     $p = New-Object System.Diagnostics.Process

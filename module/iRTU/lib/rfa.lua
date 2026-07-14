@@ -200,6 +200,44 @@ function M._builtin_dispatch(line)
             return "\r\n+CME ERROR: 50\r\n"  -- CME_INCORRECT_PARAM
         end
     end
+
+    -- AT+ES8311: detect ES8311 codec via I2C
+    if line == "AT+ES8311" then
+        local present = false
+        local ES8311_ADDRESS = 0x18
+        local ES8311_CHD1_REG = 0xFD
+        local ES8311_CHD2_REG = 0xFE
+        local ES8311_CHD1_VAL = 0x83
+        local ES8311_CHD2_VAL = 0x11
+        local function es8311_read_reg(reg)
+            if i2c.send(0, ES8311_ADDRESS, reg) then
+                local data = i2c.recv(0, ES8311_ADDRESS, 1)
+                if data and #data == 1 then
+                    return data:byte(1)
+                end
+            end
+            return nil
+        end
+        gpio.setup(20, 1, gpio.PULLUP)  -- 开启es8311电源(Air780EHV)
+        i2c.setup(0, i2c.SLOW)
+        if i2c and i2c.SLOW then
+            local chipId1 = es8311_read_reg(ES8311_CHD1_REG)
+            local chipId2 = es8311_read_reg(ES8311_CHD2_REG)
+            log.info("rfa", "ES8311 chipId1", chipId1, "chipId2", chipId2)
+            if chipId1 == ES8311_CHD1_VAL and chipId2 == ES8311_CHD2_VAL then
+                present = true
+            end
+        else
+            log.warn("rfa", "AT+ES8311 not supported on this platform")
+        end
+
+        if present then
+            return "\r\n+ES8311: OK\r\n\r\nOK\r\n"
+        else
+            return "\r\n+ES8311: ERROR\r\n\r\nOK\r\n"
+        end
+    end
+
     if line:match("^AT%+CFUN=0%s*$") then
         rf_on_ = false
         if mobile and mobile.flymode then mobile.flymode(0, true) end

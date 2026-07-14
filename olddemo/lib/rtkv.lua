@@ -47,7 +47,6 @@ sys.taskInit(function()
         if ota_version and ota_version ~= _G.VERSION then
             local ota_url = rtkv.get("ota_url")
             if ota_url then
-                -- 执行OTA, 以esp32c3为例
                 local code = http.request("GET", ota_url, nil, nil, {dst="/update.bin"}).wait()
                 if code and code == 200 then
                     log.info("ota", "ota包下载完成, 5秒后重启")

@@ -610,9 +610,9 @@ static int case_unlink_powercycle_no_resurrect(void)
     return fail ? -1 : 0;
 }
 
-static int case_flush_without_close_delta_replay(void)
+static int case_file_flush_powercycle_delta(void)
 {
-    const char *cn = "flush_without_close_delta_replay";
+    const char *cn = "file_flush_powercycle_delta";
     uint8_t stable[1024];
     uint8_t tail[512];
     tfs_obj_t *dir;
@@ -663,7 +663,8 @@ static int case_flush_without_close_delta_replay(void)
     dir = tfs_core_find_by_name(&g_dev, g_dev.root_dir, "power");
     unclosed = dir ? tfs_core_find_by_name(&g_dev, dir, "flush_open.bin")
                    : NULL;
-    if (rc != TFS_OK || mount_reads >= full_scan_reads / 4 ||
+    if (rc != TFS_OK || g_dev.checkpt_delta_chunks <= 0 ||
+        mount_reads >= full_scan_reads / 4 ||
         verify_obj_pattern(unclosed, sizeof(stable), 0x50u) != TFS_OK) {
         failf(cn, "rc=%d reads=%u full=%u delta=%d",
               rc, (unsigned int)mount_reads, (unsigned int)full_scan_reads,
@@ -707,11 +708,24 @@ static int case_closed_download_delta_replay(void)
     rc = tfs_core_mount(&g_dev);
     mount_reads = g_dev.n_page_reads - reads_before;
     obj = tfs_core_find_by_name(&g_dev, g_dev.root_dir, "download.lua");
-    if (rc != TFS_OK || mount_reads >= full_scan_reads / 4 ||
+    if (rc != TFS_OK || g_dev.checkpt_delta_chunks <= 0 ||
+        mount_reads >= full_scan_reads / 4 ||
         verify_obj_pattern(obj, 4096u, 0x61u) != TFS_OK) {
         failf(cn, "rc=%d reads=%u full=%u delta=%d",
               rc, (unsigned int)mount_reads, (unsigned int)full_scan_reads,
               g_dev.checkpt_delta_chunks);
+        fail++;
+    }
+    if (tfs_core_sync(&g_dev) != TFS_OK)
+        fail++;
+    simulate_power_cycle_without_sync();
+    rc = tfs_core_mount(&g_dev);
+    obj = tfs_core_find_by_name(&g_dev, g_dev.root_dir, "download.lua");
+    if (rc != TFS_OK || g_dev.checkpt_delta_chunks != 0 ||
+        !g_dev.is_checkpointed ||
+        verify_obj_pattern(obj, 4096u, 0x61u) != TFS_OK) {
+        failf(cn, "replacement checkpoint left delta rc=%d delta=%d cp=%d",
+              rc, g_dev.checkpt_delta_chunks, g_dev.is_checkpointed);
         fail++;
     }
     teardown_device();
@@ -862,7 +876,8 @@ static int case_high_occupancy_download_delta(void)
     app_dir = tfs_core_find_by_name(&g_dev, g_dev.root_dir, "app");
     app = app_dir ? tfs_core_find_by_name(&g_dev, app_dir, "download.lua")
                   : NULL;
-    if (rc != TFS_OK || mount_reads >= full_scan_reads / 2 ||
+    if (rc != TFS_OK || g_dev.checkpt_delta_chunks <= 0 ||
+        mount_reads >= full_scan_reads / 2 ||
         verify_obj_pattern(app, 4096u, 0x92u) != TFS_OK) {
         failf(cn, "rc=%d is_cp=%d reads=%u full=%u delta=%d",
               rc, g_dev.is_checkpointed,
@@ -967,6 +982,126 @@ static int case_anchor_publish_failure_keeps_old(void)
         failf(cn, "delta recovery failed rc=%d", rc);
         fail++;
     }
+    teardown_device();
+    return fail ? -1 : 0;
+}
+
+static int case_checkpoint_continuation_sequence(void)
+{
+    const char *cn = "checkpoint_continuation_sequence";
+    tfs_packed_tags2_t packed;
+    tfs_ext_tags_t ext;
+    tfs_obj_t *sentinel;
+    uint32_t start_blk;
+    uint32_t actual_blk;
+    uint32_t target_blk = UINT32_MAX;
+    uint32_t actual_chunk;
+    uint32_t reads_before;
+    uint32_t mount_reads;
+    uint32_t full_scan_reads;
+    uint32_t i;
+    int fail = 0;
+    int rc;
+
+    rc = setup_device(TFS_UTEST_BLOCKS, 0, 1);
+    if (rc != TFS_OK) {
+        failf(cn, "setup failed rc=%d", rc);
+        teardown_device();
+        return -1;
+    }
+
+    sentinel = tfs_create_obj(&g_dev, g_dev.root_dir, "sequence_sentinel",
+                              TFS_S_IFREG | 0644, TFS_OBJ_TYPE_FILE);
+    for (i = 0; sentinel && i < 700; i++) {
+        char name[32];
+        snprintf(name, sizeof(name), "sequence_%04u.bin", (unsigned int)i);
+        if (!tfs_create_obj(&g_dev, g_dev.root_dir, name,
+                            TFS_S_IFREG | 0644, TFS_OBJ_TYPE_FILE))
+            break;
+    }
+
+    rc = tfs_core_sync(&g_dev);
+    if (rc != TFS_OK || g_dev.blocks_in_checkpt <= 1 ||
+        !g_nand->anchor_valid) {
+        failf(cn, "checkpoint not multi-block rc=%d blocks=%u", rc,
+              (unsigned int)g_dev.blocks_in_checkpt);
+        fail++;
+        teardown_device();
+        return -1;
+    }
+
+    start_blk = g_nand->anchor_chunk / TFS_UTEST_CPB;
+    actual_blk = (uint32_t)g_dev.checkpt_block_list[1];
+    for (i = 1; i < g_nand->geo.n_blocks; i++) {
+        uint32_t candidate = (actual_blk + i) % g_nand->geo.n_blocks;
+        uint32_t j;
+        int is_checkpoint = 0;
+
+        for (j = 0; j < g_dev.blocks_in_checkpt; j++) {
+            if ((uint32_t)g_dev.checkpt_block_list[j] == candidate) {
+                is_checkpoint = 1;
+                break;
+            }
+        }
+        if (!is_checkpoint &&
+            tfs_block_get_state(&g_dev, (int)candidate) ==
+                TFS_BLK_STATE_EMPTY) {
+            target_blk = candidate;
+            break;
+        }
+    }
+
+    actual_chunk = actual_blk * TFS_UTEST_CPB;
+    memset(&ext, 0, sizeof(ext));
+    rc = tfs_chunk_read(&g_dev, (int)actual_chunk, NULL, 0, &ext);
+    if (target_blk == UINT32_MAX || rc != TFS_OK ||
+        !ext.chunk_used || ext.obj_id != TFS_OBJ_ID_CHECKPT ||
+        ext.chunk_id == 0 || actual_blk == start_blk) {
+        failf(cn, "could not prepare continuation collision");
+        fail++;
+    } else {
+        uint32_t target_chunk = target_blk * TFS_UTEST_CPB;
+
+        memcpy(g_nand->data + target_chunk * TFS_UTEST_DATA_SZ,
+               g_nand->data + actual_chunk * TFS_UTEST_DATA_SZ,
+               TFS_UTEST_CPB * TFS_UTEST_DATA_SZ);
+        memcpy(g_nand->oob + target_chunk * TFS_UTEST_OOB_SZ,
+               g_nand->oob + actual_chunk * TFS_UTEST_OOB_SZ,
+               TFS_UTEST_CPB * TFS_UTEST_OOB_SZ);
+        memcpy(g_nand->written + target_chunk,
+               g_nand->written + actual_chunk, TFS_UTEST_CPB);
+
+        memset(g_nand->data + actual_chunk * TFS_UTEST_DATA_SZ, 0xff,
+               TFS_UTEST_CPB * TFS_UTEST_DATA_SZ);
+        memset(g_nand->oob + actual_chunk * TFS_UTEST_OOB_SZ, 0xff,
+               TFS_UTEST_CPB * TFS_UTEST_OOB_SZ);
+        memset(g_nand->written + actual_chunk, 0, TFS_UTEST_CPB);
+
+        memset(g_nand->data + actual_chunk * TFS_UTEST_DATA_SZ, 0xa5,
+               TFS_UTEST_DATA_SZ);
+        ext.seq_number += 100u;
+        tfs_tags_pack(&g_dev, &ext, &packed);
+        memcpy(g_nand->oob + actual_chunk * TFS_UTEST_OOB_SZ,
+               &packed, sizeof(packed));
+        g_nand->written[actual_chunk] = 1;
+    }
+
+    simulate_power_cycle_without_sync();
+    reads_before = g_dev.n_page_reads;
+    full_scan_reads = g_nand->geo.n_blocks * TFS_UTEST_CPB;
+    rc = tfs_core_mount(&g_dev);
+    mount_reads = g_dev.n_page_reads - reads_before;
+    sentinel = tfs_core_find_by_name(&g_dev, g_dev.root_dir,
+                                     "sequence_sentinel");
+    if (rc != TFS_OK || !sentinel ||
+        g_dev.blocks_in_checkpt <= 1 || mount_reads >= full_scan_reads / 2) {
+        failf(cn, "rc=%d is_cp=%d blocks=%u reads=%u full=%u", rc,
+              g_dev.is_checkpointed,
+              (unsigned int)g_dev.blocks_in_checkpt,
+              (unsigned int)mount_reads, (unsigned int)full_scan_reads);
+        fail++;
+    }
+
     teardown_device();
     return fail ? -1 : 0;
 }
@@ -1124,6 +1259,55 @@ static int case_full_scan_reclaims_checkpoint_blocks(void)
     return fail ? -1 : 0;
 }
 
+static int case_rename_checkpoint_authority(void)
+{
+    const char *cn = "rename_checkpoint_authority";
+    tfs_obj_t *obj;
+    int fail = 0;
+    int rc;
+
+    rc = setup_device(TFS_UTEST_BLOCKS, 1, 1);
+    if (rc != TFS_OK) {
+        failf(cn, "setup failed rc=%d", rc);
+        teardown_device();
+        return -1;
+    }
+
+    obj = tfs_create_obj(&g_dev, g_dev.root_dir, "rename_old.bin",
+                         TFS_S_IFREG | 0644, TFS_OBJ_TYPE_FILE);
+    if (!obj) {
+        failf(cn, "create failed");
+        teardown_device();
+        return -1;
+    }
+
+    /* Leave the NAND header stale and commit the new path only in checkpoint. */
+    tfs_obj_remove_child(g_dev.root_dir, obj);
+    tfs_obj_add_child(g_dev.root_dir, obj);
+    tfs_obj_cache_name(obj, "rename_checkpoint.bin");
+    obj->dirty = 1;
+    rc = tfs_checkpt_write(&g_dev);
+    if (rc != TFS_OK) {
+        failf(cn, "checkpoint write failed rc=%d", rc);
+        fail++;
+    } else {
+        simulate_power_cycle_without_sync();
+        rc = tfs_core_mount(&g_dev);
+        obj = tfs_core_find_by_name(&g_dev, g_dev.root_dir,
+                                    "rename_checkpoint.bin");
+        if (rc != TFS_OK || !g_dev.is_checkpointed || !obj ||
+            tfs_core_find_by_name(&g_dev, g_dev.root_dir,
+                                  "rename_old.bin")) {
+            failf(cn, "stale header overrode checkpoint rc=%d is_cp=%d",
+                  rc, g_dev.is_checkpointed);
+            fail++;
+        }
+    }
+
+    teardown_device();
+    return fail ? -1 : 0;
+}
+
 typedef int (*tfs_utest_fn_t)(void);
 
 typedef struct {
@@ -1136,16 +1320,18 @@ static const tfs_utest_case_t g_cases[] = {
     {"inband_tags_persistence", case_inband_tags_persistence},
     {"mkfs_powercycle_generation", case_mkfs_powercycle_generation},
     {"unlink_powercycle_no_resurrect", case_unlink_powercycle_no_resurrect},
-    {"flush_without_close_delta_replay", case_flush_without_close_delta_replay},
+    {"file_flush_powercycle_delta", case_file_flush_powercycle_delta},
     {"closed_download_delta_replay", case_closed_download_delta_replay},
     {"checkpoint_reserve_enospc", case_checkpoint_reserve_enospc},
     {"high_occupancy_unmount_checkpoint", case_high_occupancy_unmount_checkpoint},
     {"high_occupancy_download_delta", case_high_occupancy_download_delta},
     {"checkpoint_anchor_start", case_checkpoint_anchor_start},
+    {"checkpoint_continuation_sequence", case_checkpoint_continuation_sequence},
     {"anchor_publish_failure_keeps_old", case_anchor_publish_failure_keeps_old},
     {"auto_checkpoint_close_batch", case_auto_checkpoint_close_batch},
     {"bad_block_read_failure", case_bad_block_read_failure},
     {"full_scan_reclaims_checkpoint_blocks", case_full_scan_reclaims_checkpoint_blocks},
+    {"rename_checkpoint_authority", case_rename_checkpoint_authority},
 };
 
 static int run_all_cases(void)

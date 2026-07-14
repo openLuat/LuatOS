@@ -11,7 +11,9 @@
 */
 
 #include "luat_audio_data_codec.h"
+#include "luat_audio_define.h"
 #include "luat_audio_driver.h"
+#include "luat_audio_dsp.h"
 #include "luat_audio_request.h"
 #include "luat_base.h"
 #ifdef LUAT_USE_AUDIO_V2
@@ -492,6 +494,9 @@ static int l_cc_extern_source(lua_State *L) {
         LLOGE("cc extern source play failed");
     }
 DONE:
+    if (info) {
+        luat_heap_free(info);
+    }
     lua_pushboolean(L, !result);
     return 1;
 }
@@ -519,7 +524,7 @@ LUAMOD_API int luaopen_cc( lua_State *L ) {
 void luat_cc_start_upload(void)
 {
     _l_cc.upload_enable = 1;
-    _l_cc.cc_request.is_record_end = 0;
+    luat_audio_request_record_pause(&_l_cc.cc_request, 0);
 }
 
 void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, uint32_t play_block_cnt, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t record_callback_cnt_level, uint8_t need_upload, uint8_t true_start)
@@ -536,7 +541,7 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
         LLOGE("CC_EVENT_VOICE_START codec_opts is NULL");
         return;
     }
-    ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)play_buff_byte, one_play_block_len, play_block_cnt, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, NULL);
+    ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)play_buff_byte, one_play_block_len, play_block_cnt, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, luat_audio_dsp_get_opts(LUAT_AUDIO_DSP_DEFAULT_TYPE));
     if (!ret) {
         if (_l_cc.upload_enable) {
             rtos_msg_t msg;
@@ -544,7 +549,7 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
             msg.arg1 = CC_MSG_AUDIO_START;
             luat_msgbus_put(&msg, 0);
         } else {
-            _l_cc.cc_request.is_record_end = 1;
+            luat_audio_request_record_pause(&_l_cc.cc_request, 1);
         }
         _l_cc.is_audio_start = 1;
         LLOGD("CC_EVENT_VOICE_START request speech success, update upload enable %d", _l_cc.upload_enable);
@@ -560,7 +565,7 @@ void luat_cc_play_tone(uint32_t param)
     {
     case LUAT_MOBILE_CC_PLAY_STOP:
         _l_cc.upload_enable = 0;
-        _l_cc.cc_request.is_record_end = 1;
+        luat_audio_request_record_pause(&_l_cc.cc_request, 1);
         _l_cc.tone_data_cnt = 0;
         _l_cc.is_true_start = 0;
 

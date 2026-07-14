@@ -61,8 +61,6 @@ typedef struct netif_cb_ctx {
 void ulwip_dhcp_client_start(ulwip_ctx_t *ctx);
 void ulwip_dhcp_client_stop(ulwip_ctx_t *ctx);
 
-err_t ulwip_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
-
 int ulwip_netif_ip_event(ulwip_ctx_t* ctx);
 
 #ifdef __LUATOS__

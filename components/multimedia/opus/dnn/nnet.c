@@ -33,12 +33,12 @@
 #include <stdlib.h>
 #include <math.h>
 #include "opus_types.h"
-#include "arch.h"
+#include "celt/arch.h"
 #include "nnet.h"
 #include "dred_rdovae_constants.h"
 #include "plc_data.h"
 #include "fargan.h"
-#include "os_support.h"
+#include "celt/os_support.h"
 #include "vec.h"
 
 #ifdef ENABLE_OSCE

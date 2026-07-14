@@ -32,7 +32,7 @@ require 即执行，按以下顺序：
 -- ==================== 编译清单（编译系统静态分析，运行时无害） ====================
 -- 新增驱动或配置文件时在此加一行，编译系统会自动打包对应 .lua 文件
 
--- 所有配置文件（pcall 保证缺失不崩溃，正编固件会全部打包）
+-- 所有配置文件
 require ("eng_8000w_4i_v0")   -- Air8000W 4寸
 require ("eng_1602_5i_v2")    -- Air1602 5寸 V002
 require ("eng_1602_5i_v3")    -- Air1602 5寸 V003 (NAND)
@@ -42,8 +42,9 @@ require ("eng_1602_7i_v4")    -- Air1602 7寸 V004 (NAND)
 require ("eng_1602_10i_v0")   -- Air1602 10.1寸
 require ("eng_1602_9i_v09421")     -- Air1602 9寸 AirLCD_1090
 require ("eng_1602_10i_v10421")    -- Air1602 10寸 AirLCD_1100
-require ("evb_8101b_5i_v1")    -- Air8101 EVB 5寸 (800x480)
+require ("evb_8101b_5i_v1")    -- Air8101 EVB 5寸 (ST7701S 480x854, V010)
 require ("evb_8101_5i_v0")     -- Air8101 EVB 5寸 (AirLCD_1020, H050IWV 800x480)
+require ("evb_8101b_5i_v2")    -- Air8101B EVB 5寸 (GC9503 480x854, V020)
 require ("evb_8101_9i_v0")     -- Air8101 EVB 9寸 (AirLCD_1090)
 require ("evb_8101_10i_v0")    -- Air8101 EVB 10.1寸 (AirLCD_1100)
 require ("evb_8000a_3i5_v0")  -- Air8000A trunkey 3.5寸
@@ -56,7 +57,8 @@ require ("lcd_st7796")        -- SPI ST7796 (3.5/4寸 320×480)
 require ("lcd_nv3052c_5in")   -- RGB NV3052C (5寸 720×1280)
 require ("lcd_st7701s_5in")   -- RGB ST7701S (5寸 480×854)
 require ("lcd_h050iwv_5in")   -- RGB H050IWV (5寸 800×480)
-require ("lcd_hx8282_10in")   -- RGB HX8282 (7/10.1寸 1024×600 通用)
+require ("lcd_hx8282_10in")   -- RGB HX8282 (5/7/9/10.1寸 1024×600 通用)
+require ("lcd_gc9503_5in")    -- RGB GC9503   (5寸 480×854)
 
 -- TP 驱动（统一用 GT911，仅引脚参数不同）
 require ("tp_gt911")
@@ -93,15 +95,16 @@ local PROJECT_MAP = {
     ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",
     ["EVB_Air8101_AirLCD_1100_000_V020"]            = "evb_8101_10i_v0",
     ["EVB_Air8000A_3inch5_480x320_000_V020"]       = "evb_8000a_3i5_v0",
-    -- 以下映射已预留，配置文件待实现
     ["EVB_Air1601_10inch1_1024x600_000_V011"]   = "evb_1601_10i_v11",
     ["EVB_Air1601_7inch_1024x600_000_V011"]     = "evb_1601_7i_v11",
+    ["EVB_Air8101B_5inch_480x854_000_V010"]        = "evb_8101b_5i_v1",
+    ["EVB_Air8101B_5inch_480x854_000_V020"]        = "evb_8101b_5i_v2",
+    -- 以下映射已预留，配置文件待实现
     -- ["EVB_Air1601_5inch_800x480_000_V011"]      = "evb_1601_5i_v11",
     -- ["EVB_Air780EGG_3inch5_480x320_000_V014"]   = "evb_780eg_35i_v14",
     -- ["EVB_Air780EHV_3inch5_480x320_000_V014"]   = "evb_780ehv_35i_v14",
     -- ["EVB_Air780EHU_3inch5_480x320_000_V014"]   = "evb_780ehu_35i_v14",
     -- ["EVB_Air780EHM_3inch5_480x320_000_V014"]   = "evb_780ehm_35i_v14",
-    ["EVB_Air8101B_5inch_480x854_000_V010"]        = "evb_8101b_5i_v1",
     -- ["EVB_Air8101B_5inch_480x854_000_V010_b"] = "evb_8101b_5i_v1b",
     -- Core 核心板系列（待实现）
     -- ["Core_Air780EGG_3inch5_480x320_000_V020"]  = "cor_780eg_35i_v2",

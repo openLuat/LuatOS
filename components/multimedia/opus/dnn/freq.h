@@ -27,7 +27,7 @@
 #ifndef FREQ_H
 #define FREQ_H
 
-#include "kiss_fft.h"
+#include "celt/kiss_fft.h"
 
 #define LPC_ORDER 16
 

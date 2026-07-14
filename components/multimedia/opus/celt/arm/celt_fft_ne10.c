@@ -37,9 +37,9 @@
 #endif
 
 #include <NE10_dsp.h>
-#include "os_support.h"
-#include "kiss_fft.h"
-#include "stack_alloc.h"
+#include "celt/os_support.h"
+#include "celt/kiss_fft.h"
+#include "celt/stack_alloc.h"
 
 #if !defined(FIXED_POINT)
 # define NE10_FFT_ALLOC_C2C_TYPE_NEON ne10_fft_alloc_c2c_float32_neon

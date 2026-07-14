@@ -66,6 +66,7 @@ local current_scan_results = {}
 
 local scanning_indicator = nil
 local scan_refresh_btn = nil
+local is_connecting = false  -- 标记当前是否在主动连接中
 
 local function show_scanning()
     if scan_refresh_btn then scan_refresh_btn:hide() end
@@ -478,11 +479,13 @@ end
 
 local function on_connecting(sid)
     log.info("wifi_list", "正在连接:", sid)
+    is_connecting = true
     if connecting_container then connecting_container:open() end
 end
 
 local function on_connected(sid)
     log.info("wifi_list", "连接成功:", sid)
+    is_connecting = false
     if connecting_container then connecting_container:hide() end
     -- 立即更新本地状态，确保列表刷新时能正确匹配已连接的SSID
     if wifi_status then
@@ -490,6 +493,8 @@ local function on_connected(sid)
         wifi_status.ready = false
         wifi_status.current_ssid = sid
     end
+    -- 重新获取已保存列表刷新状态
+    sys.publish("WIFI_GET_SAVED_LIST_REQ")
     update_saved_list()
     update_wifi_list(current_scan_results)
     airui.msgbox({ text = "WiFi已连接，正在获取IP...", buttons = { "确定" }, timeout = 3000, on_action = function(s) s:destroy() end })
@@ -497,6 +502,8 @@ end
 
 local function on_disconnected(scan_results, code)
     log.error("wifi_list", "连接失败:", scan_results, code)
+    -- 连接进行中时，exnetif 切换通道会触发断连，此时不弹窗不显示失败
+    if is_connecting then return end
     if connecting_container then connecting_container:hide() end
     airui.msgbox({ text = "WiFi 连接失败: " .. scan_results, buttons = { "确定" }, timeout = 3000, on_action = function(s) s:destroy() end })
     update_saved_list()
@@ -536,9 +543,8 @@ local function on_config_rsp(data)
     if switch_container then switch_container:open() end
     if wifi_status then on_status_update(wifi_status) end
     update_saved_list()
-    if wifi_config and wifi_config.wifi_enabled then
-        sys.publish("WIFI_SCAN_REQ")
-    end
+    -- 不在此处自动触发扫描：扫描由用户开关WiFi或点击"刷新"触发
+    -- 避免 connect_win 请求配置时导致重复扫描
 end
 
 local function on_create()
@@ -580,6 +586,7 @@ local function on_destroy()
     wifi_config = nil
     wifi_status = nil
     window_id = nil
+    is_connecting = false
     saved_network_list = {}
     saved_network_items = {}
     current_scan_results = {}
@@ -589,9 +596,9 @@ end
 
 local function on_get_focus()
     sys.publish("WIFI_GET_STATUS_REQ")
-    if wifi_config and wifi_config.wifi_enabled then
-        sys.publish("WIFI_SCAN_REQ")
-    end
+    -- 回到WiFi列表窗口时不自动扫描：用户可能在连接窗口中输入密码，
+    -- 自动扫描会导致 "luatos" 断开事件触发连接失败的假提示。
+    -- 用户可通过"刷新"按钮或关闭再打开WiFi开关来手动触发扫描。
 end
 
 local function on_lose_focus() end

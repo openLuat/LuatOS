@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exgnss
 @summary exgnss扩展库
 @version 1.0

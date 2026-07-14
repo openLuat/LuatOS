@@ -8,7 +8,7 @@
  */
 
 
-#include "sm4_lcl.h"
+#include <gmssl/sm4_lcl.h>
 
 
 const uint8_t SM4_S[256] = {

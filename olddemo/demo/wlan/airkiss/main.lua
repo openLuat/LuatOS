@@ -52,7 +52,6 @@ sys.taskInit(function()
     -- 以下是smartconfig之 esptouch 配网
     -- 配网APP请搜索 esptouch , 当前最新版2.3.0
     -- 配网时选用 esptouch, 虽然esptouch V2也是支持的,但 esptouch兼容性比较好
-    -- ESP32C3仅支持2.4G的wifi, 5G wifi是不支持的
     -- 配网时, 手机应靠近模块, 以便更快配网成功
     while 1 do
         -- 启动配网, 默认是esptouch模式,这里改成AIRKISS

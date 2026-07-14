@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module libfota2
 @summary fota升级v2
 @version 1.1

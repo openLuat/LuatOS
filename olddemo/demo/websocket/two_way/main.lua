@@ -24,13 +24,6 @@ sys.taskInit(function()
         socket.sntp()
         log.info("wlan", "IP_READY", result, data)
         device_id = wlan.getMac()
-    elseif rtos.bsp() == "AIR105" then
-        w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
-        w5500.config() --默认是DHCP模式
-        w5500.bind(socket.ETH0)
-        -- LED = gpio.setup(62, 0, gpio.PULLUP)
-        sys.wait(1000)
-        -- TODO 获取mac地址作为device_id
     elseif mobile then
         --mobile.simid(2)
         -- LED = gpio.setup(27, 0, gpio.PULLUP)

@@ -395,6 +395,7 @@ static void voip_do_tx(voip_ctx_t *ctx, const int16_t *mic_pcm)
     const int16_t *tx_pcm;
 
     if (!mic_pcm) {
+        LLOGE("voip_do_tx: mic_pcm is NULL, aborting");
         return;
     }
 
@@ -406,7 +407,7 @@ static void voip_do_tx(voip_ctx_t *ctx, const int16_t *mic_pcm)
     uint32_t out_len = 0;
     uint32_t used = 0;
     int ret = LUAT_ERROR_NONE;
-    ret = ctx->codec_encoder.opts->encode(&ctx->codec_encoder,  (const uint8_t *)pcm,  ctx->frame_samples, ctx->tx_g711_buf, &used, &out_len);
+    ret = ctx->codec_encoder.opts->encode(&ctx->codec_encoder,  (const uint8_t *)pcm,  ctx->frame_bytes, ctx->tx_g711_buf, &used, &out_len);
     if (ret != LUAT_ERROR_NONE || out_len == 0) {
         LLOGW("encode failed ret=%d used=%u out_len=%u", ret, used, out_len);
         return;
@@ -603,6 +604,11 @@ static void voip_stop_audio(voip_ctx_t *ctx)
         return;
     }
 
+    /* 先清空播放缓冲区，避免挂断后播放残留数据产生噪音 */
+    if (ctx->duplex_play_buf) {
+        memset(ctx->duplex_play_buf, 0, ctx->frame_bytes * ctx->play_slot_count);
+    }
+
     luat_audio_record_stop(ctx->config.multimedia_id);
 
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
@@ -691,6 +697,9 @@ static int voip_session_start(voip_ctx_t *ctx)
     uint32_t sample_rate = ctx->config.sample_rate ? ctx->config.sample_rate : VOIP_SAMPLE_RATE_DEFAULT;
 
     voip_reset_session_state(ctx);
+#ifdef __WIN32__
+    ctx->trace_on = 1;  /* PC 模拟器调试：开启 RTP 数据包跟踪 */
+#endif
     ctx->frame_samples = (uint16_t)(sample_rate * ptime / 1000);
     ctx->frame_bytes = ctx->frame_samples * 2;
     LLOGE("voip config: remote=%s:%d codec=%d ptime=%d",

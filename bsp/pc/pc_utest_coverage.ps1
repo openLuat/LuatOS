@@ -21,22 +21,23 @@ $commonScripts = "..\..\testcase\common\scripts"
 
 if (-not [string]::IsNullOrWhiteSpace($Suite)) {
     $suiteName = $Suite
-    # 套件可能位于 testcase/utest/{net,lib,sys}/<Suite>/scripts (C 层 utest 套件,2026-06 起的新位置)
-    # 或位于 testcase/unit_testcase_tools/<Suite>/scripts (尚未迁移的其它套件,如 pgfs_basic)
+    # 套件可能位于 testcase/utest/{net,lib,sys}/<Suite>/scripts (C 层 utest 套件)
+    # 或位于 testcase/unit/<domain>/<Suite>/scripts、testcase/func/<domain>/<Suite>/scripts (普通 Lua 测试套件)
     $candidateRoots = @(
         "..\..\testcase\utest",
-        "..\..\testcase\unit_testcase_tools"
+        "..\..\testcase\unit",
+        "..\..\testcase\func"
     )
     $found = @()
     foreach ($root in $candidateRoots) {
         $rootAbs = Join-Path $pcDir $root
         if (-not (Test-Path $rootAbs)) { continue }
-        Get-ChildItem -Path $rootAbs -Directory -Recurse -Depth 1 -ErrorAction SilentlyContinue |
+        Get-ChildItem -Path $rootAbs -Directory -Recurse -Depth 2 -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -eq $Suite -and (Test-Path (Join-Path $_.FullName "scripts")) } |
             ForEach-Object { $found += $_.FullName }
     }
     if ($found.Count -eq 0) {
-        throw "Suite '$Suite' not found under testcase/utest/* or testcase/unit_testcase_tools/."
+        throw "Suite '$Suite' not found under testcase/utest/*, testcase/unit/* or testcase/func/*."
     }
     if ($found.Count -gt 1) {
         throw "Suite '$Suite' is ambiguous, matched: $($found -join '; ')"

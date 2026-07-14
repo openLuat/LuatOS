@@ -354,16 +354,51 @@ target("luatos-lua")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_nb.c")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_wb.c")
 
+    -- audio_dsp（SpeexDSP 适配层，可选外部组件）
+    -- 源码位于 luatos-ext-components/audio_dsp，与 vedio_player 类似按需集成。
+    -- 环境变量 LUAT_USE_AUDIO_DSP=y 强制启用，=n 强制禁用；未设置时按目录存在性自动检测。
+    local use_audio_dsp = false
+    local audio_dsp_src = luatos_ext_root .. "/audio_dsp"
+    if os.isdir(audio_dsp_src) then
+        local env_audio_dsp = os.getenv("LUAT_USE_AUDIO_DSP")
+        if env_audio_dsp ~= "n" then
+            use_audio_dsp = true
+        end
+    elseif os.getenv("LUAT_USE_AUDIO_DSP") == "y" then
+        print("Warning: LUAT_USE_AUDIO_DSP=y but audio_dsp not found at: " .. audio_dsp_src)
+    end
+
+    if use_audio_dsp then
+        add_defines("LUAT_USE_AUDIO_DSP=1")
+        add_defines("FIXED_POINT")
+        audio_dsp_src = audio_dsp_src:gsub("\\", "/")
+        audio_dsp_src = audio_dsp_src:gsub("/$", "")
+
+        add_includedirs(audio_dsp_src .. "/include")
+        add_includedirs(audio_dsp_src .. "/speexdsp/include")
+        add_files(audio_dsp_src .. "/port/*.c")
+        add_thirdparty_files(audio_dsp_src .. "/speexdsp/src/*.c")
+    end
+
+    -- camera（PC 模拟器摄像头支持；Windows 下走 Media Foundation，其他平台空实现）
+    add_includedirs(luatos.."components/camera")
+    add_includedirs(luatos.."components/lcd")   -- luat_camera.h 需要 luat_lcd_conf_t
+    add_files(luatos.."components/camera/luat_camera.c")
+    add_files(luatos.."components/camera/luat_lib_camera.c")
+    if is_host("windows") then
+        add_links("Mf", "mfplat", "mfreadwrite", "mfuuid", "windowscodecs", "ole32", "oleaut32")
+    end
+
+    -- voip
+    add_includedirs(luatos.."components/voip/include")
+    add_files(luatos.."components/voip/src/*.c")
+    add_files(luatos.."components/voip/binding/*.c")
+
     -- opus
+    -- 只暴露 opus 根目录和公共 API 目录，避免 celt/silk/src 等内部短文件名头文件全局冲突
     add_defines("OPUS_ARM_ASM","USE_ALLOCA","FIXED_POINT=1","OPUS_BUILD=1")
     add_includedirs(luatos.."/components/multimedia/opus",
-                    luatos.."/components/multimedia/opus/include",
-                    luatos.."/components/multimedia/opus/src",
-                    luatos.."/components/multimedia/opus/celt",
-                    luatos.."/components/multimedia/opus/celt/arm",
-                    luatos.."/components/multimedia/opus/silk",
-                    luatos.."/components/multimedia/opus/silk/arm",
-                    luatos.."/components/multimedia/opus/silk/fixed"
+                    luatos.."/components/multimedia/opus/include"
                     )
     add_thirdparty_files(  luatos.."/components/multimedia/opus/celt/*.c|opus_custom_demo.c",
                 luatos.."/components/multimedia/opus/celt/arm/armcpu.c",
@@ -382,6 +417,10 @@ target("luatos-lua")
     add_includedirs(luatos .. "components/ethernet/common", {public = true})
     add_files(luatos .. "components/network/adapter/*.c")
 
+    -- rtp
+    add_includedirs(luatos.."components/network/rtp",{public = true})
+    add_files(luatos.."components/network/rtp/*.c")
+
     -- 网络上层协议
     -- http_parser
     add_includedirs(luatos.."components/network/http_parser",{public = true})
@@ -398,6 +437,12 @@ target("luatos-lua")
     -- websocket
     add_includedirs(luatos.."components/network/websocket",{public = true})
     add_files(luatos.."components/network/websocket/*.c")
+
+    -- rtmp
+    add_defines("LUAT_USE_RTMP=1")
+    add_includedirs(luatos.."components/rtmp/include",{public = true})
+    add_files(luatos.."components/rtmp/src/*.c")
+    add_files(luatos.."components/rtmp/binding/*.c")
 
     -- sntp
     add_includedirs(luatos.."components/network/libsntp",{public = true})
@@ -537,6 +582,7 @@ target("luatos-lua")
         add_includedirs(luatos .. "components/wlan")
         add_files(luatos .. "components/wlan/luat_lib_wlan.c")
         add_files("port/driver/luat_wlan_pc.c")
+        add_files("port/driver/luat_audio_compat.c")
         if os.getenv("LUAT_USE_WLAN_NATIVE") == "y" then
             add_defines("LUAT_USE_WLAN_NATIVE")
             if is_plat("windows") then
@@ -564,6 +610,10 @@ target("luatos-lua")
     add_files(luatos.."components/gbc/port/gbc_luatos_port.c")
     add_files(luatos.."components/gbc/port/gbc_airui_video.c")
     add_files(luatos.."components/gbc/luat_lib_gbc.c")
+
+    -- 关联编译lora2库
+    add_includedirs(luatos.."components/lora2")
+    add_files(luatos.."components/lora2/**.c")
 
     if use_gui then
         add_packages("libsdl2")

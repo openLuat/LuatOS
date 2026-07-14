@@ -11,7 +11,7 @@ Production library files only keep thin Lua export bridges; real test logic stay
 
 C-layer utest(`<lib>.utest("case")`)**仅在 PC 模拟器执行**,芯片侧 BSP 不开放 `LUAT_USE_UTEST`——所以真机上 `<lib>.utest` 这个 Lua 函数根本不存在。
 
-真机回归不通过 `<lib>.utest()` 入口。真机走的是 **production API + 运行时控制 API 注入**——比如 pgfs 真机回归用 `io.open/fs.fsstat/lf.mount` 这些产品 API + `lf.pgfsctl("powercut_stage"/"bad_block_once"/"reset_runtime")` 等控制 API 做故障注入。完整模式见 `testcase/air1601_pgfs_regression_basic/` 和 `/luatos-hw-test` skill。
+真机回归不通过 `<lib>.utest()` 入口。真机走的是 **production API + 运行时控制 API 注入**——比如 pgfs 真机回归用 `io.open/fs.fsstat/lf.mount` 这些产品 API + `lf.pgfsctl("powercut_stage"/"bad_block_once"/"reset_runtime")` 等控制 API 做故障注入。完整模式见 `testcase/platform/air1601/pgfs_regression/air1601_pgfs_regression_basic/` 和 `/luatos-hw-test` skill。
 
 推论:在 C-utest 里写"只有真机才能复现"的逻辑(真 SPI 时序、真 NAND 信号完整性、wdt 行为)没意义——该走真机回归。C-utest 适合写**确定性的、可重复的、依赖快速跑成千上万次的**契约/边界/单元测试,这正是 PC 模拟器擅长的。
 
@@ -48,9 +48,9 @@ C-layer utest(`<lib>.utest("case")`)**仅在 PC 模拟器执行**,芯片侧 BSP 
 ## TESTCASE PATTERN
 
 - Place Lua runner cases in:
-  - `testcase/unit_testcase_tools/<suite>/scripts/`
+  - `testcase/utest/<group>/<suite>/scripts/` (C-layer utest suites)
 - Typical launch:
-  - `build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\unit_testcase_tools\<suite>\scripts\`
+  - `build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\utest\net\dtls_basic\scripts\`
 - PC scripts should still obey normal testcase framework rules (including explicit exit behavior when not handled by testrunner).
 
 ## COVERAGE (OpenCppCoverage)
@@ -66,7 +66,7 @@ C-layer utest(`<lib>.utest("case")`)**仅在 PC 模拟器执行**,芯片侧 BSP 
 - Requires installed executable:
   - `C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe`
 - The helper trims a trailing `\` from `-TestcaseScripts` automatically and derives `build\coverage\<suite>\`.
-- `-Suite <name>` resolves under `testcase/utest/{net,lib,sys}/<name>/scripts` (C-layer utest suites) or `testcase/unit_testcase_tools/<name>/scripts` (other not-yet-migrated suites)
+- `-Suite <name>` resolves under `testcase/utest/{net,lib,sys}/<name>/scripts` (C-layer utest suites). Suites that were previously under `testcase/unit_testcase_tools/` have been migrated into `testcase/utest/`, `testcase/unit/` or `testcase/func/` as appropriate.
 - Network-facing suites currently cover:
   - `socket.utest("dtls_loopback_psk")` via `net/dtls_basic`
   - `socket.utest("dtls_loopback_cert")` via `net/dtls_basic` (one-way cert, client uses CA to verify server)

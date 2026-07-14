@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module xmodem
 @summary xmodem 协议
 @version 1.0

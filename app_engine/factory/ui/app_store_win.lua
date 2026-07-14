@@ -1165,9 +1165,15 @@ local function on_create()
     sys.timerStart(function()
         sys.publish("APP_STORE_GET_LIST", current_category, current_sort, current_page, page_limit, current_query)
     end, 200)
-    -- 网络未就绪时等IP_READY后再重试
+    -- 网络未就绪时等IP_READY后再重试（先检查是否已有IP，避免无效等待）
     sys.taskInit(function()
-        local ok = sys.waitUntil("IP_READY", 30000)
+        -- 已有 IP 则直接发请求
+        if socket.localIP() then
+            sys.publish("APP_STORE_GET_LIST", current_category, current_sort, current_page, page_limit, current_query)
+            return
+        end
+        -- 否则等待 IP_READY，超时缩减到 10s
+        local ok = sys.waitUntil("IP_READY", 10000)
         if ok then
             sys.publish("APP_STORE_GET_LIST", current_category, current_sort, current_page, page_limit, current_query)
         end

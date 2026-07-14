@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @summary exvib1扩展库
 @version 1.0
 @date    2025.09.07

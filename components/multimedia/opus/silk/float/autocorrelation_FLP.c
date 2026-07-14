@@ -29,7 +29,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "config.h"
 #endif
 
-#include "typedef.h"
+#include "silk/typedef.h"
 #include "SigProc_FLP.h"
 
 /* compute autocorrelation */

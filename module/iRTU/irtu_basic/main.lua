@@ -38,16 +38,32 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
 end
 
--- 检查是否为RFA模式，先检查配置文件，再检查fskv配置，如果都未找到，则默认为iRTU模式
-if rfa then
-    isRFA_mode = rfa.getRFAOnStatus()
+-- 检查是否为RFA模式, 用mobile.rfTestParam接口是否存在来判断当前固件是否支持RFA模式
+if rfa and mobile.rfTestParam then
+    -- 通过自发送 AT+ECNPICFG? 查询 rfCaliDone 和 rfNSTDone
+    -- 两者都为1表示RFA校准流程全部通过，不进入RFA模式；否则进入RFA校准模式
+    local resp = rfa.dispatch("AT+ECNPICFG?")
+    local rfCaliDone, rfNSTDone = 0, 0
+    if resp then
+        rfCaliDone, rfNSTDone = resp:match('"rfCaliDone":(%d+),"rfNSTDone":(%d+)')
+    end
+    rfCaliDone = tonumber(rfCaliDone) or 0
+    rfNSTDone = tonumber(rfNSTDone) or 0
+    log.info("main", "rfCaliDone", rfCaliDone, "rfNSTDone", rfNSTDone)
+    if rfCaliDone == 1 and rfNSTDone == 1 then
+        isRFA_mode = false
+        log.info("main", "进入iRTU模式")
+    else
+        isRFA_mode = true
+        log.info("main", "RFA校准未完成，进入RFA校准模式")
+    end
 else
     log.info("main", "rfa模块未加载，默认iRTU模式")
 end
 
 -- 用户代码已开始---------------------------------------------
 -- 在这里编写你的代码
-if rfa and isRFA_mode then
+if rfa and mobile.rfTestParam and isRFA_mode then
     log.info("main", "当前为RFA模式")
     -- 启动 RFA AT 服务器，绑定到 USB 虚拟串口 VUART_0
     -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致

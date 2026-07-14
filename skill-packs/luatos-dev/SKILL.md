@@ -192,15 +192,28 @@ adc, airlink, airui, audio, bit64, ble, camera, can, cc, codec, crypto, eink, er
 ```
 testcase/
 ├── common/scripts/    # testrunner.lua, testsuite.lua
-├── unit_testcase_tools/
-├── unit_testcase_driver/
-├── function_testcase_network/
-└── memprof/
+├── utest/             # C 层 xxx.utest() 套件
+├── unit/              # Lua 单元测试(按功能域分组)
+│   ├── driver/
+│   ├── fs/
+│   ├── crypto/
+│   ├── net/
+│   └── ...
+├── func/              # 功能/集成测试
+│   ├── network/
+│   ├── airlink/
+│   ├── appstore/
+│   └── eink/
+├── platform/          # 平台/芯片专属测试
+│   └── air1601/
+├── ndk/               # NDK 通用回归套件
+└── tools/             # 独立工具/分析测试
+    └── memprof/
 ```
 
-运行: `build/out/luatos-lua.exe ../../testcase/common/scripts/ ../../testcase/<feature>/<feature>_basic/scripts/`
+运行: `build/out/luatos-lua.exe ../../testcase/common/scripts/ ../../testcase/<type>/<domain>/<feature>/scripts/`
 
-创建测试: `metas.json` + `main.lua` + `<feature>_test.lua` (函数名 `test_` 开头)
+创建测试: 先按类型选父目录(`unit/func/platform/utest`),再加 `metas.json` + `main.lua` + `<feature>_test.lua` (函数名 `test_` 开头)
 
 ---
 

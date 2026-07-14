@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module dhcam
 @summary 大华摄像头功能模块，为exremotecam主模块提供大华摄像头的具体实现
 @version 1.0

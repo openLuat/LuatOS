@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exfotawifi
 @summary 用于Air8000/8000A/8000W型号模组自动升级WIFI
 @version 1.0.4

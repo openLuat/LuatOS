@@ -206,7 +206,7 @@ static int l_mcu_hw_diff_tick64(lua_State* L) {
 }
 
 /*
-选择时钟源,当前仅air105支持
+选择时钟源,当前无模组支持
 @api mcu.setXTAL(source_main, source_32k, delay)
 @boolean 高速时钟是否使用外部时钟源,如果为空则不改变
 @boolean 低速32K是否使用外部时钟源,如果为空则不改变

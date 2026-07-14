@@ -29,8 +29,8 @@
 #define NNET_ARCH_H
 
 #include "nnet.h"
-#include "arch.h"
-#include "os_support.h"
+#include "celt/arch.h"
+#include "celt/os_support.h"
 #include "vec.h"
 
 #define CAT_SUFFIX2(a,b) a ## b

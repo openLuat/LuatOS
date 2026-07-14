@@ -2,15 +2,16 @@
 
 ## 项目概述
 
-本项目是基于 Air780EHV 的语音通信演示demo，实现了三种语音通话应用场景（三选一）：基础通话功能模块、TTS循环播放与通话处理功能模块、以及通话录音功能模块。
+本项目是基于 Air780EHV 的语音通信演示demo，实现了四种语音通话应用场景（四选一）：基础通话功能模块、TTS循环播放与通话处理功能模块、通话录音功能模块、以及通话中播放外部音频功能模块。
 
 ## 文件结构
 
-- main.lua: 主程序入口，支持二选一演示模式
+- main.lua: 主程序入口，支持四选一演示模式
 - audio_drv.lua: 管理音频设备初始化与控制
 - cc_app.lua: 实现基础通话业务逻辑以及通话录音
 - cc_tts_app.lua: 实现TTS循环播放与通话业务逻辑
 - cc_record_save.lua: 通话录音功能模块，仅支持SD卡存储
+- play_audio_during_cc.lua: 通话中播放外部音频（文件/TTS）模块
 
 ## 功能模块说明
 
@@ -149,9 +150,10 @@
 3、根据需求配置演示功能：
 
    - 编辑main.lua文件，选择需要演示的功能
-   - 功能一（基础通话功能模块）：取消注释 `require "cc_app"`，注释掉 `require "cc_tts_app"` 和 `require "cc_record_save"`
-   - 功能二（TTS循环播放与通话处理功能模块）：注释掉 `require "cc_app"`，取消注释 `require "cc_tts_app"`，注释掉 `require "cc_record_save"`
-   - 功能三（通话录音功能模块）：注释掉 `require "cc_app"` 和 `require "cc_tts_app"`，取消注释 `require "cc_record_save"`
+   - 功能一（基础通话功能模块）：取消注释 `require "cc_app"`，注释掉 `require "cc_tts_app"`、`require "cc_record_save"` 和 `require "play_audio_during_cc"`
+   - 功能二（TTS循环播放与通话处理功能模块）：注释掉 `require "cc_app"`，取消注释 `require "cc_tts_app"`，注释掉 `require "cc_record_save"` 和 `require "play_audio_during_cc"`
+   - 功能三（通话录音功能模块）：注释掉 `require "cc_app"` 和 `require "cc_tts_app"`，取消注释 `require "cc_record_save"`，注释掉 `require "play_audio_during_cc"`
+   - 功能四（通话中播放外部音频功能模块）：注释掉 `require "cc_app"`、`require "cc_tts_app"` 和 `require "cc_record_save"`，取消注释 `require "play_audio_during_cc"`
 
 4、功能一场景四需要修改测试号码：
 
@@ -347,6 +349,78 @@ I/user.录音文件 SD卡挂载失败，录音功能不可用
 I/user.录音文件 无法创建录音文件，请插入SD卡
 ```
 
+### 功能四：通话中播放外部音频（play_audio_during_cc.lua）
+
+1. **模块功能概述**：
+   - 来电自动接听（响2声后自动接听）或主动拨出，由宏IS_DIAL控制
+   - 通话接通后播放音频文件或TTS给对方
+   - 本demo使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
+
+2. **功能说明**：
+   - 支持两种通话模式：呼入自动接听和主动拨出
+   - 支持两种播放方式：音频文件（MP3/AMR）和TTS文本
+   - 文件采样率由框架自动校验，不匹配静默失败
+
+3. **使用方式**：
+   - 编辑play_audio_during_cc.lua，配置IS_DIAL（true=拨出/false=接听）、DIAL_NUMBER（拨出号码）、PLAY_SOURCE（播放内容）
+   - 文件播放：PLAY_SOURCE = {"/luadb/test_16k.mp3"}，注意单个文件也要用table
+   - TTS播放：PLAY_SOURCE = "你好，测试一下"
+
+#### 呼入自动播放音频
+
+设备启动后初始化通话系统，当有来电时自动接听并播放音频，播放完成后通话继续，对方挂断后通话结束。
+
+类似以下日志：
+
+``` lua
+I/user.cc_extern_source_demo 通话外部音频播放模块加载完成
+I/user.audio_drv 使用exaudio.setup初始化音频设备
+I/user.audio_drv exaudio.setup初始化成功
+I/user.CC状态 READY
+I/user.cc_extern_source_demo 来电接听模式
+I/user.cc_extern_source_demo 播放源: FILE
+I/user.cc_extern_source_demo 电话系统初始化完成
+I/user.CC状态 INCOMINGCALL
+I/user.extern_demo 收到来电，号码: 157XXXXXXXX 响铃次数: 1
+I/user.CC状态 INCOMINGCALL
+I/user.extern_demo 收到来电，号码: 157XXXXXXXX 响铃次数: 2
+I/user.extern_demo 自动接听来电
+I/user.CC状态 SPEECH_START
+I/user.extern_demo 通话已建立
+I/user.CC状态 AUDIO_START
+I/user.extern_demo 通话质量: 2 (1=8K低音质, 2=16K高音质)
+I/user.extern_demo 开始播放文件: /luadb/test_16k.mp3
+I/user.CC状态 EXT_SRC_DONE
+I/user.CC状态 DISCONNECTED
+I/user.extern_demo 通话结束
+```
+
+#### 主动拨出播放音频
+
+设备启动后初始化通话系统，自动拨打预设号码，对方接通后播放音频，播放完成后通话继续。
+
+类似以下日志：
+
+``` lua
+I/user.cc_extern_source_demo 通话外部音频播放模块加载完成
+I/user.audio_drv 使用exaudio.setup初始化音频设备
+I/user.audio_drv exaudio.setup初始化成功
+I/user.CC状态 READY
+I/user.cc_extern_source_demo 主动拨号模式
+I/user.cc_extern_source_demo 播放源: TTS
+I/user.cc_extern_source_demo 电话系统初始化完成
+I/user.extern_demo 开始拨号: 10000
+I/user.CC状态 MAKE_CALL_OK
+I/user.extern_demo 拨号请求成功
+I/user.CC状态 SPEECH_START
+I/user.extern_demo 通话已建立
+I/user.CC状态 AUDIO_START
+I/user.extern_demo 通话质量: 2 (1=8K低音质, 2=16K高音质)
+I/user.extern_demo 开始播放TTS: 你好，测试一下
+I/user.CC状态 EXT_SRC_DONE
+I/user.CC状态 DISCONNECTED
+I/user.extern_demo 通话结束
+```
 
 ## **异常处理**
 

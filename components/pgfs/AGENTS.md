@@ -257,7 +257,7 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
 
 | 维度 | PC 验证(主战场) | 真机验证 |
 |---|---|---|
-| 套件 | `pgfs_basic`(17+ C-utest 用例) + `pgfs_regression_basic`(11 Lua 用例) | `air1601_pgfs_regression_basic`(8 Lua 用例) |
+| 套件 | `utest/fs/pgfs_basic`(17+ C-utest 用例) + `unit/fs/pgfs_regression/pgfs_regression_basic`(11 Lua 用例) | `platform/air1601/pgfs_regression/air1601_pgfs_regression_basic`(8 Lua 用例) |
 | 覆盖范围 | FTL/GC/recovery/contract/powercut 矩阵的**全部** | NOR/NAND mount + IO 不崩 + `lf.pgfsctl` 控制 API 不崩 |
 | 跑法 | `LUAT_USE_UTEST=y` env + `pc_utest_coverage.ps1 -Suite pgfs_basic` | `luatos-cli flash test`,见 `/luatos-hw-test` skill |
 | 入口 | `pgfs.utest("case")` | production API + `lf.pgfsctl(...)` 注入 |

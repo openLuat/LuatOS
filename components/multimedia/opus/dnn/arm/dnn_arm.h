@@ -28,7 +28,7 @@
 #ifndef DNN_ARM_H
 #define DNN_ARM_H
 
-#include "cpu_support.h"
+#include "celt/cpu_support.h"
 #include "opus_types.h"
 
 void compute_linear_dotprod(const LinearLayer *linear, float *out, const float *in);

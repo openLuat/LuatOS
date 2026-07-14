@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @summary exril_5101扩展库
 @version 1.7
 @date    2026.4.16

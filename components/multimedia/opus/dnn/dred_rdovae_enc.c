@@ -33,7 +33,7 @@
 
 
 #include "dred_rdovae_enc.h"
-#include "os_support.h"
+#include "celt/os_support.h"
 #include "dred_rdovae_constants.h"
 
 static void conv1_cond_init(float *mem, int len, int dilation, int *init)

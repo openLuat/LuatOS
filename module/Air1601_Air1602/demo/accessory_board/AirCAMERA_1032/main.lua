@@ -45,7 +45,7 @@ require "tp_drv"
 -- 以下三个业务模块只能选一个打开，不能同时打开 ---------------------
 
 -- 1、加载摄像头预览应用模块（AIRUI组件方式：画面嵌入组件树，按钮与画面共存）
-require "preview"
+ require "preview"
 
 -- 2、加载拍照+LCD显示+UART上传应用模块
 -- require "photo_uart_post"

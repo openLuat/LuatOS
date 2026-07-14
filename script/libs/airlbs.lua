@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module airlbs
 @summary airlbs 定位服务(收费服务，需自行联系销售申请)
 @version 1.0

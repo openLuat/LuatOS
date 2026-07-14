@@ -35,4 +35,4 @@
 
 #define RTCD_ARCH neon
 
-#include "nnet_arch.h"
+#include "dnn/nnet_arch.h"

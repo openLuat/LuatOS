@@ -21,8 +21,9 @@ return {
     -- 6205 WiFi 模组: GPIO12 EN 引脚，使用 AIRLINK_UART3 通信
     -- 拉低→延时→拉高使能（高电平有效）
     power_on = {
-        { pin = 12, dir = 0, level = 0, delay = 50  },  -- 拉低 50ms 复位
-        { pin = 12, dir = 0, level = 1, delay = 120 },  -- 拉高 120ms 使能
+        -- { pin = 12, dir = 0, level = 0, delay = 50  },  -- 拉低 50ms 复位
+        -- { pin = 12, dir = 0, level = 1, delay = 120 },  -- 拉高 120ms 使能
+        { pin = 12, dir = 0, level = 1 },  -- 拉高 120ms 使能
     },
 
     -- ===== 硬件配置 =====
@@ -70,15 +71,20 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        wifi = true,                     -- 启用 WiFi（airlink 模式，6205 芯片 AIRLINK_UART3）
-        sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
         ethernet = true,                 -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
+        -- wifi = true,                     -- 启用 WiFi（airlink 模式，6205 芯片 AIRLINK_UART3）、
+        -- net_4g = true,                   -- × 4G未启用，但UI会显示4G信号图标
+        sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
     -- Air1601 的 Airlink WiFi 和 Airlink 4G 都使用 UART3，硬件上二者只能开启一个
     -- 启用 WiFi 时注释 4G，启用 4G 时注释 WiFi
     network = {
+
+         { type = "eth_spi", chip = "CH390",              -- SPI 以太网优先
+          spi_id = 1, cs_pin = 14 },
+
         -- Airlink UART WiFi（6205 模组，占用 UART3）
         { type = "wifi_airlink_uart",
           uart_id = 3, baud = 2000000 },
@@ -89,9 +95,7 @@ return {
         --     uart_id = 3, baud = 2000000,
         --     adapter = socket.LWIP_GP_GW,
         -- },
-
-        { type = "eth_spi", chip = "CH390",              -- SPI 以太网兜底
-          spi_id = 1, cs_pin = 14 },
+       
     },
 
     -- ===== UI 显示控制（只写 = true 的项）=====

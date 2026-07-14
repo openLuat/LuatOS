@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module httpdns
 @summary 使用Http进行域名解析
 @version 1.0

@@ -114,7 +114,7 @@ typedef struct kiss_fft_state{
 } kiss_fft_state;
 
 #if defined(HAVE_ARM_NE10)
-#include "arm/fft_arm.h"
+#include "celt/arm/fft_arm.h"
 #endif
 
 /*typedef struct kiss_fft_state* kiss_fft_cfg;*/

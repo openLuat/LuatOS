@@ -697,7 +697,7 @@ static void scan_mark_block_unusable(tfs_dev_t *dev, int blk, int persist)
         tfs_chunk_set_used(dev, blk * cpb + page);
 }
 
-static void scan_finish_delta_block(tfs_dev_t *dev, int blk)
+static void scan_finish_delta_block(tfs_dev_t *dev, int blk, int next_page)
 {
     int cpb = (int)tfs_chunks_per_block(dev);
     tfs_block_info_t *bi = tfs_get_block_info(dev, blk);
@@ -713,6 +713,14 @@ static void scan_finish_delta_block(tfs_dev_t *dev, int blk)
         bi->bi.block_state = TFS_BLK_STATE_FULL;
     } else {
         bi->bi.block_state = TFS_BLK_STATE_ALLOCATING;
+        if (next_page < cpb &&
+            (dev->alloc_block < (int)dev->internal_start_block ||
+             dev->alloc_block > (int)dev->internal_end_block ||
+             bi->bi.seq_number >=
+                 tfs_get_block_info(dev, dev->alloc_block)->bi.seq_number)) {
+            dev->alloc_block = blk;
+            dev->alloc_page = (uint32_t)next_page;
+        }
     }
 }
 
@@ -760,6 +768,24 @@ static void scan_recount_space_after_delta(tfs_dev_t *dev)
 
     dev->n_erased_blocks = erased_blocks;
     dev->n_free_chunks = free_chunks;
+}
+
+static void scan_advance_seq_after_delta(tfs_dev_t *dev)
+{
+    uint32_t max_seq = 0;
+    int blk;
+
+    for (blk = (int)dev->internal_start_block;
+         blk <= (int)dev->internal_end_block;
+         blk++) {
+        tfs_block_info_t *bi = tfs_get_block_info(dev, blk);
+
+        if (bi->bi.seq_number > max_seq)
+            max_seq = bi->bi.seq_number;
+    }
+
+    if (max_seq >= dev->seq_number && max_seq < TFS_HIGHEST_SEQ_NUMBER)
+        dev->seq_number = max_seq + 1;
 }
 
 static int scan_delta_probe_block(tfs_dev_t *dev, int blk,
@@ -847,7 +873,7 @@ static int scan_delta_pass(tfs_dev_t *dev, uint16_t *scan_from, int data_pass)
         }
 
         if (!data_pass)
-            scan_finish_delta_block(dev, blk);
+            scan_finish_delta_block(dev, blk, page);
     }
 
     return TFS_OK;
@@ -887,6 +913,7 @@ static int scan_delta_after_checkpt(tfs_dev_t *dev)
         goto out;
 
     scan_recount_space_after_delta(dev);
+    scan_advance_seq_after_delta(dev);
 
     if (dev->checkpt_delta_chunks > 0) {
         dev->is_checkpointed = 0;
@@ -1006,12 +1033,29 @@ static void wire_parents(tfs_dev_t *dev)
             have_hdr = (tfs_obj_read_hdr(dev, obj->hdr_chunk,
                                          &hdr, NULL) == TFS_OK);
 
-            /* Populate name and other fields from the on-NAND header.
-             * Checkpoint v7 also stores name/parent so a valid checkpoint can
-             * still wire paths if the header page is no longer readable. */
+            /*
+             * Checkpoint v7 is the committed snapshot for name, parent and
+             * regular metadata.  The NAND header can lag that snapshot when a
+             * metadata update runs out of normal allocation space, so it must
+             * not overwrite checkpoint fields during restore.  Read only the
+             * type-specific fields which are not present in the v7 record.
+             */
             if (have_hdr) {
-                parent_id = hdr.parent_obj_id;
-                tfs_obj_load_hdr(dev, obj, &hdr, NULL, obj->hdr_chunk);
+                if (obj->obj_type == TFS_OBJ_TYPE_SYMLINK &&
+                    !obj->var.symlink.alias) {
+                    size_t len = 0;
+                    while (len < TFS_MAX_ALIAS_LEN && hdr.alias[len] != '\0')
+                        len++;
+                    len++;
+                    obj->var.symlink.alias = (char *)
+                        dev->drv.malloc(dev->drv.ctx, len);
+                    if (obj->var.symlink.alias) {
+                        memcpy(obj->var.symlink.alias, hdr.alias, len);
+                        obj->var.symlink.alias[len - 1u] = '\0';
+                    }
+                } else if (obj->obj_type == TFS_OBJ_TYPE_HARDLINK) {
+                    obj->var.hardlink.equiv_id = (uint32_t)hdr.equiv_id;
+                }
             } else if (!tfs_obj_get_name(dev, obj)) {
                 continue;
             }
@@ -1934,10 +1978,22 @@ int tfs_unlink_obj(tfs_dev_t *dev, tfs_obj_t *obj)
 int tfs_rename_obj(tfs_dev_t *dev, tfs_obj_t *obj,
                    tfs_obj_t *new_parent, const char *new_name)
 {
-    tfs_obj_t *old_parent = obj->parent;
+    tfs_obj_t *old_parent;
+    const char *old_name_src;
+    char old_name[TFS_MAX_NAME_LEN + 1];
+    int old_dirty;
+    int rc;
 
-    if (!obj || !new_parent || !dev->is_mounted)
+    if (!dev || !obj || !new_parent || !new_name || !dev->is_mounted)
         return TFS_EINVAL;
+
+    old_parent = obj->parent;
+    old_name_src = tfs_obj_get_name(dev, obj);
+    if (!old_name_src)
+        return TFS_EINVAL;
+    strncpy(old_name, old_name_src, TFS_MAX_NAME_LEN);
+    old_name[TFS_MAX_NAME_LEN] = '\0';
+    old_dirty = obj->dirty;
 
     /* Atomically replace existing target (POSIX rename semantics) */
     {
@@ -1945,7 +2001,9 @@ int tfs_rename_obj(tfs_dev_t *dev, tfs_obj_t *obj,
         if (existing && existing != obj) {
             if (existing->obj_type == TFS_OBJ_TYPE_DIR)
                 return TFS_EISDIR;
-            (void)tfs_unlink_obj(dev, existing);
+            rc = tfs_unlink_obj(dev, existing);
+            if (rc != TFS_OK)
+                return rc;
         } else if (existing == obj) {
             return TFS_OK; /* rename to itself is a no-op */
         }
@@ -1956,7 +2014,18 @@ int tfs_rename_obj(tfs_dev_t *dev, tfs_obj_t *obj,
     tfs_obj_cache_name(obj, new_name);
 
     obj->dirty = 1;
-    tfs_obj_update_hdr(dev, obj);
+    rc = tfs_obj_update_hdr(dev, obj);
+    if (rc != TFS_OK) {
+        if (dev->drv.trace)
+            dev->drv.trace("tfs: rename header update failed obj=%u rc=%d",
+                           (unsigned int)obj->obj_id, rc);
+        tfs_obj_remove_child(new_parent, obj);
+        if (old_parent)
+            tfs_obj_add_child(old_parent, obj);
+        tfs_obj_cache_name(obj, old_name);
+        obj->dirty = old_dirty;
+        return rc;
+    }
 
     if (old_parent) {
         old_parent->dirty = 1;

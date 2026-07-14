@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exvib
 @summary exvib 三轴加速度传感器扩展库
 @version 1.0

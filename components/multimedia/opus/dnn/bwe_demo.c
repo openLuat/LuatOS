@@ -32,10 +32,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "arch.h"
+#include "celt/arch.h"
 #include "lpcnet.h"
-#include "os_support.h"
-#include "cpu_support.h"
+#include "celt/os_support.h"
+#include "celt/cpu_support.h"
 #include "osce_features.h"
 #include "osce_structs.h"
 #include "osce.h"

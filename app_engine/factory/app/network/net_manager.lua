@@ -71,6 +71,8 @@ local _config = nil          -- project_config 引用
 local _chip = ""             -- 芯片型号
 local _is_air8101 = false    -- 是否是 Air8101 系列
 local _network_configs = {}  -- 网络配置列表
+-- 开机 airlink WiFi 已传递的凭证（用于 wifi_app_real 跳过冗余 update_wifi）
+local _boot_wifi_credential = nil  -- { ssid, password, bssid }
 
 -- ==================== 一、向后兼容层 ====================
 -- 从旧格式 features/ethernet/net_4g_config 自动构造 network[]
@@ -159,10 +161,70 @@ function net_manager.init(config)
         log.info("net_manager", "  网络:", net_cfg.type)
     end
 
-    -- 自动连接初始兜底网络（以太网 + 4G），WiFi 由 wifi_app_real 后续接管
+    -- 提前初始化 fskv，以便读取已保存 WiFi 列表
+    -- wifi_storage 也会调 fskv.init()，重复调用是安全的
+    pcall(fskv.init)
+
+    -- 开机时初始化所有网络（以太网 + 4G + airlink WiFi 硬件）
+    -- airlink WiFi 用占位 SSID 完成 6205 WLAN 初始化，后续扫描/连接无需再 init
     local priority = net_manager.build_initial_priority()
+    local airlink_cfg = net_manager.get_wifi_hw_config()
+    if airlink_cfg then
+        -- 开机初始化 airlink WiFi 前，从 fskv 读取已保存 WiFi
+        -- 有则优先使用已保存的第一个 WiFi，避免用固定 "luatos" 占位后再切换连接
+        local init_ssid = "luatos"
+        local init_password = ""
+        local init_bssid = nil
+        local ok_saved, saved_list = pcall(fskv.get, "wifi_saved_list")
+        if ok_saved and type(saved_list) == "table" and #saved_list > 0
+            and saved_list[1].ssid and saved_list[1].ssid ~= "" then
+            local saved = saved_list[1]
+            init_ssid = saved.ssid
+            init_password = saved.password or ""
+            init_bssid = saved.bssid
+            log.info("net_manager", "开机使用已保存WiFi:", init_ssid)
+        end
+        if init_ssid == "luatos" then
+            log.info("net_manager", "无已保存WiFi，使用默认占位: luatos")
+        end
+        local atype = (airlink_cfg.type == "wifi_airlink_uart")
+            and airlink.MODE_UART
+            or airlink.MODE_SPI_MASTER
+        local entry = {
+            airlink_wifi = {
+                airlink_type = atype,
+                ssid = init_ssid,
+                password = init_password,
+                auto_socket_switch = false,
+            }
+        }
+        if init_bssid and init_bssid ~= "" then
+            entry.airlink_wifi.bssid = init_bssid
+        end
+        if atype == airlink.MODE_SPI_MASTER then
+            if airlink_cfg.spi_id then entry.airlink_wifi.airlink_spi_id = airlink_cfg.spi_id end
+            if airlink_cfg.cs_pin then entry.airlink_wifi.airlink_cs_pin = airlink_cfg.cs_pin end
+            if airlink_cfg.rdy_pin then entry.airlink_wifi.airlink_rdy_pin = airlink_cfg.rdy_pin end
+        else
+            if airlink_cfg.uart_id then entry.airlink_wifi.airlink_uart_id = airlink_cfg.uart_id end
+            if airlink_cfg.baud then entry.airlink_wifi.airlink_uart_baud = airlink_cfg.baud end
+        end
+        table.insert(priority, 1, entry)
+        -- 记录开机已传递的 WiFi 凭证，用于 wifi_app_real 判断是否需重复 update_wifi
+        _boot_wifi_credential = {
+            ssid = init_ssid,
+            password = init_password,
+            bssid = init_bssid,
+        }
+    end
     if #priority > 0 then
         net_manager.apply(priority)
+    end
+
+    -- 发布 AIRLINK_WIFI_READY 信号，告知 wifi_app_real 硬件初始化已完成
+    -- Native WiFi（如 Air8101/Air8000）的 get_wifi_hw_config() 返回 nil，不发布此信号
+    if airlink_cfg then
+        sys.publish("AIRLINK_WIFI_READY")
     end
 
     _initialized = true
@@ -244,7 +306,7 @@ local function build_entry(net_cfg)
                 airlink_cs_pin = net_cfg.cs_pin,
                 airlink_rdy_pin = net_cfg.rdy_pin,
                 airlink_spi_speed = net_cfg.speed or (20 * 1000000),
-                auto_socket_switch = (net_cfg.auto_socket_switch ~= false),
+                auto_socket_switch = (net_cfg.auto_socket_switch == true),
             }
         }
     end
@@ -256,7 +318,7 @@ local function build_entry(net_cfg)
                 airlink_type = airlink.MODE_UART,
                 airlink_uart_id = net_cfg.uart_id,
                 airlink_uart_baud = net_cfg.baud or 2000000,
-                auto_socket_switch = (net_cfg.auto_socket_switch ~= false),
+                auto_socket_switch = (net_cfg.auto_socket_switch == true),
             }
         }
     end
@@ -285,7 +347,7 @@ local function build_entry(net_cfg)
     if t == "4g_airlink_spi" then
         local acfg = {
             airlink_type = airlink.MODE_SPI_MASTER,
-            auto_socket_switch = (net_cfg.auto_socket_switch ~= false),
+            auto_socket_switch = (net_cfg.auto_socket_switch == true),
         }
         if net_cfg.spi_id then acfg.airlink_spi_id = net_cfg.spi_id end
         if net_cfg.cs_pin then acfg.airlink_cs_pin = net_cfg.cs_pin end
@@ -297,7 +359,7 @@ local function build_entry(net_cfg)
     if t == "4g_airlink_uart" then
         local acfg = {
             airlink_type = airlink.MODE_UART,
-            auto_socket_switch = (net_cfg.auto_socket_switch ~= false),
+            auto_socket_switch = (net_cfg.auto_socket_switch == true),
         }
         if net_cfg.uart_id then acfg.airlink_uart_id = net_cfg.uart_id end
         if net_cfg.baud then acfg.airlink_uart_baud = net_cfg.baud end
@@ -310,12 +372,15 @@ local function build_entry(net_cfg)
 end
 
 --[[
-构建单条 WiFi 条目（带 ssid/password）
-由 wifi_app_real 在连接时调用
+构建单条 WiFi 条目（带 ssid/password，或仅用于硬件初始化的空 WiFi 条目）
+由 wifi_app_real 在连接/扫描时调用
+@param ssid string  可选，SSID；为空时仅构建硬件初始化条目（用于扫描）
+@param password string  可选
+@param bssid string  可选
+@param adv_cfg table  可选，高级配置
+@return table or nil
 ]]
 local function build_wifi_entry(ssid, password, bssid, adv_cfg)
-    if not ssid or ssid == "" then return nil end
-
     local airlink_cfg = net_manager.get_wifi_hw_config()
 
     if airlink_cfg then
@@ -326,11 +391,18 @@ local function build_wifi_entry(ssid, password, bssid, adv_cfg)
         local entry = {
             airlink_wifi = {
                 airlink_type = atype,
-                ssid = ssid,
-                password = password,
-                auto_socket_switch = (adv_cfg and adv_cfg.auto_socket_switch) ~= false,
+                auto_socket_switch = (adv_cfg and adv_cfg.auto_socket_switch) == true,
             }
         }
+        -- Airlink WiFi 占位：无 SSID 时用默认 SSID 初始化 6205 WLAN 状态。
+        -- 和 demo 一样，connect 本身正确发送 0x201，连接失败不影响后续 scan。
+        if not ssid or ssid == "" then
+            entry.airlink_wifi.ssid = "luatos"
+            entry.airlink_wifi.password = ""
+        else
+            entry.airlink_wifi.ssid = ssid
+            entry.airlink_wifi.password = password
+        end
         if bssid and bssid ~= "" then
             entry.airlink_wifi.bssid = bssid
         end
@@ -357,7 +429,7 @@ local function build_wifi_entry(ssid, password, bssid, adv_cfg)
             ssid = ssid,
             password = password,
             bssid = bssid,
-            auto_socket_switch = (adv_cfg and adv_cfg.auto_socket_switch) ~= false,
+            auto_socket_switch = (adv_cfg and adv_cfg.auto_socket_switch) == true,
         }
     }
     if adv_cfg then
@@ -394,16 +466,29 @@ end
 
 --[[
 构建包含目标 WiFi 的完整优先级列表
-WiFi 在最前面，其余兜底网络按配置顺序排列
+优先级顺序：以太网 > WiFi > 4G
+exnetif 按数组顺序依次尝试，第一个获得 IP_READY 的成为活跃网卡
 ]]
 function net_manager.build_wifi_priority(ssid, password, bssid, adv_cfg)
     local priority = {}
 
+    -- 以太网优先插入（第一优先级）
+    for _, net_cfg in ipairs(_network_configs) do
+        if net_cfg.type and net_cfg.type:find("eth", 1, true) then
+            local entry = build_entry(net_cfg)
+            if entry then table.insert(priority, entry) end
+        end
+    end
+
+    -- WiFi（第二优先级）
+    -- ssid 为空时也构建 WiFi 条目：仅用于硬件初始化，使 exnetif 管理 airlink 硬件，
+    -- 这样 wlan.scan() 才能正常工作。无 SSID 时不会发起连接。
     local wifi_entry = build_wifi_entry(ssid, password, bssid, adv_cfg)
     if wifi_entry then table.insert(priority, wifi_entry) end
 
+    -- 4G 第三优先级
     for _, net_cfg in ipairs(_network_configs) do
-        if not net_cfg.type or not net_cfg.type:find("wifi", 1, true) then
+        if net_cfg.type and net_cfg.type:find("4g", 1, true) then
             local entry = build_entry(net_cfg)
             if entry then table.insert(priority, entry) end
         end
@@ -430,6 +515,33 @@ WiFi 关闭/断开时重建不含 WiFi 的兜底网络
 ]]
 function net_manager.on_wifi_disabled()
     net_manager.apply(net_manager.build_no_wifi_priority())
+end
+
+--[[
+获取开机时已传递给 airlink WiFi 的凭证（仅 airlink 平台有效）
+用于 wifi_app_real 判断是否需要重复 update_wifi
+@return table or nil  { ssid, password, bssid }
+]]
+function net_manager.get_boot_wifi_credential()
+    return _boot_wifi_credential
+end
+
+--[[
+判断给定凭证是否与开机已传凭证相同（SSID + BSSID 双重匹配）
+@param ssid string
+@param bssid string or nil
+@return boolean true=相同，skip update_wifi
+]]
+function net_manager.is_same_as_boot_credential(ssid, bssid)
+    if not _boot_wifi_credential then return false end
+    -- SSID 必须相同
+    if _boot_wifi_credential.ssid ~= ssid then return false end
+    -- BSSID 有一方为空时跳过 BSSID 检查（只做 SSID 匹配）
+    if not bssid or bssid == "" or not _boot_wifi_credential.bssid or _boot_wifi_credential.bssid == "" then
+        return true
+    end
+    -- BSSID 都非空时做精确匹配
+    return _boot_wifi_credential.bssid == bssid
 end
 
 -- require 时不做任何初始化（config 还未就绪）

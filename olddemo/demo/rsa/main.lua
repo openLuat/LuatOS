@@ -25,13 +25,6 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
--- 因为这是通用demo, air101/air103跑满速才不至于太慢-_-
-if rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103" or rtos.bsp() == "AIR601"  then
-    if mcu then
-        mcu.setClk(240)
-    end
-end
-
 sys.taskInit(function()
     -- 为了日志能正常显示出来, 这里特意延时2秒, 实际使用中不需要
     sys.wait(2000)

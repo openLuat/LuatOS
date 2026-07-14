@@ -12,9 +12,9 @@
 
 6、record_pcm_file.lua：流式录音到文件功能模块，演示PCM格式音频录制；
 
-7、http_stream_test.lua：HTTP边下边播功能模块，演示使用httpplus下载音频数据，支持PCM/AMR/MP3/WAV格式流式播放；
+7、http_download_play.lua：HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡；
 
-8、http_download_play.lua：HTTP下载播放功能模块，演示从网络下载音频文件并播放；
+8、http_stream_play.lua：HTTP流式边下边播功能模块，支持PCM/AMR/MP3/WAV格式，自动识别格式，使用新音频框架；
 
 9、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
 
@@ -76,27 +76,13 @@
 - 支持流式录音和播放
 - 支持16kHz采样率、16位采样深度、有符号PCM数据
 
-### 6、HTTP边下边播功能（http_stream_test.lua）
+### 6、HTTP流式边下边播功能（http_stream_play.lua）
 
 - 使用httpplus进行HTTP下载，边下边播
 - 支持PCM/AMR/MP3/WAV格式的HTTP流式播放
 - PCM格式默认16kHz、16位、有符号、单声道
 - AMR/MP3/WAV格式会自动解析文件头获取真实采样率
 - 使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
-
-**运行结果示例：**
-
-```lua
-I/user.开始播放音频文件
-I/user.exaudio.setup audio_mode=new，切换到新音频框架
-I/user.exaudio.setup 当前使用新音频框架
-I/user.exaudio.setup audio_v2 ES8311模式初始化
-I/user.exaudio.setup ES8311初始化完成
-I/user.exaudio.setup audio_v2初始化完成
-I/user.exaudio audio_v2播放开始 0
-I/user.exaudio audio_v2播放完毕 0
-I/user.播放完成 true
-```
 
 ## 演示硬件环境
 
@@ -141,10 +127,10 @@ local audio_setup_param ={
 require "play_file"
 -- require "play_tts"
 -- require "play_stream"
--- require "http_stream_test"
--- require "http_download_play"
 -- require "record_amr_file"
 -- require "record_pcm_file"
+-- require "http_download_play"
+-- require "http_stream_play"
 ```
 
 2、Air780EHM核心板/Air780EGH核心板+AirAUDIO_1020音频配件板+喇叭
@@ -182,8 +168,8 @@ local audio_setup_param ={
 require "play_file"
 -- require "play_tts"
 -- require "play_stream"
--- require "http_stream_test"
 -- require "http_download_play"
+-- require "http_stream_play"
 
 -- 因为AirAUDIO_1020配件板没有麦克风接口，所以不支持录音功能。
 -- 录音功能（AirAUDIO_1020不支持）
@@ -231,8 +217,8 @@ require "play_file"
 ├── play_stream.lua        # 流式音频播放功能模块，支持PCM格式流式播放
 ├── record_amr_file.lua    # 录音到文件功能模块，支持AMR格式录音
 ├── record_pcm_file.lua    # 流式录音到文件功能模块，支持PCM格式录音
-├── http_stream_test.lua   # HTTP边下边播功能模块，支持PCM/AMR/MP3/WAV格式流式播放
-├── http_download_play.lua # HTTP下载播放功能模块，支持从网络下载音频文件并播放
+├── http_download_play.lua # HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡
+├── http_stream_play.lua   # HTTP流式边下边播功能模块，支持PCM/AMR/MP3/WAV格式，自动识别格式，使用新音频框架
 ├── sample-6s.mp3          # 示例音频文件，用于播放测试
 ├── test.pcm               # 示例PCM音频文件，用于流式播放测试
 └── 10.amr                 # 示例AMR音频文件，用于播放测试
@@ -417,6 +403,100 @@ I/user.mem.sys 3200560 478380 485708
 I/user.播放完成
 ```
 
+### 6、HTTP下载音频文件播放功能（http_download_play.lua）
+
+1. 搭建好硬件环境
+2. 搭配AirAUDIO_1010音频板测试，需将AirAUDIO_1010音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+3. 打开main.lua，确保保留`require "http_download_play"`这一行
+4. 修改`http_download_play.lua`中的`AUDIO_URL`变量，设置为要下载的音频文件URL（支持PCM/MP3/AMR格式，自动识别）
+5. 将代码下载到开发板并运行
+6. **演示效果**：通过HTTP下载音频文件并播放，自动识别音频格式，支持SD卡存储，文件大于200KB时必须使用SD卡
+
+**运行结果示例：**
+
+```lua
+I/user.http_pcm_stream_play 音频系统初始化
+I/user.http_pcm_stream_play 开始挂载SD卡
+I/user.http_pcm_stream_play SD卡挂载成功 挂载路径: /sd
+I/user.http_pcm_stream_play SD卡空间信息 {"free_sectors":31106560,"total_kb":15554016,"free_kb":15553280,"total_sectors":31108032}
+I/user.http_pcm_stream_play 等待网络就绪...
+I/user.http_pcm_stream_play 网络已就绪
+I/user.http_pcm_stream_play 音量设置: 70
+I/user.http_pcm_stream_play 音频硬件初始化成功
+I/user.http_pcm_stream_play 存储路径: /sd (SD卡)
+I/user.http_pcm_stream_play 按键功能说明：
+I/user.http_pcm_stream_play 1. Power键: 开始HTTP下载并播放音频
+I/user.http_pcm_stream_play 2. Boot键: 停止播放
+I/user.http_pcm_stream_play 3. 音频URL: http://airtest.openluat.com:2900/download/10.amr
+I/user.http_pcm_stream_play 4. 音频格式: amr
+
+# 空闲时按Power键开始下载并播放
+I/user.http_pcm_stream_play 按下POWERKEY键
+I/user.http_pcm_stream_play 开始HTTP下载并播放 amr
+I/user.http_pcm_stream_play 启动HTTP下载播放任务
+I/user.http_pcm_stream_play 音频格式: amr URL: http://airtest.openluat.com:2900/download/10.amr
+I/user.http_pcm_stream_play 临时文件路径: /sd/tmp_http_audio.amr (SD卡)
+I/user.http_pcm_stream_play 获取文件大小...
+I/user.http_pcm_stream_play 下载进度: 0 / 678
+I/user.http_pcm_stream_play 下载进度: 678 / 678
+I/user.http_pcm_stream_play HTTP下载完成，文件大小: 678
+I/user.http_pcm_stream_play AMR 使用文件播放
+I/user.http_pcm_stream_play 播放已启动
+I/user.http_pcm_stream_play 播放完成
+I/user.http_pcm_stream_play 临时文件已删除
+```
+
+**注意事项：**
+- 音频格式根据URL后缀自动识别（.pcm/.mp3/.amr）
+- PCM格式使用流式播放，MP3/AMR格式使用文件播放
+- 文件大于200KB且SD卡未挂载时会提示"文件过大，请用SD卡下载"
+- 播放完成后自动删除临时文件
+
+### 7、HTTP流式边下边播功能（http_stream_play.lua）
+
+1. 搭建好硬件环境
+2. 搭配AirAUDIO_1010音频板测试，需将AirAUDIO_1010音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+3. 打开main.lua，确保保留`require "http_stream_play"`这一行
+4. 修改`http_stream_play.lua`中的`AUDIO_URL`变量，设置为要播放的音频文件URL（支持PCM/AMR/MP3/WAV格式，自动识别）
+5. 将代码下载到开发板并运行
+6. **演示效果**：通过HTTP边下载边播放音频，自动识别音频格式，AMR/MP3/WAV格式自动解析文件头获取真实采样率
+
+**运行结果示例：**
+
+```lua
+I/user.network 等待4G网络就绪...
+I/user.network 4G网络已就绪
+I/user.exaudio.setup audio_mode=new，切换到新音频框架
+I/user.exaudio.setup 当前使用新音频框架
+I/user.exaudio.setup audio_v2 ES8311模式初始化
+I/user.exaudio.setup ES8311初始化完成
+I/user.exaudio.setup audio_v2初始化完成
+I/user.stream ========== 开始HTTP下载+播放 ==========
+I/user.stream URL: https://appstoreoss.luatos.com/iot-apps/res/100617/sample-6s.mp3
+I/user.stream 头解析 ok: true sr: 0 data_start: 47
+I/user.stream 头解析需继续缓冲
+I/user.stream 头解析 ok: true sr: 44100 data_start: 47
+I/user.exaudio 调用stream: cid= 5 sr= 44100 bits= 16 ch= 1 sig= true pri= 0
+I/user.exaudio stream返回: ok= true req_id= 0
+I/user.exaudio 流式播放启动成功, request_index: 0 采样率: 44100 codec_id: 5
+I/user.stream 写入首块纯音频: 7685 字节
+I/user.exaudio 播放开始 0
+I/user.stat_http chunks: 5 downloaded: 20020 elapsed_ms: 0 speed: 0 B/s
+I/user.stat_http chunks: 10 downloaded: 40500 elapsed_ms: 1 speed: 40500000 B/s
+I/user.httpplus 服务器已完成响应
+I/user.stream HTTP下载完成，总字节: 51635
+I/user.stat_summary http_total: 51635 http_chunks: 13 http_time_ms: 1 http_speed: 51635000 B/s
+I/user.exaudio 播放完毕 0
+I/user.播放完成
+I/user.stat_summary ========== 播放完全结束 ==========
+```
+
+**注意事项：**
+- 音频格式根据URL后缀自动识别（.pcm/.mp3/.amr/.wav）
+- PCM格式使用默认参数（16kHz、16位、有符号、单声道）启动流式播放
+- AMR/MP3/WAV格式会先缓冲并解析文件头，获取真实采样率后再启动播放
+- 下载速度通常远超播放速度，可实现流畅边下边播
+- 本功能依赖新音频框架，需使用V2046及以上的13/113号固件
 
 ## **异常处理**
 

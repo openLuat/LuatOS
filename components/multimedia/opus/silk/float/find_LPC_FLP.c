@@ -29,9 +29,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "config.h"
 #endif
 
-#include "define.h"
+#include "silk/define.h"
 #include "main_FLP.h"
-#include "tuning_parameters.h"
+#include "silk/tuning_parameters.h"
 
 /* LPC analysis */
 void silk_find_LPC_FLP(

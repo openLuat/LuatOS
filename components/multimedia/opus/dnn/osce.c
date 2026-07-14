@@ -33,11 +33,11 @@
 #include <math.h>
 #include "osce.h"
 #include "osce_features.h"
-#include "os_support.h"
+#include "celt/os_support.h"
 #include "nndsp.h"
-#include "float_cast.h"
-#include "arch.h"
-#include "mathops.h"
+#include "celt/float_cast.h"
+#include "celt/arch.h"
+#include "celt/mathops.h"
 /*#define OSCE_DEBUG*/
 #ifdef OSCE_DEBUG
 #include <stdio.h>

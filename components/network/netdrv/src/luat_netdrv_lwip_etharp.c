@@ -45,9 +45,9 @@
 #include "luat_base.h"
 #include "lwip/opt.h"
 
-#if LWIP_IPV4 && LWIP_ARP && defined(LUAT_USE_NETDRV_LWIP_ARP) /* don't build if not configured for use in lwipopts.h */
+#if LWIP_IPV4 && LWIP_ARP /* build whenever IPv4 ARP is enabled */
 
-// #include "lwip/etharp.h"
+#include "lwip/etharp.h"
 #include "lwip/stats.h"
 #include "lwip/snmp.h"
 #include "lwip/dhcp.h"
@@ -60,16 +60,6 @@
 #ifndef LWIP_IANA_HWTYPE_ETHERNET
 #define LWIP_IANA_HWTYPE_ETHERNET 1
 #endif
-
-// 使用本地的定义, 不受LWIP配置的影响
-#undef ARP_TABLE_SIZE
-#define ARP_TABLE_SIZE 127
-#undef ARP_QUEUEING
-#define ARP_QUEUEING 1
-#undef ARP_QUEUE_LEN
-#define ARP_QUEUE_LEN 3
-#undef ARP_MAXAGE
-#define ARP_MAXAGE 300
 
 #ifndef netif_addr_idx_t
 #define netif_addr_idx_t u8_t
@@ -717,13 +707,6 @@ luat_netdrv_etharp_input(struct pbuf *p, struct netif *netif)
     case PP_HTONS(ARP_REPLY):
       /* ARP reply. We already updated the ARP cache earlier. */
       LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP reply\n"));
-#if (LWIP_DHCP && DHCP_DOES_ARP_CHECK)
-      /* DHCP wants to know about ARP replies from any host with an
-       * IP address also offered to us by the DHCP server. We do not
-       * want to take a duplicate IP address on a single network.
-       * @todo How should we handle redundant (fail-over) interfaces? */
-      dhcp_arp_reply(netif, &sipaddr);
-#endif /* (LWIP_DHCP && DHCP_DOES_ARP_CHECK) */
       break;
     default:
       LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP unknown opcode type %"S16_F"\n", lwip_htons(hdr->opcode)));

@@ -14,9 +14,11 @@
 
 7、http_download_play.lua：HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡；
 
-8、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
+8、http_stream_play.lua：HTTP流式边下边播功能模块，支持PCM/AMR/MP3/WAV格式，自动识别格式，使用新音频框架；
 
-9、test.pcm：用于测试PCM流式播放的示例音频文件；
+9、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
+
+10、test.pcm：用于测试PCM流式播放的示例音频文件；
 
 **注意:目前不支持录音和放音同时进行**
 
@@ -69,6 +71,14 @@
 - 通过powerkey/boot按键开始或停止录音/播放
 - 支持流式录音和播放
 - 支持16kHz采样率、16位采样深度、有符号PCM数据
+
+### 6、HTTP流式边下边播功能（http_stream_play.lua）
+
+- 使用httpplus进行HTTP下载，边下边播
+- 支持PCM/AMR/MP3/WAV格式的HTTP流式播放
+- PCM格式默认16kHz、16位、有符号、单声道
+- AMR/MP3/WAV格式会自动解析文件头获取真实采样率
+- 使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
 
 ## 演示硬件环境
 
@@ -126,7 +136,8 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 ├── play_stream.lua       # 流式音频播放功能模块，支持PCM格式流式播放
 ├── record_amr_file.lua   # 录音到文件功能模块，支持AMR格式录音
 ├── record_pcm_file.lua   # 流式录音到文件功能模块，支持PCM格式录音
-├── http_download_play.lua # HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式
+├── http_download_play.lua # HTTP下载音频文件播放功能模块，支持MP3/AMR/PCM格式，自动识别格式，支持SD卡存储，文件大于200KB时（可自行调整）必须使用SD卡
+├── http_stream_play.lua   # HTTP流式边下边播功能模块，支持PCM/AMR/MP3/WAV格式，自动识别格式，使用新音频框架
 ├── sample-6s.mp3         # 示例音频文件，用于播放测试
 ├── test.pcm              # 示例PCM音频文件，用于流式播放测试
 └── 10.amr                # 示例AMR音频文件，用于播放测试
@@ -378,6 +389,86 @@ I/user.http_pcm_stream_play 临时文件已删除
 - PCM格式使用流式播放，MP3/AMR格式使用文件播放
 - 文件大于200KB且SD卡未挂载时会提示"文件过大，请用SD卡下载"
 - 播放完成后自动删除临时文件
+
+### 7、HTTP流式边下边播功能（http_stream_play.lua）
+
+1. 搭建好硬件环境
+2. 搭配AirAUDIO_1000音频板测试，需将AirAUDIO_1000音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+3. 打开main.lua，确保保留`require "http_stream_play"`这一行
+4. 修改`http_stream_play.lua`中的`AUDIO_URL`变量，设置为要播放的音频文件URL（支持PCM/AMR/MP3/WAV格式，自动识别）
+5. 将代码下载到开发板并运行
+6. **演示效果**：通过HTTP边下载边播放音频，自动识别音频格式，AMR/MP3/WAV格式自动解析文件头获取真实采样率
+
+**运行结果示例：**
+
+```lua
+[2026-07-03 15:06:32.060][000000000.000] main_entry 708:SDK base line V017_p001.026
+[2026-07-03 15:06:32.061][000000000.007] am_service_init 1372:Air780EHV_A11
+[2026-07-03 15:06:32.062][000000000.008] am_get_chip_type 868:6bef6,1b,64,87,10,EC718HM
+[2026-07-03 15:06:32.063][000000000.008] am_service_init 1380:APB MP 102400000
+[2026-07-03 15:06:32.063][000000000.080] bsp_user_init_io 466:io volt 3.3v 21
+[2026-07-03 15:06:32.064][000000000.081] BSP_CustomInit 558:hardfault mode init 4
+[2026-07-03 15:06:32.064][000000000.081] Uart_ChangeBR 1461:uart0, 6000000 6028985 26000000 69
+[2026-07-03 15:06:32.065][000000000.103] I/pm poweron: Power/Reset
+[2026-07-03 15:06:32.066][000000000.103] luat_pm_get_poweron_reason 336:ap 2, cp 2
+[2026-07-03 15:06:32.067][000000000.103] I/pm poweron reason: 0 0 5
+[2026-07-03 15:06:32.067][000000000.229] self_info 125:model Air780EHV_A11 imei 862288081583054 dbversion 0x260d5b01
+[2026-07-03 15:06:32.068][000000000.229] self_info 127:firmware[113] VOLTE fs 512kbyte script 512kbyte
+[2026-07-03 15:06:32.068][000000000.231] I/main LuatOS@Air780EHV base 26.04 bsp V2045 64bit
+[2026-07-03 15:06:32.074][000000000.231] I/main ROM Build: Jun 30 2026 10:03:13
+[2026-07-03 15:06:32.076][000000000.233] W/pins /luadb/pins_air780ehv.json not exist!!
+[2026-07-03 15:06:32.078][000000000.236] D/main loadlibs luavm 4194296 18736 18736
+[2026-07-03 15:06:32.080][000000000.236] D/main loadlibs sys   3157288 195200 195240
+[2026-07-03 15:06:32.081][000000000.236] D/main loadlibs psram 3157288 195200 195240
+[2026-07-03 15:06:32.083][000000000.256] I/user.main audio 001.999.000
+[2026-07-03 15:06:32.084][000000000.286] D/user.exaudio version -> 202607021200
+[2026-07-03 15:06:32.087][000000000.304] I/user.network 等待4G网络就绪...
+[2026-07-03 15:06:34.399][000000003.038] I/mobile sim0 sms ready
+[2026-07-03 15:06:34.401][000000003.039] D/mobile cid1, state0
+[2026-07-03 15:06:34.402][000000003.039] D/mobile bearer act 0, result 0
+[2026-07-03 15:06:34.404][000000003.040] D/mobile NETIF_LINK_ON -> IP_READY
+[2026-07-03 15:06:34.423][000000003.089] D/mobile TIME_SYNC 0 tm 1783062395
+[2026-07-03 15:06:34.639][000000003.304] I/user.network 4G网络已就绪
+[2026-07-03 15:06:36.632][000000005.306] I/user.exaudio.setup audio_mode=new，切换到新音频框架
+[2026-07-03 15:06:36.634][000000005.306] I/user.exaudio.setup 当前使用新音频框架
+[2026-07-03 15:06:36.636][000000005.307] I/user.exaudio.setup audio_v2 ES8311模式初始化
+[2026-07-03 15:06:36.637][000000005.307] I2C_MasterSetup 426:I2C0, Total 260 HCNT 113 LCNT 136
+[2026-07-03 15:06:36.638][000000005.308] I/user.exaudio.setup 默认驱动已设置, probe_id: 65537
+[2026-07-03 15:06:36.663][000000005.338] I/user.es8311 init voltage 0
+[2026-07-03 15:06:36.695][000000005.365] I/user.exaudio.setup ES8311初始化完成
+[2026-07-03 15:06:36.697][000000005.366] I/user.exaudio.setup audio_v2初始化完成
+[2026-07-03 15:06:36.698][000000005.366] I/user.stream ========== 开始HTTP下载+播放 ==========
+[2026-07-03 15:06:36.699][000000005.366] I/user.stream URL: https://appstoreoss.luatos.com/iot-apps/res/100617/sample-6s.mp3
+[2026-07-03 15:06:36.701][000000005.371] D/socket connect to appstoreoss.luatos.com,443
+[2026-07-03 15:06:36.710][000000005.372] dns_run 676:appstoreoss.luatos.com state 0 id 1 ipv6 0 use dns server2, try 0
+[2026-07-03 15:06:36.803][000000005.467] dns_run 693:dns all done ,now stop
+[2026-07-03 15:06:37.659][000000006.327] I/user.stream 头解析 ok: true sr: 0 data_start: 47
+[2026-07-03 15:06:37.661][000000006.327] I/user.stream 头解析需继续缓冲
+[2026-07-03 15:06:37.674][000000006.346] I/user.stream 头解析 ok: true sr: 44100 data_start: 47
+[2026-07-03 15:06:37.676][000000006.347] I/user.exaudio 调用stream: cid= 5 sr= 44100 bits= 16 ch= 1 sig= true pri= 0
+[2026-07-03 15:06:37.678][000000006.349] D/audio_core driver 0x10001 create play fifo
+[2026-07-03 15:06:37.679][000000006.351] I/user.exaudio stream返回: ok= true req_id= 0
+[2026-07-03 15:06:37.680][000000006.352] I/user.exaudio 流式播放启动成功, request_index: 0 采样率: 44100 codec_id: 5
+[2026-07-03 15:06:37.682][000000006.352] I/user.stream 流启动成功, 采样率: 44100 声道: 1
+[2026-07-03 15:06:37.690][000000006.354] I/user.stream 写入首块纯音频: 7685 字节
+[2026-07-03 15:06:37.704][000000006.369] I/user.exaudio 播放开始 0
+[2026-07-03 15:06:37.766][000000006.442] W/audio_core print from irq 0 0 8000
+[2026-07-03 15:06:38.032][000000006.704] I/user.stat_http chunks: 5 downloaded: 20020 elapsed_ms: 0 speed: 0 B/s
+[2026-07-03 15:06:38.699][000000007.368] I/user.stat_http chunks: 10 downloaded: 40500 elapsed_ms: 1 speed: 40500000 B/s
+[2026-07-03 15:06:38.867][000000007.544] I/user.httpplus 服务器已完成响应
+[2026-07-03 15:06:38.882][000000007.546] I/user.stream HTTP下载完成，总字节: 51635
+[2026-07-03 15:06:38.884][000000007.547] I/user.stat_summary http_total: 51635 http_chunks: 13 http_time_ms: 1 http_speed: 51635000 B/s
+[2026-07-03 15:06:44.482][000000013.154] I/user.exaudio 播放完毕 0
+[2026-07-03 15:06:44.486][000000013.155] I/user.播放完成
+[2026-07-03 15:06:44.514][000000013.182] I/user.stat_summary ========== 播放完全结束 ==========
+[2026-07-03 15:06:44.575][000000013.245] W/audio_core print from irq 2 0 0
+```
+
+**注意事项：**
+- 音频格式根据URL后缀自动识别（.pcm/.mp3/.amr/.wav）
+- PCM格式使用默认参数（16kHz、16位、有符号、单声道）启动流式播放
+- AMR/MP3/WAV格式会先缓冲并解析文件头，获取真实采样率后再启动播放
+- 本功能依赖新音频框架，需使用V2046及以上的13/113号固件
 
 ## **异常处理**
 

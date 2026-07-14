@@ -1050,6 +1050,15 @@ void net_lwip_do_event(OS_EVENT event)
 		}
 		else
 		{
+			/* Air8000 多网融合: 把 Lua/socket 创建的 UDP PCB pin 到当前 adapter
+			 * 对应的 netif,避免 RNDIS LAN 来的 DHCP DISCOVER 等广播包被
+			 * AP/ETH/USB 的 dhcpsrv.lua UDP PCB 截走。配合 lwIP udp_input_local_match
+			 * 的 netif_idx 过滤生效。
+			 */
+			if (prvlwip.lwip_netif[adapter_index])
+			{
+				udp_bind_netif(prvlwip.socket[socket_id].pcb.udp, prvlwip.lwip_netif[adapter_index]);
+			}
 			udp_bind(prvlwip.socket[socket_id].pcb.udp, local_ip, prvlwip.socket[socket_id].local_port);
 			error = udp_connect(prvlwip.socket[socket_id].pcb.udp, p_ip, prvlwip.socket[socket_id].remote_port);
 			if (error)

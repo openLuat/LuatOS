@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module udpsrv
 @summary UDP服务器
 @version 1.0

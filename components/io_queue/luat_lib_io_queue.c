@@ -45,7 +45,7 @@ int l_io_queue_capture_handler(lua_State *L, void* ptr)
 /*
 初始化一个io操作队列
 @api  ioqueue.init(hwtimer_id,cmd_cnt,repeat_cnt)
-@int  硬件定时器id，默认用0，根据实际MCU确定，air105为0~5，与pwm共用，同一个通道号不能同时为pwm和ioqueue
+@int  硬件定时器id，默认用0
 @int  一个完整周期需要的命令，可以比实际的多
 @int  重复次数,默认是1，如果写0则表示无限次数循环
 @return nil 无返回值

@@ -34,7 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include "opus_types.h"
 #include "opus_defines.h"
-#include "arch.h"
+#include "celt/arch.h"
 
 /* This is an OPUS_INLINE header file for general platform. */
 
@@ -105,10 +105,10 @@ POSSIBILITY OF SUCH DAMAGE.
                                         ((((a)^0x80000000) & (b)  & 0x80000000) ? silk_int32_MAX : (a)-(b)) )
 
 #if defined(FIXED_POINT) && defined(__mips)
-#include "mips/macros_mipsr1.h"
+#include "silk/mips/macros_mipsr1.h"
 #endif
 
-#include "ecintrin.h"
+#include "celt/ecintrin.h"
 #ifndef OVERRIDE_silk_CLZ16
 static OPUS_INLINE opus_int32 silk_CLZ16(opus_int16 in16)
 {
@@ -136,15 +136,15 @@ static OPUS_INLINE opus_int32 silk_CLZ32(opus_int32 in32)
 #endif
 
 #ifdef OPUS_ARM_INLINE_ASM
-#include "arm/macros_armv4.h"
+#include "silk/arm/macros_armv4.h"
 #endif
 
 #ifdef OPUS_ARM_INLINE_EDSP
-#include "arm/macros_armv5e.h"
+#include "silk/arm/macros_armv5e.h"
 #endif
 
 #ifdef OPUS_ARM_PRESUME_AARCH64_NEON_INTR
-#include "arm/macros_arm64.h"
+#include "silk/arm/macros_arm64.h"
 #endif
 
 #ifdef OPUS_XTENSA_LX7

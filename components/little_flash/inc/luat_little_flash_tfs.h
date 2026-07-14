@@ -30,6 +30,11 @@ typedef struct {
     uint32_t        write_verify_error_count;
     uint32_t        bad_blocks[LF_TFS_BAD_MAX_BLOCKS];
     uint32_t        bad_block_count;
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+    uint32_t        last_mount_ms;
+    uint32_t        last_mount_delta_chunks;
+    uint8_t         last_mount_path;
+#endif
 } luat_lf_tfs_ctx_t;
 
 #ifdef __cplusplus

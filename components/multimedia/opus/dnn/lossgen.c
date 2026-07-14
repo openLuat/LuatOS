@@ -51,13 +51,13 @@
 #include "config.h"
 #endif
 
-#include "arch.h"
+#include "celt/arch.h"
 
 #include <math.h>
 #include "lossgen.h"
-#include "os_support.h"
+#include "celt/os_support.h"
 #include "nnet.h"
-#include "assert.h"
+#include <assert.h>
 
 /* Disable RTCD for this. */
 #define RTCD_ARCH c

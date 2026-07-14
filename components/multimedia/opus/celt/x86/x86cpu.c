@@ -29,10 +29,10 @@
 #include "config.h"
 #endif
 
-#include "cpu_support.h"
-#include "macros.h"
-#include "main.h"
-#include "pitch.h"
+#include "celt/cpu_support.h"
+#include "silk/macros.h"
+#include "silk/main.h"
+#include "celt/pitch.h"
 #include "x86cpu.h"
 
 #if defined(OPUS_HAVE_RTCD) && \

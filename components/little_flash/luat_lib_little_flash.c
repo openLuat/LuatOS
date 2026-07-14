@@ -219,6 +219,9 @@ static int luat_little_flash_get_info(lua_State *L){
 #ifdef LUAT_USE_TFS_COMPONENT
 extern void* flash_tfs_lf(little_flash_t* flash, size_t offset, size_t maxsize);
 extern void tfs_vfs_init(void);
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+extern int luat_little_flash_tfs_test_ctl(lua_State *L);
+#endif
 #endif
 
 extern lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize);
@@ -395,6 +398,9 @@ static const rotable_Reg_t reg_little_flash[] =
     { "unmount",        ROREG_FUNC(luat_little_flash_unmount)},
 #ifdef LUAT_USE_PGFS_COMPONENT
     { "pgfsctl",        ROREG_FUNC(luat_little_flash_pgfsctl)},
+#endif
+#if defined(LUAT_USE_TFS_COMPONENT) && defined(LUAT_USE_TFS_STRESS_DIAG)
+    { "tfsTestCtl",     ROREG_FUNC(luat_little_flash_tfs_test_ctl)},
 #endif
 #endif
 #ifdef LUAT_USE_UTEST

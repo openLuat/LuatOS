@@ -3,7 +3,7 @@
 > 本文档**只列 LuatOS 仓库这边**关于 Air1601 真机开发的注意事项。
 > - 编译流程见 SDK 仓库:`D:\github\luatos-sdk-ccm42xx-gcc\readme.md` "LuatOS 编译"
 > - 刷机/抓日志/真机测试完整流程见 `/luatos-hw-test` skill(`.claude/skills/luatos-hw-test/SKILL.md`)
-> - Air1601 pgfs 回归套件见 `testcase/air1601_pgfs_regression/air1601_pgfs_regression_basic/`
+> - Air1601 pgfs 回归套件见 `testcase/platform/air1601/pgfs_regression/air1601_pgfs_regression_basic/`
 
 ## 环境(LuatOS 侧只关心这两件)
 

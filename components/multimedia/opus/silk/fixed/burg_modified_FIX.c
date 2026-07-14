@@ -29,10 +29,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "config.h"
 #endif
 
-#include "SigProc_FIX.h"
-#include "define.h"
-#include "tuning_parameters.h"
-#include "pitch.h"
+#include "silk/SigProc_FIX.h"
+#include "silk/define.h"
+#include "silk/tuning_parameters.h"
+#include "celt/pitch.h"
 
 #define MAX_FRAME_SIZE              384             /* subfr_length * nb_subfr = ( 0.005 * 16000 + 16 ) * 4 = 384 */
 

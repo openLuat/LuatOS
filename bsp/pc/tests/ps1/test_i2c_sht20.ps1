@@ -50,7 +50,7 @@ finally {
 
 Write-Host "=== SHT20 I2C command/register/conversion ===" -ForegroundColor Cyan
 $common = "..\..\testcase\common\scripts\"
-$case = "..\..\testcase\unit_testcase_tools\i2c_sht20\scripts\"
+$case = "..\..\testcase\unit\driver\i2c_sht20\scripts\"
 $run = Start-Process -FilePath $exe -ArgumentList @($common, $case) -PassThru -NoNewWindow -Wait
 if ($run.ExitCode -ne 0) {
     throw "Lua testcase failed, exit code=$($run.ExitCode)"

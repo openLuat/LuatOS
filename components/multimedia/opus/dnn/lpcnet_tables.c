@@ -3,7 +3,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include "kiss_fft.h"
+#include "celt/kiss_fft.h"
 
 static const arch_fft_state arch_fft = {0, NULL};
 

@@ -14,6 +14,9 @@
 #include "luat_mem.h"
 #include "luat_mcu.h"
 #include "luat_fs.h"
+#include "luat_netdrv.h"
+#include "luat_netdrv_drv.h"
+#include "luat_network_adapter.h"
 
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
@@ -475,7 +478,18 @@ __USER_FUNC_IN_RAM__ static void uart_receive_task(void *param)
 
 int luat_airlink_start_uart(void)
 {
-    
+    // 注册 STA 和 AP 适配器（whale_setup 只设置 boot 回调，需第二次调用触发 boot() 创建 lwIP netif）
+    #if defined(LUAT_USE_DRV_WLAN) && defined(LUAT_USE_NETDRV)
+    {
+        luat_netdrv_conf_t conf = {0};
+        conf.impl = LUAT_NETDRV_IMPL_WHALE;
+        conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
+        luat_netdrv_setup(&conf);
+        conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
+        luat_netdrv_setup(&conf);
+    }
+    #endif
+
     luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
     cmd->cmd = 0x10;
     cmd->len = 128;

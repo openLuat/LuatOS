@@ -261,6 +261,10 @@ end
 function es8311.init(i2c_id, voltage)
     if voltage == nil then voltage = 0x00 end   -- voltage = 0x00 3.3v, 0x01 1.8V
 
+    -- I2C增强：降低I2C读写错误率；B版8311无影响（因为reg0x44 bit3未定义）
+    write_reg(i2c_id, 0x44, 0x08)
+    write_reg(i2c_id, 0x44, 0x08)
+
     -- 读取芯片 ID 进行校验 (寄存器 0xFD=CHIP_ID1, 0xFE=CHIP_ID2, 0xFF=CHIP_VER)
     local temp1 = read_reg(i2c_id, 0xFD)
     local temp2 = read_reg(i2c_id, 0xFE)

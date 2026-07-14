@@ -36,6 +36,10 @@ static void gpio_rpc_notify_handler(uint16_t rpc_id, const void* msg, void* user
 }
 
 /* 0x0100 NOTIFY 事件接收注册 (从机发送, 主机/从机均可接收) */
+static int gpio_event_handler(uint16_t rpc_id, const void* req, void* resp, void* userdata) {
+    (void)rpc_id; (void)req; (void)resp; (void)userdata;
+    return -1; // 主机侧不处理 GPIO RPC 请求
+}
 const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_gpio_event_reg = {
     .rpc_id         = AIRLINK_RPC_ID_GPIO,
     .active         = 1,
@@ -45,7 +49,7 @@ const luat_airlink_rpc_nb_reg_t luat_airlink_rpc_gpio_event_reg = {
     .resp_size      = 0,
     .notify_desc    = drv_gpio_GpioRpcResponse_fields,
     .notify_size    = sizeof(drv_gpio_GpioRpcResponse),
-    .handler        = NULL,
+    .handler        = gpio_event_handler,
     .notify_handler = gpio_rpc_notify_handler,
     .userdata       = NULL,
 };

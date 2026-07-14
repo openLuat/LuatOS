@@ -71,12 +71,15 @@ int luat_airlink_drv_gpio_get(int pin, int* val) {
         return 0;
     }
     // --- raw byte path ---
-    uint32_t version;
-    memcpy(&version, &g_airlink_ext_dev_info.wifi.version, 4);
-    if (version < 9) {
-        LLOGE("wifi version < 9, not support gpio.get");
-        *val = 0;
-        return 0;
+    // HSPI 模式（XT804 从机）跳过版本检查
+    if (luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_HSPI_MASTER) {
+        uint32_t version;
+        memcpy(&version, &g_airlink_ext_dev_info.wifi.version, 4);
+        if (version < 9) {
+            LLOGE("wifi version < 9, not support gpio.get");
+            *val = 0;
+            return 0;
+        }
     }
     uint64_t seq_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {

@@ -7,6 +7,10 @@
 #include "luat_wlan.h"
 #include "luat_mem.h"
 #include "luat_msgbus.h"
+#include "luat_netdrv.h"
+#include "luat_network_adapter.h"
+#include "lwip/ip_addr.h"
+#include "lwip/netif.h"
 #include "drv_wlan.pb.h"
 #include <string.h>
 
@@ -173,6 +177,22 @@ static void wlan_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void*
     }
     case AIRLINK_DRV_RPC_ID_WLAN_IP_EVENT: {
         const drv_wlan_WlanIpReadyNotify* notify = (const drv_wlan_WlanIpReadyNotify*)msg_raw;
+        // 收到 IP 就绪 → 配置虚拟网卡（链路 UP + 设置 IP）
+        #ifdef LUAT_USE_NETDRV
+        {
+            extern void net_lwip2_set_link_state(uint8_t id, uint8_t up);
+            luat_netdrv_t* nd = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_STA);
+            if (nd && nd->netif && notify->has_ip) {
+                luat_ip_addr_t ip4;
+                ipaddr_aton(notify->ip, &ip4);
+                nd->netif->ip_addr.u_addr.ip4.addr = ip4.u_addr.ip4.addr;
+                nd->netif->netmask.u_addr.ip4.addr = 0x00FFFFFF;
+                nd->netif->gw.u_addr.ip4.addr = ip4.u_addr.ip4.addr;
+                netif_set_link_up(nd->netif);
+                LLOGI("Virtual STA adapter configured IP=%s link=UP", notify->ip);
+            }
+        }
+        #endif
         struct wlan_ip_ready_ctx* ctx = (struct wlan_ip_ready_ctx*)luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(struct wlan_ip_ready_ctx));
         if (!ctx) return;
         memset(ctx, 0, sizeof(*ctx));

@@ -22,9 +22,6 @@ typedef struct {
     uint8_t framebuffer_index;
     volatile bool framebuffer_dirty;
     volatile bool src_pending;
-    volatile bool size_pending;
-    uint16_t pending_w;
-    uint16_t pending_h;
     lv_coord_t requested_width;
     lv_coord_t requested_height;
     uint16_t frame_width;
@@ -35,6 +32,29 @@ typedef struct {
 } airui_camera_data_t;
 
 static lv_obj_t *g_airui_camera_target = NULL;
+
+static lv_image_align_t airui_camera_parse_fit(const char *fit)
+{
+    if (fit == NULL || fit[0] == '\0') {
+        return LV_IMAGE_ALIGN_CENTER;
+    }
+    if (strcmp(fit, "center") == 0) {
+        return LV_IMAGE_ALIGN_CENTER;
+    }
+    if (strcmp(fit, "contain") == 0) {
+        LLOGW("fit=contain 需每帧软件缩放，预览帧率可能下降");
+        return LV_IMAGE_ALIGN_CONTAIN;
+    }
+    if (strcmp(fit, "cover") == 0) {
+        return LV_IMAGE_ALIGN_COVER;
+    }
+    if (strcmp(fit, "stretch") == 0) {
+        LLOGW("fit=stretch 需每帧软件缩放，预览帧率可能下降");
+        return LV_IMAGE_ALIGN_STRETCH;
+    }
+    LLOGW("unknown camera fit: %s, fallback to center", fit);
+    return LV_IMAGE_ALIGN_CENTER;
+}
 
 static airui_camera_data_t *airui_camera_get_data(lv_obj_t *obj)
 {
@@ -181,11 +201,6 @@ static void airui_camera_timer_cb(lv_timer_t *timer)
         return;
     }
 
-    if (data->size_pending) {
-        lv_obj_set_size(camera, (lv_coord_t)data->pending_w, (lv_coord_t)data->pending_h);
-        data->size_pending = false;
-    }
-
     if (data->framebuffer_dirty) {
         data->framebuffer_index = (uint8_t)((data->framebuffer_index + 1u) & 0x1u);
         airui_camera_timer_apply_img_dsc(camera, data);
@@ -219,14 +234,12 @@ int airui_camera_push_frame(lv_obj_t *camera, const uint8_t *rgb565, uint16_t w,
         return 0;
     }
 
+    /* 保留用户创建的 w/h 作为视口，不自动撑大控件，以便 fit 裁切生效 */
     if (!data->size_checked) {
         data->size_checked = true;
         if (data->requested_width != (lv_coord_t)w || data->requested_height != (lv_coord_t)h) {
-            LLOGW("camera: size mismatch, requested=%dx%d actual=%dx%d",
+            LLOGW("camera: viewport %dx%d != frame %dx%d (keep viewport for fit crop)",
                   (int)data->requested_width, (int)data->requested_height, (int)w, (int)h);
-            data->pending_w = w;
-            data->pending_h = h;
-            data->size_pending = true;
         }
     }
 
@@ -272,6 +285,7 @@ lv_obj_t *airui_camera_create_from_config(void *L, int idx)
     airui_camera_data_t *data;
     lv_coord_t requested_width;
     lv_coord_t requested_height;
+    const char *fit;
 
     if (L_state == NULL) {
         return NULL;
@@ -285,6 +299,7 @@ lv_obj_t *airui_camera_create_from_config(void *L, int idx)
     parent = airui_marshal_parent(L, idx);
     requested_width = (lv_coord_t)airui_marshal_floor_integer(L, idx, "w", 320);
     requested_height = (lv_coord_t)airui_marshal_floor_integer(L, idx, "h", 240);
+    fit = airui_marshal_string(L, idx, "fit", NULL);
 
     camera = lv_image_create(parent);
     if (camera == NULL) {
@@ -295,7 +310,7 @@ lv_obj_t *airui_camera_create_from_config(void *L, int idx)
         airui_marshal_floor_integer(L, idx, "x", 0),
         airui_marshal_floor_integer(L, idx, "y", 0));
     lv_obj_set_size(camera, requested_width, requested_height);
-    lv_image_set_inner_align(camera, LV_IMAGE_ALIGN_CENTER);
+    lv_image_set_inner_align(camera, airui_camera_parse_fit(fit));
 
     meta = airui_component_meta_alloc(ctx, camera, AIRUI_COMPONENT_CAMERA);
     if (meta == NULL) {
@@ -335,6 +350,16 @@ lv_obj_t *airui_camera_create_from_config(void *L, int idx)
     }
 
     return camera;
+}
+
+int airui_camera_set_fit(lv_obj_t *camera, const char *fit)
+{
+    if (camera == NULL) {
+        return -1;
+    }
+
+    lv_image_set_inner_align(camera, airui_camera_parse_fit(fit));
+    return 0;
 }
 
 int airui_camera_start(lv_obj_t *camera)

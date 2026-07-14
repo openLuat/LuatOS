@@ -760,6 +760,7 @@ int airui_gbc_set_key(lv_obj_t *gbc, int key, int pressed);
  * Camera 组件（摄像头预览，lv_image + 双 framebuffer RGB565 模式）
  */
 lv_obj_t *airui_camera_create_from_config(void *L, int idx);
+int airui_camera_set_fit(lv_obj_t *camera, const char *fit); /* center/contain/cover/stretch */
 int airui_camera_start(lv_obj_t *camera);
 int airui_camera_stop(lv_obj_t *camera);
 int airui_camera_destroy(lv_obj_t *camera);

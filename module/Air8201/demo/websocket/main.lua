@@ -1,33 +1,22 @@
 --[[
 @module  main
-@summary LuatOS语音通话应用主入口，负责加载功能模块
-@version 1.1
-@date    2026.03.13
-@author  拓毅恒
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 1.0
+@date    2025.07.01
+@author  朱天华
 @usage
-本demo演示两种语音通话应用场景（二选一）：
-
-场景一：基础通话功能（默认启用）
-- 音频设备初始化与控制
-- 完整通话业务逻辑处理（4种通话场景）
-- 通话状态监控与日志记录
-
-场景二：TTS循环播放与通话处理
-- TTS语音循环播放功能
-- 来电自动接听与通话处理
-- 通话录音功能
-
-使用说明：
-根据需求启用对应的功能模块，注释掉不需要的模块
-- 启用基础通话功能：require "cc_app"
-- 启用TTS循环播放功能：require "cc_tts_app"
-
-支持 Air8201G 和 Air8201H 两种硬件版本，通过 main.lua 中的 _G.HARDWARE_ENV 宏切换
-- Air8201G: 基于 Air780EGH 模组，板载 ES8311，pa_ctrl=25
-- Air8201H: 基于 Air780EHM 模组，板载 ES8311，pa_ctrl=23
+Air8201 兼容 Air8201G（Air780EGH）和 Air8201H（Air780EHM）两款型号。
+本demo演示的核心功能为：
+1、创建一个WebSocket连接，连接WebSocket server；
+2、WebSocket连接出现异常后，自动重连；
+3、WebSocket连接，client按照以下逻辑发送数据给server
+- 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后发送给server；
+4、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
+5、netdrv_device：配置连接外网使用的网卡，目前支持4G网卡 / PC模拟器网卡（二选一）
 
 更多说明参考本目录下的readme.md文件
 ]]
+
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -39,21 +28,12 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-
---[[
-硬件版本选择：修改下方 _G.HARDWARE_ENV 的值即可切换
-    "G" = Air8201G (基于Air780EGH, pa_ctrl=25, ES8311=3.3V)
-    "H" = Air8201H (基于Air780EHM, pa_ctrl=23, ES8311=1.8V)
-]]
-
-PROJECT = "VOICE_CALL_DEMO"
+PROJECT = "WEBSOCKET_LONG_CONNECTION"
 VERSION = "001.999.000"
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
--- 硬件版本宏：修改此处即可切换 Air8201G("G") / Air8201H("H")
-_G.HARDWARE_ENV = "G"
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -63,10 +43,12 @@ _G.HARDWARE_ENV = "G"
 --     errDump.config(true, 600)
 -- end
 
+
 -- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
 -- 可以使用合宙的iot.openluat.com平台进行远程升级
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
+
 
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
@@ -76,17 +58,23 @@ _G.HARDWARE_ENV = "G"
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
+-- 加载网络环境检测看门狗功能模块
+require "network_watchdog"
 
--- 仅加载必要的功能模块
-require "audio_drv"  -- 音频设备管理模块
+-- 加载网络驱动设备功能模块
+require "netdrv_device"
 
--- 加载通话业务逻辑模块（二选一）
--- 场景一：基础通话功能（默认启用）
--- require "cc_app"
--- 场景二：TTS循环播放与通话处理模块
--- 测试TTS循环播放与通话处理模块，取消注释下一行
-require "cc_tts_app"
+-- 加载时间同步应用功能模块
+-- 当客户端发送一个特定的"echo"命令，会构造一个包含当前时间的JSON消息发送到服务器；
+-- WebSocket测试服务器（echo.websocket.org）是一个回环服务器，它会将收到的消息原样返回;
+-- 时间同步可以避免因设备本地时钟不准而导致发送的时间与日志时间不一致的问题。
+require "sntp_app"
+
+-- 加载定时器应用功能模块
+require "timer_app"
+
+-- 加载WebSocket client主应用功能模块
+require "websocket_main"
 
 -- 用户代码已结束---------------------------------------------
 sys.run()
--- sys.run()之后不要加任何语句!!!!!

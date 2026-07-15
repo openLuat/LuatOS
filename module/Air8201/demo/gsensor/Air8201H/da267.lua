@@ -1,3 +1,27 @@
+--[[
+@module   da267
+@summary  DA267三轴加速度传感器驱动模块
+@version  1.0
+@date     2026.07.14
+@usage
+本模块为DA267传感器的底层驱动，核心功能为：
+1、DA267传感器初始化（I2C配置、量程、中断阈值等）
+2、GPIO39中断回调读取三轴加速度数据（X/Y/Z，12bit精度）
+3、读取计步器数据（步数）
+4、定时轮询传感器型号（芯片ID=0x13）确认传感器健康状况
+5、传感器异常时发布RESTORE_GSENSOR消息触发自动复位
+
+传感器配置说明：
+- I2C地址：0x26（I2C1）
+- 中断引脚：GPIO39
+- 量程：±2g（K=3.91mg/LSB）
+- 中断阈值：X/Y/Z轴均为0x06（约23.4mg）
+
+接口说明：
+- 内部自动执行，无对外函数接口
+- 传感器异常时发布 sys.publish("RESTORE_GSENSOR") 消息
+]]
+
 local i2cId = 1
 local da267Addr = 0x26
 local intPin = 39
@@ -94,8 +118,6 @@ local function init()
 end
 
 sys.taskInit(function()
-    mcu.altfun(mcu.I2C, i2cId, 23, 2, 0)
-    mcu.altfun(mcu.I2C, i2cId, 24, 2, 0)
     while true do
         init()
         while true do

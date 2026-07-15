@@ -1,33 +1,16 @@
 --[[
 @module  main
-@summary LuatOS语音通话应用主入口，负责加载功能模块
-@version 1.1
-@date    2026.03.13
-@author  拓毅恒
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 001.999.000
+@date    2025.07.28
+@author  马亚丹
 @usage
-本demo演示两种语音通话应用场景（二选一）：
-
-场景一：基础通话功能（默认启用）
-- 音频设备初始化与控制
-- 完整通话业务逻辑处理（4种通话场景）
-- 通话状态监控与日志记录
-
-场景二：TTS循环播放与通话处理
-- TTS语音循环播放功能
-- 来电自动接听与通话处理
-- 通话录音功能
-
-使用说明：
-根据需求启用对应的功能模块，注释掉不需要的模块
-- 启用基础通话功能：require "cc_app"
-- 启用TTS循环播放功能：require "cc_tts_app"
-
-支持 Air8201G 和 Air8201H 两种硬件版本，通过 main.lua 中的 _G.HARDWARE_ENV 宏切换
-- Air8201G: 基于 Air780EGH 模组，板载 ES8311，pa_ctrl=25
-- Air8201H: 基于 Air780EHM 模组，板载 ES8311，pa_ctrl=23
-
-更多说明参考本目录下的readme.md文件
+1. 详细逻辑请看ftp_up_download.lua文件
+2. netdrv_device：配置连接外网使用的网卡，目前支持以下两种选择（二选一）
+   (1) netdrv_4g：4G网卡   
+   (2) netdrv_pc：pc模拟器上的网卡
 ]]
+
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -39,21 +22,15 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-
---[[
-硬件版本选择：修改下方 _G.HARDWARE_ENV 的值即可切换
-    "G" = Air8201G (基于Air780EGH, pa_ctrl=25, ES8311=3.3V)
-    "H" = Air8201H (基于Air780EHM, pa_ctrl=23, ES8311=1.8V)
-]]
-
-PROJECT = "VOICE_CALL_DEMO"
+PROJECT = "ftp_demo"
 VERSION = "001.999.000"
+
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
--- 硬件版本宏：修改此处即可切换 Air8201G("G") / Air8201H("H")
-_G.HARDWARE_ENV = "G"
+
+
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -63,10 +40,12 @@ _G.HARDWARE_ENV = "G"
 --     errDump.config(true, 600)
 -- end
 
+
 -- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
 -- 可以使用合宙的iot.openluat.com平台进行远程升级
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
+
 
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
@@ -77,16 +56,17 @@ _G.HARDWARE_ENV = "G"
 -- end, 3000)
 
 
--- 仅加载必要的功能模块
-require "audio_drv"  -- 音频设备管理模块
 
--- 加载通话业务逻辑模块（二选一）
--- 场景一：基础通话功能（默认启用）
--- require "cc_app"
--- 场景二：TTS循环播放与通话处理模块
--- 测试TTS循环播放与通话处理模块，取消注释下一行
-require "cc_tts_app"
 
--- 用户代码已结束---------------------------------------------
+-- 加载网络驱动设备功能模块，在该文件中修改自己使用的联网方式
+require"netdrv_device"
+
+
+--加载ftp_up_download功能模块
+require "ftp_up_download"
+
+
+
+
+-- 启动系统调度（必须放在最后）
 sys.run()
--- sys.run()之后不要加任何语句!!!!!

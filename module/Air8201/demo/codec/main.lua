@@ -1,30 +1,18 @@
 --[[
 @module  main
-@summary LuatOS语音通话应用主入口，负责加载功能模块
+@summary LuatOS音频编解码演示
 @version 1.1
-@date    2026.03.13
-@author  拓毅恒
+@date    2025.11.05
+@author  陈媛媛
 @usage
-本demo演示两种语音通话应用场景（二选一）：
-
-场景一：基础通话功能（默认启用）
-- 音频设备初始化与控制
-- 完整通话业务逻辑处理（4种通话场景）
-- 通话状态监控与日志记录
-
-场景二：TTS循环播放与通话处理
-- TTS语音循环播放功能
-- 来电自动接听与通话处理
-- 通话录音功能
-
-使用说明：
-根据需求启用对应的功能模块，注释掉不需要的模块
-- 启用基础通话功能：require "cc_app"
-- 启用TTS循环播放功能：require "cc_tts_app"
+本demo演示的核心功能为：
+1、codec_mp3_to_pcm： MP3解码为PCM并流式播放
+2、codec_g711_pcm： 对PCM文件进行G711编码并保存，对编码后的G711文件进行解码并播放
+3、codec_pcm_to_amr： PCM编码为AMR并播放
 
 支持 Air8201G 和 Air8201H 两种硬件版本，通过 main.lua 中的 _G.HARDWARE_ENV 宏切换
-- Air8201G: 基于 Air780EGH 模组，板载 ES8311，pa_ctrl=25
-- Air8201H: 基于 Air780EHM 模组，板载 ES8311，pa_ctrl=23
+- Air8201G: pa_ctrl=25
+- Air8201H: pa_ctrl=23
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -42,11 +30,11 @@ VERSION：项目版本号，ascii string类型
 
 --[[
 硬件版本选择：修改下方 _G.HARDWARE_ENV 的值即可切换
-    "G" = Air8201G (基于Air780EGH, pa_ctrl=25, ES8311=3.3V)
-    "H" = Air8201H (基于Air780EHM, pa_ctrl=23, ES8311=1.8V)
+    "G" = Air8201G (pa_ctrl=25, ES8311 3.3V)
+    "H" = Air8201H (pa_ctrl=23, ES8311 1.8V)
 ]]
 
-PROJECT = "VOICE_CALL_DEMO"
+PROJECT = "codec"
 VERSION = "001.999.000"
 
 -- 在日志中打印项目名和项目版本号
@@ -54,6 +42,8 @@ log.info("main", PROJECT, VERSION)
 
 -- 硬件版本宏：修改此处即可切换 Air8201G("G") / Air8201H("H")
 _G.HARDWARE_ENV = "G"
+
+
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -63,30 +53,30 @@ _G.HARDWARE_ENV = "G"
 --     errDump.config(true, 600)
 -- end
 
+
 -- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
 -- 可以使用合宙的iot.openluat.com平台进行远程升级
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
+
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 音频对内存影响较大，不断的打印内存，用于判断是否异常
 -- 方便分析内存使用是否有异常
--- sys.timerLoopStart(function()
---     log.info("mem.lua", rtos.meminfo())
---     log.info("mem.sys", rtos.meminfo("sys"))
--- end, 3000)
+sys.timerLoopStart(function()
+    log.info("mem.lua", rtos.meminfo())
+    log.info("mem.sys", rtos.meminfo("sys"))
+end, 3000)
+
+-- 根据需求选择需要的功能模块
+require "codec_mp3_to_pcm"     -- MP3解码为PCM并流式播放
+-- require "codec_g711_pcm"           -- G711编解码演示
+--  require "codec_pcm_to_amr"        -- PCM编码为AMR并播放
 
 
--- 仅加载必要的功能模块
-require "audio_drv"  -- 音频设备管理模块
-
--- 加载通话业务逻辑模块（二选一）
--- 场景一：基础通话功能（默认启用）
--- require "cc_app"
--- 场景二：TTS循环播放与通话处理模块
--- 测试TTS循环播放与通话处理模块，取消注释下一行
-require "cc_tts_app"
 
 -- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!
+-- sys.run()之后后面不要加任何语句!!!!!

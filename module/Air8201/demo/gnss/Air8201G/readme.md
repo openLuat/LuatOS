@@ -1,8 +1,11 @@
-## Air8201G gnss demo 说明
+## exgnss和libgnss的区别
+exgnss：主要利用exgnss库去实现整个功能，主要包含两个目录，single和combination，
 
-Air8201G 基于 Air780EGH 模组，使用模组内置的 GNSS 功能，可直接复用 Air780EHM_Air780EHV_Air780EGH 系列的 gnss demo。
+single是单点定位，展示了exngss的三种模式。
 
+combination是融合了各种场景的GNSS定位，主要包括正常模式下的定时开启GNSS，定位成功把经纬度发到服务器的功能，低功耗模式下定时开启GNSS，定位成功把经纬度发到服务器的功能，以及PSM+模式下，定时唤醒模块，定位成功把经纬度发到服务器的功能，还包括了利用内置的加速度传感器，通过震动检测来执行GNSS定位的功能。
 
-## 完整代码与说明请参考
+libngss:主要利用libgnss核心库实现的整个功能，主要功能包括打开GNSS，开启AGPS辅助定位，定位成功获取经纬度。
 
-[Air780EHM_Air780EHV_Air780EGH/demo/gnss/Air780EGH](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EHM_Air780EHV_Air780EGH/demo/gnss/Air780EGH)
+## 使用推荐
+推荐使用exgnss，因为exgnss在libgnss核心库的基础上，对gnss的开和关做了函数优化，不需要繁琐的步骤进行开和关，同时加入了gnss应用的概念，可以选择常开或者定时开启，支持不同场景的应用方式，让用户在开发的过程中更简单。

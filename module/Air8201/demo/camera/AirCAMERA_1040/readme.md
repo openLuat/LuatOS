@@ -95,9 +95,9 @@ AirCAMERA_1040 配件板插入BTB扩展板的摄像头座子中
 
 1、Luatools 下载调试工具：[https://docs.openluat.com/air780epm/common/Luatools/](https://docs.openluat.com/air780epm/common/Luatools/)
 
-2、固件版本：LuatOS-SoC_V2046_Air780EHM_1，固件地址，如有最新固件请用最新 https://docs.openluat.com/air780ehm/luatos/firmware/version/
+2、[Air8201G固件(基于Air780EGH)](https://docs.openluat.com/air780egh/luatos/firmware/version/)
 
-3、固件版本：LuatOS-SoC_V2046_Air780EGH_1，固件地址，如有最新固件请用最新 https://docs.openluat.com/air780egh/luatos/firmware/version/
+3、[Air8201H固件(基于Air780EHM)](https://docs.openluat.com/air780epm/luatos/firmware/version/#air780ehmluatos)
 
 
 ## 演示核心步骤

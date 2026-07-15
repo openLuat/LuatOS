@@ -202,6 +202,31 @@ int luat_camera_image_decode_get_result(uint8_t *buf);
 
 int luat_camera_set_cache(int id, uint8_t **cache, uint8_t cache_num, uint32_t cache_len);
 
+typedef enum
+{
+    LUAT_CAMERA_PREVIEW_DATA_TYPE_RAW = 0,
+    LUAT_CAMERA_PREVIEW_DATA_TYPE_MJPEG,
+    LUAT_CAMERA_PREVIEW_DATA_TYPE_H264,
+}luat_camera_preview_data_type;
+
+typedef struct
+{
+    uint64_t *data;
+    union {
+        struct {
+            uint32_t w;
+            uint32_t h;
+            uint32_t color_bytes;
+        };
+        uint32_t total_bytes;
+    };
+    luat_camera_preview_data_type data_type;
+} luat_camera_preview_data_t;
+
+typedef void (*luat_camera_preview_data_callback_t)(luat_camera_preview_data_t *preview_data, void *user_data);
+
+void luat_camera_set_preview_data_callback(int id, luat_camera_preview_data_callback_t callback, void *user_data);
+
 /**********以下是luatos使用，csdk不要使用***********/
 /**
  * @brief 开始接收camera数据
@@ -218,9 +243,6 @@ int luat_camera_stop(int id);
 
 int luat_camera_preview(int id, uint8_t on_off);
 
-typedef void (*luat_camera_preview_data_callback_t)(uint8_t *data, uint32_t w, uint32_t h, uint32_t color_bytes, void *user_data);
-
-void luat_camera_set_preview_data_callback(int id, luat_camera_preview_data_callback_t callback, void *user_data);
 
 int luat_camera_work_mode(int id, int mode);
 

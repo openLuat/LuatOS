@@ -254,7 +254,7 @@ int luat_image_crop(const uint8_t *src_data, uint32_t bytes_per_pixel,
 	}
 
 	// 检查裁剪区域是否超出原始图像边界
-	if (crop_x + dst_width > src_width || crop_y + dst_height > src_height)
+	if (((crop_x + dst_width) > src_width) || ((crop_y + dst_height) > src_height))
 	{
 		return -LUAT_ERROR_PARAM_INVALID;
 	}

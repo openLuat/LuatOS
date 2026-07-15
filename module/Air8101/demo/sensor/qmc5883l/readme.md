@@ -61,7 +61,7 @@
 
 ### 5.2 内核固件
 
-- [点击下载Air8101系列最新版本内核固件](https://docs.openluat.com/air8101/luatos/firmware/)，demo所使用的是 LuatOS-SoC_V2046_Air8101 1号固件
+- [点击下载Air8101系列最新版本内核固件](https://docs.openluat.com/air8101/luatos/firmware/)，demo所使用的是 LuatOS-SoC_V2018_Air8101_101.soc
 
 ### 5.3 脚本文件
 

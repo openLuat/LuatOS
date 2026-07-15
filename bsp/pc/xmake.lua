@@ -359,7 +359,7 @@ target("luatos-lua")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_wb.c")
 
     -- audio_dsp（SpeexDSP 适配层，可选外部组件）
-    -- 源码位于 luatos-ext-components/audio_dsp，与 vedio_player 类似按需集成。
+    -- 源码位于 luatos-ext-components/audio_dsp，与 mp4player 类似按需集成。
     -- 环境变量 LUAT_USE_AUDIO_DSP=y 强制启用，=n 强制禁用；未设置时按目录存在性自动检测。
     local use_audio_dsp = false
     local audio_dsp_src = luatos_ext_root .. "/audio_dsp"
@@ -851,15 +851,15 @@ target("luatos-lua")
 
     -- =========================================================
     -- mp4player（MP4/H.264/AAC 解码器）
-    -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/vedio_player
+    -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/mp4player
     -- 示例（PowerShell）：
     --   $env:LUAT_USE_MP4PLAYER = "y"  # 显式启用
     --   $env:LUAT_USE_MP4PLAYER = "n"  # 显式禁用
     --   cmd /c build_windows_32bit_msvc.bat
     -- =========================================================
-    -- 自动检测：如果 luatos_ext_root/vedio_player 不存在，自动禁用 MP4
+    -- 自动检测：如果 luatos_ext_root/mp4player 不存在，自动禁用 MP4
     local use_mp4player = false
-    local mp4player_src = luatos_ext_root .. "/vedio_player"
+    local mp4player_src = luatos_ext_root .. "/mp4player"
     if os.isdir(mp4player_src) then
         -- 检查环境变量 LUAT_USE_MP4PLAYER 的显式控制
         local env_mp4 = os.getenv("LUAT_USE_MP4PLAYER")
@@ -868,13 +868,13 @@ target("luatos-lua")
         end
     elseif os.getenv("LUAT_USE_MP4PLAYER") == "y" then
         -- 显式要求启用但目录不存在，给出警告（保留，不强制失败）
-        print("Warning: LUAT_USE_MP4PLAYER=y but vedio_player not found at: " .. mp4player_src)
+        print("Warning: LUAT_USE_MP4PLAYER=y but mp4player not found at: " .. mp4player_src)
     end
     
     if use_mp4player then
         add_defines("LUAT_USE_MP4PLAYER=1")
 
-        local mp4player_src = luatos_ext_root .. "/vedio_player"
+        local mp4player_src = luatos_ext_root .. "/mp4player"
         -- 统一为正斜杠，xmake 在 Windows 下两者均支持
         mp4player_src = mp4player_src:gsub("\\", "/")
         -- 确保末尾无斜杠

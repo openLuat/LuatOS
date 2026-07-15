@@ -15,7 +15,6 @@ NDK 的 guest 程序都是独立的小项目，每个目录自带 `main.c`（或
 
 | 目录 | 用途 |
 |---|---|
-| [`../guest/fixtures/rv32f_regression/`](../guest/fixtures/rv32f_regression) | RV32F 浮点回归（20+ 个 .S 文件 + hardfloat_*） |
 | [`../guest/fixtures/hostabi_v1/`](../guest/fixtures/hostabi_v1) | Host ABI v1 命令链回归（含 RV32C 变体） |
 
 ---

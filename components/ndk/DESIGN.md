@@ -13,7 +13,6 @@
 - **Sandbox isolation** — guest code cannot escape into host memory or call arbitrary host functions; the only host touch-points are the documented CSRs and one MMIO address.
 - **Deterministic cycle count** — every NDK step is counted; the budget is caller-controlled and the inner loop yields at 256-step granularity so `ndk.stop` is responsive.
 - **Host-driven MMIO / CSR** — peripheral state lives in the host (`src/luat_ndk_host*.c`); the guest only triggers side-effects through RISC-V `csrrw` instructions.
-- **Optional RV32F** — `rv32imf` ISA string enables single-precision FP. `rv32ima` is the default.
 - **Up to 512 KiB guest RAM** — `LUAT_NDK_MAX_RAM_SIZE` ceiling (was 32 KiB; raised in Phase 3).
 - **PC simulator as the primary validation backend** — Windows + MSVC + xmake. Production firmware support (Air1601 / Air780E / ...) is explicitly out of scope (see §14).
 - **Designed for Lua orchestration** — the `ndk.*` API is a Lua module; lifecycle is `__gc`-managed; both sync (`exec`) and async (`thread`) execution are first-class.
@@ -29,12 +28,12 @@
 | Public C ABI (host + guest) | `include/luat_ndk_abi.h` | CSR addresses, opcodes, feature bits, pack/unpack macros, status enums, event header / slot layout. |
 | Guest inline helpers | `include/luat_ndk_builtin.h` | `static inline` `csrr`/`csrrw` wrappers for every documented CSR. |
 | Guest curated helper | `guest/include/luat_ndk_helper.h` | Phase 3: typed exchange access, log, SYSCON exit, status decoders, byte order, hash calls, event peek. |
-| Core simulator | `src/luat_ndk.c` | mini-rv32ima host; `ndk_init / deinit / reset / load_image / exec_inner / start_thread / stop_thread`; RV32F helpers (`ndk_fcvt_s_w`, `ndk_fcvt_w_s`, etc.); threading primitives. |
+| Core simulator | `src/luat_ndk.c` | mini-rv32ima host; `ndk_init / deinit / reset / load_image / exec_inner / start_thread / stop_thread`; threading primitives. |
 | CSR dispatch | `src/luat_ndk_host.c` | `luat_ndk_host_othercsr_read / write` — switch on CSR address; SYSCON MMIO handler; log / time / event CSRs. |
 | Per-peripheral handlers | `src/luat_ndk_host_event.c` / `_gpio.c` / `_uart.c` / `_crypto.c` | One file per peripheral family. Dispatcher fans out to these. |
 | CPU core | `include/mini-rv32ima.h` | Vendored mini-rv32ima (Charles Lohr, MIT / NewBSD), patched with `MINIRV32_LUATOS_RV32C_PATCH` for RV32C support. |
 | Examples | `guest/examples/{hello_world, exchange_buffer_demo, gpio_hostabi_demo, crypto_hash_demo}` | 4 customer-facing standalone C projects; all use helper since Phase 3. |
-| Regression guests | `guest/fixtures/{rv32f_regression, hostabi_v1}` | Self-contained test programs; `hostabi_v1` keeps its own `ndk_stubs.c` for fixture-level test hooks. |
+| Regression guests | `guest/fixtures/hostabi_v1` | Self-contained test programs; `hostabi_v1` keeps its own `ndk_stubs.c` for fixture-level test hooks. |
 
 ### Boundary rules
 
@@ -297,10 +296,9 @@ Error string map (`ndk_errstr`):
 
 | Suite | File | Baseline | Coverage |
 |---|---|---|---|
-| `ndk_basic` | `testcase/ndk/ndk_basic/scripts/ndk_test.lua` | 42 passed, 0 failed | Lifecycle, RV32F regression (20+ binaries), exchange, info, error paths. Phase 3: `MEM_SIZE = 64 KiB` (was 32 KiB). |
+| `ndk_basic` | `testcase/ndk/ndk_basic/scripts/ndk_test.lua` | 5 passed, 0 failed | Lifecycle, exchange, info, error paths. Phase 3: `MEM_SIZE = 64 KiB` (was 32 KiB). |
 | `ndk_hostabi_basic` | `testcase/ndk/ndk_hostabi_basic/scripts/ndk_hostabi_test.lua` | 39 passed, 0 failed | Host ABI v1 command chain (META / GPIO v2 / UART v1 / Crypto v1), `ndk_crypto_perf_test.lua` benchmark. |
 | Smoke 113 | `bsp/pc/test/113.ndk_simple/main.lua` | passes | Lifecycle. Phase 3: **512 KiB RAM smoke** (`assert(info.mem == 512*1024)`). |
-| RV32F regression | `guest/fixtures/rv32f_regression` | 20+ .S pass | FADD / FSUBMUL / FCLASS / FCMP / FSGNJ / FMV / FLWFSW / FCVT.* / FCSR / hardfloat_*. |
 | Host ABI v1 | `guest/fixtures/hostabi_v1` | 39/39 cmd chain pass | Full command op dispatch + RV32C variant. |
 
 ## 13. Phase changelog
@@ -312,6 +310,7 @@ Error string map (`ndk_errstr`):
 | 2 | 2026-05 | RV32F float extension (`rv32imf`). Host-backed rounding (RNE/RTZ/RDN/RUP). |
 | 2b | 2026-05 | RMM (`rm/frm=4`) limitation: trap as illegal, with `baremetal_fadd_rmm_static/dynamic.bin` regression. |
 | 3 | 2026-06 | This PR. `luat_ndk_helper.h` (header-only guest standard library). `LUAT_NDK_MAX_RAM_SIZE` 32 KiB → 512 KiB. `step_budget = 0` semantics: unlimited (was default 32768). 4 C examples refactored to use helper. `crypto_hash_demo` switches from pure-software MD5/CRC32 to host CSR 0x230/0x231. README → `docs/*.md` split. `DESIGN.md` (this file). |
+| 4 | 2026-07 | Remove RV32F floating-point support. NDK now supports only the integer `rv32ima` ISA; FP opcodes trap as illegal instructions as before. Deleted FP code, `rv32imf` option, FP API fields, FP documentation, and FP test fixtures. |
 
 ## 14. Non-goals
 
@@ -327,7 +326,7 @@ Error string map (`ndk_errstr`):
 ## 15. Acceptance criteria
 
 - [x] `nndk_hostabi_basic` regression holds at **39 passed, 0 failed**.
-- [x] `ndk_basic` regression holds at **42 passed, 0 failed** (with `MEM_SIZE = 64 KiB`).
+- [x] `ndk_basic` regression holds at **5 passed, 0 failed** (with `MEM_SIZE = 64 KiB`).
 - [x] `bsp/pc/test/113.ndk_simple` smoke test asserts `info.mem == 512*1024` and passes.
 - [x] 4 C examples each compile and produce a `<name>.bin` artifact:
   - `hello_world`, `exchange_buffer_demo`, `gpio_hostabi_demo`, `crypto_hash_demo` (C)

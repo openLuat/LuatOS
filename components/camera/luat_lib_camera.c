@@ -503,6 +503,13 @@ LUAT_WEAK int luat_camera_preview(int id, uint8_t on_off){
     return -1;
 }
 
+LUAT_WEAK void luat_camera_set_preview_data_callback(int id, luat_camera_preview_data_callback_t callback, void *user_data)
+{
+    (void)id;
+    (void)callback;
+    (void)user_data;
+}
+
 LUAT_WEAK int luat_camera_work_mode(int id, int mode){
     LLOGD("not support yet");
     return -1;

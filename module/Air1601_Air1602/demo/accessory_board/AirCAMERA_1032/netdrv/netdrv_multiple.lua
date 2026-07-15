@@ -91,8 +91,8 @@ local function netdrv_multiple_task_func()
                     airlink_type = airlink.MODE_UART, -- airlink工作模式：UART模式
                     airlink_uart_id = 3,            -- airlink使用的UART接口ID
                     airlink_uart_baud = 2000000,    -- airlink使用的UART波特率，默认2000000
-                    ssid = "116",                   -- WiFi名称
-                    password = "hezhou666",      -- WiFi密码
+                    ssid = "茶室-降功耗,找合宙!",                   -- WiFi名称
+                    password = "Air123456",      -- WiFi密码
                 }
             },
 

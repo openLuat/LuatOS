@@ -242,6 +242,15 @@ static int l_camera_init(lua_State *L){
         }
         lua_pop(L, 1);
 
+        lua_pushliteral(L, "format");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.format_type = luaL_checkinteger(L, -1);
+        } else {
+            conf.format_type = LUAT_CAMERA_UVC_FORMAT_MJPEG;
+        }
+        lua_pop(L, 1);
+
         lua_pushliteral(L, "init_cmd");
         lua_gettable(L, 1);
         if (lua_istable(L, -1)) {

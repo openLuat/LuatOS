@@ -735,15 +735,15 @@ static int l_camera_set_reset_pin(lua_State* L) {
 
 /**
 camera输出/停止数据流
-@api camera.stream(id, app_id)
-@id camera id
-@app_id 如果是usb摄像头，则输入usb应用id，其他留空
-@int 跳帧，针对USB摄像头，跳过N帧后上报，一般情况正常传输是30fps，如果脚本处理不过来，可以跳过N帧上报，默认是0，即不跳
+@api camera.stream(id, app_id, jump_frame_cnt, min_data_len)
+@int camera id
+@int app_id 如果是usb摄像头，则输入usb应用id，其他留空
+@int 跳帧，针对USB摄像头，跳过N帧后上报，一般情况正常传输是摄像头最高帧率，如果脚本处理不过来，可以跳过N帧上报，默认是0，即不跳
 @int 图像数据最小长度，针对USB摄像头ISO传输可能漏数据的情况，只有大于最小长度的图像帧会上报，默认是1KB
 @return boolean 成功返回true,否则返回false
 @usage
-=
-camera.stream(camera.USB, app_id)
+camera.stream(camera.USB, app_id)       --默认不跳帧
+camera.stream(camera.USB, app_id, 1)    --跳过1帧上报
 */
 static int l_camera_stream(lua_State *L) {
 	int camera_id = luaL_checkinteger(L, 1);

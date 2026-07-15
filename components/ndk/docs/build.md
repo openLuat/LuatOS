@@ -40,19 +40,18 @@ llvm-objcopy --version
 
 ## Guest 镜像重建
 
-**何时需要：** 修改了 `components/ndk/guest/fixtures/rv32f_regression/main.c` 或 `link.ld` 后。
+**何时需要：** 修改了 `testcase/ndk/ndk_basic/guest/main.c` 或 `link.ld` 后。
 
 ### 自动构建（推荐）
 
 ```powershell
-cd components\ndk\guest\fixtures\rv32f_regression
+cd testcase\ndk\ndk_basic\guest
 cmd /c build.bat
 ```
 
 脚本会：
-1. 用 LLVM clang+ld.lld+llvm-objcopy 编译所有 RV32IMA / RV32IMF 源文件与 `.S` 文件
-2. **自动同步**生成的 `.bin` 到 `testcase/ndk/ndk_basic/scripts/` 对应位置
-3. （部分带 RV32C 变体的源）会顺带跑 `llvm-objdump` 验证压缩指令被正确发射
+1. 用 LLVM clang+ld.lld+llvm-objcopy 编译 RV32IMA 源文件
+2. **自动同步**生成的 `baremetal.bin` 到 `testcase/ndk/ndk_basic/scripts/` 与 `bsp/pc/test/113.ndk_simple/` 对应位置
 
 ### 输出产物
 
@@ -61,13 +60,13 @@ cmd /c build.bat
 | `baremetal.elf` | `guest/build/` | 带符号的 ELF（调试用） |
 | `baremetal.bin` | `guest/build/` | Flat binary（约 315 字节，具体大小会随工具链略有变化） |
 | `baremetal.map` | `guest/build/` | 链接映射表 |
-| ↳ 同步到 | `../scripts/baremetal.bin` | testcase 测试镜像 |
-| ↳ 同步到 | `../../../../../bsp/pc/test/113.ndk_simple/baremetal.bin` | PC 快速测试 |
+| ↳ 同步到 | `../../scripts/baremetal.bin` | testcase 测试镜像 |
+| ↳ 同步到 | `../../../../bsp/pc/test/113.ndk_simple/baremetal.bin` | PC 快速测试 |
 
 ### 手动构建（调试用）
 
 ```powershell
-cd components\ndk\guest\fixtures\rv32f_regression
+cd testcase\ndk\ndk_basic\guest
 mkdir build -ErrorAction SilentlyContinue
 
 # LLVM clang
@@ -82,7 +81,7 @@ llvm-objcopy -O binary build\baremetal.elf build\baremetal.bin
 
 # 手动同步
 copy build\baremetal.bin ..\scripts\baremetal.bin
-copy build\baremetal.bin ..\..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal.bin
+copy build\baremetal.bin ..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal.bin
 ```
 
 ---

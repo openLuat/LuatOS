@@ -109,7 +109,6 @@ NDK_GUEST_START(main)
 
 - memcpy / memset 包装：用编译器 builtin
 - printf 变参格式化：开销大，超出 helper 范围
-- 浮点辅助：RV32F guest 直接用原生 float
 - UART RX 用户态缓存：用 `ndk_uart_*` CSR 即可
 
 ## 移植到 Rust

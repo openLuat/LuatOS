@@ -233,3 +233,48 @@ void luat_buffer_remove_data(luat_buffer_t *buffer, uint32_t len)
 	memmove(buffer->data, buffer->data + len, RestLen);
 	buffer->pos = RestLen;
 }
+
+int luat_image_crop(const uint8_t *src_data, uint32_t bytes_per_pixel,
+                    uint32_t src_width, uint32_t src_height,
+                    uint8_t *dst_data,
+                    uint32_t dst_width, uint32_t dst_height,
+                    uint32_t crop_x, uint32_t crop_y)
+{
+	uint32_t row;
+	uint32_t src_row_bytes;
+	uint32_t dst_row_bytes;
+	const uint8_t *src_row_start;
+
+	// 参数校验：空指针或尺寸为零
+	if (!src_data || !dst_data || bytes_per_pixel == 0 ||
+		src_width == 0 || src_height == 0 ||
+		dst_width == 0 || dst_height == 0)
+	{
+		return -LUAT_ERROR_PARAM_INVALID;
+	}
+
+	// 检查裁剪区域是否超出原始图像边界
+	if (((crop_x + dst_width) > src_width) || ((crop_y + dst_height) > src_height))
+	{
+		return -LUAT_ERROR_PARAM_INVALID;
+	}
+
+	src_row_bytes = src_width * bytes_per_pixel;
+	dst_row_bytes = dst_width * bytes_per_pixel;
+
+	// 优化：当裁剪宽度与原图宽度一致时，数据在内存中连续，只需一次拷贝
+	if (src_width == dst_width)
+	{
+		memcpy(dst_data, src_data + crop_y * src_row_bytes, dst_height * dst_row_bytes);
+		return LUAT_ERROR_NONE;
+	}
+
+	// 逐行复制裁剪区域数据
+	for (row = 0; row < dst_height; row++)
+	{
+		src_row_start = src_data + ((crop_y + row) * src_width + crop_x) * bytes_per_pixel;
+		memcpy(dst_data + row * dst_row_bytes, src_row_start, dst_row_bytes);
+	}
+
+	return LUAT_ERROR_NONE;
+}

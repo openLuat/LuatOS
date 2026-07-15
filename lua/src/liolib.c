@@ -212,6 +212,7 @@ typedef luaL_Stream LStream;
 #undef feof
 #undef ferror
 #undef fwrite
+#undef fflush
 
 #define fopen   luat_fs_fopen
 #define fclose  luat_fs_fclose
@@ -221,6 +222,7 @@ typedef luaL_Stream LStream;
 #define feof    luat_fs_feof
 #define fwrite  luat_fs_fwrite
 #define ftell   luat_fs_ftell
+#define fflush  luat_fs_fflush
 
 
 static int io_type (lua_State *L) {

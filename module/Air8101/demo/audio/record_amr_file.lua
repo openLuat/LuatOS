@@ -12,14 +12,14 @@
 3. 此功能需要用Air8101B来测试，Air8101不支持
 
 录音到文件演示程序，按键功能：
-1. Power键：开始/停止录音，停止播放
-   - 空闲时按Power键开始5秒录音
-   - 录音中按Power键提前结束录音
-   - 播放中按Power键停止播放
-2. Boot键：开始/停止播放，停止录音
-   - 空闲时按Boot键播放录音文件
-   - 播放中按Boot键停止播放
-   - 录音中按Boot键提前结束录音
+1. IO29按键：开始/停止录音，停止播放
+   - 短接GND，按键按下
+   - 空闲时按IO29键开始5秒录音
+   - 录音中按IO29键提前结束录音
+2. IO37按键：开始/停止播放，停止录音
+   - 短接GND，按键按下
+   - 空闲时按IO37键播放录音文件
+   - 播放中按IO37键停止播放
 
 音量设置：
   播放音量：60
@@ -216,39 +216,46 @@ end
 
 -- ========== 按键处理函数 ==========
 
--- POWERKEY键：开始/停止录音，停止播放
+-- IO29按键：开始/停止录音，停止播放
 local function powerkey_handler()
     log.info("按下POWERKEY键")
-    
+
     if is_recording then
+        log.info("正在录音中，停止录音")
         stop_recording()
     elseif is_playing then
+        log.info("正在播放中，停止播放")
         stop_playback()
     else
+        log.info("空闲状态，开始录音")
         start_recording()
     end
 end
 
--- BOOT键：开始/停止播放，停止录音
+-- IO37按键：开始/停止播放，停止录音
 local function boot_key_handler()
     log.info("按下BOOT键")
-    
+
     if is_recording then
+        log.info("正在录音中，停止录音")
         stop_recording()
     elseif is_playing then
+        log.info("正在播放中，停止播放")
         stop_playback()
     else
+        log.info("空闲状态，播放录音")
         start_playback()
     end
 end
 
+
 -- ========== 初始化设置 ==========
 
--- 设置POWERKEY键（开始/停止录音）
+-- 设置IO29按键：开始/停止录音，停止播放
 gpio.setup(29, powerkey_handler, gpio.PULLUP, gpio.FALLING)
 gpio.debounce(29, 200, 1)
 
--- 设置BOOT键（开始/停止播放，停止录音）
+-- 设置IO37按键：开始/停止播放，停止录音
 gpio.setup(37, boot_key_handler, gpio.PULLUP, gpio.FALLING)
 gpio.debounce(37, 200, 1)
 

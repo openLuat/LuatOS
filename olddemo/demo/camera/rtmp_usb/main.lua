@@ -2,6 +2,11 @@
 PROJECT = "usb_cam_rtmp"
 VERSION = "1.0.8"
 
+-- usb摄像头，数据格式选择mjpeg
+local usb_camera_format = camera.FORMAT_MJPEG
+-- usb摄像头，数据格式选择H264
+-- local usb_camera_format = camera.FORMAT_H264
+
 local fota_enable = false  -- 是否启用FOTA功能
 local fota_looptime = 4*3600000  -- FOTA轮询时间，默认4小时
 
@@ -27,7 +32,8 @@ local usb_camera_table = {
     id = camera_id,
     sensor_width = 1280,
     sensor_height = 720,
-    usb_port = 1
+    usb_port = 1,
+    format = usb_camera_format
 }
 
 local rtmpc = nil

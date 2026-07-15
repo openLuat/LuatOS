@@ -1,8 +1,8 @@
 --[[
 @module  tm1638_demo
 @summary TM1638 驱动芯片演示模块，包含所有功能的演示用例
-@version 1.0
-@date    2026.07.07
+@version 2.0
+@date    2026.07.13
 @author  江访
 @usage
 本文件包含 TM1638 的逐项功能演示和综合展示。
@@ -246,14 +246,14 @@ end
 -- 演示主函数（运行在协程中）
 local function tm1638_demo_task_func()
     -- 初始化
-    local init_ok = exs_tm1638.init({
+    local result = exs_tm1638.setup({
         clk        = 1,
         dio        = 2,
         stb        = 17,
         bright     = 5,
         write_mode = "auto",
     })
-    if not init_ok then
+    if not result then
         log.error("tm1638_demo", "TM1638 初始化失败，请检查接线")
         return
     end

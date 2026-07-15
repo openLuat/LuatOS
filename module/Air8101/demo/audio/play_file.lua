@@ -46,20 +46,6 @@ local audio_play_param ={
 }
 
 ---------------------------------
----通过BOOT 按键进行播放停止操作---
----------------------------------
-
--- 停止按键（Air8101 boot键为GPIO0）
-local function stop_audio()
-    log.info("停止播放")
-    exaudio.play_stop(audio_play_param)
-    log.info("播放停止成功")
-end
--- 按下boot 停止播放
--- gpio.setup(0, stop_audio, gpio.PULLDOWN, gpio.RISING)
--- gpio.debounce(0, 200, 1)
-
----------------------------------
 -----主task,处理播放音频---------
 ---------------------------------
 

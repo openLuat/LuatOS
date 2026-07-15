@@ -2,6 +2,24 @@
 
 > 本文是 NDK 文档集的一部分。完整索引见 [`../README.md`](../README.md)。
 
+## 2026-07 — 移除 RV32F 浮点扩展支持
+
+- **破坏性变更**：NDK 不再支持 RV32F 浮点运算指令。模拟器核心、公共头文件、Lua 绑定均删除 FP 相关代码：
+  - `components/ndk/include/mini-rv32ima.h`：移除 `fregs[32]`、`FREG`/`FREGSET`、Load-FP/Store-FP 译码、所有 FP 算术/转换/比较指令处理；`MINIRV32_GET_MISA` 固定为 `0x40401105u`（仅 `IMA`）。
+  - `components/ndk/include/luat_ndk.h`：删除 `LUAT_NDK_ISA_RV32IMF` 宏与 `fcsr`/`flen` 字段。
+  - `components/ndk/src/luat_ndk.c`：删除 `#if 0` FP helper 块、`MINIRV32_*_S` 宏、`fenv.h`/`math.h` 引用；`ndk_set_isa` 仅接受 `rv32ima`；不再重置 `fcsr`/`flen`。
+  - `components/ndk/src/luat_ndk_host.c`：删除 `NDK_CSR_FFLAGS`/`FRM`/`FCSR`（0x001/0x002/0x003）的读写分发。
+  - `components/ndk/binding/luat_lib_ndk.c`：`ndk.info` 不再返回 `flen`/`fcsr`/`frm`/`fflags`。
+- **文档**：更新 `AGENTS.md`、`DESIGN.md`、`docs/{quickstart,build,examples,troubleshooting,lua-api,api-helper}.md`，移除所有 RV32F 相关描述与路径。
+- **测试**：
+  - 删除 `testcase/ndk/ndk_basic/scripts/ndk_fp_*.lua` 与全部 FP 二进制镜像。
+  - `testcase/ndk/ndk_basic/scripts/main.lua` 只保留 lifecycle 测试套件。
+  - 将非 FP guest 源 `main.c` / `link.ld` 移动到 `testcase/ndk/ndk_basic/guest/`，并提供自包含的 `build.ps1` / `build.bat`。
+  - 删除 `components/ndk/guest/fixtures/rv32f_regression/` 整个目录。
+  - `ndk_basic` 回归基线从 `42 passed, 0 failed` 调整为 `5 passed, 0 failed`；`ndk_hostabi_basic` 保持 `39 passed, 0 failed`。
+
+---
+
 ## 2026-06 — `perf_guest_v1` `_start` 缺 `naked` 修复
 
 - **Bug 修复**：`components/ndk/guest/examples/perf_guest_v1/main.c` 的 `_start` 只标了 `__attribute__((noreturn))`，没标 `naked`，所以编译器仍给它生成函数 prologue（`addi sp, sp, -0x10; sw ra, 0xc(sp)`）——而 host 的 `ndk_reset_core` 把 32 个 GPR 全部 `memset` 为 0，**入口 sp=0**。Prologue 第一步 `addi sp, sp, -0x10` → sp=`0xFFFFFFF0`，第二步 `sw ra, 0xc(sp)` 写到 `0xFFFFFFFC` → `mcause=7` (store access fault) `mtval=0xFFFFFFFC`。**注意**：`mtvec` 被设成 `0x80000000`（即 guest 镜像起点），trap 后 PC 被设回 `mtvec`，所以**同一次 `ndk.exec` 调用里 trap 后又从 `_start` 重新跑，每次重新 trap**，循环直到 step budget 用完。

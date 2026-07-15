@@ -6,12 +6,9 @@
 @author  王城钧
 @usage
 本文件为网络管理模块，核心业务逻辑为：
-1.设置多网融合功能，wifi提供网络供wifi和以太网设备上网
-2、http测试wifi网络
+1、开启多网融合模式，设置WiFi > 以太网的优先级后，使用exnetif.close将 WiFi 网卡状态重置，然后从WiFi A网卡切换为新的WiFi B网卡
 本文件没有对外接口，直接在main.lua中require "netif_app"就可以加载运行；
 ]] 
-PROJECT = "helloworld"
-VERSION = "1.0.0"
 
 local exnetif = require("exnetif")
 
@@ -38,17 +35,18 @@ local WIFI_B = {
     need_ping = true,
 }
 
--- 网络状态变化回调
+-- 网络状态变化回调（通过 exnetif.notify_status 注册）
 local function on_network_status(net_type, adapter)
     if net_type then
         log.info("当前使用:", net_type, "adapter:", adapter)
     else
         log.warn("所有网络断开！")
     end
+    sys.publish("NET_STATUS", net_type, adapter)
 end
 
 -- 主任务：多网融合初始化及 WiFi 凭证切换
-function helloworld_app_task_func()
+function net_task_func()
     --阶段1：多网融合初始化（WiFi_A + 以太网）
     log.info("阶段1：多网融合 WiFi_A + 以太网")
 
@@ -59,8 +57,8 @@ function helloworld_app_task_func()
     log.warn(ok, "阶段1: 初始化失败")
     log.info("优先级: WiFi > 以太网，等待网络就绪")
 
-    -- 等待任一网络就绪
-    local net_type, adapter = sys.waitUntil("EXLIB_NETDRV_NETWORK_STATUS", 60000)
+    -- 等待任一网络就绪（通过 exnetif.notify_status 回调发布的消息）
+    local net_type, adapter = sys.waitUntil("NET_STATUS", 60000)
     log.info("阶段1 当前网络:", net_type, adapter)
 
     --[[
@@ -85,7 +83,15 @@ function helloworld_app_task_func()
     -- 2a. 关闭 WiFi（使其回到 DISCONNECTED 状态，否则 set_priority_order 会跳过）
     log.info("关闭 WiFi...")
     exnetif.close(false, socket.LWIP_STA)
-    sys.wait(2000)  -- 等待断开完成
+    -- 等待 WiFi 的 IP_LOSE 事件，过滤掉以太网等其他网卡的 IP_LOSE
+    while true do
+        local _, adapter = sys.waitUntil("IP_LOSE", 5000)
+        if not adapter or adapter == socket.LWIP_STA then
+            log.info("WiFi IP已释放, adapter:", adapter)
+            break
+        end
+        log.info("非WiFi网卡IP_LOSE, adapter:", adapter, "继续等待WiFi断开")
+    end
 
     -- 2b. 用 WiFi_B 凭证重新调用 set_priority_order
     --     WiFi 关闭期间以太网自动兜底，网络不中断
@@ -96,8 +102,8 @@ function helloworld_app_task_func()
     log.warn(ok, "阶段2: 切换失败")
     log.info("WiFi 正在重连...以太网保持在线兜底")
 
-    -- 等待 WiFi_B 连上
-    net_type, adapter = sys.waitUntil("EXLIB_NETDRV_NETWORK_STATUS", 45000)
+    -- 等待 WiFi_B 连上后切回
+    net_type, adapter = sys.waitUntil("NET_STATUS", 45000)
     log.info("阶段2 切换完成，当前网络:", net_type, adapter)
 
     log.info("测试结束")
@@ -105,7 +111,6 @@ end
 
 exnetif.notify_status(on_network_status)
 
-sys.taskInit(helloworld_app_task_func)
+sys.taskInit(net_task_func)
 
 
-sys.run()

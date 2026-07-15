@@ -97,9 +97,9 @@ end
 
 function M.test_ndk_invalid_param_constructor_no_resource_exhaustion()
     for i = 1, 2000 do
-        local ctx, err = ndk.rv32i(IMAGE_PATH, MEM_SIZE + 1, EXCHANGE_SIZE)
-        assert(ctx == nil, "invalid mem_size should fail, round=" .. i)
-        assert(type(err) == "string" and #err > 0, "invalid mem_size should return error string")
+        local ctx, err = ndk.rv32i(IMAGE_PATH, MEM_SIZE, MEM_SIZE)
+        assert(ctx == nil, "invalid exchange_size should fail, round=" .. i)
+        assert(type(err) == "string" and #err > 0, "invalid exchange_size should return error string")
     end
 
     local ctx2, err2 = ndk.rv32i(IMAGE_PATH, MEM_SIZE, EXCHANGE_SIZE)

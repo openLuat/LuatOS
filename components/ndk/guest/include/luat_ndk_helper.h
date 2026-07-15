@@ -24,7 +24,7 @@
  * Intentionally NOT provided:
  *   - memcpy/memset wrappers (use compiler builtins)
  *   - printf-style varargs formatting
- *   - FP helpers (RV32F guests compile native floats)
+ *   - RV32F floating-point helpers (removed — NDK only supports RV32IMA)
  *   - UART RX user-space buffers (use the existing ndk_uart_* CSRs)
  */
 #pragma once

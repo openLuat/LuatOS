@@ -7,7 +7,8 @@
 @usage
 
 注意：
-如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+1. 如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+2. 新音频框架需要版本号≥2048 的13/113号固件才能使用
 
 录音到文件演示程序，按键功能：
 1. Power键：开始/停止录音，停止播放
@@ -99,7 +100,9 @@ local audio_setup_param = {
     
     i2s_sample = 16000,         -- I2S采样率
     bits_per_sample = 16,       -- I2S录音位深
-    i2s_framebit = 16           -- I2S通道位宽
+    i2s_framebit = 16,           -- I2S通道位宽
+
+    audio_mode = "auto"  -- 音频框架版本选择: "auto"用默认, "new"新框架, "old"旧框架
 }
 
 -- ========== 播放相关函数 ==========

@@ -38,6 +38,7 @@ static uint8_t g_adapter_binding_inited = 0;
 extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
 extern int luat_airlink_start_uart(void);
+extern int luat_airlink_start_hspi_master(void);
 extern int luat_airlink_stop_slave(void);
 extern int luat_airlink_stop_master(void);
 extern int luat_airlink_stop_uart(void);
@@ -240,6 +241,8 @@ uint16_t luat_airlink_transport_max_data_len(uint8_t mode) {
             return AIRLINK_FRAG_MAX_DATA_LEN;
         case LUAT_AIRLINK_MODE_LOOPBACK:
             return 0xFFFF;
+        case LUAT_AIRLINK_MODE_HSPI_MASTER:
+            return AIRLINK_FRAG_MAX_DATA_LEN;
         default:
             return 0;
     }
@@ -365,6 +368,13 @@ int luat_airlink_start(int id)
         ret = luat_airlink_start_loopback();
         #else
         LLOGE("当前固件不支持 LOOPBACK模式");
+        #endif
+    }
+    else if (id == 4) {
+        #ifdef LUAT_USE_AIRLINK_HSPI_MASTER
+        ret = luat_airlink_start_hspi_master();
+        #else
+        LLOGE("当前固件不支持 HSPI_MASTER模式");
         #endif
     }
     if (ret != 0 || airlink_cmd_queue == NULL || airlink_ippkg_queue == NULL) {
@@ -1209,6 +1219,15 @@ void luat_airlink_current_mode_set(int mode) {
     if (s_airlink_main_mode == -1) {
         s_airlink_main_mode = mode;
         // LLOGI("当前AirLink主模式设定为 %d", mode);
+        // HSPI 模式：注册虚拟 WiFi 网卡（只注册网卡，不启动 SPI 任务）
+        if (mode == LUAT_AIRLINK_MODE_HSPI_MASTER) {
+            luat_netdrv_conf_t conf = {0};
+            conf.impl = LUAT_NETDRV_IMPL_WHALE;
+            conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
+            luat_netdrv_setup(&conf);
+            conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
+            luat_netdrv_setup(&conf);
+        }
     }
     else {
         if (s_airlink_main_mode != mode) {

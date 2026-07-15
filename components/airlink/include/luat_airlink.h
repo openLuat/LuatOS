@@ -25,6 +25,7 @@ enum {
     LUAT_AIRLINK_MODE_SPI_MASTER = 1,
     LUAT_AIRLINK_MODE_UART = 2,
     LUAT_AIRLINK_MODE_LOOPBACK = 3, // PC simulator self-test loopback
+    LUAT_AIRLINK_MODE_HSPI_MASTER = 4, // XT804 HSPI master
     LUAT_AIRLINK_MODE_UNKNOW = -1
 };
 

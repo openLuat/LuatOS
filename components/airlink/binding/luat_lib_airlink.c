@@ -1234,6 +1234,8 @@ static const rotable_Reg_t reg_airlink[] =
     { "MODE_SPI_MASTER",   ROREG_INT(LUAT_AIRLINK_MODE_SPI_MASTER) },
     //@const MODE_UART number airlink.start参数, UART模式
     { "MODE_UART",         ROREG_INT(LUAT_AIRLINK_MODE_UART) },
+    //@const MODE_HSPI_MASTER number airlink.start参数, XT804 HSPI主机模式
+    { "MODE_HSPI_MASTER",  ROREG_INT(LUAT_AIRLINK_MODE_HSPI_MASTER) },
 
     //@const CONF_SPI_ID number SPI配置参数, 设置SPI的ID
     { "CONF_SPI_ID",       ROREG_INT(LUAT_AIRLINK_CONF_SPI_ID)},

@@ -2,13 +2,11 @@
 
 1、main.lua：主程序入口；
 
-2、netif_app: 网络管理模块,开启多网融合功能，WIFI提供网络供以太网和wifi设备上网；
+2、netif_app: 网络管理模块,开启多网融合功能，设置WiFi > 以太网的优先级后，使用exnetif.close将 WiFi 网卡状态重置，然后从WiFi A网卡切换为新的WiFi B网卡；
 
 ## 演示功能概述
 
 1、开启多网融合模式，设置WiFi > 以太网的优先级后，使用exnetif.close将 WiFi 网卡状态重置，然后从WiFi A网卡切换为新的WiFi B网卡
-
-2、​网络监控​，每5秒进行HTTPS连接测试，实时监测WIFI网络的连接状态
 
 ## 演示硬件环境
 

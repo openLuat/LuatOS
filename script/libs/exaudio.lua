@@ -1,10 +1,12 @@
 ﻿--[[
 @module exaudio
 @summary exaudio扩展库
-@version 2.1
-@date    2026.7.8
+@version 2.2
+@date    2026.7.14
 @author  拓毅恒
 @updates
+    v2.2 2026.7.14
+        1. 新增codec_voltage参数控制ES8311电平 codec_voltage=1(默认3.3V)，codec_voltage=0(1.8V，适配Air8201等特殊板型)
     v2.1 2026.7.8
         1. 移除exaudio.shutdown()，合并到exaudio.pm()中
         2. exaudio.pm()新增新音频框架支持
@@ -43,6 +45,10 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202607141800
+-- 1、更新时间：2026-07-14 18:00
+--    新增codec_voltage参数控制ES8311电平
+--    codec_voltage=1(默认3.3V)，codec_voltage=0(1.8V，适配Air8201等特殊板型)
 -- 版本号：202607081647
 -- 1、更新时间：2026-07-08 16:47
 --    移除exaudio.shutdown()，统一合并到exaudio.pm()中
@@ -156,7 +162,9 @@ local audio_setup_param = {
     
     -- DAC硬件配置参数
     dac_ch = 0,               -- DAC通道号
-    dac_chl = 0               -- DAC通道选择: 0=AUD_LN, 1=AUD_LP, 2=双通道
+    dac_chl = 0,              -- DAC通道选择: 0=AUD_LN, 1=AUD_LP, 2=双通道
+
+    codec_voltage = 1,        -- ES8311编解码器电平: 1=3.3V(默认), 0=1.8V(Air8201H等特殊板型)
 }
 
 local audio_play_param = {
@@ -557,7 +565,14 @@ local function audio_v2_setup()
                 return false
             end
             
-            if audio_v2_es8311_drv.init(audio_setup_param.i2c_id) then
+            local init_ok
+            if audio_setup_param.codec_voltage == 0 then
+                init_ok = audio_v2_es8311_drv.init(audio_setup_param.i2c_id, 0x01) -- 1.8V电平（Air8201H等特殊板型 ES8311电平为1.8V）
+            else
+                init_ok = audio_v2_es8311_drv.init(audio_setup_param.i2c_id) -- 默认3.3V
+            end
+
+            if init_ok then
                 audio_v2_es8311_drv.set_sample_rate(audio_setup_param.i2c_id, audio_setup_param.i2s_sample or 16000, 256)
                 audio_v2_es8311_drv.set_data_bits(audio_setup_param.i2c_id, audio_setup_param.bits_per_sample or 16)
                 audio_v2_es8311_drv.set_format(audio_setup_param.i2c_id)
@@ -1900,7 +1915,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202607081647"
+    return "202607141800"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

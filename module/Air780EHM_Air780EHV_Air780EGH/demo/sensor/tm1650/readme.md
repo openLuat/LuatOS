@@ -60,7 +60,11 @@
 
 ### 4.2 内核固件
 
-- [点击下载Air780EHM系列最新版本内核固件](https://docs.openluat.com/air780ehm/luatos/firmware/)，demo所使用的是 LuatOS-SoC_Vxxxx_Air780EHM_x.soc
+- [点击下载Air780EHM系列最新版本内核固件](https://docs.openluat.com/air780epm/luatos/firmware/780ehm_version/)，demo所使用的是 LuatOS-SoC_V2046_Air780EHM 1号固件
+
+- [点击下载Air780EHV系列最新版本内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)，demo所使用的是 LuatOS-SoC_V2046_Air780EHV 1号固件
+
+- [点击下载Air780EGH系列最新版本内核固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)，demo所使用的是 LuatOS-SoC_V2046_Air780EGH 1号固件
 
 ### 4.3 脚本文件
 

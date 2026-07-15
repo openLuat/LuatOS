@@ -1,21 +1,34 @@
-# CC_DEMO 项目说明（Air8201G）
+# CC_DEMO 项目说明
 
 ## 项目概述
 
-本项目是基于 Air8201G 的语音通信演示demo，实现了三种语音通话应用场景（三选一）：基础通话功能模块、TTS循环播放与通话处理功能模块、以及通话录音功能模块。
+本项目是基于 Air8201 系列的语音通信演示demo，实现了三种语音通话应用场景（三选一）：基础通话功能模块、TTS循环播放与通话处理功能模块、以及通话录音功能模块。
 
-> Air8201G 基于 Air780EGH 模组，整机板上**板载 ES8311 音频编解码芯片**，无需外挂 AirAUDIO 配件板即可使用 cc 语音通话功能。
+支持两种硬件版本，通过 `main.lua` 中的 `_G.HARDWARE_ENV` 宏切换：
+- `"G"` = **Air8201G**（基于 Air780EGH 模组），pa_ctrl=25, ES8311=3.3V
+- `"H"` = **Air8201H**（基于 Air780EHM 模组），pa_ctrl=23, ES8311=1.8V
 
-## 关于 Air8201G 音频引脚
+> 两个型号的整机板上均**板载 ES8311 音频编解码芯片**，无需外挂 AirAUDIO 配件板即可使用 cc 语音通话功能。
 
-本目录下 `audio_drv.lua` 中的 `audio_configs` 已按 Air8201G 整机板的硬件配置好，引脚对应关系如下：
+## 关于音频引脚
+
+本目录下 `audio_drv.lua` 中的 `audio_configs` 会根据 `_G.HARDWARE_ENV` 宏自动选择正确的引脚配置：
+
+| 参数 | Air8201G (G) | Air8201H (H) |
+|------|-------------|-------------|
+| model | es8311 | es8311 |
+| i2c_id | 0 | 0 |
+| pa_ctrl | 25 | 23 |
+| dac_ctrl | 2 | 2 |
+| codec_voltage | 1 (3.3V) | 0 (1.8V) |
 
 ```lua
 local audio_configs = {
     model    = "es8311",   -- 板载编解码芯片为 ES8311
     i2c_id   = 0,          -- ES8311 挂在 I2C0 上
-    pa_ctrl  = 25,         -- 音频放大器(PA)电源控制管脚
+    pa_ctrl  = pa_ctrl_pin,-- 音频放大器(PA)电源控制管脚（G=25, H=23）
     dac_ctrl = 2,          -- 音频编解码芯片(ES8311)电源控制管脚
+    codec_voltage = codec_voltage,  -- ES8311 IO电压: G=3.3V(1), H=1.8V(0)
 }
 ```
 
@@ -23,11 +36,12 @@ local audio_configs = {
 
 ## 文件结构
 
-- main.lua: 主程序入口，支持三选一演示模式
-- audio_drv.lua: 管理音频设备初始化与控制
+- main.lua: 主程序入口，支持三选一演示模式，通过 `_G.HARDWARE_ENV` 宏切换硬件版本
+- audio_drv.lua: 管理音频设备初始化与控制，自动适配 G/H 版本
 - cc_app.lua: 实现基础通话业务逻辑以及通话录音
 - cc_tts_app.lua: 实现TTS循环播放与通话业务逻辑
-- cc_record_save.lua: 通话录音功能模块，仅支持SD卡存储
+- cc_record_save.lua: 通话录音功能模块，支持内部flash存储
+- pins_air780ehm.json: Air8201H (Air780EHM) 引脚定义
 
 ## 功能模块说明
 
@@ -69,27 +83,24 @@ local audio_configs = {
 1. **模块功能概述**：
    - 实现呼入自动接听功能（响2声后自动接听）
    - 支持通话录音功能，保存为PCM格式
-   - 录音文件仅支持SD卡
+   - 录音文件保存到内部flash
 
 2. **功能说明**：
    - 来电自动接听：响铃2声后自动接听来电
    - 通话录音：自动开始录音，对方挂断后停止录音
-   - 存储方式：优先保存到SD卡，无卡或卡挂载失败时不录音
 
 3. **录音功能特性**：
-   - 录音文件保存为PCM格式：/sd/record_call.pcm（SD卡）
+   - 录音文件保存为PCM格式：/record_call.pcm（内部flash）
    - 只保存上行数据（包含本地声音和网络回声）
    - 下行数据自动跳过，避免重复存储
-   - 支持SD卡自动挂载和空间检测
-   - 仅支持SD卡存储，必须插入SD卡才能使用录音功能
 
 4. **使用方式**：
    - 本模块仅支持呼入自动接听功能
-   - 录音文件仅支持SD卡存储，必须插入SD卡才能使用录音功能
    - 录音文件为原始PCM格式，普通播放器无法播放，需要Audacity等支持原始音频播放器的软件播放
 
 ## 演示硬件环境
 
+### Air8201G
 1、Air8201G 整机板一块（板载 ES8311 音频编解码芯片）
 
 2、喇叭一个（接到整机板的喇叭接口）
@@ -97,20 +108,30 @@ local audio_configs = {
 3、TYPE-C USB数据线一根
 
 - Air8201G 整机板通过FPC线同BTB扩展板连接起来；
-
 - TYPE-C USB数据线插到BTB扩展板的TYPE-C USB座子，另外一端连接电脑USB口；
+
+### Air8201H
+1、Air8201H 整机板一块（板载 ES8311 音频编解码芯片）
+
+2、喇叭一个（接到整机板的喇叭接口）
+
+3、TYPE-C USB数据线一根
+
+- Air8201H 整机板通过 TYPE-C USB 口供电；
+- TYPE-C USB 数据线直接插到Air8201H的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 ## 演示软件环境
 
 1、[Luatools下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)
 
-2、[Air8201G 固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)，选择支持CC和TTS功能的固件。
+2、固件：
+   - [Air8201G 固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)，选择支持CC和TTS功能的固件。
+   - [Air8201H 固件](https://docs.openluat.com/air780epm/luatos/firmware/version/#air780ehmluatos)，选择支持CC和TTS功能的固件。
 
 3、luatos需要的脚本和资源文件
 
 - 本目录下的脚本文件；
-
-- 准备好软件环境之后，将本目录下的项目文件烧录到 Air8201G 中。
+- 准备好软件环境之后，将本目录下的项目文件烧录到设备中。
 
 4、lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 
@@ -146,22 +167,24 @@ local audio_configs = {
 
 1、搭建好硬件环境
 
-2、根据需求配置演示功能：
+2、**切换硬件版本**：编辑 `main.lua`，修改 `_G.HARDWARE_ENV` 为 `"G"` 或 `"H"`
+
+3、根据需求配置演示功能：
 
    - 编辑main.lua文件，选择需要演示的功能
    - 功能一（基础通话功能模块）：取消注释 `require "cc_app"`，注释掉 `require "cc_tts_app"` 和 `require "cc_record_save"`
    - 功能二（TTS循环播放与通话处理功能模块）：注释掉 `require "cc_app"`，取消注释 `require "cc_tts_app"`，注释掉 `require "cc_record_save"`
    - 功能三（通话录音功能模块）：注释掉 `require "cc_app"` 和 `require "cc_tts_app"`，取消注释 `require "cc_record_save"`
 
-3、功能一场景四需要修改测试号码：
+4、功能一场景四需要修改测试号码：
 
-   - 编辑cc_app.lua文件中的 `local TEST_PHONE_NUMBER = "10086"`，修改为自己测试时要拨打的电话号码
+   - 编辑cc_app.lua文件中的 `local outgoing_number = "10000"`，修改为自己测试时要拨打的电话号码
 
-4、Luatools烧录内核固件和修改后的demo脚本代码
+5、Luatools烧录内核固件和修改后的demo脚本代码
 
-5、烧录成功后，自动开机运行
+6、烧录成功后，自动开机运行
 
-6、运行程序，观察日志输出了解系统状态
+7、运行程序，观察日志输出了解系统状态
 
 ### 功能一：基础通话功能
 
@@ -329,22 +352,12 @@ I/user.CC状态 INCOMINGCALL
 I/user.场景3 收到来电，号码: 139XXXXXXXX 响铃次数: 2
 I/user.场景3 自动接听来电
 I/user.场景3 电话已接通，电话号码: 139XXXXXXXX
-I/user.录音文件 SD卡挂载成功，录音文件将保存到SD卡
-I/user.录音文件 创建录音文件成功:/sd/record_call.pcm
+I/user.录音文件 创建录音文件成功:/record_call.pcm
 I/user.录音 上行数据，位于缓存 1 缓存1数据量 6400 缓存2数据量 0
 I/user.通话质量 2
 I/user.CC状态 DISCONNECTED
 I/user.场景3 通话结束对方挂断
-I/user.录音文件 录音完成 文件大小: 102400 字节 录音时长: 10.5 秒 路径: /sd/record_call.pcm
-```
-
-#### SD卡存储要求
-
-必须插入SD卡才能使用录音功能，无SD卡时录音功能不可用：
-
-``` lua
-I/user.录音文件 SD卡挂载失败，录音功能不可用
-I/user.录音文件 无法创建录音文件，请插入SD卡
+I/user.录音文件 录音完成 文件大小: 102400 字节 录音时长: 10.5 秒 路径: /record_call.pcm
 ```
 
 

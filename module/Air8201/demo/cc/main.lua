@@ -20,7 +20,7 @@
 场景三：通话录音文件保存
 - 通话录音功能（上行和下行数据分别保存）
 - 支持4种通话场景的录音
-- SD卡文件存储管理
+- 录音文件保存到内部flash
 
 使用说明：
 根据需求启用对应的功能模块，注释掉不需要的模块
@@ -28,9 +28,12 @@
 - 启用TTS循环播放功能：require "cc_tts_app"
 - 启用通话录音文件保存功能：require "cc_record_save"
 
+支持 Air8201G 和 Air8201H 两种硬件版本，通过 main.lua 中的 _G.HARDWARE_ENV 宏切换
+- Air8201G: 基于 Air780EGH 模组，板载 ES8311，pa_ctrl=25
+- Air8201H: 基于 Air780EHM 模组，板载 ES8311，pa_ctrl=23
+
 更多说明参考本目录下的readme.md文件
 ]]
-
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -42,15 +45,21 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
+
+--[[
+硬件版本选择：修改下方 _G.HARDWARE_ENV 的值即可切换
+    "G" = Air8201G (基于Air780EGH, pa_ctrl=25, ES8311=3.3V)
+    "H" = Air8201H (基于Air780EHM, pa_ctrl=23, ES8311=1.8V)
+]]
+
 PROJECT = "VOICE_CALL_DEMO"
 VERSION = "001.999.000"
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
-
-
-
+-- 硬件版本宏：修改此处即可切换 Air8201G("G") / Air8201H("H")
+_G.HARDWARE_ENV = "H"
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -72,7 +81,6 @@ log.info("main", PROJECT, VERSION)
 --     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
-
 
 
 -- 仅加载必要的功能模块

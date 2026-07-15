@@ -9,7 +9,6 @@
 1. 实现呼入自动接听功能（响2声后自动接听）
 2. 支持通话录音功能，保存为PCM格式
 3. 可选：通话结束后将PCM转码为AMR格式（需手动开启）
-4. 录音文件仅支持SD卡存储
 
 功能说明：
 - 来电自动接听：响铃2声后自动接听来电
@@ -17,22 +16,20 @@
 - AMR转码（可选）：默认关闭，如需AMR格式请取消注释相关代码
 
 录音功能特性：
-- 录音文件保存为PCM格式：/sd/record_call.pcm
-- 可选AMR转码：/sd/record_call.amr（需手动开启）
+- 录音文件保存为PCM格式：/record_call.pcm（内部flash）
+- 可选AMR转码：/record_call.amr（需手动开启）
 - 只保存上行数据（包含本地声音和网络回声）
 - 下行数据自动跳过，避免重复存储
-- 支持SD卡自动挂载和空间检测
 - 根据通话质量自动选择AMR-NB（8KHz）或AMR-WB（16KHz）
 
 使用方法：
-1. 默认只生成PCM文件：/sd/record_call.pcm
+1. 默认只生成PCM文件：/record_call.pcm
 2. 如需AMR格式，找到 stop_call_recording() 函数，取消 convert_pcm_to_amr() 的注释
 
 注意事项：
 1. 本模块仅支持呼入自动接听功能
-2. 录音文件仅支持SD卡存储，必须插入SD卡才能使用录音功能
-3. PCM文件为原始音频格式，可用Audacity等工具播放
-4. AMR文件为通用格式，手机播放器可直接播放
+2. PCM文件为原始音频格式，可用Audacity等工具播放
+3. AMR文件为通用格式，手机播放器可直接播放
 ]]
 
 -- 引入音频设备模块
@@ -45,15 +42,9 @@ local exaudio = require "exaudio"
 local call_counter = 0                 -- 响铃计数器
 local caller_number = ""               -- 来电号码
 
--- SD卡挂载路径和录音文件保存路径
-local SD_MOUNT_PATH = "/sd"
-local RECORD_FILE_PATH = SD_MOUNT_PATH .. "/record_call.pcm"  -- 录音文件路径（PCM原始格式）
-local RECORD_AMR_FILE_PATH = SD_MOUNT_PATH .. "/record_call.amr"  -- 转码后的AMR文件路径
--- 整机开发板上TF卡的的pin_cs为gpio16，spi_id为0.请根据实际硬件修改
-local spi_id = 0
-local pin_cs = 16
--- 核心板CS为IO8
--- local pin_cs = 8
+-- 录音文件保存路径（内部flash）
+local RECORD_FILE_PATH = "/record_call.pcm"  -- 录音文件路径（PCM原始格式）
+local RECORD_AMR_FILE_PATH = "/record_call.amr"  -- 转码后的AMR文件路径
 
 -- 录音功能相关函数
 local is_recording_to_file = false  -- 录音状态标志：true表示正在录音到文件
@@ -74,50 +65,6 @@ local record_sample_rate = 8000        -- 录音采样率
 -- 双缓冲机制：满时触发回调，处理完用:del()清空
 local BUFFER_SIZE = 48000  -- 缓冲区大小不能太小，否则保存过程中有可能会溢出造成死机
 
--- ====================== sd卡挂载函数 ======================
-
--- 挂载SD卡
-local function mount_sd_card()
-    log.info("SD卡", "开始挂载SD卡")
-    
-    -- 检查SD卡是否已挂载
-    if io.exists(SD_MOUNT_PATH) then
-        log.info("SD卡", "SD卡已挂载:", SD_MOUNT_PATH)
-        return true
-    end
-    
-    -- 初始化SPI接口
-    -- 打开ch390供电脚（使用开发板需要打开此注释）
-    gpio.setup(20, 1, gpio.PULLUP) 
-    --上拉ch390使用spi的cs引脚避免干扰（使用开发板需要打开此注释）
-    gpio.setup(8,1)
-    
-    -- 初始化SPI接口
-    spi.setup(spi_id, nil, 0, 0, 8, 2000000)
-    -- 设置片选引脚为高电平
-    gpio.setup(pin_cs, 1)
-    
-    -- 尝试挂载SD卡
-    local mount_ok, mount_err = fatfs.mount(fatfs.SPI, SD_MOUNT_PATH, spi_id, pin_cs, 24 * 1000 * 1000)
-    
-    if mount_ok then
-        log.info("SD卡", "SD卡挂载成功:", SD_MOUNT_PATH)
-        
-        -- 获取SD卡空间信息
-        local data, err = fatfs.getfree(SD_MOUNT_PATH)
-        if data then
-            log.info("SD卡空间信息", json.encode(data))
-        else
-            log.warn("获取SD卡空间信息失败", err)
-        end
-        
-        return true
-    else
-        log.error("SD卡", "SD卡挂载失败:", mount_err)
-        return false
-    end
-end
-
 -- ====================== 录音功能 ======================
 
 -- 创建音频数据缓冲区
@@ -128,14 +75,6 @@ local down2 = zbuff.create(BUFFER_SIZE,0)    -- 下行数据保存区2
 
 -- 打开录音文件
 local function open_record_file()
-    -- 先挂载SD卡
-    if not mount_sd_card() then
-        log.error("录音文件", "SD卡挂载失败，无法进行录音")
-        return false
-    end
-    
-    log.info("录音文件", "SD卡挂载成功，录音文件将保存到SD卡")
-    
     -- 关闭已打开的文件
     if record_file then
         record_file:close()
@@ -148,7 +87,7 @@ local function open_record_file()
         log.info("录音文件", "删除旧录音文件:", RECORD_FILE_PATH)
     end
     
-    -- 创建录音文件
+    -- 创建录音文件（保存到内部flash）
     record_file = io.open(RECORD_FILE_PATH, "wb")
     
     if record_file then
@@ -295,7 +234,7 @@ local function start_call_recording()
         log.info("通话录音", "开始录音到文件:", RECORD_FILE_PATH)
         return true
     else
-        log.error("通话录音", "无法开始录音到文件，请检查SD卡")
+        log.error("通话录音", "无法开始录音到文件，请检查存储空间")
         return false
     end
 end
@@ -502,9 +441,6 @@ end)
 
 -- ====================== 电话系统初始化 ======================
 local function init_cc()
-    -- 先尝试挂载SD卡
-    mount_sd_card()
-    
     -- 初始化音频设备
     audio_drv.initAudioDevice()
     

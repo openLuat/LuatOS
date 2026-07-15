@@ -8,10 +8,22 @@
 本模块提供以下功能：
 1、定义所有硬件引脚常量
 2、使用exaudio扩展库初始化音频设备
+
+支持 Air8201G 和 Air8201H 两种硬件版本，通过 main.lua 中的 _G.HARDWARE_ENV 宏切换：
+- Air8201G: pa_ctrl=25, ES8311=3.3V
+- Air8201H: pa_ctrl=23, ES8311=1.8V
 ]]
 
 -- 引入exaudio库
 local exaudio = require "exaudio"
+
+-- 根据硬件版本选择 pa_ctrl 和 codec_voltage
+local hw = _G.HARDWARE_ENV or "H"
+local pa_ctrl_pin = (hw == "G") and 25 or 23
+local codec_voltage = (hw == "G") and 1 or 0   -- G=3.3V, H=1.8V
+local hw_name = (hw == "G") and "Air8201G" or "Air8201H"
+
+log.info("audio_drv", "硬件版本:", hw_name, "pa_ctrl:", pa_ctrl_pin, "codec_voltage:", codec_voltage == 0 and "1.8V" or "3.3V")
 
 -- 根据版本号自适应设置dac_delay
 local set_dac_delay = 0
@@ -35,10 +47,11 @@ end
 
 -- exaudio配置参数
 local audio_configs = {
-    model = "es8311",         -- dac类型,可填入"es8311","tm8211"
-    i2c_id = 0,               -- Air8201G整机板：ES8311挂在I2C0上
-    pa_ctrl = 25,            -- Air8201G整机板：音频放大器(PA)电源控制管脚
-    dac_ctrl = 2,            -- Air8201G整机板：音频编解码芯片(ES8311)电源控制管脚
+    model = "es8311",         -- dac类型,"es8311"
+    i2c_id = 0,               -- ES8311挂在I2C0上
+    pa_ctrl = pa_ctrl_pin,    -- 音频放大器(PA)电源控制管脚（G=25, H=23）
+    dac_ctrl = 2,             -- 音频编解码芯片(ES8311)电源控制管脚
+    codec_voltage = codec_voltage,  -- ES8311 IO电压: G=3.3V(1), H=1.8V(0)
         
     -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
     dac_delay = set_dac_delay,            -- DAC启动前冗余时间

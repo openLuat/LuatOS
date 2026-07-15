@@ -1,0 +1,92 @@
+
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2026.02.24
+@author  拓毅恒
+@usage
+本demo演示的核心功能为：
+1、play_file.lua： 播放音频文件，可支持wav,amr,mp3 格式音频
+
+2、play_tts: 支持文字转普通话输出需要固件支持
+
+3、play_stream: 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
+
+4、record_amr_file: 录音到文件（AMR格式）
+
+5、record_pcm_file: 录音到文件（PCM格式）
+
+6、http_download_play: HTTP下载音频文件播放，支持MP3/AMR/PCM格式，自动识别
+
+7、http_stream_play: HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
+
+8、sample-6s.mp3、10.amr: 用于测试本地文件播放
+
+9、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
+
+支持 Air8201G 和 Air8201H 两种硬件版本，通过 main.lua 中的 _G.HARDWARE_ENV 宏切换
+- Air8201G: BTB扩展板按键 WAKEUP0 + PWRKEY, pa_ctrl=25
+- Air8201H: boot按键 GPIO0 + PWRKEY, pa_ctrl=23, ES8311配置1.8V
+
+
+更多说明参考本目录下的readme.md文件
+]]
+
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+
+--[[
+硬件版本选择：修改下方 _G.HARDWARE_ENV 的值即可切换
+    "G" = Air8201G (BTB扩展板按键, pa_ctrl=25)
+    "H" = Air8201H (boot按键, pa_ctrl=23, ES8311 1.8V)
+]]
+
+PROJECT = "audio"
+VERSION = "001.999.000"
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
+
+
+
+-- 硬件版本宏：修改此处即可切换 Air8201G("G") / Air8201H("H")
+_G.HARDWARE_ENV = "H"
+
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
+
+
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 音频对内存影响较大，不断的打印内存，用于判断是否异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+
+require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
+-- require "play_tts"      -- 支持文字转普通话输出需要固件支持
+-- require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
+-- require "record_amr_file"        -- 录音到文件（AMR格式）
+-- require "record_pcm_file"        -- 录音到文件（PCM格式）
+-- require "http_download_play"     -- HTTP下载音频文件播放，支持MP3/AMR/PCM格式，自动识别
+-- require "http_stream_play"        -- HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
+
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
+sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

@@ -30,7 +30,7 @@
 
 ### 3.1 硬件清单
 
-- Air780EHM / Air780EHV / Air780EGH 核心板 × 1
+- Air8101 核心板 × 1
 - ADXL345/ADXL346 三轴加速度传感器模块 × 1
   demo所演示的ADXL346 三轴加速度传感器模块[购买链接](https://item.taobao.com/item.htm?abbucket=12&id=674652805487&mi_id=0000HelRiVcJXLoq8Fq6jNLiArUvUR3J2pup2XI5jGtyLC8&ns=1&priceTId=2147849c17839172022585398e11c7&spm=a21n57.1.hoverItem.12&utparam=%7B%22aplus_abtest%22%3A%22418b653a98a5ab0b5f0ba7b791f3d489%22%7D&xxc=taobaoSearch)
 - 母对母杜邦线 × 5

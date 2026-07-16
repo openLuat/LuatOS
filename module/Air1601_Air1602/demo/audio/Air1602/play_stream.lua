@@ -21,10 +21,11 @@ local exaudio = require("exaudio")
 
 -- 音频初始化设置参数 (DAC模式)
 local audio_setup_param ={
-    model = "dac",              -- 音频输出类型，Air1602使用内置DAC
-    pa_ctrl = 45,               -- 音频放大器电源控制管脚
-    pa_on_level = 1,            -- PA打开电平
-    pa_delay = 10,              -- PA延时
+    model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
+    
+    pa_ctrl = 45,             -- 音频放大器电源控制管脚
+    pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
+    dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
 
 -- 播放完成回调
@@ -48,26 +49,38 @@ local audio_play_param ={
 ---------模拟获取音频task---------
 ---------------------------------
 local function audio_get_data()
+    -- 等待播放初始化完成
     sys.waitUntil("AUDIO_READY")
+    
     log.info("开始流式获取音频数据")
-    local file = io.open("/luadb/test.pcm", "rb")
+    local file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
+
+    -- 获取推荐的缓冲区大小
     local buffer_size = exaudio.get_stream_buffer_size() or 4096
     log.info("流式播放缓冲区大小", buffer_size)
+
     while true do
-        local read_data = file:read(buffer_size)
-        if read_data == nil then
-            file:close()
+        local read_data = file:read(buffer_size)  --  读取文件，模拟流式音频源,需要1024 的倍数
+        if read_data  == nil then
+            file:close()                -- 模拟音频获取完毕，关闭音频文件
+            -- 写入数据完毕后，通知多媒体通道已经没有更多数据需要播放了
+            -- 开启后可以有效的降低pop音
             exaudio.finish()
             break
         end
+
+        -- 如果读取的数据小于缓冲区大小，补充静音数据
         if #read_data < buffer_size then
             read_data = read_data .. string.rep("\0", buffer_size - #read_data)
         end
-        exaudio.play_stream_write(read_data)
-        sys.wait(20)
+
+        exaudio.play_stream_write(read_data)  -- 流式写入音频数据
+        sys.wait(20)                   -- 写数据需要留出时间给其他task 运行代码
     end
 end
+
 sys.taskInitEx(audio_get_data, "audio_get_data")
+
 
 ---------------------------------
 ------------主task---------------

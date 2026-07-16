@@ -64,11 +64,12 @@ local function demo_keys()
             log.info("tm1650_demo", "检测到按键, 编码:", key)
             local key_str = string.format("%02d", key)
             exs_tm1650.set_display(key_str)
-            sys.wait(1000)
-            return
+            sys.wait(100)
+            elapsed = elapsed + 100
+        else
+            sys.wait(step)
+            elapsed = elapsed + step
         end
-        sys.wait(step)
-        elapsed = elapsed + step
     end
 
     log.info("tm1650_demo", "按键检测超时，跳过")
@@ -175,9 +176,9 @@ local function demo_final()
     exs_tm1650.set_brightness(4)
     exs_tm1650.clear()
 
-    -- 日期展示
-    log.info("tm1650_demo", "日期展示: 26-07-13")
-    exs_tm1650.set_display("26-07-13")
+    -- 日期展示（4 位数码管，显示月日）
+    log.info("tm1650_demo", "日期展示: 0713")
+    exs_tm1650.set_display("0713")
     sys.wait(3000)
 
     -- 温度展示（摄氏度）

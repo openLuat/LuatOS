@@ -114,21 +114,16 @@ local function i2c_bus_recovery()
     -- 先把引脚设为 GPIO 输出高电平
     gpio.setup(g_scl_pin, gpio.OUTPUT, gpio.PULLUP, 1)
     gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
-    sys.wait(1)
+    
     -- 产生 9 个 SCL 时钟脉冲
     for i = 1, 9 do
         gpio.set(g_scl_pin, 0)
-        sys.wait(1)
         gpio.set(g_scl_pin, 1)
-        sys.wait(1)
     end
     -- 产生 STOP 条件：SDA 低→高，SCL 高
     gpio.set(g_sda_pin, 0)
-    sys.wait(1)
     gpio.set(g_scl_pin, 1)
-    sys.wait(1)
     gpio.set(g_sda_pin, 1)
-    sys.wait(1)
     log.info("exs_qmc5883l", "传感器复位完成")
 end
 
@@ -218,15 +213,12 @@ local function write_ctrl1(range_str, odr_hz, osr_val)
         log.error("exs_qmc5883l", "写 CTRL1(standby) 失败，I2C 通信异常")
         return false
     end
-    sys.wait(5)
-
     -- 第二步：写入新的配置并切回连续模式
     local ctrl1 = build_ctrl1(osr_reg, rng_reg, odr_reg, MODE_CONTINUOUS)
     if not i2c_write(REG_CTRL1, ctrl1) then
         log.error("exs_qmc5883l", "写 CTRL1(continuous) 失败，I2C 通信异常")
         return false
     end
-    sys.wait(10)
 
     -- 更新内部状态
     g_range = range_str
@@ -351,12 +343,10 @@ function exs_qmc5883l.setup(config)
         g_scl_pin = nil
         g_sda_pin = nil
     end
-    sys.wait(10)
 
     -- QMC5883L 在异常断电或 I2C 通信中断后可能锁死总线（拉低 SDA）。
     -- 先发软复位让传感器恢复到默认状态，避免总线死锁导致后续配置全部失败。
     i2c_write(REG_CTRL2, CTRL2_SOFT_RST)
-    sys.wait(50)
 
     -- 设置默认参数
     local range_str = config.range or "8G"
@@ -365,20 +355,16 @@ function exs_qmc5883l.setup(config)
 
     -- 配置厂商保留寄存器（两个参考程序均写入此值，保证芯片正常工作）
     i2c_write(0x20, 0x40)
-    sys.wait(1)
     i2c_write(0x21, 0x01)
-    sys.wait(1)
 
     -- 配置 SET/RESET Period 寄存器（默认值 0x01，显式写入确保稳定）
     i2c_write(REG_SET_RESET_PERIOD, 0x01)
-    sys.wait(10)
 
     -- 写入控制寄存器，启动连续模式
     if not write_ctrl1(range_str, odr_hz, osr_val) then
         log.error("exs_qmc5883l.setup CTRL1 配置失败，传感器可能未连接")
         return false
     end
-    sys.wait(20)
 
     g_ready = true
 
@@ -470,7 +456,6 @@ function exs_qmc5883l.set_range(range_str)
     if not write_ctrl1(range_str, g_odr, g_osr) then
         return
     end
-    sys.wait(15)
 
     log.info("exs_qmc5883l", string.format("量程切换为 %s", range_str))
 end
@@ -502,7 +487,6 @@ function exs_qmc5883l.set_odr(hz)
     if not write_ctrl1(g_range, hz, g_osr) then
         return
     end
-    sys.wait(15)
 
     log.info("exs_qmc5883l", string.format("输出速率切换为 %dHz", g_odr))
 end
@@ -523,7 +507,6 @@ function exs_qmc5883l.soft_reset()
         return
     end
     i2c_write(REG_CTRL2, CTRL2_SOFT_RST)
-    sys.wait(10)
     g_ready = false
     log.info("exs_qmc5883l", "软件复位完成")
 end

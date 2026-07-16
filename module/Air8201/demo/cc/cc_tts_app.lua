@@ -83,7 +83,7 @@ local audio_play_param ={
 local function audio_task()
     log.info("开始播放TTS")
     --设置音量
-    exaudio.vol(50)
+    exaudio.vol(70)
     -- 主动下发一次播放请求
     sys.publish("PLAY_DONE")
     while true do

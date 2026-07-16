@@ -1,30 +1,14 @@
 --[[
 @module  main
-@summary LuatOS SIP/VoIP 电话应用入口，负责加载功能模块
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2026.04.15
-@author  蒋骞
+@date    2026.07.15
+@author  王世豪
 @usage
-本demo演示的核心功能为：
-1. 使用 exsip.lua 封装库实现 SIP/VoIP 电话功能
-2. 音频设备初始化与控制
-3. SIP 事件回调处理
-4. 按键接听电话
-
-模块加载顺序：
-1. 加载 sip_app_main 主业务模块
-2. 加载 sip_app_key 按键控制模块
-3. 加载 netdrv_device 网络驱动设备功能模块
-4. 加载 tts_speaker TTS播报模块
-
-Air8201 兼容 Air8201G（Air780EGH）和 Air8201H（Air780EHM）两款型号，通过 _G.HARDWARE_ENV 宏切换
-- Air8201G: pa_ctrl=25, ES8311 3.3V
-- Air8201H: pa_ctrl=23, ES8311 1.8V
-netdrv_device：4G网卡 或 PC模拟器网卡 二选一
-
-注意：
-1. 本demo使用新音频框架，固件需要V2048及以上的13/113号固件才能播放
-2. 使用本demo时需要确认audio_drv.lua中初始化配置的音频框架audio_mode = "new" 才能播放
+本demo演示NS2520压力传感器通过I2C1读取压力和温度数据的功能，仅适配Air8201G模块。
+注意：Air8201H不支持此demo，因为Air8201H未板载NS2520传感器。
+每隔1秒读取一次压力和温度数据并打印输出。
+更多说明参考本目录下的readme.md文件
 ]]
 
 --[[
@@ -37,19 +21,14 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-
-PROJECT = "sip_demo_simple"
+PROJECT = "NS2520"
 VERSION = "001.999.000"
+
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
---[[
-硬件版本选择：修改下方 _G.HARDWARE_ENV 的值即可切换
-    "G" = Air8201G (Air780EGH, pa_ctrl=25, ES8311 3.3V)
-    "H" = Air8201H (Air780EHM, pa_ctrl=23, ES8311 1.8V)
-]]--
-_G.HARDWARE_ENV = "G"
+
 
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
@@ -67,13 +46,16 @@ _G.HARDWARE_ENV = "G"
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
 
--- 加载网络驱动设备功能模块
-require "netdrv_device"
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+--  end, 3000)
 
--- 加载SIP电话应用模块
-require "sip_app_key"
-require "sip_app_main"
-require "tts_speaker"
+-- 加载ns2520应用模块
+require "ns2520_app"
 
 
 -- 用户代码已结束---------------------------------------------

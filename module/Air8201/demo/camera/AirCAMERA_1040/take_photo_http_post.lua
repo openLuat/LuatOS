@@ -20,6 +20,8 @@ local httpplus = require "httpplus"
 
 -- I2C1总线上拉使能
 gpio.setup(28, 1)
+gpio.setup(24, 1)
+gpio.setup(26, 1)
 
 -------------------------------------
 ---PWRKEY按键：短按触发拍照---

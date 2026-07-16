@@ -5,10 +5,10 @@
 @date    2026.05.22
 @author  蒋骞
 @usage
-本文件为SIP应用按键控制模块，核心业务逻辑为：负责按键事件监听（POWERKEY 挂断、BOOT 键呼出/接听），并订阅 SIP 状态消息以更新本地状态，最后主动触发 SIP 服务启动。
+本文件为SIP应用按键控制模块，核心业务逻辑为：负责按键事件监听（PWRKEY 短按呼出/接听、长按挂断），并订阅 SIP 状态消息以更新本地状态，最后主动触发 SIP 服务启动。
 @description
-1. 监听 POWERKEY 键的按下事件，触发挂断操作；
-2. 监听 BOOT 键的按下事件，根据当前状态触发呼出或接听操作；
+1. 监听 PWRKEY 短按事件（按住<2秒松开），触发呼出或接听操作；
+2. 监听 PWRKEY 长按事件（按住>=2秒），触发挂断操作；
 3. 订阅 SIP_APP_MAIN_READY 和 SIP_APP_MAIN_LOSE 消息，更新 SIP 服务可用状态；
 4. 订阅 SIP_APP_MAIN_DIAL_RSP、SIP_APP_MAIN_CONNECTED、SIP_APP_MAIN_DISCONNECTED、SIP_APP_MAIN_INCOMING 消息，更新本地状态；
 5. 主动触发 SIP 服务启动。
@@ -33,17 +33,11 @@ local function lose_ind()
 end
 
 
+local LONG_PRESS_MS = 1000  -- 长按阈值（毫秒）
 
--- POWERKEY键：挂断
-local function powerkey_handler()
-    log.info(g_tag, "按下POWERKEY键")
-    g_sip_incoming = false
-    sys.publish("SIP_APP_MAIN_HANGUP_REQ", g_tag)
-end
-
--- BOOT键：呼出/接听
-local function boot_key_handler()
-    log.info(g_tag, "按下BOOT键")
+-- PWRKEY短按：呼出/接听
+local function short_press_handler()
+    log.info(g_tag, "PWRKEY短按")
 
     if not g_sip_app_ready then
         log.warn(g_tag, "SIP应用未初始化，无法呼出/接听")
@@ -57,6 +51,24 @@ local function boot_key_handler()
         return
     end
     sys.publish("SIP_APP_MAIN_DIAL_REQ", g_tag, "100001")
+end
+
+-- PWRKEY长按：挂断
+local function long_press_handler()
+    log.info(g_tag, "PWRKEY长按")
+    g_sip_incoming = false
+    sys.publish("SIP_APP_MAIN_HANGUP_REQ", g_tag)
+end
+
+-- PWRKEY按下后延时判断短按/长按
+local function pwrkey_handler()
+    sys.timerStart(function()
+        if gpio.get(gpio.PWR_KEY) == 0 then
+            long_press_handler()
+        else
+            short_press_handler()
+        end
+    end, LONG_PRESS_MS)
 end
 
 local function dial_rsp(tag, success, reason)
@@ -93,13 +105,9 @@ sys.subscribe("SIP_APP_MAIN_CONNECTED", connected_ind)
 sys.subscribe("SIP_APP_MAIN_DISCONNECTED", disconnected_ind)
 sys.subscribe("SIP_APP_MAIN_INCOMING", incoming_ind)
 
--- 设置POWERKEY键
-gpio.setup(gpio.PWR_KEY, powerkey_handler, gpio.PULLUP, gpio.FALLING)
+-- 设置PWRKEY：短按呼出/接听，长按挂断
+gpio.setup(gpio.PWR_KEY, pwrkey_handler, gpio.PULLUP, gpio.FALLING)
 gpio.debounce(gpio.PWR_KEY, 200, 1)
-
--- 设置BOOT键
-gpio.setup(0, boot_key_handler, gpio.PULLDOWN, gpio.RISING)
-gpio.debounce(0, 200, 1)
 
 
 -- 启动SIP应用服务

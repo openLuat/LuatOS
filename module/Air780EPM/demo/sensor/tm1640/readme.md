@@ -43,9 +43,9 @@
 <tr>
 <td>Air780EPM 核心板<br/></td><td>TM1640 模块<br/></td></tr>
 <tr>
-<td>31/GPIO31<br/></td><td>CLK<br/></td></tr>
+<td>32/GPIO31<br/></td><td>CLK<br/></td></tr>
 <tr>
-<td>30/GPIO30<br/></td><td>DIN<br/></td></tr>
+<td>31/GPIO30<br/></td><td>DIN<br/></td></tr>
 <tr>
 <td>VDD_EXT<br/></td><td>VCC<br/></td></tr>
 <tr>

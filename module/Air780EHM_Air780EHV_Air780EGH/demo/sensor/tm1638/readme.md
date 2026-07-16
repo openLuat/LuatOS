@@ -47,7 +47,7 @@
 <tr>
 <td>Air780EHM/Air780EHV/Air780EGH 核心板<br/></td><td>TM1638 模块<br/></td></tr>
 <tr>
-<td>30/GPIO31<br/></td><td>CLK<br/></td></tr>
+<td>32/GPIO31<br/></td><td>CLK<br/></td></tr>
 <tr>
 <td>31/GPIO30<br/></td><td>DIO<br/></td></tr>
 <tr>

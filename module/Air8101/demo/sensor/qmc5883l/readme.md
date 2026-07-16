@@ -25,12 +25,17 @@
 2. **[2/3] 量程切换演示** - 在 ±2G（高精度）和 ±8G（宽范围）量程之间切换，观察数据变化
 3. **[3/3] 输出速率切换** - 依次切换 10Hz / 50Hz / 100Hz / 200Hz 输出速率
 
-## 三、演示硬件环境
+## 三、显示效果
+
+![](https://docs.openluat.com/cdn/image/Air8101_qmc5883l.png)
+
+## 四、演示硬件环境
 
 ### 3.1 硬件清单
 
 - Air8101 核心板 × 1
 - QMC5883L 三轴地磁传感器模块 × 1
+  demo所演示的QMC5883L 三轴地磁传感器模块[购买链接](https://detail.tmall.com/item.htm?abbucket=12&id=41286452886&mi_id=0000mL_358u9JOlcX4nXEexqz-sHmWlRSDzJVprt2nO-dBw&ns=1&priceTId=215045e417839191910527013e1198&skuId=5886090880527&spm=a21n57.1.hoverItem.10&utparam=%7B%22aplus_abtest%22%3A%22dc3bc40800adf636989efd96ef16c269%22%7D&xxc=taobaoSearch)
 - 母对母杜邦线 × 5
 - TYPE-C 数据线 × 1
 

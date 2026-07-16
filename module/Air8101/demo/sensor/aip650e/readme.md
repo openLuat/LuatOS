@@ -41,13 +41,13 @@
 <tr>
 <td>Air8101 核心板<br/></td><td>AiP650E 模块<br/></td></tr>
 <tr>
-<td>4/GPIO4<br/></td><td>CLK<br/></td></tr>
+<td>67/GPIO4<br/></td><td>CLK<br/></td></tr>
 <tr>
-<td>5/GPIO5<br/></td><td>DIO<br/></td></tr>
+<td>8/GPIO5<br/></td><td>DIO<br/></td></tr>
 <tr>
-<td>VDD_EXT<br/></td><td>VCC<br/></td></tr>
+<td>vbat<br/></td><td>VCC<br/></td></tr>
 <tr>
-<td>GND<br/></td><td>GND<br/></td></tr>
+<td>gnd<br/></td><td>GND<br/></td></tr>
 </table>
 
 > 说明：接线时注意杜邦线不宜过长，以免通信不稳定。

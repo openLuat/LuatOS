@@ -34,6 +34,7 @@
 
 - Air780EHM/Air780EHV/Air780EGH 核心板 × 1
 - TM1650 数码管模块（4 位数码管 + 28 个按键） × 1
+  demo所演示的TM1650数码管[购买链接](https://item.taobao.com/item.htm?abbucket=12&id=894744356431&mi_id=0000-4_DHCxKAB3Xj0nlwc0YnvYkgo5-xS43MtZ8NtPojx4&ns=1&priceTId=213e00d417839211691737686e1068&skuId=5910411206496&spm=a21n57.1.hoverItem.3&utparam=%7B%22aplus_abtest%22%3A%22e04de8195726cbf718476351001570dd%22%7D&xxc=taobaoSearch)
 - 母对母杜邦线 × 4
 - TYPE-C 数据线 × 1
 

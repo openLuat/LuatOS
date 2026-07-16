@@ -59,7 +59,8 @@ local audio_configs = {
     pa_delay = 100,           -- DAC启动后延迟打开PA的时间(单位1ms)
     dac_time_delay = 100,     -- 播放完毕后PA与DAC关闭间隔(单位1ms)
     bits_per_sample = 16,     -- 采样位深
-    pa_on_level = 1           -- PA打开电平 1:高 0:低
+    pa_on_level = 1,           -- PA打开电平 1:高 0:低
+    audio_mode = "new", --  音频框架版本选择: "auto"用默认, "new"新框架, "old"旧框架
 }
 
 -- 初始化音频设备
@@ -68,7 +69,7 @@ local function initAudioDevice()
     -- 使用exaudio.setup统一配置音频设备
     log.info("audio_drv", "使用exaudio.setup初始化音频设备")
     if exaudio.setup(audio_configs) then
-        exaudio.vol(70)            -- 喇叭音量
+        exaudio.vol(50)            -- 喇叭音量
         exaudio.mic_vol(65)        -- 麦克风音量
         log.info("audio_drv", "exaudio.setup初始化成功")
     else

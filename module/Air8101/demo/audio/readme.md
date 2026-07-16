@@ -29,20 +29,6 @@
 - 然后循环交替播放10.amr和sample-6s.mp3，播放间隔3秒
 - 使用内置DAC输出音频
 
-**运行结果示例：**
-```lua
-I/user.开始播放音频文件
-I/user.exaudio.setup DAC模式初始化
-...
-detect ok 44100-2-2-1, data start pos 47  -- sample-6s.mp3播放
-auto search find codec 5                    -- 检测到MP3格式
-...
-detect ok 8000-2-1-1, data start pos 6     -- 10.amr播放
-auto search find codec 2                    -- 检测到AMR格式
-...
-detect ok 44100-2-2-1, data start pos 47   -- 循环回sample-6s.mp3
-```
-
 ### 2、TTS文字转语音功能（play_tts.lua）
 
 - 初始化后播默认TTS文字
@@ -50,42 +36,12 @@ detect ok 44100-2-2-1, data start pos 47   -- 循环回sample-6s.mp3
 - 音色包括：许久、许多、晓萍、唐老鸭、许宝宝
 - 使用内置DAC输出音频
 
-**运行结果示例：**
-```lua
-I/user.开始播放TTS
-I/user.exaudio.setup DAC模式初始化
-...
-find software codec 4          -- 检测到TTS格式
-I/user.exaudio audio_v2播放开始 0
-tts start, play info 16000,2,1  -- TTS启动，16kHz
-...
-tts decode sync end             -- TTS播放结束
-```
-
 ### 3、流式音频播放功能（play_stream.lua）
 
 - 使用test.pcm模拟音频来源进行流式播放
 - 通过流式传输不断填入播放的音频数据
 - 支持PCM格式
 - 使用内置DAC输出音频
-
-**运行结果示例：**
-```lua
-I/user.开始流式播报
-I/user.exaudio.setup audio_v2 DAC模式初始化
-I/user.exaudio 调用stream: cid= 0 sr= 16000 bits= 16 ch= 1 sig= true pri= 0
-I/user.开始流式获取音频数据
-I/user.流式播放缓冲区大小 1600
-I/user.播放状态 false
-...
-print from irq 0 0 640          -- 流式数据写入中
-decode input fifo not enough ...
-...
-I/user.exaudio audio_v2请求结束 0
-I/user.播放完成 true
-```
-
-**注意：Air8101仅支持play_stream播放，play_file和play_tts功能需要用Air8101B来测试**
 
 ### 4、录音到文件功能（record_amr_file.lua）
 

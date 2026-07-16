@@ -20,6 +20,8 @@ local httpplus = require "httpplus"
 
 -- I2C1总线上拉使能
 gpio.setup(28, 1)
+gpio.setup(24, 1)
+gpio.setup(26, 1)
 
 -------------------------------------
 ---PWRKEY按键：短按触发拍照---
@@ -53,7 +55,7 @@ local function capture_func()
             i2c_id = (HARDWARE_ENV == "G") and 1 or 0, -- G: I2C1, H: I2C0
             work_mode = 0, -- 工作模式，0为拍照模式，1为扫描模式
             save_path = save_method, -- 拍照结果存储路径，可用"ZBUFF"交由excamera库内部管理
-            camera_pwr = 2, -- 摄像头使能管脚，填写GPIO号即可，无则填nil
+            camera_pwr = 22, -- 摄像头使能管脚，填写GPIO号即可，无则填nil
             camera_pwdn = 5, -- 摄像头pwdn开关脚，填写GPIO号即可，无则填nil
             camera_light = nil -- 摄像头补光灯控制管脚，填写GPIO号即可，无则填nil
         }

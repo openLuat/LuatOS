@@ -41,8 +41,8 @@ sip/
 
 1. **网络设备驱动模块**：根据选择的网络类型在 **netdrv_device.lua** 文件中加载对应的网络驱动，这里选择 4g 驱动（require "netdrv_4g"）。
 2. **音频设备初始化与控制**：使用 exaudio.setup 统一配置 ES8311 音频编解码芯片和扬声器功放，包括 I2C、I2S 接口设置及音量控制。
-3. **拨号/接听**：在无来电的情况下，单击 boot 键进行拨号；收到来电，单击 boot 键进行接听
-4. **挂断**：来电/拨号/通话过程中，单击 PWRKEY 键进行挂断
+3. **拨号/接听**：在无来电的情况下，短按 PWRKEY 进行拨号；收到来电，短按 PWRKEY 进行接听
+4. **挂断**：来电/拨号/通话过程中，长按 PWRKEY（>=1秒）进行挂断
 
 ## **三、准备硬件环境**
 
@@ -144,11 +144,19 @@ local SIP_CONFIG =
 ```
 
 ```sql
-local function **boot_key_handler**()
-    log.**info**(g_tag, "按下BOOT键")
-    ...
-    
-    sys.**publish**("SIP_APP_MAIN_DIAL_REQ", g_tag, "100001")
+local LONG_PRESS_MS = 1000  -- 长按阈值（毫秒）
+
+-- PWRKEY按下后延时判断短按/长按
+local function pwrkey_handler()
+    sys.timerStart(function()
+        if gpio.get(gpio.PWR_KEY) == 0 then
+            -- 长按：挂断
+            sys.publish("SIP_APP_MAIN_HANGUP_REQ", g_tag)
+        else
+            -- 短按：呼出/接听
+            sys.publish("SIP_APP_MAIN_DIAL_REQ", g_tag, "100001")
+        end
+    end, LONG_PRESS_MS)
 end
 ```
 
@@ -160,7 +168,7 @@ end
 
 - 场景：4g 联网测试：require "netdrv_4g"
 
-3、在 sip_app_main.lua 中的 SIP_CONFIG 配置 SIP 服务器地址，端口，域名，用户名，密码，注意：服务器地址、端口、用户名和密码按实际填，在 sip_app_key.lua 中的 boo 按键函数发布的消息中填写要拨打的号码：sys.publish("SIP_APP_MAIN_DIAL_REQ", g_tag, targetnumber)，本例中 targetnumber = "100001"；
+3、在 sip_app_main.lua 中的 SIP_CONFIG 配置 SIP 服务器地址，端口，域名，用户名，密码，注意：服务器地址、端口、用户名和密码按实际填，在 sip_app_key.lua 中的 PWRKEY 按键函数发布的消息中填写要拨打的号码：sys.publish("SIP_APP_MAIN_DIAL_REQ", g_tag, targetnumber)，本例中 targetnumber = "100001"；
 
 4、打开 MicroSIP/Linphone，输入 sip_app_main.lua 中 SIP_CONFIG 配置的 sip 服务器地址，端口，域名，注意：用户名和密码按实际填，不要与脚本中的用户名重复，本例中 MicroSIP/Linphone 填写的用户名为 100001；
 
@@ -221,12 +229,12 @@ end
 
 #### 拨号测试
 
-##### 单击 boot 键拨号
+##### 短按 PWRKEY 拨号
 
 日志如下：
 
 
-[2026-05-18 17:59:09.708][000000364.908] I/user.sip_app_key 按下BOOT键</span><br />
+[2026-05-18 17:59:09.708][000000364.908] I/user.sip_app_key PWRKEY短按</span><br />
 [2026-05-18 17:59:09.709][000000364.909] I/user.sip_app_main_task_func waitMsg STATE_READY sip_app_key MSG_DIAL 100001</span><br />
 [2026-05-18 17:59:09.710][000000364.909] I/user.exsip calling: 100001</span><br />
 [2026-05-18 17:59:09.818][000000365.014] I/user.sip_app_main_task_func after process STATE_DIALING</span><br />
@@ -292,11 +300,11 @@ a=ptime:20
 <mark>[2026-05-18 17:59:23.465][000000378.659] I/user.sip_callback STATE_CONNECTED voip stats table: 0C799D38 nil</span><br />
 [2026-05-18 17:59:23.472][000000378.660] I/user.sip_callback VoIP统计 - 发送: 250 接收: 237 丢失: 0</mark></span><br />
 
-##### 单击 PWRKEY 键，挂断通话
+##### 长按 PWRKEY，挂断通话
 
 通话结束，结束原因为： local_hangup(我方主动挂断)，日志如下：
 
-[2026-05-18 17:59:25.198][000000380.401] I/user.sip_app_key 按下POWERKEY键</span><br />
+[2026-05-18 17:59:25.198][000000380.401] I/user.sip_app_key PWRKEY长按</span><br />
 [2026-05-18 17:59:25.200][000000380.403] I/user.sip_app_main_task_func waitMsg STATE_CONNECTED sip_app_key MSG_HANGUP nil</span><br />
 [2026-05-18 17:59:25.205][000000380.404] I/user.exsip hanging up</span><br />
 [2026-05-18 17:59:25.210][000000380.404] I/user.sip_app_main_task_func after process STATE_CONNECTED</span><br />
@@ -355,9 +363,9 @@ a=ptime:20</span><br />
 [2026-05-19 11:39:42.243][000000051.771] I/user.sip_app_main_task_func after process STATE_INCOMING</span><br />
 [2026-05-19 11:39:42.243][000000051.877] I/user.sip_app_key 呼入中，来电号码： 100001</span><br />
 
-##### 单击 boot 键接听来电
+##### 短按 PWRKEY 接听来电
 
-<mark>[2026-05-19 11:39:51.669][000000061.206] I/user.sip_app_key 按下BOOT键</span><br />
+<mark>[2026-05-19 11:39:51.669][000000061.206] I/user.sip_app_key PWRKEY短按</span><br />
 [2026-05-19 11:39:51.671][000000061.206] I/user.sip_app_key 呼入中，接听</span><br /></mark>
 [2026-05-19 11:39:51.677][000000061.207] I/user.sip_app_main_task_func waitMsg STATE_INCOMING sip_app_key MSG_ACCEPT nil</span><br />
 [2026-05-19 11:39:51.682][000000061.208] I/user.exsip answering call</span><br />
@@ -404,11 +412,11 @@ a=ptime:20</span><br />
 [2026-05-19 11:40:01.887][000000071.421] I/user.sip_callback STATE_CONNECTED voip stats table: 0C7B8738 nil</span><br />
 [2026-05-19 11:40:01.895][000000071.422] I/user.sip_callback VoIP统计 - 发送: 500 接收: 473 丢失: 0</span><br />
 
-##### 单击 PWRKEY 键，挂断通话
+##### 长按 PWRKEY，挂断通话
 
 通话结束，结束原因为： local_hangup(我方主动挂断)，日志如下：
 
-[2026-05-19 11:40:02.334][000000071.870] I/user.sip_app_key 按下POWERKEY键</span><br />
+[2026-05-19 11:40:02.334][000000071.870] I/user.sip_app_key PWRKEY长按</span><br />
 [2026-05-19 11:40:02.336][000000071.872] I/user.sip_app_main_task_func waitMsg STATE_CONNECTED sip_app_key MSG_HANGUP nil</span><br />
 [2026-05-19 11:40:02.342][000000071.872] I/user.exsip hanging up</span><br />
 [2026-05-19 11:40:02.348][000000071.873] I/user.sip_app_main_task_func after process STATE_CONNECTED</span><br />
@@ -440,5 +448,5 @@ a=ptime:20</span><br />
 
 至此，我们通过 Air8201 整机板 演示了在 4G 网络状态下的拨号，来电、通话全过程，动手试一试吧：
 
-1. **来电**：来电时播报来电号码，单击 boot 键接听，单击 PWRKEY 拒接
-2. **拨号**：在无来电的情况下，单击 boot 拨号，拨号过程中可以单击 PWRKEY 取消拨号
+1. **来电**：来电时播报来电号码，短按 PWRKEY 接听，长按 PWRKEY 拒接
+2. **拨号**：在无来电的情况下，短按 PWRKEY 拨号，拨号过程中可以长按 PWRKEY 取消拨号

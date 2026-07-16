@@ -23,7 +23,8 @@ local audio_configs ={
     
     dac_ctrl = 2,        --  音频编解码芯片电源控制管脚
     
-    codec_voltage = (HARDWARE_ENV == "G") and 1 or 0 -- ES8311电压: 0=1.8V(H), 1=3.3V(G)
+    codec_voltage = (HARDWARE_ENV == "G") and 1 or 0 -- ES8311电压: 0=1.8V(H), 1=3.3V(G),
+    audio_mode = "new", --  音频框架版本选择: "auto"用默认, "new"新框架, "old"旧框架
 }
 
 function audio_drv.init()

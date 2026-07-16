@@ -5,7 +5,7 @@
 @date    2026.03.13
 @author  拓毅恒
 @usage
-本demo演示两种语音通话应用场景（二选一）：
+本demo演示三种语音通话应用场景（三选一）：
 
 场景一：基础通话功能（默认启用）
 - 音频设备初始化与控制
@@ -17,14 +17,24 @@
 - 来电自动接听与通话处理
 - 通话录音功能
 
+场景三：通话中播放外部音频
+- 来电自动接听或主动拨出
+- 通话中播放文件或TTS给对方
+- 本demo使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
+
 使用说明：
 根据需求启用对应的功能模块，注释掉不需要的模块
 - 启用基础通话功能：require "cc_app"
 - 启用TTS循环播放功能：require "cc_tts_app"
+- 启用通话中播放外部音频功能：require "play_audio_during_cc"
 
 支持 Air8201G 和 Air8201H 两种硬件版本，通过 main.lua 中的 _G.HARDWARE_ENV 宏切换
 - Air8201G: 基于 Air780EGH 模组，板载 ES8311，pa_ctrl=25
 - Air8201H: 基于 Air780EHM 模组，板载 ES8311，pa_ctrl=23
+
+注意：
+1. 本demo使用新音频框架，固件需要V2048及以上的13/113号固件才能播放
+2. 使用本demo时需要确认audio_drv.lua中初始化配置的音频框架audio_mode = "new" 才能播放
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -80,12 +90,15 @@ _G.HARDWARE_ENV = "G"
 -- 仅加载必要的功能模块
 require "audio_drv"  -- 音频设备管理模块
 
--- 加载通话业务逻辑模块（二选一）
+-- 加载通话业务逻辑模块（三选一）
 -- 场景一：基础通话功能（默认启用）
--- require "cc_app"
+require "cc_app"
 -- 场景二：TTS循环播放与通话处理模块
 -- 测试TTS循环播放与通话处理模块，取消注释下一行
-require "cc_tts_app"
+-- require "cc_tts_app"
+-- 场景三：通话中播放外部音频（文件/TTS）
+-- 测试通话中播放文件或TTS，取消注释下一行
+-- require "play_audio_during_cc"
 
 -- 用户代码已结束---------------------------------------------
 sys.run()

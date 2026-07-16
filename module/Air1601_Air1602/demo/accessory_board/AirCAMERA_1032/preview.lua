@@ -1,6 +1,6 @@
 --[[
 @module  preview
-@summary AirCAMERA_1032 USB摄像头 + excamera扩展库 + AIRUI camera组件预览
+@summary AirCAMERA_1032 USB摄像头 + excamera扩展库 + AIRUI camera组件预览（支持四种fit模式切换）
 @version 1.2
 @date    2026.06.23
 @author  江访
@@ -20,11 +20,12 @@ local excamera = require "excamera"
 local camera_widget = nil     -- AIRUI camera组件
 local status_label = nil      -- 状态标签
 local toggle_btn = nil        -- 开始/停止切换按钮
-local ctrl_btn = nil          -- 销毁/创建切换按钮
+local fit_btns = {}           -- fit模式按钮表
+local widget_registered = false  -- 标记是否已注册到解码通道
 
 -- 目标分辨率
-local SENSOR_W = 640
-local SENSOR_H = 480
+local SENSOR_W = 1280
+local SENSOR_H = 720
 local LCD_W = 1024
 local LCD_H = 600
 
@@ -42,6 +43,15 @@ local PANEL_Y = 20
 local BTN_W = PANEL_W
 local BTN_H = 48
 local BTN_GAP = 14
+
+-- fit按钮尺寸
+local FIT_BTN_W = math.min(PANEL_W - 16, 160)
+local FIT_BTN_H = 36
+local FIT_BTN_GAP = 8
+
+-- fit模式列表
+local FIT_MODES = { "center", "contain", "cover", "stretch" }
+local current_fit = "cover"   -- 默认fit模式
 
 -- 12号GPIO拉高（AirCAMERA_1032摄像头供电控制引脚）
 gpio.setup(12, 1, gpio.PULLUP)
@@ -64,6 +74,13 @@ local COLOR_PANEL_BG = 0x1E1E2E
 local COLOR_TEXT = 0xCDD6F4
 local COLOR_TEXT_DIM = 0x9399B2
 local COLOR_BORDER = 0x45475A
+local COLOR_FIT_IDLE = 0x45475A
+local COLOR_FIT_ACTIVE = 0x1E88E5
+
+-- 生成状态文本（含源、视口、fit）
+local function status_fit_text()
+    return string.format("源%d×%d→视口%d×%d fit=%s", SENSOR_W, SENSOR_H, PREVIEW_W, PREVIEW_H, current_fit)
+end
 
 -- 更新状态标签
 local function update_status(text)
@@ -78,7 +95,10 @@ local function sync_toggle_btn()
     if not toggle_btn then
         return
     end
-    if app_state == STATE_PREVIEWING or app_state == STATE_WAITING then
+    if app_state == STATE_WAITING then
+        toggle_btn:set_text("连接中...")
+        toggle_btn:set_style({bg_color = 0x888888, pressed_bg_color = 0x888888, text_color = 0xFFFFFF})
+    elseif app_state == STATE_PREVIEWING then
         toggle_btn:set_text("停止预览")
         toggle_btn:set_style({bg_color = COLOR_ORANGE, pressed_bg_color = COLOR_ORANGE, text_color = 0xFFFFFF})
     else
@@ -87,17 +107,26 @@ local function sync_toggle_btn()
     end
 end
 
--- 同步控制按钮
-local function sync_ctrl_btn()
-    if not ctrl_btn then
-        return
+-- 同步fit按钮状态
+local function sync_fit_btns()
+    for mode, btn in pairs(fit_btns) do
+        local active = (mode == current_fit)
+        local color = active and COLOR_FIT_ACTIVE or COLOR_FIT_IDLE
+        btn:set_style({bg_color = color, pressed_bg_color = color, text_color = 0xFFFFFF})
     end
+end
+
+-- 应用fit模式
+local function apply_fit(mode)
+    current_fit = mode
     if camera_widget and not camera_widget:is_destroyed() then
-        ctrl_btn:set_text("销毁组件")
-        ctrl_btn:set_style({bg_color = COLOR_RED, pressed_bg_color = COLOR_RED, text_color = 0xFFFFFF})
+        camera_widget:set_fit(mode)
+    end
+    sync_fit_btns()
+    if app_state == STATE_PREVIEWING then
+        update_status("预览中 " .. status_fit_text())
     else
-        ctrl_btn:set_text("创建组件")
-        ctrl_btn:set_style({bg_color = COLOR_GREEN, pressed_bg_color = COLOR_GREEN, text_color = 0xFFFFFF})
+        update_status("已选 fit=" .. mode)
     end
 end
 
@@ -110,6 +139,7 @@ local function create_widget()
         parent = airui.screen,
         x = PREVIEW_X, y = PREVIEW_Y,
         w = PREVIEW_W, h = PREVIEW_H,
+        fit = current_fit,
         auto_start = false,
     })
     if not camera_widget then
@@ -117,40 +147,49 @@ local function create_widget()
         return false
     end
     app_state = STATE_CREATED
-    update_status("组件已创建")
+    widget_registered = false
+    update_status(string.format("组件已创建 %dx%d fit=%s", PREVIEW_W, PREVIEW_H, current_fit))
     return true
 end
 
--- 销毁组件
-local function destroy_widget()
-    if camera_widget and not camera_widget:is_destroyed() then
-        camera_widget:destroy()
-    end
-    camera_widget = nil
-    app_state = STATE_IDLE
-    update_status("组件已销毁")
-end
-
--- 注册并启动AIRUI camera控件
+-- 注册AIRUI camera控件（绑定到解码通道，但不启动显示）
 local function register_camera_widget()
     if not camera_widget or camera_widget:is_destroyed() then
         return false
     end
     camera_widget:register()
-    camera_widget:start()
-    app_state = STATE_PREVIEWING
+    widget_registered = true
+    app_state = STATE_CREATED   -- 已注册但未预览
     sync_toggle_btn()
-    update_status("预览运行中 " .. SENSOR_W .. "x" .. SENSOR_H)
+    update_status("摄像头已连接，点击“开始预览”显示画面")
     return true
 end
 
--- excamera预览回调：收到摄像头连接事件后注册AIRUI控件
+-- excamera预览回调：收到摄像头连接事件后注册AIRUI控件（但不启动显示）
 local function preview_callback(event, ...)
     if event == "connected" then
         local app_id = select(1, ...)
         log.info("preview", "USB摄像头已连接, app_id:", app_id)
+
+        -- ========== 遍历并打印摄像头支持的所有分辨率 ==========
+        local res, format_num = camera.get_usb_config(app_id, camera.CONF_UVC_FORMAT)
+        log.info("preview", "UVC格式数量:", format_num)
+        for format_index = 1, format_num do
+            local res, ftype, frame_num = camera.get_usb_config(app_id, camera.CONF_UVC_FORMAT, format_index)
+            log.info("preview", string.format("  格式索引 %d, 类型: %d, 帧数: %d", format_index, ftype, frame_num))
+            for frame_index = 1, frame_num do
+                local res, fps, w, h = camera.get_usb_config(app_id, camera.CONF_UVC_RESOLUTION, format_index, frame_index)
+                log.info("preview", string.format("    分辨率 %dx%d, 帧率: %d fps", w, h, fps))
+            end
+        end
+        -- ==========================================================
+
         register_camera_widget()
     elseif event == "disconnected" then
+        if camera_widget and not camera_widget:is_destroyed() then
+            camera_widget:stop()
+        end
+        widget_registered = false
         app_state = STATE_CREATED
         sync_toggle_btn()
         update_status("摄像头已断开")
@@ -160,53 +199,68 @@ local function preview_callback(event, ...)
     end
 end
 
--- 开始预览
-local function start_preview()
-    if not camera_widget or camera_widget:is_destroyed() then
-        log.warn("preview", "请先创建组件")
-        return
-    end
+-- 初始化USB数据流（只在程序启动时调用一次，保持常开）
+local function init_usb_stream()
     if app_state == STATE_PREVIEWING or app_state == STATE_WAITING then
-        return
+        return true
     end
-
     local usb_param = {
         id = camera.USB,
         sensor_width = SENSOR_W,
         sensor_height = SENSOR_H,
         usb_port = 1,
         work_mode = 2,
-        save_path = "/ram/photo.jpg"
+        save_path = "/ram/photo.jpg",
+        fps = 15,
     }
-
     local ok = excamera.open(usb_param)
     if not ok then
         update_status("摄像头打开失败")
-        return
+        return false
     end
     ok = excamera.preview(preview_callback)
     if ok then
         app_state = STATE_WAITING
         sync_toggle_btn()
         update_status("等待摄像头连接...")
+        return true
     else
         update_status("预览启动失败")
         excamera.close()
+        return false
     end
 end
 
--- 停止预览
+-- 开始预览（仅启动控件显示，不重复打开USB流）
+local function start_preview()
+    if not camera_widget or camera_widget:is_destroyed() then
+        log.warn("preview", "请先创建组件")
+        return
+    end
+    if not widget_registered then
+        update_status("摄像头尚未连接，请等待...")
+        return
+    end
+    if app_state == STATE_PREVIEWING then
+        return
+    end
+    camera_widget:start()
+    app_state = STATE_PREVIEWING
+    sync_toggle_btn()
+    update_status("预览中 " .. status_fit_text())
+end
+
+-- 停止预览（仅停止控件显示，不关闭USB流）
 local function stop_preview()
-    if app_state ~= STATE_PREVIEWING and app_state ~= STATE_WAITING then
+    if app_state ~= STATE_PREVIEWING then
         return
     end
     if camera_widget and not camera_widget:is_destroyed() then
         camera_widget:stop()
     end
-    excamera.close()
     app_state = STATE_CREATED
     sync_toggle_btn()
-    update_status("预览已停止")
+    update_status("预览已停止 fit=" .. current_fit)
 end
 
 -- 辅：创建按钮
@@ -225,10 +279,15 @@ end
 
 -- 按钮回调：发消息转协程
 local function on_toggle()
+    if app_state == STATE_WAITING then
+        return  -- 等待连接中忽略操作
+    end
     sys.publish("CAMERA_CMD", "toggle")
 end
-local function on_ctrl()
-    sys.publish("CAMERA_CMD", "ctrl")
+local function on_fit(mode)
+    return function()
+        sys.publish("CAMERA_CMD", "fit", mode)
+    end
 end
 
 -- 主任务
@@ -284,39 +343,67 @@ sys.taskInit(function()
 
     -- 切换按钮（开始/停止预览）
     toggle_btn = new_btn("开始预览", PANEL_X, by, BTN_W, BTN_H, COLOR_BLUE, on_toggle)
-    by = by + BTN_H + BTN_GAP
+    by = by + BTN_H + BTN_GAP + 8
 
-    -- 控制按钮（创建/销毁组件）
-    ctrl_btn = new_btn("创建组件", PANEL_X, by, BTN_W, BTN_H, COLOR_GREEN, on_ctrl)
+    -- 分隔线
+    airui.label({
+        parent = airui.screen,
+        x = PANEL_X + 8, y = by, w = PANEL_W - 16, h = 1,
+        text = "", font_size = 1,
+        style = {bg_color = COLOR_BORDER, border_width = 0},
+    })
+    by = by + 12
+
+    -- fit模式标题
+    airui.label({
+        parent = airui.screen,
+        x = PANEL_X, y = by, w = PANEL_W, h = 24,
+        text = "适配模式", font_size = 16,
+        color = COLOR_TEXT_DIM, align = airui.TEXT_ALIGN_CENTER,
+    })
+    by = by + 28
+
+    -- 创建fit按钮
+    for _, mode in ipairs(FIT_MODES) do
+        local btn_x = PANEL_X + (PANEL_W - FIT_BTN_W) // 2
+        local color = (mode == current_fit) and COLOR_FIT_ACTIVE or COLOR_FIT_IDLE
+        fit_btns[mode] = airui.button({
+            parent = airui.screen,
+            x = btn_x, y = by, w = FIT_BTN_W, h = FIT_BTN_H,
+            text = mode,
+            font_size = 16,
+            style = {
+                bg_color = color, pressed_bg_color = color,
+                text_color = 0xFFFFFF, radius = 6, border_width = 0,
+            },
+            on_click = on_fit(mode),
+        })
+        by = by + FIT_BTN_H + FIT_BTN_GAP
+    end
 
     -- 自动创建组件
     create_widget()
-    sync_ctrl_btn()
     sync_toggle_btn()
+    sync_fit_btns()
     update_status("点击开始预览启动摄像头")
+
+    -- 初始化USB数据流（常开）
+    init_usb_stream()
 
     -- 消息循环
     while true do
-        local _, cmd = sys.waitUntil("CAMERA_CMD")
+        local _, cmd, arg = sys.waitUntil("CAMERA_CMD")
         if cmd == "toggle" then
-            if app_state == STATE_PREVIEWING or app_state == STATE_WAITING then
+            if app_state == STATE_PREVIEWING then
                 stop_preview()
             else
                 start_preview()
             end
             sync_toggle_btn()
-            sync_ctrl_btn()
-        elseif cmd == "ctrl" then
-            if camera_widget and not camera_widget:is_destroyed() then
-                if app_state == STATE_PREVIEWING or app_state == STATE_WAITING then
-                    stop_preview()
-                end
-                destroy_widget()
-            else
-                create_widget()
-            end
-            sync_toggle_btn()
-            sync_ctrl_btn()
+            sync_fit_btns()
+        elseif cmd == "fit" and arg then
+            apply_fit(arg)
+            sync_fit_btns()
         end
     end
 end)

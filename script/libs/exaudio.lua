@@ -1,10 +1,13 @@
 ﻿--[[
 @module exaudio
 @summary exaudio扩展库
-@version 2.2
-@date    2026.7.14
+@version 2.3
+@date    2026.7.16
 @author  拓毅恒
 @updates
+    v2.3 2026.7.16
+        1. 移除新音频框架初始化audio_v2_setup中的make_probe_id+set_default_driver操作
+           （各BSP有默认驱动，无需手动设置，特殊情况可通过exaudio.set_default_driver接口设置）
     v2.2 2026.7.14
         1. 新增codec_voltage参数控制ES8311电平 codec_voltage=1(默认3.3V)，codec_voltage=0(1.8V，适配Air8201等特殊板型)
     v2.1 2026.7.8
@@ -45,6 +48,10 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202607161030
+-- 1、更新时间：2026-07-16 10:30
+--    移除新音频框架初始化audio_v2_setup中的make_probe_id+set_default_driver操作
+--    各BSP有默认驱动，无需手动设置，特殊情况可通过exaudio.set_default_driver接口设置
 -- 版本号：202607141800
 -- 1、更新时间：2026-07-14 18:00
 --    新增codec_voltage参数控制ES8311电平
@@ -495,37 +502,6 @@ local function audio_v2_setup()
     else
         log.error("audio_v2不支持的model:", audio_setup_param.model)
         return false
-    end
-    
-    -- 检查audio_v2驱动管理API是否可用
-    if audio_v2.make_probe_id and audio_v2.set_default_driver then
-        -- 使用驱动管理API设置驱动
-        local driver_probe_id
-        if audio_setup_param.model == "dac" then
-            -- 合成DAC驱动ID: DAC0播放, 无录音
-            driver_probe_id = audio_v2.make_probe_id(
-                audio_v2.DRIVER_TYPE_DAC, 0,  -- 发送: DAC0
-                audio_v2.DRIVER_TYPE_NONE, 0   -- 接收: 无
-            )
-        elseif audio_setup_param.model == "es8311" then
-            -- 合成I2S驱动ID: I2S0全双工(播放+录音)
-            driver_probe_id = audio_v2.make_probe_id(
-                audio_v2.DRIVER_TYPE_I2S, 0,  -- 发送: I2S0
-                audio_v2.DRIVER_TYPE_I2S, 0   -- 接收: I2S0
-            )
-        end
-        
-        -- 设置默认驱动
-        local set_ok = audio_v2.set_default_driver(driver_probe_id)
-        if set_ok then
-            log.info("exaudio.setup", "默认驱动已设置, probe_id:", driver_probe_id)
-        else
-            -- 设置失败，可能是驱动未注册，尝试继续
-            log.warn("exaudio.setup", "设置默认驱动失败，尝试使用系统默认驱动")
-        end
-    else
-        -- 固件不支持驱动管理API，使用默认驱动
-        log.info("exaudio.setup", "使用audio_v2默认驱动")
     end
     
     -- 注册audio_v2事件回调
@@ -1915,7 +1891,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202607141800"
+    return "202607161030"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

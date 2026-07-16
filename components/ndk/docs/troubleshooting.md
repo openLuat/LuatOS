@@ -29,11 +29,11 @@
 **原因**：`build.bat` 自动同步机制依赖相对路径
 
 **解决**：
-1. 确保在 `components/ndk/guest/fixtures/rv32f_regression/` 目录内运行 `build.bat`（或使用兼容入口 `testcase/ndk/ndk_basic/guest/build.bat`）
+1. 确保在 `testcase\ndk\ndk_basic\guest` 目录内运行 `build.bat`（或 `build.ps1`）
 2. 手动验证同步：
    ```powershell
    ls ..\scripts\baremetal.bin
-   ls ..\..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal.bin
+   ls ..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal.bin
    ```
 
 ## Q3: PC 模拟器构建失败（MSVC 错误）
@@ -62,7 +62,7 @@
 1. 确保 `testcase/ndk/ndk_basic/scripts/baremetal.bin` 存在
 2. 重新运行 guest 构建（会自动同步）：
    ```powershell
-   cd components\ndk\guest\fixtures\rv32f_regression
+   cd testcase\ndk\ndk_basic\guest
    cmd /c build.bat
    ```
 
@@ -73,7 +73,7 @@
 **完整流程**：
 ```powershell
 # 1. 重建 guest
-cd components\ndk\guest\fixtures\rv32f_regression
+cd testcase\ndk\ndk_basic\guest
 cmd /c build.bat
 
 # 2. 不需要重建 PC（guest 是运行时加载的）

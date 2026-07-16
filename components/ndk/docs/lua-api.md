@@ -12,7 +12,7 @@
 - `path`：guest 镜像路径（相对或绝对）
 - `mem_size`：guest RAM 大小（字节，默认 8 KiB，**最大 512 KiB**）
 - `exchange_size`：host-guest 交换区大小（字节，默认 4 KiB，必须 < `mem_size`）
-- `opts`：可选表 `{ isa = "rv32ima" | "rv32imf" }`
+- `opts`：可选表 `{ isa = "rv32ima" }`
 
 **返回**：
 - 成功：`ctx` userdata（Lua GC 托管，`__gc` 时自动清理）
@@ -126,8 +126,6 @@ local ok, ret = ndk.exec(ctx, {steps = 0, elapsed = 100})
 - `last_error`：最近一次 Host ABI 错误码
 - `event_slots`：当前事件槽数量
 - `isa`：当前 ISA 字符串
-- `flen`：FPU 寄存器位宽（0/32）
-- `fcsr` / `frm` / `fflags`：浮点 CSR 当前值
 
 **当前 `features` 位图**：
 - bit0 `META`

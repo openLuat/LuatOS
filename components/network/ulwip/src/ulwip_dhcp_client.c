@@ -76,6 +76,18 @@ on_check:
         ip4_addr_t netmask = {.addr=dhcp->submask};
         ip4_addr_t gw = {.addr=dhcp->gateway};
         netif_set_addr(netif, &ipaddr, &netmask, &gw);
+        // gratuitous ARP，通知局域网刷新本机 IP/MAC 映射
+        err_t arp_err = etharp_gratuitous(netif);
+        if (arp_err != ERR_OK) {
+            LLOGW("adapter %d gratuitous ARP failed %d", adapter_index, arp_err);
+        }
+        // 预热网关 MAC，避免上层首包出网卡顿
+        if (ip4_addr_isany_val(gw) == 0) {
+            arp_err = etharp_request(netif, &gw);
+            if (arp_err != ERR_OK) {
+                LLOGW("adapter %d gateway ARP request failed %d", adapter_index, arp_err);
+            }
+        }
         dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
         if (rxbuff) {
             luat_heap_free(rxbuff);

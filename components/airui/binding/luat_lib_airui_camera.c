@@ -24,9 +24,17 @@
  * @table config 配置表
  * @int config.x X 坐标，默认 0
  * @int config.y Y 坐标，默认 0
- * @int config.w 宽度，默认 320
- * @int config.h 高度，默认 240
+ * @int config.w 宽度（显示视口），默认 320
+ * @int config.h 高度（显示视口），默认 240
+ * @string config.fit 画面适配模式，默认 center。(center/contain/cover/stretch)
+ * @li center：不缩放，居中裁切/贴图
+ * @li contain：等比缩放完整显示，可能留黑边（软件最近邻）
+ * @li cover：等比缩放铺满视口，可能裁切（软件最近邻）
+ * @li stretch：非等比拉伸填满视口（软件最近邻）
+ * @note fit 在组件内软件烘焙到视口大小缓冲，避免 LVGL 对全帧软件缩放导致卡顿
  * @boolean config.auto_start 创建后是否自动启动，默认 false
+ * @boolean config.register_target 创建后是否注册为预览帧接收目标，默认 true（挂 luat_camera_set_preview_data_callback）
+ * @int config.camera_id 摄像头 ID，默认 camera.USB
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Camera 对象
  */
@@ -47,6 +55,19 @@ static int l_airui_camera(lua_State *L)
 static lv_obj_t *camera_check(lua_State *L)
 {
     return airui_check_component(L, 1, AIRUI_CAMERA_MT);
+}
+
+/**
+ * Camera:set_fit(fit)
+ * @api camera:set_fit(fit)
+ * @string fit 画面适配模式。center/contain/cover/stretch（软件烘焙到视口，下一帧生效）
+ * @return nil
+ */
+static int l_camera_set_fit(lua_State *L)
+{
+    const char *fit = luaL_checkstring(L, 2);
+    airui_camera_set_fit(camera_check(L), fit);
+    return 0;
 }
 
 /**
@@ -89,7 +110,7 @@ static int l_camera_destroy(lua_State *L)
 
 /**
  * Camera:register()
- * 显式注册为摄像头帧接收目标（底层解码后的 RGB565 帧会直接推送到此组件）
+ * 显式注册为摄像头帧接收目标（挂 luat_camera_set_preview_data_callback，接收解码后的 RGB565）
  * @api camera:register()
  * @return nil
  * @usage
@@ -110,6 +131,7 @@ void airui_register_camera_meta(lua_State *L)
     airui_component_set_metatable_gc(L);
 
     static const luaL_Reg methods[] = {
+        {"set_fit", l_camera_set_fit},
         {"start", l_camera_start},
         {"stop", l_camera_stop},
         {"destroy", l_camera_destroy},

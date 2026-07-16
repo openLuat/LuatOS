@@ -18,13 +18,13 @@
 
 local exaudio = require "exaudio"
 
--- 音频初始化设置参数
+-- 音频初始化设置参数 (DAC模式)
 local audio_setup_param ={
-    model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC（Air1601内置DAC）
+    model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
     
     pa_ctrl = 12,             -- 音频放大器电源控制管脚
     pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
-    pa_delay = 10,            -- PA延时(ms)，DAC启动后延迟打开PA的时间
+    dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
 
 --  播放结束回调

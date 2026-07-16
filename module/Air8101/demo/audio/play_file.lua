@@ -24,8 +24,8 @@ local audio_setup_param ={
     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
     
     pa_ctrl = 27,             -- 音频放大器电源控制管脚
-    pa_on_level = 1,          -- PA打开电平
-    pa_delay = 10            -- PA延时
+    pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
+    dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
 
 -- 播放结束回调
@@ -35,7 +35,7 @@ local function play_end(event)
     end
 end
 
--- 音频播放的配置
+--  音频播放的配置
 local audio_play_param ={
     type= 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式

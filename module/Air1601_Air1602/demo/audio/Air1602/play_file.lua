@@ -20,10 +20,11 @@ local exaudio = require "exaudio"
 
 -- 音频初始化设置参数 (DAC模式)
 local audio_setup_param ={
-    model = "dac",              -- 音频输出类型，Air1602使用内置DAC
-    pa_ctrl = 45,               -- 音频放大器电源控制管脚
-    pa_on_level = 1,            -- PA打开电平
-    pa_delay = 10,              -- PA延时
+    model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
+    
+    pa_ctrl = 45,             -- 音频放大器电源控制管脚
+    pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
+    dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
 
 --  播放结束回调
@@ -37,8 +38,10 @@ end
 local audio_play_param ={
     type= 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
-    content = "/luadb/sample-6s.mp3",
-    cbfnc = play_end,
+                            -- 如果是tts,内容格式见:https://docs.openluat.com/osapi/ext/exaudio/#tts_2
+                            -- 流式播放，支持PCM/MP3/AMR/WAV格式,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
+    content = "/luadb/sample-6s.mp3",          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
+    cbfnc = play_end,            -- 播放完毕回调函数
 }
 
 ---------------------------------
@@ -49,8 +52,8 @@ local index_number = 1
 local function audio_task()
     log.info("开始播放音频文件")
     if exaudio.setup(audio_setup_param) then
-        exaudio.vol(70)
-        exaudio.play_start(audio_play_param)
+        exaudio.vol(70)            -- 喇叭音量
+        exaudio.play_start(audio_play_param) -- 仅仅支持task 中运行
         while true do
             sys.wait(3000)
             if index_number % 2 == 0 then

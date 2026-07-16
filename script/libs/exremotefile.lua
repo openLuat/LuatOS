@@ -1,10 +1,12 @@
 --[[
 @module exremotefile
 @summary exremotefile 远程文件管理系统扩展库，提供AP热点创建、SD卡挂载、SERVER文件管理服务器等功能，支持文件浏览、上传、下载和删除操作。
-@version 1.2
-@date    2026.4.27
+@version 1.3
+@date    2026.7.16
 @author  拓毅恒
 @usage
+V1.3：
+新增780EXX系列模组外挂Air6205 WiFi配件板的自动适配，在create_ap中自动检测模组型号并初始化airlink UART通道
 V1.2：
 修改sdcard_opts参数为可选参数，如果为nil则不挂载SD卡
 修改close()函数，不再强制卸载SD卡，避免影响其他SD卡业务
@@ -26,6 +28,11 @@ V1.0：
 2、exremotefile.close()：关闭远程文件管理系统，停止AP热点和关闭HTTP服务器（不卸载SD卡）
 
 -- 版本更新说明
+-- 版本号：202607161630
+-- 1、更新时间：2026-07-16 16:30
+-- 2、更新内容
+--    新增780EXX系列模组外挂Air6205 WiFi配件板的自动适配
+--    在create_ap中自动检测模组型号，先通过airlink UART初始化Air6205，再创建AP热点
 -- 版本号：202607021200
 -- 1、更新时间：2026-07-02 12:00
 -- 2、更新内容
@@ -160,6 +167,9 @@ local function init_sdcard(sdcard_opts)
         -- gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
         gpio.setup(13, 1)
     end
+
+    -- 设置片选引脚同一spi总线上的所有从设备在初始化时必须要先拉高CS脚，防止从设备之间互相干扰。
+    gpio.setup(sdcard_opts.spi_cs, 1)
 
     local mount_result = nil
     -- 配置SPI，设置spi_id，波特率为400000，用于SD卡初始化
@@ -1635,6 +1645,11 @@ function exremotefile.close()
     -- 停止AP热点
     wlan.stopAP()
 
+    -- 780EXX系列外挂Air6205，需要关闭airlink
+    if is_780exx() then
+        airlink.stop()
+    end
+
     -- 仅在open时初始化了SD卡的情况下，才关闭相关资源
     if user_sdcard_opts then
         -- 关闭所用SPI
@@ -1659,7 +1674,7 @@ end
 exremotefile.version()
 ]]
 function exremotefile.version()
-    return "202607021200"
+    return "202607161630"
 end
 
 log.debug("exremotefile", "version -> " .. exremotefile.version())

@@ -43,7 +43,7 @@ end
 -- 演示按键轮询
 local function demo_keys()
     log.info("tm1637_demo", "===== [2/6] 按键轮询 =====")
-    log.info("tm1637_demo", "请在 10 秒内按下连接到 TM1637 的按键...")
+    log.info("tm1637_demo", "按下任意按键测试，10 秒无操作后自动结束")
 
     exs_tm1637.clear()
     exs_tm1637.set_display("KEY---")
@@ -55,18 +55,19 @@ local function demo_keys()
     while elapsed < timeout do
         local key = exs_tm1637.get_key()
         if key then
-            exs_tm1637.clear()
             log.info("tm1637_demo", "检测到按键, 编码:", key)
             local key_str = string.format("K%02d", key)
             exs_tm1637.set_display(key_str)
-            sys.wait(1000)
-            return
+            sys.wait(800)
+            exs_tm1637.clear()
+            exs_tm1637.set_display("KEY---")
+        else
+            sys.wait(step)
+            elapsed = elapsed + step
         end
-        sys.wait(step)
-        elapsed = elapsed + step
     end
 
-    log.info("tm1637_demo", "按键检测超时，跳过")
+    log.info("tm1637_demo", "按键检测结束")
 end
 
 -- 演示亮度调节
@@ -97,13 +98,14 @@ end
 
 -- 演示按键回调
 local function demo_key_callback()
-    log.info("tm1637_demo", "[4/6] 按键回调（15 秒内按按键演示）")
+    log.info("tm1637_demo", "===== [4/6] 按键回调 =====")
+    log.info("tm1637_demo", "接下来 12 秒内按按键查看回调效果")
 
     exs_tm1637.clear()
     exs_tm1637.set_display("Cb-Key")
     exs_tm1637.set_key_callback(on_key)
 
-    sys.wait(15000)
+    sys.wait(12000)
 
     exs_tm1637.set_key_callback(nil)
     log.info("tm1637_demo", "按键回调演示结束")
@@ -141,21 +143,21 @@ local function demo_final_show()
     log.info("tm1637_demo", "---- 综合演示结束 ----")
 end
 
--- 展示日期：格式 "26-07-13"
+-- 展示日期：6 位数码管，格式 "260713"
 local function show_date()
-    log.info("tm1637_demo", "日期展示: 26-07-13")
-    exs_tm1637.set_display("26-07-13")
+    log.info("tm1637_demo", "日期展示: 260713")
+    exs_tm1637.set_display("260713")
     sys.wait(3000)
     exs_tm1637.clear()
 end
 
--- 展示时间：模拟走时 "08-30-00" ~ "08-30-09"
+-- 展示时间：模拟走时 "083000" ~ "083009"
 local function show_clock()
     exs_tm1637.clear()
     sys.wait(200)
-    log.info("tm1637_demo", "时钟展示: 08-30-00 ~ 08-30-09")
+    log.info("tm1637_demo", "时钟展示: 083000 ~ 083009")
     for sec = 0, 9 do
-        exs_tm1637.set_display(string.format("08-30-%02d", sec))
+        exs_tm1637.set_display(string.format("0830%02d", sec))
         sys.wait(500)
     end
 end
@@ -217,8 +219,8 @@ local function tm1637_demo_task_func()
 
     demo_string()
     demo_keys()
-    demo_brightness()
     demo_key_callback()
+    demo_brightness()
     demo_final_show()
     run_main()
 

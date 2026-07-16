@@ -284,6 +284,35 @@ end
 
 local interval_time = nil
 
+-- 代理模式下WiFi异常掉线重连任务
+local function proxy_sta_reconnect_task()
+    if not proxy_state.wifi_config then
+        return
+    end
+    local ssid = proxy_state.wifi_config.ssid
+    while true do
+        local ok = exnetif.switch_upstream_wifi(proxy_state.wifi_config)
+        if ok then
+            log.info("exnetif", "上游WiFi重连成功")
+            break
+        end
+        log.error("exnetif", "上游WiFi重连失败，3秒后重试:", ssid)
+        sys.wait(3000)
+    end
+end
+
+-- 代理模式下WiFi掉线回调
+local function on_proxy_sta_ip_lose(adapter)
+    if adapter ~= socket.LWIP_STA then
+        return
+    end
+    if not proxy_state.wifi_config then
+        return
+    end
+    log.warn("exnetif", "检测到上游WiFi STA异常掉线，自动重连:", proxy_state.wifi_config.ssid)
+    sys.taskInit(proxy_sta_reconnect_task)
+end
+
 --[[
 对正常状态的网卡进行ping测试
 @api exnetif.check_network_status(interval),
@@ -1420,7 +1449,7 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
     proxy_state.proxy_adapters[#proxy_state.proxy_adapters + 1] = adapter
     proxy_state.main_adapter = main_adapter
     if main_adapter == socket.LWIP_STA and other_configs.auto_reconnect then
-        proxy_state.wifi_config = {ssid = other_configs.main_adapter.ssid, password = other_configs.main_adapter.password}
+        proxy_state.wifi_config = {ssid = other_configs.main_adapter.ssid, password = other_configs.main_adapter.password, auto_reconnect = true}
         sys.subscribe("IP_LOSE", on_proxy_sta_ip_lose)
         log.info("exnetif", "已启用上游WiFi自动重连")
     end
@@ -1502,7 +1531,7 @@ function exnetif.update_wifi(config)
 end
 
 --[[
-关闭网卡功能。(内核固件版本支持情况：Air8000模组对应V2022版本及以后版本，Air780EPM/EHM/EHV/EGH 模组对应V2024及以后版本，Air1601模组对应V1008版本固件)
+关闭网卡功能。(内核固件版本支持情况：Air8000系列模组对应V2022版本及以后版本，Air780/700 系列模组对应V2024及以后版本，Air1601/1602系列模组对应V1008版本及以后版本,Air8101 系列模组对应V2002及以后版本)
 @api exnetif.close(type,adapter)
 @param type boolean 是否为多网融合(true=关闭多网融合, false=关闭单个网卡)
 @param adapter number 需要关闭的网卡，可选值: socket.LWIP_ETH/LWIP_USER1/LWIP_STA/LWIP_AP/LWIP_GP/LWIP_GP_GW
@@ -1604,49 +1633,6 @@ function exnetif.close(type, adapter)
     end
 end
 
--- 代理模式下WiFi异常掉线重连任务
-local function proxy_sta_reconnect_task()
-    if not proxy_state.wifi_config then
-        return
-    end
-    local ssid = proxy_state.wifi_config.ssid
-    local pwd = proxy_state.wifi_config.password
-    while true do
-        netdrv.napt(-1)
-        wlan.connect(ssid, pwd)
-        local count = 1
-        local connected = false
-        while count <= 600 do
-            local ip = netdrv.ipv4(socket.LWIP_STA)
-            if ip and ip ~= "0.0.0.0" then
-                connected = true
-                break
-            end
-            sys.wait(100)
-            count = count + 1
-        end
-        if connected then
-            netdrv.napt(socket.LWIP_STA)
-            log.info("exnetif", "上游WiFi重连成功, NAPT已恢复")
-            break
-        end
-        log.error("exnetif", "上游WiFi重连失败，3秒后重试:", ssid)
-        sys.wait(3000)
-    end
-end
-
--- 代理模式下WiFi掉线回调
-local function on_proxy_sta_ip_lose(adapter)
-    if adapter ~= socket.LWIP_STA then
-        return
-    end
-    if not proxy_state.wifi_config then
-        return
-    end
-    log.warn("exnetif", "检测到上游WiFi STA异常掉线，自动重连:", proxy_state.wifi_config.ssid)
-    sys.taskInit(proxy_sta_reconnect_task)
-end
-
 --[[
 切换代理模式下的上游WiFi网络。用于场景：多网融合（如ETH -> STA）运行时切换上游WiFi凭证。
 @api exnetif.switch_upstream_wifi(config)
@@ -1709,7 +1695,7 @@ function exnetif.switch_upstream_wifi(config)
     log.info("exnetif.switch_upstream_wifi", "NAPT已重新打开, 切换完成")
 
     if auto_reconnect then
-        proxy_state.wifi_config = {ssid = config.ssid, password = config.password}
+        proxy_state.wifi_config = {ssid = config.ssid, password = config.password, auto_reconnect = true}
         sys.subscribe("IP_LOSE", on_proxy_sta_ip_lose)
         log.info("exnetif.switch_upstream_wifi", "已启用上游WiFi自动重连")
     end

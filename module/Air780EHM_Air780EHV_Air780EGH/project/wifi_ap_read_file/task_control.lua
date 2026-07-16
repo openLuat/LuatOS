@@ -38,12 +38,9 @@ local function start_services()
 
     log.info("main", "启动系统服务")
 
-    -- 启动远程文件管理系统（创建AP热点 + 启动HTTP文件服务器）
-    --    AP默认配置：SSID=LuatOS_FileHub，密码=12345678
-    -- 打开ch390供电脚（使用开发板需要打开此注释）
-    gpio.setup(20, 1, gpio.PULLUP)
-    --上拉ch390使用spi的cs引脚避免干扰（使用开发板需要打开此注释）
-    gpio.setup(8,1)
+    -- 启动远程文件管理系统
+    -- AP默认配置：SSID=LuatOS_FileHub，密码=12345678
+    -- 本demo使用Air780EXX开发板+6205核心板的环境，开发板SD卡挂载SPI0，CS片选脚为IO16
     exremotefile.open(nil, {spi_id = 0,spi_cs = 16})
 
     is_running = true
@@ -59,12 +56,8 @@ local function stop_services()
 
     log.info("main", "停止系统服务")
 
-    -- 1. 关闭远程文件管理系统（停止HTTP服务器 + 停止AP热点）
+    -- 关闭远程文件管理系统（停止HTTP服务器 + 停止AP热点）
     exremotefile.close()
-
-    -- 2. 关闭airlink
-    airlink.stop()
-
     is_running = false
     log.info("main", "系统服务已停止")
 end

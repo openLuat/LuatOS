@@ -5,6 +5,8 @@
 @date    2026.07.16
 @author  王世豪
 @usage
+本demo演示NS2520压力传感器通过I2C1读取压力和温度数据的功能。
+
 本文件对 exs_ns2520 扩展库的 7 个对外 API 逐一测试:
 1、version()        -- 获取版本号
 2、setup()          -- 初始化（含 temp_offset 参数）
@@ -13,8 +15,6 @@
 5、get_temperature() -- 单次读取温度
 6、set_osr()        -- 动态切换过采样率
 7、close()          -- 关闭/待机
-
-注意:仅适配 Air8201G-BLMQ 和 Air8201G-BQ 两个子型号（主板板载 NS2520 气压传感器），Air8201G-LM/基础款（未板载 NS2520）和 Air8201H（未板载 NS2520）不支持。
 ]]
 
 local exs_ns2520 = require "exs_ns2520"

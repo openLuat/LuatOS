@@ -258,8 +258,8 @@ end
 @table init_cfg 初始化配置表
     i2c_id:number, I2C总线编号，例如i2c1为1，必选
     addr:number, I2C设备地址（7位），默认0x77，可选
-    prs_osr:number, 压力过采样率0~7，默认4(16x)，可选，0=1x/1=2x/2=4x/3=8x/4=16x/5=32x/6=64x/7=128x，过采样率越高精度越高但测量时间越长
-    tmp_osr:number, 温度过采样率0~7，默认4(16x)，可选
+    prs_osr:number, 压力过采样率0~7，可选，不传默认4(16x)。手册Table9推荐：0=1x(5Pa/3μA)、4=16x(~1.2Pa/22μA)、6=64x(~0.6Pa/200μA)
+    tmp_osr:number, 温度过采样率0~7，可选，不传默认4(16x)。手册推荐1x即可满足所有场景精度要求，更大值可提高温度精度但增加测量时间
     temp_offset:number, 温度偏移校正值（℃），默认-7.0，可选。NS2520普遍读数偏高约7℃，设-7.0可校准到真实温度
 @return boolean 成功返回true，失败返回false
 @usage
@@ -358,7 +358,7 @@ end
 --[[
 读取压力和温度数据，一次I2C通信获取两项数据
 @api exs_ns2520.get_data()
-@return table/nil 成功返回{pressure:补偿后的压力值(hPa),temperature:补偿后的温度值(℃)}，失败返回nil
+@return table/nil 成功返回{pressure:压力值(number,300~1200hPa),temperature:温度值(number,-40~85℃)}，失败返回nil
 @usage
 local data = exs_ns2520.get_data()
 if data then
@@ -474,12 +474,12 @@ end
 --[[
 设置过采样率，在线修改压力和温度的过采样率，无需重新初始化
 @api exs_ns2520.set_osr(prs_osr, tmp_osr)
-@param prs_osr number 压力过采样率0~7，可选，不传则保持当前值，0=1x/1=2x/2=4x/3=8x/4=16x/5=32x/6=64x/7=128x
-@param tmp_osr number 温度过采样率0~7，可选，不传则保持当前值
+@param prs_osr number 压力过采样率0~7，可选，不传保持当前值。手册Table9推荐：0=1x(5Pa/3μA)、4=16x(~1.2Pa/22μA)、6=64x(~0.6Pa/200μA)
+@param tmp_osr number 温度过采样率0~7，可选，不传保持当前值。手册推荐1x即可满足所有场景精度要求，更大值可提高温度精度但增加测量时间
 @return nil
 @usage
-exs_ns2520.set_osr(6, 6)   -- 压力温度均设为64x过采样（高精度）
-exs_ns2520.set_osr(0, 0)   -- 压力温度均设为1x过采样（低功耗快速）
+exs_ns2520.set_osr(6, 6)   -- 64x高精度，适合厘米级高度分辨率场景
+exs_ns2520.set_osr(0, 0)   -- 1x低功耗，适合仅判断气压趋势场景
 ]]
 function exs_ns2520.set_osr(p_osr, t_osr)
     if not g_ready then

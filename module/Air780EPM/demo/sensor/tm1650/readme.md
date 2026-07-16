@@ -26,7 +26,7 @@
 
 ## 三、显示效果
 
-![](https://docs.openluat.com/cdn/image/Air780EPM_tm1650.png)
+![](https://docs.openluat.com/cdn/image/Air780EHM_tm1650.png)
 
 ## 四、演示硬件环境
 

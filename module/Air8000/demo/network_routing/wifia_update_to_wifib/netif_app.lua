@@ -1,6 +1,6 @@
 --[[
 @module  netif_app
-@summary netif_app 网络管理模块,开启多网融合功能，wifi提供网络供wifi和以太网设备上网
+@summary netif_app 网络管理模块,开启多网融合模式，设置WiFi > 以太网的优先级后，使用exnetif.close将 WiFi 网卡状态重置，然后从WiFi A网卡切换为新的WiFi B网卡
 @version 1.0
 @date    2026.07.02
 @author  王城钧

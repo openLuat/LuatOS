@@ -37,6 +37,7 @@ extern uint16_t FATFS_WRITE_TO;
 DRESULT diskio_open_ramdisk(BYTE pdrv, size_t len);
 DRESULT diskio_open_spitf(BYTE pdrv, void* userdata);
 DRESULT diskio_open_sdio(BYTE pdrv, void* userdata);
+DRESULT diskio_open_usb(BYTE pdrv, uint32_t usb_app_id);
 
 #ifdef LUAT_USE_FS_VFS
 extern const struct luat_vfs_filesystem vfs_fs_fatfs;
@@ -161,7 +162,7 @@ static int fatfs_mount(lua_State *L)
 		diskio_open_ramdisk(0, luaL_optinteger(L, 3, 64*1024));
 	#endif
 	}else if(fatfs_mode == DISK_USB){
-
+		diskio_open_usb(0, luaL_optinteger(L, 3, 0));
 	}else{
 		LLOGD("fatfs_mode error %d", fatfs_mode);
 		lua_pushboolean(L, 0);
@@ -378,7 +379,7 @@ static const rotable_Reg_t reg_fatfs[] =
   { "SPI",      ROREG_INT(DISK_SPI)},
   { "SDIO",     ROREG_INT(DISK_SDIO)},
   { "RAM",      ROREG_INT(DISK_RAM)},
-
+  { "USB",      ROREG_INT(DISK_USB)},
   { "FM_FAT32",         ROREG_INT(FM_FAT32)},
   { "FM_EXFAT",         ROREG_INT(FM_EXFAT)},
 

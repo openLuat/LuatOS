@@ -37,7 +37,7 @@
 - 母对母杜邦线 × 5
 - TYPE-C 数据线 × 1
 
-[](https://docs.openluat.com/cdn/image/Air780EHM_ADXL36X.png)
+![ADXL345/ADXL346 模块接线实物图](https://docs.openluat.com/cdn/image/Air780EHM_ADXL36X.png)
 
 ### 3.2 接线配置
 

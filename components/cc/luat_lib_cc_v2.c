@@ -413,14 +413,7 @@ static int l_cc_extern_source(lua_State *L) {
     luat_audio_play_file_info_t *info = NULL;
     uint8_t is_add_record = 1;
     uint8_t is_error_stop = 1;
-    if (_l_cc.is_play_extern_source) {
-        LLOGE("cc extern source is busy");
-        goto DONE;
-    }
-    if (!_l_cc.is_true_start) {
-        LLOGE("cc is not true start");
-        goto DONE;
-    }
+
     luat_audio_common_param_t common_param = {0};
     common_param.sample_rate = luaL_optinteger(L, 5, 0);
     uint8_t data_bits = luaL_optinteger(L, 6, 16);
@@ -451,6 +444,14 @@ static int l_cc_extern_source(lua_State *L) {
             _l_cc.is_play_extern_source = 0;   
         } 
         result = LUAT_ERROR_NONE;
+        goto DONE;
+    }
+    if (_l_cc.is_play_extern_source) {
+        LLOGE("cc extern source is busy");
+        goto DONE;
+    }
+    if (!_l_cc.is_true_start) {
+        LLOGE("cc is not true start");
         goto DONE;
     }
     if (LUA_TSTRING == (lua_type(L, 1))) {

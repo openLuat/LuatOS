@@ -14,7 +14,7 @@
 6、set_osr()        -- 动态切换过采样率
 7、close()          -- 关闭/待机
 
-注意:仅适配Air8201G（板载NS2520），Air8201H不支持（未板载NS2520）。
+注意:仅适配 Air8201G-BLMQ 和 Air8201G-BQ 两个子型号（主板板载 NS2520 气压传感器），Air8201G-LM/基础款（未板载 NS2520）和 Air8201H（未板载 NS2520）不支持。
 ]]
 
 local exs_ns2520 = require "exs_ns2520"
@@ -23,12 +23,12 @@ local POWER_PIN  = 26   -- NS2520供电使能
 local PULLUP_PIN = 28   -- I2C1总线上拉
 local I2C_ID     = 1    -- I2C总线编号
 
-sys.taskInit(function()
+local function ns2520_test()
     -- ==================== 硬件准备 ====================
     log.info("test", "第一步:硬件上电")
     gpio.setup(POWER_PIN, 1)
     gpio.setup(PULLUP_PIN, 1)
-    sys.wait(100)
+    sys.wait(100) -- 等待传感器上电稳定
 
     -- ==================== API-1: version() ====================
     log.info("test", "第二步:version() 版本号")
@@ -78,7 +78,6 @@ sys.taskInit(function()
     log.info("test", "第七步:set_osr() 切换过采样率")
     -- 切换为低精度快速模式 (1x)
     exs_ns2520.set_osr(0, 0)
-    sys.wait(50)
     local data_fast = exs_ns2520.get_data()
     if data_fast then
         log.info("test", "set_osr(0,0) 1x快速模式",
@@ -88,7 +87,6 @@ sys.taskInit(function()
 
     -- 切换为高精度模式 (64x)
     exs_ns2520.set_osr(6, 6)
-    sys.wait(200)
     local data_high = exs_ns2520.get_data()
     if data_high then
         log.info("test", "set_osr(6,6) 64x高精度模式",
@@ -98,7 +96,6 @@ sys.taskInit(function()
 
     -- 只改压力不改温度
     exs_ns2520.set_osr(4, nil)
-    sys.wait(50)
     local data_mix = exs_ns2520.get_data()
     if data_mix then
         log.info("test", "set_osr(4,nil) 仅改压力OSR",
@@ -141,6 +138,8 @@ sys.taskInit(function()
         else
             log.error("test", "读取失败")
         end
-        sys.wait(1000)
+        sys.wait(1000) -- 每秒读取一次
     end
-end)
+end
+
+sys.taskInit(ns2520_test)

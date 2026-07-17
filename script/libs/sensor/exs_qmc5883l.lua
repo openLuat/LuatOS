@@ -1,8 +1,8 @@
 --[[
 @module  exs_qmc5883l
 @summary QMC5883L 三轴地磁传感器扩展库
-@version 202607131200
-@date    2026.07.13
+@version 1.1
+@date    2026.07.17
 @author  江访
 @usage
 本文件为 QMC5883L 地磁传感器（QST 出品）的 LuatOS 扩展库，核心功能为：
@@ -10,27 +10,40 @@
 2、读取三轴磁场数据（X/Y/Z），自动转换为微特斯拉（μT）单位
 3、量程动态切换（±2G / ±8G）
 4、输出速率动态切换（10Hz / 50Hz / 100Hz / 200Hz）
-5、软件复位
+5、I2C 总线卡死自动检测与恢复
+6、睡眠/唤醒/关闭
 
-本文件的对外接口有 6 个：
+本文件的对外接口有 8 个：
 1、exs_qmc5883l.setup(config)：初始化 QMC5883L
 2、exs_qmc5883l.get_data()：读取三轴磁场数据
 3、exs_qmc5883l.set_range(range)：切换量程
 4、exs_qmc5883l.set_odr(hz)：切换输出速率
-5、exs_qmc5883l.soft_reset()：软件复位
-6、exs_qmc5883l.version()：获取版本号
+5、exs_qmc5883l.sleep()：进入待机模式
+6、exs_qmc5883l.wakeup()：从待机模式唤醒
+7、exs_qmc5883l.close()：关闭传感器
+8、exs_qmc5883l.version()：获取版本号
 
 -- 版本更新说明
--- 版本号：202607131200
--- 1、更新时间：2026-07-13 12:00
--- 2、更新内容
-  - 初版，实现 QMC5883L 驱动所有基础功能
-  - 初始化接口使用 setup 命名，统一 TM16xx 系列命名规范
-  - 支持软件 I2C 和硬件 I2C 两种模式
-  - 支持量程切换（±2G / ±8G）
-  - 支持输出速率切换（10Hz / 50Hz / 100Hz / 200Hz）
-  - 支持过采样率配置（64 / 128 / 256 / 512）
-  - 支持软件复位
+版本号：202607170900
+1、更新时间：2026-07-17
+2、更新内容：
+            i2c_bus_recovery 增加 sys.wait(1) 确保脉冲宽度足够
+            i2c_bus_recovery 增加 SDA 释放检测，提前结束脉冲循环
+            i2c_write/i2c_read 增加 I2C 总线卡死自动检测与恢复
+            硬件 I2C 恢复后自动重新 i2c.setup()
+            新增 exs_qmc5883l.close() 接口，关闭传感器并释放资源
+            新增 exs_qmc5883l.sleep()/wakeup() 低功耗接口，替换 soft_reset()
+
+版本号：202607131200
+1、更新时间：2026-07-13
+2、更新内容：
+            初版，实现 QMC5883L 驱动所有基础功能
+            初始化接口使用 setup 命名，统一 TM16xx 系列命名规范
+            支持软件 I2C 和硬件 I2C 两种模式
+            支持量程切换（±2G / ±8G）
+            支持输出速率切换（10Hz / 50Hz / 100Hz / 200Hz）
+            支持过采样率配置（64 / 128 / 256 / 512）
+            支持软件复位
 ]]
 
 local exs_qmc5883l = {}
@@ -92,8 +105,8 @@ local SENSITIVITY_8G = 3000   -- ±8G 量程灵敏度
 -- I2C 配置
 local g_i2c_bus   = 0     -- I2C 总线对象（硬件 I2C 为数字 id，软件 I2C 为 userdata）
 local g_is_soft   = false -- 是否为软件 I2C
-local g_scl_pin   = nil   -- SCL 引脚号（软件 I2C 才有，用于总线恢复）
-local g_sda_pin   = nil   -- SDA 引脚号（软件 I2C 才有，用于总线恢复）
+local g_scl_pin   = nil   -- SCL 引脚号（用于总线恢复）
+local g_sda_pin   = nil   -- SDA 引脚号（用于总线恢复）
 
 -- 当前配置
 local g_range = "8G"       -- 当前量程
@@ -104,43 +117,107 @@ local g_ready = false      -- 初始化完成标志
 
 -- ==================== I2C 总线恢复 ====================
 
--- 对 SCL 引脚产生 9 个时钟脉冲，强制锁死 SDA 的从机释放总线
--- 仅软件 I2C 模式下可用（有引脚号才能用 GPIO 直接操作）
+-- 对 SCL 引脚产生最多 9 个时钟脉冲，强制锁死 SDA 的从机释放总线
+-- 每发一个脉冲检测 SDA 是否释放，提前结束
+-- 适用于软件 I2C 和硬件 I2C 两种模式（有引脚号就可以操作）
+-- 硬件 I2C 场景恢复后需重新 i2c.setup()
 local function i2c_bus_recovery()
     if not g_scl_pin or not g_sda_pin then
-        return
+        return false
     end
-    -- 软件 I2C 用 GPIO 模拟，直接操作引脚产生 9 个 SCL 脉冲
     -- 先把引脚设为 GPIO 输出高电平
     gpio.setup(g_scl_pin, gpio.OUTPUT, gpio.PULLUP, 1)
     gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
-    
-    -- 产生 9 个 SCL 时钟脉冲
+    sys.wait(1)
+
+    -- 产生最多 9 个 SCL 时钟脉冲，每发一个检查 SDA 是否释放
     for i = 1, 9 do
         gpio.set(g_scl_pin, 0)
+        sys.wait(1)
         gpio.set(g_scl_pin, 1)
+        sys.wait(1)
+        -- 切 SDA 为输入模式检查电平
+        gpio.setup(g_sda_pin, gpio.INPUT, gpio.PULLUP)
+        sys.wait(1)
+        if gpio.get(g_sda_pin) == 1 then
+            -- SDA 已释放，提前结束
+            gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+            break
+        end
+        gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
     end
+
     -- 产生 STOP 条件：SDA 低→高，SCL 高
     gpio.set(g_sda_pin, 0)
+    sys.wait(1)
     gpio.set(g_scl_pin, 1)
+    sys.wait(1)
     gpio.set(g_sda_pin, 1)
-    log.info("exs_qmc5883l", "传感器复位完成")
+    sys.wait(1)
+
+    log.info("exs_qmc5883l", "I2C总线恢复完成")
+    return true
 end
 
 -- ==================== I2C 底层操作 ====================
 
--- I2C 写寄存器
--- @return boolean 成功返回 true
-local function i2c_write(reg, val)
-    return i2c.send(g_i2c_bus, DEV_ADDR, {reg, val})
+-- I2C 总线卡死自动检测与恢复（内部函数）
+-- 通信失败后检查 SDA/SCL 电平，确认死锁后自动恢复并重试
+local function try_bus_recovery()
+    if not g_scl_pin or not g_sda_pin then
+        return false
+    end
+    -- 切 SDA/SCL 为输入模式读取电平
+    gpio.setup(g_sda_pin, gpio.INPUT, gpio.PULLUP)
+    gpio.setup(g_scl_pin, gpio.INPUT, gpio.PULLUP)
+    sys.wait(1)
+    local sda_level = gpio.get(g_sda_pin)
+    local scl_level = gpio.get(g_scl_pin)
+    local is_stall = (sda_level == 0 and scl_level == 1)
+    -- 恢复为输出高电平（总线恢复需要）
+    gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+    gpio.setup(g_scl_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+
+    if not is_stall then
+        -- 不是典型的 SDA低+SCL高 死锁状态，不执行恢复
+        return false
+    end
+
+    log.warn("exs_qmc5883l", "检测到I2C总线卡死，尝试恢复")
+    i2c_bus_recovery()
+
+    -- 硬件 I2C 需要重新初始化外设
+    if not g_is_soft then
+        i2c.setup(g_i2c_bus, i2c.SLOW)
+    end
+    return true
 end
 
--- I2C 读寄存器（指定寄存器地址，读取指定长度）
+-- I2C 写寄存器（带自动卡死检测恢复）
+-- @return boolean 成功返回 true
+local function i2c_write(reg, val)
+    local ok = i2c.send(g_i2c_bus, DEV_ADDR, {reg, val})
+    if not ok then
+        -- 自动检测并恢复总线卡死，重试一次
+        if try_bus_recovery() then
+            ok = i2c.send(g_i2c_bus, DEV_ADDR, {reg, val})
+        end
+    end
+    return ok
+end
+
+-- I2C 读寄存器（指定寄存器地址，读取指定长度，带自动卡死检测恢复）
 -- @return table or nil 返回字节数组，失败返回 nil
 local function i2c_read(reg, len)
     local ok = i2c.send(g_i2c_bus, DEV_ADDR, {reg})
     if not ok then
-        return nil
+        -- 自动检测并恢复总线卡死，重试一次
+        if try_bus_recovery() then
+            ok = i2c.send(g_i2c_bus, DEV_ADDR, {reg})
+        end
+        if not ok then
+            return nil
+        end
     end
     local data = i2c.recv(g_i2c_bus, DEV_ADDR, len)
     if not data then
@@ -241,7 +318,7 @@ end
 
 scl
 SCL 时钟引脚 GPIO 编号；
-与 sda 一起传入时，无论软硬件 I2C 模式都会用于 SDA 总线异常恢复；
+与 sda 一起传入时，无论软硬件 I2C 模式都会用于总线恢复；
 无 i2c_id 时自动创建软件 I2C（任意 GPIO 均可）；
 有 i2c_id 时走硬件 I2C 通信 + GPIO 脉冲恢复总线；
 数据类型：number
@@ -492,23 +569,89 @@ function exs_qmc5883l.set_odr(hz)
 end
 
 --[[
-软件复位 QMC5883L
+进入待机模式（低功耗）
 
-@api exs_qmc5883l.soft_reset()
+将传感器切换到待机模式，保持内部配置状态。
+调用 wakeup() 可快速恢复工作，无需重新 setup()。
+
+@api exs_qmc5883l.sleep()
 
 @return nil
 
 @usage
-exs_qmc5883l.soft_reset()
+exs_qmc5883l.sleep()
 ]]
-function exs_qmc5883l.soft_reset()
+function exs_qmc5883l.sleep()
     if not g_ready then
-        log.error("exs_qmc5883l.soft_reset 请先调用 setup()")
+        log.error("exs_qmc5883l.sleep 请先调用 setup()")
         return
     end
-    i2c_write(REG_CTRL2, CTRL2_SOFT_RST)
+    local osr_reg = osr_to_params(g_osr)
+    local rng_reg = range_to_params(g_range)
+    local odr_reg = odr_to_params(g_odr)
+    local standby = build_ctrl1(osr_reg, rng_reg, odr_reg, MODE_STANDBY)
+    i2c_write(REG_CTRL1, standby)
+    log.info("exs_qmc5883l", "已进入待机模式")
+end
+
+--[[
+从待机模式唤醒
+
+恢复传感器到连续测量模式，配置保持休眠前的参数。
+无需重新调用 setup()。
+
+@api exs_qmc5883l.wakeup()
+
+@return nil
+
+@usage
+exs_qmc5883l.wakeup()
+]]
+function exs_qmc5883l.wakeup()
+    if not g_ready then
+        log.error("exs_qmc5883l.wakeup 请先调用 setup()")
+        return
+    end
+    local osr_reg = osr_to_params(g_osr)
+    local rng_reg = range_to_params(g_range)
+    local odr_reg = odr_to_params(g_odr)
+    local ctrl1 = build_ctrl1(osr_reg, rng_reg, odr_reg, MODE_CONTINUOUS)
+    i2c_write(REG_CTRL1, ctrl1)
+    log.info("exs_qmc5883l", "已从待机模式唤醒")
+end
+
+--[[
+关闭 QMC5883L 传感器
+
+将传感器切换到待机模式，重置内部状态。
+close 后需要重新调用 setup() 才能再次使用。
+
+@api exs_qmc5883l.close()
+
+@return nil
+
+@usage
+exs_qmc5883l.close()
+]]
+function exs_qmc5883l.close()
+    if not g_ready then
+        return
+    end
+    -- 切回待机模式
+    local osr_reg = osr_to_params(g_osr)
+    local rng_reg = range_to_params(g_range)
+    local odr_reg = odr_to_params(g_odr)
+    local standby = build_ctrl1(osr_reg, rng_reg, odr_reg, MODE_STANDBY)
+    i2c_write(REG_CTRL1, standby)
+
+    -- 重置内部状态
     g_ready = false
-    log.info("exs_qmc5883l", "软件复位完成")
+    g_i2c_bus = 0
+    g_is_soft = false
+    g_scl_pin = nil
+    g_sda_pin = nil
+
+    log.info("exs_qmc5883l", "传感器已关闭")
 end
 
 --[[
@@ -522,7 +665,7 @@ end
 local ver = exs_qmc5883l.version()
 ]]
 function exs_qmc5883l.version()
-    return "202607131200"
+    return "202607170900"
 end
 
 log.debug("exs_qmc5883l", "version -> " .. exs_qmc5883l.version())

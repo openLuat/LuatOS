@@ -218,7 +218,7 @@ end
 
 -- IO29按键：开始/停止录音，停止播放
 local function powerkey_handler()
-    log.info("按下POWERKEY键")
+    log.info("按下录音键")
 
     if is_recording then
         log.info("正在录音中，停止录音")
@@ -234,7 +234,7 @@ end
 
 -- IO37按键：开始/停止播放，停止录音
 local function boot_key_handler()
-    log.info("按下BOOT键")
+    log.info("按下播放键")
 
     if is_recording then
         log.info("正在录音中，停止录音")

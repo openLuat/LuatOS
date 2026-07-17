@@ -763,8 +763,13 @@ etharp_output_to_arp_index(struct netif *netif, struct pbuf *q, netif_addr_idx_t
  * - ERR_RTE No route to destination (no gateway to external networks),
  * or the return type of either etharp_query() or ethernet_output().
  */
-err_t
-luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr)
+#if LWIP_VERSION_MAJOR >= 2 && LWIP_VERSION_MINOR >= 1
+// 只有移芯的lwip 2.0 是改过的, 其他的 lwip 2.1+ 都是原生的 etharp_output
+err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr) {
+  return etharp_output(netif, q, ipaddr); // 走原生的就行
+}
+#else
+err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr)
 {
   const struct eth_addr *dest;
   struct eth_addr mcastaddr;
@@ -871,6 +876,8 @@ luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t 
   /* send packet directly on the link */
   return ethernet_output(netif, q, (struct eth_addr *)(netif->hwaddr), dest, ETHTYPE_IP);
 }
+
+#endif /* LWIP_VERSION_MAJOR >= 2 && LWIP_VERSION_MINOR >= 1 */
 
 /**
  * Send an ARP request for the given IP address and/or queue a packet.

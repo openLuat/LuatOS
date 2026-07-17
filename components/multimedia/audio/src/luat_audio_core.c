@@ -4,6 +4,7 @@
 #include "luat_fs.h"
 #include "luat_rtos.h"
 #include "luat_mem.h"
+#include "luat_i2s.h"
 #include <string.h>
 #include <sys/_types.h>
 #define LUAT_LOG_TAG "audio_core"
@@ -11,6 +12,10 @@
 #include "luat_gpio.h"
 #define LUAT_AUDIO_DATA_BUFFER_CNT	4
 unsigned char luat_audio_debug_flag;	// 调试标志位
+
+#ifdef LUAT_USE_RECORD
+extern int luat_audio_record_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param);
+#endif
 enum {
 	LUAT_AUDIO_EV_TX_NEED_DATA = 0x01,	// 放音需要更多数据事件
 	LUAT_AUDIO_EV_TX_NO_DATA,			// 放音数据完成事件
@@ -133,12 +138,24 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 	uint32_t rest_data_len;
 	switch (event) {
 	case LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE:
-		if (ctrl->opts->support_full_loop) {
+		if (ctrl->opts->support_full_loop && (ctrl->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_SPEECH || ctrl->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER)) {
+			/* 通话模式：播放缓冲区由外部（VoIP）管理，不执行默认播放逻辑 */
 			return;
 		}
 		_audio_play_next_block(ctrl);
 		break;
 	case LUAT_AUDIO_DRIVER_EVENT_RX_ONE_BLOCK_DONE:
+		/* 内置 ADC 路径，需要核心层把数据转给 voip 录音回调；
+			I2S 路径由 I2S 驱动直接回调 voip_i2s_cb，不在这里重复转发 */
+		if (ctrl->probe.rx_bus_type != LUAT_AUDIO_DRIVER_TYPE_I2S) {
+			if (ctrl->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_SPEECH ||
+				ctrl->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER) {
+#ifdef LUAT_USE_RECORD
+				luat_audio_record_cb(0, LUAT_I2S_EVENT_RX_DONE, rx_data, param, NULL);
+#endif
+			}
+			break;
+		}
 		if (ctrl->driver_work_mode >= LUAT_AUDIO_DRIVER_MODE_RECORD) {
 			if (_luat_audio.current_request_block && !_luat_audio.current_request_block->is_record_need_stop) {
 				if (_luat_audio.current_request_block->data_channel != ctrl->data_channel) {
@@ -1499,7 +1516,7 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
     uint32_t *tx_buff, uint32_t one_block_len, uint8_t block_num,
     luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts)
 {
-	if (!request_block || !common_audio_param || !play_codec_opts || !record_codec_opts || !record_fifo || (!record_codec_opts->encode && !record_codec_opts->encode_with_sync_output_ref)) {
+	if (!request_block || !common_audio_param || !play_codec_opts || !record_codec_opts || !record_fifo || (!record_codec_opts->encode && !record_codec_opts->encode_with_sync_output_ref && !record_codec_opts->encode_raw_mode)) {
 		return -LUAT_ERROR_PARAM_INVALID;
 	}
 	

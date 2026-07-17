@@ -20,6 +20,12 @@
 10、exs_adxl34x.version()            获取版本号
 
 === 版本更新说明 ===
+版本号：202607180900
+1、更新时间：2026-07-18
+2、更新内容：
+        修复 close() 未注销 GPIO 中断，传感器关闭后 INT 引脚变化导致死机
+        新增常量中文注释
+
 版本号：202607170900
 1、更新时间：2026-07-17
 2、更新内容：
@@ -133,6 +139,7 @@ local g_dev_addr                      = 0x53
 local g_range                         = "2g"; local g_sensitivity = SENSITIVITY_2G
 local g_ready                         = false
 local g_int1_cb                       = nil; local g_int2_cb = nil
+local g_int1_gpio                     = nil; local g_int2_gpio = nil -- INT 引脚号（close 时注销用）
 local g_act_couple                    = "AC" -- activity 耦合模式: "AC" 或 "DC"
 local g_inact_couple                  = "AC" -- inactivity 耦合模式: "AC" 或 "DC"
 
@@ -466,6 +473,7 @@ function exs_adxl34x.setup(model, config)
             if g_int1_cb and data then g_int1_cb(data) end
         end, gpio.PULLUP, gpio.RISING)
         log.info("exs_adxl34x", string.format("INT1 已注册, int_gpio=%d", config.int1.int_gpio))
+        g_int1_gpio = config.int1.int_gpio
     end
     if config.int2 and type(config.int2) == "table" and config.int2.int_gpio then
         gpio.setup(config.int2.int_gpio, function()
@@ -474,6 +482,7 @@ function exs_adxl34x.setup(model, config)
             if g_int2_cb and data then g_int2_cb(data) end
         end, gpio.PULLUP, gpio.RISING)
         log.info("exs_adxl34x", string.format("INT2 已注册, int_gpio=%d", config.int2.int_gpio))
+        g_int2_gpio = config.int2.int_gpio
     end
 
     g_range, g_sensitivity, g_ready = range_str, sensitivity, true
@@ -615,6 +624,10 @@ end
 ]]
 function exs_adxl34x.close()
     if not g_ready then return end
+    -- 先注销 GPIO 中断（防止 close 后 INT 引脚变化触发回调导致死机）
+    if g_int1_gpio then gpio.setup(g_int1_gpio, nil) end
+    if g_int2_gpio then gpio.setup(g_int2_gpio, nil) end
+
     reg_write(REG_POWER_CTL, 0x00)
     g_ready = false
     g_i2c_bus = 0
@@ -622,6 +635,7 @@ function exs_adxl34x.close()
     g_scl_pin = nil; g_sda_pin = nil
     g_dev_addr = 0x53
     g_int1_cb = nil; g_int2_cb = nil
+    g_int1_gpio = nil; g_int2_gpio = nil
     log.info("exs_adxl34x", "传感器已关闭")
 end
 

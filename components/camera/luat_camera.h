@@ -205,10 +205,10 @@ int luat_camera_set_cache(int id, uint8_t **cache, uint8_t cache_num, uint32_t c
 
 typedef enum
 {
-    LUAT_CAMERA_PROCESS_DATA_TYPE_RAW = 0,
-    LUAT_CAMERA_PROCESS_DATA_TYPE_MJPEG,
-    LUAT_CAMERA_PROCESS_DATA_TYPE_H264,
-}luat_camera_process_data_type;
+    LUAT_CAMERA_FRAME_DATA_TYPE_RAW = 0,
+    LUAT_CAMERA_FRAME_DATA_TYPE_MJPEG,
+    LUAT_CAMERA_FRAME_DATA_TYPE_H264,
+}luat_camera_frame_data_type;
 
 typedef struct
 {
@@ -221,13 +221,13 @@ typedef struct
         };
         uint32_t total_bytes;
     };
-    luat_camera_process_data_type data_type;
-} luat_camera_process_data_t;
+    luat_camera_frame_data_type data_type;
+} luat_camera_frame_data_t;
 
-typedef void (*luat_camera_process_data_callback_t)(luat_camera_process_data_t *preview_data, void *user_data);
+typedef void (*luat_camera_frame_data_callback_t)(luat_camera_frame_data_t *preview_data, void *user_data);
 
-void luat_camera_set_preview_data_callback(int id, luat_camera_process_data_callback_t callback, void *user_data);
-void luat_camera_set_frame_data_callback(int id, luat_camera_process_data_callback_t callback, void *user_data);
+void luat_camera_set_preview_data_callback(int id, luat_camera_frame_data_callback_t callback, void *user_data);
+void luat_camera_set_frame_data_callback(int id, luat_camera_frame_data_callback_t callback, void *user_data);
 
 /**********以下是luatos使用，csdk不要使用***********/
 /**

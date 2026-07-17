@@ -40,6 +40,9 @@ rtmp:destroy()
 #include "lwip/tcpip.h"
 #include "luat_network_adapter.h"
 
+#include "luat_camera.h"
+#include "luat_mcu.h"
+
 #define LUAT_LOG_TAG "rtmp"
 #include "luat_log.h"
 
@@ -48,6 +51,53 @@ typedef struct {
     int callback_ref;
     int polling;          /* 1=已启动定时轮询, 0=未启动 */
 } luat_rtmp_userdata_t;
+
+typedef struct 
+{
+    uint64_t len;
+    uint8_t data[0];
+}luat_rtmp_data_t;
+
+
+
+extern rtmp_ctx_t *g_rtmp_ctx;
+static uint64_t rtmp_tm;
+static void luat_rtmp_write_frame_native(luat_rtmp_data_t *data) {
+    if (g_rtmp_ctx) {
+        uint64_t t = 0;
+        if (rtmp_tm == 0) {
+            rtmp_tm = luat_mcu_tick64_ms();
+        }
+        else {
+            t = luat_mcu_tick64_ms() - rtmp_tm;
+        }
+        int ret = rtmp_send_nalu(g_rtmp_ctx, data->data, data->len, (uint32_t)t);
+        if (ret) {
+            LLOGE("send nalu fail %d", ret);
+        }
+        luat_heap_free(data);
+    }
+}
+
+static void luat_rtmp_camera_app_callback(luat_camera_process_data_t *frame, void *user_data)
+{
+    LLOGE("frame data: %p len: %d", frame->data, frame->total_bytes);
+    if(frame->data && frame->total_bytes)
+    {
+        luat_rtmp_data_t *data = luat_heap_malloc(sizeof(luat_rtmp_data_t) + frame->total_bytes);
+        if (!data){
+            LLOGE("malloc fail");
+            return;
+        }
+        memcpy(data->data, frame->data, frame->total_bytes);
+        data->len = frame->total_bytes;
+        int ret = tcpip_callback(luat_rtmp_write_frame_native, data);
+        if(ret){
+            LLOGE("tcpip exec fail %d", ret);
+            luat_heap_free(data);
+        }
+    }
+}
 
 /**
 创建RTMP推流上下文
@@ -93,7 +143,7 @@ static int l_rtmp_create(lua_State *L) {
     
     luaL_getmetatable(L, "rtmp_ctx");
     lua_setmetatable(L, -2);
-    
+    luat_camera_set_frame_data_callback(0, luat_rtmp_camera_app_callback, NULL);
     LLOGD("RTMP上下文创建成功: %s", url);
     return 1;
 }

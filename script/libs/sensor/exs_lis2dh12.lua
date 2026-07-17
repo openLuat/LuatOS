@@ -32,6 +32,11 @@ log.info("exs_lis2dh12", data.x, data.y, data.z)
 --   - 支持输出速率切换（1Hz~5376Hz）
 --   - 支持 I2C 总线卡死自动检测与恢复
 --   - 支持睡眠/唤醒/关闭
+-- 版本号：202607180900
+-- 1、更新时间：2026-07-18
+-- 2、更新内容
+--   - 修复 close() 未注销 GPIO 中断，传感器关闭后 INT 引脚变化导致死机
+--   - adxl34x 新增常量注释
 ]]
 
 local exs_lis2dh12                        = {}
@@ -149,6 +154,8 @@ local g_temp_enabled                      = false     -- 温度传感器是否�
 local g_direction_enabled                 = nil       -- 方向检测：nil/关闭, "6d"/6D, "4d"/4D
 local g_int1_pending                      = false     -- 中断标志（无 cb 模式用）
 local g_int2_pending                      = false
+local g_int1_gpio                         = nil       -- INT1 GPIO 引脚号（用于 close 时注销）
+local g_int2_gpio                         = nil       -- INT2 GPIO 引脚号（用于 close 时注销）
 
 -- ==================== I2C 总线恢复 ====================
 -- LIS2DH12 异常后可能拉低 SDA 不放。
@@ -516,6 +523,9 @@ function exs_lis2dh12.setup(model, config)
     local has_click = (config.int1 and config.int1.tap) or (config.int2 and config.int2.tap)
     register_gpio_interrupt(config.int1, 1, has_click)
     register_gpio_interrupt(config.int2, 2, has_click)
+    -- 保存 GPIO 引脚号，用于 close 时注销中断
+    if config.int1 and config.int1.int_gpio then g_int1_gpio = config.int1.int_gpio end
+    if config.int2 and config.int2.int_gpio then g_int2_gpio = config.int2.int_gpio end
 
     g_ready = true
     log.info("exs_lis2dh12", string.format("初始化完成 mode=%s range=%s odr=%dHz mode=%s", model, g_range, g_odr_hz, config.powermode or "highres"))
@@ -766,6 +776,10 @@ exs_lis2dh12.close()
 ]]
 function exs_lis2dh12.close()
     if not g_ready then return end
+    -- 先注销 GPIO 中断（防止 close 后 INT 引脚变化触发回调导致死机）
+    if g_int1_gpio then gpio.setup(g_int1_gpio, nil) end
+    if g_int2_gpio then gpio.setup(g_int2_gpio, nil) end
+
     -- 寄存器恢复默认
     reg_write(REG_CTRL1, 0x00); reg_write(REG_CTRL2, 0x00); reg_write(REG_CTRL3, 0x00)
     reg_write(REG_CTRL4, 0x00); reg_write(REG_CTRL5, 0x00); reg_write(REG_CTRL6, 0x00)
@@ -776,6 +790,7 @@ function exs_lis2dh12.close()
     g_scl_pin = nil; g_sda_pin = nil; g_dev_addr = 0x18
     g_temp_enabled = false; g_direction_enabled = nil
     g_int1_pending = false; g_int2_pending = false
+    g_int1_gpio = nil; g_int2_gpio = nil
 
     log.info("exs_lis2dh12", "传感器已关闭")
 end

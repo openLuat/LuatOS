@@ -44,6 +44,7 @@
  */
 #include "luat_base.h"
 #include "lwip/opt.h"
+#include "lwip/init.h"
 
 #if LWIP_IPV4 && LWIP_ARP /* build whenever IPv4 ARP is enabled */
 

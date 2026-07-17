@@ -32,6 +32,7 @@
 
 - Air8000 核心板 × 1
 - TM1640 数码管模块（16 位数码管） × 1
+  demo所演示的TM1640数码管[购买链接](https://item.taobao.com/item.htm?abbucket=12&id=993241354836&mi_id=0000snMzr-QYn9Az44HHVAD7gjY_XJWQal2Z8EbIpIZRa-k&ns=1&priceTId=213e00d417839211007372882e1068&skuId=5970246265328&spm=a21n57.1.hoverItem.4&utparam=%7B%22aplus_abtest%22%3A%22dc10f02e922922befeb0841a2cbe561e%22%7D&xxc=taobaoSearch)
 - 母对母杜邦线 × 4
 - TYPE-C 数据线 × 1
 

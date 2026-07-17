@@ -254,7 +254,7 @@ gpio.setup(18, 0, nil, nil, 4)
 static int l_gpio_setup(lua_State *L) {
     luat_gpio_t conf = {0};
     conf.pin = luaL_checkinteger(L, 1);
-    if (conf.pin >= LUAT_GPIO_PIN_MAX) {
+    if (conf.pin < 0 || conf.pin >= LUAT_GPIO_PIN_MAX) {
         LLOGW("id out of range 0 ~ %d, but %d", LUAT_GPIO_PIN_MAX, conf.pin);
         return 0;
     }
@@ -417,6 +417,10 @@ gpio.caplevel(7,1,function(us_int) print(us_float) end)
 static int l_gpio_caplevel(lua_State *L){
     luat_gpio_t conf = {0};
     conf.pin = luaL_checkinteger(L, 1);
+    if (conf.pin < 0 || conf.pin >= LUAT_GPIO_PIN_MAX) {
+        LLOGW("id out of range 0 ~ %d, but %d", LUAT_GPIO_PIN_MAX, conf.pin);
+        return 0;
+    }
     cap_target_level = luaL_checkinteger(L,2);
     //根据目标电平，配置管脚首先处理的沿
     if(cap_target_level == 1){//目标是捕获高电平

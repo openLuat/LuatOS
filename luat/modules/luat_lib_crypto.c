@@ -540,7 +540,12 @@ static int l_crypto_totp(lua_State *L) {
         LLOGE("out of memory when malloc secret");
         return 0;
     }
-    len = (size_t)luat_str_base32_decode((const uint8_t * )secret_base32,(uint8_t*)secret,len+1);
+    int dlen = luat_str_base32_decode((const uint8_t * )secret_base32,(uint8_t*)secret,len+1);
+    if (dlen < 0) {
+        luat_heap_free(secret);
+        return luaL_error(L, "invalid base32 secret");
+    }
+    len = (size_t)dlen;
 
     uint64_t t = 0;
     if (lua_isinteger(L, 2)) {

@@ -1096,32 +1096,6 @@ static int l_audio_soft_volume(lua_State *L) {
     }
     return 1;
 }
-
-/*
-设置麦克风音量/增益，0~100，值越大音量越高，默认50
-@api audio_v2.micVol(volume, driver_probe_id)
-@int volume 麦克风音量/增益，0~100，默认50
-@int driver_probe_id 驱动id，在不使用默认驱动时填写，绝大部分情况下都不需要填写。驱动id需要通过audio.make_probe_id合成
-@return boolean 成功返回true,否则返回false
-@usage
-audio_v2.micVol(80)
-*/
-static int l_audio_mic_volume(lua_State *L) {
-    luat_audio_driver_probe_t driver_probe = {0};
-    driver_probe.probe_id = luaL_optinteger(L, 2, 0);
-    uint32_t volume = luaL_optinteger(L, 1, 50);
-    if (volume > 100) {
-        volume = 100;
-    }
-    luat_audio_driver_ctrl_t *driver_ctrl = luat_audio_driver_probe(driver_probe.probe_id ? &driver_probe : NULL);
-    if (driver_ctrl) {
-        lua_pushboolean(L, !luat_audio_driver_config_private_param(driver_ctrl, LUAT_AUDIO_DRIVER_CONFIG_PARAM_MIC_VOLUME, volume, 0));
-    } else {
-        lua_pushboolean(L, 0);
-    }
-    return 1;
-}
-
 /*
 合成音频驱动id
 @api audio_v2.make_probe_id(tx_bus_type, tx_bus_id, rx_bus_type, rx_bus_id)
@@ -1483,7 +1457,6 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "is_all_done",			ROREG_FUNC(l_audio_is_request_all_done)},
     { "is_busy",			ROREG_FUNC(l_audio_is_request_busy)},
     { "soft_volume",			ROREG_FUNC(l_audio_soft_volume)},
-    { "micVol",			ROREG_FUNC(l_audio_mic_volume)},
     { "make_probe_id",			ROREG_FUNC(l_audio_make_probe_id)},
     { "set_default_driver",			ROREG_FUNC(l_audio_set_default_driver)},
     { "get_driver_info",			ROREG_FUNC(l_audio_get_driver_info)},

@@ -17,7 +17,7 @@
 
 5、record_pcm_file: 录音到文件（PCM格式）
 
-6、sample-6s、10.amr: 用于测试本地mp3文件播放
+6、http_download_play: HTTP下载音频文件播放，支持MP3/AMR/PCM格式，自动识别，支持SD卡存储
 
 7、http_stream_play: HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
 

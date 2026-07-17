@@ -1,29 +1,24 @@
 --[[
 @module  adxl34x_demo
 @summary ADXL345/ADXL346 三轴加速度传感器演示模块，包含所有功能的演示用例
-@version 1.0
-@date    2026.07.14
+@version 2.0
+@date    2026.07.17
 @author  江访
 @usage
 本文件包含 ADXL345/ADXL346 的逐项功能演示。
-通过 exs_adxl34x 扩展库的 API 逐一演示数据读取、量程切换、输出速率切换等功能。
+通过 exs_adxl34x 扩展库的 API 逐一演示数据读取、量程切换、输出速率切换、休眠唤醒等功能。
 ]]
 
--- 加载 exs_adxl34x 扩展库
 local exs_adxl34x = require "exs_adxl34x"
 
--- int1中断回调函数（需定义在 setup 之前）
 local function adxl34x_int1_cb(data)
     log.info("adxl34x_demo", string.format("int1: X=%.3f Y=%.3f Z=%.3f g", data.x, data.y, data.z))
 end
 
--- [1/3] 初始化与数据读取
+-- [1/4] 初始化与数据读取
 local function demo_init_and_read()
-    log.info("adxl34x_demo", "===== [1/3] 初始化与数据读取 =====")
+    log.info("adxl34x_demo", "===== [1/4] 初始化与数据读取 =====")
 
-    -- 软件 I2C 模式初始化 ADXL345/ADXL346 传感器，配置 int1 数据就绪中断
-    -- 使用 data_ready，100Hz ODR 下每秒触发 100 次
-    -- 使用 tap 模式初始化，检测到敲击时触发（默认阈值 2g）
     local result = exs_adxl34x.setup("I2C", {
         scl = 1,
         sda = 2,
@@ -37,7 +32,6 @@ local function demo_init_and_read()
 
     log.info("adxl34x_demo", "ADXL345/ADXL346 初始化成功，版本:", exs_adxl34x.version())
 
-    -- 读取并显示加速度数据
     sys.wait(200)
     local data = exs_adxl34x.get_data()
     if data then
@@ -48,7 +42,6 @@ local function demo_init_and_read()
 
     sys.wait(1000)
 
-    -- 连续读取 3 次，观察数据变化
     for i = 1, 3 do
         sys.wait(500)
         local d = exs_adxl34x.get_data()
@@ -57,15 +50,14 @@ local function demo_init_and_read()
         end
     end
 
-    log.info("adxl34x_demo", "---- [1/3] 完成 ----")
+    log.info("adxl34x_demo", "---- [1/4] 完成 ----")
     return true
 end
 
--- [2/3] 量程切换演示
+-- [2/4] 量程切换演示
 local function demo_range_switch()
-    log.info("adxl34x_demo", "===== [2/3] 量程切换演示 =====")
+    log.info("adxl34x_demo", "===== [2/4] 量程切换演示 =====")
 
-    -- 切换为 ±4g 量程
     log.info("adxl34x_demo", "切换量程为 4g")
     exs_adxl34x.set_range("4g")
     sys.wait(300)
@@ -77,7 +69,6 @@ local function demo_range_switch()
 
     sys.wait(1000)
 
-    -- 切换回 ±2g 量程（高精度）
     log.info("adxl34x_demo", "切换量程为 2g（高精度）")
     exs_adxl34x.set_range("2g")
     sys.wait(300)
@@ -89,12 +80,12 @@ local function demo_range_switch()
 
     sys.wait(1000)
 
-    log.info("adxl34x_demo", "---- [2/3] 完成 ----")
+    log.info("adxl34x_demo", "---- [2/4] 完成 ----")
 end
 
--- [3/3] 输出速率切换
+-- [3/4] 输出速率切换
 local function demo_odr_switch()
-    log.info("adxl34x_demo", "===== [3/3] 输出速率切换 =====")
+    log.info("adxl34x_demo", "===== [3/4] 输出速率切换 =====")
 
     local odr_list = { 25, 50, 100, 200 }
     for _, odr in ipairs(odr_list) do
@@ -109,18 +100,30 @@ local function demo_odr_switch()
         sys.wait(500)
     end
 
-    -- 恢复为 100Hz
     exs_adxl34x.set_odr(100)
-    log.info("adxl34x_demo", "---- [3/3] 完成 ----")
+    log.info("adxl34x_demo", "---- [3/4] 完成 ----")
 end
 
--- 演示主函数（运行在协程中）
+-- [4/4] 休眠与唤醒演示
+local function demo_sleep_wakeup()
+    log.info("adxl34x_demo", "===== [4/4] 休眠与唤醒演示 =====")
+    log.info("adxl34x_demo", "进入待机模式（低功耗）")
+    exs_adxl34x.sleep(); sys.wait(10000)
+    sys.wait(500)
+    log.info("adxl34x_demo", "从待机模式唤醒")
+    exs_adxl34x.wakeup()
+    sys.wait(200)
+    local data = exs_adxl34x.get_data()
+    if data then
+        log.info("adxl34x_demo", string.format("唤醒后数据: X=%.3f Y=%.3f Z=%.3f g", data.x, data.y, data.z))
+    end
+    log.info("adxl34x_demo", "---- [4/4] 完成 ----")
+end
+
 local function adxl34x_demo_task_func()
-    -- HELLO 开始
     log.info("adxl34x_demo", "HELLO")
     sys.wait(1000)
 
-    -- [1/3] 初始化与数据读取
     local ok = demo_init_and_read()
     if not ok then
         log.error("adxl34x_demo", "初始化失败，演示终止")
@@ -128,17 +131,15 @@ local function adxl34x_demo_task_func()
     end
 
     sys.wait(500)
-
-    -- [2/3] 量程切换演示
     demo_range_switch()
     sys.wait(500)
-
-    -- [3/3] 输出速率切换
     demo_odr_switch()
     sys.wait(500)
+    demo_sleep_wakeup()
+    sys.wait(500)
 
-    -- End
     log.info("adxl34x_demo", "===== [演示完毕] =====")
+    exs_adxl34x.close()
     log.info("adxl34x_demo", "End")
 end
 

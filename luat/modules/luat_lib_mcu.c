@@ -102,27 +102,29 @@ static int l_mcu_hz(lua_State* L) {
 }
 
 /*
-读写mcu的32bit寄存器或者ram,谨慎使用写功能,请熟悉mcu的寄存器使用方法后再使用
+读写mcu的32bit寄存器或者ram, 出于安全考虑本接口已禁用实际访问: 读固定返回0, 写直接忽略
 @api mcu.reg32(address, value, mask)
 @int 寄存器或者ram地址
-@int 写入的值,如果没有,则直接返回当前值
-@int 位掩码,可以对特定几个位置的bit做修改, 默认0xffffffff,修改全部32bit
-@return int 返回当前寄存的值
+@int 写入的值(已禁用, 不生效)
+@int 位掩码(已禁用, 不生效)
+@return int 固定返回0
 @usage
-local value = mcu.reg32(0x2009FFFC, 0x01, 0x01) --对0x2009FFFC地址上的值,修改bit0为1
+local value = mcu.reg32(0x2009FFFC) -- 安全原因已禁用, 恒返回0
 */
 static int l_mcu_reg32(lua_State* L) {
+	static int warned = 0;
 	uint32_t addr = luaL_checkinteger(L, 1);
-    volatile uint32_t *address = (uint32_t *)(addr & 0xfffffffc);
-    if (lua_isinteger(L, 2)) {
-    	volatile uint32_t value = lua_tointeger(L, 2);
-    	volatile uint32_t mask = luaL_optinteger(L, 3, 0xffffffff);
-    	volatile uint32_t org = *address;
-    	*address = (org & ~mask)| (value & mask);
-    	lua_pushinteger(L, *address);
-    } else {
-    	lua_pushinteger(L, *address);
+    // 安全原因禁用寄存器/内存读写, 仅保留参数解析, 读固定返回0, 写直接忽略
+    if (!warned) {
+    	warned = 1;
+    	LLOGW("mcu.reg32 is disabled for security reasons");
     }
+    if (lua_isinteger(L, 2)) {
+    	lua_tointeger(L, 2);
+    	luaL_optinteger(L, 3, 0xffffffff);
+    }
+    (void)addr;
+    lua_pushinteger(L, 0);
     return 1;
 }
 
@@ -196,6 +198,9 @@ static int l_mcu_hw_diff_tick64(lua_State* L) {
     size_t len2;
     const char *data2 = luaL_checklstring(L, 2, &len2);
     check_value = luaL_optinteger(L, 3, 0);
+    if (len1 > 8 || len2 > 8) {
+        return luaL_error(L, "tick string too long");
+    }
 
     memcpy(&tick1, data1, len1);
     memcpy(&tick2, data2, len2);

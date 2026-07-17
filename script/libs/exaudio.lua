@@ -6,7 +6,7 @@
 @author  拓毅恒
 @updates
     v2.4 2026.7.17
-        1. 重构exaudio.parse_audio_info()，同时支持文件路径和缓冲数据两种方式输入
+        1. 重构exaudio.parse_audio_info()，支持文件路径和缓冲数据两种方式输入
     v2.3 2026.7.16
         1. 移除新音频框架初始化audio_v2_setup中的make_probe_id+set_default_driver操作
            （各BSP有默认驱动，无需手动设置，特殊情况可通过exaudio.set_default_driver接口设置）
@@ -52,7 +52,7 @@
 -- 版本更新说明
 -- 版本号：202607171800
 -- 1、更新时间：2026-07-17 18:00
---    改造parse_audio_info，同时支持文件路径和缓冲数据两种方式输入
+--    改造parse_audio_info，支持文件路径和缓冲数据两种方式输入
 -- 版本号：202607161030
 -- 1、更新时间：2026-07-16 10:30
 --    移除新音频框架初始化audio_v2_setup中的make_probe_id+set_default_driver操作

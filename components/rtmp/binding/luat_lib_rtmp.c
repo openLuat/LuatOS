@@ -81,7 +81,6 @@ static void luat_rtmp_write_frame_native(luat_rtmp_data_t *data) {
 
 static void luat_rtmp_camera_app_callback(luat_camera_frame_data_t *frame, void *user_data)
 {
-    LLOGE("frame data: %p len: %d", frame->data, frame->total_bytes);
     if(frame->data && frame->total_bytes)
     {
         luat_rtmp_data_t *data = luat_heap_malloc(sizeof(luat_rtmp_data_t) + frame->total_bytes);

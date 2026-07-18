@@ -10,7 +10,11 @@ int luat_hmeta_hwversion(char* buff);
 // 获取芯片组型号, 原始型号, 传入的buff最少要8字节空间
 int luat_hmeta_chip(char* buff);
 
-// 获取模组的MUID, 传入的buff最少要48字节空间, 0代表成功, <0代表失败
-int luat_hmeta_muid(char* buff, size_t* out_len);
+
+// 获取模组muid, 传入的buff最少要34字节空间
+int luat_hmeta_muid(char* buf, size_t buf_len);
+
+// 获取模组的识别id, 传入的buff最少要34字节空间
+int luat_hmeta_devid(char* buf, size_t buf_len);
 
 #endif

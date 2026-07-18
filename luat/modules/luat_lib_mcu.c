@@ -65,7 +65,7 @@ static int l_mcu_get_clk(lua_State* L) {
 local unique_id = mcu.unique_id()
 print("unique_id", unique_id)
 */
-static int l_mcu_unique_id(lua_State* L) {
+int l_mcu_unique_id(lua_State* L) {
     size_t len = 0;
     const char* id = luat_mcu_unique_id(&len);
     lua_pushlstring(L, id, len);
@@ -405,39 +405,32 @@ static int l_mcu_xtal_ref_output(lua_State* L) {
     return 0;
 }
 
-LUAT_WEAK int luat_mcu_muid(char* buf) {return -1;}
-static int l_mcu_muid(lua_State* L) {
-	char muid[33] = {0};
-	luat_mcu_muid(muid);
-	// LLOGD("mcu muid %s", muid);
-	lua_pushstring(L, muid);
-    return 1;
-}
+// 恢复muid函数, 映射到hmeta的muid函数, 作为兼容
+extern int l_hmeta_muid(lua_State* L);
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_mcu[] =
 {
-    { "setClk" ,        ROREG_FUNC(l_mcu_set_clk)},
-    { "getClk",         ROREG_FUNC(l_mcu_get_clk)},
     { "unique_id",      ROREG_FUNC(l_mcu_unique_id)},
     { "ticks",          ROREG_FUNC(l_mcu_ticks)},
+    { "ticks2",         ROREG_FUNC(l_mcu_ticks2)},
     { "hz",             ROREG_FUNC(l_mcu_hz)},
-	{ "reg32",          ROREG_FUNC(l_mcu_reg32)},
-	{ "x32",            ROREG_FUNC(l_mcu_x32)},
-// #ifdef __LUATOS_TICK_64BIT__
 	{ "tick64",			ROREG_FUNC(l_mcu_hw_tick64)},
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},
-	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
 	{ "hardfault",		ROREG_FUNC(l_mcu_set_hardfault_mode)},
 #ifdef LUAT_MCU_IOMUX_CTRL
 	{ "altfun",			ROREG_FUNC(l_mcu_alt_ctrl)},
 #else
 	{ "iomux",			ROREG_FUNC(l_mcu_iomux)},
 #endif
-    { "ticks2",         ROREG_FUNC(l_mcu_ticks2)},
-	{ "XTALRefOutput",         ROREG_FUNC(l_mcu_xtal_ref_output)},
-	{ "muid",         	ROREG_FUNC(l_mcu_muid)},
-// #endif
+	{ "XTALRefOutput",  ROREG_FUNC(l_mcu_xtal_ref_output)},
+    { "setClk" ,        ROREG_FUNC(l_mcu_set_clk)},
+    { "getClk",         ROREG_FUNC(l_mcu_get_clk)},
+	{ "reg32",          ROREG_FUNC(l_mcu_reg32)},
+	{ "x32",            ROREG_FUNC(l_mcu_x32)},
+	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
+	{ "muid",			ROREG_FUNC(l_hmeta_muid)},
 	//@const UART number 外设类型-串口
 	{ "UART",             ROREG_INT(LUAT_MCU_PERIPHERAL_UART) },
 	//@const I2C number 外设类型-I2C

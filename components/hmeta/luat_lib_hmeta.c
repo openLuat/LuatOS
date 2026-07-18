@@ -101,7 +101,7 @@ static int l_hmeta_chip(lua_State *L) {
 local muid = hmeta.muid()
 print("muid", muid)
 */
-static int l_hmeta_muid(lua_State* L) {
+int l_hmeta_muid(lua_State* L) {
 	char muid[34] = {0};
 	luat_hmeta_muid(muid, 33);
 	// LLOGD("muid %s", muid);
@@ -127,6 +127,8 @@ static int l_hmeta_devid(lua_State* L) {
     return 1;
 }
 
+extern int l_mcu_unique_id(lua_State* L);
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_hmeta[] =
@@ -136,6 +138,7 @@ static const rotable_Reg_t reg_hmeta[] =
     { "chip" ,            ROREG_FUNC(l_hmeta_chip)},
 	{ "devid",            ROREG_FUNC(l_hmeta_devid)},
 	{ "muid",         	  ROREG_FUNC(l_hmeta_muid)},
+    { "unique_id",        ROREG_FUNC(l_mcu_unique_id)},
 	{ NULL,               ROREG_INT(0)}
 };
 

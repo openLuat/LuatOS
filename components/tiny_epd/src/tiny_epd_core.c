@@ -117,6 +117,7 @@ int tiny_epd_create(tiny_epd_t **out,
     epd->plane_count = driver->plane_count;
     epd->caps = driver->caps;
     epd->framebuffer_size = framebuffer_size;
+    epd->rotate = 0;
 
     *out = epd;
     return TINY_EPD_OK;
@@ -248,6 +249,22 @@ uint8_t tiny_epd_plane_count(const tiny_epd_t *epd)
 uint32_t tiny_epd_caps(const tiny_epd_t *epd)
 {
     return epd ? epd->caps : 0;
+}
+
+uint8_t tiny_epd_rotate_get(const tiny_epd_t *epd)
+{
+    /* Return the rotation as degrees (0/90/180/270) for external callers
+     * such as the Lua binding. epd->rotate stores the internal index
+     * (0/1/2/3). */
+    if (epd == NULL) {
+        return 0u;
+    }
+    switch (epd->rotate & 0x03u) {
+        case 1u: return (uint8_t)90u;
+        case 2u: return (uint8_t)180u;
+        case 3u: return (uint8_t)270u;
+        default: return 0u;
+    }
 }
 
 uint8_t *tiny_epd_framebuffer(tiny_epd_t *epd)

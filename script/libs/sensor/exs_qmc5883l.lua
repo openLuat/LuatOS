@@ -1,8 +1,8 @@
 --[[
 @module  exs_qmc5883l
 @summary QMC5883L 三轴地磁传感器扩展库
-@version 1.1
-@date    2026.07.17
+@version 1.2
+@date    2026.07.20
 @author  江访
 @usage
 本文件为 QMC5883L 地磁传感器（QST 出品）的 LuatOS 扩展库，核心功能为：
@@ -24,6 +24,12 @@
 8、exs_qmc5883l.version()：获取版本号
 
 -- 版本更新说明
+版本号：202607200639
+1、更新时间：2026-07-20
+2、更新内容：
+            i2c_bus_recovery SDA 释放检测移到 SCL 低电平期间执行，避免引脚模式切换毛刺干扰从机状态机
+            恢复 SDA 释放检测功能（提前结束脉冲循环），同时保证异常状态下总线恢复不受影响
+
 版本号：202607170900
 1、更新时间：2026-07-17
 2、更新内容：
@@ -134,9 +140,7 @@ local function i2c_bus_recovery()
     for i = 1, 9 do
         gpio.set(g_scl_pin, 0)
         sys.wait(1)
-        gpio.set(g_scl_pin, 1)
-        sys.wait(1)
-        -- 切 SDA 为输入模式检查电平
+        -- 在 SCL 低电平期间检查 SDA
         gpio.setup(g_sda_pin, gpio.INPUT, gpio.PULLUP)
         sys.wait(1)
         if gpio.get(g_sda_pin) == 1 then
@@ -145,6 +149,7 @@ local function i2c_bus_recovery()
             break
         end
         gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+        gpio.set(g_scl_pin, 1)
     end
 
     -- 产生 STOP 条件：SDA 低→高，SCL 高
@@ -665,7 +670,7 @@ end
 local ver = exs_qmc5883l.version()
 ]]
 function exs_qmc5883l.version()
-    return "202607170900"
+    return "202607200639"
 end
 
 log.debug("exs_qmc5883l", "version -> " .. exs_qmc5883l.version())

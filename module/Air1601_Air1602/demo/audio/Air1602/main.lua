@@ -12,11 +12,15 @@
 
 3、play_stream: 流式播放音频，支持PCM/MP3/AMR/WAV格式
 
-4、sample-6s.mp3、10.amr: 用于测试本地音频文件播放
+4、http_download_play: HTTP下载音频文件播放，支持MP3/AMR/PCM格式，自动识别，支持SD卡存储
 
-5、test.pcm: 用于测试pcm流式播放
+5、http_stream_play: HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
 
-6、本demo需要固件版本>=V1024才可播放音频
+6、sample-6s.mp3、10.amr: 用于测试本地音频文件播放
+
+7、test.pcm: 用于测试pcm流式播放
+
+注意：本demo需要固件版本>=V1024才可播放音频
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -69,6 +73,8 @@ end
 require "play_file"          -- 文件播放音频，支持mp3,amr,wav格式
 -- require "play_tts"          -- 文字转语音，循环演示5种音色
 -- require "play_stream"       -- 流式播放音频，支持PCM/MP3/AMR/WAV格式
+-- require "http_download_play" -- HTTP下载音频文件播放，支持MP3/AMR/PCM格式，自动识别，支持SD卡存储
+-- require "http_stream_play"  -- HTTP流式边下边播，支持PCM/AMR/MP3/WAV格式，使用新音频框架
 
 
 -- 用户代码已结束---------------------------------------------

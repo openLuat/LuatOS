@@ -102,6 +102,7 @@ uint16_t tiny_epd_stride(const tiny_epd_t *epd);
 uint8_t tiny_epd_bits_per_pixel(const tiny_epd_t *epd);
 uint8_t tiny_epd_plane_count(const tiny_epd_t *epd);
 uint32_t tiny_epd_caps(const tiny_epd_t *epd);
+uint8_t tiny_epd_rotate_get(const tiny_epd_t *epd);
 
 uint8_t *tiny_epd_framebuffer(tiny_epd_t *epd);
 const uint8_t *tiny_epd_framebuffer_const(const tiny_epd_t *epd);

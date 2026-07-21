@@ -4,6 +4,7 @@
 
 #include "luat_spi.h"
 #include "tiny_epd.h"
+#include "tiny_epd_gfx.h"
 #include "tiny_epd_port_luatos.h"
 
 #include <limits.h>
@@ -446,13 +447,13 @@ static int l_tiny_epd_sleep(lua_State *L)
 
 /*
 @api panel:info()
-@return table {width, height, stride, bits_per_pixel, plane_count, caps}
+@return table {width, height, stride, bits_per_pixel, plane_count, caps, rotate}
 */
 static int l_tiny_epd_info(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
 
-    lua_createtable(L, 0, 6);
+    lua_createtable(L, 0, 7);
     lua_pushinteger(L, tiny_epd_width(device->epd));
     lua_setfield(L, -2, "width");
     lua_pushinteger(L, tiny_epd_height(device->epd));
@@ -465,6 +466,9 @@ static int l_tiny_epd_info(lua_State *L)
     lua_setfield(L, -2, "plane_count");
     lua_pushinteger(L, (lua_Integer)tiny_epd_caps(device->epd));
     lua_setfield(L, -2, "caps");
+    /* Expose the current rotation; mirrored by tiny_epd_set_rotation. */
+    lua_pushinteger(L, tiny_epd_rotate_get(device->epd));
+    lua_setfield(L, -2, "rotate");
     return 1;
 }
 
@@ -500,14 +504,194 @@ static int l_tiny_epd_gc(lua_State *L)
     return 0;
 }
 
+/* -------------------------------------------------------------------------
+ * Drawing primitives (line / rect / circle / qrcode) + rotation
+ * ------------------------------------------------------------------------- */
+
+/*
+@api panel:setRotation(rotate)
+@number rotate 旋转角度，0/90/180/270；其它值被按位截断
+@return boolean 成功返回 true
+@usage
+panel:setRotation(90)
+panel:line(0, 0, 100, 100, epd.BLACK)  -- 在 90° 旋转坐标系下画线
+*/
+static int l_tiny_epd_set_rotation(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer v = luaL_checkinteger(L, 2);
+
+    if (v < 0 || v > 270) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_set_rotation(device->epd, (uint8_t)v));
+}
+
+/*
+@api panel:line(x0, y0, x1, y1[, color])
+@number x0 起点 X
+@number y0 起点 Y
+@number x1 终点 X
+@number y1 终点 Y
+@number color epd.BLACK (默认) 或 epd.WHITE
+@return boolean 成功返回 true，失败返回 false 和错误信息
+@usage
+panel:line(0, 0, 100, 100, epd.BLACK)
+*/
+static int l_tiny_epd_line(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer x0 = luaL_checkinteger(L, 2);
+    lua_Integer y0 = luaL_checkinteger(L, 3);
+    lua_Integer x1 = luaL_checkinteger(L, 4);
+    lua_Integer y1 = luaL_checkinteger(L, 5);
+    int color = (int)luaL_optinteger(L, 6, TINY_EPD_COLOR_BLACK);
+
+    if (x0 < INT16_MIN || x0 > INT16_MAX || y0 < INT16_MIN || y0 > INT16_MAX ||
+        x1 < INT16_MIN || x1 > INT16_MAX || y1 < INT16_MIN || y1 > INT16_MAX ||
+        (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE)) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_draw_line(device->epd,
+                                                        (int16_t)x0, (int16_t)y0,
+                                                        (int16_t)x1, (int16_t)y1,
+                                                        (uint8_t)color));
+}
+
+/*
+@api panel:rect(x, y, x2, y2[, color[, fill]])
+@number x,y 左上角坐标
+@number x2,y2 右下角坐标（end-point 形式）
+@number color epd.BLACK (默认) 或 epd.WHITE
+@number fill 0=仅描边（默认），1=实心
+@return boolean 成功返回 true，失败返回 false 和错误信息
+@usage
+panel:rect(0, 0, 199, 199, epd.BLACK, 1)   -- 实心边框
+panel:rect(20, 20, 80, 80, epd.BLACK, 0)   -- 空心矩形
+*/
+static int l_tiny_epd_rect(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer x = luaL_checkinteger(L, 2);
+    lua_Integer y = luaL_checkinteger(L, 3);
+    lua_Integer x2 = luaL_checkinteger(L, 4);
+    lua_Integer y2 = luaL_checkinteger(L, 5);
+    int color = (int)luaL_optinteger(L, 6, TINY_EPD_COLOR_BLACK);
+    int fill = (int)luaL_optinteger(L, 7, 0);
+
+    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
+        x2 < INT16_MIN || x2 > INT16_MAX || y2 < INT16_MIN || y2 > INT16_MAX ||
+        (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) ||
+        (fill != 0 && fill != 1)) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_draw_rect(device->epd,
+                                                        (int16_t)x, (int16_t)y,
+                                                        (int16_t)x2, (int16_t)y2,
+                                                        (uint8_t)color,
+                                                        (uint8_t)fill));
+}
+
+/*
+@api panel:circle(x, y, r[, color[, fill]])
+@number x,y 圆心坐标
+@number r 半径（0..255）
+@number color epd.BLACK (默认) 或 epd.WHITE
+@number fill 0=仅描边（默认），1=实心
+@return boolean 成功返回 true，失败返回 false 和错误信息
+@usage
+panel:circle(100, 100, 50, epd.BLACK, 0)   -- 空心圆
+panel:circle(100, 100, 20, epd.BLACK, 1)   -- 实心圆
+*/
+static int l_tiny_epd_circle(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer x = luaL_checkinteger(L, 2);
+    lua_Integer y = luaL_checkinteger(L, 3);
+    lua_Integer r = luaL_checkinteger(L, 4);
+    int color = (int)luaL_optinteger(L, 5, TINY_EPD_COLOR_BLACK);
+    int fill = (int)luaL_optinteger(L, 6, 0);
+
+    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
+        r < 0 || r > 255 ||
+        (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) ||
+        (fill != 0 && fill != 1)) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_draw_circle(device->epd,
+                                                          (int16_t)x, (int16_t)y,
+                                                          (uint8_t)r,
+                                                          (uint8_t)color,
+                                                          (uint8_t)fill));
+}
+
+/*
+@api panel:qrcode(x, y, str[, size[, color]])
+@number x,y 左上角坐标
+@string  str QR 内容
+@number size QR 占用的像素正方形边长（必须 >= qrcode 模块数）
+@number color epd.BLACK (默认) 或 epd.WHITE（背景使用反色）
+@return boolean 成功返回 true，失败返回 false 和错误信息
+@usage
+panel:qrcode(10, 10, "https://openluat.com", 120, epd.BLACK)
+*/
+static int l_tiny_epd_qrcode(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer x = luaL_checkinteger(L, 2);
+    lua_Integer y = luaL_checkinteger(L, 3);
+    const char *str = luaL_checkstring(L, 4);
+    lua_Integer size = luaL_optinteger(L, 5, 0);
+    int color = (int)luaL_optinteger(L, 6, TINY_EPD_COLOR_BLACK);
+    int resolved_size;
+
+    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    if (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    /* size == 0 → use the smaller remaining panel dimension. */
+    if (size == 0) {
+        int16_t remain_w = (int16_t)(tiny_epd_width(device->epd) - (uint16_t)x);
+        int16_t remain_h = (int16_t)(tiny_epd_height(device->epd) - (uint16_t)y);
+        resolved_size = remain_w < remain_h ? remain_w : remain_h;
+        if (resolved_size < 1) {
+            return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+        }
+    }
+    else if (size < 1 || size > UINT16_MAX) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    else {
+        resolved_size = (int)size;
+    }
+
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_draw_qrcode(device->epd,
+                                                          (int16_t)x, (int16_t)y,
+                                                          str,
+                                                          (uint16_t)resolved_size,
+                                                          (uint8_t)color));
+}
+
 static const luaL_Reg tiny_epd_device_methods[] = {
-    {"init", l_tiny_epd_init},
-    {"clear", l_tiny_epd_clear},
-    {"pixel", l_tiny_epd_pixel},
-    {"refresh", l_tiny_epd_refresh},
-    {"sleep", l_tiny_epd_sleep},
-    {"info", l_tiny_epd_info},
-    {"close", l_tiny_epd_close},
+    {"init",         l_tiny_epd_init},
+    {"clear",        l_tiny_epd_clear},
+    {"pixel",        l_tiny_epd_pixel},
+    {"setRotation",  l_tiny_epd_set_rotation},
+    {"line",         l_tiny_epd_line},
+    {"rect",         l_tiny_epd_rect},
+    {"circle",       l_tiny_epd_circle},
+    {"qrcode",       l_tiny_epd_qrcode},
+    {"refresh",      l_tiny_epd_refresh},
+    {"sleep",        l_tiny_epd_sleep},
+    {"info",         l_tiny_epd_info},
+    {"close",        l_tiny_epd_close},
     {NULL, NULL}
 };
 

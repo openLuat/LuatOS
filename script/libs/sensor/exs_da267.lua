@@ -1,8 +1,8 @@
 --[[
 @module  exs_da267
 @summary DA267 三轴加速度传感器扩展库（DA267）
-@version 1.0
-@date    2026.07.17
+@version 1.1
+@date    2026.07.20
 @author  王世豪
 @usage
 本文件为 DA267 三轴加速度传感器的 LuatOS 扩展库，核心功能为：
@@ -31,7 +31,12 @@
 15、exs_da267.version()：获取版本号
 
 -- 版本更新说明
--- 版本号：202607171813
+-- 版本号：202607201700
+-- 1、更新时间：2026-07-20 17:00
+-- 2、更新内容
+--    优化 DA267 运动状态判断机制，去掉运动状态管理中的超时参数
+
+-- 版本号：202607171813700
 -- 1、更新时间：2026-07-17 18:13
 -- 2、更新内容
 --    初版，实现 DA267 传感器驱动所有基础功能
@@ -81,12 +86,10 @@ local ctx = {
     int_callback = nil,
     motion_enable = false,
     motion_state = false,  -- false=静止, true=运动
-    motion_window = 20,  -- 历史窗口（秒）
+    motion_window = 8,  -- 历史窗口（秒）
     motion_threshold = 4,  -- 进入运动状态的中断次数
-    motion_timeout = 15,  -- 运动状态超时（秒）
-    motion_history = nil,  -- 中断历史缓冲区
-    motion_timer = nil,  -- 超时定时器
-    last_int_time = {0, 0},  -- 最后一次中断时间：{ms_high, ms_low}
+    motion_count = 0,  -- 当前窗口内的中断计数
+    motion_timer = nil,  -- 窗口计时定时器
     step_counter_enable = false  -- 是否启用计步器功能
 }
 
@@ -98,119 +101,52 @@ local ctx = {
 log.info("da267", "version:", exs_da267.version())
 ]]
 function exs_da267.version()
-    return "202607171813"
+    return "202607201700"
+end
+
+-- 定时器超时处理函数
+local function motion_timeout_handler()
+    -- 超时且未达到阈值，判断为静止状态
+    if ctx.motion_state then
+        ctx.motion_state = false
+        log.info("exs_da267", "回到静止状态")
+        if ctx.step_counter_enable then
+            i2c.send(ctx.i2c_id, ctx.addr, {0x33, 0x25}, 1)
+        end
+        sys.publish("DA267_MOTION_STATE", false)
+    end
+    
+    ctx.motion_count = 0
+    ctx.motion_timer = nil
 end
 
 -- 内部状态检查函数
 local function motion_check_internal()
-    local tcount = 0
-
-    -- 静止 → 运动：最近5秒震动情况
-    if not ctx.motion_state then
-        log.debug("exs_da267", "静止→运动检查", 
-            ctx.motion_history[0], ctx.motion_history[1], 
-            ctx.motion_history[2], ctx.motion_history[3], 
-            ctx.motion_history[4])
-        
-        local recent_vibration = 0
-        for i = 0, 4 do
-            if ctx.motion_history[i] ~= 0x30 then
-                recent_vibration = recent_vibration + 1
-            end
-        end
-        
-        -- 最近5秒震动次数超过阈值（阈值默认为4次）
-        if recent_vibration > ctx.motion_threshold then
+    -- 检查是否已经达到运动状态
+    if ctx.motion_count >= ctx.motion_threshold then
+        -- 达到阈值，立即判断为运动状态
+        if not ctx.motion_state then
             ctx.motion_state = true
             log.info("exs_da267", "进入运动状态")
-            
-            -- 启用计步器功能
             if ctx.step_counter_enable then
                 i2c.send(ctx.i2c_id, ctx.addr, {0x33, 0x80}, 1)
             end
-            
             sys.publish("DA267_MOTION_STATE", true)
-            return
-        end
-    else
-        -- 运动 → 静止：检查整个历史窗口的震动情况
-        log.debug("exs_da267", "运动→静止检查，窗口大小", ctx.motion_window)
-        
-        local total_vibration = 0
-        for i = 0, ctx.motion_window - 1 do
-            if ctx.motion_history[i] ~= 0x30 then
-                total_vibration = total_vibration + 1
-            end
         end
         
-        log.debug("exs_da267", "总震动次数", total_vibration)
-        
-        -- 整个窗口震动次数少于阈值，直接回到静止状态
-        if total_vibration < ctx.motion_threshold then
-            ctx.motion_state = false
-            log.info("exs_da267", "回到静止状态")
-            
-            -- 停止计步器功能
-            if ctx.step_counter_enable then
-                i2c.send(ctx.i2c_id, ctx.addr, {0x33, 0x25}, 1)
-            end
-            
-            sys.publish("DA267_MOTION_STATE", false)
-            return
-        end
-        
-        -- 计算超时时间：找到倒数第二个有效震动位置
-        local tt = 0
-        local tt2 = 0
-        for i = 2, ctx.motion_window - 4 do
-            if ctx.motion_history[i] ~= 0x30 then
-                tt = tt + 1
-                tt2 = i
-                if tt > 2 then
-                    break
-                end
-            end
-        end
-        
-        local timeout = (ctx.motion_window - 4 - tt2) * 1000
-        
-        -- 确保超时时间不为负数或零
-        if timeout <= 0 then
-            timeout = 1000  -- 最小超时时间 1 秒
-        end
-        
-        -- 重置超时定时器
+        -- 重置定时器和计数
         if ctx.motion_timer then
             sys.timerStop(ctx.motion_timer)
         end
         
-        -- 创建定时器前检查超时时间有效性
-        if timeout > 0 and timeout <= 300000 then  -- 限制在 5 分钟以内
-            ctx.motion_timer = sys.timerStart(function()
-                ctx.motion_history:clear(0x30)
-                ctx.motion_state = false
-                ctx.motion_timer = nil
-                log.info("exs_da267", "定时器回调，回到静止状态")
-                
-                -- 停止计步器功能
-                if ctx.step_counter_enable then
-                    i2c.send(ctx.i2c_id, ctx.addr, {0x33, 0x25}, 1)
-                end
-                
-                sys.publish("DA267_MOTION_STATE", false)
-            end, timeout)
-            
-            -- log.debug("exs_da267", "设置超时定时器", timeout, "ms")
-        else
-            log.warn("exs_da267", "无效的超时时间", timeout, "ms，使用默认值 1000ms")
-            ctx.motion_timer = sys.timerStart(function()
-                ctx.motion_history:clear(0x30)
-                ctx.motion_state = false
-                ctx.motion_timer = nil
-                log.info("exs_da267", "定时器回调，回到静止状态")
-                sys.publish("DA267_MOTION_STATE", false)
-            end, 1000)
-        end
+        ctx.motion_count = 0
+        ctx.motion_timer = sys.timerStart(motion_timeout_handler, ctx.motion_window * 1000)
+        return
+    end
+    
+    -- 未达到阈值，继续计时
+    if not ctx.motion_timer then
+        ctx.motion_timer = sys.timerStart(motion_timeout_handler, ctx.motion_window * 1000)
     end
 end
 
@@ -218,45 +154,19 @@ end
 
 -- 运动状态检查函数
 local function motion_check()
-    if not ctx.motion_enable or not ctx.motion_history then
+    if not ctx.motion_enable then
         return
     end
-
-    local tnow = {mcu.ticks2(2)}
-    local tdiff = tnow[2] - ctx.last_int_time[2]
-
-    -- 同一秒内的中断不重复处理
-    if tnow[1] == ctx.last_int_time[1] and tnow[2] == ctx.last_int_time[2] then
-        return
-    end
-
-    -- 超时处理（距离上一次中断超过 window 秒）
-    if tnow[1] > ctx.last_int_time[1] or tdiff > ctx.motion_window then
-        ctx.motion_history:clear(0x30)
-        ctx.motion_history[0] = 0x31
-        ctx.last_int_time = tnow
-        motion_check_internal()
-        return
-    end
-
-    ctx.last_int_time = tnow
-
-    -- 移动历史数据
-    local temp_buff = zbuff.create(ctx.motion_window, 0x30)
-    temp_buff:copy(tdiff, ctx.motion_history, 0, ctx.motion_window)
-    temp_buff[0] = 0x31
-    ctx.motion_history:clear(0x30)
-    ctx.motion_history:copy(0, temp_buff, 0, ctx.motion_window)
-    temp_buff = nil
-
+    
+    ctx.motion_count = ctx.motion_count + 1
     motion_check_internal()
 end
 
 
 -- 运动状态管理初始化
 local function motion_init()
-    ctx.motion_history = zbuff.create(ctx.motion_window, 0x30)
-    ctx.last_int_time = {mcu.ticks2(2)}
+    ctx.motion_count = 0
+    ctx.motion_timer = nil
 end
 
 -- ==================== 外部 API ====================
@@ -268,11 +178,23 @@ end
     i2c_id:number, I2C 总线编号，默认1
     addr:number, I2C 设备地址，默认0x26
     int_pin:number, 中断引脚，默认nil（禁用中断）
-    range:number, 测量量程，支持2/4/8/16（单位：g），默认2g
-    motion_enable:boolean, 是否启用运动状态管理，默认false
-    motion_window:number, 运动状态判断历史窗口（秒），范围：10-60，默认20，可选
+    range:number, 测量量程，支持2/4/8/16（±g），默认2，可选
+        - 量程决定了加速度测量的范围和灵敏度
+        - 量程与灵敏度的关系：
+          - RANGE_2G (±2g, 3.91mg/LSB)：微小震动检测，用于检测轻微震动的场景，例如用手敲击桌面
+          - RANGE_4G (±4g, 7.81mg/LSB)：运动检测，用于电动车或汽车行驶时的检测和人行走和跑步时的检测
+          - RANGE_8G (±8g, 15.63mg/LSB)：跌倒检测，用于人或物体瞬间跌倒时的检测，加速度量程8g；
+          - RANGE_16G (±16g, 31.25mg/LSB)：适合高冲击场景（如安全监测、碰撞检测）
+    motion_enable:boolean, 是否启用运动状态管理，默认false，可选
+        - 启用后会持续监测运动状态
+    motion_window:number, 历史窗口（秒），范围：1-60，默认8，可选
+        - 用于统计运动状态判断的历史记录窗口
+        - 窗口越小，运动状态判断越敏感
+        - 窗口越大，运动状态判断越迟钝
     motion_threshold:number, 进入运动状态的中断次数，范围：1-20，默认4，可选
-    motion_timeout:number, 运动状态超时（秒），范围：10-60，默认15，可选
+        - 进入运动状态所需的中断次数
+        - 中断次数越小，运动状态判断越敏感
+        - 中断次数越大，运动状态判断越迟钝
     step_counter_enable:boolean, 是否启用计步器功能，默认false，可选
 @return boolean 成功返回true，失败返回false
 @usage
@@ -284,7 +206,6 @@ local DA267_CONFIG = {
     motion_enable = true,
     motion_window = 60,
     motion_threshold = 5,
-    motion_timeout = 50,
     step_counter_enable = true
 }
 
@@ -317,11 +238,11 @@ function exs_da267.setup(param)
     ctx.range = param.range or 2
     ctx.int_callback = nil -- 初始化时不设置中断回调，强制使用 set_callback 接口
     ctx.motion_enable = param.motion_enable or false
-    ctx.motion_window = param.motion_window or 20
+    ctx.motion_window = param.motion_window or 8
     ctx.motion_threshold = param.motion_threshold or 4
-    ctx.motion_timeout = param.motion_timeout or 15
+    ctx.motion_count = 0
+    ctx.motion_timer = nil
     ctx.step_counter_enable = param.step_counter_enable or false
-
     if ctx.range ~= 2 and ctx.range ~= 4 and ctx.range ~= 8 and ctx.range ~= 16 then
         log.error("exs_da267", "无效的量程，支持2/4/8/16")
         return false
@@ -535,12 +456,20 @@ exs_da267.set_int_threshold(3, 3, 3)
 -- 检测较大动作（16）
 exs_da267.set_int_threshold(16, 16, 16)
 
-@note 阈值与应用场景关系：
-      - 1-8：高灵敏度（检测微小振动）
-      - 9-48：中等灵敏度（运动检测）
-      - 49-255：低灵敏度（大动作检测）
-      阈值计算示例：
-      在±2g量程下，6（6 LSB）= 23.46 mg（0.023g）
+@note 阈值单位为LSB（最低有效位），实际触发加速度=阈值×量程LSB系数
+        各量程LSB系数：±2g=3.91mg, ±4g=7.81mg, ±8g=15.63mg, ±16g=31.25mg
+        示例(阈值=6)：6*(±2g)→23.5mg, 6*(±4g)→46.9mg, 6*(±8g)→93.8mg, 6*(±16g)→187.5mg
+        规律：量程越大，相同阈值的触发加速度越大，灵敏度越低
+        阈值与量程的关系说明：
+        - 量程决定了传感器测量加速度的范围（如±2g、±4g等）
+        - 阈值决定了触发运动检测中断的加速度变化幅度
+        - 相同阈值在不同量程下，实际触发加速度不同（量程越大，触发加速度越大）
+
+        各阈值范围对应使用场景：
+        - 1-8：高灵敏（微小震动检测，用于检测轻微震动的场景，例如用手敲击桌面）
+        - 9-24：中灵敏（运动检测，用于电动车或汽车行驶时的检测和人行走和跑步时的检测）
+        - 25-48：较高灵敏（跌倒检测，用于人或物体瞬间跌倒时的检测）
+        - 49-255：低灵敏（高冲击场景检测，如安全监测、碰撞检测）
 ]]
 function exs_da267.set_int_threshold(x, y, z)
     if not ctx.inited then
@@ -697,10 +626,6 @@ function exs_da267.enable_motion(enable)
         log.info("exs_da267", "运动状态管理已启用")
     elseif not enable and ctx.motion_enable then
         ctx.motion_enable = false
-        if ctx.motion_timer then
-            sys.timerStop(ctx.motion_timer)
-            ctx.motion_timer = nil
-        end
         ctx.motion_history = nil
         ctx.motion_state = false
         log.info("exs_da267", "运动状态管理已禁用")
@@ -729,34 +654,28 @@ end
 设置运动状态管理参数
 @api exs_da267.set_motion_params(params)
 @table params 参数配置表
-    window:number, 历史窗口（秒），范围：10-300，默认64，可选
+    window:number, 历史窗口（秒），范围：1-60，默认8，可选
     threshold:number, 进入运动状态的中断次数，范围：1-20，默认4，可选
-    timeout:number, 运动状态超时（秒），范围：10-300，默认60，可选
 @return boolean 操作成功返回true，失败返回false
 @usage
 exs_da267.set_motion_params({
-    window = 60,
-    threshold = 3,
-    timeout = 50
+    window = 8,
+    threshold = 4
 })
 local params = {
-    window = 120,    -- 历史窗口改为120秒
-    threshold = 5,   -- 进入运动状态阈值改为5次
-    timeout = 100    -- 超时时间改为100秒
+    window = 10,    -- 历史窗口改为10秒
+    threshold = 5    -- 进入运动状态阈值改为5次
 }
 if exs_da267.set_motion_params(params) then
     log.info("da267", "运动状态管理参数已更新")
 end
 @note 参数范围说明：
-      - window（历史窗口）：10-60秒，用于统计运动状态判断的历史记录窗口
-        - 窗口越小，运动状态判断越敏感，但可能不稳定
-        - 窗口越大，需要存储的历史数据越多，增加内存消耗
+      - window（历史窗口）：1-60秒，用于统计运动状态判断的历史记录窗口
+        - 窗口越小，运动状态判断越敏感
+        - 窗口越大，运动状态判断越迟钝
       - threshold（中断阈值）：1-20次，进入运动状态所需的中断次数
-        - 阈值越小，运动状态判断越敏感，误判概率越大
-        - 阈值越大，运动状态判断越严格，响应速度越低
-      - timeout（超时时间）：10-60秒，运动状态超时后自动变为静止
-        - 超时时间越小，运动状态判断越敏感，但可能误判断
-        - 超时时间越大，静止判断延迟越久
+        - 中断次数越小，运动状态判断越敏感
+        - 中断次数越大，运动状态判断越迟钝
 ]]
 function exs_da267.set_motion_params(params)
     if not ctx.inited then
@@ -767,10 +686,10 @@ function exs_da267.set_motion_params(params)
     -- 历史窗口参数验证
     if params.window and type(params.window) == "number" then
         local window = math.floor(params.window)
-        if window >= 10 and window <= 60 then
+        if window >= 1 and window <= 60 then
             ctx.motion_window = window
         else
-            log.warn("exs_da267", "历史窗口参数无效，使用默认值20秒")
+            log.warn("exs_da267", "历史窗口参数无效，使用默认值8秒")
         end
     end
 
@@ -784,16 +703,6 @@ function exs_da267.set_motion_params(params)
         end
     end
 
-    -- 超时时间参数验证
-    if params.timeout and type(params.timeout) == "number" then
-        local timeout = math.floor(params.timeout)
-        if timeout >= 10 and timeout <= 60 then
-            ctx.motion_timeout = timeout
-        else
-            log.warn("exs_da267", "超时时间参数无效，使用默认值60秒")
-        end
-    end
-
     if ctx.motion_enable then
         ctx.motion_history = zbuff.create(ctx.motion_window, 0x00)
         ctx.last_int_time = {mcu.ticks2(2)}
@@ -801,8 +710,7 @@ function exs_da267.set_motion_params(params)
 
     log.info("exs_da267", "运动状态管理参数更新", 
         "window:", ctx.motion_window, 
-        "threshold:", ctx.motion_threshold, 
-        "timeout:", ctx.motion_timeout)
+        "threshold:", ctx.motion_threshold)
     return true
 end
 
@@ -836,7 +744,7 @@ function exs_da267.get_config()
         motion_state = ctx.motion_state,
         motion_window = ctx.motion_window,
         motion_threshold = ctx.motion_threshold,
-        motion_timeout = ctx.motion_timeout
+        motion_count = ctx.motion_count
     }
 end
 
@@ -853,12 +761,6 @@ function exs_da267.close()
         return false
     end
     
-    -- 停止运动状态管理定时器
-    if ctx.motion_timer then
-        sys.timerStop(ctx.motion_timer)
-        ctx.motion_timer = nil
-    end
-    
     -- 进入休眠模式（寄存器级别）
     -- 使用与 DA221 相同的模式寄存器（0x11）的最高位（0x80）
     i2c.send(ctx.i2c_id, ctx.addr, {REG_MODE_AXIS, 0x80}, 1)
@@ -867,6 +769,13 @@ function exs_da267.close()
     if ctx.int_pin then
         gpio.setup(ctx.int_pin, 0, gpio.PULLUP)
     end
+    
+    -- 清理定时器资源
+    if ctx.motion_timer then
+        sys.timerStop(ctx.motion_timer)
+        ctx.motion_timer = nil
+    end
+    ctx.motion_count = 0
     
     ctx.inited = false
     log.info("exs_da267", "传感器已关闭并进入休眠模式")

@@ -33,6 +33,7 @@ struct tiny_epd {
     uint8_t plane_count;
     uint8_t initialized;
     uint8_t sleeping;
+    uint8_t rotate; /* 0/90/180/270; set via tiny_epd_set_rotation. */
     uint32_t caps;
     uint8_t *framebuffer;
     size_t framebuffer_size;

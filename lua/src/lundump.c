@@ -40,7 +40,10 @@
 
 
 #if !defined(luai_verifycode)
-#define luai_verifycode(L,b,f)  /* empty */
+/* verifier hook signature is luai_verifycode(L, f): the old (L, b, f) form
+** referenced a nonexistent 'buff' at the call site, so a custom verifier
+** could never be compiled in */
+#define luai_verifycode(L,f)  /* empty */
 #endif
 
 size_t ptr_offset = 0;
@@ -215,8 +218,13 @@ static TString *LoadString (LoadState *S, Proto *p) {
     ts = luaS_newlstr(S->L, buff, size);
   }
   else {  /* long string */
+    if (size > (SIZE_MAX / 2))
+      error(S, "string size overflow");
     ts = luaS_createlngstrobj(S->L, size);
+    setsvalue2n(S->L, S->L->top, ts);  /* anchor it while loading */
+    luaD_inctop(S->L);
     LoadVector(S, getstr(ts), size);  /* load directly in final place */
+    S->L->top--;  /* pop anchored string */
   }
 #ifdef LUAT_UNDUMP_DEBUG
   str_size+= (size + sizeof(TString) + (8 - 1)) & (~(8 - 1));
@@ -384,6 +392,8 @@ static void LoadDebug (LoadState *S, Proto *f) {
 #endif
   }
   n = LoadInt(S);
+  if (n > f->sizeupvalues)  /* stripped chunk: n may be 0 while sizeupvalues > 0 */
+    error(S, "bad upvalue names count");
   for (i = 0; i < n; i++)
     f->upvalues[i].name = LoadString(S, f);
 
@@ -484,7 +494,7 @@ LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   LoadFunction(&S, cl->p, ts);
 
   lua_assert(cl->nupvalues == cl->p->sizeupvalues);
-  luai_verifycode(L, buff, cl->p);
+  luai_verifycode(L, cl->p);
 
   // 打印各部分的内存消耗
 #if LUAT_UNDUMP_DEBUG

@@ -22,17 +22,16 @@ local exaudio = require("exaudio")
 -- 音频初始化设置参数 (DAC模式)
 local audio_setup_param ={
     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
-
-    pa_ctrl = 12,             -- 音频放大器电源控制管脚
-    pa_on_level = 1,          -- PA打开电平
-    pa_delay = 10            -- PA延时
+    
+    pa_ctrl = 12,             -- 音频放大器电源控制管脚，Air1601_V1.1开发板-IO12，Air1601_V1.2开发板-IO73
+    pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
+    dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
 
 -- 播放完成回调
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
-
     end
 end 
 
@@ -64,7 +63,6 @@ local function audio_get_data()
         local read_data = file:read(buffer_size)  --  读取文件，模拟流式音频源,需要1024 的倍数
         if read_data  == nil then
             file:close()                -- 模拟音频获取完毕，关闭音频文件
-            -- 本API需要用V2024固件！！！ 
             -- 写入数据完毕后，通知多媒体通道已经没有更多数据需要播放了
             -- 开启后可以有效的降低pop音
             exaudio.finish()
@@ -85,19 +83,17 @@ sys.taskInitEx(audio_get_data, "audio_get_data")
 
 
 ---------------------------------
-------------通过主task------------
+------------主task---------------
 ---------------------------------
-local taskName = "task_audio"
 local function audio_task()
     log.info("开始流式播报")
     if exaudio.setup(audio_setup_param) then
         if exaudio.play_start(audio_play_param) then
             log.info("播放状态",exaudio.is_end())
-            sys.publish("AUDIO_READY")  -- 通知数据task可以开始读取数据
+            sys.publish("AUDIO_READY")
         else
             log.error("流式播放启动失败")
         end
     end
 end
-
-sys.taskInitEx(audio_task, taskName)
+sys.taskInitEx(audio_task, "task_audio")

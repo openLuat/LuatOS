@@ -20,10 +20,11 @@ local exaudio = require("exaudio")
 
 -- 音频初始化设置参数 (DAC模式)
 local audio_setup_param ={
-    model = "dac",              -- 音频输出类型，Air1602使用内置DAC
-    pa_ctrl = 45,               -- 音频放大器电源控制管脚
-    pa_on_level = 1,            -- PA打开电平
-    pa_delay = 10,              -- PA延时
+    model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
+    
+    pa_ctrl = 45,             -- 音频放大器电源控制管脚，Air1602畅玩版-IO45，Air1602_V1.2开发板-IO73
+    pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
+    dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
 
 -- TTS音色列表（关于TTS音色设置请见: https://docs.openluat.com/osapi/ext/exaudio/#tts_2）
@@ -43,9 +44,9 @@ local function play_end(event)
 end
 
 local audio_play_param ={
-    type = 1,
-    content = "支付宝到账,1千万元",
-    cbfnc = play_end,
+    type = 1,                -- 播放类型: 1=播放TTS
+    content = "支付宝到账,1千万元", -- 需要播放的内容
+    cbfnc = play_end, -- 播放完毕回调函数
 }
 
 ---------------------------------
@@ -58,7 +59,8 @@ local function audio_task()
         exaudio.vol(50)
         exaudio.play_start(audio_play_param)
         while not exaudio.is_end() do sys.wait(100) end
-
+        
+        -- 循环演示播放5种音色，间隔3秒
         local idx = 1
         while true do
             sys.wait(3000)

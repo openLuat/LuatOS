@@ -8,7 +8,7 @@
 
 注意：
 1. Air8101使用内置DAC输出音频，无需外部音频编解码芯片
-2. 需要固件版本>=V1018才可播放音频
+2. 需要固件版本>=V2018才可播放音频
 3. 此功能需要用Air8101B来测试，Air8101不支持
 
 录音到文件演示程序，按键功能：
@@ -53,8 +53,8 @@ local audio_setup_param ={
     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
     
     pa_ctrl = 27,             -- 音频放大器电源控制管脚
-    pa_on_level = 1,          -- PA打开电平
-    pa_delay = 10            -- PA延时
+    pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
+    dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
 
 -- 全局状态
@@ -218,7 +218,7 @@ end
 
 -- IO29按键：开始/停止录音，停止播放
 local function powerkey_handler()
-    log.info("按下POWERKEY键")
+    log.info("按下录音键")
 
     if is_recording then
         log.info("正在录音中，停止录音")
@@ -234,7 +234,7 @@ end
 
 -- IO37按键：开始/停止播放，停止录音
 local function boot_key_handler()
-    log.info("按下BOOT键")
+    log.info("按下播放键")
 
     if is_recording then
         log.info("正在录音中，停止录音")

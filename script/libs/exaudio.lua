@@ -1,10 +1,15 @@
-﻿--[[
+--[[
 @module exaudio
 @summary exaudio扩展库
-@version 2.2
-@date    2026.7.14
+@version 2.4
+@date    2026.7.17
 @author  拓毅恒
 @updates
+    v2.4 2026.7.17
+        1. 重构exaudio.parse_audio_info()，支持文件路径和缓冲数据两种方式输入
+    v2.3 2026.7.16
+        1. 移除新音频框架初始化audio_v2_setup中的make_probe_id+set_default_driver操作
+           （各BSP有默认驱动，无需手动设置，特殊情况可通过exaudio.set_default_driver接口设置）
     v2.2 2026.7.14
         1. 新增codec_voltage参数控制ES8311电平 codec_voltage=1(默认3.3V)，codec_voltage=0(1.8V，适配Air8201等特殊板型)
     v2.1 2026.7.8
@@ -45,6 +50,13 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202607171800
+-- 1、更新时间：2026-07-17 18:00
+--    改造parse_audio_info，支持文件路径和缓冲数据两种方式输入
+-- 版本号：202607161030
+-- 1、更新时间：2026-07-16 10:30
+--    移除新音频框架初始化audio_v2_setup中的make_probe_id+set_default_driver操作
+--    各BSP有默认驱动，无需手动设置，特殊情况可通过exaudio.set_default_driver接口设置
 -- 版本号：202607141800
 -- 1、更新时间：2026-07-14 18:00
 --    新增codec_voltage参数控制ES8311电平
@@ -495,37 +507,6 @@ local function audio_v2_setup()
     else
         log.error("audio_v2不支持的model:", audio_setup_param.model)
         return false
-    end
-    
-    -- 检查audio_v2驱动管理API是否可用
-    if audio_v2.make_probe_id and audio_v2.set_default_driver then
-        -- 使用驱动管理API设置驱动
-        local driver_probe_id
-        if audio_setup_param.model == "dac" then
-            -- 合成DAC驱动ID: DAC0播放, 无录音
-            driver_probe_id = audio_v2.make_probe_id(
-                audio_v2.DRIVER_TYPE_DAC, 0,  -- 发送: DAC0
-                audio_v2.DRIVER_TYPE_NONE, 0   -- 接收: 无
-            )
-        elseif audio_setup_param.model == "es8311" then
-            -- 合成I2S驱动ID: I2S0全双工(播放+录音)
-            driver_probe_id = audio_v2.make_probe_id(
-                audio_v2.DRIVER_TYPE_I2S, 0,  -- 发送: I2S0
-                audio_v2.DRIVER_TYPE_I2S, 0   -- 接收: I2S0
-            )
-        end
-        
-        -- 设置默认驱动
-        local set_ok = audio_v2.set_default_driver(driver_probe_id)
-        if set_ok then
-            log.info("exaudio.setup", "默认驱动已设置, probe_id:", driver_probe_id)
-        else
-            -- 设置失败，可能是驱动未注册，尝试继续
-            log.warn("exaudio.setup", "设置默认驱动失败，尝试使用系统默认驱动")
-        end
-    else
-        -- 固件不支持驱动管理API，使用默认驱动
-        log.info("exaudio.setup", "使用audio_v2默认驱动")
     end
     
     -- 注册audio_v2事件回调
@@ -1801,23 +1782,31 @@ end
 -- ==================== 流式播放辅助函数（仅audio_v2模式支持） ====================
 
 --[[
-@description 从音频文件解析播放信息（采样率、位宽、声道数等）
-@api exaudio.parse_audio_info(file_path, codec_id)
-@string file_path 音频文件路径
+@description 从音频文件或缓冲数据解析播放信息（采样率、位宽、声道数等）
+@api exaudio.parse_audio_info(input, codec_id[, pos])
+@string/zbuff input 音频文件路径（string）或二进制数据（string/zbuff）
 @number codec_id 编解码器ID (0=PCM, 1=WAV, 2=AMR_NB, 3=AMR_WB, 5=MP3)
+@number pos 可选，数据偏移位置（字节），仅传入二进制数据时有效，默认0
 @return table 成功返回包含音频信息的table，失败返回nil
 @usage
+-- 方式1：传入文件路径
 local info = exaudio.parse_audio_info("/luadb/test.mp3", 5)
 if info then
     log.info("采样率:", info.sample_rate)
     log.info("位宽:", info.data_bits)
     log.info("声道数:", info.channel_nums)
 end
+
+-- 方式2：传入缓冲数据
+local info = exaudio.parse_audio_info(buff_data, 5)
+if info then
+    log.info("采样率:", info.sample_rate)
+end
 注意：此函数仅在audio_v2模式下可用
 ]]
-function exaudio.parse_audio_info(file_path, codec_id)
-    if not file_path or type(file_path) ~= "string" then
-        log.error("parse_audio_info: file_path must be string")
+function exaudio.parse_audio_info(input, codec_id, pos)
+    if not input then
+        log.error("parse_audio_info: input must not be nil")
         return nil
     end
     
@@ -1832,32 +1821,48 @@ function exaudio.parse_audio_info(file_path, codec_id)
         return {sample_rate = 16000, data_bits = 16, channel_nums = 1, is_signed = true, data_start = 0}
     end
     
-    local fp = io.open(file_path, "rb")
-    if not fp then
-        log.error("parse_audio_info: cannot open file", file_path)
-        return nil
+    local file_data
+    local need_close_fp = false
+    local fp
+    
+    -- 判断传入的是文件路径还是缓冲数据
+    if type(input) == "string" then
+        -- 尝试打开文件
+        fp = io.open(input, "rb")
+        if fp then
+            need_close_fp = true
+            -- 先读取12字节进行初始解析
+            file_data = fp:read(12)
+            if not file_data or #file_data == 0 then
+                log.error("parse_audio_info: file read failed", input)
+                fp:close()
+                return nil
+            end
+        else
+            -- 不是文件路径，当作二进制数据直接使用
+            file_data = input
+        end
+    else
+        -- zbuff或其他类型，直接作为数据使用
+        file_data = input
     end
     
-    -- 先读取12字节进行初始解析
-    local file_data = fp:read(12)
-    if not file_data or #file_data == 0 then
-        log.error("parse_audio_info: file read failed", file_path)
-        fp:close()
-        return nil
-    end
+    local start_pos = pos or 0
     
     -- 使用audio_v2.get_play_info解析文件头
     local no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed = 
-        audio_v2.get_play_info(file_data, codec_id, 0)
+        audio_v2.get_play_info(file_data, codec_id, start_pos)
     
     log.info("parse_audio_info", "get_play_info result:", no_error, "sample_rate:", sample_rate, "next_pos:", next_pos, "need_len:", need_len)
     
     if no_error then
         if sample_rate and sample_rate > 0 then
-            -- 解析成功，跳转到数据起始位置
-            log.info("exaudio.parse_audio_info", file_path, "sample_rate:", sample_rate, 
-                     "bits:", data_bits, "channels:", channel_nums)
-            fp:close()
+            -- 解析成功
+            if need_close_fp then
+                log.info("exaudio.parse_audio_info", input, "sample_rate:", sample_rate, 
+                         "bits:", data_bits, "channels:", channel_nums)
+                fp:close()
+            end
             return {
                 sample_rate = sample_rate,
                 data_bits = data_bits or 16,
@@ -1867,45 +1872,59 @@ function exaudio.parse_audio_info(file_path, codec_id)
             }
         else
             -- sample_rate为0或nil，需要读取更多数据重试
-            log.info("parse_audio_info", "sample_rate is", sample_rate, "need retry")
-            local retry_count = 0
-            while retry_count < 6 and no_error and (not sample_rate or sample_rate == 0) do
-                log.info("parse_audio_info", "seek", next_pos, "need", need_len)
-                fp:seek("set", next_pos)
-                file_data = fp:read(need_len)
-                if file_data then
-                    log.info("parse_audio_info", "read", #file_data)
-                    no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed = 
-                        audio_v2.get_play_info(file_data, codec_id, next_pos)
-                    retry_count = retry_count + 1
-                else
-                    break
+            if need_close_fp then
+                -- 文件模式：从文件继续读取
+                log.info("parse_audio_info", "sample_rate is", sample_rate, "need retry")
+                local retry_count = 0
+                while retry_count < 6 and no_error and (not sample_rate or sample_rate == 0) do
+                    log.info("parse_audio_info", "seek", next_pos, "need", need_len)
+                    fp:seek("set", next_pos)
+                    file_data = fp:read(need_len)
+                    if file_data then
+                        log.info("parse_audio_info", "read", #file_data)
+                        no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed = 
+                            audio_v2.get_play_info(file_data, codec_id, next_pos)
+                        retry_count = retry_count + 1
+                    else
+                        break
+                    end
                 end
-            end
-            
-            if no_error and sample_rate and sample_rate > 0 then
-                log.info("exaudio.parse_audio_info", file_path, "sample_rate:", sample_rate, 
-                         "bits:", data_bits, "channels:", channel_nums, "retries:", retry_count)
-                fp:close()
+                
+                if no_error and sample_rate and sample_rate > 0 then
+                    log.info("exaudio.parse_audio_info", input, "sample_rate:", sample_rate, 
+                             "bits:", data_bits, "channels:", channel_nums, "retries:", retry_count)
+                    fp:close()
+                    return {
+                        sample_rate = sample_rate,
+                        data_bits = data_bits or 16,
+                        channel_nums = channel_nums or 1,
+                        is_signed = is_signed ~= false,
+                        data_start = next_pos
+                    }
+                else
+                    log.warn("parse_audio_info: retry failed", input, "retries:", retry_count)
+                end
+            else
+                -- 缓冲数据模式：返回当前解析结果，由调用方自行重试
+                log.info("parse_audio_info", "buffer mode, sample_rate is", sample_rate, "need more data, next_pos:", next_pos, "need_len:", need_len)
                 return {
-                    sample_rate = sample_rate,
+                    sample_rate = sample_rate or 0,
                     data_bits = data_bits or 16,
                     channel_nums = channel_nums or 1,
-                    is_signed = is_signed ~= false,
-                    data_start = next_pos
+                    is_signed = (is_signed ~= false),
+                    data_start = next_pos,
+                    need_len = need_len
                 }
-            else
-                log.warn("parse_audio_info: retry failed, use default values", file_path, "retries:", retry_count)
             end
         end
     else
-        log.warn("parse_audio_info: get_play_info error", file_path)
+        log.warn("parse_audio_info: get_play_info error", input)
     end
     
-    -- 解析失败，返回false
-    log.info("parse_audio_info: parse failed, return nil for", file_path)
-    fp:close()
-    return false
+    if need_close_fp then
+        fp:close()
+    end
+    return nil
 end
 
 --[[
@@ -1915,7 +1934,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202607141800"
+    return "202607171800"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

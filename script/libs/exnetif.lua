@@ -1,27 +1,27 @@
-﻿--[[
+--[[
 @module exnetif
 @summary exnetif 控制网络优先级（以太网->WIFI->4G）根据优先级选择上网的网卡。简化开启多网融合的操作，4G作为数据出口给WIFI,以太网设备上网，以太网作为数据出口给WIFI,Air8000上网，WIFI作为数据出口给Air8000,以太网上网。
 @version 1.0
 @date    2025.06.26
 @author  王城钧
 @usage
-本文件的对外接口有9个：
-1、exnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络(需要在task中调用)
+本文件的对外接口有7个：
+1、exnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络,支持 proxy_adapters 代理模式(需要在task中调用)
 2、exnetif.notify_status(cb_fnc)：设置网络状态变化回调函数
 3、exnetif.setproxy(adapter, main_adapter,other_configs)：配置网络代理实现多网融合(需要在task中调用)
 4、exnetif.check_network_status(interval),检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
 5、exnetif.close(type, adapter)：关闭网卡功能或多网融合,内核固件版本需为2026年1月后的固件
 6、exnetif.update_wifi(config)：运行时更新WiFi账号密码,用于引擎主机等需要动态获取WiFi凭证的场景
-7、exnetif.switch_upstream_wifi(config)：多网融合代理模式下切换上游WiFi，自动处理NAPT关闭/重开(需要在task中调用)
-8、exnetif.disable_upstream_autoreconnect()：禁用上游WiFi自动重连功能
-9、exnetif.version()：获取库文件版本信息
+7、exnetif.version()：获取库文件版本信息
 
 -- 版本更新说明
--- 版本号：202607141200
--- 1、更新时间：2026-07-14 12:00
+-- 版本号：202607161200
+-- 1、更新时间：2026-07-16 12:00
 -- 2、更新内容
---    新增exnetif.switch_upstream_wifi(config)接口：多网融合代理模式下切换上游WiFi，封装NAPT关闭→断连→重连→NAPT恢复全流程
---    新增exnetif.disable_upstream_autoreconnect()接口：禁用上游WiFi自动重连
+--    set_priority_order WiFi条目新增 proxy_adapters 字段：支持在同一个接口内完成多网融合代理建立和上游WiFi切换
+--    proxy_adapters={LWIP_ETH} + auto_reconnect=true：一次调用同时完成WiFi连接、ETH LAN设置、DHCP/DNS/NAPT代理和自动重连
+--    再次调用set_priority_order传入不同WiFi凭证时，库自动完成NAPT关闭→断连→重连→NAPT恢复全流程
+--    移除 exnetif.switch_upstream_wifi 和 exnetif.disable_upstream_autoreconnect 公开API，逻辑合并到 set_priority_order
 --    setproxy 增加 auto_reconnect 参数：建立代理时可选择启用上游WiFi异常掉线自动重连
 --    exnetif.close(true) 同步清理 wifi_config 字段
 
@@ -283,6 +283,35 @@ local function ip_lose_handle(adapter)
 end
 
 local interval_time = nil
+
+-- 代理模式下WiFi异常掉线重连任务
+local function proxy_sta_reconnect_task()
+    if not proxy_state.wifi_config then
+        return
+    end
+    local ssid = proxy_state.wifi_config.ssid
+    while true do
+        local ok = switch_upstream_wifi(proxy_state.wifi_config)
+        if ok then
+            log.info("exnetif", "上游WiFi重连成功")
+            break
+        end
+        log.error("exnetif", "上游WiFi重连失败，3秒后重试:", ssid)
+        sys.wait(3000)
+    end
+end
+
+-- 代理模式下WiFi掉线回调
+local function on_proxy_sta_ip_lose(adapter)
+    if adapter ~= socket.LWIP_STA then
+        return
+    end
+    if not proxy_state.wifi_config then
+        return
+    end
+    log.warn("exnetif", "检测到上游WiFi STA异常掉线，自动重连:", proxy_state.wifi_config.ssid)
+    sys.taskInit(proxy_sta_reconnect_task)
+end
 
 --[[
 对正常状态的网卡进行ping测试
@@ -867,6 +896,42 @@ exnetif.set_priority_order({
             }
         }
     })
+-- 多网融合代理模式（WiFi->ETH）：通过proxy_adapters在同一个接口内完成代理建立和WiFi切换
+    exnetif.set_priority_order({
+        {
+            WIFI = {
+                ssid = "my_wifi",
+                password = "password123",
+                auto_reconnect = true,                 -- 启用WiFi掉线自动重连
+                proxy_adapters = { socket.LWIP_ETH },  -- ETH通过本WiFi上网
+            }
+        },
+        {
+            ETHERNET = {
+                pwrpin = 140,
+                tp = netdrv.CH390,
+                opts = { spi = 1, cs = 12, irq = 21 },
+            }
+        }
+    })
+    -- 切换上游WiFi：再次调用 set_priority_order 传入新WiFi凭证即可，库内部自动处理NAPT/WiFi切换
+    exnetif.set_priority_order({
+        {
+            WIFI = {
+                ssid = "new_wifi",
+                password = "new_password",
+                auto_reconnect = true,
+                proxy_adapters = { socket.LWIP_ETH },
+            }
+        },
+        {
+            ETHERNET = {
+                pwrpin = 140,
+                tp = netdrv.CH390,
+                opts = { spi = 1, cs = 12, irq = 21 },
+            }
+        }
+    })
 -- 4G单网模式下，不需要require "exnetif"，减少不必要的功能模块加载
 ]]
 function exnetif.set_priority_order(networkConfigs)
@@ -896,6 +961,16 @@ function exnetif.set_priority_order(networkConfigs)
     end
 
     local new_priority = {}
+    local pending_proxy = nil
+    -- 预扫描：收集所有 proxy_adapters
+    local proxy_adapter_set = {}
+    for _, config in ipairs(networkConfigs) do
+        if type(config.WIFI) == "table" and config.WIFI.proxy_adapters then
+            for _, a in ipairs(config.WIFI.proxy_adapters) do
+                proxy_adapter_set[a] = true
+            end
+        end
+    end
     -- 只有关闭状态的网卡需要初始化
     for _, config in ipairs(networkConfigs) do
         if type(config.WIFI) == "table" then
@@ -906,14 +981,29 @@ function exnetif.set_priority_order(networkConfigs)
                     log.error("wifi连接失败")
                     return false
                 end
+            elseif config.WIFI.proxy_adapters and proxy_state.main_adapter == socket.LWIP_STA then
+                -- 代理模式下凭证变化，切WiFi
+                if proxy_state.wifi_config and proxy_state.wifi_config.ssid ~= config.WIFI.ssid then
+                    log.info("set_priority_order", "检测到上游WiFi变化，切换中")
+                    switch_upstream_wifi(config.WIFI)
+                end
             else
                 log.info("wifi不是关闭状态，跳过初始化")
+            end
+            if config.WIFI.proxy_adapters then
+                pending_proxy = {
+                    main_adapter = socket.LWIP_STA,
+                    adapters = config.WIFI.proxy_adapters,
+                    config = config.WIFI,
+                }
             end
             table.insert(new_priority, socket.LWIP_STA)
         end
         if type(config.ETHUSER1) == "table" then
             eth_cfg[socket.LWIP_USER1] = config.ETHUSER1
-            if available[socket.LWIP_USER1] == connection_states.DISCONNECTED then
+            if proxy_adapter_set[socket.LWIP_USER1] then
+                log.info("8101spi以太网", "作为代理网卡，跳过WAN初始化")
+            elseif available[socket.LWIP_USER1] == connection_states.DISCONNECTED then
                 -- 开启以太网
                 local res = setup_eth_user1(config.ETHUSER1)
                 if res == false then
@@ -929,7 +1019,9 @@ function exnetif.set_priority_order(networkConfigs)
         end
         if type(config.ETHERNET) == "table" then
             eth_cfg[socket.LWIP_ETH] = config.ETHERNET
-            if available[socket.LWIP_ETH] == connection_states.DISCONNECTED then
+            if proxy_adapter_set[socket.LWIP_ETH] then
+                log.info("以太网", "作为代理网卡，跳过WAN初始化")
+            elseif available[socket.LWIP_ETH] == connection_states.DISCONNECTED then
                 -- 开启以太网
                 local res = setup_eth(config.ETHERNET)
                 if res == false then
@@ -990,6 +1082,114 @@ function exnetif.set_priority_order(networkConfigs)
     -- 就可能会出现“网络应用在这段时间内直接使用socket.LWIP_GP，而不是用户期望的网卡socket.LWIP_ETH来上网”的问题；
     socket.dft(new_priority[1])
     apply_priority()
+
+    -- 代理建立：WiFi 配置了 proxy_adapters 且尚未建立代理
+    if pending_proxy and not proxy_state.main_adapter then
+        local main_adapter = pending_proxy.main_adapter
+        local wifi_cfg = pending_proxy.config
+        for _, adapter in ipairs(pending_proxy.adapters) do
+            local eth_cfg_adapter = eth_cfg[adapter]
+            if adapter == socket.LWIP_ETH then
+                if eth_cfg_adapter.pwrpin then
+                    gpio.setup(eth_cfg_adapter.pwrpin, 1, gpio.PULLUP)
+                end
+                if eth_cfg_adapter.tp then
+                    local result = spi.setup(eth_cfg_adapter.opts.spi, nil, 0, 0, 8, 25600000)
+                    if result ~= 0 then
+                        log.error("代理ETH", "SPI开启失败")
+                        return false
+                    end
+                end
+                if eth_cfg_adapter.opts and eth_cfg_adapter.opts.irq then
+                    log.info("代理ETH", "使用中断模式, irq引脚:", eth_cfg_adapter.opts.irq)
+                end
+                if eth_cfg_adapter.tp then
+                    if netdrv.setup(socket.LWIP_ETH, eth_cfg_adapter.tp, eth_cfg_adapter.opts) == false then
+                        log.error("代理ETH", "初始化失败")
+                        return false
+                    end
+                else
+                    if netdrv.setup(socket.LWIP_ETH) == false then
+                        log.error("代理ETH", "初始化失败")
+                        return false
+                    end
+                end
+                sys.wait(1000)
+                netdrv.ipv4(socket.LWIP_ETH, wifi_cfg.eth_addr or "192.168.5.1", "255.255.255.0", "0.0.0.0")
+                local count = 1
+                while netdrv.ready(socket.LWIP_ETH) ~= true do
+                    if count > 600 then
+                        log.error("代理ETH", "就绪超时")
+                        return false
+                    end
+                    count = count + 1
+                    sys.wait(100)
+                end
+                proxy_state.dhcp_servers[#proxy_state.dhcp_servers + 1] = dhcpsrv.create({
+                    adapter = socket.LWIP_ETH,
+                    gw = wifi_cfg.eth_gw or {192, 168, 5, 1}
+                })
+                log.info("代理", "ETH LAN已就绪")
+            elseif adapter == socket.LWIP_AP then
+                wlan.setMode(wlan.APSTA)
+                wlan.createAP(wifi_cfg.ssid or "exnetif_ap", wifi_cfg.password or "", wifi_cfg.ap_addr or "192.168.4.1",
+                    "255.255.255.0", wifi_cfg.channel, wifi_cfg.ap_opts)
+                netdrv.ipv4(socket.LWIP_AP, wifi_cfg.ap_addr or "192.168.4.1", "255.255.255.0", "0.0.0.0")
+                local count = 1
+                while netdrv.ready(socket.LWIP_AP) ~= true do
+                    if count > 600 then
+                        log.error("代理AP", "就绪超时")
+                        return false
+                    end
+                    count = count + 1
+                    sys.wait(100)
+                end
+                proxy_state.dhcp_servers[#proxy_state.dhcp_servers + 1] = dhcpsrv.create({
+                    adapter = socket.LWIP_AP,
+                    gw = wifi_cfg.ap_gw
+                })
+                log.info("代理", "AP热点已就绪")
+            elseif adapter == socket.LWIP_USER1 then
+                if eth_cfg_adapter.pwrpin then
+                    gpio.setup(eth_cfg_adapter.pwrpin, 1, gpio.PULLUP)
+                end
+                local result = spi.setup(eth_cfg_adapter.opts.spi, nil, 0, 0, 8, 25600000)
+                if result ~= 0 then
+                    log.error("代理USER1", "SPI开启失败")
+                    return false
+                end
+                if netdrv.setup(socket.LWIP_USER1, eth_cfg_adapter.tp, eth_cfg_adapter.opts) == false then
+                    log.error("代理USER1", "初始化失败")
+                    return false
+                end
+                sys.wait(1000)
+                netdrv.ipv4(socket.LWIP_USER1, wifi_cfg.eth_addr or "192.168.5.1", "255.255.255.0", "0.0.0.0")
+                local count = 1
+                while netdrv.ready(socket.LWIP_USER1) ~= true do
+                    if count > 600 then
+                        log.error("代理USER1", "就绪超时")
+                        return false
+                    end
+                    count = count + 1
+                    sys.wait(100)
+                end
+                proxy_state.dhcp_servers[#proxy_state.dhcp_servers + 1] = dhcpsrv.create({
+                    adapter = socket.LWIP_USER1,
+                    gw = wifi_cfg.eth_gw or {192, 168, 5, 1}
+                })
+                log.info("代理", "USER1 LAN已就绪")
+            end
+            dnsproxy.setup(adapter, main_adapter)
+            netdrv.napt(main_adapter)
+            proxy_state.proxy_adapters[#proxy_state.proxy_adapters + 1] = adapter
+        end
+        proxy_state.main_adapter = main_adapter
+        if wifi_cfg.auto_reconnect then
+            proxy_state.wifi_config = {ssid = wifi_cfg.ssid, password = wifi_cfg.password, auto_reconnect = true}
+            sys.subscribe("IP_LOSE", on_proxy_sta_ip_lose)
+            log.info("exnetif", "已启用上游WiFi自动重连")
+        end
+    end
 
     return true
 end
@@ -1420,7 +1620,7 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
     proxy_state.proxy_adapters[#proxy_state.proxy_adapters + 1] = adapter
     proxy_state.main_adapter = main_adapter
     if main_adapter == socket.LWIP_STA and other_configs.auto_reconnect then
-        proxy_state.wifi_config = {ssid = other_configs.main_adapter.ssid, password = other_configs.main_adapter.password}
+        proxy_state.wifi_config = {ssid = other_configs.main_adapter.ssid, password = other_configs.main_adapter.password, auto_reconnect = true}
         sys.subscribe("IP_LOSE", on_proxy_sta_ip_lose)
         log.info("exnetif", "已启用上游WiFi自动重连")
     end
@@ -1502,7 +1702,7 @@ function exnetif.update_wifi(config)
 end
 
 --[[
-关闭网卡功能。(内核固件版本支持情况：Air8000模组对应V2022版本及以后版本，Air780EPM/EHM/EHV/EGH 模组对应V2024及以后版本，Air1601模组对应V1008版本固件)
+关闭网卡功能。(内核固件版本支持情况：Air8000系列模组对应V2022版本及以后版本，Air780/700 系列模组对应V2024及以后版本，Air1601/1602系列模组对应V1008版本及以后版本,Air8101 系列模组对应V2002及以后版本)
 @api exnetif.close(type,adapter)
 @param type boolean 是否为多网融合(true=关闭多网融合, false=关闭单个网卡)
 @param adapter number 需要关闭的网卡，可选值: socket.LWIP_ETH/LWIP_USER1/LWIP_STA/LWIP_AP/LWIP_GP/LWIP_GP_GW
@@ -1604,72 +1804,14 @@ function exnetif.close(type, adapter)
     end
 end
 
--- 代理模式下WiFi异常掉线重连任务
-local function proxy_sta_reconnect_task()
-    if not proxy_state.wifi_config then
-        return
-    end
-    local ssid = proxy_state.wifi_config.ssid
-    local pwd = proxy_state.wifi_config.password
-    while true do
-        netdrv.napt(-1)
-        wlan.connect(ssid, pwd)
-        local count = 1
-        local connected = false
-        while count <= 600 do
-            local ip = netdrv.ipv4(socket.LWIP_STA)
-            if ip and ip ~= "0.0.0.0" then
-                connected = true
-                break
-            end
-            sys.wait(100)
-            count = count + 1
-        end
-        if connected then
-            netdrv.napt(socket.LWIP_STA)
-            log.info("exnetif", "上游WiFi重连成功, NAPT已恢复")
-            break
-        end
-        log.error("exnetif", "上游WiFi重连失败，3秒后重试:", ssid)
-        sys.wait(3000)
-    end
-end
-
--- 代理模式下WiFi掉线回调
-local function on_proxy_sta_ip_lose(adapter)
-    if adapter ~= socket.LWIP_STA then
-        return
-    end
-    if not proxy_state.wifi_config then
-        return
-    end
-    log.warn("exnetif", "检测到上游WiFi STA异常掉线，自动重连:", proxy_state.wifi_config.ssid)
-    sys.taskInit(proxy_sta_reconnect_task)
-end
-
---[[
-切换代理模式下的上游WiFi网络。用于场景：多网融合（如ETH -> STA）运行时切换上游WiFi凭证。
-@api exnetif.switch_upstream_wifi(config)
-@table config WiFi配置表
-  config.ssid       WiFi SSID (string，必填)
-  config.password   WiFi密码 (string，必填)
-  config.bssid      指定BSSID (string，可选)
-  config.auto_reconnect 是否启用异常掉线自动重连 (boolean，可选，默认false)
-@return boolean 成功返回true，失败返回false
-@usage
-    exnetif.switch_upstream_wifi({
-        ssid = "new_wifi",
-        password = "new_password",
-        auto_reconnect = true
-    })
-]]
-function exnetif.switch_upstream_wifi(config)
+-- 代理模式下切换上游WiFi（内部函数，由 set_priority_order 和 proxy_sta_reconnect_task 调用）
+local function switch_upstream_wifi(config)
     if type(config) ~= "table" or not config.ssid then
-        log.error("exnetif.switch_upstream_wifi", "参数错误，请传入包含ssid的配置表")
+        log.error("switch_upstream_wifi", "参数错误，请传入包含ssid的配置表")
         return false
     end
     if proxy_state.main_adapter ~= socket.LWIP_STA then
-        log.error("exnetif.switch_upstream_wifi", "当前不在WiFi上游代理模式，无法切换")
+        log.error("switch_upstream_wifi", "当前不在WiFi上游代理模式，无法切换")
         return false
     end
 
@@ -1678,12 +1820,12 @@ function exnetif.switch_upstream_wifi(config)
     -- 先置空，防止切换过程中IP_LOSE回调触发旧凭证重连
     proxy_state.wifi_config = nil
 
-    log.info("exnetif.switch_upstream_wifi", "关闭NAPT, 断开当前WiFi")
+    log.info("switch_upstream_wifi", "关闭NAPT, 断开当前WiFi")
     netdrv.napt(-1)
     wlan.disconnect()
     sys.wait(2000)
 
-    log.info("exnetif.switch_upstream_wifi", "正在连接新WiFi:", config.ssid)
+    log.info("switch_upstream_wifi", "正在连接新WiFi:", config.ssid)
     local bssid_bin = nil
     if config.bssid and #config.bssid >= 12 then
         bssid_bin = string.fromHex(config.bssid)
@@ -1694,11 +1836,11 @@ function exnetif.switch_upstream_wifi(config)
     while true do
         local ip = netdrv.ipv4(socket.LWIP_STA)
         if ip and ip ~= "0.0.0.0" then
-            log.info("exnetif.switch_upstream_wifi", "新WiFi已连接, IP:", ip)
+            log.info("switch_upstream_wifi", "新WiFi已连接, IP:", ip)
             break
         end
         if count > 600 then
-            log.error("exnetif.switch_upstream_wifi", "新WiFi连接超时:", config.ssid)
+            log.error("switch_upstream_wifi", "新WiFi连接超时:", config.ssid)
             return false
         end
         sys.wait(100)
@@ -1706,36 +1848,25 @@ function exnetif.switch_upstream_wifi(config)
     end
 
     netdrv.napt(socket.LWIP_STA)
-    log.info("exnetif.switch_upstream_wifi", "NAPT已重新打开, 切换完成")
+    log.info("switch_upstream_wifi", "NAPT已重新打开, 切换完成")
 
     if auto_reconnect then
-        proxy_state.wifi_config = {ssid = config.ssid, password = config.password}
+        proxy_state.wifi_config = {ssid = config.ssid, password = config.password, auto_reconnect = true}
         sys.subscribe("IP_LOSE", on_proxy_sta_ip_lose)
-        log.info("exnetif.switch_upstream_wifi", "已启用上游WiFi自动重连")
+        log.info("switch_upstream_wifi", "已启用上游WiFi自动重连")
     end
 
     return true
 end
 
 --[[
-禁用上游WiFi自动重连功能
-@api exnetif.disable_upstream_autoreconnect()
-@usage
-    exnetif.disable_upstream_autoreconnect()
-]]
-function exnetif.disable_upstream_autoreconnect()
-    proxy_state.wifi_config = nil
-    log.info("exnetif", "已禁用上游WiFi自动重连")
-end
-
---[[
 获取库版本信息
-@return string 年月日时分，例如： "202606300102"
+@return string 年月日时分，例如： "202607161200"
 @usage
 exnetif.version()
 ]]
 function exnetif.version()
-    return "202607141200"
+    return "202607161200"
 end
 
 log.debug("exnetif", "version -> " .. exnetif.version())

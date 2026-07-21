@@ -65,7 +65,7 @@ static int l_mcu_get_clk(lua_State* L) {
 local unique_id = mcu.unique_id()
 print("unique_id", unique_id)
 */
-static int l_mcu_unique_id(lua_State* L) {
+int l_mcu_unique_id(lua_State* L) {
     size_t len = 0;
     const char* id = luat_mcu_unique_id(&len);
     lua_pushlstring(L, id, len);
@@ -102,27 +102,29 @@ static int l_mcu_hz(lua_State* L) {
 }
 
 /*
-读写mcu的32bit寄存器或者ram,谨慎使用写功能,请熟悉mcu的寄存器使用方法后再使用
+读写mcu的32bit寄存器或者ram, 出于安全考虑本接口已禁用实际访问: 读固定返回0, 写直接忽略
 @api mcu.reg32(address, value, mask)
 @int 寄存器或者ram地址
-@int 写入的值,如果没有,则直接返回当前值
-@int 位掩码,可以对特定几个位置的bit做修改, 默认0xffffffff,修改全部32bit
-@return int 返回当前寄存的值
+@int 写入的值(已禁用, 不生效)
+@int 位掩码(已禁用, 不生效)
+@return int 固定返回0
 @usage
-local value = mcu.reg32(0x2009FFFC, 0x01, 0x01) --对0x2009FFFC地址上的值,修改bit0为1
+local value = mcu.reg32(0x2009FFFC) -- 安全原因已禁用, 恒返回0
 */
 static int l_mcu_reg32(lua_State* L) {
+	static int warned = 0;
 	uint32_t addr = luaL_checkinteger(L, 1);
-    volatile uint32_t *address = (uint32_t *)(addr & 0xfffffffc);
-    if (lua_isinteger(L, 2)) {
-    	volatile uint32_t value = lua_tointeger(L, 2);
-    	volatile uint32_t mask = luaL_optinteger(L, 3, 0xffffffff);
-    	volatile uint32_t org = *address;
-    	*address = (org & ~mask)| (value & mask);
-    	lua_pushinteger(L, *address);
-    } else {
-    	lua_pushinteger(L, *address);
+    // 安全原因禁用寄存器/内存读写, 仅保留参数解析, 读固定返回0, 写直接忽略
+    if (!warned) {
+    	warned = 1;
+    	LLOGW("mcu.reg32 is disabled for security reasons");
     }
+    if (lua_isinteger(L, 2)) {
+    	lua_tointeger(L, 2);
+    	luaL_optinteger(L, 3, 0xffffffff);
+    }
+    (void)addr;
+    lua_pushinteger(L, 0);
     return 1;
 }
 
@@ -196,6 +198,9 @@ static int l_mcu_hw_diff_tick64(lua_State* L) {
     size_t len2;
     const char *data2 = luaL_checklstring(L, 2, &len2);
     check_value = luaL_optinteger(L, 3, 0);
+    if (len1 > 8 || len2 > 8) {
+        return luaL_error(L, "tick string too long");
+    }
 
     memcpy(&tick1, data1, len1);
     memcpy(&tick2, data2, len2);
@@ -400,39 +405,32 @@ static int l_mcu_xtal_ref_output(lua_State* L) {
     return 0;
 }
 
-LUAT_WEAK int luat_mcu_muid(char* buf) {return -1;}
-static int l_mcu_muid(lua_State* L) {
-	char muid[33] = {0};
-	luat_mcu_muid(muid);
-	// LLOGD("mcu muid %s", muid);
-	lua_pushstring(L, muid);
-    return 1;
-}
+// 恢复muid函数, 映射到hmeta的muid函数, 作为兼容
+extern int l_hmeta_muid(lua_State* L);
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_mcu[] =
 {
-    { "setClk" ,        ROREG_FUNC(l_mcu_set_clk)},
-    { "getClk",         ROREG_FUNC(l_mcu_get_clk)},
     { "unique_id",      ROREG_FUNC(l_mcu_unique_id)},
     { "ticks",          ROREG_FUNC(l_mcu_ticks)},
+    { "ticks2",         ROREG_FUNC(l_mcu_ticks2)},
     { "hz",             ROREG_FUNC(l_mcu_hz)},
-	{ "reg32",          ROREG_FUNC(l_mcu_reg32)},
-	{ "x32",            ROREG_FUNC(l_mcu_x32)},
-// #ifdef __LUATOS_TICK_64BIT__
 	{ "tick64",			ROREG_FUNC(l_mcu_hw_tick64)},
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},
-	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
 	{ "hardfault",		ROREG_FUNC(l_mcu_set_hardfault_mode)},
 #ifdef LUAT_MCU_IOMUX_CTRL
 	{ "altfun",			ROREG_FUNC(l_mcu_alt_ctrl)},
 #else
 	{ "iomux",			ROREG_FUNC(l_mcu_iomux)},
 #endif
-    { "ticks2",         ROREG_FUNC(l_mcu_ticks2)},
-	{ "XTALRefOutput",         ROREG_FUNC(l_mcu_xtal_ref_output)},
-	{ "muid",         	ROREG_FUNC(l_mcu_muid)},
-// #endif
+	{ "XTALRefOutput",  ROREG_FUNC(l_mcu_xtal_ref_output)},
+    { "setClk" ,        ROREG_FUNC(l_mcu_set_clk)},
+    { "getClk",         ROREG_FUNC(l_mcu_get_clk)},
+	{ "reg32",          ROREG_FUNC(l_mcu_reg32)},
+	{ "x32",            ROREG_FUNC(l_mcu_x32)},
+	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
+	{ "muid",			ROREG_FUNC(l_hmeta_muid)},
 	//@const UART number 外设类型-串口
 	{ "UART",             ROREG_INT(LUAT_MCU_PERIPHERAL_UART) },
 	//@const I2C number 外设类型-I2C

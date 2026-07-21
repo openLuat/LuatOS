@@ -101,7 +101,7 @@ int luat_restore_main(void) {
 static int pmain(lua_State *L) {
     int re = -2;
     #ifndef LUAT_MAIN_DEMO
-    char filename[32] = {0};
+    char filename[64] = {0};
     #endif
 
     // 加载内置库

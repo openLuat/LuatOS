@@ -8,7 +8,7 @@
 
 注意：
 1. Air8101使用内置DAC输出音频，无需外部音频编解码芯片
-2. 需要固件版本>=V1018才可播放音频
+2. 需要固件版本>=V2018才可播放音频
 3. 此功能需要用Air8101B来测试，Air8101不支持
 
 本文件为TTS播放应用功能模块，核心业务逻辑为：
@@ -24,8 +24,8 @@ local audio_setup_param ={
     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
     
     pa_ctrl = 27,             -- 音频放大器电源控制管脚
-    pa_on_level = 1,          -- PA打开电平
-    pa_delay = 10            -- PA延时
+    pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
+    dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
 
 -- TTS音色列表（关于TTS音色设置请见: https://docs.openluat.com/osapi/ext/exaudio/#tts_2）

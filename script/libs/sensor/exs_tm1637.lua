@@ -29,6 +29,15 @@
   - 支持按键扫描（轮询 + 回调两种方式）
   - 支持 8 级亮度调节
   - 支持共阴/共阳数码管切换
+
+-- 版本号：202607161200
+-- 1、更新时间：2026-07-16 12:00
+-- 2、更新内容
+  - 修复按键 5-8、13-16 返回 0x7F 的问题
+  - 根因：read_key_byte() 分两帧重复发送 0x42 命令，导致芯片键扫描紊乱
+  - 修复：改为单帧发送 0x42 一次，消除多余的第一帧
+  - 补全 key_byte_to_code() 查表，16 个按键全部可识别
+  - 实测按键字节：5=0xF6 6=0xEE 7=0xEA 8=0xF2 13=0xF4 14=0xEC 15=0xE8 16=0xF0
 ]]
 
 local exs_tm1637 = {}
@@ -150,8 +159,7 @@ local function wait_ack()
     return ack
 end
 
--- 接收 1 个字节（低位先出，LSB first）
--- TM1637 在 CLK 上升沿输出数据到 DIO，我们在 CLK 上升沿读取
+-- 读取 1 个字节（LSB first，直接读取芯片输出原始数据）
 -- @return number 读到的字节
 local function recv_byte()
     local data = 0
@@ -275,97 +283,67 @@ end
 
 -- ==================== 按键数据处理 ====================
 
--- 读取按键数据，返回 16 位的按键掩码
--- TM1637 读键协议：
---   1. start → 0x42 + ACK → stop （发读键命令）
---   2. start → 0x42 + ACK → recv_byte0 + ACK → recv_byte1 + NAK → stop
--- Byte0: bits[3:0]=K1-K4(KS1-KS4), bits[7:4]=K5-K8(KS1-KS4)
--- Byte1: bits[3:0]=K1-K4(KS5-KS8), bits[7:4]=K5-K8(KS5-KS8)
--- 总共 16 个按键：每个 KS 列有 K1~K8 共 8 个键，共 2 组（KS1~KS4 和 KS5~KS8）
--- @return number 16位按键掩码（bit0=按键1 ... bit15=按键16）
-local function read_key_mask()
-    local mask = 0
-
-    -- 第一帧：发送读键命令
-    start_signal()
-    send_byte(CMD_READ_KEY)
-    wait_ack()
-    stop_signal()
-
-    -- 第二帧：发送 command code 后读 2 字节
+-- 读取按键字节（单帧完成：发命令 + 读数据）
+--   START -> 0x42 + ACK -> recv_byte(有效数据) -> recv_byte(舍弃) -> STOP
+-- 注意：0x42 命令只能发送一次。重复发送（双帧）会导致芯片键扫描状态紊乱，
+--       使 KS3/KS4/KS7/KS8 列的按键返回 0x7F（实测确认）。
+-- 第二字节读取后舍弃，仅用于满足芯片时序要求（TM1637 输出 2 字节）。
+-- @return number 读到的按键字节，无按键时返回 0xFF
+local function read_key_byte()
     start_signal()
     send_byte(CMD_READ_KEY)
     wait_ack()
 
-    -- Byte0: K1-K4 列 (KS1-KS4) 和 K5-K8 列 (KS1-KS4)
-    -- bits[3:0] = K1 KS1, K2 KS1, K1 KS2, K2 KS2 ... K1 KS4, K2 KS4 (每组 2bits)
-    -- bits[7:4] = K3 KS1, K4 KS1, K3 KS2, K4 KS2 ... K3 KS4, K4 KS4 (每组 2bits)
-    local byte0 = recv_byte()
-    send_ack()
-
-    -- Byte1: K1-K4 列 (KS5-KS8) 和 K5-K8 列 (KS5-KS8)
-    local byte1 = recv_byte()
-    send_nak()
+    local key_byte = recv_byte()
+    recv_byte()  -- 读取并舍弃第二字节（协议兼容，芯片输出 2 字节）
     stop_signal()
 
-    -- Datasheet 按键矩阵：
-    --         KS1 KS2 KS3 KS4 KS5 KS6 KS7 KS8
-    -- K1      K1  K5  K9  K13 K?  K?  K?  K?   -- 按键编码
-    -- K2      K2  K6  K10 K14 K?  K?  K?  K?
+    return key_byte
+end
 
-    -- 简化解析：每个 nibble 的 bit0 和 bit1 对应按键
-    -- 共 8 个 KS 列，每个 KS 列有 2 个按键（K1、K2），总共 16 个按键
-    -- byte0: KS1~KS4 的 K1+K2
-    -- byte1: KS5~KS8 的 K1+K2
-
-    -- KS1~KS4 (来自 byte0)
-    for col = 0, 3 do
-        -- 每列 2 bits: [7:6]=K2, [5:4]=K1  (nibble 高半字节)
-        --               [3:2]=K2, [1:0]=K1  (nibble 低半字节)
-        -- 按键按列编码：col*4 + offset
-        local low_nibble = (byte0 >> (col * 2)) & 0x03
-        if low_nibble & 0x01 ~= 0 then
-            mask = mask | (1 << (col * 2 + 0))   -- K1 of this KS
-        end
-        if low_nibble & 0x02 ~= 0 then
-            mask = mask | (1 << (col * 2 + 1))   -- K2 of this KS
-        end
+-- 基于实测原始字节直接查表解码
+-- 用户按物理顺序 1~16 逐次按键实测字节（单帧读取 0x42 一次）：
+--    1=0xF7,  2=0xEF,  3=0xEB,  4=0xF3
+--    5=0xF6,  6=0xEE,  7=0xEA,  8=0xF2
+--    9=0xF5, 10=0xED, 11=0xE9, 12=0xF1
+--   13=0xF4, 14=0xEC, 15=0xE8, 16=0xF0
+-- 字节编码规律（取反后观察）：
+--   bit[1:0] 低位和 bit2 组合编码列号 KS1~KS8（3 bit）
+--   bit3/bit4 编码 K1/K2 行（与列奇偶性 XOR）
+--   bit[7:5] 恒为 1（上拉）
+-- @number key_byte 原始按键字节，0xFF=无按键
+-- @return number or nil 按键编码 1~16
+local function key_byte_to_code(key_byte)
+    if key_byte == 0xFF then
+        return nil  -- 无按键
     end
 
-    -- KS5~KS8 (来自 byte1)
-    for col = 0, 3 do
-        local low_nibble = (byte1 >> (col * 2)) & 0x03
-        if low_nibble & 0x01 ~= 0 then
-            mask = mask | (1 << (8 + col * 2 + 0))  -- K1 of this KS
-        end
-        if low_nibble & 0x02 ~= 0 then
-            mask = mask | (1 << (8 + col * 2 + 1))  -- K2 of this KS
-        end
-    end
+    local key_map = {
+        [0xF7] = 1,  [0xEF] = 2,  [0xEB] = 3,  [0xF3] = 4,
+        [0xF6] = 5,  [0xEE] = 6,  [0xEA] = 7,  [0xF2] = 8,
+        [0xF5] = 9,  [0xED] = 10, [0xE9] = 11, [0xF1] = 12,
+        [0xF4] = 13, [0xEC] = 14, [0xE8] = 15, [0xF0] = 16,
+    }
 
-    return mask
+    return key_map[key_byte]
 end
 
 -- 按键轮询处理函数（由定时器调用）
 local function key_scan_timer_func()
-    local current_mask = read_key_mask()
-
-    -- 检测按键状态变化（从松开→按下）
-    local pressed = current_mask & (~g_last_key_byte)
-
-    if pressed ~= 0 and g_key_callback then
-        -- 找到所有按下的按键，逐个通知回调
-        local code = 1
-        while pressed ~= 0 do
-            if pressed & 0x01 ~= 0 then
-                g_key_callback(code)
-            end
-            pressed = pressed >> 1
-            code = code + 1
-        end
+    local current_byte = read_key_byte()
+    if current_byte == g_last_key_byte then
+        return  -- 状态无变化
     end
 
-    g_last_key_byte = current_mask
+    local current_code = key_byte_to_code(current_byte)
+    local prev_code = key_byte_to_code(g_last_key_byte)
+
+    -- 检测从无按键→有按键的上升沿
+    if current_code ~= nil and g_key_callback then
+        g_key_callback(current_code)
+    end
+
+    g_last_key_byte = current_byte
 end
 
 -- ==================== 外部 API ====================
@@ -712,22 +690,15 @@ if key then
 end
 ]]
 function exs_tm1637.get_key()
-    local mask = read_key_mask()
+    local key_byte = read_key_byte()
+    local code = key_byte_to_code(key_byte)
+    g_last_key_byte = key_byte
+    return code
+end
 
-    if mask == 0 then
-        return nil
-    end
-
-    -- 找到最低位的 1（编码最小的按键）
-    local code = 1
-    while mask ~= 0 do
-        if mask & 0x01 ~= 0 then
-            return code
-        end
-        mask = mask >> 1
-        code = code + 1
-    end
-    return nil
+-- 调试用：读取按键原始字节（不解析）
+function exs_tm1637.debug_key_byte()
+    return read_key_byte()
 end
 
 --[[
@@ -762,7 +733,7 @@ function exs_tm1637.set_key_callback(cbfunc)
 
     -- 如果有回调函数，启动定时轮询（每 50ms 检查一次）
     if cbfunc then
-        g_last_key_byte = read_key_mask()  -- 清除初始状态
+        g_last_key_byte = read_key_byte()  -- 清除初始状态
         g_key_timer_id = sys.timerLoopStart(key_scan_timer_func, 50)
     end
 end
@@ -780,7 +751,7 @@ local ver = exs_tm1637.version()
 log.info("exs_tm1637", "版本号:", ver)
 ]]
 function exs_tm1637.version()
-    return "202607131200"
+    return "202607161200"
 end
 
 log.debug("exs_tm1637", "version -> " .. exs_tm1637.version())

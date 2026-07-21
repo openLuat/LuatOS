@@ -92,13 +92,43 @@ static int l_hmeta_chip(lua_State *L) {
     }
     return 1;
 }
-// static int l_hmeta_gpio(lua_State *L) {
-//     return 0;
-// }
 
-// static int l_hmeta_uart(lua_State *L) {
-//     return 0;
-// }
+/*
+获取模组muid
+@api hmeta.muid()
+@return string 模组muid, 32字节的字符串,如果不支持, 会返回空字符串.
+@usage
+local muid = hmeta.muid()
+print("muid", muid)
+*/
+int l_hmeta_muid(lua_State* L) {
+	char muid[34] = {0};
+	luat_hmeta_muid(muid, 33);
+	// LLOGD("muid %s", muid);
+	lua_pushstring(L, muid);
+    return 1;
+}
+
+/*
+获取模组的识别id
+@api hmeta.devid()
+@return string 模组识别id,总是可见字符组成
+@usage
+-- 对于4G模组, devid就是IMEI
+-- 对于WiFi模组, devid就是MAC地址
+-- 对于MCU模组, 与生产流程有关
+-- 本函数于2026.7.18新增
+*/
+static int l_hmeta_devid(lua_State* L) {
+	char devid[34] = {0};
+	luat_hmeta_devid(devid, 33);
+	// LLOGD("devid %s", devid);
+	lua_pushstring(L, devid);
+    return 1;
+}
+
+extern int l_mcu_unique_id(lua_State* L);
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_hmeta[] =
@@ -106,8 +136,9 @@ static const rotable_Reg_t reg_hmeta[] =
     { "model" ,           ROREG_FUNC(l_hmeta_model)},
     { "hwver" ,           ROREG_FUNC(l_hmeta_hwver)},
     { "chip" ,            ROREG_FUNC(l_hmeta_chip)},
-    // { "gpio" ,            ROREG_FUNC(l_hmeta_gpio)},
-    // { "uart" ,            ROREG_FUNC(l_hmeta_uart)},
+	{ "devid",            ROREG_FUNC(l_hmeta_devid)},
+	{ "muid",         	  ROREG_FUNC(l_hmeta_muid)},
+    { "unique_id",        ROREG_FUNC(l_mcu_unique_id)},
 	{ NULL,               ROREG_INT(0)}
 };
 

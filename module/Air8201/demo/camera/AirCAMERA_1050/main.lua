@@ -45,7 +45,7 @@ log.info("main", PROJECT, VERSION)
 
 
 -- 硬件版本宏：修改此处即可切换 Air8201G("G") / Air8201H("H")
-_G.HARDWARE_ENV = "H"
+_G.HARDWARE_ENV = "G"
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -82,11 +82,11 @@ require "gc0310"
         auth_key：aircloud应用的认证密钥，用于验证上传请求的合法性
         获取方式为：登录iot.openluat.com，点击"我的项目"，找到您所使用的模块对应的项目，即可复制项目KEY
         当您的模块没有在您的账号下时，请参考https://docs.openluat.com/air8201/product/attributioniot/ 处理办法，获取项目KEY]] --
-require "photo_to_aircloud"
+-- require "photo_to_aircloud"
 
 -- 导入take_photo_http_post拍照上传应用DEMO，air32.cn为虚拟服务器，仅用于演示，实际使用时请替换为自己的服务器。
 -- 与photo_to_aircloud.lua二选一执行即可，不可同时导入
--- require "take_photo_http_post"
+require "take_photo_http_post"
 
 -- 导入scan_code扫描二维码应用DEMO
 -- require "scan_code"

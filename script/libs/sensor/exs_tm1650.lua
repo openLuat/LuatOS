@@ -1,7 +1,7 @@
 --[[
 @module  exs_tm1650
 @summary TM1650 数码管驱动扩展库（8段×4位 + 28键扫描）
-@version 202607131200
+@version 202607161200
 @date    2026.07.13
 @author  江访
 @usage
@@ -31,6 +31,12 @@
   - 支持 8 级亮度调节
   - 支持共阴/共阳数码管切换
   - 支持 7 段/8 段显示模式切换
+
+-- 版本号：202607161200
+-- 1、更新时间：2026-07-16 12:00
+-- 2、更新内容
+--   - 稳定版发布，完善文档注释和代码规范
+--   - 优化版本管理结构，版本函数返回可辨识的时间戳
 ]]--
 
 local exs_tm1650 = {}
@@ -268,10 +274,10 @@ local function read_key_byte()
 end
 
 -- 解析按键数据字节为按键编码 1~28
--- TM1650 按键数据格式：X R2 R1 R0 X C1 C0
---   R[2:0] = 行扫描码（bits[6:4]）
---   C[1:0] = 列扫描码（bits[2:1]）
---   低 1 位（bit[0]）表示按键状态
+-- TM1650 按键数据格式（参考规格书键盘扫描码表）：
+--   bits[6:3] = KI 行编码（8=KI1, 9=KI2, 10=KI3, 11=KI4, 12=KI5, 13=KI6, 14=KI7）
+--   bits[2:0] = DIG 列编码（4=DIG1, 5=DIG2, 6=DIG3, 7=DIG4）
+--   bit[7]    = 固定为 0
 -- NO KEY = 0x2E
 -- key_code = row * 4 + col + 1
 local function key_byte_to_code(key_byte)
@@ -279,13 +285,16 @@ local function key_byte_to_code(key_byte)
         return nil  -- NO KEY
     end
 
-    -- 检查是否为有效按键（低 1 位为 1 表示有键按下）
-    if (key_byte & 0x01) ~= 0x01 then
-        return nil  -- 无效按键
-    end
+    local row_group = (key_byte >> 3) & 0x0F  -- bits[6:3]
+    local col_group = key_byte & 0x07          -- bits[2:0]
 
-    local row = (key_byte >> 4) & 0x07  -- bits[6:4]
-    local col = (key_byte >> 1) & 0x03  -- bits[2:1]
+    -- 有效范围：row_group 8~14，col_group 4~7
+    local row = row_group - 8  -- KI1~KI7 → 0~6
+    local col = col_group - 4  -- DIG1~DIG4 → 0~3
+
+    if row < 0 or row > 6 or col < 0 or col > 3 then
+        return nil  -- 无效编码
+    end
 
     -- 按键编码 = row * 4 + col + 1
     local key_code = row * 4 + col + 1
@@ -780,7 +789,7 @@ local ver = exs_tm1650.version()
 log.info("exs_tm1650", "版本号:", ver)
 ]]
 function exs_tm1650.version()
-    return "202607131200"
+    return "202607161200"
 end
 
 log.debug("exs_tm1650", "version -> " .. exs_tm1650.version())

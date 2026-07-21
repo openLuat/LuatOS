@@ -19,6 +19,10 @@ FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mod
     (void)userdata;
     char tmp[16] = {0};
     int flag = 0;
+    if (strlen(mode) >= sizeof(tmp)) {
+        LLOGE("fopen mode too long %s", mode);
+        return NULL;
+    }
     for (size_t i = 0; i < strlen(mode); i++)
     {
         if (mode[i] == 'b') {
@@ -26,7 +30,7 @@ FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mod
             break;
         }
     }
-    memcpy(tmp, mode, strlen(mode));
+    memcpy(tmp, mode, strlen(mode) + 1);
     if (!flag)
         tmp[strlen(mode)] = 'b';
     mode = tmp;

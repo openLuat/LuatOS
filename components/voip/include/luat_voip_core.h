@@ -177,6 +177,9 @@ typedef struct {
     uint8_t audio_started;
     uint8_t trace_on;
     voip_audio_backend_t audio_backend;
+#ifdef LUAT_USE_AUDIO_V2
+    void *audio_v2_ctrl;        /* audio_v2 驱动控制器，通话模式专用 */
+#endif
     uint32_t mic_generation[VOIP_MIC_SLOT_COUNT];
     uint32_t dropped_mic_events;
 

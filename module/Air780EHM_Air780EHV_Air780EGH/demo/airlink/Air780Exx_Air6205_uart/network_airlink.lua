@@ -54,18 +54,21 @@ local function init_airlink_net()
     -- 等待STA网卡IP就绪
     sys.waitUntil("IP_READY")
 
-    -- STA连接成功后，开启AP热点用于测试AP功能
+    -- STA连接成功后，开启AP热点
     log.info("开始测试AP功能...")
-    log.info("开始AP测试...")
-    wlan.init()
-    log.info("执行AP创建操作")
-    wlan.createAP("test", "12345678")
-
-    netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "192.168.4.1")
-    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_STA)
-    dhcpsrv.create({adapter = socket.LWIP_AP})
-    netdrv.napt(socket.LWIP_STA)
-    log.info("AP热点开启成功 名称: test 密码: 12345678")
+    local res = exnetif.setproxy(socket.LWIP_AP, socket.LWIP_STA, {
+        ssid = "test",           -- AP热点名称
+        password = "12345678",   -- AP热点密码
+        -- ap_opts = {                      -- AP模式下配置项(选填参数)
+        --     hidden = false,              -- 是否隐藏SSID, 默认false,不隐藏
+        --     max_conn = 4 },              -- 最大客户端数量, 默认4
+        -- channel = 6,                     -- AP建立的通道, 默认6
+        main_adapter = {
+            ssid = "luatos1234", -- STA连接的WiFi名称（与上方保持一致）
+            password = "12341234"
+        }
+    })
+    log.info("AP热点开启结果:", res, "名称: test 密码: 12345678")
 end
 
 -- AP连接事件回调

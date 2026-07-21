@@ -41,15 +41,15 @@ require "tp_drv"
 
 -- 加载网络驱动模块（仅 photo_to_aircloud 业务需要联网，其他业务请注释掉本行）
 -- netdrv_device.lua 内部按需选择 WIFI / 以太网 / 4G / 多网卡，请到该文件内自行切换
---  require "netdrv_device"
+  require "netdrv_device"
 
 -- 以下四个业务模块只能选一个打开，不能同时打开 ---------------------
 
 -- 1、加载摄像头预览应用模块（AIRUI组件方式：画面嵌入组件树，按钮与画面共存）
- require "preview"
+-- require "preview"
 
 -- 2、加载拍照+LCD显示+UART上传应用模块
--- require "photo_uart_post"
+ require "photo_uart_post"
 
 -- 3、加载拍照+LCD显示+云平台上传应用模块
 --    使用该模块时需要同时打开上方的 netdrv_device 加载语句

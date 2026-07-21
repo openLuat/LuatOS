@@ -1,23 +1,20 @@
 --[[
 @module  qmc5883l_demo
 @summary QMC5883L 三轴地磁传感器演示模块，包含所有功能的演示用例
-@version 1.0
-@date    2026.07.14
+@version 2.0
+@date    2026.07.17
 @author  江访
 @usage
 本文件包含 QMC5883L 的逐项功能演示。
-通过 exs_qmc5883l 扩展库的 API 逐一演示数据读取、量程切换、输出速率切换等功能。
-注意：QMC5883L 片内温度传感器精度有限，本 demo 不包含读取温度数据演示。
+通过 exs_qmc5883l 扩展库的 API 逐一演示数据读取、量程切换、输出速率切换、休眠唤醒等功能。
 ]]
 
--- 加载 exs_qmc5883l 扩展库
 local exs_qmc5883l = require "exs_qmc5883l"
 
--- [1/3] 初始化与数据读取
+-- [1/4] 初始化与数据读取
 local function demo_init_and_read()
-    log.info("qmc5883l_demo", "===== [1/3] 初始化与数据读取 =====")
+    log.info("qmc5883l_demo", "===== [1/4] 初始化与数据读取 =====")
 
-    -- 初始化 QMC5883L 传感器（软件 I2C 模式，参照 TM1638 demo 引脚）
     local result = exs_qmc5883l.setup({
         scl = 31,
         sda = 30,
@@ -47,13 +44,13 @@ local function demo_init_and_read()
         end
     end
 
-    log.info("qmc5883l_demo", "---- [1/3] 完成 ----")
+    log.info("qmc5883l_demo", "---- [1/4] 完成 ----")
     return true
 end
 
--- [2/3] 量程切换演示
+-- [2/4] 量程切换演示
 local function demo_range_switch()
-    log.info("qmc5883l_demo", "===== [2/3] 量程切换演示 =====")
+    log.info("qmc5883l_demo", "===== [2/4] 量程切换演示 =====")
 
     log.info("qmc5883l_demo", "切换量程为 2G（高精度）")
     exs_qmc5883l.set_range("2G")
@@ -75,12 +72,12 @@ local function demo_range_switch()
     end
     sys.wait(1000)
 
-    log.info("qmc5883l_demo", "---- [2/3] 完成 ----")
+    log.info("qmc5883l_demo", "---- [2/4] 完成 ----")
 end
 
--- [3/3] 输出速率切换
+-- [3/4] 输出速率切换
 local function demo_odr_switch()
-    log.info("qmc5883l_demo", "===== [3/3] 输出速率切换 =====")
+    log.info("qmc5883l_demo", "===== [3/4] 输出速率切换 =====")
 
     local odr_list = {10, 50, 100, 200}
     for _, odr in ipairs(odr_list) do
@@ -96,7 +93,27 @@ local function demo_odr_switch()
     end
 
     exs_qmc5883l.set_odr(10)
-    log.info("qmc5883l_demo", "---- [3/3] 完成 ----")
+    log.info("qmc5883l_demo", "---- [3/4] 完成 ----")
+end
+
+-- [4/4] 休眠与唤醒演示
+local function demo_sleep_wakeup()
+    log.info("qmc5883l_demo", "===== [4/4] 休眠与唤醒演示 =====")
+
+    log.info("qmc5883l_demo", "进入待机模式（低功耗）")
+    exs_qmc5883l.sleep(); sys.wait(10000)
+    sys.wait(500)
+
+    log.info("qmc5883l_demo", "从待机模式唤醒")
+    exs_qmc5883l.wakeup()
+    sys.wait(200)
+
+    local data = exs_qmc5883l.get_data()
+    if data then
+        log.info("qmc5883l_demo", string.format("唤醒后数据: X=%.2f Y=%.2f Z=%.2f uT", data.x, data.y, data.z))
+    end
+
+    log.info("qmc5883l_demo", "---- [4/4] 完成 ----")
 end
 
 local function qmc5883l_demo_task_func()
@@ -116,7 +133,11 @@ local function qmc5883l_demo_task_func()
     demo_odr_switch()
     sys.wait(500)
 
+    demo_sleep_wakeup()
+    sys.wait(500)
+
     log.info("qmc5883l_demo", "===== [演示完毕] =====")
+    exs_qmc5883l.close()
     log.info("qmc5883l_demo", "End")
 end
 

@@ -12,250 +12,149 @@
 #include "luat_mem.h"
 #include "luat_zbuff.h"
 #include "luat_fs.h"
-#include "luat_gpio.h"
+#include "luat_image.h"
 
 #define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"
 
-#include "u8g2.h"
-#include "u8g2_luat_fonts.h"
-#include "luat_u8g2.h"
-
-#include "qrcodegen.h"
-
-extern luat_color_t BACK_COLOR , FORE_COLOR ;
-
 extern luat_lcd_conf_t *lcd_dft_conf;
 extern void lcd_auto_flush(luat_lcd_conf_t *conf);
 
-#ifdef LUAT_USE_TJPGD
-#include "tjpgd.h"
-#include "tjpgdcnf.h"
-
-#define N_BPP (3 - JD_FORMAT)
-
-/* Session identifier for input/output functions (name, members and usage are as user defined) */
-typedef struct {
-    FILE *fp;               /* Input stream */
-    int x;
-    int y;
-    // int width;
-    // int height;
-    uint16_t buff[16*16];
-} IODEV;
-
-static unsigned int file_in_func (JDEC* jd, uint8_t* buff, unsigned int nbyte){
-    IODEV *dev = (IODEV*)jd->device;   /* Device identifier for the session (5th argument of luat_jd_prepare function) */
-    if (buff) {
-        /* Read bytes from input stream */
-        return luat_fs_fread(buff, 1, nbyte, dev->fp);
-    } else {
-        /* Remove bytes from input stream */
-        return luat_fs_fseek(dev->fp, nbyte, SEEK_CUR) ? 0 : nbyte;
-    }
+/* 把 conf->acc_hw (位域联合体，bit0 = acc_hw_jpeg，0xFF = LUAT_LCD_ACC_HW_ALL)
+ * 映射为 luat_image 的解码模式。
+ * 与 l_lcd_set_acc_hw (luat_lib_lcd.c) 保持一致语义。 */
+static luat_img_decode_mode_t jpeg_pick_mode(luat_lcd_conf_t *conf) {
+    if (conf == NULL) return LUAT_IMG_DECODE_SW;
+    if (conf->acc_hw == LUAT_LCD_ACC_HW_ALL) return LUAT_IMG_DECODE_HW;
+    if (conf->acc_hw_jpeg)                   return LUAT_IMG_DECODE_HW;
+    return LUAT_IMG_DECODE_SW;
 }
 
-static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
-    IODEV *dev = (IODEV*)jd->device;
-    uint16_t* tmp = (uint16_t*)bitmap;
-
-    // rgb高低位swap
-    uint16_t count = (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1);
-    for (size_t i = 0; i < count; i++){
-        if (lcd_dft_conf->endianness_swap)
-            dev->buff[i] = ((tmp[i] >> 8) & 0xFF)+ ((tmp[i] << 8) & 0xFF00);
-        else
-            dev->buff[i] = tmp[i];
-    }
-    
-    // LLOGD("jpeg seg %dx%d %dx%d", rect->left, rect->top, rect->right, rect->bottom);
-    // LLOGD("jpeg seg size %d %d %d", rect->right - rect->left + 1, rect->bottom - rect->top + 1, (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1));
-    luat_lcd_draw(lcd_dft_conf, dev->x + rect->left, dev->y + rect->top,
-                                dev->x + rect->right, dev->y + rect->bottom,
-                                dev->buff);
-    return 1;    /* Continue to decompress */
+/* 单行像素按 lcd_dft_conf->endianness_swap 做字节交换。
+ * luat_image 输出的 luat_color_t 大端排列 (RGB565 BE)，
+ * 与原 lcd_out_func 中按 lcd_dft_conf->endianness_swap 交换的语义一致。 */
+static inline luat_color_t jpeg_pixel_swap(luat_color_t px, uint8_t swap) {
+    if (!swap) return px;
+#if (LUAT_LCD_COLOR_DEPTH == 16)
+    return (luat_color_t)(((px >> 8) & 0xFF) | ((px << 8) & 0xFF00));
+#else
+    return px;
+#endif
 }
 
 // 获取 JPG 图片信息
 int lcd_jpeg_info_default(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height){
-    JRESULT res;
-    JDEC jdec;
-    void *work = NULL;
-#if JD_FASTDECODE == 2
-    size_t sz_work = 3500 * 3;
-#else
-    size_t sz_work = 3500;
-#endif
-    FILE* fd = NULL;
-    IODEV devid;
-    (void)conf;
+    luat_img_conf_t img_conf;
+    luat_img_info_t img_info;
+    int ret;
 
     if (path == NULL || width == NULL || height == NULL) {
         return -1;
     }
 
-    fd = luat_fs_fopen(path, "rb");
-    if (fd == NULL) {
-        LLOGW("no such file %s", path);
+    memset(&img_conf, 0, sizeof(img_conf));
+    img_conf.format = LUAT_IMG_FMT_JPG;
+    img_conf.decode_mode = jpeg_pick_mode(conf);
+    img_conf.source_path = path;
+
+    memset(&img_info, 0, sizeof(img_info));
+    ret = luat_image_probe(&img_conf, NULL, 0, &img_info);
+    if (ret != LUAT_IMG_OK || img_info.width == 0 || img_info.height == 0) {
+        LLOGW("luat_image_probe file %s error %d", path, ret);
         return -1;
     }
 
-    memset(&devid, 0, sizeof(devid));
-    devid.fp = fd;
-    work = luat_heap_malloc(sz_work);
-    if (work == NULL) {
-        LLOGE("out of memory when malloc jpeg info workbuff");
-        luat_fs_fclose(fd);
-        return -1;
-    }
-
-    res = luat_jd_prepare(&jdec, file_in_func, work, sz_work, &devid);
-    if (res != JDR_OK) {
-        luat_heap_free(work);
-        luat_fs_fclose(fd);
-        LLOGW("luat_jd_prepare file %s error %d", path, res);
-        return -1;
-    }
-
-    *width = jdec.width;
-    *height = jdec.height;
-
-    luat_heap_free(work);
-    luat_fs_fclose(fd);
+    *width  = img_info.width;
+    *height = img_info.height;
     return 0;
 }
 
 int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
-    JRESULT res;      /* Result code of TJpgDec API */
-    JDEC jdec;        /* Decompression object */
-    void *work;       /* Pointer to the decompressor work area */
-#if JD_FASTDECODE == 2
-    size_t sz_work = 3500 * 3; /* Size of work area */
-#else
-    size_t sz_work = 3500; /* Size of work area */
-#endif
-    IODEV devid;      /* User defined device identifier */
+    luat_img_conf_t img_conf;
+    luat_img_info_t img_info;
+    int ret;
+    luat_color_t *row_buf = NULL;
+    uint8_t swap;
 
-    FILE* fd = luat_fs_fopen(path, "rb");
-    if (fd == NULL) {
-        LLOGW("no such file %s", path);
-    return -1;
+    memset(&img_conf, 0, sizeof(img_conf));
+    img_conf.format = LUAT_IMG_FMT_JPG;
+    img_conf.decode_mode = jpeg_pick_mode(conf);
+    img_conf.source_path = path;
+
+    memset(&img_info, 0, sizeof(img_info));
+    ret = luat_image_decode(&img_conf, NULL, 0, &img_info);
+    if (ret != LUAT_IMG_OK || img_info.data == NULL ||
+        img_info.width == 0 || img_info.height == 0) {
+        LLOGW("luat_image_decode file %s error %d", path, ret);
+        if (img_info.data) luat_heap_free(img_info.data);
+        return -2;
     }
 
-    devid.fp = fd;
-    work = luat_heap_malloc(sz_work);
-    if (work == NULL) {
-        LLOGE("out of memory when malloc jpeg decode workbuff");
+    /* 行缓冲：16 行一带，匹配原 TJpgD 16x16 MCU 块的刷新粒度。 */
+    row_buf = (luat_color_t *)luat_heap_malloc(
+        (size_t)img_info.width * 16 * sizeof(luat_color_t));
+    if (row_buf == NULL) {
+        LLOGE("out of memory when malloc jpeg row buff");
+        luat_heap_free(img_info.data);
         return -3;
     }
-    res = luat_jd_prepare(&jdec, file_in_func, work, sz_work, &devid);
-    if (res != JDR_OK) {
-        luat_heap_free(work);
-        luat_fs_fclose(fd);
-        LLOGW("luat_jd_prepare file %s error %d", path, res);
-        return -2;
+
+    swap = lcd_dft_conf ? lcd_dft_conf->endianness_swap : 0;
+    {
+        uint16_t w = img_info.width;
+        uint16_t h = img_info.height;
+        const luat_color_t *src = (const luat_color_t *)img_info.data;
+        for (uint16_t row = 0; row < h; row += 16) {
+            uint16_t band = (h - row) > 16 ? 16 : (uint16_t)(h - row);
+            for (uint16_t r = 0; r < band; r++) {
+                luat_color_t *dst = row_buf + (size_t)r * w;
+                const luat_color_t *srow = src + (size_t)(row + r) * w;
+                for (uint16_t c = 0; c < w; c++) {
+                    dst[c] = jpeg_pixel_swap(srow[c], swap);
+                }
+            }
+            luat_lcd_draw(conf, x, (int16_t)(y + row),
+                              (int16_t)(x + w - 1), (int16_t)(y + row + band - 1),
+                              row_buf);
+        }
     }
-    devid.x = x;
-    devid.y = y;
-    // devid.width = jdec.width;
-    // devid.height = jdec.height;
-    res = luat_jd_decomp(&jdec, lcd_out_func, 0);
-    luat_heap_free(work);
-    luat_fs_fclose(fd);
-    if (res != JDR_OK) {
-        LLOGW("luat_jd_decomp file %s error %d", path, res);
-        return -2;
-    }else {
-        lcd_auto_flush(lcd_dft_conf);
-        return 0;
-    }
+    luat_heap_free(row_buf);
+    luat_heap_free(img_info.data);
+    lcd_auto_flush(conf);
+    return 0;
 }
-
-static unsigned int decode_file_in_func (JDEC* jd, uint8_t* buff, unsigned int nbyte){
-    luat_lcd_buff_info_t *buff_info = (luat_lcd_buff_info_t*)jd->device;   /* Device identifier for the session (5th argument of luat_jd_prepare function) */
-    if (buff) {
-        /* Read bytes from input stream */
-        return luat_fs_fread(buff, 1, nbyte, (FILE*)(buff_info->userdata));
-    } else {
-        /* Remove bytes from input stream */
-        return luat_fs_fseek((FILE*)(buff_info->userdata), nbyte, SEEK_CUR) ? 0 : nbyte;
-    }
-}
-
-static int decode_out_func (JDEC* jd, void* bitmap, JRECT* rect){
-    luat_lcd_buff_info_t *buff_info = (luat_lcd_buff_info_t*)jd->device;
-    uint16_t* tmp = (uint16_t*)bitmap;
-
-    // rgb高低位swap
-    uint16_t idx = 0;
-	for (size_t y = rect->top; y <= rect->bottom; y++){
-        // 防止大图时 y*width 溢出 16bit，改用 size_t 计算偏移
-        size_t offset = (size_t)y * buff_info->width + rect->left;
-		for (size_t x = rect->left; x <= rect->right; x++){
-			if (lcd_dft_conf->endianness_swap)
-				buff_info->buff[offset] = ((tmp[idx] >> 8) & 0xFF)+ ((tmp[idx] << 8) & 0xFF00);
-			else
-				buff_info->buff[offset] = tmp[idx];
-			offset++;idx++;
-		}
-	}
-	
-    // LLOGD("jpeg seg %dx%d %dx%d", rect->left, rect->top, rect->right, rect->bottom);
-    // LLOGD("jpeg seg size %d %d %d", rect->right - rect->left + 1, rect->bottom - rect->top + 1, (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1));
-    return 1;    /* Continue to decompress */
-}
-
-
 
 int lcd_jpeg_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
-    JRESULT res;      /* Result code of TJpgDec API */
-    JDEC jdec;        /* Decompression object */
-    void *work = NULL;       /* Pointer to the decompressor work area */
-#if JD_FASTDECODE == 2
-    size_t sz_work = 3500 * 3; /* Size of work area */
-#else
-    size_t sz_work = 3500; /* Size of work area */
-#endif
-    FILE* fd = luat_fs_fopen(path, "rb");
-    if (fd == NULL) {
-        LLOGW("no such file %s", path);
-		goto error;
+    luat_img_conf_t img_conf;
+    luat_img_info_t img_info;
+    int ret;
+
+    if (buff_info == NULL) {
+        return -1;
     }
-	buff_info->userdata = fd;
-	work = luat_heap_malloc(sz_work);
-	if (work == NULL) {
-		LLOGE("out of memory when malloc jpeg decode workbuff");
-		goto error;
-	}
-    res = luat_jd_prepare(&jdec, decode_file_in_func, work, sz_work, buff_info);
-    if (res != JDR_OK) {
-        LLOGW("luat_jd_prepare file %s error %d", path, res);
-        goto error;
+    memset(buff_info, 0, sizeof(*buff_info));
+
+    memset(&img_conf, 0, sizeof(img_conf));
+    img_conf.format = LUAT_IMG_FMT_JPG;
+    img_conf.decode_mode = jpeg_pick_mode(conf);
+    img_conf.source_path = path;
+
+    memset(&img_info, 0, sizeof(img_info));
+    ret = luat_image_decode(&img_conf, NULL, 0, &img_info);
+    if (ret != LUAT_IMG_OK || img_info.data == NULL ||
+        img_info.width == 0 || img_info.height == 0) {
+        LLOGW("luat_image_decode file %s error %d", path, ret);
+        if (img_info.data) luat_heap_free(img_info.data);
+        return -1;
     }
-    buff_info->width = jdec.width;
-    buff_info->height = jdec.height;
-	buff_info->len = jdec.width*jdec.height*sizeof(luat_color_t);
-	buff_info->buff = luat_heap_malloc(buff_info->len);
-	if (buff_info->buff == NULL) {
-		LLOGE("out of memory when malloc jpeg image buff");
-		goto error;
-	}
-    res = luat_jd_decomp(&jdec, decode_out_func, 0);
-    if (res != JDR_OK) {
-        LLOGW("luat_jd_decomp file %s error %d", path, res);
-        goto error;
-    }
-    luat_heap_free(work);
-    luat_fs_fclose(fd);
-	return 0;
-error:
-	if (work){
-		luat_heap_free(work);
-	}
-	if (fd){
-		luat_fs_fclose(fd);
-	}
-	return -1;
+
+    /* 把所有权转交给 buff_info。lcd.image2raw 会把它装进 zbuff userdata，
+     * 后续由 Lua 端按 zbuff 生命周期负责释放。 */
+    buff_info->buff   = (luat_color_t *)img_info.data;
+    buff_info->width  = img_info.width;
+    buff_info->height = img_info.height;
+    buff_info->len    = img_info.size;
+    return 0;
 }
 
 
@@ -272,41 +171,4 @@ LUAT_WEAK int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_
     return lcd_jpeg_decode_default(conf, path, buff_info);
 }
 
-#else
 
-int lcd_jpeg_info_default(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height){
-    (void)conf;
-    (void)path;
-    (void)width;
-    (void)height;
-    return -1;
-}
-
-int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
-    (void)conf;
-    (void)path;
-    (void)x;
-    (void)y;
-    return -1;
-}
-
-int lcd_jpeg_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
-    (void)conf;
-    (void)path;
-    (void)buff_info;
-    return -1;
-}
-
-LUAT_WEAK int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
-    return lcd_draw_jpeg_default(conf, path, x, y);
-}
-
-LUAT_WEAK int lcd_jpeg_info(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height){
-    return lcd_jpeg_info_default(conf, path, width, height);
-}
-
-LUAT_WEAK int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
-    return lcd_jpeg_decode_default(conf, path, buff_info);
-}
-
-#endif

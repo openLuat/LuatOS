@@ -44,6 +44,7 @@
  */
 #include "luat_base.h"
 #include "lwip/opt.h"
+#include "lwip/init.h"
 
 #if LWIP_IPV4 && LWIP_ARP /* build whenever IPv4 ARP is enabled */
 
@@ -56,6 +57,8 @@
 #include "lwip/pbuf.h"
 #include "luat_netdrv_lwip_etharp.h"
 #include "luat_netdrv_lwip_netif_ethernet.h"
+
+#ifdef LUAT_USE_NETDRV_LWIP_ARP
 
 #ifndef LWIP_IANA_HWTYPE_ETHERNET
 #define LWIP_IANA_HWTYPE_ETHERNET 1
@@ -763,8 +766,7 @@ etharp_output_to_arp_index(struct netif *netif, struct pbuf *q, netif_addr_idx_t
  * - ERR_RTE No route to destination (no gateway to external networks),
  * or the return type of either etharp_query() or ethernet_output().
  */
-err_t
-luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr)
+err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr)
 {
   const struct eth_addr *dest;
   struct eth_addr mcastaddr;
@@ -1191,5 +1193,11 @@ luat_netdrv_etharp_request(struct netif *netif, const ip4_addr_t *ipaddr)
   LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_request: sending ARP request.\n"));
   return etharp_request_dst(netif, ipaddr, &ethbroadcast);
 }
+
+#else
+err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr) {
+  return etharp_output(netif, q, ipaddr); // 走原生的就行
+}
+#endif
 
 #endif /* LWIP_IPV4 && LWIP_ARP */

@@ -1,8 +1,8 @@
 --[[
 @module  exs_adxl34x
 @summary ADXL345/ADXL346 三轴加速度传感器扩展库
-@version 202607141200
-@date    2026.07.14
+@version 1.1
+@date    2026.07.17
 @author  江访
 @usage
 本文件为 ADXL345/ADXL346 三轴加速度传感器（ADI 出品）的 LuatOS 扩展库。
@@ -14,8 +14,37 @@
 4、exs_adxl34x.set_odr(hz)           切换输出速率
 5、exs_adxl34x.int_config(int, cfg)  配置中断事件
 6、exs_adxl34x.get_int_source()      读取中断源
-7、exs_adxl34x.soft_reset()          软件复位
-8、exs_adxl34x.version()             获取版本号
+7、exs_adxl34x.sleep()               进入待机模式
+8、exs_adxl34x.wakeup()              从待机模式唤醒
+9、exs_adxl34x.close()               关闭传感器
+10、exs_adxl34x.version()            获取版本号
+
+=== 版本更新说明 ===
+版本号：202607180900
+1、更新时间：2026-07-18
+2、更新内容：
+        修复 close() 未注销 GPIO 中断，传感器关闭后 INT 引脚变化导致死机
+        新增常量中文注释
+
+版本号：202607170900
+1、更新时间：2026-07-17
+2、更新内容：
+        i2c_bus_recovery 增加 SDA 释放检测，提前结束脉冲循环
+        i2c_write/i2c_read 增加 I2C 总线卡死自动检测与恢复
+        硬件 I2C 恢复后自动重新 i2c.setup()
+        新增 exs_adxl34x.close() 接口，关闭传感器并释放资源
+        新增 exs_adxl34x.sleep()/wakeup() 低功耗接口，替换 soft_reset()
+
+版本号：202607141200
+1、更新时间：2026-07-14
+2、更新内容：
+        初版，实现 ADXL345/ADXL346 驱动所有基础功能
+        初始化接口使用 setup 命名，统一 TM16xx 系列命名规范
+        支持软件 I2C 和硬件 I2C 两种通信模式（SPI 未适配）
+        支持量程切换（±2g / ±4g / ±8g / ±16g）
+        支持输出速率切换（0.78Hz~3200Hz）
+        支持自动器件地址检测
+        支持软件复位
 
 === 使用示例 ===
 -- I2C 软件模式 + 中断
@@ -33,73 +62,73 @@ local exs_adxl34x                     = {}
 
 -- ==================== 模块常量 ====================
 
-local MODE_I2C                        = 1
-local DEV_ADDR_LOW                    = 0x53
-local DEV_ADDR_HIGH                   = 0x1D
-local REG_DEVID                       = 0x00
-local REG_THRESH_TAP                  = 0x1D
-local REG_OFSX                        = 0x1E;
-local REG_OFSY                        = 0x1F;
-local REG_OFSZ                        = 0x20
-local REG_DUR                         = 0x21;
-local REG_LATENT                      = 0x22;
-local REG_WINDOW                      = 0x23
-local REG_THRESH_ACT                  = 0x24;
-local REG_THRESH_INACT                = 0x25;
-local REG_TIME_INACT                  = 0x26
-local REG_ACT_INACT_CTL               = 0x27
-local REG_THRESH_FF                   = 0x28;
-local REG_TIME_FF                     = 0x29
-local REG_TAP_AXES                    = 0x2A;
-local REG_ACT_TAP_STATUS              = 0x2B
-local REG_BW_RATE                     = 0x2C;
-local REG_POWER_CTL                   = 0x2D
-local REG_INT_ENABLE                  = 0x2E;
-local REG_INT_MAP                     = 0x2F;
-local REG_INT_SOURCE                  = 0x30
-local REG_DATA_FORMAT                 = 0x31
-local REG_DATAX0                      = 0x32;
-local REG_DATAX1                      = 0x33
-local REG_DATAY0                      = 0x34;
-local REG_DATAY1                      = 0x35
-local REG_DATAZ0                      = 0x36;
-local REG_DATAZ1                      = 0x37
-local ADXL345_DEVID                   = 0xE5;
-local ADXL346_DEVID                   = 0xE6
-local DF_FULL_RES_BIT                 = 3
-local INT_DATA_READY                  = 0x80;
-local INT_SINGLE_TAP                  = 0x40;
-local INT_DOUBLE_TAP                  = 0x20
-local INT_ACTIVITY                    = 0x10;
-local INT_INACTIVITY                  = 0x08;
-local INT_FREE_FALL                   = 0x04
-local INT_WATERMARK                   = 0x02;
-local INT_OVERRUN                     = 0x01
-local PC_MEASURE                      = 0x08
-local RANGE_2G                        = 0x00;
-local RANGE_4G                        = 0x01;
-local RANGE_8G                        = 0x02;
-local RANGE_16G                       = 0x03
-local SENSITIVITY_2G                  = 256;
-local SENSITIVITY_4G                  = 128;
-local SENSITIVITY_8G                  = 64;
-local SENSITIVITY_16G                 = 32
-local ODR_0_1HZ                       = 0x00;
-local ODR_0_2HZ                       = 0x01;
-local ODR_0_39HZ                      = 0x02;
-local ODR_0_78HZ                      = 0x03
-local ODR_1_56HZ                      = 0x04;
-local ODR_3_13HZ                      = 0x05;
-local ODR_6_25HZ                      = 0x06;
-local ODR_12_5HZ                      = 0x07
-local ODR_25HZ                        = 0x08;
-local ODR_50HZ                        = 0x09;
-local ODR_100HZ                       = 0x0A;
-local ODR_200HZ                       = 0x0B
-local ODR_400HZ                       = 0x0C;
-local ODR_800HZ                       = 0x0D;
-local ODR_1600HZ                      = 0x0E;
-local ODR_3200HZ                      = 0x0F
+local MODE_I2C                        = 1        -- I2C 通信模式标志
+local DEV_ADDR_LOW                    = 0x53     -- I2C 设备地址（SDO=GND）
+local DEV_ADDR_HIGH                   = 0x1D     -- I2C 设备地址（SDO=VCC）
+local REG_DEVID                       = 0x00     -- 器件 ID 寄存器
+local REG_THRESH_TAP                  = 0x1D     -- 敲击阈值寄存器
+local REG_OFSX                        = 0x1E     -- X 轴偏移校准
+local REG_OFSY                        = 0x1F     -- Y 轴偏移校准
+local REG_OFSZ                        = 0x20     -- Z 轴偏移校准
+local REG_DUR                         = 0x21     -- 敲击持续时间寄存器
+local REG_LATENT                      = 0x22     -- 敲击延迟寄存器
+local REG_WINDOW                      = 0x23     -- 敲击窗口寄存器
+local REG_THRESH_ACT                  = 0x24     -- 活动检测阈值寄存器
+local REG_THRESH_INACT                = 0x25     -- 静止检测阈值寄存器
+local REG_TIME_INACT                  = 0x26     -- 静止检测时间寄存器
+local REG_ACT_INACT_CTL               = 0x27     -- 活动/静止检测控制寄存器
+local REG_THRESH_FF                   = 0x28     -- 自由落体阈值寄存器
+local REG_TIME_FF                     = 0x29     -- 自由落体时间寄存器
+local REG_TAP_AXES                    = 0x2A     -- 敲击轴选择寄存器
+local REG_ACT_TAP_STATUS              = 0x2B     -- 活动/敲击状态寄存器
+local REG_BW_RATE                     = 0x2C     -- 输出数据速率（ODR）寄存器
+local REG_POWER_CTL                   = 0x2D     -- 电源控制寄存器
+local REG_INT_ENABLE                  = 0x2E     -- 中断使能寄存器
+local REG_INT_MAP                     = 0x2F     -- 中断映射寄存器
+local REG_INT_SOURCE                  = 0x30     -- 中断源寄存器
+local REG_DATA_FORMAT                 = 0x31     -- 数据格式寄存器（量程+全分辨率）
+local REG_DATAX0                      = 0x32     -- X 轴数据低字节
+local REG_DATAX1                      = 0x33     -- X 轴数据高字节
+local REG_DATAY0                      = 0x34     -- Y 轴数据低字节
+local REG_DATAY1                      = 0x35     -- Y 轴数据高字节
+local REG_DATAZ0                      = 0x36     -- Z 轴数据低字节
+local REG_DATAZ1                      = 0x37     -- Z 轴数据高字节
+local ADXL345_DEVID                   = 0xE5     -- ADXL345 器件 ID 值
+local ADXL346_DEVID                   = 0xE6     -- ADXL346 器件 ID 值
+local DF_FULL_RES_BIT                 = 3        -- DATA_FORMAT 全分辨率位（bit3）
+local INT_DATA_READY                  = 0x80     -- 数据就绪中断位
+local INT_SINGLE_TAP                  = 0x40     -- 单击中断位
+local INT_DOUBLE_TAP                  = 0x20     -- 双击中断位
+local INT_ACTIVITY                    = 0x10     -- 活动检测中断位
+local INT_INACTIVITY                  = 0x08     -- 静止检测中断位
+local INT_FREE_FALL                   = 0x04     -- 自由落体中断位
+local INT_WATERMARK                   = 0x02     -- FIFO 水印中断位
+local INT_OVERRUN                     = 0x01     -- FIFO 溢出中断位
+local PC_MEASURE                      = 0x08     -- POWER_CTL 测量模式位（bit3）
+local RANGE_2G                        = 0x00     -- 量程 ±2g
+local RANGE_4G                        = 0x01     -- 量程 ±4g
+local RANGE_8G                        = 0x02     -- 量程 ±8g
+local RANGE_16G                       = 0x03     -- 量程 ±16g
+local SENSITIVITY_2G                  = 256      -- ±2g 灵敏度（LSB/g）
+local SENSITIVITY_4G                  = 128      -- ±4g 灵敏度（LSB/g）
+local SENSITIVITY_8G                  = 64       -- ±8g 灵敏度（LSB/g）
+local SENSITIVITY_16G                 = 32       -- ±16g 灵敏度（LSB/g）
+local ODR_0_1HZ                       = 0x00     -- 输出速率 0.1 Hz
+local ODR_0_2HZ                       = 0x01     -- 输出速率 0.2 Hz
+local ODR_0_39HZ                      = 0x02     -- 输出速率 0.39 Hz
+local ODR_0_78HZ                      = 0x03     -- 输出速率 0.78 Hz
+local ODR_1_56HZ                      = 0x04     -- 输出速率 1.56 Hz
+local ODR_3_13HZ                      = 0x05     -- 输出速率 3.13 Hz
+local ODR_6_25HZ                      = 0x06     -- 输出速率 6.25 Hz
+local ODR_12_5HZ                      = 0x07     -- 输出速率 12.5 Hz
+local ODR_25HZ                        = 0x08     -- 输出速率 25 Hz
+local ODR_50HZ                        = 0x09     -- 输出速率 50 Hz
+local ODR_100HZ                       = 0x0A     -- 输出速率 100 Hz
+local ODR_200HZ                       = 0x0B     -- 输出速率 200 Hz
+local ODR_400HZ                       = 0x0C     -- 输出速率 400 Hz
+local ODR_800HZ                       = 0x0D     -- 输出速率 800 Hz
+local ODR_1600HZ                      = 0x0E     -- 输出速率 1600 Hz
+local ODR_3200HZ                      = 0x0F     -- 输出速率 3200 Hz
 
 -- ==================== 内部状态 ====================
 
@@ -110,11 +139,15 @@ local g_dev_addr                      = 0x53
 local g_range                         = "2g"; local g_sensitivity = SENSITIVITY_2G
 local g_ready                         = false
 local g_int1_cb                       = nil; local g_int2_cb = nil
+local g_int1_gpio                     = nil; local g_int2_gpio = nil -- INT 引脚号（close 时注销用）
 local g_act_couple                    = "AC" -- activity 耦合模式: "AC" 或 "DC"
 local g_inact_couple                  = "AC" -- inactivity 耦合模式: "AC" 或 "DC"
 
 -- ==================== I2C 总线恢复 ====================
 
+-- 对 SCL 引脚产生最多 9 个时钟脉冲，强制锁死 SDA 的从机释放总线
+-- 每发一个脉冲检测 SDA 是否释放，提前结束
+-- 硬件 I2C 场景恢复后需重新 i2c.setup()
 local function i2c_bus_recovery()
     if not g_scl_pin or not g_sda_pin then return end
     gpio.setup(g_scl_pin, gpio.OUTPUT, gpio.PULLUP, 1)
@@ -123,18 +156,61 @@ local function i2c_bus_recovery()
     for i = 1, 9 do
         gpio.set(g_scl_pin, 0); sys.wait(1)
         gpio.set(g_scl_pin, 1); sys.wait(1)
+        -- 切 SDA 为输入模式检查电平
+        gpio.setup(g_sda_pin, gpio.INPUT, gpio.PULLUP); sys.wait(1)
+        if gpio.get(g_sda_pin) == 1 then
+            gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+            break
+        end
+        gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
     end
     gpio.set(g_sda_pin, 0); sys.wait(1)
     gpio.set(g_scl_pin, 1); sys.wait(1)
     gpio.set(g_sda_pin, 1); sys.wait(1)
 end
 
+-- ==================== I2C 总线卡死自动检测 ====================
+
+local function try_bus_recovery()
+    if not g_scl_pin or not g_sda_pin then return false end
+    -- 切 SDA/SCL 为输入模式读取电平
+    gpio.setup(g_sda_pin, gpio.INPUT, gpio.PULLUP)
+    gpio.setup(g_scl_pin, gpio.INPUT, gpio.PULLUP)
+    sys.wait(1)
+    local sda_level = gpio.get(g_sda_pin)
+    local scl_level = gpio.get(g_scl_pin)
+    local is_stall = (sda_level == 0 and scl_level == 1)
+    gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+    gpio.setup(g_scl_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+    if not is_stall then return false end
+    log.warn("exs_adxl34x", "检测到I2C总线卡死，尝试恢复")
+    i2c_bus_recovery()
+    if not g_is_soft then
+        i2c.setup(g_i2c_bus, i2c.SLOW)
+    end
+    return true
+end
+
 -- ==================== 底层读写 ====================
 
-local function i2c_write(reg, val) return i2c.send(g_i2c_bus, g_dev_addr, { reg, val }) end
+local function i2c_write(reg, val)
+    local ok = i2c.send(g_i2c_bus, g_dev_addr, { reg, val })
+    if not ok then
+        if try_bus_recovery() then
+            ok = i2c.send(g_i2c_bus, g_dev_addr, { reg, val })
+        end
+    end
+    return ok
+end
 
 local function i2c_read(reg, len)
-    if not i2c.send(g_i2c_bus, g_dev_addr, { reg }) then return nil end
+    local ok = i2c.send(g_i2c_bus, g_dev_addr, { reg })
+    if not ok then
+        if try_bus_recovery() then
+            ok = i2c.send(g_i2c_bus, g_dev_addr, { reg })
+        end
+        if not ok then return nil end
+    end
     local data = i2c.recv(g_i2c_bus, g_dev_addr, len)
     if not data then return nil end
     local t = {}; for i = 1, #data do t[i] = data:byte(i) end; return t
@@ -228,37 +304,32 @@ local function apply_int_config(int1_cfg, int2_cfg)
     -- 1. 先关闭所有中断
     reg_write(REG_INT_ENABLE, 0x00); sys.wait(5)
 
-    -- 2. 配置中断相关寄存器（ACT_INACT_CTL / THRESH_FF / THRESH_TAP 等）
-    --    这些寄存器必须在使能中断之前配置好
+    -- 2. 配置中断相关寄存器
     if int_enable & (INT_ACTIVITY | INT_INACTIVITY) ~= 0 then
         local ctl = (reg_read(REG_ACT_INACT_CTL, 1) or {})[1] or 0
         if int_enable & INT_ACTIVITY ~= 0 then
-            -- AC 耦合：以当前加速度为参考值，检测变化量，静止时不会误触发（推荐）
-            -- DC 耦合：直接比较绝对加速度与阈值。Z 轴 1g 重力可能导致静止时持续触发
-            -- 默认 AC 耦合（ACT_DC=1），可通过 act_dc = "DC" 切换为 DC 耦合
             if g_act_couple == "DC" then
-                ctl = ctl & 0x7F                -- ACT_DC=0, DC coupled
+                ctl = ctl & 0x7F
             else
-                ctl = ctl | 0x80                -- ACT_DC=1, AC coupled
+                ctl = ctl | 0x80
             end
-            ctl = ctl | 0x3C                    -- 使能 X/Y/Z 活动检测
+            ctl = ctl | 0x3C
             if (reg_read(REG_THRESH_ACT, 1) or {})[1] == 0 then
-                reg_write(REG_THRESH_ACT, 0x05) -- 312mg (62.5mg/LSB × 5)
+                reg_write(REG_THRESH_ACT, 0x05)
             end
         end
         if int_enable & INT_INACTIVITY ~= 0 then
-            -- 默认 AC 耦合（INACT_DC=1），可通过 inact_dc = "DC" 切换
             if g_inact_couple == "DC" then
-                ctl = ctl & 0xBF                  -- INACT_DC=0, DC coupled
+                ctl = ctl & 0xBF
             else
-                ctl = ctl | 0x40                  -- INACT_DC=1, AC coupled
+                ctl = ctl | 0x40
             end
-            ctl = ctl | 0x03                      -- 使能 X/Y/Z 静止检测
+            ctl = ctl | 0x03
             if (reg_read(REG_THRESH_INACT, 1) or {})[1] == 0 then
-                reg_write(REG_THRESH_INACT, 0x03) -- 187mg (62.5mg/LSB × 3)
+                reg_write(REG_THRESH_INACT, 0x03)
             end
             if (reg_read(REG_TIME_INACT, 1) or {})[1] == 0 then
-                reg_write(REG_TIME_INACT, 4) -- 2 秒
+                reg_write(REG_TIME_INACT, 4)
             end
         end
         reg_write(REG_ACT_INACT_CTL, ctl); sys.wait(5)
@@ -312,31 +383,8 @@ end
 
 --[[
 初始化 ADXL345/ADXL346 加速度传感器
-
 @api exs_adxl34x.setup(model, config)
-
 @string model 通信模式，当前仅支持 "I2C"（SPI 未适配）
-
-I2C 模式参数：scl、sda、i2c_id
-通用参数：range、odr、thresh_act、thresh_inact、time_inact
-中断参数：
-
-int1
-INT1 中断配置表，包含 int_gpio 和事件 boolean：
-  int_gpio - INT1 引脚 GPIO 编号
-  data_ready - 数据就绪中断（注意：100Hz ODR 下每秒触发 100 次）
-  activity - 活动检测中断
-  inactivity - 静止检测中断
-  free_fall - 自由落体检测中断
-  tap - 敲击检测中断
-  cb - 中断回调函数(data)，自动传入 {x,y,z}
-数据类型：table
-是否必选：可选
-参数示例：{int_gpio = 10, data_ready = true, cb = adxl34x_cb}
-
-int2
-INT2 中断配置表，同 int1 格式
-
 @return boolean
 ]]
 function exs_adxl34x.setup(model, config)
@@ -344,7 +392,6 @@ function exs_adxl34x.setup(model, config)
         log.error("exs_adxl34x.setup 参数错误"); return false
     end
 
-    -- 通信初始化
     if model ~= "I2C" then
         log.error("exs_adxl34x.setup SPI 模式未适配，请使用 I2C 模式"); return false
     else
@@ -377,7 +424,6 @@ function exs_adxl34x.setup(model, config)
         end
     end
 
-    -- 配置参数
     local range_str = config.range or "2g"; local odr_hz = config.odr or 100
     local odr_reg, actual_odr = odr_to_reg(odr_hz)
     local range_reg, sensitivity = range_to_params(range_str)
@@ -392,7 +438,6 @@ function exs_adxl34x.setup(model, config)
         log.error("exs_adxl34x.setup POWER_CTL 失败"); return false
     end; sys.wait(20)
 
-    -- 活动/静止阈值（优先应用用户配置，未配置则由 apply_int_config 使用默认值）
     if config.thresh_act then
         local t = math.min(math.floor(config.thresh_act * 256 / 4), 255)
         reg_write(REG_THRESH_ACT, t)
@@ -405,23 +450,13 @@ function exs_adxl34x.setup(model, config)
         reg_write(REG_TIME_INACT, math.floor(config.time_inact / 0.5))
     end
 
-    -- 耦合模式
     if config.act_couple then
-        if config.act_couple == "DC" then
-            g_act_couple = "DC"
-        else
-            g_act_couple = "AC"
-        end
+        g_act_couple = (config.act_couple == "DC") and "DC" or "AC"
     end
     if config.inact_couple then
-        if config.inact_couple == "DC" then
-            g_inact_couple = "DC"
-        else
-            g_inact_couple = "AC"
-        end
+        g_inact_couple = (config.inact_couple == "DC") and "DC" or "AC"
     end
 
-    -- 中断配置
     local int1_cfg, int2_cfg = nil, nil
     if config.int1 and type(config.int1) == "table" then
         int1_cfg = config.int1; g_int1_cb = config.int1.cb
@@ -431,15 +466,14 @@ function exs_adxl34x.setup(model, config)
     end
     apply_int_config(int1_cfg, int2_cfg)
 
-    -- GPIO 中断注册
     if config.int1 and type(config.int1) == "table" and config.int1.int_gpio then
         gpio.setup(config.int1.int_gpio, function()
-            -- 先读取中断源清除芯片中断标志，再读取数据
             exs_adxl34x.get_int_source()
             local data = exs_adxl34x.get_data()
             if g_int1_cb and data then g_int1_cb(data) end
         end, gpio.PULLUP, gpio.RISING)
         log.info("exs_adxl34x", string.format("INT1 已注册, int_gpio=%d", config.int1.int_gpio))
+        g_int1_gpio = config.int1.int_gpio
     end
     if config.int2 and type(config.int2) == "table" and config.int2.int_gpio then
         gpio.setup(config.int2.int_gpio, function()
@@ -448,17 +482,16 @@ function exs_adxl34x.setup(model, config)
             if g_int2_cb and data then g_int2_cb(data) end
         end, gpio.PULLUP, gpio.RISING)
         log.info("exs_adxl34x", string.format("INT2 已注册, int_gpio=%d", config.int2.int_gpio))
+        g_int2_gpio = config.int2.int_gpio
     end
 
     g_range, g_sensitivity, g_ready = range_str, sensitivity, true
-    log.info("exs_adxl34x", string.format("初始化完成 mode=%s range=%s odr=%dHz",
-        model, g_range, actual_odr))
+    log.info("exs_adxl34x", string.format("初始化完成 mode=%s range=%s odr=%dHz", model, g_range, actual_odr))
     return true
 end
 
 --[[
 读取三轴加速度数据
-
 @api exs_adxl34x.get_data()
 @return table or nil {x, y, z} 单位 g
 ]]
@@ -475,7 +508,6 @@ end
 
 --[[
 切换量程
-
 @api exs_adxl34x.set_range(range)
 @string range "2g"、"4g"、"8g"、"16g"
 ]]
@@ -495,7 +527,6 @@ end
 
 --[[
 切换输出数据速率
-
 @api exs_adxl34x.set_odr(hz)
 @number hz 0.78~3200
 ]]
@@ -510,16 +541,9 @@ end
 
 --[[
 配置中断事件
-
-运行时修改 INT1 或 INT2 的中断触发事件。
-注意：
-1、与 setup 中 int1/int2 的事件参数格式一致。
-2、仅配置芯片内部中断映射和使能，不注册 GPIO 中断回调。
-3、如需 GPIO 中断自动回调，请在 setup 中配置 int1/int2 参数。
-
 @api exs_adxl34x.int_config(int, config)
 @string int "int1" 或 "int2"
-@table  config 事件配置，同 setup 中 int1/int2 的事件 boolean
+@table  config 事件配置
 ]]
 function exs_adxl34x.int_config(int, config)
     if not g_ready then
@@ -528,17 +552,12 @@ function exs_adxl34x.int_config(int, config)
     if type(int) ~= "string" or type(config) ~= "table" then
         log.error("exs_adxl34x.int_config 参数错误"); return
     end
-
     local int_enable = event_table_to_mask(config)
     if int_enable == 0 then
         log.warn("exs_adxl34x.int_config 未指定事件"); return
     end
-
     local is_int2 = (int == "int2")
-
-    -- 关中断 → 改 map → 开中断
     reg_write(REG_INT_ENABLE, 0x00); sys.wait(5)
-
     local cur_map = (reg_read(REG_INT_MAP, 1) or {})[1] or 0
     if is_int2 then
         cur_map = cur_map | int_enable
@@ -546,21 +565,16 @@ function exs_adxl34x.int_config(int, config)
         cur_map = cur_map & (~int_enable)
     end
     reg_write(REG_INT_MAP, cur_map); sys.wait(5)
-
     local cur_en = (reg_read(REG_INT_ENABLE, 1) or {})[1] or 0
     cur_en = cur_en | int_enable
     reg_write(REG_INT_ENABLE, cur_en)
-
     log.info("exs_adxl34x", string.format("%s 中断已配置", int))
 end
 
 --[[
 读取中断源
-
-读取后自动清除中断标志。
-
 @api exs_adxl34x.get_int_source()
-@return table or nil 事件名称数组，如 {"data_ready"}
+@return table or nil 事件名称数组
 ]]
 function exs_adxl34x.get_int_source()
     if not g_ready then
@@ -581,26 +595,56 @@ function exs_adxl34x.get_int_source()
 end
 
 --[[
-软件复位
-
-@api exs_adxl34x.soft_reset()
+进入待机模式（低功耗）
+@api exs_adxl34x.sleep()
 ]]
-function exs_adxl34x.soft_reset()
+function exs_adxl34x.sleep()
     if not g_ready then
-        log.error("exs_adxl34x.soft_reset 请先 setup()"); return
+        log.error("exs_adxl34x.sleep 请先 setup()"); return
     end
-    reg_write(REG_POWER_CTL, 0x00); sys.wait(10)
-    reg_write(REG_POWER_CTL, PC_MEASURE); sys.wait(10)
-    log.info("exs_adxl34x", "软件复位完成")
+    reg_write(REG_POWER_CTL, 0x00)
+    log.info("exs_adxl34x", "已进入待机模式")
+end
+
+--[[
+从待机模式唤醒
+@api exs_adxl34x.wakeup()
+]]
+function exs_adxl34x.wakeup()
+    if not g_ready then
+        log.error("exs_adxl34x.wakeup 请先 setup()"); return
+    end
+    reg_write(REG_POWER_CTL, PC_MEASURE)
+    log.info("exs_adxl34x", "已从待机模式唤醒")
+end
+
+--[[
+关闭传感器
+@api exs_adxl34x.close()
+]]
+function exs_adxl34x.close()
+    if not g_ready then return end
+    -- 先注销 GPIO 中断（防止 close 后 INT 引脚变化触发回调导致死机）
+    if g_int1_gpio then gpio.setup(g_int1_gpio, nil) end
+    if g_int2_gpio then gpio.setup(g_int2_gpio, nil) end
+
+    reg_write(REG_POWER_CTL, 0x00)
+    g_ready = false
+    g_i2c_bus = 0
+    g_is_soft = false
+    g_scl_pin = nil; g_sda_pin = nil
+    g_dev_addr = 0x53
+    g_int1_cb = nil; g_int2_cb = nil
+    g_int1_gpio = nil; g_int2_gpio = nil
+    log.info("exs_adxl34x", "传感器已关闭")
 end
 
 --[[
 获取版本号
-
 @api exs_adxl34x.version()
 @return string
 ]]
-function exs_adxl34x.version() return "202607141200" end
+function exs_adxl34x.version() return "202607170900" end
 
 log.debug("exs_adxl34x", "version -> " .. exs_adxl34x.version())
 return exs_adxl34x

@@ -460,14 +460,14 @@ int airui_camera_push_frame(lv_obj_t *camera, const uint8_t *rgb565, uint16_t w,
     return airui_camera_ingest_rgb565(camera, rgb565, w, h);
 }
 
-static void airui_camera_preview_cb(luat_camera_preview_data_t *preview_data, void *user_data)
+static void airui_camera_preview_cb(luat_camera_frame_data_t *preview_data, void *user_data)
 {
     lv_obj_t *camera = (lv_obj_t *)user_data;
 
     if (preview_data == NULL || preview_data->data == NULL) {
         return;
     }
-    if (preview_data->data_type != LUAT_CAMERA_PREVIEW_DATA_TYPE_RAW) {
+    if (preview_data->data_type != LUAT_CAMERA_FRAME_DATA_TYPE_RAW) {
         return;
     }
     if (preview_data->color_bytes != 2u) {

@@ -116,7 +116,7 @@ end
 -- 播放完成回调函数
 local function play_end_callback(event)
     if event == exaudio.PLAY_DONE then
-        log.info("http_pcm_stream_play", "播放完成")
+        log.info("http_download_play", "播放完成")
         is_playing = false
         is_downloading = false
     end
@@ -125,7 +125,7 @@ end
 -- 停止播放
 local function stop_playback()
     if is_playing then
-        log.info("http_pcm_stream_play", "停止播放")
+        log.info("http_download_play", "停止播放")
         -- 根据当前音频格式选择停止方式
         local audio_format = get_audio_format(AUDIO_URL)
         if audio_format == "pcm" then
@@ -149,16 +149,16 @@ end
 local function http_download_and_play_task()
     -- 自动识别音频格式
     local audio_format = get_audio_format(AUDIO_URL)
-    log.info("http_pcm_stream_play", "音频格式:", audio_format, "URL:", AUDIO_URL)
+    log.info("http_download_play", "音频格式:", audio_format, "URL:", AUDIO_URL)
 
     is_downloading = true
 
     -- 临时文件路径
     local temp_file_path = temp_file_dir .. "tmp_http_audio" .. get_temp_file_ext(audio_format)
-    log.info("http_pcm_stream_play", "临时文件路径:", temp_file_path)
+    log.info("http_download_play", "临时文件路径:", temp_file_path)
 
     -- 先发送HEAD请求获取文件大小
-    log.info("http_pcm_stream_play", "获取文件大小...")
+    log.info("http_download_play", "获取文件大小...")
     local head_code, head_headers = http.request("HEAD", AUDIO_URL, nil, nil, {timeout = 10000}).wait()
 
     local file_size = 0
@@ -167,13 +167,13 @@ local function http_download_and_play_task()
         local content_length = head_headers["Content-Length"] or head_headers["content-length"]
         if content_length then
             file_size = tonumber(content_length) or 0
-            log.info("http_pcm_stream_play", "文件大小:", file_size, "字节 (", string.format("%.2f", file_size / 1024), "KB)")
+            log.info("http_download_play", "文件大小:", file_size, "字节 (", string.format("%.2f", file_size / 1024), "KB)")
         end
     end
 
     -- HTTP下载回调函数
     local function download_callback(content_len, body_len, userdata)
-        log.info("http_pcm_stream_play", "下载进度:", body_len, "/", content_len or "unknown")
+        log.info("http_download_play", "下载进度:", body_len, "/", content_len or "unknown")
     end
 
     -- 发送HTTP请求，将数据保存到文件
@@ -185,7 +185,7 @@ local function http_download_and_play_task()
     }).wait()
 
     if code == 200 then
-        log.info("http_pcm_stream_play", "HTTP下载完成，文件大小:", body_size)
+        log.info("http_download_play", "HTTP下载完成，文件大小:", body_size)
 
         -- 根据音频格式选择播放方式
         local play_param
@@ -200,7 +200,7 @@ local function http_download_and_play_task()
                 cbfnc = play_end_callback,  -- 播放完毕回调
                 priority = 1                -- 播放优先级
             }
-            log.info("http_pcm_stream_play", "PCM使用流式播放")
+            log.info("http_download_play", "PCM使用流式播放")
         else
             -- MP3/AMR格式：使用文件播放
             play_param = {
@@ -209,20 +209,20 @@ local function http_download_and_play_task()
                 cbfnc = play_end_callback,  -- 播放完毕回调
                 priority = 1                -- 播放优先级
             }
-            log.info("http_pcm_stream_play", audio_format:upper(), "使用文件播放")
+            log.info("http_download_play", audio_format:upper(), "使用文件播放")
         end
 
         -- 启动播放
         local play_result = exaudio.play_start(play_param)
         if not play_result then
-            log.error("http_pcm_stream_play", "播放启动失败")
+            log.error("http_download_play", "播放启动失败")
             is_downloading = false
             os.remove(temp_file_path)
             return
         end
 
         is_playing = true
-        log.info("http_pcm_stream_play", "播放已启动")
+        log.info("http_download_play", "播放已启动")
 
         -- PCM格式：读取文件数据并写入流式播放队列
         if audio_format == "pcm" then
@@ -242,9 +242,9 @@ local function http_download_and_play_task()
                 f:close()
                 -- 通知流式播放数据已结束
                 exaudio.finish()
-                log.info("http_pcm_stream_play", "PCM数据写入完成")
+                log.info("http_download_play", "PCM数据写入完成")
             else
-                log.error("http_pcm_stream_play", "无法打开PCM文件")
+                log.error("http_download_play", "无法打开PCM文件")
                 exaudio.play_stop({type = 2})
                 is_playing = false
                 is_downloading = false
@@ -260,9 +260,9 @@ local function http_download_and_play_task()
 
         -- 删除临时文件
         os.remove(temp_file_path)
-        log.info("http_pcm_stream_play", "临时文件已删除")
+        log.info("http_download_play", "临时文件已删除")
     else
-        log.error("http_pcm_stream_play", "HTTP下载失败，状态码:", code)
+        log.error("http_download_play", "HTTP下载失败，状态码:", code)
     end
 
     is_downloading = false
@@ -272,18 +272,18 @@ end
 -- 开始HTTP下载并播放
 local function start_http_play()
     if is_playing or is_downloading then
-        log.info("http_pcm_stream_play", "正在播放或下载中，请先停止")
+        log.info("http_download_play", "正在播放或下载中，请先停止")
         return
     end
 
     -- 检查网络是否就绪
     if not socket.adapter(socket.dft()) then
-        log.error("http_pcm_stream_play", "网络未就绪，请检查网络连接")
+        log.error("http_download_play", "网络未就绪，请检查网络连接")
         return
     end
 
     -- 启动下载播放任务
-    log.info("http_pcm_stream_play", "启动HTTP下载播放任务")
+    log.info("http_download_play", "启动HTTP下载播放任务")
     download_task_handle = sys.taskInit(http_download_and_play_task)
 end
 
@@ -304,16 +304,16 @@ local function pwrkey_handler()
             local duration = mcu.ticks() - pwrkey_press_time
             if duration >= KEY_LONG_PRESS_MS then
                 -- 长按：强制停止
-                log.info("http_pcm_stream_play", "长按PWRKEY，停止播放")
+                log.info("http_download_play", "长按PWRKEY，停止播放")
                 stop_playback()
             else
                 -- 短按：开始下载播放 / 停止
                 if is_playing or is_downloading then
-                    log.info("http_pcm_stream_play", "短按PWRKEY，停止当前播放")
+                    log.info("http_download_play", "短按PWRKEY，停止当前播放")
                     stop_playback()
                 else
                     local audio_format = get_audio_format(AUDIO_URL)
-                    log.info("http_pcm_stream_play", "短按PWRKEY，开始HTTP下载并播放", audio_format)
+                    log.info("http_download_play", "短按PWRKEY，开始HTTP下载并播放", audio_format)
                     start_http_play()
                 end
             end
@@ -325,15 +325,15 @@ end
 -- ========== 音频主任务 ==========
 
 local function main_audio_task()
-    log.info("http_pcm_stream_play", "音频系统初始化")
+    log.info("http_download_play", "音频系统初始化")
 
     -- 等待网络就绪
-    log.info("http_pcm_stream_play", "等待网络就绪...")
+    log.info("http_download_play", "等待网络就绪...")
     while not socket.adapter(socket.dft()) do
-        log.info("http_pcm_stream_play", "网络未就绪，等待中...")
+        log.info("http_download_play", "网络未就绪，等待中...")
         sys.wait(1000)
     end
-    log.info("http_pcm_stream_play", "网络已就绪")
+    log.info("http_download_play", "网络已就绪")
 
     -- 获取音频格式
     local audio_format = get_audio_format(AUDIO_URL)
@@ -343,20 +343,20 @@ local function main_audio_task()
         -- 设置音量
         exaudio.vol(PLAY_VOLUME)
 
-        log.info("http_pcm_stream_play", "音量设置:", PLAY_VOLUME)
-        log.info("http_pcm_stream_play", "音频硬件初始化成功")
+        log.info("http_download_play", "音量设置:", PLAY_VOLUME)
+        log.info("http_download_play", "音频硬件初始化成功")
 
-        log.info("http_pcm_stream_play", "存储路径: / (内存)")
-        log.info("http_pcm_stream_play", "按键功能说明：")
-        log.info("http_pcm_stream_play", "短按PWRKEY: 开始下载播放 / 停止播放")
-        log.info("http_pcm_stream_play", "长按PWRKEY: 强制停止播放")
-        log.info("http_pcm_stream_play", "3. 音频URL:", AUDIO_URL)
-        log.info("http_pcm_stream_play", "4. 音频格式:", audio_format)
+        log.info("http_download_play", "存储路径: / (内存)")
+        log.info("http_download_play", "按键功能说明：")
+        log.info("http_download_play", "短按PWRKEY: 开始下载播放 / 停止播放")
+        log.info("http_download_play", "长按PWRKEY: 强制停止播放")
+        log.info("http_download_play", "3. 音频URL:", AUDIO_URL)
+        log.info("http_download_play", "4. 音频格式:", audio_format)
         if audio_format == "pcm" then
-            log.info("http_pcm_stream_play", "5. PCM参数: 16kHz, 16bit, 有符号")
+            log.info("http_download_play", "5. PCM参数: 16kHz, 16bit, 有符号")
         end
     else
-        log.error("http_pcm_stream_play", "音频硬件初始化失败")
+        log.error("http_download_play", "音频硬件初始化失败")
     end
 end
 

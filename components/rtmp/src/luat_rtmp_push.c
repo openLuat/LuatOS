@@ -17,6 +17,7 @@
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_netdrv.h"
+#include "luat_camera.h"
 
 #include "luat_network_adapter.h"
 #include <string.h>
@@ -2476,6 +2477,7 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
             rtmp_set_state(ctx, RTMP_STATE_PUBLISHING, 0);
             // 通知摄像头开始采集
             luat_camera_capture(0, 80, "rtmp");
+            luat_camera_start(0);
         } else {
             LLOGE("RTMP: Failed to send metadata");
             rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_FAILED);

@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include "lwip/def.h"
+#include "lwip/init.h"
 #include "lwip/pbuf.h"
 #include "lwip/ip4.h"
 #include "lwip/ip_addr.h"

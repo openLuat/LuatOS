@@ -758,6 +758,10 @@ static int l_uart_on(lua_State *L) {
     if (uart_id >= LUAT_VUART_ID_0)
     {
     	uart_id = MAX_DEVICE_COUNT + uart_id - LUAT_VUART_ID_0;
+    	if (uart_id >= MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT) {
+    		lua_pushliteral(L, "no such uart id");
+    		return 1;
+    	}
     }
 
     const char* event = luaL_checkstring(L, 2);

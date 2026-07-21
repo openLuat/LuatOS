@@ -6,9 +6,9 @@
 
 ## 演示功能概述
 
-1、开启多网融合模式，WIFI A连接外部网络，支持以太网lan模式为其他以太网设备提供接入,等待一段时间后，改为WIFI B连接外部网络，支持以太网lan模式为其他以太网设备提供接入
-
-2、​网络监控​，每5秒进行HTTPS连接测试，实时监测WIFI网络的连接状态
+1. 调用 exnetif.set_priority_order 建立 WiFi A → 以太网 LAN 多网融合代理，启用掉线自动重连
+2. 再次调用 exnetif.set_priority_order 将上游 WiFi 切换为 WiFi B，库内部自动处理 NAPT/WiFi 切换
+3. 通过HTTP GET连接测试STA网卡网络情况
 
 ## 演示硬件环境
 

@@ -5,14 +5,7 @@
 @date    2026.07.21
 @author  江访
 @usage
-本文件为 VL53L1X 飞行时间测距传感器（ST 出品）的 LuatOS 扩展库。
-寄存器地址与配置值严格对照 ST 官方 API（en.STSW-IMG007/api/core）：
-  - vl53l1_register_map.h        寄存器地址
-  - vl53l1_register_settings.h   寄存器值定义
-  - vl53l1_api_preset_modes.c    预设模式配置（preset_mode_standard_ranging）
-  - vl53l1_api_core.c            启停测距、清中断、读结果
-  - vl53l1_silicon_core.c        软复位
-  - vl53l1_wait.c                等待 boot 完成 / 等待数据就绪
+本文件 是基于 ST（意法半导体） 出品的 VL53L1X ToF 激光测距传感器开发的 LuatOS 扩展库。
 
 核心功能为：
 1、初始化（硬件/软件复位 -> 等待固件就绪 -> 写入 Standard Ranging 预设模式 -> 启动测距）
@@ -31,13 +24,6 @@
 5、exs_vl53l1x.close()：关闭传感器
 6、exs_vl53l1x.version()：获取版本号
 
-注意：
-- 预设模式为 Standard Ranging（连续 back-to-back 测距），与官方
-  VL53L1_preset_mode_standard_ranging() 一致。
-- get_data() 内部已包含：轮询 GPIO__TIO_HV_STATUS 判断数据就绪 -> 读结果 ->
-  清 range 中断 -> 再次写 mode_start 触发下一帧。
-- int1.int_gpio 填写 GPIO 端口号（不是 pin 引脚号），如 GPIO10 填 10。
-- 中断注册放在 g_ready=true 之后，避免注册时电平触发回调导致误报。
 
 -- 版本更新说明
 版本号：202607211200

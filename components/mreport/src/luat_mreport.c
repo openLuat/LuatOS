@@ -297,7 +297,7 @@ static void luat_mreport_wifi(cJSON* mreport_data) {
 #elif __BK72XX__    
     // MUID
     char muid[33] = {0};
-	luat_mcu_muid(muid);
+	luat_hmeta_muid(muid, 32);
     cJSON_AddStringToObject(mreport_data, "muid", muid);
 
     // wifi版本号

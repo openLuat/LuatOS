@@ -50,7 +50,7 @@ local function init_airlink_wdt()
     sys.wait(5000)
 
     -- 初始化看门狗，TO_RESET 使用 GPIO14
-    local success = exairlinkwdt.open({ reset_pin = 14 , reset_idle_level = 1 })
+    local success = exairlinkwdt.open({ reset_pin = 14 , reset_idle_level = 0 })
     if success then
         log.info("main", "看门狗启动成功")
     else

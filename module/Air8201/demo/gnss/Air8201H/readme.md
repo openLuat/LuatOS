@@ -1,61 +1,11 @@
+## exgnss和libgnss的区别
+exgnss：主要利用exgnss库去实现整个功能，主要包含两个目录，single和combination，
 
-## 演示功能概述
+single是单点定位，展示了exngss的三种模式。
 
-使用Air8201H，利用libgnss核心库如何实现定位功能
+combination是融合了各种场景的GNSS定位，主要包括正常模式下的定时开启GNSS，定位成功把经纬度发到服务器的功能，低功耗模式下定时开启GNSS，定位成功把经纬度发到服务器的功能，以及PSM+模式下，定时唤醒模块，定位成功把经纬度发到服务器的功能，还包括了利用内置的加速度传感器，通过震动检测来执行GNSS定位的功能。
 
-主要操作为：
+libngss:主要利用libgnss核心库实现的整个功能，主要功能包括打开GNSS，开启AGPS辅助定位，定位成功获取经纬度。
 
-打开GNSS，使用AGPS辅助定位
-
-定位成功之后，获取经纬度信息
-
-## 演示硬件环境
-
-1、Air8201H板子一个
-
-2、TYPE-C USB数据线一根
-
-3、gnss天线一根
-
-
-## 演示软件环境
-
-1、Luatools下载调试工具
-
-2、[Air8201H最新版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)
-
-## 演示核心步骤
-
-1、搭建好硬件环境
-
-2、通过Luatools将demo与固件烧录到核心板中
-
-3、烧录好后，板子开机将会在Luatools上看到如下打印：
-
-(1) GNSS开启：
-
-```lua
-[2026-07-15 17:03:10.306][000000000.269] I/user.GPS start
-[2026-07-15 17:03:10.311][000000000.269] Uart_ChangeBR 1461:uart2, 115200 115203 26000000 3611
-[2026-07-15 17:03:10.318][000000000.470] D/gnss Debug ON
-[2026-07-15 17:03:10.324][000000000.531] W/user.airlbs_multi_cells_wifi_func wait IP_READY 1 1
-[2026-07-15 17:03:10.330][000000000.596] D/gnss >> 
-CC0257B
-PN N/A
-SN N/A
-HWVer V2.0
-FWVer N1000R2.1.1.11Build12069
-Copyright (c), ICOE(Shanghai) Technologies Co.,Ltd.
-All rights reserved.
-
-
-```
-
-(2) GNSS定位成功：
-
-```lua
-[2026-07-15 17:03:57.253][000000048.700] I/user.exgnss state FIXED
-[2026-07-15 17:03:57.264][000000048.701] I/user.nmea rmc0 {"variation":0,"lat":3447.71509,"min":3,"valid":true,"day":15,"lng":11419.71484,"speed":2.53300,"year":2026,"month":7,"sec":57,"hour":9,"course":220.09599}
-
-
-```
+## 使用推荐
+推荐使用exgnss，因为exgnss在libgnss核心库的基础上，对gnss的开和关做了函数优化，不需要繁琐的步骤进行开和关，同时加入了gnss应用的概念，可以选择常开或者定时开启，支持不同场景的应用方式，让用户在开发的过程中更简单。

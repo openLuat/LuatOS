@@ -28,21 +28,44 @@ local toggle_btn = nil
 local ctrl_btn = nil
 local camera_widget = nil
 
--- 摄像头配置
-local CAM_SENSOR_W = 640
-local CAM_SENSOR_H = 480
+-- 摄像头配置选择
+-- CAM_CONFIG = 1: 640x480 摄像头 (AirCAMERA_1032 默认参数)
+-- CAM_CONFIG = 2: 960x480 @ 20fps 摄像头 (2:1 宽屏参数，如 960x480 / 864x480 / 800x480)
+local CAM_CONFIG = 2
+
+-- 摄像头传感器分辨率
+local CAM_SENSOR_W, CAM_SENSOR_H
+-- 预览画面区域尺寸
+local PREVIEW_W, PREVIEW_H
+-- 右侧面板起始X和宽度
+local PANEL_X, PANEL_W
+
+if CAM_CONFIG == 2 then
+    -- 宽屏 2:1 摄像头 (960x480)
+    CAM_SENSOR_W = 800
+    CAM_SENSOR_H = 600
+    PREVIEW_W = 640          -- 640 等宽，保持 2:1
+    PREVIEW_H = 320          -- 640 * 480 / 960 = 320
+    PANEL_X = 660            -- 面板左移留出空间
+    PANEL_W = 350            -- 1024 - 660 - 14 = 350
+else
+    -- 默认 640x480 摄像头 (AirCAMERA_1032)
+    CAM_SENSOR_W = 640
+    CAM_SENSOR_H = 480
+    PREVIEW_W = 640
+    PREVIEW_H = 470
+    PANEL_X = 670
+    PANEL_W = 340
+end
+
 local LCD_W = 1024
 local LCD_H = 600
 
 -- 布局尺寸
 local PREVIEW_X = 10
 local PREVIEW_Y = 70
-local PREVIEW_W = 640
-local PREVIEW_H = 470
 
-local PANEL_X = 670
 local PANEL_Y = 75
-local PANEL_W = 340
 local PANEL_H = 460
 
 local BTN_W = PANEL_W

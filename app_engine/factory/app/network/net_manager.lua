@@ -71,7 +71,7 @@ local _config = nil          -- project_config 引用
 local _chip = ""             -- 芯片型号
 local _is_air8101 = false    -- 是否是 Air8101 系列
 local _network_configs = {}  -- 网络配置列表
--- 开机 airlink WiFi 已传递的凭证（用于 wifi_app_real 跳过冗余 update_wifi）
+-- 开机 airlink WiFi 已传递的凭证（用于 wifi_app_real 跳过冗余 apply_wifi）
 local _boot_wifi_credential = nil  -- { ssid, password, bssid }
 
 -- ==================== 一、向后兼容层 ====================
@@ -210,7 +210,7 @@ function net_manager.init(config)
             if airlink_cfg.baud then entry.airlink_wifi.airlink_uart_baud = airlink_cfg.baud end
         end
         table.insert(priority, 1, entry)
-        -- 记录开机已传递的 WiFi 凭证，用于 wifi_app_real 判断是否需重复 update_wifi
+        -- 记录开机已传递的 WiFi 凭证，用于 wifi_app_real 判断是否需重复 apply_wifi
         _boot_wifi_credential = {
             ssid = init_ssid,
             password = init_password,
@@ -380,7 +380,7 @@ end
 @param adv_cfg table  可选，高级配置
 @return table or nil
 ]]
-local function build_wifi_entry(ssid, password, bssid, adv_cfg)
+function net_manager.build_wifi_entry(ssid, password, bssid, adv_cfg)
     local airlink_cfg = net_manager.get_wifi_hw_config()
 
     if airlink_cfg then
@@ -483,7 +483,7 @@ function net_manager.build_wifi_priority(ssid, password, bssid, adv_cfg)
     -- WiFi（第二优先级）
     -- ssid 为空时也构建 WiFi 条目：仅用于硬件初始化，使 exnetif 管理 airlink 硬件，
     -- 这样 wlan.scan() 才能正常工作。无 SSID 时不会发起连接。
-    local wifi_entry = build_wifi_entry(ssid, password, bssid, adv_cfg)
+    local wifi_entry = net_manager.build_wifi_entry(ssid, password, bssid, adv_cfg)
     if wifi_entry then table.insert(priority, wifi_entry) end
 
     -- 4G 第三优先级
@@ -510,6 +510,24 @@ function net_manager.apply(priority)
 end
 
 --[[
+导航新WiFi：构建"兜底网络 + 目标WiFi"优先级列表并应用（新exnetif不使用update_wifi，改用set_priority_order的增量切换）
+替换 exnetif.update_wifi 的调用，支持新exnetif的增量更新机制：SSID变化时自动断开重连
+@param ssid string  WiFi SSID
+@param password string  WiFi密码
+@param bssid string  可选BSSID
+@param adv_cfg table  可选高级配置
+@return boolean
+]]
+function net_manager.apply_wifi(ssid, password, bssid, adv_cfg)
+    local priority = net_manager.build_no_wifi_priority()
+    local wifi_entry = net_manager.build_wifi_entry(ssid, password, bssid, adv_cfg)
+    if wifi_entry then
+        table.insert(priority, 1, wifi_entry)
+    end
+    return net_manager.apply(priority)
+end
+
+--[[
 WiFi 关闭/断开时重建不含 WiFi 的兜底网络
 由 wifi_app_real 在 WIFI_ENABLE_REQ(false) 或 WIFI_DISCONNECT_REQ 时调用
 ]]
@@ -519,7 +537,7 @@ end
 
 --[[
 获取开机时已传递给 airlink WiFi 的凭证（仅 airlink 平台有效）
-用于 wifi_app_real 判断是否需要重复 update_wifi
+用于 wifi_app_real 判断是否需要重复 apply_wifi
 @return table or nil  { ssid, password, bssid }
 ]]
 function net_manager.get_boot_wifi_credential()
@@ -530,7 +548,7 @@ end
 判断给定凭证是否与开机已传凭证相同（SSID + BSSID 双重匹配）
 @param ssid string
 @param bssid string or nil
-@return boolean true=相同，skip update_wifi
+@return boolean true=相同，skip apply_wifi
 ]]
 function net_manager.is_same_as_boot_credential(ssid, bssid)
     if not _boot_wifi_credential then return false end

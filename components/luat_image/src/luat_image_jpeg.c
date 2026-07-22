@@ -262,16 +262,30 @@ int luat_jpeg_decode_sw_default(const luat_img_conf_t *img_conf, uint8_t *in_buf
     JRESULT res;
     JDEC jdec;
     void *work = NULL;
+    /* 与 HW decode (jpeg_hw_decode_fn → jpeg_get_input) 对齐：
+     * 同时接受 in_buf/in_len 与 img_conf->source_path 两种入口。
+     * owns_buf=1 时由本函数释放读到的文件缓冲；=0 时由调用方管理。 */
+    jpeg_input_t input = {0};
+    int get_ret;
 #if JD_FASTDECODE == 2
     size_t sz_work = 3500 * 3;
 #else
     size_t sz_work = 3500;
 #endif
-    (void)img_conf;
-    if (in_buf == NULL || in_len == 0 || img_info == NULL) {
+    if (img_info == NULL) {
         return LUAT_IMG_ERR;
     }
-    mem_reader_t reader = {in_buf, in_len, 0};
+    get_ret = jpeg_get_input(img_conf, in_buf, in_len, &input);
+    if (get_ret != LUAT_IMG_OK) {
+        LLOGW("jpeg_get_input error %d", get_ret);
+        return get_ret;
+    }
+    if (input.buf == NULL || input.len == 0) {
+        LLOGW("jpeg_get_input empty input");
+        return LUAT_IMG_ERR;
+    }
+
+    mem_reader_t reader = {input.buf, input.len, 0};
     img_info->userdata = &reader;
     work = luat_heap_malloc(sz_work);
     if (work == NULL) {
@@ -297,6 +311,7 @@ int luat_jpeg_decode_sw_default(const luat_img_conf_t *img_conf, uint8_t *in_buf
         goto error;
     }
     luat_heap_free(work);
+    jpeg_release_input(&input);   // owns_buf=1 时回收自己读出来的文件缓冲
     return LUAT_IMG_OK;
 error:
     if (work) luat_heap_free(work);
@@ -304,6 +319,7 @@ error:
         luat_heap_free(img_info->data);
         img_info->data = NULL;
     }
+    jpeg_release_input(&input);
     return LUAT_IMG_ERR;
 }
 

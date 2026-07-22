@@ -32,6 +32,12 @@ int luat_i2c_exist(int id);
  */
 int luat_i2c_setup(int id, int speed);
 
+typedef enum {
+    LUAT_I2C_CONFIG_STOP_DELAY = 1,
+} luat_i2c_config_key_t;
+
+int luat_i2c_config(int id, int32_t key, int32_t value);
+
 /**
  * @brief 关闭 i2c
  * 

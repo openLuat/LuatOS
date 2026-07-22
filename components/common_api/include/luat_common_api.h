@@ -271,6 +271,20 @@ typedef struct
 }luat_fifo_t;
 
 /**
+ * @brief 数据指针FIFO 队列结构
+ * 
+ * 使用环形缓冲区实现的先进先出队列，每次只能出1个数据指针
+ */
+typedef struct
+{
+	uint64_t wpoint;    		///< 写指针位置
+	uint64_t rpoint;    		///< 读指针位置
+	uint64_t mask;      		///< 掩码，用于计算索引
+	uint32_t size;      		///< 缓冲区实际大小（2的幂）
+	luat_data_union_t *u_data; ///< 数据缓冲区指针
+}luat_data_point_fifo_t;
+
+/**
  * @brief 创建FIFO 队列
  * @param size_power 队列大小的幂（实际大小为 2^size_power）
  * @return 成功返回指向 FIFO 结构的指针，失败返回 NULL
@@ -340,6 +354,14 @@ static inline uint32_t luat_fifo_check_free_space(luat_fifo_t *fifo)
 	return (fifo->size - ((uint32_t)(fifo->wpoint - fifo->rpoint)));
 }
 
+/**
+ * @brief 检查 FIFO 队列剩余可已用空间
+ *
+ * 查询 FIFO 队列中已使用多少数据。
+ * @param fifo FIFO 队列指针
+ * @return 已用空间大小（字节）
+ *
+ */
 static inline uint32_t luat_fifo_check_used_space(luat_fifo_t *fifo)
 {
 	return ((uint32_t)(fifo->wpoint - fifo->rpoint));
@@ -394,6 +416,94 @@ static inline void luat_fifo_clear(luat_fifo_t *fifo)
  * @note 在程序结束或不再需要 FIFO 时调用
  */
 void luat_fifo_destroy(luat_fifo_t *fifo);
+
+/**
+ * @brief 初始化静态数据指针FIFO队列
+ *
+ * @param fifo FIFO 队列指针
+ * @param size_power 队列大小（2^size_power）
+ * @param static_data 静态数据缓冲区指针
+ * @return 0 成功，-1 失败
+ *
+ * @note 静态数据指针FIFO 队列不能动态扩容
+ * @note 用于在内存限制环境下使用，如嵌入式系统
+ */
+int luat_data_point_fifo_static_init(luat_data_point_fifo_t *fifo, uint32_t size_power, void *static_data);
+
+/**
+ * @brief 向 FIFO 队列写入1个数据指针
+ * @param fifo FIFO 队列指针
+ * @param p 要写入的数据指针
+ * @return LUAT_ERROR_NONE 成功，其他错误码失败
+ */
+int luat_data_point_fifo_put(luat_data_point_fifo_t *fifo, const void *p);
+
+/**
+ * @brief 从 FIFO 队列读取1个数据指针
+ * @param fifo FIFO 队列指针
+ * @param p 存储读取数据指针的指针
+ * @param get_and_delete 是否同时删除读取的数据指针（1：是，0：否）
+ * @return LUAT_ERROR_NONE 成功，其他错误码失败
+ */
+int luat_data_point_fifo_get(luat_data_point_fifo_t *fifo, void **p, uint8_t get_and_delete);
+
+/**
+ * @brief 检查 数据指针FIFO 队列剩余可用空间
+ *
+ * 查询 FIFO 队列还可以写入多少数据。
+ * @param fifo FIFO 队列指针
+ * @return 剩余可用空间大小（字节）
+ *
+ */
+static inline uint32_t luat_data_point_fifo_check_free_space(luat_data_point_fifo_t *fifo)
+{
+	return (fifo->size - ((uint32_t)(fifo->wpoint - fifo->rpoint)));
+}
+
+/**
+ * @brief 检查 数据指针FIFO 队列剩余可已用空间
+ *
+ * 查询 FIFO 队列中已使用多少数据。
+ * @param fifo FIFO 队列指针
+ * @return 已用空间大小（字节）
+ *
+ */
+static inline uint32_t luat_data_point_fifo_check_used_space(luat_data_point_fifo_t *fifo)
+{
+	return ((uint32_t)(fifo->wpoint - fifo->rpoint));
+}
+
+static inline uint32_t luat_data_point_fifo_next_write_index(luat_data_point_fifo_t *fifo)
+{
+	return fifo->wpoint & fifo->mask;
+}
+
+/**
+ * @brief 删除 数据指针FIFO 队列中的所有数据（仅移动读指针）
+ * @param fifo FIFO 队列指针
+ */
+static inline void luat_data_point_fifo_delete_all(luat_data_point_fifo_t *fifo) 
+{
+	if (fifo) {
+		fifo->rpoint = fifo->wpoint;
+	}
+}
+/**
+ * @brief 清空 数据指针FIFO 队列
+ *
+ * 重置读写指针，丢弃队列中的所有数据。
+ * @param fifo FIFO 队列指针
+ *
+ * @note 清空后读写指针都回到起点，但数据内容仍然存在
+ * @note 如果需要释放内存，使用 luat_fifo_destroy
+ */
+static inline void luat_data_point_fifo_clear(luat_data_point_fifo_t *fifo)
+{
+	if (fifo) {
+		fifo->rpoint = 0;
+		fifo->wpoint = 0;
+	}
+}
 
 /**
  * @brief 动态缓冲区结构

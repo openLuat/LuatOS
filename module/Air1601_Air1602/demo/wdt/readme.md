@@ -90,16 +90,16 @@ AirLink SPI 方式看门狗演示
 
 5、Air1601 开发板与 Air780ER3 核心板硬件接线方式如下，用于演示 AirLink SPI 看门狗
 
-| 说明             | Air1601 开发板 | Air780ER3 核心板 |
-| ---------------- | -------------- | ---------------- |
-| SPI_CS           | CS0            | 30/SPI0_CS       |
-| SPI_CLK          | CLK1           | 33/SPI0_CLK      |
-| SPI_MOSI         | MOSI1          | 32/SPI0_MOSI     |
-| SPI_MISO         | MISO1          | 31/SPI0_MISO     |
-| RDY              | GPIO12         | 26/GPIO25        |
-| GND              | GND            | GND              |
-| 主机控制复位从机 | CS1            | 15/RESET_N       |
-| 从机控制复位主机 | RESET          | 16/GPIO27        |
+| 说明             | Air1601 开发板（排针丝印） | Air780ER3 核心板（排针丝印） |
+| ---------------- | -------------------------- | ---------------------------- |
+| SPI_CS           | CS0                        | 30/SPI0_CS                   |
+| SPI_CLK          | CLK1                       | 33/SPI0_CLK                  |
+| SPI_MOSI         | MOSI1                      | 32/SPI0_MOSI                 |
+| SPI_MISO         | MISO1                      | 31/SPI0_MISO                 |
+| RDY              | GPIO12                     | 26/GPIO25                    |
+| GND              | GND                        | GND                          |
+| 主机控制复位从机 | CS1                        | 15/RESET_N                   |
+| 从机控制复位主机 | RESET                      | 16/GPIO27                    |
 
 Air1601 购买链接：[Air1601开发板 多功能5寸RGB屏 支持AirUI 摄像头 代开发固件-淘宝网](https://item.taobao.com/item.htm?id=1044228452703&pisk=g7HxDK_zIUYm-T9WJtAoI2UYUF-oHQm4wqoCIP4c143-zDKVIcagBV3tWrV6u-Dtycgp0lYqIbItY43T_nzg5P3ifjxkKpmq0Ry_BevHK46Wu23Aco1XfuZLv3qfMjIVRRy6-FClCSJLQq3lG8S1NuazXtZ_GVN7Vl47cONs5zN7Al6bCRg62_Z_vO_1ho97FzrT5Oa_17s7YkE1lRaX20azjRas5St-Vzr_CPG8aFU5cPXtNNVatv6IJO6seoFWZmaSFYKgcSHnDzLB-YpUMyibyOTj2W9QWzkBrQnrJjg04VppyJGEyAFQBKQUDbiLFr2B9_exqqkLhvLAnu2zoWG_wn9j2-UYwo0lc1ex1qkTgjIwY0wjzXzUGQ8z2xD36yPRPEio2rNK6qYPCrcKV4FnEaX3dXu-BWwC4_knpbbl-yEGG3KR_1Pb4Q1kC7_UChGa2yxvB15aa3r8-3KR_1Pb4uUHDhCN_7-P.&spm=a1z10.3-c-s.w4002-24045920836.13.3ff26ee5hNJu5K)
 
@@ -123,13 +123,13 @@ Air780ER2/ER3 不需要用户再进行二次开发，在收到模组后其模组
 
 如果需要查看固件更新说明请参考：[Air780ER2/ER3 固件版本索引](https://docs.openluat.com/air780er2/product/firmware/)
 
-3.luatos 需要的脚本和资源文件
+4.luatos 需要的脚本和资源文件
 
 - Air1601 脚本和资源文件[点击此处查看与下载](https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/wdt)
 
 - lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 
-4.准备好软件环境之后，接下来查看[如何烧录项目文件到 Air1601 开发板中](https://docs.openluat.com/air1601/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air1601开发板 中。
+5.准备好软件环境之后，接下来查看[如何烧录项目文件到 Air1601 开发板中](https://docs.openluat.com/air1601/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air1601开发板 中。
 
 ## 相关软件资料
 

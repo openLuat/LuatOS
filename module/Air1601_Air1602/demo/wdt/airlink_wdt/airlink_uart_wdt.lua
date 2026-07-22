@@ -47,7 +47,9 @@ local exairlinkwdt = require("exairlinkwdt")
 local function init_airlink_wdt()
     sys.wait(5000)
 
-    -- 初始化看门狗，TO_RESET 使用 GPIO14
+    -- 初始化看门狗，TO_RESET 使用 GPIO14，默认空闲电平为 低电平
+    -- 在设计双向互看门狗时，需要使用 三极管 进行连接
+    -- 禁止直连，否则会导致看门狗功能异常，造成对端被误复位
     local success = exairlinkwdt.open({ reset_pin = 14 , reset_idle_level = 0 })
     if success then
         log.info("main", "看门狗启动成功")

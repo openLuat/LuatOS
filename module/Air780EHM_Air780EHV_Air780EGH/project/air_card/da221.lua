@@ -93,7 +93,20 @@ local function vib_fnc()
                 lbs_util.open()
             end
         else
-            gps.close()
+            -- 静止时按locateType策略决定是否开GPS
+            local mode = config.UPLOAD_CONFIG.locateType
+            if mode == 2 then
+                gps.open()
+                lbs_util.open()
+            elseif mode == 0 or mode == 1 then
+                if gpio_util.get_recording_mode() then
+                    gps.open()
+                    lbs_util.open()
+                else
+                    gps.close()
+                    lbs_util.close()
+                end
+            end
         end
     end
 end

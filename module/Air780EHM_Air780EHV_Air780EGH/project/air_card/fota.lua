@@ -1,15 +1,12 @@
 
--- 使用合宙iot平台时需要这个参数
-PRODUCT_KEY = "YOUR_PRODUCT_KEY_HERE" -- 到 iot.openluat.com 创建项目,获取正确的项目id
+PRODUCT_KEY = "1if3rgrNXMY4KvhaIEtcgaclywx552CG"
 
-sys = require "sys"
-libfota2 = require "libfota2"
--- 循环打印版本号, 方便看版本号变化, 非必须
+local libfota3 = require "libfota3"
+
 local function version_log()
     while 1 do
         sys.wait(60000)
         log.info("降功耗 找合宙")
-        -- log.info("fota", "脚本版本号", VERSION)
         log.info("fota", "脚本版本号", VERSION, "core版本号", rtos.version())
     end
 end
@@ -20,55 +17,34 @@ local lbs_util = {}
 local lbs_state = true
 local lbsloc = {lat = 0, lng = 0}
 local is_fix = false
--- 升级结果的回调函数
--- 功能:获取fota的回调函数
--- 参数:
--- result:number类型
---   0表示成功
---   1表示连接失败
---   2表示url错误
---   3表示服务器断开
---   4表示接收报文错误
---   5表示使用iot平台VERSION需要使用 xxx.yyy.zzz形式
-local function fota_cb(ret)
-    log.info("fota_config.ota_status", ret)
-    config.ota_status = false
-    led_util.set_led2()
-    led_util.set_led1()
-    if ret == 0 then
-        log.info("升级包下载成功,重启模块")
-        rtos.reboot()
-    elseif ret == 1 then
-        log.info("连接失败", "请检查url拼写或服务器配置(是否为内网)")
-    elseif ret == 2 then
-        log.info("url错误", "检查url拼写")
-    elseif ret == 3 then
-        log.info("服务器断开", "检查服务器白名单配置")
-    elseif ret == 4 then
-        log.info("接收报文错误", "检查模块固件或升级包内文件是否正常")
-    elseif ret == 5 then
-        log.info("版本号书写错误", "iot平台版本号需要使用xxx.yyy.zzz形式")
-    else
-        log.info("不是上面几种情况 ret为", ret)
-    end
-end
 
-local ota_opts = {}
-
-local function fota_start()
-    -- 这个判断是提醒要设置PRODUCT_KEY的,实际生产请删除
-    while not socket.adapter(socket.dft()) do
-        log.warn("mqtt_client_main_task_func", "wait IP_READY", socket.dft())
-        sys.waitUntil("IP_READY", 1000)
-    end
-    log.info("开始检查升级")
-    sys.wait(500)
-    config.ota_status = true
-    led_util.led2_purple()
-    led_util.led1_purple()
-    libfota2.request(fota_cb, ota_opts)
-end
-sys.taskInit(fota_start)
+libfota3.request({
+    project_key = PRODUCT_KEY,
+    script_name = PROJECT,
+    script_version = VERSION,
+    auto = true,
+    interval = 60,
+    on_status = function(status, msg, percent)
+        log.info("fota3", status, msg or "", percent or "")
+        if status == "checking" or status == "download_start" or status == "downloading" then
+            if config then config.ota_status = true end
+            if led_util then
+                led_util.led1_purple()
+                led_util.led2_purple()
+            end
+        elseif status == "download_done" or status == "upgrade_success" or status == "upgrade_fail"
+            or status == "check_fail" or status == "no_new_version" or status == "network_fail" then
+            if config then config.ota_status = false end
+            if led_util then
+                led_util.set_led1()
+                led_util.set_led2()
+            end
+        end
+    end,
+    on_confirm = function(action, info, callback)
+        callback(true)
+    end,
+})
 
 
 local airlbs = require "airlbs"
@@ -76,8 +52,11 @@ local airlbs = require "airlbs"
 local timeout = 5 -- 扫描基站/wifi 做 基站/wifi定位 的超时时间，最小5S,最大60S
 
 -- 此为收费服务，需自行联系销售申请
-local airlbs_project_id = "YOUR_AIRLBS_PROJECT_ID"
-local airlbs_project_key = "YOUR_AIRLBS_PROJECT_KEY"
+-- local airlbs_project_id = "uhgTXu"
+-- local airlbs_project_key = "zZ9XUVilgkww0nMmO9ib6KWozHB5oJZo"
+
+local airlbs_project_id = "123456"
+local airlbs_project_key = "123456"
 
 function lbs_util.open()
     lbs_state = true
@@ -149,8 +128,5 @@ end
 
 -- wifi/基站混合定位
 sys.taskInit(lbsloc_airlbs)
-
--- 演示定时自动升级, 每隔24小时自动检查一次
-sys.timerLoopStart(libfota2.request, 24 * 3600000, fota_cb, ota_opts)
 
 return lbs_util

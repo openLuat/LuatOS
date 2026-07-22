@@ -41,15 +41,11 @@
 
 1、Air1601/Air1602开发板一块+LCD屏幕
 
-或者Air1601/Air1602核心板+RGB LCD屏幕（1024x600分辨率）
-
-Air1601/Air1602核心板和RGB LCD屏幕的硬件接线方式请参考Air1601/Air1602硬件手册
-
 2、TYPE-C USB数据线一根
 
-- Air1601/Air1602核心板通过 TYPE-C USB 口供电；
+- Air1601/Air1602开发板通过 TYPE-C USB 口供电；
 
-- TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
+- TYPE-C USB 数据线直接插到开发板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 ## 演示软件环境
 
@@ -61,7 +57,7 @@ Air1601/Air1602核心板和RGB LCD屏幕的硬件接线方式请参考Air1601/Ai
 
 - 脚本和资源文件[点我浏览所有文件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601_Air1602/demo/play_mjpg)
 
-- 准备好软件环境之后，接下来查看如何[使用 LuaTools 烧录软件](https://docs.openluat.com/air1601/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到 Air1601/Air1602 核心板中
+- 准备好软件环境之后，接下来查看如何[使用 LuaTools 烧录软件](https://docs.openluat.com/air1601/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到 Air1601/Air1602 开发板中
 
 4、 lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 

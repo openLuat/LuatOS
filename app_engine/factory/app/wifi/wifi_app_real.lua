@@ -224,17 +224,17 @@ local function on_storage_loaded(data)
         return
     end
 
-    -- WiFi 启用且有已保存凭证：通过 exnetif.update_wifi 发起连接。
-    -- Airlink 平台需等 airlink.ready() 确认硬件就绪，否则 update_wifi
+    -- WiFi 启用且有已保存凭证：通过 net_manager.apply_wifi 发起连接。
+    -- Airlink 平台需等 airlink.ready() 确认硬件就绪，否则 apply_wifi
     -- 可能在 airlink 硬件未就绪时执行，走错初始化分支。
     -- 注意：airlink 平台开机时 net_manager.init() 已通过 set_priority_order 将已保存WiFi
-    -- 传入 setup_airlink_wifi → wlan.connect()，若凭证相同则跳过 update_wifi，避免
-    -- exnetif.update_wifi 内部的 wlan.disconnect() 破坏已建立的连接。
+    -- 传入 setup_airlink_wifi → wlan.connect()，若凭证相同则跳过 apply_wifi，避免
+    -- set_priority_order 内部的 wlan.disconnect() 破坏已建立的连接。
     if saved_config.ssid and saved_config.ssid ~= "" then
-        -- Airlink 平台且有相同凭证：跳过 update_wifi，开机已传递
+        -- Airlink 平台且有相同凭证：跳过 apply_wifi，开机已传递
         if net_manager.get_wifi_hw_config()
             and net_manager.is_same_as_boot_credential(saved_config.ssid, saved_config.bssid) then
-            log.info("wifi_app", "开机已传递相同WiFi凭证，跳过update_wifi:", saved_config.ssid)
+            log.info("wifi_app", "开机已传递相同WiFi凭证，跳过apply_wifi:", saved_config.ssid)
             return
         end
         log.info("wifi_app", "启动时加载已保存WiFi:", saved_config.ssid)
@@ -249,11 +249,7 @@ local function on_storage_loaded(data)
                     sys.wait(500)
                 end
             end
-            exnetif.update_wifi({
-                ssid = saved_config.ssid,
-                password = saved_config.password,
-                bssid = saved_config.bssid,
-            })
+            net_manager.apply_wifi(saved_config.ssid, saved_config.password, saved_config.bssid)
         end)
     end
     -- WiFi 启用但无已保存 SSID：airlink 硬件初始化已在 net_manager.init() 开机完成，
@@ -295,11 +291,7 @@ local function on_enable_req(data)
                         sys.wait(500)
                     end
                 end
-                exnetif.update_wifi({
-                    ssid = saved_config.ssid,
-                    password = saved_config.password,
-                    bssid = saved_config.bssid,
-                })
+                net_manager.apply_wifi(saved_config.ssid, saved_config.password, saved_config.bssid)
             end)
         end
         -- 无已保存 SSID：airlink 硬件已在开机时初始化，无需再发 build_wifi_priority()
@@ -359,7 +351,7 @@ local function on_connect_req(data)
         pending_connect = { ssid = ssid, password = password, advanced_config = adv, bssid = bssid }
 
         sys.publish("WIFI_CONNECTING", ssid)
-        exnetif.update_wifi({ ssid = ssid, password = password, bssid = bssid, advanced_config = adv })
+        net_manager.apply_wifi(ssid, password, bssid, adv)
     end)
 end
 

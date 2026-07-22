@@ -48,13 +48,19 @@ function internal_wdt_demo()
         log.error("wdt", "wdt库不存在")
         return
     end
-    
+
     log.info("wdt", "硬件看门狗已由底层固件启用")
     
     -- 检查开机原因
     local reason1, reason2, reason3 = pm.lastReson()
     log.info("reset_reason", "重启原因1:", reason1, "原因2:", reason2, "原因3:", reason3)
     
+    -- 注意, 大部分芯片/模块是 2 倍超时时间后才会重启
+    -- 以下是常规配置, 9秒超时, 3秒喂一次狗
+    -- 若软件崩溃,死循环,硬件死机,那么 最多 18 秒后,自动复位
+    -- 注意: 软件bug导致业务失败, 并不能通过wdt解决
+    wdt.init(9000)
+
     -- 定期喂狗，防止系统重启
     -- 设置喂狗间隔为3秒，确保在20秒超时前完成喂狗
     sys.timerLoopStart(feed_watchdog, 3000) -- 每3秒喂一次狗

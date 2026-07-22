@@ -32,6 +32,7 @@ require("airui_spinner")
 require("airui_video")
 require("airui_all_component")
 require("airui_camera_preview")
+require("airui_camsnap")
 
 -- 当前显示的页面
 local current_page = nil
@@ -71,6 +72,7 @@ local pages = {
     video = "airui_video",                      -- 视频演示
     all_component = "airui_all_component",      -- 所有组件演示
     camera_preview = "airui_camera_preview",    -- 摄像头预览演示
+    camera_snapshot = "airui_camsnap",  -- 摄像头拍照演示
 }
 
 -- 显示指定页面

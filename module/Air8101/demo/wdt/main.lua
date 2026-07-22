@@ -1,6 +1,6 @@
 --[[
 @module  main
-@summary LuatOS语音通话应用主入口，负责加载功能模块
+@summary LuatOS看门狗应用主入口，负责加载功能模块
 @version 1.0
 @date    2025.10.25
 @author  陈媛媛
@@ -56,6 +56,11 @@ log.info("main", PROJECT, VERSION)
 -- 仅加载必要的功能模块
 require "internal_wdt"  -- 内部看门狗演示模块
 -- require "air153c_wdt"    -- 外部看门狗演示模块
+
+-- AirLink 模式看门狗演示模块, 分别演示UART和SPI模式的看门狗功能, 不要同时加载
+-- require "airlink_uart_wdt" -- AirLink UART模式看门狗演示模块
+-- require "airlink_spi_wdt" -- AirLink SPI模式看门狗演示模块
+
 
 -- 用户代码已结束---------------------------------------------
 sys.run()

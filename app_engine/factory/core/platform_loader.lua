@@ -47,6 +47,7 @@ require ("evb_8101_5i_v0")     -- Air8101 EVB 5寸 (AirLCD_1020, H050IWV 800x480
 require ("evb_8101b_5i_v2")    -- Air8101B EVB 5寸 (GC9503 480x854, V020)
 require ("evb_8101_9i_v0")     -- Air8101 EVB 9寸 (AirLCD_1090)
 require ("evb_8101_10i_v0")    -- Air8101 EVB 10.1寸 (AirLCD_1100)
+require ("evb_8101_7i_v0")     -- Air8101 EVB 7寸 (AirLCD_1070)
 require ("evb_8000a_3i5_v0")  -- Air8000A trunkey 3.5寸
 require ("evb_1601_10i_v11")  -- Air1601 EVB 10.1寸
 require ("evb_1601_7i_v11")   -- Air1601 EVB 7寸
@@ -58,6 +59,7 @@ require ("lcd_nv3052c_5in")   -- RGB NV3052C (5寸 720×1280)
 require ("lcd_st7701s_5in")   -- RGB ST7701S (5寸 480×854)
 require ("lcd_h050iwv_5in")   -- RGB H050IWV (5寸 800×480)
 require ("lcd_hx8282_10in")   -- RGB HX8282 (5/7/9/10.1寸 1024×600 通用)
+require ("lcd_hx8282_cust")   -- RGB HX8282 (custom 方式，四合一屏模组)
 require ("lcd_gc9503_5in")    -- RGB GC9503   (5寸 480×854)
 
 -- TP 驱动（统一用 GT911，仅引脚参数不同）
@@ -94,6 +96,7 @@ local PROJECT_MAP = {
     ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",
     ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",
     ["EVB_Air8101_AirLCD_1100_000_V020"]            = "evb_8101_10i_v0",
+    ["EVB_Air8101_AirLCD_1070_000_V020"]            = "evb_8101_7i_v0",
     ["EVB_Air8000A_3inch5_480x320_000_V020"]       = "evb_8000a_3i5_v0",
     ["EVB_Air1601_10inch1_1024x600_000_V011"]   = "evb_1601_10i_v11",
     ["EVB_Air1601_7inch_1024x600_000_V011"]     = "evb_1601_7i_v11",

@@ -2,7 +2,7 @@
 PROJECT = "FOTATEST"
 -- iot限制，只能上传xxx.yyy.zzz格式的三位数的版本号，但实际上现在只用了XXX和ZZZ,中间yyy暂未使用
 -- 需要注意的是,因为yyy不生效，所以111.222.333版本和111.444.333版本，对iot平台来说都一样，所以建议中间那一位永远写000
-VERSION = "001.999.001"
+VERSION = "001.000.1"
 
 if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
@@ -15,12 +15,12 @@ config = require"config"
 require"excloud_test"
 RecordingManager = require"sd_test"
 gpio_utils=require"gpio_util"
-led_util = require"led_util"
 lbs_util = require"fota"
 gps = require"normal"
 http_app = require"http_app"
 require"es7243e"
 require"app"
+led_util = require"led_util"
 require"da221"
 
 -- mcu.hardfault(0) 

@@ -1,9 +1,8 @@
 local check_core = {}
-local model_ec718hm = {"Air780EHM", "Air780EHV", "Air780EGH", "Air780EGG", "Air700ECH"}
-local model_ec718pm = {"Air780EPM", "Air780EGP", "Air700ECP"}
 local A = _G
 local rtos_bsp = rtos.bsp()
 local mouble, core_value, _ = rtos.version(true)
+local hmeta = hmeta.chip()
 -- 0号版本，所有库都有的table，方便新库的增加时候的检查
 local B = {"lvgl", "cc", "nes", "audio.tts", "airtalk", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf", "io",
            "lcd.font_opposansm12_chinese", "audio", "i2s", "ble", "libgnss", "sfud", "yhm27xx", "ymodem", "otp", "adc",
@@ -11,7 +10,7 @@ local B = {"lvgl", "cc", "nes", "audio.tts", "airtalk", "camera", "codec", "fast
            "http", "httpsrv", "i2c", "iconv", "ioqueue", "iotauth", "iperf", "json", "lcd", "log", "lora2", "mcu",
            "miniz", "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc",
            "rtos", "sms", "socket", "spi", "string", "sys", "sysplus", "tp", "u8g2", "uart", "wdt", "websocket", "wlan",
-           "xxtea", "zbuff", "fft", "hzfont"}
+           "xxtea", "zbuff", "fft", "hzfont","audio_v2"}
 
 -- 1号固件
 ---718hm
@@ -355,7 +354,7 @@ local C_6 = {"bit64", "adc", "airlink", "airui", "audio", "camera", "hzfont", "c
              "fota", "fskv", "ftp", "gpio", "lf", "ble", "i2s", "codec", "fatfs", "gmssl", "iconv", "iotauth", "iperf",
              "lora2", "protobuf", "http", "httpsrv", "i2c", "io", "json", "lcd", "little_flash", "log", "mcu", "miniz",
              "mqtt", "netdrv", "rsa", "xxtea", "os", "otp", "pack", "pins", "pm", "pwm", "rtc", "rtos", "socket", "spi",
-             "string", "sys", "sysplus", "tp", "uart", "websocket", "wdt", "wlan", "zbuff", "hmeta", "audio.tts"}
+             "string", "sys", "sysplus", "tp", "uart", "websocket", "wdt", "wlan", "zbuff", "hmeta", "audio.tts","audio_v2",}
 
 local C_size = {
     [1] = {
@@ -379,7 +378,20 @@ local C_size = {
         script_size = 512
     }
 }
+-- ccm4211
+local D_1 = {"adc", "airlink", "airui", "audio_v2","bit64",  "camera", "hzfont", "can", "crypto", "errDump", "fastlz",
+            "fota", "fskv", "ftp", "gpio", "lf",  "fatfs", "gmssl", "iconv", "iotauth", "iperf",
+            "lora2", "protobuf", "http", "httpsrv", "i2c", "io", "json", "lcd", "little_flash", "log", "mcu", "miniz",
+            "mqtt", "netdrv", "rsa", "xxtea", "os", "otp", "pack", "pins", "pm", "pwm", "rtc", "rtos", "socket", "spi",
+            "string", "sys", "sysplus", "tp", "uart", "websocket", "wdt", "wlan", "zbuff", "hmeta","fft"}
 
+local D_size = {
+    [1] = {
+        fs_size = 3008,
+        script_size = 1024
+    }
+
+}
 local function findMissingElements(aTable, bTable)
     local missingElements = {}
 
@@ -427,27 +439,7 @@ local function getConfigByCore()
     local config_table
     local core_number = tonumber(core_value) or 1
     local core_num
-    local is_ec718hm = false
-    local is_ec718pm = false
-    for _, model in ipairs(model_ec718hm) do
-        if rtos_bsp == model then
-            is_ec718hm = true
-            log.info("是718hm")
-            break
-        end
-    end
-
-    -- 检查是否在 model_ec718pm 列表中)
-    if not is_ec718hm then
-        for _, model in ipairs(model_ec718pm) do
-            if rtos_bsp == model then
-                is_ec718pm = true
-                log.info("是718pm")
-                break
-            end
-        end
-    end
-
+    log.info("芯片型号", hmeta)
     if core_number > 100 then
         core_num = core_number - 100
     else
@@ -455,7 +447,7 @@ local function getConfigByCore()
     end
 
     log.info("获取到的固件核心版本:", core_number, "(原始值:", core_value, ")")
-    if is_ec718hm or string.find(rtos_bsp, "Air8000") then
+    if hmeta == "EC718HM" then
         -- 生成对应的表名
         table_name = "A_" .. tostring(core_num)
         -- 根据表名返回对应的本地表
@@ -496,7 +488,7 @@ local function getConfigByCore()
         else
             log.error("未知的配置表名:", table_name)
         end
-    elseif is_ec718pm then
+    elseif hmeta == "EC718PM" then
         table_name = "B_" .. tostring(core_num)
         if table_name == "B_1" then
             config_table = B_1
@@ -519,10 +511,15 @@ local function getConfigByCore()
         elseif table_name == "B_10" then
             config_table = B_10
         else
-
             log.error("未知的配置表名:", table_name)
         end
-
+    elseif hmeta == "CCM4211" then
+        table_name = "D_" .. tostring(core_num)
+        if table_name == "D_1" then
+            config_table = D_1
+        else
+            log.error("未知的配置表名:", table_name)
+        end
     else
         table_name = "C_" .. tostring(core_num)
         if table_name == "C_1" then
@@ -543,10 +540,9 @@ local function getConfigByCore()
     log.info("  核心版本号:", core_number)
     log.info("  配置表名:", table_name)
 
-    return config_table, core_num, table_name, is_ec718hm, is_ec718pm
+    return config_table, core_num, table_name
 end
-
-local function module_size(core_number, is_ec718hm, is_ec718pm)
+local function module_size(core_number)
     log.info("第一步：脚本区/fs区大小是否符合预期")
     local expected_fs_size = nil
     local expected_script_size = nil
@@ -554,22 +550,29 @@ local function module_size(core_number, is_ec718hm, is_ec718pm)
     local _, total_blocks, used_blocks, block_size = io.fsstat("/")
     local fs_size = (total_blocks * block_size) / 1024
     local script_size = (total_blocks1 * block_size1) / 1024
-
-    -- 获取期望值
-    if is_ec718hm or string.find(rtos_bsp, "Air8000") then
+    if hmeta == "EC718HM" then
+        -- 获取期望值
         if A_size[core_number] then
             expected_fs_size = A_size[core_number].fs_size
             expected_script_size = A_size[core_number].script_size
         else
             log.info("A_size表中未找到固件 %s 的配置", core_number)
         end
-    elseif is_ec718pm then
+    elseif hmeta == "EC718PM" then
         if B_size[core_number] then
             expected_fs_size = B_size[core_number].fs_size
             expected_script_size = B_size[core_number].script_size
         else
             log.info("B_size表中未找到固件 %s 的配置", core_number)
         end
+    elseif hmeta == "CCM4211" then
+        if D_size[core_number] then
+            expected_fs_size = D_size[core_number].fs_size
+            expected_script_size = D_size[core_number].script_size
+        else
+            log.info("D_size表中未找到固件 %s 的配置", core_number)
+        end
+
     else
         if C_size[core_number] then
             expected_fs_size = C_size[core_number].fs_size
@@ -641,9 +644,9 @@ function check_core.test_mouble_check()
     -- 收集所有错误信息
     local errors = {}
     -- 获取当前固件的配置表
-    local current_config, core_number, config_table_name, is_ec718hm, is_ec718pm = getConfigByCore()
+    local current_config, core_number, config_table_name = getConfigByCore()
     -- 1. 检查分区大小
-    local size_success, size_error = module_size(core_number, is_ec718hm, is_ec718pm)
+    local size_success, size_error = module_size(core_number)
     if not size_success then
         table.insert(errors, size_error)
     end
@@ -701,7 +704,7 @@ function check_core.test_mouble_check()
         end
     end
     -- 缺失库检查
-    if is_ec718hm then
+    if hmeta == "EC718HM" and rtos_bsp ~= "Air8000" then
         log.info("当前检查的模块为", rtos_bsp)
         if #finalMissing == 1 and finalMissing[1] == "ble" then
             log.info("检测到" .. rtos_bsp .. "的设备，仅缺失ble库，忽略并视为通过检查")
@@ -714,6 +717,7 @@ function check_core.test_mouble_check()
             end
             table.insert(errors, missing_msg)
         end
+
     else
         if #finalMissing > 0 then
             local missing_msg = rtos_bsp .. "_" .. core_value .. "固件" .. "缺少以下" .. #finalMissing ..

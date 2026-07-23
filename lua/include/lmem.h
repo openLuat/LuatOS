@@ -29,7 +29,7 @@
 */
 #define luaM_reallocv(L,b,on,n,e) \
   (((sizeof(n) >= sizeof(size_t) && cast(size_t, (n)) + 1 > MAX_SIZET/(e)) \
-      ? luaM_toobig(L) : cast_void(0)) , \
+      ? luaM_toobig(L, n, e, "array") : cast_void(0)) , \
    luaM_realloc_(L, (b), (on)*(e), (n)*(e)))
 
 /*
@@ -56,7 +56,7 @@
 #define luaM_reallocvector(L, v,oldn,n,t) \
    ((v)=cast(t *, luaM_reallocv(L, v, oldn, n, sizeof(t))))
 
-LUAI_FUNC l_noret luaM_toobig (lua_State *L);
+LUAI_FUNC l_noret luaM_toobig (lua_State *L, size_t n, size_t e, const char *what);
 
 /* not to be called directly */
 LUAI_FUNC void *luaM_realloc_ (lua_State *L, void *block, size_t oldsize,

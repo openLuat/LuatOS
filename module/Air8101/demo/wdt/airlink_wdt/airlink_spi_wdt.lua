@@ -7,7 +7,7 @@
 @usage
 本demo演示的核心功能为：
 1. 初始化4G网络连接。
-2. Air1601与对端设备进行数据交互。
+2. Air8101与对端设备进行数据交互。
 3. 自动切换网络连接模式。
 4. 通过HTTP GET请求测试网络连接情况。
 5. 启动看门狗功能。
@@ -64,7 +64,7 @@ end
 -- 网络初始化
 --============================================================
 
--- 初始化网络，使得Air1601可以外挂Air780ER3模块实现4G联网功能。
+-- 初始化网络，使得Air8101可以外挂Air780ER3模块实现4G联网功能。
 local function init_airlink_net()
     exnetif.set_priority_order({
         {                                               -- 开启4G虚拟网卡
@@ -84,7 +84,7 @@ end
 -- 数据收发
 --============================================================
 
--- Air1601发送数据信息给Air780ER3模块。
+-- Air8101发送数据信息给Air780ER3模块。
 local function airlink_sdata_Air780ER3()
     -- 设置网络时间同步。
     -- socket.sntp()
@@ -187,7 +187,7 @@ local function ping_res(id, time, dst)
 end
 
 
--- HTTP GET请求测试，用于判断Air1601的网络连接情况。
+-- HTTP GET请求测试，用于判断Air8101的网络连接情况。
 local function http_get_test()
     while true do
         sys.wait(HTTP_INTERVAL)
@@ -240,7 +240,7 @@ sys.taskInit(init_airlink_net)
 -- HTTP GET请求测试
 sys.taskInit(http_get_test)
 
--- Air1601发送数据信息给Air780ER3模块。
+-- Air8101发送数据信息给Air780ER3模块。
 sys.taskInit(airlink_sdata_Air780ER3)
 
 -- 获取并打印 airlink 从机的网络信息

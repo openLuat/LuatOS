@@ -125,50 +125,20 @@ void luat_fifo_destroy(luat_fifo_t *fifo)
 	luat_heap_free(fifo);
 }
 
-int luat_data_point_fifo_static_init(luat_data_point_fifo_t *fifo, uint32_t size_power, void *static_data)
+int luat_buffer_init(luat_buffer_t *buffer, uint32_t size)
 {
-	if (!fifo)
-		return -LUAT_ERROR_PARAM_INVALID;
-	if (!static_data)
-		return -LUAT_ERROR_PARAM_INVALID;
-	if (size_power > 31)
-		return -LUAT_ERROR_PARAM_INVALID;
-	fifo->size = 1 << size_power;
-	fifo->mask = fifo->size - 1;
-	fifo->wpoint = 0;
-	fifo->rpoint = 0;
-	fifo->u_data = (luat_data_union_t *)static_data;
-	return LUAT_ERROR_NONE;
-}
-
-int luat_data_point_fifo_put(luat_data_point_fifo_t *fifo, const void *p)
-{
-	if (!fifo)
-		return -LUAT_ERROR_PARAM_INVALID;
-	if (fifo->size - ((uint32_t)(fifo->wpoint - fifo->rpoint)) < 1) {
-		return -LUAT_ERROR_NO_MEMORY;
+	if (!buffer)
+		return 0;
+	buffer->data = luat_heap_malloc(size);
+	if (!buffer->data)
+	{
+		buffer->max_len = 0;
+		buffer->pos = 0;
+		return 0;
 	}
-	uint32_t w = fifo->wpoint & fifo->mask;
-	fifo->u_data[w].p = p;
-    fifo->wpoint++;
-	return LUAT_ERROR_NONE;
-}
-
-int luat_data_point_fifo_get(luat_data_point_fifo_t *fifo, void **p, uint8_t get_and_delete)
-{
-	if (!fifo)
-		return -LUAT_ERROR_PARAM_INVALID;
-	if (fifo->rpoint >= fifo->wpoint) {
-		return -LUAT_ERROR_NO_MEMORY;
-	}
-	if (p) {
-		uint32_t r = fifo->rpoint & fifo->mask;
-		*p = (void *)fifo->u_data[r].p;
-	}
-	if (get_and_delete) {
-		fifo->rpoint++;
-	}
-	return LUAT_ERROR_NONE;
+	buffer->max_len = size;
+	buffer->pos = 0;
+	return size;
 }
 
 void luat_buffer_deinit(luat_buffer_t *buffer)
@@ -181,6 +151,7 @@ void luat_buffer_deinit(luat_buffer_t *buffer)
 	buffer->max_len = 0;
 	buffer->pos = 0;
 }
+
 int luat_buffer_reinit(luat_buffer_t *buffer, uint32_t len)
 {
 	if (!buffer)
@@ -201,6 +172,7 @@ int luat_buffer_reinit(luat_buffer_t *buffer, uint32_t len)
 	buffer->pos = 0;
 	return len;
 }
+
 int luat_buffer_resize(luat_buffer_t *buffer, uint32_t len)
 {
 
@@ -215,6 +187,7 @@ int luat_buffer_resize(luat_buffer_t *buffer, uint32_t len)
 	}
 	return len;
 }
+
 int luat_buffer_write(luat_buffer_t *buffer, const void *data, uint32_t len)
 {
 	uint32_t write_len;
@@ -248,6 +221,7 @@ int luat_buffer_write(luat_buffer_t *buffer, const void *data, uint32_t len)
 	buffer->pos += len;
 	return LUAT_ERROR_NONE;
 }
+
 void luat_buffer_remove_data(luat_buffer_t *buffer, uint32_t len)
 {
 	uint32_t RestLen;

@@ -93,8 +93,12 @@ enum
 	LUAT_USB_ETH_EVENT_UPSTREAM_BPS,
 	LUAT_USB_ETH_EVENT_MSS,
 	LUAT_USB_ETH_EVENT_MAC,
+	LUAT_USB_ETH_EVENT_CONNECT,
+	LUAT_USB_ETH_EVENT_DISCONNECT,
 };
+
 typedef void(*luat_usb_event_callback_fun_t)(uint32_t event, void *data_or_p_param, uint32_t size_or_u32_param, void *user_param);
 void *luat_usb_bind_eth(int id, luat_usb_event_callback_fun_t callback, void *user_param);
-int luat_usb_eth_tx(int id, const uint32_t *data, uint32_t len, uint32_t tag);
+int luat_usb_eth_start_tx(int id, const uint32_t *data, uint32_t len);
+int luat_usb_eth_continue_tx(int id, const uint32_t *data, uint32_t len);
 #endif

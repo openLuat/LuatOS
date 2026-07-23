@@ -13,6 +13,16 @@
 #define LUAT_LOG_TAG "lwip"
 #include "luat_log.h"
 
+#ifndef __LUAT_C_CODE_IN_ISR__
+#define __LUAT_C_CODE_IN_ISR__
+#endif
+#ifndef __LUAT_C_CODE_IN_RAM__
+#define __LUAT_C_CODE_IN_RAM__
+#endif
+
+#define __LUAT_C_CODE_IN_ISR__ __attribute__((section (".sram_code")))
+#define __LUAT_C_CODE_IN_RAM__ __attribute__((section(".psram_code")))
+
 #define HANDLER(x) x
 #define LWIP_SYS_TIMER_CNT	(11)
 
@@ -121,34 +131,39 @@ uint32_t net_lwip_rand()
 	return uPV.u32;
 }
 
-static LUAT_RT_RET_TYPE luat_lwip_sys_timer_cb(LUAT_RT_CB_PARAM)
+__LUAT_C_CODE_IN_ISR__ static LUAT_RT_RET_TYPE luat_lwip_sys_timer_cb(LUAT_RT_CB_PARAM)
 {
 	luat_send_event_to_task(prvlwip.task_handle, EV_LWIP_SYS_TIMEOUT, (uint32_t)param, 0, 0);
 	return LUAT_RT_RET;
 }
 
-static LUAT_RT_RET_TYPE luat_lwip_timer_cb(LUAT_RT_CB_PARAM)
+__LUAT_C_CODE_IN_ISR__ static LUAT_RT_RET_TYPE luat_lwip_timer_cb(LUAT_RT_CB_PARAM)
 {
 	luat_send_event_to_task(prvlwip.task_handle, EV_LWIP_TIMEOUT, (uint32_t)param, 0, 0);
 	return LUAT_RT_RET;
 }
 
-int luat_lwip_event_send(uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
+__LUAT_C_CODE_IN_ISR__ int luat_lwip_event_send(uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
 {
 	return luat_send_event_to_task(prvlwip.task_handle, id, param1, param2, param3);
 }
 
-int luat_lwip_api_run(uint32_t func, uint32_t param)
+__LUAT_C_CODE_IN_ISR__ int luat_lwip_input(struct pbuf *p, struct netif *netif)
+{
+	return luat_send_event_to_task(prvlwip.task_handle, EV_LWIP_NETIF_INPUT, (uint32_t)p, 0, (uint32_t)netif);
+}
+
+__LUAT_C_CODE_IN_ISR__ int luat_lwip_api_run(uint32_t func, uint32_t param)
 {
 	return luat_send_event_to_task(prvlwip.task_handle, EV_LWIP_API_RUN, func, param, 0);
 }
 
-err_t  tcpip_try_callback(tcpip_callback_fn function, void *ctx)
+__LUAT_C_CODE_IN_ISR__ err_t  tcpip_try_callback(tcpip_callback_fn function, void *ctx)
 {
 	return luat_lwip_api_run((uint32_t)function, (uint32_t)ctx);
 }
 
-err_t  tcpip_callback(tcpip_callback_fn function, void *ctx)
+__LUAT_C_CODE_IN_ISR__ err_t  tcpip_callback(tcpip_callback_fn function, void *ctx)
 {
 	return luat_lwip_api_run((uint32_t)function, (uint32_t)ctx);
 }

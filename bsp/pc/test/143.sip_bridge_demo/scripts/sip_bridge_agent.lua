@@ -67,6 +67,10 @@ local CONFIG = {
     -- SIP->CC 呼出早期媒体阶段最大等待时间。部分网络在被叫未接听主动挂断时不一定上报 CC 断开事件，
     -- 超时后主动释放 SIP early dialog，避免 SIP 端一直保持连接。
     outgoing_early_timeout = 90,
+
+    -- SIP->CC 未接通失败时，给运营商失败语音播报保留的媒体窗口。
+    -- 过早返回 SIP 失败/挂断 CC 会截断“对方正在通话中”等 CC 下行播报。
+    outgoing_failure_prompt_grace = 6,
 }
 
 -- ==================== 状态 ====================
@@ -100,6 +104,7 @@ local g_enable_local_audio = true
 local g_call_start_time = nil
 local g_call_direction = nil  -- "outgoing" 或 "incoming"
 local g_outgoing_early_timeout_timer = nil
+local g_pending_early_fail_timer = nil
 
 -- ==================== 日志工具 ====================
 
@@ -127,7 +132,16 @@ local function stop_outgoing_early_timeout()
     end
 end
 
+local function stop_pending_early_fail()
+    if g_pending_early_fail_timer then
+        sys.timerStop(g_pending_early_fail_timer)
+        g_pending_early_fail_timer = nil
+        logi("停止 SIP->CC 失败播报保护")
+    end
+end
+
 local function fail_sip_early(code, reason)
+    stop_pending_early_fail()
     if sip_is_early_stage() and exsip and exsip.fail then
         logi("结束 SIP 早期媒体阶段:", code, reason)
         exsip.fail(code or 480, reason or "Temporarily Unavailable")
@@ -135,6 +149,26 @@ local function fail_sip_early(code, reason)
         exsip.hangUp()
     end
     g_sip_state = SIP_STATE_DISCONNECTING
+end
+
+local function schedule_sip_early_fail(code, reason)
+    local delay = tonumber(CONFIG.outgoing_failure_prompt_grace) or 0
+    if g_call_direction ~= "outgoing" or not sip_is_early_stage() then
+        fail_sip_early(code, reason)
+        return
+    end
+    if delay <= 0 then
+        fail_sip_early(code, reason)
+        return
+    end
+    stop_pending_early_fail()
+    logi("延迟结束 SIP 早期媒体，保留 CC 失败播报:", delay, "秒", code, reason)
+    g_pending_early_fail_timer = sys.timerStart(function()
+        g_pending_early_fail_timer = nil
+        if sip_is_early_stage() then
+            fail_sip_early(code, reason)
+        end
+    end, delay * 1000)
 end
 
 local function can_start_mobile_leg_from_sip()
@@ -150,6 +184,7 @@ local function can_start_mobile_leg_from_sip()
 end
 
 local function start_mobile_leg_from_sip()
+    stop_pending_early_fail()
     local ready, code, reason = can_start_mobile_leg_from_sip()
     if not ready then
         fail_sip_early(code, reason)
@@ -479,6 +514,7 @@ local function on_cc_event(status, value, extra)
     elseif status == "CONNECTED" then
         logi("CC 通话已连接")
         stop_outgoing_early_timeout()
+        stop_pending_early_fail()
         g_cc_state = CC_STATE_CONNECTED
         apply_audio_settings()
         if not g_call_start_time then
@@ -490,6 +526,7 @@ local function on_cc_event(status, value, extra)
         -- 真机：AUDIO_START 代表通话实际已建立
         logi("CC 音频通道已启动")
         stop_outgoing_early_timeout()
+        stop_pending_early_fail()
         if g_cc_state ~= CC_STATE_CONNECTED then
             g_cc_state = CC_STATE_CONNECTED
             apply_audio_settings()
@@ -507,7 +544,7 @@ local function on_cc_event(status, value, extra)
         
         -- 同步挂断 SIP 通话
         if g_call_direction == "outgoing" and sip_is_early_stage() then
-            fail_sip_early(480, "Temporarily Unavailable")
+            schedule_sip_early_fail(480, "Temporarily Unavailable")
         elseif g_sip_state == SIP_STATE_CONNECTED or g_sip_state == SIP_STATE_DIALING or g_sip_state == SIP_STATE_ANSWERING then
             logi("同步挂断 SIP 通话")
             g_sip_state = SIP_STATE_DISCONNECTING
@@ -532,7 +569,7 @@ local function on_cc_event(status, value, extra)
         
         -- 同步挂断 SIP
         if g_call_direction == "outgoing" and sip_is_early_stage() then
-            fail_sip_early(480, "Temporarily Unavailable")
+            schedule_sip_early_fail(480, "Temporarily Unavailable")
         elseif g_sip_state == SIP_STATE_CONNECTED or g_sip_state == SIP_STATE_DIALING or g_sip_state == SIP_STATE_ANSWERING then
             logi("同步挂断 SIP 通话")
             g_sip_state = SIP_STATE_DISCONNECTING
@@ -548,6 +585,7 @@ local function on_cc_event(status, value, extra)
     elseif status == "HANGUP_CALL_DONE" then
         logi("CC 挂断完成")
         stop_outgoing_early_timeout()
+        stop_pending_early_fail()
         g_cc_state = CC_STATE_IDLE
         g_call_start_time = nil
         g_call_direction = nil
@@ -639,6 +677,7 @@ local function on_sip_event(event, action, data)
             logi("SIP 通话已结束，原因:", data and data.reason or "unknown")
             g_sip_state = SIP_STATE_IDLE
             stop_outgoing_early_timeout()
+            stop_pending_early_fail()
             
             -- 同步挂断 CC 通话
             if g_cc_state == CC_STATE_CONNECTED or g_cc_state == CC_STATE_DIALING or g_cc_state == CC_STATE_RINGING then
@@ -656,6 +695,7 @@ local function on_sip_event(event, action, data)
             logw("SIP 通话失败:", data and data.reason or "unknown")
             g_sip_state = SIP_STATE_IDLE
             stop_outgoing_early_timeout()
+            stop_pending_early_fail()
             
             -- 同步挂断 CC
             if g_cc_state == CC_STATE_CONNECTED or g_cc_state == CC_STATE_DIALING or g_cc_state == CC_STATE_RINGING then
@@ -679,6 +719,9 @@ local function on_sip_event(event, action, data)
         elseif action == "stop" then
             logi("SIP 媒体通道已关闭，原因:", data.reason)
             stop_outgoing_early_timeout()
+            if data and (data.reason == "peer_cancel" or data.reason == "peer_hangup" or data.reason == "local_hangup") then
+                stop_pending_early_fail()
+            end
         end
         
     elseif event == "message" then
@@ -936,6 +979,7 @@ function sip_bridge_agent.stop()
     g_call_start_time = nil
     g_call_direction = nil
     stop_outgoing_early_timeout()
+    stop_pending_early_fail()
     
     logi("桥接代理已停止")
 end
@@ -1010,6 +1054,7 @@ end
 function sip_bridge_agent.hangup_all()
     logi("挂断所有通话...")
     stop_outgoing_early_timeout()
+    stop_pending_early_fail()
     
     -- 挂断 SIP
     if g_sip_state ~= SIP_STATE_IDLE then

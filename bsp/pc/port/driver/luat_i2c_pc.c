@@ -212,3 +212,8 @@ int luat_i2c_no_block_transfer(int id, int addr, uint8_t is_read, uint8_t *reg, 
     #endif
     return 0;
 }
+
+int luat_i2c_config(int id, int32_t key, int32_t value) {
+    (void)id; (void)key; (void)value;
+    return 0;
+}

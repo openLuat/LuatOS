@@ -10,6 +10,8 @@ NDK 的 guest 程序都是独立的小项目，每个目录自带 `main.c`（或
 | [`../guest/examples/exchange_buffer_demo/`](../guest/examples/exchange_buffer_demo) | C | 演示 exchange buffer 的请求/响应布局 | 无 |
 | [`../guest/examples/gpio_hostabi_demo/`](../guest/examples/gpio_hostabi_demo) | C | GPIO v2 CSR 请求/应答模式 | `GPIO_CONFIG` / `GPIO_WRITE` / `GPIO_READ` |
 | [`../guest/examples/crypto_hash_demo/`](../guest/examples/crypto_hash_demo) | C | MD5 / CRC32 host 计算 | `CRYPTO_MD5` / `CRYPTO_CRC32` |
+| [`../guest/examples/nonleaf_call_demo/`](../guest/examples/nonleaf_call_demo) | C | 回归：non-leaf main 自然 return（`NDK_GUEST_START` ra 修复） | 无 |
+| [`../guest/examples/mem_str_demo/`](../guest/examples/mem_str_demo) | C | mem/str freestanding libc 子集（`ndk_memcpy` 等 + `NDK_GUEST_PROVIDE_LIBC`） | 无 |
 
 更"严肃"的回归与基准程序在 `components/ndk/guest/fixtures/`：
 
@@ -71,7 +73,11 @@ ENTRY(_start)
 SECTIONS
 {
   . = 0x80000000;
-  .text : { *(.text .text.*) }
+  /* host 从镜像起始地址开始执行，_start 必须是 .text 的第一个字节。
+   * lld 按目标文件顺序排布 section（不看 ENTRY()），一旦 TU 里出现
+   * 外部链接的函数（比如 NDK_GUEST_PROVIDE_LIBC 导出的 memcpy），
+   * 它可能排到 _start 前面 —— 所以必须显式把 .text._start 放最前。 */
+  .text : { KEEP(*(.text._start)) *(.text .text.*) }
   .rodata : { *(.rodata .rodata.*) }
   .data : { *(.data .data.*) }
   .bss : { *(.bss .bss.* COMMON) }

@@ -14,7 +14,9 @@ local lbsLoc2 = require("lbsLoc2")
 --设置串口2
 local gps_uart_id = 2
 
---8201H使用GPIO26和GPIO25控制GNSS供电
+--8201H使用GPIO26和GPIO25控制GNSS供电，两路电源同时供电GNSS才能启动：
+--GPIO26(备电，含RTC/星历SRAM，保持常开可支持热启动+星历保存)
+--GPIO25(主供电，工作时拉高，睡眠时可关掉省电)
 local gnss_volgpio1 = 26
 local gnss_volgpio2 = 25
 
@@ -142,7 +144,7 @@ local function gnss_open()
     libgnss.clear() -- 清空数据,兼初始化
     --设置串口波特率
     uart.setup(gps_uart_id, 115200)
-    -- 打开GPS供电，8201H使用GPIO26和GPIO25控制
+    -- 打开GPS供电，8201H使用GPIO26(备电)和GPIO25(主供电)都拉高
     gpio.setup(gnss_volgpio1, 1)
     gpio.setup(gnss_volgpio2, 1)
     -- 绑定uart,底层自动处理GNSS数据
@@ -167,7 +169,9 @@ local function gnss_close()
     log.info("GPS", "close")
     libgnss.clear()
     uart.close(gps_uart_id)
-    gpio.setup(gnss_volgpio1, 0)
+    -- 关闭时只关GPIO25(主供电)，GPIO26(备电)保持常开，让星历/RTC继续供电，下次可以走热启动秒定位
+    -- 如果不需要热启动、可以接受下次冷启动(35s左右)，可以把下面这行注释放开，进一步降低约30ua功耗
+    -- gpio.setup(gnss_volgpio1, 0)
     gpio.setup(gnss_volgpio2, 0)
 end
 

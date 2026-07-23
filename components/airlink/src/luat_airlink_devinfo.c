@@ -17,8 +17,9 @@ static luat_airlink_dev_info_t g_airlink_self_dev_info;
 // 最后一次修改时间 (ms)
 static uint64_t g_airlink_self_dev_info_mtime = 0;
 
-// 从机链路超时阈值 (ms)
-#define AIRLINK_LINK_TIMEOUT_MS 5000
+// 从机链路超时阈值 (ms)，运行时根据对端固件版本动态调整
+// 默认 5000ms；旧版 Air6205 固件（15s devinfo 保活）会被调整为 >= 20000ms
+uint32_t g_airlink_link_timeout_ms = 5000;
 
 extern uint64_t g_airlink_last_cmd_timestamp;
 
@@ -42,7 +43,7 @@ uint64_t luat_airlink_self_dev_info_get_mtime(void) {
 void luat_airlink_check_link_timeout(void) {
     if (g_airlink_last_cmd_timestamp == 0)
         return;
-    if (luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp < AIRLINK_LINK_TIMEOUT_MS)
+    if (luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp < g_airlink_link_timeout_ms)
         return;
 
     uint8_t tp = g_airlink_ext_dev_info.tp;

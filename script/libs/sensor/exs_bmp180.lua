@@ -8,12 +8,14 @@
 本文件为 BMP180 数字气压传感器（Bosch Sensortec 出品）的 LuatOS 扩展库。
 通过 I2C 接口读取大气压和温度，自动进行校准补偿。
 
-本文件的对外接口有 5 个：
+本文件的对外接口有 7 个：
 1、exs_bmp180.setup(config)：初始化 BMP180
 2、exs_bmp180.get_data()：读取气压和温度
 3、exs_bmp180.set_oss(oss)：切换过采样率
-4、exs_bmp180.get_altitude(pressure, sea_level_pressure)：计算海拔
-5、exs_bmp180.version()：获取版本号
+4、exs_bmp180.set_sea_level_pressure(pressure)：设置海平面标准气压
+5、exs_bmp180.get_altitude(pressure)：计算海拔
+6、exs_bmp180.close()：关闭传感器
+7、exs_bmp180.version()：获取版本号
 
 更多说明参考 docs 在线文档
 
@@ -69,6 +71,7 @@ local g_scl_pin         = nil       -- SCL 引脚号
 local g_sda_pin         = nil       -- SDA 引脚号
 local g_ready           = false     -- 初始化完成标志
 local g_oss             = 0         -- 过采样率（0~3）
+local g_sea_level_pressure = 101325  -- 默认海平面标准气压
 
 -- 校准参数（从 E2PROM 读取）
 local g_ac1 = 0; local g_ac2 = 0; local g_ac3 = 0
@@ -448,14 +451,35 @@ function exs_bmp180.set_oss(oss)
 end
 
 --[[
+设置海平面标准气压
+
+用于校准海拔计算精度。不同天气条件下海平面气压会变化，
+可通过本地气象站数据或联网获取校正值。
+
+@api exs_bmp180.set_sea_level_pressure(pressure)
+
+@number pressure 海平面标准气压，单位 Pa
+取值范围：95000~105000，默认 101325
+
+@return nil
+
+@usage
+exs_bmp180.set_sea_level_pressure(101800)
+]]
+function exs_bmp180.set_sea_level_pressure(pressure)
+    if not pressure then return end
+    g_sea_level_pressure = pressure
+    log.info("exs_bmp180", string.format("海平面气压设为 %.1fhPa", g_sea_level_pressure / 100))
+end
+
+--[[
 计算海拔高度
 
-使用国际气压公式计算海拔高度。
+使用已设置的海平面标准气压（set_sea_level_pressure）计算海拔。
 
-@api exs_bmp180.get_altitude(pressure, sea_level_pressure)
+@api exs_bmp180.get_altitude(pressure)
 
-@number pressure 当前气压值，单位 Pa（来自 get_data() 返回的 data.pressure）
-@number sea_level_pressure 海平面标准气压，单位 Pa，默认 101325
+@number pressure 当前气压值，单位 Pa
 
 @return number 海拔高度，单位米
 
@@ -466,12 +490,31 @@ if data then
     log.info("exs_bmp180", string.format("海拔=%.1f 米", alt))
 end
 ]]
-function exs_bmp180.get_altitude(pressure, sea_level_pressure)
+function exs_bmp180.get_altitude(pressure)
     if not pressure then return nil end
-    sea_level_pressure = sea_level_pressure or 101325
-    -- 国际气压公式：altitude = 44330 * (1 - (p/p0)^(1/5.255))
-    local ratio = pressure / sea_level_pressure
+    local ratio = pressure / g_sea_level_pressure
     return 44330 * (1 - ratio ^ 0.190294957)
+end
+
+--[[
+关闭 BMP180 传感器
+
+重置内部状态。
+close 后需要重新调用 setup() 才能再次使用。
+close 后调用 get_data() 会返回 nil 并提示"请先 setup()"。
+
+@api exs_bmp180.close()
+
+@return nil
+
+@usage
+exs_bmp180.close()
+]]
+function exs_bmp180.close()
+    if not g_ready then return end
+    g_ready = false; g_i2c_bus = 0; g_is_soft = false
+    g_scl_pin = nil; g_sda_pin = nil
+    log.info("exs_bmp180", "传感器已关闭")
 end
 
 --[[

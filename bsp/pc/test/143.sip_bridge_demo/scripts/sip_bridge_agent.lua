@@ -12,13 +12,13 @@
 
 呼出流程（SIP客户端1903CFC0 → 4G模组1903CFC1 → 手机）:
 1. 1903CFC0 拨打 SIP 1903CFC1 (INVITE) 或发送 MESSAGE 含手机号
-2. 4G模组接听 SIP 通话 (exsip.accept)
-3. 4G模组同时拨打手机 (cc.dial)
-4. 两路通话建立后，音频自动桥接
+2. 4G模组先返回 183 Session Progress + SDP，启动早期媒体
+3. 4G模组拨打手机 (cc.dial)，SIP 客户端可听到手机侧彩铃/提示音
+4. 手机接通后，4G模组返回 SIP 200 OK，通话语音继续桥接
 
-呼入流程（手机 → 4G模组1903CFC1 → SIP客户端1903CFC0）:
+呼入流程（手机 → 4G模组1903CFC1 → SIP客户端1903CFC0，可选）:
 1. 手机来电 (cc INCOMINGCALL)
-2. 4G模组拨打 SIP 1903CFC0 (exsip.dial)
+2. 开启 auto_handle_mobile_incoming 后，4G模组拨打 SIP 1903CFC0 (exsip.dial)
 3. 1903CFC0 接听 SIP → 4G模组接听手机 (cc.accept)
 4. 两路通话建立后，音频自动桥接
 
@@ -44,10 +44,10 @@ local CONFIG = {
     sip_transport = "udp",
     
     -- 远程 SIP 客户端（控制端/被叫端）
-    remote_sip_uri = "sip:1903CFC0@180.152.6.34",
+    remote_sip_uri = "sip:195544F0@180.152.6.34",
     
     -- 写死的手机号码（用于呼出）
-    target_phone_number = "13781142418",
+    target_phone_number = "15057721363",
     
     -- 音频参数
     rtp_port = 40000,
@@ -58,8 +58,15 @@ local CONFIG = {
     -- 自动接听 SIP 来电（测试中建议开启）
     auto_answer_sip = true,
     
-    -- 自动接听手机来电（呼入场景：收到手机来电后自动拨出 SIP）
+    -- 自动把手机来电桥接到远程 SIP。
     auto_handle_mobile_incoming = true,
+
+    -- 不转 SIP 时，手机来电由 4G 模块直接自动接听；转 SIP 时等 SIP 客户端接听后再接手机。
+    auto_answer_mobile_incoming = true,
+
+    -- SIP->CC 呼出早期媒体阶段最大等待时间。部分网络在被叫未接听主动挂断时不一定上报 CC 断开事件，
+    -- 超时后主动释放 SIP early dialog，避免 SIP 端一直保持连接。
+    outgoing_early_timeout = 90,
 }
 
 -- ==================== 状态 ====================
@@ -67,6 +74,8 @@ local CONFIG = {
 -- SIP 通话状态
 local SIP_STATE_IDLE = "sip_idle"
 local SIP_STATE_INCOMING = "sip_incoming"
+local SIP_STATE_PROGRESSING = "sip_progressing"
+local SIP_STATE_ANSWERING = "sip_answering"
 local SIP_STATE_DIALING = "sip_dialing"
 local SIP_STATE_CONNECTED = "sip_connected"
 local SIP_STATE_DISCONNECTING = "sip_disconnecting"
@@ -90,6 +99,7 @@ local g_enable_local_audio = true
 -- 通话统计
 local g_call_start_time = nil
 local g_call_direction = nil  -- "outgoing" 或 "incoming"
+local g_outgoing_early_timeout_timer = nil
 
 -- ==================== 日志工具 ====================
 
@@ -103,6 +113,213 @@ end
 
 local function loge(...)
     log.error("sip_bridge", ...)
+end
+
+local function sip_is_early_stage()
+    return g_sip_state == SIP_STATE_INCOMING or g_sip_state == SIP_STATE_PROGRESSING
+end
+
+local function stop_outgoing_early_timeout()
+    if g_outgoing_early_timeout_timer then
+        sys.timerStop(g_outgoing_early_timeout_timer)
+        g_outgoing_early_timeout_timer = nil
+        logi("停止 SIP->CC 早期拨号超时保护")
+    end
+end
+
+local function fail_sip_early(code, reason)
+    if sip_is_early_stage() and exsip and exsip.fail then
+        logi("结束 SIP 早期媒体阶段:", code, reason)
+        exsip.fail(code or 480, reason or "Temporarily Unavailable")
+    elseif g_sip_state == SIP_STATE_CONNECTED or g_sip_state == SIP_STATE_DIALING or g_sip_state == SIP_STATE_ANSWERING then
+        exsip.hangUp()
+    end
+    g_sip_state = SIP_STATE_DISCONNECTING
+end
+
+local function can_start_mobile_leg_from_sip()
+    if not g_cc_ready or not cc then
+        loge("CC 未就绪，无法拨打手机")
+        return false, 480, "Temporarily Unavailable"
+    end
+    if g_cc_state ~= CC_STATE_IDLE then
+        logw("CC 忙，无法拨打手机:", g_cc_state)
+        return false, 486, "Busy Here"
+    end
+    return true
+end
+
+local function start_mobile_leg_from_sip()
+    local ready, code, reason = can_start_mobile_leg_from_sip()
+    if not ready then
+        fail_sip_early(code, reason)
+        g_call_direction = nil
+        return false
+    end
+
+    logi("早期媒体已建立，开始拨打手机:", CONFIG.target_phone_number)
+    g_cc_state = CC_STATE_DIALING
+    local ok = cc.dial(0, CONFIG.target_phone_number)
+    if not ok then
+        loge("CC 拨号失败")
+        g_cc_state = CC_STATE_IDLE
+        fail_sip_early(480, "Temporarily Unavailable")
+        g_call_direction = nil
+        return false
+    end
+    return true
+end
+
+local set_cc_bridge_tone
+local g_lua_bridge_tone_timer = nil
+local g_lua_bridge_tone_frame_index = 0
+local g_lua_bridge_tone_frames = nil
+local g_lua_bridge_tone_silence = nil
+
+local function pcm16le(sample)
+    sample = math.floor(sample)
+    if sample < -32768 then
+        sample = -32768
+    elseif sample > 32767 then
+        sample = 32767
+    end
+    if sample < 0 then
+        sample = sample + 65536
+    end
+    return string.char(sample % 256, math.floor(sample / 256) % 256)
+end
+
+local function build_lua_bridge_tone_frames()
+    if g_lua_bridge_tone_frames then
+        return
+    end
+    local frames = {}
+    local two_pi = 2 * math.pi
+    for frame = 1, 50 do
+        local chunks = {}
+        for i = 0, 159 do
+            local n = (frame - 1) * 160 + i
+            local sample = 2600 * math.sin(two_pi * 440 * n / 8000) + 2600 * math.sin(two_pi * 480 * n / 8000)
+            chunks[#chunks + 1] = pcm16le(sample)
+        end
+        frames[frame] = table.concat(chunks)
+    end
+    g_lua_bridge_tone_frames = frames
+    g_lua_bridge_tone_silence = string.rep("\0", 320)
+end
+
+local function lua_bridge_tone_tick()
+    if not voip or not voip.pcmIn or not voip.isRunning or not voip.isRunning() or not sip_is_early_stage() then
+        set_cc_bridge_tone(false)
+        return
+    end
+
+    build_lua_bridge_tone_frames()
+    local cycle = g_lua_bridge_tone_frame_index % 150
+    local frame = cycle < 50 and g_lua_bridge_tone_frames[cycle + 1] or g_lua_bridge_tone_silence
+    local consumed = voip.pcmIn(frame)
+    g_lua_bridge_tone_frame_index = g_lua_bridge_tone_frame_index + 1
+    if g_lua_bridge_tone_frame_index % 50 == 1 then
+        logi("Lua bridge tone pcmIn", consumed)
+    end
+end
+
+local function start_lua_bridge_tone()
+    if not voip or not voip.pcmIn then
+        logw("voip.pcmIn 不可用，无法启动 Lua bridge tone")
+        return false
+    end
+    if g_lua_bridge_tone_timer then
+        return true
+    end
+    build_lua_bridge_tone_frames()
+    g_lua_bridge_tone_frame_index = 0
+    g_lua_bridge_tone_timer = sys.timerLoopStart(lua_bridge_tone_tick, 20)
+    logi("Lua bridge tone start", g_lua_bridge_tone_timer)
+    return g_lua_bridge_tone_timer ~= nil
+end
+
+local function stop_lua_bridge_tone()
+    if g_lua_bridge_tone_timer then
+        sys.timerStop(g_lua_bridge_tone_timer)
+        g_lua_bridge_tone_timer = nil
+        logi("Lua bridge tone stop")
+    end
+    g_lua_bridge_tone_frame_index = 0
+end
+
+local function outgoing_early_timeout_cb()
+    g_outgoing_early_timeout_timer = nil
+    if g_call_direction ~= "outgoing" or not sip_is_early_stage() or g_cc_state ~= CC_STATE_DIALING then
+        return
+    end
+
+    logw("SIP->CC 早期拨号超时，未收到 CC 接通/失败/断开事件，主动释放")
+    set_cc_bridge_tone(false)
+    if cc and cc.hangUp then
+        cc.hangUp(0)
+    end
+    g_cc_state = CC_STATE_IDLE
+    fail_sip_early(480, "Temporarily Unavailable")
+    g_call_start_time = nil
+    g_call_direction = nil
+end
+
+local function start_outgoing_early_timeout()
+    stop_outgoing_early_timeout()
+    local timeout = tonumber(CONFIG.outgoing_early_timeout) or 0
+    if timeout <= 0 then
+        return
+    end
+    g_outgoing_early_timeout_timer = sys.timerStart(outgoing_early_timeout_cb, timeout * 1000)
+    logi("启动 SIP->CC 早期拨号超时保护:", timeout, "秒")
+end
+
+local function answer_sip_after_mobile_ready()
+    if g_call_direction == "outgoing" and sip_is_early_stage() then
+        logi("手机侧音频已启动，发送 SIP 200 OK")
+        stop_outgoing_early_timeout()
+        g_sip_state = SIP_STATE_ANSWERING
+        set_cc_bridge_tone(false)
+        exsip.accept()
+    end
+end
+
+set_cc_bridge_tone = function(enabled)
+    if not enabled then
+        stop_lua_bridge_tone()
+        if voip and voip.bridgeTone then
+            local ok = voip.bridgeTone(false)
+            logi("VoIP bridge tone", "stop", ok)
+        end
+        if cc and cc.bridgeTone then
+            local ok = cc.bridgeTone(false)
+            logi("CC bridge tone", "stop", ok)
+        end
+        return
+    end
+
+    if voip and voip.bridgeTone then
+        local ok = voip.bridgeTone(true)
+        logi("VoIP bridge tone", "start", ok)
+        if ok then
+            stop_lua_bridge_tone()
+            return
+        end
+        if voip.isRunning and not voip.isRunning() then
+            return
+        end
+    end
+
+    if cc and cc.bridgeTone then
+        local ok = cc.bridgeTone(enabled)
+        logi("CC bridge tone", enabled and "start" or "stop", ok)
+        if ok then
+            return
+        end
+    end
+
+    start_lua_bridge_tone()
 end
 
 -- ==================== 音频控制 ====================
@@ -144,6 +361,34 @@ function sip_bridge_agent.get_local_audio()
     return g_enable_local_audio
 end
 
+function sip_bridge_agent.set_auto_mobile_incoming(enabled)
+    CONFIG.auto_handle_mobile_incoming = enabled and true or false
+    logi("设置手机来电自动 SIP 桥接:", CONFIG.auto_handle_mobile_incoming)
+    return true
+end
+
+function sip_bridge_agent.set_auto_answer_mobile_incoming(enabled)
+    CONFIG.auto_answer_mobile_incoming = enabled and true or false
+    logi("设置手机来电自动接听:", CONFIG.auto_answer_mobile_incoming)
+    return true
+end
+
+local function accept_mobile_incoming(reason)
+    if g_cc_state ~= CC_STATE_RINGING then
+        return false
+    end
+    logi(reason or "自动接听手机来电")
+    g_cc_state = CC_STATE_CONNECTED
+    if cc and cc.accept then
+        cc.accept(0)
+    end
+    apply_audio_settings()
+    if not g_call_start_time then
+        g_call_start_time = os.time()
+    end
+    return true
+end
+
 -- ==================== CC 事件处理 ====================
 
 local function on_cc_event(status, value, extra)
@@ -165,8 +410,24 @@ local function on_cc_event(status, value, extra)
         logi("手机来电:", number)
         
         if g_cc_state ~= CC_STATE_IDLE then
+            if g_call_direction == "incoming" and g_cc_state == CC_STATE_RINGING then
+                -- 部分模组在同一个未接来电保持振铃时会重复上报 INCOMINGCALL。
+                -- 此时不能 hangUp，否则会把正在等待 SIP 客户端接听的手机侧原呼叫挂断。
+                logi("忽略重复手机来电指示，继续等待 SIP 客户端接听")
+                logi("状态更新: SIP=", g_sip_state, "CC=", g_cc_state)
+                return
+            end
+
             logw("CC 忙，拒绝手机来电")
             -- 如果已经在通话中，挂断手机来电
+            if cc and cc.hangUp then
+                cc.hangUp(0)
+            end
+            return
+        end
+
+        if not CONFIG.auto_handle_mobile_incoming and g_sip_state ~= SIP_STATE_IDLE then
+            logw("SIP 正忙，拒绝手机来电以保护当前 SIP 通话:", g_sip_state)
             if cc and cc.hangUp then
                 cc.hangUp(0)
             end
@@ -175,50 +436,60 @@ local function on_cc_event(status, value, extra)
         
         g_cc_state = CC_STATE_RINGING
         
-        if CONFIG.auto_handle_mobile_incoming then
-            -- 呼入场景：自动拨打 SIP 到远程客户端
-            logi("呼入场景：自动拨打 SIP 到", CONFIG.remote_sip_uri)
-            g_call_direction = "incoming"
-            
-            if g_sip_state == SIP_STATE_IDLE or g_sip_state == SIP_STATE_CONNECTED then
-                -- 如果 SIP 空闲，发起 SIP 呼叫
-                if g_sip_state == SIP_STATE_CONNECTED then
-                    -- SIP 已经连接，直接接听手机
-                    logi("SIP 已连接，直接接听手机")
-                    g_cc_state = CC_STATE_CONNECTED
-                    if cc and cc.accept then
-                                cc.accept(0)
-                            end
-                    apply_audio_settings()
-                    g_call_start_time = os.time()
-                else
-                    g_sip_state = SIP_STATE_DIALING
-                    local ok = exsip.dial(CONFIG.remote_sip_uri)
-                    if not ok then
-                        loge("SIP 拨打失败")
-                        g_sip_state = SIP_STATE_IDLE
-                        g_cc_state = CC_STATE_IDLE
-                        g_call_direction = nil
-                    end
-                end
+        if not CONFIG.auto_handle_mobile_incoming then
+            g_call_direction = nil
+            if CONFIG.auto_answer_mobile_incoming then
+                accept_mobile_incoming("手机来电自动 SIP 桥接已关闭，自动接听 CC 来电")
             else
-                logw("SIP 状态不空闲，无法处理手机来电:", g_sip_state)
-                g_cc_state = CC_STATE_IDLE
-                g_call_direction = nil
+                logi("手机来电自动 SIP 桥接已关闭，保持 CC 振铃")
             end
+            logi("状态更新: SIP=", g_sip_state, "CC=", g_cc_state)
+            return
+        end
+
+        -- 呼入场景：自动拨打 SIP 到远程客户端
+        logi("呼入场景：自动拨打 SIP 到", CONFIG.remote_sip_uri)
+        g_call_direction = "incoming"
+
+        if g_sip_state == SIP_STATE_IDLE or g_sip_state == SIP_STATE_CONNECTED then
+            -- 如果 SIP 空闲，发起 SIP 呼叫
+            if g_sip_state == SIP_STATE_CONNECTED then
+                accept_mobile_incoming("SIP 已连接，直接接听手机来电")
+            else
+                g_sip_state = SIP_STATE_DIALING
+                local ok = exsip.dial(CONFIG.remote_sip_uri)
+                if not ok then
+                    loge("SIP 拨打失败")
+                    g_sip_state = SIP_STATE_IDLE
+                    if g_cc_state ~= CC_STATE_IDLE and cc and cc.hangUp then
+                        g_cc_state = CC_STATE_DISCONNECTING
+                        cc.hangUp(0)
+                    else
+                        g_cc_state = CC_STATE_IDLE
+                    end
+                    g_call_direction = nil
+                end
+            end
+        else
+            logw("SIP 状态不空闲，无法处理手机来电:", g_sip_state)
+            g_cc_state = CC_STATE_IDLE
+            g_call_direction = nil
         end
         
     elseif status == "CONNECTED" then
         logi("CC 通话已连接")
+        stop_outgoing_early_timeout()
         g_cc_state = CC_STATE_CONNECTED
         apply_audio_settings()
         if not g_call_start_time then
             g_call_start_time = os.time()
         end
+        answer_sip_after_mobile_ready()
         
     elseif status == "AUDIO_START" then
         -- 真机：AUDIO_START 代表通话实际已建立
         logi("CC 音频通道已启动")
+        stop_outgoing_early_timeout()
         if g_cc_state ~= CC_STATE_CONNECTED then
             g_cc_state = CC_STATE_CONNECTED
             apply_audio_settings()
@@ -226,13 +497,18 @@ local function on_cc_event(status, value, extra)
                 g_call_start_time = os.time()
             end
         end
+        answer_sip_after_mobile_ready()
         
     elseif status == "DISCONNECTED" then
         logi("CC 通话已断开")
+        stop_outgoing_early_timeout()
         g_cc_state = CC_STATE_IDLE
+        set_cc_bridge_tone(false)
         
         -- 同步挂断 SIP 通话
-        if g_sip_state == SIP_STATE_CONNECTED or g_sip_state == SIP_STATE_DIALING then
+        if g_call_direction == "outgoing" and sip_is_early_stage() then
+            fail_sip_early(480, "Temporarily Unavailable")
+        elseif g_sip_state == SIP_STATE_CONNECTED or g_sip_state == SIP_STATE_DIALING or g_sip_state == SIP_STATE_ANSWERING then
             logi("同步挂断 SIP 通话")
             g_sip_state = SIP_STATE_DISCONNECTING
             exsip.hangUp()
@@ -243,13 +519,21 @@ local function on_cc_event(status, value, extra)
         
     elseif status == "MAKE_CALL_OK" then
         logi("CC 拨号请求已发送")
+        if g_call_direction == "outgoing" and sip_is_early_stage() then
+            start_outgoing_early_timeout()
+            set_cc_bridge_tone(true)
+        end
         
     elseif status == "MAKE_CALL_FAILED" then
         loge("CC 拨号失败")
+        stop_outgoing_early_timeout()
         g_cc_state = CC_STATE_IDLE
+        set_cc_bridge_tone(false)
         
         -- 同步挂断 SIP
-        if g_sip_state == SIP_STATE_CONNECTED or g_sip_state == SIP_STATE_DIALING then
+        if g_call_direction == "outgoing" and sip_is_early_stage() then
+            fail_sip_early(480, "Temporarily Unavailable")
+        elseif g_sip_state == SIP_STATE_CONNECTED or g_sip_state == SIP_STATE_DIALING or g_sip_state == SIP_STATE_ANSWERING then
             logi("同步挂断 SIP 通话")
             g_sip_state = SIP_STATE_DISCONNECTING
             exsip.hangUp()
@@ -263,12 +547,19 @@ local function on_cc_event(status, value, extra)
         
     elseif status == "HANGUP_CALL_DONE" then
         logi("CC 挂断完成")
+        stop_outgoing_early_timeout()
+        g_cc_state = CC_STATE_IDLE
+        g_call_start_time = nil
+        g_call_direction = nil
+        set_cc_bridge_tone(false)
         
     elseif status == "SPEECH_START" then
         logi("CC 语音开始")
         
     elseif status == "PLAY" then
-        logi("CC 播放事件")
+        logi("CC 播放事件", value)
+        -- PLAY 0 只表示本地/旧播放请求停止，不代表 VoLTE 下行 early media 已经结束。
+        -- 占位 tone 由接通/失败/真实 CC 下行 PCM 到达时停止，避免无人接听提示前静音。
         
     elseif status == "DIAL_TONE" then
         logi("CC 拨号音")
@@ -312,10 +603,24 @@ local function on_sip_event(event, action, data)
             g_sip_state = SIP_STATE_INCOMING
             g_call_direction = "outgoing"
             
-            -- 自动接听 SIP 来电
+            -- 自动处理 SIP 来电：先发 183 早期媒体，再拨手机；手机接通后再发 200 OK。
             if CONFIG.auto_answer_sip then
-                logi("自动接听 SIP 来电")
-                exsip.accept()
+                logi("自动启动 SIP 早期媒体")
+                local ready, code, reason = can_start_mobile_leg_from_sip()
+                if not ready then
+                    fail_sip_early(code, reason)
+                    g_call_direction = nil
+                    return
+                end
+                if exsip.progress() then
+                    g_sip_state = SIP_STATE_PROGRESSING
+                    if start_mobile_leg_from_sip() then
+                        start_outgoing_early_timeout()
+                    end
+                else
+                    fail_sip_early(480, "Temporarily Unavailable")
+                    g_call_direction = nil
+                end
             end
             
         elseif action == "ringing" then
@@ -325,42 +630,15 @@ local function on_sip_event(event, action, data)
             logi("SIP 通话已建立")
             g_sip_state = SIP_STATE_CONNECTED
             
-            -- 呼出场景：SIP 建立后，拨打手机
-            if g_call_direction == "outgoing" and g_cc_state == CC_STATE_IDLE then
-                if g_cc_ready and cc then
-                    logi("SIP 已建立，开始拨打手机:", CONFIG.target_phone_number)
-                    g_cc_state = CC_STATE_DIALING
-                    local ok = cc.dial(0, CONFIG.target_phone_number)
-                    if not ok then
-                        loge("CC 拨号失败")
-                        g_cc_state = CC_STATE_IDLE
-                        -- 同步挂断 SIP
-                        g_sip_state = SIP_STATE_DISCONNECTING
-                        exsip.hangUp()
-                        g_call_direction = nil
-                    end
-                else
-                    loge("CC 未就绪，无法拨打手机")
-                    g_sip_state = SIP_STATE_DISCONNECTING
-                    exsip.hangUp()
-                    g_call_direction = nil
-                end
-            end
-            
             -- 呼入场景：SIP 建立后，接听手机
             if g_call_direction == "incoming" and g_cc_state == CC_STATE_RINGING then
-                logi("SIP 已建立，接听手机来电")
-                g_cc_state = CC_STATE_CONNECTED
-                if cc and cc.accept then
-                    cc.accept(0)
-                end
-                apply_audio_settings()
-                g_call_start_time = os.time()
+                accept_mobile_incoming("SIP 已建立，接听手机来电")
             end
             
         elseif action == "ended" then
             logi("SIP 通话已结束，原因:", data and data.reason or "unknown")
             g_sip_state = SIP_STATE_IDLE
+            stop_outgoing_early_timeout()
             
             -- 同步挂断 CC 通话
             if g_cc_state == CC_STATE_CONNECTED or g_cc_state == CC_STATE_DIALING or g_cc_state == CC_STATE_RINGING then
@@ -377,6 +655,7 @@ local function on_sip_event(event, action, data)
         elseif action == "failed" then
             logw("SIP 通话失败:", data and data.reason or "unknown")
             g_sip_state = SIP_STATE_IDLE
+            stop_outgoing_early_timeout()
             
             -- 同步挂断 CC
             if g_cc_state == CC_STATE_CONNECTED or g_cc_state == CC_STATE_DIALING or g_cc_state == CC_STATE_RINGING then
@@ -399,6 +678,7 @@ local function on_sip_event(event, action, data)
             
         elseif action == "stop" then
             logi("SIP 媒体通道已关闭，原因:", data.reason)
+            stop_outgoing_early_timeout()
         end
         
     elseif event == "message" then
@@ -416,6 +696,16 @@ local function on_sip_event(event, action, data)
     elseif event == "voip" then
         if action == "state" then
             logi("VoIP 状态:", data)
+            if data == "started" and g_call_direction == "outgoing" and sip_is_early_stage() and g_cc_state == CC_STATE_DIALING then
+                set_cc_bridge_tone(true)
+            elseif data == "started" and (g_sip_state == SIP_STATE_IDLE or g_sip_state == SIP_STATE_DISCONNECTING) then
+                logw("VoIP 在无有效 SIP 通话时启动，立即停止")
+                if voip and voip.stop then
+                    voip.stop()
+                end
+            elseif data == "stopped" then
+                set_cc_bridge_tone(false)
+            end
         elseif action == "stats" then
             logi("VoIP 统计 - 发送:", data.tx_packets, "接收:", data.rx_packets, "丢失:", data.rx_lost)
         elseif action == "error" then
@@ -578,7 +868,11 @@ function sip_bridge_agent.start(opts)
         rtp_port = CONFIG.rtp_port,
         codecs = {CONFIG.codec},
         ptime = CONFIG.ptime,
-        auto_answer = CONFIG.auto_answer_sip,
+        -- 桥接层自己控制 early media -> CC 接通 -> SIP 200 OK，
+        -- 不能让 exsip 内部 auto_answer 抢先发送最终 200 OK。
+        auto_answer = false,
+        early_media = true,
+        early_media_response = 183,
         adapter = use_adapter,
     })
     
@@ -641,6 +935,7 @@ function sip_bridge_agent.stop()
     g_cc_ready = false
     g_call_start_time = nil
     g_call_direction = nil
+    stop_outgoing_early_timeout()
     
     logi("桥接代理已停止")
 end
@@ -694,6 +989,7 @@ function sip_bridge_agent.dial_phone(number)
             g_cc_state = CC_STATE_IDLE
             return false
         end
+        start_outgoing_early_timeout()
     end
     
     return true
@@ -701,7 +997,7 @@ end
 
 -- 手动接听 SIP 来电
 function sip_bridge_agent.answer_sip()
-    if g_sip_state == SIP_STATE_INCOMING then
+    if sip_is_early_stage() then
         logi("手动接听 SIP 来电")
         exsip.accept()
         return true
@@ -713,11 +1009,16 @@ end
 -- 手动挂断所有通话
 function sip_bridge_agent.hangup_all()
     logi("挂断所有通话...")
+    stop_outgoing_early_timeout()
     
     -- 挂断 SIP
     if g_sip_state ~= SIP_STATE_IDLE then
-        g_sip_state = SIP_STATE_DISCONNECTING
-        exsip.hangUp()
+        if sip_is_early_stage() then
+            fail_sip_early(486, "Busy Here")
+        else
+            g_sip_state = SIP_STATE_DISCONNECTING
+            exsip.hangUp()
+        end
     end
     
     -- 挂断 CC
@@ -780,6 +1081,8 @@ function sip_bridge_agent.get_state()
         call_direction = g_call_direction,
         call_duration = g_call_start_time and (os.time() - g_call_start_time) or 0,
         local_audio = g_enable_local_audio,
+        auto_mobile_incoming = CONFIG.auto_handle_mobile_incoming,
+        auto_answer_mobile_incoming = CONFIG.auto_answer_mobile_incoming,
     }
 end
 

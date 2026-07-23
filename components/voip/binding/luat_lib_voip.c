@@ -343,6 +343,21 @@ static int l_voip_pcm_out(lua_State *L)
     return 1;
 }
 
+/*
+控制桥接模式内部早期提示音。
+@api voip.bridgeTone(on)
+@boolean on true启动，false停止
+@return boolean 成功返回 true
+@usage
+voip.bridgeTone(true)
+*/
+static int l_voip_bridge_tone(lua_State *L)
+{
+    int ret = voip_bridge_tone(lua_toboolean(L, 1) ? 1 : 0);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
 #include "rotable2.h"
 
 static const rotable_Reg_t reg_voip[] =
@@ -357,6 +372,7 @@ static const rotable_Reg_t reg_voip[] =
     { "setAudioMode", ROREG_FUNC(l_voip_set_audio_mode)},
     { "pcmIn",      ROREG_FUNC(l_voip_pcm_in)},
     { "pcmOut",     ROREG_FUNC(l_voip_pcm_out)},
+    { "bridgeTone", ROREG_FUNC(l_voip_bridge_tone)},
 
     /* 常量 */
     { "PCMU",       ROREG_INT(VOIP_CODEC_PCMU)},

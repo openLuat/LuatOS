@@ -13,6 +13,7 @@ local cc_stub = {}
 local g_inited = false
 local g_state = "idle"  -- idle, dialing, ringing, connected
 local g_last_number = ""
+local g_next_dial_fail = false
 
 -- 触发CC事件
 local function emit_cc_event(event, value, extra)
@@ -28,9 +29,23 @@ local function simulate_dial_flow(number)
     sys.timerStart(function()
         emit_cc_event("MAKE_CALL_OK", nil, nil)
     end, 200)
+
+    sys.timerStart(function()
+        if g_next_dial_fail then
+            g_next_dial_fail = false
+            g_state = "idle"
+            emit_cc_event("MAKE_CALL_FAILED", nil, nil)
+            emit_cc_event("DISCONNECTED", nil, nil)
+            return
+        end
+        emit_cc_event("PLAY", 2, nil)
+    end, 500)
     
     -- 模拟对方响铃后接听
     sys.timerStart(function()
+        if g_state ~= "dialing" then
+            return
+        end
         g_state = "connected"
         emit_cc_event("AUDIO_START", nil, nil)
         emit_cc_event("CONNECTED", nil, nil)
@@ -110,6 +125,11 @@ function cc_stub.lastNum()
     return g_last_number
 end
 
+function cc_stub.bridgeTone(on)
+    log.info("cc_stub", "bridgeTone", on)
+    return true
+end
+
 -- 测试用的额外接口
 function cc_stub.simulate_incoming(number, delay_ms)
     simulate_incoming_flow(number or "13800138000", delay_ms)
@@ -123,6 +143,11 @@ function cc_stub.reset()
     g_inited = false
     g_state = "idle"
     g_last_number = ""
+    g_next_dial_fail = false
+end
+
+function cc_stub.simulate_next_dial_fail()
+    g_next_dial_fail = true
 end
 
 -- 注册为全局 cc（如果 _G.cc 不存在）

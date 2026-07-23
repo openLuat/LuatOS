@@ -2146,7 +2146,8 @@ end)
         case LUAT_MOBILE_CC_PLAY:// 最先 	
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "PLAY");
-            lua_call(L, 2, 0);
+            lua_pushinteger(L, index);
+            lua_call(L, 3, 0);
             break;
         }
         break;

@@ -48,7 +48,9 @@ typedef struct
     luat_audio_common_param_t cc_param;
     luat_fifo_t *record_save_fifo;  // 录音数据FIFO
     luat_fifo_t *play_save_fifo;  // 播放数据FIFO
-	luat_rtos_task_handle task_handle;
+    luat_rtos_task_handle task_handle;
+    luat_rtos_timer_t bridge_tone_timer;
+    luat_rtos_timer_t bridge_drain_timer;
 	luat_zbuff_t *up_buff[2];
 	luat_zbuff_t *down_buff[2];
 	int record_cb;
@@ -66,11 +68,115 @@ typedef struct
 	uint8_t upload_enable:1;
     uint8_t is_play_extern_source:1;     //是否播放第三方数据源
     uint8_t is_true_start:1;
+    uint8_t bridge_tone_on:1;
+    uint32_t bridge_tone_pos;
 }luat_cc_ctrl_t;
 
 static luat_cc_ctrl_t _l_cc;
+static int16_t s_uplink_last_frame[640];
+static int16_t s_uplink_voip_pcm[320];
+static int16_t s_downlink_pcm_buf[VOIP_BRIDGE_BUF_SAMPLES];
+static uint16_t s_uplink_last_frame_samples;
+static uint8_t s_uplink_prebuffering = 1;
+static uint32_t s_uplink_plc_frames;
 
 extern const int16_t ringback_8k_data[8000];
+
+static void _l_cc_bridge_tone_pcm_in(const int16_t *pcm, uint32_t samples)
+{
+    voip_ctx_t *voip_ctx = voip_get_ctx();
+    if (!pcm || !samples || !voip_ctx) {
+        return;
+    }
+    if (voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || voip_ctx->state != VOIP_STATE_RUNNING) {
+        return;
+    }
+    while (samples > 0) {
+        int consumed = voip_bridge_pcm_in(pcm, samples > VOIP_BRIDGE_BUF_SAMPLES ? VOIP_BRIDGE_BUF_SAMPLES : (uint16_t)samples);
+        if (consumed <= 0) {
+            break;
+        }
+        pcm += consumed;
+        samples -= (uint32_t)consumed;
+    }
+}
+
+static void _l_cc_bridge_tone_stop(void)
+{
+    if (_l_cc.bridge_tone_timer && _l_cc.bridge_tone_on) {
+        luat_rtos_timer_stop(_l_cc.bridge_tone_timer);
+    }
+    if (_l_cc.bridge_tone_on) {
+        LLOGI("CC bridge early tone stopped");
+    }
+    _l_cc.bridge_tone_on = 0;
+    _l_cc.bridge_tone_pos = 0;
+}
+
+static void _l_cc_bridge_tone_timer_cb(LUAT_RT_CB_PARAM)
+{
+    (void)param;
+    voip_ctx_t *voip_ctx = voip_get_ctx();
+    uint16_t samples;
+    int16_t silence[160] = {0};
+    uint32_t tone_pos;
+
+    if (!_l_cc.bridge_tone_on) {
+        return;
+    }
+    if (!voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || voip_ctx->state != VOIP_STATE_RUNNING) {
+        return;
+    }
+    if (_l_cc.upload_enable && _l_cc.is_true_start) {
+        _l_cc_bridge_tone_stop();
+        return;
+    }
+
+    samples = voip_ctx->frame_samples ? voip_ctx->frame_samples : 160;
+    if (samples > 160) {
+        samples = 160;
+    }
+
+    tone_pos = _l_cc.bridge_tone_pos % 24000;
+    if (tone_pos < 8000) {
+        uint32_t left = 8000 - tone_pos;
+        if (left < samples) {
+            _l_cc_bridge_tone_pcm_in(&ringback_8k_data[tone_pos], left);
+            _l_cc_bridge_tone_pcm_in(silence, samples - left);
+        } else {
+            _l_cc_bridge_tone_pcm_in(&ringback_8k_data[tone_pos], samples);
+        }
+    } else {
+        _l_cc_bridge_tone_pcm_in(silence, samples);
+    }
+    _l_cc.bridge_tone_pos = (_l_cc.bridge_tone_pos + samples) % 24000;
+}
+
+static void _l_cc_bridge_tone_start(void)
+{
+    voip_ctx_t *voip_ctx = voip_get_ctx();
+    if (!voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || voip_ctx->state != VOIP_STATE_RUNNING) {
+        return;
+    }
+    if (_l_cc.upload_enable && _l_cc.is_true_start) {
+        return;
+    }
+    if (!_l_cc.bridge_tone_timer) {
+        if (luat_rtos_timer_create(&_l_cc.bridge_tone_timer) != 0) {
+            LLOGE("create CC bridge early tone timer failed");
+            return;
+        }
+    }
+    _l_cc.bridge_tone_pos = 0;
+    if (luat_rtos_timer_start(_l_cc.bridge_tone_timer, 20, 1, _l_cc_bridge_tone_timer_cb, NULL) == 0) {
+        if (!_l_cc.bridge_tone_on) {
+            LLOGI("CC bridge early tone started");
+        }
+        _l_cc.bridge_tone_on = 1;
+    } else {
+        LLOGE("start CC bridge early tone timer failed");
+    }
+}
 
 static int _l_cc_handler(lua_State *L, void* ptr) {
     (void)ptr;
@@ -151,6 +257,146 @@ static void _downsample_16k_to_8k(int16_t *inout, uint32_t in_samples, uint32_t 
     *out_samples = j;
 }
 
+static void _l_cc_bridge_real_downlink_seen(uint32_t bytes)
+{
+    static uint32_t log_cnt = 0;
+    if (!bytes) {
+        return;
+    }
+    voip_bridge_tone(0);
+    if ((log_cnt++ % 50) == 0) {
+        LLOGI("CC bridge downlink PCM bytes=%u", (unsigned)bytes);
+    }
+}
+
+static void _l_cc_notify_audio_start(void)
+{
+    rtos_msg_t msg = {0};
+    msg.handler = _l_cc_audio_start;
+    msg.arg1 = CC_MSG_AUDIO_START;
+    luat_msgbus_put(&msg, 0);
+}
+
+static void _l_cc_bridge_flush_sip_uplink(void)
+{
+    voip_ctx_t *voip_ctx = voip_get_ctx();
+    if (!voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !voip_ctx->bridge_rx_buf) {
+        return;
+    }
+    if (voip_ctx->bridge_mutex) luat_rtos_mutex_lock(voip_ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    voip_ctx->bridge_rx_write_idx = 0;
+    voip_ctx->bridge_rx_read_idx = 0;
+    voip_ctx->bridge_rx_count = 0;
+    if (voip_ctx->bridge_mutex) luat_rtos_mutex_unlock(voip_ctx->bridge_mutex);
+    memset(s_uplink_last_frame, 0, sizeof(s_uplink_last_frame));
+    s_uplink_last_frame_samples = 0;
+    s_uplink_prebuffering = 1;
+    s_uplink_plc_frames = 0;
+    LLOGI("CC bridge SIP uplink buffer flushed");
+}
+
+static uint16_t _l_cc_bridge_drop_sip_uplink(voip_ctx_t *voip_ctx, uint16_t samples)
+{
+    uint16_t dropped = 0;
+    if (!voip_ctx || !samples) {
+        return 0;
+    }
+    if (voip_ctx->bridge_mutex) luat_rtos_mutex_lock(voip_ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    while (dropped < samples && voip_ctx->bridge_rx_count > 0) {
+        voip_ctx->bridge_rx_read_idx = (voip_ctx->bridge_rx_read_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+        voip_ctx->bridge_rx_count--;
+        dropped++;
+    }
+    if (voip_ctx->bridge_mutex) luat_rtos_mutex_unlock(voip_ctx->bridge_mutex);
+    return dropped;
+}
+
+static void _l_cc_bridge_drain_downlink(void)
+{
+    voip_ctx_t *voip_ctx = voip_get_ctx();
+    uint32_t read_len;
+    uint32_t read_limit;
+    uint16_t cc_sr;
+    uint16_t voip_sr;
+    uint8_t drained_frames = 0;
+
+    if (!_l_cc.play_save_fifo || !voip_ctx ||
+        voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE ||
+        voip_ctx->state != VOIP_STATE_RUNNING) {
+        return;
+    }
+
+    cc_sr = _l_cc.cc_param.sample_rate;
+    voip_sr = voip_ctx->config.sample_rate ? voip_ctx->config.sample_rate : 8000;
+    read_limit = (cc_sr == 16000) ? 640 : 320;
+    if (read_limit > sizeof(s_downlink_pcm_buf)) {
+        read_limit = sizeof(s_downlink_pcm_buf);
+    }
+
+    while (drained_frames < 2 &&
+        (read_len = luat_fifo_read(_l_cc.play_save_fifo, (uint8_t *)s_downlink_pcm_buf, read_limit)) > 0) {
+        int16_t *pcm_ptr;
+        uint32_t samples_remaining;
+        drained_frames++;
+
+        _l_cc_bridge_tone_stop();
+        _l_cc_bridge_real_downlink_seen(read_len);
+
+        if (cc_sr == 16000 && voip_sr == 8000) {
+            uint32_t in_samples = read_len / sizeof(int16_t);
+            uint32_t out_samples = 0;
+            _downsample_16k_to_8k(s_downlink_pcm_buf, in_samples, &out_samples);
+            pcm_ptr = s_downlink_pcm_buf;
+            samples_remaining = out_samples;
+        } else {
+            pcm_ptr = s_downlink_pcm_buf;
+            samples_remaining = read_len / sizeof(int16_t);
+        }
+
+        while (samples_remaining > 0) {
+            int consumed = voip_bridge_pcm_in(pcm_ptr, samples_remaining);
+            if (consumed <= 0) {
+                break;
+            }
+            pcm_ptr += consumed;
+            samples_remaining -= consumed;
+        }
+    }
+}
+
+static void _l_cc_bridge_drain_timer_cb(LUAT_RT_CB_PARAM)
+{
+    (void)param;
+    _l_cc_bridge_drain_downlink();
+}
+
+static void _l_cc_bridge_drain_start(void)
+{
+    voip_ctx_t *voip_ctx = voip_get_ctx();
+    if (!voip_ctx || voip_ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE) {
+        return;
+    }
+    if (!_l_cc.bridge_drain_timer) {
+        if (luat_rtos_timer_create(&_l_cc.bridge_drain_timer) != 0) {
+            LLOGE("create CC bridge downlink drain timer failed");
+            return;
+        }
+    }
+    luat_rtos_timer_stop(_l_cc.bridge_drain_timer);
+    if (luat_rtos_timer_start(_l_cc.bridge_drain_timer, 20, 1, _l_cc_bridge_drain_timer_cb, NULL) == 0) {
+        LLOGI("CC bridge downlink drain started");
+    } else {
+        LLOGE("start CC bridge downlink drain timer failed");
+    }
+}
+
+static void _l_cc_bridge_drain_stop(void)
+{
+    if (_l_cc.bridge_drain_timer) {
+        luat_rtos_timer_stop(_l_cc.bridge_drain_timer);
+    }
+}
+
 static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, uint32_t param, struct luat_audio_request_block *request_block) {
 	luat_zbuff_t *buff;
     rtos_msg_t msg;
@@ -196,6 +442,7 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
                 buff = _l_cc.down_buff[_l_cc.record_down_zbuff_point];
                 zbuff_rest_data_len = buff->len - buff->used;
                 fifo_read_len = luat_fifo_read(_l_cc.play_save_fifo, buff->addr + buff->used, zbuff_rest_data_len);
+                _l_cc_bridge_real_downlink_seen(fifo_read_len);
                 buff->used += fifo_read_len;
                 if (buff->used >= buff->len) {  //zbuff满了，需要上传了
                     msg.handler = _l_cc_handler;
@@ -207,68 +454,12 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
                 }
                 
             } else {
-                voip_ctx_t *voip_ctx = voip_get_ctx();
-                if (voip_ctx && voip_ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE && voip_ctx->state == VOIP_STATE_RUNNING) {
-                    int16_t pcm_buf[VOIP_BRIDGE_BUF_SAMPLES];
-                    uint32_t read_len;
-                    uint16_t cc_sr = _l_cc.cc_param.sample_rate;
-                    uint16_t voip_sr = voip_ctx->config.sample_rate ? voip_ctx->config.sample_rate : 8000;
-                    // Bridge mode: read CP DSP downlink data from play_save_fifo, send to VoIP
-                    while ((read_len = luat_fifo_read(_l_cc.play_save_fifo, (uint8_t *)pcm_buf, sizeof(pcm_buf))) > 0) {
-                        int16_t *pcm_ptr;
-                        uint32_t samples_remaining;
-                        if (cc_sr == 16000 && voip_sr == 8000) {
-                            // CC 16kHz -> VoIP 8kHz: downsample by taking every 2nd sample
-                            uint32_t in_samples = read_len / sizeof(int16_t);
-                            uint32_t out_samples = 0;
-                            _downsample_16k_to_8k(pcm_buf, in_samples, &out_samples);
-                            pcm_ptr = pcm_buf;
-                            samples_remaining = out_samples;
-                        } else {
-                            pcm_ptr = pcm_buf;
-                            samples_remaining = read_len / sizeof(int16_t);
-                        }
-                        while (samples_remaining > 0) {
-                            int consumed = voip_bridge_pcm_in(pcm_ptr, samples_remaining);
-                            if (consumed <= 0) break;
-                            pcm_ptr += consumed;
-                            samples_remaining -= consumed;
-                        }
-                    }
-                }
+                _l_cc_bridge_drain_downlink();
                 luat_fifo_delete_all(_l_cc.record_save_fifo);
                 luat_fifo_delete_all(_l_cc.play_save_fifo);
             }
         } else {
-            voip_ctx_t *voip_ctx = voip_get_ctx();
-            if (voip_ctx && voip_ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE && voip_ctx->state == VOIP_STATE_RUNNING) {
-                int16_t pcm_buf[VOIP_BRIDGE_BUF_SAMPLES];
-                uint32_t read_len;
-                uint16_t cc_sr = _l_cc.cc_param.sample_rate;
-                uint16_t voip_sr = voip_ctx->config.sample_rate ? voip_ctx->config.sample_rate : 8000;
-                // Bridge mode: read CP DSP downlink data from play_save_fifo, send to VoIP
-                while ((read_len = luat_fifo_read(_l_cc.play_save_fifo, (uint8_t *)pcm_buf, sizeof(pcm_buf))) > 0) {
-                    int16_t *pcm_ptr;
-                    uint32_t samples_remaining;
-                    if (cc_sr == 16000 && voip_sr == 8000) {
-                        // CC 16kHz -> VoIP 8kHz: downsample by taking every 2nd sample
-                        uint32_t in_samples = read_len / sizeof(int16_t);
-                        uint32_t out_samples = 0;
-                        _downsample_16k_to_8k(pcm_buf, in_samples, &out_samples);
-                        pcm_ptr = pcm_buf;
-                        samples_remaining = out_samples;
-                    } else {
-                        pcm_ptr = pcm_buf;
-                        samples_remaining = read_len / sizeof(int16_t);
-                    }
-                    while (samples_remaining > 0) {
-                        int consumed = voip_bridge_pcm_in(pcm_ptr, samples_remaining);
-                        if (consumed <= 0) break;
-                        pcm_ptr += consumed;
-                        samples_remaining -= consumed;
-                    }
-                }
-            }
+            _l_cc_bridge_drain_downlink();
             luat_fifo_delete_all(_l_cc.record_save_fifo);
             luat_fifo_delete_all(_l_cc.play_save_fifo);
         }
@@ -283,6 +474,7 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
             if (voip_ctx && voip_ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE) {
                 _l_cc.cc_request.play_save_fifo = _l_cc.play_save_fifo;
                 _l_cc.cc_request.is_save_play_data = 1;
+                _l_cc_bridge_drain_start();
             }
         }
         break;
@@ -389,6 +581,23 @@ static int l_cc_speech_init(lua_State* L) {
     }
     luat_rtos_task_create(&_l_cc.task_handle, 4*1024, 100, "volte", _l_cc_volte_task, NULL, 0);
     lua_pushboolean(L, 1);
+    return 1;
+}
+
+/**
+控制桥接模式早期彩铃，只向VoIP RTP侧送音，不占用本地音频播放请求。
+@api cc.bridgeTone(on)
+@boolean on true启动，false停止
+@return bool 成功与否
+ */
+static int l_cc_bridge_tone(lua_State* L) {
+    if (lua_toboolean(L, 1)) {
+        _l_cc_bridge_tone_start();
+        lua_pushboolean(L, _l_cc.bridge_tone_on);
+    } else {
+        _l_cc_bridge_tone_stop();
+        lua_pushboolean(L, 1);
+    }
     return 1;
 }
 
@@ -605,6 +814,7 @@ static const rotable_Reg_t reg_cc[] =
     { "hangUp" ,    ROREG_FUNC(l_cc_hangup_call)},
     { "lastNum" ,   ROREG_FUNC(l_cc_get_last_call_num)},
 	{ "quality" ,   ROREG_FUNC(l_cc_get_quality)},
+    { "bridgeTone", ROREG_FUNC(l_cc_bridge_tone)},
     { "on" ,        ROREG_FUNC(l_cc_on)},
     { "record", 	ROREG_FUNC(l_cc_record_call)},
     { "extern_source", ROREG_FUNC(l_cc_extern_source)},
@@ -618,28 +828,116 @@ LUAMOD_API int luaopen_cc( lua_State *L ) {
 
 int luat_cc_bridge_get_uplink_pcm(int16_t *pcm, uint16_t samples) {
     voip_ctx_t *voip_ctx = voip_get_ctx();
+    int got = 0;
+    static uint32_t log_cnt = 0;
+    uint16_t cc_sr;
+    uint16_t voip_sr;
+    uint16_t need_voip_samples;
+    uint16_t target_samples;
+    uint16_t high_water_samples;
+    uint16_t available = 0;
+    uint16_t dropped = 0;
+    uint8_t used_plc = 0;
+
     if (!voip_ctx || voip_ctx->state != VOIP_STATE_RUNNING) {
-        return voip_bridge_pcm_out(pcm, samples);
+        memset(pcm, 0, samples * sizeof(int16_t));
+        got = samples;
+        s_uplink_prebuffering = 1;
+        s_uplink_last_frame_samples = 0;
+        goto DONE;
     }
-    uint16_t cc_sr = _l_cc.cc_param.sample_rate;
-    uint16_t voip_sr = voip_ctx->config.sample_rate ? voip_ctx->config.sample_rate : 8000;
-    if (cc_sr == 16000 && voip_sr == 8000) {
-        /* VoIP 8kHz -> CC 16kHz: request half samples, duplicate each for simple upsampling */
-        uint16_t voip_samples = samples / 2;
-        int got = voip_bridge_pcm_out(pcm, voip_samples);
-        if (got > 0) {
-            for (int i = got - 1; i >= 0; i--) {
-                pcm[i * 2] = pcm[i];
-                pcm[i * 2 + 1] = pcm[i];
-            }
+    cc_sr = _l_cc.cc_param.sample_rate;
+    voip_sr = voip_ctx->config.sample_rate ? voip_ctx->config.sample_rate : 8000;
+    need_voip_samples = (cc_sr == 16000 && voip_sr == 8000) ? (samples / 2) : samples;
+    target_samples = need_voip_samples * 3;
+    high_water_samples = target_samples + need_voip_samples;
+    if (target_samples > VOIP_BRIDGE_BUF_SAMPLES / 2) {
+        target_samples = VOIP_BRIDGE_BUF_SAMPLES / 2;
+    }
+    if (high_water_samples > VOIP_BRIDGE_BUF_SAMPLES) {
+        high_water_samples = VOIP_BRIDGE_BUF_SAMPLES;
+    }
+
+    if (voip_ctx->bridge_mutex) luat_rtos_mutex_lock(voip_ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    available = voip_ctx->bridge_rx_count;
+    if (voip_ctx->bridge_mutex) luat_rtos_mutex_unlock(voip_ctx->bridge_mutex);
+
+    if (available > high_water_samples) {
+        uint16_t need_drop = available - target_samples;
+        if (need_drop > need_voip_samples) {
+            need_drop = need_voip_samples;
         }
-        return got * 2;
+        dropped = _l_cc_bridge_drop_sip_uplink(voip_ctx, need_drop);
+        if (dropped > 0) {
+            available -= dropped;
+        }
     }
-    return voip_bridge_pcm_out(pcm, samples);
+
+    if (s_uplink_prebuffering && available < target_samples) {
+        goto PLC;
+    }
+    s_uplink_prebuffering = 0;
+    if (available < need_voip_samples) {
+        s_uplink_prebuffering = 1;
+        goto PLC;
+    }
+
+    if (cc_sr == 16000 && voip_sr == 8000) {
+        uint16_t voip_samples = samples / 2;
+        if (voip_samples > (sizeof(s_uplink_voip_pcm) / sizeof(s_uplink_voip_pcm[0]))) {
+            voip_samples = sizeof(s_uplink_voip_pcm) / sizeof(s_uplink_voip_pcm[0]);
+        }
+        got = voip_bridge_pcm_out(s_uplink_voip_pcm, voip_samples);
+        if (got != voip_samples) {
+            s_uplink_prebuffering = 1;
+            goto PLC;
+        }
+        for (int i = 0; i < got; i++) {
+            int16_t cur = s_uplink_voip_pcm[i];
+            int16_t next = (i + 1 < got) ? s_uplink_voip_pcm[i + 1] : cur;
+            pcm[i * 2] = cur;
+            pcm[i * 2 + 1] = (int16_t)(((int32_t)cur + (int32_t)next) / 2);
+        }
+        got *= 2;
+        goto DONE;
+    }
+    got = voip_bridge_pcm_out(pcm, samples);
+    if (got != samples) {
+        s_uplink_prebuffering = 1;
+        goto PLC;
+    }
+    goto DONE;
+
+PLC:
+    if (s_uplink_last_frame_samples) {
+        uint16_t copy_samples = samples < s_uplink_last_frame_samples ? samples : s_uplink_last_frame_samples;
+        memcpy(pcm, s_uplink_last_frame, copy_samples * sizeof(int16_t));
+        if (copy_samples < samples) {
+            memset(pcm + copy_samples, 0, (samples - copy_samples) * sizeof(int16_t));
+        }
+    } else {
+        memset(pcm, 0, samples * sizeof(int16_t));
+    }
+    s_uplink_plc_frames++;
+    used_plc = 1;
+    got = samples;
+
+DONE:
+    if (!used_plc && got == samples && pcm && samples <= (sizeof(s_uplink_last_frame) / sizeof(s_uplink_last_frame[0]))) {
+        memcpy(s_uplink_last_frame, pcm, samples * sizeof(int16_t));
+        s_uplink_last_frame_samples = samples;
+    }
+    if ((log_cnt++ % 50) == 0) {
+        LLOGI("CC bridge uplink PCM got=%d samples=%u avail=%u drop=%u plc=%u prebuf=%u",
+            got, (unsigned)samples, (unsigned)available, (unsigned)dropped, (unsigned)s_uplink_plc_frames, (unsigned)s_uplink_prebuffering);
+    }
+    return got;
 }
 
 void luat_cc_start_upload(void)
 {
+    _l_cc_bridge_tone_stop();
+    _l_cc_bridge_flush_sip_uplink();
     _l_cc.upload_enable = 1;
     luat_audio_request_record_pause(&_l_cc.cc_request, 0);
 }
@@ -647,8 +945,19 @@ void luat_cc_start_upload(void)
 void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, uint32_t play_block_cnt, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t record_callback_cnt_level, uint8_t need_upload, uint8_t true_start)
 {
     if (_l_cc.is_audio_start) {
+        uint8_t was_upload = _l_cc.upload_enable;
         _l_cc.is_true_start = true_start;
         _l_cc.upload_enable = need_upload;
+        if (_l_cc.upload_enable && _l_cc.is_true_start) {
+            _l_cc_bridge_tone_stop();
+            if (!was_upload) {
+                _l_cc_bridge_flush_sip_uplink();
+            }
+            luat_audio_request_record_pause(&_l_cc.cc_request, 0);
+            _l_cc_notify_audio_start();
+        } else {
+            luat_audio_request_record_pause(&_l_cc.cc_request, 1);
+        }
         LLOGD("CC audio already started, update upload_enable=%d true_start=%d", need_upload, true_start);
         return;
     }
@@ -673,10 +982,8 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
     ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)play_buff_byte, one_play_block_len, play_block_cnt, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, luat_audio_dsp_get_opts(LUAT_AUDIO_DSP_DEFAULT_TYPE));
     if (!ret) {
         if (_l_cc.upload_enable) {
-            rtos_msg_t msg;
-            msg.handler = _l_cc_audio_start;
-            msg.arg1 = CC_MSG_AUDIO_START;
-            luat_msgbus_put(&msg, 0);
+            _l_cc_bridge_tone_stop();
+            _l_cc_notify_audio_start();
         } else {
             luat_audio_request_record_pause(&_l_cc.cc_request, 1);
         }
@@ -693,6 +1000,8 @@ void luat_cc_play_tone(uint32_t param)
     switch (param)
     {
     case LUAT_MOBILE_CC_PLAY_STOP:
+        _l_cc_bridge_drain_stop();
+        _l_cc_bridge_tone_stop();
         _l_cc.upload_enable = 0;
         luat_audio_request_record_pause(&_l_cc.cc_request, 1);
         _l_cc.tone_data_cnt = 0;

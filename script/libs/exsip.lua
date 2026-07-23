@@ -110,6 +110,8 @@ local default_config = {
     auto_answer = false,
     delay_auto_answer = 0,
     call_timeout = 30,
+    early_media = true,
+    early_media_response = 183,
     adapter = nil  -- nil = 使用系统默认网卡
 }
 
@@ -437,6 +439,8 @@ function exsip.start()
         codecs = g_config.codecs,
         ptime = g_config.ptime,
         call_timeout = g_config.call_timeout,
+        early_media = g_config.early_media,
+        early_media_response = g_config.early_media_response,
         event_callback = sip_event_handler
     })
 
@@ -537,6 +541,29 @@ function exsip.accept()
 end
 
 --[[
+发送来电早期媒体响应。
+@api exsip.progress()
+@return boolean 成功返回 true，失败返回 false
+@usage
+exsip.progress()
+]]
+function exsip.progress()
+    if not g_started then
+        log_error("not started")
+        return false
+    end
+
+    if not sipclient or not sipclient.progress then
+        log_error("sipclient.progress not available")
+        return false
+    end
+
+    sipclient.progress()
+    log_info("progressing incoming call")
+    return true
+end
+
+--[[
 挂断通话。
 @api exsip.hangUp()
 @return boolean 成功返回 true，失败返回 false
@@ -556,6 +583,31 @@ function exsip.hangUp()
 
     sipclient.hangup()
     log_info("hanging up")
+    return true
+end
+
+--[[
+使用指定 SIP 失败码结束尚未接听的来电。
+@api exsip.fail(code, reason)
+@number code SIP 状态码，默认 486
+@string reason 原因短语
+@return boolean 成功返回 true，失败返回 false
+@usage
+exsip.fail(480, "Temporarily Unavailable")
+]]
+function exsip.fail(code, reason)
+    if not g_started then
+        log_error("not started")
+        return false
+    end
+
+    if not sipclient or not sipclient.fail then
+        log_error("sipclient.fail not available")
+        return false
+    end
+
+    sipclient.fail(code, reason)
+    log_info("failing incoming call", code, reason)
     return true
 end
 

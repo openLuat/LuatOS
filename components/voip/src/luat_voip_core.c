@@ -99,6 +99,15 @@ static LUAT_RT_RET_TYPE voip_stats_timer_cb(LUAT_RT_CB_PARAM)
     }
 }
 
+static LUAT_RT_RET_TYPE voip_bridge_tone_timer_cb(LUAT_RT_CB_PARAM)
+{
+    (void)param;
+    voip_ctx_t *ctx = &g_voip_ctx;
+    if (ctx->state == VOIP_STATE_RUNNING && ctx->bridge_tone_on && ctx->task_handle) {
+        luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_BRIDGE_TONE, 0, 0, 0, 0);
+    }
+}
+
 /* ======================== 网络回调 ======================== */
 
 /*
@@ -428,7 +437,7 @@ static void voip_do_tx(voip_ctx_t *ctx, const int16_t *mic_pcm)
     /* UDP 发送 */
     network_ctrl_t *netc = (network_ctrl_t *)ctx->netc;
     /* 已在 connect 时设置好 remote，直接发 */
-    uint8_t tx_len = 0;
+    uint32_t tx_len = 0;
     network_tx(netc, ctx->rtp_packet_buf, rtp_len, 0, NULL, 0, &tx_len, 0);
     ctx->stats.tx_packets++;
     ctx->stats.tx_bytes += rtp_len;
@@ -437,6 +446,31 @@ static void voip_do_tx(voip_ctx_t *ctx, const int16_t *mic_pcm)
     if (ctx->stats.tx_packets % 100 == 1) {
         LLOGI("voip_do_tx: tx_packets=%u energy=%ld", ctx->stats.tx_packets, energy);
     }
+}
+
+static void voip_do_bridge_tone(voip_ctx_t *ctx)
+{
+    static const int16_t tone400_table[20] = {
+        0, 2472, 4702, 6472, 7608, 8000, 7608, 6472, 4702, 2472,
+        0, -2472, -4702, -6472, -7608, -8000, -7608, -6472, -4702, -2472
+    };
+    uint32_t cadence_frame;
+
+    if (!ctx || ctx->state != VOIP_STATE_RUNNING || ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE ||
+        !ctx->bridge_tone_on || !ctx->rx_pcm_buf) {
+        return;
+    }
+
+    cadence_frame = (ctx->bridge_tone_pos / ctx->frame_samples) % 150;
+    for (uint16_t i = 0; i < ctx->frame_samples; i++) {
+        if (cadence_frame < 50) {
+            ctx->rx_pcm_buf[i] = tone400_table[ctx->bridge_tone_pos % 20];
+        } else {
+            ctx->rx_pcm_buf[i] = 0;
+        }
+        ctx->bridge_tone_pos++;
+    }
+    voip_do_tx(ctx, ctx->rx_pcm_buf);
 }
 
 /* RX: 从 UDP socket 读取所有待处理数据 → RTP 解析 → 解码 → JB push */
@@ -498,7 +532,8 @@ static void voip_do_rx(voip_ctx_t *ctx)
                 if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
                 for (uint16_t i = 0; i < samples; i++) {
                     if (ctx->bridge_rx_count >= VOIP_BRIDGE_BUF_SAMPLES) {
-                        break;
+                        ctx->bridge_rx_read_idx = (ctx->bridge_rx_read_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+                        ctx->bridge_rx_count--;
                     }
                     ctx->bridge_rx_buf[ctx->bridge_rx_write_idx] = ctx->rx_pcm_buf[i];
                     ctx->bridge_rx_write_idx = (ctx->bridge_rx_write_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
@@ -688,6 +723,8 @@ static void voip_cleanup(voip_ctx_t *ctx)
 {
     /* 停止定时器 */
     if (ctx->stats_timer) { luat_rtos_timer_stop(ctx->stats_timer); }
+    if (ctx->bridge_tone_timer) { luat_rtos_timer_stop(ctx->bridge_tone_timer); }
+    ctx->bridge_tone_on = 0;
     
     /* 停止音频 */
     voip_stop_audio(ctx);
@@ -735,6 +772,8 @@ static void voip_reset_session_state(voip_ctx_t *ctx)
     ctx->bridge_rx_read_idx = 0;
     ctx->bridge_tx_count = 0;
     ctx->bridge_rx_count = 0;
+    ctx->bridge_tone_on = 0;
+    ctx->bridge_tone_pos = 0;
     memset(ctx->mic_generation, 0, sizeof(ctx->mic_generation));
     memset(&ctx->stats, 0, sizeof(ctx->stats));
 }
@@ -900,6 +939,7 @@ static int voip_runtime_init(voip_ctx_t *ctx)
 
     ctx->state = VOIP_STATE_IDLE;
     luat_rtos_timer_create(&ctx->stats_timer);
+    luat_rtos_timer_create(&ctx->bridge_tone_timer);
     luat_rtos_mutex_create(&ctx->bridge_mutex);
 
     ret = luat_rtos_task_create(&ctx->task_handle, 8 * 1024, 50, "voip", voip_task_entry, ctx, 32);
@@ -907,6 +947,7 @@ static int voip_runtime_init(voip_ctx_t *ctx)
         LLOGE("voip task create failed: %d", ret);
         ctx->state = VOIP_STATE_IDLE;
         if (ctx->stats_timer) { luat_rtos_timer_delete(ctx->stats_timer); ctx->stats_timer = NULL; }
+        if (ctx->bridge_tone_timer) { luat_rtos_timer_delete(ctx->bridge_tone_timer); ctx->bridge_tone_timer = NULL; }
         return -2;
     }
 
@@ -994,6 +1035,10 @@ static void voip_task_entry(void *param)
                     voip_do_tx(ctx, ctx->rx_pcm_buf);
                 }
             }
+            break;
+
+        case VOIP_EVENT_BRIDGE_TONE:
+            voip_do_bridge_tone(ctx);
             break;
 
         default:
@@ -1135,6 +1180,43 @@ int voip_set_audio_mode(voip_audio_mode_t mode)
         return -2;
     }
     ctx->audio_mode = mode;
+    return 0;
+}
+
+int voip_bridge_tone(int on)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    uint32_t interval;
+
+    if (!on) {
+        if (ctx->bridge_tone_timer) {
+            luat_rtos_timer_stop(ctx->bridge_tone_timer);
+        }
+        if (ctx->bridge_tone_on) {
+            LLOGI("voip bridge tone stopped");
+        }
+        ctx->bridge_tone_on = 0;
+        ctx->bridge_tone_pos = 0;
+        return 0;
+    }
+
+    if (ctx->state != VOIP_STATE_RUNNING || ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE) {
+        return -1;
+    }
+    if (!ctx->bridge_tone_timer) {
+        if (luat_rtos_timer_create(&ctx->bridge_tone_timer) != 0) {
+            return -2;
+        }
+    }
+    interval = ctx->config.ptime ? ctx->config.ptime : VOIP_FRAME_MS_DEFAULT;
+    ctx->bridge_tone_pos = 0;
+    ctx->bridge_tone_on = 1;
+    if (luat_rtos_timer_start(ctx->bridge_tone_timer, interval, 1, voip_bridge_tone_timer_cb, NULL) != 0) {
+        ctx->bridge_tone_on = 0;
+        return -3;
+    }
+    LLOGI("voip bridge tone started interval=%u", (unsigned)interval);
+    luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_BRIDGE_TONE, 0, 0, 0, 0);
     return 0;
 }
 

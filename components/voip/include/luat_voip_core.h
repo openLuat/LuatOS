@@ -91,6 +91,7 @@ enum {
     VOIP_EVENT_SPK_DONE,    /* DAC 播放完成一帧 */
     VOIP_EVENT_STATS_TICK,  /* 统计输出定时器 */
     VOIP_EVENT_BRIDGE_TX,   /* 桥接模式：外部PCM数据需要编码发送 */
+    VOIP_EVENT_BRIDGE_TONE, /* 桥接模式：内部早期媒体提示音 */
 };
 
 typedef enum {
@@ -200,6 +201,9 @@ typedef struct {
     uint16_t bridge_tx_count;         /* bridge_tx_buf 有效样本数 */
     uint16_t bridge_rx_count;         /* bridge_rx_buf 有效样本数 */
     luat_rtos_mutex_t bridge_mutex;     /* 桥接缓冲区互斥锁 */
+    luat_rtos_timer_t bridge_tone_timer; /* 桥接模式早期提示音定时器 */
+    uint32_t bridge_tone_pos;
+    uint8_t bridge_tone_on;
 
     uint32_t mic_generation[VOIP_MIC_SLOT_COUNT];
     uint32_t dropped_mic_events;
@@ -284,5 +288,14 @@ int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples);
  * @return 实际取出的样本数
  */
 int voip_bridge_pcm_out(int16_t *pcm, uint16_t max_samples);
+
+/**
+ * 控制桥接模式内部早期提示音。
+ * 该提示音由VoIP task按ptime发送RTP，不经过Lua 20ms定时器，避免早期媒体卡顿。
+ *
+ * @param on 1启动，0停止
+ * @return 0 成功, <0 失败
+ */
+int voip_bridge_tone(int on);
 
 #endif /* LUAT_VOIP_CORE_H */

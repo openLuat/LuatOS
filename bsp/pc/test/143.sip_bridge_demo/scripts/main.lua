@@ -27,7 +27,7 @@ PC模拟器运行命令:
   1. 手机来电
   2. 4G模组自动拨打 SIP 1903CFC0
   3. 1903CFC0 接听 SIP
-  4. 4G模组自动接听手机
+  4. 4G模组再接听手机来电
   5. 音频桥接
 
 音频控制:
@@ -87,7 +87,8 @@ commands["help"] = function()
     print("  hangup             - 挂断所有通话")
     print("  audio [on|off]     - 打开/关闭本地音频")
     print("  incoming [number]  - 模拟手机来电(测试)")
-    print("  auto [on|off]      - 打开/关闭自动处理")
+    print("  auto [on|off]      - 打开/关闭手机来电自动桥接到 SIP")
+    print("  mobile_auto [on|off] - 打开/关闭手机来电自动接听")
     print("  help               - 显示本帮助")
     print("=" .. string.rep("=", 56))
 end
@@ -104,6 +105,8 @@ commands["status"] = function()
     print("  通话方向:", state.call_direction or "无")
     print("  通话时长:", state.call_duration or 0, "秒")
     print("  本地音频:", state.local_audio and "打开" or "关闭")
+    print("  手机来电自动桥接:", state.auto_mobile_incoming and "打开" or "关闭")
+    print("  手机来电自动接听:", state.auto_answer_mobile_incoming and "打开" or "关闭")
     print("--------------------\n")
 end
 
@@ -159,7 +162,16 @@ end
 
 commands["auto"] = function(args)
     local mode = args[1] or "on"
-    print("自动处理:", mode)
+    local enabled = mode == "on" or mode == "1" or mode == "true"
+    bridge.set_auto_mobile_incoming(enabled)
+    print("手机来电自动桥接:", enabled and "打开" or "关闭")
+end
+
+commands["mobile_auto"] = function(args)
+    local mode = args[1] or "on"
+    local enabled = mode == "on" or mode == "1" or mode == "true"
+    bridge.set_auto_answer_mobile_incoming(enabled)
+    print("手机来电自动接听:", enabled and "打开" or "关闭")
 end
 
 -- ==================== 命令处理 ====================
@@ -218,11 +230,13 @@ local function start_udp_cmd_listener()
                         -- 发送状态回显
                         local state = bridge.get_state()
                         local resp = string.format(
-                            "SIP:%s CC:%s Call:%s Audio:%s Dir:%s",
+                            "SIP:%s CC:%s Call:%s Audio:%s AutoBridge:%s AutoAnswer:%s Dir:%s",
                             state.sip_state,
                             state.cc_state,
                             state.in_call and "yes" or "no",
                             state.local_audio and "on" or "off",
+                            state.auto_mobile_incoming and "on" or "off",
+                            state.auto_answer_mobile_incoming and "on" or "off",
                             state.call_direction or "-"
                         )
                         cmd_sock:send(resp, ip, port)

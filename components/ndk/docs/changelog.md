@@ -2,6 +2,16 @@
 
 > 本文是 NDK 文档集的一部分。完整索引见 [`../README.md`](../README.md)。
 
+## 2026-07 — guest helper 增加 mem/str freestanding libc 子集
+
+- **新功能**：`components/ndk/guest/include/luat_ndk_helper.h` 新增内存/字符串助手——`ndk_memcpy` / `ndk_memmove` / `ndk_memset` / `ndk_memcmp` 与 `ndk_strlen` / `ndk_strcmp` / `ndk_strncmp` / `ndk_strcpy` / `ndk_strncpy` / `ndk_strcat` / `ndk_strchr`，全部 `static inline`，语义与 libc 同名函数一致。另外新增可选宏 `NDK_GUEST_PROVIDE_LIBC`：在且仅在一个 TU 里 `#define` 后 include 本头，导出外部链接的 `memcpy` / `memmove` / `memset` / `memcmp`——解决 freestanding 下**结构体赋值 / 大聚合初始化**被编译器降级为外部 `memcpy` 调用导致的 `undefined reference to 'memcpy'` 链接失败。纯 guest RAM 计算，故意不走 Host CSR。
+- **新示例**：`components/ndk/guest/examples/mem_str_demo/`（16 项检查，全部通过写 `MEMSTR_OK` 到 exchange buffer），已加入 `bsp/pc/test/116.ndk_examples_smoke`（现 6 个 case）。
+- **链接顺序陷阱修复**：host 从 guest 镜像起始地址开始执行，`_start` 必须是 `.text` 的第一个字节；lld 按目标文件顺序排布 section（`ENTRY()` 不影响布局），一旦 TU 出现外部链接函数（如 `NDK_GUEST_PROVIDE_LIBC` 导出的 `memcpy`），它可能排到 `_start` 前面，症状是 `mcause=1, mtval=0, mepc=0`（在错误函数里跑飞）。所有示例的 `link.ld` 统一改为 `.text : { KEEP(*(.text._start)) *(.text .text.*) }`，`docs/examples.md` 模板同步更新。
+- **Bug 修复（顺手）**：`perf_guest_v1/build.ps1` 有两处 pre-existing 错误——`-Wl,-T,$linker` 等参数未加引号（PowerShell 解析直接 ParserError，脚本从未能跑通），以及 `$root` 算错一级导致 `-I` 找不到 `components/ndk/include`。已修复并验证构建通过。
+- **回归**：hostabi `39 passed, 0 failed`、ndk_basic `5 passed, 0 failed`、116 冒烟 6/6 全绿。
+
+---
+
 ## 2026-07 — 移除 RV32F 浮点扩展支持
 
 - **破坏性变更**：NDK 不再支持 RV32F 浮点运算指令。模拟器核心、公共头文件、Lua 绑定均删除 FP 相关代码：

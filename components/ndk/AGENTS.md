@@ -78,6 +78,7 @@ In addition to the project-wide rules in the root `AGENTS.md`:
 - **Resource cleanup**: if the same `free` / `release` / `memset-to-zero` sequence appears in 3+ places, extract a helper (the canonical example is `ndk_free_fields()` in `src/luat_ndk.c`) rather than duplicating the pattern.
 - **CSR handler shape**: keep the read/write dispatch in `luat_ndk_host.c`; per-peripheral logic belongs in its own `luat_ndk_host_<peripheral>.c` file.
 - **`volatile` in FP paths**: do not remove `volatile` from FP intermediates in `luat_ndk.c` — they are load-bearing for the simulator.
+- **Guest link.ld**: `_start` MUST be the first bytes of `.text` — the host starts execution at the image base and lld lays sections out in object order (ignoring `ENTRY()`). Use `.text : { KEEP(*(.text._start)) *(.text .text.*) }`; all examples already do. Without it, any external-linkage function (e.g. `memcpy` from `NDK_GUEST_PROVIDE_LIBC`) can land before `_start` and the guest traps with `mcause=1, mtval=0, mepc=0`.
 
 ---
 

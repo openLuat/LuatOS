@@ -105,9 +105,28 @@ NDK_GUEST_START(main)
 |---|---|
 | `ndk_event_peek(out)` | 把下一个事件拷到 `*out`（不前进 guest_read），返回事件 type 或 `LUAT_NDK_EVENT_NONE` |
 
+### 内存 / 字符串（freestanding libc 子集）
+
+| 名称 | 用途 |
+|---|---|
+| `ndk_memcpy(dst, src, n)` / `ndk_memmove` / `ndk_memset` / `ndk_memcmp` | 与 libc 同名函数语义一致，纯字节循环实现 |
+| `ndk_strlen(s)` / `ndk_strcmp` / `ndk_strncmp` / `ndk_strcpy` / `ndk_strncpy` / `ndk_strcat` / `ndk_strchr` | 与 libc 同名函数语义一致 |
+
+全部是 `static inline`，不用就不占体积。
+
+另外还有一个可选宏 **`NDK_GUEST_PROVIDE_LIBC`**：在**且仅在一个** TU 里 `#define` 后再 include 本头，会额外导出外部链接的 `memcpy` / `memmove` / `memset` / `memcmp` 四个符号。用途：即使 `-ffreestanding -nostdlib`，编译器对**结构体赋值、大聚合初始化**仍有权生成对这四个符号的外部调用（C 标准和 GCC/Clang 文档都要求 freestanding 环境自己提供它们），没有定义就会链接报 `undefined reference to 'memcpy'`。只要 guest 里写了 `struct a = b;` 这类代码，就应该在一个 TU 里打开这个宏。
+
+```c
+#define NDK_GUEST_PROVIDE_LIBC   /* 仅一个 TU 这么做 */
+#include "luat_ndk_helper.h"
+```
+
+> 注：这几个函数是 guest RAM 内的纯计算，由模拟器原生执行，**故意不走 Host CSR**——跨边界调用的开销只会更慢。
+
+> ⚠️ **链接顺序陷阱**：host 从 guest 镜像起始地址开始执行，`_start` 必须是 `.text` 的第一个字节。lld 按目标文件顺序排布 section（`ENTRY()` 不影响布局），`NDK_GUEST_PROVIDE_LIBC` 导出的外部 `memcpy` 等符号可能排到 `_start` 前面，导致一上电就在错误的函数里跑（典型症状：`mcause=1, mtval=0`）。link.ld 里务必把 `_start` 显式放最前：`.text : { KEEP(*(.text._start)) *(.text .text.*) }`——本仓库所有示例的 link.ld 已采用该写法。
+
 ## 不提供的 API
 
-- memcpy / memset 包装：用编译器 builtin
 - printf 变参格式化：开销大，超出 helper 范围
 - UART RX 用户态缓存：用 `ndk_uart_*` CSR 即可
 

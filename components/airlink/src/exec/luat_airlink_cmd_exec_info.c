@@ -80,8 +80,11 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
                     if (netif_is_link_up(drv->netif) == 0) {
                         // 网卡上线了哦
                         LLOGD("wifi sta上线了");
-                        // luat_netdrv_whale_ipevent(drv, 1);
                         luat_netdrv_set_link_updown(drv, 1);
+                        #if defined(LUAT_USE_NETDRV) && defined(LUAT_USE_AIRLINK_HSPI_MASTER)
+                        // XT804 的 devinfo 通知 STA 连接后触发 IP_READY
+                        luat_netdrv_send_ip_event(drv, 1);
+                        #endif
                     }
                 }
                 break;

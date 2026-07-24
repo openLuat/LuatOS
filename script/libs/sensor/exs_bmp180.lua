@@ -71,7 +71,7 @@ local g_scl_pin         = nil       -- SCL 引脚号
 local g_sda_pin         = nil       -- SDA 引脚号
 local g_ready           = false     -- 初始化完成标志
 local g_oss             = 0         -- 过采样率（0~3）
-local g_sea_level_pressure = 101325  -- 默认海平面标准气压
+local g_sea_level_pressure = 1013.25  -- 默认海平面标准气压，单位 hPa
 
 -- 校准参数（从 E2PROM 读取）
 local g_ac1 = 0; local g_ac2 = 0; local g_ac3 = 0
@@ -231,7 +231,7 @@ local function calc_pressure(up, b5)
     x1 = math.floor((x1 * 3038) / 65536)   -- / 2^16
     x2 = math.floor((-7357 * p) / 65536)
     p = p + math.floor((x1 + x2 + 3791) / 16)  -- / 2^4
-    return p
+    return math.floor(p / 100 + 0.5)  -- Pa → hPa
 end
 
 -- ==================== 器件检测与校准数据读取 ====================
@@ -381,12 +381,12 @@ end
 @return table or nil
 成功返回包含 temperature 和 pressure 键的 table：
   data.temperature - 温度，单位 °C，如 25.1
-  data.pressure    - 气压，单位 Pa，如 101325
+  data.pressure    - 气压，单位 hPa，如 1013.25
 
 @usage
 local data = exs_bmp180.get_data()
 if data then
-    log.info("exs_bmp180", string.format("温度=%.1f°C 气压=%.1fPa", data.temperature, data.pressure))
+    log.info("exs_bmp180", string.format("温度=%.1f°C 气压=%.1fhPa", data.temperature, data.pressure))
 end
 ]]
 function exs_bmp180.get_data()
@@ -458,18 +458,18 @@ end
 
 @api exs_bmp180.set_sea_level_pressure(pressure)
 
-@number pressure 海平面标准气压，单位 Pa
-取值范围：95000~105000，默认 101325
+@number pressure 海平面标准气压，单位 hPa
+取值范围：950~1050，默认 1013.25
 
 @return nil
 
 @usage
-exs_bmp180.set_sea_level_pressure(101800)
+exs_bmp180.set_sea_level_pressure(1018.00)
 ]]
 function exs_bmp180.set_sea_level_pressure(pressure)
     if not pressure then return end
     g_sea_level_pressure = pressure
-    log.info("exs_bmp180", string.format("海平面气压设为 %.1fhPa", g_sea_level_pressure / 100))
+    log.info("exs_bmp180", string.format("海平面气压设为 %.2fhPa", g_sea_level_pressure))
 end
 
 --[[
@@ -479,7 +479,7 @@ end
 
 @api exs_bmp180.get_altitude(pressure)
 
-@number pressure 当前气压值，单位 Pa
+@number pressure 当前气压值，单位 hPa
 
 @return number 海拔高度，单位米
 

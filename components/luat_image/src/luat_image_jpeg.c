@@ -151,19 +151,15 @@ static int jpeg_probe_mem_default(const uint8_t *data, size_t size, luat_img_inf
 
 LUAT_WEAK int luat_jpeg_hw_info(const uint8_t *data, size_t size, luat_jpeg_info_t *info) {
     luat_img_info_t img_info = {0};
-    void *ctx = NULL;
     int ret;
 
     if (info == NULL) {
         return LUAT_IMG_ERR;
     }
 
-    ret = luat_jpeg_hw_init(&ctx);
-    if (ret != LUAT_IMG_OK) {
-        return LUAT_IMG_ERR;
-    }
-    luat_jpeg_hw_deinit(ctx);
-
+    /* HW capability is expressed by LUAT_USE_JPG_HW at build time.
+     * Do NOT JpegD_Create/Destroy here: that touches VPU/SIPC and can leave
+     * Video_VpuLock in a bad state before the real decode. Soft-parse only. */
     ret = jpeg_probe_mem_default(data, size, &img_info);
     if (ret != LUAT_IMG_OK) {
         return ret;

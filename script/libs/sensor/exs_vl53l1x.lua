@@ -16,13 +16,15 @@
 6、串扰校准（配合白纸板校准保护玻璃串扰）
 7、三档测距模式（standard/short/long）
 
-对外接口 6 个：
+对外接口 8 个：
 1、exs_vl53l1x.setup(config)：初始化 VL53L1X 并启动测距
 2、exs_vl53l1x.get_data()：读取一帧测距数据（阻塞等待数据就绪）
-3、exs_vl53l1x.sleep()：进入软件待机（停止测距）
-4、exs_vl53l1x.wakeup()：从软件待机唤醒（重新启动测距，与 sleep 配对）
-5、exs_vl53l1x.close()：关闭传感器
-6、exs_vl53l1x.version()：获取版本号
+3、exs_vl53l1x.get_int_flag()：查询 GPIO1 中断触发标志（轮询模式使用）
+4、exs_vl53l1x.calibrate_xtalk(config)：串扰校准（配合白纸板校准保护玻璃串扰）
+5、exs_vl53l1x.sleep()：进入软件待机（停止测距）
+6、exs_vl53l1x.wakeup()：从软件待机唤醒（重新启动测距，与 sleep 配对）
+7、exs_vl53l1x.close()：关闭传感器
+8、exs_vl53l1x.version()：获取版本号
 
 
 -- 版本更新说明
@@ -33,6 +35,14 @@
             支持标准测距、三档模式切换（standard/short/long）
             支持I2C 总线卡死自动检测与恢复
             支持睡眠/唤醒/关闭，支持低功耗待机
+
+版本号：202607231200
+1、更新时间：2026-07-23
+2、更新内容：
+            补充接口注释，完善总线自动恢复条件说明
+            - 软件 I2C（scl+sda）：总线自动恢复
+            - 硬件 I2C + scl+sda：总线自动恢复
+            - 纯硬件 I2C（仅 i2c_id）：不具自动恢复能力
 ]]
 
 local exs_vl53l1x = {}
@@ -516,9 +526,11 @@ end
 
 -- 初始化并启动测距
 -- config 字段：
---   i2c_id     硬件 I2C 总线 id（与 scl/sda 二选一）
---   scl        软件 I2C SCL 引脚（与 i2c_id 二选一）
---   sda        软件 I2C SDA 引脚
+--   i2c_id     硬件 I2C 总线 id（可选，与 scl/sda 配合使用参见说明）
+--                 - 仅传 i2c_id 不传 scl/sda：纯硬件 I2C，不具总线自动恢复能力
+--                 - 同时传 i2c_id 和 scl/sda：硬件 I2C + 总线自动恢复（推荐）
+-- scl        软件 I2C SCL 引脚（与 i2c_id 配合说明参见 i2c_id）
+-- sda        软件 I2C SDA 引脚
 --   xshut      硬件复位引脚（可选，不传则用软复位）
 --   range_mode 测距模式: "standard"(默认,约2.9m) / "short"(约1.36m,抗强光) / "long"(约4.6m)
 --   xtalk_offset 串扰校准偏移值，由 calibrate_xtalk() 返回（可选，传入后自动写入寄存器）

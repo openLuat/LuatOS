@@ -8,6 +8,7 @@
 @tag LUAT_USE_AUDIO_V2
 */
 #include "lauxlib.h"
+#include "lua.h"
 #include "luat_audio_data_codec.h"
 #include "luat_audio_define.h"
 #include "luat_audio_request.h"
@@ -589,7 +590,11 @@ static int l_audio_input(lua_State *L) {
     } else {
         is_end = 0;
     }
-    l_req->request.is_input_end = is_end;
+    if (l_req) {
+        l_req->request.is_input_end = is_end;
+    } else {
+        l_extern_source->extern_source.is_input_end = is_end;
+    }
     luat_rtos_task_resume_all();
 DONE:
     lua_pushboolean(L, !result);
@@ -854,10 +859,10 @@ DONE:
 对讲中附加额外的音频数据，额外音频的参数必须和对讲的参数一致，否则会失败而没有任何作用
 @api audio_v2.extern_source(request_index, source, is_add_record,codec_id, sample_rate, data_bits, channel_nums, is_signed)
 @int request_index 请求索引，通过audio_v2.speech返回的
-@table/string/zbuff 输入数据，table表示播放文件，string表示播放tts，zbuff表示播放音频数据，如果只播放一个文件也要用table
+@table/string/zbuff/nil 输入数据，table表示播放文件，string表示播放tts，zbuff表示播放音频数据，如果只播放一个文件也要用table,如果留空，则表示是stream流模式
 @boolean 是否添加到录音通道，false添加到播放通道，true添加到录音通道，默认false
 @boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
-@int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空则通过输入数据自行判断
+@int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空则通过输入数据自行判断，如果是流模式，则必须指定解码器id
 @int 采样率，如果指定解码器是RAW，不能留空
 @int 数据位数，8,16,24,32，如果指定解码器是RAW，不能留空
 @int 通道数，1,2，如果指定解码器是RAW，不能留空
@@ -962,6 +967,14 @@ static int l_audio_extern_source(lua_State *L) {
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
         result = luat_audio_request_add_source_files(&l_extern_source->extern_source, info, file_nums, codec_opts, is_add_record, l_extern_source);
+    } else if (lua_isnil(L, 2)) {
+        if (codec_opts) {
+            result = luat_audio_request_add_source_stream(&l_extern_source->extern_source, codec_opts, &common_param, is_add_record, l_extern_source);
+        } else {
+            LLOGE("extern source stream mode must have codec id");
+            goto DONE;
+        }
+        
     }
 
 DONE:

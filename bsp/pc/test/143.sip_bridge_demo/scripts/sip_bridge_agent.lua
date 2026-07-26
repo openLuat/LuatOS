@@ -47,7 +47,7 @@ local CONFIG = {
     remote_sip_uri = "sip:195544F0@180.152.6.34",
     
     -- 写死的手机号码（用于呼出）
-    target_phone_number = "15057721363",
+    target_phone_number = "137xxxx24xx",
     
     -- 音频参数
     rtp_port = 40000,

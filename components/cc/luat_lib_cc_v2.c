@@ -251,7 +251,11 @@ static void _l_cc_audio_ring_request_callback(uint32_t event, uint8_t *data, uin
 static void _downsample_16k_to_8k(int16_t *inout, uint32_t in_samples, uint32_t *out_samples)
 {
     uint32_t j = 0;
-    for (uint32_t i = 0; i < in_samples; i += 2) {
+    uint32_t i = 0;
+    for (; i + 1 < in_samples; i += 2) {
+        inout[j++] = (int16_t)(((int32_t)inout[i] + (int32_t)inout[i + 1]) / 2);
+    }
+    if (i < in_samples) {
         inout[j++] = inout[i];
     }
     *out_samples = j;
@@ -266,6 +270,33 @@ static void _l_cc_bridge_real_downlink_seen(uint32_t bytes)
     voip_bridge_tone(0);
     if ((log_cnt++ % 50) == 0) {
         LLOGI("CC bridge downlink PCM bytes=%u", (unsigned)bytes);
+    }
+}
+
+static void _l_cc_bridge_log_pcm(const int16_t *pcm, uint32_t samples,
+    uint32_t cc_sr, uint32_t voip_sr, uint32_t fifo_before, uint32_t fifo_after,
+    uint32_t read_len)
+{
+    static uint32_t log_cnt = 0;
+    int16_t min = 0;
+    int16_t max = 0;
+    uint32_t abs_sum = 0;
+
+    if (!pcm || !samples) {
+        return;
+    }
+    for (uint32_t i = 0; i < samples; i++) {
+        int16_t sample = pcm[i];
+        if (!i || sample < min) min = sample;
+        if (!i || sample > max) max = sample;
+        abs_sum += (uint32_t)(sample < 0 ? -(int32_t)sample : sample);
+    }
+    if ((log_cnt++ % 50) == 0) {
+        LLOGI("CC bridge PCM sr=%u->%u read=%u out_samples=%u fifo=%u->%u min=%d max=%d abs_avg=%u first=%d,%d,%d,%d",
+            (unsigned)cc_sr, (unsigned)voip_sr, (unsigned)read_len, (unsigned)samples,
+            (unsigned)fifo_before, (unsigned)fifo_after, (int)min, (int)max,
+            (unsigned)(abs_sum / samples), (int)pcm[0], (int)(samples > 1 ? pcm[1] : 0),
+            (int)(samples > 2 ? pcm[2] : 0), (int)(samples > 3 ? pcm[3] : 0));
     }
 }
 
@@ -337,6 +368,8 @@ static void _l_cc_bridge_drain_downlink(void)
         (read_len = luat_fifo_read(_l_cc.play_save_fifo, (uint8_t *)s_downlink_pcm_buf, read_limit)) > 0) {
         int16_t *pcm_ptr;
         uint32_t samples_remaining;
+        uint32_t fifo_before = (uint32_t)(_l_cc.play_save_fifo->wpoint - _l_cc.play_save_fifo->rpoint) + read_len;
+        uint32_t fifo_after = (uint32_t)(_l_cc.play_save_fifo->wpoint - _l_cc.play_save_fifo->rpoint);
         drained_frames++;
 
         _l_cc_bridge_tone_stop();
@@ -352,6 +385,9 @@ static void _l_cc_bridge_drain_downlink(void)
             pcm_ptr = s_downlink_pcm_buf;
             samples_remaining = read_len / sizeof(int16_t);
         }
+
+        _l_cc_bridge_log_pcm(s_downlink_pcm_buf, samples_remaining, cc_sr, voip_sr,
+            fifo_before, fifo_after, read_len);
 
         while (samples_remaining > 0) {
             int consumed = voip_bridge_pcm_in(pcm_ptr, samples_remaining);
@@ -441,7 +477,14 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
                 // 放音数据写入用户zbuff
                 buff = _l_cc.down_buff[_l_cc.record_down_zbuff_point];
                 zbuff_rest_data_len = buff->len - buff->used;
+                uint32_t fifo_before = (uint32_t)(_l_cc.play_save_fifo->wpoint - _l_cc.play_save_fifo->rpoint);
                 fifo_read_len = luat_fifo_read(_l_cc.play_save_fifo, buff->addr + buff->used, zbuff_rest_data_len);
+                if (fifo_read_len && ((fifo_before < zbuff_rest_data_len) || (fifo_before > zbuff_rest_data_len * 2))) {
+                    LLOGI("CC bridge callback FIFO before=%u read=%u after=%u request=%u",
+                        (unsigned)fifo_before, (unsigned)fifo_read_len,
+                        (unsigned)(_l_cc.play_save_fifo->wpoint - _l_cc.play_save_fifo->rpoint),
+                        (unsigned)zbuff_rest_data_len);
+                }
                 _l_cc_bridge_real_downlink_seen(fifo_read_len);
                 buff->used += fifo_read_len;
                 if (buff->used >= buff->len) {  //zbuff满了，需要上传了
@@ -967,6 +1010,15 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
     _l_cc.cc_param.sample_rate = sample_rate;
     _l_cc.cc_param.data_align = data_align;
     _l_cc.cc_param.channel_nums = channel_nums;
+    if (_l_cc.record_save_fifo) {
+        luat_fifo_delete_all(_l_cc.record_save_fifo);
+    }
+    if (_l_cc.play_save_fifo) {
+        luat_fifo_delete_all(_l_cc.play_save_fifo);
+    }
+    LLOGI("CC audio start params sample_rate=%u block_len=%u block_cnt=%u align=%u ch=%u upload=%u true_start=%u",
+        (unsigned)sample_rate, (unsigned)one_play_block_len, (unsigned)play_block_cnt,
+        (unsigned)data_align, (unsigned)channel_nums, (unsigned)need_upload, (unsigned)true_start);
     int ret;
     const luat_audio_data_codec_opts_t* codec_opts = NULL;
     voip_ctx_t *voip_ctx = voip_get_ctx();

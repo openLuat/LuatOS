@@ -15,12 +15,13 @@
 | `sip_server_port` | `8910` | SIP 服务器端口 |
 | `sip_username` | `1903CFC1` | 4G 模组 SIP 账号 |
 | `remote_sip_uri` | `sip:195544F0@180.152.6.34` | 手机来电转拨的 SIP 客户端 |
-| `target_phone_number` | `15057721363` | SIP 呼入时模组拨打的手机号 |
+| `target_phone_number` | `137xxxx24xx` | SIP 呼入时模组拨打的手机号 |
 | `codec` | `PCMU` | 当前主测 G.711 PCMU/8k |
 | `auto_answer_sip` | `true` | SIP 来电自动进入早期媒体并拨手机 |
 | `auto_handle_mobile_incoming` | `true` | 手机来电自动转拨 SIP 客户端 |
 | `auto_answer_mobile_incoming` | `true` | 不转 SIP 时可自动接听手机来电；转 SIP 时等 SIP 接听后再接手机 |
 | `outgoing_early_timeout` | `90` 秒 | SIP->CC 早期拨号最大等待时间 |
+| `outgoing_early_answer_timeout` | `12` 秒 | SIP->CC early media 超过该时间仍未接通时，提前给 SIP `200 OK` 保住 RTP，避免长运营商播报期间被 SIP 侧 `CANCEL` |
 | `outgoing_failure_prompt_grace` | `6` 秒 | CC 未接通失败时，保留运营商失败播报的 RTP 窗口 |
 
 ## 文件说明
@@ -68,6 +69,7 @@ SIP 客户端         4G 模组/SIP              4G 模组/CC              手�
 - `exsip.progress()` 发送 `183 Session Progress + SDP`，不是等手机接通后才回 `200 OK`。
 - `voip` 在 early media 阶段已经启动，CC 下行 PCM 通过 `voip_bridge_pcm_in()` 送给 SIP/RTP。
 - 手机接通后才 `exsip.accept()` 发送最终 `200 OK`。
+- 部分运营商失败播报较长，SIP 客户端或服务器可能不愿长时间停留在 `183` 阶段。`outgoing_early_answer_timeout` 会在 early media 超过配置时间后提前发送 `200 OK`，让 RTP 继续保持到 CC 播报结束；如需严格保持“手机接通后才接听 SIP”，可设为 `0`。
 - CC 失败/忙线时，不马上关闭 SIP early dialog，而是保留 `outgoing_failure_prompt_grace` 秒让运营商语音播报完整传给 SIP 客户端。
 
 ### 2. 手机 -> 4G 模组 -> SIP 客户端
@@ -171,6 +173,8 @@ Bridge mode: AEC disabled
 4. 手机忙线/拒接/未接提示：
 
 ```text
+启动 SIP->CC early media 保活接听定时器: 12 秒
+SIP->CC early media 超过保活时间，提前发送 SIP 200 OK 防止客户端 CANCEL
 CC 通话已断开 或 CC 拨号失败
 延迟结束 SIP 早期媒体，保留 CC 失败播报: 6 秒
 ```
@@ -301,6 +305,27 @@ CC事件: ANSWER_CALL_DONE
 - Lua 层新增 `outgoing_failure_prompt_grace = 6`。
 - SIP->CC early 阶段收到 `DISCONNECTED` 或 `MAKE_CALL_FAILED` 时，延迟结束 SIP early dialog，保留 CC 失败语音播报窗口。
 - 正常日志应看到：`延迟结束 SIP 早期媒体，保留 CC 失败播报: 6 秒`。
+
+补充：电信卡和移动卡的表现可能不同。已观察到电信卡的彩铃和忙线播报都正常，而移动卡彩铃正常、忙线播报容易变音。对应日志显示，在移动卡播报期间 SIP 侧于 `183` early dialog 阶段发送了 `CANCEL`，此时 CC 下行 `CC bridge downlink PCM bytes=640` 仍在持续输出。也就是说，异常更像是 SIP early dialog 被提前取消导致 RTP/CC 媒体被中途拆掉，而不是 PCMU/PCMA 或 CSDK 下采样本身错误。
+
+处理：
+
+- 新增 `outgoing_early_answer_timeout = 12`。
+- SIP->CC 仍处于 early media、CC 仍在拨号且超过该时间时，脚本提前 `exsip.accept()` 发送 SIP `200 OK`，把 SIP 侧从 early dialog 变成 established dialog，防止客户端/服务器因长时间 `183` 主动 `CANCEL`。
+- CC 后续播报结束或失败断开时，再由脚本发送 BYE/释放 SIP。
+- 该策略的代价是：如果运营商播报超过配置时间，SIP 客户端会认为通话已接通，即使手机被叫尚未真正接听。若业务更看重严格计费/接听语义，可把 `outgoing_early_answer_timeout` 设为 `0`，但移动卡这类长播报仍可能被 SIP 侧超时取消。
+- 正常日志应看到：`启动 SIP->CC early media 保活接听定时器: 12 秒`，必要时随后看到 `SIP->CC early media 超过保活时间，提前发送 SIP 200 OK 防止客户端 CANCEL`，并且播报期间不再出现 `peer_cancel`。
+
+针对电信卡/移动卡播报音质差异，当前固件还增加了限频诊断日志：
+
+- `cc data input ... len=... rate=... bits=...`：底层 CC 音频回调上报的原始格式；格式变化时必打，稳定后每约 2 秒打印一次。
+- `CC audio start params ...`：CC 语音请求实际使用的采样率、块长度和上传状态。
+- `CC bridge PCM sr=16000->8000 read=... out_samples=... fifo=... min=... max=... abs_avg=...`：桥接下行的重采样路径、FIFO 水位和 PCM 动态范围。
+- `CC bridge callback FIFO ...`：音频请求回调中出现欠读或积压时打印。
+
+对比测试要求每张卡单独开机并只拨打一通，保留完整串口日志。两份日志应重点截取从 `CC audio start params` 到 `PLAY_STOP` 后第二次音频启动、以及后续播报结束的全部内容；不要只截取 SIP 日志。分析时先比较 `cc data input` 的 `len/rate/bits`，再比较 `CC bridge PCM` 的 `fifo/min/max/abs_avg`。如果底层格式一致而只有 PCM 动态范围或 FIFO 异常不同，问题在桥接/音频请求层；如果底层回调格式本身不同，则需要按运营商实际采样格式分别处理。
+
+补充结论：底层 CC 回调中的 `rate=1/2` 是采样率类型值，分别对应 8 kHz/16 kHz，不是实际 Hz。`luat_audio_ec7xx.c` 已按此规则归一化，避免移动卡播报阶段将 8 kHz 错当成 16 kHz。
 
 ## 构建验证
 

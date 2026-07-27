@@ -1,8 +1,10 @@
 #include "tiny_epd.h"
+#include "tiny_epd_driver.h"
 #include "tiny_epd_gfx.h"
+#include "tiny_epd_hzfont.h"
+#include "tiny_epd_qrcode.h"
 #include "tiny_epd_port_example.h"
 #include "tiny_epd_port_sim.h"
-#include "qrcodegen.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -159,6 +161,53 @@ static int tiny_epd_test_port_example(void)
     return 0;
 }
 
+typedef struct {
+    tiny_epd_rect_t last_rect;
+    uint32_t refresh_count;
+} tiny_epd_fake_driver_trace_t;
+
+static tiny_epd_fake_driver_trace_t g_fake_driver_trace;
+
+static int tiny_epd_fake_init(tiny_epd_t *epd)
+{
+    (void)epd;
+    return TINY_EPD_OK;
+}
+
+static int tiny_epd_fake_refresh(tiny_epd_t *epd,
+                                 tiny_epd_refresh_mode_t mode,
+                                 const tiny_epd_rect_t *rect)
+{
+    (void)epd;
+    if (mode != TINY_EPD_REFRESH_PARTIAL_RECT || rect == NULL) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    g_fake_driver_trace.last_rect = *rect;
+    g_fake_driver_trace.refresh_count++;
+    return TINY_EPD_OK;
+}
+
+static int tiny_epd_fake_sleep(tiny_epd_t *epd, tiny_epd_sleep_mode_t mode)
+{
+    (void)epd;
+    (void)mode;
+    return TINY_EPD_OK;
+}
+
+/* Deliberately non-square: 90/270 rotation must swap public dimensions. */
+static const tiny_epd_driver_t g_tiny_epd_fake_122x250_driver = {
+    "tiny_epd_test_122x250",
+    122,
+    250,
+    1,
+    1,
+    TINY_EPD_CAP_REFRESH_PARTIAL_RECT | TINY_EPD_CAP_COLOR_BW,
+    0,
+    tiny_epd_fake_init,
+    tiny_epd_fake_refresh,
+    tiny_epd_fake_sleep
+};
+
 int main(void)
 {
     tiny_epd_sim_t sim;
@@ -292,7 +341,7 @@ int main(void)
     rect.h = 1;
     CHECK(tiny_epd_refresh(epd, TINY_EPD_REFRESH_PARTIAL_RECT, &rect) == TINY_EPD_ERR_PARAM);
     CHECK(sim.write_cmd_total == 0 && sim.write_data_total == 0);
-    CHECK(tiny_epd_refresh(epd, TINY_EPD_REFRESH_PARTIAL_RECT, NULL) == TINY_EPD_ERR_UNSUPPORTED_MODE);
+    CHECK(tiny_epd_refresh(epd, TINY_EPD_REFRESH_PARTIAL_RECT, NULL) == TINY_EPD_ERR_PARAM);
     CHECK(tiny_epd_refresh(epd, TINY_EPD_REFRESH_FAST, NULL) == TINY_EPD_ERR_UNSUPPORTED_MODE);
 
     tiny_epd_sim_reset_trace(&sim);
@@ -322,14 +371,14 @@ int main(void)
         CHECK(fb2 != NULL);
         CHECK(fb2_size == 5000);
 
-        /* (1) setRotation: 0/90/180/270 map to internal index 0/1/2/3,
-         *     invalid angles return PARAM. */
+        /* (1) 270 must survive the public enum/API and expose correct degrees. */
         CHECK(tiny_epd_set_rotation(epd2, 90) == TINY_EPD_OK);
         CHECK(epd2->rotate == 1);
         CHECK(tiny_epd_set_rotation(epd2, 180) == TINY_EPD_OK);
         CHECK(epd2->rotate == 2);
         CHECK(tiny_epd_set_rotation(epd2, 270) == TINY_EPD_OK);
         CHECK(epd2->rotate == 3);
+        CHECK(tiny_epd_rotate_get(epd2) == 270);
         CHECK(tiny_epd_set_rotation(epd2, 45) == TINY_EPD_ERR_PARAM);
         CHECK(tiny_epd_set_rotation(epd2, 0) == TINY_EPD_OK);
         CHECK(epd2->rotate == 0);
@@ -341,11 +390,11 @@ int main(void)
         CHECK(tiny_epd_draw_hline(epd2, 0, 0, 8, TINY_EPD_COLOR_WHITE) == TINY_EPD_OK);
         CHECK(fb2[0] == 0xFF);
 
-        /* (3) vline: 8-pixel vertical at col 0 → first byte of every row 0..7. */
+        /* (3) vline: 8-pixel vertical at col 0 → MSB of rows 0..7 is black. */
         CHECK(tiny_epd_clear(epd2, TINY_EPD_COLOR_WHITE) == TINY_EPD_OK);
         CHECK(tiny_epd_draw_vline(epd2, 0, 0, 8, TINY_EPD_COLOR_BLACK) == TINY_EPD_OK);
         for (i = 0; i < 8; i++) {
-            CHECK(fb2[i * tiny_epd_stride(epd2)] == 0x00);
+            CHECK(fb2[i * tiny_epd_stride(epd2)] == 0x7F);
         }
         CHECK(fb2[8 * tiny_epd_stride(epd2)] == 0xFF); /* row 8 unaffected */
 
@@ -363,17 +412,19 @@ int main(void)
             CHECK((byte & mask) == 0);
         }
 
-        /* (6) rotation 90°: a horizontal line in user space (0,0)→(0,5)
-         *     becomes a vertical line in physical space at col (W-1-0)=199. */
+        /* (6) rotation 90°: a logical horizontal line becomes a physical
+         * vertical line. pixel() uses exactly the same logical transform. */
         CHECK(tiny_epd_clear(epd2, TINY_EPD_COLOR_WHITE) == TINY_EPD_OK);
         CHECK(tiny_epd_set_rotation(epd2, 90) == TINY_EPD_OK);
-        /* For rotate=90, the formula is: physical_x = W-1-y, physical_y = x.
-         * Drawing a horizontal line from (0,0) to (0,5) in user space:
-         *   start (0,0) → physical (199, 0)
-         *   end   (0,5) → physical (194, 0)
-         * So we expect column 199 bytes for rows 0..5 to be 0x80 (only bit 0 set).
-         */
-        CHECK(tiny_epd_draw_line(epd2, 0, 0, 0, 5, TINY_EPD_COLOR_BLACK) == TINY_EPD_OK);
+        tiny_epd_clear_dirty(epd2);
+        CHECK(tiny_epd_draw_pixel(epd2, 0, 0, TINY_EPD_COLOR_BLACK) == TINY_EPD_OK);
+        {
+            tiny_epd_rect_t dirty_rect;
+            CHECK(tiny_epd_get_dirty_rect(epd2, &dirty_rect) == TINY_EPD_OK);
+            CHECK(dirty_rect.x == 199 && dirty_rect.y == 0 &&
+                  dirty_rect.w == 1 && dirty_rect.h == 1);
+        }
+        CHECK(tiny_epd_draw_hline(epd2, 0, 0, 6, TINY_EPD_COLOR_BLACK) == TINY_EPD_OK);
         for (j = 0; j <= 5; j++) {
             uint8_t byte = fb2[j * tiny_epd_stride(epd2) + (199u / 8u)];
             uint8_t mask = (uint8_t)(0x80u >> (199u & 0x07u));
@@ -427,13 +478,13 @@ int main(void)
             CHECK((byte & mask) == 0);
         }
 
-        /* (11) QR code: encode "HI" at 33x33, expect at least one dark
-         *     module in the QR finder area (top-left 7x7). */
+        /* (11) QR code: encode "HI" at 33x33. The 21x21 symbol is centered
+         *     with a 6-pixel margin, so row 6 enters the top-left finder. */
         CHECK(tiny_epd_clear(epd2, TINY_EPD_COLOR_WHITE) == TINY_EPD_OK);
         CHECK(tiny_epd_draw_qrcode(epd2, 0, 0, "HI", 33,
                                    TINY_EPD_COLOR_BLACK) == TINY_EPD_OK);
-        /* At least the first byte in the top-left has some black bits. */
-        CHECK(fb2[0] != 0xFF);
+        /* Finder bits at x=6.. should make the first byte of row 6 non-white. */
+        CHECK(fb2[6 * tiny_epd_stride(epd2)] != 0xFF);
 
         /* (12) Param guard: bad inputs return PARAM/UNSUPPORTED. */
         CHECK(tiny_epd_set_rotation(NULL, 0) == TINY_EPD_ERR_PARAM);
@@ -441,7 +492,18 @@ int main(void)
         CHECK(tiny_epd_draw_line(epd2, 0, 0, 0, 0, 7) == TINY_EPD_ERR_PARAM);
         CHECK(tiny_epd_draw_rect(epd2, 0, 0, 1, 1, 0, 7) == TINY_EPD_ERR_PARAM);
         CHECK(tiny_epd_draw_circle(epd2, 0, 0, 1, 0, 7) == TINY_EPD_ERR_PARAM);
-        CHECK(tiny_epd_draw_qrcode(epd2, 0, 0, "", 0, 0) == TINY_EPD_ERR_PARAM);
+        CHECK(tiny_epd_draw_qrcode(epd2, 0, 0, "HI", 1, 0) == TINY_EPD_ERR_PARAM);
+        CHECK(tiny_epd_draw_qrcode(epd2, 190, 190, "HI", 20, 0) == TINY_EPD_ERR_PARAM);
+        CHECK(tiny_epd_clear(epd2, 2) == TINY_EPD_ERR_PARAM);
+        CHECK(tiny_epd_draw_pixel(epd2, 0, 0, 2) == TINY_EPD_ERR_PARAM);
+        {
+            tiny_epd_hzfont_style_t style;
+            tiny_epd_hzfont_style_init(&style);
+            CHECK(style.fg == TINY_EPD_COLOR_BLACK && style.bg == -1 &&
+                  style.antialias == -1 && style.threshold == 128);
+            CHECK(tiny_epd_hzfont_draw_utf8(epd2, 0, 0, "A", 12, &style) ==
+                  TINY_EPD_ERR_UNSUPPORTED_MODE);
+        }
 
         /* (13) gfx_hv_line: dir=0 equivalent to hline, dir=1 equivalent to vline. */
         CHECK(tiny_epd_clear(epd2, TINY_EPD_COLOR_WHITE) == TINY_EPD_OK);
@@ -452,10 +514,38 @@ int main(void)
         CHECK(tiny_epd_gfx_hv_line(epd2, 0, 0, 8, 1,
                                    TINY_EPD_COLOR_BLACK) == TINY_EPD_OK);
         for (i = 0; i < 8; i++) {
-            CHECK(fb2[i * tiny_epd_stride(epd2)] == 0x00);
+            CHECK(fb2[i * tiny_epd_stride(epd2)] == 0x7F);
         }
 
         tiny_epd_destroy(epd2);
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Non-square rotation and logical partial-rectangle mapping        */
+    /* ---------------------------------------------------------------- */
+    {
+        tiny_epd_t *epd3 = NULL;
+
+        memset(&g_fake_driver_trace, 0, sizeof(g_fake_driver_trace));
+        CHECK(tiny_epd_create(&epd3, &g_tiny_epd_fake_122x250_driver, &port) == TINY_EPD_OK);
+        CHECK(tiny_epd_init(epd3) == TINY_EPD_OK);
+        CHECK(tiny_epd_width(epd3) == 122 && tiny_epd_height(epd3) == 250);
+        CHECK(tiny_epd_set_rotation(epd3, TINY_EPD_ROTATE_90) == TINY_EPD_OK);
+        CHECK(tiny_epd_width(epd3) == 250 && tiny_epd_height(epd3) == 122);
+        CHECK(tiny_epd_native_width(epd3) == 122 && tiny_epd_native_height(epd3) == 250);
+        {
+            tiny_epd_rect_t logical_rect = {10, 20, 30, 40};
+            CHECK(tiny_epd_refresh(epd3, TINY_EPD_REFRESH_PARTIAL_RECT, &logical_rect) == TINY_EPD_OK);
+            /* (10..39,20..59) -> native x=62..101, y=10..39. */
+            CHECK(g_fake_driver_trace.refresh_count == 1);
+            CHECK(g_fake_driver_trace.last_rect.x == 62);
+            CHECK(g_fake_driver_trace.last_rect.y == 10);
+            CHECK(g_fake_driver_trace.last_rect.w == 40);
+            CHECK(g_fake_driver_trace.last_rect.h == 30);
+        }
+        CHECK(tiny_epd_draw_pixel(epd3, 249, 121, TINY_EPD_COLOR_BLACK) == TINY_EPD_OK);
+        CHECK(tiny_epd_draw_pixel(epd3, 250, 0, TINY_EPD_COLOR_BLACK) == TINY_EPD_ERR_PARAM);
+        tiny_epd_destroy(epd3);
     }
 
     printf("[tiny_epd_1in54_test] PASS\n");

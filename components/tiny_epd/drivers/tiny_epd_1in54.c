@@ -192,12 +192,14 @@ static int epd_1in54_write_frame(tiny_epd_t *epd)
      * at a time. Some newer examples use WIDTH-1/HEIGHT-1, but this keeps
      * the first tiny_epd driver byte-for-byte close to the validated driver.
      */
-    ret = epd_1in54_set_window(epd, 0, 0, tiny_epd_width(epd), tiny_epd_height(epd));
+    ret = epd_1in54_set_window(epd, 0, 0,
+                               tiny_epd_native_width(epd),
+                               tiny_epd_native_height(epd));
     if (ret != TINY_EPD_OK) {
         return ret;
     }
 
-    for (y = 0; y < tiny_epd_height(epd); y++) {
+    for (y = 0; y < tiny_epd_native_height(epd); y++) {
         ret = epd_1in54_set_cursor(epd, 0, y);
         if (ret != TINY_EPD_OK) {
             return ret;
@@ -234,8 +236,8 @@ static int epd_1in54_rect_to_window(const tiny_epd_t *epd,
 
     rect_x_end = (uint32_t)rect->x + rect->w;
     rect_y_end = (uint32_t)rect->y + rect->h;
-    if (rect->x >= tiny_epd_width(epd) || rect->y >= tiny_epd_height(epd) ||
-        rect_x_end > tiny_epd_width(epd) || rect_y_end > tiny_epd_height(epd)) {
+    if (rect->x >= tiny_epd_native_width(epd) || rect->y >= tiny_epd_native_height(epd) ||
+        rect_x_end > tiny_epd_native_width(epd) || rect_y_end > tiny_epd_native_height(epd)) {
         return TINY_EPD_ERR_PARAM;
     }
 

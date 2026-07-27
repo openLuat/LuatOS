@@ -16,6 +16,12 @@
 // 检查从机状态
 int xt804_hspi_check_status(int *data_rdy, int *cmd_rdy);
 
+// 使能主机侧 INT 中断接收（SPI 初始化后调用一次）
+int xt804_hspi_enable_host_int(void);
+
+// 从机是否在线（连续 rd02=0 超过阈值判离线，发送成功自动恢复）
+int xt804_hspi_peer_online(void);
+
 // 发送命令 + 等待响应
 // resp_len: [in]buffer大小 [out]实际长度
 int xt804_hspi_send_cmd(uint16_t cmd_id, const uint8_t *payload, uint16_t payload_len,
@@ -24,5 +30,10 @@ int xt804_hspi_send_cmd(uint16_t cmd_id, const uint8_t *payload, uint16_t payloa
 // 仅读取响应 (用于异步通知如 0x0311/0x0410)
 int xt804_hspi_read_response(uint8_t *resp, uint16_t *resp_len,
                               uint16_t *cmd_id, uint32_t timeout_ms);
+
+// 中断驱动读取 (按手册 10.4.3.3: 读 STTS → 读 LEN → 读数据 → 清 STTS)
+// 无超时参数 — 调用前需确保 INT 已触发 (由 ISR 通知触发)
+// 返回 0=成功, -1=无数据, -2=校验失败
+int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len, uint16_t *cmd_id);
 
 #endif

@@ -19,6 +19,7 @@ local function demo_init_and_read()
         return false
     end
     log.info("bmp180_demo", "BMP180 初始化成功，版本:", exs_bmp180.version())
+    -- 等待传感器稳定，数据手册推荐值
     sys.wait(200)
     local data = exs_bmp180.get_data()
     if data then
@@ -26,9 +27,9 @@ local function demo_init_and_read()
     else
         log.error("bmp180_demo", "读取数据失败")
     end
-    sys.wait(1000)
+    sys.wait(1000)                          -- 稳定后等待 1 秒进入连续读取
     for i = 1, 3 do
-        sys.wait(2000)
+        sys.wait(2000)                      -- 每次读取间隔 2 秒
         local d = exs_bmp180.get_data()
         if d then log.info("bmp180_demo", string.format("第%d次读取: 温度=%.1f°C 气压=%.1fPa", i, d.temperature, d.pressure)) end
     end
@@ -41,10 +42,10 @@ local function demo_oss_switch()
     for _, oss in ipairs({0, 1, 2, 3}) do
         log.info("bmp180_demo", string.format("设置过采样率为 oss=%d", oss))
         exs_bmp180.set_oss(oss)
-        sys.wait(100)
+        sys.wait(100)                       -- 等待 OSS 切换生效
         local data = exs_bmp180.get_data()
         if data then log.info("bmp180_demo", string.format("oss=%d: 温度=%.1f°C 气压=%.2fhPa", oss, data.temperature, data.pressure / 100)) end
-        sys.wait(1000)
+        sys.wait(1000)                      -- 每档 OSS 显示间隔 1 秒
     end
     log.info("bmp180_demo", "---- [2/4] 完成 ----")
 end
@@ -66,15 +67,15 @@ end
 
 local function task_func()
     log.info("bmp180_demo", "HELLO")
-    sys.wait(1000)
+    sys.wait(1000)                          -- 启动后等待 1 秒再开始演示
     if not demo_init_and_read() then return end
-    sys.wait(500)
+    sys.wait(500)                           -- 每项演示间隔 500ms
     demo_oss_switch()
-    sys.wait(500)
+    sys.wait(500)                           -- 每项演示间隔 500ms
     demo_altitude()
-    sys.wait(500)
+    sys.wait(500)                           -- 每项演示间隔 500ms
     demo_close()
-    sys.wait(500)
+    sys.wait(500)                           -- 关闭后等待 500ms 再结束
     log.info("bmp180_demo", "===== [演示完毕] =====")
     log.info("bmp180_demo", "End")
 end

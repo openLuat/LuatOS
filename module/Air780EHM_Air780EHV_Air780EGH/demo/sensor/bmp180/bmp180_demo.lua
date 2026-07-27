@@ -30,6 +30,7 @@ local function demo_init_and_read()
     log.info("bmp180_demo", "BMP180 初始化成功，版本:", exs_bmp180.version())
 
     -- 读取并显示温度和气压
+    -- 等待传感器稳定，数据手册推荐值
     sys.wait(200)
     local data = exs_bmp180.get_data()
     if data then
@@ -38,11 +39,11 @@ local function demo_init_and_read()
         log.error("bmp180_demo", "读取数据失败")
     end
 
-    sys.wait(1000)
+    sys.wait(1000)                          -- 稳定后等待 1 秒进入连续读取
 
     -- 连续读取 3 次，观察数据变化
     for i = 1, 3 do
-        sys.wait(2000)
+        sys.wait(2000)                      -- 每次读取间隔 2 秒
         local d = exs_bmp180.get_data()
         if d then
             log.info("bmp180_demo", string.format("第%d次读取: 温度=%.1f°C 气压=%.1fPa", i, d.temperature, d.pressure))
@@ -61,13 +62,13 @@ local function demo_oss_switch()
     for _, oss in ipairs(oss_list) do
         log.info("bmp180_demo", string.format("设置过采样率为 oss=%d", oss))
         exs_bmp180.set_oss(oss)
-        sys.wait(100)
+        sys.wait(100)                       -- 等待 OSS 切换生效
 
         local data = exs_bmp180.get_data()
         if data then
             log.info("bmp180_demo", string.format("oss=%d: 温度=%.1f°C 气压=%.2fhPa", oss, data.temperature, data.pressure / 100))
         end
-        sys.wait(1000)
+        sys.wait(1000)                      -- 每档 OSS 显示间隔 1 秒
     end
 
     log.info("bmp180_demo", "---- [2/4] 完成 ----")
@@ -96,7 +97,7 @@ end
 local function bmp180_demo_task_func()
     -- HELLO 开始
     log.info("bmp180_demo", "HELLO")
-    sys.wait(1000)
+    sys.wait(1000)                          -- 启动后等待 1 秒再开始演示
 
     -- [1/4] 初始化与数据读取
     local ok = demo_init_and_read()
@@ -105,19 +106,19 @@ local function bmp180_demo_task_func()
         return
     end
 
-    sys.wait(500)
+    sys.wait(500)                           -- 每项演示间隔 500ms
 
     -- [2/4] 过采样率切换演示
     demo_oss_switch()
-    sys.wait(500)
+    sys.wait(500)                           -- 每项演示间隔 500ms
 
     -- [3/4] 海拔高度测量
     demo_altitude()
-    sys.wait(500)
+    sys.wait(500)                           -- 每项演示间隔 500ms
 
     -- [4/4] 关闭传感器
     demo_close()
-    sys.wait(500)
+    sys.wait(500)                           -- 关闭后等待 500ms 再结束
 
     -- End
     log.info("bmp180_demo", "===== [演示完毕] =====")

@@ -11,10 +11,6 @@
 #include "c_common.h"
 #endif
 
-#ifdef LUAT_LWIP_CONFIG_H_FILE
-#include LUAT_LWIP_CONFIG_H_FILE
-#endif
-
 #define LUAT_LWIP_USE_EVENT				1
 
 #define NO_SYS                          1	//是否不带OS，1不带
@@ -317,6 +313,10 @@ int8_t  tcpip_try_callback(tcpip_callback_fn function, void *ctx);
 int8_t  tcpip_callback(tcpip_callback_fn function, void *ctx);
 #define tcpip_callback_with_block(function, ctx, block) ((block != 0)? tcpip_callback(function, ctx) : tcpip_try_callback(function, ctx))
 
+#endif
+
+#ifdef LUAT_LWIP_CONFIG_H_FILE
+#include LUAT_LWIP_CONFIG_H_FILE
 #endif
 
 #endif /* LWIP_HDR_LWIPOPTS_H */

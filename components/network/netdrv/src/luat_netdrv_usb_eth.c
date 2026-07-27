@@ -31,7 +31,10 @@
 
 typedef struct
 {
-	uint32_t data[LUAT_USB_ETH_DEFAULT_FRAME_U32_SIZE];
+	union {
+		uint32_t data_u32[LUAT_USB_ETH_DEFAULT_FRAME_U32_SIZE];
+		uint8_t data_u8[LUAT_USB_ETH_DEFAULT_FRAME_SIZE];
+	};
 	uint32_t total_len;
 }luat_usb_eth_data_cache_t;
 
@@ -47,10 +50,10 @@ typedef struct
 	struct netif netif;
 	uint16_t usb_packet_max_size;
 	uint8_t usb_eth_id;
+	uint8_t is_tx_busy;
+	uint8_t is_data_ready;
 	uint8_t link_up:1;
 	uint8_t is_connected:1;
-	uint8_t is_data_ready:1;
-	uint8_t is_tx_busy:1;
 }luat_usb_eth_netif_t;
 
 static luat_usb_eth_netif_t _usb_eth_netif;
@@ -65,6 +68,7 @@ static __NETDRV_CODE_IN_RAM__ err_t _usb_eth_netif_output(struct netif *netif, s
 	if (!ctx) {
 		return ERR_IF;
 	}
+
 	if (!p || !p->tot_len || p->tot_len > LUAT_USB_ETH_DEFAULT_FRAME_SIZE) {
 		return ERR_BUF;
 	}
@@ -75,19 +79,20 @@ static __NETDRV_CODE_IN_RAM__ err_t _usb_eth_netif_output(struct netif *netif, s
 		return ERR_IF;
 	}
 	uint32_t tx_index = luat_no_data_fifo_next_write_index(&ctx->tx_cache_fifo);
-	pbuf_copy_partial(p, ctx->tx_cache[tx_index].data, p->tot_len, 0);
+	pbuf_copy_partial(p, ctx->tx_cache[tx_index].data_u8, p->tot_len, 0);
 	ctx->tx_cache[tx_index].total_len = p->tot_len;
 	luat_no_data_fifo_put(&ctx->tx_cache_fifo);
 	uint32_t cr = luat_rtos_entry_critical();
 	volatile uint8_t is_tx_busy = ctx->is_tx_busy;
 	luat_rtos_exit_critical(cr);
 	if (!is_tx_busy) {
-		ret = luat_usb_eth_start_tx(ctx->usb_eth_id, ctx->tx_cache[tx_index].data, p->tot_len);
+		ctx->is_tx_busy = 1;
+		ret = luat_usb_eth_start_tx(ctx->usb_eth_id, ctx->tx_cache[tx_index].data_u32, p->tot_len);
 		if (ret) {
 			luat_netdrv_stat_inc(&ctx->drv.statics.drop, p->tot_len);
+			LLOGE("usb_eth_start_tx failed, drop%d bytes", p->tot_len);
 			return ERR_IF;
 		}
-		ctx->is_tx_busy = 1;
 	}
 	return ERR_OK;
 }
@@ -143,7 +148,7 @@ static void _usb_eth_rx_drain_to_lwip(void *param)
 		luat_no_data_fifo_delete(&ctx->rx_cache_fifo);
 		p = pbuf_alloc(PBUF_RAW, ctx->rx_cache[index].total_len, PBUF_ROM);
 		if (p) {
-			p->payload = ctx->rx_cache[index].data;
+			p->payload = ctx->rx_cache[index].data_u8;
 			ret = ctx->drv.netif->input(p, ctx->drv.netif);
 			if (ret) {
 				pbuf_free(p);
@@ -152,7 +157,6 @@ static void _usb_eth_rx_drain_to_lwip(void *param)
 				luat_netdrv_stat_inc(&ctx->drv.statics.in, ctx->rx_cache[index].total_len);
 			}	
 		}
-		
 	}
 }
 
@@ -214,7 +218,6 @@ static void _usb_eth_run_other(luat_usb_eth_netif_t *ctx, uint32_t event, void *
 	default:
 		break;
 	}
-
 }
 
 static __NETDRV_CODE_IN_ISR__ void _usb_eth_event_callback(uint32_t event, void *data_or_p_param, uint32_t size_or_u32_param, void *user_param)
@@ -234,27 +237,27 @@ static __NETDRV_CODE_IN_ISR__ void _usb_eth_event_callback(uint32_t event, void 
 			luat_no_data_fifo_delete(&ctx->tx_cache_fifo);
 			while (luat_no_data_fifo_check_used_space(&ctx->tx_cache_fifo)){
 				pos = luat_no_data_fifo_get(&ctx->tx_cache_fifo);
-				ret = luat_usb_eth_continue_tx(ctx->usb_eth_id, ctx->tx_cache[pos].data, ctx->tx_cache[pos].total_len);
+				ret = luat_usb_eth_continue_tx(ctx->usb_eth_id, ctx->tx_cache[pos].data_u32, ctx->tx_cache[pos].total_len);
 				if (ret != LUAT_ERROR_NONE) {	//新数据发送直接失败
 					luat_netdrv_stat_inc(&ctx->drv.statics.drop, ctx->tx_cache[pos].total_len);
 					luat_no_data_fifo_delete(&ctx->tx_cache_fifo);
 				} else {	//新数据发送中
-					return;
+					break;
 				}
 			}
 			ctx->is_tx_busy = 0;
-			return;
+			break;
 		}
 		break;
 	case LUAT_USB_ETH_EVENT_NEW_RX:
 		if (ctx->is_data_ready) {
 			if ((ctx->temp_rx_cache.total_len + size_or_u32_param) <= LUAT_USB_ETH_DEFAULT_FRAME_SIZE) {	//数据长度在限制内
-				memcpy(ctx->temp_rx_cache.data + ctx->temp_rx_cache.total_len, data_or_p_param, size_or_u32_param);
+				memcpy(ctx->temp_rx_cache.data_u8 + ctx->temp_rx_cache.total_len, data_or_p_param, size_or_u32_param);
 				ctx->temp_rx_cache.total_len += size_or_u32_param;
 				if (size_or_u32_param < ctx->usb_packet_max_size) {	 //数据接收完成
 					if (luat_no_data_fifo_check_free_space(&ctx->rx_cache_fifo)) {	//有空闲缓存
 						uint32_t index = luat_no_data_fifo_next_write_index(&ctx->rx_cache_fifo);
-						memcpy(ctx->rx_cache[index].data, ctx->temp_rx_cache.data, ctx->temp_rx_cache.total_len);
+						memcpy(ctx->rx_cache[index].data_u8, ctx->temp_rx_cache.data_u8, ctx->temp_rx_cache.total_len);
 						ctx->rx_cache[index].total_len = ctx->temp_rx_cache.total_len;
 						luat_no_data_fifo_put(&ctx->rx_cache_fifo);
 						ctx->temp_rx_cache.total_len = 0;

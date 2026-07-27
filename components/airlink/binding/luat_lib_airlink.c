@@ -310,7 +310,7 @@ static int l_airlink_cmd(lua_State *L) {
     return 1;
 }
 
-static int sample_cmd_nodata(lua_State *L, uint32_t cmd_id) {
+static int simple_cmd_nodata(lua_State *L, uint32_t cmd_id) {
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(cmd_id, 8);
     if (cmd == NULL) return 0;
     uint64_t pkgid = luat_airlink_get_next_cmd_id();
@@ -323,17 +323,17 @@ static int sample_cmd_nodata(lua_State *L, uint32_t cmd_id) {
 
 static int l_airlink_sfota_init(lua_State *L) {
     LLOGD("执行sfota_init");
-    return sample_cmd_nodata(L, 0x04);
+    return simple_cmd_nodata(L, 0x04);
 }
 
 static int l_airlink_sfota_done(lua_State *L) {
     LLOGD("执行sfota_done");
-    return sample_cmd_nodata(L, 0x06);
+    return simple_cmd_nodata(L, 0x06);
 }
 
 static int l_airlink_sfota_end(lua_State *L) {
     LLOGD("执行sfota_end");
-    return sample_cmd_nodata(L, 0x07);
+    return simple_cmd_nodata(L, 0x07);
 }
 
 static int l_airlink_sfota_write(lua_State *L) {

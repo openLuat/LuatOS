@@ -20,9 +20,6 @@
 #define __LUAT_C_CODE_IN_RAM__
 #endif
 
-#define __LUAT_C_CODE_IN_ISR__ __attribute__((section (".sram_code")))
-#define __LUAT_C_CODE_IN_RAM__ __attribute__((section(".psram_code")))
-
 #define HANDLER(x) x
 #define LWIP_SYS_TIMER_CNT	(11)
 

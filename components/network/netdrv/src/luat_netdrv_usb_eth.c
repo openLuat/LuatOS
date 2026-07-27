@@ -172,6 +172,13 @@ static void _usb_eth_run_other(luat_usb_eth_netif_t *ctx, uint32_t event, void *
 		ctx->netif.mtu = size_or_u32_param - 14;
 		LLOGD("usb_eth: set mtu to %d", ctx->netif.mtu);
 		break;
+	case LUAT_USB_ETH_EVENT_MAC:
+		if (size_or_u32_param > NETIF_MAX_HWADDR_LEN) {
+			size_or_u32_param = NETIF_MAX_HWADDR_LEN;
+		}
+		memcpy(ctx->netif.hwaddr, data_or_p_param, size_or_u32_param);
+		ctx->netif.hwaddr_len = size_or_u32_param;
+		break;
 	case LUAT_USB_ETH_EVENT_CONNECT:
 		ctx->is_connected = 1;
 		ctx->usb_packet_max_size = size_or_u32_param;
@@ -189,6 +196,9 @@ static void _usb_eth_run_other(luat_usb_eth_netif_t *ctx, uint32_t event, void *
 		luat_no_data_fifo_clear(&ctx->tx_cache_fifo);
 		luat_no_data_fifo_clear(&ctx->rx_cache_fifo);
 		ctx->temp_rx_cache.total_len = 0;
+		ctx->link_up = 1;
+		LLOGD("usb_eth: connect force link up");
+		luat_netdrv_set_link_updown(&ctx->drv, ctx->link_up);
 		break;
 	case LUAT_USB_ETH_EVENT_DISCONNECT:
 		ctx->is_connected = 0;
@@ -197,6 +207,9 @@ static void _usb_eth_run_other(luat_usb_eth_netif_t *ctx, uint32_t event, void *
 		luat_heap_free(ctx->rx_cache);
 		ctx->tx_cache = NULL;
 		ctx->rx_cache = NULL;
+		ctx->link_up = 0;
+		LLOGD("usb_eth: disconnect force link down");
+		luat_netdrv_set_link_updown(&ctx->drv, ctx->link_up);
 		break;
 	default:
 		break;

@@ -140,6 +140,7 @@ int luat_buffer_init(luat_buffer_t *buffer, uint32_t size)
 	buffer->pos = 0;
 	return size;
 }
+
 void luat_buffer_deinit(luat_buffer_t *buffer)
 {
 	if (buffer->data)
@@ -150,6 +151,7 @@ void luat_buffer_deinit(luat_buffer_t *buffer)
 	buffer->max_len = 0;
 	buffer->pos = 0;
 }
+
 int luat_buffer_reinit(luat_buffer_t *buffer, uint32_t len)
 {
 	if (!buffer)
@@ -170,6 +172,7 @@ int luat_buffer_reinit(luat_buffer_t *buffer, uint32_t len)
 	buffer->pos = 0;
 	return len;
 }
+
 int luat_buffer_resize(luat_buffer_t *buffer, uint32_t len)
 {
 
@@ -184,6 +187,7 @@ int luat_buffer_resize(luat_buffer_t *buffer, uint32_t len)
 	}
 	return len;
 }
+
 int luat_buffer_write(luat_buffer_t *buffer, const void *data, uint32_t len)
 {
 	uint32_t write_len;
@@ -217,6 +221,7 @@ int luat_buffer_write(luat_buffer_t *buffer, const void *data, uint32_t len)
 	buffer->pos += len;
 	return LUAT_ERROR_NONE;
 }
+
 void luat_buffer_remove_data(luat_buffer_t *buffer, uint32_t len)
 {
 	uint32_t RestLen;

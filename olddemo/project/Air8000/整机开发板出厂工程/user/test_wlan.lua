@@ -2,7 +2,7 @@ test_wlan = {}
 
 gpio.setup(20, 1) -- 打开lan供电
 
-local url = "http://httpbin.air32.cn"
+local url = "http://httpbin.luatos.com"
 
 -- 测试用例函数
 function test_wlan.test_wan()

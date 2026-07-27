@@ -230,6 +230,28 @@ LUAT_WEAK int i2c_soft_close(luat_ei2c_t *ei2c){
 }
 
 /*
+配置硬件I2C参数
+@api i2c.config(id, key, value)
+@int I2C通道ID
+@int 配置项, 例如 i2c.STOP_DELAY
+@int 配置值
+@return boolean 成功返回true
+@usage
+-- SHT20 No Hold Master 模式需要ACK后至少20us才能发STOP
+i2c.setup(1)
+i2c.config(1, i2c.STOP_DELAY, 30)  -- 开启30us STOP延时
+*/
+static int l_i2c_config(lua_State *L)
+{
+    int id = luaL_checkinteger(L, 1);
+    int32_t key = luaL_checkinteger(L, 2);
+    int32_t value = luaL_checkinteger(L, 3);
+    int result = luat_i2c_config(id, key, value);
+    lua_pushboolean(L, result == 0);
+    return 1;
+}
+
+/*
 新建一个软件i2c对象
 @api i2c.createSoft(scl,sda,delay)
 @int i2c SCL引脚编号(GPIO编号)
@@ -935,6 +957,7 @@ static const rotable_Reg_t reg_i2c[] =
 {
     { "exist",      ROREG_FUNC(l_i2c_exist)},
     { "setup",      ROREG_FUNC(l_i2c_setup)},
+    { "config",     ROREG_FUNC(l_i2c_config)},
     { "createSoft", ROREG_FUNC(l_i2c_soft)},
 #ifdef __F1C100S__
 #else
@@ -960,6 +983,8 @@ static const rotable_Reg_t reg_i2c[] =
     { "FAST",       ROREG_INT(I2C_SPEED_FAST)},
     //@const SLOW number 低速
     { "SLOW",       ROREG_INT(I2C_SPEED_SLOW)},
+    //@const STOP_DELAY number STOP条件前延时配置项
+    { "STOP_DELAY", ROREG_INT(LUAT_I2C_CONFIG_STOP_DELAY)},
 	{ NULL,         ROREG_INT(0) }
 };
 

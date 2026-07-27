@@ -170,4 +170,15 @@ int luat_netdrv_is_ready(int id);
 #endif
 #endif
 
+#ifndef __NETDRV_CODE_IN_ISR__
+#ifdef __LUAT_C_CODE_IN_ISR__
+#define __NETDRV_CODE_IN_ISR__ __LUAT_C_CODE_IN_ISR__
+#else
+#define __NETDRV_CODE_IN_ISR__
 #endif
+#endif
+
+#endif
+
+
+

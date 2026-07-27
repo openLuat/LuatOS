@@ -1,6 +1,6 @@
 local air_http = {}
 local test_type = "http_test"
-local url = "http://httpbin.air32.cn"
+local url = "http://httpbin.luatos.com"
 
 -- 读取证书和私钥的函数
 local function read_file(file_path)

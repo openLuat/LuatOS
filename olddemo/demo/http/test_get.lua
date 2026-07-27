@@ -1,11 +1,11 @@
 function demo_http_get()
     -- 最普通的Http GET请求
-    local code, headers, body = http.request("GET", "https://httpbin.air32.cn/get").wait()
+    local code, headers, body = http.request("GET", "https://httpbin.luatos.com/get").wait()
     log.info("http.get", code, headers, body)
     -- local code, headers, body = http.request("GET", "https://mirrors6.tuna.tsinghua.edu.cn/", nil, nil, {ipv6=true}).wait()
     -- log.info("http.get", code, headers, body)
     sys.wait(100)
-    -- local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/16").wait()
+    -- local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/16").wait()
     -- log.info("http.get", code, headers, body and #body)
 
     -- 按需打印

@@ -28,7 +28,7 @@ local AIRLINK_BAUD = 2000000 -- 波特率：2M
 local NET_PEER_IP = "192.168.111.2" -- 对端IP
 
 -- 测试配置
-local HTTP_URL = "https://httpbin.air32.cn/bytes/2048"
+local HTTP_URL = "https://httpbin.luatos.com/bytes/2048"
 local HTTP_INTERVAL = 10000 -- HTTP请求间隔：10秒
 local HTTP_TIMEOUT = 9000   -- HTTP超时：9秒
 local SDATA_INTERVAL = 1000 -- 数据发送间隔：1秒
@@ -47,8 +47,10 @@ local exairlinkwdt = require("exairlinkwdt")
 local function init_airlink_wdt()
     sys.wait(5000)
 
-    -- 初始化看门狗，TO_RESET 使用 GPIO14
-    local success = exairlinkwdt.open({ reset_pin = 14 , reset_idle_level = 1 })
+    -- 初始化看门狗，TO_RESET 使用 GPIO14，默认空闲电平为 低电平
+    -- 在设计双向互看门狗时，需要使用 三极管 进行连接
+    -- 禁止直连，否则会导致看门狗功能异常，造成对端被误复位
+    local success = exairlinkwdt.open({ reset_pin = 14 , reset_idle_level = 0 })
     if success then
         log.info("main", "看门狗启动成功")
     else

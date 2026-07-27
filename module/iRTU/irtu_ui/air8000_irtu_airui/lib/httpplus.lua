@@ -627,7 +627,7 @@ end
 @usage
 -- 请求参数介绍
 local opts = {
-    url    = "https://httpbin.air32.cn/abc", -- 必选, 目标URL
+    url    = "https://httpbin.luatos.com/abc", -- 必选, 目标URL
     method = "POST", -- 可选,默认GET, 如果有body,files,forms参数,会设置成POST
     headers = {}, -- 可选,自定义的额外header
     files = {},   -- 可选,键值对的形式,文件上传,若存在本参数,会强制以multipart/form-data形式上传
@@ -641,7 +641,7 @@ local opts = {
     upload_file_buff = zbuff.create(1024*64) -- 可选,上传时使用的缓冲区,默认会根据型号创建一个buff
 }
 
-local code, resp = httpplus.request({url="https://httpbin.air32.cn/get"})
+local code, resp = httpplus.request({url="https://httpbin.luatos.com/get"})
 log.info("http", code)
 -- 返回值resp的说明
 -- 情况1, code >= 100 时, resp会是个table, 包含2个元素

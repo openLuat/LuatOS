@@ -967,7 +967,7 @@ DONE:
 
 /**
 配置USB摄像头图像参数，根据不同的配置项的id和参数值组合，有不同的设置效果
-@api camera.set_usb_config(app_id, key, param1, param2)
+@api camera.set_usb_config(app_id, key, param1, param2, param3)
 @int app_id usb应用id
 @int 配置项的id，目前只有camera.CONF_UVC_RESOLUTION
 @int 参数1

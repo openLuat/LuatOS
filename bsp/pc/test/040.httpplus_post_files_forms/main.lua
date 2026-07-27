@@ -10,7 +10,7 @@ httpplus = require "httpplus"
 sys.taskInit(function()
     sys.waitUntil("IP_READY")
 
-    local opts = {url="http://httpbin.air32.cn/post", method="POST"}
+    local opts = {url="http://httpbin.luatos.com/post", method="POST"}
     opts.headers = {ABC="1234"}
     opts.files = {file="/luadb/wifi.json"}
     opts.forms = {ttt="wendal"}

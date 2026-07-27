@@ -3,7 +3,7 @@ wlan_http = {}
 sys = require("sys")
 sysplus = require("sysplus")
 gpio.setup(20, 1) -- 打开lan供电
-local url = "http://httpbin.air32.cn"
+local url = "http://httpbin.luatos.com"
 
 -- 测试用例函数
 local function run_tests()

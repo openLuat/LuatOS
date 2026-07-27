@@ -4,10 +4,14 @@
 
 ### 1.1 核心主程序模块
 
-1. **main.lua** - 主程序入口，负责 PRODUCT_KEY 定义、网络驱动加载和业务模块调度
-2. **app_vl53l1x_main.lua** - VL53L1X 业务逻辑主模块，包含传感器初始化、数据采集、excloud/MQTT 双通道上报、FOTA 升级、PSM+ 低功耗模式等所有功能的实现
-3. **netdrv_device.lua** - 网络驱动设备模块
-4. **netdrv/netdrv_4g.lua** - 4G 网卡驱动
+1. **main.lua** - 主程序入口，负责 PRODUCT_KEY 定义、errDump 开启、网络驱动加载和业务模块调度
+2. **app_vl53l1x_main.lua** - 业务逻辑主协调模块，实现双任务架构（PSM+超时管理 + 业务逻辑），调用各模块完成完整流程
+3. **sensor_vl53l1x.lua** - VL53L1X 传感器驱动封装模块，含初始化、数据采集、关闭接口
+4. **aircloud.lua** - 云平台数据上报模块，封装 excloud 和 MQTT 双通道上报，含 payload 构建
+5. **fota_mgr.lua** - FOTA 远程升级管理模块，含版本文件管理、首次启动检测、升级检查
+6. **psm_mgr.lua** - PSM+ 低功耗模式管理模块，含 LED 指示控制和深度休眠入口
+7. **netdrv_device.lua** - 网络驱动设备模块
+8. **netdrv/netdrv_4g.lua** - 4G 网卡驱动
 
 ### 1.2 扩展库模块
 
@@ -68,12 +72,17 @@
 ### 4.3 脚本文件
 
 1. **main.lua** - 主程序入口
-2. **app_vl53l1x_main.lua** - VL53L1X 业务逻辑主模块
-3. **netdrv_device.lua** - 网络驱动设备模块
-4. **netdrv/netdrv_4g.lua** - 4G 网卡驱动
-5. **exs_vl53l1x** (扩展库) - VL53L1X 测距传感器驱动
-6. **libfota2** (扩展库) - 远程升级
-7. **excloud** (扩展库) - 合宙 IoT 平台
+2. **prj/prj_vl53l1x.lua** - 项目编排模块（业务协调/事件驱动）
+3. **drv/netdrv_device.lua** - 网络驱动设备模块
+4. **drv/drv_led.lua** - LED指示灯驱动（事件订阅：LED_SET_HIGH/LED_SET_LOW）
+5. **drv/drv_psm.lua** - PSM+低功耗模式驱动（事件订阅：DRV_SET_PSM）
+6. **sensor/sensor_vl53l1x.lua** - VL53L1X 传感器驱动封装模块
+7. **cloud/aircloud.lua** - 云平台(excloud + MQTT)数据上报模块
+8. **fota/fota_mgr.lua** - FOTA 远程升级管理模块
+9. **netdrv/netdrv_4g.lua** - 4G 网卡驱动
+9. **exs_vl53l1x** (扩展库) - VL53L1X 测距传感器驱动
+10. **libfota2** (扩展库) - 远程升级
+11. **excloud** (扩展库) - 合宙 IoT 平台
 
 ## 五、演示核心步骤
 

@@ -1,6 +1,6 @@
 --[[
 @module  main
-@summary LuatOS语音通话应用主入口，负责加载功能模块
+@summary LuatOS看门狗应用主入口，负责加载功能模块
 @version 1.0
 @date    2025.10.25
 @author  陈媛媛
@@ -8,6 +8,8 @@
 本demo演示的核心功能为：
 1、内部看门狗正常和异常场景演示
 2、外部硬件看门狗Air153C正常和异常场景演示
+3、AirLink UART 方式看门狗演示
+4、AirLink SPI 方式看门狗演示
 
 更多说明参考本目录下的readme.md文件
 ]]

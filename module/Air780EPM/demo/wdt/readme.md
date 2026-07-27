@@ -21,7 +21,7 @@
 
 外部看门狗演示 (Air153C)
 
- - 引脚控制：通过GPIO引脚28控制外部看门狗芯片
+ - 引脚控制：通过GPIO引脚24控制外部看门狗芯片
 
  - 定期喂狗：每10秒执行一次喂狗操作
 
@@ -31,7 +31,7 @@
 
 ## 演示硬件环境
 1、Air780EPM开发板
- 
+
 ![alt text]( https://docs.openLuat.com/cdn/image/Air780EPM开发板.jpg)
 
 2、Air153C配件版（待补充图片和接线图）
@@ -44,7 +44,7 @@
 ## 演示软件环境
 1、Luatools下载调试工具 [https://docs.openluat.com/air780epm/common/Luatools/]
 
-2、固件版本LuatOS-SoC_V2016_Air780EPM 版本固件。不同版本区别请见 https://docs.openluat.com/air780epm/luatos/firmware/version/
+2、固件版本LuatOS-SoC_V2016_Air780EPM 版本固件。不同版本区别请见 https://docs.openluat.com/air780epm/luatos/firmware/780epm_version/
 
 3、lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 
@@ -89,7 +89,7 @@ air153C_wtd 扩展库文档：https://docs.openluat.com/osapi/ext/air153C_wtd/
   I/user.wdt 硬件看门狗已由底层固件启用
   I/user.wdt 喂狗完成
   I/user.wdt 喂狗完成
-   ```
+  ```
 
 - 故障模式演示
 
@@ -115,7 +115,8 @@ air153C_wtd 扩展库文档：https://docs.openluat.com/osapi/ext/air153C_wtd/
    [2025-11-04 15:32:33.751] 工具提示: 用户虚拟串口 COM5
    [2025-11-04 15:32:34.049][000000000.272] I/user.wdt 硬件看门狗已由底层固件启用
    [2025-11-04 15:32:34.054][000000000.272] I/user.reset_reason 重启原因1: 0 原因2: 0 原因3: 8
-  ``` 
+  ```
+
  6、关于重启时间的说明：
 
    实际重启时间不是精确的20秒，主要原因包括：

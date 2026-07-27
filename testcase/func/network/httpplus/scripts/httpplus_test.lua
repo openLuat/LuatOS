@@ -4,7 +4,7 @@ local httpplus = require("httpplus")
 local httpplus_test = {}
 
 -- 共用的回环地址
-local urlbase = "http://httpbin.air32.cn"
+local urlbase = "http://httpbin.luatos.com"
 -- 上传和 bodyfile 复用的固定文件路径
 local upload_fixture_path = "/luadb/httpplus_upload.txt"
 
@@ -125,7 +125,7 @@ end
 function httpplus_test.test_httpplus_get_basic_auth()
     log.info("httpplus_test", "GET 带鉴权")
     local code, resp = httpplus.request({
-        url = "http://user:passwd@httpbin.air32.cn/basic-auth/user/passwd",
+        url = "http://user:passwd@httpbin.luatos.com/basic-auth/user/passwd",
         timeout = 10
     })
     assert(code == 200, "预期 200, 实际 " .. tostring(code))
@@ -161,7 +161,7 @@ end
 -- HTTPS：基础 GET，验证 TLS 通路
 function httpplus_test.test_httpplus_https_get_basic()
     log.info("httpplus_test", "HTTPS 基础请求")
-    local code, resp = httpplus.request({ url = "https://httpbin.air32.cn/get", timeout = 10 })
+    local code, resp = httpplus.request({ url = "https://httpbin.luatos.com/get", timeout = 10 })
     assert(code == 200, "预期 200, 实际 " .. tostring(code))
     local _, raw = decode_body(resp)
     assert(raw and #raw > 0, "HTTPS GET body 为空")
@@ -171,7 +171,7 @@ end
 function httpplus_test.test_httpplus_https_post_json()
     local payload = { secure = true, feature = "httpplus" }
     local code, resp = httpplus.request({
-        url = "https://httpbin.air32.cn/post",
+        url = "https://httpbin.luatos.com/post",
         body = payload,
         timeout = 15
     })
@@ -184,7 +184,7 @@ end
 function httpplus_test.test_httpplus_https_post_multipart_file()
     local expected = read_fixture(upload_fixture_path)
     local code, resp = httpplus.request({
-        url = "https://httpbin.air32.cn/post",
+        url = "https://httpbin.luatos.com/post",
         files = { uploadFile = upload_fixture_path },
         forms = { note = "https-multipart" },
         timeout = 20
@@ -202,13 +202,13 @@ function httpplus_test.test_httpplus_methods_status_codes()
 
     for _, code in ipairs(status_codes) do
         for _, m in ipairs(methods) do
-            local url_http = string.format("http://httpbin.air32.cn/status/%d", code)
+            local url_http = string.format("http://httpbin.luatos.com/status/%d", code)
             local resp_code = httpplus.request({ method = m, url = url_http, timeout = 10 })
             assert(resp_code == code, string.format("HTTP %s 预期 %d, 实际 %s", m, code, tostring(resp_code)))
             sys.wait(10)
             collectgarbage("collect")
             collectgarbage("collect")
-            local url_https = string.format("https://httpbin.air32.cn/status/%d", code)
+            local url_https = string.format("https://httpbin.luatos.com/status/%d", code)
             resp_code = httpplus.request({ method = m, url = url_https, timeout = 10 })
             assert(resp_code == code, string.format("HTTPS %s 预期 %d, 实际 %s", m, code, tostring(resp_code)))
             sys.wait(10)
@@ -219,7 +219,7 @@ end
 -- HTTPS：chunked 流式输出，验证分块解码能力
 function httpplus_test.test_httpplus_https_chunked_stream()
     log.info("httpplus_test", "HTTPS chunked stream")
-    local code, resp = httpplus.request({ url = "https://httpbin.air32.cn/stream/100", timeout = 20 })
+    local code, resp = httpplus.request({ url = "https://httpbin.luatos.com/stream/100", timeout = 20 })
     assert(code == 200, "预期 200, 实际 " .. tostring(code))
     assert(resp and resp.body, "响应体缺失")
     local raw = resp.body:query()
@@ -275,7 +275,7 @@ function httpplus_test.test_httpplus_stream_download_https_chunked()
     local total_received = 0
     local is_chunked = false
     local code, resp = httpplus.request({
-        url = "https://httpbin.air32.cn/stream/50",
+        url = "https://httpbin.luatos.com/stream/50",
         is_big_file = true,
         callback = function(total_len, recv_len, recv_data, userdata)
             total_received = total_received + recv_len
@@ -317,7 +317,7 @@ function httpplus_test.test_httpplus_file_download_https()
     local download_path = "/httpplus_download_https_test.bin"
     local total_received = 0
     local code, resp = httpplus.request({
-        url = "https://httpbin.air32.cn/bytes/1024",
+        url = "https://httpbin.luatos.com/bytes/1024",
         dst = download_path,
         callback = function(total_len, recv_len, recv_data, userdata)
             total_received = total_received + recv_len

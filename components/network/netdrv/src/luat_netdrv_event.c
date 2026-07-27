@@ -103,7 +103,9 @@ static int netif_ip_event_cb(lua_State *L, void* ptr) {
         }
         else {
             ipaddr_ntoa_r(&netdrv->netif->ip_addr, buff,  32);
-            LLOGD("IP_READY %d %s", netdrv->id, buff);
+            char gw[32] = {0};
+            ipaddr_ntoa_r(&netdrv->netif->gw, gw, sizeof(gw));
+            LLOGI("DHCP ready adapter=%d IP=%s gw=%s", netdrv->id, buff, gw);
             lua_pushstring(L, "IP_READY");
             lua_pushstring(L, buff);
             lua_pushinteger(L, netdrv->id);
@@ -140,6 +142,7 @@ typedef struct tmpptr {
 static void delay_dhcp_start(void* args) {
     ulwip_ctx_t *ctx = (ulwip_ctx_t *)args;
     if (ctx && ctx->dhcp_enable) {
+        LLOGI("DHCP client starting for adapter %d", ctx->adapter_index);
         ulwip_dhcp_client_start(ctx);
     }
 }
@@ -163,6 +166,7 @@ static void link_updown(tmpptr_t* ptr) {
                 ulwip->netif = netif;
             }
             if (ulwip->dhcp_enable) {
+                LLOGI("DHCP trigger for adapter %d (link=UP)", drv->id);
                 ulwip_dhcp_client_stop(ulwip);
                 // 延时50ms, 避免netif_set_up和dhcp冲突
                 sys_timeout(50, delay_dhcp_start, ulwip);

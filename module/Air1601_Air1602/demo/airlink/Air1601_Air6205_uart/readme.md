@@ -95,8 +95,8 @@ Air1601烧录Air1601文件夹下的 main.lua：主程序入口，network_airlink
 [2026-05-18 12:47:21.088][LTOS/N][000000009.066]:D/airlink 统计信息 Task新数据事件 12
 [2026-05-18 12:47:21.095][LTOS/N][000000009.066]:I/user.发送数据给对端设备 Air1601 Mon May 18 12:47:16 2026 当前airlink状态 false
 [2026-05-18 12:47:22.045][LTOS/N][000000010.050]:I/user.网卡状态 true
-[2026-05-18 12:47:22.053][LTOS/N][000000010.050]:I/user.发起HTTP GET请求 https://httpbin.air32.cn/bytes/2048
-[2026-05-18 12:47:22.064][LTOS/N][000000010.051]:D/DNS httpbin.air32.cn state 0 id 1 ipv6 0 use dns server0, try 0
+[2026-05-18 12:47:22.053][LTOS/N][000000010.050]:I/user.发起HTTP GET请求 https://httpbin.luatos.com/bytes/2048
+[2026-05-18 12:47:22.064][LTOS/N][000000010.051]:D/DNS httpbin.luatos.com state 0 id 1 ipv6 0 use dns server0, try 0
 [2026-05-18 12:47:22.072][LTOS/N][000000010.051]:D/net adatper 2 dns server 8.8.8.8
 [2026-05-18 12:47:22.078][LTOS/N][000000010.051]:D/net dns udp sendto 8.8.8.8:53 from 192.168.1.31
 [2026-05-18 12:47:22.085][LTOS/N][000000010.067]:I/user.ticks 503 Air1601 Air1601 Air1601_A11

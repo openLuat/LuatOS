@@ -69,45 +69,45 @@ function test_httpplus()
     -- local code, resp = httpplus.request({method="POST", url="https://air32.cn/goupupup"})
     -- log.info("http", code, resp)
 
-    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.air32.cn/post", files={abcd="/luadb/libfastlz.a"}})
+    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.luatos.com/post", files={abcd="/luadb/libfastlz.a"}})
     -- log.info("http", code, resp)
 
-    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.air32.cn/anything", forms={abcd="12345"}})
+    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.luatos.com/anything", forms={abcd="12345"}})
     -- log.info("http", code, resp)
 
-    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.air32.cn/post", files={abcd="/luadb/abc.txt"}})
+    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.luatos.com/post", files={abcd="/luadb/abc.txt"}})
     -- log.info("http", code, resp)
 
     -- 简单GET请求
-    local code, resp = httpplus.request({url="https://httpbin.air32.cn/"})
+    local code, resp = httpplus.request({url="https://httpbin.luatos.com/"})
     log.info("http", code, resp)
     
     -- 简单POST请求
-    -- local code, resp = httpplus.request({url="https://httpbin.air32.cn/post", body="123456", method="POST"})
+    -- local code, resp = httpplus.request({url="https://httpbin.luatos.com/post", body="123456", method="POST"})
     -- log.info("http", code, resp)
     
     -- 文件上传
-    -- local code, resp = httpplus.request({url="https://httpbin.air32.cn/post", files={myfile="/luadb/abc.txt"}})
+    -- local code, resp = httpplus.request({url="https://httpbin.luatos.com/post", files={myfile="/luadb/abc.txt"}})
     -- log.info("http", code, resp)
     
     -- 自定义header的GET请求
-    -- local code, resp = httpplus.request({url="https://httpbin.air32.cn/get", headers={Auth="12312234"}})
+    -- local code, resp = httpplus.request({url="https://httpbin.luatos.com/get", headers={Auth="12312234"}})
     -- log.info("http", code, resp)
     
     -- 带鉴权信息的GET请求
-    -- local code, resp = httpplus.request({url="https://wendal:123@httpbin.air32.cn/get", headers={Auth="12312234"}})
+    -- local code, resp = httpplus.request({url="https://wendal:123@httpbin.luatos.com/get", headers={Auth="12312234"}})
     -- log.info("http", code, resp)
     
     -- PUT请求
-    -- local code, resp = httpplus.request({url="https://httpbin.air32.cn/put", method="PUT", body="123"})
+    -- local code, resp = httpplus.request({url="https://httpbin.luatos.com/put", method="PUT", body="123"})
     -- log.info("http", code, resp)
 
     -- 表单POST
-    -- local code, resp = httpplus.request({url="https://httpbin.air32.cn/post", forms={abc="123"}})
+    -- local code, resp = httpplus.request({url="https://httpbin.luatos.com/post", forms={abc="123"}})
     -- log.info("http", code, resp)
 
     -- 响应体chucked编码测试
-    local code, resp = httpplus.request({url="https://httpbin.air32.cn/stream/1"})
+    local code, resp = httpplus.request({url="https://httpbin.luatos.com/stream/1"})
     log.info("http", code, resp)
     if code == 200 then
         log.info("http", "headers", json.encode(resp.headers))

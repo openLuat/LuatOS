@@ -55,7 +55,7 @@ log.info("main", PROJECT, VERSION)
 
 -- 仅加载必要的功能模块
 require "internal_wdt"  -- 内部看门狗演示模块
-require "air153c_wdt"    -- 外部看门狗演示模块
+-- require "air153c_wdt"    -- 外部看门狗演示模块
 
 -- 用户代码已结束---------------------------------------------
 sys.run()

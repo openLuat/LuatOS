@@ -8,9 +8,11 @@
 #include "luat_mem.h"
 #include "luat_msgbus.h"
 #include "luat_netdrv.h"
+#include "luat_netdrv_event.h"
 #include "luat_network_adapter.h"
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
+#include "lwip/dhcp.h"
 #include "drv_wlan.pb.h"
 #include <string.h>
 
@@ -177,7 +179,8 @@ static void wlan_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void*
     }
     case AIRLINK_DRV_RPC_ID_WLAN_IP_EVENT: {
         const drv_wlan_WlanIpReadyNotify* notify = (const drv_wlan_WlanIpReadyNotify*)msg_raw;
-        // 收到 IP 就绪 → 配置虚拟网卡（链路 UP + 设置 IP）
+        // IP_READY 仅用于确认 WiFi 已连接，不设静态 IP
+        // 新架构下 1601 lwIP DHCP 自己拿 IP/网关/DNS
         #ifdef LUAT_USE_NETDRV
         {
             extern void net_lwip2_set_link_state(uint8_t id, uint8_t up);
@@ -186,10 +189,10 @@ static void wlan_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void*
                 luat_ip_addr_t ip4;
                 ipaddr_aton(notify->ip, &ip4);
                 nd->netif->ip_addr.u_addr.ip4.addr = ip4.u_addr.ip4.addr;
-                nd->netif->netmask.u_addr.ip4.addr = 0x00FFFFFF;
-                nd->netif->gw.u_addr.ip4.addr = ip4.u_addr.ip4.addr;
+                nd->netif->netmask.u_addr.ip4.addr = 0xFFFFFF00;
                 netif_set_link_up(nd->netif);
-                LLOGI("Virtual STA adapter configured IP=%s link=UP", notify->ip);
+                // LLOGI("IP set from IP_READY: %s", notify->ip);
+                luat_netdrv_send_ip_event(nd, 1);
             }
         }
         #endif
@@ -275,7 +278,7 @@ int luat_airlink_drv_rpc_wlan_ap_start(luat_wlan_apinfo_t* info) {
     req.payload.ap_start.hidden       = (info->hidden != 0);
     req.payload.ap_start.has_max_conn = true;
     req.payload.ap_start.max_conn     = info->max_conn;
-    req.payload.ap_start.has_gateway  = true;
+    req.payload.ap_start.has_gateway = true;
     req.payload.ap_start.gateway.size = 4;
     memcpy(req.payload.ap_start.gateway.bytes, info->gateway, 4);
     req.payload.ap_start.has_netmask  = true;
@@ -309,6 +312,7 @@ int luat_airlink_drv_rpc_wlan_ap_stop(void) {
 }
 
 int luat_airlink_drv_rpc_wlan_connect(luat_wlan_conninfo_t* info) {
+    wlan_notify_ensure_registered();
     int mode = luat_airlink_current_mode_get();
     drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
     drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;

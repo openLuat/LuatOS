@@ -170,6 +170,8 @@ void luat_netdrv_netif_input(void* args) {
     if (g_netdrv_debug_enable) {
         luat_netdrv_print_pkg("收到IP数据,注入到netif", ptr->buff, ptr->len);
     }
+    // LLOGD("netif_input: %d bytes ethertype=0x%04X to netif", ptr->len,
+    //       ptr->len >= 14 ? ((uint16_t)ptr->buff[12] << 8 | ptr->buff[13]) : 0);
     int ret = ptr->netif->input(p, ptr->netif);
     if (ret) {
         LLOGW("netif->input ret %d", ret);
@@ -189,6 +191,10 @@ int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t 
     ptr->len = len;
     // uint64_t tbegin = luat_mcu_tick64();
     int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 0);
+    if (ret != ERR_OK) {
+        LLOGE("netif_input_proxy: tcpip_callback failed ret=%d len=%d", ret, len);
+        luat_heap_free(ptr);
+    }
     // uint64_t tend = luat_mcu_tick64();
     // uint64_t tused = (tend - tbegin) / luat_mcu_us_period();
     // if (tused > 50) {

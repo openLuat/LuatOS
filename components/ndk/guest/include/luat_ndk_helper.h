@@ -20,9 +20,11 @@
  *   - Status code decoders (ndk_gpio_status_name, ndk_crypto_status_name, ...)
  *   - Host hash calls (ndk_hash_md5, ndk_hash_crc32)
  *   - Event ring consumer (ndk_event_peek)
+ *   - Memory/string helpers (ndk_memcpy/memmove/memset/memcmp, ndk_strlen/...)
+ *   - Optional freestanding libc symbols (memcpy/memmove/memset/memcmp) via
+ *     NDK_GUEST_PROVIDE_LIBC — see the memory/string section below
  *
  * Intentionally NOT provided:
- *   - memcpy/memset wrappers (use compiler builtins)
  *   - printf-style varargs formatting
  *   - RV32F floating-point helpers (removed — NDK only supports RV32IMA)
  *   - UART RX user-space buffers (use the existing ndk_uart_* CSRs)
@@ -161,6 +163,154 @@ static inline void ndk_store32_le(uint8_t *p, uint32_t v) {
     p[2] = (uint8_t)((v >> 16) & 0xFFu);
     p[3] = (uint8_t)((v >> 24) & 0xFFu);
 }
+
+/* ------------------------------------------------------------------ */
+/* Memory and string helpers (freestanding libc subset)               */
+/* ------------------------------------------------------------------ */
+
+/* Plain-C, header-only memory/string routines. Two ways to use them:
+ *
+ * 1. Call the ndk_* names directly — they are static inline and cost
+ *    nothing when unused.
+ *
+ * 2. Define NDK_GUEST_PROVIDE_LIBC in EXACTLY ONE translation unit
+ *    before including this header. That emits external-linkage
+ *    definitions of memcpy/memmove/memset/memcmp. Do this when the
+ *    guest uses struct assignment or large aggregate initializers:
+ *    even with -ffreestanding -nostdlib the compiler is allowed (per
+ *    the C standard and GCC/Clang docs) to emit calls to those four
+ *    symbols for aggregate copies, and without a definition the link
+ *    fails with "undefined reference to `memcpy'". The byte loops
+ *    below are safe from being rewritten into self-recursive libcalls
+ *    because freestanding builds disable loop-idiom libcall formation.
+ */
+
+static inline void *ndk_memcpy(void *dst, const void *src, size_t n) {
+    uint8_t *d = (uint8_t *)dst;
+    const uint8_t *s = (const uint8_t *)src;
+    for (size_t i = 0; i < n; i++) {
+        d[i] = s[i];
+    }
+    return dst;
+}
+
+static inline void *ndk_memmove(void *dst, const void *src, size_t n) {
+    uint8_t *d = (uint8_t *)dst;
+    const uint8_t *s = (const uint8_t *)src;
+    if (d == s || n == 0) {
+        return dst;
+    }
+    if ((uintptr_t)d < (uintptr_t)s) {
+        for (size_t i = 0; i < n; i++) {
+            d[i] = s[i];
+        }
+    } else {
+        for (size_t i = n; i > 0; i--) {
+            d[i - 1] = s[i - 1];
+        }
+    }
+    return dst;
+}
+
+static inline void *ndk_memset(void *dst, int c, size_t n) {
+    uint8_t *d = (uint8_t *)dst;
+    for (size_t i = 0; i < n; i++) {
+        d[i] = (uint8_t)c;
+    }
+    return dst;
+}
+
+static inline int ndk_memcmp(const void *a, const void *b, size_t n) {
+    const uint8_t *pa = (const uint8_t *)a;
+    const uint8_t *pb = (const uint8_t *)b;
+    for (size_t i = 0; i < n; i++) {
+        if (pa[i] != pb[i]) {
+            return (int)pa[i] - (int)pb[i];
+        }
+    }
+    return 0;
+}
+
+static inline size_t ndk_strlen(const char *s) {
+    const char *p = s;
+    while (*p) {
+        p++;
+    }
+    return (size_t)(p - s);
+}
+
+static inline int ndk_strcmp(const char *a, const char *b) {
+    while (*a && (*a == *b)) {
+        a++;
+        b++;
+    }
+    return (int)(uint8_t)*a - (int)(uint8_t)*b;
+}
+
+static inline int ndk_strncmp(const char *a, const char *b, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        uint8_t ca = (uint8_t)a[i];
+        uint8_t cb = (uint8_t)b[i];
+        if (ca != cb || ca == 0) {
+            return (int)ca - (int)cb;
+        }
+    }
+    return 0;
+}
+
+static inline char *ndk_strcpy(char *dst, const char *src) {
+    char *d = dst;
+    while ((*d++ = *src++) != '\0') {
+    }
+    return dst;
+}
+
+static inline char *ndk_strncpy(char *dst, const char *src, size_t n) {
+    size_t i = 0;
+    for (; i < n && src[i] != '\0'; i++) {
+        dst[i] = src[i];
+    }
+    for (; i < n; i++) {
+        dst[i] = '\0';
+    }
+    return dst;
+}
+
+static inline char *ndk_strcat(char *dst, const char *src) {
+    ndk_strcpy(dst + ndk_strlen(dst), src);
+    return dst;
+}
+
+static inline char *ndk_strchr(const char *s, int c) {
+    for (;; s++) {
+        if (*s == (char)c) {
+            return (char *)s;
+        }
+        if (*s == '\0') {
+            return NULL;
+        }
+    }
+}
+
+#ifdef NDK_GUEST_PROVIDE_LIBC
+/* External-linkage freestanding libc symbols. See the section header
+ * above for why these exist and why they must live in exactly one TU. */
+void *memcpy(void *dst, const void *src, size_t n) {
+    return ndk_memcpy(dst, src, n);
+}
+
+void *memmove(void *dst, const void *src, size_t n) {
+    return ndk_memmove(dst, src, n);
+}
+
+void *memset(void *dst, int c, size_t n) {
+    return ndk_memset(dst, c, n);
+}
+
+int memcmp(const void *a, const void *b, size_t n) {
+    return ndk_memcmp(a, b, n);
+}
+#endif /* NDK_GUEST_PROVIDE_LIBC */
 
 /* ------------------------------------------------------------------ */
 /* Log helpers (CSR 0x136/0x137/0x138)                               */

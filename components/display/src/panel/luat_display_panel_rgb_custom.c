@@ -17,6 +17,8 @@
 /*初始化面板*/
 static int panel_init(struct luat_display_panel *panel) 
 {
+    /*使用默认的复位，如果复位时序不对，请使用自定义的*/
+    luat_display_panel_reset(panel);
     
     return 0;
 }
@@ -28,7 +30,7 @@ static int panel_deinit(struct luat_display_panel *panel)
 }
 
 /*控制面板*/
-static int panel_ctrl(struct luat_display_panel *panel, uint8_t state)
+static int panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg)
 {
     return 0;
 }
@@ -53,6 +55,8 @@ static struct luat_display_timing custom_timing = {
     .vfp = 8,
     .vbp = 16,
     .vspw = 2,
+    
+    .flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW,
 };
 
 /*RGB接口参数*/
@@ -72,6 +76,7 @@ struct luat_display_panel rgb_panel_custom = {
     .rgb = &rgb_custom_rgb,
     .panel_funcs = &panel_funcs_rgb,
     .timing = &custom_timing,
+    .screen_win = NULL,
 };
 
 

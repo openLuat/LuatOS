@@ -68,7 +68,7 @@ static const display_panel_reg_t panel_regs[] =
     {"custom", "dsi",  &rgb_panel_custom},
     {"custom", "spi",  &rgb_panel_custom},
 
-    {"st7789", "spi",  &spi_panel_st7789},
+    {"st7789",  "spi",  &spi_panel_st7789},
     {"ili9341", "spi", &spi_panel_ili9341},
     {"st7701s", "spi", &rgb_panel_st7701s},
     {"st7701s", "dsi", &dsi_panel_st7701s},
@@ -92,18 +92,166 @@ static const luat_display_panel* get_panel(const char *name, const char *interfa
     return NULL;
 }
 
+/*设置显示窗口*/
+static int panel_crop_win_setup(struct luat_display_panel *panel,lua_State *L)
+{
+    /*设置当前屏幕是否需要裁剪*/
+    lua_getfield(L, 2, "crop_x");
+    if (lua_isnil(L, -1)) {
+        panel->screen_win->x = 0;
+    } else if (lua_isinteger(L, -1)) {
+        panel->screen_win->x = luaL_optinteger(L, -1, 0);
+    }
+    lua_pop(L, 1);
+    
+    lua_getfield(L, 2, "crop_y");
+    if (lua_isnil(L, -1)) {
+        panel->screen_win->y = 0;
+    } else if (lua_isinteger(L, -1)) {
+        panel->screen_win->y = luaL_optinteger(L, -1, 0);
+    }
+    lua_pop(L, 1);
+    
+    lua_getfield(L, 2, "crop_w");
+    if (lua_isnil(L, -1)) {
+        panel->screen_win->w = panel->timing->hactive;
+    } else if (lua_isinteger(L, -1)) {
+        panel->screen_win->w = luaL_optinteger(L, -1, panel->timing->hactive);
+    }
+    lua_pop(L, 1);
+    
+    lua_getfield(L, 2, "crop_h");
+    if (lua_isnil(L, -1)) {
+        panel->screen_win->h = panel->timing->vactive;
+    } else if (lua_isinteger(L, -1)) {
+        panel->screen_win->h = luaL_optinteger(L, -1, panel->timing->vactive);
+    }
+    lua_pop(L, 1);
+}
+
+/*自定义面板初始化*/
+static int custom_panel_setup(struct luat_display_panel *panel,lua_State *L) 
+{
+    int polarity = 0;
+
+    /*检查面板是否为自定义面板*/
+    if (strcmp(panel->name, "custom") != 0) {
+        return 2;
+    }
+
+    /*设置新的时序参数*/
+    lua_getfield(L, 2, "w");
+    panel->timing->hactive = luaL_optinteger(L, -1, 240);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "h");
+    panel->timing->vactive = luaL_optinteger(L, -1, 320);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "hbp");
+    panel->timing->hbp = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "hfp");
+    panel->timing->hfp = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "hspw");
+    panel->timing->hspw = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "vbp");
+    panel->timing->vbp = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "vfp");
+    panel->timing->vfp = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "vspw");
+    panel->timing->vspw = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "pclk_hz");
+    panel->timing->pclk_hz = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+
+    /*设置极性*/
+    panel->timing->flags = 0;
+
+    lua_getfield(L, 2, "hs_polarity");
+    polarity = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+    panel->timing->flags |= (polarity) ? DISPLAY_FLAGS_HSYNC_HIGH : DISPLAY_FLAGS_HSYNC_LOW;
+    
+    lua_getfield(L, 2, "vs_polarity");
+    polarity = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+    panel->timing->flags |= (polarity) ? DISPLAY_FLAGS_VSYNC_HIGH : DISPLAY_FLAGS_VSYNC_LOW;
+    
+    lua_getfield(L, 2, "de_polarity");
+    polarity = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+    panel->timing->flags |= (polarity) ? DISPLAY_FLAGS_DE_HIGH : DISPLAY_FLAGS_DE_LOW;
+    
+    lua_getfield(L, 2, "pclk_polarity");
+    polarity = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+    panel->timing->flags |= (polarity) ? DISPLAY_FLAGS_PCLK_HIGH : DISPLAY_FLAGS_PCLK_LOW;
+    
+    return 0;
+}
+
+/*pin引脚配置*/
+static int custom_pin_setup(struct panel_pin_device *pin, lua_State *L) 
+{
+    lua_getfield(L, 2, "pin_rst");
+    pin->rst = luaL_optinteger(L, -1, LUAT_GPIO_NONE);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "pin_bl");
+    pin->bl = luaL_optinteger(L, -1, LUAT_GPIO_NONE);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "pin_pwr");
+    pin->pwr = luaL_optinteger(L, -1, LUAT_GPIO_NONE);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "pin_cs");
+    pin->cs = luaL_optinteger(L, -1, LUAT_GPIO_NONE);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "pin_scl");
+    pin->scl = luaL_optinteger(L, -1, LUAT_GPIO_NONE);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "pin_sdi");
+    pin->sdi = luaL_optinteger(L, -1, LUAT_GPIO_NONE);
+    lua_pop(L, 1);
+    
+    lua_getfield(L, 2, "pin_dc");
+    pin->dc = luaL_optinteger(L, -1, LUAT_GPIO_NONE);
+    lua_pop(L, 1);
+
+    return 0;
+}
+
+
 /**
  * @api display.init(panel_name, config)
  * @string panel_name 面板型号，如 "st7789"
  * @table config 配置表
  * @int config.w 屏幕宽度，默认 240
  * @int config.h 屏幕高度，默认 320
+ * @int config.crop_x 窗口X坐标，默认 0
+ * @int config.crop_y 窗口Y坐标，默认 0
+ * @int config.crop_w 窗口宽度，默认 240
+ * @int config.crop_h 窗口高度，默认 320
  * @int config.bpp 每像素位数，默认 16 (RGB565)
  * @string config.interface 接口类型，"rgb"(默认) 或 "sdl"(PC模拟)
  * @int config.pin_rst 复位引脚，默认 0xFF(无)
  * @int config.pin_bl 背光引脚，默认 0xFF(无)
  * @int config.pin_pwr 电源引脚，默认 0xFF(无)
- * @int config.auto_flush 自动刷新，默认 1
  * @int config.hbp 水平后廊 (RGB接口)
  * @int config.hfp 水平前廊 (RGB接口)
  * @int config.hspw 水平同步脉宽 (RGB接口)
@@ -136,8 +284,8 @@ static int l_display_init(lua_State *L)
     }
     strncpy(iface_buf, lua_tostring(L, -1), sizeof(iface_buf) - 1);
     lua_pop(L, 1);
-
-    luat_display_t *L_disp = luat_heap_zalloc(sizeof(luat_display_t));
+    
+    struct luat_display *L_disp = luat_heap_zalloc(sizeof(struct luat_display));
 
     if (L_disp == NULL) {
         lua_pushboolean(L, 0);
@@ -145,7 +293,11 @@ static int l_display_init(lua_State *L)
         return 2;
     }
 
-    /*查找显示面板*/
+#ifdef LUAT_USE_LCD_SDL2
+        strncpy(iface_buf, "sdl", 3);   //PC平台
+#endif
+
+    /*根据接口类型查找显示面板*/
     L_disp->panel = get_panel(panel_name, iface_buf);
     
     if (L_disp->panel == NULL) {
@@ -155,6 +307,31 @@ static int l_display_init(lua_State *L)
         return 2;
     }
 
+    /*先检查，如果没有屏幕有效区域，分配屏幕有效区域*/
+    if(L_disp->panel->crop_win == NULL) {
+        L_disp->panel->crop_win = luat_heap_zalloc(sizeof(struct luat_display_rect));
+        if(L_disp->panel->crop_win == NULL) {
+            luat_heap_free(L_disp);
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "alloc crop win fail");
+            return 2;
+        }
+        /*设置裁剪窗口,默认全屏*/
+        panel_crop_win_setup(L_disp->panel, L);
+    }
+
+    /*自定义面板*/
+    if(strcmp(panel_name, "custom") == 0) {
+        /*设置时序参数*/
+        int ret = custom_panel_setup(L_disp->panel, L);
+        if(ret) {
+            luat_heap_free(L_disp);
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "panel setup fail");
+            return 2;
+        }
+    }
+    
     /*根据接口类型获取显示函数*/
     struct luat_display_funcs *funcs = get_interface_funcs(iface_buf);
     if (funcs == NULL) {
@@ -166,96 +343,34 @@ static int l_display_init(lua_State *L)
 
     L_disp->funcs = funcs;
 
+    /*获取引脚配置参数*/
+    struct panel_pin_device *pin = luat_heap_zalloc(sizeof(struct panel_pin_device));
+    if (pin == NULL) {
+        luat_heap_free(L_disp);
+        luat_heap_free(fb_info);
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "alloc pin fail");
+        return 2;
+    }
 
+    custom_pin_setup(pin, L);
 
-#ifdef LUAT_USE_LCD_SDL2
-        
-#endif
+    L_disp->panel->pin = pin;
 
-    lua_getfield(L, 2, "w");
-    disp->width = luaL_optinteger(L, -1, 240);
-    lua_pop(L, 1);
+    /*初始化显示*/
+    int ret = luat_display_init(L_disp);
 
-    lua_getfield(L, 2, "h");
-    disp->height = luaL_optinteger(L, -1, 320);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "bpp");
-    disp->bpp = luaL_optinteger(L, -1, 16);
-    if (disp->bpp == 0) disp->bpp = 16;
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "pin_rst");
-    disp->pin_rst = luaL_optinteger(L, -1, LUAT_GPIO_NONE);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "pin_bl");
-    disp->pin_bl = luaL_optinteger(L, -1, LUAT_GPIO_NONE);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "pin_pwr");
-    disp->pin_pwr = luaL_optinteger(L, -1, LUAT_GPIO_NONE);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "auto_flush");
-    disp->auto_flush = luaL_optinteger(L, -1, 1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "hbp");
-    disp->rgb_timing.hbp = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "hfp");
-    disp->rgb_timing.hfp = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "hspw");
-    disp->rgb_timing.hspw = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "vbp");
-    disp->rgb_timing.vbp = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "vfp");
-    disp->rgb_timing.vfp = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "vspw");
-    disp->rgb_timing.vspw = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "pclk_hz");
-    disp->rgb_timing.pclk_hz = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "hs_polarity");
-    disp->rgb_timing.hs_polarity = luaL_optinteger(L, -1, 1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "vs_polarity");
-    disp->rgb_timing.vs_polarity = luaL_optinteger(L, -1, 1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "de_polarity");
-    disp->rgb_timing.de_polarity = luaL_optinteger(L, -1, 1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "pclk_polarity");
-    disp->rgb_timing.pclk_polarity = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    int ret = luat_display_init(disp);
     if (ret != 0) {
-        luat_heap_free(disp);
+        luat_heap_free(L_disp);
         lua_pushboolean(L, 0);
         lua_pushstring(L, "init fail");
         return 2;
     }
 
-    luat_display_register(disp);
+    /*注册显示器*/
+    L_disp->id = luat_display_register(L_disp);
 
-    luat_display_on(disp);
+    luat_display_on(L_disp);
 
     lua_pushboolean(L, 1);
     return 1;
@@ -266,7 +381,7 @@ static int l_display_init(lua_State *L)
  * @return bool 成功返回 true，未初始化返回 false
  */
 static int l_display_on(lua_State *L) {
-    luat_display_t *disp = luat_display_get_default();
+    struct luat_display *disp = luat_display_get_default();
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -281,7 +396,7 @@ static int l_display_on(lua_State *L) {
  * @return bool 成功返回 true，未初始化返回 false
  */
 static int l_display_off(lua_State *L) {
-    luat_display_t *disp = luat_display_get_default();
+    struct luat_display *disp = luat_display_get_default();
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -296,7 +411,7 @@ static int l_display_off(lua_State *L) {
  * @return bool 成功返回 true，未初始化返回 false
  */
 static int l_display_sleep(lua_State *L) {
-    luat_display_t *disp = luat_display_get_default();
+    struct luat_display *disp = luat_display_get_default();
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -311,7 +426,7 @@ static int l_display_sleep(lua_State *L) {
  * @return bool 成功返回 true，未初始化返回 false
  */
 static int l_display_wakeup(lua_State *L) {
-    luat_display_t *disp = luat_display_get_default();
+    struct luat_display *disp = luat_display_get_default();
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -326,7 +441,7 @@ static int l_display_wakeup(lua_State *L) {
  * @return bool 成功返回 true，未初始化或无帧缓冲返回 false
  */
 static int l_display_flush(lua_State *L) {
-    luat_display_t *disp = luat_display_get_default();
+    struct luat_display *disp = luat_display_get_default();
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -342,7 +457,7 @@ static int l_display_flush(lua_State *L) {
  * @return bool 成功返回 true，未初始化返回 false
  */
 static int l_display_set_rotation(lua_State *L) {
-    luat_display_t *disp = luat_display_get_default();
+    struct luat_display *disp = luat_display_get_default();
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -359,7 +474,7 @@ static int l_display_set_rotation(lua_State *L) {
  * @return int height 屏幕高度
  */
 static int l_display_get_size(lua_State *L) {
-    luat_display_t *disp = luat_display_get_default();
+    struct luat_display *disp = luat_display_get_default();
     if (disp == NULL) {
         lua_pushinteger(L, 0);
         lua_pushinteger(L, 0);
@@ -377,7 +492,7 @@ static int l_display_get_size(lua_State *L) {
  * @return int fb_count FrameBuffer 数量 (1=单缓冲, 2=双缓冲)
  */
 static int l_display_get_fb(lua_State *L) {
-    luat_display_t *disp = luat_display_get_default();
+    struct luat_display *disp = luat_display_get_default();
     if (disp == NULL || disp->fb_info.addr == NULL) {
         lua_pushnil(L);
         return 1;

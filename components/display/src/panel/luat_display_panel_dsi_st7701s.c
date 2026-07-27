@@ -17,7 +17,9 @@
 /*初始化面板*/
 static int panel_init(struct luat_display_panel *panel) 
 {
-    
+    /*使用默认的复位，如果复位时序不对，请使用自定义的*/
+    luat_display_panel_reset(panel);
+
     panel_dsi_send_seq(panel, 0xFF, 0x77, 0x01, 0x00, 0x00, 0x13);
     panel_dsi_send_seq(panel, 0xEF, 0x08);
     panel_dsi_send_seq(panel, 0xFF, 0x77, 0x01, 0x00, 0x00, 0x10);
@@ -65,7 +67,7 @@ static int panel_deinit(struct luat_display_panel *panel)
 }
 
 /*控制面板*/
-static int panel_ctrl(struct luat_display_panel *panel, uint8_t state)
+static int panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg)
 {
     return 0;
 }
@@ -108,6 +110,7 @@ struct luat_display_panel dsi_panel_st7701s = {
     .dsi = &st7701s_dsi,
     .panel_funcs = &panel_funcs_dsi,
     .timing = &st7701s_timing,
+    .screen_win = NULL,
 };
 
 

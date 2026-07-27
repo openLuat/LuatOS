@@ -18,6 +18,8 @@
 /*初始化面板*/
 static int panel_init(struct luat_display_panel *panel) 
 {
+    /*使用默认的复位，如果复位时序不对，请使用自定义的*/
+    luat_display_panel_reset(panel);
     
     panel_spi_send_seq(panel, 0x3A, 0x05);
     panel_spi_send_seq(panel, 0xB2, 0x0C, 0x0C, 0x00, 0x33, 0x33);
@@ -42,7 +44,7 @@ static int panel_deinit(struct luat_display_panel *panel)
 }
 
 /*控制面板*/
-static int panel_ctrl(struct luat_display_panel *panel, uint8_t state)
+static int panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg)
 {
     return 0;
 }
@@ -52,6 +54,14 @@ static struct luat_display_panel_funcs panel_funcs_spi = {
     .panel_init     = panel_init,
     .panel_deinit   = panel_deinit,
     .panel_ctrl     = panel_ctrl,
+};
+
+/*SPI面板显示窗口*/
+static struct luat_display_rect spi_screen_win = {
+    .x = 0,
+    .y = 0,
+    .w = 240,
+    .h = 320,
 };
 
 /*对接口的描述*/
@@ -67,6 +77,7 @@ struct luat_display_panel spi_panel_st7789 = {
     .connector_type = LUAT_DISPLAY_CONNECTOR_DBI,
     .dbi = &st7789_dbi,
     .panel_funcs = &panel_funcs_spi,
+    .screen_win = &spi_screen_win,
 };
 
 

@@ -1,11 +1,12 @@
 #include "luat_base.h"
 #include "luat_display.h"
 #include "luat_sdl2.h"
+#include "luat_display_if_comm.h"
 
 #define LUAT_LOG_TAG "display_sdl"
 #include "luat_log.h"
 
-static int sdl_init(luat_display_t *disp) 
+static int sdl_init(struct luat_display *disp) 
 {
     luat_sdl2_conf_t cfg = {
         .width = disp->width,
@@ -19,7 +20,7 @@ static int sdl_init(luat_display_t *disp)
     return ret;
 }
 
-static int sdl_deinit(luat_display_t *disp) 
+static int sdl_deinit(struct luat_display *disp) 
 {
     luat_sdl2_conf_t cfg = {0};
     luat_sdl2_deinit(&cfg);
@@ -28,17 +29,24 @@ static int sdl_deinit(luat_display_t *disp)
 
 
 
-static int sdl_fb_probe(struct luat_display_fb_info *info) 
+static int sdl_fb_probe(struct luat_display_panel *panel, struct luat_display_fb_info *info) 
 {
     return 0;
 }
 
+/*初始化接口，在这里设置timing参数*/
+static int sdl_inf_init(struct luat_display_panel *panel) 
+{
+    return 0;
+}
+
+/*设置显示层*/
 static int sdl_set_layer(struct luat_display_layer_data *layer_data) 
 {
     return 0;
 }
 
-static int sdl_fb_flush(luat_display_t *disp,int16_t x1, int16_t y1, int16_t x2, int16_t y2, const void *data, enum disp_rotate rotation) 
+static int sdl_fb_flush(struct luat_display *disp,int16_t x1, int16_t y1, int16_t x2, int16_t y2, const void *data, enum disp_rotate rotation) 
 {
     const void *src = data ? data : disp->fb_info.addr;
     if (src == NULL) {
@@ -53,12 +61,12 @@ static int sdl_fb_flush(luat_display_t *disp,int16_t x1, int16_t y1, int16_t x2,
     return 0;
 }
 
-static int sdl_wait_vsync(luat_display_t *disp) 
+static int sdl_wait_vsync(struct luat_display *disp) 
 {
     return 0;
 }
 
-static int sdl_pan_display(luat_display_t *disp) 
+static int sdl_pan_display(struct luat_display *disp) 
 {
     return 0;
 }
@@ -67,6 +75,7 @@ static int sdl_pan_display(luat_display_t *disp)
 struct luat_display_funcs sdl_funcs = {
     .name = "sdl",
     .fb_probe = sdl_fb_probe,
+    .inf_init = sdl_inf_init,
     .set_layer = sdl_set_layer,
     .fb_flush = sdl_fb_flush,
     .wait_vsync = sdl_wait_vsync,

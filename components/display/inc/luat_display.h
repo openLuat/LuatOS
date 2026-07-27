@@ -29,7 +29,7 @@ enum disp_format {
   LUAT_DISPLAY_FORMAT_CUSTOM = 7,
 };
 
-enum disp_power {
+enum display_ctrl_cmd {
     LUAT_DISPLAY_POWER_OFF   = 0,
     LUAT_DISPLAY_POWER_SLEEP = 1,
     LUAT_DISPLAY_POWER_ON    = 2,
@@ -115,8 +115,9 @@ enum dsi_format {
     DSI_FMT_MAX
 };
 
-struct luat_display_panel;
 
+struct luat_display;
+struct luat_display_panel;
 
 /*DSI参数*/
 struct panel_dsi {
@@ -141,7 +142,7 @@ struct panel_dbi {
 };
 
 /*引脚配置参数*/
-typedef struct panel_pin_device {
+struct panel_pin_device {
     
     /*配置参数用的SPI引脚*/
     uint8_t  cs;
@@ -152,20 +153,48 @@ typedef struct panel_pin_device {
     uint8_t  rst;
     uint8_t  pwr;
     uint8_t  bl;
+    uint8_t  dc;    //spi: data/command select
 
-}panel_pin_device_t;
+};
+
+struct luat_display_area {
+    int32_t x1;
+    int32_t y1;
+    int32_t x2;
+    int32_t y2;
+};
+
+struct luat_display_rect {
+    int32_t x;
+    int32_t y;
+    int32_t w;
+    int32_t h;
+};
+
+struct luat_display_buf{
+
+    void *buffer;
+    uint32_t size;      /*显示缓冲区大小 (bytes)*/
+    uint32_t stride;    /*绘制缓冲区行步长*/
+    uint32_t count;     /*显示缓冲区数量*/
+    enum disp_format format;    /*显示格式*/
+    uint32_t width;          // 宽度
+    uint32_t height;         // 高度
+};
 
 /*显示缓冲区信息*/
 struct luat_display_fb_info {
-    
+
+    int inited;              // 是否初始化完成
+    enum disp_format format; // 显示格式
+    uint32_t bits_per_pixel; // 每像素位数(bpp值)
+    uint32_t stride;         // 行步长
     void *fb_start;          // FB基地址，有多块FB 往后追加
     uint32_t fb_size;        // 单个 buf 大小 (bytes)
     uint32_t fb_count;       // FB数量
     uint32_t width;          // 宽度
     uint32_t height;         // 高度
-    uint32_t stride;         // 行步长
-    uint32_t bits_per_pixel; // 每像素位数(bpp值)
-
+    struct luat_display_buf draw_buf;   // 绘制缓冲区
 };
 
 /*显示层数据*/
@@ -173,14 +202,16 @@ struct luat_display_layer_data {
 
     uint32_t enable;    // 是否启用该层
     uint32_t layer_id;  // 层_id
-    uint32_t rect_id;   // 矩形_id
+    uint32_t area_id;   // 区域_id
 
     /*位置和尺寸*/
-    uint32_t x;
-    uint32_t y;
-    uint32_t width;
-    uint32_t height;
+    struct luat_display_area area;
+
+    /*显示缓冲区*/
     void *buffer;
+
+    /*显示格式*/
+    enum disp_format format;
 
 };
 
@@ -204,6 +235,8 @@ struct luat_display_timing {
     
 };
 
+struct luat_display;
+
 /*显示面板操作接口*/
 struct luat_display_panel_funcs {
 
@@ -214,7 +247,7 @@ struct luat_display_panel_funcs {
     int (*panel_deinit)(struct luat_display_panel *panel);
 
     /*面板控制接口*/
-    int (*panel_ctrl)(struct luat_display_panel *panel, uint8_t state);
+    int (*panel_ctrl)(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg);
 
 };
 
@@ -225,7 +258,8 @@ struct luat_display_panel
     const char *desc;  //显示面板描述
 
     struct luat_display_panel_funcs *panel_funcs;
-    struct luat_display_timing *timing;   // 显示时序参数
+    struct luat_display_timing *timing;             // 显示时序参数
+    struct luat_display_rect *screen_win;            // 屏幕窗口
 
     union {
         struct panel_rgb  *rgb;
@@ -234,7 +268,10 @@ struct luat_display_panel
         struct panel_dbi  *dbi;
     };
 
-    unsigned int connector_type; // 连接器类型
+    /*引脚配置参数*/
+    struct panel_pin_device *pin;
+
+    unsigned int connector_type; // 连接器类型 RGB/LVDS/DSI/DBI
 };
 
 /*显示操作接口*/
@@ -242,25 +279,32 @@ struct luat_display_funcs {
 
     const char *name;
 
-    /*探测显示缓冲区*/
-    int (*fb_probe)(struct luat_display_fb_info *info);
+    /*探测显示缓冲区,调用前先将 info 实例化，不能为 NULL，探测成功后，info 中会填充显示缓冲区信息*/
+    int (*fb_probe)(struct luat_display_panel *panel, struct luat_display_fb_info *info);
+
+    /*初始化接口，在这里设置接口参数、设置timing参数*/
+    int (*inf_init)(struct luat_display_panel *panel);
+
+    /*刷新显示缓冲区*/
+    int (*fb_flush)(struct luat_display_rect *rect, const void *data, enum disp_rotate rotation);
 
     /*设置显示层*/
     int (*set_layer)(struct luat_display_layer_data *layer_data);
     
-    /*刷新显示缓冲区*/
-    int (*fb_flush)(int32_t x1, int32_t y1, int32_t x2, int32_t y2, const void *data, enum disp_rotate rotation);
-
     /*垂直同步*/
     int (*wait_vsync)(void);
 
-    /*显示面板*/
+    /*交换缓冲区*/
     int (*pan_display)(int index);
-    
+
 };
 
+/*显示图形操作接口*/
+struct luat_display_graphics_funcs {
 
-typedef struct luat_display {
+};
+
+struct luat_display {
     /*显示组件ID*/
     uint8_t  id;
 
@@ -273,33 +317,12 @@ typedef struct luat_display {
     /*显示缓冲区信息*/
     struct luat_display_fb_info *fb_info;
 
-    /*引脚配置参数*/
-    panel_pin_device_t *pin;
-
     /*显示接口操作*/
     struct luat_display_funcs *display_funcs;
 
     void    *userdata;
-}luat_display_t;
 
-/*****************************************************
- * RGB面板操作接口
- ******************************************************/
-int rgb_spi_panel_send_sequence(struct luat_display_panel *panel, const unsigned char *data, uint32_t len);
-
-
-/*****************************************************
- * DSI面板操作接口
- ******************************************************/
-int dsi_panel_send_sequence(struct luat_display_panel *panel, const unsigned char *data, uint32_t len);
-
-
-/*****************************************************
- * SPI面板操作接口
- ******************************************************/
-int spi_panel_send_sequence(struct luat_display_panel *panel, const unsigned char *data, uint32_t len);
-
-
+};
 
 
 

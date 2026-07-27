@@ -96,6 +96,7 @@ local function on_cc_event(status, value, extra)
     if status == "READY" then
         g_ready = true
         logi("CC 系统已就绪")
+        sys.publish("CC_READY")
 
     elseif status == "INCOMINGCALL" then
         local number = cc and cc.lastNum and cc.lastNum() or ""
@@ -112,7 +113,16 @@ local function on_cc_event(status, value, extra)
         logi("手机来电", number)
         sys.publish("CC_INCOMING", number)
 
-    elseif status == "CONNECTED" or status == "AUDIO_START" then
+    elseif status == "CONNECTED" then
+        if g_state ~= STATE_CONNECTED then
+            set_state(STATE_CONNECTED)
+            logi("CC 通话已建立")
+            sys.publish("CC_CONNECTED")
+        end
+
+    elseif status == "AUDIO_START" then
+        logi("CC 音频通道已启动")
+        sys.publish("CC_AUDIO_START")
         if g_state ~= STATE_CONNECTED then
             set_state(STATE_CONNECTED)
             logi("CC 通话已建立")
@@ -122,10 +132,11 @@ local function on_cc_event(status, value, extra)
     elseif status == "DISCONNECTED" then
         set_state(STATE_IDLE)
         logi("CC 通话已断开")
-        sys.publish("CC_DISCONNECTED")
+        sys.publish("CC_DISCONNECTED", value or "")
 
     elseif status == "MAKE_CALL_OK" then
         logi("CC 拨号请求已发送")
+        sys.publish("CC_MAKE_CALL_OK")
 
     elseif status == "MAKE_CALL_FAILED" then
         log.error("cc_main", "CC 拨号失败")
@@ -134,10 +145,25 @@ local function on_cc_event(status, value, extra)
 
     elseif status == "ANSWER_CALL_DONE" then
         logi("CC 接听完成")
+        sys.publish("CC_ANSWER_CALL_DONE")
 
     elseif status == "HANGUP_CALL_DONE" then
         logi("CC 挂断完成")
         set_state(STATE_IDLE)
+        sys.publish("CC_HANGUP_CALL_DONE")
+
+    elseif status == "SPEECH_START" then
+        logi("CC 语音开始")
+        sys.publish("CC_SPEECH_START")
+
+    elseif status == "PLAY" then
+        logi("CC 播放事件", value)
+        -- PLAY 0 仅表示当前播放请求停止，不代表运营商下行媒体最终结束。
+        sys.publish("CC_PLAY", value)
+
+    elseif status == "DIAL_TONE" then
+        logi("CC 拨号音")
+        sys.publish("CC_DIAL_TONE")
     end
 end
 

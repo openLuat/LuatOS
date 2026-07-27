@@ -23,7 +23,6 @@ local function ip_ready_func(ip, adapter)
         socket.setDNS(adapter, 2, "114.114.114.114")
         
         log.info("netdrv_4g.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_GP))
-
     end
 end
 

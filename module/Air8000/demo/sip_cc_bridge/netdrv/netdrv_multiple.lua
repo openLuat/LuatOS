@@ -41,7 +41,6 @@ local function netdrv_multiple_notify_cbfunc(net_type,adapter)
     else
         log.warn("netdrv_multiple_notify_cbfunc", "unknown status", net_type, adapter)
     end
-    
 end
 
 local function netdrv_multiple_task_func()
@@ -49,11 +48,11 @@ local function netdrv_multiple_task_func()
     exnetif.set_priority_order(
         {
 
-            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air8000开发板验证
+            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air780EHV开发板验证
             {
                 ETHERNET = {
                     -- 供电使能GPIO
-                    pwrpin = 140,
+                    pwrpin = 20,
                     -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
                     -- 如果没有传入此参数，exnetif会使用默认值10秒
                     ping_time = 3000,
@@ -65,22 +64,7 @@ local function netdrv_multiple_task_func()
                     
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                     tp = netdrv.CH390, 
-                    opts = {spi=1, cs=12, irq = 21},
-                    auto_socket_switch = false
-                }
-            },
-
-            -- WIFI STA网卡
-            {
-                WIFI = {
-                    -- 要连接的WIFI路由器名称
-                    ssid = "admin-降功耗，找合宙！",
-                    -- 要连接的WIFI路由器密码
-                    password = "Air123456",  
-                    -- 连通性检测ip(选填参数)；
-                    -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
-                    -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
-                    -- ping_ip = "填入可靠的并且可以ping通的ip地址",
+                    opts = {spi=0, cs=8},
                     auto_socket_switch = false
                 }
             },

@@ -4,6 +4,7 @@
 
 #include "luat_spi.h"
 #include "tiny_epd.h"
+#include "tiny_epd_bitmap.h"
 #include "tiny_epd_gfx.h"
 #include "tiny_epd_qrcode.h"
 #include "tiny_epd_port_luatos.h"
@@ -15,6 +16,9 @@
 #ifdef LUAT_USE_HZFONT
 #include "tiny_epd_hzfont.h"
 #endif
+
+#define LUAT_LOG_TAG "epd"
+#include "luat_log.h"
 
 #define LUAT_TINY_EPD_DEVICE_META "epd.dev"
 #define LUAT_TINY_EPD_SPI_DEVICE_META "SPI*"
@@ -721,6 +725,59 @@ static int l_tiny_epd_circle(lua_State *L)
 }
 
 /*
+@api panel:drawXbm(x, y, width, height, data[, fg[, bg]])
+@number x,y 位图左上角逻辑坐标；允许负坐标，屏幕外部分自动裁剪
+@number width,height 位图像素尺寸
+@string data XBM 数据：逐行存储，每行 ceil(width/8) 字节，低位在左
+@number fg 置位像素颜色，epd.BLACK（默认）或 epd.WHITE
+@number|nil bg 清零像素颜色，epd.WHITE（默认）；显式传 nil 表示透明
+@return boolean 成功返回 true，失败返回 false 和错误信息
+@usage
+-- 与 eink.drawXbm()/u8g2.DrawXBM 格式相同：每个字节 bit0 是最左侧像素
+local xbm = string.char(0x81, 0x42, 0x24, 0x18, 0x24, 0x42, 0x81, 0x00)
+assert(panel:drawXbm(20, 30, 8, 8, xbm))
+-- 透明叠加：只有位图中的 1 写入 framebuffer
+assert(panel:drawXbm(20, 30, 8, 8, xbm, epd.BLACK, nil))
+*/
+static int l_tiny_epd_draw_xbm(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer x = luaL_checkinteger(L, 2);
+    lua_Integer y = luaL_checkinteger(L, 3);
+    lua_Integer width = luaL_checkinteger(L, 4);
+    lua_Integer height = luaL_checkinteger(L, 5);
+    size_t data_len;
+    const char *data = luaL_checklstring(L, 6, &data_len);
+    int fg = (int)luaL_optinteger(L, 7, TINY_EPD_COLOR_BLACK);
+    int bg = TINY_EPD_COLOR_WHITE;
+
+    /* An omitted eighth argument preserves legacy eink opaque semantics;
+     * an explicit nil selects transparent XBM zero bits. */
+    if (lua_gettop(L) >= 8) {
+        if (lua_isnil(L, 8)) {
+            bg = TINY_EPD_BITMAP_TRANSPARENT;
+        }
+        else {
+            bg = (int)luaL_checkinteger(L, 8);
+        }
+    }
+
+    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
+        width < 1 || width > UINT16_MAX || height < 1 || height > UINT16_MAX ||
+        fg < TINY_EPD_COLOR_BLACK || fg > TINY_EPD_COLOR_WHITE ||
+        (bg != TINY_EPD_BITMAP_TRANSPARENT &&
+         (bg < TINY_EPD_COLOR_BLACK || bg > TINY_EPD_COLOR_WHITE))) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_draw_xbm(device->epd,
+                                                       (int16_t)x, (int16_t)y,
+                                                       (uint16_t)width, (uint16_t)height,
+                                                       (const uint8_t *)data, data_len,
+                                                       (uint8_t)fg, (int16_t)bg));
+}
+
+/*
 @api panel:qrcode(x, y, str[, size[, color]])
 @number x,y 左上角坐标
 @string  str QR 内容
@@ -919,6 +976,7 @@ static const luaL_Reg tiny_epd_device_methods[] = {
     {"line",         l_tiny_epd_line},
     {"rect",         l_tiny_epd_rect},
     {"circle",       l_tiny_epd_circle},
+    {"drawXbm",      l_tiny_epd_draw_xbm},
     {"qrcode",       l_tiny_epd_qrcode},
 #ifdef LUAT_USE_HZFONT
     {"drawHzfont",   l_tiny_epd_draw_hzfont},

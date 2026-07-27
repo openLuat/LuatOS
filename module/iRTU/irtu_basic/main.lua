@@ -30,7 +30,6 @@ PRODUCT_KEY = "0LkZx9Kn3tOhtW7uod48xhilVNrVsScV"
 log.info("main", PROJECT, VERSION)
 
 local rfa = require("rfa")
-local isRFA_mode = false
 
 --添加硬狗防止程序卡死
 if wdt then
@@ -41,7 +40,7 @@ end
 -- 检查是否为RFA模式, 用mobile.rfTestParam接口是否存在来判断当前固件是否支持RFA模式
 if rfa and mobile.rfTestParam then
     -- 通过自发送 AT+ECNPICFG? 查询 rfCaliDone 和 rfNSTDone
-    -- 两者都为1表示RFA校准流程全部通过，不进入RFA模式；否则进入RFA校准模式
+    -- 两者都为1表示RFA校准流程全部通过；否则禁止加载irtu, 进入RFA校准模式
     local resp = rfa.dispatch("AT+ECNPICFG?")
     local rfCaliDone, rfNSTDone = 0, 0
     if resp then
@@ -51,26 +50,31 @@ if rfa and mobile.rfTestParam then
     rfNSTDone = tonumber(rfNSTDone) or 0
     log.info("main", "rfCaliDone", rfCaliDone, "rfNSTDone", rfNSTDone)
     if rfCaliDone == 1 and rfNSTDone == 1 then
-        isRFA_mode = false
-        log.info("main", "进入iRTU模式")
+        -- 校准已完成: 允许加载irtu脚本, 再通过 AT+SETCFG? 查询是否处于rfa模式
+        -- 只有 rfa_mode 明确为(false)才退出rfa模式, VUART_0归irtu, 正常处理irtu数据
+        -- 读不到配置或rfa_mode为(true): 处于rfa模式, VUART_0归rfa的AT服务器, 禁用irtu的VUART_0数据回调
+        local cfg_resp = rfa.dispatch("AT+SETCFG?")
+        local rfa_mode = cfg_resp and cfg_resp:match('"rfa_mode"%s*,%s*"(%a+)"')
+        log.info("main", "rfa_mode", rfa_mode)
+        if rfa_mode == "false" then
+            log.info("main", "已退出rfa模式, 进入iRTU模式")
+        else
+            log.info("main", "当前处于rfa模式, 禁用irtu的VUART_0数据回调")
+            -- 启动 RFA AT 服务器，绑定到 USB 虚拟串口 VUART_0
+            -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致
+            rfa.start(uart.VUART_0, 115200)
+            -- 置位全局标志, 通知irtu的driver不要注册VUART_0的数据回调
+            _G.IRTU_DISABLE_VUART = true
+        end
+        -- 校准完成后无论是否退出rfa模式都加载irtu_main模块
+        require "irtu_main"
     else
-        isRFA_mode = true
-        log.info("main", "RFA校准未完成，进入RFA校准模式")
+        -- 校准未完成: 禁止require irtu代码, VUART_0只响应rfa的校准指令
+        log.info("main", "RFA校准未完成，进入RFA校准模式，禁止加载irtu")
+        rfa.start(uart.VUART_0, 115200)
     end
 else
     log.info("main", "rfa模块未加载，默认iRTU模式")
-end
-
--- 用户代码已开始---------------------------------------------
--- 在这里编写你的代码
-if rfa and mobile.rfTestParam and isRFA_mode then
-    log.info("main", "当前为RFA模式")
-    -- 启动 RFA AT 服务器，绑定到 USB 虚拟串口 VUART_0
-    -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致
-    rfa.start(uart.VUART_0, 115200)
-    log.info("rfa", "RFA AT server started on VUART_0")
-else
-    log.info("main", "当前为iRTU模式")
     --加载irtu_main模块
     require "irtu_main"
 end

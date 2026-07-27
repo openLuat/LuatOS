@@ -110,7 +110,11 @@ local default_config = {
     auto_answer = false,
     delay_auto_answer = 0,
     call_timeout = 30,
-    adapter = nil  -- nil = 使用系统默认网卡
+    debug_sip_response = false,
+    early_media = true,
+    early_media_response = 183,
+    adapter = nil,  -- nil = 使用系统默认网卡
+    audio_mode = nil,  -- nil = 使用系统默认音频模式；voip.AUDIO_MODE_BRIDGE, -- 使用桥接模式
 }
 
 
@@ -342,6 +346,7 @@ end
 @boolean config.auto_answer 是否自动接听，默认 false
 @number config.delay_auto_answer 自动接听延迟（秒），默认 0
 @number config.call_timeout 拨号超时时间（秒），默认 30
+@boolean config.debug_sip_response 是否打印完整 SIP 服务器响应，默认 false
 @number config.adapter 网络适配器，nil=使用系统默认，socket.LWIP_GP=4G，socket.LWIP_STA=WiFi，socket.LWIP_ETH=以太网
 @return boolean 成功返回 true，失败返回 false
 @usage
@@ -410,6 +415,32 @@ function exsip.start()
         return false
     end
 
+    -- 根据调用方配置设置 VoIP 音频模式
+    if g_config.audio_mode ~= nil then
+        if not voip or type(voip.setAudioMode) ~= "function" then
+            log_error("voip.setAudioMode not supported")
+            return false
+        end
+
+        local mode_ok = voip.setAudioMode(g_config.audio_mode)
+
+        if not mode_ok and voip.stop then
+            log_warn("set audio mode failed, stop voip and retry")
+            voip.stop()
+
+            -- 不建议在 exsip 库内部使用 sys.wait(500)
+            -- voip.stop 如果是同步完成，可以直接重试
+            mode_ok = voip.setAudioMode(g_config.audio_mode)
+        end
+
+        if not mode_ok then
+            log_error("set voip audio mode failed:", g_config.audio_mode)
+            return false
+        end
+
+        log_info("voip audio mode configured:", g_config.audio_mode)
+    end
+
     setup_voip_callbacks()
 
     -- 订阅 IP 就绪/丢失事件
@@ -437,6 +468,9 @@ function exsip.start()
         codecs = g_config.codecs,
         ptime = g_config.ptime,
         call_timeout = g_config.call_timeout,
+        debug_sip_response = g_config.debug_sip_response,
+        early_media = g_config.early_media,
+        early_media_response = g_config.early_media_response,
         event_callback = sip_event_handler
     })
 
@@ -493,7 +527,7 @@ end
 @usage
 exsip.dial("1002")
 ]]
-function exsip.dial(target)
+function exsip.dial(target,from_number)
     if not g_started then
         log_error("not started, call exsip.start() first")
         return false
@@ -508,8 +542,8 @@ function exsip.dial(target)
         log_error("target must be a string")
         return false
     end
-    sipclient.call(target)
-    log_info("calling:", target)
+    sipclient.call(target,from_number)
+    log_info("calling:", target,from_number)
     return true
 end
 
@@ -537,6 +571,29 @@ function exsip.accept()
 end
 
 --[[
+发送来电早期媒体响应。
+@api exsip.progress()
+@return boolean 成功返回 true，失败返回 false
+@usage
+exsip.progress()
+]]
+function exsip.progress()
+    if not g_started then
+        log_error("not started")
+        return false
+    end
+
+    if not sipclient or not sipclient.progress then
+        log_error("sipclient.progress not available")
+        return false
+    end
+
+    sipclient.progress()
+    log_info("progressing incoming call")
+    return true
+end
+
+--[[
 挂断通话。
 @api exsip.hangUp()
 @return boolean 成功返回 true，失败返回 false
@@ -556,6 +613,31 @@ function exsip.hangUp()
 
     sipclient.hangup()
     log_info("hanging up")
+    return true
+end
+
+--[[
+使用指定 SIP 失败码结束尚未接听的来电。
+@api exsip.fail(code, reason)
+@number code SIP 状态码，默认 486
+@string reason 原因短语
+@return boolean 成功返回 true，失败返回 false
+@usage
+exsip.fail(480, "Temporarily Unavailable")
+]]
+function exsip.fail(code, reason)
+    if not g_started then
+        log_error("not started")
+        return false
+    end
+
+    if not sipclient or not sipclient.fail then
+        log_error("sipclient.fail not available")
+        return false
+    end
+
+    sipclient.fail(code, reason)
+    log_info("failing incoming call", code, reason)
     return true
 end
 

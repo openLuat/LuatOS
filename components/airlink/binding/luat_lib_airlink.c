@@ -190,7 +190,7 @@ static int l_airlink_slave_reboot(lua_State *L) {
 int luat_airlink_sdata_send(const void* data, size_t len) {
     int mode = luat_airlink_current_mode_get();
     if (luat_airlink_peer_rpc_supported() && mode >= 0) {
-        LLOGI("sdata via RPC notify len=%d", len);
+        // LLOGD("sdata via RPC notify len=%d", len);
         const uint8_t* ptr = (const uint8_t*)data;
         size_t remaining = len;
         while (remaining > 0) {
@@ -207,7 +207,7 @@ int luat_airlink_sdata_send(const void* data, size_t len) {
         return 0;
     }
     if (len > 1500) return -1;
-    LLOGI("sdata via raw cmd 0x20 len=%d", len);
+    // LLOGD("sdata via raw cmd 0x20 len=%d", len);
     luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
     if (!cmd) return -2;
     cmd->cmd = 0x20;
@@ -310,7 +310,7 @@ static int l_airlink_cmd(lua_State *L) {
     return 1;
 }
 
-static int sample_cmd_nodata(lua_State *L, uint32_t cmd_id) {
+static int simple_cmd_nodata(lua_State *L, uint32_t cmd_id) {
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(cmd_id, 8);
     if (cmd == NULL) return 0;
     uint64_t pkgid = luat_airlink_get_next_cmd_id();
@@ -323,17 +323,17 @@ static int sample_cmd_nodata(lua_State *L, uint32_t cmd_id) {
 
 static int l_airlink_sfota_init(lua_State *L) {
     LLOGD("执行sfota_init");
-    return sample_cmd_nodata(L, 0x04);
+    return simple_cmd_nodata(L, 0x04);
 }
 
 static int l_airlink_sfota_done(lua_State *L) {
     LLOGD("执行sfota_done");
-    return sample_cmd_nodata(L, 0x06);
+    return simple_cmd_nodata(L, 0x06);
 }
 
 static int l_airlink_sfota_end(lua_State *L) {
     LLOGD("执行sfota_end");
-    return sample_cmd_nodata(L, 0x07);
+    return simple_cmd_nodata(L, 0x07);
 }
 
 static int l_airlink_sfota_write(lua_State *L) {

@@ -11,13 +11,11 @@
 
 local exsip = require "exsip"
 local config = require "config"
--- 自动加载桥接协调器
-local bridge = require "bridge"
-
 local sip_main = {}
 
 local STATE_IDLE = "sip_idle"
 local STATE_INCOMING = "sip_incoming"
+local STATE_PROGRESSING = "sip_progressing"
 local STATE_DIALING = "sip_dialing"
 local STATE_CONNECTED = "sip_connected"
 local STATE_DISCONNECTING = "sip_disconnecting"
@@ -38,14 +36,14 @@ end
 
 -- ==================== 请求处理 ====================
 
-local function on_sip_dial_req(uri)
+local function on_sip_dial_req(uri,number)
     if g_state ~= STATE_IDLE then
         log.warn("sip_main", "SIP 忙，无法拨号", g_state)
         return
     end
     set_state(STATE_DIALING)
     logi("执行拨号", uri)
-    local ok = exsip.dial(uri)
+    local ok = exsip.dial(uri,number)
     if not ok then
         log.error("sip_main", "exsip.dial 失败")
         set_state(STATE_IDLE)
@@ -54,7 +52,7 @@ local function on_sip_dial_req(uri)
 end
 
 local function on_sip_accept_req()
-    if g_state ~= STATE_INCOMING then
+    if g_state ~= STATE_INCOMING and g_state ~= STATE_PROGRESSING then
         log.warn("sip_main", "当前不是来电状态", g_state)
         return
     end
@@ -80,9 +78,56 @@ local function on_sip_hangup_req()
     end
 end
 
+local function on_sip_progress_req()
+    if g_state ~= STATE_INCOMING then
+        log.warn("sip_main", "当前不是来电状态，无法发送 183", g_state)
+        return
+    end
+    if type(exsip.progress) ~= "function" then
+        log.error("sip_main", "当前 exsip 不支持 progress，无法发送 183")
+        sys.publish("SIP_FAILED", "progress_not_supported")
+        return
+    end
+    logi("执行早期媒体响应 183")
+    local call_ok, progress_ok = pcall(exsip.progress)
+    if call_ok and progress_ok then
+        set_state(STATE_PROGRESSING)
+        sys.publish("SIP_PROGRESSING")
+    else
+        log.error("sip_main", "exsip.progress 失败", call_ok and "returned_false" or progress_ok)
+        set_state(STATE_IDLE)
+        sys.publish("SIP_FAILED", "progress_failed")
+    end
+end
+
+local function on_sip_fail_req(code, reason)
+    if g_state == STATE_IDLE then
+        log.warn("sip_main", "SIP 已空闲，忽略失败响应")
+        return
+    end
+    logi("执行失败响应", code or 480, reason or "Temporarily Unavailable")
+    if g_state == STATE_INCOMING or g_state == STATE_PROGRESSING then
+        local ok = false
+        if type(exsip.fail) == "function" then
+            local call_ok, fail_ok = pcall(exsip.fail,
+                code or 480, reason or "Temporarily Unavailable")
+            ok = call_ok and fail_ok
+        end
+        if not ok then
+            log.warn("sip_main", "exsip.fail 失败，回退到 hangUp")
+            exsip.hangUp()
+        end
+    else
+        exsip.hangUp()
+    end
+    set_state(STATE_IDLE)
+end
+
 sys.subscribe("SIP_DIAL_REQ", on_sip_dial_req)
 sys.subscribe("SIP_ACCEPT_REQ", on_sip_accept_req)
 sys.subscribe("SIP_HANGUP_REQ", on_sip_hangup_req)
+sys.subscribe("SIP_PROGRESS_REQ", on_sip_progress_req)
+sys.subscribe("SIP_FAIL_REQ", on_sip_fail_req)
 
 -- ==================== SIP 事件处理 ====================
 
@@ -105,10 +150,18 @@ local function on_sip_event(event, action, data)
         if action == "incoming" then
             set_state(STATE_INCOMING)
             logi("SIP 来电", data and data.from or "unknown")
-            sys.publish("SIP_INCOMING", data and data.from or "", data and data.uri or "", data and data.headers["to"] or "")
+            local headers = data and data.headers or {}
+            sys.publish("SIP_INCOMING",
+                data and data.from or "",
+                data and data.uri or "",
+                headers["to"] or "")
 
         elseif action == "ringing" then
             logi("SIP 响铃中")
+
+        elseif action == "progress" then
+            set_state(STATE_PROGRESSING)
+            logi("SIP 早期媒体已建立")
 
         elseif action == "connected" or action == "established" then
             set_state(STATE_CONNECTED)
@@ -132,12 +185,18 @@ local function on_sip_event(event, action, data)
             local port = data.remote_port or (data.session and data.session.remote_port) or 0
             logi("SIP 媒体就绪", ip, port, data.codec)
         elseif action == "stop" then
-            logi("SIP 媒体停止", data.reason)
+            logi("SIP 媒体停止", data and data.reason or "")
+            sys.publish("SIP_MEDIA_STOP", data and data.reason or "")
         end
 
     elseif event == "voip" then
         if action == "state" then
             logi("VoIP 状态", data)
+            if data == "started" then
+                sys.publish("SIP_VOIP_STARTED")
+            elseif data == "stopped" then
+                sys.publish("SIP_VOIP_STOPPED")
+            end
         elseif action == "stats" then
             logi("VoIP 统计", data.tx_packets, data.rx_packets, data.rx_lost)
         elseif action == "error" then
@@ -176,34 +235,17 @@ function sip_main.init()
         sip_password = config.sip_password,
         sip_transport = config.sip_transport,
         rtp_port = config.rtp_port,
+        audio_mode = voip.AUDIO_MODE_BRIDGE, -- 桥接模式
         codecs = {config.codec},
         ptime = config.ptime,
         auto_answer = false,  -- 由 bridge 控制
         adapter = config.adapter,
+        early_media = config.early_media,
+        early_media_response = config.early_media_response,
     })
     if not sip_ok then
         log.error("sip_main", "exsip.init 失败")
         return false
-    end
-
-    -- 设置为桥接模式：voip 不控制 I2S，PCM 与 cc 交换
-    if voip and voip.setAudioMode then
-        local ok = voip.setAudioMode(voip.AUDIO_MODE_BRIDGE)
-        if ok then
-            logi("voip 已设置为桥接模式")
-        else
-            log.warn("sip_main", "voip 设置桥接模式失败，尝试先停止后重试")
-            if voip.stop then voip.stop() end
-            sys.wait(500)
-            ok = voip.setAudioMode(voip.AUDIO_MODE_BRIDGE)
-            if ok then
-                logi("voip 桥接模式设置成功")
-            else
-                log.error("sip_main", "voip 桥接模式设置失败")
-            end
-        end
-    else
-        log.warn("sip_main", "voip 模块不可用，跳过桥接模式设置")
     end
 
     local start_ok = exsip.start()

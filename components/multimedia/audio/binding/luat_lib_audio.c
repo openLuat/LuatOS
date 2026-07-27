@@ -1440,7 +1440,8 @@ static int l_audio_is_request_busy(lua_State *L) {
 
 /*
 配置调试信息输出
-@api audio_v2.debug(on_off)@boolean true开 false关
+@api audio_v2.debug(on_off)
+@boolean true开 false关
 @return
 @usage
 audio_v2.debug(true)	--开启调试信息输出

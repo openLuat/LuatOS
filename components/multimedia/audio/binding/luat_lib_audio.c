@@ -530,6 +530,7 @@ static int l_audio_input(lua_State *L) {
         if (l_extern_source->is_busy) {
             if (l_extern_source->extern_source.decode_input_fifo) {
                 rest_len = luat_fifo_check_free_space(l_extern_source->extern_source.decode_input_fifo);
+                LLOGC(luat_audio_debug_flag, "lua extern source %d rest_len %d", source_index, rest_len);
             } else {
                 rest_len = 0;
             }
@@ -600,7 +601,11 @@ DONE:
     lua_pushboolean(L, !result);
     lua_pushinteger(L, input_len);
     if (rest_len) {
-        lua_pushinteger(L, luat_fifo_check_free_space(l_req->request.org_input_data_fifo));
+        if (l_req) {
+            lua_pushinteger(L, luat_fifo_check_free_space(l_req->request.org_input_data_fifo));
+        } else {
+            lua_pushinteger(L, luat_fifo_check_free_space(l_extern_source->extern_source.decode_input_fifo));
+        }
     } else {
         lua_pushinteger(L, rest_len);
     }
@@ -840,6 +845,7 @@ static int l_audio_speech(lua_State *L) {
     l_req->record_timeout_or_callback_frame = luaL_optinteger(L, 3, 0);
     l_req->is_record_file = 0;
     l_req->record_zbuff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    LLOGC(luat_audio_debug_flag,"dsp type: %d", dsp_type);
     result = luat_audio_request_speech(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, play_codec_opts, record_codec_opts, &common_param, _l_audio.record_fifo, l_req->record_timeout_or_callback_frame,  
         NULL, 0, 0,_l_audio_request_callback, l_req, luat_audio_dsp_get_opts(dsp_type));
     if (result) {
@@ -857,12 +863,12 @@ DONE:
 
 /*
 对讲中附加额外的音频数据，额外音频的参数必须和对讲的参数一致，否则会失败而没有任何作用
-@api audio_v2.extern_source(request_index, source, is_add_record,codec_id, sample_rate, data_bits, channel_nums, is_signed)
+@api audio_v2.extern_source(request_index, source, is_add_record, codec_id, is_error_stop, sample_rate, data_bits, channel_nums, is_signed)
 @int request_index 请求索引，通过audio_v2.speech返回的
 @table/string/zbuff/nil 输入数据，table表示播放文件，string表示播放tts，zbuff表示播放音频数据，如果只播放一个文件也要用table,如果留空，则表示是stream流模式
 @boolean 是否添加到录音通道，false添加到播放通道，true添加到录音通道，默认false
-@boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空则通过输入数据自行判断，如果是流模式，则必须指定解码器id
+@boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @int 采样率，如果指定解码器是RAW，不能留空
 @int 数据位数，8,16,24,32，如果指定解码器是RAW，不能留空
 @int 通道数，1,2，如果指定解码器是RAW，不能留空
@@ -970,6 +976,10 @@ static int l_audio_extern_source(lua_State *L) {
     } else if (lua_isnil(L, 2)) {
         if (codec_opts) {
             result = luat_audio_request_add_source_stream(&l_extern_source->extern_source, codec_opts, &common_param, is_add_record, l_extern_source);
+            if (result) {
+                LLOGE("lua extern source add stream failed, ret %d", result);
+                goto DONE;
+            }
         } else {
             LLOGE("extern source stream mode must have codec id");
             goto DONE;

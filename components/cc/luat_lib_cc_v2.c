@@ -556,7 +556,7 @@ static int l_cc_input(lua_State *L) {
     } else {
         is_end = 0;
     }
-
+    _l_cc.extern_source.is_input_end = is_end;
     luat_rtos_task_resume_all();
 DONE:
     lua_pushboolean(L, !result);

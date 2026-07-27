@@ -25,7 +25,7 @@ wifi_app 在 IP_READY 后通过 start_connectivity_verification() 等待 NTP_UPD
 -- 自定义NTP服务器列表，可选配置，默认使用内置的ntp.aliyun.com
 local ntp_servers = {
     "ntp.aliyun.com",
-    "ntp.air32.cn",
+    "ntp.ntsc.ac.cn",
     "time1.cloud.tencent.com"
 }
 

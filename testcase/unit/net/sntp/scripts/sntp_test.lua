@@ -1,7 +1,7 @@
 local sntp_test = {}
 
 -- 自定义NTP服务器列表，可选配置，默认使用内置的ntp服务器地址ntp.aliyun.com
-local ntp_servers = {"ntp.aliyun.com", "ntp.air32.cn", "time1.cloud.tencent.com"}
+local ntp_servers = {"ntp.aliyun.com", "ntp.ntsc.ac.cn", "time1.cloud.tencent.com"}
 
 -- 全局变量记录上次同步成功的时间戳
 local last_high_precision_time = nil

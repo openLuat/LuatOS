@@ -131,6 +131,24 @@ jobs:
             path: "unit/fs/fs"
           - name: "ramfs"
             path: "unit/fs/ramfs"
+          - name: "bit64"
+            path: "unit/system/bit64"
+          - name: "os"
+            path: "unit/system/os"
+          - name: "rtc"
+            path: "unit/system/rtc"
+          - name: "miniz"
+            path: "unit/perf/miniz"
+          - name: "fft"
+            path: "unit/perf/fft"
+          - name: "fskv"
+            path: "unit/fs/fskv"
+          - name: "protobuf"
+            path: "unit/middleware/protobuf"
+          - name: "pgfs_basic"
+            path: "utest/fs/pgfs_basic"
+          - name: "rtos_basic"
+            path: "unit/system/rtos_basic"
 
     steps:
       - uses: actions/checkout@v4
@@ -155,3 +173,39 @@ jobs:
           $exitCode = $LASTEXITCODE
           Write-Host "Test exit code: $exitCode"
           exit $exitCode
+
+  coverage:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download debug build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: LuatOS_PC_32bit_NoGUI
+          path: bsp/pc/build/out/
+
+      - name: Install OpenCppCoverage
+        run: choco install opencppcoverage -y --no-progress
+
+      - name: Run coverage - core_basic
+        working-directory: bsp/pc
+        shell: pwsh
+        run: |
+          $env:Path += ";C:\Program Files\OpenCppCoverage"
+          .\pc_utest_coverage.ps1 -Suite core_basic -SkipBuild
+
+      - name: Run coverage - crypto_basic (merged)
+        working-directory: bsp/pc
+        shell: pwsh
+        run: |
+          $env:Path += ";C:\Program Files\OpenCppCoverage"
+          .\pc_utest_coverage.ps1 -Suite crypto_basic -SkipBuild -CoverageDir ..\..\build\coverage\merged
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/coverage/
+        if: always()

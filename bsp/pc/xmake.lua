@@ -188,8 +188,6 @@ target("luatos-lua")
             ,luatos.."luat/modules/luat_lib_mcu.c"
             ,luatos.."luat/modules/luat_lib_bit64.c"
             ,luatos.."luat/modules/luat_lib_uart.c"
-            ,luatos.."luat/modules/luat_lib_mqttcore.c"
-            ,luatos.."luat/modules/luat_lib_libcoap.c"
             ,luatos.."luat/modules/luat_lib_rtc.c"
             ,luatos.."luat/modules/luat_lib_gpio.c"
             ,luatos.."luat/modules/luat_lib_spi.c"

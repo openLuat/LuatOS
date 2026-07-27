@@ -109,12 +109,6 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_FSKV
   {"fskv",      luaopen_fskv},
 #endif
-#ifdef LUAT_USE_MQTTCORE
-  {"mqttcore",luaopen_mqttcore},          // MQTT 协议封装
-#endif
-#ifdef LUAT_USE_LIBCOAP
-  {"libcoap", luaopen_libcoap},           // 处理COAP消息
-#endif
 #ifdef LUAT_USE_YMODEM
   {"ymodem", luaopen_ymodem},
 #endif

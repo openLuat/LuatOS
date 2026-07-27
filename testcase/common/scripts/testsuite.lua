@@ -36,7 +36,10 @@ function suite.runTestSuite(ctx, testTable, only)
                         goto next
                     end
                 end
-                local success, err = pcall(value)
+                local results = {pcall(value)}
+                local success = table.remove(results, 1)
+                local ret = results[1]
+                local err = results[2]
                 if testTable.tearDown then
                     -- 如果存在 tearDown 函数，执行它
                     local tdSuccess, tdErr = pcall(testTable.tearDown)
@@ -45,17 +48,18 @@ function suite.runTestSuite(ctx, testTable, only)
                         -- 即使 tearDown 失败，也继续处理测试结果
                     end
                 end
-                if success then
+                if success and ret ~= false then
                     -- 测试通过，打印成功信息
                     log.info("suite", string.format("✓ %s passed", key))
                     passCount = passCount + 1
                     testreport.reportStatus(ctx, key, "passed", "passed")
                 else
                     -- 测试失败，打印失败信息和错误信息
-                    log.info("suite", string.format("✗ %s failed: %s", key, err))
+                    local failMsg = success and "returned false" or tostring(err)
+                    log.info("suite", string.format("✗ %s failed: %s", key, failMsg))
                     failCount = failCount + 1
                     table.insert(failedTests, key)
-                    testreport.reportStatus(ctx, key, "failed", err)
+                    testreport.reportStatus(ctx, key, "failed", failMsg)
                 end
                 sys.wait(10)  -- 测试间隔，防止过快执行, 然后wdt死机
             end

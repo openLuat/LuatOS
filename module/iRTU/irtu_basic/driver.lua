@@ -641,7 +641,9 @@ function driver.init()
     if uidgps ~= 3 and dtu.uconf and dtu.uconf[3] and tonumber(dtu.uconf[3][1]) == 3 then 
         uart_INIT(3, dtu.uconf)
     end
-    if true then
+    -- 处于rfa模式时(main.lua会置位IRTU_DISABLE_VUART), VUART_0由rfa的AT服务器独占
+    -- irtu不再初始化VUART_0, 避免注册数据回调抢占rfa的串口数据
+    if not _G.IRTU_DISABLE_VUART then
         dtu.uconf[4] = {uart.VUART_0, 115200, 8, 2, 0}
         uart_INIT(4, dtu.uconf)
     end

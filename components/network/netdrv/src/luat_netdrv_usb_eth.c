@@ -123,7 +123,7 @@ static void _usb_eth_netif_add(void *param)
 	netif_set_up(&ctx->netif);
 	net_lwip2_set_netif(ctx->drv.id, &ctx->netif);
 	net_lwip2_register_adapter(ctx->drv.id);
-
+	luat_netdrv_register(ctx->drv.id, &ctx->drv);
 }
 
 static void _usb_log(void *param)
@@ -296,5 +296,4 @@ void luat_netdrv_usb_eth_init(void)
 	luat_no_data_fifo_init(&_usb_eth_netif.tx_cache_fifo, LUAT_USB_ETH_TX_CACHE_POWER);
 	tcpip_callback_with_block(_usb_eth_netif_add, &_usb_eth_netif, 0);
 	_usb_eth_netif.link_up = 0;
-	luat_netdrv_set_link_updown(&_usb_eth_netif.drv, 0);
 }

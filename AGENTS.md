@@ -285,7 +285,7 @@ Before reporting task completion, verify:
 
 - [ ] All planned steps completed (check todo list)
 - [ ] No type errors or warnings introduced
-- [ ] If required, build passes in `bsp/pc` using the correct mode: plain `xmake -y` for non-GUI changes, GUI-enabled build for AirUI/LVGL/SDL changes
+- [ ] If required, build passes in `bsp/pc` using the correct batch script: `build_windows_32bit_msvc.bat` for non-GUI changes, `build_windows_32bit_msvc_gui.bat` for AirUI/LVGL/SDL changes (never run `xmake -y` directly)
 - [ ] Tests pass (if applicable)
 - [ ] Code follows existing patterns
 - [ ] No hardcoded credentials or security issues

@@ -5,14 +5,10 @@
 #include "lauxlib.h"
 
 
-/** sys库, 预留, 实际不可用状态*/
-LUAMOD_API int luaopen_sys( lua_State *L );
 /** rtos库*/
 LUAMOD_API int luaopen_rtos( lua_State *L );
 /** timer库*/
 LUAMOD_API int luaopen_timer( lua_State *L );
-/** msgbus库, 预留, 实际不可用状态*/
-// LUAMOD_API int luaopen_msgbus( lua_State *L );
 /** gpio库*/
 LUAMOD_API int luaopen_gpio( lua_State *L );
 /** adc库*/
@@ -29,8 +25,6 @@ LUAMOD_API int luaopen_pm( lua_State *L );
 LUAMOD_API int luaopen_fs( lua_State *L );
 /** wlan库*/
 LUAMOD_API int luaopen_wlan( lua_State *L );
-/** socket库*/
-LUAMOD_API int luaopen_socket( lua_State *L );
 /** sensor库*/
 LUAMOD_API int luaopen_sensor( lua_State *L );
 /** log库*/
@@ -53,8 +47,6 @@ LUAMOD_API int luaopen_little_flash( lua_State *L );
 LUAMOD_API int luaopen_pgfs( lua_State *L );
 /** tfs库, PC utest only */
 LUAMOD_API int luaopen_tfs( lua_State *L );
-/** utest库*/
-// LUAMOD_API int luaopen_utest( lua_State *L );
 /** mqtt库*/
 LUAMOD_API int luaopen_mqtt( lua_State *L );
 /** http库*/
@@ -64,13 +56,7 @@ LUAMOD_API int luaopen_pack( lua_State *L );
 /** crypto库*/
 LUAMOD_API int luaopen_crypto( lua_State *L );
 LUAMOD_API int luaopen_gmssl( lua_State *L );
-/** 功耗调整 */
-LUAMOD_API int luaopen_pm( lua_State *L);
-LUAMOD_API int luaopen_m2m( lua_State *L);
-LUAMOD_API int luaopen_lpmem( lua_State *L);
-LUAMOD_API int luaopen_ctiot( lua_State *L);
 LUAMOD_API int luaopen_iconv(lua_State *L);
-LUAMOD_API int luaopen_nbiot( lua_State *L );
 LUAMOD_API int luaopen_libgnss( lua_State *L ) ;
 LUAMOD_API int luaopen_fatfs( lua_State *L );
 LUAMOD_API int luaopen_eink( lua_State *L);
@@ -90,12 +76,10 @@ LUAMOD_API int luaopen_ir( lua_State *L );
 
 LUAMOD_API int luaopen_lcd( lua_State *L );
 LUAMOD_API int luaopen_tp( lua_State *L );
-LUAMOD_API int luaopen_lwip( lua_State *L );
 LUAMOD_API int luaopen_pinyin( lua_State *L );
 
 LUAMOD_API int luaopen_wdt( lua_State *L );
 LUAMOD_API int luaopen_mcu( lua_State *L );
-LUAMOD_API int luaopen_hwtimer( lua_State *L );
 LUAMOD_API int luaopen_rtc( lua_State *L );
 LUAMOD_API int luaopen_sdio( lua_State *L );
 
@@ -117,13 +101,10 @@ LUAMOD_API int luaopen_pins( lua_State *L );
 LUAMOD_API int luaopen_dac( lua_State *L );
 LUAMOD_API int luaopen_otp( lua_State *L );
 LUAMOD_API int luaopen_mlx90640( lua_State *L );
-LUAMOD_API int luaopen_zlib( lua_State *L );
 LUAMOD_API int luaopen_camera( lua_State *L );
 LUAMOD_API int luaopen_multimedia_audio( lua_State *L );
-LUAMOD_API int luaopen_multimedia_video( lua_State *L );
 LUAMOD_API int luaopen_multimedia_codec( lua_State *L );
 LUAMOD_API int luaopen_audio_v2( lua_State *L );
-LUAMOD_API int luaopen_luf( lua_State *L );
 
 LUAMOD_API int luaopen_touchkey(lua_State *L);
 LUAMOD_API int luaopen_softkb( lua_State *L );
@@ -140,7 +121,6 @@ LUAMOD_API int luaopen_i2s( lua_State *L );
 LUAMOD_API int luaopen_lora( lua_State *L );
 LUAMOD_API int luaopen_lora2( lua_State *L );
 LUAMOD_API int luaopen_iotauth( lua_State *L );
-LUAMOD_API int luaopen_ufont( lua_State *L );
 LUAMOD_API int luaopen_miniz( lua_State *L );
 LUAMOD_API int luaopen_mobile( lua_State *L );
 
@@ -173,8 +153,6 @@ LUAMOD_API int luaopen_fft( lua_State *L );
 
 LUAMOD_API int luaopen_fastlz( lua_State *L );
 
-LUAMOD_API int luaopen_usernet( lua_State *L );
-
 LUAMOD_API int luaopen_ercoap( lua_State *L );
 
 LUAMOD_API int luaopen_sqlite3( lua_State *L );
@@ -192,23 +170,11 @@ LUAMOD_API int luaopen_xxtea( lua_State *L );
 // 电话功能
 LUAMOD_API int luaopen_cc( lua_State *L );
 
-// 用户侧LWIP集成, 用于对接以太网,wifi等第三方网络设备,通常是SPI或者SDIO协议
-LUAMOD_API int luaopen_ulwip( lua_State *L );
-
-// 基于真正的cjson做的json解析库,未完成
-LUAMOD_API int luaopen_json2( lua_State *L );
-
-// SPI 从机
-LUAMOD_API int luaopen_spislave( lua_State *L );
-
 // WLAN 裸数据收发
 LUAMOD_API int luaopen_wlan_raw(lua_State *L);
 
 // 液晶屏驱动
 LUAMOD_API int luaopen_ht1621(lua_State *L);
-
-// NAPT
-LUAMOD_API int luaopen_napt(lua_State *L);
 
 // NETDRV
 LUAMOD_API int luaopen_netdrv( lua_State *L );
@@ -235,8 +201,6 @@ LUAMOD_API int luaopen_bluetooth( lua_State *L );
 // ble
 LUAMOD_API int luaopen_ble( lua_State *L );
 
-// modbus
-LUAMOD_API int luaopen_modbus( lua_State *L );
 /** airtalk库*/
 LUAMOD_API int luaopen_airtalk( lua_State *L );
 /** misc库*/
@@ -247,8 +211,6 @@ LUAMOD_API int luaopen_rtmp(lua_State *L);
 LUAMOD_API int luaopen_rtsp(lua_State *L);
 /** NDK */
 LUAMOD_API int luaopen_ndk(lua_State *L);
-/** H264视频解码 */
-LUAMOD_API int luaopen_h264(lua_State *L);
 /** 视频播放库 */
 LUAMOD_API int luaopen_videoplayer(lua_State *L);
 /** GBA模拟器 */

@@ -115,7 +115,7 @@ http.request("GET","http://httpbin.com/", nil, nil, {timeout=5000}).wait()
 
 -- 分段下载
 local heads = {["Range"] = "bytes=0-99"} --下载0-99之间的数据
-http.request("GET","http://httpbin.air32.cn/get", heads, nil, {timeout=5000}).wait()
+http.request("GET","http://httpbin.luatos.com/get", heads, nil, {timeout=5000}).wait()
 */
 static int l_http_request(lua_State *L) {
 	size_t server_cert_len = 0,client_cert_len = 0, client_key_len = 0, client_password_len = 0,len = 0;

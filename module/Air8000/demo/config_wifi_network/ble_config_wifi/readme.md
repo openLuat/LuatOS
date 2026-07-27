@@ -48,7 +48,7 @@ softap 模式：设备通过 4G 开 AP 热点，用于其他设备连接。
 
 3. 轮询 `netdrv.ipv4()` 直至拿到有效 IP（30 s 超时）
 
-4. 成功后通过 HTTP GET `https://httpbin.air32.cn/bytes/2048` 验证外网
+4. 成功后通过 HTTP GET `https://httpbin.luatos.com/bytes/2048` 验证外网
 
 5. 若连接失败，主动断开并上报 `STA_DISCONNED` 事件
 

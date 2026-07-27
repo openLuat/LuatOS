@@ -48,8 +48,8 @@ local function network_event_handler()
                 -- 打印 STA 连接成功日志
                 log.info("STA:", "STA CONNED OK!")
                 sys.wait(3000)
-                -- 发起一个 GET 请求，请求 https://httpbin.air32.cn/bytes/2048 地址，使用 STA 适配器，超时时间为 5000 毫秒
-                local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter = socket.LWIP_STA,timeout = 5000,debug = false}).wait()
+                -- 发起一个 GET 请求，请求 https://httpbin.luatos.com/bytes/2048 地址，使用 STA 适配器，超时时间为 5000 毫秒
+                local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {adapter = socket.LWIP_STA,timeout = 5000,debug = false}).wait()
                 -- 打印 HTTP 请求执行结果，包含状态码、响应头和响应体长度
                 log.info("http执行结果", code, headers, body and #body)
             end

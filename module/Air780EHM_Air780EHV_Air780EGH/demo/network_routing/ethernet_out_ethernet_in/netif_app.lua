@@ -38,7 +38,7 @@ function netif_app_task_func()
     -- while 1 do
     --     log.info("dwrh", res)
     --     local code, headers, body = http.request("GET",
-    --                                              "https://httpbin.air32.cn/bytes/2048",
+    --                                              "https://httpbin.luatos.com/bytes/2048",
     --                                              nil, nil, {
     --         adapter = socket.LWIP_USER1,
     --         timeout = 5000,

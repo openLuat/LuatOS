@@ -29,7 +29,7 @@ function test_sta()
         sys.waitUntil("IP_READY", 1000)
     end
     while true do
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=5000,debug=false}).wait()
+        local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=5000,debug=false}).wait()
         log.info("http执行结果", code, headers, body and #body)
         sys.wait(2000)
     end

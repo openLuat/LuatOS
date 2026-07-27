@@ -65,8 +65,8 @@ local function http_get_test()
     while true do
         sys.wait(10000)
         -- 发起一个HTTP GET请求。
-        log.info("发起HTTP GET请求", "https://httpbin.air32.cn/bytes/2048")
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {
+        log.info("发起HTTP GET请求", "https://httpbin.luatos.com/bytes/2048")
+        local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {
             timeout = 3000
         }).wait()
 

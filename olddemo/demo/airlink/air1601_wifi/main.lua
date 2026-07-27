@@ -21,7 +21,7 @@ function test_sta()
     while 1 do
         log.info("wlan", "info", json.encode(wlan.getInfo()))
         log.info("执行http请求")
-        local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/2048", nil, nil, {
+        local code, headers, body = http.request("GET", "http://httpbin.luatos.com/bytes/2048", nil, nil, {
             adapter = socket.LWIP_STA,
             timeout = 5000,
             debug = false

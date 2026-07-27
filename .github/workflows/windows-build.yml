@@ -1,4 +1,4 @@
-name: Windows Build
+name: Windows Build & Test
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - 'lua/**'
       - 'luat/**'
       - 'components/**'
+      - 'testcase/**'
       - '.github/workflows/windows-build.yml'
   pull_request:
     paths:
@@ -14,6 +15,7 @@ on:
       - 'lua/**'
       - 'luat/**'
       - 'components/**'
+      - 'testcase/**'
       - '.github/workflows/windows-build.yml'
   workflow_dispatch:
 
@@ -99,3 +101,57 @@ jobs:
         with:
           name: LuatOS_PC_${{ matrix.artifact_suffix }}
           path: bsp/pc/build/out/
+
+  test:
+    needs: build
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - name: "core_basic"
+            path: "utest/lib/core_basic"
+          - name: "crypto_basic"
+            path: "utest/lib/crypto_basic"
+          - name: "miniz_basic"
+            path: "utest/lib/miniz_basic"
+          - name: "json"
+            path: "unit/json/json"
+          - name: "io"
+            path: "unit/io/io"
+          - name: "string"
+            path: "unit/system/string"
+          - name: "zbuff"
+            path: "unit/system/zbuff"
+          - name: "pack"
+            path: "unit/perf/pack"
+          - name: "fastlz"
+            path: "unit/perf/fastlz"
+          - name: "fs"
+            path: "unit/fs/fs"
+          - name: "ramfs"
+            path: "unit/fs/ramfs"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: LuatOS_PC_64bit_NoGUI
+          path: bsp/pc/build/out/
+
+      - name: Run test - ${{ matrix.suite.name }}
+        working-directory: bsp/pc
+        shell: pwsh
+        run: |
+          $exe = "build/out/luatos-lua.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Error "luatos-lua.exe not found"
+            exit 1
+          }
+          Write-Host "Running test suite: ${{ matrix.suite.name }}"
+          & $exe "../../testcase/common/scripts/" "../../testcase/${{ matrix.suite.path }}/scripts/"
+          $exitCode = $LASTEXITCODE
+          Write-Host "Test exit code: $exitCode"
+          exit $exitCode

@@ -1,3 +1,4 @@
+#include "luat_base.h"
 #include "tiny_epd_hzfont.h"
 
 #include <limits.h>

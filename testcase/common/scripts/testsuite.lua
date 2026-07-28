@@ -36,10 +36,11 @@ function suite.runTestSuite(ctx, testTable, only)
                         goto next
                     end
                 end
-                local results = {pcall(value)}
-                local success = table.remove(results, 1)
-                local ret = results[1]
-                local err = results[2]
+                local success, ret, err = pcall(value)
+                if not success then
+                    err = ret
+                    ret = nil
+                end
                 if testTable.tearDown then
                     -- 如果存在 tearDown 函数，执行它
                     local tdSuccess, tdErr = pcall(testTable.tearDown)

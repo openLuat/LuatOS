@@ -2,8 +2,12 @@
 
 #if defined(LUAT_USE_TINY_EPD)
 
+#include "luat_mem.h"
+#include "luat_msgbus.h"
+#include "luat_rtos.h"
 #include "luat_spi.h"
 #include "tiny_epd.h"
+#include "tiny_epd_bitmap.h"
 #include "tiny_epd_gfx.h"
 #include "tiny_epd_qrcode.h"
 #include "tiny_epd_port_luatos.h"
@@ -16,6 +20,9 @@
 #include "tiny_epd_hzfont.h"
 #endif
 
+#define LUAT_LOG_TAG "epd"
+#include "luat_log.h"
+
 #define LUAT_TINY_EPD_DEVICE_META "epd.dev"
 #define LUAT_TINY_EPD_SPI_DEVICE_META "SPI*"
 #define LUAT_TINY_EPD_MODEL_1IN54 1
@@ -27,7 +34,26 @@ typedef struct {
     tiny_epd_t *epd;
     tiny_epd_port_luatos_t port_context;
     int spi_ref;
+    uint8_t refresh_busy;
 } luat_tiny_epd_device_t;
+
+typedef struct {
+    luat_tiny_epd_device_t *device;
+    tiny_epd_refresh_mode_t mode;
+    tiny_epd_rect_t rect;
+    uint64_t wait_id;
+    int device_ref;
+    int result;
+    uint8_t use_dirty_rect;
+    uint8_t has_rect;
+} luat_tiny_epd_refresh_request_t;
+
+#define LUAT_TINY_EPD_REFRESH_QUEUE_LENGTH 4u
+#define LUAT_TINY_EPD_REFRESH_TASK_STACK_SIZE (4u * 1024u)
+
+static luat_rtos_queue_t g_tiny_epd_refresh_queue;
+static luat_rtos_task_handle g_tiny_epd_refresh_task;
+static uint8_t g_tiny_epd_refresh_worker_ready;
 
 static const char *luat_tiny_epd_error_string(int ret)
 {
@@ -62,6 +88,148 @@ static int luat_tiny_epd_push_result(lua_State *L, int ret)
     lua_pushboolean(L, 0);
     lua_pushstring(L, luat_tiny_epd_error_string(ret));
     return 2;
+}
+
+static int luat_tiny_epd_push_message_result(lua_State *L, const char *message)
+{
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, message);
+    return 2;
+}
+
+static int luat_tiny_epd_is_busy(const luat_tiny_epd_device_t *device)
+{
+    return device != NULL && device->refresh_busy != 0;
+}
+
+static int luat_tiny_epd_push_busy(lua_State *L)
+{
+    return luat_tiny_epd_push_message_result(L, "busy");
+}
+
+static int luat_tiny_epd_has_cwait(lua_State *L)
+{
+    int available;
+
+    lua_getglobal(L, "sys_cw");
+    available = lua_isfunction(L, -1);
+    lua_pop(L, 1);
+    return available;
+}
+
+static int luat_tiny_epd_push_cwait_message(lua_State *L, const char *message)
+{
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, message);
+    luat_pushcwait_error(L, 2);
+    return 1;
+}
+
+static int luat_tiny_epd_push_cwait_result(lua_State *L, int ret)
+{
+    if (ret == TINY_EPD_OK) {
+        lua_pushboolean(L, 1);
+        luat_pushcwait_error(L, 1);
+    }
+    else {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, luat_tiny_epd_error_string(ret));
+        luat_pushcwait_error(L, 2);
+    }
+    return 1;
+}
+
+static int luat_tiny_epd_refresh_done(lua_State *L, void *ptr)
+{
+    rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    luat_tiny_epd_refresh_request_t *request;
+    luat_tiny_epd_device_t *device;
+    int arg_num;
+
+    if (msg == NULL || msg->ptr == NULL) {
+        return 0;
+    }
+    request = (luat_tiny_epd_refresh_request_t *)msg->ptr;
+    device = request->device;
+    if (device != NULL) {
+        device->refresh_busy = 0;
+    }
+
+    if (request->result == TINY_EPD_OK) {
+        lua_pushboolean(L, 1);
+        arg_num = 1;
+    }
+    else {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, luat_tiny_epd_error_string(request->result));
+        arg_num = 2;
+    }
+    (void)luat_cbcwait(L, request->wait_id, arg_num);
+
+    if (request->device_ref != LUA_NOREF) {
+        luaL_unref(L, LUA_REGISTRYINDEX, request->device_ref);
+    }
+    luat_heap_free(request);
+    return 0;
+}
+
+static void luat_tiny_epd_refresh_worker(void *param)
+{
+    luat_tiny_epd_refresh_request_t *request;
+    rtos_msg_t msg;
+
+    (void)param;
+    for (;;) {
+        request = NULL;
+        if (luat_rtos_queue_recv(g_tiny_epd_refresh_queue, &request,
+                                 sizeof(request), LUAT_WAIT_FOREVER) != 0 ||
+            request == NULL) {
+            continue;
+        }
+
+        if (request->use_dirty_rect) {
+            request->result = tiny_epd_refresh_dirty(request->device->epd,
+                                                      request->mode);
+        }
+        else {
+            request->result = tiny_epd_refresh(request->device->epd,
+                                                request->mode,
+                                                request->has_rect ? &request->rect : NULL);
+        }
+
+        memset(&msg, 0, sizeof(msg));
+        msg.handler = luat_tiny_epd_refresh_done;
+        msg.ptr = request;
+        (void)luat_msgbus_put(&msg, LUAT_WAIT_FOREVER);
+    }
+}
+
+static int luat_tiny_epd_ensure_refresh_worker(void)
+{
+    int ret;
+
+    if (g_tiny_epd_refresh_worker_ready) {
+        return 0;
+    }
+    ret = luat_rtos_queue_create(&g_tiny_epd_refresh_queue,
+                                 LUAT_TINY_EPD_REFRESH_QUEUE_LENGTH,
+                                 sizeof(luat_tiny_epd_refresh_request_t *));
+    if (ret != 0) {
+        g_tiny_epd_refresh_queue = NULL;
+        return -1;
+    }
+    ret = luat_rtos_task_create(&g_tiny_epd_refresh_task,
+                                LUAT_TINY_EPD_REFRESH_TASK_STACK_SIZE,
+                                50, "tiny_epd", luat_tiny_epd_refresh_worker,
+                                NULL, 0);
+    if (ret != 0) {
+        (void)luat_rtos_queue_delete(g_tiny_epd_refresh_queue);
+        g_tiny_epd_refresh_queue = NULL;
+        g_tiny_epd_refresh_task = NULL;
+        return -1;
+    }
+    g_tiny_epd_refresh_worker_ready = 1;
+    return 0;
 }
 
 static int luat_tiny_epd_push_open_error(lua_State *L, const char *message)
@@ -352,6 +520,9 @@ static int l_tiny_epd_open(lua_State *L)
 static int l_tiny_epd_init(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     return luat_tiny_epd_push_result(L, tiny_epd_init(device->epd));
 }
 
@@ -365,6 +536,9 @@ static int l_tiny_epd_clear(lua_State *L)
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
     int color = (int)luaL_optinteger(L, 2, TINY_EPD_COLOR_WHITE);
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     if (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
@@ -386,6 +560,9 @@ static int l_tiny_epd_pixel(lua_State *L)
     lua_Integer y = luaL_checkinteger(L, 3);
     int color = (int)luaL_optinteger(L, 4, TINY_EPD_COLOR_BLACK);
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
         (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE)) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
@@ -399,84 +576,117 @@ static int l_tiny_epd_pixel(lua_State *L)
 
 static int luat_tiny_epd_refresh_mode(lua_State *L, int index, tiny_epd_refresh_mode_t *mode)
 {
-    size_t name_len;
-    const char *name;
     lua_Integer numeric_mode;
 
     if (lua_isnoneornil(L, index)) {
         *mode = TINY_EPD_REFRESH_FULL;
         return 0;
     }
-    if (lua_isnumber(L, index)) {
-        numeric_mode = luaL_checkinteger(L, index);
-        if (numeric_mode >= TINY_EPD_REFRESH_AUTO && numeric_mode <= TINY_EPD_REFRESH_PARTIAL_RECT) {
-            *mode = (tiny_epd_refresh_mode_t)numeric_mode;
-            return 0;
-        }
+    if (!lua_isinteger(L, index)) {
         return -1;
     }
-    name = luaL_checklstring(L, index, &name_len);
-    if (name_len == 4 && memcmp(name, "full", 4) == 0) {
-        *mode = TINY_EPD_REFRESH_FULL;
-    }
-    else if (name_len == 4 && memcmp(name, "fast", 4) == 0) {
-        *mode = TINY_EPD_REFRESH_FAST;
-    }
-    else if (name_len == 7 && memcmp(name, "partial", 7) == 0) {
-        *mode = TINY_EPD_REFRESH_PARTIAL;
-    }
-    else if (name_len == 12 && memcmp(name, "partial_rect", 12) == 0) {
-        *mode = TINY_EPD_REFRESH_PARTIAL_RECT;
-    }
-    else if (name_len == 4 && memcmp(name, "auto", 4) == 0) {
-        *mode = TINY_EPD_REFRESH_AUTO;
-    }
-    else {
+    numeric_mode = lua_tointeger(L, index);
+    if (numeric_mode < TINY_EPD_REFRESH_AUTO ||
+        numeric_mode > TINY_EPD_REFRESH_PARTIAL_RECT) {
         return -1;
     }
+    *mode = (tiny_epd_refresh_mode_t)numeric_mode;
+    return 0;
+}
+
+static int luat_tiny_epd_refresh_u16(lua_State *L, int index, uint16_t *value)
+{
+    lua_Integer input;
+
+    if (!lua_isinteger(L, index)) {
+        return -1;
+    }
+    input = lua_tointeger(L, index);
+    if (input < 0 || input > UINT16_MAX) {
+        return -1;
+    }
+    *value = (uint16_t)input;
     return 0;
 }
 
 /*
 @api panel:refresh([mode[, x, y, w, h]])
-@string|number mode "full" (默认)、"partial"、"partial_rect"、"fast" 或对应 REFRESH_* 常量
-@number x,y,w,h mode 为 "partial_rect" 时的刷新矩形
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@number mode epd.FULL（默认）、epd.FAST、epd.PARTIAL、epd.PARTIAL_RECT 或 epd.AUTO
+@number x,y,w,h 仅 epd.PARTIAL_RECT 时的显式刷新矩形；省略时使用 dirty rectangle
+@return cwait 使用 .wait() 得到 true，或 false 和错误信息
 @usage
-panel:refresh("full")
+assert(panel:refresh(epd.FULL).wait())
 panel:pixel(12, 18, epd.BLACK)
-panel:refresh("partial_rect", 8, 16, 32, 24)
+assert(panel:refresh(epd.PARTIAL_RECT).wait()) -- 自动刷新绘制过的包围矩形
 */
 static int l_tiny_epd_refresh(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
     tiny_epd_refresh_mode_t mode;
-    tiny_epd_rect_t rect;
-    tiny_epd_rect_t *rect_ptr = NULL;
-    lua_Integer value;
+    luat_tiny_epd_refresh_request_t *request;
+    uint64_t wait_id;
+    int top = lua_gettop(L);
 
+    if (!luat_tiny_epd_has_cwait(L)) {
+        return luaL_error(L, "epd.refresh requires require('sys')");
+    }
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_cwait_message(L, "busy");
+    }
     if (luat_tiny_epd_refresh_mode(L, 2, &mode) != 0) {
-        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+        return luat_tiny_epd_push_cwait_result(L, TINY_EPD_ERR_PARAM);
     }
-    if (mode == TINY_EPD_REFRESH_PARTIAL_RECT) {
-        if (lua_gettop(L) < 6) {
-            return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    if (mode == TINY_EPD_REFRESH_PARTIAL_RECT && top != 2 && top != 6) {
+        return luat_tiny_epd_push_cwait_result(L, TINY_EPD_ERR_PARAM);
+    }
+    if (mode != TINY_EPD_REFRESH_PARTIAL_RECT && top != 2) {
+        return luat_tiny_epd_push_cwait_result(L, TINY_EPD_ERR_PARAM);
+    }
+    if (luat_tiny_epd_ensure_refresh_worker() != 0) {
+        return luat_tiny_epd_push_cwait_message(L, "failed to start refresh worker");
+    }
+
+    request = (luat_tiny_epd_refresh_request_t *)luat_heap_malloc(sizeof(*request));
+    if (request == NULL) {
+        return luat_tiny_epd_push_cwait_result(L, TINY_EPD_ERR_NO_MEM);
+    }
+    memset(request, 0, sizeof(*request));
+    request->device = device;
+    request->mode = mode;
+    request->device_ref = LUA_NOREF;
+
+    if (mode == TINY_EPD_REFRESH_PARTIAL_RECT && top == 6) {
+        request->has_rect = 1;
+        if (luat_tiny_epd_refresh_u16(L, 3, &request->rect.x) != 0 ||
+            luat_tiny_epd_refresh_u16(L, 4, &request->rect.y) != 0 ||
+            luat_tiny_epd_refresh_u16(L, 5, &request->rect.w) != 0 ||
+            luat_tiny_epd_refresh_u16(L, 6, &request->rect.h) != 0) {
+            luat_heap_free(request);
+            return luat_tiny_epd_push_cwait_result(L, TINY_EPD_ERR_PARAM);
         }
-        value = luaL_checkinteger(L, 3);
-        if (value < 0 || value > UINT16_MAX) return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
-        rect.x = (uint16_t)value;
-        value = luaL_checkinteger(L, 4);
-        if (value < 0 || value > UINT16_MAX) return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
-        rect.y = (uint16_t)value;
-        value = luaL_checkinteger(L, 5);
-        if (value < 0 || value > UINT16_MAX) return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
-        rect.w = (uint16_t)value;
-        value = luaL_checkinteger(L, 6);
-        if (value < 0 || value > UINT16_MAX) return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
-        rect.h = (uint16_t)value;
-        rect_ptr = &rect;
     }
-    return luat_tiny_epd_push_result(L, tiny_epd_refresh(device->epd, mode, rect_ptr));
+    else if (mode == TINY_EPD_REFRESH_PARTIAL_RECT || mode == TINY_EPD_REFRESH_AUTO) {
+        request->use_dirty_rect = 1;
+    }
+
+    wait_id = luat_pushcwait(L);
+    if (wait_id == 0) {
+        luat_heap_free(request);
+        return luaL_error(L, "epd.refresh requires require('sys')");
+    }
+    request->wait_id = wait_id;
+    lua_pushvalue(L, 1);
+    request->device_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    device->refresh_busy = 1;
+    if (luat_rtos_queue_send(g_tiny_epd_refresh_queue, &request,
+                             sizeof(request), LUAT_NO_WAIT) != 0) {
+        device->refresh_busy = 0;
+        luaL_unref(L, LUA_REGISTRYINDEX, request->device_ref);
+        luat_heap_free(request);
+        lua_pop(L, 1);
+        return luat_tiny_epd_push_cwait_message(L, "refresh queue is full");
+    }
+    return 1;
 }
 
 static int luat_tiny_epd_sleep_mode(lua_State *L, int index, tiny_epd_sleep_mode_t *mode)
@@ -523,6 +733,9 @@ static int l_tiny_epd_sleep(lua_State *L)
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
     tiny_epd_sleep_mode_t mode;
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     if (luat_tiny_epd_sleep_mode(L, 2, &mode) != 0) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
@@ -537,6 +750,9 @@ static int l_tiny_epd_info(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     lua_createtable(L, 0, 9);
     lua_pushinteger(L, tiny_epd_width(device->epd));
     lua_setfield(L, -2, "width");
@@ -578,6 +794,9 @@ static int l_tiny_epd_close(lua_State *L)
     luat_tiny_epd_device_t *device =
         (luat_tiny_epd_device_t *)luaL_checkudata(L, 1, LUAT_TINY_EPD_DEVICE_META);
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     luat_tiny_epd_destroy(L, device);
     lua_pushboolean(L, 1);
     return 1;
@@ -588,7 +807,9 @@ static int l_tiny_epd_gc(lua_State *L)
     luat_tiny_epd_device_t *device =
         (luat_tiny_epd_device_t *)luaL_checkudata(L, 1, LUAT_TINY_EPD_DEVICE_META);
 
-    luat_tiny_epd_destroy(L, device);
+    if (!luat_tiny_epd_is_busy(device)) {
+        luat_tiny_epd_destroy(L, device);
+    }
     return 0;
 }
 
@@ -611,6 +832,9 @@ static int l_tiny_epd_set_rotation(lua_State *L)
 
     tiny_epd_rotation_t rotation;
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     if (v < INT_MIN || v > INT_MAX ||
         luat_tiny_epd_parse_rotation((int)v, &rotation) != 0) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
@@ -639,6 +863,9 @@ static int l_tiny_epd_line(lua_State *L)
     lua_Integer y1 = luaL_checkinteger(L, 5);
     int color = (int)luaL_optinteger(L, 6, TINY_EPD_COLOR_BLACK);
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     if (x0 < INT16_MIN || x0 > INT16_MAX || y0 < INT16_MIN || y0 > INT16_MAX ||
         x1 < INT16_MIN || x1 > INT16_MAX || y1 < INT16_MIN || y1 > INT16_MAX ||
         (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE)) {
@@ -672,6 +899,9 @@ static int l_tiny_epd_rect(lua_State *L)
     int color = (int)luaL_optinteger(L, 6, TINY_EPD_COLOR_BLACK);
     int fill = (int)luaL_optinteger(L, 7, 0);
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
         x2 < INT16_MIN || x2 > INT16_MAX || y2 < INT16_MIN || y2 > INT16_MAX ||
         (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) ||
@@ -706,6 +936,9 @@ static int l_tiny_epd_circle(lua_State *L)
     int color = (int)luaL_optinteger(L, 5, TINY_EPD_COLOR_BLACK);
     int fill = (int)luaL_optinteger(L, 6, 0);
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
         r < 0 || r > 255 ||
         (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) ||
@@ -718,6 +951,62 @@ static int l_tiny_epd_circle(lua_State *L)
                                                           (uint8_t)r,
                                                           (uint8_t)color,
                                                           (uint8_t)fill));
+}
+
+/*
+@api panel:drawXbm(x, y, width, height, data[, fg[, bg]])
+@number x,y 位图左上角逻辑坐标；允许负坐标，屏幕外部分自动裁剪
+@number width,height 位图像素尺寸
+@string data XBM 数据：逐行存储，每行 ceil(width/8) 字节，低位在左
+@number fg 置位像素颜色，epd.BLACK（默认）或 epd.WHITE
+@number|nil bg 清零像素颜色，epd.WHITE（默认）；显式传 nil 表示透明
+@return boolean 成功返回 true，失败返回 false 和错误信息
+@usage
+-- 与 eink.drawXbm()/u8g2.DrawXBM 格式相同：每个字节 bit0 是最左侧像素
+local xbm = string.char(0x81, 0x42, 0x24, 0x18, 0x24, 0x42, 0x81, 0x00)
+assert(panel:drawXbm(20, 30, 8, 8, xbm))
+-- 透明叠加：只有位图中的 1 写入 framebuffer
+assert(panel:drawXbm(20, 30, 8, 8, xbm, epd.BLACK, nil))
+*/
+static int l_tiny_epd_draw_xbm(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer x = luaL_checkinteger(L, 2);
+    lua_Integer y = luaL_checkinteger(L, 3);
+    lua_Integer width = luaL_checkinteger(L, 4);
+    lua_Integer height = luaL_checkinteger(L, 5);
+    size_t data_len;
+    const char *data = luaL_checklstring(L, 6, &data_len);
+    int fg = (int)luaL_optinteger(L, 7, TINY_EPD_COLOR_BLACK);
+    int bg = TINY_EPD_COLOR_WHITE;
+
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
+    /* An omitted eighth argument preserves legacy eink opaque semantics;
+     * an explicit nil selects transparent XBM zero bits. */
+    if (lua_gettop(L) >= 8) {
+        if (lua_isnil(L, 8)) {
+            bg = TINY_EPD_BITMAP_TRANSPARENT;
+        }
+        else {
+            bg = (int)luaL_checkinteger(L, 8);
+        }
+    }
+
+    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
+        width < 1 || width > UINT16_MAX || height < 1 || height > UINT16_MAX ||
+        fg < TINY_EPD_COLOR_BLACK || fg > TINY_EPD_COLOR_WHITE ||
+        (bg != TINY_EPD_BITMAP_TRANSPARENT &&
+         (bg < TINY_EPD_COLOR_BLACK || bg > TINY_EPD_COLOR_WHITE))) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_draw_xbm(device->epd,
+                                                       (int16_t)x, (int16_t)y,
+                                                       (uint16_t)width, (uint16_t)height,
+                                                       (const uint8_t *)data, data_len,
+                                                       (uint8_t)fg, (int16_t)bg));
 }
 
 /*
@@ -739,6 +1028,9 @@ static int l_tiny_epd_qrcode(lua_State *L)
     lua_Integer size = luaL_optinteger(L, 5, 0);
     int color = (int)luaL_optinteger(L, 6, TINY_EPD_COLOR_BLACK);
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
@@ -791,8 +1083,6 @@ static int luat_tiny_epd_hzfont_parse_style(lua_State *L,
     int value;
     int present;
     int has_fg;
-    size_t name_len;
-    const char *name;
 
     tiny_epd_hzfont_style_init(style);
     if (lua_isnoneornil(L, index)) {
@@ -833,21 +1123,17 @@ static int luat_tiny_epd_hzfont_parse_style(lua_State *L,
 
     lua_getfield(L, index, "dither");
     if (!lua_isnil(L, -1)) {
-        if (!lua_isstring(L, -1)) {
+        if (!lua_isinteger(L, -1)) {
             lua_pop(L, 1);
             return -1;
         }
-        name = luaL_checklstring(L, -1, &name_len);
-        if (name_len == 9 && memcmp(name, "threshold", 9) == 0) {
-            style->dither = TINY_EPD_HZFONT_DITHER_THRESHOLD;
-        }
-        else if (name_len == 6 && memcmp(name, "bayer4", 6) == 0) {
-            style->dither = TINY_EPD_HZFONT_DITHER_BAYER4;
-        }
-        else {
+        value = (int)lua_tointeger(L, -1);
+        if (value != TINY_EPD_HZFONT_DITHER_THRESHOLD &&
+            value != TINY_EPD_HZFONT_DITHER_BAYER4) {
             lua_pop(L, 1);
             return -1;
         }
+        style->dither = (tiny_epd_hzfont_dither_t)value;
     }
     lua_pop(L, 1);
     return 0;
@@ -860,14 +1146,14 @@ static int luat_tiny_epd_hzfont_parse_style(lua_State *L,
 @string text UTF-8 文本
 @number size 字号（1..255 像素）
 @number|table style 兼容旧接口时传 antialias(-1..3)；推荐传
- {fg=epd.BLACK, bg=nil, antialias=-1, threshold=128, dither="threshold"}
+ {fg=epd.BLACK, bg=nil, antialias=-1, threshold=128, dither=epd.DITHER_THRESHOLD}
 @return boolean 成功返回 true，失败返回 false 和错误信息
 @usage
 -- 透明黑字，和 eink.drawHzfont 的默认效果一致
 assert(panel:drawHzfont(10, 36, "合宙LuatOS", 24, {antialias = -1}))
 -- 白底覆盖旧文字；bayer4 可改善黑白屏的边缘观感
 assert(panel:drawHzfont(10, 68, "Hello世界", 20,
-    {fg = epd.BLACK, bg = epd.WHITE, dither = "bayer4"}))
+    {fg = epd.BLACK, bg = epd.WHITE, dither = epd.DITHER_BAYER4}))
 */
 static int l_tiny_epd_draw_hzfont(lua_State *L)
 {
@@ -878,6 +1164,9 @@ static int l_tiny_epd_draw_hzfont(lua_State *L)
     lua_Integer size = luaL_checkinteger(L, 5);
     tiny_epd_hzfont_style_t style;
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
         size < 1 || size > UINT8_MAX ||
         luat_tiny_epd_hzfont_parse_style(L, 6, &style) != 0) {
@@ -898,10 +1187,13 @@ static int l_tiny_epd_draw_hzfont(lua_State *L)
 */
 static int l_tiny_epd_get_hzfont_width(lua_State *L)
 {
-    (void)luat_tiny_epd_check_device(L);
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
     const char *text = luaL_checkstring(L, 2);
     lua_Integer size = luaL_checkinteger(L, 3);
 
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
     if (size < 1 || size > UINT8_MAX) {
         lua_pushinteger(L, 0);
         return 1;
@@ -919,6 +1211,7 @@ static const luaL_Reg tiny_epd_device_methods[] = {
     {"line",         l_tiny_epd_line},
     {"rect",         l_tiny_epd_rect},
     {"circle",       l_tiny_epd_circle},
+    {"drawXbm",      l_tiny_epd_draw_xbm},
     {"qrcode",       l_tiny_epd_qrcode},
 #ifdef LUAT_USE_HZFONT
     {"drawHzfont",   l_tiny_epd_draw_hzfont},
@@ -955,11 +1248,15 @@ static const rotable_Reg_t reg_tiny_epd[] = {
     {"MODEL_1in54_SSD1607", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_SSD1607)},
     {"BLACK", ROREG_INT(TINY_EPD_COLOR_BLACK)},
     {"WHITE", ROREG_INT(TINY_EPD_COLOR_WHITE)},
-    {"REFRESH_AUTO", ROREG_INT(TINY_EPD_REFRESH_AUTO)},
-    {"REFRESH_FULL", ROREG_INT(TINY_EPD_REFRESH_FULL)},
-    {"REFRESH_FAST", ROREG_INT(TINY_EPD_REFRESH_FAST)},
-    {"REFRESH_PARTIAL", ROREG_INT(TINY_EPD_REFRESH_PARTIAL)},
-    {"REFRESH_PARTIAL_RECT", ROREG_INT(TINY_EPD_REFRESH_PARTIAL_RECT)},
+    {"AUTO", ROREG_INT(TINY_EPD_REFRESH_AUTO)},
+    {"FULL", ROREG_INT(TINY_EPD_REFRESH_FULL)},
+    {"FAST", ROREG_INT(TINY_EPD_REFRESH_FAST)},
+    {"PARTIAL", ROREG_INT(TINY_EPD_REFRESH_PARTIAL)},
+    {"PARTIAL_RECT", ROREG_INT(TINY_EPD_REFRESH_PARTIAL_RECT)},
+#ifdef LUAT_USE_HZFONT
+    {"DITHER_THRESHOLD", ROREG_INT(TINY_EPD_HZFONT_DITHER_THRESHOLD)},
+    {"DITHER_BAYER4", ROREG_INT(TINY_EPD_HZFONT_DITHER_BAYER4)},
+#endif
     {"SLEEP_AUTO", ROREG_INT(TINY_EPD_SLEEP_AUTO)},
     {"SLEEP_STANDBY", ROREG_INT(TINY_EPD_SLEEP_STANDBY)},
     {"SLEEP_DEEP", ROREG_INT(TINY_EPD_SLEEP_DEEP)},

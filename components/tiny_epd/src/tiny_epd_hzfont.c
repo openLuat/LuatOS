@@ -1,3 +1,4 @@
+#include "luat_base.h"
 #include "tiny_epd_hzfont.h"
 
 #include <limits.h>
@@ -181,7 +182,16 @@ int tiny_epd_hzfont_draw_utf8(tiny_epd_t *epd,
                     continue;
                 }
                 ret = tiny_epd_draw_pixel(epd, (int16_t)draw_x, (int16_t)draw_y, color);
-                if (ret != TINY_EPD_OK && ret != TINY_EPD_ERR_PARAM) {
+                /*
+                 * Drawing deliberately clips glyphs at the framebuffer edge.
+                 * An out-of-canvas pixel is therefore not a failure of the
+                 * whole string; do not leak that transient result to Lua.
+                 */
+                if (ret == TINY_EPD_ERR_PARAM) {
+                    ret = TINY_EPD_OK;
+                    continue;
+                }
+                if (ret != TINY_EPD_OK) {
                     goto done;
                 }
             }
@@ -191,7 +201,8 @@ int tiny_epd_hzfont_draw_utf8(tiny_epd_t *epd,
 
 done:
     (void)ttf_set_supersample_rate(previous_rate);
-    return ret;
+    /* The only recoverable error produced while rasterizing is clipping. */
+    return ret == TINY_EPD_ERR_PARAM ? TINY_EPD_OK : ret;
 }
 
 #else

@@ -59,6 +59,7 @@
 #define LUAT_USE_AIRLINK_EXEC_UART  1
 #define LUAT_USE_AIRLINK_EXEC_WLAN  1
 #define LUAT_USE_AIRLINK_EXEC_PM    1
+#define LUAT_USE_AIRLINK_EXEC_PING  1
 #define LUAT_USE_AIRLINK_EXEC_SDATA 1
 // #define LUAT_USE_AIRLINK_DRV_BLUETOOTH 1
 #define LUAT_USE_AIRLINK_DRV_GPIO  1
@@ -125,8 +126,6 @@
 #define LUAT_USE_ZBUFF  1
 #define LUAT_USE_PACK  1
 #define LUAT_USE_LIBGNSS  1
-#define LUAT_USE_MQTTCORE 1
-#define LUAT_USE_LIBCOAP 1
 #define LUAT_USE_FS  1
 // #define LUAT_USE_SENSOR  1
 #define LUAT_USE_SFUD  1
@@ -200,10 +199,8 @@
 
 // U8G2 在 GUI/非 GUI PC 构建中都需要保留。
 #define LUAT_USE_U8G2 1
-#ifndef LUAT_USE_GUI
-// EINK 仅在非 GUI PC 构建中启用，对齐 xmake 的非 GUI 源码范围。
+// EINK 在 GUI/非 GUI PC 构建中均启用，供 func/eink/eink_basic 测试使用。
 #define LUAT_USE_EINK 1
-#endif
 
 #define LUAT_USE_WEBP 1
 

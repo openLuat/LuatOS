@@ -2090,9 +2090,29 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
         (void)pgfs_gc_step(ctx, 4096, 2000);
         t_gc = luat_mcu_tick64_ms();
         if (pgfs_alloc_segment(ctx, &seg_id) != 0) {
-            LLOGE("close alloc_segment failed");
-            ret = -1;
-            goto finish;
+            /* Aggressive GC retry: the initial small-budget GC may not have
+             * reclaimed enough space. Try up to 3 larger GC steps before
+             * giving up, so transient space pressure doesn't cause silent
+             * data loss. */
+            int gc_retry = 0;
+            int alloc_ok = 0;
+            for (gc_retry = 0; gc_retry < 3; gc_retry++) {
+                uint32_t gc_budget = 4096u * (uint32_t)(gc_retry + 2u);
+                if (pgfs_gc_step(ctx, gc_budget, 5000) == 0) {
+                    break; /* GC found nothing to reclaim */
+                }
+                if (pgfs_alloc_segment(ctx, &seg_id) == 0) {
+                    alloc_ok = 1;
+                    break;
+                }
+            }
+            if (!alloc_ok && pgfs_alloc_segment(ctx, &seg_id) != 0) {
+                LLOGE("close alloc_segment failed after GC retries (path=%s)",
+                      f->entry ? f->entry->path : "?");
+                f->err = 1;
+                ret = -1;
+                goto finish;
+            }
         }
         t_alloc = luat_mcu_tick64_ms();
         if (ctx->inject_powercut_stage == PGFS_INJECT_POWERCUT_BEFORE_APPEND) {
@@ -2103,8 +2123,11 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
         }
         if (pgfs_append_data_record(ctx, f) != 0) {
             if (pgfs_compact_live_entries(ctx) != 0 || pgfs_append_data_record(ctx, f) != 0) {
-                LLOGE("close append_data_record failed addr=%u", (unsigned int)ctx->data_log_write_addr);
+                LLOGE("close append_data_record failed addr=%u path=%s (DATA LOST)",
+                      (unsigned int)ctx->data_log_write_addr,
+                      f->entry ? f->entry->path : "?");
                 (void)pgfs_mark_block_retired(ctx, seg_id);
+                f->err = 1;
                 ret = -1;
                 goto finish;
             }
@@ -2314,12 +2337,15 @@ size_t pgfs_file_write(pgfs_mount_ctx_t* ctx, const void *ptr, size_t size, size
         return 0;
     }
     if (!pgfs_ctx_handle_valid(ctx, f->generation)) {
+        f->err = 1;
         return 0;
     }
     if (!pgfs_batch_handle_match(ctx, f)) {
+        f->err = 1;
         return 0;
     }
     if (pgfs_cache_append(f, (const uint8_t*)ptr, total) != 0) {
+        f->err = 1;
         return 0;
     }
     f->pos += total;

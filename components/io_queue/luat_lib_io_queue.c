@@ -14,6 +14,15 @@
 #include "luat_lib_io_queue.h"
 #define LUAT_LOG_TAG "io_queue"
 #include "luat_log.h"
+/*
+@sys_pub ioqueue
+io操作队列执行完成, topic尾部的N为硬件定时器id
+IO_QUEUE_DONE_N
+@usage
+sys.subscribe("IO_QUEUE_DONE_0", function()
+    log.info("io_queue", "done")
+end)
+*/
 int l_io_queue_done_handler(lua_State *L, void* ptr)
 {
 	rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -24,6 +33,17 @@ int l_io_queue_done_handler(lua_State *L, void* ptr)
 	return 1;
 }
 
+/*
+@sys_pub ioqueue
+io队列捕获到外部电平变化, topic尾部的N为引脚号
+IO_QUEUE_EXTI_N
+@number 电平值, 0或1
+@string 捕获时刻的时间戳, 8字节二进制的64bit整数
+@usage
+sys.subscribe("IO_QUEUE_EXTI_7", function(val, tick)
+    log.info("io_queue", "exti", val, tick)
+end)
+*/
 int l_io_queue_capture_handler(lua_State *L, void* ptr)
 {
 	volatile uint64_t tick;

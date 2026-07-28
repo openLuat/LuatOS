@@ -2050,6 +2050,16 @@ end)
 	case LUAT_MOBILE_EVENT_SMS:
 		switch(status)
 		{
+/*
+@sys_pub mobile
+SMS就绪状态变化
+SMS_READY
+@usage
+-- id 为SIM卡的索引
+sys.subscribe("SMS_READY", function(id)
+	log.info("mobile", "SMS_READY", id)
+end)
+*/
 		case LUAT_MOBILE_SMS_READY:
 			LLOGI("sim%d sms ready", index);
             lua_pushstring(L, "SMS_READY");

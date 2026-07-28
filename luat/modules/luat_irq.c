@@ -30,6 +30,7 @@ int luat_irq_uart_cb(int id, void* args) {
 
 int luat_irq_spi_cb(int id);
 
+// 透传消息: topic 由用户注册回调时指定(param 参数), 并非框架固定的系统消息, 故不进 sys_pub 文档
 static int luat_irq_topic_cb_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L, "sys_pub");

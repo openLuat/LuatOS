@@ -104,6 +104,14 @@ int tiny_epd_init(tiny_epd_t *epd);
 int tiny_epd_refresh(tiny_epd_t *epd,
                      tiny_epd_refresh_mode_t mode,
                      const tiny_epd_rect_t *rect);
+/*
+ * Refresh using the native dirty rectangle accumulated by drawing APIs.
+ * PARTIAL_RECT sends only that rectangle. AUTO chooses PARTIAL_RECT when the
+ * driver supports it and the dirty rectangle is not the complete panel;
+ * otherwise AUTO performs a full refresh. With no dirty rectangle, AUTO and
+ * PARTIAL_RECT are successful no-ops.
+ */
+int tiny_epd_refresh_dirty(tiny_epd_t *epd, tiny_epd_refresh_mode_t mode);
 int tiny_epd_sleep(tiny_epd_t *epd, tiny_epd_sleep_mode_t mode);
 
 int tiny_epd_clear(tiny_epd_t *epd, uint8_t color);

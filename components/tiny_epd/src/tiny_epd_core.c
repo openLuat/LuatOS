@@ -50,6 +50,208 @@ void tiny_epd_port_free(tiny_epd_t *epd, void *ptr)
     }
 }
 
+/* The historic driver descriptor did not carry a surface. Keep that ABI
+ * useful by supplying the exact old BLACK=0 / WHITE=1, MSB-first layout. */
+static const tiny_epd_palette_entry_t g_tiny_epd_default_palette[] = {
+    {TINY_EPD_COLOR_BLACK, 0u, 0x000000u},
+    {TINY_EPD_COLOR_WHITE, 1u, 0xFFFFFFu}
+};
+
+static const tiny_epd_surface_desc_t g_tiny_epd_default_surface = {
+    TINY_EPD_SURFACE_INDEX1,
+    1u,
+    1u,
+    (uint16_t)(sizeof(g_tiny_epd_default_palette) / sizeof(g_tiny_epd_default_palette[0])),
+    TINY_EPD_COLOR_WHITE,
+    g_tiny_epd_default_palette
+};
+
+static const tiny_epd_surface_desc_t *tiny_epd_driver_surface(const tiny_epd_driver_t *driver)
+{
+    if (driver != NULL && driver->surface != NULL) {
+        return driver->surface;
+    }
+    return &g_tiny_epd_default_surface;
+}
+
+static const tiny_epd_palette_entry_t *tiny_epd_palette_find_in_surface(
+    const tiny_epd_surface_desc_t *surface, tiny_epd_color_t color)
+{
+    uint16_t i;
+
+    if (surface == NULL || surface->palette == NULL) {
+        return NULL;
+    }
+    for (i = 0; i < surface->palette_count; i++) {
+        if (surface->palette[i].color == color) {
+            return &surface->palette[i];
+        }
+    }
+    return NULL;
+}
+
+static int tiny_epd_surface_storage_limit(const tiny_epd_surface_desc_t *surface,
+                                          uint16_t *limit)
+{
+    if (surface == NULL || limit == NULL) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    switch (surface->format) {
+    case TINY_EPD_SURFACE_INDEX1:
+        *limit = 0x01u;
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_INDEX2:
+        *limit = 0x03u;
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_INDEX4:
+        *limit = 0x0Fu;
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_INDEX8:
+        *limit = 0xFFu;
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_PLANAR1:
+        if (surface->plane_count == 0 || surface->plane_count > 8u) {
+            return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+        }
+        *limit = (uint16_t)((1u << surface->plane_count) - 1u);
+        return TINY_EPD_OK;
+    default:
+        return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+    }
+}
+
+static int tiny_epd_validate_surface(const tiny_epd_driver_t *driver,
+                                     const tiny_epd_surface_desc_t *surface)
+{
+    uint16_t storage_limit;
+    uint16_t i;
+    uint16_t j;
+    int has_black = 0;
+    int has_white = 0;
+
+    if (driver == NULL || surface == NULL || surface->palette == NULL ||
+        surface->palette_count == 0) {
+        return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+    }
+    if (surface->bits_per_pixel != driver->bits_per_pixel ||
+        surface->plane_count != driver->plane_count) {
+        return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+    }
+    switch (surface->format) {
+    case TINY_EPD_SURFACE_INDEX1:
+        if (surface->bits_per_pixel != 1u || surface->plane_count != 1u ||
+            surface->palette_count > 2u) {
+            return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+        }
+        break;
+    case TINY_EPD_SURFACE_INDEX2:
+        if (surface->bits_per_pixel != 2u || surface->plane_count != 1u ||
+            surface->palette_count > 4u) {
+            return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+        }
+        break;
+    case TINY_EPD_SURFACE_INDEX4:
+        if (surface->bits_per_pixel != 4u || surface->plane_count != 1u ||
+            surface->palette_count > 16u) {
+            return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+        }
+        break;
+    case TINY_EPD_SURFACE_INDEX8:
+        if (surface->bits_per_pixel != 8u || surface->plane_count != 1u ||
+            surface->palette_count > 256u) {
+            return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+        }
+        break;
+    case TINY_EPD_SURFACE_PLANAR1:
+        if (surface->bits_per_pixel != 1u || surface->plane_count == 0u ||
+            surface->plane_count > 8u || surface->palette_count > (1u << surface->plane_count)) {
+            return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+        }
+        break;
+    default:
+        return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+    }
+    if (tiny_epd_surface_storage_limit(surface, &storage_limit) != TINY_EPD_OK) {
+        return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+    }
+    for (i = 0; i < surface->palette_count; i++) {
+        const tiny_epd_palette_entry_t *entry = &surface->palette[i];
+
+        if (entry->color == TINY_EPD_COLOR_FG || entry->color == TINY_EPD_COLOR_BG ||
+            entry->storage_code > storage_limit) {
+            return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+        }
+        if (entry->color == TINY_EPD_COLOR_BLACK) {
+            has_black = 1;
+        }
+        if (entry->color == TINY_EPD_COLOR_WHITE) {
+            has_white = 1;
+        }
+        for (j = 0; j < i; j++) {
+            if (surface->palette[j].color == entry->color ||
+                surface->palette[j].storage_code == entry->storage_code) {
+                return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+            }
+        }
+    }
+    if (!has_black || !has_white ||
+        tiny_epd_palette_find_in_surface(surface, surface->clear_color) == NULL) {
+        return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+    }
+    return TINY_EPD_OK;
+}
+
+static int tiny_epd_resolve_color(const tiny_epd_t *epd, tiny_epd_color_t requested,
+                                  tiny_epd_color_t *resolved)
+{
+    tiny_epd_color_t color;
+
+    if (epd == NULL || epd->surface == NULL || resolved == NULL) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    if (requested == TINY_EPD_COLOR_FG) {
+        color = epd->foreground;
+    }
+    else if (requested == TINY_EPD_COLOR_BG) {
+        color = epd->background;
+    }
+    else {
+        color = requested;
+    }
+    if (tiny_epd_palette_find_in_surface(epd->surface, color) == NULL) {
+        return TINY_EPD_ERR_UNSUPPORTED_COLOR;
+    }
+    *resolved = color;
+    return TINY_EPD_OK;
+}
+
+static int tiny_epd_storage_code_for_color(const tiny_epd_t *epd,
+                                            tiny_epd_color_t requested,
+                                            uint8_t *storage_code,
+                                            tiny_epd_color_t *resolved_color)
+{
+    const tiny_epd_palette_entry_t *entry;
+    tiny_epd_color_t color;
+    int ret;
+
+    if (storage_code == NULL) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    ret = tiny_epd_resolve_color(epd, requested, &color);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    entry = tiny_epd_palette_find_in_surface(epd->surface, color);
+    if (entry == NULL) {
+        return TINY_EPD_ERR_UNSUPPORTED_COLOR;
+    }
+    *storage_code = entry->storage_code;
+    if (resolved_color != NULL) {
+        *resolved_color = color;
+    }
+    return TINY_EPD_OK;
+}
+
 static int tiny_epd_calc_framebuffer_size(const tiny_epd_driver_t *driver,
                                           uint16_t *stride_out,
                                           size_t *size_out)
@@ -85,6 +287,158 @@ static int tiny_epd_calc_framebuffer_size(const tiny_epd_driver_t *driver,
     return TINY_EPD_OK;
 }
 
+static int tiny_epd_fill_framebuffer(tiny_epd_t *epd, uint8_t storage_code)
+{
+    uint8_t fill;
+
+    if (epd == NULL || epd->framebuffer == NULL || epd->surface == NULL) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    switch (epd->surface->format) {
+    case TINY_EPD_SURFACE_INDEX1:
+        fill = storage_code == 0u ? 0x00u : 0xFFu;
+        memset(epd->framebuffer, fill, epd->framebuffer_size);
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_INDEX2:
+        fill = (uint8_t)(storage_code & 0x03u);
+        fill = (uint8_t)(fill | (uint8_t)(fill << 2u));
+        fill = (uint8_t)(fill | (uint8_t)(fill << 4u));
+        memset(epd->framebuffer, fill, epd->framebuffer_size);
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_INDEX4:
+        fill = (uint8_t)(storage_code & 0x0Fu);
+        fill = (uint8_t)(fill | (uint8_t)(fill << 4u));
+        memset(epd->framebuffer, fill, epd->framebuffer_size);
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_INDEX8:
+        memset(epd->framebuffer, storage_code, epd->framebuffer_size);
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_PLANAR1:
+    {
+        size_t plane_size = (size_t)epd->stride * epd->height;
+        uint8_t plane;
+
+        for (plane = 0; plane < epd->plane_count; plane++) {
+            fill = (storage_code & (uint8_t)(1u << plane)) != 0u ? 0xFFu : 0x00u;
+            memset(epd->framebuffer + (size_t)plane * plane_size, fill, plane_size);
+        }
+        return TINY_EPD_OK;
+    }
+    default:
+        return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+    }
+}
+
+static int tiny_epd_write_native_storage(tiny_epd_t *epd, uint16_t x, uint16_t y,
+                                         uint8_t storage_code)
+{
+    uint8_t *p;
+    uint8_t shift;
+    uint8_t mask;
+
+    if (epd == NULL || epd->framebuffer == NULL || epd->surface == NULL ||
+        x >= epd->width || y >= epd->height) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    switch (epd->surface->format) {
+    case TINY_EPD_SURFACE_INDEX1:
+        p = epd->framebuffer + (size_t)y * epd->stride + x / 8u;
+        mask = (uint8_t)(0x80u >> (x & 0x07u));
+        if ((storage_code & 0x01u) != 0u) {
+            *p |= mask;
+        }
+        else {
+            *p &= (uint8_t)~mask;
+        }
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_INDEX2:
+        p = epd->framebuffer + (size_t)y * epd->stride + x / 4u;
+        shift = (uint8_t)(6u - ((x & 0x03u) * 2u));
+        mask = (uint8_t)(0x03u << shift);
+        *p = (uint8_t)((*p & (uint8_t)~mask) | ((storage_code & 0x03u) << shift));
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_INDEX4:
+        p = epd->framebuffer + (size_t)y * epd->stride + x / 2u;
+        shift = (x & 0x01u) == 0u ? 4u : 0u;
+        mask = (uint8_t)(0x0Fu << shift);
+        *p = (uint8_t)((*p & (uint8_t)~mask) | ((storage_code & 0x0Fu) << shift));
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_INDEX8:
+        epd->framebuffer[(size_t)y * epd->stride + x] = storage_code;
+        return TINY_EPD_OK;
+    case TINY_EPD_SURFACE_PLANAR1:
+    {
+        size_t plane_size = (size_t)epd->stride * epd->height;
+        uint8_t plane;
+
+        mask = (uint8_t)(0x80u >> (x & 0x07u));
+        for (plane = 0; plane < epd->plane_count; plane++) {
+            p = epd->framebuffer + (size_t)plane * plane_size +
+                (size_t)y * epd->stride + x / 8u;
+            if ((storage_code & (uint8_t)(1u << plane)) != 0u) {
+                *p |= mask;
+            }
+            else {
+                *p &= (uint8_t)~mask;
+            }
+        }
+        return TINY_EPD_OK;
+    }
+    default:
+        return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+    }
+}
+
+static int tiny_epd_read_native_storage(const tiny_epd_t *epd, uint16_t x, uint16_t y,
+                                        uint8_t *storage_code)
+{
+    const uint8_t *p;
+    uint8_t shift;
+    uint8_t value = 0;
+
+    if (epd == NULL || epd->framebuffer == NULL || epd->surface == NULL ||
+        storage_code == NULL || x >= epd->width || y >= epd->height) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    switch (epd->surface->format) {
+    case TINY_EPD_SURFACE_INDEX1:
+        p = epd->framebuffer + (size_t)y * epd->stride + x / 8u;
+        value = (uint8_t)((*p >> (7u - (x & 0x07u))) & 0x01u);
+        break;
+    case TINY_EPD_SURFACE_INDEX2:
+        p = epd->framebuffer + (size_t)y * epd->stride + x / 4u;
+        shift = (uint8_t)(6u - ((x & 0x03u) * 2u));
+        value = (uint8_t)((*p >> shift) & 0x03u);
+        break;
+    case TINY_EPD_SURFACE_INDEX4:
+        p = epd->framebuffer + (size_t)y * epd->stride + x / 2u;
+        shift = (x & 0x01u) == 0u ? 4u : 0u;
+        value = (uint8_t)((*p >> shift) & 0x0Fu);
+        break;
+    case TINY_EPD_SURFACE_INDEX8:
+        value = epd->framebuffer[(size_t)y * epd->stride + x];
+        break;
+    case TINY_EPD_SURFACE_PLANAR1:
+    {
+        size_t plane_size = (size_t)epd->stride * epd->height;
+        uint8_t plane;
+
+        for (plane = 0; plane < epd->plane_count; plane++) {
+            p = epd->framebuffer + (size_t)plane * plane_size +
+                (size_t)y * epd->stride + x / 8u;
+            if ((*p & (uint8_t)(0x80u >> (x & 0x07u))) != 0u) {
+                value |= (uint8_t)(1u << plane);
+            }
+        }
+        break;
+    }
+    default:
+        return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+    }
+    *storage_code = value;
+    return TINY_EPD_OK;
+}
+
 int tiny_epd_create(tiny_epd_t **out,
                     const tiny_epd_driver_t *driver,
                     const tiny_epd_port_t *port)
@@ -93,6 +447,7 @@ int tiny_epd_create(tiny_epd_t **out,
     uint16_t stride;
     size_t framebuffer_size;
     size_t object_size;
+    const tiny_epd_surface_desc_t *surface;
     int ret;
 
     if (out == NULL || driver == NULL || port == NULL ||
@@ -102,6 +457,11 @@ int tiny_epd_create(tiny_epd_t **out,
 
     *out = NULL;
     ret = tiny_epd_calc_framebuffer_size(driver, &stride, &framebuffer_size);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    surface = tiny_epd_driver_surface(driver);
+    ret = tiny_epd_validate_surface(driver, surface);
     if (ret != TINY_EPD_OK) {
         return ret;
     }
@@ -121,8 +481,6 @@ int tiny_epd_create(tiny_epd_t **out,
         tiny_epd_free_with_port(port, epd);
         return TINY_EPD_ERR_NO_MEM;
     }
-    memset(epd->framebuffer, 0xFF, framebuffer_size);
-
     epd->driver = driver;
     epd->port = *port;
     epd->width = driver->width;
@@ -130,9 +488,23 @@ int tiny_epd_create(tiny_epd_t **out,
     epd->stride = stride;
     epd->bits_per_pixel = driver->bits_per_pixel;
     epd->plane_count = driver->plane_count;
+    epd->surface = surface;
+    epd->foreground = TINY_EPD_COLOR_BLACK;
+    epd->background = TINY_EPD_COLOR_WHITE;
     epd->caps = driver->caps;
     epd->framebuffer_size = framebuffer_size;
     epd->rotate = 0;
+    {
+        const tiny_epd_palette_entry_t *clear_entry =
+            tiny_epd_palette_find_in_surface(surface, surface->clear_color);
+
+        if (clear_entry == NULL ||
+            tiny_epd_fill_framebuffer(epd, clear_entry->storage_code) != TINY_EPD_OK) {
+            tiny_epd_free_with_port(port, epd->framebuffer);
+            tiny_epd_free_with_port(port, epd);
+            return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+        }
+    }
     epd->dirty_rect.x = 0;
     epd->dirty_rect.y = 0;
     epd->dirty_rect.w = epd->width;
@@ -300,18 +672,82 @@ int tiny_epd_sleep(tiny_epd_t *epd, tiny_epd_sleep_mode_t mode)
     return ret;
 }
 
-int tiny_epd_clear(tiny_epd_t *epd, uint8_t color)
+int tiny_epd_color_set(tiny_epd_t *epd,
+                       tiny_epd_color_t foreground,
+                       tiny_epd_color_t background)
 {
+    if (epd == NULL || epd->surface == NULL) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    /* A state assignment must name two real palette colors, not recursively
+     * refer to the old state through FG/BG sentinels. */
+    if (foreground == TINY_EPD_COLOR_FG || foreground == TINY_EPD_COLOR_BG ||
+        background == TINY_EPD_COLOR_FG || background == TINY_EPD_COLOR_BG ||
+        tiny_epd_palette_find_in_surface(epd->surface, foreground) == NULL ||
+        tiny_epd_palette_find_in_surface(epd->surface, background) == NULL) {
+        return TINY_EPD_ERR_UNSUPPORTED_COLOR;
+    }
+    epd->foreground = foreground;
+    epd->background = background;
+    return TINY_EPD_OK;
+}
+
+int tiny_epd_color_get(const tiny_epd_t *epd,
+                       tiny_epd_color_t *foreground,
+                       tiny_epd_color_t *background)
+{
+    if (epd == NULL || foreground == NULL || background == NULL) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    *foreground = epd->foreground;
+    *background = epd->background;
+    return TINY_EPD_OK;
+}
+
+int tiny_epd_color_supported(const tiny_epd_t *epd, tiny_epd_color_t color)
+{
+    tiny_epd_color_t resolved;
+
+    return tiny_epd_resolve_color(epd, color, &resolved) == TINY_EPD_OK;
+}
+
+tiny_epd_surface_format_t tiny_epd_surface_format(const tiny_epd_t *epd)
+{
+    return epd != NULL && epd->surface != NULL ? epd->surface->format : 0;
+}
+
+uint16_t tiny_epd_palette_count(const tiny_epd_t *epd)
+{
+    return epd != NULL && epd->surface != NULL ? epd->surface->palette_count : 0;
+}
+
+int tiny_epd_palette_get(const tiny_epd_t *epd, uint16_t index,
+                         tiny_epd_palette_entry_t *out)
+{
+    if (epd == NULL || epd->surface == NULL || out == NULL ||
+        index >= epd->surface->palette_count) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    *out = epd->surface->palette[index];
+    return TINY_EPD_OK;
+}
+
+int tiny_epd_clear(tiny_epd_t *epd, tiny_epd_color_t color)
+{
+    uint8_t storage_code;
+    int ret;
+
     if (epd == NULL || epd->framebuffer == NULL) {
         return TINY_EPD_ERR_PARAM;
     }
-    if (epd->bits_per_pixel != 1 || epd->plane_count != 1) {
-        return TINY_EPD_ERR_UNSUPPORTED_MODE;
+    ret = tiny_epd_storage_code_for_color(epd, color, &storage_code, NULL);
+    if (ret != TINY_EPD_OK) {
+        return ret;
     }
-    if (color > TINY_EPD_COLOR_WHITE) {
-        return TINY_EPD_ERR_PARAM;
+    ret = tiny_epd_fill_framebuffer(epd, storage_code);
+    if (ret != TINY_EPD_OK) {
+        return ret;
     }
-    memset(epd->framebuffer, color ? 0xFF : 0x00, epd->framebuffer_size);
     epd->dirty_rect.x = 0;
     epd->dirty_rect.y = 0;
     epd->dirty_rect.w = epd->width;
@@ -459,44 +895,65 @@ int tiny_epd_map_rect_to_native(const tiny_epd_t *epd,
     return TINY_EPD_OK;
 }
 
-int tiny_epd_draw_pixel_native(tiny_epd_t *epd, int16_t x, int16_t y, uint8_t color)
+int tiny_epd_draw_pixel_native(tiny_epd_t *epd, int16_t x, int16_t y,
+                               tiny_epd_color_t color)
 {
-    uint8_t *p;
-    uint8_t mask;
+    tiny_epd_rect_t rect;
+    uint8_t storage_code;
+    int ret;
 
     if (epd == NULL || epd->framebuffer == NULL) {
-        return TINY_EPD_ERR_PARAM;
-    }
-    if (epd->bits_per_pixel != 1 || epd->plane_count != 1) {
-        return TINY_EPD_ERR_UNSUPPORTED_MODE;
-    }
-    if (color > TINY_EPD_COLOR_WHITE) {
         return TINY_EPD_ERR_PARAM;
     }
     if (x < 0 || y < 0 || x >= (int16_t)epd->width || y >= (int16_t)epd->height) {
         return TINY_EPD_ERR_PARAM;
     }
-
-    p = epd->framebuffer + ((size_t)y * epd->stride) + ((uint16_t)x / 8u);
-    mask = (uint8_t)(0x80u >> ((uint16_t)x & 0x07u));
-    if (color) {
-        *p |= mask;
+    ret = tiny_epd_storage_code_for_color(epd, color, &storage_code, NULL);
+    if (ret != TINY_EPD_OK) {
+        return ret;
     }
-    else {
-        *p &= (uint8_t)~mask;
+    ret = tiny_epd_write_native_storage(epd, (uint16_t)x, (uint16_t)y, storage_code);
+    if (ret != TINY_EPD_OK) {
+        return ret;
     }
-    {
-        tiny_epd_rect_t rect;
-        rect.x = (uint16_t)x;
-        rect.y = (uint16_t)y;
-        rect.w = 1;
-        rect.h = 1;
-        (void)tiny_epd_mark_dirty(epd, &rect);
-    }
+    rect.x = (uint16_t)x;
+    rect.y = (uint16_t)y;
+    rect.w = 1;
+    rect.h = 1;
+    (void)tiny_epd_mark_dirty(epd, &rect);
     return TINY_EPD_OK;
 }
 
-int tiny_epd_draw_pixel(tiny_epd_t *epd, int16_t x, int16_t y, uint8_t color)
+int tiny_epd_get_pixel_native(const tiny_epd_t *epd, int16_t x, int16_t y,
+                              tiny_epd_color_t *color)
+{
+    const tiny_epd_palette_entry_t *entry;
+    uint8_t storage_code;
+    int ret;
+
+    if (epd == NULL || color == NULL || x < 0 || y < 0 ||
+        x >= (int16_t)epd->width || y >= (int16_t)epd->height) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    ret = tiny_epd_read_native_storage(epd, (uint16_t)x, (uint16_t)y, &storage_code);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    if (epd->surface == NULL || epd->surface->palette == NULL) {
+        return TINY_EPD_ERR_UNSUPPORTED_FORMAT;
+    }
+    for (entry = epd->surface->palette;
+         entry < epd->surface->palette + epd->surface->palette_count;
+         entry++) {
+        if (entry->storage_code == storage_code) {
+            *color = entry->color;
+            return TINY_EPD_OK;
+        }
+    }
+    return TINY_EPD_ERR_UNSUPPORTED_COLOR;
+}
+
+int tiny_epd_draw_pixel(tiny_epd_t *epd, int16_t x, int16_t y, tiny_epd_color_t color)
 {
     uint16_t native_x;
     uint16_t native_y;
@@ -510,6 +967,23 @@ int tiny_epd_draw_pixel(tiny_epd_t *epd, int16_t x, int16_t y, uint8_t color)
         return ret;
     }
     return tiny_epd_draw_pixel_native(epd, (int16_t)native_x, (int16_t)native_y, color);
+}
+
+int tiny_epd_get_pixel(const tiny_epd_t *epd, int16_t x, int16_t y,
+                       tiny_epd_color_t *color)
+{
+    uint16_t native_x;
+    uint16_t native_y;
+    int ret;
+
+    if (epd == NULL || color == NULL || x < 0 || y < 0) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    ret = tiny_epd_map_point_to_native(epd, (uint16_t)x, (uint16_t)y, &native_x, &native_y);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    return tiny_epd_get_pixel_native(epd, (int16_t)native_x, (int16_t)native_y, color);
 }
 
 uint16_t tiny_epd_width(const tiny_epd_t *epd)

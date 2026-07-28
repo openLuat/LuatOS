@@ -10,6 +10,7 @@ extern "C" {
 
 typedef struct tiny_epd tiny_epd_t;
 typedef struct tiny_epd_driver tiny_epd_driver_t;
+typedef uint8_t tiny_epd_color_t;
 
 typedef enum {
     TINY_EPD_OK = 0,
@@ -19,7 +20,11 @@ typedef enum {
     TINY_EPD_ERR_BUSY_TIMEOUT = -4,
     TINY_EPD_ERR_UNSUPPORTED_MODE = -5,
     TINY_EPD_ERR_BAD_STATE = -6,
-    TINY_EPD_ERR_FONT_NOT_READY = -7
+    TINY_EPD_ERR_FONT_NOT_READY = -7,
+    /* The requested logical color is not in this panel profile's palette. */
+    TINY_EPD_ERR_UNSUPPORTED_COLOR = -8,
+    /* The driver declared an invalid or unsupported canonical surface. */
+    TINY_EPD_ERR_UNSUPPORTED_FORMAT = -9
 } tiny_epd_err_t;
 
 typedef enum {
@@ -80,8 +85,50 @@ typedef struct {
     void (*free)(void *user, void *ptr);
 } tiny_epd_port_t;
 
-#define TINY_EPD_COLOR_BLACK 0u
-#define TINY_EPD_COLOR_WHITE 1u
+/*
+ * Logical colors are stable API values. They are not controller RAM values:
+ * each driver profile maps them to its canonical framebuffer storage code.
+ */
+#define TINY_EPD_COLOR_BLACK   ((tiny_epd_color_t)0u)
+#define TINY_EPD_COLOR_WHITE   ((tiny_epd_color_t)1u)
+#define TINY_EPD_COLOR_RED     ((tiny_epd_color_t)2u)
+#define TINY_EPD_COLOR_YELLOW  ((tiny_epd_color_t)3u)
+#define TINY_EPD_COLOR_ORANGE  ((tiny_epd_color_t)4u)
+#define TINY_EPD_COLOR_BLUE    ((tiny_epd_color_t)5u)
+#define TINY_EPD_COLOR_GREEN   ((tiny_epd_color_t)6u)
+
+/* Resolve a legacy drawing color parameter through this panel's state. */
+#define TINY_EPD_COLOR_FG      ((tiny_epd_color_t)0xfeu)
+#define TINY_EPD_COLOR_BG      ((tiny_epd_color_t)0xffu)
+
+/*
+ * Canonical framebuffer formats. Indexed formats are packed MSB-first, one
+ * framebuffer plane. PLANAR1 is plane-major, MSB-first, and is intended for
+ * C drivers/custom adapters with controller-native bitmap planes.
+ */
+typedef enum {
+    TINY_EPD_SURFACE_INDEX1 = 1,
+    TINY_EPD_SURFACE_INDEX2 = 2,
+    TINY_EPD_SURFACE_INDEX4 = 4,
+    TINY_EPD_SURFACE_INDEX8 = 8,
+    TINY_EPD_SURFACE_PLANAR1 = 16
+} tiny_epd_surface_format_t;
+
+typedef struct {
+    tiny_epd_color_t color;
+    uint8_t storage_code;
+    /* Informational RGB value for simulators and language bindings. */
+    uint32_t rgb888;
+} tiny_epd_palette_entry_t;
+
+typedef struct {
+    tiny_epd_surface_format_t format;
+    uint8_t bits_per_pixel;
+    uint8_t plane_count;
+    uint16_t palette_count;
+    tiny_epd_color_t clear_color;
+    const tiny_epd_palette_entry_t *palette;
+} tiny_epd_surface_desc_t;
 
 #define TINY_EPD_CAP_REFRESH_FULL         (1u << 0)
 #define TINY_EPD_CAP_REFRESH_FAST         (1u << 1)
@@ -93,6 +140,9 @@ typedef struct {
 #define TINY_EPD_CAP_COLOR_BW             (1u << 24)
 #define TINY_EPD_CAP_COLOR_BWR            (1u << 25)
 #define TINY_EPD_CAP_GRAY                 (1u << 26)
+#define TINY_EPD_CAP_COLOR_BWY            (1u << 27)
+#define TINY_EPD_CAP_COLOR_4              (1u << 28)
+#define TINY_EPD_CAP_COLOR_7              (1u << 29)
 
 int tiny_epd_create(tiny_epd_t **out,
                     const tiny_epd_driver_t *driver,
@@ -114,9 +164,29 @@ int tiny_epd_refresh(tiny_epd_t *epd,
 int tiny_epd_refresh_dirty(tiny_epd_t *epd, tiny_epd_refresh_mode_t mode);
 int tiny_epd_sleep(tiny_epd_t *epd, tiny_epd_sleep_mode_t mode);
 
-int tiny_epd_clear(tiny_epd_t *epd, uint8_t color);
+/*
+ * Update the panel-local foreground/background state used by FG/BG sentinels.
+ * The state changes only when both colors exist in the active palette.
+ */
+int tiny_epd_color_set(tiny_epd_t *epd,
+                       tiny_epd_color_t foreground,
+                       tiny_epd_color_t background);
+int tiny_epd_color_get(const tiny_epd_t *epd,
+                       tiny_epd_color_t *foreground,
+                       tiny_epd_color_t *background);
+/* True when color is a logical palette color or a resolvable FG/BG sentinel. */
+int tiny_epd_color_supported(const tiny_epd_t *epd, tiny_epd_color_t color);
+
+tiny_epd_surface_format_t tiny_epd_surface_format(const tiny_epd_t *epd);
+uint16_t tiny_epd_palette_count(const tiny_epd_t *epd);
+int tiny_epd_palette_get(const tiny_epd_t *epd, uint16_t index,
+                         tiny_epd_palette_entry_t *out);
+
+int tiny_epd_clear(tiny_epd_t *epd, tiny_epd_color_t color);
 /* Draw one pixel in the current logical coordinate space. */
-int tiny_epd_draw_pixel(tiny_epd_t *epd, int16_t x, int16_t y, uint8_t color);
+int tiny_epd_draw_pixel(tiny_epd_t *epd, int16_t x, int16_t y, tiny_epd_color_t color);
+int tiny_epd_get_pixel(const tiny_epd_t *epd, int16_t x, int16_t y,
+                       tiny_epd_color_t *color);
 
 int tiny_epd_set_rotation(tiny_epd_t *epd, tiny_epd_rotation_t rotation);
 tiny_epd_rotation_t tiny_epd_get_rotation(const tiny_epd_t *epd);
@@ -147,6 +217,7 @@ const tiny_epd_driver_t *tiny_epd_driver_1in54(void);
 const tiny_epd_driver_t *tiny_epd_driver_1in54_v2(void);
 const tiny_epd_driver_t *tiny_epd_driver_1in54_v3(void);
 const tiny_epd_driver_t *tiny_epd_driver_1in54_ssd1607(void);
+const tiny_epd_driver_t *tiny_epd_driver_1in54r(void);
 
 #ifdef __cplusplus
 }

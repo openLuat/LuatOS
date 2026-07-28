@@ -21,6 +21,16 @@ enum
 	USB_HID_NEW_DATA,
 };
 
+/*
+@sys_pub usbapp
+USB虚拟HID设备的状态变化
+USB_HID_INC
+@number 事件id: 0未就绪, 1就绪, 2发送完成, 3收到新数据
+@usage
+sys.subscribe("USB_HID_INC", function(event)
+    log.info("usbapp", "hid event", event)
+end)
+*/
 static int l_usb_app_vhid_cb(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L, "sys_pub");

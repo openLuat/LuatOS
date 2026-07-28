@@ -362,6 +362,17 @@ void luat_uart_set_app_sent(int id, luat_uart_sent_callback_t cb) {
 	}
 }
 
+/*
+@sys_pub uart
+虚拟串口(USB CDC)的连接状态变化
+VUART_STATE
+@number 串口id
+@boolean 连接状态, true为已连接
+@usage
+sys.subscribe("VUART_STATE", function(id, state)
+    log.info("uart", "vuart state", id, state)
+end)
+*/
 int l_vuart_state_handler(lua_State *L, void* ptr) {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);

@@ -105,6 +105,16 @@ int l_websocket_callback(lua_State *L, void *ptr)
 		luat_heap_free((char *)msg->arg2);
 		break;
 	}
+/*
+@sys_pub websocket
+websocket连接建立成功
+WEBSOCKET_CONNACK
+@userdata websocket对象
+@usage
+sys.subscribe("WEBSOCKET_CONNACK", function(wsc)
+    log.info("websocket", "connected")
+end)
+*/
 	case WEBSOCKET_MSG_CONNACK:
 	{
 		if (websocket_ctrl->websocket_cb_id)

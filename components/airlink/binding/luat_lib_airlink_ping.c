@@ -35,6 +35,19 @@ typedef struct {
     uint8_t  payload[0]; // flexible array member
 } ping_worker_args_t;
 
+/*
+@sys_pub airlink
+airlink ping的结果
+AIRLINK_PING_RESULT
+@number 本次ping的包id
+@boolean 是否ping通
+@any 成功时为往返耗时ms(number); 失败时为"timeout"(string)或错误码(number)
+@string 成功时为回显数据, 失败时为nil
+@usage
+sys.subscribe("AIRLINK_PING_RESULT", function(pkgid, ok, rtt, echo)
+    log.info("airlink", "ping result", pkgid, ok, rtt)
+end)
+*/
 static int ping_result_cb(lua_State *L, void *ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     ping_result_msg_t* result = (ping_result_msg_t*)msg->ptr;

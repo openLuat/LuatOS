@@ -136,7 +136,7 @@ static int32_t l_socket_callback(lua_State *L, void* ptr)
     	{
     	    lua_getglobal(L, "sys_pub");
     	    if (lua_isfunction(L, -1)) {
-    	        lua_pushstring(L, LUAT_NW_CTRL_TYPE);
+    	        lua_pushstring(L, LUAT_NW_CTRL_TYPE); // 内部消息: 无回调也无任务名时的兜底事件, 框架内部使用, 不进 sys_pub 文档
     	        lua_pushinteger(L, l_ctrl->netc->adapter_index);
     	        lua_pushinteger(L, l_ctrl->netc->socket_id);
     	        lua_pushinteger(L, msg->arg1);

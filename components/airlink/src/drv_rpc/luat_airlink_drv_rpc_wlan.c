@@ -46,6 +46,16 @@ static void wlan_notify_ensure_registered(void) {
     }
 }
 
+/*
+@sys_pub wlan
+WIFI扫描结束
+WLAN_SCAN_DONE
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_SCAN_DONE")
+    log.info("wlan", "scan done")
+end)
+*/
 /* msgbus 扫描完成通知 (与 exec/luat_airlink_cmd_exec_wlan.c 中的 scan_result_handler 一致) */
 static int wlan_scan_result_handler(lua_State* L, void* ptr) {
     (void)ptr;
@@ -55,6 +65,18 @@ static int wlan_scan_result_handler(lua_State* L, void* ptr) {
     return 0;
 }
 
+/*
+@sys_pub wlan
+WLAN的STA事件, 连接上AP或断开连接时上报
+WLAN_STA_INC
+@string 事件类型, 例如 "CONNECTED" 已连接, "DISCONNECTED" 已断开
+@any 事件为"CONNECTED"时为已连接的SSID(string); 否则为断开原因码(number)
+@string 事件为"CONNECTED"时为AP的BSSID(6字节二进制), 其他事件无此参数
+@usage
+sys.subscribe("WLAN_STA_INC", function(event, arg1, arg2)
+    log.info("wlan", "sta event", event, arg1, arg2)
+end)
+*/
 /* msgbus STA 事件通知 (WLAN_STA_INC) */
 struct wlan_sta_inc_ctx {
     char event[16];
@@ -103,6 +125,17 @@ static int wlan_ip_ready_handler(lua_State* L, void* ptr) {
     return 0;
 }
 
+/*
+@sys_pub wlan
+WLAN的AP热点事件, 有设备连接/断开本机热点时上报
+WLAN_AP_INC
+@string 事件类型, 例如 "CONNECTED" 有设备连入, "DISCONNECTED" 有设备断开
+@string 对端设备的MAC地址(6字节二进制), 可能为空字符串
+@usage
+sys.subscribe("WLAN_AP_INC", function(event, mac)
+    log.info("wlan", "ap event", event, mac and mac:toHex() or "")
+end)
+*/
 /* msgbus AP 热点事件通知 (WLAN_AP_INC) */
 struct wlan_ap_inc_ctx {
     char event[16];

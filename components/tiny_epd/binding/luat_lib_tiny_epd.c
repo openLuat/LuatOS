@@ -4,12 +4,21 @@
 
 #include "luat_spi.h"
 #include "tiny_epd.h"
+#include "tiny_epd_bitmap.h"
 #include "tiny_epd_gfx.h"
+#include "tiny_epd_qrcode.h"
 #include "tiny_epd_port_luatos.h"
 
 #include <limits.h>
 #include <stdint.h>
 #include <string.h>
+
+#ifdef LUAT_USE_HZFONT
+#include "tiny_epd_hzfont.h"
+#endif
+
+#define LUAT_LOG_TAG "epd"
+#include "luat_log.h"
 
 #define LUAT_TINY_EPD_DEVICE_META "epd.dev"
 #define LUAT_TINY_EPD_SPI_DEVICE_META "SPI*"
@@ -41,6 +50,8 @@ static const char *luat_tiny_epd_error_string(int ret)
         return "refresh or sleep mode is not supported by this panel";
     case TINY_EPD_ERR_BAD_STATE:
         return "panel is not initialized or is sleeping";
+    case TINY_EPD_ERR_FONT_NOT_READY:
+        return "hzfont is not initialized";
     default:
         return "unknown epd error";
     }
@@ -139,10 +150,64 @@ static int luat_tiny_epd_get_int_field(lua_State *L,
     return 0;
 }
 
+static int luat_tiny_epd_parse_rotation(int value, tiny_epd_rotation_t *rotation)
+{
+    if (rotation == NULL) {
+        return -1;
+    }
+    switch (value) {
+    case 0:
+        *rotation = TINY_EPD_ROTATE_0;
+        return 0;
+    case 1:
+    case 90:
+        *rotation = TINY_EPD_ROTATE_90;
+        return 0;
+    case 2:
+    case 180:
+        *rotation = TINY_EPD_ROTATE_180;
+        return 0;
+    case 3:
+    case 270:
+        *rotation = TINY_EPD_ROTATE_270;
+        return 0;
+    default:
+        return -1;
+    }
+}
+
+static int luat_tiny_epd_get_rotation_field(lua_State *L,
+                                            int table_index,
+                                            const char *field,
+                                            int *present,
+                                            tiny_epd_rotation_t *rotation)
+{
+    lua_Integer value;
+
+    lua_getfield(L, table_index, field);
+    if (lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        *present = 0;
+        return 0;
+    }
+    if (!lua_isnumber(L, -1)) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    value = luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+    if (value < INT_MIN || value > INT_MAX ||
+        luat_tiny_epd_parse_rotation((int)value, rotation) != 0) {
+        return -1;
+    }
+    *present = 1;
+    return 0;
+}
+
 /*
 @api epd.open(model, opts[, spi_device])
 @number|string model 当前支持 epd.MODEL_1IN54 或 "1in54"
-@table opts {port = spi_id|"device", pin_dc, pin_rst, pin_busy[, busy_pull, busy_poll_ms]}
+@table opts {port = spi_id|"device", pin_dc, pin_rst, pin_busy[, busy_pull, busy_poll_ms, rotation|direction]}
 @userdata spi_device 可选，port="device" 时传入 spi.deviceSetup() 返回的对象
 @return userdata 成功时返回独立的 tiny_epd 设备对象
 @return nil,string 失败时返回 nil 和错误信息
@@ -165,6 +230,10 @@ static int l_tiny_epd_open(lua_State *L)
     int ret;
     int use_spi_device = 0;
     int busy_poll_ms;
+    int has_rotation;
+    int has_direction;
+    tiny_epd_rotation_t rotation = TINY_EPD_ROTATE_0;
+    tiny_epd_rotation_t direction = TINY_EPD_ROTATE_0;
 
     model = luat_tiny_epd_get_model(L);
     if (model != LUAT_TINY_EPD_MODEL_1IN54 &&
@@ -215,6 +284,14 @@ static int l_tiny_epd_open(lua_State *L)
     }
     config.busy_poll_ms = (uint32_t)busy_poll_ms;
 
+    if (luat_tiny_epd_get_rotation_field(L, 2, "rotation", &has_rotation, &rotation) != 0 ||
+        luat_tiny_epd_get_rotation_field(L, 2, "direction", &has_direction, &direction) != 0) {
+        return luat_tiny_epd_push_open_error(L, "rotation/direction must be 0..3 or 0/90/180/270");
+    }
+    if (!has_rotation && has_direction) {
+        rotation = direction;
+    }
+
     if (use_spi_device) {
         config.spi_device = (luat_spi_device_t *)luaL_testudata(L, 3, LUAT_TINY_EPD_SPI_DEVICE_META);
         if (config.spi_device == NULL) {
@@ -257,6 +334,16 @@ static int l_tiny_epd_open(lua_State *L)
         }
         return luat_tiny_epd_push_open_error(L, luat_tiny_epd_error_string(ret));
     }
+    ret = tiny_epd_set_rotation(device->epd, rotation);
+    if (ret != TINY_EPD_OK) {
+        tiny_epd_destroy(device->epd);
+        device->epd = NULL;
+        if (device->spi_ref != LUA_NOREF) {
+            luaL_unref(L, LUA_REGISTRYINDEX, device->spi_ref);
+            device->spi_ref = LUA_NOREF;
+        }
+        return luat_tiny_epd_push_open_error(L, luat_tiny_epd_error_string(ret));
+    }
 
     luaL_setmetatable(L, LUAT_TINY_EPD_DEVICE_META);
     return 1;
@@ -293,6 +380,7 @@ static int l_tiny_epd_clear(lua_State *L)
 @number x X 坐标
 @number y Y 坐标
 @number color epd.BLACK (默认) 或 epd.WHITE
+@note 坐标属于当前逻辑画布，和 line/rect/qrcode 一样受 setRotation() 影响。
 @return boolean 成功返回 true，失败返回 false 和错误信息
 */
 static int l_tiny_epd_pixel(lua_State *L)
@@ -447,17 +535,21 @@ static int l_tiny_epd_sleep(lua_State *L)
 
 /*
 @api panel:info()
-@return table {width, height, stride, bits_per_pixel, plane_count, caps, rotate}
+@return table {width, height, native_width, native_height, stride, bits_per_pixel, plane_count, caps, rotate}
 */
 static int l_tiny_epd_info(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
 
-    lua_createtable(L, 0, 7);
+    lua_createtable(L, 0, 9);
     lua_pushinteger(L, tiny_epd_width(device->epd));
     lua_setfield(L, -2, "width");
     lua_pushinteger(L, tiny_epd_height(device->epd));
     lua_setfield(L, -2, "height");
+    lua_pushinteger(L, tiny_epd_native_width(device->epd));
+    lua_setfield(L, -2, "native_width");
+    lua_pushinteger(L, tiny_epd_native_height(device->epd));
+    lua_setfield(L, -2, "native_height");
     lua_pushinteger(L, tiny_epd_stride(device->epd));
     lua_setfield(L, -2, "stride");
     lua_pushinteger(L, tiny_epd_bits_per_pixel(device->epd));
@@ -510,7 +602,7 @@ static int l_tiny_epd_gc(lua_State *L)
 
 /*
 @api panel:setRotation(rotate)
-@number rotate 旋转角度，0/90/180/270；其它值被按位截断
+@number rotate 旋转角度 0/90/180/270，或索引 0/1/2/3
 @return boolean 成功返回 true
 @usage
 panel:setRotation(90)
@@ -521,11 +613,14 @@ static int l_tiny_epd_set_rotation(lua_State *L)
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
     lua_Integer v = luaL_checkinteger(L, 2);
 
-    if (v < 0 || v > 270) {
+    tiny_epd_rotation_t rotation;
+
+    if (v < INT_MIN || v > INT_MAX ||
+        luat_tiny_epd_parse_rotation((int)v, &rotation) != 0) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
     return luat_tiny_epd_push_result(L,
-                                     tiny_epd_set_rotation(device->epd, (uint8_t)v));
+                                     tiny_epd_set_rotation(device->epd, rotation));
 }
 
 /*
@@ -630,6 +725,59 @@ static int l_tiny_epd_circle(lua_State *L)
 }
 
 /*
+@api panel:drawXbm(x, y, width, height, data[, fg[, bg]])
+@number x,y 位图左上角逻辑坐标；允许负坐标，屏幕外部分自动裁剪
+@number width,height 位图像素尺寸
+@string data XBM 数据：逐行存储，每行 ceil(width/8) 字节，低位在左
+@number fg 置位像素颜色，epd.BLACK（默认）或 epd.WHITE
+@number|nil bg 清零像素颜色，epd.WHITE（默认）；显式传 nil 表示透明
+@return boolean 成功返回 true，失败返回 false 和错误信息
+@usage
+-- 与 eink.drawXbm()/u8g2.DrawXBM 格式相同：每个字节 bit0 是最左侧像素
+local xbm = string.char(0x81, 0x42, 0x24, 0x18, 0x24, 0x42, 0x81, 0x00)
+assert(panel:drawXbm(20, 30, 8, 8, xbm))
+-- 透明叠加：只有位图中的 1 写入 framebuffer
+assert(panel:drawXbm(20, 30, 8, 8, xbm, epd.BLACK, nil))
+*/
+static int l_tiny_epd_draw_xbm(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer x = luaL_checkinteger(L, 2);
+    lua_Integer y = luaL_checkinteger(L, 3);
+    lua_Integer width = luaL_checkinteger(L, 4);
+    lua_Integer height = luaL_checkinteger(L, 5);
+    size_t data_len;
+    const char *data = luaL_checklstring(L, 6, &data_len);
+    int fg = (int)luaL_optinteger(L, 7, TINY_EPD_COLOR_BLACK);
+    int bg = TINY_EPD_COLOR_WHITE;
+
+    /* An omitted eighth argument preserves legacy eink opaque semantics;
+     * an explicit nil selects transparent XBM zero bits. */
+    if (lua_gettop(L) >= 8) {
+        if (lua_isnil(L, 8)) {
+            bg = TINY_EPD_BITMAP_TRANSPARENT;
+        }
+        else {
+            bg = (int)luaL_checkinteger(L, 8);
+        }
+    }
+
+    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
+        width < 1 || width > UINT16_MAX || height < 1 || height > UINT16_MAX ||
+        fg < TINY_EPD_COLOR_BLACK || fg > TINY_EPD_COLOR_WHITE ||
+        (bg != TINY_EPD_BITMAP_TRANSPARENT &&
+         (bg < TINY_EPD_COLOR_BLACK || bg > TINY_EPD_COLOR_WHITE))) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_draw_xbm(device->epd,
+                                                       (int16_t)x, (int16_t)y,
+                                                       (uint16_t)width, (uint16_t)height,
+                                                       (const uint8_t *)data, data_len,
+                                                       (uint8_t)fg, (int16_t)bg));
+}
+
+/*
 @api panel:qrcode(x, y, str[, size[, color]])
 @number x,y 左上角坐标
 @string  str QR 内容
@@ -647,7 +795,6 @@ static int l_tiny_epd_qrcode(lua_State *L)
     const char *str = luaL_checkstring(L, 4);
     lua_Integer size = luaL_optinteger(L, 5, 0);
     int color = (int)luaL_optinteger(L, 6, TINY_EPD_COLOR_BLACK);
-    int resolved_size;
 
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
@@ -655,29 +802,171 @@ static int l_tiny_epd_qrcode(lua_State *L)
     if (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
-    /* size == 0 → use the smaller remaining panel dimension. */
-    if (size == 0) {
-        int16_t remain_w = (int16_t)(tiny_epd_width(device->epd) - (uint16_t)x);
-        int16_t remain_h = (int16_t)(tiny_epd_height(device->epd) - (uint16_t)y);
-        resolved_size = remain_w < remain_h ? remain_w : remain_h;
-        if (resolved_size < 1) {
-            return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
-        }
-    }
-    else if (size < 1 || size > UINT16_MAX) {
+    if (size < 0 || size > UINT16_MAX) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
-    }
-    else {
-        resolved_size = (int)size;
     }
 
     return luat_tiny_epd_push_result(L,
                                      tiny_epd_draw_qrcode(device->epd,
                                                           (int16_t)x, (int16_t)y,
                                                           str,
-                                                          (uint16_t)resolved_size,
+                                                          (uint16_t)size,
                                                           (uint8_t)color));
 }
+
+#ifdef LUAT_USE_HZFONT
+static int luat_tiny_epd_hzfont_style_int(lua_State *L,
+                                          int table_index,
+                                          const char *field,
+                                          int minimum, int maximum,
+                                          int *value)
+{
+    lua_Integer input;
+
+    lua_getfield(L, table_index, field);
+    if (lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        return 0;
+    }
+    if (!lua_isnumber(L, -1)) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    input = luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+    if (input < minimum || input > maximum) {
+        return -1;
+    }
+    *value = (int)input;
+    return 1;
+}
+
+static int luat_tiny_epd_hzfont_parse_style(lua_State *L,
+                                             int index,
+                                             tiny_epd_hzfont_style_t *style)
+{
+    int value;
+    int present;
+    int has_fg;
+    size_t name_len;
+    const char *name;
+
+    tiny_epd_hzfont_style_init(style);
+    if (lua_isnoneornil(L, index)) {
+        return 0;
+    }
+    /* Compatibility with eink.drawHzfont(..., antialias). */
+    if (lua_isnumber(L, index)) {
+        value = (int)luaL_checkinteger(L, index);
+        if (value < -1 || value > 3) {
+            return -1;
+        }
+        style->antialias = (int8_t)value;
+        return 0;
+    }
+    if (!lua_istable(L, index)) {
+        return -1;
+    }
+
+    present = luat_tiny_epd_hzfont_style_int(L, index, "fg", 0, 1, &value);
+    if (present < 0) return -1;
+    has_fg = present > 0;
+    if (has_fg) style->fg = (uint8_t)value;
+    /* color is an fg alias, useful for LCD-style code. */
+    if (!has_fg) {
+        present = luat_tiny_epd_hzfont_style_int(L, index, "color", 0, 1, &value);
+        if (present < 0) return -1;
+        if (present > 0) style->fg = (uint8_t)value;
+    }
+    present = luat_tiny_epd_hzfont_style_int(L, index, "bg", 0, 1, &value);
+    if (present < 0) return -1;
+    if (present > 0) style->bg = (int16_t)value;
+    present = luat_tiny_epd_hzfont_style_int(L, index, "antialias", -1, 3, &value);
+    if (present < 0) return -1;
+    if (present > 0) style->antialias = (int8_t)value;
+    present = luat_tiny_epd_hzfont_style_int(L, index, "threshold", 0, 255, &value);
+    if (present < 0) return -1;
+    if (present > 0) style->threshold = (uint8_t)value;
+
+    lua_getfield(L, index, "dither");
+    if (!lua_isnil(L, -1)) {
+        if (!lua_isstring(L, -1)) {
+            lua_pop(L, 1);
+            return -1;
+        }
+        name = luaL_checklstring(L, -1, &name_len);
+        if (name_len == 9 && memcmp(name, "threshold", 9) == 0) {
+            style->dither = TINY_EPD_HZFONT_DITHER_THRESHOLD;
+        }
+        else if (name_len == 6 && memcmp(name, "bayer4", 6) == 0) {
+            style->dither = TINY_EPD_HZFONT_DITHER_BAYER4;
+        }
+        else {
+            lua_pop(L, 1);
+            return -1;
+        }
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+
+/*
+@api panel:drawHzfont(x, y, text, size[, style])
+@number x X 坐标
+@number y 基线 Y 坐标
+@string text UTF-8 文本
+@number size 字号（1..255 像素）
+@number|table style 兼容旧接口时传 antialias(-1..3)；推荐传
+ {fg=epd.BLACK, bg=nil, antialias=-1, threshold=128, dither="threshold"}
+@return boolean 成功返回 true，失败返回 false 和错误信息
+@usage
+-- 透明黑字，和 eink.drawHzfont 的默认效果一致
+assert(panel:drawHzfont(10, 36, "合宙LuatOS", 24, {antialias = -1}))
+-- 白底覆盖旧文字；bayer4 可改善黑白屏的边缘观感
+assert(panel:drawHzfont(10, 68, "Hello世界", 20,
+    {fg = epd.BLACK, bg = epd.WHITE, dither = "bayer4"}))
+*/
+static int l_tiny_epd_draw_hzfont(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    lua_Integer x = luaL_checkinteger(L, 2);
+    lua_Integer y = luaL_checkinteger(L, 3);
+    const char *text = luaL_checkstring(L, 4);
+    lua_Integer size = luaL_checkinteger(L, 5);
+    tiny_epd_hzfont_style_t style;
+
+    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
+        size < 1 || size > UINT8_MAX ||
+        luat_tiny_epd_hzfont_parse_style(L, 6, &style) != 0) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_hzfont_draw_utf8(device->epd,
+                                                               (int16_t)x, (int16_t)y,
+                                                               text, (uint8_t)size,
+                                                               &style));
+}
+
+/*
+@api panel:getHzfontWidth(text, size)
+@string text UTF-8 文本
+@number size 字号（1..255 像素）
+@return number 文本像素宽度；HzFont 未初始化或参数错误时返回 0
+*/
+static int l_tiny_epd_get_hzfont_width(lua_State *L)
+{
+    (void)luat_tiny_epd_check_device(L);
+    const char *text = luaL_checkstring(L, 2);
+    lua_Integer size = luaL_checkinteger(L, 3);
+
+    if (size < 1 || size > UINT8_MAX) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    lua_pushinteger(L, tiny_epd_hzfont_get_utf8_width(text, (uint8_t)size));
+    return 1;
+}
+#endif
 
 static const luaL_Reg tiny_epd_device_methods[] = {
     {"init",         l_tiny_epd_init},
@@ -687,7 +976,12 @@ static const luaL_Reg tiny_epd_device_methods[] = {
     {"line",         l_tiny_epd_line},
     {"rect",         l_tiny_epd_rect},
     {"circle",       l_tiny_epd_circle},
+    {"drawXbm",      l_tiny_epd_draw_xbm},
     {"qrcode",       l_tiny_epd_qrcode},
+#ifdef LUAT_USE_HZFONT
+    {"drawHzfont",   l_tiny_epd_draw_hzfont},
+    {"getHzfontWidth", l_tiny_epd_get_hzfont_width},
+#endif
     {"refresh",      l_tiny_epd_refresh},
     {"sleep",        l_tiny_epd_sleep},
     {"info",         l_tiny_epd_info},

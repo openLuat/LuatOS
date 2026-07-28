@@ -35,11 +35,11 @@ local function http_app_get()
         json.encode(headers or {}),
         body and (body:len() > 512 and body:len() or body) or "nil")
 
-    -- http get请求http://httpbin.air32.cn/get网页内容，超时时间为3秒
+    -- http get请求http://httpbin.luatos.com/get网页内容，超时时间为3秒
     -- 请求超时时间为3秒，用户自己写代码时，不要照抄3秒，根据自己业务逻辑的需要设置合适的超时时间
     -- 回调函数为http_cbfunc，回调函数使用的第三个回调参数为"http_app_get3"
     -- 如果请求成功，请求的数据保存到body中
-    code, headers, body = http.request("GET", "http://httpbin.air32.cn/get", nil, nil,
+    code, headers, body = http.request("GET", "http://httpbin.luatos.com/get", nil, nil,
         { timeout = 3000, userdata = "http_app_get3", callback = http_cbfunc }).wait()
     log.info("http_app_get3",
         code == 200 and "success" or "error",

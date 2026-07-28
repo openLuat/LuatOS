@@ -58,11 +58,11 @@ local function http_app_get()
         json.encode(headers or {}), 
         body and (body:len()>512 and body:len() or body) or "nil")
 
-    -- http get请求http://httpbin.air32.cn/get网页内容，超时时间为3秒
+    -- http get请求http://httpbin.luatos.com/get网页内容，超时时间为3秒
     -- 请求超时时间为3秒，用户自己写代码时，不要照抄3秒，根据自己业务逻辑的需要设置合适的超时时间
     -- 回调函数为http_cbfunc，回调函数使用的第三个回调参数为"http_app_get3"
     -- 如果请求成功，请求的数据保存到body中
-    code, headers, body = http.request("GET", "http://httpbin.air32.cn/get", nil, nil, {timeout=3000, userdata="http_app_get3", callback=http_cbfunc}).wait()
+    code, headers, body = http.request("GET", "http://httpbin.luatos.com/get", nil, nil, {timeout=3000, userdata="http_app_get3", callback=http_cbfunc}).wait()
     log.info("http_app_get3", 
         code==200 and "success" or "error", 
         code, 
@@ -183,11 +183,11 @@ local function http_app_get_file()
 
 
     file_path = download_dir.."get_file3.html"
-    -- http get请求http://httpbin.air32.cn/get网页内容，超时时间为3秒
+    -- http get请求http://httpbin.luatos.com/get网页内容，超时时间为3秒
     -- 请求超时时间为3秒，用户自己写代码时，不要照抄3秒，根据自己业务逻辑的需要设置合适的超时时间
     -- 回调函数为http_cbfunc，回调函数使用的第三个回调参数为"http_app_get_file3"
     -- 如果请求成功，请求的数据保存到文件file_path中
-    code, headers, body_size = http.request("GET", "http://httpbin.air32.cn/get", nil, nil, {dst=file_path, timeout=3000, userdata="http_app_get_file3", callback=http_cbfunc}).wait()
+    code, headers, body_size = http.request("GET", "http://httpbin.luatos.com/get", nil, nil, {dst=file_path, timeout=3000, userdata="http_app_get_file3", callback=http_cbfunc}).wait()
     log.info("http_app_get_file3", 
         code==200 and "success" or "error", 
         code, 
@@ -225,10 +225,10 @@ local function http_app_post_form()
     body = body:sub(1,-2)
 
     -- http post提交表单数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的表单数据后，还会下发同样的表单数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的表单数据后，还会下发同样的表单数据给设备
     -- ["Content-Type"] = "application/x-www-form-urlencoded" 表示post提交的body数据格式为url编码的键值对形式的表单数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
-    local code, headers, resp_body = http.request("POST", "http://httpbin.air32.cn/post", {["Content-Type"] = "application/x-www-form-urlencoded"}, body).wait()
+    local code, headers, resp_body = http.request("POST", "http://httpbin.luatos.com/post", {["Content-Type"] = "application/x-www-form-urlencoded"}, body).wait()
     log.info("http_app_post_form", 
         code==200 and "success" or "error", 
         code, 
@@ -246,10 +246,10 @@ local function http_app_post_json()
     local body = json.encode(params)
 
     -- http post提交json数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的json数据后，还会下发同样的json数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的json数据后，还会下发同样的json数据给设备
     -- ["Content-Type"] = "application/json" 表示post提交的body数据格式为json格式的数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
-    local code, headers, resp_body = http.request("POST", "http://httpbin.air32.cn/post", {["Content-Type"] = "application/json"}, body).wait()
+    local code, headers, resp_body = http.request("POST", "http://httpbin.luatos.com/post", {["Content-Type"] = "application/json"}, body).wait()
     log.info("http_app_post_json", 
         code==200 and "success" or "error", 
         code, 
@@ -261,10 +261,10 @@ end
 -- http post提交纯文本数据功能演示
 local function http_app_post_text()
     -- http post提交纯文本数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的纯文本数据后，还会下发同样的纯文本数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的纯文本数据后，还会下发同样的纯文本数据给设备
     -- ["Content-Type"] = "text/plain" 表示post提交的body数据格式为纯文本格式的数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
-    local code, headers, resp_body = http.request("POST", "http://httpbin.air32.cn/post", {["Content-Type"] = "text/plain"}, "This is a raw text message from LuatOS device").wait()
+    local code, headers, resp_body = http.request("POST", "http://httpbin.luatos.com/post", {["Content-Type"] = "text/plain"}, "This is a raw text message from LuatOS device").wait()
     log.info("http_app_post_text", 
         code==200 and "success" or "error", 
         code, 
@@ -285,10 +285,10 @@ local function http_app_post_xml()
     ]=]
 
     -- http post提交xml数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的xml数据后，还会下发同样的xml数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的xml数据后，还会下发同样的xml数据给设备
     -- ["Content-Type"] = "text/xml" 表示post提交的body数据格式为xml格式的数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
-    local code, headers, resp_body = http.request("POST", "http://httpbin.air32.cn/post", {["Content-Type"] = "text/xml"}, body).wait()
+    local code, headers, resp_body = http.request("POST", "http://httpbin.luatos.com/post", {["Content-Type"] = "text/xml"}, body).wait()
     log.info("http_app_post_xml", 
         code==200 and "success" or "error", 
         code, 

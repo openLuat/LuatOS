@@ -109,12 +109,6 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_FSKV
   {"fskv",      luaopen_fskv},
 #endif
-#ifdef LUAT_USE_MQTTCORE
-  {"mqttcore",luaopen_mqttcore},          // MQTT 协议封装
-#endif
-#ifdef LUAT_USE_LIBCOAP
-  {"libcoap", luaopen_libcoap},           // 处理COAP消息
-#endif
 #ifdef LUAT_USE_YMODEM
   {"ymodem", luaopen_ymodem},
 #endif
@@ -204,9 +198,6 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_XXTEA
   {"xxtea", luaopen_xxtea},
 #endif
-#ifdef LUAT_USE_ULWIP
-  {"ulwip", luaopen_ulwip},
-#endif
 #ifdef LUAT_USE_PROFILER
   {"profiler", luaopen_profiler},
 #endif
@@ -249,9 +240,6 @@ static const luaL_Reg loadedlibs[] = {
   {"wlan", luaopen_wlan},
 #endif
   {"codec", luaopen_multimedia_codec},
-#ifdef LUAT_USE_H264_DECODER
-  {"h264", luaopen_h264},
-#endif
 #ifdef LUAT_USE_VIDEOPLAYER
   {"videoplayer", luaopen_videoplayer},
 #endif

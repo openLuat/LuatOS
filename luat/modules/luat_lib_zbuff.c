@@ -34,73 +34,96 @@ static int add_bytes(luat_zbuff_t *buff, const char *source, size_t len)
     return len;
 }
 
-#define SET_POINT_1(buff, point, color)                \
-    if (color % 2)                                     \
-        buff->addr[point / 8] |= 1 << (7 - point % 8); \
-    else                                               \
-        buff->addr[point / 8] &= ~(1 << (7 - point % 8))
-#define SET_POINT_4(buff, point, color)                 \
-    buff->addr[point / 2] &= (point % 2) ? 0xf0 : 0x0f; \
-    buff->addr[point / 2] |= (point % 2) ? color : (color * 0x10)
-#define SET_POINT_8(buff, point, color) buff->addr[point] = color
-#define SET_POINT_16(buff, point, color) \
-    buff->addr[point * 2] = color / 0x100;   \
-    buff->addr[point * 2 + 1] = color % 0x100
-#define SET_POINT_24(buff, point, color)                              \
-    buff->addr[point * 3] = color / 0x10000;                          \
-    buff->addr[point * 3 + 1] = color % 0x10000 / 0x100; \
-    buff->addr[point * 3 + 2] = color % 0x100
-#define SET_POINT_32(buff, point, color)                 \
-    buff->addr[point] = color / 0x1000000;               \
-    buff->addr[point + 1] = color % 0x1000000 / 0x10000; \
-    buff->addr[point + 2] = color % 0x10000 / 0x100;     \
-    buff->addr[point + 3] = color % 0x100
+static inline void set_point_1(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    uint32_t byte_idx = point / 8;
+    uint8_t bit_mask = (uint8_t)(1u << (7 - (point % 8)));
+    if (color % 2)
+        buff->addr[byte_idx] |= bit_mask;
+    else
+        buff->addr[byte_idx] &= (uint8_t)~bit_mask;
+}
+static inline void set_point_4(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    uint32_t byte_idx = point / 2;
+    if (point % 2) {
+        buff->addr[byte_idx] &= 0xf0;
+        buff->addr[byte_idx] |= (uint8_t)(color & 0x0f);
+    } else {
+        buff->addr[byte_idx] &= 0x0f;
+        buff->addr[byte_idx] |= (uint8_t)((color & 0x0f) << 4);
+    }
+}
+static inline void set_point_8(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    buff->addr[point] = (uint8_t)color;
+}
+static inline void set_point_16(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    uint32_t off = point * 2;
+    buff->addr[off]     = (uint8_t)(color / 0x100);
+    buff->addr[off + 1] = (uint8_t)(color % 0x100);
+}
+static inline void set_point_24(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    uint32_t off = point * 3;
+    buff->addr[off]     = (uint8_t)(color / 0x10000);
+    buff->addr[off + 1] = (uint8_t)((color % 0x10000) / 0x100);
+    buff->addr[off + 2] = (uint8_t)(color % 0x100);
+}
+static inline void set_point_32(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    uint32_t off = point * 4;
+    buff->addr[off]     = (uint8_t)(color / 0x1000000);
+    buff->addr[off + 1] = (uint8_t)((color % 0x1000000) / 0x10000);
+    buff->addr[off + 2] = (uint8_t)((color % 0x10000) / 0x100);
+    buff->addr[off + 3] = (uint8_t)(color % 0x100);
+}
 
-#define SET_POINT_CASE(n, point, color)    \
-    case n:                                \
-        SET_POINT_##n(buff, point, color); \
-        break
 //更改某点的颜色
 static void set_framebuffer_point(luat_zbuff_t *buff, uint32_t point, uint32_t color)
 {
     switch (buff->bit)
     {
-        SET_POINT_CASE(1, point, color);
-        SET_POINT_CASE(4, point, color);
-        SET_POINT_CASE(8, point, color);
-        SET_POINT_CASE(16, point, color);
-        SET_POINT_CASE(24, point, color);
-        SET_POINT_CASE(32, point, color);
-    default:
-        break;
+    case 1:  set_point_1(buff, point, color);  break;
+    case 4:  set_point_4(buff, point, color);  break;
+    case 8:  set_point_8(buff, point, color);  break;
+    case 16: set_point_16(buff, point, color); break;
+    case 24: set_point_24(buff, point, color); break;
+    case 32: set_point_32(buff, point, color); break;
+    default: break;
     }
 }
 
-#define GET_POINT_1(buff, point) (buff->addr[point / 8] >> (7 - point % 8)) % 2
-#define GET_POINT_4(buff, point) (buff->addr[point / 2] >> ((point % 2) ? 0 : 4)) % 0x10
-#define GET_POINT_8(buff, point) buff->addr[point]
-#define GET_POINT_16(buff, point) buff->addr[point * 2] * 0x100 + buff->addr[point * 2 + 1]
-#define GET_POINT_24(buff, point) \
-    buff->addr[point * 3] * 0x10000 + buff->addr[point * 3 + 1] * 0x100 + buff->addr[point * 3 + 2]
-#define GET_POINT_32(buff, point) \
-    buff->addr[point] * 0x1000000 + buff->addr[point + 1] * 0x10000 + buff->addr[point + 2] * 0x100 + buff->addr[point + 3]
-#define GET_POINT_CASE(n, point)           \
-    case n:                                \
-        return GET_POINT_##n(buff, point); \
+static inline uint32_t get_point_1(luat_zbuff_t *buff, uint32_t point) {
+    return (buff->addr[point / 8] >> (7 - (point % 8))) % 2;
+}
+static inline uint32_t get_point_4(luat_zbuff_t *buff, uint32_t point) {
+    return (buff->addr[point / 2] >> ((point % 2) ? 0 : 4)) % 0x10;
+}
+static inline uint32_t get_point_8(luat_zbuff_t *buff, uint32_t point) {
+    return buff->addr[point];
+}
+static inline uint32_t get_point_16(luat_zbuff_t *buff, uint32_t point) {
+    uint32_t off = point * 2;
+    return (uint32_t)buff->addr[off] * 0x100 + buff->addr[off + 1];
+}
+static inline uint32_t get_point_24(luat_zbuff_t *buff, uint32_t point) {
+    uint32_t off = point * 3;
+    return (uint32_t)buff->addr[off] * 0x10000 + (uint32_t)buff->addr[off + 1] * 0x100 + buff->addr[off + 2];
+}
+static inline uint32_t get_point_32(luat_zbuff_t *buff, uint32_t point) {
+    uint32_t off = point * 4;
+    return (uint32_t)buff->addr[off] * 0x1000000 + (uint32_t)buff->addr[off + 1] * 0x10000
+         + (uint32_t)buff->addr[off + 2] * 0x100 + buff->addr[off + 3];
+}
 
 //获取某点的颜色
 static uint32_t get_framebuffer_point(luat_zbuff_t *buff,uint32_t point)
 {
     switch (buff->bit)
     {
-        GET_POINT_CASE(1, point);
-        GET_POINT_CASE(4, point);
-        GET_POINT_CASE(8, point);
-        GET_POINT_CASE(16, point);
-        GET_POINT_CASE(24, point);
-        GET_POINT_CASE(32, point);
-    default:
-        break;
+    case 1:  return get_point_1(buff, point);
+    case 4:  return get_point_4(buff, point);
+    case 8:  return get_point_8(buff, point);
+    case 16: return get_point_16(buff, point);
+    case 24: return get_point_24(buff, point);
+    case 32: return get_point_32(buff, point);
+    default: break;
     }
     return 0;
 }

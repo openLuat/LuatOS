@@ -57,8 +57,8 @@ local function http_get_test()
         -- 检查WiFi网卡是否就绪
         log.info("网卡状态", netdrv.ready(socket.LWIP_STA))
         -- 发起一个HTTP GET请求。
-        log.info("发起HTTP GET请求", "https://httpbin.air32.cn/bytes/2048")
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {
+        log.info("发起HTTP GET请求", "https://httpbin.luatos.com/bytes/2048")
+        local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {
             timeout = 9000,
             adapter = socket.LWIP_STA
         }).wait()

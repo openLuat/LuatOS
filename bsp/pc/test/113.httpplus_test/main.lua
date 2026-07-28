@@ -47,7 +47,7 @@ sys.taskInit(function()
     -- 1) GET 测试
     run_case("GET", function()
         local code, resp = httpplus.request({
-            url = "https://httpbin.air32.cn/get?foo=bar",
+            url = "https://httpbin.luatos.com/get?foo=bar",
             headers = { ["User-Agent"] = "LuatOS-httpplus-test" },
             timeout = 20
         })
@@ -62,7 +62,7 @@ sys.taskInit(function()
     -- 2) POST 表单测试（application/x-www-form-urlencoded）
     run_case("POST forms", function()
         local code, resp = httpplus.request({
-            url = "https://httpbin.air32.cn/post",
+            url = "https://httpbin.luatos.com/post",
             forms = { a = "1", b = "空 格", c = "c&=v" },
             headers = { ["User-Agent"] = "LuatOS-httpplus-test" },
             timeout = 20
@@ -79,7 +79,7 @@ sys.taskInit(function()
     -- 3) POST JSON 测试
     run_case("POST json", function()
         local code, resp = httpplus.request({
-            url = "https://httpbin.air32.cn/post",
+            url = "https://httpbin.luatos.com/post",
             body = { name = "abc", n = 123 },
             headers = { ["User-Agent"] = "LuatOS-httpplus-test" },
             timeout = 20
@@ -96,7 +96,7 @@ sys.taskInit(function()
     -- 4) chunked 响应测试（httpbin 流式响应）
     run_case("GET chunked", function()
         local code, resp = httpplus.request({
-            url = "http://httpbin.air32.cn/stream/5",
+            url = "http://httpbin.luatos.com/stream/5",
             headers = { ["User-Agent"] = "LuatOS-httpplus-test" },
             timeout = 20,
             debug = true
@@ -113,7 +113,7 @@ sys.taskInit(function()
     -- 5) multipart 文件上传
     run_case("POST multipart", function()
         local code, resp = httpplus.request({
-            url = "https://httpbin.air32.cn/post",
+            url = "https://httpbin.luatos.com/post",
             files = { file1 = upload_file },
             forms = { note = "uploader" },
             headers = { ["User-Agent"] = "LuatOS-httpplus-test" },
@@ -134,7 +134,7 @@ sys.taskInit(function()
     -- 6) bodyfile 上传（纯文本）
     run_case("POST bodyfile", function()
         local code, resp = httpplus.request({
-            url = "https://httpbin.air32.cn/post",
+            url = "https://httpbin.luatos.com/post",
             bodyfile = upload_file,
             headers = {
                 ["User-Agent"] = "LuatOS-httpplus-test",

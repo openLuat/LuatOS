@@ -125,8 +125,6 @@
 #define LUAT_USE_ZBUFF  1
 #define LUAT_USE_PACK  1
 #define LUAT_USE_LIBGNSS  1
-#define LUAT_USE_MQTTCORE 1
-#define LUAT_USE_LIBCOAP 1
 #define LUAT_USE_FS  1
 // #define LUAT_USE_SENSOR  1
 #define LUAT_USE_SFUD  1

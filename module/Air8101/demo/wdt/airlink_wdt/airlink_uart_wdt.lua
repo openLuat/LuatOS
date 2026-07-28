@@ -28,7 +28,7 @@ local AIRLINK_BAUD = 2000000 -- 波特率：2M
 local NET_PEER_IP = "192.168.111.2" -- 对端IP
 
 -- 测试配置
-local HTTP_URL = "https://httpbin.air32.cn/bytes/2048"
+local HTTP_URL = "https://httpbin.luatos.com/bytes/2048"
 local HTTP_INTERVAL = 10000 -- HTTP请求间隔：10秒
 local HTTP_TIMEOUT = 9000   -- HTTP超时：9秒
 local SDATA_INTERVAL = 1000 -- 数据发送间隔：1秒

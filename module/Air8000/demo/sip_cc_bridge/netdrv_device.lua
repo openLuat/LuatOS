@@ -24,9 +24,6 @@
 -- 加载"4G网卡"驱动模块
 require "netdrv_4g"
 
--- 加载"WIFI STA网卡"驱动模块
--- require "netdrv_wifi"
-
 -- 加载"通过SPI外挂CH390H芯片的以太网卡"驱动模块
 -- require "netdrv_eth_spi"
 

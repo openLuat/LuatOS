@@ -33,7 +33,7 @@ static int l_crypto_md5(lua_State *L) {
     size_t size = 0;
     const char* str = luaL_checklstring(L, 1, &size);
     char tmp[32] = {0};
-    char dst[32] = {0};
+    char dst[33] = {0};
     if (luat_crypto_md5_simple(str, size, tmp) == 0) {
         luat_str_tohex(tmp, 16, dst);
         lua_pushlstring(L, dst, 32);
@@ -58,7 +58,7 @@ static int l_crypto_hmac_md5(lua_State *L) {
     const char* str = luaL_checklstring(L, 1, &str_size);
     const char* key = luaL_checklstring(L, 2, &key_size);
     char tmp[32] = {0};
-    char dst[32] = {0};
+    char dst[33] = {0};
     if (luat_crypto_hmac_md5_simple(str, str_size, key, key_size, tmp) == 0) {
         luat_str_tohex(tmp, 16, dst);
         lua_pushlstring(L, dst, 32);
@@ -80,7 +80,7 @@ static int l_crypto_sha1(lua_State *L) {
     size_t size = 0;
     const char* str = luaL_checklstring(L, 1, &size);
     char tmp[40] = {0};
-    char dst[40] = {0};
+    char dst[41] = {0};
     if (luat_crypto_sha1_simple(str, size, tmp) == 0) {
         luat_str_tohex(tmp, 20, dst);
         lua_pushlstring(L, dst, 40);
@@ -105,7 +105,7 @@ static int l_crypto_hmac_sha1(lua_State *L) {
     const char* str = luaL_checklstring(L, 1, &str_size);
     const char* key = luaL_checklstring(L, 2, &key_size);
     char tmp[40] = {0};
-    char dst[40] = {0};
+    char dst[41] = {0};
     if (luat_crypto_hmac_sha1_simple(str, str_size, key, key_size, tmp) == 0) {
         luat_str_tohex(tmp, 20, dst);
         lua_pushlstring(L, dst, 40);
@@ -128,7 +128,7 @@ static int l_crypto_sha256(lua_State *L) {
     size_t size = 0;
     const char* str = luaL_checklstring(L, 1, &size);
     char tmp[64] = {0};
-    char dst[64] = {0};
+    char dst[65] = {0};
     if (luat_crypto_sha256_simple(str, size, tmp) == 0) {
         luat_str_tohex(tmp, 32, dst);
         lua_pushlstring(L, dst, 64);
@@ -153,7 +153,7 @@ static int l_crypto_hmac_sha256(lua_State *L) {
     const char* str = luaL_checklstring(L, 1, &str_size);
     const char* key = luaL_checklstring(L, 2, &key_size);
     char tmp[64] = {0};
-    char dst[64] = {0};
+    char dst[65] = {0};
 
     if (key_size > 64) {
         luat_crypto_sha256_simple(key, key_size, dst);
@@ -184,7 +184,7 @@ static int l_crypto_sha512(lua_State *L) {
     size_t size = 0;
     const char* str = luaL_checklstring(L, 1, &size);
     char tmp[128] = {0};
-    char dst[128] = {0};
+    char dst[129] = {0};
     if (luat_crypto_sha512_simple(str, size, tmp) == 0) {
         luat_str_tohex(tmp, 64, dst);
         lua_pushlstring(L, dst, 128);
@@ -209,7 +209,7 @@ static int l_crypto_hmac_sha512(lua_State *L) {
     const char* str = luaL_checklstring(L, 1, &str_size);
     const char* key = luaL_checklstring(L, 2, &key_size);
     char tmp[128] = {0};
-    char dst[128] = {0};
+    char dst[129] = {0};
 
     if (key_size > 128) {
         luat_crypto_sha512_simple(key, key_size, dst);
@@ -691,7 +691,7 @@ static int l_crypto_md_file(lua_State *L) {
     if (lua_type(L, 3) == LUA_TSTRING) {
         key = luaL_checklstring(L, 3, &key_len);
     }
-    char buff[128] = {0};
+    char buff[129] = {0};
     char output[64];
 
     int ret = luat_crypto_md_file(md, output, key, key_len, path);
@@ -732,7 +732,7 @@ static int l_crypto_md(lua_State *L) {
     if (lua_type(L, 3) == LUA_TSTRING) {
         key = luaL_checklstring(L, 3, &key_len);
     }
-    char buff[128] = {0};
+    char buff[129] = {0};
     char output[64];
 
     int ret = luat_crypto_md_v2(md, data, data_size, output, key, key_len);
@@ -811,7 +811,7 @@ local hashResult = crypto.hash_finish(stream)
 */
 static int l_crypt_hash_finish(lua_State *L) {
     luat_crypt_stream_t *stream = (luat_crypt_stream_t *)luaL_checkudata(L, 1, LUAT_CRYPTO_TYPE);
-    char buff[128] = {0};
+    char buff[129] = {0};
     char output[64];
     int ret = luat_crypto_md_finish(output, stream);
     //LLOGD("finish result %d", ret);

@@ -574,7 +574,9 @@ NO_OP 编解码器为**占位模式**。init 时设置 `tx_no_callback=1`（发�
 | `destroy` | 销毁 DSP 实例上下文 |
 | `process` | 执行 DSP 处理（支持 input + ref_input 双通道，用于回声消除）|
 
-当前 DSP 层已定义接口但**尚未集成到主播放/录音流程**中。
+当前 DSP 层已定义接口，`luat_audio_dsp_get_opts()` 根据 `type` 返回对应的 DSP 实现。
+
+**变更说明**：原先 `luat_audio_dsp.c` 中 DSP 实现表 `_table[]` 受 `#ifdef LUAT_USE_AUDIO_DSP` 宏保护，未定义该宏时整张表为 `NULL`，导致 `luat_audio_dsp_get_opts()` 始终返回 `NULL`（speexdsp 无法启用）。现已移除该条件编译保护，`_table[]` 始终包含 `luat_audio_dsp_speexdsp_opts`，**speexdsp 默认即被注册、可用**，不再依赖 `LUAT_USE_AUDIO_DSP` 开关。上层 `audio_v2.speech` 通过 `dsp_type` 参数选择 DSP 类型（见 `DSP_TYPE_*` 常量），留空则由 BSP 决定。
 
 ---
 
@@ -1219,7 +1221,7 @@ audio_v2.input(req_id, last_data, true)
 
 ---
 
-#### `audio_v2.extern_source(request_index, source, is_add_record, codec_id, sample_rate, data_bits, channel_nums, is_signed)`
+#### `audio_v2.extern_source(request_index, source, is_add_record, codec_id, is_error_stop, sample_rate, data_bits, channel_nums, is_signed)`
 
 对讲中附加额外的音频数据源。与 `speech` 搭配使用，在全双工通话通道上叠加播放额外的音频文件、TTS 文本或 PCM 数据。额外音频的参数必须和对讲的参数一致，否则会失败。
 
@@ -1231,6 +1233,7 @@ audio_v2.input(req_id, last_data, true)
 | `source` | table/string/zbuff/**nil** | 音频数据源。table 为文件路径列表（即使单个文件也要用 table）；string 为 TTS 文本；zbuff 为音频数据；**留空（`nil`）则为流式模式**，不预置数据，需随后通过 `audio_v2.input` 在回调中推流，此时必须指定 `codec_id` |
 | `is_add_record` | boolean | 可选。是否添加到录音通道，默认 `false`（添加到播放通道） |
 | `codec_id` | int | 可选。解码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则通过输入数据自行判断；**流式模式（`source` 为 `nil`）时必须指定** |
+| `is_error_stop` | boolean | 可选。当 `source` 为文件列表（table）时，某个文件解码失败后是否停止解码，默认 `true`（遇到解码错误自动停止）。仅对文件列表模式有效，流式/单个文件/TTS/zbuff 模式无意义 |
 | `sample_rate` | int | 可选。采样率（Hz），指定 RAW 编解码器时必填 |
 | `data_bits` | int | 可选。数据位数 8/16/24/32，指定 RAW 编解码器时必填。默认 16 |
 | `channel_nums` | int | 可选。声道数 1/2，指定 RAW 编解码器时必填。默认 1 |
@@ -1270,7 +1273,8 @@ audio_v2.extern_source(req_id, "请注意安全")
 local ok, req_id = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_AMR_WB, save_buffer, 10)
 
 -- 以流式模式附加一个外部音源（不预置数据，指定 RAW 解码器）
-local ok, source_idx = audio_v2.extern_source(req_id, nil, false, audio_v2.DATA_CODEC_TYPE_RAW, 16000, 16, 1, true)
+-- 参数顺序：request_index, source(nil), is_add_record, codec_id, is_error_stop, sample_rate, data_bits, channel_nums, is_signed
+local ok, source_idx = audio_v2.extern_source(req_id, nil, false, audio_v2.DATA_CODEC_TYPE_RAW, true, 16000, 16, 1, true)
 
 -- 在回调中向其推流
 audio_v2.on(function(request_index, event, param)

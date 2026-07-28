@@ -218,8 +218,19 @@ int luat_vfs_lfs2_mkdir(void* userdata, char const* _DirName) {
     if (buff[0] == 0) {
         return 0;
     }
+    /* Recursively create parent directories */
+    for (char *s = buff + 1; *s; s++) {
+        if (*s == '/') {
+            *s = '\0';
+            int r = lfs_mkdir(fs, buff);
+            if (r != LFS_ERR_OK && r != LFS_ERR_EXIST) {
+                return -1;
+            }
+            *s = '/';
+        }
+    }
     int ret = lfs_mkdir(fs, buff);
-    return ret == LFS_ERR_OK ? 0 : -1;
+    return (ret == LFS_ERR_OK || ret == LFS_ERR_EXIST) ? 0 : -1;
 }
 
 int luat_vfs_lfs2_rmdir(void* userdata, char const* _DirName) {

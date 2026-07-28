@@ -479,10 +479,15 @@ function M._builtin_dispatch(line)
     -- AT+SETCFG: set config (placeholder until C backend ready)
     -- AT+SETCFG="rfa_mode","true"  // set rfa_mode to true
     -- AT+SETCFG="rfa_mode","false" // set rfa_mode to false
-    local cfg, val = line:match("^AT%+SETCFG=\"(.-)\",\"(.-)\"$")
+    -- 引号可省略: AT+SETCFG=rfa_mode,true / AT+SETCFG=rfa_mode,false (也兼容单边带引号)
+    local cfg, val = line:match('^AT%+SETCFG="?([^",]+)"?%s*,%s*"?([^",]+)"?$')
     if cfg and val then
-        M.setRfOn(val == "true")
-        return "\r\nOK\r\n"
+        val = val:lower()
+        if val == "true" or val == "false" then
+            M.setRfOn(val == "true")
+            return "\r\nOK\r\n"
+        end
+        return "\r\nERROR\r\n"
     end
 
     -- AT+SETCFG?: get config (placeholder until C backend ready)
@@ -712,6 +717,7 @@ function M.setRfOn(on)
 end
 
 -- 获取 RF 校准模式功能开关状态 (return true=on, false=off)
+-- 注意: 只有显式配置为0/false才表示退出rfa模式; 读不到任何配置时默认处于rfa校准模式
 function M.getRFAOnStatus()
     local f = io.open(M._CFG_FILE_PATH, "r")
     log.info("配置文件路径: ", M._CFG_FILE_PATH)
@@ -721,8 +727,8 @@ function M.getRFAOnStatus()
         f:close()
         if data then
             local cfg = json.decode(data)
-            if cfg and cfg.isRFA_mode then
-                return true
+            if cfg and cfg.isRFA_mode ~= nil then
+                return cfg.isRFA_mode == 1 or cfg.isRFA_mode == true
             end
         end
     else
@@ -730,12 +736,14 @@ function M.getRFAOnStatus()
     end
 
     fskv.init()
-    if fskv.get("isRFA_mode") == 1 then
+    local v = fskv.get("isRFA_mode")
+    if v ~= nil then
         log.info("main", "读取fskv配置成功")
-        return true
+        return v == 1
     end
 
-    return false
+    -- 文件和fskv都没有配置, 默认处于rfa校准模式
+    return true
 end
 
 return M

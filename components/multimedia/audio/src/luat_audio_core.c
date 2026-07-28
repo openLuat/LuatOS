@@ -1331,6 +1331,8 @@ int luat_audio_request_prepare(luat_audio_request_block_t *request_block, luat_a
 			luat_audio_request_deinit(request_block);
 			return -LUAT_ERROR_OPERATION_FAILED;
 		}
+	} else {
+		LLOGC(luat_audio_debug_flag, "request_id: %d no dsp", request_block->request_id);
 	}
 
 	return LUAT_ERROR_NONE;
@@ -1617,10 +1619,10 @@ int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, con
 	source->is_add_record = is_add_record;
 	source->is_stream = 1;
 
-	if (!luat_audio_data_codec_bind(&source->codec, codec_opts, source->request)) {
+	if (luat_audio_data_codec_bind(&source->codec, codec_opts, source->request)) {
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
-	if (!source->codec.opts->init(&source->codec, 0)) {
+	if (source->codec.opts->init(&source->codec, 0)) {
 		luat_audio_data_codec_unbind(&source->codec);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
@@ -1660,7 +1662,6 @@ void luat_audio_debug_switch(uint8_t on_off)
 {
 	luat_audio_debug_flag = on_off;
 }
-
 
 
 uint8_t luat_audio_is_request_all_done(luat_audio_driver_ctrl_t *ctrl)

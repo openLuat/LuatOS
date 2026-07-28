@@ -48,8 +48,10 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
     luat_netdrv_t* netdrv = (luat_netdrv_t*)(netif->state);
     void* buff = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, p->tot_len);
     if (buff == NULL) {
+        LLOGE("netif_output: PSRAM alloc fail for %d bytes! netif=%d", p->tot_len, netdrv ? netdrv->id : -1);
         return ERR_MEM;
     }
+    // LLOGD("netif_output: %d bytes to adapter %d", p->tot_len, netdrv ? netdrv->id : -1);
     pbuf_copy_partial(p, buff, p->tot_len, 0);
     // LWIP 层拦截: 用户已声明拦截 (layer="lwip") 则原 dataout 流程被吞掉.
     // 返回值: 0 = 未拦截, 1 = 已拦截 (跳过 airlink_queue_send_ippkg).

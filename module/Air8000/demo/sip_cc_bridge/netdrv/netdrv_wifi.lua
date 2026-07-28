@@ -72,8 +72,10 @@ local function netdrv_wifi_task_func()
     exnetif.set_priority_order({
         {
             WIFI = {
-                ssid = "admin-降功耗，找合宙！",
-                password = "Air123456"
+                ssid = "test",
+                password = "12341234"
+                -- ssid = "admin-降功耗，找合宙！",
+                -- password = "Air123456"
             }
         }
     })

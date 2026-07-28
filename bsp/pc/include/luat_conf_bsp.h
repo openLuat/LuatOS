@@ -199,10 +199,8 @@
 
 // U8G2 在 GUI/非 GUI PC 构建中都需要保留。
 #define LUAT_USE_U8G2 1
-#ifndef LUAT_USE_GUI
-// EINK 仅在非 GUI PC 构建中启用，对齐 xmake 的非 GUI 源码范围。
+// EINK 在 GUI/非 GUI PC 构建中均启用，供 func/eink/eink_basic 测试使用。
 #define LUAT_USE_EINK 1
-#endif
 
 #define LUAT_USE_WEBP 1
 

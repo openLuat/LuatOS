@@ -689,9 +689,14 @@ target("luatos-lua")
 
         -- gtfont PC simulator core
         -- add_includedirs(luatos.."components/gtfont")
-        -- add_includedirs(luatos.."components/eink")
         -- add_files(luatos.."components/gtfont/*.c")
-        
+
+        -- eink + epaper (mono e-paper stack) also available in GUI build
+        add_includedirs(luatos.."components/eink")
+        add_files(luatos.."components/eink/*.c")
+        add_includedirs(luatos.."components/epaper")
+        add_files(luatos.."components/epaper/*.c")
+
         -- hzfont component
         add_includedirs(luatos.."components/hzfont/inc")
         add_files(luatos.."components/hzfont/src/*.c")

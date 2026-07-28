@@ -172,32 +172,33 @@ int tiny_epd_init(tiny_epd_t *epd)
     return ret;
 }
 
-int tiny_epd_refresh(tiny_epd_t *epd,
-                     tiny_epd_refresh_mode_t mode,
-                     const tiny_epd_rect_t *rect)
+static int tiny_epd_refresh_check(const tiny_epd_t *epd)
 {
-    tiny_epd_rect_t native_rect;
-    const tiny_epd_rect_t *native_rect_ptr = NULL;
-    int ret;
-
     if (epd == NULL || epd->driver == NULL || epd->driver->refresh == NULL) {
         return TINY_EPD_ERR_PARAM;
     }
     if (!epd->initialized || epd->sleeping) {
         return TINY_EPD_ERR_BAD_STATE;
     }
-    if (mode == TINY_EPD_REFRESH_PARTIAL_RECT) {
-        ret = tiny_epd_map_rect_to_native(epd, rect, &native_rect);
-        if (ret != TINY_EPD_OK) {
-            return ret;
-        }
-        native_rect_ptr = &native_rect;
+    return TINY_EPD_OK;
+}
+
+static int tiny_epd_refresh_native(tiny_epd_t *epd,
+                                   tiny_epd_refresh_mode_t mode,
+                                   const tiny_epd_rect_t *native_rect)
+{
+    int ret;
+
+    ret = tiny_epd_refresh_check(epd);
+    if (ret != TINY_EPD_OK) {
+        return ret;
     }
-    else if (rect != NULL) {
+    if ((mode == TINY_EPD_REFRESH_PARTIAL_RECT && native_rect == NULL) ||
+        (mode != TINY_EPD_REFRESH_PARTIAL_RECT && native_rect != NULL)) {
         return TINY_EPD_ERR_UNSUPPORTED_MODE;
     }
 
-    ret = epd->driver->refresh(epd, mode, native_rect_ptr);
+    ret = epd->driver->refresh(epd, mode, native_rect);
     if (ret != TINY_EPD_OK) {
         return ret;
     }
@@ -206,14 +207,79 @@ int tiny_epd_refresh(tiny_epd_t *epd,
         tiny_epd_clear_dirty(epd);
     }
     else if (epd->dirty_valid &&
-             native_rect.x <= epd->dirty_rect.x && native_rect.y <= epd->dirty_rect.y &&
-             (uint32_t)native_rect.x + native_rect.w >=
+             native_rect->x <= epd->dirty_rect.x && native_rect->y <= epd->dirty_rect.y &&
+             (uint32_t)native_rect->x + native_rect->w >=
                  (uint32_t)epd->dirty_rect.x + epd->dirty_rect.w &&
-             (uint32_t)native_rect.y + native_rect.h >=
+             (uint32_t)native_rect->y + native_rect->h >=
                  (uint32_t)epd->dirty_rect.y + epd->dirty_rect.h) {
         tiny_epd_clear_dirty(epd);
     }
     return TINY_EPD_OK;
+}
+
+int tiny_epd_refresh(tiny_epd_t *epd,
+                     tiny_epd_refresh_mode_t mode,
+                     const tiny_epd_rect_t *rect)
+{
+    tiny_epd_rect_t native_rect;
+    int ret;
+
+    if (mode == TINY_EPD_REFRESH_PARTIAL_RECT) {
+        ret = tiny_epd_map_rect_to_native(epd, rect, &native_rect);
+        if (ret != TINY_EPD_OK) {
+            return ret;
+        }
+        return tiny_epd_refresh_native(epd, mode, &native_rect);
+    }
+    if (rect != NULL) {
+        return TINY_EPD_ERR_UNSUPPORTED_MODE;
+    }
+    return tiny_epd_refresh_native(epd, mode, NULL);
+}
+
+static int tiny_epd_dirty_is_complete_panel(const tiny_epd_t *epd)
+{
+    return epd->dirty_rect.x == 0 && epd->dirty_rect.y == 0 &&
+           epd->dirty_rect.w == epd->width && epd->dirty_rect.h == epd->height;
+}
+
+int tiny_epd_refresh_dirty(tiny_epd_t *epd, tiny_epd_refresh_mode_t mode)
+{
+    int ret;
+
+    ret = tiny_epd_refresh_check(epd);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+
+    if (mode == TINY_EPD_REFRESH_PARTIAL_RECT) {
+        if ((epd->caps & TINY_EPD_CAP_REFRESH_PARTIAL_RECT) == 0) {
+            return TINY_EPD_ERR_UNSUPPORTED_MODE;
+        }
+        if (!epd->dirty_valid) {
+            return TINY_EPD_OK;
+        }
+        return tiny_epd_refresh_native(epd, TINY_EPD_REFRESH_PARTIAL_RECT,
+                                       &epd->dirty_rect);
+    }
+
+    if (mode == TINY_EPD_REFRESH_AUTO) {
+        if (!epd->dirty_valid) {
+            return TINY_EPD_OK;
+        }
+        if ((epd->caps & TINY_EPD_CAP_REFRESH_PARTIAL_RECT) != 0 &&
+            !tiny_epd_dirty_is_complete_panel(epd)) {
+            return tiny_epd_refresh_native(epd, TINY_EPD_REFRESH_PARTIAL_RECT,
+                                           &epd->dirty_rect);
+        }
+        return tiny_epd_refresh_native(epd, TINY_EPD_REFRESH_FULL, NULL);
+    }
+
+    if (mode != TINY_EPD_REFRESH_FULL && mode != TINY_EPD_REFRESH_FAST &&
+        mode != TINY_EPD_REFRESH_PARTIAL) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    return tiny_epd_refresh_native(epd, mode, NULL);
 }
 
 int tiny_epd_sleep(tiny_epd_t *epd, tiny_epd_sleep_mode_t mode)

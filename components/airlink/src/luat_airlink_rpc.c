@@ -429,7 +429,7 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
     ctx->start_tick   = start_tick;
     ctx->timeout_ms   = timeout_ms;
 
-    if (luat_rtos_semaphore_create(&ctx->sem, 1) != 0) {
+    if (luat_rtos_semaphore_create(&ctx->sem, 0) != 0) {
         LLOGE("rpc: semaphore create failed");
         luat_heap_free(ctx);
         _stats_lock();

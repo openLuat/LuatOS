@@ -41,9 +41,9 @@ Air780EPM 开发板一块 +TYPE-C USB 数据线一根 +可上网的sim卡一张 
 
 1、Luatools下载调试工具
 
-2、内核固件：使用大于等于2002版本号的[内核固件](https://docs.openluat.com/air8101/luatos/firmware/)，开发验证本demo时，还没有正式版本的固件，所以使用[Air8101 临时固件，仅用于验证](http://sh02.air32.cn:43001/air8101v2/LuatOS-SoC_V2001_Air8101_101_20260115_110913.soc)。
+2、内核固件：使用大于等于2002版本号的[内核固件](https://docs.openluat.com/air8101/luatos/firmware/)，开发验证本demo时，还没有正式版本的固件，所以使用[Air8101 临时固件，仅用于验证](https://devsnap.luatos.com/air8101v2/LuatOS-SoC_V2001_Air8101_101_20260115_110913.soc)。
 
-3、内核固件：使用大于等于2022版本号的[内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)，开发验证本demo时，还没有正式版本的固件，所以使用[Air780EPM 临时固件，仅用于验证](http://sh02.air32.cn:43001/air780epm/LuatOS-SoC_V2021_Air780EPM_1_20260115_155415.soc)。
+3、内核固件：使用大于等于2022版本号的[内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)，开发验证本demo时，还没有正式版本的固件，所以使用[Air780EPM 临时固件，仅用于验证](https://devsnap.luatos.com/air780epm/LuatOS-SoC_V2021_Air780EPM_1_20260115_155415.soc)。
 
 ## 演示核心步骤
 

@@ -34,9 +34,9 @@ Air1601:  Air1601中运行的程序,可以使用4G或wifi网络
 
 1、Luatools下载调试工具
 
-2、内核固件：使用大于等于1012版本号的[内核固件](https://docs.openluat.com/air1601/luatos/firmware/)，开发验证本demo时，还没有正式版本的固件，所以使用[Air1601 临时固件，仅用于验证](http://sh02.air32.cn:43001/air1602/V1011/LuatOS-SoC_V1011_Air1602_101_20260420_094826.soc)。
+2、内核固件：使用大于等于1012版本号的[内核固件](https://docs.openluat.com/air1601/luatos/firmware/)，开发验证本demo时，还没有正式版本的固件，所以使用[Air1601 临时固件，仅用于验证](https://devsnap.luatos.com/air1602/V1011/LuatOS-SoC_V1011_Air1602_101_20260420_094826.soc)。
 
-3、内核固件：使用大于等于2034版本号的[内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)，开发验证本demo时，还没有正式版本的固件，所以使用[Air780EPM 临时固件，仅用于验证](http://sh02.air32.cn:43001/air780epm/V2033/V2033_8/LuatOS-SoC_V2033_Air780EPM_8_20260424_110058.soc)。
+3、内核固件：使用大于等于2034版本号的[内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)，开发验证本demo时，还没有正式版本的固件，所以使用[Air780EPM 临时固件，仅用于验证](https://devsnap.luatos.com/air780epm/V2033/V2033_8/LuatOS-SoC_V2033_Air780EPM_8_20260424_110058.soc)。
 
 ## 演示核心步骤
 

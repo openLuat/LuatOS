@@ -1230,9 +1230,9 @@ audio_v2.input(req_id, last_data, true)
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `request_index` | int | 请求索引，通过 `audio_v2.speech` 返回 |
-| `source` | table/string/zbuff/**nil** | 音频数据源。table 为文件路径列表（即使单个文件也要用 table）；string 为 TTS 文本；zbuff 为音频数据；**留空（`nil`）则为流式模式**，不预置数据，需随后通过 `audio_v2.input` 在回调中推流，此时必须指定 `codec_id` |
+| `source` | table/string/zbuff/**true** | 音频数据源。table 为文件路径列表（即使单个文件也要用 table）；string 为 TTS 文本；zbuff 为音频数据（文件数据放在 zbuff 中）；**传入 `true`（boolean）则为流式模式**，不预置数据，需随后通过 `audio_v2.input` 在回调中推流，此时必须指定 `codec_id` |
 | `is_add_record` | boolean | 可选。是否添加到录音通道，默认 `false`（添加到播放通道） |
-| `codec_id` | int | 可选。解码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则通过输入数据自行判断；**流式模式（`source` 为 `nil`）时必须指定** |
+| `codec_id` | int | 可选。解码器 ID，见 `DATA_CODEC_TYPE_*` 常量。留空则通过输入数据自行判断；**流式模式（`source` 为 `true`）时必须指定** |
 | `is_error_stop` | boolean | 可选。当 `source` 为文件列表（table）时，某个文件解码失败后是否停止解码，默认 `true`（遇到解码错误自动停止）。仅对文件列表模式有效，流式/单个文件/TTS/zbuff 模式无意义 |
 | `sample_rate` | int | 可选。采样率（Hz），指定 RAW 编解码器时必填 |
 | `data_bits` | int | 可选。数据位数 8/16/24/32，指定 RAW 编解码器时必填。默认 16 |
@@ -1244,7 +1244,10 @@ audio_v2.input(req_id, last_data, true)
 | 返回值 | 类型 | 说明 |
 |--------|------|------|
 | 成功标志 | boolean | 成功返回 `true`，否则返回 `false` |
-| source_index | int | 外部音频源索引，可用于 `audio_v2.input` 或 `audio_v2.stop` 操作（需带上 `EXT_SRC_INDEX_FLAG`）|
+| source_index | int | 成功时返回外部音频源索引，可用于 `audio_v2.input` 或 `audio_v2.stop` 操作（需带上 `EXT_SRC_INDEX_FLAG`）；**失败时返回 `0`** |
+
+**注意**：
+- 添加失败（如参数错误、解码器不匹配、超过最大源数）时，函数会将该外部音源槽位归还空闲链表并正确返回 `false, 0`，调用方应通过返回值判断是否成功，**不要使用返回值为 `0` 的索引继续调用 `audio_v2.input`**
 
 **示例**：
 
@@ -1263,7 +1266,7 @@ audio_v2.extern_source(req_id, "请注意安全")
 - 最多同时支持 2 个外部音频源（`LUAT_AUDIO_EXTERN_SOURCE_MAX`）
 - source_index 返回值最高位带标记位（`0x80`），传递给 `audio_v2.input` 或 `audio_v2.stop` 时可自动识别
 - `audio_v2.on` 回调中可通过 `EXT_SRC_DONE` 事件监听外部音频源播放完成
-- **流式模式**：当 `source` 传入 `nil` 时，该外部音源不预置任何数据，需由应用层在 `audio_v2.on` 回调的 `REQUEST_NEED_NEW_DATA` 事件中通过 `audio_v2.input(source_index, data, is_end)` 推流（此时 `codec_id` 必填）。这种方式适用于对讲/通话中实时把来自网络或其它通道的流式音频叠加到对端播放，而无需先准备好文件或缓冲区
+- **流式模式**：当 `source` 传入 `true`（boolean）时，该外部音源不预置任何数据，需由应用层在 `audio_v2.on` 回调的 `REQUEST_NEED_NEW_DATA` 事件中通过 `audio_v2.input(source_index, data, is_end)` 推流（此时 `codec_id` 必填）。这种方式适用于对讲/通话中实时把来自网络或其它通道的流式音频叠加到对端播放，而无需先准备好文件或缓冲区
 - 流式模式下 `audio_v2.input` 的 `is_end = true` 会结束该外部音源播放并触发 `EXT_SRC_DONE` 事件
 
 **示例（流式模式）**：
@@ -1273,8 +1276,8 @@ audio_v2.extern_source(req_id, "请注意安全")
 local ok, req_id = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_AMR_WB, save_buffer, 10)
 
 -- 以流式模式附加一个外部音源（不预置数据，指定 RAW 解码器）
--- 参数顺序：request_index, source(nil), is_add_record, codec_id, is_error_stop, sample_rate, data_bits, channel_nums, is_signed
-local ok, source_idx = audio_v2.extern_source(req_id, nil, false, audio_v2.DATA_CODEC_TYPE_RAW, true, 16000, 16, 1, true)
+-- 参数顺序：request_index, source(true), is_add_record, codec_id, is_error_stop, sample_rate, data_bits, channel_nums, is_signed
+local ok, source_idx = audio_v2.extern_source(req_id, true, false, audio_v2.DATA_CODEC_TYPE_RAW, true, 16000, 16, 1, true)
 
 -- 在回调中向其推流
 audio_v2.on(function(request_index, event, param)

@@ -720,6 +720,8 @@ int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet)
             fo |= 0x40;     // UDHI for concatenated SMS
         if (packet->srr)
             fo |= 0x20;     // TP-SRR: Status Report Request
+        if (packet->vp)
+            fo |= 0x10;     // TP-VPF: Relative format
         packet->pdu_buf[pos++] = fo;
     }
     packet->pdu_buf[pos++] = 0x00;
@@ -742,6 +744,8 @@ int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet)
 
     packet->pdu_buf[pos++] = 0x00;
     packet->pdu_buf[pos++] = packet->dcs;
+    if (packet->vp)
+        packet->pdu_buf[pos++] = packet->vp;
     if(packet->maxNum == 1)
     {
         packet->pdu_buf[pos++] = packet->udl ? (uint8_t)packet->udl : (uint8_t)packet->payload_len;

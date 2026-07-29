@@ -27,6 +27,7 @@
 #define LUAT_LOG_TAG "sms"
 #include "luat_log.h"
 static int lua_sms_ref = 0;
+static int lua_sms_report_ref = 0;
 static int lua_sms_recv_long = 1;
 
 typedef struct long_sms
@@ -57,9 +58,14 @@ static uint64_t long_sms_send_idp = 0;
 static int l_long_sms_send_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
 
+    uint8_t is_success = msg->arg1;
+    uint8_t rp_cause = msg->arg2 & 0xFF;
+    uint16_t error_code = (msg->arg2 >> 8) & 0xFFFF;
+    uint8_t msg_ref = (msg->arg2 >> 24) & 0xFF;
+
     if (long_sms_send_idp)
     {
-        lua_pushboolean(L, msg->arg1 == 0 ? 0 : 1);
+        lua_pushboolean(L, is_success);
         luat_cbcwait(L, long_sms_send_idp, 1);
         long_sms_send_idp = 0;
     }
@@ -69,15 +75,25 @@ static int l_long_sms_send_callback(lua_State *L, void* ptr){
 短信发送结果
 SMS_SENT
 @result boolean 发送结果，成功为true, 失败为false
+@number rp_cause RP-Cause错误码(3GPP TS 24.011), 0=成功, 1=空号, 30=未知用户, 50=未开通服务(停机)
+@string rp_cause_str RP-Cause描述字符串
+@number msg_ref 消息参考号, 用于匹配后续的SMS_REPORT回执消息
+@number error_code SDK错误码(0=成功, 300=设备故障, 330=短信中心未知, 332=无网络服务, 333=网络超时, 500=未知错误)
 @usage
-sys.subscribe("SMS_SENT", function(result)
-    log.info("sms send result", result)
+sys.subscribe("SMS_SENT", function(result, rp_cause, rp_cause_str, msg_ref, error_code)
+    log.info("sms send", result, rp_cause, rp_cause_str, msg_ref, error_code)
 end)
 */
     lua_getglobal(L, "sys_pub");
     lua_pushliteral(L, "SMS_SENT");
-    lua_pushboolean(L, msg->arg1 == 0 ? 0 : 1);
-    lua_call(L, 2, 0);
+    lua_pushboolean(L, is_success);
+    lua_pushinteger(L, rp_cause);
+    char rp_cause_str[40] = {0};
+    luat_sms_rpcause_to_string(rp_cause, rp_cause_str, sizeof(rp_cause_str));
+    lua_pushstring(L, rp_cause_str);
+    lua_pushinteger(L, msg_ref);
+    lua_pushinteger(L, error_code);
+    lua_call(L, 6, 0);
     g_s_sms_pdu_packet.maxNum = 0;
     return 0;
 }
@@ -260,10 +276,75 @@ exit:
     return 0;
 }
 
+static int l_sms_report_handler(lua_State* L, void* ptr) {
+    luat_sms_recv_msg_t* sms = (luat_sms_recv_msg_t*)ptr;
+    char status_str[32] = {0};
+    luat_sms_status_to_string(sms->status, status_str, sizeof(status_str));
+
+    char phone[sizeof(sms->phone_address) + 1] = {0};
+    memcpy(phone, sms->phone_address, sizeof(sms->phone_address));
+
+    lua_getglobal(L, "sys_pub");
+    if (lua_isnil(L, -1)) {
+        luat_heap_free(sms);
+        return 0;
+    }
+/*
+@sys_pub sms
+短信回执(状态报告)
+SMS_REPORT
+@number msg_ref 消息参考号, 用于匹配发送的短信
+@number status 状态码, 0=成功送达, 其他为失败(3GPP TS 23.040 9.2.3.15)
+@string status_str 状态描述, 如 "SUCCESS"/"FAILED_TEMP_*"/"FAILED_PERM_*"
+@string phone 接收方手机号
+@string discharge_time 送达/失败时间, 格式 "YY-MM-DD HH:MM:SS"
+@usage
+sys.subscribe("SMS_REPORT", function(msg_ref, status, status_str, phone, discharge_time)
+    log.info("sms report", msg_ref, status, status_str, phone, discharge_time)
+end)
+*/
+    lua_pushliteral(L, "SMS_REPORT");
+    lua_pushinteger(L, sms->msg_ref);
+    lua_pushinteger(L, sms->status);
+    lua_pushstring(L, status_str);
+    lua_pushstring(L, phone);
+    lua_pushstring(L, sms->discharge_time);
+    lua_call(L, 6, 0);
+
+    if (lua_sms_report_ref) {
+        lua_geti(L, LUA_REGISTRYINDEX, lua_sms_report_ref);
+        if (lua_isfunction(L, -1)) {
+            lua_pushinteger(L, sms->msg_ref);
+            lua_pushinteger(L, sms->status);
+            lua_pushstring(L, status_str);
+            lua_pushstring(L, phone);
+            lua_pushstring(L, sms->discharge_time);
+            lua_call(L, 5, 0);
+        }
+    }
+
+    luat_heap_free(sms);
+    return 0;
+}
+
 void luat_sms_recv_cb(uint32_t event, void *param)
 {
     luat_sms_recv_msg_t* sms = ((luat_sms_recv_msg_t*)param);
     rtos_msg_t msg = {0};
+
+    if (sms->msg_type == LUAT_SMS_MSG_STATUS_REPORT || event == 1 || event == 2) {
+        luat_sms_recv_msg_t* tmp = luat_heap_malloc(sizeof(luat_sms_recv_msg_t));
+        if (tmp == NULL) {
+            LLOGE("out of memory when malloc sms report");
+            return;
+        }
+        memcpy(tmp, sms, sizeof(luat_sms_recv_msg_t));
+        msg.handler = l_sms_report_handler;
+        msg.ptr = tmp;
+        luat_msgbus_put(&msg, 0);
+        return;
+    }
+
     if (event != 0) {
         return;
     }
@@ -278,12 +359,13 @@ void luat_sms_recv_cb(uint32_t event, void *param)
     luat_msgbus_put(&msg, 0);
 }
 
-static void luat_sms_send_done(uint8_t is_success)
+static void luat_sms_send_done(uint8_t is_success, uint16_t error_code, uint8_t rp_cause, uint8_t msg_ref)
 {
+    uint32_t packed = ((uint32_t)msg_ref << 24) | ((uint32_t)error_code << 8) | rp_cause;
     rtos_msg_t msg = {
         .handler = l_long_sms_send_callback,
         .arg1 = is_success,
-        .arg2 = 0
+        .arg2 = packed
     };
     luat_msgbus_put(&msg, 0);
     if (g_s_sms_send.payload != NULL) {
@@ -295,6 +377,9 @@ static void luat_sms_send_done(uint8_t is_success)
 
 void luat_sms_send_cb(int ret)
 {
+    uint8_t rp_cause = 0, tp_cause = 0, msg_ref = 0;
+    luat_sms_get_last_send_result(&rp_cause, &tp_cause, &msg_ref);
+
     // 当前没有短信在发送，应该不会产生这个回调吧?
     if (!g_s_sms_pdu_packet.maxNum) {
         return;
@@ -302,13 +387,12 @@ void luat_sms_send_cb(int ret)
 
     // 发送失败
     if (ret) {
-        luat_sms_send_done(0);
+        luat_sms_send_done(0, (uint16_t)ret, rp_cause, msg_ref);
         return;
     }
-    LLOGD("seqNum = %d", g_s_sms_pdu_packet.seqNum);
     // 全部短信发送完成
     if (g_s_sms_pdu_packet.seqNum == g_s_sms_pdu_packet.maxNum) {
-        luat_sms_send_done(1);
+        luat_sms_send_done(1, 0, rp_cause, msg_ref);
         return;
     }
 
@@ -321,7 +405,7 @@ void luat_sms_send_cb(int ret)
         size_t seg_chars = remaining < LUAT_SMS_LONG_MSG_7BIT_CHARS ? remaining : LUAT_SMS_LONG_MSG_7BIT_CHARS;
         int packed = luat_sms_pack_7bit(g_s_sms_send.payload + septet_offset, seg_chars, g_s_sms_pdu_packet.payload_buf, sizeof(g_s_sms_pdu_packet.payload_buf), 1);
         if (packed < 0) {
-            luat_sms_send_done(0);
+            luat_sms_send_done(0, 0, rp_cause, msg_ref);
             return;
         }
         g_s_sms_pdu_packet.payload_len = (size_t)packed;
@@ -339,7 +423,7 @@ void luat_sms_send_cb(int ret)
     ret = luat_sms_send_msg_v2(g_s_sms_pdu_packet.pdu_buf, len);
     // 发送失败
     if (ret) {
-        luat_sms_send_done(0);
+        luat_sms_send_done(0, (uint16_t)ret, rp_cause, msg_ref);
     }
     return;
 }
@@ -429,10 +513,11 @@ static int sms_encode_and_pack(const char *payload, size_t payload_len)
 
 /*
 异步发送短信
-@api sms.send(phone, msg, auto_phone_fix)
+@api sms.send(phone, msg, auto_phone_fix, need_report)
 @string 电话号码,必填
 @string 短信内容,必填
 @bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
+@bool   是否请求短信回执(状态报告),默认false不请求,设为true时接收方成功接收后会收到SMS_REPORT消息
 @return bool 成功返回true,否则返回false或nil
 @usgae
 -- 短信号码支持2种形式
@@ -442,6 +527,9 @@ log.info("sms", sms.send("+8613416121234", "Hi, LuatOS - " .. os.date()))
 
 -- 直接使用目标号码, 不做任何自动化处理. 2023.09.21新增
 log.info("sms", sms.send("85513416121234", "Hi, LuatOS - " .. os.date()), false)
+
+-- 请求短信回执, 接收方成功接收后会收到 SMS_REPORT 消息
+sms.send("+8613416121234", "Hi, LuatOS", true, true)
 */
 static int l_sms_send(lua_State *L) {
     size_t phone_len = 0;
@@ -451,6 +539,10 @@ static int l_sms_send(lua_State *L) {
     int auto_phone = 1;
     if (lua_isboolean(L, 3) && !lua_toboolean(L, 3)) {
         auto_phone = 0;
+    }
+    uint8_t need_report = 0;
+    if (lua_isboolean(L, 4) && lua_toboolean(L, 4)) {
+        need_report = 1;
     }
 
     // 当前有其他地方在发送短信
@@ -476,6 +568,7 @@ static int l_sms_send(lua_State *L) {
     g_s_sms_pdu_packet.phone_len = phone_len;
     g_s_sms_pdu_packet.phone = phone;
     g_s_sms_pdu_packet.seqNum = 1;
+    g_s_sms_pdu_packet.srr = need_report;
 
     int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
     LLOGD("pdu len %d", len);
@@ -496,10 +589,11 @@ static int l_sms_send(lua_State *L) {
 
 /*
 同步发送短信
-@api sms.sendLong(phone, msg, auto_phone_fix).wait()
+@api sms.sendLong(phone, msg, auto_phone_fix, need_report).wait()
 @string 电话号码,必填
 @string 短信内容,必填
 @bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
+@bool   是否请求短信回执(状态报告),默认false不请求,设为true时接收方成功接收后会收到SMS_REPORT消息
 @return bool 异步等待结果 成功返回true, 否则返回false或nil
 @usgae
 sys.taskInit(function()
@@ -517,6 +611,10 @@ static int l_long_sms_send(lua_State *L) {
     int auto_phone = 1;
     if (lua_isboolean(L, 3) && !lua_toboolean(L, 3)) {
         auto_phone = 0;
+    }
+    uint8_t need_report = 0;
+    if (lua_isboolean(L, 4) && lua_toboolean(L, 4)) {
+        need_report = 1;
     }
 
     // 当前有其他地方在发送短信
@@ -551,6 +649,7 @@ static int l_long_sms_send(lua_State *L) {
     g_s_sms_pdu_packet.phone_len = phone_len;
     g_s_sms_pdu_packet.phone = phone;
     g_s_sms_pdu_packet.seqNum = 1;
+    g_s_sms_pdu_packet.srr = need_report;
 
     {
         int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
@@ -766,6 +865,32 @@ static int l_sms_set_debug(lua_State *L) {
     return 0;
 }
 
+/**
+设置短信回执(状态报告)回调函数
+@api sms.setReportCb(func)
+@function 回调函数, 5个参数: msg_ref, status, status_str, phone, discharge_time
+@return nil 传入是函数就能成功,无返回值
+@usage
+sms.setReportCb(function(msg_ref, status, status_str, phone, discharge_time)
+    -- msg_ref:        消息参考号(number), 用于匹配发送的短信
+    -- status:         状态码(number), 0=成功送达
+    -- status_str:     状态描述(string), 如 "SUCCESS"/"FAILED_TEMP_*"/"FAILED_PERM_*"
+    -- phone:          接收方手机号(string)
+    -- discharge_time: 送达/失败时间(string), 格式 "YY-MM-DD HH:MM:SS"
+    log.info("sms report", msg_ref, status, status_str, phone, discharge_time)
+end)
+ */
+static int l_sms_set_report_cb(lua_State *L) {
+    if (lua_sms_report_ref) {
+        luaL_unref(L, LUA_REGISTRYINDEX, lua_sms_report_ref);
+        lua_sms_report_ref = 0;
+    }
+    if (lua_isfunction(L, 1)) {
+        lua_sms_report_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_sms[] =
 {
@@ -775,6 +900,7 @@ static const rotable_Reg_t reg_sms[] =
     { "clearLong",      ROREG_FUNC(l_sms_clear_long)},
     { "sendLong",       ROREG_FUNC(l_long_sms_send)},
     { "unpack",         ROREG_FUNC(l_sms_pdu_unpack)},
+    { "setReportCb",    ROREG_FUNC(l_sms_set_report_cb)},
     { "debug",          ROREG_FUNC(l_sms_set_debug)},
 	{ NULL,             ROREG_INT(0)}
 };

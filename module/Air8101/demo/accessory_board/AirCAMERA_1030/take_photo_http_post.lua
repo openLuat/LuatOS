@@ -77,6 +77,8 @@ local function capture_func()
                 --             200表示成功
                 --             小于0的值表示出错，例如-8表示超时错误
                 --             其余结果值参考API手册
+                -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+                -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com，详见：photo_to_aircloud.lua  
                 local code = httpplus.request({
                     url = "http://upload.air32.cn/api/upload/jpg",
                     method = "POST",

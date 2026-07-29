@@ -21,7 +21,7 @@ sys.taskInit(function()
 
 
     -- 这是个测试服务, 当发送的是json,且action=echo,就会回显所发送的内容
-    -- wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
+    -- wsc = websocket.create(nil, "ws://wstest.luatos.com/ws/echo")
     -- 这是另外一个回环测试服务, 能响应websocket的二进制帧
     wsc = websocket.create(nil, "ws://airtest.openluat.com:2900/websocket")
     -- 以上两个测试服务是Java写的, 源码在 https://gitee.com/openLuat/luatos-airtun/tree/master/server/src/main/java/com/luatos/airtun/ws

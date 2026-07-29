@@ -25,7 +25,7 @@
 常见用法
 1. 播放文件：        cc.extern_source({"/luadb/test_16k.mp3"})
 2. 播放TTS ：        cc.extern_source("你好，测试一下")
-3. 播放流式(固件版本2048及以上支持)：        cc.extern_source(true, true, audio_v2.DATA_CODEC_TYPE_RAW, true, 16000, 16, 1, true)
+3. 播放流式(固件版本2048及以上支持)：cc.extern_source(true, true, audio_v2.DATA_CODEC_TYPE_RAW, true, 16000, 16, 1, true)
    启用流式后，用    cc.input(true, data, false) 逐块喂数据，cc.input(true, "", true) 结束。
 4. 停止播放：        cc.extern_source(nil)
 ]]

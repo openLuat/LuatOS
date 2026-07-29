@@ -392,11 +392,11 @@ static int l_cc_on(lua_State *L) {
 
 /*
 通话中附加额外的音频数据，额外音频的数据位数和通道数必须和通话的参数一致，否则会失败而没有任何作用
-@api cc.extern_source(source, is_add_record, is_error_stop, codec_id, sample_rate, data_bits, channel_nums, is_signed)
+@api cc.extern_source(source, is_add_record, codec_id, is_error_stop, sample_rate, data_bits, channel_nums, is_signed)
 @table/string/zbuff/boolean/nil 输入数据，table表示播放文件（如果只播放一个文件也要用table），string表示播放tts，zbuff表示播放音频数据(文件数据放在了zbuff)，true表示启用流模式播放，nil表示停止当前第三方数据播放
 @boolean 是否添加到上行通道，true添加到上行通道，false添加到下行通道，默认true，往对端播放第三方数据源，目前只支持上行通道
-@boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空则通过输入数据自行判断
+@boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @int 采样率，如果指定解码器是RAW，不能留空
 @int 数据位数，8,16,24,32，如果指定解码器是RAW，不能留空
 @int 通道数，1,2，如果指定解码器是RAW，不能留空
@@ -542,6 +542,7 @@ static int l_cc_input(lua_State *L) {
         LLOGE("cc extern source is not start");
         goto DONE;
     }
+    rest_len = luat_fifo_check_free_space(_l_cc.extern_source.decode_input_fifo);
     luat_rtos_task_suspend_all();
     if (LUA_TSTRING == (lua_type(L, 2))) {
         size_t len = 0;

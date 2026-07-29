@@ -554,6 +554,8 @@ target("luatos-lua")
         add_files(luatos.."components/lcd/*.c")
         -- display
         add_includedirs(luatos.."components/display/inc")
+        add_includedirs(luatos.."components/display/src/interface")
+        add_includedirs(luatos.."components/display/src/panel")
         add_files(luatos.."components/display/src/**.c")
         add_files(luatos.."components/display/binding/*.c")
         -- luat_image

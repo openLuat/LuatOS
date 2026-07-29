@@ -8,6 +8,8 @@
 extern struct luat_display_funcs sdl_funcs;
 extern struct luat_display_funcs rgb_funcs;
 extern struct luat_display_funcs dsi_funcs;
+extern struct luat_display_funcs spi_funcs;
+extern struct luat_display_funcs lvds_funcs;
 
 
 

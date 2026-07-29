@@ -53,7 +53,10 @@ int luat_display_panel_reset(struct luat_display_panel *panel)
 /*显示面板上电*/
 int luat_display_power_on(struct luat_display *disp) 
 {
-    struct panel_pin_device *pin = disp->pin;
+    if (disp == NULL || disp->panel == NULL || disp->panel->pin == NULL) {
+        return 0;
+    }
+    struct panel_pin_device *pin = disp->panel->pin;
 
     if (pin->pwr != LUAT_GPIO_NONE) {
         luat_gpio_set(pin->pwr, Luat_GPIO_HIGH);
@@ -64,13 +67,16 @@ int luat_display_power_on(struct luat_display *disp)
 /*显示面板下电*/
 int luat_display_power_off(struct luat_display *disp) 
 {
-    if (disp->pin_bl != LUAT_GPIO_NONE) 
-    {
-        luat_gpio_set(disp->pin_bl, Luat_GPIO_LOW);
+    if (disp == NULL || disp->panel == NULL || disp->panel->pin == NULL) {
+        return 0;
     }
-    if (disp->pin_pwr != LUAT_GPIO_NONE) 
-    {
-        luat_gpio_set(disp->pin_pwr, Luat_GPIO_LOW);
+    struct panel_pin_device *pin = disp->panel->pin;
+
+    if (pin->bl != LUAT_GPIO_NONE) {
+        luat_gpio_set(pin->bl, Luat_GPIO_LOW);
+    }
+    if (pin->pwr != LUAT_GPIO_NONE) {
+        luat_gpio_set(pin->pwr, Luat_GPIO_LOW);
     }
     return 0;
 }

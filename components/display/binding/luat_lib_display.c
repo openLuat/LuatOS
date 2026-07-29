@@ -57,26 +57,25 @@ static struct luat_display_funcs *get_interface_funcs(const char *name)
 typedef struct {
     const char *name;
     const char *interface;
-    const luat_display_panel *panel;
+    struct luat_display_panel *panel;
 } display_panel_reg_t;
 
 /*显示面板列表*/
 static const display_panel_reg_t panel_regs[] = 
 {
     {"custom", "rgb",  &rgb_panel_custom},
-    {"custom", "lvds", &rgb_panel_custom},
-    {"custom", "dsi",  &rgb_panel_custom},
-    {"custom", "spi",  &rgb_panel_custom},
+    {"custom", "lvds", &lvds_panel_custom},
+    {"custom", "dsi",  &dsi_panel_custom},
 
     {"st7789",  "spi",  &spi_panel_st7789},
     {"ili9341", "spi", &spi_panel_ili9341},
-    {"st7701s", "spi", &rgb_panel_st7701s},
+    {"st7701s", "rgb", &rgb_panel_st7701s},
     {"st7701s", "dsi", &dsi_panel_st7701s},
     {"",        NULL}
 };
 
 /*查找显示面板*/
-static const luat_display_panel* get_panel(const char *name, const char *interface) 
+static struct luat_display_panel* get_panel(const char *name, const char *interface) 
 {
     for (size_t i = 0; i < sizeof(panel_regs) / sizeof(panel_regs[0]); i++) 
     {
@@ -93,7 +92,7 @@ static const luat_display_panel* get_panel(const char *name, const char *interfa
 }
 
 /*设置显示窗口*/
-static int panel_crop_win_setup(struct luat_display_panel *panel,lua_State *L)
+static void panel_crop_win_setup(struct luat_display_panel *panel,lua_State *L)
 {
     /*设置当前屏幕是否需要裁剪*/
     lua_getfield(L, 2, "crop_x");
@@ -293,9 +292,9 @@ static int l_display_init(lua_State *L)
         return 2;
     }
 
-#ifdef LUAT_USE_LCD_SDL2
-        strncpy(iface_buf, "sdl", 3);   //PC平台
-#endif
+    lua_getfield(L, 2, "bpp");
+    L_disp->bpp = luaL_optinteger(L, -1, 16);   //暂时没用到，占位用
+    lua_pop(L, 1);
 
     /*根据接口类型查找显示面板*/
     L_disp->panel = get_panel(panel_name, iface_buf);
@@ -307,13 +306,13 @@ static int l_display_init(lua_State *L)
         return 2;
     }
 
-    /*先检查，如果没有屏幕有效区域，分配屏幕有效区域*/
-    if(L_disp->panel->crop_win == NULL) {
-        L_disp->panel->crop_win = luat_heap_zalloc(sizeof(struct luat_display_rect));
-        if(L_disp->panel->crop_win == NULL) {
+    /*先检查，如果没有屏幕有效区域就分配屏幕有效区域*/
+    if(L_disp->panel->screen_win == NULL) {
+        L_disp->panel->screen_win = luat_heap_zalloc(sizeof(struct luat_display_rect));
+        if(L_disp->panel->screen_win == NULL) {
             luat_heap_free(L_disp);
             lua_pushboolean(L, 0);
-            lua_pushstring(L, "alloc crop win fail");
+            lua_pushstring(L, "alloc screen win fail");
             return 2;
         }
         /*设置裁剪窗口,默认全屏*/
@@ -331,7 +330,11 @@ static int l_display_init(lua_State *L)
             return 2;
         }
     }
-    
+
+#ifdef LUAT_USE_LCD_SDL2
+    strncpy(iface_buf, "sdl", 3);   //对于PC平台强制使用SDL接口
+#endif
+
     /*根据接口类型获取显示函数*/
     struct luat_display_funcs *funcs = get_interface_funcs(iface_buf);
     if (funcs == NULL) {
@@ -341,13 +344,12 @@ static int l_display_init(lua_State *L)
         return 2;
     }
 
-    L_disp->funcs = funcs;
+    L_disp->display_funcs = funcs;
 
     /*获取引脚配置参数*/
     struct panel_pin_device *pin = luat_heap_zalloc(sizeof(struct panel_pin_device));
     if (pin == NULL) {
         luat_heap_free(L_disp);
-        luat_heap_free(fb_info);
         lua_pushboolean(L, 0);
         lua_pushstring(L, "alloc pin fail");
         return 2;
@@ -473,15 +475,18 @@ static int l_display_set_rotation(lua_State *L) {
  * @return int width 屏幕宽度
  * @return int height 屏幕高度
  */
-static int l_display_get_size(lua_State *L) {
+static int l_display_get_size(lua_State *L) 
+{
     struct luat_display *disp = luat_display_get_default();
     if (disp == NULL) {
         lua_pushinteger(L, 0);
         lua_pushinteger(L, 0);
         return 2;
     }
-    lua_pushinteger(L, disp->width);
-    lua_pushinteger(L, disp->height);
+
+    lua_pushinteger(L, disp->fb_info->width);
+    lua_pushinteger(L, disp->fb_info->height);
+
     return 2;
 }
 
@@ -491,15 +496,18 @@ static int l_display_get_size(lua_State *L) {
  * @return int fb_size FrameBuffer 大小 (bytes)
  * @return int fb_count FrameBuffer 数量 (1=单缓冲, 2=双缓冲)
  */
-static int l_display_get_fb(lua_State *L) {
+static int l_display_get_fb(lua_State *L) 
+{
     struct luat_display *disp = luat_display_get_default();
-    if (disp == NULL || disp->fb_info.addr == NULL) {
+    if (disp == NULL || disp->fb_info->fb_start == NULL) {
         lua_pushnil(L);
         return 1;
     }
-    lua_pushlightuserdata(L, disp->fb_info.addr);
-    lua_pushinteger(L, disp->fb_info.size);
-    lua_pushinteger(L, disp->fb_info.count);
+
+    lua_pushlightuserdata(L, disp->fb_info->fb_start);
+    lua_pushinteger(L, disp->fb_info->fb_size);
+    lua_pushinteger(L, disp->fb_info->fb_count);
+
     return 3;
 }
 

@@ -9,7 +9,7 @@
 #define panel_spi_send_seq(panel, ...) do {                         \
         static const unsigned char d[] = { __VA_ARGS__ };           \
         int ret;                                                    \
-        ret = rgb_spi_panel_send_sequence(panel, d, ARRAY_SIZE(d)); \
+        ret = dsi_panel_send_sequence(panel, d, ARRAY_SIZE(d));     \
         if (ret < 0)                                                \
             return ret;                                             \
     } while (0)
@@ -36,14 +36,14 @@ static int panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cm
 }
 
 /*RGB面板操作接口*/
-static struct luat_display_panel_funcs panel_funcs_rgb = {
+static struct luat_display_panel_funcs panel_funcs_dsi = {
     .panel_init     = panel_init,
     .panel_deinit   = panel_deinit,
     .panel_ctrl     = panel_ctrl,
 };
 
 /*RGB面板时序参数*/
-static struct luat_display_timing custom_timing = {
+static struct luat_display_timing dsi_timing = {
     .pclk_hz = 20000000,
 
     .hactive = 480,
@@ -59,23 +59,26 @@ static struct luat_display_timing custom_timing = {
     .flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW,
 };
 
-/*RGB接口参数*/
-struct panel_rgb rgb_custom_rgb = 
+/*DSI接口参数*/
+struct panel_dsi dsi_custom_rgb = 
 {
-    .mode = PRGB,
-    .format = LUAT_DISPLAY_FORMAT_RGB565,
-    .data_order = RGB_ORDER,
-    .data_mirror = 0,
+    .mode = DSI_MOD_VID_PULSE,
+    .format = DSI_FMT_RGB565,
+    .lane_num = 2,
+    .vc_num = 0,
+    .dc_inv = 0,
+    .ln_polrs = 0,
+    .ln_assign = 0,
 };
 
-/*对RGB面板的描述*/
-struct luat_display_panel rgb_panel_custom = {
-    .name = "rgb_custom",
+/*对DSI面板的描述*/
+struct luat_display_panel dsi_panel_custom = {
+    .name = "dsi_custom",
     .desc = "general",
-    .connector_type = LUAT_DISPLAY_CONNECTOR_RGB,
-    .rgb = &rgb_custom_rgb,
-    .panel_funcs = &panel_funcs_rgb,
-    .timing = &custom_timing,
+    .connector_type = LUAT_DISPLAY_CONNECTOR_MIPI,
+    .dsi = &dsi_custom_rgb,
+    .panel_funcs = &panel_funcs_dsi,
+    .timing = &dsi_timing,
     .screen_win = NULL,
 };
 

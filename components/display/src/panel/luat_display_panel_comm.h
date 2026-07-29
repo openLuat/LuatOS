@@ -13,12 +13,19 @@ extern struct luat_display_panel rgb_panel_st7701s;
 
 /*DSI面板列表*/
 extern struct luat_display_panel dsi_panel_st7701s;
+extern struct luat_display_panel dsi_panel_custom;
+
+/*LVDS面板列表*/
+extern struct luat_display_panel lvds_panel_custom;
 
 /*SPI面板列表*/
 extern struct luat_display_panel spi_panel_st7789;
 extern struct luat_display_panel spi_panel_ili9341;
 
 
+
+/*PC面板*/
+extern struct luat_display_panel panel_pc;
 
 
 /*显示面板*/

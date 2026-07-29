@@ -301,7 +301,7 @@ struct luat_display_funcs {
 
 /*显示图形操作接口*/
 struct luat_display_graphics_funcs {
-
+    void *reserved; /*TODO: 占位，避免 MSVC C2016 空结构体错误*/
 };
 
 struct luat_display {
@@ -320,10 +320,28 @@ struct luat_display {
     /*显示接口操作*/
     struct luat_display_funcs *display_funcs;
 
+    /*显示图形操作接口*/
+    struct luat_display_graphics_funcs *graphics_funcs;
+
+    /*lua显示格式，没用，占位*/
+    int bpp;
+
     void    *userdata;
 
 };
 
+struct luat_display* luat_display_get_default(void);
+int luat_display_register(struct luat_display *disp);
+int luat_display_init(struct luat_display *disp);
+int luat_display_on(struct luat_display *disp);
+int luat_display_off(struct luat_display *disp);
+int luat_display_close(struct luat_display_panel *panel);
+int luat_display_layer_setup(struct luat_display *disp);
+int luat_display_init_pin(struct panel_pin_device *pin);
+
+int luat_display_power_on(struct luat_display *disp);
+int luat_display_power_off(struct luat_display *disp);
+int luat_display_panel_reset(struct luat_display_panel *panel);
 
 
 #endif

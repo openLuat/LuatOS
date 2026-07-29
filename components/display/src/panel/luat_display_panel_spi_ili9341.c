@@ -6,8 +6,8 @@
 #include "luat_log.h"
 
 
-#define panel_spi_send_seq(panel, seq...) do {                      \
-        static const unsigned char d[] = { seq };                   \
+#define panel_spi_send_seq(panel, ...) do {                         \
+        static const unsigned char d[] = { __VA_ARGS__ };           \
         int ret;                                                    \
         ret = spi_panel_send_sequence(panel, d, ARRAY_SIZE(d));     \
         if (ret < 0)                                                \

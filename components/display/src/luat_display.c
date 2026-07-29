@@ -88,10 +88,10 @@ int luat_display_layer_setup(struct luat_display *disp)
     ui_layer.area_id = 0;
 
     /*设置默认层的区域*/
-    ui_layer.area.x1 = panel->screen_win.x;
-    ui_layer.area.y1 = panel->screen_win.y;
-    ui_layer.area.x2 = panel->screen_win.x + panel->screen_win.w;
-    ui_layer.area.y2 = panel->screen_win.y + panel->screen_win.h;
+    ui_layer.area.x1 = panel->screen_win->x;
+    ui_layer.area.y1 = panel->screen_win->y;
+    ui_layer.area.x2 = panel->screen_win->x + panel->screen_win->w;
+    ui_layer.area.y2 = panel->screen_win->y + panel->screen_win->h;
 
     ui_layer.buffer = fb_info->fb_start;
     ui_layer.format = fb_info->format;
@@ -150,6 +150,40 @@ int luat_display_init(struct luat_display *disp)
     return 0;
 }
 
+
+/*打开显示*/
+int luat_display_on(struct luat_display *disp)
+{
+    if (disp == NULL || disp->panel == NULL) {
+        return -1;
+    }
+
+    luat_display_power_on(disp);
+
+    if (disp->panel->panel_funcs != NULL &&
+        disp->panel->panel_funcs->panel_ctrl != NULL) {
+        disp->panel->panel_funcs->panel_ctrl(disp->panel, LUAT_DISPLAY_POWER_ON, NULL);
+    }
+
+    return 0;
+}
+
+/*关闭显示*/
+int luat_display_off(struct luat_display *disp)
+{
+    if (disp == NULL || disp->panel == NULL) {
+        return -1;
+    }
+
+    luat_display_power_off(disp);
+
+    if (disp->panel->panel_funcs != NULL &&
+        disp->panel->panel_funcs->panel_ctrl != NULL) {
+        disp->panel->panel_funcs->panel_ctrl(disp->panel, LUAT_DISPLAY_POWER_OFF, NULL);
+    }
+
+    return 0;
+}
 
 /*关闭显示*/
 int luat_display_close(struct luat_display_panel *panel) 

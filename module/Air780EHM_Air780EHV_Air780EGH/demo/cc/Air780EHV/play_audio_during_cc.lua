@@ -47,14 +47,14 @@ local DIAL_NUMBER = "10000"
 --   table  -> 文件播放；string -> TTS播放；true -> 流式播放
 
 -- 1、文件播放
--- local PLAY_SOURCE = {"/luadb/test_16k.mp3"}
+local PLAY_SOURCE = {"/luadb/test_16k.mp3"}
 
 -- 2、TTS播放
 -- local PLAY_SOURCE = "你好，测试一下，123456789"
 
 -- 3、流式播放
-local PLAY_SOURCE = true
-local PCM_STREAM_FILE = "/luadb/test.pcm"
+-- local PLAY_SOURCE = true
+-- local PCM_STREAM_FILE = "/luadb/test.pcm"
 
 -- ====================== 全局状态变量 ======================
 local call_counter = 0                 -- 响铃计数器

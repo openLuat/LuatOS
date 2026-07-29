@@ -24,9 +24,9 @@ local websocket_sender = require "websocket_sender"
 -- 这里使用的地址和端口，会不定期重启或维护，仅能用作测试用途，不可商用，说不定哪一天就关闭了
 -- 用户开发项目时，替换为自己的商用服务器地址和端口
 -- 加密TCP链接 wss 表示加密
-local SERVER_URL = "wss://echo.airtun.air32.cn/ws/echo"
+local SERVER_URL = "wss://wstest.luatos.com/ws/echo"
 -- 这是另外一个测试服务, 能响应websocket的二进制帧
---local SERVER_URL = "ws://echo.airtun.air32.cn/ws/echo2"
+--local SERVER_URL = "ws://wstest.luatos.com/ws/echo2"
 
 -- websocket_main的任务名
 local TASK_NAME = websocket_sender.TASK_NAME_PREFIX.."main"

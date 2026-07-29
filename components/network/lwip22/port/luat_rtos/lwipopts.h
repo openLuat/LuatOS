@@ -122,9 +122,9 @@
 #define TCP_SND_QUEUELEN                ((4 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
 #define TCP_SNDLOWAT                    LWIP_MIN(LWIP_MAX(((TCP_SND_BUF)/2), (2 * TCP_MSS) + 1), (TCP_SND_BUF) - 1)
 #define TCP_SNDQUEUELOWAT               LWIP_MAX(((TCP_SND_QUEUELEN)/2), 5)
-#define TCP_OOSEQ_MAX_BYTES             0
+#define TCP_OOSEQ_MAX_BYTES             10U * TCP_MSS
 #define TCP_OOSEQ_BYTES_LIMIT(pcb)      TCP_OOSEQ_MAX_BYTES
-#define TCP_OOSEQ_MAX_PBUFS             0
+#define TCP_OOSEQ_MAX_PBUFS             10
 #define TCP_OOSEQ_PBUFS_LIMIT(pcb)      TCP_OOSEQ_MAX_PBUFS
 #define TCP_LISTEN_BACKLOG              0
 #define TCP_DEFAULT_LISTEN_BACKLOG      0xff

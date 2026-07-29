@@ -27,7 +27,7 @@
 
 - Air780EHV 核心板 
 
-- PCA9555 GPIO 扩展模块 × 1，购买链接：
+- PCA9555 GPIO 扩展模块 × 1，购买链接：[https://e.tb.cn/h.8VWfpEhW9Bx0xIh?tk=zyA4gEro9JM](https://e.tb.cn/h.8VWfpEhW9Bx0xIh?tk=zyA4gEro9JM)
   
 - 母对母杜邦线 × 13
 

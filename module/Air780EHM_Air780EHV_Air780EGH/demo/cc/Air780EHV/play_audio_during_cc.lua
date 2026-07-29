@@ -1,11 +1,11 @@
 --[[
 @module  play_audio_during_cc
-@summary 通话中播放音频（文件/TTS）
-@version 1.0
-@date    2026.07.08
+@summary 通话中播放音频（文件/TTS/流模式）
+@version 1.1
+@date    2026.07.29
 @author  拓毅恒
 @usage
-本模块演示在VoLTE通话中给对方播放音频文件或TTS文本。
+本模块演示在VoLTE通话中给对方播放音频文件、TTS文本或流式音频。
 通话接通后在AUDIO_START事件中自动触发播放。
 
 工作流程：
@@ -22,10 +22,12 @@
 5. 准备音频文件时需注意：确保文件是16bit、单声道的MP3文件
 6. 支持16K/8K自适应播放，往对端播放只需要准备1个16K单通道的文件即可，TTS也支持在8K通话质量下播放
 
-常用cc.extern_source调用示例：
-1. 播放文件：   cc.extern_source({"/luadb/test_16k.mp3"})       -- 框架自动识别
-2. 播放TTS：   cc.extern_source("你好，测试一下")                
-3. 停止播放：  cc.extern_source(nil)
+常见用法
+1. 播放文件：        cc.extern_source({"/luadb/test_16k.mp3"})
+2. 播放TTS ：        cc.extern_source("你好，测试一下")
+3. 播放流式(固件版本2048及以上支持)：        cc.extern_source(true, true, audio_v2.DATA_CODEC_TYPE_RAW, true, 16000, 16, 1, true)
+   启用流式后，用    cc.input(true, data, false) 逐块喂数据，cc.input(true, "", true) 结束。
+4. 停止播放：        cc.extern_source(nil)
 ]]
 
 -- 引入音频设备模块
@@ -40,14 +42,24 @@ local IS_DIAL = false
 -- 主动拨出时的目标号码（IS_DIAL=true时有效）
 local DIAL_NUMBER = "10000"
 
--- 音频播放
-local PLAY_SOURCE = {"/luadb/test_16k.mp3"}     -- 播放文件模式，注意单个文件也要用table
--- local PLAY_SOURCE = "你好，测试一下，123456789"  -- 播放TTS模式
+-- ============ 音频播放选择（三选一） ============
+-- 取消注释要测的模式、其余保持注释即可。play_extern_source 会按 PLAY_SOURCE 的类型自动分支：
+--   table  -> 文件播放；string -> TTS播放；true -> 流式播放
+
+-- 1、文件播放
+-- local PLAY_SOURCE = {"/luadb/test_16k.mp3"}
+
+-- 2、TTS播放
+-- local PLAY_SOURCE = "你好，测试一下，123456789"
+
+-- 3、流式播放
+local PLAY_SOURCE = true
+local PCM_STREAM_FILE = "/luadb/test.pcm"
 
 -- ====================== 全局状态变量 ======================
 local call_counter = 0                 -- 响铃计数器
 local caller_number = ""               -- 来电号码
-local is_connected = false             -- 通话连接状态
+local is_streaming = false             -- 流模式喂数据进行中标志（挂断时置false，停止喂数据）
 
 -- ====================== 通话事件处理 ======================
 -- 来电自动接听模式
@@ -77,14 +89,71 @@ local function handle_outgoing_call(status)
     end
 end
 
+-- 以流式把PCM文件播放到对端（仅支持上行通道）
+local function stream_pcm_to_peer(path)
+    -- 获取推荐的缓冲区大小
+    local buffer_size = exaudio.get_stream_buffer_size() or 4096
+    log.info("play_audio_during_cc", "流式缓冲区大小:", buffer_size)
+    -- 流式播放音频
+    local ok = cc.extern_source(true, true, audio_v2.DATA_CODEC_TYPE_RAW, true, 16000, 16, 1, true)
+    if not ok then
+        log.error("play_audio_during_cc", "cc.extern_source 流式启动失败")
+        return
+    end
+    is_streaming = true
+    log.info("play_audio_during_cc", "cc.extern_source 流式已启动, 开始写入数据:", path)
+
+    local f = io.open(path, "r")
+    if not f then
+        log.error("play_audio_during_cc", "打开PCM文件失败:", path)
+        cc.extern_source(nil)
+        is_streaming = false
+        return
+    end
+
+    local total_written = 0   -- 累计实际写入字节数
+    while is_streaming do
+        local read_data = f:read(buffer_size)
+        if not read_data then
+            if is_streaming then
+                cc.input(true, "", true)    -- 标记输入结束
+            end
+            break
+        end
+        -- 按 FIFO 剩余空间分片写入：每次喂入后根据 write_len 推进，根据 free_len 做流控
+        local remain = read_data
+        while is_streaming and #remain > 0 do
+            local _, write_len, free_len = cc.input(true, remain, false)
+            if write_len and write_len > 0 then
+                total_written = total_written + write_len
+                remain = remain:sub(write_len + 1)
+            else
+                -- 缓冲满(free_len==0)则多等，否则短等，避免空转也避免覆盖
+                sys.wait(free_len and free_len == 0 and 10 or 2)
+            end
+        end
+    end
+    f:close()
+    is_streaming = false
+    log.info("play_audio_during_cc", "流式写入数据完毕,累计写入：", total_written, "字节")
+end
+
 -- 通话中播放外部音频（接通音频通道后触发）
 local function play_extern_source()
     local quality = cc.quality()
     log.info("play_audio_during_cc", "通话质量:", quality, "(1=8K低音质, 2=16K高音质)")
 
     -- 先清理上一次通话可能残留的extern_source状态，确保第二次也能播放
-    cc.extern_source()
-    -- 播放音频
+    cc.extern_source(nil)
+
+    -- 流式播放
+    if PLAY_SOURCE == true then
+        log.info("extern_demo", "开始流式播放文件:", PCM_STREAM_FILE)
+        sys.taskInit(stream_pcm_to_peer, PCM_STREAM_FILE)
+        return
+    end
+
+    -- 播放音频（文件/TTS模式，框架自动识别）
     local ok = cc.extern_source(PLAY_SOURCE)
     if ok then
         if type(PLAY_SOURCE) == "table" then
@@ -121,7 +190,6 @@ local function handle_cc_ind(status)
 
     -- SPEECH_START：通话开始
     if status == "SPEECH_START" then
-        is_connected = true
         log.info("play_audio_during_cc", "通话已建立")
     end
 
@@ -135,7 +203,7 @@ local function handle_cc_ind(status)
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
         -- 通话结束，关闭PA保留driver下次通话时快速恢复
         exaudio.pm(audio.SHUTDOWN)
-        is_connected = false
+        is_streaming = false   -- 挂断即停止喂数据
         call_counter = 0
         log.info("play_audio_during_cc", "通话结束")
     end
@@ -156,7 +224,7 @@ local function init_cc()
     cc.init(audio_drv.getMultimediaId())
 
     log.info("play_audio_during_cc", IS_DIAL and "主动拨号模式" or "来电接听模式")
-    log.info("cc_extern_source_demo", "播放模式: ", type(PLAY_SOURCE) == "table" and "FILE" or "TTS")
+    log.info("cc_extern_source_demo", "播放模式: ", PLAY_SOURCE == true and "STREAM" or (type(PLAY_SOURCE) == "table" and "FILE" or "TTS"))
     log.info("play_audio_during_cc", "电话系统初始化完成")
 end
 

@@ -179,7 +179,7 @@ cc.record(on_off, upload_zbuff1, upload_zbuff2, download_zbuff1, download_zbuff2
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| on_off | boolean | `true`/`nil` 以外的值开启，`false`/`nil` 关闭 |
+| on_off | boolean | `false` 或 `nil` 关闭，其他值（如 `true`）开启 |
 | upload_zbuff1 | zbuff | 上行数据保存区 1（容量必须是 640 的倍数） |
 | upload_zbuff2 | zbuff | 上行数据保存区 2（与 1 组成双缓冲） |
 | download_zbuff1 | zbuff | 下行数据保存区 1（容量必须是 640 的倍数） |
@@ -214,15 +214,15 @@ cc.record(true, buff1, buff2, buff3, buff4)
 通话中附加额外的音频数据（向对端播放第三方音源）。额外音频的数据位数和通道数必须和通话参数一致，否则会失败。
 
 ```lua
-cc.extern_source(source, is_add_record, is_error_stop, codec_id, sample_rate, data_bits, channel_nums, is_signed)
+cc.extern_source(source, is_add_record, codec_id, is_error_stop, sample_rate, data_bits, channel_nums, is_signed)
 ```
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | source | table/string/zbuff/nil/boolean | 输入数据：`table` 表示播放文件列表；`string` 表示播放 TTS；`zbuff` 表示播放音频数据；`true` 表示启用流模式播放；`nil` 表示停止当前第三方数据播放。只播放一个文件也要用 `table` |
 | is_add_record | boolean | 是否添加到上行通道，`true` 添加到上行（往对端播放），`false` 添加到下行，默认 `true`。目前只支持上行通道 |
-| is_error_stop | boolean | 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认 `true`，遇到解码错误自动停止 |
 | codec_id | int | 解码器 id，见 `audio_v2.DATA_CODEC_TYPE_XXX`，留空则通过输入数据自行判断 |
+| is_error_stop | boolean | 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认 `true`，遇到解码错误自动停止 |
 | sample_rate | int | 采样率，若指定解码器为 RAW 不能留空 |
 | data_bits | int | 数据位数（8/16/24/32），RAW 时不能留空，默认 `16` |
 | channel_nums | int | 通道数（1/2），RAW 时不能留空，默认 `1` |

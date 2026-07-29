@@ -16,7 +16,8 @@ extern "C" {
  * Source layout is row-major, ceil(width / 8) bytes per row, and bit 0 of
  * each source byte is the left-most pixel. This is the same representation
  * used by eink.drawXbm() and u8g2.DrawXBM(). A set source bit is fg; a clear
- * source bit is bg, unless bg is TINY_EPD_BITMAP_TRANSPARENT.
+ * source bit is bg, unless bg is TINY_EPD_BITMAP_TRANSPARENT. fg/bg may be
+ * real palette colors or TINY_EPD_COLOR_FG/TINY_EPD_COLOR_BG.
  */
 int tiny_epd_draw_xbm(tiny_epd_t *epd,
                       int16_t x, int16_t y,

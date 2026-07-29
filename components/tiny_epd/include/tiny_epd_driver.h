@@ -21,6 +21,10 @@ struct tiny_epd_driver {
                    tiny_epd_refresh_mode_t mode,
                    const tiny_epd_rect_t *rect);
     int (*sleep)(tiny_epd_t *epd, tiny_epd_sleep_mode_t mode);
+
+    /* NULL selects the legacy BLACK/WHITE INDEX1 surface. Kept last so
+     * positional legacy driver descriptors remain source compatible. */
+    const tiny_epd_surface_desc_t *surface;
 };
 
 struct tiny_epd {
@@ -32,6 +36,9 @@ struct tiny_epd {
     uint16_t stride;
     uint8_t bits_per_pixel;
     uint8_t plane_count;
+    const tiny_epd_surface_desc_t *surface;
+    tiny_epd_color_t foreground;
+    tiny_epd_color_t background;
     uint8_t initialized;
     uint8_t sleeping;
     uint8_t rotate; /* Internal index 0/1/2/3, never exposed directly. */
@@ -46,7 +53,10 @@ void *tiny_epd_driver_state(tiny_epd_t *epd);
 const void *tiny_epd_driver_state_const(const tiny_epd_t *epd);
 
 /* Internal native-surface helpers for drivers and optional adapters. */
-int tiny_epd_draw_pixel_native(tiny_epd_t *epd, int16_t x, int16_t y, uint8_t color);
+int tiny_epd_draw_pixel_native(tiny_epd_t *epd, int16_t x, int16_t y,
+                               tiny_epd_color_t color);
+int tiny_epd_get_pixel_native(const tiny_epd_t *epd, int16_t x, int16_t y,
+                              tiny_epd_color_t *color);
 int tiny_epd_map_point_to_native(const tiny_epd_t *epd,
                                  uint16_t x, uint16_t y,
                                  uint16_t *native_x, uint16_t *native_y);

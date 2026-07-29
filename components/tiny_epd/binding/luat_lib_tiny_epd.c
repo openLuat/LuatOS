@@ -29,6 +29,7 @@
 #define LUAT_TINY_EPD_MODEL_1IN54_V2 2
 #define LUAT_TINY_EPD_MODEL_1IN54_V3 3
 #define LUAT_TINY_EPD_MODEL_1IN54_SSD1607 4
+#define LUAT_TINY_EPD_MODEL_1IN54R 5
 
 typedef struct {
     tiny_epd_t *epd;
@@ -74,6 +75,10 @@ static const char *luat_tiny_epd_error_string(int ret)
         return "panel is not initialized or is sleeping";
     case TINY_EPD_ERR_FONT_NOT_READY:
         return "hzfont is not initialized";
+    case TINY_EPD_ERR_UNSUPPORTED_COLOR:
+        return "color is not supported by this panel";
+    case TINY_EPD_ERR_UNSUPPORTED_FORMAT:
+        return "unsupported framebuffer format";
     default:
         return "unknown epd error";
     }
@@ -260,7 +265,8 @@ static int luat_tiny_epd_get_model(lua_State *L)
         return (model == LUAT_TINY_EPD_MODEL_1IN54 ||
                 model == LUAT_TINY_EPD_MODEL_1IN54_V2 ||
                 model == LUAT_TINY_EPD_MODEL_1IN54_V3 ||
-                model == LUAT_TINY_EPD_MODEL_1IN54_SSD1607) ? (int)model : 0;
+                model == LUAT_TINY_EPD_MODEL_1IN54_SSD1607 ||
+                model == LUAT_TINY_EPD_MODEL_1IN54R) ? (int)model : 0;
     }
 
     name = luaL_checklstring(L, 1, &name_len);
@@ -283,6 +289,36 @@ static int luat_tiny_epd_get_model(lua_State *L)
         (name_len == 21 && memcmp(name, "ssd1607_1in54_200x200", 21) == 0)) {
         return LUAT_TINY_EPD_MODEL_1IN54_SSD1607;
     }
+    if ((name_len == 6 && memcmp(name, "1in54r", 6) == 0) ||
+        (name_len == 16 && memcmp(name, "waveshare_1in54r", 16) == 0) ||
+        (name_len == 20 && memcmp(name, "waveshare_1in54r_bwr", 20) == 0)) {
+        return LUAT_TINY_EPD_MODEL_1IN54R;
+    }
+    return 0;
+}
+
+/* Lua colors are semantic palette IDs, not controller RAM encodings. */
+static int luat_tiny_epd_get_color(lua_State *L, int index,
+                                   tiny_epd_color_t default_value,
+                                   tiny_epd_color_t *color)
+{
+    lua_Integer value;
+
+    if (color == NULL) {
+        return -1;
+    }
+    if (lua_isnoneornil(L, index)) {
+        *color = default_value;
+        return 0;
+    }
+    if (!lua_isinteger(L, index)) {
+        return -1;
+    }
+    value = lua_tointeger(L, index);
+    if (value < 0 || value > UINT8_MAX) {
+        return -1;
+    }
+    *color = (tiny_epd_color_t)value;
     return 0;
 }
 
@@ -403,7 +439,8 @@ static int l_tiny_epd_open(lua_State *L)
     if (model != LUAT_TINY_EPD_MODEL_1IN54 &&
         model != LUAT_TINY_EPD_MODEL_1IN54_V2 &&
         model != LUAT_TINY_EPD_MODEL_1IN54_V3 &&
-        model != LUAT_TINY_EPD_MODEL_1IN54_SSD1607) {
+        model != LUAT_TINY_EPD_MODEL_1IN54_SSD1607 &&
+        model != LUAT_TINY_EPD_MODEL_1IN54R) {
         return luat_tiny_epd_push_open_error(L, "unsupported epd model");
     }
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -487,6 +524,9 @@ static int l_tiny_epd_open(lua_State *L)
     else if (model == LUAT_TINY_EPD_MODEL_1IN54_SSD1607) {
         driver = tiny_epd_driver_1in54_ssd1607();
     }
+    else if (model == LUAT_TINY_EPD_MODEL_1IN54R) {
+        driver = tiny_epd_driver_1in54r();
+    }
     else {
         driver = tiny_epd_driver_1in54();
     }
@@ -527,29 +567,29 @@ static int l_tiny_epd_init(lua_State *L)
 }
 
 /*
-@api panel:clear(color)
-@number color epd.WHITE (默认) 或 epd.BLACK
+@api panel:clear([color])
+@number color 省略时使用当前背景色；也可显式传 panel palette 中的颜色
 @return boolean 成功返回 true，失败返回 false 和错误信息
 */
 static int l_tiny_epd_clear(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
-    int color = (int)luaL_optinteger(L, 2, TINY_EPD_COLOR_WHITE);
+    tiny_epd_color_t color;
 
     if (luat_tiny_epd_is_busy(device)) {
         return luat_tiny_epd_push_busy(L);
     }
-    if (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) {
+    if (luat_tiny_epd_get_color(L, 2, TINY_EPD_COLOR_BG, &color) != 0) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
-    return luat_tiny_epd_push_result(L, tiny_epd_clear(device->epd, (uint8_t)color));
+    return luat_tiny_epd_push_result(L, tiny_epd_clear(device->epd, color));
 }
 
 /*
 @api panel:pixel(x, y[, color])
 @number x X 坐标
 @number y Y 坐标
-@number color epd.BLACK (默认) 或 epd.WHITE
+@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
 @note 坐标属于当前逻辑画布，和 line/rect/qrcode 一样受 setRotation() 影响。
 @return boolean 成功返回 true，失败返回 false 和错误信息
 */
@@ -558,20 +598,83 @@ static int l_tiny_epd_pixel(lua_State *L)
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
     lua_Integer x = luaL_checkinteger(L, 2);
     lua_Integer y = luaL_checkinteger(L, 3);
-    int color = (int)luaL_optinteger(L, 4, TINY_EPD_COLOR_BLACK);
+    tiny_epd_color_t color;
 
     if (luat_tiny_epd_is_busy(device)) {
         return luat_tiny_epd_push_busy(L);
     }
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
-        (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE)) {
+        luat_tiny_epd_get_color(L, 4, TINY_EPD_COLOR_FG, &color) != 0) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
     return luat_tiny_epd_push_result(L,
                                      tiny_epd_draw_pixel(device->epd,
                                                          (int16_t)x,
                                                          (int16_t)y,
-                                                         (uint8_t)color));
+                                                         color));
+}
+
+/*
+@api panel:setColor(fg, bg)
+@number fg 前景逻辑颜色
+@number bg 背景逻辑颜色
+@return boolean 成功返回 true；颜色不在当前 panel palette 时返回 false 和错误信息
+@usage
+assert(panel:setColor(epd.RED, epd.WHITE))
+*/
+static int l_tiny_epd_set_color(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    tiny_epd_color_t foreground;
+    tiny_epd_color_t background;
+
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
+    if (lua_isnoneornil(L, 2) || lua_isnoneornil(L, 3) ||
+        luat_tiny_epd_get_color(L, 2, TINY_EPD_COLOR_BLACK, &foreground) != 0 ||
+        luat_tiny_epd_get_color(L, 3, TINY_EPD_COLOR_WHITE, &background) != 0) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    return luat_tiny_epd_push_result(L,
+                                     tiny_epd_color_set(device->epd,
+                                                        foreground, background));
+}
+
+/* @api panel:getColor() @return number fg @return number bg */
+static int l_tiny_epd_get_color(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    tiny_epd_color_t foreground;
+    tiny_epd_color_t background;
+    int ret;
+
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
+    ret = tiny_epd_color_get(device->epd, &foreground, &background);
+    if (ret != TINY_EPD_OK) {
+        return luat_tiny_epd_push_result(L, ret);
+    }
+    lua_pushinteger(L, foreground);
+    lua_pushinteger(L, background);
+    return 2;
+}
+
+/* @api panel:supportsColor(color) @return boolean 是否由当前 panel palette 支持 */
+static int l_tiny_epd_supports_color(lua_State *L)
+{
+    luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    tiny_epd_color_t color;
+
+    if (luat_tiny_epd_is_busy(device)) {
+        return luat_tiny_epd_push_busy(L);
+    }
+    if (luat_tiny_epd_get_color(L, 2, TINY_EPD_COLOR_BLACK, &color) != 0) {
+        return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    lua_pushboolean(L, tiny_epd_color_supported(device->epd, color));
+    return 1;
 }
 
 static int luat_tiny_epd_refresh_mode(lua_State *L, int index, tiny_epd_refresh_mode_t *mode)
@@ -744,16 +847,18 @@ static int l_tiny_epd_sleep(lua_State *L)
 
 /*
 @api panel:info()
-@return table {width, height, native_width, native_height, stride, bits_per_pixel, plane_count, caps, rotate}
+@return table {width, height, native_width, native_height, stride, bits_per_pixel, plane_count, format, color_count, palette, caps, rotate}
 */
 static int l_tiny_epd_info(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
+    uint16_t i;
+    uint16_t color_count;
 
     if (luat_tiny_epd_is_busy(device)) {
         return luat_tiny_epd_push_busy(L);
     }
-    lua_createtable(L, 0, 9);
+    lua_createtable(L, 0, 12);
     lua_pushinteger(L, tiny_epd_width(device->epd));
     lua_setfield(L, -2, "width");
     lua_pushinteger(L, tiny_epd_height(device->epd));
@@ -768,6 +873,28 @@ static int l_tiny_epd_info(lua_State *L)
     lua_setfield(L, -2, "bits_per_pixel");
     lua_pushinteger(L, tiny_epd_plane_count(device->epd));
     lua_setfield(L, -2, "plane_count");
+    lua_pushinteger(L, tiny_epd_surface_format(device->epd));
+    lua_setfield(L, -2, "format");
+    color_count = tiny_epd_palette_count(device->epd);
+    lua_pushinteger(L, color_count);
+    lua_setfield(L, -2, "color_count");
+    lua_createtable(L, (int)color_count, 0);
+    for (i = 0; i < color_count; i++) {
+        tiny_epd_palette_entry_t entry;
+
+        if (tiny_epd_palette_get(device->epd, i, &entry) != TINY_EPD_OK) {
+            continue;
+        }
+        lua_createtable(L, 0, 3);
+        lua_pushinteger(L, entry.color);
+        lua_setfield(L, -2, "color");
+        lua_pushinteger(L, entry.storage_code);
+        lua_setfield(L, -2, "code");
+        lua_pushinteger(L, (lua_Integer)entry.rgb888);
+        lua_setfield(L, -2, "rgb");
+        lua_rawseti(L, -2, (int)i + 1);
+    }
+    lua_setfield(L, -2, "palette");
     lua_pushinteger(L, (lua_Integer)tiny_epd_caps(device->epd));
     lua_setfield(L, -2, "caps");
     /* Expose the current rotation; mirrored by tiny_epd_set_rotation. */
@@ -849,7 +976,7 @@ static int l_tiny_epd_set_rotation(lua_State *L)
 @number y0 起点 Y
 @number x1 终点 X
 @number y1 终点 Y
-@number color epd.BLACK (默认) 或 epd.WHITE
+@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
 @return boolean 成功返回 true，失败返回 false 和错误信息
 @usage
 panel:line(0, 0, 100, 100, epd.BLACK)
@@ -861,28 +988,28 @@ static int l_tiny_epd_line(lua_State *L)
     lua_Integer y0 = luaL_checkinteger(L, 3);
     lua_Integer x1 = luaL_checkinteger(L, 4);
     lua_Integer y1 = luaL_checkinteger(L, 5);
-    int color = (int)luaL_optinteger(L, 6, TINY_EPD_COLOR_BLACK);
+    tiny_epd_color_t color;
 
     if (luat_tiny_epd_is_busy(device)) {
         return luat_tiny_epd_push_busy(L);
     }
     if (x0 < INT16_MIN || x0 > INT16_MAX || y0 < INT16_MIN || y0 > INT16_MAX ||
         x1 < INT16_MIN || x1 > INT16_MAX || y1 < INT16_MIN || y1 > INT16_MAX ||
-        (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE)) {
+        luat_tiny_epd_get_color(L, 6, TINY_EPD_COLOR_FG, &color) != 0) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
     return luat_tiny_epd_push_result(L,
                                      tiny_epd_draw_line(device->epd,
                                                         (int16_t)x0, (int16_t)y0,
                                                         (int16_t)x1, (int16_t)y1,
-                                                        (uint8_t)color));
+                                                        color));
 }
 
 /*
 @api panel:rect(x, y, x2, y2[, color[, fill]])
 @number x,y 左上角坐标
 @number x2,y2 右下角坐标（end-point 形式）
-@number color epd.BLACK (默认) 或 epd.WHITE
+@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
 @number fill 0=仅描边（默认），1=实心
 @return boolean 成功返回 true，失败返回 false 和错误信息
 @usage
@@ -896,7 +1023,7 @@ static int l_tiny_epd_rect(lua_State *L)
     lua_Integer y = luaL_checkinteger(L, 3);
     lua_Integer x2 = luaL_checkinteger(L, 4);
     lua_Integer y2 = luaL_checkinteger(L, 5);
-    int color = (int)luaL_optinteger(L, 6, TINY_EPD_COLOR_BLACK);
+    tiny_epd_color_t color;
     int fill = (int)luaL_optinteger(L, 7, 0);
 
     if (luat_tiny_epd_is_busy(device)) {
@@ -904,7 +1031,7 @@ static int l_tiny_epd_rect(lua_State *L)
     }
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
         x2 < INT16_MIN || x2 > INT16_MAX || y2 < INT16_MIN || y2 > INT16_MAX ||
-        (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) ||
+        luat_tiny_epd_get_color(L, 6, TINY_EPD_COLOR_FG, &color) != 0 ||
         (fill != 0 && fill != 1)) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
@@ -912,7 +1039,7 @@ static int l_tiny_epd_rect(lua_State *L)
                                      tiny_epd_draw_rect(device->epd,
                                                         (int16_t)x, (int16_t)y,
                                                         (int16_t)x2, (int16_t)y2,
-                                                        (uint8_t)color,
+                                                        color,
                                                         (uint8_t)fill));
 }
 
@@ -920,7 +1047,7 @@ static int l_tiny_epd_rect(lua_State *L)
 @api panel:circle(x, y, r[, color[, fill]])
 @number x,y 圆心坐标
 @number r 半径（0..255）
-@number color epd.BLACK (默认) 或 epd.WHITE
+@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
 @number fill 0=仅描边（默认），1=实心
 @return boolean 成功返回 true，失败返回 false 和错误信息
 @usage
@@ -933,7 +1060,7 @@ static int l_tiny_epd_circle(lua_State *L)
     lua_Integer x = luaL_checkinteger(L, 2);
     lua_Integer y = luaL_checkinteger(L, 3);
     lua_Integer r = luaL_checkinteger(L, 4);
-    int color = (int)luaL_optinteger(L, 5, TINY_EPD_COLOR_BLACK);
+    tiny_epd_color_t color;
     int fill = (int)luaL_optinteger(L, 6, 0);
 
     if (luat_tiny_epd_is_busy(device)) {
@@ -941,7 +1068,7 @@ static int l_tiny_epd_circle(lua_State *L)
     }
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
         r < 0 || r > 255 ||
-        (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) ||
+        luat_tiny_epd_get_color(L, 5, TINY_EPD_COLOR_FG, &color) != 0 ||
         (fill != 0 && fill != 1)) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
@@ -949,7 +1076,7 @@ static int l_tiny_epd_circle(lua_State *L)
                                      tiny_epd_draw_circle(device->epd,
                                                           (int16_t)x, (int16_t)y,
                                                           (uint8_t)r,
-                                                          (uint8_t)color,
+                                                          color,
                                                           (uint8_t)fill));
 }
 
@@ -958,8 +1085,8 @@ static int l_tiny_epd_circle(lua_State *L)
 @number x,y 位图左上角逻辑坐标；允许负坐标，屏幕外部分自动裁剪
 @number width,height 位图像素尺寸
 @string data XBM 数据：逐行存储，每行 ceil(width/8) 字节，低位在左
-@number fg 置位像素颜色，epd.BLACK（默认）或 epd.WHITE
-@number|nil bg 清零像素颜色，epd.WHITE（默认）；显式传 nil 表示透明
+@number fg 置位像素颜色；省略时使用当前前景色
+@number|nil bg 清零像素颜色；省略时使用当前背景色，显式传 nil 表示透明
 @return boolean 成功返回 true，失败返回 false 和错误信息
 @usage
 -- 与 eink.drawXbm()/u8g2.DrawXBM 格式相同：每个字节 bit0 是最左侧像素
@@ -977,8 +1104,9 @@ static int l_tiny_epd_draw_xbm(lua_State *L)
     lua_Integer height = luaL_checkinteger(L, 5);
     size_t data_len;
     const char *data = luaL_checklstring(L, 6, &data_len);
-    int fg = (int)luaL_optinteger(L, 7, TINY_EPD_COLOR_BLACK);
-    int bg = TINY_EPD_COLOR_WHITE;
+    tiny_epd_color_t fg;
+    tiny_epd_color_t color;
+    int16_t bg = TINY_EPD_COLOR_BG;
 
     if (luat_tiny_epd_is_busy(device)) {
         return luat_tiny_epd_push_busy(L);
@@ -989,16 +1117,17 @@ static int l_tiny_epd_draw_xbm(lua_State *L)
         if (lua_isnil(L, 8)) {
             bg = TINY_EPD_BITMAP_TRANSPARENT;
         }
+        else if (luat_tiny_epd_get_color(L, 8, TINY_EPD_COLOR_BG, &color) != 0) {
+            return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+        }
         else {
-            bg = (int)luaL_checkinteger(L, 8);
+            bg = (int16_t)color;
         }
     }
 
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
         width < 1 || width > UINT16_MAX || height < 1 || height > UINT16_MAX ||
-        fg < TINY_EPD_COLOR_BLACK || fg > TINY_EPD_COLOR_WHITE ||
-        (bg != TINY_EPD_BITMAP_TRANSPARENT &&
-         (bg < TINY_EPD_COLOR_BLACK || bg > TINY_EPD_COLOR_WHITE))) {
+        luat_tiny_epd_get_color(L, 7, TINY_EPD_COLOR_FG, &fg) != 0) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
     return luat_tiny_epd_push_result(L,
@@ -1006,7 +1135,7 @@ static int l_tiny_epd_draw_xbm(lua_State *L)
                                                        (int16_t)x, (int16_t)y,
                                                        (uint16_t)width, (uint16_t)height,
                                                        (const uint8_t *)data, data_len,
-                                                       (uint8_t)fg, (int16_t)bg));
+                                                       fg, bg));
 }
 
 /*
@@ -1014,7 +1143,7 @@ static int l_tiny_epd_draw_xbm(lua_State *L)
 @number x,y 左上角坐标
 @string  str QR 内容
 @number size QR 占用的像素正方形边长（必须 >= qrcode 模块数）
-@number color epd.BLACK (默认) 或 epd.WHITE（背景使用反色）
+@number color 省略时使用当前前景/背景色；显式黑白色保持旧的反色背景行为
 @return boolean 成功返回 true，失败返回 false 和错误信息
 @usage
 panel:qrcode(10, 10, "https://openluat.com", 120, epd.BLACK)
@@ -1026,7 +1155,7 @@ static int l_tiny_epd_qrcode(lua_State *L)
     lua_Integer y = luaL_checkinteger(L, 3);
     const char *str = luaL_checkstring(L, 4);
     lua_Integer size = luaL_optinteger(L, 5, 0);
-    int color = (int)luaL_optinteger(L, 6, TINY_EPD_COLOR_BLACK);
+    tiny_epd_color_t color;
 
     if (luat_tiny_epd_is_busy(device)) {
         return luat_tiny_epd_push_busy(L);
@@ -1034,7 +1163,7 @@ static int l_tiny_epd_qrcode(lua_State *L)
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
-    if (color != TINY_EPD_COLOR_BLACK && color != TINY_EPD_COLOR_WHITE) {
+    if (luat_tiny_epd_get_color(L, 6, TINY_EPD_COLOR_FG, &color) != 0) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
     }
     if (size < 0 || size > UINT16_MAX) {
@@ -1046,7 +1175,7 @@ static int l_tiny_epd_qrcode(lua_State *L)
                                                           (int16_t)x, (int16_t)y,
                                                           str,
                                                           (uint16_t)size,
-                                                          (uint8_t)color));
+                                                          color));
 }
 
 #ifdef LUAT_USE_HZFONT
@@ -1101,17 +1230,17 @@ static int luat_tiny_epd_hzfont_parse_style(lua_State *L,
         return -1;
     }
 
-    present = luat_tiny_epd_hzfont_style_int(L, index, "fg", 0, 1, &value);
+    present = luat_tiny_epd_hzfont_style_int(L, index, "fg", 0, UINT8_MAX, &value);
     if (present < 0) return -1;
     has_fg = present > 0;
     if (has_fg) style->fg = (uint8_t)value;
     /* color is an fg alias, useful for LCD-style code. */
     if (!has_fg) {
-        present = luat_tiny_epd_hzfont_style_int(L, index, "color", 0, 1, &value);
+        present = luat_tiny_epd_hzfont_style_int(L, index, "color", 0, UINT8_MAX, &value);
         if (present < 0) return -1;
         if (present > 0) style->fg = (uint8_t)value;
     }
-    present = luat_tiny_epd_hzfont_style_int(L, index, "bg", 0, 1, &value);
+    present = luat_tiny_epd_hzfont_style_int(L, index, "bg", 0, UINT8_MAX, &value);
     if (present < 0) return -1;
     if (present > 0) style->bg = (int16_t)value;
     present = luat_tiny_epd_hzfont_style_int(L, index, "antialias", -1, 3, &value);
@@ -1145,12 +1274,12 @@ static int luat_tiny_epd_hzfont_parse_style(lua_State *L,
 @number y 基线 Y 坐标
 @string text UTF-8 文本
 @number size 字号（1..255 像素）
-@number|table style 兼容旧接口时传 antialias(-1..3)；推荐传
- {fg=epd.BLACK, bg=nil, antialias=-1, threshold=128, dither=epd.DITHER_THRESHOLD}
+@nil|number|table style 省略或 nil 时使用当前前景/背景色；兼容旧接口时传 antialias(-1..3)；推荐传
+ {fg=epd.RED, bg=epd.WHITE, antialias=-1, threshold=128, dither=epd.DITHER_THRESHOLD}
 @return boolean 成功返回 true，失败返回 false 和错误信息
 @usage
--- 透明黑字，和 eink.drawHzfont 的默认效果一致
-assert(panel:drawHzfont(10, 36, "合宙LuatOS", 24, {antialias = -1}))
+-- 省略 style：使用 setColor() 设置的前景/背景
+assert(panel:drawHzfont(10, 36, "合宙LuatOS", 24))
 -- 白底覆盖旧文字；bayer4 可改善黑白屏的边缘观感
 assert(panel:drawHzfont(10, 68, "Hello世界", 20,
     {fg = epd.BLACK, bg = epd.WHITE, dither = epd.DITHER_BAYER4}))
@@ -1163,20 +1292,26 @@ static int l_tiny_epd_draw_hzfont(lua_State *L)
     const char *text = luaL_checkstring(L, 4);
     lua_Integer size = luaL_checkinteger(L, 5);
     tiny_epd_hzfont_style_t style;
+    const tiny_epd_hzfont_style_t *style_ptr = NULL;
 
     if (luat_tiny_epd_is_busy(device)) {
         return luat_tiny_epd_push_busy(L);
     }
     if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
-        size < 1 || size > UINT8_MAX ||
-        luat_tiny_epd_hzfont_parse_style(L, 6, &style) != 0) {
+        size < 1 || size > UINT8_MAX) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+    }
+    if (!lua_isnoneornil(L, 6)) {
+        if (luat_tiny_epd_hzfont_parse_style(L, 6, &style) != 0) {
+            return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
+        }
+        style_ptr = &style;
     }
     return luat_tiny_epd_push_result(L,
                                      tiny_epd_hzfont_draw_utf8(device->epd,
                                                                (int16_t)x, (int16_t)y,
                                                                text, (uint8_t)size,
-                                                               &style));
+                                                               style_ptr));
 }
 
 /*
@@ -1207,6 +1342,9 @@ static const luaL_Reg tiny_epd_device_methods[] = {
     {"init",         l_tiny_epd_init},
     {"clear",        l_tiny_epd_clear},
     {"pixel",        l_tiny_epd_pixel},
+    {"setColor",     l_tiny_epd_set_color},
+    {"getColor",     l_tiny_epd_get_color},
+    {"supportsColor", l_tiny_epd_supports_color},
     {"setRotation",  l_tiny_epd_set_rotation},
     {"line",         l_tiny_epd_line},
     {"rect",         l_tiny_epd_rect},
@@ -1241,13 +1379,25 @@ static const rotable_Reg_t reg_tiny_epd[] = {
     {"MODEL_1IN54_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_V2)},
     {"MODEL_1IN54_V3", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_V3)},
     {"MODEL_1IN54_SSD1607", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_SSD1607)},
+    {"MODEL_1IN54R", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54R)},
     /* Same spelling as the legacy eink module, for easier migration. */
     {"MODEL_1in54", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54)},
     {"MODEL_1in54_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_V2)},
     {"MODEL_1in54_V3", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_V3)},
     {"MODEL_1in54_SSD1607", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_SSD1607)},
+    {"MODEL_1in54r", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54R)},
     {"BLACK", ROREG_INT(TINY_EPD_COLOR_BLACK)},
     {"WHITE", ROREG_INT(TINY_EPD_COLOR_WHITE)},
+    {"RED", ROREG_INT(TINY_EPD_COLOR_RED)},
+    {"YELLOW", ROREG_INT(TINY_EPD_COLOR_YELLOW)},
+    {"ORANGE", ROREG_INT(TINY_EPD_COLOR_ORANGE)},
+    {"BLUE", ROREG_INT(TINY_EPD_COLOR_BLUE)},
+    {"GREEN", ROREG_INT(TINY_EPD_COLOR_GREEN)},
+    {"FORMAT_INDEX1", ROREG_INT(TINY_EPD_SURFACE_INDEX1)},
+    {"FORMAT_INDEX2", ROREG_INT(TINY_EPD_SURFACE_INDEX2)},
+    {"FORMAT_INDEX4", ROREG_INT(TINY_EPD_SURFACE_INDEX4)},
+    {"FORMAT_INDEX8", ROREG_INT(TINY_EPD_SURFACE_INDEX8)},
+    {"FORMAT_PLANAR1", ROREG_INT(TINY_EPD_SURFACE_PLANAR1)},
     {"AUTO", ROREG_INT(TINY_EPD_REFRESH_AUTO)},
     {"FULL", ROREG_INT(TINY_EPD_REFRESH_FULL)},
     {"FAST", ROREG_INT(TINY_EPD_REFRESH_FAST)},
@@ -1266,6 +1416,12 @@ static const rotable_Reg_t reg_tiny_epd[] = {
     {"CAP_REFRESH_PARTIAL_RECT", ROREG_INT(TINY_EPD_CAP_REFRESH_PARTIAL_RECT)},
     {"CAP_SLEEP_STANDBY", ROREG_INT(TINY_EPD_CAP_SLEEP_STANDBY)},
     {"CAP_SLEEP_DEEP", ROREG_INT(TINY_EPD_CAP_SLEEP_DEEP)},
+    {"CAP_COLOR_BW", ROREG_INT(TINY_EPD_CAP_COLOR_BW)},
+    {"CAP_COLOR_BWR", ROREG_INT(TINY_EPD_CAP_COLOR_BWR)},
+    {"CAP_COLOR_BWY", ROREG_INT(TINY_EPD_CAP_COLOR_BWY)},
+    {"CAP_COLOR_4", ROREG_INT(TINY_EPD_CAP_COLOR_4)},
+    {"CAP_COLOR_7", ROREG_INT(TINY_EPD_CAP_COLOR_7)},
+    {"CAP_GRAY", ROREG_INT(TINY_EPD_CAP_GRAY)},
     {NULL, ROREG_INT(0)}
 };
 

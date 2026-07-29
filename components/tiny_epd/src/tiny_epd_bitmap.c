@@ -13,13 +13,13 @@ int tiny_epd_draw_xbm(tiny_epd_t *epd,
     uint16_t source_y;
 
     if (epd == NULL || data == NULL || width == 0 || height == 0 ||
-        fg > TINY_EPD_COLOR_WHITE ||
-        (bg != TINY_EPD_BITMAP_TRANSPARENT &&
-         (bg < TINY_EPD_COLOR_BLACK || bg > TINY_EPD_COLOR_WHITE))) {
+        bg < TINY_EPD_BITMAP_TRANSPARENT || bg > UINT8_MAX) {
         return TINY_EPD_ERR_PARAM;
     }
-    if (tiny_epd_bits_per_pixel(epd) != 1 || tiny_epd_plane_count(epd) != 1) {
-        return TINY_EPD_ERR_UNSUPPORTED_MODE;
+    if (!tiny_epd_color_supported(epd, fg) ||
+        (bg != TINY_EPD_BITMAP_TRANSPARENT &&
+         !tiny_epd_color_supported(epd, (tiny_epd_color_t)bg))) {
+        return TINY_EPD_ERR_UNSUPPORTED_COLOR;
     }
 
     row_bytes = ((size_t)width + 7u) / 8u;

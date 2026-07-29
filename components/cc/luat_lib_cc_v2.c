@@ -10,6 +10,7 @@
 -- 选型手册上支持VoLTE通话功能的模组支持
 */
 
+#include "lua.h"
 #include "luat_audio_data_codec.h"
 #include "luat_audio_define.h"
 #include "luat_audio_driver.h"
@@ -391,8 +392,8 @@ static int l_cc_on(lua_State *L) {
 
 /*
 通话中附加额外的音频数据，额外音频的数据位数和通道数必须和通话的参数一致，否则会失败而没有任何作用
-@api cc.extern_source(source, is_add_record, codec_id, sample_rate, data_bits, channel_nums, is_signed)
-@table/string/zbuff/nil 输入数据，table表示播放文件，string表示播放tts，zbuff表示播放音频数据，如果只播放一个文件也要用table,nil表示停止当前第三方数据播放
+@api cc.extern_source(source, is_add_record, is_error_stop, codec_id, sample_rate, data_bits, channel_nums, is_signed)
+@table/string/zbuff/boolean/nil 输入数据，table表示播放文件（如果只播放一个文件也要用table），string表示播放tts，zbuff表示播放音频数据(文件数据放在了zbuff)，true表示启用流模式播放，nil表示停止当前第三方数据播放
 @boolean 是否添加到上行通道，true添加到上行通道，false添加到下行通道，默认true，往对端播放第三方数据源，目前只支持上行通道
 @boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空则通过输入数据自行判断
@@ -488,6 +489,18 @@ static int l_cc_extern_source(lua_State *L) {
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
         result = luat_audio_request_add_source_files(&_l_cc.extern_source, info, file_nums, codec_opts, is_add_record, &_l_cc.extern_source);
+    } else if (lua_isboolean(L, 1) && lua_toboolean(L, 1)) {
+        if (codec_opts) {
+            result = luat_audio_request_add_source_stream(&_l_cc.extern_source, codec_opts, &common_param, is_add_record, &_l_cc.extern_source);
+            if (result) {
+                LLOGE("lua extern source add stream failed, ret %d", result);
+                goto DONE;
+            }
+        } else {
+            LLOGE("extern source stream mode must have codec id");
+            goto DONE;
+        }
+        
     }
     if (!result) {
         _l_cc.is_play_extern_source = 1;

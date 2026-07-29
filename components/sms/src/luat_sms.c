@@ -287,6 +287,108 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
     uint8_t pdu_type = pdu_data[pos];
     pos += 1;
 
+    // Check if this is a STATUS-REPORT (MTI = 10 in FO, 3GPP TS 23.040 9.2.2.3)
+    if ((pdu_type & 0x03) == 0x02)
+    {
+        msg_info->msg_type = LUAT_SMS_MSG_STATUS_REPORT;
+
+        // MR - Message Reference (1 byte)
+        if (pos + 1 > pdu_len) return -1;
+        msg_info->msg_ref = pdu_data[pos];
+        pos += 1;
+
+        // RA - Recipient Address (same format as OA)
+        if (pos + 2 > pdu_len) return -1;
+        uint8_t RaLen = pdu_data[pos];
+        pos += 1;
+        uint8_t RaType = pdu_data[pos];
+        pos += 1;
+        uint8_t RaLen2 = (RaLen + 1) / 2;
+        if (RaLen2 > 20 || pos + RaLen2 > pdu_len) return -1;
+        uint8_t Ra[20] = {0};
+        memcpy(Ra, &pdu_data[pos], RaLen2);
+        pos += RaLen2;
+
+        uint8_t ra_number[30] = {0};
+        if (((RaType >> 4) & 0x07) == 5)
+        {
+            luat_sms_decode_7bit_data(Ra, RaLen2, ra_number, sizeof(ra_number), 0);
+            luat_sms_gsm_to_ascii(ra_number, RaLen2);
+        }
+        else
+        {
+            for (size_t i = 0; i < RaLen2; i++)
+            {
+                ra_number[i * 2] = int2hex(Ra[i] & 0x0F);
+                if(i == (RaLen2 - 1))
+                {
+                    if (RaLen % 2 == 0)
+                        ra_number[i * 2 + 1] = int2hex((Ra[i] & 0xF0) >> 4);
+                }
+                else
+                {
+                    ra_number[i * 2 + 1] = int2hex((Ra[i] & 0xF0) >> 4);
+                }
+            }
+        }
+        memcpy(msg_info->phone_address, ra_number, RaLen2 * 2);
+
+        // SCTS - Service Centre Time Stamp (7 bytes)
+        if (pos + 7 > pdu_len) return -1;
+        uint8_t Scts[7] = {0};
+        memcpy(Scts, &pdu_data[pos], 7);
+        pos += 7;
+        msg_info->time.year = ((Scts[0] & 0xF0) >> 4) + ((Scts[0] & 0x0F) * 10);
+        msg_info->time.month = ((Scts[1] & 0xF0) >> 4) + ((Scts[1] & 0x0F) * 10);
+        msg_info->time.day = ((Scts[2] & 0xF0) >> 4) + ((Scts[2] & 0x0F) * 10);
+        msg_info->time.hour = ((Scts[3] & 0xF0) >> 4) + ((Scts[3] & 0x0F) * 10);
+        msg_info->time.minute = ((Scts[4] & 0xF0) >> 4) + ((Scts[4] & 0x0F) * 10);
+        msg_info->time.second = ((Scts[5] & 0xF0) >> 4) + ((Scts[5] & 0x0F) * 10);
+
+        // DT - Discharge Time (7 bytes)
+        if (pos + 7 > pdu_len) return -1;
+        uint8_t Dt[7] = {0};
+        memcpy(Dt, &pdu_data[pos], 7);
+        pos += 7;
+        uint8_t dt_year = ((Dt[0] & 0xF0) >> 4) + ((Dt[0] & 0x0F) * 10);
+        uint8_t dt_month = ((Dt[1] & 0xF0) >> 4) + ((Dt[1] & 0x0F) * 10);
+        uint8_t dt_day = ((Dt[2] & 0xF0) >> 4) + ((Dt[2] & 0x0F) * 10);
+        uint8_t dt_hour = ((Dt[3] & 0xF0) >> 4) + ((Dt[3] & 0x0F) * 10);
+        uint8_t dt_minute = ((Dt[4] & 0xF0) >> 4) + ((Dt[4] & 0x0F) * 10);
+        uint8_t dt_second = ((Dt[5] & 0xF0) >> 4) + ((Dt[5] & 0x0F) * 10);
+
+        char *p = msg_info->discharge_time;
+        p[0] = '0' + dt_year / 10;
+        p[1] = '0' + dt_year % 10;
+        p[2] = '-';
+        p[3] = '0' + dt_month / 10;
+        p[4] = '0' + dt_month % 10;
+        p[5] = '-';
+        p[6] = '0' + dt_day / 10;
+        p[7] = '0' + dt_day % 10;
+        p[8] = ' ';
+        p[9] = '0' + dt_hour / 10;
+        p[10] = '0' + dt_hour % 10;
+        p[11] = ':';
+        p[12] = '0' + dt_minute / 10;
+        p[13] = '0' + dt_minute % 10;
+        p[14] = ':';
+        p[15] = '0' + dt_second / 10;
+        p[16] = '0' + dt_second % 10;
+        p[17] = '\0';
+
+        // ST - Status (1 byte)
+        if (pos + 1 > pdu_len) return -1;
+        msg_info->status = pdu_data[pos];
+        pos += 1;
+
+        msg_info->sms_length = 0;
+        if (sms_debug_enable) {
+            LLOGI("STATUS-REPORT: MR=%d ST=%d DT=%s", msg_info->msg_ref, msg_info->status, msg_info->discharge_time);
+        }
+        return 0;
+    }
+
     // OA
     uint8_t OaLen = pdu_data[pos];
     pos += 1;
@@ -612,13 +714,13 @@ int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet)
     }
 
     packet->pdu_buf[pos++] = 0x00;
-    if(packet->maxNum == 1)
     {
-        packet->pdu_buf[pos++] = 0x01;
-    }
-    else
-    {
-        packet->pdu_buf[pos++] = 0x41;
+        uint8_t fo = 0x01;  // SMS-SUBMIT (MTI=01)
+        if (packet->maxNum > 1)
+            fo |= 0x40;     // UDHI for concatenated SMS
+        if (packet->srr)
+            fo |= 0x20;     // TP-SRR: Status Report Request
+        packet->pdu_buf[pos++] = fo;
     }
     packet->pdu_buf[pos++] = 0x00;
     packet->pdu_buf[pos++] = phone_len;
@@ -664,6 +766,83 @@ int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet)
     memcpy(packet->pdu_buf + pos, packet->payload_buf, packet->payload_len);
     pos += packet->payload_len;
     return pos;
+}
+
+void luat_sms_status_to_string(uint8_t st, char *buf, size_t buf_len)
+{
+    const char *str;
+    if (st <= 0x01) {
+        str = (st == 0x00) ? "SUCCESS" : "FORWARDED";
+    } else if (st <= 0x1F) {
+        str = "RESERVED";
+    } else if (st <= 0x3F) {
+        switch (st) {
+            case 0x20: str = "FAILED_TEMP_CONGESTION"; break;
+            case 0x21: str = "FAILED_TEMP_SME_BUSY"; break;
+            case 0x22: str = "FAILED_TEMP_NO_RESPONSE"; break;
+            case 0x23: str = "FAILED_TEMP_REJECTED"; break;
+            case 0x24: str = "FAILED_TEMP_QOS"; break;
+            case 0x25: str = "FAILED_TEMP_SME_ERROR"; break;
+            default:   str = "FAILED_TEMP"; break;
+        }
+    } else if (st <= 0x7F) {
+        switch (st) {
+            case 0x40: str = "FAILED_REMOTE_PROC"; break;
+            case 0x41: str = "FAILED_INCOMPAT_DEST"; break;
+            case 0x42: str = "FAILED_CONN_REJECTED"; break;
+            case 0x43: str = "FAILED_NOT_OBTAINABLE"; break;
+            case 0x44: str = "FAILED_QOS"; break;
+            case 0x45: str = "FAILED_NO_INTERWORKING"; break;
+            case 0x46: str = "FAILED_EXPIRED"; break;
+            case 0x47: str = "FAILED_DELETED_BY_SME"; break;
+            case 0x48: str = "FAILED_DELETED_BY_SC"; break;
+            case 0x49: str = "FAILED_NOT_EXIST"; break;
+            default:   str = "FAILED_PERM"; break;
+        }
+    } else {
+        str = "FAILED_TEMP_FINAL";
+    }
+    size_t len = strlen(str);
+    if (len >= buf_len) len = buf_len - 1;
+    memcpy(buf, str, len);
+    buf[len] = '\0';
+}
+
+void luat_sms_rpcause_to_string(uint8_t rp_cause, char *buf, size_t buf_len)
+{
+    const char *str;
+    switch (rp_cause) {
+        case 0x01: str = "UNASSIGNED_NUMBER"; break;            /* 空号 */
+        case 0x08: str = "OPERATOR_DETERMINED_BARRING"; break;  /* 运营商拦截 */
+        case 0x0A: str = "CALL_BARRED"; break;                   /* 呼叫限制(停机) */
+        case 0x0B: str = "RESERVED"; break;
+        case 0x15: str = "TRANSFER_REJECTED"; break;
+        case 0x16: str = "MEMORY_CAPACITY_EXCEEDED"; break;
+        case 0x1B: str = "DESTINATION_OUT_OF_ORDER"; break;     /* 目的地故障(不在线) */
+        case 0x1C: str = "UNIDENTIFIED_FORMAT"; break;
+        case 0x1D: str = "FACILITY_REJECTED"; break;
+        case 0x1E: str = "UNKNOWN_SUBSCRIBER"; break;           /* 未知用户(空号/停机) */
+        case 0x26: str = "NETWORK_OUT_OF_ORDER"; break;
+        case 0x29: str = "TEMPORARY_FAILURE"; break;
+        case 0x2A: str = "CONGESTION"; break;
+        case 0x2F: str = "RESOURCE_UNAVAILABLE"; break;
+        case 0x32: str = "FACILITY_NOT_SUBSCRIBED"; break;      /* 未开通服务(停机) */
+        case 0x45: str = "FACILITY_NOT_IMPLEMENTED"; break;
+        case 0x51: str = "INVALID_SM_TRANSFER_REFERENCE"; break;
+        case 0x5F: str = "SEMANTICALLY_INCORRECT"; break;
+        case 0x60: str = "INVALID_MANDATORY_INFORMATION"; break;
+        case 0x61: str = "MESSAGE_TYPE_NON_EXISTENT"; break;
+        case 0x62: str = "MESSAGE_NOT_COMPATIBLE"; break;
+        case 0x63: str = "INFORMATION_ELEMENT_NON_EXISTENT"; break;
+        case 0x6F: str = "PROTOCOL_ERROR"; break;
+        case 0x7F: str = "INTERWORKING_UNSPECIFIED"; break;
+        case 0x00: str = "SUCCESS"; break;
+        default:   str = "UNKNOWN"; break;
+    }
+    size_t len = strlen(str);
+    if (len >= buf_len) len = buf_len - 1;
+    memcpy(buf, str, len);
+    buf[len] = '\0';
 }
 
 int luat_sms_set_debug(bool debug)

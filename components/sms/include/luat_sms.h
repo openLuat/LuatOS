@@ -49,6 +49,11 @@
 #define LUAT_SMS_CODE_8BIT 4
 #define LUAT_SMS_CODE_UCS2 8
 
+typedef enum
+{
+    LUAT_SMS_MSG_DELIVER = 0,        // 普通接收短信
+    LUAT_SMS_MSG_STATUS_REPORT = 1,  // 状态报告(回执)
+} luat_sms_msg_type_e;
 
 typedef void (*luat_sms_handle_recv_cb)(uint8_t event, void* param);
 typedef void (*luat_sms_handle_send_cb)(int ret);
@@ -88,6 +93,9 @@ typedef struct
 {
     luat_sms_handle_recv_cb cb;
     luat_sms_handle_send_cb send_cb;
+    uint8_t last_rp_cause;    // RP-Cause (3GPP TS 24.011), SDK在调用send_cb前填充
+    uint8_t last_tp_cause;    // TP-Cause (3GPP TS 23.040)
+    uint8_t last_msg_ref;     // Message Reference, 用于匹配SMS_REPORT
 }luat_sms_cb_cfg_t;
 
 typedef struct
@@ -125,6 +133,11 @@ typedef struct
     uint8_t phone_address[LUAT_MSG_MAX_ADDR_LEN + 1];//来电号码
     uint8_t maxNum;
     uint8_t seqNum;
+    // 状态报告(回执)相关字段, 仅当 msg_type == LUAT_SMS_MSG_STATUS_REPORT 时有效
+    uint8_t  msg_type;            // 消息类型: 0=DELIVER, 1=STATUS_REPORT
+    uint8_t  msg_ref;             // MR: 消息参考号, 用于匹配发送的短信
+    char     discharge_time[20];  // DT: 送达/失败时间字符串 "YY-MM-DD HH:MM:SS"
+    uint8_t  status;              // ST: 状态码 (0=成功送达, 其他见3GPP TS 23.040 9.2.3.15)
 }luat_sms_recv_msg_t;
 
 
@@ -141,6 +154,7 @@ typedef struct
     uint8_t refNum;
     uint8_t dcs;           // DCS 编码类型: LUAT_SMS_CODE_7BIT(0) 或 LUAT_SMS_CODE_UCS2(8)
     size_t  udl;                // TP-UDL 字段值; 0 则从 payload_len 自动推导
+    uint8_t srr;                // TP-SRR 状态报告请求: 0=不请求(默认), 1=请求回执
 }luat_sms_pdu_packet_t;
 
 /**
@@ -190,6 +204,30 @@ uint8_t luat_sms_gsm_to_ascii(uint8_t *gsm_data, uint8_t length);
 uint16_t luat_sms_decode_7bit_data(uint8_t *src, uint16_t src_len, uint8_t *dst, uint16_t dst_len, uint16_t shift_bits);
 
 int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data, int pdu_len);
+
+/**
+ * @brief 将状态报告 ST 状态码转为可读字符串
+ * @param st       状态码 (3GPP TS 23.040 9.2.3.15)
+ * @param buf      输出缓冲区
+ * @param buf_len  输出缓冲区大小
+ */
+void luat_sms_status_to_string(uint8_t st, char *buf, size_t buf_len);
+
+/**
+ * @brief 将 RP-Cause 转为可读字符串 (3GPP TS 24.011)
+ * @param rp_cause  RP-Cause 值
+ * @param buf       输出缓冲区
+ * @param buf_len   输出缓冲区大小
+ */
+void luat_sms_rpcause_to_string(uint8_t rp_cause, char *buf, size_t buf_len);
+
+/**
+ * @brief 获取最近一次发送结果的诊断信息
+ * @param rp_cause  输出: RP-Cause
+ * @param tp_cause  输出: TP-Cause
+ * @param msg_ref   输出: Message Reference
+ */
+void luat_sms_get_last_send_result(uint8_t *rp_cause, uint8_t *tp_cause, uint8_t *msg_ref);
 
 int luat_sms_set_debug(bool debug);
 

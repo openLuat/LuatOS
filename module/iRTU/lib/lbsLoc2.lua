@@ -134,7 +134,7 @@ function lbsLoc2.request(timeout, host, port, reqTime)
     if mobile.status() == 0 then
         return
     end
-    local hosts = host and {host} or {"free.bs.air32.cn", "bs.openluat.com"}
+    local hosts = host and {host} or {"free.bs.luatos.com", "bs.openluat.com"}
     port = port and tonumber(port) or 12411
     local sc = socket.create(nil, function(sc, event)
         -- log.info("lbsLoc", "event", event, socket.ON_LINE, socket.TX_OK, socket.EVENT)

@@ -76,7 +76,8 @@ lcd.init("st7796", {
 
 -- 将拍好的照片发送到HTTP服务器里保存，
 -- 当前测试服务器可以在https://www.air32.cn/upload/这里看到你拍的照片
-
+-- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+-- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
 local function HTTP_SEND_FILE()
 
     local opts = {

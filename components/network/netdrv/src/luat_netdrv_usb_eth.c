@@ -65,10 +65,9 @@ static __NETDRV_CODE_IN_RAM__ err_t _usb_eth_netif_output(struct netif *netif, s
 	
 	int ret;
 
-	if (!ctx) {
+	if (!ctx || !ctx->link_up || !ctx->is_data_ready) {
 		return ERR_IF;
 	}
-
 	if (!p || !p->tot_len || p->tot_len > LUAT_USB_ETH_DEFAULT_FRAME_SIZE) {
 		return ERR_BUF;
 	}
@@ -205,6 +204,7 @@ static void _usb_eth_run_other(luat_usb_eth_netif_t *ctx, uint32_t event, void *
 		luat_netdrv_set_link_updown(&ctx->drv, ctx->link_up);
 		break;
 	case LUAT_USB_ETH_EVENT_DISCONNECT:
+		luat_rtos_task_suspend_all();
 		ctx->is_connected = 0;
 		ctx->is_data_ready = 0;
 		luat_heap_free(ctx->tx_cache);
@@ -212,6 +212,7 @@ static void _usb_eth_run_other(luat_usb_eth_netif_t *ctx, uint32_t event, void *
 		ctx->tx_cache = NULL;
 		ctx->rx_cache = NULL;
 		ctx->link_up = 0;
+		luat_rtos_task_resume_all();
 		LLOGD("usb_eth: disconnect force link down");
 		luat_netdrv_set_link_updown(&ctx->drv, ctx->link_up);
 		break;

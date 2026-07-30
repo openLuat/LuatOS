@@ -320,6 +320,11 @@ extern const luat_audio_data_codec_opts_t luat_audio_data_codec_raw_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_ulaw_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_alaw_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_no_op_opts;
+#ifdef LUAT_SUPPORT_SPEEX
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_speex_nb_opts;
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_speex_wb_opts;
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_speex_uwb_opts;
+#endif
 #endif
 
 /** @} */

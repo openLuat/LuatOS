@@ -1656,6 +1656,11 @@ void luat_audio_base_init(void)
 	l_audio_init();
 #endif
 	luat_audio_data_codec_register(&luat_audio_data_codec_no_op_opts);
+#ifdef LUAT_SUPPORT_SPEEX
+	luat_audio_data_codec_register(&luat_audio_data_codec_speex_nb_opts);
+	luat_audio_data_codec_register(&luat_audio_data_codec_speex_wb_opts);
+	luat_audio_data_codec_register(&luat_audio_data_codec_speex_uwb_opts);
+#endif
 }
 
 void luat_audio_debug_switch(uint8_t on_off)

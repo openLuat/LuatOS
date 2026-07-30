@@ -27,6 +27,9 @@ extern const luat_codec_opts_t amr_codec_opts;
 #ifdef LUAT_SUPPORT_OPUS
 extern const luat_codec_opts_t opus_codec_opts;
 #endif
+#ifdef LUAT_SUPPORT_SPEEX
+extern const luat_codec_opts_t speex_codec_opts;
+#endif
 
 static const luat_codec_opts_t* const codec_opts_table[] = {
     [LUAT_MULTIMEDIA_DATA_TYPE_MP3]       = &mp3_codec_opts,
@@ -41,6 +44,11 @@ static const luat_codec_opts_t* const codec_opts_table[] = {
 #endif
 #ifdef LUAT_SUPPORT_OPUS
     [LUAT_MULTIMEDIA_DATA_TYPE_OPUS]      = &opus_codec_opts,
+#endif
+#ifdef LUAT_SUPPORT_SPEEX
+    [LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_NB]  = &speex_codec_opts,
+    [LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_WB]  = &speex_codec_opts,
+    [LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_UWB] = &speex_codec_opts,
 #endif
     [LUAT_MULTIMEDIA_DATA_TYPE_OGG]       = NULL,
     [LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS]  = NULL,
@@ -647,6 +655,12 @@ static const rotable_Reg_t reg_codec[] =
 	{ "OPUS",            ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_OPUS)},
     //@const OGG_OPUS number OGG封装OPUS格式
 	{ "OGG_OPUS",        ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS)},
+	//@const SPEEX_NB number Speex窄带格式(8kHz)
+	{ "SPEEX_NB",        ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_NB)},
+	//@const SPEEX_WB number Speex宽带格式(16kHz)
+	{ "SPEEX_WB",        ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_WB)},
+	//@const SPEEX_UWB number Speex超宽带格式(32kHz)
+	{ "SPEEX_UWB",       ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_SPEEX_UWB)},
 	//@const VDDA_3V3 number codec 电压: 3.3V
 	{ "VDDA_3V3",        ROREG_INT(LUAT_CODEC_VDDA_3V3)},
 	//@const VDDA_1V8 number codec 电压: 1.8V

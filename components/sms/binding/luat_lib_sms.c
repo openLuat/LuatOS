@@ -771,6 +771,7 @@ PDU短信解包
 @string pdu_data PDU格式的短信数据(hex字符串)
 @return table 解包后的短信内容
 @usage
+-- 仅PC模拟器包含这个函数, 真机不需要这个函数
 local pdu = "0491680010F50400069110102143650008024F60"
 local phone, txt, metas = sms.unpack(pdu)
 log.info("sms unpack", phone, txt, metas and json.encode(metas) or "")
@@ -921,13 +922,15 @@ static int l_sms_set_report_cb(lua_State *L) {
 static const rotable_Reg_t reg_sms[] =
 {
     { "send",           ROREG_FUNC(l_sms_send)},
+    { "sendLong",       ROREG_FUNC(l_long_sms_send)},
     { "setNewSmsCb",    ROREG_FUNC(l_sms_cb)},
     { "autoLong",       ROREG_FUNC(l_sms_auto_long)},
     { "clearLong",      ROREG_FUNC(l_sms_clear_long)},
-    { "sendLong",       ROREG_FUNC(l_long_sms_send)},
-    { "unpack",         ROREG_FUNC(l_sms_pdu_unpack)},
     { "setReportCb",    ROREG_FUNC(l_sms_set_report_cb)},
     { "debug",          ROREG_FUNC(l_sms_set_debug)},
+    #if defined(LUA_USE_WINDOWS)
+    { "unpack",         ROREG_FUNC(l_sms_pdu_unpack)},
+    #endif
 	{ NULL,             ROREG_INT(0)}
 };
 

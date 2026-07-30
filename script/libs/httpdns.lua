@@ -33,7 +33,7 @@ local httpdns = {}
 local ip = httpdns.ali("luatos.com")
 log.info("httpdns", "luatos.com", ip)
 -- 指定网络适配器
-local ip = httpdns.ali("air32.cn", {adapter=socket.LWIP_STA, timeout=3000})
+local ip = httpdns.ali("luatos.com", {adapter=socket.LWIP_STA, timeout=3000})
 log.info("httpdns", "luatos.com", ip)
 ]]
 function httpdns.ali(n, opts)
@@ -64,7 +64,7 @@ local ip = httpdns.tx("luatos.com")
 log.info("httpdns", "luatos.com", ip)
 
 -- 指定网络适配器
-local ip = httpdns.tx("air32.cn", {adapter=socket.LWIP_STA, timeout=3000})
+local ip = httpdns.tx("luatos.com", {adapter=socket.LWIP_STA, timeout=3000})
 log.info("httpdns", "luatos.com", ip)
 ]]
 function httpdns.tx(n, opts)

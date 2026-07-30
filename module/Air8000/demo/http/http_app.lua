@@ -37,10 +37,10 @@ end
 -- timeout可以设置超时时间
 -- callback可以设置回调函数，可用于实时检测body数据的下载进度
 local function http_app_get()
-    -- https get请求https://www.air32.cn/网页内容
+    -- https get请求https://httpbin.luatos.com/get网页内容
     -- 应答体为chunk编码
     -- 如果请求成功，请求的数据保存到body中
-    local code, headers, body = http.request("GET", "http://www.air32.cn/").wait()
+    local code, headers, body = http.request("GET", "http://httpbin.luatos.com/get").wait()
     log.info("http_app_get1", 
         code==200 and "success" or "error", 
         code, 
@@ -128,9 +128,9 @@ local function http_app_get_file()
 
     
     local file_path = download_dir.."get_file1.html"
-    -- https get请求https://www.air32.cn/网页内容
+    -- https get请求https://httpbin.luatos.com/get网页内容
     -- 如果请求成功，请求的数据保存到文件file_path中
-    local code, headers, body_size = http.request("GET", "https://www.air32.cn/", nil, nil, {dst=file_path}).wait()
+    local code, headers, body_size = http.request("GET", "https://httpbin.luatos.com/get", nil, nil, {dst=file_path}).wait()
     log.info("http_app_get_file1", 
         code==200 and "success" or "error", 
         code, 
@@ -303,14 +303,14 @@ local function http_app_post_binary()
     local body = io.readFile("/luadb/logo.jpg")
 
     -- http post提交原始二进制数据
-    -- http://upload.air32.cn/api/upload/jpg为jpg图片上传测试服务器
+    -- http://uploadtest.luatos.com/api/upload/jpg为jpg图片上传测试服务器
     -- 此处将logo.jpg的原始二进制数据做为body上传到服务器
-    -- 上传成功后，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
+    -- 上传成功后，电脑上浏览器打开https://uploadtest.luatos.com/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
     -- ["Content-Type"] = "application/octet-stream" 表示post提交的body数据格式为原始二进制格式的数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
     -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
     -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com    
-    local code, headers, resp_body = http.request("POST", "http://upload.air32.cn/api/upload/jpg", {["Content-Type"] = "application/octet-stream"}, body).wait()
+    local code, headers, resp_body = http.request("POST", "http://uploadtest.luatos.com/api/upload/jpg", {["Content-Type"] = "application/octet-stream"}, body).wait()
     log.info("http_app_post_binary", 
         code==200 and "success" or "error", 
         code, 

@@ -9,7 +9,7 @@
 
 启动 HTTPDNS 功能
 - 运行 httpdnstask 任务，等待网络就绪后循环查询域名。
-- 示例中分别使用阿里DNS和腾讯DNS解析 “air32.cn” 与 “openluat.com”。
+- 示例中分别使用阿里DNS和腾讯DNS解析 “luatos.com” 与 “openluat.com”。
 - 解析结果通过 log.info 打印到串口。
 
 注：本demo无需额外配置，直接在 main.lua 中 require "httpdns_task" 即可加载运行。

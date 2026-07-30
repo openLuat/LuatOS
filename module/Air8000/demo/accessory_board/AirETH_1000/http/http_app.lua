@@ -14,9 +14,9 @@
 -- timeout可以设置超时时间
 -- callback可以设置回调函数，可用于实时检测body数据的下载进度
 local function http_app_get()
-    -- https get请求https://www.air32.cn/网页内容
+    -- https get请求https://httpbin.luatos.com/get网页内容
     -- 如果请求成功，请求的数据保存到body中
-    local code, headers, body = http.request("GET", "https://www.air32.cn/").wait()
+    local code, headers, body = http.request("GET", "https://httpbin.luatos.com/get").wait()
     log.info("http_app_get1",
         code == 200 and "success" or "error",
         code,

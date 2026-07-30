@@ -197,9 +197,9 @@ local function httpplus_app_post_binary()
     local body = io.readFile("/luadb/logo.jpg")
 
     -- http post提交原始二进制数据
-    -- http://upload.air32.cn/api/upload/jpg为jpg图片上传测试服务器
+    -- http://uploadtest.luatos.com/api/upload/jpg为jpg图片上传测试服务器
     -- 此处将logo.jpg的原始二进制数据做为body上传到服务器
-    -- 上传成功后，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
+    -- 上传成功后，电脑上浏览器打开https://uploadtest.luatos.com/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
     -- ["Content-Type"] = "application/octet-stream" 表示post提交的body数据格式为原始二进制格式的数据
     -- 如果请求成功，服务器应答的数据会保存到response.body中
     -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
@@ -207,7 +207,7 @@ local function httpplus_app_post_binary()
     local code, response = httpplus.request(
     {
         method = "POST",
-        url = "http://upload.air32.cn/api/upload/jpg",
+        url = "http://uploadtest.luatos.com/api/upload/jpg",
         headers = {["Content-Type"] = "application/octet-stream"},
         body = body
     })

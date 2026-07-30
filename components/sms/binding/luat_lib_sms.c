@@ -240,6 +240,7 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
     // 先发系统消息
     lua_getglobal(L, "sys_pub");
     if (lua_isnil(L, -1)) {
+        if (dst) luat_heap_free(dst);
         luat_heap_free(sms);
         return 0;
     }
@@ -274,7 +275,7 @@ end)
         }
     }
     // 清理长短信的缓冲,如果有的话
-    for (size_t i = 0; i < 16; i++)
+    for (size_t i = 0; i < LONG_SMS_CMAX; i++)
     {
         if (lngbuffs[i] && lngbuffs[i]->refNum == sms->refNum) {
             luat_heap_free(lngbuffs[i]);
@@ -862,8 +863,9 @@ static int l_sms_pdu_unpack(lua_State *L) {
     }
     // 打印sms->dcs_info.alpha_bet和数据
     if (sms->dcs_info.alpha_bet == 0) {
-        memcpy(dst, sms->sms_buffer, strlen(sms->sms_buffer));
-        dstlen = strlen(sms->sms_buffer);
+        dstlen = strlen((char*)sms->sms_buffer);
+        memcpy(dst, sms->sms_buffer, dstlen);
+        dst[dstlen] = '\0';
     }
     else {
         luat_str_ucs2_to_char(sms->sms_buffer, strlen(sms->sms_buffer), dst, &dstlen);

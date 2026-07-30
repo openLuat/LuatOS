@@ -243,9 +243,9 @@ websocket客户端创建
 @return userdata 若成功会返回websocket客户端实例,否则返回nil
 @usage
 -- 普通TCP链接
-wsc = websocket.create(nil,"ws://air32.cn/abc")
+wsc = websocket.create(nil,"ws://wstest.luatos.com/echo")
 -- 加密TCP链接
-wsc = websocket.create(nil,"wss://air32.cn/abc")
+wsc = websocket.create(nil,"wss://wstest.luatos.com/echo")
 */
 static int l_websocket_create(lua_State *L)
 {

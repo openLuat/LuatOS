@@ -61,7 +61,7 @@ end)
 
 function demo_http_get()
     -- 最普通的Http GET请求
-    local code, headers, body = http.request("GET", "https://www.air32.cn/").wait()
+    local code, headers, body = http.request("GET", "http://httpbin.luatos.com/get").wait()
     log.info("http.get", code, headers, body)
     local code, headers, body = http.request("GET", "https://mirrors6.tuna.tsinghua.edu.cn/", nil, nil, {ipv6=true}).wait()
     log.info("http.get", code, headers, body)

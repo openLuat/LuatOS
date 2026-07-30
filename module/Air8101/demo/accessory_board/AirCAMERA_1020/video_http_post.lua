@@ -100,7 +100,7 @@ local function video_capture_func()
 
                 -- 创建上传选项
                 local opts = {
-                    url = "http://upload.air32.cn/api/upload/mp4",
+                    url = "http://uploadtest.luatos.com/api/upload/mp4",
                     method = "POST",
                     bodyfile = filepath,
                     timeout = 150

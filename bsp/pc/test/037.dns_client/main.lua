@@ -144,7 +144,7 @@ sys.taskInit(function()
     --     sys.wait(2000)
     --     txid = txid + 1
     -- end
-    make_dns_query(txid, "air32.cn", txbuff)
+    make_dns_query(txid, "luatos.com", txbuff)
     socket.tx(netc, txbuff)
     sys.wait(500)
 

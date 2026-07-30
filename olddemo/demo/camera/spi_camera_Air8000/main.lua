@@ -157,6 +157,8 @@ local function main_task()
                         -- 通过query函数可以转为lua的string
                         log.info("http", "headers", resp.body:query())
                         log.info("发送完毕，图片在： https://www.air32.cn/upload/jpg/ 中查看")
+                        -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+                        -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
                     else
                         log.error("上传失败，http code:", code)
                     end

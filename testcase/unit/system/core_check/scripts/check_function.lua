@@ -640,6 +640,11 @@ local function getActualLibs(current_config)
 end
 
 function check_core.test_mouble_check()
+    -- 该测试依赖具体硬件型号的固件配置表, PC模拟器没有对应配置, 直接跳过
+    if rtos.bsp() == "PC" then
+        log.info("core_check", "PC模拟器无固件配置表, 跳过")
+        return
+    end
 
     -- 收集所有错误信息
     local errors = {}

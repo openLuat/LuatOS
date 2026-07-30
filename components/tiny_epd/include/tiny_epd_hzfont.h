@@ -12,7 +12,8 @@ typedef enum {
     TINY_EPD_HZFONT_DITHER_BAYER4 = 1
 } tiny_epd_hzfont_dither_t;
 
-/* bg == -1 keeps the framebuffer transparent below the glyph coverage. */
+/* bg == -1 keeps the framebuffer transparent below the glyph coverage.
+ * FG/BG sentinels select the panel-local drawing colors. */
 typedef struct {
     uint8_t fg;
     int16_t bg;

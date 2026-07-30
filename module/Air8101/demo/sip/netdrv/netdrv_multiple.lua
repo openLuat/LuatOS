@@ -1,14 +1,31 @@
 --[[
 @module  netdrv_multiple
-@summary 多网卡（4G网卡、WIFI STA网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块 
+@summary 多网卡（WIFI STA网卡、通过SPI外挂CH390H芯片的以太网卡、通过SPI外挂4G模组的4G网卡）驱动模块
 @version 1.0
 @date    2025.07.24
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为多网卡驱动模块 ，核心业务逻辑为：
 1、调用exnetif.set_priority_order配置多网卡的控制参数以及优先级；
 
-直接使用Air8000开发板硬件测试即可；
+通过SPI外挂CH390H芯片的以太网卡：
+Air8101核心板和AirETH_1000配件板的硬件接线方式为:
+Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；
+如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的VIN管脚进行5V供电；
+| Air8101核心板   |  AirETH_1000配件板 |
+| --------------- | ----------------- |
+| 59/3V3          | 3.3v              |
+| gnd             | gnd               |
+| 28/DCLK         | SCK               |
+| 54/DISP         | CSS               |
+| 55/HSYN         | SDO               |
+| 57/DE           | SDI               |
+| 14/GPIO8        | INT               |
+
+
+通过SPI接口外挂4G模组(Air780EHM/Air780EHV/Air780EGH/Air780EPM)的4G网卡：
+Air8101核心板和Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板的硬件接线方式，参考netdrv_4g.lua的文件头注释；
+
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_multiple"就可以加载运行；
 ]]
@@ -41,32 +58,30 @@ local function netdrv_multiple_notify_cbfunc(net_type,adapter)
     else
         log.warn("netdrv_multiple_notify_cbfunc", "unknown status", net_type, adapter)
     end
-    
 end
 
 local function netdrv_multiple_task_func()
     --设置网卡优先级
     exnetif.set_priority_order(
         {
-
-            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air8000开发板验证
+            -- “通过SPI外挂CH390H芯片”的以太网卡，可以使用Air8101核心板+AirETH_1000配件板验证
             {
-                ETHERNET = {
-                    -- 供电使能GPIO
-                    pwrpin = 140,
+                ETHUSER1 = {
+                    -- 供电使能GPIO，此demo使用的59脚3V3供电，受GPIO13控制
+                    pwrpin = 13,
                     -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
                     -- 如果没有传入此参数，exnetif会使用默认值10秒
-                    ping_time = 3000,
+                    ping_time = 3000, 
 
                     -- 连通性检测ip(选填参数)；
                     -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
                     -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
-                    -- ping_ip = "填入可靠的并且可以ping通的ip地址",     
-                    
+                    -- ping_ip = "填入可靠的并且可以ping通的ip地址",
+
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                     tp = netdrv.CH390, 
-                    opts = {spi=1, cs=12, irq = 21},
-                    auto_socket_switch = false
+                    -- opts = {spi=0, cs=15, irq=8}
+                    opts = {spi = 1, cs = 3, irq = 8}
                 }
             },
 
@@ -74,26 +89,32 @@ local function netdrv_multiple_task_func()
             {
                 WIFI = {
                     -- 要连接的WIFI路由器名称
-                    ssid = "admin-降功耗，找合宙！",
+                    ssid = "test",
                     -- 要连接的WIFI路由器密码
-                    password = "Air123456",  
+                    password = "12341234", 
+                    -- -- 要连接的WIFI路由器名称
+                    -- ssid = "茶室-降功耗,找合宙!",
+                    -- -- 要连接的WIFI路由器密码
+                    -- password = "Air123456", 
+
                     -- 连通性检测ip(选填参数)；
                     -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
                     -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
                     -- ping_ip = "填入可靠的并且可以ping通的ip地址",
-                    auto_socket_switch = false
                 }
             },
-
-            -- 4G网卡
-            {
-                LWIP_GP = true,
-                auto_socket_switch = false
-            },
-
-
+            { -- 开启4G虚拟网卡
+                airlink_4G = {
+                    auto_socket_switch = false, -- 切换网卡时是否断开之前网卡的所有socket连接并用新的网卡重新建立连接
+                    airlink_type = airlink.MODE_SPI_MASTER, -- airlink工作模式
+                    airlink_spi_id = 0, -- airlink使用的SPI接口ID,选填参数
+                    airlink_cs_pin = 15,-- airlink使用的片选引脚gpio号,选填参数
+                    airlink_rdy_pin = 48-- airlink使用的rdy引脚gpio号,选填参数
+            }
+        }
         }
     )    
+    exnetif.check_network_status(10000)
 end
 
 -- 设置网卡状态变化通知回调函数netdrv_multiple_notify_cbfunc

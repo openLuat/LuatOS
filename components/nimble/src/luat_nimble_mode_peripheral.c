@@ -107,6 +107,17 @@ static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
     }
 }
 
+/*
+@sys_pub nimble
+BLE特征被对端写入(从机/server模式)
+BLE_GATT_WRITE_CHR
+@table 特征信息, 含chr_uuid(string)字段
+@string 对端写入的数据内容
+@usage
+sys.subscribe("BLE_GATT_WRITE_CHR", function(chr, data)
+    log.info("ble", "write", chr.chr_uuid, data:toHex())
+end)
+*/
 static int l_ble_chr_write_cb(lua_State* L, void* ptr) {
     ble_write_msg_t* wmsg = (ble_write_msg_t*)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -133,6 +144,7 @@ static int l_ble_chr_write_cb(lua_State* L, void* ptr) {
 
 
 
+/* 本函数发布的 BLE_GATT_READ_CHR 消息(从机模式, 无额外参数), 文档见 luat_nimble_mode_central.c 中的 @sys_pub nimble 注释块 */
 static int l_ble_chr_read_cb(lua_State* L, void* ptr) {
     lua_getglobal(L, "sys_pub");
     if (lua_isfunction(L, -1)) {
@@ -142,6 +154,16 @@ static int l_ble_chr_read_cb(lua_State* L, void* ptr) {
     return 0;
 }
 
+/*
+@sys_pub nimble
+BLE从机(server)状态更新
+BLE_SERVER_STATE_UPD
+@number 状态码
+@usage
+sys.subscribe("BLE_SERVER_STATE_UPD", function(state)
+    log.info("ble", "server state", state)
+end)
+*/
 static int l_ble_state_cb(lua_State* L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L, "sys_pub");

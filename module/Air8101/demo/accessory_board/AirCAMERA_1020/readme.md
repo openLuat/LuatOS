@@ -16,6 +16,8 @@
 
 注意：take_photo_http_post.lua 和 video_http_post.lua 和 rtmp_app.lua 只能打开一个不能同时打开
 
+> 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址，或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
+
 ## 演示功能概述
 
 ### 1、主程序入口模块（main.lua）
@@ -491,6 +493,8 @@ AirCAMERA_1020 配件板 +Air8101 核心板，硬件连接示意图如下所示�
 ```
 
 5、登录[https://www.air32.cn/upload/mp4/](https://www.air32.cn/upload/mp4/)查看录制的视频;
+-- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+-- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
 
 ### **使用rtmp推流功能演示的核心步骤：**
 

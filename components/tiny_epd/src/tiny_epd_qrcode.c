@@ -29,11 +29,33 @@ int tiny_epd_draw_qrcode(tiny_epd_t *epd,
     int module_y;
     int pixel_x;
     int pixel_y;
-    uint8_t background;
+    tiny_epd_color_t foreground;
+    tiny_epd_color_t background;
 
-    if (epd == NULL || text == NULL || color > TINY_EPD_COLOR_WHITE ||
-        tiny_epd_bits_per_pixel(epd) != 1 || tiny_epd_plane_count(epd) != 1) {
+    if (epd == NULL || text == NULL) {
         return TINY_EPD_ERR_PARAM;
+    }
+    if (!tiny_epd_color_supported(epd, color)) {
+        return TINY_EPD_ERR_UNSUPPORTED_COLOR;
+    }
+    if (tiny_epd_color_get(epd, &foreground, &background) != TINY_EPD_OK) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    if (color == TINY_EPD_COLOR_BG) {
+        tiny_epd_color_t swap = foreground;
+        foreground = background;
+        background = swap;
+    }
+    else if (color != TINY_EPD_COLOR_FG) {
+        foreground = color;
+        /* Preserve the historic black/white complement behaviour for a
+         * concrete mono color. Other logical colors use the configured bg. */
+        if (color == TINY_EPD_COLOR_BLACK) {
+            background = TINY_EPD_COLOR_WHITE;
+        }
+        else if (color == TINY_EPD_COLOR_WHITE) {
+            background = TINY_EPD_COLOR_BLACK;
+        }
     }
     logical_width = tiny_epd_width(epd);
     logical_height = tiny_epd_height(epd);
@@ -83,7 +105,6 @@ int tiny_epd_draw_qrcode(tiny_epd_t *epd,
         return TINY_EPD_ERR_PARAM;
     }
     margin = ((int)size - qr_size * scale) / 2;
-    background = color == TINY_EPD_COLOR_BLACK ? TINY_EPD_COLOR_WHITE : TINY_EPD_COLOR_BLACK;
 
     for (pixel_y = 0; pixel_y < size; pixel_y++) {
         for (pixel_x = 0; pixel_x < size; pixel_x++) {
@@ -103,7 +124,7 @@ int tiny_epd_draw_qrcode(tiny_epd_t *epd,
                     tiny_epd_qrcode_put_pixel(epd,
                                                (int32_t)x + margin + module_x * scale + sx,
                                                (int32_t)y + margin + module_y * scale + sy,
-                                               color);
+                                               foreground);
                 }
             }
         }

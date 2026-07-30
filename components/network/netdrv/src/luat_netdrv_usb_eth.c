@@ -242,7 +242,7 @@ static __NETDRV_CODE_IN_ISR__ void _usb_eth_event_callback(uint32_t event, void 
 					luat_netdrv_stat_inc(&ctx->drv.statics.drop, ctx->tx_cache[pos].total_len);
 					luat_no_data_fifo_delete(&ctx->tx_cache_fifo);
 				} else {	//新数据发送中
-					break;
+					return;
 				}
 			}
 			ctx->is_tx_busy = 0;

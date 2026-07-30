@@ -140,7 +140,8 @@ local function aircamera_ui()
         lcd.drawStr(80,220,scan_end)
 
 
-
+        -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+        -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
         lcd.showImage(120,240,"/luadb/next.jpg")
         lcd.drawStr(0,320,"点击上方按钮将进行拍照，点击屏幕后，会将照片上传,并可以在:")
         lcd.drawStr(0,340,"https://www.air32.cn/upload/这里看到你拍的照片"..send_end)

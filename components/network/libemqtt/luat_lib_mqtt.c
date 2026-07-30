@@ -104,6 +104,16 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 			luat_mqtt_close_socket(mqtt_ctrl);
 			break;
 		}
+/*
+@sys_pub mqtt
+收到MQTT服务器的PING响应
+MQTT_PONG
+@userdata mqtt客户端对象
+@usage
+sys.subscribe("MQTT_PONG", function(mqtt_client)
+    log.info("mqtt", "pong")
+end)
+*/
 		case MQTT_MSG_PINGRESP : {
 			if (mqtt_ctrl->mqtt_cb) {
 				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);

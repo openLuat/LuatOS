@@ -1,3 +1,4 @@
+#include "luat_base.h"
 #include "tiny_epd_hzfont.h"
 
 #include <limits.h>
@@ -120,16 +121,26 @@ int tiny_epd_hzfont_draw_utf8(tiny_epd_t *epd,
     if (epd == NULL || utf8 == NULL || size == 0) {
         return TINY_EPD_ERR_PARAM;
     }
-    if (tiny_epd_bits_per_pixel(epd) != 1 || tiny_epd_plane_count(epd) != 1) {
-        return TINY_EPD_ERR_UNSUPPORTED_MODE;
-    }
     tiny_epd_hzfont_style_init(&default_style);
-    resolved_style = style == NULL ? &default_style : style;
-    if (resolved_style->fg > TINY_EPD_COLOR_WHITE ||
-        (resolved_style->bg < -1 || resolved_style->bg > TINY_EPD_COLOR_WHITE) ||
+    if (style == NULL) {
+        /* A missing style deliberately follows the panel-local drawing
+         * colors. Explicit styles retain their historic concrete values. */
+        default_style.fg = TINY_EPD_COLOR_FG;
+        default_style.bg = (int16_t)TINY_EPD_COLOR_BG;
+        resolved_style = &default_style;
+    }
+    else {
+        resolved_style = style;
+    }
+    if (resolved_style->bg < -1 || resolved_style->bg > UINT8_MAX ||
         (resolved_style->dither != TINY_EPD_HZFONT_DITHER_THRESHOLD &&
          resolved_style->dither != TINY_EPD_HZFONT_DITHER_BAYER4)) {
         return TINY_EPD_ERR_PARAM;
+    }
+    if (!tiny_epd_color_supported(epd, resolved_style->fg) ||
+        (resolved_style->bg >= 0 &&
+         !tiny_epd_color_supported(epd, (tiny_epd_color_t)resolved_style->bg))) {
+        return TINY_EPD_ERR_UNSUPPORTED_COLOR;
     }
     if (luat_hzfont_get_state() != LUAT_HZFONT_STATE_READY) {
         return TINY_EPD_ERR_FONT_NOT_READY;
@@ -181,7 +192,16 @@ int tiny_epd_hzfont_draw_utf8(tiny_epd_t *epd,
                     continue;
                 }
                 ret = tiny_epd_draw_pixel(epd, (int16_t)draw_x, (int16_t)draw_y, color);
-                if (ret != TINY_EPD_OK && ret != TINY_EPD_ERR_PARAM) {
+                /*
+                 * Drawing deliberately clips glyphs at the framebuffer edge.
+                 * An out-of-canvas pixel is therefore not a failure of the
+                 * whole string; do not leak that transient result to Lua.
+                 */
+                if (ret == TINY_EPD_ERR_PARAM) {
+                    ret = TINY_EPD_OK;
+                    continue;
+                }
+                if (ret != TINY_EPD_OK) {
                     goto done;
                 }
             }
@@ -191,7 +211,8 @@ int tiny_epd_hzfont_draw_utf8(tiny_epd_t *epd,
 
 done:
     (void)ttf_set_supersample_rate(previous_rate);
-    return ret;
+    /* The only recoverable error produced while rasterizing is clipping. */
+    return ret == TINY_EPD_ERR_PARAM ? TINY_EPD_OK : ret;
 }
 
 #else

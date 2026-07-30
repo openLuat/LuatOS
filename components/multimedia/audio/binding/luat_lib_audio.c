@@ -865,7 +865,7 @@ DONE:
 对讲中附加额外的音频数据，额外音频的参数必须和对讲的参数一致，否则会失败而没有任何作用
 @api audio_v2.extern_source(request_index, source, is_add_record, codec_id, is_error_stop, sample_rate, data_bits, channel_nums, is_signed)
 @int request_index 请求索引，通过audio_v2.speech返回的
-@table/string/zbuff/nil 输入数据，table表示播放文件，string表示播放tts，zbuff表示播放音频数据，如果只播放一个文件也要用table,如果留空，则表示是stream流模式
+@table/string/zbuff/boolean 输入数据，table表示播放文件（如果只播放一个文件也要用table），string表示播放tts，zbuff表示播放音频数据(文件数据放在了zbuff)，true表示启用流模式播放
 @boolean 是否添加到录音通道，false添加到播放通道，true添加到录音通道，默认false
 @int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空则通过输入数据自行判断，如果是流模式，则必须指定解码器id
 @boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
@@ -881,6 +881,7 @@ audio_v2.extern_source(request_index, {"/test_16k.mp3"})
 */
 static int l_audio_extern_source(lua_State *L) {
     int result = -1;
+    l_audio_extern_source_t *l_extern_source = NULL;
     const char *data = NULL;
     size_t len = 0;
     size_t file_nums = 0;
@@ -934,7 +935,7 @@ static int l_audio_extern_source(lua_State *L) {
     if (codec_id < LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
         codec_opts = luat_audio_data_codec_find(org_codec_id);
     }
-    l_audio_extern_source_t *l_extern_source = (l_audio_extern_source_t *)_l_audio.extern_source_free_list.next;
+    l_extern_source = (l_audio_extern_source_t *)_l_audio.extern_source_free_list.next;
     luat_llist_del(&l_extern_source->node);
     luat_llist_add_tail(&l_extern_source->node, &_l_audio.extern_source_busy_list);
     l_extern_source->is_busy = 1;
@@ -973,7 +974,7 @@ static int l_audio_extern_source(lua_State *L) {
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
         result = luat_audio_request_add_source_files(&l_extern_source->extern_source, info, file_nums, codec_opts, is_add_record, l_extern_source);
-    } else if (lua_isnil(L, 2)) {
+    } else if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
         if (codec_opts) {
             result = luat_audio_request_add_source_stream(&l_extern_source->extern_source, codec_opts, &common_param, is_add_record, l_extern_source);
             if (result) {
@@ -984,9 +985,8 @@ static int l_audio_extern_source(lua_State *L) {
             LLOGE("extern source stream mode must have codec id");
             goto DONE;
         }
-        
-    }
 
+    }
 DONE:
     if (info) {
         luat_heap_free(info);
@@ -994,6 +994,15 @@ DONE:
     lua_pushboolean(L, !result);
     if (!result) {
         extern_source_index = l_extern_source->self_index|LUAT_AUDIO_EXTERN_SOURCE_INDEX_FLAG;
+        LLOGC(luat_audio_debug_flag, "lua extern source add success, index %d", extern_source_index);
+    } else {
+        LLOGE("lua extern source add failed");
+        if (l_extern_source) {
+            luat_llist_del(&l_extern_source->node);
+            luat_llist_add_tail(&l_extern_source->node, &_l_audio.extern_source_free_list);
+            l_extern_source->is_busy = 0;
+        }
+        extern_source_index = 0;
     }
     lua_pushinteger(L, extern_source_index);
     return 2;

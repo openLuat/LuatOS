@@ -405,7 +405,7 @@ static int io_popen (lua_State *L) {
   p->closef = &io_pclose;
   #ifdef LUAT_USE_FS_VFS
   if (p->f) {
-    FILE* tmp = luat_vfs_add_fd(p->f, NULL);
+    FILE* tmp = luat_vfs_add_fd(p->f, NULL, NULL);
     if (tmp == NULL) {
       l_pclose(L, p->f);
       p->f = NULL;

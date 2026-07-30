@@ -9,7 +9,8 @@ local WEBP_1x1 = "\x52\x49\x46\x46\x24\x00\x00\x00\x57\x45\x42\x50\x56\x50\x38\x
               .. "\x17\x00\x00\x00\x30\x01\x00\x9d\x01\x2a\x01\x00\x01\x00\x02\x00"
               .. "\x34\x25\x9f\x03\x70\x00\xfe\xfb\x94\x00\x00\x00"
 
-local WEBP_TEST_PATH = "/tmp/test_webp_basic.webp"
+-- 使用 /ram 作为跨平台临时路径, PC模拟器/真实设备均可写
+local WEBP_TEST_PATH = "/ram/test_webp_basic.webp"
 
 -- 写测试 WebP 文件到 VFS
 local function write_test_webp()
@@ -58,7 +59,7 @@ function webp_tests.test_showimage_unsupported_ext_no_crash()
         log.info("webp_test", "lcd 模块未加载, 跳过")
         return
     end
-    local ok, result = pcall(lcd.showImage, 0, 0, "/tmp/not_exist.bmp")
+    local ok, result = pcall(lcd.showImage, 0, 0, "/ram/not_exist.bmp")
     assert(ok, "lcd.showImage 对不支持格式抛出异常: " .. tostring(result))
     log.info("webp_test", "lcd.showImage 对不支持格式未崩溃: OK")
 end

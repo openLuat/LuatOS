@@ -32,8 +32,8 @@ local function httpdnstask()
     while true do
         sys.wait(1000)
         -- 通过阿里DNS获取结果
-        local ip = httpdns.ali("air32.cn")
-        log.info("httpdns", "air32.cn", ip)
+        local ip = httpdns.ali("luatos.com")
+        log.info("httpdns", "luatos.com", ip)
 
 
         -- 通过腾讯DNS获取结果

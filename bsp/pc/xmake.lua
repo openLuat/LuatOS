@@ -188,8 +188,6 @@ target("luatos-lua")
             ,luatos.."luat/modules/luat_lib_mcu.c"
             ,luatos.."luat/modules/luat_lib_bit64.c"
             ,luatos.."luat/modules/luat_lib_uart.c"
-            ,luatos.."luat/modules/luat_lib_mqttcore.c"
-            ,luatos.."luat/modules/luat_lib_libcoap.c"
             ,luatos.."luat/modules/luat_lib_rtc.c"
             ,luatos.."luat/modules/luat_lib_gpio.c"
             ,luatos.."luat/modules/luat_lib_spi.c"
@@ -691,9 +689,14 @@ target("luatos-lua")
 
         -- gtfont PC simulator core
         -- add_includedirs(luatos.."components/gtfont")
-        -- add_includedirs(luatos.."components/eink")
         -- add_files(luatos.."components/gtfont/*.c")
-        
+
+        -- eink + epaper (mono e-paper stack) also available in GUI build
+        add_includedirs(luatos.."components/eink")
+        add_files(luatos.."components/eink/*.c")
+        add_includedirs(luatos.."components/epaper")
+        add_files(luatos.."components/epaper/*.c")
+
         -- hzfont component
         add_includedirs(luatos.."components/hzfont/inc")
         add_files(luatos.."components/hzfont/src/*.c")

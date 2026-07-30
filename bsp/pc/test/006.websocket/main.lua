@@ -52,10 +52,10 @@ sys.taskInit(function()
     end
 
     -- 这是个测试服务, 当发送的是json,且action=echo,就会回显所发送的内容
-    wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
+    wsc = websocket.create(nil, "ws://wstest.luatos.com/ws/echo")
     -- 这是另外一个测试服务, 能响应websocket的二进制帧
-    -- wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo2")
-    -- 以上两个测试服务是Java写的, 源码在 https://gitee.com/openLuat/luatos-airtun/tree/master/server/src/main/java/com/luatos/airtun/ws
+    -- wsc = websocket.create(nil, "ws://wstest.luatos.com/ws/echo2")
+    -- 以上两个测试服务由自建echo服务提供, 源码在本仓库 tools/ws_echo_server.py
 
     if wsc.headers then
         wsc:headers({Auth="Basic ABCDEGG"})

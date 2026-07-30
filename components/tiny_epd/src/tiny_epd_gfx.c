@@ -7,10 +7,8 @@ static int tiny_epd_gfx_gate(const tiny_epd_t *epd, uint8_t color)
     if (epd == NULL) {
         return TINY_EPD_ERR_PARAM;
     }
-    if (tiny_epd_bits_per_pixel(epd) != 1 || tiny_epd_plane_count(epd) != 1) {
-        return TINY_EPD_ERR_UNSUPPORTED_MODE;
-    }
-    return color <= TINY_EPD_COLOR_WHITE ? TINY_EPD_OK : TINY_EPD_ERR_PARAM;
+    return tiny_epd_color_supported(epd, color) ?
+           TINY_EPD_OK : TINY_EPD_ERR_UNSUPPORTED_COLOR;
 }
 
 /* Primitives deliberately rasterize in logical coordinates. The core owns

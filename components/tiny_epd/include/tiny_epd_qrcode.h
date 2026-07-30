@@ -9,8 +9,10 @@ extern "C" {
 
 /*
  * Render a QR code in the current logical coordinate space. size == 0 uses
- * the smaller remaining logical canvas dimension. The square background is
- * filled with the complement of color and therefore clears old QR modules.
+ * the smaller remaining logical canvas dimension. With an explicit BLACK or
+ * WHITE color the square background retains the historic mono complement.
+ * TINY_EPD_COLOR_FG uses the panel foreground/background pair, which is the
+ * preferred form for palette panels.
  */
 int tiny_epd_draw_qrcode(tiny_epd_t *epd,
                          int16_t x, int16_t y,

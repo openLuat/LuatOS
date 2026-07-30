@@ -99,8 +99,8 @@ function ping_tests.test_04_timeout()
         sys.publish("PING_TEST_04_DONE")
     end)
 
-    -- 1ms timeout: loopback 来不及回复
-    airlink.ping("timeout_test", 1)
+    -- 0ms timeout: 非阻塞, loopback 必然来不及回复
+    airlink.ping("timeout_test", 0)
     assert(sys.waitUntil("PING_TEST_04_DONE", 2000), "超时测试未收到结果事件")
     sys.unsubscribe(h)
 

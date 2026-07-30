@@ -201,6 +201,8 @@ local function httpplus_app_post_binary()
     -- 上传成功后，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
     -- ["Content-Type"] = "application/octet-stream" 表示post提交的body数据格式为原始二进制格式的数据
     -- 如果请求成功，服务器应答的数据会保存到response.body中
+    -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+    -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
     local code, response = httpplus.request(
     {
         method = "POST",

@@ -356,6 +356,14 @@ target("luatos-lua")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_nb.c")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_wb.c")
 
+    -- speex codec
+    if os.getenv("LUAT_SUPPORT_SPEEX") ~= "n" then
+        add_defines("LUAT_SUPPORT_SPEEX=1")
+        add_includedirs(luatos.."components/speex/include")
+        add_thirdparty_files(luatos.."components/speex/libspeex/*.c")
+        add_files(luatos.."components/multimedia/audio/codec_adapter/luat_audio_codec_port_speex.c")
+    end
+
     -- audio_dsp（SpeexDSP 适配层，可选外部组件）
     -- 源码位于 luatos-ext-components/audio_dsp，与 mp4player 类似按需集成。
     -- 环境变量 LUAT_USE_AUDIO_DSP=y 强制启用，=n 强制禁用；未设置时按目录存在性自动检测。

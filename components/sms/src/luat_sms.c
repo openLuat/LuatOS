@@ -180,6 +180,7 @@ uint8_t luat_sms_gsm_to_ascii(uint8_t *gsm_data, uint8_t length)
         {
             if (gsm_data[gsm_idx] == 0x1B)
             {
+                if (gsm_idx + 1 >= length) break;  // ESC 后无数据，安全退出
                 gsm_data[out_len++] = gsm_ext[gsm_data[++gsm_idx]];
             }
             else
@@ -204,6 +205,7 @@ uint16_t luat_sms_decode_7bit_data(uint8_t *src, uint16_t src_len, uint8_t *dst,
 
     if (shift_bits == 1)
     {
+        if (out_len >= dst_len) return 0;
         dst[out_len++] = src[temp_index] >> 1;
     }
 
@@ -216,7 +218,7 @@ uint16_t luat_sms_decode_7bit_data(uint8_t *src, uint16_t src_len, uint8_t *dst,
         dst[out_len++] = (src[temp_index++] << bits) & 0x7F;
     }
     bits = (8 - shift_bits) % 7;
-    while ((temp_index < src_len) && (out_len < dst_len))
+    while ((temp_index < src_len) && (out_len + 1 < dst_len))
     {
         dst[out_len] = (src[temp_index] << bits) & 0x7F;
 
@@ -251,7 +253,8 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
     if (sms_debug_enable){
         // 打印PDU数据用于调试
         char pdu_debug[3 * 160] = {0};
-        luat_str_tohex(pdu_data, pdu_len, pdu_debug);
+        int dbg_len = (pdu_len > 160) ? 160 : pdu_len;
+        luat_str_tohex(pdu_data, dbg_len, pdu_debug);
         LLOGI("PDU Data: %s", pdu_debug);
     }
 
@@ -675,6 +678,10 @@ int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet)
     uint8_t pos = 0;
     size_t phone_len = packet->phone_len;
     char phone_buff[32] = {0};
+    // 防御性边界检查 (含 "+86" 前缀扩展的 2 字节余量)
+    if (phone_len == 0 || phone_len + 2 > sizeof(phone_buff)) {
+        return -1;
+    }
     if (phone_len >= 2 && !memcmp(packet->phone, "10", 2)) {
         /* 10xx 开头的服务/业务号码（如 106xxxxxxxx等），
          * 不属于手机号，不加国家码，toa=0x81（未知/本地格式） */

@@ -34,6 +34,8 @@
 
 - TYPE-C 数据线 × 1
 
+  ![](https://docs.openluat.com/osapi/ext/image/780ehv-mcp23017.png)
+
 ### 3.2 接线配置
 
 #### 3.2.1 MCP23017 模块接线（硬件 I2C）

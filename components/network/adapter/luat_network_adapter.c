@@ -1920,6 +1920,11 @@ int network_set_client_cert(network_ctrl_t *ctrl,
 	{
 		return -ERROR_PERMISSION_DENIED;
 	}
+	// 幂等保护: 已配置则跳过,防止重复分配泄漏和config->key_cert悬垂指针
+	if (ctrl->client_cert && ctrl->pkey)
+	{
+		return ERROR_NONE;
+	}
 	client_cert = zalloc(sizeof(mbedtls_x509_crt));
 	pkey = zalloc(sizeof(mbedtls_pk_context));
 	if (!client_cert || !pkey)

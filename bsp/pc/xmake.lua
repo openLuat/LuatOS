@@ -153,6 +153,7 @@ target("luatos-lua")
     end
     if mbedtls_version == 2 then
         remove_files("src/luat_pc_dtls_utest.c")
+        remove_files("src/luat_pc_http_utest.c")
     end
     add_files("port/**.c")
 

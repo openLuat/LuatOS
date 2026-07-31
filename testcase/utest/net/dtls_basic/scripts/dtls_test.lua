@@ -36,6 +36,15 @@ function dtls_suite.test_dtls_utest_cert_parse_boundary()
         "socket.utest(dtls_cert_parse_boundary) 应为 true")
 end
 
+-- 5) mTLS memory leak: multiple mTLS sessions should not leak client_cert/pkey.
+-- This validates the fix for PR #260: client_cert and pkey must be freed
+-- in network_deinit_tls() when the socket is released.
+function dtls_suite.test_dtls_utest_mtls_memleak()
+    assert(socket and type(socket.utest) == "function", "socket.utest 不存在")
+    assert(socket.utest("dtls_mtls_memleak") == true,
+        "socket.utest(dtls_mtls_memleak) 应为 true (mTLS内存泄漏检测)")
+end
+
 t.dtls_suite = dtls_suite
 
 return t

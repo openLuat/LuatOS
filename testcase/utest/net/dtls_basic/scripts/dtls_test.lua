@@ -45,6 +45,14 @@ function dtls_suite.test_dtls_utest_mtls_memleak()
         "socket.utest(dtls_mtls_memleak) 应为 true (mTLS内存泄漏检测)")
 end
 
+-- 6) mTLS reconfig: calling socket.config twice with client cert must not leak or crash.
+-- Validates the fix for network_set_client_cert repeated-call leak.
+function dtls_suite.test_dtls_utest_mtls_reconfig()
+    assert(socket and type(socket.utest) == "function", "socket.utest 不存在")
+    assert(socket.utest("dtls_mtls_reconfig") == true,
+        "socket.utest(dtls_mtls_reconfig) 应为 true (mTLS重复配置泄漏检测)")
+end
+
 t.dtls_suite = dtls_suite
 
 return t

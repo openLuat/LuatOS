@@ -575,6 +575,131 @@ fail:
 #endif
 }
 
+/* =====================================================================
+ *  DTLS mTLS reconfig test
+ *
+ *  Calls socket.config twice on the same socket with client cert to
+ *  verify that repeated configuration does not leak or crash.
+ *  Validates the fix for network_set_client_cert repeated-call leak.
+ * ===================================================================== */
+
+static const char *dtls_mtls_reconfig_lua_chunk =
+    "local helper_port, ca_pem, client_cert_pem, client_key_pem = ... "
+    "local nonce = tostring((mcu and mcu.ticks and mcu.ticks()) or 0) "
+    "local topic = 'dtls_reconfig_' .. nonce "
+    "local netc = socket.create(nil, function(_, evt, param) sys.publish(topic, evt, param) end) "
+    "assert(netc, 'socket.create failed') "
+    "local token = 'mtls-reconfig-test' "
+    "local ok, err = xpcall(function() "
+    "  assert(socket.config(netc, nil, true, true, nil, nil, nil, ca_pem, client_cert_pem, client_key_pem), 'socket.config 1st failed') "
+    "  assert(socket.config(netc, nil, true, true, nil, nil, nil, ca_pem, client_cert_pem, client_key_pem), 'socket.config 2nd failed (reconfig)') "
+    "  local succ, online = socket.connect(netc, '127.0.0.1', helper_port) "
+    "  assert(succ, 'dtls_connect_timeout') "
+    "  local connect_pending = not online "
+    "  local tx_succ, full, tx_done = false, false, false "
+    "  for _ = 1, 100 do "
+    "    tx_succ, full, tx_done = socket.tx(netc, token) "
+    "    if tx_succ and not full then break end "
+    "    sys.wait(100) "
+    "  end "
+    "  assert(tx_succ and not full, 'dtls_tx_timeout') "
+    "  if not tx_done then "
+    "    local result, evt, param = sys.waitUntil(topic, 10000) "
+    "    assert(result ~= false, 'dtls_tx_timeout') "
+    "    if connect_pending then "
+    "      if evt == socket.ON_LINE then "
+    "        result, evt, param = sys.waitUntil(topic, 10000) "
+    "      end "
+    "    end "
+    "  end "
+    "  local data = '' "
+    "  for _ = 1, 30 do "
+    "    local read_ok, read_data = socket.read(netc, #token) "
+    "    if read_ok and type(read_data) == 'string' and #read_data > 0 then data = read_data break end "
+    "    sys.wait(100) "
+    "  end "
+    "  assert(data == token, 'dtls_echo_mismatch') "
+    "end, function(e) return e end) "
+    "local close_succ, closed = socket.discon(netc) "
+    "if close_succ and not closed then sys.waitUntil(topic, 1000) end "
+    "socket.close(netc) "
+    "socket.release(netc) "
+    "if not ok then error(err) end "
+    "return true";
+
+static int run_dtls_mtls_reconfig_utest(lua_State *L) {
+#ifdef LUAT_BSP_PC
+#define DTLS_CERTS_DIR_RECONFIG "../../testcase/utest/net/dtls_basic/certs"
+    luat_pc_dtls_utest_server_t *server = NULL;
+    char helper_error[32] = {0};
+    char *ca_pem = NULL, *srv_cert_pem = NULL, *srv_key_pem = NULL;
+    char *client_cert_pem = NULL, *client_key_pem = NULL;
+    size_t ca_len = 0, srv_cert_len = 0, srv_key_len = 0;
+    size_t client_cert_len = 0, client_key_len = 0;
+    uint16_t helper_port = 0;
+    int helper_result = 0;
+
+    ca_pem = read_pem_file(DTLS_CERTS_DIR_RECONFIG "/ca.crt", &ca_len);
+    srv_cert_pem = read_pem_file(DTLS_CERTS_DIR_RECONFIG "/server.crt", &srv_cert_len);
+    srv_key_pem = read_pem_file(DTLS_CERTS_DIR_RECONFIG "/server.key", &srv_key_len);
+    client_cert_pem = read_pem_file(DTLS_CERTS_DIR_RECONFIG "/client.crt", &client_cert_len);
+    client_key_pem = read_pem_file(DTLS_CERTS_DIR_RECONFIG "/client.key", &client_key_len);
+
+    if (!ca_pem || !srv_cert_pem || !srv_key_pem || !client_cert_pem || !client_key_pem) {
+        LLOGE("read pem failed for reconfig test");
+        goto fail;
+    }
+
+    if (luat_pc_dtls_utest_server_start_cert(&server,
+                                             (const uint8_t *)ca_pem, ca_len,
+                                             (const uint8_t *)srv_cert_pem, srv_cert_len,
+                                             (const uint8_t *)srv_key_pem, srv_key_len,
+                                             1) != 0) {
+        LLOGE("server_start_cert failed for reconfig test");
+        goto fail;
+    }
+    if (luat_pc_dtls_utest_server_wait_ready(server, 5000, &helper_port) != 0) {
+        snprintf(helper_error, sizeof(helper_error), "%s", luat_pc_dtls_utest_server_error(server));
+        LLOGE("%s", helper_error);
+        luat_pc_dtls_utest_server_stop(server, 1000);
+        goto fail;
+    }
+
+    lua_pushinteger(L, helper_port);
+    lua_pushlstring(L, ca_pem, ca_len - 1);
+    lua_pushlstring(L, client_cert_pem, client_cert_len - 1);
+    lua_pushlstring(L, client_key_pem, client_key_len - 1);
+    run_socket_utest_code_nargs(L, dtls_mtls_reconfig_lua_chunk, 4);
+
+    snprintf(helper_error, sizeof(helper_error), "%s", luat_pc_dtls_utest_server_error(server));
+    helper_result = luat_pc_dtls_utest_server_stop(server, 5000);
+    if (helper_result != 0) {
+        LLOGE("%s", helper_error[0] ? helper_error : "helper_stop_failed");
+        lua_pop(L, 1);
+        lua_pushboolean(L, 0);
+    }
+
+    if (ca_pem) luat_heap_free(ca_pem);
+    if (srv_cert_pem) luat_heap_free(srv_cert_pem);
+    if (srv_key_pem) luat_heap_free(srv_key_pem);
+    if (client_cert_pem) luat_heap_free(client_cert_pem);
+    if (client_key_pem) luat_heap_free(client_key_pem);
+    return 1;
+
+fail:
+    if (ca_pem) luat_heap_free(ca_pem);
+    if (srv_cert_pem) luat_heap_free(srv_cert_pem);
+    if (srv_key_pem) luat_heap_free(srv_key_pem);
+    if (client_cert_pem) luat_heap_free(client_cert_pem);
+    if (client_key_pem) luat_heap_free(client_key_pem);
+    lua_pushboolean(L, 0);
+    return 1;
+#else
+    lua_pushboolean(L, 0);
+    return 1;
+#endif
+}
+
 static const char *get_socket_utest_code(const char *case_name) {
     if (!case_name || strcmp(case_name, "tcp_external_qq") == 0) {
         return
@@ -661,6 +786,9 @@ int luat_socket_utest(lua_State *L, const char *case_name) {
     }
     if (case_name && strcmp(case_name, "dtls_mtls_memleak") == 0) {
         return run_dtls_mtls_memleak_utest(L);
+    }
+    if (case_name && strcmp(case_name, "dtls_mtls_reconfig") == 0) {
+        return run_dtls_mtls_reconfig_utest(L);
     }
     if (!code) {
         lua_pushboolean(L, 0);

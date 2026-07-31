@@ -168,6 +168,8 @@ typedef struct
     mbedtls_ssl_context *ssl;          /**< mbed TLS control context. */
     mbedtls_ssl_config *config;          /**< mbed TLS configuration context. */
     mbedtls_x509_crt *ca_cert;
+		mbedtls_x509_crt *client_cert; /* 客户端证书 */
+		mbedtls_pk_context *pkey;			 /* 客户端 private key */
 #endif
 
 	CBFuncEx_t user_callback;

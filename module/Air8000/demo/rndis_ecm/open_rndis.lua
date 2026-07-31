@@ -36,6 +36,11 @@ local function rndis_task()
     else
         log.info("进入飞行模式失败")
     end
+
+    -- 如果之前配置过ECM协议，设置完毕后还需要开关USB电源将USB协议重置为RNDIS配置
+    -- pm.power(pm.USB ,false)
+    -- sys.wait(100)
+    -- pm.power(pm.USB ,true)
 end
 
 -- 初始化一个系统任务，执行 rndis_task 函数

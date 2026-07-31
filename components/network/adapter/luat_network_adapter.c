@@ -2054,14 +2054,14 @@ void network_deinit_tls(network_ctrl_t *ctrl)
 	if (ctrl->client_cert)
 	{
 		mbedtls_x509_crt_free(ctrl->client_cert);
-		free(ctrl->client_cert);
+		luat_heap_free(ctrl->client_cert);
 		ctrl->client_cert = NULL;
 	}
 
 	if (ctrl->pkey)
 	{
 		mbedtls_pk_free(ctrl->pkey);
-		free(ctrl->pkey);
+		luat_heap_free(ctrl->pkey);
 		ctrl->pkey = NULL;
 	}
 	

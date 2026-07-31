@@ -346,6 +346,8 @@ static int l_display_init(lua_State *L)
         /*设置时序参数*/
         int ret = custom_panel_setup(L_disp->panel, L);
         if(ret) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "panel setup fail");
             goto init_fail;
         }
     }
@@ -561,14 +563,25 @@ static int l_display_get_size(lua_State *L)
 static int l_display_get_fb(lua_State *L) 
 {
     struct luat_display *disp = l_get_display_opt(L, 1);
-    if (disp == NULL || disp->fb_info->fb_start == NULL) {
+    if (disp == NULL || disp->fb_info == NULL) {
         lua_pushnil(L);
         return 1;
     }
 
-    lua_pushlightuserdata(L, disp->fb_info->fb_start);
-    lua_pushinteger(L, disp->fb_info->fb_size);
-    lua_pushinteger(L, disp->fb_info->fb_count);
+    /*优先返回 CPU 可写 draw buffer，SDL/软件渲染场景使用；
+      不存在时再退回 fb_start（硬件直接写屏场景）。*/
+    void *fb_addr = disp->fb_info->draw_buf.buffer ? disp->fb_info->draw_buf.buffer : disp->fb_info->fb_start;
+    uint32_t fb_size = disp->fb_info->draw_buf.buffer ? disp->fb_info->draw_buf.size : disp->fb_info->fb_size;
+    uint32_t fb_count = disp->fb_info->draw_buf.buffer ? disp->fb_info->draw_buf.count : disp->fb_info->fb_count;
+
+    if (fb_addr == NULL) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_pushlightuserdata(L, fb_addr);
+    lua_pushinteger(L, fb_size);
+    lua_pushinteger(L, fb_count);
 
     return 3;
 }

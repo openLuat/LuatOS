@@ -1,5 +1,7 @@
 #include "luat_base.h"
 #include "luat_display_panel_comm.h"
+#include "luat_rtos.h"
+#include "luat_gpio.h"
 
 #define LUAT_LOG_TAG "panel_comm"
 #include "luat_log.h"
@@ -13,7 +15,7 @@ static struct luat_display_panel *panels[] = {
     &spi_panel_ili9341,
 };
 
-/*查找显示面板*/
+/*按照连接器类型查找显示面板*/
 struct luat_display_panel *luat_display_find_panel(unsigned int connector_type)
 {
     size_t i;
@@ -50,7 +52,7 @@ int luat_display_panel_reset(struct luat_display_panel *panel)
     return 0;
 }
 
-/*显示面板上电*/
+/*默认显示面板上电*/
 int luat_display_power_on(struct luat_display *disp) 
 {
     if (disp == NULL || disp->panel == NULL || disp->panel->pin == NULL) {
@@ -64,7 +66,7 @@ int luat_display_power_on(struct luat_display *disp)
     return 0;
 }
 
-/*显示面板下电*/
+/*默认显示面板下电*/
 int luat_display_power_off(struct luat_display *disp) 
 {
     if (disp == NULL || disp->panel == NULL || disp->panel->pin == NULL) {

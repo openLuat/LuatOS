@@ -20,7 +20,7 @@ LUAT_WEAK int spi_fb_probe(struct luat_display_panel *panel, struct luat_display
 }
 
 /*设置timing*/
-LUAT_WEAK int spi_inf_init(struct luat_display_panel *panel)
+LUAT_WEAK int spi_inf_init(struct luat_display *disp)
 {
     /*这里设置timing参数*/
     return -1;
@@ -33,19 +33,24 @@ LUAT_WEAK int spi_set_layer(struct luat_display_layer_data *layer_data)
     return -1;
 }
 
-LUAT_WEAK int spi_fb_flush(struct luat_display_rect *rect, const void *data, enum disp_rotate rotation)
+LUAT_WEAK int spi_fb_flush(struct luat_display *disp, struct luat_display_rect *rect, const void *data, enum disp_rotate rotation)
 {
     return -1;
 }
 
-LUAT_WEAK int spi_wait_vsync(void)
+LUAT_WEAK int spi_wait_vsync(struct luat_display *disp)
 {
     return -1;
 }
 
-LUAT_WEAK int spi_pan_display(int index)
+LUAT_WEAK int spi_pan_display(struct luat_display *disp, int index)
 {
     return -1;
+}
+
+LUAT_WEAK int spi_deinit(struct luat_display *disp)
+{
+    return 0;
 }
 
 
@@ -57,6 +62,7 @@ struct luat_display_funcs spi_funcs = {
     .fb_flush = spi_fb_flush,
     .wait_vsync = spi_wait_vsync,
     .pan_display = spi_pan_display,
+    .deinit = spi_deinit,
 };
 
 

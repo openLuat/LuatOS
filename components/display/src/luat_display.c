@@ -24,6 +24,15 @@ struct luat_display* luat_display_get_default(void)
     return NULL;
 }
 
+/*按 ID 获取显示组件*/
+struct luat_display* luat_display_get_by_id(uint8_t id) 
+{
+    if (id >= LUAT_DISPLAY_COMPONENT_COUNT) {
+        return NULL;
+    }
+    return display_component[id];
+}
+
 /*注册显示组件*/
 int luat_display_register(struct luat_display *disp) 
 {
@@ -36,6 +45,70 @@ int luat_display_register(struct luat_display *disp)
         }
     }
     return -1;
+}
+
+/*按指定 ID 注册显示组件*/
+int luat_display_register_with_id(struct luat_display *disp, uint8_t id) 
+{
+    if (id >= LUAT_DISPLAY_COMPONENT_COUNT) {
+        return -1;
+    }
+    if (display_component[id] != NULL) {
+        return -1;
+    }
+    display_component[id] = disp;
+    return id;
+}
+
+/*注销显示组件*/
+void luat_display_unregister(struct luat_display *disp) 
+{
+    if (disp == NULL) {
+        return;
+    }
+    for (size_t i = 0; i < LUAT_DISPLAY_COMPONENT_COUNT; i++) 
+    {
+        if (display_component[i] == disp) 
+        {
+            display_component[i] = NULL;
+            return;
+        }
+    }
+}
+
+/*销毁显示组件，释放其占用的所有资源*/
+int luat_display_destroy(struct luat_display *disp) 
+{
+    if (disp == NULL) {
+        return 0;
+    }
+
+    /*先从管理数组中移除，防止后续操作访问到半销毁状态*/
+    luat_display_unregister(disp);
+
+    /*调用接口层的反初始化*/
+    if (disp->display_funcs != NULL && disp->display_funcs->deinit != NULL) {
+        disp->display_funcs->deinit(disp);
+    }
+
+    /*释放显示缓冲区信息*/
+    if (disp->fb_info != NULL) {
+        luat_heap_free(disp->fb_info);
+        disp->fb_info = NULL;
+    }
+
+    /*释放引脚配置*/
+    if (disp->panel != NULL && disp->panel->pin != NULL) {
+        luat_heap_free(disp->panel->pin);
+        disp->panel->pin = NULL;
+    }
+
+    /*注意：panel 结构体通常是全局静态模板，screen_win 可能跨 display 共享，
+      因此不在此处释放。binding 层若自行分配了 screen_win，应在 init 失败
+      路径中单独处理。*/
+
+    luat_heap_free(disp);
+    return 0;
 }
 
 /*获取显示组件名称*/
@@ -84,7 +157,7 @@ int luat_display_layer_setup(struct luat_display *disp)
     struct luat_display_layer_data ui_layer = {0};
 
     ui_layer.enable = 1;
-    ui_layer.layer_id = 0;
+    ui_layer.layer_id = 0;  //UI层ID
     ui_layer.area_id = 0;
 
     /*设置默认层的区域*/
@@ -93,7 +166,7 @@ int luat_display_layer_setup(struct luat_display *disp)
     ui_layer.area.x2 = panel->screen_win->x + panel->screen_win->w;
     ui_layer.area.y2 = panel->screen_win->y + panel->screen_win->h;
 
-    ui_layer.buffer = fb_info->fb_start;
+    ui_layer.buffer = fb_info->draw_buf.buffer ? fb_info->draw_buf.buffer : fb_info->fb_start;
     ui_layer.format = fb_info->format;
 
     ret = disp->display_funcs->set_layer(&ui_layer);
@@ -133,7 +206,7 @@ int luat_display_init(struct luat_display *disp)
     }
 
     /*初始化接口，在这里设置timing参数*/
-    ret = disp->display_funcs->inf_init(disp->panel);
+    ret = disp->display_funcs->inf_init(disp);
     if (ret) {
         LLOGE("inf_init failed, ret = %d", ret);
         return ret;
@@ -255,7 +328,24 @@ int luat_display_flush_default(struct luat_display *disp)
 
 LUAT_WEAK int luat_display_flush(struct luat_display *disp) 
 {
-    return 0;
+    if (disp == NULL || disp->display_funcs == NULL || disp->display_funcs->fb_flush == NULL || disp->fb_info == NULL) {
+        return 0;
+    }
+
+    struct luat_display_fb_info *info = disp->fb_info;
+    const void *data = info->draw_buf.buffer ? info->draw_buf.buffer : info->fb_start;
+    if (data == NULL) {
+        return 0;
+    }
+
+    struct luat_display_rect rect = {
+        .x = 0,
+        .y = 0,
+        .w = info->width,
+        .h = info->height,
+    };
+
+    return disp->display_funcs->fb_flush(disp, &rect, data, disp->rotation);
 }
 
 LUAT_WEAK int luat_display_fb_probe(struct luat_display *disp, struct luat_display_fb_info *info) 

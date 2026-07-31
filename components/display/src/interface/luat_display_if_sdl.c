@@ -7,8 +7,10 @@
 #define LUAT_LOG_TAG "display_sdl"
 #include "luat_log.h"
 
-static luat_display_sdl2_ctx_t *g_sdl2_ctx = NULL;
-static void *g_sdl2_draw_buf = NULL;
+struct sdl_disp_userdata {
+    luat_display_sdl2_ctx_t *ctx;
+    void *draw_buf;
+};
 
 static int sdl_init(struct luat_display *disp)
 {
@@ -17,14 +19,24 @@ static int sdl_init(struct luat_display *disp)
 
 static int sdl_deinit(struct luat_display *disp)
 {
-    if (g_sdl2_ctx != NULL) {
-        luat_display_sdl2_destroy(g_sdl2_ctx);
-        g_sdl2_ctx = NULL;
+    if (disp == NULL || disp->userdata == NULL) {
+        return 0;
     }
-    if (g_sdl2_draw_buf != NULL) {
-        luat_heap_free(g_sdl2_draw_buf);
-        g_sdl2_draw_buf = NULL;
+
+    struct sdl_disp_userdata *ud = (struct sdl_disp_userdata *)disp->userdata;
+
+    if (ud->ctx != NULL) {
+        luat_display_sdl2_destroy(ud->ctx);
+        ud->ctx = NULL;
     }
+    if (ud->draw_buf != NULL) {
+        luat_heap_free(ud->draw_buf);
+        ud->draw_buf = NULL;
+    }
+
+    luat_heap_free(ud);
+    disp->userdata = NULL;
+
     return 0;
 }
 
@@ -48,17 +60,54 @@ static int sdl_fb_probe(struct luat_display_panel *panel, struct luat_display_fb
     info->fb_size = 0;
     info->fb_count = 1;
 
-    /*为上层绘制分配 CPU 可写 draw buffer*/
-    uint32_t draw_buf_size = info->width * info->height * 2;
-    if (g_sdl2_draw_buf == NULL) {
-        g_sdl2_draw_buf = luat_heap_zalloc(draw_buf_size);
-        if (g_sdl2_draw_buf == NULL) {
-            LLOGE("sdl2 draw buffer alloc failed");
-            return -1;
-        }
+    info->inited = 1;
+    return 0;
+}
+
+/*初始化接口，在这里创建 SDL2 窗口*/
+static int sdl_inf_init(struct luat_display *disp)
+{
+    if (disp == NULL || disp->panel == NULL || disp->panel->screen_win == NULL) {
+        return -1;
     }
 
-    info->draw_buf.buffer = g_sdl2_draw_buf;
+    struct luat_display_panel *panel = disp->panel;
+    struct luat_display_fb_info *info = disp->fb_info;
+
+    if (info == NULL) {
+        LLOGE("sdl2 fb_info not ready");
+        return -1;
+    }
+
+    /*分配 userdata，用于管理该 display 实例的 SDL 上下文和 draw buffer*/
+    struct sdl_disp_userdata *ud = luat_heap_zalloc(sizeof(struct sdl_disp_userdata));
+    if (ud == NULL) {
+        LLOGE("sdl2 userdata alloc failed");
+        return -1;
+    }
+
+    /*分配 CPU 可写 draw buffer*/
+    uint32_t draw_buf_size = info->width * info->height * 2;
+    ud->draw_buf = luat_heap_zalloc(draw_buf_size);
+    if (ud->draw_buf == NULL) {
+        LLOGE("sdl2 draw buffer alloc failed");
+        luat_heap_free(ud);
+        return -1;
+    }
+
+    /*创建 SDL2 窗口*/
+    ud->ctx = luat_display_sdl2_create(panel->name,
+                                       panel->screen_win->w,
+                                       panel->screen_win->h);
+    if (ud->ctx == NULL) {
+        LLOGE("sdl2 display create failed");
+        luat_heap_free(ud->draw_buf);
+        luat_heap_free(ud);
+        return -1;
+    }
+
+    /*填充 draw_buf 信息*/
+    info->draw_buf.buffer = ud->draw_buf;
     info->draw_buf.size = draw_buf_size;
     info->draw_buf.stride = info->stride;
     info->draw_buf.count = 1;
@@ -66,29 +115,7 @@ static int sdl_fb_probe(struct luat_display_panel *panel, struct luat_display_fb
     info->draw_buf.width = info->width;
     info->draw_buf.height = info->height;
 
-    info->inited = 1;
-    return 0;
-}
-
-/*初始化接口，在这里创建 SDL2 窗口*/
-static int sdl_inf_init(struct luat_display_panel *panel)
-{
-    if (panel == NULL || panel->screen_win == NULL) {
-        return -1;
-    }
-
-    if (g_sdl2_ctx != NULL) {
-        LLOGD("sdl2 display already inited");
-        return 0;
-    }
-
-    g_sdl2_ctx = luat_display_sdl2_create(panel->name,
-                                          panel->screen_win->w,
-                                          panel->screen_win->h);
-    if (g_sdl2_ctx == NULL) {
-        LLOGE("sdl2 display create failed");
-        return -1;
-    }
+    disp->userdata = ud;
 
     return 0;
 }
@@ -100,38 +127,52 @@ static int sdl_set_layer(struct luat_display_layer_data *layer_data)
 }
 
 /*刷新显示缓冲区*/
-static int sdl_fb_flush(struct luat_display_rect *rect, const void *data, enum disp_rotate rotation)
+static int sdl_fb_flush(struct luat_display *disp, struct luat_display_rect *rect, const void *data, enum disp_rotate rotation)
 {
-    if (g_sdl2_ctx == NULL || rect == NULL || data == NULL) {
+    if (disp == NULL || disp->userdata == NULL || rect == NULL || data == NULL) {
         return 0;
     }
 
-    luat_display_sdl2_draw(g_sdl2_ctx,
+    struct sdl_disp_userdata *ud = (struct sdl_disp_userdata *)disp->userdata;
+    if (ud->ctx == NULL) {
+        return 0;
+    }
+
+    luat_display_sdl2_draw(ud->ctx,
                            rect->x, rect->y,
                            rect->w, rect->h,
                            data, rect->w * 2);
 
-    luat_display_sdl2_flush(g_sdl2_ctx);
+    luat_display_sdl2_flush(ud->ctx);
     return 0;
 }
 
-static int sdl_wait_vsync(void)
+static int sdl_wait_vsync(struct luat_display *disp)
 {
-    if (g_sdl2_ctx != NULL) {
-        luat_display_sdl2_pump_events(g_sdl2_ctx);
+    if (disp == NULL || disp->userdata == NULL) {
+        return 0;
+    }
+
+    struct sdl_disp_userdata *ud = (struct sdl_disp_userdata *)disp->userdata;
+    if (ud->ctx != NULL) {
+        luat_display_sdl2_pump_events(ud->ctx);
     }
     return 0;
 }
 
-static int sdl_pan_display(int index)
+static int sdl_pan_display(struct luat_display *disp, int index)
 {
-    if (g_sdl2_ctx != NULL) {
-        luat_display_sdl2_flush(g_sdl2_ctx);
-        luat_display_sdl2_pump_events(g_sdl2_ctx);
+    if (disp == NULL || disp->userdata == NULL) {
+        return 0;
+    }
+
+    struct sdl_disp_userdata *ud = (struct sdl_disp_userdata *)disp->userdata;
+    if (ud->ctx != NULL) {
+        luat_display_sdl2_flush(ud->ctx);
+        luat_display_sdl2_pump_events(ud->ctx);
     }
     return 0;
 }
-
 
 struct luat_display_funcs sdl_funcs = {
     .name = "sdl",
@@ -141,4 +182,5 @@ struct luat_display_funcs sdl_funcs = {
     .fb_flush = sdl_fb_flush,
     .wait_vsync = sdl_wait_vsync,
     .pan_display = sdl_pan_display,
+    .deinit = sdl_deinit,
 };

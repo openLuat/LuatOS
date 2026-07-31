@@ -13,8 +13,13 @@ display.init("st7789", {w = 480, h = 800, interface = "rgb",
     hbp = 20, hfp = 20, hspw = 5, vbp = 20, vfp = 20, vspw = 5,
     pclk_hz = 25000000, pin_rst = 18, pin_bl = 19})
 
+-- 多屏：指定 ID 初始化两个屏（ID 0~4）
+display.init("custom", {id = 0, w = 240, h = 320, interface = "sdl"})
+display.init("custom", {id = 1, w = 480, h = 320, interface = "sdl"})
+
 display.on()
-display.flush()
+display.flush()      -- 刷新默认屏 (ID 最小的)
+display.flush(1)     -- 刷新 ID 为 1 的屏
 */
 
 #include "luat_base.h"
@@ -35,11 +40,12 @@ typedef struct {
 
 static const display_if_reg_t if_regs[] = 
 {
-    {"rgb", &rgb_funcs},
-    {"dsi", &dsi_funcs},
-    {"spi", &spi_funcs},
-    {"sdl", &sdl_funcs},
-    {"",    NULL}
+    {"rgb",  &rgb_funcs},
+    {"dsi",  &dsi_funcs},
+    {"spi",  &spi_funcs},
+    {"lvds", &lvds_funcs},
+    {"sdl",  &sdl_funcs},
+    {"",     NULL}
 };
 
 static struct luat_display_funcs *get_interface_funcs(const char *name) 
@@ -89,6 +95,18 @@ static struct luat_display_panel* get_panel(const char *name, const char *interf
         }
     }
     return NULL;
+}
+
+/*根据 Lua 可选参数获取 display 实例：
+  - 如果第 index 个参数是整数，则当作 display id
+  - 否则返回默认 display
+*/
+static struct luat_display* l_get_display_opt(lua_State *L, int index)
+{
+    if (lua_gettop(L) >= index && lua_isinteger(L, index)) {
+        return luat_display_get_by_id((uint8_t)lua_tointeger(L, index));
+    }
+    return luat_display_get_default();
 }
 
 /*设置显示窗口*/
@@ -247,6 +265,7 @@ static int custom_pin_setup(struct panel_pin_device *pin, lua_State *L)
  * @int config.crop_w 窗口宽度，默认 240
  * @int config.crop_h 窗口高度，默认 320
  * @int config.bpp 每像素位数，默认 16 (RGB565)
+ * @int config.id 显示组件 ID (0~4)，省略则自动分配
  * @string config.interface 接口类型，"rgb"(默认) 或 "sdl"(PC模拟)
  * @int config.pin_rst 复位引脚，默认 0xFF(无)
  * @int config.pin_bl 背光引脚，默认 0xFF(无)
@@ -292,6 +311,8 @@ static int l_display_init(lua_State *L)
         return 2;
     }
 
+    int screen_win_allocated = 0;
+
     lua_getfield(L, 2, "bpp");
     L_disp->bpp = luaL_optinteger(L, -1, 16);   //暂时没用到，占位用
     lua_pop(L, 1);
@@ -315,6 +336,7 @@ static int l_display_init(lua_State *L)
             lua_pushstring(L, "alloc screen win fail");
             return 2;
         }
+        screen_win_allocated = 1;
         /*设置裁剪窗口,默认全屏*/
         panel_crop_win_setup(L_disp->panel, L);
     }
@@ -324,10 +346,7 @@ static int l_display_init(lua_State *L)
         /*设置时序参数*/
         int ret = custom_panel_setup(L_disp->panel, L);
         if(ret) {
-            luat_heap_free(L_disp);
-            lua_pushboolean(L, 0);
-            lua_pushstring(L, "panel setup fail");
-            return 2;
+            goto init_fail;
         }
     }
 
@@ -338,10 +357,9 @@ static int l_display_init(lua_State *L)
     /*根据接口类型获取显示函数*/
     struct luat_display_funcs *funcs = get_interface_funcs(iface_buf);
     if (funcs == NULL) {
-        luat_heap_free(L_disp);
         lua_pushboolean(L, 0);
         lua_pushstring(L, "unknown interface");
-        return 2;
+        goto init_fail;
     }
 
     L_disp->display_funcs = funcs;
@@ -349,10 +367,9 @@ static int l_display_init(lua_State *L)
     /*获取引脚配置参数*/
     struct panel_pin_device *pin = luat_heap_zalloc(sizeof(struct panel_pin_device));
     if (pin == NULL) {
-        luat_heap_free(L_disp);
         lua_pushboolean(L, 0);
         lua_pushstring(L, "alloc pin fail");
-        return 2;
+        goto init_fail;
     }
 
     custom_pin_setup(pin, L);
@@ -363,27 +380,58 @@ static int l_display_init(lua_State *L)
     int ret = luat_display_init(L_disp);
 
     if (ret != 0) {
-        luat_heap_free(L_disp);
         lua_pushboolean(L, 0);
         lua_pushstring(L, "init fail");
-        return 2;
+        goto init_fail;
     }
 
     /*注册显示器*/
-    L_disp->id = luat_display_register(L_disp);
+    lua_getfield(L, 2, "id");
+    if (lua_isinteger(L, -1)) {
+        int req_id = (int)lua_tointeger(L, -1);
+        L_disp->id = luat_display_register_with_id(L_disp, (uint8_t)req_id);
+        if (L_disp->id < 0) {
+            lua_pop(L, 1);
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "display id already used or out of range");
+            goto init_fail;
+        }
+    } else {
+        L_disp->id = luat_display_register(L_disp);
+        if (L_disp->id < 0) {
+            lua_pop(L, 1);
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "no available display slot");
+            goto init_fail;
+        }
+    }
+    lua_pop(L, 1);
 
     luat_display_on(L_disp);
 
     lua_pushboolean(L, 1);
     return 1;
+
+init_fail:
+    /*screen_win 是本函数分配的，且 panel 是全局模板，
+      因此先释放 screen_win，再由 luat_display_destroy 释放其余资源*/
+    if (screen_win_allocated && L_disp->panel != NULL && L_disp->panel->screen_win != NULL) {
+        luat_heap_free(L_disp->panel->screen_win);
+        L_disp->panel->screen_win = NULL;
+    }
+    luat_display_destroy(L_disp);
+    return 2;
 }
 
+
+
 /**
- * @api display.on()
+ * @api display.on([id])
+ * @int [id] 显示组件 ID，省略则操作默认 display
  * @return bool 成功返回 true，未初始化返回 false
  */
 static int l_display_on(lua_State *L) {
-    struct luat_display *disp = luat_display_get_default();
+    struct luat_display *disp = l_get_display_opt(L, 1);
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -394,11 +442,12 @@ static int l_display_on(lua_State *L) {
 }
 
 /**
- * @api display.off()
+ * @api display.off([id])
+ * @int [id] 显示组件 ID，省略则操作默认 display
  * @return bool 成功返回 true，未初始化返回 false
  */
 static int l_display_off(lua_State *L) {
-    struct luat_display *disp = luat_display_get_default();
+    struct luat_display *disp = l_get_display_opt(L, 1);
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -409,11 +458,12 @@ static int l_display_off(lua_State *L) {
 }
 
 /**
- * @api display.sleep()
+ * @api display.sleep([id])
+ * @int [id] 显示组件 ID，省略则操作默认 display
  * @return bool 成功返回 true，未初始化返回 false
  */
 static int l_display_sleep(lua_State *L) {
-    struct luat_display *disp = luat_display_get_default();
+    struct luat_display *disp = l_get_display_opt(L, 1);
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -424,11 +474,12 @@ static int l_display_sleep(lua_State *L) {
 }
 
 /**
- * @api display.wakeup()
+ * @api display.wakeup([id])
+ * @int [id] 显示组件 ID，省略则操作默认 display
  * @return bool 成功返回 true，未初始化返回 false
  */
 static int l_display_wakeup(lua_State *L) {
-    struct luat_display *disp = luat_display_get_default();
+    struct luat_display *disp = l_get_display_opt(L, 1);
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -439,11 +490,12 @@ static int l_display_wakeup(lua_State *L) {
 }
 
 /**
- * @api display.flush()
+ * @api display.flush([id])
+ * @int [id] 显示组件 ID，省略则操作默认 display
  * @return bool 成功返回 true，未初始化或无帧缓冲返回 false
  */
 static int l_display_flush(lua_State *L) {
-    struct luat_display *disp = luat_display_get_default();
+    struct luat_display *disp = l_get_display_opt(L, 1);
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
@@ -454,30 +506,39 @@ static int l_display_flush(lua_State *L) {
 }
 
 /**
- * @api display.setRotation(rotation)
+ * @api display.setRotation([id], rotation)
+ * @int [id] 显示组件 ID，省略则操作默认 display
  * @int rotation 旋转角度，0/90/180/270，可用 display.ROTATE_0/90/180/270
  * @return bool 成功返回 true，未初始化返回 false
  */
 static int l_display_set_rotation(lua_State *L) {
-    struct luat_display *disp = luat_display_get_default();
+    int id_index = 1;
+    int rot_index = 2;
+    if (lua_gettop(L) == 1) {
+        id_index = 0;
+        rot_index = 1;
+    }
+
+    struct luat_display *disp = (id_index > 0) ? l_get_display_opt(L, id_index) : luat_display_get_default();
     if (disp == NULL) {
         lua_pushboolean(L, 0);
         return 1;
     }
-    uint8_t rot = luaL_checkinteger(L, 1);
+    uint8_t rot = luaL_checkinteger(L, rot_index);
     luat_display_set_rotation(disp, rot);
     lua_pushboolean(L, 1);
     return 1;
 }
 
 /**
- * @api display.getSize()
+ * @api display.getSize([id])
+ * @int [id] 显示组件 ID，省略则操作默认 display
  * @return int width 屏幕宽度
  * @return int height 屏幕高度
  */
 static int l_display_get_size(lua_State *L) 
 {
-    struct luat_display *disp = luat_display_get_default();
+    struct luat_display *disp = l_get_display_opt(L, 1);
     if (disp == NULL) {
         lua_pushinteger(L, 0);
         lua_pushinteger(L, 0);
@@ -491,14 +552,15 @@ static int l_display_get_size(lua_State *L)
 }
 
 /**
- * @api display.getFbInfo()
+ * @api display.getFbInfo([id])
+ * @int [id] 显示组件 ID，省略则操作默认 display
  * @return userdata fb_addr FrameBuffer 地址
  * @return int fb_size FrameBuffer 大小 (bytes)
  * @return int fb_count FrameBuffer 数量 (1=单缓冲, 2=双缓冲)
  */
 static int l_display_get_fb(lua_State *L) 
 {
-    struct luat_display *disp = luat_display_get_default();
+    struct luat_display *disp = l_get_display_opt(L, 1);
     if (disp == NULL || disp->fb_info->fb_start == NULL) {
         lua_pushnil(L);
         return 1;

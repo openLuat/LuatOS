@@ -6,7 +6,7 @@
 
 #ifdef LUAT_USE_DISPLAY
 
-#define LUAT_DISPLAY_COMPONENT_COUNT (1)
+#define LUAT_DISPLAY_COMPONENT_COUNT (5)    //最大支持5个显示组件
 
 #define LUAT_DISPLAY_DEFAULT_SLEEP   0x10
 #define LUAT_DISPLAY_DEFAULT_WAKEUP  0x11
@@ -173,7 +173,7 @@ struct luat_display_rect {
 
 struct luat_display_buf{
 
-    void *buffer;
+    void *buffer;       /*绘制缓冲区基地址*/
     uint32_t size;      /*显示缓冲区大小 (bytes)*/
     uint32_t stride;    /*绘制缓冲区行步长*/
     uint32_t count;     /*显示缓冲区数量*/
@@ -283,25 +283,28 @@ struct luat_display_funcs {
     int (*fb_probe)(struct luat_display_panel *panel, struct luat_display_fb_info *info);
 
     /*初始化接口，在这里设置接口参数、设置timing参数*/
-    int (*inf_init)(struct luat_display_panel *panel);
+    int (*inf_init)(struct luat_display *disp);
 
     /*刷新显示缓冲区*/
-    int (*fb_flush)(struct luat_display_rect *rect, const void *data, enum disp_rotate rotation);
+    int (*fb_flush)(struct luat_display *disp, struct luat_display_rect *rect, const void *data, enum disp_rotate rotation);
 
     /*设置显示层*/
     int (*set_layer)(struct luat_display_layer_data *layer_data);
     
     /*垂直同步*/
-    int (*wait_vsync)(void);
+    int (*wait_vsync)(struct luat_display *disp);
 
     /*交换缓冲区*/
-    int (*pan_display)(int index);
+    int (*pan_display)(struct luat_display *disp, int index);
+
+    /*反初始化接口，释放接口相关资源*/
+    int (*deinit)(struct luat_display *disp);
 
 };
 
 /*显示图形操作接口*/
 struct luat_display_graphics_funcs {
-    void *reserved; /*TODO: 占位，避免 MSVC C2016 空结构体错误*/
+    void *reserved; /*TODO: 占位*/
 };
 
 struct luat_display {
@@ -326,13 +329,20 @@ struct luat_display {
     /*lua显示格式，没用，占位*/
     int bpp;
 
+    /*显示旋转角度*/
+    enum disp_rotate rotation;
+
     void    *userdata;
 
 };
 
 struct luat_display* luat_display_get_default(void);
+struct luat_display* luat_display_get_by_id(uint8_t id);
 int luat_display_register(struct luat_display *disp);
+int luat_display_register_with_id(struct luat_display *disp, uint8_t id);
+void luat_display_unregister(struct luat_display *disp);
 int luat_display_init(struct luat_display *disp);
+int luat_display_destroy(struct luat_display *disp);
 int luat_display_on(struct luat_display *disp);
 int luat_display_off(struct luat_display *disp);
 int luat_display_close(struct luat_display_panel *panel);

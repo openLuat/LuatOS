@@ -24,7 +24,7 @@ LUAT_WEAK int dsi_fb_probe(struct luat_display_panel *panel, struct luat_display
 }
 
 /*初始化接口，在这里设置timing参数*/
-LUAT_WEAK int dsi_inf_init(struct luat_display_panel *panel)
+LUAT_WEAK int dsi_inf_init(struct luat_display *disp)
 {
     /*这里设置timing参数*/
     return -1;
@@ -38,24 +38,30 @@ LUAT_WEAK int dsi_set_layer(struct luat_display_layer_data *layer_data)
 }
 
 /*刷新显示缓冲区*/
-LUAT_WEAK int dsi_fb_flush(struct luat_display_rect *rect, const void *data, enum disp_rotate rotation)
+LUAT_WEAK int dsi_fb_flush(struct luat_display *disp, struct luat_display_rect *rect, const void *data, enum disp_rotate rotation)
 {
     /*这里刷新显示缓冲区*/
     return -1;
 }
 
 /*垂直同步*/
-LUAT_WEAK int dsi_wait_vsync(void)
+LUAT_WEAK int dsi_wait_vsync(struct luat_display *disp)
 {
     /*这里等待垂直同步*/
     return -1;
 }
 
 /*显示面板*/
-LUAT_WEAK int dsi_pan_display(int index)
+LUAT_WEAK int dsi_pan_display(struct luat_display *disp, int index)
 {
     /*这里显示面板*/
     return -1;
+}
+
+/*反初始化接口*/
+LUAT_WEAK int dsi_deinit(struct luat_display *disp)
+{
+    return 0;
 }
 
 
@@ -67,6 +73,7 @@ struct luat_display_funcs dsi_funcs = {
     .fb_flush = dsi_fb_flush,
     .wait_vsync = dsi_wait_vsync,
     .pan_display = dsi_pan_display,
+    .deinit = dsi_deinit,
 };
 
 

@@ -2064,6 +2064,18 @@ void network_deinit_tls(network_ctrl_t *ctrl)
 {
 	if (!ctrl) return;
 #ifdef LUAT_USE_TLS
+	// 先停止并释放定时器，防止回调访问即将释放的资源
+	ctrl->tls_timer_state = -1;
+	if (ctrl->tls_short_timer)
+	{
+		platform_release_timer(ctrl->tls_short_timer);
+		ctrl->tls_short_timer = NULL;
+	}
+	if (ctrl->tls_long_timer)
+	{
+		platform_release_timer(ctrl->tls_long_timer);
+		ctrl->tls_long_timer = NULL;
+	}
 
 	if (ctrl->client_cert)
 	{
@@ -2078,7 +2090,7 @@ void network_deinit_tls(network_ctrl_t *ctrl)
 		luat_heap_free(ctrl->pkey);
 		ctrl->pkey = NULL;
 	}
-	
+
 	if (ctrl->ssl)
 	{
 		mbedtls_ssl_free(ctrl->ssl);
@@ -2101,17 +2113,6 @@ void network_deinit_tls(network_ctrl_t *ctrl)
 	}
 
 	ctrl->tls_mode = 0;
-	ctrl->tls_timer_state = -1;
-	if (ctrl->tls_short_timer)
-	{
-		platform_release_timer(ctrl->tls_short_timer);
-		ctrl->tls_short_timer = NULL;
-	}
-	if (ctrl->tls_long_timer)
-	{
-		platform_release_timer(ctrl->tls_long_timer);
-		ctrl->tls_long_timer = NULL;
-	}
 #endif
 }
 

@@ -1960,8 +1960,14 @@ int network_set_client_cert(network_ctrl_t *ctrl,
 		ctrl->pkey = pkey;
     return ERROR_NONE;
 ERROR_OUT:
-	if (client_cert) luat_heap_free(client_cert);
-	if (pkey) luat_heap_free(pkey);
+	if (client_cert) {
+		mbedtls_x509_crt_free(client_cert);
+		luat_heap_free(client_cert);
+	}
+	if (pkey) {
+		mbedtls_pk_free(pkey);
+		luat_heap_free(pkey);
+	}
 	return -1;
 #else
 	return -1;

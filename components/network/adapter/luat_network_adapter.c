@@ -1894,6 +1894,9 @@ int network_set_server_cert(network_ctrl_t *ctrl, const unsigned char *cert, siz
 	{
 		return -ERROR_PERMISSION_DENIED;
 	}
+	// 重置CA链，防止重复配置时累积
+	mbedtls_x509_crt_free(ctrl->ca_cert);
+	mbedtls_x509_crt_init(ctrl->ca_cert);
     ret = mbedtls_x509_crt_parse( ctrl->ca_cert, cert, cert_len);
 	if (ret != 0)
 	{

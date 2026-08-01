@@ -712,7 +712,7 @@ int luat_websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 	uint16_t port = websocket_ctrl->remote_port;
 	LLOGI("connect host %s port %d", hostname, port);
 	network_close(websocket_ctrl->netc, 0);
-	ret = network_connect(websocket_ctrl->netc, hostname, strlen(hostname), (!network_ip_is_vaild(&websocket_ctrl->ip_addr)) ? NULL : &(websocket_ctrl->ip_addr), port, 0) < 0;
+	ret = network_connect(websocket_ctrl->netc, hostname, strlen(hostname), (!network_ip_is_vaild(&websocket_ctrl->ip_addr)) ? NULL : &(websocket_ctrl->ip_addr), port, 0);
 	LLOGD("network_connect ret %d", ret);
 	if (ret < 0)
 	{

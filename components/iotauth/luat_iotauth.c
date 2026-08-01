@@ -209,20 +209,23 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
         {"&","%26"},
         {"=","%3D"},
     };
-    char temp[64]     = {0};
+    char temp[192]    = {0};
     slen = strlen(temp_msg->res);
     for (i = 0,j = 0; i < slen; i++) {
         for(k = 0; k < 8; k++){
             if(temp_msg->res[i] == url_patametes[k].old_str[0]) {
+                if (j + 3 >= (int)sizeof(temp)) break;
                 memcpy(&temp[j],url_patametes[k].str,strlen(url_patametes[k].str));
                 j+=3;
                 break;
             }
         }
         if (k == 8) {
+            if (j + 1 >= (int)sizeof(temp)) break;
             temp[j++] = temp_msg->res[i];
         }
 	}
+    temp[j] = 0;
     memcpy(temp_msg->res,temp,strlen(temp));
     temp_msg->res[strlen(temp)] = 0;
     memset(temp,0x00,sizeof(temp));
@@ -230,15 +233,18 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
     for (i = 0,j = 0; i < slen; i++) {
         for(k = 0; k < 8; k++){
             if(temp_msg->sign[i] == url_patametes[k].old_str[0]) {
+                if (j + 3 >= (int)sizeof(temp)) break;
                 memcpy(&temp[j],url_patametes[k].str,strlen(url_patametes[k].str));
                 j+=3;
                 break;
             }
         }
         if(k == 8){
+            if (j + 1 >= (int)sizeof(temp)) break;
             temp[j++] = temp_msg->sign[i];
         }
 	}
+    temp[j] = 0;
     memcpy(temp_msg->sign,temp,strlen(temp));
     temp_msg->sign[strlen(temp)] = 0;
     if(snprintf_(token,PASSWORD_LEN, "version=%s&res=%s&et=%s&method=%s&sign=%s", temp_msg->version, temp_msg->res, temp_msg->et, temp_msg->method, temp_msg->sign)<0){

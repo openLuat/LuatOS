@@ -33,6 +33,11 @@ static void luat_debug_print(int index, const char* str, size_t slen, int eof) {
   if (eof) {
 #ifdef LUAT_LOG_NO_NEWLINE
 #else
+    if (dbuff.offset >= 511) {
+      dbuff.buff[dbuff.offset] = 0x00;
+      luat_nprint(dbuff.buff, dbuff.offset);
+      dbuff.offset = 0;
+    }
     dbuff.buff[dbuff.offset++] = '\n';
 #endif
     dbuff.buff[dbuff.offset] = 0x00;
@@ -47,6 +52,17 @@ static void luat_debug_print(int index, const char* str, size_t slen, int eof) {
     return;
   }
   if (index > 1) {
+    if (dbuff.offset >= 511) {
+      dbuff.buff[dbuff.offset] = 0x00;
+#ifdef LUAT_LOG_NO_NEWLINE
+      if (dbuff.offset) {
+      	luat_nprint(dbuff.buff, dbuff.offset);
+      }
+#else
+      luat_nprint(dbuff.buff, dbuff.offset);
+#endif
+      dbuff.offset = 0;
+    }
     dbuff.buff[dbuff.offset++] = ' ';
   }
   if (dbuff.offset + slen >= 512) {

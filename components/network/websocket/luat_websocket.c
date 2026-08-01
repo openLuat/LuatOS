@@ -248,9 +248,18 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, luat_webs
 	{
 		if (tmp[j] == ':')
 		{
-			memcpy(websocket_ctrl->host, tmp, j);
-			websocket_ctrl->host[j] = 0;
-			memcpy(port_tmp, tmp + j + 1, uri_start_index - j - 1);
+			size_t host_len = j;
+			if (host_len >= sizeof(websocket_ctrl->host)) {
+				host_len = sizeof(websocket_ctrl->host) - 1;
+			}
+			memcpy(websocket_ctrl->host, tmp, host_len);
+			websocket_ctrl->host[host_len] = 0;
+			size_t port_len = uri_start_index - j - 1;
+			if (port_len >= sizeof(port_tmp)) {
+				port_len = sizeof(port_tmp) - 1;
+			}
+			memcpy(port_tmp, tmp + j + 1, port_len);
+			port_tmp[port_len] = 0;
 			port = atoi(port_tmp);
 			//LLOGD("port str %s %d", port_tmp, port);
 			// LLOGD("found custom host %s port %d", websocket_ctrl->host, port);
@@ -260,12 +269,22 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, luat_webs
 	// 没有自定义host
 	if (websocket_ctrl->host[0] == 0)
 	{
-		memcpy(websocket_ctrl->host, tmp, uri_start_index);
-		websocket_ctrl->host[uri_start_index] = 0;
+		size_t host_len = uri_start_index;
+		if (host_len >= sizeof(websocket_ctrl->host)) {
+			host_len = sizeof(websocket_ctrl->host) - 1;
+		}
+		memcpy(websocket_ctrl->host, tmp, host_len);
+		websocket_ctrl->host[host_len] = 0;
 		// LLOGD("found custom host %s", websocket_ctrl->host);
 	}
-	memcpy(websocket_ctrl->uri, tmp + uri_start_index, strlen(tmp) - uri_start_index);
-	websocket_ctrl->uri[strlen(tmp) - uri_start_index] = 0;
+	{
+		size_t uri_len = strlen(tmp) - uri_start_index;
+		if (uri_len >= sizeof(websocket_ctrl->uri)) {
+			uri_len = sizeof(websocket_ctrl->uri) - 1;
+		}
+		memcpy(websocket_ctrl->uri, tmp + uri_start_index, uri_len);
+		websocket_ctrl->uri[uri_len] = 0;
+	}
 
 	if (port == 0) {
 		port = is_tls ? 443 : 80;

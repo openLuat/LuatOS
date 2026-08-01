@@ -78,14 +78,10 @@ static int l_fastlz_uncompress(lua_State* L) {
     size_t maxout = luaL_optinteger(L, 2, 4096);
     luaL_Buffer buff;
     luaL_buffinitsize(L, &buff, maxout);
-    uint32_t *htab = luat_heap_malloc( sizeof(uint32_t) * HASH_SIZE);
-    if (htab) {
-        int ret = fastlz_decompress(data, len, buff.b, maxout);
-        luat_heap_free(htab);
-        if (ret > 0) {
-            luaL_pushresultsize(&buff, ret);
-            return 1;
-        }
+    int ret = fastlz_decompress(data, len, buff.b, maxout);
+    if (ret > 0) {
+        luaL_pushresultsize(&buff, ret);
+        return 1;
     }
     return 0;
 }

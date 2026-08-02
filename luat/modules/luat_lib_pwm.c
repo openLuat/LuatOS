@@ -98,7 +98,7 @@ static int l_pwm_close(lua_State *L) {
 
 /**
 PWM捕获
-@api pwm.capture(channel)
+@api pwm.capture(channel, freq)
 @int PWM通道
 @int 捕获频率
 @return boolean 处理结果,成功返回true,失败返回false

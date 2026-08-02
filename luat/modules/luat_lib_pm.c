@@ -253,7 +253,7 @@ static int l_pm_last_reson(lua_State *L) {
 强制进入指定的休眠模式，忽略某些外设的影响，比如USB
 @api pm.force(mode)
 @int 休眠模式
-@return boolean 处理结果,若返回成功,大概率会马上进入该休眠模式
+@return int 底层返回值,若返回0,大概率会马上进入该休眠模式
 @usage
 -- 请求进入休眠模式
 pm.force(pm.HIB)

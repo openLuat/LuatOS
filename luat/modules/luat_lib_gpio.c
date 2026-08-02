@@ -408,11 +408,11 @@ int luat_caplevel_irq_cb(int pin, void* args) {
 @api gpio.caplevel(pin, level,func)
 @int pin GPIO编号,必须是数值
 @int level 需要捕获的电平, 可以是 高电平gpio.HIGH, 低电平gpio.LOW, 或者直接写数值1或0，即管脚上正常时间处于level的反，捕获设定的level持续时间
-@function func 完成捕获后的回调函数，仅一个参数，参数为捕获到的时间长度number型数值，单位us
+@function func 完成捕获后的回调函数，有2个参数，第1个为捕获到的时间长度整数部分(us)，第2个为余数部分
 @return any 返回获取电平的闭包
 @usage
 -- 捕获GPIO7为高电平的持续时间
-gpio.caplevel(7,1,function(us_int) print(us_float) end)
+gpio.caplevel(7,1,function(us_int, us_float) print(us_int, us_float) end)
 */
 static int l_gpio_caplevel(lua_State *L){
     luat_gpio_t conf = {0};

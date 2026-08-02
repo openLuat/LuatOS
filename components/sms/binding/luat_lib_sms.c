@@ -542,7 +542,7 @@ static int sms_encode_and_pack(const char *payload, size_t payload_len)
 @bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
 @bool   是否请求短信回执(状态报告),默认false不请求,设为true时接收方成功接收后会收到SMS_REPORT消息
 @return bool 成功返回true,否则返回false或nil
-@usgae
+@usage
 -- 短信号码支持2种形式
 -- +XXYYYYYYY 其中XX代表国家代码, 中国是86, 推荐使用这种
 -- YYYYYYYYY  直接填目标号码, 例如10010, 10086, 或者国内的手机号码
@@ -620,7 +620,7 @@ static int l_sms_send(lua_State *L) {
 @bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
 @bool   是否请求短信回执(状态报告),默认false不请求,设为true时接收方成功接收后会收到SMS_REPORT消息
 @return bool 异步等待结果 成功返回true, 否则返回false或nil
-@usgae
+@usage
 sys.taskInit(function()
     local str = string.rep("1234567890", 50)
     sys.waitUntil("IP_READY")

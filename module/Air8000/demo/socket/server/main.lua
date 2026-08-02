@@ -18,7 +18,8 @@
         (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
 注意：
-一个tcp server仅支持一路client连接；
+tcp文件夹下的tcp server仅支持一路client连接(一对一)；
+tcp_multi文件夹下的tcp server支持多路client同时连接(一对多)；
 UDP 协议本身是无连接的，这意味着任何在同一局域网下的客户端都可以向服务器的 IP 和端口发送数据包；
 目前只能支持局域网内的client连接，不支持公网ip连接。
 
@@ -76,11 +77,14 @@ require "uart_app"
 -- -- -- 加载定时器应用功能模块
 require "timer_app"
 
--- -- 加载tcp server socket主应用功能模块
--- require "tcp_server_main"
+-- -- 加载tcp server socket主应用功能模块(一对一)
+require "tcp_server_main"
+
+-- -- 如需一对多连接，注释掉上面的require "tcp_server_main"，打开下面的require "tcp_multi_main"
+-- require "tcp_multi_main"
 
 -- -- 加载udp server socket主应用功能模块
-require "udp_server_main"
+-- require "udp_server_main"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -74,7 +74,7 @@ http客户端
 @api http.request(method,url,headers,body,opts,ca_file,client_ca, client_key, client_password)
 @string 请求方法, 支持 GET/POST 等合法的HTTP方法
 @string url地址, 支持 http和https, 支持域名, 支持自定义端口
-@tabal  请求头 可选 例如 {["Content-Type"] = "application/x-www-form-urlencoded"}
+@table  请求头 可选 例如 {["Content-Type"] = "application/x-www-form-urlencoded"}
 @string/zbuff body 可选
 @table  额外配置 可选 包含 timeout:超时时间单位ms 可选,默认10分钟,写0即永久等待 dst:下载路径,可选 adapter:选择使用网卡,可选 debug:是否打开debug信息,可选,ipv6:是否为ipv6 默认不是,可选 callback:下载回调函数,参数 content_len:总长度 body_len:以下载长度 userdata 用户传参,可选 userdata:回调自定义传参  
 @string 服务器ca证书数据, 可选, 一般不需要
@@ -82,7 +82,7 @@ http客户端
 @string 客户端私钥加密数据, 可选, 一般不需要, 双向https认证才需要
 @string 客户端私钥口令数据, 可选, 一般不需要, 双向https认证才需要
 @return int code , 服务器反馈的值>=100, 最常见的是200.如果是底层错误,例如连接失败, 返回值小于0
-@return tabal headers 当code>100时, 代表服务器返回的头部数据 
+@return table headers 当code>100时, 代表服务器返回的头部数据 
 @return string/int body 服务器响应的内容字符串,如果是下载模式, 则返回文件大小
 @usage
 

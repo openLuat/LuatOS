@@ -450,7 +450,7 @@ int l_uart_handler(lua_State *L, void* ptr) {
 
 /*
 配置串口参数
-@api    uart.setup(id, baud_rate, data_bits, stop_bits, partiy, bit_order, buff_size, rs485_gpio, rs485_level, rs485_delay, debug_enable, error_drop)
+@api    uart.setup(id, baud_rate, data_bits, stop_bits, parity, bit_order, buff_size, rs485_gpio, rs485_level, rs485_delay, debug_enable, error_drop)
 @int 串口id, uart0写0, uart1写1, 如此类推, 最大值取决于设备
 @int 波特率, 默认115200，可选择波特率表:{2000000,921600,460800,230400,115200,57600,38400,19200,9600,4800,2400}
 @int 数据位，默认为8, 可选 7/8
@@ -1279,7 +1279,7 @@ UART_SOFT_RX_DONE:
 
 /**
 设置软件uart的硬件配置，只有支持硬件定时器的SOC才能使用，目前只能设置一个，波特率根据平台的软硬件配置有不同的极限，建议9600，接收缓存不超过65535，不支持MSB，支持485自动控制。后续仍要setup操作
-@api uart.createSoft(tx_pin, tx_hwtimer_id, rx_pin, rx_hwtimer_id, adjust_period)
+@api uart.createSoft(tx_pin, tx_hwtimer_id, rx_pin, rx_hwtimer_id, tx_adjust_period, rx_adjust_period)
 @int 发送引脚编号
 @int 发送用的硬件定时器ID
 @int 接收引脚编号

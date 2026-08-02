@@ -1230,6 +1230,8 @@ void luat_airlink_current_mode_set(int mode) {
             luat_netdrv_setup(&conf);
             // AP网卡：设默认MAC并强制link UP，不依赖devinfo同步
             // 解决1601单独重启后XT804不重发devinfo导致DHCP无法工作的问题
+            // 仅 HSPI master 平台编译（1601），其他平台不包含此逻辑
+            #ifdef LUAT_USE_AIRLINK_HSPI_MASTER
             {
                 luat_netdrv_t* ap_drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_AP);
                 if (ap_drv && ap_drv->netif && ap_drv->netif->hwaddr[0] == 0) {
@@ -1239,6 +1241,7 @@ void luat_airlink_current_mode_set(int mode) {
                 }
                 luat_netdrv_set_link_updown(ap_drv, 1);
             }
+            #endif
         }
     }
     else {

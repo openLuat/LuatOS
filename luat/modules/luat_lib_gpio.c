@@ -578,7 +578,7 @@ static int l_gpio_set_default_pull(lua_State *L) {
 /*
 变换GPIO脚输出电平,仅输出模式可用
 @api gpio.toggle(pin)
-@int 管脚的GPIO号
+@int pin 管脚的GPIO号
 @return nil 无返回值
 @usage
 -- 本API于 2022.05.17 添加
@@ -615,8 +615,8 @@ static int l_gpio_toggle(lua_State *L) {
 /*
 在同一个GPIO输出一组脉冲
 @api gpio.pulse(pin,level,len,delay)
-@int gpio号
-@int/string 数值或者字符串.
+@int pin gpio号
+@int/string level 数值或者字符串.
 @int len 长度 单位是bit, 高位在前.
 @int delay 高低电平延迟时间, 用的软件while来delay, 这里的delay值是while循环次数, 具体delay时间必须实际调试才知道
 @return nil 无返回值
@@ -663,9 +663,9 @@ static int l_gpio_pulse(lua_State *L) {
 /*
 防抖设置, 根据硬件ticks进行防抖
 @api gpio.debounce(pin, ms, mode)
-@int gpio号, 0~127, 与硬件相关
-@int 防抖时长,单位毫秒, 最大 65555 ms, 设置为0则关闭
-@int 模式, 0冷却模式, 1延时模式. 默认是0
+@int pin gpio号, 0~127, 与硬件相关
+@int ms 防抖时长,单位毫秒, 最大 65555 ms, 设置为0则关闭
+@int mode 模式, 0冷却模式, 1延时模式. 默认是0
 @return nil 无返回值
 @usage
 -- 消抖模式, 当前支持2种, 2022.12.16开始支持mode=1

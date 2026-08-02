@@ -8,6 +8,7 @@
 #include "luat_netdrv.h"
 #include "luat_netdrv_whale.h"
 #include "luat_netdrv_drv.h"
+#include "luat_netdrv_event.h"
 #include "luat_mcu.h"
 #include "luat_hmeta.h"
 
@@ -1227,6 +1228,17 @@ void luat_airlink_current_mode_set(int mode) {
             luat_netdrv_setup(&conf);
             conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
             luat_netdrv_setup(&conf);
+            // AP网卡：设默认MAC并强制link UP，不依赖devinfo同步
+            // 解决1601单独重启后XT804不重发devinfo导致DHCP无法工作的问题
+            {
+                luat_netdrv_t* ap_drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_AP);
+                if (ap_drv && ap_drv->netif && ap_drv->netif->hwaddr[0] == 0) {
+                    uint8_t default_mac[6] = {0x0C, 0x14, 0x56, 0x00, 0x00, 0x01};
+                    memcpy(ap_drv->netif->hwaddr, default_mac, 6);
+                    ap_drv->netif->hwaddr_len = 6;
+                }
+                luat_netdrv_set_link_updown(ap_drv, 1);
+            }
         }
     }
     else {

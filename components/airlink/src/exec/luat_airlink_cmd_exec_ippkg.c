@@ -13,7 +13,6 @@
 #include "luat_netdrv.h"
 #include "luat_netdrv_napt.h"
 #include "luat_netdrv_pkg.h"
-#include "luat_netdrv_lwip_etharp.h"
 #include "luat_network_adapter.h"
 
 #define LUAT_LOG_TAG "airlink"
@@ -47,31 +46,6 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd
     int ret = 0;
     luat_netdrv_t* drv = NULL;
 
-#ifdef LUAT_USE_AIRLINK_HSPI_MASTER
-    // HSPI 桥接：ARP 网关提取 + MAC 注入，1601 lwIP DHCP 已设网关，此块为冗余保护
-    do {
-        uint8_t *eth = cmd->data + 1;
-        if (cmd->len < 1 + 42) break;
-        if (eth[12] != 0x08 || eth[13] != 0x06) break;
-        if (eth[21] != 0x02) break;
-        drv = luat_netdrv_get(adapter_id);
-        if (!drv || !drv->netif) break;
-        uint32_t gw = (uint32_t)eth[28] | (eth[29]<<8) | (eth[30]<<16) | ((uint32_t)eth[31]<<24);
-        if (gw == 0) break;
-        drv->netif->gw.u_addr.ip4.addr = gw;
-        {   /* 注入网关 MAC，避免 TCP SYN 排队问题 */
-            ip4_addr_t gw_ip;
-            gw_ip.addr = gw;
-            struct eth_addr gw_mac;
-            memcpy(gw_mac.addr, eth + 22, 6);
-            err_t arp_ret = luat_netdrv_etharp_add_static_entry_on_netif(drv->netif, &gw_ip, &gw_mac);
-            if (arp_ret != ERR_OK) {
-                LLOGW("ARP entry add failed: ret=%d", arp_ret);
-            }
-        }
-        luat_netdrv_send_ip_event(drv, 1);
-    } while (0);
-#endif
 
 
     ret = luat_netdrv_pkg_input(adapter_id, LUAT_NETDRV_CH_HW,

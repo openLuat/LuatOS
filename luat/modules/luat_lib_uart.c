@@ -1279,7 +1279,7 @@ UART_SOFT_RX_DONE:
 
 /**
 设置软件uart的硬件配置，只有支持硬件定时器的SOC才能使用，目前只能设置一个，波特率根据平台的软硬件配置有不同的极限，建议9600，接收缓存不超过65535，不支持MSB，支持485自动控制。后续仍要setup操作
-@api uart.createSoft(tx_pin, tx_hwtimer_id, rx_pin, rx_hwtimer_id, adjust_period)
+@api uart.createSoft(tx_pin, tx_hwtimer_id, rx_pin, rx_hwtimer_id, tx_adjust_period, rx_adjust_period)
 @int 发送引脚编号
 @int 发送用的硬件定时器ID
 @int 接收引脚编号

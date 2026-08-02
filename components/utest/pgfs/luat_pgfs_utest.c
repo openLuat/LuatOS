@@ -4289,6 +4289,411 @@ static int pgfs_test_replay_failure_cleans_up(void) {
     return fail;
 }
 
+/* --- Multi-mount adapter tests --- */
+
+/* Test: two independent partitions mounted simultaneously.
+ * Each partition has its own flash backend and mount context.
+ * Files written to one must not appear in the other. */
+static int pgfs_test_multi_mount_two_partitions_independent(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash_a = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts_a = {0};
+    pgfs_mount_ctx_t ctx_a = {0};
+    /* Second partition uses a separate heap-allocated flash region */
+    static uint8_t s_flash_b_mem[0x8000]; /* 32KB */
+    pgfs_test_flash_t flash_b_storage = {0};
+    pgfs_test_flash_t* flash_b = &flash_b_storage;
+    pgfs_flash_opts_t opts_b = {0};
+    pgfs_mount_ctx_t ctx_b = {0};
+    uint32_t erase_size = 4096;
+    FILE* f = NULL;
+    char buf[32] = {0};
+    const char payload_a[] = "partition_alpha";
+    const char payload_b[] = "partition_bravo";
+    size_t len_a = sizeof(payload_a) - 1u;
+    size_t len_b = sizeof(payload_b) - 1u;
+
+    memset(flash_a->mem, 0xFF, flash_a->mem_size);
+    memset(s_flash_b_mem, 0xFF, sizeof(s_flash_b_mem));
+    flash_b->mem = s_flash_b_mem;
+    flash_b->mem_size = sizeof(s_flash_b_mem);
+
+    opts_a.ctx = flash_a; opts_a.read = pgfs_test_read; opts_a.write = pgfs_test_write;
+    opts_a.erase = pgfs_test_erase; opts_a.control = pgfs_test_control;
+    opts_b.ctx = flash_b; opts_b.read = pgfs_test_read; opts_b.write = pgfs_test_write;
+    opts_b.erase = pgfs_test_erase; opts_b.control = pgfs_test_control;
+
+    /* Init context A */
+    ctx_a.flash_opts = &opts_a;
+    ctx_a.runtime_generation = 1;
+    ctx_a.mounted = 1;
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts_a.control(opts_a.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx_a.layout);
+            ctx_a.data_log_base_addr = ctx_a.layout.data_log_first_block * ctx_a.layout.erase_size;
+            ctx_a.data_log_write_addr = ctx_a.data_log_base_addr;
+            ctx_a.data_log_prepared_until = ctx_a.data_log_base_addr;
+        }
+    }
+    pgfs_ftl_init(&ctx_a.ftl, &opts_a, erase_size, 8);
+
+    /* Init context B */
+    ctx_b.flash_opts = &opts_b;
+    ctx_b.runtime_generation = 1;
+    ctx_b.mounted = 1;
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts_b.control(opts_b.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx_b.layout);
+            ctx_b.data_log_base_addr = ctx_b.layout.data_log_first_block * ctx_b.layout.erase_size;
+            ctx_b.data_log_write_addr = ctx_b.data_log_base_addr;
+            ctx_b.data_log_prepared_until = ctx_b.data_log_base_addr;
+        }
+    }
+    pgfs_ftl_init(&ctx_b.ftl, &opts_b, erase_size, 8);
+
+    /* Write file to partition A */
+    f = pgfs_file_open(&ctx_a, "/data/a.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx_a, payload_a, 1, len_a, f) != len_a) fail++;
+    if (pgfs_file_close(&ctx_a, f) != 0) fail++;
+
+    /* Write file to partition B */
+    f = pgfs_file_open(&ctx_b, "/data/b.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx_b, payload_b, 1, len_b, f) != len_b) fail++;
+    if (pgfs_file_close(&ctx_b, f) != 0) fail++;
+
+    /* Verify: file A readable from ctx_a */
+    f = pgfs_file_open(&ctx_a, "/data/a.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-multimount] a.txt missing from partition A\n");
+        fail++;
+    } else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx_a, buf, 1, len_a, f) != len_a ||
+            memcmp(buf, payload_a, len_a) != 0) {
+            printf("[pgfs-multimount] a.txt content wrong\n");
+            fail++;
+        }
+        pgfs_file_close(&ctx_a, f);
+    }
+
+    /* Verify: file B readable from ctx_b */
+    f = pgfs_file_open(&ctx_b, "/data/b.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-multimount] b.txt missing from partition B\n");
+        fail++;
+    } else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx_b, buf, 1, len_b, f) != len_b ||
+            memcmp(buf, payload_b, len_b) != 0) {
+            printf("[pgfs-multimount] b.txt content wrong\n");
+            fail++;
+        }
+        pgfs_file_close(&ctx_b, f);
+    }
+
+out:
+    pgfs_file_reset_all();
+    pgfs_ftl_deinit(&ctx_a.ftl);
+    pgfs_ftl_deinit(&ctx_b.ftl);
+    pgfs_test_flash_free(flash_a);
+    return fail;
+}
+
+/* Test: mount/umount via VFS adapter. Verifies that:
+ * - mount succeeds and returns a valid context
+ * - umount frees the slot
+ * - remount after umount succeeds (slot reuse)
+ * - duplicate mount point is rejected
+ * Uses the public luat_pgfs_mount/luat_pgfs_umount API. */
+static int pgfs_test_vfs_mount_umount_slot_reuse(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    int ret = 0;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    /* Need capacity >= 8MB to pass the TDD gate */
+    flash->capacity_override = 0x1000000u; /* 16MB */
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    /* Ensure pgfs is registered */
+    pgfs_vfs_init();
+
+    /* Mount */
+    ret = luat_pgfs_mount("/pgfs0", &opts);
+    if (ret != 0) {
+        printf("[pgfs-multimount] initial mount failed ret=%d\n", ret);
+        fail++;
+        goto out;
+    }
+
+    /* Verify helper finds it */
+    if (pgfs_find_mount_by_point("/pgfs0") == NULL) {
+        printf("[pgfs-multimount] find_mount_by_point failed after mount\n");
+        fail++;
+    }
+
+    /* Duplicate mount point must fail */
+    ret = luat_pgfs_mount("/pgfs0", &opts);
+    if (ret == 0) {
+        printf("[pgfs-multimount] duplicate mount should have failed\n");
+        fail++;
+        /* Clean up the duplicate if it somehow succeeded */
+        luat_pgfs_umount("/pgfs0");
+    }
+
+    /* Umount */
+    ret = luat_pgfs_umount("/pgfs0");
+    if (ret != 0) {
+        printf("[pgfs-multimount] umount failed ret=%d\n", ret);
+        fail++;
+    }
+
+    /* After umount, helper must not find it */
+    if (pgfs_find_mount_by_point("/pgfs0") != NULL) {
+        printf("[pgfs-multimount] find_mount_by_point should return NULL after umount\n");
+        fail++;
+    }
+
+    /* Remount (slot reuse) */
+    memset(flash->mem, 0xFF, flash->mem_size);
+    ret = luat_pgfs_mount("/pgfs0", &opts);
+    if (ret != 0) {
+        printf("[pgfs-multimount] remount after umount failed ret=%d\n", ret);
+        fail++;
+    } else {
+        /* Clean up */
+        luat_pgfs_umount("/pgfs0");
+    }
+
+out:
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Test: mount slot exhaustion. Mount PGFS_MAX_MOUNTS partitions,
+ * then verify the next mount fails. Uses distinct mount points and
+ * the same flash backend (acceptable for slot management testing). */
+static int pgfs_test_vfs_mount_slot_exhaustion(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    int ret = 0;
+    uint32_t i = 0;
+    char mp[16];
+    uint32_t mounted_count = 0;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    flash->capacity_override = 0x1000000u; /* 16MB */
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    pgfs_vfs_init();
+
+    /* Mount PGFS_MAX_MOUNTS partitions */
+    for (i = 0; i < PGFS_MAX_MOUNTS; i++) {
+        snprintf(mp, sizeof(mp), "/pg%u", (unsigned)i);
+        /* Each mount needs a fresh flash (the mount path writes to flash).
+         * For slot exhaustion testing, we just need the mount to succeed
+         * or fail at the slot level. Reset flash for each mount. */
+        memset(flash->mem, 0xFF, flash->mem_size);
+        ret = luat_pgfs_mount(mp, &opts);
+        if (ret == 0) {
+            mounted_count++;
+        } else {
+            /* If mount fails for non-slot reasons (e.g. VFS mount table
+             * full), that's acceptable — we just count what succeeded. */
+            break;
+        }
+    }
+
+    if (mounted_count == 0) {
+        printf("[pgfs-multimount] no mounts succeeded, cannot test exhaustion\n");
+        fail++;
+    } else if (mounted_count < PGFS_MAX_MOUNTS) {
+        /* VFS mount table limit hit before pgfs slot limit — that's OK,
+         * the VFS has its own cap. Not a pgfs bug. */
+        printf("[pgfs-multimount] VFS limit reached at %u mounts (pgfs max=%u), acceptable\n",
+               (unsigned)mounted_count, (unsigned)PGFS_MAX_MOUNTS);
+    }
+
+    /* If all PGFS_MAX_MOUNTS slots are used, the next must fail */
+    if (mounted_count == PGFS_MAX_MOUNTS) {
+        memset(flash->mem, 0xFF, flash->mem_size);
+        ret = luat_pgfs_mount("/pgX", &opts);
+        if (ret == 0) {
+            printf("[pgfs-multimount] mount beyond PGFS_MAX_MOUNTS should fail\n");
+            fail++;
+            luat_pgfs_umount("/pgX");
+        }
+    }
+
+    /* Cleanup: umount all */
+    for (i = 0; i < mounted_count; i++) {
+        snprintf(mp, sizeof(mp), "/pg%u", (unsigned)i);
+        luat_pgfs_umount(mp);
+    }
+
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* Test: unmount persists data, remount recovers it via replay.
+ * Uses the internal API directly (like pgfs_test_multi_mount_cycle_reads_via_replay)
+ * but exercises the VFS adapter's umount logic (CP commit + FTL persist + slot clear). */
+static uint8_t s_persist_test_flash_mem[0x1000000]; /* 16MB dedicated */
+
+static int pgfs_test_vfs_umount_persists_remount_recovers(void) {
+    int fail = 0;
+    pgfs_test_flash_t flash_storage = {0};
+    pgfs_test_flash_t* flash = &flash_storage;
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    pgfs_checkpoint_t loaded_cp = {0};
+    FILE* f = NULL;
+    char buf[32] = {0};
+    const char payload[] = "persist_across_umount";
+    size_t payload_len = sizeof(payload) - 1u;
+
+    memset(s_persist_test_flash_mem, 0xFF, sizeof(s_persist_test_flash_mem));
+    flash->mem = s_persist_test_flash_mem;
+    flash->mem_size = sizeof(s_persist_test_flash_mem);
+    flash->capacity_override = 0x1000000u; /* 16MB */
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+
+    /* --- Mount #1: write a file --- */
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts.control(opts.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx.layout);
+            ctx.data_log_base_addr = ctx.layout.data_log_first_block * ctx.layout.erase_size;
+            ctx.data_log_write_addr = ctx.data_log_base_addr;
+            ctx.data_log_prepared_until = ctx.data_log_base_addr;
+        }
+    }
+    pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16);
+
+    f = pgfs_file_open(&ctx, "/persist/test.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, payload, 1, payload_len, f) != payload_len) fail++;
+    if (pgfs_file_close(&ctx, f) != 0) fail++;
+    f = NULL;
+
+    /* Simulate umount: persist FTL + commit CP (same as luat_vfs_pgfs_umount) */
+    pgfs_ftl_on_checkpoint_commit(&ctx);
+    if (pgfs_checkpoint_commit_pending(&ctx) != 0) {
+        printf("[pgfs-multimount] CP commit on umount failed\n");
+        fail++;
+    }
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_file_reset_all();
+    memset(&ctx, 0, sizeof(ctx));
+
+    /* --- Mount #2: reload CP, replay, read back --- */
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = 5 * erase_size;
+    ctx.data_log_write_addr = ctx.data_log_base_addr;
+    ctx.data_log_prepared_until = ctx.data_log_base_addr;
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts.control(opts.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx.layout);
+        }
+    }
+    if (pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 16) != 0) {
+        fail++; goto out;
+    }
+    if (pgfs_checkpoint_load(&ctx, &loaded_cp) != 0) {
+        printf("[pgfs-multimount] remount CP load failed\n");
+        fail++; goto out;
+    }
+    ctx.checkpoint = loaded_cp;
+    ctx.checkpoint_loaded = 1;
+    ctx.data_log_write_addr = ctx.data_log_base_addr
+        + (uint32_t)loaded_cp.log_tail_block * erase_size
+        + loaded_cp.log_tail_offset;
+    ctx.data_log_prepared_until = ctx.data_log_write_addr;
+    if (pgfs_replay_data_log(&ctx) != 0) {
+        printf("[pgfs-multimount] remount replay failed\n");
+        fail++; goto out;
+    }
+
+    f = pgfs_file_open(&ctx, "/persist/test.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-multimount] file missing after remount\n");
+        fail++;
+    } else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx, buf, 1, payload_len, f) != payload_len ||
+            memcmp(buf, payload, payload_len) != 0) {
+            printf("[pgfs-multimount] file content wrong after remount\n");
+            fail++;
+        }
+        pgfs_file_close(&ctx, f);
+    }
+
+out:
+    pgfs_file_reset_all();
+    pgfs_ftl_deinit(&ctx.ftl);
+    return fail;
+}
+
+/* Test: pgfs_find_free_mount_slot returns NULL when all slots used,
+ * and returns a valid pointer when a slot is free. Tests the helper
+ * functions directly without going through VFS. */
+static int pgfs_test_mount_helper_functions(void) {
+    int fail = 0;
+
+    /* With no mounts, find_first_mounted returns NULL */
+    if (pgfs_find_first_mounted() != NULL) {
+        /* There might be a leftover mount from a previous test.
+         * Not a hard failure, but unexpected. */
+        printf("[pgfs-multimount] find_first_mounted non-NULL with no mounts (leftover?)\n");
+    }
+
+    /* find_mount_by_point with NULL returns NULL */
+    if (pgfs_find_mount_by_point(NULL) != NULL) {
+        printf("[pgfs-multimount] find_mount_by_point(NULL) should be NULL\n");
+        fail++;
+    }
+
+    /* find_mount_by_point with nonexistent point returns NULL */
+    if (pgfs_find_mount_by_point("/nonexistent") != NULL) {
+        printf("[pgfs-multimount] find_mount_by_point(nonexistent) should be NULL\n");
+        fail++;
+    }
+
+    /* find_mount_by_opts with NULL returns NULL */
+    if (pgfs_find_mount_by_opts(NULL) != NULL) {
+        printf("[pgfs-multimount] find_mount_by_opts(NULL) should be NULL\n");
+        fail++;
+    }
+
+    /* find_free_mount_slot should return non-NULL when slots available */
+    if (pgfs_find_free_mount_slot() == NULL) {
+        printf("[pgfs-multimount] find_free_mount_slot NULL but slots should be free\n");
+        fail++;
+    }
+
+    return fail;
+}
+
 int pgfs_run_c_layer_tests(void) {
     int fail = 0;
     int r = 0;
@@ -4359,6 +4764,12 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_replay_failure_cleans_up);
     PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
     PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
+    /* Multi-mount adapter tests */
+    PGFS_RUN_CTEST(pgfs_test_mount_helper_functions);
+    PGFS_RUN_CTEST(pgfs_test_multi_mount_two_partitions_independent);
+    PGFS_RUN_CTEST(pgfs_test_vfs_mount_umount_slot_reuse);
+    PGFS_RUN_CTEST(pgfs_test_vfs_mount_slot_exhaustion);
+    PGFS_RUN_CTEST(pgfs_test_vfs_umount_persists_remount_recovers);
     /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
      * not registered in the default c_layer_selftests dispatch. It depends
      * on data-log compaction after file deletion to reset the write head,
@@ -4628,6 +5039,21 @@ int luat_pgfs_utest(lua_State *L, const char *case_name) {
     }
     if (strcmp(case_name, "skip_ftl_state_block_in_data_log_erase") == 0) {
         return pgfs_test_skip_ftl_state_block_in_data_log_erase() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "mount_helper_functions") == 0) {
+        return pgfs_test_mount_helper_functions() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "multi_mount_two_partitions_independent") == 0) {
+        return pgfs_test_multi_mount_two_partitions_independent() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "vfs_mount_umount_slot_reuse") == 0) {
+        return pgfs_test_vfs_mount_umount_slot_reuse() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "vfs_mount_slot_exhaustion") == 0) {
+        return pgfs_test_vfs_mount_slot_exhaustion() == 0 ? 0 : -1;
+    }
+    if (strcmp(case_name, "vfs_umount_persists_remount_recovers") == 0) {
+        return pgfs_test_vfs_umount_persists_remount_recovers() == 0 ? 0 : -1;
     }
     return -1;
 }

@@ -428,7 +428,7 @@ LUAT_WEAK int luat_pm_iovolt_ctrl(int id, int val) {
 
 /**
 配置唤醒引脚
-@api pm.wakeupPin(pin,level)
+@api pm.wakeupPin(pin, level, chip)
 @int gpio引脚
 @int 唤醒方式, 例如gpio.RISING (上升沿), gpio.FALLING (下降沿)
 @int 芯片的ID, 默认是0, 大部分型号都只有0

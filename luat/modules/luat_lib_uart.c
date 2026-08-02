@@ -450,7 +450,7 @@ int l_uart_handler(lua_State *L, void* ptr) {
 
 /*
 配置串口参数
-@api    uart.setup(id, baud_rate, data_bits, stop_bits, partiy, bit_order, buff_size, rs485_gpio, rs485_level, rs485_delay, debug_enable, error_drop)
+@api    uart.setup(id, baud_rate, data_bits, stop_bits, parity, bit_order, buff_size, rs485_gpio, rs485_level, rs485_delay, debug_enable, error_drop)
 @int 串口id, uart0写0, uart1写1, 如此类推, 最大值取决于设备
 @int 波特率, 默认115200，可选择波特率表:{2000000,921600,460800,230400,115200,57600,38400,19200,9600,4800,2400}
 @int 数据位，默认为8, 可选 7/8

@@ -491,6 +491,9 @@ void tcp_ext_arg_set(struct tcp_pcb *pcb, u8_t id, void *arg);
 void *tcp_ext_arg_get(const struct tcp_pcb *pcb, u8_t id);
 #endif
 
+//可调整的rx缓存块
+extern u32_t soc_tcpip_rx_cache(void);
+
 #ifdef __cplusplus
 }
 #endif

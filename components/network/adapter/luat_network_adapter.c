@@ -1,5 +1,6 @@
 
 #include "luat_base.h"
+#include "luat_conf_bsp.h"
 #include "luat_mem.h"
 #include "luat_crypto.h"
 #include "luat_rtos.h"
@@ -2928,4 +2929,30 @@ int network_tcpip_callback(nw_callback_fn fn, void *ctx, int block) {
 		return 0;
 	}
 	return tcpip_callback_with_block(fn, ctx, block);
+}
+
+#ifndef LUAT_LWIP_RX_CACHE_NUM
+#if defined(CHIP_EC718) || defined (CHIP_EC716)
+#define LUAT_LWIP_RX_CACHE_NUM	6
+#else
+#define LUAT_LWIP_RX_CACHE_NUM	32
+#endif
+#endif
+
+#ifndef __LUAT_C_CODE_IN_ISR__
+#define __LUAT_C_CODE_IN_ISR__
+#endif
+
+static uint32_t _lwip_rx_cache_nums = LUAT_LWIP_RX_CACHE_NUM;
+
+__LUAT_C_CODE_IN_ISR__ u32_t soc_tcpip_rx_cache(void) {
+	return _lwip_rx_cache_nums * TCP_MSS;
+}
+
+void network_set_lwip_rx_cache_nums(uint32_t nums) {
+	_lwip_rx_cache_nums = nums;
+}
+
+uint32_t network_get_lwip_rx_cache_nums(void) {
+	return _lwip_rx_cache_nums;
 }

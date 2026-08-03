@@ -302,7 +302,7 @@
 #define TCP_SND_BUF                     (32 * TCP_MSS)
 #endif
 #ifndef TCP_WND
-#define TCP_WND                         (32 * TCP_MSS)
+#define TCP_WND                         (soc_tcpip_rx_cache())
 #endif
 #define MEM_SIZE 						8192 * 3
 

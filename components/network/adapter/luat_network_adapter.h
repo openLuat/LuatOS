@@ -825,5 +825,8 @@ int network_close_all_ctrl_by_adapter(uint8_t adapter_index, uint32_t timeout_ms
 typedef void (*nw_callback_fn)(void *ctx);
 int network_tcpip_callback(nw_callback_fn function, void *ctx, int block);
 
+
+void network_set_lwip_rx_cache_nums(uint32_t nums);
+uint32_t network_get_lwip_rx_cache_nums(void);
 #endif
 // #endif

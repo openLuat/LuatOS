@@ -1188,7 +1188,11 @@ int luat_audio_request_init(luat_audio_request_block_t *request_block)
 	}
 	memset(request_block, 0, sizeof(luat_audio_request_block_t));
 	luat_mutex_lock(_luat_audio.request_lock);
-	request_block->request_id = ++_luat_audio.next_request_id;
+	if (!_luat_audio.next_request_id) {
+		_luat_audio.next_request_id = 1;
+	}
+	request_block->request_id = _luat_audio.next_request_id;
+	_luat_audio.next_request_id += 1;
 	luat_mutex_unlock(_luat_audio.request_lock);
 	LLOGC(luat_audio_debug_flag, "request_id: %d init", request_block->request_id);
 	return LUAT_ERROR_NONE;
@@ -1244,6 +1248,7 @@ void luat_audio_request_deinit(luat_audio_request_block_t *request_block)
 	}
 	request_block->cb = NULL;
 	LLOGC(luat_audio_debug_flag, "request_id: %d deinit", request_block->request_id);
+	request_block->request_id = 0;
 }
 
 int luat_audio_request_start(luat_audio_request_block_t *request_block, uint8_t is_sync)
@@ -1286,13 +1291,16 @@ int luat_audio_request_start(luat_audio_request_block_t *request_block, uint8_t 
 
 void luat_audio_request_cancel(luat_audio_request_block_t *request_block)
 {
+	if (!request_block->cb || !request_block->request_id) {
+		LLOGE("request block %x not init! %x-%u", request_block, request_block->cb, request_block->request_id);
+	}
 	void *done_sem = luat_mutex_create();
+	LLOGC(luat_audio_debug_flag, "request_id: %d cancel", request_block->request_id);
 	luat_mutex_lock(done_sem);
 	request_block->cancel_sem = done_sem;
 	luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_REQUEST_CANCEL, (uint32_t)request_block, 0, 0, 0);
 	luat_mutex_lock(done_sem);
 	luat_mutex_release(done_sem);
-	LLOGC(luat_audio_debug_flag, "request_id: %d cancel", request_block->request_id);
 	return;
 }
 

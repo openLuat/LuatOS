@@ -1026,6 +1026,7 @@ static int l_audio_stop(lua_State *L) {
         }
         l_audio_extern_source_t *l_extern_source = &_l_audio.extern_source_table[request_index];
         if (l_extern_source->is_busy) {
+            l_extern_source->is_busy = 0;
             luat_audio_request_delete_source(&l_extern_source->extern_source);
             luat_llist_del(&l_extern_source->node);
             luat_llist_add_tail(&l_extern_source->node, &_l_audio.extern_source_free_list);
@@ -1038,6 +1039,7 @@ static int l_audio_stop(lua_State *L) {
     }
     l_audio_request_t *l_req = &_l_audio.request_table[request_index];
     if (l_req->is_busy) {
+        l_req->is_busy = 0;
         luat_audio_request_cancel(&l_req->request);
         luat_llist_del(&l_req->node);
         luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);

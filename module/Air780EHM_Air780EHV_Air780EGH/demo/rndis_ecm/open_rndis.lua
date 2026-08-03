@@ -30,6 +30,7 @@ local function rndis_task()
     if not fly_sign then
         log.info("进入飞行模式成功,打开RNDIS模式")
         -- 调用 mobile.config 函数启用 RNDIS 功能
+        -- 蜂窝网络模块的usb以太网卡控制，bit0开关：1开0关，bit1模式：1-NAT 0-独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2协议：1 ECM,0 RNDIS(需在飞行模式下设置)
         log.info("我看看 RNDIS 是否启动成功：", mobile.config(mobile.CONF_USB_ETHERNET, 3))
         log.info("退出飞行模式")
         mobile.flymode(0, false)

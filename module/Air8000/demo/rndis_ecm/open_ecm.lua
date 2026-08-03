@@ -36,7 +36,7 @@ local function ecm_task()
 
         -- 调用 mobile.config 函数启用 ECM 功能
         -- 传入的第二个参数 7 ，实际为二进制的 0111
-        -- 蜂窝网络模块的usb以太网卡控制，bit0开关，1开0关，bit1模式，1NAT0独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2协议1 ECM,0 RNDIS，飞行模式里设置。
+        -- 蜂窝网络模块的usb以太网卡控制，bit0开关：1开0关，bit1模式：1-NAT 0-独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2协议：1 ECM,0 RNDIS(需在飞行模式下设置)
         log.info("我看看 ECM 是否启动成功：", mobile.config(mobile.CONF_USB_ETHERNET, 7))
         log.info("退出飞行模式")
         mobile.flymode(0, false)

@@ -1353,6 +1353,14 @@ end)
 mobile.config(mobile.CONF_SIM_WC_MODE, 2)
 -- 清空统计值
 mobile.config(mobile.CONF_SIM_WC_MODE, 3)
+
+-- USB网卡设置为ECM模式，NAT开启
+pm.power(pm.USB ,false)
+mobile.config(mobile.CONF_USB_ETHERNET, 7)
+mobile.flymode(0, true)
+mobile.flymode(0, false)
+pm.power(pm.USB ,true)
+
  */
 static int l_mobile_config(lua_State* L) {
     uint8_t item = luaL_optinteger(L, 1, 0);
@@ -1813,7 +1821,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CONF_FAKE_CELL_BARTIME",        ROREG_INT(MOBILE_CONF_FAKE_CELL_BARTIME)},
     //@const CONF_RESET_TO_FACTORY number 删除已保存的协议栈参数，重启后会使用默认配置
     {"CONF_RESET_TO_FACTORY",        ROREG_INT(MOBILE_CONF_RESET_TO_FACTORY)},
-    //@const CONF_USB_ETHERNET number 蜂窝网络模块的usb以太网卡控制，bit0开关，1开0关，bit1模式，1NAT0独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2协议1ECM,0RNDIS，飞行模式里设置
+    //@const CONF_USB_ETHERNET number 蜂窝网络模块的usb以太网卡控制，bit0：开关，1是开，0是关，bit1：模式，1是NAT，0是独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2：协议，1是ECM，0是RNDIS，切换模式需要重新开关usb和重启协议栈（进出一次飞行模式）
     {"CONF_USB_ETHERNET",        ROREG_INT(MOBILE_CONF_USB_ETHERNET)},
 	//@const CONF_DISABLE_NCELL_MEAS number 关闭邻区测量 1关，0开，除了功耗测试外不建议使用
 	{"CONF_DISABLE_NCELL_MEAS",        ROREG_INT(MOBILE_CONF_DISABLE_NCELL_MEAS)},

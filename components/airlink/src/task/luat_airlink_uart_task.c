@@ -349,6 +349,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
     int uart_id;
     uint8_t *pbuff = luat_heap_malloc(AIRLINK_UART_RAW_FRAME_MAX);
     event.id = 0;
+    uint64_t last_heartbeat_ms = 0;
 
     while(g_airlink_uart.uart_running)
     {
@@ -362,7 +363,20 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             break; // 如果当前模式已经确定了, 并且不是UART模式, 那么就退出这个任务
         }
         if (ret < 0) {
-            continue; // 等待事件超时了, 继续等待
+            // 空闲超时: 发送心跳帧（间隔 2s），保持对端 g_airlink_last_cmd_timestamp 刷新
+            if (luat_mcu_tick64_ms() - last_heartbeat_ms > 2000) {
+                last_heartbeat_ms = luat_mcu_tick64_ms();
+                send_devinfo_update_evt();
+            }
+            continue;
+        }
+        #else
+        if (ret != 0) {
+            // 空闲超时: 发送心跳帧（间隔 2s），保持对端 g_airlink_last_cmd_timestamp 刷新
+            if (luat_mcu_tick64_ms() - last_heartbeat_ms > 2000) {
+                last_heartbeat_ms = luat_mcu_tick64_ms();
+                send_devinfo_update_evt();
+            }
         }
         #endif
         while (1) {

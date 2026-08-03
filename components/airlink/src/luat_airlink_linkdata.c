@@ -85,9 +85,11 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, u
     memset(&data->flags, 0, sizeof(data->flags));
 
     // 如果支持RPC, 那就把对应的flags设置一下
-    if (luat_airlink_mode_link_data_cb_get() != NULL) {
-        data->flags.rpc_supported = 1;
-    }
+    // 注: 原判据 link_data_cb 是传输层回调(与RPC无关), 会导致所有UART固件误报 rpc=1;
+    // 改为编译期宏判断, 只有真正编译了RPC模块的固件才宣称支持RPC
+#ifdef LUAT_USE_AIRLINK_RPC
+    data->flags.rpc_supported = 1;
+#endif
     // 分片传输能力标记
     data->flags.frag_supported = 1;
 

@@ -215,6 +215,7 @@ size_t tiny_epd_framebuffer_size(const tiny_epd_t *epd);
 
 const tiny_epd_driver_t *tiny_epd_driver_1in54(void);
 const tiny_epd_driver_t *tiny_epd_driver_1in54_v2(void);
+const tiny_epd_driver_t *tiny_epd_driver_1in54b_v2(void);
 const tiny_epd_driver_t *tiny_epd_driver_1in54_v3(void);
 const tiny_epd_driver_t *tiny_epd_driver_1in54_ssd1607(void);
 const tiny_epd_driver_t *tiny_epd_driver_1in54r(void);

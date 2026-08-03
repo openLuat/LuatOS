@@ -30,6 +30,7 @@
 #define LUAT_TINY_EPD_MODEL_1IN54_V3 3
 #define LUAT_TINY_EPD_MODEL_1IN54_SSD1607 4
 #define LUAT_TINY_EPD_MODEL_1IN54R 5
+#define LUAT_TINY_EPD_MODEL_1IN54B_V2 6
 
 typedef struct {
     tiny_epd_t *epd;
@@ -266,7 +267,8 @@ static int luat_tiny_epd_get_model(lua_State *L)
                 model == LUAT_TINY_EPD_MODEL_1IN54_V2 ||
                 model == LUAT_TINY_EPD_MODEL_1IN54_V3 ||
                 model == LUAT_TINY_EPD_MODEL_1IN54_SSD1607 ||
-                model == LUAT_TINY_EPD_MODEL_1IN54R) ? (int)model : 0;
+                model == LUAT_TINY_EPD_MODEL_1IN54R ||
+                model == LUAT_TINY_EPD_MODEL_1IN54B_V2) ? (int)model : 0;
     }
 
     name = luaL_checklstring(L, 1, &name_len);
@@ -293,6 +295,15 @@ static int luat_tiny_epd_get_model(lua_State *L)
         (name_len == 16 && memcmp(name, "waveshare_1in54r", 16) == 0) ||
         (name_len == 20 && memcmp(name, "waveshare_1in54r_bwr", 20) == 0)) {
         return LUAT_TINY_EPD_MODEL_1IN54R;
+    }
+    if ((name_len == sizeof("1in54b_v2") - 1u &&
+         memcmp(name, "1in54b_v2", sizeof("1in54b_v2") - 1u) == 0) ||
+        (name_len == sizeof("waveshare_1in54b_v2") - 1u &&
+         memcmp(name, "waveshare_1in54b_v2", sizeof("waveshare_1in54b_v2") - 1u) == 0) ||
+        (name_len == sizeof("waveshare_1in54b_v2_bwr") - 1u &&
+         memcmp(name, "waveshare_1in54b_v2_bwr",
+                sizeof("waveshare_1in54b_v2_bwr") - 1u) == 0)) {
+        return LUAT_TINY_EPD_MODEL_1IN54B_V2;
     }
     return 0;
 }
@@ -406,7 +417,7 @@ static int luat_tiny_epd_get_rotation_field(lua_State *L,
 
 /*
 @api epd.open(model, opts[, spi_device])
-@number|string model 当前支持 epd.MODEL_1IN54 或 "1in54"
+@number|string model 内置 profile，例如 epd.MODEL_1IN54、epd.MODEL_1IN54B_V2 或对应名称
 @table opts {port = spi_id|"device", pin_dc, pin_rst, pin_busy[, busy_pull, busy_poll_ms, rotation|direction]}
 @userdata spi_device 可选，port="device" 时传入 spi.deviceSetup() 返回的对象
 @return userdata 成功时返回独立的 tiny_epd 设备对象
@@ -440,7 +451,8 @@ static int l_tiny_epd_open(lua_State *L)
         model != LUAT_TINY_EPD_MODEL_1IN54_V2 &&
         model != LUAT_TINY_EPD_MODEL_1IN54_V3 &&
         model != LUAT_TINY_EPD_MODEL_1IN54_SSD1607 &&
-        model != LUAT_TINY_EPD_MODEL_1IN54R) {
+        model != LUAT_TINY_EPD_MODEL_1IN54R &&
+        model != LUAT_TINY_EPD_MODEL_1IN54B_V2) {
         return luat_tiny_epd_push_open_error(L, "unsupported epd model");
     }
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -526,6 +538,9 @@ static int l_tiny_epd_open(lua_State *L)
     }
     else if (model == LUAT_TINY_EPD_MODEL_1IN54R) {
         driver = tiny_epd_driver_1in54r();
+    }
+    else if (model == LUAT_TINY_EPD_MODEL_1IN54B_V2) {
+        driver = tiny_epd_driver_1in54b_v2();
     }
     else {
         driver = tiny_epd_driver_1in54();
@@ -1380,12 +1395,7 @@ static const rotable_Reg_t reg_tiny_epd[] = {
     {"MODEL_1IN54_V3", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_V3)},
     {"MODEL_1IN54_SSD1607", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_SSD1607)},
     {"MODEL_1IN54R", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54R)},
-    /* Same spelling as the legacy eink module, for easier migration. */
-    {"MODEL_1in54", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54)},
-    {"MODEL_1in54_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_V2)},
-    {"MODEL_1in54_V3", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_V3)},
-    {"MODEL_1in54_SSD1607", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_SSD1607)},
-    {"MODEL_1in54r", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54R)},
+    {"MODEL_1IN54B_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54B_V2)},
     {"BLACK", ROREG_INT(TINY_EPD_COLOR_BLACK)},
     {"WHITE", ROREG_INT(TINY_EPD_COLOR_WHITE)},
     {"RED", ROREG_INT(TINY_EPD_COLOR_RED)},

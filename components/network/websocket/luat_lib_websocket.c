@@ -298,20 +298,20 @@ static int l_websocket_create(lua_State *L)
 /*
 注册websocket回调
 @api wsc:on(cb)
-@function cb websocket回调,参数包括websocket_client, event, data, payload
+@function cb websocket回调,参数包括websocket_client, event, data, FIN, OPT_CODE
 @return nil 无返回值
 @usage
-wsc:on(function(websocket_client, event, data, payload)
+wsc:on(function(websocket_client, event, data, FIN, OPT_CODE)
 	-- 打印各种事件
-	log.info("websocket", "event", event, data, payload)
+	log.info("websocket", "event", event, data, FIN, OPT_CODE)
 end)
 --[[
 event的值有:
 	conack 连接服务器成功,已经收到websocket协议头部信息,通信已建立
-	recv   收到服务器下发的信息, data, payload 不为nil
+	recv   收到服务器下发的信息, data不为nil, FIN和OPT_CODE为websocket协议帧头信息
 	sent   send函数发送的消息,服务器在TCP协议层已确认收到
 	disconnect 服务器连接已断开
-	error  发生错误, data为错误类型, payload为错误码
+	error  发生错误, data为错误类型, FIN为错误码
 
 其中 sent/disconnect 事件在 2023.04.01 新增
 ]]

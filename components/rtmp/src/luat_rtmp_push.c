@@ -2566,6 +2566,11 @@ static int rtmp_flush_send_buffer(rtmp_ctx_t *ctx) {
     ctx->send_pos = bytes_sent;
     if (ctx->send_pos >= total_bytes) {
         ctx->send_pos = 0;
+    } else {
+        /* 部分发送: 将未发送数据移动到缓冲区头部 */
+        uint32_t remaining = total_bytes - bytes_sent;
+        memmove(ctx->send_buf, &ctx->send_buf[bytes_sent], remaining);
+        ctx->send_pos = remaining;
     }
 
     return RTMP_OK;

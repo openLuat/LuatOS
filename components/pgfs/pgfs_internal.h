@@ -265,7 +265,19 @@ typedef struct pgfs_file {
 #pragma pack(pop)
 #endif
 
+/* Maximum simultaneous pgfs mounts. Each mount occupies one slot in the
+ * global s_pgfs_ctxs[] array. 4 is generous for embedded targets. */
+#define PGFS_MAX_MOUNTS 4u
+
+/* Legacy accessor: returns the first mounted context (or NULL).
+ * Kept for backward compatibility with pgfs_lf_erase and tests. */
 pgfs_mount_ctx_t* pgfs_get_mount_ctx(void);
+
+/* Multi-mount helpers (pgfs_vfs_adapter.c) */
+pgfs_mount_ctx_t* pgfs_find_mount_by_point(const char* mount_point);
+pgfs_mount_ctx_t* pgfs_find_mount_by_opts(const pgfs_flash_opts_t* opts);
+pgfs_mount_ctx_t* pgfs_find_first_mounted(void);
+pgfs_mount_ctx_t* pgfs_find_free_mount_slot(void);
 
 int pgfs_pick_latest_valid_sb(const pgfs_superblock_t* a, const pgfs_superblock_t* b, pgfs_superblock_t* out);
 int pgfs_checkpoint_load(void* fs, pgfs_checkpoint_t* cp);

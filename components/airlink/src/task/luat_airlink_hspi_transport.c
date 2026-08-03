@@ -166,7 +166,7 @@ uint32_t xt804_hspi_get_tick_ms(void) {
 // ==================== 传输任务 ====================
 
 #define HSPI_CYCLE_MS       20      // 等命令超时：空载时休眠时长
-#define HSPI_OFFLINE_CNT    60      // ≈60×~1s(无数据时保守)≈60s 判离线
+#define HSPI_OFFLINE_CNT    1500    // 1500×~20ms=30s 无数据才判离线（原60仅1.2s，易误判）
 #define HSPI_ERR_THRESHOLD  10      // 连续 10 次校验错误触发复位
 
 static luat_rtos_task_handle g_task_hdl;
@@ -232,6 +232,26 @@ static void hspi_transport_task(void *param) {
     // ★ 记录任务句柄供 ISR 定向通知
     g_hspi_task_handle = xTaskGetCurrentTaskHandle();
     g_running = 1;
+
+    // 等待XT804 HSPI就绪后再发devinfo请求（解决重启后HSPI状态不确定的问题）
+    int _xt804_ready = 0;
+    for (int _i = 0; _i < 50; _i++) {
+        int _dr = 0, _cr = 0;
+        if (xt804_hspi_check_status(&_dr, &_cr) == 0) {
+            _xt804_ready = 1;
+            break;
+        }
+        luat_rtos_task_sleep(10);
+    }
+    if (_xt804_ready) {
+        // 发送 peer reboot 通知，让 103 同步恢复到 WiFi 初始化状态
+        // 这必须在任何其他命令之前发送，确保 103 收到后先重置状态再处理后续命令
+        luat_airlink_send_cmd_simple_nodata(0x22);
+        int _devinfo_req_ret = luat_airlink_send_cmd_simple_nodata(0x10);
+        LLOGI("HSPI XT804 ready, devinfo request sent ret=%d", _devinfo_req_ret);
+    } else {
+        LLOGW("HSPI XT804 not ready after 500ms, skip devinfo request");
+    }
 
     while (g_running) {
         // ===== Phase 1: 读数据 (中断驱动) =====
@@ -310,7 +330,7 @@ static void hspi_transport_task(void *param) {
             has_cmd = 0;
         } else {
             // 进入循环前先非阻塞消费可能积压的通知
-            if (ulTaskNotifyTake(pdFALSE, 0) > 0) {
+            if (ulTaskNotifyTake(pdTRUE, 0) > 0) {
                 if (hspi_handle_interrupt())
                     g_idle_cnt = 0;
                 continue;
@@ -341,8 +361,13 @@ static void hspi_transport_task(void *param) {
                 }
             }
         }
-        // Phase 2 未取到命令 → 回到循环开头
+        // Phase 2 未取到命令 → 先非阻塞检查从机是否有自主上行数据
+        // 从机(103)可能自主上报 WiFi 状态等通知, 此时不应判离线
         if (has_cmd != 0) {
+            if (hspi_handle_interrupt()) {
+                g_idle_cnt = 0;
+                continue;  // 有线数据, 回到 Phase 1 处理
+            }
             g_airlink_statistic.event_timeout.total++;
             if (g_peer_online && ++g_idle_cnt >= HSPI_OFFLINE_CNT) {
                 g_peer_online = 0;
@@ -367,7 +392,7 @@ static void hspi_transport_task(void *param) {
             // 发完 CMD 后非阻塞看 IPPKG，防止 IP 包被饿死
             item = (airlink_queue_item_t){0};
             if (luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_IPPKG, &item, 0) == 0 && item.cmd) {
-                //LLOGI("hspi TX cmd=0x%04X len=%d (IP)", item.cmd->cmd, item.cmd->len);
+                //LLOGI("[DHCP_DEBUG] HSPI TX IP pkg: cmd=0x%04X len=%d", item.cmd->cmd, item.cmd->len);
                 int ip_ret = xt804_hspi_send_cmd(item.cmd->cmd, item.cmd->data, item.cmd->len, NULL, NULL, 0);
                 if (ip_ret == 0) {
                     g_airlink_statistic.tx_ip.total++;

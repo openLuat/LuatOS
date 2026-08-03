@@ -50,7 +50,7 @@ extern void net_lwip_check_switch(uint8_t onoff);
 @api mobile.imei(index)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @return string 当前的IMEI值,若失败返回nil
-@usgae
+@usage
 -- 注意, 当前所有模块只支持单待,所以IMEI总是同一个
  */
 #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
@@ -323,7 +323,7 @@ static int l_mobile_imei(lua_State* L) {
 @api mobile.imsi(index)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @return string 当前的IMSI值,若失败返回nil
-@usgae
+@usage
 -- 注意, 当前所有模块只支持单待,所以IMSI总是同一个
  */
 static int l_mobile_imsi(lua_State* L) {

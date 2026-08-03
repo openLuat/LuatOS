@@ -109,7 +109,7 @@ static int l_ws2812_set(lua_State* L) {
         return 0;
     }
     lua_pushboolean(L, 1);
-    return 0;
+    return 1;
 }
 
 /*
@@ -148,12 +148,12 @@ static int l_ws2812_send(lua_State* L) {
 @int 额外参数2
 @int 额外参数3
 @int 额外参数4
-@return boolean 设置成功返回true,否则返回nil
+@return nil 无返回值
 @usage
 -- 本函数与具体模式有关
 
 --GPIO模式可调整T0H T0L, T1H T1L 的具体延时
-ws2812.send(leds, t0h, t0l, t1h, t1l)
+ws2812.args(leds, t0h, t0l, t1h, t1l)
 */
 static int l_ws2812_args(lua_State* L) {
     luat_ws2812_t* ctx = lua_touserdata(L, 1);

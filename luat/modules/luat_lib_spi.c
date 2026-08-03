@@ -60,26 +60,49 @@ typedef struct luat_espi {
 static void spi_soft_send_byte(luat_espi_t *espi, uint8_t data)
 {
     uint8_t i;
-    for (i = 0; i < 8; i++)
+    if (espi->CPHA == 0)
     {
-        if (data&0x80)
+        // CPHA=0: 数据在第一个时钟边沿前设置, 从机在 leading edge 采样
+        for (i = 0; i < 8; i++)
         {
-            luat_gpio_set(espi->mosi, Luat_GPIO_HIGH);
+            if (data&0x80)
+                luat_gpio_set(espi->mosi, Luat_GPIO_HIGH);
+            else
+                luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
+            data<<=1;
+            if (espi->CPOL == 0)
+            {
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+            }
+            else
+            {
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+            }
         }
-        else
+    }
+    else
+    {
+        // CPHA=1: 先产生 leading edge, 再设置数据, 从机在 trailing edge 采样
+        for (i = 0; i < 8; i++)
         {
-            luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
-        }
-        data<<=1;
-        if (espi->CPOL == 0)
-        {
-            luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
-            luat_gpio_set(espi->clk, Luat_GPIO_LOW);
-        }
-        else
-        {
-            luat_gpio_set(espi->clk, Luat_GPIO_LOW);
-            luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+            // Leading edge
+            if (espi->CPOL == 0)
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+            else
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+            // 设置 MOSI
+            if (data&0x80)
+                luat_gpio_set(espi->mosi, Luat_GPIO_HIGH);
+            else
+                luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
+            data<<=1;
+            // Trailing edge
+            if (espi->CPOL == 0)
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+            else
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
         }
     }
 }
@@ -89,20 +112,45 @@ static char spi_soft_recv_byte(luat_espi_t *espi)
 {
     unsigned char i = 8;
     unsigned char data = 0;
-    while (i--)
+    if (espi->CPHA == 0)
     {
-        data <<= 1;
-        if (luat_gpio_get(espi->miso))
+        // CPHA=0: 从机已预加载数据, 在时钟边沿前采样
+        while (i--)
         {
-            data |= 0x01;
+            data <<= 1;
+            if (luat_gpio_get(espi->miso))
+                data |= 0x01;
+            if (espi->CPOL == 0)
+            {
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+            }
+            else
+            {
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+            }
         }
-        if (espi->CPOL == 0)
+    }
+    else
+    {
+        // CPHA=1: 先产生 leading edge 让从机输出数据, 再采样
+        while (i--)
         {
-            luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
-            luat_gpio_set(espi->clk, Luat_GPIO_LOW);
-        }else{
-            luat_gpio_set(espi->clk, Luat_GPIO_LOW);
-            luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+            // Leading edge: 从机输出数据
+            if (espi->CPOL == 0)
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+            else
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+            // 采样 MISO
+            data <<= 1;
+            if (luat_gpio_get(espi->miso))
+                data |= 0x01;
+            // Trailing edge
+            if (espi->CPOL == 0)
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+            else
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
         }
     }
     return data;
@@ -113,31 +161,59 @@ static char spi_soft_xfer_byte(luat_espi_t *espi, uint8_t send_data)
 {
     unsigned char i = 8;
     unsigned char data = 0;
-    while (i--)
+    if (espi->CPHA == 0)
     {
-        // 发送
-        if (send_data&0x80)
+        // CPHA=0: 数据在时钟边沿前设置和采样
+        while (i--)
         {
-            luat_gpio_set(espi->mosi, Luat_GPIO_HIGH);
+            // 发送: 设置 MOSI
+            if (send_data&0x80)
+                luat_gpio_set(espi->mosi, Luat_GPIO_HIGH);
+            else
+                luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
+            send_data<<=1;
+            // 接收: 采样 MISO
+            data <<= 1;
+            if (luat_gpio_get(espi->miso))
+                data |= 0x01;
+            // 时钟: leading + trailing
+            if (espi->CPOL == 0)
+            {
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+            }
+            else
+            {
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+            }
         }
-        else
+    }
+    else
+    {
+        // CPHA=1: 先产生 leading edge, 再设置/采样, 最后 trailing edge
+        while (i--)
         {
-            luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
-        }
-        send_data<<=1;
-        // 接收
-        data <<= 1;
-        if (luat_gpio_get(espi->miso))
-        {
-            data |= 0x01;
-        }
-        if (espi->CPOL == 0)
-        {
-            luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
-            luat_gpio_set(espi->clk, Luat_GPIO_LOW);
-        }else{
-            luat_gpio_set(espi->clk, Luat_GPIO_LOW);
-            luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+            // Leading edge
+            if (espi->CPOL == 0)
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+            else
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+            // 发送: 设置 MOSI
+            if (send_data&0x80)
+                luat_gpio_set(espi->mosi, Luat_GPIO_HIGH);
+            else
+                luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
+            send_data<<=1;
+            // 接收: 采样 MISO
+            data <<= 1;
+            if (luat_gpio_get(espi->miso))
+                data |= 0x01;
+            // Trailing edge
+            if (espi->CPOL == 0)
+                luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+            else
+                luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
         }
     }
     return data;
@@ -169,7 +245,11 @@ int luat_spi_soft_recv(luat_espi_t *espi, char *buff, size_t len)
     {
         luat_gpio_set(espi->cs, Luat_GPIO_LOW);
     }
-    luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
+    // CPHA=1 时不预拉低 MOSI, 避免干扰时钟时序
+    if (espi->CPHA == 0)
+    {
+        luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
+    }
     for (i = 0; i < len; i++)
     {
         *buff++ = spi_soft_recv_byte(espi);
@@ -189,7 +269,11 @@ int luat_spi_soft_xfer(luat_espi_t *espi, const char *send_buff, char* recv_buff
     {
         luat_gpio_set(espi->cs, Luat_GPIO_LOW);
     }
-    luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
+    // CPHA=1 时不预拉低 MOSI, 避免在第一个 leading edge 前产生虚假电平变化
+    if (espi->CPHA == 0)
+    {
+        luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
+    }
     for (i = 0; i < len; i++)
     {
         *recv_buff++ = spi_soft_xfer_byte(espi, (uint8_t)send_buff[i]);
@@ -474,6 +558,7 @@ static int l_spi_recv(lua_State *L) {
             if (espi){
                 luat_spi_soft_recv(espi, recv_buff, len);
                 ret = len;
+                b.n = ret;
             }
         }
     }
@@ -862,6 +947,15 @@ static int l_spi_no_block_transfer(lua_State *L)
 	return 1;
 }
 //------------------------------------------------------------------
+#ifdef LUAT_USE_UTEST
+extern int luat_spi_utest(lua_State *L, const char *case_name);
+static int l_spi_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "xfer_mode0");
+    lua_pushboolean(L, luat_spi_utest(L, case_name) == 0);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_spi[] =
 {
@@ -900,6 +994,9 @@ static const rotable_Reg_t reg_spi[] =
     { "SPI_4",             ROREG_INT(4)},
 	//@const HSPI_0 number 高速SPI0，目前105专用
 	{ "HSPI_0",             ROREG_INT(5)},
+#ifdef LUAT_USE_UTEST
+    { "utest",             ROREG_FUNC(l_spi_utest)},
+#endif
 	{ NULL,                ROREG_INT(0) }
 };
 

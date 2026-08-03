@@ -358,20 +358,20 @@ int luat_vfs_lfs2_closedir(void* userdata, void* dir) {
 const struct luat_vfs_filesystem vfs_fs_lfs2 = {
     .name = "lfs2",
     .opts = {
-        T(mkfs),
-        T(mount),
-        T(umount),
-        T(mkdir),
-        T(rmdir),
-        T(lsdir),
         T(remove),
         T(rename),
         T(fsize),
         T(fexist),
+        T(mkfs),
+        T(mount),
+        T(umount),
         T(info),
-        T(truncate),
+        T(mkdir),
+        T(rmdir),
+        T(lsdir),
         T(opendir),
-        T(closedir)
+        T(closedir),
+        T(truncate)
     },
     .fopts = {
         T(fopen),

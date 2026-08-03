@@ -16,6 +16,8 @@ sys.taskInit(function()
         { testTable = tests.dtls_suite, testcase = "C层utest-dtls CA不匹配被拒" },
         { testTable = tests.dtls_suite, testcase = "C层utest-dtls mTLS双向认证" },
         { testTable = tests.dtls_suite, testcase = "C层utest-dtls 证书解析边界" },
+        { testTable = tests.dtls_suite, testcase = "C层utest-dtls mTLS内存泄漏" },
+        { testTable = tests.dtls_suite, testcase = "C层utest-dtls mTLS重复配置" },
     })
 end)
 

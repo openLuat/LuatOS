@@ -1,0 +1,9 @@
+{
+    "timeout": 300,
+    "model": {
+        "pc": [1]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "本地HTTPS服务器高强度测试(无外网依赖)"
+}

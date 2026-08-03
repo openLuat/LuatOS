@@ -923,11 +923,12 @@ static err_t rtsp_tcp_recv_callback(void *arg, struct tcp_pcb *pcb,
     ctx->last_activity_time = luat_mcu_ticks();
     
     RTSP_LOGV("接收RTSP数据: %u字节", p->tot_len);
+    u16_t recv_len = p->tot_len;
     pbuf_free(p);
     
     // 处理RTSP响应
     rtsp_handle_response(ctx);
-    tcp_recved(pcb, p->tot_len);
+    tcp_recved(pcb, recv_len);
     
     return ERR_OK;
 }

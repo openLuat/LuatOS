@@ -103,41 +103,46 @@ static uint32_t pgfs_crc32_calc(const void* data, size_t len) {
 /* pgfs_account_live_block — add `bytes` to live_bytes[block_of(addr)].
  * Called from the data record append path (DATA / BATCH_DATA) and from
  * the replay path. The block_id is derived from the absolute flash
- * address divided by the erase size. No-op if the FTL state hasn't
- * allocated live_bytes_per_block yet (e.g. fresh flash before the first
- * mount) — the per-block stats are a GC aid, not a correctness
- * invariant. */
+ * address divided by the erase size. Uses the cached layout.erase_size
+ * to avoid a control(GET_GEOMETRY) call on every record write. */
 static void pgfs_account_live_block(pgfs_mount_ctx_t* ctx, uint32_t addr, uint32_t bytes) {
     if (ctx == NULL || bytes == 0) return;
-    if (ctx->ftl.flash_opts == NULL || ctx->ftl.flash_opts->control == NULL) return;
     if (ctx->ftl.live_bytes_per_block == NULL) return;
-    pgfs_flash_geometry_t geo = {0};
-    if (ctx->ftl.flash_opts->control(ctx->ftl.flash_opts->ctx,
-                                     PGFS_CTRL_GET_GEOMETRY, &geo) != 0 ||
-        geo.erase_size == 0) {
-        return;
+    uint32_t erase_size = ctx->layout.erase_size;
+    if (erase_size == 0) {
+        /* Fallback: query geometry (only on first call before layout is set) */
+        if (ctx->ftl.flash_opts == NULL || ctx->ftl.flash_opts->control == NULL) return;
+        pgfs_flash_geometry_t geo = {0};
+        if (ctx->ftl.flash_opts->control(ctx->ftl.flash_opts->ctx,
+                                         PGFS_CTRL_GET_GEOMETRY, &geo) != 0 ||
+            geo.erase_size == 0) {
+            return;
+        }
+        erase_size = geo.erase_size;
     }
-    uint32_t block_id = addr / geo.erase_size;
+    uint32_t block_id = addr / erase_size;
     if (block_id >= ctx->ftl.total_blocks) return;
     ctx->ftl.live_bytes_per_block[block_id] += bytes;
 }
 
 /* pgfs_account_dead_block — add `bytes` to dead_bytes[block_of(addr)].
  * Best-effort: called when we know the source block of shadowed or
- * deleted data. Currently invoked only by the file-delete path
- * (which holds the path's last-known block_id) — overwrite detection
- * would require a per-path cache, which is a follow-up. */
+ * deleted data. Uses cached layout.erase_size for performance. */
 static void pgfs_account_dead_block(pgfs_mount_ctx_t* ctx, uint32_t addr, uint32_t bytes) {
     if (ctx == NULL || bytes == 0) return;
-    if (ctx->ftl.flash_opts == NULL || ctx->ftl.flash_opts->control == NULL) return;
     if (ctx->ftl.dead_bytes_per_block == NULL) return;
-    pgfs_flash_geometry_t geo = {0};
-    if (ctx->ftl.flash_opts->control(ctx->ftl.flash_opts->ctx,
-                                     PGFS_CTRL_GET_GEOMETRY, &geo) != 0 ||
-        geo.erase_size == 0) {
-        return;
+    uint32_t erase_size = ctx->layout.erase_size;
+    if (erase_size == 0) {
+        if (ctx->ftl.flash_opts == NULL || ctx->ftl.flash_opts->control == NULL) return;
+        pgfs_flash_geometry_t geo = {0};
+        if (ctx->ftl.flash_opts->control(ctx->ftl.flash_opts->ctx,
+                                         PGFS_CTRL_GET_GEOMETRY, &geo) != 0 ||
+            geo.erase_size == 0) {
+            return;
+        }
+        erase_size = geo.erase_size;
     }
-    uint32_t block_id = addr / geo.erase_size;
+    uint32_t block_id = addr / erase_size;
     if (block_id >= ctx->ftl.total_blocks) return;
     ctx->ftl.dead_bytes_per_block[block_id] += bytes;
 }
@@ -472,7 +477,10 @@ static int pgfs_dir_lsdir_norm(pgfs_mount_ctx_t* ctx, const char* path, luat_fs_
     size_t unique_count = 0;
     size_t out = 0;
     size_t i = 0;
-    size_t max_seen = PGFS_MAX_FILES + PGFS_MAX_DIRS;
+    /* Cap the dedup buffer at 128 entries (12KB) instead of the
+     * theoretical max of 768 entries (73KB). No real directory has
+     * 768 unique children; the cap prevents excessive heap usage. */
+    size_t max_seen = 128;
     char (*seen_names)[sizeof(((pgfs_dir_entry_t*)0)->path)] = NULL;
     char norm[sizeof(s_pgfs_dirs[0].path)] = {0};
     if (ctx == NULL || ents == NULL || len == 0 || path == NULL) {
@@ -805,14 +813,17 @@ int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
         return -1;
     }
     /* Phase 2 GC: the file's live bytes are now dead. Attribute them
-     * to the block the last DATA record landed in. Note: this only
-     * credits the most recent block — earlier records of the same
-     * path are attributed to their own blocks by the replay shadow
-     * scan, not by the runtime delete path. */
+     * to the block the last DATA record landed in, and decrement the
+     * live counter so the wrap-around / GC can identify truly free blocks. */
     if (ctx != NULL && e->last_written_block != 0 && e->last_written_block != 0xFFFFu &&
-        e->len > 0 && ctx->ftl.dead_bytes_per_block != NULL &&
-        e->last_written_block < ctx->ftl.total_blocks) {
-        ctx->ftl.dead_bytes_per_block[e->last_written_block] += (uint32_t)e->len;
+        e->len > 0 && e->last_written_block < ctx->ftl.total_blocks) {
+        if (ctx->ftl.dead_bytes_per_block != NULL) {
+            ctx->ftl.dead_bytes_per_block[e->last_written_block] += (uint32_t)e->len;
+        }
+        if (ctx->ftl.live_bytes_per_block != NULL &&
+            ctx->ftl.live_bytes_per_block[e->last_written_block] >= (uint32_t)e->len) {
+            ctx->ftl.live_bytes_per_block[e->last_written_block] -= (uint32_t)e->len;
+        }
         ctx->checkpoint.gc_dead_bytes += (uint32_t)e->len;
     }
     if (e->data) {
@@ -1058,10 +1069,56 @@ retry_prepare:
         ctx->flash_opts->control(ctx->flash_opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
         geo.capacity > pgfs_data_log_base_addr(ctx) &&
         end_addr > geo.capacity) {
-        LLOGE("append_data out-of-cap addr=%u write_len=%u end=%u cap=%u base=%u",
-              (unsigned int)addr, (unsigned int)write_len, (unsigned int)end_addr,
-              (unsigned int)geo.capacity, (unsigned int)pgfs_data_log_base_addr(ctx));
-        return -1;
+        /* Wrap-around: the write head reached the end of flash. Find a
+         * free block in the data log area (one with no live data) and
+         * restart the append from there. This is the core mechanism that
+         * keeps the filesystem usable indefinitely — without it, the FS
+         * becomes permanently full after the first pass through flash. */
+        uint32_t erase_size = ctx->layout.erase_size;
+        if (erase_size == 0) erase_size = ctx->ftl.erase_size;
+        uint32_t wrapped_addr = 0;
+        int found = 0;
+        if (erase_size > 0 && ctx->ftl.total_blocks > 0) {
+            uint32_t first_block = ctx->layout.data_log_first_block;
+            uint32_t last_block = ctx->layout.data_log_last_block;
+            /* Fallback when layout is not populated (e.g. C unit tests
+             * that bypass the VFS adapter mount path). */
+            if (first_block == 0 && last_block == 0) {
+                first_block = PGFS_LAYOUT_RESERVED_BLOCKS;
+                last_block = ctx->ftl.total_blocks - 1u;
+            }
+            for (uint32_t blk = first_block; blk <= last_block; blk++) {
+                if (pgfs_ftl_is_block_bad(&ctx->ftl, blk)) continue;
+                if (pgfs_ftl_is_reserved(&ctx->ftl, blk)) continue;
+                if (pgfs_ftl_is_retired(&ctx->ftl, blk)) continue;
+                /* A block with zero live bytes has no current data —
+                 * all its records have been shadowed or deleted.
+                 * Also accept blocks where dead >= live (all data has
+                 * been invalidated but accounting noise remains from
+                 * header/path/padding overhead). */
+                if (ctx->ftl.live_bytes_per_block != NULL &&
+                    ctx->ftl.live_bytes_per_block[blk] > 0) {
+                    uint32_t dead = (ctx->ftl.dead_bytes_per_block != NULL)
+                        ? ctx->ftl.dead_bytes_per_block[blk] : 0u;
+                    if (dead < ctx->ftl.live_bytes_per_block[blk]) continue;
+                }
+                wrapped_addr = blk * erase_size;
+                if (wrapped_addr + write_len <= geo.capacity) {
+                    found = 1;
+                    break;
+                }
+            }
+        }
+        if (!found) {
+            LLOGE("append_data out-of-cap and no free block for wrap addr=%u write_len=%u cap=%u",
+                  (unsigned int)addr, (unsigned int)write_len, (unsigned int)geo.capacity);
+            return -1;
+        }
+        LLOGI("append_data wrap-around: %u -> %u", (unsigned int)addr, (unsigned int)wrapped_addr);
+        addr = wrapped_addr;
+        ctx->data_log_write_addr = wrapped_addr;
+        ctx->data_log_prepared_until = wrapped_addr;
+        goto retry_prepare;
     }
     if (pgfs_prepare_data_log_region(ctx, addr, write_len) != 0) {
         if (attempt < 1 && pgfs_relocate_unaligned_write_head(ctx, addr, write_len, &addr) == 0) {
@@ -1817,32 +1874,18 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
         }
         crc_len = (size_t)path_len + (size_t)data_len;
         if (crc_len > 0) {
-            uint8_t* crc_buf = (uint8_t*)luat_heap_malloc(crc_len);
-            if (crc_buf == NULL) {
-                luat_heap_free(path_buf);
-                luat_heap_free(data_buf);
-                ret = -1;
-                goto cleanup;
-            }
-            memcpy(crc_buf, path_buf, path_len);
-            if (data_len != 0) {
-                memcpy(crc_buf + path_len, data_buf, data_len);
-            }
             /* Phase 3b: chain the CRC across the header prefix first,
              * then path, then data — exactly mirroring what the
-             * producer wrote. The header prefix is 12 bytes
-             * (offsetof(..., crc32)) for both DATA and BATCH_DATA
-             * records; BATCH_COMMIT records skip this branch entirely
-             * because they have no path/data. */
+             * producer wrote. Compute directly from path_buf/data_buf
+             * to avoid a redundant crc_buf allocation per record. */
             size_t prefix_len = (magic == PGFS_BATCH_DATA_RECORD_MAGIC)
                 ? offsetof(pgfs_batch_data_record_hdr_t, crc32)
                 : offsetof(pgfs_data_record_hdr_t, crc32);
             uint32_t prefix_crc = luat_crc32(hdr_prefix, (uint32_t)prefix_len, 0xFFFFFFFFu, 0);
-            crc = luat_crc32(crc_buf, (uint32_t)path_len, prefix_crc, 0);
+            crc = luat_crc32(path_buf, (uint32_t)path_len, prefix_crc, 0);
             if (data_len != 0) {
-                crc = luat_crc32(crc_buf + path_len, (uint32_t)data_len, crc, 0);
+                crc = luat_crc32(data_buf, (uint32_t)data_len, crc, 0);
             }
-            luat_heap_free(crc_buf);
         }
         if (crc != crc32) {
             luat_heap_free(path_buf);
@@ -1961,12 +2004,10 @@ cleanup:
 
 static int pgfs_apply_cache_to_entry(pgfs_file_t* f) {
     pgfs_file_entry_t* e = NULL;
-    size_t old_len = 0;
     if (f == NULL || f->entry == NULL || f->cache.len == 0) {
         return 0;
     }
     e = f->entry;
-    old_len = e->len;
     if (e->data) {
         pgfs_heap_free_by_type(e->heap_type, e->data);
     }
@@ -1979,12 +2020,9 @@ static int pgfs_apply_cache_to_entry(pgfs_file_t* f) {
     f->cache.cap = 0;
     f->cache.len = 0;
     f->cache.heap_type = (uint8_t)LUAT_HEAP_SRAM;
-    if (f->ctx) {
-        f->ctx->checkpoint.gc_live_bytes += (uint32_t)e->len;
-        if (old_len > 0) {
-            f->ctx->checkpoint.gc_dead_bytes += (uint32_t)old_len;
-        }
-    }
+    /* Note: gc_live_bytes / gc_dead_bytes attribution is handled by the
+     * caller (pgfs_file_close) which has the full context of the previous
+     * version's block location. Doing it here would double-count. */
     return 0;
 }
 
@@ -2087,7 +2125,27 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
         uint16_t prev_last_written = f->entry->last_written_block;
         size_t prev_len = f->entry->len;
         t0 = luat_mcu_tick64_ms();
-        (void)pgfs_gc_step(ctx, 4096, 2000);
+        /* Only trigger GC when space pressure is detected: if the write
+         * head is within 2 erase blocks of the end of flash, run GC to
+         * reclaim space. Unconditional GC on every close was a major
+         * performance bottleneck (two full block-table scans per close). */
+        {
+            uint32_t erase_sz = ctx->layout.erase_size;
+            if (erase_sz == 0) erase_sz = ctx->ftl.erase_size;
+            if (erase_sz > 0 && ctx->flash_opts != NULL &&
+                ctx->flash_opts->control != NULL) {
+                pgfs_flash_geometry_t geo_chk = {0};
+                if (ctx->flash_opts->control(ctx->flash_opts->ctx,
+                    PGFS_CTRL_GET_GEOMETRY, &geo_chk) == 0 &&
+                    geo_chk.capacity > 0) {
+                    uint64_t remaining = (uint64_t)geo_chk.capacity -
+                                         (uint64_t)ctx->data_log_write_addr;
+                    if (remaining < (uint64_t)erase_sz * 2u) {
+                        (void)pgfs_gc_step(ctx, 4096, 2000);
+                    }
+                }
+            }
+        }
         t_gc = luat_mcu_tick64_ms();
         if (pgfs_alloc_segment(ctx, &seg_id) != 0) {
             /* Aggressive GC retry: the initial small-budget GC may not have
@@ -2122,8 +2180,13 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
             goto finish;
         }
         if (pgfs_append_data_record(ctx, f) != 0) {
-            if (pgfs_compact_live_entries(ctx) != 0 || pgfs_append_data_record(ctx, f) != 0) {
-                LLOGE("close append_data_record failed addr=%u path=%s (DATA LOST)",
+            /* Append failed (out of space or write error). Try GC + retry
+             * once before giving up. Do NOT use pgfs_compact_live_entries
+             * here — it erases the entire data log and a power loss during
+             * compaction would destroy ALL data on the filesystem. */
+            (void)pgfs_gc_step(ctx, 8192, 5000);
+            if (pgfs_append_data_record(ctx, f) != 0) {
+                LLOGE("close append_data_record failed addr=%u path=%s",
                       (unsigned int)ctx->data_log_write_addr,
                       f->entry ? f->entry->path : "?");
                 (void)pgfs_mark_block_retired(ctx, seg_id);
@@ -2134,17 +2197,16 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
         }
         /* Phase 2 GC: the new write succeeded, so the OLD version is
          * now dead. Attribute the old live bytes to the old block so
-         * the cost-benefit GC can pick it. Note: prev_len can exceed
-         * f->entry->len if cache was overwritten mid-close — that's
-         * fine, the file's "previous state" is the bytes that WERE
-         * live before the new write. */
+         * the cost-benefit GC can pick it. */
         if (prev_last_written != 0 && prev_last_written != 0xFFFFu && prev_len > 0) {
             if (ctx->ftl.dead_bytes_per_block != NULL &&
                 prev_last_written < ctx->ftl.total_blocks) {
                 ctx->ftl.dead_bytes_per_block[prev_last_written] += (uint32_t)prev_len;
-                ctx->checkpoint.gc_dead_bytes += (uint32_t)prev_len;
             }
+            ctx->checkpoint.gc_dead_bytes += (uint32_t)prev_len;
         }
+        /* Attribute new live bytes (the record just written). */
+        ctx->checkpoint.gc_live_bytes += (uint32_t)f->cache.len;
         t_append = luat_mcu_tick64_ms();
         if (ctx->inject_powercut_stage == PGFS_INJECT_POWERCUT_AFTER_APPEND) {
             ctx->inject_powercut_stage = PGFS_INJECT_POWERCUT_NONE;

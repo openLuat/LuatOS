@@ -253,7 +253,7 @@ static int l_pm_last_reson(lua_State *L) {
 强制进入指定的休眠模式，忽略某些外设的影响，比如USB
 @api pm.force(mode)
 @int 休眠模式
-@return boolean 处理结果,若返回成功,大概率会马上进入该休眠模式
+@return int 底层返回值,若返回0,大概率会马上进入该休眠模式
 @usage
 -- 请求进入休眠模式
 pm.force(pm.HIB)
@@ -428,7 +428,7 @@ LUAT_WEAK int luat_pm_iovolt_ctrl(int id, int val) {
 
 /**
 配置唤醒引脚
-@api pm.wakeupPin(pin,level)
+@api pm.wakeupPin(pin, level, chip)
 @int gpio引脚
 @int 唤醒方式, 例如gpio.RISING (上升沿), gpio.FALLING (下降沿)
 @int 芯片的ID, 默认是0, 大部分型号都只有0

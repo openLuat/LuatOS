@@ -204,7 +204,7 @@ static int l_netdrv_setup(lua_State *L) {
 @boolean 开启或者关闭
 @string dhcp主机名称, 可选, 最长31字节，填""清除
 @return boolean 成功与否
-@usgae
+@usage
 -- 注意, 并非所有网络设备都支持关闭DHCP, 例如4G Cat.1自带的netdrv就不支持关闭DHCP
 -- name参数于2025.9.23添加
 netdrv.dhcp(socket.LWIP_ETH, true)

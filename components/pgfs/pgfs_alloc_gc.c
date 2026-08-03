@@ -38,10 +38,12 @@ int pgfs_alloc_segment(pgfs_mount_ctx_t *ctx, uint32_t *seg_id) {
     }
 
     /* Wear-levelling: scan from gc_next_seg_id to total_blocks and pick the
-     * non-bad, non-reserved block with the lowest erase count. The lowest-ec
-     * block has been written/erased the fewest times, so directing new data
-     * there spreads wear evenly across the chip. Reserved blocks (SB-A/B,
-     * CP-A/B, FTL state) are always excluded. */
+     * non-bad, non-reserved, non-retired block with the lowest erase count.
+     * The lowest-ec block has been written/erased the fewest times, so
+     * directing new data there spreads wear evenly across the chip.
+     * Reserved blocks (SB-A/B, CP-A/B, FTL state) are always excluded.
+     * Retired blocks (GC moved data out, pending erase) are excluded to
+     * prevent allocating a block whose data is being reclaimed. */
     uint32_t block_id = ctx->gc_next_seg_id;
     uint32_t best_block = UINT32_MAX;
     uint16_t best_ec = UINT16_MAX;
@@ -50,6 +52,9 @@ int pgfs_alloc_segment(pgfs_mount_ctx_t *ctx, uint32_t *seg_id) {
             continue;
         }
         if (pgfs_ftl_is_reserved(&ctx->ftl, id)) {
+            continue;
+        }
+        if (pgfs_ftl_is_retired(&ctx->ftl, id)) {
             continue;
         }
         uint16_t ec = ctx->ftl.erase_counts[id];
@@ -65,6 +70,9 @@ int pgfs_alloc_segment(pgfs_mount_ctx_t *ctx, uint32_t *seg_id) {
                 continue;
             }
             if (pgfs_ftl_is_reserved(&ctx->ftl, id)) {
+                continue;
+            }
+            if (pgfs_ftl_is_retired(&ctx->ftl, id)) {
                 continue;
             }
             uint16_t ec = ctx->ftl.erase_counts[id];
@@ -284,22 +292,55 @@ int pgfs_gc_step(pgfs_mount_ctx_t *ctx, uint32_t byte_budget, uint32_t time_budg
                   (unsigned int)ctx->ftl.live_bytes_per_block[victim]);
             return 0;
         }
-        /* The moved records are now credited to their new blocks by
-         * pgfs_account_live_block. The victim's stats are zeroed. */
+    }
+
+    /* Mark retired first (persisted state for power-loss safety). */
+    pgfs_mark_block_retired(ctx, victim);
+
+    /* Immediately erase the retired block and return it to the free pool.
+     * Without this step, retired blocks accumulate and the filesystem
+     * permanently loses capacity. After a successful erase the block is
+     * clean and safe to reallocate. */
+    if (ctx->flash_opts != NULL && ctx->flash_opts->erase != NULL &&
+        ctx->ftl.erase_size > 0) {
+        uint32_t block_addr = victim * ctx->ftl.erase_size;
+        if (ctx->flash_opts->erase(ctx->flash_opts->ctx, block_addr,
+                                   ctx->ftl.erase_size) == 0) {
+            /* Erase succeeded: un-retire the block so the allocator can
+             * reuse it. Increment erase count for wear tracking. */
+            pgfs_ftl_block_erased(&ctx->ftl, victim);
+            /* Clear retired bit — block is now clean and available. */
+            if (ctx->ftl.retired_blocks_bitmap != NULL &&
+                victim < ctx->ftl.total_blocks) {
+                ctx->ftl.retired_blocks_bitmap[victim >> 3] &=
+                    (uint8_t)~(1u << (victim & 7u));
+                if (ctx->ftl.retired_block_count > 0) {
+                    ctx->ftl.retired_block_count--;
+                }
+            }
+        } else {
+            /* Erase failed: mark bad (hardware problem). Block stays
+             * retired AND becomes bad — permanently removed from pool. */
+            pgfs_ftl_mark_block_bad(&ctx->ftl, victim);
+            LLOGW("pgfs_gc: erase of retired block %u failed, marked bad",
+                  (unsigned int)victim);
+        }
+    }
+
+    /* Reset per-block stats regardless of erase outcome — the live data
+     * has been moved out (or the block is bad and unreachable). */
+    if (ctx->ftl.live_bytes_per_block != NULL) {
         ctx->ftl.live_bytes_per_block[victim] = 0;
+    }
+    if (ctx->ftl.dead_bytes_per_block != NULL) {
         ctx->ftl.dead_bytes_per_block[victim] = 0;
     }
 
-    pgfs_mark_block_retired(ctx, victim);
-    LLOGD("pgfs_gc: retired block %u (live_bytes=%u, dead_bytes=%u, ec=%u)",
-          (unsigned int)victim,
-          (unsigned int)(ctx->ftl.live_bytes_per_block ? ctx->ftl.live_bytes_per_block[victim] : 0u),
-          (unsigned int)(ctx->ftl.dead_bytes_per_block ? ctx->ftl.dead_bytes_per_block[victim] : 0u),
+    LLOGD("pgfs_gc: reclaimed block %u (moved=%d, ec=%u)",
+          (unsigned int)victim, moved,
           (unsigned int)ctx->ftl.erase_counts[victim]);
 
-    /* Phase 6: observability counters. The step returned a real
-     * erase_size and a non-zero `moved` (or 0 for empty blocks);
-     * either way we count the step and the reclaimed bytes. */
+    /* Phase 6: observability counters. */
     ctx->stats.gc_step_count += 1;
     ctx->stats.gc_bytes_reclaimed += ctx->ftl.erase_size;
     if (moved > 0) {

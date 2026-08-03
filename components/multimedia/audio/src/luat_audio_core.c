@@ -133,7 +133,9 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 	uint32_t rest_data_len;
 	switch (event) {
 	case LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE:
-		if (ctrl->opts->support_full_loop) {
+		// 只有 RX 循环真实在跑(录音/通话模式)时，播放推进才交给 RX 中断驱动
+		// 纯 PLAY 模式没有 RX 事件，必须由 TX 完成事件推进，否则播放卡死
+		if (ctrl->opts->support_full_loop && ctrl->driver_work_mode > LUAT_AUDIO_DRIVER_MODE_PLAY) {
 			return;
 		}
 		_audio_play_next_block(ctrl);
@@ -164,7 +166,8 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 				}
 			}
 		}
-		if (ctrl->opts->support_full_loop) {
+		// 纯录音模式没有播放通道，只有通话(SPEECH)模式才用 RX 中断推进播放
+		if (ctrl->opts->support_full_loop && ctrl->driver_work_mode > LUAT_AUDIO_DRIVER_MODE_RECORD) {
 			_audio_play_next_block(ctrl);
 		}
 		break;

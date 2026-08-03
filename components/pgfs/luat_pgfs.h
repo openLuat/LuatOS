@@ -24,11 +24,21 @@ int luat_pgfs_info(const char *path, luat_fs_info_t *info);
 int luat_pgfs_begin_batch(uint32_t* out_batch_id);
 int luat_pgfs_commit_batch(uint32_t batch_id);
 int luat_pgfs_abort_batch(uint32_t batch_id);
+/* Multi-mount aware: operate on a specific mount point */
+int luat_pgfs_begin_batch_on(const char *mount_point, uint32_t* out_batch_id);
+int luat_pgfs_commit_batch_on(const char *mount_point, uint32_t batch_id);
+int luat_pgfs_abort_batch_on(const char *mount_point, uint32_t batch_id);
 int pgfs_control_set_lock_mode(const char* mode);
 int pgfs_control_inject_powercut_stage(const char* stage);
 int pgfs_control_inject_corrupt_latest_cp(int enable);
 int pgfs_control_inject_bad_block_once(int enable);
 int pgfs_control_reset_runtime(void);
+/* Multi-mount aware control: operate on a specific mount point */
+int pgfs_control_set_lock_mode_on(const char *mount_point, const char* mode);
+int pgfs_control_inject_powercut_stage_on(const char *mount_point, const char* stage);
+int pgfs_control_inject_corrupt_latest_cp_on(const char *mount_point, int enable);
+int pgfs_control_inject_bad_block_once_on(const char *mount_point, int enable);
+int pgfs_control_reset_runtime_on(const char *mount_point);
 int pgfs_run_c_layer_tests(void);
 int pgfs_run_c_layer_case(const char* case_name);
 

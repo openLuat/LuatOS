@@ -121,12 +121,17 @@ luat_netdrv_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *cfg)
     wireguardif_peer_init(peer);
     peer->public_key = cfg->wg_conf->wg_endpoint_key;
 
-    // Add buffer for preshared key
-    uint8_t preshared_key_buf[WIREGUARD_SESSION_KEY_LEN + 1];
-    memset(preshared_key_buf, 0, sizeof(preshared_key_buf));
+    // Add buffer for preshared key (heap-allocated to avoid dangling pointer)
+    uint8_t *preshared_key_buf = NULL;
     
     if (cfg->wg_conf->wg_preshared_key) {
-        size_t preshared_key_len = sizeof(preshared_key_buf);
+        preshared_key_buf = (uint8_t*)luat_heap_malloc(WIREGUARD_SESSION_KEY_LEN + 1);
+        if (preshared_key_buf == NULL) {
+            LLOGE("Failed to allocate preshared key buffer");
+            goto fail;
+        }
+        memset(preshared_key_buf, 0, WIREGUARD_SESSION_KEY_LEN + 1);
+        size_t preshared_key_len = WIREGUARD_SESSION_KEY_LEN + 1;
         wireguard_base64_decode(cfg->wg_conf->wg_preshared_key, preshared_key_buf, &preshared_key_len);
         peer->preshared_key = preshared_key_buf;
     } else {
@@ -151,6 +156,12 @@ luat_netdrv_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *cfg)
 
     // Free peer structure as it is copied by wireguardif_add_peer
     luat_heap_free(peer);
+    // Free preshared key buffer after peer is copied
+    if (preshared_key_buf) {
+        memset(preshared_key_buf, 0, WIREGUARD_SESSION_KEY_LEN + 1);
+        luat_heap_free(preshared_key_buf);
+        preshared_key_buf = NULL;
+    }
 
     wireguardif_connect(wg_netif_struct, wireguard_peer_index);
 
@@ -167,6 +178,10 @@ luat_netdrv_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *cfg)
     return netdrv;
 
 fail:
+    if (preshared_key_buf) {
+        memset(preshared_key_buf, 0, WIREGUARD_SESSION_KEY_LEN + 1);
+        luat_heap_free(preshared_key_buf);
+    }
     if (netdrv)
         luat_heap_free(netdrv);
     if (wg_netif_struct)

@@ -523,6 +523,7 @@ target("luatos-lua")
     -- tfs (Tiny File System)
     add_includedirs(luatos.."components/tfs/inc",{public = true})
     add_files(luatos.."components/tfs/src/**.c")
+    add_files(luatos.."components/tfs/vfs/**.c")
 
     -- 添加mreport
     -- add_includedirs(luatos.."components/mreport/include",{public = true})

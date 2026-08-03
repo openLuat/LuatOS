@@ -14,8 +14,8 @@
 ]]
 
 local config = {
-    enable_udp = true,            -- 是否启用UDP发送
-    enable_tcp = false             -- 是否启用TCP发送
+    enable_udp = false,            -- 是否启用UDP发送
+    enable_tcp = true             -- 是否启用TCP发送
 }
 
 local data = 1

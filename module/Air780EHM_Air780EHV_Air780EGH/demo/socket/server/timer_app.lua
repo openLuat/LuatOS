@@ -58,7 +58,7 @@ function send_data_req_timer_cbfunc()
         end
         -- TCP发送处理
     elseif config.enable_tcp then
-        -- 当前TCP server与client是一对一连接，publish的消息可忽略ip和port参数
+        -- 当前TCP server与client连接(一对一/一对多均可)，publish的消息可忽略ip和port参数
         sys.publish("SEND_DATA_REQ", "timer", data, {func=send_data_cbfunc, para="tcp_timer"..data})  
     end
 

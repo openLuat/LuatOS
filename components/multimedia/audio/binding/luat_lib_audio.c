@@ -996,7 +996,7 @@ DONE:
         extern_source_index = l_extern_source->self_index|LUAT_AUDIO_EXTERN_SOURCE_INDEX_FLAG;
         LLOGC(luat_audio_debug_flag, "lua extern source add success, index %d", extern_source_index);
     } else {
-        LLOGE("lua extern source add failed");
+        LLOGE("lua extern source add failed %d", result);
         if (l_extern_source) {
             luat_llist_del(&l_extern_source->node);
             luat_llist_add_tail(&l_extern_source->node, &_l_audio.extern_source_free_list);

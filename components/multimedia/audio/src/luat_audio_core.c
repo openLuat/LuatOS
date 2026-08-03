@@ -133,9 +133,7 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 	uint32_t rest_data_len;
 	switch (event) {
 	case LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE:
-		// 只有 RX 循环真实在跑(录音/通话模式)时，播放推进才交给 RX 中断驱动
-		// 纯 PLAY 模式没有 RX 事件，必须由 TX 完成事件推进，否则播放卡死
-		if (ctrl->opts->support_full_loop && ctrl->driver_work_mode > LUAT_AUDIO_DRIVER_MODE_PLAY) {
+		if (ctrl->opts->support_full_loop) {
 			return;
 		}
 		_audio_play_next_block(ctrl);
@@ -166,8 +164,7 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 				}
 			}
 		}
-		// 纯录音模式没有播放通道，只有通话(SPEECH)模式才用 RX 中断推进播放
-		if (ctrl->opts->support_full_loop && ctrl->driver_work_mode > LUAT_AUDIO_DRIVER_MODE_RECORD) {
+		if (ctrl->opts->support_full_loop) {
 			_audio_play_next_block(ctrl);
 		}
 		break;
@@ -1659,11 +1656,6 @@ void luat_audio_base_init(void)
 	l_audio_init();
 #endif
 	luat_audio_data_codec_register(&luat_audio_data_codec_no_op_opts);
-#ifdef LUAT_SUPPORT_SPEEX
-	luat_audio_data_codec_register(&luat_audio_data_codec_speex_nb_opts);
-	luat_audio_data_codec_register(&luat_audio_data_codec_speex_wb_opts);
-	luat_audio_data_codec_register(&luat_audio_data_codec_speex_uwb_opts);
-#endif
 }
 
 void luat_audio_debug_switch(uint8_t on_off)

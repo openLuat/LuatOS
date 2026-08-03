@@ -1,8 +1,8 @@
 {
     "timeout" : 60,
+    "platform" : ["pc"],
     "model" : {
-        "air780egp": [103, 104,105],
-        "air8000": [1, 101]
+        "pc": [1]
     },
 
     "action_count" : 1,

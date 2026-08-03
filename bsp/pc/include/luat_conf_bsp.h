@@ -133,6 +133,7 @@
 #define LUAT_USE_LITTLE_FLASH 1
 #define LUAT_USE_PGFS_COMPONENT 1
 #define LUAT_USE_TFS_COMPONENT  1
+#define LUAT_USE_TFS_STRESS_DIAG 1
 // #define LUAT_USE_STATEM 1
 // 性能测试
 #define LUAT_USE_COREMARK 1
@@ -202,6 +203,9 @@
 #define LUAT_USE_U8G2 1
 // EINK 在 GUI/非 GUI PC 构建中均启用，供 func/eink/eink_basic 测试使用。
 #define LUAT_USE_EINK 1
+
+// TINY_EPD 。
+#define LUAT_USE_TINY_EPD 1
 
 #define LUAT_USE_WEBP 1
 

@@ -14,10 +14,10 @@
 
 #ifdef LUAT_USE_FS_VFS
 
-#include "../../components/tfs/inc/tfs.h"
-#include "../../components/tfs/inc/tfs_port.h"
-#include "../../components/tfs/inc/tfs_types.h"
-#include "../../components/little_flash/inc/luat_little_flash_tfs.h"
+#include "../inc/tfs.h"
+#include "../inc/tfs_port.h"
+#include "../inc/tfs_types.h"
+#include "../../little_flash/inc/luat_little_flash_tfs.h"
 
 typedef struct { int tfs_fd; int is_dir; } luat_tfs_vfs_file_t;
 

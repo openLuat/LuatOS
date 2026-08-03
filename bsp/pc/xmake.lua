@@ -523,6 +523,7 @@ target("luatos-lua")
     -- tfs (Tiny File System)
     add_includedirs(luatos.."components/tfs/inc",{public = true})
     add_files(luatos.."components/tfs/src/**.c")
+    add_files(luatos.."components/tfs/vfs/**.c")
 
     -- 添加mreport
     -- add_includedirs(luatos.."components/mreport/include",{public = true})
@@ -736,6 +737,18 @@ target("luatos-lua")
         add_files(luatos.."components/eink/*.c")
         add_includedirs(luatos.."components/epaper")
         add_files(luatos.."components/epaper/*.c")
+
+        -- tiny_epd: C core + 1.54-inch black/white driver + LuatOS Lua binding.
+        add_includedirs(luatos.."components/tiny_epd/include")
+        add_includedirs(luatos.."components/tiny_epd/port")
+        add_files(luatos.."components/tiny_epd/src/tiny_epd_core.c")
+        add_files(luatos.."components/tiny_epd/src/tiny_epd_gfx.c")
+        add_files(luatos.."components/tiny_epd/src/tiny_epd_bitmap.c")
+        add_files(luatos.."components/tiny_epd/src/tiny_epd_qrcode.c")
+        add_files(luatos.."components/tiny_epd/src/tiny_epd_hzfont.c")
+        add_files(luatos.."components/tiny_epd/drivers/tiny_epd_1in54.c")
+        add_files(luatos.."components/tiny_epd/port/tiny_epd_port_luatos.c")
+        add_files(luatos.."components/tiny_epd/binding/luat_lib_tiny_epd.c")
     end
     if use_mgba then
         add_defines("LUAT_USE_MGBA=1")

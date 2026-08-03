@@ -3,15 +3,16 @@
 #if defined(LUAT_USE_TINY_EPD)
 
 #include "luat_gpio.h"
-#if defined(TINY_EPD_PORT_LUATOS_DEBUG_BUSY)
 #define LUAT_LOG_TAG "tiny_epd"
 #include "luat_log.h"
+#if defined(TINY_EPD_PORT_LUATOS_DEBUG_BUSY)
 #define TINY_EPD_BUSY_LOGE(...) LLOGE(__VA_ARGS__)
 #define TINY_EPD_BUSY_LOGW(...) LLOGW(__VA_ARGS__)
 #define TINY_EPD_BUSY_LOGI(...) LLOGI(__VA_ARGS__)
 #else
 #define TINY_EPD_BUSY_LOGE(...) do { } while (0)
-#define TINY_EPD_BUSY_LOGW(...) do { } while (0)
+/* A timeout is actionable even in production; retain its GPIO diagnostics. */
+#define TINY_EPD_BUSY_LOGW(...) LLOGW(__VA_ARGS__)
 #define TINY_EPD_BUSY_LOGI(...) do { } while (0)
 #endif
 #include "luat_mcu.h"

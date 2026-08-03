@@ -1,10 +1,8 @@
 {
     "timeout": 60,
+    "platform": ["pc"],
     "model": {
-        "air780epm": [1, 105],
-        "air780ehm": [1, 104],
-        "air8000": [1, 101],
-        "air8101": [1, 101]
+        "pc": [1]
     },
     "action_count": 1,
     "priority": 5,

@@ -248,9 +248,14 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
          * log_tail_* so pgfs_replay_data_log walks only the durable
          * region. Same logic as the fbeda6236 fix in
          * pgfs_control_reset_runtime. Without this, replay would
-         * scan to end-of-flash and resurrect orphan records. */
-        if (ctx->checkpoint.log_tail_block != 0 ||
-            ctx->checkpoint.log_tail_offset != 0) {
+         * scan to end-of-flash and resurrect orphan records.
+         *
+         * P0-1: After computing the CP-based bound, also check the
+         * FTL write_head. Individual fclose calls persist the FTL
+         * write_head between CP commits, so the FTL may know about
+         * records past the CP's log_tail. Extend the replay bound
+         * to include those records for durability correctness. */
+        {
             pgfs_flash_geometry_t geo = {0};
             uint32_t erase_size = 0;
             if (ctx->flash_opts->control &&
@@ -258,15 +263,38 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
                                                PGFS_CTRL_GET_GEOMETRY, &geo) == 0 &&
                 geo.erase_size > 0) {
                 erase_size = geo.erase_size;
-                ctx->data_log_write_addr =
-                    ctx->data_log_base_addr +
-                    (uint32_t)ctx->checkpoint.log_tail_block * erase_size +
-                    ctx->checkpoint.log_tail_offset;
-                ctx->data_log_prepared_until = ctx->data_log_write_addr;
-                LLOGI("pgfs mount: replay bound by CP log_tail=%u/%u (write_addr=%u)",
-                      (unsigned int)ctx->checkpoint.log_tail_block,
-                      (unsigned int)ctx->checkpoint.log_tail_offset,
-                      (unsigned int)ctx->data_log_write_addr);
+                /* CP-based bound */
+                if (ctx->checkpoint.log_tail_block != 0 ||
+                    ctx->checkpoint.log_tail_offset != 0) {
+                    ctx->data_log_write_addr =
+                        ctx->data_log_base_addr +
+                        (uint32_t)ctx->checkpoint.log_tail_block * erase_size +
+                        ctx->checkpoint.log_tail_offset;
+                    ctx->data_log_prepared_until = ctx->data_log_write_addr;
+                    LLOGI("pgfs mount: replay bound by CP log_tail=%u/%u (write_addr=%u)",
+                          (unsigned int)ctx->checkpoint.log_tail_block,
+                          (unsigned int)ctx->checkpoint.log_tail_offset,
+                          (unsigned int)ctx->data_log_write_addr);
+                }
+                /* P0-1: extend bound to FTL write_head if it's ahead.
+                 * The FTL write_head may have been advanced by per-fclose
+                 * FTL persist calls, recording records written since the
+                 * last CP commit. */
+                if (ctx->ftl.write_head_block != 0 ||
+                    ctx->ftl.write_head_offset != 0) {
+                    uint32_t ftl_bound =
+                        ctx->data_log_base_addr +
+                        (uint32_t)ctx->ftl.write_head_block * erase_size +
+                        ctx->ftl.write_head_offset;
+                    if (ftl_bound > ctx->data_log_write_addr) {
+                        LLOGI("pgfs mount: replay bound extended by FTL write_head "
+                              "from %u to %u (CP log_tail was behind)",
+                              (unsigned int)ctx->data_log_write_addr,
+                              (unsigned int)ftl_bound);
+                        ctx->data_log_write_addr = ftl_bound;
+                        ctx->data_log_prepared_until = ftl_bound;
+                    }
+                }
             }
         }
         /* Always replay on mount. The file table is in-RAM only and
@@ -722,6 +750,12 @@ static int pgfs_control_reset_runtime_ctx(pgfs_mount_ctx_t* ctx) {
         if (loaded == 0) {
             ctx->checkpoint = checkpoint;
             ctx->checkpoint_loaded = 1;
+            /* P0-1: early FTL init so the persisted write_head is
+             * available for the replay-bound calculation below.
+             * Idempotent on the second pgfs_ftl_on_mount call later. */
+            if (pgfs_ftl_on_mount(ctx) != 0) {
+                return -1;
+            }
             if (ctx->checkpoint.log_tail_block != 0 ||
                 ctx->checkpoint.log_tail_offset != 0) {
                 pgfs_flash_geometry_t geo = {0};
@@ -740,6 +774,33 @@ static int pgfs_control_reset_runtime_ctx(pgfs_mount_ctx_t* ctx) {
                           (unsigned int)ctx->checkpoint.log_tail_block,
                           (unsigned int)ctx->checkpoint.log_tail_offset,
                           (unsigned int)ctx->data_log_write_addr);
+                }
+            }
+            /* P0-1: extend replay bound to FTL write_head if it's past
+             * the CP log_tail (per-fclose FTL persist may have advanced it). */
+            {
+                pgfs_flash_geometry_t geo2 = {0};
+                uint32_t ersz2 = 0;
+                if (ctx->flash_opts->control &&
+                    ctx->flash_opts->control(ctx->flash_opts->ctx,
+                                                   PGFS_CTRL_GET_GEOMETRY, &geo2) == 0 &&
+                    geo2.erase_size > 0) {
+                    ersz2 = geo2.erase_size;
+                    if (ctx->ftl.write_head_block != 0 ||
+                        ctx->ftl.write_head_offset != 0) {
+                        uint32_t ftl_bound =
+                            ctx->data_log_base_addr +
+                            (uint32_t)ctx->ftl.write_head_block * ersz2 +
+                            ctx->ftl.write_head_offset;
+                        if (ftl_bound > ctx->data_log_write_addr) {
+                            LLOGI("pgfs reset: replay bound extended by FTL write_head "
+                                  "from %u to %u",
+                                  (unsigned int)ctx->data_log_write_addr,
+                                  (unsigned int)ftl_bound);
+                            ctx->data_log_write_addr = ftl_bound;
+                            ctx->data_log_prepared_until = ftl_bound;
+                        }
+                    }
                 }
             }
             loaded = pgfs_replay_data_log(ctx);

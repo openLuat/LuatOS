@@ -124,15 +124,22 @@ static int pgfs_cache_expand(pgfs_file_cache_t* cache, size_t need) {
 }
 
 int pgfs_cache_append(pgfs_file_t* f, const uint8_t* data, size_t len) {
+    size_t new_len;
     if (f == NULL || data == NULL || len == 0) {
         return -1;
     }
-    if (pgfs_cache_expand(&f->cache, f->cache.len + len) != 0) {
+    /* P0/P1-5: guard against size_t overflow in cache.len + len */
+    if (len > (size_t)-1 - f->cache.len) {
+        f->err = 1;
+        return -1;
+    }
+    new_len = f->cache.len + len;
+    if (pgfs_cache_expand(&f->cache, new_len) != 0) {
         f->err = 1;
         return -1;
     }
     memcpy(f->cache.data + f->cache.len, data, len);
-    f->cache.len += len;
+    f->cache.len = new_len;
     return 0;
 }
 

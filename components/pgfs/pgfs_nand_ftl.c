@@ -17,7 +17,7 @@
 #include "pgfs_internal.h"  /* PGFS_LAYOUT_RESERVED_BLOCKS, pgfs_layout_t */
 #include "luat_crypto.h"
 #include "luat_mem.h"
-#include <stdlib.h>
+/* <stdlib.h> removed — calloc replaced with luat_heap_malloc+memset (P0-3 fix) */
 
 #define LUAT_LOG_TAG "pgfs.ftl"
 #include "luat_log.h"
@@ -341,12 +341,14 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
         return -1;
     }
 
-    /* Allocate staging buffer (RAM) */
-    uint8_t *buf = (uint8_t *)calloc(1, total_bytes);
+    /* Allocate staging buffer (RAM) — use luat_heap_malloc not calloc
+     * to avoid cross-allocator mismatch on embedded platforms (P0-3). */
+    uint8_t *buf = (uint8_t *)luat_heap_malloc(total_bytes);
     if (!buf) {
         ctx->persist_failure_count++;
         return -1;
     }
+    memset(buf, 0, total_bytes);
 
     /* Build header */
     pgfs_ftl_meta_t *meta = (pgfs_ftl_meta_t *)buf;
@@ -370,13 +372,14 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
 
     /* Copy bad_blocks_bitmap + reserved_blocks_bitmap + retired_blocks_bitmap
      * + erase_counts + live_bytes + dead_bytes into staging buffer.
-     * v4 layout. */
-    uint8_t  *bitmap_ptr    = buf + sizeof(pgfs_ftl_meta_t);
-    uint8_t  *reserved_ptr  = bitmap_ptr + bitmap_bytes;
-    uint8_t  *retired_ptr   = reserved_ptr + bitmap_bytes;
-    uint16_t *ec_ptr        = (uint16_t *)(retired_ptr + bitmap_bytes);
-    uint32_t *live_ptr      = (uint32_t *)((uint8_t *)ec_ptr + ec_bytes);
-    uint32_t *dead_ptr      = live_ptr + ctx->total_blocks;
+     * v4 layout. All pointers are uint8_t* to avoid unaligned-access
+     * traps on ARM Cortex-M0 (P0-4). */
+    uint8_t *bitmap_ptr    = buf + sizeof(pgfs_ftl_meta_t);
+    uint8_t *reserved_ptr  = bitmap_ptr + bitmap_bytes;
+    uint8_t *retired_ptr   = reserved_ptr + bitmap_bytes;
+    uint8_t *ec_ptr        = retired_ptr + bitmap_bytes;
+    uint8_t *live_ptr      = ec_ptr + ec_bytes;
+    uint8_t *dead_ptr      = live_ptr + live_bytes;
     memcpy(bitmap_ptr, ctx->bad_blocks_bitmap, bitmap_bytes);
     memcpy(reserved_ptr, ctx->reserved_blocks_bitmap, bitmap_bytes);
     memcpy(retired_ptr, ctx->retired_blocks_bitmap, bitmap_bytes);
@@ -509,13 +512,14 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         return 1; /* corrupt */
     }
 
-    /* Extract data — v4 layout. */
-    uint8_t  *bitmap_ptr   = buf + sizeof(pgfs_ftl_meta_t);
-    uint8_t  *reserved_ptr = bitmap_ptr + bitmap_bytes;
-    uint8_t  *retired_ptr  = reserved_ptr + bitmap_bytes;
-    uint16_t *ec_ptr       = (uint16_t *)(retired_ptr + bitmap_bytes);
-    uint32_t *live_ptr     = (uint32_t *)((uint8_t *)ec_ptr + ec_bytes);
-    uint32_t *dead_ptr     = live_ptr + ctx->total_blocks;
+    /* Extract data — v4 layout. All pointers are uint8_t* to avoid
+     * unaligned-access traps on ARM Cortex-M0 (P0-4). */
+    const uint8_t *bitmap_ptr   = buf + sizeof(pgfs_ftl_meta_t);
+    const uint8_t *reserved_ptr = bitmap_ptr + bitmap_bytes;
+    const uint8_t *retired_ptr  = reserved_ptr + bitmap_bytes;
+    const uint8_t *ec_ptr       = retired_ptr + bitmap_bytes;
+    const uint8_t *live_ptr     = ec_ptr + ec_bytes;
+    const uint8_t *dead_ptr     = live_ptr + live_bytes;
 
     memcpy(ctx->bad_blocks_bitmap, bitmap_ptr, bitmap_bytes);
     memcpy(ctx->reserved_blocks_bitmap, reserved_ptr, bitmap_bytes);

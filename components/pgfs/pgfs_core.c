@@ -808,8 +808,16 @@ int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
     if (pgfs_path_normalize(filename, norm, sizeof(norm)) != 0 || norm[0] == '\0') {
         return -1;
     }
+    /* P1-6: acquire per-mount lock to protect the global file table
+     * against concurrent open/close/remove operations. */
+    if (ctx != NULL) {
+        if (pgfs_lock(ctx) != 0) {
+            return -1;
+        }
+    }
     e = pgfs_find_file_norm(norm);
     if (e == NULL) {
+        if (ctx != NULL) { pgfs_unlock(ctx); }
         return -1;
     }
     /* Phase 2 GC: the file's live bytes are now dead. Attribute them
@@ -830,6 +838,7 @@ int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
         pgfs_heap_free_by_type(e->heap_type, e->data);
     }
     memset(e, 0, sizeof(*e));
+    if (ctx != NULL) { pgfs_unlock(ctx); }
     return 0;
 }
 
@@ -2072,8 +2081,18 @@ FILE* pgfs_file_open(pgfs_mount_ctx_t* ctx, const char *filename, const char *mo
     f->batch_id = ctx->batch_id;
     memcpy(f->path, norm, strlen(norm) + 1);
     f->pos = 0;
+    /* P0-2: Append mode must copy existing file content into the write
+     * cache. Without this, pgfs_apply_cache_to_entry at close replaces
+     * entry->data with the cache (only containing new writes), discarding
+     * all original file content. */
     if (e != NULL && strchr(mode, 'a')) {
         f->pos = e->len;
+        if (e->data != NULL && e->len > 0) {
+            if (pgfs_cache_expand(&f->cache, e->len) == 0) {
+                memcpy(f->cache.data, e->data, e->len);
+                f->cache.len = e->len;
+            }
+        }
     }
     pgfs_unlock(ctx);
     return (FILE*)f;
@@ -2214,6 +2233,33 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
             ret = -1;
             goto finish;
         }
+        /* P0-1: Persist FTL write_head after each successful data record
+         * append so the next mount replay can discover records written
+         * since the last CP commit. Without this, up to 7 fclose() calls
+         * that return success can be lost after a power cycle because the
+         * CP's log_tail (and the replay durable_limit derived from it)
+         * were not updated. This is best-effort — if the persist fails,
+         * the data record is still on flash and the fallback replay path
+         * handles the recovery. */
+        {
+            pgfs_flash_geometry_t geo_ftl = {0};
+            if (ctx->flash_opts && ctx->flash_opts->control &&
+                ctx->flash_opts->control(ctx->flash_opts->ctx,
+                    PGFS_CTRL_GET_GEOMETRY, &geo_ftl) == 0 &&
+                geo_ftl.erase_size > 0 &&
+                ctx->data_log_write_addr >= ctx->data_log_base_addr) {
+                uint32_t base_block = (ctx->data_log_base_addr / geo_ftl.erase_size);
+                uint32_t write_block = (ctx->data_log_write_addr / geo_ftl.erase_size);
+                uint32_t write_off   = (ctx->data_log_write_addr % geo_ftl.erase_size);
+                if (write_block >= base_block) {
+                    ctx->ftl.write_head_block  = write_block - base_block;
+                    ctx->ftl.write_head_offset = (uint16_t)write_off;
+                }
+                ctx->ftl.log_tail_block  = ctx->log_tail_block;
+                ctx->ftl.log_tail_offset = ctx->log_tail_offset;
+                (void)pgfs_ftl_persist(&ctx->ftl, ctx->checkpoint.seq);
+            }
+        }
         if (pgfs_apply_cache_to_entry(f) != 0) {
             LLOGE("close apply_cache failed");
             ret = -1;
@@ -2350,18 +2396,30 @@ int pgfs_dir_closedir(pgfs_mount_ctx_t* ctx, void* dir) {
 
 size_t pgfs_file_read(pgfs_mount_ctx_t* ctx, void *ptr, size_t size, size_t nmemb, FILE *stream) {
     pgfs_file_t* f = (pgfs_file_t*)stream;
-    size_t want = size * nmemb;
+    size_t want;
     size_t left = 0;
     size_t take = 0;
-    (void)ctx;
     if (ptr == NULL || f == NULL || f->entry == NULL || !f->mode_read || size == 0 || nmemb == 0) {
         return 0;
     }
+    /* P1-5: guard against size_t overflow in size * nmemb */
+    if (size > (size_t)-1 / nmemb) {
+        return 0;
+    }
+    want = size * nmemb;
     if (!pgfs_ctx_handle_valid(ctx, f->generation)) {
         return 0;
     }
+    /* P1-6: acquire per-mount lock to protect against concurrent close/remove
+     * which may free or modify the entry's data pointer. */
+    if (ctx != NULL) {
+        if (pgfs_lock(ctx) != 0) {
+            return 0;
+        }
+    }
     if (f->pos >= f->entry->len) {
         f->eof = 1;
+        if (ctx != NULL) { pgfs_unlock(ctx); }
         return 0;
     }
     left = f->entry->len - f->pos;
@@ -2369,6 +2427,7 @@ size_t pgfs_file_read(pgfs_mount_ctx_t* ctx, void *ptr, size_t size, size_t nmem
     memcpy(ptr, f->entry->data + f->pos, take);
     f->pos += take;
     f->eof = (f->pos >= f->entry->len) ? 1 : 0;
+    if (ctx != NULL) { pgfs_unlock(ctx); }
     return size == 0 ? 0 : (take / size);
 }
 
@@ -2393,11 +2452,17 @@ int pgfs_file_getc(pgfs_mount_ctx_t* ctx, FILE* stream) {
 
 size_t pgfs_file_write(pgfs_mount_ctx_t* ctx, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     pgfs_file_t* f = (pgfs_file_t*)stream;
-    size_t total = size * nmemb;
-    (void)ctx;
+    size_t total;
+    int ret;
     if (f == NULL || ptr == NULL || !f->mode_write || size == 0 || nmemb == 0) {
         return 0;
     }
+    /* P1-5: guard against size_t overflow in size * nmemb */
+    if (size > (size_t)-1 / nmemb) {
+        f->err = 1;
+        return 0;
+    }
+    total = size * nmemb;
     if (!pgfs_ctx_handle_valid(ctx, f->generation)) {
         f->err = 1;
         return 0;
@@ -2406,7 +2471,17 @@ size_t pgfs_file_write(pgfs_mount_ctx_t* ctx, const void *ptr, size_t size, size
         f->err = 1;
         return 0;
     }
-    if (pgfs_cache_append(f, (const uint8_t*)ptr, total) != 0) {
+    /* P1-6: acquire per-mount lock to protect against concurrent operations
+     * on the global file table and the file entry. */
+    if (ctx != NULL) {
+        if (pgfs_lock(ctx) != 0) {
+            f->err = 1;
+            return 0;
+        }
+    }
+    ret = pgfs_cache_append(f, (const uint8_t*)ptr, total);
+    if (ctx != NULL) { pgfs_unlock(ctx); }
+    if (ret != 0) {
         f->err = 1;
         return 0;
     }

@@ -90,7 +90,7 @@ static size_t pgfs_cache_next_cap(size_t current_cap, size_t need) {
     return target;
 }
 
-static int pgfs_cache_expand(pgfs_file_cache_t* cache, size_t need) {
+int pgfs_cache_expand(pgfs_file_cache_t* cache, size_t need) {
     size_t target;
     size_t candidates[3] = {0};
     size_t i = 0;

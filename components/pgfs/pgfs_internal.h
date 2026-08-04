@@ -289,6 +289,7 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx);
 int pgfs_info_fast(pgfs_mount_ctx_t* ctx, luat_fs_info_t* out);
 int pgfs_rebuild_checkpoint_from_replay(pgfs_mount_ctx_t* ctx);
 
+int pgfs_cache_expand(pgfs_file_cache_t* cache, size_t need);
 int pgfs_cache_append(pgfs_file_t* f, const uint8_t* data, size_t len);
 int pgfs_lock(pgfs_mount_ctx_t* ctx);
 int pgfs_unlock(pgfs_mount_ctx_t* ctx);
@@ -317,6 +318,8 @@ int pgfs_file_tell(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_eof(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_error(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_flush(pgfs_mount_ctx_t* ctx, FILE* stream);
+int pgfs_file_fexist(pgfs_mount_ctx_t* ctx, const char *filename);
+size_t pgfs_file_fsize(pgfs_mount_ctx_t* ctx, const char *filename);
 int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename);
 void pgfs_file_reset_all(void);
 /* Phase 2 GC shadow detection: read the last_written_block of the

@@ -479,21 +479,28 @@ static int pgfs_dir_remove_norm(const char* path) {
  * worst-case is acceptable for an infrequent directory listing
  * operation and saves up to 12KB of heap. */
 
+/* P2-9: scan the ENTIRE dir and file tables for a duplicate child name.
+ * dir_limit and file_limit specify the maximum index to scan (use
+ * PGFS_MAX_DIRS/PGFS_MAX_FILES to scan the whole table, or an index < N
+ * to scan only entries before a given position for dedup). */
 static int pgfs_lsdir_name_is_duplicate(const char* child, const char* parent,
-                                         size_t dir_idx, size_t file_idx) {
+                                         size_t dir_limit, size_t file_limit) {
     size_t k;
     char cmp[sizeof(s_pgfs_dirs[0].path)] = {0};
     int cmp_is_dir = 0;
-    /* Check earlier dir entries */
-    for (k = 0; k < dir_idx; k++) {
+    size_t max_k;
+    /* Guard against (size_t)-1 sentinel — cap at table size */
+    max_k = dir_limit < PGFS_MAX_DIRS ? dir_limit : PGFS_MAX_DIRS;
+    for (k = 0; k < max_k; k++) {
         cmp[0] = '\0'; cmp_is_dir = 1;
         if (!s_pgfs_dirs[k].used) continue;
         if (strcmp(s_pgfs_dirs[k].path, parent) == 0) continue;
         if (pgfs_path_child(parent, s_pgfs_dirs[k].path, cmp, sizeof(cmp), &cmp_is_dir) <= 0 || cmp[0] == '\0') continue;
         if (strcmp(cmp, child) == 0) return 1;
     }
-    /* Check file entries up to file_idx */
-    for (k = 0; k < file_idx; k++) {
+    /* Check file entries */
+    max_k = file_limit < PGFS_MAX_FILES ? file_limit : PGFS_MAX_FILES;
+    for (k = 0; k < max_k; k++) {
         cmp[0] = '\0'; cmp_is_dir = 0;
         if (!s_pgfs_files[k].used) continue;
         if (strcmp(s_pgfs_files[k].path, parent) == 0) continue;
@@ -766,6 +773,28 @@ void pgfs_file_reset_all(void) {
         memset(&s_pgfs_dirs[i], 0, sizeof(s_pgfs_dirs[i]));
     }
     pgfs_batch_pending_reset_all();
+}
+
+/* P4-16: fexist — check if a file or directory exists. Returns 1 if found. */
+int pgfs_file_fexist(pgfs_mount_ctx_t* ctx, const char *filename) {
+    char norm[sizeof(s_pgfs_files[0].path)] = {0};
+    (void)ctx;
+    if (filename == NULL) return 0;
+    if (pgfs_path_normalize(filename, norm, sizeof(norm)) != 0 || norm[0] == '\0') return 0;
+    if (pgfs_find_file_norm(norm) != NULL) return 1;
+    if (pgfs_dir_exists_norm(norm)) return 1;
+    return 0;
+}
+
+/* P4-16: fsize — return file size from the in-memory file table. */
+size_t pgfs_file_fsize(pgfs_mount_ctx_t* ctx, const char *filename) {
+    pgfs_file_entry_t* e;
+    char norm[sizeof(s_pgfs_files[0].path)] = {0};
+    (void)ctx;
+    if (filename == NULL) return 0;
+    if (pgfs_path_normalize(filename, norm, sizeof(norm)) != 0 || norm[0] == '\0') return 0;
+    e = pgfs_find_file_norm(norm);
+    return e ? e->len : 0;
 }
 
 int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
@@ -2218,8 +2247,11 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
          * CP's log_tail (and the replay durable_limit derived from it)
          * were not updated. This is best-effort — if the persist fails,
          * the data record is still on flash and the fallback replay path
-         * handles the recovery. */
-        {
+         * handles the recovery.
+         * The FTL must be initialised (ftl.flash_opts != NULL) before
+         * persist is attempted; unit tests that don't set up the FTL
+         * skip this path gracefully. */
+        if (ctx->ftl.flash_opts != NULL) {
             pgfs_flash_geometry_t geo_ftl = {0};
             if (ctx->flash_opts && ctx->flash_opts->control &&
                 ctx->flash_opts->control(ctx->flash_opts->ctx,

@@ -372,26 +372,13 @@ static int pgfs_check_read_only(pgfs_mount_ctx_t* ctx) {
     return 0;
 }
 
-/* P4-16: fexist — check if a file or directory exists in the file table.
- * Returns 1 if found, 0 if not. */
+/* P4-16: fexist and fsize delegates to pgfs_core.c implementations. */
 static int luat_vfs_pgfs_fexist(void* fsdata, const char *filename) {
-    char norm[96] = {0};
-    if (filename == NULL) return 0;
-    if (pgfs_path_normalize(filename, norm, sizeof(norm)) != 0 || norm[0] == '\0') return 0;
-    if (pgfs_find_file_norm(norm) != NULL) return 1;
-    if (pgfs_dir_exists_norm(norm)) return 1;
-    return 0;
+    return pgfs_file_fexist((pgfs_mount_ctx_t*)fsdata, filename);
 }
 
-/* P4-16: fsize — return file size from the in-memory file table.
- * Returns 0 if not found. */
 static size_t luat_vfs_pgfs_fsize(void* fsdata, const char *filename) {
-    pgfs_file_entry_t* e;
-    char norm[96] = {0};
-    if (filename == NULL) return 0;
-    if (pgfs_path_normalize(filename, norm, sizeof(norm)) != 0 || norm[0] == '\0') return 0;
-    e = pgfs_find_file_norm(norm);
-    return e ? e->len : 0;
+    return pgfs_file_fsize((pgfs_mount_ctx_t*)fsdata, filename);
 }
 
 static int luat_vfs_pgfs_remove(void* fsdata, const char *filename) {

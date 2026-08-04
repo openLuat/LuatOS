@@ -1,6 +1,5 @@
 
 #include "luat_base.h"
-#include "luat_conf_bsp.h"
 #include "luat_mem.h"
 #include "luat_crypto.h"
 #include "luat_rtos.h"

@@ -473,16 +473,42 @@ static int pgfs_dir_remove_norm(const char* path) {
     return 0;
 }
 
+/* P2-9: Zero-allocation lsdir — uses O(n²) dedup scan instead of a
+ * heap-allocated seen-names buffer. For typical embedded directories
+ * (PGFS_MAX_DIRS=256, PGFS_MAX_FILES=512), the ~300K comparison
+ * worst-case is acceptable for an infrequent directory listing
+ * operation and saves up to 12KB of heap. */
+
+static int pgfs_lsdir_name_is_duplicate(const char* child, const char* parent,
+                                         size_t dir_idx, size_t file_idx) {
+    size_t k;
+    char cmp[sizeof(s_pgfs_dirs[0].path)] = {0};
+    int cmp_is_dir = 0;
+    /* Check earlier dir entries */
+    for (k = 0; k < dir_idx; k++) {
+        cmp[0] = '\0'; cmp_is_dir = 1;
+        if (!s_pgfs_dirs[k].used) continue;
+        if (strcmp(s_pgfs_dirs[k].path, parent) == 0) continue;
+        if (pgfs_path_child(parent, s_pgfs_dirs[k].path, cmp, sizeof(cmp), &cmp_is_dir) <= 0 || cmp[0] == '\0') continue;
+        if (strcmp(cmp, child) == 0) return 1;
+    }
+    /* Check file entries up to file_idx */
+    for (k = 0; k < file_idx; k++) {
+        cmp[0] = '\0'; cmp_is_dir = 0;
+        if (!s_pgfs_files[k].used) continue;
+        if (strcmp(s_pgfs_files[k].path, parent) == 0) continue;
+        if (pgfs_path_child(parent, s_pgfs_files[k].path, cmp, sizeof(cmp), &cmp_is_dir) <= 0 || cmp[0] == '\0') continue;
+        if (strcmp(cmp, child) == 0) return 1;
+    }
+    return 0;
+}
+
 static int pgfs_dir_lsdir_norm(pgfs_mount_ctx_t* ctx, const char* path, luat_fs_dirent_t* ents, size_t offset, size_t len) {
     size_t unique_count = 0;
     size_t out = 0;
     size_t i = 0;
-    /* Cap the dedup buffer at 128 entries (12KB) instead of the
-     * theoretical max of 768 entries (73KB). No real directory has
-     * 768 unique children; the cap prevents excessive heap usage. */
-    size_t max_seen = 128;
-    char (*seen_names)[sizeof(((pgfs_dir_entry_t*)0)->path)] = NULL;
     char norm[sizeof(s_pgfs_dirs[0].path)] = {0};
+    (void)ctx;
     if (ctx == NULL || ents == NULL || len == 0 || path == NULL) {
         return 0;
     }
@@ -492,95 +518,38 @@ static int pgfs_dir_lsdir_norm(pgfs_mount_ctx_t* ctx, const char* path, luat_fs_
     if (!pgfs_dir_exists_norm(norm)) {
         return 0;
     }
-    seen_names = (char (*)[sizeof(((pgfs_dir_entry_t*)0)->path)])luat_heap_malloc(max_seen * sizeof(*seen_names));
-    if (seen_names == NULL) {
-        return 0;
-    }
-    memset(seen_names, 0, max_seen * sizeof(*seen_names));
-    for (i = 0; i < PGFS_MAX_DIRS; i++) {
+    /* Pass 1: directories (child_is_dir = 1) */
+    for (i = 0; i < PGFS_MAX_DIRS && out < len; i++) {
         char child[sizeof(s_pgfs_dirs[0].path)] = {0};
         int child_is_dir = 1;
-        if (!s_pgfs_dirs[i].used) {
-            continue;
-        }
-        if (strcmp(s_pgfs_dirs[i].path, norm) == 0) {
-            continue;
-        }
-        if (pgfs_path_child(norm, s_pgfs_dirs[i].path, child, sizeof(child), &child_is_dir) <= 0 || child[0] == '\0') {
-            continue;
-        }
-        if (child_is_dir != 1) {
-            child_is_dir = 1;
-        }
-        if (unique_count > 0) {
-            size_t j = 0;
-            int duplicate = 0;
-            for (j = 0; j < unique_count; j++) {
-                if (strcmp(seen_names[j], child) == 0) {
-                    duplicate = 1;
-                    break;
-                }
-            }
-            if (duplicate) {
-                continue;
-            }
-        }
-        if (unique_count >= max_seen) {
-            break;
-        }
-        memcpy(seen_names[unique_count], child, strlen(child) + 1);
+        if (!s_pgfs_dirs[i].used) continue;
+        if (strcmp(s_pgfs_dirs[i].path, norm) == 0) continue;
+        if (pgfs_path_child(norm, s_pgfs_dirs[i].path, child, sizeof(child), &child_is_dir) <= 0 || child[0] == '\0') continue;
+        /* P2-9: dedup by scanning earlier entries instead of a heap buffer */
+        if (pgfs_lsdir_name_is_duplicate(child, norm, i, (size_t)-1)) continue;
         unique_count++;
-        if (unique_count <= offset) {
-            continue;
-        }
-        if (out < len) {
-            memset(&ents[out], 0, sizeof(ents[out]));
-            ents[out].d_type = 1;
-            memcpy(ents[out].d_name, child, strlen(child) + 1);
-            out++;
-        }
+        if (unique_count <= offset) continue;
+        memset(&ents[out], 0, sizeof(ents[out]));
+        ents[out].d_type = 1;
+        memcpy(ents[out].d_name, child, strlen(child) + 1);
+        out++;
     }
-    for (i = 0; i < PGFS_MAX_FILES; i++) {
+    /* Pass 2: files (child_is_dir = 0) */
+    for (i = 0; i < PGFS_MAX_FILES && out < len; i++) {
         char child[sizeof(s_pgfs_dirs[0].path)] = {0};
         int child_is_dir = 0;
-        if (!s_pgfs_files[i].used) {
-            continue;
-        }
-        if (strcmp(s_pgfs_files[i].path, norm) == 0) {
-            continue;
-        }
-        if (pgfs_path_child(norm, s_pgfs_files[i].path, child, sizeof(child), &child_is_dir) <= 0 || child[0] == '\0') {
-            continue;
-        }
-        if (unique_count > 0) {
-            size_t j = 0;
-            int duplicate = 0;
-            for (j = 0; j < unique_count; j++) {
-                if (strcmp(seen_names[j], child) == 0) {
-                    duplicate = 1;
-                    break;
-                }
-            }
-            if (duplicate) {
-                continue;
-            }
-        }
-        if (unique_count >= max_seen) {
-            break;
-        }
-        memcpy(seen_names[unique_count], child, strlen(child) + 1);
+        if (!s_pgfs_files[i].used) continue;
+        if (strcmp(s_pgfs_files[i].path, norm) == 0) continue;
+        if (pgfs_path_child(norm, s_pgfs_files[i].path, child, sizeof(child), &child_is_dir) <= 0 || child[0] == '\0') continue;
+        /* P2-9: dedup by scanning earlier entries instead of a heap buffer */
+        if (pgfs_lsdir_name_is_duplicate(child, norm, (size_t)-1, i)) continue;
         unique_count++;
-        if (unique_count <= offset) {
-            continue;
-        }
-        if (out < len) {
-            memset(&ents[out], 0, sizeof(ents[out]));
-            ents[out].d_type = child_is_dir ? 1 : 0;
-            memcpy(ents[out].d_name, child, strlen(child) + 1);
-            out++;
-        }
+        if (unique_count <= offset) continue;
+        memset(&ents[out], 0, sizeof(ents[out]));
+        ents[out].d_type = 0;
+        memcpy(ents[out].d_name, child, strlen(child) + 1);
+        out++;
     }
-    luat_heap_free(seen_names);
     return (int)out;
 }
 
@@ -1251,50 +1220,9 @@ int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     return ret;
 }
 
-static int pgfs_compact_live_entries(pgfs_mount_ctx_t* ctx) {
-    pgfs_flash_geometry_t geo = {0};
-    uint32_t base = 0;
-    uint32_t cap = 0;
-    uint32_t span = 0;
-    size_t i = 0;
-    if (ctx == NULL || ctx->flash_opts == NULL || ctx->flash_opts->control == NULL || ctx->flash_opts->erase == NULL) {
-        return -1;
-    }
-    if (ctx->flash_opts->control(ctx->flash_opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo) != 0 || geo.erase_size == 0) {
-        return -1;
-    }
-    base = pgfs_data_log_base_addr(ctx);
-    cap = geo.capacity;
-    if (cap <= base) {
-        return -1;
-    }
-    span = cap - base;
-    if (ctx->flash_opts->erase(ctx->flash_opts->ctx, base, span) != 0) {
-        return -1;
-    }
-    ctx->data_log_write_addr = base;
-    ctx->data_log_prepared_until = base;
-    ctx->checkpoint.written_blocks = 0;
-    ctx->checkpoint.gc_live_bytes = 0;
-    ctx->checkpoint.gc_dead_bytes = 0;
-
-    for (i = 0; i < PGFS_MAX_FILES; i++) {
-        pgfs_file_entry_t* e = &s_pgfs_files[i];
-        pgfs_file_t shadow = {0};
-        if (!e->used || e->len == 0 || e->data == NULL || e->path[0] == '\0') {
-            continue;
-        }
-        shadow.entry = e;
-        shadow.cache.data = e->data;
-        shadow.cache.len = e->len;
-        if (pgfs_append_data_record(ctx, &shadow) != 0) {
-            return -1;
-        }
-        ctx->checkpoint.written_blocks += 1u;
-        ctx->checkpoint.gc_live_bytes += (uint32_t)e->len;
-    }
-    return 0;
-}
+/* P2-11a: pgfs_compact_live_entries removed. The cost-benefit GC data-move
+ * path (pgfs_gc_step + pgfs_gc_rewrite_victim) safely reclaims blocks
+ * without erasing the entire data log. */
 
 static int pgfs_append_batch_data_record(pgfs_mount_ctx_t* ctx, pgfs_batch_pending_entry_t* p) {
     pgfs_batch_data_record_hdr_t hdr = {0};
@@ -1569,11 +1497,26 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
     uint32_t durable_limit = 0;
     pgfs_replay_pending_entry_t pending[PGFS_MAX_BATCH_PENDING];
     int ret = 0;
+    /* P2-7: Pre-allocated replay buffers to eliminate per-record
+     * malloc/free. path_buf holds the record path (max 96 bytes),
+     * data_buf grows on demand to hold the largest record payload
+     * seen during this replay. Both are freed once at cleanup. */
+    #define PGFS_REPLAY_PATH_BUF_SIZE sizeof(s_pgfs_files[0].path)
+    #define PGFS_REPLAY_DATA_INIT_CAP 4096u
+    #define PGFS_REPLAY_DATA_MAX_CAP  (256u * 1024u)
+    uint8_t* replay_path_buf = NULL;
+    uint8_t* replay_data_buf = NULL;
+    size_t replay_data_cap = 0;
 
     if (ctx == NULL || ctx->flash_opts == NULL || ctx->flash_opts->read == NULL) {
         return -1;
     }
     memset(pending, 0, sizeof(pending));
+
+    replay_path_buf = (uint8_t*)luat_heap_malloc(PGFS_REPLAY_PATH_BUF_SIZE);
+    if (replay_path_buf == NULL) {
+        return -1;
+    }
 
     ctx->checkpoint.written_blocks = 0;
     ctx->checkpoint.gc_live_bytes = 0;
@@ -1607,7 +1550,8 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
         uint8_t hdr_prefix[16] = {0};
         char norm[sizeof(s_pgfs_files[0].path)] = {0};
         char parent[sizeof(s_pgfs_dirs[0].path)] = {0};
-        uint8_t* path_buf = NULL;
+        /* P2-7: use pre-allocated replay buffers instead of per-record malloc */
+        uint8_t* path_buf = replay_path_buf;
         uint8_t* data_buf = NULL;
         uint64_t record_len = 0;
         size_t storage_len = 0;
@@ -1852,16 +1796,46 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
         if (limit != 0 && next_addr > limit) {
             break;
         }
-        path_buf = (uint8_t*)luat_heap_malloc((size_t)path_len + 1u);
-        if (path_buf == NULL) {
-            ret = -1;
-            goto cleanup;
+        /* P2-7: path_buf is pre-allocated. Reject records whose path
+         * exceeds the buffer — this can only happen with a corrupted
+         * record header (path_len is bounded by sizeof(norm) == 96). */
+        if (path_len >= PGFS_REPLAY_PATH_BUF_SIZE) {
+            if (pgfs_replay_recover_after_corrupt_record(ctx, addr, limit, &geo, &addr)) {
+                continue;
+            }
+            break;
         }
-        data_buf = data_len == 0 ? NULL : (uint8_t*)luat_heap_malloc((size_t)data_len);
-        if (data_len != 0 && data_buf == NULL) {
-            luat_heap_free(path_buf);
-            ret = -1;
-            goto cleanup;
+        /* P2-7: grow data_buf on demand if this record is larger than
+         * the current capacity. Caps at PGFS_REPLAY_DATA_MAX_CAP to
+         * prevent OOM from a corrupted data_len field. */
+        if (data_len > 0) {
+            size_t need = (size_t)data_len;
+            if (need > PGFS_REPLAY_DATA_MAX_CAP) {
+                if (pgfs_replay_recover_after_corrupt_record(ctx, addr, limit, &geo, &addr)) {
+                    continue;
+                }
+                break;
+            }
+            if (replay_data_buf == NULL || replay_data_cap < need) {
+                size_t new_cap = replay_data_cap == 0 ? PGFS_REPLAY_DATA_INIT_CAP : replay_data_cap;
+                while (new_cap < need && new_cap < PGFS_REPLAY_DATA_MAX_CAP) {
+                    if (new_cap < 4096) new_cap *= 2;
+                    else new_cap += 4096;
+                }
+                if (new_cap > PGFS_REPLAY_DATA_MAX_CAP) new_cap = PGFS_REPLAY_DATA_MAX_CAP;
+                if (new_cap < need) new_cap = need;
+                uint8_t* grown = (uint8_t*)luat_heap_malloc(new_cap);
+                if (grown == NULL) {
+                    ret = -1;
+                    goto cleanup;
+                }
+                if (replay_data_buf != NULL) {
+                    luat_heap_free(replay_data_buf);
+                }
+                replay_data_buf = grown;
+                replay_data_cap = new_cap;
+            }
+            data_buf = replay_data_buf;
         }
         if (pgfs_replay_flash_read(ctx, addr + (uint32_t)hdr_len, path_buf, path_len) != 0) {
             luat_heap_free(path_buf);
@@ -1990,8 +1964,7 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             }
         }
         ctx->data_log_write_addr = (uint32_t)next_addr;
-        luat_heap_free(path_buf);
-        luat_heap_free(data_buf);
+        /* P2-7: replay buffers are pre-allocated, no per-record free needed */
         addr = (uint32_t)next_addr;
     }
 
@@ -2006,6 +1979,13 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
     return ret;
 
 cleanup:
+    /* P2-7: free pre-allocated replay buffers */
+    if (replay_path_buf != NULL) {
+        luat_heap_free(replay_path_buf);
+    }
+    if (replay_data_buf != NULL) {
+        luat_heap_free(replay_data_buf);
+    }
     pgfs_replay_pending_drop_all(pending);
     pgfs_file_reset_all();
     return ret;
@@ -2200,9 +2180,7 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
         }
         if (pgfs_append_data_record(ctx, f) != 0) {
             /* Append failed (out of space or write error). Try GC + retry
-             * once before giving up. Do NOT use pgfs_compact_live_entries
-             * here — it erases the entire data log and a power loss during
-             * compaction would destroy ALL data on the filesystem. */
+             * once before giving up. */
             (void)pgfs_gc_step(ctx, 8192, 5000);
             if (pgfs_append_data_record(ctx, f) != 0) {
                 LLOGE("close append_data_record failed addr=%u path=%s",

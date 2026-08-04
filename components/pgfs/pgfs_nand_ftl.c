@@ -160,6 +160,12 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
                   const pgfs_flash_opts_t *flash_opts,
                   uint32_t erase_size,
                   uint32_t total_blocks) {
+    size_t bitmap_bytes;
+    size_t ec_bytes;
+    size_t lb_bytes;
+    size_t alloc_size;
+    size_t offset;
+    uint8_t *pool;
     if (!ctx || !flash_opts || !total_blocks) return -1;
 
     memset(ctx, 0, sizeof(*ctx));
@@ -167,101 +173,44 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
     ctx->erase_size    = erase_size;
     ctx->flash_opts    = flash_opts;
 
-    size_t bitmap_bytes = PGFS_FTL_BITMAP_BYTES(total_blocks);
-    ctx->bad_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
-    if (ctx->bad_blocks_bitmap) memset(ctx->bad_blocks_bitmap, 0, bitmap_bytes);
-    if (!ctx->bad_blocks_bitmap) return -1;
+    bitmap_bytes = PGFS_FTL_BITMAP_BYTES(total_blocks);
+    ec_bytes     = total_blocks * sizeof(uint16_t);
+    lb_bytes     = total_blocks * sizeof(uint32_t);
 
-    ctx->reserved_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
-    if (ctx->reserved_blocks_bitmap) memset(ctx->reserved_blocks_bitmap, 0, bitmap_bytes);
-    if (!ctx->reserved_blocks_bitmap) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        ctx->bad_blocks_bitmap = NULL;
-        return -1;
-    }
+    /* P3-13: Single contiguous allocation for all 7 FTL arrays:
+     * [bad_bitmap][reserved_bitmap][weak_bitmap][retired_bitmap]
+     * [erase_counts][live_bytes][dead_bytes]
+     * This avoids partial-allocation leaks on fragmented heaps and
+     * reduces heap management overhead. */
+    alloc_size = 4u * bitmap_bytes + ec_bytes + 2u * lb_bytes;
+    pool = (uint8_t *)luat_heap_malloc(alloc_size);
+    if (!pool) return -1;
+    memset(pool, 0, alloc_size);
 
-    ctx->weak_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
-    if (ctx->weak_blocks_bitmap) memset(ctx->weak_blocks_bitmap, 0, bitmap_bytes);
-    if (!ctx->weak_blocks_bitmap) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        luat_heap_free(ctx->reserved_blocks_bitmap);
-        ctx->bad_blocks_bitmap = NULL;
-        ctx->reserved_blocks_bitmap = NULL;
-        return -1;
-    }
+    offset = 0;
+    ctx->bad_blocks_bitmap      = pool + offset; offset += bitmap_bytes;
+    ctx->reserved_blocks_bitmap = pool + offset; offset += bitmap_bytes;
+    ctx->weak_blocks_bitmap     = pool + offset; offset += bitmap_bytes;
+    ctx->retired_blocks_bitmap  = pool + offset; offset += bitmap_bytes;
+    ctx->erase_counts           = (uint16_t *)(pool + offset); offset += ec_bytes;
+    ctx->live_bytes_per_block   = (uint32_t *)(pool + offset); offset += lb_bytes;
+    ctx->dead_bytes_per_block   = (uint32_t *)(pool + offset);
 
-    /* Phase 5b: retired bitmap is independent of bad/weak/reserved. */
-    ctx->retired_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
-    if (ctx->retired_blocks_bitmap) memset(ctx->retired_blocks_bitmap, 0, bitmap_bytes);
-    if (!ctx->retired_blocks_bitmap) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        luat_heap_free(ctx->reserved_blocks_bitmap);
-        luat_heap_free(ctx->weak_blocks_bitmap);
-        ctx->bad_blocks_bitmap = NULL;
-        ctx->reserved_blocks_bitmap = NULL;
-        ctx->weak_blocks_bitmap = NULL;
-        return -1;
-    }
-
-    ctx->erase_counts = (uint16_t *)luat_heap_malloc(total_blocks * sizeof(uint16_t));
-    if (ctx->erase_counts) memset(ctx->erase_counts, 0, total_blocks * sizeof(uint16_t));
-    if (!ctx->erase_counts) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        luat_heap_free(ctx->reserved_blocks_bitmap);
-        luat_heap_free(ctx->weak_blocks_bitmap);
-        luat_heap_free(ctx->retired_blocks_bitmap);
-        ctx->bad_blocks_bitmap = NULL;
-        ctx->reserved_blocks_bitmap = NULL;
-        ctx->weak_blocks_bitmap = NULL;
-        ctx->retired_blocks_bitmap = NULL;
-        return -1;
-    }
-
-    /* Phase 2 prep / v4: per-block live/dead byte arrays. */
-    ctx->live_bytes_per_block = (uint32_t *)luat_heap_malloc(total_blocks * sizeof(uint32_t));
-    if (ctx->live_bytes_per_block) memset(ctx->live_bytes_per_block, 0, total_blocks * sizeof(uint32_t));
-    if (!ctx->live_bytes_per_block) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        luat_heap_free(ctx->reserved_blocks_bitmap);
-        luat_heap_free(ctx->weak_blocks_bitmap);
-        luat_heap_free(ctx->retired_blocks_bitmap);
-        luat_heap_free(ctx->erase_counts);
-        ctx->bad_blocks_bitmap = NULL;
-        ctx->reserved_blocks_bitmap = NULL;
-        ctx->weak_blocks_bitmap = NULL;
-        ctx->retired_blocks_bitmap = NULL;
-        ctx->erase_counts = NULL;
-        return -1;
-    }
-    ctx->dead_bytes_per_block = (uint32_t *)luat_heap_malloc(total_blocks * sizeof(uint32_t));
-    if (ctx->dead_bytes_per_block) memset(ctx->dead_bytes_per_block, 0, total_blocks * sizeof(uint32_t));
-    if (!ctx->dead_bytes_per_block) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        luat_heap_free(ctx->reserved_blocks_bitmap);
-        luat_heap_free(ctx->weak_blocks_bitmap);
-        luat_heap_free(ctx->retired_blocks_bitmap);
-        luat_heap_free(ctx->erase_counts);
-        luat_heap_free(ctx->live_bytes_per_block);
-        ctx->bad_blocks_bitmap = NULL;
-        ctx->reserved_blocks_bitmap = NULL;
-        ctx->weak_blocks_bitmap = NULL;
-        ctx->retired_blocks_bitmap = NULL;
-        ctx->erase_counts = NULL;
-        ctx->live_bytes_per_block = NULL;
-        return -1;
-    }
     return 0;
 }
 
 void pgfs_ftl_deinit(pgfs_nand_ftl_ctx_t *ctx) {
     if (!ctx) return;
+    /* P3-13: All FTL arrays share one allocation. bad_blocks_bitmap
+     * is the base pointer; free it once instead of each array separately. */
     luat_heap_free(ctx->bad_blocks_bitmap);
-    luat_heap_free(ctx->reserved_blocks_bitmap);
-    luat_heap_free(ctx->weak_blocks_bitmap);
-    luat_heap_free(ctx->retired_blocks_bitmap);
-    luat_heap_free(ctx->erase_counts);
-    luat_heap_free(ctx->live_bytes_per_block);
-    luat_heap_free(ctx->dead_bytes_per_block);
+    ctx->bad_blocks_bitmap      = NULL;
+    ctx->reserved_blocks_bitmap = NULL;
+    ctx->weak_blocks_bitmap     = NULL;
+    ctx->retired_blocks_bitmap  = NULL;
+    ctx->erase_counts           = NULL;
+    ctx->live_bytes_per_block   = NULL;
+    ctx->dead_bytes_per_block   = NULL;
     if (ctx->last_persist_buf != NULL) {
         luat_heap_free(ctx->last_persist_buf);
     }

@@ -19,6 +19,7 @@ void pgfs_vfs_init(void);
 void* pgfs_default_bus(void* flash, size_t offset, size_t maxsize);
 int luat_pgfs_vfs_register(void);
 int luat_pgfs_mount(const char *mount_point, const pgfs_flash_opts_t *opts);
+int luat_pgfs_mount_ro(const char *mount_point, const pgfs_flash_opts_t *opts);
 int luat_pgfs_umount(const char *mount_point);
 int luat_pgfs_info(const char *path, luat_fs_info_t *info);
 int luat_pgfs_begin_batch(uint32_t* out_batch_id);

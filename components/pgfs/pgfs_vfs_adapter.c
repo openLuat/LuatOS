@@ -332,6 +332,13 @@ static int luat_vfs_pgfs_umount(void* fsdata, luat_fs_conf_t *conf) {
         return -1;
     }
     if (ctx->mounted) {
+        /* P2-11: Abort any active batch before unmounting. Orphaned
+         * batches (begin without commit/abort) would otherwise leave
+         * pending entries that never flush and permanently consume a
+         * batch slot. */
+        if (ctx->batch_active) {
+            pgfs_batch_abort(ctx, ctx->batch_id);
+        }
         /* Persist FTL state before committing checkpoint */
         pgfs_ftl_on_checkpoint_commit(ctx);
         if (pgfs_checkpoint_commit_pending(ctx) != 0) {
@@ -357,15 +364,26 @@ static int luat_vfs_pgfs_info(void* fsdata, const char* path, luat_fs_info_t *co
     return pgfs_info_fast(ctx, conf);
 }
 
+/* P2-11c: read-only guard — reject mutating operations on read-only mounts. */
+static int pgfs_check_read_only(pgfs_mount_ctx_t* ctx) {
+    if (ctx != NULL && ctx->read_only) {
+        return -1;
+    }
+    return 0;
+}
+
 static int luat_vfs_pgfs_remove(void* fsdata, const char *filename) {
+    if (pgfs_check_read_only((pgfs_mount_ctx_t*)fsdata) != 0) return -1;
     return pgfs_file_remove((pgfs_mount_ctx_t*)fsdata, filename);
 }
 
 static int luat_vfs_pgfs_mkdir(void* fsdata, char const* _DirName) {
+    if (pgfs_check_read_only((pgfs_mount_ctx_t*)fsdata) != 0) return -1;
     return pgfs_dir_mkdir((pgfs_mount_ctx_t*)fsdata, _DirName);
 }
 
 static int luat_vfs_pgfs_rmdir(void* fsdata, char const* _DirName) {
+    if (pgfs_check_read_only((pgfs_mount_ctx_t*)fsdata) != 0) return -1;
     return pgfs_dir_rmdir((pgfs_mount_ctx_t*)fsdata, _DirName);
 }
 
@@ -382,7 +400,14 @@ static int luat_vfs_pgfs_closedir(void* fsdata, void* dir) {
 }
 
 static FILE* luat_vfs_pgfs_fopen(void* fsdata, const char *filename, const char *mode) {
-    return pgfs_file_open((pgfs_mount_ctx_t*)fsdata, filename, mode);
+    pgfs_mount_ctx_t* ctx = (pgfs_mount_ctx_t*)fsdata;
+    if (ctx != NULL && ctx->read_only) {
+        /* P2-11c: reject write-mode opens on read-only mounts */
+        if (mode != NULL && (strchr(mode, 'w') || strchr(mode, 'a') || strchr(mode, '+'))) {
+            return NULL;
+        }
+    }
+    return pgfs_file_open(ctx, filename, mode);
 }
 
 static int luat_vfs_pgfs_fclose(void* fsdata, FILE* stream) {
@@ -510,6 +535,20 @@ int luat_pgfs_mount(const char *mount_point, const pgfs_flash_opts_t *opts) {
         .mount_point = mount_point,
     };
     return luat_fs_mount(&conf);
+}
+
+/* P2-11c: Read-only mount — mounts normally but rejects all mutating
+ * operations (write, remove, mkdir, rmdir). Useful for audit/forensic
+ * scenarios and for mounting known-good images without risk of corruption. */
+int luat_pgfs_mount_ro(const char *mount_point, const pgfs_flash_opts_t *opts) {
+    pgfs_mount_ctx_t* ctx;
+    int ret = luat_pgfs_mount(mount_point, opts);
+    if (ret != 0) return ret;
+    ctx = pgfs_find_mount_by_point(mount_point);
+    if (ctx != NULL) {
+        ctx->read_only = 1;
+    }
+    return 0;
 }
 
 int luat_pgfs_umount(const char *mount_point) {

@@ -54,9 +54,44 @@ int pgfs_unlock(pgfs_mount_ctx_t* ctx) {
     return 0;
 }
 
+/* P2-11b: Unified cache growth strategy.
+ * < 4KB: power-of-2 (256 → 512 → 1024 → 2048 → 4096)
+ * >= 4KB: fixed 4KB increments, capped at PGFS_CACHE_MAX (256KB).
+ * This avoids over-allocating for small files while keeping growth
+ * predictable for large files. */
+#define PGFS_CACHE_MAX (256u * 1024u)
+
+static size_t pgfs_cache_next_cap(size_t current_cap, size_t need) {
+    size_t target;
+    if (current_cap == 0) {
+        target = 256;
+    } else if (current_cap < 4096) {
+        /* Power-of-2 doubling under 4KB: 256→512→1024→2048→4096 */
+        target = current_cap * 2;
+    } else {
+        /* Fixed 4KB increments above 4KB */
+        target = current_cap + 4096;
+    }
+    /* Clamp to PGFS_CACHE_MAX */
+    if (target > PGFS_CACHE_MAX) {
+        target = PGFS_CACHE_MAX;
+    }
+    /* Must satisfy need */
+    while (target < need && target < PGFS_CACHE_MAX) {
+        if (target < 4096) {
+            target *= 2;
+        } else {
+            target += 4096;
+        }
+    }
+    if (target > PGFS_CACHE_MAX) {
+        target = PGFS_CACHE_MAX;
+    }
+    return target;
+}
+
 static int pgfs_cache_expand(pgfs_file_cache_t* cache, size_t need) {
-    size_t target = 0;
-    size_t min_target = 0;
+    size_t target;
     size_t candidates[3] = {0};
     size_t i = 0;
     size_t candidate_count = 0;
@@ -68,30 +103,14 @@ static int pgfs_cache_expand(pgfs_file_cache_t* cache, size_t need) {
     if (need <= cache->cap) {
         return 0;
     }
-    target = cache->cap == 0 ? 256 : cache->cap;
-    while (target < need) {
-        size_t step = target < (64 * 1024) ? target : (64 * 1024);
-        size_t next = 0;
-        if (step < 4096) {
-            step = 4096;
-        }
-        if (target > ((size_t)-1) - step) {
-            return -1;
-        }
-        next = target + step;
-        if (next <= target) {
-            return -1;
-        }
-        target = next;
+    /* Guard against requesting more than max cache size */
+    if (need > PGFS_CACHE_MAX) {
+        return -1;
     }
-    min_target = (need + 4095) & ~(size_t)4095;
-    target = (target + 4095) & ~(size_t)4095;
+    target = pgfs_cache_next_cap(cache->cap, need);
 
     candidates[candidate_count++] = target;
-    if (min_target != target) {
-        candidates[candidate_count++] = min_target;
-    }
-    if (need != min_target && need != target) {
+    if (need != target) {
         candidates[candidate_count++] = need;
     }
 
@@ -110,7 +129,8 @@ static int pgfs_cache_expand(pgfs_file_cache_t* cache, size_t need) {
         }
     }
     if (ptr == NULL) {
-        LLOGE("cache_expand malloc failed need=%u target=%u min_target=%u old_cap=%u", (unsigned int)need, (unsigned int)target, (unsigned int)min_target, (unsigned int)cache->cap);
+        LLOGE("cache_expand malloc failed need=%u target=%u old_cap=%u",
+              (unsigned int)need, (unsigned int)target, (unsigned int)cache->cap);
         return -1;
     }
     if (cache->data != NULL && cache->len > 0) {

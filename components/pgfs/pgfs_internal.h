@@ -209,7 +209,8 @@ typedef struct pgfs_mount_ctx {
     uint16_t layout_reserved0;           /* padding to keep alignment */
     pgfs_diag_stats_t stats;
     uint8_t batch_active;
-    uint8_t batch_reserved[3];
+    uint8_t read_only;                    /* P2-11c: read-only mount, reject writes */
+    uint8_t batch_reserved[2];
     uint32_t batch_id;
     uint32_t batch_next_id;
     /* NAND FTL context (bad-block map, erase counts, inject bookkeeping) */

@@ -29,18 +29,14 @@ typedef struct rotable_Reg2 {
 #define ROREG_STR(fvalue)  {.type=LUA_TSTRING,   .value={.strvalue=fvalue}}
 #define ROREG_PTR(fvalue)  {.type=LUA_TLIGHTUSERDATA,   .value={.ptr=fvalue}}
 
-#ifndef ROTABLE_EXPORT
-#  define ROTABLE_EXPORT extern
-#endif
-
 /* compatible with `luaL_newlib()`, and works with `luaL_Reg` *and*
  * `rotable_Reg` arrays (in case you don't use `lauxlib.h`) */
-ROTABLE_EXPORT void rotable2_newlib( lua_State* L, void const* reg );
+void rotable2_newlib( lua_State* L, void const* reg );
 
 /* Since userdatas can not be used as `__index` meta methods directly
  * this function creates a C closure that looks up keys in a given
  * `rotable_Reg` array. */
-ROTABLE_EXPORT void rotable2_newidx( lua_State* L, void const* reg );
+void rotable2_newidx( lua_State* L, void const* reg );
 
 #endif /* ROTABLE_H_ */
 

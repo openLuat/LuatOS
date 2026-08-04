@@ -1,10 +1,13 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 2.4
-@date    2026.7.17
+@version 2.5
+@date    2026.8.3
 @author  拓毅恒
 @updates
+    v2.5 2026.8.3
+        1. play_start()文件播放新增文件头损坏预检：对mp3/amr/wav格式，播放前先解析文件头，
+           文件不存在或文件头损坏时停止播放并提示"播放文件损坏，请更换文件播放"
     v2.4 2026.7.17
         1. 重构exaudio.parse_audio_info()，支持文件路径和缓冲数据两种方式输入
     v2.3 2026.7.16
@@ -50,6 +53,10 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202608031526
+-- 1、更新时间：2026-08-03 15:26
+--    play_start()文件播放新增文件头损坏预检功能
+--    对mp3/amr/wav格式，播放前先解析文件头，文件不存在或头损坏时停止播放并提示"播放文件损坏，请更换文件播放"
 -- 版本号：202607171800
 -- 1、更新时间：2026-07-17 18:00
 --    改造parse_audio_info，支持文件路径和缓冲数据两种方式输入
@@ -1083,7 +1090,40 @@ function exaudio.play_start(playConfigs)
                 log.error("文件播放需要指定content(文件路径或路径表)")
                 return false
             end
-            
+
+            -- 文件头损坏预检：对 mp3/amr/wav 等带格式头的文件，播放前先解析文件头，
+            local check_content = playConfigs.content
+            if type(check_content) == "string" then
+                -- 扩展名 -> codec_id 映射
+                local ext = check_content:match("%.([^%.]+)$")
+                local ext_codec = nil
+                if ext then
+                    ext = ext:lower()
+                    if ext == "mp3" then
+                        ext_codec = 5
+                    elseif ext == "wav" then
+                        ext_codec = 1
+                    elseif ext == "amr" then
+                        ext_codec = 2
+                    end
+                end
+                local info_codec = playConfigs.codec_id or ext_codec
+                if info_codec then
+                    -- 先确认文件存在且可读
+                    local fp_check = io.open(check_content, "rb")
+                    if not fp_check then
+                        log.error("播放文件不存在或无法打开，请更换文件播放:", check_content)
+                        return false
+                    end
+                    fp_check:close()
+                    local info = exaudio.parse_audio_info(check_content, info_codec)
+                    if not info or not info.sample_rate or info.sample_rate == 0 then
+                        log.error("播放文件损坏，请更换文件播放:", check_content)
+                        return false
+                    end
+                end
+            end
+
             -- 使用audio_v2.play播放文件
             ok, req_id = audio_v2.play(
                 playConfigs.content, 
@@ -1934,7 +1974,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202607171800"
+    return "202608031526"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

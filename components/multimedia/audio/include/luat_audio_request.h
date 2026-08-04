@@ -298,7 +298,10 @@ int luat_audio_request_add_source_tts(luat_audio_extern_source_t *source, const 
 * @param user_data 用户数据指针，用于传递自定义数据
 * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
 */
-int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, const luat_audio_data_codec_opts_t *codec_opts, const luat_audio_common_param_t *common_param, uint8_t is_add_record, void *user_data);  
+int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, const luat_audio_data_codec_opts_t *codec_opts, const luat_audio_common_param_t *common_param, uint8_t is_add_record, void *user_data);
+
+/** Feed data to a stream extern source and wake its decoder. */
+int luat_audio_extern_source_feed(luat_audio_extern_source_t *source, const uint8_t *data, uint32_t len);
 
 /**
 * @brief 删除第三方数据源

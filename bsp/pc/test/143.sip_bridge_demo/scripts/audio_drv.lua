@@ -13,6 +13,14 @@ if ok then
     exaudio = result
 end
 
+-- audio_v2 负责 I2S DMA；外置 ES8311 的寄存器及 DAC/PA 状态仍需由 Lua 恢复。
+-- 使用 pcall 保持 PC 模拟器也可加载本脚本。
+local es8311
+local es8311_ok, es8311_mod = pcall(function() return require("es8311") end)
+if es8311_ok then
+    es8311 = es8311_mod
+end
+
 local audio_drv = {}
 
 local audio_configs = {
@@ -25,7 +33,7 @@ local audio_configs = {
     dac_time_delay = 100,
     bits_per_sample = 16,
     pa_on_level = 1,
-    -- Air8000 默认旧框架，但 CC 通话需要 audio_v2
+    -- SIP↔CC 桥接仅支持 audio_v2；普通 CC 仍可使用 old 音频框架。
     audio_mode = "new",
 }
 
@@ -66,6 +74,35 @@ function audio_drv.init()
         log.error("audio_drv", "exaudio.setup初始化失败:", setup_ret)
         return false
     end
+end
+
+-- 在 audio_v2 的 CC 语音真正开始时恢复外置编解码器输出通路。
+-- 这是硬件适配：不创建音频请求，也不参与桥接 PCM 数据流。
+function audio_drv.enable_cc_codec(sample_rate)
+    if audio_configs.audio_mode ~= "new" then
+        return true
+    end
+    if rtos and rtos.bsp and rtos.bsp() and rtos.bsp():find("PC") then
+        return true
+    end
+    if not es8311 then
+        log.error("audio_drv", "未找到es8311驱动，无法恢复CC音频输出")
+        return false
+    end
+
+    sample_rate = sample_rate or 16000
+    gpio.setup(audio_configs.dac_ctrl, 1)
+    gpio.setup(audio_configs.pa_ctrl, audio_configs.pa_on_level)
+    es8311.init(audio_configs.i2c_id)
+    es8311.set_sample_rate(audio_configs.i2c_id, sample_rate, 256)
+    es8311.set_data_bits(audio_configs.i2c_id, audio_configs.bits_per_sample)
+    es8311.set_format(audio_configs.i2c_id)
+    es8311.resume(audio_configs.i2c_id)
+    es8311.set_mute(audio_configs.i2c_id, true)  -- 先静音，避免启动时的噪音
+    es8311.set_voice_vol(audio_configs.i2c_id, 70)
+    es8311.set_mic_vol(audio_configs.i2c_id, 96)
+    log.info("audio_drv", "audio_v2 CC codec DAC/PA resumed", sample_rate)
+    return true
 end
 
 return audio_drv

@@ -1621,14 +1621,17 @@ int luat_audio_request_add_source_tts(luat_audio_extern_source_t *source, const 
 
 int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, const luat_audio_data_codec_opts_t *codec_opts, const luat_audio_common_param_t *common_param, uint8_t is_add_record, void *user_data)
 {
+	luat_audio_request_block_t *request = source ? source->request : NULL;
+	if (!source || !request || !codec_opts || !common_param) return -LUAT_ERROR_PARAM_INVALID;
 	memset(source, 0, sizeof(luat_audio_extern_source_t));
+	source->request = request;
 	source->is_add_record = is_add_record;
 	source->is_stream = 1;
 
-	if (!luat_audio_data_codec_bind(&source->codec, codec_opts, source->request)) {
+	if (luat_audio_data_codec_bind(&source->codec, codec_opts, source->request) != LUAT_ERROR_NONE) {
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
-	if (!source->codec.opts->init(&source->codec, 0)) {
+	if (source->codec.opts->init(&source->codec, 0) != LUAT_ERROR_NONE) {
 		luat_audio_data_codec_unbind(&source->codec);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
@@ -1642,7 +1645,24 @@ int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, con
 		luat_audio_extern_source_deinit(source);
 	}
 	return ret;
-} 
+}
+
+int luat_audio_extern_source_feed(luat_audio_extern_source_t *source, const uint8_t *data, uint32_t len)
+{
+	uint32_t free_space;
+	if (!source || !data || !len || source->is_done || source->is_user_stop || !source->decode_input_fifo) {
+		return 0;
+	}
+	free_space = luat_fifo_check_free_space(source->decode_input_fifo);
+	if (len > free_space) {
+		len = free_space;
+	}
+	if (!len) return 0;
+	luat_fifo_write(source->decode_input_fifo, data, len);
+	/* The extern-source decoder waits here between frames. */
+	luat_mutex_unlock(_luat_audio.tts_or_extern_source_wait_sem);
+	return (int)len;
+}
 
 void luat_audio_request_delete_source(luat_audio_extern_source_t *source)
 {

@@ -32,6 +32,7 @@ local sip_bridge_agent = {}
 
 local exsip = require("exsip")
 local exaudio = require("exaudio")
+local audio_drv = require("audio_drv")
 
 -- ==================== 配置 ====================
 
@@ -593,6 +594,11 @@ local function on_cc_event(status, value, extra)
         
     elseif status == "SPEECH_START" then
         logi("CC 语音开始")
+        -- audio_v2 接管 I2S 后，需恢复外置 ES8311 的 DAC/PA；
+        -- 仅是硬件输出通路恢复，不会启用本地音频或改变桥接开关。
+        if audio_drv and audio_drv.enable_cc_codec then
+            audio_drv.enable_cc_codec(16000)
+        end
         
     elseif status == "PLAY" then
         logi("CC 播放事件", value)

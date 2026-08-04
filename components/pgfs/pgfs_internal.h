@@ -48,6 +48,7 @@
 #define PGFS_BATCH_DATA_RECORD_MAGIC 0x50474642u
 #define PGFS_BATCH_COMMIT_RECORD_MAGIC 0x50474643u
 #define PGFS_MAX_DIRS                256u
+#define PGFS_MAX_PATH                96u    /* P3-15: configurable max path length */
 #define PGFS_CHECKPOINT_BATCH_CLOSES 8u
 #define PGFS_CHECKPOINT_PENDING_CAP  PGFS_CHECKPOINT_BATCH_CLOSES
 
@@ -228,7 +229,7 @@ typedef struct pgfs_file_entry {
     uint8_t used;
     uint8_t heap_type;
     uint8_t reserved[2];
-    char path[96];
+    char path[PGFS_MAX_PATH];
     uint8_t *data;
     size_t len;
     size_t cap;
@@ -243,13 +244,13 @@ typedef struct pgfs_file_entry {
 typedef struct pgfs_dir_entry {
     uint8_t used;
     uint8_t reserved[3];
-    char path[96];
+    char path[PGFS_MAX_PATH];
 } pgfs_dir_entry_t;
 
 typedef struct pgfs_file {
     pgfs_mount_ctx_t *ctx;
     pgfs_file_entry_t *entry;
-    char path[96];
+    char path[PGFS_MAX_PATH];
     size_t pos;
     uint32_t generation;
     uint8_t mode_write;

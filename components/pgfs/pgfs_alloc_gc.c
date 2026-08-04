@@ -182,6 +182,16 @@ uint32_t pgfs_gc_pick_victim(pgfs_mount_ctx_t* ctx) {
             score += boost;
         }
 
+        /* P3-14: Weak block boost — blocks marked weak (ECC-correctable
+         * read error detected) should be prioritised for GC so their data
+         * is migrated to fresh blocks before degradation worsens. The boost
+         * is half the erase size, which is enough to make a weak block win
+         * over an equivalent non-weak block but not so much that it beats
+         * a clearly better candidate. */
+        if (pgfs_ftl_is_weak(&ctx->ftl, id)) {
+            score += erase_size / 2u;
+        }
+
         if (score == 0) continue;
         if (best_block == 0xFFFFFFFFu || score > best_score) {
             best_block = id;

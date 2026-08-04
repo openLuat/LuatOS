@@ -4762,8 +4762,7 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_multi_mount_cycle_reads_via_replay);
     PGFS_RUN_CTEST(pgfs_test_multi_mount_counters_advance);
     PGFS_RUN_CTEST(pgfs_test_replay_failure_cleans_up);
-    PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
-    PGFS_RUN_CTEST(pgfs_test_replay_shadow_detection_marks_dead_bytes);
+    /* P4-18: removed duplicate pgfs_test_replay_shadow_detection_marks_dead_bytes registration */
     /* Multi-mount adapter tests */
     PGFS_RUN_CTEST(pgfs_test_mount_helper_functions);
     PGFS_RUN_CTEST(pgfs_test_multi_mount_two_partitions_independent);

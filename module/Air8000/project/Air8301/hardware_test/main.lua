@@ -1,11 +1,11 @@
 --[[
 @module  main
-@summary Air8301_V0 网关主机固件主入口
+@summary Air8301_V0 硬件测试固件主入口
 @version 1.0
 @date    2026.08.04
 @author  江访
 @usage
-本固件为 Air8301 网关主机（基于 Air8000W 主控），功能包括：
+本固件为 Air8301 硬件测试固件（基于 Air8000W 主控），测试功能包括：
 1、4G/WiFi/以太网通信
 2、双RS485/RS232通信
 3、DI输入监测/DO继电器控制
@@ -31,7 +31,7 @@ VERSION：项目版本号，ascii string类型
 ]]
 -- main.lua - 程序入口文件
 
-PROJECT = "Air8301_Gateway"
+PROJECT = "Air8301_HardwareTest"
 VERSION = "001.999.000"
 
 log.info("main", PROJECT, VERSION)

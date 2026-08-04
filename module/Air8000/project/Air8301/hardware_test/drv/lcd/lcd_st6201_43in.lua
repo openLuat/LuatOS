@@ -1,6 +1,6 @@
 --[[
 @module  lcd_st6201_43in
-@summary ST6201 4.3寸 480×272 SPI LCD 驱动（Air8301 网关主机）
+@summary ST6201 4.3寸 480×272 SPI LCD 驱动（Air8301 硬件测试）
 @version 2.0
 @date    2026.08.04
 @author  江访

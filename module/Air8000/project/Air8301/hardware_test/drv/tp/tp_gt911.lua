@@ -1,6 +1,6 @@
 --[[
 @module  gt911
-@summary GT911 触摸控制器驱动（Air8301 网关主机）
+@summary GT911 触摸控制器驱动（Air8301 硬件测试）
 @version 2.0
 @date    2026.08.04
 @author  江访

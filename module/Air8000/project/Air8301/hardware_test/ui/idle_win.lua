@@ -95,7 +95,7 @@ local function create_ui()
     })
     airui.label({
         parent = title_bar,
-        text = "Air8301 网关",
+        text = "Air8301 硬件测试",
         x = 10, y = 12, w = 300, h = 24, font_size = 18,
     })
     -- 时间

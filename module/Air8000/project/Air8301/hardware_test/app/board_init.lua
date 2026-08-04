@@ -1,6 +1,6 @@
 --[[
 @module  board_init
-@summary Air8301 网关主机板级初始化模块
+@summary Air8301 硬件测试板级初始化模块
 @version 2.0
 @date    2026.08.04
 @author  江访

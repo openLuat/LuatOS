@@ -211,17 +211,27 @@ and run of algorithm tests (12/12 passing).
 - Fixes the old formula `(dead+free)/(ec+1)` that deprioritised high-EC blocks
 - Test: `pgfs_test_gc_wear_leveling_score` verifies high-EC block picked first
 
-### Known remaining issues (P1-P3 from review)
-- Replay per-record malloc (path_buf/data_buf/crc_buf) — cleanup added but
-  still allocates per-iteration; pre-allocation would be more robust
-- Batch system has no timeout/cleanup for orphaned batches
+### Known remaining issues (2026-08-04 update)
+
+**Fixed since review:**
+- ✅ Replay per-record malloc → pre-allocated path_buf (96B) + growable data_buf (P2-7)
+- ✅ Batch system no timeout → auto-abort on umount (P2-11)
+- ✅ Emergency compaction → `pgfs_compact_live_entries` removed; GC data-move covers this (P2-11a)
+- ✅ Weak block GC → score bonus in `pgfs_gc_pick_victim` (P3-14)
+- ✅ Read-only mount → `luat_pgfs_mount_ro()` + guards on write/remove/mkdir/rmdir (P2-11c)
+- ✅ Path buffer fixed → `PGFS_MAX_PATH` macro (96, overridable) (P3-15)
+- ✅ Write cache growth → power-of-2 under 4KB, fixed +4KB above, capped 256KB (P2-11b)
+- ✅ FTL init → single contiguous allocation instead of 7 separate mallocs (P3-13)
+- ✅ lsdir 73KB allocation → O(n²) dedup scan, zero heap (P2-9)
+- ✅ VFS fexist/fsize → implemented (P4-16)
+- ✅ Duplicate test registration → removed (P4-18)
+
+**Still open:**
 - O(n) linear file/dir lookup (acceptable for 512-entry bound)
-- Emergency compaction (`pgfs_compact_live_entries`) erases entire data log
 - `fflush` is documented no-op (durability boundary is fclose)
-- Weak blocks marked but never proactively migrated by GC
-- No read-only mount support
-- Path buffer fixed at 96 bytes
-- Single global `s_pgfs_ctx` prevents multi-partition
+- Single global `s_pgfs_files[]`/`s_pgfs_dirs[]` (per-mount tables would isolate mounts)
+- ECC covers only first 8 bytes of record header
+- Replay shadow dead byte attribution (DESIGN.md §6 TODO)
 
 ## Powercut injection stages (testing)
 

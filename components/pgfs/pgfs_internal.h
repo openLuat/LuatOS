@@ -296,6 +296,7 @@ int pgfs_unlock(pgfs_mount_ctx_t* ctx);
 int pgfs_batch_begin(pgfs_mount_ctx_t* ctx, uint32_t* out_batch_id);
 int pgfs_batch_commit(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
 int pgfs_batch_abort(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
+int pgfs_control_inject_powercut_stage_ctx(pgfs_mount_ctx_t* ctx, const char* stage);
 
 /* Phase 2 GC: visit every in-use file_entry in the mount's file
  * table. The callback receives (entry, user_data). Returning non-zero

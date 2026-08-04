@@ -2397,20 +2397,19 @@ static int pgfs_test_batch_api_boundaries(void) {
         pgfs_file_close(&ctx, f_read);
     }
 
-    /* powercut_stage string aliases: short forms must work the same as
-     * the long forms (Bug 10.2: real-hardware test used "before_cp"). */
-    if (pgfs_control_inject_powercut_stage("before_cp") != 0) {
+    /* powercut_stage string aliases: test via the _ctx variant to
+     * avoid depending on a globally-registered mount (this test uses
+     * a stack-allocated ctx). */
+    if (pgfs_control_inject_powercut_stage_ctx(&ctx, "before_cp") != 0) {
         printf("[pgfs-ctrl-utest] before_cp alias not recognized\n");
         fail++;
     }
-    if (pgfs_control_inject_powercut_stage("bogus_stage_name") != -1) {
+    if (pgfs_control_inject_powercut_stage_ctx(&ctx, "bogus_stage_name") != -1) {
         printf("[pgfs-ctrl-utest] bogus stage name should have returned -1\n");
         fail++;
     }
-    /* Clear the injection: the global s_pgfs_ctx.inject_powercut_stage
-     * is shared across all C-utest cases, so we must not leave
-     * "before_cp" set or the next test's writes would be poisoned. */
-    (void)pgfs_control_inject_powercut_stage("none");
+    /* Clear the injection so it doesn't poison the next test case. */
+    (void)pgfs_control_inject_powercut_stage_ctx(&ctx, "none");
 
     pgfs_file_reset_all();
     pgfs_test_flash_free(flash);

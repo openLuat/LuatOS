@@ -662,7 +662,7 @@ int pgfs_control_set_lock_mode_on(const char *mount_point, const char* mode) {
     return 0;
 }
 
-static int pgfs_control_inject_powercut_stage_ctx(pgfs_mount_ctx_t* ctx, const char* stage) {
+int pgfs_control_inject_powercut_stage_ctx(pgfs_mount_ctx_t* ctx, const char* stage) {
     if (ctx == NULL || stage == NULL) {
         return -1;
     }

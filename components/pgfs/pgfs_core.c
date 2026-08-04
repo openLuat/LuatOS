@@ -2248,10 +2248,22 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
          * were not updated. This is best-effort — if the persist fails,
          * the data record is still on flash and the fallback replay path
          * handles the recovery.
-         * The FTL must be initialised (ftl.flash_opts != NULL) before
-         * persist is attempted; unit tests that don't set up the FTL
-         * skip this path gracefully. */
-        if (ctx->ftl.flash_opts != NULL) {
+         * Only fire on properly-mounted filesystems (checkpoint_loaded)
+         * where the data log write head is safely past the FTL state
+         * block. Persisting when data_log_write_addr is still within
+         * the FTL state region would erase live data (as can happen
+         * in legacy tests using PGFS_DATA_LOG_BASE_ADDR=0x4000 which
+         * overlaps the v3 layout's block-4 FTL state). */
+        if (ctx->ftl.flash_opts != NULL && ctx->checkpoint_loaded &&
+            ctx->ftl.erase_size > 0) {
+            uint32_t ftl_state_end = pgfs_ftl_state_addr(ctx->ftl.erase_size)
+                                     + ctx->ftl.erase_size;
+            if (ctx->data_log_write_addr < ftl_state_end) {
+                /* Data log write head still in FTL state block — skip
+                 * persist to avoid erasing live data. This is normal
+                 * on very small partitions where the data log starts
+                 * immediately after the FTL state. */
+            } else {
             pgfs_flash_geometry_t geo_ftl = {0};
             if (ctx->flash_opts && ctx->flash_opts->control &&
                 ctx->flash_opts->control(ctx->flash_opts->ctx,
@@ -2269,6 +2281,7 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
                 ctx->ftl.log_tail_offset = ctx->log_tail_offset;
                 (void)pgfs_ftl_persist(&ctx->ftl, ctx->checkpoint.seq);
             }
+            } /* else: data_log_write_addr < ftl_state_end, skip persist */
         }
         if (pgfs_apply_cache_to_entry(f) != 0) {
             LLOGE("close apply_cache failed");

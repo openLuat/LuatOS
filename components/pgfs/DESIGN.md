@@ -175,8 +175,15 @@ contribution to the block containing the record's start address.
 4. **Phase 2 GC dead attribution**: the OLD `last_written_block` +
    `len` are attributed to `dead_bytes_per_block[old_block]`. This is
    the runtime source of dead bytes.
-5. `pgfs_apply_cache_to_entry` — moves the cache into the entry.
-6. `pgfs_checkpoint_commit_pending` — if `pending_checkpoint_writes`
+5. **P0-1 FTL write_head persist** — after a successful DATA record
+   append, refresh `ctx->ftl.write_head_*` from the current
+   `data_log_write_addr` and call `pgfs_ftl_persist`. This ensures
+   the next mount's replay can discover records written since the
+   last CP commit. Guarded by `checkpoint_loaded` (real mounts only)
+   and `data_log_write_addr >= ftl_state_end` (no overlap with FTL
+   state block). Best-effort — failure does not fail the close.
+6. `pgfs_apply_cache_to_entry` — moves the cache into the entry.
+7. `pgfs_checkpoint_commit_pending` — if `pending_checkpoint_writes`
    has reached `PGFS_CHECKPOINT_BATCH_CLOSES`, write CP + SB.
 
 `pgfs_checkpoint_store_next` (called by commit):

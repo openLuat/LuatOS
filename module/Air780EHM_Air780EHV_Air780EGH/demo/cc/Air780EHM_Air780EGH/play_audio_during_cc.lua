@@ -200,6 +200,9 @@ local function handle_cc_ind(status)
         if IS_DIAL then
             sys.timerStart(handle_dial_timer, 1000)
         end
+    elseif status == "PLAY" then
+        -- 开始有音频输出后，主动启动PA和codec，避免二次通话时无声音
+        exaudio.pm(audio.RESUME)
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
         -- 通话结束，关闭PA保留driver下次通话时快速恢复
         exaudio.pm(audio.SHUTDOWN)

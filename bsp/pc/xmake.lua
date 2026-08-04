@@ -839,6 +839,18 @@ target("luatos-lua")
     add_includedirs(luatos.."components/lora2")
     add_files(luatos.."components/lora2/**.c")
 
+    -- tiny_epd: C core + 1.54-inch black/white driver + LuatOS Lua binding.
+    add_includedirs(luatos.."components/tiny_epd/include")
+    add_includedirs(luatos.."components/tiny_epd/port")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_core.c")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_gfx.c")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_bitmap.c")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_qrcode.c")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_hzfont.c")
+    add_files(luatos.."components/tiny_epd/drivers/tiny_epd_1in54.c")
+    add_files(luatos.."components/tiny_epd/port/tiny_epd_port_luatos.c")
+    add_files(luatos.."components/tiny_epd/binding/luat_lib_tiny_epd.c")
+
     if use_gui then
         add_packages("libsdl2")
         add_files("ui/*.c")
@@ -950,17 +962,6 @@ target("luatos-lua")
         add_includedirs(luatos.."components/epaper")
         add_files(luatos.."components/epaper/*.c")
 
-        -- tiny_epd: C core + 1.54-inch black/white driver + LuatOS Lua binding.
-        add_includedirs(luatos.."components/tiny_epd/include")
-        add_includedirs(luatos.."components/tiny_epd/port")
-        add_files(luatos.."components/tiny_epd/src/tiny_epd_core.c")
-        add_files(luatos.."components/tiny_epd/src/tiny_epd_gfx.c")
-        add_files(luatos.."components/tiny_epd/src/tiny_epd_bitmap.c")
-        add_files(luatos.."components/tiny_epd/src/tiny_epd_qrcode.c")
-        add_files(luatos.."components/tiny_epd/src/tiny_epd_hzfont.c")
-        add_files(luatos.."components/tiny_epd/drivers/tiny_epd_1in54.c")
-        add_files(luatos.."components/tiny_epd/port/tiny_epd_port_luatos.c")
-        add_files(luatos.."components/tiny_epd/binding/luat_lib_tiny_epd.c")
     end
     if use_mgba then
         add_defines("LUAT_USE_MGBA=1")

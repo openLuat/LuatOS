@@ -46,7 +46,7 @@ LUAT_WEAK void* luat_heap_zalloc(size_t _size) {
 
 #include <malloc.h>
 LUAT_WEAK void* luat_heap_memalign(size_t alignment, size_t size){
-    return memalign(alignment, size);
+    return luat_heap_malloc(size);
 }
 
 //------------------------------------------------

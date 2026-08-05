@@ -2098,10 +2098,10 @@ static const rotable_Reg_t reg_lcd[] =
 	{ "qspi",		ROREG_FUNC(l_lcd_qspi_config)},
 	{ "user_done",		ROREG_FUNC(l_lcd_user_ctrl_done)},
     { "setAcchw",    ROREG_FUNC(l_lcd_set_acc_hw)},
-#ifdef LUAT_USE_TJPGD
+
     { "image2raw",    ROREG_FUNC(l_lcd_image2raw)},
     { "showImage",    ROREG_FUNC(l_lcd_showimage)},
-#endif
+
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", ROREG_FUNC(l_lcd_draw_gtfont_gbk)},
     { "drawGtfontGb2312Gray", ROREG_FUNC(l_lcd_draw_gtfont_gbk_gray)},

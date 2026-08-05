@@ -29,8 +29,8 @@ local SIP_CONFIG = {
     sip_server_addr = "180.152.6.34",
     sip_server_port = 8910,
     sip_domain = "180.152.6.34",
-    sip_username = "100000",
-    sip_password = "Mm123.",
+    sip_username = "15308770",
+    sip_password = "Air.530877",
     sip_transport = exsip.TRANSPORT_UDP,
     auto_answer = false,
 }

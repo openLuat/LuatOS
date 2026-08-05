@@ -59,7 +59,6 @@ int pgfs_unlock(pgfs_mount_ctx_t* ctx) {
  * >= 4KB: fixed 4KB increments, capped at PGFS_CACHE_MAX (256KB).
  * This avoids over-allocating for small files while keeping growth
  * predictable for large files. */
-#define PGFS_CACHE_MAX (256u * 1024u)
 
 static size_t pgfs_cache_next_cap(size_t current_cap, size_t need) {
     size_t target;
@@ -160,24 +159,6 @@ int pgfs_cache_append(pgfs_file_t* f, const uint8_t* data, size_t len) {
     }
     memcpy(f->cache.data + f->cache.len, data, len);
     f->cache.len = new_len;
-    return 0;
-}
-
-int pgfs_cache_flush_to_log(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
-    (void)ctx;
-    if (f == NULL) {
-        return -1;
-    }
-    if (f->cache.len == 0) {
-        return 0;
-    }
-    /* Intentionally a no-op: PGFS durability boundary is at fclose, not
-     * fflush. Writing the cache to the data log here would double the
-     * I/O cost of every flush without giving callers the guarantee of
-     * "fclose is unnecessary if I called fflush" — replay still relies
-     * on the apply-cache step in fclose to make the in-memory entry
-     * visible. Callers that need explicit durability can call fclose()
-     * themselves. */
     return 0;
 }
 

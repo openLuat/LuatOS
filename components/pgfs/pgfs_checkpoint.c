@@ -405,7 +405,7 @@ int pgfs_rebuild_checkpoint_from_replay(pgfs_mount_ctx_t* ctx) {
     if (ctx == NULL) {
         return -1;
     }
-    pgfs_file_reset_all();
+    pgfs_file_reset(ctx);
     /* Fast path: if the data log base is blank (first 4 bytes are
      * 0xFFFFFFFF), the flash is fresh and there is nothing to replay.
      * Skip the O(N) full-capacity scan entirely. This turns a 3-second

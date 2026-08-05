@@ -94,6 +94,11 @@ bool pgfs_ftl_is_reserved(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     return pgfs_ftl_bit_get(ctx->reserved_blocks_bitmap, block_id);
 }
 
+void pgfs_ftl_mark_dirty(pgfs_nand_ftl_ctx_t *ctx) {
+    if (ctx == NULL) return;
+    ctx->dirty = 1;
+}
+
 void pgfs_ftl_mark_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (!ctx || !ctx->reserved_blocks_bitmap || block_id >= ctx->total_blocks) {
         return;
@@ -101,6 +106,7 @@ void pgfs_ftl_mark_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (!pgfs_ftl_bit_get(ctx->reserved_blocks_bitmap, block_id)) {
         pgfs_ftl_bit_set(ctx->reserved_blocks_bitmap, block_id);
         ctx->reserved_block_count++;
+        ctx->dirty = 1;
     }
 }
 
@@ -113,6 +119,7 @@ void pgfs_ftl_clear_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
         if (ctx->reserved_block_count > 0) {
             ctx->reserved_block_count--;
         }
+        ctx->dirty = 1;
     }
 }
 
@@ -132,6 +139,7 @@ void pgfs_ftl_mark_weak(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (!pgfs_ftl_bit_get(ctx->weak_blocks_bitmap, block_id)) {
         pgfs_ftl_bit_set(ctx->weak_blocks_bitmap, block_id);
         ctx->weak_block_count++;
+        ctx->dirty = 1;
     }
 }
 
@@ -151,6 +159,7 @@ void pgfs_ftl_mark_retired(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (!pgfs_ftl_bit_get(ctx->retired_blocks_bitmap, block_id)) {
         pgfs_ftl_bit_set(ctx->retired_blocks_bitmap, block_id);
         ctx->retired_block_count++;
+        ctx->dirty = 1;
     }
 }
 
@@ -172,6 +181,10 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
     ctx->total_blocks  = total_blocks;
     ctx->erase_size    = erase_size;
     ctx->flash_opts    = flash_opts;
+
+    /* P1-1: freshly-initialised state differs from flash (nothing written
+     * yet) — a subsequent persist must actually write. */
+    ctx->dirty = 1;
 
     bitmap_bytes = PGFS_FTL_BITMAP_BYTES(total_blocks);
     ec_bytes     = total_blocks * sizeof(uint16_t);
@@ -227,6 +240,7 @@ void pgfs_ftl_mark_block_bad(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (!pgfs_ftl_bit_get(ctx->bad_blocks_bitmap, block_id)) {
         pgfs_ftl_bit_set(ctx->bad_blocks_bitmap, block_id);
         ctx->bad_block_count++;
+        ctx->dirty = 1;
     }
 }
 
@@ -252,6 +266,7 @@ void pgfs_ftl_block_erased(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (ctx->erase_counts[block_id] < 0xFFFFu) {
         ctx->erase_counts[block_id]++;
         ctx->total_erase_count++;
+        ctx->dirty = 1;
     }
 }
 
@@ -269,6 +284,13 @@ void pgfs_ftl_inject_bad_block_once(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id)
 int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     (void)cp_seq;
     if (!ctx || !ctx->flash_opts) return -1;
+
+    /* P1-1: nothing changed since the last persist/load — skip the
+     * whole-block erase+write+readback entirely. This removes the
+     * redundant FTL block rewrites on umount / repeated CP commits. */
+    if (!ctx->dirty) {
+        return 0;
+    }
 
     uint32_t erase_size   = ctx->erase_size;
     uint32_t state_addr   = pgfs_ftl_state_addr(erase_size);
@@ -382,6 +404,7 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
         ctx->last_persist_buf = buf;
         ctx->last_persist_size = total_bytes;
         ctx->persist_success_count++;
+        ctx->dirty = 0;
         return 0;
     }
     int readback_ok = 0;
@@ -410,6 +433,7 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     ctx->last_persist_buf = buf;
     ctx->last_persist_size = total_bytes;
     ctx->persist_success_count++;
+    ctx->dirty = 0;
     return 0;
 }
 
@@ -476,6 +500,9 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
     memcpy(ctx->erase_counts, ec_ptr, ec_bytes);
     memcpy(ctx->live_bytes_per_block, live_ptr, live_bytes);
     memcpy(ctx->dead_bytes_per_block, dead_ptr, dead_bytes);
+
+    /* P1-1: in-memory state now matches flash. */
+    ctx->dirty = 0;
 
     /* Phase 4b: restore the data log write head from the persisted
      * FTL state. These are the per-block-id values (not absolute

@@ -44,7 +44,9 @@ static const display_if_reg_t if_regs[] =
     {"dsi",  &dsi_funcs},
     {"spi",  &spi_funcs},
     {"lvds", &lvds_funcs},
+#ifdef LUAT_USE_LCD_SDL2
     {"sdl",  &sdl_funcs},
+#endif
     {"",     NULL}
 };
 
@@ -586,6 +588,109 @@ static int l_display_get_fb(lua_State *L)
     return 3;
 }
 
+/**
+ * @api display.fill([id], x1, y1, x2, y2, color)
+ * @int [id] 显示组件 ID，省略则操作默认 display
+ * @int x1 左上角 x
+ * @int y1 左上角 y
+ * @int x2 右下角 x
+ * @int y2 右下角 y
+ * @int color 颜色值（与当前 format 对齐，RGB565 时 0xF800 为红色）
+ * @return bool 成功返回 true
+ */
+static int l_display_fill(lua_State *L) {
+    int id_index = 0;
+    int x1_index, y1_index, x2_index, y2_index, color_index;
+
+    if (lua_gettop(L) == 6) {
+        id_index = 1;
+        x1_index = 2; y1_index = 3; x2_index = 4; y2_index = 5; color_index = 6;
+    } else {
+        x1_index = 1; y1_index = 2; x2_index = 3; y2_index = 4; color_index = 5;
+    }
+
+    struct luat_display *disp = (id_index > 0) ? l_get_display_opt(L, id_index) : luat_display_get_default();
+    if (disp == NULL || disp->fb_info == NULL || !disp->fb_info->inited) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    int x1 = luaL_checkinteger(L, x1_index);
+    int y1 = luaL_checkinteger(L, y1_index);
+    int x2 = luaL_checkinteger(L, x2_index);
+    int y2 = luaL_checkinteger(L, y2_index);
+    uint32_t color = (uint32_t)luaL_checkinteger(L, color_index);
+
+    struct luat_display_fb_info *info = disp->fb_info;
+    uint32_t width = info->width;
+    uint32_t height = info->height;
+    uint32_t stride = info->stride;
+    void *buf = info->draw_buf.buffer ? info->draw_buf.buffer : info->fb_start;
+
+    if (x1 < 0) x1 = 0;
+    if (y1 < 0) y1 = 0;
+    if (x2 >= (int)width) x2 = width - 1;
+    if (y2 >= (int)height) y2 = height - 1;
+    if (x1 > x2 || y1 > y2 || buf == NULL) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    int rect_w = x2 - x1 + 1;
+    int rect_h = y2 - y1 + 1;
+    uint8_t *ptr = (uint8_t *)buf;
+
+    switch (info->format) {
+    case LUAT_DISPLAY_FORMAT_RGB565:
+    case LUAT_DISPLAY_FORMAT_BGR565: {
+        uint16_t c = (uint16_t)(color & 0xFFFF);
+        for (int y = y1; y < y1 + rect_h; y++) {
+            uint16_t *line = (uint16_t *)(ptr + y * stride + x1 * 2);
+            for (int x = 0; x < rect_w; x++) {
+                line[x] = c;
+            }
+        }
+        break;
+    }
+    case LUAT_DISPLAY_FORMAT_RGB888: {
+        uint8_t r = (color >> 16) & 0xFF;
+        uint8_t g = (color >> 8) & 0xFF;
+        uint8_t b = color & 0xFF;
+        for (int y = y1; y < y1 + rect_h; y++) {
+            uint8_t *line = ptr + y * stride + x1 * 3;
+            for (int x = 0; x < rect_w; x++) {
+                line[x * 3 + 0] = r;
+                line[x * 3 + 1] = g;
+                line[x * 3 + 2] = b;
+            }
+        }
+        break;
+    }
+    case LUAT_DISPLAY_FORMAT_ARGB8888:
+    case LUAT_DISPLAY_FORMAT_ABGR8888:
+    case LUAT_DISPLAY_FORMAT_RGBA8888:
+    case LUAT_DISPLAY_FORMAT_BGRA8888: {
+        for (int y = y1; y < y1 + rect_h; y++) {
+            uint32_t *line = (uint32_t *)(ptr + y * stride + x1 * 4);
+            for (int x = 0; x < rect_w; x++) {
+                line[x] = color;
+            }
+        }
+        break;
+    }
+    default:
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    LLOGI("fill done fmt=%d bpp=%u buf=%p first=0x%04x",
+          info->format, info->bits_per_pixel, buf,
+          (info->bits_per_pixel == 16) ? ((uint16_t *)buf)[0] : (uint16_t)(((uint32_t *)buf)[0] & 0xFFFF));
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_display[] = {
     {"init",        ROREG_FUNC(l_display_init)},
@@ -594,6 +699,7 @@ static const rotable_Reg_t reg_display[] = {
     {"sleep",       ROREG_FUNC(l_display_sleep)},
     {"wakeup",      ROREG_FUNC(l_display_wakeup)},
     {"flush",       ROREG_FUNC(l_display_flush)},
+    {"fill",        ROREG_FUNC(l_display_fill)},
     {"setRotation", ROREG_FUNC(l_display_set_rotation)},
     {"getSize",     ROREG_FUNC(l_display_get_size)},
     {"getFbInfo",   ROREG_FUNC(l_display_get_fb)},

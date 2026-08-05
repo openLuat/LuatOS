@@ -63,6 +63,9 @@ int luat_display_power_on(struct luat_display *disp)
     if (pin->pwr != LUAT_GPIO_NONE) {
         luat_gpio_set(pin->pwr, Luat_GPIO_HIGH);
     }
+    if (pin->bl != LUAT_GPIO_NONE) {
+        luat_gpio_set(pin->bl, Luat_GPIO_HIGH);
+    }
     return 0;
 }
 

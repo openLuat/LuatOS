@@ -70,7 +70,7 @@ struct panel_rgb rgb_custom_rgb =
 
 /*对RGB面板的描述*/
 struct luat_display_panel rgb_panel_custom = {
-    .name = "rgb_custom",
+    .name = "custom",
     .desc = "general",
     .connector_type = LUAT_DISPLAY_CONNECTOR_RGB,
     .rgb = &rgb_custom_rgb,

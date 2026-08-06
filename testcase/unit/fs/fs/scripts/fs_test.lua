@@ -303,6 +303,23 @@ function fs_context.test_return_value_types()
     log.info("fs_context", "fs 返回值类型测试通过")
 end
 
+-- 大文件写入测试, 32k
+function fs_context.test_return_value_types()
+    log.info("fs_context", "开始 fs 大文件写入测试")
+    os.remove("/test_large_file.txt")
+    local f = io.open("/test_large_file.txt", "w+")
+    assert(f, "创建大文件失败")
+    local large_content = string.rep("A", 32 * 1024) -- 32KB
+    local bytes_written = f:write(large_content)
+    f:close()
+    assert(bytes_written == large_content, "写入大文件的字节数不匹配，预期:" .. #large_content .. " 实际:" .. bytes_written)
+    local size = fs.fsize("/test_large_file.txt")
+    assert(size == #large_content, "大文件大小不匹配，预期:" .. #large_content .. " 实际:" .. size)
+    os.remove("/test_large_file.txt")
+
+    log.info("fs_context", "fs 大文件写入测试通过")
+end
+
 function fs_context.cleanup()
     log.info("fs_context", "开始清理测试文件")
     os.remove("/test_fs_fsize.txt")

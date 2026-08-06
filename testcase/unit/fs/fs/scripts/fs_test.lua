@@ -304,7 +304,7 @@ function fs_context.test_return_value_types()
 end
 
 -- 大文件写入测试, 32k
-function fs_context.test_return_value_types()
+function fs_context.test_large_file_write()
     log.info("fs_context", "开始 fs 大文件写入测试")
     os.remove("/test_large_file.txt")
     local f = io.open("/test_large_file.txt", "w+")

@@ -509,8 +509,12 @@ sys.subscribe("CC_IND", function(status)
     -- 需要处理的通用状态
     if status == "READY" then
         sys.publish("CC_READY")  -- 发布系统就绪事件
+    elseif status == "PLAY" then
+        -- 开始有音频输出后，播放文件会由exaudio.play_start自动唤醒，无需手动设置
+        -- exaudio.pm(audio.RESUME)
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
-        exaudio.pm(audio.SHUTDOWN)   --主动进入低功耗模式
+        -- 通话结束，主动进入低功耗模式
+        exaudio.pm(audio.SHUTDOWN)
     end
 end)
 

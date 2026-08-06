@@ -40,10 +40,11 @@ local init_mode = "I2C"
 local init_config
 if MODE == 1 then
     -- 软件 I2C：SCL/SDA 用任意 GPIO，Air780EPM 接线示例用 GPIO31/GPIO30
-    init_config = {scl = 31, sda = 30, addr = 0x69, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
+    -- 不传 addr：扩展库自动探测 0x68/0x69（SDO 引脚决定），chip id 校验命中即锁定
+    init_config = {scl = 31, sda = 30, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
 elseif MODE == 2 then
     -- 硬件 I2C：i2c_id 为总线号（Air780EPM 用 1：Pin66=SDA, Pin67=SCL）
-    init_config = {i2c_id = 1, addr = 0x69, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
+    init_config = {i2c_id = 1, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
 elseif MODE == 3 then
     -- SPI：需接线 SPI0_CS=GPIO8, SPI0_CLK=GPIO11, SPI0_MOSI=GPIO9, SPI0_MISO=GPIO10
     -- 注意：BMI270 最高支持 10MHz，杜邦线长时建议 1MHz 起步，稳定后再提速
@@ -68,7 +69,7 @@ local function init_func()
     log.info("TEST", string.format("通信模式: %s (MODE=%d)", MODE == 3 and "SPI" or (MODE == 2 and "硬件I2C" or "软件I2C"), MODE))
     local result = exs_bmi270.setup(init_mode, {
         scl = init_config.scl, sda = init_config.sda,
-        i2c_id = init_config.i2c_id, addr = init_config.addr,
+        i2c_id = init_config.i2c_id,
         spi_id = init_config.spi_id, cs = init_config.cs, speed = init_config.speed,
         acc_range = init_config.acc_range, gyro_range = init_config.gyro_range,
         acc_odr = init_config.acc_odr, gyro_odr = init_config.gyro_odr,

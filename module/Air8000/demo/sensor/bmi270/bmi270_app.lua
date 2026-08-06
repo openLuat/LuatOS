@@ -41,12 +41,13 @@ local init_mode = "I2C"
 local init_config
 if MODE == 1 then
     -- 软件 I2C：SCL/SDA 用任意 GPIO，Air8000 接线示例用 GPIO1/GPIO2
-    init_config = {scl = 1, sda = 2, addr = 0x69, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
+    -- 不传 addr：扩展库自动探测 0x68/0x69（SDO 引脚决定），chip id 校验命中即锁定
+    init_config = {scl = 1, sda = 2, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
 elseif MODE == 2 then
     -- 硬件 I2C：Air8000 用 I2C1（i2c_id=1），默认管脚 Pin66=SCL, Pin67=SDA
     -- 注意：Air8000A/AB/U/N/D/B 的 I2C0 固定 PIN80/81 且已被内部 G-Sensor(地址0x27)占用，外部不可使用；
     --       同时外部设备地址不要使用 0x27，避免与内部 G-Sensor 冲突
-    init_config = {i2c_id = 1, addr = 0x69, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
+    init_config = {i2c_id = 1, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
 elseif MODE == 3 then
     -- SPI：Air8000 用 SPI1（spi_id=1），CS 用 GPIO12/SPI1_CS，SCLK/MOSI/MISO 用 SPI1 默认管脚
     -- 注意：Air8000A/U/N/W/AB 的 SPI0 已被内部 AirLink（4G主控↔WiFi芯片）占用，对外只有 SPI1 可用
@@ -71,7 +72,7 @@ local function init_func()
     log.info("TEST", string.format("通信模式: %s (MODE=%d)", MODE == 3 and "SPI" or (MODE == 2 and "硬件I2C" or "软件I2C"), MODE))
     local result = exs_bmi270.setup(init_mode, {
         scl = init_config.scl, sda = init_config.sda,
-        i2c_id = init_config.i2c_id, addr = init_config.addr,
+        i2c_id = init_config.i2c_id,
         spi_id = init_config.spi_id, cs = init_config.cs, speed = init_config.speed,
         acc_range = init_config.acc_range, gyro_range = init_config.gyro_range,
         acc_odr = init_config.acc_odr, gyro_odr = init_config.gyro_odr,

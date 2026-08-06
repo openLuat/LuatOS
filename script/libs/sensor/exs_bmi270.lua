@@ -229,7 +229,7 @@ local DEFAULT_DT                          = 0.005     -- 姿态解算默认积�
 
 local g_iface                             = nil       -- 通信接口："I2C" / "SPI"
 local g_i2c_bus                           = 0         -- I2C 总线 ID
-local g_dev_addr                          = 0x68      -- I2C 设备地址（0x68 / 0x69）
+local g_dev_addr                          = 0x68      -- I2C 设备地址（多地址 0x68/0x69 由 SDO 引脚决定，setup 自动探测后锁定）
 local g_is_soft                           = false     -- 是否软件 I2C
 local g_scl_pin                           = nil       -- SCL 引脚（总线恢复用）
 local g_sda_pin                           = nil       -- SDA 引脚（总线恢复用）
@@ -1381,7 +1381,7 @@ end
 @table config 配置参数
   scl/sda   - 软件 I2C 引脚（I2C 模式与 i2c_id 二选一）
   i2c_id    - 硬件 I2C 总线 ID（I2C 模式与 scl/sda 二选一）
-  addr      - I2C 设备地址，默认 0x68（SDO=0），SDO=1 时为 0x69
+  addr      - I2C 设备地址（可选）。不传时自动探测 0x68/0x69（SDO 引脚决定），chip id 校验命中即锁定
   spi_id    - SPI 总线 ID（SPI 模式必填）
   cs        - SPI 片选引脚（SPI 模式必填）
   speed     - SPI 速率，默认 1MHz
@@ -1432,6 +1432,7 @@ function exs_bmi270.setup(model, config)
             g_scl_pin, g_sda_pin = nil, nil
         end
         g_iface = "I2C"
+        -- 未传 addr 时先取默认 0x68，下方 chip id 校验阶段自动探测 0x68/0x69 锁定
         g_dev_addr = config.addr or 0x68
     elseif model == "SPI" then
         local spi_id = config.spi_id
@@ -1458,7 +1459,22 @@ function exs_bmi270.setup(model, config)
     end
 
     -- 芯片 ID 校验：失败必须 return false
-    local id = rd8(REG_CHIP_ID)
+    -- I2C 多地址自动探测（0x68/0x69，由 SDO 引脚决定）：
+    --   未传 config.addr 时逐个地址读 chip id，命中即锁定 g_dev_addr；SPI 模式只读一次
+    local id = nil
+    if model == "I2C" and not config.addr then
+        local addr_list = {0x68, 0x69}
+        for i = 1, #addr_list do
+            g_dev_addr = addr_list[i]
+            id = rd8(REG_CHIP_ID)
+            if id == CHIP_ID_BMI270 then
+                log.info("exs_bmi270", string.format("芯片地址自适应：0x%02X", g_dev_addr))
+                break
+            end
+        end
+    else
+        id = rd8(REG_CHIP_ID)
+    end
     if id ~= CHIP_ID_BMI270 then
         log.error("exs_bmi270", string.format("芯片识别失败：期望 0x%02X 实际 0x%02X", CHIP_ID_BMI270, id or 0))
         return false
@@ -1926,7 +1942,7 @@ end
 @api exs_bmi270.version()
 @return string 版本号，格式 yyyymmddhhmm
 ]]
-function exs_bmi270.version() return "202608051200" end
+function exs_bmi270.version() return "202608051600" end
 
 log.debug("exs_bmi270", "version -> " .. exs_bmi270.version())
 return exs_bmi270

@@ -42,11 +42,12 @@ local init_mode = "I2C"
 local init_config
 if MODE == 1 then
     -- 软件 I2C：SCL/SDA 用任意 GPIO，Air8101 接线示例用 GPIO4/GPIO5（Pin67/Pin8）
-    init_config = {scl = 4, sda = 5, addr = 0x69, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
+    -- 不传 addr：扩展库自动探测 0x68/0x69（SDO 引脚决定），chip id 校验命中即锁定
+    init_config = {scl = 4, sda = 5, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
 elseif MODE == 2 then
     -- 硬件 I2C：Air8101 共 2 路 I2C；I2C0（i2c_id=0）仅可复用 PIN38/45，I2C1 可复用另外四处管脚组合
     -- 具体管脚号请查阅 Air8101 硬件手册 I2C 章节，本例默认用 I2C0
-    init_config = {i2c_id = 0, addr = 0x69, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
+    init_config = {i2c_id = 0, acc_range = "4g", gyro_range = "500", acc_odr = 200, gyro_odr = 200}
 elseif MODE == 3 then
     -- SPI：Air8101 用 SPI1（spi_id=1），CS=GPIO3（Pin66），CLK=PIN65，MOSI=GPIO4（Pin67），MISO=GPIO5（Pin8）
     init_mode = "SPI"
@@ -70,7 +71,7 @@ local function init_func()
     log.info("TEST", string.format("通信模式: %s (MODE=%d)", MODE == 3 and "SPI" or (MODE == 2 and "硬件I2C" or "软件I2C"), MODE))
     local result = exs_bmi270.setup(init_mode, {
         scl = init_config.scl, sda = init_config.sda,
-        i2c_id = init_config.i2c_id, addr = init_config.addr,
+        i2c_id = init_config.i2c_id,
         spi_id = init_config.spi_id, cs = init_config.cs, speed = init_config.speed,
         acc_range = init_config.acc_range, gyro_range = init_config.gyro_range,
         acc_odr = init_config.acc_odr, gyro_odr = init_config.gyro_odr,

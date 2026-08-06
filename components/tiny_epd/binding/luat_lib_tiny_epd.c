@@ -31,6 +31,7 @@
 #define LUAT_TINY_EPD_MODEL_1IN54_SSD1607 4
 #define LUAT_TINY_EPD_MODEL_1IN54R 5
 #define LUAT_TINY_EPD_MODEL_1IN54B_V2 6
+#define LUAT_TINY_EPD_MODEL_1IN54G_V2 7
 
 typedef struct {
     tiny_epd_t *epd;
@@ -268,7 +269,8 @@ static int luat_tiny_epd_get_model(lua_State *L)
                 model == LUAT_TINY_EPD_MODEL_1IN54_V3 ||
                 model == LUAT_TINY_EPD_MODEL_1IN54_SSD1607 ||
                 model == LUAT_TINY_EPD_MODEL_1IN54R ||
-                model == LUAT_TINY_EPD_MODEL_1IN54B_V2) ? (int)model : 0;
+                model == LUAT_TINY_EPD_MODEL_1IN54B_V2 ||
+                model == LUAT_TINY_EPD_MODEL_1IN54G_V2) ? (int)model : 0;
     }
 
     name = luaL_checklstring(L, 1, &name_len);
@@ -304,6 +306,15 @@ static int luat_tiny_epd_get_model(lua_State *L)
          memcmp(name, "waveshare_1in54b_v2_bwr",
                 sizeof("waveshare_1in54b_v2_bwr") - 1u) == 0)) {
         return LUAT_TINY_EPD_MODEL_1IN54B_V2;
+    }
+    if ((name_len == sizeof("1in54g_v2") - 1u &&
+         memcmp(name, "1in54g_v2", sizeof("1in54g_v2") - 1u) == 0) ||
+        (name_len == sizeof("waveshare_1in54g_v2") - 1u &&
+         memcmp(name, "waveshare_1in54g_v2", sizeof("waveshare_1in54g_v2") - 1u) == 0) ||
+        (name_len == sizeof("waveshare_1in54g_v2_bwry") - 1u &&
+         memcmp(name, "waveshare_1in54g_v2_bwry",
+                sizeof("waveshare_1in54g_v2_bwry") - 1u) == 0)) {
+        return LUAT_TINY_EPD_MODEL_1IN54G_V2;
     }
     return 0;
 }
@@ -452,7 +463,8 @@ static int l_tiny_epd_open(lua_State *L)
         model != LUAT_TINY_EPD_MODEL_1IN54_V3 &&
         model != LUAT_TINY_EPD_MODEL_1IN54_SSD1607 &&
         model != LUAT_TINY_EPD_MODEL_1IN54R &&
-        model != LUAT_TINY_EPD_MODEL_1IN54B_V2) {
+        model != LUAT_TINY_EPD_MODEL_1IN54B_V2 &&
+        model != LUAT_TINY_EPD_MODEL_1IN54G_V2) {
         return luat_tiny_epd_push_open_error(L, "unsupported epd model");
     }
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -541,6 +553,9 @@ static int l_tiny_epd_open(lua_State *L)
     }
     else if (model == LUAT_TINY_EPD_MODEL_1IN54B_V2) {
         driver = tiny_epd_driver_1in54b_v2();
+    }
+    else if (model == LUAT_TINY_EPD_MODEL_1IN54G_V2) {
+        driver = tiny_epd_driver_1in54g_v2();
     }
     else {
         driver = tiny_epd_driver_1in54();
@@ -1396,6 +1411,7 @@ static const rotable_Reg_t reg_tiny_epd[] = {
     {"MODEL_1IN54_SSD1607", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_SSD1607)},
     {"MODEL_1IN54R", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54R)},
     {"MODEL_1IN54B_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54B_V2)},
+    {"MODEL_1IN54G_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54G_V2)},
     {"BLACK", ROREG_INT(TINY_EPD_COLOR_BLACK)},
     {"WHITE", ROREG_INT(TINY_EPD_COLOR_WHITE)},
     {"RED", ROREG_INT(TINY_EPD_COLOR_RED)},

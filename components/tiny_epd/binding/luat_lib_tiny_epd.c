@@ -8,6 +8,7 @@
 #include "luat_spi.h"
 #include "tiny_epd.h"
 #include "tiny_epd_bitmap.h"
+#include "tiny_epd_custom.h"
 #include "tiny_epd_gfx.h"
 #include "tiny_epd_qrcode.h"
 #include "tiny_epd_port_luatos.h"
@@ -32,10 +33,12 @@
 #define LUAT_TINY_EPD_MODEL_1IN54R 5
 #define LUAT_TINY_EPD_MODEL_1IN54B_V2 6
 #define LUAT_TINY_EPD_MODEL_1IN54G_V2 7
+#define LUAT_TINY_EPD_MODEL_CUSTOM 100
 
 typedef struct {
     tiny_epd_t *epd;
     tiny_epd_port_luatos_t port_context;
+    tiny_epd_custom_driver_t *custom_driver;
     int spi_ref;
     uint8_t refresh_busy;
 } luat_tiny_epd_device_t;
@@ -274,6 +277,9 @@ static int luat_tiny_epd_get_model(lua_State *L)
     }
 
     name = luaL_checklstring(L, 1, &name_len);
+    if (name_len == 6 && memcmp(name, "custom", 6) == 0) {
+        return LUAT_TINY_EPD_MODEL_CUSTOM;
+    }
     if ((name_len == 5 && memcmp(name, "1in54", 5) == 0) ||
         (name_len == 18 && memcmp(name, "waveshare_1in54_bw", 18) == 0)) {
         return LUAT_TINY_EPD_MODEL_1IN54;
@@ -315,6 +321,257 @@ static int luat_tiny_epd_get_model(lua_State *L)
          memcmp(name, "waveshare_1in54g_v2_bwry",
                 sizeof("waveshare_1in54g_v2_bwry") - 1u) == 0)) {
         return LUAT_TINY_EPD_MODEL_1IN54G_V2;
+    }
+    return 0;
+}
+
+/* Parse one readable command-table step, e.g. {cmd=0x22, data={0xF7}}. */
+static int luat_tiny_epd_custom_parse_step(lua_State *L,
+                                           int step_index,
+                                           tiny_epd_custom_profile_t *profile,
+                                           tiny_epd_custom_seq_kind_t kind)
+{
+    lua_Integer value;
+    int ret;
+
+    lua_getfield(L, step_index, "reset");
+    if (lua_istable(L, -1)) {
+        uint32_t high = 20u;
+        uint32_t low = 2u;
+        uint32_t high2 = 20u;
+
+        lua_getfield(L, -1, "high");
+        if (lua_isnumber(L, -1)) high = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "low");
+        if (lua_isnumber(L, -1)) low = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "high2");
+        if (lua_isnumber(L, -1)) high2 = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        ret = tiny_epd_custom_seq_add_reset(profile, kind, high, low, high2);
+        lua_pop(L, 1); /* reset table */
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, step_index, "cmd");
+    if (!lua_isnil(L, -1)) {
+        if (!lua_isnumber(L, -1)) {
+            lua_pop(L, 1);
+            return -1;
+        }
+        value = lua_tointeger(L, -1);
+        if (value < 0 || value > UINT8_MAX) {
+            lua_pop(L, 1);
+            return -1;
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, step_index, "data");
+        if (lua_istable(L, -1)) {
+            size_t n = lua_rawlen(L, -1);
+            uint8_t *bytes;
+            size_t i;
+
+            if (n == 0u || n > UINT16_MAX) {
+                lua_pop(L, 1);
+                return -1;
+            }
+            bytes = (uint8_t *)lua_newuserdata(L, n);
+            for (i = 0; i < n; i++) {
+                lua_rawgeti(L, -2, (int)i + 1);
+                if (!lua_isnumber(L, -1)) {
+                    lua_pop(L, 2);
+                    return -1;
+                }
+                bytes[i] = (uint8_t)lua_tointeger(L, -1);
+                lua_pop(L, 1);
+            }
+            ret = tiny_epd_custom_seq_add_cmd_data(profile, kind,
+                                                   (uint8_t)value, bytes, n);
+            lua_pop(L, 2); /* data + bytes userdata */
+        }
+        else {
+            lua_pop(L, 1); /* nil data */
+            ret = tiny_epd_custom_seq_add_cmd(profile, kind, (uint8_t)value);
+        }
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, step_index, "delay");
+    if (lua_isnumber(L, -1)) {
+        value = lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        if (value < 0) return -1;
+        ret = tiny_epd_custom_seq_add_delay(profile, kind, (uint32_t)value);
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, step_index, "busy");
+    if (lua_isnumber(L, -1)) {
+        uint8_t idle = (uint8_t)lua_tointeger(L, -1);
+        uint32_t timeout = profile->busy_timeout_ms;
+
+        lua_pop(L, 1);
+        lua_getfield(L, step_index, "timeout");
+        if (lua_isnumber(L, -1)) timeout = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        ret = tiny_epd_custom_seq_add_busy(profile, kind, idle, timeout);
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, step_index, "write_ram");
+    if (lua_isnumber(L, -1)) {
+        value = lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        if (value < 0 || value > UINT8_MAX) return -1;
+        ret = tiny_epd_custom_seq_add_write_ram(profile, kind, (uint8_t)value, 0);
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, step_index, "write_ram2");
+    if (lua_isnumber(L, -1)) {
+        value = lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        if (value < 0 || value > UINT8_MAX) return -1;
+        ret = tiny_epd_custom_seq_add_write_ram(profile, kind, (uint8_t)value, 1);
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+    return -1;
+}
+
+static int luat_tiny_epd_custom_parse_seq(lua_State *L,
+                                          int seq_index,
+                                          tiny_epd_custom_profile_t *profile,
+                                          tiny_epd_custom_seq_kind_t kind)
+{
+    size_t n;
+    size_t i;
+
+    if (lua_isnil(L, seq_index)) {
+        return 0;
+    }
+    if (!lua_istable(L, seq_index)) {
+        return -1;
+    }
+    n = lua_rawlen(L, seq_index);
+    for (i = 0; i < n; i++) {
+        lua_rawgeti(L, seq_index, (int)i + 1);
+        if (!lua_istable(L, -1)) {
+            lua_pop(L, 1);
+            return -1;
+        }
+        if (luat_tiny_epd_custom_parse_step(L, -1, profile, kind) != 0) {
+            lua_pop(L, 1);
+            return -1;
+        }
+        lua_pop(L, 1);
+    }
+    return 0;
+}
+
+static int luat_tiny_epd_custom_parse_profile(lua_State *L,
+                                              tiny_epd_custom_profile_t *profile)
+{
+    lua_Integer value;
+
+    lua_getfield(L, 2, "width");
+    if (!lua_isnumber(L, -1) || (value = lua_tointeger(L, -1)) <= 0 ||
+        value > UINT16_MAX) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    profile->width = (uint16_t)value;
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "height");
+    if (!lua_isnumber(L, -1) || (value = lua_tointeger(L, -1)) <= 0 ||
+        value > UINT16_MAX) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    profile->height = (uint16_t)value;
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "busy_level");
+    if (lua_isnumber(L, -1)) profile->busy_idle_level = (uint8_t)lua_tointeger(L, -1);
+    lua_pop(L, 1);
+    lua_getfield(L, 2, "busy_timeout");
+    if (lua_isnumber(L, -1)) profile->busy_timeout_ms = (uint32_t)lua_tointeger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "format");
+    if (!lua_isnil(L, -1)) {
+        if (!lua_isnumber(L, -1) ||
+            lua_tointeger(L, -1) != TINY_EPD_SURFACE_INDEX1) {
+            lua_pop(L, 1);
+            return -1;
+        }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "init");
+    if (luat_tiny_epd_custom_parse_seq(L, -1, profile, TINY_EPD_CUSTOM_SEQ_INIT) != 0) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "fast_init");
+    if (luat_tiny_epd_custom_parse_seq(L, -1, profile,
+                                       TINY_EPD_CUSTOM_SEQ_FAST_INIT) != 0) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "refresh");
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, "full");
+        if (luat_tiny_epd_custom_parse_seq(L, -1, profile,
+                                           TINY_EPD_CUSTOM_SEQ_FULL) != 0) {
+            lua_pop(L, 2);
+            return -1;
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "fast");
+        if (luat_tiny_epd_custom_parse_seq(L, -1, profile,
+                                           TINY_EPD_CUSTOM_SEQ_FAST) != 0) {
+            lua_pop(L, 2);
+            return -1;
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "partial");
+        if (luat_tiny_epd_custom_parse_seq(L, -1, profile,
+                                           TINY_EPD_CUSTOM_SEQ_PARTIAL) != 0) {
+            lua_pop(L, 2);
+            return -1;
+        }
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "sleep");
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, "deep");
+        if (luat_tiny_epd_custom_parse_seq(L, -1, profile,
+                                           TINY_EPD_CUSTOM_SEQ_SLEEP) != 0) {
+            lua_pop(L, 2);
+            return -1;
+        }
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    if (profile->seq[TINY_EPD_CUSTOM_SEQ_INIT].count == 0u ||
+        profile->seq[TINY_EPD_CUSTOM_SEQ_FULL].count == 0u) {
+        return -1;
     }
     return 0;
 }
@@ -445,6 +702,8 @@ static int l_tiny_epd_open(lua_State *L)
     const tiny_epd_driver_t *driver;
     tiny_epd_port_t port;
     tiny_epd_port_luatos_config_t config;
+    tiny_epd_custom_driver_t *custom_driver = NULL;
+    tiny_epd_custom_profile_t *custom_profile = NULL;
     luat_tiny_epd_device_t *device;
     const char *port_name;
     size_t port_name_len;
@@ -464,7 +723,8 @@ static int l_tiny_epd_open(lua_State *L)
         model != LUAT_TINY_EPD_MODEL_1IN54_SSD1607 &&
         model != LUAT_TINY_EPD_MODEL_1IN54R &&
         model != LUAT_TINY_EPD_MODEL_1IN54B_V2 &&
-        model != LUAT_TINY_EPD_MODEL_1IN54G_V2) {
+        model != LUAT_TINY_EPD_MODEL_1IN54G_V2 &&
+        model != LUAT_TINY_EPD_MODEL_CUSTOM) {
         return luat_tiny_epd_push_open_error(L, "unsupported epd model");
     }
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -539,7 +799,24 @@ static int l_tiny_epd_open(lua_State *L)
         return luat_tiny_epd_push_open_error(L, luat_tiny_epd_error_string(ret));
     }
 
-    if (model == LUAT_TINY_EPD_MODEL_1IN54_V2) {
+    if (model == LUAT_TINY_EPD_MODEL_CUSTOM) {
+        custom_profile = tiny_epd_custom_profile_create(&port);
+        if (custom_profile == NULL) {
+            return luat_tiny_epd_push_open_error(L, "out of memory");
+        }
+        if (luat_tiny_epd_custom_parse_profile(L, custom_profile) != 0) {
+            tiny_epd_custom_profile_destroy(&port, custom_profile);
+            return luat_tiny_epd_push_open_error(L, "invalid custom profile");
+        }
+        custom_driver = tiny_epd_custom_driver_create(&port, custom_profile);
+        if (custom_driver == NULL) {
+            tiny_epd_custom_profile_destroy(&port, custom_profile);
+            return luat_tiny_epd_push_open_error(L, "out of memory");
+        }
+        device->custom_driver = custom_driver;
+        driver = &custom_driver->base;
+    }
+    else if (model == LUAT_TINY_EPD_MODEL_1IN54_V2) {
         driver = tiny_epd_driver_1in54_v2();
     }
     else if (model == LUAT_TINY_EPD_MODEL_1IN54_V3) {
@@ -562,6 +839,10 @@ static int l_tiny_epd_open(lua_State *L)
     }
     ret = tiny_epd_create(&device->epd, driver, &port);
     if (ret != TINY_EPD_OK) {
+        if (device->custom_driver != NULL) {
+            tiny_epd_custom_driver_destroy(&port, device->custom_driver);
+            device->custom_driver = NULL;
+        }
         if (device->spi_ref != LUA_NOREF) {
             luaL_unref(L, LUA_REGISTRYINDEX, device->spi_ref);
             device->spi_ref = LUA_NOREF;
@@ -570,8 +851,13 @@ static int l_tiny_epd_open(lua_State *L)
     }
     ret = tiny_epd_set_rotation(device->epd, rotation);
     if (ret != TINY_EPD_OK) {
+        tiny_epd_port_t epd_port = device->epd->port;
         tiny_epd_destroy(device->epd);
         device->epd = NULL;
+        if (device->custom_driver != NULL) {
+            tiny_epd_custom_driver_destroy(&epd_port, device->custom_driver);
+            device->custom_driver = NULL;
+        }
         if (device->spi_ref != LUA_NOREF) {
             luaL_unref(L, LUA_REGISTRYINDEX, device->spi_ref);
             device->spi_ref = LUA_NOREF;
@@ -936,8 +1222,13 @@ static int l_tiny_epd_info(lua_State *L)
 static void luat_tiny_epd_destroy(lua_State *L, luat_tiny_epd_device_t *device)
 {
     if (device->epd != NULL) {
+        tiny_epd_port_t port = device->epd->port;
         tiny_epd_destroy(device->epd);
         device->epd = NULL;
+        if (device->custom_driver != NULL) {
+            tiny_epd_custom_driver_destroy(&port, device->custom_driver);
+            device->custom_driver = NULL;
+        }
     }
     if (device->spi_ref != LUA_NOREF) {
         luaL_unref(L, LUA_REGISTRYINDEX, device->spi_ref);

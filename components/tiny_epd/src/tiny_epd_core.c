@@ -578,7 +578,8 @@ static int tiny_epd_refresh_native(tiny_epd_t *epd,
         mode == TINY_EPD_REFRESH_AUTO) {
         tiny_epd_clear_dirty(epd);
     }
-    else if (epd->dirty_valid &&
+    else if (mode == TINY_EPD_REFRESH_PARTIAL_RECT && native_rect != NULL &&
+             epd->dirty_valid &&
              native_rect->x <= epd->dirty_rect.x && native_rect->y <= epd->dirty_rect.y &&
              (uint32_t)native_rect->x + native_rect->w >=
                  (uint32_t)epd->dirty_rect.x + epd->dirty_rect.w &&

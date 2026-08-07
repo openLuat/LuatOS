@@ -1,3 +1,12 @@
+/*
+@module  epd
+@summary 墨水屏操作库
+@version 1.0
+@date    2026.08.07
+@demo epd
+@tag LUAT_USE_TINY_EPD
+*/
+
 #include "luat_base.h"
 
 #if defined(LUAT_USE_TINY_EPD)
@@ -683,12 +692,13 @@ static int luat_tiny_epd_get_rotation_field(lua_State *L,
     return 0;
 }
 
-/*
+/**
+打开墨水屏
 @api epd.open(model, opts[, spi_device])
-@number|string model 内置 profile，例如 epd.MODEL_1IN54、epd.MODEL_1IN54B_V2 或对应名称
-@table opts {port = spi_id|"device", pin_dc, pin_rst, pin_busy[, busy_pull, busy_poll_ms, rotation|direction]}
+@int|string model 面板型号，如 epd.MODEL_1IN54、epd.MODEL_1IN54G_V2、"custom" 等
+@table opts 配置表，port="device" 时需 pin_dc/pin_rst/pin_busy，可选 busy_pull/busy_poll_ms/rotation
 @userdata spi_device 可选，port="device" 时传入 spi.deviceSetup() 返回的对象
-@return userdata 成功时返回独立的 tiny_epd 设备对象
+@return userdata panel 成功时返回墨水屏对象
 @return nil,string 失败时返回 nil 和错误信息
 @usage
 local spi_epd = spi.deviceSetup(0, 8, 0, 0, 8, 20 * 1000 * 1000, spi.MSB, 1, 0)
@@ -869,9 +879,10 @@ static int l_tiny_epd_open(lua_State *L)
     return 1;
 }
 
-/*
+/**
+初始化墨水屏
 @api panel:init()
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@return boolean 成功返回true，失败返回false和错误信息
 */
 static int l_tiny_epd_init(lua_State *L)
 {
@@ -882,10 +893,11 @@ static int l_tiny_epd_init(lua_State *L)
     return luat_tiny_epd_push_result(L, tiny_epd_init(device->epd));
 }
 
-/*
+/**
+清屏
 @api panel:clear([color])
-@number color 省略时使用当前背景色；也可显式传 panel palette 中的颜色
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int color 可选，默认使用当前背景色，也可显式传调色板颜色
+@return boolean 成功返回true，失败返回false和错误信息
 */
 static int l_tiny_epd_clear(lua_State *L)
 {
@@ -901,13 +913,13 @@ static int l_tiny_epd_clear(lua_State *L)
     return luat_tiny_epd_push_result(L, tiny_epd_clear(device->epd, color));
 }
 
-/*
+/**
+绘制像素点
 @api panel:pixel(x, y[, color])
-@number x X 坐标
-@number y Y 坐标
-@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
-@note 坐标属于当前逻辑画布，和 line/rect/qrcode 一样受 setRotation() 影响。
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x X坐标
+@int y Y坐标
+@int color 可选，默认使用当前前景色，也可显式传调色板颜色
+@return boolean 成功返回true，失败返回false和错误信息
 */
 static int l_tiny_epd_pixel(lua_State *L)
 {
@@ -930,11 +942,12 @@ static int l_tiny_epd_pixel(lua_State *L)
                                                          color));
 }
 
-/*
+/**
+设置当前前景色和背景色
 @api panel:setColor(fg, bg)
-@number fg 前景逻辑颜色
-@number bg 背景逻辑颜色
-@return boolean 成功返回 true；颜色不在当前 panel palette 时返回 false 和错误信息
+@int fg 前景颜色
+@int bg 背景颜色
+@return boolean 成功返回true，颜色不受当前面板支持时返回false和错误信息
 @usage
 assert(panel:setColor(epd.RED, epd.WHITE))
 */
@@ -957,7 +970,12 @@ static int l_tiny_epd_set_color(lua_State *L)
                                                         foreground, background));
 }
 
-/* @api panel:getColor() @return number fg @return number bg */
+/**
+获取当前前景色和背景色
+@api panel:getColor()
+@return int fg 前景颜色
+@return int bg 背景颜色
+*/
 static int l_tiny_epd_get_color(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
@@ -977,7 +995,12 @@ static int l_tiny_epd_get_color(lua_State *L)
     return 2;
 }
 
-/* @api panel:supportsColor(color) @return boolean 是否由当前 panel palette 支持 */
+/**
+查询颜色是否受当前面板支持
+@api panel:supportsColor(color)
+@int color 逻辑颜色
+@return boolean 支持返回true，否则返回false
+*/
 static int l_tiny_epd_supports_color(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
@@ -1028,15 +1051,19 @@ static int luat_tiny_epd_refresh_u16(lua_State *L, int index, uint16_t *value)
     return 0;
 }
 
-/*
+/**
+刷新屏幕（异步）
 @api panel:refresh([mode[, x, y, w, h]])
-@number mode epd.FULL（默认）、epd.FAST、epd.PARTIAL、epd.PARTIAL_RECT 或 epd.AUTO
-@number x,y,w,h 仅 epd.PARTIAL_RECT 时的显式刷新矩形；省略时使用 dirty rectangle
-@return cwait 使用 .wait() 得到 true，或 false 和错误信息
+@int mode 刷新模式，epd.FULL(默认)/FAST/PARTIAL/PARTIAL_RECT/AUTO
+@int x 可选，PARTIAL_RECT 时的区域起点X
+@int y 可选，PARTIAL_RECT 时的区域起点Y
+@int w 可选，PARTIAL_RECT 时的区域宽度
+@int h 可选，PARTIAL_RECT 时的区域高度
+@return cwait 通过 .wait() 获取结果：true 或 false,错误信息
 @usage
 assert(panel:refresh(epd.FULL).wait())
 panel:pixel(12, 18, epd.BLACK)
-assert(panel:refresh(epd.PARTIAL_RECT).wait()) -- 自动刷新绘制过的包围矩形
+assert(panel:refresh(epd.PARTIAL_RECT).wait())
 */
 static int l_tiny_epd_refresh(lua_State *L)
 {
@@ -1142,10 +1169,11 @@ static int luat_tiny_epd_sleep_mode(lua_State *L, int index, tiny_epd_sleep_mode
     return 0;
 }
 
-/*
+/**
+进入休眠
 @api panel:sleep([mode])
-@string|number mode "auto" (默认)、"standby"、"deep" 或对应 SLEEP_* 常量
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@string|int mode 可选，"auto"(默认)/"standby"/"deep" 或对应常量
+@return boolean 成功返回true，失败返回false和错误信息
 */
 static int l_tiny_epd_sleep(lua_State *L)
 {
@@ -1161,9 +1189,10 @@ static int l_tiny_epd_sleep(lua_State *L)
     return luat_tiny_epd_push_result(L, tiny_epd_sleep(device->epd, mode));
 }
 
-/*
+/**
+获取面板信息
 @api panel:info()
-@return table {width, height, native_width, native_height, stride, bits_per_pixel, plane_count, format, color_count, palette, caps, rotate}
+@return table 面板信息表，含width/height/native_width/native_height/stride/format/color_count/palette/caps/rotate等
 */
 static int l_tiny_epd_info(lua_State *L)
 {
@@ -1236,7 +1265,11 @@ static void luat_tiny_epd_destroy(lua_State *L, luat_tiny_epd_device_t *device)
     }
 }
 
-/* @api panel:close() @return boolean 释放 tiny_epd 的 framebuffer 和设备对象 */
+/**
+关闭并释放墨水屏
+@api panel:close()
+@return boolean 成功返回true
+*/
 static int l_tiny_epd_close(lua_State *L)
 {
     luat_tiny_epd_device_t *device =
@@ -1265,13 +1298,14 @@ static int l_tiny_epd_gc(lua_State *L)
  * Drawing primitives (line / rect / circle / qrcode) + rotation
  * ------------------------------------------------------------------------- */
 
-/*
+/**
+设置画布旋转方向
 @api panel:setRotation(rotate)
-@number rotate 旋转角度 0/90/180/270，或索引 0/1/2/3
-@return boolean 成功返回 true
+@int rotate 旋转角度0/90/180/270，或索引0/1/2/3
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
 panel:setRotation(90)
-panel:line(0, 0, 100, 100, epd.BLACK)  -- 在 90° 旋转坐标系下画线
+panel:line(0, 0, 100, 100, epd.BLACK)
 */
 static int l_tiny_epd_set_rotation(lua_State *L)
 {
@@ -1291,14 +1325,15 @@ static int l_tiny_epd_set_rotation(lua_State *L)
                                      tiny_epd_set_rotation(device->epd, rotation));
 }
 
-/*
+/**
+绘制直线
 @api panel:line(x0, y0, x1, y1[, color])
-@number x0 起点 X
-@number y0 起点 Y
-@number x1 终点 X
-@number y1 终点 Y
-@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x0 起点X坐标
+@int y0 起点Y坐标
+@int x1 终点X坐标
+@int y1 终点Y坐标
+@int color 可选，默认使用当前前景色
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
 panel:line(0, 0, 100, 100, epd.BLACK)
 */
@@ -1326,16 +1361,19 @@ static int l_tiny_epd_line(lua_State *L)
                                                         color));
 }
 
-/*
+/**
+绘制矩形
 @api panel:rect(x, y, x2, y2[, color[, fill]])
-@number x,y 左上角坐标
-@number x2,y2 右下角坐标（end-point 形式）
-@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
-@number fill 0=仅描边（默认），1=实心
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x 左上角X坐标
+@int y 左上角Y坐标
+@int x2 右下角X坐标
+@int y2 右下角Y坐标
+@int color 可选，默认使用当前前景色
+@int fill 可选，0空心(默认)，1实心
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
-panel:rect(0, 0, 199, 199, epd.BLACK, 1)   -- 实心边框
-panel:rect(20, 20, 80, 80, epd.BLACK, 0)   -- 空心矩形
+panel:rect(0, 0, 199, 199, epd.BLACK, 1)
+panel:rect(20, 20, 80, 80, epd.BLACK, 0)
 */
 static int l_tiny_epd_rect(lua_State *L)
 {
@@ -1364,16 +1402,18 @@ static int l_tiny_epd_rect(lua_State *L)
                                                         (uint8_t)fill));
 }
 
-/*
+/**
+绘制圆形
 @api panel:circle(x, y, r[, color[, fill]])
-@number x,y 圆心坐标
-@number r 半径（0..255）
-@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
-@number fill 0=仅描边（默认），1=实心
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x 圆心X坐标
+@int y 圆心Y坐标
+@int r 半径，0-255
+@int color 可选，默认使用当前前景色
+@int fill 可选，0空心(默认)，1实心
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
-panel:circle(100, 100, 50, epd.BLACK, 0)   -- 空心圆
-panel:circle(100, 100, 20, epd.BLACK, 1)   -- 实心圆
+panel:circle(100, 100, 50, epd.BLACK, 0)
+panel:circle(100, 100, 20, epd.BLACK, 1)
 */
 static int l_tiny_epd_circle(lua_State *L)
 {
@@ -1401,19 +1441,20 @@ static int l_tiny_epd_circle(lua_State *L)
                                                           (uint8_t)fill));
 }
 
-/*
+/**
+绘制XBM位图
 @api panel:drawXbm(x, y, width, height, data[, fg[, bg]])
-@number x,y 位图左上角逻辑坐标；允许负坐标，屏幕外部分自动裁剪
-@number width,height 位图像素尺寸
-@string data XBM 数据：逐行存储，每行 ceil(width/8) 字节，低位在左
-@number fg 置位像素颜色；省略时使用当前前景色
-@number|nil bg 清零像素颜色；省略时使用当前背景色，显式传 nil 表示透明
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x 位图左上角X坐标，允许负值，屏幕外自动裁剪
+@int y 位图左上角Y坐标，允许负值，屏幕外自动裁剪
+@int width 位图像素宽度
+@int height 位图像素高度
+@string data XBM数据，逐行存储，每行ceil(width/8)字节，低位在左
+@int fg 可选，置位像素颜色，默认当前前景色
+@int|nil bg 可选，清零像素颜色，默认当前背景色，传nil表示透明
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
--- 与 eink.drawXbm()/u8g2.DrawXBM 格式相同：每个字节 bit0 是最左侧像素
 local xbm = string.char(0x81, 0x42, 0x24, 0x18, 0x24, 0x42, 0x81, 0x00)
 assert(panel:drawXbm(20, 30, 8, 8, xbm))
--- 透明叠加：只有位图中的 1 写入 framebuffer
 assert(panel:drawXbm(20, 30, 8, 8, xbm, epd.BLACK, nil))
 */
 static int l_tiny_epd_draw_xbm(lua_State *L)
@@ -1459,13 +1500,15 @@ static int l_tiny_epd_draw_xbm(lua_State *L)
                                                        fg, bg));
 }
 
-/*
+/**
+绘制二维码
 @api panel:qrcode(x, y, str[, size[, color]])
-@number x,y 左上角坐标
-@string  str QR 内容
-@number size QR 占用的像素正方形边长（必须 >= qrcode 模块数）
-@number color 省略时使用当前前景/背景色；显式黑白色保持旧的反色背景行为
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x 左上角X坐标
+@int y 左上角Y坐标
+@string str 二维码内容
+@int size 可选，二维码像素边长，0表示按剩余区域自动适配
+@int color 可选，默认使用当前前景/背景色
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
 panel:qrcode(10, 10, "https://openluat.com", 120, epd.BLACK)
 */
@@ -1589,19 +1632,17 @@ static int luat_tiny_epd_hzfont_parse_style(lua_State *L,
     return 0;
 }
 
-/*
+/**
+绘制UTF-8文本（需固件启用HzFont）
 @api panel:drawHzfont(x, y, text, size[, style])
-@number x X 坐标
-@number y 基线 Y 坐标
-@string text UTF-8 文本
-@number size 字号（1..255 像素）
-@nil|number|table style 省略或 nil 时使用当前前景/背景色；兼容旧接口时传 antialias(-1..3)；推荐传
- {fg=epd.RED, bg=epd.WHITE, antialias=-1, threshold=128, dither=epd.DITHER_THRESHOLD}
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x X坐标
+@int y 基线Y坐标
+@string text UTF-8文本，支持中文
+@int size 字号，1-255
+@table style 可选样式表，支持fg/bg/antialias/threshold/dither，省略时使用当前前景/背景色
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
--- 省略 style：使用 setColor() 设置的前景/背景
 assert(panel:drawHzfont(10, 36, "合宙LuatOS", 24))
--- 白底覆盖旧文字；bayer4 可改善黑白屏的边缘观感
 assert(panel:drawHzfont(10, 68, "Hello世界", 20,
     {fg = epd.BLACK, bg = epd.WHITE, dither = epd.DITHER_BAYER4}))
 */
@@ -1635,11 +1676,12 @@ static int l_tiny_epd_draw_hzfont(lua_State *L)
                                                                style_ptr));
 }
 
-/*
+/**
+获取文本像素宽度
 @api panel:getHzfontWidth(text, size)
-@string text UTF-8 文本
-@number size 字号（1..255 像素）
-@return number 文本像素宽度；HzFont 未初始化或参数错误时返回 0
+@string text UTF-8文本
+@int size 字号，1-255
+@return int 文本像素宽度，失败返回0
 */
 static int l_tiny_epd_get_hzfont_width(lua_State *L)
 {

@@ -285,6 +285,15 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
                     ctrl->one_play_block_len = one_block_len;
                     ctrl->one_record_block_len = one_block_len;
                     ctrl->static_play_buffer_cnt = block_nums;
+                } else if (ctrl->opts->support_tx_loop && ctrl->opts->support_rx_loop) { // 不支持全双工时，用独立的 tx/rx loop 实现
+                    ctrl->play_buff = play_buff;
+                    ret = ctrl->opts->start_tx_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums);
+                    ctrl->one_play_block_len = one_block_len;
+                    ctrl->static_play_buffer_cnt = block_nums;
+                    if (!ret) {
+                        ret = ctrl->opts->start_rx_loop(ctrl, &ctrl->record_buff, one_block_len, block_nums);
+                        ctrl->one_record_block_len = one_block_len;
+                    }
                 } else {
                     ret = -LUAT_ERROR_PERMISSION_DENIED;
                 }

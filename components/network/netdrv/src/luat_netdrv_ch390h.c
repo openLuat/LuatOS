@@ -158,6 +158,8 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
     ch->total_reset_count = 0;
     ch->total_tx_drop = 0;
     ch->total_rx_drop = 0;
+    ch->rx_status_err_cnt = 0;
+    ch->rx_ov_cnt = 0;
     ch->flow_control = 0;
     ch->adapter_id = cfg->id;
     ch->cspin = cfg->cspin;

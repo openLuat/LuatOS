@@ -146,6 +146,9 @@ void luat_netdrv_netif_input(void* args);
 
 int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t len);
 
+void luat_netdrv_rx_stat_reset(void);
+void luat_netdrv_rx_stat_print(void);
+
 void luat_netdrv_print_tm(const char * tag);
 
 void luat_netdrv_debug_set(int id, int enable);

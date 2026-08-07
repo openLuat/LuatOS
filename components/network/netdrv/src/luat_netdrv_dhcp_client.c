@@ -62,7 +62,7 @@ on_check:
         uIP.u32 = dhcp->ip;
 		uIPMask.u32 = dhcp->submask;
 		uIPGW.u32 = dhcp->gateway;
-		LLOGD("adapter %d ip %d.%d.%d.%d mask %d.%d.%d.%d gw %d.%d.%d.%d lease_time %us", adapter_index, 
+		LLOGI("adapter %d ip %d.%d.%d.%d mask %d.%d.%d.%d gw %d.%d.%d.%d lease_time %us", adapter_index, 
             uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3], 
             uIPMask.u8[0], uIPMask.u8[1], uIPMask.u8[2], uIPMask.u8[3], 
             uIPGW.u8[0], uIPGW.u8[1], uIPGW.u8[2], uIPGW.u8[3],
@@ -134,7 +134,7 @@ on_check:
         data += q->len;
     }
     data = p->payload;
-    LLOGI("adapter %d dhcp payload len %d", adapter_index, p->tot_len);
+    LLOGD("adapter %d dhcp payload len %d", adapter_index, p->tot_len);
     // 本地地址设为netif的ip地址
     memcpy(&s_netdrv_dhcp_udp->local_ip, &netif->ip_addr, sizeof(ip_addr_t));
     result = udp_sendto_if(s_netdrv_dhcp_udp, p, IP_ADDR_BROADCAST, 67, netif);
@@ -198,7 +198,7 @@ static int luat_netdrv_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     }
     if (ptr) {
         // 如果没有找到匹配的网络接口, 释放ptr
-        LLOGI("dhcp data not for us len=%d mac %02X%02X%02X%02X%02X%02X", total_len, 
+        LLOGD("dhcp data not for us len=%d mac %02X%02X%02X%02X%02X%02X", total_len, 
             received_mac[0], received_mac[1], received_mac[2], received_mac[3], received_mac[4], received_mac[5]);
         luat_heap_free(ptr);
         ptr = NULL;

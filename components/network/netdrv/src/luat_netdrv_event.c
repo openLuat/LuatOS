@@ -98,16 +98,13 @@ static int netif_ip_event_cb(lua_State *L, void* ptr) {
     lua_getglobal(L, "sys_pub");
     if (lua_isfunction(L, -1)) {
         if (msg->arg2 == 0) {
-            LLOGD("IP_LOSE %d", netdrv->id);
+            LLOGI("IP_LOSE %d", netdrv->id);
             lua_pushstring(L, "IP_LOSE");
             lua_pushinteger(L, netdrv->id);
             lua_call(L, 2, 0);
         }
         else {
             ipaddr_ntoa_r(&netdrv->netif->ip_addr, buff,  32);
-            char gw[32] = {0};
-            ipaddr_ntoa_r(&netdrv->netif->gw, gw, sizeof(gw));
-            LLOGI("DHCP ready adapter=%d IP=%s gw=%s", netdrv->id, buff, gw);
             lua_pushstring(L, "IP_READY");
             lua_pushstring(L, buff);
             lua_pushinteger(L, netdrv->id);
@@ -159,7 +156,7 @@ static void link_updown(tmpptr_t* ptr) {
     struct netif *netif = drv->netif;
     // LLOGI("netif %d link prev %d set %s %p", drv->id, netif_is_link_up(netif), updown ? "UP" : "DOWN", netif);
     if (updown && netif_is_link_up(netif) == 0) {
-        LLOGD("网卡(%d)设置为UP", drv->id);
+        LLOGI("网卡(%d)设置为UP", drv->id);
         netif_set_link_up(netif);
         net_lwip2_set_link_state(drv->id, 1);
         if (drv->dhcp_enable) {
@@ -175,7 +172,7 @@ static void link_updown(tmpptr_t* ptr) {
         return;
     }
     if (updown == 0 && netif_is_link_up(netif)) {
-        LLOGD("网卡(%d)设置为DOWN", drv->id);
+        LLOGI("网卡(%d)设置为DOWN", drv->id);
         luat_netdrv_netif_set_link_down(netif);
         if (drv->dhcp_enable) {
             luat_netdrv_dhcp_client_stop(drv);

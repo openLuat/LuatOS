@@ -449,6 +449,108 @@ int l_uart_handler(lua_State *L, void* ptr) {
 }
 
 /*
+统一分发: 软件串口 / DRV_UART(airlink等) / CSDK硬件串口
+每个操作只在这里做一次路由判断, 避免各API函数重复ifdef导致遗漏
+注意: 需放在luat_uart_soft_*静态函数定义之后
+*/
+static int luat_uart_dispatch_setup(luat_uart_t *uart)
+{
+#ifdef LUAT_USE_SOFT_UART
+	if (prv_uart_soft && (prv_uart_soft->uart_id == uart->id))
+		return luat_uart_soft_setup(uart);
+#endif
+#ifdef LUAT_USE_DRV_UART
+	return luat_drv_uart_setup(uart);
+#else
+	return luat_uart_setup(uart);
+#endif
+}
+
+static int luat_uart_dispatch_write(uint8_t id, void *data, size_t len)
+{
+#ifdef LUAT_USE_SOFT_UART
+	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+		return luat_uart_soft_write((const uint8_t*)data, len);
+#endif
+#ifdef LUAT_USE_DRV_UART
+	return luat_drv_uart_write(id, data, len);
+#else
+	return luat_uart_write(id, data, len);
+#endif
+}
+
+static int luat_uart_dispatch_read(uint8_t id, void *buf, size_t len)
+{
+#ifdef LUAT_USE_SOFT_UART
+	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+		return luat_uart_soft_read(buf, len);
+#endif
+#ifdef LUAT_USE_DRV_UART
+	return luat_drv_uart_read(id, buf, len);
+#else
+	return luat_uart_read(id, buf, len);
+#endif
+}
+
+static void luat_uart_dispatch_close(uint8_t id)
+{
+#ifdef LUAT_USE_SOFT_UART
+	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+	{
+		luat_uart_soft_close();
+		return;
+	}
+#endif
+#ifdef LUAT_USE_DRV_UART
+	luat_drv_uart_close(id);
+#else
+	luat_uart_close(id);
+#endif
+}
+
+static int luat_uart_dispatch_exist(uint8_t id)
+{
+#ifdef LUAT_USE_SOFT_UART
+	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+		return 1;
+#endif
+#ifdef LUAT_USE_DRV_UART
+	return luat_drv_uart_exist(id);
+#else
+	return luat_uart_exist(id);
+#endif
+}
+
+static int luat_uart_dispatch_rx_size(uint8_t id)
+{
+#ifdef LUAT_USE_SOFT_UART
+	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+		return prv_uart_soft->rx_buffer.Pos;
+#endif
+#ifdef LUAT_USE_DRV_UART
+	return luat_drv_uart_read(id, NULL, 0);
+#else
+	return luat_uart_read(id, NULL, 0);
+#endif
+}
+
+static void luat_uart_dispatch_rx_clear(uint8_t id)
+{
+#ifdef LUAT_USE_SOFT_UART
+	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+	{
+		prv_uart_soft->rx_buffer.Pos = 0;
+		return;
+	}
+#endif
+#ifdef LUAT_USE_DRV_UART
+	luat_drv_uart_rx_clear(id);
+#else
+	luat_uart_clear_rx_cache(id);
+#endif
+}
+
+/*
 配置串口参数
 @api    uart.setup(id, baud_rate, data_bits, stop_bits, parity, bit_order, buff_size, rs485_gpio, rs485_level, rs485_delay, debug_enable, error_drop)
 @int 串口id, uart0写0, uart1写1, 如此类推, 最大值取决于设备
@@ -497,30 +599,7 @@ static int l_uart_setup(lua_State *L)
     uart_config.delay = luaL_optinteger(L, 10, 12000000/uart_config.baud_rate);
     uart_config.debug_enable = luaL_optinteger(L, 11, LUAT_UART_DEBUG_ENABLE);
     uart_config.error_drop = luaL_optinteger(L, 12, LUAT_UART_RX_ERROR_DROP_DATA);
-	int result = 0;
-#ifdef LUAT_USE_SOFT_UART
-    
-    if (prv_uart_soft && (prv_uart_soft->uart_id == uart_config.id))
-    {
-    	result = luat_uart_soft_setup(&uart_config);
-    }
-    else
-    {
-		#ifdef LUAT_USE_DRV_UART
-		result = luat_drv_uart_setup(&uart_config);
-		#else
-    	result = luat_uart_setup(&uart_config);
-		#endif
-    }
-    lua_pushinteger(L, result);
-#else
-	#ifdef LUAT_USE_DRV_UART
-	result = luat_drv_uart_setup(&uart_config);
-	#else
-    result = luat_uart_setup(&uart_config);
-	#endif
-    lua_pushinteger(L, result);
-#endif
+	lua_pushinteger(L, luat_uart_dispatch_setup(&uart_config));
     return 1;
 }
 
@@ -552,35 +631,13 @@ static int l_uart_write(lua_State *L)
     {
         buf = lua_tolstring(L, 2, &len);//取出字符串数据
     }
-    if(lua_isinteger(L, 3))
+	if(lua_isinteger(L, 3))
     {
         size_t l = luaL_checkinteger(L, 3);
         if(len > l)
             len = l;
     }
-	int result;
-#ifdef LUAT_USE_SOFT_UART
-    if (prv_uart_soft && (prv_uart_soft->uart_id == id))
-    {
-    	result = luat_uart_soft_write((const uint8_t*)buf, len);
-    }
-    else
-    {
-		#ifdef LUAT_USE_DRV_UART
-    	result = luat_drv_uart_write(id, (char*)buf, len);
-		#else
-    	result = luat_uart_write(id, (char*)buf, len);
-		#endif
-    }
-    lua_pushinteger(L, result);
-#else
-	#ifdef LUAT_USE_DRV_UART
-	result = luat_drv_uart_write(id, (char*)buf, len);
-	#else
-    result = luat_uart_write(id, (char*)buf, len);
-	#endif
-    lua_pushinteger(L, result);
-#endif
+	lua_pushinteger(L, luat_uart_dispatch_write(id, (char*)buf, len));
     return 1;
 }
 
@@ -605,26 +662,7 @@ static int l_uart_read(lua_State *L)
         if(length > buff->len - buff->cursor) {
             length = buff->len - buff->cursor;
 		}
-#ifdef LUAT_USE_SOFT_UART
-		if (prv_uart_soft && (prv_uart_soft->uart_id == id))
-		{
-			result = luat_uart_soft_read(recv, length);
-		}
-		else
-		{
-			#ifdef LUAT_USE_DRV_UART
-			result = luat_drv_uart_read(id, recv, length);
-			#else
-			result = luat_uart_read(id, recv, length);
-			#endif
-		}
-#else
-#ifdef LUAT_USE_DRV_UART
-		result = luat_drv_uart_read(id, recv, length);
-#else
-        result = luat_uart_read(id, recv, length);
-#endif
-#endif
+		result = luat_uart_dispatch_read(id, recv, length);
         if(result < 0) {
             result = 0;
 		}
@@ -661,26 +699,7 @@ static int l_uart_read(lua_State *L)
     uint32_t read_length = 0;
     while(read_length < length)//循环读完
     {
-#ifdef LUAT_USE_SOFT_UART
-		if (prv_uart_soft && (prv_uart_soft->uart_id == id))
-		{
-			result = luat_uart_soft_read((void*)(recv + read_length), length - read_length);
-		}
-		else
-		{
-			#ifdef LUAT_USE_DRV_UART
-			result = luat_drv_uart_read(id, (void*)(recv + read_length), length - read_length);
-			#else
-			result = luat_uart_read(id, (void*)(recv + read_length), length - read_length);
-			#endif
-		}
-#else
-#ifdef LUAT_USE_DRV_UART
-		result = luat_drv_uart_read(id, (void*)(recv + read_length), length - read_length);
-#else
-        result = luat_uart_read(id, (void*)(recv + read_length), length - read_length);
-#endif
-#endif
+		result = luat_uart_dispatch_read(id, (void*)(recv + read_length), length - read_length);
         if (result > 0) {
             read_length += result;
         }
@@ -719,29 +738,8 @@ uart.close(1)
 static int l_uart_close(lua_State *L)
 {
 	uint8_t id = luaL_checkinteger(L,1);
-#ifdef LUAT_USE_SOFT_UART
-	
-	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
-	{
-		luat_uart_soft_close();
-	}
-	else
-	{
-		#ifdef LUAT_USE_DRV_UART
-		luat_drv_uart_close(id);
-		#else
-		luat_uart_close(id);
-		#endif
-	}
-	return 0;
-#else
-#ifdef LUAT_USE_DRV_UART
-	luat_drv_uart_close(id);
-#else
-	luat_uart_close(id);
-#endif
+	luat_uart_dispatch_close(id);
     return 0;
-#endif
 }
 
 /*
@@ -760,28 +758,10 @@ end)
 static int l_uart_on(lua_State *L) {
     int uart_id = luaL_checkinteger(L, 1);
     int org_uart_id = uart_id;
-#ifdef LUAT_USE_SOFT_UART
-	if (prv_uart_soft && (prv_uart_soft->uart_id == (uint8_t)uart_id))
-	{
-		;
+	if (!luat_uart_dispatch_exist(uart_id)) {
+		lua_pushliteral(L, "no such uart id");
+		return 1;
 	}
-	else
-	{
-		#ifndef LUAT_USE_DRV_UART
-		if (!luat_uart_exist(uart_id)) {
-			lua_pushliteral(L, "no such uart id");
-			return 1;
-		}
-		#endif
-	}
-#else
-#ifndef LUAT_USE_DRV_UART
-    if (!luat_uart_exist(uart_id)) {
-        lua_pushliteral(L, "no such uart id");
-        return 1;
-    }
-#endif
-#endif
     if (uart_id >= LUAT_VUART_ID_0)
     {
     	uart_id = MAX_DEVICE_COUNT + uart_id - LUAT_VUART_ID_0;
@@ -845,29 +825,8 @@ static int l_uart_wait485_tx_done(lua_State *L) {
 */
 static int l_uart_exist(lua_State *L)
 {
-#ifdef LUAT_USE_SOFT_UART
-	uint8_t id = luaL_checkinteger(L,1);
-	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
-	{
-		lua_pushboolean(L, 1);
-	}
-	else
-	{
-		#ifdef LUAT_USE_DRV_UART
-		lua_pushboolean(L, luat_drv_uart_exist(id));
-		#else
-		lua_pushboolean(L, luat_uart_exist(id));
-		#endif
-	}
-	return 1;
-#else
-	#ifdef LUAT_USE_DRV_UART
-	lua_pushboolean(L, luaL_checkinteger(L,1) <= LUAT_VUART_ID_0);
-	#else
-    lua_pushboolean(L, luat_uart_exist(luaL_checkinteger(L,1)));
-	#endif
+	lua_pushboolean(L, luat_uart_dispatch_exist(luaL_checkinteger(L,1)));
     return 1;
-#endif
 }
 
 
@@ -886,51 +845,12 @@ static int l_uart_rx(lua_State *L)
 	int result;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
     	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-#ifdef LUAT_USE_SOFT_UART
-		
-		if (prv_uart_soft && (prv_uart_soft->uart_id == id))
-		{
-			result = prv_uart_soft->rx_buffer.Pos;
-		}
-		else
-		{
-			#ifdef LUAT_USE_DRV_UART
-			result = luat_drv_uart_read(id, NULL, 0);
-			#else
-			result = luat_uart_read(id, NULL, 0);
-			#endif
-		}
-#else
-#ifdef LUAT_USE_DRV_UART
-		result = luat_drv_uart_read(id, NULL, 0);
-#else
-    	result = luat_uart_read(id, NULL, 0);
-#endif
-#endif
+		result = luat_uart_dispatch_rx_size(id);
         if (result > (buff->len - buff->used))
         {
         	__zbuff_resize(buff, buff->len + result);
         }
-#ifdef LUAT_USE_SOFT_UART
-		if (prv_uart_soft && (prv_uart_soft->uart_id == id))
-		{
-			luat_uart_soft_read(buff->addr + buff->used, result);
-		}
-		else
-		{
-			#ifdef LUAT_USE_DRV_UART
-			luat_drv_uart_read(id, buff->addr + buff->used, result);
-			#else
-			luat_uart_read(id, buff->addr + buff->used, result);
-			#endif
-		}
-#else
-#ifdef LUAT_USE_DRV_UART
-        luat_drv_uart_read(id, buff->addr + buff->used, result);
-#else
-		luat_uart_read(id, buff->addr + buff->used, result);
-#endif
-#endif
+		luat_uart_dispatch_read(id, buff->addr + buff->used, result);
         lua_pushinteger(L, result);
         buff->used += result;
         return 1;
@@ -953,30 +873,7 @@ local size = uart.rxSize(1)
 */
 static int l_uart_rx_size(lua_State *L)
 {
-    uint8_t id = luaL_checkinteger(L, 1);
-	int result;
-#ifdef LUAT_USE_SOFT_UART
-	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
-	{
-		result = prv_uart_soft->rx_buffer.Pos;
-	}
-	else
-	{
-		#ifdef LUAT_USE_DRV_UART
-		result = luat_drv_uart_read(id, NULL, 0);
-		#else
-		result = luat_uart_read(id, NULL, 0);
-		#endif
-	}
-	lua_pushinteger(L, result);
-#else
-#ifdef LUAT_USE_DRV_UART
-	result = luat_drv_uart_read(id, NULL, 0);
-#else
-	result = luat_uart_read(id, NULL, 0);
-#endif
-    lua_pushinteger(L, result);
-#endif
+	lua_pushinteger(L, luat_uart_dispatch_rx_size(luaL_checkinteger(L, 1)));
     return 1;
 }
 
@@ -993,29 +890,7 @@ uart.rxClear(1)
 */
 static int l_uart_rx_clear(lua_State *L)
 {
-    uint8_t id = luaL_checkinteger(L, 1);
-#ifdef LUAT_USE_SOFT_UART
-
-	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
-	{
-		prv_uart_soft->rx_buffer.Pos = 0;
-	}
-	else
-	{
-		#ifdef LUAT_USE_DRV_UART
-		luat_drv_uart_rx_clear(id);
-		#else
-		luat_uart_clear_rx_cache(id);
-		#endif
-	}
-
-#else
-	#ifdef LUAT_USE_DRV_UART
-	luat_drv_uart_rx_clear(id);
-	#else
-	luat_uart_clear_rx_cache(id);
-	#endif
-#endif
+	luat_uart_dispatch_rx_clear(luaL_checkinteger(L, 1));
     return 0;
 }
 
@@ -1035,7 +910,6 @@ static int l_uart_tx(lua_State *L)
     size_t start, len;
     // const char *buf;
     luat_zbuff_t *buff;
-	int result;
     uint8_t id = luaL_checkinteger(L, 1);
     if(lua_isuserdata(L, 2))
     {
@@ -1057,29 +931,7 @@ static int l_uart_tx(lua_State *L)
     {
     	len = buff->len - start;
     }
-#ifdef LUAT_USE_SOFT_UART
-    
-    if (prv_uart_soft && (prv_uart_soft->uart_id == id))
-    {
-    	result = luat_uart_soft_write((const uint8_t*)(buff->addr + start), len);
-    }
-    else
-    {
-		#ifdef LUAT_USE_DRV_UART
-    	result = luat_drv_uart_write(id, buff->addr + start, len);
-		#else
-    	result = luat_uart_write(id, buff->addr + start, len);
-		#endif
-    }
-    lua_pushinteger(L, result);
-#else
-#ifdef LUAT_USE_DRV_UART
-	result = luat_drv_uart_write(id, buff->addr + start, len);
-#else
-    result = luat_uart_write(id, buff->addr + start, len);
-#endif
-    lua_pushinteger(L, result);
-#endif
+	lua_pushinteger(L, luat_uart_dispatch_write(id, buff->addr + start, len));
     return 1;
 }
 

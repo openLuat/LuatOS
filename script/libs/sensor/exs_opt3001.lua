@@ -1,7 +1,7 @@
 --[[
 @module  exs_opt3001
 @summary OPT3001 数字环境光传感器驱动扩展库
-@version(1.0)
+@version 1.0
 @date    2026.08.06
 @author  沈园园
 @usage

@@ -67,7 +67,7 @@ static int ch390h_ctrl(luat_netdrv_t* drv, void* userdata, int cmd, void* buff, 
                 ch->status = 3;
             }
             else {
-                LLOGD("ch390并非处于已初始化状态, 不能重置");
+                LLOGW("ch390并非处于已初始化状态, 不能重置");
                 return -3;
             }
             return 0;
@@ -134,12 +134,12 @@ static void ch390_lwip_init(void* args) {
 
 luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
 
-    LLOGD("注册CH390H设备(%d) SPI id %d cs %d irq %d", cfg->id, cfg->spiid, cfg->cspin, cfg->irqpin);
+    LLOGI("注册CH390H设备(%d) SPI id %d cs %d irq %d", cfg->id, cfg->spiid, cfg->cspin, cfg->irqpin);
     ch390h_t* ch = luat_heap_malloc(sizeof(ch390h_t));
     struct netif* netif = luat_heap_malloc(sizeof(struct netif));
     luat_netdrv_t* drv = luat_heap_malloc(sizeof(luat_netdrv_t));
     if (ch == NULL || netif == NULL || drv == NULL) {
-        LLOGD("分配CH390H内存失败!!!");
+        LLOGE("分配CH390H内存失败!!!");
         goto clean;
     }
     

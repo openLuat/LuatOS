@@ -115,7 +115,7 @@ static luat_ch390h_cstring_t* new_cstring(ch390h_t* ch, uint16_t len) {
         }
         return cs;
     }
-    LLOGE("剩余内存不多了,抛弃数据包 total %d used %d max_used %d len %d", total, used, max_used, len);
+    LLOGW("剩余内存不多了,抛弃数据包 total %d used %d max_used %d len %d", total, used, max_used, len);
     return NULL;
 }
 
@@ -135,7 +135,7 @@ static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         tm = luat_mcu_tick64_ms();
         if (tm - warn_msg_tm > 1000) {
             warn_msg_tm = tm;
-            LLOGE("队列已满，丢弃数据包 len=%d", len);
+            LLOGW("队列已满，丢弃数据包 len=%d", len);
         }
         ch->total_tx_drop++;
         luat_heap_opt_free(ch->pkg_mem_type, cs);
@@ -183,7 +183,6 @@ static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
     // LLOGI("lwip待发送到硬件层 %p %d", p, p->tot_len);
     luat_ch390h_cstring_t* cs = new_cstring(ch, p->tot_len);
     if (cs == NULL) {
-        LLOGE("分配cstring失败，丢弃数据包 %d", p->tot_len);
         return;
     }
     cs->len = p->tot_len;
@@ -264,7 +263,7 @@ static int check_vid_pid(ch390h_t* ch) {
          *  - 业务侧主动请求休眠后, 若 SPI 已停 / PHY 已下电导致读不到 VID/PID ->
          *    转 STOPPED 让 task 进 FOREVER, 不再贡献 1Hz 唤醒. */
         if (ch->vid_pid_error_count >= 50 && ch->status == 0 && ch->sleep_requested) {
-            LLOGE("VID/PID 持续失败 %d 次 (休眠请求中), 进入 STOPPED 节能态. "
+            LLOGW("VID/PID 持续失败 %d 次 (休眠请求中), 进入 STOPPED 节能态. "
                   "spi=%d cs=%d. 唤醒后会通过 netdrv.ctrl(CTRL_UPDOWN,1) 重新拉起.",
                   ch->vid_pid_error_count, ch->spiid, ch->cspin);
             ch->status = CH390H_STATUS_STOPPED;
@@ -661,7 +660,7 @@ void luat_ch390h_task_start(void) {
         if (s_rx_batch == NULL) {
             s_rx_batch = (uint8_t*)luat_heap_opt_malloc(default_mem_type, 1600 * CH390H_RX_BATCH_NUM);
             if (s_rx_batch == NULL) {
-                LLOGE("RX批量缓冲分配失败, 回退到单帧模式!");
+                LLOGW("RX批量缓冲分配失败, 回退到单帧模式!");
             }
             else {
                 LLOGI("RX批量缓冲 %d x 1600B 分配成功", CH390H_RX_BATCH_NUM);

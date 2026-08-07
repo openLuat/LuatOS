@@ -2,556 +2,635 @@
 @module  exs_pcf8574
 @summary PCF8574 8位 I2C GPIO 扩展芯片驱动扩展库
 @version 1.0
-@date    2026.07.31
+@date    2026.08.06
 @author  沈园园
 @usage
-本文件为 PCF8574 I2C GPIO 扩展芯片的 LuatOS 扩展库，核心业务逻辑为：
-1、配置主机和 PCF8574 之间的 I2C 通信参数，支持自动识别从设备地址；
-2、配置 PCF8574 上 8 个扩展 GPIO 管脚功能；支持配置为输出、输入和中断三种模式；
-3、支持批量读写所有 GPIO 端口数据。
+本扩展库提供 PCF8574 的 LuatOS 驱动，功能包括：
+1、初始化（I2C 通信建立、地址自动探测、中断引脚配置）
+2、GPIO 读写（单引脚/批量读写、输入/输出/中断三种模式）
 
-本文件的对外接口有 9 个：
-1、exs_pcf8574.init(i2c_id, gpio_int_id)：初始化 PCF8574
-2、exs_pcf8574.deinit()：关闭 PCF8574 通信
-3、exs_pcf8574.setup(gpio_id, gpio_mode)：配置扩展 GPIO 管脚功能
-4、exs_pcf8574.set(gpio_id, output_level)：设置输出电平
-5、exs_pcf8574.get(gpio_id)：读取输入电平
-6、exs_pcf8574.close(gpio_id)：关闭扩展 GPIO 功能
-7、exs_pcf8574.read_all()：读取所有 GPIO 端口数据
-8、exs_pcf8574.write_all(data)：写入所有 GPIO 端口数据
-9、exs_pcf8574.version()：获取版本号
+对外接口 4 个：
+- exs_pcf8574.setup(config)：初始化
+- exs_pcf8574.get_data()：读取所有引脚状态
+- exs_pcf8574.close()：释放资源
+- exs_pcf8574.version()：获取版本号
 
--- 版本更新说明
--- 版本号：202607311200
--- 1、更新时间：2026-07-31 12:00
--- 2、更新内容
-  - 第一版，实现 PCF8574 基础驱动功能
-  - 自动识别从设备地址功能（扫描 0x20~0x27）
-  - 支持 8 个 GPIO 的输入、输出、中断配置
-  - 支持批量读写端口数据
-  - 支持 GPIO 中断模式（通过 INT 引脚 + sys.publish 机制）
-  - 支持准双向 IO 模式（无需单独配置方向）
+可选接口：
+- exs_pcf8574.set(pin, level)：设置单引脚输出电平
+- exs_pcf8574.get(pin)：读取单引脚输入电平
+- exs_pcf8574.read_all()：读取所有引脚状态（字节）
+- exs_pcf8574.write_all(data)：写入所有引脚状态（字节）
+- exs_pcf8574.pin_setup(pin, mode)：配置引脚模式
+- exs_pcf8574.pin_close(pin)：关闭引脚
+- exs_pcf8574.process_int()：处理中断事件（需配合 int_gpio 参数）
+- exs_pcf8574.poll_int()：轮询检测引脚变化（适用于无 INT 引脚的模块）
+
+=== 版本更新说明 ===
+-- 版本号：202608061000
+-- 1、更新时间：2026-08-06
+-- 2、更新内容：
+--   - 初版实现
+--   - 支持 PCF8574T（0x20~0x27）和 PCF8574AT（0x38~0x3F）地址自动探测
+--   - 支持硬件 I2C 和软件 I2C
+--   - 支持 GPIO 输入/输出/中断三种模式
+--   - 支持批量读写
+--   - 支持 I2C 总线恢复
 ]]
 
+-- ==================== 模块表 ====================
 local exs_pcf8574 = {}
 
--- ==================== 模块常量 ====================
+-- ==================== 常量定义 ====================
 
--- PCF8574 I2C 基地址（A0/A1/A2 全接地时）
--- 地址范围：0x20 ~ 0x27，A0A1A2 对应 000~111
-local SLAVE_ADDRESS_BASE = 0x20
-
--- PCF8574 寄存器地址（仅 2 个寄存器）
-local REG_INPUT   = 0x00  -- 输入寄存器（只读，读取引脚实际状态）
-local REG_OUTPUT  = 0x01  -- 输出寄存器（写入控制输出状态）
+-- PCF8574T I2C 地址范围：0x20 ~ 0x27（A0A1A2 = 000 ~ 111）
+local ADDR_T_BASE  = 0x20  -- PCF8574T 基地址
+-- PCF8574AT I2C 地址范围：0x38 ~ 0x3F（A0A1A2 = 000 ~ 111）
+local ADDR_AT_BASE = 0x38  -- PCF8574AT 基地址
 
 -- GPIO ID 有效范围
-local GPIO_ID_MIN = 0x00
-local GPIO_ID_MAX = 0x07
+local PIN_MIN = 0x00  -- P0
+local PIN_MAX = 0x07  -- P7
 
--- GPIO 模式定义
-local MODE_OUTPUT_LOW  = 0   -- 输出低电平（引脚拉低）
-local MODE_OUTPUT_HIGH = 1   -- 输出高电平（引脚高阻 + 内部上拉）
-local MODE_INPUT       = nil -- 输入模式（内部上拉，外部驱动）
+-- ==================== 内部变量 ====================
+local g_i2c_id    = nil       -- I2C 总线 id
+local g_is_soft   = false     -- 是否软件 I2C
+local g_scl_pin   = nil       -- SCL 引脚（总线恢复用）
+local g_sda_pin   = nil       -- SDA 引脚（总线恢复用）
+local g_i2c_speed = i2c.FAST  -- 保存原始 speed（总线恢复后恢复）
+local g_dev_addr  = nil       -- 探测成功后的设备地址
+local g_output    = 0xFF      -- 输出寄存器缓存（初始全 1，输入模式）
+local g_int_gpio  = nil       -- 中断引脚 GPIO id（可选）
+local g_int_cb    = nil       -- 中断回调函数表
+local g_last_input = 0xFF     -- 上次输入寄存器值（轮询中断用）
+local g_ready     = false     -- 是否已就绪
 
--- ==================== 内部状态 ====================
+-- ==================== I2C 总线恢复 ====================
 
--- 运行时状态
-exs_pcf8574.i2c_id       = nil    -- 主机 I2C ID
-exs_pcf8574.gpio_int_id  = nil    -- 主机中断 GPIO ID（可选）
-exs_pcf8574.slave_address = nil  -- 从设备地址
-exs_pcf8574.ints         = nil    -- 中断处理表
+-- I2C 总线硬件恢复：9 个 SCL 脉冲 + 每脉冲检测 SDA 释放 + STOP 信号
+local function i2c_bus_recovery()
+    if not g_scl_pin or not g_sda_pin then return false end
+    gpio.setup(g_scl_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+    gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+    sys.wait(1)     -- 等待电平稳定，1ms
+    for i = 1, 9 do
+        gpio.set(g_scl_pin, 0); sys.wait(1)                          -- SCL 拉低
+        gpio.setup(g_sda_pin, gpio.INPUT, gpio.PULLUP); sys.wait(1)  -- 检测 SDA 释放
+        if gpio.get(g_sda_pin) == 1 then
+            gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+            break
+        end
+        gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+        gpio.set(g_scl_pin, 1); sys.wait(1)                          -- SCL 拉高
+    end
+    gpio.set(g_sda_pin, 0); sys.wait(1)    -- 起始条件
+    gpio.set(g_scl_pin, 1); sys.wait(1)    -- 结束条件前半
+    gpio.set(g_sda_pin, 1); sys.wait(1)    -- 结束条件后半
+    return true
+end
 
--- 输出寄存器缓存（用于减少 I2C 读取次数）
-exs_pcf8574.output_cache = 0xFF  -- 初始值：全部为 1（输入模式）
+-- 检测总线是否卡死，卡死后调用 i2c_bus_recovery 恢复
+-- 锁死判据：SDA=0, SCL=1（从机锁死 SDA）
+-- 恢复后恢复硬件 I2C 原始 speed（g_i2c_speed）
+local function try_bus_recovery()
+    if not g_scl_pin or not g_sda_pin then return false end
+    gpio.setup(g_sda_pin, gpio.INPUT, gpio.PULLUP)
+    gpio.setup(g_scl_pin, gpio.INPUT, gpio.PULLUP); sys.wait(1)
+    local is_stall = (gpio.get(g_sda_pin) == 0 and gpio.get(g_scl_pin) == 1)
+    gpio.setup(g_sda_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+    gpio.setup(g_scl_pin, gpio.OUTPUT, gpio.PULLUP, 1)
+    if not is_stall then return false end  -- 总线未卡死，无需恢复
+    log.warn("exs_pcf8574", "检测到 I2C 总线卡死，尝试恢复")
+    i2c_bus_recovery()
+    if not g_is_soft then i2c.setup(g_i2c_id, g_i2c_speed) end  -- 恢复原始 speed
+    return true
+end
 
--- ==================== I2C 底层操作 ====================
+-- ==================== I2C 操作 ====================
 
--- 写入 PCF8574 输出寄存器
--- @param value 要写入的数据（0x00~0xFF）
--- @return boolean 成功返回 true
-local function write_output(value)
-    if not exs_pcf8574.i2c_id or not exs_pcf8574.slave_address then
+-- 写端口：向 PCF8574 写入 1 字节数据（直接发送，无需寄存器地址）
+-- val：要写入的数据（0x00~0xFF）
+-- 返回 boolean：成功返回 true
+local function wr_output(val)
+    if not g_i2c_id or not g_dev_addr then
         log.error("exs_pcf8574", "设备未初始化")
         return false
     end
-    local result = i2c.send(exs_pcf8574.i2c_id, exs_pcf8574.slave_address, value)
-    if result then
-        exs_pcf8574.output_cache = value
+    local ok = i2c.send(g_i2c_id, g_dev_addr, val)
+    if not ok and try_bus_recovery() then
+        ok = i2c.send(g_i2c_id, g_dev_addr, val)
     end
-    return result
+    if ok then g_output = val end
+    return ok
 end
 
--- 读取 PCF8574 输入寄存器
--- @return number 读取到的 1 字节数据，失败返回 nil
-local function read_input()
-    if not exs_pcf8574.i2c_id or not exs_pcf8574.slave_address then
+-- 读端口：从 PCF8574 读取 1 字节数据（直接接收，无需寄存器地址）
+-- 返回 number：读取到的数据（0x00~0xFF），失败返回 nil
+local function rd_input()
+    if not g_i2c_id or not g_dev_addr then
         log.error("exs_pcf8574", "设备未初始化")
         return nil
     end
-
-    local data = i2c.recv(exs_pcf8574.i2c_id, exs_pcf8574.slave_address, 1)
-    if data and #data == 1 then
-        return string.byte(data, 1)
-    end
-    return nil
-end
-
--- ==================== 中断处理 ====================
-
--- 主机上的中断引脚处理函数
-local function gpio_int_callback()
-    -- 中断处理函数中不能直接执行耗时操作
-    -- publish 消息后在其他位置异步处理
-    sys.publish("exs_pcf8574_INT")   
-end
-
--- 遍历用户扩展 GPIO 中断函数表，进行处理
-local function user_gpio_int_callback()
-    if exs_pcf8574.ints then
-        for k, v in pairs(exs_pcf8574.ints) do
-            if v then
-                -- 读取扩展 GPIO 当前输入电平
-                local cur_level = exs_pcf8574.get(k) 
-                -- 输入电平发生变化时执行回调
-                if v.old_level ~= cur_level then
-                    v.old_level = cur_level
-                    if v.cb_func then v.cb_func(k, cur_level) end
-                end
-            end
+    local d = i2c.recv(g_i2c_id, g_dev_addr, 1)
+    if not d or #d < 1 then
+        if try_bus_recovery() then
+            d = i2c.recv(g_i2c_id, g_dev_addr, 1)
         end
     end
+    if not d or #d < 1 then return nil end
+    return d:byte(1)
 end
 
--- 订阅中断消息
-sys.subscribe("exs_pcf8574_INT", user_gpio_int_callback)
+-- ==================== GPIO 工具函数 ====================
 
--- ==================== GPIO ID 工具函数 ====================
-
--- 检查 GPIO ID 是否有效
--- @param gpio_id GPIO ID
--- @return boolean 有效返回 true
-local function check_gpio_id_valid(gpio_id)
-    return (gpio_id >= GPIO_ID_MIN and gpio_id <= GPIO_ID_MAX)
+-- 检查引脚 ID 是否有效
+-- pin：引脚 ID（0x00~0x07）
+-- 返回 boolean：有效返回 true
+local function check_pin_valid(pin)
+    return (pin >= PIN_MIN and pin <= PIN_MAX)
 end
 
--- 根据 GPIO ID 获取位掩码
--- @param gpio_id GPIO ID (0x00~0x07)
--- @return number 位掩码（0x01~0x80）
-local function get_gpio_mask(gpio_id)
-    return 1 << (gpio_id & 0x07)
+-- 根据引脚 ID 获取位掩码
+-- pin：引脚 ID（0x00~0x07）
+-- 返回 number：位掩码（0x01~0x80）
+local function get_pin_mask(pin)
+    return 1 << (pin & 0x07)
 end
 
--- ==================== 外部 API ====================
+-- ==================== 固定对外接口 ====================
 
 --[[
-初始化 PCF8574，配置 I2C 通信参数，自动识别从设备地址
+初始化 PCF8574，配置 I2C 通信参数，自动探测设备地址
 
-@api exs_pcf8574.init(i2c_id, gpio_int_id)
+@api exs_pcf8574.setup(config)
 
-i2c_id
-参数含义：主机使用的 I2C ID，用来控制 PCF8574
-数据类型：number
-取值范围：仅支持 0 和 1
-是否必选：必选
-
-gpio_int_id
-参数含义：主机使用的中断引脚 GPIO ID，与 PCF8574 的 INT 引脚相连；
-PCF8574 上任意配置为输入模式的 GPIO 状态发生变化时，会通过 INT 引脚通知主机；
-主机可通过 I2C 立即读取扩展 GPIO 电平状态，判断哪些 GPIO 电平发生了变化；
-此参数可选，不传则不使用中断通知功能
-数据类型：number
-取值范围：GPIO 编号
-是否必选：可选
+@param table config
+参数含义：初始化配置表
+数据类型：table
+取值说明：
+  - i2c_id (number)：硬件 I2C 总线 id，如 0 或 1
+  - scl (number)：软件 I2C 的 SCL 引脚号
+  - sda (number)：软件 I2C 的 SDA 引脚号
+  - addr (number)：指定设备地址（可选，不传则自动探测）
+  - int_gpio (number)：中断引脚 GPIO id（可选，不传则不使用中断）
+是否必选：是
+注意事项：i2c_id 与 scl/sda 二选一，同时传优先硬件 I2C
+参数示例：{i2c_id = 1} 或 {scl = 67, sda = 66}
 
 @return boolean
-初始化成功返回 true，失败返回 false
-
-@usage
--- 基础初始化（不使用中断）
-local result = exs_pcf8574.init(1)
-
--- 使用中断功能
-local result = exs_pcf8574.init(1, 2)
+含义说明：初始化是否成功
+数据类型：boolean
+返回示例：true
 ]]
-function exs_pcf8574.init(i2c_id, gpio_int_id)
-    -- 参数检查
-    if i2c_id ~= 0 and i2c_id ~= 1 then
-        log.error("exs_pcf8574.init", "参数错误：i2c_id 应为 0 或 1")
+
+-- GPIO 中断回调：发布中断消息（必须在 setup() 之前定义，因为 Lua local 变量必须先声明后使用）
+local function gpio_int_publish_func()
+    sys.publish("exs_pcf8574_INT")
+end
+
+function exs_pcf8574.setup(config)
+    if type(config) ~= "table" then
+        log.error("exs_pcf8574", "config 必须是 table 类型")
         return false
     end
 
-    exs_pcf8574.i2c_id = i2c_id
-    exs_pcf8574.gpio_int_id = gpio_int_id
+    -- 保存中断引脚
+    g_int_gpio = config.int_gpio  -- 可选
 
-    -- 初始化 I2C
-    if i2c.setup(i2c_id, i2c.FAST) ~= 1 then
-        log.error("exs_pcf8574.init", "I2C 初始化失败", i2c_id)
-        return false
+    -- I2C 初始化
+    if config.scl and config.sda then
+        g_scl_pin = config.scl; g_sda_pin = config.sda
+        if config.i2c_id then
+            i2c_bus_recovery()
+            i2c.setup(config.i2c_id, i2c.FAST)
+            g_i2c_id = config.i2c_id; g_is_soft = false; g_i2c_speed = i2c.FAST
+        else
+            i2c_bus_recovery()
+            g_i2c_id = i2c.createSoft(config.scl, config.sda, 5)
+            g_is_soft = true
+        end
+    else
+        g_i2c_id = config.i2c_id or 0
+        i2c.setup(g_i2c_id, i2c.FAST); g_is_soft = false
     end
 
-    -- 自动识别从设备地址
-    -- PCF8574 的 A2 A1 A0 可配置 8 种地址（0x20 ~ 0x27）
-    for i = 0, 7 do
-        local addr = SLAVE_ADDRESS_BASE + i
-        i2c.send(i2c_id, addr, REG_INPUT)
-        local data = i2c.recv(i2c_id, addr, 1)
-        if data ~= nil then
-            exs_pcf8574.slave_address = addr
-            log.info("exs_pcf8574.init", "从设备地址识别成功:", addr)
+    -- 自动探测设备地址
+    local addr_list = {}
+    if config.addr then
+        addr_list = {config.addr}
+    else
+        -- 扫描 PCF8574T（0x20~0x27）和 PCF8574AT（0x38~0x3F）
+        for i = 0, 7 do
+            addr_list[#addr_list + 1] = ADDR_T_BASE + i
+        end
+        for i = 0, 7 do
+            addr_list[#addr_list + 1] = ADDR_AT_BASE + i
+        end
+    end
+
+    local ok_addr = nil
+    for i = 1, #addr_list do
+        local addr = addr_list[i]
+        -- PCF8574 直接接收 1 字节即可探测（无需寄存器地址）
+        local d = i2c.recv(g_i2c_id, addr, 1)
+        if d and #d == 1 then
+            ok_addr = addr
             break
         end
     end
 
-    -- 识别失败
-    if not exs_pcf8574.slave_address then
-        log.error("exs_pcf8574.init", "从设备地址识别失败")
-        i2c.close(i2c_id)
-        exs_pcf8574.i2c_id = nil
+    if not ok_addr then
+        log.error("exs_pcf8574", "地址探测失败：未找到 PCF8574 设备")
+        log.error("exs_pcf8574", "检查接线: VCC=3.3V GND SCL SDA，A0/A1/A2 地址跳线是否正确")
+        if not g_is_soft then i2c.close(g_i2c_id) end
+        g_i2c_id = nil
         return false
     end
 
-    -- 初始化输出寄存器缓存为 0xFF（全部输入模式，内部上拉）
-    write_output(0xFF)
+    g_dev_addr = ok_addr
+    log.info("exs_pcf8574", string.format("芯片地址自适应：0x%02X", g_dev_addr))
+
+    -- 初始化输出寄存器为 0xFF（全部输入模式，内部上拉）
+    wr_output(0xFF)
+
+    -- 清除可能的虚假中断：wr_output 后 INT 可能被拉低，读取输入寄存器可清除
+    rd_input()
 
     -- 配置中断 GPIO（可选）
-    if gpio_int_id then
-        gpio.setup(gpio_int_id, gpio_int_callback, gpio.PULLUP, gpio.FALLING)
-        log.info("exs_pcf8574.init", "中断 GPIO 已配置:", gpio_int_id)
+    if g_int_gpio then
+        gpio.setup(g_int_gpio, gpio_int_publish_func, gpio.PULLUP, gpio.FALLING)
+        log.info("exs_pcf8574", string.format("中断 GPIO 已配置: %d", g_int_gpio))
     end
 
-    log.info("exs_pcf8574.init", string.format("初始化完成, i2c=%d addr=0x%02X",
-        i2c_id, exs_pcf8574.slave_address))
-
+    g_ready = true
+    log.info("exs_pcf8574", string.format("初始化完成: i2c=%s addr=0x%02X",
+        g_is_soft and "soft" or tostring(g_i2c_id), g_dev_addr))
     return true
 end
 
 --[[
-关闭 PCF8574 通信，释放所有资源（I2C、GPIO、中断表）
+读取所有 GPIO 引脚状态
 
-@api exs_pcf8574.deinit()
+@api exs_pcf8574.get_data()
 
-@return boolean
-成功返回 true，失败返回 false
-
-@usage
-exs_pcf8574.deinit()
+@return table
+含义说明：所有引脚状态
+数据类型：table
+字段说明：
+  - p0~p7 (number)：P0~P7 引脚电平，0=低电平，1=高电平
+  - raw (number)：原始字节数据，bit0=P0, bit7=P7
+返回示例：{p0=1, p1=0, ..., p7=1, raw=0x81}
 ]]
-function exs_pcf8574.deinit()
-    -- 关闭 I2C
-    if exs_pcf8574.i2c_id then
-        i2c.close(exs_pcf8574.i2c_id)
-        exs_pcf8574.i2c_id = nil
-        exs_pcf8574.slave_address = nil
+function exs_pcf8574.get_data()
+    if not g_ready then
+        log.error("exs_pcf8574", "设备未初始化")
+        return nil
     end
-
-    -- 关闭中断 GPIO
-    if exs_pcf8574.gpio_int_id then
-        gpio.close(exs_pcf8574.gpio_int_id)
-        exs_pcf8574.gpio_int_id = nil
+    local val = rd_input()
+    if val == nil then return nil end
+    local result = {raw = val}
+    for i = 0, 7 do
+        result["p" .. i] = (val >> i) & 0x01
     end
-
-    -- 清空中断处理表
-    if type(exs_pcf8574.ints) == "table" then
-        for k, v in pairs(exs_pcf8574.ints) do
-            exs_pcf8574.ints[k] = nil
-        end
-        exs_pcf8574.ints = nil
-    end
-
-    -- 重置输出缓存
-    exs_pcf8574.output_cache = 0xFF
-
-    log.info("exs_pcf8574.deinit", "已释放所有资源")
-    return true
+    return result
 end
 
 --[[
-配置 PCF8574 扩展 GPIO 管脚功能，支持输出、输入和中断三种模式
+关闭 PCF8574，释放所有资源
 
-@api exs_pcf8574.setup(gpio_id, gpio_mode)
+@api exs_pcf8574.close()
 
-gpio_id
-参数含义：PCF8574 上的扩展 GPIO ID
+@return nil
+含义说明：无返回值
+]]
+function exs_pcf8574.close()
+    if g_i2c_id and not g_is_soft then
+        i2c.close(g_i2c_id)
+    end
+    g_i2c_id = nil
+    g_dev_addr = nil
+    g_int_gpio = nil
+    g_int_cb = nil
+    g_output = 0xFF
+    g_ready = false
+    log.info("exs_pcf8574", "资源已释放")
+end
+
+--[[
+获取版本号
+
+@api exs_pcf8574.version()
+
+@return string
+含义说明：版本号字符串
+数据类型：string
+返回示例："202608061000"
+]]
+function exs_pcf8574.version()
+    return "202608061000"
+end
+
+-- ==================== 可选对外接口 ====================
+
+--[[
+配置 PCF8574 单个引脚的工作模式
+
+@api exs_pcf8574.pin_setup(pin, mode)
+
+@param number pin
+参数含义：PCF8574 的引脚 ID
 数据类型：number
 取值范围：0x00 ~ 0x07，对应 P0 ~ P7
-是否必选：必选
+是否必选：是
+参数示例：0x00
 
-gpio_mode
-参数含义：GPIO 工作模式，支持三种类型
+@param number|function|nil mode
+参数含义：引脚工作模式
 数据类型：number | function | nil
 取值说明：
-  - number (0)：输出模式，输出低电平
-  - number (1)：输出模式，输出高电平（准双向，内部上拉）
-  - nil 或不传：输入模式（内部上拉，外部驱动）
+  - number (0)：输出模式，输出低电平（灌电流驱动，可直接驱动 LED）
+  - number (1)：输出模式，输出高电平（内部上拉，弱驱动）
+  - nil：输入模式（内部上拉，外部驱动）
   - function：中断模式，参数为回调函数
-    回调函数格式：function cb_func(id, level) end
-    - id：触发中断的 GPIO ID
+    回调函数格式：function cb_func(pin, level) end
+    - pin：触发中断的引脚 ID
     - level：触发中断后读取到的电平（0=低，1=高）
-是否必选：必选
+是否必选：是
+注意事项：中断模式需要在 setup() 中传入 int_gpio 参数
+参数示例：0
 
 @return boolean
-配置成功返回 true，失败返回 false
-
-@usage
--- GPIO 0x00 配置为输出模式，输出低电平
-exs_pcf8574.setup(0x00, 0)
-
--- GPIO 0x01 配置为输入模式
-exs_pcf8574.setup(0x01)
-
--- GPIO 0x04 配置为中断模式
-local function P04_int_cbfunc(id, level)
-    log.info("P04_int_cbfunc", id, level)
-end
-exs_pcf8574.setup(0x04, P04_int_cbfunc)
+含义说明：配置是否成功
+数据类型：boolean
+返回示例：true
 ]]
-function exs_pcf8574.setup(gpio_id, gpio_mode)
-    -- 参数检查
-    if not check_gpio_id_valid(gpio_id) then
-        log.error("exs_pcf8574.setup", "参数错误：gpio_id 应为 0x00~0x07")
+function exs_pcf8574.pin_setup(pin, mode)
+    if not check_pin_valid(pin) then
+        log.error("exs_pcf8574.pin_setup", "参数错误：pin 应为 0x00~0x07")
         return false
     end
 
-    if gpio_mode ~= 0 and gpio_mode ~= 1 and gpio_mode ~= nil and type(gpio_mode) ~= "function" then
-        log.error("exs_pcf8574.setup", "参数错误：gpio_mode 类型无效")
+    if mode ~= 0 and mode ~= 1 and mode ~= nil and type(mode) ~= "function" then
+        log.error("exs_pcf8574.pin_setup", "参数错误：mode 类型无效")
         return false
     end
 
-    local mask = get_gpio_mask(gpio_id)
-    local new_output = exs_pcf8574.output_cache
+    local mask = get_pin_mask(pin)
+    local new_output = g_output
 
-    -- 根据模式计算新的输出寄存器值
-    if gpio_mode == 0 then
-        -- 输出低电平：对应位清零（引脚拉低）
-        new_output = new_output & (~mask)
-    elseif gpio_mode == 1 then
-        -- 输出高电平：对应位置1（准双向，内部上拉）
-        new_output = new_output | mask
+    if mode == 0 then
+        new_output = new_output & (~mask)   -- 输出低电平
     else
-        -- 输入模式或中断模式：对应位置1（准双向，内部上拉）
-        new_output = new_output | mask
+        new_output = new_output | mask      -- 输出高电平 / 输入模式 / 中断模式
     end
 
-    -- 值变化时写入
-    if new_output ~= exs_pcf8574.output_cache then
-        if not write_output(new_output) then
-            log.error("exs_pcf8574.setup", "写入输出寄存器失败")
+    if new_output ~= g_output then
+        if not wr_output(new_output) then
+            log.error("exs_pcf8574.pin_setup", "写入输出寄存器失败")
             return false
         end
     end
 
     -- 中断模式：注册回调函数
-    if type(gpio_mode) == "function" then
-        if exs_pcf8574.ints == nil then
-            exs_pcf8574.ints = {}
-        end
-        if exs_pcf8574.ints[gpio_id] == nil then
-            exs_pcf8574.ints[gpio_id] = {}
-        end
-        exs_pcf8574.ints[gpio_id].cb_func = gpio_mode
-        exs_pcf8574.ints[gpio_id].old_level = exs_pcf8574.get(gpio_id)
+    if type(mode) == "function" then
+        if g_int_cb == nil then g_int_cb = {} end
+        g_int_cb[pin] = mode
     end
 
     return true
 end
 
 --[[
-设置 PCF8574 扩展 GPIO 的输出电平
+关闭 PCF8574 单个引脚，恢复为默认输入模式
 
-@api exs_pcf8574.set(gpio_id, output_level)
+@api exs_pcf8574.pin_close(pin)
 
-gpio_id
-参数含义：PCF8574 上的扩展 GPIO ID
+@param number pin
+参数含义：PCF8574 的引脚 ID
 数据类型：number
-取值范围：0x00~0x07
-是否必选：必选
+取值范围：0x00 ~ 0x07
+是否必选：是
+参数示例：0x03
 
-output_level
+@return boolean
+含义说明：关闭是否成功
+数据类型：boolean
+返回示例：true
+]]
+function exs_pcf8574.pin_close(pin)
+    if not check_pin_valid(pin) then
+        log.error("exs_pcf8574.pin_close", "参数错误：pin 应为 0x00~0x07")
+        return false
+    end
+    -- 清除中断回调
+    if g_int_cb then g_int_cb[pin] = nil end
+    -- 恢复为输入模式（写入 1）
+    return exs_pcf8574.pin_setup(pin)
+end
+
+--[[
+设置 PCF8574 单个引脚的输出电平
+
+@api exs_pcf8574.set(pin, level)
+
+@param number pin
+参数含义：PCF8574 的引脚 ID
+数据类型：number
+取值范围：0x00 ~ 0x07
+是否必选：是
+参数示例：0x03
+
+@param number level
 参数含义：输出电平
 数据类型：number
 取值范围：0（低电平）或 1（高电平）
-是否必选：必选
+是否必选：是
+注意事项：0=低电平（灌电流驱动，可直接驱动 LED），1=高电平（内部上拉，弱驱动）
+参数示例：0
 
 @return boolean
-设置成功返回 true，失败返回 false
-
-@usage
--- GPIO 0x03 输出高电平
-exs_pcf8574.set(0x03, 1)
-
--- GPIO 0x05 输出低电平
-exs_pcf8574.set(0x05, 0)
+含义说明：设置是否成功
+数据类型：boolean
+返回示例：true
 ]]
-function exs_pcf8574.set(gpio_id, output_level)
-    -- 参数检查
-    if not check_gpio_id_valid(gpio_id) then
-        log.error("exs_pcf8574.set", "参数错误：gpio_id 无效")
+function exs_pcf8574.set(pin, level)
+    if not check_pin_valid(pin) then
+        log.error("exs_pcf8574.set", "参数错误：pin 应为 0x00~0x07")
+        return false
+    end
+    if level ~= 0 and level ~= 1 then
+        log.error("exs_pcf8574.set", "参数错误：level 应为 0 或 1")
         return false
     end
 
-    if output_level ~= 0 and output_level ~= 1 then
-        log.error("exs_pcf8574.set", "参数错误：output_level 应为 0 或 1")
-        return false
-    end
-
-    local mask = get_gpio_mask(gpio_id)
+    local mask = get_pin_mask(pin)
     local new_output
-
-    if output_level == 0 then
-        new_output = exs_pcf8574.output_cache & (~mask)
+    if level == 0 then
+        new_output = g_output & (~mask)
     else
-        new_output = exs_pcf8574.output_cache | mask
+        new_output = g_output | mask
     end
 
-    -- 值变化时写入
-    if new_output ~= exs_pcf8574.output_cache then
-        if not write_output(new_output) then
+    if new_output ~= g_output then
+        if not wr_output(new_output) then
             log.error("exs_pcf8574.set", "写入输出寄存器失败")
             return false
         end
     end
-
     return true
 end
 
 --[[
-读取 PCF8574 扩展 GPIO 的输入电平
+读取 PCF8574 单个引脚的输入电平
 
-@api exs_pcf8574.get(gpio_id)
+@api exs_pcf8574.get(pin)
 
-gpio_id
-参数含义：PCF8574 上的扩展 GPIO ID
+@param number pin
+参数含义：PCF8574 的引脚 ID
 数据类型：number
-取值范围：0x00~0x07
-是否必选：必选
+取值范围：0x00 ~ 0x07
+是否必选：是
+注意事项：引脚必须先通过 pin_setup() 配置为输入或中断模式
+参数示例：0x02
 
-@return number
-输入电平：0=低电平，1=高电平；读取失败返回 false
-
-@usage
--- 读取 GPIO 0x02 的输入电平
-local level = exs_pcf8574.get(0x02)
-if level ~= false then
-    log.info("PCF8574", "GPIO 0x02 电平:", level)
-end
+@return number|boolean
+含义说明：引脚输入电平
+数据类型：number 或 boolean
+取值范围：0（低电平），1（高电平）；读取失败返回 false
+返回示例：1
 ]]
-function exs_pcf8574.get(gpio_id)
-    -- 参数检查
-    if not check_gpio_id_valid(gpio_id) then
-        log.error("exs_pcf8574.get", "参数错误：gpio_id 无效")
+function exs_pcf8574.get(pin)
+    if not check_pin_valid(pin) then
+        log.error("exs_pcf8574.get", "参数错误：pin 应为 0x00~0x07")
         return false
     end
-
-    -- 读取输入寄存器
-    local value = read_input()
-
-    if value == nil then
+    local val = rd_input()
+    if val == nil then
         log.error("exs_pcf8574.get", "读取输入寄存器失败")
         return false
     end
-
-    -- 返回对应位的值
-    return (value >> (gpio_id & 0x07)) & 0x01
+    return (val >> (pin & 0x07)) & 0x01
 end
 
 --[[
-关闭 PCF8574 扩展 GPIO 功能，恢复为默认输入模式
-
-@api exs_pcf8574.close(gpio_id)
-
-gpio_id
-参数含义：PCF8574 上的扩展 GPIO ID
-数据类型：number
-取值范围：0x00~0x07
-是否必选：必选
-
-@return boolean
-关闭成功返回 true，失败返回 false
-
-@usage
-exs_pcf8574.close(0x03)
-]]
-function exs_pcf8574.close(gpio_id)
-    local result = exs_pcf8574.setup(gpio_id)
-    if not result then
-        log.error("exs_pcf8574.close", "关闭失败", gpio_id)
-    end
-    return result
-end
-
---[[
-读取 PCF8574 所有 GPIO 端口数据
+读取 PCF8574 所有引脚状态（字节）
 
 @api exs_pcf8574.read_all()
 
-@return number
-8 位端口数据，每位对应一个 GPIO（bit0=P0, bit7=P7）；
-读取失败返回 false
-
-@usage
-local port_data = exs_pcf8574.read_all()
-if port_data ~= false then
-    log.info("PCF8574", "端口数据:", string.format("0x%02X", port_data))
-end
+@return number|boolean
+含义说明：8 位端口数据
+数据类型：number 或 boolean
+取值范围：0x00 ~ 0xFF，bit0=P0, bit7=P7；读取失败返回 false
+返回示例：0xF0
 ]]
 function exs_pcf8574.read_all()
-    local value = read_input()
-    if value == nil then
+    local val = rd_input()
+    if val == nil then
         log.error("exs_pcf8574.read_all", "读取输入寄存器失败")
         return false
     end
-    return value
+    return val
 end
 
 --[[
-写入 PCF8574 所有 GPIO 端口数据
+写入 PCF8574 所有引脚状态（字节）
 
 @api exs_pcf8574.write_all(data)
 
-data
-参数含义：8 位端口数据，每位对应一个 GPIO（bit0=P0, bit7=P7）
+@param number data
+参数含义：8 位端口数据，每位对应一个引脚
 数据类型：number
-取值范围：0x00~0xFF
-是否必选：必选
+取值范围：0x00 ~ 0xFF，bit0=P0, bit7=P7
+是否必选：是
+注意事项：写入 0 的引脚输出低电平（灌电流驱动），写入 1 的引脚变为高阻（内部上拉）
+参数示例：0xF0
 
 @return boolean
-写入成功返回 true，失败返回 false
-
-@usage
--- 设置 P0~P3 输出低，P4~P7 输出高
-exs_pcf8574.write_all(0xF0)
+含义说明：写入是否成功
+数据类型：boolean
+返回示例：true
 ]]
 function exs_pcf8574.write_all(data)
     if data < 0x00 or data > 0xFF then
         log.error("exs_pcf8574.write_all", "参数错误：data 范围 0x00~0xFF")
         return false
     end
-
-    if not write_output(data) then
+    if not wr_output(data) then
         log.error("exs_pcf8574.write_all", "写入输出寄存器失败")
         return false
     end
-
     return true
 end
 
---[[
-获取 exs_pcf8574 库的版本号
+-- ==================== 中断消息处理 ====================
 
-@api exs_pcf8574.version()
-
-@return string
-版本号字符串，格式为 "yyyymmddhhmm"
-
-@usage
-local ver = exs_pcf8574.version()
-log.info("exs_pcf8574", "版本号:", ver)
-]]
-function exs_pcf8574.version()
-    return "202607311200"
+-- 中断处理函数：读取扩展 GPIO 电平并分发用户回调
+-- 必须在协程上下文中调用（I2C 操作不可靠在中断回调中执行）
+local function int_process_func()
+    if not g_int_cb then return end
+    local val = rd_input()
+    if val == nil then return end
+    for pin, cb in pairs(g_int_cb) do
+        if cb then
+            local level = (val >> (pin & 0x07)) & 0x01
+            cb(pin, level)
+        end
+    end
 end
 
-log.debug("exs_pcf8574", "version -> " .. exs_pcf8574.version())
+--[[
+处理中断事件：读取引脚状态并分发用户回调
+
+@api exs_pcf8574.process_int()
+
+@return nil
+含义说明：无返回值
+注意事项：此函数必须在协程上下文中调用（如 sys.waitUntil 返回后）
+使用场景：配合 setup() 中的 int_gpio 参数，在监听任务中调用
+]]
+function exs_pcf8574.process_int()
+    int_process_func()
+end
+
+--[[
+轮询检测引脚变化并分发用户回调（适用于无INT引脚的PCF8574模块）
+
+@api exs_pcf8574.poll_int()
+
+@return nil
+含义说明：无返回值
+注意事项：此函数需要在定时器中周期性调用（如每100ms）
+使用场景：当PCF8574模块未引出INT引脚时，通过轮询检测引脚变化
+工作原理：读取输入寄存器并与上次值比较，检测到变化时调用对应回调
+]]
+function exs_pcf8574.poll_int()
+    if not g_ready or not g_int_cb then
+        return
+    end
+
+    local val = rd_input()
+    if val == nil then
+        return
+    end
+
+    -- 检测变化的引脚
+    local changed = val ~ g_last_input
+    if changed == 0 then
+        g_last_input = val
+        return
+    end
+
+    -- 分发回调
+    for pin, cb in pairs(g_int_cb) do
+        if cb then
+            local mask = 1 << (pin & 0x07)
+            if changed & mask ~= 0 then
+                local level = (val >> (pin & 0x07)) & 0x01
+                cb(pin, level)
+            end
+        end
+    end
+
+    g_last_input = val
+end
 
 return exs_pcf8574

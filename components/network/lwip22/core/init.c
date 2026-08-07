@@ -134,21 +134,27 @@ PACK_STRUCT_END
 #endif
 #endif /* !MEMP_MEM_MALLOC */
 #if LWIP_WND_SCALE
+#ifndef TCP_WND_DYNAMIC
 #if (LWIP_TCP && (TCP_WND > 0xffffffff))
 #error "If you want to use TCP, TCP_WND must fit in an u32_t, so, you have to reduce it in your lwipopts.h"
+#endif
 #endif
 #if (LWIP_TCP && (TCP_RCV_SCALE > 14))
 #error "The maximum valid window scale value is 14!"
 #endif
+#ifndef TCP_WND_DYNAMIC
 #if (LWIP_TCP && (TCP_WND > (0xFFFFU << TCP_RCV_SCALE)))
 #error "TCP_WND is bigger than the configured LWIP_WND_SCALE allows!"
 #endif
 #if (LWIP_TCP && ((TCP_WND >> TCP_RCV_SCALE) == 0))
 #error "TCP_WND is too small for the configured LWIP_WND_SCALE (results in zero window)!"
 #endif
+#endif
 #else /* LWIP_WND_SCALE */
+#ifndef TCP_WND_DYNAMIC
 #if (LWIP_TCP && (TCP_WND > 0xffff))
 #error "If you want to use TCP, TCP_WND must fit in an u16_t, so, you have to reduce it in your lwipopts.h (or enable window scaling)"
+#endif
 #endif
 #endif /* LWIP_WND_SCALE */
 #if (LWIP_TCP && (TCP_SND_QUEUELEN > 0xffff))
@@ -324,11 +330,13 @@ PACK_STRUCT_END
 #if !MEMP_MEM_MALLOC && PBUF_POOL_SIZE && (PBUF_POOL_BUFSIZE <= (PBUF_LINK_ENCAPSULATION_HLEN + PBUF_LINK_HLEN + PBUF_IP_HLEN + PBUF_TRANSPORT_HLEN))
 #error "lwip_sanity_check: WARNING: PBUF_POOL_BUFSIZE does not provide enough space for protocol headers. If you know what you are doing, define LWIP_DISABLE_TCP_SANITY_CHECKS to 1 to disable this error."
 #endif
+#ifndef TCP_WND_DYNAMIC
 #if !MEMP_MEM_MALLOC && PBUF_POOL_SIZE && (TCP_WND > (PBUF_POOL_SIZE * (PBUF_POOL_BUFSIZE - (PBUF_LINK_ENCAPSULATION_HLEN + PBUF_LINK_HLEN + PBUF_IP_HLEN + PBUF_TRANSPORT_HLEN))))
 #error "lwip_sanity_check: WARNING: TCP_WND is larger than space provided by PBUF_POOL_SIZE * (PBUF_POOL_BUFSIZE - protocol headers). If you know what you are doing, define LWIP_DISABLE_TCP_SANITY_CHECKS to 1 to disable this error."
 #endif
 #if TCP_WND < TCP_MSS
 #error "lwip_sanity_check: WARNING: TCP_WND is smaller than MSS. If you know what you are doing, define LWIP_DISABLE_TCP_SANITY_CHECKS to 1 to disable this error."
+#endif
 #endif
 #endif /* LWIP_TCP */
 #endif /* !LWIP_DISABLE_TCP_SANITY_CHECKS */

@@ -303,6 +303,7 @@
 #endif
 #ifndef TCP_WND
 #define TCP_WND                         (soc_tcpip_rx_cache())
+#define TCP_WND_DYNAMIC				1
 #endif
 #define MEM_SIZE 						8192 * 3
 

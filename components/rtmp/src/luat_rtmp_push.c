@@ -1932,6 +1932,15 @@ static void rtmp_try_send_queue(rtmp_ctx_t *ctx) {
         /* 上限设为8KB，避免单次发送过大 */
         if (to_send > 8192) to_send = 8192;
 
+        /* 背压：限制适配层未ACK的在途数据，网络跟不上时帧留在RTMP队列，由水位丢帧 */
+        uint64_t tx = ctx->netc->tx_size;
+        uint64_t ack = ctx->netc->ack_size;
+        uint64_t pending = tx > ack ? tx - ack : 0;
+        if (pending >= RTMP_MAX_INFLIGHT_BYTES)
+            break;
+        if ((uint64_t)to_send > (RTMP_MAX_INFLIGHT_BYTES - pending))
+            to_send = (uint32_t)(RTMP_MAX_INFLIGHT_BYTES - pending);
+
         uint32_t tx_len = 0;
         network_tx(ctx->netc, node->data + node->sent, to_send, 0, NULL, 0, &tx_len, 0);
         node->sent += tx_len;

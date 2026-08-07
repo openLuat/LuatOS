@@ -164,6 +164,8 @@ void luat_netdrv_netif_input(void* args) {
     }
     if (p->tot_len != ptr->len) {
         LLOGE("p->tot_len != ptr->len %d %d", p->tot_len, ptr->len);
+        pbuf_free(p);
+        luat_heap_free(ptr);
         return;
     }
     pbuf_take(p, ptr->buff, ptr->len);
@@ -189,20 +191,12 @@ int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t 
     memcpy(ptr->buff, buff, len);
     ptr->netif = netif;
     ptr->len = len;
-    // uint64_t tbegin = luat_mcu_tick64();
+    // 非阻塞投递: 邮箱满/无内存时返回非0
     int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 0);
     if (ret != ERR_OK) {
+        // 修复: 原来这里先 free 一次, 后面 if(ret) 又 free 一次, double-free 会破坏堆
         LLOGE("netif_input_proxy: tcpip_callback failed ret=%d len=%d", ret, len);
         luat_heap_free(ptr);
-    }
-    // uint64_t tend = luat_mcu_tick64();
-    // uint64_t tused = (tend - tbegin) / luat_mcu_us_period();
-    // if (tused > 50) {
-    //     LLOGD("tcpip_callback!! use %lld us", tused);
-    // }
-    if (ret) {
-        luat_heap_free(ptr);
-        LLOGE("tcpip_callback 返回错误!!! ret %d", ret);
         return 1;
     }
     return 0;

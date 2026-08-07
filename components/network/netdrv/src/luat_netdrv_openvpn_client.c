@@ -836,7 +836,9 @@ static int ovpn_parse_km2_reply(ovpn_client_t *cli, const uint8_t *data, int len
         int opt_len = 0;
         while (pos + opt_len < len && data[pos + opt_len] != '\0') opt_len++;
         if (opt_len > 0) {
-            LLOGI("server options: %.*s", opt_len, data + pos);
+            if (cli->debug) {
+                LLOGD("server options: %.*s", opt_len, data + pos);
+            }
         }
     }
 
@@ -908,7 +910,6 @@ static void ovpn_process_tls_app_data(ovpn_client_t *cli) {
         }
 
         app_buf[ret] = '\0';
-        LLOGI("TLS app data (%d bytes): %s", ret, (const char *)app_buf);
 
         /* State-dependent processing */
         switch (cli->km2_state) {
@@ -1036,8 +1037,8 @@ static void ovpn_process_push_reply(ovpn_client_t *cli, const char *reply, int l
         if (p < reply + len) p++;
     }
 
-    if (!cli->push_reply.received) {
-        LLOGW("PUSH_REPLY: %s", reply);  /* debug log full reply */
+    if (cli->debug && !cli->push_reply.received) {
+        LLOGD("PUSH_REPLY: %s", reply);  /* debug log full reply */
     }
 }
 
@@ -1449,7 +1450,7 @@ static void ovpn_schedule_retry(ovpn_client_t *cli, const char *reason) {
     /* Transport offline → poll at base interval for quick recovery */
     if (!ovpn_transport_is_online(cli)) {
         delay = cli->retry_base_ms ? cli->retry_base_ms : 1000;
-        LLOGW("transport offline, waiting %u ms before next retry", (unsigned)delay);
+        LLOGD("transport offline, waiting %u ms before next retry", (unsigned)delay);
     }
     cli->retry_timer_active = 1;
     cli->retry_attempt++;

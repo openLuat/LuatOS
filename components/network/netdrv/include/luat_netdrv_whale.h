@@ -4,7 +4,6 @@
 #include "luat_netdrv.h"
 #include "lwip/netif.h"
 #include "lwip/pbuf.h"
-#include "luat_ulwip.h"
 
 typedef struct luat_netdrv_whale {
     uint8_t id;

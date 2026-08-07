@@ -3,7 +3,9 @@
 #include "luat_network_adapter.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
-#include "luat_ulwip.h"
+#include "luat_msgbus.h"
+#include "net_lwip2.h"
+#include "luat_netdrv_dhcp_client.h"
 
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
@@ -140,10 +142,10 @@ typedef struct tmpptr {
 }tmpptr_t;
 
 static void delay_dhcp_start(void* args) {
-    ulwip_ctx_t *ctx = (ulwip_ctx_t *)args;
-    if (ctx && ctx->dhcp_enable) {
-        LLOGI("DHCP client starting for adapter %d", ctx->adapter_index);
-        ulwip_dhcp_client_start(ctx);
+    luat_netdrv_t *drv = (luat_netdrv_t *)args;
+    if (drv && drv->dhcp_enable) {
+        LLOGI("DHCP client starting for adapter %d", drv->id);
+        luat_netdrv_dhcp_client_start(drv);
     }
 }
 
@@ -155,40 +157,28 @@ static void link_updown(tmpptr_t* ptr) {
         return;
     }
     struct netif *netif = drv->netif;
-    ulwip_ctx_t *ulwip = drv->ulwip;
     // LLOGI("netif %d link prev %d set %s %p", drv->id, netif_is_link_up(netif), updown ? "UP" : "DOWN", netif);
     if (updown && netif_is_link_up(netif) == 0) {
         LLOGD("网卡(%d)设置为UP", drv->id);
         netif_set_link_up(netif);
         net_lwip2_set_link_state(drv->id, 1);
-        if (ulwip) {
-            if (ulwip->netif == NULL) {
-                ulwip->netif = netif;
-            }
-            if (ulwip->dhcp_enable) {
-                LLOGI("DHCP trigger for adapter %d (link=UP)", drv->id);
-                ulwip_dhcp_client_stop(ulwip);
-                // 延时50ms, 避免netif_set_up和dhcp冲突
-                sys_timeout(50, delay_dhcp_start, ulwip);
-            }
-            else if (!ip_addr_isany(&netif->ip_addr)) {
-                // 静态IP, 那就发布IP_READY事件
-                luat_netdrv_send_ip_event(drv, 1);
-            }
+        if (drv->dhcp_enable) {
+            LLOGI("DHCP trigger for adapter %d (link=UP)", drv->id);
+            luat_netdrv_dhcp_client_stop(drv);
+            // 延时50ms, 避免netif_set_up和dhcp冲突
+            sys_timeout(50, delay_dhcp_start, drv);
         }
-        else {
-            if (!ip_addr_isany(&netif->ip_addr)) {
-                // 静态IP, 那就发布IP_READY事件
-                luat_netdrv_send_ip_event(drv, 1);
-            }
+        else if (!ip_addr_isany(&netif->ip_addr)) {
+            // 静态IP, 那就发布IP_READY事件
+            luat_netdrv_send_ip_event(drv, 1);
         }
         return;
     }
     if (updown == 0 && netif_is_link_up(netif)) {
         LLOGD("网卡(%d)设置为DOWN", drv->id);
         luat_netdrv_netif_set_link_down(netif);
-        if (ulwip && ulwip->dhcp_enable) {
-            ulwip_dhcp_client_stop(ulwip);
+        if (drv->dhcp_enable) {
+            luat_netdrv_dhcp_client_stop(drv);
         }
         net_lwip2_set_link_state(drv->id, 0);
         luat_netdrv_send_ip_event(drv, 0);

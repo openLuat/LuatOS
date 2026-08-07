@@ -219,15 +219,15 @@ static int l_netdrv_dhcp(lua_State *L) {
         luat_netdrv_t *drv = NULL;
         data = luaL_checklstring(L, 3, &len);
         drv = luat_netdrv_get(id);
-        if(((len + 1) > 32) || (drv == NULL) || (drv->ulwip == NULL)) {
+        if(((len + 1) > 32) || (drv == NULL)) {
             LLOGD("adapter %d dhcp name set fail", id);
             lua_pushboolean(L, 0);
             return 1;
         }
         if(0 == len){
-            memset(drv->ulwip->dhcp_client.name, 0x00, 32);
+            memset(drv->dhcp_client.name, 0x00, 32);
         } else {
-            memcpy(drv->ulwip->dhcp_client.name, data, len + 1);
+            memcpy(drv->dhcp_client.name, data, len + 1);
         }
     }
     int ret = luat_netdrv_dhcp(id, enable);

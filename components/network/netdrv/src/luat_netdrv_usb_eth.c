@@ -7,6 +7,8 @@
 #include "lwip/pbuf.h"
 #include "lwip/tcpip.h"
 #include "lwip/etharp.h"
+#include "lwip/ethip6.h"
+#include "netif/ethernet.h"
 
 #include "luat_common_api.h"
 #include "luat_usb.h"
@@ -46,7 +48,6 @@ typedef struct
 	luat_usb_eth_data_cache_t *tx_cache;
 	luat_usb_eth_data_cache_t temp_rx_cache;
 	luat_netdrv_t drv;
-	ulwip_ctx_t ulwip;
 	struct netif netif;
 	uint16_t usb_packet_max_size;
 	uint8_t usb_eth_id;
@@ -291,11 +292,8 @@ void luat_netdrv_usb_eth_init(void)
 	_usb_eth_netif.drv.id = LUAT_USB_ETH_ADAPTER_ID;
 	_usb_eth_netif.drv.netif = &_usb_eth_netif.netif;
 	_usb_eth_netif.drv.userdata = &_usb_eth_netif;
-	_usb_eth_netif.drv.ulwip = &_usb_eth_netif.ulwip;
 	_usb_eth_netif.drv.dhcp = luat_netdrv_dhcp_opt;
-	_usb_eth_netif.ulwip.adapter_index = _usb_eth_netif.drv.id;
-	_usb_eth_netif.ulwip.netif = &_usb_eth_netif.netif;
-	_usb_eth_netif.ulwip.dhcp_enable = 1;
+	_usb_eth_netif.drv.dhcp_enable = 1;
 	luat_no_data_fifo_init(&_usb_eth_netif.rx_cache_fifo, LUAT_USB_ETH_RX_CACHE_POWER);
 	luat_no_data_fifo_init(&_usb_eth_netif.tx_cache_fifo, LUAT_USB_ETH_TX_CACHE_POWER);
 	tcpip_callback_with_block(_usb_eth_netif_add, &_usb_eth_netif, 0);

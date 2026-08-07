@@ -16,7 +16,6 @@ network/
 ├── libemqtt/         # MQTT client
 ├── websocket/        # WebSocket client/server
 ├── lwip22/           # LwIP 2.2 source
-├── ulwip/            # Micro LwIP variant
 ├── libhttp/          # HTTP protocol
 ├── libsntp/          # SNTP time sync
 ├── netdrv/           # Network drivers

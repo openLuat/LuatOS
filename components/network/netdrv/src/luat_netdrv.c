@@ -6,6 +6,7 @@
 #include "lwip/ip.h"
 #include "lwip/tcpip.h"
 #include "luat_netdrv_drv.h"
+#include "luat_netdrv_dhcp_client.h"
 
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"
@@ -340,22 +341,19 @@ void luat_netdrv_netif_set_link_down(struct netif* netif) {
 // DHCP操作
 
 int luat_netdrv_dhcp_opt(luat_netdrv_t* drv, void* userdata, int enable) {
-    if (drv->ulwip == NULL) {
-        return -1;
-    }
-    if (drv->ulwip->dhcp_enable == enable) {
+    if (drv->dhcp_enable == enable) {
         return 0;
     }
     // cfg->dhcp = (uint8_t)enable;
-    drv->ulwip->dhcp_enable = enable;
-    if (drv->ulwip->netif == NULL) {
+    drv->dhcp_enable = (uint8_t)enable;
+    if (drv->netif == NULL) {
         return 0;
     }
     if (enable) {
-        tcpip_callback_with_block(ulwip_dhcp_client_start, drv->ulwip, 0);
+        tcpip_callback_with_block(luat_netdrv_dhcp_client_start, drv, 0);
     }
     else {
-        tcpip_callback_with_block(ulwip_dhcp_client_stop, drv->ulwip, 0);
+        tcpip_callback_with_block(luat_netdrv_dhcp_client_stop, drv, 0);
     }
     return 0;
 }

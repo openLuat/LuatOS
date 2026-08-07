@@ -8,7 +8,6 @@
 // #include "luat_spi.h"
 #include "luat_gpio.h"
 #include "net_lwip2.h"
-#include "luat_ulwip.h"
 #include "lwip/tcp.h"
 #include "lwip/sys.h"
 #include "lwip/tcpip.h"

@@ -771,9 +771,6 @@ target("luatos-lua")
         add_thirdparty_files(lwip_path .. "/core/**.c")
         add_thirdparty_files(lwip_path .. "/netif/**.c")
         
-        add_includedirs(luatos .. "components/network/ulwip/include")
-        add_files(luatos .. "components/network/ulwip/**.c")
-        
         add_files(luatos .. "components/network/adapter_lwip2/*.c")
         add_includedirs(luatos .. "components/network/adapter_lwip2/")
         add_files(luatos .. "components/ethernet/common/*.c")

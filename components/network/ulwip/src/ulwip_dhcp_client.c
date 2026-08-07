@@ -25,7 +25,7 @@ static void dhcp_client_timer_cb(void *arg);
 static ulwip_ctx_t* s_ctxs[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 
 static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
-    PV_Union uIP;
+    PV_Union uIP, uIPMask, uIPGW;
     // 检查dhcp的状态
     dhcp_client_info_t* dhcp = (&ctx->dhcp_client);
     u8_t adapter_index = ctx->adapter_index;
@@ -55,12 +55,13 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
     if (DHCP_STATE_CHECK == dhcp->state) {
 on_check:
         uIP.u32 = dhcp->ip;
-		LLOGD("adapter %d ip %d.%d.%d.%d", adapter_index, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-		uIP.u32 = dhcp->submask;
-		LLOGD("adapter %d mask %d.%d.%d.%d", adapter_index, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-		uIP.u32 = dhcp->gateway;
-		LLOGD("adapter %d gateway %d.%d.%d.%d", adapter_index, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-		LLOGD("adapter %d lease_time %us", adapter_index, dhcp->lease_time);
+		uIPMask.u32 = dhcp->submask;
+		uIPGW.u32 = dhcp->gateway;
+		LLOGD("adapter %d ip %d.%d.%d.%d mask %d.%d.%d.%d gw %d.%d.%d.%d lease_time %us", adapter_index, 
+            uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3], 
+            uIPMask.u8[0], uIPMask.u8[1], uIPMask.u8[2], uIPMask.u8[3], 
+            uIPGW.u8[0], uIPGW.u8[1], uIPGW.u8[2], uIPGW.u8[3],
+            dhcp->lease_time);
 
         if (dhcp->dns_server[0] != 0) {
             uIP.u32 = dhcp->dns_server[0];

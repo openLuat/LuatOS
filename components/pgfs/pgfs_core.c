@@ -9,9 +9,6 @@
 
 #ifdef LUAT_USE_PGFS_COMPONENT
 
-#define PGFS_MAX_FILES 512
-#define PGFS_MAX_BATCH_PENDING 32
-
 typedef struct pgfs_data_record_hdr {
     uint32_t magic;
     uint32_t path_len;
@@ -37,25 +34,9 @@ typedef struct pgfs_batch_commit_record_hdr {
     uint8_t  ecc[8];   /* Phase 3b: Hamming(72,64) SECDED over the header */
 } pgfs_batch_commit_record_hdr_t;
 
-static pgfs_file_entry_t s_pgfs_files[PGFS_MAX_FILES];
-static pgfs_dir_entry_t s_pgfs_dirs[PGFS_MAX_DIRS];
-
-typedef struct pgfs_batch_pending_entry {
-    uint8_t used;
-    uint8_t heap_type;
-    uint16_t reserved;
-    uint32_t batch_id;
-    char path[sizeof(s_pgfs_files[0].path)];
-    uint8_t* data;
-    size_t len;
-    size_t cap;
-} pgfs_batch_pending_entry_t;
-
-static pgfs_batch_pending_entry_t s_pgfs_batch_pending[PGFS_MAX_BATCH_PENDING];
-
-static int pgfs_batch_apply_committed(uint32_t batch_id);
-static void pgfs_batch_drop(uint32_t batch_id);
-static pgfs_file_entry_t* pgfs_alloc_file(const char* path);
+static int pgfs_batch_apply_committed(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
+static void pgfs_batch_drop(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
+static pgfs_file_entry_t* pgfs_alloc_file(pgfs_mount_ctx_t* ctx, const char* path);
 static int pgfs_append_batch_data_record(pgfs_mount_ctx_t* ctx, pgfs_batch_pending_entry_t* p);
 static int pgfs_append_batch_commit_record(pgfs_mount_ctx_t* ctx, uint32_t batch_id, uint32_t record_count);
 static int pgfs_batch_persist_committed(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
@@ -123,6 +104,7 @@ static void pgfs_account_live_block(pgfs_mount_ctx_t* ctx, uint32_t addr, uint32
     uint32_t block_id = addr / erase_size;
     if (block_id >= ctx->ftl.total_blocks) return;
     ctx->ftl.live_bytes_per_block[block_id] += bytes;
+    pgfs_ftl_mark_dirty(&ctx->ftl);
 }
 
 /* pgfs_account_dead_block — add `bytes` to dead_bytes[block_of(addr)].
@@ -145,6 +127,7 @@ static void pgfs_account_dead_block(pgfs_mount_ctx_t* ctx, uint32_t addr, uint32
     uint32_t block_id = addr / erase_size;
     if (block_id >= ctx->ftl.total_blocks) return;
     ctx->ftl.dead_bytes_per_block[block_id] += bytes;
+    pgfs_ftl_mark_dirty(&ctx->ftl);
 }
 
 /* pgfs_data_log_base_addr — derive the data log base address from the
@@ -191,6 +174,200 @@ static uint32_t pgfs_align_up_u32(uint32_t value, uint32_t align) {
     }
     return (uint32_t)out;
 }
+
+/* ── Per-mount tables + hash index (P0-1 / P1-2) ──────────────────────── */
+
+/* FNV-1a 32-bit path hash. */
+static uint32_t pgfs_path_hash(const char* path) {
+    uint32_t h = 2166136261u;
+    if (path == NULL) return h;
+    while (*path) {
+        h ^= (uint8_t)(*path++);
+        h *= 16777619u;
+    }
+    return h;
+}
+
+static uint32_t pgfs_hash_next_pow2(uint32_t v) {
+    uint32_t p = 1u;
+    while (p < v) {
+        p <<= 1u;
+    }
+    return p;
+}
+
+static int32_t* pgfs_hash_alloc(uint32_t table_cap, uint32_t* out_cap) {
+    uint32_t cap = pgfs_hash_next_pow2(table_cap * 2u);
+    int32_t* slots = NULL;
+    if (cap < 16u) cap = 16u;
+    slots = (int32_t*)luat_heap_malloc(cap * sizeof(int32_t));
+    if (slots == NULL) {
+        return NULL;
+    }
+    memset(slots, 0, cap * sizeof(int32_t));
+    *out_cap = cap;
+    return slots;
+}
+
+static int pgfs_hash_lookup_file(pgfs_mount_ctx_t* ctx, const char* path) {
+    uint32_t i = 0;
+    uint32_t cap = 0;
+    if (ctx == NULL || ctx->file_hash_slots == NULL || path == NULL) {
+        return -1;
+    }
+    cap = ctx->file_hash_cap;
+    if (cap == 0) {
+        return -1;
+    }
+    i = pgfs_path_hash(path) & (cap - 1u);
+    while (ctx->file_hash_slots[i] != 0) {
+        int32_t v = ctx->file_hash_slots[i];
+        if (v > 0) {
+            uint32_t idx = (uint32_t)(v - 1);
+            if (idx < ctx->file_cap && ctx->files != NULL &&
+                ctx->files[idx].used && strcmp(ctx->files[idx].path, path) == 0) {
+                return (int)idx;
+            }
+        }
+        i = (i + 1u) & (cap - 1u);
+    }
+    return -1;
+}
+
+static int pgfs_hash_lookup_dir(pgfs_mount_ctx_t* ctx, const char* path) {
+    uint32_t i = 0;
+    uint32_t cap = 0;
+    if (ctx == NULL || ctx->dir_hash_slots == NULL || path == NULL) {
+        return -1;
+    }
+    cap = ctx->dir_hash_cap;
+    if (cap == 0) {
+        return -1;
+    }
+    i = pgfs_path_hash(path) & (cap - 1u);
+    while (ctx->dir_hash_slots[i] != 0) {
+        int32_t v = ctx->dir_hash_slots[i];
+        if (v > 0) {
+            uint32_t idx = (uint32_t)(v - 1);
+            if (idx < ctx->dir_cap && ctx->dirs != NULL &&
+                ctx->dirs[idx].used && strcmp(ctx->dirs[idx].path, path) == 0) {
+                return (int)idx;
+            }
+        }
+        i = (i + 1u) & (cap - 1u);
+    }
+    return -1;
+}
+
+static void pgfs_hash_insert(int32_t* slots, uint32_t cap, const char* path,
+                             uint32_t table_index) {
+    uint32_t i = pgfs_path_hash(path) & (cap - 1u);
+    if (slots == NULL || cap == 0) {
+        return;
+    }
+    while (slots[i] != 0 && slots[i] != -1) {
+        i = (i + 1u) & (cap - 1u);
+    }
+    slots[i] = (int32_t)table_index + 1;
+}
+
+static void pgfs_hash_remove(int32_t* slots, uint32_t cap, const char* path,
+                             uint32_t table_index) {
+    uint32_t i = 0;
+    if (slots == NULL || cap == 0 || path == NULL) {
+        return;
+    }
+    i = pgfs_path_hash(path) & (cap - 1u);
+    while (slots[i] != 0) {
+        if (slots[i] == (int32_t)table_index + 1) {
+            slots[i] = -1; /* tombstone */
+            return;
+        }
+        i = (i + 1u) & (cap - 1u);
+    }
+}
+
+int pgfs_tables_init(pgfs_mount_ctx_t* ctx) {
+    if (ctx == NULL) {
+        return -1;
+    }
+    if (ctx->files != NULL) {
+        return 0; /* already initialised */
+    }
+    ctx->file_cap = PGFS_MAX_FILES;
+    ctx->dir_cap = PGFS_MAX_DIRS;
+    ctx->batch_pending_cap = PGFS_MAX_BATCH_PENDING;
+    ctx->files = (pgfs_file_entry_t*)luat_heap_malloc(ctx->file_cap * sizeof(pgfs_file_entry_t));
+    ctx->dirs = (pgfs_dir_entry_t*)luat_heap_malloc(ctx->dir_cap * sizeof(pgfs_dir_entry_t));
+    ctx->batch_pending = (pgfs_batch_pending_entry_t*)luat_heap_malloc(ctx->batch_pending_cap * sizeof(pgfs_batch_pending_entry_t));
+    if (ctx->files == NULL || ctx->dirs == NULL || ctx->batch_pending == NULL) {
+        pgfs_tables_deinit(ctx);
+        return -1;
+    }
+    memset(ctx->files, 0, ctx->file_cap * sizeof(pgfs_file_entry_t));
+    memset(ctx->dirs, 0, ctx->dir_cap * sizeof(pgfs_dir_entry_t));
+    memset(ctx->batch_pending, 0, ctx->batch_pending_cap * sizeof(pgfs_batch_pending_entry_t));
+    ctx->file_hash_slots = pgfs_hash_alloc(ctx->file_cap, &ctx->file_hash_cap);
+    ctx->dir_hash_slots = pgfs_hash_alloc(ctx->dir_cap, &ctx->dir_hash_cap);
+    if (ctx->file_hash_slots == NULL || ctx->dir_hash_slots == NULL) {
+        pgfs_tables_deinit(ctx);
+        return -1;
+    }
+    return 0;
+}
+
+int pgfs_tables_ensure(pgfs_mount_ctx_t* ctx) {
+    if (ctx == NULL) {
+        return -1;
+    }
+    if (ctx->files != NULL) {
+        return 0;
+    }
+    return pgfs_tables_init(ctx);
+}
+
+void pgfs_tables_deinit(pgfs_mount_ctx_t* ctx) {
+    uint32_t i = 0;
+    if (ctx == NULL) {
+        return;
+    }
+    if (ctx->files != NULL) {
+        for (i = 0; i < ctx->file_cap; i++) {
+            if (ctx->files[i].data != NULL) {
+                pgfs_heap_free_by_type(ctx->files[i].heap_type, ctx->files[i].data);
+            }
+        }
+        luat_heap_free(ctx->files);
+    }
+    if (ctx->dirs != NULL) {
+        luat_heap_free(ctx->dirs);
+    }
+    if (ctx->batch_pending != NULL) {
+        for (i = 0; i < ctx->batch_pending_cap; i++) {
+            if (ctx->batch_pending[i].data != NULL) {
+                pgfs_heap_free_by_type(ctx->batch_pending[i].heap_type, ctx->batch_pending[i].data);
+            }
+        }
+        luat_heap_free(ctx->batch_pending);
+    }
+    if (ctx->file_hash_slots != NULL) {
+        luat_heap_free(ctx->file_hash_slots);
+    }
+    if (ctx->dir_hash_slots != NULL) {
+        luat_heap_free(ctx->dir_hash_slots);
+    }
+    ctx->files = NULL;
+    ctx->dirs = NULL;
+    ctx->batch_pending = NULL;
+    ctx->file_hash_slots = NULL;
+    ctx->dir_hash_slots = NULL;
+    ctx->file_cap = 0;
+    ctx->dir_cap = 0;
+    ctx->batch_pending_cap = 0;
+    ctx->file_hash_cap = 0;
+    ctx->dir_hash_cap = 0;
+}
+
 
 static int pgfs_path_normalize(const char* in, char* out, size_t outlen) {
     size_t len = 0;
@@ -289,21 +466,38 @@ static int pgfs_path_child(const char* dir, const char* path, char* child, size_
     return 1;
 }
 
-static pgfs_file_entry_t* pgfs_find_file_norm(const char* path) {
+static pgfs_file_entry_t* pgfs_find_file_norm(pgfs_mount_ctx_t* ctx, const char* path) {
+    int idx = -1;
     size_t i = 0;
-    for (i = 0; i < PGFS_MAX_FILES; i++) {
-        if (s_pgfs_files[i].used && strcmp(s_pgfs_files[i].path, path) == 0) {
-            return &s_pgfs_files[i];
+    if (ctx == NULL || path == NULL || ctx->files == NULL) {
+        return NULL;
+    }
+    /* P1-2: hash lookup first, linear scan as fallback (defensive). */
+    idx = pgfs_hash_lookup_file(ctx, path);
+    if (idx >= 0) {
+        return &ctx->files[idx];
+    }
+    for (i = 0; i < ctx->file_cap; i++) {
+        if (ctx->files[i].used && strcmp(ctx->files[i].path, path) == 0) {
+            return &ctx->files[i];
         }
     }
     return NULL;
 }
 
-static pgfs_dir_entry_t* pgfs_find_dir_norm(const char* path) {
+static pgfs_dir_entry_t* pgfs_find_dir_norm(pgfs_mount_ctx_t* ctx, const char* path) {
+    int idx = -1;
     size_t i = 0;
-    for (i = 0; i < PGFS_MAX_DIRS; i++) {
-        if (s_pgfs_dirs[i].used && strcmp(s_pgfs_dirs[i].path, path) == 0) {
-            return &s_pgfs_dirs[i];
+    if (ctx == NULL || path == NULL || ctx->dirs == NULL) {
+        return NULL;
+    }
+    idx = pgfs_hash_lookup_dir(ctx, path);
+    if (idx >= 0) {
+        return &ctx->dirs[idx];
+    }
+    for (i = 0; i < ctx->dir_cap; i++) {
+        if (ctx->dirs[i].used && strcmp(ctx->dirs[i].path, path) == 0) {
+            return &ctx->dirs[i];
         }
     }
     return NULL;
@@ -340,7 +534,7 @@ int pgfs_batch_commit(pgfs_mount_ctx_t* ctx, uint32_t batch_id) {
         pgfs_unlock(ctx);
         return -1;
     }
-    if (pgfs_batch_apply_committed(batch_id) != 0) {
+    if (pgfs_batch_apply_committed(ctx, batch_id) != 0) {
         pgfs_unlock(ctx);
         return -1;
     }
@@ -354,86 +548,93 @@ int pgfs_batch_abort(pgfs_mount_ctx_t* ctx, uint32_t batch_id) {
     if (ctx == NULL || !ctx->batch_active || ctx->batch_id != batch_id || batch_id == 0) {
         return -1;
     }
-    pgfs_batch_drop(batch_id);
+    pgfs_batch_drop(ctx, batch_id);
     ctx->batch_active = 0;
     ctx->batch_id = 0;
     return 0;
 }
 
-static int pgfs_dir_has_descendant_norm(const char* path) {
+static int pgfs_dir_has_descendant_norm(pgfs_mount_ctx_t* ctx, const char* path) {
     size_t i = 0;
-    for (i = 0; i < PGFS_MAX_FILES; i++) {
-        if (!s_pgfs_files[i].used) {
+    if (ctx == NULL || ctx->files == NULL || ctx->dirs == NULL) {
+        return 0;
+    }
+    for (i = 0; i < ctx->file_cap; i++) {
+        if (!ctx->files[i].used) {
             continue;
         }
-        if (path[0] == '\0' || (strncmp(s_pgfs_files[i].path, path, strlen(path)) == 0 && s_pgfs_files[i].path[strlen(path)] == '/')) {
+        if (path[0] == '\0' || (strncmp(ctx->files[i].path, path, strlen(path)) == 0 && ctx->files[i].path[strlen(path)] == '/')) {
             return 1;
         }
     }
-    for (i = 0; i < PGFS_MAX_DIRS; i++) {
-        if (!s_pgfs_dirs[i].used) {
+    for (i = 0; i < ctx->dir_cap; i++) {
+        if (!ctx->dirs[i].used) {
             continue;
         }
         if (path[0] == '\0') {
-            if (s_pgfs_dirs[i].path[0] != '\0') {
+            if (ctx->dirs[i].path[0] != '\0') {
                 return 1;
             }
             continue;
         }
-        if (strncmp(s_pgfs_dirs[i].path, path, strlen(path)) == 0 && s_pgfs_dirs[i].path[strlen(path)] == '/') {
+        if (strncmp(ctx->dirs[i].path, path, strlen(path)) == 0 && ctx->dirs[i].path[strlen(path)] == '/') {
             return 1;
         }
     }
     return 0;
 }
 
-static int pgfs_dir_exists_norm(const char* path) {
+static int pgfs_dir_exists_norm(pgfs_mount_ctx_t* ctx, const char* path) {
     if (path == NULL) {
         return 0;
     }
     if (path[0] == '\0') {
         return 1;
     }
-    return pgfs_find_dir_norm(path) != NULL || pgfs_dir_has_descendant_norm(path);
+    return pgfs_find_dir_norm(ctx, path) != NULL || pgfs_dir_has_descendant_norm(ctx, path);
 }
 
-static int pgfs_dir_find_free_slot(void) {
+static int pgfs_dir_find_free_slot(pgfs_mount_ctx_t* ctx) {
     size_t i = 0;
-    for (i = 0; i < PGFS_MAX_DIRS; i++) {
-        if (!s_pgfs_dirs[i].used) {
+    if (ctx == NULL || ctx->dirs == NULL) {
+        return -1;
+    }
+    for (i = 0; i < ctx->dir_cap; i++) {
+        if (!ctx->dirs[i].used) {
             return (int)i;
         }
     }
     return -1;
 }
 
-static int pgfs_dir_store_norm(const char* path) {
+static int pgfs_dir_store_norm(pgfs_mount_ctx_t* ctx, const char* path) {
     pgfs_dir_entry_t* entry = NULL;
     int slot = 0;
-    if (path == NULL || path[0] == '\0') {
+    if (ctx == NULL || path == NULL || path[0] == '\0' || ctx->dirs == NULL) {
         return 0;
     }
-    if (pgfs_find_file_norm(path) != NULL) {
+    if (pgfs_find_file_norm(ctx, path) != NULL) {
         return -1;
     }
-    entry = pgfs_find_dir_norm(path);
+    entry = pgfs_find_dir_norm(ctx, path);
     if (entry != NULL) {
         return 0;
     }
-    slot = pgfs_dir_find_free_slot();
+    slot = pgfs_dir_find_free_slot(ctx);
     if (slot < 0) {
         return -1;
     }
-    memset(&s_pgfs_dirs[slot], 0, sizeof(s_pgfs_dirs[slot]));
-    s_pgfs_dirs[slot].used = 1;
-    memcpy(s_pgfs_dirs[slot].path, path, strlen(path) + 1);
+    memset(&ctx->dirs[slot], 0, sizeof(ctx->dirs[slot]));
+    ctx->dirs[slot].used = 1;
+    memcpy(ctx->dirs[slot].path, path, strlen(path) + 1);
+    pgfs_hash_insert(ctx->dir_hash_slots, ctx->dir_hash_cap, path, (uint32_t)slot);
     return 0;
 }
 
-static int pgfs_dir_ensure_norm(const char* path) {
-    char current[sizeof(s_pgfs_dirs[0].path)] = {0};
+static int pgfs_dir_ensure_norm(pgfs_mount_ctx_t* ctx, const char* path) {
+    char current[PGFS_MAX_PATH] = {0};
     size_t len = 0;
-    if (path == NULL) {
+    if (ctx == NULL || path == NULL) {
         return -1;
     }
     if (path[0] == '\0') {
@@ -449,25 +650,29 @@ static int pgfs_dir_ensure_norm(const char* path) {
             continue;
         }
         current[i] = '\0';
-        if (current[0] != '\0' && pgfs_dir_store_norm(current) != 0) {
+        if (current[0] != '\0' && pgfs_dir_store_norm(ctx, current) != 0) {
             return -1;
         }
         current[i] = '/';
     }
-    return pgfs_dir_store_norm(current);
+    return pgfs_dir_store_norm(ctx, current);
 }
 
-static int pgfs_dir_remove_norm(const char* path) {
+static int pgfs_dir_remove_norm(pgfs_mount_ctx_t* ctx, const char* path) {
     pgfs_dir_entry_t* entry = NULL;
-    if (path == NULL || path[0] == '\0') {
+    if (ctx == NULL || path == NULL || path[0] == '\0' || ctx->dirs == NULL) {
         return -1;
     }
-    if (pgfs_dir_has_descendant_norm(path)) {
+    if (pgfs_dir_has_descendant_norm(ctx, path)) {
         return -1;
     }
-    entry = pgfs_find_dir_norm(path);
+    entry = pgfs_find_dir_norm(ctx, path);
     if (entry == NULL) {
         return -1;
+    }
+    {
+        size_t idx = (size_t)(entry - ctx->dirs);
+        pgfs_hash_remove(ctx->dir_hash_slots, ctx->dir_hash_cap, path, (uint32_t)idx);
     }
     memset(entry, 0, sizeof(*entry));
     return 0;
@@ -483,28 +688,31 @@ static int pgfs_dir_remove_norm(const char* path) {
  * dir_limit and file_limit specify the maximum index to scan (use
  * PGFS_MAX_DIRS/PGFS_MAX_FILES to scan the whole table, or an index < N
  * to scan only entries before a given position for dedup). */
-static int pgfs_lsdir_name_is_duplicate(const char* child, const char* parent,
+static int pgfs_lsdir_name_is_duplicate(pgfs_mount_ctx_t* ctx, const char* child, const char* parent,
                                          size_t dir_limit, size_t file_limit) {
     size_t k;
-    char cmp[sizeof(s_pgfs_dirs[0].path)] = {0};
+    char cmp[PGFS_MAX_PATH] = {0};
     int cmp_is_dir = 0;
     size_t max_k;
+    if (ctx == NULL || ctx->dirs == NULL || ctx->files == NULL) {
+        return 0;
+    }
     /* Guard against (size_t)-1 sentinel — cap at table size */
-    max_k = dir_limit < PGFS_MAX_DIRS ? dir_limit : PGFS_MAX_DIRS;
+    max_k = dir_limit < ctx->dir_cap ? dir_limit : ctx->dir_cap;
     for (k = 0; k < max_k; k++) {
         cmp[0] = '\0'; cmp_is_dir = 1;
-        if (!s_pgfs_dirs[k].used) continue;
-        if (strcmp(s_pgfs_dirs[k].path, parent) == 0) continue;
-        if (pgfs_path_child(parent, s_pgfs_dirs[k].path, cmp, sizeof(cmp), &cmp_is_dir) <= 0 || cmp[0] == '\0') continue;
+        if (!ctx->dirs[k].used) continue;
+        if (strcmp(ctx->dirs[k].path, parent) == 0) continue;
+        if (pgfs_path_child(parent, ctx->dirs[k].path, cmp, sizeof(cmp), &cmp_is_dir) <= 0 || cmp[0] == '\0') continue;
         if (strcmp(cmp, child) == 0) return 1;
     }
     /* Check file entries */
-    max_k = file_limit < PGFS_MAX_FILES ? file_limit : PGFS_MAX_FILES;
+    max_k = file_limit < ctx->file_cap ? file_limit : ctx->file_cap;
     for (k = 0; k < max_k; k++) {
         cmp[0] = '\0'; cmp_is_dir = 0;
-        if (!s_pgfs_files[k].used) continue;
-        if (strcmp(s_pgfs_files[k].path, parent) == 0) continue;
-        if (pgfs_path_child(parent, s_pgfs_files[k].path, cmp, sizeof(cmp), &cmp_is_dir) <= 0 || cmp[0] == '\0') continue;
+        if (!ctx->files[k].used) continue;
+        if (strcmp(ctx->files[k].path, parent) == 0) continue;
+        if (pgfs_path_child(parent, ctx->files[k].path, cmp, sizeof(cmp), &cmp_is_dir) <= 0 || cmp[0] == '\0') continue;
         if (strcmp(cmp, child) == 0) return 1;
     }
     return 0;
@@ -514,26 +722,25 @@ static int pgfs_dir_lsdir_norm(pgfs_mount_ctx_t* ctx, const char* path, luat_fs_
     size_t unique_count = 0;
     size_t out = 0;
     size_t i = 0;
-    char norm[sizeof(s_pgfs_dirs[0].path)] = {0};
-    (void)ctx;
-    if (ctx == NULL || ents == NULL || len == 0 || path == NULL) {
+    char norm[PGFS_MAX_PATH] = {0};
+    if (ctx == NULL || ctx->dirs == NULL || ctx->files == NULL || ents == NULL || len == 0 || path == NULL) {
         return 0;
     }
     if (pgfs_path_normalize(path, norm, sizeof(norm)) != 0) {
         return 0;
     }
-    if (!pgfs_dir_exists_norm(norm)) {
+    if (!pgfs_dir_exists_norm(ctx, norm)) {
         return 0;
     }
     /* Pass 1: directories (child_is_dir = 1) */
-    for (i = 0; i < PGFS_MAX_DIRS && out < len; i++) {
-        char child[sizeof(s_pgfs_dirs[0].path)] = {0};
+    for (i = 0; i < ctx->dir_cap && out < len; i++) {
+        char child[PGFS_MAX_PATH] = {0};
         int child_is_dir = 1;
-        if (!s_pgfs_dirs[i].used) continue;
-        if (strcmp(s_pgfs_dirs[i].path, norm) == 0) continue;
-        if (pgfs_path_child(norm, s_pgfs_dirs[i].path, child, sizeof(child), &child_is_dir) <= 0 || child[0] == '\0') continue;
+        if (!ctx->dirs[i].used) continue;
+        if (strcmp(ctx->dirs[i].path, norm) == 0) continue;
+        if (pgfs_path_child(norm, ctx->dirs[i].path, child, sizeof(child), &child_is_dir) <= 0 || child[0] == '\0') continue;
         /* P2-9: dedup by scanning earlier entries instead of a heap buffer */
-        if (pgfs_lsdir_name_is_duplicate(child, norm, i, (size_t)-1)) continue;
+        if (pgfs_lsdir_name_is_duplicate(ctx, child, norm, i, (size_t)-1)) continue;
         unique_count++;
         if (unique_count <= offset) continue;
         memset(&ents[out], 0, sizeof(ents[out]));
@@ -542,14 +749,14 @@ static int pgfs_dir_lsdir_norm(pgfs_mount_ctx_t* ctx, const char* path, luat_fs_
         out++;
     }
     /* Pass 2: files (child_is_dir = 0) */
-    for (i = 0; i < PGFS_MAX_FILES && out < len; i++) {
-        char child[sizeof(s_pgfs_dirs[0].path)] = {0};
+    for (i = 0; i < ctx->file_cap && out < len; i++) {
+        char child[PGFS_MAX_PATH] = {0};
         int child_is_dir = 0;
-        if (!s_pgfs_files[i].used) continue;
-        if (strcmp(s_pgfs_files[i].path, norm) == 0) continue;
-        if (pgfs_path_child(norm, s_pgfs_files[i].path, child, sizeof(child), &child_is_dir) <= 0 || child[0] == '\0') continue;
+        if (!ctx->files[i].used) continue;
+        if (strcmp(ctx->files[i].path, norm) == 0) continue;
+        if (pgfs_path_child(norm, ctx->files[i].path, child, sizeof(child), &child_is_dir) <= 0 || child[0] == '\0') continue;
         /* P2-9: dedup by scanning earlier entries instead of a heap buffer */
-        if (pgfs_lsdir_name_is_duplicate(child, norm, (size_t)-1, i)) continue;
+        if (pgfs_lsdir_name_is_duplicate(ctx, child, norm, (size_t)-1, i)) continue;
         unique_count++;
         if (unique_count <= offset) continue;
         memset(&ents[out], 0, sizeof(ents[out]));
@@ -562,7 +769,7 @@ static int pgfs_dir_lsdir_norm(pgfs_mount_ctx_t* ctx, const char* path, luat_fs_
 
 typedef struct pgfs_dir_handle {
     uint32_t generation;
-    char path[sizeof(s_pgfs_dirs[0].path)];
+    char path[PGFS_MAX_PATH];
 } pgfs_dir_handle_t;
 
 static int pgfs_mode_is_write(const char* mode) {
@@ -586,47 +793,54 @@ static int pgfs_path_copy(char* out, size_t outlen, const char* in) {
     return 0;
 }
 
-static void pgfs_batch_pending_reset_all(void) {
+static void pgfs_batch_pending_reset_all(pgfs_mount_ctx_t* ctx) {
     size_t i = 0;
-    for (i = 0; i < PGFS_MAX_BATCH_PENDING; i++) {
-        if (s_pgfs_batch_pending[i].data != NULL) {
-            pgfs_heap_free_by_type(s_pgfs_batch_pending[i].heap_type, s_pgfs_batch_pending[i].data);
+    if (ctx == NULL || ctx->batch_pending == NULL) {
+        return;
+    }
+    for (i = 0; i < ctx->batch_pending_cap; i++) {
+        if (ctx->batch_pending[i].data != NULL) {
+            pgfs_heap_free_by_type(ctx->batch_pending[i].heap_type, ctx->batch_pending[i].data);
         }
-        memset(&s_pgfs_batch_pending[i], 0, sizeof(s_pgfs_batch_pending[i]));
+        memset(&ctx->batch_pending[i], 0, sizeof(ctx->batch_pending[i]));
     }
 }
 
-static pgfs_batch_pending_entry_t* pgfs_batch_pending_find(uint32_t batch_id, const char* path) {
+static pgfs_batch_pending_entry_t* pgfs_batch_pending_find(pgfs_mount_ctx_t* ctx, uint32_t batch_id, const char* path) {
     size_t i = 0;
-    if (path == NULL || path[0] == '\0') {
+    if (ctx == NULL || ctx->batch_pending == NULL || path == NULL || path[0] == '\0') {
         return NULL;
     }
-    for (i = 0; i < PGFS_MAX_BATCH_PENDING; i++) {
-        if (s_pgfs_batch_pending[i].used &&
-            s_pgfs_batch_pending[i].batch_id == batch_id &&
-            strcmp(s_pgfs_batch_pending[i].path, path) == 0) {
-            return &s_pgfs_batch_pending[i];
+    for (i = 0; i < ctx->batch_pending_cap; i++) {
+        if (ctx->batch_pending[i].used &&
+            ctx->batch_pending[i].batch_id == batch_id &&
+            strcmp(ctx->batch_pending[i].path, path) == 0) {
+            return &ctx->batch_pending[i];
         }
     }
     return NULL;
 }
 
-static pgfs_batch_pending_entry_t* pgfs_batch_pending_alloc(uint32_t batch_id, const char* path) {
+static pgfs_batch_pending_entry_t* pgfs_batch_pending_alloc(pgfs_mount_ctx_t* ctx, uint32_t batch_id, const char* path) {
     size_t i = 0;
-    pgfs_batch_pending_entry_t* p = pgfs_batch_pending_find(batch_id, path);
+    pgfs_batch_pending_entry_t* p = NULL;
+    if (ctx == NULL || ctx->batch_pending == NULL) {
+        return NULL;
+    }
+    p = pgfs_batch_pending_find(ctx, batch_id, path);
     if (p != NULL) {
         return p;
     }
-    for (i = 0; i < PGFS_MAX_BATCH_PENDING; i++) {
-        if (!s_pgfs_batch_pending[i].used) {
-            memset(&s_pgfs_batch_pending[i], 0, sizeof(s_pgfs_batch_pending[i]));
-            s_pgfs_batch_pending[i].used = 1;
-            s_pgfs_batch_pending[i].batch_id = batch_id;
-            if (pgfs_path_copy(s_pgfs_batch_pending[i].path, sizeof(s_pgfs_batch_pending[i].path), path) != 0) {
-                memset(&s_pgfs_batch_pending[i], 0, sizeof(s_pgfs_batch_pending[i]));
+    for (i = 0; i < ctx->batch_pending_cap; i++) {
+        if (!ctx->batch_pending[i].used) {
+            memset(&ctx->batch_pending[i], 0, sizeof(ctx->batch_pending[i]));
+            ctx->batch_pending[i].used = 1;
+            ctx->batch_pending[i].batch_id = batch_id;
+            if (pgfs_path_copy(ctx->batch_pending[i].path, sizeof(ctx->batch_pending[i].path), path) != 0) {
+                memset(&ctx->batch_pending[i], 0, sizeof(ctx->batch_pending[i]));
                 return NULL;
             }
-            return &s_pgfs_batch_pending[i];
+            return &ctx->batch_pending[i];
         }
     }
     return NULL;
@@ -637,7 +851,7 @@ static int pgfs_batch_pending_stage(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     if (ctx == NULL || f == NULL || !f->opened_in_batch || !ctx->batch_active || f->batch_id != ctx->batch_id) {
         return -1;
     }
-    p = pgfs_batch_pending_alloc(f->batch_id, f->path);
+    p = pgfs_batch_pending_alloc(ctx, f->batch_id, f->path);
     if (p == NULL) {
         return -1;
     }
@@ -665,8 +879,8 @@ static int pgfs_batch_persist_committed(pgfs_mount_ctx_t* ctx, uint32_t batch_id
     if (ctx == NULL || batch_id == 0) {
         return -1;
     }
-    for (i = 0; i < PGFS_MAX_BATCH_PENDING; i++) {
-        pgfs_batch_pending_entry_t* p = &s_pgfs_batch_pending[i];
+    for (i = 0; i < ctx->batch_pending_cap; i++) {
+        pgfs_batch_pending_entry_t* p = &ctx->batch_pending[i];
         if (!p->used || p->batch_id != batch_id) {
             continue;
         }
@@ -685,17 +899,35 @@ static int pgfs_batch_persist_committed(pgfs_mount_ctx_t* ctx, uint32_t batch_id
     return 0;
 }
 
-static int pgfs_batch_apply_committed(uint32_t batch_id) {
+static int pgfs_batch_apply_committed(pgfs_mount_ctx_t* ctx, uint32_t batch_id) {
     size_t i = 0;
-    for (i = 0; i < PGFS_MAX_BATCH_PENDING; i++) {
-        pgfs_batch_pending_entry_t* p = &s_pgfs_batch_pending[i];
+    if (ctx == NULL || ctx->batch_pending == NULL) {
+        return -1;
+    }
+    for (i = 0; i < ctx->batch_pending_cap; i++) {
+        pgfs_batch_pending_entry_t* p = &ctx->batch_pending[i];
         pgfs_file_entry_t* e = NULL;
         if (!p->used || p->batch_id != batch_id) {
             continue;
         }
-        e = pgfs_alloc_file(p->path);
+        e = pgfs_alloc_file(ctx, p->path);
         if (e == NULL) {
             return -1;
+        }
+        /* P0-2: the old entry (if any) is shadowed — attribute dead bytes
+         * to the block that held its previous record, and release its live
+         * credit so GC can reclaim that block. */
+        if (e->last_written_block != 0 && e->last_written_block != 0xFFFFu && e->len > 0 &&
+            ctx->ftl.total_blocks > 0 && e->last_written_block < ctx->ftl.total_blocks) {
+            if (ctx->ftl.dead_bytes_per_block != NULL) {
+                ctx->ftl.dead_bytes_per_block[e->last_written_block] += (uint32_t)e->len;
+            }
+            if (ctx->ftl.live_bytes_per_block != NULL &&
+                ctx->ftl.live_bytes_per_block[e->last_written_block] >= (uint32_t)e->len) {
+                ctx->ftl.live_bytes_per_block[e->last_written_block] -= (uint32_t)e->len;
+            }
+            ctx->checkpoint.gc_dead_bytes += (uint32_t)e->len;
+            pgfs_ftl_mark_dirty(&ctx->ftl);
         }
         if (e->data != NULL) {
             pgfs_heap_free_by_type(e->heap_type, e->data);
@@ -704,16 +936,28 @@ static int pgfs_batch_apply_committed(uint32_t batch_id) {
         e->len = p->len;
         e->cap = p->cap;
         e->heap_type = p->heap_type;
+        if (p->on_flash_addr != 0) {
+            uint32_t esz = ctx->layout.erase_size != 0 ? ctx->layout.erase_size : ctx->ftl.erase_size;
+            if (esz > 0) {
+                uint32_t blk = p->on_flash_addr / esz;
+                if (blk <= 0xFFFEu) {
+                    e->last_written_block = (uint16_t)blk;
+                }
+            }
+        }
         p->data = NULL;
         memset(p, 0, sizeof(*p));
     }
     return 0;
 }
 
-static void pgfs_batch_drop(uint32_t batch_id) {
+static void pgfs_batch_drop(pgfs_mount_ctx_t* ctx, uint32_t batch_id) {
     size_t i = 0;
-    for (i = 0; i < PGFS_MAX_BATCH_PENDING; i++) {
-        pgfs_batch_pending_entry_t* p = &s_pgfs_batch_pending[i];
+    if (ctx == NULL || ctx->batch_pending == NULL) {
+        return;
+    }
+    for (i = 0; i < ctx->batch_pending_cap; i++) {
+        pgfs_batch_pending_entry_t* p = &ctx->batch_pending[i];
         if (!p->used || p->batch_id != batch_id) {
             continue;
         }
@@ -734,73 +978,72 @@ static int pgfs_batch_handle_match(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     return !ctx->batch_active;
 }
 
-static pgfs_file_entry_t* pgfs_alloc_file(const char* path) {
+static pgfs_file_entry_t* pgfs_alloc_file(pgfs_mount_ctx_t* ctx, const char* path) {
     size_t i = 0;
     pgfs_file_entry_t* e = NULL;
-    if (path == NULL || path[0] == '\0') {
+    if (ctx == NULL || ctx->files == NULL || path == NULL || path[0] == '\0') {
         return NULL;
     }
-    if (pgfs_dir_exists_norm(path)) {
+    if (pgfs_dir_exists_norm(ctx, path)) {
         return NULL;
     }
-    e = pgfs_find_file_norm(path);
+    e = pgfs_find_file_norm(ctx, path);
     if (e) {
         return e;
     }
-    for (i = 0; i < PGFS_MAX_FILES; i++) {
-        if (!s_pgfs_files[i].used) {
-            memset(&s_pgfs_files[i], 0, sizeof(s_pgfs_files[i]));
-            s_pgfs_files[i].used = 1;
-            if (pgfs_path_copy(s_pgfs_files[i].path, sizeof(s_pgfs_files[i].path), path) != 0) {
-                memset(&s_pgfs_files[i], 0, sizeof(s_pgfs_files[i]));
+    for (i = 0; i < ctx->file_cap; i++) {
+        if (!ctx->files[i].used) {
+            memset(&ctx->files[i], 0, sizeof(ctx->files[i]));
+            ctx->files[i].used = 1;
+            if (pgfs_path_copy(ctx->files[i].path, sizeof(ctx->files[i].path), path) != 0) {
+                memset(&ctx->files[i], 0, sizeof(ctx->files[i]));
                 return NULL;
             }
-            return &s_pgfs_files[i];
+            pgfs_hash_insert(ctx->file_hash_slots, ctx->file_hash_cap, path, (uint32_t)i);
+            return &ctx->files[i];
         }
     }
     return NULL;
 }
 
-void pgfs_file_reset_all(void) {
-    size_t i = 0;
-    for (i = 0; i < PGFS_MAX_FILES; i++) {
-        if (s_pgfs_files[i].data) {
-            pgfs_heap_free_by_type(s_pgfs_files[i].heap_type, s_pgfs_files[i].data);
-        }
-        memset(&s_pgfs_files[i], 0, sizeof(s_pgfs_files[i]));
-    }
-    for (i = 0; i < PGFS_MAX_DIRS; i++) {
-        memset(&s_pgfs_dirs[i], 0, sizeof(s_pgfs_dirs[i]));
-    }
-    pgfs_batch_pending_reset_all();
+void pgfs_file_reset(pgfs_mount_ctx_t* ctx) {
+    /* P0-1: reset == full release. The tables are heap-allocated per
+     * mount; any later use (replay, file ops) re-allocates them via
+     * pgfs_tables_ensure. Keeping the arrays allocated here would leak
+     * ~90KB per mount whenever a caller zeroes the ctx (as the test
+     * suite does between cases). */
+    pgfs_tables_deinit(ctx);
 }
 
 /* P4-16: fexist — check if a file or directory exists. Returns 1 if found. */
 int pgfs_file_fexist(pgfs_mount_ctx_t* ctx, const char *filename) {
-    char norm[sizeof(s_pgfs_files[0].path)] = {0};
-    (void)ctx;
-    if (filename == NULL) return 0;
+    char norm[PGFS_MAX_PATH] = {0};
+    if (ctx == NULL || filename == NULL) return 0;
+    if (pgfs_tables_ensure(ctx) != 0) return 0;
     if (pgfs_path_normalize(filename, norm, sizeof(norm)) != 0 || norm[0] == '\0') return 0;
-    if (pgfs_find_file_norm(norm) != NULL) return 1;
-    if (pgfs_dir_exists_norm(norm)) return 1;
+    if (pgfs_find_file_norm(ctx, norm) != NULL) return 1;
+    if (pgfs_dir_exists_norm(ctx, norm)) return 1;
     return 0;
 }
 
 /* P4-16: fsize — return file size from the in-memory file table. */
 size_t pgfs_file_fsize(pgfs_mount_ctx_t* ctx, const char *filename) {
     pgfs_file_entry_t* e;
-    char norm[sizeof(s_pgfs_files[0].path)] = {0};
-    (void)ctx;
-    if (filename == NULL) return 0;
+    char norm[PGFS_MAX_PATH] = {0};
+    if (ctx == NULL || filename == NULL) return 0;
+    if (pgfs_tables_ensure(ctx) != 0) return 0;
     if (pgfs_path_normalize(filename, norm, sizeof(norm)) != 0 || norm[0] == '\0') return 0;
-    e = pgfs_find_file_norm(norm);
+    e = pgfs_find_file_norm(ctx, norm);
     return e ? e->len : 0;
 }
 
 int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
     pgfs_file_entry_t* e = NULL;
-    char norm[sizeof(s_pgfs_files[0].path)] = {0};
-    if (filename == NULL) {
+    char norm[PGFS_MAX_PATH] = {0};
+    if (ctx == NULL || filename == NULL) {
+        return -1;
+    }
+    if (pgfs_tables_ensure(ctx) != 0) {
         return -1;
     }
     if (pgfs_path_normalize(filename, norm, sizeof(norm)) != 0 || norm[0] == '\0') {
@@ -813,7 +1056,7 @@ int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
             return -1;
         }
     }
-    e = pgfs_find_file_norm(norm);
+    e = pgfs_find_file_norm(ctx, norm);
     if (e == NULL) {
         if (ctx != NULL) { pgfs_unlock(ctx); }
         return -1;
@@ -831,32 +1074,42 @@ int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename) {
             ctx->ftl.live_bytes_per_block[e->last_written_block] -= (uint32_t)e->len;
         }
         ctx->checkpoint.gc_dead_bytes += (uint32_t)e->len;
+        pgfs_ftl_mark_dirty(&ctx->ftl);
     }
     if (e->data) {
         pgfs_heap_free_by_type(e->heap_type, e->data);
+    }
+    {
+        size_t idx = (size_t)(e - ctx->files);
+        pgfs_hash_remove(ctx->file_hash_slots, ctx->file_hash_cap, norm, (uint32_t)idx);
     }
     memset(e, 0, sizeof(*e));
     if (ctx != NULL) { pgfs_unlock(ctx); }
     return 0;
 }
 
-uint16_t pgfs_file_table_lookup_last_written(const char* path) {
-    if (path == NULL) return 0xFFFFu;
-    for (uint32_t i = 0; i < PGFS_MAX_FILES; i++) {
-        if (!s_pgfs_files[i].used) continue;
-        if (strcmp(s_pgfs_files[i].path, path) == 0) {
-            return s_pgfs_files[i].last_written_block;
-        }
+uint16_t pgfs_file_table_lookup_last_written(pgfs_mount_ctx_t* ctx, const char* path) {
+    pgfs_file_entry_t* e = NULL;
+    char norm[PGFS_MAX_PATH] = {0};
+    if (ctx == NULL || path == NULL) return 0xFFFFu;
+    if (pgfs_tables_ensure(ctx) != 0) return 0xFFFFu;
+    if (pgfs_path_normalize(path, norm, sizeof(norm)) != 0 || norm[0] == '\0') {
+        return 0xFFFFu;
+    }
+    e = pgfs_find_file_norm(ctx, norm);
+    if (e != NULL) {
+        return e->last_written_block;
     }
     return 0xFFFFu;
 }
 
-int pgfs_file_table_visit(pgfs_file_visit_fn cb, void* user_data) {
-    if (cb == NULL) return 0;
+int pgfs_file_table_visit(pgfs_mount_ctx_t* ctx, pgfs_file_visit_fn cb, void* user_data) {
+    uint32_t i = 0;
     int stopped = 0;
-    for (uint32_t i = 0; i < PGFS_MAX_FILES; i++) {
-        if (!s_pgfs_files[i].used) continue;
-        if (cb(&s_pgfs_files[i], user_data) != 0) {
+    if (cb == NULL || ctx == NULL || ctx->files == NULL) return 0;
+    for (i = 0; i < ctx->file_cap; i++) {
+        if (!ctx->files[i].used) continue;
+        if (cb(&ctx->files[i], user_data) != 0) {
             stopped = 1;
             break;
         }
@@ -1204,11 +1457,14 @@ int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
     if (hdr.data_len != 0) {
         hdr.crc32 = luat_crc32(f->cache.data, hdr.data_len, hdr.crc32, 0);
     }
-    /* Phase 3b: Hamming(72,64) ECC over the first 8 header bytes
-     * (magic..crc32). The ecc field itself is zeroed so the encode
-     * sees a clean input. */
+    /* P2-4: Hamming(72,64) ECC over the first 16 header bytes — group 0
+     * covers magic..data_len (bytes 0..7), group 1 covers data_len+crc32
+     * (bytes 8..15). The ecc field is zeroed first so both encodes see a
+     * clean input. Legacy single-group records (ecc[1]==0) remain
+     * decodable on replay. */
     memset(hdr.ecc, 0, sizeof(hdr.ecc));
     hdr.ecc[0] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr);
+    hdr.ecc[1] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr + 8);
     start_addr = ctx->data_log_write_addr;
     int ret = pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr),
                                      (const uint8_t*)f->entry->path, hdr.path_len,
@@ -1255,6 +1511,7 @@ int pgfs_append_data_record(pgfs_mount_ctx_t* ctx, pgfs_file_t* f) {
 
 static int pgfs_append_batch_data_record(pgfs_mount_ctx_t* ctx, pgfs_batch_pending_entry_t* p) {
     pgfs_batch_data_record_hdr_t hdr = {0};
+    uint32_t start_addr = 0;
     if (ctx == NULL || p == NULL || !p->used || p->batch_id == 0) {
         return -1;
     }
@@ -1274,10 +1531,33 @@ static int pgfs_append_batch_data_record(pgfs_mount_ctx_t* ctx, pgfs_batch_pendi
         hdr.crc32 = luat_crc32(p->data, hdr.data_len, hdr.crc32, 0);
     }
     memset(hdr.ecc, 0, sizeof(hdr.ecc));
+    /* P2-4: three ECC groups — bytes 0..7, 8..15 and 16..23 (crc32 plus
+     * the first four ecc bytes). ecc[2] is computed last so it covers the
+     * already-set ecc[0]/ecc[1]; replay decodes groups in reverse order
+     * so an ecc-byte correction propagates to lower groups. */
     hdr.ecc[0] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr);
-    return pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr),
-                                  (const uint8_t*)p->path, hdr.path_len,
-                                  p->data, hdr.data_len);
+    hdr.ecc[1] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr + 8);
+    {
+        /* P2-4 group 2: encode the crc32 (4 bytes) + 4 zero bytes — the
+         * ecc bytes must not pollute their own syndrome. This matches the
+         * decode window in pgfs_ecc_decode_header(). */
+        uint8_t win[8] = {0};
+        memcpy(win, &hdr.crc32, 4);
+        hdr.ecc[2] = pgfs_ecc_hamming_encode(win);
+    }
+    start_addr = ctx->data_log_write_addr;
+    int ret = pgfs_append_log_record(ctx, (const uint8_t*)&hdr, sizeof(hdr),
+                                     (const uint8_t*)p->path, hdr.path_len,
+                                     p->data, hdr.data_len);
+    if (ret == 0) {
+        p->on_flash_addr = start_addr;
+        /* P0-2: credit live bytes to the block holding the record start. */
+        if (ctx->data_log_write_addr > start_addr) {
+            pgfs_account_live_block(ctx, start_addr,
+                                    (uint32_t)(ctx->data_log_write_addr - start_addr));
+        }
+    }
+    return ret;
 }
 
 static int pgfs_append_batch_commit_record(pgfs_mount_ctx_t* ctx, uint32_t batch_id, uint32_t record_count) {
@@ -1288,10 +1568,11 @@ static int pgfs_append_batch_commit_record(pgfs_mount_ctx_t* ctx, uint32_t batch
     hdr.magic = PGFS_BATCH_COMMIT_RECORD_MAGIC;
     hdr.batch_id = batch_id;
     hdr.record_count = record_count;
-    /* Phase 3b: ECC over the first 8 bytes (magic..record_count).
-     * The ecc field is zeroed so the encode sees a clean input. */
+    /* P2-4: two ECC groups over bytes 0..7 and 8..15 (record_count +
+     * crc32). The ecc field is zeroed so the encodes see clean input. */
     memset(hdr.ecc, 0, sizeof(hdr.ecc));
     hdr.ecc[0] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr);
+    hdr.ecc[1] = pgfs_ecc_hamming_encode((const uint8_t*)&hdr + 8);
     /* CRC must NOT include the ecc field (bytes 16..23) — otherwise setting
      * the ecc above would invalidate the stored CRC. Scope is bytes
      * 0..15 (i.e. up to and including crc32, excluding ecc). */
@@ -1311,9 +1592,12 @@ typedef struct pgfs_replay_pending_entry {
     uint8_t heap_type;
     uint16_t reserved;
     uint32_t batch_id;
-    char path[sizeof(s_pgfs_files[0].path)];
+    char path[PGFS_MAX_PATH];
     uint8_t* data;
     uint32_t len;
+    /* P0-2: on-flash address of the BATCH_DATA record, used to attribute
+     * live bytes to its block when the batch is applied during replay. */
+    uint32_t on_flash_addr;
 } pgfs_replay_pending_entry_t;
 
 static void pgfs_replay_pending_drop_all(pgfs_replay_pending_entry_t* pending) {
@@ -1322,15 +1606,17 @@ static void pgfs_replay_pending_drop_all(pgfs_replay_pending_entry_t* pending) {
         return;
     }
     for (i = 0; i < PGFS_MAX_BATCH_PENDING; i++) {
-        if (pending[i].data != NULL) {
-            pgfs_heap_free_by_type(pending[i].heap_type, pending[i].data);
+        pgfs_replay_pending_entry_t* p = &pending[i];
+        if (p->data != NULL) {
+            pgfs_heap_free_by_type(p->heap_type, p->data);
         }
-        memset(&pending[i], 0, sizeof(pending[i]));
+        memset(p, 0, sizeof(*p));
     }
 }
 
 static int pgfs_replay_pending_stage(pgfs_replay_pending_entry_t* pending, uint32_t batch_id,
-                                     const char* path, const uint8_t* data, uint32_t len) {
+                                     const char* path, const uint8_t* data, uint32_t len,
+                                     uint32_t on_flash_addr) {
     size_t i = 0;
     pgfs_replay_pending_entry_t* slot = NULL;
     uint8_t* data_copy = NULL;
@@ -1371,6 +1657,7 @@ static int pgfs_replay_pending_stage(pgfs_replay_pending_entry_t* pending, uint3
     slot->heap_type = heap_type;
     slot->len = len;
     slot->data = data_copy;
+    slot->on_flash_addr = on_flash_addr;
     if (pgfs_path_copy(slot->path, sizeof(slot->path), path) != 0) {
         if (slot->data != NULL) {
             pgfs_heap_free_by_type(slot->heap_type, slot->data);
@@ -1390,18 +1677,26 @@ static int pgfs_replay_pending_apply(pgfs_mount_ctx_t* ctx, pgfs_replay_pending_
         pgfs_replay_pending_entry_t* p = &pending[i];
         pgfs_file_entry_t* entry = NULL;
         size_t old_len = 0;
-        char parent[sizeof(s_pgfs_dirs[0].path)] = {0};
+        char parent[PGFS_MAX_PATH] = {0};
         if (!p->used || p->batch_id != batch_id) {
             continue;
         }
-        if (pgfs_path_parent(p->path, parent, sizeof(parent)) != 0 || pgfs_dir_ensure_norm(parent) != 0) {
+        if (pgfs_path_parent(p->path, parent, sizeof(parent)) != 0 || pgfs_dir_ensure_norm(ctx, parent) != 0) {
             return -1;
         }
-        entry = pgfs_alloc_file(p->path);
+        entry = pgfs_alloc_file(ctx, p->path);
         if (entry == NULL) {
             return -1;
         }
         old_len = entry->len;
+        /* P0-2: attribute the BATCH_DATA record's live bytes to the block
+         * holding its on-flash start address (mirrors the DATA append
+         * path so per-block accounting is complete for batches too). */
+        if (p->on_flash_addr != 0) {
+            pgfs_account_live_block(ctx, p->on_flash_addr,
+                                    sizeof(pgfs_batch_data_record_hdr_t) +
+                                    (uint32_t)strlen(p->path) + p->len);
+        }
         if (entry->data != NULL) {
             pgfs_heap_free_by_type(entry->heap_type, entry->data);
         }
@@ -1409,14 +1704,32 @@ static int pgfs_replay_pending_apply(pgfs_mount_ctx_t* ctx, pgfs_replay_pending_
         entry->len = p->len;
         entry->cap = p->len;
         entry->heap_type = p->heap_type;
+        if (p->on_flash_addr != 0) {
+            uint32_t esz = ctx->layout.erase_size != 0 ? ctx->layout.erase_size : ctx->ftl.erase_size;
+            if (esz > 0) {
+                uint32_t blk = p->on_flash_addr / esz;
+                if (blk <= 0xFFFEu) {
+                    entry->last_written_block = (uint16_t)blk;
+                }
+            }
+        }
         p->data = NULL;
         ctx->checkpoint.gc_live_bytes += entry->len;
-        /* Phase 2 prep: BATCH_DATA live accounting is deferred — the
-         * pending entry doesn't currently carry the BATCH_DATA
-         * record's on-flash address. For now only DATA_RECORD writes
-         * and the per-record replay path update per-block live. */
         if (old_len > 0) {
             ctx->checkpoint.gc_dead_bytes += (uint32_t)old_len;
+            /* P0-2: shadow the old record — release its live credit and
+             * attribute dead bytes to the old block. */
+            uint16_t old_blk = entry->last_written_block;
+            if (old_blk != 0 && old_blk != 0xFFFFu &&
+                ctx->ftl.dead_bytes_per_block != NULL &&
+                old_blk < ctx->ftl.total_blocks) {
+                ctx->ftl.dead_bytes_per_block[old_blk] += (uint32_t)old_len;
+                if (ctx->ftl.live_bytes_per_block != NULL &&
+                    ctx->ftl.live_bytes_per_block[old_blk] >= (uint32_t)old_len) {
+                    ctx->ftl.live_bytes_per_block[old_blk] -= (uint32_t)old_len;
+                }
+                pgfs_ftl_mark_dirty(&ctx->ftl);
+            }
         }
         ctx->checkpoint.written_blocks += 1u;
         memset(p, 0, sizeof(*p));
@@ -1503,6 +1816,53 @@ static int pgfs_replay_recover_after_corrupt_record(pgfs_mount_ctx_t* ctx,
     return 0;
 }
 
+/* P2-4: decode ECC groups (reverse order so a correction to the ecc bytes
+ * themselves propagates into the parity source of lower groups). Each
+ * group covers 8 bytes starting at 8*g; the parity byte lives at
+ * hdr[ecc_offset + g]. A zero parity means the group was not written
+ * (legacy single-group record) and is skipped. Group 2 (BATCH_DATA) uses
+ * a masked 8-byte window: crc32 (4 bytes) + 4 zero bytes, because the
+ * ecc field must not pollute its own syndrome. Returns 1 if any data was
+ * corrected; sets *weak when any group is uncorrectable (double-bit). */
+static int pgfs_ecc_decode_header(uint8_t* hdr, uint32_t ecc_offset,
+                                  uint32_t group_count, int* weak) {
+    int corrected_any = 0;
+    int g = 0;
+    for (g = (int)group_count - 1; g >= 0; g--) {
+        uint8_t parity = 0;
+        uint8_t win[8] = {0};
+        uint8_t corrected[8] = {0};
+        int res = 0;
+        parity = hdr[ecc_offset + (uint32_t)g];
+        if (parity == 0) {
+            continue;
+        }
+        if (g == 2) {
+            /* BATCH_DATA group 2: window is crc32 + 4 zero bytes. */
+            memcpy(win, hdr + 16, 4);
+        }
+        else {
+            memcpy(win, hdr + 8u * (uint32_t)g, 8);
+        }
+        res = pgfs_ecc_hamming_decode(win, parity, corrected);
+        if (res == 1) {
+            if (g == 2) {
+                memcpy(hdr + 16, corrected, 4);
+            }
+            else {
+                memcpy(hdr + 8u * (uint32_t)g, corrected, 8);
+            }
+            corrected_any = 1;
+        }
+        else if (res < 0) {
+            if (weak != NULL) {
+                *weak = 1;
+            }
+        }
+    }
+    return corrected_any;
+}
+
 int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
     pgfs_flash_geometry_t geo = {0};
     /* Use the explicit ctx->data_log_base_addr rather than
@@ -1530,7 +1890,7 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
      * malloc/free. path_buf holds the record path (max 96 bytes),
      * data_buf grows on demand to hold the largest record payload
      * seen during this replay. Both are freed once at cleanup. */
-    #define PGFS_REPLAY_PATH_BUF_SIZE sizeof(s_pgfs_files[0].path)
+    #define PGFS_REPLAY_PATH_BUF_SIZE PGFS_MAX_PATH
     #define PGFS_REPLAY_DATA_INIT_CAP 4096u
     #define PGFS_REPLAY_DATA_MAX_CAP  (256u * 1024u)
     uint8_t* replay_path_buf = NULL;
@@ -1538,6 +1898,9 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
     size_t replay_data_cap = 0;
 
     if (ctx == NULL || ctx->flash_opts == NULL || ctx->flash_opts->read == NULL) {
+        return -1;
+    }
+    if (pgfs_tables_ensure(ctx) != 0) {
         return -1;
     }
     memset(pending, 0, sizeof(pending));
@@ -1577,8 +1940,8 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
          * copying those prefix bytes into a stable buffer lets the
          * replay chain the CRC correctly. */
         uint8_t hdr_prefix[16] = {0};
-        char norm[sizeof(s_pgfs_files[0].path)] = {0};
-        char parent[sizeof(s_pgfs_dirs[0].path)] = {0};
+        char norm[PGFS_MAX_PATH] = {0};
+        char parent[PGFS_MAX_PATH] = {0};
         /* P2-7: use pre-allocated replay buffers instead of per-record malloc */
         uint8_t* path_buf = replay_path_buf;
         uint8_t* data_buf = NULL;
@@ -1634,45 +1997,31 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                 }
                 break;
             }
-            /* Phase 3b: ECC verify (Hamming(72,64)). A single-bit error is
-             * silently corrected; a double-bit error marks the block weak
-             * and skips the record. A zero stored_ecc means the record was
-             * written by a v1 producer (or by a test that hand-wrote
-             * data) — we skip the check in that case to maintain backward
-             * compatibility with the existing unit tests. */
-            uint8_t stored_ecc = hdr.ecc[0];
-            memset(hdr.ecc, 0, sizeof(hdr.ecc));
-            int ecc_res = 0;
-            if (stored_ecc != 0) {
-                uint8_t ecc_corrected[8];
-                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, ecc_corrected);
-                if (ecc_res == 1) {
-                    /* Single-bit error corrected — apply correction
-                     * to header before extracting fields below. */
-                    memcpy(&hdr, ecc_corrected, 8);
+            /* P2-4: ECC verify over groups (bytes 0..7 and 8..15).
+             * Single-bit errors are silently corrected; uncorrectable
+             * groups mark the block weak but the record is still passed
+             * to the authoritative CRC check below. A zero parity byte
+             * means the group was not written (legacy record) and is
+             * skipped. */
+            {
+                int ecc_weak = 0;
+                if (pgfs_ecc_decode_header((uint8_t*)&hdr, 16u, 2u, &ecc_weak) == 1) {
                     LLOGW("replay: ECC corrected single-bit error at addr=%u", (unsigned int)addr);
                 }
-            }
-            if (ecc_res < 0) {
-                /* Phase 3b: ECC mismatch. Mark the block weak for refresh
-                 * but still attempt to recover the record — the parity
-                 * check is best-effort and a single bit flip doesn't
-                 * invalidate the rest of the header. The CRC32 check
-                 * (below) is the authoritative validation. */
-                LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
-                uint32_t blk = addr / geo.erase_size;
-                if (blk < ctx->ftl.total_blocks) {
-                    pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                if (ecc_weak) {
+                    LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
+                    uint32_t blk = addr / geo.erase_size;
+                    if (blk < ctx->ftl.total_blocks) {
+                        pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                    }
                 }
-                /* Continue with the record — let the CRC check below
-                 * decide if the record is actually valid. */
             }
             path_len = hdr.path_len;
             data_len = hdr.data_len;
             crc32 = hdr.crc32;
             hdr_len = sizeof(hdr);
-            /* Phase 3b: keep the prefix bytes that the producer hashed
-             * (i.e. the bytes before crc32) for the CRC chain below. */
+            /* P2-4: keep the (corrected) prefix bytes the producer
+             * hashed for the CRC chain below. */
             memcpy(hdr_prefix, &hdr, offsetof(pgfs_data_record_hdr_t, crc32));
         }
         else if (magic == PGFS_BATCH_DATA_RECORD_MAGIC) {
@@ -1686,34 +2035,30 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                 }
                 break;
             }
-            uint8_t stored_ecc = hdr.ecc[0];
-            memset(hdr.ecc, 0, sizeof(hdr.ecc));
-            int ecc_res = 0;
-            if (stored_ecc != 0) {
-                uint8_t ecc_corrected[8];
-                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, ecc_corrected);
-                if (ecc_res == 1) {
-                    memcpy(&hdr, ecc_corrected, 8);
+            /* P2-4: three ECC groups (bytes 0..7, 8..15, and crc32 via
+             * the masked 16..19 window). Like DATA records, an ECC
+             * mismatch marks the block weak and continues to the CRC
+             * verdict instead of skipping the record outright. */
+            {
+                int ecc_weak = 0;
+                if (pgfs_ecc_decode_header((uint8_t*)&hdr, 20u, 3u, &ecc_weak) == 1) {
                     LLOGW("replay: ECC corrected single-bit error at addr=%u", (unsigned int)addr);
                 }
-            }
-            if (ecc_res < 0) {
-                LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
-                uint32_t blk = addr / geo.erase_size;
-                if (blk < ctx->ftl.total_blocks) {
-                    pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                if (ecc_weak) {
+                    LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
+                    uint32_t blk = addr / geo.erase_size;
+                    if (blk < ctx->ftl.total_blocks) {
+                        pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                    }
                 }
-                addr = pgfs_align_up_u32(addr + 1u, geo.erase_size);
-                continue;
             }
             path_len = hdr.path_len;
             data_len = hdr.data_len;
             batch_id = hdr.batch_id;
             crc32 = hdr.crc32;
             hdr_len = sizeof(hdr);
-            /* Phase 3b: keep the prefix bytes that the producer hashed
-             * (i.e. the bytes before crc32, which for BATCH_DATA is
-             * magic..batch_id = 16 bytes) for the CRC chain below. */
+            /* P2-4: keep the (corrected) prefix bytes the producer
+             * hashed (magic..batch_id = 16 bytes) for the CRC chain. */
             memcpy(hdr_prefix, &hdr, offsetof(pgfs_batch_data_record_hdr_t, crc32));
             if (batch_id == 0) {
                 if (pgfs_replay_recover_after_corrupt_record(ctx, addr, limit, &geo, &addr)) {
@@ -1734,26 +2079,21 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                 }
                 break;
             }
-            /* Phase 3b: ECC verify. */
-            uint8_t stored_ecc = hdr.ecc[0];
-            memset(hdr.ecc, 0, sizeof(hdr.ecc));
-            int ecc_res = 0;
-            if (stored_ecc != 0) {
-                uint8_t ecc_corrected[8];
-                ecc_res = pgfs_ecc_hamming_decode((const uint8_t*)&hdr, stored_ecc, ecc_corrected);
-                if (ecc_res == 1) {
-                    memcpy(&hdr, ecc_corrected, 8);
+            /* P2-4: two ECC groups over bytes 0..7 and 8..15 (record_count
+             * + crc32). Mismatch marks the block weak and continues to the
+             * CRC verdict (consistent with DATA / BATCH_DATA handling). */
+            {
+                int ecc_weak = 0;
+                if (pgfs_ecc_decode_header((uint8_t*)&hdr, 16u, 2u, &ecc_weak) == 1) {
                     LLOGW("replay: ECC corrected single-bit error at addr=%u", (unsigned int)addr);
                 }
-            }
-            if (ecc_res < 0) {
-                LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
-                uint32_t blk = addr / geo.erase_size;
-                if (blk < ctx->ftl.total_blocks) {
-                    pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                if (ecc_weak) {
+                    LLOGW("replay: ECC mismatch at addr=%u (block weak, continuing)", (unsigned int)addr);
+                    uint32_t blk = addr / geo.erase_size;
+                    if (blk < ctx->ftl.total_blocks) {
+                        pgfs_ftl_mark_weak(&ctx->ftl, blk);
+                    }
                 }
-                addr = pgfs_align_up_u32(addr + 1u, geo.erase_size);
-                continue;
             }
             hdr_crc = pgfs_crc32_calc(&hdr, offsetof(pgfs_batch_commit_record_hdr_t, crc32));
             if (hdr.magic != PGFS_BATCH_COMMIT_RECORD_MAGIC || hdr.batch_id == 0 || hdr_crc != hdr.crc32) {
@@ -1916,13 +2256,13 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             break;
         }
         if (magic == PGFS_DATA_RECORD_MAGIC) {
-            if (pgfs_path_parent(norm, parent, sizeof(parent)) != 0 || pgfs_dir_ensure_norm(parent) != 0) {
+            if (pgfs_path_parent(norm, parent, sizeof(parent)) != 0 || pgfs_dir_ensure_norm(ctx, parent) != 0) {
                 luat_heap_free(path_buf);
                 luat_heap_free(data_buf);
                 ret = -1;
                 goto cleanup;
             }
-            entry = pgfs_alloc_file(norm);
+            entry = pgfs_alloc_file(ctx, norm);
             if (entry == NULL) {
                 luat_heap_free(path_buf);
                 luat_heap_free(data_buf);
@@ -1964,6 +2304,14 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
                     ctx->ftl.dead_bytes_per_block != NULL &&
                     old_blk < ctx->ftl.total_blocks) {
                     ctx->ftl.dead_bytes_per_block[old_blk] += (uint32_t)old_len;
+                    /* P0-2: release the old record's live credit so the
+                     * block can be picked by the cost-benefit GC instead
+                     * of looking perpetually full. */
+                    if (ctx->ftl.live_bytes_per_block != NULL &&
+                        ctx->ftl.live_bytes_per_block[old_blk] >= (uint32_t)old_len) {
+                        ctx->ftl.live_bytes_per_block[old_blk] -= (uint32_t)old_len;
+                    }
+                    pgfs_ftl_mark_dirty(&ctx->ftl);
                 }
             }
             /* Update the file's last-known block to the record we
@@ -1985,7 +2333,7 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx) {
             ctx->checkpoint.written_blocks += 1u;
         }
         else {
-            if (pgfs_replay_pending_stage(pending, batch_id, norm, data_buf, data_len) != 0) {
+            if (pgfs_replay_pending_stage(pending, batch_id, norm, data_buf, data_len, addr) != 0) {
                 luat_heap_free(path_buf);
                 luat_heap_free(data_buf);
                 ret = -1;
@@ -2016,7 +2364,7 @@ cleanup:
         luat_heap_free(replay_data_buf);
     }
     pgfs_replay_pending_drop_all(pending);
-    pgfs_file_reset_all();
+    pgfs_file_reset(ctx);
     return ret;
 }
 
@@ -2044,12 +2392,61 @@ static int pgfs_apply_cache_to_entry(pgfs_file_t* f) {
     return 0;
 }
 
+/* P0-1/P0-3: refresh ctx->ftl.write_head / log_tail fields from the current
+ * data-log write head and persist the FTL state so the next mount replay
+ * can discover records written since the last CP commit. Returns -1 only
+ * when the persist failed twice (transient SPI failures are retried
+ * once); callers turn that into a strict fclose/fflush error. Skips
+ * silently on unit-test layouts where the write head is inside the FTL
+ * state block (persisting there would erase live data). */
+static int pgfs_persist_write_head(pgfs_mount_ctx_t* ctx) {
+    uint32_t ftl_state_end = 0;
+    if (ctx == NULL || ctx->ftl.flash_opts == NULL || !ctx->checkpoint_loaded ||
+        ctx->ftl.erase_size == 0) {
+        return 0;
+    }
+    ftl_state_end = pgfs_ftl_state_addr(ctx->ftl.erase_size) + ctx->ftl.erase_size;
+    if (ctx->data_log_write_addr < ftl_state_end) {
+        return 0;
+    }
+    if (ctx->flash_opts == NULL || ctx->flash_opts->control == NULL) {
+        return 0;
+    }
+    {
+        pgfs_flash_geometry_t geo_ftl = {0};
+        if (ctx->flash_opts->control(ctx->flash_opts->ctx,
+                                     PGFS_CTRL_GET_GEOMETRY, &geo_ftl) != 0 ||
+            geo_ftl.erase_size == 0 ||
+            ctx->data_log_write_addr < ctx->data_log_base_addr) {
+            return 0;
+        }
+        uint32_t base_block = ctx->data_log_base_addr / geo_ftl.erase_size;
+        uint32_t write_block = ctx->data_log_write_addr / geo_ftl.erase_size;
+        uint32_t write_off   = ctx->data_log_write_addr % geo_ftl.erase_size;
+        if (write_block >= base_block) {
+            ctx->ftl.write_head_block  = write_block - base_block;
+            ctx->ftl.write_head_offset = (uint16_t)write_off;
+        }
+        ctx->ftl.log_tail_block  = ctx->log_tail_block;
+        ctx->ftl.log_tail_offset = ctx->log_tail_offset;
+        pgfs_ftl_mark_dirty(&ctx->ftl);
+        if (pgfs_ftl_persist(&ctx->ftl, ctx->checkpoint.seq) != 0 &&
+            pgfs_ftl_persist(&ctx->ftl, ctx->checkpoint.seq) != 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 FILE* pgfs_file_open(pgfs_mount_ctx_t* ctx, const char *filename, const char *mode) {
     pgfs_file_t* f = NULL;
     pgfs_file_entry_t* e = NULL;
-    char norm[sizeof(s_pgfs_files[0].path)] = {0};
-    char parent[sizeof(s_pgfs_dirs[0].path)] = {0};
+    char norm[PGFS_MAX_PATH] = {0};
+    char parent[PGFS_MAX_PATH] = {0};
     if (ctx == NULL || filename == NULL || mode == NULL) {
+        return NULL;
+    }
+    if (pgfs_tables_ensure(ctx) != 0) {
         return NULL;
     }
     if (pgfs_lock(ctx) != 0) {
@@ -2060,16 +2457,16 @@ FILE* pgfs_file_open(pgfs_mount_ctx_t* ctx, const char *filename, const char *mo
         return NULL;
     }
     if (pgfs_mode_is_write(mode)) {
-        if (pgfs_path_parent(norm, parent, sizeof(parent)) != 0 || pgfs_dir_ensure_norm(parent) != 0) {
+        if (pgfs_path_parent(norm, parent, sizeof(parent)) != 0 || pgfs_dir_ensure_norm(ctx, parent) != 0) {
             pgfs_unlock(ctx);
             return NULL;
         }
         if (!ctx->batch_active) {
-            e = pgfs_alloc_file(norm);
+            e = pgfs_alloc_file(ctx, norm);
         }
     }
     else {
-        e = pgfs_find_file_norm(norm);
+        e = pgfs_find_file_norm(ctx, norm);
     }
     if (e == NULL && !(pgfs_mode_is_write(mode) && ctx->batch_active)) {
         pgfs_unlock(ctx);
@@ -2144,6 +2541,14 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
             if (pgfs_batch_pending_stage(ctx, f) != 0) {
                 ret = -1;
             }
+            goto finish;
+        }
+        if (f->cache.len == 0) {
+            /* P2-1: nothing buffered — either fflush already flushed the
+             * cache to the log, or the handle was opened for write but
+             * never written. There is no new record to append or persist;
+             * skipping also fixes the old "close an empty write handle
+             * fails" behaviour (pgfs_append_data_record rejects len==0). */
             goto finish;
         }
         /* Phase 2 GC: capture the OLD block the previous version of
@@ -2229,7 +2634,14 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
                 prev_last_written < ctx->ftl.total_blocks) {
                 ctx->ftl.dead_bytes_per_block[prev_last_written] += (uint32_t)prev_len;
             }
+            /* P0-2: release the old record's live credit so the shadowed
+             * block becomes a GC candidate instead of looking full. */
+            if (ctx->ftl.live_bytes_per_block != NULL &&
+                ctx->ftl.live_bytes_per_block[prev_last_written] >= (uint32_t)prev_len) {
+                ctx->ftl.live_bytes_per_block[prev_last_written] -= (uint32_t)prev_len;
+            }
             ctx->checkpoint.gc_dead_bytes += (uint32_t)prev_len;
+            pgfs_ftl_mark_dirty(&ctx->ftl);
         }
         /* Attribute new live bytes (the record just written). */
         ctx->checkpoint.gc_live_bytes += (uint32_t)f->cache.len;
@@ -2245,43 +2657,22 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
          * since the last CP commit. Without this, up to 7 fclose() calls
          * that return success can be lost after a power cycle because the
          * CP's log_tail (and the replay durable_limit derived from it)
-         * were not updated. This is best-effort — if the persist fails,
-         * the data record is still on flash and the fallback replay path
-         * handles the recovery.
+         * were not updated.
+         * P0-3: the persist is now STRICT — after one retry, a failure
+         * makes fclose return an error (durability is only guaranteed
+         * once the write head is persisted), unless the close's own CP
+         * commit succeeds, whose log_tail covers the record anyway.
          * Only fire on properly-mounted filesystems (checkpoint_loaded)
          * where the data log write head is safely past the FTL state
          * block. Persisting when data_log_write_addr is still within
          * the FTL state region would erase live data (as can happen
          * in legacy tests using PGFS_DATA_LOG_BASE_ADDR=0x4000 which
          * overlaps the v3 layout's block-4 FTL state). */
-        if (ctx->ftl.flash_opts != NULL && ctx->checkpoint_loaded &&
-            ctx->ftl.erase_size > 0) {
-            uint32_t ftl_state_end = pgfs_ftl_state_addr(ctx->ftl.erase_size)
-                                     + ctx->ftl.erase_size;
-            if (ctx->data_log_write_addr < ftl_state_end) {
-                /* Data log write head still in FTL state block — skip
-                 * persist to avoid erasing live data. This is normal
-                 * on very small partitions where the data log starts
-                 * immediately after the FTL state. */
-            } else {
-            pgfs_flash_geometry_t geo_ftl = {0};
-            if (ctx->flash_opts && ctx->flash_opts->control &&
-                ctx->flash_opts->control(ctx->flash_opts->ctx,
-                    PGFS_CTRL_GET_GEOMETRY, &geo_ftl) == 0 &&
-                geo_ftl.erase_size > 0 &&
-                ctx->data_log_write_addr >= ctx->data_log_base_addr) {
-                uint32_t base_block = (ctx->data_log_base_addr / geo_ftl.erase_size);
-                uint32_t write_block = (ctx->data_log_write_addr / geo_ftl.erase_size);
-                uint32_t write_off   = (ctx->data_log_write_addr % geo_ftl.erase_size);
-                if (write_block >= base_block) {
-                    ctx->ftl.write_head_block  = write_block - base_block;
-                    ctx->ftl.write_head_offset = (uint16_t)write_off;
-                }
-                ctx->ftl.log_tail_block  = ctx->log_tail_block;
-                ctx->ftl.log_tail_offset = ctx->log_tail_offset;
-                (void)pgfs_ftl_persist(&ctx->ftl, ctx->checkpoint.seq);
-            }
-            } /* else: data_log_write_addr < ftl_state_end, skip persist */
+        int ftl_persist_failed = 0;
+        if (pgfs_persist_write_head(ctx) != 0) {
+            LLOGE("close FTL write_head persist failed twice path=%s",
+                  f->entry ? f->entry->path : "?");
+            ftl_persist_failed = 1;
         }
         if (pgfs_apply_cache_to_entry(f) != 0) {
             LLOGE("close apply_cache failed");
@@ -2304,6 +2695,16 @@ int pgfs_file_close(pgfs_mount_ctx_t* ctx, FILE* stream) {
                 goto finish;
             }
             checkpoint_flushed = 1;
+            /* P0-3: the CP's log_tail now covers this record — durability
+             * is guaranteed by the CP even though the per-close FTL
+             * persist failed. */
+            ftl_persist_failed = 0;
+        }
+        if (ftl_persist_failed) {
+            LLOGE("close: FTL write_head not persisted and no CP commit — "
+                  "returning error (durability not guaranteed)");
+            f->err = 1;
+            ret = -1;
         }
         t_cp = luat_mcu_tick64_ms();
         LLOGD("perf close path=%s size=%u gc=%u alloc=%u append=%u apply=%u cp=%u total=%u cp_flush=%u pending_cp=%u",
@@ -2322,9 +2723,12 @@ finish:
 }
 
 int pgfs_dir_mkdir(pgfs_mount_ctx_t* ctx, const char *path) {
-    char norm[sizeof(s_pgfs_dirs[0].path)] = {0};
+    char norm[PGFS_MAX_PATH] = {0};
     int ret = 0;
     if (path == NULL) {
+        return -1;
+    }
+    if (pgfs_tables_ensure(ctx) != 0) {
         return -1;
     }
     if (pgfs_path_normalize(path, norm, sizeof(norm)) != 0) {
@@ -2333,7 +2737,7 @@ int pgfs_dir_mkdir(pgfs_mount_ctx_t* ctx, const char *path) {
     if (ctx != NULL && pgfs_lock(ctx) != 0) {
         return -1;
     }
-    ret = pgfs_dir_ensure_norm(norm);
+    ret = pgfs_dir_ensure_norm(ctx, norm);
     if (ctx != NULL) {
         pgfs_unlock(ctx);
     }
@@ -2341,9 +2745,12 @@ int pgfs_dir_mkdir(pgfs_mount_ctx_t* ctx, const char *path) {
 }
 
 int pgfs_dir_rmdir(pgfs_mount_ctx_t* ctx, const char *path) {
-    char norm[sizeof(s_pgfs_dirs[0].path)] = {0};
+    char norm[PGFS_MAX_PATH] = {0};
     int ret = -1;
     if (path == NULL) {
+        return -1;
+    }
+    if (pgfs_tables_ensure(ctx) != 0) {
         return -1;
     }
     if (pgfs_path_normalize(path, norm, sizeof(norm)) != 0) {
@@ -2352,7 +2759,7 @@ int pgfs_dir_rmdir(pgfs_mount_ctx_t* ctx, const char *path) {
     if (ctx != NULL && pgfs_lock(ctx) != 0) {
         return -1;
     }
-    ret = pgfs_dir_remove_norm(norm);
+    ret = pgfs_dir_remove_norm(ctx, norm);
     if (ctx != NULL) {
         pgfs_unlock(ctx);
     }
@@ -2361,6 +2768,9 @@ int pgfs_dir_rmdir(pgfs_mount_ctx_t* ctx, const char *path) {
 
 int pgfs_dir_lsdir(pgfs_mount_ctx_t* ctx, const char *path, luat_fs_dirent_t* ents, size_t offset, size_t len) {
     int ret = 0;
+    if (pgfs_tables_ensure(ctx) != 0) {
+        return 0;
+    }
     if (ctx != NULL && pgfs_lock(ctx) != 0) {
         return 0;
     }
@@ -2373,8 +2783,11 @@ int pgfs_dir_lsdir(pgfs_mount_ctx_t* ctx, const char *path, luat_fs_dirent_t* en
 
 void* pgfs_dir_opendir(pgfs_mount_ctx_t* ctx, const char *path) {
     pgfs_dir_handle_t* dir = NULL;
-    char norm[sizeof(s_pgfs_dirs[0].path)] = {0};
-    if (path == NULL) {
+    char norm[PGFS_MAX_PATH] = {0};
+    if (ctx == NULL || path == NULL) {
+        return NULL;
+    }
+    if (pgfs_tables_ensure(ctx) != 0) {
         return NULL;
     }
     if (pgfs_path_normalize(path, norm, sizeof(norm)) != 0) {
@@ -2383,7 +2796,7 @@ void* pgfs_dir_opendir(pgfs_mount_ctx_t* ctx, const char *path) {
     if (ctx != NULL && pgfs_lock(ctx) != 0) {
         return NULL;
     }
-    if (!pgfs_dir_exists_norm(norm)) {
+    if (!pgfs_dir_exists_norm(ctx, norm)) {
         if (ctx != NULL) {
             pgfs_unlock(ctx);
         }
@@ -2463,13 +2876,21 @@ int pgfs_file_getc(pgfs_mount_ctx_t* ctx, FILE* stream) {
     if (!pgfs_ctx_handle_valid(ctx, f->generation)) {
         return -1;
     }
+    /* P3-2: protect against concurrent close/remove freeing the entry. */
+    if (ctx != NULL) {
+        if (pgfs_lock(ctx) != 0) {
+            return -1;
+        }
+    }
     if (f->pos >= f->entry->len) {
         f->eof = 1;
+        if (ctx != NULL) { pgfs_unlock(ctx); }
         return -1;
     }
     ch = (int)((uint8_t)f->entry->data[f->pos]);
     f->pos++;
     f->eof = (f->pos >= f->entry->len) ? 1 : 0;
+    if (ctx != NULL) { pgfs_unlock(ctx); }
     return ch;
 }
 
@@ -2501,6 +2922,20 @@ size_t pgfs_file_write(pgfs_mount_ctx_t* ctx, const void *ptr, size_t size, size
             f->err = 1;
             return 0;
         }
+    }
+    /* P2-1: after a successful fflush the entry holds the flushed content
+     * and the cache is empty. Re-seed the cache from the entry so the
+     * next write (and the eventual close) continues from the flushed
+     * data instead of replacing it. */
+    if (f->flushed && f->cache.len == 0 && f->entry != NULL &&
+        f->entry->len > 0 && f->entry->data != NULL) {
+        if (pgfs_cache_expand(&f->cache, f->entry->len) != 0) {
+            f->err = 1;
+            if (ctx != NULL) { pgfs_unlock(ctx); }
+            return 0;
+        }
+        memcpy(f->cache.data, f->entry->data, f->entry->len);
+        f->cache.len = f->entry->len;
     }
     ret = pgfs_cache_append(f, (const uint8_t*)ptr, total);
     if (ctx != NULL) { pgfs_unlock(ctx); }
@@ -2579,6 +3014,9 @@ int pgfs_file_error(pgfs_mount_ctx_t* ctx, FILE* stream) {
 
 int pgfs_file_flush(pgfs_mount_ctx_t* ctx, FILE* stream) {
     pgfs_file_t* f = (pgfs_file_t*)stream;
+    uint32_t seg_id = 0;
+    uint16_t prev_last_written = 0;
+    size_t prev_len = 0;
     if (ctx == NULL || f == NULL) {
         return -1;
     }
@@ -2597,8 +3035,91 @@ int pgfs_file_flush(pgfs_mount_ctx_t* ctx, FILE* stream) {
     if (pgfs_lock(ctx) != 0) {
         return -1;
     }
-    /* Cache flush is folded into pgfs_file_close via pgfs_append_data_record; fflush
-     * itself is a no-op because durability boundary is fclose (see AGENTS.md). */
+    /* P2-1: fflush is now a real durability point — append the buffered
+     * cache to the data log and persist the FTL write head, then apply
+     * the cache to the entry so a later fclose with an empty cache is a
+     * no-op. */
+    if (f->cache.len == 0) {
+        pgfs_unlock(ctx);
+        return 0;
+    }
+    prev_last_written = f->entry->last_written_block;
+    prev_len = f->entry->len;
+    /* GC pressure check (mirrors pgfs_file_close). */
+    {
+        uint32_t erase_sz = ctx->layout.erase_size;
+        if (erase_sz == 0) erase_sz = ctx->ftl.erase_size;
+        if (erase_sz > 0 && ctx->flash_opts != NULL &&
+            ctx->flash_opts->control != NULL) {
+            pgfs_flash_geometry_t geo_chk = {0};
+            if (ctx->flash_opts->control(ctx->flash_opts->ctx,
+                PGFS_CTRL_GET_GEOMETRY, &geo_chk) == 0 &&
+                geo_chk.capacity > 0) {
+                uint64_t remaining = (uint64_t)geo_chk.capacity -
+                                     (uint64_t)ctx->data_log_write_addr;
+                if (remaining < (uint64_t)erase_sz * 2u) {
+                    (void)pgfs_gc_step(ctx, 4096, 2000);
+                }
+            }
+        }
+    }
+    if (pgfs_alloc_segment(ctx, &seg_id) != 0) {
+        int gc_retry = 0;
+        int alloc_ok = 0;
+        for (gc_retry = 0; gc_retry < 3; gc_retry++) {
+            uint32_t gc_budget = 4096u * (uint32_t)(gc_retry + 2u);
+            if (pgfs_gc_step(ctx, gc_budget, 5000) == 0) {
+                break;
+            }
+            if (pgfs_alloc_segment(ctx, &seg_id) == 0) {
+                alloc_ok = 1;
+                break;
+            }
+        }
+        if (!alloc_ok && pgfs_alloc_segment(ctx, &seg_id) != 0) {
+            f->err = 1;
+            pgfs_unlock(ctx);
+            return -1;
+        }
+    }
+    if (pgfs_append_data_record(ctx, f) != 0) {
+        (void)pgfs_gc_step(ctx, 8192, 5000);
+        if (pgfs_append_data_record(ctx, f) != 0) {
+            LLOGE("fflush append_data_record failed path=%s",
+                  f->entry ? f->entry->path : "?");
+            (void)pgfs_mark_block_retired(ctx, seg_id);
+            f->err = 1;
+            pgfs_unlock(ctx);
+            return -1;
+        }
+    }
+    /* P0-2: the old version is now dead — symmetric live/dead attribution. */
+    if (prev_last_written != 0 && prev_last_written != 0xFFFFu && prev_len > 0) {
+        if (ctx->ftl.dead_bytes_per_block != NULL &&
+            prev_last_written < ctx->ftl.total_blocks) {
+            ctx->ftl.dead_bytes_per_block[prev_last_written] += (uint32_t)prev_len;
+        }
+        if (ctx->ftl.live_bytes_per_block != NULL &&
+            ctx->ftl.live_bytes_per_block[prev_last_written] >= (uint32_t)prev_len) {
+            ctx->ftl.live_bytes_per_block[prev_last_written] -= (uint32_t)prev_len;
+        }
+        ctx->checkpoint.gc_dead_bytes += (uint32_t)prev_len;
+        pgfs_ftl_mark_dirty(&ctx->ftl);
+    }
+    ctx->checkpoint.gc_live_bytes += (uint32_t)f->cache.len;
+    if (pgfs_persist_write_head(ctx) != 0) {
+        f->err = 1;
+        pgfs_unlock(ctx);
+        return -1;
+    }
+    if (pgfs_apply_cache_to_entry(f) != 0) {
+        f->err = 1;
+        pgfs_unlock(ctx);
+        return -1;
+    }
+    f->flushed = 1;
+    ctx->checkpoint.written_blocks = (uint32_t)(ctx->checkpoint.written_blocks + 1u);
+    pgfs_mark_checkpoint_pending(ctx);
     pgfs_unlock(ctx);
     return 0;
 }

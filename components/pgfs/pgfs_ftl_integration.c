@@ -167,6 +167,9 @@ int pgfs_ftl_on_checkpoint_commit(void* _ctx) {
             }
             ctx->ftl.log_tail_block  = ctx->log_tail_block;
             ctx->ftl.log_tail_offset = ctx->log_tail_offset;
+            /* P1-1: the write head moved (or may have) — the persisted
+             * FTL state is stale until pgfs_ftl_persist runs below. */
+            pgfs_ftl_mark_dirty(&ctx->ftl);
         }
     }
     /* Forward powercut injection: stage 3 → FTL erase; stage 4 → FTL write */

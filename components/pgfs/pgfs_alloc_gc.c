@@ -256,7 +256,7 @@ static int pgfs_gc_rewrite_visitor(pgfs_file_entry_t* e, void* user_data) {
 static int pgfs_gc_rewrite_victim(pgfs_mount_ctx_t* ctx, uint32_t victim) {
     if (ctx == NULL) return 0;
     pgfs_gc_rewrite_ctx_t r = { ctx, victim, 0 };
-    (void)pgfs_file_table_visit(pgfs_gc_rewrite_visitor, &r);
+    (void)pgfs_file_table_visit(ctx, pgfs_gc_rewrite_visitor, &r);
     return r.gc_moved;
 }
 

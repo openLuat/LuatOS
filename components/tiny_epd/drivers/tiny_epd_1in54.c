@@ -11,6 +11,9 @@
 #define TINY_EPD_1IN54_BUSY_IDLE_LEVEL 0u
 /* 1.54B V2 is a 200x200 B/W/R panel, distinct from mono 1.54 V2. */
 #define TINY_EPD_1IN54B_V2_BUSY_TIMEOUT_MS 30000u
+/* 1.54G V2 is a 200x200 B/W/R/Y panel; BUSY is HIGH when idle. */
+#define TINY_EPD_1IN54G_V2_BUSY_IDLE_LEVEL 1u
+#define TINY_EPD_1IN54G_V2_BUSY_TIMEOUT_MS 30000u
 /* The 1.54R tri-colour controller has an active-low BUSY output. */
 #define TINY_EPD_1IN54R_BUSY_IDLE_LEVEL 1u
 #define TINY_EPD_1IN54_BUSY_TIMEOUT_MS 10000u
@@ -22,6 +25,10 @@ typedef struct {
     uint8_t lut_loaded;
     tiny_epd_refresh_mode_t lut_mode;
 } tiny_epd_1in54_ctx_t;
+
+typedef struct {
+    uint8_t fast_enabled;
+} tiny_epd_1in54g_ctx_t;
 
 static const uint8_t g_1in54_lut_full[TINY_EPD_1IN54_LUT_SIZE] = {
     0x02, 0x02, 0x01, 0x11, 0x12, 0x12, 0x22, 0x22,
@@ -1202,6 +1209,217 @@ static int epd_1in54b_v2_sleep(tiny_epd_t *epd, tiny_epd_sleep_mode_t mode)
     return TINY_EPD_OK;
 }
 
+/*
+ * Waveshare 1.54-inch G V2: 200x200 black/white/red/yellow, 2-bit per pixel.
+ *
+ * The canonical INDEX2 surface is byte-compatible with the controller RAM:
+ * one byte holds four pixels, MSB first.  Unlike the 1.54B V2 dual-RAM
+ * profile, the whole frame is a single 0x10 write.  BUSY is HIGH while the
+ * panel is idle and LOW while it is busy; the Waveshare reference drivers
+ * always wait for BUSY to go HIGH.
+ */
+static int epd_1in54g_v2_wait_idle(tiny_epd_t *epd)
+{
+    return tiny_epd_wait_busy(epd,
+                              TINY_EPD_1IN54G_V2_BUSY_IDLE_LEVEL,
+                              TINY_EPD_1IN54G_V2_BUSY_TIMEOUT_MS);
+}
+
+static int epd_1in54g_v2_common_init(tiny_epd_t *epd)
+{
+    static const tiny_epd_reset_step_t reset_steps[] = {
+        {1, 200},
+        {0, 2},
+        {1, 200}
+    };
+    static const tiny_epd_reset_sequence_t reset_sequence = {
+        reset_steps,
+        sizeof(reset_steps) / sizeof(reset_steps[0])
+    };
+    static const uint8_t panel_setting[] = {0x0F, 0x29};
+    static const uint8_t booster[] = {
+        0x0D, 0x12, 0x30, 0x20, 0x19, 0x2A, 0x22
+    };
+    static const uint8_t resolution[] = {
+        0x00, 0xC8, 0x00, 0xC8
+    };
+    int ret;
+
+    ret = tiny_epd_reset_panel(epd, &reset_sequence);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54g_v2_wait_idle(epd);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54_cmd_data1(epd, 0x4D, 0x78);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54_cmd_data(epd, 0x00, panel_setting, sizeof(panel_setting));
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54_cmd_data(epd, 0x06, booster, sizeof(booster));
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54_cmd_data1(epd, 0x50, 0x37);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54_cmd_data(epd, 0x61, resolution, sizeof(resolution));
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54_cmd_data1(epd, 0xE9, 0x01);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54_cmd_data1(epd, 0x30, 0x08);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = tiny_epd_write_cmd(epd, 0x04); /* POWER_ON */
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    return epd_1in54g_v2_wait_idle(epd);
+}
+
+static int epd_1in54g_v2_init(tiny_epd_t *epd)
+{
+    tiny_epd_1in54g_ctx_t *ctx = (tiny_epd_1in54g_ctx_t *)tiny_epd_driver_state(epd);
+
+    if (ctx != NULL) {
+        ctx->fast_enabled = 0;
+    }
+    return epd_1in54g_v2_common_init(epd);
+}
+
+/* Extra registers used by the reference init_Fast() flow. */
+static int epd_1in54g_v2_configure_fast(tiny_epd_t *epd)
+{
+    int ret;
+
+    ret = epd_1in54_cmd_data1(epd, 0xE0, 0x02);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54_cmd_data1(epd, 0xE6, 0x5D);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54_cmd_data1(epd, 0xA5, 0x00);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    return epd_1in54g_v2_wait_idle(epd);
+}
+
+static int epd_1in54g_v2_write_frame(tiny_epd_t *epd)
+{
+    const uint8_t *framebuffer = tiny_epd_framebuffer_const(epd);
+    size_t i;
+    int ret;
+
+    if (framebuffer == NULL) {
+        return TINY_EPD_ERR_PARAM;
+    }
+    ret = tiny_epd_write_cmd(epd, 0x10);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    for (i = 0; i < tiny_epd_framebuffer_size(epd); i++) {
+        ret = tiny_epd_write_data_byte(epd, framebuffer[i]);
+        if (ret != TINY_EPD_OK) {
+            return ret;
+        }
+    }
+    return TINY_EPD_OK;
+}
+
+static int epd_1in54g_v2_turn_on_display(tiny_epd_t *epd)
+{
+    int ret;
+
+    ret = epd_1in54_cmd_data1(epd, 0x12, 0x00); /* DISPLAY_REFRESH */
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    tiny_epd_delay_ms(epd, TINY_EPD_1IN54_BUSY_SETTLE_MS);
+    return epd_1in54g_v2_wait_idle(epd);
+}
+
+static int epd_1in54g_v2_refresh(tiny_epd_t *epd,
+                                  tiny_epd_refresh_mode_t mode,
+                                  const tiny_epd_rect_t *rect)
+{
+    tiny_epd_1in54g_ctx_t *ctx = (tiny_epd_1in54g_ctx_t *)tiny_epd_driver_state(epd);
+    int ret;
+
+    if (mode == TINY_EPD_REFRESH_AUTO) {
+        mode = TINY_EPD_REFRESH_FULL;
+    }
+    if ((mode != TINY_EPD_REFRESH_FULL && mode != TINY_EPD_REFRESH_FAST) ||
+        rect != NULL) {
+        return TINY_EPD_ERR_UNSUPPORTED_MODE;
+    }
+
+    if (mode == TINY_EPD_REFRESH_FAST) {
+        if (ctx == NULL || !ctx->fast_enabled) {
+            ret = epd_1in54g_v2_configure_fast(epd);
+            if (ret != TINY_EPD_OK) {
+                return ret;
+            }
+            if (ctx != NULL) {
+                ctx->fast_enabled = 1;
+            }
+        }
+    }
+    else if (ctx != NULL && ctx->fast_enabled) {
+        /* Return to the full waveform; the reference flow re-initializes. */
+        ret = epd_1in54g_v2_common_init(epd);
+        if (ret != TINY_EPD_OK) {
+            return ret;
+        }
+        ctx->fast_enabled = 0;
+    }
+
+    ret = epd_1in54g_v2_write_frame(epd);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    return epd_1in54g_v2_turn_on_display(epd);
+}
+
+static int epd_1in54g_v2_sleep(tiny_epd_t *epd, tiny_epd_sleep_mode_t mode)
+{
+    int ret;
+
+    if (mode == TINY_EPD_SLEEP_AUTO) {
+        mode = TINY_EPD_SLEEP_DEEP;
+    }
+    if (mode != TINY_EPD_SLEEP_DEEP) {
+        return TINY_EPD_ERR_UNSUPPORTED_MODE;
+    }
+    ret = epd_1in54_cmd_data1(epd, 0x02, 0x00); /* POWER_OFF */
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54g_v2_wait_idle(epd);
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    ret = epd_1in54_cmd_data1(epd, 0x07, 0xA5); /* DEEP_SLEEP */
+    if (ret != TINY_EPD_OK) {
+        return ret;
+    }
+    tiny_epd_delay_ms(epd, TINY_EPD_1IN54_BUSY_SETTLE_MS);
+    return TINY_EPD_OK;
+}
+
 static int epd_1in54r_wait_idle(tiny_epd_t *epd)
 {
     return tiny_epd_wait_busy(epd,
@@ -1351,6 +1569,23 @@ static const tiny_epd_surface_desc_t g_tiny_epd_bwr_surface = {
     g_tiny_epd_bwr_palette
 };
 
+/* 1.54G V2 controller codes: BLACK=0, WHITE=1, YELLOW=2, RED=3. */
+static const tiny_epd_palette_entry_t g_tiny_epd_bwry_palette[] = {
+    {TINY_EPD_COLOR_WHITE,  1u, 0x00FFFFFFu},
+    {TINY_EPD_COLOR_BLACK,  0u, 0x00000000u},
+    {TINY_EPD_COLOR_YELLOW, 3u, 0x00FFFF00u},
+    {TINY_EPD_COLOR_RED,    2u, 0x00FF0000u}
+};
+
+static const tiny_epd_surface_desc_t g_tiny_epd_bwry_surface = {
+    TINY_EPD_SURFACE_INDEX2,
+    2,
+    1,
+    (uint16_t)(sizeof(g_tiny_epd_bwry_palette) / sizeof(g_tiny_epd_bwry_palette[0])),
+    TINY_EPD_COLOR_WHITE,
+    g_tiny_epd_bwry_palette
+};
+
 static const tiny_epd_driver_t g_tiny_epd_1in54_driver = {
     "waveshare_1in54_bw",
     TINY_EPD_1IN54_WIDTH,
@@ -1398,6 +1633,23 @@ static const tiny_epd_driver_t g_tiny_epd_1in54b_v2_driver = {
     epd_1in54b_v2_refresh,
     epd_1in54b_v2_sleep,
     &g_tiny_epd_bwr_surface
+};
+
+static const tiny_epd_driver_t g_tiny_epd_1in54g_v2_driver = {
+    "waveshare_1in54g_v2_bwry",
+    TINY_EPD_1IN54_WIDTH,
+    TINY_EPD_1IN54_HEIGHT,
+    2,
+    1,
+    TINY_EPD_CAP_REFRESH_FULL |
+        TINY_EPD_CAP_REFRESH_FAST |
+        TINY_EPD_CAP_SLEEP_DEEP |
+        TINY_EPD_CAP_COLOR_4,
+    sizeof(tiny_epd_1in54g_ctx_t),
+    epd_1in54g_v2_init,
+    epd_1in54g_v2_refresh,
+    epd_1in54g_v2_sleep,
+    &g_tiny_epd_bwry_surface
 };
 
 static const tiny_epd_driver_t g_tiny_epd_1in54_v3_driver = {
@@ -1462,6 +1714,11 @@ const tiny_epd_driver_t *tiny_epd_driver_1in54_v2(void)
 const tiny_epd_driver_t *tiny_epd_driver_1in54b_v2(void)
 {
     return &g_tiny_epd_1in54b_v2_driver;
+}
+
+const tiny_epd_driver_t *tiny_epd_driver_1in54g_v2(void)
+{
+    return &g_tiny_epd_1in54g_v2_driver;
 }
 
 const tiny_epd_driver_t *tiny_epd_driver_1in54_v3(void)

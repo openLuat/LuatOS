@@ -627,6 +627,7 @@ static int pgfs_test_per_block_live_updates_on_write(void) {
     }
 
     pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -1139,6 +1140,7 @@ static int pgfs_test_stress_many_files_writes_counters(void) {
     }
 
     pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -1207,6 +1209,7 @@ static int pgfs_test_stress_write_delete_cycles(void) {
     }
 
     pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -1428,6 +1431,7 @@ static int pgfs_test_replay_marks_block_weak_on_ecc_mismatch(void) {
     }
 
     pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -1941,6 +1945,7 @@ static int pgfs_test_directory_helpers(void) {
     }
     if (pgfs_dir_rmdir(&ctx, "selftest_docs") != 0) {
         fail++;
+    pgfs_file_reset(&ctx);
     }
     return fail;
 }
@@ -1992,6 +1997,7 @@ static int pgfs_test_replay_restores_file_contents(void) {
     if (ctx.data_log_write_addr <= PGFS_DATA_LOG_BASE_ADDR) {
         fail++;
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -2035,6 +2041,7 @@ static int pgfs_test_close_succeeds_when_probe_read_fails_on_unaligned_append(vo
     if (hdr.magic != PGFS_TEST_DATA_RECORD_MAGIC) {
         fail++;
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -2073,6 +2080,7 @@ static int pgfs_test_close_succeeds_when_probe_nonff_on_unaligned_append(void) {
     if (pgfs_file_close(&ctx, f) != 0) {
         fail++;
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -2120,6 +2128,7 @@ static int pgfs_test_close_advances_to_next_erase_block_when_unaligned_head_is_p
     if (hdr.magic != PGFS_TEST_DATA_RECORD_MAGIC) {
         fail++;
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -2205,6 +2214,7 @@ static int pgfs_test_checkpoint_batch_close_and_pending_commit(void) {
     if (pgfs_checkpoint_load(&ctx, &loaded) != 0 || loaded.seq != 2) {
         fail++;
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -2411,7 +2421,7 @@ static int pgfs_test_batch_api_boundaries(void) {
     /* Clear the injection so it doesn't poison the next test case. */
     (void)pgfs_control_inject_powercut_stage_ctx(&ctx, "none");
 
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -2476,7 +2486,7 @@ static int pgfs_test_batch_commit_persists_after_replay(void) {
         }
     }
 
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
 
     ctx_replay.flash_opts = &opts;
     ctx_replay.runtime_generation = 2;
@@ -2569,6 +2579,7 @@ static int pgfs_test_replay_skips_blank_prefix_to_relocated_log(void) {
             fail++;
         }
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -2640,6 +2651,7 @@ static int pgfs_test_replay_skips_unknown_prefix_to_relocated_log(void) {
             fail++;
         }
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -2695,7 +2707,7 @@ static int pgfs_test_replay_batch_commit_marker_boundary(void) {
         return 1;
     }
 
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     memset(&ctx, 0, sizeof(ctx));
     ctx.flash_opts = &opts;
     ctx.runtime_generation = 2;
@@ -2881,6 +2893,7 @@ static int pgfs_test_replay_skips_bad_block_and_recovers_next_block(void) {
     if (ctx.data_log_write_addr <= rec2_start) {
         fail++;
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -2968,6 +2981,7 @@ static int pgfs_test_replay_skips_multiple_bad_blocks_and_recovers_later_block(v
     if (ctx.data_log_write_addr <= rec2_start) {
         fail++;
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -3039,6 +3053,7 @@ static int pgfs_test_replay_resyncs_in_block_after_read_failure(void) {
             fail++;
         }
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -3108,6 +3123,7 @@ static int pgfs_test_replay_stops_at_truncated_tail_and_keeps_prefix(void) {
     if (ctx.data_log_write_addr != rec2_start) {
         fail++;
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -3191,6 +3207,7 @@ static int pgfs_test_fill_delete_rewrite_recovers_capacity(void) {
             fail++;
         }
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -3238,6 +3255,7 @@ static int pgfs_test_repeated_add_delete_stays_stable(void) {
             }
         }
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -3288,6 +3306,7 @@ static int pgfs_test_info_fast_after_many_small_files(void) {
             break;
         }
     }
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -3315,7 +3334,7 @@ static int pgfs_test_powercut_stage_matrix_visibility(void) {
         memset(flash->mem, 0xFF, flash->mem_size);
         memset(&ctx, 0, sizeof(ctx));
         memset(&replay_ctx, 0, sizeof(replay_ctx));
-        pgfs_file_reset_all();
+        pgfs_file_reset(&ctx);
 
         opts.ctx = flash;
         opts.read = pgfs_test_read;
@@ -3340,7 +3359,7 @@ static int pgfs_test_powercut_stage_matrix_visibility(void) {
             continue;
         }
 
-        pgfs_file_reset_all();
+        pgfs_file_reset(&ctx);
         replay_ctx.flash_opts = &opts;
         replay_ctx.runtime_generation = 2;
         replay_ctx.mounted = 1;
@@ -3640,7 +3659,10 @@ static int pgfs_ftl_test_persist_populates_snapshot(void) {
     if (ftl.persist_success_count != 1 || ftl.persist_failure_count != 0) {
         printf("[pgfs-ftl-utest] success count not incremented\n"); fail++;
     }
-    /* A subsequent persist should still succeed and replace the snapshot. */
+    /* A subsequent persist with changed state should still succeed and
+     * replace the snapshot (unchanged state is skipped by the P1-1 dirty
+     * flag, so mutate first to force a real write). */
+    pgfs_ftl_mark_block_bad(&ftl, 3);
     if (pgfs_ftl_persist(&ftl, 8) != 0) {
         printf("[pgfs-ftl-utest] second persist failed\n"); fail++;
     }
@@ -3691,7 +3713,10 @@ static int pgfs_ftl_test_persist_readback_failure_keeps_snapshot(void) {
     flash->fail_read_addr = state_addr;
     flash->fail_read_len  = state_size;
 
-    /* Second persist: the readback MUST fail, so persist must return -1. */
+    /* Second persist: mutate first (P1-1 dirty flag would otherwise skip
+     * an unchanged persist), then the readback MUST fail, so persist must
+     * return -1. */
+    pgfs_ftl_mark_block_bad(&ftl, 6);
     if (pgfs_ftl_persist(&ftl, 2) != -1) {
         printf("[pgfs-ftl-utest] persist on readback-failure flash should return -1\n"); fail++;
     }
@@ -3796,7 +3821,7 @@ static int pgfs_test_powercut_after_cp_erase_recovers_previous(void) {
         printf("[pgfs-utest] expected commit to fail under powercut\n"); fail++;
     }
     /* Simulate reset: replay should still recover "k.txt" = "v1". */
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     replay_ctx.flash_opts = &opts;
     replay_ctx.runtime_generation = 2;
     replay_ctx.mounted = 1;
@@ -3818,7 +3843,7 @@ static int pgfs_test_powercut_after_cp_erase_recovers_previous(void) {
         }
         pgfs_file_close(&replay_ctx, f);
     }
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -3956,7 +3981,7 @@ static int pgfs_test_single_block_retired_recovers(void) {
     }
 
     pgfs_ftl_deinit(&ctx.ftl);
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     pgfs_test_flash_free(flash);
     return fail;
 }
@@ -4019,7 +4044,7 @@ static int pgfs_test_multi_mount_cycle_reads_via_replay(void) {
     }
 
     /* Reset in-memory state to simulate unmount; flash state persists. */
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     pgfs_ftl_deinit(&ctx.ftl);
     memset(&ctx, 0, sizeof(ctx));
     ctx.flash_opts = &opts;
@@ -4145,7 +4170,7 @@ static int pgfs_test_multi_mount_counters_advance(void) {
             highest_seq = ctx.checkpoint.seq;
         }
 
-        pgfs_file_reset_all();
+        pgfs_file_reset(&ctx);
         pgfs_ftl_deinit(&ctx.ftl);
     }
 
@@ -4182,7 +4207,7 @@ static int pgfs_test_multi_mount_counters_advance(void) {
  * When replay is bounded (e.g., data_log_write_addr stops mid-log),
  * files from records beyond the bound must not appear in the file
  * table. This is the dual of the cleanup requirement: on failure,
- * pgfs_file_reset_all() ensures the file table is empty. */
+ * pgfs_file_reset(ctx) ensures the file table is empty. */
 static int pgfs_test_replay_failure_cleans_up(void) {
     int fail = 0;
     pgfs_test_flash_t* flash = pgfs_test_flash_new();
@@ -4252,7 +4277,7 @@ static int pgfs_test_replay_failure_cleans_up(void) {
     /* Now simulate bounded replay: reset and replay only record 1
      * (data_log_write_addr stops at record 1). Record 2 is beyond
      * the durable bound and must NOT appear in the file table. */
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     pgfs_ftl_deinit(&ctx.ftl);
     memset(&ctx, 0, sizeof(ctx));
     ctx.flash_opts = &opts;
@@ -4282,7 +4307,7 @@ static int pgfs_test_replay_failure_cleans_up(void) {
         fail++;
     }
 
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     pgfs_ftl_deinit(&ctx.ftl);
     pgfs_test_flash_free(flash);
     return fail;
@@ -4397,7 +4422,8 @@ static int pgfs_test_multi_mount_two_partitions_independent(void) {
     }
 
 out:
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx_a);
+    pgfs_file_reset(&ctx_b);
     pgfs_ftl_deinit(&ctx_a.ftl);
     pgfs_ftl_deinit(&ctx_b.ftl);
     pgfs_test_flash_free(flash_a);
@@ -4598,7 +4624,7 @@ static int pgfs_test_vfs_umount_persists_remount_recovers(void) {
         fail++;
     }
     pgfs_ftl_deinit(&ctx.ftl);
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     memset(&ctx, 0, sizeof(ctx));
 
     /* --- Mount #2: reload CP, replay, read back --- */
@@ -4648,7 +4674,7 @@ static int pgfs_test_vfs_umount_persists_remount_recovers(void) {
     }
 
 out:
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     pgfs_ftl_deinit(&ctx.ftl);
     return fail;
 }
@@ -4693,6 +4719,814 @@ static int pgfs_test_mount_helper_functions(void) {
     return fail;
 }
 
+/* Shared ctx bootstrap used by the P0/P1/P2 regression tests below. */
+static void pgfs_test_ctx_init(pgfs_mount_ctx_t* ctx, const pgfs_flash_opts_t* opts,
+                               uint32_t erase_size, uint32_t total_blocks) {
+    pgfs_flash_geometry_t geo = {0};
+    memset(ctx, 0, sizeof(*ctx));
+    ctx->flash_opts = opts;
+    ctx->runtime_generation = 1;
+    ctx->mounted = 1;
+    if (opts != NULL && opts->control != NULL) {
+        opts->control(opts->ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx->layout);
+            ctx->data_log_base_addr = ctx->layout.data_log_first_block * ctx->layout.erase_size;
+            ctx->data_log_write_addr = ctx->data_log_base_addr;
+            ctx->data_log_prepared_until = ctx->data_log_base_addr;
+        }
+    }
+    if (total_blocks > 0) {
+        pgfs_ftl_init(&ctx->ftl, opts, erase_size, total_blocks);
+    }
+}
+
+/* P0-1: two mounts with the SAME path must stay isolated — writing the
+ * file on partition B must not clobber partition A's entry. */
+static int pgfs_test_multi_mount_same_path_isolation(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash_a = pgfs_test_flash_new();
+    static uint8_t s_flash_b_mem[0x8000];
+    pgfs_test_flash_t flash_b_storage = {0};
+    pgfs_test_flash_t* flash_b = &flash_b_storage;
+    pgfs_flash_opts_t opts_a = {0};
+    pgfs_flash_opts_t opts_b = {0};
+    pgfs_mount_ctx_t ctx_a = {0};
+    pgfs_mount_ctx_t ctx_b = {0};
+    FILE* f = NULL;
+    char buf[32] = {0};
+    const char payload_a[] = "alpha_config";
+    const char payload_b[] = "bravo_config";
+    size_t len_a = sizeof(payload_a) - 1u;
+    size_t len_b = sizeof(payload_b) - 1u;
+
+    memset(flash_a->mem, 0xFF, flash_a->mem_size);
+    memset(s_flash_b_mem, 0xFF, sizeof(s_flash_b_mem));
+    flash_b->mem = s_flash_b_mem;
+    flash_b->mem_size = sizeof(s_flash_b_mem);
+    opts_a.ctx = flash_a; opts_a.read = pgfs_test_read; opts_a.write = pgfs_test_write;
+    opts_a.erase = pgfs_test_erase; opts_a.control = pgfs_test_control;
+    opts_b.ctx = flash_b; opts_b.read = pgfs_test_read; opts_b.write = pgfs_test_write;
+    opts_b.erase = pgfs_test_erase; opts_b.control = pgfs_test_control;
+    pgfs_test_ctx_init(&ctx_a, &opts_a, 4096, 8);
+    pgfs_test_ctx_init(&ctx_b, &opts_b, 4096, 8);
+
+    f = pgfs_file_open(&ctx_a, "/data/config.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx_a, payload_a, 1, len_a, f) != len_a) fail++;
+    if (pgfs_file_close(&ctx_a, f) != 0) fail++;
+    f = NULL;
+
+    f = pgfs_file_open(&ctx_b, "/data/config.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx_b, payload_b, 1, len_b, f) != len_b) fail++;
+    if (pgfs_file_close(&ctx_b, f) != 0) fail++;
+    f = NULL;
+
+    /* A must still read its own payload, and B its own. */
+    f = pgfs_file_open(&ctx_a, "/data/config.txt", "rb");
+    if (f == NULL) { printf("[pgfs-isol] A file missing after B wrote same path\n"); fail++; }
+    else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx_a, buf, 1, len_a, f) != len_a ||
+            memcmp(buf, payload_a, len_a) != 0) {
+            printf("[pgfs-isol] A content clobbered by B\n"); fail++;
+        }
+        pgfs_file_close(&ctx_a, f);
+    }
+    f = pgfs_file_open(&ctx_b, "/data/config.txt", "rb");
+    if (f == NULL) { printf("[pgfs-isol] B file missing\n"); fail++; }
+    else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx_b, buf, 1, len_b, f) != len_b ||
+            memcmp(buf, payload_b, len_b) != 0) {
+            printf("[pgfs-isol] B content wrong\n"); fail++;
+        }
+        pgfs_file_close(&ctx_b, f);
+    }
+    /* fexist/fsize must also be isolated. */
+    if (pgfs_file_fsize(&ctx_a, "/data/config.txt") != len_a) {
+        printf("[pgfs-isol] A fsize wrong after B write\n"); fail++;
+    }
+    if (pgfs_file_fsize(&ctx_b, "/data/config.txt") != len_b) {
+        printf("[pgfs-isol] B fsize wrong\n"); fail++;
+    }
+out:
+    pgfs_file_reset(&ctx_a);
+    pgfs_file_reset(&ctx_b);
+    pgfs_ftl_deinit(&ctx_a.ftl);
+    pgfs_ftl_deinit(&ctx_b.ftl);
+    pgfs_test_flash_free(flash_a);
+    return fail;
+}
+
+static uint8_t s_mount_a_mem[0x80000];
+static uint8_t s_mount_b_mem[0x80000];
+
+/* P0-1: mounting a second partition must not wipe the first partition's
+ * in-memory file table (the old pgfs_file_reset_all() on mount did). */
+static int pgfs_test_mount_b_after_a_keeps_a_readable(void) {
+    int fail = 0;
+    pgfs_test_flash_t flash_a = {0};
+    pgfs_test_flash_t flash_b = {0};
+    pgfs_flash_opts_t opts_a = {0};
+    pgfs_flash_opts_t opts_b = {0};
+    pgfs_mount_ctx_t* ctx_a = NULL;
+    FILE* f = NULL;
+    char buf[32] = {0};
+    const char payload[] = "survives_second_mount";
+    size_t payload_len = sizeof(payload) - 1u;
+
+    memset(s_mount_a_mem, 0xFF, sizeof(s_mount_a_mem));
+    memset(s_mount_b_mem, 0xFF, sizeof(s_mount_b_mem));
+    flash_a.mem = s_mount_a_mem; flash_a.mem_size = sizeof(s_mount_a_mem);
+    flash_a.capacity_override = sizeof(s_mount_a_mem);
+    flash_b.mem = s_mount_b_mem; flash_b.mem_size = sizeof(s_mount_b_mem);
+    flash_b.capacity_override = sizeof(s_mount_b_mem);
+    opts_a.ctx = &flash_a; opts_a.read = pgfs_test_read; opts_a.write = pgfs_test_write;
+    opts_a.erase = pgfs_test_erase; opts_a.control = pgfs_test_control;
+    opts_b.ctx = &flash_b; opts_b.read = pgfs_test_read; opts_b.write = pgfs_test_write;
+    opts_b.erase = pgfs_test_erase; opts_b.control = pgfs_test_control;
+
+    pgfs_vfs_init();
+    if (luat_pgfs_mount("/pgA", &opts_a) != 0) {
+        printf("[pgfs-mountb] mount A failed\n"); fail++; goto out;
+    }
+    ctx_a = pgfs_find_mount_by_point("/pgA");
+    if (ctx_a == NULL) { fail++; goto out; }
+    f = pgfs_file_open(ctx_a, "/data/a.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(ctx_a, payload, 1, payload_len, f) != payload_len) fail++;
+    if (pgfs_file_close(ctx_a, f) != 0) fail++;
+    f = NULL;
+
+    /* Mount B — the old code wiped A's table here. */
+    if (luat_pgfs_mount("/pgB", &opts_b) != 0) {
+        printf("[pgfs-mountb] mount B failed\n"); fail++; goto out;
+    }
+    ctx_a = pgfs_find_mount_by_point("/pgA");
+    if (ctx_a == NULL) { printf("[pgfs-mountb] A gone after B mount\n"); fail++; goto out; }
+    f = pgfs_file_open(ctx_a, "/data/a.txt", "rb");
+    if (f == NULL) {
+        printf("[pgfs-mountb] A file lost after mounting B\n"); fail++;
+    } else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(ctx_a, buf, 1, payload_len, f) != payload_len ||
+            memcmp(buf, payload, payload_len) != 0) {
+            printf("[pgfs-mountb] A content wrong after mounting B\n"); fail++;
+        }
+        pgfs_file_close(ctx_a, f);
+    }
+out:
+    luat_pgfs_umount("/pgA");
+    luat_pgfs_umount("/pgB");
+    return fail;
+}
+
+/* P0-2: overwriting a file must release the old record's live credit
+ * (old code only added dead bytes, so shadowed blocks looked perpetually
+ * full and GC never reclaimed them). */
+static int pgfs_test_overwrite_live_dead_symmetric(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint8_t payload[240];
+    FILE* f = NULL;
+    uint16_t blk = 0;
+    uint32_t span = 0;
+    uint32_t live_after = 0;
+    uint32_t dead_after = 0;
+    int i = 0;
+
+    memset(payload, 'O', sizeof(payload));
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_test_ctx_init(&ctx, &opts, 4096, 8);
+
+    f = pgfs_file_open(&ctx, "/data/ovw.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, payload, 1, sizeof(payload), f) != sizeof(payload)) fail++;
+    if (pgfs_file_close(&ctx, f) != 0) fail++;
+    f = NULL;
+    blk = pgfs_file_table_lookup_last_written(&ctx, "/data/ovw.txt");
+    if (blk == 0xFFFFu) { printf("[pgfs-ovw] last_written unknown\n"); fail++; goto out; }
+    span = ctx.ftl.live_bytes_per_block[blk];
+    /* Two more overwrites: old code kept live at ~3*span; fixed code
+     * releases each shadowed record's data-length credit. */
+    for (i = 0; i < 2; i++) {
+        f = pgfs_file_open(&ctx, "/data/ovw.txt", "wb");
+        if (f == NULL) { fail++; goto out; }
+        if (pgfs_file_write(&ctx, payload, 1, sizeof(payload), f) != sizeof(payload)) fail++;
+        if (pgfs_file_close(&ctx, f) != 0) fail++;
+        f = NULL;
+    }
+    live_after = ctx.ftl.live_bytes_per_block[blk];
+    dead_after = ctx.ftl.dead_bytes_per_block[blk];
+    /* Old behaviour: live accumulated to ~3*span (no decrement on
+     * overwrite). Fixed: live ≈ span, dead ≈ 2*len. */
+    if (live_after >= 3u * span) {
+        printf("[pgfs-ovw] live_bytes[%u]=%u not released (span=%u)\n",
+               (unsigned)blk, (unsigned)live_after, (unsigned)span);
+        fail++;
+    }
+    if (dead_after < 2u * (uint32_t)sizeof(payload)) {
+        printf("[pgfs-ovw] dead_bytes[%u]=%u too small, expected >= %u\n",
+               (unsigned)blk, (unsigned)dead_after, (unsigned)(2u * (uint32_t)sizeof(payload)));
+        fail++;
+    }
+out:
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* P0-2: replay shadow detection must also release the old record's live
+ * credit (not just add dead bytes). */
+static int pgfs_test_replay_shadow_live_dead_symmetric(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    pgfs_checkpoint_t loaded_cp = {0};
+    uint32_t total_live = 0;
+    uint32_t total_dead = 0;
+    char buf[48] = {0};
+    const char v1_payload[] = "v1_short";
+    const char v2_payload[] = "v2_much_longer_payload";
+    size_t v1_len = sizeof(v1_payload) - 1u;
+    size_t v2_len = sizeof(v2_payload) - 1u;
+    FILE* f = NULL;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_test_ctx_init(&ctx, &opts, erase_size, 8);
+    ctx.checkpoint_loaded = 1;
+
+    f = pgfs_file_open(&ctx, "/data/shadow.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, v1_payload, 1, v1_len, f) != v1_len) fail++;
+    if (pgfs_file_close(&ctx, f) != 0) fail++;
+    f = pgfs_file_open(&ctx, "/data/shadow.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, v2_payload, 1, v2_len, f) != v2_len) fail++;
+    if (pgfs_file_close(&ctx, f) != 0) fail++;
+    f = NULL;
+    if (pgfs_checkpoint_commit_pending(&ctx) != 0) { fail++; goto out; }
+
+    /* Zero the per-block accounting, then reset + replay. */
+    for (uint32_t b = 0; b < 8; b++) {
+        ctx.ftl.live_bytes_per_block[b] = 0;
+        ctx.ftl.dead_bytes_per_block[b] = 0;
+    }
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = 5 * erase_size;
+    ctx.data_log_write_addr = ctx.data_log_base_addr;
+    ctx.data_log_prepared_until = ctx.data_log_base_addr;
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts.control(opts.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx.layout);
+        }
+    }
+    if (pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 8) != 0) { fail++; goto out; }
+    if (pgfs_checkpoint_load(&ctx, &loaded_cp) != 0) { fail++; goto out; }
+    ctx.checkpoint = loaded_cp;
+    ctx.checkpoint_loaded = 1;
+    ctx.data_log_write_addr = ctx.data_log_base_addr
+        + (uint32_t)loaded_cp.log_tail_block * erase_size
+        + loaded_cp.log_tail_offset;
+    ctx.data_log_prepared_until = ctx.data_log_write_addr;
+    if (pgfs_replay_data_log(&ctx) != 0) { fail++; goto out; }
+
+    for (uint32_t b = 0; b < 8; b++) {
+        total_live += ctx.ftl.live_bytes_per_block[b];
+        total_dead += ctx.ftl.dead_bytes_per_block[b];
+    }
+    /* The v1 record's DATA-length credit must be released during replay;
+     * old behaviour kept the full v1+v2 live sums. */
+    if (total_live >= (uint32_t)(24u + 16u + v1_len) + (uint32_t)(24u + 16u + v2_len)) {
+        printf("[pgfs-shadow2] total_live=%u not reduced by replay shadow\n", (unsigned)total_live);
+        fail++;
+    }
+    if (total_dead < v1_len) {
+        printf("[pgfs-shadow2] total_dead=%u too small\n", (unsigned)total_dead);
+        fail++;
+    }
+    f = pgfs_file_open(&ctx, "/data/shadow.txt", "rb");
+    if (f == NULL) { printf("[pgfs-shadow2] file missing after replay\n"); fail++; }
+    else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx, buf, 1, v2_len, f) != v2_len ||
+            memcmp(buf, v2_payload, v2_len) != 0) {
+            printf("[pgfs-shadow2] content wrong after replay\n"); fail++;
+        }
+        pgfs_file_close(&ctx, f);
+    }
+out:
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* P0-3: fclose must FAIL when the post-append FTL write-head persist
+ * fails (durability cannot be guaranteed). */
+static int pgfs_test_ftl_persist_failure_fails_close(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    FILE* f = NULL;
+    const char payload[] = "strict_durability";
+    size_t payload_len = sizeof(payload) - 1u;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_test_ctx_init(&ctx, &opts, 4096, 8);
+    ctx.checkpoint_loaded = 1;
+
+    f = pgfs_file_open(&ctx, "/data/strict.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, payload, 1, payload_len, f) != payload_len) fail++;
+    /* Make the FTL state region unreadable so the readback verify fails. */
+    flash->fail_read_addr = pgfs_ftl_state_addr(4096);
+    flash->fail_read_len = 4096;
+    if (pgfs_file_close(&ctx, f) != -1) {
+        printf("[pgfs-strict] close should fail when FTL persist fails\n");
+        fail++;
+    }
+    f = NULL;
+out:
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* P1-1: unchanged FTL state must not be rewritten on every persist call. */
+static int pgfs_test_ftl_dirty_skip_no_redundant_persist(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_nand_ftl_ctx_t ftl = {0};
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_ftl_init(&ftl, &opts, 4096, 8);
+    pgfs_ftl_mark_block_bad(&ftl, 1);
+    if (pgfs_ftl_persist(&ftl, 1) != 0) { fail++; }
+    if (ftl.persist_success_count != 1) {
+        printf("[pgfs-dirty] first persist not counted\n"); fail++;
+    }
+    /* Unchanged state: persist must skip without rewriting flash. */
+    if (pgfs_ftl_persist(&ftl, 2) != 0) { fail++; }
+    if (ftl.persist_success_count != 1) {
+        printf("[pgfs-dirty] unchanged persist rewrote flash (count=%u)\n",
+               (unsigned)ftl.persist_success_count);
+        fail++;
+    }
+    /* Changed state: persist must actually write again. */
+    pgfs_ftl_mark_block_bad(&ftl, 2);
+    if (pgfs_ftl_persist(&ftl, 3) != 0) { fail++; }
+    if (ftl.persist_success_count != 2) {
+        printf("[pgfs-dirty] changed persist not counted\n"); fail++;
+    }
+    pgfs_ftl_deinit(&ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* P2-1: fflush is a real durability point — data survives a remount
+ * without ever calling fclose. */
+static int pgfs_test_fflush_durability_after_remount(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    pgfs_checkpoint_t loaded_cp = {0};
+    FILE* f = NULL;
+    char buf[32] = {0};
+    const char payload[] = "flushed_without_close";
+    size_t payload_len = sizeof(payload) - 1u;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_test_ctx_init(&ctx, &opts, erase_size, 8);
+    ctx.checkpoint_loaded = 1;
+
+    f = pgfs_file_open(&ctx, "/data/flush.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, payload, 1, payload_len, f) != payload_len) fail++;
+    if (pgfs_file_flush(&ctx, f) != 0) {
+        printf("[pgfs-flush] fflush failed\n"); fail++;
+    }
+    if (pgfs_checkpoint_commit_pending(&ctx) != 0) { fail++; }
+    /* Drop the handle without close (simulate crash right after fflush).
+     * After a successful fflush the cache was applied to the entry, so
+     * only the handle struct itself needs freeing. */
+    luat_heap_free(f);
+    f = NULL;
+
+    /* Remount + replay. */
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = 5 * erase_size;
+    ctx.data_log_write_addr = ctx.data_log_base_addr;
+    ctx.data_log_prepared_until = ctx.data_log_base_addr;
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts.control(opts.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx.layout);
+        }
+    }
+    if (pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 8) != 0) { fail++; goto out; }
+    if (pgfs_checkpoint_load(&ctx, &loaded_cp) != 0) { fail++; goto out; }
+    ctx.checkpoint = loaded_cp;
+    ctx.checkpoint_loaded = 1;
+    ctx.data_log_write_addr = ctx.data_log_base_addr
+        + (uint32_t)loaded_cp.log_tail_block * erase_size
+        + loaded_cp.log_tail_offset;
+    ctx.data_log_prepared_until = ctx.data_log_write_addr;
+    if (pgfs_replay_data_log(&ctx) != 0) { fail++; goto out; }
+    f = pgfs_file_open(&ctx, "/data/flush.txt", "rb");
+    if (f == NULL) { printf("[pgfs-flush] data lost after fflush+remount\n"); fail++; }
+    else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx, buf, 1, payload_len, f) != payload_len ||
+            memcmp(buf, payload, payload_len) != 0) {
+            printf("[pgfs-flush] content wrong after fflush+remount\n"); fail++;
+        }
+        pgfs_file_close(&ctx, f);
+    }
+out:
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* P2-1: writes after fflush must build on the flushed content, and a
+ * close with an empty cache (flush-only) must succeed. */
+static int pgfs_test_fflush_then_write_then_close_preserves_all(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    FILE* f = NULL;
+    char buf[16] = {0};
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_test_ctx_init(&ctx, &opts, 4096, 8);
+
+    /* flush-only close: open, write, fflush, close (empty cache). */
+    f = pgfs_file_open(&ctx, "/data/only.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, "A", 1, 1, f) != 1) fail++;
+    if (pgfs_file_flush(&ctx, f) != 0) fail++;
+    if (pgfs_file_close(&ctx, f) != 0) {
+        printf("[pgfs-flush2] close after flush failed\n"); fail++;
+    }
+    f = NULL;
+
+    /* flush then write then close: content must be "AB", not just "B". */
+    f = pgfs_file_open(&ctx, "/data/two.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, "A", 1, 1, f) != 1) fail++;
+    if (pgfs_file_flush(&ctx, f) != 0) fail++;
+    if (pgfs_file_write(&ctx, "B", 1, 1, f) != 1) fail++;
+    if (pgfs_file_close(&ctx, f) != 0) fail++;
+    f = NULL;
+    f = pgfs_file_open(&ctx, "/data/two.txt", "rb");
+    if (f == NULL) { printf("[pgfs-flush2] two.txt missing\n"); fail++; }
+    else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx, buf, 1, 2, f) != 2 || buf[0] != 'A' || buf[1] != 'B') {
+            printf("[pgfs-flush2] content '%.2s' expected 'AB'\n", buf); fail++;
+        }
+        pgfs_file_close(&ctx, f);
+    }
+out:
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* P1-2: the per-mount path hash must stay consistent across
+ * insert / find / remove / re-insert cycles. */
+static int pgfs_test_hash_lookup_roundtrip(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint8_t payload[8] = {'H'};
+    char path[64];
+    uint32_t i = 0;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_test_ctx_init(&ctx, &opts, 4096, 8);
+
+    /* Insert 60 files. */
+    for (i = 0; i < 60; i++) {
+        snprintf(path, sizeof(path), "/data/h%03u.txt", (unsigned)i);
+        if (pgfs_test_write_file(&ctx, path, payload, sizeof(payload)) != 0) {
+            printf("[pgfs-hash] write %u failed\n", (unsigned)i); fail++;
+        }
+    }
+    /* Remove every third file. */
+    for (i = 0; i < 60; i += 3) {
+        snprintf(path, sizeof(path), "/data/h%03u.txt", (unsigned)i);
+        if (pgfs_file_remove(&ctx, path) != 0) {
+            printf("[pgfs-hash] remove %u failed\n", (unsigned)i); fail++;
+        }
+    }
+    /* Re-insert one removed path (tombstone reuse). */
+    if (pgfs_test_write_file(&ctx, "/data/h000.txt", payload, sizeof(payload)) != 0) fail++;
+
+    /* Verify a sample: existing files must be visible, removed ones gone. */
+    for (i = 0; i < 60; i++) {
+        int removed = (i % 3 == 0) && (i != 0); /* h000 was re-inserted */
+        snprintf(path, sizeof(path), "/data/h%03u.txt", (unsigned)i);
+        if (removed) {
+            if (pgfs_file_fexist(&ctx, path)) {
+                printf("[pgfs-hash] removed %s still exists\n", path); fail++;
+            }
+        } else {
+            if (!pgfs_file_fexist(&ctx, path)) {
+                printf("[pgfs-hash] %s missing\n", path); fail++;
+            }
+            if (pgfs_file_fsize(&ctx, path) != sizeof(payload)) {
+                printf("[pgfs-hash] %s fsize wrong\n", path); fail++;
+            }
+        }
+    }
+    if (pgfs_file_table_lookup_last_written(&ctx, "/data/h010.txt") == 0xFFFFu) {
+        printf("[pgfs-hash] lookup_last_written failed for h010\n"); fail++;
+    }
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* P2-3: the partition gate is geometry-based, not a fixed 8MB. */
+static int pgfs_test_min_partition_geometry_gate(void) {
+    int fail = 0;
+    static uint8_t s_gate_mem[0x80000];   /* 512KB — enough for 4KB-erase gate */
+    static uint8_t s_gate_small[0x10000]; /* 64KB — too small even for 4KB erase */
+    pgfs_test_flash_t flash_ok = {0};
+    pgfs_test_flash_t flash_small = {0};
+    pgfs_test_flash_t flash_nand = {0};
+    pgfs_flash_opts_t opts_ok = {0};
+    pgfs_flash_opts_t opts_small = {0};
+    pgfs_flash_opts_t opts_nand = {0};
+
+    pgfs_vfs_init();
+
+    /* 4KB erase, 512KB (=128 blocks >= 69): must mount. */
+    memset(s_gate_mem, 0xFF, sizeof(s_gate_mem));
+    flash_ok.mem = s_gate_mem; flash_ok.mem_size = sizeof(s_gate_mem);
+    flash_ok.capacity_override = sizeof(s_gate_mem);
+    opts_ok.ctx = &flash_ok; opts_ok.read = pgfs_test_read; opts_ok.write = pgfs_test_write;
+    opts_ok.erase = pgfs_test_erase; opts_ok.control = pgfs_test_control;
+    if (luat_pgfs_mount("/pgGate", &opts_ok) != 0) {
+        printf("[pgfs-gate] 512KB/4KB mount should succeed\n"); fail++;
+    } else {
+        luat_pgfs_umount("/pgGate");
+    }
+
+    /* 4KB erase, 64KB (=16 blocks < 69): must fail. */
+    memset(s_gate_small, 0xFF, sizeof(s_gate_small));
+    flash_small.mem = s_gate_small; flash_small.mem_size = sizeof(s_gate_small);
+    flash_small.capacity_override = sizeof(s_gate_small);
+    opts_small.ctx = &flash_small; opts_small.read = pgfs_test_read; opts_small.write = pgfs_test_write;
+    opts_small.erase = pgfs_test_erase; opts_small.control = pgfs_test_control;
+    if (luat_pgfs_mount("/pgSmall", &opts_small) == 0) {
+        printf("[pgfs-gate] 64KB/4KB mount should fail\n"); fail++;
+        luat_pgfs_umount("/pgSmall");
+    }
+
+    /* 128KB erase, 8MB (=64 blocks < 69): must fail (old fixed 8MB gate
+     * accepted this — the gate is now geometry-based). */
+    memset(s_gate_small, 0xFF, sizeof(s_gate_small));
+    flash_nand.mem = s_gate_small; flash_nand.mem_size = sizeof(s_gate_small);
+    flash_nand.capacity_override = 8u * 1024u * 1024u;
+    flash_nand.erase_size_override = 128 * 1024;
+    opts_nand.ctx = &flash_nand; opts_nand.read = pgfs_test_read; opts_nand.write = pgfs_test_write;
+    opts_nand.erase = pgfs_test_erase; opts_nand.control = pgfs_test_control;
+    if (luat_pgfs_mount("/pgNand", &opts_nand) == 0) {
+        printf("[pgfs-gate] 8MB/128KB mount should fail (needs >= 69 blocks)\n"); fail++;
+        luat_pgfs_umount("/pgNand");
+    }
+    return fail;
+}
+
+/* P2-4: two-group header ECC corrects a single-bit error in bytes 8..15
+ * (e.g. data_len / crc32) during replay. */
+static int pgfs_test_ecc_two_group_roundtrip(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    pgfs_checkpoint_t loaded_cp = {0};
+    FILE* f = NULL;
+    char buf[32] = {0};
+    const char payload[] = "two_group_ecc";
+    size_t payload_len = sizeof(payload) - 1u;
+    uint32_t base = 0;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_test_ctx_init(&ctx, &opts, erase_size, 8);
+    ctx.checkpoint_loaded = 1;
+    base = ctx.data_log_base_addr;
+
+    f = pgfs_file_open(&ctx, "/data/ecc2.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, payload, 1, payload_len, f) != payload_len) fail++;
+    if (pgfs_file_close(&ctx, f) != 0) fail++;
+    f = NULL;
+    if (pgfs_checkpoint_commit_pending(&ctx) != 0) { fail++; goto out; }
+
+    /* Flip one bit in the record's SECOND ECC group window (bytes 8..15:
+     * data_len + crc32). Group 1 must correct it before CRC validation. */
+    flash->mem[base + 8] ^= 0x01u;
+
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = 5 * erase_size;
+    ctx.data_log_write_addr = ctx.data_log_base_addr;
+    ctx.data_log_prepared_until = ctx.data_log_base_addr;
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts.control(opts.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx.layout);
+        }
+    }
+    if (pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 8) != 0) { fail++; goto out; }
+    if (pgfs_checkpoint_load(&ctx, &loaded_cp) != 0) { fail++; goto out; }
+    ctx.checkpoint = loaded_cp;
+    ctx.checkpoint_loaded = 1;
+    ctx.data_log_write_addr = ctx.data_log_base_addr
+        + (uint32_t)loaded_cp.log_tail_block * erase_size
+        + loaded_cp.log_tail_offset;
+    ctx.data_log_prepared_until = ctx.data_log_write_addr;
+    if (pgfs_replay_data_log(&ctx) != 0) { fail++; goto out; }
+    f = pgfs_file_open(&ctx, "/data/ecc2.txt", "rb");
+    if (f == NULL) { printf("[pgfs-ecc2] file lost after group-1 corruption\n"); fail++; }
+    else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx, buf, 1, payload_len, f) != payload_len ||
+            memcmp(buf, payload, payload_len) != 0) {
+            printf("[pgfs-ecc2] content wrong after correction\n"); fail++;
+        }
+        pgfs_file_close(&ctx, f);
+    }
+out:
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* P2-4: a BATCH_DATA record with an ECC mismatch must continue to the
+ * CRC verdict (consistent with DATA records) instead of being skipped. */
+static int pgfs_test_batch_ecc_mismatch_continues_to_crc(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    uint32_t erase_size = 4096;
+    pgfs_checkpoint_t loaded_cp = {0};
+    FILE* f = NULL;
+    uint32_t batch_id = 0;
+    char buf[32] = {0};
+    const char payload[] = "batch_ecc_continue";
+    size_t payload_len = sizeof(payload) - 1u;
+    uint32_t base = 0;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_test_ctx_init(&ctx, &opts, erase_size, 8);
+    ctx.checkpoint_loaded = 1;
+    base = ctx.data_log_base_addr;
+
+    if (pgfs_batch_begin(&ctx, &batch_id) != 0) { fail++; goto out; }
+    f = pgfs_file_open(&ctx, "/data/batch.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_write(&ctx, payload, 1, payload_len, f) != payload_len) fail++;
+    if (pgfs_file_close(&ctx, f) != 0) fail++;
+    f = NULL;
+    if (pgfs_batch_commit(&ctx, batch_id) != 0) { fail++; goto out; }
+    if (pgfs_checkpoint_commit_pending(&ctx) != 0) { fail++; goto out; }
+
+    /* Flip one bit in the BATCH_DATA record's group-1 window (data_len +
+     * batch_id). The record must NOT be skipped on replay. */
+    flash->mem[base + 8] ^= 0x01u;
+
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.flash_opts = &opts;
+    ctx.runtime_generation = 1;
+    ctx.mounted = 1;
+    ctx.data_log_base_addr = 5 * erase_size;
+    ctx.data_log_write_addr = ctx.data_log_base_addr;
+    ctx.data_log_prepared_until = ctx.data_log_base_addr;
+    {
+        pgfs_flash_geometry_t geo = {0};
+        opts.control(opts.ctx, PGFS_CTRL_GET_GEOMETRY, &geo);
+        if (geo.erase_size > 0) {
+            pgfs_layout_compute(&geo, &ctx.layout);
+        }
+    }
+    if (pgfs_ftl_init(&ctx.ftl, &opts, erase_size, 8) != 0) { fail++; goto out; }
+    if (pgfs_checkpoint_load(&ctx, &loaded_cp) != 0) { fail++; goto out; }
+    ctx.checkpoint = loaded_cp;
+    ctx.checkpoint_loaded = 1;
+    ctx.data_log_write_addr = ctx.data_log_base_addr
+        + (uint32_t)loaded_cp.log_tail_block * erase_size
+        + loaded_cp.log_tail_offset;
+    ctx.data_log_prepared_until = ctx.data_log_write_addr;
+    if (pgfs_replay_data_log(&ctx) != 0) { fail++; goto out; }
+    f = pgfs_file_open(&ctx, "/data/batch.txt", "rb");
+    if (f == NULL) { printf("[pgfs-batchecc] batch file lost after ECC mismatch\n"); fail++; }
+    else {
+        memset(buf, 0, sizeof(buf));
+        if (pgfs_file_read(&ctx, buf, 1, payload_len, f) != payload_len ||
+            memcmp(buf, payload, payload_len) != 0) {
+            printf("[pgfs-batchecc] batch content wrong\n"); fail++;
+        }
+        pgfs_file_close(&ctx, f);
+    }
+out:
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
+/* P2-1: closing a write handle with an empty cache must succeed. */
+static int pgfs_test_empty_write_close_succeeds(void) {
+    int fail = 0;
+    pgfs_test_flash_t* flash = pgfs_test_flash_new();
+    pgfs_flash_opts_t opts = {0};
+    pgfs_mount_ctx_t ctx = {0};
+    FILE* f = NULL;
+
+    memset(flash->mem, 0xFF, flash->mem_size);
+    opts.ctx = flash; opts.read = pgfs_test_read; opts.write = pgfs_test_write;
+    opts.erase = pgfs_test_erase; opts.control = pgfs_test_control;
+    pgfs_test_ctx_init(&ctx, &opts, 4096, 8);
+
+    f = pgfs_file_open(&ctx, "/data/empty.txt", "wb");
+    if (f == NULL) { fail++; goto out; }
+    if (pgfs_file_close(&ctx, f) != 0) {
+        printf("[pgfs-empty] close of empty write handle failed\n"); fail++;
+    }
+    f = NULL;
+    if (!pgfs_file_fexist(&ctx, "/data/empty.txt")) {
+        printf("[pgfs-empty] empty file missing after close\n"); fail++;
+    }
+out:
+    pgfs_file_reset(&ctx);
+    pgfs_ftl_deinit(&ctx.ftl);
+    pgfs_test_flash_free(flash);
+    return fail;
+}
+
 int pgfs_run_c_layer_tests(void) {
     int fail = 0;
     int r = 0;
@@ -4720,16 +5554,19 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_replay_skips_unknown_prefix_to_relocated_log);
     PGFS_RUN_CTEST(pgfs_test_replay_batch_commit_marker_boundary);
     PGFS_RUN_CTEST(pgfs_test_info_fastpath_uses_runtime_checkpoint);
-    /* pgfs_test_fill_delete_rewrite_recovers_capacity omitted: depends on
-     * data-log compaction not yet implemented. */
+    /* pgfs_test_fill_delete_rewrite_recovers_capacity intentionally not in
+     * the default dispatch: it uses a legacy overlapping layout (data log
+     * base 0x4000 == FTL state block) with a 2-block data log, which the
+     * wrap-around allocator cannot service without headroom. The P0-2
+     * symmetric live/dead accounting is covered by
+     * pgfs_test_overwrite_live_dead_symmetric and
+     * pgfs_test_replay_shadow_live_dead_symmetric. */
     PGFS_RUN_CTEST(pgfs_test_repeated_add_delete_stays_stable);
     PGFS_RUN_CTEST(pgfs_test_info_fast_after_many_small_files);
     PGFS_RUN_CTEST(pgfs_test_powercut_stage_matrix_visibility);
     PGFS_RUN_CTEST(pgfs_test_reserved_blocks_never_allocated);
     PGFS_RUN_CTEST(pgfs_test_reserved_bitmap_persists_roundtrip);
     PGFS_RUN_CTEST(pgfs_test_alloc_prefers_low_erase_count);
-    /* pgfs_test_fill_delete_rewrite_recovers_capacity omitted: depends on
-     * data-log compaction not yet implemented. */
     PGFS_RUN_CTEST(pgfs_test_powercut_after_cp_erase_recovers_previous);
     PGFS_RUN_CTEST(pgfs_test_skip_ftl_state_block_in_data_log_erase);
     PGFS_RUN_CTEST(pgfs_test_single_block_retired_recovers);
@@ -4768,11 +5605,20 @@ int pgfs_run_c_layer_tests(void) {
     PGFS_RUN_CTEST(pgfs_test_vfs_mount_umount_slot_reuse);
     PGFS_RUN_CTEST(pgfs_test_vfs_mount_slot_exhaustion);
     PGFS_RUN_CTEST(pgfs_test_vfs_umount_persists_remount_recovers);
-    /* NOTE: pgfs_test_fill_delete_rewrite_recovers_capacity is intentionally
-     * not registered in the default c_layer_selftests dispatch. It depends
-     * on data-log compaction after file deletion to reset the write head,
-     * which is not yet implemented. Run it explicitly via the named-case
-     * dispatch below if needed. */
+    /* P0-1/P0-2/P1-2/P2-1/P2-3/P2-4/P3-x regression tests. */
+    PGFS_RUN_CTEST(pgfs_test_multi_mount_same_path_isolation);
+    PGFS_RUN_CTEST(pgfs_test_mount_b_after_a_keeps_a_readable);
+    PGFS_RUN_CTEST(pgfs_test_overwrite_live_dead_symmetric);
+    PGFS_RUN_CTEST(pgfs_test_replay_shadow_live_dead_symmetric);
+    PGFS_RUN_CTEST(pgfs_test_ftl_persist_failure_fails_close);
+    PGFS_RUN_CTEST(pgfs_test_ftl_dirty_skip_no_redundant_persist);
+    PGFS_RUN_CTEST(pgfs_test_fflush_durability_after_remount);
+    PGFS_RUN_CTEST(pgfs_test_fflush_then_write_then_close_preserves_all);
+    PGFS_RUN_CTEST(pgfs_test_hash_lookup_roundtrip);
+    PGFS_RUN_CTEST(pgfs_test_min_partition_geometry_gate);
+    PGFS_RUN_CTEST(pgfs_test_ecc_two_group_roundtrip);
+    PGFS_RUN_CTEST(pgfs_test_batch_ecc_mismatch_continues_to_crc);
+    PGFS_RUN_CTEST(pgfs_test_empty_write_close_succeeds);
 #undef PGFS_RUN_CTEST
     return fail == 0 ? 0 : -1;
 }
@@ -4871,7 +5717,7 @@ static int pgfs_test_replay_shadow_detection_marks_dead_bytes(void) {
         }
     }
     ctx.checkpoint.gc_dead_bytes = 0;
-    pgfs_file_reset_all();
+    pgfs_file_reset(&ctx);
     pgfs_ftl_deinit(&ctx.ftl);
     memset(&ctx, 0, sizeof(ctx));
     ctx.flash_opts = &opts;

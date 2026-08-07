@@ -1,10 +1,15 @@
---[[
+﻿--[[
 @module exaudio
 @summary exaudio扩展库
-@version 2.5
-@date    2026.8.3
+@version 2.6
+@date    2026.8.6
 @author  拓毅恒
 @updates
+    v2.6 2026.8.6
+        1. 新音频框架play_start()播放前主动exaudio.pm(audio.RESUME)恢复ES8311工作模式
+        2. 新音频框架play_stop()手动停止时exaudio.pm(audio.SHUTDOWN)下电ES8311省电
+        3. exaudio.vol()同步更新voice_vol变量，修复CC铃声无法设置问题
+        4. 通话自动唤醒：固件含cc库时自动订阅CC_IND事件，每次通话PLAY时自动RESUME唤醒，
     v2.5 2026.8.3
         1. play_start()文件播放新增文件头损坏预检：对mp3/amr/wav格式，播放前先解析文件头，
            文件不存在或文件头损坏时停止播放并提示"播放文件损坏，请更换文件播放"
@@ -53,6 +58,11 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202608061100
+-- 1、更新时间：2026-08-06 11:00
+--    新音频框架play_start()播放前主动exaudio.pm(audio.RESUME)恢复ES8311工作模式
+--    新音频框架play_stop()手动停止时exaudio.pm(audio.SHUTDOWN)下电ES8311省电
+--    同时exaudio.vol()同步更新voice_vol变量，修复CC铃声无法设置问题
 -- 版本号：202608031526
 -- 1、更新时间：2026-08-03 15:26
 --    play_start()文件播放新增文件头损坏预检功能
@@ -224,6 +234,7 @@ local audio_stream_queue = {
 }
 
 -- audio_v2相关变量
+local cc_auto_pm_enabled = false      -- 通话自动唤醒是否已开启（防止重复订阅CC_IND）
 local audio_v2_request_index = nil  -- 当前播放请求的索引
 local audio_v2_record_request_index = nil  -- 当前录音请求的索引
 local audio_v2_stream_file_fp = nil  -- 流式播放文件句柄(audio_v2模式)
@@ -1054,7 +1065,21 @@ function exaudio.setup(audioConfigs)
     -- 确保采样位数和声道数有默认值
     audio_setup_param.bits_per_sample = audio_setup_param.bits_per_sample or 16
     audio_setup_param.channels = audio_setup_param.channels or 1
-    
+
+    -- 通话自动唤醒
+    -- 自动订阅CC_IND事件，每次通话PLAY（开始有音频输出）时自动exaudio.pm(audio.RESUME)唤醒ES8311，
+    -- 通话结束后的休眠由业务脚本控制（demo内exaudio.pm(audio.SHUTDOWN)）
+    if type(cc) == "userdata" and not cc_auto_pm_enabled then
+        cc_auto_pm_enabled = true
+        sys.subscribe("CC_IND", function(status)
+            if status == "PLAY" then
+                -- 通话建立/开始有音频输出：确保ES8311处于工作状态
+                exaudio.pm(audio.RESUME)
+            end
+        end)
+        log.info("exaudio.setup", "cc auto resume enabled")
+    end
+
     -- 根据模式选择初始化方式
     if USE_AUDIO_V2 then
         return audio_v2_setup()
@@ -1081,6 +1106,9 @@ function exaudio.play_start(playConfigs)
         -- 设置默认优先级
         playConfigs.priority = playConfigs.priority or 0
         
+        -- 恢复audio.RESUME工作模式
+        exaudio.pm(audio.RESUME)
+
         -- audio_v2播放
         local play_type = playConfigs.type
         local ok, req_id = false, nil
@@ -1396,7 +1424,7 @@ function exaudio.play_stop(stopConfigs)
             audio_v2_stream_codec_id = nil
             audio_v2_stream_data_start = nil
             audio_play_queue.current_priority = 0
-            audio_v2.shutdown(false, true, true)
+            exaudio.pm(audio.SHUTDOWN)
             return true
         end
         return false
@@ -1673,9 +1701,18 @@ end
 -- @return 是否成功
 function exaudio.vol(play_volume, driver_probe_id)
     if USE_AUDIO_V2 then
-        -- audio_v2音量设置使用soft_volume
-        if check_param(play_volume, "number", "音量值") then
-            return audio_v2.soft_volume(play_volume, driver_probe_id)
+        if not audio_v2_es8311_drv then
+            local ok
+            ok, audio_v2_es8311_drv = pcall(require, "es8311")
+        end
+        if audio_v2_es8311_drv then
+            -- audio_v2音量设置使用soft_volume
+            if check_param(play_volume, "number", "音量值") then
+                audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, play_volume)
+                audio_v2.soft_volume(play_volume, driver_probe_id)
+                voice_vol = play_volume  -- 同步更新，exaudio.pm(RESUME)恢复ES8311时使用最新音量
+                return true
+            end
         end
         return false
     end
@@ -1974,7 +2011,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608031526"
+    return "202608061100"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

@@ -2,20 +2,24 @@
 @module  main
 @summary PCF8574 GPIO 扩展 Demo 入口
 @version 1.0
-@date    2026.07.31
+@date    2026.08.06
 @author  沈园园
+@usage
+本 demo 演示 PCF8574 GPIO 扩展芯片的完整功能，业务逻辑见 pcf8574_app.lua
 ]]
 
 --[[
 === 演示内容 ===
 
 本 demo 演示 exs_pcf8574 扩展库的完整功能，顺序为：
-HELLO→[1/4]→[2/4]→[3/4]→[4/4]→End
-1、GPIO 输出测试（[1/4]）- P0 输出高低电平切换
-2、GPIO 输入测试（[2/4]）- P1 读取输入电平
-3、GPIO 中断测试（[3/4]）- P3 中断回调
-4、批量读写测试（[4/4]）- read_all/write_all
 
+1、[1/5] GPIO 输出测试 - P0 输出高低电平切换
+2、[2/5] GPIO 输入测试 - P1 输出 → P2 读取
+3、[3/5] GPIO 中断测试 - P3 输出 → P4 中断回调
+4、[4/5] 批量读写测试 - write_all/read_all
+5、[5/5] 数据读取与资源释放
+
+更多说明参考本目录下的 readme.md 文件
 ]]
 
 --[[
@@ -25,10 +29,9 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
--- main.lua - 程序入口文件
 
-PROJECT = "PCF8574_Demo"    -- 项目命名
-VERSION = "001.999.000"    -- 项目版本号
+PROJECT = "sensor_pcf8574"
+VERSION = "001.999.000"
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
@@ -38,9 +41,7 @@ log.info("main", PROJECT, VERSION)
 
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
--- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
--- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
--- 启动errDump日志存储并且上传功能，600秒上传一次
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息
 -- if errDump then
 --     errDump.config(true, 600)
 -- end
@@ -49,22 +50,19 @@ log.info("main", PROJECT, VERSION)
 -- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
 -- 可以使用合宙的iot.openluat.com平台进行远程升级
 -- 也可以使用客户自己搭建的平台进行远程升级
--- 远程升级的详细用法，可以参考fota的demo进行使用
 
 
 -- 启动一个循环定时器
--- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 每隔3秒钟打印一次总内存，实时/已使用/历史最高内存情况
 -- 方便分析内存使用是否有异常
--- sys.timerLoopStart(function()
+-- local function mem_check_func()
 --     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
--- end, 3000)
+-- end
+-- sys.timerLoopStart(mem_check_func, 3000)
 
--- 加载 pcf8574_demo.lua 演示模块
-require "pcf8574_demo"
+-- 加载业务模块
+require "pcf8574_app"
 
-
--- 用户代码已结束
--- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行
+-- sys.run() 之后不要加任何语句

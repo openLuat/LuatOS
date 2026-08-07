@@ -112,7 +112,8 @@ static int pgfs_lf_erase(void *ctx, uint32_t block_addr, uint32_t block_count) {
 
     /* Update FTL erase counts and bad-block state */
     pgfs_mount_ctx_t *mount_ctx = pgfs_find_mount_by_opts(&bus->opts);
-    if (mount_ctx == NULL) mount_ctx = pgfs_find_first_mounted();
+    /* P3-1: never fall back to "first mounted" — in a multi-mount setup
+     * that would attribute this bus's erase to the wrong partition. */
     if (mount_ctx && mount_ctx->mounted) {
         uint32_t block_id = block_addr / bus->flash->chip_info.erase_size;
         if (ret == LF_ERR_OK) {
@@ -171,7 +172,7 @@ static uint32_t pgfs_compute_data_log_base(const pgfs_flash_opts_t* opts) {
     return layout.data_log_first_block * layout.erase_size;
 }
 
-static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
+static int pgfs_mount_impl(void** fsdata, luat_fs_conf_t *conf, int read_only) {
     int ret = 0;
     size_t mlen = 0;
     pgfs_mount_ctx_t* ctx = NULL;
@@ -189,7 +190,14 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
         return -1;
     }
     memset(ctx, 0, sizeof(*ctx));
-    pgfs_file_reset_all();
+    /* P0-1: per-mount tables. Mounting a second partition must NOT wipe
+     * the first partition's file table (the old pgfs_file_reset_all()
+     * did exactly that). */
+    if (pgfs_tables_init(ctx) != 0) {
+        LLOGE("pgfs: per-mount table allocation failed");
+        memset(ctx, 0, sizeof(*ctx));
+        return -1;
+    }
     mlen = strlen(conf->mount_point);
     if (mlen >= sizeof(ctx->mount_point)) {
         mlen = sizeof(ctx->mount_point) - 1;
@@ -202,18 +210,29 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
     if (ctx->mutex == NULL) {
         ctx->mutex = luat_mutex_create();
     }
-    /* TDD gate: reject partitions smaller than 8MB.
-     * 256KB-class utest partitions cannot host the FTL metadata
-     * (~256KB) + 2x superblock + 2x CP + 64 segments of 128KB
-     * blocks. They cause "no free blocks" failures in the FTL. */
+    /* P2-3: geometry-based partition gate. The allocator needs at least
+     * PGFS_MIN_DATA_LOG_BLOCKS data-log segments (plus the 5 reserved
+     * blocks). This replaces the old fixed 8MB minimum, keeping 128KB-
+     * erase NAND at ~8.6MB while unlocking 4KB-erase NOR partitions of a
+     * few hundred KB. */
     {
         pgfs_flash_geometry_t geo = {0};
         if (ctx->flash_opts->control &&
             ctx->flash_opts->control(ctx->flash_opts->ctx,
                                            PGFS_CTRL_GET_GEOMETRY, &geo) == 0) {
-            if (geo.capacity < PGFS_MIN_PARTITION_BYTES) {
-                LLOGE("pgfs: partition too small (%u bytes), need >= %u",
-                      (unsigned)geo.capacity, (unsigned)PGFS_MIN_PARTITION_BYTES);
+            uint64_t min_bytes = 0;
+            if (geo.erase_size == 0) {
+                LLOGE("pgfs: invalid geometry (erase_size=0)");
+                pgfs_tables_deinit(ctx);
+                memset(ctx, 0, sizeof(*ctx));
+                return -1;
+            }
+            min_bytes = (uint64_t)(PGFS_LAYOUT_RESERVED_BLOCKS + PGFS_MIN_DATA_LOG_BLOCKS) *
+                        (uint64_t)geo.erase_size;
+            if (geo.capacity < min_bytes) {
+                LLOGE("pgfs: partition too small (%u bytes), need >= %llu",
+                      (unsigned)geo.capacity, (unsigned long long)min_bytes);
+                pgfs_tables_deinit(ctx);
                 memset(ctx, 0, sizeof(*ctx));
                 return -1;
             }
@@ -227,6 +246,7 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
     if (ret != 0) {
         ret = pgfs_rebuild_checkpoint_from_replay(ctx);
         if (ret != 0) {
+            pgfs_tables_deinit(ctx);
             memset(ctx, 0, sizeof(*ctx));
             return -1;
         }
@@ -241,6 +261,7 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
          * flash_opts is set). */
         if (pgfs_ftl_on_mount(ctx) != 0) {
             LLOGE("pgfs: early FTL init failed");
+            pgfs_tables_deinit(ctx);
             memset(ctx, 0, sizeof(*ctx));
             return -1;
         }
@@ -305,6 +326,7 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
          * performance intent of the O(1) optimization is preserved. */
         ret = pgfs_replay_data_log(ctx);
         if (ret != 0) {
+            pgfs_tables_deinit(ctx);
             memset(ctx, 0, sizeof(*ctx));
             return -1;
         }
@@ -315,14 +337,22 @@ static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
     /* NAND FTL init: try loading persisted state, fall back to factory scan */
     if (pgfs_ftl_on_mount(ctx) != 0) {
         LLOGE("pgfs: NAND FTL init failed");
+        pgfs_tables_deinit(ctx);
         memset(ctx, 0, sizeof(*ctx));
         return -1;
     }
 
     ctx->mounted = 1;
+    /* P3-3: set read-only inside the mount call so there is no window in
+     * which a concurrent mutating open can slip through. */
+    ctx->read_only = (uint8_t)(read_only ? 1 : 0);
     ctx->stats.mount_count += 1;
     *fsdata = ctx;
     return 0;
+}
+
+static int luat_vfs_pgfs_mount(void** fsdata, luat_fs_conf_t *conf) {
+    return pgfs_mount_impl(fsdata, conf, 0);
 }
 
 static int luat_vfs_pgfs_umount(void* fsdata, luat_fs_conf_t *conf) {
@@ -346,7 +376,8 @@ static int luat_vfs_pgfs_umount(void* fsdata, luat_fs_conf_t *conf) {
         }
         pgfs_ftl_deinit(&ctx->ftl);
     }
-    pgfs_file_reset_all();
+    /* P0-1: free this mount's tables (entry data + arrays). */
+    pgfs_tables_deinit(ctx);
     if (ctx->mutex != NULL) {
         luat_mutex_release(ctx->mutex);
         ctx->mutex = NULL;
@@ -553,14 +584,17 @@ int luat_pgfs_mount(const char *mount_point, const pgfs_flash_opts_t *opts) {
  * operations (write, remove, mkdir, rmdir). Useful for audit/forensic
  * scenarios and for mounting known-good images without risk of corruption. */
 int luat_pgfs_mount_ro(const char *mount_point, const pgfs_flash_opts_t *opts) {
-    pgfs_mount_ctx_t* ctx;
-    int ret = luat_pgfs_mount(mount_point, opts);
-    if (ret != 0) return ret;
-    ctx = pgfs_find_mount_by_point(mount_point);
-    if (ctx != NULL) {
-        ctx->read_only = 1;
-    }
-    return 0;
+    /* P3-3: mount directly with the read-only flag set inside the mount
+     * call, eliminating the race window where a concurrent mutating open
+     * could slip in between mount completion and the flag being set. */
+    luat_fs_conf_t conf = {
+        .busname = (char*)opts,
+        .type = "pgfs",
+        .filesystem = "pgfs",
+        .mount_point = mount_point,
+    };
+    void* fsdata = NULL;
+    return pgfs_mount_impl(&fsdata, &conf, 1);
 }
 
 int luat_pgfs_umount(const char *mount_point) {
@@ -783,7 +817,7 @@ static int pgfs_control_reset_runtime_ctx(pgfs_mount_ctx_t* ctx) {
         luat_mutex_release(ctx->mutex);
         ctx->mutex = NULL;
     }
-    pgfs_file_reset_all();
+    pgfs_tables_deinit(ctx);
     memset(ctx, 0, sizeof(*ctx));
     ctx->runtime_generation = next_generation == 0 ? 1 : next_generation + 1;
     ctx->flash_opts = flash_opts;

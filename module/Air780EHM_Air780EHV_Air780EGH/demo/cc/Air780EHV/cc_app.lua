@@ -209,8 +209,12 @@ sys.subscribe("CC_IND", function(status)
         if ACTIVE_SCENARIO == 4 then
             sys.timerStart(dial_for_scenario4, 1000)  -- 延迟1秒拨号
         end
+    elseif status == "PLAY" then
+        -- 开始有音频输出后，播放文件会由exaudio.play_start自动唤醒，无需手动设置
+        -- exaudio.pm(audio.RESUME)
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
-        exaudio.pm(audio.SHUTDOWN)   --主动进入低功耗模式
+        -- 通话结束，主动进入低功耗模式
+        exaudio.pm(audio.SHUTDOWN)
     end
 end)
 

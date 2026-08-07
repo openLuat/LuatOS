@@ -220,7 +220,7 @@ static int l_netdrv_dhcp(lua_State *L) {
         data = luaL_checklstring(L, 3, &len);
         drv = luat_netdrv_get(id);
         if(((len + 1) > 32) || (drv == NULL)) {
-            LLOGD("adapter %d dhcp name set fail", id);
+            LLOGW("adapter %d dhcp name set fail", id);
             lua_pushboolean(L, 0);
             return 1;
         }

@@ -75,7 +75,7 @@ static __NETDRV_CODE_IN_RAM__ err_t _usb_eth_netif_output(struct netif *netif, s
 
 	if (!luat_no_data_fifo_check_free_space(&ctx->tx_cache_fifo)) {
 		luat_netdrv_stat_inc(&ctx->drv.statics.drop, p->tot_len);
-		LLOGE("tx_cache_fifo is full, drop %d bytes", p->tot_len);
+		LLOGW("tx_cache_fifo is full, drop %d bytes", p->tot_len);
 		return ERR_IF;
 	}
 	uint32_t tx_index = luat_no_data_fifo_next_write_index(&ctx->tx_cache_fifo);
@@ -133,7 +133,7 @@ static void _usb_eth_netif_add(void *param)
 
 static void _usb_log(void *param)
 {
-	LLOGE("%s", (char *)param);
+	LLOGW("%s", (char *)param);
 }
 
 static void _usb_eth_rx_drain_to_lwip(void *param)

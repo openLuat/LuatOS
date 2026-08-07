@@ -39,28 +39,32 @@ void luat_netdrv_rx_stat_reset(void) {
 }
 
 void luat_netdrv_rx_stat_print(void) {
-    LLOGW("RX_STAT injected=%u drop_heap=%u drop_mbox=%u drop_pbuf=%u input_fail=%u",
+    LLOGD("RX_STAT injected=%u drop_heap=%u drop_mbox=%u drop_pbuf=%u input_fail=%u",
           g_rx_stat.injected, g_rx_stat.drop_heap, g_rx_stat.drop_mbox,
           g_rx_stat.drop_pbuf, g_rx_stat.input_fail);
 }
 
 // 打印被丢弃的以太网帧摘要: 协议/地址/端口/TCP seq
 static void netdrv_log_rx_drop(const char* reason, const uint8_t* buff, uint16_t len) {
+    // 默认隐藏, 调试时通过 netdrv.debug(0, true) 打开
+    if (!g_netdrv_debug_enable) {
+        return;
+    }
     uint8_t proto = 0;
     uint16_t sport = 0, dport = 0;
     uint32_t seq = 0;
     if (buff == NULL || len < 34) {
-        LLOGE("RX_DROP %s len=%u (帧过短)", reason, len);
+        LLOGD("RX_DROP %s len=%u (帧过短)", reason, len);
         return;
     }
     const uint8_t* ip = buff + 14; // 以太网头14字节
     if ((ip[0] >> 4) != 4) {
-        LLOGE("RX_DROP %s len=%u (非IPv4)", reason, len);
+        LLOGD("RX_DROP %s len=%u (非IPv4)", reason, len);
         return;
     }
     uint16_t ihl = (uint16_t)(ip[0] & 0x0F) * 4;
     if (len < 14 + ihl + 20) {
-        LLOGE("RX_DROP %s len=%u (帧被截断)", reason, len);
+        LLOGD("RX_DROP %s len=%u (帧被截断)", reason, len);
         return;
     }
     proto = ip[9];
@@ -70,7 +74,7 @@ static void netdrv_log_rx_drop(const char* reason, const uint8_t* buff, uint16_t
         seq = ((uint32_t)ip[ihl + 4] << 24) | ((uint32_t)ip[ihl + 5] << 16) |
               ((uint32_t)ip[ihl + 6] << 8) | ip[ihl + 7];
     }
-    LLOGE("RX_DROP %s len=%u proto=%u %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u seq=%u",
+    LLOGD("RX_DROP %s len=%u proto=%u %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u seq=%u",
           reason, len, proto,
           ip[12], ip[13], ip[14], ip[15], sport,
           ip[16], ip[17], ip[18], ip[19], dport, seq);
@@ -222,7 +226,6 @@ int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t 
     if (p == NULL) {
         g_rx_stat.drop_pbuf++;
         netdrv_log_rx_drop("pbuf_alloc", buff, len);
-        LLOGD("分配pbuf失败!!! %d", len);
         return 1; // 需要处理下一个包
     }
     pbuf_take(p, buff, len);
@@ -230,7 +233,6 @@ int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t 
     if (ptr == NULL) {
         g_rx_stat.drop_heap++;
         netdrv_log_rx_drop("heap", buff, len);
-        LLOGE("收到rx数据,但内存已满, 无法处理只能抛弃 %d", len - 4);
         pbuf_free(p);
         return 1;
     }
@@ -241,7 +243,6 @@ int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t 
     if (ret != ERR_OK) {
         g_rx_stat.drop_mbox++;
         netdrv_log_rx_drop("mbox", buff, len);
-        LLOGE("netif_input_proxy: tcpip_callback failed ret=%d len=%d", ret, len);
         pbuf_free(p);
         luat_heap_free(ptr);
         return 1;

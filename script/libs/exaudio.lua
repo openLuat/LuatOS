@@ -1,10 +1,13 @@
 ﻿--[[
 @module exaudio
 @summary exaudio扩展库
-@version 2.6
-@date    2026.8.6
+@version 2.7
+@date    2026.8.7
 @author  拓毅恒
 @updates
+    v2.7 2026.8.7
+        1. 新增休眠控制宏exaudio.RESUME/exaudio.SHUTDOWN，解决Air1602等无audio库固件播放报错
+        2. 所有exaudio.pm()调用统一改为exaudio.pm(exaudio.RESUME)/exaudio.pm(exaudio.SHUTDOWN)
     v2.6 2026.8.6
         1. 新音频框架play_start()播放前主动exaudio.pm(audio.RESUME)恢复ES8311工作模式
         2. 新音频框架play_stop()手动停止时exaudio.pm(audio.SHUTDOWN)下电ES8311省电
@@ -58,6 +61,10 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202608071000
+-- 1、更新时间：2026-08-07 10:29
+--    新增休眠控制宏exaudio.RESUME/exaudio.SHUTDOWN，解决Air1602等无audio库固件报错
+--    所有exaudio.pm()调用统一改为exaudio.pm(exaudio.RESUME)/exaudio.pm(exaudio.SHUTDOWN)
 -- 版本号：202608061100
 -- 1、更新时间：2026-08-06 11:00
 --    新音频框架play_start()播放前主动exaudio.pm(audio.RESUME)恢复ES8311工作模式
@@ -145,6 +152,10 @@ exaudio.PCM_16000 = 3
 exaudio.PCM_24000 = 4
 exaudio.PCM_32000 = 5
 exaudio.PCM_48000 = 6
+
+-- 休眠控制模式宏
+exaudio.RESUME = 0      -- 工作模式
+exaudio.SHUTDOWN = 2    -- 关断模式
 
 -- ==================== 版本自适应 ====================
 -- 根据版本号自适应设置dac_delay
@@ -461,7 +472,7 @@ local function audio_callback(id, event, point)
             -- 没有更多请求，清空流式播放数据队列并进入休眠
             audio_stream_queue.data = {}
             audio_stream_queue.sequenceIndex = 1
-            audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
+            audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN) -- 关断模式
             audio_play_queue.current_priority = 0
         end
         
@@ -483,7 +494,7 @@ local function audio_callback(id, event, point)
             audio_record_param.cbfnc(exaudio.RECORD_DONE)
         end
 
-        audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
+        audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN) -- 关断模式
     end
 end
 
@@ -732,7 +743,7 @@ local function audio_setup()
     -- 注册回调
     audio.on(MULTIMEDIA_ID, audio_callback)
     
-    audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
+    audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN) -- 关断模式
     log.info("exaudio.setup", "声道数已设置为:"..audio_setup_param.channels.."(1=单声道,2=双声道)")
     return true
 end
@@ -1067,14 +1078,14 @@ function exaudio.setup(audioConfigs)
     audio_setup_param.channels = audio_setup_param.channels or 1
 
     -- 通话自动唤醒
-    -- 自动订阅CC_IND事件，每次通话PLAY（开始有音频输出）时自动exaudio.pm(audio.RESUME)唤醒ES8311，
-    -- 通话结束后的休眠由业务脚本控制（demo内exaudio.pm(audio.SHUTDOWN)）
+    -- 自动订阅CC_IND事件，每次通话PLAY（开始有音频输出）时自动exaudio.pm(exaudio.RESUME)唤醒ES8311，
+    -- 通话结束后的休眠由业务脚本控制（demo内exaudio.pm(exaudio.SHUTDOWN)）
     if type(cc) == "userdata" and not cc_auto_pm_enabled then
         cc_auto_pm_enabled = true
         sys.subscribe("CC_IND", function(status)
             if status == "PLAY" then
                 -- 通话建立/开始有音频输出：确保ES8311处于工作状态
-                exaudio.pm(audio.RESUME)
+                exaudio.pm(exaudio.RESUME)
             end
         end)
         log.info("exaudio.setup", "cc auto resume enabled")
@@ -1106,8 +1117,8 @@ function exaudio.play_start(playConfigs)
         -- 设置默认优先级
         playConfigs.priority = playConfigs.priority or 0
         
-        -- 恢复audio.RESUME工作模式
-        exaudio.pm(audio.RESUME)
+        -- 恢复RESUME工作模式
+        exaudio.pm(exaudio.RESUME)
 
         -- audio_v2播放
         local play_type = playConfigs.type
@@ -1324,8 +1335,8 @@ function exaudio.play_start(playConfigs)
         return false
     else
         -- audio模式播放
-        -- 恢复audio.RESUME工作模式
-        audio.pm(MULTIMEDIA_ID, audio.RESUME)
+        -- 恢复RESUME工作模式
+        audio.pm(MULTIMEDIA_ID, exaudio.RESUME)
         if not playConfigs or type(playConfigs) ~= "table" then
             log.error("播放配置必须为table类型")
             return false
@@ -1424,7 +1435,7 @@ function exaudio.play_stop(stopConfigs)
             audio_v2_stream_codec_id = nil
             audio_v2_stream_data_start = nil
             audio_play_queue.current_priority = 0
-            exaudio.pm(audio.SHUTDOWN)
+            exaudio.pm(exaudio.SHUTDOWN)
             return true
         end
         return false
@@ -1460,7 +1471,7 @@ function exaudio.play_stop(stopConfigs)
             audio_stream_queue.data = {}
             audio_stream_queue.sequenceIndex = 1
             audio_play_queue.current_priority = 0
-            audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN)
+            audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN)
         end
         return result
     else  -- 文件播放或TTS播放
@@ -1469,7 +1480,7 @@ function exaudio.play_stop(stopConfigs)
         if result then
             -- 只有当停止的是当前播放类型时才清空状态
             audio_play_queue.current_priority = 0
-            audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN)
+            audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN)
         end
         return result
     end
@@ -1602,8 +1613,8 @@ function exaudio.record_start(recodConfigs)
     end
     
     -- ========== audio模式录音 ==========
-    -- 恢复audio.RESUME工作模式
-    audio.pm(MULTIMEDIA_ID, audio.RESUME)
+    -- 恢复RESUME工作模式
+    audio.pm(MULTIMEDIA_ID, exaudio.RESUME)
 
     -- 转换录音格式
     local recod_format, amr_quailty
@@ -1701,7 +1712,8 @@ end
 -- @return 是否成功
 function exaudio.vol(play_volume, driver_probe_id)
     if USE_AUDIO_V2 then
-        if not audio_v2_es8311_drv then
+        -- 仅ES8311模式下才加载es8311驱动（DAC/TM8211模式无ES8311芯片，i2c不存在）
+        if not audio_v2_es8311_drv and audio_setup_param.model == "es8311" then
             local ok
             ok, audio_v2_es8311_drv = pcall(require, "es8311")
         end
@@ -1711,6 +1723,13 @@ function exaudio.vol(play_volume, driver_probe_id)
                 audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, play_volume)
                 audio_v2.soft_volume(play_volume, driver_probe_id)
                 voice_vol = play_volume  -- 同步更新，exaudio.pm(RESUME)恢复ES8311时使用最新音量
+                return true
+            end
+        else
+            -- DAC/TM8211模式：无硬件音量寄存器，仅设置soft_volume
+            if check_param(play_volume, "number", "音量值") then
+                audio_v2.soft_volume(play_volume, driver_probe_id)
+                voice_vol = play_volume
                 return true
             end
         end
@@ -1726,7 +1745,8 @@ end
 -- 设置麦克风音量
 function exaudio.mic_vol(record_volume)
     if USE_AUDIO_V2 then
-        if not audio_v2_es8311_drv then
+        -- 仅ES8311模式下才加载es8311驱动（DAC/TM8211模式无ES8311芯片，i2c不存在）
+        if not audio_v2_es8311_drv and audio_setup_param.model == "es8311" then
             local ok
             ok, audio_v2_es8311_drv = pcall(require, "es8311")
         end
@@ -1735,7 +1755,9 @@ function exaudio.mic_vol(record_volume)
             mic_vol = record_volume
             return true
         end
-        return false
+        -- DAC/TM8211模式：无硬件MIC增益寄存器，仅记录数值
+        mic_vol = record_volume
+        return true
     end
     
     if check_param(record_volume, "number", "麦克风音量值") then
@@ -1780,11 +1802,11 @@ function exaudio.finish(data)
 end
 
 -- 休眠控制
--- @param pm_mode 休眠模式: audio.SHUTDOWN/audio.RESUME
+-- @param pm_mode 休眠模式: exaudio.SHUTDOWN/exaudio.RESUME
 -- @return 是否成功
 -- @usage
--- exaudio.pm(audio.SHUTDOWN)
--- exaudio.pm(audio.RESUME)
+-- exaudio.pm(exaudio.SHUTDOWN)
+-- exaudio.pm(exaudio.RESUME)
 function exaudio.pm(pm_mode)
     if USE_AUDIO_V2 then
         -- 新框架：使用audio_v2.shutdown + es8311操作进入休眠
@@ -1792,15 +1814,19 @@ function exaudio.pm(pm_mode)
             log.error("exaudio.pm", "audio_v2模块未加载")
             return false
         end
-        local es8311_ok, es8311_drv = pcall(require, "es8311")
-        if pm_mode == audio.SHUTDOWN then
+        -- 仅ES8311模式下才操作es8311驱动（DAC/TM8211模式无ES8311芯片，i2c不存在）
+        local es8311_ok, es8311_drv = false, nil
+        if audio_setup_param.model == "es8311" then
+            es8311_ok, es8311_drv = pcall(require, "es8311")
+        end
+        if pm_mode == exaudio.SHUTDOWN then
             -- SHUTDOWN：下电ES8311，关闭PA，保持驱动和CODEC以备快速恢复
             if es8311_ok and es8311_drv then
                 es8311_drv.power_down(audio_setup_param.i2c_id or 0)
             end
             audio_v2.shutdown(true, false, true)
             return true
-        elseif pm_mode == audio.RESUME then
+        elseif pm_mode == exaudio.RESUME then
             -- RESUME：恢复ES8311，确保所有模块处于工作状态
             if es8311_ok and es8311_drv then
                 es8311_drv.init(audio_setup_param.i2c_id or 0)
@@ -1815,8 +1841,8 @@ function exaudio.pm(pm_mode)
         return false
     end
 
-    -- 旧框架：直接调用audio.pm
-    if audio.pm then
+    -- 旧框架：直接调用audio.pm（pm_mode为数值宏，与audio.RESUME/audio.SHUTDOWN一致）
+    if audio and audio.pm then
         return audio.pm(MULTIMEDIA_ID, pm_mode)
     end
     return false
@@ -2011,7 +2037,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608061100"
+    return "202608071029"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

@@ -141,7 +141,7 @@ local function cc_function(status)
     if status == "READY" then
         sys.publish("CC_READY")  -- 发布系统就绪事件
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
-        exaudio.pm(audio.SHUTDOWN)   --主动进入低功耗模式
+        exaudio.pm(exaudio.SHUTDOWN)   --主动进入低功耗模式
     end
 end
 

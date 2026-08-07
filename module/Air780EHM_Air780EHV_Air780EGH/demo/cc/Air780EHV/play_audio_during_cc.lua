@@ -202,10 +202,10 @@ local function handle_cc_ind(status)
         end
     elseif status == "PLAY" then
         -- 开始有音频输出后，通话前会由exaudio自动RESUME唤醒，无需手动设置
-        -- exaudio.pm(audio.RESUME)
+        -- exaudio.pm(exaudio.RESUME)
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
         -- 通话结束，主动进入低功耗模式
-        exaudio.pm(audio.SHUTDOWN)
+        exaudio.pm(exaudio.SHUTDOWN)
         is_streaming = false   -- 挂断即停止喂数据
         call_counter = 0
         log.info("play_audio_during_cc", "通话结束")

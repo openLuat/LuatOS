@@ -90,7 +90,7 @@ end
 local function stop()
     log.info("stop", "开始停止 SIP，当前状态:", g_sip_status)
     exsip.stop()
-    exaudio.pm(0, audio.SHUTDOWN)
+    exaudio.pm(exaudio.SHUTDOWN)
 end
 
 --主动拨号，未接通，挂断（如无特别标注，则主动挂断和对方挂断出发的事件顺序相同）

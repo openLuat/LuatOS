@@ -212,10 +212,10 @@ sys.subscribe("CC_IND", function(status)
         end
     elseif status == "PLAY" then
         -- 开始有音频输出后，播放文件会由exaudio.play_start自动唤醒，无需手动设置
-        -- exaudio.pm(audio.RESUME)
+        -- exaudio.pm(exaudio.RESUME)
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
         -- 通话结束，主动进入低功耗模式
-        exaudio.pm(audio.SHUTDOWN)
+        exaudio.pm(exaudio.SHUTDOWN)
     end
 end)
 

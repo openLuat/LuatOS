@@ -40,6 +40,11 @@
 
 -- 版本更新说明
 -
+-- 版本号：202608071400
+-- 1、更新时间：2026-08-07 14:00
+-- 2、更新内容
+--    新增SMS收发/投递相关字段
+-
 -- 版本号：202607091431
 -- 1、更新时间：2026-07-09 14:31
 -- 2、更新内容
@@ -279,6 +284,20 @@ local FIELD_MEANINGS = {
     FIRMWARE_VERSION = 1027,           -- 固件版本号
     SMS_FORWARD = 1028,                -- SMS转发
     CALL_FORWARD = 1029,               -- 来电转发
+    -- SMS (28-31, 1039-1046)
+    SMS_SEND = 28,                     -- 短信发送请求（上行）
+    SMS_SEND_RSP = 29,                 -- 短信发送请求回复（下行）
+    SMS_REPORT = 30,                   -- 短信投递状态上报（上行）
+    SMS_REPORT_RSP = 31,               -- 短信投递状态上报回复（下行）
+    SMS_SEQ = 1039,                    -- 短信序号
+    SMS_CALLEE = 1040,                 -- 短信接收方号码
+    SMS_CONTENT = 1041,                -- 短信内容
+    SMS_STATUS = 1042,                 -- 短信状态
+    SMS_CALLER = 1043,                 -- 短信发送方号码
+    SMS_LONG_FLAG = 1044,              -- 长短信标志
+    SMS_LONG_TOTAL = 1045,             -- 长短信分片总数
+    SMS_LONG_INDEX = 1046,             -- 长短信当前分片序号
+    SMS_MSG_REF = 1047,                -- 短信消息引用号
     -- 设备无关数据 (1280-1281)
     TIMESTAMP = 1280,                  -- 时间戳
     RANDOM_DATA = 1281                 -- 无意义数据
@@ -1885,7 +1904,6 @@ function excloud.open()
 
     -- is_open 必须在连接尝试前设置，否则 _connect_socket 失败时 schedule_reconnect() 会因 is_open=false 直接返回
     is_open = true
-
     if config.transport == "tcp" then
         local ok, err = _connect_socket(false, "TCP", config.ssl, tcp_socket_callback)
         if not ok then
@@ -2221,7 +2239,7 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 excloud.version()
 ]]
 function excloud.version()
-    return "202607091431"
+    return "202608071400"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

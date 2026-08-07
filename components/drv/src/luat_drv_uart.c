@@ -62,4 +62,14 @@ int luat_drv_uart_close(int uart_id) {
     }
 }
 
+int luat_drv_uart_rx_clear(int uart_id) {
+    if (uart_id >= 10 && uart_id <= 19) {
+        return luat_airlink_drv_uart_rx_clear(uart_id);
+    }
+    else {
+        luat_uart_clear_rx_cache(uart_id);
+        return 0;
+    }
+}
+
 #endif /* LUAT_USE_DRV_UART */

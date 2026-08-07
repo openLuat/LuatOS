@@ -566,7 +566,11 @@ static int l_uart_write(lua_State *L)
     }
     else
     {
+		#ifdef LUAT_USE_DRV_UART
+    	result = luat_drv_uart_write(id, (char*)buf, len);
+		#else
     	result = luat_uart_write(id, (char*)buf, len);
+		#endif
     }
     lua_pushinteger(L, result);
 #else
@@ -608,7 +612,11 @@ static int l_uart_read(lua_State *L)
 		}
 		else
 		{
+			#ifdef LUAT_USE_DRV_UART
+			result = luat_drv_uart_read(id, recv, length);
+			#else
 			result = luat_uart_read(id, recv, length);
+			#endif
 		}
 #else
 #ifdef LUAT_USE_DRV_UART
@@ -660,7 +668,11 @@ static int l_uart_read(lua_State *L)
 		}
 		else
 		{
+			#ifdef LUAT_USE_DRV_UART
+			result = luat_drv_uart_read(id, (void*)(recv + read_length), length - read_length);
+			#else
 			result = luat_uart_read(id, (void*)(recv + read_length), length - read_length);
+			#endif
 		}
 #else
 #ifdef LUAT_USE_DRV_UART
@@ -715,7 +727,11 @@ static int l_uart_close(lua_State *L)
 	}
 	else
 	{
+		#ifdef LUAT_USE_DRV_UART
+		luat_drv_uart_close(id);
+		#else
 		luat_uart_close(id);
+		#endif
 	}
 	return 0;
 #else
@@ -837,7 +853,11 @@ static int l_uart_exist(lua_State *L)
 	}
 	else
 	{
+		#ifdef LUAT_USE_DRV_UART
+		lua_pushboolean(L, luat_drv_uart_exist(id));
+		#else
 		lua_pushboolean(L, luat_uart_exist(id));
+		#endif
 	}
 	return 1;
 #else
@@ -874,7 +894,11 @@ static int l_uart_rx(lua_State *L)
 		}
 		else
 		{
+			#ifdef LUAT_USE_DRV_UART
+			result = luat_drv_uart_read(id, NULL, 0);
+			#else
 			result = luat_uart_read(id, NULL, 0);
+			#endif
 		}
 #else
 #ifdef LUAT_USE_DRV_UART
@@ -894,7 +918,11 @@ static int l_uart_rx(lua_State *L)
 		}
 		else
 		{
+			#ifdef LUAT_USE_DRV_UART
+			luat_drv_uart_read(id, buff->addr + buff->used, result);
+			#else
 			luat_uart_read(id, buff->addr + buff->used, result);
+			#endif
 		}
 #else
 #ifdef LUAT_USE_DRV_UART
@@ -934,7 +962,11 @@ static int l_uart_rx_size(lua_State *L)
 	}
 	else
 	{
+		#ifdef LUAT_USE_DRV_UART
+		result = luat_drv_uart_read(id, NULL, 0);
+		#else
 		result = luat_uart_read(id, NULL, 0);
+		#endif
 	}
 	lua_pushinteger(L, result);
 #else
@@ -970,11 +1002,19 @@ static int l_uart_rx_clear(lua_State *L)
 	}
 	else
 	{
+		#ifdef LUAT_USE_DRV_UART
+		luat_drv_uart_rx_clear(id);
+		#else
 		luat_uart_clear_rx_cache(id);
+		#endif
 	}
 
 #else
+	#ifdef LUAT_USE_DRV_UART
+	luat_drv_uart_rx_clear(id);
+	#else
 	luat_uart_clear_rx_cache(id);
+	#endif
 #endif
     return 0;
 }
@@ -1025,7 +1065,11 @@ static int l_uart_tx(lua_State *L)
     }
     else
     {
+		#ifdef LUAT_USE_DRV_UART
+    	result = luat_drv_uart_write(id, buff->addr + start, len);
+		#else
     	result = luat_uart_write(id, buff->addr + start, len);
+		#endif
     }
     lua_pushinteger(L, result);
 #else

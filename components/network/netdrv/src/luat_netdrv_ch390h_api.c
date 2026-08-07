@@ -5,6 +5,7 @@
 #include "luat_malloc.h"
 #include "luat_spi.h"
 #include "luat_gpio.h"
+#include "luat_timer.h"
 #include "net_lwip2.h"
 #include "lwip/tcp.h"
 #include "lwip/sys.h"

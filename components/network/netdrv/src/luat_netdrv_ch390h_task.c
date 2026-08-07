@@ -23,6 +23,10 @@
 #define LUAT_LOG_TAG "netdrv.ch390x"
 #include "luat_log.h"
 
+#ifndef LUAT_CONF_CH390H_LOOP_TIMEOUT
+#define LUAT_CONF_CH390H_LOOP_TIMEOUT 5
+#endif
+
 typedef struct pkg_evt
 {
     uint8_t id;
@@ -216,24 +220,6 @@ err_t ch390_netif_output(struct netif *netif, struct pbuf *p) {
     return 0;
 }
 
-
-static void netdrv_netif_input(void* args) {
-    netdrv_pkg_msg_t* ptr = (netdrv_pkg_msg_t*)args;
-    struct pbuf* p = pbuf_alloc(PBUF_RAW, ptr->len, PBUF_RAM);
-    if (p == NULL) {
-        LLOGD("分配pbuf失败!!! %d", ptr->len);
-        luat_heap_free(ptr);
-        return;
-    }
-    pbuf_take(p, ptr->buff, ptr->len);
-    LLOGI("数据注入到netif " MACFMT, MAC_ARG(p->payload));
-    int ret = ptr->netif->input(p, ptr->netif);
-    if (ret) {
-        pbuf_free(p);
-    }
-    luat_heap_free(ptr);
-}
-
 static int check_vid_pid(ch390h_t* ch) {
     uint8_t buff[6] = {0};
     luat_ch390h_read_vid_pid(ch, buff);
@@ -286,11 +272,106 @@ static int check_vid_pid(ch390h_t* ch) {
     return 0;
 }
 
+static int ch390_status_on_0(ch390h_t* ch) {
+    uint8_t buff[32] = {0};
+    // 状态0, 代表刚加入, 还没成功通信过!!
+    ch390h_bootup(ch);
+    luat_ch390h_software_reset(ch);
+    if (check_vid_pid(ch)) {
+        return 0;
+    }
+    luat_rtos_task_sleep(10);
+    // 读取MAC地址, 开始初始化
+    luat_ch390h_read_mac(ch, buff);
+    size_t tmpc = 0;
+    for (size_t i = 0; i < 6; i++)
+    {
+        if (buff[i] == 0) {
+            tmpc ++;
+            if (tmpc == 2) {
+                LLOGD("非法MAC地址 %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+                return 0;
+            }
+        }
+    }
+    luat_ch390h_read_mac(ch, buff + 6);
+    luat_ch390h_read_mac(ch, buff + 12);
+    if (memcmp(buff, buff+6, 6) || memcmp(buff, buff+12, 6)) {
+        LLOGE("读取3次mac地址不匹配!!! %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+        return 0;
+    }
+    
+    LLOGD("初始化MAC %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+    // TODO 判断mac是否合法
+    memcpy(ch->netdrv->netif->hwaddr, buff, 6);
+    ch->status = 2;
+    ch->netdrv->dataout = ch390h_dataout;
+    luat_ch390h_basic_config(ch);
+    luat_ch390h_set_phy(ch, 1);
+    luat_ch390h_set_rx(ch, 1);
+    if (ch->intpin != 255) {
+        luat_ch390h_write_reg(ch, CH390H_REG_IMR, 1); // 开启接收中断
+    }
+    return 0; // 等待下一个周期
+}
+
+static int ch390_on_rx_wait_for_read(ch390h_t* ch) {
+    // uint8_t buff[32] = {0};
+    int ret = 0;
+    uint16_t len = 0;
+    ret = luat_ch390h_read_pkg(ch, ch->rxbuff, &len);
+    if (ret) {
+        ch->rx_error_count++;
+        LLOGW("读数据包报错 ret=%d spi=%d cs=%d, error_count=%d", ret, ch->spiid, ch->cspin, ch->rx_error_count);
+        // 只有连续多次错误且距离上次复位超过3秒才执行复位
+        uint32_t now = (uint32_t)luat_mcu_tick64_ms();
+        if (ch->rx_error_count >= 5 && (now - ch->last_reset_time > 3000)) {
+            LLOGE("连续读包错误超过阈值，执行复位");
+            luat_ch390h_write_reg(ch, CH390H_REG_RCR, 0);
+            luat_ch390h_write_reg(ch, CH390H_REG_TP_PTR, 1);
+            luat_ch390h_write_reg(ch, CH390H_REG_RX_LEN, 0);
+            luat_rtos_task_sleep(1);
+            luat_ch390h_basic_config(ch);
+            luat_ch390h_set_phy(ch, 1);
+            luat_ch390h_set_rx(ch, 1);
+            if (ch->intpin != 255) {
+                luat_ch390h_write_reg(ch, CH390H_REG_IMR, 1);
+            }
+            ch->rx_error_count = 0;
+            ch->last_reset_time = now;
+            ch->total_reset_count++;
+        }
+        return 0;
+    }
+    // 读取成功，清除错误计数
+    ch->rx_error_count = 0;
+    if (len > 0) {
+        NETDRV_STAT_IN(ch->netdrv, len);
+        // 收到数据, 开始后续处理
+        //print_erp_pkg(ch->rxbuff, len);
+        // 先经过netdrv过滤器
+        // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
+        // 替换原 napt_pkg_input 调用为 pkg_input (内含 EVT_PKG 截获检查)
+        ret = luat_netdrv_pkg_input(ch->adapter_id, LUAT_NETDRV_CH_HW,
+                                    ch->rxbuff, (uint16_t)(len - 4));
+        if (ret == 0) {
+            // napt 未消费, 继续注入 netif (原逻辑)
+            ret = luat_netdrv_netif_input_proxy(ch->netdrv->netif, ch->rxbuff, len - 4);
+            if (ret) {
+                LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);
+                return 1;
+            }
+        }
+    }
+    // 很好, RX数据处理完成了
+    return 2;
+}
+
 
 static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     uint8_t buff[32] = {0};
     int ret = 0;
-    uint16_t len = 0;
+    // uint16_t len = 0;
 
     if (ch->status == CH390H_STATUS_STOPPED) {
         return 0;
@@ -299,45 +380,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     // LLOGD("状态 spi %d cs %d stat %d", ch->spiid, ch->cspin, ch->status);
     // 首先, 判断设备状态
     if (ch->status == 0) {
-        // 状态0, 代表刚加入, 还没成功通信过!!
-        ch390h_bootup(ch);
-        luat_ch390h_software_reset(ch);
-        if (check_vid_pid(ch)) {
-            return 0;
-        }
-        luat_rtos_task_sleep(10);
-        // 读取MAC地址, 开始初始化
-        luat_ch390h_read_mac(ch, buff);
-        size_t tmpc = 0;
-        for (size_t i = 0; i < 6; i++)
-        {
-            if (buff[i] == 0) {
-                tmpc ++;
-                if (tmpc == 2) {
-                    LLOGD("非法MAC地址 %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
-                    return 0;
-                }
-            }
-        }
-        luat_ch390h_read_mac(ch, buff + 6);
-        luat_ch390h_read_mac(ch, buff + 12);
-        if (memcmp(buff, buff+6, 6) || memcmp(buff, buff+12, 6)) {
-            LLOGE("读取3次mac地址不匹配!!! %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
-            return 0;
-        }
-        
-        LLOGD("初始化MAC %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
-        // TODO 判断mac是否合法
-        memcpy(ch->netdrv->netif->hwaddr, buff, 6);
-        ch->status = 2;
-        ch->netdrv->dataout = ch390h_dataout;
-        luat_ch390h_basic_config(ch);
-        luat_ch390h_set_phy(ch, 1);
-        luat_ch390h_set_rx(ch, 1);
-        if (ch->intpin != 255) {
-            luat_ch390h_write_reg(ch, CH390H_REG_IMR, 1); // 开启接收中断
-        }
-        return 0; // 等待下一个周期
+        return ch390_status_on_0(ch);
     }
     if (check_vid_pid(ch)) {
         // TODO 是不是应该恢复到状态0
@@ -386,51 +429,10 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
 
     // 有没有数据待读取
     if (NSR & 0x01) {
-        ret = luat_ch390h_read_pkg(ch, ch->rxbuff, &len);
-        if (ret) {
-            ch->rx_error_count++;
-            LLOGW("读数据包报错 ret=%d spi=%d cs=%d, error_count=%d", ret, ch->spiid, ch->cspin, ch->rx_error_count);
-            // 只有连续多次错误且距离上次复位超过3秒才执行复位
-            uint32_t now = (uint32_t)luat_mcu_tick64_ms();
-            if (ch->rx_error_count >= 5 && (now - ch->last_reset_time > 3000)) {
-                LLOGE("连续读包错误超过阈值，执行复位");
-                luat_ch390h_write_reg(ch, CH390H_REG_RCR, 0);
-                luat_ch390h_write_reg(ch, CH390H_REG_TP_PTR, 1);
-                luat_ch390h_write_reg(ch, CH390H_REG_RX_LEN, 0);
-                luat_rtos_task_sleep(1);
-                luat_ch390h_basic_config(ch);
-                luat_ch390h_set_phy(ch, 1);
-                luat_ch390h_set_rx(ch, 1);
-                if (ch->intpin != 255) {
-                    luat_ch390h_write_reg(ch, CH390H_REG_IMR, 1);
-                }
-                ch->rx_error_count = 0;
-                ch->last_reset_time = now;
-                ch->total_reset_count++;
-            }
-            return 0;
+        ret = ch390_on_rx_wait_for_read(ch);
+        if (ret != 2) {
+            return ret;
         }
-        // 读取成功，清除错误计数
-        ch->rx_error_count = 0;
-        if (len > 0) {
-            NETDRV_STAT_IN(ch->netdrv, len);
-            // 收到数据, 开始后续处理
-            //print_erp_pkg(ch->rxbuff, len);
-            // 先经过netdrv过滤器
-            // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
-            // 替换原 napt_pkg_input 调用为 pkg_input (内含 EVT_PKG 截获检查)
-            ret = luat_netdrv_pkg_input(ch->adapter_id, LUAT_NETDRV_CH_HW,
-                                        ch->rxbuff, (uint16_t)(len - 4));
-            if (ret == 0) {
-                // napt 未消费, 继续注入 netif (原逻辑)
-                ret = luat_netdrv_netif_input_proxy(ch->netdrv->netif, ch->rxbuff, len - 4);
-                if (ret) {
-                    LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);
-                    return 1;
-                }
-            }
-        }
-        // 很好, RX数据处理完成了
     }
     else {
         // LLOGD("没有数据待读取");
@@ -443,6 +445,21 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     // 这一轮处理完成了
     // 如果rx有数据, 那就不要等待, 立即开始下一轮
     if (NSR & 0x01 || cs) {
+        // 加快处理速度, 避免数据包堆积, 但也要避免死循环
+        #if 1
+        for (size_t i = 0; i < 10; i++)
+        {
+            luat_ch390h_read(ch, CH390H_REG_NSR, 1, buff);
+            NSR = buff[0];
+            if ((NSR & 0x01) == 0) {
+                break;
+            }
+            ret = ch390_on_rx_wait_for_read(ch);
+            if (ret != 2) {
+                return ret;
+            }
+        }
+        #endif
         return 1;
     }
 
@@ -469,6 +486,9 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
         luat_rtos_queue_get_cnt(qt, &t);
         if (t < 4) {
             luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
+        }
+        else {
+            // LLOGE("队列已满(%d), 不再发送空消息唤醒 task_loop", t);
         }
     }
     return ret;
@@ -534,7 +554,7 @@ static void ch390_task_main(void* args) {
             ret = task_wait_msg(LUAT_WAIT_FOREVER);
         }
         else if (s_ch390h_mode == 0) {
-            ret = task_wait_msg(5);
+            ret = task_wait_msg(LUAT_CONF_CH390H_LOOP_TIMEOUT);
         }
         else {
             ret = task_wait_msg(1000);

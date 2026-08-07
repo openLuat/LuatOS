@@ -4,11 +4,11 @@
 
 ### 1.1 核心主程序模块
 
-- [main.lua](file:///D:/project/luatos-git/LuatOS/module/Air780EHM_Air780EHV_Air780EGH/demo/sensor/pcf8574/main.lua)：Demo 入口文件，初始化日志、加载业务模块
+- **main.lua**：Demo 入口文件，初始化日志、加载业务模块
 
 ### 1.2 扩展库模块
 
-- [exs_pcf8574.lua](file:///D:/project/luatos-git/LuatOS/script/libs/sensor/exs_pcf8574.lua)：PCF8574 扩展库，提供 I2C 通信、GPIO 读写、中断处理等功能
+- **exs_pcf8574.lua**：PCF8574 扩展库，提供 I2C 通信、GPIO 读写、中断处理等功能
 
 ### 1.3 I2C 模式说明
 
@@ -78,9 +78,9 @@ Demo 支持两种 I2C 通信模式，通过 `pcf8574_app.lua` 中的 `MODE` 变�
 
 | 文件 | 说明 |
 |------|------|
-| [main.lua](file:///D:/project/luatos-git/LuatOS/module/Air780EHM_Air780EHV_Air780EGH/demo/sensor/pcf8574/main.lua) | Demo 入口 |
-| [pcf8574_app.lua](file:///D:/project/luatos-git/LuatOS/module/Air780EHM_Air780EHV_Air780EGH/demo/sensor/pcf8574/pcf8574_app.lua) | 业务模块 |
-| [exs_pcf8574.lua](file:///D:/project/luatos-git/LuatOS/script/libs/sensor/exs_pcf8574.lua) | 扩展库（需放到 script/libs/sensor/ 目录） |
+| main.lua | Demo 入口 |
+| pcf8574_app.lua | 业务模块 |
+| exs_pcf8574.lua | 扩展库（需放到 script/libs/sensor/ 目录） |
 
 ## 五、演示核心步骤
 
@@ -162,4 +162,4 @@ I/user.pcf8574 ====== 全部测试完成 ======
 
 ## 六、API 参考
 
-详细 API 说明请参考：[exs_opt3001.md](https://docs.openluat.com/osapi/ext/sensor/exs_pcf8574.html)
+详细 API 说明请参考：[exs_pcf8574](https://docs.openluat.com/osapi/ext/sensor/exs_pcf8574)

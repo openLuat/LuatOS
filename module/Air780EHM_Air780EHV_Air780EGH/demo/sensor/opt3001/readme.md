@@ -224,4 +224,4 @@ I/user.exs_opt3001 资源已释放
 
 ## 六、API 参考
 
-详细 API 说明请参考：[exs_opt3001.md](https://docs.openluat.com/osapi/ext/sensor/exs_opt3001.html)
+详细 API 说明请参考：[exs_opt3001](https://docs.openluat.com/osapi/ext/sensor/exs_opt3001)

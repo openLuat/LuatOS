@@ -113,7 +113,7 @@
 #define TCP_TTL                         (IP_DEFAULT_TTL)
 
 #define TCP_QUEUE_OOSEQ                 (LWIP_TCP)
-#define LWIP_TCP_SACK_OUT               0
+#define LWIP_TCP_SACK_OUT               (LWIP_TCP)
 #define LWIP_TCP_MAX_SACK_NUM           4
 #ifndef TCP_MSS
 #define TCP_MSS                         1340

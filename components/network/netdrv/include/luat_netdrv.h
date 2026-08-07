@@ -134,12 +134,11 @@ luat_netdrv_t* luat_netdrv_get(int id);
 
 void luat_netdrv_print_pkg(const char* tat, uint8_t* buff, size_t len);
 
-// 辅助传递函数
+// 辅助传递函数: 只携带pbuf指针, 整帧缓冲在RX任务里一次分配/拷贝
 typedef struct netdrv_pkg_msg
 {
     struct netif * netif;
-    uint16_t len;
-    uint8_t buff[4];
+    struct pbuf * p;
 }netdrv_pkg_msg_t;
 
 void luat_netdrv_netif_input(void* args);

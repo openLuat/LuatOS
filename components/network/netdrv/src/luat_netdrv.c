@@ -202,59 +202,46 @@ void luat_netdrv_print_pkg(const char* tag, uint8_t* buff, size_t len) {
 
 void luat_netdrv_netif_input(void* args) {
     netdrv_pkg_msg_t* ptr = (netdrv_pkg_msg_t*)args;
-    if (ptr == NULL) {
+    if (ptr == NULL || ptr->p == NULL) {
         return;
     }
-    if (ptr->len == 0) {
-        LLOGE("什么情况,ptr->len == 0?!");
-        return;
-    }
-    struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, ptr->len, PBUF_RAM);
-    if (p == NULL) {
-        g_rx_stat.drop_pbuf++;
-        netdrv_log_rx_drop("pbuf_alloc", ptr->buff, ptr->len);
-        LLOGD("分配pbuf失败!!! %d", ptr->len);
-        luat_heap_free(ptr);
-        return;
-    }
-    if (p->tot_len != ptr->len) {
-        LLOGE("p->tot_len != ptr->len %d %d", p->tot_len, ptr->len);
-        pbuf_free(p);
-        luat_heap_free(ptr);
-        return;
-    }
-    pbuf_take(p, ptr->buff, ptr->len);
-    if (g_netdrv_debug_enable) {
-        luat_netdrv_print_pkg("收到IP数据,注入到netif", ptr->buff, ptr->len);
-    }
-    // LLOGD("netif_input: %d bytes ethertype=0x%04X to netif", ptr->len,
-    //       ptr->len >= 14 ? ((uint16_t)ptr->buff[12] << 8 | ptr->buff[13]) : 0);
-    int ret = ptr->netif->input(p, ptr->netif);
+    // pbuf已在RX任务里分配并拷好数据, 这里直接进netif, 不再二次分配/拷贝
+    int ret = ptr->netif->input(ptr->p, ptr->netif);
     if (ret) {
         g_rx_stat.input_fail++;
         LLOGW("netif->input ret %d", ret);
-        pbuf_free(p);
+        pbuf_free(ptr->p);
     }
     luat_heap_free(ptr);
 }
 
 int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t len) {
-    netdrv_pkg_msg_t* ptr = luat_heap_malloc(sizeof(netdrv_pkg_msg_t) + len);
+    // 单次分配+单次拷贝: 直接在RX任务里把帧拷进pbuf, 投递pbuf给TCPIP线程
+    struct pbuf* p = pbuf_alloc(PBUF_RAW, len, PBUF_RAM);
+    if (p == NULL) {
+        g_rx_stat.drop_pbuf++;
+        netdrv_log_rx_drop("pbuf_alloc", buff, len);
+        LLOGD("分配pbuf失败!!! %d", len);
+        return 1; // 需要处理下一个包
+    }
+    pbuf_take(p, buff, len);
+    netdrv_pkg_msg_t* ptr = luat_heap_malloc(sizeof(netdrv_pkg_msg_t));
     if (ptr == NULL) {
         g_rx_stat.drop_heap++;
         netdrv_log_rx_drop("heap", buff, len);
         LLOGE("收到rx数据,但内存已满, 无法处理只能抛弃 %d", len - 4);
-        return 1; // 需要处理下一个包
+        pbuf_free(p);
+        return 1;
     }
-    memcpy(ptr->buff, buff, len);
     ptr->netif = netif;
-    ptr->len = len;
-    // 非阻塞投递: 邮箱满/无内存时返回非0
+    ptr->p = p;
+    // 非阻塞投递: 邮箱满/无内存时返回非0, 失败时pbuf和结构体都归调用方释放
     int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 0);
     if (ret != ERR_OK) {
         g_rx_stat.drop_mbox++;
         netdrv_log_rx_drop("mbox", buff, len);
         LLOGE("netif_input_proxy: tcpip_callback failed ret=%d len=%d", ret, len);
+        pbuf_free(p);
         luat_heap_free(ptr);
         return 1;
     }

@@ -12,6 +12,7 @@
 #include "luat_mem.h"
 #include "lwip/ip.h"
 #include "lwip/ip_addr.h"
+#include "lwip/udp.h"
 
 #include "net_lwip2.h"
 

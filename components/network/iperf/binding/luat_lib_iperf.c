@@ -14,6 +14,7 @@
 #include "luat_lwiperf.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv.h"
+#include "luat_mem.h"
 #include "luat_msgbus.h"
 #include "lwip/ip.h"
 #include "lwip/tcpip.h"
@@ -256,4 +257,3 @@ LUAMOD_API int luaopen_iperf( lua_State *L ) {
     luat_newlib2(L, reg_iperf);
     return 1;
 }
-

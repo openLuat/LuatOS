@@ -187,7 +187,7 @@ int luat_ble_start_advertising(void* args) {
 
 
 int luat_ble_stop_advertising(void* args) {
-    LLOGD("执行luat_ble_start_advertising");
+    LLOGD("执行luat_ble_stop_advertising");
     uint64_t seq = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = 8 + sizeof(luat_airlink_cmd_t) + 8

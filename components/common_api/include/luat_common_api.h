@@ -60,6 +60,11 @@ typedef union {
 	const void *p;
 }luat_data_union_t;
 
+#define LUAT_IS_ALPHA(c)      (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')))
+#define LUAT_IS_HEX(c)      (((c >= 'a') && (c <= 'f')) || ((c >= 'A') && (c <= 'F')))
+#define LUAT_IS_DIGIT(c)        ((c >= '0') && (c <= '9'))
+#define LUAT_IS_ISALPHADIGIT(c)    (LUAT_IS_ALPHA(c) || LUAT_IS_DIGIT(c))
+
 typedef int(*luat_llist_traversal_fun)(void *node, void *param);
 /**
  * @brief 双向链表节点结构

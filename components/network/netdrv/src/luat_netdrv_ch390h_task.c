@@ -459,8 +459,8 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             luat_ch390h_read(ch, CH390H_REG_ROCR, 1, &rocr); // R/C: 读后清除
             warn_rxov_tm = tnow;
             ch->rx_ov_cnt++;
-            LLOGE("CH390 RX内存溢出! NSR=0x%02X RSR=0x%02X ROCR=0x%02X 累计=%u fifo_reset_drop=%u",
-                  NSR, rsr, rocr, ch->rx_ov_cnt, ch->total_rx_drop);
+            // LLOGD("CH390 RX内存溢出! NSR=0x%02X RSR=0x%02X ROCR=0x%02X 累计=%u fifo_reset_drop=%u",
+            //       NSR, rsr, rocr, ch->rx_ov_cnt, ch->total_rx_drop);
         }
     }
     if (0 == (NSR & (1 << 6))) {

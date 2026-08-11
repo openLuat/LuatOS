@@ -37,17 +37,10 @@ local function http_download_file_task()
     log.info("HTTP下载", "网络已就绪", socket.dft())
     -- TF卡供电控制（AIR8101专用）
     gpio.setup(13, 1)  
-    -- 在Air8101核心板上TF卡的的pin_cs为gpio3，spi_id为1.请根据实际硬件修改
-    spi_id, pin_cs = 1, 3
-    spi.setup(spi_id, nil, 0, 0, 8, 2000000)
-    --初始化后拉高pin_cs,准备开始挂载TF卡
-    gpio.setup(pin_cs, 1)
     -- ########## 开始进行tf卡挂载 ##########
-    local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
+    local mount_ok, mount_err = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
     if not mount_ok then
         log.error("HTTP下载", "文件系统挂载失败")
-        fatfs.unmount("/sd")
-        spi.close(spi_id)
         return
     end
 
@@ -82,7 +75,6 @@ local function http_download_file_task()
 
     -- 阶段4: 资源清理
     fatfs.unmount("/sd")
-    spi.close(spi_id)
     log.info("HTTP下载", "资源清理完成")
 end
 

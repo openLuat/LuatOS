@@ -1,10 +1,20 @@
-﻿--[[
+--[[
 @module exaudio
 @summary exaudio扩展库
-@version 2.7
-@date    2026.8.7
+@version 2.8
+@date    2026.8.11
 @author  拓毅恒
 @updates
+    v2.8 2026.8.11
+        1. 新增默认驱动切换支持：audio_setup_param新增tx_bus_type/tx_bus_id/rx_bus_type/rx_bus_id，
+           当板子上有多种音频驱动、需播放和录音使用不同驱动时设置（如Air1602_V1.2开发板DAC0输出+I2S2录音）。
+           默认nil不启用，不设置的客户使用BSP默认驱动，无需理解此功能。
+        2. 切换默认驱动成功后，对dac_ctrl引脚做一次"拉低→等待→拉高"复位脉冲重启ES8311
+           （驱动切换会重新配置I2S总线，dac_ctrl需从确定状态启动才能正常I2C通信）；
+           未切换驱动时dac_ctrl仅拉高保持供电，行为与原有逻辑一致
+        3. read_es8311_id()增加框架判断：audio_v2用i2c.readReg读取0xFD寄存器(0x83)校验，
+           audio旧框架用i2c.send+i2c.recv读取CHIP_ID_REG，保持原有逻辑
+        4. audio_v2_callback修复录音请求误报日志
     v2.7 2026.8.7
         1. 新增休眠控制宏exaudio.RESUME/exaudio.SHUTDOWN，解决Air1602等无audio库固件播放报错
         2. 所有exaudio.pm()调用统一改为exaudio.pm(exaudio.RESUME)/exaudio.pm(exaudio.SHUTDOWN)
@@ -61,6 +71,12 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202608111818
+-- 1、更新时间：2026-08-11 18:18
+--    新增默认驱动切换支持：audio_setup_param新增tx_bus_type/tx_bus_id/rx_bus_type/rx_bus_id，当板子上有多种音频驱动、需播放和录音使用不同驱动时设置默认nil不启用
+--    切换默认驱动成功后，对dac_ctrl引脚做一次"拉低→等待→拉高"复位脉冲重启ES8311（驱动切换会重新配置I2S总线，dac_ctrl需从确定状态启动才能正常I2C通信）
+--    read_es8311_id()增加框架判断：audio_v2用i2c.readReg读取0xFD寄存器(0x83)校验，audio旧框架用i2c.send+i2c.recv读取CHIP_ID_REG，保持原有逻辑
+--    audio_v2_callback修复录音请求误报日志
 -- 版本号：202608071000
 -- 1、更新时间：2026-08-07 10:29
 --    新增休眠控制宏exaudio.RESUME/exaudio.SHUTDOWN，解决Air1602等无audio库固件报错
@@ -199,7 +215,16 @@ local audio_setup_param = {
     bits_per_sample = 16,     -- I2S采样位深
     i2s_comm_format = i2s and i2s.MODE_LSB or 0, -- I2S通信格式: MODE_I2S, MODE_LSB, MODE_MSB
     i2s_framebit = 16,       -- I2S通道位宽
-    
+
+    -- 默认驱动切换参数（默认nil不启用，仅当板子上有多种音频驱动且需要播放和录音使用不同驱动时设置）
+    -- 设置后setup内部自动执行exaudio.make_probe_id + set_default_driver，
+    -- 并在切换成功后对dac_ctrl引脚做一次"拉低→等待→拉高"复位脉冲重启ES8311。
+    -- 不设置时使用BSP默认驱动
+    tx_bus_type = nil,        -- 发送(播放)总线类型，见audio_v2.DRIVER_TYPE_*常量，如DRIVER_TYPE_DAC
+    tx_bus_id = nil,          -- 发送总线ID
+    rx_bus_type = nil,        -- 接收(录音)总线类型，见audio_v2.DRIVER_TYPE_*常量，如DRIVER_TYPE_I2S
+    rx_bus_id = nil,          -- 接收总线ID
+
     -- DAC硬件配置参数
     dac_ch = 0,               -- DAC通道号
     dac_chl = 0,              -- DAC通道选择: 0=AUD_LN, 1=AUD_LP, 2=双通道
@@ -346,8 +371,13 @@ end
 -- ==================== audio_v2 回调处理 ====================
 local function audio_v2_callback(request_index, event, param)
     if event == audio_v2.REQUEST_START then
-        audio_v2_request_index = request_index
-        log.info("exaudio", "播放开始", request_index)
+        -- REQUEST_START对播放和录音请求都会触发，需区分打印
+        if audio_v2_record_request_index == request_index then
+            log.info("exaudio", "录音开始", request_index)
+        else
+            audio_v2_request_index = request_index
+            log.info("exaudio", "播放开始", request_index)
+        end
     elseif event == audio_v2.REQUEST_NEED_NEW_DATA then
         -- 流式播放需要更多数据
         -- 先调用input()检查FIFO剩余空间
@@ -416,19 +446,19 @@ local function audio_v2_callback(request_index, event, param)
             end
         end
     elseif event == audio_v2.REQUEST_END then
-        log.info("exaudio", "播放完毕", request_index)
-        
         -- 判断是录音结束还是播放结束
         if audio_v2_record_request_index == request_index then
             -- 录音结束
             audio_v2_record_request_index = nil
             audio_v2_record_zbuff = nil
+            log.info("exaudio", "录音完毕", request_index)
             if type(audio_record_param.cbfnc) == "function" then
                 audio_record_param.cbfnc(exaudio.RECORD_DONE)
             end
             -- 录音不发布EX_MSG_PLAY_DONE
         elseif audio_v2_request_index == request_index then
             -- 播放结束
+            log.info("exaudio", "播放完毕", request_index)
             -- 关闭文件句柄
             if audio_v2_stream_file_fp then
                 audio_v2_stream_file_fp:close()
@@ -500,18 +530,25 @@ end
 
 -- ==================== 硬件初始化 ====================
 -- 读取ES8311芯片ID
+-- audio_v2框架：使用i2c.readReg读取寄存器
+-- audio旧框架：使用i2c.send+i2c.recv读取CHIP_ID_REG寄存器，保持原有逻辑
 local function read_es8311_id()
-    -- 发送读取请求
-    local send_ok = i2c.send(audio_setup_param.i2c_id, ES8311_ADDR, CHIP_ID_REG)
-    if not send_ok then
-        log.error("发送芯片ID读取请求失败")
-        return false
-    end
-
-    -- 读取数据
-    local data = i2c.recv(audio_setup_param.i2c_id, ES8311_ADDR, 1)
-    if data and #data == 1 then
-        return true
+    if USE_AUDIO_V2 then
+        local data = i2c.readReg(audio_setup_param.i2c_id, ES8311_ADDR, 0xFD, 1)
+        if data and #data == 1 and data:byte(1) == 0x83 then
+            return true
+        end
+    else
+        -- audio旧框架，读取芯片ID
+        local send_ok = i2c.send(audio_setup_param.i2c_id, ES8311_ADDR, CHIP_ID_REG)
+        if not send_ok then
+            log.error("发送芯片ID读取请求失败")
+            return false
+        end
+        local data = i2c.recv(audio_setup_param.i2c_id, ES8311_ADDR, 1)
+        if data and #data == 1 then
+            return true
+        end
     end
 
     log.error("读取ES8311芯片ID失败")
@@ -520,6 +557,33 @@ end
 
 -- audio_v2模式初始化
 local function audio_v2_setup()
+    -- 切换默认驱动
+    -- 仅当板子上有多种音频驱动、播放和录音需使用不同驱动时，才需设置tx_bus_type/rx_bus_type。
+    -- 例如DAC输出+I2S录音的板型，设置后本函数自动执行exaudio.make_probe_id+set_default_driver。
+    -- 不设置时使用BSP默认驱动。
+    local switch_default_driver = false
+    if audio_setup_param.tx_bus_type and audio_setup_param.rx_bus_type then
+        local pid = exaudio.make_probe_id(
+            audio_setup_param.tx_bus_type, audio_setup_param.tx_bus_id or 0,
+            audio_setup_param.rx_bus_type, audio_setup_param.rx_bus_id or 0)
+        if pid then
+            local ok = audio_v2.set_default_driver(pid)
+            if ok then
+                AUDIO_V2_DRIVER_ID = pid
+                switch_default_driver = true
+                log.info("exaudio.setup", "默认驱动已切换", "tx_bus_type:", audio_setup_param.tx_bus_type,
+                    "rx_bus_type:", audio_setup_param.rx_bus_type)
+            else
+                log.error("exaudio.setup", "set_default_driver失败，将使用BSP默认驱动")
+            end
+        else
+            log.error("exaudio.setup", "make_probe_id失败，将使用BSP默认驱动")
+        end
+    elseif audio_setup_param.tx_bus_type or audio_setup_param.rx_bus_type then
+        -- 只设置了其中一个，参数不完整，继续使用BSP默认驱动
+        log.warn("exaudio.setup", "tx_bus_type和rx_bus_type必须同时设置才能切换默认驱动，本次忽略，使用BSP默认驱动")
+    end
+
     -- 根据model进行不同的初始化
     if audio_setup_param.model == "dac" then
         -- DAC模式（Air1601等使用内置DAC的模组）
@@ -527,11 +591,22 @@ local function audio_v2_setup()
     elseif audio_setup_param.model == "es8311" then
         -- ES8311 I2S模式（Air780EHM等使用ES8311的模组）
         log.info("exaudio.setup", "audio_v2 ES8311模式初始化")
-        
+
         -- I2C配置
         if not i2c.setup(audio_setup_param.i2c_id) then
             log.error("I2C初始化失败")
             return false
+        end
+
+        -- 切换默认驱动后，对音频编解码芯片做复位重启（dac_ctrl引脚拉低→等待→拉高）
+        -- 仅切换驱动时需要：驱动切换会重新配置I2S总线，ES8311需从确定状态启动才能正常I2C通信。
+        -- 使用默认I2S无需此操作。
+        if switch_default_driver and audio_setup_param.dac_ctrl and audio_setup_param.dac_ctrl > 0 then
+            gpio.setup(audio_setup_param.dac_ctrl, 0)
+            sys.wait(100)
+            gpio.set(audio_setup_param.dac_ctrl, 1)
+            sys.wait(100)
+            log.info("exaudio.setup", "ES8311已重启", "dac_ctrl:", audio_setup_param.dac_ctrl)
         end
     else
         log.error("audio_v2不支持的model:", audio_setup_param.model)
@@ -559,9 +634,14 @@ local function audio_v2_setup()
         end
         
         -- 配置audio_v2 I2S参数
-        audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
-        audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, audio_setup_param.i2s_framebit or 16, audio_setup_param.i2s_framebit or 16)
-        audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
+        -- 切换默认驱动后由BSP默认驱动提供I2S参数，无需在此配置
+        if not switch_default_driver then
+            audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
+            audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, audio_setup_param.i2s_framebit or 16, audio_setup_param.i2s_framebit or 16)
+            audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
+        else
+            log.info("exaudio.setup", "已切换默认驱动，I2S参数使用默认配置")
+        end
         
         -- 初始化ES8311编解码器
         local es8311_ok
@@ -1050,8 +1130,18 @@ function exaudio.setup(audioConfigs)
         {name = "i2s_mode", type = "number"},         -- I2S模式
         {name = "i2s_comm_format", type = "number"},  -- I2S通信格式
         {name = "dac_ch", type = "number"},           -- DAC通道
-        {name = "dac_chl", type = "number"}           -- DAC通道选择
+        {name = "dac_chl", type = "number"},          -- DAC通道选择
+        {name = "tx_bus_type", type = "number"},      -- 发送总线类型(默认驱动切换)
+        {name = "tx_bus_id", type = "number"},        -- 发送总线ID
+        {name = "rx_bus_type", type = "number"},      -- 接收总线类型(默认驱动切换)
+        {name = "rx_bus_id", type = "number"},        -- 接收总线ID
     }
+
+    -- 校验默认驱动切换参数：tx/rx总线类型必须成对出现
+    if (audioConfigs.tx_bus_type ~= nil) ~= (audioConfigs.rx_bus_type ~= nil) then
+        log.error("tx_bus_type 和 rx_bus_type 必须同时设置")
+        return false
+    end
 
     for _, param in ipairs(optional_params) do
         if audioConfigs[param.name] ~= nil then
@@ -2037,7 +2127,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608071029"
+    return "202608111818"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

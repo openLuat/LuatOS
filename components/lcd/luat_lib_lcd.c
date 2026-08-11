@@ -2235,11 +2235,8 @@ static const rotable_Reg_t reg_lcd[] =
     { "HWID_0",         ROREG_INT(LUAT_LCD_HW_ID_0)},
     //@const RGB 硬件RGB lcd驱动 (根据芯片支持选择)
     { "RGB",            ROREG_INT(LUAT_LCD_PORT_RGB)},
-
-    // //@const ARM2D 硬件ARM2D lcd驱动 (根据芯片支持选择)
-    // { "ARM2D",         ROREG_INT(LUAT_LCD_PORT_ARM2D)},
-    // //@const DMA2D 硬件DMA2D lcd驱动 (根据芯片支持选择)
-    // { "DMA2D",         ROREG_INT(LUAT_LCD_PORT_DMA2D)},
+    //@const MIPI 硬件MIPI lcd驱动 (根据芯片支持选择)
+    { "MIPI",            ROREG_INT(LUAT_LCD_PORT_MIPI)},
 
 
     //@const WIRE_3_BIT_9_INTERFACE_I 三线spi 9bit 模式I

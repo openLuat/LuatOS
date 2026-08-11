@@ -113,6 +113,12 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
             return drvs[id];
         }
         #endif
+        #ifdef LUAT_USE_NETDRV_L2TP
+        if (conf->impl == LUAT_NETDRV_IMPL_L2TP) { // L2TP
+            drvs[id] = luat_netdrv_l2tp_setup(conf);
+            return drvs[id];
+        }
+        #endif
         #endif
     }
     else {

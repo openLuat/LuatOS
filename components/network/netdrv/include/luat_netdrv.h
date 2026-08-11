@@ -72,6 +72,22 @@ typedef struct luat_netdrv_openvpn_conf
     size_t ovpn_password_len;
 }luat_netdrv_openvpn_conf_t;
 
+typedef struct luat_netdrv_l2tp_conf
+{
+    const char* l2tp_remote_ip;     // LNS IP地址 (仅IP字面量)
+    uint16_t l2tp_remote_port;      // LNS端口, 默认1701
+    const char* l2tp_username;      // PPP用户名 (可选)
+    size_t l2tp_username_len;
+    const char* l2tp_password;      // PPP密码 (可选)
+    size_t l2tp_password_len;
+    const char* l2tp_secret;        // L2TP隧道共享密钥 (可选)
+    size_t l2tp_secret_len;
+    uint16_t l2tp_mtu;              // PPP MRU, 默认1450
+    uint8_t l2tp_retry_enable;      // 失败后自动重连
+    uint32_t l2tp_retry_base_ms;    // 重试基础延迟
+    uint32_t l2tp_retry_max_ms;     // 重试最大延迟
+}luat_netdrv_l2tp_conf_t;
+
 
 typedef struct luat_netdrv_conf
 {
@@ -87,6 +103,7 @@ typedef struct luat_netdrv_conf
     luat_netdrv_ip_conf_t *ip_conf;
     luat_netdrv_wg_conf_t *wg_conf;
     luat_netdrv_openvpn_conf_t *ovpn_conf;
+    luat_netdrv_l2tp_conf_t *l2tp_conf;
 }luat_netdrv_conf_t;
 
 typedef struct luat_netdrv_statics_item
@@ -187,4 +204,3 @@ int luat_netdrv_is_ready(int id);
 #endif
 
 #endif
-

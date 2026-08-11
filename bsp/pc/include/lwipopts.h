@@ -147,7 +147,9 @@ a lot of data that needs to be copied, this should be set high. */
 #define MEMP_NUM_TCP_SEG        16
 /* MEMP_NUM_SYS_TIMEOUT: the number of simultaneously active
    timeouts. */
-#define MEMP_NUM_SYS_TIMEOUT    17
+/* 24: OpenVPN/WG 各占用若干 sys_timeout, L2TP(PPP) 在认证/IPCP 阶段
+ * 最多再叠加 LCP-FSM + LCP-Echo + PAP/CHAP + IPCP-FSM + L2TP控制定时器. */
+#define MEMP_NUM_SYS_TIMEOUT    24
 
 /* The following four are used only with the sequential API and can be
    set to 0 if the application only will use the raw API. */

@@ -770,6 +770,10 @@ target("luatos-lua")
         add_thirdparty_files(lwip_path .. "/api/**.c")
         add_thirdparty_files(lwip_path .. "/core/**.c")
         add_thirdparty_files(lwip_path .. "/netif/**.c")
+        -- L2TP: lwip22 自带的 PPP 源码改由 netdrv/src/ppp 下的 vendor 副本编译
+        -- (netdrv/src/ppp/ppp.c 已将 ppp_pcb 分配改为 mem_malloc/mem_free,
+        --  因为本仓库 lwip22 的 memp_std.h 裁剪掉了 PPP/PPPOL2TP 内存池)
+        remove_files(lwip_path .. "netif/ppp/**.c")
         
         add_files(luatos .. "components/network/adapter_lwip2/*.c")
         add_includedirs(luatos .. "components/network/adapter_lwip2/")
@@ -777,7 +781,18 @@ target("luatos-lua")
 
         -- 继续添加netdrv代码
         add_includedirs(luatos .. "components/network/netdrv/include")
-        add_files(luatos .. "components/network/netdrv/**.c")
+        add_includedirs(luatos .. "components/network/netdrv/src/ppp")
+        add_files(luatos .. "components/network/netdrv/**.c|src/ppp/**.c")
+
+        -- L2TPv2 客户端 (netdrv) + vendored lwip22 PPP 实现
+        -- 注意: bsp/pc/include/lwipopts.h 写死 PPP_SUPPORT=0 且会重定义,
+        -- 所以这里通过 LUAT_L2TP_PPP_BUILD + luat_ppp_opts_override.h 在
+        -- ppp_opts.h 之后强制覆盖 PPP 特性集, 仅对该批文件附加编译宏.
+        add_files(luatos .. "components/network/netdrv/src/ppp/*.c",
+                  {defines = {"LUAT_L2TP_PPP_BUILD=1"}})
+        add_files(luatos .. "components/network/netdrv/src/luat_netdrv_l2tp_client.c",
+                  {defines = {"LUAT_L2TP_PPP_BUILD=1"}})
+        add_files(luatos .. "components/network/netdrv/src/luat_netdrv_l2tp.c")
 
         -- ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试, 需要 netdrv + icmp)
         add_includedirs(luatos .. "components/network/icmp/include")

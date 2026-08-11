@@ -42,6 +42,7 @@
 #define LUAT_USE_NETDRV_CH390H 1
 #define LUAT_USE_NETDRV_OPENVPN 1
 #define LUAT_USE_NETDRV_WG 1
+#define LUAT_USE_NETDRV_L2TP 1
 #define LUAT_USE_NETDRV_LWIP_ARP 1
 
 // ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试)

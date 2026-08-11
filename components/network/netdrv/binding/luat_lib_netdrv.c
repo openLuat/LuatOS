@@ -60,6 +60,20 @@ local ok = netdrv.setup(socket.LWIP_USER0, netdrv.OPENVPN, {
 })
 -- 完整示例见 openvpn/example_netdrv.lua
 -- 详细说明见 openvpn/usage.md 和 openvpn/PARAMETER_HANDLING.md
+
+-- 初始化 L2TPv2 虚拟网卡 (LAC, 需要通过其他网卡提供网络连接)
+-- 认证支持 PAP + CHAP(MD5); l2tp_secret 可选, 开启 L2TP 隧道认证
+local ok = netdrv.setup(socket.LWIP_USER1, netdrv.L2TP, {
+    l2tp_remote_ip = "10.0.0.1",                -- LNS IP (必填, 仅IP字面量)
+    l2tp_remote_port = 1701,                     -- LNS 端口 (默认 1701)
+    l2tp_username = "user",                      -- PPP 用户名 (可选)
+    l2tp_password = "pass",                      -- PPP 密码 (可选)
+    l2tp_secret = nil,                           -- L2TP 隧道共享密钥 (可选)
+    l2tp_mtu = 1450,                             -- PPP MRU (默认 1450)
+    l2tp_retry_enable = true,                    -- 失败后自动重连
+    l2tp_retry_base_ms = 1000,
+    l2tp_retry_max_ms = 60000,
+})
 */
 static int l_netdrv_setup(lua_State *L) {
     luat_netdrv_conf_t conf = {0};
@@ -185,6 +199,54 @@ static int l_netdrv_setup(lua_State *L) {
             lua_pop(L, 1);
         }
         #endif
+
+        #ifdef LUAT_USE_NETDRV_L2TP
+        if (conf.impl == LUAT_NETDRV_IMPL_L2TP) {
+            conf.l2tp_conf = luat_heap_malloc(sizeof(luat_netdrv_l2tp_conf_t));
+            if (conf.l2tp_conf == NULL) {
+                lua_pushboolean(L, 0);
+                return 1;
+            }
+            memset(conf.l2tp_conf, 0, sizeof(luat_netdrv_l2tp_conf_t));
+            // L2TP的配置参数
+            if (lua_getfield(L, 3, "l2tp_remote_ip") == LUA_TSTRING) {
+                conf.l2tp_conf->l2tp_remote_ip = luaL_checklstring(L, -1, &len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "l2tp_remote_port") == LUA_TNUMBER) {
+                conf.l2tp_conf->l2tp_remote_port = luaL_checkinteger(L, -1);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "l2tp_username") == LUA_TSTRING) {
+                conf.l2tp_conf->l2tp_username = luaL_checklstring(L, -1, &conf.l2tp_conf->l2tp_username_len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "l2tp_password") == LUA_TSTRING) {
+                conf.l2tp_conf->l2tp_password = luaL_checklstring(L, -1, &conf.l2tp_conf->l2tp_password_len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "l2tp_secret") == LUA_TSTRING) {
+                conf.l2tp_conf->l2tp_secret = luaL_checklstring(L, -1, &conf.l2tp_conf->l2tp_secret_len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "l2tp_mtu") == LUA_TNUMBER) {
+                conf.l2tp_conf->l2tp_mtu = luaL_checkinteger(L, -1);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "l2tp_retry_enable") == LUA_TBOOLEAN) {
+                conf.l2tp_conf->l2tp_retry_enable = lua_toboolean(L, -1);
+            }
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "l2tp_retry_base_ms") == LUA_TNUMBER) {
+                conf.l2tp_conf->l2tp_retry_base_ms = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "l2tp_retry_max_ms") == LUA_TNUMBER) {
+                conf.l2tp_conf->l2tp_retry_max_ms = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+        }
+        #endif
     }
     luat_netdrv_t* ret = luat_netdrv_setup(&conf);
     lua_pushboolean(L, ret != NULL);
@@ -193,6 +255,9 @@ static int l_netdrv_setup(lua_State *L) {
     }
     if (conf.ovpn_conf) {
         luat_heap_free(conf.ovpn_conf);
+    }
+    if (conf.l2tp_conf) {
+        luat_heap_free(conf.l2tp_conf);
     }
     return 1;
 }
@@ -712,6 +777,9 @@ static const rotable_Reg_t reg_netdrv[] =
     { "WHALE",          ROREG_INT(LUAT_NETDRV_IMPL_WHALE)}, // 通用WHALE设备
     #ifdef LUAT_USE_NETDRV_OPENVPN
     { "OPENVPN",        ROREG_INT(LUAT_NETDRV_IMPL_OPENVPN)}, // OpenVPN虚拟网卡
+    #endif
+    #ifdef LUAT_USE_NETDRV_L2TP
+    { "L2TP",           ROREG_INT(LUAT_NETDRV_IMPL_L2TP)}, // L2TPv2虚拟网卡
     #endif
 
     //@const CTRL_RESET number 控制类型-复位,当前仅支持CH390H

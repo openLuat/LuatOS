@@ -444,8 +444,9 @@ static int l_mobile_muid(lua_State* L) {
     return 1;
 }
 
+#if 0
 /**
-设置MUID
+设置MUID，已经废弃不要使用
 @api mobile.muidSet(muid)
 @string muid MUID字符串
 @return int 0成功, -1失败
@@ -456,7 +457,7 @@ static int l_mobile_muid_set(lua_State* L) {
     lua_pushinteger(L, luat_mobile_set_muid(muid, len));
     return 1;
 }
-
+#endif
 
 /**
 获取或设置ICCID
@@ -1436,6 +1437,7 @@ static int l_mobile_set_band(lua_State* L) {
 	return 1;
 }
 
+#if 0
 /* ============================================================
  *  新增 luat_mobile_rf_test_* 桥接层 (替代旧 luat_mobile_rfcal_*)
  *  这层桥接只做字节 / 状态搬运, 不做 AT 派发
@@ -1635,6 +1637,7 @@ static int l_mobile_rf_test_band_list(lua_State* L) {
     }
     return 1;
 }
+#endif
 
 /**
 初始化内置默认虚拟卡功能(不可用)
@@ -1732,7 +1735,8 @@ static const rotable_Reg_t reg_mobile[] = {
     {"iccid",           ROREG_FUNC(l_mobile_iccid)},
 	{"number",          ROREG_FUNC(l_mobile_number)},
     {"muid",            ROREG_FUNC(l_mobile_muid)},
-#ifdef LUAT_USE_MOBILE_RFA
+//#ifdef LUAT_USE_MOBILE_RFA
+#if 0
     {"muidSet",         ROREG_FUNC(l_mobile_muid_set)},
 #endif
     {"apn",             ROREG_FUNC(l_mobile_apn)},
@@ -1759,7 +1763,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"config",          ROREG_FUNC(l_mobile_config)},
 	{"getBand",          ROREG_FUNC(l_mobile_get_band)},
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
-#ifdef LUAT_USE_MOBILE_RFA
+//#ifdef LUAT_USE_MOBILE_RFA
+#if 0
 	{"rfTestMode",        ROREG_FUNC(l_mobile_rf_test_mode)},
 	{"rfTestInput",       ROREG_FUNC(l_mobile_rf_test_input)},
 	{"rfTestParam",       ROREG_FUNC(l_mobile_rf_test_param)},

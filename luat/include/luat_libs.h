@@ -220,5 +220,6 @@ LUAMOD_API int luaopen_voip( lua_State *L );
 
 /** memprof Lua内存分析库 */
 LUAMOD_API int luaopen_memprof(lua_State *L);
-
+/** 内部AT */
+LUAMOD_API int luaopen_atc( lua_State *L );
 #endif

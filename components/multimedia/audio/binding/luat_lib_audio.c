@@ -507,7 +507,7 @@ DONE:
 @string/zbuff 输入数据，如果为空，则不输入任何数据
 @boolean 是否是最后一帧数据，默认false
 @return boolean 成功返回true,否则返回false
-@return int 实际写入的长度，如果数据为空或者写入失败，则返回0，单位字节。如果数据是zbuff形式，写入成功后会自动删除zbuff中的数据
+@return int 实际写入的长度，如果数据为空或者写入失败，则返回0，单位字节。
 @return int 输入缓冲的剩余空间，单位字节
 @usage
 local result, write_len, free_len = audio_v2.input(request_index, data, is_end)

@@ -98,7 +98,6 @@ static void hspi_fota_exec(void) {
 #define HSPI_INT_PIN      12
 
 static TaskHandle_t g_hspi_task_handle = NULL;  // 传输任务句柄 (ISR→定向通知)
-
 static int hspi_int_irq_cb(int pin, void* args) {
     if (g_hspi_task_handle != NULL) {
         BaseType_t xHigherPriorityTaskWoken = pdFALSE;
@@ -126,26 +125,35 @@ static void hspi_int_gpio_init(void) {
 
 // ==================== 平台 SPI 回调 ====================
 
-#define HSPI_SPI_ID      1           // 使用 SPI1
-#define HSPI_CS_PIN      8           // CS GPIO, 按实际板子修改
-#define HSPI_SPEED       4000000     // 起始 4MHz
+// 默认参数: Lua 未配置 airlink.config(CONF_SPI_ID/CS/SPEED) 时使用
+#define HSPI_DEFAULT_SPI_ID   1
+#define HSPI_DEFAULT_CS_PIN   8
+#define HSPI_DEFAULT_SPEED    4000000
 
 static uint8_t g_spi_inited = 0;
+static int      s_spi_id = HSPI_DEFAULT_SPI_ID;
+static int      s_cs_pin = HSPI_DEFAULT_CS_PIN;
+static uint32_t s_speed  = HSPI_DEFAULT_SPEED;
 
 int xt804_hspi_spi_xfer(const uint8_t *tx, uint8_t *rx, uint16_t len) {
     if (!g_spi_inited) {
+        // SPI id/CS/速度由 airlink.config() 配置 (g_airlink_spi_conf), 未配置时用默认值
+        // 判据: cs_pin 非 0 视为已配置 (1601 可用 CS 引脚为 4/8/37, 不会配 0)
+        s_spi_id = (g_airlink_spi_conf.cs_pin != 0) ? g_airlink_spi_conf.spi_id    : HSPI_DEFAULT_SPI_ID;
+        s_cs_pin = (g_airlink_spi_conf.cs_pin != 0) ? g_airlink_spi_conf.cs_pin    : HSPI_DEFAULT_CS_PIN;
+        s_speed  = g_airlink_spi_conf.speed ? g_airlink_spi_conf.speed : HSPI_DEFAULT_SPEED;
         luat_spi_t cfg = {
-            .id = HSPI_SPI_ID,
+            .id = s_spi_id,
             .CPHA = 0, .CPOL = 0,
             .dataw = 8, .bit_dict = 1,
             .master = 1, .mode = 1,
-            .bandrate = HSPI_SPEED,
+            .bandrate = s_speed,
             .cs = 255,              // 软件 CS，手动 GPIO 控制
         };
         if (luat_spi_setup(&cfg) != 0) return -1;
         luat_gpio_cfg_t cs_cfg = {0};
         luat_gpio_set_default_cfg(&cs_cfg);
-        cs_cfg.pin = HSPI_CS_PIN;
+        cs_cfg.pin = s_cs_pin;
         cs_cfg.mode = Luat_GPIO_OUTPUT;
         cs_cfg.pull = Luat_GPIO_PULLUP;
         cs_cfg.output_level = 1;    // CS 默认高（非选中）
@@ -153,9 +161,9 @@ int xt804_hspi_spi_xfer(const uint8_t *tx, uint8_t *rx, uint16_t len) {
         g_spi_inited = 1;
     }
     // CS 低 → 传输 → CS 高（确保 XT804 检测到 CS 上升沿）
-    luat_gpio_set(HSPI_CS_PIN, 0);
-    int ret = luat_spi_transfer(HSPI_SPI_ID, (const char*)tx, len, (char*)rx, len);
-    luat_gpio_set(HSPI_CS_PIN, 1);
+    luat_gpio_set(s_cs_pin, 0);
+    int ret = luat_spi_transfer(s_spi_id, (const char*)tx, len, (char*)rx, len);
+    luat_gpio_set(s_cs_pin, 1);
     return ret;
 }
 

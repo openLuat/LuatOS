@@ -145,8 +145,9 @@ static int hspi_wr(uint8_t addr, const uint8_t *data, uint16_t len) {
  */
 static int hspi_rd(uint8_t addr, uint8_t *data, uint16_t len) {
     uint8_t original_len = len;
-    // hspi_rd 只用于寄存器读 (0x02/0x03/0x06), 最大 4 字节 + 1 地址 = 5 字节
-    uint16_t xfer = (addr < 0x10) ? (1 + len) : ((1 + len + 3) & ~3);
+    // ★ 07-09 修复回归: 所有传输必须 4 字节对齐 (含寄存器读), 否则 XT804 不锁存 RX_DAT_LEN
+    //   → 长度寄存器与数据 desc 错位 (config(0) 组偶发 RPC 超时的根因)
+    uint16_t xfer = ((1 + len + 3) & ~3);
     uint8_t tx[20];
     uint8_t rx[20];
     if (xfer > sizeof(tx)) return -1;
@@ -190,6 +191,9 @@ int xt804_hspi_check_status(int *data_rdy, int *cmd_rdy) {
     return 0;
 }
 
+/* ⚠ 潜伏路径: 数据端口用 0x00 (非末段) 读, 与主路径 read_data_intr 的 0x10 (末段, 消耗 desc) 语义不同。
+ * 0x00 不触发 desc 释放 → 从机单帧队列 (tls_hspi_tx_data 写后等读走) 永远等不到 → 50ms 超时。
+ * 当前 transport 传 resp=NULL (fire-and-forget) 不触发; 带 resp 调用前需先对齐两路径语义。 */
 int xt804_hspi_read_response(uint8_t *resp, uint16_t *resp_len,
                               uint16_t *cmd_id, uint32_t timeout_ms) {
     uint64_t deadline = luat_mcu_tick64_ms() + timeout_ms;
@@ -243,29 +247,6 @@ int xt804_hspi_read_response(uint8_t *resp, uint16_t *resp_len,
 }
 
 /**
- * 验证 H-SPI 帧头 checksum 和 payload checksum
- *
- * 帧格式: [SYN(0xAA)][TYPE][LEN_BE(2)][SN][FLG][DA][HDR_CHK][PAYLOAD...][PL_CHK][PAD]
- *
- * HDR_CHK = (TYPE + LEN_H + LEN_L + SN + FLG + DA) & 0xFF   ← 大端, 按字节累加
- * PL_CHK  = sum(PAYLOAD[0..LEN-1]) & 0xFF
- *
- * @return 1=校验通过, 0=失败
- */
-static int hspi_frame_verify(const uint8_t *frame, uint16_t len) {
-    if (len < 9) return 0;
-    if (frame[0] != 0xAA) return 0;
-    uint16_t plen = ((uint16_t)frame[2] << 8) | frame[3];  // 大端
-    if (plen + 9 > len) return 0;
-    uint8_t exp_hdr = (frame[1] + frame[2] + frame[3] + frame[4] + frame[5] + frame[6]) & 0xFF;
-    if (frame[7] != exp_hdr) return 0;
-    uint8_t pl_chk = 0;
-    for (uint16_t i = 0; i < plen; i++) pl_chk += frame[8 + i];
-    if (frame[8 + plen] != pl_chk) return 0;
-    return 1;
-}
-
-/**
  * 中断驱动读取 — 严格按 HSPI 手册 10.4.3.3 流程
  *
  * 流程:
@@ -312,14 +293,16 @@ int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
     //LLOGD("HSPI RX_DAT_LEN=%u", n);
     uint16_t data_len = n;
 
-    // [事务3] 读数据 (栈上数组, 4字节对齐)
+    // [事务3] 读数据 (栈上数组, 4字节对齐) + CRC 校验
+    // ★ config(0) 修复: 从机 tls_hspi_tx_data 写后等主控读走 (单帧队列, wm_hspi.c)
+    //   → 主控用 0x10 末段读 (读即消耗 desc, 从机 valid 清后才写下一帧), 长度与数据一致
+    //   CRC 校验保留为防御 (单帧队列下正常路径不应触发)
     uint16_t npad = (data_len + 3) & ~3;
     uint8_t tx_buf[1608];
     uint8_t rx_buf[1608];
     uint8_t buf[1608];
-
     memset(tx_buf, 0, sizeof(tx_buf));
-    tx_buf[0] = 0x10;  // DAT_PORT1 读 (末段, 命令0x10). 手册: 单帧就是末段, 用0x10通知硬件帧结束释放TX描述符
+    tx_buf[0] = 0x10;  // DAT_PORT1 末段读 — 通知硬件帧结束, 释放 TX 描述符
     memset(tx_buf + 1, 0xFF, npad);
     uint16_t xfer = ((npad + 1 + 3) & ~3);
     if (xfer > sizeof(tx_buf)) xfer = sizeof(tx_buf);
@@ -327,36 +310,19 @@ int xt804_hspi_read_data_intr(uint8_t *resp, uint16_t *resp_len,
     if (xt804_hspi_spi_xfer(tx_buf, rx_buf, xfer) < 0) return -1;
     memcpy(buf, rx_buf + 1, npad);
 
-    // [事务4] 验证 RX_DAT_LEN 归零 (INT 已在事务0被"读可清"清除)
-    { uint8_t _chk[2]; if (hspi_rd(0x02, _chk, 2) == 0) {
-        uint16_t _left = _chk[0] | ((uint16_t)_chk[1] << 8);
-        if (_left != 0 && _left != 0xFFFF) {
-            //LLOGD("HSPI more data pending: len=%u", _left);
-        }
-    }}
-
-#if 0
-    // ★ 调试: RAW 数据前 32 字节
-    LLOGD("HSPI raw[0..31]: "
-        "%02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X "
-        "%02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X",
-        buf[0],buf[1],buf[2],buf[3],buf[4],buf[5],buf[6],buf[7],
-        buf[8],buf[9],buf[10],buf[11],buf[12],buf[13],buf[14],buf[15],
-        buf[16],buf[17],buf[18],buf[19],buf[20],buf[21],buf[22],buf[23],
-        buf[24],buf[25],buf[26],buf[27],buf[28],buf[29],buf[30],buf[31]);
-#endif
-
-    // 解析: 尝试两种格式
-    // 格式1: 完整 AirLink frame (magic+len+crc16+pkgid+flags+cmd_t+payload)
-    // 格式2: 无帧头, 直接 cmd_t+payload
-    uint8_t *pdata = buf;
     uint16_t plen = data_len;
+    // 格式1 (magic 开头) → 必须 CRC 通过 (防御: 单帧队列下不应失败)
+    if (plen >= 4 && buf[0]==0xA1 && buf[1]==0xB1 && buf[2]==0xCA && buf[3]==0x66) {
+        if (airlink_unpack(buf, plen) == NULL) {
+            LLOGE("HSPI frame CRC fail len=%u — drop", plen);
+            return -1;
+        }
+    }
 
-    // 如果以 A1B1CA66 开头 → 格式1, 跳过帧头
+    // 解析: 格式1 已校验通过, 跳过帧头; 格式2 直接 cmd_t+payload
+    uint8_t *pdata = buf;
     if (plen >= 4 && buf[0]==0xA1 && buf[1]==0xB1 && buf[2]==0xCA && buf[3]==0x66) {
         // airlink_link_data_t 头部 16 字节
-        uint16_t link_len = buf[4] | ((uint16_t)buf[5] << 8);  // LE
-        //LLOGD("HSPI AirLink frame: magic=OK link_len=%u raw_len=%u", link_len, plen);
         if (plen < 16) return -1;
         pdata = buf + 16;  // 跳过完整帧头
         plen = plen - 16;

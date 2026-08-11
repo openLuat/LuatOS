@@ -438,6 +438,7 @@ int luat_airlink_rpc(uint8_t mode, uint16_t rpc_id,
         _stats_unlock();
         return -2;
     }
+    luat_rtos_semaphore_take(ctx->sem, 0);
     ctx->refcnt = 1;  // waiter 引用
 
     // 生成 pkgid 并注册 result_reg

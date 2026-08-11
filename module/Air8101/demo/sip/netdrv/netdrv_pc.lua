@@ -51,7 +51,7 @@ socket.dft(socket.ETH0)
 -- 目前模拟器上还没有合适的接口获取唯一ID，所以此处先简单的构造一个ID，需要手动保证ID唯一，在此处我简单使用了zhutianhua1做为ID
 _G.mobile = {}
 function mobile.imei()
-    -- return "zhutianhua1"
-    log.info("mcu.unique_id()", mcu.unique_id())
-    return mcu.unique_id().."zhutianhua1"
+    return "zhutianhua1"
+    -- log.info("mcu.unique_id()", mcu.unique_id())
+    -- return mcu.unique_id().."zhutianhua1"
 end

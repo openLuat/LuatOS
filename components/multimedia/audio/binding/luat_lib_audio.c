@@ -507,7 +507,7 @@ DONE:
 @string/zbuff 输入数据，如果为空，则不输入任何数据
 @boolean 是否是最后一帧数据，默认false
 @return boolean 成功返回true,否则返回false
-@return int 实际写入的长度，如果数据为空或者写入失败，则返回0，单位字节。如果数据是zbuff形式，写入成功后会自动删除zbuff中的数据
+@return int 实际写入的长度，如果数据为空或者写入失败，则返回0，单位字节。
 @return int 输入缓冲的剩余空间，单位字节
 @usage
 local result, write_len, free_len = audio_v2.input(request_index, data, is_end)
@@ -996,7 +996,7 @@ DONE:
         extern_source_index = l_extern_source->self_index|LUAT_AUDIO_EXTERN_SOURCE_INDEX_FLAG;
         LLOGC(luat_audio_debug_flag, "lua extern source add success, index %d", extern_source_index);
     } else {
-        LLOGE("lua extern source add failed");
+        LLOGE("lua extern source add failed %d", result);
         if (l_extern_source) {
             luat_llist_del(&l_extern_source->node);
             luat_llist_add_tail(&l_extern_source->node, &_l_audio.extern_source_free_list);
@@ -1026,6 +1026,7 @@ static int l_audio_stop(lua_State *L) {
         }
         l_audio_extern_source_t *l_extern_source = &_l_audio.extern_source_table[request_index];
         if (l_extern_source->is_busy) {
+            l_extern_source->is_busy = 0;
             luat_audio_request_delete_source(&l_extern_source->extern_source);
             luat_llist_del(&l_extern_source->node);
             luat_llist_add_tail(&l_extern_source->node, &_l_audio.extern_source_free_list);
@@ -1038,6 +1039,7 @@ static int l_audio_stop(lua_State *L) {
     }
     l_audio_request_t *l_req = &_l_audio.request_table[request_index];
     if (l_req->is_busy) {
+        l_req->is_busy = 0;
         luat_audio_request_cancel(&l_req->request);
         luat_llist_del(&l_req->node);
         luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);

@@ -50,7 +50,8 @@ log.info("main", PROJECT, VERSION)
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
--- gpio.setup(13, 1, gpio.PULLUP)
+gpio.setup(13, 1, gpio.PULLUP)
+gpio.setup(7, 1, gpio.PULLUP)
 
 -- 加载网络驱动设备功能模块
 require "netdrv_device"

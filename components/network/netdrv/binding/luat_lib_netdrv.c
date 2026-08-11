@@ -204,7 +204,7 @@ static int l_netdrv_setup(lua_State *L) {
 @boolean 开启或者关闭
 @string dhcp主机名称, 可选, 最长31字节，填""清除
 @return boolean 成功与否
-@usgae
+@usage
 -- 注意, 并非所有网络设备都支持关闭DHCP, 例如4G Cat.1自带的netdrv就不支持关闭DHCP
 -- name参数于2025.9.23添加
 netdrv.dhcp(socket.LWIP_ETH, true)
@@ -219,15 +219,15 @@ static int l_netdrv_dhcp(lua_State *L) {
         luat_netdrv_t *drv = NULL;
         data = luaL_checklstring(L, 3, &len);
         drv = luat_netdrv_get(id);
-        if(((len + 1) > 32) || (drv == NULL) || (drv->ulwip == NULL)) {
-            LLOGD("adapter %d dhcp name set fail", id);
+        if(((len + 1) > 32) || (drv == NULL)) {
+            LLOGW("adapter %d dhcp name set fail", id);
             lua_pushboolean(L, 0);
             return 1;
         }
         if(0 == len){
-            memset(drv->ulwip->dhcp_client.name, 0x00, 32);
+            memset(drv->dhcp_client.name, 0x00, 32);
         } else {
-            memcpy(drv->ulwip->dhcp_client.name, data, len + 1);
+            memcpy(drv->dhcp_client.name, data, len + 1);
         }
     }
     int ret = luat_netdrv_dhcp(id, enable);

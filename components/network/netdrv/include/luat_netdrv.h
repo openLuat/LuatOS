@@ -2,7 +2,11 @@
 #define LUAT_NETDRV_H
 
 #include "lwip/pbuf.h"
-#include "luat_ulwip.h"
+#include "lwip/ip_addr.h"
+#include "lwip/netif.h"
+#include "luat_rtos.h"
+#include "luat_network_adapter.h"
+#include "dhcp_def.h"
 
 struct luat_netdrv;
 
@@ -101,11 +105,13 @@ typedef struct luat_netdrv_statics
 typedef struct luat_netdrv {
     int32_t id;
     struct netif* netif;
-    ulwip_ctx_t* ulwip;
     luat_netdrv_dataout_cb dataout;
     luat_netdrv_bootup_cb boot;
     luat_netdrv_ready_cb ready;
     luat_netdrv_dhcp_set dhcp;
+    uint8_t dhcp_enable;            // DHCP开关, 0=关闭 1=开启
+    dhcp_client_info_t dhcp_client; // DHCP客户端状态机
+    luat_rtos_timer_t dhcp_timer;   // DHCP定时器
     luat_netdrv_statics_t statics;
     void* userdata;
     luat_netdrv_ctrl_cb ctrl;
@@ -134,17 +140,19 @@ luat_netdrv_t* luat_netdrv_get(int id);
 
 void luat_netdrv_print_pkg(const char* tat, uint8_t* buff, size_t len);
 
-// 辅助传递函数
+// 辅助传递函数: 只携带pbuf指针, 整帧缓冲在RX任务里一次分配/拷贝
 typedef struct netdrv_pkg_msg
 {
     struct netif * netif;
-    uint16_t len;
-    uint8_t buff[4];
+    struct pbuf * p;
 }netdrv_pkg_msg_t;
 
 void luat_netdrv_netif_input(void* args);
 
 int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t len);
+
+void luat_netdrv_rx_stat_reset(void);
+void luat_netdrv_rx_stat_print(void);
 
 void luat_netdrv_print_tm(const char * tag);
 
@@ -179,6 +187,4 @@ int luat_netdrv_is_ready(int id);
 #endif
 
 #endif
-
-
 

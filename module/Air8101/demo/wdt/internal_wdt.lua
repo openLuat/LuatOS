@@ -33,7 +33,7 @@ function simulate_fault()
     log.info("wdt", "故障前最后一次喂狗，成功 =", success)
     
     log.info("fault_task", "进入死循环模拟故障")
-    log.info("fault_task", "看门狗喂狗任务被阻塞，系统将在约20秒后重启")
+    log.info("fault_task", "看门狗喂狗任务被阻塞，系统将在约10秒后重启")
     
     while true do
         -- 模拟故障场景，真的进入死循环
@@ -54,11 +54,10 @@ function internal_wdt_demo()
     -- 检查开机原因
     local reason1, reason2, reason3 = pm.lastReson()
     log.info("reset_reason", "重启原因1:", reason1, "原因2:", reason2, "原因3:", reason3)
-    
-    -- 注意, 大部分芯片/模块是 2 倍超时时间后才会重启
-    -- 以下是常规配置, 9秒超时, 3秒喂一次狗
-    -- 若软件崩溃,死循环,硬件死机,那么 最多 18 秒后,自动复位
-    -- 注意: 软件bug导致业务失败, 并不能通过wdt解决
+
+    -- Air8101 的 wdt 是任务级看门狗，必须先 init 才会启用
+    -- 配置 9 秒超时，3 秒喂一次狗，最后喂狗后约 9~10 秒执行复位
+    -- 注意：wdt.init 必须在 feed 前调用，否则无效
     wdt.init(9000)
 
     -- 定期喂狗，防止系统重启

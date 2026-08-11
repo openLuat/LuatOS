@@ -1,3 +1,12 @@
+/*
+@module  epd
+@summary 墨水屏操作库
+@version 1.0
+@date    2026.08.07
+@demo epd
+@tag LUAT_USE_TINY_EPD
+*/
+
 #include "luat_base.h"
 
 #if defined(LUAT_USE_TINY_EPD)
@@ -8,6 +17,7 @@
 #include "luat_spi.h"
 #include "tiny_epd.h"
 #include "tiny_epd_bitmap.h"
+#include "tiny_epd_custom.h"
 #include "tiny_epd_gfx.h"
 #include "tiny_epd_qrcode.h"
 #include "tiny_epd_port_luatos.h"
@@ -30,10 +40,14 @@
 #define LUAT_TINY_EPD_MODEL_1IN54_V3 3
 #define LUAT_TINY_EPD_MODEL_1IN54_SSD1607 4
 #define LUAT_TINY_EPD_MODEL_1IN54R 5
+#define LUAT_TINY_EPD_MODEL_1IN54B_V2 6
+#define LUAT_TINY_EPD_MODEL_1IN54G_V2 7
+#define LUAT_TINY_EPD_MODEL_CUSTOM 100
 
 typedef struct {
     tiny_epd_t *epd;
     tiny_epd_port_luatos_t port_context;
+    tiny_epd_custom_driver_t *custom_driver;
     int spi_ref;
     uint8_t refresh_busy;
 } luat_tiny_epd_device_t;
@@ -266,10 +280,15 @@ static int luat_tiny_epd_get_model(lua_State *L)
                 model == LUAT_TINY_EPD_MODEL_1IN54_V2 ||
                 model == LUAT_TINY_EPD_MODEL_1IN54_V3 ||
                 model == LUAT_TINY_EPD_MODEL_1IN54_SSD1607 ||
-                model == LUAT_TINY_EPD_MODEL_1IN54R) ? (int)model : 0;
+                model == LUAT_TINY_EPD_MODEL_1IN54R ||
+                model == LUAT_TINY_EPD_MODEL_1IN54B_V2 ||
+                model == LUAT_TINY_EPD_MODEL_1IN54G_V2) ? (int)model : 0;
     }
 
     name = luaL_checklstring(L, 1, &name_len);
+    if (name_len == 6 && memcmp(name, "custom", 6) == 0) {
+        return LUAT_TINY_EPD_MODEL_CUSTOM;
+    }
     if ((name_len == 5 && memcmp(name, "1in54", 5) == 0) ||
         (name_len == 18 && memcmp(name, "waveshare_1in54_bw", 18) == 0)) {
         return LUAT_TINY_EPD_MODEL_1IN54;
@@ -293,6 +312,275 @@ static int luat_tiny_epd_get_model(lua_State *L)
         (name_len == 16 && memcmp(name, "waveshare_1in54r", 16) == 0) ||
         (name_len == 20 && memcmp(name, "waveshare_1in54r_bwr", 20) == 0)) {
         return LUAT_TINY_EPD_MODEL_1IN54R;
+    }
+    if ((name_len == sizeof("1in54b_v2") - 1u &&
+         memcmp(name, "1in54b_v2", sizeof("1in54b_v2") - 1u) == 0) ||
+        (name_len == sizeof("waveshare_1in54b_v2") - 1u &&
+         memcmp(name, "waveshare_1in54b_v2", sizeof("waveshare_1in54b_v2") - 1u) == 0) ||
+        (name_len == sizeof("waveshare_1in54b_v2_bwr") - 1u &&
+         memcmp(name, "waveshare_1in54b_v2_bwr",
+                sizeof("waveshare_1in54b_v2_bwr") - 1u) == 0)) {
+        return LUAT_TINY_EPD_MODEL_1IN54B_V2;
+    }
+    if ((name_len == sizeof("1in54g_v2") - 1u &&
+         memcmp(name, "1in54g_v2", sizeof("1in54g_v2") - 1u) == 0) ||
+        (name_len == sizeof("waveshare_1in54g_v2") - 1u &&
+         memcmp(name, "waveshare_1in54g_v2", sizeof("waveshare_1in54g_v2") - 1u) == 0) ||
+        (name_len == sizeof("waveshare_1in54g_v2_bwry") - 1u &&
+         memcmp(name, "waveshare_1in54g_v2_bwry",
+                sizeof("waveshare_1in54g_v2_bwry") - 1u) == 0)) {
+        return LUAT_TINY_EPD_MODEL_1IN54G_V2;
+    }
+    return 0;
+}
+
+/* Parse one readable command-table step, e.g. {cmd=0x22, data={0xF7}}. */
+static int luat_tiny_epd_custom_parse_step(lua_State *L,
+                                           int step_index,
+                                           tiny_epd_custom_profile_t *profile,
+                                           tiny_epd_custom_seq_kind_t kind)
+{
+    lua_Integer value;
+    int ret;
+
+    lua_getfield(L, step_index, "reset");
+    if (lua_istable(L, -1)) {
+        uint32_t high = 20u;
+        uint32_t low = 2u;
+        uint32_t high2 = 20u;
+
+        lua_getfield(L, -1, "high");
+        if (lua_isnumber(L, -1)) high = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "low");
+        if (lua_isnumber(L, -1)) low = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "high2");
+        if (lua_isnumber(L, -1)) high2 = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        ret = tiny_epd_custom_seq_add_reset(profile, kind, high, low, high2);
+        lua_pop(L, 1); /* reset table */
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, step_index, "cmd");
+    if (!lua_isnil(L, -1)) {
+        if (!lua_isnumber(L, -1)) {
+            lua_pop(L, 1);
+            return -1;
+        }
+        value = lua_tointeger(L, -1);
+        if (value < 0 || value > UINT8_MAX) {
+            lua_pop(L, 1);
+            return -1;
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, step_index, "data");
+        if (lua_istable(L, -1)) {
+            size_t n = lua_rawlen(L, -1);
+            uint8_t *bytes;
+            size_t i;
+
+            if (n == 0u || n > UINT16_MAX) {
+                lua_pop(L, 1);
+                return -1;
+            }
+            bytes = (uint8_t *)lua_newuserdata(L, n);
+            for (i = 0; i < n; i++) {
+                lua_rawgeti(L, -2, (int)i + 1);
+                if (!lua_isnumber(L, -1)) {
+                    lua_pop(L, 2);
+                    return -1;
+                }
+                bytes[i] = (uint8_t)lua_tointeger(L, -1);
+                lua_pop(L, 1);
+            }
+            ret = tiny_epd_custom_seq_add_cmd_data(profile, kind,
+                                                   (uint8_t)value, bytes, n);
+            lua_pop(L, 2); /* data + bytes userdata */
+        }
+        else {
+            lua_pop(L, 1); /* nil data */
+            ret = tiny_epd_custom_seq_add_cmd(profile, kind, (uint8_t)value);
+        }
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, step_index, "delay");
+    if (lua_isnumber(L, -1)) {
+        value = lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        if (value < 0) return -1;
+        ret = tiny_epd_custom_seq_add_delay(profile, kind, (uint32_t)value);
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, step_index, "busy");
+    if (lua_isnumber(L, -1)) {
+        uint8_t idle = (uint8_t)lua_tointeger(L, -1);
+        uint32_t timeout = profile->busy_timeout_ms;
+
+        lua_pop(L, 1);
+        lua_getfield(L, step_index, "timeout");
+        if (lua_isnumber(L, -1)) timeout = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        ret = tiny_epd_custom_seq_add_busy(profile, kind, idle, timeout);
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, step_index, "write_ram");
+    if (lua_isnumber(L, -1)) {
+        value = lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        if (value < 0 || value > UINT8_MAX) return -1;
+        ret = tiny_epd_custom_seq_add_write_ram(profile, kind, (uint8_t)value, 0);
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, step_index, "write_ram2");
+    if (lua_isnumber(L, -1)) {
+        value = lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        if (value < 0 || value > UINT8_MAX) return -1;
+        ret = tiny_epd_custom_seq_add_write_ram(profile, kind, (uint8_t)value, 1);
+        return ret == TINY_EPD_OK ? 0 : -1;
+    }
+    lua_pop(L, 1);
+    return -1;
+}
+
+static int luat_tiny_epd_custom_parse_seq(lua_State *L,
+                                          int seq_index,
+                                          tiny_epd_custom_profile_t *profile,
+                                          tiny_epd_custom_seq_kind_t kind)
+{
+    size_t n;
+    size_t i;
+
+    if (lua_isnil(L, seq_index)) {
+        return 0;
+    }
+    if (!lua_istable(L, seq_index)) {
+        return -1;
+    }
+    n = lua_rawlen(L, seq_index);
+    for (i = 0; i < n; i++) {
+        lua_rawgeti(L, seq_index, (int)i + 1);
+        if (!lua_istable(L, -1)) {
+            lua_pop(L, 1);
+            return -1;
+        }
+        if (luat_tiny_epd_custom_parse_step(L, -1, profile, kind) != 0) {
+            lua_pop(L, 1);
+            return -1;
+        }
+        lua_pop(L, 1);
+    }
+    return 0;
+}
+
+static int luat_tiny_epd_custom_parse_profile(lua_State *L,
+                                              tiny_epd_custom_profile_t *profile)
+{
+    lua_Integer value;
+
+    lua_getfield(L, 2, "width");
+    if (!lua_isnumber(L, -1) || (value = lua_tointeger(L, -1)) <= 0 ||
+        value > UINT16_MAX) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    profile->width = (uint16_t)value;
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "height");
+    if (!lua_isnumber(L, -1) || (value = lua_tointeger(L, -1)) <= 0 ||
+        value > UINT16_MAX) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    profile->height = (uint16_t)value;
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "busy_level");
+    if (lua_isnumber(L, -1)) profile->busy_idle_level = (uint8_t)lua_tointeger(L, -1);
+    lua_pop(L, 1);
+    lua_getfield(L, 2, "busy_timeout");
+    if (lua_isnumber(L, -1)) profile->busy_timeout_ms = (uint32_t)lua_tointeger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "format");
+    if (!lua_isnil(L, -1)) {
+        if (!lua_isnumber(L, -1) ||
+            lua_tointeger(L, -1) != TINY_EPD_SURFACE_INDEX1) {
+            lua_pop(L, 1);
+            return -1;
+        }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "init");
+    if (luat_tiny_epd_custom_parse_seq(L, -1, profile, TINY_EPD_CUSTOM_SEQ_INIT) != 0) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "fast_init");
+    if (luat_tiny_epd_custom_parse_seq(L, -1, profile,
+                                       TINY_EPD_CUSTOM_SEQ_FAST_INIT) != 0) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "refresh");
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, "full");
+        if (luat_tiny_epd_custom_parse_seq(L, -1, profile,
+                                           TINY_EPD_CUSTOM_SEQ_FULL) != 0) {
+            lua_pop(L, 2);
+            return -1;
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "fast");
+        if (luat_tiny_epd_custom_parse_seq(L, -1, profile,
+                                           TINY_EPD_CUSTOM_SEQ_FAST) != 0) {
+            lua_pop(L, 2);
+            return -1;
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "partial");
+        if (luat_tiny_epd_custom_parse_seq(L, -1, profile,
+                                           TINY_EPD_CUSTOM_SEQ_PARTIAL) != 0) {
+            lua_pop(L, 2);
+            return -1;
+        }
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "sleep");
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, "deep");
+        if (luat_tiny_epd_custom_parse_seq(L, -1, profile,
+                                           TINY_EPD_CUSTOM_SEQ_SLEEP) != 0) {
+            lua_pop(L, 2);
+            return -1;
+        }
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    if (profile->seq[TINY_EPD_CUSTOM_SEQ_INIT].count == 0u ||
+        profile->seq[TINY_EPD_CUSTOM_SEQ_FULL].count == 0u) {
+        return -1;
     }
     return 0;
 }
@@ -404,12 +692,13 @@ static int luat_tiny_epd_get_rotation_field(lua_State *L,
     return 0;
 }
 
-/*
+/**
+打开墨水屏
 @api epd.open(model, opts[, spi_device])
-@number|string model 当前支持 epd.MODEL_1IN54 或 "1in54"
-@table opts {port = spi_id|"device", pin_dc, pin_rst, pin_busy[, busy_pull, busy_poll_ms, rotation|direction]}
+@int|string model 面板型号，如 epd.MODEL_1IN54、epd.MODEL_1IN54G_V2、"custom" 等
+@table opts 配置表，port="device" 时需 pin_dc/pin_rst/pin_busy，可选 busy_pull/busy_poll_ms/rotation
 @userdata spi_device 可选，port="device" 时传入 spi.deviceSetup() 返回的对象
-@return userdata 成功时返回独立的 tiny_epd 设备对象
+@return userdata panel 成功时返回墨水屏对象
 @return nil,string 失败时返回 nil 和错误信息
 @usage
 local spi_epd = spi.deviceSetup(0, 8, 0, 0, 8, 20 * 1000 * 1000, spi.MSB, 1, 0)
@@ -423,6 +712,8 @@ static int l_tiny_epd_open(lua_State *L)
     const tiny_epd_driver_t *driver;
     tiny_epd_port_t port;
     tiny_epd_port_luatos_config_t config;
+    tiny_epd_custom_driver_t *custom_driver = NULL;
+    tiny_epd_custom_profile_t *custom_profile = NULL;
     luat_tiny_epd_device_t *device;
     const char *port_name;
     size_t port_name_len;
@@ -440,7 +731,10 @@ static int l_tiny_epd_open(lua_State *L)
         model != LUAT_TINY_EPD_MODEL_1IN54_V2 &&
         model != LUAT_TINY_EPD_MODEL_1IN54_V3 &&
         model != LUAT_TINY_EPD_MODEL_1IN54_SSD1607 &&
-        model != LUAT_TINY_EPD_MODEL_1IN54R) {
+        model != LUAT_TINY_EPD_MODEL_1IN54R &&
+        model != LUAT_TINY_EPD_MODEL_1IN54B_V2 &&
+        model != LUAT_TINY_EPD_MODEL_1IN54G_V2 &&
+        model != LUAT_TINY_EPD_MODEL_CUSTOM) {
         return luat_tiny_epd_push_open_error(L, "unsupported epd model");
     }
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -515,7 +809,24 @@ static int l_tiny_epd_open(lua_State *L)
         return luat_tiny_epd_push_open_error(L, luat_tiny_epd_error_string(ret));
     }
 
-    if (model == LUAT_TINY_EPD_MODEL_1IN54_V2) {
+    if (model == LUAT_TINY_EPD_MODEL_CUSTOM) {
+        custom_profile = tiny_epd_custom_profile_create(&port);
+        if (custom_profile == NULL) {
+            return luat_tiny_epd_push_open_error(L, "out of memory");
+        }
+        if (luat_tiny_epd_custom_parse_profile(L, custom_profile) != 0) {
+            tiny_epd_custom_profile_destroy(&port, custom_profile);
+            return luat_tiny_epd_push_open_error(L, "invalid custom profile");
+        }
+        custom_driver = tiny_epd_custom_driver_create(&port, custom_profile);
+        if (custom_driver == NULL) {
+            tiny_epd_custom_profile_destroy(&port, custom_profile);
+            return luat_tiny_epd_push_open_error(L, "out of memory");
+        }
+        device->custom_driver = custom_driver;
+        driver = &custom_driver->base;
+    }
+    else if (model == LUAT_TINY_EPD_MODEL_1IN54_V2) {
         driver = tiny_epd_driver_1in54_v2();
     }
     else if (model == LUAT_TINY_EPD_MODEL_1IN54_V3) {
@@ -527,11 +838,21 @@ static int l_tiny_epd_open(lua_State *L)
     else if (model == LUAT_TINY_EPD_MODEL_1IN54R) {
         driver = tiny_epd_driver_1in54r();
     }
+    else if (model == LUAT_TINY_EPD_MODEL_1IN54B_V2) {
+        driver = tiny_epd_driver_1in54b_v2();
+    }
+    else if (model == LUAT_TINY_EPD_MODEL_1IN54G_V2) {
+        driver = tiny_epd_driver_1in54g_v2();
+    }
     else {
         driver = tiny_epd_driver_1in54();
     }
     ret = tiny_epd_create(&device->epd, driver, &port);
     if (ret != TINY_EPD_OK) {
+        if (device->custom_driver != NULL) {
+            tiny_epd_custom_driver_destroy(&port, device->custom_driver);
+            device->custom_driver = NULL;
+        }
         if (device->spi_ref != LUA_NOREF) {
             luaL_unref(L, LUA_REGISTRYINDEX, device->spi_ref);
             device->spi_ref = LUA_NOREF;
@@ -540,8 +861,13 @@ static int l_tiny_epd_open(lua_State *L)
     }
     ret = tiny_epd_set_rotation(device->epd, rotation);
     if (ret != TINY_EPD_OK) {
+        tiny_epd_port_t epd_port = device->epd->port;
         tiny_epd_destroy(device->epd);
         device->epd = NULL;
+        if (device->custom_driver != NULL) {
+            tiny_epd_custom_driver_destroy(&epd_port, device->custom_driver);
+            device->custom_driver = NULL;
+        }
         if (device->spi_ref != LUA_NOREF) {
             luaL_unref(L, LUA_REGISTRYINDEX, device->spi_ref);
             device->spi_ref = LUA_NOREF;
@@ -553,9 +879,10 @@ static int l_tiny_epd_open(lua_State *L)
     return 1;
 }
 
-/*
+/**
+初始化墨水屏
 @api panel:init()
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@return boolean 成功返回true，失败返回false和错误信息
 */
 static int l_tiny_epd_init(lua_State *L)
 {
@@ -566,10 +893,11 @@ static int l_tiny_epd_init(lua_State *L)
     return luat_tiny_epd_push_result(L, tiny_epd_init(device->epd));
 }
 
-/*
+/**
+清屏
 @api panel:clear([color])
-@number color 省略时使用当前背景色；也可显式传 panel palette 中的颜色
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int color 可选，默认使用当前背景色，也可显式传调色板颜色
+@return boolean 成功返回true，失败返回false和错误信息
 */
 static int l_tiny_epd_clear(lua_State *L)
 {
@@ -585,13 +913,13 @@ static int l_tiny_epd_clear(lua_State *L)
     return luat_tiny_epd_push_result(L, tiny_epd_clear(device->epd, color));
 }
 
-/*
+/**
+绘制像素点
 @api panel:pixel(x, y[, color])
-@number x X 坐标
-@number y Y 坐标
-@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
-@note 坐标属于当前逻辑画布，和 line/rect/qrcode 一样受 setRotation() 影响。
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x X坐标
+@int y Y坐标
+@int color 可选，默认使用当前前景色，也可显式传调色板颜色
+@return boolean 成功返回true，失败返回false和错误信息
 */
 static int l_tiny_epd_pixel(lua_State *L)
 {
@@ -614,11 +942,12 @@ static int l_tiny_epd_pixel(lua_State *L)
                                                          color));
 }
 
-/*
+/**
+设置当前前景色和背景色
 @api panel:setColor(fg, bg)
-@number fg 前景逻辑颜色
-@number bg 背景逻辑颜色
-@return boolean 成功返回 true；颜色不在当前 panel palette 时返回 false 和错误信息
+@int fg 前景颜色
+@int bg 背景颜色
+@return boolean 成功返回true，颜色不受当前面板支持时返回false和错误信息
 @usage
 assert(panel:setColor(epd.RED, epd.WHITE))
 */
@@ -641,7 +970,12 @@ static int l_tiny_epd_set_color(lua_State *L)
                                                         foreground, background));
 }
 
-/* @api panel:getColor() @return number fg @return number bg */
+/**
+获取当前前景色和背景色
+@api panel:getColor()
+@return int fg 前景颜色
+@return int bg 背景颜色
+*/
 static int l_tiny_epd_get_color(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
@@ -661,7 +995,12 @@ static int l_tiny_epd_get_color(lua_State *L)
     return 2;
 }
 
-/* @api panel:supportsColor(color) @return boolean 是否由当前 panel palette 支持 */
+/**
+查询颜色是否受当前面板支持
+@api panel:supportsColor(color)
+@int color 逻辑颜色
+@return boolean 支持返回true，否则返回false
+*/
 static int l_tiny_epd_supports_color(lua_State *L)
 {
     luat_tiny_epd_device_t *device = luat_tiny_epd_check_device(L);
@@ -712,15 +1051,19 @@ static int luat_tiny_epd_refresh_u16(lua_State *L, int index, uint16_t *value)
     return 0;
 }
 
-/*
+/**
+刷新屏幕（异步）
 @api panel:refresh([mode[, x, y, w, h]])
-@number mode epd.FULL（默认）、epd.FAST、epd.PARTIAL、epd.PARTIAL_RECT 或 epd.AUTO
-@number x,y,w,h 仅 epd.PARTIAL_RECT 时的显式刷新矩形；省略时使用 dirty rectangle
-@return cwait 使用 .wait() 得到 true，或 false 和错误信息
+@int mode 刷新模式，epd.FULL(默认)/FAST/PARTIAL/PARTIAL_RECT/AUTO
+@int x 可选，PARTIAL_RECT 时的区域起点X
+@int y 可选，PARTIAL_RECT 时的区域起点Y
+@int w 可选，PARTIAL_RECT 时的区域宽度
+@int h 可选，PARTIAL_RECT 时的区域高度
+@return cwait 通过 .wait() 获取结果：true 或 false,错误信息
 @usage
 assert(panel:refresh(epd.FULL).wait())
 panel:pixel(12, 18, epd.BLACK)
-assert(panel:refresh(epd.PARTIAL_RECT).wait()) -- 自动刷新绘制过的包围矩形
+assert(panel:refresh(epd.PARTIAL_RECT).wait())
 */
 static int l_tiny_epd_refresh(lua_State *L)
 {
@@ -826,10 +1169,11 @@ static int luat_tiny_epd_sleep_mode(lua_State *L, int index, tiny_epd_sleep_mode
     return 0;
 }
 
-/*
+/**
+进入休眠
 @api panel:sleep([mode])
-@string|number mode "auto" (默认)、"standby"、"deep" 或对应 SLEEP_* 常量
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@string|int mode 可选，"auto"(默认)/"standby"/"deep" 或对应常量
+@return boolean 成功返回true，失败返回false和错误信息
 */
 static int l_tiny_epd_sleep(lua_State *L)
 {
@@ -845,9 +1189,10 @@ static int l_tiny_epd_sleep(lua_State *L)
     return luat_tiny_epd_push_result(L, tiny_epd_sleep(device->epd, mode));
 }
 
-/*
+/**
+获取面板信息
 @api panel:info()
-@return table {width, height, native_width, native_height, stride, bits_per_pixel, plane_count, format, color_count, palette, caps, rotate}
+@return table 面板信息表，含width/height/native_width/native_height/stride/format/color_count/palette/caps/rotate等
 */
 static int l_tiny_epd_info(lua_State *L)
 {
@@ -906,8 +1251,13 @@ static int l_tiny_epd_info(lua_State *L)
 static void luat_tiny_epd_destroy(lua_State *L, luat_tiny_epd_device_t *device)
 {
     if (device->epd != NULL) {
+        tiny_epd_port_t port = device->epd->port;
         tiny_epd_destroy(device->epd);
         device->epd = NULL;
+        if (device->custom_driver != NULL) {
+            tiny_epd_custom_driver_destroy(&port, device->custom_driver);
+            device->custom_driver = NULL;
+        }
     }
     if (device->spi_ref != LUA_NOREF) {
         luaL_unref(L, LUA_REGISTRYINDEX, device->spi_ref);
@@ -915,7 +1265,11 @@ static void luat_tiny_epd_destroy(lua_State *L, luat_tiny_epd_device_t *device)
     }
 }
 
-/* @api panel:close() @return boolean 释放 tiny_epd 的 framebuffer 和设备对象 */
+/**
+关闭并释放墨水屏
+@api panel:close()
+@return boolean 成功返回true
+*/
 static int l_tiny_epd_close(lua_State *L)
 {
     luat_tiny_epd_device_t *device =
@@ -944,13 +1298,14 @@ static int l_tiny_epd_gc(lua_State *L)
  * Drawing primitives (line / rect / circle / qrcode) + rotation
  * ------------------------------------------------------------------------- */
 
-/*
+/**
+设置画布旋转方向
 @api panel:setRotation(rotate)
-@number rotate 旋转角度 0/90/180/270，或索引 0/1/2/3
-@return boolean 成功返回 true
+@int rotate 旋转角度0/90/180/270，或索引0/1/2/3
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
 panel:setRotation(90)
-panel:line(0, 0, 100, 100, epd.BLACK)  -- 在 90° 旋转坐标系下画线
+panel:line(0, 0, 100, 100, epd.BLACK)
 */
 static int l_tiny_epd_set_rotation(lua_State *L)
 {
@@ -970,14 +1325,15 @@ static int l_tiny_epd_set_rotation(lua_State *L)
                                      tiny_epd_set_rotation(device->epd, rotation));
 }
 
-/*
+/**
+绘制直线
 @api panel:line(x0, y0, x1, y1[, color])
-@number x0 起点 X
-@number y0 起点 Y
-@number x1 终点 X
-@number y1 终点 Y
-@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x0 起点X坐标
+@int y0 起点Y坐标
+@int x1 终点X坐标
+@int y1 终点Y坐标
+@int color 可选，默认使用当前前景色
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
 panel:line(0, 0, 100, 100, epd.BLACK)
 */
@@ -1005,16 +1361,19 @@ static int l_tiny_epd_line(lua_State *L)
                                                         color));
 }
 
-/*
+/**
+绘制矩形
 @api panel:rect(x, y, x2, y2[, color[, fill]])
-@number x,y 左上角坐标
-@number x2,y2 右下角坐标（end-point 形式）
-@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
-@number fill 0=仅描边（默认），1=实心
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x 左上角X坐标
+@int y 左上角Y坐标
+@int x2 右下角X坐标
+@int y2 右下角Y坐标
+@int color 可选，默认使用当前前景色
+@int fill 可选，0空心(默认)，1实心
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
-panel:rect(0, 0, 199, 199, epd.BLACK, 1)   -- 实心边框
-panel:rect(20, 20, 80, 80, epd.BLACK, 0)   -- 空心矩形
+panel:rect(0, 0, 199, 199, epd.BLACK, 1)
+panel:rect(20, 20, 80, 80, epd.BLACK, 0)
 */
 static int l_tiny_epd_rect(lua_State *L)
 {
@@ -1043,16 +1402,18 @@ static int l_tiny_epd_rect(lua_State *L)
                                                         (uint8_t)fill));
 }
 
-/*
+/**
+绘制圆形
 @api panel:circle(x, y, r[, color[, fill]])
-@number x,y 圆心坐标
-@number r 半径（0..255）
-@number color 省略时使用当前前景色；也可显式传 panel palette 中的颜色
-@number fill 0=仅描边（默认），1=实心
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x 圆心X坐标
+@int y 圆心Y坐标
+@int r 半径，0-255
+@int color 可选，默认使用当前前景色
+@int fill 可选，0空心(默认)，1实心
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
-panel:circle(100, 100, 50, epd.BLACK, 0)   -- 空心圆
-panel:circle(100, 100, 20, epd.BLACK, 1)   -- 实心圆
+panel:circle(100, 100, 50, epd.BLACK, 0)
+panel:circle(100, 100, 20, epd.BLACK, 1)
 */
 static int l_tiny_epd_circle(lua_State *L)
 {
@@ -1080,19 +1441,20 @@ static int l_tiny_epd_circle(lua_State *L)
                                                           (uint8_t)fill));
 }
 
-/*
+/**
+绘制XBM位图
 @api panel:drawXbm(x, y, width, height, data[, fg[, bg]])
-@number x,y 位图左上角逻辑坐标；允许负坐标，屏幕外部分自动裁剪
-@number width,height 位图像素尺寸
-@string data XBM 数据：逐行存储，每行 ceil(width/8) 字节，低位在左
-@number fg 置位像素颜色；省略时使用当前前景色
-@number|nil bg 清零像素颜色；省略时使用当前背景色，显式传 nil 表示透明
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x 位图左上角X坐标，允许负值，屏幕外自动裁剪
+@int y 位图左上角Y坐标，允许负值，屏幕外自动裁剪
+@int width 位图像素宽度
+@int height 位图像素高度
+@string data XBM数据，逐行存储，每行ceil(width/8)字节，低位在左
+@int fg 可选，置位像素颜色，默认当前前景色
+@int|nil bg 可选，清零像素颜色，默认当前背景色，传nil表示透明
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
--- 与 eink.drawXbm()/u8g2.DrawXBM 格式相同：每个字节 bit0 是最左侧像素
 local xbm = string.char(0x81, 0x42, 0x24, 0x18, 0x24, 0x42, 0x81, 0x00)
 assert(panel:drawXbm(20, 30, 8, 8, xbm))
--- 透明叠加：只有位图中的 1 写入 framebuffer
 assert(panel:drawXbm(20, 30, 8, 8, xbm, epd.BLACK, nil))
 */
 static int l_tiny_epd_draw_xbm(lua_State *L)
@@ -1138,13 +1500,15 @@ static int l_tiny_epd_draw_xbm(lua_State *L)
                                                        fg, bg));
 }
 
-/*
+/**
+绘制二维码
 @api panel:qrcode(x, y, str[, size[, color]])
-@number x,y 左上角坐标
-@string  str QR 内容
-@number size QR 占用的像素正方形边长（必须 >= qrcode 模块数）
-@number color 省略时使用当前前景/背景色；显式黑白色保持旧的反色背景行为
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x 左上角X坐标
+@int y 左上角Y坐标
+@string str 二维码内容
+@int size 可选，二维码像素边长，0表示按剩余区域自动适配
+@int color 可选，默认使用当前前景/背景色
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
 panel:qrcode(10, 10, "https://openluat.com", 120, epd.BLACK)
 */
@@ -1268,19 +1632,17 @@ static int luat_tiny_epd_hzfont_parse_style(lua_State *L,
     return 0;
 }
 
-/*
+/**
+绘制UTF-8文本（需固件启用HzFont）
 @api panel:drawHzfont(x, y, text, size[, style])
-@number x X 坐标
-@number y 基线 Y 坐标
-@string text UTF-8 文本
-@number size 字号（1..255 像素）
-@nil|number|table style 省略或 nil 时使用当前前景/背景色；兼容旧接口时传 antialias(-1..3)；推荐传
- {fg=epd.RED, bg=epd.WHITE, antialias=-1, threshold=128, dither=epd.DITHER_THRESHOLD}
-@return boolean 成功返回 true，失败返回 false 和错误信息
+@int x X坐标
+@int y 基线Y坐标
+@string text UTF-8文本，支持中文
+@int size 字号，1-255
+@table style 可选样式表，支持fg/bg/antialias/threshold/dither，省略时使用当前前景/背景色
+@return boolean 成功返回true，失败返回false和错误信息
 @usage
--- 省略 style：使用 setColor() 设置的前景/背景
 assert(panel:drawHzfont(10, 36, "合宙LuatOS", 24))
--- 白底覆盖旧文字；bayer4 可改善黑白屏的边缘观感
 assert(panel:drawHzfont(10, 68, "Hello世界", 20,
     {fg = epd.BLACK, bg = epd.WHITE, dither = epd.DITHER_BAYER4}))
 */
@@ -1314,11 +1676,12 @@ static int l_tiny_epd_draw_hzfont(lua_State *L)
                                                                style_ptr));
 }
 
-/*
+/**
+获取文本像素宽度
 @api panel:getHzfontWidth(text, size)
-@string text UTF-8 文本
-@number size 字号（1..255 像素）
-@return number 文本像素宽度；HzFont 未初始化或参数错误时返回 0
+@string text UTF-8文本
+@int size 字号，1-255
+@return int 文本像素宽度，失败返回0
 */
 static int l_tiny_epd_get_hzfont_width(lua_State *L)
 {
@@ -1380,12 +1743,8 @@ static const rotable_Reg_t reg_tiny_epd[] = {
     {"MODEL_1IN54_V3", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_V3)},
     {"MODEL_1IN54_SSD1607", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_SSD1607)},
     {"MODEL_1IN54R", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54R)},
-    /* Same spelling as the legacy eink module, for easier migration. */
-    {"MODEL_1in54", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54)},
-    {"MODEL_1in54_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_V2)},
-    {"MODEL_1in54_V3", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_V3)},
-    {"MODEL_1in54_SSD1607", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54_SSD1607)},
-    {"MODEL_1in54r", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54R)},
+    {"MODEL_1IN54B_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54B_V2)},
+    {"MODEL_1IN54G_V2", ROREG_INT(LUAT_TINY_EPD_MODEL_1IN54G_V2)},
     {"BLACK", ROREG_INT(TINY_EPD_COLOR_BLACK)},
     {"WHITE", ROREG_INT(TINY_EPD_COLOR_WHITE)},
     {"RED", ROREG_INT(TINY_EPD_COLOR_RED)},

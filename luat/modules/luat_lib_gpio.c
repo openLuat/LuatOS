@@ -408,11 +408,11 @@ int luat_caplevel_irq_cb(int pin, void* args) {
 @api gpio.caplevel(pin, level,func)
 @int pin GPIO编号,必须是数值
 @int level 需要捕获的电平, 可以是 高电平gpio.HIGH, 低电平gpio.LOW, 或者直接写数值1或0，即管脚上正常时间处于level的反，捕获设定的level持续时间
-@function func 完成捕获后的回调函数，仅一个参数，参数为捕获到的时间长度number型数值，单位us
+@function func 完成捕获后的回调函数，有2个参数，第1个为捕获到的时间长度整数部分(us)，第2个为余数部分
 @return any 返回获取电平的闭包
 @usage
 -- 捕获GPIO7为高电平的持续时间
-gpio.caplevel(7,1,function(us_int) print(us_float) end)
+gpio.caplevel(7,1,function(us_int, us_float) print(us_int, us_float) end)
 */
 static int l_gpio_caplevel(lua_State *L){
     luat_gpio_t conf = {0};
@@ -578,7 +578,7 @@ static int l_gpio_set_default_pull(lua_State *L) {
 /*
 变换GPIO脚输出电平,仅输出模式可用
 @api gpio.toggle(pin)
-@int 管脚的GPIO号
+@int pin 管脚的GPIO号
 @return nil 无返回值
 @usage
 -- 本API于 2022.05.17 添加
@@ -615,8 +615,8 @@ static int l_gpio_toggle(lua_State *L) {
 /*
 在同一个GPIO输出一组脉冲
 @api gpio.pulse(pin,level,len,delay)
-@int gpio号
-@int/string 数值或者字符串.
+@int pin gpio号
+@int/string level 数值或者字符串.
 @int len 长度 单位是bit, 高位在前.
 @int delay 高低电平延迟时间, 用的软件while来delay, 这里的delay值是while循环次数, 具体delay时间必须实际调试才知道
 @return nil 无返回值
@@ -663,9 +663,9 @@ static int l_gpio_pulse(lua_State *L) {
 /*
 防抖设置, 根据硬件ticks进行防抖
 @api gpio.debounce(pin, ms, mode)
-@int gpio号, 0~127, 与硬件相关
-@int 防抖时长,单位毫秒, 最大 65555 ms, 设置为0则关闭
-@int 模式, 0冷却模式, 1延时模式. 默认是0
+@int pin gpio号, 0~127, 与硬件相关
+@int ms 防抖时长,单位毫秒, 最大 65555 ms, 设置为0则关闭
+@int mode 模式, 0冷却模式, 1延时模式. 默认是0
 @return nil 无返回值
 @usage
 -- 消抖模式, 当前支持2种, 2022.12.16开始支持mode=1

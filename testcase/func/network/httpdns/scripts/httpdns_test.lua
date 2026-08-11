@@ -8,13 +8,13 @@ local function assert_ipv4(ip, source)
     assert(ok, string.format("%s返回值格式异常: %s", source, tostring(ip)))
 end
 
-function httpdns_test.test_ali_resolve_air32()
-    log.info("httpdns", "使用阿里DNS解析", "air32.cn")
-    local ip = httpdns.ali("air32.cn", { timeout = 5000 })
+function httpdns_test.test_ali_resolve_luatos_com()
+    log.info("httpdns", "使用阿里DNS解析", "luatos.com")
+    local ip = httpdns.ali("luatos.com", { timeout = 5000 })
     assert_ipv4(ip, "阿里DNS")
 end
 
-function httpdns_test.test_tx_resolve_openluat()
+function httpdns_test.test_tx_resolve_openluat_com()
     log.info("httpdns", "使用腾讯DNS解析", "openluat.com")
     local ip = httpdns.tx("openluat.com", { timeout = 5000 })
     assert_ipv4(ip, "腾讯DNS")

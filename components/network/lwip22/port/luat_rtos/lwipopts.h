@@ -113,7 +113,7 @@
 #define TCP_TTL                         (IP_DEFAULT_TTL)
 
 #define TCP_QUEUE_OOSEQ                 (LWIP_TCP)
-#define LWIP_TCP_SACK_OUT               0
+#define LWIP_TCP_SACK_OUT               (LWIP_TCP)
 #define LWIP_TCP_MAX_SACK_NUM           4
 #ifndef TCP_MSS
 #define TCP_MSS                         1340
@@ -302,7 +302,8 @@
 #define TCP_SND_BUF                     (32 * TCP_MSS)
 #endif
 #ifndef TCP_WND
-#define TCP_WND                         (32 * TCP_MSS)
+#define TCP_WND                         (soc_tcpip_rx_cache())
+#define TCP_WND_DYNAMIC				1
 #endif
 #define MEM_SIZE 						8192 * 3
 

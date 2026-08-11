@@ -275,7 +275,7 @@ end
 @bool reqAddr 是否请求服务器返回具体的位置字符串信息，已经不支持,填false或者nil
 @number timeout 请求超时时间，单位毫秒，默认20000毫秒
 @string productKey IOT网站上的产品KEY，如果在main.lua中定义了PRODUCT_KEY变量，则此参数可以传nil
-@string host 服务器域名, 默认 "bs.openluat.com" ,可选备用服务器(不保证可用) "bs.air32.cn"
+@string host 服务器域名, 默认 "bs.openluat.com"
 @string port 服务器端口，默认"12411",一般不需要设置
 @return nil 无返回值
 @usage

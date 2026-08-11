@@ -71,6 +71,9 @@ enum {
     LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,       /**< G711_ALAW 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_NO_OP,        /**< 无操作编解码器*/
     LUAT_AUDIO_DATA_CODEC_TYPE_CC,        /**< 通话专用编解码器，用于通话中的音频数据编码解码，一般由BSP自行决定 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_NB,  /**< Speex 窄带 8kHz 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_WB,  /**< Speex 宽带 16kHz 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_UWB, /**< Speex 超宽带 32kHz 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MAX,        /**< 最大编解码器类型 */
     LUAT_AUDIO_DATA_CODEC_TYPE_HW = 0x80, /**< 编解码器类型-硬件编解码器优先模式 */
 

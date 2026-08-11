@@ -139,7 +139,7 @@ local function main_task()
                     -- 上传服务器
                     local httpplus = require("httpplus")
                     local opts = {
-                        url = "http://upload.air32.cn/api/upload/jpg", -- 必选, 目标URL
+                        url = "http://uploadtest.luatos.com/api/upload/jpg", -- 必选, 目标URL
                         method = "POST", -- 可选,默认GET, 如果有body,files,forms参数,会设置成POST
                         headers = {}, -- 可选,自定义的额外header
                         body = io.readFile("/ram/capture.jpg"), -- 将原始缓冲区中已使用的数据转换为字符串，作为HTTP请求的body内容
@@ -156,7 +156,7 @@ local function main_task()
                         -- body, 是个zbuff
                         -- 通过query函数可以转为lua的string
                         log.info("http", "headers", resp.body:query())
-                        log.info("发送完毕，图片在： https://www.air32.cn/upload/jpg/ 中查看")
+                        log.info("发送完毕，图片在： https://uploadtest.luatos.com/upload/jpg/ 中查看")
                         -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
                         -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
                     else

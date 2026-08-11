@@ -104,7 +104,10 @@ function speak_sip_ready_with_network(adapter)
     local text = "通话服务已就绪"
     if adapter then
         if adapter == socket.LWIP_STA then
-            local ok, info = pcall(wlan.getInfo)
+            local ok, info = false, nil
+            if type(wlan) == "table" and type(wlan.getInfo) == "function" then
+                ok, info = pcall(wlan.getInfo)
+            end
             local rssi = ok and info and info.rssi
             if type(rssi) == "number" then
                 text = text .. "，当前已连接WiFi，信号强度" .. rssi .. "dBm"
@@ -118,10 +121,16 @@ function speak_sip_ready_with_network(adapter)
             else
                 text = text .. "，当前已连接WiFi"
             end
-        elseif adapter == socket.LWIP_GP then
-            local ok, csq = pcall(mobile.csq)
+        --通过外挂780EPM走4G
+        elseif adapter == socket.LWIP_GP_GW then
+            -- Air8101B通过AirLink使用Air780EPM的4G网络，本机通常没有mobile库；
+            -- 只有本机确实提供mobile.csq接口时才尝试读取，避免索引nil导致Lua VM退出。
+            local ok, csq = false, nil
+            if type(mobile) == "table" and type(mobile.csq) == "function" then
+                ok, csq = pcall(mobile.csq)
+            end
             if ok and type(csq) == "number" then
-                text = text .. "，当前已连接4G，信号强度为" .. csq
+                text = text .. "，当前已连接Airlink 4G，信号强度为" .. csq
                 if csq < 15 then
                     text = text .. "，信号较差"
                 elseif csq < 25 then
@@ -130,7 +139,7 @@ function speak_sip_ready_with_network(adapter)
                     text = text .. "，信号良好"
                 end
             else
-                text = text .. "，当前已连接4G"
+                text = text .. "，当前已连接Airlink 4G"
             end
         else
             text = text .. "，当前已连接Ethernet"
@@ -154,10 +163,6 @@ function speak_incoming()
         text = "收到来电"
     end
     play_tts(text, 90)
-    sys.timerStart(function()
-        -- 接听
-        exsip.accept()
-    end, 5000)
 end
 
 function speak_accept()
@@ -221,6 +226,7 @@ local function tts_task_func()
         if type(msg) ~= "table" then
             log.warn("tts_speaker", "收到非消息数据，忽略:", msg)
         else
+            log.info("tts_speaker", "收到消息:", msg[1],msg[2])
             local tts_msg = msg[1]
             if tts_msg == "TTS_READY" then
                 speak_sip_ready_with_network(msg[2])
@@ -283,4 +289,3 @@ sys.subscribe("SIP_APP_MAIN_ACCEPT_REQ", accept_tts)
 sys.subscribe("SIP_APP_MAIN_VOIP_STARTED", voip_start_tts)
 sys.subscribe("SIP_APP_MAIN_DIAL_REQ", dial_tts)
 sys.subscribe("SIP_APP_MAIN_DISCONNECTED", call_ended_tts)
-    

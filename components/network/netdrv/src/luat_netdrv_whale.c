@@ -16,7 +16,6 @@
 #include "luat_netdrv_whale.h"
 #include "luat_netdrv_event.h"
 #include "luat_netdrv_pkg.h"
-#include "luat_ulwip.h"
 
 #define LUAT_LOG_TAG "netdrv.whale"
 #include "luat_log.h"
@@ -91,9 +90,6 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
         netdrv->netif = luat_heap_malloc(sizeof(struct netif));
         memset(netdrv->netif, 0, sizeof(struct netif));
     }
-    luat_netdrv_whale_t* cfg = (luat_netdrv_whale_t*)userdata;
-    drv->ulwip->netif = netdrv->netif;
-    drv->ulwip->adapter_index = cfg->id;
 
     netif_add(netdrv->netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, netdrv, luat_netif_init, luat_netdrv_netif_input_main);
 
@@ -109,7 +105,7 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
         netif_set_link_up(netdrv->netif);
     }
     if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA) {
-        drv->ulwip->dhcp_enable = 1;
+        drv->dhcp_enable = 1;
     }
     netif_set_up(netdrv->netif);
     net_lwip2_set_netif(netdrv->id, netdrv->netif);
@@ -161,18 +157,14 @@ static err_t luat_netif_init(struct netif *netif) {
 luat_netdrv_t* luat_netdrv_whale_create(luat_netdrv_whale_t* tmp) {
     // LLOGD("创建Whale设备");
     luat_netdrv_t* netdrv = luat_heap_malloc(sizeof(luat_netdrv_t));
-    ulwip_ctx_t* ulwip = luat_heap_malloc(sizeof(ulwip_ctx_t));
     luat_netdrv_whale_t* cfg = luat_heap_malloc(sizeof(luat_netdrv_whale_t));
-    if (netdrv == NULL || ulwip == NULL || cfg == NULL) {
+    if (netdrv == NULL || cfg == NULL) {
         if (netdrv)
             luat_heap_free(netdrv);
-        if (ulwip)
-            luat_heap_free(ulwip);
         if (cfg)
             luat_heap_free(cfg);
         return NULL;
     }
-    memset(ulwip, 0, sizeof(ulwip_ctx_t));
     memset(netdrv, 0, sizeof(luat_netdrv_t));
     // 把配置信息拷贝一份
     memcpy(cfg, tmp, sizeof(luat_netdrv_whale_t));
@@ -184,8 +176,6 @@ luat_netdrv_t* luat_netdrv_whale_create(luat_netdrv_whale_t* tmp) {
     netdrv->boot = luat_netdrv_whale_boot;
     netdrv->userdata = cfg;
     netdrv->dhcp = luat_netdrv_dhcp_opt;
-    netdrv->ulwip = ulwip;
-    ulwip->adapter_index = netdrv->id;
     return netdrv;
 }
 

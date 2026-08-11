@@ -32,7 +32,8 @@ local SIP_CONFIG = {
     sip_username = "1903CFC0",
     sip_password = "Air.903CFC",
     sip_transport = exsip.TRANSPORT_UDP,
-    auto_answer = false,
+    auto_answer = true,
+    delay_auto_answer = 5,
 }
 
 -- 状态机的状态

@@ -44,11 +44,11 @@ local function upload_photo_task()
             end
             
             -- 将拍摄到的照片数据上传到服务器air32.cn
-            -- 如果上传成功，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
+            -- 如果上传成功，电脑上浏览器打开https://uploadtest.luatos.com/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
             -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
             -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com，详见：photo_to_aircloud.lua  
             local code = httpplus.request({
-                url = "http://upload.air32.cn/api/upload/jpg",
+                url = "http://uploadtest.luatos.com/api/upload/jpg",
                 method = "POST",
                 body = photo_data
             })
@@ -58,7 +58,7 @@ local function upload_photo_task()
             
             -- 根据状态码判断上传结果
             if code == 200 then
-                log.info("照片上传成功", "可在 https://www.air32.cn/upload/jpg/ 查看")
+                log.info("照片上传成功", "可在 https://uploadtest.luatos.com/upload/jpg/ 查看")
             else
                 log.warn("照片上传失败", "状态码:", code)
             end

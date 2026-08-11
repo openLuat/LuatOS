@@ -439,7 +439,7 @@ static const rotable_Reg_t reg_mcu[] =
 	{ "SPI",             ROREG_INT(LUAT_MCU_PERIPHERAL_SPI) },
 	//@const PWM number 外设类型-PWM
 	{ "PWM",             ROREG_INT(LUAT_MCU_PERIPHERAL_PWM) },
-	//@const PWM number 外设类型-CAN
+	//@const CAN number 外设类型-CAN
 	{ "CAN",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAN) },
 	//@const GPIO number 外设类型-GPIO
 	{ "GPIO",             ROREG_INT(LUAT_MCU_PERIPHERAL_GPIO) },

@@ -26,30 +26,45 @@
 /* 5 reserved blocks, data log starts at block 5. */
 #define PGFS_LAYOUT_RESERVED_BLOCKS  5u
 
-/* PGFS minimum supported partition size: 8MB.
- *
- * Budget rationale (approximate, worst-case steady state):
- *   - FTL metadata block:  ~256KB  (bitmap + erase counts + v4 record)
- *   - 2x superblock:       ~8KB    (4KB each, on 4KB erase unit)
- *   - 2x checkpoint:       ~8KB    (4KB each)
- *   - Segment allocator:   needs 64x 128KB blocks  = 8MB
- *
- * Partitions smaller than 8MB cannot sustain the segment allocator
- * and produce "FTL no free blocks" failures under any real workload.
- * The vfs_uniform_pgfs suite's 256KB test partition is a hard case of
- * this; the 30-case suite needs 16MB (the size of
- * s_pgfs_test_flash_slab in luat_pgfs_utest.c) to score >16/30.
- *
- * Defined in pgfs_internal.h so both the VFS adapter mount path and
- * any future C-side tests (e.g. fuzzer, layout_compute) share the
- * same gate. */
-#define PGFS_MIN_PARTITION_BYTES  (8u * 1024u * 1024u)
+/* P2-3: the mount-time partition gate is geometry-based (see
+ * PGFS_MIN_DATA_LOG_BLOCKS below): the VFS adapter requires
+ * (PGFS_LAYOUT_RESERVED_BLOCKS + PGFS_MIN_DATA_LOG_BLOCKS) erase units.
+ * This replaced the old fixed PGFS_MIN_PARTITION_BYTES=8MB gate so
+ * 4KB-erase NOR partitions of a few hundred KB can mount while 128KB-
+ * erase NAND keeps the ~8.6MB requirement. */
 #define PGFS_DATA_RECORD_MAGIC       0x50474644u
 #define PGFS_BATCH_DATA_RECORD_MAGIC 0x50474642u
 #define PGFS_BATCH_COMMIT_RECORD_MAGIC 0x50474643u
+/* Per-mount table caps. These bound the RAM consumed by one mounted
+ * partition (file/dir/batch tables are heap-allocated per mount since
+ * the multi-mount refactor; see pgfs_tables_init). Tune per target. */
+#ifndef PGFS_MAX_FILES
+#define PGFS_MAX_FILES                512u
+#endif
 #define PGFS_MAX_DIRS                256u
+#ifndef PGFS_MAX_BATCH_PENDING
+#define PGFS_MAX_BATCH_PENDING       32u
+#endif
+#define PGFS_MAX_PATH                96u    /* P3-15: configurable max path length */
 #define PGFS_CHECKPOINT_BATCH_CLOSES 8u
 #define PGFS_CHECKPOINT_PENDING_CAP  PGFS_CHECKPOINT_BATCH_CLOSES
+
+/* P2-2: single-file write-cache cap (== single-file size cap). Files
+ * larger than PGFS_CACHE_MAX cannot be written through the current
+ * single-DATA-record model. Configurable per target. */
+#ifndef PGFS_CACHE_MAX
+#define PGFS_CACHE_MAX (256u * 1024u)
+#endif
+
+/* P2-3: minimum number of data-log segments (erase units) required to
+ * sustain the segment allocator. The mount-time partition gate is
+ * (PGFS_LAYOUT_RESERVED_BLOCKS + PGFS_MIN_DATA_LOG_BLOCKS) * erase_size,
+ * replacing the old fixed 8MB minimum so 4KB-erase NOR partitions with
+ * a few hundred KB can mount while 128KB-erase NAND keeps the old
+ * ~8.6MB behaviour. */
+#ifndef PGFS_MIN_DATA_LOG_BLOCKS
+#define PGFS_MIN_DATA_LOG_BLOCKS     64u
+#endif
 
 #define PGFS_CTRL_GET_GEOMETRY       1u
 #define PGFS_LOCK_MODE_OFF           0u
@@ -185,6 +200,12 @@ typedef struct pgfs_diag_stats {
     uint32_t gc_records_moved;        /* sum of records rewritten by gc_step */
 } pgfs_diag_stats_t;
 
+/* Forward declarations: pgfs_mount_ctx_t references the per-mount
+ * entry tables, which are defined later in this header. */
+struct pgfs_file_entry;
+struct pgfs_dir_entry;
+struct pgfs_batch_pending_entry;
+
 typedef struct pgfs_mount_ctx {
     int mounted;
     char mount_point[16];
@@ -209,9 +230,26 @@ typedef struct pgfs_mount_ctx {
     uint16_t layout_reserved0;           /* padding to keep alignment */
     pgfs_diag_stats_t stats;
     uint8_t batch_active;
-    uint8_t batch_reserved[3];
+    uint8_t read_only;                    /* P2-11c: read-only mount, reject writes */
+    uint8_t batch_reserved[2];
     uint32_t batch_id;
     uint32_t batch_next_id;
+    /* P0-1: per-mount file/dir/batch tables (heap-allocated at mount).
+     * The pre-multi-mount code used a single global array shared by all
+     * mounts, which caused cross-mount path collisions, table wiping on
+     * mount/umount, and cross-mount GC data moves. */
+    struct pgfs_file_entry* files;
+    uint32_t file_cap;
+    struct pgfs_dir_entry* dirs;
+    uint32_t dir_cap;
+    struct pgfs_batch_pending_entry* batch_pending;
+    uint32_t batch_pending_cap;
+    /* P1-2: FNV-1a open-addressing hash index for path lookups.
+     * slots[] value = table index + 1 (0 empty, -1 tombstone). */
+    int32_t* file_hash_slots;
+    uint32_t file_hash_cap;
+    int32_t* dir_hash_slots;
+    uint32_t dir_hash_cap;
     /* NAND FTL context (bad-block map, erase counts, inject bookkeeping) */
     pgfs_nand_ftl_ctx_t ftl;
 } pgfs_mount_ctx_t;
@@ -227,7 +265,7 @@ typedef struct pgfs_file_entry {
     uint8_t used;
     uint8_t heap_type;
     uint8_t reserved[2];
-    char path[96];
+    char path[PGFS_MAX_PATH];
     uint8_t *data;
     size_t len;
     size_t cap;
@@ -242,13 +280,31 @@ typedef struct pgfs_file_entry {
 typedef struct pgfs_dir_entry {
     uint8_t used;
     uint8_t reserved[3];
-    char path[96];
+    char path[PGFS_MAX_PATH];
 } pgfs_dir_entry_t;
+
+/* Pending batch entries are staged in RAM between begin/commit and are
+ * written to the data log as BATCH_DATA + BATCH_COMMIT records. Per-mount
+ * since the multi-mount refactor (was a single global array). */
+typedef struct pgfs_batch_pending_entry {
+    uint8_t used;
+    uint8_t heap_type;
+    uint16_t reserved;
+    uint32_t batch_id;
+    char path[PGFS_MAX_PATH];
+    uint8_t* data;
+    size_t len;
+    size_t cap;
+    /* P0-2: on-flash address of the BATCH_DATA record written for this
+     * entry, so live bytes can be attributed to the right block and the
+     * replay path can do the same when it re-applies a pending batch. */
+    uint32_t on_flash_addr;
+} pgfs_batch_pending_entry_t;
 
 typedef struct pgfs_file {
     pgfs_mount_ctx_t *ctx;
     pgfs_file_entry_t *entry;
-    char path[96];
+    char path[PGFS_MAX_PATH];
     size_t pos;
     uint32_t generation;
     uint8_t mode_write;
@@ -256,7 +312,12 @@ typedef struct pgfs_file {
     uint8_t eof;
     uint8_t err;
     uint8_t opened_in_batch;
-    uint8_t batch_reserved[3];
+    /* P2-1: set by a successful fflush — the entry now holds the flushed
+     * content, so the next fwrite must re-seed the cache from the entry
+     * (otherwise close would replace the flushed data with only the new
+     * writes). */
+    uint8_t flushed;
+    uint8_t batch_reserved[2];
     uint32_t batch_id;
     pgfs_file_cache_t cache;
 } pgfs_file_t;
@@ -265,7 +326,19 @@ typedef struct pgfs_file {
 #pragma pack(pop)
 #endif
 
+/* Maximum simultaneous pgfs mounts. Each mount occupies one slot in the
+ * global s_pgfs_ctxs[] array. 4 is generous for embedded targets. */
+#define PGFS_MAX_MOUNTS 4u
+
+/* Legacy accessor: returns the first mounted context (or NULL).
+ * Kept for backward compatibility with pgfs_lf_erase and tests. */
 pgfs_mount_ctx_t* pgfs_get_mount_ctx(void);
+
+/* Multi-mount helpers (pgfs_vfs_adapter.c) */
+pgfs_mount_ctx_t* pgfs_find_mount_by_point(const char* mount_point);
+pgfs_mount_ctx_t* pgfs_find_mount_by_opts(const pgfs_flash_opts_t* opts);
+pgfs_mount_ctx_t* pgfs_find_first_mounted(void);
+pgfs_mount_ctx_t* pgfs_find_free_mount_slot(void);
 
 int pgfs_pick_latest_valid_sb(const pgfs_superblock_t* a, const pgfs_superblock_t* b, pgfs_superblock_t* out);
 int pgfs_checkpoint_load(void* fs, pgfs_checkpoint_t* cp);
@@ -275,19 +348,29 @@ int pgfs_replay_data_log(pgfs_mount_ctx_t* ctx);
 int pgfs_info_fast(pgfs_mount_ctx_t* ctx, luat_fs_info_t* out);
 int pgfs_rebuild_checkpoint_from_replay(pgfs_mount_ctx_t* ctx);
 
+int pgfs_cache_expand(pgfs_file_cache_t* cache, size_t need);
 int pgfs_cache_append(pgfs_file_t* f, const uint8_t* data, size_t len);
 int pgfs_lock(pgfs_mount_ctx_t* ctx);
 int pgfs_unlock(pgfs_mount_ctx_t* ctx);
 int pgfs_batch_begin(pgfs_mount_ctx_t* ctx, uint32_t* out_batch_id);
 int pgfs_batch_commit(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
 int pgfs_batch_abort(pgfs_mount_ctx_t* ctx, uint32_t batch_id);
+int pgfs_control_inject_powercut_stage_ctx(pgfs_mount_ctx_t* ctx, const char* stage);
 
 /* Phase 2 GC: visit every in-use file_entry in the mount's file
  * table. The callback receives (entry, user_data). Returning non-zero
  * from the callback stops the iteration. Used by the cost-benefit GC
  * to find entries whose last_written_block matches a victim. */
 typedef int (*pgfs_file_visit_fn)(pgfs_file_entry_t* entry, void* user_data);
-int pgfs_file_table_visit(pgfs_file_visit_fn cb, void* user_data);
+int pgfs_file_table_visit(pgfs_mount_ctx_t* ctx, pgfs_file_visit_fn cb, void* user_data);
+
+/* Per-mount table lifecycle (P0-1). pgfs_tables_init allocates and zeroes
+ * the file/dir/batch arrays plus hash indexes; pgfs_tables_deinit frees
+ * them. pgfs_tables_ensure lazily inits (used by tests and direct API
+ * callers that build a pgfs_mount_ctx_t on the stack). */
+int pgfs_tables_init(pgfs_mount_ctx_t* ctx);
+void pgfs_tables_deinit(pgfs_mount_ctx_t* ctx);
+int pgfs_tables_ensure(pgfs_mount_ctx_t* ctx);
 
 /* Phase 2 GC: re-append a DATA record from a file_t's cache. Used by
  * the GC data-move path to copy live records out of a victim block. */
@@ -303,13 +386,15 @@ int pgfs_file_tell(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_eof(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_error(pgfs_mount_ctx_t* ctx, FILE* stream);
 int pgfs_file_flush(pgfs_mount_ctx_t* ctx, FILE* stream);
+int pgfs_file_fexist(pgfs_mount_ctx_t* ctx, const char *filename);
+size_t pgfs_file_fsize(pgfs_mount_ctx_t* ctx, const char *filename);
 int pgfs_file_remove(pgfs_mount_ctx_t* ctx, const char *filename);
-void pgfs_file_reset_all(void);
+void pgfs_file_reset(pgfs_mount_ctx_t* ctx);
 /* Phase 2 GC shadow detection: read the last_written_block of the
  * first matching file_entry. Used by tests to inspect which block a
  * given file's most recent record landed in. Returns 0xFFFFu when no
  * matching entry is found. */
-uint16_t pgfs_file_table_lookup_last_written(const char* path);
+uint16_t pgfs_file_table_lookup_last_written(pgfs_mount_ctx_t* ctx, const char* path);
 int pgfs_dir_mkdir(pgfs_mount_ctx_t* ctx, const char *path);
 int pgfs_dir_rmdir(pgfs_mount_ctx_t* ctx, const char *path);
 int pgfs_dir_lsdir(pgfs_mount_ctx_t* ctx, const char *path, luat_fs_dirent_t* ents, size_t offset, size_t len);

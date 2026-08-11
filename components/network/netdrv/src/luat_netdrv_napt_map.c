@@ -392,13 +392,13 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t *ctx, luat_ne
             napt_ctx->item_max = NAPT_TCP_MAP_ITEM_MAX;
         }
         if (napt_ctx->item_last >= napt_ctx->item_max) {
-            LLOGE("TCP映射关系已经用完");
+            LLOGW("TCP映射关系已经用完");
             ret = NAPT_RET_NO_MEMORY;
             break;
         }
         tmp.wnet_local_port = luat_napt_tcp_port_alloc(napt_ctx);
         if (tmp.wnet_local_port == 0) {
-            LLOGE("可用映射端口已经用完");
+            LLOGW("可用映射端口已经用完");
             ret = NAPT_RET_NO_MEMORY;
             break;
         }

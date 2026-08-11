@@ -23,8 +23,8 @@ local UART_ID = 1
 local read_buf = ""
 
 local config = {
-    enable_udp = true,              -- 是否启用UDP发送
-    enable_tcp = false               -- 是否启用TCP发送
+    enable_udp = false,              -- 是否启用UDP发送
+    enable_tcp = true               -- 是否启用TCP发送
 }
 
 -- 加载UDP服务器数据接收功能模块
@@ -54,7 +54,7 @@ local function concat_timeout_func()
                 log.error("uart_app", "尚未收到客户端数据，无法确定目标IP和端口")
             end
         elseif config.enable_tcp then
-            -- 当前TCP server与client是一对一连接，publish的消息可忽略ip和port参数
+            -- 当前TCP server与client连接(一对一/一对多均可)，publish的消息可忽略ip和port参数
             sys.publish("SEND_DATA_REQ", "uart", read_buf)
         end
 

@@ -362,20 +362,22 @@ static const rotable_Reg_t reg_usb[] =
     { "DEVICE",       		ROREG_INT(LUAT_USB_MODE_DEVICE)},
 	//@const OTG number USB otg模式
     { "OTG",       			ROREG_INT(LUAT_USB_MODE_OTG)},
-	//@const CDC_ACM number cdc_acm 虚拟串口类
-    { "CDC_ACM",        	ROREG_INT(LUAT_USB_CLASS_CDC_ACM)},
-	//@const AUDIO number audio音频类
-    { "AUDIO",       		ROREG_INT(LUAT_USB_CLASS_AUDIO)},
+	//@const HUB number 集线器类
+    { "HUB",        	ROREG_INT(LUAT_USB_CLASS_HUB)},
 	//@const CAMERA number 摄像头类
     { "CAMERA",        		ROREG_INT(LUAT_USB_CLASS_CAMERA)},
+	//@const CDC_ACM number 虚拟串口类
+    { "CDC_ACM",        	ROREG_INT(LUAT_USB_CLASS_CDC_ACM)},
+	//@const MSC number 大容量存储类，也就是U盘，TF卡
+    { "MSC",       			ROREG_INT(LUAT_USB_CLASS_MSC)},
+	//@const CDC_ECM number 虚拟网卡类
+    { "CDC_ECM",		ROREG_INT(LUAT_USB_CLASS_CDC_ECM)},
+	//@const AUDIO number audio音频类
+    { "AUDIO",       		ROREG_INT(LUAT_USB_CLASS_AUDIO)},
 	//@const HID_CM number HID设备类，自定义类型，用于透传数据，不能和标准键盘同时使用
     { "HID_CM",       			ROREG_INT(LUAT_USB_CLASS_HID_CUSTOMER)},
 	//@const HID_KB number HID设备类，标准键盘，常见扫码枪，不能和自定义类型同时使用
     { "HID_KB",       			ROREG_INT(LUAT_USB_CLASS_HID_KEYBOARD)},
-	//@const MSC number 大容量存储类，也就是U盘，TF卡
-    { "MSC",       			ROREG_INT(LUAT_USB_CLASS_MSC)},
-
-
 	//@const EV_NEW_RX number  有新的数据到来
     { "EV_NEW_RX",       		ROREG_INT(LUAT_USB_EVENT_NEW_RX)},
 	//@const EV_TX_DONE number 所有数据都已发送

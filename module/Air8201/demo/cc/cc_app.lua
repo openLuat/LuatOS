@@ -210,7 +210,7 @@ sys.subscribe("CC_IND", function(status)
             sys.timerStart(dial_for_scenario4, 1000)  -- 延迟1秒拨号
         end
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
-        exaudio.pm(audio.SHUTDOWN)   --主动进入低功耗模式
+        exaudio.pm(exaudio.SHUTDOWN)   --主动进入低功耗模式
     end
 end)
 

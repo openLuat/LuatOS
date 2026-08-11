@@ -5,6 +5,7 @@
 #include "luat_airlink.h"
 #include "luat_airlink_rpc.h"
 #include "luat_wlan.h"
+#include "luat_mcu.h"
 #include "luat_mem.h"
 #include "luat_msgbus.h"
 #include "luat_netdrv.h"
@@ -189,6 +190,34 @@ static void wlan_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void*
     }
     case AIRLINK_DRV_RPC_ID_WLAN_STA_EVENT: {
         const drv_wlan_WlanStaIncNotify* notify = (const drv_wlan_WlanStaIncNotify*)msg_raw;
+        // STA 事件即时同步网卡链路状态，弥补 devinfo 快照延迟，确保 CONNECTED 后 DHCP 重启（link_updown 有 transition 检查 + 500ms 防抖，重复调用无害）
+        #ifdef LUAT_USE_NETDRV
+        {
+            luat_netdrv_t* nd = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_STA);
+            if (nd && nd->netif) {
+                if (strcmp(notify->event, "DISCONNECTED") == 0) {
+                    //LLOGI("wifi sta disconnected, set link down");
+                    luat_netdrv_set_link_updown(nd, 0);
+                } else if (strcmp(notify->event, "CONNECTED") == 0) {
+                    // 防抖：103 可能重复发 CONNECTED（netif_event_cb + 轮询），
+                    // 避免重复 DOWN+UP 打断正在进行的 DHCP
+                    static uint64_t _last_force_renew = 0;
+                    uint64_t _now = luat_mcu_tick64_ms();
+                    if (_now - _last_force_renew < 500) {
+                        //LLOGI("wifi sta connected, DHCP renew skipped (debounce)");
+                    } else {
+                        _last_force_renew = _now;
+                        //LLOGI("wifi sta connected, force DHCP renew");
+                        // 强制 link DOWN→UP 来重启 DHCP。
+                        // link_updown 自身有 transition 检查，如果已 DOWN 则不会重复 DOWN。
+                        // 背靠背 DOWN+UP 通过 tcpip_callback 排队执行，时序正确。
+                        luat_netdrv_set_link_updown(nd, 0);
+                        luat_netdrv_set_link_updown(nd, 1);
+                    }
+                }
+            }
+        }
+        #endif
         struct wlan_sta_inc_ctx* ctx = (struct wlan_sta_inc_ctx*)luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(struct wlan_sta_inc_ctx));
         if (!ctx) return;
         memset(ctx, 0, sizeof(*ctx));
@@ -293,6 +322,7 @@ int luat_airlink_drv_rpc_wlan_init(luat_wlan_config_t* args) {
 }
 
 int luat_airlink_drv_rpc_wlan_ap_start(luat_wlan_apinfo_t* info) {
+    wlan_notify_ensure_registered();
     int mode = luat_airlink_current_mode_get();
     drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
     drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;

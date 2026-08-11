@@ -5,8 +5,8 @@
 #include "luat_malloc.h"
 #include "luat_spi.h"
 #include "luat_gpio.h"
+#include "luat_timer.h"
 #include "net_lwip2.h"
-#include "luat_ulwip.h"
 #include "lwip/tcp.h"
 #include "lwip/sys.h"
 #include "lwip/tcpip.h"
@@ -104,6 +104,11 @@ int luat_ch390h_basic_config(ch390h_t* ch) {
     luat_ch390h_write_reg(ch, CH390H_REG_IMR, 0xFF);
     luat_ch390h_write_reg(ch, CH390H_REG_TP_PTR, 0x01);
     luat_ch390h_write_reg(ch, CH390H_REG_RX_LEN, 0x0C);
+    // 启用全双工802.3x流量控制(PAUSE): FCR bit5=TXPEN bit0=FLCE; 默认FCR=0即流控关闭
+    luat_ch390h_write_reg(ch, CH390H_REG_FCR, 0x21);
+    // 早期PAUSE: FCTR高水位HWOT=10K(可用<10K即已用>3K就发暂停), 低水位LWOT=11K(可用>11K恢复)。
+    // 默认HWOT=3K暂停太晚, 首突发12K直接溢出; 调早后对端突发被掐成~3-5帧小块, 13K RX缓冲不会满。
+    luat_ch390h_write_reg(ch, CH390H_REG_FCTR, 0xAB);
     return 0;
 }
 
@@ -141,6 +146,10 @@ int luat_ch390h_read_pkg(ch390h_t* ch, uint8_t *buff, uint16_t* len) {
     rx_ready = tmp[0];
 
     if (rx_ready & 0xFE) {
+        // RX_STATUS 带错误位(bit1-7): 芯片RX内存溢出/帧错误, 官方实现是复位FIFO丢弃缓存帧
+        ch->total_rx_drop++;
+        LLOGE("CH390 RX_STATUS error 0x%02X, 复位RX FIFO丢弃缓存帧! 累计=%u",
+              rx_ready, ch->total_rx_drop);
         // Reset RX FIFO pointer (按照CH官方实现)
         uint8_t rcr = 0;
         luat_ch390h_read(ch, CH390H_REG_RCR, 1, &rcr);
@@ -160,6 +169,11 @@ int luat_ch390h_read_pkg(ch390h_t* ch, uint8_t *buff, uint16_t* len) {
         return 0;
     }
     luat_ch390h_read(ch, CH390H_REG_RX_DATA, 4, tmp);
+    // tmp[1]=该帧状态字节, 位定义同RSR: bit0=FOE(RX内存溢出) bit1=CE(CRC错误) bit2=AE bit3=PLE bit4=RWTO bit5=LCS
+    if (tmp[1] & 0x3F) {
+        ch->rx_status_err_cnt++;
+        LLOGE("CH390 RX帧状态异常 status=0x%02X 累计=%u", tmp[1], ch->rx_status_err_cnt);
+    }
     *len = tmp[2] + (tmp[3] << 8);
     if (*len == 0) {
         return 1; // 出错了啊!!!

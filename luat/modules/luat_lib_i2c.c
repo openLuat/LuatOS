@@ -478,7 +478,7 @@ static int l_i2c_write_reg(lua_State *L)
 
 /*
 i2c读寄存器数据
-@api i2c.readReg(id, addr, reg, len)
+@api i2c.readReg(id, addr, reg, len, stop)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C子设备的地址, 7位地址
 @int 寄存器地址

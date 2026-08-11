@@ -50,7 +50,7 @@ extern void net_lwip_check_switch(uint8_t onoff);
 @api mobile.imei(index)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @return string 当前的IMEI值,若失败返回nil
-@usgae
+@usage
 -- 注意, 当前所有模块只支持单待,所以IMEI总是同一个
  */
 #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
@@ -323,7 +323,7 @@ static int l_mobile_imei(lua_State* L) {
 @api mobile.imsi(index)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @return string 当前的IMSI值,若失败返回nil
-@usgae
+@usage
 -- 注意, 当前所有模块只支持单待,所以IMSI总是同一个
  */
 static int l_mobile_imsi(lua_State* L) {
@@ -444,8 +444,9 @@ static int l_mobile_muid(lua_State* L) {
     return 1;
 }
 
+#if 0
 /**
-设置MUID
+设置MUID，已经废弃不要使用
 @api mobile.muidSet(muid)
 @string muid MUID字符串
 @return int 0成功, -1失败
@@ -456,7 +457,7 @@ static int l_mobile_muid_set(lua_State* L) {
     lua_pushinteger(L, luat_mobile_set_muid(muid, len));
     return 1;
 }
-
+#endif
 
 /**
 获取或设置ICCID
@@ -1353,6 +1354,14 @@ end)
 mobile.config(mobile.CONF_SIM_WC_MODE, 2)
 -- 清空统计值
 mobile.config(mobile.CONF_SIM_WC_MODE, 3)
+
+-- USB网卡设置为ECM模式，NAT开启
+pm.power(pm.USB ,false)
+mobile.config(mobile.CONF_USB_ETHERNET, 7)
+mobile.flymode(0, true)
+mobile.flymode(0, false)
+pm.power(pm.USB ,true)
+
  */
 static int l_mobile_config(lua_State* L) {
     uint8_t item = luaL_optinteger(L, 1, 0);
@@ -1428,6 +1437,7 @@ static int l_mobile_set_band(lua_State* L) {
 	return 1;
 }
 
+#if 0
 /* ============================================================
  *  新增 luat_mobile_rf_test_* 桥接层 (替代旧 luat_mobile_rfcal_*)
  *  这层桥接只做字节 / 状态搬运, 不做 AT 派发
@@ -1627,6 +1637,7 @@ static int l_mobile_rf_test_band_list(lua_State* L) {
     }
     return 1;
 }
+#endif
 
 /**
 初始化内置默认虚拟卡功能(不可用)
@@ -1724,7 +1735,8 @@ static const rotable_Reg_t reg_mobile[] = {
     {"iccid",           ROREG_FUNC(l_mobile_iccid)},
 	{"number",          ROREG_FUNC(l_mobile_number)},
     {"muid",            ROREG_FUNC(l_mobile_muid)},
-#ifdef LUAT_USE_MOBILE_RFA
+//#ifdef LUAT_USE_MOBILE_RFA
+#if 0
     {"muidSet",         ROREG_FUNC(l_mobile_muid_set)},
 #endif
     {"apn",             ROREG_FUNC(l_mobile_apn)},
@@ -1751,7 +1763,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"config",          ROREG_FUNC(l_mobile_config)},
 	{"getBand",          ROREG_FUNC(l_mobile_get_band)},
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
-#ifdef LUAT_USE_MOBILE_RFA
+//#ifdef LUAT_USE_MOBILE_RFA
+#if 0
 	{"rfTestMode",        ROREG_FUNC(l_mobile_rf_test_mode)},
 	{"rfTestInput",       ROREG_FUNC(l_mobile_rf_test_input)},
 	{"rfTestParam",       ROREG_FUNC(l_mobile_rf_test_param)},
@@ -1813,7 +1826,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CONF_FAKE_CELL_BARTIME",        ROREG_INT(MOBILE_CONF_FAKE_CELL_BARTIME)},
     //@const CONF_RESET_TO_FACTORY number 删除已保存的协议栈参数，重启后会使用默认配置
     {"CONF_RESET_TO_FACTORY",        ROREG_INT(MOBILE_CONF_RESET_TO_FACTORY)},
-    //@const CONF_USB_ETHERNET number 蜂窝网络模块的usb以太网卡控制，bit0开关，1开0关，bit1模式，1NAT0独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2协议1ECM,0RNDIS，飞行模式里设置
+    //@const CONF_USB_ETHERNET number 蜂窝网络模块的usb以太网卡控制，bit0：开关，1是开，0是关，bit1：模式，1是NAT，0是独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2：协议，1是ECM，0是RNDIS，切换模式需要重新开关usb和重启协议栈（进出一次飞行模式）
     {"CONF_USB_ETHERNET",        ROREG_INT(MOBILE_CONF_USB_ETHERNET)},
 	//@const CONF_DISABLE_NCELL_MEAS number 关闭邻区测量 1关，0开，除了功耗测试外不建议使用
 	{"CONF_DISABLE_NCELL_MEAS",        ROREG_INT(MOBILE_CONF_DISABLE_NCELL_MEAS)},

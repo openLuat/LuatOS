@@ -7,6 +7,8 @@
 #include "lwip/pbuf.h"
 #include "lwip/tcpip.h"
 #include "lwip/etharp.h"
+#include "lwip/ethip6.h"
+#include "netif/ethernet.h"
 
 #include "luat_common_api.h"
 #include "luat_usb.h"
@@ -46,7 +48,6 @@ typedef struct
 	luat_usb_eth_data_cache_t *tx_cache;
 	luat_usb_eth_data_cache_t temp_rx_cache;
 	luat_netdrv_t drv;
-	ulwip_ctx_t ulwip;
 	struct netif netif;
 	uint16_t usb_packet_max_size;
 	uint8_t usb_eth_id;
@@ -65,17 +66,16 @@ static __NETDRV_CODE_IN_RAM__ err_t _usb_eth_netif_output(struct netif *netif, s
 	
 	int ret;
 
-	if (!ctx) {
+	if (!ctx || !ctx->link_up || !ctx->is_data_ready) {
 		return ERR_IF;
 	}
-
 	if (!p || !p->tot_len || p->tot_len > LUAT_USB_ETH_DEFAULT_FRAME_SIZE) {
 		return ERR_BUF;
 	}
 
 	if (!luat_no_data_fifo_check_free_space(&ctx->tx_cache_fifo)) {
 		luat_netdrv_stat_inc(&ctx->drv.statics.drop, p->tot_len);
-		LLOGE("tx_cache_fifo is full, drop %d bytes", p->tot_len);
+		LLOGW("tx_cache_fifo is full, drop %d bytes", p->tot_len);
 		return ERR_IF;
 	}
 	uint32_t tx_index = luat_no_data_fifo_next_write_index(&ctx->tx_cache_fifo);
@@ -133,7 +133,7 @@ static void _usb_eth_netif_add(void *param)
 
 static void _usb_log(void *param)
 {
-	LLOGE("%s", (char *)param);
+	LLOGW("%s", (char *)param);
 }
 
 static void _usb_eth_rx_drain_to_lwip(void *param)
@@ -205,6 +205,7 @@ static void _usb_eth_run_other(luat_usb_eth_netif_t *ctx, uint32_t event, void *
 		luat_netdrv_set_link_updown(&ctx->drv, ctx->link_up);
 		break;
 	case LUAT_USB_ETH_EVENT_DISCONNECT:
+		luat_rtos_task_suspend_all();
 		ctx->is_connected = 0;
 		ctx->is_data_ready = 0;
 		luat_heap_free(ctx->tx_cache);
@@ -212,6 +213,7 @@ static void _usb_eth_run_other(luat_usb_eth_netif_t *ctx, uint32_t event, void *
 		ctx->tx_cache = NULL;
 		ctx->rx_cache = NULL;
 		ctx->link_up = 0;
+		luat_rtos_task_resume_all();
 		LLOGD("usb_eth: disconnect force link down");
 		luat_netdrv_set_link_updown(&ctx->drv, ctx->link_up);
 		break;
@@ -290,11 +292,8 @@ void luat_netdrv_usb_eth_init(void)
 	_usb_eth_netif.drv.id = LUAT_USB_ETH_ADAPTER_ID;
 	_usb_eth_netif.drv.netif = &_usb_eth_netif.netif;
 	_usb_eth_netif.drv.userdata = &_usb_eth_netif;
-	_usb_eth_netif.drv.ulwip = &_usb_eth_netif.ulwip;
 	_usb_eth_netif.drv.dhcp = luat_netdrv_dhcp_opt;
-	_usb_eth_netif.ulwip.adapter_index = _usb_eth_netif.drv.id;
-	_usb_eth_netif.ulwip.netif = &_usb_eth_netif.netif;
-	_usb_eth_netif.ulwip.dhcp_enable = 1;
+	_usb_eth_netif.drv.dhcp_enable = 1;
 	luat_no_data_fifo_init(&_usb_eth_netif.rx_cache_fifo, LUAT_USB_ETH_RX_CACHE_POWER);
 	luat_no_data_fifo_init(&_usb_eth_netif.tx_cache_fifo, LUAT_USB_ETH_TX_CACHE_POWER);
 	tcpip_callback_with_block(_usb_eth_netif_add, &_usb_eth_netif, 0);

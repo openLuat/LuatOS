@@ -558,6 +558,11 @@ void luat_audio_data_codec_register_all(void)
     luat_audio_data_codec_register(&luat_audio_data_codec_g711_ulaw_opts);
     luat_audio_data_codec_register(&luat_audio_data_codec_g711_alaw_opts);
 #endif
+#ifdef LUAT_SUPPORT_SPEEX
+	luat_audio_data_codec_register(&luat_audio_data_codec_speex_nb_opts);
+	luat_audio_data_codec_register(&luat_audio_data_codec_speex_wb_opts);
+	luat_audio_data_codec_register(&luat_audio_data_codec_speex_uwb_opts);
+#endif
 }
 
 void luat_audio_driver_register_all(void)

@@ -516,12 +516,19 @@ static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
     mbedtls_ssl_conf_rng(&cli->conf, mbedtls_ctr_drbg_random, &cli->drbg);
 #endif
 
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000 && defined(MBEDTLS_SSL_PROTO_TLS1_3)
-    mbedtls_ssl_conf_max_tls_version(&cli->conf, MBEDTLS_SSL_VERSION_TLS1_3);
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+    /* Force TLS 1.2 for maximum compatibility with OpenVPN servers */
+    mbedtls_ssl_conf_max_tls_version(&cli->conf, MBEDTLS_SSL_VERSION_TLS1_2);
+    mbedtls_ssl_conf_min_tls_version(&cli->conf, MBEDTLS_SSL_VERSION_TLS1_2);
 #endif
 
     ret = mbedtls_ssl_setup(&cli->ssl, &cli->conf);
     if (ret) { LLOGE("ssl setup failed: %d", ret); return ret; }
+
+    /* Set hostname for certificate verification (use remote IP as string) */
+    char ip_str[16] = {0};
+    ipaddr_ntoa_r(&cli->remote_ip, ip_str, sizeof(ip_str));
+    mbedtls_ssl_set_hostname(&cli->ssl, ip_str);
 
     mbedtls_ssl_set_bio(&cli->ssl, cli, tls_send_cb, tls_recv_cb, NULL);
 
@@ -829,7 +836,9 @@ static int ovpn_parse_km2_reply(ovpn_client_t *cli, const uint8_t *data, int len
         int opt_len = 0;
         while (pos + opt_len < len && data[pos + opt_len] != '\0') opt_len++;
         if (opt_len > 0) {
-            LLOGI("server options: %.*s", opt_len, data + pos);
+            if (cli->debug) {
+                LLOGD("server options: %.*s", opt_len, data + pos);
+            }
         }
     }
 
@@ -901,7 +910,6 @@ static void ovpn_process_tls_app_data(ovpn_client_t *cli) {
         }
 
         app_buf[ret] = '\0';
-        LLOGI("TLS app data (%d bytes): %s", ret, (const char *)app_buf);
 
         /* State-dependent processing */
         switch (cli->km2_state) {
@@ -1029,8 +1037,8 @@ static void ovpn_process_push_reply(ovpn_client_t *cli, const char *reply, int l
         if (p < reply + len) p++;
     }
 
-    if (!cli->push_reply.received) {
-        LLOGW("PUSH_REPLY: %s", reply);  /* debug log full reply */
+    if (cli->debug && !cli->push_reply.received) {
+        LLOGD("PUSH_REPLY: %s", reply);  /* debug log full reply */
     }
 }
 
@@ -1406,16 +1414,22 @@ static int32_t ovpn_netc_callback(void *pData, void *pParam) {
 /* ========== Retry / timer logic ========== */
 
 /**
- * Check whether at least one non-OpenVPN netdrv adapter is online.
+ * Check whether at least one non-OpenVPN transport adapter is online.
  *
- * Uses luat_netdrv_is_ready() which understands per-adapter semantics:
- * GPRS → mobile registration check, ETH → link + IP, etc.
+ * First checks netdrv layer (LwIP netif adapters) via luat_netdrv_is_ready().
+ * Falls back to network adapter layer via network_check_ready() for adapters
+ * that don't use netdrv (e.g. POSIX socket adapter on PC simulator).
  * Returns 1 if any transport adapter is ready, 0 otherwise.
  */
 static int ovpn_transport_is_online(ovpn_client_t *cli) {
     for (int i = 0; i < NW_ADAPTER_QTY; i++) {
         if (i == cli->adapter_index) continue;   /* skip our own virtual tun */
         if (luat_netdrv_is_ready(i)) return 1;
+    }
+    /* Fallback: check network adapter layer (covers POSIX/HW-PS adapters) */
+    int dft = network_register_get_default();
+    if (dft >= 0 && dft != cli->adapter_index) {
+        if (network_check_ready(NULL, (uint8_t)dft)) return 1;
     }
     return 0;
 }
@@ -1436,7 +1450,7 @@ static void ovpn_schedule_retry(ovpn_client_t *cli, const char *reason) {
     /* Transport offline → poll at base interval for quick recovery */
     if (!ovpn_transport_is_online(cli)) {
         delay = cli->retry_base_ms ? cli->retry_base_ms : 1000;
-        LLOGW("transport offline, waiting %u ms before next retry", (unsigned)delay);
+        LLOGD("transport offline, waiting %u ms before next retry", (unsigned)delay);
     }
     cli->retry_timer_active = 1;
     cli->retry_attempt++;

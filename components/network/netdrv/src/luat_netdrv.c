@@ -6,6 +6,7 @@
 #include "lwip/ip.h"
 #include "lwip/tcpip.h"
 #include "luat_netdrv_drv.h"
+#include "luat_netdrv_dhcp_client.h"
 
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"
@@ -21,6 +22,63 @@
 static luat_netdrv_t* drvs[NW_ADAPTER_QTY];
 
 uint32_t g_netdrv_debug_enable;
+
+// ---- RX 收包统计/丢包日志 ----
+typedef struct netdrv_rx_stat {
+    uint32_t injected;      // 成功投递到 tcpip 线程的帧数
+    uint32_t drop_heap;     // netif_input_proxy 堆分配失败
+    uint32_t drop_mbox;     // tcpip 回调投递失败(邮箱满/无内存)
+    uint32_t drop_pbuf;     // tcpip 线程内 pbuf_alloc 失败
+    uint32_t input_fail;    // netif->input 返回错误
+} netdrv_rx_stat_t;
+
+static netdrv_rx_stat_t g_rx_stat;
+
+void luat_netdrv_rx_stat_reset(void) {
+    memset(&g_rx_stat, 0, sizeof(g_rx_stat));
+}
+
+void luat_netdrv_rx_stat_print(void) {
+    LLOGD("RX_STAT injected=%u drop_heap=%u drop_mbox=%u drop_pbuf=%u input_fail=%u",
+          g_rx_stat.injected, g_rx_stat.drop_heap, g_rx_stat.drop_mbox,
+          g_rx_stat.drop_pbuf, g_rx_stat.input_fail);
+}
+
+// 打印被丢弃的以太网帧摘要: 协议/地址/端口/TCP seq
+static void netdrv_log_rx_drop(const char* reason, const uint8_t* buff, uint16_t len) {
+    // 默认隐藏, 调试时通过 netdrv.debug(0, true) 打开
+    if (!g_netdrv_debug_enable) {
+        return;
+    }
+    uint8_t proto = 0;
+    uint16_t sport = 0, dport = 0;
+    uint32_t seq = 0;
+    if (buff == NULL || len < 34) {
+        LLOGD("RX_DROP %s len=%u (帧过短)", reason, len);
+        return;
+    }
+    const uint8_t* ip = buff + 14; // 以太网头14字节
+    if ((ip[0] >> 4) != 4) {
+        LLOGD("RX_DROP %s len=%u (非IPv4)", reason, len);
+        return;
+    }
+    uint16_t ihl = (uint16_t)(ip[0] & 0x0F) * 4;
+    if (len < 14 + ihl + 20) {
+        LLOGD("RX_DROP %s len=%u (帧被截断)", reason, len);
+        return;
+    }
+    proto = ip[9];
+    if (proto == 6) { // TCP
+        sport = ((uint16_t)ip[ihl] << 8) | ip[ihl + 1];
+        dport = ((uint16_t)ip[ihl + 2] << 8) | ip[ihl + 3];
+        seq = ((uint32_t)ip[ihl + 4] << 24) | ((uint32_t)ip[ihl + 5] << 16) |
+              ((uint32_t)ip[ihl + 6] << 8) | ip[ihl + 7];
+    }
+    LLOGD("RX_DROP %s len=%u proto=%u %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u seq=%u",
+          reason, len, proto,
+          ip[12], ip[13], ip[14], ip[15], sport,
+          ip[16], ip[17], ip[18], ip[19], dport, seq);
+}
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     int id = conf->id;
@@ -149,62 +207,47 @@ void luat_netdrv_print_pkg(const char* tag, uint8_t* buff, size_t len) {
 
 void luat_netdrv_netif_input(void* args) {
     netdrv_pkg_msg_t* ptr = (netdrv_pkg_msg_t*)args;
-    if (ptr == NULL) {
+    if (ptr == NULL || ptr->p == NULL) {
         return;
     }
-    if (ptr->len == 0) {
-        LLOGE("什么情况,ptr->len == 0?!");
-        return;
-    }
-    struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, ptr->len, PBUF_RAM);
-    if (p == NULL) {
-        LLOGD("分配pbuf失败!!! %d", ptr->len);
-        luat_heap_free(ptr);
-        return;
-    }
-    if (p->tot_len != ptr->len) {
-        LLOGE("p->tot_len != ptr->len %d %d", p->tot_len, ptr->len);
-        return;
-    }
-    pbuf_take(p, ptr->buff, ptr->len);
-    if (g_netdrv_debug_enable) {
-        luat_netdrv_print_pkg("收到IP数据,注入到netif", ptr->buff, ptr->len);
-    }
-    // LLOGD("netif_input: %d bytes ethertype=0x%04X to netif", ptr->len,
-    //       ptr->len >= 14 ? ((uint16_t)ptr->buff[12] << 8 | ptr->buff[13]) : 0);
-    int ret = ptr->netif->input(p, ptr->netif);
+    // pbuf已在RX任务里分配并拷好数据, 这里直接进netif, 不再二次分配/拷贝
+    int ret = ptr->netif->input(ptr->p, ptr->netif);
     if (ret) {
+        g_rx_stat.input_fail++;
         LLOGW("netif->input ret %d", ret);
-        pbuf_free(p);
+        pbuf_free(ptr->p);
     }
     luat_heap_free(ptr);
 }
 
 int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t len) {
-    netdrv_pkg_msg_t* ptr = luat_heap_malloc(sizeof(netdrv_pkg_msg_t) + len);
-    if (ptr == NULL) {
-        LLOGE("收到rx数据,但内存已满, 无法处理只能抛弃 %d", len - 4);
+    // 单次分配+单次拷贝: 直接在RX任务里把帧拷进pbuf, 投递pbuf给TCPIP线程
+    struct pbuf* p = pbuf_alloc(PBUF_RAW, len, PBUF_RAM);
+    if (p == NULL) {
+        g_rx_stat.drop_pbuf++;
+        netdrv_log_rx_drop("pbuf_alloc", buff, len);
         return 1; // 需要处理下一个包
     }
-    memcpy(ptr->buff, buff, len);
-    ptr->netif = netif;
-    ptr->len = len;
-    // uint64_t tbegin = luat_mcu_tick64();
-    int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 0);
-    if (ret != ERR_OK) {
-        LLOGE("netif_input_proxy: tcpip_callback failed ret=%d len=%d", ret, len);
-        luat_heap_free(ptr);
-    }
-    // uint64_t tend = luat_mcu_tick64();
-    // uint64_t tused = (tend - tbegin) / luat_mcu_us_period();
-    // if (tused > 50) {
-    //     LLOGD("tcpip_callback!! use %lld us", tused);
-    // }
-    if (ret) {
-        luat_heap_free(ptr);
-        LLOGE("tcpip_callback 返回错误!!! ret %d", ret);
+    pbuf_take(p, buff, len);
+    netdrv_pkg_msg_t* ptr = luat_heap_malloc(sizeof(netdrv_pkg_msg_t));
+    if (ptr == NULL) {
+        g_rx_stat.drop_heap++;
+        netdrv_log_rx_drop("heap", buff, len);
+        pbuf_free(p);
         return 1;
     }
+    ptr->netif = netif;
+    ptr->p = p;
+    // 非阻塞投递: 邮箱满/无内存时返回非0, 失败时pbuf和结构体都归调用方释放
+    int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 0);
+    if (ret != ERR_OK) {
+        g_rx_stat.drop_mbox++;
+        netdrv_log_rx_drop("mbox", buff, len);
+        pbuf_free(p);
+        luat_heap_free(ptr);
+        return 1;
+    }
+    g_rx_stat.injected++;
     return 0;
 }
 
@@ -299,22 +342,19 @@ void luat_netdrv_netif_set_link_down(struct netif* netif) {
 // DHCP操作
 
 int luat_netdrv_dhcp_opt(luat_netdrv_t* drv, void* userdata, int enable) {
-    if (drv->ulwip == NULL) {
-        return -1;
-    }
-    if (drv->ulwip->dhcp_enable == enable) {
+    if (drv->dhcp_enable == enable) {
         return 0;
     }
     // cfg->dhcp = (uint8_t)enable;
-    drv->ulwip->dhcp_enable = enable;
-    if (drv->ulwip->netif == NULL) {
+    drv->dhcp_enable = (uint8_t)enable;
+    if (drv->netif == NULL) {
         return 0;
     }
     if (enable) {
-        tcpip_callback_with_block(ulwip_dhcp_client_start, drv->ulwip, 0);
+        tcpip_callback_with_block(luat_netdrv_dhcp_client_start, drv, 0);
     }
     else {
-        tcpip_callback_with_block(ulwip_dhcp_client_stop, drv->ulwip, 0);
+        tcpip_callback_with_block(luat_netdrv_dhcp_client_stop, drv, 0);
     }
     return 0;
 }

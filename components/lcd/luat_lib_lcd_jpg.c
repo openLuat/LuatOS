@@ -70,18 +70,16 @@ int lcd_jpeg_info_default(luat_lcd_conf_t* conf, const char* path, uint16_t *wid
 }
 
 int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
-    luat_img_conf_t img_conf;
-    luat_img_info_t img_info;
-    int ret;
+    luat_img_conf_t img_conf = {0};
+    luat_img_info_t img_info = {0};
+    int ret = 0;
     luat_color_t *row_buf = NULL;
-    uint8_t swap;
+    uint8_t swap = 0;
 
-    memset(&img_conf, 0, sizeof(img_conf));
     img_conf.format = LUAT_IMG_FMT_JPG;
     img_conf.decode_mode = jpeg_pick_mode(conf);
     img_conf.source_path = path;
 
-    memset(&img_info, 0, sizeof(img_info));
     ret = luat_image_decode(&img_conf, NULL, 0, &img_info);
     if (ret != LUAT_IMG_OK || img_info.data == NULL ||
         img_info.width == 0 || img_info.height == 0) {

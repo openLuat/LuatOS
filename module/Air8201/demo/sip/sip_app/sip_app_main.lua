@@ -29,8 +29,8 @@ local SIP_CONFIG = {
     sip_server_addr = "180.152.6.34",
     sip_server_port = 8910,
     sip_domain = "180.152.6.34",
-    sip_username = "100000",
-    sip_password = "Mm123.",
+    sip_username = "15308770",
+    sip_password = "Air.530877",
     sip_transport = exsip.TRANSPORT_UDP,
     auto_answer = false,
 }
@@ -90,7 +90,7 @@ end
 local function stop()
     log.info("stop", "开始停止 SIP，当前状态:", g_sip_status)
     exsip.stop()
-    exaudio.pm(0, audio.SHUTDOWN)
+    exaudio.pm(exaudio.SHUTDOWN)
 end
 
 --主动拨号，未接通，挂断（如无特别标注，则主动挂断和对方挂断出发的事件顺序相同）

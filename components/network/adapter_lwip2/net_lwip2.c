@@ -291,7 +291,7 @@ static err_t net_lwip2_tcp_recv_cb(void *arg, struct tcp_pcb *tpcb,
 		len = p->tot_len;
 		if (net_lwip2_rx_data(socket_id, p, NULL, 0))
 		{
-			NET_DBG("no memory! le=%d", len);
+			NET_DBG("no memory for rx data len=%d", len);
 			// 立即释放收到的数据缓冲，避免后续路径重复释放或遗留
 			pbuf_free(p);
 			net_lwip2_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);

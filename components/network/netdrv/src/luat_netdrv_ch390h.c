@@ -5,14 +5,14 @@
 #include "luat_netdrv_ch390h.h"
 #include "luat_ch390h.h"
 #include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_spi.h"
 #include "luat_gpio.h"
 #include "net_lwip2.h"
-#include "luat_ulwip.h"
 #include "lwip/tcp.h"
 #include "lwip/sys.h"
 #include "lwip/tcpip.h"
-#include "luat_ulwip.h"
+#include "lwip/ethip6.h"
 #include <stdint.h>
 
 #define LUAT_LOG_TAG "ch390h"
@@ -67,7 +67,7 @@ static int ch390h_ctrl(luat_netdrv_t* drv, void* userdata, int cmd, void* buff, 
                 ch->status = 3;
             }
             else {
-                LLOGD("ch390并非处于已初始化状态, 不能重置");
+                LLOGW("ch390并非处于已初始化状态, 不能重置");
                 return -3;
             }
             return 0;
@@ -134,20 +134,18 @@ static void ch390_lwip_init(void* args) {
 
 luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
 
-    LLOGD("注册CH390H设备(%d) SPI id %d cs %d irq %d", cfg->id, cfg->spiid, cfg->cspin, cfg->irqpin);
+    LLOGI("注册CH390H设备(%d) SPI id %d cs %d irq %d", cfg->id, cfg->spiid, cfg->cspin, cfg->irqpin);
     ch390h_t* ch = luat_heap_malloc(sizeof(ch390h_t));
     struct netif* netif = luat_heap_malloc(sizeof(struct netif));
     luat_netdrv_t* drv = luat_heap_malloc(sizeof(luat_netdrv_t));
-    ulwip_ctx_t* ulwip = luat_heap_malloc(sizeof(ulwip_ctx_t));
-    if (ch == NULL || netif == NULL || drv == NULL || ulwip == NULL) {
-        LLOGD("分配CH390H内存失败!!!");
+    if (ch == NULL || netif == NULL || drv == NULL) {
+        LLOGE("分配CH390H内存失败!!!");
         goto clean;
     }
     
     memset(ch, 0, sizeof(ch390h_t));
     memset(netif, 0, sizeof(struct netif));
     memset(drv, 0, sizeof(luat_netdrv_t));
-    memset(ulwip, 0, sizeof(ulwip_ctx_t));
 
     ch->txtmp = NULL;  // 延迟分配
     ch->pkg_mem_type = LUAT_HEAP_AUTO;  // 默认使用AUTO内存
@@ -158,17 +156,15 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
     ch->total_reset_count = 0;
     ch->total_tx_drop = 0;
     ch->total_rx_drop = 0;
+    ch->rx_status_err_cnt = 0;
+    ch->rx_ov_cnt = 0;
     ch->flow_control = 0;
     ch->adapter_id = cfg->id;
     ch->cspin = cfg->cspin;
     ch->spiid = cfg->spiid;
     ch->intpin = cfg->irqpin;
     // ch->dhcp = 1;
-    ulwip->dhcp_enable = 1;
-    ulwip->adapter_index = cfg->id;
-    ulwip->netif = netif;
-
-    drv->ulwip = ulwip;
+    drv->dhcp_enable = 1;
 
     // 检查设备是否重复注册
     if (check_device_duplicate(ch) != 0) {
@@ -207,6 +203,5 @@ clean:
     }
     if (netif) luat_heap_free(netif);
     if (drv) luat_heap_free(drv);
-    if (ulwip) luat_heap_free(ulwip);
     return NULL;
 }

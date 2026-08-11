@@ -62,12 +62,6 @@ function test_httpplus()
     httpplus.debug = true
 
     -- socket.sslLog(3)
-    -- local code, resp =httpplus.request({method="POST", url="https://abc:qq@whoami.k8s.air32.cn/goupupup"})
-    -- log.info("http", code, resp)
-
-    -- 预期返回302
-    -- local code, resp = httpplus.request({method="POST", url="https://air32.cn/goupupup"})
-    -- log.info("http", code, resp)
 
     -- local code, resp = httpplus.request({method="POST", url="https://httpbin.luatos.com/post", files={abcd="/luadb/libfastlz.a"}})
     -- log.info("http", code, resp)

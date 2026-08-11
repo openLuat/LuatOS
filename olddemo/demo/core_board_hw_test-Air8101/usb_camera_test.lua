@@ -72,11 +72,11 @@ local function capture_upload_task_func()
         -- sys.wait(3000)
 
         -- 通过WIFI网络上传到服务器查看
-        -- 上传到upload.air32.cn, 数据访问页面是 https://www.air32.cn/upload/
+        -- 上传到uploadtest.luatos.com, 数据访问页面是 https://www.air32.cn/upload/
         -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
         -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com        
         local code, resp = httpplus.request({
-            url = "http://upload.air32.cn/api/upload/jpg",
+            url = "http://uploadtest.luatos.com/api/upload/jpg",
             method = "POST",
             body = capture_photo_buff
         })

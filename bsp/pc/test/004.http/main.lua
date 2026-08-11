@@ -17,7 +17,7 @@ sys.taskInit(function()
     sys.wait(1000)
     
     local body = io.readFile("/luadb/wifi.json")
-    local code, headers, body = http.request("POST", "http://wifi.air32.cn/wifi", nil, body).wait()
+    local code, headers, body = http.request("POST", "http://httpbin.luatos.com/post", nil, body).wait()
     log.info("http", code, json.encode(headers), #body)
     -- log.info("http", "body", #body)
     -- log.info("http", "body", body)
@@ -26,7 +26,7 @@ sys.taskInit(function()
     local httpplus = require "httpplus"
     -- local code, resp = httpplus.request({url="https://vaviri-back-ph4lj.ondigitalocean.app/state"})
     local code, resp = httpplus.request({
-        url="http://wifi.air32.cn/wifi", 
+        url="http://httpbin.luatos.com/post", 
         body=io.readFile("/luadb/wifi.json"), 
         headers={"Content-Type", "application/json"}, 
         method="POST"}

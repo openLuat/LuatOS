@@ -168,6 +168,8 @@ typedef struct
     mbedtls_ssl_context *ssl;          /**< mbed TLS control context. */
     mbedtls_ssl_config *config;          /**< mbed TLS configuration context. */
     mbedtls_x509_crt *ca_cert;
+		mbedtls_x509_crt *client_cert; /* 客户端证书 */
+		mbedtls_pk_context *pkey;			 /* 客户端 private key */
 #endif
 
 	CBFuncEx_t user_callback;
@@ -825,5 +827,8 @@ int network_close_all_ctrl_by_adapter(uint8_t adapter_index, uint32_t timeout_ms
 typedef void (*nw_callback_fn)(void *ctx);
 int network_tcpip_callback(nw_callback_fn function, void *ctx, int block);
 
+
+void network_set_lwip_rx_cache_nums(uint32_t nums);
+uint32_t network_get_lwip_rx_cache_nums(void);
 #endif
 // #endif

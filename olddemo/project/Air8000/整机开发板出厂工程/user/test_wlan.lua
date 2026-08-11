@@ -21,7 +21,7 @@ function test_wlan.test_wan()
         description = "GET方法,无请求头、body以及额外的附加数据"
     }}
     -- 调试输出
-    local code = http.request("GET", "https://www.air32.cn/").wait()
+    local code = http.request("GET", "http://httpbin.luatos.com/get").wait()
 
     -- 验证返回值
     if code == tests.expected_code then

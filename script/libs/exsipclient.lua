@@ -58,7 +58,6 @@ local SIP_EVENT = {
 
 -- 统一事件回调分发。
 local function emit_event(event, action, payload)
-    log.info("JQsip", "emit_event", event, action, type(g_callback))
     if type(g_callback) ~= "function" then
         return
     end
@@ -499,7 +498,6 @@ end
 -- 4. 在正确时机把媒体协商结果通过回调抛给外部媒体层
 local function sip_task(opts)
     local rxbuf = zbuff.create(2048)
-    log.info("JQsip", "sip_task start")
     opts = opts or {}
 
     -- `state` 是 SIP 主任务的唯一运行时状态容器。
@@ -631,7 +629,7 @@ local function sip_task(opts)
             state.media.session = session
             return
         end
-        log.info("JQsip", "media session ready", session)
+
         -- 通知外部媒体层启动当前会话。
 
         state.media.active = true
@@ -1119,9 +1117,11 @@ local function sip_task(opts)
                 state.local_ip = ip
             end
 
-            -- 每次重新连上 SIP 服务器，都把 REGISTER 事务状态重置到首发状态。
+            -- 每次重新连上SIP服务器，创建新的REGISTER事务并清理认证状态。
             state.branch = gen_token("br")
-            state.cseq = 1
+            -- 同一个注册实例必须保持CSeq单调递增；如果保留Call-ID和From tag却把
+            -- CSeq重置为1，网络切换后服务器可能将新REGISTER判为合并请求并返回482。
+            state.cseq = state.cseq + 1
             state.auth_tried = 0
             state.last_www = nil
 
@@ -1767,6 +1767,11 @@ local function sip_task(opts)
                 break
             end
         else
+            -- 非通话状态下重新注册时，让后续RTP媒体与新的SIP信令网卡保持一致。
+            -- 通话中仍保持原来的locked_adapter，避免切换承载中的媒体网卡。
+            if not state.dialog and not state.incoming_invite then
+                state.locked_adapter = adapter_to_use
+            end
             log.info("sip", "creating socket with adapter:", adapter_to_use, "locked_adapter:", state.locked_adapter)
             local netc = socket.create(adapter_to_use, netCB)
             state.netc = netc
@@ -1836,35 +1841,29 @@ exsipclient.start({
 ]]
 function M.start(opts)
     
-    log.info("JQsip", "starting with opts!!!!!!!!!!!!!!!!!!!!")
     if g_started then
         return true
     end
     
-    log.info("JQsip", "starting with opts",g_started)
     -- 在这里要判断基础的参数合法性，如果不合法就直接返回 false，不启动后台 task。
     if not opts or type(opts) ~= "table" then
         return false
     end
 
-    log.info("JQsip", "starting with opts", type(opts))
-
     if (not opts.sip_server_addr) or (not opts.sip_server_port) or (not opts.sip_domain) or (not opts.sip_username) then
         return false
     end
     
-    log.info("JQsip", "starting with opts", opts.sip_server_addr, opts.sip_server_port, opts.sip_domain, opts.sip_username)
 
     if not opts.sip_transport  or (opts.sip_transport ~= "udp" and opts.sip_transport ~= "tcp" and opts.sip_transport ~= "tls") then
         return false
     end
 
-    log.info("JQsip", "starting with opts", opts.sip_transport)
 
     if type(opts.event_callback) == "function" then
         g_callback = opts.event_callback
     end
-    log.info("JQsip", "event callback set", type(g_callback))
+
     g_stop = false
     g_started = true
 

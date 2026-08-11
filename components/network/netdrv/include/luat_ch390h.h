@@ -10,6 +10,10 @@
 #define CH390H_REG_NSR          0x01    // 网络状态寄存器
 #define CH390H_REG_TCR          0x02    // 发送控制寄存器
 #define CH390H_REG_RCR          0x05    // 接收控制寄存器
+#define CH390H_REG_RSR          0x06    // RX状态寄存器 (bit0=FOE溢出 bit1=CE bit2=AE bit3=PLE bit4=RWTO bit5=LCS)
+#define CH390H_REG_ROCR          0x07    // 接收溢出计数器寄存器 (bit6:0=ROC 每两包+1)
+#define CH390H_REG_FCTR          0x09    // 流量控制阈值寄存器 (bit7:4=HWOT高水位KB bit3:0=LWOT低水位KB)
+#define CH390H_REG_FCR          0x0A    // RX/TX流量控制寄存器 (bit5=TXPEN bit0=FLCE)
 #define CH390H_REG_MAC          0x10    // MAC地址寄存器 (6字节)
 #define CH390H_REG_GPR          0x1F    // 通用寄存器 (PHY开关)
 #define CH390H_REG_VID_PID      0x28    // VID/PID寄存器 (4字节)

@@ -58,7 +58,7 @@ Air8101核心板+AirUSBHUB_1000+HUB上外挂四个AirCAMERA_1030配件板；
 
 5、观察Luatools的运行日志，如果输出 http_upload_photo_task_func httpplus.request 200 x，表示USB HUB上的第x个摄像头测试正常
 
-6、电脑上浏览器打开[https://www.air32.cn/upload/jpg/](https://www.air32.cn/upload/jpg/)，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
+6、电脑上浏览器打开[https://uploadtest.luatos.com/upload/jpg/](https://uploadtest.luatos.com/upload/jpg/)，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
 -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
 -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
    

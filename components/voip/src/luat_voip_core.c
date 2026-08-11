@@ -126,7 +126,7 @@ static int32_t voip_net_cb(void *pdata, void *pparam)
     return 0;
 }
 
-#if defined(LUAT_USE_I2S)
+#if defined(LUAT_USE_I2S) || defined(LUAT_USE_DAC)
 static int voip_i2s_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
 {
     voip_ctx_t *ctx = &g_voip_ctx;

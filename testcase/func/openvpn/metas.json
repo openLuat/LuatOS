@@ -1,0 +1,6 @@
+{
+    "timeout" : 60,
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "OpenVPN客户端连通性测试(Docker服务器)"
+}

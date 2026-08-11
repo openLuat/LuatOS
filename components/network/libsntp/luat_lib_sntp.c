@@ -178,7 +178,7 @@ int l_sntp_tm(lua_State *L) {
     lua_newtable(L);
 
     lua_pushinteger(L, g_sntp_ctx.network_delay_ms);
-    lua_setfield(L, -2, "ndeley");
+    lua_setfield(L, -2, "ndelay");
     lua_pushinteger(L, g_sntp_ctx.sysboot_diff_sec);
     lua_setfield(L, -2, "ssec");
     lua_pushinteger(L, g_sntp_ctx.sysboot_diff_ms);

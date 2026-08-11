@@ -81,7 +81,7 @@ lcd.init("st7796", {
 local function HTTP_SEND_FILE()
 
     local opts = {
-        url = "http://upload.air32.cn/api/upload/jpg", -- 必选, 目标URL
+        url = "http://uploadtest.luatos.com/api/upload/jpg", -- 必选, 目标URL
         method = "POST", -- 可选,默认GET, 如果有body,files,forms参数,会设置成POST
         headers = {}, -- 可选,自定义的额外header
         -- files = {file= "/ram/abc.jpg"},   -- 可选,文件上传,若存在本参数,会强制以multipart/form-data形式上传

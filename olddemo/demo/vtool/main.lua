@@ -90,7 +90,7 @@ sys.taskInit(function()
 
     sys.waitUntil("IP_READY")
     httpplus.request({
-        url = "http://upload.air32.cn/api/upload/mp4",
+        url = "http://uploadtest.luatos.com/api/upload/mp4",
         method = "POST",
         bodyfile = dst
     })

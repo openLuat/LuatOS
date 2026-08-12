@@ -130,6 +130,7 @@ netdrv.setup(socket.LWIP_USER1, netdrv.IPSEC, {
 | 12 | 最终 AUTH 被拒（修复 11 后仍失败） | MSK 的 master 用 `sizeof(inner)=79`（实际 67）；且 0x36/0x5C 填充与 strongSwan 的 0x00/0xF2 不符；32 字节 key 从 20 字节 digest 越界拷贝 | 按 strongSwan 实现重写 MSK 派生 |
 | 13 | ESP 无回包, 网关 `XfrmInNoStates` | ESP SPI 方向反了（发送用了自己提议的 SPI） | 发送用 SAr2 的 SPI |
 | 14 | 隧道 IP 与策略不匹配 | CP 的 IPv4 字节序（`ip4_addr_set_u32` 需先 `lwip_htonl`） | 恢复 `lwip_htonl(ike_get32())` |
+| 15 | 证书校验 `NOT_TRUSTED`（flags=0x8） | 网关改用私建 CA（`CN=IKEv2 VPN CA`，自签 10 年），strongSwan 只发叶子，内置 ISRG Root X1 / LE 中间链不再适用 | 测试脚本改从 `scripts/ikev2-ca.crt` 读取 CA 作为 `ipsec_ca_cert_pem` 传入，客户端链校验 + SAN 校验逻辑不变 |
 
 服务器侧配合项（已处理，用户授权调试）：
 
@@ -149,6 +150,10 @@ netdrv.setup(socket.LWIP_USER1, netdrv.IPSEC, {
   **3 passed / 0 failed**；
 - `badpass`：错误密码 → EAP 失败 → 不 ready，**通过**；
 - `sanit`：错误 SAN → 证书校验拒绝 → 不 ready，**通过**。
+
+> 前置：`testcase/unit/net/netdrv_ipsec_basic/scripts/ikev2-ca.crt`
+> （网关私建 CA）必须存在，测试会把它作为 `ipsec_ca_cert_pem` 传入；
+> 默认内置锚（ISRG Root X1 + LE 中间链）仍保留，供未传自定义 CA 的场景使用。
 
 ## 8. 遗留与后续
 

@@ -1,8 +1,19 @@
 -- netdrv IKEv2/IPsec (tunnel mode) 客户端基础测试
--- 前置: 宿主机可访问 ipsec.air32.cn (UDP 500/4500)
+-- 前置:
+--   1. 宿主机可访问 ipsec.air32.cn (UDP 500/4500)
+--   2. scripts 目录下存在 ikev2-ca.crt (网关私建 CA, 由脚本作为
+--      ipsec_ca_cert_pem 提供给客户端, 不再依赖内置 Let's Encrypt 锚)
 local M = {}
 
 local IPSEC_ADAPTER = socket.LWIP_USER1
+
+local function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local data = f:read("*a")
+    f:close()
+    return data
+end
 
 local function setup_ipsec(overrides)
     local opts = {
@@ -15,6 +26,7 @@ local function setup_ipsec(overrides)
         ipsec_retry_enable = true,
         ipsec_retry_base_ms = 1000,
         ipsec_retry_max_ms = 3000,
+        ipsec_ca_cert_pem = read_file("/luadb/ikev2-ca.crt"),
     }
     if overrides then
         for k, v in pairs(overrides) do

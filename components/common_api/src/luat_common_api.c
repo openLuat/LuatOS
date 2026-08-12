@@ -239,6 +239,90 @@ void luat_buffer_remove_data(luat_buffer_t *buffer, uint32_t len)
 	buffer->pos = RestLen;
 }
 
+uint32_t luat_hex_string_to_hex_byte(const uint8_t *src, uint8_t *dst, uint32_t src_len, uint32_t dst_max_len)
+{
+	uint32_t i;
+	uint32_t dst_len;
+	uint32_t finish_len = 0;
+	uint8_t high, low;
+	dst_len = src_len >> 1;
+	if (dst_len > dst_max_len) {
+		dst_len = dst_max_len;
+	}
+	finish_len = dst_len;
+	for (i = 0; i < dst_len; i++) {
+		high = src[i * 2];
+		low = src[i * 2 + 1];
+		if (LUAT_IS_DIGIT(high)) {
+			high -= '0';
+		} else if ((high >= 'A') && (high <= 'F')) {
+			high -= 'A';
+			high += 10;
+		} else if ((high >= 'a') && (high <= 'f')) {
+			high -= 'a';
+			high += 10;
+		} else {
+			finish_len = i;
+			break;
+		}
+		if (LUAT_IS_DIGIT(low)) {
+			low -= '0';
+		} else if ((low >= 'A') && (low <= 'F')) {
+			low -= 'A';
+			low += 10;
+		} else if ((low >= 'a') && (low <= 'f')) {
+			low -= 'a';
+			low += 10;
+		} else {
+			finish_len = i;
+			break;
+		}
+		dst[i] = (high << 4) | low;
+	}
+	return finish_len;
+}
+
+static const uint8_t _byte_to_hex_char[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+
+uint32_t luat_hex_byte_to_hex_string(const uint8_t *src, uint8_t *dst, uint32_t src_len, uint32_t dst_max_len)
+{
+	uint32_t i = 0;
+	uint32_t j = 0;
+	uint32_t finish_len;
+	if (src_len > (dst_max_len >> 1)) {
+		src_len = dst_max_len >> 1;
+	}
+	finish_len = (src_len * 2);
+	while (i < src_len) {
+		dst[j++] = _byte_to_hex_char[(src[i] & 0xf0) >> 4];
+		dst[j++] = _byte_to_hex_char[src[i++] & 0x0f];
+	}
+	if (finish_len < dst_max_len) {
+		dst[finish_len] = '\0';
+	}
+	return finish_len;
+}
+
+void luat_string_upper(uint8_t *src, uint32_t length)
+{
+	uint32_t i;
+	for(i = 0; i < length; i++) {
+		if ( (src[i] >= 'a') && (src[i] <= 'z') )  {
+			src[i] = src[i] - 'a' + 'A';
+		}
+	}
+}
+
+void luat_string_lower(uint8_t *src, uint32_t length)
+{
+	uint32_t i;
+	for(i = 0; i < length; i++) {
+		if ( (src[i] >= 'A') && (src[i] <= 'Z') )  {
+			src[i] = src[i] - 'A' + 'z';
+		}
+	}
+}
+
 int luat_image_crop(const uint8_t *src_data, uint32_t bytes_per_pixel,
                     uint32_t src_width, uint32_t src_height,
                     uint8_t *dst_data,

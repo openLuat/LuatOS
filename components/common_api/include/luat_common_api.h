@@ -617,7 +617,41 @@ int luat_buffer_write(luat_buffer_t *buffer, const void *data, uint32_t len);
  * @note 如果 len >= pos，则清空整个缓冲区
  */
 void luat_buffer_remove_data(luat_buffer_t *buffer, uint32_t len);
+/**
+ * @brief 十六进制字符串转换为字节数据
+ *
+ * @param src 十六进制字符串源
+ * @param dst 目标字节数据缓冲区
+ * @param src_len 源字符串长度
+ * @param dst_max_len 目标缓冲区最大容量
+ * @return 实际转换的字节数
+ */
+uint32_t luat_hex_string_to_hex_byte(const uint8_t *src, uint8_t *dst, uint32_t src_len, uint32_t dst_max_len);
 
+/**
+ * @brief 十六进制字节数据转换为十六进制字符串，剩余空间存在时会结尾补一个0x00
+ *
+ * @param src 字节数据源
+ * @param dst 十六进制字符串缓冲区
+ * @param src_len 源数据长度
+ * @param dst_max_len 目标缓冲区最大容量
+ * @return 实际转换出来字符串长度，不包括补的0x00
+ */
+uint32_t luat_hex_byte_to_hex_string(const uint8_t *src, uint8_t *dst, uint32_t src_len, uint32_t dst_max_len);
+/**
+ * @brief 将字符串转换为大写
+ *
+ * @param src 源字符串
+ * @param length 字符串长度
+ */
+void luat_string_upper(uint8_t *src, uint32_t length);
+/**
+ * @brief 将字符串转换为小写
+ * 
+ * @param src 
+ * @param length 
+ */
+void luat_string_lower(uint8_t *src, uint32_t length);
 
 /**
  * @brief 图像裁剪函数

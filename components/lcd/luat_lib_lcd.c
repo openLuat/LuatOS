@@ -156,6 +156,9 @@ static int l_lcd_init(lua_State* L) {
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
     conf->acc_hw = 0xFF;
     conf->bpp = 16;
+    conf->luat_lcd_mipi_conf.mipi_lane_num = 2;
+    conf->luat_lcd_mipi_conf.mipi_cmd_type = 0;
+    conf->luat_lcd_mipi_conf.mipi_continue_mode = 0;
     conf->lcd_clk_pin = LUAT_GPIO_NONE;
     conf->lcd_sda_pin = LUAT_GPIO_NONE;
     conf->lcd_cs_pin = LUAT_GPIO_NONE;
@@ -319,6 +322,30 @@ static int l_lcd_init(lua_State* L) {
             }
             lua_pop(L, 1);
 
+            lua_pushstring(L, "bpp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->bpp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "mipi_lane_num");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->luat_lcd_mipi_conf.mipi_lane_num = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "mipi_cmd_type");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->luat_lcd_mipi_conf.mipi_cmd_type = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "mipi_continue_mode");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->luat_lcd_mipi_conf.mipi_continue_mode = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
             lua_pushstring(L, "flush_rate");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->flush_rate = luaL_checkinteger(L, -1);
@@ -380,6 +407,9 @@ static int l_lcd_init(lua_State* L) {
                 conf->lcd_cs_pin = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
+        }
+        if (conf->port == LUAT_LCD_PORT_MIPI && conf->bus_speed == 0) {
+            conf->bus_speed = 200000000;
         }
         if (s_index == 0){
             unsigned int cmd = 0;

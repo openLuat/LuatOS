@@ -82,6 +82,12 @@ typedef struct
 	uint8_t write_4line_data;	//address data都是4线
 }luat_lcd_qspi_conf_t;
 
+typedef struct {
+    uint8_t mipi_lane_num;
+    uint8_t mipi_cmd_type;
+    uint8_t mipi_continue_mode;
+}luat_lcd_mipi_conf_t;
+
 typedef struct luat_lcd_conf {
     uint8_t port;
     uint8_t pin_dc;
@@ -121,6 +127,7 @@ typedef struct luat_lcd_conf {
     uint32_t dc_delay_us;
     uint32_t flush_rate;	//刷新率，针对no ram的屏幕起效
     uint32_t bus_speed;
+    luat_lcd_mipi_conf_t luat_lcd_mipi_conf;
     luat_color_t* buff;
     luat_color_t* buff_ex;
     luat_color_t* buff_draw;

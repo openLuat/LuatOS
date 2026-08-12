@@ -222,6 +222,9 @@ luat_netdrv_t* luat_netdrv_ipsec_setup(luat_netdrv_conf_t *conf) {
         }
     }
 
+    /* MOBIKE 双向地址更新 (默认关闭) */
+    cfg.ipsec_mobike_enable = conf->ipsec_conf->ipsec_mobike_enable ? 1 : 0;
+
     /* 回调 */
     cfg.status_cb = ipsec_netdrv_link_status_cb;
     cfg.user_data = (void *)drv;
@@ -262,4 +265,21 @@ luat_netdrv_t* luat_netdrv_ipsec_setup(luat_netdrv_conf_t *conf) {
     ipsec_client_start(client);
 
     return drv;
+}
+
+/**
+ * 测试钩子: 触发一次模拟本地地址变更 (仅 utest 构建的 Lua API 使用)
+ * @param adapter_id netdrv 适配器编号
+ * @return 0 成功, 其他失败
+ */
+int luat_netdrv_ipsec_sim_addr_change(int adapter_id)
+{
+    luat_netdrv_t *drv = luat_netdrv_get(adapter_id);
+    luat_netdrv_ipsec_ctx_t *ctx;
+    if (drv == NULL || drv->ctrl != ipsec_ctrl || drv->userdata == NULL)
+        return -1;
+    ctx = (luat_netdrv_ipsec_ctx_t *)drv->userdata;
+    if (ctx->client == NULL)
+        return -1;
+    return ipsec_client_test_simulate_addr_change(ctx->client);
 }

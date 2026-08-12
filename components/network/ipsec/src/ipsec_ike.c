@@ -167,88 +167,69 @@ static int ike_find_payload(const uint8_t *msg, uint16_t msg_len,
 
 /* ========== SA proposal builders ========== */
 
-/* Build the IKE SA payload with two proposals (aes256-sha256-modp2048 first).
- * Returns payload length. */
+/* Build the IKE SA payload with eight proposals:
+ * {AES-256-CBC+SHA2-256, AES-128-CBC+SHA1-96} x {modp2048, ecp256, ecp384,
+ * ecp521}.  Returns payload length. */
 static uint16_t ike_build_ike_sa(uint8_t *p)
 {
     uint8_t *sa_hdr = p;
-    uint8_t *t;
+    static const uint16_t groups[4] = {
+        IPSEC_DH_MODP_2048, IPSEC_DH_ECP_256,
+        IPSEC_DH_ECP_384, IPSEC_DH_ECP_521
+    };
+    int gi;
 
     ike_payload_hdr(p, IPSEC_PAYLOAD_KE);
     p += 4;
 
-    /* Proposal 1: AES-256 + PRF-SHA256 + INTEG-SHA256-128 + DH14 */
-    p[0] = 2; /* more proposals follow */
-    p[1] = 0;
-    ike_put16(p + 2, 44);
-    p[4] = 1;  /* proposal num */
-    p[5] = IPSEC_PROTO_IKE;
-    p[6] = 0;  /* SPI size */
-    p[7] = 4;  /* num transforms */
-    p += 8;
+    for (gi = 0; gi < 8; gi++) {
+        uint8_t *t;
+        int enc256 = (gi % 2) == 0; /* alternate AES256/SHA256, AES128/SHA1 */
+        uint16_t dh = groups[gi / 2];
 
-    p[0] = 3;
-    p[1] = 0;
-    ike_put16(p + 2, 12);
-    p[4] = IPSEC_TRANSFORM_ENCR;
-    p[5] = 0;
-    ike_put16(p + 6, IPSEC_ENCR_AES_CBC);
-    ike_put16(p + 8, 0x800E); /* KEY_LENGTH attribute, TV form */
-    ike_put16(p + 10, 256);
-    p += 12;
+        p[0] = (gi == 7) ? 0 : 2; /* more proposals follow */
+        p[1] = 0;
+        ike_put16(p + 2, 44);
+        p[4] = (uint8_t)(gi + 1); /* proposal num */
+        p[5] = IPSEC_PROTO_IKE;
+        p[6] = 0;                 /* SPI size */
+        p[7] = 4;                 /* num transforms */
+        p += 8;
 
-    t = p;
-    t[0] = 3; t[1] = 0; ike_put16(t + 2, 8);
-    t[4] = IPSEC_TRANSFORM_PRF; t[5] = 0; ike_put16(t + 6, IPSEC_PRF_HMAC_SHA2_256);
-    p += 8;
+        t = p;
+        t[0] = 3; t[1] = 0; ike_put16(t + 2, 12);
+        t[4] = IPSEC_TRANSFORM_ENCR; t[5] = 0;
+        ike_put16(t + 6, IPSEC_ENCR_AES_CBC);
+        ike_put16(t + 8, 0x800E); /* KEY_LENGTH attribute, TV form */
+        ike_put16(t + 10, enc256 ? 256 : 128);
+        p += 12;
 
-    t = p;
-    t[0] = 3; t[1] = 0; ike_put16(t + 2, 8);
-    t[4] = IPSEC_TRANSFORM_INTEG; t[5] = 0; ike_put16(t + 6, IPSEC_INTEG_HMAC_SHA2_256_128);
-    p += 8;
+        t = p;
+        t[0] = 3; t[1] = 0; ike_put16(t + 2, 8);
+        t[4] = IPSEC_TRANSFORM_PRF; t[5] = 0;
+        ike_put16(t + 6, enc256 ? IPSEC_PRF_HMAC_SHA2_256 : IPSEC_PRF_HMAC_SHA1);
+        p += 8;
 
-    t = p;
-    t[0] = 0; t[1] = 0; ike_put16(t + 2, 8);
-    t[4] = IPSEC_TRANSFORM_DH; t[5] = 0; ike_put16(t + 6, IPSEC_DH_MODP_2048);
-    p += 8;
+        t = p;
+        t[0] = 3; t[1] = 0; ike_put16(t + 2, 8);
+        t[4] = IPSEC_TRANSFORM_INTEG; t[5] = 0;
+        ike_put16(t + 6, enc256 ? IPSEC_INTEG_HMAC_SHA2_256_128
+                                : IPSEC_INTEG_HMAC_SHA1_96);
+        p += 8;
 
-    /* Proposal 2: AES-128 + PRF-SHA1 + INTEG-SHA1-96 + DH14 */
-    p[0] = 0; /* last proposal */
-    p[1] = 0;
-    ike_put16(p + 2, 44);
-    p[4] = 2;
-    p[5] = IPSEC_PROTO_IKE;
-    p[6] = 0;
-    p[7] = 4;
-    p += 8;
-
-    t = p;
-    t[0] = 3; t[1] = 0; ike_put16(t + 2, 12);
-    t[4] = IPSEC_TRANSFORM_ENCR; t[5] = 0; ike_put16(t + 6, IPSEC_ENCR_AES_CBC);
-    ike_put16(t + 8, 0x800E);
-    ike_put16(t + 10, 128);
-    p += 12;
-
-    t = p;
-    t[0] = 3; t[1] = 0; ike_put16(t + 2, 8);
-    t[4] = IPSEC_TRANSFORM_PRF; t[5] = 0; ike_put16(t + 6, IPSEC_PRF_HMAC_SHA1);
-    p += 8;
-
-    t = p;
-    t[0] = 3; t[1] = 0; ike_put16(t + 2, 8);
-    t[4] = IPSEC_TRANSFORM_INTEG; t[5] = 0; ike_put16(t + 6, IPSEC_INTEG_HMAC_SHA1_96);
-    p += 8;
-
-    t = p;
-    t[0] = 0; t[1] = 0; ike_put16(t + 2, 8);
-    t[4] = IPSEC_TRANSFORM_DH; t[5] = 0; ike_put16(t + 6, IPSEC_DH_MODP_2048);
-    p += 8;
+        t = p;
+        t[0] = 0; t[1] = 0; ike_put16(t + 2, 8);
+        t[4] = IPSEC_TRANSFORM_DH; t[5] = 0;
+        ike_put16(t + 6, dh);
+        p += 8;
+    }
 
     ike_payload_len(sa_hdr, (uint16_t)(p - sa_hdr));
     return (uint16_t)(p - sa_hdr);
 }
 
-/* Build the ESP SA payload with two proposals, using \p spi (network order) */
+/* Build the ESP SA payload with four proposals (two CBC + two GCM AEAD),
+ * using \p spi (network order) */
 static uint16_t ike_build_esp_sa(uint8_t *p, uint32_t spi)
 {
     uint8_t *sa_hdr = p;
@@ -298,6 +279,42 @@ static uint16_t ike_build_esp_sa(uint8_t *p, uint32_t spi)
     t[4] = IPSEC_TRANSFORM_INTEG; t[5] = 0; ike_put16(t + 6, IPSEC_INTEG_HMAC_SHA1_96);
     }
     p += 8;
+
+    {
+    uint8_t *t = p;
+    t[0] = 0; t[1] = 0; ike_put16(t + 2, 8);
+    t[4] = IPSEC_TRANSFORM_ESN; t[5] = 0; ike_put16(t + 6, IPSEC_ESN_NONE);
+    }
+    p += 8;
+
+    /* Proposal 3: AES-256-GCM-16 (AEAD, no INTEG transform) */
+    p[0] = 2; p[1] = 0; ike_put16(p + 2, 32);
+    p[4] = 3; p[5] = IPSEC_PROTO_ESP; p[6] = 4; p[7] = 2;
+    ike_put32(p + 8, spi);
+    p += 12;
+
+    p[0] = 3; p[1] = 0; ike_put16(p + 2, 12);
+    p[4] = IPSEC_TRANSFORM_ENCR; p[5] = 0; ike_put16(p + 6, IPSEC_ENCR_AES_GCM_16);
+    ike_put16(p + 8, 0x800E); ike_put16(p + 10, 256);
+    p += 12;
+
+    {
+    uint8_t *t = p;
+    t[0] = 0; t[1] = 0; ike_put16(t + 2, 8);
+    t[4] = IPSEC_TRANSFORM_ESN; t[5] = 0; ike_put16(t + 6, IPSEC_ESN_NONE);
+    }
+    p += 8;
+
+    /* Proposal 4: AES-128-GCM-16 (AEAD, no INTEG transform) */
+    p[0] = 0; p[1] = 0; ike_put16(p + 2, 32);
+    p[4] = 4; p[5] = IPSEC_PROTO_ESP; p[6] = 4; p[7] = 2;
+    ike_put32(p + 8, spi);
+    p += 12;
+
+    p[0] = 3; p[1] = 0; ike_put16(p + 2, 12);
+    p[4] = IPSEC_TRANSFORM_ENCR; p[5] = 0; ike_put16(p + 6, IPSEC_ENCR_AES_GCM_16);
+    ike_put16(p + 8, 0x800E); ike_put16(p + 10, 128);
+    p += 12;
 
     {
     uint8_t *t = p;
@@ -601,7 +618,8 @@ static uint16_t ike_build_cookie_notify(uint8_t *p, const uint8_t *cookie, uint1
 /* Extract the chosen proposal's algorithms from an SA payload body */
 static int ike_parse_sa(const uint8_t *sa, uint16_t sa_len, uint8_t expect_proto,
                         uint32_t *spi_out, ipsec_ike_algs_t *algs,
-                        uint8_t *esp_enc, uint8_t *esp_integ, uint16_t *esp_keylen)
+                        uint8_t *esp_enc, uint8_t *esp_integ, uint16_t *esp_keylen,
+                        uint16_t *dh_group, uint8_t *aead_out)
 {
     const uint8_t *p = sa + 4; /* skip payload header */
     const uint8_t *end = sa + sa_len;
@@ -615,6 +633,7 @@ static int ike_parse_sa(const uint8_t *sa, uint16_t sa_len, uint8_t expect_proto
         const uint8_t *trans_end;
         const uint8_t *t;
         uint8_t enc_found = 0, prf_found = 0, integ_found = 0, dh_found = 0, esn_found = 0;
+        uint8_t aead_found = 0;
 
         (void)num;
         if (prop_len < 8 || p + prop_len > end)
@@ -646,6 +665,17 @@ static int ike_parse_sa(const uint8_t *sa, uint16_t sa_len, uint8_t expect_proto
                         if (esp_enc) *esp_enc = keylen == 128 ? IPSEC_ENC_AES128 : IPSEC_ENC_AES256;
                         if (esp_keylen) *esp_keylen = keylen;
                     }
+                } else if (tid == IPSEC_ENCR_AES_GCM_16) {
+                    uint16_t keylen = 0;
+                    if (tlen >= 12 && ike_get16(t + 8) == 0x800E)
+                        keylen = ike_get16(t + 10);
+                    if (keylen == 128 || keylen == 256) {
+                        enc_found = 1;
+                        aead_found = 1;
+                        if (esp_enc) *esp_enc = keylen == 128 ? IPSEC_ENC_AES_GCM128
+                                                              : IPSEC_ENC_AES_GCM256;
+                        if (esp_keylen) *esp_keylen = keylen;
+                    }
                 }
                 break;
             case IPSEC_TRANSFORM_PRF:
@@ -669,9 +699,10 @@ static int ike_parse_sa(const uint8_t *sa, uint16_t sa_len, uint8_t expect_proto
                 }
                 break;
             case IPSEC_TRANSFORM_DH:
-                if (tid == IPSEC_DH_MODP_2048) {
+                if (tid == IPSEC_DH_MODP_2048 || tid == IPSEC_DH_ECP_256 ||
+                    tid == IPSEC_DH_ECP_384 || tid == IPSEC_DH_ECP_521) {
                     dh_found = 1;
-                    if (algs) algs->enc = algs->enc; /* keep */
+                    if (algs) algs->dh = tid;
                 }
                 break;
             case IPSEC_TRANSFORM_ESN:
@@ -686,11 +717,18 @@ static int ike_parse_sa(const uint8_t *sa, uint16_t sa_len, uint8_t expect_proto
 
         if (proto == expect_proto) {
             if (expect_proto == IPSEC_PROTO_IKE) {
-                if (enc_found && prf_found && integ_found && dh_found)
+                if (enc_found && prf_found && integ_found && dh_found) {
+                    if (dh_group) *dh_group = algs ? algs->dh : 0;
                     return 0;
+                }
             } else {
-                if (enc_found && integ_found)
+                if (enc_found && (integ_found || aead_found)) {
+                    if (aead_found && esp_integ)
+                        *esp_integ = IPSEC_INTEG_NONE;
+                    if (aead_out) *aead_out = 1;
+                    if (dh_group) *dh_group = algs ? algs->dh : 0;
                     return 0;
+                }
             }
         }
         p += prop_len;
@@ -840,12 +878,12 @@ static int ike_send_sa_init(ipsec_client_t *cli)
         uint8_t *ke = p;
         ike_payload_hdr(p, IPSEC_PAYLOAD_NONCE);
         p += 4;
-        ike_put16(p, IPSEC_DH_MODP_2048);
+        ike_put16(p, cli->ike_dh_group);
         ike_put16(p + 2, 0);
         p += 4;
         {
         size_t kei_len = IPSEC_DH_PUB_LEN;
-        if (ipsec_dh_make_public(&cli->dhm, cli->kei, &kei_len) != 0) {
+        if (ipsec_dh_make_public(&cli->ike_dh, cli->kei, &kei_len) != 0) {
             LLOGE("DH make_public failed");
             return -1;
         }
@@ -1083,7 +1121,7 @@ static int ike_send_final_auth(ipsec_client_t *cli)
     return ipsec_send_msg(cli, buf, msg_len, 1);
 }
 
-/* ========== CREATE_CHILD_SA (CHILD_SA rekey, no PFS) ========== */
+/* ========== CREATE_CHILD_SA (CHILD_SA rekey, optional PFS) ========== */
 
 static int ike_send_create_child_sa(ipsec_client_t *cli)
 {
@@ -1094,6 +1132,7 @@ static int ike_send_create_child_sa(ipsec_client_t *cli)
     uint8_t *p = inner;
     uint16_t plen;
     uint32_t esp_spi;
+    int send_ke = !cli->rekey_no_ke;
 
     luat_crypto_trng((char *)&esp_spi, 4);
     if (esp_spi == 0)
@@ -1108,13 +1147,38 @@ static int ike_send_create_child_sa(ipsec_client_t *cli)
     p += plen;
     {
         uint8_t *ni = p;
-        ike_payload_hdr(p, IPSEC_PAYLOAD_TSI);
+        ike_payload_hdr(p, send_ke ? IPSEC_PAYLOAD_KE : IPSEC_PAYLOAD_TSI);
         p += 4;
         luat_crypto_trng((char *)cli->ni, IPSEC_NONCE_LEN);
         cli->ni_len = IPSEC_NONCE_LEN;
         memcpy(p, cli->ni, cli->ni_len);
         p += cli->ni_len;
         ike_payload_len(ni, (uint16_t)(p - ni));
+    }
+    if (send_ke) {
+        /* PFS (RFC 7296 §2.17): fresh ephemeral DH keys for the CHILD_SA,
+         * reusing the negotiated IKE DH group. */
+        uint8_t *ke = p;
+        ike_payload_hdr(p, IPSEC_PAYLOAD_TSI);
+        p += 4;
+        ike_put16(p, cli->ike_dh_group);
+        ike_put16(p + 2, 0);
+        p += 4;
+        if (ipsec_dh_init(&cli->child_dh, cli->ike_dh_group) != 0) {
+            LLOGE("rekey DH init failed");
+            return -1;
+        }
+        {
+        size_t kei_len = sizeof(cli->kei);
+        if (ipsec_dh_make_public(&cli->child_dh, cli->kei, &kei_len) != 0) {
+            LLOGE("rekey DH make_public failed");
+            return -1;
+        }
+        cli->kei_len = (uint16_t)kei_len;
+        }
+        memcpy(p, cli->kei, cli->kei_len);
+        p += cli->kei_len;
+        ike_payload_len(ke, (uint16_t)(p - ke));
     }
     plen = ike_build_ts(p, IPSEC_PAYLOAD_TSI);
     p[0] = IPSEC_PAYLOAD_TSR;
@@ -1142,6 +1206,58 @@ static int ike_send_dpd(ipsec_client_t *cli)
     cli->last_exchange = IPSEC_EXCH_INFORMATIONAL;
     if (ike_sk_encrypt(cli, buf, NULL, 0, 0, &msg_len) != 0)
         return -1;
+    return ipsec_send_msg(cli, buf, msg_len, 1);
+}
+
+/* MOBIKE (RFC 4555): INFORMATIONAL request with UPDATE_SA_ADDRESSES and
+ * NAT-D payloads after a local address change. */
+static int ike_send_mobike_update(ipsec_client_t *cli)
+{
+    uint8_t buf[IPSEC_IKE_TX_LEN];
+    uint8_t inner[512];
+    uint16_t inner_len;
+    uint16_t msg_len;
+    uint8_t *p = inner;
+    uint8_t *hdr;
+    ip4_addr_t local_ip;
+
+    if (!cli->online || !cli->mobike_enable)
+        return -1;
+    if (cli->mobike_inflight)
+        return 0; /* already in flight, keep the current update */
+    if (ipsec_get_local_ip(cli, &local_ip) != 0 || ip4_addr_isany_val(local_ip))
+        return -1;
+    cli->local_ip_cache = local_ip;
+    cli->mobike_cache_valid = 1;
+
+    /* N(UPDATE_SA_ADDRESSES) */
+    hdr = p;
+    ike_payload_hdr(p, IPSEC_PAYLOAD_NOTIFY);
+    p += 4;
+    p[0] = 0; p[1] = 0;
+    ike_put16(p + 2, IPSEC_NOTIFY_UPDATE_SA_ADDRESSES);
+    p += 4;
+    ike_payload_len(hdr, (uint16_t)(p - hdr));
+
+    p += ike_build_natd(p, cli->spii, cli->spir, &local_ip, cli->ike_port,
+                        IPSEC_NOTIFY_NAT_DETECTION_SOURCE);
+    {
+        uint8_t *natd2 = p;
+        p += ike_build_natd(p, cli->spii, cli->spir,
+                            ip_2_ip4(&cli->remote_ip), cli->ike_port,
+                            IPSEC_NOTIFY_NAT_DETECTION_DEST);
+        natd2[0] = 0; /* last payload */
+    }
+
+    inner_len = (uint16_t)(p - inner);
+    cli->pending_msgid = ++cli->msgid;
+    cli->last_exchange = IPSEC_EXCH_INFORMATIONAL;
+    if (ike_sk_encrypt(cli, buf, inner, inner_len, IPSEC_PAYLOAD_NOTIFY,
+                       &msg_len) != 0)
+        return -1;
+    cli->mobike_inflight = 1;
+    LLOGI("MOBIKE: UPDATE_SA_ADDRESSES sent (local %s)",
+          ip4addr_ntoa(&local_ip));
     return ipsec_send_msg(cli, buf, msg_len, 1);
 }
 
@@ -1204,11 +1320,21 @@ static int ipsec_install_child_sas(ipsec_client_t *cli, uint32_t in_spi,
 
     /* IKEv2 SPI direction: the initiator sends with the SPI the responder
      * assigned (SAr2), and receives with the SPI it proposed (SAi2). */
-    ipsec_esp_sa_init(&cli->esp_out[new_slot], in_spi,
-                      cli->esp_enc, cli->esp_integ, k, k + enc_len);
-    k += enc_len + integ_len;
-    ipsec_esp_sa_init(&cli->esp_in[new_slot], cli->esp_spi_out,
-                      cli->esp_enc, cli->esp_integ, k, k + enc_len);
+    if (cli->esp_enc == IPSEC_ENC_AES_GCM128 ||
+        cli->esp_enc == IPSEC_ENC_AES_GCM256) {
+        /* AEAD KEYMAT per direction: ENCR key | salt (RFC 7296 §3.3.2) */
+        ipsec_esp_sa_init_aead(&cli->esp_out[new_slot], in_spi,
+                               cli->esp_enc, k, k + enc_len);
+        k += enc_len + IPSEC_ESP_GCM_SALT_LEN;
+        ipsec_esp_sa_init_aead(&cli->esp_in[new_slot], cli->esp_spi_out,
+                               cli->esp_enc, k, k + enc_len);
+    } else {
+        ipsec_esp_sa_init(&cli->esp_out[new_slot], in_spi,
+                          cli->esp_enc, cli->esp_integ, k, k + enc_len);
+        k += enc_len + integ_len;
+        ipsec_esp_sa_init(&cli->esp_in[new_slot], cli->esp_spi_out,
+                          cli->esp_enc, cli->esp_integ, k, k + enc_len);
+    }
 
     /* old current SA becomes dying (kept for RX grace) */
     if (cli->esp_slot != new_slot && cli->esp_out[cli->esp_slot].valid) {
@@ -1325,16 +1451,19 @@ static int ike_handle_auth2_payloads(ipsec_client_t *cli, const uint8_t *inner,
         uint32_t in_spi = 0;
         uint8_t esp_enc = 0, esp_integ = 0;
         uint16_t esp_keylen = 0;
+        uint8_t aead = 0;
         ipsec_ike_algs_t algs;
         uint8_t keymat[4 * 32];
         uint16_t enc_len, integ_len;
 
         memset(&algs, 0, sizeof(algs));
         if (ike_parse_sa(sa_payload, sa_len, IPSEC_PROTO_ESP, &in_spi,
-                         &algs, &esp_enc, &esp_integ, &esp_keylen) != 0) {
+                         &algs, &esp_enc, &esp_integ, &esp_keylen,
+                         NULL, &aead) != 0) {
             LLOGE("failed to parse ESP SA from responder");
             return -1;
         }
+        (void)aead;
         cli->esp_enc = esp_enc;
         cli->esp_integ = esp_integ;
         enc_len = ipsec_enc_len(esp_enc);
@@ -1482,6 +1611,7 @@ static void ike_handle_sa_init_response(ipsec_client_t *cli,
     ip4_addr_t local_ip;
     uint16_t local_port = cli->netc ? cli->netc->local_port : cli->ike_port;
     uint8_t cookie_found = 0;
+    uint16_t invalid_ke_group = 0;
 
     if (ike_find_payload(msg, msg_len, next, IPSEC_PAYLOAD_SA, &sa_payload, &sa_len) != 0) {
         LLOGE("IKE_SA_INIT response missing SA");
@@ -1528,6 +1658,10 @@ static void ike_handle_sa_init_response(ipsec_client_t *cli,
             cli->cookie_len = notifies[i].data_len;
             memcpy(cli->cookie, notifies[i].data, cli->cookie_len);
             break;
+        case IPSEC_NOTIFY_INVALID_KE:
+            if (notifies[i].data_len == 2)
+                invalid_ke_group = ike_get16(notifies[i].data);
+            break;
         case IPSEC_NOTIFY_NO_PROPOSAL_CHOSEN:
             LLOGE("NO_PROPOSAL_CHOSEN");
             goto fail;
@@ -1537,6 +1671,29 @@ static void ike_handle_sa_init_response(ipsec_client_t *cli,
         default:
             break;
         }
+    }
+
+    if (invalid_ke_group != 0) {
+        if (invalid_ke_group != IPSEC_DH_MODP_2048 &&
+            invalid_ke_group != IPSEC_DH_ECP_256 &&
+            invalid_ke_group != IPSEC_DH_ECP_384 &&
+            invalid_ke_group != IPSEC_DH_ECP_521) {
+            LLOGE("INVALID_KE with unsupported group %u", invalid_ke_group);
+            goto fail;
+        }
+        if (invalid_ke_group == cli->ike_dh_group) {
+            LLOGE("INVALID_KE for the group we already used");
+            goto fail;
+        }
+        LLOGI("INVALID_KE received, retrying IKE_SA_INIT with group %u",
+              invalid_ke_group);
+        cli->ike_dh_group = invalid_ke_group;
+        if (ipsec_dh_init(&cli->ike_dh, cli->ike_dh_group) != 0) {
+            LLOGE("DH init for group %u failed", invalid_ke_group);
+            goto fail;
+        }
+        ike_send_sa_init(cli);
+        return;
     }
 
     if (cookie_found) {
@@ -1550,18 +1707,21 @@ static void ike_handle_sa_init_response(ipsec_client_t *cli,
     algs.enc = IPSEC_ENC_AES256;
     algs.prf = IPSEC_PRF_SHA256;
     algs.integ = IPSEC_INTEG_SHA256;
+    algs.dh = IPSEC_DH_MODP_2048;
     if (ike_parse_sa(sa_payload, sa_len, IPSEC_PROTO_IKE, NULL,
-                     &algs, NULL, NULL, NULL) != 0) {
+                     &algs, NULL, NULL, NULL, NULL, NULL) != 0) {
         LLOGE("unsupported IKE proposal from responder");
         goto fail;
     }
     cli->ike_enc = algs.enc;
     cli->ike_prf = algs.prf;
     cli->ike_integ = algs.integ;
+    cli->ike_dh_group = algs.dh;
     LLOGI("negotiated IKE: enc=%s prf=%s integ=%s",
           cli->ike_enc == IPSEC_ENC_AES128 ? "aes128" : "aes256",
           cli->ike_prf == IPSEC_PRF_SHA1 ? "sha1" : "sha256",
           cli->ike_integ == IPSEC_INTEG_SHA1 ? "sha1" : "sha256");
+    LLOGI("negotiated IKE DH group: %u", cli->ike_dh_group);
 
     /* KEr + Nr */
     if (ke_len < 8)
@@ -1569,7 +1729,8 @@ static void ike_handle_sa_init_response(ipsec_client_t *cli,
     {
         uint16_t group = ike_get16(ke_payload + 4);
         uint16_t kelen = (uint16_t)(ke_len - 8);
-        if (group != IPSEC_DH_MODP_2048 || kelen > sizeof(cli->ker)) {
+        if (group != cli->ike_dh_group ||
+            kelen != ipsec_dh_pub_len(group) || kelen > sizeof(cli->ker)) {
             LLOGE("unexpected KE payload (group=%u len=%u)", group, kelen);
             goto fail;
         }
@@ -1583,13 +1744,13 @@ static void ike_handle_sa_init_response(ipsec_client_t *cli,
     memcpy(cli->spir, msg + 8, 8);
 
     /* DH shared secret */
-    if (ipsec_dh_read_public(&cli->dhm, cli->ker, cli->ker_len) != 0) {
+    if (ipsec_dh_read_public(&cli->ike_dh, cli->ker, cli->ker_len) != 0) {
         LLOGE("DH read_public failed");
         goto fail;
     }
     {
     size_t g_ir_len = sizeof(cli->g_ir);
-    if (ipsec_dh_calc_secret(&cli->dhm, cli->g_ir, &g_ir_len) != 0) {
+    if (ipsec_dh_calc_secret(&cli->ike_dh, cli->g_ir, &g_ir_len) != 0) {
         LLOGE("DH calc_secret failed");
         goto fail;
     }
@@ -1918,6 +2079,18 @@ fail:
     (void)msgid;
 }
 
+/* Retry the in-flight rekey once without a KE payload (PFS fallback).
+ * Keeps the old SA online; on send failure re-arms the tick path. */
+static void ike_rekey_retry_without_ke(ipsec_client_t *cli)
+{
+    cli->rekey_no_ke = 1;
+    if (ike_send_create_child_sa(cli) != 0) {
+        cli->esp_rekey_inflight = 0;
+        cli->phase = IPSEC_STATE_ESTABLISHED;
+        cli->rekey_no_ke = 0;
+    }
+}
+
 /* CREATE_CHILD_SA response */
 static void ike_handle_rekey_response(ipsec_client_t *cli, const uint8_t *msg,
                                       uint16_t msg_len, uint16_t msgid)
@@ -1931,15 +2104,20 @@ static void ike_handle_rekey_response(ipsec_client_t *cli, const uint8_t *msg,
     uint8_t next;
     const uint8_t *end;
     const uint8_t *sa_payload = NULL;
+    const uint8_t *nonce_payload = NULL;
+    const uint8_t *ke_payload = NULL;
     uint16_t sa_len = 0;
+    uint16_t nonce_len = 0, ke_len = 0;
+    int rejected = 0;
+    int sent_ke = !cli->rekey_no_ke;
 
     (void)msgid;
     if (ike_find_payload(msg, msg_len, msg[16], IPSEC_PAYLOAD_SK,
                          &sk_payload, &sk_len) != 0)
-        goto fail;
+        goto rekey_fail;
     if (ike_sk_decrypt(cli, msg, msg_len, sk_payload, sk_len,
                        inner, sizeof(inner), &inner_len, &first_type) != 0)
-        goto fail;
+        goto rekey_fail;
 
     p = inner;
     end = inner + inner_len;
@@ -1947,13 +2125,19 @@ static void ike_handle_rekey_response(ipsec_client_t *cli, const uint8_t *msg,
     while (next != 0) {
         uint16_t len;
         if (p + 4 > end)
-            goto fail;
+            goto rekey_fail;
         len = ike_get16(p + 2);
         if (len < 4 || p + len > end)
-            goto fail;
+            goto rekey_fail;
         if (next == IPSEC_PAYLOAD_SA) {
             sa_payload = p;
             sa_len = len;
+        } else if (next == IPSEC_PAYLOAD_NONCE) {
+            nonce_payload = p;
+            nonce_len = len;
+        } else if (next == IPSEC_PAYLOAD_KE) {
+            ke_payload = p;
+            ke_len = len;
         } else if (next == IPSEC_PAYLOAD_NOTIFY) {
             ike_notify_t notifies[4];
             int n = ike_parse_notifies(p + 4, (uint16_t)(len - 4), notifies, 4);
@@ -1962,44 +2146,122 @@ static void ike_handle_rekey_response(ipsec_client_t *cli, const uint8_t *msg,
                 if (notifies[i].type == IPSEC_NOTIFY_NO_PROPOSAL_CHOSEN ||
                     notifies[i].type == IPSEC_NOTIFY_TS_UNACCEPTABLE) {
                     LLOGE("rekey rejected (notify %u)", notifies[i].type);
-                    goto fail_no_retry;
+                    rejected = 1;
                 }
             }
         }
         next = p[0];
         p += len;
     }
-    if (!sa_payload)
-        goto fail;
+
+    if (rejected) {
+        if (sent_ke) {
+            LLOGW("rekey rejected, retrying once without KE (keep old SA)");
+            ike_rekey_retry_without_ke(cli);
+            return;
+        }
+        LLOGW("rekey rejected without PFS, keeping old SA");
+        goto rekey_keep_old;
+    }
+    if (!sa_payload || !nonce_payload)
+        goto rekey_fail;
+
+    /* fresh responder nonce for this exchange */
+    cli->nr_len = (uint16_t)(nonce_len - 4);
+    if (cli->nr_len > sizeof(cli->nr))
+        goto rekey_fail;
+    memcpy(cli->nr, nonce_payload + 4, cli->nr_len);
+
+    /* PFS: responder KE -> g^ir */
+    {
+        int have_ke = 0;
+        if (ke_payload != NULL && ke_len >= 8) {
+            uint16_t group = ike_get16(ke_payload + 4);
+            uint16_t kelen = (uint16_t)(ke_len - 8);
+            if (group != cli->ike_dh_group ||
+                kelen != ipsec_dh_pub_len(group) || kelen > sizeof(cli->ker)) {
+                LLOGE("rekey response KE mismatch (group=%u len=%u)",
+                      group, kelen);
+                goto rekey_fail;
+            }
+            memcpy(cli->ker, ke_payload + 8, kelen);
+            cli->ker_len = kelen;
+            /* The child DH context already holds our ephemeral key pair from
+             * the request; only import the responder's public value. */
+            if (ipsec_dh_read_public(&cli->child_dh, cli->ker, cli->ker_len) != 0)
+                goto rekey_fail;
+            {
+                size_t g_ir_len = sizeof(cli->g_ir);
+                if (ipsec_dh_calc_secret(&cli->child_dh, cli->g_ir,
+                                         &g_ir_len) != 0)
+                    goto rekey_fail;
+                cli->g_ir_len = (uint16_t)g_ir_len;
+            }
+            have_ke = 1;
+        }
+        if (sent_ke && !have_ke) {
+            LLOGW("rekey response missing KE, retrying once without KE");
+            ike_rekey_retry_without_ke(cli);
+            return;
+        }
+        if (!sent_ke && have_ke) {
+            LLOGE("unexpected KE in no-PFS rekey response");
+            goto rekey_fail;
+        }
+    }
 
     {
         uint32_t in_spi = 0;
         uint8_t esp_enc = 0, esp_integ = 0;
         uint16_t esp_keylen = 0;
+        uint8_t aead = 0;
         ipsec_ike_algs_t algs;
         uint8_t keymat[4 * 32];
+        uint8_t seed[256 + 64];
+        uint16_t seed_len = 0;
         uint16_t enc_len, integ_len;
 
         memset(&algs, 0, sizeof(algs));
         if (ike_parse_sa(sa_payload, sa_len, IPSEC_PROTO_ESP, &in_spi,
-                         &algs, &esp_enc, &esp_integ, &esp_keylen) != 0)
-            goto fail;
+                         &algs, &esp_enc, &esp_integ, &esp_keylen,
+                         NULL, &aead) != 0)
+            goto rekey_fail;
+        (void)aead;
+        cli->esp_enc = esp_enc;
+        cli->esp_integ = esp_integ;
         enc_len = ipsec_enc_len(esp_enc);
         integ_len = ipsec_integ_len(esp_integ);
-        if (ipsec_derive_child_keymat(cli->ike_prf, cli->sk_d,
-                                      ipsec_prf_len(cli->ike_prf),
-                                      cli->ni, cli->ni_len,
-                                      cli->nr, cli->nr_len,
-                                      enc_len, integ_len, keymat) != 0)
-            goto fail;
+
+        /* KEYMAT seed (RFC 7296 §2.17): g^ir | Ni | Nr with PFS,
+         * Ni | Nr otherwise. */
+        if (sent_ke) {
+            memcpy(seed, cli->g_ir, cli->g_ir_len);
+            seed_len = cli->g_ir_len;
+        }
+        memcpy(seed + seed_len, cli->ni, cli->ni_len);
+        seed_len = (uint16_t)(seed_len + cli->ni_len);
+        memcpy(seed + seed_len, cli->nr, cli->nr_len);
+        seed_len = (uint16_t)(seed_len + cli->nr_len);
+        if (ipsec_derive_child_keymat_seed(cli->ike_prf, cli->sk_d,
+                                           ipsec_prf_len(cli->ike_prf),
+                                           seed, seed_len,
+                                           enc_len, integ_len, keymat) != 0)
+            goto rekey_fail;
         ipsec_install_child_sas(cli, in_spi, keymat);
     }
-    LLOGI("CHILD_SA rekeyed");
+    LLOGI("CHILD_SA rekeyed%s", sent_ke ? " (PFS)" : "");
     cli->phase = IPSEC_STATE_ESTABLISHED;
+    cli->esp_rekey_inflight = 0;
+    cli->rekey_no_ke = 0;
     return;
 
-fail_no_retry:
-fail:
+rekey_fail:
+    if (sent_ke) {
+        LLOGW("rekey response parse failed, retrying once without KE");
+        ike_rekey_retry_without_ke(cli);
+        return;
+    }
+rekey_keep_old:
     cli->esp_rekey_inflight = 0;
     cli->phase = IPSEC_STATE_ESTABLISHED;
     /* keep the tunnel running on the old SA */
@@ -2008,6 +2270,11 @@ fail:
 /* INFORMATIONAL response (DPD ack / delete ack) */
 static void ike_handle_informational_response(ipsec_client_t *cli, uint16_t msgid)
 {
+    if (cli->mobike_inflight && msgid == cli->pending_msgid) {
+        cli->mobike_inflight = 0;
+        cli->last_rx_ms = sys_now();
+        LLOGI("MOBIKE: UPDATE_SA_ADDRESSES acknowledged");
+    }
     if (cli->dpd_pending && msgid == cli->pending_msgid) {
         cli->dpd_pending = 0;
         cli->last_rx_ms = sys_now();
@@ -2016,6 +2283,69 @@ static void ike_handle_informational_response(ipsec_client_t *cli, uint16_t msgi
 }
 
 /* ========== IKE message dispatch ========== */
+
+/* Scan a SK-decrypted inner payload chain for UPDATE_SA_ADDRESSES and, when
+ * present, validate the destination NAT-D against our current local
+ * address before adopting the sender as the new peer endpoint. */
+static int ike_handle_peer_mobike(ipsec_client_t *cli,
+                                  const uint8_t *inner, uint16_t inner_len,
+                                  uint8_t first_type,
+                                  const luat_ip_addr_t *src_addr,
+                                  uint16_t src_port)
+{
+    const uint8_t *p = inner;
+    const uint8_t *end = inner + inner_len;
+    uint8_t next = first_type;
+    int update_found = 0;
+    const uint8_t *natd_dest = NULL;
+    uint16_t natd_dest_len = 0;
+
+    while (next != 0) {
+        uint16_t len;
+        if (p + 4 > end)
+            return 0;
+        len = ike_get16(p + 2);
+        if (len < 4 || p + len > end)
+            return 0;
+        if (next == IPSEC_PAYLOAD_NOTIFY) {
+            ike_notify_t notifies[8];
+            int n = ike_parse_notifies(p + 4, (uint16_t)(len - 4),
+                                       notifies, 8);
+            int i;
+            for (i = 0; i < n; i++) {
+                if (notifies[i].type == IPSEC_NOTIFY_UPDATE_SA_ADDRESSES) {
+                    update_found = 1;
+                } else if (notifies[i].type == IPSEC_NOTIFY_NAT_DETECTION_DEST) {
+                    natd_dest = notifies[i].data - 4;
+                    natd_dest_len = (uint16_t)(notifies[i].data_len + 4);
+                }
+            }
+        }
+        next = p[0];
+        p += len;
+    }
+
+    if (!update_found)
+        return 0;
+    if (natd_dest) {
+        ip4_addr_t local_ip;
+        uint16_t local_port = cli->netc ? cli->netc->local_port : cli->ike_port;
+        if (ipsec_get_local_ip(cli, &local_ip) != 0 ||
+            !ipsec_natd_matches(natd_dest, natd_dest_len,
+                                cli->spii, cli->spir,
+                                &local_ip, local_port)) {
+            LLOGW("MOBIKE: peer update NAT-D mismatch, ignoring");
+            return 0;
+        }
+    }
+    if (src_port != IPSEC_IKE_PORT && src_port != IPSEC_ESP_PORT)
+        return 0;
+    cli->remote_ip = *(const ip_addr_t *)src_addr;
+    cli->ike_port = src_port;
+    LLOGI("MOBIKE: peer UPDATE_SA_ADDRESSES -> %s:%u",
+          ipaddr_ntoa(&cli->remote_ip), (unsigned)src_port);
+    return 1;
+}
 
 static void ike_handle_message(ipsec_client_t *cli, const uint8_t *data, uint16_t len,
                                const luat_ip_addr_t *src_addr, uint16_t src_port)
@@ -2059,8 +2389,17 @@ static void ike_handle_message(ipsec_client_t *cli, const uint8_t *data, uint16_
     }
     if (!ip_addr_isany((const ip_addr_t *)src_addr) &&
         !ip_addr_cmp(&cli->remote_ip, (const ip_addr_t *)src_addr)) {
-        LLOGD("RX drop: source IP mismatch");
-        return;
+        if (cli->phase == IPSEC_STATE_ESTABLISHED && cli->mobike_enable &&
+            (src_port == IPSEC_IKE_PORT || src_port == IPSEC_ESP_PORT)) {
+            /* address learning (RFC 4555): adopt the validated source */
+            LLOGI("MOBIKE: learned peer address %s:%u",
+                  ipaddr_ntoa((const ip_addr_t *)src_addr), (unsigned)src_port);
+            cli->remote_ip = *(const ip_addr_t *)src_addr;
+            cli->ike_port = src_port;
+        } else {
+            LLOGD("RX drop: source IP mismatch");
+            return;
+        }
     }
     if (src_port != IPSEC_IKE_PORT && src_port != IPSEC_ESP_PORT) {
         LLOGD("RX drop: source port %u", (unsigned)src_port);
@@ -2076,9 +2415,23 @@ static void ike_handle_message(ipsec_client_t *cli, const uint8_t *data, uint16_
         /* peer-initiated INFORMATIONAL (e.g. DPD): answer with empty response */
         if (extype == IPSEC_EXCH_INFORMATIONAL && cli->phase == IPSEC_STATE_ESTABLISHED) {
             uint8_t resp[128];
+            uint8_t inner[512];
+            uint16_t inner_len;
+            uint8_t first_type;
+            const uint8_t *sk_payload;
+            uint16_t sk_len;
             uint16_t rlen;
             uint8_t saved_msgid = cli->pending_msgid;
             uint8_t saved_exchange = cli->last_exchange;
+            if (cli->mobike_enable &&
+                ike_find_payload(msg, msg_len, msg[16], IPSEC_PAYLOAD_SK,
+                                 &sk_payload, &sk_len) == 0 &&
+                ike_sk_decrypt(cli, msg, msg_len, sk_payload, sk_len,
+                               inner, sizeof(inner), &inner_len,
+                               &first_type) == 0) {
+                ike_handle_peer_mobike(cli, inner, inner_len, first_type,
+                                       src_addr, src_port);
+            }
             cli->pending_msgid = msgid;
             cli->last_exchange = IPSEC_EXCH_INFORMATIONAL;
             if (ike_sk_encrypt(cli, resp, NULL, 0, 0, &rlen) == 0) {
@@ -2184,6 +2537,15 @@ static void ipsec_do_rx(void *arg)
                         continue;
                     if (ipsec_esp_decrypt(sa, msg->data, msg->len,
                                           inner, &inner_len) == 0) {
+                        if (cli->mobike_enable &&
+                            !ip_addr_cmp(&cli->remote_ip,
+                                         (const ip_addr_t *)&msg->src_addr)) {
+                            LLOGI("MOBIKE: learned peer address %s:%u (ESP)",
+                                  ipaddr_ntoa((const ip_addr_t *)&msg->src_addr),
+                                  (unsigned)msg->src_port);
+                            cli->remote_ip = *(const ip_addr_t *)&msg->src_addr;
+                            cli->ike_port = msg->src_port;
+                        }
                         struct pbuf *ip = pbuf_alloc(PBUF_IP, inner_len, PBUF_RAM);
                         if (ip) {
                             memcpy(ip->payload, inner, inner_len);
@@ -2306,6 +2668,13 @@ static void ipsec_set_online(ipsec_client_t *cli, int online)
             network_set_dns_server(cli->adapter_index, 1, (luat_ip_addr_t *)&cli->dns2);
         cli->phase = IPSEC_STATE_ESTABLISHED;
         LLOGI("IPsec tunnel online, v4=%s", ip4addr_ntoa(&cli->v4));
+        if (cli->mobike_enable) {
+            if (ipsec_get_local_ip(cli, &cli->local_ip_cache) == 0) {
+                cli->mobike_cache_valid = 1;
+                LLOGI("MOBIKE: local address cache %s",
+                      ip4addr_ntoa(&cli->local_ip_cache));
+            }
+        }
         if (cli->status_cb)
             cli->status_cb(cli, 0, cli->user_data);
     } else if (!online && cli->online) {
@@ -2403,13 +2772,43 @@ static void ipsec_tick_timer(void *arg)
     /* transport error -> teardown + retry */
     if (cli->transport_err) {
         cli->transport_err = 0;
-        LLOGW("transport socket error, scheduling retry");
-        ipsec_stop_internal(cli);
-        ipsec_schedule_retry(cli, "transport error");
+        if (cli->online && cli->mobike_enable &&
+            ipsec_transport_is_online(cli)) {
+            /* MOBIKE: underlying transport is still up; reopen the socket
+             * on the same port and announce our address. */
+            LLOGW("transport socket closed, reopening for MOBIKE");
+            if (ipsec_switch_socket(cli, cli->ike_port) == 0) {
+                ike_send_mobike_update(cli);
+            } else {
+                ipsec_stop_internal(cli);
+                ipsec_schedule_retry(cli, "transport error");
+            }
+        } else {
+            LLOGW("transport socket error, scheduling retry");
+            ipsec_stop_internal(cli);
+            ipsec_schedule_retry(cli, "transport error");
+        }
         return;
     }
 
     if (cli->online) {
+        /* MOBIKE: detect local address changes */
+        if (cli->mobike_enable) {
+            ip4_addr_t cur;
+            if (ipsec_get_local_ip(cli, &cur) == 0 && !ip4_addr_isany_val(cur)) {
+                if (cli->mobike_cache_valid &&
+                    !ip4_addr_cmp(&cur, &cli->local_ip_cache)) {
+                    LLOGI("MOBIKE: local address changed %s -> %s",
+                          ip4addr_ntoa(&cli->local_ip_cache),
+                          ip4addr_ntoa(&cur));
+                    ike_send_mobike_update(cli);
+                } else if (!cli->mobike_cache_valid) {
+                    cli->local_ip_cache = cur;
+                    cli->mobike_cache_valid = 1;
+                }
+            }
+        }
+
         /* DPD */
         if (now - cli->last_rx_ms >= IPSEC_DPD_INTERVAL_MS && !cli->dpd_pending) {
             cli->dpd_pending = 1;
@@ -2551,6 +2950,9 @@ static void ipsec_reset_session(ipsec_client_t *cli)
     cli->cfg_ready = 0;
     cli->dpd_pending = 0;
     cli->esp_rekey_inflight = 0;
+    cli->rekey_no_ke = 0;
+    cli->mobike_inflight = 0;
+    cli->mobike_cache_valid = 0;
     cli->esp_slot = 0;
     memset(cli->esp_in, 0, sizeof(cli->esp_in));
     memset(cli->esp_out, 0, sizeof(cli->esp_out));
@@ -2560,9 +2962,9 @@ static void ipsec_reset_session(ipsec_client_t *cli)
     ip_addr_set_zero(&cli->dns2);
     mbedtls_x509_crt_free(&cli->server_cert);
     mbedtls_x509_crt_init(&cli->server_cert);
-    mbedtls_dhm_free(&cli->dhm);
-    mbedtls_dhm_init(&cli->dhm);
-    ipsec_dh_set_group14(&cli->dhm);
+    ipsec_dh_free(&cli->ike_dh);
+    ipsec_dh_init(&cli->ike_dh, cli->ike_dh_group);
+    ipsec_dh_free(&cli->child_dh);
 }
 
 static int ipsec_start_internal(ipsec_client_t *cli)
@@ -2684,6 +3086,24 @@ int ipsec_client_is_ready(ipsec_client_t *cli)
     return cli ? (cli->online ? 1 : 0) : 0;
 }
 
+/* Test hook: flip the cached local address and run the MOBIKE update flow
+ * (equivalent to the 1s tick detecting a real address change). */
+int ipsec_client_test_simulate_addr_change(ipsec_client_t *cli)
+{
+    ip4_addr_t cur;
+
+    if (!cli || !cli->mobike_enable || !cli->online)
+        return -1;
+    if (ipsec_get_local_ip(cli, &cur) != 0)
+        return -1;
+    cli->local_ip_cache = cur;
+    cli->local_ip_cache.addr ^= lwip_htonl(1); /* flip the low bit */
+    cli->mobike_cache_valid = 1;
+    LLOGI("MOBIKE test: simulated local address change (cache now %s)",
+          ip4addr_ntoa(&cli->local_ip_cache));
+    return ike_send_mobike_update(cli);
+}
+
 /* ========== Init ========== */
 
 int ipsec_client_init(ipsec_client_t *cli, const ipsec_client_cfg_t *cfg)
@@ -2700,6 +3120,7 @@ int ipsec_client_init(ipsec_client_t *cli, const ipsec_client_cfg_t *cfg)
     cli->retry_enable = cfg->retry_enable;
     cli->retry_base_ms = cfg->retry_base_ms;
     cli->retry_max_ms = cfg->retry_max_ms;
+    cli->mobike_enable = cfg->ipsec_mobike_enable ? 1 : 0;
     cli->status_cb = cfg->status_cb;
     cli->user_data = cfg->user_data;
     cli->ike_port = IPSEC_IKE_PORT;
@@ -2742,8 +3163,10 @@ int ipsec_client_init(ipsec_client_t *cli, const ipsec_client_cfg_t *cfg)
     }
 
     mbedtls_x509_crt_init(&cli->server_cert);
-    mbedtls_dhm_init(&cli->dhm);
-    if (ipsec_dh_set_group14(&cli->dhm) != 0) {
+    cli->ike_dh_group = IPSEC_DH_MODP_2048;
+    memset(&cli->ike_dh, 0, sizeof(cli->ike_dh));
+    memset(&cli->child_dh, 0, sizeof(cli->child_dh));
+    if (ipsec_dh_init(&cli->ike_dh, cli->ike_dh_group) != 0) {
         LLOGE("DH group setup failed");
         return -1;
     }

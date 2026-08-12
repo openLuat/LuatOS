@@ -14,6 +14,13 @@ extern "C" {
  */
 luat_netdrv_t* luat_netdrv_ipsec_setup(luat_netdrv_conf_t *conf);
 
+/**
+ * 测试钩子: 模拟一次本地地址变更, 触发 MOBIKE 更新流程
+ * @param adapter_id netdrv 适配器编号
+ * @return 0 成功, 其他失败
+ */
+int luat_netdrv_ipsec_sim_addr_change(int adapter_id);
+
 #ifdef __cplusplus
 }
 #endif

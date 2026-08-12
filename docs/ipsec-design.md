@@ -12,14 +12,24 @@
 
 - IKEv2 发起端（RFC 7296），服务器证书链校验 + 强制 EAP-MSCHAPv2；
 - NAT-T（RFC 3948）：UDP 500 启动，探测到 NAT 后切换 4500；
-- DPD 保活、CHILD_SA 到期重协商（CREATE_CHILD_SA 无 PFS）、
-  IKE SA 到期全量重建；
+- DPD 保活、CHILD_SA 到期重协商（CREATE_CHILD_SA，默认带 PFS，
+  KE + 新 Ni/Nr 按 RFC 7296 §2.17 派生 KEYMAT；网关不支持 PFS 时自动
+  无 KE 重试一次并保持旧 SA 在线）、IKE SA 到期全量重建；
+- 套件扩展：IKE DH 组 19/20/21（ECP-256/384/521，RFC 4753），
+  ESP AES-GCM-128/256（RFC 4106 AEAD，SA 内无 INTEG transform）；
+- MOBIKE（RFC 4555，opt-in，默认关闭）：本地地址变化时发送
+  INFORMATIONAL(UPDATE_SA_ADDRESSES + NAT-D)，处理对端发起的地址更新，
+  以及 established 状态下的对端地址学习；不做 ADDITIONAL_IP4_ADDRESS
+  通告与 COOKIE2；
 - CP（Configuration Payload）下发虚拟 IPv4 + DNS；
 - ESP 隧道模式（RFC 4303）AES-CBC-128/256 + HMAC-SHA1-96 /
-  HMAC-SHA2-256-128，32 包反重放窗口，ESP-in-UDP(4500)。
+  HMAC-SHA2-256-128 或 AES-GCM-128/256，32 包反重放窗口，
+  ESP-in-UDP(4500)。
 
-首期明确不做：IKEv1、L2TP/IPsec、MOBIKE（网络切换走断线重连）、
-ESP 传输模式、客户端证书认证、IPv6 隧道。
+明确不做：IKEv1、L2TP/IPsec、ESP 传输模式、客户端证书认证、
+IPv6 隧道、MOBIKE 的 ADDITIONAL_IP4_ADDRESS 通告与 COOKIE2。
+MOBIKE 默认关闭（`ipsec_mobike_enable` 未配置时行为与旧版一致，
+地址变化仍走断线重连）。
 
 ## 2. 文件布局
 
@@ -29,7 +39,7 @@ ESP 传输模式、客户端证书认证、IPv6 隧道。
 | 文件 | 说明 |
 |---|---|
 | `include/ipsec/ipsec_crypto.h` + `src/ipsec_crypto.c` | PRF+/HMAC、DH modp2048、IKE/CHILD 密钥派生、AUTH 计算/验签、X.509 链+SAN 校验（信任锚由 `ipsec_ca_cert_pem` 提供，不提供则无条件接受服务器证书） |
-| `include/ipsec/ipsec_esp.h` + `src/ipsec_esp.c` | ESP 隧道封装/解封（AES-CBC + HMAC）、SPI 方向、32 包反重放 |
+| `include/ipsec/ipsec_esp.h` + `src/ipsec_esp.c` | ESP 隧道封装/解封（AES-CBC + HMAC 或 AES-GCM AEAD）、SPI 方向、32 包反重放 |
 | `include/ipsec/ipsec_ike.h` + `src/ipsec_ike.c` | IKEv2 状态机：SA_INIT/AUTH/EAP/CREATE_CHILD_SA/INFORMATIONAL、payload 编解码、SK 加密、NAT-T 切换、DPD、重协商、虚拟 netif 与 adapter 收发 |
 | `include/ipsec/ipsec_vendor_md4.h` + `src/ipsec_vendor_md4.c` | MD4（Apache-2.0, 从 mbedTLS 2.x vendor, 自包含） |
 | `include/ipsec/ipsec_vendor_chap_ms.h` + `src/ipsec_vendor_chap_ms.c` | MS-CHAPv2（BSD, 移植自 lwIP2.2 `chap_ms.c`），含 strongSwan 线格式与 RFC 3079 MSK 派生、RFC 2759 测试向量自检 |
@@ -74,10 +84,26 @@ ipsec_ike.c  (IKEv2 状态机, tcpip 线程)
 
 ## 4. 协议要点与互操作细节
 
-- 套件：IKE `aes256-sha256-modp2048, aes128-sha1-modp2048!`；
-  ESP `aes256-sha256, aes128-sha1!`（无 PFS）。
+- 套件：IKE `{aes256-sha256, aes128-sha1} × {modp2048, ecp256, ecp384,
+  ecp521}!`（8 个提案，DH14 优先；响应者选中其它组时按 RFC 7296 §2.7
+  的 INVALID_KE 通知重试，IKE_SA_INIT 默认先发 DH14 的 KE）；
+  ESP `aes256-sha256, aes128-sha1, aes256gcm16, aes128gcm16!`
+  （AEAD 提案无 INTEG transform，transform id 20 + KEY_LENGTH 属性）。
+- CHILD_SA 重协商默认带 PFS：请求载荷顺序 `SA | Ni | KE | TSi | TSr`，
+  使用 IKE_SA_INIT 协商出的 DH 组生成新的临时密钥对；响应解析新 Nr 与
+  KE，KEYMAT = prf+(SK_d, g^ir | Ni | Nr)。响应缺少 KE 或带
+  NO_PROPOSAL_CHOSEN/TS_UNACCEPTABLE 时，自动无 KE 重试一次并保持旧 SA
+  在线（与旧版行为一致）。
+- MOBIKE 更新载荷顺序：`N(UPDATE_SA_ADDRESSES) | N(NAT_DETECTION_SOURCE_IP)
+  | N(NAT_DETECTION_DESTINATION_IP)`（RFC 4555 §2.2），NAT-D 复用
+  IKE_SA_INIT 的 SHA-1 哈希方式；对端发起的更新用当前本地 IP 校验
+  目标 NAT-D，不匹配则忽略；established 状态下通过 SPI/解密校验的
+  IKE/ESP 数据包若源地址变化则学习新对端地址（端口 500/4500）。
 - IKE SK 载荷：AES-CBC + HMAC；**ICV 只覆盖 IKE 报文本身**（strongSwan
   收到 4500 报文会先剥离 4 字节非 ESP marker 再校验）。
+- ESP AEAD（RFC 4106）：8 字节显式 IV，GCM IV = salt(4) | IV(8)，
+  AAD = SPI | SEQ，ICV 16 字节，padding 按 4 字节对齐；KEYMAT 每方向为
+  `enc_key(16/32) + salt(4)`（RFC 7296 §3.3.2），无 INTEG 密钥。
 - AUTH：EAP 模式按 RFC 7296 §2.16 用 MSK 作为共享密钥；
   `"Key Pad for IKEv2"` 为 17 字节（不含 NUL）。
 - MSK：按 strongSwan 的 RFC 3079 实现——
@@ -107,8 +133,15 @@ netdrv.setup(socket.LWIP_USER1, netdrv.IPSEC, {
     ipsec_retry_enable = true,
     ipsec_retry_base_ms = 1000,
     ipsec_retry_max_ms = 60000,
+    -- ipsec_mobike_enable = true,  -- MOBIKE 双向地址更新 (默认关闭)
 })
 ```
+
+`ipsec_mobike_enable`：布尔，默认 `false`。开启后客户端在 1s tick 轮询
+本地地址，变化时发送 UPDATE_SA_ADDRESSES；底层 socket 关闭但传输仍在线
+时重开同端口 socket 并走更新流程而非全量重建；同时支持对端发起的地址
+更新与 established 状态下的地址学习。仅 utest 构建提供测试钩子
+`netdrv.ipsec_sim_addr_change(id)` 模拟一次本地地址变更。
 
 ## 6. 联调记录（2026-08-12, PC 模拟器 ↔ ipsec.air32.cn）
 
@@ -157,6 +190,11 @@ netdrv.setup(socket.LWIP_USER1, netdrv.IPSEC, {
 
 ## 8. 遗留与后续
 
+- 集成联调（需网关侧重配，未完成项见交付说明）：
+  - PFS：网关 `pfs=yes` + 缩短 lifetime，验证重协商日志、DPD、隧道不断流；
+  - ECP/GCM：网关 `ike=aes256-sha256-ecp256!` / `esp=aes256gcm16!` 建连；
+  - MOBIKE：`netdrv.ipsec_sim_addr_change` 触发 UPDATE_SA_ADDRESSES，
+    网关 `mobike=no` 时回退重连。
 - 硬件 BSP：需确认目标板 lwip 导出符号（`pbuf/netif/sys/ip4_input`）
   与 adapter 行为，并按验收清单在目标板重跑；
 - 服务器 FORWARD 链的 IPsec 池 ACCEPT 规则与 `rightsourceip`

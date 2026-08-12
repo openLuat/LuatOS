@@ -1,8 +1,8 @@
 /**
  * \file ipsec_esp.h
  *
- * \brief ESP tunnel-mode data path (RFC 4303) with AES-CBC + HMAC and a
- *        32-packet anti-replay window.
+ * \brief ESP tunnel-mode data path (RFC 4303) with AES-CBC + HMAC or
+ *        AES-GCM (RFC 4106 AEAD) and a 32-packet anti-replay window.
  */
 #ifndef IPSEC_ESP_H
 #define IPSEC_ESP_H
@@ -16,6 +16,9 @@ extern "C" {
 
 #define IPSEC_ESP_ICV_SHA1_LEN    12   /* HMAC-SHA1-96 truncation */
 #define IPSEC_ESP_ICV_SHA256_LEN  16   /* HMAC-SHA2-256-128 truncation */
+#define IPSEC_ESP_GCM_IV_LEN      8    /* explicit 8-octet IV (RFC 4106) */
+#define IPSEC_ESP_GCM_TAG_LEN     16   /* 128-bit GCM ICV */
+#define IPSEC_ESP_GCM_SALT_LEN    4
 #define IPSEC_ESP_BLOCK_LEN       16   /* AES block size */
 #define IPSEC_ESP_REPLAY_WINDOW   32
 
@@ -25,8 +28,10 @@ typedef struct ipsec_esp_sa {
     uint32_t spi;                /* network byte order */
     uint8_t  enc_alg;            /* IPSEC_ENC_AES128 / IPSEC_ENC_AES256 */
     uint8_t  integ_alg;          /* IPSEC_INTEG_SHA1 / IPSEC_INTEG_SHA256 */
+    uint8_t  aead;               /* AES-GCM AEAD SA */
     uint8_t  enc_key[32];
     uint8_t  integ_key[32];
+    uint8_t  salt[IPSEC_ESP_GCM_SALT_LEN];
     uint8_t  enc_key_len;
     uint8_t  integ_key_len;
     uint32_t seq_out;
@@ -49,6 +54,14 @@ typedef struct ipsec_esp_sa {
 void ipsec_esp_sa_init(ipsec_esp_sa_t *sa, uint32_t spi,
                        uint8_t enc_alg, uint8_t integ_alg,
                        const uint8_t *enc_key, const uint8_t *integ_key);
+
+/**
+ * Install an AES-GCM AEAD ESP SA (RFC 4106). The key material is the
+ * encryption key followed by the 4-octet salt.
+ */
+void ipsec_esp_sa_init_aead(ipsec_esp_sa_t *sa, uint32_t spi,
+                            uint8_t enc_alg,
+                            const uint8_t *enc_key, const uint8_t *salt);
 
 /**
  * Encapsulate an inner IPv4 packet into an ESP-in-UDP payload.

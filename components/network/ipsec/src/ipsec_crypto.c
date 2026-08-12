@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "luat_crypto.h"
+#include "mbedtls/ecp.h"
 
 #define LUAT_LOG_TAG "ipsec_crypto"
 #include "luat_log.h"
@@ -127,24 +128,139 @@ int ipsec_dh_set_group14(mbedtls_dhm_context *dhm)
     return ret;
 }
 
-int ipsec_dh_make_public(mbedtls_dhm_context *dhm, uint8_t *pub, size_t *pub_len)
+/* Map an IKE DH group number to an mbedTLS ECP group id */
+static mbedtls_ecp_group_id ipsec_dh_ecp_group(uint16_t group)
 {
-    return mbedtls_dhm_make_public(dhm, IPSEC_DH_MODP2048_LEN, pub, *pub_len,
-                                   ipsec_rng_cb, NULL);
+    switch (group) {
+    case IPSEC_DH_ECP_256:
+        return MBEDTLS_ECP_DP_SECP256R1;
+    case IPSEC_DH_ECP_384:
+        return MBEDTLS_ECP_DP_SECP384R1;
+    case IPSEC_DH_ECP_521:
+        return MBEDTLS_ECP_DP_SECP521R1;
+    default:
+        return MBEDTLS_ECP_DP_NONE;
+    }
 }
 
-int ipsec_dh_read_public(mbedtls_dhm_context *dhm, const uint8_t *pub, size_t pub_len)
+int ipsec_dh_init(ipsec_dh_ctx_t *ctx, uint16_t group)
 {
-    return mbedtls_dhm_read_public(dhm, pub, pub_len);
+    if (ctx == NULL)
+        return -1;
+    if (ctx->group != 0)
+        ipsec_dh_free(ctx);
+    memset(ctx, 0, sizeof(*ctx));
+
+    switch (group) {
+    case IPSEC_DH_MODP_2048:
+        mbedtls_dhm_init(&ctx->u.dhm);
+        if (ipsec_dh_set_group14(&ctx->u.dhm) != 0) {
+            mbedtls_dhm_free(&ctx->u.dhm);
+            return -1;
+        }
+        break;
+    case IPSEC_DH_ECP_256:
+    case IPSEC_DH_ECP_384:
+    case IPSEC_DH_ECP_521:
+        mbedtls_ecdh_init(&ctx->u.ecdh);
+        if (mbedtls_ecdh_setup(&ctx->u.ecdh, ipsec_dh_ecp_group(group)) != 0) {
+            mbedtls_ecdh_free(&ctx->u.ecdh);
+            return -1;
+        }
+        break;
+    default:
+        return -1;
+    }
+    ctx->group = group;
+    return 0;
 }
 
-int ipsec_dh_calc_secret(mbedtls_dhm_context *dhm, uint8_t *secret, size_t *secret_len)
+void ipsec_dh_free(ipsec_dh_ctx_t *ctx)
 {
-    size_t len = IPSEC_DH_MODP2048_LEN;
-    int ret = mbedtls_dhm_calc_secret(dhm, secret, len, &len, ipsec_rng_cb, NULL);
-    if (ret == 0)
+    if (ctx == NULL || ctx->group == 0)
+        return;
+    if (ctx->group == IPSEC_DH_MODP_2048)
+        mbedtls_dhm_free(&ctx->u.dhm);
+    else
+        mbedtls_ecdh_free(&ctx->u.ecdh);
+    ctx->group = 0;
+}
+
+int ipsec_dh_make_public(ipsec_dh_ctx_t *ctx, uint8_t *pub, size_t *pub_len)
+{
+    size_t olen;
+    size_t cap;
+
+    if (ctx == NULL || pub == NULL || pub_len == NULL)
+        return -1;
+    cap = *pub_len;
+    if (ctx->group == IPSEC_DH_MODP_2048) {
+        olen = cap;
+        if (mbedtls_dhm_make_public(&ctx->u.dhm, IPSEC_DH_MODP2048_LEN,
+                                    pub, olen, ipsec_rng_cb, NULL) != 0)
+            return -1;
+        *pub_len = olen;
+        return 0;
+    }
+    /* mbedtls writes a TLS opaque ECPoint (length | 0x04 | x | y); IKEv2 KE
+     * bodies carry the bare x || y (RFC 5903), so strip the length byte and
+     * the leading 0x04. */
+    if (cap < (size_t)ipsec_dh_pub_len(ctx->group) + 2)
+        return -1;
+    olen = cap;
+    if (mbedtls_ecdh_make_public(&ctx->u.ecdh, &olen, pub, olen,
+                                 ipsec_rng_cb, NULL) != 0)
+        return -1;
+    if (olen != (size_t)ipsec_dh_pub_len(ctx->group) + 2 ||
+        pub[0] != (uint8_t)(olen - 1) || pub[1] != 0x04)
+        return -1;
+    memmove(pub, pub + 2, olen - 2);
+    *pub_len = (size_t)(olen - 2);
+    return 0;
+}
+
+int ipsec_dh_read_public(ipsec_dh_ctx_t *ctx, const uint8_t *pub, size_t pub_len)
+{
+    uint8_t point[136]; /* length | 0x04 | x | y for P-521 */
+
+    if (ctx == NULL || pub == NULL)
+        return -1;
+    if (ctx->group == IPSEC_DH_MODP_2048)
+        return mbedtls_dhm_read_public(&ctx->u.dhm, pub, pub_len);
+    if (pub_len != (size_t)ipsec_dh_pub_len(ctx->group))
+        return -1;
+    point[0] = (uint8_t)(pub_len + 1);
+    point[1] = 0x04;
+    memcpy(point + 2, pub, pub_len);
+    return mbedtls_ecdh_read_public(&ctx->u.ecdh, point, pub_len + 2);
+}
+
+int ipsec_dh_calc_secret(ipsec_dh_ctx_t *ctx, uint8_t *secret, size_t *secret_len)
+{
+    size_t len;
+    size_t cap;
+
+    if (ctx == NULL || secret == NULL || secret_len == NULL)
+        return -1;
+    cap = *secret_len;
+    if (ctx->group == IPSEC_DH_MODP_2048) {
+        len = IPSEC_DH_MODP2048_LEN;
+        if (mbedtls_dhm_calc_secret(&ctx->u.dhm, secret, len, &len,
+                                    ipsec_rng_cb, NULL) != 0)
+            return -1;
         *secret_len = len;
-    return ret;
+        return 0;
+    }
+    /* The ECDH shared secret is the full-size big-endian x coordinate
+     * (RFC 5903): 32/48/66 bytes for P-256/384/521. */
+    len = (size_t)ipsec_dh_pub_len(ctx->group) / 2;
+    if (cap < len)
+        return -1;
+    if (mbedtls_ecdh_calc_secret(&ctx->u.ecdh, &len, secret, len,
+                                 ipsec_rng_cb, NULL) != 0)
+        return -1;
+    *secret_len = len;
+    return 0;
 }
 
 /* ========== Key derivation ========== */
@@ -190,12 +306,22 @@ int ipsec_derive_child_keymat(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_le
                               uint8_t *out)
 {
     uint8_t seed[64];
-    uint16_t total = (uint16_t)(2 * ((uint16_t)enc_len + (uint16_t)integ_len));
 
     memcpy(seed, ni, ni_len);
     memcpy(seed + ni_len, nr, nr_len);
-    return ipsec_prf_plus(prf, sk_d, sk_d_len, seed, (size_t)ni_len + nr_len,
-                          out, total);
+    return ipsec_derive_child_keymat_seed(prf, sk_d, sk_d_len,
+                                          seed, (uint16_t)(ni_len + nr_len),
+                                          enc_len, integ_len, out);
+}
+
+int ipsec_derive_child_keymat_seed(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_len,
+                                   const uint8_t *seed, uint16_t seed_len,
+                                   uint8_t enc_len, uint8_t integ_len,
+                                   uint8_t *out)
+{
+    uint16_t total = (uint16_t)(2 * ((uint16_t)enc_len + (uint16_t)integ_len));
+
+    return ipsec_prf_plus(prf, sk_d, sk_d_len, seed, seed_len, out, total);
 }
 
 /* ========== AUTH ========== */

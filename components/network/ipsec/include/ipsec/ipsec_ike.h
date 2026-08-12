@@ -19,9 +19,9 @@
 #include "lwip/netif.h"
 #include "luat_network_adapter.h"
 
-#include "mbedtls/dhm.h"
 #include "mbedtls/x509_crt.h"
 
+#include "ipsec/ipsec_crypto.h"
 #include "ipsec/ipsec_esp.h"
 
 #ifdef __cplusplus
@@ -79,6 +79,7 @@ extern "C" {
 #define IPSEC_NOTIFY_NAT_DETECTION_DEST   16389
 #define IPSEC_NOTIFY_COOKIE               16390
 #define IPSEC_NOTIFY_USE_TRANSPORT_MODE   16391
+#define IPSEC_NOTIFY_UPDATE_SA_ADDRESSES  16392
 #define IPSEC_NOTIFY_NO_PROPOSAL_CHOSEN   14
 #define IPSEC_NOTIFY_INVALID_KE           17
 #define IPSEC_NOTIFY_AUTH_FAILED          24
@@ -100,11 +101,11 @@ extern "C" {
 
 /* Transform IDs */
 #define IPSEC_ENCR_AES_CBC         12
+#define IPSEC_ENCR_AES_GCM_16      20
 #define IPSEC_PRF_HMAC_SHA1        2
 #define IPSEC_PRF_HMAC_SHA2_256    5
 #define IPSEC_INTEG_HMAC_SHA1_96   2
 #define IPSEC_INTEG_HMAC_SHA2_256_128 12
-#define IPSEC_DH_MODP_2048         14
 #define IPSEC_ESN_NONE             0
 
 /* Auth methods */
@@ -167,6 +168,7 @@ typedef struct ipsec_client_cfg {
     uint8_t    adapter_index;
     uint8_t    transport_index;
     uint8_t    retry_enable;
+    uint8_t    ipsec_mobike_enable;
     uint32_t   retry_base_ms;
     uint32_t   retry_max_ms;
     /* status callback: err_code == 0 -> tunnel ready, else link down */
@@ -231,7 +233,9 @@ struct ipsec_client {
     uint16_t ker_len;
     uint8_t  g_ir[IPSEC_DH_PUB_LEN];
     uint16_t g_ir_len;
-    mbedtls_dhm_context dhm;
+    uint16_t ike_dh_group;        /* negotiated IKE DH group (default 14) */
+    ipsec_dh_ctx_t ike_dh;        /* IKE_SA_INIT DH context */
+    ipsec_dh_ctx_t child_dh;      /* CREATE_CHILD_SA (PFS) DH context */
 
     /* negotiated IKE algorithms + keys */
     uint8_t  ike_prf;
@@ -279,6 +283,13 @@ struct ipsec_client {
     uint8_t  esp_enc;             /* IPSEC_ENC_AES* */
     uint8_t  esp_integ;
     uint8_t  esp_rekey_inflight;
+    uint8_t  rekey_no_ke;         /* rekey retry without KE (PFS fallback) */
+
+    /* MOBIKE (opt-in, default off) */
+    uint8_t  mobike_enable;
+    ip4_addr_t local_ip_cache;
+    uint8_t  mobike_inflight;
+    uint8_t  mobike_cache_valid;
 
     /* virtual iface config from CP */
     ip4_addr_t v4;
@@ -308,6 +319,10 @@ int  ipsec_client_start(ipsec_client_t *cli);
 void ipsec_client_stop(ipsec_client_t *cli);
 void ipsec_client_set_debug(ipsec_client_t *cli, int enable);
 int  ipsec_client_is_ready(ipsec_client_t *cli);
+
+/* Test hook: flip the cached local address and trigger the MOBIKE update
+ * flow (utest builds only; no-op when MOBIKE is disabled). */
+int ipsec_client_test_simulate_addr_change(ipsec_client_t *cli);
 
 #ifdef __cplusplus
 }

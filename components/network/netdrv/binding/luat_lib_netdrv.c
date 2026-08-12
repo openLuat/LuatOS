@@ -21,6 +21,9 @@
 #include "luat_netdrv_drv.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv_event.h"
+#ifdef LUAT_USE_NETDRV_IPSEC
+#include "luat_netdrv_ipsec.h"
+#endif
 #include "net_lwip2.h"
 
 #include "lwip/ip.h"
@@ -287,6 +290,10 @@ static int l_netdrv_setup(lua_State *L) {
             lua_pop(L, 1);
             if (lua_getfield(L, 3, "ipsec_retry_enable") == LUA_TBOOLEAN) {
                 conf.ipsec_conf->ipsec_retry_enable = lua_toboolean(L, -1);
+            }
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_mobike_enable") == LUA_TBOOLEAN) {
+                conf.ipsec_conf->ipsec_mobike_enable = lua_toboolean(L, -1);
             }
             lua_pop(L, 1);
             if (lua_getfield(L, 3, "ipsec_retry_base_ms") == LUA_TNUMBER) {
@@ -612,6 +619,24 @@ static int l_netdrv_debug(lua_State *L) {
 }
 
 /*
+模拟一次 IPsec 本地地址变更, 触发 MOBIKE 更新流程
+@api netdrv.ipsec_sim_addr_change(id)
+@int 网络适配器编号
+@return boolean 成功与否
+@usage
+-- 仅 utest 构建 (PC 模拟器) 可用; 需要 ipsec_mobike_enable = true
+netdrv.ipsec_sim_addr_change(socket.LWIP_USER1)
+*/
+#if defined(LUAT_USE_UTEST) && defined(LUAT_USE_NETDRV_IPSEC)
+static int l_netdrv_ipsec_sim_addr_change(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int ret = luat_netdrv_ipsec_sim_addr_change(id);
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+#endif
+
+/*
 设置遥测功能，开启后，会自动上报设备信息，2025/9/25启用
 @api netdrv.mreport(config, value)
 @string 配置项
@@ -813,6 +838,9 @@ static const rotable_Reg_t reg_netdrv[] =
 
     { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
+#if defined(LUAT_USE_UTEST) && defined(LUAT_USE_NETDRV_IPSEC)
+    { "ipsec_sim_addr_change", ROREG_FUNC(l_netdrv_ipsec_sim_addr_change)},
+#endif
     { "on",             ROREG_FUNC(l_netdrv_on)},
     { "send_raw",       ROREG_FUNC(l_netdrv_send_raw)},
 #ifdef LUAT_USE_MREPORT

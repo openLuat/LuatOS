@@ -1,10 +1,10 @@
 /*
  * ESP tunnel mode (RFC 4303) data path for LuatOS netdrv ipsec.
  *
- * Supports AES-CBC-128/256 + HMAC-SHA1-96 / HMAC-SHA2-256-128 with a
- * 32-packet sliding anti-replay window.  The packet format is
- * ESP-in-UDP (RFC 3948): SPI | SEQ | IV | ciphertext | pad | padlen |
- * nexthdr | ICV, no UDP-encapsulation marker.
+ * Supports AES-CBC-128/256 + HMAC-SHA1-96 / HMAC-SHA2-256-128 and
+ * AES-GCM-128/256 (RFC 4106 AEAD) with a 32-packet sliding anti-replay
+ * window.  The packet format is ESP-in-UDP (RFC 3948): SPI | SEQ | IV |
+ * ciphertext | pad | padlen | nexthdr | ICV, no UDP-encapsulation marker.
  */
 
 #include "ipsec/ipsec_esp.h"
@@ -14,6 +14,7 @@
 
 #include "luat_crypto.h"
 #include "mbedtls/aes.h"
+#include "mbedtls/gcm.h"
 #include "mbedtls/md.h"
 
 #define IPSEC_ESP_IPV4_PROTO 4
@@ -30,6 +31,8 @@ static int esp_hmac(const uint8_t *key, size_t key_len,
 
 static uint16_t esp_icv_len(const ipsec_esp_sa_t *sa)
 {
+    if (sa->aead)
+        return IPSEC_ESP_GCM_TAG_LEN;
     return sa->integ_alg == IPSEC_INTEG_SHA1 ? IPSEC_ESP_ICV_SHA1_LEN
                                              : IPSEC_ESP_ICV_SHA256_LEN;
 }
@@ -43,10 +46,27 @@ void ipsec_esp_sa_init(ipsec_esp_sa_t *sa, uint32_t spi,
     sa->spi = spi;
     sa->enc_alg = enc_alg;
     sa->integ_alg = integ_alg;
-    sa->enc_key_len = enc_alg == IPSEC_ENC_AES128 ? 16 : 32;
+    sa->enc_key_len = (uint8_t)ipsec_enc_len(enc_alg);
     sa->integ_key_len = integ_alg == IPSEC_INTEG_SHA1 ? 20 : 32;
     memcpy(sa->enc_key, enc_key, sa->enc_key_len);
     memcpy(sa->integ_key, integ_key, sa->integ_key_len);
+    sa->seq_out = 1;
+}
+
+void ipsec_esp_sa_init_aead(ipsec_esp_sa_t *sa, uint32_t spi,
+                            uint8_t enc_alg,
+                            const uint8_t *enc_key, const uint8_t *salt)
+{
+    memset(sa, 0, sizeof(*sa));
+    sa->valid = 1;
+    sa->spi = spi;
+    sa->enc_alg = enc_alg;
+    sa->integ_alg = IPSEC_INTEG_NONE;
+    sa->aead = 1;
+    sa->enc_key_len = (uint8_t)ipsec_enc_len(enc_alg);
+    sa->integ_key_len = 0;
+    memcpy(sa->enc_key, enc_key, sa->enc_key_len);
+    memcpy(sa->salt, salt, IPSEC_ESP_GCM_SALT_LEN);
     sa->seq_out = 1;
 }
 
@@ -88,7 +108,11 @@ int ipsec_esp_encrypt(ipsec_esp_sa_t *sa, const uint8_t *ip, uint16_t iplen,
 {
     uint8_t iv[IPSEC_ESP_BLOCK_LEN];
     uint8_t icv[32];
+    uint8_t gcm_iv[12];
+    uint8_t aad[8];
+    uint8_t tag[16];
     mbedtls_aes_context aes;
+    mbedtls_gcm_context gcm;
     mbedtls_md_type_t md_type;
     uint16_t pad_len;
     uint16_t ct_len;
@@ -112,6 +136,41 @@ int ipsec_esp_encrypt(ipsec_esp_sa_t *sa, const uint8_t *ip, uint16_t iplen,
     out[5] = (uint8_t)(seq >> 16);
     out[6] = (uint8_t)(seq >> 8);
     out[7] = (uint8_t)(seq);
+
+    if (sa->aead) {
+        /* RFC 4106: 8-octet explicit IV, GCM IV = salt | explicit IV,
+         * AAD = SPI | SEQ, tag 16 octets. */
+        luat_crypto_trng((char *)out + 8, IPSEC_ESP_GCM_IV_LEN);
+        memcpy(gcm_iv, sa->salt, IPSEC_ESP_GCM_SALT_LEN);
+        memcpy(gcm_iv + IPSEC_ESP_GCM_SALT_LEN, out + 8, IPSEC_ESP_GCM_IV_LEN);
+        memcpy(aad, out, 8);
+
+        pad_len = (uint16_t)((4 - ((iplen + 2) % 4)) % 4);
+        ct_len = (uint16_t)(iplen + pad_len + 2);
+        memcpy(out + 8 + IPSEC_ESP_GCM_IV_LEN, ip, iplen);
+        memset(out + 8 + IPSEC_ESP_GCM_IV_LEN + iplen, 0, pad_len);
+        out[8 + IPSEC_ESP_GCM_IV_LEN + iplen + pad_len] = (uint8_t)pad_len;
+        out[8 + IPSEC_ESP_GCM_IV_LEN + iplen + pad_len + 1] = IPSEC_ESP_IPV4_PROTO;
+
+        mbedtls_gcm_init(&gcm);
+        ret = mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES,
+                                 sa->enc_key, sa->enc_key_len * 8);
+        if (ret == 0)
+            ret = mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT,
+                                            ct_len, gcm_iv, sizeof(gcm_iv),
+                                            aad, sizeof(aad),
+                                            out + 8 + IPSEC_ESP_GCM_IV_LEN,
+                                            out + 8 + IPSEC_ESP_GCM_IV_LEN,
+                                            IPSEC_ESP_GCM_TAG_LEN, tag);
+        mbedtls_gcm_free(&gcm);
+        if (ret != 0)
+            return -1;
+        memcpy(out + 8 + IPSEC_ESP_GCM_IV_LEN + ct_len, tag,
+               IPSEC_ESP_GCM_TAG_LEN);
+        *outlen = (uint16_t)(8 + IPSEC_ESP_GCM_IV_LEN + ct_len +
+                             IPSEC_ESP_GCM_TAG_LEN);
+        return 0;
+    }
 
     /* IV: 16 random bytes (CBC) */
     luat_crypto_trng((char *)iv, sizeof(iv));
@@ -156,7 +215,10 @@ int ipsec_esp_decrypt(ipsec_esp_sa_t *sa, const uint8_t *in, uint16_t inlen,
     uint8_t iv[IPSEC_ESP_BLOCK_LEN];
     uint8_t icv[32];
     uint8_t expected[32];
+    uint8_t gcm_iv[12];
+    uint8_t aad[8];
     mbedtls_aes_context aes;
+    mbedtls_gcm_context gcm;
     mbedtls_md_type_t md_type;
     uint16_t icv_len;
     uint16_t ct_len;
@@ -167,6 +229,55 @@ int ipsec_esp_decrypt(ipsec_esp_sa_t *sa, const uint8_t *in, uint16_t inlen,
 
     if (sa == NULL || !sa->valid || in == NULL || out == NULL)
         return -1;
+
+    if (sa->aead) {
+        uint16_t ct_off = (uint16_t)(8 + IPSEC_ESP_GCM_IV_LEN);
+        if (inlen < (uint16_t)(ct_off + 2 + IPSEC_ESP_GCM_TAG_LEN))
+            return -1;
+        ct_len = (uint16_t)(inlen - ct_off - IPSEC_ESP_GCM_TAG_LEN);
+        if ((ct_len % 4) != 0)
+            return -1;
+
+        /* Verify SPI */
+        if (in[0] != (uint8_t)(sa->spi >> 24) || in[1] != (uint8_t)(sa->spi >> 16) ||
+            in[2] != (uint8_t)(sa->spi >> 8) || in[3] != (uint8_t)(sa->spi))
+            return -1;
+
+        /* Authenticated decryption first: GCM IV = salt | explicit IV,
+         * AAD = SPI | SEQ. */
+        memcpy(gcm_iv, sa->salt, IPSEC_ESP_GCM_SALT_LEN);
+        memcpy(gcm_iv + IPSEC_ESP_GCM_SALT_LEN, in + 8, IPSEC_ESP_GCM_IV_LEN);
+        memcpy(aad, in, 8);
+        mbedtls_gcm_init(&gcm);
+        ret = mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES,
+                                 sa->enc_key, sa->enc_key_len * 8);
+        if (ret == 0)
+            ret = mbedtls_gcm_auth_decrypt(&gcm, ct_len, gcm_iv, sizeof(gcm_iv),
+                                           aad, sizeof(aad),
+                                           in + ct_off + ct_len,
+                                           IPSEC_ESP_GCM_TAG_LEN,
+                                           in + ct_off, out);
+        mbedtls_gcm_free(&gcm);
+        if (ret != 0)
+            return -1;
+
+        /* Anti-replay only after authentication */
+        seq = ((uint32_t)in[4] << 24) | ((uint32_t)in[5] << 16) |
+              ((uint32_t)in[6] << 8) | (uint32_t)in[7];
+        if (ipsec_esp_replay_check(sa, seq) != 0)
+            return -1;
+
+        pad_len = out[ct_len - 2];
+        if (out[ct_len - 1] != IPSEC_ESP_IPV4_PROTO)
+            return -1;
+        if (pad_len + 2 > ct_len)
+            return -1;
+        iplen = (uint16_t)(ct_len - pad_len - 2);
+        if (iplen < 20)
+            return -1;
+        *outlen = iplen;
+        return 0;
+    }
 
     icv_len = esp_icv_len(sa);
     if (inlen < (uint16_t)(8 + 16 + 2 + icv_len))

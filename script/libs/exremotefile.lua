@@ -163,22 +163,24 @@ local function init_sdcard(sdcard_opts)
         end
     end
 
+    local mount_result = nil
+
     if sdcard_opts.is_8101 then
         -- gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
         gpio.setup(13, 1)
+        -- Air8101 使用 SDIO 挂载
+        mount_result = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
+    else
+        -- 设置片选引脚同一spi总线上的所有从设备在初始化时必须要先拉高CS脚，防止从设备之间互相干扰。
+        gpio.setup(sdcard_opts.spi_cs, 1)
+        -- 配置SPI，设置spi_id，波特率为400000，用于SD卡初始化
+        local result = spi.setup(sdcard_opts.spi_id, nil, 0, 0, 8, 400 * 1000)
+        log.info("sdcard_init", "open spi", result)
+        -- 配置SD卡片选引脚，设置为输出模式，并启用上拉电阻
+        gpio.setup(sdcard_opts.spi_cs, 1, gpio.PULLUP)
+        -- 挂载SD卡到文件系统，指定挂载点为"/sd"
+        mount_result = fatfs.mount(fatfs.SPI, "/sd", sdcard_opts.spi_id, sdcard_opts.spi_cs, 24 * 1000 * 1000)
     end
-
-    -- 设置片选引脚同一spi总线上的所有从设备在初始化时必须要先拉高CS脚，防止从设备之间互相干扰。
-    gpio.setup(sdcard_opts.spi_cs, 1)
-
-    local mount_result = nil
-    -- 配置SPI，设置spi_id，波特率为400000，用于SD卡初始化
-    local result = spi.setup(sdcard_opts.spi_id, nil, 0, 0, 8, 400 * 1000)
-    log.info("sdcard_init", "open spi", result)
-    -- 配置SD卡片选引脚，设置为输出模式，并启用上拉电阻
-    gpio.setup(sdcard_opts.spi_cs, 1, gpio.PULLUP)
-    -- 挂载SD卡到文件系统，指定挂载点为"/sd"
-    mount_result = fatfs.mount(fatfs.SPI, "/sd", sdcard_opts.spi_id, sdcard_opts.spi_cs, 24 * 1000 * 1000)
     
     log.info("SDCARD", "挂载SD卡结果:", mount_result)
     

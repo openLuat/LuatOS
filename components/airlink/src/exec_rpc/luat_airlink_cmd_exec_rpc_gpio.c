@@ -182,7 +182,7 @@ static int gpio_rpc_handler(uint16_t rpc_id,
             cfg.irq_args = NULL;
         }
         ret = luat_gpio_open(&cfg);
-        LLOGW("gpio setup pin=%d mode=%d pull=%d irq_type=%d ret=%d", cfg.pin, cfg.mode, cfg.pull, cfg.irq_type, ret);
+        // LLOGW("gpio setup pin=%d mode=%d pull=%d irq_type=%d ret=%d", cfg.pin, cfg.mode, cfg.pull, cfg.irq_type, ret);  // 高频: 屏蔽
         resp->which_payload = drv_gpio_GpioRpcResponse_setup_tag;
         if (ret == 0) set_result_ok(&resp->payload.setup.result);
         else          set_result_fail(&resp->payload.setup.result, ret);

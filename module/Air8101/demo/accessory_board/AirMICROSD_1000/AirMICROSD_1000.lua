@@ -1,11 +1,11 @@
 --[[
-@module  tfcard_app
-@summary TF卡文件操作测试模块
+@module  AirMICROSD_1000
+@summary TF卡文件操作测试模块（SDIO挂载）
 @version 1.0.0
 @date    2025.08.25
 @author  王棚嶙
 @usage
-本文件为TF卡的文件操作测试流程：
+本文件为TF卡的文件操作测试流程，使用SDIO接口挂载AirMICROSD_1000直插配件板：
 1. 创建目录
 2. 创建并写入文件
 3. 检查文件是否存在
@@ -19,7 +19,7 @@
 11. 列举目录内容
 12. 删除文件
 13. 删除目录
-本文件没有对外接口，直接在main.lua中require "tfcard_app"就可以加载运行
+本文件没有对外接口，直接在main.lua中require "AirMICROSD_1000"就可以加载运行
 ]] 
     -- 开始进行主测试流程。
 local function tfcard_main_task() 
@@ -27,13 +27,8 @@ local function tfcard_main_task()
     --gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
     gpio.setup(13, 1)
     
-    -- 在Air8101核心板上TF卡的的pin_cs为gpio3，spi_id为1.请根据实际硬件修改
-    spi_id, pin_cs = 1, 3
-    spi.setup(spi_id, nil, 0, 0, 8, 2000000)
-    --初始化后拉高pin_cs,准备开始挂载TF卡
-    gpio.setup(pin_cs, 1)
-    -- ########## 开始进行tf卡挂载 ##########
-    local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
+    -- ########## 开始进行tf卡挂载（SDIO方式） ##########
+    local mount_ok, mount_err = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
     if mount_ok then
         log.info("fatfs.mount", "挂载成功", mount_err)
     else
@@ -317,10 +312,6 @@ local function tfcard_main_task()
             log.error("文件系统", "卸载失败")
         end
     end
-
-    -- 2. 关闭SPI接口
-    spi.close(spi_id)
-    log.info("SPI接口", "已关闭")
 
 end
 

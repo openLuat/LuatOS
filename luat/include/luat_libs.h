@@ -60,6 +60,7 @@ LUAMOD_API int luaopen_iconv(lua_State *L);
 LUAMOD_API int luaopen_libgnss( lua_State *L ) ;
 LUAMOD_API int luaopen_fatfs( lua_State *L );
 LUAMOD_API int luaopen_eink( lua_State *L);
+LUAMOD_API int luaopen_tiny_epd( lua_State *L);
 LUAMOD_API int luaopen_dbg( lua_State *L );
 /** zbuff库*/
 LUAMOD_API int luaopen_zbuff( lua_State *L );

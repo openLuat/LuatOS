@@ -148,10 +148,10 @@ static int l_pwm_setup(lua_State *L) {
         conf.precision = luaL_checkinteger(L, 5);
     }
 #ifndef LUAT_CONF_PWM_MAXID
-    LLOGE("pwm_setup channel %d", conf.channel);
+    LLOGE("setup ch %d", conf.channel);
     if (conf.channel > 5 || conf.channel < 0) {
 #else
-    LLOGE("pwm_setup 123 channel %d, max %d", conf.channel, LUAT_CONF_PWM_MAXID);
+    LLOGE("setup ch %d max %d", conf.channel, LUAT_CONF_PWM_MAXID);
     if (conf.channel > LUAT_CONF_PWM_MAXID || conf.channel < 0) {
 #endif
         return 0;
@@ -159,7 +159,7 @@ static int l_pwm_setup(lua_State *L) {
     if (confs[conf.channel] == NULL) {
         confs[conf.channel] = luat_heap_malloc(sizeof(luat_pwm_conf_t));
         if (confs[conf.channel] == NULL) {
-            LLOGE("pwm_setup malloc fail");
+            LLOGE("malloc fail for setup ch %d", conf.channel);
             return 0;
         }
     }

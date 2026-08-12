@@ -992,7 +992,7 @@ static const rotable_Reg_t reg_spi[] =
     { "SPI_3",             ROREG_INT(3)},
 	//@const SPI_4 number SPI4
     { "SPI_4",             ROREG_INT(4)},
-	//@const HSPI_0 number 高速SPI0，目前105专用
+	//@const HSPI_0 number 高速SPI0
 	{ "HSPI_0",             ROREG_INT(5)},
 #ifdef LUAT_USE_UTEST
     { "utest",             ROREG_FUNC(l_spi_utest)},

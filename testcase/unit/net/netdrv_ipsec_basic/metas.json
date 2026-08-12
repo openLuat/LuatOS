@@ -1,0 +1,6 @@
+{
+    "name": "netdrv_ipsec_basic",
+    "description": "netdrv IKEv2/IPsec tunnel client basic tests (PC, needs real gateway ipsec.air32.cn)",
+    "platforms": ["PC"],
+    "deps": ["netdrv"]
+}

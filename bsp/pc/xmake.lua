@@ -794,6 +794,10 @@ target("luatos-lua")
                   {defines = {"LUAT_L2TP_PPP_BUILD=1"}})
         add_files(luatos .. "components/network/netdrv/src/luat_netdrv_l2tp.c")
 
+        -- IKEv2/IPsec 客户端 (netdrv): 源文件已由上方 netdrv/**.c 通配符纳入,
+        -- 这里补充头文件搜索路径
+        add_includedirs(luatos .. "components/network/netdrv/src/ipsec")
+
         -- ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试, 需要 netdrv + icmp)
         add_includedirs(luatos .. "components/network/icmp/include")
         add_files(luatos .. "components/network/icmp/**.c")

@@ -247,6 +247,58 @@ static int l_netdrv_setup(lua_State *L) {
             lua_pop(L, 1);
         }
         #endif
+
+        #ifdef LUAT_USE_NETDRV_IPSEC
+        if (conf.impl == LUAT_NETDRV_IMPL_IPSEC) {
+            conf.ipsec_conf = luat_heap_malloc(sizeof(luat_netdrv_ipsec_conf_t));
+            if (conf.ipsec_conf == NULL) {
+                lua_pushboolean(L, 0);
+                return 1;
+            }
+            memset(conf.ipsec_conf, 0, sizeof(luat_netdrv_ipsec_conf_t));
+            // IPsec的配置参数
+            if (lua_getfield(L, 3, "ipsec_remote_ip") == LUA_TSTRING) {
+                conf.ipsec_conf->ipsec_remote_ip = luaL_checklstring(L, -1, &len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_remote_port") == LUA_TNUMBER) {
+                conf.ipsec_conf->ipsec_remote_port = luaL_checkinteger(L, -1);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_username") == LUA_TSTRING) {
+                conf.ipsec_conf->ipsec_username = luaL_checklstring(L, -1, &conf.ipsec_conf->ipsec_username_len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_password") == LUA_TSTRING) {
+                conf.ipsec_conf->ipsec_password = luaL_checklstring(L, -1, &conf.ipsec_conf->ipsec_password_len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_ca_cert_pem") == LUA_TSTRING) {
+                conf.ipsec_conf->ipsec_ca_cert_pem = luaL_checklstring(L, -1, &conf.ipsec_conf->ipsec_ca_cert_pem_len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_san") == LUA_TSTRING) {
+                conf.ipsec_conf->ipsec_san = luaL_checklstring(L, -1, &len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_mtu") == LUA_TNUMBER) {
+                conf.ipsec_conf->ipsec_mtu = luaL_checkinteger(L, -1);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_retry_enable") == LUA_TBOOLEAN) {
+                conf.ipsec_conf->ipsec_retry_enable = lua_toboolean(L, -1);
+            }
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_retry_base_ms") == LUA_TNUMBER) {
+                conf.ipsec_conf->ipsec_retry_base_ms = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_retry_max_ms") == LUA_TNUMBER) {
+                conf.ipsec_conf->ipsec_retry_max_ms = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+        }
+        #endif
     }
     luat_netdrv_t* ret = luat_netdrv_setup(&conf);
     lua_pushboolean(L, ret != NULL);
@@ -258,6 +310,9 @@ static int l_netdrv_setup(lua_State *L) {
     }
     if (conf.l2tp_conf) {
         luat_heap_free(conf.l2tp_conf);
+    }
+    if (conf.ipsec_conf) {
+        luat_heap_free(conf.ipsec_conf);
     }
     return 1;
 }
@@ -780,6 +835,9 @@ static const rotable_Reg_t reg_netdrv[] =
     #endif
     #ifdef LUAT_USE_NETDRV_L2TP
     { "L2TP",           ROREG_INT(LUAT_NETDRV_IMPL_L2TP)}, // L2TPv2虚拟网卡
+    #endif
+    #ifdef LUAT_USE_NETDRV_IPSEC
+    { "IPSEC",          ROREG_INT(LUAT_NETDRV_IMPL_IPSEC)}, // IKEv2/IPsec隧道虚拟网卡
     #endif
 
     //@const CTRL_RESET number 控制类型-复位,当前仅支持CH390H

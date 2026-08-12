@@ -99,8 +99,13 @@ ipsec_ike.c  (IKEv2 状态机, tcpip 线程)
   IKE_SA_INIT 的 SHA-1 哈希方式；对端发起的更新用当前本地 IP 校验
   目标 NAT-D，不匹配则忽略；established 状态下的地址学习只发生在
   密码学验证通过之后：ESP 报文在 ICV/解密成功后、对端
-  UPDATE_SA_ADDRESSES 在 SK 解密 + NAT-D 校验通过后（RFC 4555 §3，
+  UPDATE_SA_ADDRESSES 在 SK 解密 + NAT-D 校验通过后、已认证的
+  INFORMATIONAL 响应在 ICV 校验通过后（RFC 4555 §3，
   未认证报文一律不得改写对端地址）。
+- IKE 请求单在途槽位：`pending_msgid/last_tx` 全 client 一份，
+  DPD/MOBIKE 更新/CREATE_CHILD_SA 任一在途时其余请求让路（下一秒
+  tick 重试）；INFORMATIONAL 响应（DPD/MOBIKE ack）经 SK 解密 +
+  ICV 校验后才采信；msgid 全链路 32 位（RFC 7296 单调不回绕）。
 - IKE SK 载荷：AES-CBC + HMAC；**ICV 只覆盖 IKE 报文本身**（strongSwan
   收到 4500 报文会先剥离 4 字节非 ESP marker 再校验）。
 - ESP AEAD（RFC 4106）：8 字节显式 IV，GCM IV = salt(4) | IV(8)，

@@ -215,8 +215,8 @@ struct ipsec_client {
 
     /* IKE state */
     uint8_t  phase;
-    uint8_t  msgid;               /* next request message id */
-    uint8_t  pending_msgid;
+    uint32_t msgid;               /* next request message id (RFC 7296: 32-bit, monotonic) */
+    uint32_t pending_msgid;
     uint8_t  last_exchange;       /* exchange type of the pending request */
     uint8_t  nat_detected;
     uint8_t  cookie_len;

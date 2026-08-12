@@ -109,7 +109,7 @@ static uint32_t ike_get32(const uint8_t *p)
 
 static void ike_build_header(uint8_t *buf, const uint8_t *spii, const uint8_t *spir,
                              uint8_t next, uint8_t extype, uint8_t flags,
-                             uint8_t msgid, uint16_t len)
+                             uint32_t msgid, uint16_t len)
 {
     memcpy(buf, spii, 8);
     memcpy(buf + 8, spir, 8);
@@ -841,6 +841,9 @@ static int ipsec_send_msg(ipsec_client_t *cli, const uint8_t *buf, uint16_t len,
 
 static void ipsec_start_retrans(ipsec_client_t *cli)
 {
+    /* remove any stale timer first: a single pending slot means at most one
+     * retransmission timer may be armed at any time */
+    sys_untimeout(ipsec_retrans_timer, cli);
     sys_timeout(IPSEC_RETRANS_BASE_MS, ipsec_retrans_timer, cli);
 }
 
@@ -1200,6 +1203,14 @@ static int ike_send_create_child_sa(ipsec_client_t *cli)
 
 /* ========== DPD / Informational ========== */
 
+/* A non-DPD IKE request is in flight (CREATE_CHILD_SA rekey or MOBIKE
+ * update). pending_msgid/last_tx are a single slot, so other requests must
+ * wait for it to complete instead of overwriting its tracking state. */
+static int ipsec_ike_busy(ipsec_client_t *cli)
+{
+    return cli->esp_rekey_inflight || cli->mobike_inflight;
+}
+
 static int ike_send_dpd(ipsec_client_t *cli)
 {
     uint8_t buf[IPSEC_IKE_TX_LEN];
@@ -1228,6 +1239,10 @@ static int ike_send_mobike_update(ipsec_client_t *cli)
         return -1;
     if (cli->mobike_inflight)
         return 0; /* already in flight, keep the current update */
+    if (cli->dpd_pending || cli->esp_rekey_inflight)
+        return 0; /* single pending slot: retry on the next tick; the address
+                   * cache is intentionally not updated here so the tick
+                   * polling re-triggers the update */
     if (ipsec_get_local_ip(cli, &local_ip) != 0 || ip4_addr_isany_val(local_ip))
         return -1;
     cli->local_ip_cache = local_ip;
@@ -1599,7 +1614,7 @@ static void ike_handle_eap(ipsec_client_t *cli, const uint8_t *eap, uint16_t eap
 /* IKE_SA_INIT response */
 static void ike_handle_sa_init_response(ipsec_client_t *cli,
                                         const uint8_t *msg, uint16_t msg_len,
-                                        uint16_t msgid,
+                                        uint32_t msgid,
                                         const uint8_t *datagram, uint16_t datagram_len,
                                         const luat_ip_addr_t *src_addr, uint16_t src_port)
 {
@@ -1841,7 +1856,7 @@ fail:
 
 /* IKE_AUTH response (msgid 1): IDr, [CERT], AUTH, EAP */
 static void ike_handle_auth1_response(ipsec_client_t *cli, const uint8_t *msg,
-                                      uint16_t msg_len, uint16_t msgid)
+                                      uint16_t msg_len, uint32_t msgid)
 {
     const uint8_t *sk_payload;
     uint16_t sk_len;
@@ -1995,7 +2010,7 @@ fail:
 
 /* IKE_AUTH response for EAP exchanges and the final AUTH exchange */
 static void ike_handle_auth_response(ipsec_client_t *cli, const uint8_t *msg,
-                                     uint16_t msg_len, uint16_t msgid)
+                                     uint16_t msg_len, uint32_t msgid)
 {
     const uint8_t *sk_payload;
     uint16_t sk_len;
@@ -2098,7 +2113,7 @@ static void ike_rekey_retry_without_ke(ipsec_client_t *cli)
 
 /* CREATE_CHILD_SA response */
 static void ike_handle_rekey_response(ipsec_client_t *cli, const uint8_t *msg,
-                                      uint16_t msg_len, uint16_t msgid)
+                                      uint16_t msg_len, uint32_t msgid)
 {
     const uint8_t *sk_payload;
     uint16_t sk_len;
@@ -2272,19 +2287,50 @@ rekey_keep_old:
     /* keep the tunnel running on the old SA */
 }
 
-/* INFORMATIONAL response (DPD ack / delete ack) */
-static void ike_handle_informational_response(ipsec_client_t *cli, uint16_t msgid)
+/* INFORMATIONAL response (DPD ack / MOBIKE ack / delete ack). Only trusted
+ * after SK decryption + ICV verification; unauthenticated responses leave
+ * the pending flags set so the retransmission/timeout path still fires. */
+static void ike_handle_informational_response(ipsec_client_t *cli,
+                                              const uint8_t *msg,
+                                              uint16_t msg_len,
+                                              uint32_t msgid,
+                                              const luat_ip_addr_t *src_addr,
+                                              uint16_t src_port)
 {
+    const uint8_t *sk_payload;
+    uint16_t sk_len;
+    uint8_t inner[IPSEC_IKE_BUF_LEN];
+    uint16_t inner_len;
+    uint8_t first_type;
+
+    if (ike_find_payload(msg, msg_len, msg[16], IPSEC_PAYLOAD_SK,
+                         &sk_payload, &sk_len) != 0 ||
+        ike_sk_decrypt(cli, msg, msg_len, sk_payload, sk_len,
+                       inner, sizeof(inner), &inner_len, &first_type) != 0) {
+        LLOGD("INFORMATIONAL response failed SK verification, dropped");
+        return;
+    }
+
+    /* Authenticated packet from a new source: adopt the peer address
+     * (RFC 4555 §3 learning; the ICV above is the authentication). */
+    if (cli->mobike_enable && !ip_addr_isany((const ip_addr_t *)src_addr) &&
+        !ip_addr_cmp(&cli->remote_ip, (const ip_addr_t *)src_addr) &&
+        (src_port == IPSEC_IKE_PORT || src_port == IPSEC_ESP_PORT)) {
+        cli->remote_ip = *(const ip_addr_t *)src_addr;
+        cli->ike_port = src_port;
+        LLOGI("MOBIKE: learned peer address %s:%u (IKE)",
+              ipaddr_ntoa(&cli->remote_ip), (unsigned)src_port);
+    }
+
     if (cli->mobike_inflight && msgid == cli->pending_msgid) {
         cli->mobike_inflight = 0;
-        cli->last_rx_ms = sys_now();
         LLOGI("MOBIKE: UPDATE_SA_ADDRESSES acknowledged");
     }
     if (cli->dpd_pending && msgid == cli->pending_msgid) {
         cli->dpd_pending = 0;
-        cli->last_rx_ms = sys_now();
         LLOGD("DPD ack received");
     }
+    cli->last_rx_ms = sys_now();
 }
 
 /* ========== IKE message dispatch ========== */
@@ -2358,7 +2404,8 @@ static void ike_handle_message(ipsec_client_t *cli, const uint8_t *data, uint16_
     uint8_t *msg;
     uint16_t msg_len;
     uint16_t hdr_len;
-    uint8_t extype, flags, msgid;
+    uint8_t extype, flags;
+    uint32_t msgid;
     const uint8_t *datagram;
     uint16_t datagram_len;
 
@@ -2385,7 +2432,7 @@ static void ike_handle_message(ipsec_client_t *cli, const uint8_t *data, uint16_
     }
     extype = msg[18];
     flags = msg[19];
-    msgid = (uint8_t)ike_get32(msg + 20);
+    msgid = ike_get32(msg + 20);
 
     /* SPI checks */
     if (memcmp(msg, cli->spii, 8) != 0) {
@@ -2422,7 +2469,7 @@ static void ike_handle_message(ipsec_client_t *cli, const uint8_t *data, uint16_
             const uint8_t *sk_payload;
             uint16_t sk_len;
             uint16_t rlen;
-            uint8_t saved_msgid = cli->pending_msgid;
+            uint32_t saved_msgid = cli->pending_msgid;
             uint8_t saved_exchange = cli->last_exchange;
             if (cli->mobike_enable &&
                 ike_find_payload(msg, msg_len, msg[16], IPSEC_PAYLOAD_SK,
@@ -2475,7 +2522,8 @@ static void ike_handle_message(ipsec_client_t *cli, const uint8_t *data, uint16_
         break;
     case IPSEC_STATE_ESTABLISHED:
         if (extype == IPSEC_EXCH_INFORMATIONAL)
-            ike_handle_informational_response(cli, msgid);
+            ike_handle_informational_response(cli, msg, msg_len, msgid,
+                                              src_addr, src_port);
         break;
     default:
         break;
@@ -2777,20 +2825,24 @@ static void ipsec_tick_timer(void *arg)
         if (cli->online && cli->mobike_enable &&
             ipsec_transport_is_online(cli)) {
             /* MOBIKE: underlying transport is still up; reopen the socket
-             * on the same port and announce our address. */
+             * on the same port and announce our address. The update may be
+             * skipped when another IKE request is in flight (single pending
+             * slot) -- it is an optimization only, DPD continues below. */
             LLOGW("transport socket closed, reopening for MOBIKE");
             if (ipsec_switch_socket(cli, cli->ike_port) == 0) {
                 ike_send_mobike_update(cli);
+                /* fall through: keep DPD/rekey running and re-arm the tick */
             } else {
                 ipsec_stop_internal(cli);
                 ipsec_schedule_retry(cli, "transport error");
+                return;
             }
         } else {
             LLOGW("transport socket error, scheduling retry");
             ipsec_stop_internal(cli);
             ipsec_schedule_retry(cli, "transport error");
+            return;
         }
-        return;
     }
 
     if (cli->online) {
@@ -2811,8 +2863,10 @@ static void ipsec_tick_timer(void *arg)
             }
         }
 
-        /* DPD */
-        if (now - cli->last_rx_ms >= IPSEC_DPD_INTERVAL_MS && !cli->dpd_pending) {
+        /* DPD (skipped while another IKE request holds the pending slot;
+         * the interval check re-fires on the next tick) */
+        if (now - cli->last_rx_ms >= IPSEC_DPD_INTERVAL_MS && !cli->dpd_pending &&
+            cli->phase == IPSEC_STATE_ESTABLISHED && !ipsec_ike_busy(cli)) {
             cli->dpd_pending = 1;
             cli->dpd_sent_ms = now;
             LLOGD("sending DPD");
@@ -2830,8 +2884,10 @@ static void ipsec_tick_timer(void *arg)
             ike_send_dpd(cli);
         }
 
-        /* CHILD_SA rekey */
-        if (!cli->esp_rekey_inflight &&
+        /* CHILD_SA rekey (skipped while DPD/MOBIKE holds the pending slot;
+         * the lifetime check re-fires on the next tick) */
+        if (!cli->esp_rekey_inflight && !cli->dpd_pending &&
+            !cli->mobike_inflight &&
             now - cli->esp_created_ms >= IPSEC_ESP_LIFETIME_MS) {
             LLOGI("ESP SA lifetime reached, rekeying CHILD_SA");
             ike_send_create_child_sa(cli);

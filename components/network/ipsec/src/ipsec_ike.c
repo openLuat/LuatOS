@@ -2058,7 +2058,7 @@ static void ike_handle_message(ipsec_client_t *cli, const uint8_t *data, uint16_
         return;
     }
     if (!ip_addr_isany((const ip_addr_t *)src_addr) &&
-        !ip_addr_eq(&cli->remote_ip, (const ip_addr_t *)src_addr)) {
+        !ip_addr_cmp(&cli->remote_ip, (const ip_addr_t *)src_addr)) {
         LLOGD("RX drop: source IP mismatch");
         return;
     }

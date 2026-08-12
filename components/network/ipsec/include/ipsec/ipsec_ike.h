@@ -160,7 +160,7 @@ typedef struct ipsec_client_cfg {
     size_t     username_len;
     char      *password;
     size_t     password_len;
-    char      *ca_cert_pem;       /* optional; NULL uses ISRG Root X1 */
+    char      *ca_cert_pem;       /* optional; NULL accepts server cert as-is */
     size_t     ca_cert_pem_len;
     char      *san;               /* expected server SAN */
     uint16_t   mtu;

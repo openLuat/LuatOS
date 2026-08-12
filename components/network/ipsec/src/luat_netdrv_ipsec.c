@@ -204,7 +204,7 @@ luat_netdrv_t* luat_netdrv_ipsec_setup(luat_netdrv_conf_t *conf) {
         return NULL;
     }
 
-    /* 服务器证书信任锚 + SAN (可选, 缺省用内置 ISRG Root X1 + 网关 IP) */
+    /* 服务器证书信任锚 + SAN (可选; 不提供时无条件接受服务器证书) */
     if (conf->ipsec_conf->ipsec_ca_cert_pem != NULL && conf->ipsec_conf->ipsec_ca_cert_pem_len > 0) {
         cfg.ca_cert_pem = (char *)conf->ipsec_conf->ipsec_ca_cert_pem;
         cfg.ca_cert_pem_len = conf->ipsec_conf->ipsec_ca_cert_pem_len;

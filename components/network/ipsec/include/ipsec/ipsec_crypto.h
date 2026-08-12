@@ -127,8 +127,8 @@ int ipsec_verify_auth_signature(const mbedtls_pk_context *pk,
  * leaf certificate's SAN/CN against \p san.
  *
  * \param chain     Parsed certificate chain (leaf first), from CERT payloads.
- * \param ca_pem    Optional PEM trust anchor; if NULL the built-in
- *                  ISRG Root X1 is used.
+ * \param ca_pem    Optional PEM trust anchor; if NULL the server
+ *                  certificate is accepted without verification.
  * \param ca_pem_len
  * \param san       Expected server name (e.g. "ipsec.air32.cn").
  * \param cacert    Optional scratch trust-store to keep allocated by the
@@ -141,10 +141,6 @@ int ipsec_verify_cert_chain(mbedtls_x509_crt *chain,
                             const char *ca_pem, size_t ca_pem_len,
                             const char *san,
                             mbedtls_x509_crt *cacert);
-
-/* Built-in trust anchor (ISRG Root X1) */
-extern const char ipsec_isrg_root_x1_pem[];
-extern const size_t ipsec_isrg_root_x1_pem_len;
 
 #ifdef __cplusplus
 }

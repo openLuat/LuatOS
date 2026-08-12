@@ -4,7 +4,8 @@
  * Tunnel mode client with:
  *   - IKE_SA_INIT: aes256-sha256-modp2048 / aes128-sha1-modp2048
  *   - IKE_AUTH: EAP-MSCHAPv2 (RFC 2759/3079) + server certificate chain
- *     verification (Let's Encrypt ISRG Root X1 by default) + SAN check
+ *     verification when ipsec_ca_cert_pem is configured (+ SAN check);
+ *     without a CA the server certificate is accepted as-is
  *   - NAT-T (RFC 3948): UDP 500 -> 4500, keepalives
  *   - DPD liveness checks
  *   - CHILD_SA rekey via CREATE_CHILD_SA without PFS (no KE)
@@ -1774,7 +1775,11 @@ static void ike_handle_auth1_response(ipsec_client_t *cli, const uint8_t *msg,
         LLOGE("server certificate verification failed");
         goto fail;
     }
-    LLOGI("server certificate verified (SAN=%s)", cli->san);
+    if (cli->ca_cert_pem && cli->ca_cert_pem_len > 0) {
+        LLOGI("server certificate verified (SAN=%s)", cli->san);
+    } else {
+        LLOGI("server certificate accepted without verification (SAN=%s)", cli->san);
+    }
 
     /* verify server AUTH (RSA/ECDSA signature) */
     {

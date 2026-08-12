@@ -97,8 +97,10 @@ ipsec_ike.c  (IKEv2 状态机, tcpip 线程)
 - MOBIKE 更新载荷顺序：`N(UPDATE_SA_ADDRESSES) | N(NAT_DETECTION_SOURCE_IP)
   | N(NAT_DETECTION_DESTINATION_IP)`（RFC 4555 §2.2），NAT-D 复用
   IKE_SA_INIT 的 SHA-1 哈希方式；对端发起的更新用当前本地 IP 校验
-  目标 NAT-D，不匹配则忽略；established 状态下通过 SPI/解密校验的
-  IKE/ESP 数据包若源地址变化则学习新对端地址（端口 500/4500）。
+  目标 NAT-D，不匹配则忽略；established 状态下的地址学习只发生在
+  密码学验证通过之后：ESP 报文在 ICV/解密成功后、对端
+  UPDATE_SA_ADDRESSES 在 SK 解密 + NAT-D 校验通过后（RFC 4555 §3，
+  未认证报文一律不得改写对端地址）。
 - IKE SK 载荷：AES-CBC + HMAC；**ICV 只覆盖 IKE 报文本身**（strongSwan
   收到 4500 报文会先剥离 4 字节非 ESP marker 再校验）。
 - ESP AEAD（RFC 4106）：8 字节显式 IV，GCM IV = salt(4) | IV(8)，

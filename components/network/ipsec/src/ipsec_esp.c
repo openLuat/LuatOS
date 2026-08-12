@@ -210,7 +210,7 @@ int ipsec_esp_encrypt(ipsec_esp_sa_t *sa, const uint8_t *ip, uint16_t iplen,
 }
 
 int ipsec_esp_decrypt(ipsec_esp_sa_t *sa, const uint8_t *in, uint16_t inlen,
-                      uint8_t *out, uint16_t *outlen)
+                      uint8_t *out, uint16_t out_cap, uint16_t *outlen)
 {
     uint8_t iv[IPSEC_ESP_BLOCK_LEN];
     uint8_t icv[32];
@@ -236,6 +236,8 @@ int ipsec_esp_decrypt(ipsec_esp_sa_t *sa, const uint8_t *in, uint16_t inlen,
             return -1;
         ct_len = (uint16_t)(inlen - ct_off - IPSEC_ESP_GCM_TAG_LEN);
         if ((ct_len % 4) != 0)
+            return -1;
+        if (ct_len > out_cap)
             return -1;
 
         /* Verify SPI */
@@ -285,16 +287,12 @@ int ipsec_esp_decrypt(ipsec_esp_sa_t *sa, const uint8_t *in, uint16_t inlen,
     ct_len = (uint16_t)(inlen - 8 - 16 - icv_len);
     if ((ct_len % 16) != 0)
         return -1;
+    if (ct_len > out_cap)
+        return -1;
 
     /* Verify SPI */
     if (in[0] != (uint8_t)(sa->spi >> 24) || in[1] != (uint8_t)(sa->spi >> 16) ||
         in[2] != (uint8_t)(sa->spi >> 8) || in[3] != (uint8_t)(sa->spi))
-        return -1;
-
-    /* Anti-replay */
-    seq = ((uint32_t)in[4] << 24) | ((uint32_t)in[5] << 16) |
-          ((uint32_t)in[6] << 8) | (uint32_t)in[7];
-    if (ipsec_esp_replay_check(sa, seq) != 0)
         return -1;
 
     /* Integrity over SPI..pad-length */
@@ -304,6 +302,13 @@ int ipsec_esp_decrypt(ipsec_esp_sa_t *sa, const uint8_t *in, uint16_t inlen,
                  md_type, expected) != 0)
         return -1;
     if (memcmp(icv, expected, icv_len) != 0)
+        return -1;
+
+    /* Anti-replay only after authentication (RFC 4303 Appendix A); checking
+     * earlier would let unauthenticated packets advance the window. */
+    seq = ((uint32_t)in[4] << 24) | ((uint32_t)in[5] << 16) |
+          ((uint32_t)in[6] << 8) | (uint32_t)in[7];
+    if (ipsec_esp_replay_check(sa, seq) != 0)
         return -1;
 
     /* Decrypt */

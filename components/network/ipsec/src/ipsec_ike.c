@@ -479,7 +479,8 @@ static int ike_sk_encrypt(ipsec_client_t *cli, uint8_t *msg,
 /* Decrypt the SK payload of a received message.
  * \p msg is the IKE message with the 4-byte non-ESP marker already removed
  * (strongSwan strips the marker before processing, so the ICV does not
- * cover it either). */
+ * cover it either). Decryption is refused when the ciphertext would not
+ * fit in \p inner (\p inner_cap). */
 static int ike_sk_decrypt(ipsec_client_t *cli, const uint8_t *msg,
                           uint16_t msg_len, const uint8_t *sk,
                           uint16_t sk_len, uint8_t *inner,
@@ -504,6 +505,8 @@ static int ike_sk_decrypt(ipsec_client_t *cli, const uint8_t *msg,
     ct = sk + 4 + 16;
     ct_len = (uint16_t)(sk_len - 4 - 16 - integ_len);
     if ((ct_len % 16) != 0)
+        return -1;
+    if (ct_len > inner_cap)
         return -1;
 
     /* ICV input = the whole IKE message minus the ICV */
@@ -1880,10 +1883,10 @@ static void ike_handle_auth1_response(ipsec_client_t *cli, const uint8_t *msg,
             idr_len = len;
             break;
         case IPSEC_PAYLOAD_CERT: {
-            /* CERT: [encoding(1)][data] */
-            const uint8_t *der = p + 4 + 1;
-            uint16_t der_len = (uint16_t)(len - 5);
-            if (p[4] == IPSEC_CERT_X509 && der_len > 0) {
+            /* CERT: [encoding(1)][data]; len < 6 would underflow der_len */
+            if (len >= 6 && p[4] == IPSEC_CERT_X509) {
+                const uint8_t *der = p + 4 + 1;
+                uint16_t der_len = (uint16_t)(len - 5);
                 if (mbedtls_x509_crt_parse(&cli->server_cert, der, der_len) != 0) {
                     LLOGE("CERT parse failed");
                     goto fail;
@@ -1923,7 +1926,7 @@ static void ike_handle_auth1_response(ipsec_client_t *cli, const uint8_t *msg,
         LLOGE("AUTHENTICATION_FAILED notify");
         goto fail;
     }
-    if (!idr_payload || !auth_payload) {
+    if (!idr_payload || !auth_payload || auth_len < 8) {
         LLOGE("IKE_AUTH response missing IDr/AUTH");
         goto fail;
     }
@@ -2058,6 +2061,8 @@ static void ike_handle_auth_response(ipsec_client_t *cli, const uint8_t *msg,
         return;
     }
     if (auth_payload) {
+        if (auth_len < 8)
+            goto fail;
         if (ike_verify_responder_auth(cli, auth_payload + 4 + 4,
                                       (uint16_t)(auth_len - 8)) != 0)
             goto fail;
@@ -2097,7 +2102,7 @@ static void ike_handle_rekey_response(ipsec_client_t *cli, const uint8_t *msg,
 {
     const uint8_t *sk_payload;
     uint16_t sk_len;
-    uint8_t inner[1024];
+    uint8_t inner[IPSEC_IKE_BUF_LEN];
     uint16_t inner_len;
     uint8_t first_type;
     const uint8_t *p;
@@ -2387,19 +2392,15 @@ static void ike_handle_message(ipsec_client_t *cli, const uint8_t *data, uint16_
         LLOGD("RX drop: SPIi mismatch");
         return;
     }
+    /* Source address must match the known peer. MOBIKE address learning only
+     * happens after cryptographic validation: ESP packets after a successful
+     * ipsec_esp_decrypt(), IKE messages after SK decrypt + NAT-D check in
+     * ike_handle_peer_mobike() (RFC 4555 §3). Unauthenticated packets must
+     * never redirect the tunnel. */
     if (!ip_addr_isany((const ip_addr_t *)src_addr) &&
         !ip_addr_cmp(&cli->remote_ip, (const ip_addr_t *)src_addr)) {
-        if (cli->phase == IPSEC_STATE_ESTABLISHED && cli->mobike_enable &&
-            (src_port == IPSEC_IKE_PORT || src_port == IPSEC_ESP_PORT)) {
-            /* address learning (RFC 4555): adopt the validated source */
-            LLOGI("MOBIKE: learned peer address %s:%u",
-                  ipaddr_ntoa((const ip_addr_t *)src_addr), (unsigned)src_port);
-            cli->remote_ip = *(const ip_addr_t *)src_addr;
-            cli->ike_port = src_port;
-        } else {
-            LLOGD("RX drop: source IP mismatch");
-            return;
-        }
+        LLOGD("RX drop: source IP mismatch");
+        return;
     }
     if (src_port != IPSEC_IKE_PORT && src_port != IPSEC_ESP_PORT) {
         LLOGD("RX drop: source port %u", (unsigned)src_port);
@@ -2415,7 +2416,7 @@ static void ike_handle_message(ipsec_client_t *cli, const uint8_t *data, uint16_
         /* peer-initiated INFORMATIONAL (e.g. DPD): answer with empty response */
         if (extype == IPSEC_EXCH_INFORMATIONAL && cli->phase == IPSEC_STATE_ESTABLISHED) {
             uint8_t resp[128];
-            uint8_t inner[512];
+            uint8_t inner[IPSEC_IKE_BUF_LEN];
             uint16_t inner_len;
             uint8_t first_type;
             const uint8_t *sk_payload;
@@ -2536,7 +2537,8 @@ static void ipsec_do_rx(void *arg)
                     if (!sa->valid)
                         continue;
                     if (ipsec_esp_decrypt(sa, msg->data, msg->len,
-                                          inner, &inner_len) == 0) {
+                                          inner, sizeof(inner),
+                                          &inner_len) == 0) {
                         if (cli->mobike_enable &&
                             !ip_addr_cmp(&cli->remote_ip,
                                          (const ip_addr_t *)&msg->src_addr)) {

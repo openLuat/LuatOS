@@ -80,16 +80,18 @@ int ipsec_esp_encrypt(ipsec_esp_sa_t *sa, const uint8_t *ip, uint16_t iplen,
 /**
  * Decapsulate an ESP-in-UDP payload back into an inner IPv4 packet.
  *
- * \param sa     Inbound SA.
- * \param in     ESP payload (starts with SPI).
- * \param inlen  ESP payload length.
- * \param out    Output buffer for the inner packet.
- * \param outlen Out: inner packet length.
+ * \param sa      Inbound SA.
+ * \param in      ESP payload (starts with SPI).
+ * \param inlen   ESP payload length.
+ * \param out     Output buffer for the inner packet.
+ * \param out_cap Capacity of \p out; oversized payloads are rejected before
+ *                any byte is written.
+ * \param outlen  Out: inner packet length.
  *
  * \return 0 on success (integrity OK, seq accepted), negative otherwise.
  */
 int ipsec_esp_decrypt(ipsec_esp_sa_t *sa, const uint8_t *in, uint16_t inlen,
-                      uint8_t *out, uint16_t *outlen);
+                      uint8_t *out, uint16_t out_cap, uint16_t *outlen);
 
 /* Anti-replay window helpers (32 packets) */
 int ipsec_esp_replay_check(ipsec_esp_sa_t *sa, uint32_t seq);

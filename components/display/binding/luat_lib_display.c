@@ -79,7 +79,7 @@ static const display_panel_reg_t panel_regs[] =
     {"ili9341", "spi", &spi_panel_ili9341},
     {"st7701s", "rgb", &rgb_panel_st7701s},
     {"st7701s", "dsi", &dsi_panel_st7701s},
-    {"",        NULL}
+    {"", NULL, NULL}
 };
 
 /*查找显示面板*/
@@ -393,21 +393,23 @@ static int l_display_init(lua_State *L)
     lua_getfield(L, 2, "id");
     if (lua_isinteger(L, -1)) {
         int req_id = (int)lua_tointeger(L, -1);
-        L_disp->id = luat_display_register_with_id(L_disp, (uint8_t)req_id);
-        if (L_disp->id < 0) {
+        int reg_id = luat_display_register_with_id(L_disp, (uint8_t)req_id);
+        if (reg_id < 0) {
             lua_pop(L, 1);
             lua_pushboolean(L, 0);
             lua_pushstring(L, "display id already used or out of range");
             goto init_fail;
         }
+        L_disp->id = (uint8_t)reg_id;
     } else {
-        L_disp->id = luat_display_register(L_disp);
-        if (L_disp->id < 0) {
+        int reg_id = luat_display_register(L_disp);
+        if (reg_id < 0) {
             lua_pop(L, 1);
             lua_pushboolean(L, 0);
             lua_pushstring(L, "no available display slot");
             goto init_fail;
         }
+        L_disp->id = (uint8_t)reg_id;
     }
     lua_pop(L, 1);
 
@@ -570,11 +572,11 @@ static int l_display_get_fb(lua_State *L)
         return 1;
     }
 
-    /*优先返回 CPU 可写 draw buffer，SDL/软件渲染场景使用；
-      不存在时再退回 fb_start（硬件直接写屏场景）。*/
-    void *fb_addr = disp->fb_info->draw_buf.buffer ? disp->fb_info->draw_buf.buffer : disp->fb_info->fb_start;
-    uint32_t fb_size = disp->fb_info->draw_buf.buffer ? disp->fb_info->draw_buf.size : disp->fb_info->fb_size;
-    uint32_t fb_count = disp->fb_info->draw_buf.buffer ? disp->fb_info->draw_buf.count : disp->fb_info->fb_count;
+    /*优先返回 LCDC 显存 fb_start（硬件直接写屏场景）；
+      SDL/软件渲染无 fb_start 时才回退到 draw_buf。*/
+    void *fb_addr = disp->fb_info->fb_start ? disp->fb_info->fb_start : disp->fb_info->draw_buf.buffer;
+    uint32_t fb_size = disp->fb_info->fb_start ? disp->fb_info->fb_size : disp->fb_info->draw_buf.size;
+    uint32_t fb_count = disp->fb_info->fb_start ? disp->fb_info->fb_count : disp->fb_info->draw_buf.count;
 
     if (fb_addr == NULL) {
         lua_pushnil(L);
@@ -610,84 +612,16 @@ static int l_display_fill(lua_State *L) {
     }
 
     struct luat_display *disp = (id_index > 0) ? l_get_display_opt(L, id_index) : luat_display_get_default();
-    if (disp == NULL || disp->fb_info == NULL || !disp->fb_info->inited) {
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    int x1 = luaL_checkinteger(L, x1_index);
-    int y1 = luaL_checkinteger(L, y1_index);
-    int x2 = luaL_checkinteger(L, x2_index);
-    int y2 = luaL_checkinteger(L, y2_index);
+    struct luat_display_area area = {
+        .x1 = luaL_checkinteger(L, x1_index),
+        .y1 = luaL_checkinteger(L, y1_index),
+        .x2 = luaL_checkinteger(L, x2_index),
+        .y2 = luaL_checkinteger(L, y2_index),
+    };
     uint32_t color = (uint32_t)luaL_checkinteger(L, color_index);
 
-    struct luat_display_fb_info *info = disp->fb_info;
-    uint32_t width = info->width;
-    uint32_t height = info->height;
-    uint32_t stride = info->stride;
-    void *buf = info->draw_buf.buffer ? info->draw_buf.buffer : info->fb_start;
-
-    if (x1 < 0) x1 = 0;
-    if (y1 < 0) y1 = 0;
-    if (x2 >= (int)width) x2 = width - 1;
-    if (y2 >= (int)height) y2 = height - 1;
-    if (x1 > x2 || y1 > y2 || buf == NULL) {
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    int rect_w = x2 - x1 + 1;
-    int rect_h = y2 - y1 + 1;
-    uint8_t *ptr = (uint8_t *)buf;
-
-    switch (info->format) {
-    case LUAT_DISPLAY_FORMAT_RGB565:
-    case LUAT_DISPLAY_FORMAT_BGR565: {
-        uint16_t c = (uint16_t)(color & 0xFFFF);
-        for (int y = y1; y < y1 + rect_h; y++) {
-            uint16_t *line = (uint16_t *)(ptr + y * stride + x1 * 2);
-            for (int x = 0; x < rect_w; x++) {
-                line[x] = c;
-            }
-        }
-        break;
-    }
-    case LUAT_DISPLAY_FORMAT_RGB888: {
-        uint8_t r = (color >> 16) & 0xFF;
-        uint8_t g = (color >> 8) & 0xFF;
-        uint8_t b = color & 0xFF;
-        for (int y = y1; y < y1 + rect_h; y++) {
-            uint8_t *line = ptr + y * stride + x1 * 3;
-            for (int x = 0; x < rect_w; x++) {
-                line[x * 3 + 0] = r;
-                line[x * 3 + 1] = g;
-                line[x * 3 + 2] = b;
-            }
-        }
-        break;
-    }
-    case LUAT_DISPLAY_FORMAT_ARGB8888:
-    case LUAT_DISPLAY_FORMAT_ABGR8888:
-    case LUAT_DISPLAY_FORMAT_RGBA8888:
-    case LUAT_DISPLAY_FORMAT_BGRA8888: {
-        for (int y = y1; y < y1 + rect_h; y++) {
-            uint32_t *line = (uint32_t *)(ptr + y * stride + x1 * 4);
-            for (int x = 0; x < rect_w; x++) {
-                line[x] = color;
-            }
-        }
-        break;
-    }
-    default:
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    LLOGI("fill done fmt=%d bpp=%u buf=%p first=0x%04x",
-          info->format, info->bits_per_pixel, buf,
-          (info->bits_per_pixel == 16) ? ((uint16_t *)buf)[0] : (uint16_t)(((uint32_t *)buf)[0] & 0xFFFF));
-
-    lua_pushboolean(L, 1);
+    int ret = luat_display_fill(disp, area, color);
+    lua_pushboolean(L, ret);
     return 1;
 }
 

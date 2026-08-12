@@ -12,10 +12,6 @@ struct sdl_disp_userdata {
     void *draw_buf;
 };
 
-static int sdl_init(struct luat_display *disp)
-{
-    return 0;
-}
 
 static int sdl_deinit(struct luat_display *disp)
 {
@@ -178,8 +174,8 @@ struct luat_display_funcs sdl_funcs = {
     .name = "sdl",
     .fb_probe = sdl_fb_probe,
     .inf_init = sdl_inf_init,
-    .set_layer = sdl_set_layer,
     .fb_flush = sdl_fb_flush,
+    .set_layer = sdl_set_layer,
     .wait_vsync = sdl_wait_vsync,
     .pan_display = sdl_pan_display,
     .deinit = sdl_deinit,

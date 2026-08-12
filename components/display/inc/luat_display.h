@@ -194,6 +194,7 @@ struct luat_display_fb_info {
     uint32_t fb_count;       // FB数量
     uint32_t width;          // 宽度
     uint32_t height;         // 高度
+    void *full_fb;           // 全屏 shadow buffer（如 PSRAM），供 display.fill/flush 使用
     struct luat_display_buf draw_buf;   // 绘制缓冲区
 };
 
@@ -348,7 +349,7 @@ int luat_display_off(struct luat_display *disp);
 int luat_display_sleep(struct luat_display *disp);
 int luat_display_wakeup(struct luat_display *disp);
 int luat_display_flush(struct luat_display *disp);
-int luat_display_set_rotation(struct luat_display *disp, uint8_t rotation);
+int luat_display_set_rotation(struct luat_display *disp, enum disp_rotate rotation);
 int luat_display_close(struct luat_display_panel *panel);
 int luat_display_layer_setup(struct luat_display *disp);
 int luat_display_init_pin(struct panel_pin_device *pin);
@@ -357,6 +358,20 @@ int luat_display_power_on(struct luat_display *disp);
 int luat_display_power_off(struct luat_display *disp);
 int luat_display_panel_reset(struct luat_display_panel *panel);
 
+/* 数据同步屏障：保证 CPU 显存写入在下一次硬件扫描前落地 */
+#if defined(__arm__) || defined(__aarch64__) || defined(__ARM_ARCH)
+#if defined(_MSC_VER)
+#include <intrin.h>
+#define LUAT_DISPLAY_DSB() __dsb(0xF)
+#else
+#define LUAT_DISPLAY_DSB() __asm volatile("dsb" ::: "memory")
+#endif
+#else
+#define LUAT_DISPLAY_DSB() do { } while (0)
+#endif
+
+/* 显示图形绘制接口 */
+int luat_display_fill(struct luat_display *disp, struct luat_display_area area, uint32_t color);
 
 #endif
 

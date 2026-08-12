@@ -117,8 +117,6 @@ const char* luat_display_name(struct luat_display *disp)
     return disp->name;
 }
 
-
-
 /*初始化引脚*/
 int luat_display_init_pin(struct panel_pin_device *pin)
 {
@@ -166,7 +164,8 @@ int luat_display_layer_setup(struct luat_display *disp)
     ui_layer.area.x2 = panel->screen_win->x + panel->screen_win->w;
     ui_layer.area.y2 = panel->screen_win->y + panel->screen_win->h;
 
-    ui_layer.buffer = fb_info->draw_buf.buffer ? fb_info->draw_buf.buffer : fb_info->fb_start;
+    /*默认显示层应指向 LCDC 显存（fb_start）；SDL/软件渲染无 fb_start 时才回退到 draw_buf*/
+    ui_layer.buffer = fb_info->fb_start ? fb_info->fb_start : fb_info->draw_buf.buffer;
     ui_layer.format = fb_info->format;
 
     ret = disp->display_funcs->set_layer(&ui_layer);
@@ -223,6 +222,28 @@ int luat_display_init(struct luat_display *disp)
     return 0;
 }
 
+/*刷新显示缓冲区*/
+int luat_display_flush(struct luat_display *disp) 
+{
+    if (disp == NULL || disp->display_funcs == NULL || disp->display_funcs->fb_flush == NULL || disp->fb_info == NULL) {
+        return 0;
+    }
+
+    struct luat_display_fb_info *info = disp->fb_info;
+    const void *data = info->draw_buf.buffer ? info->draw_buf.buffer : info->fb_start;
+    if (data == NULL) {
+        return 0;
+    }
+
+    struct luat_display_rect rect = {
+        .x = 0,
+        .y = 0,
+        .w = info->width,
+        .h = info->height,
+    };
+
+    return disp->display_funcs->fb_flush(disp, &rect, data, disp->rotation);
+}
 
 /*打开显示*/
 int luat_display_on(struct luat_display *disp)
@@ -297,7 +318,7 @@ int luat_display_wakeup(struct luat_display *disp)
     return 0;
 }
 
-int luat_display_set_rotation(struct luat_display *disp, uint8_t rotation) 
+int luat_display_set_rotation(struct luat_display *disp, enum disp_rotate rotation) 
 {
     // if (disp->panel_ops->set_rotation) {
     //     return disp->panel_ops->set_rotation(disp, rotation);
@@ -311,49 +332,11 @@ int luat_display_set_rotation(struct luat_display *disp, uint8_t rotation)
     //     default: return -1;
     // }
     // luat_display_write_cmd_data(disp, 0x36, &madctl, 1);
-    // disp->rotation = rotation;
+
+    disp->rotation = rotation;
+
     return 0;
 }
 
-int luat_display_flush_default(struct luat_display *disp) 
-{
-    // if (disp->fb_info.addr == NULL) {
-    //     return 0;
-    // }
-    // if (disp->if_ops && disp->if_ops->fb_flush) {
-    //     disp->if_ops->fb_flush(disp, 0, 0, disp->width - 1, disp->height - 1, NULL);
-    // }
-    return 0;
-}
 
-LUAT_WEAK int luat_display_flush(struct luat_display *disp) 
-{
-    if (disp == NULL || disp->display_funcs == NULL || disp->display_funcs->fb_flush == NULL || disp->fb_info == NULL) {
-        return 0;
-    }
 
-    struct luat_display_fb_info *info = disp->fb_info;
-    const void *data = info->draw_buf.buffer ? info->draw_buf.buffer : info->fb_start;
-    if (data == NULL) {
-        return 0;
-    }
-
-    struct luat_display_rect rect = {
-        .x = 0,
-        .y = 0,
-        .w = info->width,
-        .h = info->height,
-    };
-
-    return disp->display_funcs->fb_flush(disp, &rect, data, disp->rotation);
-}
-
-LUAT_WEAK int luat_display_fb_probe(struct luat_display *disp, struct luat_display_fb_info *info) 
-{
-    return 0;
-}
-
-LUAT_WEAK int luat_display_fb_allocate(struct luat_display *disp, uint32_t num_buffers)
-{
-    return 0;
-}

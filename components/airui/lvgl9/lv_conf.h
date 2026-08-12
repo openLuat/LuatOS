@@ -243,7 +243,9 @@
 #endif
 
 /*Use TSi's aka (Think Silicon) NemaGFX */
+#ifndef LV_USE_NEMA_GFX
 #define LV_USE_NEMA_GFX 0
+#endif
 
 #if LV_USE_NEMA_GFX
     /** Select which NemaGFX HAL to use. Possible options:

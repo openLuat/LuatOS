@@ -3,6 +3,7 @@
 #include "luat_mem.h"
 
 #include "SDL2/SDL.h"
+#include <stdlib.h>
 
 #define LUAT_LOG_TAG "display_sdl2"
 #include "luat_log.h"
@@ -187,6 +188,7 @@ void luat_display_sdl2_flush(luat_display_sdl2_ctx_t *ctx)
     if (ctx == NULL) {
         return;
     }
+    luat_display_sdl2_pump_events(ctx);
     luat_display_sdl2_present(ctx);
 }
 
@@ -201,8 +203,8 @@ void luat_display_sdl2_pump_events(luat_display_sdl2_ctx_t *ctx)
 
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
-            ctx->exit_requested = 1;
-            continue;
+            SDL_Quit();
+            exit(0);
         }
         if (e.type == SDL_WINDOWEVENT && e.window.windowID == my_id) {
             if (e.window.event == SDL_WINDOWEVENT_EXPOSED ||

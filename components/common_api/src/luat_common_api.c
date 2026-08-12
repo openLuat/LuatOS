@@ -323,6 +323,94 @@ void luat_string_lower(uint8_t *src, uint32_t length)
 	}
 }
 
+uint8_t luat_bytes_get_u8(const void *ptr)
+{
+	const uint8_t *data = (const uint8_t *)ptr;
+	return data[0];
+}
+
+void luat_bytes_put_u8(void *ptr, uint8_t value)
+{
+	uint8_t *data = (uint8_t *)ptr;
+	data[0] = value;
+}
+
+uint16_t luat_bytes_get_be16(const void *ptr)
+{
+	const uint8_t *data = (const uint8_t *)ptr;
+	return ((uint16_t)data[0] << 8) | (uint16_t)data[1];
+}
+
+void luat_bytes_put_be16(void *ptr, uint16_t value)
+{
+	uint8_t *data = (uint8_t *)ptr;
+	data[0] = (uint8_t)(value >> 8);
+	data[1] = (uint8_t)value;
+}
+
+uint32_t luat_bytes_get_be32(const void *ptr)
+{
+	const uint8_t *data = (const uint8_t *)ptr;
+	return ((uint32_t)data[0] << 24) |
+		((uint32_t)data[1] << 16) |
+		((uint32_t)data[2] << 8) |
+		(uint32_t)data[3];
+}
+
+void luat_bytes_put_be32(void *ptr, uint32_t value)
+{
+	uint8_t *data = (uint8_t *)ptr;
+	data[0] = (uint8_t)(value >> 24);
+	data[1] = (uint8_t)(value >> 16);
+	data[2] = (uint8_t)(value >> 8);
+	data[3] = (uint8_t)value;
+}
+
+uint16_t luat_bytes_get_le16(const void *ptr)
+{
+	const uint8_t *data = (const uint8_t *)ptr;
+	return (uint16_t)data[0] | ((uint16_t)data[1] << 8);
+}
+
+void luat_bytes_put_le16(void *ptr, uint16_t value)
+{
+	uint8_t *data = (uint8_t *)ptr;
+	data[0] = (uint8_t)value;
+	data[1] = (uint8_t)(value >> 8);
+}
+
+uint32_t luat_bytes_get_le32(const void *ptr)
+{
+	const uint8_t *data = (const uint8_t *)ptr;
+	return (uint32_t)data[0] |
+		((uint32_t)data[1] << 8) |
+		((uint32_t)data[2] << 16) |
+		((uint32_t)data[3] << 24);
+}
+
+void luat_bytes_put_le32(void *ptr, uint32_t value)
+{
+	uint8_t *data = (uint8_t *)ptr;
+	data[0] = (uint8_t)value;
+	data[1] = (uint8_t)(value >> 8);
+	data[2] = (uint8_t)(value >> 16);
+	data[3] = (uint8_t)(value >> 24);
+}
+
+uint64_t luat_bytes_get_le64(const void *ptr)
+{
+	const uint8_t *data = (const uint8_t *)ptr;
+	return (uint64_t)luat_bytes_get_le32(data) |
+		((uint64_t)luat_bytes_get_le32(data + 4) << 32);
+}
+
+void luat_bytes_put_le64(void *ptr, uint64_t value)
+{
+	uint8_t *data = (uint8_t *)ptr;
+	luat_bytes_put_le32(data, (uint32_t)value);
+	luat_bytes_put_le32(data + 4, (uint32_t)(value >> 32));
+}
+
 int luat_image_crop(const uint8_t *src_data, uint32_t bytes_per_pixel,
                     uint32_t src_width, uint32_t src_height,
                     uint8_t *dst_data,

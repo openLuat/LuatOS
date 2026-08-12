@@ -39,6 +39,14 @@
 #include "mbedtls/aes.h"
 #include "mbedtls/md.h"
 #include "mbedtls/sha1.h"
+#include "mbedtls/version.h"
+
+/* mbedTLS 2.x builds with MBEDTLS_DEPRECATED_REMOVED (e.g. PC simulator
+ * mbedtls_config_pc_mbedtls218.h) do not ship the deprecated one-shot
+ * mbedtls_sha1(); use the non-deprecated _ret API instead. */
+#if MBEDTLS_VERSION_NUMBER < 0x03000000
+#define mbedtls_sha1 mbedtls_sha1_ret
+#endif
 
 #define LUAT_LOG_TAG "ipsec_ike"
 #include "luat_log.h"

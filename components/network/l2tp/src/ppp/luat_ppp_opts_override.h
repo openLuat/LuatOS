@@ -63,6 +63,17 @@
  * port to provide the mbedTLS headers, so pull in md5.h here (it is included
  * after ppp_opts.h / lwipopts.h, before any pppcrypt.h usage). */
 #include "mbedtls/md5.h"
+#include "mbedtls/version.h"
+
+/* mbedTLS 2.x builds with MBEDTLS_DEPRECATED_REMOVED (e.g. PC simulator
+ * mbedtls_config_pc_mbedtls218.h) do not ship the deprecated
+ * mbedtls_md5_starts/update/finish names; map them to the non-deprecated
+ * _ret API, same as components/network/openvpn/src/ovpn_crypto.c. */
+#if MBEDTLS_VERSION_NUMBER < 0x03000000
+#define mbedtls_md5_starts mbedtls_md5_starts_ret
+#define mbedtls_md5_update mbedtls_md5_update_ret
+#define mbedtls_md5_finish mbedtls_md5_finish_ret
+#endif
 
 #undef MEMP_NUM_PPP_PCB
 #define MEMP_NUM_PPP_PCB 1

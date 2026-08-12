@@ -443,7 +443,7 @@ static int l_lcd_init(lua_State* L) {
         extern const luat_lcd_opts_t lcd_opts_sdl2;
         conf->opts = &lcd_opts_sdl2;
 #endif
-        if (conf->port == LUAT_LCD_HW_ID_0) {
+        if (conf->port == LUAT_LCD_HW_ID_0 || conf->port == LUAT_LCD_PORT_MIPI) {
             luat_lcd_IF_init(conf);
         }
 #if defined LUAT_USE_LCD_SERVICE

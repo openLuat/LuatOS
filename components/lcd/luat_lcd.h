@@ -196,7 +196,7 @@ static inline luat_color_t color_swap(luat_color_t color) {
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd);
 int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data);
 
-void luat_lcd_execute_cmds(luat_lcd_conf_t* conf);
+int luat_lcd_execute_cmds(luat_lcd_conf_t* conf);
 
 int lcd_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
 int lcd_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
@@ -216,6 +216,7 @@ int lcd_webp_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_bu
 // 以下为luatos内部实现通用接口
 // 以下为 weak函数 可bsp单独适配硬件加速或其他接口适配等功能,默认指向上方xxx_default函数
 int luat_lcd_init(luat_lcd_conf_t* conf);
+int luat_lcd_user_ctrl_done(luat_lcd_conf_t* conf);
 int luat_lcd_setup_buff(luat_lcd_conf_t* conf);
 int luat_lcd_flush(luat_lcd_conf_t* conf);
 int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);

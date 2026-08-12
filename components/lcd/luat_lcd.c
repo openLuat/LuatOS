@@ -12,10 +12,10 @@ luat_color_t BACK_COLOR = LCD_WHITE, FORE_COLOR = LCD_BLACK;
 
 static luat_lcd_conf_t* lcd_confs[LUAT_LCD_CONF_COUNT] = {0};
 
-void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
+int luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
     uint16_t cmd = 0,cmd_len = 0;
     uint8_t cmd_send = 0;
-    uint8_t cmds[32]={0};
+    uint8_t cmds[UINT8_MAX] = {0};
     for (size_t i = 0; i < conf->opts->init_cmds_len; i++){
         cmd = conf->opts->init_cmds[i];
         switch(((cmd >> 8) & 0xFF)) {
@@ -23,9 +23,13 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
             case 0x0002:
                 if (i!=0){
                     if (cmd_len){
-                        lcd_write_cmd_data(conf,cmd_send, cmds, cmd_len);
+                        if (lcd_write_cmd_data(conf,cmd_send, cmds, (uint8_t)cmd_len)) {
+                            return -1;
+                        }
                     }else{
-                        lcd_write_cmd_data(conf,cmd_send, NULL, 0);
+                        if (lcd_write_cmd_data(conf,cmd_send, NULL, 0)) {
+                            return -1;
+                        }
                     }
                 }
                 cmd_send = (uint8_t)(cmd & 0xFF);
@@ -35,6 +39,10 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
                 luat_rtos_task_sleep(cmd & 0xFF);
                 break;
             case 0x0003:
+                if (cmd_len >= sizeof(cmds)) {
+                    LLOGE("lcd init command parameter length exceeds %u", (unsigned int)sizeof(cmds));
+                    return -1;
+                }
                 cmds[cmd_len]= (uint8_t)(cmd & 0xFF);
                 cmd_len++;
                 break;
@@ -43,12 +51,17 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
         }
         if (i==conf->opts->init_cmds_len-1){
             if (cmd_len){
-                lcd_write_cmd_data(conf,cmd_send, cmds, cmd_len);
+                if (lcd_write_cmd_data(conf,cmd_send, cmds, (uint8_t)cmd_len)) {
+                    return -1;
+                }
             }else{
-                lcd_write_cmd_data(conf,cmd_send, NULL, 0);
+                if (lcd_write_cmd_data(conf,cmd_send, NULL, 0)) {
+                    return -1;
+                }
             }
         }
     }
+    return 0;
 }
 
 int lcd_write_data(luat_lcd_conf_t* conf, const uint8_t data){
@@ -180,9 +193,16 @@ int luat_lcd_init_default(luat_lcd_conf_t* conf) {
             goto INIT_DONE;
         }
     }else{
-        luat_lcd_execute_cmds(conf);
+        if (luat_lcd_execute_cmds(conf)) {
+            if(strcmp(conf->opts->name,"custom") == 0){
+                luat_heap_free(conf->opts->init_cmds);
+                conf->opts->init_cmds = NULL;
+            }
+            return -1;
+        }
         if(strcmp(conf->opts->name,"custom") == 0){
             luat_heap_free(conf->opts->init_cmds);
+            conf->opts->init_cmds = NULL;
         }
         luat_lcd_set_direction(conf,conf->direction);
     }
@@ -231,6 +251,11 @@ LUAT_WEAK int luat_lcd_setup_buff(luat_lcd_conf_t* conf) {
 
 LUAT_WEAK int luat_lcd_init(luat_lcd_conf_t* conf) {
     return luat_lcd_init_default(conf);
+}
+
+LUAT_WEAK int luat_lcd_user_ctrl_done(luat_lcd_conf_t* conf) {
+    (void)conf;
+    return 0;
 }
 
 int luat_lcd_close(luat_lcd_conf_t* conf) {

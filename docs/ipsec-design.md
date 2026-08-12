@@ -23,24 +23,25 @@ ESP 传输模式、客户端证书认证、IPv6 隧道。
 
 ## 2. 文件布局
 
-代码按用户要求拆分到 `components/network/netdrv/src/ipsec/`：
+代码按用户要求拆分到独立子模块 `components/network/ipsec/`（内部头在
+`include/ipsec/`，源文件在 `src/`）：
 
 | 文件 | 说明 |
 |---|---|
-| `ipsec_crypto.h/.c` | PRF+/HMAC、DH modp2048、IKE/CHILD 密钥派生、AUTH 计算/验签、X.509 链+SAN 校验（内置 ISRG Root X1 + Let's Encrypt 2026 中间链） |
-| `ipsec_esp.h/.c` | ESP 隧道封装/解封（AES-CBC + HMAC）、SPI 方向、32 包反重放 |
-| `ipsec_ike.h/.c` | IKEv2 状态机：SA_INIT/AUTH/EAP/CREATE_CHILD_SA/INFORMATIONAL、payload 编解码、SK 加密、NAT-T 切换、DPD、重协商、虚拟 netif 与 adapter 收发 |
-| `ipsec_vendor_md4.h/.c` | MD4（Apache-2.0, 从 mbedTLS 2.x vendor, 自包含） |
-| `ipsec_vendor_chap_ms.h/.c` | MS-CHAPv2（BSD, 移植自 lwIP2.2 `chap_ms.c`），含 strongSwan 线格式与 RFC 3079 MSK 派生、RFC 2759 测试向量自检 |
-| `luat_netdrv_ipsec.c` | netdrv 胶水层：setup/ctrl(UPDOWN)/dhcp(-1)/debug + 链路状态回调 |
-| `include/luat_netdrv_ipsec.h` | 胶水层头文件 |
+| `include/ipsec/ipsec_crypto.h` + `src/ipsec_crypto.c` | PRF+/HMAC、DH modp2048、IKE/CHILD 密钥派生、AUTH 计算/验签、X.509 链+SAN 校验（内置 ISRG Root X1 + Let's Encrypt 2026 中间链） |
+| `include/ipsec/ipsec_esp.h` + `src/ipsec_esp.c` | ESP 隧道封装/解封（AES-CBC + HMAC）、SPI 方向、32 包反重放 |
+| `include/ipsec/ipsec_ike.h` + `src/ipsec_ike.c` | IKEv2 状态机：SA_INIT/AUTH/EAP/CREATE_CHILD_SA/INFORMATIONAL、payload 编解码、SK 加密、NAT-T 切换、DPD、重协商、虚拟 netif 与 adapter 收发 |
+| `include/ipsec/ipsec_vendor_md4.h` + `src/ipsec_vendor_md4.c` | MD4（Apache-2.0, 从 mbedTLS 2.x vendor, 自包含） |
+| `include/ipsec/ipsec_vendor_chap_ms.h` + `src/ipsec_vendor_chap_ms.c` | MS-CHAPv2（BSD, 移植自 lwIP2.2 `chap_ms.c`），含 strongSwan 线格式与 RFC 3079 MSK 派生、RFC 2759 测试向量自检 |
+| `src/luat_netdrv_ipsec.c` | netdrv 胶水层：setup/ctrl(UPDOWN)/dhcp(-1)/debug + 链路状态回调 |
+| `components/network/netdrv/include/luat_netdrv_ipsec.h` | 胶水层头文件（保持在 netdrv/include） |
 
 接入点：
 
 - `luat_netdrv_drv.h`：`LUAT_NETDRV_IMPL_IPSEC 7`
 - `luat_netdrv.h`：`luat_netdrv_ipsec_conf_t` + `conf->ipsec_conf`
 - `luat_netdrv.c` / `luat_lib_netdrv.c`：setup 分发与 `ipsec_*` 参数解析
-- `bsp/pc/xmake.lua`：ipsec 头文件搜索路径
+- `bsp/pc/xmake.lua`：ipsec 子模块头文件搜索路径（`components/network/ipsec/include`）
 - `bsp/pc/include/luat_conf_bsp.h`：`LUAT_USE_NETDRV_IPSEC 1`
 - `bsp/pc/include/lwipopts.h`：`MEMP_NUM_SYS_TIMEOUT 30`
 - `bsp/pc/port/luat_crypto_mini.c`：PC 模拟器 TRNG 每次调用重新播种
@@ -163,5 +164,5 @@ netdrv.setup(socket.LWIP_USER1, netdrv.IPSEC, {
 - RFC 7296（IKEv2）、RFC 3948（NAT-T）、RFC 4303（ESP）、
   RFC 2759/3079（MS-CHAPv2/MSK）
 - `docs/l2tp-design.md`（线程模型/胶水层/构建接线参考）
-- `components/network/netdrv/src/luat_netdrv_l2tp_client.c` /
-  `luat_netdrv_openvpn_client.c`（传输与 netif 参考）
+- `components/network/l2tp/src/l2tp_client.c` /
+  `components/network/openvpn/src/ovpn_client.c`（传输与 netif 参考）

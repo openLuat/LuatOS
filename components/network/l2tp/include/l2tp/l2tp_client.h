@@ -9,7 +9,7 @@
  * L2TP tunnel authentication (shared secret).
  *
  * The PPP stack is the vendored lwIP 2.2.1 PPP code under
- * components/network/netdrv/src/ppp/ (ppp.c / lcp.c / ipcp.c / auth.c /
+ * components/network/l2tp/src/ppp/ (ppp.c / lcp.c / ipcp.c / auth.c /
  * fsm.c / upap.c / chap-new.c / chap-md5.c / magic.c / utils.c).
  */
 
@@ -191,6 +191,17 @@ int  l2tp_client_start(l2tp_client_t *cli);
 void l2tp_client_stop(l2tp_client_t *cli);
 void l2tp_client_set_debug(l2tp_client_t *cli, int enable);
 int  l2tp_client_is_ready(l2tp_client_t *cli);
+
+/* ========== Internal cross-file API (module-internal, not for Lua) ========== */
+
+/* Raw UDP transport + control-plane timers/lifecycle shared with
+ * l2tp_ctrl.c and l2tp_ppp.c (implemented in l2tp_client.c). */
+err_t l2tp_udp_send(l2tp_client_t *cli, const u8_t *data, u16_t len);
+void l2tp_timeout(void *arg);
+void l2tp_periodic_timer(void *arg);
+void l2tp_abort_connect(l2tp_client_t *cli);
+void l2tp_stop_internal(l2tp_client_t *cli);
+void l2tp_schedule_retry(l2tp_client_t *cli, const char *reason);
 
 #ifdef __cplusplus
 }

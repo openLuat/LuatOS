@@ -1,7 +1,7 @@
 /**
  * IKEv2/IPsec (tunnel mode) netdrv 适配层
  *
- * 将 components/network/netdrv/src/ipsec 下的 IKEv2 客户端集成到 netdrv
+ * 将 components/network/ipsec 下的 IKEv2 客户端集成到 netdrv
  * 框架：setup/ctrl(UPDOWN)/dhcp(-1)/debug + 链路状态回调。
  * 数据面（虚拟 netif -> ESP -> adapter UDP 4500）由 ipsec_client 内部实现，
  * 这里只负责生命周期与 Lua 事件。
@@ -10,7 +10,7 @@
 #include "luat_base.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_ipsec.h"
-#include "ipsec_ike.h"
+#include "ipsec/ipsec_ike.h"
 #include "luat_netdrv_event.h"
 #include "luat_mem.h"
 #include "lwip/netif.h"

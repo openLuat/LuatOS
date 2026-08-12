@@ -22,7 +22,7 @@
 #include "mbedtls/dhm.h"
 #include "mbedtls/x509_crt.h"
 
-#include "ipsec_esp.h"
+#include "ipsec/ipsec_esp.h"
 
 #ifdef __cplusplus
 extern "C" {

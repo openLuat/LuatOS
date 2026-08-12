@@ -35,8 +35,8 @@
  *   - MSK derivation (RFC 3079) added for IKEv2 §2.16 key-generating EAP.
  */
 
-#include "ipsec_vendor_chap_ms.h"
-#include "ipsec_vendor_md4.h"
+#include "ipsec/ipsec_vendor_chap_ms.h"
+#include "ipsec/ipsec_vendor_md4.h"
 
 #include <string.h>
 #include <stdio.h>

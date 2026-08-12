@@ -5,7 +5,7 @@
  * mbedTLS, plus X.509 chain/SAN verification for server authentication.
  */
 
-#include "ipsec_crypto.h"
+#include "ipsec/ipsec_crypto.h"
 
 #include <string.h>
 

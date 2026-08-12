@@ -18,9 +18,9 @@
  *     tcpip thread.
  */
 
-#include "ipsec_ike.h"
-#include "ipsec_crypto.h"
-#include "ipsec_vendor_chap_ms.h"
+#include "ipsec/ipsec_ike.h"
+#include "ipsec/ipsec_crypto.h"
+#include "ipsec/ipsec_vendor_chap_ms.h"
 
 #include <string.h>
 #include <stdio.h>

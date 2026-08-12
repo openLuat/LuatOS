@@ -36,15 +36,15 @@ LuatOS 需要在内网/办公网场景下提供「二层隧道 + PPP 拨号」�
                  +------------------+------------------+
                                     |
                  +------------------v------------------+
-                 |    luat_netdrv_l2tp_client.c (核心)   |
-                 |  - L2TPv2 控制面 (SCCRQ..StopCCN,     |
+                 |   components/network/l2tp/src (核心)  |
+                 |  - l2tp_client.c: 生命周期/定时器/传输 |
+                 |  - l2tp_ctrl.c: 控制面 (SCCRQ..StopCCN,|
                  |    ns/nr 窗口, 定时重传)              |
-                 |  - PPP 数据面封装 (L2TP data header)  |
-                 |  - 重连退避 / 传输在线检测             |
+                 |  - l2tp_ppp.c: PPP 数据面封装 + 状态回调|
                  +-------+---------------+------------+
                          |               |
             network_ctrl_t (UDP)    vendored lwIP PPP 栈
-            luat_network_adapter    netdrv/src/ppp/*.c
+            luat_network_adapter    l2tp/src/ppp/*.c
                          |               |
                 底层物理网卡(4G/WiFi/ETH)   ppp_pcb / netif
 ```
@@ -53,12 +53,18 @@ LuatOS 需要在内网/办公网场景下提供「二层隧道 + PPP 拨号」�
 
 1. **胶水层**（`luat_netdrv_l2tp.c`）：把 L2TP 客户端包装成标准 `luat_netdrv_t`
    驱动，负责配置拷贝、`LUAT_NETDRV_CTRL_UPDOWN` 控制、链路状态上报。
-2. **客户端核心**（`luat_netdrv_l2tp_client.c`）：
-   - L2TPv2 控制面从 lwip22 `netif/ppp/pppol2tp.c` 移植，仅替换 UDP 收发为
-     `network_tx/network_rx`，去掉 `udp_pcb` 与传输 netif 参数；
-   - PPP 会话运行在 vendor 的 lwIP PPP 栈上，`struct link_callbacks` 的
-     `write/netif_output` 走 L2TP 数据封装。
-3. **PPP 栈**（`components/network/netdrv/src/ppp/`）：lwIP 2.2.1
+2. **客户端核心**（`components/network/l2tp/src/`，按协议层拆为三个文件）：
+   - `l2tp_client.c`：生命周期/状态机/定时器/网络适配器传输
+     （`l2tp_udp_send`、`l2tp_timeout`、重连退避、`l2tp_client_*` API）；
+   - `l2tp_ctrl.c`：L2TPv2 控制面从 lwip22 `netif/ppp/pppol2tp.c` 移植，
+     仅替换 UDP 收发为 `network_tx/network_rx`，去掉 `udp_pcb` 与传输
+     netif 参数（线格式/AVP 构造解析、ns/nr 窗口、定时重传）；
+   - `l2tp_ppp.c`：PPP 会话运行在 vendor 的 lwIP PPP 栈上，
+     `struct link_callbacks` 的 `write/netif_output` 走 L2TP 数据封装，
+     并处理 `ppp_status_cb` 链路状态回调。
+   - 跨文件原型在 `components/network/l2tp/include/l2tp/`（`l2tp_ctrl.h` /
+     `l2tp_ppp.h`），公共客户端 API 在 `l2tp/l2tp_client.h`。
+3. **PPP 栈**（`components/network/l2tp/src/ppp/`）：lwIP 2.2.1
    `ppp.c/lcp.c/ipcp.c/auth.c/fsm.c/upap.c/chap-new.c/chap-md5.c/magic.c/utils.c`
    的 vendor 副本（保留 BSD 许可头，注明来源），由构建系统按需编译。
 
@@ -95,7 +101,7 @@ PPP 的 `sifup()` 在 `np_up()` 把 phase 推进到 `PPP_PHASE_RUNNING` **之前
 ### 3.2 PPP 栈：vendor lwip22 源码 vs 自己实现
 
 lwip22 自带完整的 `ppp.c` 系列（LCP/IPCP/PAP/CHAP/FSM/魔法数），直接 vendor
-到 `netdrv/src/ppp/` 并配套两个移植补丁：
+到 `components/network/l2tp/src/ppp/` 并配套两个移植补丁：
 
 1. **`ppp_pcb` 改用 `mem_malloc/mem_free`**：本仓库 lwip22 的 `memp_std.h`
    裁剪掉了 PPP/PPPOL2TP 内存池，vendor 副本内自行 `LWIP_MEMPOOL_DECLARE`
@@ -122,7 +128,7 @@ PPP_IPV4_SUPPORT=(LWIP_IPV4), PPP_IPV6_SUPPORT=0, PPP_SERVER=0,
 LWIP_USE_EXTERNAL_MBEDTLS=1, MEMP_NUM_PPP_PCB=1
 ```
 
-配套提供 `netdrv/include/ppp_settings.h`：`lwip22/include/arch/cc.h`
+配套提供 `components/network/l2tp/include/ppp_settings.h`：`lwip22/include/arch/cc.h`
 无条件定义 `PPP_INCLUDE_SETTINGS_HEADER`，但仓库从未提供该 port 头文件
 （PPP 此前从未编译），本文件为空实现（选项全部走 override 头）。
 
@@ -134,7 +140,7 @@ LWIP_USE_EXTERNAL_MBEDTLS=1, MEMP_NUM_PPP_PCB=1
 
 lwip 的 `pppol2tp.c` 与 `udp_pcb` 强耦合，且其头文件要求
 `PPPOL2TP_SUPPORT=1`。本驱动把控制面逻辑平移到
-`luat_netdrv_l2tp_client.c`（常量、AVP 构造/解析、ns/nr 窗口、定时重传均照搬），
+`l2tp_ctrl.c`（常量、AVP 构造/解析、ns/nr 窗口、定时重传均照搬），
 传输改为 adapter 调用，因此 vendor PPP 文件以 `PPPOL2TP_SUPPORT=0` 编译，
 避免 `pppol2tp.c` 参与编译。
 
@@ -173,13 +179,17 @@ PPP MRU 默认 1450（`L2TP_DEFAULT_MTU`，可用 `l2tp_mtu` 配置）；L2TP �
 
 | 文件 | 说明 |
 |---|---|
-| `components/network/netdrv/include/luat_netdrv_l2tp_client.h` | L2TP 客户端对外结构/API、协议常量 |
-| `components/network/netdrv/src/luat_netdrv_l2tp_client.c` | 客户端核心（控制面 + 数据面 + 重连） |
+| `components/network/l2tp/include/l2tp/l2tp_client.h` | L2TP 客户端对外结构/API、协议常量 |
+| `components/network/l2tp/include/l2tp/l2tp_ctrl.h` | 控制面跨文件原型（内部） |
+| `components/network/l2tp/include/l2tp/l2tp_ppp.h` | PPP 胶水跨文件原型（内部） |
+| `components/network/l2tp/src/l2tp_client.c` | 客户端核心（生命周期/定时器/传输/重连） |
+| `components/network/l2tp/src/l2tp_ctrl.c` | 控制面（线格式/AVP/ns-nr 窗口/定时重传） |
+| `components/network/l2tp/src/l2tp_ppp.c` | PPP 胶水（link_callbacks + 状态回调） |
 | `components/network/netdrv/include/luat_netdrv_l2tp.h` | netdrv 胶水层头文件 |
-| `components/network/netdrv/src/luat_netdrv_l2tp.c` | netdrv 胶水层（setup/ctrl/dhcp/debug/状态回调） |
-| `components/network/netdrv/src/ppp/*.c` | vendored lwip 2.2.1 PPP 源码（10 个文件） |
-| `components/network/netdrv/src/ppp/luat_ppp_opts_override.h` | PPP 编译选项覆盖 |
-| `components/network/netdrv/include/ppp_settings.h` | lwip `PPP_INCLUDE_SETTINGS_HEADER` port 钩子 |
+| `components/network/l2tp/src/luat_netdrv_l2tp.c` | netdrv 胶水层（setup/ctrl/dhcp/debug/状态回调） |
+| `components/network/l2tp/src/ppp/*.c` | vendored lwip 2.2.1 PPP 源码（10 个文件） |
+| `components/network/l2tp/src/ppp/luat_ppp_opts_override.h` | PPP 编译选项覆盖 |
+| `components/network/l2tp/include/ppp_settings.h` | lwip `PPP_INCLUDE_SETTINGS_HEADER` port 钩子 |
 | `components/network/netdrv/include/luat_netdrv.h` | `luat_netdrv_l2tp_conf_t` + `conf.l2tp_conf` |
 | `components/network/netdrv/include/luat_netdrv_drv.h` | `LUAT_NETDRV_IMPL_L2TP 6` + setup 声明 |
 | `components/network/netdrv/src/luat_netdrv.c` | setup 分发新增 L2TP 分支 |
@@ -195,16 +205,19 @@ PPP MRU 默认 1450（`L2TP_DEFAULT_MTU`，可用 `l2tp_mtu` 配置）；L2TP �
 -- 剔除 lwip22 自带 PPP（避免与 vendor 副本重复编译）
 remove_files(lwip_path .. "netif/ppp/**.c")
 
--- netdrv 源码排除 src/ppp（单独带宏编译）
-add_files(luatos .. "components/network/netdrv/**.c|src/ppp/**.c")
-add_includedirs(luatos .. "components/network/netdrv/src/ppp")
+-- netdrv 核心（VPN 子模块已拆出为独立目录）
+add_files(luatos .. "components/network/netdrv/**.c")
 
--- vendor PPP + L2TP 客户端按文件附加编译宏
-add_files(luatos .. "components/network/netdrv/src/ppp/*.c",
+-- L2TP 子模块：头文件路径 + vendor PPP + 客户端按文件附加编译宏
+add_includedirs(luatos .. "components/network/l2tp/include")
+add_includedirs(luatos .. "components/network/l2tp/src/ppp")
+add_files(luatos .. "components/network/l2tp/src/ppp/*.c",
           {defines = {"LUAT_L2TP_PPP_BUILD=1"}})
-add_files(luatos .. "components/network/netdrv/src/luat_netdrv_l2tp_client.c",
+add_files(luatos .. "components/network/l2tp/src/l2tp_client.c",
+          luatos .. "components/network/l2tp/src/l2tp_ctrl.c",
+          luatos .. "components/network/l2tp/src/l2tp_ppp.c",
           {defines = {"LUAT_L2TP_PPP_BUILD=1"}})
-add_files(luatos .. "components/network/netdrv/src/luat_netdrv_l2tp.c")
+add_files(luatos .. "components/network/l2tp/src/luat_netdrv_l2tp.c")
 ```
 
 ### 4.3 Lua 用法

@@ -6,7 +6,7 @@
 #include "luat_base.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_l2tp.h"
-#include "luat_netdrv_l2tp_client.h"
+#include "l2tp/l2tp_client.h"
 #include "luat_netdrv_event.h"
 #include "luat_mem.h"
 #include "lwip/netif.h"
@@ -252,4 +252,3 @@ luat_netdrv_t* luat_netdrv_l2tp_setup(luat_netdrv_conf_t *conf) {
 
     return drv;
 }
-

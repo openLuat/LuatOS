@@ -7,8 +7,8 @@
  * nexthdr | ICV, no UDP-encapsulation marker.
  */
 
-#include "ipsec_esp.h"
-#include "ipsec_crypto.h"
+#include "ipsec/ipsec_esp.h"
+#include "ipsec/ipsec_crypto.h"
 
 #include <string.h>
 

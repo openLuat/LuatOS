@@ -27,7 +27,7 @@
  *      so this file is fully self-contained.
  */
 
-#include "ipsec_vendor_md4.h"
+#include "ipsec/ipsec_vendor_md4.h"
 
 #include <string.h>
 

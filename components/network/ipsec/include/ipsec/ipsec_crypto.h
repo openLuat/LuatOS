@@ -133,7 +133,8 @@ int ipsec_dh_calc_secret(ipsec_dh_ctx_t *ctx, uint8_t *secret, size_t *secret_le
  * \param g_ir      DH shared secret (big-endian, modulus length).
  * \param g_ir_len
  * \param spii, spir IKE SA SPIs (8 bytes each).
- * \param out       Buffer of at least 7 * ipsec_prf_len() bytes; receives
+ * \param out       Buffer of at least 5 * ipsec_prf_len(algs->prf) +
+ *                  2 * ipsec_enc_len(algs->enc) bytes; receives
  *                  SK_d | SK_ai | SK_ar | SK_ei | SK_er | SK_pi | SK_pr.
  */
 int ipsec_derive_ike_keys(const ipsec_ike_algs_t *algs,
@@ -145,13 +146,15 @@ int ipsec_derive_ike_keys(const ipsec_ike_algs_t *algs,
 
 /**
  * Derive CHILD_SA KEYMAT (RFC 7296 §2.17): prf+(SK_d, Ni | Nr).
- * Keys are taken: outbound ENCR | outbound INTEG | inbound ENCR | inbound INTEG.
+ * Keys are taken: outbound ENCR | outbound extra | inbound ENCR | inbound
+ * extra. For CBC SAs extra is the integrity key; for AEAD SAs extra is the
+ * 4-octet GCM salt.
  */
 int ipsec_derive_child_keymat(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_len,
                               const uint8_t *ni, uint16_t ni_len,
                               const uint8_t *nr, uint16_t nr_len,
-                              uint8_t enc_len, uint8_t integ_len,
-                              uint8_t *out); /* 2*(enc_len+integ_len) bytes */
+                              uint8_t enc_len, uint8_t extra_len,
+                              uint8_t *out); /* 2*(enc_len+extra_len) bytes */
 
 /**
  * Derive CHILD_SA KEYMAT from an arbitrary seed (RFC 7296 §2.17).
@@ -159,7 +162,7 @@ int ipsec_derive_child_keymat(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_le
  */
 int ipsec_derive_child_keymat_seed(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_len,
                                    const uint8_t *seed, uint16_t seed_len,
-                                   uint8_t enc_len, uint8_t integ_len,
+                                   uint8_t enc_len, uint8_t extra_len,
                                    uint8_t *out);
 
 /**
@@ -172,10 +175,12 @@ int ipsec_compute_auth_shared(uint8_t prf,
                               uint8_t *auth_out, size_t auth_out_len);
 
 /**
- * Verify an RSA/ECDSA AUTH signature over SignedOctets.
- * Tries the common hash algorithms in order of likelihood.
+ * Verify an RSA/ECDSA AUTH signature over SignedOctets using \p sig_md.
+ * For the digital-signature method this is the negotiated PRF hash; the
+ * numbered ECDSA methods use their fixed SHA-256/SHA-384/SHA-512 hash.
  */
 int ipsec_verify_auth_signature(const mbedtls_pk_context *pk,
+                                mbedtls_md_type_t sig_md,
                                 const uint8_t *signed_octets, size_t signed_len,
                                 const uint8_t *auth, size_t auth_len);
 
@@ -184,10 +189,13 @@ int ipsec_verify_auth_signature(const mbedtls_pk_context *pk,
  * leaf certificate's SAN/CN against \p san.
  *
  * \param chain     Parsed certificate chain (leaf first), from CERT payloads.
- * \param ca_pem    Optional PEM trust anchor; if NULL the server
- *                  certificate is accepted without verification.
+ * \param ca_pem    Optional PEM trust anchor. If NULL, the certificate is
+ *                  accepted only when \p insecure_cert_ok is set; in that
+ *                  case the SAN is still checked against \p san.
  * \param ca_pem_len
- * \param san       Expected server name (e.g. "ipsec.air32.cn").
+ * \param san       Expected server name or IPv4 address (e.g. "ipsec.air32.cn"
+ *                  or "10.0.0.1").
+ * \param insecure_cert_ok Permit missing CA after checking the SAN.
  * \param cacert    Optional scratch trust-store to keep allocated by the
  *                  caller (mbedtls_x509_crt_init'd).  If NULL a stack
  *                  store is used internally.
@@ -197,6 +205,7 @@ int ipsec_verify_auth_signature(const mbedtls_pk_context *pk,
 int ipsec_verify_cert_chain(mbedtls_x509_crt *chain,
                             const char *ca_pem, size_t ca_pem_len,
                             const char *san,
+                            int insecure_cert_ok,
                             mbedtls_x509_crt *cacert);
 
 #ifdef __cplusplus

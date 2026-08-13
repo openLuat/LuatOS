@@ -16,6 +16,7 @@
 #include "mbedtls/aes.h"
 #include "mbedtls/gcm.h"
 #include "mbedtls/md.h"
+#include "mbedtls/constant_time.h"
 
 #define IPSEC_ESP_IPV4_PROTO 4
 
@@ -125,7 +126,10 @@ int ipsec_esp_encrypt(ipsec_esp_sa_t *sa, const uint8_t *ip, uint16_t iplen,
     if (iplen > 1500)
         return -1;
 
-    seq = sa->seq_out++;
+    if (sa->seq_out == 0)
+        return -1;
+    seq = sa->seq_out;
+    sa->seq_out++;
 
     /* ESP header: SPI | SEQ (network byte order) */
     out[0] = (uint8_t)(sa->spi >> 24);
@@ -301,7 +305,7 @@ int ipsec_esp_decrypt(ipsec_esp_sa_t *sa, const uint8_t *in, uint16_t inlen,
     if (esp_hmac(sa->integ_key, sa->integ_key_len, in, 8 + 16 + ct_len,
                  md_type, expected) != 0)
         return -1;
-    if (memcmp(icv, expected, icv_len) != 0)
+    if (mbedtls_ct_memcmp(icv, expected, icv_len) != 0)
         return -1;
 
     /* Anti-replay only after authentication (RFC 4303 Appendix A); checking

@@ -164,7 +164,8 @@ static void mschap_challenge_response(const uint8_t *challenge,
 /* RFC 2759 ChallengeHash: SHA1(PeerChallenge|ServerChallenge|User)[0..7] */
 static void mschap_challenge_hash(const uint8_t peer_challenge[16],
                                   const uint8_t *rchallenge,
-                                  const char *username, uint8_t challenge[8])
+                                  const char *username, uint16_t username_len,
+                                  uint8_t challenge[8])
 {
     uint8_t sha1_hash[IPSEC_SHA1_LEN];
     mbedtls_md_context_t md_ctx;
@@ -175,7 +176,7 @@ static void mschap_challenge_hash(const uint8_t peer_challenge[16],
         mbedtls_md_starts(&md_ctx);
         mbedtls_md_update(&md_ctx, peer_challenge, 16);
         mbedtls_md_update(&md_ctx, rchallenge, 16);
-        mbedtls_md_update(&md_ctx, (const unsigned char *)username, strlen(username));
+        mbedtls_md_update(&md_ctx, (const unsigned char *)username, username_len);
         mbedtls_md_finish(&md_ctx, sha1_hash);
         memcpy(challenge, sha1_hash, 8);
     } else {
@@ -200,11 +201,25 @@ static void mschap_nt_password_hash(const uint8_t *secret, int secret_len,
     ipsec_md4(secret, (size_t)secret_len, hash);
 }
 
-/* Strip "DOMAIN\" prefix, MS-CHAPv2 uses the bare user name */
-static const char *mschap_user(const char *username)
+/* Strip "DOMAIN\" prefix, MS-CHAPv2 uses the bare user name. */
+static const char *mschap_user(const char *username, uint16_t username_len,
+                               uint16_t *user_len)
 {
-    const char *p = strrchr(username, '\\');
-    return p ? p + 1 : username;
+    const char *p = NULL;
+    uint16_t i;
+
+    for (i = 0; i < username_len; i++) {
+        if (username[i] == '\\')
+            p = username + i;
+    }
+    if (p != NULL) {
+        if (user_len)
+            *user_len = (uint16_t)(username_len - (uint16_t)(p - username) - 1);
+        return p + 1;
+    }
+    if (user_len)
+        *user_len = username_len;
+    return username;
 }
 
 int ipsec_mschapv2_parse_challenge(const uint8_t *data, uint16_t data_len,
@@ -250,21 +265,22 @@ int ipsec_mschapv2_make_response(const char *username, uint16_t username_len,
     uint8_t send_key[32], recv_key[32];
     uint8_t inner[79];
     uint8_t key_buf[16 + 40 + 84 + 40];
-    const char *user = mschap_user(username);
-    uint16_t nlen = (uint16_t)strlen(user);
+    const char *user;
+    uint16_t nlen;
     uint8_t *p = out;
     int i;
 
     if (peer_challenge == NULL || out == NULL || out_len == NULL)
         return -1;
-    if (password_len > IPSEC_MAX_NT_PASSWORD || nlen > 255)
+    if (username_len > 255 || password_len > IPSEC_MAX_NT_PASSWORD)
+        return -1;
+    user = mschap_user(username, username_len, &nlen);
+    if (nlen > 255)
         return -1;
     /* strongSwan layout: opcode(1) id(1) ms_length(2) value_size(1)
      * response(49) name(nlen) */
     if (out_cap < (uint16_t)(4 + 1 + 49 + nlen))
         return -1;
-    (void)username_len;
-
     /* Peer challenge: 16 random bytes */
     luat_crypto_trng((char *)peer_challenge, 16);
 
@@ -274,7 +290,7 @@ int ipsec_mschapv2_make_response(const char *username, uint16_t username_len,
     mschap_nt_password_hash(nt_hash, 16, password_hash_hash);
 
     /* Challenge(8) = SHA1(PeerChallenge|ServerChallenge|User)[0:8] */
-    mschap_challenge_hash(peer_challenge, rchallenge, user, challenge);
+    mschap_challenge_hash(peer_challenge, rchallenge, user, nlen, challenge);
     mschap_challenge_response(challenge, nt_hash, nt_response);
 
     /* Authenticator Response (RFC 2759 §4.3) */
@@ -402,7 +418,8 @@ int ipsec_mschapv2_self_test(void)
     if (memcmp(nt_hash, exp_nt_hash, 16) != 0)
         return -2;
 
-    mschap_challenge_hash(peer_challenge, auth_challenge, username, challenge);
+    mschap_challenge_hash(peer_challenge, auth_challenge, username,
+                          (uint16_t)strlen(username), challenge);
     mschap_challenge_response(challenge, nt_hash, nt_response);
     if (memcmp(nt_response, exp_nt_response, 24) != 0)
         return -3;

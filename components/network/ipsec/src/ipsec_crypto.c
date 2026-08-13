@@ -8,9 +8,11 @@
 #include "ipsec/ipsec_crypto.h"
 
 #include <string.h>
+#include <stdio.h>
 
 #include "luat_crypto.h"
 #include "mbedtls/ecp.h"
+#include "mbedtls/platform_util.h"
 
 #define LUAT_LOG_TAG "ipsec_crypto"
 #include "luat_log.h"
@@ -275,6 +277,8 @@ int ipsec_derive_ike_keys(const ipsec_ike_algs_t *algs,
     uint8_t seed[64 + 16];
     uint8_t skeyseed[IPSEC_SHA256_KEY_LEN];
     uint16_t plen = ipsec_prf_len(algs->prf);
+    uint16_t enc_len = ipsec_enc_len(algs->enc);
+    uint16_t total;
     uint16_t seed_len = 0;
     int ret = -1;
 
@@ -292,17 +296,19 @@ int ipsec_derive_ike_keys(const ipsec_ike_algs_t *algs,
     memcpy(seed + seed_len, spii, 8);
     memcpy(seed + seed_len + 8, spir, 8);
     seed_len = (uint16_t)(seed_len + 16);
+    /* SK_d|SK_ai|SK_ar|SK_ei|SK_er|SK_pi|SK_pr = 5*prf_len + 2*enc_len. */
+    total = (uint16_t)(5u * plen + 2u * enc_len);
     ret = ipsec_prf_plus(algs->prf, skeyseed, plen,
-                         seed, seed_len, out, (size_t)plen * 7);
+                         seed, seed_len, out, total);
 
-    memset(skeyseed, 0, sizeof(skeyseed));
+    mbedtls_platform_zeroize(skeyseed, sizeof(skeyseed));
     return ret;
 }
 
 int ipsec_derive_child_keymat(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_len,
                               const uint8_t *ni, uint16_t ni_len,
                               const uint8_t *nr, uint16_t nr_len,
-                              uint8_t enc_len, uint8_t integ_len,
+                              uint8_t enc_len, uint8_t extra_len,
                               uint8_t *out)
 {
     uint8_t seed[64];
@@ -311,15 +317,15 @@ int ipsec_derive_child_keymat(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_le
     memcpy(seed + ni_len, nr, nr_len);
     return ipsec_derive_child_keymat_seed(prf, sk_d, sk_d_len,
                                           seed, (uint16_t)(ni_len + nr_len),
-                                          enc_len, integ_len, out);
+                                          enc_len, extra_len, out);
 }
 
 int ipsec_derive_child_keymat_seed(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_len,
                                    const uint8_t *seed, uint16_t seed_len,
-                                   uint8_t enc_len, uint8_t integ_len,
+                                   uint8_t enc_len, uint8_t extra_len,
                                    uint8_t *out)
 {
-    uint16_t total = (uint16_t)(2 * ((uint16_t)enc_len + (uint16_t)integ_len));
+    uint16_t total = (uint16_t)(2 * ((uint16_t)enc_len + (uint16_t)extra_len));
 
     return ipsec_prf_plus(prf, sk_d, sk_d_len, seed, seed_len, out, total);
 }
@@ -395,23 +401,23 @@ static int ecdsa_raw_to_der(const uint8_t *raw, size_t raw_len,
 }
 
 int ipsec_verify_auth_signature(const mbedtls_pk_context *pk,
+                                mbedtls_md_type_t sig_md,
                                 const uint8_t *signed_octets, size_t signed_len,
                                 const uint8_t *auth, size_t auth_len)
 {
-    static const mbedtls_md_type_t candidates[] = {
-        MBEDTLS_MD_SHA256, MBEDTLS_MD_SHA1, MBEDTLS_MD_SHA384, MBEDTLS_MD_SHA512
-    };
     uint8_t hash[64];
     uint8_t der[140];
     size_t der_len;
     const uint8_t *sig;
     size_t sig_len;
-    unsigned int i;
+    const mbedtls_md_info_t *info;
+    size_t hlen;
+    int vret;
     mbedtls_pk_type_t pk_type = mbedtls_pk_get_type(pk);
 
     if (pk_type == MBEDTLS_PK_ECKEY || pk_type == MBEDTLS_PK_ECKEY_DH) {
         /* IKEv2 ECDSA AUTH data is raw r||s */
-        if (auth_len != 96 && auth_len != 64 && auth_len != 48) {
+        if (auth_len != 132 && auth_len != 96 && auth_len != 64) {
             LLOGE("auth sig len %u not ECDSA-sized", (unsigned)auth_len);
             return -1;
         }
@@ -428,35 +434,56 @@ int ipsec_verify_auth_signature(const mbedtls_pk_context *pk,
         sig_len = auth_len;
     }
 
-    for (i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
-        const mbedtls_md_info_t *info = mbedtls_md_info_from_type(candidates[i]);
-        size_t hlen;
-        if (info == NULL)
-            continue;
-        hlen = mbedtls_md_get_size(info);
-        if (hlen > sizeof(hash))
-            continue;
-        if (mbedtls_md(info, signed_octets, signed_len, hash) != 0)
-            continue;
-        {
-            int vret = mbedtls_pk_verify((mbedtls_pk_context *)pk, candidates[i],
-                                         hash, hlen, sig, sig_len);
-            if (vret == 0)
-                return 0;
-            LLOGD("pk_verify md=%d ret=-0x%04X", (int)candidates[i],
-                  (unsigned)(vret > 0 ? vret : -vret));
-        }
-    }
+    info = mbedtls_md_info_from_type(sig_md);
+    if (info == NULL)
+        return -1;
+    hlen = mbedtls_md_get_size(info);
+    if (hlen > sizeof(hash))
+        return -1;
+    if (mbedtls_md(info, signed_octets, signed_len, hash) != 0)
+        return -1;
+
+    vret = mbedtls_pk_verify((mbedtls_pk_context *)pk, sig_md,
+                             hash, hlen, sig, sig_len);
+    if (vret == 0)
+        return 0;
+    LLOGD("pk_verify md=%d ret=-0x%04X", (int)sig_md,
+          (unsigned)(vret > 0 ? vret : -vret));
+    mbedtls_platform_zeroize(hash, sizeof(hash));
     return -1;
 }
 
 /* ========== Certificate verification ========== */
 
-/* Check the leaf certificate's SAN list for \p san (DNS name) */
+/* Parse a dotted-quad IPv4 literal into four bytes. */
+static int ipsec_parse_ipv4(const char *text, uint8_t ip[4])
+{
+    unsigned int a, b, c, d;
+    char extra;
+
+    if (text == NULL || sscanf(text, "%u.%u.%u.%u%c", &a, &b, &c, &d, &extra) != 4)
+        return -1;
+    if (a > 255 || b > 255 || c > 255 || d > 255)
+        return -1;
+    ip[0] = (uint8_t)a;
+    ip[1] = (uint8_t)b;
+    ip[2] = (uint8_t)c;
+    ip[3] = (uint8_t)d;
+    return 0;
+}
+
+/* Check the leaf certificate's SAN list for \p san (DNS name or IPv4). */
 static int ipsec_check_san(mbedtls_x509_crt *crt, const char *san)
 {
     mbedtls_x509_sequence *cur;
-    size_t san_len = strlen(san);
+    size_t san_len;
+    uint8_t want_ip[4];
+    int want_is_ip;
+
+    if (san == NULL)
+        return -1;
+    san_len = strlen(san);
+    want_is_ip = (ipsec_parse_ipv4(san, want_ip) == 0);
 
     for (cur = &crt->subject_alt_names; cur != NULL; cur = cur->next) {
         mbedtls_x509_subject_alternative_name alt;
@@ -466,6 +493,10 @@ static int ipsec_check_san(mbedtls_x509_crt *crt, const char *san)
             alt.san.unstructured_name.len == san_len &&
             memcmp(alt.san.unstructured_name.p, san, san_len) == 0)
             return 0;
+        if (want_is_ip && alt.type == MBEDTLS_X509_SAN_IP_ADDRESS &&
+            alt.san.unstructured_name.len == 4 &&
+            memcmp(alt.san.unstructured_name.p, want_ip, 4) == 0)
+            return 0;
     }
     return -1;
 }
@@ -473,6 +504,7 @@ static int ipsec_check_san(mbedtls_x509_crt *crt, const char *san)
 int ipsec_verify_cert_chain(mbedtls_x509_crt *chain,
                             const char *ca_pem, size_t ca_pem_len,
                             const char *san,
+                            int insecure_cert_ok,
                             mbedtls_x509_crt *cacert)
 {
     mbedtls_x509_crt local_cacert;
@@ -484,11 +516,18 @@ int ipsec_verify_cert_chain(mbedtls_x509_crt *chain,
     if (chain == NULL)
         return -1;
 
-    /* No trust anchor configured: accept the server certificate as-is.
-     * The gateway certificate is operator-managed (e.g. ipsec.air32.cn
-     * private CA), so no built-in anchors are pinned in the firmware. */
+    /* No trust anchor configured: fail closed unless the caller explicitly
+     * opts into the insecure mode. Even then the SAN must still match. */
     if (ca_pem == NULL || ca_pem_len == 0) {
-        LLOGW("no ca_cert configured, accepting server certificate without verification");
+        if (!insecure_cert_ok) {
+            LLOGE("no ca_cert configured and insecure certificate mode is disabled");
+            return -1;
+        }
+        if (ipsec_check_san(chain, san) != 0) {
+            LLOGE("insecure mode: server SAN does not match %s", san ? san : "(null)");
+            return -1;
+        }
+        LLOGW("no ca_cert configured, accepting server certificate after SAN check");
         return 0;
     }
     if (san == NULL)

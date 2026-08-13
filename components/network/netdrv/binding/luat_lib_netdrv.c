@@ -284,6 +284,10 @@ static int l_netdrv_setup(lua_State *L) {
                 conf.ipsec_conf->ipsec_san = luaL_checklstring(L, -1, &len);
             };
             lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ipsec_insecure_cert_ok") == LUA_TBOOLEAN) {
+                conf.ipsec_conf->ipsec_insecure_cert_ok = lua_toboolean(L, -1);
+            }
+            lua_pop(L, 1);
             if (lua_getfield(L, 3, "ipsec_mtu") == LUA_TNUMBER) {
                 conf.ipsec_conf->ipsec_mtu = luaL_checkinteger(L, -1);
             };
@@ -634,6 +638,13 @@ static int l_netdrv_ipsec_sim_addr_change(lua_State *L) {
     lua_pushboolean(L, ret == 0);
     return 1;
 }
+
+extern int luat_ipsec_utest(lua_State *L, const char *case_name);
+static int l_netdrv_ipsec_utest(lua_State *L) {
+    const char *case_name = luaL_optstring(L, 1, "all");
+    lua_pushboolean(L, luat_ipsec_utest(L, case_name) == 0);
+    return 1;
+}
 #endif
 
 /*
@@ -840,6 +851,7 @@ static const rotable_Reg_t reg_netdrv[] =
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
 #if defined(LUAT_USE_UTEST) && defined(LUAT_USE_NETDRV_IPSEC)
     { "ipsec_sim_addr_change", ROREG_FUNC(l_netdrv_ipsec_sim_addr_change)},
+    { "ipsec_utest", ROREG_FUNC(l_netdrv_ipsec_utest)},
 #endif
     { "on",             ROREG_FUNC(l_netdrv_on)},
     { "send_raw",       ROREG_FUNC(l_netdrv_send_raw)},

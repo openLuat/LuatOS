@@ -36,6 +36,9 @@ extern "C" {
 #define IPSEC_IKE_TX_LEN         2048
 #define IPSEC_NONCE_LEN          32
 #define IPSEC_DH_PUB_LEN         256
+#define IPSEC_MAX_USERNAME_LEN   255
+#define IPSEC_MAX_PASSWORD_LEN   256
+#define IPSEC_MAX_CA_PEM_LEN     16384
 
 /* IKEv2 exchange types */
 #define IPSEC_EXCH_IKE_SA_INIT       34
@@ -111,6 +114,10 @@ extern "C" {
 /* Auth methods */
 #define IPSEC_AUTH_RSA             1
 #define IPSEC_AUTH_SHARED_SECRET   2
+#define IPSEC_AUTH_ECDSA_256       9
+#define IPSEC_AUTH_ECDSA_384       10
+#define IPSEC_AUTH_ECDSA_521       11
+#define IPSEC_AUTH_DIGITAL_SIG     14
 
 /* Configuration payload */
 #define IPSEC_CFG_REQUEST          1
@@ -161,9 +168,10 @@ typedef struct ipsec_client_cfg {
     size_t     username_len;
     char      *password;
     size_t     password_len;
-    char      *ca_cert_pem;       /* optional; NULL accepts server cert as-is */
+    char      *ca_cert_pem;       /* PEM trust anchor; required unless insecure mode */
     size_t     ca_cert_pem_len;
     char      *san;               /* expected server SAN */
+    uint8_t    insecure_cert_ok;   /* allow missing CA after SAN check */
     uint16_t   mtu;
     uint8_t    adapter_index;
     uint8_t    transport_index;
@@ -203,6 +211,7 @@ struct ipsec_client {
     char      *ca_cert_pem;
     size_t     ca_cert_pem_len;
     char      *san;
+    uint8_t    insecure_cert_ok;
 
     /* transport */
     network_ctrl_t *netc;
@@ -317,6 +326,7 @@ struct ipsec_client {
 int  ipsec_client_init(ipsec_client_t *cli, const ipsec_client_cfg_t *cfg);
 int  ipsec_client_start(ipsec_client_t *cli);
 void ipsec_client_stop(ipsec_client_t *cli);
+void ipsec_client_deinit(ipsec_client_t *cli);
 void ipsec_client_set_debug(ipsec_client_t *cli, int enable);
 int  ipsec_client_is_ready(ipsec_client_t *cli);
 

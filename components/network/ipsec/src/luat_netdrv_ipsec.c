@@ -163,6 +163,13 @@ luat_netdrv_t* luat_netdrv_ipsec_setup(luat_netdrv_conf_t *conf) {
             luat_heap_free(drv);
             return NULL;
         }
+        if (!IP_IS_V4(&cfg.remote_ip)) {
+            LLOGE("IPsec remote host must be an IPv4 address: %s", conf->ipsec_conf->ipsec_remote_ip);
+            luat_heap_free(client);
+            luat_heap_free(ctx);
+            luat_heap_free(drv);
+            return NULL;
+        }
     } else {
         LLOGE("IPsec remote host missing");
         luat_heap_free(client);
@@ -189,10 +196,24 @@ luat_netdrv_t* luat_netdrv_ipsec_setup(luat_netdrv_conf_t *conf) {
 
     /* EAP-MSCHAPv2 认证 */
     if (conf->ipsec_conf->ipsec_username != NULL && conf->ipsec_conf->ipsec_username_len > 0) {
+        if (conf->ipsec_conf->ipsec_username_len > IPSEC_MAX_USERNAME_LEN) {
+            LLOGE("IPsec username too long (%u)", (unsigned)conf->ipsec_conf->ipsec_username_len);
+            luat_heap_free(client);
+            luat_heap_free(ctx);
+            luat_heap_free(drv);
+            return NULL;
+        }
         cfg.username = (char *)conf->ipsec_conf->ipsec_username;
         cfg.username_len = conf->ipsec_conf->ipsec_username_len;
     }
     if (conf->ipsec_conf->ipsec_password != NULL && conf->ipsec_conf->ipsec_password_len > 0) {
+        if (conf->ipsec_conf->ipsec_password_len > IPSEC_MAX_PASSWORD_LEN) {
+            LLOGE("IPsec password too long (%u)", (unsigned)conf->ipsec_conf->ipsec_password_len);
+            luat_heap_free(client);
+            luat_heap_free(ctx);
+            luat_heap_free(drv);
+            return NULL;
+        }
         cfg.password = (char *)conf->ipsec_conf->ipsec_password;
         cfg.password_len = conf->ipsec_conf->ipsec_password_len;
     }
@@ -204,11 +225,20 @@ luat_netdrv_t* luat_netdrv_ipsec_setup(luat_netdrv_conf_t *conf) {
         return NULL;
     }
 
-    /* 服务器证书信任锚 + SAN (可选; 不提供时无条件接受服务器证书) */
+    /* 服务器证书信任锚 + SAN。默认 fail-closed；如需兼容旧行为，
+     * 显式配置 ipsec_insecure_cert_ok=true。 */
     if (conf->ipsec_conf->ipsec_ca_cert_pem != NULL && conf->ipsec_conf->ipsec_ca_cert_pem_len > 0) {
+        if (conf->ipsec_conf->ipsec_ca_cert_pem_len > IPSEC_MAX_CA_PEM_LEN) {
+            LLOGE("IPsec CA PEM too long (%u)", (unsigned)conf->ipsec_conf->ipsec_ca_cert_pem_len);
+            luat_heap_free(client);
+            luat_heap_free(ctx);
+            luat_heap_free(drv);
+            return NULL;
+        }
         cfg.ca_cert_pem = (char *)conf->ipsec_conf->ipsec_ca_cert_pem;
         cfg.ca_cert_pem_len = conf->ipsec_conf->ipsec_ca_cert_pem_len;
     }
+    cfg.insecure_cert_ok = conf->ipsec_conf->ipsec_insecure_cert_ok ? 1 : 0;
     cfg.san = (char *)(conf->ipsec_conf->ipsec_san ? conf->ipsec_conf->ipsec_san
                                                    : conf->ipsec_conf->ipsec_remote_ip);
 
@@ -254,6 +284,7 @@ luat_netdrv_t* luat_netdrv_ipsec_setup(luat_netdrv_conf_t *conf) {
     int reg_ret = luat_netdrv_register(conf->id, drv);
     if (reg_ret != 0) {
         LLOGE("Failed to register IPsec netdrv");
+        ipsec_client_deinit(client);
         luat_heap_free(client);
         luat_heap_free(ctx);
         luat_heap_free(drv);

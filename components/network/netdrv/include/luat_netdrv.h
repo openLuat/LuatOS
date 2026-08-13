@@ -99,6 +99,7 @@ typedef struct luat_netdrv_ipsec_conf
     const char* ipsec_ca_cert_pem;  // 服务器证书信任锚 PEM (可选, 缺省内置 ISRG Root X1)
     size_t ipsec_ca_cert_pem_len;
     const char* ipsec_san;          // 服务器 SAN 校验 (可选, 缺省用网关IP)
+    uint8_t ipsec_insecure_cert_ok;// 允许无 CA 时仅校验 SAN (默认关闭, fail-closed)
     uint16_t ipsec_mtu;             // 隧道 MTU, 默认1400
     uint8_t ipsec_retry_enable;     // 失败后自动重连
     uint8_t ipsec_mobike_enable;    // MOBIKE 双向地址更新, 默认关闭

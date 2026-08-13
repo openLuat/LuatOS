@@ -22,6 +22,10 @@
 #define LUAT_USB_RNDIS_HEADER_SIZE      (44U)
 #define LUAT_USB_RNDIS_DATA_OFFSET      (36U)
 
+/* Ethernet II：14字节头 + 1500字节MTU */
+#define LUAT_USB_RNDIS_MAX_FRAME_SIZE      (1514U)
+#define LUAT_USB_RNDIS_MAX_MESSAGE_SIZE    (LUAT_USB_RNDIS_HEADER_SIZE + LUAT_USB_RNDIS_MAX_FRAME_SIZE)
+
 #ifndef LUAT_USB_ETH_TX_CACHE_POWER
 #define LUAT_USB_ETH_TX_CACHE_POWER 5
 #endif
@@ -35,15 +39,12 @@
 #define LUAT_USB_ETH_DEFAULT_FRAME_SIZE (LUAT_USB_ETH_DEFAULT_FRAME_U32_SIZE << 2)
 #endif
 
-#define LUAT_USB_ETH_CACHE_U32_SIZE \
-	((LUAT_USB_ETH_DEFAULT_FRAME_SIZE + LUAT_USB_RNDIS_HEADER_SIZE + sizeof(uint32_t) - 1U) / sizeof(uint32_t))
-#define LUAT_USB_ETH_CACHE_SIZE (LUAT_USB_ETH_CACHE_U32_SIZE * sizeof(uint32_t))
 
 typedef struct
 {
 	union {
-		uint32_t data_u32[LUAT_USB_ETH_CACHE_U32_SIZE];
-		uint8_t data_u8[LUAT_USB_ETH_CACHE_SIZE];
+		uint32_t data_u32[LUAT_USB_ETH_DEFAULT_FRAME_U32_SIZE];
+		uint8_t data_u8[LUAT_USB_ETH_DEFAULT_FRAME_SIZE];
 	};
 	uint32_t total_len;
 }luat_usb_eth_data_cache_t;
@@ -70,25 +71,16 @@ typedef struct
 
 static luat_usb_eth_netif_t _usb_eth_netif;
 
-static __NETDRV_CODE_IN_ISR__ int _usb_eth_send_frame(luat_usb_eth_netif_t *ctx,
-	uint32_t *data, uint32_t len, uint8_t is_continue)
+static __NETDRV_CODE_IN_ISR__ int _usb_eth_send_frame(luat_usb_eth_netif_t *ctx, uint32_t *data, uint32_t len, uint8_t is_continue)
 {
 	const uint32_t *tx_data = data;
 	uint32_t tx_len = len;
 
 	if (ctx->data_format == LUAT_USB_ETH_DATA_FORMAT_RNDIS) {
-		uint8_t *packet = (uint8_t *)data;
-		if ((len + LUAT_USB_RNDIS_HEADER_SIZE) > LUAT_USB_ETH_CACHE_SIZE) {
+		if ((len + LUAT_USB_RNDIS_HEADER_SIZE) > LUAT_USB_RNDIS_MAX_MESSAGE_SIZE) {
 			return -LUAT_ERROR_PARAM_INVALID;
 		}
-		memmove(packet + LUAT_USB_RNDIS_HEADER_SIZE, packet, len);
-		memset(packet, 0, LUAT_USB_RNDIS_HEADER_SIZE);
-		luat_bytes_put_le32(packet, LUAT_USB_RNDIS_PACKET_MSG);
-		luat_bytes_put_le32(packet + 4, len + LUAT_USB_RNDIS_HEADER_SIZE);
-		luat_bytes_put_le32(packet + 8, LUAT_USB_RNDIS_DATA_OFFSET);
-		luat_bytes_put_le32(packet + 12, len);
-		tx_data = data;
-		tx_len = len + LUAT_USB_RNDIS_HEADER_SIZE;
+		tx_len += LUAT_USB_RNDIS_HEADER_SIZE;
 	}
 
 	if (is_continue) {
@@ -117,7 +109,19 @@ static __NETDRV_CODE_IN_RAM__ err_t _usb_eth_netif_output(struct netif *netif, s
 		return ERR_IF;
 	}
 	uint32_t tx_index = luat_no_data_fifo_next_write_index(&ctx->tx_cache_fifo);
-	pbuf_copy_partial(p, ctx->tx_cache[tx_index].data_u8, p->tot_len, 0);
+	uint32_t tx_offset = 0;
+	uint8_t *tx_data = ctx->tx_cache[tx_index].data_u8;
+	if (ctx->data_format == LUAT_USB_ETH_DATA_FORMAT_RNDIS)
+	{
+		memset(tx_data, 0, LUAT_USB_RNDIS_HEADER_SIZE);
+		tx_offset = LUAT_USB_RNDIS_HEADER_SIZE;
+		luat_bytes_put_le32(tx_data, LUAT_USB_RNDIS_PACKET_MSG);
+		luat_bytes_put_le32(tx_data + 4, p->tot_len + LUAT_USB_RNDIS_HEADER_SIZE);
+		luat_bytes_put_le32(tx_data + 8, LUAT_USB_RNDIS_DATA_OFFSET);
+		luat_bytes_put_le32(tx_data + 12, p->tot_len);
+	}
+
+	pbuf_copy_partial(p, tx_data + tx_offset, p->tot_len, 0);
 	ctx->tx_cache[tx_index].total_len = p->tot_len;
 	luat_no_data_fifo_put(&ctx->tx_cache_fifo);
 	uint32_t cr = luat_rtos_entry_critical();
@@ -264,7 +268,7 @@ static __NETDRV_CODE_IN_ISR__ void _usb_eth_rx_rndis(luat_usb_eth_netif_t *ctx,
 			ctx->rndis_rx_expected = luat_bytes_get_le32(packet + 4);
 			if ((luat_bytes_get_le32(packet) != LUAT_USB_RNDIS_PACKET_MSG) ||
 				(ctx->rndis_rx_expected < LUAT_USB_RNDIS_HEADER_SIZE) ||
-				(ctx->rndis_rx_expected > sizeof(ctx->temp_rx_cache.data_u8))) {
+				(ctx->rndis_rx_expected > LUAT_USB_RNDIS_MAX_MESSAGE_SIZE)) {
 				luat_netdrv_stat_inc(&ctx->drv.statics.drop, ctx->rndis_rx_received + len);
 				tcpip_callback_with_block(_usb_log, "invalid rndis message", 0);
 				ctx->rndis_rx_received = 0;

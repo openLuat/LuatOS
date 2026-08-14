@@ -1543,108 +1543,18 @@ static int l_tiny_epd_qrcode(lua_State *L)
 }
 
 #ifdef LUAT_USE_HZFONT
-static int luat_tiny_epd_hzfont_style_int(lua_State *L,
-                                          int table_index,
-                                          const char *field,
-                                          int minimum, int maximum,
-                                          int *value)
-{
-    lua_Integer input;
-
-    lua_getfield(L, table_index, field);
-    if (lua_isnil(L, -1)) {
-        lua_pop(L, 1);
-        return 0;
-    }
-    if (!lua_isnumber(L, -1)) {
-        lua_pop(L, 1);
-        return -1;
-    }
-    input = luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-    if (input < minimum || input > maximum) {
-        return -1;
-    }
-    *value = (int)input;
-    return 1;
-}
-
-static int luat_tiny_epd_hzfont_parse_style(lua_State *L,
-                                             int index,
-                                             tiny_epd_hzfont_style_t *style)
-{
-    int value;
-    int present;
-    int has_fg;
-
-    tiny_epd_hzfont_style_init(style);
-    if (lua_isnoneornil(L, index)) {
-        return 0;
-    }
-    /* Compatibility with eink.drawHzfont(..., antialias). */
-    if (lua_isnumber(L, index)) {
-        value = (int)luaL_checkinteger(L, index);
-        if (value < -1 || value > 3) {
-            return -1;
-        }
-        style->antialias = (int8_t)value;
-        return 0;
-    }
-    if (!lua_istable(L, index)) {
-        return -1;
-    }
-
-    present = luat_tiny_epd_hzfont_style_int(L, index, "fg", 0, UINT8_MAX, &value);
-    if (present < 0) return -1;
-    has_fg = present > 0;
-    if (has_fg) style->fg = (uint8_t)value;
-    /* color is an fg alias, useful for LCD-style code. */
-    if (!has_fg) {
-        present = luat_tiny_epd_hzfont_style_int(L, index, "color", 0, UINT8_MAX, &value);
-        if (present < 0) return -1;
-        if (present > 0) style->fg = (uint8_t)value;
-    }
-    present = luat_tiny_epd_hzfont_style_int(L, index, "bg", 0, UINT8_MAX, &value);
-    if (present < 0) return -1;
-    if (present > 0) style->bg = (int16_t)value;
-    present = luat_tiny_epd_hzfont_style_int(L, index, "antialias", -1, 3, &value);
-    if (present < 0) return -1;
-    if (present > 0) style->antialias = (int8_t)value;
-    present = luat_tiny_epd_hzfont_style_int(L, index, "threshold", 0, 255, &value);
-    if (present < 0) return -1;
-    if (present > 0) style->threshold = (uint8_t)value;
-
-    lua_getfield(L, index, "dither");
-    if (!lua_isnil(L, -1)) {
-        if (!lua_isinteger(L, -1)) {
-            lua_pop(L, 1);
-            return -1;
-        }
-        value = (int)lua_tointeger(L, -1);
-        if (value != TINY_EPD_HZFONT_DITHER_THRESHOLD &&
-            value != TINY_EPD_HZFONT_DITHER_BAYER4) {
-            lua_pop(L, 1);
-            return -1;
-        }
-        style->dither = (tiny_epd_hzfont_dither_t)value;
-    }
-    lua_pop(L, 1);
-    return 0;
-}
-
 /**
 绘制UTF-8文本（需固件启用HzFont）
-@api panel:drawHzfont(x, y, text, size[, style])
+@api panel:drawHzfont(x, y, text, size)
 @int x X坐标
 @int y 基线Y坐标
 @string text UTF-8文本，支持中文
 @int size 字号，1-255
-@table style 可选样式表，支持fg/bg/antialias/threshold/dither，省略时使用当前前景/背景色
 @return boolean 成功返回true，失败返回false和错误信息
 @usage
+-- 使用panel:setColor()设置文字的前景色和背景色
+assert(panel:setColor(epd.BLACK, epd.WHITE))
 assert(panel:drawHzfont(10, 36, "合宙LuatOS", 24))
-assert(panel:drawHzfont(10, 68, "Hello世界", 20,
-    {fg = epd.BLACK, bg = epd.WHITE, dither = epd.DITHER_BAYER4}))
 */
 static int l_tiny_epd_draw_hzfont(lua_State *L)
 {
@@ -1653,27 +1563,20 @@ static int l_tiny_epd_draw_hzfont(lua_State *L)
     lua_Integer y = luaL_checkinteger(L, 3);
     const char *text = luaL_checkstring(L, 4);
     lua_Integer size = luaL_checkinteger(L, 5);
-    tiny_epd_hzfont_style_t style;
-    const tiny_epd_hzfont_style_t *style_ptr = NULL;
 
     if (luat_tiny_epd_is_busy(device)) {
         return luat_tiny_epd_push_busy(L);
     }
-    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
+    if (lua_gettop(L) != 5 ||
+        x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX ||
         size < 1 || size > UINT8_MAX) {
         return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
-    }
-    if (!lua_isnoneornil(L, 6)) {
-        if (luat_tiny_epd_hzfont_parse_style(L, 6, &style) != 0) {
-            return luat_tiny_epd_push_result(L, TINY_EPD_ERR_PARAM);
-        }
-        style_ptr = &style;
     }
     return luat_tiny_epd_push_result(L,
                                      tiny_epd_hzfont_draw_utf8(device->epd,
                                                                (int16_t)x, (int16_t)y,
                                                                text, (uint8_t)size,
-                                                               style_ptr));
+                                                               NULL));
 }
 
 /**
@@ -1762,10 +1665,6 @@ static const rotable_Reg_t reg_tiny_epd[] = {
     {"FAST", ROREG_INT(TINY_EPD_REFRESH_FAST)},
     {"PARTIAL", ROREG_INT(TINY_EPD_REFRESH_PARTIAL)},
     {"PARTIAL_RECT", ROREG_INT(TINY_EPD_REFRESH_PARTIAL_RECT)},
-#ifdef LUAT_USE_HZFONT
-    {"DITHER_THRESHOLD", ROREG_INT(TINY_EPD_HZFONT_DITHER_THRESHOLD)},
-    {"DITHER_BAYER4", ROREG_INT(TINY_EPD_HZFONT_DITHER_BAYER4)},
-#endif
     {"SLEEP_AUTO", ROREG_INT(TINY_EPD_SLEEP_AUTO)},
     {"SLEEP_STANDBY", ROREG_INT(TINY_EPD_SLEEP_STANDBY)},
     {"SLEEP_DEEP", ROREG_INT(TINY_EPD_SLEEP_DEEP)},

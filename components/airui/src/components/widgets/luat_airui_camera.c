@@ -41,6 +41,7 @@ typedef struct {
     uint16_t frame_height;
     int camera_id;
     airui_camera_fit_t fit;
+    uint16_t rotation; /* 0/90/180/270 clockwise, applied to source before fit */
 
     bool running;
     bool size_checked;
@@ -67,6 +68,56 @@ static airui_camera_fit_t airui_camera_parse_fit(const char *fit)
     }
     LLOGW("unknown camera fit: %s, fallback to center", fit);
     return AIRUI_CAMERA_FIT_CENTER;
+}
+
+/* 仅接受 0/90/180/270；非法返回 -1 */
+static int airui_camera_parse_rotation(int rotation)
+{
+    if (rotation == 0 || rotation == 90 || rotation == 180 || rotation == 270) {
+        return rotation;
+    }
+    LLOGW("invalid camera rotation: %d, only 0/90/180/270", rotation);
+    return -1;
+}
+
+static void airui_camera_logical_size(uint32_t src_w, uint32_t src_h, uint16_t rotation,
+                                      uint32_t *log_w, uint32_t *log_h)
+{
+    if (rotation == 90 || rotation == 270) {
+        *log_w = src_h;
+        *log_h = src_w;
+    } else {
+        *log_w = src_w;
+        *log_h = src_h;
+    }
+}
+
+/* 逻辑坐标 (lx,ly) → 物理源像素；90/270 时逻辑尺寸为 (src_h, src_w) */
+static inline uint16_t airui_camera_sample_rotated(const uint16_t *src, uint32_t sw, uint32_t sh,
+                                                   uint32_t lx, uint32_t ly, uint16_t rotation)
+{
+    uint32_t sx;
+    uint32_t sy;
+
+    switch (rotation) {
+    case 90:
+        sx = ly;
+        sy = sh - 1u - lx;
+        break;
+    case 180:
+        sx = sw - 1u - lx;
+        sy = sh - 1u - ly;
+        break;
+    case 270:
+        sx = sw - 1u - ly;
+        sy = lx;
+        break;
+    default:
+        sx = lx;
+        sy = ly;
+        break;
+    }
+    return src[sy * sw + sx];
 }
 
 static airui_camera_data_t *airui_camera_get_data(lv_obj_t *obj)
@@ -239,50 +290,87 @@ static void airui_camera_timer_cb(lv_timer_t *timer)
     }
 }
 
-/* 最近邻：src(sw×sh) → dst 矩形 out_w×out_h，dst 行跨距为 dst_stride 像素 */
+/* 最近邻：逻辑源(log_w×log_h) → dst 矩形 out_w×out_h，dst 行跨距为 dst_stride 像素 */
 static void airui_camera_rgb565_nn_scale(const uint16_t *src, uint32_t sw, uint32_t sh,
                                         uint16_t *dst, uint32_t dst_stride,
-                                        uint32_t out_w, uint32_t out_h)
+                                        uint32_t out_w, uint32_t out_h,
+                                        uint16_t rotation)
 {
     uint32_t y;
     uint32_t x;
+    uint32_t log_w;
+    uint32_t log_h;
 
     if (src == NULL || dst == NULL || sw == 0 || sh == 0 || out_w == 0 || out_h == 0) {
         return;
     }
 
+    airui_camera_logical_size(sw, sh, rotation, &log_w, &log_h);
+    if (log_w == 0 || log_h == 0) {
+        return;
+    }
+
+    if (rotation == 0) {
+        for (y = 0; y < out_h; y++) {
+            uint32_t sy = (y * sh) / out_h;
+            const uint16_t *src_row = src + sy * sw;
+            uint16_t *dst_row = dst + y * dst_stride;
+            for (x = 0; x < out_w; x++) {
+                dst_row[x] = src_row[(x * sw) / out_w];
+            }
+        }
+        return;
+    }
+
     for (y = 0; y < out_h; y++) {
-        uint32_t sy = (y * sh) / out_h;
-        const uint16_t *src_row = src + sy * sw;
+        uint32_t ly = (y * log_h) / out_h;
         uint16_t *dst_row = dst + y * dst_stride;
         for (x = 0; x < out_w; x++) {
-            dst_row[x] = src_row[(x * sw) / out_w];
+            uint32_t lx = (x * log_w) / out_w;
+            dst_row[x] = airui_camera_sample_rotated(src, sw, sh, lx, ly, rotation);
         }
     }
 }
 
-/* 从源图裁剪区域最近邻缩放到整个视口 */
+/* 从逻辑源裁剪区域最近邻缩放到整个视口 */
 static void airui_camera_rgb565_nn_scale_crop(const uint16_t *src, uint32_t sw, uint32_t sh,
                                              uint32_t crop_x, uint32_t crop_y,
                                              uint32_t crop_w, uint32_t crop_h,
-                                             uint16_t *dst, uint32_t dw, uint32_t dh)
+                                             uint16_t *dst, uint32_t dw, uint32_t dh,
+                                             uint16_t rotation)
 {
     uint32_t y;
     uint32_t x;
+    uint32_t log_w;
+    uint32_t log_h;
 
     if (src == NULL || dst == NULL || crop_w == 0 || crop_h == 0 || dw == 0 || dh == 0) {
         return;
     }
-    if (crop_x + crop_w > sw || crop_y + crop_h > sh) {
+
+    airui_camera_logical_size(sw, sh, rotation, &log_w, &log_h);
+    if (crop_x + crop_w > log_w || crop_y + crop_h > log_h) {
+        return;
+    }
+
+    if (rotation == 0) {
+        for (y = 0; y < dh; y++) {
+            uint32_t sy = crop_y + (y * crop_h) / dh;
+            const uint16_t *src_row = src + sy * sw + crop_x;
+            uint16_t *dst_row = dst + y * dw;
+            for (x = 0; x < dw; x++) {
+                dst_row[x] = src_row[(x * crop_w) / dw];
+            }
+        }
         return;
     }
 
     for (y = 0; y < dh; y++) {
-        uint32_t sy = crop_y + (y * crop_h) / dh;
-        const uint16_t *src_row = src + sy * sw + crop_x;
+        uint32_t ly = crop_y + (y * crop_h) / dh;
         uint16_t *dst_row = dst + y * dw;
         for (x = 0; x < dw; x++) {
-            dst_row[x] = src_row[(x * crop_w) / dw];
+            uint32_t lx = crop_x + (x * crop_w) / dw;
+            dst_row[x] = airui_camera_sample_rotated(src, sw, sh, lx, ly, rotation);
         }
     }
 }
@@ -301,26 +389,35 @@ static int airui_camera_apply_fit(airui_camera_data_t *data,
     uint32_t out_h;
     uint32_t ox;
     uint32_t oy;
+    uint32_t log_w;
+    uint32_t log_h;
+    uint16_t rotation;
 
     if (data == NULL || src == NULL || out == NULL || src_w == 0 || src_h == 0 || dst_w == 0 || dst_h == 0) {
         return -1;
     }
 
+    rotation = data->rotation;
+    airui_camera_logical_size(src_w, src_h, rotation, &log_w, &log_h);
+    if (log_w == 0 || log_h == 0) {
+        return -1;
+    }
+
     switch (data->fit) {
     case AIRUI_CAMERA_FIT_STRETCH:
-        airui_camera_rgb565_nn_scale(src, src_w, src_h, out, dst_w, dst_w, dst_h);
+        airui_camera_rgb565_nn_scale(src, src_w, src_h, out, dst_w, dst_w, dst_h, rotation);
         return 0;
 
     case AIRUI_CAMERA_FIT_CONTAIN:
-        if ((uint32_t)src_w * (uint32_t)dst_h > (uint32_t)src_h * (uint32_t)dst_w) {
+        if (log_w * (uint32_t)dst_h > log_h * (uint32_t)dst_w) {
             out_w = dst_w;
-            out_h = ((uint32_t)src_h * (uint32_t)dst_w) / (uint32_t)src_w;
+            out_h = (log_h * (uint32_t)dst_w) / log_w;
             if (out_h == 0) {
                 out_h = 1;
             }
         } else {
             out_h = dst_h;
-            out_w = ((uint32_t)src_w * (uint32_t)dst_h) / (uint32_t)src_h;
+            out_w = (log_w * (uint32_t)dst_h) / log_h;
             if (out_w == 0) {
                 out_w = 1;
             }
@@ -334,48 +431,49 @@ static int airui_camera_apply_fit(airui_camera_data_t *data,
         ox = ((uint32_t)dst_w - out_w) / 2u;
         oy = ((uint32_t)dst_h - out_h) / 2u;
         memset(out, 0, (size_t)dst_w * (size_t)dst_h * 2u);
-        airui_camera_rgb565_nn_scale(src, src_w, src_h, out + oy * dst_w + ox, dst_w, out_w, out_h);
+        airui_camera_rgb565_nn_scale(src, src_w, src_h, out + oy * dst_w + ox, dst_w, out_w, out_h, rotation);
         return 0;
 
     case AIRUI_CAMERA_FIT_COVER:
-        /* 取与视口同宽高比的源中心区域，再拉满视口 */
-        if ((uint32_t)src_w * (uint32_t)dst_h > (uint32_t)src_h * (uint32_t)dst_w) {
-            crop_h = src_h;
-            crop_w = ((uint32_t)src_h * (uint32_t)dst_w) / (uint32_t)dst_h;
+        /* 取与视口同宽高比的逻辑源中心区域，再拉满视口 */
+        if (log_w * (uint32_t)dst_h > log_h * (uint32_t)dst_w) {
+            crop_h = log_h;
+            crop_w = (log_h * (uint32_t)dst_w) / (uint32_t)dst_h;
             if (crop_w == 0) {
                 crop_w = 1;
             }
-            if (crop_w > src_w) {
-                crop_w = src_w;
+            if (crop_w > log_w) {
+                crop_w = log_w;
             }
-            cut_x = ((uint32_t)src_w - crop_w) / 2u;
+            cut_x = (log_w - crop_w) / 2u;
             cut_y = 0;
         } else {
-            crop_w = src_w;
-            crop_h = ((uint32_t)src_w * (uint32_t)dst_h) / (uint32_t)dst_w;
+            crop_w = log_w;
+            crop_h = (log_w * (uint32_t)dst_h) / (uint32_t)dst_w;
             if (crop_h == 0) {
                 crop_h = 1;
             }
-            if (crop_h > src_h) {
-                crop_h = src_h;
+            if (crop_h > log_h) {
+                crop_h = log_h;
             }
             cut_x = 0;
-            cut_y = ((uint32_t)src_h - crop_h) / 2u;
+            cut_y = (log_h - crop_h) / 2u;
         }
-        if (crop_w == dst_w && crop_h == dst_h) {
+        if (rotation == 0 && crop_w == dst_w && crop_h == dst_h) {
             return luat_image_crop(rgb565, 2u, src_w, src_h, dst, dst_w, dst_h, cut_x, cut_y) == LUAT_ERROR_NONE
                        ? 0 : -1;
         }
-        airui_camera_rgb565_nn_scale_crop(src, src_w, src_h, cut_x, cut_y, crop_w, crop_h, out, dst_w, dst_h);
+        airui_camera_rgb565_nn_scale_crop(src, src_w, src_h, cut_x, cut_y, crop_w, crop_h,
+                                          out, dst_w, dst_h, rotation);
         return 0;
 
     case AIRUI_CAMERA_FIT_CENTER:
     default:
-        crop_w = src_w < dst_w ? src_w : dst_w;
-        crop_h = src_h < dst_h ? src_h : dst_h;
-        cut_x = ((uint32_t)src_w - crop_w) / 2u;
-        cut_y = ((uint32_t)src_h - crop_h) / 2u;
-        if (crop_w == dst_w && crop_h == dst_h) {
+        crop_w = log_w < dst_w ? log_w : dst_w;
+        crop_h = log_h < dst_h ? log_h : dst_h;
+        cut_x = (log_w - crop_w) / 2u;
+        cut_y = (log_h - crop_h) / 2u;
+        if (rotation == 0 && crop_w == dst_w && crop_h == dst_h) {
             return luat_image_crop(rgb565, 2u, src_w, src_h, dst, dst_w, dst_h, cut_x, cut_y) == LUAT_ERROR_NONE
                        ? 0 : -1;
         }
@@ -383,12 +481,22 @@ static int airui_camera_apply_fit(airui_camera_data_t *data,
         memset(out, 0, (size_t)dst_w * (size_t)dst_h * 2u);
         ox = ((uint32_t)dst_w - crop_w) / 2u;
         oy = ((uint32_t)dst_h - crop_h) / 2u;
-        {
+        if (rotation == 0) {
             uint32_t row;
             for (row = 0; row < crop_h; row++) {
                 memcpy(out + (oy + row) * dst_w + ox,
                        src + (cut_y + row) * src_w + cut_x,
                        (size_t)crop_w * 2u);
+            }
+        } else {
+            uint32_t row;
+            uint32_t col;
+            for (row = 0; row < crop_h; row++) {
+                uint16_t *dst_row = out + (oy + row) * dst_w + ox;
+                for (col = 0; col < crop_w; col++) {
+                    dst_row[col] = airui_camera_sample_rotated(src, src_w, src_h,
+                                                               cut_x + col, cut_y + row, rotation);
+                }
             }
         }
         return 0;
@@ -516,6 +624,8 @@ lv_obj_t *airui_camera_create_from_config(void *L, int idx)
     lv_coord_t requested_width;
     lv_coord_t requested_height;
     const char *fit;
+    int rotation;
+    int parsed_rotation;
 
     if (L_state == NULL) {
         return NULL;
@@ -530,6 +640,7 @@ lv_obj_t *airui_camera_create_from_config(void *L, int idx)
     requested_width = (lv_coord_t)airui_marshal_floor_integer(L, idx, "w", 320);
     requested_height = (lv_coord_t)airui_marshal_floor_integer(L, idx, "h", 240);
     fit = airui_marshal_string(L, idx, "fit", NULL);
+    rotation = airui_marshal_integer(L, idx, "rotation", 0);
 
     camera = lv_image_create(parent);
     if (camera == NULL) {
@@ -562,6 +673,8 @@ lv_obj_t *airui_camera_create_from_config(void *L, int idx)
     data->requested_height = requested_height;
     data->camera_id = (int)airui_marshal_floor_integer(L, idx, "camera_id", LUAT_CAMERA_TYPE_USB);
     data->fit = airui_camera_parse_fit(fit);
+    parsed_rotation = airui_camera_parse_rotation(rotation);
+    data->rotation = (parsed_rotation < 0) ? 0 : (uint16_t)parsed_rotation;
 
     airui_component_meta_set_user_data(meta, data, airui_camera_release_data);
 
@@ -601,6 +714,45 @@ int airui_camera_set_fit(lv_obj_t *camera, const char *fit)
     data->fit = airui_camera_parse_fit(fit);
     lv_image_set_inner_align(camera, LV_IMAGE_ALIGN_CENTER);
     return 0;
+}
+
+int airui_camera_set_rotation(lv_obj_t *camera, int rotation)
+{
+    airui_camera_data_t *data;
+    int parsed;
+
+    if (camera == NULL) {
+        return -1;
+    }
+
+    data = airui_camera_get_data(camera);
+    if (data == NULL) {
+        return -1;
+    }
+
+    parsed = airui_camera_parse_rotation(rotation);
+    if (parsed < 0) {
+        return -1;
+    }
+
+    data->rotation = (uint16_t)parsed;
+    return 0;
+}
+
+int airui_camera_get_rotation(lv_obj_t *camera)
+{
+    airui_camera_data_t *data;
+
+    if (camera == NULL) {
+        return 0;
+    }
+
+    data = airui_camera_get_data(camera);
+    if (data == NULL) {
+        return 0;
+    }
+
+    return (int)data->rotation;
 }
 
 int airui_camera_start(lv_obj_t *camera)

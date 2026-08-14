@@ -1,10 +1,13 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 2.8
-@date    2026.8.11
+@version 2.9
+@date    2026.8.14
 @author  拓毅恒
 @updates
+    v2.9 2026.8.14
+        1. 修复codec_voltage参数无效问题：setup时audio_setup_param.codec_voltage始终为默认值1(3.3V)，
+           现加入optional_params，外部设置codec_voltage=0(1.8V)可正确生效
     v2.8 2026.8.11
         1. 新增默认驱动切换支持：audio_setup_param新增tx_bus_type/tx_bus_id/rx_bus_type/rx_bus_id，
            当板子上有多种音频驱动、需播放和录音使用不同驱动时设置（如Air1602_V1.2开发板DAC0输出+I2S2录音）。
@@ -71,6 +74,9 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202608141133
+-- 1、更新时间：2026-08-14 11:33
+--    修复codec_voltage参数无效问题：setup时audio_setup_param.codec_voltage始终为默认值1(3.3V)，现加入optional_params，外部设置codec_voltage=0(1.8V)可正确生效
 -- 版本号：202608111818
 -- 1、更新时间：2026-08-11 18:18
 --    新增默认驱动切换支持：audio_setup_param新增tx_bus_type/tx_bus_id/rx_bus_type/rx_bus_id，当板子上有多种音频驱动、需播放和录音使用不同驱动时设置默认nil不启用
@@ -1135,6 +1141,7 @@ function exaudio.setup(audioConfigs)
         {name = "tx_bus_id", type = "number"},        -- 发送总线ID
         {name = "rx_bus_type", type = "number"},      -- 接收总线类型(默认驱动切换)
         {name = "rx_bus_id", type = "number"},        -- 接收总线ID
+        {name = "codec_voltage", type = "number"},    -- ES8311电平: 1=3.3V(默认), 0=1.8V(Air8201H等特殊板型)
     }
 
     -- 校验默认驱动切换参数：tx/rx总线类型必须成对出现
@@ -2127,7 +2134,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608111818"
+    return "202608141133"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

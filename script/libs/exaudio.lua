@@ -74,8 +74,8 @@
 @usage
 
 -- 版本更新说明
--- 版本号：202608141133
--- 1、更新时间：2026-08-14 11:33
+-- 版本号：202608141949
+-- 1、更新时间：2026-08-14 19:49
 --    修复codec_voltage参数无效问题：setup时audio_setup_param.codec_voltage始终为默认值1(3.3V)，现加入optional_params，外部设置codec_voltage=0(1.8V)可正确生效
 -- 版本号：202608111818
 -- 1、更新时间：2026-08-11 18:18
@@ -1926,7 +1926,9 @@ function exaudio.pm(pm_mode)
         elseif pm_mode == exaudio.RESUME then
             -- RESUME：恢复ES8311，确保所有模块处于工作状态
             if es8311_ok and es8311_drv then
-                es8311_drv.init(audio_setup_param.i2c_id or 0)
+                -- codec_voltage=0时按1.8V电平初始化(0x01)，否则默认3.3V(0x00)
+                local voltage = audio_setup_param.codec_voltage == 0 and 0x01 or 0x00
+                es8311_drv.init(audio_setup_param.i2c_id or 0, voltage)
                 es8311_drv.resume(audio_setup_param.i2c_id or 0)
                 es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, voice_vol)
                 es8311_drv.set_mic_vol(audio_setup_param.i2c_id or 0, mic_vol)
@@ -2134,7 +2136,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608141133"
+    return "202608141949"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

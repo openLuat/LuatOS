@@ -39,7 +39,7 @@ return {
 
 
         -- 4G 模组(Air780ER) 上电复位 (UART2, EN=GPIO42, RST=GPIO65)
-        { pin = 42, dir = 0, level = 1, delay = 50  },  -- 拉高 EN 使能
+        { pin = 42, dir = 0, level = 0, delay = 50  },  -- 拉高 EN 使能
         { pin = 65, dir = 0, level = 0, delay = 100 },  -- 拉低 RST 复位
         { pin = 65, dir = 0, level = 1, delay = 1000 }, -- 拉高 RST 释放，等待模块启动
 
@@ -128,9 +128,9 @@ return {
           speed = 20 * 1000000, -- 20MHz
         },
 
-        -- ===== 第三优先级：4G（AirLink UART2） =====
+        -- ===== 第三优先级：4G（AirLink UART3） =====
         { type = "4g_airlink_uart",
-          uart_id = 2,          -- UART2
+          uart_id = 3,          -- UART3
           baud = 2000000,       -- 2Mbps
           adapter = socket.LWIP_GP_GW,
         },

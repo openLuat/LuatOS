@@ -266,11 +266,11 @@ local function build_ui()
         color = COLOR_BG,
     })
 
-    -- 标题栏高度（与 titlebar.create 内部计算一致）
-    local density = _G.density_scale or 1.0
-    titlebar_height = math.floor(60 * density)
+    -- 先估算标题栏高度，创建可滚动内容区（在下层）
+    local gh = _G.screen_h or 800
+    local compact = (gh > 0 and gh < 320)
+    titlebar_height = math.floor((compact and 48 or 60) * (_G.density_scale or 1.0))
 
-    -- 先创建可滚动内容区（在下层），再创建标题栏（在上层接收触摸）
     content_area = airui.container({
         parent = main_container,
         x = 0, y = titlebar_height,
@@ -278,9 +278,17 @@ local function build_ui()
         color = COLOR_BG, scrollable = true,
     })
 
-    title_bar = titlebar.create(main_container, "存储顺序", screen_w, function()
+    -- 再创建标题栏（在上层接收触摸），第二个返回值为实际高度
+    local actual_th
+    title_bar, actual_th = titlebar.create(main_container, "存储顺序", screen_w, function()
         exwin.close(window_id)
     end)
+    if actual_th and actual_th > 0 and actual_th ~= titlebar_height then
+        -- 校正内容区起点（紧凑模式下标题栏更矮，内容区随之下移）
+        local dy = actual_th - titlebar_height
+        titlebar_height = actual_th
+        content_area:move(0, dy)
+    end
 end
 
 local function on_create()

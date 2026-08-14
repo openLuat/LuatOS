@@ -72,6 +72,41 @@ typedef struct luat_netdrv_openvpn_conf
     size_t ovpn_password_len;
 }luat_netdrv_openvpn_conf_t;
 
+typedef struct luat_netdrv_l2tp_conf
+{
+    const char* l2tp_remote_ip;     // LNS IP地址 (仅IP字面量)
+    uint16_t l2tp_remote_port;      // LNS端口, 默认1701
+    const char* l2tp_username;      // PPP用户名 (可选)
+    size_t l2tp_username_len;
+    const char* l2tp_password;      // PPP密码 (可选)
+    size_t l2tp_password_len;
+    const char* l2tp_secret;        // L2TP隧道共享密钥 (可选)
+    size_t l2tp_secret_len;
+    uint16_t l2tp_mtu;              // PPP MRU, 默认1450
+    uint8_t l2tp_retry_enable;      // 失败后自动重连
+    uint32_t l2tp_retry_base_ms;    // 重试基础延迟
+    uint32_t l2tp_retry_max_ms;     // 重试最大延迟
+}luat_netdrv_l2tp_conf_t;
+
+typedef struct luat_netdrv_ipsec_conf
+{
+    const char* ipsec_remote_ip;    // IKEv2 网关 IP (仅IP字面量)
+    uint16_t ipsec_remote_port;     // IKE 端口, 默认500
+    const char* ipsec_username;     // EAP-MSCHAPv2 用户名
+    size_t ipsec_username_len;
+    const char* ipsec_password;     // EAP-MSCHAPv2 密码
+    size_t ipsec_password_len;
+    const char* ipsec_ca_cert_pem;  // 服务器证书信任锚 PEM (可选; 未配置时默认 fail-closed, 需显式 ipsec_insecure_cert_ok=true 才接受证书)
+    size_t ipsec_ca_cert_pem_len;
+    const char* ipsec_san;          // 服务器 SAN 校验 (可选, 缺省用网关IP)
+    uint8_t ipsec_insecure_cert_ok;// 允许无 CA 时仅校验 SAN (默认关闭, fail-closed)
+    uint16_t ipsec_mtu;             // 隧道 MTU, 默认1400
+    uint8_t ipsec_retry_enable;     // 失败后自动重连
+    uint8_t ipsec_mobike_enable;    // MOBIKE 双向地址更新, 默认关闭
+    uint32_t ipsec_retry_base_ms;   // 重试基础延迟
+    uint32_t ipsec_retry_max_ms;    // 重试最大延迟
+}luat_netdrv_ipsec_conf_t;
+
 
 typedef struct luat_netdrv_conf
 {
@@ -87,6 +122,8 @@ typedef struct luat_netdrv_conf
     luat_netdrv_ip_conf_t *ip_conf;
     luat_netdrv_wg_conf_t *wg_conf;
     luat_netdrv_openvpn_conf_t *ovpn_conf;
+    luat_netdrv_l2tp_conf_t *l2tp_conf;
+    luat_netdrv_ipsec_conf_t *ipsec_conf;
 }luat_netdrv_conf_t;
 
 typedef struct luat_netdrv_statics_item
@@ -187,4 +224,3 @@ int luat_netdrv_is_ready(int id);
 #endif
 
 #endif
-

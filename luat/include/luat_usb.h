@@ -97,6 +97,13 @@ enum
 	LUAT_USB_ETH_EVENT_MAC,
 	LUAT_USB_ETH_EVENT_CONNECT,
 	LUAT_USB_ETH_EVENT_DISCONNECT,
+	LUAT_USB_ETH_EVENT_DATA_FORMAT,
+};
+
+enum
+{
+	LUAT_USB_ETH_DATA_FORMAT_ETHERNET = 0,
+	LUAT_USB_ETH_DATA_FORMAT_RNDIS,
 };
 
 typedef void(*luat_usb_event_callback_fun_t)(uint32_t event, void *data_or_p_param, uint32_t size_or_u32_param, void *user_param);

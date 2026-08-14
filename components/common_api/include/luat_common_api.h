@@ -654,6 +654,126 @@ void luat_string_upper(uint8_t *src, uint32_t length);
 void luat_string_lower(uint8_t *src, uint32_t length);
 
 /**
+ * @brief 从内存地址读取一个无符号 8 位整数
+ *
+ * @param ptr 数据地址
+ * @return 读取到的无符号 8 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 1 字节
+ */
+uint8_t luat_bytes_get_u8(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个无符号 8 位整数
+ *
+ * @param ptr 数据地址
+ * @param value 要写入的无符号 8 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 1 字节
+ */
+void luat_bytes_put_u8(void *ptr, uint8_t value);
+
+/**
+ * @brief 从内存地址读取一个大端序无符号 16 位整数
+ *
+ * @param ptr 数据地址，可以不按 16 位对齐
+ * @return 读取到的无符号 16 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 2 字节
+ */
+uint16_t luat_bytes_get_be16(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个大端序无符号 16 位整数
+ *
+ * @param ptr 数据地址，可以不按 16 位对齐
+ * @param value 要写入的无符号 16 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 2 字节
+ */
+void luat_bytes_put_be16(void *ptr, uint16_t value);
+
+/**
+ * @brief 从内存地址读取一个大端序无符号 32 位整数
+ *
+ * @param ptr 数据地址，可以不按 32 位对齐
+ * @return 读取到的无符号 32 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 4 字节
+ */
+uint32_t luat_bytes_get_be32(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个大端序无符号 32 位整数
+ *
+ * @param ptr 数据地址，可以不按 32 位对齐
+ * @param value 要写入的无符号 32 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 4 字节
+ */
+void luat_bytes_put_be32(void *ptr, uint32_t value);
+
+/**
+ * @brief 从内存地址读取一个小端序无符号 16 位整数
+ *
+ * @param ptr 数据地址，可以不按 16 位对齐
+ * @return 读取到的无符号 16 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 2 字节
+ */
+uint16_t luat_bytes_get_le16(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个小端序无符号 16 位整数
+ *
+ * @param ptr 数据地址，可以不按 16 位对齐
+ * @param value 要写入的无符号 16 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 2 字节
+ */
+void luat_bytes_put_le16(void *ptr, uint16_t value);
+
+/**
+ * @brief 从内存地址读取一个小端序无符号 32 位整数
+ *
+ * @param ptr 数据地址，可以不按 32 位对齐
+ * @return 读取到的无符号 32 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 4 字节
+ */
+uint32_t luat_bytes_get_le32(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个小端序无符号 32 位整数
+ *
+ * @param ptr 数据地址，可以不按 32 位对齐
+ * @param value 要写入的无符号 32 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 4 字节
+ */
+void luat_bytes_put_le32(void *ptr, uint32_t value);
+
+/**
+ * @brief 从内存地址读取一个小端序无符号 64 位整数
+ *
+ * @param ptr 数据地址，可以不按 64 位对齐
+ * @return 读取到的无符号 64 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 8 字节
+ */
+uint64_t luat_bytes_get_le64(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个小端序无符号 64 位整数
+ *
+ * @param ptr 数据地址，可以不按 64 位对齐
+ * @param value 要写入的无符号 64 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 8 字节
+ */
+void luat_bytes_put_le64(void *ptr, uint64_t value);
+
+/**
  * @brief 图像裁剪函数
  *
  * 从原始图像中裁剪出指定矩形区域，支持任意像素深度（如 RGB565、RGB888、RGBA8888 等）。

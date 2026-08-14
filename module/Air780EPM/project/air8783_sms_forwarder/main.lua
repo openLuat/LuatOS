@@ -51,6 +51,9 @@ require "excloud_app"
 require "sms_app"
 
 
+-- 加载看门狗功能模块
+require "wdt_app"
+
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

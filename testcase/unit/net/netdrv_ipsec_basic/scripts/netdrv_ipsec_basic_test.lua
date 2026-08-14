@@ -3,9 +3,21 @@
 --   1. 宿主机可访问 ipsec.air32.cn (UDP 500/4500)
 --   2. scripts 目录下存在 ikev2-ca.crt (网关私建 CA, 由脚本作为
 --      ipsec_ca_cert_pem 提供给客户端, 不再依赖内置 Let's Encrypt 锚)
+--   3. 测试账号凭据通过环境变量注入, 不随源码分发:
+--      LUAT_IPSEC_USERNAME / LUAT_IPSEC_PASSWORD, 未设置时测试跳过
 local M = {}
 
 local IPSEC_ADAPTER = socket.LWIP_USER1
+local IPSEC_USERNAME = os.getenv and os.getenv("LUAT_IPSEC_USERNAME")
+local IPSEC_PASSWORD = os.getenv and os.getenv("LUAT_IPSEC_PASSWORD")
+
+local function creds_missing()
+    if not IPSEC_USERNAME or not IPSEC_PASSWORD then
+        log.warn("ipsec_test", "LUAT_IPSEC_USERNAME/LUAT_IPSEC_PASSWORD 未设置, 跳过本测试")
+        return true
+    end
+    return false
+end
 
 local function read_file(path)
     local f = io.open(path, "r")
@@ -19,8 +31,8 @@ local function setup_ipsec(overrides)
     local opts = {
         ipsec_remote_ip = "154.8.159.79",   -- ipsec.air32.cn
         ipsec_remote_port = 500,
-        ipsec_username = "vpnuser",
-        ipsec_password = "fnXYgmwsJWpSGYwR",
+        ipsec_username = IPSEC_USERNAME,
+        ipsec_password = IPSEC_PASSWORD,
         ipsec_san = "ipsec.air32.cn",
         ipsec_mtu = 1400,
         ipsec_retry_enable = true,
@@ -77,6 +89,9 @@ function M.test_ipsec_connect()
     if M.mode ~= "connect" then
         return true
     end
+    if creds_missing() then
+        return true
+    end
     assert(setup_ipsec(), "netdrv.setup(IPSEC) failed")
     assert(wait_ready(45000), "IPsec not ready within 45s")
 
@@ -92,6 +107,9 @@ function M.test_ipsec_badpass()
     if M.mode ~= "badpass" then
         return true
     end
+    if creds_missing() then
+        return true
+    end
     assert(setup_ipsec({ ipsec_password = "wrongpass" }),
            "netdrv.setup(IPSEC) failed")
     assert(not wait_ready(20000), "IPsec should NOT become ready with bad password")
@@ -102,6 +120,9 @@ end
 -- 负向: SAN 校验失败 (证书里没有该名字), 不应 ready
 function M.test_ipsec_bad_san()
     if M.mode ~= "sanit" then
+        return true
+    end
+    if creds_missing() then
         return true
     end
     assert(setup_ipsec({ ipsec_san = "wrong.example.com" }),

@@ -3,6 +3,7 @@ VERSION = "1.0.0"
 
 -- PC 模拟器联调真实 strongSwan 网关 ipsec.air32.cn (IKEv2 + EAP-MSCHAPv2)
 -- 需要 scripts/ikev2-ca.crt (网关私建 CA), 由测试脚本作为 ipsec_ca_cert_pem 传入
+-- 需要环境变量 LUAT_IPSEC_USERNAME / LUAT_IPSEC_PASSWORD (测试账号凭据, 不随源码分发)
 -- 场景由环境变量 LUAT_IPSEC_TEST 选择:
 --   connect : 正常拨号, 期望 IP_READY + 隧道 IP + DNS
 --   badpass : 错误密码, 期望认证失败且不 ready

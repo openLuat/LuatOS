@@ -96,7 +96,7 @@ typedef struct luat_netdrv_ipsec_conf
     size_t ipsec_username_len;
     const char* ipsec_password;     // EAP-MSCHAPv2 密码
     size_t ipsec_password_len;
-    const char* ipsec_ca_cert_pem;  // 服务器证书信任锚 PEM (可选, 缺省内置 ISRG Root X1)
+    const char* ipsec_ca_cert_pem;  // 服务器证书信任锚 PEM (可选; 未配置时默认 fail-closed, 需显式 ipsec_insecure_cert_ok=true 才接受证书)
     size_t ipsec_ca_cert_pem_len;
     const char* ipsec_san;          // 服务器 SAN 校验 (可选, 缺省用网关IP)
     uint8_t ipsec_insecure_cert_ok;// 允许无 CA 时仅校验 SAN (默认关闭, fail-closed)

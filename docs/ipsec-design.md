@@ -38,7 +38,7 @@ MOBIKE 默认关闭（`ipsec_mobike_enable` 未配置时行为与旧版一致，
 
 | 文件 | 说明 |
 |---|---|
-| `include/ipsec/ipsec_crypto.h` + `src/ipsec_crypto.c` | PRF+/HMAC、DH modp2048、IKE/CHILD 密钥派生、AUTH 计算/验签、X.509 链+SAN 校验（信任锚由 `ipsec_ca_cert_pem` 提供，不提供则无条件接受服务器证书） |
+| `include/ipsec/ipsec_crypto.h` + `src/ipsec_crypto.c` | PRF+/HMAC、DH modp2048、IKE/CHILD 密钥派生、AUTH 计算/验签、X.509 链+SAN 校验（信任锚由 `ipsec_ca_cert_pem` 提供；不提供时默认 fail-closed，仅当显式开启 `ipsec_insecure_cert_ok` 才接受证书且仍校验 SAN） |
 | `include/ipsec/ipsec_esp.h` + `src/ipsec_esp.c` | ESP 隧道封装/解封（AES-CBC + HMAC 或 AES-GCM AEAD）、SPI 方向、32 包反重放 |
 | `include/ipsec/ipsec_ike.h` + `src/ipsec_ike.c` | IKEv2 状态机：SA_INIT/AUTH/EAP/CREATE_CHILD_SA/INFORMATIONAL、payload 编解码、SK 加密、NAT-T 切换、DPD、重协商、虚拟 netif 与 adapter 收发 |
 | `include/ipsec/ipsec_vendor_md4.h` + `src/ipsec_vendor_md4.c` | MD4（Apache-2.0, 从 mbedTLS 2.x vendor, 自包含） |
@@ -122,8 +122,9 @@ ipsec_ike.c  (IKEv2 状态机, tcpip 线程)
 - ESP SPI 方向：发起端**发送**用响应者分配的 SPI（SAr2），**接收**
   用自己提议的 SPI（SAi2）。
 - 证书链：配置了 `ipsec_ca_cert_pem` 时按该信任锚做链校验并校验
-  SAN `ipsec.air32.cn`；未配置时**无条件接受服务器证书**（固件不再
-  内置任何信任锚）。mbedTLS 校验需传 `mbedtls_x509_crt_profile_default`，
+  SAN `ipsec.air32.cn`；未配置时默认 **fail-closed**（固件不再内置任何
+  信任锚），仅当显式设置 `ipsec_insecure_cert_ok=true` 才接受服务器证书，
+  且仍强制 SAN 匹配。mbedTLS 校验需传 `mbedtls_x509_crt_profile_default`，
   PEM 缓冲需 NUL 结尾（mbedTLS 3.x 的 PEM 识别条件）。
 
 ## 5. 配置参考（Lua）
@@ -135,7 +136,9 @@ netdrv.setup(socket.LWIP_USER1, netdrv.IPSEC, {
     ipsec_username = "vpnuser",
     ipsec_password = "xxxx",
     ipsec_san = "ipsec.air32.cn",      -- 服务器 SAN 校验
-    -- ipsec_ca_cert_pem = "-----BEGIN CERTIFICATE-----...", -- 可选自定义信任锚
+    -- ipsec_ca_cert_pem = "-----BEGIN CERTIFICATE-----...", -- 建议配置信任锚;
+    --                                                      -- 未配置且未开启 insecure 时无法连接 (fail-closed)
+    -- ipsec_insecure_cert_ok = false,  -- 默认 false; true 表示无 CA 时仅校验 SAN 即接受
     ipsec_mtu = 1400,
     ipsec_retry_enable = true,
     ipsec_retry_base_ms = 1000,
@@ -170,7 +173,7 @@ netdrv.setup(socket.LWIP_USER1, netdrv.IPSEC, {
 | 12 | 最终 AUTH 被拒（修复 11 后仍失败） | MSK 的 master 用 `sizeof(inner)=79`（实际 67）；且 0x36/0x5C 填充与 strongSwan 的 0x00/0xF2 不符；32 字节 key 从 20 字节 digest 越界拷贝 | 按 strongSwan 实现重写 MSK 派生 |
 | 13 | ESP 无回包, 网关 `XfrmInNoStates` | ESP SPI 方向反了（发送用了自己提议的 SPI） | 发送用 SAr2 的 SPI |
 | 14 | 隧道 IP 与策略不匹配 | CP 的 IPv4 字节序（`ip4_addr_set_u32` 需先 `lwip_htonl`） | 恢复 `lwip_htonl(ike_get32())` |
-| 15 | 证书校验 `NOT_TRUSTED`（flags=0x8） | 网关改用私建 CA（`CN=IKEv2 VPN CA`，自签 10 年），strongSwan 只发叶子，内置 ISRG Root X1 / LE 中间链不再适用 | 测试脚本改从 `scripts/ikev2-ca.crt` 读取 CA 作为 `ipsec_ca_cert_pem` 传入；同时按需求移除固件内置信任锚，未传 CA 时无条件接受服务器证书 |
+| 15 | 证书校验 `NOT_TRUSTED`（flags=0x8） | 网关改用私建 CA（`CN=IKEv2 VPN CA`，自签 10 年），strongSwan 只发叶子，内置 ISRG Root X1 / LE 中间链不再适用 | 测试脚本改从 `scripts/ikev2-ca.crt` 读取 CA 作为 `ipsec_ca_cert_pem` 传入；同时按需求移除固件内置信任锚，未配 CA 的默认行为在后续提交中收紧为 fail-closed（需显式 `ipsec_insecure_cert_ok=true` 才接受证书，且仍校验 SAN） |
 
 服务器侧配合项（已处理，用户授权调试）：
 
@@ -192,8 +195,11 @@ netdrv.setup(socket.LWIP_USER1, netdrv.IPSEC, {
 - `sanit`：错误 SAN → 证书校验拒绝 → 不 ready，**通过**。
 
 > 前置：`testcase/unit/net/netdrv_ipsec_basic/scripts/ikev2-ca.crt`
-> （网关私建 CA）必须存在，测试会把它作为 `ipsec_ca_cert_pem` 传入。
-> 固件默认（未传 `ipsec_ca_cert_pem`）无条件接受服务器证书，不做链/SAN 校验。
+> （网关私建 CA）必须存在，测试会把它作为 `ipsec_ca_cert_pem` 传入；
+> 测试账号凭据通过环境变量 `LUAT_IPSEC_USERNAME` / `LUAT_IPSEC_PASSWORD`
+> 注入（不随源码分发），未设置时测试跳过。
+> 固件默认 fail-closed：未传 `ipsec_ca_cert_pem` 且未显式开启
+> `ipsec_insecure_cert_ok` 时拒绝连接（固件不再内置任何信任锚）。
 
 ## 8. 遗留与后续
 

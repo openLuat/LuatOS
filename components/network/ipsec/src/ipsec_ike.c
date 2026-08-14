@@ -5,7 +5,8 @@
  *   - IKE_SA_INIT: aes256-sha256-modp2048 / aes128-sha1-modp2048
  *   - IKE_AUTH: EAP-MSCHAPv2 (RFC 2759/3079) + server certificate chain
  *     verification when ipsec_ca_cert_pem is configured (+ SAN check);
- *     without a CA the server certificate is accepted as-is
+ *     without a CA the connection fails closed unless ipsec_insecure_cert_ok
+ *     is enabled (then only the SAN is checked)
  *   - NAT-T (RFC 3948): UDP 500 -> 4500, keepalives
  *   - DPD liveness checks
  *   - CHILD_SA rekey via CREATE_CHILD_SA without PFS (no KE)

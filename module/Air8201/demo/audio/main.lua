@@ -26,8 +26,8 @@
 9、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
 
 支持 Air8201G 和 Air8201H 两种硬件版本，通过 main.lua 中的 _G.HARDWARE_ENV 宏切换
-- Air8201G: BTB扩展板按键 WAKEUP0 + PWRKEY, pa_ctrl=25
-- Air8201H: boot按键 GPIO0 + PWRKEY, pa_ctrl=23, ES8311配置1.8V
+- Air8201G: pa_ctrl=25, ES8311默认3.3V
+- Air8201H: pa_ctrl=23, ES8311配置1.8V
 
 
 更多说明参考本目录下的readme.md文件

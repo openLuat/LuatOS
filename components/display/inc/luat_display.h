@@ -185,7 +185,6 @@ struct luat_display_buf{
 /*显示缓冲区信息*/
 struct luat_display_fb_info {
 
-    int inited;              // 是否初始化完成
     enum disp_format format; // 显示格式
     uint32_t bits_per_pixel; // 每像素位数(bpp值)
     uint32_t stride;         // 行步长
@@ -194,7 +193,6 @@ struct luat_display_fb_info {
     uint32_t fb_count;       // FB数量
     uint32_t width;          // 宽度
     uint32_t height;         // 高度
-    void *full_fb;           // 全屏 shadow buffer（如 PSRAM），供 display.fill/flush 使用
     struct luat_display_buf draw_buf;   // 绘制缓冲区
 };
 

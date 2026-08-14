@@ -10,7 +10,7 @@
 /*纯色填充*/
 int luat_display_fill(struct luat_display *disp, struct luat_display_area area, uint32_t color)
 {
-    if (disp == NULL || disp->fb_info == NULL || !disp->fb_info->inited) {
+    if (disp == NULL || disp->fb_info == NULL) {
         return 0;
     }
 
@@ -22,15 +22,12 @@ int luat_display_fill(struct luat_display *disp, struct luat_display_area area, 
 #ifdef LUAT_USE_LCD_SDL2
     void *buf = info->draw_buf.buffer;
 #else
-    /*真机优先使用全屏 shadow buffer（full_fb，通常放在 PSRAM）；
-      flush 会把它提交到 LTDC 显存。
-      若 full_fb 未配置，回退到分块 draw buffer，并按其高度裁剪。*/
-    void *buf = info->full_fb ? info->full_fb :
-                (info->draw_buf.buffer ? info->draw_buf.buffer : info->fb_start);
-    if (buf == info->draw_buf.buffer && info->draw_buf.buffer &&
-        info->draw_buf.height < height) {
-        height = info->draw_buf.height;
-        stride = info->draw_buf.stride;
+    /*真机优先使用全屏 第二缓冲区，暂时不支持PFB绘画*/
+    void *buf;
+    if (info->fb_count >= 2) {
+        buf = (uint8_t *)info->fb_start + info->stride * info->height;
+    } else {
+        buf = info->fb_start;   /* 单缓冲：直接画到屏幕上 */
     }
 #endif
 

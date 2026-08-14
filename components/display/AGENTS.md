@@ -125,6 +125,47 @@ local w, h = display.getSize()
 local addr, size, count = display.getFbInfo()
 ```
 
+## 经验教训
+
+### FrameBuffer 与 draw_buf 职责分离
+- `fb_info->fb_start` 是最终提交给显示控制器的显存（LTDC / DSI / SPI 等）。
+- `fb_info->draw_buf` 是上层渲染用的 **partial framebuffer / 双缓冲绘制区**，不直接给 `display.fill()` 使用。
+- 当前 `display.fill()` 只在 `fb_start` 指向的显存上操作；若要支持 PFB 分块填充，需要同时修改 `luat_display_fill()` 和 `if_ops->fb_flush()`。
+
+### draw_buf / PFB 大小计算
+若把一块静态 buffer 拆成 `count` 块做 draw_buf，建议按下面方式计算：
+
+```c
+uint32_t line = width * bpp;
+uint32_t pfb_h = (total / count) / line;
+if (pfb_h > height) {
+    pfb_h = height;
+}
+uint32_t per_buf_size = pfb_h * line;
+per_buf_size &= ~31U;   /* 按 32 字节 cache line 对齐 */
+pfb_h = per_buf_size / line;
+if (pfb_h == 0) {
+    pfb_h = 1;
+}
+```
+
+- 单块大小按 cache line 对齐，保证第二块 buffer 的起始地址也是 32 字节对齐的。
+- `sizeof(g_draw_framebuffer)` 是总大小，计算单行高度时一定要除以 `count`。
+
+### Cache line 大小
+- STM32N6 (Cortex-M55) 的 D-Cache line 为 **32 字节**。
+- 调用 `SCB_CleanDCache_by_Addr()` 等 cache maintenance 函数时，起始地址必须 32 字节对齐。
+
+### 旋转语义
+- `display.setRotation(90)` 当前定义为 **逆时针 90°**（对应 `LUAT_DISPLAY_ROTATE_90`）。
+- 0° / 180°：源图可完整显示。
+- 90° / 270°：源图旋转后会以 **居中裁剪** 方式显示；若要铺满全屏，需要上层交换逻辑宽高，并配合 `draw_buf` / `fb_flush()` 坐标映射。
+
+### 常见错误
+- 不要对 `void *` 直接做指针算术，应转为 `uint8_t *`。
+- 不要用 `buf == NULL` 判断有没有第二块 buffer；应判断 `fb_count >= 2` 或 `draw_buf.count`。
+- `draw_buf.height` 是单块 buffer 的高度，不是两块 buffer 加起来的总高度。
+
 ## ANTI-PATTERNS
 
 - ❌ 不要把 Panel 逻辑和 Interface 逻辑混在一个文件里

@@ -55,7 +55,7 @@ static uint8_t ref_idx = 254;
 static uint64_t long_sms_send_idp = 0;
 static uint8_t g_sms_msg_refs[LONG_SMS_CMAX];  // 每段的 MR (Message Reference)
 static uint8_t g_sms_msg_ref_count = 0;         // 已确认的段数
-static int g_sms_vp = 0;                        // 全局默认vp, sms.setVp设置, 0=不设置
+static uint8_t s_sms_vp = 0;                        // 全局默认vp, sms.setVp设置, 0=不设置
 
 
 static int l_long_sms_send_callback(lua_State *L, void* ptr){
@@ -607,8 +607,8 @@ static int l_sms_send(lua_State *L) {
     g_s_sms_pdu_packet.srr = need_report;
     if (vp >= 0)
         g_s_sms_pdu_packet.vp = (uint8_t)(vp > 255 ? 255 : vp); // 单次显式传参, 完全覆盖(含传0禁用)
-    else if (g_sms_vp > 0)
-        g_s_sms_pdu_packet.vp = (uint8_t)g_sms_vp;               // 未传参 -> 用全局sms.setVp
+    else if (s_sms_vp > 0)
+        g_s_sms_pdu_packet.vp = s_sms_vp;               // 未传参 -> 用全局sms.setVp
     else if (need_report)
         g_s_sms_pdu_packet.vp = 5; // 30分钟有效期, 超时后SMSC返回EXPIRED
     else
@@ -704,8 +704,8 @@ static int l_long_sms_send(lua_State *L) {
     g_s_sms_pdu_packet.srr = need_report;
     if (vp >= 0)
         g_s_sms_pdu_packet.vp = (uint8_t)(vp > 255 ? 255 : vp); // 单次显式传参, 完全覆盖(含传0禁用)
-    else if (g_sms_vp > 0)
-        g_s_sms_pdu_packet.vp = (uint8_t)g_sms_vp;               // 未传参 -> 用全局sms.setVp
+    else if (s_sms_vp > 0)
+        g_s_sms_pdu_packet.vp = s_sms_vp;               // 未传参 -> 用全局sms.setVp
     else if (need_report)
         g_s_sms_pdu_packet.vp = 5; // 30分钟有效期, 超时后SMSC返回EXPIRED
     else
@@ -791,8 +791,8 @@ sms.send("+8613416121234", "hi", true, false, 0)
  */
 static int l_sms_set_vp(lua_State *L) {
     int vp = luaL_optinteger(L, 1, 0);
-    g_sms_vp = (vp > 255) ? 255 : (vp < 0 ? 0 : vp);
-    lua_pushinteger(L, g_sms_vp);
+    s_sms_vp = (uint8_t)(vp > 255 ? 255 : (vp < 0 ? 0 : vp));
+    lua_pushinteger(L, s_sms_vp);
     return 1;
 }
 

@@ -90,10 +90,10 @@ local qrcode_y = 190
 local buttons_y = 0
 local builtin_button_width = math.floor(80 * density_scale_val)
 local builtin_button_spacing = math.floor(20 * density_scale_val)
-local builtin_button_height = math.floor(100 * density_scale_val)
--- 内置按钮文字字号与文字区高度（最少按 16 号字预留，字号更大则按更大的预留）
+local builtin_button_height = math.floor(124 * density_scale_val)
+-- 内置按钮文字字号与文字区高度（预留 2 行，最少按 16 号字 48px，字号更大则按更大的预留）
 local builtin_button_font_size = 16
-local builtin_button_label_h = 24
+local builtin_button_label_h = 48
 
 local timer_handler = nil
 local external_app_cache = {}
@@ -168,8 +168,8 @@ local function calc_layout()
         local max_name_len = 4
         builtin_button_font_size = math.floor((builtin_button_width - math.floor(8 * _G.density_scale)) / max_name_len)
         builtin_button_font_size = math.max(16, math.min(18, builtin_button_font_size))
-        -- 文字区高度：按实际字号预留（字号 + 8px 上下余量），最少不低于 16 号字(24px)
-        builtin_button_label_h = builtin_button_font_size + 8
+        -- 文字区高度按实际字号预留 2 行（(字号+8 行高)×2），最少不低于 16 号字(48px)
+        builtin_button_label_h = (builtin_button_font_size + 8) * 2
         -- 按钮高度：图标 + 文字区 + 上下留白
         local bis = math.min(math.floor(40 * _G.density_scale), builtin_button_width - math.floor(10 * _G.density_scale))
         local icon_top = math.floor(8 * _G.density_scale)

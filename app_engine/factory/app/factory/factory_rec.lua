@@ -1,8 +1,8 @@
 --[[
 @module  factory_rec
 @summary 应用工厂-录音与应用生成业务层（exaudio + AI 生成 APP）
-@version 4.0
-@date    2026.08.13
+@version 4.1
+@date    2026.08.15
 @author  江访
 @usage
 本模块为"应用工厂"（语音生成 APP）提供业务逻辑：
@@ -14,6 +14,8 @@
 3. 任务轮询：创建成功后按服务端下发的 interval（秒）间隔轮询
    https://api.luatos.com/engine/appstore/make_app_status
    - status=1 运行中（history 显示进度）；status=2 结束成功（value.summary 为 APP 下载地址）；status=3 结束失败
+4. 自动安装并打开：status=2 拿到下载链接后直接调用 exapp.install_remote_app 自动安装，
+   监听 APP_STORE_ACTION_DONE 安装成功 → exapp.open 打开生成的 APP，失败 → 发布错误消息
 
 录音实现要点（沿用 v2.5）：
 - Air1602 等新框架(audio_v2)：zbuff 回调录音，支持点击停止（record_stop 真正停止）
@@ -52,6 +54,9 @@
 发布: FACTORY_REC_DONE({path,size,seconds}) → 录音完成（含时长）
 发布: FACTORY_MAKE_STATUS({status,history,link}) → 生成任务进度（status: 1运行中/2成功/3失败）
 发布: FACTORY_MAKE_ERROR(msg)        → 生成失败
+发布: FACTORY_MAKE_INSTALL_STATUS(text) → 安装过程提示（下载/解压中）
+发布: FACTORY_MAKE_INSTALL_DONE({aid,path}) → 安装完成（含安装路径，UI 据此提示并关闭）
+发布: FACTORY_MAKE_INSTALL_ERROR(msg) → 安装/打开失败
 ]]
 
 local exaudio = require "exaudio"
@@ -83,6 +88,7 @@ local make_send           -- 前向声明（应用生成上传函数，定义见
 local make_poll           -- 前向声明（任务轮询函数，make_send 内引用）
 local make_appid = nil    -- appid 缓存：一次生成会话（创建+轮询）固定复用同一 appid=时间戳
                           -- 服务端用 appid 关联任务，轮询若用新时间戳会找不到任务(任务接口错误)
+local make_inst_aid = nil -- 正在自动安装的 aid（监听 APP_STORE_ACTION_DONE 用，区分自身安装）
 
 -- ==================== 读取配置 ====================
 
@@ -181,8 +187,9 @@ local function codec_power_restore()
             local data = i2c.readReg(ac.i2c_id or 0, 0x18, 0xFD, 1)
             if data and #data == 1 then id = data:byte(1) end
         end)
-        log.info("factory_rec", "ES8311 供电诊断 ok:", ok,
-                 "ID:", id and string.format("0x%02X", id) or "无应答")
+        if not ok or not id then
+            log.warn("factory_rec", "ES8311 供电诊断无应答")
+        end
     end
 end
 
@@ -226,8 +233,7 @@ local function finalize_record(manual_stop)
     sys.publish("FACTORY_REC_STATE", { state = "idle" })
     sys.publish("FACTORY_REC_STATUS", "录音完成")
     sys.publish("FACTORY_REC_DONE", { path = latest_path, size = sz, seconds = sec })
-    log.info("factory_rec", "录音完成 路径:", latest_path, "大小:", sz, "字节 时长:", sec, "秒",
-             manual_stop and "手动停止" or "到时结束")
+    log.info("factory_rec", "录音完成 时长:", sec, "秒 大小:", sz, "字节")
     -- 8311 与触摸(GT911)共用 I2C1：停止录音时 C 层可能下电/异常化 8311，把总线钳位导致触摸失灵。
     -- 统一在此调度一次复位+重初始化恢复任务（防重入；回调上下文不可阻塞，故异步）。
     if not codec_restore_scheduled then
@@ -320,8 +326,7 @@ local function rec_setup()
             -- 等待外部编解码上电稳定（电源启动 + 晶振起振，一般需 100~200ms）
             sys.wait(200)
         end
-        log.info("factory_rec", "exaudio.setup 调用, model:", ac.model or "es8311",
-                 "pa:", ac.pa_ctrl, "dac_ctrl:", ac.dac_ctrl, "i2c:", ac.i2c_id)
+        log.info("factory_rec", "exaudio.setup model:", ac.model or "es8311")
         -- 首次：exaudio.setup 初始化音频（用 pcall 捕获可能的异常）
         -- 参数按配置透传：DAC 模式只需 pa_ctrl/pa_on_level/dac_delay；
         -- ES8311 模式需 i2c_id/dac_ctrl/i2s_sample 等，可配合 tx_bus_type/rx_bus_type
@@ -426,7 +431,7 @@ local function rec_start()
     local ac = get_audio_config()
     local max_time = (ac and ac.max_record_time) or 30
     v2_finalized = false
-    local fmt, sr = get_record_format()
+    local fmt = get_record_format()
 
     if is_v2 then
         -- ===== 新框架(audio_v2)：zbuff 回调录音，支持点击停止 =====
@@ -459,7 +464,7 @@ local function rec_start()
             start_record_timer()
             sys.publish("FACTORY_REC_STATE", { state = "recording" })
             sys.publish("FACTORY_REC_STATUS", "录音中...")
-            log.info("factory_rec", "开始录音(audio_v2) 路径:", rec_path, "格式:", fmt, "采样率:", sr, "上限:", max_time, "秒")
+            log.info("factory_rec", "开始录音(audio_v2) 格式:", fmt, "上限:", max_time, "秒")
         else
             pcall(fp.close, fp)
             rec_fp = nil
@@ -492,7 +497,7 @@ local function rec_start()
         start_record_timer()
         sys.publish("FACTORY_REC_STATE", { state = "recording" })
         sys.publish("FACTORY_REC_STATUS", "录音中...")
-        log.info("factory_rec", "开始录音(audio) 路径:", cur_path, "格式:", fmt, "采样率:", sr, "上限:", max_time, "秒")
+        log.info("factory_rec", "开始录音(audio) 格式:", fmt, "上限:", max_time, "秒")
     else
         sys.publish("FACTORY_REC_STATUS", "录音启动失败")
     end
@@ -629,14 +634,6 @@ make_send = function()
         sys.publish("FACTORY_MAKE_ERROR", "读取录音文件失败")
         return
     end
-    -- 调试：打印录音文件头 16 字节十六进制，验证 AMR 格式头（应为 "#!AMR\n" = 23 21 41 4D 52 0A）
-    local head_hex = {}
-    local n = math.min(#fdata, 16)
-    for i = 1, n do
-        head_hex[i] = string.format("%02X", fdata:byte(i))
-    end
-    log.info("factory_rec", "make_app >>> 录音文件头", n, "字节:", table.concat(head_hex, " "),
-             " 前4字符:", fdata:sub(1, 4))
     table.insert(body, fdata)
     table.insert(body, "\r\n")
     -- 2. device_info 字段（设备信息 JSON 对象）
@@ -653,27 +650,9 @@ make_send = function()
     -- 结束 boundary
     table.insert(body, "--" .. boundary .. "--\r\n")
     local body_str = table.concat(body)
-    local app_key = headers["app-key"] or ""
-    -- 打印发送信息（分块打印，避免超长字符串被 log 截断）
-    -- ⚠️ log.info 单条超长会被截断（日志只剩 tag 无内容），故每行保持短
-    log.info("factory_rec", "make_app >>> URL:", MAKE_APP_URL)
-    log.info("factory_rec", "make_app >>> app-key:", app_key)
-    log.info("factory_rec", "make_app >>> Content-Type:", headers["Content-Type"])
-    log.info("factory_rec", "make_app >>> ===== MULTIPART START =====")
-    log.info("factory_rec", "--- part1 file ---")
-    log.info("factory_rec", "Content-Disposition: form-data; name=\"file\"; filename=\"" .. fname .. "\"")
-    log.info("factory_rec", "Content-Type: " .. ctype)
-    log.info("factory_rec", "录音文件大小:", sz, "字节")
-    log.info("factory_rec", "--- part2 device_info ---")
-    log.info("factory_rec", "Content-Disposition: form-data; name=\"device_info\"")
-    log.info("factory_rec", "Content-Type: application/json")
-    log.info("factory_rec", "device_info:", device_info)
-    log.info("factory_rec", "make_app >>> ===== MULTIPART END =====")
-    log.info("factory_rec", "make_app >>> body 总大小:", body_str:len(), "字节")
     local code, _, resp_body = http.request("POST", MAKE_APP_URL, headers, body_str, { timeout = 30000 }).wait()
-    -- 打印回复信息（HTTP code + 完整响应体）
-    log.info("factory_rec", "make_app <<< 响应 code:", code)
-    log.info("factory_rec", "make_app <<< 响应 body:", resp_body)
+    -- 仅保留一次简短状态日志（HTTP code），不再打印 multipart 结构与完整响应体
+    log.info("factory_rec", "make_app 上传完成 code:", code)
     if code < 0 or code ~= 200 then
         sys.publish("FACTORY_MAKE_ERROR", "服务器连接失败(" .. tostring(code) .. ")")
         return
@@ -719,6 +698,26 @@ make_send = function()
 end
 
 --[[
+从 summary 提取真实下载 URL
+服务端 status=2 时 value.summary 可能为纯 URL，也可能带时间戳前缀：
+  例1: "https://appstoreoss.luatos.com/iot-apps/data_dashboard.zip"
+  例2: "2026-08-15 12:18:06 581 https://appstoreoss.luatos.com/iot-apps/data_dashboard.zip"
+若带前缀，直接整串传给 exapp 会报 "only http/https supported"（URL 前多了一截时间戳）。
+因此统一用 pattern 提取第一个 http(s):// 到结尾的子串。
+@param link string|table 原始链接
+@return string 提取后的真实 URL（取不到时返回空串）
+]]
+local function make_extract_link(link)
+    if type(link) == "table" then
+        link = link[1] or ""
+    else
+        link = tostring(link or "")
+    end
+    local _, _, url = link:find("(https?://[^%s]+)")
+    return url or ""
+end
+
+--[[
 轮询应用生成任务状态
 POST https://api.luatos.com/engine/appstore/make_app_status
 body: { task_id = ... }
@@ -747,11 +746,7 @@ make_poll = function(task_id, interval)
         -- ⚠️ 每次轮询前先等 interval 秒（含首次）：创建后立刻轮询（毫秒级）会被服务端
         --    判定任务"已结束(超时清理/异常)"(code:153)。文档明确：轮询间隔建议用 interval，不要太快
         sys.wait(interval * 1000)
-        -- 打印轮询发送信息（URL + body），便于真机调试
-        log.info("factory_rec", "make_app_status >>> 第", i, "次轮询 URL:", MAKE_STATUS_URL, "task_id:", tostring(task_id))
         local code, _, resp_body = http.request("POST", MAKE_STATUS_URL, headers, body_str, { timeout = 15000 }).wait()
-        -- 打印轮询回复信息（HTTP code + 完整响应体）
-        log.info("factory_rec", "make_app_status <<< 响应 code:", code, "body:", resp_body)
         if code < 0 or code ~= 200 then
             sys.publish("FACTORY_MAKE_ERROR", "轮询连接失败(" .. tostring(code) .. ")")
             return
@@ -781,7 +776,17 @@ make_poll = function(task_id, interval)
         end
         local status = tonumber(value.status) or 1
         -- status=2 时，value.summary 为制作完成的 APP 下载地址（兼容旧字段 link）
-        local app_link = value.summary or value.link
+        -- ⚠️ 服务端 summary 可能带时间戳前缀（如 "2026-08-15 12:18:06 581 https://..."），
+        --    必须提取真实 URL 再给 exapp 安装，否则下载报 "only http/https supported"
+        local app_link = ""
+        if status == 2 then
+            app_link = make_extract_link(value.summary)
+            if app_link == "" then
+                app_link = make_extract_link(value.link)
+            end
+        else
+            app_link = value.summary or value.link
+        end
         local result = {
             status = status,
             history = value.history,
@@ -791,8 +796,7 @@ make_poll = function(task_id, interval)
         sys.publish("FACTORY_MAKE_STATUS", result)
         -- status 2/3：任务结束，不再轮询
         if status == 2 or status == 3 then
-            log.info("factory_rec", "make_app 任务结束 status:", status,
-                     "link:", app_link and type(app_link) == "table" and table.concat(app_link, ";") or tostring(app_link or ""))
+            log.info("factory_rec", "make_app 任务结束 status:", status)
             return
         end
         -- 运行中：等待 interval 秒后下一轮（等待已在循环开头统一处理）
@@ -801,19 +805,21 @@ make_poll = function(task_id, interval)
     sys.publish("FACTORY_MAKE_ERROR", "生成超时，请稍后重试")
 end
 
--- 安装已生成的 APP（服务端返回链接，点击即可安装）
+-- 安装已生成的 APP（服务端返回链接，生成成功后自动调用）
+-- 安装流程走 exapp.install_remote_app，完成后由 APP_STORE_ACTION_DONE 回调
+-- 自动打开应用（on_app_action_done），失败发布 FACTORY_MAKE_INSTALL_ERROR
 local function make_install(link)
+    if make_inst_aid then
+        sys.publish("FACTORY_MAKE_INSTALL_ERROR", "已有安装任务进行中")
+        return
+    end
     if not link then
         sys.publish("FACTORY_MAKE_ERROR", "安装链接为空")
         return
     end
     -- link 可能为字符串或 table（多链接时取第一个）
-    local link_txt = ""
-    if type(link) == "table" then
-        link_txt = link[1] or ""
-    else
-        link_txt = tostring(link)
-    end
+    -- 统一用 make_extract_link 提取真实 URL（服务端 summary 可能带时间戳前缀，防御性处理）
+    local link_txt = make_extract_link(link)
     if link_txt == "" then
         sys.publish("FACTORY_MAKE_ERROR", "安装链接为空")
         return
@@ -822,13 +828,98 @@ local function make_install(link)
         sys.publish("FACTORY_MAKE_ERROR", "安装模块不可用")
         return
     end
+    -- ⚠️ aid 必须等于 ZIP 包内顶层目录名（也是 app_name_en / 下载 URL 文件名去 .zip），
+    --    否则 exapp 解压后按 aid 查 /app_store/<aid>/ 会找不到目录 → "安装失败：应用数据异常"
+    --    例：URL https://appstoreoss.luatos.com/iot-apps/factory_dashboard.zip
+    --        → aid = "factory_dashboard"，包内顶层目录也是 factory_dashboard/
+    --    若 URL 无文件名信息则回退到时间戳 aid（失败时给出明确提示）
+    local url_fname = link_txt:match("([^/]+)%.zip$") or link_txt:match("([^/]+)$")
+    local aid = ""
+    if url_fname and url_fname:match("^[%w_%-]+$") then
+        aid = url_fname
+    else
+        aid = "make_app_" .. os.time()
+        log.warn("factory_rec", "无法从 URL 推导 aid，回退时间戳:", tostring(link_txt))
+    end
     -- 确保 exapp 网络就绪（install_remote_app 依赖 network_ready 标志）
     if exapp.wait_network_ready then
         exapp.wait_network_ready(5000)
     end
-    local aid = "make_app_" .. os.time()
-    -- category/sort 为通用值，exapp.install_remote_app 需要 aid/url/name
-    exapp.install_remote_app(aid, link_txt, "生成应用", "工具", "recommend")
+    make_inst_aid = aid
+    -- 同名应用已存在（重复生成相同名称的 APP）：走更新流程覆盖旧版本（保留 data/），
+    -- 否则 install_remote_app 会直接报"应用已安装"导致流程失败
+    local ia = {}
+    if exapp.list_installed then
+        ia = exapp.list_installed()
+    end
+    if ia[aid] then
+        log.info("factory_rec", "同名应用已存在，走更新流程:", aid)
+        exapp.update_remote_app(aid, link_txt, "生成应用", "工具", "recommend")
+    else
+        exapp.install_remote_app(aid, link_txt, "生成应用", "工具", "recommend")
+    end
+end
+
+-- ==================== 自动安装完成回调（应用市场事件） ====================
+
+-- 安装进度去重（记录最近一次转发的阶段文本，避免刷屏）
+local last_inst_progress = ""
+
+-- 安装完成/失败回调（订阅 APP_STORE_ACTION_DONE，仅响应本模块发起的安装/更新）
+local function on_app_action_done(aid, action, success)
+    if not make_inst_aid or tostring(make_inst_aid) ~= tostring(aid) then return end
+    make_inst_aid = nil
+    last_inst_progress = ""
+    -- 同名应用走更新流程时 action 为 "update"，同样视为完成
+    if action ~= "install" and action ~= "update" then return end
+    if not success then
+        sys.publish("FACTORY_MAKE_INSTALL_ERROR", "安装失败")
+        return
+    end
+    -- 安装成功：获取安装路径并自动打开生成的 APP
+    local path = ""
+    local ok, ia = pcall(exapp.list_installed)
+    if ok and ia then
+        local info = ia[aid]
+        if info then path = info.path or "" end
+    end
+    if path == "" then
+        sys.publish("FACTORY_MAKE_INSTALL_ERROR", "未找到安装路径")
+        return
+    end
+    -- 先启动应用，再通知 UI 关闭窗口（应用已开始展示后再关，避免黑屏/闪断）
+    local op_ok, op_err = pcall(exapp.open, path)
+    if not op_ok then
+        log.warn("factory_rec", "打开生成的 APP 失败:", tostring(op_err))
+        sys.publish("FACTORY_MAKE_INSTALL_ERROR", "打开应用失败")
+        return
+    end
+    sys.publish("FACTORY_MAKE_INSTALL_DONE", { aid = aid, path = path })
+end
+
+-- 安装进度（下载中 xx% / 解压中 / 安装完成），转发给 UI 消息区
+-- 百分比按 25% 步进转发，避免刷屏；阶段文本（开始下载/解压中/安装完成）全部转发
+local function on_app_progress(aid, percent, text)
+    if not make_inst_aid or tostring(make_inst_aid) ~= tostring(aid) then return end
+    if not text or text == "" then return end
+    -- 含 % 的是百分比进度（如"下载中 32%"），不含 % 的是阶段文本（如"解压中"）
+    if text:find("%%") then
+        local p = tonumber(percent) or 0
+        -- 只转发里程碑（0/25/50/75/100）避免每条都追加
+        if p % 25 ~= 0 then return end
+    end
+    if text ~= last_inst_progress then
+        last_inst_progress = text
+        sys.publish("FACTORY_MAKE_INSTALL_STATUS", text)
+    end
+end
+
+-- 安装错误（下载失败/空间不足等），转发并复位状态
+local function on_app_error(msg)
+    if not make_inst_aid then return end
+    make_inst_aid = nil
+    last_inst_progress = ""
+    sys.publish("FACTORY_MAKE_INSTALL_ERROR", tostring(msg or "安装失败"))
 end
 
 -- ==================== 事件订阅 ====================
@@ -856,3 +947,8 @@ end)
 sys.subscribe("FACTORY_MAKE_INSTALL", function(link)
     sys.taskInit(make_install, link)
 end)
+
+-- 应用市场安装完成/进度/错误事件（模块加载即订阅，安装时按 make_inst_aid 过滤）
+sys.subscribe("APP_STORE_ACTION_DONE", on_app_action_done)
+sys.subscribe("APP_STORE_PROGRESS", on_app_progress)
+sys.subscribe("APP_STORE_ERROR", on_app_error)

@@ -1,8 +1,8 @@
 --[[
 @module  factory_win
-@summary 应用工厂-语音生成APP窗口（录音→生成→安装）
-@version 4.0
-@date    2026.08.13
+@summary 应用工厂-语音生成APP窗口（录音→生成→自动安装→打开）
+@version 4.1
+@date    2026.08.15
 @author  江访
 
 消息协议:
@@ -14,6 +14,9 @@
 订阅: FACTORY_REC_DONE       → 录音完成（含文件/时长）
 订阅: FACTORY_MAKE_STATUS    → 应用生成任务进度（status: 1运行中/2成功/3失败，含history/link）
 订阅: FACTORY_MAKE_ERROR     → 生成失败
+订阅: FACTORY_MAKE_INSTALL_STATUS → 安装过程提示（下载/解压中）
+订阅: FACTORY_MAKE_INSTALL_DONE   → 安装完成（携带APP路径，自动打开后关闭本窗口）
+订阅: FACTORY_MAKE_INSTALL_ERROR  → 安装/打开失败
 发布: FACTORY_REC_SETUP      → 初始化音频（进入时）
 发布: FACTORY_REC_START      → 开始录音
 发布: FACTORY_REC_STOP       → 停止录音
@@ -22,12 +25,15 @@
 发布: FACTORY_REC_RESET      → 清理下电（退出时）
 
 设计要点:
-- 进入窗口 on_create 时初始化音频驱动（进APP开关，不常开）
+- 进入窗口 on_create 时初始化音频驱动（进APP开关，不常开），
+  初始化期间先在消息区显示"正在初始化音频..."，减少使用者焦虑感
 - 退出窗口 on_destroy 时停止+下电
 - 中间为消息区（airui.table 单列，新消息自动滚到底部）
 - 底部为录音/停止 + 生成按钮，录音时显示计时
 - 生成任务运行中每 interval 秒轮询，消息区显示进度 history
-- 生成成功后在消息区显示安装链接，弹确认框后调用 exapp.install_remote_app 安装
+- 生成成功(status=2)后【自动下载安装并打开】生成的 APP：
+  直接发布 FACTORY_MAKE_INSTALL 触发安装，安装成功由业务层打开 APP，
+  本窗口收到 FACTORY_MAKE_INSTALL_DONE 后自动关闭，无需用户确认
 ]]
 
 local window_id = nil
@@ -40,6 +46,7 @@ local margin = 12
 local msg_table = nil
 local msg_rows = 0          -- 已插入的消息行数
 local last_row_h = 44       -- 消息行高
+local init_row = nil        -- "正在初始化音频..."提示所在行（就地更新结果）
 
 -- 底部控件
 local timer_label = nil
@@ -48,6 +55,7 @@ local send_btn = nil
 
 local current_state = "idle"     -- idle/recording
 local generating = false         -- 是否正在生成应用（轮询中）
+local installing = false         -- 是否正在自动下载安装生成的 APP
 local has_record = false         -- 是否有可发送的录音
 local make_link = nil            -- 生成成功的安装链接
 local history_shown = 0         -- 已显示的 history 条数（避免重复追加进度）
@@ -86,6 +94,12 @@ local function update_controls()
         rec_btn:set_disabled(true)
         send_btn:set_disabled(true)
         send_btn:set_text("生成中...")
+        return
+    end
+    if installing then
+        rec_btn:set_disabled(true)
+        send_btn:set_disabled(true)
+        send_btn:set_text("安装中...")
         return
     end
     -- 生成成功有链接时，右侧按钮变为「安装」
@@ -160,11 +174,45 @@ end
 
 -- ==================== 事件回调 ====================
 
+-- 服务端 history 条目净化：
+-- 1. 去掉行首时间戳前缀（"2026-08-15 12:14:23 309 创建新的任务" → "创建新的任务"）
+-- 2. 过滤机器内部日志（Agent 内部步骤、AppEntity 对象 dump、纯 URL、项目编号等机器细节）
+-- 返回 nil 表示该条目不显示，否则返回净化后的文本
+local function sanitize_history_item(item)
+    if type(item) == "table" then
+        item = item.msg or item.text or ""
+    end
+    if type(item) ~= "string" then return nil end
+    -- 去掉行首时间戳前缀（日期 时间 序号）
+    local text = item:gsub("^%d+-%d+-%d+ %d+:%d+:%d+ %d+ ", "")
+    -- 去掉纯 URL 行（下载链接不展示给用户，安装流程会自动处理）
+    if text:match("^https?://") then return nil end
+    -- 过滤机器内部日志（Agent 流程细节 / AppEntity 对象 dump / 项目编号）
+    local internal_keywords = {
+        "创建新的任务",
+        "向Agent获取签名信息",
+        "准备下发任务",
+        "AppEntity",
+        "项目编号",
+    }
+    for _, kw in ipairs(internal_keywords) do
+        if text:find(kw, 1, true) then
+            return nil
+        end
+    end
+    if text == "" then return nil end
+    return text
+end
+
+-- 音频初始化结果：就地更新"正在初始化音频..."一行的文本，避免追加多余行
 local function on_ready(ok, msg)
-    if ok then
-        append_msg("音频就绪", true)
+    local text = ok and "音频就绪" or ("音频初始化失败: " .. tostring(msg or "未知错误"))
+    if init_row and msg_table then
+        msg_table:set_cell_text(init_row, 0, text)
+        msg_table:set_row_height(init_row, calc_msg_height(text))
+        init_row = nil
     else
-        append_msg(msg or "音频初始化失败", true)
+        append_msg(text, true)
     end
 end
 
@@ -201,21 +249,21 @@ end
 local function on_make_status(data)
     if not data then return end
     local status = tonumber(data.status) or 1
-    -- 展示新增的 history 进度（避免重复追加）
+    -- 展示新增的 history 进度（避免重复追加；净化后仅显示用户关心的进度）
     local history = data.history
     if type(history) == "table" then
         for i = history_shown + 1, #history do
-            local item = history[i]
-            if type(item) == "table" then
-                item = item.msg or item.text or ""
-            end
-            if type(item) == "string" and item ~= "" then
-                append_msg(item, true)
+            local text = sanitize_history_item(history[i])
+            if text then
+                append_msg(text, true)
             end
         end
         history_shown = #history
     elseif type(history) == "string" and history ~= "" and history_shown == 0 then
-        append_msg(history, true)
+        local text = sanitize_history_item(history)
+        if text then
+            append_msg(text, true)
+        end
         history_shown = 1
     end
 
@@ -224,7 +272,7 @@ local function on_make_status(data)
         generating = true
         update_controls()
     elseif status == 2 then
-        -- 结束并成功
+        -- 结束并成功：自动下载安装并打开生成的 APP
         generating = false
         make_link = data.link
         update_controls()
@@ -236,7 +284,11 @@ local function on_make_status(data)
         end
         if link_txt ~= "" then
             append_msg("APP 生成成功", false)
-            append_msg("点击下方「安装」按钮安装到设备", true)
+            append_msg("正在自动下载安装...", true)
+            -- 生成成功即自动安装，无需用户确认
+            installing = true
+            update_controls()
+            sys.publish("FACTORY_MAKE_INSTALL", link_txt)
         else
             append_msg("APP 生成成功（无安装链接）", true)
         end
@@ -249,10 +301,36 @@ local function on_make_status(data)
     end
 end
 
+-- 安装过程进度（下载中 xx% / 解压中 / 安装完成）
+local function on_make_install_status(text)
+    if text and text ~= "" then
+        append_msg(text, true)
+    end
+end
+
+-- 安装完成：业务层已自动打开生成的 APP，本窗口显示提示后关闭
+local function on_make_install_done(data)
+    installing = false
+    update_controls()
+    append_msg("安装完成，正在打开应用...", true)
+    -- 延迟关闭本窗口，让新应用先展示
+    sys.timerStart(function()
+        if window_id then exwin.close(window_id) end
+    end, 800)
+end
+
 local function on_make_error(err)
     generating = false
+    installing = false
     update_controls()
     append_msg("生成失败: " .. tostring(err or "未知错误"), true)
+end
+
+-- 安装失败（业务层 FACTORY_MAKE_INSTALL_ERROR 转发）
+local function on_make_install_error(err)
+    installing = false
+    update_controls()
+    append_msg("安装失败: " .. tostring(err or "未知错误"), true)
 end
 
 -- ==================== UI 构建 ====================
@@ -316,6 +394,8 @@ local function build_ui()
     })
 
     -- 录音 / 停止 按钮
+    -- ⚠️ airui.button 构造函数只读 style 子表字段（顶层 bg_color/font_color 不生效）；
+    -- 默认样式带蓝色边框(border_color=0x1e90ff, border_width=2)，需在 style 里 border_width=0 去除
     local btn_w = math.floor((screen_w - 3 * margin) / 2)
     local btn_h = math.floor(56 * _G.density_scale)
     local btn_y = math.floor(44 * _G.density_scale)
@@ -326,11 +406,14 @@ local function build_ui()
         w = btn_w, h = btn_h,
         text = "开始录音",
         font_size = math.floor(24 * _G.density_scale),
-        bg_color = COLOR_PRIMARY,
-        font_color = COLOR_WHITE,
-        radius = 12,
+        style = {
+            bg_color = COLOR_PRIMARY,
+            text_color = COLOR_WHITE,
+            border_width = 0,
+            radius = 12,
+        },
         on_click = function()
-            if generating then return end
+            if generating or installing then return end
             if current_state == "recording" then
                 sys.publish("FACTORY_REC_STOP")
             else
@@ -355,8 +438,8 @@ local function build_ui()
             radius = 12,
         },
         on_click = function()
-            if generating then return end
-            -- 已有安装链接：点击安装生成的 APP
+            if generating or installing then return end
+            -- 已有安装链接：点击安装生成的 APP（生成成功后自动安装，此处为手动兜底）
             if make_link then
                 local link_txt = ""
                 if type(make_link) == "table" then
@@ -368,22 +451,10 @@ local function build_ui()
                     append_msg("安装链接为空", true)
                     return
                 end
-                local msg_box = airui.msgbox({
-                    w = math.min(400, screen_w - 80),
-                    h = math.floor(screen_h * 0.28),
-                    style = { text_font_size = math.floor(24 * _G.density_scale) },
-                    title = "确认安装",
-                    text = "是否将生成的 APP 安装到设备？",
-                    buttons = { "确定", "取消" },
-                    on_action = function(self, btn_label)
-                        if btn_label == "确定" then
-                            append_msg("开始安装生成的 APP...", true)
-                            sys.publish("FACTORY_MAKE_INSTALL", link_txt)
-                        end
-                        self:hide()
-                    end
-                })
-                msg_box:show()
+                installing = true
+                update_controls()
+                append_msg("开始安装生成的 APP...", true)
+                sys.publish("FACTORY_MAKE_INSTALL", link_txt)
                 return
             end
             -- 正常生成流程
@@ -406,6 +477,7 @@ local function on_create()
     build_ui()
     current_state = "idle"
     generating = false
+    installing = false
     has_record = false
     make_link = nil
     history_shown = 0
@@ -416,6 +488,13 @@ local function on_create()
     sys.subscribe("FACTORY_REC_DONE", on_record_done)
     sys.subscribe("FACTORY_MAKE_STATUS", on_make_status)
     sys.subscribe("FACTORY_MAKE_ERROR", on_make_error)
+    sys.subscribe("FACTORY_MAKE_INSTALL_STATUS", on_make_install_status)
+    sys.subscribe("FACTORY_MAKE_INSTALL_DONE", on_make_install_done)
+    sys.subscribe("FACTORY_MAKE_INSTALL_ERROR", on_make_install_error)
+    -- 音频未就绪前先显示初始化提示，减少使用者焦虑感
+    -- 首条消息即初始化提示，记录行号供 on_ready 就地更新结果
+    append_msg("正在初始化音频...", true)
+    init_row = (msg_rows == 1) and 0 or nil
     -- 进入窗口才初始化音频驱动（进APP开关，不常开）
     sys.publish("FACTORY_REC_SETUP")
 end
@@ -428,6 +507,9 @@ local function on_destroy()
     sys.unsubscribe("FACTORY_REC_DONE", on_record_done)
     sys.unsubscribe("FACTORY_MAKE_STATUS", on_make_status)
     sys.unsubscribe("FACTORY_MAKE_ERROR", on_make_error)
+    sys.unsubscribe("FACTORY_MAKE_INSTALL_STATUS", on_make_install_status)
+    sys.unsubscribe("FACTORY_MAKE_INSTALL_DONE", on_make_install_done)
+    sys.unsubscribe("FACTORY_MAKE_INSTALL_ERROR", on_make_install_error)
     -- 退出时停止录音 + 下电 + 删临时文件
     sys.publish("FACTORY_REC_RESET")
     if main_container then
@@ -435,11 +517,13 @@ local function on_destroy()
         main_container = nil
     end
     msg_table = nil
+    init_row = nil
     timer_label = nil
     rec_btn = nil
     send_btn = nil
     current_state = "idle"
     generating = false
+    installing = false
     has_record = false
     make_link = nil
     history_shown = 0

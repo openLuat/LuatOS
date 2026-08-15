@@ -33,37 +33,37 @@ require 即执行，按以下顺序：
 -- 新增驱动或配置文件时在此加一行，编译系统会自动打包对应 .lua 文件
 
 -- 所有配置文件
--- require ("eng_8000w_4i_v0")   -- Air8000W 4寸
--- require ("eng_1602_5i_v2")    -- Air1602 5寸 V002
--- require ("eng_1602_5i_v3")    -- Air1602 5寸 V003 (NAND)
--- require ("eng_1602_5i_v5")    -- Air1602 5寸 V005 (ST7701S+NAND)
--- require ("eng_1602_7i_v0")    -- Air1602 7寸
--- require ("eng_1602_7i_v4")    -- Air1602 7寸 V004 (NAND)
--- require ("eng_1602_10i_v0")   -- Air1602 10.1寸
--- require ("eng_1602_9i_v09421")     -- Air1602 9寸 AirLCD_1090
--- require ("eng_1602_10i_v10421")    -- Air1602 10寸 AirLCD_1100
--- require ("evb_8101b_5i_v1")    -- Air8101 EVB 5寸 (ST7701S 480x854, V010)
--- require ("evb_8101_5i_v0")     -- Air8101 EVB 5寸 (AirLCD_1020, H050IWV 800x480)
--- require ("evb_8101b_5i_v2")    -- Air8101B EVB 5寸 (GC9503 480x854, V020)
--- require ("evb_8101_9i_v0")     -- Air8101 EVB 9寸 (AirLCD_1090)
+require ("eng_8000w_4i_v0")   -- Air8000W 4寸
+require ("eng_1602_5i_v2")    -- Air1602 5寸 V002
+require ("eng_1602_5i_v3")    -- Air1602 5寸 V003 (NAND)
+require ("eng_1602_5i_v5")    -- Air1602 5寸 V005 (ST7701S+NAND)
+require ("eng_1602_7i_v0")    -- Air1602 7寸
+require ("eng_1602_7i_v4")    -- Air1602 7寸 V004 (NAND)
+require ("eng_1602_10i_v0")   -- Air1602 10.1寸
+require ("eng_1602_9i_v09421")     -- Air1602 9寸 AirLCD_1090
+require ("eng_1602_10i_v10421")    -- Air1602 10寸 AirLCD_1100
+require ("evb_8101b_5i_v1")    -- Air8101 EVB 5寸 (ST7701S 480x854, V010)
+require ("evb_8101_5i_v0")     -- Air8101 EVB 5寸 (AirLCD_1020, H050IWV 800x480)
+require ("evb_8101b_5i_v2")    -- Air8101B EVB 5寸 (GC9503 480x854, V020)
+require ("evb_8101_9i_v0")     -- Air8101 EVB 9寸 (AirLCD_1090)
 require ("evb_8101_10i_v0")    -- Air8101 EVB 10.1寸 (AirLCD_1100)
--- require ("evb_8101_7i_v0")     -- Air8101 EVB 7寸 (AirLCD_1070)
--- require ("evb_8000a_3i5_v0")  -- Air8000A trunkey 3.5寸
--- require ("eng_1780h_4i_v0")  -- Air1780H 引擎主机 4.3寸 (ST6201 + airlink WiFi + ES8311 + SD + NAND)
--- require ("evb_1601_10i_v11")  -- Air1601 EVB 10.1寸
--- require ("evb_1601_7i_v11")   -- Air1601 EVB 7寸
--- require ("evb_1601_7i_v12")   -- Air1601 EVB 7寸 V012 (+4G+以太网+WiFi AirLink SPI2)
--- require ("pc_default")        -- PC 模拟器回退
+require ("evb_8101_7i_v0")     -- Air8101 EVB 7寸 (AirLCD_1070)
+require ("evb_8000a_3i5_v0")  -- Air8000A trunkey 3.5寸
+require ("eng_1780h_4i_v0")  -- Air1780H 引擎主机 4.3寸 (ST6201 + airlink WiFi + ES8311 + SD + NAND)
+require ("evb_1601_10i_v11")  -- Air1601 EVB 10.1寸
+require ("evb_1601_7i_v11")   -- Air1601 EVB 7寸
+require ("evb_1601_7i_v12")   -- Air1601 EVB 7寸 V012 (+4G+以太网+WiFi AirLink SPI2)
+require ("pc_default")        -- PC 模拟器回退
 
 -- 所有 LCD 驱动（按屏幕 IC 型号分类）
--- require ("lcd_st7796")        -- SPI ST7796 (3.5/4寸 320×480)
--- require ("lcd_st6201")       -- SPI ST6201 (4.3寸 480×272)
--- require ("lcd_nv3052c_5in")   -- RGB NV3052C (5寸 720×1280)
--- require ("lcd_st7701s_5in")   -- RGB ST7701S (5寸 480×854)
--- require ("lcd_h050iwv_5in")   -- RGB H050IWV (5寸 800×480)
+require ("lcd_st7796")        -- SPI ST7796 (3.5/4寸 320×480)
+require ("lcd_st6201")       -- SPI ST6201 (4.3寸 480×272)
+require ("lcd_nv3052c_5in")   -- RGB NV3052C (5寸 720×1280)
+require ("lcd_st7701s_5in")   -- RGB ST7701S (5寸 480×854)
+require ("lcd_h050iwv_5in")   -- RGB H050IWV (5寸 800×480)
 require ("lcd_hx8282_10in")   -- RGB HX8282 (5/7/9/10.1寸 1024×600 通用)
--- require ("lcd_hx8282_cust")   -- RGB HX8282 (custom 方式，四合一屏模组)
--- require ("lcd_gc9503_5in")    -- RGB GC9503   (5寸 480×854)
+require ("lcd_hx8282_cust")   -- RGB HX8282 (custom 方式，四合一屏模组)
+require ("lcd_gc9503_5in")    -- RGB GC9503   (5寸 480×854)
 
 -- TP 驱动（统一用 GT911，仅引脚参数不同）
 require ("tp_gt911")

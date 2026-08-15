@@ -283,6 +283,12 @@ int  ovpn_client_is_ready(ovpn_client_t *cli);      /* TLS + push done */
 /* UDP receive callback (called from network adapter context) */
 void ovpn_client_udp_recv(ovpn_client_t *cli, const uint8_t *data, uint16_t len, ip_addr_t *addr, uint16_t port);
 
+/* ========== Internal cross-file API (module-internal, not for Lua) ========== */
+
+/* Raw UDP transport (ovpn_client.c); shared with the reliable and control
+ * layers (ovpn_rel.c / ovpn_ctl.c). */
+int ovpn_send_udp(ovpn_client_t *cli, const uint8_t *data, int len);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1926,7 +1926,17 @@
  *             See dhm.h for more details.
  *
  */
-//#define MBEDTLS_DHM_C
+#define MBEDTLS_DHM_C
+
+/**
+ * \def MBEDTLS_HKDF_C
+ *
+ * Enable the HKDF (RFC 5869) module.
+ * Used by the IPsec IKEv2 client key derivation (PRF+ / HKDF).
+ *
+ * Module:  library/hkdf.c
+ */
+#define MBEDTLS_HKDF_C
 
 /**
  * \def MBEDTLS_ECDH_C

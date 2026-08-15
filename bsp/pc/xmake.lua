@@ -770,14 +770,40 @@ target("luatos-lua")
         add_thirdparty_files(lwip_path .. "/api/**.c")
         add_thirdparty_files(lwip_path .. "/core/**.c")
         add_thirdparty_files(lwip_path .. "/netif/**.c")
+        -- L2TP: lwip22 自带的 PPP 源码改由 components/network/l2tp/src/ppp 下的 vendor 副本编译
+        -- (l2tp/src/ppp/ppp.c 已将 ppp_pcb 分配改为 mem_malloc/mem_free,
+        --  因为本仓库 lwip22 的 memp_std.h 裁剪掉了 PPP/PPPOL2TP 内存池)
+        remove_files(lwip_path .. "netif/ppp/**.c")
         
         add_files(luatos .. "components/network/adapter_lwip2/*.c")
         add_includedirs(luatos .. "components/network/adapter_lwip2/")
         add_files(luatos .. "components/ethernet/common/*.c")
 
-        -- 继续添加netdrv代码
+        -- 继续添加netdrv核心代码 (VPN 子模块已拆出为独立目录)
         add_includedirs(luatos .. "components/network/netdrv/include")
         add_files(luatos .. "components/network/netdrv/**.c")
+
+        -- L2TPv2 客户端子模块 (components/network/l2tp) + vendored lwip22 PPP 实现
+        -- 注意: bsp/pc/include/lwipopts.h 写死 PPP_SUPPORT=0 且会重定义,
+        -- 所以这里通过 LUAT_L2TP_PPP_BUILD + luat_ppp_opts_override.h 在
+        -- ppp_opts.h 之后强制覆盖 PPP 特性集, 仅对该批文件附加编译宏.
+        add_includedirs(luatos .. "components/network/l2tp/include")
+        add_includedirs(luatos .. "components/network/l2tp/src/ppp")
+        add_files(luatos .. "components/network/l2tp/src/ppp/*.c",
+                  {defines = {"LUAT_L2TP_PPP_BUILD=1"}})
+        add_files(luatos .. "components/network/l2tp/src/l2tp_client.c",
+                  luatos .. "components/network/l2tp/src/l2tp_ctrl.c",
+                  luatos .. "components/network/l2tp/src/l2tp_ppp.c",
+                  {defines = {"LUAT_L2TP_PPP_BUILD=1"}})
+        add_files(luatos .. "components/network/l2tp/src/luat_netdrv_l2tp.c")
+
+        -- IKEv2/IPsec 客户端子模块 (components/network/ipsec)
+        add_includedirs(luatos .. "components/network/ipsec/include")
+        add_files(luatos .. "components/network/ipsec/src/*.c")
+
+        -- OpenVPN 客户端子模块 (components/network/openvpn)
+        add_includedirs(luatos .. "components/network/openvpn/include")
+        add_files(luatos .. "components/network/openvpn/src/*.c")
 
         -- ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试, 需要 netdrv + icmp)
         add_includedirs(luatos .. "components/network/icmp/include")

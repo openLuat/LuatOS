@@ -1,0 +1,224 @@
+# netdrv IKEv2/IPsec 客户端设计文档
+
+> 适用范围：LuatOS `netdrv` 框架下的 IKEv2/IPsec 隧道模式客户端
+> （ESP tunnel mode）。首期已在 PC 模拟器上对接真实 strongSwan 网关
+> `ipsec.air32.cn`（strongSwan 5.9.13, Ubuntu 24.04 云主机）联调通过。
+
+---
+
+## 1. 目标与范围
+
+在 netdrv 框架内新增 `netdrv.IPSEC` 虚拟网卡，实现：
+
+- IKEv2 发起端（RFC 7296），服务器证书链校验 + 强制 EAP-MSCHAPv2；
+- NAT-T（RFC 3948）：UDP 500 启动，探测到 NAT 后切换 4500；
+- DPD 保活、CHILD_SA 到期重协商（CREATE_CHILD_SA，默认带 PFS，
+  KE + 新 Ni/Nr 按 RFC 7296 §2.17 派生 KEYMAT；网关不支持 PFS 时自动
+  无 KE 重试一次并保持旧 SA 在线）、IKE SA 到期全量重建；
+- 套件扩展：IKE DH 组 19/20/21（ECP-256/384/521，RFC 4753），
+  ESP AES-GCM-128/256（RFC 4106 AEAD，SA 内无 INTEG transform）；
+- MOBIKE（RFC 4555，opt-in，默认关闭）：本地地址变化时发送
+  INFORMATIONAL(UPDATE_SA_ADDRESSES + NAT-D)，处理对端发起的地址更新，
+  以及 established 状态下的对端地址学习；不做 ADDITIONAL_IP4_ADDRESS
+  通告与 COOKIE2；
+- CP（Configuration Payload）下发虚拟 IPv4 + DNS；
+- ESP 隧道模式（RFC 4303）AES-CBC-128/256 + HMAC-SHA1-96 /
+  HMAC-SHA2-256-128 或 AES-GCM-128/256，32 包反重放窗口，
+  ESP-in-UDP(4500)。
+
+明确不做：IKEv1、L2TP/IPsec、ESP 传输模式、客户端证书认证、
+IPv6 隧道、MOBIKE 的 ADDITIONAL_IP4_ADDRESS 通告与 COOKIE2。
+MOBIKE 默认关闭（`ipsec_mobike_enable` 未配置时行为与旧版一致，
+地址变化仍走断线重连）。
+
+## 2. 文件布局
+
+代码按用户要求拆分到独立子模块 `components/network/ipsec/`（内部头在
+`include/ipsec/`，源文件在 `src/`）：
+
+| 文件 | 说明 |
+|---|---|
+| `include/ipsec/ipsec_crypto.h` + `src/ipsec_crypto.c` | PRF+/HMAC、DH modp2048、IKE/CHILD 密钥派生、AUTH 计算/验签、X.509 链+SAN 校验（信任锚由 `ipsec_ca_cert_pem` 提供；不提供时默认 fail-closed，仅当显式开启 `ipsec_insecure_cert_ok` 才接受证书且仍校验 SAN） |
+| `include/ipsec/ipsec_esp.h` + `src/ipsec_esp.c` | ESP 隧道封装/解封（AES-CBC + HMAC 或 AES-GCM AEAD）、SPI 方向、32 包反重放 |
+| `include/ipsec/ipsec_ike.h` + `src/ipsec_ike.c` | IKEv2 状态机：SA_INIT/AUTH/EAP/CREATE_CHILD_SA/INFORMATIONAL、payload 编解码、SK 加密、NAT-T 切换、DPD、重协商、虚拟 netif 与 adapter 收发 |
+| `include/ipsec/ipsec_vendor_md4.h` + `src/ipsec_vendor_md4.c` | MD4（Apache-2.0, 从 mbedTLS 2.x vendor, 自包含） |
+| `include/ipsec/ipsec_vendor_chap_ms.h` + `src/ipsec_vendor_chap_ms.c` | MS-CHAPv2（BSD, 移植自 lwIP2.2 `chap_ms.c`），含 strongSwan 线格式与 RFC 3079 MSK 派生、RFC 2759 测试向量自检 |
+| `src/luat_netdrv_ipsec.c` | netdrv 胶水层：setup/ctrl(UPDOWN)/dhcp(-1)/debug + 链路状态回调 |
+| `components/network/netdrv/include/luat_netdrv_ipsec.h` | 胶水层头文件（保持在 netdrv/include） |
+
+接入点：
+
+- `luat_netdrv_drv.h`：`LUAT_NETDRV_IMPL_IPSEC 7`
+- `luat_netdrv.h`：`luat_netdrv_ipsec_conf_t` + `conf->ipsec_conf`
+- `luat_netdrv.c` / `luat_lib_netdrv.c`：setup 分发与 `ipsec_*` 参数解析
+- `bsp/pc/xmake.lua`：ipsec 子模块头文件搜索路径（`components/network/ipsec/include`）
+- `bsp/pc/include/luat_conf_bsp.h`：`LUAT_USE_NETDRV_IPSEC 1`
+- `bsp/pc/include/lwipopts.h`：`MEMP_NUM_SYS_TIMEOUT 30`
+- `bsp/pc/port/luat_crypto_mini.c`：PC 模拟器 TRNG 每次调用重新播种
+
+## 3. 架构与数据流
+
+```
+Lua (netdrv.setup / socket.*)
+   |
+   v
+luat_netdrv_ipsec.c  (setup/ctrl/dhcp/debug, IP_READY/IP_LOSE 事件)
+   |
+   v
+ipsec_ike.c  (IKEv2 状态机, tcpip 线程)
+   |   netif (虚拟网卡, 全流量默认路由)
+   |      | netif output -> ESP 封装 -> adapter UDP TX(4500)
+   |      | adapter RX(4500) -> IKE(4字节零前缀) 或 ESP -> 内层 IP 注入
+   |
+   +-- network_ctrl_t (luat_network_adapter, 单 socket: 500 -> 4500)
+```
+
+- IKE 与 ESP 共用同一个 adapter UDP socket：先在 500 上完成
+  IKE_SA_INIT，NAT 探测后切换到本地/远端 4500（RFC 3948 非 ESP
+  marker 区分 IKE 与 ESP）。这是标准 NAT-T 形态，避免了双 socket
+  同端口绑定的问题。
+- 所有状态机工作经 `tcpip_callback_with_block` 汇聚到 tcpip 线程；
+  adapter 回调只拷贝数据并投递，与 L2TP/OpenVPN 客户端一致。
+- CP 下发虚拟 IP 后 `netif_set_addr` + `netif_set_default`，DNS 写入
+  `network_set_dns_server`。
+
+## 4. 协议要点与互操作细节
+
+- 套件：IKE `{aes256-sha256, aes128-sha1} × {modp2048, ecp256, ecp384,
+  ecp521}!`（8 个提案，DH14 优先；响应者选中其它组时按 RFC 7296 §2.7
+  的 INVALID_KE 通知重试，IKE_SA_INIT 默认先发 DH14 的 KE）；
+  ESP `aes256-sha256, aes128-sha1, aes256gcm16, aes128gcm16!`
+  （AEAD 提案无 INTEG transform，transform id 20 + KEY_LENGTH 属性）。
+- CHILD_SA 重协商默认带 PFS：请求载荷顺序 `SA | Ni | KE | TSi | TSr`，
+  使用 IKE_SA_INIT 协商出的 DH 组生成新的临时密钥对；响应解析新 Nr 与
+  KE，KEYMAT = prf+(SK_d, g^ir | Ni | Nr)。响应缺少 KE 或带
+  NO_PROPOSAL_CHOSEN/TS_UNACCEPTABLE 时，自动无 KE 重试一次并保持旧 SA
+  在线（与旧版行为一致）。
+- MOBIKE 更新载荷顺序：`N(UPDATE_SA_ADDRESSES) | N(NAT_DETECTION_SOURCE_IP)
+  | N(NAT_DETECTION_DESTINATION_IP)`（RFC 4555 §2.2），NAT-D 复用
+  IKE_SA_INIT 的 SHA-1 哈希方式；对端发起的更新用当前本地 IP 校验
+  目标 NAT-D，不匹配则忽略；established 状态下的地址学习只发生在
+  密码学验证通过之后：ESP 报文在 ICV/解密成功后、对端
+  UPDATE_SA_ADDRESSES 在 SK 解密 + NAT-D 校验通过后、已认证的
+  INFORMATIONAL 响应在 ICV 校验通过后（RFC 4555 §3，
+  未认证报文一律不得改写对端地址）。
+- IKE 请求单在途槽位：`pending_msgid/last_tx` 全 client 一份，
+  DPD/MOBIKE 更新/CREATE_CHILD_SA 任一在途时其余请求让路（下一秒
+  tick 重试）；INFORMATIONAL 响应（DPD/MOBIKE ack）经 SK 解密 +
+  ICV 校验后才采信；msgid 全链路 32 位（RFC 7296 单调不回绕）。
+- IKE SK 载荷：AES-CBC + HMAC；**ICV 只覆盖 IKE 报文本身**（strongSwan
+  收到 4500 报文会先剥离 4 字节非 ESP marker 再校验）。
+- ESP AEAD（RFC 4106）：8 字节显式 IV，GCM IV = salt(4) | IV(8)，
+  AAD = SPI | SEQ，ICV 16 字节，padding 按 4 字节对齐；KEYMAT 每方向为
+  `enc_key(16/32) + salt(4)`（RFC 7296 §3.3.2），无 INTEG 密钥。
+- AUTH：EAP 模式按 RFC 7296 §2.16 用 MSK 作为共享密钥；
+  `"Key Pad for IKEv2"` 为 17 字节（不含 NUL）。
+- MSK：按 strongSwan 的 RFC 3079 实现——
+  `master=SHA1(HH|NT-Response|Magic1)`，
+  `recv/send=SHA1(master[0:16]|0x00*40|Magic2/3|0xF2*40)`，
+  `MSK=recv[0:16]|send[0:16]|0x00*32`。
+- MS-CHAPv2 线格式采用 strongSwan/Windows 客户端格式：
+  `opcode|id|ms_length|value_size|...`（区别于 RFC 2759 排版）。
+- ESP SPI 方向：发起端**发送**用响应者分配的 SPI（SAr2），**接收**
+  用自己提议的 SPI（SAi2）。
+- 证书链：配置了 `ipsec_ca_cert_pem` 时按该信任锚做链校验并校验
+  SAN `ipsec.air32.cn`；未配置时默认 **fail-closed**（固件不再内置任何
+  信任锚），仅当显式设置 `ipsec_insecure_cert_ok=true` 才接受服务器证书，
+  且仍强制 SAN 匹配。mbedTLS 校验需传 `mbedtls_x509_crt_profile_default`，
+  PEM 缓冲需 NUL 结尾（mbedTLS 3.x 的 PEM 识别条件）。
+
+## 5. 配置参考（Lua）
+
+```lua
+netdrv.setup(socket.LWIP_USER1, netdrv.IPSEC, {
+    ipsec_remote_ip = "154.8.159.79",  -- 网关 IP（仅字面量）
+    ipsec_remote_port = 500,           -- IKE 端口, 默认 500
+    ipsec_username = "vpnuser",
+    ipsec_password = "xxxx",
+    ipsec_san = "ipsec.air32.cn",      -- 服务器 SAN 校验
+    -- ipsec_ca_cert_pem = "-----BEGIN CERTIFICATE-----...", -- 建议配置信任锚;
+    --                                                      -- 未配置且未开启 insecure 时无法连接 (fail-closed)
+    -- ipsec_insecure_cert_ok = false,  -- 默认 false; true 表示无 CA 时仅校验 SAN 即接受
+    ipsec_mtu = 1400,
+    ipsec_retry_enable = true,
+    ipsec_retry_base_ms = 1000,
+    ipsec_retry_max_ms = 60000,
+    -- ipsec_mobike_enable = true,  -- MOBIKE 双向地址更新 (默认关闭)
+})
+```
+
+`ipsec_mobike_enable`：布尔，默认 `false`。开启后客户端在 1s tick 轮询
+本地地址，变化时发送 UPDATE_SA_ADDRESSES；底层 socket 关闭但传输仍在线
+时重开同端口 socket 并走更新流程而非全量重建；同时支持对端发起的地址
+更新与 established 状态下的地址学习。仅 utest 构建提供测试钩子
+`netdrv.ipsec_sim_addr_change(id)` 模拟一次本地地址变更。
+
+## 6. 联调记录（2026-08-12, PC 模拟器 ↔ ipsec.air32.cn）
+
+联调期间发现并修复的问题：
+
+| # | 现象 | 根因 | 修复 |
+|---|---|---|---|
+| 1 | 网关对 IKE_SA_INIT 无响应 | Ni/NAT-D 载荷的 Next Payload 误用 notify 值(16388)而非载荷类型(41) | 改为 `IPSEC_PAYLOAD_NOTIFY` |
+| 2 | IKE_AUTH 无响应, 网关日志 `message ID 16777216, expected 1` | msgid 以单字节写入 (`01 00 00 00`) 而非 4 字节大端 | `ike_put32(msg+20, msgid)` |
+| 3 | 网关日志 `MAC verification failed` | mbedTLS 3 `aes_crypt_cbc` 会把最后一组密文写回 IV 缓冲, 覆盖了包内 IV | 用独立 IV 缓冲 |
+| 4 | 网关日志 `MAC verification failed`（修复 3 后仍失败） | 4500 上 ICV 把 4 字节零前缀算进去了, 而 strongSwan 收到会先剥离 | ICV 只覆盖 IKE 报文 |
+| 5 | `trust anchor parse failed -0x2180` | mbedTLS 3.x 仅当缓冲区 NUL 结尾才识别 PEM | 内嵌/用户 PEM 均保留 NUL 结尾 |
+| 6 | `cert chain verify failed flags=0xFFFFFFFF` | `mbedtls_x509_crt_verify_with_profile` 的 profile 传 NULL 返回 BAD_INPUT_DATA | 传 `mbedtls_x509_crt_profile_default` |
+| 7 | 服务器只发叶子证书, 链校验失败 | strongSwan `leftsendcert=always` 只发叶子；Let's Encrypt 2026 新链 | 内置 YE2/ISRG Root YE/ISRG Root X2 中间 CA |
+| 8 | `server AUTH signature verification failed` | 裸 r\|s 转 DER 时长度公式少算 2 字节 | 修正 `total=6+r+s+pad` |
+| 9 | 服务器 `INVALID_SYNTAX` 拒绝 EAP Identity 响应 | EAP 载荷构建后未 `p += plen`, 内层为空 | 修复三处 EAP 载荷 |
+| 10 | `unhandled MS-CHAPv2 request opcode 1` | 用 RFC 2759 排版解析 strongSwan 的 Challenge | 按 strongSwan 线格式解析 |
+| 11 | 最终 AUTH 被拒 | 内层 `"Key Pad for IKEv2"` 用 `sizeof`（含 NUL 18 字节） | 用 17 字节 |
+| 12 | 最终 AUTH 被拒（修复 11 后仍失败） | MSK 的 master 用 `sizeof(inner)=79`（实际 67）；且 0x36/0x5C 填充与 strongSwan 的 0x00/0xF2 不符；32 字节 key 从 20 字节 digest 越界拷贝 | 按 strongSwan 实现重写 MSK 派生 |
+| 13 | ESP 无回包, 网关 `XfrmInNoStates` | ESP SPI 方向反了（发送用了自己提议的 SPI） | 发送用 SAr2 的 SPI |
+| 14 | 隧道 IP 与策略不匹配 | CP 的 IPv4 字节序（`ip4_addr_set_u32` 需先 `lwip_htonl`） | 恢复 `lwip_htonl(ike_get32())` |
+| 15 | 证书校验 `NOT_TRUSTED`（flags=0x8） | 网关改用私建 CA（`CN=IKEv2 VPN CA`，自签 10 年），strongSwan 只发叶子，内置 ISRG Root X1 / LE 中间链不再适用 | 测试脚本改从 `scripts/ikev2-ca.crt` 读取 CA 作为 `ipsec_ca_cert_pem` 传入；同时按需求移除固件内置信任锚，未配 CA 的默认行为在后续提交中收紧为 fail-closed（需显式 `ipsec_insecure_cert_ok=true` 才接受证书，且仍校验 SAN） |
+
+服务器侧配合项（已处理，用户授权调试）：
+
+- 云主机 `dirtyfrag.conf` 禁用 `esp4` 内核模块（`install esp4 /bin/false`），
+  导致 XFRM SAD 安装失败（`netlink error: Requested type not found (93)`）：
+  已注释该规则并加载 `esp4`/`xfrm_user`/`xfrm4_tunnel`；
+- `ipsec.secrets` 私钥声明为 `: RSA` 但实际是 ECDSA P-384：
+  已改为 `: ECDSA`；
+- 联调后 `charondebug` 已恢复 `ike 2`，`esp=aes256-sha256, aes128-sha1!`
+  已恢复原样。
+
+## 7. 测试结果（PC 模拟器, testcase/unit/net/netdrv_ipsec_basic）
+
+- `connect`：IKE_SA_INIT → 证书链+SAN 校验 → 服务器 AUTH 验签 →
+  EAP-MSCHAPv2（含服务器 Authenticator Response 校验）→ 双端 AUTH →
+  CP 下发虚拟 IP/DNS → 隧道上线 → 隧道内 TCP 到网关 SSH 收到 banner，
+  **3 passed / 0 failed**；
+- `badpass`：错误密码 → EAP 失败 → 不 ready，**通过**；
+- `sanit`：错误 SAN → 证书校验拒绝 → 不 ready，**通过**。
+
+> 前置：`testcase/unit/net/netdrv_ipsec_basic/scripts/ikev2-ca.crt`
+> （网关私建 CA）必须存在，测试会把它作为 `ipsec_ca_cert_pem` 传入；
+> 测试账号凭据通过环境变量 `LUAT_IPSEC_USERNAME` / `LUAT_IPSEC_PASSWORD`
+> 注入（不随源码分发），未设置时测试跳过。
+> 固件默认 fail-closed：未传 `ipsec_ca_cert_pem` 且未显式开启
+> `ipsec_insecure_cert_ok` 时拒绝连接（固件不再内置任何信任锚）。
+
+## 8. 遗留与后续
+
+- 集成联调（需网关侧重配，未完成项见交付说明）：
+  - PFS：网关 `pfs=yes` + 缩短 lifetime，验证重协商日志、DPD、隧道不断流；
+  - ECP/GCM：网关 `ike=aes256-sha256-ecp256!` / `esp=aes256gcm16!` 建连；
+  - MOBIKE：`netdrv.ipsec_sim_addr_change` 触发 UPDATE_SA_ADDRESSES，
+    网关 `mobike=no` 时回退重连。
+- 硬件 BSP：需确认目标板 lwip 导出符号（`pbuf/netif/sys/ip4_input`）
+  与 adapter 行为，并按验收清单在目标板重跑；
+- 服务器 FORWARD 链的 IPsec 池 ACCEPT 规则与 `rightsourceip`
+  段需按实际网络调整（当前云主机 iptables 规则与池配置不完全一致，
+  隧道到网关本机可用，跨子网转发需核对）；
+- `netdrv.debug` 会输出 IKE/ESP 帧日志（含 SK 明文转储仅调试用）。
+
+## 9. 相关文档
+
+- RFC 7296（IKEv2）、RFC 3948（NAT-T）、RFC 4303（ESP）、
+  RFC 2759/3079（MS-CHAPv2/MSK）
+- `docs/l2tp-design.md`（线程模型/胶水层/构建接线参考）
+- `components/network/l2tp/src/l2tp_client.c` /
+  `components/network/openvpn/src/ovpn_client.c`（传输与 netif 参考）

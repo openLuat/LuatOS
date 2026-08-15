@@ -97,6 +97,8 @@
 
 [**openai/deepseek**]：本demo演示LuatOS如何集成OpenAI的DeepSeek服务，适用于需要进行深度学习推理的场景。
 
+[**openai/orcarouter**]：本demo演示LuatOS如何集成[OrcaRouter](https://www.orcarouter.ai)路由网关（OpenAI兼容），适用于需要通过路由网关调用大模型推理的场景。
+
 [**pack**]：本demo演示LuatOS的数据打包和解包功能，适用于需要进行数据格式转换的场景。
 
 [**protobuf**]：本demo演示LuatOS的protobuf数据解析和生成功能，适用于需要进行protobuf格式数据处理的场景。

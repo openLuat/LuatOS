@@ -6,8 +6,8 @@ log.info("main", PROJECT, VERSION)
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
-local out_buff = zbuff.create(1024)
-local in_buff = zbuff.create(1024)
+local out_buff = zbuff.create(8000)
+local in_buff = zbuff.create(8000)
 local uart_id = uart.VUART_0 -- USB虚拟串口的固定id
 local atc_id = 0
 --初始化

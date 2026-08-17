@@ -88,6 +88,25 @@ int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, in
         return -2;
     }
 
+    swap = lcd_dft_conf ? lcd_dft_conf->endianness_swap : 0;
+
+    /* 图片超出屏幕范围时, 走大图绘制(弱函数, 默认软件裁剪, BSP可硬件裁剪),
+     * 只绘制屏幕可见区域, 避免越界写穿 heap 上的显存缓冲 */
+    if (x < 0 || y < 0 ||
+        ((int32_t)x + img_info.width)  > conf->w ||
+        ((int32_t)y + img_info.height) > conf->h) {
+        ret = luat_lcd_draw_big_image(conf, (const luat_color_t*)img_info.data,
+                                      img_info.width, img_info.height, x, y, swap);
+        luat_heap_free(img_info.data);
+        img_info.data = NULL;
+        if (ret != 0) {
+            LLOGE("draw big image file %s error %d", path, ret);
+            return -4;
+        }
+        lcd_auto_flush(conf);
+        return 0;
+    }
+
     /* 行缓冲：16 行一带，匹配原 TJpgD 16x16 MCU 块的刷新粒度。 */
     row_buf = (luat_color_t *)luat_heap_malloc(
         (size_t)img_info.width * 16 * sizeof(luat_color_t));
@@ -97,7 +116,6 @@ int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, in
         return -3;
     }
 
-    swap = lcd_dft_conf ? lcd_dft_conf->endianness_swap : 0;
     {
         uint16_t w = img_info.width;
         uint16_t h = img_info.height;

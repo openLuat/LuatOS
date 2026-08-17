@@ -4,6 +4,7 @@
 #include "luat_spi.h"
 #include "luat_mem.h"
 #include "luat_rtos.h"
+#include "luat_common_api.h"
 
 #define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"
@@ -540,6 +541,63 @@ LUAT_WEAK int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16
     return luat_lcd_draw_default(conf, x1, y1, x2, y2, color);
 }
 #endif
+
+/* 绘制可能超出屏幕范围的大图(解码后的完整图像), 只绘制屏幕可见区域。
+ * 默认实现为软件裁剪: 可见区域与源图一致时零拷贝, 否则用 luat_image_crop 分带裁剪。
+ * BSP 可提供强实现, 用硬件直接裁剪(如DMA2D窗口拷贝)。 */
+int luat_lcd_draw_big_image_default(luat_lcd_conf_t* conf, const luat_color_t* img_data, uint32_t img_w, uint32_t img_h, int16_t x, int16_t y, uint8_t swap) {
+    if (conf == NULL || img_data == NULL || img_w == 0 || img_h == 0) {
+        return -1;
+    }
+
+    int32_t vx1 = x > 0 ? x : 0;
+    int32_t vy1 = y > 0 ? y : 0;
+    int32_t vx2 = (int32_t)x + (int32_t)img_w - 1;
+    int32_t vy2 = (int32_t)y + (int32_t)img_h - 1;
+    if (vx2 >= conf->w) vx2 = conf->w - 1;
+    if (vy2 >= conf->h) vy2 = conf->h - 1;
+    if (vx2 < vx1 || vy2 < vy1) return 0;
+
+    uint32_t cw = (uint32_t)(vx2 - vx1 + 1);
+    uint32_t ch = (uint32_t)(vy2 - vy1 + 1);
+    uint32_t cx = (uint32_t)(vx1 - x);
+    uint32_t cy = (uint32_t)(vy1 - y);
+
+    /* 宽度未被裁剪且无需交换字节时, 源数据连续, 直接零拷贝绘制 */
+    if (cw == img_w && !swap) {
+        return luat_lcd_draw(conf, (int16_t)vx1, (int16_t)vy1, (int16_t)vx2, (int16_t)vy2,
+                             (luat_color_t*)(img_data + (size_t)cy * img_w));
+    }
+
+    /* 分带裁剪, 限制临时缓冲大小 */
+    const uint32_t band = 16;
+    luat_color_t* buf = (luat_color_t*)luat_heap_malloc(cw * band * sizeof(luat_color_t));
+    if (buf == NULL) {
+        return -1;
+    }
+    int ret = 0;
+    for (uint32_t row = 0; row < ch; row += band) {
+        uint32_t bh = (ch - row) > band ? band : (ch - row);
+        if (luat_image_crop((const uint8_t*)img_data, sizeof(luat_color_t), img_w, img_h,
+                            (uint8_t*)buf, cw, bh, cx, cy + row) != 0) {
+            ret = -1;
+            break;
+        }
+        if (swap) {
+            for (uint32_t i = 0; i < cw * bh; i++) {
+                buf[i] = color_swap(buf[i]);
+            }
+        }
+        luat_lcd_draw(conf, (int16_t)vx1, (int16_t)(vy1 + (int32_t)row),
+                      (int16_t)vx2, (int16_t)(vy1 + (int32_t)row + (int32_t)bh - 1), buf);
+    }
+    luat_heap_free(buf);
+    return ret;
+}
+
+LUAT_WEAK int luat_lcd_draw_big_image(luat_lcd_conf_t* conf, const luat_color_t* img_data, uint32_t img_w, uint32_t img_h, int16_t x, int16_t y, uint8_t swap) {
+    return luat_lcd_draw_big_image_default(conf, img_data, img_w, img_h, x, y, swap);
+}
 
 int luat_lcd_draw_point(luat_lcd_conf_t* conf, int16_t x, int16_t y, luat_color_t color) {
     luat_color_t tmp = color;

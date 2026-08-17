@@ -121,19 +121,6 @@ config.BATTERY_CONFIG = {
     ADC_SAMPLE_INTERVAL = 10,      -- ADC采样间隔(ms)
 }
 
--- 充电管理配置（YHM2712A 线性充电IC）
-config.CHARGE_CONFIG = {
-    ENABLE = true,                 -- 充电管理总开关
-    CHIP = "YHM2712A",             -- 充电IC型号
-    FLOAT_VOLTAGE_MV = 4200,       -- 充电截止电压(mV)
-    CHARGE_CURRENT_MA = 500,       -- 充电电流(mA)：10-750
-    FULL_VOLTAGE_MV = 4150,        -- 判定充满电压(mV)
-    FULL_CURRENT_MA = 50,          -- 判定充满截止电流(mA)
-    CHARGE_TIMEOUT_MIN = 480,      -- 充电超时保护(分钟)，0=不启用
-    STATUS_REPORT_ON = true,       -- 充电状态上报使能
-    STATUS_PIN = "",               -- 充电IC状态引脚(GPIO)
-}
-
 -- 硬件引脚定义
 config.HARDWARE_PINS = {
     VBUS_PIN = 38,
@@ -215,24 +202,6 @@ function config.load_from_server(gnss_cfg, project_key)
             config.BATTERY_CONFIG.DIVIDER_R1 = bt.divider_r1
             config.BATTERY_CONFIG.DIVIDER_R2 = bt.divider_r2
         end
-    end
-
-    -- 4.5 charge → 充电管理配置（YHM2712A）
-    if gnss_cfg.charge then
-        local ch = gnss_cfg.charge
-        config.CHARGE_CONFIG = config.CHARGE_CONFIG or {}
-        if ch.enable ~= nil then config.CHARGE_CONFIG.ENABLE = ch.enable == 1 end
-        if ch.chip and ch.chip ~= "" then config.CHARGE_CONFIG.CHIP = ch.chip end
-        if ch.float_voltage_mv and ch.float_voltage_mv > 0 then config.CHARGE_CONFIG.FLOAT_VOLTAGE_MV = ch.float_voltage_mv end
-        if ch.charge_current_ma and ch.charge_current_ma > 0 then config.CHARGE_CONFIG.CHARGE_CURRENT_MA = ch.charge_current_ma end
-        if ch.full_voltage_mv and ch.full_voltage_mv > 0 then config.CHARGE_CONFIG.FULL_VOLTAGE_MV = ch.full_voltage_mv end
-        if ch.full_current_ma and ch.full_current_ma > 0 then config.CHARGE_CONFIG.FULL_CURRENT_MA = ch.full_current_ma end
-        if ch.charge_timeout_min and ch.charge_timeout_min >= 0 then config.CHARGE_CONFIG.CHARGE_TIMEOUT_MIN = ch.charge_timeout_min end
-        if ch.status_report_on ~= nil then config.CHARGE_CONFIG.STATUS_REPORT_ON = ch.status_report_on == 1 end
-        if ch.status_pin then config.CHARGE_CONFIG.STATUS_PIN = ch.status_pin end
-        log.info("config", "充电管理配置:", "enable=" .. tostring(config.CHARGE_CONFIG.ENABLE),
-            "float_voltage=" .. config.CHARGE_CONFIG.FLOAT_VOLTAGE_MV .. "mV",
-            "charge_current=" .. config.CHARGE_CONFIG.CHARGE_CURRENT_MA .. "mA")
     end
 
     -- 5. alarm → 报警阈值（仅保留已生效的字段）

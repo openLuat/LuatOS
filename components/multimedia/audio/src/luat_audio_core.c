@@ -1507,7 +1507,7 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
     uint32_t *tx_buff, uint32_t one_block_len, uint8_t block_num,
     luat_audio_request_cb_t cb, void *user_data, const luat_audio_dsp_opts_t *dsp_opts)
 {
-	if (!request_block || !common_audio_param || !play_codec_opts || !record_codec_opts || !record_fifo || (!record_codec_opts->encode && !record_codec_opts->encode_with_sync_output_ref && !record_codec_opts->encode_raw_mode)) {
+	if (!request_block || !common_audio_param || !play_codec_opts || !record_codec_opts || !record_fifo || (!record_codec_opts->encode && !record_codec_opts->encode_with_sync_output_ref)) {
 		return -LUAT_ERROR_PARAM_INVALID;
 	}
 	

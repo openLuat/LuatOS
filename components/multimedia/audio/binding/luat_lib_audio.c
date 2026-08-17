@@ -8,6 +8,7 @@
 @tag LUAT_USE_AUDIO_V2
 */
 #include "lauxlib.h"
+#include "lua.h"
 #include "luat_audio_data_codec.h"
 #include "luat_audio_define.h"
 #include "luat_audio_request.h"
@@ -506,7 +507,7 @@ DONE:
 @string/zbuff 输入数据，如果为空，则不输入任何数据
 @boolean 是否是最后一帧数据，默认false
 @return boolean 成功返回true,否则返回false
-@return int 实际写入的长度，如果数据为空或者写入失败，则返回0，单位字节。如果数据是zbuff形式，写入成功后会自动删除zbuff中的数据
+@return int 实际写入的长度，如果数据为空或者写入失败，则返回0，单位字节。
 @return int 输入缓冲的剩余空间，单位字节
 @usage
 local result, write_len, free_len = audio_v2.input(request_index, data, is_end)
@@ -529,6 +530,7 @@ static int l_audio_input(lua_State *L) {
         if (l_extern_source->is_busy) {
             if (l_extern_source->extern_source.decode_input_fifo) {
                 rest_len = luat_fifo_check_free_space(l_extern_source->extern_source.decode_input_fifo);
+                LLOGC(luat_audio_debug_flag, "lua extern source %d rest_len %d", source_index, rest_len);
             } else {
                 rest_len = 0;
             }
@@ -589,13 +591,21 @@ static int l_audio_input(lua_State *L) {
     } else {
         is_end = 0;
     }
-    l_req->request.is_input_end = is_end;
+    if (l_req) {
+        l_req->request.is_input_end = is_end;
+    } else {
+        l_extern_source->extern_source.is_input_end = is_end;
+    }
     luat_rtos_task_resume_all();
 DONE:
     lua_pushboolean(L, !result);
     lua_pushinteger(L, input_len);
     if (rest_len) {
-        lua_pushinteger(L, luat_fifo_check_free_space(l_req->request.org_input_data_fifo));
+        if (l_req) {
+            lua_pushinteger(L, luat_fifo_check_free_space(l_req->request.org_input_data_fifo));
+        } else {
+            lua_pushinteger(L, luat_fifo_check_free_space(l_extern_source->extern_source.decode_input_fifo));
+        }
     } else {
         lua_pushinteger(L, rest_len);
     }
@@ -763,7 +773,7 @@ DONE:
 
 /*
 全双工模式，可用于对讲
-@api audio_v2.speech(record_codec_id, save_buffer, record_callback_cnt, play_codec_id,one_play_block_len, sample_rate, data_bits, channel_nums, driver_probe_id, dsp_type)
+@api audio_v2.speech(record_codec_id, save_buffer, record_callback_cnt, play_codec_id, sample_rate, data_bits, channel_nums, driver_probe_id, dsp_type)
 @int 录音编码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空，则直接返回原始PCM数据。如果不留空，会检查sample_rate和data_bits是否符合解码器的要求
 @zbuff 录音数据回调时保存的buffer
 @int 每次录音回调的帧数，每一帧时间由编码器决定
@@ -835,6 +845,7 @@ static int l_audio_speech(lua_State *L) {
     l_req->record_timeout_or_callback_frame = luaL_optinteger(L, 3, 0);
     l_req->is_record_file = 0;
     l_req->record_zbuff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    LLOGC(luat_audio_debug_flag,"dsp type: %d", dsp_type);
     result = luat_audio_request_speech(&l_req->request, driver_probe.probe_id?&driver_probe:NULL, play_codec_opts, record_codec_opts, &common_param, _l_audio.record_fifo, l_req->record_timeout_or_callback_frame,  
         NULL, 0, 0,_l_audio_request_callback, l_req, luat_audio_dsp_get_opts(dsp_type));
     if (result) {
@@ -852,12 +863,12 @@ DONE:
 
 /*
 对讲中附加额外的音频数据，额外音频的参数必须和对讲的参数一致，否则会失败而没有任何作用
-@api audio_v2.extern_source(request_index, source, is_add_record,codec_id, sample_rate, data_bits, channel_nums, is_signed)
+@api audio_v2.extern_source(request_index, source, is_add_record, codec_id, is_error_stop, sample_rate, data_bits, channel_nums, is_signed)
 @int request_index 请求索引，通过audio_v2.speech返回的
-@table/string/zbuff 输入数据，table表示播放文件，string表示播放tts，zbuff表示播放音频数据，如果只播放一个文件也要用table
+@table/string/zbuff/boolean 输入数据，table表示播放文件（如果只播放一个文件也要用table），string表示播放tts，zbuff表示播放音频数据(文件数据放在了zbuff)，true表示启用流模式播放
 @boolean 是否添加到录音通道，false添加到播放通道，true添加到录音通道，默认false
+@int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空则通过输入数据自行判断，如果是流模式，则必须指定解码器id
 @boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
-@int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空则通过输入数据自行判断
 @int 采样率，如果指定解码器是RAW，不能留空
 @int 数据位数，8,16,24,32，如果指定解码器是RAW，不能留空
 @int 通道数，1,2，如果指定解码器是RAW，不能留空
@@ -870,6 +881,7 @@ audio_v2.extern_source(request_index, {"/test_16k.mp3"})
 */
 static int l_audio_extern_source(lua_State *L) {
     int result = -1;
+    l_audio_extern_source_t *l_extern_source = NULL;
     const char *data = NULL;
     size_t len = 0;
     size_t file_nums = 0;
@@ -923,7 +935,7 @@ static int l_audio_extern_source(lua_State *L) {
     if (codec_id < LUAT_AUDIO_DATA_CODEC_TYPE_MAX) {
         codec_opts = luat_audio_data_codec_find(org_codec_id);
     }
-    l_audio_extern_source_t *l_extern_source = (l_audio_extern_source_t *)_l_audio.extern_source_free_list.next;
+    l_extern_source = (l_audio_extern_source_t *)_l_audio.extern_source_free_list.next;
     luat_llist_del(&l_extern_source->node);
     luat_llist_add_tail(&l_extern_source->node, &_l_audio.extern_source_busy_list);
     l_extern_source->is_busy = 1;
@@ -962,8 +974,20 @@ static int l_audio_extern_source(lua_State *L) {
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
         result = luat_audio_request_add_source_files(&l_extern_source->extern_source, info, file_nums, codec_opts, is_add_record, l_extern_source);
-    }
+    } else if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
+        if (codec_opts) {
+            l_extern_source->extern_source.request = &l_req->request;
+            result = luat_audio_request_add_source_stream(&l_extern_source->extern_source, codec_opts, &common_param, is_add_record, l_extern_source);
+            if (result) {
+                LLOGE("lua extern source add stream failed, ret %d", result);
+                goto DONE;
+            }
+        } else {
+            LLOGE("extern source stream mode must have codec id");
+            goto DONE;
+        }
 
+    }
 DONE:
     if (info) {
         luat_heap_free(info);
@@ -971,6 +995,15 @@ DONE:
     lua_pushboolean(L, !result);
     if (!result) {
         extern_source_index = l_extern_source->self_index|LUAT_AUDIO_EXTERN_SOURCE_INDEX_FLAG;
+        LLOGC(luat_audio_debug_flag, "lua extern source add success, index %d", extern_source_index);
+    } else {
+        LLOGE("lua extern source add failed %d", result);
+        if (l_extern_source) {
+            luat_llist_del(&l_extern_source->node);
+            luat_llist_add_tail(&l_extern_source->node, &_l_audio.extern_source_free_list);
+            l_extern_source->is_busy = 0;
+        }
+        extern_source_index = 0;
     }
     lua_pushinteger(L, extern_source_index);
     return 2;
@@ -994,6 +1027,7 @@ static int l_audio_stop(lua_State *L) {
         }
         l_audio_extern_source_t *l_extern_source = &_l_audio.extern_source_table[request_index];
         if (l_extern_source->is_busy) {
+            l_extern_source->is_busy = 0;
             luat_audio_request_delete_source(&l_extern_source->extern_source);
             luat_llist_del(&l_extern_source->node);
             luat_llist_add_tail(&l_extern_source->node, &_l_audio.extern_source_free_list);
@@ -1006,6 +1040,7 @@ static int l_audio_stop(lua_State *L) {
     }
     l_audio_request_t *l_req = &_l_audio.request_table[request_index];
     if (l_req->is_busy) {
+        l_req->is_busy = 0;
         luat_audio_request_cancel(&l_req->request);
         luat_llist_del(&l_req->node);
         luat_llist_add_tail(&l_req->node, &_l_audio.request_free_list);
@@ -1427,7 +1462,8 @@ static int l_audio_is_request_busy(lua_State *L) {
 
 /*
 配置调试信息输出
-@api audio_v2.debug(on_off)@boolean true开 false关
+@api audio_v2.debug(on_off)
+@boolean true开 false关
 @return
 @usage
 audio_v2.debug(true)	--开启调试信息输出

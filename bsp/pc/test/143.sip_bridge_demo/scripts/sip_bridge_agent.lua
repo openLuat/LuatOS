@@ -917,6 +917,8 @@ function sip_bridge_agent.start(opts)
         rtp_port = CONFIG.rtp_port,
         codecs = {CONFIG.codec},
         ptime = CONFIG.ptime,
+        -- CC 独占 ES8311/audio_v2；exsip 只启动 RTP/PCM 桥接，不能创建本地 SIP speech。
+        cc_sip_bridge = true,
         -- 桥接层自己控制 early media -> CC 接通 -> SIP 200 OK，
         -- 不能让 exsip 内部 auto_answer 抢先发送最终 200 OK。
         auto_answer = false,

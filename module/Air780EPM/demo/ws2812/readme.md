@@ -1,6 +1,6 @@
 # WS2812 多模块 Demo
 
-> **适用产品范围**：本 demo 仅适用于合宙 **Air1780P / Air1780H**。
+> **适用产品范围**：本 demo 仅适用于合宙 **Air1780P / Air1780H / Air1780HV**。
 
 > 面向 **AI 代理 / 开发者** 的自包含文档。本文档描述模块化 WS2812 demo 的目的、结构、API、扩展方式与故障排除。
 > 维护约定：新增/修改 `_task.lua` 后请同步更新「效果模块」与「项目结构」两节。
@@ -52,7 +52,7 @@
 
 ### 1.2 与根目录 main.lua 的关系
 
-| 对比项 | 根目录 `main.lua` | `ws2812_demo/` |
+| 对比项 | 根目录 `main.lua` | `ws2812/` |
 |--------|-------------------|----------------|
 | 定位 | 正式产品程序（色块 2 圈 + 滚动文字） | 学习/扩展用的模块化 demo 集合 |
 | 组织 | 单文件全部逻辑 | 多文件按职责拆分 |
@@ -126,13 +126,14 @@ y=2  偶行:  LED 44 → 45  → ... → 65   左→右
 
 ### 4.4 导入 demo 文件
 
-把 `ws2812_demo/` 目录下所有 `.lua` 文件加入 Luatools 项目的脚本资源：
+把 `ws2812/` 目录下所有 `.lua` 文件加入 Luatools 项目的脚本资源：
 
 ```
-ws2812_demo/
+ws2812/
 ├── main.lua                 ← 勾选为 MAIN 主脚本
 ├── ws2812_config.lua
 ├── ws2812_fonts.lua
+├── ws2812_cmd.lua           ← 串口命令模块（随 main.lua 一起加载）
 └── ws2812_*_task.lua        ← 全部加入脚本资源（是否启用由 main.lua 控制）
 ```
 
@@ -143,10 +144,11 @@ ws2812_demo/
 ## 5. 项目结构解析
 
 ```
-ws2812_demo/
-├── main.lua                     # 入口：require 调度 + 串口命令
+ws2812/
+├── main.lua                     # 入口：只负责 require 模块加载调度
 ├── ws2812_config.lua            # 硬件、坐标、HSV 工具、WS2812 句柄、全局 API
 ├── ws2812_fonts.lua             # 字模表 + UTF-8 条带构建（滚动任务依赖）
+├── ws2812_cmd.lua               # 串口命令接口（b=NNN 亮度 / s=NNN 速度）
 ├── ws2812_blocks_task.lua       # 色块覆盖 + LED 灯珠检测（红绿蓝白纯色循环）
 ├── ws2812_rainbow_task.lua      # 彩虹渐变
 ├── ws2812_snake_task.lua        # 蛇形扫描
@@ -162,7 +164,8 @@ ws2812_demo/
 main.lua
   ├─ require "ws2812_config"     ① 最先：初始化 WS2812_LEDS、全局工具
   ├─ require "ws2812_*_task"     ② 各效果任务内部再 require config / fonts
-  └─ sys.run()                   ③ 启动 LuatOS 调度器
+  ├─ require "ws2812_cmd"        ③ 串口命令接口（修改 WS2812_CFG 运行时参数）
+  └─ sys.run()                   ④ 启动 LuatOS 调度器
 ```
 
 每个 `_task.lua` 自己调用 `sys.taskInit(fn)`，LuatOS 调度器会让它们**并发协作**（协作式多任务，`sys.wait()` 让出 CPU）。
@@ -173,7 +176,7 @@ main.lua
 
 ### 6.1 启用/切换效果
 
-编辑 [main.lua](file:///c:/Users/Administrator/Desktop/1780P跑马灯/ws2812_demo/main.lua)：
+编辑 [main.lua](file:///c:/Users/Administrator/Desktop/1780P跑马灯/ws2812/main.lua)：
 
 ```lua
 require "ws2812_config"          -- 必须最先加载
@@ -185,6 +188,8 @@ require "ws2812_blocks_task"     -- LED 灯珠检测（逐颗覆盖 + 红绿蓝�
 -- require "ws2812_sparkle_task"
 -- require "ws2812_rect_task"
 -- require "ws2812_scroll_task"  -- 若要滚动文字，需把 ws2812_blocks_task.lua 里 DETECT_LOOP 改为 false
+
+require "ws2812_cmd"             -- 串口命令接口（b=NNN/s=NNN，建议保持开启）
 ```
 
 保存后在 Luatools 里只下载脚本即可，无需重烧固件。
@@ -197,7 +202,7 @@ require "ws2812_blocks_task"     -- LED 灯珠检测（逐颗覆盖 + 红绿蓝�
 
 ### 6.3 调亮度/速度
 
-- 改默认：编辑 [ws2812_config.lua](file:///c:/Users/Administrator/Desktop/1780P跑马灯/ws2812_demo/ws2812_config.lua#L25-L28)：
+- 改默认：编辑 [ws2812_config.lua](file:///c:/Users/Administrator/Desktop/1780P跑马灯/ws2812/ws2812_config.lua#L25-L28)：
   ```lua
   WS2812_CFG = {
       brightness = 50,
@@ -279,7 +284,7 @@ require "ws2812_blocks_task"     -- LED 灯珠检测（逐颗覆盖 + 红绿蓝�
 - 文字从右侧（offset = -22）滑入、向左滑出（offset = strip_w-1），无空白帧循环；
 - 每轮通过 6 色区 LCG 选一个新颜色。
 
-**改文本**：修改 [ws2812_scroll_task.lua#L26](file:///c:/Users/Administrator/Desktop/1780P跑马灯/ws2812_demo/ws2812_scroll_task.lua#L26) `local SCROLL_TEXT = "欢迎使用LuatOS"`。若含未收录汉字，需要在 `ws2812_fonts.lua` 的 `FONT_CN` 里补字模。
+**改文本**：修改 [ws2812_scroll_task.lua#L26](file:///c:/Users/Administrator/Desktop/1780P跑马灯/ws2812/ws2812_scroll_task.lua#L26) `local SCROLL_TEXT = "欢迎使用LuatOS"`。若含未收录汉字，需要在 `ws2812_fonts.lua` 的 `FONT_CN` 里补字模。
 
 ---
 
@@ -441,7 +446,7 @@ WS2812_CFG.speed_ms   = 60   -- 20–2000 ms
 
 ### 10.2 串口命令
 
-`main.lua` 在 UART1（USB 虚拟串口，115200）注册了命令解析。用任意串口助手（Luatools 自带、SSCOM、minicom 等）发送：
+[ws2812_cmd.lua](file:///c:/Users/Administrator/Desktop/1780P跑马灯/ws2812/ws2812_cmd.lua) 在 UART1（USB 虚拟串口，115200）注册了命令解析。用任意串口助手（Luatools 自带、SSCOM、minicom 等）发送：
 
 | 命令 | 作用 | 范围 |
 |------|------|------|
@@ -482,7 +487,7 @@ WS2812_CFG.speed_ms   = 60   -- 20–2000 ms
 
 ### 11.1 模板
 
-在 `ws2812_demo/` 新建 `ws2812_myeffect_task.lua`：
+在 `ws2812/` 新建 `ws2812_myeffect_task.lua`：
 
 ```lua
 --[[
@@ -544,7 +549,7 @@ require "ws2812_myeffect_task"
 | 串口命令无反应 | 串口号/波特率/换行 | 用 Luatools 日志所在虚拟串口；115200；命令末尾回车 `\r\n` |
 | 两个效果同时启用时严重闪烁 | 两任务都 clear+send 抢缓冲 | 同一时刻只启用一个效果，或合并到一个任务 |
 | 日志报 "ws2812.create 失败" | 固件不含 ws2812 组件 | 换用含 ws2812 的 Air1780P LuatOS SoC 固件（固件定义可在 [docs.openluat.com](https://docs.openluat.com/) 查询） |
-| 改了脚本但灯效没变 | Luatools MAIN 指向了另一个 main.lua | 确认 `ws2812_demo/main.lua` 被勾选为 MAIN 主脚本 |
+| 改了脚本但灯效没变 | Luatools MAIN 指向了另一个 main.lua | 确认 `ws2812/main.lua` 被勾选为 MAIN 主脚本 |
 
 ---
 

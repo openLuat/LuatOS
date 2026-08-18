@@ -50,7 +50,7 @@ extern void net_lwip_check_switch(uint8_t onoff);
 @api mobile.imei(index)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @return string 当前的IMEI值,若失败返回nil
-@usgae
+@usage
 -- 注意, 当前所有模块只支持单待,所以IMEI总是同一个
  */
 #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
@@ -323,7 +323,7 @@ static int l_mobile_imei(lua_State* L) {
 @api mobile.imsi(index)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @return string 当前的IMSI值,若失败返回nil
-@usgae
+@usage
 -- 注意, 当前所有模块只支持单待,所以IMSI总是同一个
  */
 static int l_mobile_imsi(lua_State* L) {
@@ -444,8 +444,9 @@ static int l_mobile_muid(lua_State* L) {
     return 1;
 }
 
+#if 0
 /**
-设置MUID
+设置MUID，已经废弃不要使用
 @api mobile.muidSet(muid)
 @string muid MUID字符串
 @return int 0成功, -1失败
@@ -456,7 +457,7 @@ static int l_mobile_muid_set(lua_State* L) {
     lua_pushinteger(L, luat_mobile_set_muid(muid, len));
     return 1;
 }
-
+#endif
 
 /**
 获取或设置ICCID
@@ -1353,6 +1354,14 @@ end)
 mobile.config(mobile.CONF_SIM_WC_MODE, 2)
 -- 清空统计值
 mobile.config(mobile.CONF_SIM_WC_MODE, 3)
+
+-- USB网卡设置为ECM模式，NAT开启
+pm.power(pm.USB ,false)
+mobile.config(mobile.CONF_USB_ETHERNET, 7)
+mobile.flymode(0, true)
+mobile.flymode(0, false)
+pm.power(pm.USB ,true)
+
  */
 static int l_mobile_config(lua_State* L) {
     uint8_t item = luaL_optinteger(L, 1, 0);
@@ -1426,206 +1435,6 @@ static int l_mobile_set_band(lua_State* L) {
 	int num = luaL_optinteger(L, 2, 1);
 	lua_pushboolean(L, !luat_mobile_set_band(buff->addr,  num));
 	return 1;
-}
-
-/* ============================================================
- *  新增 luat_mobile_rf_test_* 桥接层 (替代旧 luat_mobile_rfcal_*)
- *  这层桥接只做字节 / 状态搬运, 不做 AT 派发
- *  AT 派发由 script/libs/rfa.lua 负责
- * ============================================================ */
-
-/**
-RF测试:进入/退出模式 (同 nstOnOff, 推荐用这个)
-@api mobile.rfTestMode(uart_id, onoff)
-@int 串口号,默认 VUART_0
-@boolean true 进入, false 退出
-@return nil
-@usage
-mobile.rfTestMode(uart.VUART_0, true)
-mobile.rfTestMode(nil, false)
- */
-static int l_mobile_rf_test_mode(lua_State* L) {
-    luat_mobile_rf_test_mode(
-        (uint8_t)luaL_optinteger(L, 1, LUAT_VUART_ID_0),
-        (uint8_t)lua_toboolean(L, 2));
-    return 0;
-}
-
-/**
-RF测试:喂入字节 (同 nstInput, 推荐用这个)
-@api mobile.rfTestInput(data)
-@string or zbuff 字节流; 传 nil 表示 flush
-@return nil
-@usage
-mobile.rfTestInput(uart_data)
-mobile.rfTestInput(nil)
- */
-static int l_mobile_rf_test_input(lua_State* L) {
-    size_t len = 0;
-    const char *buf = NULL;
-    if (lua_isuserdata(L, 1)) {
-        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
-        len = buff->used;
-        buf = buff->addr;
-    } else if (lua_isstring(L, 1)) {
-        buf = lua_tolstring(L, 1, &len);
-    }
-    luat_mobile_rf_test_input((char*)buf, (uint32_t)len);
-    return 0;
-}
-
-/**
-RF测试:查询/设置 PC 端"模组"参数 (NPI 位 / 状态机 / 错误注入)
-@api mobile.rfTestParam(key, value, is_set)
-@string key  "rfCaliDone" / "rfNSTDone" / "rfCTDone" / "state" / "erfMode"
-@int value   读时忽略, 写时给值
-@boolean is_set true=写, false=读 (默认读)
-@return int   读时返回值; 写时返回 0 成功 / -1 失败
-@usage
-print(mobile.rfTestParam("state"))  -- 0
-mobile.rfTestParam("rfCaliDone", 1, true)
- */
-static int l_mobile_rf_test_param(lua_State* L) {
-    const char *k = luaL_checkstring(L, 1);
-    int v = (int)luaL_optinteger(L, 2, 0);
-    int is_set = lua_toboolean(L, 3);
-    int rv = luat_mobile_rf_test_param(k, &v, is_set);
-    if (is_set) {
-        lua_pushinteger(L, rv);
-    } else {
-        lua_pushinteger(L, v);
-    }
-    return 1;
-}
-
-/**
-RF测试:读 IMEI 字符串 (15 位 ASCII)
-@api mobile.rfTestImei()
-@return string 15 位 IMEI, 失败返回 nil
-@usage
-print(mobile.rfTestImei())  --> 864317081553409
- */
-static int l_mobile_rf_test_imei_get(lua_State* L) {
-    char buf[16] = {0};
-    int rv = luat_mobile_rf_test_imei_get(buf, 16);
-    if (rv != 0) { lua_pushnil(L); return 1; }
-    lua_pushlstring(L, buf, 15);
-    return 1;
-}
-
-/**
-RF测试:写 IMEI 字符串 (15 位 ASCII)
-@api mobile.rfTestImeiSet(imei)
-@string imei 15 位 IMEI
-@return int 0 成功, -1 长度错误
-@usage
-mobile.rfTestImeiSet("864317081553409")
- */
-static int l_mobile_rf_test_imei_set(lua_State* L) {
-    const char *imei = luaL_checkstring(L, 1);
-    lua_pushinteger(L, luat_mobile_rf_test_imei_set(imei));
-    return 1;
-}
-
-/**
-RF测试:读 Golden Unit 数据
-@api mobile.rfTestGmData()
-@return string 数据字符串, 失败返回 nil
-@usage
-print(mobile.rfTestGmData())
- */
-static int l_mobile_rf_test_gmdata_get(lua_State* L) {
-    size_t len = luaL_optinteger(L, 1, 2048);
-    if (len < 1 || len > 8192) len = 2048;
-    char *buf = luat_heap_malloc(len);
-    if (!buf) { lua_pushnil(L); return 1; }
-    int rv = luat_mobile_rf_test_gmdata_get(buf, len);
-    if (rv > 0) {
-        lua_pushlstring(L, buf, rv);
-    } else {
-        lua_pushnil(L);
-    }
-    luat_heap_free(buf);
-    return 1;
-}
-
-/**
-RF测试:写 Golden Unit 数据
-@api mobile.rfTestGmDataSet(data)
-@string data 数据字符串
-@return int 0 成功, -1 失败
-@usage
-mobile.rfTestGmDataSet("golden data")
- */
-static int l_mobile_rf_test_gmdata_set(lua_State* L) {
-    size_t len = 0;
-    const char *data = luaL_checklstring(L, 1, &len);
-    lua_pushinteger(L, luat_mobile_rf_test_gmdata_set(data, len));
-    return 1;
-}
-
-/**
-RF测试: NST 校准/非信令指令同步处理
-@api mobile.rfTestNst(hex)
-@string hex 输入的 hex 字符串, 如 "02040900..."
-@return int  0 成功, -2 CRC 错误, -3 数据块索引错误, 其他错误
-@return string/nil  成功且有输出时返回响应字符串 (如 "MT0204..."), 否则 nil
-@usage
-local rc, resp = mobile.rfTestNst("02040900010003000500080022002600270028002900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000034126000076A")
- */
-static int l_mobile_rf_test_nst(lua_State* L) {
-    size_t hex_len = 0;
-    const char *hex = luaL_checklstring(L, 1, &hex_len);
-    uint32_t out_len = 8000;
-    char *out = luat_heap_malloc(out_len);
-    if (!out) { lua_pushnil(L); lua_pushnil(L); return 2; }
-    memset(out, 0, out_len);
-    int rc = luat_mobile_rf_test_nst(hex, (uint32_t)hex_len, out, &out_len);
-    lua_pushinteger(L, rc);
-    if (rc == 0 && out_len > 0) {
-        lua_pushlstring(L, out, out_len);
-    } else {
-        lua_pushnil(L);
-    }
-    luat_heap_free(out);
-    return 2;
-}
-
-
-/**
-RF测试:读取 RF/CP 版本及模块信息
-@api mobile.rfTestVersion()
-@return string AT+ECVERSION? 响应体多行字符串,失败返回nil
-@usage
-local info = mobile.rfTestVersion()
- */
-static int l_mobile_rf_test_version(lua_State* L) {
-    char buf[512] = {0};
-    int rv = luat_mobile_rf_test_version(buf, sizeof(buf));
-    if (rv == 0 && buf[0]) {
-        lua_pushstring(L, buf);
-    } else {
-        lua_pushnil(L);
-    }
-    return 1;
-}
-
-/**
-RF测试:读取支持的频段列表
-@api mobile.rfTestBandList()
-@return string 逗号分隔的频段列表,失败返回nil
-@usage
-local bands = mobile.rfTestBandList()
- */
-static int l_mobile_rf_test_band_list(lua_State* L) {
-    char buf[128] = {0};
-    int rv = luat_mobile_rf_test_band_list(buf, sizeof(buf));
-    if (rv == 0 && buf[0]) {
-        lua_pushstring(L, buf);
-    } else {
-        lua_pushnil(L);
-    }
-    return 1;
 }
 
 /**
@@ -1724,9 +1533,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"iccid",           ROREG_FUNC(l_mobile_iccid)},
 	{"number",          ROREG_FUNC(l_mobile_number)},
     {"muid",            ROREG_FUNC(l_mobile_muid)},
-#ifdef LUAT_USE_MOBILE_RFA
-    {"muidSet",         ROREG_FUNC(l_mobile_muid_set)},
-#endif
+
     {"apn",             ROREG_FUNC(l_mobile_apn)},
 	{"ipv6",            ROREG_FUNC(l_mobile_ipv6)},
     {"csq",             ROREG_FUNC(l_mobile_csq)},
@@ -1751,18 +1558,6 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"config",          ROREG_FUNC(l_mobile_config)},
 	{"getBand",          ROREG_FUNC(l_mobile_get_band)},
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
-#ifdef LUAT_USE_MOBILE_RFA
-	{"rfTestMode",        ROREG_FUNC(l_mobile_rf_test_mode)},
-	{"rfTestInput",       ROREG_FUNC(l_mobile_rf_test_input)},
-	{"rfTestParam",       ROREG_FUNC(l_mobile_rf_test_param)},
-	{"rfTestImei",        ROREG_FUNC(l_mobile_rf_test_imei_get)},
-	{"rfTestImeiSet",     ROREG_FUNC(l_mobile_rf_test_imei_set)},
-	{"rfTestGmData",      ROREG_FUNC(l_mobile_rf_test_gmdata_get)},
-	{"rfTestGmDataSet",   ROREG_FUNC(l_mobile_rf_test_gmdata_set)},
-	{"rfTestNst",         ROREG_FUNC(l_mobile_rf_test_nst)},
-	{"rfTestVersion",     ROREG_FUNC(l_mobile_rf_test_version)},
-	{"rfTestBandList",    ROREG_FUNC(l_mobile_rf_test_band_list)},
-#endif
 #ifdef LUAT_USE_VSIM
 	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},
 	{"vsimOnOff",          ROREG_FUNC(l_mobile_vsim_onoff)},
@@ -1813,7 +1608,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CONF_FAKE_CELL_BARTIME",        ROREG_INT(MOBILE_CONF_FAKE_CELL_BARTIME)},
     //@const CONF_RESET_TO_FACTORY number 删除已保存的协议栈参数，重启后会使用默认配置
     {"CONF_RESET_TO_FACTORY",        ROREG_INT(MOBILE_CONF_RESET_TO_FACTORY)},
-    //@const CONF_USB_ETHERNET number 蜂窝网络模块的usb以太网卡控制，bit0开关，1开0关，bit1模式，1NAT0独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2协议1ECM,0RNDIS，飞行模式里设置
+    //@const CONF_USB_ETHERNET number 蜂窝网络模块的usb以太网卡控制，bit0：开关，1是开，0是关，bit1：模式，1是NAT，0是独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2：协议，1是ECM，0是RNDIS，切换模式需要重新开关usb和重启协议栈（进出一次飞行模式）
     {"CONF_USB_ETHERNET",        ROREG_INT(MOBILE_CONF_USB_ETHERNET)},
 	//@const CONF_DISABLE_NCELL_MEAS number 关闭邻区测量 1关，0开，除了功耗测试外不建议使用
 	{"CONF_DISABLE_NCELL_MEAS",        ROREG_INT(MOBILE_CONF_DISABLE_NCELL_MEAS)},
@@ -2050,6 +1845,16 @@ end)
 	case LUAT_MOBILE_EVENT_SMS:
 		switch(status)
 		{
+/*
+@sys_pub mobile
+SMS就绪状态变化
+SMS_READY
+@usage
+-- id 为SIM卡的索引
+sys.subscribe("SMS_READY", function(id)
+	log.info("mobile", "SMS_READY", id)
+end)
+*/
 		case LUAT_MOBILE_SMS_READY:
 			LLOGI("sim%d sms ready", index);
             lua_pushstring(L, "SMS_READY");

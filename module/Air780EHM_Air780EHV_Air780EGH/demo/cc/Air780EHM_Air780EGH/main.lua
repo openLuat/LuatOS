@@ -24,7 +24,7 @@
 
 场景四：通话中播放外部音频
 - 来电自动接听或主动拨出
-- 通话中播放文件或TTS给对方
+- 通话中播放文件、TTS或流式音频给对方
 - 本demo使用新音频框架，固件需要V2046及以上的13/113号固件才能播放
 
 使用说明：
@@ -33,6 +33,7 @@
 - 启用TTS循环播放功能：require "cc_tts_app"
 - 启用通话录音文件保存功能：require "cc_record_save"
 - 启用通话中播放外部音频功能：require "play_audio_during_cc"
+
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -53,8 +54,6 @@ VERSION = "001.999.000"
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-
-
 
 
 
@@ -80,7 +79,6 @@ log.info("main", PROJECT, VERSION)
 -- end, 3000)
 
 
-
 -- 仅加载必要的功能模块
 require "audio_drv"  -- 音频设备管理模块
 
@@ -93,7 +91,7 @@ require "cc_app"
 -- 场景三：通话录音功能模块（通话录音文件保存）
 -- 测试通话并保存通话录音，取消注释下一行
 -- require "cc_record_save"
--- 场景四：通话中播放外部音频（文件/TTS）
+-- 场景四：通话中播放外部音频（文件/TTS/流式）
 -- 测试通话中播放文件或TTS，取消注释下一行
 -- require "play_audio_during_cc"
 

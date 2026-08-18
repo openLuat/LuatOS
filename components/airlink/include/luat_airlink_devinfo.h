@@ -52,6 +52,12 @@ typedef struct luat_airlink_dev_info
 
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
+// 对端 WiFi 模块固件版本阈值
+// 版本号 <= 此值的固件：devinfo 保活间隔为 15 秒，主机链路超时需设 ≥ 20 秒
+// 版本号 > 此值的固件：已缩短保活间隔，可使用 5 秒快速超时检测
+// 当前已发布 Air6205 固件版本为 22
+#define LUAT_AIRLINK_PEER_VER_KEEPALIVE_OLD  22
+
 // =====================================================================
 // 自身设备信息访问 API
 // 规则: 不得直接访问全局变量, 须通过以下接口操作
@@ -80,5 +86,9 @@ int luat_airlink_syspub_send(uint8_t* buff, size_t len);
 
 // 由传输层周期性调用，检测从机是否超时断开，自动设对应网卡 link down
 void luat_airlink_check_link_timeout(void);
+
+// 链路超时阈值 (ms)，根据对端固件版本在运行时动态调整
+// 默认 5000ms；旧版 Air6205 固件（15s devinfo 保活）会被调整为 20000ms
+extern uint32_t g_airlink_link_timeout_ms;
 
 #endif /* LUAT_AIRLINK_DEVINFO_H */

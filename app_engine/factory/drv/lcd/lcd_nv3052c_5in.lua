@@ -14,25 +14,7 @@ function M.init(params)
     gpio.setup(params.pin_rst, 0)
     gpio.set(params.pin_rst, 0)
 
-    local r = lcd.init("custom", {
-        port      = params.port or lcd.RGB,
-        pin_clk   = params.pin_clk,
-        pin_sda   = params.pin_sda,
-        pin_cs    = params.pin_cs,
-        pin_rst   = params.pin_rst,
-        direction = params.direction or 0,
-        w         = params.w or 720,
-        h         = params.h or 1280,
-        xoffset   = params.xoffset or 0,
-        yoffset   = params.yoffset or 0,
-        hbp       = params.hbp or 46,
-        hspw      = params.hspw or 2,
-        hfp       = params.hfp or 48,
-        vbp       = params.vbp or 24,
-        vspw      = params.vspw or 2,
-        vfp       = params.vfp or 24,
-        bus_speed = params.bus_speed or (62 * 1000 * 1000),
-    })
+    local r = lcd.init("custom", params)
     if not r then return r end
 
     -- NV3052C 专用初始化命令序列

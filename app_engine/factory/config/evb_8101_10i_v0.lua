@@ -1,8 +1,8 @@
 --[[
 @module  config.evb_8101_10i_v0
-@summary Air8101 EVB 10寸1024x600 RGB屏(HX8282) + AirLCD_1100 配置文件
-@version 1.1
-@date    2026.06.18
+@summary Air8101 EVB 10寸1024x600 RGB屏(HX8282) + AirLCD_1100 + 应用工厂 配置文件
+@version 1.2
+@date    2026.08.13
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -75,12 +75,30 @@ return {
                 i2c_speed = i2c.SLOW,    -- 低速 I2C（推荐）
             },
         },
+        -- 音频硬件: 内置 DAC（应用工厂-录音播放）
+        -- Air8101 的 MIC 和喇叭直接接在模块上，无需外部编解码芯片（非 ES8311）
+        -- model="dac": 内置 DAC 输出 + 板载 ADC 录音，无需 i2c_id/dac_ctrl/i2s_sample
+        -- 录音格式: AMR_NB（与 Air1601/1602 一致），106 固件 audio_v2 支持 AMR 编码
+        -- PA_EN=GPIO27(pa_ctrl) 由 exaudio.setup 内部控制（防 pop 音时序），此处不提前拉高
+        audio = {
+            model = "dac",             -- 音频编解码: 内置 DAC（模块直接驱动 MIC/喇叭）
+            pa_ctrl = 27,              -- PA_EN 功放使能 GPIO（音频功放喇叭扩展板）
+            pa_on_level = 1,           -- PA 高电平使能
+            dac_delay = 6,             -- DAC 启动前冗余时间(100ms)
+            play_vol = 70,             -- 默认播放音量(0~100)
+            mic_vol = 70,              -- 默认录音音量(0~100)
+            record_format = "AMR_NB",  -- 录音格式: 与 Air1601/1602 一致（AMR 体积小，ASR 上传省内存）
+            max_record_time = 30,      -- 最大录音时长(秒)
+        },
     },
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
         wifi = true,                     -- 启用 WiFi（exnetif 模式）
         ethernet = true,                 -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
+        app_factory = true,              -- 启用"应用工厂"内置应用（语音生成 APP）
+        speaker = true,                  -- 启用喇叭（内置 DAC 播放）
+        mic = true,                      -- 启用麦克风（板载 ADC 录音）
         -- sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
         -- nand_flash = true,               -- 启用 NAND Flash（需配 storage.nand_flash）
     },
@@ -98,6 +116,7 @@ return {
         show_brightness_slider = true,   -- 设置页亮度滑块
         show_storage_settings = true,    -- 设置页存储空间入口
         show_ethernet_settings = true,   -- 设置页以太网设置入口
+        show_app_factory = true,         -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
     },
 
     -- ===== 存储设备: SD/TF 卡 + NAND Flash =====

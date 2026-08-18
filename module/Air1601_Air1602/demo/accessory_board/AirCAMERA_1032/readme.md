@@ -6,7 +6,7 @@
 
 1、main.lua：主程序入口
 
-2、preview.lua：摄像头实时预览到LCD屏幕
+2、preview.lua：摄像头实时预览到LCD屏幕，支持四种fit模式实时切换（center / contain / cover / stretch）
 
 3、photo_uart_post.lua：执行拍照后，LCD显示图片，同时通过UART上传照片到电脑
 
@@ -38,12 +38,12 @@
 - netdrv_pc.lua：PC模拟
 - netdrv_device.lua：网络驱动选择器，在这里选择需要加载的网络驱动
 
-### 3、摄像头实时预览模块（camera_preview.lua）
-- 初始化LCD屏幕
-- 监听USB摄像头连接事件
-- 枚举摄像头支持的格式和分辨率，选择MJPEG格式、1024x576分辨率
-- 配置摄像头帧回调，实时显示到LCD
-- 启动摄像头数据流
+### 3、摄像头实时预览模块（preview.lua）
+- 初始化LCD屏幕，创建 AIRUI camera 组件
+- 监听 USB 摄像头连接事件，枚举并选择 MJPEG 格式、1280×720 分辨
+- 点击“开始预览”/“停止预览”控制画面显示
+- 状态栏实时显示当前源分辨率、视口大小和 fit 模式
+- 右侧面板提供“开始/停止预览”按钮和四种 fit 画面适配模式（center / contain / cover / stretch）实时切换按钮
 
 ### 4、拍照+LCD显示+UART上传模块（photo_uart_post.lua）
 - 初始化LCD屏幕
@@ -118,34 +118,42 @@ Air1601开发板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另�
 
 5、等待USB摄像头连接，LCD屏幕会实时显示摄像头画面，LUATOOLS会有如下打印;
 ```lua
-[2026-06-08 13:29:28.791][LTOS/N][000000002.595]:I/user.camera_preview usb摄像头已连接，app id 0 hub地址 1 端口 1 地址 2
-[2026-06-08 13:29:28.793][LTOS/N][000000002.595]:I/user.camera_preview usb摄像头已连接，app id 0
-[2026-06-08 13:29:28.794][LTOS/N][000000002.595]:I/user.camera_preview 创建frame_buff，每个缓冲区大小 589824 字节
-[2026-06-08 13:29:28.797][LTOS/N][000000002.596]:I/zbuff create large size: 576 kbyte, trigger force GC
-[2026-06-08 13:29:28.798][LTOS/N][000000002.602]:I/zbuff create large size: 576 kbyte, trigger force GC
-[2026-06-08 13:29:28.799][LTOS/N][000000002.607]:I/user.camera_preview 总共有 2 种数据流格式
-[2026-06-08 13:29:28.801][LTOS/N][000000002.607]:I/user.camera_preview 数据流序号 1 格式 2 图像数 4
-[2026-06-08 13:29:28.802][LTOS/N][000000002.607]:I/user.camera_preview   分辨率 1280 x 720 fps 15 格式 2
-[2026-06-08 13:29:28.804][LTOS/N][000000002.608]:I/user.camera_preview   分辨率 1024 x 576 fps 15 格式 2
-[2026-06-08 13:29:28.805][LTOS/N][000000002.608]:I/user.camera_preview   分辨率 640 x 480 fps 15 格式 2
-[2026-06-08 13:29:28.806][LTOS/N][000000002.608]:I/user.camera_preview   分辨率 640 x 360 fps 15 格式 2
-[2026-06-08 13:29:28.807][LTOS/N][000000002.608]:I/user.camera_preview 数据流序号 2 格式 1 图像数 4
-[2026-06-08 13:29:28.809][LTOS/N][000000002.608]:I/user.camera_preview   分辨率 1280 x 720 fps 15 格式 1
-[2026-06-08 13:29:28.811][LTOS/N][000000002.608]:I/user.camera_preview   分辨率 1024 x 576 fps 15 格式 1
-[2026-06-08 13:29:28.813][LTOS/N][000000002.609]:I/user.camera_preview 找到匹配分辨率 1024 x 576 (MJPEG)
-[2026-06-08 13:29:28.814][CAPP/N][000000002.609]:_usb_host_enumerate 632:Loading driver on interface 1
-[2026-06-08 13:29:28.816][CAPP/N][000000002.609]:_usb_host_enumerate 639:final availd interface 2
-[2026-06-08 13:29:28.817][CAPP/N][000000002.609]:soc_usb_host_video_config_fast 493:format 2 frame 2, mjpeg w 1024 h 576 interval 666666
-[2026-06-08 13:29:28.818][CAPP/N][000000002.625]:soc_usb_host_video_config_fast 576:Open video and select formatidx:2, frameidx:2, altsetting:4, format_type:1
-[2026-06-08 13:29:28.819][CAPP/N][000000002.625]:luat_camera_task 182:camera image 1024 X 576
-[2026-06-08 13:29:33.414][LTOS/N][000000007.235]:I/user.camera_preview 新帧数据，buff0长度 64548
-[2026-06-08 13:29:33.461][LTOS/N][000000007.273]:I/user.camera_preview 新帧数据，buff1长度 63535
-[2026-06-08 13:29:33.523][LTOS/N][000000007.339]:I/user.camera_preview 新帧数据，buff0长度 61171
-[2026-06-08 13:29:33.585][LTOS/N][000000007.408]:I/user.camera_preview 新帧数据，buff1长度 59913
-[2026-06-08 13:29:33.663][LTOS/N][000000007.472]:I/user.camera_preview 新帧数据，buff0长度 58981
-[2026-06-08 13:29:33.727][LTOS/N][000000007.539]:I/user.camera_preview 新帧数据，buff1长度 57516
-[2026-06-08 13:29:33.790][LTOS/N][000000007.607]:I/user.camera_preview 新帧数据，buff0长度 56088
-[2026-06-08 13:29:33.853][LTOS/N][000000007.672]:I/user.camera_preview 新帧数据，buff1长度 55190
+[2026-07-15 20:19:03.412][LTOS/N][000000001.411]:I/user.excamera.preview usb摄像头已连接，app_id 0
+[2026-07-15 20:19:03.414][LTOS/N][000000001.411]:I/user.preview USB摄像头已连接, app_id: 0
+[2026-07-15 20:19:03.417][LTOS/N][000000001.411]:I/user.preview UVC格式数量: 1
+[2026-07-15 20:19:03.418][LTOS/N][000000001.411]:I/user.preview   格式索引 1, 类型: 1, 帧数: 4
+[2026-07-15 20:19:03.420][LTOS/N][000000001.411]:I/user.preview     分辨率 1280x720, 帧率: 20 fps
+[2026-07-15 20:19:03.421][LTOS/N][000000001.412]:I/user.preview     分辨率 864x480, 帧率: 20 fps
+[2026-07-15 20:19:03.422][LTOS/N][000000001.412]:I/user.preview     分辨率 800x480, 帧率: 20 fps
+[2026-07-15 20:19:03.424][LTOS/N][000000001.412]:I/user.preview     分辨率 640x480, 帧率: 20 fps
+[2026-07-15 20:19:03.430][LTOS/N][000000001.427]:I/user.preview 摄像头已连接，点击“开始预览”显示画面
+[2026-07-15 20:19:03.431][LTOS/N][000000001.427]:I/zbuff create large size: 900 kbyte, trigger force GC
+[2026-07-15 20:19:03.432][LTOS/N][000000001.438]:I/zbuff create large size: 900 kbyte, trigger force GC
+[2026-07-15 20:19:03.460][LTOS/N][000000001.448]:I/user.excamera.preview UVC格式数量 1
+[2026-07-15 20:19:03.461][LTOS/N][000000001.448]:I/user.excamera.preview 匹配分辨率 1280 x 720 MJPEG
+[2026-07-15 20:19:03.462][LTOS/N][000000001.448]:I/user.excamera.preview 推流已启动 1280 x 720
+[2026-07-15 20:19:03.463][CAPP/N][000000001.456]:_usb_host_enumerate 632:find UVC Class:0x0e, Subclass:0x02, Protocl:0x00 on interface 1
+[2026-07-15 20:19:03.464][CAPP/N][000000001.456]:_usb_host_enumerate 641:Loading driver on interface 1
+[2026-07-15 20:19:03.466][CAPP/N][000000001.456]:_usb_host_enumerate 625:Do not support Class:0x01, Subclass:0x01, Protocl:0x00 on interface 2
+[2026-07-15 20:19:03.467][CAPP/N][000000001.456]:_usb_host_enumerate 625:Do not support Class:0x01, Subclass:0x02, Protocl:0x00 on interface 3
+[2026-07-15 20:19:03.468][CAPP/N][000000001.456]:_usb_host_enumerate 625:Do not support Class:0x01, Subclass:0x02, Protocl:0x00 on interface 4
+[2026-07-15 20:19:03.469][CAPP/N][000000001.456]:_usb_host_enumerate 648:final availd interface 2
+[2026-07-15 20:19:03.470][CAPP/N][000000001.456]:soc_usb_host_video_config_fast 493:format 1 frame 1, mjpeg w 1280 h 720 interval 500000
+[2026-07-15 20:19:03.472][CAPP/N][000000001.472]:soc_usb_host_video_config_fast 576:Open video and select formatidx:1, frameidx:1, altsetting:1, format_type:1
+[2026-07-15 20:19:03.473][CAPP/N][000000001.472]:luat_camera_task 291:camera image 1280 X 720
+[2026-07-15 20:19:03.474][CAPP/N][000000001.472]:_usb_uvc_callback 177:0,0,0,0,921600,1,1024
+[2026-07-15 20:19:03.753][CAPP/N][000000001.751]:_camera_decode_jpg_and_show 185:image 1280 X 720
+[2026-07-15 20:19:03.755][CAPP/N][000000001.751]:_camera_decode_jpg_and_show 186:in buffer 1caf33f0 len 230400 out buffer 1cb2b800 len 1843200
+[2026-07-15 20:19:03.756][CAPP/N][000000001.751]:_camera_decode_jpg_and_show 220:preview 1024 X 600, start 0, 0, cut 128, 60
+[2026-07-15 20:19:40.306][CAPP/N][000000038.292]:i2c_master_xfer 395:i2c1 wait free CR 1, SR 68
+[2026-07-15 20:19:40.506][LTOS/N][000000038.501]:I/user.preview 预览中 源1280×720→视口680×600 fit=cover
+[2026-07-15 20:19:40.674][LTOS/N][000000038.661]:W/airui.camera camera: viewport 680x600, frame 1280x720, fit=2 (software)
+[2026-07-15 20:19:48.668][LTOS/N][000000046.663]:I/user.preview 预览中 源1280×720→视口680×600 fit=center
+[2026-07-15 20:19:51.701][LTOS/N][000000049.699]:I/user.preview 预览中 源1280×720→视口680×600 fit=contain
+[2026-07-15 20:19:54.268][LTOS/N][000000052.272]:I/user.preview 预览中 源1280×720→视口680×600 fit=cover
+[2026-07-15 20:19:56.124][LTOS/N][000000054.115]:I/user.preview 预览中 源1280×720→视口680×600 fit=stretch
+[2026-07-15 20:19:57.910][LTOS/N][000000055.904]:I/user.preview 预览已停止 fit=stretch
+[2026-07-15 20:20:00.707][LTOS/N][000000058.707]:I/user.preview 预览中 源1280×720→视口680×600 fit=stretch
 ……
 ```
 

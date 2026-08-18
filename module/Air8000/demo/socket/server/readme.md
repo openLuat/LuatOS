@@ -4,17 +4,21 @@
 
 2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的三种网卡(单wifi ap网卡，单wifi sta网卡，单spi以太网卡)中的任何一种网卡；
 
-3、tcp文件夹：tcp server以及数据收发处理逻辑；
+3、tcp文件夹：tcp server(一对一)以及数据收发处理逻辑；
 
-4、udp文件夹：udp server以及数据收发处理逻辑；
+4、tcp_multi文件夹：tcp server(一对多)版本，支持多个client同时连接、广播和单播；
 
-5、timer_app.lua：通知server定时发送数据给client；
+5、udp文件夹：udp server以及数据收发处理逻辑；
 
-6、uart_app.lua：server和uart外设之间透传数据；
+6、timer_app.lua：通知server定时发送数据给client；
+
+7、uart_app.lua：server和uart外设之间透传数据；
 
 > 注意：
 > 
-> 一个tcp server仅支持一路client连接；
+> tcp文件夹下的tcp server仅支持一路client连接(一对一)；
+> 
+> tcp_multi文件夹下的tcp server支持多路client同时连接(一对多)，并支持广播和单播；
 > 
 > UDP 协议本身是无连接的，这意味着任何在同一局域网下的客户端都可以向服务器的 IP 和端口发送数据包；
 
@@ -32,9 +36,11 @@
 
 ## 演示功能概述
 
-1、创建tcp/udp server，在目录中对应两个文件夹详情如下
+1、创建tcp/udp server，在目录中对应三个文件夹详情如下
 
-- TCP文件夹功能为创建一个tcp server，等待tcp client连接；
+- TCP文件夹功能为创建一个tcp server(一对一)，等待tcp client连接；
+
+- TCP_MULTI文件夹功能为创建一个tcp server(一对多)，支持多个tcp client同时连接，支持广播和单播；
 
 - UDP文件夹功能为创建一个udp server，等待udp client连接；
 
@@ -93,11 +99,13 @@
 - 如果需要以太网卡，打开require "netdrv_eth_spi"，其余注释掉
 
 
-3、demo脚本代码中，测试TCP server和UDP server时，需要修改的地方如下：
+3、demo脚本代码中，测试TCP server(一对一/一对多)和UDP server时，需要修改的地方如下：
 
-- 测试TCP server时，main.lua打开 require "tcp_server_main"，注释掉 require "udp_server_main"；同时timer_app.lua和uart_app.lua中的enable_tcp设为true，enable_udp设为false。
+- 测试TCP server(一对一)时，main.lua打开 require "tcp_server_main"，注释掉 require "tcp_multi_main" 和 require "udp_server_main"；同时timer_app.lua和uart_app.lua中的enable_tcp设为true，enable_udp设为false。
 
-- 测试UDP server时，main.lua打开 require "udp_server_main"，注释掉 require "tcp_server_main"；同时timer_app.lua和uart_app.lua中的enable_udp设为true，enable_tcp设为false。
+- 测试TCP server(一对多)时，main.lua打开 require "tcp_multi_main"，注释掉 require "tcp_server_main" 和 require "udp_server_main"；同时timer_app.lua和uart_app.lua中的enable_tcp设为true，enable_udp设为false。
+
+- 测试UDP server时，main.lua打开 require "udp_server_main"，注释掉 require "tcp_server_main" 和 require "tcp_multi_main"；同时timer_app.lua和uart_app.lua中的enable_udp设为true，enable_tcp设为false。
 
 4、Luatools烧录内核固件和修改后的demo脚本代码
 
@@ -139,6 +147,21 @@ luatools日志打印如下：
 （4）PC端的串口工具输入一段数据 "hello client!"，点击发送，在作为TCP客户端的SSCOM上可以收到此数据；在作为TCP 客户端的SSCOM输入一段数据 "i am tcp client"，点击发送，在PC端的串口工具上可以收到此数据，如下所示：
 
 ![image](https://docs.openLuat.com/cdn/image/socket/tcp_client2.png)
+
+
+一对多测试(tcp_multi)：
+
+（1）main.lua中注释掉 require "tcp_server_main"，打开 require "tcp_multi_main"
+
+（2）PC端打开多个TCP客户端(如开2个SSCOM窗口)，都连接到TCP server的ip和port 50003
+
+（3）每个client连接成功后，都会收到 "TCP server is UP! you are client-N" 的欢迎消息
+
+（4）timer_app每5秒向所有client广播 "send from timer: N"
+
+（5）tcp_multi_main内部的演示任务每3秒轮流向一个client单播 "unicast demo to client-N"
+
+（6）任一client断开不影响其他client，server会自动清理连接
 
 
 7、UDP演示：

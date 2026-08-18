@@ -1,7 +1,7 @@
 --[[
 @summary exril_5101扩展库
-@version 1.7
-@date    2026.4.16
+@version 1.8
+@date    2026.8.11
 @author  王世豪
 @usage
 -- 应用场景：
@@ -73,6 +73,12 @@ exril_5101.mode(exril_5101.MODE_AT, mode_switch_callback)
 - 队列系统内部管理，用户无需额外处理
 
 -- 版本更新说明
+-- 版本号：202608111200
+-- 1、更新时间：2026-08-11 12:00
+-- 2、更新内容
+--    优化队列处理机制：将轮询模式（sys.wait(10)）改为事件驱动模式（sys.waitMsg + sys.sendMsg）。
+--    解决了因队列为空时持续的 10ms 轮询导致主控无法进入低功耗模式的问题。
+
 -- 版本号：202607021200
 -- 1、更新时间：2026-07-02 12:00
 -- 2、更新内容
@@ -82,6 +88,7 @@ exril_5101.mode(exril_5101.MODE_AT, mode_switch_callback)
 
 local exril_5101 = {}
 local ril = {}
+
 
 -- =============== 子模块定义 ===============
 exril_5101.wdt = {}  -- 看门狗子模块
@@ -137,13 +144,13 @@ local function process_operation_queue()
             
             processing_queue = false
         else
-            sys.wait(10) -- 避免忙等
+            sys.waitMsg("exril_5101_op_queue", "EXRIL_5101_OP_READY")
         end
     end
 end
 
 -- 启动处理协程
-sys.taskInit(process_operation_queue, "exril_5101_op_queue")
+sys.taskInitEx(process_operation_queue, "exril_5101_op_queue")
 
 -- 封装操作到队列
 -- 检测参数中是否有函数（callback），如果有则为异步，否则为同步
@@ -165,6 +172,7 @@ local function queue_operation(func, ...)
             func = func,
             args = args
         })
+        sys.sendMsg("exril_5101_op_queue", "EXRIL_5101_OP_READY")
     else
         -- 同步调用
         local sync_result = nil
@@ -182,6 +190,7 @@ local function queue_operation(func, ...)
             args = args,
             sync_promise = sync_promise
         })
+        sys.sendMsg("exril_5101_op_queue", "EXRIL_5101_OP_READY")
         
         -- 等待操作完成
         while not sync_ready do
@@ -3903,7 +3912,7 @@ end
 exril_5101.version()
 ]]
 function exril_5101.version()
-    return "202607021200"
+    return "202608111200"
 end
 
 log.debug("exril_5101", "version -> " .. exril_5101.version())

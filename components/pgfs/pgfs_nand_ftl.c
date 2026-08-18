@@ -17,7 +17,7 @@
 #include "pgfs_internal.h"  /* PGFS_LAYOUT_RESERVED_BLOCKS, pgfs_layout_t */
 #include "luat_crypto.h"
 #include "luat_mem.h"
-#include <stdlib.h>
+/* <stdlib.h> removed — calloc replaced with luat_heap_malloc+memset (P0-3 fix) */
 
 #define LUAT_LOG_TAG "pgfs.ftl"
 #include "luat_log.h"
@@ -94,6 +94,11 @@ bool pgfs_ftl_is_reserved(const pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     return pgfs_ftl_bit_get(ctx->reserved_blocks_bitmap, block_id);
 }
 
+void pgfs_ftl_mark_dirty(pgfs_nand_ftl_ctx_t *ctx) {
+    if (ctx == NULL) return;
+    ctx->dirty = 1;
+}
+
 void pgfs_ftl_mark_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (!ctx || !ctx->reserved_blocks_bitmap || block_id >= ctx->total_blocks) {
         return;
@@ -101,6 +106,7 @@ void pgfs_ftl_mark_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (!pgfs_ftl_bit_get(ctx->reserved_blocks_bitmap, block_id)) {
         pgfs_ftl_bit_set(ctx->reserved_blocks_bitmap, block_id);
         ctx->reserved_block_count++;
+        ctx->dirty = 1;
     }
 }
 
@@ -113,6 +119,7 @@ void pgfs_ftl_clear_reserved(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
         if (ctx->reserved_block_count > 0) {
             ctx->reserved_block_count--;
         }
+        ctx->dirty = 1;
     }
 }
 
@@ -132,6 +139,7 @@ void pgfs_ftl_mark_weak(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (!pgfs_ftl_bit_get(ctx->weak_blocks_bitmap, block_id)) {
         pgfs_ftl_bit_set(ctx->weak_blocks_bitmap, block_id);
         ctx->weak_block_count++;
+        ctx->dirty = 1;
     }
 }
 
@@ -151,6 +159,7 @@ void pgfs_ftl_mark_retired(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (!pgfs_ftl_bit_get(ctx->retired_blocks_bitmap, block_id)) {
         pgfs_ftl_bit_set(ctx->retired_blocks_bitmap, block_id);
         ctx->retired_block_count++;
+        ctx->dirty = 1;
     }
 }
 
@@ -160,6 +169,12 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
                   const pgfs_flash_opts_t *flash_opts,
                   uint32_t erase_size,
                   uint32_t total_blocks) {
+    size_t bitmap_bytes;
+    size_t ec_bytes;
+    size_t lb_bytes;
+    size_t alloc_size;
+    size_t offset;
+    uint8_t *pool;
     if (!ctx || !flash_opts || !total_blocks) return -1;
 
     memset(ctx, 0, sizeof(*ctx));
@@ -167,101 +182,48 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
     ctx->erase_size    = erase_size;
     ctx->flash_opts    = flash_opts;
 
-    size_t bitmap_bytes = PGFS_FTL_BITMAP_BYTES(total_blocks);
-    ctx->bad_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
-    if (ctx->bad_blocks_bitmap) memset(ctx->bad_blocks_bitmap, 0, bitmap_bytes);
-    if (!ctx->bad_blocks_bitmap) return -1;
+    /* P1-1: freshly-initialised state differs from flash (nothing written
+     * yet) — a subsequent persist must actually write. */
+    ctx->dirty = 1;
 
-    ctx->reserved_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
-    if (ctx->reserved_blocks_bitmap) memset(ctx->reserved_blocks_bitmap, 0, bitmap_bytes);
-    if (!ctx->reserved_blocks_bitmap) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        ctx->bad_blocks_bitmap = NULL;
-        return -1;
-    }
+    bitmap_bytes = PGFS_FTL_BITMAP_BYTES(total_blocks);
+    ec_bytes     = total_blocks * sizeof(uint16_t);
+    lb_bytes     = total_blocks * sizeof(uint32_t);
 
-    ctx->weak_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
-    if (ctx->weak_blocks_bitmap) memset(ctx->weak_blocks_bitmap, 0, bitmap_bytes);
-    if (!ctx->weak_blocks_bitmap) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        luat_heap_free(ctx->reserved_blocks_bitmap);
-        ctx->bad_blocks_bitmap = NULL;
-        ctx->reserved_blocks_bitmap = NULL;
-        return -1;
-    }
+    /* P3-13: Single contiguous allocation for all 7 FTL arrays:
+     * [bad_bitmap][reserved_bitmap][weak_bitmap][retired_bitmap]
+     * [erase_counts][live_bytes][dead_bytes]
+     * This avoids partial-allocation leaks on fragmented heaps and
+     * reduces heap management overhead. */
+    alloc_size = 4u * bitmap_bytes + ec_bytes + 2u * lb_bytes;
+    pool = (uint8_t *)luat_heap_malloc(alloc_size);
+    if (!pool) return -1;
+    memset(pool, 0, alloc_size);
 
-    /* Phase 5b: retired bitmap is independent of bad/weak/reserved. */
-    ctx->retired_blocks_bitmap = (uint8_t *)luat_heap_malloc(bitmap_bytes);
-    if (ctx->retired_blocks_bitmap) memset(ctx->retired_blocks_bitmap, 0, bitmap_bytes);
-    if (!ctx->retired_blocks_bitmap) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        luat_heap_free(ctx->reserved_blocks_bitmap);
-        luat_heap_free(ctx->weak_blocks_bitmap);
-        ctx->bad_blocks_bitmap = NULL;
-        ctx->reserved_blocks_bitmap = NULL;
-        ctx->weak_blocks_bitmap = NULL;
-        return -1;
-    }
+    offset = 0;
+    ctx->bad_blocks_bitmap      = pool + offset; offset += bitmap_bytes;
+    ctx->reserved_blocks_bitmap = pool + offset; offset += bitmap_bytes;
+    ctx->weak_blocks_bitmap     = pool + offset; offset += bitmap_bytes;
+    ctx->retired_blocks_bitmap  = pool + offset; offset += bitmap_bytes;
+    ctx->erase_counts           = (uint16_t *)(pool + offset); offset += ec_bytes;
+    ctx->live_bytes_per_block   = (uint32_t *)(pool + offset); offset += lb_bytes;
+    ctx->dead_bytes_per_block   = (uint32_t *)(pool + offset);
 
-    ctx->erase_counts = (uint16_t *)luat_heap_malloc(total_blocks * sizeof(uint16_t));
-    if (ctx->erase_counts) memset(ctx->erase_counts, 0, total_blocks * sizeof(uint16_t));
-    if (!ctx->erase_counts) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        luat_heap_free(ctx->reserved_blocks_bitmap);
-        luat_heap_free(ctx->weak_blocks_bitmap);
-        luat_heap_free(ctx->retired_blocks_bitmap);
-        ctx->bad_blocks_bitmap = NULL;
-        ctx->reserved_blocks_bitmap = NULL;
-        ctx->weak_blocks_bitmap = NULL;
-        ctx->retired_blocks_bitmap = NULL;
-        return -1;
-    }
-
-    /* Phase 2 prep / v4: per-block live/dead byte arrays. */
-    ctx->live_bytes_per_block = (uint32_t *)luat_heap_malloc(total_blocks * sizeof(uint32_t));
-    if (ctx->live_bytes_per_block) memset(ctx->live_bytes_per_block, 0, total_blocks * sizeof(uint32_t));
-    if (!ctx->live_bytes_per_block) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        luat_heap_free(ctx->reserved_blocks_bitmap);
-        luat_heap_free(ctx->weak_blocks_bitmap);
-        luat_heap_free(ctx->retired_blocks_bitmap);
-        luat_heap_free(ctx->erase_counts);
-        ctx->bad_blocks_bitmap = NULL;
-        ctx->reserved_blocks_bitmap = NULL;
-        ctx->weak_blocks_bitmap = NULL;
-        ctx->retired_blocks_bitmap = NULL;
-        ctx->erase_counts = NULL;
-        return -1;
-    }
-    ctx->dead_bytes_per_block = (uint32_t *)luat_heap_malloc(total_blocks * sizeof(uint32_t));
-    if (ctx->dead_bytes_per_block) memset(ctx->dead_bytes_per_block, 0, total_blocks * sizeof(uint32_t));
-    if (!ctx->dead_bytes_per_block) {
-        luat_heap_free(ctx->bad_blocks_bitmap);
-        luat_heap_free(ctx->reserved_blocks_bitmap);
-        luat_heap_free(ctx->weak_blocks_bitmap);
-        luat_heap_free(ctx->retired_blocks_bitmap);
-        luat_heap_free(ctx->erase_counts);
-        luat_heap_free(ctx->live_bytes_per_block);
-        ctx->bad_blocks_bitmap = NULL;
-        ctx->reserved_blocks_bitmap = NULL;
-        ctx->weak_blocks_bitmap = NULL;
-        ctx->retired_blocks_bitmap = NULL;
-        ctx->erase_counts = NULL;
-        ctx->live_bytes_per_block = NULL;
-        return -1;
-    }
     return 0;
 }
 
 void pgfs_ftl_deinit(pgfs_nand_ftl_ctx_t *ctx) {
     if (!ctx) return;
+    /* P3-13: All FTL arrays share one allocation. bad_blocks_bitmap
+     * is the base pointer; free it once instead of each array separately. */
     luat_heap_free(ctx->bad_blocks_bitmap);
-    luat_heap_free(ctx->reserved_blocks_bitmap);
-    luat_heap_free(ctx->weak_blocks_bitmap);
-    luat_heap_free(ctx->retired_blocks_bitmap);
-    luat_heap_free(ctx->erase_counts);
-    luat_heap_free(ctx->live_bytes_per_block);
-    luat_heap_free(ctx->dead_bytes_per_block);
+    ctx->bad_blocks_bitmap      = NULL;
+    ctx->reserved_blocks_bitmap = NULL;
+    ctx->weak_blocks_bitmap     = NULL;
+    ctx->retired_blocks_bitmap  = NULL;
+    ctx->erase_counts           = NULL;
+    ctx->live_bytes_per_block   = NULL;
+    ctx->dead_bytes_per_block   = NULL;
     if (ctx->last_persist_buf != NULL) {
         luat_heap_free(ctx->last_persist_buf);
     }
@@ -278,6 +240,7 @@ void pgfs_ftl_mark_block_bad(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (!pgfs_ftl_bit_get(ctx->bad_blocks_bitmap, block_id)) {
         pgfs_ftl_bit_set(ctx->bad_blocks_bitmap, block_id);
         ctx->bad_block_count++;
+        ctx->dirty = 1;
     }
 }
 
@@ -303,6 +266,7 @@ void pgfs_ftl_block_erased(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id) {
     if (ctx->erase_counts[block_id] < 0xFFFFu) {
         ctx->erase_counts[block_id]++;
         ctx->total_erase_count++;
+        ctx->dirty = 1;
     }
 }
 
@@ -320,6 +284,13 @@ void pgfs_ftl_inject_bad_block_once(pgfs_nand_ftl_ctx_t *ctx, uint32_t block_id)
 int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     (void)cp_seq;
     if (!ctx || !ctx->flash_opts) return -1;
+
+    /* P1-1: nothing changed since the last persist/load — skip the
+     * whole-block erase+write+readback entirely. This removes the
+     * redundant FTL block rewrites on umount / repeated CP commits. */
+    if (!ctx->dirty) {
+        return 0;
+    }
 
     uint32_t erase_size   = ctx->erase_size;
     uint32_t state_addr   = pgfs_ftl_state_addr(erase_size);
@@ -341,12 +312,14 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
         return -1;
     }
 
-    /* Allocate staging buffer (RAM) */
-    uint8_t *buf = (uint8_t *)calloc(1, total_bytes);
+    /* Allocate staging buffer (RAM) — use luat_heap_malloc not calloc
+     * to avoid cross-allocator mismatch on embedded platforms (P0-3). */
+    uint8_t *buf = (uint8_t *)luat_heap_malloc(total_bytes);
     if (!buf) {
         ctx->persist_failure_count++;
         return -1;
     }
+    memset(buf, 0, total_bytes);
 
     /* Build header */
     pgfs_ftl_meta_t *meta = (pgfs_ftl_meta_t *)buf;
@@ -370,13 +343,14 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
 
     /* Copy bad_blocks_bitmap + reserved_blocks_bitmap + retired_blocks_bitmap
      * + erase_counts + live_bytes + dead_bytes into staging buffer.
-     * v4 layout. */
-    uint8_t  *bitmap_ptr    = buf + sizeof(pgfs_ftl_meta_t);
-    uint8_t  *reserved_ptr  = bitmap_ptr + bitmap_bytes;
-    uint8_t  *retired_ptr   = reserved_ptr + bitmap_bytes;
-    uint16_t *ec_ptr        = (uint16_t *)(retired_ptr + bitmap_bytes);
-    uint32_t *live_ptr      = (uint32_t *)((uint8_t *)ec_ptr + ec_bytes);
-    uint32_t *dead_ptr      = live_ptr + ctx->total_blocks;
+     * v4 layout. All pointers are uint8_t* to avoid unaligned-access
+     * traps on ARM Cortex-M0 (P0-4). */
+    uint8_t *bitmap_ptr    = buf + sizeof(pgfs_ftl_meta_t);
+    uint8_t *reserved_ptr  = bitmap_ptr + bitmap_bytes;
+    uint8_t *retired_ptr   = reserved_ptr + bitmap_bytes;
+    uint8_t *ec_ptr        = retired_ptr + bitmap_bytes;
+    uint8_t *live_ptr      = ec_ptr + ec_bytes;
+    uint8_t *dead_ptr      = live_ptr + live_bytes;
     memcpy(bitmap_ptr, ctx->bad_blocks_bitmap, bitmap_bytes);
     memcpy(reserved_ptr, ctx->reserved_blocks_bitmap, bitmap_bytes);
     memcpy(retired_ptr, ctx->retired_blocks_bitmap, bitmap_bytes);
@@ -430,6 +404,7 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
         ctx->last_persist_buf = buf;
         ctx->last_persist_size = total_bytes;
         ctx->persist_success_count++;
+        ctx->dirty = 0;
         return 0;
     }
     int readback_ok = 0;
@@ -458,6 +433,7 @@ int pgfs_ftl_persist(pgfs_nand_ftl_ctx_t *ctx, uint32_t cp_seq) {
     ctx->last_persist_buf = buf;
     ctx->last_persist_size = total_bytes;
     ctx->persist_success_count++;
+    ctx->dirty = 0;
     return 0;
 }
 
@@ -509,13 +485,14 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
         return 1; /* corrupt */
     }
 
-    /* Extract data — v4 layout. */
-    uint8_t  *bitmap_ptr   = buf + sizeof(pgfs_ftl_meta_t);
-    uint8_t  *reserved_ptr = bitmap_ptr + bitmap_bytes;
-    uint8_t  *retired_ptr  = reserved_ptr + bitmap_bytes;
-    uint16_t *ec_ptr       = (uint16_t *)(retired_ptr + bitmap_bytes);
-    uint32_t *live_ptr     = (uint32_t *)((uint8_t *)ec_ptr + ec_bytes);
-    uint32_t *dead_ptr     = live_ptr + ctx->total_blocks;
+    /* Extract data — v4 layout. All pointers are uint8_t* to avoid
+     * unaligned-access traps on ARM Cortex-M0 (P0-4). */
+    const uint8_t *bitmap_ptr   = buf + sizeof(pgfs_ftl_meta_t);
+    const uint8_t *reserved_ptr = bitmap_ptr + bitmap_bytes;
+    const uint8_t *retired_ptr  = reserved_ptr + bitmap_bytes;
+    const uint8_t *ec_ptr       = retired_ptr + bitmap_bytes;
+    const uint8_t *live_ptr     = ec_ptr + ec_bytes;
+    const uint8_t *dead_ptr     = live_ptr + live_bytes;
 
     memcpy(ctx->bad_blocks_bitmap, bitmap_ptr, bitmap_bytes);
     memcpy(ctx->reserved_blocks_bitmap, reserved_ptr, bitmap_bytes);
@@ -523,6 +500,9 @@ int pgfs_ftl_load(pgfs_nand_ftl_ctx_t *ctx) {
     memcpy(ctx->erase_counts, ec_ptr, ec_bytes);
     memcpy(ctx->live_bytes_per_block, live_ptr, live_bytes);
     memcpy(ctx->dead_bytes_per_block, dead_ptr, dead_bytes);
+
+    /* P1-1: in-memory state now matches flash. */
+    ctx->dirty = 0;
 
     /* Phase 4b: restore the data log write head from the persisted
      * FTL state. These are the per-block-id values (not absolute

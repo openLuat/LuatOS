@@ -266,6 +266,7 @@ typedef struct{
 
 struct little_flash{
     little_flash_chipinfo_t chip_info;
+    bool addr_in_4_byte;
     little_flash_spi_t spi;
     /* lock */
     void (*lock)(const little_flash_t *lf);
@@ -319,6 +320,9 @@ struct little_flash{
 #define LF_CMD_JEDEC_ID                             (0x9F)
 
 #define LF_CMD_ERASE_CHIP                           (0xC7)
+
+#define LF_CMD_ENTER_4B_ADDRESS_MODE                (0xB7)
+#define LF_CMD_EXIT_4B_ADDRESS_MODE                 (0xE9)
 
 #define LF_CMD_ENABLE_RESET                         (0x66)
 

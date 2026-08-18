@@ -81,7 +81,7 @@ local function sockettest()
     opts["adapter"] = socket.ETH0
     while 1 do
         log.info("发起http请求")
-        local code, headers, body = http.request("GET", "http://httpbin.air32.cn/get", nil, nil, opts).wait()
+        local code, headers, body = http.request("GET", "http://httpbin.luatos.com/get", nil, nil, opts).wait()
         log.info("http", code, body)
         sys.wait(5000)
     end

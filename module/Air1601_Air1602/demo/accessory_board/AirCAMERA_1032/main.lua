@@ -41,7 +41,7 @@ require "tp_drv"
 
 -- 加载网络驱动模块（仅 photo_to_aircloud 业务需要联网，其他业务请注释掉本行）
 -- netdrv_device.lua 内部按需选择 WIFI / 以太网 / 4G / 多网卡，请到该文件内自行切换
---  require "netdrv_device"
+  require "netdrv_device"
 
 -- 以下四个业务模块只能选一个打开，不能同时打开 ---------------------
 

@@ -78,6 +78,8 @@ err_t luat_netdrv_etharp_request(struct netif *netif, const ip4_addr_t *ipaddr);
 // #define etharp_gratuitous(netif) etharp_request((netif), netif_ip4_addr(netif))
 void luat_netdrv_etharp_cleanup_netif(struct netif *netif);
 
+err_t luat_netdrv_etharp_add_static_entry_on_netif(struct netif *netif, const ip4_addr_t *ipaddr, struct eth_addr *ethaddr);
+
 #if ETHARP_SUPPORT_STATIC_ENTRIES
 err_t etharp_add_static_entry(const ip4_addr_t *ipaddr, struct eth_addr *ethaddr);
 err_t etharp_remove_static_entry(const ip4_addr_t *ipaddr);

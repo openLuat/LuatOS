@@ -4,7 +4,6 @@
 #include "luat_netdrv.h"
 #include "lwip/netif.h"
 #include "lwip/pbuf.h"
-#include "luat_ulwip.h"
 
 #define CH390H_MAX_TX_NUM (128)
 
@@ -36,6 +35,8 @@ typedef struct ch390h
     uint32_t total_reset_count;  // 总复位次数
     uint32_t total_tx_drop;  // 总丢弃发送包数
     uint32_t total_rx_drop;  // 总丢弃接收包数
+    uint32_t rx_status_err_cnt;  // 收到帧状态字节带错误位的次数(FOE/CE等)
+    uint32_t rx_ov_cnt;          // NSR.RXOV(RX内存溢出)检测次数
     uint8_t flow_control;  // 流控状态：0=正常 1=背压中
     uint8_t sleep_requested;  // 业务侧通过 CTRL_UPDOWN=0 请求进入休眠态: 1=请求中, 0=正常运行
                               // 仅在该位为 1 时, check_vid_pid 的 "持续失败 -> STOPPED" 自杀路径才会生效;

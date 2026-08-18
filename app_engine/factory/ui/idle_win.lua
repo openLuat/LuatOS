@@ -38,6 +38,9 @@ local page_label = nil
 local tab_view = nil
 local current_tab_index = 0
 
+-- 是否为低分辨率横屏（如 480x272）：弹窗/菜单改用紧凑尺寸
+local is_compact_ui = (_G.screen_h or 0) > 0 and (_G.screen_h or 0) < 320 and (_G.screen_w or 0) > (_G.screen_h or 0)
+
 local status_cache = { time = "08:00", date = "1970-01-01", weekday = "星期四", mobile_level = -1, wifi_level = 0 }
 
 -- 自启应用状态（与 settings_auto_app 共享 fskv 数据源）
@@ -48,12 +51,23 @@ local auto_start_has_password = false
 -- 应用卡片映射表
 local app_cards = {}
 
+-- 应用工厂桌面入口（按 features.app_factory + ui.show_app_factory 配置开关）
+local has_app_factory = false
+if _G.project_config and _G.project_config.features and _G.project_config.features.app_factory
+    and _G.project_config.ui and _G.project_config.ui.show_app_factory then
+    has_app_factory = true
+end
+
 local builtin_apps = {
     { name = "设置", win = "SETTINGS", icon = "/luadb/settings.png" },
     { name = "应用市场", win = "APP_STORE", icon = "/luadb/app_store_icon.png" },
     { name = "文件管理", win = "FILE_MANAGER", icon = "/luadb/file_manager.png" },
     { name = "网络测速", win = "SPEEDTEST", icon = "/luadb/internet_speed.png" },
 }
+
+if has_app_factory then
+    table.insert(builtin_apps, { name = "应用工厂", win = "APP_FACTORY", icon = "/luadb/app_factory.png" })
+end
 
 local top_height = 60
 local page_indicator_height = 40
@@ -62,6 +76,9 @@ local grid_columns = 1
 local apps_per_page = 0
 local grid_margin = 8
 local grid_top_padding = 16
+-- 应用网格文字字号与文字区高度（calc_layout 计算，build_app_grid_page 复用；最少 16 号字）
+local grid_text_font_size = 16
+local grid_text_label_h = 24
 
 local density_scale_val = _G.density_scale or 1.0
 local big_time_font_size = math.floor(100 * density_scale_val)
@@ -73,6 +90,10 @@ local qrcode_y = 190
 local buttons_y = 0
 local builtin_button_width = math.floor(80 * density_scale_val)
 local builtin_button_spacing = math.floor(20 * density_scale_val)
+local builtin_button_height = math.floor(124 * density_scale_val)
+-- 内置按钮文字字号与文字区高度（预留 2 行，最少按 16 号字 48px，字号更大则按更大的预留）
+local builtin_button_font_size = 16
+local builtin_button_label_h = 48
 
 local timer_handler = nil
 local external_app_cache = {}
@@ -132,12 +153,28 @@ local function calc_layout()
     if cm then
         big_time_font_size = 0
         big_time_label_y = 0
-        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), math.floor(screen_h * 0.03 * _G.density_scale)))
+        date_font_size = math.max(16, math.min(18, math.floor(screen_h * 0.03 * _G.density_scale)))
         date_label_y = math.floor(screen_h * 0.01)
-        qrcode_size = math.max(math.floor(45 * _G.density_scale), math.min(math.floor(70 * _G.density_scale), math.floor(screen_h * 0.20 * _G.density_scale)))
+        qrcode_size = math.max(math.floor(40 * _G.density_scale), math.min(math.floor(64 * _G.density_scale), math.floor(screen_h * 0.19 * _G.density_scale)))
         qrcode_y = date_label_y + date_font_size + math.floor(4 * _G.density_scale)
-        builtin_button_width = math.max(math.floor(45 * _G.density_scale), math.min(math.floor(65 * _G.density_scale), math.floor(screen_w * 0.055 * _G.density_scale)))
-        builtin_button_spacing = math.max(math.floor(4 * _G.density_scale), math.min(math.floor(10 * _G.density_scale), math.floor(screen_w * 0.01 * _G.density_scale)))
+        -- 按钮宽度按数量自适应：5 个按钮时约 76px，保证文字放得下
+        local btn_count = math.max(1, #builtin_apps)
+        local btn_margin = math.floor(12 * _G.density_scale)
+        builtin_button_spacing = math.max(math.floor(6 * _G.density_scale), math.min(math.floor(12 * _G.density_scale), math.floor(screen_w * 0.015 * _G.density_scale)))
+        builtin_button_width = math.floor((screen_w - 2 * btn_margin - (btn_count - 1) * builtin_button_spacing) / btn_count)
+        builtin_button_width = math.max(math.floor(48 * _G.density_scale), math.min(math.floor(88 * _G.density_scale), builtin_button_width))
+        -- 按钮文字字号：最少 16 号（若宽度不足仍保持 16，靠截断兜底；不推荐低于 16）
+        -- 中文按字宽≈字号计算，最长的内置应用名取 4 字（如"应用市场"/"应用工厂"）
+        local max_name_len = 4
+        builtin_button_font_size = math.floor((builtin_button_width - math.floor(8 * _G.density_scale)) / max_name_len)
+        builtin_button_font_size = math.max(16, math.min(18, builtin_button_font_size))
+        -- 文字区高度按实际字号预留 2 行（(字号+8 行高)×2），最少不低于 16 号字(48px)
+        builtin_button_label_h = (builtin_button_font_size + 8) * 2
+        -- 按钮高度：图标 + 文字区 + 上下留白
+        local bis = math.min(math.floor(40 * _G.density_scale), builtin_button_width - math.floor(10 * _G.density_scale))
+        local icon_top = math.floor(8 * _G.density_scale)
+        builtin_button_height = icon_top + bis + math.floor(6 * _G.density_scale) + builtin_button_label_h + math.floor(6 * _G.density_scale)
+        buttons_y = qrcode_y + qrcode_size + math.floor(6 * _G.density_scale)
     elseif is_landscape then
         big_time_font_size = math.max(math.floor(40 * _G.density_scale), math.min(math.floor(80 * _G.density_scale), math.floor(screen_h * 0.15 * _G.density_scale)))
         big_time_label_y = math.floor(screen_h * 0.015)
@@ -158,11 +195,17 @@ local function calc_layout()
         builtin_button_spacing = math.max(math.floor(8 * _G.density_scale), math.min(math.floor(30 * _G.density_scale), math.floor(screen_w * 0.035 * _G.density_scale)))
     end
 
-    buttons_y = qrcode_y + qrcode_size + math.floor(55 * _G.density_scale)
+    -- compact 分支已在上面按紧凑间距计算 buttons_y；其余分支用默认间距
+    if not cm then
+        buttons_y = qrcode_y + qrcode_size + math.floor(55 * _G.density_scale)
+    end
 
     local grid_icon_size = math.floor(32 * _G.density_scale)
     local bf = math.floor(screen_h / 32 * _G.density_scale)
-    local grid_text_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(18 * _G.density_scale), bf))
+    -- 网格文字字号最少 16 号，更大则按更大的自适应值
+    grid_text_font_size = math.max(16, math.min(math.floor(18 * _G.density_scale), bf))
+    -- 文字区高度按实际字号预留（字号+8 余量）×行数，最少 16 号字(24px)
+    grid_text_label_h = (grid_text_font_size + 8) * 2
 
     local gaw = screen_w
     local gah = screen_h - top_height - page_indicator_height
@@ -178,9 +221,11 @@ local function calc_layout()
 
     card_width = math.floor((gaw - (grid_columns + 1) * grid_margin) / grid_columns)
 
-    local txh = grid_text_font_size * 2 + 8
-    local pv = is_landscape and 12 or 16
-    card_height = grid_icon_size + txh + pv
+    -- 卡片内部布局：图标顶部 8px，图标 32px，间距 4px，文字区 grid_text_label_h，底部 4px
+    local card_in_top = 8
+    local card_in_gap = 4
+    local card_in_bot = 4
+    card_height = card_in_top + grid_icon_size + card_in_gap + grid_text_label_h + card_in_bot
     if card_height < math.floor(70 * _G.density_scale) then card_height = math.floor(70 * _G.density_scale) end
 
     local ah = gah - grid_top_padding
@@ -261,18 +306,18 @@ local function show_password_verify_popup(title_str, on_confirm, on_cancel)
     destroy_context_ui()
     local density = density_scale_val or 1.0
     local win_w = math.floor(screen_w * 0.80)
-    local header_h = math.floor(44 * density)
-    local item_margin = math.floor(16 * density)
-    local input_h = math.floor(46 * density)
-    local btn_h = math.floor(44 * density)
-    local label_h = math.floor(22 * density)
-    local gap = math.floor(12 * density)
+    local header_h = math.floor((is_compact_ui and 38 or 44) * density)
+    local item_margin = math.floor((is_compact_ui and 10 or 16) * density)
+    local input_h = math.floor((is_compact_ui and 36 or 46) * density)
+    local btn_h = math.floor((is_compact_ui and 34 or 44) * density)
+    local label_h = math.floor((is_compact_ui and 20 or 22) * density)
+    local gap = math.floor((is_compact_ui and 6 or 12) * density)
     local content_h = item_margin + label_h + gap + input_h + gap + btn_h + item_margin
     local win_h = header_h + content_h
 
     context_keyboard = airui.keyboard({
         x = 0, y = -math.floor(20 * density),
-        w = screen_w, h = math.floor(240 * density),
+        w = screen_w, h = math.floor((is_compact_ui and 150 or 240) * density),
         mode = "text", auto_hide = true, preview = true,
         on_commit = function(self) self:hide() end,
     })
@@ -333,18 +378,18 @@ local function show_password_set_popup(on_confirm, on_cancel)
     destroy_context_ui()
     local density = density_scale_val or 1.0
     local win_w = math.floor(screen_w * 0.80)
-    local header_h = math.floor(44 * density)
-    local item_margin = math.floor(16 * density)
-    local input_h = math.floor(46 * density)
-    local btn_h = math.floor(44 * density)
-    local label_h = math.floor(22 * density)
-    local gap = math.floor(10 * density)
+    local header_h = math.floor((is_compact_ui and 38 or 44) * density)
+    local item_margin = math.floor((is_compact_ui and 10 or 16) * density)
+    local input_h = math.floor((is_compact_ui and 36 or 46) * density)
+    local btn_h = math.floor((is_compact_ui and 34 or 44) * density)
+    local label_h = math.floor((is_compact_ui and 20 or 22) * density)
+    local gap = math.floor((is_compact_ui and 6 or 10) * density)
     local content_h = item_margin + label_h + gap + input_h + gap + btn_h + item_margin
     local win_h = header_h + content_h
 
     context_keyboard = airui.keyboard({
         x = 0, y = -math.floor(20 * density),
-        w = screen_w, h = math.floor(240 * density),
+        w = screen_w, h = math.floor((is_compact_ui and 150 or 240) * density),
         mode = "text", auto_hide = true, preview = true,
         on_commit = function(self) self:hide() end,
     })
@@ -450,12 +495,13 @@ local function show_app_context_menu(app)
     local density = density_scale_val or 1.0
 
     local win_w = math.floor(screen_w * 0.78)
-    local header_h = math.floor(48 * density)
-    local item_h = math.floor(56 * density)
-    local item_gap = math.floor(12 * density)
-    local icon_size = math.floor(44 * density)
-    local padding = math.floor(20 * density)
-    local gap = math.floor(12 * density)
+    -- 紧凑模式下压缩各元素高度，保证弹窗不超出屏幕（480x272）
+    local header_h = math.floor((is_compact_ui and 40 or 48) * density)
+    local item_h = math.floor((is_compact_ui and 40 or 56) * density)
+    local item_gap = math.floor((is_compact_ui and 6 or 12) * density)
+    local icon_size = math.floor((is_compact_ui and 32 or 44) * density)
+    local padding = math.floor((is_compact_ui and 10 or 20) * density)
+    local gap = math.floor((is_compact_ui and 6 or 12) * density)
 
     local menu_items = {}
     if is_auto_start then
@@ -472,8 +518,8 @@ local function show_app_context_menu(app)
 
     local visible_count = #menu_items
     -- 高度组成：上padding + 图标 + 间距 + (可选自启标识行) + 菜单项 + 间距 + 取消按钮 + 下padding
-    local auto_label_area = is_auto_start and (math.floor(22 * density) + gap) or 0
-    local cancel_h = math.floor(46 * density)
+    local auto_label_area = is_auto_start and (math.floor((is_compact_ui and 16 or 22) * density) + gap) or 0
+    local cancel_h = math.floor((is_compact_ui and 34 or 46) * density)
     local content_h = padding + icon_size + gap + auto_label_area + visible_count * (item_h + item_gap) + gap + cancel_h + padding
     local win_h = header_h + content_h
 
@@ -496,7 +542,7 @@ local function show_app_context_menu(app)
     if is_auto_start then
         airui.label({
             parent = win, x = padding, y = y_off, w = win_w - 2 * padding, h = math.floor(20 * density),
-            text = "● 已设为开机自启", font_size = math.floor(15 * density),
+            text = "● 已设为开机自启", font_size = math.floor((is_compact_ui and 15 or 15) * density),
             color = COLOR_ACCENT, align = airui.TEXT_ALIGN_CENTER,
         })
         y_off = y_off + math.floor(22 * density)
@@ -505,7 +551,7 @@ local function show_app_context_menu(app)
     for _, item in ipairs(menu_items) do
         airui.button({
             parent = win, x = padding, y = y_off, w = win_w - 2 * padding, h = item_h,
-            text = item.text, font_size = math.floor(22 * density),
+            text = item.text, font_size = math.max(16, math.floor(22 * density)),
             style = { bg_color = COLOR_BG, pressed_bg_color = COLOR_DIVIDER, text_color = item.color,
                 radius = 12, border_width = 1, border_color = COLOR_DIVIDER },
             on_click = function()
@@ -520,8 +566,8 @@ local function show_app_context_menu(app)
 
     y_off = y_off + gap
     airui.button({
-        parent = win, x = padding, y = y_off, w = win_w - 2 * padding, h = math.floor(46 * density),
-        text = "取消", font_size = math.floor(18 * density),
+        parent = win, x = padding, y = y_off, w = win_w - 2 * padding, h = math.floor((is_compact_ui and 34 or 46) * density),
+        text = "取消", font_size = math.max(16, math.floor(18 * density)),
         style = { bg_color = COLOR_WHITE, pressed_bg_color = COLOR_DIVIDER, text_color = COLOR_TEXT_SECONDARY,
             radius = 12, border_width = 0 },
         on_click = function() destroy_context_ui() end,
@@ -586,9 +632,11 @@ local function build_home_page(page_container)
         big_time_label = nil
     end
 
+    local compact = (is_landscape and screen_h < 400)
+
     date_label = airui.label({
         parent = home_container,
-        x = 0, y = date_label_y, w = screen_w, h = date_font_size + 20,
+        x = 0, y = date_label_y, w = screen_w, h = date_font_size + (compact and 4 or 20),
         text = "1970-01-01 星期四", font_size = date_font_size,
         color = COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_CENTER
     })
@@ -599,29 +647,34 @@ local function build_home_page(page_container)
         data = "https://docs.openluat.com/",
         dark_color = 0x000000, light_color = COLOR_WHITE, quiet_zone = true
     })
-    airui.label({
-        parent = home_container,
-        x = 0, y = qrcode_y + qrcode_size + math.floor(5 * _G.density_scale),
-        w = screen_w, h = math.floor(22 * _G.density_scale),
-        text = "资料中心", font_size = math.floor(14 * _G.density_scale),
-        color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER
-    })
+    -- 紧凑模式不显示二维码说明文字，避免与下方按钮区重叠
+    if not compact then
+        airui.label({
+            parent = home_container,
+            x = 0, y = qrcode_y + qrcode_size + math.floor(5 * _G.density_scale),
+            w = screen_w, h = math.floor((16 + 8) * _G.density_scale),
+            text = "资料中心", font_size = 16,
+            color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER
+        })
+    end
 
     local bsx = (screen_w - (builtin_button_width * #builtin_apps + builtin_button_spacing * (#builtin_apps - 1))) / 2
     for i, app in ipairs(builtin_apps) do
         local x = bsx + (i - 1) * (builtin_button_width + builtin_button_spacing)
         local c = airui.container({
             parent = home_container, x = x, y = buttons_y, w = builtin_button_width,
-            h = math.floor(100 * _G.density_scale), color = COLOR_BG,
+            h = builtin_button_height, color = COLOR_BG,
             on_click = function() sys.publish("OPEN_" .. app.win .. "_WIN") end
         })
         local bis = math.min(math.floor(40 * _G.density_scale), builtin_button_width - math.floor(10 * _G.density_scale))
         local bix = (builtin_button_width - bis) / 2
-        airui.image({ parent = c, x = bix, y = math.floor(10 * _G.density_scale), w = bis, h = bis, src = app.icon })
+        local bity = math.floor(8 * _G.density_scale)
+        airui.image({ parent = c, x = bix, y = bity, w = bis, h = bis, src = app.icon })
+        -- 文字区高度按实际字号预留（最少 16 号字），字号更大则按更大的预留
         airui.label({
-            parent = c, x = 0, y = bis + math.floor(18 * _G.density_scale),
-            w = builtin_button_width, h = math.floor(30 * _G.density_scale),
-            text = app.name, font_size = math.floor(14 * _G.density_scale),
+            parent = c, x = 0, y = bity + bis + math.floor(6 * _G.density_scale),
+            w = builtin_button_width, h = builtin_button_label_h,
+            text = app.name, font_size = builtin_button_font_size,
             color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER
         })
     end
@@ -637,9 +690,6 @@ local function build_app_grid_page(page_container, start_idx, apps)
     })
 
     local grid_icon_size = math.floor(32 * _G.density_scale)
-    local grid_text_font_size = math.max(math.floor(12 * _G.density_scale),
-        math.min(math.floor(18 * _G.density_scale), math.floor(screen_h / 32 * _G.density_scale)))
-    local txh = grid_text_font_size * 2 + 8
 
     for i = 1, apps_per_page do
         local idx = start_idx + i - 1
@@ -680,8 +730,8 @@ local function build_app_grid_page(page_container, start_idx, apps)
         airui.image({ parent = card_widget, x = ix, y = 8, w = grid_icon_size, h = grid_icon_size, src = icon_src })
 
         airui.label({
-            parent = card_widget, x = 4, y = grid_icon_size + 10,
-            w = card_width - 8, h = txh,
+            parent = card_widget, x = 4, y = 8 + grid_icon_size + 4,
+            w = card_width - 8, h = grid_text_label_h,
             text = app.name or "未知", font_size = grid_text_font_size,
             color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER
         })
@@ -823,7 +873,7 @@ local function check_duplicates()
 
         local msg_box = airui.msgbox({
             w = math.min(math.floor(screen_w * 0.85), 480), h = math.floor(screen_h * 0.40),
-            style = { text_font_size = math.floor(14 * _G.density_scale) },
+            style = { text_font_size = math.max(16, math.floor(16 * _G.density_scale)) },
             title = "重复应用", text = prompt_text, buttons = buttons,
             on_action = function(self, btn_label)
                 self:destroy()
@@ -835,7 +885,7 @@ local function check_duplicates()
                             log.warn("idle_win", "resolve_duplicate failed:", app_name, err)
                             local err_box = airui.msgbox({
                                 w = math.min(360, screen_w - 40), h = math.floor(screen_h * 0.20),
-                                style = { text_font_size = math.floor(14 * _G.density_scale) },
+                                style = { text_font_size = 16 },
                                 title = "操作失败", text = (err or "未知错误"), buttons = { "确定" },
                                 on_action = function(self2, _) self2:destroy(); process_next() end
                             })
@@ -876,7 +926,7 @@ local function show_fota_reboot_prompt(message)
     local density = density_scale_val or 1.0
     local mw = math.min(math.floor(screen_w * 0.80), 400)
     local mh = math.floor(screen_h * 0.25)
-    local fs = math.max(14, math.min(20, math.floor(screen_h * 0.024)))
+    local fs = math.max(16, math.min(20, math.floor(screen_h * 0.024)))
     airui.msgbox({
         w = mw, h = mh,
         style = { text_font_size = fs },
@@ -898,7 +948,7 @@ local function show_fota_download_prompt(message)
     local density = density_scale_val or 1.0
     local mw = math.min(math.floor(screen_w * 0.80), 400)
     local mh = math.floor(screen_h * 0.25)
-    local fs = math.max(14, math.min(20, math.floor(screen_h * 0.024)))
+    local fs = math.max(16, math.min(20, math.floor(screen_h * 0.024)))
     airui.msgbox({
         w = mw, h = mh,
         style = { text_font_size = fs },

@@ -19,6 +19,10 @@ FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mod
     (void)userdata;
     char tmp[16] = {0};
     int flag = 0;
+    if (strlen(mode) >= sizeof(tmp)) {
+        LLOGE("fopen mode too long %s", mode);
+        return NULL;
+    }
     for (size_t i = 0; i < strlen(mode); i++)
     {
         if (mode[i] == 'b') {
@@ -26,7 +30,7 @@ FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mod
             break;
         }
     }
-    memcpy(tmp, mode, strlen(mode));
+    memcpy(tmp, mode, strlen(mode) + 1);
     if (!flag)
         tmp[strlen(mode)] = 'b';
     mode = tmp;
@@ -204,9 +208,43 @@ static int luat_vfs_posix_dir_path(const char* dir_name, char* buff, size_t buff
 int luat_vfs_posix_mkdir(void* userdata, char const* filename) {
     (void)userdata;
 #if defined(LUA_USE_WINDOWS)
-    return mkdir(filename + FILENAME_OFFSET);
+    char tmp[256];
+    const char *p = filename + FILENAME_OFFSET;
+    size_t len = strlen(p);
+    if (len == 0 || len >= sizeof(tmp)) {
+        return -1;
+    }
+    memcpy(tmp, p, len + 1);
+    /* Convert to backslash for Windows */
+    for (size_t i = 0; tmp[i]; i++) {
+        if (tmp[i] == '/') tmp[i] = '\\';
+    }
+    /* Recursively create parent directories */
+    for (char *s = tmp + 1; *s; s++) {
+        if (*s == '\\') {
+            *s = '\0';
+            mkdir(tmp); /* ignore error if already exists */
+            *s = '\\';
+        }
+    }
+    return mkdir(tmp);
 #elif defined(LUA_USE_LINUX) || defined(LUA_USE_MACOSX)
-    return mkdir(filename + FILENAME_OFFSET, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    char tmp[256];
+    const char *p = filename + FILENAME_OFFSET;
+    size_t len = strlen(p);
+    if (len == 0 || len >= sizeof(tmp)) {
+        return -1;
+    }
+    memcpy(tmp, p, len + 1);
+    /* Recursively create parent directories */
+    for (char *s = tmp + 1; *s; s++) {
+        if (*s == '/') {
+            *s = '\0';
+            mkdir(tmp, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH); /* ignore error if already exists */
+            *s = '/';
+        }
+    }
+    return mkdir(tmp, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 #else
     return -1;
 #endif

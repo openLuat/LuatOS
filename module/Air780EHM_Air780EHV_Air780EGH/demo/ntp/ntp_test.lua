@@ -20,7 +20,7 @@
 -- 自定义NTP服务器列表，可选配置，默认使用内置的ntp服务器地址ntp.aliyun.com
 local ntp_servers = {
     "ntp.aliyun.com",
-    "ntp.air32.cn",
+    "ntp.ntsc.ac.cn",
     "time1.cloud.tencent.com"
 }
 

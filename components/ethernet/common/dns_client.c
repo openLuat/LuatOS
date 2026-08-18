@@ -2,6 +2,7 @@
 #include "luat_base.h"
 #include "luat_mcu.h"
 #include "luat_mem.h"
+#include "luat_crypto.h"
 #ifdef LUAT_USE_DNS
 #include "luat_network_adapter.h"
 #include "dns_def.h"
@@ -96,6 +97,10 @@ static uint16_t dns_get_session_id(dns_client_t *client)
 static int32_t dns_skip_name_field(Buffer_Struct *buf)
 {
 
+	if (buf->Pos >= buf->MaxLen)
+	{
+		return -1;
+	}
 	if( ( buf->Data[buf->Pos] & dnsNAME_IS_OFFSET ) == dnsNAME_IS_OFFSET )
 	{
 		/* Jump over the two byte offset. */
@@ -161,6 +166,12 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 	for(i = 0; i < answer_num; i++)
 	{
 		if (dns_skip_name_field(buf) != ERROR_NONE)
+		{
+			error = 1;
+			goto NET_DNSGETIP_DONE;
+		}
+		// 记录固定部分(type/class/ttl/rdlength)至少10字节
+		if ( (buf->Pos + 10) > buf->MaxLen)
 		{
 			error = 1;
 			goto NET_DNSGETIP_DONE;
@@ -243,6 +254,11 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			//DBG("%04x",usTemp);
 			buf->Pos += 8;
 			usTemp = BytesGetBe16FromBuf(buf);
+			if ( (buf->Pos + usTemp) > buf->MaxLen)
+			{
+				error = 1;
+				goto NET_DNSGETIP_DONE;
+			}
 			buf->Pos += usTemp;
 			//OS(Dump)(buf->Data + buf->Pos, usTemp);
 			break;
@@ -513,6 +529,113 @@ void dns_clear(dns_client_t *client)
 	llist_traversal(&client->require_head, dns_clear_require, NULL);
 }
 
+// 校验应答question段的域名是否与该process查询的一致(RFC 1035 域名比较大小写不敏感),
+// 并校验QTYPE/QCLASS。匹配则消耗掉name+qtype+qclass并返回0, 否则返回非0(不消耗或部分消耗, 调用方直接丢包)
+static int32_t dns_check_question_name(Buffer_Struct *in, dns_process_t *process)
+{
+	uint32_t name_pos = in->Pos;	// 当前解码位置
+	uint32_t return_pos = 0;		// 首次遇到压缩指针时应恢复到的位置
+	uint8_t jumped = 0;
+	uint8_t jump_cnt = 0;
+	uint32_t uri_pos = 0;			// uri_buf(点分字符串)比较进度
+	const uint8_t *uri = process->uri_buf.Data;
+	uint32_t uri_len = process->uri_buf.Pos;
+
+	for(;;)
+	{
+		uint8_t c;
+		if (name_pos >= in->MaxLen)
+		{
+			return -1;
+		}
+		c = in->Data[name_pos];
+		if ((c & dnsNAME_IS_OFFSET) == dnsNAME_IS_OFFSET)
+		{
+			// 压缩指针, 只允许回指且限制跳转次数, 防止死循环
+			uint16_t offset;
+			if (name_pos + 2 > in->MaxLen)
+			{
+				return -1;
+			}
+			offset = ((uint16_t)(c & 0x3f) << 8) | in->Data[name_pos + 1];
+			if (!jumped)
+			{
+				return_pos = name_pos + 2;
+				jumped = 1;
+			}
+			if (offset >= name_pos || ++jump_cnt > 8)
+			{
+				return -1;
+			}
+			name_pos = offset;
+			continue;
+		}
+		if (c == 0x00)
+		{
+			// 名字结束
+			if (!jumped)
+			{
+				return_pos = name_pos + 1;
+			}
+			break;
+		}
+		if ((c & 0xc0) || (name_pos + 1 + c > in->MaxLen))
+		{
+			return -1;
+		}
+		// 逐字节比较该label与uri中对应段(大小写不敏感)
+		{
+			uint8_t j;
+			for (j = 0; j < c; j++)
+			{
+				uint8_t a, b;
+				if (uri_pos >= uri_len)
+				{
+					return -1;
+				}
+				a = in->Data[name_pos + 1 + j];
+				b = uri[uri_pos++];
+				if (tolower(a) != tolower(b))
+				{
+					return -1;
+				}
+			}
+			name_pos += 1 + c;
+		}
+		// label之间的分隔: uri中应是'.', 除非uri已恰好比较完
+		if (uri_pos < uri_len)
+		{
+			if (uri[uri_pos] != '.')
+			{
+				return -1;
+			}
+			uri_pos++;
+		}
+	}
+	if (uri_pos != uri_len)
+	{
+		// 应答名字比查询域名短
+		return -1;
+	}
+	in->Pos = return_pos;
+	if (in->Pos + 4 > in->MaxLen)
+	{
+		return -1;
+	}
+	// QTYPE必须与查询类型一致, QCLASS必须为IN
+	{
+		uint16_t qtype = BytesGetBe16(in->Data + in->Pos);
+		uint16_t qclass = BytesGetBe16(in->Data + in->Pos + 2);
+		uint16_t expect = process->is_ipv6 ? dnsTYPE_IPV6 : dnsTYPE_IPV4;
+		if (qtype != expect || qclass != dnsCLASS)
+		{
+			return -1;
+		}
+	}
+	in->Pos += 4;
+	return 0;
+}
+
 static int32_t dns_find_need_tx_process(void *pData, void *pParam)
 {
 	dns_process_t *process = (dns_process_t *)pData;
@@ -556,13 +679,31 @@ void dns_run(dns_client_t *client, Buffer_Struct *in, Buffer_Struct *out, int *s
 					MsgHead.usAuthorityRRs = BSP_Swap16(MsgHead.usAuthorityRRs);
 					MsgHead.usAdditionalRRs = BSP_Swap16(MsgHead.usAdditionalRRs);
 
+					if (!MsgHead.usQuestions)
+					{
+						// 标准查询的应答必须回显question, 否则无法校验归属, 丢弃
+						LLOGW("response without question, drop");
+						goto NET_DNS_RX_OUT;
+					}
 					for(i = 0; i < MsgHead.usQuestions; i++)
 					{
-						if (dns_skip_name_field(in) != ERROR_NONE)
+						if (!i)
 						{
-							goto NET_DNS_RX_OUT;
+							// 第1个question必须与本process查询的域名/类型一致, 否则视为串包或伪造应答, 丢弃
+							if (dns_check_question_name(in, process))
+							{
+								LLOGW("question not match, drop");
+								goto NET_DNS_RX_OUT;
+							}
 						}
-						in->Pos += 4;
+						else
+						{
+							if (dns_skip_name_field(in) != ERROR_NONE)
+							{
+								goto NET_DNS_RX_OUT;
+							}
+							in->Pos += 4;
+						}
 						if (in->Pos >= in->MaxLen)
 						{
 							goto NET_DNS_RX_OUT;
@@ -575,12 +716,40 @@ void dns_run(dns_client_t *client, Buffer_Struct *in, Buffer_Struct *out, int *s
 							goto NET_DNS_RX_OUT;
 						}
 					}
+					else if ((MsgHead.usFlags & 0x000f) == 3)
+					{
+						// NXDOMAIN: 域名不存在是确定性结果, 立即失败, 不做无谓重试
+						LLOGI("%.*s NXDOMAIN", process->uri_buf.Pos, process->uri_buf.Data);
+						process->ip_nums = 0;
+						process->is_done = 1;
+						client->new_result = 1;
+						llist_traversal(&client->require_head, dns_set_result, process);
+						llist_del(&process->node);
+						free(process);
+						goto NET_DNS_RX_OUT;
+					}
 					else
 					{
-						if (dns_get_ip(client, in, MsgHead.usAnswers, NULL))
+						// SERVFAIL/REFUSED等其他错误: 立即换下一台server, 不等重试超时
+						LLOGW("%.*s rcode %d, try next dns server", process->uri_buf.Pos, process->uri_buf.Data, (MsgHead.usFlags & 0x000f));
+						process->retry_cnt = 0;
+						process->timeout_ms = 0;
+						process->dns_cnt++;
+						while((process->dns_cnt < MAX_DNS_SERVER) && !network_ip_is_vaild(&client->dns_server[process->dns_cnt]))
 						{
-							goto NET_DNS_RX_OUT;
+							process->dns_cnt++;
 						}
+						if (process->dns_cnt >= MAX_DNS_SERVER)
+						{
+							LLOGE("%.*s all dns server failed", process->uri_buf.Pos, process->uri_buf.Data);
+							process->ip_nums = 0;
+							process->is_done = 1;
+							client->new_result = 1;
+							llist_traversal(&client->require_head, dns_set_result, process);
+							llist_del(&process->node);
+							free(process);
+						}
+						goto NET_DNS_RX_OUT;
 					}
 
 					if (dns_get_ip(client, in, MsgHead.usAuthorityRRs, NULL))
@@ -714,6 +883,8 @@ void dns_init_client(dns_client_t *client)
 			network_set_ip_invaild(&client->dns_server[i]);
 		}
 	}
+	// txid随机起点, 避免跨会话可预测(RFC 5452), 后续仍递增防同client内重复
+	luat_crypto_trng((char*)&client->session_id, sizeof(client->session_id));
 }
 
 #endif

@@ -159,3 +159,4 @@ testresult/
 app_store/
 *.bin
 single_app.json
+.qoder/

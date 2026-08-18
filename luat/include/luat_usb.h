@@ -9,12 +9,14 @@ enum
 	LUAT_USB_MODE_DEVICE,
 	LUAT_USB_MODE_HOST,
 	LUAT_USB_MODE_OTG,
-	LUAT_USB_CLASS_CDC_ACM = 0,
-	LUAT_USB_CLASS_AUDIO,
+	LUAT_USB_CLASS_HUB = 0,
 	LUAT_USB_CLASS_CAMERA,
+	LUAT_USB_CLASS_CDC_ACM,
+	LUAT_USB_CLASS_MSC,
+	LUAT_USB_CLASS_CDC_ECM,
+	LUAT_USB_CLASS_AUDIO,
 	LUAT_USB_CLASS_HID_CUSTOMER,
 	LUAT_USB_CLASS_HID_KEYBOARD,
-	LUAT_USB_CLASS_MSC,
 //	LUAT_USB_CLASS_WINUSB,
 	LUAT_USB_CLASS_QTY,
 	LUAT_USB_EVENT_NEW_RX	= 0,
@@ -80,4 +82,32 @@ int luat_usb_power_on_off(int id, uint8_t on_off);
 int luat_usb_debug(int id, uint8_t on_off);
 
 int luat_usb_host_reset_device(int id, uint8_t app_id);
+
+/********************** c层内部调用接口 ***********************/
+enum
+{
+	LUAT_USB_ETH_ID_0 = 0,
+
+	LUAT_USB_ETH_EVENT_TX_DONE = 0,
+	LUAT_USB_ETH_EVENT_NEW_RX,
+	LUAT_USB_ETH_EVENT_LINK_STATE,
+	LUAT_USB_ETH_EVENT_DOWNSTREAM_BPS,
+	LUAT_USB_ETH_EVENT_UPSTREAM_BPS,
+	LUAT_USB_ETH_EVENT_MSS,
+	LUAT_USB_ETH_EVENT_MAC,
+	LUAT_USB_ETH_EVENT_CONNECT,
+	LUAT_USB_ETH_EVENT_DISCONNECT,
+	LUAT_USB_ETH_EVENT_DATA_FORMAT,
+};
+
+enum
+{
+	LUAT_USB_ETH_DATA_FORMAT_ETHERNET = 0,
+	LUAT_USB_ETH_DATA_FORMAT_RNDIS,
+};
+
+typedef void(*luat_usb_event_callback_fun_t)(uint32_t event, void *data_or_p_param, uint32_t size_or_u32_param, void *user_param);
+void *luat_usb_bind_eth(int id, luat_usb_event_callback_fun_t callback, void *user_param);
+int luat_usb_eth_start_tx(int id, const uint32_t *data, uint32_t len);
+int luat_usb_eth_continue_tx(int id, const uint32_t *data, uint32_t len);
 #endif

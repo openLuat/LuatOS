@@ -1419,13 +1419,39 @@ static int l_json_encode_safe(lua_State *L) {
 	if (lua_isstring(L, 2)) {
 		const char* mode = luaL_checklstring(L, 2, &len);
         //LLOGD("json format ? %s", mode);
-        if (len > 1 && len < 8 && (mode[len - 1] == 'g' || mode[len - 1] == 'f')) {
-            if (mode[0] == '%') {
-                memcpy(float_fmt, mode, len + 1);
+        // 严格白名单校验: 仅允许 "%.<1~3位数字>f/g" 或文档兼容形式 "<1~3位数字>f/g"
+        // 按 luaL_checklstring 返回的长度逐字符校验, 内嵌NUL等非法字符一律拒绝
+        size_t pos = 0;
+        if (len > 0 && mode[0] == '%') {
+            pos = 2;
+        }
+        if (len < pos + 2 || len > pos + 4) {
+            lua_pushnil(L);
+            lua_pushliteral(L, "invalid float format");
+            return 2;
+        }
+        if (pos && mode[1] != '.') {
+            lua_pushnil(L);
+            lua_pushliteral(L, "invalid float format");
+            return 2;
+        }
+        if (mode[len - 1] != 'f' && mode[len - 1] != 'g') {
+            lua_pushnil(L);
+            lua_pushliteral(L, "invalid float format");
+            return 2;
+        }
+        for (size_t i = pos; i + 1 < len; i++) {
+            if (mode[i] < '0' || mode[i] > '9') {
+                lua_pushnil(L);
+                lua_pushliteral(L, "invalid float format");
+                return 2;
             }
-            else {
-                memcpy(float_fmt + 2, mode, len + 1);
-            }
+        }
+        if (pos) {
+            memcpy(float_fmt, mode, len + 1);
+        }
+        else {
+            memcpy(float_fmt + 2, mode, len + 1);
         }
     }
     //LLOGD("float_fmt [%s]", float_fmt);

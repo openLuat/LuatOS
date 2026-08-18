@@ -21,6 +21,9 @@
 #endif
 #endif
 
+//table方式创建framebuffer时允许的最大总位数(128MB)，防止width*height*bit乘法回绕后分配过小
+#define LUAT_ZBUFF_MAX_FRAME_BITS ((uint64_t)128 * 1024 * 1024 * 8)
+
 //在buff对象后添加数据，返回增加的字节数
 static int add_bytes(luat_zbuff_t *buff, const char *source, size_t len)
 {
@@ -31,73 +34,96 @@ static int add_bytes(luat_zbuff_t *buff, const char *source, size_t len)
     return len;
 }
 
-#define SET_POINT_1(buff, point, color)                \
-    if (color % 2)                                     \
-        buff->addr[point / 8] |= 1 << (7 - point % 8); \
-    else                                               \
-        buff->addr[point / 8] &= ~(1 << (7 - point % 8))
-#define SET_POINT_4(buff, point, color)                 \
-    buff->addr[point / 2] &= (point % 2) ? 0xf0 : 0x0f; \
-    buff->addr[point / 2] |= (point % 2) ? color : (color * 0x10)
-#define SET_POINT_8(buff, point, color) buff->addr[point] = color
-#define SET_POINT_16(buff, point, color) \
-    buff->addr[point * 2] = color / 0x100;   \
-    buff->addr[point * 2 + 1] = color % 0x100
-#define SET_POINT_24(buff, point, color)                              \
-    buff->addr[point * 3] = color / 0x10000;                          \
-    buff->addr[point * 3 + 1] = color % 0x10000 / 0x100; \
-    buff->addr[point * 3 + 2] = color % 0x100
-#define SET_POINT_32(buff, point, color)                 \
-    buff->addr[point] = color / 0x1000000;               \
-    buff->addr[point + 1] = color % 0x1000000 / 0x10000; \
-    buff->addr[point + 2] = color % 0x10000 / 0x100;     \
-    buff->addr[point + 3] = color % 0x100
+static inline void set_point_1(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    uint32_t byte_idx = point / 8;
+    uint8_t bit_mask = (uint8_t)(1u << (7 - (point % 8)));
+    if (color % 2)
+        buff->addr[byte_idx] |= bit_mask;
+    else
+        buff->addr[byte_idx] &= (uint8_t)~bit_mask;
+}
+static inline void set_point_4(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    uint32_t byte_idx = point / 2;
+    if (point % 2) {
+        buff->addr[byte_idx] &= 0xf0;
+        buff->addr[byte_idx] |= (uint8_t)(color & 0x0f);
+    } else {
+        buff->addr[byte_idx] &= 0x0f;
+        buff->addr[byte_idx] |= (uint8_t)((color & 0x0f) << 4);
+    }
+}
+static inline void set_point_8(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    buff->addr[point] = (uint8_t)color;
+}
+static inline void set_point_16(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    uint32_t off = point * 2;
+    buff->addr[off]     = (uint8_t)(color / 0x100);
+    buff->addr[off + 1] = (uint8_t)(color % 0x100);
+}
+static inline void set_point_24(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    uint32_t off = point * 3;
+    buff->addr[off]     = (uint8_t)(color / 0x10000);
+    buff->addr[off + 1] = (uint8_t)((color % 0x10000) / 0x100);
+    buff->addr[off + 2] = (uint8_t)(color % 0x100);
+}
+static inline void set_point_32(luat_zbuff_t *buff, uint32_t point, uint32_t color) {
+    uint32_t off = point * 4;
+    buff->addr[off]     = (uint8_t)(color / 0x1000000);
+    buff->addr[off + 1] = (uint8_t)((color % 0x1000000) / 0x10000);
+    buff->addr[off + 2] = (uint8_t)((color % 0x10000) / 0x100);
+    buff->addr[off + 3] = (uint8_t)(color % 0x100);
+}
 
-#define SET_POINT_CASE(n, point, color)    \
-    case n:                                \
-        SET_POINT_##n(buff, point, color); \
-        break
 //更改某点的颜色
 static void set_framebuffer_point(luat_zbuff_t *buff, uint32_t point, uint32_t color)
 {
     switch (buff->bit)
     {
-        SET_POINT_CASE(1, point, color);
-        SET_POINT_CASE(4, point, color);
-        SET_POINT_CASE(8, point, color);
-        SET_POINT_CASE(16, point, color);
-        SET_POINT_CASE(24, point, color);
-        SET_POINT_CASE(32, point, color);
-    default:
-        break;
+    case 1:  set_point_1(buff, point, color);  break;
+    case 4:  set_point_4(buff, point, color);  break;
+    case 8:  set_point_8(buff, point, color);  break;
+    case 16: set_point_16(buff, point, color); break;
+    case 24: set_point_24(buff, point, color); break;
+    case 32: set_point_32(buff, point, color); break;
+    default: break;
     }
 }
 
-#define GET_POINT_1(buff, point) (buff->addr[point / 8] >> (7 - point % 8)) % 2
-#define GET_POINT_4(buff, point) (buff->addr[point / 2] >> ((point % 2) ? 0 : 4)) % 0x10
-#define GET_POINT_8(buff, point) buff->addr[point]
-#define GET_POINT_16(buff, point) buff->addr[point * 2] * 0x100 + buff->addr[point * 2 + 1]
-#define GET_POINT_24(buff, point) \
-    buff->addr[point * 3] * 0x10000 + buff->addr[point * 3 + 1] * 0x100 + buff->addr[point * 3 + 2]
-#define GET_POINT_32(buff, point) \
-    buff->addr[point] * 0x1000000 + buff->addr[point + 1] * 0x10000 + buff->addr[point + 2] * 0x100 + buff->addr[point + 3]
-#define GET_POINT_CASE(n, point)           \
-    case n:                                \
-        return GET_POINT_##n(buff, point); \
+static inline uint32_t get_point_1(luat_zbuff_t *buff, uint32_t point) {
+    return (buff->addr[point / 8] >> (7 - (point % 8))) % 2;
+}
+static inline uint32_t get_point_4(luat_zbuff_t *buff, uint32_t point) {
+    return (buff->addr[point / 2] >> ((point % 2) ? 0 : 4)) % 0x10;
+}
+static inline uint32_t get_point_8(luat_zbuff_t *buff, uint32_t point) {
+    return buff->addr[point];
+}
+static inline uint32_t get_point_16(luat_zbuff_t *buff, uint32_t point) {
+    uint32_t off = point * 2;
+    return (uint32_t)buff->addr[off] * 0x100 + buff->addr[off + 1];
+}
+static inline uint32_t get_point_24(luat_zbuff_t *buff, uint32_t point) {
+    uint32_t off = point * 3;
+    return (uint32_t)buff->addr[off] * 0x10000 + (uint32_t)buff->addr[off + 1] * 0x100 + buff->addr[off + 2];
+}
+static inline uint32_t get_point_32(luat_zbuff_t *buff, uint32_t point) {
+    uint32_t off = point * 4;
+    return (uint32_t)buff->addr[off] * 0x1000000 + (uint32_t)buff->addr[off + 1] * 0x10000
+         + (uint32_t)buff->addr[off + 2] * 0x100 + buff->addr[off + 3];
+}
 
 //获取某点的颜色
 static uint32_t get_framebuffer_point(luat_zbuff_t *buff,uint32_t point)
 {
     switch (buff->bit)
     {
-        GET_POINT_CASE(1, point);
-        GET_POINT_CASE(4, point);
-        GET_POINT_CASE(8, point);
-        GET_POINT_CASE(16, point);
-        GET_POINT_CASE(24, point);
-        GET_POINT_CASE(32, point);
-    default:
-        break;
+    case 1:  return get_point_1(buff, point);
+    case 4:  return get_point_4(buff, point);
+    case 8:  return get_point_8(buff, point);
+    case 16: return get_point_16(buff, point);
+    case 24: return get_point_24(buff, point);
+    case 32: return get_point_32(buff, point);
+    default: break;
     }
     return 0;
 }
@@ -127,11 +153,24 @@ static int l_zbuff_create(lua_State *L)
         width = luaL_checkinteger(L, -1);
         height = luaL_checkinteger(L, -2);
         bit = luaL_checkinteger(L, -3);
-        if (bit != 1 && bit != 4 && bit != 8 && bit != 16 && bit != 24 && bit != 32) return 0;
-        len = (width * height * bit - 1) / 8 + 1;
         lua_pop(L, 3);
+        if (bit != 1 && bit != 4 && bit != 8 && bit != 16 && bit != 24 && bit != 32) return 0;
+        //width/height从lua_Integer截断为uint32_t，乘法必须在uint64域计算，防止回绕后分配过小
+        uint64_t total_bits = (uint64_t)width * (uint64_t)height * (uint64_t)bit;
+        if (width == 0 || height == 0 || total_bits > LUAT_ZBUFF_MAX_FRAME_BITS)
+        {
+            LLOGW("invalid framebuffer size, create refused");
+            return 0;
+        }
+        len = (size_t)((total_bits - 1) / 8 + 1);
     } else {
-        len = luaL_checkinteger(L, 1);
+        lua_Integer ilen = luaL_checkinteger(L, 1);
+        if (ilen < 0)
+        {
+            LLOGW("invalid zbuff length, create refused");
+            return 0;
+        }
+        len = ilen;
     }
     if (len <= 0) return 0;
 
@@ -785,12 +824,19 @@ result = buff:setFrameBuffer(320,240,16,0xffff)
 static int l_zbuff_set_frame_buffer(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
-    //检查空间够不够
-    if((luaL_checkinteger(L, 2) * luaL_checkinteger(L, 3) * luaL_checkinteger(L, 4) - 1) / 8 + 1 > buff->len)
+    lua_Integer width = luaL_checkinteger(L, 2);
+    lua_Integer height = luaL_checkinteger(L, 3);
+    lua_Integer bit = luaL_checkinteger(L, 4);
+    //检查空间够不够，w/h/bit必须为正且乘积在uint64域不超过buff容量对应位数
+    if (width <= 0 || height <= 0 || bit <= 0 ||
+        (uint64_t)width * (uint64_t)height * (uint64_t)bit > (uint64_t)buff->len * 8)
+    {
+        LLOGW("invalid framebuffer size, setFrameBuffer refused");
         return 0;
-    buff->width = luaL_checkinteger(L,2);
-    buff->height = luaL_checkinteger(L,3);
-    buff->bit = luaL_checkinteger(L,4);
+    }
+    buff->width = width;
+    buff->height = height;
+    buff->bit = bit;
     if (lua_isinteger(L, 5))
     {
         LUA_INTEGER color = luaL_checkinteger(L, 5);
@@ -816,6 +862,7 @@ color = buff:pixel(0,3)
 static int l_zbuff_pixel(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
+    if(buff->width<=0) return 0;//不是framebuffer数据
     uint32_t x = luaL_checkinteger(L,2);
     uint32_t y = luaL_checkinteger(L,3);
     if(x>=buff->width||y>=buff->height)
@@ -938,22 +985,32 @@ rerult = buff:drawCircle(15,5,3,0xC,true)
  */
 static void draw_circle_all(luat_zbuff_t *buff, int32_t xc, int32_t yc, int32_t x, int32_t y, uint32_t c)
 {
-    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
-        set_framebuffer_point(buff, (xc + x) + (yc + y) * buff->width, c);
-    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
-        set_framebuffer_point(buff, (xc - x) + (yc + y) * buff->width, c);
-    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
-        set_framebuffer_point(buff, (xc + x) + (yc - y) * buff->width, c);
-    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
-        set_framebuffer_point(buff, (xc - x) + (yc - y) * buff->width, c);
-    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
-        set_framebuffer_point(buff, (xc + y) + (yc + x) * buff->width, c);
-    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
-        set_framebuffer_point(buff, (xc - y) + (yc + x) * buff->width, c);
-    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
-        set_framebuffer_point(buff, (xc + y) + (yc - x) * buff->width, c);
-    if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)
-        set_framebuffer_point(buff, (xc - y) + (yc - x) * buff->width, c);
+    int64_t px, py;
+    //必须检查实际写入坐标(xc±x, yc±y)而不是偏移量(x, y)，用int64计算防止int32加法溢出
+    px = (int64_t)xc + x; py = (int64_t)yc + y;
+    if (px >= 0 && py >= 0 && px < buff->width && py < buff->height)
+        set_framebuffer_point(buff, (uint32_t)px + (uint32_t)py * buff->width, c);
+    px = (int64_t)xc - x; py = (int64_t)yc + y;
+    if (px >= 0 && py >= 0 && px < buff->width && py < buff->height)
+        set_framebuffer_point(buff, (uint32_t)px + (uint32_t)py * buff->width, c);
+    px = (int64_t)xc + x; py = (int64_t)yc - y;
+    if (px >= 0 && py >= 0 && px < buff->width && py < buff->height)
+        set_framebuffer_point(buff, (uint32_t)px + (uint32_t)py * buff->width, c);
+    px = (int64_t)xc - x; py = (int64_t)yc - y;
+    if (px >= 0 && py >= 0 && px < buff->width && py < buff->height)
+        set_framebuffer_point(buff, (uint32_t)px + (uint32_t)py * buff->width, c);
+    px = (int64_t)xc + y; py = (int64_t)yc + x;
+    if (px >= 0 && py >= 0 && px < buff->width && py < buff->height)
+        set_framebuffer_point(buff, (uint32_t)px + (uint32_t)py * buff->width, c);
+    px = (int64_t)xc - y; py = (int64_t)yc + x;
+    if (px >= 0 && py >= 0 && px < buff->width && py < buff->height)
+        set_framebuffer_point(buff, (uint32_t)px + (uint32_t)py * buff->width, c);
+    px = (int64_t)xc + y; py = (int64_t)yc - x;
+    if (px >= 0 && py >= 0 && px < buff->width && py < buff->height)
+        set_framebuffer_point(buff, (uint32_t)px + (uint32_t)py * buff->width, c);
+    px = (int64_t)xc - y; py = (int64_t)yc - x;
+    if (px >= 0 && py >= 0 && px < buff->width && py < buff->height)
+        set_framebuffer_point(buff, (uint32_t)px + (uint32_t)py * buff->width, c);
 }
 static int l_zbuff_draw_circle(lua_State *L)
 {
@@ -1039,8 +1096,11 @@ static int l_zbuff_newindex(lua_State *L)
         {
             int o = luaL_checkinteger(L, 2);
             int n = luaL_checkinteger(L, 3) % 256;
-            if (o > buff->len)
+            if (o >= buff->len)
+            {
+                LLOGW("zbuff index out of range, write refused");
                 return 0;
+            }
             buff->addr[o] = n;
         }
     }
@@ -1063,6 +1123,10 @@ static int l_zbuff_gc(lua_State *L)
         buff->addr = NULL;
         buff->len = 0;
         buff->used = 0;
+        //framebuffer元数据一并失效，防止pixel等接口在释放后的内存上越界写
+        buff->width = 0;
+        buff->height = 0;
+        buff->bit = 0;
     }
     return 0;
 }
@@ -1097,7 +1161,13 @@ static int l_zbuff_resize(lua_State *L)
 	if (lua_isinteger(L, 2))
 	{
 		uint32_t n = luaL_checkinteger(L, 2);
-		__zbuff_resize(buff, n);
+		if (!__zbuff_resize(buff, n))
+		{
+			//resize后framebuffer元数据可能与新空间不匹配，直接使其失效
+			buff->width = 0;
+			buff->height = 0;
+			buff->bit = 0;
+		}
 	}
 	return 0;
 }
@@ -1134,7 +1204,7 @@ static int l_zbuff_copy(lua_State *L)
         int data = 0;
         while (lua_isinteger(L, 3 + len))
         {
-        	if (temp_cursor > buff->len)
+        	if (temp_cursor >= buff->len)
         	{
         		if (__zbuff_resize(buff, temp_cursor * 2))
         		{
@@ -1172,11 +1242,21 @@ static int l_zbuff_copy(lua_State *L)
     else if (lua_isuserdata(L, 3))
     {
         luat_zbuff_t *copy_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
-        uint32_t start =  luaL_optinteger(L, 4, 0);
-        uint32_t len =  luaL_optinteger(L, 5, copy_buff->used);
-        if (len + temp_cursor > buff->len) //防止越界
+        lua_Integer start =  luaL_optinteger(L, 4, 0);
+        lua_Integer len =  luaL_optinteger(L, 5, copy_buff->used);
+        //源范围必须与源buff的容量比对，越界读取属于越界读，记日志并拒绝
+        if (start < 0 || (uint64_t)start > copy_buff->len ||
+            len < 0 || (uint64_t)len > copy_buff->len - (uint64_t)start)
         {
-        	if (__zbuff_resize(buff, buff->len + len + temp_cursor))
+            LLOGW("copy range out of source buff, copy refused");
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+        //len + temp_cursor在uint64域计算，防止uint32回绕绕过扩容检查
+        if ((uint64_t)len + (uint64_t)temp_cursor > buff->len) //防止越界
+        {
+        	uint64_t new_len = (uint64_t)buff->len + (uint64_t)len + (uint64_t)temp_cursor;
+        	if (new_len > 0xFFFFFFFF || __zbuff_resize(buff, (uint32_t)new_len))
         	{
     	        lua_pushinteger(L, 0);
     	        return 1;
@@ -1245,8 +1325,13 @@ static int l_zbuff_del(lua_State *L)
     if (start >= (int)buff->used)
         return 0;
 
-    uint32_t len = luaL_optinteger(L, 3, buff->used);
-    if (start + len > buff->used)
+    lua_Integer len = luaL_optinteger(L, 3, buff->used);
+    if (len < 0)
+    {
+        LLOGW("invalid del length, del refused");
+        return 0;
+    }
+    if ((uint64_t)start + (uint64_t)len > buff->used)
         len = buff->used - start;
     if (!len)
     {
@@ -1258,9 +1343,9 @@ static int l_zbuff_del(lua_State *L)
     }
     else
     {
-		uint32_t rest = buff->used - len;
+		size_t rest = buff->used - start - len;
 		memmove(buff->addr + start, buff->addr + start + len, rest);
-		buff->used = rest;
+		buff->used = buff->used - len;
     }
 
     return 0;
@@ -1305,8 +1390,9 @@ static int l_zbuff_query(lua_State *L)
     }
     if (start > buff->used)
         start = buff->used;
-    uint32_t len = luaL_optinteger(L, 3, buff->used);
-    if (start + len > buff->used)
+    lua_Integer len = luaL_optinteger(L, 3, buff->used);
+    //len可能为负或使start+len在uint32域回绕，读取类操作统一钳位到有效范围
+    if (len < 0 || (uint64_t)start + (uint64_t)len > buff->used)
         len = buff->used - start;
     if (!len)
     {
@@ -1422,7 +1508,7 @@ zbuff的类似于memset操作，类似于memset(&buff[start], num, len)，当然
 @api buff:set(start, num, len)
 @int 可选，开始位置，默认为0,
 @int 可选，默认为0。要设置为的值
-@int 可选，长度，默认为全部空间，如果超出范围了，会自动截断
+@int 可选，长度，默认为全部空间，超出范围会拒绝并打印警告日志
 @usage
 -- 全部初始化为0
 buff:set() --等同于 memset(buff, 0, sizeof(buff))
@@ -1434,9 +1520,17 @@ static int l_zbuff_set(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
     int num = luaL_optinteger(L, 3, 0);
-    uint32_t start = luaL_optinteger(L, 2, 0);
-    uint32_t len = luaL_optinteger(L, 4, buff->len);
-    memset(buff->addr + start, num & 0x00ff, ((len + start) > buff->len)?(buff->len - start):len);
+    lua_Integer start = luaL_optinteger(L, 2, 0);
+    lua_Integer len = luaL_optinteger(L, 4, buff->len);
+    //start必须小于buff->len, 否则下溢成巨量memset; len超界按原语义截断
+    if (start < 0 || (uint64_t)start >= buff->len || len < 0)
+    {
+        LLOGW("set range out of buff, set refused");
+        return 0;
+    }
+    if ((uint64_t)len + (uint64_t)start > buff->len)
+        len = buff->len - start;
+    memset(buff->addr + start, num & 0x00ff, len);
     return 0;
 }
 
@@ -1455,11 +1549,21 @@ local result, offset = buff:isEqual(1, buff2, 2, 10) --等同于memcmp(&buff[1],
 static int l_zbuff_equal(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
-    uint32_t offset1 = luaL_optinteger(L, 2, 0);
+    lua_Integer offset1 = luaL_optinteger(L, 2, 0);
     luat_zbuff_t *buff2 = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
-    uint32_t offset2 = luaL_optinteger(L, 4, 0);
-    uint32_t len = luaL_optinteger(L, 5, 1);
-    uint32_t i;
+    lua_Integer offset2 = luaL_optinteger(L, 4, 0);
+    lua_Integer len = luaL_optinteger(L, 5, 1);
+    size_t i;
+    //三个参数必须与两个buff的容量比对，越界比较属于越界读，记日志并拒绝
+    if (offset1 < 0 || (uint64_t)offset1 > buff->len ||
+        offset2 < 0 || (uint64_t)offset2 > buff2->len ||
+        len < 0 || (uint64_t)len > buff->len - (uint64_t)offset1 ||
+        (uint64_t)len > buff2->len - (uint64_t)offset2)
+    {
+        LLOGW("isEqual range out of buff");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
     uint8_t *b1 = buff->addr + offset1;
     uint8_t *b2 = buff2->addr + offset2;
     for(i = 0; i < len; i++) {

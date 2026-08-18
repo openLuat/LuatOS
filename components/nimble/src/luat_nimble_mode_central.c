@@ -211,6 +211,18 @@ int luat_nimble_central_disc_srv(int id) {
     return ble_gattc_disc_all_svcs(g_ble_conn_handle, svc_disced, NULL);
 }
 
+/*
+@sys_pub nimble
+BLE连接状态变化
+BLE_CONN_STATUS
+@boolean 是否已连接, true为连接成功
+@number 底层状态码, 0为成功, 0xff为断开
+@number 附加参数, 保留
+@usage
+sys.subscribe("BLE_CONN_STATUS", function(connected, status, arg2)
+    log.info("ble", "conn status", connected, status)
+end)
+*/
 int luat_nimble_status_cb(lua_State*L, void*ptr) {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -223,6 +235,19 @@ int luat_nimble_status_cb(lua_State*L, void*ptr) {
     return 0;
 }
 
+/*
+@sys_pub nimble
+BLE扫描到周边设备
+BLE_SCAN_RESULT
+@string 设备地址, 7字节二进制(6字节MAC+1字节地址类型)
+@string 设备名称, 无名设备为空字符串
+@table 附加信息, 含rssi(number)字段, 可能含uuids16(table)字段
+@string 厂商自定义数据, 无则为nil
+@usage
+sys.subscribe("BLE_SCAN_RESULT", function(addr, name, info, mfg_data)
+    log.info("ble", "scan", addr:toHex(), name, info.rssi)
+end)
+*/
 int luat_nimble_scan_cb(lua_State*L, void*ptr) {
     luat_nimble_scan_result_t* res = (luat_nimble_scan_result_t*)ptr;
     lua_getglobal(L,"sys_pub");
@@ -291,6 +316,18 @@ int luat_nimble_scan_cb(lua_State*L, void*ptr) {
     return 0;
 }
 
+/*
+@sys_pub nimble
+BLE发起连接的结果
+BLE_CONN_RESULT
+@boolean 是否成功
+@number 底层状态码, 0为成功
+@number 附加参数, 保留
+@usage
+sys.subscribe("BLE_CONN_RESULT", function(ok, status, arg2)
+    log.info("ble", "conn result", ok, status)
+end)
+*/
 int luat_nimble_connect_cb(lua_State*L, void*ptr) {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -303,6 +340,18 @@ int luat_nimble_connect_cb(lua_State*L, void*ptr) {
     return 0;
 }
 
+/*
+@sys_pub nimble
+BLE特征发现(discovery)的结果
+BLE_CHR_DISC_RESULT
+@boolean 是否成功
+@number 底层状态码, 0为成功
+@number 已发现的特征数量
+@usage
+sys.subscribe("BLE_CHR_DISC_RESULT", function(ok, status, count)
+    log.info("ble", "chr disc", ok, status, count)
+end)
+*/
 int luat_nimble_chr_disc_cb(lua_State*L, void*ptr) {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -450,6 +499,16 @@ int luat_nimble_central_disc_dsc(int id, struct ble_gatt_svc *service, struct bl
     // return 0;
 }
 
+/*
+@sys_pub nimble
+BLE读取特征的回调数据(主机/central模式)
+BLE_GATT_READ_CHR
+@string 读取到的数据内容, 失败为nil. 注意: 从机(peripheral)模式下此消息无额外参数
+@usage
+sys.subscribe("BLE_GATT_READ_CHR", function(data)
+    log.info("ble", "read chr", data and data:toHex() or "nil")
+end)
+*/
 static int l_ble_chr_read_cb(lua_State* L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L, "sys_pub");
@@ -547,6 +606,16 @@ int luat_nimble_central_subscribe(int id, struct ble_gatt_chr * chr, int onoff) 
     return -1;
 }
 
+/*
+@sys_pub nimble
+BLE收到对端发来的数据(notify/indicate, 主机/central模式)
+BLE_GATT_TX_DATA
+@string 数据内容, 无数据为nil
+@usage
+sys.subscribe("BLE_GATT_TX_DATA", function(data)
+    log.info("ble", "rx data", data and data:toHex() or "nil")
+end)
+*/
 static int luat_blecent_tx_cb(lua_State *L, void* ptr) {
 rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L, "sys_pub");

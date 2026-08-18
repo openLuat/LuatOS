@@ -773,7 +773,7 @@ DONE:
 
 /*
 全双工模式，可用于对讲
-@api audio_v2.speech(record_codec_id, save_buffer, record_callback_cnt, play_codec_id, sample_rate, data_bits, channel_nums, driver_probe_id, dsp_type)
+@api audio_v2.speech(record_codec_id, save_buffer, record_callback_cnt, play_codec_id,one_play_block_len, sample_rate, data_bits, channel_nums, driver_probe_id, dsp_type)
 @int 录音编码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空，则直接返回原始PCM数据。如果不留空，会检查sample_rate和data_bits是否符合解码器的要求
 @zbuff 录音数据回调时保存的buffer
 @int 每次录音回调的帧数，每一帧时间由编码器决定
@@ -976,7 +976,6 @@ static int l_audio_extern_source(lua_State *L) {
         result = luat_audio_request_add_source_files(&l_extern_source->extern_source, info, file_nums, codec_opts, is_add_record, l_extern_source);
     } else if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
         if (codec_opts) {
-            l_extern_source->extern_source.request = &l_req->request;
             result = luat_audio_request_add_source_stream(&l_extern_source->extern_source, codec_opts, &common_param, is_add_record, l_extern_source);
             if (result) {
                 LLOGE("lua extern source add stream failed, ret %d", result);

@@ -1,16 +1,12 @@
 # NDK Guest Legacy Wrapper
 
-Canonical source/build moved to:
+Canonical source for `ndk_basic` baremetal guest now lives here:
 
-- `components\ndk\guest\fixtures\rv32f_regression`
+- `main.c` — minimal RV32IMA guest used by `ndk_basic` lifecycle tests
+- `link.ld` — flat binary linker script
+- `build.ps1` / `build.bat` — self-contained LLVM build entrypoints
 
-This directory only preserves legacy entry commands:
+Both entrypoints build `baremetal.bin` and sync outputs to:
 
-- `cmd /c build.bat`
-- `powershell -File build.ps1`
-
-Both wrappers forward to the canonical script and still sync outputs to:
-
-- `testcase\ndk\ndk_basic\scripts\*.bin`
-- `bsp\pc\test\113.ndk_simple\baremetal.bin`
-
+- `..\scripts\baremetal.bin`
+- `..\..\..\..\bsp\pc\test\113.ndk_simple\baremetal.bin`

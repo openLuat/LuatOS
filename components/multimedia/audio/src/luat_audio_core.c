@@ -65,12 +65,10 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 	} else {
 		ctrl->current_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
 	}
-	
-	//soc_printf("%d", ctrl->current_play_cnt);
+	// LLOGC(luat_audio_debug_flag, "current_play_cnt %d", ctrl->current_play_cnt);
 	if (!_luat_audio.current_request_block ) {
 		goto CHECK_FILL_BLANK;
 	} else {
-		//soc_printf("%d,%d", _luat_audio.current_request_block->play_codec.tx_no_callback, _luat_audio.current_request_block->is_save_play_data);
 		if (_luat_audio.current_request_block->play_codec.tx_no_callback) { // 解码器要求发送不使用回调函数
 			if (_luat_audio.current_request_block->is_save_play_data) {
 				luat_fifo_write(_luat_audio.current_request_block->play_save_fifo, ctrl->play_buff_byte + ctrl->one_play_block_len * last_play_cnt, ctrl->one_play_block_len);
@@ -105,8 +103,6 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 	if (ctrl->cache_sync_enable) {	//如果需要缓存同步，特别是开启了DCACHE和DMA模式情况
 		ctrl->opts->cache_sync(ctrl, next_play_buff, ctrl->one_play_block_len);
 	}
-	// soc_printf("read_len %u %d-%d-%x,%u,%x,%d", read_len, ctrl->current_play_cnt, next_play_cnt,next_play_buff,
-	// 	ctrl->one_play_block_len, _luat_audio.current_request_block,_luat_audio.current_request_block->is_wait_play_end);
 	if (_luat_audio.current_request_block->is_wait_play_end && (read_len >= ctrl->one_play_block_len)) {
 		if (_luat_audio.current_request_block->is_save_play_data) {
 			luat_fifo_write(_luat_audio.current_request_block->play_save_fifo, ctrl->play_buff_byte + ctrl->one_play_block_len * last_play_cnt, ctrl->one_play_block_len);
@@ -1196,7 +1192,11 @@ int luat_audio_request_init(luat_audio_request_block_t *request_block)
 	}
 	memset(request_block, 0, sizeof(luat_audio_request_block_t));
 	luat_mutex_lock(_luat_audio.request_lock);
-	request_block->request_id = ++_luat_audio.next_request_id;
+	if (!_luat_audio.next_request_id) {
+		_luat_audio.next_request_id = 1;
+	}
+	request_block->request_id = _luat_audio.next_request_id;
+	_luat_audio.next_request_id += 1;
 	luat_mutex_unlock(_luat_audio.request_lock);
 	LLOGC(luat_audio_debug_flag, "request_id: %d init", request_block->request_id);
 	return LUAT_ERROR_NONE;
@@ -1252,6 +1252,7 @@ void luat_audio_request_deinit(luat_audio_request_block_t *request_block)
 	}
 	request_block->cb = NULL;
 	LLOGC(luat_audio_debug_flag, "request_id: %d deinit", request_block->request_id);
+	request_block->request_id = 0;
 }
 
 int luat_audio_request_start(luat_audio_request_block_t *request_block, uint8_t is_sync)
@@ -1294,13 +1295,16 @@ int luat_audio_request_start(luat_audio_request_block_t *request_block, uint8_t 
 
 void luat_audio_request_cancel(luat_audio_request_block_t *request_block)
 {
+	if (!request_block->cb || !request_block->request_id) {
+		LLOGE("request block %x not init! %x-%u", request_block, request_block->cb, request_block->request_id);
+	}
 	void *done_sem = luat_mutex_create();
+	LLOGC(luat_audio_debug_flag, "request_id: %d cancel", request_block->request_id);
 	luat_mutex_lock(done_sem);
 	request_block->cancel_sem = done_sem;
 	luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_REQUEST_CANCEL, (uint32_t)request_block, 0, 0, 0);
 	luat_mutex_lock(done_sem);
 	luat_mutex_release(done_sem);
-	LLOGC(luat_audio_debug_flag, "request_id: %d cancel", request_block->request_id);
 	return;
 }
 
@@ -1339,6 +1343,8 @@ int luat_audio_request_prepare(luat_audio_request_block_t *request_block, luat_a
 			luat_audio_request_deinit(request_block);
 			return -LUAT_ERROR_OPERATION_FAILED;
 		}
+	} else {
+		LLOGC(luat_audio_debug_flag, "request_id: %d no dsp", request_block->request_id);
 	}
 
 	return LUAT_ERROR_NONE;
@@ -1628,10 +1634,10 @@ int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, con
 	source->is_add_record = is_add_record;
 	source->is_stream = 1;
 
-	if (luat_audio_data_codec_bind(&source->codec, codec_opts, source->request) != LUAT_ERROR_NONE) {
+	if (luat_audio_data_codec_bind(&source->codec, codec_opts, source->request)) {
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
-	if (source->codec.opts->init(&source->codec, 0) != LUAT_ERROR_NONE) {
+	if (source->codec.opts->init(&source->codec, 0)) {
 		luat_audio_data_codec_unbind(&source->codec);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
@@ -1688,7 +1694,6 @@ void luat_audio_debug_switch(uint8_t on_off)
 {
 	luat_audio_debug_flag = on_off;
 }
-
 
 
 uint8_t luat_audio_is_request_all_done(luat_audio_driver_ctrl_t *ctrl)

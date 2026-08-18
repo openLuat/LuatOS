@@ -72,7 +72,7 @@ return {
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
         ethernet = true,                 -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
-        -- wifi = true,                     -- 启用 WiFi（airlink 模式，6205 芯片 AIRLINK_UART3）、
+        wifi = true,                     -- 启用 WiFi（airlink 模式，6205 芯片 AIRLINK_UART3）、
         -- net_4g = true,                   -- × 4G未启用，但UI会显示4G信号图标
         sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
     },
@@ -87,7 +87,7 @@ return {
 
         -- Airlink UART WiFi（6205 模组，占用 UART3）
         { type = "wifi_airlink_uart",
-          uart_id = 3, baud = 2000000 },
+          uart_id = 3, baud = 2000000, irq = 13, adapter = socket.LWIP_STA },
 
         -- Airlink UART 4G（外挂 Air780EPM，也使用 UART3，与 WiFi 互斥）
         -- {

@@ -152,7 +152,12 @@ Header layout (all three):
 | path_len / batch_id / record_count | 4 | depends on type |
 | data_len | 4 | data length (0 for BATCH_COMMIT) |
 | crc32 | 4 | over `header[0..crc32)` (excludes `ecc`) + path + data |
-| `ecc[8]` | 8 | **Phase 3b**: XOR parity placeholder sized for Hamming(72,64) drop-in |
+| `ecc[8]` | 8 | **Phase 3b / P2-4**: Hamming(72,64) per 8-byte group —
+  `ecc[0]` covers header bytes 0..7, `ecc[1]` covers bytes 8..15
+  (incl. `crc32` for DATA/BATCH_COMMIT). BATCH_DATA additionally uses
+  `ecc[2]` over a masked window (crc32 + 4 zero bytes, so the ecc field
+  does not pollute its own syndrome). Legacy records with only `ecc[0]`
+  remain decodable. |
 
 The CRC scope is `offsetof(..., crc32)` so it does not include the
 parity field (setting parity would otherwise invalidate the stored CRC).
@@ -172,11 +177,23 @@ contribution to the block containing the record's start address.
    data log block.
 3. `pgfs_append_data_record` — append the DATA record. Credits
    `live_bytes_per_block[start_block]`. Updates `entry->last_written_block`.
-4. **Phase 2 GC dead attribution**: the OLD `last_written_block` +
-   `len` are attributed to `dead_bytes_per_block[old_block]`. This is
-   the runtime source of dead bytes.
-5. `pgfs_apply_cache_to_entry` — moves the cache into the entry.
-6. `pgfs_checkpoint_commit_pending` — if `pending_checkpoint_writes`
+4. **Phase 2 GC dead/live attribution (P0-2, symmetric)**: the OLD
+   `last_written_block` + `len` are attributed to
+   `dead_bytes_per_block[old_block]` AND released from
+   `live_bytes_per_block[old_block]`. Without the release, shadowed
+   blocks looked perpetually full and were never reclaimed by GC.
+5. **P0-1 FTL write_head persist** — after a successful DATA record
+   append, refresh `ctx->ftl.write_head_*` from the current
+   `data_log_write_addr` and call `pgfs_ftl_persist`. This ensures
+   the next mount's replay can discover records written since the
+   last CP commit. Guarded by `checkpoint_loaded` (real mounts only)
+   and `data_log_write_addr >= ftl_state_end` (no overlap with FTL
+   state block). **P0-3 strict**: after one transient-failure retry, a
+   failed persist makes `fclose` return an error unless the close's own
+   CP commit succeeds (its `log_tail` covers the record anyway). The FTL
+   `dirty` flag (P1-1) skips persists when the state is unchanged.
+6. `pgfs_apply_cache_to_entry` — moves the cache into the entry.
+7. `pgfs_checkpoint_commit_pending` — if `pending_checkpoint_writes`
    has reached `PGFS_CHECKPOINT_BATCH_CLOSES`, write CP + SB.
 
 `pgfs_checkpoint_store_next` (called by commit):
@@ -231,18 +248,21 @@ counters per block in `pgfs_nand_ftl_ctx_t`:
 
 - `live_bytes_per_block[id]`: bytes contributed by a current (not
   shadowed) record whose start address falls in this block. Updated
-  by `pgfs_account_live_block` in three places:
+  by `pgfs_account_live_block` in three places, and RELEASED on every
+  shadow/delete event so GC can reclaim the block (P0-2 symmetric
+  accounting):
   - `pgfs_append_data_record` after a successful DATA append
     (also writes `entry->last_written_block`)
   - `pgfs_replay_data_log` for each replayed DATA record
+  - `pgfs_append_batch_data_record` / replay batch apply (BATCH_DATA)
 - `dead_bytes_per_block[id]`: bytes contributed by shadowed or
   deleted records whose source block is `id`. Updated by:
   - `pgfs_file_close` (overwrite case): attributes the previous
     `len` to the OLD `last_written_block`
   - `pgfs_file_remove`: attributes the file's `len` to its
     `last_written_block`
-  - **TODO**: replay shadow detection (would attribute earlier
-    records of the same path when a later record shadows them)
+  - replay shadow detection (attributes earlier records of the same
+    path when a later record shadows them)
 
 Both arrays are persisted in the v3 FTL state and round-trip via
 `pgfs_ftl_persist` / `pgfs_ftl_load`.
@@ -327,6 +347,18 @@ int  (*control)(void* ctx, uint32_t cmd, void* arg);
 
 `pgfs_vfs_adapter.c` exposes the LuatOS VFS operations:
 
+**P0-1**: the file/dir/batch tables are heap-allocated PER MOUNT
+(`pgfs_tables_init` on mount, `pgfs_tables_deinit` on umount, lazily
+re-ensured by `pgfs_tables_ensure` for direct API users). Mounting a
+second partition no longer wipes the first partition's table, and GC
+only visits the owning mount's entries. Default caps: 512 files / 256
+dirs / 32 batch entries (~87KB heap per mounted partition).
+
+**P2-3**: the mount-time partition gate is geometry-based —
+`(5 reserved + PGFS_MIN_DATA_LOG_BLOCKS=64) * erase_size` — instead of a
+fixed 8MB, so 4KB-erase NOR partitions of a few hundred KB mount while
+128KB-erase NAND keeps the ~8.6MB requirement.
+
 | Op | Implementation |
 | --- | --- |
 | `mount` | `luat_vfs_pgfs_mount` (see §5.3) |
@@ -335,7 +367,8 @@ int  (*control)(void* ctx, uint32_t cmd, void* arg);
 | `fopen` | `pgfs_file_open` |
 | `fread` | `pgfs_file_read` — reads from in-memory file entry |
 | `fwrite` | `pgfs_file_write` — appends to per-file cache |
-| `fflush` | no-op (cache flush is folded into `fclose`) |
+| `fflush` | **P2-1 real flush** — appends the cache to the data log and
+  persists the FTL write head (a durability point like `fclose`) |
 | `fclose` | `pgfs_file_close` (see §5.1) |
 | `fseek` / `ftell` | `pgfs_file_seek` / `pgfs_file_tell` |
 | `remove` | `pgfs_file_remove` (attributes dead bytes) |
@@ -376,6 +409,19 @@ int  (*control)(void* ctx, uint32_t cmd, void* arg);
 - Phase 5: `pgfs_test_retired_does_not_mark_bad`
 - Phase 5b: `pgfs_test_retired_bitmap_persists_roundtrip`,
   `pgfs_test_alloc_skips_retired_blocks`
+- P0-1 per-mount tables: `pgfs_test_multi_mount_same_path_isolation`,
+  `pgfs_test_mount_b_after_a_keeps_a_readable`
+- P0-2 symmetric live/dead: `pgfs_test_overwrite_live_dead_symmetric`,
+  `pgfs_test_replay_shadow_live_dead_symmetric`
+- P0-3 strict persist: `pgfs_test_ftl_persist_failure_fails_close`
+- P1-1 dirty flag: `pgfs_test_ftl_dirty_skip_no_redundant_persist`
+- P1-2 hash index: `pgfs_test_hash_lookup_roundtrip`
+- P2-1 real fflush: `pgfs_test_fflush_durability_after_remount`,
+  `pgfs_test_fflush_then_write_then_close_preserves_all`,
+  `pgfs_test_empty_write_close_succeeds`
+- P2-3 geometry gate: `pgfs_test_min_partition_geometry_gate`
+- P2-4 ECC two-group: `pgfs_test_ecc_two_group_roundtrip`,
+  `pgfs_test_batch_ecc_mismatch_continues_to_crc`
 - Pre-existing: wear-levelling alloc, CP-erase powercut recovery,
   FTL state skip, single-block retirement, FTL persist snapshot,
   FTL persist readback failure.
@@ -401,6 +447,14 @@ PC backend validation:
 | 5b | Retired bitmap persisted | adds `retired_blocks_bitmap` to FTL; bumps `PGFS_FTL_VERSION` 2→3 |
 | 2 prep | Per-block live/dead byte accounting | adds `live_bytes_per_block[]` + `dead_bytes_per_block[]` to FTL v3 |
 | 2 | Cost-benefit GC: victim picker + retirement + data move | none (runtime + future replay shadow detection) |
+| P0-1 | Per-mount file/dir/batch tables (heap), multi-mount isolation | none |
+| P0-2 | Symmetric live/dead accounting (overwrite/remove/batch/replay shadow) | none (runtime) |
+| P0-3 | Strict `fclose`/`fflush` durability (write-head persist failure fails) | none |
+| P1-1 | FTL state dirty flag — skip redundant persists | none |
+| P1-2 | Per-mount FNV-1a path hash index | none |
+| P2-1 | `fflush` becomes a real durability point | none |
+| P2-3 | Geometry-based partition gate (replaces fixed 8MB) | none |
+| P2-4 | Two-group header ECC (bytes 0..7 + 8..15, BATCH_DATA crc32 via masked window) | uses spare `ecc[1..2]` bytes; legacy records still decodable |
 
 ## 14. Non-Goals
 

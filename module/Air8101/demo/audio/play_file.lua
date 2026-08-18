@@ -8,7 +8,7 @@
 
 注意：
 1. Air8101使用内置DAC输出音频，无需外部音频编解码芯片
-2. 需要固件版本>=V1018才可播放音频
+2. 需要固件版本>=V2018才可播放音频
 3. 此功能需要用Air8101B来测试，Air8101不支持
 
 本文件为播放文件的应用功能模块，核心业务逻辑为：
@@ -24,8 +24,8 @@ local audio_setup_param ={
     model = "dac",            -- 音频编解码类型: "dac" 表示使用内置DAC
     
     pa_ctrl = 27,             -- 音频放大器电源控制管脚
-    pa_on_level = 1,          -- PA打开电平
-    pa_delay = 10            -- PA延时
+    pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
+    dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
 
 -- 播放结束回调
@@ -35,7 +35,7 @@ local function play_end(event)
     end
 end
 
--- 音频播放的配置
+--  音频播放的配置
 local audio_play_param ={
     type= 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
@@ -44,20 +44,6 @@ local audio_play_param ={
     content = "/luadb/sample-6s.mp3",          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
     cbfnc = play_end,            -- 播放完毕回调函数
 }
-
----------------------------------
----通过BOOT 按键进行播放停止操作---
----------------------------------
-
--- 停止按键（Air8101 boot键为GPIO0）
-local function stop_audio()
-    log.info("停止播放")
-    exaudio.play_stop(audio_play_param)
-    log.info("播放停止成功")
-end
--- 按下boot 停止播放
--- gpio.setup(0, stop_audio, gpio.PULLDOWN, gpio.RISING)
--- gpio.debounce(0, 200, 1)
 
 ---------------------------------
 -----主task,处理播放音频---------

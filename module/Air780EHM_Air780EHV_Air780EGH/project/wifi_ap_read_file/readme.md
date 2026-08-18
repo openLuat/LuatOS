@@ -2,14 +2,14 @@
 
 ### 1.1 远程文件管理系统概述
 
-本工程基于 **780EXX 核心板** + **外挂 Air6205 WiFi配件板**，复用 LuatOS 标准扩展库 `exremotefile` 实现远程文件管理系统。
+本工程基于 **780EXX 核心板** + **外挂 Air6205 WiFi核心板**，复用 LuatOS 标准扩展库 `exremotefile` 实现远程文件管理系统。
 
 设备通过 UART2 连接 Air6205，创建 AP 热点并提供 HTTP 文件服务。用户连接到设备 WiFi 热点后，通过浏览器即可访问文件管理系统。
 
 ### 1.2 系统工作原理
 
 ```
-780EXX核心板 ──UART2(airlink协议)── Air6205(WiFi配件板)
+780EXX核心板 ──UART2(airlink协议)── Air6205(WiFi核心板)
                                          │
                                    创建AP热点: LuatOS_FileHub
                                          │
@@ -37,12 +37,12 @@
 
 ### 1.4 硬件接线
 
-| Air780EXX核心板 | Air6205配件板 |
-|----------------|--------------|
-| GPIO12 (RX2)  | U1_TX        |
-| GPIO13 (TX2)  | U1_RX        |
-| VBAT          | VBAT         |
-| GND           | GND          |
+| Air780EXX核心板 | Air6205核心板 |
+|-----------------|---------------|
+| 28/U2RXD        | U1_TX         |
+| 29/U2TXD        | U1_RX         |
+| VBAT            | VBAT          |
+| GND             | GND           |
 
 > Air6205 通过 UART2 与 780EXX 通信，使用 airlink 协议，波特率 2000000。
 
@@ -53,10 +53,18 @@
 
 ## 演示硬件环境
 
-1. 780EXX 核心板/开发板一块（如 Air780EHM、Air780EHV）
-2. Air6205 WiFi配件板一块
+1. Air780EXX 核心板/开发板一块（如 Air780EHM、Air780EHV）
+2. Air6205 WiFi核心板一块
 3. 配套天线一套
 4. TYPE-C USB数据线一根
+
+Air780Exx 核心板 + Air6205 核心板
+
+![](https://docs.openluat.com/common/image/780EXX+6205-1.jpg)
+
+Air780EXX 开发板 + Air6205 核心板
+
+![](https://docs.openluat.com/common/image/780EXX+6205-2.jpg)
 
 ## 演示软件环境
 
@@ -65,7 +73,7 @@
 
 ## 演示核心步骤
 
-1. 按照接线表连接 780EXX 核心板与 Air6205 配件板
+1. 按照接线表连接 780EXX 核心板与 Air6205 核心板
 2. 确保 `script/libs/explorer.html` 文件烧录到设备中
 3. 通过 Luatools 将本工程代码与固件烧录到核心板
 4. 烧录完成后，给设备上电，观察串口日志

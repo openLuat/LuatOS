@@ -2,7 +2,7 @@
 
 NDK (Native Development Kit) is the **RISC-V RV32IMA simulator** component in LuatOS. It runs MiniRV32IMA binary images in a sandboxed RV32 environment and exposes GPIO / UART / CRYPTO host-side peripherals through a CSR-based ABI.
 
-For the user-facing API and the full CSR/MMIO table, see `components/ndk/README.md`. This document is the **development guide**: ABI internals, floating-point handling, threading model, ndk-specific coding conventions, and the canonical regression chain.
+For the user-facing API and the full CSR/MMIO table, see `components/ndk/README.md`. This document is the **development guide**: ABI internals, threading model, ndk-specific coding conventions, and the canonical regression chain.
 
 ---
 
@@ -11,7 +11,6 @@ For the user-facing API and the full CSR/MMIO table, see `components/ndk/README.
 This `AGENTS.md` covers:
 - Adding new peripheral CSRs (the most common change)
 - Guest ↔ Host ABI protocol
-- Float (RV32F) implementation
 - Threading and synchronization
 - Coding conventions specific to ndk
 - The NDK regression chain (RV32C + Host ABI + basic suite)
@@ -28,7 +27,7 @@ Out of scope (see `components/ndk/README.md`):
 | Task | Location |
 |------|----------|
 | Lua binding (entry points) | `binding/luat_lib_ndk.c` |
-| Core simulator / lifecycle / FP | `src/luat_ndk.c` |
+| Core simulator / lifecycle | `src/luat_ndk.c` |
 | CSR read/write dispatcher | `src/luat_ndk_host.c` |
 | GPIO v2 peripheral | `src/luat_ndk_host_gpio.c` |
 | UART v1 peripheral | `src/luat_ndk_host_uart.c` |
@@ -38,7 +37,7 @@ Out of scope (see `components/ndk/README.md`):
 | Host-side API | `include/luat_ndk_host.h` |
 | Guest inline helpers (csrw wrappers) | `include/luat_ndk_builtin.h` |
 | mini-rv32ima CPU core | `include/mini-rv32ima.h` |
-| Guest fixtures (rv32f_regression, hostabi_v1) | `guest/fixtures/` |
+| Guest fixtures (hostabi_v1) | `guest/fixtures/` |
 | Regression suite | `testcase/ndk/ndk_basic/`, `testcase/ndk/ndk_hostabi_basic/` |
 
 ---
@@ -61,19 +60,6 @@ All new peripherals MUST follow the same pattern:
 
 ---
 
-## Floating-Point (RV32F)
-
-`src/luat_ndk.c` implements RV32IMF FPU semantics. Key invariants:
-
-- Uses `fenv_t` for host-side floating-point environment; cross-platform (GCC + MSVC).
-- All FP arithmetic goes through `volatile` intermediates to prevent the host compiler from optimizing across the simulator boundary.
-- NaN / Inf / sNaN are normalized correctly.
-- RISC-V rounding mode (`rm` / `frm` 0..3 → RNE / RTZ / RDN / RUP) maps to host `FE_*`.
-
-**Current limitation**: `RMM` (`rm` / `frm` 4) is **not** supported and traps as illegal-instruction. Do not enable `RMM` in fixtures; the regression `baremetal_fadd_rmm_static.bin` (`rm=4`) and `baremetal_fadd_rmm_dynamic.bin` (`frm=4 + rm=dyn`) exist precisely to lock this behaviour down.
-
----
-
 ## Threading Model
 
 - **Sync mode** (`ndk.exec`): runs guest code on the calling thread.
@@ -92,6 +78,7 @@ In addition to the project-wide rules in the root `AGENTS.md`:
 - **Resource cleanup**: if the same `free` / `release` / `memset-to-zero` sequence appears in 3+ places, extract a helper (the canonical example is `ndk_free_fields()` in `src/luat_ndk.c`) rather than duplicating the pattern.
 - **CSR handler shape**: keep the read/write dispatch in `luat_ndk_host.c`; per-peripheral logic belongs in its own `luat_ndk_host_<peripheral>.c` file.
 - **`volatile` in FP paths**: do not remove `volatile` from FP intermediates in `luat_ndk.c` — they are load-bearing for the simulator.
+- **Guest link.ld**: `_start` MUST be the first bytes of `.text` — the host starts execution at the image base and lld lays sections out in object order (ignoring `ENTRY()`). Use `.text : { KEEP(*(.text._start)) *(.text .text.*) }`; all examples already do. Without it, any external-linkage function (e.g. `memcpy` from `NDK_GUEST_PROVIDE_LIBC`) can land before `_start` and the guest traps with `mcause=1, mtval=0, mepc=0`.
 
 ---
 
@@ -117,7 +104,7 @@ In addition to the project-wide rules in the root `AGENTS.md`:
 - Guest writes to `NDK_CSR_PRINT_STR` / `NDK_CSR_PRINT_NUM` / `NDK_CSR_PRINT_PTR` to emit log lines.
 - Host side captures and prints them in `luat_ndk_host_othercsr_write`.
 - A normal exit writes `0x5555` to the SYSCON MMIO at `0x11100000`.
-- A failing test typically shows either `exec fail timeout` (binary corrupted / source mismatch) or `can't open /luadb/baremetal.bin` (fixture not synced). Re-run `components/ndk/guest/fixtures/rv32f_regression/build.bat` to refresh.
+- A failing test typically shows either `exec fail timeout` (binary corrupted / source mismatch) or `can't open /luadb/baremetal.bin` (fixture not synced). Re-run `testcase/ndk/ndk_basic/guest/build.ps1` to refresh.
 
 ### How to Verify ABI Compatibility
 
@@ -129,7 +116,7 @@ cmd /c build_windows_32bit_msvc.bat
 build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_hostabi_basic\scripts\
 ```
 
-Expected baseline: `Total: 39 passed, 0 failed`. The `ndk_basic` suite covers core lifecycle (baseline 42 / 0). See the regression chain below for the full sequence.
+Expected baseline: `Total: 39 passed, 0 failed`. The `ndk_basic` suite covers core lifecycle (baseline 5 / 0). See the regression chain below for the full sequence.
 
 ---
 
@@ -165,7 +152,7 @@ build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_h
 build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_basic\scripts\
 ```
 
-Expected output: `Total: 39 passed, 0 failed` (hostabi) and `Total: 42 passed, 0 failed` (basic).
+Expected output: `Total: 39 passed, 0 failed` (hostabi) and `Total: 5 passed, 0 failed` (basic).
 
 ---
 
@@ -175,9 +162,7 @@ Expected output: `Total: 39 passed, 0 failed` (hostabi) and `Total: 42 passed, 0
 - ❌ Do NOT call guest-side raw `csrw` from user code — always go through `luat_ndk_builtin.h`.
 - ❌ Do NOT touch `ndk_thread_count` (or any other shared counter) with plain `++`/`--` — use atomics.
 - ❌ Do NOT skip the regression chain after touching the CSR dispatcher.
-- ❌ Do NOT remove `volatile` from FP intermediates in `luat_ndk.c`.
 - ❌ Do NOT remove `.option norvc` from the CSR helper inline asm.
-- ❌ Do NOT enable `RMM` (`rm` / `frm` 4) in new fixtures — currently traps as illegal-instruction.
 
 ---
 

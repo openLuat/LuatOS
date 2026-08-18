@@ -21,7 +21,7 @@
 
 外部看门狗演示 (Air153C)
 
- - 引脚控制：通过GPIO引脚28控制外部看门狗芯片
+ - 引脚控制：通过GPIO引脚24控制外部看门狗芯片
 
  - 定期喂狗：每10秒执行一次喂狗操作
 
@@ -31,16 +31,16 @@
 
 ## 演示硬件环境
 1、Air780EHM核心板
- 
+
 ![alt text]( https://docs.openLuat.com/cdn/image/Air780EHM核心板.jpg)
 
 
 Air780EHV核心板
- 
+
 ![alt text]( https://docs.openLuat.com/cdn/image/Air780EHV核心板.jpg)
 
 Air780EGH核心板
- 
+
 ![alt text]( https://docs.openLuat.com/cdn/image/Air780EGH核心板.jpg)
 
 
@@ -56,11 +56,11 @@ Air780EGH核心板
 1、Luatools下载调试工具 [https://docs.openluat.com/air780epm/common/Luatools/]
 
 2、固件版本：
-- LuatOS-SoC_V2016_Air780EHM 版本固件。不同版本区别请见 https://docs.openluat.com/air780epm/luatos/firmware/version/
+- LuatOS-SoC_V2016_Air780EHM 版本固件。不同版本区别请见 https://docs.openluat.com/air780epm/luatos/firmware/780ehm_version/
 
 - LuatOS-SoC_V2016_Air780EHV 版本固件。不同版本区别请见 https://docs.openluat.com/air780ehv/luatos/firmware/version/
 
-- LuatOS-SoC_V2016_Air780EGH 版本固件。不同版本区别请见 https://docs.openluat.com/air780egh/luatos/firmware/version/
+- LuatOS-SoC_V2016_Air780EGH 版本固件。不同版本区别请见 https://docs.openluat.com/air780egh/luatos/firmware/780egg%26780egh_version/
 
 3、 lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 
@@ -112,7 +112,7 @@ air153C_wtd 扩展库文档：https://docs.openluat.com/osapi/ext/air153C_wtd/
   I/user.wdt 硬件看门狗已由底层固件启用
   I/user.wdt 喂狗完成
   I/user.wdt 喂狗完成
-   ```
+  ```
 
 - 故障模式演示
 
@@ -138,8 +138,9 @@ air153C_wtd 扩展库文档：https://docs.openluat.com/osapi/ext/air153C_wtd/
    [2025-11-04 15:32:33.751] 工具提示: 用户虚拟串口 COM5
    [2025-11-04 15:32:34.049][000000000.272] I/user.wdt 硬件看门狗已由底层固件启用
    [2025-11-04 15:32:34.054][000000000.272] I/user.reset_reason 重启原因1: 0 原因2: 0 原因3: 8
-  ``` 
- 6、关于重启时间的说明：
+  ```
+
+6、关于重启时间的说明：
 
    实际重启时间不是精确的20秒，主要原因包括：
 
@@ -147,8 +148,7 @@ air153C_wtd 扩展库文档：https://docs.openluat.com/osapi/ext/air153C_wtd/
 
    系统状态保存：在复位前系统需要保存必要的状态信息和日志便于分析
 
-
- 7、关于重启原因值的验证：
+7、关于重启原因值的验证：
 
    根据[pm.lastReson()函数的返回值说明](https://docs.openluat.com/osapi/core/pm/#45-pmlastreson)确认重启的原因3: 8 是内部看门狗触发的重启。
 

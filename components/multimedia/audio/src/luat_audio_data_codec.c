@@ -31,7 +31,7 @@ int luat_audio_data_codec_bind(luat_audio_data_codec_t *codec, const luat_audio_
     uint32_t input_buffer_size = (opts->decode_max_output_len > opts->encode_min_input_len) ? opts->decode_max_output_len * 2 : opts->encode_min_input_len * 2;
     codec->input_buffer = luat_heap_malloc(input_buffer_size);
     if (!codec->input_buffer) {
-        LLOGC(luat_audio_debug_flag, "bind audio data codec %d failed, no memory", opts->type);
+        LLOGE("bind audio data codec %d failed, no memory %u", opts->type, input_buffer_size);
         return -LUAT_ERROR_NO_MEMORY;
     }
 

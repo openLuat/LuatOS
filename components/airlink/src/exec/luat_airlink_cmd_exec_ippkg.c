@@ -31,13 +31,22 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd
     }
     g_airlink_statistic.rx_ip.total += 1;
     g_airlink_statistic.rx_bytes.total += cmd->len - 1;
-    // LLOGD("收到IP包 长度 %d 适配器 %d", cmd->len - 1, adapter_id);
+    // 打印 EtherType 用于调试入向帧类型
+    #if 0
+    if (cmd->len >= 1 + 14) {
+        uint16_t eth_type = (uint16_t)cmd->data[1+12] << 8 | cmd->data[1+13];
+        LLOGI("IP pkg RX adapter=%d len=%d ethertype=0x%04X", adapter_id, cmd->len - 1, eth_type);
+    } else {
+        LLOGI("IP pkg RX adapter=%d len=%d (short frame)", adapter_id, cmd->len - 1);
+    }
+    #endif
     // luat_airlink_print_mac_pkg(cmd->data + 1, cmd->len - 1);
-    // luat_airlink_hexdump("收到IP包", cmd->data + 1, cmd->len - 1);
     // 集中入口: pkg_input 内含 EVT_PKG 截获检查, 再走 NAPT
     // 返回值语义与 napt_pkg_input 兼容 (0=未消费需继续, 非0=已消费)
     int ret = 0;
     luat_netdrv_t* drv = NULL;
+
+
 
     ret = luat_netdrv_pkg_input(adapter_id, LUAT_NETDRV_CH_HW,
                                 cmd->data + 1, (uint16_t)(cmd->len - 1));
@@ -60,7 +69,7 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd
     }
     g_airlink_statistic.rx_ip.ok += 1;
     g_airlink_statistic.rx_bytes.ok += cmd->len - 1;
-    
+
     // 这里开始就复杂了
     // 首先, 如果是平台的包, 那就直接交给平台处理
     //      例如wifi的包, 在wifi平台, 那就应该输出到硬件去

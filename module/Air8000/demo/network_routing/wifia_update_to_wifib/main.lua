@@ -6,7 +6,7 @@
 @author  魏健强
 @usage
 本demo演示的核心功能为：
-1.设置多网融合功能，wifi提供网络供wifi和以太网设备上网
+1、开启多网融合模式，设置WiFi > 以太网的优先级后，使用exnetif.close将 WiFi 网卡状态重置，然后从WiFi A网卡切换为新的WiFi B网卡
 更多说明参考本目录下的readme.md文件
 ]]
 --[[
@@ -19,7 +19,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "wifi_out_ethernet_in_wifi_in"
+PROJECT = "wifia_update_to_wifib"
 VERSION = "001.999.000"
 
 

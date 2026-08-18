@@ -69,7 +69,7 @@ local function http_request_test()
     while 1 do
         sys.wait(5000)
         -- 正常请求
-        local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {
+        local code, headers, body = http.request("GET", "http://httpbin.luatos.com/bytes/4096", nil, nil, {
             adapter = socket.LWIP_USER0
         }).wait()
         log.info("http", code, headers, body and #body)

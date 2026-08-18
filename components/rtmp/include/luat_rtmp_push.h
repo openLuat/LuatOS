@@ -42,6 +42,9 @@ extern "C" {
 /** 发送帧队列最大字节数上限，超出将丢弃未发送帧（优先丢弃非关键帧） */
 #define RTMP_MAX_QUEUE_BYTES (1024 * 1024)
 
+/** 适配层在途数据(未ACK)上限，超出暂停发送，防止底层无界积压耗尽内存 */
+#define RTMP_MAX_INFLIGHT_BYTES (64 * 1024)
+
 /** RTMP握手数据大小(字节) */
 #define RTMP_HANDSHAKE_SIZE 1536
 

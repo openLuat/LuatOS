@@ -266,11 +266,10 @@ void luat_netdrv_napt_enable(int adapter_id) {
         if (gw && gw->netif) {
             ip4_addr_t* gw_ip = &gw->netif->gw;
             if (!ip4_addr_isany(gw_ip)) {
-                LLOGE("NAPT enable: sending ARP request for gw %08X", gw_ip->addr);
                 err_t err = etharp_query(gw->netif, gw_ip, NULL);
-                LLOGE("NAPT enable: etharp_query result=%d", err);
+                LLOGD("NAPT enable: ARP request for gw %08X result=%d", gw_ip->addr, err);
             } else {
-                LLOGE("NAPT enable: gateway IP is empty!");
+                LLOGW("NAPT enable: gateway IP is empty!");
             }
         }
     }

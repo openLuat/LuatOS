@@ -1,6 +1,6 @@
 http_response = {}
 
-local urlbase = "http://httpbin.air32.cn"
+local urlbase = "http://httpbin.luatos.com"
 
 -- 读取证书和私钥的函数
 local function read_file(file_path)
@@ -211,11 +211,11 @@ end
 
 -- 测试延时, 包括http和https
 function http_response.test_delay()
-    local code = http.request("GET", "http://httpbin.air32.cn/delay/3", nil, nil, {
+    local code = http.request("GET", "http://httpbin.luatos.com/delay/3", nil, nil, {
         timeout = 5000
     }).wait()
     assert(code == 200, "延时3秒测试失败: 预期 200, 实际 " .. tostring(code))
-    local code = http.request("GET", "https://httpbin.air32.cn/delay/3", nil, nil, {
+    local code = http.request("GET", "https://httpbin.luatos.com/delay/3", nil, nil, {
         timeout = 10000
     }).wait()
     assert(code == 200, "延时3秒测试失败: 预期 200, 实际 " .. tostring(code))
@@ -223,13 +223,13 @@ end
 
 -- 读取指定字节数测试
 function http_response.test_bytes()
-    local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/1024", nil, nil, {
+    local code, headers, body = http.request("GET", "http://httpbin.luatos.com/bytes/1024", nil, nil, {
         timeout = 5000
     }).wait()
     assert(code == 200, "预期status 200, 实际 " .. tostring(code))
     assert(body and #body == 1024, "预期长度 1024, 实际长度" .. tostring(body and #body == 1024 or 0))
 
-    local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/1024", nil, nil, {
+    local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/1024", nil, nil, {
         timeout = 5000
     }).wait()
     assert(code == 200, "预期status 200, 实际 " .. tostring(code))
@@ -259,7 +259,7 @@ function http_response.test_status_codes()
         for _, m in ipairs(supported_methods) do
             if is_method_supported(m) then
                 -- 测试http的情况
-                local url = string.format("http://httpbin.air32.cn/status/%d", code)
+                local url = string.format("http://httpbin.luatos.com/status/%d", code)
                 local resp_code = http.request(m, url, nil, nil, {
                     timeout = 5000,
                     debug = http_debug
@@ -267,7 +267,7 @@ function http_response.test_status_codes()
                 assert(resp_code == code, string.format("HTTP %s %d: 预期 %d, 实际 %d", m, code, code, resp_code))
                 
                 -- 测试https的情况
-                local url = string.format("https://httpbin.air32.cn/status/%d", code)
+                local url = string.format("https://httpbin.luatos.com/status/%d", code)
                 local resp_code = http.request(m, url, nil, nil, {
                     timeout = 5000,
                     debug = http_debug
@@ -282,13 +282,13 @@ end
 
 -- 延迟输出测试, 包括http和https, httpbin的/drip接口用于测试延迟输出
 function http_response.test_drip()
-    local code, headers, body = http.request("GET", "http://httpbin.air32.cn/drip", nil, nil, {
+    local code, headers, body = http.request("GET", "http://httpbin.luatos.com/drip", nil, nil, {
         timeout = 15000
     }).wait()
     assert(code == 200, "drip测试失败: 预期 200, 实际 " .. tostring(code))
     assert(body and #body == 10, "drip测试失败: 预期长度 10, 实际长度 " .. tostring(body and #body or 0))
 
-    local code, headers, body = http.request("GET", "https://httpbin.air32.cn/drip", nil, nil, {
+    local code, headers, body = http.request("GET", "https://httpbin.luatos.com/drip", nil, nil, {
         timeout = 15000
     }).wait()
     assert(code == 200, "drip测试失败: 预期 200, 实际 " .. tostring(code))
@@ -304,7 +304,7 @@ function http_response.test_concurrent_requests()
     log.info("http_response", "开始【多个HTTP请求同时进行】测试")
     for i = 1, count do
         sys.taskInit(function()
-            local code = http.request("GET", "http://httpbin.air32.cn/delay/1", nil, nil, {
+            local code = http.request("GET", "http://httpbin.luatos.com/delay/1", nil, nil, {
                 timeout = 3000
             }).wait()
             tasks[i] = code
@@ -331,7 +331,7 @@ function http_response.test_concurrent_requests()
     -- 再测试https
     for i = 1, count do
         sys.taskInit(function()
-            local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/10240", nil, nil, {
+            local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/10240", nil, nil, {
                 timeout = 10000,
                 debug = true
             }).wait()
@@ -386,7 +386,7 @@ function http_response.test_chunked_stream_json()
     log.info("http_response", "开始【chunked编码流式JSON完整性】测试")
     local count = 10
     for i = 1, count do
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/stream/1", nil, nil, {
+        local code, headers, body = http.request("GET", "https://httpbin.luatos.com/stream/1", nil, nil, {
             timeout = 5000,
             debug = http_debug
         }).wait()
@@ -398,7 +398,7 @@ function http_response.test_chunked_stream_json()
     end
 
     for i = 1, count do
-        local code, headers, body = http.request("GET", "http://httpbin.air32.cn/stream/100", nil, nil, {
+        local code, headers, body = http.request("GET", "http://httpbin.luatos.com/stream/100", nil, nil, {
             timeout = 5000,
             debug = http_debug
         }).wait()

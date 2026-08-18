@@ -293,6 +293,7 @@ typedef struct luat_vfs_mount {
 typedef struct luat_vfs_fd{
     FILE* fd;
     luat_vfs_mount_t *fsMount;
+    char path[64];  // relative path within mount, for refcount check
 }luat_vfs_fd_t;
 
 
@@ -306,7 +307,7 @@ typedef struct luat_vfs
 
 int luat_vfs_init(void* params);
 int luat_vfs_reg(const struct luat_vfs_filesystem* fs);
-FILE* luat_vfs_add_fd(FILE* fd, luat_vfs_mount_t * mount);
+FILE* luat_vfs_add_fd(FILE* fd, luat_vfs_mount_t * mount, const char* path);
 int luat_vfs_rm_fd(FILE* fd);
 const char* luat_vfs_mmap(FILE* fd);
 #endif

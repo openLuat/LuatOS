@@ -2,7 +2,7 @@ local websocket_tests = {}
 
 -- 测试服务器
 local test_server = "ws://airtest.openluat.com:2900/websocket"
-local echo_server = "ws://echo.airtun.air32.cn/ws/echo2"
+local echo_server = "ws://wstest.luatos.com/ws/echo2"
 
 -- 测试数据
 local test_cases = {
@@ -96,14 +96,14 @@ end
 
 -- WebSocket客户端创建测试
 function websocket_tests.test_WebsocketCreate_adapterNumber()
-    local wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
+    local wsc = websocket.create(nil, "ws://wstest.luatos.com/ws/echo")
     assert(wsc ~= nil, "WebSocket 客户端创建失败了")
     assert(type(wsc) == "userdata", string.format("返回值类型应该为userdata,实际是%s:", type(wsc)))
     wsc:close()
 end
 
 function websocket_tests.test_WebsocketCreate_adapterNil()
-    local wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
+    local wsc = websocket.create(nil, "ws://wstest.luatos.com/ws/echo")
     assert(wsc ~= nil, "WebSocket 客户端创建失败了")
     assert(type(wsc) == "userdata", string.format("返回值类型应该为userdata,实际是%s:", type(wsc)))
     wsc:close()
@@ -117,7 +117,7 @@ function websocket_tests.test_WebsocketCreateNilUrl()
 end
 
 function websocket_tests.test_WebsocketCreate_default()
-    local wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo", 120, true)
+    local wsc = websocket.create(nil, "ws://wstest.luatos.com/ws/echo", 120, true)
     assert(wsc ~= nil, "WebSocket 客户端创建失败了")
     assert(type(wsc) == "userdata", string.format("返回值类型应该为userdata,实际是%s:", type(wsc)))
     wsc:close()

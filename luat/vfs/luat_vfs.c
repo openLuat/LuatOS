@@ -64,13 +64,19 @@ int luat_vfs_reg(const struct luat_vfs_filesystem* fs) {
     return -1;
 }
 
-FILE* luat_vfs_add_fd(FILE* fd, luat_vfs_mount_t * mount) {
+FILE* luat_vfs_add_fd(FILE* fd, luat_vfs_mount_t * mount, const char* path) {
     vfs_lock(&vfs);
     for (size_t i = 1; i <= LUAT_VFS_FILESYSTEM_FD_MAX; i++)
     {
         if (vfs.fds[i].fsMount == NULL) {
             vfs.fds[i].fsMount = mount == NULL ? &vfs.mounted[0] : mount;
             vfs.fds[i].fd = fd;
+            if (path != NULL) {
+                strncpy(vfs.fds[i].path, path, sizeof(vfs.fds[i].path) - 1);
+                vfs.fds[i].path[sizeof(vfs.fds[i].path) - 1] = '\0';
+            } else {
+                vfs.fds[i].path[0] = '\0';
+            }
             //LLOGD("luat_vfs_add_fd %p => %d", fd, i+1);
             vfs_unlock(&vfs);
             return (FILE*)i;
@@ -90,6 +96,7 @@ int luat_vfs_rm_fd(FILE* fd) {
     //LLOGD("luat_vfs_rm_fd %d => %d", (int)fd, _fd);
     vfs.fds[_fd].fd = NULL;
     vfs.fds[_fd].fsMount = NULL;
+    vfs.fds[_fd].path[0] = '\0';
     vfs_unlock(&vfs);
     return -1;
 }
@@ -223,11 +230,14 @@ FILE* luat_fs_fopen(const char *filename, const char *mode) {
     }
     FILE* fd = mount->fs->fopts.fopen(mount->userdata, filename + strlen(mount->prefix), mode);
     if (fd) {
+        const char *rel_path = filename + strlen(mount->prefix);
         for (size_t i = 1; i <= LUAT_VFS_FILESYSTEM_FD_MAX; i++)
         {
             if (vfs.fds[i].fsMount == NULL) {
                 vfs.fds[i].fsMount = mount;
                 vfs.fds[i].fd = fd;
+                strncpy(vfs.fds[i].path, rel_path, sizeof(vfs.fds[i].path) - 1);
+                vfs.fds[i].path[sizeof(vfs.fds[i].path) - 1] = '\0';
                 //LLOGD("fopen %s %s vfd=%ld fd=%ld", filename, mode, i, fd);
                 vfs_unlock(&vfs);
                 return (FILE*)i;
@@ -315,6 +325,7 @@ int luat_fs_fclose(FILE* stream) {
     int _fd = (int)stream;
     vfs.fds[_fd].fsMount = NULL;
     vfs.fds[_fd].fd = NULL;
+    vfs.fds[_fd].path[0] = '\0';
     vfs_unlock(&vfs);
     return ret;
 }
@@ -358,6 +369,21 @@ size_t luat_fs_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) 
 
 
 
+/* Check if a file (identified by relative path within a mount) is currently open.
+ * Used to prevent remove/rename on files with active file descriptors. */
+static int vfs_path_is_open(luat_vfs_mount_t *mount, const char *rel_path) {
+    if (rel_path == NULL || rel_path[0] == '\0') {
+        return 0;
+    }
+    for (int i = 1; i <= LUAT_VFS_FILESYSTEM_FD_MAX; i++) {
+        if (vfs.fds[i].fd != NULL && vfs.fds[i].fsMount == mount
+            && strcmp(vfs.fds[i].path, rel_path) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int luat_fs_remove(const char *filename) {
     vfs_lock(&vfs);
     luat_vfs_mount_t *mount = getmount(filename);
@@ -365,7 +391,13 @@ int luat_fs_remove(const char *filename) {
         vfs_unlock(&vfs);
         return -1;
     }
-    int ret = mount->fs->opts.remove(mount->userdata, filename + strlen(mount->prefix));
+    const char *rel_path = filename + strlen(mount->prefix);
+    if (vfs_path_is_open(mount, rel_path)) {
+        LLOGW("remove: file %s is still open", filename);
+        vfs_unlock(&vfs);
+        return -1;
+    }
+    int ret = mount->fs->opts.remove(mount->userdata, rel_path);
     vfs_unlock(&vfs);
     return ret;
 }
@@ -381,7 +413,13 @@ int luat_fs_rename(const char *old_filename, const char *new_filename) {
         vfs_unlock(&vfs);
         return -1;
     }
-    int ret = old_mount->fs->opts.rename(old_mount->userdata, old_filename + strlen(old_mount->prefix),
+    const char *old_rel = old_filename + strlen(old_mount->prefix);
+    if (vfs_path_is_open(old_mount, old_rel)) {
+        LLOGW("rename: source file %s is still open", old_filename);
+        vfs_unlock(&vfs);
+        return -1;
+    }
+    int ret = old_mount->fs->opts.rename(old_mount->userdata, old_rel,
                                       new_filename + strlen(old_mount->prefix));
     vfs_unlock(&vfs);
     return ret;

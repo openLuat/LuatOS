@@ -54,7 +54,7 @@ sys.taskInit(function()
     while 1 do
         sys.wait(3000)
         log.info("发起http请求")
-        local code, headers, body = http.request("GET", "http://httpbin.air32.cn/get", nil, nil, {adapter=adapter_index, timeout=15000, debug=true}).wait()
+        local code, headers, body = http.request("GET", "http://httpbin.luatos.com/get", nil, nil, {adapter=adapter_index, timeout=15000, debug=true}).wait()
         -- local code, headers, body = http.request("GET", "http://www.baidu.com/", nil, nil, {adapter=adapter_index, timeout=15000, debug=true}).wait()
         -- local code, headers, body = http.request("GET", "http://192.168.1.6:8000/get", nil, nil, {adapter=adapter_index, timeout=5000, debug=true}).wait()
         log.info("ulwip", "http", code, json.encode(headers or {}), body)

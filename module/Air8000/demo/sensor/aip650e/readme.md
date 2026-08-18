@@ -41,9 +41,9 @@
 <tr>
 <td>Air8000 核心板<br/></td><td>AiP650E 模块<br/></td></tr>
 <tr>
-<td>1/GPIO1<br/></td><td>CLK<br/></td></tr>
+<td>GPIO1<br/></td><td>CLK<br/></td></tr>
 <tr>
-<td>2/GPIO2<br/></td><td>DIO<br/></td></tr>
+<td>GPIO2<br/></td><td>DIO<br/></td></tr>
 <tr>
 <td>VDD_EXT<br/></td><td>VCC<br/></td></tr>
 <tr>

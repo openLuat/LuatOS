@@ -181,6 +181,8 @@ end
 
 -- IP_READY：更新 WiFi 的 IP 和 RSSI 信息（DNS 由 net_init 处理，网卡切换由 exnetif 处理）
 -- wifi_enabled=false 时只更新内部状态不发 UI 事件，避免开机 placeholder 触发图标变化
+-- 注意：airlink 6205 桥接模式下 WLAN_STA_INC CONNECTED 不触发（L2 状态由 6205 内部维护），
+--       因此以 L3 IP_READY 作为联网成功信号，在此补齐 connected/WIFI_CONNECTED/连通性验证。
 local function on_ip_ready(ip, adapter)
     if adapter ~= socket.LWIP_STA then return end
     wifi_state.ready = true
@@ -193,6 +195,33 @@ local function on_ip_ready(ip, adapter)
         if info.rssi then wifi_state.rssi = info.rssi end
         if info.bssid then wifi_state.bssid = info.bssid end
     end
+
+    -- airlink 平台：以 IP_READY 补齐"已连接"状态（防止与原生平台重复处理）
+    if not wifi_state.connected and net_manager.get_wifi_hw_config() then
+        wifi_state.connected = true
+        local ssid = pending_connect and pending_connect.ssid or ""
+        if ssid ~= "" then wifi_state.current_ssid = ssid end
+        wifi_state.connectivity_verified = false
+        log.info("wifi_app", "airlink 桥接已联网, ssid:", ssid, "ip:", ip)
+        -- 用户主动连接：保存到已存储列表（与 on_sta_event CONNECTED 分支一致）
+        if user_connect then
+            user_connect = false
+            local save_name = pending_connect and pending_connect.ssid or ssid
+            local save_pwd = pending_connect and pending_connect.password or ""
+            local save_bssid = pending_connect and pending_connect.bssid or ""
+            if save_name and save_name ~= "" then
+                sys.publish("WIFI_STORAGE_SAVE_REQ", {ssid = save_name, password = save_pwd, bssid = save_bssid})
+            end
+            pending_connect = nil
+        end
+        sys.publish("WIFI_STORAGE_MARK_CONNECTED_REQ", {ssid = ssid, bssid = wifi_state.bssid})
+        sys.publish("WIFI_CONNECTED")
+        -- 启动联网连通性验证（NTP 同步确认），需在独立协程中执行（含 sys.waitUntil）
+        sys.taskInit(function()
+            common.start_connectivity_verification(wifi_state)
+        end)
+    end
+
     if saved_config.wifi_enabled then update_status(wifi_state) end
     -- 获取RSSI后更新WiFi信号图标
     if info and info.rssi then
@@ -207,8 +236,11 @@ end
 local function on_ip_lose(adapter)
     if adapter ~= socket.LWIP_STA then return end
     wifi_state.ready = false
+    wifi_state.connected = false
     wifi_state.ip = "--"
     wifi_state.rssi = "--"
+    wifi_state.current_ssid = ""
+    wifi_state.connectivity_verified = false
     if saved_config.wifi_enabled then update_status(wifi_state) end
 end
 
@@ -224,17 +256,17 @@ local function on_storage_loaded(data)
         return
     end
 
-    -- WiFi 启用且有已保存凭证：通过 exnetif.update_wifi 发起连接。
-    -- Airlink 平台需等 airlink.ready() 确认硬件就绪，否则 update_wifi
+    -- WiFi 启用且有已保存凭证：通过 net_manager.apply_wifi 发起连接。
+    -- Airlink 平台需等 airlink.ready() 确认硬件就绪，否则 apply_wifi
     -- 可能在 airlink 硬件未就绪时执行，走错初始化分支。
     -- 注意：airlink 平台开机时 net_manager.init() 已通过 set_priority_order 将已保存WiFi
-    -- 传入 setup_airlink_wifi → wlan.connect()，若凭证相同则跳过 update_wifi，避免
-    -- exnetif.update_wifi 内部的 wlan.disconnect() 破坏已建立的连接。
+    -- 传入 setup_airlink_wifi → wlan.connect()，若凭证相同则跳过 apply_wifi，避免
+    -- set_priority_order 内部的 wlan.disconnect() 破坏已建立的连接。
     if saved_config.ssid and saved_config.ssid ~= "" then
-        -- Airlink 平台且有相同凭证：跳过 update_wifi，开机已传递
+        -- Airlink 平台且有相同凭证：跳过 apply_wifi，开机已传递
         if net_manager.get_wifi_hw_config()
             and net_manager.is_same_as_boot_credential(saved_config.ssid, saved_config.bssid) then
-            log.info("wifi_app", "开机已传递相同WiFi凭证，跳过update_wifi:", saved_config.ssid)
+            log.info("wifi_app", "开机已传递相同WiFi凭证，跳过apply_wifi:", saved_config.ssid)
             return
         end
         log.info("wifi_app", "启动时加载已保存WiFi:", saved_config.ssid)
@@ -249,11 +281,7 @@ local function on_storage_loaded(data)
                     sys.wait(500)
                 end
             end
-            exnetif.update_wifi({
-                ssid = saved_config.ssid,
-                password = saved_config.password,
-                bssid = saved_config.bssid,
-            })
+            net_manager.apply_wifi(saved_config.ssid, saved_config.password, saved_config.bssid)
         end)
     end
     -- WiFi 启用但无已保存 SSID：airlink 硬件初始化已在 net_manager.init() 开机完成，
@@ -295,11 +323,7 @@ local function on_enable_req(data)
                         sys.wait(500)
                     end
                 end
-                exnetif.update_wifi({
-                    ssid = saved_config.ssid,
-                    password = saved_config.password,
-                    bssid = saved_config.bssid,
-                })
+                net_manager.apply_wifi(saved_config.ssid, saved_config.password, saved_config.bssid)
             end)
         end
         -- 无已保存 SSID：airlink 硬件已在开机时初始化，无需再发 build_wifi_priority()
@@ -359,7 +383,7 @@ local function on_connect_req(data)
         pending_connect = { ssid = ssid, password = password, advanced_config = adv, bssid = bssid }
 
         sys.publish("WIFI_CONNECTING", ssid)
-        exnetif.update_wifi({ ssid = ssid, password = password, bssid = bssid, advanced_config = adv })
+        net_manager.apply_wifi(ssid, password, bssid, adv)
     end)
 end
 

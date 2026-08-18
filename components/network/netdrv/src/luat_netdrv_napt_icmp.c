@@ -56,7 +56,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
     struct icmp_echo_hdr *icmp_hdr = (struct icmp_echo_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
     luat_netdrv_t* gw = ctx->drv_gw;
     if (gw == NULL || gw->netif == NULL || ip_addr_isany(&gw->netif->ip_addr)) {
-        LLOGD("网关指针不正常的状态!!!");
+        LLOGW("网关指针不正常的状态!!!");
         return 0;
     }
     if (icmps == NULL) {

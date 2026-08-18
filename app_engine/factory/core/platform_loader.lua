@@ -47,17 +47,22 @@ require ("evb_8101_5i_v0")     -- Air8101 EVB 5寸 (AirLCD_1020, H050IWV 800x480
 require ("evb_8101b_5i_v2")    -- Air8101B EVB 5寸 (GC9503 480x854, V020)
 require ("evb_8101_9i_v0")     -- Air8101 EVB 9寸 (AirLCD_1090)
 require ("evb_8101_10i_v0")    -- Air8101 EVB 10.1寸 (AirLCD_1100)
+require ("evb_8101_7i_v0")     -- Air8101 EVB 7寸 (AirLCD_1070)
 require ("evb_8000a_3i5_v0")  -- Air8000A trunkey 3.5寸
+require ("eng_1780h_4i_v0")  -- Air1780H 引擎主机 4.3寸 (ST6201 + airlink WiFi + ES8311 + SD + NAND)
 require ("evb_1601_10i_v11")  -- Air1601 EVB 10.1寸
 require ("evb_1601_7i_v11")   -- Air1601 EVB 7寸
+require ("evb_1601_7i_v12")   -- Air1601 EVB 7寸 V012 (+4G+以太网+WiFi AirLink SPI2+应用工厂/ES8311录音)
 require ("pc_default")        -- PC 模拟器回退
 
 -- 所有 LCD 驱动（按屏幕 IC 型号分类）
 require ("lcd_st7796")        -- SPI ST7796 (3.5/4寸 320×480)
+require ("lcd_st6201")       -- SPI ST6201 (4.3寸 480×272)
 require ("lcd_nv3052c_5in")   -- RGB NV3052C (5寸 720×1280)
 require ("lcd_st7701s_5in")   -- RGB ST7701S (5寸 480×854)
 require ("lcd_h050iwv_5in")   -- RGB H050IWV (5寸 800×480)
 require ("lcd_hx8282_10in")   -- RGB HX8282 (5/7/9/10.1寸 1024×600 通用)
+require ("lcd_hx8282_cust")   -- RGB HX8282 (custom 方式，四合一屏模组)
 require ("lcd_gc9503_5in")    -- RGB GC9503   (5寸 480×854)
 
 -- TP 驱动（统一用 GT911，仅引脚参数不同）
@@ -66,6 +71,11 @@ require ("tp_gt911")
 -- 带路径前缀的模块（不在 config/ 或 drv/ 下，需完整 require 路径）
 require ("net_manager")              -- 统一网络管理器（编译打包用，require 时不初始化）
 require ("net_init")
+
+-- 应用工厂模块（业务层 + UI 层）
+require ("factory_app")              -- 应用工厂业务入口（功能容器）
+require ("factory_rec")              -- 录音识别业务层（exaudio + ASR）
+require ("factory_win")              -- 应用工厂-语音聊天窗口（微信式聊天框 UI）
 
 -- ==================== 1. 平台检测 ====================
 -- hmeta.model() 返回芯片型号字符串（如 "Air1602_A10"），不可用则回退到 rtos.bsp()
@@ -90,14 +100,16 @@ local PROJECT_MAP = {
     ["Engine_Air1602_7inch_1024x600_004_V000"]     = "eng_1602_7i_v4",
     ["Engine_Air1602_AirLCD_1090_09421_V000"]     = "eng_1602_9i_v09421",
     ["Engine_Air1602_AirLCD_1100_10421_V000"]     = "eng_1602_10i_v10421",
+    ["Engine_Air1780H_4inch_480x272_000_V000"]    = "eng_1780h_4i_v0",
     -- EVB turnkey 开发板系列（已实现）
     ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",
     ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",
     ["EVB_Air8101_AirLCD_1100_000_V020"]            = "evb_8101_10i_v0",
+    ["EVB_Air8101_AirLCD_1070_000_V020"]            = "evb_8101_7i_v0",
     ["EVB_Air8000A_3inch5_480x320_000_V020"]       = "evb_8000a_3i5_v0",
     ["EVB_Air1601_10inch1_1024x600_000_V011"]   = "evb_1601_10i_v11",
     ["EVB_Air1601_7inch_1024x600_000_V011"]     = "evb_1601_7i_v11",
-    ["EVB_Air8101B_5inch_480x854_000_V010"]        = "evb_8101b_5i_v1",
+    ["EVB_Air1601_7inch_1024x600_000_V012"]     = "evb_1601_7i_v12",
     ["EVB_Air8101B_5inch_480x854_000_V020"]        = "evb_8101b_5i_v2",
     -- 以下映射已预留，配置文件待实现
     -- ["EVB_Air1601_5inch_800x480_000_V011"]      = "evb_1601_5i_v11",

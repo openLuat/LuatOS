@@ -29,20 +29,29 @@ if platform == "Air8000" then
     pins.setup(59, "UART12_RXD")
 
     -- Air8000: 测试两组UART配对
-    uart_pairs = {
-        {
-            name = "UART1-UART3",
-            first = {id = 1, module = uart_first},
-            second = {id = 3, module = uart_second},
-            test_data = "Hello UART1-UART3 Loopback!\r\n"
+    uart_pairs = {{
+        name = "UART1-UART3",
+        first = {
+            id = 1,
+            module = uart_first
         },
-        {
-            name = "UART11-UART12",
-            first = {id = 11, module = uart_first},
-            second = {id = 12, module = uart_second},
-            test_data = "Hello UART11-UART12 Loopback!\r\n"
-        }
-    }
+        second = {
+            id = 3,
+            module = uart_second
+        },
+        test_data = "Hello UART1-UART3 Loopback!\r\n"
+    }, {
+        name = "UART11-UART12",
+        first = {
+            id = 11,
+            module = uart_first
+        },
+        second = {
+            id = 12,
+            module = uart_second
+        },
+        test_data = "Hello UART11-UART12 Loopback!\r\n"
+    }}
 elseif platform == "Air8101" then
     -- Air8101引脚配置
     pins.setup(12, "UART1_TXD")
@@ -53,14 +62,18 @@ elseif platform == "Air8101" then
     -- pins.setup(35, "UART2_TXD")
 
     -- Air8101: 测试uart1和uart2
-    uart_pairs = {
-        {
-            name = "UART1-UART2",
-            first = {id = 1, module = uart_first},
-            second = {id = 2, module = uart_second},
-            test_data = "Hello UART1-UART2 Loopback!\r\n"
-        }
-    }
+    uart_pairs = {{
+        name = "UART1-UART2",
+        first = {
+            id = 1,
+            module = uart_first
+        },
+        second = {
+            id = 2,
+            module = uart_second
+        },
+        test_data = "Hello UART1-UART2 Loopback!\r\n"
+    }}
 elseif platform == "Air780EPM" or platform == "Air780EHM" or platform == "Air780EHV" then
     -- 718系列引脚配置
     pins.setup(17, "UART1_RXD")
@@ -69,14 +82,59 @@ elseif platform == "Air780EPM" or platform == "Air780EHM" or platform == "Air780
     pins.setup(29, "UART2_TXD")
 
     -- 718: 测试UART1-UART2配对
-    uart_pairs = {
-        {
-            name = "UART1-UART2",
-            first = {id = 1, module = uart_first},
-            second = {id = 2, module = uart_second},
-            test_data = "Hello UART Loopback!\r\n"
-        }
+    uart_pairs = {{
+        name = "UART1-UART2",
+        first = {
+            id = 1,
+            module = uart_first
+        },
+        second = {
+            id = 2,
+            module = uart_second
+        },
+        test_data = "Hello UART Loopback!\r\n"
+    }}
+elseif platform == "Air1602" then
+    uart_pairs = { 
+    {
+        name = "UART1-UART2",
+        first = {
+            id = 1,
+            module = uart_first
+        },
+        second = {
+            id = 2,
+            module = uart_second
+        },
+        test_data = "Hello UART1-UART2 Loopback!\r\n"
+    }, {
+        name = "UART3-UART5",
+        first = {
+            id = 3,
+            module = uart_first
+        },
+        second = {
+            id = 5,
+            module = uart_second
+        },
+        test_data = "Hello UART3-UART5 Loopback!\r\n"
     }
+    
+    -- -- 单独测试UART1-UART6,与上面选择开启一个
+    -- {
+    --     name = "UART1-UART6",
+    --     first = {
+    --         id = 1,
+    --         module = uart_first
+    --     },
+    --     second = {
+    --         id = 6,
+    --         module = uart_second
+    --     },
+    --     test_data = "Hello UART1-UART6 Loopback!\r\n"
+    -- }
+}
+
 else
     log.info("当前模块暂未适配:", platform)
     uart_pairs = {}
@@ -110,12 +168,16 @@ local function test_single_config(uart_pair, baud_rate, data_bit, stop_bit, pari
     first_uart.module.clean_uart_status()
 
     -- 设置第一个UART
-    local first_set_result = first_uart.module.setup_uart(first_uart.id, baud_rate, data_bit, stop_bit, parity, bit_order, buff)
-    assert(first_set_result == 0, string.format("UART%d设置失败 [配对:%s] [配置: %s]", first_uart.id, pair_name, config_info))
+    local first_set_result = first_uart.module.setup_uart(first_uart.id, baud_rate, data_bit, stop_bit, parity,
+        bit_order, buff)
+    assert(first_set_result == 0,
+        string.format("UART%d设置失败 [配对:%s] [配置: %s]", first_uart.id, pair_name, config_info))
 
     -- 设置第二个UART
-    local second_set_result = second_uart.module.setup_uart(second_uart.id, baud_rate, data_bit, stop_bit, parity, bit_order, buff)
-    assert(second_set_result == 0, string.format("UART%d设置失败 [配对:%s] [配置: %s]", second_uart.id, pair_name, config_info))
+    local second_set_result = second_uart.module.setup_uart(second_uart.id, baud_rate, data_bit, stop_bit, parity,
+        bit_order, buff)
+    assert(second_set_result == 0,
+        string.format("UART%d设置失败 [配对:%s] [配置: %s]", second_uart.id, pair_name, config_info))
 
     -- 注册UART事件，传入测试数据
     first_uart.module.setup_uart_event(test_data)
@@ -161,7 +223,7 @@ function loopback.test_uart_loopback()
         log.error("没有可用的UART配对配置，请检查模块型号:", platform)
         return
     end
-    
+
     local test_count = 0
 
     log.info("===== UART回环测试开始 =====")
@@ -173,7 +235,8 @@ function loopback.test_uart_loopback()
     log.info("注意：任何一次失败都将立即停止所有测试")
 
     for pair_index, uart_pair in ipairs(uart_pairs) do
-        log.info(string.format("\n========== 开始测试配对 %d/%d: %s ==========", pair_index, #uart_pairs, uart_pair.name))
+        log.info(string.format("\n========== 开始测试配对 %d/%d: %s ==========", pair_index, #uart_pairs,
+            uart_pair.name))
 
         for _, baud_rate in ipairs(baud_rates) do
             for _, data_bit in ipairs(data_bits) do
@@ -182,16 +245,19 @@ function loopback.test_uart_loopback()
                         for _, bit_order in ipairs(bit_orders) do
                             for _, buff in ipairs(buff_size) do
                                 test_count = test_count + 1
-                                log.info(string.format("\n--- 开始第 %d 项测试 [%s] ---", test_count, uart_pair.name))
-                                test_single_config(uart_pair, baud_rate, data_bit, stop_bit, parity, bit_order, buff, test_count)
-                                log.info(string.format("--- 第 %d 项测试完成 [%s] ---", test_count, uart_pair.name))
+                                log.info(string.format("\n--- 开始第 %d 项测试 [%s] ---", test_count,
+                                    uart_pair.name))
+                                test_single_config(uart_pair, baud_rate, data_bit, stop_bit, parity, bit_order, buff,
+                                    test_count)
+                                log.info(
+                                    string.format("--- 第 %d 项测试完成 [%s] ---", test_count, uart_pair.name))
                             end
                         end
                     end
                 end
             end
         end
-        
+
         log.info(string.format("\n========== 完成测试配对: %s ==========\n", uart_pair.name))
     end
 

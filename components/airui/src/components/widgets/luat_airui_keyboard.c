@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file luat_airui_keyboard.c
  * @summary Keyboard 组件实现
  * @responsible 虚拟键盘创建、目标绑定、事件与布局控制

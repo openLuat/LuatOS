@@ -5,6 +5,7 @@
 #include "lwip/def.h"
 #include "lwip/ip.h"
 #include "lwip/etharp.h"
+#include "lwip/inet_chksum.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_pkg.h"
 #include <string.h>
@@ -34,6 +35,32 @@ static inline uint16_t napt_chksum_replace_u32(uint16_t sum_net, uint32_t old_ne
     sum_net = napt_chksum_replace_u16(sum_net, old16[0], new16[0]);
     sum_net = napt_chksum_replace_u16(sum_net, old16[1], new16[1]);
     return sum_net;
+}
+
+// NAPT全量重算L4 checksum(仅原始checksum为0时使用)
+// 只用inet_chksum(裸buffer)实现, 不依赖pbuf: 部分平台固件链接的lwIP没有pbuf_alloc_reference
+// 算法与lwIP inet_chksum_pseudo完全一致(单段连续buffer, 无需处理奇偶字节交换)
+// 注意: 调用前l4_hdr的chksum字段必须为0(调用点已满足)
+static inline uint16_t napt_inet_chksum_pseudo(struct ip_hdr *ip_hdr, uint8_t proto, void *l4_hdr, uint16_t l4_len)
+{
+    uint32_t addr = ip_hdr->src.addr;
+    uint32_t acc = (addr & 0xFFFFUL) + ((addr >> 16) & 0xFFFFUL);
+    addr = ip_hdr->dest.addr;
+    acc += (addr & 0xFFFFUL) + ((addr >> 16) & 0xFFFFUL);
+    acc = FOLD_U32T(acc);
+    acc = FOLD_U32T(acc);
+    // inet_chksum返回的是反码和, 取反还原为累加和后并入
+    acc += (uint16_t)~inet_chksum(l4_hdr, l4_len);
+    acc += (uint32_t)lwip_htons((uint16_t)proto);
+    acc += (uint32_t)lwip_htons(l4_len);
+    acc = FOLD_U32T(acc);
+    acc = FOLD_U32T(acc);
+    uint16_t sum = (uint16_t)~(acc & 0xFFFFUL);
+    // chksum计算结果为0时必须按0xFFFF发送, 0表示"无checksum"
+    if (sum == 0) {
+        sum = 0xFFFF;
+    }
+    return sum;
 }
 
 // 返回值定义（对齐LWIP期望：0=交给LWIP继续，非0=已消费）

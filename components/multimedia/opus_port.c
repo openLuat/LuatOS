@@ -14,7 +14,9 @@
 
 #include "opus.h"
 #include "opus_types.h"
-#include "opus_private.h"
+// opus_private.h 位于 opus/src 内部目录, PC构建刻意不暴露该目录避免短文件名头文件全局冲突;
+// 本端口只使用公共API(opus.h), 无需该内部头文件
+//#include "opus_private.h"
 //#include "opus_multistream.h"
 #include "opus_defines.h"
 
@@ -23,6 +25,9 @@
 #define BITRATE 64000
 
 #define MAX_PACKET_SIZE (3*1276)
+
+// LUAT_OPUS_NO_ENCODER: 仅解码裁剪档（bsp/pc/xmake.lua 的 LUAT_OPUS_MODE=decode），
+// 编码链（opus_encoder.c 等）未参与编译，端口层的编码实现与注册一并裁掉
 
 int luat_opus_decoder_create(luat_multimedia_codec_t *coder){
     int error;
@@ -56,6 +61,7 @@ int luat_opus_decoder_get_data(luat_multimedia_codec_t *coder, const uint8_t* in
 }
 
 
+#ifndef LUAT_OPUS_NO_ENCODER
 int luat_opus_encoder_create(luat_multimedia_codec_t *coder){
     int error;
     coder->ctx = opus_encoder_create(coder->sample_rate, coder->num_channels, APPLICATION, &error);
@@ -97,6 +103,7 @@ int luat_opus_encoder_get_data(luat_multimedia_codec_t *coder, const int16_t* pc
     *out_len += nbBytes;
     return 0;
 }
+#endif /* LUAT_OPUS_NO_ENCODER */
 
 static void* opus_codec_create(luat_multimedia_codec_t* coder) {
     if (coder->is_decoder) {
@@ -104,9 +111,14 @@ static void* opus_codec_create(luat_multimedia_codec_t* coder) {
             return NULL;
         }
     } else {
+#ifdef LUAT_OPUS_NO_ENCODER
+        LLOGE("opus encoder not available in decode-only build");
+        return NULL;
+#else
         if (luat_opus_encoder_create(coder) != 0) {
             return NULL;
         }
+#endif
     }
     return coder->ctx;
 }
@@ -117,7 +129,9 @@ static void opus_codec_destroy(luat_multimedia_codec_t* coder) {
     if (coder->is_decoder) {
         luat_opus_decoder_destroy(coder);
     } else {
+#ifndef LUAT_OPUS_NO_ENCODER
         luat_opus_encoder_destroy(coder);
+#endif
     }
 }
 
@@ -176,6 +190,10 @@ static int opus_codec_decode_file_data(luat_multimedia_codec_t* coder, luat_zbuf
 
 static int opus_codec_encode(luat_multimedia_codec_t* coder, luat_zbuff_t* in_buff, luat_zbuff_t* out_buff, int mode) {
     (void)mode;
+#ifdef LUAT_OPUS_NO_ENCODER
+    (void)coder; (void)in_buff; (void)out_buff;
+    return -1;
+#else
     if (!coder || !coder->ctx || !in_buff || !out_buff) return -1;
 
     int16_t *pcm = (int16_t *)in_buff->addr;
@@ -194,6 +212,7 @@ static int opus_codec_encode(luat_multimedia_codec_t* coder, luat_zbuff_t* in_bu
     }
 
     return 1;
+#endif /* LUAT_OPUS_NO_ENCODER */
 }
 
 const luat_codec_opts_t opus_codec_opts = {

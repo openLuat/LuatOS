@@ -18,4 +18,9 @@ LUAT_WEAK int luat_i2c_read_reg(int id, int addr, int reg, void* buff, size_t le
     return ret;
 }
 
+LUAT_WEAK int luat_i2c_config(int id, int32_t key, int32_t value){
+    (void)id; (void)key; (void)value;
+    return 0;
+}
+
 

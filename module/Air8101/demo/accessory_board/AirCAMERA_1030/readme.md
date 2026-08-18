@@ -16,6 +16,8 @@
 
 注意：take_photo_http_post.lua 和 video_http_post.lua 和 rtmp_app.lua 只能打开一个不能同时打开
 
+> 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址，或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
+
 ## 演示功能概述
 
 ### 1、主程序入口模块（main.lua）
@@ -218,8 +220,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2025-12-03 10:13:17.053] luat:U(83187):I/user.摄像头数据 54696
 [2025-12-03 10:13:17.053] luat:U(83188):I/user.拍照完成
 [2025-12-03 10:13:17.053] luat:U(83189):I/user.这是第1个摄像头拍的
-[2025-12-03 10:13:17.082] luat:D(83196):socket:connect to upload.air32.cn,80
-[2025-12-03 10:13:17.082] luat:D(83197):DNS:upload.air32.cn state 0 id 9 ipv6 0 use dns server0, try 0
+[2025-12-03 10:13:17.082] luat:D(83196):socket:connect to uploadtest.luatos.com,80
+[2025-12-03 10:13:17.082] luat:D(83197):DNS:uploadtest.luatos.com state 0 id 9 ipv6 0 use dns server0, try 0
 [2025-12-03 10:13:17.082] luat:D(83197):net:adatper 2 dns server 223.5.5.5
 [2025-12-03 10:13:17.082] luat:D(83198):net:dns udp sendto 223.5.5.5:53 from 192.168.1.118
 [2025-12-03 10:13:17.113] luat:I(83227):DNS:dns all done ,now stop
@@ -260,8 +262,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2025-12-03 10:42:39.755] luat:U(4491):I/user.摄像头数据 19572
 [2025-12-03 10:42:39.755] luat:U(4492):I/user.拍照完成
 [2025-12-03 10:42:39.755] luat:U(4493):I/user.这是第1个摄像头拍的
-[2025-12-03 10:42:39.755] luat:D(4497):socket:connect to upload.air32.cn,80
-[2025-12-03 10:42:39.755] luat:D(4498):DNS:upload.air32.cn state 0 id 1 ipv6 0 use dns server0, try 0
+[2025-12-03 10:42:39.755] luat:D(4497):socket:connect to uploadtest.luatos.com,80
+[2025-12-03 10:42:39.755] luat:D(4498):DNS:uploadtest.luatos.com state 0 id 1 ipv6 0 use dns server0, try 0
 [2025-12-03 10:42:39.755] luat:D(4498):net:adatper 2 dns server 223.5.5.5
 [2025-12-03 10:42:39.755] luat:D(4499):net:dns udp sendto 223.5.5.5:53 from 192.168.1.118
 [2025-12-03 10:42:40.018] luat:I(4753):DNS:dns all done ,now stop
@@ -285,8 +287,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2025-12-03 10:42:48.507] luat:U(13248):I/user.摄像头数据 20259
 [2025-12-03 10:42:48.507] luat:U(13249):I/user.拍照完成
 [2025-12-03 10:42:48.507] luat:U(13250):I/user.这是第2个摄像头拍的
-[2025-12-03 10:42:48.507] luat:D(13254):socket:connect to upload.air32.cn,80
-[2025-12-03 10:42:48.507] luat:D(13254):DNS:upload.air32.cn state 0 id 2 ipv6 0 use dns server0, try 0
+[2025-12-03 10:42:48.507] luat:D(13254):socket:connect to uploadtest.luatos.com,80
+[2025-12-03 10:42:48.507] luat:D(13254):DNS:uploadtest.luatos.com state 0 id 2 ipv6 0 use dns server0, try 0
 [2025-12-03 10:42:48.507] luat:D(13255):net:adatper 2 dns server 223.5.5.5
 [2025-12-03 10:42:48.507] luat:D(13255):net:dns udp sendto 223.5.5.5:53 from 192.168.1.118
 [2025-12-03 10:42:48.558] luat:I(13276):DNS:dns all done ,now stop
@@ -310,8 +312,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2025-12-03 10:42:58.454] luat:U(23197):I/user.摄像头数据 36352
 [2025-12-03 10:42:58.454] luat:U(23198):I/user.拍照完成
 [2025-12-03 10:42:58.454] luat:U(23199):I/user.这是第3个摄像头拍的
-[2025-12-03 10:42:58.479] luat:D(23206):socket:connect to upload.air32.cn,80
-[2025-12-03 10:42:58.479] luat:D(23206):DNS:upload.air32.cn state 0 id 3 ipv6 0 use dns server0, try 0
+[2025-12-03 10:42:58.479] luat:D(23206):socket:connect to uploadtest.luatos.com,80
+[2025-12-03 10:42:58.479] luat:D(23206):DNS:uploadtest.luatos.com state 0 id 3 ipv6 0 use dns server0, try 0
 [2025-12-03 10:42:58.479] luat:D(23207):net:adatper 2 dns server 223.5.5.5
 [2025-12-03 10:42:58.479] luat:D(23207):net:dns udp sendto 223.5.5.5:53 from 192.168.1.118
 [2025-12-03 10:42:58.479] luat:I(23231):DNS:dns all done ,now stop
@@ -337,8 +339,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2025-12-03 10:43:09.301] luat:U(34051):I/user.摄像头数据 19328
 [2025-12-03 10:43:09.301] luat:U(34053):I/user.拍照完成
 [2025-12-03 10:43:09.301] luat:U(34053):I/user.这是第4个摄像头拍的
-[2025-12-03 10:43:09.301] luat:D(34057):socket:connect to upload.air32.cn,80
-[2025-12-03 10:43:09.301] luat:D(34057):DNS:upload.air32.cn state 0 id 4 ipv6 0 use dns server0, try 0
+[2025-12-03 10:43:09.301] luat:D(34057):socket:connect to uploadtest.luatos.com,80
+[2025-12-03 10:43:09.301] luat:D(34057):DNS:uploadtest.luatos.com state 0 id 4 ipv6 0 use dns server0, try 0
 [2025-12-03 10:43:09.301] luat:D(34058):net:adatper 2 dns server 223.5.5.5
 [2025-12-03 10:43:09.301] luat:D(34058):net:dns udp sendto 223.5.5.5:53 from 192.168.1.118
 [2025-12-03 10:43:09.392] luat:I(34126):DNS:dns all done ,now stop
@@ -362,8 +364,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2025-12-03 10:43:18.505] luat:U(43251):I/user.摄像头数据 20172
 [2025-12-03 10:43:18.505] luat:U(43252):I/user.拍照完成
 [2025-12-03 10:43:18.505] luat:U(43253):I/user.这是第1个摄像头拍的
-[2025-12-03 10:43:18.518] luat:D(43257):socket:connect to upload.air32.cn,80
-[2025-12-03 10:43:18.518] luat:D(43257):DNS:upload.air32.cn state 0 id 5 ipv6 0 use dns server0, try 0
+[2025-12-03 10:43:18.518] luat:D(43257):socket:connect to uploadtest.luatos.com,80
+[2025-12-03 10:43:18.518] luat:D(43257):DNS:uploadtest.luatos.com state 0 id 5 ipv6 0 use dns server0, try 0
 [2025-12-03 10:43:18.518] luat:D(43258):net:adatper 2 dns server 223.5.5.5
 [2025-12-03 10:43:18.518] luat:D(43258):net:dns udp sendto 223.5.5.5:53 from 192.168.1.118
 [2025-12-03 10:43:18.518] luat:I(43270):DNS:dns all done ,now stop
@@ -612,8 +614,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2026-01-16 17:32:57.311] luat:U(32302):I/user.excamera.video sys内存: 238224 122120 128760
 [2026-01-16 17:32:57.311] luat:U(32302):I/user.excamera.video 视频录制完成 /sd/video_usb1_2.mp4
 [2026-01-16 17:32:57.435] luat:U(32412):I/user.视频录制成功!
-[2026-01-16 17:32:57.441] luat:D(32420):socket:connect to upload.air32.cn,80
-[2026-01-16 17:32:57.441] luat:D(32420):DNS:upload.air32.cn state 0 id 1 ipv6 0 use dns server0, try 0
+[2026-01-16 17:32:57.441] luat:D(32420):socket:connect to uploadtest.luatos.com,80
+[2026-01-16 17:32:57.441] luat:D(32420):DNS:uploadtest.luatos.com state 0 id 1 ipv6 0 use dns server0, try 0
 [2026-01-16 17:32:57.441] luat:D(32420):net:adatper 2 dns server 223.5.5.5
 [2026-01-16 17:32:57.441] luat:D(32421):net:dns udp sendto 223.5.5.5:53 from 192.168.31.234
 [2026-01-16 17:32:57.622] luat:I(32603):DNS:dns all done ,now stop
@@ -705,8 +707,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2026-01-16 17:11:59.052] luat:U(32774):I/user.excamera.video sys内存: 238224 122584 129256
 [2026-01-16 17:11:59.052] luat:U(32774):I/user.excamera.video 视频录制完成 /sd/video_usb1_2.mp4
 [2026-01-16 17:11:59.162] luat:U(32885):I/user.视频录制成功!
-[2026-01-16 17:11:59.169] luat:D(32893):socket:connect to upload.air32.cn,80
-[2026-01-16 17:11:59.169] luat:D(32893):DNS:upload.air32.cn state 0 id 1 ipv6 0 use dns server0, try 0
+[2026-01-16 17:11:59.169] luat:D(32893):socket:connect to uploadtest.luatos.com,80
+[2026-01-16 17:11:59.169] luat:D(32893):DNS:uploadtest.luatos.com state 0 id 1 ipv6 0 use dns server0, try 0
 [2026-01-16 17:11:59.169] luat:D(32893):net:adatper 2 dns server 223.5.5.5
 [2026-01-16 17:11:59.169] luat:D(32893):net:dns udp sendto 223.5.5.5:53 from 192.168.31.234
 [2026-01-16 17:11:59.209] luat:I(32933):DNS:dns all done ,now stop
@@ -783,8 +785,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2026-01-16 17:13:10.481] luat:U(104214):I/user.excamera.video sys内存: 238224 122584 129256
 [2026-01-16 17:13:10.481] luat:U(104215):I/user.excamera.video 视频录制完成 /sd/video_usb2_74.mp4
 [2026-01-16 17:13:10.598] luat:U(104325):I/user.视频录制成功!
-[2026-01-16 17:13:10.606] luat:D(104337):socket:connect to upload.air32.cn,80
-[2026-01-16 17:13:10.606] luat:D(104337):DNS:upload.air32.cn state 0 id 2 ipv6 0 use dns server0, try 0
+[2026-01-16 17:13:10.606] luat:D(104337):socket:connect to uploadtest.luatos.com,80
+[2026-01-16 17:13:10.606] luat:D(104337):DNS:uploadtest.luatos.com state 0 id 2 ipv6 0 use dns server0, try 0
 [2026-01-16 17:13:10.606] luat:D(104337):net:adatper 2 dns server 223.5.5.5
 [2026-01-16 17:13:10.606] luat:D(104337):net:dns udp sendto 223.5.5.5:53 from 192.168.31.234
 [2026-01-16 17:13:10.606] luat:I(104356):DNS:dns all done ,now stop
@@ -863,8 +865,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2026-01-16 17:14:29.765] luat:U(183512):I/user.excamera.video sys内存: 238224 122584 129256
 [2026-01-16 17:14:29.765] luat:U(183512):I/user.excamera.video 视频录制完成 /sd/video_usb3_153.mp4
 [2026-01-16 17:14:29.874] luat:U(183623):I/user.视频录制成功!
-[2026-01-16 17:14:29.879] luat:D(183635):socket:connect to upload.air32.cn,80
-[2026-01-16 17:14:29.879] luat:D(183635):DNS:upload.air32.cn state 0 id 3 ipv6 0 use dns server0, try 0
+[2026-01-16 17:14:29.879] luat:D(183635):socket:connect to uploadtest.luatos.com,80
+[2026-01-16 17:14:29.879] luat:D(183635):DNS:uploadtest.luatos.com state 0 id 3 ipv6 0 use dns server0, try 0
 [2026-01-16 17:14:29.879] luat:D(183635):net:adatper 2 dns server 223.5.5.5
 [2026-01-16 17:14:29.879] luat:D(183635):net:dns udp sendto 223.5.5.5:53 from 192.168.31.234
 [2026-01-16 17:14:29.897] luat:I(183657):DNS:dns all done ,now stop
@@ -941,8 +943,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2026-01-16 17:15:49.726] luat:U(263512):I/user.excamera.video sys内存: 238224 122584 129256
 [2026-01-16 17:15:49.737] luat:U(263512):I/user.excamera.video 视频录制完成 /sd/video_usb4_233.mp4
 [2026-01-16 17:15:49.850] luat:U(263623):I/user.视频录制成功!
-[2026-01-16 17:15:49.850] luat:D(263635):socket:connect to upload.air32.cn,80
-[2026-01-16 17:15:49.850] luat:D(263635):DNS:upload.air32.cn state 0 id 4 ipv6 0 use dns server0, try 0
+[2026-01-16 17:15:49.850] luat:D(263635):socket:connect to uploadtest.luatos.com,80
+[2026-01-16 17:15:49.850] luat:D(263635):DNS:uploadtest.luatos.com state 0 id 4 ipv6 0 use dns server0, try 0
 [2026-01-16 17:15:49.850] luat:D(263635):net:adatper 2 dns server 223.5.5.5
 [2026-01-16 17:15:49.850] luat:D(263635):net:dns udp sendto 223.5.5.5:53 from 192.168.31.234
 [2026-01-16 17:15:49.897] luat:I(263657):DNS:dns all done ,now stop
@@ -964,6 +966,8 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 ```
 
 5、登录 [https://www.air32.cn/upload/data/mp4/](https://www.air32.cn/upload/data/mp4/) 查看拍摄的视频;
+-- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+-- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
 
 ![](https://docs.openLuat.com/cdn/image/8101_usb摄像头演示.jpg)
 

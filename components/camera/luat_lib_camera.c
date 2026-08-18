@@ -242,6 +242,15 @@ static int l_camera_init(lua_State *L){
         }
         lua_pop(L, 1);
 
+        lua_pushliteral(L, "format");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.format_type = luaL_checkinteger(L, -1);
+        } else {
+            conf.format_type = LUAT_CAMERA_UVC_FORMAT_MJPEG;
+        }
+        lua_pop(L, 1);
+
         lua_pushliteral(L, "init_cmd");
         lua_gettable(L, 1);
         if (lua_istable(L, -1)) {
@@ -494,6 +503,21 @@ LUAT_WEAK int luat_camera_preview(int id, uint8_t on_off){
     return -1;
 }
 
+LUAT_WEAK void luat_camera_set_preview_data_callback(int id, luat_camera_frame_data_callback_t callback, void *user_data)
+{
+    (void)id;
+    (void)callback;
+    (void)user_data;
+}
+
+LUAT_WEAK void luat_camera_set_frame_data_callback(int id, luat_camera_frame_data_callback_t callback, void *user_data)
+{
+    (void)id;
+    (void)callback;
+    (void)user_data;
+}
+
+
 LUAT_WEAK int luat_camera_work_mode(int id, int mode){
     LLOGD("not support yet");
     return -1;
@@ -735,15 +759,15 @@ static int l_camera_set_reset_pin(lua_State* L) {
 
 /**
 camera输出/停止数据流
-@api camera.stream(id, app_id)
-@id camera id
-@app_id 如果是usb摄像头，则输入usb应用id，其他留空
-@int 跳帧，针对USB摄像头，跳过N帧后上报，一般情况正常传输是30fps，如果脚本处理不过来，可以跳过N帧上报，默认是0，即不跳
+@api camera.stream(id, app_id, jump_frame_cnt, min_data_len)
+@int camera id
+@int app_id 如果是usb摄像头，则输入usb应用id，其他留空
+@int 跳帧，针对USB摄像头，跳过N帧后上报，一般情况正常传输是摄像头最高帧率，如果脚本处理不过来，可以跳过N帧上报，默认是0，即不跳
 @int 图像数据最小长度，针对USB摄像头ISO传输可能漏数据的情况，只有大于最小长度的图像帧会上报，默认是1KB
 @return boolean 成功返回true,否则返回false
 @usage
-=
-camera.stream(camera.USB, app_id)
+camera.stream(camera.USB, app_id)       --默认不跳帧
+camera.stream(camera.USB, app_id, 1)    --跳过1帧上报
 */
 static int l_camera_stream(lua_State *L) {
 	int camera_id = luaL_checkinteger(L, 1);
@@ -943,7 +967,7 @@ DONE:
 
 /**
 配置USB摄像头图像参数，根据不同的配置项的id和参数值组合，有不同的设置效果
-@api camera.set_usb_config(app_id, key, param1, param2)
+@api camera.set_usb_config(app_id, key, param1, param2, param3)
 @int app_id usb应用id
 @int 配置项的id，目前只有camera.CONF_UVC_RESOLUTION
 @int 参数1

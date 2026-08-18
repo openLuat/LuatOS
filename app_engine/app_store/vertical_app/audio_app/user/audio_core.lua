@@ -45,7 +45,6 @@ local tts_voice_map = {
 
 --[[
 根据版本号自适应设置dac_delay
-参考: play_file.lua, record_amr_file.lua, record_pcm_file.lua
 ]]
 local function get_dac_delay()
     local version = rtos.version()
@@ -79,6 +78,11 @@ local function get_module_type()
             return "air1601"
         elseif model_lower:find("air8000") then
             return "air8000"
+        elseif model_lower:find("air780e") then
+            -- 细分780EXX系列：通过精确匹配区分具体型号
+            if model == "Air780EHV" then
+                return "air780ehv"      -- Air780EHV（内置音频Codec）
+            end
         end
     end
     return "other"
@@ -133,7 +137,6 @@ end
 
 --[[
 播放完成回调（通用）
-参考: play_file.lua, record_amr_file.lua
 ]]
 local function play_end_callback(event)
     if not exaudio then return end
@@ -155,7 +158,6 @@ end
 @api audio_core.init(callback)
 @param callback function 进度回调函数，参数为(percent, message)
 @return boolean 初始化成功返回true，失败返回false
-参考: play_file.lua, record_amr_file.lua
 ]]
 function audio_core.init(callback)
     if initialized then
@@ -191,9 +193,7 @@ function audio_core.init(callback)
     end
     
     -- 根据模组型号设置音频初始化参数
-    local module_type = get_module_type()
     local audio_setup_param = {}
-    
     if module_type == "air1601" then
         -- Air1601使用内置DAC
         log.info("audio_core", "检测到Air1601模组，使用DAC模式")
@@ -212,6 +212,16 @@ function audio_core.init(callback)
             pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
             pa_delay = 10,            -- PA延时(ms)，DAC启动后延迟打开PA的时间
         }
+    elseif module_type == "air780ehv" then
+        -- Air780EHV使用ES8311，I2S直连内置音频Codec
+        log.info("audio_core", "检测到Air780EHV模组，使用ES8311模式")
+        audio_setup_param = {
+            model = "es8311",         -- 音频编解码类型
+            i2c_id = 0,               -- i2c_id
+            dac_delay = get_dac_delay(), -- 根据版本自适应设置
+            pa_ctrl = gpio.AUDIOPA_EN, -- 音频放大器电源控制管脚（EHV专用引脚）
+            dac_ctrl = 20,            -- 音频编解码芯片电源控制管脚
+        }
     elseif module_type == "air8000" then
         -- Air8000系列使用ES8311
         log.info("audio_core", "检测到Air8000模组，使用ES8311模式")
@@ -224,7 +234,7 @@ function audio_core.init(callback)
         }
     else
         -- 其他模组，使用默认配置（ES8311）
-        log.info("audio_core", "未识别模组型号，或当前型号还不支持，请使用8000W/1601/1602畅玩版进行测试")
+        log.info("audio_core", "未识别模组型号，或当前型号还不支持，请使用1601/1602畅玩版或780EHV/8000Turnkey开发板进行测试")
         return false
     end
 
@@ -533,7 +543,6 @@ end
 @param duration number 录音时长（秒），范围3-180
 @param callback function 录音完成回调函数（可选）
 @return boolean 录音启动成功返回true，失败返回false
-参考: record_amr_file.lua, record_pcm_file.lua
 ]]
 function audio_core.start_record(format, duration, callback)
     if not initialized or not exaudio then
@@ -571,7 +580,7 @@ function audio_core.start_record(format, duration, callback)
     
     local audio_record_param
     if format == "amr" then
-        -- AMR格式录音（参考record_amr_file.lua）
+        -- AMR格式录音
         audio_record_param = {
             format = exaudio.AMR_NB,
             time = duration,
@@ -579,7 +588,7 @@ function audio_core.start_record(format, duration, callback)
             cbfnc = record_end_callback
         }
     else
-        -- PCM格式录音（参考record_pcm_file.lua）
+        -- PCM格式录音
         -- 删除旧文件
         if io.exists(record_path) then
             os.remove(record_path)

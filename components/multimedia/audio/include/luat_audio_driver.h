@@ -59,9 +59,9 @@ struct luat_audio_driver_ctrl
         uint8_t *static_play_buff_byte;  /**< 静态播放缓冲区指针，8位对齐，仅用于通话 */
     };
     volatile uint32_t current_play_cnt;  /**< 当前播放计数 */
-    uint32_t static_play_buffer_cnt;
-    uint32_t one_play_block_len;  /**< 1个block播放的音频数据长度 */
-    uint32_t one_record_block_len;  /**< 1个block录音的音频数据长度 */
+    volatile uint32_t static_play_buffer_cnt;
+    volatile uint32_t one_play_block_len;  /**< 1个block播放的音频数据长度 */
+    volatile uint32_t one_record_block_len;  /**< 1个block录音的音频数据长度 */
     luat_audio_common_param_t tx_param;  /**< 发送音频参数 */
     luat_audio_common_param_t rx_param;  /**< 接收音频参数 */
     /** 软件消除爆破音相关参数 */
@@ -121,7 +121,7 @@ typedef struct luat_audio_driver_opts {
      * @brief 修改音频通用参数，如果采样率无法支持，返回错误码，data_bits和channel_nums不支持则选择最优值。配置成功后更新ctrl->common_param
      * @param ctrl 驱动控制器指针
      * @param sample_rate 采样率 (Hz)
-     * @param data_bits 数据位数 (8-32位)
+     * @param data_bits 数据位数 (1,2,3,4对应8,16,24,32)
      * @param channel_nums 声道数量
      * @param is_rx_dir 是否为接收方向，0为发送方向，1为接收方向
      * @return int 成功返回0，失败返回负值错误码
@@ -209,10 +209,10 @@ typedef struct luat_audio_driver_opts {
 
     uint32_t tx_one_block_max_len;  /**< 最大播放单块长度 (字节), 8字节对齐 */
     uint32_t rx_one_block_max_len;  /**< 最大录音单块长度 (字节), 8字节对齐 */
-    uint32_t support_tx_loop:1;  /**< 是否支持播放循环 */
-    uint32_t support_rx_loop:1;  /**< 是否支持录音循环 */
-    uint32_t support_full_loop:1;  /**< 是否支持全双工循环 */
-    uint32_t support_continue:1;  /**< 是否支持继续播放 */
+    uint32_t support_tx_loop:1;  /**< 是否支持播放循环，和全双工互斥 */
+    uint32_t support_rx_loop:1;  /**< 是否支持录音循环，和全双工互斥 */
+    uint32_t support_full_loop:1;  /**< 是否支持全双工循环，双工循环只允许RX回调 */
+    uint32_t support_continue:1;  /**< 是否支持继续播放，目前没用 */
     uint32_t is_tx_signed:1;  /**< 是否为播放有符号数据 */
     uint32_t is_rx_signed:1;  /**< 是否为录音有符号数据 */
 } luat_audio_driver_opts_t;

@@ -29,6 +29,7 @@
 #include "luat_network_adapter.h"
 #ifdef LUAT_USE_NETDRV
 #include "luat_netdrv.h"
+#include "luat_mem.h"
 #endif
 #include "lwip/ip.h"
 #include "lwip/ip_addr.h"

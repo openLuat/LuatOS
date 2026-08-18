@@ -110,7 +110,8 @@ CMD_DEFINE(rpc);
 #endif
 CMD_DEFINE(fragment);
 
-__AIRLINK_CODE_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
+// 特意放到内存里, 不写const
+luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
     CMD_REG(0x10,  dev_info),
     CMD_REG(0x08,  result),  // RPC/指令结果回调

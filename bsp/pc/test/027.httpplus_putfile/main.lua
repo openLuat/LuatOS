@@ -10,7 +10,7 @@ httpplus = require "httpplus"
 sys.taskInit(function()
     sys.waitUntil("IP_READY")
     log.info("start", mcu.ticks())
-    local opts = {url="http://upload.air32.cn/api/upload/jpg", method="POST", bodyfile="/luadb/test.jpg"}
+    local opts = {url="http://uploadtest.luatos.com/api/upload/jpg", method="POST", bodyfile="/luadb/test.jpg"}
     opts.headers = {ABC="1234"}
     local code, resp = httpplus.request(opts)
     log.info("httpplus", code, resp.body:query())

@@ -136,7 +136,7 @@ static int32_t l_socket_callback(lua_State *L, void* ptr)
     	{
     	    lua_getglobal(L, "sys_pub");
     	    if (lua_isfunction(L, -1)) {
-    	        lua_pushstring(L, LUAT_NW_CTRL_TYPE);
+    	        lua_pushstring(L, LUAT_NW_CTRL_TYPE); // 内部消息: 无回调也无任务名时的兜底事件, 框架内部使用, 不进 sys_pub 文档
     	        lua_pushinteger(L, l_ctrl->netc->adapter_index);
     	        lua_pushinteger(L, l_ctrl->netc->socket_id);
     	        lua_pushinteger(L, msg->arg1);
@@ -1434,6 +1434,24 @@ static int l_socket_close_all(lua_State *L) {
 	return 1;
 }
 
+/*
+设置/获取基于lwip协议栈的接收缓存块数量
+@api socket.rx_cache(set_nums)
+@int 设置缓存块的数量，范围6~48
+@return int 当前接收缓存块数量
+-- 本函数于 2026.8.3 新增
+*/
+static int l_socket_rx_cache(lua_State *L) {
+	if (lua_type(L, 1) == LUA_TNUMBER) {
+		uint32_t nums = (uint8_t)luaL_checkinteger(L, 1);
+		if (nums >= 6 && nums <= 48) {
+			network_set_lwip_rx_cache_nums(nums);
+		}
+	}
+	lua_pushinteger(L, network_get_lwip_rx_cache_nums());
+	return 1;
+}
+
 #ifdef LUAT_USE_UTEST
 static int l_socket_utest(lua_State *L)
 {
@@ -1467,6 +1485,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{"adapter",				ROREG_FUNC(l_socket_adapter)},
 	{"dft",                 ROREG_FUNC(l_socket_default)},
 	{"close_all",           ROREG_FUNC(l_socket_close_all)},
+	{"rx_cache", 			ROREG_FUNC(l_socket_rx_cache)},
 #ifdef LUAT_USE_UTEST
 	{"utest",				ROREG_FUNC(l_socket_utest)},
 #endif

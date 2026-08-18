@@ -59,7 +59,6 @@ local SIP_EVENT = {
 
 -- 统一事件回调分发。
 local function emit_event(event, action, payload)
-    log.info("JQsip", "emit_event", event, action, type(g_callback))
     if type(g_callback) ~= "function" then
         return
     end
@@ -542,7 +541,6 @@ end
 -- 4. 在正确时机把媒体协商结果通过回调抛给外部媒体层
 local function sip_task(opts)
     local rxbuf = zbuff.create(2048)
-    log.info("JQsip", "sip_task start")
     opts = opts or {}
 
     -- `state` 是 SIP 主任务的唯一运行时状态容器。
@@ -604,6 +602,7 @@ local function sip_task(opts)
         options_interval = tonumber(opts.options_interval) or 25000,
         options_max_fail = tonumber(opts.options_max_fail) or 3,
         call_timeout = tonumber(opts.call_timeout) or CALL_TIMEOUT,
+        debug_sip_response = opts.debug_sip_response == true,
         early_media = opts.early_media ~= false,
         early_media_response = tonumber(opts.early_media_response) or 183,
 
@@ -681,7 +680,7 @@ local function sip_task(opts)
             state.media.session = session
             return
         end
-        log.info("JQsip", "media session ready", session)
+
         -- 通知外部媒体层启动当前会话。
 
         state.media.active = true
@@ -959,7 +958,7 @@ local function sip_task(opts)
 
     -- 发起外呼。
     -- 这里只发送 INVITE + SDP offer，媒体要等 200 OK 后再启动。
-    local function start_outgoing_call(target)
+    local function start_outgoing_call(target, from_number)
         if not state.online or not state.netc then
             log.warn("sip", "not online")
             return
@@ -978,7 +977,15 @@ local function sip_task(opts)
 
         -- 外呼时会立即创建一个“待建立”的 dialog。
         -- 只有当收到 200 OK 并完成 ACK 后，该 dialog 才算真正 established。
-        local from_to = string.format("<sip:%s@%s>", state.sip_username, state.sip_domain)
+        -- 非透传模式：From URI 始终保持注册账号，仅用显示名携带来电号码。
+        -- 不传 from_number 时仍生成原有 From 格式。
+        local from_to
+        if type(from_number) == "string" and from_number:match("^[%d%+%-%._]+$") then
+            from_to = string.format("\"%s\" <sip:%s@%s>",
+                from_number, state.sip_username, state.sip_domain)
+        else
+            from_to = string.format("<sip:%s@%s>", state.sip_username, state.sip_domain)
+        end
         local local_tag = gen_token("tag")
         local call_id = gen_token("call") .. "@luatos"
 
@@ -1254,7 +1261,12 @@ local function sip_task(opts)
     sys.subscribe(TOPIC_CMD, function(action, arg)
         log.info("sip", "cmd", action, arg or "")
         if action == "call" then
-            start_outgoing_call(arg)
+            if type(arg) == "table" then
+                start_outgoing_call(arg.target, arg.from_number)
+            else
+                -- 兼容旧的内部命令格式。
+                start_outgoing_call(arg)
+            end
         elseif action == "progress" then
             progress_incoming()
         elseif action == "answer" then
@@ -1298,9 +1310,11 @@ local function sip_task(opts)
                 state.local_ip = ip
             end
 
-            -- 每次重新连上 SIP 服务器，都把 REGISTER 事务状态重置到首发状态。
+            -- 每次重新连上SIP服务器，创建新的REGISTER事务并清理认证状态。
             state.branch = gen_token("br")
-            state.cseq = 1
+            -- 同一个注册实例必须保持CSeq单调递增；如果保留Call-ID和From tag却把
+            -- CSeq重置为1，网络切换后服务器可能将新REGISTER判为合并请求并返回482。
+            state.cseq = state.cseq + 1
             state.auth_tried = 0
             state.last_www = nil
 
@@ -1867,6 +1881,9 @@ local function sip_task(opts)
 
                 local code, reason = parse_status(head)
                 log.info("sip", "resp", code or "?", reason or "?", "from", rip, remote_port or 0)
+                if state.debug_sip_response then
+                    log.info("sip", "response raw\r\n" .. head .. "\r\n\r\n" .. (body or ""))
+                end
                 local headers = parse_headers(head)
                 handle_response_packet(code, reason, headers, body, rip)
             end
@@ -2007,6 +2024,11 @@ local function sip_task(opts)
                 break
             end
         else
+            -- 非通话状态下重新注册时，让后续RTP媒体与新的SIP信令网卡保持一致。
+            -- 通话中仍保持原来的locked_adapter，避免切换承载中的媒体网卡。
+            if not state.dialog and not state.incoming_invite then
+                state.locked_adapter = adapter_to_use
+            end
             log.info("sip", "creating socket with adapter:", adapter_to_use, "locked_adapter:", state.locked_adapter)
             local netc = socket.create(adapter_to_use, netCB)
             state.netc = netc
@@ -2062,6 +2084,7 @@ exsipclient.start({
     codecs = {"PCMU", "PCMA"},
     ptime = 20,
     call_timeout = 30,
+    debug_sip_response = false,
     event_callback = function(event, action, payload)
         -- event 可取 lifecycle、register、call、media、message、error
         -- lifecycle: online、offline、stopped
@@ -2075,35 +2098,29 @@ exsipclient.start({
 ]]
 function M.start(opts)
     
-    log.info("JQsip", "starting with opts!!!!!!!!!!!!!!!!!!!!")
     if g_started then
         return true
     end
     
-    log.info("JQsip", "starting with opts",g_started)
     -- 在这里要判断基础的参数合法性，如果不合法就直接返回 false，不启动后台 task。
     if not opts or type(opts) ~= "table" then
         return false
     end
 
-    log.info("JQsip", "starting with opts", type(opts))
-
     if (not opts.sip_server_addr) or (not opts.sip_server_port) or (not opts.sip_domain) or (not opts.sip_username) then
         return false
     end
     
-    log.info("JQsip", "starting with opts", opts.sip_server_addr, opts.sip_server_port, opts.sip_domain, opts.sip_username)
 
     if not opts.sip_transport  or (opts.sip_transport ~= "udp" and opts.sip_transport ~= "tcp" and opts.sip_transport ~= "tls") then
         return false
     end
 
-    log.info("JQsip", "starting with opts", opts.sip_transport)
 
     if type(opts.event_callback) == "function" then
         g_callback = opts.event_callback
     end
-    log.info("JQsip", "event callback set", type(g_callback))
+
     g_stop = false
     g_started = true
 
@@ -2149,15 +2166,19 @@ end
 
 --[[
 发起外呼。
-@api exsipclient.call(target)
+@api exsipclient.call(target, from_number)
 @string target 目标号码或 sip URI，例如 "1002" 或 "sip:1002@example.com"
+@string from_number 可选，本次外呼写入 From 显示名的主叫号码
 @return nil 无返回值
 @usage
-exsipclient.call("1002")
+exsipclient.call("1002", "13800138000")
 ]]
-function M.call(target)
+function M.call(target, from_number)
     -- 通过 topic 把命令投递到 SIP 主任务中串行执行，避免跨 task 直接操作内部状态。
-    sys.publish(TOPIC_CMD, "call", target)
+    sys.publish(TOPIC_CMD, "call", {
+        target = target,
+        from_number = from_number
+    })
 end
 
 --[[

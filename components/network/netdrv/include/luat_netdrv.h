@@ -2,7 +2,11 @@
 #define LUAT_NETDRV_H
 
 #include "lwip/pbuf.h"
-#include "luat_ulwip.h"
+#include "lwip/ip_addr.h"
+#include "lwip/netif.h"
+#include "luat_rtos.h"
+#include "luat_network_adapter.h"
+#include "dhcp_def.h"
 
 struct luat_netdrv;
 
@@ -68,6 +72,41 @@ typedef struct luat_netdrv_openvpn_conf
     size_t ovpn_password_len;
 }luat_netdrv_openvpn_conf_t;
 
+typedef struct luat_netdrv_l2tp_conf
+{
+    const char* l2tp_remote_ip;     // LNS IP地址 (仅IP字面量)
+    uint16_t l2tp_remote_port;      // LNS端口, 默认1701
+    const char* l2tp_username;      // PPP用户名 (可选)
+    size_t l2tp_username_len;
+    const char* l2tp_password;      // PPP密码 (可选)
+    size_t l2tp_password_len;
+    const char* l2tp_secret;        // L2TP隧道共享密钥 (可选)
+    size_t l2tp_secret_len;
+    uint16_t l2tp_mtu;              // PPP MRU, 默认1450
+    uint8_t l2tp_retry_enable;      // 失败后自动重连
+    uint32_t l2tp_retry_base_ms;    // 重试基础延迟
+    uint32_t l2tp_retry_max_ms;     // 重试最大延迟
+}luat_netdrv_l2tp_conf_t;
+
+typedef struct luat_netdrv_ipsec_conf
+{
+    const char* ipsec_remote_ip;    // IKEv2 网关 IP (仅IP字面量)
+    uint16_t ipsec_remote_port;     // IKE 端口, 默认500
+    const char* ipsec_username;     // EAP-MSCHAPv2 用户名
+    size_t ipsec_username_len;
+    const char* ipsec_password;     // EAP-MSCHAPv2 密码
+    size_t ipsec_password_len;
+    const char* ipsec_ca_cert_pem;  // 服务器证书信任锚 PEM (可选; 未配置时默认 fail-closed, 需显式 ipsec_insecure_cert_ok=true 才接受证书)
+    size_t ipsec_ca_cert_pem_len;
+    const char* ipsec_san;          // 服务器 SAN 校验 (可选, 缺省用网关IP)
+    uint8_t ipsec_insecure_cert_ok;// 允许无 CA 时仅校验 SAN (默认关闭, fail-closed)
+    uint16_t ipsec_mtu;             // 隧道 MTU, 默认1400
+    uint8_t ipsec_retry_enable;     // 失败后自动重连
+    uint8_t ipsec_mobike_enable;    // MOBIKE 双向地址更新, 默认关闭
+    uint32_t ipsec_retry_base_ms;   // 重试基础延迟
+    uint32_t ipsec_retry_max_ms;    // 重试最大延迟
+}luat_netdrv_ipsec_conf_t;
+
 
 typedef struct luat_netdrv_conf
 {
@@ -83,6 +122,8 @@ typedef struct luat_netdrv_conf
     luat_netdrv_ip_conf_t *ip_conf;
     luat_netdrv_wg_conf_t *wg_conf;
     luat_netdrv_openvpn_conf_t *ovpn_conf;
+    luat_netdrv_l2tp_conf_t *l2tp_conf;
+    luat_netdrv_ipsec_conf_t *ipsec_conf;
 }luat_netdrv_conf_t;
 
 typedef struct luat_netdrv_statics_item
@@ -101,11 +142,13 @@ typedef struct luat_netdrv_statics
 typedef struct luat_netdrv {
     int32_t id;
     struct netif* netif;
-    ulwip_ctx_t* ulwip;
     luat_netdrv_dataout_cb dataout;
     luat_netdrv_bootup_cb boot;
     luat_netdrv_ready_cb ready;
     luat_netdrv_dhcp_set dhcp;
+    uint8_t dhcp_enable;            // DHCP开关, 0=关闭 1=开启
+    dhcp_client_info_t dhcp_client; // DHCP客户端状态机
+    luat_rtos_timer_t dhcp_timer;   // DHCP定时器
     luat_netdrv_statics_t statics;
     void* userdata;
     luat_netdrv_ctrl_cb ctrl;
@@ -134,22 +177,19 @@ luat_netdrv_t* luat_netdrv_get(int id);
 
 void luat_netdrv_print_pkg(const char* tat, uint8_t* buff, size_t len);
 
-// 辅助函数
-uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t len);
-uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t len);
-uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t proto, const uint16_t *buff, uint16_t len);
-
-// 辅助传递函数
+// 辅助传递函数: 只携带pbuf指针, 整帧缓冲在RX任务里一次分配/拷贝
 typedef struct netdrv_pkg_msg
 {
     struct netif * netif;
-    uint16_t len;
-    uint8_t buff[4];
+    struct pbuf * p;
 }netdrv_pkg_msg_t;
 
 void luat_netdrv_netif_input(void* args);
 
 int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t len);
+
+void luat_netdrv_rx_stat_reset(void);
+void luat_netdrv_rx_stat_print(void);
 
 void luat_netdrv_print_tm(const char * tag);
 
@@ -172,6 +212,14 @@ int luat_netdrv_is_ready(int id);
 #define __NETDRV_CODE_IN_RAM__ __LUAT_C_CODE_IN_RAM__
 #else
 #define __NETDRV_CODE_IN_RAM__
+#endif
+#endif
+
+#ifndef __NETDRV_CODE_IN_ISR__
+#ifdef __LUAT_C_CODE_IN_ISR__
+#define __NETDRV_CODE_IN_ISR__ __LUAT_C_CODE_IN_ISR__
+#else
+#define __NETDRV_CODE_IN_ISR__
 #endif
 #endif
 

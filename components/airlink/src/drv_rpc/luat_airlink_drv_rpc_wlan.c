@@ -5,8 +5,15 @@
 #include "luat_airlink.h"
 #include "luat_airlink_rpc.h"
 #include "luat_wlan.h"
+#include "luat_mcu.h"
 #include "luat_mem.h"
 #include "luat_msgbus.h"
+#include "luat_netdrv.h"
+#include "luat_netdrv_event.h"
+#include "luat_network_adapter.h"
+#include "lwip/ip_addr.h"
+#include "lwip/netif.h"
+#include "lwip/dhcp.h"
 #include "drv_wlan.pb.h"
 #include <string.h>
 
@@ -40,6 +47,16 @@ static void wlan_notify_ensure_registered(void) {
     }
 }
 
+/*
+@sys_pub wlan
+WIFI扫描结束
+WLAN_SCAN_DONE
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_SCAN_DONE")
+    log.info("wlan", "scan done")
+end)
+*/
 /* msgbus 扫描完成通知 (与 exec/luat_airlink_cmd_exec_wlan.c 中的 scan_result_handler 一致) */
 static int wlan_scan_result_handler(lua_State* L, void* ptr) {
     (void)ptr;
@@ -49,6 +66,18 @@ static int wlan_scan_result_handler(lua_State* L, void* ptr) {
     return 0;
 }
 
+/*
+@sys_pub wlan
+WLAN的STA事件, 连接上AP或断开连接时上报
+WLAN_STA_INC
+@string 事件类型, 例如 "CONNECTED" 已连接, "DISCONNECTED" 已断开
+@any 事件为"CONNECTED"时为已连接的SSID(string); 否则为断开原因码(number)
+@string 事件为"CONNECTED"时为AP的BSSID(6字节二进制), 其他事件无此参数
+@usage
+sys.subscribe("WLAN_STA_INC", function(event, arg1, arg2)
+    log.info("wlan", "sta event", event, arg1, arg2)
+end)
+*/
 /* msgbus STA 事件通知 (WLAN_STA_INC) */
 struct wlan_sta_inc_ctx {
     char event[16];
@@ -97,6 +126,17 @@ static int wlan_ip_ready_handler(lua_State* L, void* ptr) {
     return 0;
 }
 
+/*
+@sys_pub wlan
+WLAN的AP热点事件, 有设备连接/断开本机热点时上报
+WLAN_AP_INC
+@string 事件类型, 例如 "CONNECTED" 有设备连入, "DISCONNECTED" 有设备断开
+@string 对端设备的MAC地址(6字节二进制), 可能为空字符串
+@usage
+sys.subscribe("WLAN_AP_INC", function(event, mac)
+    log.info("wlan", "ap event", event, mac and mac:toHex() or "")
+end)
+*/
 /* msgbus AP 热点事件通知 (WLAN_AP_INC) */
 struct wlan_ap_inc_ctx {
     char event[16];
@@ -150,6 +190,34 @@ static void wlan_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void*
     }
     case AIRLINK_DRV_RPC_ID_WLAN_STA_EVENT: {
         const drv_wlan_WlanStaIncNotify* notify = (const drv_wlan_WlanStaIncNotify*)msg_raw;
+        // STA 事件即时同步网卡链路状态，弥补 devinfo 快照延迟，确保 CONNECTED 后 DHCP 重启（link_updown 有 transition 检查 + 500ms 防抖，重复调用无害）
+        #ifdef LUAT_USE_NETDRV
+        {
+            luat_netdrv_t* nd = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_STA);
+            if (nd && nd->netif) {
+                if (strcmp(notify->event, "DISCONNECTED") == 0) {
+                    //LLOGI("wifi sta disconnected, set link down");
+                    luat_netdrv_set_link_updown(nd, 0);
+                } else if (strcmp(notify->event, "CONNECTED") == 0) {
+                    // 防抖：103 可能重复发 CONNECTED（netif_event_cb + 轮询），
+                    // 避免重复 DOWN+UP 打断正在进行的 DHCP
+                    static uint64_t _last_force_renew = 0;
+                    uint64_t _now = luat_mcu_tick64_ms();
+                    if (_now - _last_force_renew < 500) {
+                        //LLOGI("wifi sta connected, DHCP renew skipped (debounce)");
+                    } else {
+                        _last_force_renew = _now;
+                        //LLOGI("wifi sta connected, force DHCP renew");
+                        // 强制 link DOWN→UP 来重启 DHCP。
+                        // link_updown 自身有 transition 检查，如果已 DOWN 则不会重复 DOWN。
+                        // 背靠背 DOWN+UP 通过 tcpip_callback 排队执行，时序正确。
+                        luat_netdrv_set_link_updown(nd, 0);
+                        luat_netdrv_set_link_updown(nd, 1);
+                    }
+                }
+            }
+        }
+        #endif
         struct wlan_sta_inc_ctx* ctx = (struct wlan_sta_inc_ctx*)luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(struct wlan_sta_inc_ctx));
         if (!ctx) return;
         memset(ctx, 0, sizeof(*ctx));
@@ -173,6 +241,23 @@ static void wlan_rpc_notify_dispatch(uint16_t rpc_id, const void* msg_raw, void*
     }
     case AIRLINK_DRV_RPC_ID_WLAN_IP_EVENT: {
         const drv_wlan_WlanIpReadyNotify* notify = (const drv_wlan_WlanIpReadyNotify*)msg_raw;
+        // IP_READY 仅用于确认 WiFi 已连接，不设静态 IP
+        // 新架构下 1601 lwIP DHCP 自己拿 IP/网关/DNS
+        #ifdef LUAT_USE_NETDRV
+        {
+            extern void net_lwip2_set_link_state(uint8_t id, uint8_t up);
+            luat_netdrv_t* nd = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_STA);
+            if (nd && nd->netif && notify->has_ip) {
+                luat_ip_addr_t ip4;
+                ipaddr_aton(notify->ip, &ip4);
+                nd->netif->ip_addr.u_addr.ip4.addr = ip4.u_addr.ip4.addr;
+                nd->netif->netmask.u_addr.ip4.addr = 0xFFFFFF00;
+                netif_set_link_up(nd->netif);
+                // LLOGI("IP set from IP_READY: %s", notify->ip);
+                luat_netdrv_send_ip_event(nd, 1);
+            }
+        }
+        #endif
         struct wlan_ip_ready_ctx* ctx = (struct wlan_ip_ready_ctx*)luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(struct wlan_ip_ready_ctx));
         if (!ctx) return;
         memset(ctx, 0, sizeof(*ctx));
@@ -237,6 +322,7 @@ int luat_airlink_drv_rpc_wlan_init(luat_wlan_config_t* args) {
 }
 
 int luat_airlink_drv_rpc_wlan_ap_start(luat_wlan_apinfo_t* info) {
+    wlan_notify_ensure_registered();
     int mode = luat_airlink_current_mode_get();
     drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
     drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;
@@ -255,7 +341,7 @@ int luat_airlink_drv_rpc_wlan_ap_start(luat_wlan_apinfo_t* info) {
     req.payload.ap_start.hidden       = (info->hidden != 0);
     req.payload.ap_start.has_max_conn = true;
     req.payload.ap_start.max_conn     = info->max_conn;
-    req.payload.ap_start.has_gateway  = true;
+    req.payload.ap_start.has_gateway = true;
     req.payload.ap_start.gateway.size = 4;
     memcpy(req.payload.ap_start.gateway.bytes, info->gateway, 4);
     req.payload.ap_start.has_netmask  = true;
@@ -289,6 +375,7 @@ int luat_airlink_drv_rpc_wlan_ap_stop(void) {
 }
 
 int luat_airlink_drv_rpc_wlan_connect(luat_wlan_conninfo_t* info) {
+    wlan_notify_ensure_registered();
     int mode = luat_airlink_current_mode_get();
     drv_wlan_WlanRpcRequest  req  = drv_wlan_WlanRpcRequest_init_zero;
     drv_wlan_WlanRpcResponse resp = drv_wlan_WlanRpcResponse_init_zero;

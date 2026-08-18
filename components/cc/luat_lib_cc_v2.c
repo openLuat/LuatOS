@@ -10,6 +10,7 @@
 -- 选型手册上支持VoLTE通话功能的模组支持
 */
 
+#include "lua.h"
 #include "luat_audio_data_codec.h"
 #include "luat_audio_define.h"
 #include "luat_audio_driver.h"
@@ -504,12 +505,12 @@ static int l_cc_on(lua_State *L) {
 }
 
 /*
-通话中附加额外的音频数据，额外音频的参数必须和通话的参数一致，否则会失败而没有任何作用
-@api cc.extern_source(source, is_add_record, codec_id, sample_rate, data_bits, channel_nums, is_signed)
-@table/string/zbuff/nil 输入数据，table表示播放文件，string表示播放tts，zbuff表示播放音频数据，如果只播放一个文件也要用table,nil表示停止当前第三方数据播放
+通话中附加额外的音频数据，额外音频的数据位数和通道数必须和通话的参数一致，否则会失败而没有任何作用
+@api cc.extern_source(source, is_add_record, codec_id, is_error_stop, sample_rate, data_bits, channel_nums, is_signed)
+@table/string/zbuff/boolean/nil 输入数据，table表示播放文件（如果只播放一个文件也要用table），string表示播放tts，zbuff表示播放音频数据(文件数据放在了zbuff)，true表示启用流模式播放，nil表示停止当前第三方数据播放
 @boolean 是否添加到上行通道，true添加到上行通道，false添加到下行通道，默认true，往对端播放第三方数据源，目前只支持上行通道
-@boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @int 解码器id，见audio_v2.DATA_CODEC_TYPE_XXX，如果留空则通过输入数据自行判断
+@boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @int 采样率，如果指定解码器是RAW，不能留空
 @int 数据位数，8,16,24,32，如果指定解码器是RAW，不能留空
 @int 通道数，1,2，如果指定解码器是RAW，不能留空
@@ -527,14 +528,7 @@ static int l_cc_extern_source(lua_State *L) {
     luat_audio_play_file_info_t *info = NULL;
     uint8_t is_add_record = 1;
     uint8_t is_error_stop = 1;
-    if (_l_cc.is_play_extern_source) {
-        LLOGE("cc extern source is busy");
-        goto DONE;
-    }
-    if (!_l_cc.is_true_start) {
-        LLOGE("cc is not true start");
-        goto DONE;
-    }
+
     luat_audio_common_param_t common_param = {0};
     common_param.sample_rate = luaL_optinteger(L, 5, 0);
     uint8_t data_bits = luaL_optinteger(L, 6, 16);
@@ -567,7 +561,14 @@ static int l_cc_extern_source(lua_State *L) {
         result = LUAT_ERROR_NONE;
         goto DONE;
     }
-    _l_cc.extern_source.request = &_l_cc.cc_request;
+    if (_l_cc.is_play_extern_source) {
+        LLOGE("cc extern source is busy");
+        goto DONE;
+    }
+    if (!_l_cc.is_true_start) {
+        LLOGE("cc is not true start");
+        goto DONE;
+    }
     if (LUA_TSTRING == (lua_type(L, 1))) {
         
         data = lua_tolstring(L, 1, &len);//取出字符串数据
@@ -602,6 +603,18 @@ static int l_cc_extern_source(lua_State *L) {
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
         result = luat_audio_request_add_source_files(&_l_cc.extern_source, info, file_nums, codec_opts, is_add_record, &_l_cc.extern_source);
+    } else if (lua_isboolean(L, 1) && lua_toboolean(L, 1)) {
+        if (codec_opts) {
+            result = luat_audio_request_add_source_stream(&_l_cc.extern_source, codec_opts, &common_param, is_add_record, &_l_cc.extern_source);
+            if (result) {
+                LLOGE("lua extern source add stream failed, ret %d", result);
+                goto DONE;
+            }
+        } else {
+            LLOGE("extern source stream mode must have codec id");
+            goto DONE;
+        }
+        
     }
     if (!result) {
         _l_cc.is_play_extern_source = 1;
@@ -615,6 +628,75 @@ DONE:
     lua_pushboolean(L, !result);
     return 1;
 }
+
+/*
+通话中附加额外的音频数据以流模式播放情况下，输入未解码的音频数据
+@api cc.input(is_record, data, is_end)
+@boolean 是否是上行数据，true是上行数据，false是下行数据, 默认true，目前只支持录音通道，所以这个参数没有用
+@string/zbuff 输入数据，如果为空，则不输入任何数据
+@boolean 是否是最后一帧数据，默认false
+@return boolean 成功返回true,否则返回false
+@return int 实际写入的长度，如果数据为空或者写入失败，则返回0，单位字节。如果数据是zbuff形式，写入成功后会自动删除zbuff中的数据
+@return int 输入缓冲的剩余空间，单位字节
+@usage
+local result, write_len, free_len = cc.input(true, data, is_end)
+*/
+static int l_cc_input(lua_State *L) {
+    int result = -1;
+    uint32_t rest_len = 0;
+    uint32_t input_len = 0;
+    uint8_t is_add_record = 1;
+    const char *data = NULL;
+    uint8_t is_end = 0;
+    if (!_l_cc.is_true_start) {
+        LLOGE("cc is not true start");
+        goto DONE;
+    }
+    if (!_l_cc.is_play_extern_source) {
+        LLOGE("cc extern source is not start");
+        goto DONE;
+    }
+    rest_len = luat_fifo_check_free_space(_l_cc.extern_source.decode_input_fifo);
+    luat_rtos_task_suspend_all();
+    if (LUA_TSTRING == (lua_type(L, 2))) {
+        size_t len = 0;
+        data = lua_tolstring(L, 2, &len);//取出字符串数据
+        if (len > rest_len) {
+            input_len = rest_len;
+        } else {
+            input_len = len;
+        }
+        luat_fifo_write(_l_cc.extern_source.decode_input_fifo, data, input_len);
+    } else if(lua_isuserdata(L, 2)) {
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        if (buff->used > rest_len) {
+            input_len = rest_len;
+        } else {
+            input_len = buff->used;
+        }
+
+        luat_fifo_write(_l_cc.extern_source.decode_input_fifo, data, input_len);
+        
+    }
+    result = 0;
+    if (lua_isboolean(L, 3)) {
+        is_end = lua_toboolean(L, 3);
+    } else {
+        is_end = 0;
+    }
+    _l_cc.extern_source.is_input_end = is_end;
+    luat_rtos_task_resume_all();
+DONE:
+    lua_pushboolean(L, !result);
+    lua_pushinteger(L, input_len);
+    if (rest_len) {
+        lua_pushinteger(L, luat_fifo_check_free_space(_l_cc.extern_source.decode_input_fifo));
+    } else {
+        lua_pushinteger(L, rest_len);
+    }
+    return 3;
+}
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_cc[] =
@@ -631,6 +713,7 @@ static const rotable_Reg_t reg_cc[] =
     { "on" ,        ROREG_FUNC(l_cc_on)},
     { "record", 	ROREG_FUNC(l_cc_record_call)},
     { "extern_source", ROREG_FUNC(l_cc_extern_source)},
+    { "input", ROREG_FUNC(l_cc_input)},
 	{ NULL,         ROREG_INT(0)}
 };
 

@@ -23,7 +23,6 @@
 #define LUAT_NDK_UART_RX_CAPACITY 256
 #define LUAT_NDK_ISA_NAME_MAX 8
 #define LUAT_NDK_ISA_RV32IMA "rv32ima"
-#define LUAT_NDK_ISA_RV32IMF "rv32imf"
 
 struct MiniRV32IMAState;
 typedef struct MiniRV32IMAState MiniRV32IMAState;
@@ -74,11 +73,9 @@ typedef struct luat_ndk {
     uint32_t last_mcause;
     uint32_t last_mtval;
     uint32_t last_trap;
-    uint32_t fcsr;
     uint8_t trap_pending;
     uint8_t stop_request;
     uint8_t lock_closing;
-    uint8_t flen;
     luat_ndk_state_t state;
     uint32_t lock_refs;
     luat_rtos_mutex_t lock;

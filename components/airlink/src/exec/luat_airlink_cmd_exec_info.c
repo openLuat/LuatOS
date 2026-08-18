@@ -17,6 +17,7 @@
 #include "lwip/ip_addr.h"
 #include "luat_netdrv_whale.h"
 #include "luat_netdrv_event.h"
+#include "luat_airlink_devinfo.h"
 
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
@@ -45,6 +46,12 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
         // LLOGD("wifi sta MAC %02X:%02X:%02X:%02X:%02X:%02X", dev->wifi.sta_mac[0], dev->wifi.sta_mac[1], dev->wifi.sta_mac[2], dev->wifi.sta_mac[3], dev->wifi.sta_mac[4], dev->wifi.sta_mac[5]);
         if (dev->wifi.sta_mac[0]) {
             memcpy(&version, dev->wifi.version, 4);
+            // 根据对端 WiFi 模块固件版本调整链路超时阈值
+            if (version > 0 && version <= LUAT_AIRLINK_PEER_VER_KEEPALIVE_OLD) {
+                g_airlink_link_timeout_ms = 20000;
+            } else if (version > LUAT_AIRLINK_PEER_VER_KEEPALIVE_OLD) {
+                g_airlink_link_timeout_ms = 5000;
+            }
             // 是合法的MAC地址, 那就搞一下
             drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_STA);
             while (1) {
@@ -73,8 +80,11 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
                     if (netif_is_link_up(drv->netif) == 0) {
                         // 网卡上线了哦
                         LLOGD("wifi sta上线了");
-                        // luat_netdrv_whale_ipevent(drv, 1);
                         luat_netdrv_set_link_updown(drv, 1);
+                        #if defined(LUAT_USE_NETDRV) && defined(LUAT_USE_AIRLINK_HSPI_MASTER)
+                        // XT804 的 devinfo 通知 STA 连接后触发 IP_READY
+                        luat_netdrv_send_ip_event(drv, 1);
+                        #endif
                     }
                 }
                 break;

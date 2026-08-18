@@ -1894,6 +1894,9 @@ int network_set_server_cert(network_ctrl_t *ctrl, const unsigned char *cert, siz
 	{
 		return -ERROR_PERMISSION_DENIED;
 	}
+	// 重置CA链，防止重复配置时累积
+	mbedtls_x509_crt_free(ctrl->ca_cert);
+	mbedtls_x509_crt_init(ctrl->ca_cert);
     ret = mbedtls_x509_crt_parse( ctrl->ca_cert, cert, cert_len);
 	if (ret != 0)
 	{
@@ -1919,6 +1922,11 @@ int network_set_client_cert(network_ctrl_t *ctrl,
 	if (!ctrl->tls_mode)
 	{
 		return -ERROR_PERMISSION_DENIED;
+	}
+	// 幂等保护: 已配置则跳过,防止重复分配泄漏和config->key_cert悬垂指针
+	if (ctrl->client_cert && ctrl->pkey)
+	{
+		return ERROR_NONE;
 	}
 	client_cert = zalloc(sizeof(mbedtls_x509_crt));
 	pkey = zalloc(sizeof(mbedtls_pk_context));
@@ -1950,10 +1958,19 @@ int network_set_client_cert(network_ctrl_t *ctrl,
 		DBG("%08x", -ret);
 		goto ERROR_OUT;
     }
+		
+		ctrl->client_cert = client_cert;
+		ctrl->pkey = pkey;
     return ERROR_NONE;
 ERROR_OUT:
-	if (client_cert) luat_heap_free(client_cert);
-	if (pkey) luat_heap_free(pkey);
+	if (client_cert) {
+		mbedtls_x509_crt_free(client_cert);
+		luat_heap_free(client_cert);
+	}
+	if (pkey) {
+		mbedtls_pk_free(pkey);
+		luat_heap_free(pkey);
+	}
 	return -1;
 #else
 	return -1;
@@ -2047,6 +2064,33 @@ void network_deinit_tls(network_ctrl_t *ctrl)
 {
 	if (!ctrl) return;
 #ifdef LUAT_USE_TLS
+	// 先停止并释放定时器，防止回调访问即将释放的资源
+	ctrl->tls_timer_state = -1;
+	if (ctrl->tls_short_timer)
+	{
+		platform_release_timer(ctrl->tls_short_timer);
+		ctrl->tls_short_timer = NULL;
+	}
+	if (ctrl->tls_long_timer)
+	{
+		platform_release_timer(ctrl->tls_long_timer);
+		ctrl->tls_long_timer = NULL;
+	}
+
+	if (ctrl->client_cert)
+	{
+		mbedtls_x509_crt_free(ctrl->client_cert);
+		luat_heap_free(ctrl->client_cert);
+		ctrl->client_cert = NULL;
+	}
+
+	if (ctrl->pkey)
+	{
+		mbedtls_pk_free(ctrl->pkey);
+		luat_heap_free(ctrl->pkey);
+		ctrl->pkey = NULL;
+	}
+
 	if (ctrl->ssl)
 	{
 		mbedtls_ssl_free(ctrl->ssl);
@@ -2069,17 +2113,6 @@ void network_deinit_tls(network_ctrl_t *ctrl)
 	}
 
 	ctrl->tls_mode = 0;
-	ctrl->tls_timer_state = -1;
-	if (ctrl->tls_short_timer)
-	{
-		platform_release_timer(ctrl->tls_short_timer);
-		ctrl->tls_short_timer = NULL;
-	}
-	if (ctrl->tls_long_timer)
-	{
-		platform_release_timer(ctrl->tls_long_timer);
-		ctrl->tls_long_timer = NULL;
-	}
 #endif
 }
 
@@ -2928,4 +2961,30 @@ int network_tcpip_callback(nw_callback_fn fn, void *ctx, int block) {
 		return 0;
 	}
 	return tcpip_callback_with_block(fn, ctx, block);
+}
+
+#ifndef LUAT_LWIP_RX_CACHE_NUM
+#if defined(CHIP_EC718) || defined (CHIP_EC716)
+#define LUAT_LWIP_RX_CACHE_NUM	6
+#else
+#define LUAT_LWIP_RX_CACHE_NUM	32
+#endif
+#endif
+
+#ifndef __LUAT_C_CODE_IN_ISR__
+#define __LUAT_C_CODE_IN_ISR__
+#endif
+
+static uint32_t _lwip_rx_cache_nums = LUAT_LWIP_RX_CACHE_NUM;
+
+__LUAT_C_CODE_IN_ISR__ u32_t soc_tcpip_rx_cache(void) {
+	return _lwip_rx_cache_nums * TCP_MSS;
+}
+
+void network_set_lwip_rx_cache_nums(uint32_t nums) {
+	_lwip_rx_cache_nums = nums;
+}
+
+uint32_t network_get_lwip_rx_cache_nums(void) {
+	return _lwip_rx_cache_nums;
 }

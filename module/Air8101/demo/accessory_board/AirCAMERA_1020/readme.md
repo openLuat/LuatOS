@@ -16,6 +16,8 @@
 
 注意：take_photo_http_post.lua 和 video_http_post.lua 和 rtmp_app.lua 只能打开一个不能同时打开
 
+> 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址，或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
+
 ## 演示功能概述
 
 ### 1、主程序入口模块（main.lua）
@@ -149,8 +151,8 @@ AirCAMERA_1020 配件板 +Air8101 核心板，硬件连接示意图如下所示�
 [2025-11-17 14:44:07.375] luat:U(31148):I/user.摄像头数据 47184
 [2025-11-17 14:44:07.381] luat:D(31150):camera:执行摄像头停止操作
 [2025-11-17 14:44:07.381] luat:U(31152):I/user.拍照完成
-[2025-11-17 14:44:07.381] luat:D(31158):socket:connect to upload.air32.cn,80
-[2025-11-17 14:44:07.381] luat:D(31158):DNS:upload.air32.cn state 0 id 2 ipv6 0 use dns server0, try 0
+[2025-11-17 14:44:07.381] luat:D(31158):socket:connect to uploadtest.luatos.com,80
+[2025-11-17 14:44:07.381] luat:D(31158):DNS:uploadtest.luatos.com state 0 id 2 ipv6 0 use dns server0, try 0
 [2025-11-17 14:44:07.381] luat:D(31159):net:adatper 2 dns server 223.5.5.5
 [2025-11-17 14:44:07.381] luat:D(31159):net:dns udp sendto 223.5.5.5:53 from 192.168.1.119
 [2025-11-17 14:44:07.472] luat:I(31217):DNS:dns all done ,now stop
@@ -351,15 +353,15 @@ AirCAMERA_1020 配件板 +Air8101 核心板，硬件连接示意图如下所示�
 [2026-02-11 15:04:16.503] luat:U(31704):I/user.excamera.video sys内存: 238608 29976 113936
 [2026-02-11 15:04:16.503] luat:U(31704):I/user.excamera.video 视频录制完成 /sd/video_dvp_ 1.mp4
 [2026-02-11 15:04:16.503] luat:U(31704):I/user.视频录制成功!
-[2026-02-11 15:04:16.503] luat:D(31709):socket:connect to upload.air32.cn,80
-[2026-02-11 15:04:16.503] luat:D(31710):DNS:upload.air32.cn state 0 id 1 ipv6 0 use dns server0, try 0
+[2026-02-11 15:04:16.503] luat:D(31709):socket:connect to uploadtest.luatos.com,80
+[2026-02-11 15:04:16.503] luat:D(31710):DNS:uploadtest.luatos.com state 0 id 1 ipv6 0 use dns server0, try 0
 [2026-02-11 15:04:16.503] luat:D(31710):net:adatper 2 dns server 223.5.5.5
 [2026-02-11 15:04:16.503] luat:D(31711):net:dns udp sendto 223.5.5.5:53 from 192.168.0.107
-[2026-02-11 15:04:17.497] luat:D(32710):DNS:upload.air32.cn state 0 id 1 ipv6 0 use dns server0, try 1
+[2026-02-11 15:04:17.497] luat:D(32710):DNS:uploadtest.luatos.com state 0 id 1 ipv6 0 use dns server0, try 1
 [2026-02-11 15:04:17.497] luat:D(32710):net:adatper 2 dns server 223.5.5.5
 [2026-02-11 15:04:17.502] luat:D(32710):net:dns udp sendto 223.5.5.5:53 from 192.168.0.107
 [2026-02-11 15:04:18.486] luat:D(33710):net:adatper 2 dns server 223.5.5.5
-[2026-02-11 15:04:19.506] luat:D(34710):DNS:upload.air32.cn state 0 id 1 ipv6 0 use dns server0, try 2
+[2026-02-11 15:04:19.506] luat:D(34710):DNS:uploadtest.luatos.com state 0 id 1 ipv6 0 use dns server0, try 2
 [2026-02-11 15:04:19.506] luat:D(34710):net:adatper 2 dns server 223.5.5.5
 [2026-02-11 15:04:19.506] luat:D(34710):net:dns udp sendto 223.5.5.5:53 from 192.168.0.107
 [2026-02-11 15:04:19.569] luat:I(34778):DNS:dns all done ,now stop
@@ -463,8 +465,8 @@ AirCAMERA_1020 配件板 +Air8101 核心板，硬件连接示意图如下所示�
 [2026-02-11 15:06:46.457] luat:U(181700):I/user.excamera.video sys内存: 238608 29976 113936
 [2026-02-11 15:06:46.457] luat:U(181700):I/user.excamera.video 视频录制完成 /sd/video_dvp_ 2.mp4
 [2026-02-11 15:06:46.465] luat:U(181700):I/user.视频录制成功!
-[2026-02-11 15:06:46.465] luat:D(181705):socket:connect to upload.air32.cn,80
-[2026-02-11 15:06:46.465] luat:D(181706):DNS:upload.air32.cn state 0 id 2 ipv6 0 use dns server0, try 0
+[2026-02-11 15:06:46.465] luat:D(181705):socket:connect to uploadtest.luatos.com,80
+[2026-02-11 15:06:46.465] luat:D(181706):DNS:uploadtest.luatos.com state 0 id 2 ipv6 0 use dns server0, try 0
 [2026-02-11 15:06:46.465] luat:D(181706):net:adatper 2 dns server 223.5.5.5
 [2026-02-11 15:06:46.465] luat:D(181706):net:dns udp sendto 223.5.5.5:53 from 192.168.0.107
 [2026-02-11 15:06:46.465] luat:U(181708):I/user.系统内存使用情况 238608 30104 113936
@@ -491,6 +493,8 @@ AirCAMERA_1020 配件板 +Air8101 核心板，硬件连接示意图如下所示�
 ```
 
 5、登录[https://www.air32.cn/upload/mp4/](https://www.air32.cn/upload/mp4/)查看录制的视频;
+-- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+-- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
 
 ### **使用rtmp推流功能演示的核心步骤：**
 

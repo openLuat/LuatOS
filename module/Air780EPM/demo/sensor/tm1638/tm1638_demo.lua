@@ -77,9 +77,28 @@ local function demo_leds()
     sys.wait(500)
 end
 
+-- 演示亮度调节
+local function demo_brightness()
+    log.info("tm1638_demo", "===== [3/7] 亮度调节 =====")
+
+    exs_tm1638.clear()
+    exs_tm1638.set_display("88888888")
+    sys.wait(500)
+
+    for brightness = 0, 7 do
+        log.info("tm1638_demo", "设置亮度:", brightness)
+        exs_tm1638.set_brightness(brightness)
+        sys.wait(800)
+    end
+
+    exs_tm1638.set_brightness(4)
+    exs_tm1638.clear()
+    sys.wait(500)
+end
+
 -- 演示按键轮询
 local function demo_keys()
-    log.info("tm1638_demo", "===== [3/7] 按键轮询 =====")
+    log.info("tm1638_demo", "===== [4/7] 按键轮询 =====")
     log.info("tm1638_demo", "请在 10 秒内按下连接到 TM1638 的按键...")
 
     exs_tm1638.clear()
@@ -104,25 +123,6 @@ local function demo_keys()
     end
 
     log.info("tm1638_demo", "按键检测超时，跳过")
-end
-
--- 演示亮度调节
-local function demo_brightness()
-    log.info("tm1638_demo", "===== [4/7] 亮度调节 =====")
-
-    exs_tm1638.clear()
-    exs_tm1638.set_display("88888888")
-    sys.wait(500)
-
-    for brightness = 0, 7 do
-        log.info("tm1638_demo", "设置亮度:", brightness)
-        exs_tm1638.set_brightness(brightness)
-        sys.wait(800)
-    end
-
-    exs_tm1638.set_brightness(4)
-    exs_tm1638.clear()
-    sys.wait(500)
 end
 
 -- 按键回调函数

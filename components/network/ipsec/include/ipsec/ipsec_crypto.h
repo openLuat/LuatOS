@@ -1,0 +1,215 @@
+/**
+ * \file ipsec_crypto.h
+ *
+ * \brief IKEv2/IPsec crypto helpers (PRF+, DH, key derivation, AUTH,
+ *        certificate verification).
+ */
+#ifndef IPSEC_CRYPTO_H
+#define IPSEC_CRYPTO_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "mbedtls/md.h"
+#include "mbedtls/dhm.h"
+#include "mbedtls/ecdh.h"
+#include "mbedtls/pk.h"
+#include "mbedtls/x509_crt.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* IKE proposal algorithm selectors */
+#define IPSEC_PRF_SHA1        0
+#define IPSEC_PRF_SHA256      1
+#define IPSEC_ENC_AES128      0
+#define IPSEC_ENC_AES256      1
+#define IPSEC_ENC_AES_GCM128  2
+#define IPSEC_ENC_AES_GCM256  3
+#define IPSEC_INTEG_SHA1      0
+#define IPSEC_INTEG_SHA256    1
+#define IPSEC_INTEG_NONE      2
+
+/* IKE DH group numbers (RFC 7296 transform IDs) */
+#define IPSEC_DH_MODP_2048    14
+#define IPSEC_DH_ECP_256      19
+#define IPSEC_DH_ECP_384      20
+#define IPSEC_DH_ECP_521      21
+
+typedef struct ipsec_ike_algs {
+    uint8_t prf;       /* IPSEC_PRF_* */
+    uint8_t enc;       /* IPSEC_ENC_*  */
+    uint8_t integ;     /* IPSEC_INTEG_* */
+    uint16_t dh;       /* IPSEC_DH_* (IKE_SA_INIT only) */
+} ipsec_ike_algs_t;
+
+/* Key sizes */
+#define IPSEC_AES128_KEY_LEN   16
+#define IPSEC_AES256_KEY_LEN   32
+#define IPSEC_SHA1_KEY_LEN     20
+#define IPSEC_SHA256_KEY_LEN   32
+#define IPSEC_DH_MODP2048_LEN  256
+
+static inline mbedtls_md_type_t ipsec_prf_md(uint8_t prf)
+{
+    return prf == IPSEC_PRF_SHA1 ? MBEDTLS_MD_SHA1 : MBEDTLS_MD_SHA256;
+}
+
+static inline uint16_t ipsec_prf_len(uint8_t prf)
+{
+    return prf == IPSEC_PRF_SHA1 ? IPSEC_SHA1_KEY_LEN : IPSEC_SHA256_KEY_LEN;
+}
+
+static inline uint16_t ipsec_enc_len(uint8_t enc)
+{
+    return (enc == IPSEC_ENC_AES128 || enc == IPSEC_ENC_AES_GCM128)
+               ? IPSEC_AES128_KEY_LEN
+               : IPSEC_AES256_KEY_LEN;
+}
+
+static inline uint16_t ipsec_integ_len(uint8_t integ)
+{
+    return integ == IPSEC_INTEG_NONE ? 0 :
+           (integ == IPSEC_INTEG_SHA1 ? IPSEC_SHA1_KEY_LEN : IPSEC_SHA256_KEY_LEN);
+}
+
+/* Public KE value length in octets per DH group:
+ * MODP-2048: 256; ECP-256/384/521: x||y = 64/96/132 (RFC 5903). */
+static inline uint16_t ipsec_dh_pub_len(uint16_t group)
+{
+    switch (group) {
+    case IPSEC_DH_MODP_2048:
+        return IPSEC_DH_MODP2048_LEN;
+    case IPSEC_DH_ECP_256:
+        return 64;
+    case IPSEC_DH_ECP_384:
+        return 96;
+    case IPSEC_DH_ECP_521:
+        return 132;
+    default:
+        return 0;
+    }
+}
+
+/* PRF (one-shot HMAC) and prf+ (RFC 7296 §2.13) */
+int ipsec_prf(uint8_t prf, const uint8_t *key, size_t key_len,
+              const uint8_t *in, size_t in_len, uint8_t *out);
+int ipsec_prf_plus(uint8_t prf, const uint8_t *key, size_t key_len,
+                   const uint8_t *seed, size_t seed_len,
+                   uint8_t *out, size_t out_len);
+
+/* mbedTLS RNG adapter (luat_crypto_trng) */
+int ipsec_rng_cb(void *ctx, unsigned char *output, size_t len);
+
+/* DH group abstraction: MODP-2048 via mbedtls_dhm, ECP 256/384/521 via
+ * mbedtls_ecdh.  KE public values use the IKEv2 wire format (RFC 5903
+ * x||y for ECP, no leading 0x04); the shared secret is the full-size
+ * big-endian x coordinate (32/48/66 bytes). */
+typedef struct ipsec_dh_ctx {
+    uint16_t group;
+    union {
+        mbedtls_dhm_context  dhm;
+        mbedtls_ecdh_context ecdh;
+    } u;
+} ipsec_dh_ctx_t;
+
+/* Init a context for \p group (re-initializes if already set), and free. */
+int  ipsec_dh_init(ipsec_dh_ctx_t *ctx, uint16_t group);
+void ipsec_dh_free(ipsec_dh_ctx_t *ctx);
+
+/* DH group 14 (RFC 3526 MODP-2048) raw helper */
+int ipsec_dh_set_group14(mbedtls_dhm_context *dhm);
+int ipsec_dh_make_public(ipsec_dh_ctx_t *ctx, uint8_t *pub, size_t *pub_len);
+int ipsec_dh_read_public(ipsec_dh_ctx_t *ctx, const uint8_t *pub, size_t pub_len);
+int ipsec_dh_calc_secret(ipsec_dh_ctx_t *ctx, uint8_t *secret, size_t *secret_len);
+
+/**
+ * Derive SKEYSEED and the seven IKE SA keys (RFC 7296 §2.14).
+ *
+ * \param algs      Negotiated algorithms.
+ * \param ni,nr     Nonces.
+ * \param ni_len, nr_len
+ * \param g_ir      DH shared secret (big-endian, modulus length).
+ * \param g_ir_len
+ * \param spii, spir IKE SA SPIs (8 bytes each).
+ * \param out       Buffer of at least 5 * ipsec_prf_len(algs->prf) +
+ *                  2 * ipsec_enc_len(algs->enc) bytes; receives
+ *                  SK_d | SK_ai | SK_ar | SK_ei | SK_er | SK_pi | SK_pr.
+ */
+int ipsec_derive_ike_keys(const ipsec_ike_algs_t *algs,
+                          const uint8_t *ni, uint16_t ni_len,
+                          const uint8_t *nr, uint16_t nr_len,
+                          const uint8_t *g_ir, uint16_t g_ir_len,
+                          const uint8_t *spii, const uint8_t *spir,
+                          uint8_t *out);
+
+/**
+ * Derive CHILD_SA KEYMAT (RFC 7296 §2.17): prf+(SK_d, Ni | Nr).
+ * Keys are taken: outbound ENCR | outbound extra | inbound ENCR | inbound
+ * extra. For CBC SAs extra is the integrity key; for AEAD SAs extra is the
+ * 4-octet GCM salt.
+ */
+int ipsec_derive_child_keymat(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_len,
+                              const uint8_t *ni, uint16_t ni_len,
+                              const uint8_t *nr, uint16_t nr_len,
+                              uint8_t enc_len, uint8_t extra_len,
+                              uint8_t *out); /* 2*(enc_len+extra_len) bytes */
+
+/**
+ * Derive CHILD_SA KEYMAT from an arbitrary seed (RFC 7296 §2.17).
+ * With PFS the seed is g^ir | Ni | Nr; without PFS it is Ni | Nr.
+ */
+int ipsec_derive_child_keymat_seed(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_len,
+                                   const uint8_t *seed, uint16_t seed_len,
+                                   uint8_t enc_len, uint8_t extra_len,
+                                   uint8_t *out);
+
+/**
+ * Compute a shared-secret style AUTH value (RFC 7296 §2.15):
+ *   AUTH = prf(prf(SharedSecret, "Key Pad for IKEv2"), SignedOctets)
+ */
+int ipsec_compute_auth_shared(uint8_t prf,
+                              const uint8_t *shared, size_t shared_len,
+                              const uint8_t *signed_octets, size_t signed_len,
+                              uint8_t *auth_out, size_t auth_out_len);
+
+/**
+ * Verify an RSA/ECDSA AUTH signature over SignedOctets using \p sig_md.
+ * For the digital-signature method this is the negotiated PRF hash; the
+ * numbered ECDSA methods use their fixed SHA-256/SHA-384/SHA-512 hash.
+ */
+int ipsec_verify_auth_signature(const mbedtls_pk_context *pk,
+                                mbedtls_md_type_t sig_md,
+                                const uint8_t *signed_octets, size_t signed_len,
+                                const uint8_t *auth, size_t auth_len);
+
+/**
+ * Verify an X.509 certificate chain against a trust anchor and check the
+ * leaf certificate's SAN/CN against \p san.
+ *
+ * \param chain     Parsed certificate chain (leaf first), from CERT payloads.
+ * \param ca_pem    Optional PEM trust anchor. If NULL, the certificate is
+ *                  accepted only when \p insecure_cert_ok is set; in that
+ *                  case the SAN is still checked against \p san.
+ * \param ca_pem_len
+ * \param san       Expected server name or IPv4 address (e.g. "ipsec.air32.cn"
+ *                  or "10.0.0.1").
+ * \param insecure_cert_ok Permit missing CA after checking the SAN.
+ * \param cacert    Optional scratch trust-store to keep allocated by the
+ *                  caller (mbedtls_x509_crt_init'd).  If NULL a stack
+ *                  store is used internally.
+ *
+ * \return 0 on success, negative on failure.
+ */
+int ipsec_verify_cert_chain(mbedtls_x509_crt *chain,
+                            const char *ca_pem, size_t ca_pem_len,
+                            const char *san,
+                            int insecure_cert_ok,
+                            mbedtls_x509_crt *cacert);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* IPSEC_CRYPTO_H */

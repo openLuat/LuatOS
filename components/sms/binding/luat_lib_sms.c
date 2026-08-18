@@ -53,6 +53,8 @@ static luat_sms_pdu_packet_t g_s_sms_pdu_packet = {0};
 static long_sms_send_t g_s_sms_send = {0};
 static uint8_t ref_idx = 254;
 static uint64_t long_sms_send_idp = 0;
+static uint8_t g_sms_msg_refs[LONG_SMS_CMAX];  // 每段的 MR (Message Reference)
+static uint8_t g_sms_msg_ref_count = 0;         // 已确认的段数
 
 
 static int l_long_sms_send_callback(lua_State *L, void* ptr){
@@ -77,11 +79,17 @@ SMS_SENT
 @result boolean 发送结果，成功为true, 失败为false
 @number rp_cause RP-Cause错误码(3GPP TS 24.011), 0=成功, 1=空号, 30=未知用户, 50=未开通服务(停机)
 @string rp_cause_str RP-Cause描述字符串
-@number msg_ref 消息参考号, 用于匹配后续的SMS_REPORT回执消息
+@number msg_ref 最后一段的消息参考号, 用于匹配后续的SMS_REPORT回执消息
 @number error_code SDK错误码(0=成功, 300=设备故障, 330=短信中心未知, 332=无网络服务, 333=网络超时, 500=未知错误)
+@table msg_refs 所有段的消息参考号列表, 如{10,11,12}, 短信为单段时{5}; 用于匹配每段短信的SMS_REPORT回执
 @usage
-sys.subscribe("SMS_SENT", function(result, rp_cause, rp_cause_str, msg_ref, error_code)
+sys.subscribe("SMS_SENT", function(result, rp_cause, rp_cause_str, msg_ref, error_code, msg_refs)
     log.info("sms send", result, rp_cause, rp_cause_str, msg_ref, error_code)
+    if msg_refs then
+        for i, ref in ipairs(msg_refs) do
+            log.info("sms send", "段", i, "msg_ref", ref)
+        end
+    end
 end)
 */
     lua_getglobal(L, "sys_pub");
@@ -93,7 +101,13 @@ end)
     lua_pushstring(L, rp_cause_str);
     lua_pushinteger(L, msg_ref);
     lua_pushinteger(L, error_code);
-    lua_call(L, 6, 0);
+    // 推送 msg_refs 表
+    lua_newtable(L);
+    for (int i = 0; i < g_sms_msg_ref_count; i++) {
+        lua_pushinteger(L, g_sms_msg_refs[i]);
+        lua_seti(L, -2, i + 1);
+    }
+    lua_call(L, 7, 0);
     g_s_sms_pdu_packet.maxNum = 0;
     return 0;
 }
@@ -226,6 +240,7 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
     // 先发系统消息
     lua_getglobal(L, "sys_pub");
     if (lua_isnil(L, -1)) {
+        if (dst) luat_heap_free(dst);
         luat_heap_free(sms);
         return 0;
     }
@@ -260,7 +275,7 @@ end)
         }
     }
     // 清理长短信的缓冲,如果有的话
-    for (size_t i = 0; i < 16; i++)
+    for (size_t i = 0; i < LONG_SMS_CMAX; i++)
     {
         if (lngbuffs[i] && lngbuffs[i]->refNum == sms->refNum) {
             luat_heap_free(lngbuffs[i]);
@@ -385,6 +400,12 @@ void luat_sms_send_cb(int ret)
         return;
     }
 
+    // 记录本段的 msg_ref
+    if (g_s_sms_pdu_packet.seqNum > 0 && g_s_sms_pdu_packet.seqNum <= LONG_SMS_CMAX) {
+        g_sms_msg_refs[g_s_sms_pdu_packet.seqNum - 1] = msg_ref;
+        g_sms_msg_ref_count = g_s_sms_pdu_packet.seqNum;
+    }
+
     // 发送失败
     if (ret) {
         luat_sms_send_done(0, (uint16_t)ret, rp_cause, msg_ref);
@@ -441,6 +462,8 @@ static int sms_encode_and_pack(const char *payload, size_t payload_len)
 
     memset(&g_s_sms_send, 0x00, sizeof(long_sms_send_t));
     memset(&g_s_sms_pdu_packet, 0x00, sizeof(luat_sms_pdu_packet_t));
+    memset(g_sms_msg_refs, 0, sizeof(g_sms_msg_refs));
+    g_sms_msg_ref_count = 0;
 
     sms_buf = (uint8_t *)luat_heap_malloc(payload_len * 3);
     if (sms_buf == NULL) {
@@ -519,7 +542,7 @@ static int sms_encode_and_pack(const char *payload, size_t payload_len)
 @bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
 @bool   是否请求短信回执(状态报告),默认false不请求,设为true时接收方成功接收后会收到SMS_REPORT消息
 @return bool 成功返回true,否则返回false或nil
-@usgae
+@usage
 -- 短信号码支持2种形式
 -- +XXYYYYYYY 其中XX代表国家代码, 中国是86, 推荐使用这种
 -- YYYYYYYYY  直接填目标号码, 例如10010, 10086, 或者国内的手机号码
@@ -569,6 +592,8 @@ static int l_sms_send(lua_State *L) {
     g_s_sms_pdu_packet.phone = phone;
     g_s_sms_pdu_packet.seqNum = 1;
     g_s_sms_pdu_packet.srr = need_report;
+    if (need_report)
+        g_s_sms_pdu_packet.vp = 5; // 30分钟有效期, 超时后SMSC返回EXPIRED
 
     int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
     LLOGD("pdu len %d", len);
@@ -595,7 +620,7 @@ static int l_sms_send(lua_State *L) {
 @bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
 @bool   是否请求短信回执(状态报告),默认false不请求,设为true时接收方成功接收后会收到SMS_REPORT消息
 @return bool 异步等待结果 成功返回true, 否则返回false或nil
-@usgae
+@usage
 sys.taskInit(function()
     local str = string.rep("1234567890", 50)
     sys.waitUntil("IP_READY")
@@ -650,6 +675,8 @@ static int l_long_sms_send(lua_State *L) {
     g_s_sms_pdu_packet.phone = phone;
     g_s_sms_pdu_packet.seqNum = 1;
     g_s_sms_pdu_packet.srr = need_report;
+    if (need_report)
+        g_s_sms_pdu_packet.vp = 5; // 30分钟有效期, 超时后SMSC返回EXPIRED
 
     {
         int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
@@ -745,6 +772,7 @@ PDU短信解包
 @string pdu_data PDU格式的短信数据(hex字符串)
 @return table 解包后的短信内容
 @usage
+-- 仅PC模拟器包含这个函数, 真机不需要这个函数
 local pdu = "0491680010F50400069110102143650008024F60"
 local phone, txt, metas = sms.unpack(pdu)
 log.info("sms unpack", phone, txt, metas and json.encode(metas) or "")
@@ -835,8 +863,9 @@ static int l_sms_pdu_unpack(lua_State *L) {
     }
     // 打印sms->dcs_info.alpha_bet和数据
     if (sms->dcs_info.alpha_bet == 0) {
-        memcpy(dst, sms->sms_buffer, strlen(sms->sms_buffer));
-        dstlen = strlen(sms->sms_buffer);
+        dstlen = strlen((char*)sms->sms_buffer);
+        memcpy(dst, sms->sms_buffer, dstlen);
+        dst[dstlen] = '\0';
     }
     else {
         luat_str_ucs2_to_char(sms->sms_buffer, strlen(sms->sms_buffer), dst, &dstlen);
@@ -895,13 +924,15 @@ static int l_sms_set_report_cb(lua_State *L) {
 static const rotable_Reg_t reg_sms[] =
 {
     { "send",           ROREG_FUNC(l_sms_send)},
+    { "sendLong",       ROREG_FUNC(l_long_sms_send)},
     { "setNewSmsCb",    ROREG_FUNC(l_sms_cb)},
     { "autoLong",       ROREG_FUNC(l_sms_auto_long)},
     { "clearLong",      ROREG_FUNC(l_sms_clear_long)},
-    { "sendLong",       ROREG_FUNC(l_long_sms_send)},
-    { "unpack",         ROREG_FUNC(l_sms_pdu_unpack)},
     { "setReportCb",    ROREG_FUNC(l_sms_set_report_cb)},
     { "debug",          ROREG_FUNC(l_sms_set_debug)},
+    #if defined(LUA_USE_WINDOWS)
+    { "unpack",         ROREG_FUNC(l_sms_pdu_unpack)},
+    #endif
 	{ NULL,             ROREG_INT(0)}
 };
 

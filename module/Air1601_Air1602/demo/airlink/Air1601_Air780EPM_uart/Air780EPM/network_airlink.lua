@@ -88,8 +88,8 @@ end
 local function http_get_test()
     -- 循环发起HTTP GET请求，测试Air780EPM的网络访问外网是否正常。
     while 1 do
-        log.info("发起HTTP GET请求", "https://httpbin.air32.cn/bytes/2048")
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {
+        log.info("发起HTTP GET请求", "https://httpbin.luatos.com/bytes/2048")
+        local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {
             timeout = 3000
         }).wait()
 

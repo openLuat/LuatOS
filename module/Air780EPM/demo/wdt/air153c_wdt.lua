@@ -15,8 +15,12 @@
 注意：在异常模式下，设备会在运行一段时间后重启
 ]]
 
+local air153C_wtd = require("air153C_wtd")
+
 -- 演示模式选择： "normal" 或 "fault"
 local DEMO_MODE = "normal"  -- 修改这个变量来切换演示模式
+
+local wdt_pin = 24
 
 -- 看门狗喂狗任务函数
 local function watchdogTask()
@@ -26,15 +30,15 @@ local function watchdogTask()
         return
     end
     
-    -- 初始化看门狗引脚28
-    air153C_wtd.init(28)
-    log.info("air153C_wtd", "外部看门狗已初始化，引脚28")
+    -- 初始化看门狗引脚
+    air153C_wtd.init(wdt_pin)
+    log.info("air153C_wtd", "外部看门狗已初始化，引脚" .. wdt_pin)
 
     if DEMO_MODE == "normal" then
         -- 正常模式：主循环中定期喂狗
         while true do
             -- 每10秒喂一次狗
-            air153C_wtd.feed_dog(28)
+            air153C_wtd.feed_dog(wdt_pin)
             log.info("wdt", "Watchdog fed")
             
             -- 执行其他业务逻辑
@@ -45,7 +49,7 @@ local function watchdogTask()
         local feed_count = 0
         while true do
             -- 每10秒喂一次狗
-            air153C_wtd.feed_dog(28)
+            air153C_wtd.feed_dog(wdt_pin)
             feed_count = feed_count + 1
             log.info("wdt", "Watchdog fed")
             

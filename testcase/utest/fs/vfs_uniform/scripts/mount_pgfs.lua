@@ -3,9 +3,10 @@
 -- 使用 lf.mount(flash, "/pgfs0", offset, size, {fs="pgfs"})
 -- 注意: pgfs 一次只能 mount 一个 (静态 s_pgfs_ctx)
 --
--- 8MB partition 限制: PGFS 8MB 以下会被 luat_vfs_pgfs_mount 拒绝.
--- 原因: FTL 元数据 (~256KB) + 2× superblock + 2× CP + segment allocator
--- 需要 64×128KB block (8MB 起始), 256KB 的 utest 分区无法满足这些需求.
+-- 分区门槛 (P2-3, 几何化): 需要
+--   (5 保留块 + PGFS_MIN_DATA_LOG_BLOCKS=64) × erase_size.
+-- 4KB erase → 最小 ~276KB; 128KB erase → 最小 ~8.8MB.
+-- 256KB 的 utest 分区无法满足这些需求.
 
 local common = require("vfs_common")
 local M = {}
@@ -68,7 +69,7 @@ function M.setup()
     -- Probe 仅打印日志, 不阻断 setup. 修复前 log 标 FAIL, 修复后标 PASS.
     probe_size_gate(flash, 256 * 1024, false, "256KB-must-be-rejected")
 
-    -- TDD probe: 8MB 边界值 (PGFS_MIN_PARTITION_BYTES) 必须被接受.
+    -- TDD probe: 8MB (4KB erase = 2048 blocks ≥ 69) 必须被接受.
     probe_size_gate(flash, 8 * 1024 * 1024, true, "8MB-boundary-must-accept")
 
     -- TDD probe: 16MB 必须被接受 (与 PGFS_TEST_FLASH_LARGE_SIZE 一致).

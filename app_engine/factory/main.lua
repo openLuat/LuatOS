@@ -46,17 +46,20 @@ PROJECT：项目名，ascii string类型
   "Engine_Air1602_AirLCD_1090_09421_V000"   → config/eng_1602_9i_v09421.lua   9寸RGB  HX8282  +WiFi+NAND+NES+电池
   "Engine_Air1602_AirLCD_1100_10421_V000"   → config/eng_1602_10i_v10421.lua  10寸RGB HX8282  +WiFi+NAND+NES+电池
   "Engine_Air1602_5inch_480x854_005_V000"       → config/eng_1602_5i_v5.lua     5寸RGB  ST7701S +WiFi+NAND
+  "Engine_Air1780H_4inch_480x272_000_V000"      → config/eng_1780h_4i_v0.lua    4.3寸SPI ST6201  +WiFi(airlink/6205)+ES8311+SD+NAND
 
 
   EVB turnkey 开发板系列:
   "EVB_Air8101_AirLCD_1020_000_V020"            → config/evb_8101_5i_v0.lua     5寸RGB H050IWV  +WiFi+以太网
   "EVB_Air8101_AirLCD_1090_000_V020"            → config/evb_8101_9i_v0.lua     9寸RGB HX8282  +WiFi+以太网
-  "EVB_Air8101_AirLCD_1100_000_V020"            → config/evb_8101_10i_v0.lua    10寸RGB HX8282  +WiFi+以太网
+  "EVB_Air8101_AirLCD_1100_000_V020"            → config/evb_8101_10i_v0.lua    10寸RGB HX8282  +WiFi+以太网+应用工厂(内置DAC)
+  "EVB_Air8101_AirLCD_1070_000_V020"            → config/evb_8101_7i_v0.lua      7寸RGB HX8282  +WiFi+以太网
   "EVB_Air8101B_5inch_480x854_000_V010"         → config/evb_8101b_5i_v1.lua     5寸RGB  ST7701S +WiFi
   "EVB_Air8101B_5inch_480x854_000_V020"         → config/evb_8101b_5i_v2.lua     5寸RGB  GC9503   +WiFi
   "EVB_Air8000A_3inch5_480x320_000_V020"       → config/evb_8000a_3i5_v0.lua   3.5寸SPI ST7796  +4G+WiFi+SD
   "EVB_Air1601_10inch1_1024x600_000_V011"      → config/evb_1601_10i_v11.lua   10寸RGB HX8282  +WiFi(airlink)+SD
   "EVB_Air1601_7inch_1024x600_000_V011"        → config/evb_1601_7i_v11.lua     7寸RGB HX8282  +WiFi(airlink)+SD
+  "EVB_Air1601_7inch_1024x600_000_V012"        → config/evb_1601_7i_v12.lua     7寸RGB HX8282  +WiFi(airlink spi2)+4G+以太网+SD+应用工厂(ES8311录音播放)
 
   待实现（映射已预留，配置文件待创建）:
   "EVB_Air780EGG_3inch5_480x320_000_V014"      "EVB_Air780EHV_3inch5_480x320_000_V014"
@@ -77,8 +80,8 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 -- main.lua - 程序入口文件
-PROJECT = "EVB_Air8101B_5inch_480x854_000_V020"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
-VERSION = "001.999.005"                               -- 固件版本号，用于 FOTA 升级比对
+PROJECT = "EVB_Air1601_7inch_1024x600_000_V012"  -- 项目命名，映射到 config/ 下的配置文件和硬件参数
+VERSION = "001.999.006"                               -- 固件版本号，用于 FOTA 升级比对
 PROJECT_KEY = "fZLKIlp79dW9LqL95kDZhuTi9RBuGOyE"    -- 项目密钥，FOTA 云端鉴权
 
 -- 在日志中打印项目名和项目版本号

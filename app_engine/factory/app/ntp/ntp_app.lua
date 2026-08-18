@@ -25,7 +25,7 @@ wifi_app 在 IP_READY 后通过 start_connectivity_verification() 等待 NTP_UPD
 -- 自定义NTP服务器列表，可选配置，默认使用内置的ntp.aliyun.com
 local ntp_servers = {
     "ntp.aliyun.com",
-    "ntp.air32.cn",
+    "ntp.ntsc.ac.cn",
     "time1.cloud.tencent.com"
 }
 
@@ -64,9 +64,9 @@ end
 NTP同步主逻辑
 ]]
 local function ntp_sync_task()
-    -- Air1601/Air1602需要显式设置默认网卡为STA
+    -- Air1601/Air1602/Air1780需要显式设置默认网卡为STA
     local chip = (_G.project_config and _G.project_config.chip) or ""
-    if chip:find("Air1601") or chip:find("Air1602") then
+    if chip:find("Air1601") or chip:find("Air1602") or chip:find("Air1780") then
         socket.dft(socket.LWIP_STA)
     end
 

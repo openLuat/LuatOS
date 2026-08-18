@@ -13,6 +13,7 @@
 #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
 #include "luat_mobile.h"
 #include "luat_netdrv.h"
+#include "luat_netdrv_event.h"
 #include "luat_network_adapter.h"
 
 #define LUAT_LOG_TAG "airlink"

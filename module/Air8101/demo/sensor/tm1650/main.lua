@@ -29,7 +29,7 @@ VERSION：项目版本号，ascii string类型
 -- main.lua - 程序入口文件
 
 PROJECT = "TM1650_Demo"    -- 项目命名
-VERSION = "001.000.001"    -- 项目版本号
+VERSION = "001.999.000"    -- 项目版本号
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)

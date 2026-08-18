@@ -2,14 +2,6 @@
 
 > 本文是 NDK 文档集的一部分。完整索引见 [`../README.md`](../README.md)。
 
-## RV32F 当前支持说明（阶段性）
-
-- 通过 `ndk.rv32i(..., { isa = "rv32imf" })` 启用单精度浮点扩展。
-- 当前已覆盖常见编译器发射路径：`FLW/FSW`、`FMV.*`、`FADD/FSUB/FMUL/FDIV/FSQRT.S/FMADD.S/FMSUB.S/FNMSUB.S/FNMADD.S`、`FMIN/FMAX.S`、`FEQ/FLT/FLE.S`、`FCLASS.S`、`FCVT.S.W/WU`、`FCVT.W/WU.S`。
-- 当前 host-backed rounding 支持 `RNE/RTZ/RDN/RUP`（`rm/frm = 0..3`）。
-- `RMM`（`rm/frm = 4`）**当前仍未支持**，遇到该 rounding mode 会按非法指令路径处理（阶段性限制，后续再扩展）。
-- 已补充 `RMM` 限制回归：`baremetal_fadd_rmm_static.bin`（`rm=4`）与 `baremetal_fadd_rmm_dynamic.bin`（`frm=4 + rm=dyn`）在 `rv32imf` 模式下都应触发非法指令 trap。
-
 ---
 
 ## 快速验证流程
@@ -18,15 +10,15 @@
 
 ```powershell
 # 1. 重建 ndk_basic guest 镜像（可选，如果二进制已是最新则跳过）
-cd components\ndk\guest\fixtures\rv32f_regression
+cd testcase\ndk\ndk_basic\guest
 cmd /c build.bat
 
 # 2. 重建 hostabi fixture（含 crypto + RV32C 回归镜像）
-cd ..\..\
+cd ..\..\..\..\components\ndk\guest
 .\build_hostabi_v1.ps1
 
 # 3. 构建 PC 模拟器
-cd ..\..\..\..\bsp\pc
+cd ..\..\..\bsp\pc
 cmd /c build_windows_32bit_msvc.bat
 
 # 4. 运行 hostabi 回归（含 crypto 命令链）
@@ -36,7 +28,7 @@ build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_h
 build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\ndk\ndk_basic\scripts\
 ```
 
-期望输出：`Total: N passed, 0 failed`（当前基线：`ndk_hostabi_basic` 为 `39 passed, 0 failed`；`ndk_basic` 为 `42 passed, 0 failed`）
+期望输出：`Total: N passed, 0 failed`（当前基线：`ndk_hostabi_basic` 为 `39 passed, 0 failed`；`ndk_basic` 为 `5 passed, 0 failed`）
 
 ---
 
@@ -67,7 +59,7 @@ cd LuatOS
 ### Step 3: 重建 Guest 镜像
 
 ```powershell
-cd components\ndk\guest\fixtures\rv32f_regression
+cd testcase\ndk\ndk_basic\guest
 cmd /c build.bat
 ```
 
@@ -90,7 +82,7 @@ Using LLVM/Clang toolchain (main.c -> baremetal.bin)
 ### Step 4: 重建 Host ABI fixture（含 crypto + RV32C）
 
 ```powershell
-cd ..\..\
+cd ..\..\..\..\components\ndk\guest
 .\build_hostabi_v1.ps1
 ```
 
@@ -103,7 +95,7 @@ cd ..\..\
 ### Step 5: 构建 PC 模拟器
 
 ```powershell
-cd ..\..\..\..\bsp\pc
+cd ..\..\..\bsp\pc
 cmd /c build_windows_32bit_msvc.bat
 ```
 

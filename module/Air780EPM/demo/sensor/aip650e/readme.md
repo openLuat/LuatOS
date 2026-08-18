@@ -41,9 +41,9 @@
 <tr>
 <td>Air780EPM 核心板<br/></td><td>AiP650E 模块<br/></td></tr>
 <tr>
-<td>31/GPIO31<br/></td><td>CLK<br/></td></tr>
+<td>32/GPIO31<br/></td><td>CLK<br/></td></tr>
 <tr>
-<td>30/GPIO30<br/></td><td>DIO<br/></td></tr>
+<td>31/GPIO30<br/></td><td>DIO<br/></td></tr>
 <tr>
 <td>VDD_EXT<br/></td><td>VCC<br/></td></tr>
 <tr>
@@ -60,7 +60,7 @@
 
 ### 4.2 内核固件
 
-- [点击下载Air780EPM系列最新版本内核固件](https://docs.openluat.com/air780epm/luatos/firmware/)，demo所使用的是 LuatOS-SoC_Vxxxx_Air780EPM_x.soc
+- [点击下载Air780EPM系列最新版本内核固件](https://docs.openluat.com/air780epm/luatos/firmware/780epm_version/)，demo所使用的是 LuatOS-SoC_V2046_Air780EPM 1号固件
 
 ### 4.3 脚本文件
 

@@ -39,6 +39,7 @@ local demos = {
     {name = "加载指示器演示", icon = airui.SYMBOL_REFRESH, page = "spinner", color = 0xFF9800},
     {name = "视频组件演示", icon = airui.SYMBOL_PLAY, page = "video", color = 0x3F51B5},
     {name = "摄像头预览演示", icon = airui.SYMBOL_IMAGE, page = "camera_preview", color = 0x1B5E20},
+    {name = "摄像头拍照演示", icon = airui.SYMBOL_IMAGE, page = "camera_snapshot", color = 0x00695C},
 }
 
 -- 创建主页UI

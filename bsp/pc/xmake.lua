@@ -153,6 +153,7 @@ target("luatos-lua")
     end
     if mbedtls_version == 2 then
         remove_files("src/luat_pc_dtls_utest.c")
+        remove_files("src/luat_pc_http_utest.c")
     end
     add_files("port/**.c")
 
@@ -188,8 +189,6 @@ target("luatos-lua")
             ,luatos.."luat/modules/luat_lib_mcu.c"
             ,luatos.."luat/modules/luat_lib_bit64.c"
             ,luatos.."luat/modules/luat_lib_uart.c"
-            ,luatos.."luat/modules/luat_lib_mqttcore.c"
-            ,luatos.."luat/modules/luat_lib_libcoap.c"
             ,luatos.."luat/modules/luat_lib_rtc.c"
             ,luatos.."luat/modules/luat_lib_gpio.c"
             ,luatos.."luat/modules/luat_lib_spi.c"
@@ -358,8 +357,16 @@ target("luatos-lua")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_nb.c")
         add_files(luatos.."/components/multimedia/audio/codec_adapter/luat_audio_codec_port_amr_wb.c")
 
+    -- speex codec
+    if os.getenv("LUAT_SUPPORT_SPEEX") ~= "n" then
+        add_defines("LUAT_SUPPORT_SPEEX=1")
+        add_includedirs(luatos.."components/speex/include")
+        add_thirdparty_files(luatos.."components/speex/libspeex/*.c")
+        add_files(luatos.."components/multimedia/audio/codec_adapter/luat_audio_codec_port_speex.c")
+    end
+
     -- audio_dsp（SpeexDSP 适配层，可选外部组件）
-    -- 源码位于 luatos-ext-components/audio_dsp，与 vedio_player 类似按需集成。
+    -- 源码位于 luatos-ext-components/audio_dsp，与 mp4player 类似按需集成。
     -- 环境变量 LUAT_USE_AUDIO_DSP=y 强制启用，=n 强制禁用；未设置时按目录存在性自动检测。
     local use_audio_dsp = false
     local audio_dsp_src = luatos_ext_root .. "/audio_dsp"
@@ -400,17 +407,229 @@ target("luatos-lua")
 
     -- opus
     -- 只暴露 opus 根目录和公共 API 目录，避免 celt/silk/src 等内部短文件名头文件全局冲突
-    add_defines("OPUS_ARM_ASM","USE_ALLOCA","FIXED_POINT=1","OPUS_BUILD=1")
-    add_includedirs(luatos.."/components/multimedia/opus",
-                    luatos.."/components/multimedia/opus/include"
-                    )
-    add_thirdparty_files(  luatos.."/components/multimedia/opus/celt/*.c|opus_custom_demo.c",
-                luatos.."/components/multimedia/opus/celt/arm/armcpu.c",
-                luatos.."/components/multimedia/opus/celt/arm/arm_celt_map.c",
-                luatos.."/components/multimedia/opus/silk/*.c",
-                luatos.."/components/multimedia/opus/silk/fixed/*.c",
-                luatos.."/components/multimedia/opus/src/*.c|opus_compare.c|qext_compare.c|opus_demo.c"
-                )
+    -- 三档配置，环境变量 LUAT_OPUS_MODE 控制，默认 full（编码+解码，与原行为一致）：
+    --   off    : 不编译 opus（仅当 bsp/pc/include/luat_conf_bsp.h 的 LUAT_SUPPORT_OPUS 关闭时可用）
+    --   decode : 仅解码，体积最小（相对 full 去除全部编码链）
+    --   full   : 编码+解码
+    -- 实测体积（MSVC x86 代理口径，.text+.rdata，度量见 bsp/pc/measure_opus_size.ps1）：
+    --   裁剪前基线 327.9KB → full /O1 约 206KB → decode /O1 约 119KB（另可选
+    --   LUAT_OPUS_SMALL_FOOTPRINT=y 再省约 6KB，以算法换静态表，有音质/CPU 代价）。
+    --   ARM 真机 -Os + gc-sections 下 decode 档预计 90-105KB，达到 100KB 级目标（待真机 map 验证）。
+    -- 两档均永久剔除：multistream/projection/mapping_matrix（端口层未使用）、
+    --   analysis/mlp/mlp_data（DISABLE_FLOAT_API 后为死代码）、mini_kfft（仅被已排除的
+    --   qext_compare.c 引用）、debug.c（仅 #if 0 调试统计）、各 *_demo/*_compare 测试程序。
+    -- Air1601 真机启用时（luatos-sdk-ccm42xx-gcc csdk/project/luatos/xmake.lua）请复用本清单，
+    --   另需内部 includedirs：opus/src、celt、celt/arm、silk、silk/arm、silk/fixed。
+    -- 原全量配置（回退用）：
+    --   add_defines("OPUS_ARM_ASM","USE_ALLOCA","FIXED_POINT=1","OPUS_BUILD=1")
+    --   add_includedirs(luatos.."/components/multimedia/opus",
+    --                   luatos.."/components/multimedia/opus/include")
+    --   add_thirdparty_files(luatos.."/components/multimedia/opus/celt/*.c|opus_custom_demo.c",
+    --               luatos.."/components/multimedia/opus/celt/arm/armcpu.c",
+    --               luatos.."/components/multimedia/opus/celt/arm/arm_celt_map.c",
+    --               luatos.."/components/multimedia/opus/silk/*.c",
+    --               luatos.."/components/multimedia/opus/silk/fixed/*.c",
+    --               luatos.."/components/multimedia/opus/src/*.c|opus_compare.c|qext_compare.c|opus_demo.c")
+    local opus_mode = os.getenv("LUAT_OPUS_MODE") or "full"
+    if opus_mode ~= "off" then
+        -- FIXED_POINT=1    定点实现（silk/float 不编译）
+        -- DISABLE_FLOAT_API 不暴露 float PCM API；端口层只用 int16 API，定义后
+        --                   opus_encoder 的 analysis/mlp 音调分析链成为死代码，可移出文件清单
+        -- SMALL_FOOTPRINT  不默认启用：以算法换静态表（cwrs/modes/celt_lpc/PLC），有音质/CPU
+        --                   代价；设环境变量 LUAT_OPUS_SMALL_FOOTPRINT=y 可 A/B 对比体积
+        -- OPUS_ARM_ASM     x86 PC 上无意义，已移除（真机 ARM 由 SDK 仓库自行配置）
+        add_defines("USE_ALLOCA","FIXED_POINT=1","OPUS_BUILD=1","DISABLE_FLOAT_API=1")
+        if os.getenv("LUAT_OPUS_SMALL_FOOTPRINT") == "y" then
+            add_defines("SMALL_FOOTPRINT=1")
+        end
+        if opus_mode == "decode" then
+            -- 编码链未参与编译，同步裁掉端口层编码实现（见 opus_port.c 的宏守卫）
+            add_defines("LUAT_OPUS_NO_ENCODER=1")
+        end
+        add_includedirs(luatos.."/components/multimedia/opus",
+                        luatos.."/components/multimedia/opus/include"
+                        )
+
+        local opus_dir = luatos.."/components/multimedia/opus"
+
+        -- ---------- src ----------
+        -- 解码必需：opus_decoder 无条件依赖 extensions.c（opus_extension_iterator_*）
+        local opus_src_common = {
+            opus_dir.."/src/opus.c",
+            opus_dir.."/src/opus_decoder.c",
+            opus_dir.."/src/extensions.c",
+        }
+        -- 编码追加：repacketizer.c 被 opus_encoder.c 内部调用，编码档必留
+        local opus_src_enc = {
+            opus_dir.."/src/opus_encoder.c",
+            opus_dir.."/src/repacketizer.c",
+        }
+
+        -- ---------- celt ----------
+        -- 排除项：celt_encoder.c（仅编码）、mini_kfft.c（仅被已排除的 qext_compare.c 引用）
+        -- 注意：entenc.c 为解码共享（bands/quant_bands/rate/cwrs/laplace/code_signs/shell_coder
+        --       的编码分支引用 ec_enc_*），不可裁剪
+        local opus_celt_common = {
+            opus_dir.."/celt/bands.c",
+            opus_dir.."/celt/celt.c",
+            opus_dir.."/celt/celt_decoder.c",
+            opus_dir.."/celt/celt_lpc.c",
+            opus_dir.."/celt/cwrs.c",
+            opus_dir.."/celt/entcode.c",
+            opus_dir.."/celt/entdec.c",
+            opus_dir.."/celt/entenc.c",
+            opus_dir.."/celt/kiss_fft.c",
+            opus_dir.."/celt/laplace.c",
+            opus_dir.."/celt/mathops.c",
+            opus_dir.."/celt/mdct.c",
+            opus_dir.."/celt/modes.c",
+            opus_dir.."/celt/pitch.c",
+            opus_dir.."/celt/quant_bands.c",
+            opus_dir.."/celt/rate.c",
+            opus_dir.."/celt/vq.c",
+        }
+        local opus_celt_enc = {
+            opus_dir.."/celt/celt_encoder.c",
+        }
+
+        -- ---------- silk ----------
+        -- 解码必需清单（共享文件如 stereo_find_predictor/code_signs 保守归入解码档）
+        local opus_silk_common = {
+            opus_dir.."/silk/CNG.c",
+            opus_dir.."/silk/PLC.c",
+            opus_dir.."/silk/LP_variable_cutoff.c",
+            opus_dir.."/silk/LPC_analysis_filter.c",
+            opus_dir.."/silk/LPC_fit.c",
+            opus_dir.."/silk/LPC_inv_pred_gain.c",
+            opus_dir.."/silk/NLSF2A.c",
+            opus_dir.."/silk/NLSF_decode.c",
+            opus_dir.."/silk/NLSF_stabilize.c",
+            opus_dir.."/silk/NLSF_unpack.c",
+            opus_dir.."/silk/NLSF_VQ.c",
+            opus_dir.."/silk/biquad_alt.c",
+            opus_dir.."/silk/bwexpander.c",
+            opus_dir.."/silk/bwexpander_32.c",
+            opus_dir.."/silk/code_signs.c",
+            opus_dir.."/silk/control_SNR.c",
+            opus_dir.."/silk/control_audio_bandwidth.c",
+            opus_dir.."/silk/control_codec.c",
+            opus_dir.."/silk/dec_API.c",
+            opus_dir.."/silk/decode_core.c",
+            opus_dir.."/silk/decode_frame.c",
+            opus_dir.."/silk/decode_indices.c",
+            opus_dir.."/silk/decode_parameters.c",
+            opus_dir.."/silk/decode_pitch.c",
+            opus_dir.."/silk/decode_pulses.c",
+            opus_dir.."/silk/decoder_set_fs.c",
+            opus_dir.."/silk/gain_quant.c",
+            opus_dir.."/silk/init_decoder.c",
+            opus_dir.."/silk/interpolate.c",
+            opus_dir.."/silk/inner_prod_aligned.c",
+            opus_dir.."/silk/lin2log.c",
+            opus_dir.."/silk/log2lin.c",
+            opus_dir.."/silk/pitch_est_tables.c",
+            opus_dir.."/silk/resampler.c",
+            opus_dir.."/silk/resampler_down2.c",
+            opus_dir.."/silk/resampler_down2_3.c",
+            opus_dir.."/silk/resampler_private_AR2.c",
+            opus_dir.."/silk/resampler_private_IIR_FIR.c",
+            opus_dir.."/silk/resampler_private_down_FIR.c",
+            opus_dir.."/silk/resampler_private_up2_HQ.c",
+            opus_dir.."/silk/resampler_rom.c",
+            opus_dir.."/silk/shell_coder.c",
+            opus_dir.."/silk/sigm_Q15.c",
+            opus_dir.."/silk/sort.c",
+            opus_dir.."/silk/stereo_MS_to_LR.c",
+            opus_dir.."/silk/stereo_decode_pred.c",
+            opus_dir.."/silk/stereo_find_predictor.c",
+            opus_dir.."/silk/sum_sqr_shift.c",
+            opus_dir.."/silk/table_LSF_cos.c",
+            opus_dir.."/silk/tables_LTP.c",
+            opus_dir.."/silk/tables_NLSF_CB_NB_MB.c",
+            opus_dir.."/silk/tables_NLSF_CB_WB.c",
+            opus_dir.."/silk/tables_gain.c",
+            opus_dir.."/silk/tables_other.c",
+            opus_dir.."/silk/tables_pitch_lag.c",
+            opus_dir.."/silk/tables_pulses_per_block.c",
+        }
+        local opus_silk_enc = {
+            opus_dir.."/silk/A2NLSF.c",
+            opus_dir.."/silk/HP_variable_cutoff.c",
+            opus_dir.."/silk/NSQ.c",
+            opus_dir.."/silk/NSQ_del_dec.c",
+            opus_dir.."/silk/NLSF_del_dec_quant.c",
+            opus_dir.."/silk/NLSF_encode.c",
+            opus_dir.."/silk/NLSF_VQ_weights_laroia.c",
+            opus_dir.."/silk/VAD.c",
+            opus_dir.."/silk/VQ_WMat_EC.c",
+            opus_dir.."/silk/ana_filt_bank_1.c",
+            opus_dir.."/silk/check_control_input.c",
+            opus_dir.."/silk/enc_API.c",
+            opus_dir.."/silk/encode_indices.c",
+            opus_dir.."/silk/encode_pulses.c",
+            opus_dir.."/silk/init_encoder.c",
+            opus_dir.."/silk/process_NLSFs.c",
+            opus_dir.."/silk/quant_LTP_gains.c",
+            opus_dir.."/silk/stereo_LR_to_MS.c",
+            opus_dir.."/silk/stereo_encode_pred.c",
+            opus_dir.."/silk/stereo_quant_pred.c",
+        }
+
+        -- ---------- silk/fixed ----------
+        -- 解码档仅 vector_ops_FIX.c（silk_int16_array_maxabs 等被 decode_core 等使用）
+        local opus_silk_fixed_common = {
+            opus_dir.."/silk/fixed/vector_ops_FIX.c",
+        }
+        local opus_silk_fixed_enc = {
+            opus_dir.."/silk/fixed/LTP_analysis_filter_FIX.c",
+            opus_dir.."/silk/fixed/LTP_scale_ctrl_FIX.c",
+            opus_dir.."/silk/fixed/apply_sine_window_FIX.c",
+            opus_dir.."/silk/fixed/autocorr_FIX.c",
+            opus_dir.."/silk/fixed/burg_modified_FIX.c",
+            opus_dir.."/silk/fixed/corrMatrix_FIX.c",
+            opus_dir.."/silk/fixed/encode_frame_FIX.c",
+            opus_dir.."/silk/fixed/find_LPC_FIX.c",
+            opus_dir.."/silk/fixed/find_LTP_FIX.c",
+            opus_dir.."/silk/fixed/find_pitch_lags_FIX.c",
+            opus_dir.."/silk/fixed/find_pred_coefs_FIX.c",
+            opus_dir.."/silk/fixed/k2a_FIX.c",
+            opus_dir.."/silk/fixed/k2a_Q16_FIX.c",
+            opus_dir.."/silk/fixed/noise_shape_analysis_FIX.c",
+            opus_dir.."/silk/fixed/pitch_analysis_core_FIX.c",
+            opus_dir.."/silk/fixed/process_gains_FIX.c",
+            opus_dir.."/silk/fixed/regularize_correlations_FIX.c",
+            opus_dir.."/silk/fixed/residual_energy16_FIX.c",
+            opus_dir.."/silk/fixed/residual_energy_FIX.c",
+            opus_dir.."/silk/fixed/schur64_FIX.c",
+            opus_dir.."/silk/fixed/schur_FIX.c",
+            opus_dir.."/silk/fixed/warped_autocorrelation_FIX.c",
+        }
+
+        -- ---------- 组装文件清单 ----------
+        local opus_files = {}
+        for _, f in ipairs(opus_src_common) do table.insert(opus_files, f) end
+        for _, f in ipairs(opus_celt_common) do table.insert(opus_files, f) end
+        for _, f in ipairs(opus_silk_common) do table.insert(opus_files, f) end
+        for _, f in ipairs(opus_silk_fixed_common) do table.insert(opus_files, f) end
+        if opus_mode == "full" then
+            for _, f in ipairs(opus_src_enc) do table.insert(opus_files, f) end
+            for _, f in ipairs(opus_celt_enc) do table.insert(opus_files, f) end
+            for _, f in ipairs(opus_silk_enc) do table.insert(opus_files, f) end
+            for _, f in ipairs(opus_silk_fixed_enc) do table.insert(opus_files, f) end
+        end
+        -- 体积优先编译：全局 set_optimize("fastest")(/O2) 的内联/展开会显著膨胀 opus 代码，
+        -- opus 语音帧处理实时性要求不高，单独降到 size 优先（MSVC /O1，GCC -Os），
+        -- 真机侧建议同步叠加 -ffunction-sections -fdata-sections -Wl,--gc-sections
+        local opus_opts = thirdparty_file_options()
+        if is_mode("release") then
+            local size_flag = is_host("windows") and "/O1" or "-Os"
+            table.insert(opus_opts.cflags, size_flag)
+            table.insert(opus_opts.cxflags, size_flag)
+        end
+        for _, f in ipairs(opus_files) do
+            add_files(f, opus_opts)
+        end
+    end
 
     ----------------------------------------------------------------------
     -- 网络相关
@@ -516,6 +735,7 @@ target("luatos-lua")
     -- tfs (Tiny File System)
     add_includedirs(luatos.."components/tfs/inc",{public = true})
     add_files(luatos.."components/tfs/src/**.c")
+    add_files(luatos.."components/tfs/vfs/**.c")
 
     -- 添加mreport
     -- add_includedirs(luatos.."components/mreport/include",{public = true})
@@ -550,17 +770,40 @@ target("luatos-lua")
         add_thirdparty_files(lwip_path .. "/api/**.c")
         add_thirdparty_files(lwip_path .. "/core/**.c")
         add_thirdparty_files(lwip_path .. "/netif/**.c")
-        
-        add_includedirs(luatos .. "components/network/ulwip/include")
-        add_files(luatos .. "components/network/ulwip/**.c")
+        -- L2TP: lwip22 自带的 PPP 源码改由 components/network/l2tp/src/ppp 下的 vendor 副本编译
+        -- (l2tp/src/ppp/ppp.c 已将 ppp_pcb 分配改为 mem_malloc/mem_free,
+        --  因为本仓库 lwip22 的 memp_std.h 裁剪掉了 PPP/PPPOL2TP 内存池)
+        remove_files(lwip_path .. "netif/ppp/**.c")
         
         add_files(luatos .. "components/network/adapter_lwip2/*.c")
         add_includedirs(luatos .. "components/network/adapter_lwip2/")
         add_files(luatos .. "components/ethernet/common/*.c")
 
-        -- 继续添加netdrv代码
+        -- 继续添加netdrv核心代码 (VPN 子模块已拆出为独立目录)
         add_includedirs(luatos .. "components/network/netdrv/include")
         add_files(luatos .. "components/network/netdrv/**.c")
+
+        -- L2TPv2 客户端子模块 (components/network/l2tp) + vendored lwip22 PPP 实现
+        -- 注意: bsp/pc/include/lwipopts.h 写死 PPP_SUPPORT=0 且会重定义,
+        -- 所以这里通过 LUAT_L2TP_PPP_BUILD + luat_ppp_opts_override.h 在
+        -- ppp_opts.h 之后强制覆盖 PPP 特性集, 仅对该批文件附加编译宏.
+        add_includedirs(luatos .. "components/network/l2tp/include")
+        add_includedirs(luatos .. "components/network/l2tp/src/ppp")
+        add_files(luatos .. "components/network/l2tp/src/ppp/*.c",
+                  {defines = {"LUAT_L2TP_PPP_BUILD=1"}})
+        add_files(luatos .. "components/network/l2tp/src/l2tp_client.c",
+                  luatos .. "components/network/l2tp/src/l2tp_ctrl.c",
+                  luatos .. "components/network/l2tp/src/l2tp_ppp.c",
+                  {defines = {"LUAT_L2TP_PPP_BUILD=1"}})
+        add_files(luatos .. "components/network/l2tp/src/luat_netdrv_l2tp.c")
+
+        -- IKEv2/IPsec 客户端子模块 (components/network/ipsec)
+        add_includedirs(luatos .. "components/network/ipsec/include")
+        add_files(luatos .. "components/network/ipsec/src/*.c")
+
+        -- OpenVPN 客户端子模块 (components/network/openvpn)
+        add_includedirs(luatos .. "components/network/openvpn/include")
+        add_files(luatos .. "components/network/openvpn/src/*.c")
 
         -- ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试, 需要 netdrv + icmp)
         add_includedirs(luatos .. "components/network/icmp/include")
@@ -618,6 +861,19 @@ target("luatos-lua")
     -- 关联编译lora2库
     add_includedirs(luatos.."components/lora2")
     add_files(luatos.."components/lora2/**.c")
+
+    -- tiny_epd: C core + 1.54-inch black/white driver + LuatOS Lua binding.
+    add_includedirs(luatos.."components/tiny_epd/include")
+    add_includedirs(luatos.."components/tiny_epd/port")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_core.c")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_gfx.c")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_bitmap.c")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_qrcode.c")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_hzfont.c")
+    add_files(luatos.."components/tiny_epd/src/tiny_epd_custom.c")
+    add_files(luatos.."components/tiny_epd/drivers/tiny_epd_1in54.c")
+    add_files(luatos.."components/tiny_epd/port/tiny_epd_port_luatos.c")
+    add_files(luatos.."components/tiny_epd/binding/luat_lib_tiny_epd.c")
 
     if use_gui then
         add_packages("libsdl2")
@@ -691,9 +947,14 @@ target("luatos-lua")
 
         -- gtfont PC simulator core
         -- add_includedirs(luatos.."components/gtfont")
-        -- add_includedirs(luatos.."components/eink")
         -- add_files(luatos.."components/gtfont/*.c")
-        
+
+        -- eink + epaper (mono e-paper stack) also available in GUI build
+        add_includedirs(luatos.."components/eink")
+        add_files(luatos.."components/eink/*.c")
+        add_includedirs(luatos.."components/epaper")
+        add_files(luatos.."components/epaper/*.c")
+
         -- hzfont component
         add_includedirs(luatos.."components/hzfont/inc")
         add_files(luatos.."components/hzfont/src/*.c")
@@ -724,6 +985,7 @@ target("luatos-lua")
         add_files(luatos.."components/eink/*.c")
         add_includedirs(luatos.."components/epaper")
         add_files(luatos.."components/epaper/*.c")
+
     end
     if use_mgba then
         add_defines("LUAT_USE_MGBA=1")
@@ -851,15 +1113,15 @@ target("luatos-lua")
 
     -- =========================================================
     -- mp4player（MP4/H.264/AAC 解码器）
-    -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/vedio_player
+    -- 源码目录由 luatos_ext_root 指向 luatos-ext-components/mp4player
     -- 示例（PowerShell）：
     --   $env:LUAT_USE_MP4PLAYER = "y"  # 显式启用
     --   $env:LUAT_USE_MP4PLAYER = "n"  # 显式禁用
     --   cmd /c build_windows_32bit_msvc.bat
     -- =========================================================
-    -- 自动检测：如果 luatos_ext_root/vedio_player 不存在，自动禁用 MP4
+    -- 自动检测：如果 luatos_ext_root/mp4player 不存在，自动禁用 MP4
     local use_mp4player = false
-    local mp4player_src = luatos_ext_root .. "/vedio_player"
+    local mp4player_src = luatos_ext_root .. "/mp4player"
     if os.isdir(mp4player_src) then
         -- 检查环境变量 LUAT_USE_MP4PLAYER 的显式控制
         local env_mp4 = os.getenv("LUAT_USE_MP4PLAYER")
@@ -868,13 +1130,13 @@ target("luatos-lua")
         end
     elseif os.getenv("LUAT_USE_MP4PLAYER") == "y" then
         -- 显式要求启用但目录不存在，给出警告（保留，不强制失败）
-        print("Warning: LUAT_USE_MP4PLAYER=y but vedio_player not found at: " .. mp4player_src)
+        print("Warning: LUAT_USE_MP4PLAYER=y but mp4player not found at: " .. mp4player_src)
     end
     
     if use_mp4player then
         add_defines("LUAT_USE_MP4PLAYER=1")
 
-        local mp4player_src = luatos_ext_root .. "/vedio_player"
+        local mp4player_src = luatos_ext_root .. "/mp4player"
         -- 统一为正斜杠，xmake 在 Windows 下两者均支持
         mp4player_src = mp4player_src:gsub("\\", "/")
         -- 确保末尾无斜杠

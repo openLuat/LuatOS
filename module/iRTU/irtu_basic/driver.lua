@@ -421,21 +421,7 @@ cmd.rrpc = {
         return "rrpc,gnssclose,OK" 
     end,
     ["upconfig"] = function(t)sys.publish("UPDATE_DTU_CNF") return "rrpc,upconfig,OK" end,
-    ["function"] = function(t)
-        log.info("rrpc,function:", table.concat(t, ","))
-        local ok, result = pcall(function()
-            local func = loadstring(table.concat(t, ","))
-            if func then
-                return func() or "OK"
-            end
-            return "ERROR"
-        end)
-        if not ok then
-            log.error("rrpc,function", "执行失败:", result)
-            return "rrpc,function,ERROR"
-        end
-        return "rrpc,function," .. tostring(result)
-    end,
+    ["function"] = function(t)log.info("rrpc,function:", table.concat(t, ",")) return "rrpc,function," .. (loadstring(table.concat(t, ","))() or "OK") end,
     ["simcross"] = function(t) 
         if tonumber(t[1])==1 or tonumber(t[1])==0 or tonumber(t[1])==2 then
             mobile.flymode(0, true)
@@ -596,18 +582,9 @@ local function autoSampl(uid, t)
                 if t[i] ~= "" then 
                     write(uid, (dtulib.fromHexnew(t[i]))) end
             else
-                local res, msg = pcall(function()
-                    local func = loadstring(str)
-                    if func then
-                        return func()
-                    end
-                    return nil
-                end)
-                if res and msg then
+                local res, msg = pcall(loadstring(str))
+                if res then
                     sys.publish("NET_SENT_RDY_" .. uid, msg)
-                elseif not res then
-                    log.error("autoSampl", "执行自动任务失败:", msg)
-                    log.error("autoSampl", "任务执行堆栈:", debug.traceback())
                 end
             end
             sys.wait(t[1])
@@ -664,7 +641,9 @@ function driver.init()
     if uidgps ~= 3 and dtu.uconf and dtu.uconf[3] and tonumber(dtu.uconf[3][1]) == 3 then 
         uart_INIT(3, dtu.uconf)
     end
-    if true then
+    -- 处于rfa模式时(main.lua会置位IRTU_DISABLE_VUART), VUART_0由rfa的AT服务器独占
+    -- irtu不再初始化VUART_0, 避免注册数据回调抢占rfa的串口数据
+    if not _G.IRTU_DISABLE_VUART then
         dtu.uconf[4] = {uart.VUART_0, 115200, 8, 2, 0}
         uart_INIT(4, dtu.uconf)
     end

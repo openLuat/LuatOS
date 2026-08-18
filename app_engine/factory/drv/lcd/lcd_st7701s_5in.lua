@@ -13,26 +13,7 @@ local M = {}
 function M.init(params)
     gpio.setup(params.pin_cs or 3, 0)
 
-    local r = lcd.init("custom", {
-        port      = params.port or lcd.RGB,
-        pin_rst   = params.pin_rst or 9,
-        pin_clk   = params.pin_clk or 2,
-        pin_sda   = params.pin_sda or 4,
-        pin_cs    = params.pin_cs or 3,
-        direction = params.direction or 0,
-        pclk      = params.pclk or lcd.PCLK_RISING,
-        w         = params.w or 480,
-        h         = params.h or 854,
-        xoffset   = params.xoffset or 0,
-        yoffset   = params.yoffset or 0,
-        hbp       = params.hbp or 30,
-        hspw      = params.hspw or 6,
-        hfp       = params.hfp or 12,
-        vbp       = params.vbp or 30,
-        vspw      = params.vspw or 1,
-        vfp       = params.vfp or 12,
-        bus_speed = params.bus_speed or (26 * 1000 * 1000),
-    })
+    local r = lcd.init("custom", params)
     if not r then return r end
 
     -- 复位序列

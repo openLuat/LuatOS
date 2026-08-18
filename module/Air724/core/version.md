@@ -1,0 +1,1 @@
+Air724UG LuatOS固件版本下载地址: https://docs.openluat.com/air724_soc/luatos/firmware/version/

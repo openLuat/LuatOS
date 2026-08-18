@@ -16,7 +16,7 @@
 ]]
 
 -- 演示模式选择： "normal" 或 "fault"
-local DEMO_MODE = "fault"  -- 修改这个变量来切换演示模式
+local DEMO_MODE = "normal"  -- 修改这个变量来切换演示模式
 
 -- 喂狗函数
 function feed_watchdog()

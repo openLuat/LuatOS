@@ -53,7 +53,7 @@
 
 - **OSD设置**：设置摄像头的OSD文字显示内容和位置
 - **拍照功能**：控制摄像头进行拍照，照片保存为`/sd/get_photo.jpeg`或`/luadb/get_photo.jpeg`
-- **照片上传**：自动将照片上传到`http://upload.air32.cn/api/upload/jpg`
+- **照片上传**：自动将照片上传到`http://uploadtest.luatos.com/api/upload/jpg`
 
 #### 5、运行效果
 
@@ -153,7 +153,7 @@
 [2026-03-06 15:45:19.413] luat:U(8256):l/user.DHpicture 拍照完成
 [2026-03-06 15:45:19.413] luat:U(8256):I/user.照片读取成功 文件大小: 102400 字节 路径: /sd/get_photo.jpeg
 [2026-03-06 15:45:19.413] luat:U(8256):I/user.照片上传结果 HTTP状态码: 200
-[2026-03-06 15:45:19.413] luat:U(8256):I/user.照片上传成功 可在 https://www.air32.cn/upload/jpg/ 查看
+[2026-03-06 15:45:19.413] luat:U(8256):I/user.照片上传成功 可在 https://uploadtest.luatos.com/upload/jpg/ 查看
 [2026-03-06 15:45:19.413] luat:U(8256):I/user.本地照片文件已删除 路径: /sd/get_photo.jpeg
 ```
 

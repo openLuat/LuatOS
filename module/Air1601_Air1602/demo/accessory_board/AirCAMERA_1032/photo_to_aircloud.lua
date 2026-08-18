@@ -1,9 +1,9 @@
 --[[
 @module  photo_to_aircloud
 @summary AirCAMERA_1032 USB摄像头循环拍照+LCD显示+合宙云平台上传应用模块
-@version 2.0
-@date    2026.06.08
-@author  江访
+@version 1.3
+@date    2026.07.21
+@author  陈媛媛
 @usage
 本demo主要使用Air1601 + AirCAMERA_1032 USB摄像头完成以下功能：
 1、初始化USB主机模式，连接USB摄像头；
@@ -23,6 +23,8 @@
 
 -- 引入excloud扩展库
 local excloud = require("excloud")
+local LCD_W = 1024
+local LCD_H = 600
 
 -- 合宙云平台项目key（请替换为自己项目的key）
 local project_auth_key = "hegiSG73FHMzvFToaugk4CZXIla92Dnj"
@@ -42,6 +44,7 @@ local frame_buff = nil                       -- 帧数据缓冲区
 local captured = false                       -- 本轮是否已拍照标志位
 local save_path = "/ram/photo.jpg"           -- 照片保存路径
 local excloud_connected = false              -- excloud连接状态
+local photo_display = nil                    -- 新增：用于显示照片的airui.image组件
 
 -- excloud事件回调函数
 -- 作用：处理excloud的连接、认证、断开、重连、发送结果等事件
@@ -246,13 +249,23 @@ local function capture_handler_task()
             goto continue_loop
         end
 
-        -- 在LCD上显示照片
-        -- log.info("photo_to_aircloud", "开始显示照片到LCD")
-        -- lcd.clear(0x0000)
-        -- lcd_result = lcd.showImage(0, 0, save_path)
-        -- log.info("photo_to_aircloud", "lcd.showImage返回值", lcd_result)
-        -- lcd.flush()
-        -- log.info("photo_to_aircloud", "照片显示完成")
+        -- 使用 airui.image 显示照片（适配屏幕，fit=cover）
+        if photo_display then
+            photo_display:destroy()
+            photo_display = nil
+        end
+        photo_display = airui.image({
+            parent = airui.screen,
+            x = 0, y = 0,
+            w = LCD_W, h = LCD_H,
+            src = save_path,
+            fit = "cover",
+        })
+        if photo_display then
+            log.info("photo_to_aircloud", "照片已通过 airui.image 显示 (fit=cover)")
+        else
+            log.warn("photo_to_aircloud", "airui.image 创建失败")
+        end
 
         -- 释放垃圾内存，准备上传
         collectgarbage()

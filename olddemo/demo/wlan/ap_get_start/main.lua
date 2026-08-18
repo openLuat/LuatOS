@@ -95,17 +95,7 @@ end)
 
 sys.subscribe("IP_READY", function()
     -- 联网成功后, 模拟上报到服务器
-    log.info("wlan", "已联网", "通知服务器")
-    sys.taskInit(function()
-        sys.wait(1000)
-        -- 以下是rtkv库的模拟实现, 这里就不强制引入rtkv了
-        local token = mcu.unique_id():toHex()
-        local device = wlan.getMac()
-        local params = "device=" .. device .. "&token=" .. token
-        params = params .. "&key=ip&value=" .. (socket.localIP())
-        local code = http.request("GET", "http://rtkv.air32.cn/api/rtkv/set?" .. params, {timeout=3000}).wait()
-        log.info("上报结果", code)
-    end)
+    log.info("wlan", "已联网", "TODO通知服务器")
 end)
 
 -- wifi的AP相关事件

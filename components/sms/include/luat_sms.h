@@ -155,6 +155,7 @@ typedef struct
     uint8_t dcs;           // DCS 编码类型: LUAT_SMS_CODE_7BIT(0) 或 LUAT_SMS_CODE_UCS2(8)
     size_t  udl;                // TP-UDL 字段值; 0 则从 payload_len 自动推导
     uint8_t srr;                // TP-SRR 状态报告请求: 0=不请求(默认), 1=请求回执
+    uint8_t vp;                 // TP-VP 有效期(相对格式, 3GPP TS 23.040 9.2.3.12.1): 0=不设置, 5=30分钟, 11=1小时, 143=12小时
 }luat_sms_pdu_packet_t;
 
 /**

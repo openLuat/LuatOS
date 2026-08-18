@@ -612,6 +612,18 @@ int luat_camera_preview(int id, uint8_t on_off) {
     return -1;
 }
 
+void luat_camera_set_preview_data_callback(int id, luat_camera_frame_data_callback_t callback, void *user_data) {
+    (void)id;
+    (void)callback;
+    (void)user_data;
+}
+
+void luat_camera_set_frame_data_callback(int id, luat_camera_frame_data_callback_t callback, void *user_data) {
+    (void)id;
+    (void)callback;
+    (void)user_data;
+}
+
 void luat_camera_pwdn_pin(int id, uint8_t level) {
     (void)id; (void)level;
 }

@@ -94,6 +94,7 @@ require("airui_all_component") --所有组件综合演示
 -- require("airui_video")  -- 视频组件演示
 -- require("airui_slider")  -- 滑块组件演示，Air780EXX系列 不支持
 -- require("airui_sleep")  -- AirUI休眠/唤醒管理演示
+-- require("airui_st6201")  -- ST6201屏幕驱动演示
 
 
 -- 用户代码已结束

@@ -38,9 +38,9 @@ end
 -- timeout可以设置超时时间
 -- callback可以设置回调函数，可用于实时检测body数据的下载进度
 local function http_app_get()
-    -- https get请求https://www.air32.cn/网页内容
+    -- https get请求https://httpbin.luatos.com/get网页内容
     -- 如果请求成功，请求的数据保存到body中
-    local code, headers, body = http.request("GET", "https://www.air32.cn/").wait()
+    local code, headers, body = http.request("GET", "https://httpbin.luatos.com/get").wait()
     log.info("http_app_get1", 
         code==200 and "success" or "error", 
         code, 
@@ -58,11 +58,11 @@ local function http_app_get()
         json.encode(headers or {}), 
         body and (body:len()>512 and body:len() or body) or "nil")
 
-    -- http get请求http://httpbin.air32.cn/get网页内容，超时时间为3秒
+    -- http get请求http://httpbin.luatos.com/get网页内容，超时时间为3秒
     -- 请求超时时间为3秒，用户自己写代码时，不要照抄3秒，根据自己业务逻辑的需要设置合适的超时时间
     -- 回调函数为http_cbfunc，回调函数使用的第三个回调参数为"http_app_get3"
     -- 如果请求成功，请求的数据保存到body中
-    code, headers, body = http.request("GET", "http://httpbin.air32.cn/get", nil, nil, {timeout=3000, userdata="http_app_get3", callback=http_cbfunc}).wait()
+    code, headers, body = http.request("GET", "http://httpbin.luatos.com/get", nil, nil, {timeout=3000, userdata="http_app_get3", callback=http_cbfunc}).wait()
     log.info("http_app_get3", 
         code==200 and "success" or "error", 
         code, 
@@ -127,9 +127,9 @@ local function http_app_get_file()
     end
     
     local file_path = download_dir.."get_file1.html"
-    -- https get请求https://www.air32.cn/网页内容
+    -- https get请求https://httpbin.luatos.com/get网页内容
     -- 如果请求成功，请求的数据保存到文件file_path中
-    local code, headers, body_size = http.request("GET", "https://www.air32.cn/", nil, nil, {dst=file_path}).wait()
+    local code, headers, body_size = http.request("GET", "https://httpbin.luatos.com/get", nil, nil, {dst=file_path}).wait()
     log.info("http_app_get_file1", 
         code==200 and "success" or "error", 
         code, 
@@ -183,11 +183,11 @@ local function http_app_get_file()
 
 
     file_path = download_dir.."get_file3.html"
-    -- http get请求http://httpbin.air32.cn/get网页内容，超时时间为3秒
+    -- http get请求http://httpbin.luatos.com/get网页内容，超时时间为3秒
     -- 请求超时时间为3秒，用户自己写代码时，不要照抄3秒，根据自己业务逻辑的需要设置合适的超时时间
     -- 回调函数为http_cbfunc，回调函数使用的第三个回调参数为"http_app_get_file3"
     -- 如果请求成功，请求的数据保存到文件file_path中
-    code, headers, body_size = http.request("GET", "http://httpbin.air32.cn/get", nil, nil, {dst=file_path, timeout=3000, userdata="http_app_get_file3", callback=http_cbfunc}).wait()
+    code, headers, body_size = http.request("GET", "http://httpbin.luatos.com/get", nil, nil, {dst=file_path, timeout=3000, userdata="http_app_get_file3", callback=http_cbfunc}).wait()
     log.info("http_app_get_file3", 
         code==200 and "success" or "error", 
         code, 
@@ -225,10 +225,10 @@ local function http_app_post_form()
     body = body:sub(1,-2)
 
     -- http post提交表单数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的表单数据后，还会下发同样的表单数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的表单数据后，还会下发同样的表单数据给设备
     -- ["Content-Type"] = "application/x-www-form-urlencoded" 表示post提交的body数据格式为url编码的键值对形式的表单数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
-    local code, headers, resp_body = http.request("POST", "http://httpbin.air32.cn/post", {["Content-Type"] = "application/x-www-form-urlencoded"}, body).wait()
+    local code, headers, resp_body = http.request("POST", "http://httpbin.luatos.com/post", {["Content-Type"] = "application/x-www-form-urlencoded"}, body).wait()
     log.info("http_app_post_form", 
         code==200 and "success" or "error", 
         code, 
@@ -246,10 +246,10 @@ local function http_app_post_json()
     local body = json.encode(params)
 
     -- http post提交json数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的json数据后，还会下发同样的json数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的json数据后，还会下发同样的json数据给设备
     -- ["Content-Type"] = "application/json" 表示post提交的body数据格式为json格式的数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
-    local code, headers, resp_body = http.request("POST", "http://httpbin.air32.cn/post", {["Content-Type"] = "application/json"}, body).wait()
+    local code, headers, resp_body = http.request("POST", "http://httpbin.luatos.com/post", {["Content-Type"] = "application/json"}, body).wait()
     log.info("http_app_post_json", 
         code==200 and "success" or "error", 
         code, 
@@ -261,10 +261,10 @@ end
 -- http post提交纯文本数据功能演示
 local function http_app_post_text()
     -- http post提交纯文本数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的纯文本数据后，还会下发同样的纯文本数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的纯文本数据后，还会下发同样的纯文本数据给设备
     -- ["Content-Type"] = "text/plain" 表示post提交的body数据格式为纯文本格式的数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
-    local code, headers, resp_body = http.request("POST", "http://httpbin.air32.cn/post", {["Content-Type"] = "text/plain"}, "This is a raw text message from LuatOS device").wait()
+    local code, headers, resp_body = http.request("POST", "http://httpbin.luatos.com/post", {["Content-Type"] = "text/plain"}, "This is a raw text message from LuatOS device").wait()
     log.info("http_app_post_text", 
         code==200 and "success" or "error", 
         code, 
@@ -285,10 +285,10 @@ local function http_app_post_xml()
     ]=]
 
     -- http post提交xml数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的xml数据后，还会下发同样的xml数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的xml数据后，还会下发同样的xml数据给设备
     -- ["Content-Type"] = "text/xml" 表示post提交的body数据格式为xml格式的数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
-    local code, headers, resp_body = http.request("POST", "http://httpbin.air32.cn/post", {["Content-Type"] = "text/xml"}, body).wait()
+    local code, headers, resp_body = http.request("POST", "http://httpbin.luatos.com/post", {["Content-Type"] = "text/xml"}, body).wait()
     log.info("http_app_post_xml", 
         code==200 and "success" or "error", 
         code, 
@@ -302,12 +302,14 @@ local function http_app_post_binary()
     local body = io.readFile("/luadb/logo.jpg")
 
     -- http post提交原始二进制数据
-    -- http://upload.air32.cn/api/upload/jpg为jpg图片上传测试服务器
+    -- http://uploadtest.luatos.com/api/upload/jpg为jpg图片上传测试服务器
     -- 此处将logo.jpg的原始二进制数据做为body上传到服务器
-    -- 上传成功后，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
+    -- 上传成功后，电脑上浏览器打开https://uploadtest.luatos.com/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
     -- ["Content-Type"] = "application/octet-stream" 表示post提交的body数据格式为原始二进制格式的数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
-    local code, headers, resp_body = http.request("POST", "http://upload.air32.cn/api/upload/jpg", {["Content-Type"] = "application/octet-stream"}, body).wait()
+    -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+    -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com 
+    local code, headers, resp_body = http.request("POST", "http://uploadtest.luatos.com/api/upload/jpg", {["Content-Type"] = "application/octet-stream"}, body).wait()
     log.info("http_app_post_binary", 
         code==200 and "success" or "error", 
         code, 

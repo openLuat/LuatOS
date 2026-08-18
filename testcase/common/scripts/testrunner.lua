@@ -13,7 +13,7 @@ local ctx = {
     retry_count = 3,   -- 重试次数
     wifi_ssid = "luatos1234",
     wifi_password = "12341234",
-    -- status_url = "http://httpbin.air32.cn/post",  -- 状态上报服务器 URL
+    -- status_url = "http://httpbin.luatos.com/post",  -- 状态上报服务器 URL
 }
 
 -- 上报测试的当前状态

@@ -76,10 +76,14 @@ C-layer utest(`<lib>.utest("case")`)**仅在 PC 模拟器执行**,芯片侧 BSP 
   - `socket.utest("tcp_external_qq")` via `net/tcp_basic`
   - `http.utest("http_external_qq")` via `net/http_basic`
   - `http.utest("https_external_qq")` via `net/https_basic`
+  - `http.utest("http_local_*")` via `net/http_local_basic` (本地 HTTP 服务器, 无外网依赖)
+  - `http.utest("https_local_*")` via `net/https_local_basic` (本地 HTTPS 服务器, 无外网依赖)
 
-  - DTLS cert/mTLS suites use pre-generated PEM assets under
+  - DTLS/HTTP/HTTPS local suites use pre-generated PEM assets under
     `testcase/utest/net/dtls_basic/certs/`; regenerate via
     `bash testcase/utest/net/dtls_basic/certs/gen_certs.sh` if expired.
+  - HTTP/HTTPS local helper server: `bsp/pc/src/luat_pc_http_utest.c`
+    (pthread + mbedtls TLS stream, binds 127.0.0.1:0 ephemeral port).
 
 ## EXTENDING TO A NEW LIBRARY
 

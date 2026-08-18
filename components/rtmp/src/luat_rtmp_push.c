@@ -17,6 +17,7 @@
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_netdrv.h"
+#include "luat_camera.h"
 
 #include "luat_network_adapter.h"
 #include <string.h>
@@ -1931,6 +1932,15 @@ static void rtmp_try_send_queue(rtmp_ctx_t *ctx) {
         /* 上限设为8KB，避免单次发送过大 */
         if (to_send > 8192) to_send = 8192;
 
+        /* 背压：限制适配层未ACK的在途数据，网络跟不上时帧留在RTMP队列，由水位丢帧 */
+        uint64_t tx = ctx->netc->tx_size;
+        uint64_t ack = ctx->netc->ack_size;
+        uint64_t pending = tx > ack ? tx - ack : 0;
+        if (pending >= RTMP_MAX_INFLIGHT_BYTES)
+            break;
+        if ((uint64_t)to_send > (RTMP_MAX_INFLIGHT_BYTES - pending))
+            to_send = (uint32_t)(RTMP_MAX_INFLIGHT_BYTES - pending);
+
         uint32_t tx_len = 0;
         network_tx(ctx->netc, node->data + node->sent, to_send, 0, NULL, 0, &tx_len, 0);
         node->sent += tx_len;
@@ -2476,6 +2486,7 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
             rtmp_set_state(ctx, RTMP_STATE_PUBLISHING, 0);
             // 通知摄像头开始采集
             luat_camera_capture(0, 80, "rtmp");
+            luat_camera_start(0);
         } else {
             LLOGE("RTMP: Failed to send metadata");
             rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_FAILED);
@@ -2564,6 +2575,11 @@ static int rtmp_flush_send_buffer(rtmp_ctx_t *ctx) {
     ctx->send_pos = bytes_sent;
     if (ctx->send_pos >= total_bytes) {
         ctx->send_pos = 0;
+    } else {
+        /* 部分发送: 将未发送数据移动到缓冲区头部 */
+        uint32_t remaining = total_bytes - bytes_sent;
+        memmove(ctx->send_buf, &ctx->send_buf[bytes_sent], remaining);
+        ctx->send_pos = remaining;
     }
 
     return RTMP_OK;

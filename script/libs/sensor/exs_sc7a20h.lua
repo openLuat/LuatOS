@@ -22,6 +22,37 @@
 11、exs_sc7a20h.close()：关闭传感器
 
 更多说明参考 docs 在线文档
+
+=== 版本更新说明 ===
+-- 版本号：202607180900（初版）
+-- 1、更新时间：2026-07-18
+-- 2、更新内容：
+--   - 支持 I2C 通信（软件 I2C / 硬件 I2C）
+--   - 支持量程切换（±2g / ±4g / ±8g / ±16g）
+--   - 支持三种功耗模式（highres / normal / lowpower）
+--   - 支持 data_ready、activity、free_fall 中断事件
+--   - 支持 6D/4D 方向检测
+--   - 支持自动器件 ID 检测（WHO_AM_I = 0x11）
+--   - 支持输出速率切换（1.56Hz~4.434kHz）
+--   - 支持 I2C 总线卡死自动检测与恢复
+--   - 支持睡眠/唤醒/关闭
+-- 版本号：202608170000
+-- 1、更新时间：2026-08-17
+-- 2、更新内容：
+--   - 【修正】HR（高性能模式）位位置：从 CTRL_REG4(0x23) bit3 迁移到 CTRL_REG0(0x1F) bit0（与规格书 §12.3 对齐），highres 模式真正生效；同时避免误置 DLPF[0]
+--   - 【新增】CTRL_REG0(0x1F) 寄存器配置，为后续 OSR 分频 / DLPF[1] 扩展提供基础
+--   - 【修正】高通滤波（HPIS）仅用于活动检测；自由落体不可用（会滤掉重力导致三轴近零持续误触发）
+--   - 【修正】4d 方向检测不再返回 front/back（仅 up/down/left/right），对齐文档描述
+--   - 【修正】duration_ms=0 现在真正表示"立即触发"（DURATION 寄存器写 0，此前误钳到 1）
+--   - 【修正】threshold_mg 可设范围按量程区分（2g:16~2032 / 4g:32~4064 / 8g:64~8128 / 16g:128~16256）
+--   - 【修正】activity 与 free_fall 共用同一 AOI 通道配置互斥，同时使能时仅启用 activity 并告警
+--   - 【修正】>800Hz ODR 仅高性能模式可用，非 highres 时自动钳到 800Hz
+--   - 【修正】CLICK 寄存器命名对齐规格书（THS/TIME_LIMIT/LATENCY/WINDOW → CLICK_COEFF1~4）
+--   - 【修正】中断路由位命名对齐规格书（I1_IA1→I1_AOI1、I1_ZYXDA→I1_DRDY、I2_IA2→I2_AOI2）
+--   - 【修正】方向检测说明：明确为软件算法（绝对值最大轴），非芯片硬件 6D/4D
+--   - 【新增】WHO_AM_I 判型时读取 VERSION(0x70) 辅助确认版本
+--   - 【修正】close() 补恢复 CTRL_REG0(0x1F)；dump_regs() 增加 CTRL0 显示
+--   - 【修正】setup 初始化日志标签 mode 重复 → 区分 model/powermode
 ]]
 
 local exs_sc7a20h                        = {}
@@ -68,8 +99,9 @@ local CTRL1_LPen_BIT                      = 0x08      -- 1=低功耗模式, 0=�
 local CTRL1_AXES_EN                       = 0x07      -- X/Y/Z 轴使能
 
 -- CTRL_REG2 (0x21)
-local CTRL2_HPIS1_BIT                     = 0x01      -- 高通滤波使能 - AOI1（活动/自由落体检测建议启用）
-local CTRL2_HPIS2_BIT                     = 0x02      -- 高通滤波使能 - AOI2
+-- 高通滤波仅用于活动检测（滤除重力直流分量）；自由落体不可用（会滤掉重力导致三轴近零，AND 模式持续触发）
+local CTRL2_HPIS1_BIT                     = 0x01      -- 高通滤波使能 - AOI1（活动检测建议启用）
+local CTRL2_HPIS2_BIT                     = 0x02      -- 高通滤波使能 - AOI2（活动检测建议启用）
 
 -- ODR 值 (CTRL_REG1[7:4])
 local ODR_1_56HZ                          = 0x10      -- 1.56 Hz
@@ -272,11 +304,14 @@ end
 
 -- 根据三轴加速度值判断设备朝向（软件算法）
 -- 哪个轴的重力分量最大，设备就朝哪个方向
-local function calc_orientation(ax, ay, az)
+-- 6d 返回 up/down/left/right/front/back；4d 仅返回 up/down/left/right（正/反 X 不区分）
+-- @param dir_mode string "6d" 或 "4d"
+local function calc_orientation(ax, ay, az, dir_mode)
     local abs_x, abs_y, abs_z = math.abs(ax), math.abs(ay), math.abs(az)
-    if abs_x > abs_y and abs_x > abs_z then return ax > 0 and "back" or "front" end
-    if abs_y > abs_x and abs_y > abs_z then return ay > 0 and "left" or "right" end
     if abs_z > abs_x and abs_z > abs_y then return az > 0 and "down" or "up" end
+    if abs_y > abs_x and abs_y > abs_z then return ay > 0 and "left" or "right" end
+    if dir_mode == "4d" then return nil end  -- 4d 不区分 front/back
+    if abs_x > abs_y and abs_x > abs_z then return ax > 0 and "back" or "front" end
     return nil
 end
 
@@ -371,6 +406,11 @@ local function apply_int_config(int1_cfg, int2_cfg)
     ctrl5 = (reg_read(REG_CTRL5, 1) or {})[1] or 0
 
     if int1_cfg then
+        -- activity 与 free_fall 共用 AOI1 中断通道：配置互相矛盾（OR+高阈值 vs AND+低阈值），不可同时使能
+        if int1_cfg.activity and int1_cfg.free_fall then
+            log.warn("exs_sc7a20h", "INT1 同时使能 activity 和 free_fall，两者共用 AOI1 通道配置矛盾，仅启用 activity")
+            int1_cfg.free_fall = nil
+        end
         if int1_cfg.data_ready then ctrl3 = ctrl3 | CTRL3_I1_DRDY_BIT end
         if int1_cfg.activity then
             int1_act_cfg = int1_act_cfg | INT_CFG_ZHIE_BIT | INT_CFG_YHIE_BIT | INT_CFG_XHIE_BIT
@@ -383,6 +423,11 @@ local function apply_int_config(int1_cfg, int2_cfg)
     end
 
     if int2_cfg then
+        -- activity 与 free_fall 共用 AOI2 中断通道：配置互相矛盾（OR+高阈值 vs AND+低阈值），不可同时使能
+        if int2_cfg.activity and int2_cfg.free_fall then
+            log.warn("exs_sc7a20h", "INT2 同时使能 activity 和 free_fall，两者共用 AOI2 通道配置矛盾，仅启用 activity")
+            int2_cfg.free_fall = nil
+        end
         if int2_cfg.activity then
             int2_act_cfg = int2_act_cfg | INT_CFG_ZHIE_BIT | INT_CFG_YHIE_BIT | INT_CFG_XHIE_BIT
             ctrl6 = ctrl6 | CTRL6_I2_AOI2_BIT; need_int2_gen = true
@@ -415,8 +460,9 @@ local function apply_int_config(int1_cfg, int2_cfg)
             if int1_cfg.threshold_mg then
                 reg_write(REG_INT1_THS, math.max(math.min(math.floor(int1_cfg.threshold_mg / lsb_mg), 127), 1))
             end
+            -- duration_ms=0 表示立即触发（DURATION 写 0，规格书 §12.19 默认 0）
             if int1_cfg.duration_ms then
-                reg_write(REG_INT1_DURATION, math.min(math.max(math.floor(int1_cfg.duration_ms * odr_hz / 1000), 1), 127))
+                reg_write(REG_INT1_DURATION, math.min(math.max(math.floor(int1_cfg.duration_ms * odr_hz / 1000), 0), 127))
             end
         end
     end
@@ -429,8 +475,9 @@ local function apply_int_config(int1_cfg, int2_cfg)
             if int2_cfg.threshold_mg then
                 reg_write(REG_INT2_THS, math.max(math.min(math.floor(int2_cfg.threshold_mg / lsb_mg), 127), 1))
             end
+            -- duration_ms=0 表示立即触发（DURATION 写 0，规格书 §12.23 默认 0）
             if int2_cfg.duration_ms then
-                reg_write(REG_INT2_DURATION, math.min(math.max(math.floor(int2_cfg.duration_ms * odr_hz / 1000), 1), 127))
+                reg_write(REG_INT2_DURATION, math.min(math.max(math.floor(int2_cfg.duration_ms * odr_hz / 1000), 0), 127))
             end
         end
     end
@@ -554,7 +601,7 @@ function exs_sc7a20h.setup(model, config)
     if config.int2 and config.int2.int_gpio then g_int2_gpio = config.int2.int_gpio end
 
     g_ready = true
-    log.info("exs_sc7a20h", string.format("初始化完成 mode=%s range=%s odr=%sHz mode=%s", model, g_range, tostring(g_odr_hz), config.powermode or "highres"))
+    log.info("exs_sc7a20h", string.format("初始化完成 model=%s range=%s odr=%sHz powermode=%s", model, g_range, tostring(g_odr_hz), config.powermode or "highres"))
     return true
 end
 
@@ -577,7 +624,7 @@ function exs_sc7a20h.get_data()
     local x = (buf[2] << 8) | buf[1]; local y = (buf[4] << 8) | buf[3]; local z = (buf[6] << 8) | buf[5]
     if x >= 0x8000 then x = x - 0x10000 end; if y >= 0x8000 then y = y - 0x10000 end; if z >= 0x8000 then z = z - 0x10000 end
     local ax, ay, az = x / g_sensitivity, y / g_sensitivity, z / g_sensitivity
-    local dir = g_direction_enabled and calc_orientation(ax, ay, az) or nil
+    local dir = g_direction_enabled and calc_orientation(ax, ay, az, g_direction_enabled) or nil
     return { x = ax, y = ay, z = az, dir = dir }
 end
 

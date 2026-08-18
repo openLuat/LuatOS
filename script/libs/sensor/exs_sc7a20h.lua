@@ -1,8 +1,8 @@
 --[[
 @module  exs_sc7a20h
 @summary SC7A20H 三轴加速度传感器扩展库
-@version 1.0
-@date    2026.07.17
+@version 1.1
+@date    2026.08.17
 @author  江访
 @usage
 本文件为 SC7A20H 三轴加速度传感器（士兰微电子出品）的 LuatOS 扩展库。
@@ -29,10 +29,11 @@ local exs_sc7a20h                        = {}
 -- ==================== 寄存器地址 ====================
 
 local REG_WHO_AM_I                        = 0x0F      -- 器件 ID 寄存器（固定值 0x11）
+local REG_CTRL0                           = 0x1F      -- 模式控制：OSR[2:0] + DLPF[1] + HR
 local REG_CTRL1                           = 0x20      -- ODR + LPen + X/Y/Z 使能
 local REG_CTRL2                           = 0x21      -- 高通滤波配置
 local REG_CTRL3                           = 0x22      -- INT1 中断路由
-local REG_CTRL4                           = 0x23      -- BDU + 量程 + HR/自测
+local REG_CTRL4                           = 0x23      -- BDU + 量程 + DLPF[0]/自测
 local REG_CTRL5                           = 0x24      -- 6D/4D 选择 + 中断锁存 + FIFO
 local REG_CTRL6                           = 0x25      -- INT2 中断路由
 local REG_STATUS                          = 0x27      -- 数据状态（ZYXDA 等）
@@ -52,12 +53,13 @@ local REG_INT2_CFG                        = 0x34      -- INT2 中断事件配置
 local REG_INT2_SRC                        = 0x35      -- INT2 中断源
 local REG_INT2_THS                        = 0x36      -- INT2 阈值
 local REG_INT2_DURATION                   = 0x37      -- INT2 持续时间
-local REG_CLICK_CFG                       = 0x38      -- 敲击检测配置
-local REG_CLICK_SRC                       = 0x39      -- 敲击中断源
-local REG_CLICK_THS                       = 0x3A      -- 敲击阈值
-local REG_TIME_LIMIT                      = 0x3B      -- 敲击时间限制
-local REG_TIME_LATENCY                    = 0x3C      -- 敲击间隔时间
-local REG_TIME_WINDOW                     = 0x3D      -- 敲击时间窗口
+local REG_CLICK_CTRL                      = 0x38      -- 敲击检测配置（CLICK_CRTL_REG）
+local REG_CLICK_SRC                       = 0x39      -- 敲击中断源（敲击次数状态）
+local REG_CLICK_COEFF1                    = 0x3A      -- 敲击系数1：敲击前稳定时长/阈值1
+local REG_CLICK_COEFF2                    = 0x3B      -- 敲击系数2：敲击时长/阈值2
+local REG_CLICK_COEFF3                    = 0x3C      -- 敲击系数3：平静时长
+local REG_CLICK_COEFF4                    = 0x3D      -- 敲击系数4：单击最大时长/多击次数
+local REG_VERSION                         = 0x70      -- 版本号寄存器（与 WHO_AM_I 搭配判型，默认 0x28）
 
 -- ==================== 寄存器位常量 ====================
 
@@ -82,14 +84,18 @@ local ODR_1K48HZ                          = 0x90      -- 1.48 kHz（高性能模
 local ODR_2K66HZ                          = 0xA0      -- 2.66 kHz（高性能模式）
 local ODR_4K434HZ                         = 0xB0      -- 4.434 kHz（高性能模式）
 
+-- CTRL_REG0 (0x1F) 模式控制
+local CTRL0_HR_BIT                        = 0x01      -- 1=高性能/增强模式, 0=低功耗/正常模式
+local CTRL0_DLPF1_BIT                     = 0x02      -- 数字低通滤波系数高位（与 0x23 bit3 组成 DLPF[1:0]）
+local CTRL0_OSR_MASK                      = 0x70      -- OSR[2:0] ODR 分频：000=ODR, 001=ODR/2 ... 101~111=ODR/32
+
 -- CTRL_REG3 (0x22) INT1 路由
 local CTRL3_I1_CLICK_BIT                  = 0x80      -- 敲击中断 → INT1
-local CTRL3_I1_IA1_BIT                    = 0x40      -- IA1 中断 → INT1
-local CTRL3_I1_ZYXDA_BIT                  = 0x10      -- data_ready → INT1
+local CTRL3_I1_AOI1_BIT                   = 0x40      -- AOI1 中断 → INT1
+local CTRL3_I1_DRDY_BIT                   = 0x10      -- DRDY 数据就绪 → INT1
 
 -- CTRL_REG4 (0x23)
 local CTRL4_BDU_BIT                       = 0x80      -- 数据更新锁定（防止高/低字节错位）
-local CTRL4_HR_BIT                        = 0x08      -- 1=高精度(12-bit), 0=正常(10-bit)
 local CTRL4_FS_MASK                       = 0x30      -- 量程选择位掩码
 
 -- 量程值 (CTRL_REG4[5:4])
@@ -105,6 +111,7 @@ local SENSITIVITY_8G                      = 4096      -- +/-8g  每 g 4096 LSB
 local SENSITIVITY_16G                     = 2048      -- +/-16g 每 g 2048 LSB
 
 -- CTRL_REG5 (0x24)
+-- 注：以下 D4D 位为硬件 6D/4D 方向检测用，本库方向检测为软件算法，暂未使用（保留参考）
 local CTRL5_D4D_INT1_BIT                  = 0x04      -- 1=4D 方向检测使能(INT1), 0=6D（手册 D4D_INT1 位）
 local CTRL5_D4D_INT2_BIT                  = 0x01      -- 1=4D 方向检测使能(INT2), 0=6D（手册 D4D_INT2 位）
 local CTRL5_LIR_INT1_BIT                  = 0x08      -- INT1 中断锁存（读 INT1_SRC 后清除）
@@ -112,11 +119,12 @@ local CTRL5_LIR_INT2_BIT                  = 0x02      -- INT2 中断锁存
 
 -- CTRL_REG6 (0x25) INT2 路由
 local CTRL6_I2_CLICK_BIT                  = 0x80      -- 敲击中断 → INT2
-local CTRL6_I2_IA2_BIT                    = 0x20      -- IA2 中断 → INT2
-local CTRL6_I2_DRDY_BIT                   = 0x08      -- data_ready → INT2
+local CTRL6_I2_AOI2_BIT                   = 0x20      -- AOI2 中断 → INT2
+local CTRL6_I2_DRDY_BIT                   = 0x08      -- DRDY 数据就绪 → INT2
 
 -- INTx_CFG (0x30/0x34)
 local INT_CFG_AOI_BIT                     = 0x80      -- 0=OR 组合, 1=AND 组合（方向检测用）
+-- 注：6D 位为硬件方向检测用，本库方向检测为软件算法，暂未使用（保留参考）
 local INT_CFG_6D_BIT                      = 0x40      -- 6D 方向检测使能
 local INT_CFG_ZHIE_BIT                    = 0x20      -- Z 轴正方向阈值使能
 local INT_CFG_ZLIE_BIT                    = 0x10      -- Z 轴负方向阈值使能
@@ -246,19 +254,20 @@ local function range_to_params(str)
 end
 
 -- 目标 Hz → 寄存器值 + 实际速率（向下取到最近的可用值）
--- @return number, number 寄存器值, 实际速率(Hz)
+-- 返回第 3 个值：该 ODR 是否仅高性能模式可用（>800Hz，规格书 ODR 表 1001~1011）
+-- @return number, number, boolean 寄存器值, 实际速率(Hz), 是否仅高性能模式
 local function odr_to_reg(hz)
-    if hz >= 4000 then return ODR_4K434HZ, 4434
-    elseif hz >= 2000 then return ODR_2K66HZ, 2660
-    elseif hz >= 1000 then return ODR_1K48HZ, 1480
-    elseif hz >= 600 then return ODR_800HZ, 800
-    elseif hz >= 400 then return ODR_400HZ, 400
-    elseif hz >= 200 then return ODR_200HZ, 200
-    elseif hz >= 100 then return ODR_100HZ, 100
-    elseif hz >= 50 then return ODR_50HZ, 50
-    elseif hz >= 25 then return ODR_25HZ, 25
-    elseif hz >= 12.5 then return ODR_12_5HZ, 12.5
-    else return ODR_1_56HZ, 1.56 end
+    if hz >= 4000 then return ODR_4K434HZ, 4434, true
+    elseif hz >= 2000 then return ODR_2K66HZ, 2660, true
+    elseif hz >= 1000 then return ODR_1K48HZ, 1480, true
+    elseif hz >= 600 then return ODR_800HZ, 800, false
+    elseif hz >= 400 then return ODR_400HZ, 400, false
+    elseif hz >= 200 then return ODR_200HZ, 200, false
+    elseif hz >= 100 then return ODR_100HZ, 100, false
+    elseif hz >= 50 then return ODR_50HZ, 50, false
+    elseif hz >= 25 then return ODR_25HZ, 25, false
+    elseif hz >= 12.5 then return ODR_12_5HZ, 12.5, false
+    else return ODR_1_56HZ, 1.56, false end
 end
 
 -- 根据三轴加速度值判断设备朝向（软件算法）
@@ -282,7 +291,13 @@ local function chip_detect_i2c()
                 local id = data:byte(1)
                 if id == SC7A20H_DEVID then
                     g_dev_addr = addr
-                    log.info("exs_sc7a20h", string.format("SC7A20H @ I2C 0x%02X", addr))
+                    -- 规格书 §12.2：WHO_AM_I 需配合 0x70(VERSION) 判断版本，默认 0x28
+                    local ver = nil
+                    if i2c.send(g_i2c_bus, addr, { REG_VERSION }) then
+                        local vdata = i2c.recv(g_i2c_bus, addr, 1)
+                        if vdata and #vdata >= 1 then ver = vdata:byte(1) end
+                    end
+                    log.info("exs_sc7a20h", string.format("SC7A20H @ I2C 0x%02X, VERSION=0x%02X", addr, ver or 0xFF))
                     return true
                 end
             end
@@ -293,9 +308,10 @@ end
 
 -- ==================== 初始化配置写入 ====================
 
--- 写入 CTRL_REG1（ODR + 功耗模式 + 三轴使能）
--- 写入 CTRL_REG4（BDU + 量程 + 精度模式）
--- 可选配置：方向检测
+-- 写入 CTRL_REG0（HR 高性能模式位）
+-- 写入 CTRL_REG1（ODR + LPen + 三轴使能）
+-- 写入 CTRL_REG4（BDU + 量程）
+-- 可选配置：方向检测（软件算法）
 -- 最后读回验证写入是否成功
 local function apply_init_config(config)
     -- 参考驱动：先发 BOOT=1 从 NVM 重载修调值（校准补偿），写 CTRL5=0x80
@@ -305,33 +321,40 @@ local function apply_init_config(config)
     local range_str = config.range or "2g"
     local odr_hz = config.odr or 100
     local mode = config.powermode or "highres"
-    local odr_reg, actual_odr = odr_to_reg(odr_hz)
+    local odr_reg, actual_odr, only_highperf = odr_to_reg(odr_hz)
+    -- >800Hz 的 ODR（1.48k/2.66k/4.434k）仅高性能模式可用，非 highres 时钳到 800Hz
+    if only_highperf and mode ~= "highres" then
+        odr_reg, actual_odr = ODR_800HZ, 800
+        log.warn("exs_sc7a20h", string.format("%s 模式不支持 %sHz，已钳到 800Hz", mode, tostring(odr_hz)))
+    end
     local fs_reg, sensitivity = range_to_params(range_str)
     local lpen = 0; local hr = 0
     if mode == "lowpower" then lpen = 1; hr = 0
     elseif mode == "normal" then lpen = 0; hr = 0
     else lpen = 0; hr = 1 end
 
+    -- CTRL_REG0(0x1F)：HR 位在 bit0（规格书 §12.3），高性能/增强模式使能
+    local ctrl0 = (hr == 1 and CTRL0_HR_BIT or 0)
+    if not reg_write(REG_CTRL0, ctrl0) then log.error("exs_sc7a20h.setup CTRL_REG0 失败"); return false end
+
     local ctrl1 = odr_reg | (lpen == 1 and CTRL1_LPen_BIT or 0) | CTRL1_AXES_EN
     if not reg_write(REG_CTRL1, ctrl1) then log.error("exs_sc7a20h.setup CTRL_REG1 失败"); return false end
 
-    local ctrl4 = CTRL4_BDU_BIT | (hr == 1 and CTRL4_HR_BIT or 0) | fs_reg
+    -- CTRL_REG4(0x23)：BDU + 量程。注意：HR 不在本寄存器（bit3 是 DLPF[0]），不要误置
+    local ctrl4 = CTRL4_BDU_BIT | fs_reg
     if not reg_write(REG_CTRL4, ctrl4) then log.error("exs_sc7a20h.setup CTRL_REG4 失败"); return false end
 
+    -- 方向检测：仅记录开关，朝向由软件算法 calc_orientation() 计算
+    -- 规格书硬件 6D/4D 需要 AOI1_CFG + I1_AOI1 路由 + CTRL5 D4D 位配合，当前实现不采用
     if config.enable_direction then
-        local c5 = (reg_read(REG_CTRL5, 1) or {})[1] or 0
-        -- D4D_INT1=1 使能4D, D4D_INT1=0 使能6D（手册CTRL_REG5 bit2）
-        c5 = config.enable_direction == "6d" and (c5 & ~CTRL5_D4D_INT1_BIT) or (c5 | CTRL5_D4D_INT1_BIT)
-        c5 = config.enable_direction == "6d" and (c5 & ~CTRL5_D4D_INT2_BIT) or (c5 | CTRL5_D4D_INT2_BIT)
-        reg_write(REG_CTRL5, c5)
         g_direction_enabled = config.enable_direction
     end
 
     -- 读回验证
-    local r1 = reg_read(REG_CTRL1, 1); local r4 = reg_read(REG_CTRL4, 1)
+    local r0 = reg_read(REG_CTRL0, 1); local r1 = reg_read(REG_CTRL1, 1); local r4 = reg_read(REG_CTRL4, 1)
     local status = reg_read(REG_STATUS, 1); local icfg = reg_read(REG_INT1_CFG, 1)
-    log.info("exs_sc7a20h", string.format("REG读回 CTRL1=0x%02X CTRL4=0x%02X STATUS=0x%02X INT1_CFG=0x%02X",
-        (r1 or {})[1] or 0, (r4 or {})[1] or 0, (status or {})[1] or 0, (icfg or {})[1] or 0))
+    log.info("exs_sc7a20h", string.format("REG读回 CTRL0=0x%02X CTRL1=0x%02X CTRL4=0x%02X STATUS=0x%02X INT1_CFG=0x%02X",
+        (r0 or {})[1] or 0, (r1 or {})[1] or 0, (r4 or {})[1] or 0, (status or {})[1] or 0, (icfg or {})[1] or 0))
 
     g_range, g_sensitivity = range_str, sensitivity; g_odr_hz = actual_odr
     return true
@@ -348,25 +371,25 @@ local function apply_int_config(int1_cfg, int2_cfg)
     ctrl5 = (reg_read(REG_CTRL5, 1) or {})[1] or 0
 
     if int1_cfg then
-        if int1_cfg.data_ready then ctrl3 = ctrl3 | CTRL3_I1_ZYXDA_BIT end
+        if int1_cfg.data_ready then ctrl3 = ctrl3 | CTRL3_I1_DRDY_BIT end
         if int1_cfg.activity then
             int1_act_cfg = int1_act_cfg | INT_CFG_ZHIE_BIT | INT_CFG_YHIE_BIT | INT_CFG_XHIE_BIT
-            ctrl3 = ctrl3 | CTRL3_I1_IA1_BIT; need_int1_gen = true
+            ctrl3 = ctrl3 | CTRL3_I1_AOI1_BIT; need_int1_gen = true
         end
         if int1_cfg.free_fall then
             int1_act_cfg = int1_act_cfg | INT_CFG_AOI_BIT | INT_CFG_ZLIE_BIT | INT_CFG_YLIE_BIT | INT_CFG_XLIE_BIT
-            ctrl3 = ctrl3 | CTRL3_I1_IA1_BIT; need_int1_gen = true
+            ctrl3 = ctrl3 | CTRL3_I1_AOI1_BIT; need_int1_gen = true
         end
     end
 
     if int2_cfg then
         if int2_cfg.activity then
             int2_act_cfg = int2_act_cfg | INT_CFG_ZHIE_BIT | INT_CFG_YHIE_BIT | INT_CFG_XHIE_BIT
-            ctrl6 = ctrl6 | CTRL6_I2_IA2_BIT; need_int2_gen = true
+            ctrl6 = ctrl6 | CTRL6_I2_AOI2_BIT; need_int2_gen = true
         end
         if int2_cfg.free_fall then
             int2_act_cfg = int2_act_cfg | INT_CFG_AOI_BIT | INT_CFG_ZLIE_BIT | INT_CFG_YLIE_BIT | INT_CFG_XLIE_BIT
-            ctrl6 = ctrl6 | CTRL6_I2_IA2_BIT; need_int2_gen = true
+            ctrl6 = ctrl6 | CTRL6_I2_AOI2_BIT; need_int2_gen = true
         end
         if int2_cfg.data_ready then ctrl6 = ctrl6 | CTRL6_I2_DRDY_BIT end
     end
@@ -376,7 +399,7 @@ local function apply_int_config(int1_cfg, int2_cfg)
     if int1_cfg and (int1_cfg.activity) then ctrl2 = ctrl2 | CTRL2_HPIS1_BIT end
     if int2_cfg and (int2_cfg.activity) then ctrl2 = ctrl2 | CTRL2_HPIS2_BIT end
 
--- 阈值配置
+    -- 阈值配置
     -- threshold_mg → 寄存器值，duration_ms → 采样数
     local odr_hz = g_odr_hz or 100
     local fs_g = 2
@@ -583,7 +606,15 @@ end
 ]]
 function exs_sc7a20h.set_odr(hz)
     if not g_ready then log.error("exs_sc7a20h.set_odr 请先 setup()"); return end
-    local odr_reg, actual_odr = odr_to_reg(hz)
+    local odr_reg, actual_odr, only_highperf = odr_to_reg(hz)
+    -- 1.48k/2.66k/4.434k 仅高性能模式可用，当前不在 highres 时钳到 800Hz
+    if only_highperf then
+        local c0 = (reg_read(REG_CTRL0, 1) or {})[1] or 0
+        if c0 & CTRL0_HR_BIT == 0 then
+            odr_reg, actual_odr = ODR_800HZ, 800
+            log.warn("exs_sc7a20h", string.format("当前非高性能模式，不支持 %sHz，已钳到 800Hz", tostring(hz)))
+        end
+    end
     local cur = (reg_read(REG_CTRL1, 1) or {})[1] or 0
     cur = (cur & 0x0F) | odr_reg
     if not reg_write(REG_CTRL1, cur) then return end
@@ -606,8 +637,17 @@ function exs_sc7a20h.set_powermode(mode)
     else log.error("exs_sc7a20h.set_powermode 参数错误"); return end
     local c1 = (reg_read(REG_CTRL1, 1) or {})[1] or 0
     reg_write(REG_CTRL1, lpen == 1 and (c1 | CTRL1_LPen_BIT) or (c1 & ~CTRL1_LPen_BIT))
-    local c4 = (reg_read(REG_CTRL4, 1) or {})[1] or 0
-    reg_write(REG_CTRL4, hr == 1 and (c4 | CTRL4_HR_BIT) or (c4 & ~CTRL4_HR_BIT))
+    -- HR 位在 CTRL_REG0(0x1F) bit0（规格书 §12.3），不是 0x23
+    local c0 = (reg_read(REG_CTRL0, 1) or {})[1] or 0
+    reg_write(REG_CTRL0, hr == 1 and (c0 | CTRL0_HR_BIT) or (c0 & ~CTRL0_HR_BIT))
+    -- 切换到非 highres 时若当前 ODR>800Hz 需钳制（>800Hz 仅高性能模式可用）
+    if hr == 0 and g_odr_hz and g_odr_hz > 800 then
+        local c1b = (reg_read(REG_CTRL1, 1) or {})[1] or 0
+        c1b = (c1b & 0x0F) | ODR_800HZ
+        reg_write(REG_CTRL1, c1b)
+        g_odr_hz = 800
+        log.warn("exs_sc7a20h", "切换为低功耗/正常模式，ODR 已钳到 800Hz")
+    end
     log.info("exs_sc7a20h", string.format("功耗模式切换为 %s", mode))
 end
 
@@ -720,9 +760,9 @@ end
 @api exs_sc7a20h.dump_regs()
 ]]
 function exs_sc7a20h.dump_regs()
-    local regs = { REG_CTRL1, REG_CTRL2, REG_CTRL3, REG_CTRL4, REG_CTRL5, REG_CTRL6,
+    local regs = { REG_CTRL0, REG_CTRL1, REG_CTRL2, REG_CTRL3, REG_CTRL4, REG_CTRL5, REG_CTRL6,
         REG_STATUS, REG_INT1_SRC, REG_INT2_SRC, REG_FIFO_SRC }
-    local names = { "CTRL1", "CTRL2", "CTRL3", "CTRL4", "CTRL5", "CTRL6",
+    local names = { "CTRL0", "CTRL1", "CTRL2", "CTRL3", "CTRL4", "CTRL5", "CTRL6",
         "STATUS", "INT1_SRC", "INT2_SRC", "FIFO_SRC" }
     local sb = {}
     for i, r in ipairs(regs) do
@@ -750,7 +790,7 @@ function exs_sc7a20h.close()
     -- 先注销 GPIO 中断（防止 close 后 INT 引脚变化触发回调导致死机）
     if g_int1_gpio then gpio.setup(g_int1_gpio, nil) end
     if g_int2_gpio then gpio.setup(g_int2_gpio, nil) end
-    reg_write(REG_CTRL1, 0x00); reg_write(REG_CTRL2, 0x00); reg_write(REG_CTRL3, 0x00)
+    reg_write(REG_CTRL0, 0x00); reg_write(REG_CTRL1, 0x00); reg_write(REG_CTRL2, 0x00); reg_write(REG_CTRL3, 0x00)
     reg_write(REG_CTRL4, 0x00); reg_write(REG_CTRL5, 0x00); reg_write(REG_CTRL6, 0x00)
     g_ready = false; g_i2c_bus = 0; g_is_soft = false
     g_scl_pin = nil; g_sda_pin = nil; g_dev_addr = 0x18
@@ -771,7 +811,7 @@ end
 @usage
 local ver = exs_sc7a20h.version()
 ]]
-function exs_sc7a20h.version() return "202607180900" end
+function exs_sc7a20h.version() return "202608170000" end
 
 log.debug("exs_sc7a20h", "version -> " .. exs_sc7a20h.version())
 return exs_sc7a20h

@@ -25,8 +25,14 @@ extern void lcd_auto_flush(luat_lcd_conf_t *conf);
  * 与 l_lcd_set_acc_hw (luat_lib_lcd.c) 保持一致语义。 */
 static luat_img_decode_mode_t jpeg_pick_mode(luat_lcd_conf_t *conf) {
     if (conf == NULL) return LUAT_IMG_DECODE_SW;
-    if (conf->acc_hw == LUAT_LCD_ACC_HW_ALL) return LUAT_IMG_DECODE_HW;
-    if (conf->acc_hw_jpeg)                   return LUAT_IMG_DECODE_HW;
+    if (conf->acc_hw == LUAT_LCD_ACC_HW_ALL || conf->acc_hw_jpeg) {
+        /* Some BSPs do not provide a JPEG hardware decoder even though the
+         * LCD acceleration default is "all".  Do not select an unregistered
+         * decoder; fall back to the software decoder instead. */
+        if (luat_image_get_decoder_opts(LUAT_IMG_FMT_JPG, LUAT_IMG_DECODE_HW) != NULL) {
+            return LUAT_IMG_DECODE_HW;
+        }
+    }
     return LUAT_IMG_DECODE_SW;
 }
 

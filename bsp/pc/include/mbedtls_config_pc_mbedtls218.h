@@ -1926,7 +1926,7 @@
  *             See dhm.h for more details.
  *
  */
-//#define MBEDTLS_DHM_C
+#define MBEDTLS_DHM_C
 
 /**
  * \def MBEDTLS_ECDH_C

@@ -1,0 +1,6 @@
+{
+    "name": "netdrv_l2tp_basic",
+    "description": "netdrv L2TPv2 client basic tests (PC, needs mock_lns.py)",
+    "platforms": ["PC"],
+    "deps": ["netdrv"]
+}

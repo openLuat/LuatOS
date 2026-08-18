@@ -174,11 +174,6 @@ static void _usb_eth_netif_add(void *param)
 	luat_netdrv_register(ctx->drv.id, &ctx->drv);
 }
 
-static void _usb_log(void *param)
-{
-	LLOGW("%s", (char *)param);
-}
-
 static void _usb_eth_rx_drain_to_lwip(void *param)
 {
 	luat_usb_eth_netif_t *ctx = (luat_usb_eth_netif_t *)param;
@@ -208,12 +203,16 @@ static __NETDRV_CODE_IN_ISR__ void _usb_eth_rx_put_frame(luat_usb_eth_netif_t *c
 {
 	if (!len || (len > LUAT_USB_ETH_DEFAULT_FRAME_SIZE)) {
 		luat_netdrv_stat_inc(&ctx->drv.statics.drop, len);
-		tcpip_callback_with_block(_usb_log, "invalid rx frame", 0);
+#ifdef LUAT_LOG_IN_ISR_ENABLE
+		LLOGE("invalid rx frame, len: %d", len);
+#endif
 		return;
 	}
 	if (!luat_no_data_fifo_check_free_space(&ctx->rx_cache_fifo)) {
 		luat_netdrv_stat_inc(&ctx->drv.statics.drop, len);
-		tcpip_callback_with_block(_usb_log, "no free rx_cache", 0);
+#ifdef LUAT_LOG_IN_ISR_ENABLE
+		LLOGE("no free rx_cache");
+#endif
 		return;
 	}
 
@@ -230,7 +229,9 @@ static __NETDRV_CODE_IN_ISR__ void _usb_eth_rx_ecm(luat_usb_eth_netif_t *ctx,
 	const uint8_t *data, uint32_t len)
 {
 	if ((ctx->temp_rx_cache.total_len + len) > LUAT_USB_ETH_DEFAULT_FRAME_SIZE) {
-		tcpip_callback_with_block(_usb_log, "rx data overflow", 0);
+#ifdef LUAT_LOG_IN_ISR_ENABLE
+		LLOGE("ecm rx data overflow %d", ctx->temp_rx_cache.total_len + len);
+#endif
 		luat_netdrv_stat_inc(&ctx->drv.statics.drop, ctx->temp_rx_cache.total_len + len);
 		ctx->temp_rx_cache.total_len = 0;
 		return;
@@ -271,7 +272,9 @@ static __NETDRV_CODE_IN_ISR__ void _usb_eth_rx_rndis(luat_usb_eth_netif_t *ctx,
 				(ctx->rndis_rx_expected < LUAT_USB_RNDIS_HEADER_SIZE) ||
 				(ctx->rndis_rx_expected > LUAT_USB_RNDIS_MAX_MESSAGE_SIZE)) {
 				luat_netdrv_stat_inc(&ctx->drv.statics.drop, ctx->rndis_rx_received + len);
-				tcpip_callback_with_block(_usb_log, "invalid rndis message", 0);
+#ifdef LUAT_LOG_IN_ISR_ENABLE
+				LLOGE("invalid rndis message, %x,%u", packet_u32[0], ctx->rndis_rx_expected);
+#endif
 				ctx->rndis_rx_received = 0;
 				ctx->rndis_rx_expected = 0;
 				return;
@@ -296,7 +299,9 @@ static __NETDRV_CODE_IN_ISR__ void _usb_eth_rx_rndis(luat_usb_eth_netif_t *ctx,
 				_usb_eth_rx_put_frame(ctx, packet + data_offset, data_len);
 			} else {
 				luat_netdrv_stat_inc(&ctx->drv.statics.drop, ctx->rndis_rx_expected);
-				tcpip_callback_with_block(_usb_log, "invalid rndis packet", 0);
+#ifdef LUAT_LOG_IN_ISR_ENABLE
+				LLOGE("invalid rndis packet offset: %d, len: %d, expected: %d", data_offset, data_len, ctx->rndis_rx_expected);
+#endif
 			}
 			ctx->rndis_rx_received = 0;
 			ctx->rndis_rx_expected = 0;
@@ -398,6 +403,9 @@ static __NETDRV_CODE_IN_ISR__ void _usb_eth_event_callback(uint32_t event, void 
 				pos = luat_no_data_fifo_get(&ctx->tx_cache_fifo);
 				ret = _usb_eth_send_frame(ctx, ctx->tx_cache[pos].data_u32, ctx->tx_cache[pos].total_len, 1);
 				if (ret != LUAT_ERROR_NONE) {	//新数据发送直接失败
+#ifdef LUAT_LOG_IN_ISR_ENABLE
+					LLOGE("usb_eth: send frame failed");
+#endif
 					luat_netdrv_stat_inc(&ctx->drv.statics.drop, ctx->tx_cache[pos].total_len);
 					luat_no_data_fifo_delete(&ctx->tx_cache_fifo);
 				} else {	//新数据发送中

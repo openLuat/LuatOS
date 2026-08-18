@@ -23,8 +23,14 @@ void tiny_epd_hzfont_style_init(tiny_epd_hzfont_style_t *style)
 static int tiny_epd_hzfont_pick_antialias(uint8_t size, int8_t antialias)
 {
     if (antialias < 0) {
-        if (size <= 16u) return 1;
-        if (size <= 32u) return 2;
+        /*
+         * A 1-bit EPD needs a stable binary contour, not a size-dependent
+         * coarse antialiasing level.  2x2 only has five coverage values, so
+         * its 50% edge (128) is either retained as a visibly heavy stroke or
+         * discarded as a broken one.  HzFont level 3 uses 4x4 sampling and
+         * gives enough coverage steps for a consistent 50% binary boundary.
+         */
+        (void)size;
         return 3;
     }
     if (antialias <= 1) return 1;
@@ -94,6 +100,12 @@ static uint8_t tiny_epd_hzfont_covered(const tiny_epd_hzfont_style_t *style,
     if (style->dither == TINY_EPD_HZFONT_DITHER_BAYER4) {
         return coverage > bayer4[((uint32_t)y & 3u) * 4u + ((uint32_t)x & 3u)];
     }
+    /*
+     * With the default 4x4 sampler, 8/16 samples encode as 128 and 9/16 as
+     * 143.  Keep only the latter: this is the conventional strict >50%
+     * contour, which removes the extra half-covered edge without erasing a
+     * one-pixel stem.
+     */
     return coverage > style->threshold;
 }
 
@@ -123,8 +135,6 @@ int tiny_epd_hzfont_draw_utf8(tiny_epd_t *epd,
     }
     tiny_epd_hzfont_style_init(&default_style);
     if (style == NULL) {
-        /* A missing style deliberately follows the panel-local drawing
-         * colors. Explicit styles retain their historic concrete values. */
         default_style.fg = TINY_EPD_COLOR_FG;
         default_style.bg = (int16_t)TINY_EPD_COLOR_BG;
         resolved_style = &default_style;
@@ -180,6 +190,8 @@ int tiny_epd_hzfont_draw_utf8(tiny_epd_t *epd,
                     draw_y < INT16_MIN || draw_y > INT16_MAX) {
                     continue;
                 }
+                /* HzFont coverage is quantized by the selected sampler. The
+                 * EPD default is 4x4 with a strict 50% binary boundary. */
                 if (tiny_epd_hzfont_covered(resolved_style,
                                              bitmap->pixels[row * bitmap->width + col],
                                              draw_x, draw_y)) {

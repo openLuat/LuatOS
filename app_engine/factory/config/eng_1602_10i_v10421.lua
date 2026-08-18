@@ -17,11 +17,14 @@ return {
     -- ===== 引脚功能复用（无特殊复用需求，留空）=====
     pins = {},
 
-    -- ===== GPIO 上电时序: WiFi 模组复位 =====
+    -- ===== GPIO 上电时序: WiFi 模组复位 + 音频 ES8311 上电 =====
     -- V004 airlink WiFi 模组: GPIO55 先高后低（低电平有效，与 V000/V002/V003 相反）
+    -- 音频 ES8311 上电（8311_EN=GPIO49，高电平有效），录音需经 I2C1 读芯片
+    -- PA_EN=GPIO45 由 exaudio.setup 内部控制（防 pop 音时序），此处不提前拉高
     power_on = {
         { pin = 55, dir = 0, level = 1, delay = 50  },  -- 拉高 50ms
         { pin = 55, dir = 0, level = 0, delay = 120 },  -- 拉低 120ms 使能
+        { pin = 43, dir = 0, level = 1 },               -- 8311_EN 拉高使能 ES8311
     },
 
     -- ===== 硬件配置 =====
@@ -64,6 +67,33 @@ return {
             voltage_divider = 2,         -- 分压比 2:1
             full_voltage = 4150,         -- 充满电压 4.15V
         },
+        -- 音频硬件: ES8311 + I2S2（应用工厂-录音播放）
+        -- 引擎板方案（参考 Air1602 录音 demo）：播放走内置 DAC0，录音走 I2S2 接 ES8311
+        -- 8311_EN=GPIO49(dac_ctrl), PA_EN=GPIO45(pa_ctrl)，I2C1 控制(i2c_id=1)
+        -- exaudio v2.8 通过 tx_bus_type/rx_bus_type 切换默认驱动：DAC0 播放 + I2S2 录音
+        audio = {
+            model = "es8311",            -- 音频编解码: ES8311（录音经 I2S2）
+            i2c_id = 1,                  -- I2C1 控制总线（与触摸共用）
+            -- 默认驱动切换：播放用内置 DAC0，录音用 I2S2（Air1602 引擎板）
+            -- 数值对应 audio_v2.DRIVER_TYPE_*（NONE=0/I2S=1/DAC=2/ADC=3），
+            -- 用字面量避免依赖 audio_v2 全局表（8000 等旧框架固件可能无此表）
+            tx_bus_type = 2,               -- audio_v2.DRIVER_TYPE_DAC：发送(播放)总线=内置DAC
+            tx_bus_id = 0,                 -- DAC0
+            rx_bus_type = 1,               -- audio_v2.DRIVER_TYPE_I2S：接收(录音)总线=I2S
+            rx_bus_id = 2,                 -- I2S2
+            dac_ctrl = 49,               -- 8311_EN 编解码使能 GPIO
+            pa_ctrl = 45,                -- PA_EN 功放使能 GPIO
+            pa_on_level = 1,             -- PA 高电平使能
+            pa_delay = 100,              -- PA 打开延迟(ms)
+            i2s_sample = 8000,           -- I2S 采样率（AMR_NB=8k）
+            bits_per_sample = 16,        -- 采样位深
+            i2s_framebit = 16,           -- I2S 通道位宽
+            channels = 1,                -- 声道数: 单声道
+            play_vol = 70,               -- 默认播放音量(0~100)
+            mic_vol = 70,                -- 默认录音音量(0~100)
+            record_format = "AMR_NB",    -- 录音格式
+            max_record_time = 30,        -- 最大录音时长(秒)，到时自动停止
+        },
     },
 
     -- ===== 功能开关（只写 = true 的项）=====
@@ -72,6 +102,9 @@ return {
         nand_flash = true,               -- 启用 NAND Flash 存储
         nes = true,                      -- 启用 NES 游戏按键（需配 nes_keys）
         battery = true,                  -- 启用电池管理（需配 hw.battery + ui.show_battery_icon）
+        app_factory = true,              -- 启用"应用工厂"内置应用
+        speaker = true,                  -- 启用喇叭（DAC0 播放）
+        mic = true,                      -- 启用麦克风（I2S2 + ES8311 录音）
     },
 
     -- ===== 统一网络配置（优先级从高到低）=====
@@ -102,6 +135,7 @@ return {
         show_brightness_slider = true,   -- 设置页亮度滑块
         show_storage_settings = true,    -- 设置页存储空间入口
         show_battery_icon = true,        -- 桌面顶栏电池图标 ← 配 battery 时打开
+        show_app_factory = true,         -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
     },
 
     -- ===== 存储设备: NAND Flash =====

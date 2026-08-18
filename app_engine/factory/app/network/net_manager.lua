@@ -84,8 +84,9 @@ local function legacy_to_network()
 
     -- 1. WiFi
     if features.wifi then
-        if _chip:find("Air1601") or _chip:find("Air1602") then
-            -- Airlink SPI WiFi（Air1601/1602 外挂模组）
+        if _chip:find("Air1601") or _chip:find("Air1602")
+            or _chip:find("Air1780") then
+            -- Airlink SPI WiFi（Air1601/1602/Air1780 外挂模组）
             local w = _config.wifi or {}
             table.insert(nets, {
                 type = "wifi_airlink_spi",

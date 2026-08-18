@@ -33,6 +33,9 @@ local COLOR_TEXT_SECONDARY = 0x757575
 local COLOR_DIVIDER        = 0xE0E0E0
 local COLOR_WHITE          = 0xFFFFFF
 
+-- 是否为低分辨率横屏（如 480x272）：设置页改为紧凑两列布局
+local is_compact = false
+
 local function update_screen_size()
     local rotation = airui.get_rotation()
     local phys_w, phys_h = lcd.getSize()
@@ -41,10 +44,18 @@ local function update_screen_size()
     else
         screen_w, screen_h = phys_h, phys_w
     end
+    is_compact = (screen_h > 0 and screen_h < 320) and (screen_w > screen_h)
     margin = math.floor(screen_w * 0.02)
-    card_w = screen_w - 2 * margin
-    card_h = math.max(42, math.floor(screen_h * 0.09))
-    card_spacing = math.floor(screen_h * 0.015)
+    if is_compact then
+        -- 紧凑两列：卡片横排，宽度约占 46%，高度 40px 足够放 16 号字（文字高 24px）
+        card_w = math.floor((screen_w - 3 * margin) / 2)
+        card_h = 40
+        card_spacing = 2
+    else
+        card_w = screen_w - 2 * margin
+        card_h = math.max(42, math.floor(screen_h * 0.09))
+        card_spacing = math.floor(screen_h * 0.015)
+    end
 end
 
 local function build_ui()
@@ -65,35 +76,39 @@ local function build_ui()
         color = COLOR_BG
     })
 
-    local function create_card(y, title, on_click)
+    local function create_card(x, y, w, h, title, on_click)
         local card = airui.container({
             parent = ct,
-            x = margin, y = y,
-            w = card_w, h = card_h,
+            x = x, y = y,
+            w = w, h = h,
             color = COLOR_WHITE,
             radius = 8,
             on_click = on_click
         })
-        local label_h = math.floor(30 * _G.density_scale)
-        local label_y = math.floor((card_h - label_h) / 2)
+        -- 文字高度按实际字号预留：16 号字至少需 24px（字号+8 余量），字号更大则按更大的预留
+        local font_size = math.floor((is_compact and 16 or 24) * _G.density_scale)
+        local label_h = font_size + 8
+        local label_y = math.floor((h - label_h) / 2)
         airui.label({
             parent = card,
-            x = math.floor(20 * _G.density_scale), y = label_y,
-            w = math.floor(200 * _G.density_scale), h = label_h,
+            x = math.floor((is_compact and 8 or 20) * _G.density_scale), y = label_y,
+            w = math.floor((is_compact and 120 or 200) * _G.density_scale), h = label_h,
             text = title,
-            font_size = math.floor(24 * _G.density_scale),
+            font_size = font_size,
             color = COLOR_TEXT,
             align = airui.TEXT_ALIGN_LEFT
         })
-        airui.label({
-            parent = card,
-            x = card_w - math.floor(50 * _G.density_scale), y = label_y,
-            w = math.floor(30 * _G.density_scale), h = label_h,
-            text = ">",
-            font_size = math.floor(24 * _G.density_scale),
-            color = COLOR_TEXT_SECONDARY,
-            align = airui.TEXT_ALIGN_CENTER
-        })
+        if not is_compact then
+            airui.label({
+                parent = card,
+                x = w - math.floor(50 * _G.density_scale), y = label_y,
+                w = math.floor(30 * _G.density_scale), h = label_h,
+                text = ">",
+                font_size = font_size,
+                color = COLOR_TEXT_SECONDARY,
+                align = airui.TEXT_ALIGN_CENTER
+            })
+        end
     end
 
     local cfg = _G.project_config or {}
@@ -103,29 +118,43 @@ local function build_ui()
     local has_buzzer = fe.buzzer
     local has_storage = fe.sd_card or fe.nand_flash
 
-    local function add_card(label, event, y)
-        create_card(y, label, function() sys.publish(event) end)
-        return y + card_h + card_spacing
+    -- 收集入口列表
+    local entries = {}
+    local function add_entry(label, event)
+        entries[#entries + 1] = { label = label, event = event }
     end
+    add_entry("IOT账号", "OPEN_IOT_WIN")
+    if has_wifi then add_entry("WiFi设置", "OPEN_WIFI_WIN") end
+    add_entry("显示亮度", "OPEN_DISPLAY_WIN")
+    if ui.show_storage_settings then add_entry("存储和内存", "OPEN_STORAGE_WIN") end
+    if has_storage then add_entry("存储顺序", "OPEN_STORAGE_PRI_WIN") end
+    add_entry("系统更新", "OPEN_FOTA_WIN")
+    if has_buzzer and ui.show_buzzer_settings then add_entry("触摸音效", "OPEN_SOUND_WIN") end
+    add_entry("后装APP自启", "OPEN_AUTOSTART_WIN")
+    add_entry("关于设置", "OPEN_ABOUT_WIN")
 
-    local y = math.floor(20 * _G.density_scale)
-    y = add_card("IOT账号", "OPEN_IOT_WIN", y)
-    if has_wifi then
-        y = add_card("WiFi设置", "OPEN_WIFI_WIN", y)
+    if is_compact then
+        -- 两列网格：行数 = ceil(n/2)，行高 = card_h + card_spacing
+        local cols = 2
+        local top_pad = math.floor(8 * _G.density_scale)
+        local y0 = top_pad
+        for i, e in ipairs(entries) do
+            local col = (i - 1) % cols
+            local row = math.floor((i - 1) / cols)
+            local x = margin + col * (card_w + margin)
+            local y = y0 + row * (card_h + card_spacing)
+            create_card(x, y, card_w, card_h, e.label, function() sys.publish(e.event) end)
+        end
+    else
+        local function add_card(label, event, y)
+            create_card(margin, y, card_w, card_h, label, function() sys.publish(event) end)
+            return y + card_h + card_spacing
+        end
+        local y = math.floor(20 * _G.density_scale)
+        for _, e in ipairs(entries) do
+            y = add_card(e.label, e.event, y)
+        end
     end
-    y = add_card("显示亮度", "OPEN_DISPLAY_WIN", y)
-    if ui.show_storage_settings then
-        y = add_card("存储和内存", "OPEN_STORAGE_WIN", y)
-    end
-    if has_storage then
-        y = add_card("存储顺序", "OPEN_STORAGE_PRI_WIN", y)
-    end
-    y = add_card("系统更新", "OPEN_FOTA_WIN", y)
-    if has_buzzer and ui.show_buzzer_settings then
-        y = add_card("触摸音效", "OPEN_SOUND_WIN", y)
-    end
-    y = add_card("后装APP自启", "OPEN_AUTOSTART_WIN", y)
-    add_card("关于设置", "OPEN_ABOUT_WIN", y)
 end
 
 local function on_create() build_ui() end

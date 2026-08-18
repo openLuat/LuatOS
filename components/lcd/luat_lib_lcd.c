@@ -156,6 +156,9 @@ static int l_lcd_init(lua_State* L) {
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
     conf->acc_hw = 0xFF;
     conf->bpp = 16;
+    conf->luat_lcd_mipi_conf.mipi_lane_num = 2;
+    conf->luat_lcd_mipi_conf.mipi_cmd_type = 0;
+    conf->luat_lcd_mipi_conf.mipi_continue_mode = 0;
     conf->lcd_clk_pin = LUAT_GPIO_NONE;
     conf->lcd_sda_pin = LUAT_GPIO_NONE;
     conf->lcd_cs_pin = LUAT_GPIO_NONE;
@@ -319,6 +322,30 @@ static int l_lcd_init(lua_State* L) {
             }
             lua_pop(L, 1);
 
+            lua_pushstring(L, "bpp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->bpp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "mipi_lane_num");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->luat_lcd_mipi_conf.mipi_lane_num = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "mipi_cmd_type");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->luat_lcd_mipi_conf.mipi_cmd_type = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "mipi_continue_mode");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->luat_lcd_mipi_conf.mipi_continue_mode = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
             lua_pushstring(L, "flush_rate");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->flush_rate = luaL_checkinteger(L, -1);
@@ -380,6 +407,9 @@ static int l_lcd_init(lua_State* L) {
                 conf->lcd_cs_pin = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
+        }
+        if (conf->port == LUAT_LCD_PORT_MIPI && conf->bus_speed == 0) {
+            conf->bus_speed = 200000000;
         }
         if (s_index == 0){
             unsigned int cmd = 0;
@@ -589,15 +619,32 @@ static int l_lcd_write_cmd(lua_State* L) {
 		param_len = 1;
 		data = &param;
 	}
-	else if (lua_isuserdata(L, 2)) {
+    else if (lua_isuserdata(L, 2)) {
         // zbuff
         luat_zbuff_t* buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         data = (const uint8_t*)buff->addr;
-        param_len = luaL_optinteger(L, 3, buff->used);
+        lua_Integer requested_len = luaL_optinteger(L, 3, buff->used);
+        if (requested_len < 0 || (size_t)requested_len > buff->used) {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        param_len = (size_t)requested_len;
     }else if(lua_isstring(L, 2)){
-        data = (const uint8_t*)luaL_checklstring(L, 2, &param_len);
+        size_t string_len = 0;
+        data = (const uint8_t*)luaL_checklstring(L, 2, &string_len);
+        lua_Integer requested_len = luaL_optinteger(L, 3, string_len);
+        if (requested_len < 0 || (size_t)requested_len > string_len) {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        param_len = (size_t)requested_len;
     }
-    int ret = lcd_write_cmd_data(lcd_dft_conf,(uint8_t)luaL_checkinteger(L, 1), data, param_len);
+    if (param_len > UINT8_MAX) {
+        LLOGE("lcd command parameter length exceeds %u", UINT8_MAX);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    int ret = lcd_write_cmd_data(lcd_dft_conf,(uint8_t)luaL_checkinteger(L, 1), data, (uint8_t)param_len);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -1874,7 +1921,8 @@ static int l_lcd_setup_buff(lua_State* L) {
     }
     if (conf->buff != NULL && conf->buff_ex != NULL) {
         LLOGI("lcd buff is aready exist");
-        return 0;
+        lua_pushboolean(L, 1);
+        return 1;
     }
     if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
         luat_lcd_setup_buff(conf);
@@ -2018,6 +2066,13 @@ static int l_lcd_qspi_config(lua_State* L){
 @return nil 无返回值
 */
 static int l_lcd_user_ctrl_done(lua_State* L){
+	if (lcd_dft_conf == NULL) {
+		return 0;
+	}
+	if (luat_lcd_user_ctrl_done(lcd_dft_conf)) {
+		LLOGE("lcd user init finalize failed");
+		return 0;
+	}
 	lcd_dft_conf->is_init_done = 1;
 	if (LUAT_LCD_IM_QSPI_MODE == lcd_dft_conf->interface_mode) {
 		if (luat_lcd_qspi_is_no_ram(lcd_dft_conf)) {

@@ -181,6 +181,8 @@ end
 
 -- IP_READY：更新 WiFi 的 IP 和 RSSI 信息（DNS 由 net_init 处理，网卡切换由 exnetif 处理）
 -- wifi_enabled=false 时只更新内部状态不发 UI 事件，避免开机 placeholder 触发图标变化
+-- 注意：airlink 6205 桥接模式下 WLAN_STA_INC CONNECTED 不触发（L2 状态由 6205 内部维护），
+--       因此以 L3 IP_READY 作为联网成功信号，在此补齐 connected/WIFI_CONNECTED/连通性验证。
 local function on_ip_ready(ip, adapter)
     if adapter ~= socket.LWIP_STA then return end
     wifi_state.ready = true
@@ -193,6 +195,33 @@ local function on_ip_ready(ip, adapter)
         if info.rssi then wifi_state.rssi = info.rssi end
         if info.bssid then wifi_state.bssid = info.bssid end
     end
+
+    -- airlink 平台：以 IP_READY 补齐"已连接"状态（防止与原生平台重复处理）
+    if not wifi_state.connected and net_manager.get_wifi_hw_config() then
+        wifi_state.connected = true
+        local ssid = pending_connect and pending_connect.ssid or ""
+        if ssid ~= "" then wifi_state.current_ssid = ssid end
+        wifi_state.connectivity_verified = false
+        log.info("wifi_app", "airlink 桥接已联网, ssid:", ssid, "ip:", ip)
+        -- 用户主动连接：保存到已存储列表（与 on_sta_event CONNECTED 分支一致）
+        if user_connect then
+            user_connect = false
+            local save_name = pending_connect and pending_connect.ssid or ssid
+            local save_pwd = pending_connect and pending_connect.password or ""
+            local save_bssid = pending_connect and pending_connect.bssid or ""
+            if save_name and save_name ~= "" then
+                sys.publish("WIFI_STORAGE_SAVE_REQ", {ssid = save_name, password = save_pwd, bssid = save_bssid})
+            end
+            pending_connect = nil
+        end
+        sys.publish("WIFI_STORAGE_MARK_CONNECTED_REQ", {ssid = ssid, bssid = wifi_state.bssid})
+        sys.publish("WIFI_CONNECTED")
+        -- 启动联网连通性验证（NTP 同步确认），需在独立协程中执行（含 sys.waitUntil）
+        sys.taskInit(function()
+            common.start_connectivity_verification(wifi_state)
+        end)
+    end
+
     if saved_config.wifi_enabled then update_status(wifi_state) end
     -- 获取RSSI后更新WiFi信号图标
     if info and info.rssi then
@@ -207,8 +236,11 @@ end
 local function on_ip_lose(adapter)
     if adapter ~= socket.LWIP_STA then return end
     wifi_state.ready = false
+    wifi_state.connected = false
     wifi_state.ip = "--"
     wifi_state.rssi = "--"
+    wifi_state.current_ssid = ""
+    wifi_state.connectivity_verified = false
     if saved_config.wifi_enabled then update_status(wifi_state) end
 end
 

@@ -1,8 +1,8 @@
 --[[
 @module  sc7a20h_demo
 @summary SC7A20H 三轴加速度传感器演示模块，包含所有功能的演示用例
-@version 1.0
-@date    2026.07.17
+@version 1.1
+@date    2026.08.17
 @author  江访
 @usage
 本文件包含 SC7A20H 的逐项功能演示。
@@ -41,6 +41,7 @@ local function demo_init_and_read()
     local data = exs_sc7a20h.get_data()
     if data then
         log.info("sc7a20h_demo", string.format("X=%.3f Y=%.3f Z=%.3f g", data.x, data.y, data.z))
+    else
         log.error("sc7a20h_demo", "读取数据失败")
     end
     sys.wait(1000)

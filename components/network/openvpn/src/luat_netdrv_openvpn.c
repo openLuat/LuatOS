@@ -16,7 +16,7 @@
 #include "luat_network_adapter.h"
 
 /* OpenVPN 客户端头文件 */
-#include "luat_netdrv_openvpn_client.h"
+#include "ovpn/ovpn_client.h"
 
 #define LUAT_LOG_TAG "openvpn_netdrv"
 #include "luat_log.h"

@@ -1,10 +1,10 @@
 --[[
 @module  ws2812_scroll_task
-@summary Air1780P/H 演示 WS2812 滚动文字效果（欢迎使用LuatOS）
+@summary Air1780P/H/HV 演示 WS2812 滚动文字效果（欢迎使用LuatOS）
 @version 1.0
 @date    2026.08.17
 @usage
-适用产品：合宙 Air1780P / Air1780H。
+适用产品：合宙 Air1780P / Air1780H / Air1780HV。
          字模尺寸为 22 行高，与本灯板 22×22 强绑定；灯板高度非 22 行时需重新生成字模。
 
 本文件为 WS2812 22×22 点阵演示横向滚动文字的代码示例，核心业务逻辑为：

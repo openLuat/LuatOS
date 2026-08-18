@@ -1,10 +1,10 @@
 --[[
 @module  ws2812_snake_task
-@summary Air1780P/H 演示 WS2812 蛇形扫描效果
+@summary Air1780P/H/HV 演示 WS2812 蛇形扫描效果
 @version 1.0
 @date    2026.08.17
 @usage
-适用产品：合宙 Air1780P / Air1780H。
+适用产品：合宙 Air1780P / Air1780H / Air1780HV。
          本任务按物理 LED 编号顺序扫描，灯板尺寸非 22×22 时请确认蛇形走线方向与本灯板一致。
 
 本文件为 WS2812 22×22 点阵演示蛇形扫描效果的代码示例，核心业务逻辑为：

@@ -4,7 +4,7 @@
 @version 1.1
 @date    2026.08.17
 @usage
-适用产品：合宙 Air1780P / Air1780H。
+适用产品：合宙 Air1780P / Air1780H / Air1780HV。
          灯板尺寸不是 22×22 时，请同步修改 LED_W / LED_H / LED_COUNT。
 
 本文件由 main.lua 通过 require 自动加载，为各效果模块提供全局 WS2812 句柄与工具函数：
@@ -25,7 +25,7 @@
 LED_W     = 22            -- 灯板列数（水平方向 LED 数量）
 LED_H     = 22            -- 灯板行数（垂直方向 LED 数量）
 LED_COUNT = LED_W * LED_H -- LED 总数 = 484
-LED_GPIO  = 16            -- DIN 数据引脚接 Air1780P/H 的 GPIO16（PIN97）
+LED_GPIO  = 16            -- DIN 数据引脚接 Air1780P/H/HV 的 GPIO16（PIN97）
 
 -- ==================== 运行时可调参数 ====================
 -- 可通过串口命令 b=NNN / s=NNN 在运行时修改，无需重新烧录

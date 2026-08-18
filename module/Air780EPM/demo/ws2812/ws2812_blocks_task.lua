@@ -1,10 +1,10 @@
 --[[
 @module  ws2812_blocks_task
-@summary Air1780P/H 演示 WS2812 色块覆盖 / LED 灯珠检测
+@summary Air1780P/H/HV 演示 WS2812 色块覆盖 / LED 灯珠检测
 @version 1.1
 @date    2026.08.17
 @usage
-适用产品：合宙 Air1780P / Air1780H。
+适用产品：合宙 Air1780P / Air1780H / Air1780HV。
          本任务直接对 WS2812 物理编号 0..LED_COUNT-1 操作，灯板尺寸不是 22×22 时请修改 LED_COUNT。
 
 本文件用于开机色块整板覆盖演示，同时可作为 LED 灯珠检测 demo，

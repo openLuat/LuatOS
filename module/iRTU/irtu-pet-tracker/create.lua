@@ -137,12 +137,14 @@ local function tcpTask(dName, cid, prot, ping, timeout, addr, port, uid, ssl)
 end
 
 ---------------------------------------------------------- MQTT ----------------------------------------------------------
-local function mqttTask(cid, keepAlive, timeout, addr, port, usr, pwd, cleansession, sub, pub, qos, retain, uid, clientID, ssl, will, ...)
+local function mqttTask(cid, keepAlive, timeout, addr, port, usr, pwd, cleansession, sub, pub, qos, retain, uid, clientID, addImei, ssl, will, ...)
     cid, keepAlive, timeout, uid = cid or 1, keepAlive or 300, timeout, uid
     qos, retain = qos or 0, retain or 0
     cleansession = cleansession == 1
+    addImei = addImei == 1
     clientID = (clientID == "" or not clientID) and mobile.imei() or clientID
     -- 处理主题列表：替换变量占位符
+    -- addImei=1 时，在主题末尾追加 /IMEI（格式：/自定义主题/IMEI）
     local function parseTopicList(str)
         local topics = dtulib.split(str, ";")
         for i = 1, #topics, 2 do
@@ -159,6 +161,10 @@ local function mqttTask(cid, keepAlive, timeout, addr, port, usr, pwd, cleansess
                 end
             end
             topics[i] = table.concat(tmp, "/")
+            -- 主题添加IMEI：在主题末尾追加 /IMEI
+            if addImei then
+                topics[i] = topics[i] .. "/" .. mobile.imei()
+            end
         end
         return topics
     end
@@ -382,9 +388,9 @@ local function connect(conf)
             sys.taskInitEx(tcpTask, taskName, function() end, taskName, k, unpack(args))
         elseif v[1] and v[1]:upper() == "MQTT" then
             local taskName = "DTU_" .. tostring(k)
-            -- 服务端格式: ["mqtt", keepAlive, timeout, addr, port, usr, pwd, cleansession, sub, pub, qos, retain, uid, clientID, addImei(废弃), ssl, will]
-            -- 跳过 v[15] (废弃的 addImei)，v[16] 才是 ssl，v[17] 才是 will
-            local args = {v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], v[12], v[13], v[14], v[16], v[17]}
+            -- 服务端格式: ["mqtt", keepAlive, timeout, addr, port, usr, pwd, cleansession, sub, pub, qos, retain, uid, clientID, addImei, ssl, will]
+            -- addImei=1 时主题末尾追加 /IMEI，v[16] 才是 ssl，v[17] 才是 will
+            local args = {v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], v[12], v[13], v[14], v[15], v[16], v[17]}
             log.warn("create", "启动 MQTT 连接")
             sys.taskInitEx(mqttTask, taskName, function() end, k, unpack(args))
         elseif v[1] and v[1]:upper() == "AIRCLOUD" then

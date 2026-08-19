@@ -1669,6 +1669,25 @@ int luat_audio_extern_source_feed(luat_audio_extern_source_t *source, const uint
 	return (int)len;
 }
 
+int luat_audio_extern_source_feed(luat_audio_extern_source_t *source, const uint8_t *data, uint32_t len)
+{
+	uint32_t free_space;
+	if (!source || !data || !len || source->is_done || source->is_decode_finish || source->is_user_stop || !source->decode_input_fifo) {
+		return 0;
+	}
+	free_space = luat_fifo_check_free_space(source->decode_input_fifo);
+	if (len > free_space) {
+		len = free_space;
+	}
+	if (!len) return 0;
+	luat_rtos_task_suspend_all();
+	luat_fifo_write(source->decode_input_fifo, data, len);
+	luat_rtos_task_resume_all();
+	/* The extern-source decoder waits here between frames. */
+	luat_rtos_semaphore_release(_luat_audio.tts_or_extern_source_wait_sem);
+	return (int)len;
+}
+
 void luat_audio_request_delete_source(luat_audio_extern_source_t *source)
 {
 	_audio_extern_source_go(source, 1);

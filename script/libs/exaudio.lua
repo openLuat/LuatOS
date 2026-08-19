@@ -1,10 +1,14 @@
 ﻿--[[
 @module exaudio
 @summary exaudio扩展库
-@version 2.9
-@date    2026.8.14
+@version 3.0
+@date    2026.8.19
 @author  拓毅恒
 @updates
+    v3.0 2026.8.19
+        1. 修复PCM流式录音停止后不触发录音完成回调的问题
+        2. 修复exaudio.pm(exaudio.RESUME)恢复ES8311时未传递codec_voltage参数，
+           避免1.8V板型(Air8201H等)休眠恢复后ES8311电平被重置为3.3V。
     v2.9 2026.8.14
         1. 修复codec_voltage参数无效问题：setup时audio_setup_param.codec_voltage始终为默认值1(3.3V)，
            现加入optional_params，外部设置codec_voltage=0(1.8V)可正确生效
@@ -74,6 +78,10 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202608192010
+-- 1、更新时间：2026-08-19 20:10
+--    修复PCM流式录音手动停止后不触发录音完成回调的问题。
+--    修复exaudio.pm(exaudio.RESUME)恢复ES8311时未传递codec_voltage参数，避免1.8V板型(Air8201H等)休眠恢复后ES8311电平被重置为3.3V。
 -- 版本号：202608141949
 -- 1、更新时间：2026-08-14 19:49
 --    修复codec_voltage参数无效问题：setup时audio_setup_param.codec_voltage始终为默认值1(3.3V)，现加入optional_params，外部设置codec_voltage=0(1.8V)可正确生效
@@ -1834,6 +1842,12 @@ function exaudio.record_stop()
                 audio_v2.stop(audio_v2_record_request_index)
                 audio_v2_record_request_index = nil
                 audio_v2_record_zbuff = nil
+                -- audio_v2.stop()强制停止后，C层不会再触发REQUEST_END事件，
+                -- 且上面的request_index已清空，即使C层补发REQUEST_END也无法匹配到录音分支。
+                -- 因此这里必须手动触发录音完成回调，否则上层（如录音完成后自动播放）永远不会执行。
+                if type(audio_record_param.cbfnc) == "function" then
+                    audio_record_param.cbfnc(exaudio.RECORD_DONE)
+                end
                 return true
             end
             -- 文件录音：不调stop，让C层自然结束（timeout到期后自动回收REQUEST_END）。
@@ -2197,7 +2211,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608141949"
+    return "202608192010"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

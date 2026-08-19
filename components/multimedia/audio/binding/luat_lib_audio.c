@@ -557,8 +557,12 @@ static int l_audio_input(lua_State *L) {
     }
     const char *data = NULL;
     uint8_t is_end = 0;
+    if (lua_isboolean(L, 3)) {
+        is_end = lua_toboolean(L, 3);
+    } else {
+        is_end = 0;
+    }
 
-    luat_rtos_task_suspend_all();
     if (LUA_TSTRING == (lua_type(L, 2))) {
         size_t len = 0;
         data = lua_tolstring(L, 2, &len);//取出字符串数据
@@ -567,11 +571,7 @@ static int l_audio_input(lua_State *L) {
         } else {
             input_len = len;
         }
-        if (l_req) {
-            luat_fifo_write(l_req->request.org_input_data_fifo, data, input_len);
-        } else {
-            luat_fifo_write(l_extern_source->extern_source.decode_input_fifo, data, input_len);
-        }
+
     } else if(lua_isuserdata(L, 2)) {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         if (buff->used > rest_len) {
@@ -579,21 +579,14 @@ static int l_audio_input(lua_State *L) {
         } else {
             input_len = buff->used;
         }
-        if (l_req) {
-            luat_fifo_write(l_req->request.org_input_data_fifo, data, input_len);
-        } else {
-            luat_fifo_write(l_extern_source->extern_source.decode_input_fifo, data, input_len);
-        }
     }
     result = 0;
-    if (lua_isboolean(L, 3)) {
-        is_end = lua_toboolean(L, 3);
-    } else {
-        is_end = 0;
-    }
+    luat_rtos_task_suspend_all();
     if (l_req) {
-        l_req->request.is_input_end = is_end;
+        luat_fifo_write(l_req->request.org_input_data_fifo, data, input_len);
+         l_req->request.is_input_end = is_end;
     } else {
+        luat_fifo_write(l_extern_source->extern_source.decode_input_fifo, data, input_len);
         l_extern_source->extern_source.is_input_end = is_end;
     }
     luat_rtos_task_resume_all();

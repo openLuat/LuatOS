@@ -82,6 +82,10 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 
 	next_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
 	uint8_t *next_play_buff = ctrl->play_buff_byte + ctrl->one_play_block_len * next_play_cnt;
+	if (ctrl->static_play_buffer_cnt) {
+		next_play_cnt = (ctrl->current_play_cnt + 1) % ctrl->static_play_buffer_cnt;
+		next_play_buff = ctrl->play_buff_byte + ctrl->one_play_block_len * next_play_cnt;
+	}
 	uint32_t read_len  = luat_fifo_check_used_space(ctrl->data_channel->play_fifo);
 	if (read_len < ctrl->one_play_block_len) {	//fifo没有完整的1个block
 		if ((_luat_audio.current_request_block->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_PLAY) && !_luat_audio.current_request_block->is_wait_play_end) { // 播放状态为非等待播放结束，说明数据不够，填充空白音
@@ -116,7 +120,11 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 CHECK_FILL_BLANK:
 	if (!ctrl->data_channel->play_is_stop) {
 		if (ctrl->play_buff_byte) {	// 播放缓冲区填充空白音
-			ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * LUAT_AUDIO_DATA_BUFFER_CNT, ctrl->opts->is_tx_signed, ctrl->tx_param.data_align);
+			if (ctrl->static_play_buffer_cnt) {
+				ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * ctrl->static_play_buffer_cnt, ctrl->opts->is_tx_signed, ctrl->tx_param.data_align);
+			} else {
+				ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * LUAT_AUDIO_DATA_BUFFER_CNT, ctrl->opts->is_tx_signed, ctrl->tx_param.data_align);
+			}
 		}
 		ctrl->data_channel->play_is_stop = 1;
 		luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_PRINT, 2, 0, 0, 0);
@@ -1641,6 +1649,25 @@ int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, con
 	}
 	return ret;
 } 
+
+int luat_audio_extern_source_feed(luat_audio_extern_source_t *source, const uint8_t *data, uint32_t len)
+{
+	uint32_t free_space;
+	if (!source || !data || !len || source->is_done || source->is_decode_finish || source->is_user_stop || !source->decode_input_fifo) {
+		return 0;
+	}
+	free_space = luat_fifo_check_free_space(source->decode_input_fifo);
+	if (len > free_space) {
+		len = free_space;
+	}
+	if (!len) return 0;
+	luat_rtos_task_suspend_all();
+	luat_fifo_write(source->decode_input_fifo, data, len);
+	luat_rtos_task_resume_all();
+	/* The extern-source decoder waits here between frames. */
+	luat_rtos_semaphore_release(_luat_audio.tts_or_extern_source_wait_sem);
+	return (int)len;
+}
 
 void luat_audio_request_delete_source(luat_audio_extern_source_t *source)
 {

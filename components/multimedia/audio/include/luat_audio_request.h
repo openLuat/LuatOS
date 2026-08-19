@@ -292,13 +292,14 @@ int luat_audio_request_add_source_tts(luat_audio_extern_source_t *source, const 
 * @brief 附加音频流作为双工模式下的第三方数据源
 * 
 * @param source 第三方数据源
+* @param request 所属音频请求，必须指定
 * @param codec_opts 音频解码器选项结构，用于指定要使用的音频解码器，必须指定
 * @param common_param 音频公共参数结构，用于指定流数据的音频参数（采样率、声道数等），必须存在，不能为NULL
 * @param is_add_record 是否附加到录音通道，0-附加到播放通道，1-附加到录音通道
 * @param user_data 用户数据指针，用于传递自定义数据
 * @return LUAT_ERROR_NONE 表示成功，其他值表示失败
 */
-int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, const luat_audio_data_codec_opts_t *codec_opts, const luat_audio_common_param_t *common_param, uint8_t is_add_record, void *user_data);
+int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, luat_audio_request_block_t *request, const luat_audio_data_codec_opts_t *codec_opts, const luat_audio_common_param_t *common_param, uint8_t is_add_record, void *user_data);
 
 /** Feed data to a stream extern source and wake its decoder. */
 int luat_audio_extern_source_feed(luat_audio_extern_source_t *source, const uint8_t *data, uint32_t len);

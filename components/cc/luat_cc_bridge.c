@@ -58,7 +58,7 @@ static const luat_audio_data_codec_opts_t s_bridge_pcm_codec = {
     .decode = luat_audio_codec_wav_codec_decode,
     .decode_min_input_len = 320,
     .decode_max_output_len = 320,
-    .type = LUAT_AUDIO_DATA_CODEC_TYPE_RAW,
+    .type = LUAT_AUDIO_DATA_CODEC_TYPE_CC_BRIDGE_PCM,
     .is_hardware = 0,
     .support_detect = 0,
     .encode_raw_mode = 1,
@@ -348,7 +348,7 @@ int luat_cc_bridge_uplink_source_start(luat_audio_extern_source_t *source, const
     if (!source || !source->request || !cc_param || !luat_cc_bridge_mode_on()) {
         return -LUAT_ERROR_PARAM_INVALID;
     }
-    ret = luat_audio_request_add_source_stream(source, &s_bridge_pcm_codec, cc_param, 1, source);
+    ret = luat_audio_request_add_source_stream(source, source->request, &s_bridge_pcm_codec, cc_param, 1, source);
     if (ret) {
         LLOGE("CC bridge extern-record source start failed %d", ret);
         return ret;

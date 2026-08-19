@@ -335,22 +335,27 @@ set_cc_bridge_tone = function(enabled)
         return
     end
 
+    if cc and cc.bridgeTone then
+        if voip and voip.bridgeTone then
+            local stopped = voip.bridgeTone(false)
+            logi("VoIP bridge tone", "stop before CC tone", stopped)
+        end
+        local ok = cc.bridgeTone(true)
+        logi("CC bridge tone", "start", ok)
+        if ok then
+            stop_lua_bridge_tone()
+            return
+        end
+    end
+
     if voip and voip.bridgeTone then
         local ok = voip.bridgeTone(true)
-        logi("VoIP bridge tone", "start", ok)
+        logi("VoIP bridge tone", "start fallback", ok)
         if ok then
             stop_lua_bridge_tone()
             return
         end
         if voip.isRunning and not voip.isRunning() then
-            return
-        end
-    end
-
-    if cc and cc.bridgeTone then
-        local ok = cc.bridgeTone(enabled)
-        logi("CC bridge tone", enabled and "start" or "stop", ok)
-        if ok then
             return
         end
     end

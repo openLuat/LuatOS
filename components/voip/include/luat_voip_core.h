@@ -187,6 +187,9 @@ typedef struct {
     uint8_t last_completed_slot;
     uint8_t i2s_config_saved;
     uint8_t audio_started;
+#ifdef LUAT_USE_AUDIO_V2
+    void *audio_v2_ctrl;        /* audio_v2 driver control, audio_v2 builds only */
+#endif
     uint8_t trace_on;
     voip_audio_backend_t audio_backend;
     voip_audio_mode_t audio_mode;       /* 音频工作模式：I2S或BRIDGE */

@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exaudio
 @summary exaudio扩展库
 @version 2.9
@@ -283,6 +283,7 @@ local audio_v2_stream_file_fp = nil  -- 流式播放文件句柄(audio_v2模式)
 local audio_v2_stream_codec_id = nil  -- 流式播放codec_id(audio_v2模式)
 local audio_v2_stream_data_start = nil  -- 流式播放数据起始位置(audio_v2模式)
 local audio_v2_record_zbuff = nil  -- 录音zbuff（audio_v2回调模式）
+local sip_v2_request_index, sip_v2_source_index, sip_v2_record_zbuff, sip_v2_timer
 local audio_v2_stream_end_marked = false  -- 标记流式结束（队列模式）
 local audio_v2_es8311_drv = nil  -- ES8311驱动引用（audio_v2模式）
 
@@ -384,6 +385,18 @@ local function audio_v2_callback(request_index, event, param)
             audio_v2_request_index = request_index
             log.info("exaudio", "播放开始", request_index)
         end
+    elseif event == audio_v2.REQUEST_DRIVER_START then
+        -- ES8311 每次启动请求时恢复 DAC、音量和 PA。
+        if audio_setup_param.model == "es8311" and audio_v2_es8311_drv then
+            audio_v2_es8311_drv.resume(audio_setup_param.i2c_id)
+            audio_v2_es8311_drv.set_mute(audio_setup_param.i2c_id, false)
+            audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id, voice_vol)
+            audio_v2_es8311_drv.set_mic_vol(audio_setup_param.i2c_id, mic_vol)
+            if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
+                gpio.setup(audio_setup_param.pa_ctrl, audio_setup_param.pa_on_level)
+            end
+            log.info("exaudio", "audio_v2 driver start: ES8311 DAC/PA resumed")
+        end
     elseif event == audio_v2.REQUEST_NEED_NEW_DATA then
         -- 流式播放需要更多数据
         -- 先调用input()检查FIFO剩余空间
@@ -443,6 +456,14 @@ local function audio_v2_callback(request_index, event, param)
             end
         end
     elseif event == audio_v2.REQUEST_GET_NEW_DATA then
+        if request_index == sip_v2_request_index and sip_v2_record_zbuff and voip then
+            local used = sip_v2_record_zbuff:used()
+            if used > 0 then
+                voip.pcmIn(sip_v2_record_zbuff:query(0, used))
+                sip_v2_record_zbuff:del()
+            end
+            return
+        end
         -- 录音数据
         if type(audio_record_param.path) == "function" and audio_v2_record_zbuff then
             local total = audio_v2_record_zbuff:used()
@@ -683,7 +704,6 @@ local function audio_v2_setup()
         else
             log.warn("exaudio.setup", "未找到es8311驱动模块")
         end
-
 
         -- ES8311模式下初始化完成后进入低功耗休眠（只关PA，不关Codec电源，防止配置丢失）
         audio_v2.shutdown(false, false, true)
@@ -1205,6 +1225,12 @@ function exaudio.play_start(playConfigs)
             return false
         end
 
+        -- audio_v2 setup 后恢复 ES8311 与 PA，保证 TTS 有模拟输出。
+        if not exaudio.pm(audio.RESUME) then
+            log.error("audio_v2恢复播放设备失败")
+            return false
+        end
+
         -- 检查播放类型
         if not check_param(playConfigs.type, "number", "type") then
             log.error("type必须为数值(0:文件,1:TTS,2:流式)")
@@ -1478,6 +1504,35 @@ function exaudio.play_start(playConfigs)
             return audio_legacy_start_next_play()
         end
     end
+end
+
+function exaudio.is_audio_v2()
+    return USE_AUDIO_V2
+end
+
+function exaudio.sip_voip_start()
+    if not USE_AUDIO_V2 or not audio_v2 or not voip or not sys then return false end
+    sip_v2_record_zbuff = zbuff.create(4096)
+    local ok, request_id = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_RAW, sip_v2_record_zbuff, 1,
+        audio_v2.DATA_CODEC_TYPE_RAW, 8000, 16, 1)
+    if not ok then sip_v2_record_zbuff = nil return false end
+    local source_ok, source_id = cc.extern_source(request_id, true, false,
+        audio_v2.DATA_CODEC_TYPE_RAW, true, 8000, 16, 1, true)
+    if not source_ok then audio_v2.stop(request_id) sip_v2_record_zbuff = nil return false end
+    sip_v2_request_index, sip_v2_source_index = request_id, source_id
+    sip_v2_timer = sys.timerLoopStart(function()
+        if not sip_v2_source_index or not voip.isRunning() then return end
+        local pcm = voip.pcmOut(160) or string.rep("\0", 320)
+        audio_v2.input(sip_v2_source_index, pcm, false)
+    end, 20)
+    log.info("exaudio", "SIP audio_v2 bridge started", request_id)
+    return true
+end
+
+function exaudio.sip_voip_stop()
+    if sip_v2_timer then sys.timerStop(sip_v2_timer) sip_v2_timer = nil end
+    if sip_v2_request_index then audio_v2.stop(sip_v2_request_index) end
+    sip_v2_request_index, sip_v2_source_index, sip_v2_record_zbuff = nil, nil, nil
 end
 
 -- 流式播放数据写入
@@ -1930,8 +1985,13 @@ function exaudio.pm(pm_mode)
                 local voltage = audio_setup_param.codec_voltage == 0 and 0x01 or 0x00
                 es8311_drv.init(audio_setup_param.i2c_id or 0, voltage)
                 es8311_drv.resume(audio_setup_param.i2c_id or 0)
+                es8311_drv.set_mute(audio_setup_param.i2c_id or 0, false)
                 es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, voice_vol)
                 es8311_drv.set_mic_vol(audio_setup_param.i2c_id or 0, mic_vol)
+            end
+            -- 恢复外部 PA。
+            if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
+                gpio.setup(audio_setup_param.pa_ctrl, audio_setup_param.pa_on_level)
             end
             audio_v2.shutdown(false, false, false)
             return true

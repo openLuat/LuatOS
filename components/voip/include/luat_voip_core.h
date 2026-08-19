@@ -90,12 +90,24 @@ enum {
     VOIP_EVENT_MIC_DATA,    /* I2S 采集到数据 */
     VOIP_EVENT_SPK_DONE,    /* DAC 播放完成一帧 */
     VOIP_EVENT_STATS_TICK,  /* 统计输出定时器 */
+    VOIP_EVENT_BRIDGE_TX,   /* 桥接模式：外部PCM数据需要编码发送 */
+    VOIP_EVENT_BRIDGE_TONE, /* 桥接模式：内部早期媒体提示音 */
 };
 
 typedef enum {
     VOIP_AUDIO_BACKEND_NONE = 0,
     VOIP_AUDIO_BACKEND_DUPLEX,
 } voip_audio_backend_t;
+
+/* 音频工作模式：I2S直接硬件 或 桥接模式（PCM缓冲区交换） */
+typedef enum {
+    VOIP_AUDIO_MODE_I2S = 0,      /* 传统I2S模式：直接控制音频硬件 */
+    VOIP_AUDIO_MODE_BRIDGE = 1,   /* 桥接模式：通过PCM缓冲区与外部交换数据 */
+} voip_audio_mode_t;
+
+/* 桥接缓冲区大小：20ms@8kHz=160samples, 预留10帧 = 1600samples */
+#define VOIP_BRIDGE_BUF_SAMPLES  1600
+#define VOIP_BRIDGE_BUF_BYTES    (VOIP_BRIDGE_BUF_SAMPLES * sizeof(int16_t))
 
 typedef struct {
     uint8_t  payload_type;
@@ -175,11 +187,27 @@ typedef struct {
     uint8_t last_completed_slot;
     uint8_t i2s_config_saved;
     uint8_t audio_started;
+#ifdef LUAT_USE_AUDIO_V2
+    void *audio_v2_ctrl;        /* audio_v2 driver control, audio_v2 builds only */
+#endif
     uint8_t trace_on;
     voip_audio_backend_t audio_backend;
-#ifdef LUAT_USE_AUDIO_V2
-    void *audio_v2_ctrl;        /* audio_v2 驱动控制器，通话模式专用 */
-#endif
+    voip_audio_mode_t audio_mode;       /* 音频工作模式：I2S或BRIDGE */
+
+    /* 桥接模式缓冲区（仅当 audio_mode == VOIP_AUDIO_MODE_BRIDGE 时有效） */
+    int16_t *bridge_tx_buf;             /* 上行：外部PCM -> voip编码 -> RTP */
+    int16_t *bridge_rx_buf;             /* 下行：RTP -> voip解码 -> 外部PCM */
+    uint16_t bridge_tx_write_idx;     /* bridge_tx_buf 写索引 */
+    uint16_t bridge_tx_read_idx;      /* bridge_tx_buf 读索引 */
+    uint16_t bridge_rx_write_idx;     /* bridge_rx_buf 写索引 */
+    uint16_t bridge_rx_read_idx;      /* bridge_rx_buf 读索引 */
+    uint16_t bridge_tx_count;         /* bridge_tx_buf 有效样本数 */
+    uint16_t bridge_rx_count;         /* bridge_rx_buf 有效样本数 */
+    luat_rtos_mutex_t bridge_mutex;     /* 桥接缓冲区互斥锁 */
+    luat_rtos_timer_t bridge_tone_timer; /* 桥接模式早期提示音定时器 */
+    uint32_t bridge_tone_pos;
+    uint8_t bridge_tone_on;
+
     uint32_t mic_generation[VOIP_MIC_SLOT_COUNT];
     uint32_t dropped_mic_events;
 
@@ -228,6 +256,49 @@ void voip_get_stats(voip_stats_t *out);
 /**
  * 是否正在运行
  */
+/**
+ * 是否正在运行
+ */
 int voip_is_running(void);
+
+/* ======================== 桥接模式 API ======================== */
+
+/**
+ * 设置音频工作模式（必须在 voip_start 之前调用，或 voip_stop 后调用）
+ * @param mode VOIP_AUDIO_MODE_I2S 或 VOIP_AUDIO_MODE_BRIDGE
+ * @return 0 成功, <0 失败
+ */
+int voip_set_audio_mode(voip_audio_mode_t mode);
+
+/**
+ * 向 voip 注入上行 PCM 数据（桥接模式）
+ * 调用方将外部采集的 PCM 数据（如来自 CC 模块的mic数据）送入 voip，
+ * voip 编码后通过 RTP 发送给 SIP 服务器。
+ *
+ * @param pcm   16bit 单声道 PCM 数据指针
+ * @param samples 样本数（每个样本2字节）
+ * @return 实际消耗的样本数（可能小于请求数，如果缓冲区满）
+ */
+int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples);
+
+/**
+ * 从 voip 取出下行 PCM 数据（桥接模式）
+ * 调用方从 voip 获取 SIP 服务器发送过来的解码后 PCM 数据，
+ * 用于播放（如通过 CC 模块的扬声器播放）。
+ *
+ * @param pcm     16bit 单声道 PCM 数据接收缓冲区
+ * @param max_samples 缓冲区可容纳的最大样本数
+ * @return 实际取出的样本数
+ */
+int voip_bridge_pcm_out(int16_t *pcm, uint16_t max_samples);
+
+/**
+ * 控制桥接模式内部早期提示音。
+ * 该提示音由VoIP task按ptime发送RTP，不经过Lua 20ms定时器，避免早期媒体卡顿。
+ *
+ * @param on 1启动，0停止
+ * @return 0 成功, <0 失败
+ */
+int voip_bridge_tone(int on);
 
 #endif /* LUAT_VOIP_CORE_H */

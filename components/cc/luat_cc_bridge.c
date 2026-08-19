@@ -349,7 +349,7 @@ int luat_cc_bridge_uplink_source_start(luat_audio_extern_source_t *source, const
     if (!source || !source->request || !cc_param || !luat_cc_bridge_mode_on()) {
         return -LUAT_ERROR_PARAM_INVALID;
     }
-    ret = luat_audio_request_add_source_stream(source, source->request, &s_bridge_pcm_codec, cc_param, 1, source);
+    ret = luat_audio_request_add_source_stream(source, &s_bridge_pcm_codec, cc_param, 1, source);
     if (ret) {
         LLOGE("CC bridge extern-record source start failed %d", ret);
         return ret;

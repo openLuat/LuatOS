@@ -605,7 +605,7 @@ static int l_cc_extern_source(lua_State *L) {
         result = luat_audio_request_add_source_files(&_l_cc.extern_source, info, file_nums, codec_opts, is_add_record, &_l_cc.extern_source);
     } else if (lua_isboolean(L, 1) && lua_toboolean(L, 1)) {
         if (codec_opts) {
-            result = luat_audio_request_add_source_stream(&_l_cc.extern_source, _l_cc.extern_source.request, codec_opts, &common_param, is_add_record, &_l_cc.extern_source);
+            result = luat_audio_request_add_source_stream(&_l_cc.extern_source, codec_opts, &common_param, is_add_record, &_l_cc.extern_source);
             if (result) {
                 LLOGE("lua extern source add stream failed, ret %d", result);
                 goto DONE;

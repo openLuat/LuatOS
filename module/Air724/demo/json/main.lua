@@ -2,13 +2,33 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2025.10.15
-@author  沈园园
+@date    2025.11.05
+@author  马梦阳
 @usage
+
 本demo演示的核心功能为：
-演示有关加解密的各种 API 的功能包含MD5，SHA，哈希(MD5，SHA)，AES/DEC/3DES，CRC，checksum校验和
-更多说明参考本目录下的readme.md文件
+1.将 Lua 对象 转为 JSON 字符串：
+    示例一：Lua string 转为 JSON string；
+    示例二：Lua number 转为 JSON string；
+    示例三：Lua boolean 转为 JSON string；
+    示例四：Lua table 转为 JSON string；
+    示例五：Lua nil 转为 JSON string；
+    序列化失败示例和指定浮点数示例；
+2.将 JSON 字符串 转为 Lua 对象：
+    示例一：JSON string 转为 Lua string；
+    示例二：JSON number 转为 Lua number；
+    示例三：JSON boolean 转为 Lua boolean；
+    示例四：JSON table 转为 Lua table；
+    示例五：JSON nil 转为 Lua nil；
+    反序列化失败示例；
+    空表（empty table）转换为 JSON 时的说明；
+    字符串中包含控制字符（如 \r\n）的 JSON 序列化与反序列化说明；
+    json.null 的语义与比较行为说明：
+
+更多说明参考本目录下的 readme.md 文件；
 ]]
+
+
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
@@ -19,15 +39,14 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-
-PROJECT = "luatos_crypto_app"
+PROJECT = "json"
 VERSION = "001.999.000"
+
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
--- 设置日志输出风格为样式2（建议调试时开启）
--- log.style(2)
+
 
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
@@ -54,11 +73,11 @@ log.info("main", PROJECT, VERSION)
 -- end, 3000)
 
 
--- 加载crypto_app应用功能模块
-require "crypto_app"
+-- 加载 json 应用模块
+require "json_app"
 
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行
+-- sys.run()之后后面不要加任何语句!!!!!

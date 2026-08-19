@@ -146,7 +146,7 @@ local function crypto_task_func()
         log.info("cipher", "当前固件不支持crypto.cipher_suites")
     end
     
-    -- 计算文件的hash值(md5/sha1/sha256及hmac形式)
+    -- 计算文件的hash值(md5/sha1/sha256和hmac形式)
     log.info("文件hash值测试")
     if crypto.md_file then
         -- 无hmac的hash值
@@ -162,7 +162,7 @@ local function crypto_task_func()
         log.info("文件hash值测试", "当前固件不支持crypto.md_file")
     end
     
-    --计算数据的hash值(md5/sha1/sha256及hmac形式)
+    --计算数据的hash值(md5/sha1/sha256和hmac形式)
     if crypto.md then
         -- 无hmac的hash值
         log.info("md5", crypto.md("MD5", "1234567890"))

@@ -395,11 +395,9 @@ local function collect_data_and_report()
     log.info("active_mode", "payload:", payload)
     log.info("active_mode", "==============================")
     create.send(payload)
-    log.info("active_mode", "数据已通过云通道发送(json)")
 
     -- AirCloud 通道：以 TLV 形式上报（其余字段不含 msg_id/type/ts/imei）
     create.send_aircloud(build_aircloud_tlv(msg.data))
-    log.info("active_mode", "数据已通过 AirCloud TLV 发送")
 
     -- 记录上报时间
     kvstore.set_last_report_time(os.time())

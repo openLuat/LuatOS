@@ -1,10 +1,10 @@
 --[[
 @module  ws2812_rainbow_task
-@summary Air1780P/H 演示 WS2812 彩虹渐变效果
+@summary Air1780P/H/HV 演示 WS2812 彩虹渐变效果
 @version 1.0
 @date    2026.08.17
 @usage
-适用产品：合宙 Air1780P / Air1780H。
+适用产品：合宙 Air1780P / Air1780H / Air1780HV。
          色相公式依赖 LED_W+LED_H，灯板尺寸非 22×22 时会自动适配，但效果观感可能变化。
 
 本文件为 WS2812 22×22 点阵演示彩虹渐变效果的代码示例，核心业务逻辑为：

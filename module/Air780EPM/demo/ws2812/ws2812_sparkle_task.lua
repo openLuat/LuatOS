@@ -1,10 +1,10 @@
 --[[
 @module  ws2812_sparkle_task
-@summary Air1780P/H 演示 WS2812 随机星点闪烁效果
+@summary Air1780P/H/HV 演示 WS2812 随机星点闪烁效果
 @version 1.0
 @date    2026.08.17
 @usage
-适用产品：合宙 Air1780P / Air1780H。
+适用产品：合宙 Air1780P / Air1780H / Air1780HV。
          星点数量和色相范围通过 LED_W/LED_H 计算，灯板尺寸非 22×22 时会自动适配。
 
 本文件为 WS2812 22×22 点阵演示随机星点闪烁效果的代码示例，核心业务逻辑为：

@@ -55,13 +55,14 @@ static const luat_audio_data_codec_opts_t s_bridge_pcm_codec = {
     .init = _bridge_pcm_codec_init,
     .deinit = _bridge_pcm_codec_deinit,
     .set_record_info = luat_audio_codec_wav_set_record_info,
-    .decode = luat_audio_codec_wav_codec_decode,
+    .decode = NULL,
     .decode_min_input_len = 320,
     .decode_max_output_len = 320,
     .type = LUAT_AUDIO_DATA_CODEC_TYPE_CC_BRIDGE_PCM,
     .is_hardware = 0,
     .support_detect = 0,
     .encode_raw_mode = 1,
+    .decode_raw_mode = 1,
 };
 
 /* -------------------- 早期彩铃(early media) -------------------- */

@@ -1655,23 +1655,6 @@ int luat_audio_request_add_source_stream(luat_audio_extern_source_t *source, lua
 int luat_audio_extern_source_feed(luat_audio_extern_source_t *source, const uint8_t *data, uint32_t len)
 {
 	uint32_t free_space;
-	if (!source || !data || !len || source->is_done || source->is_user_stop || !source->decode_input_fifo) {
-		return 0;
-	}
-	free_space = luat_fifo_check_free_space(source->decode_input_fifo);
-	if (len > free_space) {
-		len = free_space;
-	}
-	if (!len) return 0;
-	luat_fifo_write(source->decode_input_fifo, data, len);
-	/* The extern-source decoder waits here between frames. */
-	luat_mutex_unlock(_luat_audio.tts_or_extern_source_wait_sem);
-	return (int)len;
-}
-
-int luat_audio_extern_source_feed(luat_audio_extern_source_t *source, const uint8_t *data, uint32_t len)
-{
-	uint32_t free_space;
 	if (!source || !data || !len || source->is_done || source->is_decode_finish || source->is_user_stop || !source->decode_input_fifo) {
 		return 0;
 	}

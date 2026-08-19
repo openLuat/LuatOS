@@ -1,4 +1,4 @@
---[[
+﻿--[[
 @module exaudio
 @summary exaudio扩展库
 @version 2.9
@@ -1511,7 +1511,7 @@ function exaudio.sip_voip_start()
     local ok, request_id = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_RAW, sip_v2_record_zbuff, 1,
         audio_v2.DATA_CODEC_TYPE_RAW, 8000, 16, 1)
     if not ok then sip_v2_record_zbuff = nil return false end
-    local source_ok, source_id = audio_v2.extern_source(request_id, true, false,
+    local source_ok, source_id = cc.extern_source(request_id, true, false,
         audio_v2.DATA_CODEC_TYPE_RAW, true, 8000, 16, 1, true)
     if not source_ok then audio_v2.stop(request_id) sip_v2_record_zbuff = nil return false end
     sip_v2_request_index, sip_v2_source_index = request_id, source_id

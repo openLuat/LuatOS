@@ -164,14 +164,14 @@ return {
             spi_id = 2,         -- SPI2
             cs_pin = 4,         -- CS = GPIO4
             rdy_pin = 13,       -- AirLink_RDY = GPIO13
-            speed = 20 * 1000000, -- 20MHz
+            speed = 8 * 1000000, -- 8MHz
         },
 
         -- ===== 第三优先级：4G（AirLink UART3） =====
         {
             type = "4g_airlink_uart",
             uart_id = 3,  -- UART3
-            baud = 2000000, -- 2Mbps
+            baud = 2*1000*1000, -- 2Mbps
             adapter = socket.LWIP_GP_GW,
         },
 
@@ -191,7 +191,7 @@ return {
         sd_card = {
             spi_id = 1,       -- SPI 接口 ID（与以太网共用 SPI1，CS 不同）
             pin_cs = 8,       -- 片选 CS 引脚 GPIO8
-            speed = 40000000, -- SPI 时钟频率 Hz（高速卡推荐 20MHz+）
+            speed = 8*1000*1000, -- SPI 时钟频率 Hz（高速卡推荐 8MHz+）
         },
     },
 

@@ -75,6 +75,7 @@ enum {
     LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_WB,  /**< Speex 宽带 16kHz 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_UWB, /**< Speex 超宽带 32kHz 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_CC_BRIDGE_PCM, /**< CC-SIP桥接专用PCM直通编解码器，非Lua公共codec */
+    LUAT_AUDIO_DATA_CODEC_TYPE_VOIP_PCM,  /**< VOIP专用PCM直通编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MAX,        /**< 最大编解码器类型 */
     LUAT_AUDIO_DATA_CODEC_TYPE_HW = 0x80, /**< 编解码器类型-硬件编解码器优先模式 */
 

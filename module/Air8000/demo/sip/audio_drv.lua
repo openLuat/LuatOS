@@ -20,7 +20,8 @@ local audio_configs = {
     pa_delay = 100,
     dac_time_delay = 100,
     bits_per_sample = 16,
-    pa_on_level = 1
+    pa_on_level = 1,
+    audio_mode = "new",
 }
 
 function audio_drv.init()

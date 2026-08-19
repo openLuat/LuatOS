@@ -1512,12 +1512,13 @@ end
 
 function exaudio.sip_voip_start()
     if not USE_AUDIO_V2 or not audio_v2 or not voip or not sys then return false end
+    local codec = audio_v2.DATA_CODEC_TYPE_VOIP_PCM
     sip_v2_record_zbuff = zbuff.create(4096)
-    local ok, request_id = audio_v2.speech(audio_v2.DATA_CODEC_TYPE_RAW, sip_v2_record_zbuff, 1,
-        audio_v2.DATA_CODEC_TYPE_RAW, 8000, 16, 1)
+    local ok, request_id = audio_v2.speech(codec, sip_v2_record_zbuff, 1,
+        codec, 8000, 16, 1)
     if not ok then sip_v2_record_zbuff = nil return false end
-    local source_ok, source_id = cc.extern_source(request_id, true, false,
-        audio_v2.DATA_CODEC_TYPE_RAW, true, 8000, 16, 1, true)
+    local source_ok, source_id = audio_v2.extern_source(request_id, true, false,
+        codec, true, 8000, 16, 1, true)
     if not source_ok then audio_v2.stop(request_id) sip_v2_record_zbuff = nil return false end
     sip_v2_request_index, sip_v2_source_index = request_id, source_id
     sip_v2_timer = sys.timerLoopStart(function()

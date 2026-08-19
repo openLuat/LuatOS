@@ -230,6 +230,9 @@ typedef struct {
  */
 voip_ctx_t *voip_get_ctx(void);
 
+/** Register the audio_v2 PCM codec used by the VoIP Lua adapter. */
+void luat_voip_audio_codec_register(void);
+
 /**
  * 启动 VoIP 媒体引擎
  * @param config 配置（会被拷贝，调用方可立即释放）

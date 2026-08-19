@@ -1524,6 +1524,8 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "DRIVER_TYPE_USB",			ROREG_INT(LUAT_AUDIO_DRIVER_TYPE_USB)},
     //@const DATA_CODEC_TYPE_RAW number 编解码器类型RAW, 用于直接播放PCM数据流
     { "DATA_CODEC_TYPE_RAW",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_RAW)},
+    //@const DATA_CODEC_TYPE_VOIP_PCM number SIP/VoIP专用PCM直通编解码器
+    { "DATA_CODEC_TYPE_VOIP_PCM",	ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_VOIP_PCM)},
     //@const DATA_CODEC_TYPE_WAV number 编解码器类型WAV
     { "DATA_CODEC_TYPE_WAV",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_WAV)},
     //@const DATA_CODEC_TYPE_AMR_NB number 编解码器类型AMR_NB

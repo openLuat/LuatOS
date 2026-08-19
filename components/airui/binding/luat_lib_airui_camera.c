@@ -32,7 +32,6 @@
  * @li cover：等比缩放铺满视口，可能裁切（软件最近邻）
  * @li stretch：非等比拉伸填满视口（软件最近邻）
  * @note fit 在组件内软件烘焙到视口大小缓冲，避免 LVGL 对全帧软件缩放导致卡顿
- * @int config.rotation 画面顺时针旋转角度，可选，默认 0。仅支持 0/90/180/270，先旋转源帧再 fit，视口尺寸不变，下一帧生效
  * @boolean config.auto_start 创建后是否自动启动，默认 false
  * @boolean config.register_target 创建后是否注册为预览帧接收目标，默认 true（挂 luat_camera_set_preview_data_callback）
  * @int config.camera_id 摄像头 ID，默认 camera.USB
@@ -69,30 +68,6 @@ static int l_camera_set_fit(lua_State *L)
     const char *fit = luaL_checkstring(L, 2);
     airui_camera_set_fit(camera_check(L), fit);
     return 0;
-}
-
-/**
- * Camera:set_rotation(rotation)
- * @api camera:set_rotation(rotation)
- * @int rotation 画面顺时针旋转角度。仅支持 0/90/180/270（先旋转源帧再 fit，下一帧生效）
- * @return nil
- */
-static int l_camera_set_rotation(lua_State *L)
-{
-    int rotation = luaL_checkinteger(L, 2);
-    airui_camera_set_rotation(camera_check(L), rotation);
-    return 0;
-}
-
-/**
- * Camera:get_rotation()
- * @api camera:get_rotation()
- * @return int 当前旋转角度，0/90/180/270
- */
-static int l_camera_get_rotation(lua_State *L)
-{
-    lua_pushinteger(L, airui_camera_get_rotation(camera_check(L)));
-    return 1;
 }
 
 /**
@@ -157,8 +132,6 @@ void airui_register_camera_meta(lua_State *L)
 
     static const luaL_Reg methods[] = {
         {"set_fit", l_camera_set_fit},
-        {"set_rotation", l_camera_set_rotation},
-        {"get_rotation", l_camera_get_rotation},
         {"start", l_camera_start},
         {"stop", l_camera_stop},
         {"destroy", l_camera_destroy},

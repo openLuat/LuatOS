@@ -80,6 +80,13 @@ int luat_audio_data_codec_decode_once(luat_audio_data_codec_t *codec, luat_fifo_
     // LLOGC(luat_audio_debug_flag, "start decode input fifo %d bytes, output buffer %d bytes",
     //         luat_fifo_check_used_space(input_data_fifo), output_data_buffer->pos);
 
+    if (codec->opts->decode_raw_mode) { // 直接输出原始数据, 填满output_data_buffer
+        out_len = luat_fifo_read(input_data_fifo, output_data_buffer->data + output_data_buffer->pos, output_data_buffer->max_len - output_data_buffer->pos);
+        output_data_buffer->pos += out_len;
+        LLOGC(luat_audio_debug_flag, "decode raw mode read %u bytes is end %d", out_len, is_end);
+        return LUAT_ERROR_NONE;
+    }
+
     while ((output_data_buffer->pos + codec->opts->decode_max_output_len) <= output_data_buffer->max_len) {
         if (codec->opts->decode_min_input_len > 1) {
             input_data_len = luat_fifo_query(input_data_fifo, codec->input_buffer, codec->opts->decode_min_input_len);

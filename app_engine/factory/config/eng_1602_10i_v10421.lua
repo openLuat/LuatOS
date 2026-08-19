@@ -24,7 +24,7 @@ return {
     power_on = {
         { pin = 55, dir = 0, level = 1, delay = 50  },  -- 拉高 50ms
         { pin = 55, dir = 0, level = 0, delay = 120 },  -- 拉低 120ms 使能
-        { pin = 49, dir = 0, level = 1 },               -- 8311_EN 拉高使能 ES8311
+        { pin = 43, dir = 0, level = 1 },               -- 8311_EN 拉高使能 ES8311
     },
 
     -- ===== 硬件配置 =====

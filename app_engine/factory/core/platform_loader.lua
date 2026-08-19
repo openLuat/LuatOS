@@ -52,7 +52,7 @@ require ("evb_8000a_3i5_v0")  -- Air8000A trunkey 3.5寸
 require ("eng_1780h_4i_v0")  -- Air1780H 引擎主机 4.3寸 (ST6201 + airlink WiFi + ES8311 + SD + NAND)
 require ("evb_1601_10i_v11")  -- Air1601 EVB 10.1寸
 require ("evb_1601_7i_v11")   -- Air1601 EVB 7寸
-require ("evb_1601_7i_v12")   -- Air1601 EVB 7寸 V012 (+4G+以太网+WiFi AirLink SPI2)
+require ("evb_1601_7i_v12")   -- Air1601 EVB 7寸 V012 (+4G+以太网+WiFi AirLink SPI2+应用工厂/ES8311录音)
 require ("pc_default")        -- PC 模拟器回退
 
 -- 所有 LCD 驱动（按屏幕 IC 型号分类）

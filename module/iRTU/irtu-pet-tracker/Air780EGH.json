@@ -1,0 +1,58 @@
+{
+  "name": "Air780EGH",
+  "description": "Air8201 - Air780EGH配置",
+  "pins": {
+    "UART2": {
+      "tx": 13,
+      "rx": 14
+    },
+    "I2C": {
+      "scl": 19,
+      "sda": 20
+    },
+    "GPIO": {
+      "led_red": 35,
+      "led_blue": 36,
+      "led_green": 37,
+      "speaker": 38,
+      "key": 39
+    },
+    "ADC": {
+      "battery": 2
+    }
+  },
+  "modules": {
+    "gnss": {
+      "uart": 2,
+      "baud": 115200
+    },
+    "bluetooth": {
+      "uart": 3,
+      "baud": 115200
+    },
+    "gsensor": {
+      "i2c_id": 0,
+      "addr": 0x18
+    },
+    "pressure": {
+      "i2c_id": 0,
+      "addr": 0x77
+    }
+  },
+  "config": {
+    "power": {
+      "sleep_current": 5,
+      "normal_current": 100,
+      "max_current": 500
+    },
+    "network": {
+      "apn": "cmnbiot",
+      "timeout": 30
+    },
+    "location": {
+      "gps_timeout": 60,
+      "lbs_timeout": 30,
+      "wifi_timeout": 45
+    }
+  }
+}

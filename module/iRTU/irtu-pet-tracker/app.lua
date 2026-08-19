@@ -1,0 +1,128 @@
+--[[
+@module  app
+@summary 应用主逻辑模块（MQTT + SIP 版本，支持服务端动态配置）
+@version 3.2
+@date    2026.07.17
+@usage
+1. 初始化设备硬件和各功能模块
+2. 获取工作模式并选择连接方式
+3. 未激活模式：进入绑定窗口流程（BLE广播+Mqtt上报bind_ready）
+4. 已激活模式：进入常规工作循环
+5. 配置由 main.lua 在启动前通过 config.load_from_server() 加载
+]]
+
+local app = {}
+
+local kvstore = require("kvstore")
+local config = require("config")
+
+-- 导入功能模块
+local location = require("location")
+local ns2520 = require("ns2520")
+local da267 = require("da267")
+local remote = require("remote")
+local battery = require("battery")
+local lowpower_app = require("lowpower_app")
+
+-- 初始化所有功能模块
+local function init_all_modules()
+    log.info("app", "开始初始化功能模块")
+
+    kvstore.init()
+
+    -- 初始化电池充电检测
+    battery.init()
+
+    local work_mode = kvstore.get_work_mode()
+    log.info("app", "当前工作模式:", work_mode)
+
+    -- 传感器先初始化（I2C1），避免被 SIP 音频初始化（I2C0）阻塞
+    location.init()
+    ns2520.init()
+    da267.init()
+
+    -- SIP 对讲模块改为按需初始化（收到 MQTT call 指令时才 init）
+    remote.init()
+    lowpower_app.init()
+
+    log.info("app", "所有功能模块初始化完成")
+end
+
+-- 应用主任务
+local function app_task()
+    log.info("app", "开始应用初始化")
+
+    -- 获取唤醒原因
+    local a, b, c, d = pm.lastReson()
+    local wakeup_reason = "unknown"
+    if a == 0 then
+        if c == 0 then wakeup_reason = "powerkey"
+        elseif c == 3 then wakeup_reason = "software_reboot"
+        elseif c == 5 then wakeup_reason = "reset_key"
+        elseif c == 6 then wakeup_reason = "exception_reboot"
+        elseif c == 8 then wakeup_reason = "watchdog"
+        elseif c == 9 then wakeup_reason = "external_reboot"
+        elseif c == 10 then wakeup_reason = "charge_power"
+        end
+    elseif a == 1 then wakeup_reason = "timer_wakeup"
+    elseif a == 2 then
+        if d == 1 then wakeup_reason = "wakeup0"
+        elseif d == 2 then wakeup_reason = "wakeup1"
+        elseif d == 4 then wakeup_reason = "wakeup2"
+        elseif d == 8 then wakeup_reason = "wakeup3"
+        elseif d == 16 then wakeup_reason = "wakeup4"
+        elseif d == 32 then wakeup_reason = "wakeup5"
+        else wakeup_reason = "wakeup"
+        end
+    elseif a == 3 then wakeup_reason = "uart_wakeup"
+    elseif a == 5 then wakeup_reason = "pwr_key"
+    elseif a == 6 then wakeup_reason = "chg_det"
+    end
+    log.info("app", "唤醒原因:", a, b, c, d, "描述:", wakeup_reason)
+    config.DEVICE_RESTART = wakeup_reason
+
+    -- Power键监听（仅记录日志，绑定流程由 unactive_mode 处理）
+    if gpio.PWR_KEY then
+        gpio.debounce(gpio.PWR_KEY, 200)
+        gpio.setup(gpio.PWR_KEY, function()
+            log.info("app", "Power键触发, level:", gpio.get(gpio.PWR_KEY))
+        end, gpio.PULLUP, gpio.BOTH)
+    else
+        log.warn("app", "gpio.PWR_KEY不可用，跳过按键监听")
+    end
+
+    -- 初始化所有模块
+    init_all_modules()
+
+    -- 获取工作模式
+    local work_mode = kvstore.get_work_mode()
+    log.info("app", "当前工作模式:", work_mode)
+
+    -- ============================================
+    -- 手动测试模式开关（与 active_mode.lua 同步设置）
+    -- nil = 使用 kvstore 存储的模式（正常绑定流程）
+    -- 0/1/2 = 跳过绑定，直接进入已激活模式
+    -- ============================================
+    local TEST_MODE = nil
+    if TEST_MODE ~= nil then
+        kvstore.set_work_mode(TEST_MODE)
+        work_mode = TEST_MODE
+    end
+
+    -- 根据工作模式选择
+    if work_mode == config.DEVICE_MODE.UNACTIVATED then
+        log.info("app", "进入未激活模式")
+        require("unactive_mode")
+    else
+        log.info("app", "进入已激活模式")
+        require("active_mode")
+    end
+end
+
+-- 启动应用
+function app.start()
+    log.info("app", "启动应用")
+    sys.taskInit(app_task)
+end
+
+return app

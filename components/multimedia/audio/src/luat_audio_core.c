@@ -137,7 +137,7 @@ LUAT_WEAK __LUAT_C_CODE_IN_ISR__ void luat_audio_driver_event_callback(uint32_t 
 	uint32_t rest_data_len;
 	switch (event) {
 	case LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE:
-		if (ctrl->opts->support_full_loop && ctrl->driver_work_mode != LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER) {
+		if (ctrl->opts->support_full_loop) {
 			return;
 		}
 		_audio_play_next_block(ctrl);

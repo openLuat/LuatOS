@@ -6,9 +6,9 @@
 
 3、play_stream: 流式播放音频，支持PCM/MP3/AMR/WAV格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用
 
-4、record_amr_file: 录音到文件（AMR格式），使用IO29键控制录音，IO37键控制播放，录音完成后自动播放
+4、record_amr_file: 录音到文件（AMR格式），开机自动运行（自动挂载TF卡→自动录音5秒→自动播放）
 
-5、record_pcm_file: 录音到文件（PCM格式），使用IO29键控制录音，IO37键控制播放，流式录音并流式播放
+5、record_pcm_file: 录音到文件（PCM格式），开机自动运行（自动挂载TF卡→自动录音5秒→自动流式播放）
 
 6、http_download_play: HTTP下载音频文件播放，使用IO29键开始下载并播放，IO37键停止播放，支持MP3/AMR/PCM格式
 
@@ -51,23 +51,34 @@
 
 ### 4、录音到文件功能（record_amr_file.lua）
 
-- 使用IO29键开始/停止录音，停止播放
-- 使用IO37键开始/停止播放，停止录音
-- 录音时长5秒，录音过程中可按任意键提前结束
-- 录音完成后自动播放录音文件
+- 开机自动运行：自动挂载TF卡（挂载失败回退内部存储）→ 自动录音5秒（AMR_NB）→ 录音完成后自动播放
+- 录音时长5秒，录音时长到自动停止
 - AMR_NB格式，录音文件保存到TF卡（/sd/record.amr），TF卡挂载失败时保存到内部存储
 - 使用内置DAC输出音频
 
 ### 5、流式录音到文件功能（record_pcm_file.lua）
 
-- 使用IO29键开始/停止录音，停止播放
-- 使用IO37键开始/停止播放，停止录音
-- 录音时长5秒，录音过程中可按任意键提前结束
+- 开机自动运行：自动挂载TF卡（挂载失败回退内部存储）→ 自动录音5秒（PCM）→ 录音完成后自动播放
+- 录音时长5秒，录音时长到自动停止
 - PCM格式，16kHz采样率、16位采样深度、有符号、单声道
 - 录音文件保存到TF卡（/sd/record.pcm），TF卡挂载失败时保存到内部存储
 - 使用流式播放方式播放录音文件
 - 使用内置DAC输出音频
 - 注意：播放采样位深仅支持到24位，如果录制32位录音则无法播放，需要用电脑进行播放
+
+### 6、HTTP下载音频文件播放功能（http_download_play.lua）
+
+- 使用Power键开始HTTP下载并播放音频，Boot键停止播放
+- 自动根据URL后缀识别音频格式（PCM/MP3/AMR）
+- PCM格式使用流式播放，MP3/AMR格式使用文件播放
+- 支持SD卡存储，文件大于200KB时必须使用SD卡
+- 使用内置DAC输出音频
+
+### 7、HTTP音频流式播放功能（http_stream_play.lua）
+
+- 连接WiFi，使用httpplus进行HTTP边下边播，支持PCM/AMR/MP3/WAV格式
+- PCM格式默认16kHz、16位、有符号、单声道；AMR/MP3/WAV格式自动解析文件头获取真实采样率
+- 使用内置DAC输出音频
 
 ## 演示硬件环境
 
@@ -138,10 +149,9 @@
 ### 3、流式音频播放功能（play_stream.lua）
 
 1. 搭建好硬件环境
-2. 搭配AirAUDIO_1000音频板测试，需将AirAUDIO_1000音频板中PA开关拨到OFF，让软件控制PA，避免pop音
-3. 打开main.lua，确保保留`require "play_stream"`这一行
-4. 将代码下载到开发板并运行
-5. **演示效果**：使用test.pcm模拟音频来源进行流式播放
+2. 打开main.lua，确保保留`require "play_stream"`这一行
+3. 将代码下载到开发板并运行
+4. **演示效果**：使用test.pcm模拟音频来源进行流式播放
 
 **运行结果示例：**
 
@@ -156,14 +166,15 @@ I/user.exaudio audio_v2请求结束 0
 I/user.播放完成 true
 ```
 
+**注意：此功能Air8101和Air8101B均支持**
+
 ### 4、录音到文件功能（record_amr_file.lua）
 
 1. 搭建好硬件环境
-2. 搭配AirAUDIO_1000音频板测试，需将AirAUDIO_1000音频板中PA开关拨到OFF，让软件控制PA，避免pop音
-3. 打开main.lua，取消注释`require "record_amr_file"`，注释掉其他require
-4. 确保已插入TF卡（录音文件默认保存到`/sd/record.amr`）
-5. 将代码下载到开发板并运行
-6. **演示效果**：按IO29键开始5秒录音，录音完成后自动播放录音文件；按IO37键可随时播放最近一次录音
+2. 打开main.lua，取消注释`require "record_amr_file"`，注释掉其他require
+3. 确保已插入TF卡（录音文件默认保存到`/sd/record.amr`）
+4. 将代码下载到开发板并运行
+5. **演示效果**：开机自动挂载TF卡（失败回退内部存储）→ 自动录音5秒 → 录音完成后自动播放录音文件
 
 **运行结果示例：**
 
@@ -177,21 +188,27 @@ I/user.exaudio.setup 当前使用新音频框架
 I/user.exaudio.setup DAC模式 - 通道:0, 声道:1
 I/user.exaudio.setup audio_v2 DAC模式初始化
 I/user.exaudio.setup audio_v2初始化完成
-I/user.音量设置 播放: 70 录音: 70
-I/user.找到录音文件 大小: 4728 字节 路径: /sd/record.amr
-...
-I/user.按下IO29键
+I/user.音量设置 播放: 75 录音: 80
+I/user.找到录音文件 大小: 6470 字节 路径: /sd/record.amr
+I/user.音频系统初始化完成，准备开始录音
+I/user.录音时长:  5 秒
+I/user.录音完成后自动播放
+I/user.录音文件保存到: /sd/record.amr
 I/user.开始录音 时长: 5 秒
 I/user.删除旧录音文件
+I/user.exaudio.record_start 将录音5秒
 I/user.exaudio 录音已开始, req_id: 0
-I/user.录音已开始，按任意键可提前结束
+I/user.录音已开始
+I/user.exaudio 录音开始 0
 I/user.录音中... 1 秒
 ...
-I/user.录音中... 5 秒
-I/user.停止录音 已录制: 5 秒
-I/user.录音完成 大小: 5425 字节
+I/user.录音中... 4 秒
+I/user.exaudio 录音完毕 0
+I/user.录音完成 大小: 6362 字节
 I/user.录音文件路径 /sd/record.amr
-I/user.播放录音文件 大小: 5425 字节
+I/user.播放录音文件 大小: 6362 字节
+I/user.parse_audio_info get_play_info result: true sample_rate: 8000 next_pos: 6 need_len: 0
+I/user.exaudio.parse_audio_info /sd/record.amr sample_rate: 8000 bits: 16 channels: 1
 I/user.播放已开始
 I/user.exaudio 播放开始 1
 ...
@@ -204,11 +221,10 @@ I/user.播放完成
 ### 5、流式录音到文件功能（record_pcm_file.lua）
 
 1. 搭建好硬件环境
-2. 搭配AirAUDIO_1000音频板测试，需将AirAUDIO_1000音频板中PA开关拨到OFF，让软件控制PA，避免pop音
-3. 打开main.lua，取消注释`require "record_pcm_file"`，注释掉其他require
-4. 确保已插入TF卡（录音文件默认保存到`/sd/record.pcm`）
-5. 将代码下载到开发板并运行
-6. **演示效果**：按IO29键开始5秒PCM录音，录音过程中实时写入TF卡并打印写入速度；录音完成后按IO37键流式播放录音文件
+2. 打开main.lua，取消注释`require "record_pcm_file"`，注释掉其他require
+3. 确保已插入TF卡（录音文件默认保存到`/sd/record.pcm`）
+4. 将代码下载到开发板并运行
+5. **演示效果**：开机自动挂载TF卡（失败回退内部存储）→ 自动录音5秒（实时写入TF卡并打印写入速度）→ 录音完成后自动流式播放录音文件
 
 **注意事项：**
 - PCM格式使用16kHz采样率、16位采样深度、有符号、单声道
@@ -220,42 +236,49 @@ I/user.播放完成
 ```lua
 I/user.音频系统初始化
 I/user.开始挂载TF卡
-I/user.TF卡挂载成功 挂载路径: /sd
-I/user.TF卡空间信息 {"free_sectors":31107456,"total_kb":15554016,"free_kb":15553728,"total_sectors":31108032}
-I/user.TF卡挂载成功！！！
+I/user.E/user.TF卡挂载失败 mount error
+I/user.E/user.TF卡挂载失败，录音文件将无法保存到TF卡
 I/user.exaudio.setup 当前使用新音频框架
 I/user.exaudio.setup DAC模式 - 通道:0, 声道:1
 I/user.exaudio.setup audio_v2 DAC模式初始化
 I/user.exaudio.setup audio_v2初始化完成
 I/user.音量设置 播放: 70 录音: 70
-I/user.找到录音文件 大小: 164800 字节 路径: /sd/record.pcm
-...
-I/user.按下IO29键
-I/user.空闲状态，开始录音
+I/user.找到录音文件 大小: 156800 字节 路径: /record.pcm
+I/user.音频系统初始化完成，准备开始录音
+I/user.录音时长:  5 秒
+I/user.录音完成后自动播放
+I/user.录音文件保存到: /record.pcm
 I/user.开始录音 时长: 5 秒
 I/user.删除旧录音文件
+I/user.exaudio.record_start 将录音5秒
 I/user.exaudio 录音已开始, req_id: 0
-I/user.录音已开始，按任意键可提前结束
-I/user.TF卡写入统计 数据大小: 1600 字节, 写入耗时: 66.00 ms, 写入速度: 23.67 KB/s
+I/user.录音已开始
+I/user.exaudio 录音开始 0
+I/user.TF卡写入统计 数据大小: 3200 字节, 写入耗时: 42.00 ms, 写入速度: 74.40 KB/s
 ...
 I/user.录音中... 1 秒
 ...
 I/user.录音中... 5 秒
 I/user.停止录音 已录制: 5 秒
-...
-I/user.按下IO37键
-I/user.空闲状态，播放录音
-I/user.录音文件路径 /sd/record.pcm
-I/user.流式播放录音文件 大小: 158400 字节
+I/user.录音完成 大小: 156800 字节
+I/user.录音完成后，启动播放任务
+I/user.录音时长已达 5 秒，自动停止录音
+I/user.录音文件路径 /record.pcm
+I/user.流式播放录音文件 大小: 156800 字节
 I/user.exaudio 调用stream: cid= 0 sr= 16000 bits= 16 ch= 1 sig= true pri= 1
+I/user.exaudio stream返回: ok= true req_id= 1
 I/user.exaudio 流式播放启动成功, request_index: 1 采样率: 16000 codec_id: 0
+I/user.流式播放已开始
+I/user.开始流式读取录音数据
 I/user.流式播放缓冲区大小 1600
+I/user.exaudio 播放开始 1
+...
 I/user.流式数据读取完成
 I/user.exaudio 播放完毕 1
 I/user.播放完成
 ```
 
-**注意：此功能需要用Air8101B来测试，Air8101不支持**
+**注意：此功能Air8101和Air8101B均支持**
 
 ### 6、HTTP下载音频文件播放功能（http_download_play.lua）
 
@@ -359,4 +382,4 @@ I/user.播放完成
 I/user.stat_summary ========== 播放完全结束 ==========
 ```
 
-**注意：此功能Air8101和Air8101B均支持**
+**注意：此功能需要用Air8101B来测试，Air8101不支持**

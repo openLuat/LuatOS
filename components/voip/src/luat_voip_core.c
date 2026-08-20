@@ -57,6 +57,63 @@ voip_ctx_t *voip_get_ctx(void)
     return &g_voip_ctx;
 }
 
+/* audio_v2 talks to VoIP with decoded 8 kHz PCM. This stays in the VoIP
+ * module so the generic RAW codec keeps its generic PCM-stream semantics. */
+static int _voip_pcm_codec_encode(luat_audio_data_codec_t *codec, const uint8_t *input, uint32_t input_size,
+    uint8_t *output, uint32_t *encoded_used_size, uint32_t *encoded_output_size)
+{
+    (void)codec;
+    memcpy(output, input, input_size);
+    *encoded_used_size = input_size;
+    *encoded_output_size = input_size;
+    return LUAT_ERROR_NONE;
+}
+
+static int _voip_pcm_codec_decode(luat_audio_data_codec_t *codec, luat_audio_common_param_t *info,
+    const uint8_t *input, uint32_t input_size, uint8_t *output,
+    uint32_t *decoded_output_size, uint32_t *decoded_used_size)
+{
+    (void)codec;
+    (void)info;
+    memcpy(output, input, input_size);
+    *decoded_output_size = input_size;
+    *decoded_used_size = input_size;
+    return LUAT_ERROR_NONE;
+}
+
+static int _voip_pcm_codec_init(luat_audio_data_codec_t *codec, uint8_t is_encode)
+{
+    (void)codec;
+    (void)is_encode;
+    return LUAT_ERROR_NONE;
+}
+
+static void _voip_pcm_codec_deinit(luat_audio_data_codec_t *codec)
+{
+    (void)codec;
+}
+
+static const luat_audio_data_codec_opts_t s_voip_pcm_codec_opts = {
+    .init = _voip_pcm_codec_init,
+    .deinit = _voip_pcm_codec_deinit,
+    .set_record_info = luat_audio_codec_wav_set_record_info,
+    .decode = _voip_pcm_codec_decode,
+    .encode = _voip_pcm_codec_encode,
+    .decode_min_input_len = 320,
+    .decode_max_output_len = 320,
+    .encode_min_input_len = 320,
+    .encode_max_output_len = 320,
+    .type = LUAT_AUDIO_DATA_CODEC_TYPE_VOIP_PCM,
+    .decode_raw_mode = 1,
+};
+
+void luat_voip_audio_codec_register(void)
+{
+    static uint8_t registered;
+    if (!registered && luat_audio_data_codec_register(&s_voip_pcm_codec_opts) == LUAT_ERROR_NONE) {
+        registered = 1;
+    }
+}
 /* ======================== 前向声明 ======================== */
 
 static void voip_task_entry(void *param);

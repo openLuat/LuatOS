@@ -69,7 +69,7 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 	if (!_luat_audio.current_request_block ) {
 		goto CHECK_FILL_BLANK;
 	} else {
-		if (_luat_audio.current_request_block->play_codec.tx_no_callback) { // 解码器要求发送不使用回调函数
+		if (_luat_audio.current_request_block->play_codec.tx_no_callback || ctrl->static_play_buffer_cnt) { // 解码器要求发送不使用回调函数，或者使用静态缓冲区模式，由用户自行处理，这里只记录已经发送的数据，不再由core来处理play数据
 			if (_luat_audio.current_request_block->is_save_play_data) {
 				luat_fifo_write(_luat_audio.current_request_block->play_save_fifo, ctrl->play_buff_byte + ctrl->one_play_block_len * last_play_cnt, ctrl->one_play_block_len);
 			}
@@ -82,10 +82,6 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 
 	next_play_cnt = (ctrl->current_play_cnt + 1) & (LUAT_AUDIO_DATA_BUFFER_CNT - 1);
 	uint8_t *next_play_buff = ctrl->play_buff_byte + ctrl->one_play_block_len * next_play_cnt;
-	if (ctrl->static_play_buffer_cnt) {
-		next_play_cnt = (ctrl->current_play_cnt + 1) % ctrl->static_play_buffer_cnt;
-		next_play_buff = ctrl->play_buff_byte + ctrl->one_play_block_len * next_play_cnt;
-	}
 	uint32_t read_len  = luat_fifo_check_used_space(ctrl->data_channel->play_fifo);
 	if (read_len < ctrl->one_play_block_len) {	//fifo没有完整的1个block
 		if ((_luat_audio.current_request_block->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_PLAY) && !_luat_audio.current_request_block->is_wait_play_end) { // 播放状态为非等待播放结束，说明数据不够，填充空白音
@@ -120,11 +116,7 @@ static __LUAT_C_CODE_IN_ISR__ void _audio_play_next_block(struct luat_audio_driv
 CHECK_FILL_BLANK:
 	if (!ctrl->data_channel->play_is_stop) {
 		if (ctrl->play_buff_byte) {	// 播放缓冲区填充空白音
-			if (ctrl->static_play_buffer_cnt) {
-				ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * ctrl->static_play_buffer_cnt, ctrl->opts->is_tx_signed, ctrl->tx_param.data_align);
-			} else {
-				ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * LUAT_AUDIO_DATA_BUFFER_CNT, ctrl->opts->is_tx_signed, ctrl->tx_param.data_align);
-			}
+			ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * LUAT_AUDIO_DATA_BUFFER_CNT, ctrl->opts->is_tx_signed, ctrl->tx_param.data_align);
 		}
 		ctrl->data_channel->play_is_stop = 1;
 		luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_PRINT, 2, 0, 0, 0);

@@ -57,7 +57,7 @@ enum {
     LUAT_AUDIO_DRIVER_MODE_PLAY,           /**< 播放模式 */
     LUAT_AUDIO_DRIVER_MODE_RECORD,         /**< 录音模式 */
     LUAT_AUDIO_DRIVER_MODE_SPEECH,           /**< 通话模式 */
-    LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER,/**< 通话带缓冲区模式 */
+    LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER,/**< 通话带缓冲区模式，此时发送缓存数据填充由用户自行控制，不再由core处理 */
     LUAT_AUDIO_DRIVER_MODE_MAX,        /**< 最大驱动模式数量 */
 
     LUAT_AUDIO_DATA_CODEC_TYPE_RAW = 0,    /**< 原始音频数据编解码器 */

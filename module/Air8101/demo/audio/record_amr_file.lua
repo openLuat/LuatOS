@@ -13,29 +13,24 @@
 4. 录制exaudio.AMR_WB格式音频，需要使用支持新音频框架的固件或同时支持audio和cc的固件，
    否则会报“audio not support 16k”无法录音
 
-录音到文件演示程序，按键功能：
-1. IO29按键：开始/停止录音，停止播放
-   - 短接GND，按键按下
-   - 空闲时按IO29键开始5秒录音
-   - 录音中按IO29键提前结束录音
-2. IO37按键：开始/停止播放，停止录音
-   - 短接GND，按键按下
-   - 空闲时按IO37键播放录音文件
-   - 播放中按IO37键停止播放
+录音到文件演示程序（开机自动运行，无需按键）：
+1. 自动挂载TF卡，挂载失败自动回退内部存储
+2. 自动开始5秒录音（AMR_NB格式）
+3. 录音完成后自动播放录音文件
 
 音量设置：
-  播放音量：60
-  录音麦克风音量：60
+  播放音量：75
+  录音麦克风音量：80
 
 录音逻辑：
   录音时长为5秒，并计时
-  录音过程中可以按任意键提前结束
+  录音时长到自动停止
   录音完成后自动播放录音文件
 
 工作流程：
 1. 初始化：挂载TF卡，设置音频硬件参数
 2. 录音：流式录音（AMR_NB格式），实时写入TF卡
-3. 播放：流式播放录音文件
+3. 播放：录音完成后自动播放录音文件
 4. 状态管理：互斥控制录音/播放状态
 ]]
 
@@ -59,15 +54,15 @@ local audio_setup_param ={
     dac_delay = 6,            -- DAC启动前冗余时间，单位为100ms
 }
 
+
 -- 全局状态
 local is_recording = false     -- 是否正在录音
-local is_playing = false       -- 是否正在播放
 local record_timer = nil       -- 录音计时器
 local record_seconds = 0       -- 录音计时秒数
 
 -- 音量设置
-local PLAY_VOLUME = 70         -- 播放音量
-local RECORD_VOLUME = 70       -- 录音麦克风音量
+local PLAY_VOLUME = 75         -- 播放音量
+local RECORD_VOLUME = 80       -- 录音麦克风音量
 
 -- 录音时长设置（秒）
 local RECORD_DURATION = 5      -- 录音时长
@@ -78,7 +73,6 @@ local RECORD_DURATION = 5      -- 录音时长
 local function play_end_callback(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成")
-        is_playing = false
     end
 end
 
@@ -97,11 +91,9 @@ local function start_playback()
         local file_size = io.fileSize(recordPath)
         if file_size > 0 then
             log.info("播放录音文件", "大小:", file_size, "字节")
-            is_playing = true
             local play_result = exaudio.play_start(audio_play_param)
             if not play_result then
                 log.error("播放启动失败")
-                is_playing = false
             else
                 log.info("播放已开始")
             end
@@ -110,15 +102,6 @@ local function start_playback()
         end
     else
         log.warn("录音文件不存在，无法播放")
-    end
-end
-
--- 停止播放
-local function stop_playback()
-    if is_playing then
-        log.info("停止播放")
-        exaudio.play_stop({type = 0})
-        is_playing = false
     end
 end
 
@@ -176,16 +159,6 @@ end
 
 -- 开始录音
 local function start_recording()
-    if is_recording then
-        log.info("已经在录音中")
-        return false
-    end
-    
-    if is_playing then
-        log.info("正在播放中，停止播放")
-        stop_playback()
-    end
-    
     log.info("开始录音", "时长:", RECORD_DURATION, "秒")
     
     -- 删除旧录音文件
@@ -208,58 +181,13 @@ local function start_recording()
     if record_result then
         is_recording = true
         start_record_timer()
-        log.info("录音已开始，按任意键可提前结束")
+        log.info("录音已开始")
         return true
     else
         log.error("录音启动失败")
         return false
     end
 end
-
--- ========== 按键处理函数 ==========
-
--- IO29按键：开始/停止录音，停止播放
-local function powerkey_handler()
-    log.info("按下录音键")
-
-    if is_recording then
-        log.info("正在录音中，停止录音")
-        stop_recording()
-    elseif is_playing then
-        log.info("正在播放中，停止播放")
-        stop_playback()
-    else
-        log.info("空闲状态，开始录音")
-        start_recording()
-    end
-end
-
--- IO37按键：开始/停止播放，停止录音
-local function boot_key_handler()
-    log.info("按下播放键")
-
-    if is_recording then
-        log.info("正在录音中，停止录音")
-        stop_recording()
-    elseif is_playing then
-        log.info("正在播放中，停止播放")
-        stop_playback()
-    else
-        log.info("空闲状态，播放录音")
-        start_playback()
-    end
-end
-
-
--- ========== 初始化设置 ==========
-
--- 设置IO29按键：开始/停止录音，停止播放
-gpio.setup(29, powerkey_handler, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(29, 200, 1)
-
--- 设置IO37按键：开始/停止播放，停止录音
-gpio.setup(37, boot_key_handler, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(37, 200, 1)
 
 -- ========== TF卡挂载函数 ==========
 
@@ -338,12 +266,12 @@ local function main_audio_task()
             log.info("无录音文件", "路径:", recordPath)
         end
         
-        log.info("按键功能说明：")
-        log.info("1. Power键: 开始/停止录音，停止播放")
-        log.info("2. Boot键: 开始/停止播放，停止录音")  
-        log.info("3. 录音时长: ", RECORD_DURATION, "秒，可提前结束")
-        log.info("4. 录音完成后自动播放")
-        log.info("5. 录音文件保存到:", recordPath)
+        log.info("音频系统初始化完成，准备开始录音")
+        log.info("录音时长: ", RECORD_DURATION, "秒")
+        log.info("录音完成后自动播放")
+        log.info("录音文件保存到:", recordPath)
+        sys.wait(1000)
+        start_recording()
     else
         log.error("音频硬件初始化失败")
     end

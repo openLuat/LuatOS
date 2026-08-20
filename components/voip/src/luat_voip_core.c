@@ -798,7 +798,6 @@ static void voip_stop_audio(voip_ctx_t *ctx)
 
 #if defined(LUAT_USE_AUDIO_V2)
     if (ctx->audio_v2_ctrl) {
-        luat_audio_driver_stop((luat_audio_driver_ctrl_t *)ctx->audio_v2_ctrl);
         luat_audio_driver_deactivate((luat_audio_driver_ctrl_t *)ctx->audio_v2_ctrl);
         ctx->audio_v2_ctrl = NULL;
     } else

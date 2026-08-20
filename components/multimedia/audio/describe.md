@@ -202,7 +202,7 @@ typedef struct {
 | `LUAT_AUDIO_DRIVER_MODE_PLAY` | 播放模式 |
 | `LUAT_AUDIO_DRIVER_MODE_RECORD` | 录音模式 |
 | `LUAT_AUDIO_DRIVER_MODE_SPEECH` | 通话模式（全双工）|
-| `LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER` | 通话带外部缓冲区模式（如 LTE 通话）|
+| `LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER` | 通话带缓冲区模式，发送缓存数据填充由用户自行控制，不再由 core 处理 |
 
 ---
 

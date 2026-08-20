@@ -1338,7 +1338,7 @@ int luat_audio_request_prepare(luat_audio_request_block_t *request_block, luat_a
 	} else {
 		LLOGC(luat_audio_debug_flag, "request_id: %d no dsp", request_block->request_id);
 	}
-
+	request_block->data_channel->driver_ctrl->is_call_mode = 0;
 	return LUAT_ERROR_NONE;
 }
 

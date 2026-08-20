@@ -10,18 +10,18 @@
 -- 选型手册上支持VoLTE通话功能的模组支持
 */
 
-#include "lua.h"
+#include "luat_base.h"
+#ifdef LUAT_USE_AUDIO_V2
 #include "luat_audio_data_codec.h"
 #include "luat_audio_define.h"
 #include "luat_audio_driver.h"
 #include "luat_audio_dsp.h"
 #include "luat_audio_request.h"
-#include "luat_base.h"
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
 #include "luat_cc_bridge.h"
 #endif
 
-#ifdef LUAT_USE_AUDIO_V2
+
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
@@ -253,6 +253,7 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
     }
 }
 
+#if 0
 /*
  * CC v2 requests the I2S data path, while the registered board codec owns
  * its analogue ADC/DAC state.  Go through the regular audio PM state machine:
@@ -282,6 +283,7 @@ static void _l_cc_board_codec_off(void)
     }
     luat_audio_pm_request(_l_cc.multimedia_id, LUAT_AUDIO_PM_STANDBY);
 }
+#endif
 
 static int _l_cc_play_default_ring(void) {
     luat_audio_common_param_t common_param = {0};
@@ -290,7 +292,7 @@ static int _l_cc_play_default_ring(void) {
     common_param.data_align = 2;
     _l_cc.is_play_ring = 1;
     _l_cc.is_audio_start = 1;
-    _l_cc_board_codec_on(8000);
+    // _l_cc_board_codec_on(8000);
     return luat_audio_request_play_stream(&_l_cc.ring_request, NULL, luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_RAW), &common_param, 2000, 200, 0, _l_cc_audio_ring_request_callback, &_l_cc.ring_request, NULL);
 }
 
@@ -810,7 +812,7 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
     }
     ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)play_buff_byte, one_play_block_len, play_block_cnt, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, luat_audio_dsp_get_opts(LUAT_AUDIO_DSP_DEFAULT_TYPE));
     if (!ret) {
-        _l_cc_board_codec_on(sample_rate);
+        // _l_cc_board_codec_on(sample_rate);
         if (_l_cc.upload_enable) {
 #ifdef LUAT_USE_CC_VOIP_BRIDGE
             if (luat_cc_bridge_mode_on()) {
@@ -844,7 +846,7 @@ void luat_cc_play_tone(uint32_t param)
         luat_audio_request_record_pause(&_l_cc.cc_request, 1);
         _l_cc.tone_data_cnt = 0;
         _l_cc.is_true_start = 0;
-        _l_cc_board_codec_off();
+        // _l_cc_board_codec_off();
 
 
         if (_l_cc.ring_request.org_input_data_fifo) {

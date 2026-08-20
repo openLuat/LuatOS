@@ -397,7 +397,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
                     continue;
                 }
                 if (g_airlink_debug) {
-                    LLOGD("uart%d send basic info %d", g_airlink_uart.uart_id, sizeof(basic_info));
+                    LLOGD("send basic info %d", sizeof(basic_info));
                 }
             } else {
                 if (airlink_uart_pack_frame_or_log(pbuff, AIRLINK_UART_RAW_FRAME_MAX, (uint8_t*)item.cmd, item.len, &packed_len, "uart tx") != 0) {

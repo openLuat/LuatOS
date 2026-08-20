@@ -117,6 +117,9 @@ CHECK_FILL_BLANK:
 	if (!ctrl->data_channel->play_is_stop) {
 		if (ctrl->play_buff_byte) {	// 播放缓冲区填充空白音
 			ctrl->opts->fill(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * LUAT_AUDIO_DATA_BUFFER_CNT, ctrl->opts->is_tx_signed, ctrl->tx_param.data_align);
+			if (ctrl->cache_sync_enable) {	//如果需要缓存同步，特别是开启了DCACHE和DMA模式情况
+				ctrl->opts->cache_sync(ctrl, ctrl->play_buff_byte, ctrl->one_play_block_len * LUAT_AUDIO_DATA_BUFFER_CNT);
+			}
 		}
 		ctrl->data_channel->play_is_stop = 1;
 		luat_rtos_event_send(_luat_audio.common_task_handle, LUAT_AUDIO_EV_PRINT, 2, 0, 0, 0);

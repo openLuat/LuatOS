@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include "lwip/timeouts.h"
 #include "luat_malloc.h"
+#include "luat_crypto.h"
 
 #define LUAT_LOG_TAG "openvpn"
 #include "luat_log.h"

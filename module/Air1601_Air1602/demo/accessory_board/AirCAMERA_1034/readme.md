@@ -95,7 +95,7 @@ I/user.face_demo 清空已有用户...
 
 5、登录合宙云平台查看上传的照片（需要将设备归属到你的iot账号下）
 
-![](https://docs.openluat.com/air8000/luatos/app/image/1601_1034_2.png)
+![](https://docs.openluat.com/air8000/luatos/app/image/1601_1034_2.jpg)
 
 6、Luatools 关键日志如下：
 

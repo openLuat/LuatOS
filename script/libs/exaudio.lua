@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 @module exaudio
 @summary exaudio扩展库
 @version 3.0
@@ -1234,7 +1234,7 @@ function exaudio.play_start(playConfigs)
         end
 
         -- audio_v2 setup 后恢复 ES8311 与 PA，保证 TTS 有模拟输出。
-        if not exaudio.pm(audio.RESUME) then
+        if not exaudio.pm(exaudio.RESUME) then
             log.error("audio_v2恢复播放设备失败")
             return false
         end
@@ -2211,7 +2211,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608192010"
+    return "202608211054"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

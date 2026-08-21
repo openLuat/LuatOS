@@ -375,6 +375,10 @@ local function main_audio_task()
         log.info("TF卡挂载成功！！！")
     end
 
+    -- LCD触摸也使用I2C1（1602_V1.2开发板特性），必须先拉高LCD_EN=GPIO57，
+    -- 否则触摸芯片会干扰I2C1总线导致ES8311通信失败
+    gpio.set(57, 1)
+    
     if exaudio.setup(audio_setup_param) then
         -- 设置音量
         exaudio.vol(PLAY_VOLUME)

@@ -251,6 +251,11 @@ end
 -- ========== 音频主任务 ==========
 
 local function main_audio_task()
+    -- LCD_EN 高电平有效，不同板子选用对应引脚，多余配置注释屏蔽
+    -- Air1601_V1.1开发板/Air8601/Air8602：注释下方这一行
+    -- Air160X_V1.2开发板：LCD_EN = GPIO57
+    gpio.setup(57, 1, gpio.PULLUP)
+
     log.info("音频系统初始化")
     
     -- 先挂载SD卡
@@ -263,10 +268,6 @@ local function main_audio_task()
         recordPath = "/record.amr"
         log.warn("SD卡挂载失败，录音文件将保存到内部存储:", recordPath)
     end
-    
-    -- LCD触摸也使用I2C1（1602_V1.2开发板特性），必须先拉高LCD_EN=GPIO57，
-    -- 否则触摸芯片会干扰I2C1总线导致ES8311通信失败
-    gpio.set(57, 1)
 
     if exaudio.setup(audio_setup_param) then
         -- 设置音量

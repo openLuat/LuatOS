@@ -343,7 +343,7 @@ end)
     return 0;
 }
 
-void luat_sms_recv_cb(uint32_t event, void *param)
+void luat_sms_recv_cb(uint8_t event, void *param)
 {
     luat_sms_recv_msg_t* sms = ((luat_sms_recv_msg_t*)param);
     rtos_msg_t msg = {0};

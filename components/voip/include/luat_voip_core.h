@@ -90,8 +90,10 @@ enum {
     VOIP_EVENT_MIC_DATA,    /* I2S 采集到数据 */
     VOIP_EVENT_SPK_DONE,    /* DAC 播放完成一帧 */
     VOIP_EVENT_STATS_TICK,  /* 统计输出定时器 */
+#ifdef LUAT_USE_VOIP_BRIDGE
     VOIP_EVENT_BRIDGE_TX,   /* 桥接模式：外部PCM数据需要编码发送 */
     VOIP_EVENT_BRIDGE_TONE, /* 桥接模式：内部早期媒体提示音 */
+#endif
 };
 
 typedef enum {
@@ -99,15 +101,19 @@ typedef enum {
     VOIP_AUDIO_BACKEND_DUPLEX,
 } voip_audio_backend_t;
 
-/* 音频工作模式：I2S直接硬件 或 桥接模式（PCM缓冲区交换） */
+/* 音频工作模式：I2S直接硬件；桥接固件额外支持PCM缓冲区交换。 */
 typedef enum {
     VOIP_AUDIO_MODE_I2S = 0,      /* 传统I2S模式：直接控制音频硬件 */
+#ifdef LUAT_USE_VOIP_BRIDGE
     VOIP_AUDIO_MODE_BRIDGE = 1,   /* 桥接模式：通过PCM缓冲区与外部交换数据 */
+#endif
 } voip_audio_mode_t;
 
+#ifdef LUAT_USE_VOIP_BRIDGE
 /* 桥接缓冲区大小：20ms@8kHz=160samples, 预留10帧 = 1600samples */
 #define VOIP_BRIDGE_BUF_SAMPLES  1600
 #define VOIP_BRIDGE_BUF_BYTES    (VOIP_BRIDGE_BUF_SAMPLES * sizeof(int16_t))
+#endif
 
 typedef struct {
     uint8_t  payload_type;
@@ -163,8 +169,8 @@ typedef struct {
     void *encoder;              /* g711 encoder handle */
     void *decoder;              /* g711 decoder handle */
 
-    luat_audio_data_codec_t codec_encoder;  /* Codec 配置和状态 */
-    luat_audio_data_codec_t codec_decoder; /* Codec 配置和状态 */
+    luat_audio_data_codec_t codec_encoder;  /* RTP encoder codec state */
+    luat_audio_data_codec_t codec_decoder;  /* RTP decoder codec state */
     uint8_t g711_type;          /* G711_TYPE_ULAW / G711_TYPE_ALAW */
     uint8_t rtp_payload_type;   /* 0=PCMU, 8=PCMA */
 
@@ -192,8 +198,9 @@ typedef struct {
 #endif
     uint8_t trace_on;
     voip_audio_backend_t audio_backend;
-    voip_audio_mode_t audio_mode;       /* 音频工作模式：I2S或BRIDGE */
+    voip_audio_mode_t audio_mode;
 
+#ifdef LUAT_USE_VOIP_BRIDGE
     /* 桥接模式缓冲区（仅当 audio_mode == VOIP_AUDIO_MODE_BRIDGE 时有效） */
     int16_t *bridge_tx_buf;             /* 上行：外部PCM -> voip编码 -> RTP */
     int16_t *bridge_rx_buf;             /* 下行：RTP -> voip解码 -> 外部PCM */
@@ -207,6 +214,7 @@ typedef struct {
     luat_rtos_timer_t bridge_tone_timer; /* 桥接模式早期提示音定时器 */
     uint32_t bridge_tone_pos;
     uint8_t bridge_tone_on;
+#endif
 
     uint32_t mic_generation[VOIP_MIC_SLOT_COUNT];
     uint32_t dropped_mic_events;
@@ -266,6 +274,8 @@ int voip_is_running(void);
 
 /* ======================== 桥接模式 API ======================== */
 
+#ifdef LUAT_USE_VOIP_BRIDGE
+
 /**
  * 设置音频工作模式（必须在 voip_start 之前调用，或 voip_stop 后调用）
  * @param mode VOIP_AUDIO_MODE_I2S 或 VOIP_AUDIO_MODE_BRIDGE
@@ -303,5 +313,6 @@ int voip_bridge_pcm_out(int16_t *pcm, uint16_t max_samples);
  * @return 0 成功, <0 失败
  */
 int voip_bridge_tone(int on);
+#endif
 
 #endif /* LUAT_VOIP_CORE_H */

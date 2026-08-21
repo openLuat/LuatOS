@@ -15,6 +15,7 @@
 
 #include "luat_base.h"
 #include "luat_mem.h"
+#include "luat_conf_bsp.h"
 #include "luat_voip_core.h"
 #include "rotable2.h"
 #include "luat_network_adapter.h"
@@ -281,6 +282,7 @@ static int l_voip_get_state(lua_State *L)
 @usage
 voip.setAudioMode(voip.AUDIO_MODE_BRIDGE)
 */
+#ifdef LUAT_USE_VOIP_BRIDGE
 static int l_voip_set_audio_mode(lua_State *L)
 {
     int mode = luaL_checkinteger(L, 1);
@@ -357,6 +359,7 @@ static int l_voip_bridge_tone(lua_State *L)
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
+#endif
 
 #include "rotable2.h"
 
@@ -369,16 +372,20 @@ static const rotable_Reg_t reg_voip[] =
     { "isRunning",  ROREG_FUNC(l_voip_is_running)},
     { "getState",   ROREG_FUNC(l_voip_get_state)},
 
+#ifdef LUAT_USE_VOIP_BRIDGE
     { "setAudioMode", ROREG_FUNC(l_voip_set_audio_mode)},
     { "pcmIn",      ROREG_FUNC(l_voip_pcm_in)},
     { "pcmOut",     ROREG_FUNC(l_voip_pcm_out)},
     { "bridgeTone", ROREG_FUNC(l_voip_bridge_tone)},
+#endif
 
     /* 常量 */
     { "PCMU",       ROREG_INT(VOIP_CODEC_PCMU)},
     { "PCMA",       ROREG_INT(VOIP_CODEC_PCMA)},
     { "AUDIO_MODE_I2S",   ROREG_INT(VOIP_AUDIO_MODE_I2S)},
+#ifdef LUAT_USE_VOIP_BRIDGE
     { "AUDIO_MODE_BRIDGE", ROREG_INT(VOIP_AUDIO_MODE_BRIDGE)},
+#endif
 
     { NULL,         ROREG_INT(0)}
 };

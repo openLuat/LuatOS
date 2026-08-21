@@ -7,12 +7,13 @@
 @demo multimedia
 @tag LUAT_USE_AUDIO_V2
 */
-#include "lauxlib.h"
-#include "lua.h"
+
+
+#include "luat_base.h"
+#ifdef LUAT_USE_AUDIO_V2
 #include "luat_audio_data_codec.h"
 #include "luat_audio_define.h"
 #include "luat_audio_request.h"
-#include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
 #include "luat_zbuff.h"
@@ -21,7 +22,6 @@
 #include <stdlib.h>
 #define LUAT_LOG_TAG "audio_v2"
 #include "luat_log.h"
-#ifdef LUAT_USE_AUDIO_V2
 //#if 1
 #include "luat_common_api.h"
 #include "luat_audio_core.h"

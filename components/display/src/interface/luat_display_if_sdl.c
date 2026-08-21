@@ -56,7 +56,6 @@ static int sdl_fb_probe(struct luat_display_panel *panel, struct luat_display_fb
     info->fb_size = 0;
     info->fb_count = 1;
 
-    info->inited = 1;
     return 0;
 }
 

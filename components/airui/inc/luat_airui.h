@@ -150,6 +150,9 @@ typedef struct {
  */
 typedef struct {
     int (*init)(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_format_t fmt);
+    /**< 获取平台提供的显示缓冲（可选，NULL 则 core 自行分配）：
+         返回 0 且 buf1/buf_size 有效时，core 直接使用该缓冲作为 LVGL 绘制缓冲 */
+    int (*get_buffers)(airui_ctx_t *ctx, void **buf1, void **buf2, uint32_t *buf_size);
     void (*flush)(airui_ctx_t *ctx, const lv_area_t *area, const uint8_t *px_map);
     void (*wait_vsync)(airui_ctx_t *ctx);
     int (*suspend)(airui_ctx_t *ctx);

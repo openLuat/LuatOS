@@ -14,7 +14,7 @@
 #if defined(LUAT_USE_AIRUI_LUATOS)
 
 #include "luat_airui.h"
-#include "luat_lcd.h"
+#include "luat_display.h"
 #include "luat_tp.h"
 
 /** GPIO 按键配置结构体 */
@@ -32,7 +32,7 @@ typedef struct {
 
 /** LuatOS 平台数据结构体 */
 typedef struct {
-    luat_lcd_conf_t *lcd_conf;       /**< LCD 配置指针 */
+    struct luat_display *display_conf;       /**< 显示信息指针 */
     luat_tp_config_t *tp_config;     /**< 触摸配置指针（可选） */
     airui_luatos_keypad_cfg_t keypad_cfg; /**< GPIO 按键配置（可选） */
     uint8_t *rotation_buf;           /**< 显示旋转临时缓冲 */

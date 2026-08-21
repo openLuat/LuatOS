@@ -495,10 +495,21 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     }
     
     // 分配显示缓冲（双缓冲模式）
-    uint32_t buf_size = width * height * lv_color_format_get_size(color_format) / AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR;
-    void *buf1 = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
-    void *buf2 = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
-    
+    // 优先使用平台提供的绘制缓冲（如 STM32N6 的 g_draw_framebuffer），拿不到再自分配
+    void *buf1 = NULL;
+    void *buf2 = NULL;
+    uint32_t buf_size = 0;
+
+    if (ctx->ops->display_ops->get_buffers != NULL &&
+        ctx->ops->display_ops->get_buffers(ctx, &buf1, &buf2, &buf_size) == 0 &&
+        buf1 != NULL && buf2 != NULL && buf_size > 0) {
+        LLOGI("airui_init: use platform draw buffers buf1=%p buf2=%p size=%u", buf1, buf2, (unsigned)buf_size);
+    } else {
+        buf_size = width * height * lv_color_format_get_size(color_format) / AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR;
+        buf1 = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
+        buf2 = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
+    }
+
     if (buf1 == NULL || buf2 == NULL) {
         LLOGE("airui_init failed: buffer allocation failed, size=%u", buf_size);
         airui_deinit(ctx);

@@ -12,6 +12,7 @@
 
 #include "luat_airui.h"
 #include "luat_lcd.h"
+#include "luat_display.h"
 #include "luat_log.h"
 #include "luat_mem.h"
 #include "luat_rtos.h"
@@ -103,22 +104,23 @@ static int luatos_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_colo
         return AIRUI_ERR_NO_MEM;
     }
 
-    luat_lcd_conf_t *lcd_conf = luat_lcd_get_default();
-    if (lcd_conf == NULL) {
-        LLOGE("luatos disp: lcd_conf is NULL");
+    /*换成struct luat_display*/
+    struct luat_display *display_conf = luat_display_get_by_id(0);
+    if (display_conf == NULL) {
+        LLOGE("luatos disp: display_conf is NULL");
         return AIRUI_ERR_PLATFORM_ERROR;
     }
 
     /* 保留调用前的长宽，若未配置则使用入参 */
-    if (lcd_conf->w == 0) {
-        lcd_conf->w = w;
-    }
-    if (lcd_conf->h == 0) {
-        lcd_conf->h = h;
-    }
-    lcd_conf->lcd_use_lvgl = 1;
+    // if (display_conf->panel->screen_win->w == 0) {
+    //     lcd_conf->w = w;
+    // }
+    // if (lcd_conf->h == 0) {
+    //     lcd_conf->h = h;
+    // }
+    // lcd_conf->lcd_use_lvgl = 1;
 
-    data->lcd_conf = lcd_conf;
+    data->display_conf = display_conf;
 
     /* 将预先绑定的 TP 配置同步到 platform_data，供输入驱动使用 */
     data->tp_config = airui_platform_luatos_get_tp_bind();
@@ -132,9 +134,33 @@ static int luatos_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_colo
     return AIRUI_OK;
 }
 
-static inline uint16_t airui_rgb565_swap(uint16_t c)
+/**
+ * 获取平台提供的绘制缓冲（STM32N6 的 g_draw_framebuffer）
+ * 供 core airui_init 作为 LVGL 绘制缓冲使用
+ */
+static int luatos_display_get_buffers(airui_ctx_t *ctx, void **buf1, void **buf2, uint32_t *buf_size)
 {
-    return (uint16_t)((c >> 8) | (c << 8));
+    luatos_platform_data_t *data = airui_luatos_get_data(ctx);
+    if (data == NULL || data->display_conf == NULL || data->display_conf->fb_info == NULL) {
+        return -1;
+    }
+
+    struct luat_display_fb_info *fb_info = data->display_conf->fb_info;
+    struct luat_display_buf *dbuf = &fb_info->draw_buf;
+    if (dbuf->buffer == NULL || dbuf->size == 0U || dbuf->count < 2U) {
+        return -1;
+    }
+
+    if (buf1 != NULL) {
+        *buf1 = dbuf->buffer;
+    }
+    if (buf2 != NULL) {
+        *buf2 = (uint8_t *)dbuf->buffer + dbuf->size;
+    }
+    if (buf_size != NULL) {
+        *buf_size = dbuf->size;
+    }
+    return 0;
 }
 
 /**
@@ -143,66 +169,80 @@ static inline uint16_t airui_rgb565_swap(uint16_t c)
 static void luatos_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uint8_t *px_map)
 {
     luatos_platform_data_t *data = airui_luatos_get_data(ctx);
-    if (data == NULL || data->lcd_conf == NULL || area == NULL || px_map == NULL) {
+    if (data == NULL || data->display_conf == NULL || area == NULL || px_map == NULL) {
         return;
     }
 
-    luat_color_t *color_p = (luat_color_t *)px_map;
-    luat_lcd_conf_t *lcd_conf = data->lcd_conf;
-    bool is_last = lv_display_flush_is_last(ctx->display);
+    struct luat_display *display_conf = data->display_conf;
     lv_display_rotation_t rotation = lv_display_get_rotation(ctx->display);
 
-    if (rotation == LV_DISPLAY_ROTATION_0) {
-        uint32_t px_count = (uint32_t)(area->x2 - area->x1 + 1) * (uint32_t)(area->y2 - area->y1 + 1);
+    struct luat_display_rect rect = {
+        .x = area->x1,
+        .y = area->y1,
+        .w = area->x2 - area->x1 + 1,
+        .h = area->y2 - area->y1 + 1,
+    };
 
-        /* 如果LCD是SPI设备，并且需要交换颜色，则交换颜色 */
-        if (lcd_conf->port == LUAT_LCD_SPI_DEVICE && lcd_conf->endianness_swap) {
-            for (uint32_t i = 0; i < px_count; i++) {
-                color_p[i] = airui_rgb565_swap(color_p[i]);
-            }
-        }
+    /** 调用显示驱动刷新函数 */
+    display_conf->display_funcs->fb_flush(display_conf, &rect, px_map, (enum disp_rotate)rotation);
 
-        /* 直接绘制到 LCD，逐块刷新 */
-        luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
-    }
-    else {
-        lv_area_t rotated_area = *area;
-        lv_color_format_t cf = lv_display_get_color_format(ctx->display);
-        uint32_t px_size = lv_color_format_get_size(cf);
-        uint32_t src_w = (uint32_t)lv_area_get_width(area);
-        uint32_t src_h = (uint32_t)lv_area_get_height(area);
-        uint32_t src_stride = src_w * px_size;
+    /** 调用显示驱动垂直同步函数 */
+    // display_conf->display_funcs->wait_vsync(display_conf);
 
-        lv_display_rotate_area(ctx->display, &rotated_area);
+    // if (rotation == LV_DISPLAY_ROTATION_0) {
+    //     uint32_t px_count = (uint32_t)(area->x2 - area->x1 + 1) * (uint32_t)(area->y2 - area->y1 + 1);
 
-        uint32_t dest_w = (uint32_t)lv_area_get_width(&rotated_area);
-        uint32_t dest_h = (uint32_t)lv_area_get_height(&rotated_area);
-        uint32_t dest_stride = dest_w * px_size;
-        uint32_t rotate_buf_size = dest_stride * dest_h;
-        luat_color_t *rotate_buf = (luat_color_t *)luatos_display_get_rotation_buf(data, rotate_buf_size);
-        if (rotate_buf == NULL) {
-            LLOGE("rotation buffer alloc failed size=%u", rotate_buf_size);
-            lv_display_flush_ready(ctx->display);
-            return;
-        }
+    //     /* 如果LCD是SPI设备，并且需要交换颜色，则交换颜色 */
+    //     if (lcd_conf->port == LUAT_LCD_SPI_DEVICE && lcd_conf->endianness_swap) {
+    //         for (uint32_t i = 0; i < px_count; i++) {
+    //             color_p[i] = airui_rgb565_swap(color_p[i]);
+    //         }
+    //     }
 
-        lv_draw_sw_rotate(px_map, rotate_buf, (int32_t)src_w, (int32_t)src_h,
-                          (int32_t)src_stride, (int32_t)dest_stride, rotation, cf);
+    //     /* 直接绘制到 LCD，逐块刷新 */
+    //     luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
 
-        if (lcd_conf->port == LUAT_LCD_SPI_DEVICE && lcd_conf->endianness_swap) {
-            uint32_t px_count = dest_w * dest_h;
-            for (uint32_t i = 0; i < px_count; i++) {
-                rotate_buf[i] = airui_rgb565_swap(rotate_buf[i]);
-            }
-        }
+    // } else {
+    //     lv_area_t rotated_area = *area;
 
-        luat_lcd_draw(lcd_conf, rotated_area.x1, rotated_area.y1, rotated_area.x2, rotated_area.y2, rotate_buf);
-    }
+    //     lv_color_format_t cf = lv_display_get_color_format(ctx->display);
+    //     uint32_t px_size = lv_color_format_get_size(cf);
+    //     uint32_t src_w = (uint32_t)lv_area_get_width(area);
+    //     uint32_t src_h = (uint32_t)lv_area_get_height(area);
+    //     uint32_t src_stride = src_w * px_size;
+
+    //     lv_display_rotate_area(ctx->display, &rotated_area);
+
+    //     uint32_t dest_w = (uint32_t)lv_area_get_width(&rotated_area);
+    //     uint32_t dest_h = (uint32_t)lv_area_get_height(&rotated_area);
+
+    //     uint32_t dest_stride = dest_w * px_size;
+    //     uint32_t rotate_buf_size = dest_stride * dest_h;
+
+    //     luat_color_t *rotate_buf = (luat_color_t *)luatos_display_get_rotation_buf(data, rotate_buf_size);
+    //     if (rotate_buf == NULL) {
+    //         LLOGE("rotation buffer alloc failed size=%u", rotate_buf_size);
+    //         lv_display_flush_ready(ctx->display);
+    //         return;
+    //     }
+
+    //     lv_draw_sw_rotate(px_map, rotate_buf, (int32_t)src_w, (int32_t)src_h,
+    //                       (int32_t)src_stride, (int32_t)dest_stride, rotation, cf);
+
+    //     if (lcd_conf->port == LUAT_LCD_SPI_DEVICE && lcd_conf->endianness_swap) {
+    //         uint32_t px_count = dest_w * dest_h;
+    //         for (uint32_t i = 0; i < px_count; i++) {
+    //             rotate_buf[i] = airui_rgb565_swap(rotate_buf[i]);
+    //         }
+    //     }
+
+    //     luat_lcd_draw(lcd_conf, rotated_area.x1, rotated_area.y1, rotated_area.x2, rotated_area.y2, rotate_buf);
+    // }
 
     /* 在最后一块时触发 flush，确保硬件输出（假定 luat_lcd_flush 同步完成） */
-    if (is_last) {
-        luat_lcd_flush(lcd_conf);
-    }
+    // if (is_last) {
+    //     luat_lcd_flush(lcd_conf);
+    // }
 
     /* lv_display_flush_ready 必须在每次 flush 回调结束时调用，否则 LVGL 会阻塞后续渲染 */
     lv_display_flush_ready(ctx->display);
@@ -223,13 +263,12 @@ static void luatos_display_wait_vsync(airui_ctx_t *ctx)
 static int luatos_display_suspend(airui_ctx_t *ctx)
 {
     luatos_platform_data_t *data = airui_luatos_get_data(ctx);
-    if (data == NULL || data->lcd_conf == NULL) {
-        LLOGE("display suspend invalid platform_data ctx=%p data=%p lcd=%p", ctx, data, data ? data->lcd_conf : NULL);
+    if (data == NULL || data->display_conf == NULL) {
+        LLOGE("display suspend invalid platform_data ctx=%p data=%p disp=%p", ctx, data, data ? data->display_conf : NULL);
         return AIRUI_ERR_NOT_INITIALIZED;
     }
 
-    int ret = luat_lcd_airui_sleep(data->lcd_conf, ctx->sleep_power_down_lcd ? 1 : 0);
-    return ret;
+    return luat_display_sleep(data->display_conf);
 }
 
 /**
@@ -238,13 +277,12 @@ static int luatos_display_suspend(airui_ctx_t *ctx)
 static int luatos_display_resume(airui_ctx_t *ctx)
 {
     luatos_platform_data_t *data = airui_luatos_get_data(ctx);
-    if (data == NULL || data->lcd_conf == NULL) {
-        LLOGE("display resume invalid platform_data ctx=%p data=%p lcd=%p", ctx, data, data ? data->lcd_conf : NULL);
+    if (data == NULL || data->display_conf == NULL) {
+        LLOGE("display resume invalid platform_data ctx=%p data=%p disp=%p", ctx, data, data ? data->display_conf : NULL);
         return AIRUI_ERR_NOT_INITIALIZED;
     }
 
-    int ret = luat_lcd_wakeup(data->lcd_conf);
-    return ret;
+    return luat_display_wakeup(data->display_conf);
 }
 
 /**
@@ -255,10 +293,6 @@ static void luatos_display_deinit(airui_ctx_t *ctx)
     luatos_platform_data_t *data = airui_luatos_get_data(ctx);
     if (data == NULL) {
         return;
-    }
-
-    if (data->lcd_conf != NULL) {
-        data->lcd_conf->lcd_use_lvgl = 0;
     }
 
     if (data->rotation_buf != NULL) {
@@ -280,6 +314,7 @@ static void luatos_display_deinit(airui_ctx_t *ctx)
 /** LuatOS 显示驱动操作接口 */
 static const airui_display_ops_t luatos_display_ops = {
     .init = luatos_display_init,
+    .get_buffers = luatos_display_get_buffers,
     .flush = luatos_display_flush,
     .wait_vsync = luatos_display_wait_vsync,
     .suspend = luatos_display_suspend,

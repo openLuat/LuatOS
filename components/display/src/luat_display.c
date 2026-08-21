@@ -191,8 +191,7 @@ int luat_display_init(struct luat_display *disp)
 
     /*创建FB信息*/
     disp->fb_info = luat_heap_zalloc(sizeof(struct luat_display_fb_info));
-    disp->fb_info->inited = 0;
-    
+
     /*初始化面板*/
     disp->panel->panel_funcs->panel_init(disp->panel);
 

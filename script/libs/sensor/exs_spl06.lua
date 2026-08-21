@@ -300,17 +300,18 @@ local function write_osr_cfg(prs_osr, tmp_osr)
 end
 
 -- 原始值合理性校验（动态校准用）
--- 与基准 base 同号且量级在 [min_ratio, max_ratio] 倍范围内
+-- 按"目标过采样缩放因子相对基准档位(16x/8x)的倍数"校验原始值量级，
+-- 允许 0.55~1.8 倍容差（覆盖缩放因子表值与真机的偏差、测量噪声）。
+-- 关键作用：拦截"切换前旧过采样残留的原始值"被误当新档位数据校准。
+--   例：64x 残留原始值约是 16x 基准的 4.1 倍，若用旧宽范围(0.2~8 倍)会被误收，
+--       导致校准出的缩放因子仍是旧档位值（真机日志：64x→16x 后 kP 误为 64x 的 1040391，
+--       后续气压稳定偏小约 160hPa）。按目标倍数收紧后此类残留必被拒绝并重试。
 -- 同号判断用浮点除法（raw/base > 0），避免 32 位整数乘法溢出导致符号翻转
--- 压力/温度通道原始值随过采样变化规律不同，需分别设范围：
---   压力 64x 约 4×16x 基准（0.2~8 倍覆盖）
---   温度 32x 约 0.066×8x 基准（真机实测 151643 vs 2312254，远小于 0.2 倍；
---   128x 估约 0.004~0.066 倍，故下限放宽至 0.002；异常小值 157 等 <0.001 倍仍可拦截）
-local function is_valid_raw(raw, base, min_ratio, max_ratio)
+local function is_valid_raw(raw, base, target_ratio)
     return raw and base
         and raw / base > 0
-        and math.abs(raw) > math.abs(base) * min_ratio
-        and math.abs(raw) < math.abs(base) * max_ratio
+        and math.abs(raw) > math.abs(base) * target_ratio * 0.55
+        and math.abs(raw) < math.abs(base) * target_ratio * 1.8
 end
 
 -- 动态自校准缩放因子（连续测量模式适配）
@@ -322,25 +323,38 @@ end
 --       2) 切换后必须重启连续测量（STANDBY→BOTH_CONT）并消费残留旧数据，
 --          否则会读到配置切换过渡期的异常原始值（真机实测 64x 压力 +22578、
 --          温度 149805 等均为无效值）；
---       3) 校验：原始值与基准同号且量级在通道合理范围内（压力 0.2~8 倍、
---          温度 0.002~32 倍，32x 温度稳态值仅约 8x 基准的 6.6%）。
+--       3) 校验：原始值与基准同号且量级在"目标过采样缩放因子相对基准档位倍数"的
+--          ±0.55~1.8 倍容差范围内（拦截旧档位残留原始值被误当新档位数据）。
 -- 返回 true 校准成功；false 重试 3 次仍失败（内部已回退默认过采样并重建基准）
 local function calibrate_osr()
+    -- 目标过采样缩放因子相对基准档位(16x/8x)的倍数，用于校验新原始值量级
+    -- 例：目标 64x 时压力期望约为 16x 基准的 4.1 倍；目标 16x 时期望约 1 倍
+    local target_p_ratio = SCALE_FACTORS[g_prs_osr + 1] / SCALE_FACTORS[DEFAULT_PRS_OSR + 1]
+    local target_t_ratio = SCALE_FACTORS[g_tmp_osr + 1] / SCALE_FACTORS[DEFAULT_TMP_OSR + 1]
     -- 1) 重启连续测量，消除配置切换过渡期残留异常数据
     wr8(REG_MEAS_CFG, MEAS_CTRL.STANDBY)
     sys.wait(20)
     wr8(REG_MEAS_CFG, MEAS_CTRL.BOTH_CONT)
     g_mode = "both"
-    -- 2) 消费重启瞬间残留的旧数据/RDY（真机实测重启后第一次读取仍是切换前残留）
-    read_bytes(REG_PRS_B2, 3)
-    read_bytes(REG_TMP_B2, 3)
+    -- 2) 丢弃切换过渡期的前两轮测量结果
+    -- 真机必现的帧序列：重启连续测量后，
+    --   第1帧 = 重启前残留帧（RDY 早已置位，重启 BOTH_CONT 不清除，立即可读）
+    --   第2帧 = 重启后第一帧（OSR 配置需第二帧才生效，仍是切换前旧档位数据）
+    --   第3帧起 = 新档位数据
+    -- 故需连续丢弃两轮，校验循环第一次即可读到正确的新档位原始值，不再触发
+    -- "气压/温度原始值异常"警告（实测 64x→16x 时旧档位残留约 4.1 倍基准）。
+    -- read_raw_* 内部会等待 RDY 置位，确保读到的是完整一轮结果而非中途数据
+    read_raw_pressure()
+    read_raw_temperature()
+    read_raw_pressure()
+    read_raw_temperature()
     -- 3) 独立重试读取有效原始值（最多 3 次，间隔 100ms 等下一轮连续测量更新）
     local p_raw, t_raw
     local p_ok, t_ok = false, false
     for i = 1, 3 do
         if not p_ok then
             local v = read_raw_pressure()
-            if is_valid_raw(v, g_base_prs_raw, 0.2, 8) then
+            if is_valid_raw(v, g_base_prs_raw, target_p_ratio) then
                 p_raw = v
                 p_ok = true
             else
@@ -349,7 +363,7 @@ local function calibrate_osr()
         end
         if not t_ok then
             local v = read_raw_temperature()
-            if is_valid_raw(v, g_base_tmp_raw, 0.002, 32) then
+            if is_valid_raw(v, g_base_tmp_raw, target_t_ratio) then
                 t_raw = v
                 t_ok = true
             else
@@ -371,8 +385,10 @@ local function calibrate_osr()
         sys.wait(20)
         wr8(REG_MEAS_CFG, MEAS_CTRL.BOTH_CONT)
         g_mode = "both"
-        read_bytes(REG_PRS_B2, 3)
-        read_bytes(REG_TMP_B2, 3)
+        read_raw_pressure()   -- 丢弃过渡期前两轮（残留帧 + 旧档位首帧）
+        read_raw_temperature()
+        read_raw_pressure()
+        read_raw_temperature()
         g_base_prs_raw = read_raw_pressure()
         g_base_tmp_raw = read_raw_temperature()
         if g_base_prs_raw and g_base_tmp_raw then
@@ -909,6 +925,8 @@ function exs_spl06.close()
     log.info("exs_spl06", "传感器已关闭")
 end
 
+-- 版本号采用 yyyymmddhhmm 日期时间戳格式（年月日时分）
+
 --[[
 获取 exs_spl06 库的版本号
 
@@ -917,10 +935,10 @@ end
 @return string
 含义说明：扩展库版本号
 数据类型：string
-取值范围：固定格式 "主版本.次版本.修订号"
+取值范围：固定格式 "yyyymmddhhmm"（年月日时分），如 "202608211900"
 ]]
 function exs_spl06.version()
-    return "1.0.0"
+    return "202608211700"
 end
 
 -- ==================== 常量导出 ====================

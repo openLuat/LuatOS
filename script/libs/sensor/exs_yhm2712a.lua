@@ -1,8 +1,8 @@
 --[[
 @module exs_yhm2712a
 @summary exs_yhm2712a扩展库
-@version 1.1
-@date    2026.07.20
+@version 1.2
+@date    2026.08.21
 @author  王世豪
 @usage
 -- 应用场景
@@ -16,15 +16,27 @@
 4）获取充电系统状态信息 exs_yhm2712a.status()
 5）注册事件回调函数 exs_yhm2712a.on(func)
 6）进入船运模式 exs_yhm2712a.ship_mode()
-7）获取库版本信息 exs_yhm2712a.version()
+7）退出船运模式 exs_yhm2712a.exit_ship_mode()
+8）获取库版本信息 exs_yhm2712a.version()
 
 -- 版本更新说明
--- 版本号：202607201900
--- 1、更新时间：2026-07-20 19:00
--- 2、更新内容
---    实现 YHM2712A 充电管理芯片的完整驱动功能
---    提供充电状态查询、事件回调、船运模式等功能
---    新增 exs_yhm2712a.version() 接口，提供库版本查询功能
+-- ============================================================
+-- 版本号:202608211200
+-- 更新时间:2026-08-21 12:00
+-- 更新内容：
+--   1. 新增 exs_yhm2712a.exit_ship_mode() 接口：退出船运模式，恢复START正常供电
+--      (写 MODE[3:0]=1010 + M_SET=1 = 0xA8，依据手册 MODEREGISTER 02h 页脚注释)
+--      并新增退出船运模式事件 EXIT_SHIPPING_MODE
+--   2. 修复 CMD 引脚空闲电平：单总线 CMD 空闲时保持高电平(带内部上拉)，
+--      避免 CMD 被长时间拉低触发 YHM2712A 芯片看门狗复位导致通信失败(读ID返回0xFF)
+-- ============================================================
+-- 版本号:202607201900
+-- 更新时间:2026-07-20 19:00
+-- 更新内容：
+--   1. 实现 YHM2712A 充电管理芯片的完整驱动功能
+--   2. 提供充电状态查询、事件回调、船运模式等功能
+--   3. 新增 exs_yhm2712a.version() 接口，提供库版本查询功能
+-- ============================================================
 
 
 其中，开启充电 exs_yhm2712a.start() 和 关闭充电 exs_yhm2712a.stop() 默认自动执行，用户可以不用操作；
@@ -116,7 +128,16 @@ exs_yhm2712a.on(exs_yhm2712a_callback)
 @usage
 exs_yhm2712a.ship_mode() -- 进入船运模式
 
-7、获取库版本信息
+7、退出船运模式
+必须在task中运行，最大阻塞时间大概为500ms, 阻塞主要由sys.waitUntil("YHM27XX_REG", 500)产生。
+依据手册：Write MODE[3:0]=1010 即可退出Shipping Mode，恢复START正常供电。
+注意：仅在充电器(VIN)在位、芯片仍可通信时有效；若设备已彻底进入150nA且无VIN，软件命令无效，只能插充电器唤醒。
+@api exs_yhm2712a.exit_ship_mode()
+@return boolean: true=成功, false=失败
+@usage
+exs_yhm2712a.exit_ship_mode() -- 退出船运模式，恢复正常供电
+
+8、获取库版本信息
 获取exs_yhm2712a扩展库的版本号，用于版本管理和兼容性检查。
 @api exs_yhm2712a.version()
 @return string: 库版本号，格式为"年月日"
@@ -127,6 +148,32 @@ local exs_yhm2712a = {}
 
 -- yhm2712 cmd引脚, 需要用户初始化时配置
 local gpio_pin = nil
+
+--[[
+YHM2712A芯片特性：CMD为单总线，空闲时必须保持高电平，
+长时间拉低会触发芯片内部看门狗复位，导致通信失败
+（典型表现：读芯片ID返回0xFF、设置充电电流失败）。
+故初始化时先拉高，且每次单总线通信结束后都恢复高电平。
+]]
+local function cmd_idle()
+    if gpio_pin then
+        gpio.setup(gpio_pin, 1, gpio.PULLUP)
+    end
+end
+
+-- 封装pm.chgcmd：读/写判断交给pm.chgcmd原生处理（有第4参=写，无=读），
+-- 这里只做透传，并在通信结束后恢复CMD空闲高电平
+local function chgcmd(pin, addr, reg, ...)
+    local r1, r2 = pm.chgcmd(pin, addr, reg, ...)
+    cmd_idle()
+    return r1, r2
+end
+
+-- 封装pm.chginfo：通信结束后恢复CMD空闲高电平
+local function chginfo(pin, addr)
+    pm.chginfo(pin, addr)
+    cmd_idle()
+end
 
 --yhm2712芯片地址
 local sensor_addr = 0x04
@@ -194,6 +241,7 @@ exs_yhm2712a.OVERHEAT = 1      -- 温度过热事件
 exs_yhm2712a.CHARGER_IN = 2    -- 充电器插入事件
 exs_yhm2712a.CHARGER_OUT = 3   -- 充电器拔出事件
 exs_yhm2712a.SHIPPING_MODE = 4 -- 进入船运模式事件
+exs_yhm2712a.EXIT_SHIPPING_MODE = 5 -- 退出船运模式事件
 
 -- 使用表格存储不同容量和模式下的电流值
 local current_table = {
@@ -284,9 +332,11 @@ function exs_yhm2712a.setup(init_cfg)
     is_charge = false
     charger_only = false
     nochg_t = {}
+    cmd_idle() -- CMD脚空闲保持高电平，避免触发YHM2712A看门狗复位
 
     -- 检测芯片是否存在
-    local result, data = pm.chgcmd(gpio_pin, sensor_addr, id_register)
+    local result, data = chgcmd(gpio_pin, sensor_addr, id_register)
+    log.info("gpio_pin", gpio_pin)
     if not result then
         log.error("exs_yhm2712a", "无法读取芯片ID，通信失败")
         return false
@@ -319,7 +369,7 @@ function exs_yhm2712a.setup(init_cfg)
 
     -- 设置电池充电截止电压
     voltage_setting = v_battery == 4200 and set_4V2 or set_4V35
-    result, data = pm.chgcmd(gpio_pin, sensor_addr, V_ctrl_register, voltage_setting)
+    result, data = chgcmd(gpio_pin, sensor_addr, V_ctrl_register, voltage_setting)
     if not result then
         log.error("exs_yhm2712a", "设置电池充电截止电压失败")
         return false
@@ -339,7 +389,7 @@ function exs_yhm2712a.setup(init_cfg)
         end
         
         -- 设置充电电流
-        result, data = pm.chgcmd(gpio_pin, sensor_addr, I_ctrl_register, current_register_value)
+        result, data = chgcmd(gpio_pin, sensor_addr, I_ctrl_register, current_register_value)
         if not result then
             log.error("exs_yhm2712a", "设置电池充电电流失败")
             return false
@@ -348,7 +398,7 @@ function exs_yhm2712a.setup(init_cfg)
 
     sys.wait(200) -- 写入命令之后等待200ms再去读取寄存器数据，必须要等待，否则会有读取寄存器失败的可能。
     
-    pm.chginfo(gpio_pin, sensor_addr)
+    chginfo(gpio_pin, sensor_addr)
     local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
     if reg_result and reg_data then
         local V_value = reg_data:byte(1)
@@ -383,7 +433,7 @@ function exs_yhm2712a.start()
         return false
     end
     -- 读取芯片ID，验证通信是否正常
-    local result, data = pm.chgcmd(gpio_pin, sensor_addr, id_register)
+    local result, data = chgcmd(gpio_pin, sensor_addr, id_register)
     if not result then
         log.error("exs_yhm2712a", "无法读取芯片ID, 通信失败")
         return false
@@ -392,7 +442,7 @@ function exs_yhm2712a.start()
     sys.wait(200) -- 写入命令之后等待200ms再去读取寄存器数据，必须要等待，否则会有读取寄存器失败的可能。
 
     -- 开启充电前先查询ic温度，如果过热，则不执行开启充电功能
-    pm.chginfo(gpio_pin, sensor_addr)
+    chginfo(gpio_pin, sensor_addr)
     result, data = sys.waitUntil("YHM27XX_REG", 500)
     if not result or not data or #data < 6 then
         log.error("exs_yhm2712a.start1" .. "0x04寄存器数据获取失败")
@@ -409,7 +459,7 @@ function exs_yhm2712a.start()
     end
 
     -- 开始充电
-    result = pm.chgcmd(gpio_pin, sensor_addr, mode_register, 0xA8)
+    result = chgcmd(gpio_pin, sensor_addr, mode_register, 0xA8)
     if not result then
         log.error("exs_yhm2712a.start", "开始充电失败")
         return false
@@ -418,7 +468,7 @@ function exs_yhm2712a.start()
     sys.wait(200) -- 写入命令之后等待200ms再去读取寄存器数据，必须要等待，否则会有读取寄存器失败的可能。
 
     -- 请求寄存器数据
-    pm.chginfo(gpio_pin, sensor_addr)
+    chginfo(gpio_pin, sensor_addr)
     local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
     if reg_result and reg_data then
         if reg_data:byte(3) == 160 then
@@ -447,19 +497,19 @@ function exs_yhm2712a.stop()
         return false
     end
     -- 读取芯片ID，验证通信是否正常
-    local result = pm.chgcmd(gpio_pin, sensor_addr, id_register)
+    local result = chgcmd(gpio_pin, sensor_addr, id_register)
     if not result then
         log.error("exs_yhm2712a", "无法读取芯片ID, 通信失败")
         return false
     end
-    result = pm.chgcmd(gpio_pin, sensor_addr, mode_register, 0xF8)
+    result = chgcmd(gpio_pin, sensor_addr, mode_register, 0xF8)
     if not result then
         log.error("exs_yhm2712a.stop", "停止充电失败")
         return false
     end
     sys.wait(200) -- 写入命令之后等待200ms再去读取寄存器数据，必须要等待，否则会有读取寄存器失败的可能。
     -- 请求寄存器数据
-    pm.chginfo(gpio_pin, sensor_addr)
+    chginfo(gpio_pin, sensor_addr)
     local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
     if reg_result and reg_data then
         if reg_data:byte(3) == 240 then
@@ -488,14 +538,14 @@ function exs_yhm2712a.ship_mode()
         return false
     end
     -- 读取芯片ID，验证通信是否正常
-    local result, data = pm.chgcmd(gpio_pin, sensor_addr, id_register)
+    local result, data = chgcmd(gpio_pin, sensor_addr, id_register)
     if not result then
         log.error("exs_yhm2712a", "无法读取芯片ID, 通信失败")
         return false
     end
     
     -- 发送进入船运模式的命令（MODE寄存器地址0x02，值为0x18：MODE[3:0]=0001(SHIPPING)，M_SET=1）
-    result = pm.chgcmd(gpio_pin, sensor_addr, mode_register, 0x18)
+    result = chgcmd(gpio_pin, sensor_addr, mode_register, 0x18)
     if not result then
         log.error("exs_yhm2712a.shipMode", "发送船运模式命令失败")
         return false
@@ -505,7 +555,7 @@ function exs_yhm2712a.ship_mode()
     sys.wait(2000)
     
     -- 请求寄存器数据，验证是否进入船运模式
-    pm.chginfo(gpio_pin, sensor_addr)
+    chginfo(gpio_pin, sensor_addr)
     local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
     
     if reg_result and reg_data then
@@ -526,6 +576,61 @@ function exs_yhm2712a.ship_mode()
     end
 end
 
+
+--[[
+退出船运模式，恢复为正常供电(必须在task中运行)
+@api exs_yhm2712a.exit_ship_mode()
+@return boolean: true=成功, false=失败
+@usage
+exs_yhm2712a.exit_ship_mode() -- 退出船运模式，恢复正常供电
+@reason
+依据YHM2712A手册 MODEREGISTER(0x02)页脚注释：Write MODE[3:0]=1010 即可退出Shipping Mode。
+同时手册4.9节提到：若设备已彻底进入150nA(无VIN、仅电池)，软件命令无效，
+唯一唤醒方式是 Plug VIN(插入充电器)。本接口仅在芯片仍被供电、CMD通信可用时有效。
+]]
+function exs_yhm2712a.exit_ship_mode()
+    if not gpio_pin then
+        log.error("exs_yhm2712a.exit_ship_mode", "YHM2712A未初始化，请先调用exs_yhm2712a.setup(init_cfg)")
+        return false
+    end
+    -- 读取芯片ID，验证通信是否正常
+    local result, data = chgcmd(gpio_pin, sensor_addr, id_register)
+    if not result then
+        log.error("exs_yhm2712a", "无法读取芯片ID, 通信失败")
+        return false
+    end
+
+    -- 发送退出船运模式命令：MODE[3:0]=1010(START正常) + M_SET=1，值为0xA8
+    result = chgcmd(gpio_pin, sensor_addr, mode_register, 0xA8)
+    if not result then
+        log.error("exs_yhm2712a.exit_ship_mode", "发送退出船运模式命令失败")
+        return false
+    end
+
+    -- 等待命令生效（根据数据手册状态机切换时序）
+    chginfo(gpio_pin, sensor_addr)
+    local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
+
+    if reg_result and reg_data then
+        -- 检查0x06寄存器（STATUS2）的FSM_MODE[7:4]
+        -- FSM_MODE编码(手册第15页)：0000=RESET 0001=SHIPPING 0010=SLEEP 1010=START 1100=CHARGE ...
+        -- 退出成功判据：FSM已离开 RESET(0)/SHIPPING(1)，进入正常模式即可
+        local status2 = reg_data:byte(7)
+        local fsm_mode = (status2 & 0xF0) >> 4
+        if fsm_mode ~= 0 and fsm_mode ~= 1 then
+            log.info("exs_yhm2712a.exit_ship_mode 生效, 当前FSM模式: " .. fsm_mode)
+            notify_event(exs_yhm2712a.EXIT_SHIPPING_MODE)
+            return true
+        else
+            log.warn("exs_yhm2712a.exit_ship_mode 未生效(仍处于RESET/SHIPPING), 当前FSM模式: " .. fsm_mode)
+            return false
+        end
+    else
+        log.warn("exs_yhm2712a.exit_ship_mode 未生效, 请检查是否支持yhm27xx")
+        return false
+    end
+end
+
 -- 检测电池是否在位
 local function check_battery_exists()
     local switch_count = 0
@@ -536,7 +641,7 @@ local function check_battery_exists()
     for loop_count = 1, total_loops do
         -- log.debug("当前循环", loop_count, "/", total_loops)
         -- 发送读取请求
-        pm.chginfo(gpio_pin, sensor_addr)
+        chginfo(gpio_pin, sensor_addr)
         local result, data = sys.waitUntil("YHM27XX_REG", 200)
         -- 存储解析后的寄存器数据
         local Data_reg = {}
@@ -599,7 +704,7 @@ end
 --     7 (111): 充电完成       
 ]]
 local function get_charge_status()
-    pm.chginfo(gpio_pin, sensor_addr)
+    chginfo(gpio_pin, sensor_addr)
     local result, data = sys.waitUntil("YHM27XX_REG", 500)
 
     -- 存储解析后的寄存器数据
@@ -624,7 +729,7 @@ end
 -- 查询充电ic是否过热
 local overheat_check_timer = nil
 local function check_over_heat()
-    pm.chginfo(gpio_pin, sensor_addr)
+    chginfo(gpio_pin, sensor_addr)
     local result, data = sys.waitUntil("YHM27XX_REG", 500)
     
     if not result or not data or #data < 6 then
@@ -678,7 +783,7 @@ function set_sys_track(enable)
 
     -- 读取当前寄存器值
     while retry_count <= max_retry do
-        pm.chginfo(gpio_pin, sensor_addr)
+        chginfo(gpio_pin, sensor_addr)
         local result, data = sys.waitUntil("YHM27XX_REG", 500)
         local Data_reg={}
 
@@ -721,7 +826,7 @@ function set_sys_track(enable)
     -- 写入新值
     retry_count = 0
     while retry_count <= max_retry do
-        local result, data = pm.chgcmd(gpio_pin, sensor_addr, reg_addr, reg_value)
+        local result, data = chgcmd(gpio_pin, sensor_addr, reg_addr, reg_value)
         if result then
             -- log.info("set_sys_track: SYS_TRACK" .. (enable and "启用" or "禁用") .. "成功")
             return true
@@ -902,7 +1007,7 @@ function exs_yhm2712a.status()
     -- 4. 在特定阶段测量电池电压
     if status.battery_present then
         if charger_only then
-            local result = pm.chgcmd(gpio_pin, sensor_addr, V_ctrl_register, voltage_setting)
+            local result = chgcmd(gpio_pin, sensor_addr, V_ctrl_register, voltage_setting)
             charger_only = false
         end
         -- 预充电或涓流充电阶段不测量电压
@@ -940,7 +1045,7 @@ function exs_yhm2712a.status()
         end
     elseif status.charger_present then
         -- 充电器在位，电池不在位, Vreg设置为4V，这样Vsys=1.03*4.0V=4.1V, 在模组的电压舒适区
-        local result = pm.chgcmd(gpio_pin, sensor_addr, V_ctrl_register, set_4V)
+        local result = chgcmd(gpio_pin, sensor_addr, V_ctrl_register, set_4V)
         if not result then
             log.warn("仅充电器在位时, Vreg设置为4V失败")
             status.result = false
@@ -968,7 +1073,7 @@ end
 log.info("exs_yhm2712a", "version:", exs_yhm2712a.version())
 ]]
 function exs_yhm2712a.version()
-    return "202607201900"
+    return "202608211200"
 end
 
 -- sys.taskInit(function()

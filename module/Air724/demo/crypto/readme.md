@@ -12,10 +12,9 @@
 
 2、演示有关加解密的各种 API 的功能；
 
-
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air724_soc/luatos/common/hwenv/image/724-C.png)
+![Air724UG核心板](https://docs.openluat.com/air724_soc/luatos/common/hwenv/image/724-C.png)
 
 1、Air724UG核心板一块
 
@@ -25,13 +24,13 @@
 
 - Air724UG核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
 
+- Air724UG核心板通过TYPE-C USB口供电；
 
 ## 演示软件环境
 
 1、[Luatools下载调试工具](https://docs.openluat.com/air724/common/Luatools/)
 
 2、[Air724UG 最新版本的内核固件](https://docs.openluat.com/air724_soc/luatos/firmware/version/)
-
 
 ## 演示核心步骤
 
@@ -143,5 +142,4 @@
 [2025-10-16 15:00:34.018][000000002.315] I/user.checksum OK 04 2
 [2025-10-16 15:00:34.018][000000002.315] I/user.checksum 357E E4 2
 [2025-10-16 15:00:34.018][000000002.315] I/user.crypto ALL Done
-
 ```

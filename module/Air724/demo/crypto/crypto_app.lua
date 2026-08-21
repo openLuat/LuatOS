@@ -1,6 +1,6 @@
 --[[
 @module  crypto_app
-@summary crypto_app应用功能模块
+@summary crypto_app应用功能模块 
 @version 1.0
 @date    2025.10.15
 @author  沈园园
@@ -11,7 +11,7 @@
 本文件没有对外接口，直接在main.lua中require "crypto_app"就可以加载运行；
 ]]
 
--- 加密运算主函数
+--加密运算主函数
 local function crypto_task_func()
 
     -- MD5/哈希MD5,输出结果已经hex编码
@@ -105,7 +105,7 @@ local function crypto_task_func()
     
     log.info("随机数测试")
     for i=1, 10 do
-        sys.wait(100)   -- 等待100ms，避免连续打印日志过快
+        sys.wait(100)
         log.info("crypto", "真随机数",string.unpack("I",crypto.trng(4)))
         -- log.info("crypto", "伪随机数",math.random()) -- 输出的是浮点数,不推荐
         -- log.info("crypto", "伪随机数",math.random(1, 65525)) -- 不推荐
@@ -131,7 +131,7 @@ local function crypto_task_func()
     --将数据进行base64解码
     -- 本函数与 string.fromBase64 是同一个
     local data = crypto.base64_decode("MTIz")
-    log.info("base64", "decode", bdata, data)--123
+    log.info("base64", "decode", bdata, data)--123    
 
     -- 打印所有支持的cipher
     if crypto.cipher_list then
@@ -275,8 +275,8 @@ local function crypto_task_func()
     end    
 
     log.info("crypto", "ALL Done")
-    sys.wait(100000)   -- 等待100000ms，演示结束后保持任务运行
+    sys.wait(100000)
 end    
 
--- 创建一个task，并且运行task的主函数crypto_task_func
+--创建一个task，并且运行task的主函数crypto_task_func
 sys.taskInit(crypto_task_func)

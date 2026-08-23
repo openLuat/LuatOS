@@ -27,6 +27,7 @@ int tfs_core_mount  (tfs_dev_t *dev);
 int tfs_core_unmount(tfs_dev_t *dev);
 int tfs_core_format (tfs_dev_t *dev);
 int tfs_core_sync   (tfs_dev_t *dev);
+int tfs_core_maybe_checkpoint(tfs_dev_t *dev, int force);
 
 /*-------------------------------------------------------------------
  *  Garbage collection
@@ -44,6 +45,12 @@ int tfs_gc(tfs_dev_t *dev, int aggressive);
  * the next write (subject to TFS_CFG_RESERVED_BLOCKS).
  */
 int tfs_gc_enough_space(tfs_dev_t *dev);
+
+/**
+ * tfs_alloc_chunk_or_gc — allocate a chunk, running enough GC passes to
+ * satisfy the normal-write reserve when possible.
+ */
+int tfs_alloc_chunk_or_gc(tfs_dev_t *dev, int use_resvd, int *chunk_out);
 
 /*-------------------------------------------------------------------
  *  File data I/O (used by tfs_fs.c)

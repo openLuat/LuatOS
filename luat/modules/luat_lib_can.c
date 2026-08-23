@@ -45,7 +45,7 @@ byte0位置：
 #define LUAT_LOG_TAG "can"
 #include "luat_log.h"
 #include "rotable2.h"
-#define MAX_DEVICE_COUNT 2
+#define MAX_DEVICE_COUNT 3
 static int l_can_cb[MAX_DEVICE_COUNT];
 static uint8_t l_can_debug_flag;
 static int l_can_handler(lua_State *L, void* ptr)
@@ -55,7 +55,8 @@ static int l_can_handler(lua_State *L, void* ptr)
     lua_pop(L, 1);
     uint8_t can_id = (uint8_t)msg->arg1;
 	if (can_id >= MAX_DEVICE_COUNT) {
-		LLOGW("invalid can id %d when callback", can_id);
+		if (l_can_debug_flag) 
+			LLOGD("invalid can id %d when callback", can_id);
 		return 0;
 	}
 	lua_Integer id = (lua_Integer)can_id;

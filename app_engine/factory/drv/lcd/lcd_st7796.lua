@@ -22,16 +22,7 @@ function M.init(params)
         gpio.set(params.pin_pwr, 1)
     end
 
-    local r = lcd.init("st7796", {
-        port      = params.port,
-        pin_rst   = params.pin_rst,
-        direction = params.direction or 0,
-        w         = params.w,
-        h         = params.h,
-        xoffset   = params.xoffset or 0,
-        yoffset   = params.yoffset or 0,
-        bus_speed = params.bus_speed,
-    })
+    local r = lcd.init("st7796", params)
     return r
 end
 

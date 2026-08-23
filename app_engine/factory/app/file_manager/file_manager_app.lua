@@ -137,22 +137,29 @@ local function copy_path(src_path, dst_path, is_directory)
         end
         return true
     else
-        -- 复制文件
+        -- 复制文件（分段读写，避免大文件 OOM）
         local fdr = io.open(src_path, "rb")
         if not fdr then
             log.warn("file_manager", "copy open src fail", src_path)
             return false
         end
-        local data = fdr:read("*a")
-        fdr:close()
         local fdw = io.open(dst_path, "wb")
         if not fdw then
+            fdr:close()
             log.warn("file_manager", "copy open dst fail", dst_path)
             return false
         end
-        fdw:write(data or "")
+        local chunk_size = 4096  -- 每次读写 4KB
+        local total = 0
+        while true do
+            local data = fdr:read(chunk_size)
+            if not data or #data == 0 then break end
+            fdw:write(data)
+            total = total + #data
+        end
+        fdr:close()
         fdw:close()
-        log.info("file_manager", "copy ok", src_path, "->", dst_path)
+        log.info("file_manager", "copy ok", src_path, "->", dst_path, "size", total)
         return true
     end
 end

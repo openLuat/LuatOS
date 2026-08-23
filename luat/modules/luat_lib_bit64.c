@@ -131,7 +131,9 @@ static int l_bit64_show(lua_State *L)
 	{
 		if (string[8])
 		{
-			len = snprintf_((char*)data, 63, "0x%llx", d64);
+			uint64_t u64;
+			memcpy(&u64, &d64, sizeof(u64));
+			len = snprintf_((char*)data, 63, "0x%llx", (unsigned long long)u64);
 		}
 		else
 		{

@@ -46,7 +46,7 @@ local function HTTP_SEND_FILE()
     send_end = "照片上传中.."
     log.info("准备发送")
     local opts = {
-        url = "http://upload.air32.cn/api/upload/jpg", -- 必选, 目标URL
+        url = "http://uploadtest.luatos.com/api/upload/jpg", -- 必选, 目标URL
         method = "POST", -- 可选,默认GET, 如果有body,files,forms参数,会设置成POST
         headers = {}, -- 可选,自定义的额外header
         -- bodyfile="/ram/testcamera.jpg",   -- 可选,文件上传,若存在本参数,会强制以multipart/form-data形式上传
@@ -140,7 +140,8 @@ local function aircamera_ui()
         lcd.drawStr(80,220,scan_end)
 
 
-
+        -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+        -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
         lcd.showImage(120,240,"/luadb/next.jpg")
         lcd.drawStr(0,320,"点击上方按钮将进行拍照，点击屏幕后，会将照片上传,并可以在:")
         lcd.drawStr(0,340,"https://www.air32.cn/upload/这里看到你拍的照片"..send_end)

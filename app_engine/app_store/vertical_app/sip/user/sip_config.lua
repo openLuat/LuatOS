@@ -25,16 +25,58 @@ local default_account = {
     sip_password = "Mm123.",
     sip_transport = "UDP",
     adapter = nil,
-    display_name = "蒋骞"
+    display_name = "JQ"
 }
--- local default_account = {
---     username = "100000",
---     password = "Mm123.",
---     domain = "180.152.6.34:8910",
---     login_name = "",
---     transport = "UDP",
---     display_name = "蒋骞"
--- }
+local function build_auto_account()
+    local ok, imei = pcall(mobile.imei)
+    local last6 = nil
+    if ok and imei and imei ~= "" and imei ~= "pc_simulator" then
+        imei = tostring(imei):gsub("%s+", "")
+        last6 = imei:match(".*(%d%d%d%d%d%d)$")
+        -- last4 = imei:match(".*(%d%d%d%d)$")
+        log.info("sip_config", "build_auto_account", "imei=", imei, "last6=", last6)
+    end
+
+    if last6 and tonumber(last6) then
+        return {
+            sip_server_addr = "180.152.6.34",
+            sip_server_port = 8910,
+            sip_domain = "180.152.6.34",
+            sip_username = "1" .. last6 .. "0",
+            sip_password = "Air." .. last6,
+            sip_transport = "UDP",
+            adapter = nil,
+            display_name = "JQ"
+        }
+    end
+
+    -- PC 模拟器或 IMEI 不可用时回退到默认值
+    return {
+        sip_server_addr = "180.152.6.34",
+        sip_server_port = 8910,
+        sip_domain = "180.152.6.34",
+        sip_username = "100117",
+        sip_password = "Air.123",
+        sip_transport = "UDP",
+        adapter = nil,
+        display_name = "JQ"
+    }
+end
+
+--[[
+获取自动登录账户配置
+根据模块 IMEI 动态生成，IMEI 不可用时回退到默认值
+@return table 自动登录账户配置的深拷贝
+]]
+function sip_config.get_auto_account()
+    local auto_account = build_auto_account()
+    local account = {}
+    for k, v in pairs(auto_account) do
+        account[k] = v
+    end
+    account.sip_server_address = account.sip_server_addr
+    return account
+end
 
 --[[
 获取当前账户配置

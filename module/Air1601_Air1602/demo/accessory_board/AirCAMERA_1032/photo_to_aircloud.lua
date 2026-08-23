@@ -1,9 +1,9 @@
 --[[
 @module  photo_to_aircloud
 @summary AirCAMERA_1032 USB摄像头循环拍照+LCD显示+合宙云平台上传应用模块
-@version 2.0
-@date    2026.06.08
-@author  江访
+@version 1.3
+@date    2026.07.21
+@author  陈媛媛
 @usage
 本demo主要使用Air1601 + AirCAMERA_1032 USB摄像头完成以下功能：
 1、初始化USB主机模式，连接USB摄像头；
@@ -23,6 +23,8 @@
 
 -- 引入excloud扩展库
 local excloud = require("excloud")
+local LCD_W = 1024
+local LCD_H = 600
 
 -- 合宙云平台项目key（请替换为自己项目的key）
 local project_auth_key = "hegiSG73FHMzvFToaugk4CZXIla92Dnj"
@@ -30,38 +32,19 @@ local project_auth_key = "hegiSG73FHMzvFToaugk4CZXIla92Dnj"
 -- 拍照间隔（毫秒），每隔多久触发一次拍照
 local capture_interval_ms = 10000
 
--- 根据当前默认网卡自动判断 excloud 的 device_type
--- excloud 内部按 device_type 决定从哪个硬件源生成设备ID与鉴权信息：
---   1 = 4G   → 使用 mobile.imei() + mobile.muid()
---   2 = WIFI → 使用 wlan.getMac()
---   4 = 以太网 → 使用 netdrv.mac(socket.LWIP_ETH)
--- 因此必须与 netdrv_device 中启用的网卡匹配，本函数会自动适配
--- 如果识别失败（未启用任何已知网卡），返回 nil，由调用方终止 excloud 初始化
-local function get_device_type_by_adapter()
-    local adapter = socket.dft()
-    if adapter == socket.LWIP_GP_GW then     -- 4G(AirLink)
-        return 1
-    elseif adapter == socket.LWIP_STA then   -- WIFI
-        return 2
-    elseif adapter == socket.LWIP_ETH then   -- 以太网
-        return 4
-    else
-        return nil
-    end
-end
-
 -- 12号GPIO配置（AirCAMERA_1032摄像头供电控制引脚），需要拉高使能
 gpio.setup(12, 1, gpio.PULLUP)
 
 -- 全局变量
 local usb_app_id = nil                       -- USB摄像头应用ID
 local frame_type = camera.FORMAT_MJPG        -- 使用MJPEG格式
-local sensor_w = 1024                        -- 目标分辨率宽度
-local sensor_h = 576                         -- 目标分辨率高度
+local sensor_w = 1280                       -- 目标分辨率宽度
+local sensor_h = 720                         -- 目标分辨率高度
 local frame_buff = nil                       -- 帧数据缓冲区
 local captured = false                       -- 本轮是否已拍照标志位
 local save_path = "/ram/photo.jpg"           -- 照片保存路径
 local excloud_connected = false              -- excloud连接状态
+local photo_display = nil                    -- 新增：用于显示照片的airui.image组件
 
 -- excloud事件回调函数
 -- 作用：处理excloud的连接、认证、断开、重连、发送结果等事件
@@ -266,13 +249,23 @@ local function capture_handler_task()
             goto continue_loop
         end
 
-        -- 在LCD上显示照片
-        log.info("photo_to_aircloud", "开始显示照片到LCD")
-        lcd.clear(0x0000)
-        lcd_result = lcd.showImage(0, 0, save_path)
-        log.info("photo_to_aircloud", "lcd.showImage返回值", lcd_result)
-        lcd.flush()
-        log.info("photo_to_aircloud", "照片显示完成")
+        -- 使用 airui.image 显示照片（适配屏幕，fit=cover）
+        if photo_display then
+            photo_display:destroy()
+            photo_display = nil
+        end
+        photo_display = airui.image({
+            parent = airui.screen,
+            x = 0, y = 0,
+            w = LCD_W, h = LCD_H,
+            src = save_path,
+            fit = "cover",
+        })
+        if photo_display then
+            log.info("photo_to_aircloud", "照片已通过 airui.image 显示 (fit=cover)")
+        else
+            log.warn("photo_to_aircloud", "airui.image 创建失败")
+        end
 
         -- 释放垃圾内存，准备上传
         collectgarbage()
@@ -337,17 +330,9 @@ local function excloud_init_task()
     end
     log.info("photo_to_aircloud", "网络已连接，开始初始化excloud")
 
-    -- 配置excloud参数（device_type 由 get_device_type_by_adapter 根据当前网卡自动确定）
-    local device_type = get_device_type_by_adapter()
-    if not device_type then
-        log.error("photo_to_aircloud", "未识别的网卡，无法上传到云平台",
-            "请检查 netdrv_device.lua 中是否已启用 WIFI / 以太网 / 4G 网卡")
-        return
-    end
-    log.info("photo_to_aircloud", "根据当前网卡自动选择 device_type", device_type)
+    -- 配置excloud参数
     local ok, err_msg = excloud.setup({
         use_getip = true,
-        device_type = device_type,            -- 自动适配 netdrv_device 中启用的网卡
         auth_key = project_auth_key,
         transport = "tcp",                    -- 使用TCP传输
         auto_reconnect = true,                -- 自动重连

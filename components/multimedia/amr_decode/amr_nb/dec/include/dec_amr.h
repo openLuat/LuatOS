@@ -62,7 +62,7 @@ terms listed above has been obtained from the copyright holder.
 #include "c_g_aver.h"
 #include "bgnscd.h"
 #include "lsp_avg.h"
-#include "frame.h"
+#include "amr_frame.h"
 #include "get_const_tbls.h"
 
 /*--------------------------------------------------------------------------*/

@@ -25,7 +25,7 @@ sys.taskInit(function ()
             socket.sntp()
             -- 自定义ntp地址
             -- socket.sntp("ntp.aliyun.com")
-            -- socket.sntp({"baidu.com", "abc.com", "ntp.air32.cn"})
+            -- socket.sntp({"baidu.com", "abc.com", "ntp.ntsc.ac.cn"})
             -- 通常只需要几百毫秒就能成功
             local ret = sys.waitUntil("NTP_UPDATE", 5000)
             if ret then

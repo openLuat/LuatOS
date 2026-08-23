@@ -229,8 +229,16 @@ function M.auto_scan_and_verify(storage_config, scan_timeout)
     local saved_list = (got_list and storage_data and storage_data.list) or {}
     if storage_config.ssid and storage_config.ssid ~= "" then  -- 无密码热点允许password为空
         local found = false
-        for _, status_msg in ipairs(saved_list) do
-            if status_msg.ssid == storage_config.ssid then found = true; break end
+        for _, saved_entry in ipairs(saved_list) do
+            if saved_entry.ssid == storage_config.ssid then
+                found = true
+                -- saved_list 条目密码为空时，回退到 fskv 配置中的密码
+                if (not saved_entry.password or saved_entry.password == "") and storage_config.password and storage_config.password ~= "" then
+                    saved_entry.password = storage_config.password
+                    log.info("wifi_app", "自动连接: saved_list 密码为空，使用 fskv 密码覆盖:", storage_config.ssid)
+                end
+                break
+            end
         end
         if not found then
             table.insert(saved_list, {ssid = storage_config.ssid, password = storage_config.password,

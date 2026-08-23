@@ -68,6 +68,7 @@ local function lcd_drv_init()
             airui.font_load({
                 type = "hzfont",             -- 字体类型，可选 "hzfont" 或 "bin"
                 path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+                -- path = "/luadb/NotoSansSC_subset.ttf", -- 展示NotoSansSC_subset自定义字体
                 size = 20,                   -- 字体大小，默认 16
                 cache_size = 1024,           -- 缓存字数大小，默认 2048
                 antialias = 1,               -- 抗锯齿等级1-3，默认 1
@@ -78,20 +79,12 @@ local function lcd_drv_init()
             -- PC模拟器使用外部TTF字体文件（与lua脚本同目录），完整展示字体特性
             airui.font_load({
                 type = "hzfont",
-                path = "/NotoSansSC_subset.ttf", -- PC端加载外部TTF，展示Noto Sans SC字体全貌
+                path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+                -- path = "/luadb/NotoSansSC_subset.ttf", -- 展示NotoSansSC_subset自定义字体
                 size = 20,
                 cache_size = 2048,
                 antialias = 3,               -- 高抗锯齿等级，展示字体边缘平滑特性
                 global = true
-            })
-        else
-            -- Air8000/780EHM 从14号固件/114号固件中加载内置hzfont字库
-            airui.font_load({
-                type = "hzfont",   -- 字体类型，可选 "hzfont" 或 "bin"
-                path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
-                size = 20,         -- 字体大小，默认 16
-                cache_size = 1024, -- 缓存字数大小，默认 2048
-                antialias = 1,     -- 抗锯齿等级1-3，默认 1
             })
         end
 

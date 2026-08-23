@@ -50,7 +50,7 @@ terms listed above has been obtained from the copyright holder.
 ----------------------------------------------------------------------------*/
 #include "typedef.h"
 #include "mode.h"
-#include "frame.h"
+#include "amr_frame.h"
 
 /*--------------------------------------------------------------------------*/
 #ifdef __cplusplus

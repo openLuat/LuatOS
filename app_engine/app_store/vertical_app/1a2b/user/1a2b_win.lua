@@ -40,10 +40,27 @@ local game = {
     history = {},
     active = false,
     current_input = "",
+    answer_revealed = false,
 }
 
 -- ============ UI 引用缓存 ============
 local ui = {}
+
+-- ============ 排行榜状态 ============
+local leaderboard = {
+    win_id = nil,
+    main_container = nil,
+    items = {},
+    data = {},
+    page = 1,
+    total_pages = 1,
+    loading_label = nil,
+    pending_upload = nil,  -- {account, nickname, digit_length, attempts}
+}
+
+local function get_leaderboard_cls(digit_length)
+    return 10 + (digit_length or game.digit_length or 4)
+end
 
 -- ============ 资源路径 ============
 local function detect_resource_root()
@@ -152,13 +169,13 @@ local function rebuild_layout()
         layout.history_title_h = clamp(round(layout.height * 0.08), 28, 44)
     else
         layout.left_panel_w = layout.width
-        layout.title_h = clamp(round(layout.height * 0.09), 56, 80)
-        layout.setting_h = clamp(round(layout.height * 0.14), 80, 120)
-        layout.info_h = clamp(round(layout.height * 0.07), 40, 60)
-        layout.input_display_h = clamp(round(layout.height * 0.08), 44, 64)
-        layout.keyboard_h = clamp(round(layout.height * 0.32), 180, 280)
+        layout.title_h = clamp(round(layout.height * 0.08), 48, 72)
+        layout.setting_h = clamp(round(layout.height * 0.12), 64, 100)
+        layout.info_h = clamp(round(layout.height * 0.06), 32, 52)
+        layout.input_display_h = clamp(round(layout.height * 0.07), 36, 56)
+        layout.keyboard_h = clamp(round(layout.height * 0.24), 140, 200)
         if layout.keyboard_h < scale_h(120) then layout.keyboard_h = scale_h(120) end
-        layout.history_title_h = clamp(round(layout.height * 0.06), 32, 48)
+        layout.history_title_h = clamp(round(layout.height * 0.05), 28, 44)
     end
 end
 
@@ -204,12 +221,25 @@ local function calculate_ab(secret, guess)
     return a, b
 end
 
+local function calculate_score(attempts)
+    if attempts >= 1 and attempts <= 5 then
+        return 4
+    elseif attempts >= 6 and attempts <= 10 then
+        return 3
+    elseif attempts >= 11 and attempts <= 20 then
+        return 2
+    else
+        return 1
+    end
+end
+
 local function reset_game()
     game.secret = generate_secret(game.digit_length)
     game.attempts = 0
     game.history = {}
     game.active = true
     game.current_input = ""
+    game.answer_revealed = false
     log.info("1a2b", "new game", game.digit_length, "digits")
 end
 
@@ -290,7 +320,7 @@ local function update_history_ui()
         local y = history_start_y + (i - 1) * (item_h + gap)
         -- 行容器尺寸略留边距，避免子元素贴边触发滚动条
         local row_w = item_w - scale_w(20)
-        local row_h = item_h - 2
+        local row_h = item_h
         local container = airui.container({
             parent = parent,
             x = scale_w(10), y = y,
@@ -306,7 +336,7 @@ local function update_history_ui()
             parent = container,
             x = scale_w(6), y = text_y,
             w = col_w,
-            h = scale_font(14) + 4,
+            h = scale_font(20) + 4,
             text = record.guess,
             font_size = scale_font(14),
             color = 0x1E293B,
@@ -369,6 +399,8 @@ local function clear_input()
     update_input_display()
 end
 
+local upload_score
+
 local function submit_guess()
     if not game.active then
         show_message("请先点击开始游戏", true)
@@ -391,9 +423,17 @@ local function submit_guess()
     update_input_display()
 
     if a == game.digit_length then
-        show_message("恭喜猜中！答案正是 " .. game.secret .. "，共尝试 " .. game.attempts .. " 次", false)
+        local score = calculate_score(game.attempts)
+        show_message("恭喜猜中！答案正是 " .. game.secret .. "，共尝试 " .. game.attempts .. " 次，获得 " .. score .. " 积分", false)
         game.active = false
         update_info_display()
+        if game.answer_revealed then
+            show_message("本局已查看过答案，分数不会上传排行榜", true)
+        else
+            sys.timerStart(function()
+                upload_score(game.digit_length, score)
+            end, 800)
+        end
     else
         show_message(result_str, false)
     end
@@ -404,6 +444,7 @@ local function reveal_answer()
         show_message("请先开始游戏", true)
         return
     end
+    game.answer_revealed = true
     show_message("答案是 " .. game.secret, false)
     update_info_display()
 end
@@ -517,6 +558,13 @@ local function show_rule_dialog()
         "4. 示例：答案 1234，猜 1356 → 1A1B",
         "   （1 位置对得 1A，3 存在但位置错得 1B）",
         "5. 猜中全部数字及位置即为胜利",
+        "  ",
+        "积分规则：",
+        "  1~5次猜中  +4分",
+        "  6~10次猜中 +3分",
+        "  11~20次猜中+2分",
+        "  20次以上    +1分",
+        "  查看答案后猜中不计分",
     }
 
     local line_font = scale_font(15)
@@ -542,6 +590,517 @@ local function show_rule_dialog()
 
     ui.rule_dialog = card
     ui.rule_mask = mask
+end
+
+-- ============ 排行榜服务器通信 ============
+function upload_score(digit_length, score)
+    if not exapp or not exapp.iot_get_account_info then
+        log.warn("1a2b", "exapp 不可用，跳过上传")
+        return
+    end
+    local ok, info = pcall(exapp.iot_get_account_info)
+    if not ok or not info or info.is_guest then
+        log.warn("1a2b", "未登录或访客模式，不上传")
+        return
+    end
+    if score <= 0 then
+        log.info("1a2b", "本次积分为0，无需上传")
+        return
+    end
+    leaderboard.pending_upload = {
+        account = info.account or "unknown",
+        nickname = info.nickname or "unknown",
+        digit_length = digit_length,
+        score = score,
+    }
+    log.info("1a2b", "查询历史积分", "account:", leaderboard.pending_upload.account,
+             "位数:", digit_length, "本次积分:", score)
+    exapp.list_record({
+        cls = get_leaderboard_cls(digit_length),
+        size = 1,
+        filter = {
+            aks = {"uni_key"},
+            acs = {"eq"},
+            avs = {leaderboard.pending_upload.account},
+        },
+    })
+end
+
+local function delete_my_score()
+    if not exapp or not exapp.iot_get_account_info then
+        log.warn("1a2b", "exapp 不可用，无法删除")
+        return
+    end
+    local ok, info = pcall(exapp.iot_get_account_info)
+    if not ok or not info or info.is_guest then
+        log.warn("1a2b", "未登录或访客模式，无法删除")
+        return
+    end
+    local account = info.account
+    local cls = get_leaderboard_cls(leaderboard.digit_length or game.digit_length)
+    log.info("1a2b", "查询并删除积分记录", "account:", account, "cls:", cls)
+    exapp.list_record({
+        cls = cls,
+        size = 1,
+        filter = {
+            aks = {"uni_key"},
+            acs = {"eq"},
+            avs = {account},
+        },
+    }, function(success, data)
+        if success and data and data.records and #data.records > 0 then
+            local rec = data.records[1]
+            if rec.uni_key == account and rec.id then
+                exapp.delete_record({cls = cls, id = rec.id}, function(del_success, del_result)
+                    if del_success then
+                        log.info("1a2b", "删除积分记录成功")
+                        exapp.list_record({
+                            cls = cls,
+                            sort = "i1", desc = true, size = 30,
+                        }, on_leaderboard_query_callback)
+                    else
+                        log.warn("1a2b", "删除积分记录失败", del_result)
+                    end
+                end)
+            else
+                log.warn("1a2b", "未找到匹配的积分记录")
+            end
+        else
+            log.warn("1a2b", "无积分记录可删除")
+        end
+    end)
+end
+
+-- ============ 排行榜 UI ============
+local rebuild_leaderboard_ui
+
+local function switch_leaderboard_digit(delta)
+    local new_len = clamp((leaderboard.digit_length or game.digit_length) + delta, 3, 10)
+    if new_len == leaderboard.digit_length then return end
+    leaderboard.digit_length = new_len
+    leaderboard.page = 1
+    leaderboard.data = {}
+    if leaderboard.loading_label then
+        leaderboard.loading_label:destroy()
+        leaderboard.loading_label = nil
+    end
+    rebuild_leaderboard_ui()
+    leaderboard.loading_label = airui.label({
+        parent = leaderboard.main_container,
+        x = 0, y = math.floor(layout.height / 2) - scale_h(20),
+        w = layout.width, h = scale_h(30),
+        text = "数据同步中，请稍等...",
+        font_size = scale_font(14),
+        color = 0x1E293B,
+        align = airui.TEXT_ALIGN_CENTER,
+    })
+    exapp.list_record({
+        cls = get_leaderboard_cls(new_len),
+        sort = "i1", desc = true, size = 30,
+    }, on_leaderboard_query_callback)
+end
+
+function rebuild_leaderboard_ui()
+    if not leaderboard.main_container then return end
+    for _, item in ipairs(leaderboard.items) do
+        if item then item:destroy() end
+    end
+    leaderboard.items = {}
+    if leaderboard.loading_label then
+        leaderboard.loading_label:destroy()
+        leaderboard.loading_label = nil
+    end
+
+    local W2, H2 = layout.width, layout.height
+    local P2 = layout.page_padding
+    local title_h = scale_h(48)
+    local bottom_h = scale_h(56)
+    local content_w = W2 - P2 * 2
+    local content_x = P2
+
+    -- 顶部标题栏
+    local header_bar = airui.container({
+        parent = leaderboard.main_container,
+        x = 0, y = 0,
+        w = W2, h = title_h,
+        color = 0xFFFFFF,
+    })
+    table.insert(leaderboard.items, header_bar)
+    -- 标题栏底部分割线
+    airui.container({
+        parent = header_bar,
+        x = 0, y = title_h - 1,
+        w = W2, h = 1,
+        color = 0xE2E8F0,
+    })
+    -- 返回按钮
+    airui.button({
+        parent = header_bar,
+        x = P2,
+        y = math.floor((title_h - scale_h(32)) / 2),
+        w = scale_w(60), h = scale_h(32),
+        text = "返回",
+        font_size = scale_font(14),
+        color = 0x1E293B,
+        bg_color = 0xF1F5F9,
+        radius = layout.corner_radius,
+        on_click = function()
+            if leaderboard.win_id then exwin.close(leaderboard.win_id) end
+        end,
+    })
+    -- 标题
+    airui.label({
+        parent = header_bar,
+        x = 0,
+        y = vcenter_y(title_h, scale_font(18)),
+        w = W2, h = scale_font(18) + 4,
+        text = (leaderboard.digit_length or game.digit_length) .. "位数字排行榜",
+        font_size = scale_font(18),
+        color = 0x1E293B,
+        align = airui.TEXT_ALIGN_CENTER,
+    })
+    -- 切换位数按钮（左）
+    local btn_y = math.floor((title_h - scale_h(32)) / 2)
+    local center_x = math.floor(W2 / 2)
+    airui.button({
+        parent = header_bar,
+        x = center_x - scale_w(130),
+        y = btn_y,
+        w = scale_w(36), h = scale_h(32),
+        text = "<",
+        font_size = scale_font(16),
+        color = 0x1E293B,
+        bg_color = 0xEEF3FF,
+        radius = layout.corner_radius,
+        on_click = function() switch_leaderboard_digit(-1) end,
+    })
+    -- 切换位数按钮（右）
+    airui.button({
+        parent = header_bar,
+        x = center_x + scale_w(94),
+        y = btn_y,
+        w = scale_w(36), h = scale_h(32),
+        text = ">",
+        font_size = scale_font(16),
+        color = 0x1E293B,
+        bg_color = 0xEEF3FF,
+        radius = layout.corner_radius,
+        on_click = function() switch_leaderboard_digit(1) end,
+    })
+
+    local card_h = scale_h(36)
+    local gap = scale_h(6)
+    local yPos = title_h + scale_h(16)
+
+    -- 表头
+    local header = airui.container({
+        parent = leaderboard.main_container,
+        x = content_x, y = yPos, w = content_w, h = card_h,
+        color = 0xEEF3FF,
+        radius = layout.corner_radius,
+    })
+    table.insert(leaderboard.items, header)
+
+    airui.label({
+        parent = header, x = scale_w(8), y = vcenter_y(card_h, scale_font(12)),
+        w = scale_w(40), h = scale_font(12) + 4,
+        text = "排名", font_size = scale_font(12), color = 0x2E5BFF,
+    })
+    airui.label({
+        parent = header, x = scale_w(55), y = vcenter_y(card_h, scale_font(12)),
+        w = scale_w(140), h = scale_font(12) + 4,
+        text = "昵称", font_size = scale_font(12), color = 0x2E5BFF,
+    })
+    airui.label({
+        parent = header, x = content_w - scale_w(80), y = vcenter_y(card_h, scale_font(12)),
+        w = scale_w(70), h = scale_font(12) + 4,
+        text = "积分", font_size = scale_font(12), color = 0x2E5BFF,
+        align = airui.TEXT_ALIGN_RIGHT,
+    })
+
+    yPos = yPos + card_h + gap
+
+    if #leaderboard.data == 0 then
+        local empty = airui.container({
+            parent = leaderboard.main_container,
+            x = content_x, y = yPos, w = content_w, h = scale_h(80),
+            color = 0xFFFFFF,
+            radius = layout.corner_radius,
+        })
+        table.insert(leaderboard.items, empty)
+        airui.label({
+            parent = empty, x = 0, y = scale_h(20), w = content_w, h = scale_font(14) + 4,
+            text = "暂无记录，快来挑战吧！",
+            font_size = scale_font(14), color = 0x8AA9CC,
+            align = airui.TEXT_ALIGN_CENTER,
+        })
+    else
+        local startIdx = (leaderboard.page - 1) * 11 + 1
+        local endIdx = math.min(startIdx + 10, #leaderboard.data)
+        local medal_bg = { [1] = 0xFFD700, [2] = 0xC0C0C0, [3] = 0xCD7F32 }
+
+        for i = startIdx, endIdx do
+            local record = leaderboard.data[i]
+            local nickname = (record.s1 and #record.s1 > 0) and record.s1 or "匿名"
+            local score = record.i1 or 0
+            local displayName = #nickname > 12 and nickname:sub(1, 12) .. ".." or nickname
+            local isTop3 = (i <= 3)
+            local bgColor = isTop3 and medal_bg[i] or 0xFFFFFF
+            local textColor = 0x1E293B
+
+            local card = airui.container({
+                parent = leaderboard.main_container,
+                x = content_x, y = yPos, w = content_w, h = card_h,
+                color = bgColor,
+                radius = layout.corner_radius,
+            })
+            card:set_border_color(0xE2E8F0, 1)
+            table.insert(leaderboard.items, card)
+
+            airui.label({
+                parent = card, x = scale_w(8), y = vcenter_y(card_h, scale_font(12)),
+                w = scale_w(40), h = scale_font(12) + 4,
+                text = tostring(i), font_size = scale_font(12), color = textColor,
+            })
+            airui.label({
+                parent = card, x = scale_w(55), y = vcenter_y(card_h, scale_font(12)),
+                w = scale_w(170), h = scale_font(12) + 4,
+                text = displayName, font_size = scale_font(12), color = textColor,
+            })
+            airui.label({
+                parent = card, x = content_w - scale_w(80), y = vcenter_y(card_h, scale_font(12)),
+                w = scale_w(70), h = scale_font(12) + 4,
+                text = tostring(score) .. "分", font_size = scale_font(12), color = 0x2E5BFF,
+                align = airui.TEXT_ALIGN_RIGHT,
+            })
+
+            yPos = yPos + card_h + gap
+        end
+
+        -- 分页
+        local pageY = H2 - bottom_h - scale_h(52)
+        local prevBtn = airui.button({
+            parent = leaderboard.main_container,
+            x = content_x, y = pageY, w = scale_w(60), h = scale_h(28),
+            text = "上一页", font_size = scale_font(12),
+            color = 0xFFFFFF,
+            bg_color = leaderboard.page > 1 and 0x2E5BFF or 0x888888,
+            radius = layout.corner_radius,
+            on_click = function()
+                if leaderboard.page > 1 then
+                    leaderboard.page = leaderboard.page - 1
+                    rebuild_leaderboard_ui()
+                end
+            end,
+        })
+        table.insert(leaderboard.items, prevBtn)
+
+        local pageLabel = airui.label({
+            parent = leaderboard.main_container,
+            x = content_x + scale_w(100), y = pageY + scale_h(4),
+            w = scale_w(120), h = scale_font(14) + 4,
+            text = string.format("<%d/%d>", leaderboard.page, leaderboard.total_pages),
+            font_size = scale_font(14), color = 0x1E293B,
+            align = airui.TEXT_ALIGN_CENTER,
+        })
+        table.insert(leaderboard.items, pageLabel)
+
+        local nextBtn = airui.button({
+            parent = leaderboard.main_container,
+            x = content_x + content_w - scale_w(60) - scale_w(20), y = pageY,
+            w = scale_w(60), h = scale_h(28),
+            text = "下一页", font_size = scale_font(12),
+            color = 0xFFFFFF,
+            bg_color = leaderboard.page < leaderboard.total_pages and 0x2E5BFF or 0x888888,
+            radius = layout.corner_radius,
+            on_click = function()
+                if leaderboard.page < leaderboard.total_pages then
+                    leaderboard.page = leaderboard.page + 1
+                    rebuild_leaderboard_ui()
+                end
+            end,
+        })
+        table.insert(leaderboard.items, nextBtn)
+    end
+
+    -- 底部操作栏
+    local bottom_bar = airui.container({
+        parent = leaderboard.main_container,
+        x = 0, y = H2 - bottom_h,
+        w = W2, h = bottom_h,
+        color = 0xFFFFFF,
+    })
+    table.insert(leaderboard.items, bottom_bar)
+    -- 底部分割线
+    airui.container({
+        parent = bottom_bar,
+        x = 0, y = 0,
+        w = W2, h = 1,
+        color = 0xE2E8F0,
+    })
+
+    -- 刷新按钮
+    airui.button({
+        parent = bottom_bar,
+        x = P2,
+        y = math.floor((bottom_h - scale_h(36)) / 2),
+        w = scale_w(70), h = scale_h(36),
+        text = "刷新",
+        font_size = scale_font(13),
+        color = 0xFFFFFF,
+        bg_color = 0x1A7F3A,
+        radius = layout.corner_radius,
+        on_click = function()
+            exapp.list_record({
+                cls = get_leaderboard_cls(leaderboard.digit_length or game.digit_length),
+                sort = "i1", desc = true, size = 30,
+            }, on_leaderboard_query_callback)
+        end,
+    })
+
+    -- 删除记录按钮
+    airui.button({
+        parent = bottom_bar,
+        x = math.floor((W2 - scale_w(100)) / 2),
+        y = math.floor((bottom_h - scale_h(36)) / 2),
+        w = scale_w(100), h = scale_h(36),
+        text = "删除记录",
+        font_size = scale_font(13),
+        color = 0xFFFFFF,
+        bg_color = 0xEF4B4B,
+        radius = layout.corner_radius,
+        on_click = delete_my_score,
+    })
+
+    -- 关闭按钮
+    airui.button({
+        parent = bottom_bar,
+        x = W2 - scale_w(70) - P2,
+        y = math.floor((bottom_h - scale_h(36)) / 2),
+        w = scale_w(70), h = scale_h(36),
+        text = "关闭",
+        font_size = scale_font(13),
+        color = 0xFFFFFF,
+        bg_color = 0x64748B,
+        radius = layout.corner_radius,
+        on_click = function()
+            if leaderboard.win_id then exwin.close(leaderboard.win_id) end
+        end,
+    })
+end
+
+local function on_leaderboard_query_callback(success, data)
+    if success and data and data.records then
+        if leaderboard.loading_label then
+            leaderboard.loading_label:destroy()
+            leaderboard.loading_label = nil
+        end
+        leaderboard.data = data.records
+        table.sort(leaderboard.data, function(a, b)
+            return (tonumber(a.i1) or 0) > (tonumber(b.i1) or 0)
+        end)
+        local total = data.total or #data.records
+        leaderboard.total_pages = math.max(1, math.ceil(total / 11))
+        rebuild_leaderboard_ui()
+    end
+end
+
+local function on_db_result(endpoint, success, data)
+    if endpoint ~= "list" then return end
+    if leaderboard.pending_upload then
+        local up = leaderboard.pending_upload
+        leaderboard.pending_upload = nil
+        log.info("1a2b", "【积分回调】account:", up.account, "位数:", up.digit_length, "本次积分:", up.score)
+        if not exapp or not exapp.add_record then
+            log.warn("1a2b", "exapp.add_record 不可用")
+            return
+        end
+        local upload_val = up.score
+        if success and data and data.records and #data.records > 0 then
+            local rec = data.records[1]
+            if rec.uni_key == up.account then
+                local total = (tonumber(rec.i1) or 0) + up.score
+                upload_val = total
+                log.info("1a2b", "累加积分，历史总积分:", rec.i1, "本次:", up.score, "新总积分:", total)
+            else
+                log.info("1a2b", "uni_key 不匹配，视为首次上传")
+            end
+        else
+            log.info("1a2b", "无历史记录，首次上传")
+        end
+        pcall(exapp.add_record, {
+            cls = get_leaderboard_cls(up.digit_length),
+            uni_key = up.account,
+            i1 = upload_val,
+            s1 = up.nickname,
+        })
+        return
+    end
+    if not success or not data or not data.records then return end
+    if leaderboard.loading_label then
+        leaderboard.loading_label:destroy()
+        leaderboard.loading_label = nil
+    end
+    leaderboard.data = data.records
+    table.sort(leaderboard.data, function(a, b)
+        return (tonumber(a.i1) or 0) > (tonumber(b.i1) or 0)
+    end)
+    local total = data.total or #data.records
+    leaderboard.total_pages = math.max(1, math.ceil(total / 11))
+    rebuild_leaderboard_ui()
+end
+
+local function open_leaderboard_win(digit_length)
+    digit_length = digit_length or game.digit_length or 4
+    if leaderboard.win_id then
+        exwin.close(leaderboard.win_id)
+        return
+    end
+    leaderboard.data = {}
+    leaderboard.page = 1
+    leaderboard.total_pages = 1
+    leaderboard.digit_length = digit_length
+
+    leaderboard.win_id = exwin.open({
+        on_create = function()
+            leaderboard.main_container = airui.container({
+                parent = airui.screen,
+                x = 0, y = 0, w = layout.width, h = layout.height,
+                color = 0xFFFFFF,
+            })
+
+            leaderboard.loading_label = airui.label({
+                parent = leaderboard.main_container,
+                x = 0, y = math.floor(layout.height / 2) - scale_h(20),
+                w = layout.width, h = scale_h(30),
+                text = "数据同步中，请稍等...",
+                font_size = scale_font(14),
+                color = 0x1E293B,
+                align = airui.TEXT_ALIGN_CENTER,
+            })
+
+            exapp.list_record({
+                cls = get_leaderboard_cls(digit_length),
+                sort = "i1", desc = true, size = 30,
+            }, on_leaderboard_query_callback)
+        end,
+        on_destroy = function()
+            for _, item in ipairs(leaderboard.items) do
+                if item then item:destroy() end
+            end
+            leaderboard.items = {}
+            if leaderboard.loading_label then
+                leaderboard.loading_label:destroy()
+                leaderboard.loading_label = nil
+            end
+            if leaderboard.main_container then
+                leaderboard.main_container:destroy()
+                leaderboard.main_container = nil
+            end
+            leaderboard.win_id = nil
+            leaderboard.data = {}
+        end,
+    })
 end
 
 -- ============ 构建 UI ============
@@ -581,30 +1140,32 @@ local function build_ui()
         align = airui.TEXT_ALIGN_LEFT,
     })
 
-    -- 右侧按钮与图标布局参数（从右往左：icon → 退出 → 规则）
+    -- 右侧按钮与图标布局参数（从右往左：icon → 退出 → 规则 → 排行）
     local icon_size = math.min(scale_w(36), title_h)
     local btn_gap = scale_w(4)
     local rule_btn_w = scale_w(56)
     local rule_btn_h = scale_h(28)
     local exit_btn_w = scale_w(52)
+    local rank_btn_w = scale_w(56)
 
     local right_edge = left_w + P
     local icon_x = right_edge - icon_size
     local exit_btn_x = icon_x - btn_gap - exit_btn_w
     local rule_btn_x = exit_btn_x - btn_gap - rule_btn_w
+    local rank_btn_x = rule_btn_x - btn_gap - rank_btn_w
 
-    -- 退出按钮
-    ui.exit_btn = airui.button({
+    -- 排行按钮
+    ui.rank_btn = airui.button({
         parent = title_bg,
-        x = exit_btn_x,
+        x = rank_btn_x,
         y = math.floor((title_h - rule_btn_h) / 2),
-        w = exit_btn_w, h = rule_btn_h,
-        text = "退出",
+        w = rank_btn_w, h = rule_btn_h,
+        text = "排行",
         font_size = scale_font(13),
         color = 0xFFFFFF,
-        bg_color = 0xEF4B4B,
+        bg_color = 0xF59E0B,
         radius = math.floor(scale_h(14)),
-        on_click = function() exwin.close(win_id) end,
+        on_click = function() open_leaderboard_win(game.digit_length) end,
     })
 
     -- 规则按钮
@@ -619,6 +1180,20 @@ local function build_ui()
         bg_color = 0xEEF3FF,
         radius = math.floor(scale_h(14)),
         on_click = function() show_rule_dialog() end,
+    })
+
+    -- 退出按钮
+    ui.exit_btn = airui.button({
+        parent = title_bg,
+        x = exit_btn_x,
+        y = math.floor((title_h - rule_btn_h) / 2),
+        w = exit_btn_w, h = rule_btn_h,
+        text = "退出",
+        font_size = scale_font(13),
+        color = 0xFFFFFF,
+        bg_color = 0xEF4B4B,
+        radius = math.floor(scale_h(14)),
+        on_click = function() exwin.close(win_id) end,
     })
 
     -- 图标尺寸限制在标题栏高度内，防止超出容器触发滚动条
@@ -857,23 +1432,13 @@ local function build_ui()
     local btn_h = math.floor((kb_h - G * 3) / 4)
     local btn_font = scale_font(20)
 
-    -- 横屏时第4行右侧替换为"提交"，避免与独立提交按钮重叠
-    local keys
-    if layout.is_landscape then
-        keys = {
-            {"1", "2", "3"},
-            {"4", "5", "6"},
-            {"7", "8", "9"},
-            {"←", "0", "提交"},
-        }
-    else
-        keys = {
-            {"1", "2", "3"},
-            {"4", "5", "6"},
-            {"7", "8", "9"},
-            {"←", "0", "C"},
-        }
-    end
+    -- 竖屏与横屏均将"提交"集成到键盘第4行，节省独立按钮空间
+    local keys = {
+        {"1", "2", "3"},
+        {"4", "5", "6"},
+        {"7", "8", "9"},
+        {"←", "0", "提交"},
+    }
 
     for row = 1, 4 do
         for col = 1, 3 do
@@ -905,25 +1470,6 @@ local function build_ui()
         end
     end
 
-    -- 提交按钮（仅竖屏在键盘下方单独显示）
-    local submit_w = 0
-    local submit_h = 0
-    if not layout.is_landscape then
-        submit_w = left_w
-        submit_h = math.floor(btn_h * 0.8)
-        ui.submit_btn = airui.button({
-            parent = main_container,
-            x = P, y = kb_y + kb_h + G,
-            w = submit_w, h = submit_h,
-            text = "提交",
-            font_size = scale_font(18),
-            color = 0xFFFFFF,
-            bg_color = 0x2E5BFF,
-            radius = math.floor(math.min(submit_w, submit_h) * 0.2),
-            on_click = submit_guess,
-        })
-    end
-
     -- ===== 历史记录区 =====
     local hist_y, hist_h, hist_x, hist_w
     if layout.is_landscape then
@@ -933,10 +1479,10 @@ local function build_ui()
         hist_h = H - P * 2
     else
         hist_x = P
-        hist_y = kb_y + kb_h + G + submit_h + G
+        hist_y = kb_y + kb_h + G
         hist_w = W - P * 2
         hist_h = H - hist_y - P
-        if hist_h < scale_h(100) then hist_h = scale_h(100) end
+        if hist_h < scale_h(80) then hist_h = scale_h(80) end
     end
 
     ui.history_container = airui.container({
@@ -946,12 +1492,13 @@ local function build_ui()
         color = 0xFFFFFF,
         radius = R,
     })
+    ui.history_container_h = hist_h
 
     ui.history_title = airui.label({
         parent = ui.history_container,
-        x = scale_w(12), y = vcenter_y(layout.history_title_h, scale_font(14)),
+        x = scale_w(12), y = 0,
         w = hist_w - scale_w(24),
-        h = scale_font(14) + 4,
+        h = layout.history_title_h,
         text = "猜测历史",
         font_size = scale_font(14),
         color = 0x4A627A,
@@ -962,7 +1509,7 @@ local function build_ui()
         parent = ui.history_container,
         x = scale_w(4), y = layout.history_title_h + scale_h(20),
         w = hist_w - scale_w(8),
-        h = scale_font(13) + 4,
+        h = scale_h(40),
         text = "暂无记录，开始游戏吧",
         font_size = scale_font(13),
         color = 0x8AA9CC,
@@ -989,6 +1536,10 @@ local function on_destroy()
             if item.container then item.container:destroy() end
         end
         ui.history_items = nil
+    end
+    if leaderboard.win_id then
+        exwin.close(leaderboard.win_id)
+        leaderboard.win_id = nil
     end
     if main_container then
         main_container:destroy()
@@ -1021,4 +1572,5 @@ local function open_handler()
 end
 
 sys.subscribe("OPEN_1A2B_WIN", open_handler)
+sys.subscribe("DB_RESULT", on_db_result)
 

@@ -9,7 +9,7 @@
 
 #define LUAT_BSP_PC 1 // 定义平台标识符，供代码中使用
 
-#define LUAT_BSP_VERSION "V2032"
+#define LUAT_BSP_VERSION "V2035"
 // PC模拟器: Lua VM退出后1秒重启, 无需等15秒
 #define LUAT_EXIT_REBOOT_DELAY 1000
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
@@ -42,6 +42,12 @@
 #define LUAT_USE_NETDRV_CH390H 1
 #define LUAT_USE_NETDRV_OPENVPN 1
 #define LUAT_USE_NETDRV_WG 1
+#define LUAT_USE_NETDRV_L2TP 1
+#define LUAT_USE_NETDRV_IPSEC 1
+#define LUAT_USE_NETDRV_LWIP_ARP 1
+
+// ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试)
+#define LUAT_USE_ICMP 1
 
 #define LUAT_USE_AIRLINK 1
 #define LUAT_USE_AIRLINK_SPI_MASTER 1
@@ -55,6 +61,7 @@
 #define LUAT_USE_AIRLINK_EXEC_UART  1
 #define LUAT_USE_AIRLINK_EXEC_WLAN  1
 #define LUAT_USE_AIRLINK_EXEC_PM    1
+#define LUAT_USE_AIRLINK_EXEC_PING  1
 #define LUAT_USE_AIRLINK_EXEC_SDATA 1
 // #define LUAT_USE_AIRLINK_DRV_BLUETOOTH 1
 #define LUAT_USE_AIRLINK_DRV_GPIO  1
@@ -94,8 +101,10 @@
 #define LUAT_USE_CAN 1
 #define LUAT_USE_OTP 1
 #define LUAT_USE_MOBILE 1
+#define LUAT_USE_MOBILE_RFA 1
 #define LUAT_USE_SMS 1
 #define LUAT_USE_WLAN 1
+#define LUAT_USE_CAMERA 1
 
 #define LUAT_USE_IOTAUTH 1
 #define LUAT_USE_MINIZ 1
@@ -104,10 +113,14 @@
 #define LUAT_USE_I2S  1
 #define LUAT_USE_MEDIA 1
 #define LUAT_USE_AUDIO 1
+#define LUAT_USE_AUDIO_V2 1
 #define LUAT_SUPPORT_AMR 1
 #define LUAT_SUPPORT_OPUS   1
+#define LUAT_SUPPORT_SPEEX 1
 #define LUAT_USE_AUDIO_G711 1
 #define LUAT_USE_AUDIO_DTMF 1
+#define LUAT_USE_VOIP 1
+#define LUAT_USE_RECORD 1
 
 //----------------------------
 // 常用工具库, 按需启用, cjson和pack是强烈推荐启用的
@@ -116,14 +129,13 @@
 #define LUAT_USE_ZBUFF  1
 #define LUAT_USE_PACK  1
 #define LUAT_USE_LIBGNSS  1
-#define LUAT_USE_MQTTCORE 1
-#define LUAT_USE_LIBCOAP 1
 #define LUAT_USE_FS  1
 // #define LUAT_USE_SENSOR  1
 #define LUAT_USE_SFUD  1
 #define LUAT_USE_LITTLE_FLASH 1
 #define LUAT_USE_PGFS_COMPONENT 1
 #define LUAT_USE_TFS_COMPONENT  1
+#define LUAT_USE_TFS_STRESS_DIAG 1
 // #define LUAT_USE_STATEM 1
 // 性能测试
 #define LUAT_USE_COREMARK 1
@@ -133,10 +145,11 @@
 #define LUAT_CONF_FSKV_CUSTOM 1
 // FFT 库开关
 #define LUAT_USE_FFT 1
-// #define LUAT_USE_OTA 1
 // #define LUAT_USE_I2CTOOLS 1
 // #define LUAT_USE_LORA 1
 #define LUAT_USE_LORA2 1
+// lora2 是否支持 FSK/GFSK 调制，默认开启以保持兼容；不需要时注释掉可节省 flash
+#define LUAT_USE_LORA2_FSK 1
 // #define LUAT_USE_MAX30102 1
 // #define LUAT_USE_MLX90640 1
 #define LUAT_USE_YMODEM 1
@@ -190,10 +203,11 @@
 
 // U8G2 在 GUI/非 GUI PC 构建中都需要保留。
 #define LUAT_USE_U8G2 1
-#ifndef LUAT_USE_GUI
-// EINK 仅在非 GUI PC 构建中启用，对齐 xmake 的非 GUI 源码范围。
+// EINK 在 GUI/非 GUI PC 构建中均启用，供 func/eink/eink_basic 测试使用。
 #define LUAT_USE_EINK 1
-#endif
+
+// TINY_EPD 。
+#define LUAT_USE_TINY_EPD 1
 
 #define LUAT_USE_WEBP 1
 
@@ -201,8 +215,14 @@
 #define NES_FRAME_SKIP      0
 #define NES_COLOR_DEPTH     16
 #define NES_COLOR_SWAP      0
+#define NES_ENABLE_HEAVY_MAPPERS 1
 
 #define LUAT_USE_GBC        1
+#define GBC_FRAME_SKIP      0
+#define GBC_COLOR_DEPTH     16
+#define GBC_COLOR_SWAP      0
+#define GBC_ROM_STREAM      1
+#define GBC_ENABLE_SRAM_SAVE 0
 
 //--------------------------------------------------
 // mGBA GBA模拟器

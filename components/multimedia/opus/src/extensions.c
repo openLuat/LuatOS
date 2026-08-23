@@ -31,8 +31,8 @@
 
 #include "opus_types.h"
 #include "opus_defines.h"
-#include "arch.h"
-#include "os_support.h"
+#include "celt/arch.h"
+#include "celt/os_support.h"
 #include "opus_private.h"
 
 

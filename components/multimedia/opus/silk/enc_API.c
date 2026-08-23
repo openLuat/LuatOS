@@ -32,17 +32,17 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "API.h"
 #include "control.h"
 #include "typedef.h"
-#include "stack_alloc.h"
+#include "celt/stack_alloc.h"
 #include "structs.h"
 #include "tuning_parameters.h"
 #ifdef FIXED_POINT
-#include "main_FIX.h"
+#include "silk/fixed/main_FIX.h"
 #else
-#include "main_FLP.h"
+#include "silk/float/main_FLP.h"
 #endif
 
 #ifdef ENABLE_DRED
-#include "dred_encoder.h"
+#include "dnn/dred_encoder.h"
 #endif
 
 /***************************************/

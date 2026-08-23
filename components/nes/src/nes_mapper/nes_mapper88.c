@@ -19,8 +19,9 @@
 /* https://www.nesdev.org/wiki/INES_Mapper_088
  * Mapper 88 - Namco 118 (simplified MMC3-like, no IRQ, no mirroring control).
  * Two-register interface: even address = register select, odd = register data.
- * Registers 0-1: 2KB CHR banks at PPU $0000/$0800.
- * Registers 2-5: 1KB CHR banks at PPU $1000-$1C00.
+ * Registers 0-1: 2KB CHR banks at PPU $0000/$0800; data is a 1KB bank
+ *                number with bit 0 ignored, like MMC3.
+ * Registers 2-5: 1KB CHR banks at PPU $1000-$1C00 with bit 6 forced.
  * Registers 6-7: 8KB PRG banks at $8000/$A000.
  * Slots $C000-$FFFF (prg_banks 2-3) are fixed to the last two 8KB PRG banks.
  */
@@ -46,7 +47,7 @@ static void nes_mapper_init(nes_t* nes) {
 
     uint16_t prg_banks = (uint16_t)(nes->nes_rom.prg_rom_size * 2);
     nes_load_prgrom_8k(nes, 0, 0);
-    nes_load_prgrom_8k(nes, 1, 1);
+    nes_load_prgrom_8k(nes, 1, 0);
     nes_load_prgrom_8k(nes, 2, (uint8_t)(prg_banks - 2));
     nes_load_prgrom_8k(nes, 3, (uint8_t)(prg_banks - 1));
 
@@ -58,17 +59,20 @@ static void nes_mapper_init(nes_t* nes) {
         nes_load_chrrom_1k(nes, 2, 0);
         nes_load_chrrom_1k(nes, 3, 1);
         for (int i = 4; i < 8; i++) {
-            nes_load_chrrom_1k(nes, (uint8_t)i, 0);
+            nes_load_chrrom_1k(nes, (uint8_t)i, 0x40u);
         }
     }
+
+    /* Namco 118 has no four-screen hardware; some old iNES dumps set bit 3. */
+    nes_ppu_screen_mirrors(nes, nes->nes_rom.mirroring_type ? NES_MIRROR_VERTICAL : NES_MIRROR_HORIZONTAL);
 }
 
 /*
  * Even address ($8000, $8002, ...): register select — bits[2:0]
  * Odd  address ($8001, $8003, ...): register data
- *   Reg 0: 2KB CHR at PPU $0000-$07FF (6-bit 2KB bank number)
+ *   Reg 0: 2KB CHR at PPU $0000-$07FF (1KB bank number, bit 0 ignored)
  *   Reg 1: 2KB CHR at PPU $0800-$0FFF
- *   Reg 2: 1KB CHR at PPU $1000-$13FF (6-bit 1KB bank number)
+ *   Reg 2: 1KB CHR at PPU $1000-$13FF (bank number OR $40)
  *   Reg 3: 1KB CHR at PPU $1400-$17FF
  *   Reg 4: 1KB CHR at PPU $1800-$1BFF
  *   Reg 5: 1KB CHR at PPU $1C00-$1FFF
@@ -80,37 +84,37 @@ static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     if (address & 1u) { /* odd: bank data */
         switch (r->reg_select) {
         case 0: /* 2KB CHR at PPU $0000 */
-            r->chr[0] = data & 0x3Fu;
-            nes_load_chrrom_1k(nes, 0, (uint8_t)(r->chr[0] * 2u));
-            nes_load_chrrom_1k(nes, 1, (uint8_t)(r->chr[0] * 2u + 1u));
+            r->chr[0] = data;
+            nes_load_chrrom_1k(nes, 0, (uint16_t)(r->chr[0] & 0xFEu));
+            nes_load_chrrom_1k(nes, 1, (uint16_t)((r->chr[0] & 0xFEu) + 1u));
             break;
         case 1: /* 2KB CHR at PPU $0800 */
-            r->chr[1] = data & 0x3Fu;
-            nes_load_chrrom_1k(nes, 2, (uint8_t)(r->chr[1] * 2u));
-            nes_load_chrrom_1k(nes, 3, (uint8_t)(r->chr[1] * 2u + 1u));
+            r->chr[1] = data;
+            nes_load_chrrom_1k(nes, 2, (uint16_t)(r->chr[1] & 0xFEu));
+            nes_load_chrrom_1k(nes, 3, (uint16_t)((r->chr[1] & 0xFEu) + 1u));
             break;
         case 2: /* 1KB CHR at PPU $1000 */
-            r->chr[2] = data & 0x3Fu;
-            nes_load_chrrom_1k(nes, 4, r->chr[2]);
+            r->chr[2] = data;
+            nes_load_chrrom_1k(nes, 4, (uint16_t)(r->chr[2] | 0x40u));
             break;
         case 3: /* 1KB CHR at PPU $1400 */
-            r->chr[3] = data & 0x3Fu;
-            nes_load_chrrom_1k(nes, 5, r->chr[3]);
+            r->chr[3] = data;
+            nes_load_chrrom_1k(nes, 5, (uint16_t)(r->chr[3] | 0x40u));
             break;
         case 4: /* 1KB CHR at PPU $1800 */
-            r->chr[4] = data & 0x3Fu;
-            nes_load_chrrom_1k(nes, 6, r->chr[4]);
+            r->chr[4] = data;
+            nes_load_chrrom_1k(nes, 6, (uint16_t)(r->chr[4] | 0x40u));
             break;
         case 5: /* 1KB CHR at PPU $1C00 */
-            r->chr[5] = data & 0x3Fu;
-            nes_load_chrrom_1k(nes, 7, r->chr[5]);
+            r->chr[5] = data;
+            nes_load_chrrom_1k(nes, 7, (uint16_t)(r->chr[5] | 0x40u));
             break;
         case 6: /* 8KB PRG at $8000 */
-            r->prg[0] = data & 0x3Fu;
+            r->prg[0] = data;
             nes_load_prgrom_8k(nes, 0, r->prg[0]);
             break;
         case 7: /* 8KB PRG at $A000 */
-            r->prg[1] = data & 0x3Fu;
+            r->prg[1] = data;
             nes_load_prgrom_8k(nes, 1, r->prg[1]);
             break;
         default:

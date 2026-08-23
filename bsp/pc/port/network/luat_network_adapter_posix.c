@@ -201,8 +201,7 @@ static void cb_to_nw_task(uint32_t event_id, size_t param1, size_t param2, size_
 static int32_t posix_nw_event_handler(lua_State *L, void *ptr)
 {
     (void)L;
-    rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
-    posix_nw_event_t *e = (posix_nw_event_t *)msg->ptr;
+    posix_nw_event_t *e = (posix_nw_event_t *)ptr;
     if (e) {
         if (ctrl.socket_cb) {
             ctrl.socket_cb(&e->event, &e->param);

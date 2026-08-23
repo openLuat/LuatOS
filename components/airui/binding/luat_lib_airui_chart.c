@@ -45,6 +45,8 @@
  * @int config.border_width 图表边框宽度，可选
  * @int config.grid_color 网格线颜色（Hex），可选
  * @int config.grid_opa 网格线透明度，0-255，可选
+ * @boolean config.fill_fade 曲线下方渐变填充，默认 false
+ * @table config.fill 渐变填充配置，可选；字段 enable(是否启用)/color(颜色)/opa_start(开始透明度)/opa_end(结束透明度)
  * @userdata config.parent 父对象，默认当前屏幕
  * @return userdata Chart 对象
  */
@@ -368,6 +370,18 @@ static int l_chart_set_line_color(lua_State *L)
     return 0;
 }
 
+/**
+ * Chart:set_axis(is_x, config)
+ * @api chart:set_axis(is_x, config)
+ * @boolean is_x 是否是 X 轴
+ * @table config 配置表
+ * @boolean config.enable 是否启用
+ * @int config.min 最小值
+ * @int config.max 最大值
+ * @int config.ticks 刻度数量
+ * @string config.unit 单位
+ * @return nil
+ */
 static int l_chart_set_axis(lua_State *L, bool is_x)
 {
     lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
@@ -424,6 +438,55 @@ static int l_chart_set_y_axis(lua_State *L)
 }
 
 /**
+ * Chart:set_fill_fade(enable|config)
+ * @api chart:set_fill_fade(enable|config)
+ * @boolean|table enable true 开启；或配置表 { enable, color, opa_start, opa_end }
+ * @return nil
+ */
+static int l_chart_set_fill_fade(lua_State *L)
+{
+    lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
+    bool enable = true;
+    lv_color_t color;
+    const lv_color_t *color_ptr = NULL;
+    int opa_start = -1;
+    int opa_end = -1;
+
+    if (lua_istable(L, 2)) {
+        lua_getfield(L, 2, "enable");
+        if (lua_type(L, -1) == LUA_TBOOLEAN) {
+            enable = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "color");
+        if (lua_type(L, -1) == LUA_TNUMBER) {
+            color = lv_color_hex((uint32_t)lua_tointeger(L, -1));
+            color_ptr = &color;
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "opa_start");
+        if (lua_type(L, -1) == LUA_TNUMBER) {
+            opa_start = (int)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "opa_end");
+        if (lua_type(L, -1) == LUA_TNUMBER) {
+            opa_end = (int)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+    }
+    else {
+        enable = lua_toboolean(L, 2);
+    }
+
+    airui_chart_set_fill_fade(chart, enable, color_ptr, opa_start, opa_end);
+    return 0;
+}
+
+/**
  * Chart:destroy()
  * @api chart:destroy()
  * @return nil
@@ -452,6 +515,7 @@ void airui_register_chart_meta(lua_State *L)
         {"set_line_color", l_chart_set_line_color},
         {"set_x_axis", l_chart_set_x_axis},
         {"set_y_axis", l_chart_set_y_axis},
+        {"set_fill_fade", l_chart_set_fill_fade},
         {"destroy", l_chart_destroy},
         {"is_destroyed", airui_component_is_destroyed},
         {NULL, NULL}

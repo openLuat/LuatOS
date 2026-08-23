@@ -1,9 +1,12 @@
 --[[
 @module  welcome_win
-@summary 开机欢迎页面模块
+@summary 开机欢迎页面模块，鼠标动画引导进入桌面
 @version 1.1
 @date    2026.04.16
 @author  江访
+@usage
+订阅: OPEN_WELCOME_WIN  → 创建欢迎页，播放鼠标移动动画
+发布: OPEN_IDLE_WIN     → 动画结束后发布，触发桌面窗口
 ]]
 
 local window_id = nil

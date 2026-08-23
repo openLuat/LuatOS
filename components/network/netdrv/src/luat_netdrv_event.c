@@ -3,7 +3,9 @@
 #include "luat_network_adapter.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
-#include "luat_ulwip.h"
+#include "luat_msgbus.h"
+#include "net_lwip2.h"
+#include "luat_netdrv_dhcp_client.h"
 
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
@@ -13,7 +15,12 @@
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
 
-static netdrv_tcpevt_reg_t s_tcpevt_regs[NW_ADAPTER_QTY] = {0};
+// Socket 事件表与 PKG 事件表完全独立:
+//   s_socket_evt_regs[i] 管 i 号网卡的 TCP/UDP/DNS/LINK 等 socket 状态事件
+//   s_pkg_evt_regs[i]    管 i 号网卡的 HW/LWIP/NAPT 各通道数据包事件
+// 同一 id 可同时注册两种事件,字段互不污染.
+static netdrv_socket_evt_reg_t s_socket_evt_regs[NW_ADAPTER_QTY] = {0};
+static netdrv_pkg_evt_reg_t    s_pkg_evt_regs[NW_ADAPTER_QTY] = {0};
 
 void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t evt_flags, luat_netdrv_tcp_evt_cb cb, void* userdata) {
     if (id >= NW_ADAPTER_QTY) {
@@ -21,13 +28,13 @@ void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t evt_flags, luat_n
         return;
     }
     if (evt_flags == 0) {
-        s_tcpevt_regs[id].cb = NULL;
-        s_tcpevt_regs[id].userdata = NULL;
+        s_socket_evt_regs[id].cb = NULL;
+        s_socket_evt_regs[id].socket_userdata = NULL;
         return;
     }
-    s_tcpevt_regs[id].flags = evt_flags;
-    s_tcpevt_regs[id].cb = cb;
-    s_tcpevt_regs[id].userdata = userdata;
+    s_socket_evt_regs[id].flags = evt_flags;
+    s_socket_evt_regs[id].cb = cb;
+    s_socket_evt_regs[id].socket_userdata = userdata;
     // LLOGD("socket event cb adapter %d, flags=0x%02X userdata=%p", id, evt_flags, userdata);
 }
 
@@ -44,12 +51,12 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event
         LLOGW("ctrl %p adapter %d is invalid, but socket event id is %08x", ctrl, adapter_id, event_id);
         return;
     }
-    if (s_tcpevt_regs[adapter_id].cb == NULL) {
+    if (s_socket_evt_regs[adapter_id].cb == NULL) {
         //LLOGD("TCP事件网络适配器ID无效 %d", adapter_id);
         return;
     }
     event_id -= EV_NW_RESET;
-    if ((s_tcpevt_regs[adapter_id].flags & event_id) == 0) {
+    if ((s_socket_evt_regs[adapter_id].flags & event_id) == 0) {
         //LLOGD("TCP事件网络适配器ID无效 %d", adapter_id);
         return;
     }
@@ -76,7 +83,7 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event
     evt.local_port = ctrl->local_port;
     evt.remote_port = ctrl->remote_port;
     evt.userdata = ctrl->user_data;
-    s_tcpevt_regs[adapter_id].cb(&evt, s_tcpevt_regs[adapter_id].userdata);
+    s_socket_evt_regs[adapter_id].cb(&evt, s_socket_evt_regs[adapter_id].socket_userdata);
 }
 
 // IP 事件, 分成 IP_READY 和 IP_LOSE
@@ -91,14 +98,13 @@ static int netif_ip_event_cb(lua_State *L, void* ptr) {
     lua_getglobal(L, "sys_pub");
     if (lua_isfunction(L, -1)) {
         if (msg->arg2 == 0) {
-            LLOGD("IP_LOSE %d", netdrv->id);
+            LLOGI("IP_LOSE %d", netdrv->id);
             lua_pushstring(L, "IP_LOSE");
             lua_pushinteger(L, netdrv->id);
             lua_call(L, 2, 0);
         }
         else {
             ipaddr_ntoa_r(&netdrv->netif->ip_addr, buff,  32);
-            LLOGD("IP_READY %d %s", netdrv->id, buff);
             lua_pushstring(L, "IP_READY");
             lua_pushstring(L, buff);
             lua_pushinteger(L, netdrv->id);
@@ -133,9 +139,10 @@ typedef struct tmpptr {
 }tmpptr_t;
 
 static void delay_dhcp_start(void* args) {
-    ulwip_ctx_t *ctx = (ulwip_ctx_t *)args;
-    if (ctx && ctx->dhcp_enable) {
-        ulwip_dhcp_client_start(ctx);
+    luat_netdrv_t *drv = (luat_netdrv_t *)args;
+    if (drv && drv->dhcp_enable) {
+        LLOGI("DHCP client starting for adapter %d", drv->id);
+        luat_netdrv_dhcp_client_start(drv);
     }
 }
 
@@ -147,39 +154,28 @@ static void link_updown(tmpptr_t* ptr) {
         return;
     }
     struct netif *netif = drv->netif;
-    ulwip_ctx_t *ulwip = drv->ulwip;
     // LLOGI("netif %d link prev %d set %s %p", drv->id, netif_is_link_up(netif), updown ? "UP" : "DOWN", netif);
     if (updown && netif_is_link_up(netif) == 0) {
-        LLOGD("网卡(%d)设置为UP", drv->id);
+        LLOGI("网卡(%d)设置为UP", drv->id);
         netif_set_link_up(netif);
         net_lwip2_set_link_state(drv->id, 1);
-        if (ulwip) {
-            if (ulwip->netif == NULL) {
-                ulwip->netif = netif;
-            }
-            if (ulwip->dhcp_enable) {
-                ulwip_dhcp_client_stop(ulwip);
-                // 延时50ms, 避免netif_set_up和dhcp冲突
-                sys_timeout(50, delay_dhcp_start, ulwip);
-            }
-            else if (!ip_addr_isany(&netif->ip_addr)) {
-                // 静态IP, 那就发布IP_READY事件
-                luat_netdrv_send_ip_event(drv, 1);
-            }
+        if (drv->dhcp_enable) {
+            LLOGI("DHCP trigger for adapter %d (link=UP)", drv->id);
+            luat_netdrv_dhcp_client_stop(drv);
+            // 延时50ms, 避免netif_set_up和dhcp冲突
+            sys_timeout(50, delay_dhcp_start, drv);
         }
-        else {
-            if (!ip_addr_isany(&netif->ip_addr)) {
-                // 静态IP, 那就发布IP_READY事件
-                luat_netdrv_send_ip_event(drv, 1);
-            }
+        else if (!ip_addr_isany(&netif->ip_addr)) {
+            // 静态IP, 那就发布IP_READY事件
+            luat_netdrv_send_ip_event(drv, 1);
         }
         return;
     }
     if (updown == 0 && netif_is_link_up(netif)) {
-        LLOGD("网卡(%d)设置为DOWN", drv->id);
+        LLOGI("网卡(%d)设置为DOWN", drv->id);
         luat_netdrv_netif_set_link_down(netif);
-        if (ulwip && ulwip->dhcp_enable) {
-            ulwip_dhcp_client_stop(ulwip);
+        if (drv->dhcp_enable) {
+            luat_netdrv_dhcp_client_stop(drv);
         }
         net_lwip2_set_link_state(drv->id, 0);
         luat_netdrv_send_ip_event(drv, 0);
@@ -220,4 +216,50 @@ void luat_netdrv_set_link_updown(luat_netdrv_t* drv, uint8_t updown) {
     else {
         tcpip_callback(luat_netdrv_set_link_down, drv);
     }
+}
+
+void luat_netdrv_register_pkg_event_cb(uint8_t id, luat_netdrv_pkg_evt_cb cb, void* userdata) {
+    if (id >= NW_ADAPTER_QTY) {
+        LLOGE("无效的PKG事件注册ID %d", id);
+        return;
+    }
+    if (cb == NULL) {
+        // 注销回调: 同时清掉 pkg_userdata, 与 socket 注销路径对称
+        s_pkg_evt_regs[id].cb = NULL;
+        s_pkg_evt_regs[id].pkg_userdata = NULL;
+        s_pkg_evt_regs[id].pkg_layers = 0;
+        return;
+    }
+    s_pkg_evt_regs[id].cb = cb;
+    s_pkg_evt_regs[id].pkg_userdata = userdata;
+    // 默认订阅 HW 通道, 保持旧 API 行为兼容; 调用方可通过
+    // luat_netdrv_set_pkg_layer 改成 LWIP/NAPT 等其它通道.
+    if (s_pkg_evt_regs[id].pkg_layers == 0) {
+        s_pkg_evt_regs[id].pkg_layers = LUAT_NETDRV_CH_HW;
+    }
+}
+
+void luat_netdrv_set_pkg_layer(uint8_t id, uint8_t layer_mask) {
+    if (id >= NW_ADAPTER_QTY) {
+        LLOGE("无效的PKG layer设置ID %d", id);
+        return;
+    }
+    s_pkg_evt_regs[id].pkg_layers = layer_mask;
+}
+
+int luat_netdrv_has_pkg_cb(uint8_t id) {
+    if (id >= NW_ADAPTER_QTY) return 0;
+    return s_pkg_evt_regs[id].cb != NULL;
+}
+
+__NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_pkg_event(uint8_t id, uint8_t event,
+                                                       uint8_t* buff, uint16_t len) {
+    if (id >= NW_ADAPTER_QTY) return;
+    netdrv_pkg_evt_reg_t* reg = &s_pkg_evt_regs[id];
+    if (reg->cb == NULL) return;
+    // layer 过滤: 只 fire 该 id 订阅的 layer. 旧 API 默认订阅 HW,
+    // 新 API 通过 set_pkg_layer 选择其它 layer.
+    if (!(reg->pkg_layers & event)) return;
+    luat_netdrv_pkg_evt_t evt = { .id = id, .event = event, .buff = buff, .len = len };
+    reg->cb(&evt, reg->pkg_userdata);
 }

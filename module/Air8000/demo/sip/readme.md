@@ -75,7 +75,7 @@ sip/
 ### **4.1 工具 + 内核固件 + 脚本**
 
 1. 烧录工具 [Luatools](https://luatos.com/luatools/download/last)；
-2. Air8000A V2034 及以上 版本固件，除 11/12/14 和 111/112/114 固件以外，其他均可，如果需要 TTS 播放，则只能选 1/3/5/7/13/16[Air8000A 固件](https://docs.openluat.com/air8000/luatos/firmware/)本 demo 开发测试时使用的固件为 [Air8000A V2034 版本固件](https://cdn18.air32.cn:19443/files/Air8000/LuatOS_Air8000/LuatOS-SoC_V2034_Air8000/) ，如果发现最新版本的内核固件测试有问题，可以使用我们开发本 demo 时使用的内核固件版本来对比测试；
+2. Air8000A V2034 及以上 版本固件，除 11/12/14 和 111/112/114 固件以外，其他均可，如果需要 TTS 播放，则只能选 1/3/5/7/13/16[Air8000A 固件](https://docs.openluat.com/air8000/luatos/firmware/)本 demo 开发测试时使用的固件为 [Air8000A V2034 版本固件](https://cdn18.luatos.com/files/Air8000/LuatOS_Air8000/LuatOS-SoC_V2034_Air8000/) ，如果发现最新版本的内核固件测试有问题，可以使用我们开发本 demo 时使用的内核固件版本来对比测试；
 3. luatos 需要的脚本和资源文件
 
 - 脚本和资源文件[点我浏览所有文件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/demo/sip)

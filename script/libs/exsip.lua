@@ -48,6 +48,13 @@ exsip.start()
 
 -- 挂断通话
 -- exsip.hangUp()
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exsip.version()接口
+--    支持exsip库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 exaudio = require "exaudio"
 
@@ -83,6 +90,8 @@ local g_started = false
 local g_registered = false
 local g_callbacks = {}
 local g_current_call = nil
+-- 本次 VoIP 是否由 exaudio 建立本地 audio_v2 收发链路。
+local g_voip_uses_exaudio = false
 local g_netdrv_subscribed = false
 
 -- SIP 当前实际使用的网卡（由 exsipclient 启动时确定）
@@ -103,7 +112,13 @@ local default_config = {
     auto_answer = false,
     delay_auto_answer = 0,
     call_timeout = 30,
-    adapter = nil  -- nil = 使用系统默认网卡
+    debug_sip_response = false,
+    early_media = true,
+    early_media_response = 183,
+    adapter = nil,  -- nil = 使用系统默认网卡
+    audio_mode = nil,  -- nil = 使用系统默认音频模式；voip.AUDIO_MODE_BRIDGE, -- 使用桥接模式
+    -- true: CC 独占音频硬件，SIP 仅提供 RTP/PCM 桥接，不启动本地 audio_v2 speech。
+    cc_sip_bridge = false
 }
 
 
@@ -151,6 +166,19 @@ local function start_voip_engine(session)
     }
     local codec = codec_map[session.codec] or voip.PCMU
 
+    -- 普通 SIP/audio_v2 使用 Lua 管理的本地 PCM 收发；CC-SIP 桥接则由 CC C 层
+    -- 直接交换 PCM，必须避免第二个 audio_v2 speech 请求占用 I2S 并重复上行。
+    local is_cc_sip_bridge = g_config and g_config.cc_sip_bridge == true
+    local use_sip_audio_v2 = not is_cc_sip_bridge and exaudio.is_audio_v2 and exaudio.is_audio_v2()
+    g_voip_uses_exaudio = false
+    if is_cc_sip_bridge then
+        log_info("CC-SIP bridge: skip local audio_v2 speech")
+    elseif voip.setAudioMode and use_sip_audio_v2 then
+        pcall(voip.setAudioMode, voip.AUDIO_MODE_BRIDGE)
+    elseif voip.setAudioMode and voip.AUDIO_MODE_I2S then
+        pcall(voip.setAudioMode, voip.AUDIO_MODE_I2S)
+    end
+
     log_info("start voip engine with adapter:", g_current_adapter, "remote:", session.remote_ip .. ":" .. session.remote_port)
     local ok = voip.start({
         remote_ip = session.remote_ip,
@@ -171,6 +199,16 @@ local function start_voip_engine(session)
     })
 
     if ok then
+        local adapter_ok, bridge_ok = true, true
+        if use_sip_audio_v2 then
+            adapter_ok, bridge_ok = pcall(exaudio.sip_voip_start)
+        end
+        if not adapter_ok or not bridge_ok then
+            log_error("audio_v2 SIP bridge start failed")
+            voip.stop()
+            return
+        end
+        g_voip_uses_exaudio = use_sip_audio_v2
         log_info("voip engine started", session.remote_ip .. ":" .. session.remote_port,
             "codec=" .. tostring(session.codec), "adapter", g_config and g_config.adapter)
     else
@@ -183,10 +221,11 @@ local function stop_voip_engine()
         return
     end
     if voip.isRunning() then
+        if g_voip_uses_exaudio and exaudio.sip_voip_stop then exaudio.sip_voip_stop() end
+        g_voip_uses_exaudio = false
         voip.stop()
         log_info("voip engine stopping")
     end
-    pcall(exaudio.pm,audio.SHUTDOWN)
 end
 
 -- 网卡 IP 就绪/丢失事件处理
@@ -280,6 +319,8 @@ local function sip_event_handler(event, action, payload)
                 to = payload.to
             })
         end
+    elseif event == "dtmf" then
+        emit_callback("dtmf", action, payload)
     elseif event == "lifecycle" then
         log_info("lifecycle:", action)
         if action == "offline" then
@@ -335,6 +376,7 @@ end
 @boolean config.auto_answer 是否自动接听，默认 false
 @number config.delay_auto_answer 自动接听延迟（秒），默认 0
 @number config.call_timeout 拨号超时时间（秒），默认 30
+@boolean config.debug_sip_response 是否打印完整 SIP 服务器响应，默认 false
 @number config.adapter 网络适配器，nil=使用系统默认，socket.LWIP_GP=4G，socket.LWIP_STA=WiFi，socket.LWIP_ETH=以太网
 @return boolean 成功返回 true，失败返回 false
 @usage
@@ -403,6 +445,32 @@ function exsip.start()
         return false
     end
 
+    -- 根据调用方配置设置 VoIP 音频模式
+    if g_config.audio_mode ~= nil then
+        if not voip or type(voip.setAudioMode) ~= "function" then
+            log_error("voip.setAudioMode not supported")
+            return false
+        end
+
+        local mode_ok = voip.setAudioMode(g_config.audio_mode)
+
+        if not mode_ok and voip.stop then
+            log_warn("set audio mode failed, stop voip and retry")
+            voip.stop()
+
+            -- 不建议在 exsip 库内部使用 sys.wait(500)
+            -- voip.stop 如果是同步完成，可以直接重试
+            mode_ok = voip.setAudioMode(g_config.audio_mode)
+        end
+
+        if not mode_ok then
+            log_error("set voip audio mode failed:", g_config.audio_mode)
+            return false
+        end
+
+        log_info("voip audio mode configured:", g_config.audio_mode)
+    end
+
     setup_voip_callbacks()
 
     -- 订阅 IP 就绪/丢失事件
@@ -430,6 +498,9 @@ function exsip.start()
         codecs = g_config.codecs,
         ptime = g_config.ptime,
         call_timeout = g_config.call_timeout,
+        debug_sip_response = g_config.debug_sip_response,
+        early_media = g_config.early_media,
+        early_media_response = g_config.early_media_response,
         event_callback = sip_event_handler
     })
 
@@ -486,7 +557,7 @@ end
 @usage
 exsip.dial("1002")
 ]]
-function exsip.dial(target)
+function exsip.dial(target,from_number)
     if not g_started then
         log_error("not started, call exsip.start() first")
         return false
@@ -501,8 +572,8 @@ function exsip.dial(target)
         log_error("target must be a string")
         return false
     end
-    sipclient.call(target)
-    log_info("calling:", target)
+    sipclient.call(target,from_number)
+    log_info("calling:", target,from_number)
     return true
 end
 
@@ -530,6 +601,29 @@ function exsip.accept()
 end
 
 --[[
+发送来电早期媒体响应。
+@api exsip.progress()
+@return boolean 成功返回 true，失败返回 false
+@usage
+exsip.progress()
+]]
+function exsip.progress()
+    if not g_started then
+        log_error("not started")
+        return false
+    end
+
+    if not sipclient or not sipclient.progress then
+        log_error("sipclient.progress not available")
+        return false
+    end
+
+    sipclient.progress()
+    log_info("progressing incoming call")
+    return true
+end
+
+--[[
 挂断通话。
 @api exsip.hangUp()
 @return boolean 成功返回 true，失败返回 false
@@ -549,6 +643,31 @@ function exsip.hangUp()
 
     sipclient.hangup()
     log_info("hanging up")
+    return true
+end
+
+--[[
+使用指定 SIP 失败码结束尚未接听的来电。
+@api exsip.fail(code, reason)
+@number code SIP 状态码，默认 486
+@string reason 原因短语
+@return boolean 成功返回 true，失败返回 false
+@usage
+exsip.fail(480, "Temporarily Unavailable")
+]]
+function exsip.fail(code, reason)
+    if not g_started then
+        log_error("not started")
+        return false
+    end
+
+    if not sipclient or not sipclient.fail then
+        log_error("sipclient.fail not available")
+        return false
+    end
+
+    sipclient.fail(code, reason)
+    log_info("failing incoming call", code, reason)
     return true
 end
 
@@ -609,7 +728,7 @@ end)
 ]]
 function exsip.on(callback)
     if type(callback) == "function" then
-        local events = {"register", "ready", "call", "media", "message", "voip","lifecycle", "error"}
+        local events = {"register", "ready", "call", "media", "message", "dtmf", "voip", "lifecycle", "error"}
         for _, event in ipairs(events) do
             g_callbacks[event] = function(...)
                 callback(event, ...)
@@ -714,5 +833,56 @@ function exsip.is_voip_running()
     end
     return false
 end
+
+--[[
+在当前已建立的 SIP 通话中发送一串 SIP INFO DTMF。
+@api exsip.dtmf(digits[, duration_ms[, interval_ms] ])
+@string digits DTMF 字符串，仅支持 0-9、A-D、*、#，最长 32 位
+@number duration_ms 单位毫秒，默认 160，范围 50-2000
+@number interval_ms 两位 INFO 的发送间隔，默认 100，范围 0-5000
+@return boolean 参数合法且已投递返回 true，否则返回 false
+@usage
+exsip.dtmf("13800138000")
+exsip.dtmf("*123#", 160, 100)
+]]
+function exsip.dtmf(digits, duration_ms, interval_ms)
+    if not g_started then
+        log_error("not started")
+        return false
+    end
+    if not sipclient or not sipclient.dtmf then
+        log_error("sipclient.dtmf not available")
+        return false
+    end
+    if type(digits) ~= "string" or #digits == 0 or #digits > 32 then
+        log_error("digits must contain 1-32 DTMF characters")
+        return false
+    end
+    digits = digits:upper()
+    if not digits:match("^[0-9A-D%*#]+$") then
+        log_error("invalid dtmf digits:", digits)
+        return false
+    end
+    duration_ms = tonumber(duration_ms) or 160
+    interval_ms = tonumber(interval_ms) or 100
+    if duration_ms < 50 or duration_ms > 2000 or interval_ms < 0 or interval_ms > 5000 then
+        log_error("invalid dtmf duration or interval")
+        return false
+    end
+    sipclient.dtmf(digits, duration_ms, interval_ms)
+    return true
+end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exsip.version()
+]]
+function exsip.version()
+    return "202607021200"
+end
+
+log.debug("exsip", "version -> " .. exsip.version())
 
 return exsip

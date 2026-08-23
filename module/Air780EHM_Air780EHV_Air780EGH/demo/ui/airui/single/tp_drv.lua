@@ -33,6 +33,8 @@ else
 end
 ]]
 
+_G.tp_sleep_device = nil
+
 local function tp_drv_init()
 
     -- 初始化硬件I2C
@@ -46,28 +48,26 @@ local function tp_drv_init()
     -- pin_int: 中断引脚编号
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
-    local result = tp.init("gt911", { port = 1, pin_rst = 0xff, pin_int = gpio.WAKEUP0, w = 320, h = 480 })
+    _G.tp_sleep_device = tp.init("gt911", { port = 1, pin_rst = 0xff, pin_int = 2, w = 320, h = 480 })
 
-    log.info("tp.init", result)
+    log.info("tp.init", _G.tp_sleep_device)
 
-    -- 保存 TP 设备对象到全局变量，供休眠模块（airui_sleep.lua）使用
-    -- tp.sleep 需要 TP 设备对象作为参数，触摸唤醒模式下需要重新初始化 TP
-    _G.tp_sleep_device = result
-
-    if rtos.bsp() ~= "PC" then
-       
-        -- 绑定触摸设备到AirUI输入设备
-        airui.device_bind_touch(result)
-
-    else
-        if not result then
-            log.error("ui_main", "触摸初始化失败")
-            return result
+    if _G.tp_sleep_device then
+        if rtos.bsp() ~= "PC" then
+            -- 绑定触摸设备到 AirUI 输入设备
+            airui.device_bind_touch(_G.tp_sleep_device)
         else
-            -- 绑定触摸设备到AirUI输入设备
-            return airui.device_bind_touch(result)
+            if not _G.tp_sleep_device then
+                log.error("ui_main", "触摸初始化失败")
+                return _G.tp_sleep_device
+            else
+                -- 绑定触摸设备到 AirUI 输入设备
+                airui.device_bind_touch(_G.tp_sleep_device)
+            end
         end
     end
+
+    return _G.tp_sleep_device
 end
 
 tp_drv_init()

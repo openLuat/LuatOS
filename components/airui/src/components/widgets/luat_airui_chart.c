@@ -11,8 +11,14 @@
 #include "lvgl9/src/widgets/chart/lv_chart.h"
 #include "lvgl9/src/widgets/label/lv_label.h"
 #include "lvgl9/src/core/lv_obj.h"
+#include "lvgl9/src/core/lv_obj_event.h"
+#include "lvgl9/src/draw/lv_draw.h"
+#include "lvgl9/src/draw/lv_draw_line.h"
+#include "lvgl9/src/draw/lv_draw_rect.h"
+#include "lvgl9/src/draw/lv_draw_triangle.h"
 #include "lvgl9/src/misc/lv_async.h"
 #include "lvgl9/src/misc/lv_color.h"
+#include "lvgl9/src/misc/lv_grad.h"
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -35,6 +41,15 @@ typedef struct {
     uint32_t tick_label_count;
 } airui_chart_axis_state_t;
 
+/* 曲线下方渐变填充（LVGL lv_example_chart_5 同款 faded area） */
+typedef struct {
+    bool enabled;
+    bool has_color;
+    lv_color_t color;
+    lv_opa_t opa_start;
+    lv_opa_t opa_end;
+} airui_chart_fill_state_t;
+
 /* 图表数据 */
 typedef struct {
     lv_chart_series_t *series[AIRUI_CHART_MAX_SERIES];
@@ -56,6 +71,7 @@ typedef struct {
     lv_obj_t *legend_labels[AIRUI_CHART_MAX_SERIES];
     airui_chart_axis_state_t axis_x;
     airui_chart_axis_state_t axis_y;
+    airui_chart_fill_state_t fill;
 } airui_chart_data_t;
 
 static airui_ctx_t *airui_chart_get_ctx(lua_State *L);
@@ -72,6 +88,11 @@ static void airui_chart_legend_render(lv_obj_t *chart);
 static void airui_chart_cleanup_event_cb(lv_event_t *e);
 static void airui_chart_overlay_event_cb(lv_event_t *e);
 static void airui_chart_render_overlays_async(void *user_data);
+static void airui_chart_parse_fill_config(lua_State *L, int idx, airui_chart_fill_state_t *fill);
+static void airui_chart_apply_fill_fade_flag(lv_obj_t *chart, const airui_chart_fill_state_t *fill);
+static int32_t airui_chart_get_plot_bottom_y(lv_obj_t *chart);
+static void airui_chart_draw_faded_area(lv_event_t *e, airui_chart_data_t *data);
+static void airui_chart_fill_draw_event_cb(lv_event_t *e);
 
 /**
  * 从配置表创建 Chart 组件
@@ -321,6 +342,21 @@ lv_obj_t *airui_chart_create_from_config(void *L, int idx)
     }
     lua_pop(L_state, 1);
 
+    chart_data->fill.opa_start = LV_OPA_COVER;
+    chart_data->fill.opa_end = LV_OPA_TRANSP;
+
+    lua_getfield(L_state, idx, "fill_fade");
+    if (lua_type(L_state, -1) == LUA_TBOOLEAN) {
+        chart_data->fill.enabled = lua_toboolean(L_state, -1);
+    }
+    lua_pop(L_state, 1);
+
+    lua_getfield(L_state, idx, "fill");
+    if (lua_istable(L_state, -1)) {
+        airui_chart_parse_fill_config(L_state, lua_gettop(L_state), &chart_data->fill);
+    }
+    lua_pop(L_state, 1);
+
     airui_component_meta_t *meta = airui_component_meta_alloc(ctx, chart, AIRUI_COMPONENT_CHART);
     if (meta == NULL) {
         luat_heap_free(chart_data);
@@ -332,6 +368,8 @@ lv_obj_t *airui_chart_create_from_config(void *L, int idx)
     lv_obj_add_event_cb(chart, airui_chart_cleanup_event_cb, LV_EVENT_DELETE, chart_data);
     lv_obj_add_event_cb(chart, airui_chart_overlay_event_cb, LV_EVENT_SIZE_CHANGED, NULL);
     lv_obj_add_event_cb(chart, airui_chart_overlay_event_cb, LV_EVENT_STYLE_CHANGED, NULL);
+    lv_obj_add_event_cb(chart, airui_chart_fill_draw_event_cb, LV_EVENT_DRAW_TASK_ADDED, chart_data);
+    airui_chart_apply_fill_fade_flag(chart, &chart_data->fill);
 
     lv_async_call(airui_chart_render_overlays_async, chart);
 
@@ -845,6 +883,196 @@ static void airui_chart_legend_render(lv_obj_t *chart)
             lv_obj_set_style_text_color(label, data->series_colors[i], (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
             data->legend_labels[i] = label;
         }
+    }
+}
+
+/**
+ * 从 Lua 表解析曲线下方渐变填充配置
+ */
+static void airui_chart_parse_fill_config(lua_State *L, int idx, airui_chart_fill_state_t *fill)
+{
+    if (L == NULL || fill == NULL) {
+        return;
+    }
+
+    lua_getfield(L, idx, "enable");
+    if (lua_type(L, -1) == LUA_TBOOLEAN) {
+        fill->enabled = lua_toboolean(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, idx, "color");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+        fill->color = lv_color_hex((uint32_t)lua_tointeger(L, -1));
+        fill->has_color = true;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, idx, "opa_start");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+        fill->opa_start = airui_marshal_opacity((int)lua_tointeger(L, -1));
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, idx, "opa_end");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+        fill->opa_end = airui_marshal_opacity((int)lua_tointeger(L, -1));
+    }
+    lua_pop(L, 1);
+}
+
+/**
+ * 按配置开关 chart 的 DRAW_TASK 事件（渐变填充依赖）
+ */
+static void airui_chart_apply_fill_fade_flag(lv_obj_t *chart, const airui_chart_fill_state_t *fill)
+{
+    if (chart == NULL || fill == NULL) {
+        return;
+    }
+
+    if (fill->enabled) {
+        lv_obj_add_flag(chart, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+    }
+    else {
+        lv_obj_remove_flag(chart, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+    }
+}
+
+/**
+ * 绘图区底部 Y 坐标（屏幕坐标）
+ */
+static int32_t airui_chart_get_plot_bottom_y(lv_obj_t *chart)
+{
+    if (chart == NULL) {
+        return 0;
+    }
+
+    lv_area_t coords;
+    lv_obj_get_coords(chart, &coords);
+
+    int32_t border_width = lv_obj_get_style_border_width(chart, LV_PART_MAIN);
+    int32_t pad_top = lv_obj_get_style_pad_top(chart, LV_PART_MAIN) + border_width;
+    int32_t h = lv_obj_get_content_height(chart);
+    int32_t y_ofs = coords.y1 + pad_top - lv_obj_get_scroll_top(chart);
+    return y_ofs + h;
+}
+
+/**
+ * 为单段曲线绘制下方渐变三角形 + 矩形（参考 LVGL lv_example_chart_5）
+ */
+static void airui_chart_draw_faded_area(lv_event_t *e, airui_chart_data_t *data)
+{
+    lv_obj_t *obj = lv_event_get_target_obj(e);
+    lv_area_t coords;
+    lv_obj_get_coords(obj, &coords);
+
+    lv_draw_task_t *draw_task = lv_event_get_draw_task(e);
+    lv_draw_dsc_base_t *base_dsc = (lv_draw_dsc_base_t *)lv_draw_task_get_draw_dsc(draw_task);
+    lv_draw_line_dsc_t *draw_line_dsc = lv_draw_task_get_line_dsc(draw_task);
+    if (base_dsc == NULL || draw_line_dsc == NULL || base_dsc->layer == NULL) {
+        return;
+    }
+
+    lv_color_t fill_color = draw_line_dsc->color;
+    if (data != NULL && data->fill.has_color) {
+        fill_color = data->fill.color;
+    }
+
+    lv_opa_t opa_start = (data != NULL) ? data->fill.opa_start : LV_OPA_COVER;
+    lv_opa_t opa_end = (data != NULL) ? data->fill.opa_end : LV_OPA_TRANSP;
+
+    lv_draw_triangle_dsc_t tri_dsc;
+    lv_draw_triangle_dsc_init(&tri_dsc);
+    tri_dsc.p[0].x = draw_line_dsc->p1.x;
+    tri_dsc.p[0].y = draw_line_dsc->p1.y;
+    tri_dsc.p[1].x = draw_line_dsc->p2.x;
+    tri_dsc.p[1].y = draw_line_dsc->p2.y;
+    tri_dsc.p[2].x = draw_line_dsc->p1.y < draw_line_dsc->p2.y ? draw_line_dsc->p1.x : draw_line_dsc->p2.x;
+    tri_dsc.p[2].y = LV_MAX(draw_line_dsc->p1.y, draw_line_dsc->p2.y);
+    tri_dsc.grad.dir = LV_GRAD_DIR_VER;
+    tri_dsc.grad.stops_count = 2;
+
+    int32_t full_h = lv_obj_get_height(obj);
+    if (full_h < 1) {
+        full_h = 1;
+    }
+
+    int32_t fract_upper = (int32_t)(LV_MIN(draw_line_dsc->p1.y, draw_line_dsc->p2.y) - coords.y1) * 255 / full_h;
+    int32_t fract_lower = (int32_t)(LV_MAX(draw_line_dsc->p1.y, draw_line_dsc->p2.y) - coords.y1) * 255 / full_h;
+    if (fract_upper < 0) {
+        fract_upper = 0;
+    }
+    if (fract_upper > 255) {
+        fract_upper = 255;
+    }
+    if (fract_lower < 0) {
+        fract_lower = 0;
+    }
+    if (fract_lower > 255) {
+        fract_lower = 255;
+    }
+
+    tri_dsc.grad.stops[0].color = fill_color;
+    tri_dsc.grad.stops[0].opa = (lv_opa_t)((255 - fract_upper) * opa_start / 255);
+    tri_dsc.grad.stops[0].frac = 0;
+    tri_dsc.grad.stops[1].color = fill_color;
+    tri_dsc.grad.stops[1].opa = (lv_opa_t)((255 - fract_lower) * opa_start / 255);
+    tri_dsc.grad.stops[1].frac = 255;
+
+    lv_draw_triangle(base_dsc->layer, &tri_dsc);
+
+    lv_draw_rect_dsc_t rect_dsc;
+    lv_draw_rect_dsc_init(&rect_dsc);
+    rect_dsc.bg_grad.dir = LV_GRAD_DIR_VER;
+    rect_dsc.bg_grad.stops_count = 2;
+    rect_dsc.bg_grad.stops[0].color = fill_color;
+    rect_dsc.bg_grad.stops[0].frac = 0;
+    rect_dsc.bg_grad.stops[0].opa = (lv_opa_t)((255 - fract_lower) * opa_start / 255);
+    rect_dsc.bg_grad.stops[1].color = fill_color;
+    rect_dsc.bg_grad.stops[1].frac = 255;
+    rect_dsc.bg_grad.stops[1].opa = opa_end;
+    rect_dsc.bg_opa = LV_OPA_COVER;
+    rect_dsc.border_opa = LV_OPA_TRANSP;
+
+    lv_area_t rect_area;
+    rect_area.x1 = (int32_t)draw_line_dsc->p1.x;
+    rect_area.x2 = (int32_t)draw_line_dsc->p2.x - 1;
+    rect_area.y1 = (int32_t)LV_MAX(draw_line_dsc->p1.y, draw_line_dsc->p2.y);
+    rect_area.y2 = airui_chart_get_plot_bottom_y(obj);
+    if (rect_area.y2 < rect_area.y1) {
+        rect_area.y2 = rect_area.y1;
+    }
+
+    lv_draw_rect(base_dsc->layer, &rect_dsc, &rect_area);
+}
+
+/**
+ * 曲线渐变填充绘制事件
+ */
+static void airui_chart_fill_draw_event_cb(lv_event_t *e)
+{
+    lv_obj_t *chart = lv_event_get_target_obj(e);
+    airui_chart_data_t *data = airui_chart_get_data(chart);
+    if (data == NULL || !data->fill.enabled) {
+        return;
+    }
+
+    if (data->type != LV_CHART_TYPE_LINE) {
+        return;
+    }
+
+    lv_draw_task_t *draw_task = lv_event_get_draw_task(e);
+    if (draw_task == NULL) {
+        return;
+    }
+
+    lv_draw_dsc_base_t *base_dsc = (lv_draw_dsc_base_t *)lv_draw_task_get_draw_dsc(draw_task);
+    if (base_dsc == NULL) {
+        return;
+    }
+
+    if (base_dsc->part == LV_PART_ITEMS && lv_draw_task_get_type(draw_task) == LV_DRAW_TASK_TYPE_LINE) {
+        airui_chart_draw_faded_area(e, data);
     }
 }
 
@@ -1405,5 +1633,36 @@ int airui_chart_set_legend_enabled(lv_obj_t *chart, bool enable)
 
     data->legend_enabled = enable;
     airui_chart_legend_render(chart);
+    return AIRUI_OK;
+}
+
+/**
+ * 开关曲线下方渐变填充
+ */
+int airui_chart_set_fill_fade(lv_obj_t *chart, bool enable, const lv_color_t *color, int opa_start, int opa_end)
+{
+    airui_chart_data_t *data = airui_chart_get_data(chart);
+    if (chart == NULL || data == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    data->fill.enabled = enable;
+    if (color != NULL) {
+        data->fill.color = *color;
+        data->fill.has_color = true;
+    }
+    else if (!enable) {
+        data->fill.has_color = false;
+    }
+
+    if (opa_start >= 0) {
+        data->fill.opa_start = airui_marshal_opacity(opa_start);
+    }
+    if (opa_end >= 0) {
+        data->fill.opa_end = airui_marshal_opacity(opa_end);
+    }
+
+    airui_chart_apply_fill_fade_flag(chart, &data->fill);
+    lv_chart_refresh(chart);
     return AIRUI_OK;
 }

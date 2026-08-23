@@ -35,8 +35,8 @@ local project_auth_key = "123456"
 -- exmux库将会自动处理开发板上的I2C/SPI外设，确保总线通讯正常
 -- 当您使用自己的制作的板子，请参考exmux库的文档，配置对应的变量：https://docs.openluat.com/osapi/ext/exmux/
 -- local HARDWARE_ENV = "DEV_BOARD_8000_V2.0"
-local HARDWARE_ENV = "DEV_BOARD_780_V1.2"
--- local HARDWARE_ENV = "DEV_BOARD_780_V1.3"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.2"
+local HARDWARE_ENV = "DEV_BOARD_780_V1.3"
 
 -- 定义照片保存方式，有三种类型：
 -- 1、ZBUFF保存，输入"ZBUFF"即可，excamera库会自动处理ZBUFF

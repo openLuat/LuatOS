@@ -31,7 +31,8 @@ enum {
     LUAT_AUDIO_DRIVER_TYPE_USB,            /**< USB 音频驱动 */
     LUAT_AUDIO_DRIVER_TYPE_MAX = 255,            /**< 最大驱动类型 */
 
-
+    LUAT_AUDIO_DSP_TYPE_SPEEXDSP = 0,        /**< SpeexDSP 音频处理 */
+    LUAT_AUDIO_DSP_TYPE_MAX,            /**< 最大DSP类型 */
 
     LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_MODE = 0,       /**< I2S 模式参数 */
     LUAT_AUDIO_DRIVER_CONFIG_PARAM_I2S_FRAME_BITS,     /**< I2S 帧位宽参数 */
@@ -56,7 +57,7 @@ enum {
     LUAT_AUDIO_DRIVER_MODE_PLAY,           /**< 播放模式 */
     LUAT_AUDIO_DRIVER_MODE_RECORD,         /**< 录音模式 */
     LUAT_AUDIO_DRIVER_MODE_SPEECH,           /**< 通话模式 */
-    LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER,/**< 通话带缓冲区模式 */
+    LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER,/**< 通话带缓冲区模式，此时发送缓存数据填充由用户自行控制，不再由core处理 */
     LUAT_AUDIO_DRIVER_MODE_MAX,        /**< 最大驱动模式数量 */
 
     LUAT_AUDIO_DATA_CODEC_TYPE_RAW = 0,    /**< 原始音频数据编解码器 */
@@ -68,6 +69,13 @@ enum {
     LUAT_AUDIO_DATA_CODEC_TYPE_OPUS,       /**< OPUS 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW,       /**< G711_ULAW 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW,       /**< G711_ALAW 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_NO_OP,        /**< 无操作编解码器*/
+    LUAT_AUDIO_DATA_CODEC_TYPE_CC,        /**< 通话专用编解码器，用于通话中的音频数据编码解码，一般由BSP自行决定 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_NB,  /**< Speex 窄带 8kHz 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_WB,  /**< Speex 宽带 16kHz 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_UWB, /**< Speex 超宽带 32kHz 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_CC_BRIDGE_PCM, /**< CC-SIP桥接专用PCM直通编解码器，非Lua公共codec */
+    LUAT_AUDIO_DATA_CODEC_TYPE_VOIP_PCM,  /**< VOIP专用PCM直通编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MAX,        /**< 最大编解码器类型 */
     LUAT_AUDIO_DATA_CODEC_TYPE_HW = 0x80, /**< 编解码器类型-硬件编解码器优先模式 */
 
@@ -75,15 +83,23 @@ enum {
     LUAT_AUDIO_TTS_EVENT_START = 0,        /**< TTS 开始事件 */
     LUAT_AUDIO_TTS_EVENT_NEW_DATA,         /**< TTS 新数据可用事件 */
 
-    LUAT_AUDIO_REQUEST_EVENT_START = 0,                /**< 请求开始 */
-    LUAT_AUDIO_REQUEST_EVENT_DRIVER_START,             /**< 驱动开始 */
+    LUAT_AUDIO_REQUEST_EVENT_START = 0,                 /**< 请求开始 */
+    LUAT_AUDIO_REQUEST_EVENT_DRIVER_START,              /**< 驱动开始 */
     LUAT_AUDIO_REQUEST_EVENT_TTS_START,              /**< TTS 开始 */
     LUAT_AUDIO_REQUEST_EVENT_NEED_PLAY_INFO,          /**< 播放需要播放信息 */
     LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA,           /**< 播放需要新数据 */
     LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA,            /**< 录音获取到新数据 */
     LUAT_AUDIO_REQUEST_EVENT_DECODE_DONE,             /**< 解码完成 */
     LUAT_AUDIO_REQUEST_EVENT_END,                     /**< 请求结束 */
+    LUAT_AUDIO_REQUEST_EVENT_EXTERNAL_SOURCE_DECODE_DONE,         /**< 外部源解码完成 */
     LUAT_AUDIO_REQUEST_EVENT_MAX = 255,
+
+    LUAT_AUDIO_DRIVER_PARAM_TX_MAX_LEN = 0,     /**< 播放最大缓存长度参数 */
+    LUAT_AUDIO_DRIVER_PARAM_RX_MAX_LEN,         /**< 录音最大缓存长度参数 */
+
+    LUAT_AUDIO_DATA_CODEC_PARAM_ENCODE_INPUT_LEN = 0,         /**< 编码1帧需要的输入数据长度参数 */
+
+
 };
 
 #ifndef LUAT_AUDIO_DATA_CACHE_LEN
@@ -109,7 +125,7 @@ enum {
 #define LUAT_AUDIO_CHANNEL_PLAY_FIFO_DEFAULT_SIZE_POWER (17)
 #endif
 #ifndef LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER
-#define LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER (15)
+#define LUAT_AUDIO_CHANNEL_RECORD_FIFO_DEFAULT_SIZE_POWER (16)  // 100ms 96K 16bit 双通道的情况
 #endif
 /**
  * @brief 默认音频数据编解码器输入FIFO大小
@@ -127,11 +143,19 @@ enum {
 #endif
 
 #ifndef LUAT_AUDIO_TASK_PRIORITY
-#define LUAT_AUDIO_TASK_PRIORITY 90
+#define LUAT_AUDIO_TASK_PRIORITY 100
 #endif
 
 #ifndef LUAT_AUDIO_TTS_TASK_PRIORITY
 #define LUAT_AUDIO_TTS_TASK_PRIORITY 20
+#endif
+
+#ifndef LUAT_AUDIO_DSP_DEFAULT_TYPE
+#define LUAT_AUDIO_DSP_DEFAULT_TYPE LUAT_AUDIO_DSP_TYPE_SPEEXDSP
+#endif
+
+#ifndef LUAT_AUDIO_RESAMPLE_DEFAULT_QUALITY
+#define LUAT_AUDIO_RESAMPLE_DEFAULT_QUALITY 10
 #endif
 
 #define LUAT_AUDIO_FRAME_LOOP_CNT   4

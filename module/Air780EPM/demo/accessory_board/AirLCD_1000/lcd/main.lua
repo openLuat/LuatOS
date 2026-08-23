@@ -52,7 +52,7 @@ log.info("ui_demo", PROJECT, VERSION)
 --                     LCD电源：使用GPIO29控制LCD电源供电
 --                     LCD背光：使用GPIO30控制
 -- 详细说明请参考本目录下的readme.md文件
-HARDWARE_ENV = "CORE_BOARD"  -- 修改此值适配不同硬件环境："CORE_BOARD"=核心板, "DEV_BOARD_V1.2"=V1.2开发板, "DEV_BOARD_V1.3"=V1.3开发板
+HARDWARE_ENV = "DEV_BOARD_V1.3"  -- 修改此值适配不同硬件环境："CORE_BOARD"=核心板, "DEV_BOARD_V1.2"=V1.2开发板, "DEV_BOARD_V1.3"=V1.3开发板
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题

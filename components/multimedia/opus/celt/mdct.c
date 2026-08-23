@@ -54,7 +54,7 @@
 #include "stack_alloc.h"
 
 #if defined(FIXED_POINT) && defined(__mips) && __mips == 32
-#include "mips/mdct_mipsr1.h"
+#include "celt/mips/mdct_mipsr1.h"
 #endif
 
 #ifndef M_PI

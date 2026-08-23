@@ -54,7 +54,7 @@ typedef struct {
 } mdct_lookup;
 
 #if defined(HAVE_ARM_NE10)
-#include "arm/mdct_arm.h"
+#include "celt/arm/mdct_arm.h"
 #endif
 
 int clt_mdct_init(mdct_lookup *l,int N, int maxshift, int arch);

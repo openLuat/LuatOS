@@ -477,8 +477,8 @@ local function build_rtu_frame(opt_type, config)
     end
 
     -- 参数范围验证；
-    if type(config.slave_id) ~= "number" or config.slave_id < 1 or config.slave_id > 247 then
-        log.error("exmodbus", "从站地址必须在 1-247 范围内")
+    if type(config.slave_id) ~= "number" or config.slave_id < 1 or config.slave_id > 255 then
+        log.error("exmodbus", "从站地址必须在 1-255 范围内")
         return false
     end
 

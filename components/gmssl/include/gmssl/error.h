@@ -34,8 +34,9 @@ extern "C" {
 
 
 
-#define DEBUG 1
+#define GMSSL_DEBUG 0
 
+#if GMSSL_DEBUG
 #define warning_print() \
 	do { if (DEBUG) LLOGW("%s:%d:%s():\n",__FILE__, __LINE__, __func__); } while (0)
 
@@ -47,6 +48,19 @@ extern "C" {
 
 #define error_puts(str) \
             do { if (DEBUG) LLOGE("%s: %d: %s: %s", __FILE__, __LINE__, __func__, str); } while (0)
+#else
+#define warning_print() \
+	do {  } while (0)
+
+#define error_print() \
+	do {  } while (0)
+
+#define error_print_msg(fmt, ...) \
+	do {  } while (0)
+
+#define error_puts(str) \
+    do {   } while (0)
+#endif
 
 
 void print_der(const uint8_t *in, size_t inlen);

@@ -140,7 +140,7 @@ static void doswap(int swap, void *p, size_t n)
     if (i+m>len) goto done;		\
     memcpy(&l,s+i,m);			\
     doswap(swap,&l,m);			\
-    if (i+m+l>len) goto done;		\
+    if (l>len-(i+m)) goto done;		\
     i+=m;				\
     lua_pushlstring(L,s+i,l);		\
     i+=l;				\

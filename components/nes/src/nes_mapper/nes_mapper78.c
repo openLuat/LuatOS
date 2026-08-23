@@ -17,13 +17,18 @@
 #include "nes.h"
 
 /* https://www.nesdev.org/wiki/INES_Mapper_078
- * Jaleco JF-16 / Holy Diver — 16KB PRG switchable; 8KB CHR switchable; mirroring.
+ * Irem 74HC161/32 and Jaleco JF-16 / Holy Diver.
  * Write $8000-$FFFF:
  *   bits[2:0] = 16KB PRG bank for $8000-$BFFF (fixed last at $C000)
- *   bits[6:4] = CHR 8KB bank
- *   bit[3]    = mirroring (iNES 1.0 approximation: 0=V, 1=H for Irem variant;
- *               Holy Diver uses 0=NT0, 1=NT1 single-screen — we use V/H here)
+ *   bits[7:4] = CHR 8KB bank
+ *   bit[3]    = mirroring; Holy Diver uses H/V, while the other known variant
+ *               uses one-screen A/B. iNES 1.0 needs a CRC/submapper override.
  */
+
+static uint8_t mapper78_is_holy_diver(nes_t* nes) {
+    return nes->nes_rom.rom_crc == 0xE2AB58BAu ||
+           (nes->nes_rom.four_screen && nes->nes_rom.prg_rom_size == 8u && nes->nes_rom.chr_rom_size == 16u);
+}
 
 static void nes_mapper_init(nes_t* nes) {
     nes_load_prgrom_16k(nes, 0, 0);
@@ -31,15 +36,18 @@ static void nes_mapper_init(nes_t* nes) {
     if (nes->nes_rom.chr_rom_size > 0) {
         nes_load_chrrom_8k(nes, 0, 0);
     }
+    nes_ppu_screen_mirrors(nes, mapper78_is_holy_diver(nes) ? NES_MIRROR_HORIZONTAL : NES_MIRROR_ONE_SCREEN0);
 }
 
 static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
-    (void)address;
+    data &= nes->nes_cpu.prg_banks[(address >> 13) - 4][address & 0x1FFFu];
     nes_load_prgrom_16k(nes, 0, (uint16_t)(data & 0x07u));
     if (nes->nes_rom.chr_rom_size > 0) {
-        nes_load_chrrom_8k(nes, 0, (uint8_t)((data >> 4) & 0x07u));
+        nes_load_chrrom_8k(nes, 0, (uint16_t)((data >> 4) & 0x0Fu));
     }
-    if (nes->nes_rom.four_screen == 0) {
+    if (mapper78_is_holy_diver(nes)) {
+        nes_ppu_screen_mirrors(nes, (data & 0x08u) ? NES_MIRROR_VERTICAL : NES_MIRROR_HORIZONTAL);
+    } else {
         nes_ppu_screen_mirrors(nes, (data & 0x08u) ? NES_MIRROR_ONE_SCREEN1 : NES_MIRROR_ONE_SCREEN0);
     }
 }

@@ -14,7 +14,7 @@ local event = ""
 local LEDA = gpio.setup(146, 0, gpio.PULLUP)
 
 local function test_sta_http()
-    local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=5000,debug=false}).wait()
+    local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=5000,debug=false}).wait()
     --  注意使用不同的网络出口，可以设置不同的适配器，比如你想通过sta 方式上网就填入adapter=socket.LWIP_STA，如果使用4G 则填入adapter=socket.LWIP_GP
     log.info("http执行结果", code, headers, body and #body)
     if code == 200 then

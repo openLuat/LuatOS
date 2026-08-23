@@ -76,6 +76,11 @@ int luat_mobile_get_muid(char* buff, size_t buf_len) {
     return luat_airlink_drv_rpc_mobile_get_muid(buff, buf_len);
 }
 
+int luat_mobile_set_muid(const char* muid, size_t len) {
+    (void)muid; (void)len;
+    return -1;
+}
+
 uint8_t luat_mobile_get_sim_ready(int id) {
     uint8_t sim_ready = 0;
     if (luat_airlink_drv_rpc_mobile_get_sim_ready((uint8_t)id, &sim_ready) != 0) {
@@ -417,13 +422,54 @@ int luat_mobile_config(uint8_t item, uint32_t value) {
 }
 
 void luat_mobile_rf_test_mode(uint8_t uart_id, uint8_t on_off) {
+    // AirLink RPC: 这里应该通过 airlink RPC 通道转发到远程设备
+    // 现阶段不实现, 由远程设备(真机)的 PLAT 处理
     (void)uart_id;
     (void)on_off;
+    LLOGD("airlink: rf_test_mode uart=%d on=%d", uart_id, on_off);
 }
 
 void luat_mobile_rf_test_input(char *data, uint32_t data_len) {
+    // AirLink RPC: 这里应该把字节通过 airlink RPC 通道转发到远程设备
+    // 现阶段不实现, 远程设备(真机)的 PLAT 会自行接收
     (void)data;
     (void)data_len;
+    LLOGD("airlink: rf_test_input len=%u", (unsigned)data_len);
+}
+
+int luat_mobile_rf_test_set_rx_cb(const luat_mobile_rf_test_rx_cb_t *cb) {
+    // AirLink RPC: 不暴露 Rx 回调给本地, 远程设备自己处理
+    (void)cb;
+    return -1;
+}
+
+int luat_mobile_rf_test_param(const char *key, int *value, int is_set) {
+    // AirLink RPC: NPI/NV 不暴露此口, 真机由 mobile.nv/pm 处理
+    (void)key;
+    (void)value;
+    (void)is_set;
+    return -1;
+}
+
+int luat_mobile_rf_test_imei_get(char *out, uint32_t len) {
+    (void)out;
+    (void)len;
+    return -1;
+}
+
+int luat_mobile_rf_test_imei_set(const char *imei) {
+    (void)imei;
+    return -1;
+}
+
+int luat_mobile_rf_test_version(char *out, size_t out_len) {
+    (void)out; (void)out_len;
+    return -1;
+}
+
+int luat_mobile_rf_test_band_list(char *out, size_t out_len) {
+    (void)out; (void)out_len;
+    return -1;
 }
 
 void luat_mobile_set_sync_time(uint8_t on_off) {

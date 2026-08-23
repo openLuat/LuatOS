@@ -23,10 +23,10 @@
  */
 
 typedef struct {
-    uint8_t prg[4];
-    uint8_t chr[8];
-    uint8_t prg_bank_count;
-    uint8_t chr_bank_count;
+    uint8_t  prg[3];            /* 8KB banks at $8000/$A000/$C000 */
+    uint8_t  chr[8];            /* 1KB CHR banks */
+    uint16_t prg_bank_count;    /* total 8KB PRG bank count */
+    uint16_t chr_bank_count;    /* total 1KB CHR bank count */
 } mapper210_t;
 
 static void nes_mapper_deinit(nes_t* nes) {
@@ -36,14 +36,14 @@ static void nes_mapper_deinit(nes_t* nes) {
 
 static void mapper210_update_banks(nes_t* nes) {
     mapper210_t* m = (mapper210_t*)nes->nes_mapper.mapper_register;
-    uint8_t last  = (uint8_t)(m->prg_bank_count - 1u);
-    nes_load_prgrom_8k(nes, 0, m->prg[0] % m->prg_bank_count);
-    nes_load_prgrom_8k(nes, 1, m->prg[1] % m->prg_bank_count);
-    nes_load_prgrom_8k(nes, 2, m->prg[2] % m->prg_bank_count);
+    uint16_t last  = (uint16_t)(m->prg_bank_count - 1u);
+    nes_load_prgrom_8k(nes, 0, (uint16_t)(m->prg[0] % m->prg_bank_count));
+    nes_load_prgrom_8k(nes, 1, (uint16_t)(m->prg[1] % m->prg_bank_count));
+    nes_load_prgrom_8k(nes, 2, (uint16_t)(m->prg[2] % m->prg_bank_count));
     nes_load_prgrom_8k(nes, 3, last);
     if (m->chr_bank_count > 0u) {
         for (uint8_t i = 0u; i < 8u; i++)
-            nes_load_chrrom_1k(nes, i, (uint8_t)(m->chr[i] % m->chr_bank_count));
+            nes_load_chrrom_1k(nes, i, (uint16_t)(m->chr[i] % m->chr_bank_count));
     }
 }
 
@@ -54,32 +54,27 @@ static void nes_mapper_init(nes_t* nes) {
     }
     mapper210_t* m = (mapper210_t*)nes->nes_mapper.mapper_register;
     nes_memset(m, 0, sizeof(mapper210_t));
-    m->prg_bank_count = (uint8_t)(nes->nes_rom.prg_rom_size * 2u);
-    m->chr_bank_count = (uint8_t)(nes->nes_rom.chr_rom_size * 8u);
+    m->prg_bank_count = (uint16_t)(nes->nes_rom.prg_rom_size * 2u);
+    m->chr_bank_count = (uint16_t)(nes->nes_rom.chr_rom_size * 8u);
     if (m->chr_bank_count == 0u) nes_load_chrrom_8k(nes, 0, 0);
     mapper210_update_banks(nes);
 }
 
 static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     mapper210_t* m = (mapper210_t*)nes->nes_mapper.mapper_register;
-    switch (address & 0xF800u) {
-    case 0x8000u: case 0x8800u: m->chr[0] = data; mapper210_update_banks(nes); break;
-    case 0x9000u: case 0x9800u: m->chr[1] = data; mapper210_update_banks(nes); break;
-    case 0xA000u: case 0xA800u: m->chr[2] = data; mapper210_update_banks(nes); break;
-    case 0xB000u: case 0xB800u: m->chr[3] = data; mapper210_update_banks(nes); break;
-    case 0xC000u: case 0xC800u: m->chr[4] = data; mapper210_update_banks(nes); break;
-    case 0xD000u: case 0xD800u: m->chr[5] = data; mapper210_update_banks(nes); break;
-    case 0xE000u: case 0xE800u: m->chr[6] = data; mapper210_update_banks(nes); break;
-    case 0xF000u:               m->chr[7] = data; mapper210_update_banks(nes); break;
-    case 0xF800u:
-        if ((address & 0x01u) == 0u) {
-            m->prg[0] = data & 0x3Fu; mapper210_update_banks(nes);
-        } else {
-            m->prg[1] = data & 0x3Fu; mapper210_update_banks(nes);
+    if (address < 0xC000u) {
+        /* $8000-$BFFF: CHR 1KB banks 0-7, one register per $800 bytes */
+        uint8_t slot = (uint8_t)((address & 0x3800u) >> 11u);
+        m->chr[slot] = data;
+    } else {
+        switch (address & 0xF800u) {
+        case 0xE000u: m->prg[0] = data & 0x3Fu; break;  /* PRG bank at $8000 */
+        case 0xE800u: m->prg[1] = data & 0x3Fu; break;  /* PRG bank at $A000 */
+        case 0xF000u: m->prg[2] = data & 0x3Fu; break;  /* PRG bank at $C000 */
+        default: return;
         }
-        break;
-    default: break;
     }
+    mapper210_update_banks(nes);
 }
 
 int nes_mapper210_init(nes_t* nes) {

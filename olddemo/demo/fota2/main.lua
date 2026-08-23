@@ -6,8 +6,6 @@ VERSION = "1.0.0"
 --[[
 本demo 适用于 任何支持 fota 功能的模块, 包括:
 1. Cat.1模块, 如: Air700E/Air600E/Air780E/Air780EP/Air780EPV
-2. wifi模块, 如: ESP32C3/ESP32S3/Air601
-3. 外挂以太网的模块, 例如 Air105 + W5500
 ]]
 
 -- 使用合宙iot平台时需要这个参数
@@ -23,7 +21,7 @@ sys.taskInit(function()
     -- 统一联网函数, 可自行删减
     ----------------------------
     if wlan and wlan.connect then
-        -- wifi 联网, ESP32系列均支持, 要根据实际情况修改ssid和password!!
+        -- wifi 联网, 带 wlan 模块的模组均支持, 要根据实际情况修改ssid和password!!
         local ssid = "luatos1234"
         local password = "12341234"
         log.info("wifi", ssid, password)
@@ -35,11 +33,6 @@ sys.taskInit(function()
         -- EC618系列, 如Air780E/Air600E/Air700E
         -- mobile.simid(2) -- 自动切换SIM卡, 按需启用
         -- 模块默认会自动联网, 无需额外的操作
-    elseif w5500 then
-        -- w5500 以太网
-        w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
-        w5500.config() --默认是DHCP模式
-        w5500.bind(socket.ETH0)
     elseif socket then
         -- 适配了socket库也OK, 就当1秒联网吧
         sys.timerStart(sys.publish, 1000, "IP_READY")

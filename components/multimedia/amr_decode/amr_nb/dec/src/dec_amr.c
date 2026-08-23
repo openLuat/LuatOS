@@ -77,7 +77,7 @@ terms listed above has been obtained from the copyright holder.
 #include "bgnscd.h"
 #include "ex_ctrl.h"
 #include "sqrt_l.h"
-#include "frame.h"
+#include "amr_frame.h"
 #include "b_cn_cod.h"
 #include "basic_op.h"
 #include "oscl_mem.h"

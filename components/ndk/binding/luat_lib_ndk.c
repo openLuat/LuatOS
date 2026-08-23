@@ -74,7 +74,7 @@ static int l_ndk_gc(lua_State *L) {
 @string path 镜像路径
 @int mem_size 可选，沙盒RAM大小，默认 8 KiB，最大 512 KiB（LUAT_NDK_MAX_RAM_SIZE）
 @int exchange_size 可选，交换区大小，默认 LUAT_NDK_DEFAULT_EXCHANGE_SIZE，必须小于 mem_size
-@table opts 可选，目前支持 {isa="rv32ima"|"rv32imf"}
+@table opts 可选，目前支持 {isa="rv32ima"}
 @return userdata ctx 成功返回上下文，失败返回 nil,err
 */
 static int l_ndk_create(lua_State *L) {
@@ -318,7 +318,7 @@ static int l_ndk_stop(lua_State *L) {
 获取当前运行状态
 @api ndk.info(ctx)
 @userdata ctx ndk.rv32i 返回的上下文
-@return table 包含 mem/exchange/exchange_addr/image/running/mcause/mtval/abi_magic/abi_version/features/last_error/event_slots/isa/flen/fcsr/frm/fflags，便于判断生命周期状态和ABI能力
+@return table 包含 mem/exchange/exchange_addr/image/running/mcause/mtval/abi_magic/abi_version/features/last_error/event_slots/isa，便于判断生命周期状态和ABI能力
 */
 static int l_ndk_info(lua_State *L) {
     luat_ndk_t *ndk = ndk_check(L, 1);
@@ -349,14 +349,6 @@ static int l_ndk_info(lua_State *L) {
     lua_setfield(L, -2, "event_slots");
     lua_pushstring(L, ndk->isa);
     lua_setfield(L, -2, "isa");
-    lua_pushinteger(L, ndk->flen);
-    lua_setfield(L, -2, "flen");
-    lua_pushinteger(L, ndk->fcsr);
-    lua_setfield(L, -2, "fcsr");
-    lua_pushinteger(L, (ndk->fcsr >> 5) & 0x7);
-    lua_setfield(L, -2, "frm");
-    lua_pushinteger(L, ndk->fcsr & 0x1F);
-    lua_setfield(L, -2, "fflags");
     return 1;
 }
 

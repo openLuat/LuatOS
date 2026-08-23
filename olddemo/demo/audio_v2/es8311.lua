@@ -6,7 +6,6 @@
 ]]
 
 local es8311 = {}
-
 -- MCLK 分频系数表
 -- 每条记录对应一组 (MCLK频率, 采样率) 的寄存器配置参数
 -- 字段顺序：mclk(主时钟Hz), rate(采样率Hz), preDiv(预分频), preMulti(预倍频),
@@ -62,6 +61,7 @@ local codec_div_tbl = {
     { 6144000,  96000, 0x01, 0x04, 0x01, 0x01, 0x00, 0x00, 0xFF, 0x04, 0x10, 0x10 },
     { 3072000,  96000, 0x01, 0x08, 0x01, 0x01, 0x00, 0x00, 0xFF, 0x04, 0x10, 0x10 },
     { 1536000,  96000, 0x01, 0x08, 0x01, 0x01, 0x01, 0x00, 0x7F, 0x02, 0x10, 0x10 },
+    { 4000000,   8000, 0x05, 0x04, 0x01, 0x01, 0x00, 0x00, 0xFF, 0x02, 0x19, 0x32 },
 }
 
 -- 根据 MCLK 主时钟频率和采样率查找对应的分频系数配置
@@ -82,7 +82,20 @@ end
 -- @param reg_addr 寄存器地址
 -- @param data 要写入的数据 (单字节)
 local function write_reg(i2c_id, reg_addr, data)
-    i2c.send(i2c_id, 0x18, string.char(reg_addr, data)) -- ES8311 I2C 器件地址为 0x18
+    local result,read_data
+    result = i2c.send(i2c_id, 0x18, string.char(reg_addr, data)) -- ES8311 I2C 器件地址为 0x18
+    if result then
+        read_data = i2c.readReg(i2c_id, 0x18, reg_addr, 1)
+        if read_data and #read_data > 0 then
+            read_data = string.byte(read_data, 1)
+            if data ~= read_data then
+                log.error("es8311 write_reg failed reg_addr", reg_addr, "read data", read_data, "write data", data)
+            end
+        end
+    else
+        log.error("es8311 write_reg failed")
+    end
+
 end
 
 -- I2C 读寄存器
@@ -183,10 +196,10 @@ function es8311.set_sample_rate(i2c_id, sample_rate, mclk_div)
         log.error("es8311", "Unable to configure sample rate %dHz with %dHz MCLK", sample_rate, mclk)
         return false
     end
+    
     -- 寄存器 0x02: 预分频系数 (bit[7:5]) 和 预倍频系数 (bit[4:3])
-    local reg = read_reg(i2c_id, 0x02) & ~0xF0
+    local reg = read_reg(i2c_id, 0x02) & ~0xF8
     reg = reg | ((coeff[3] - 1) << 5)
-
     local datmp = 0
     if coeff[4] == 2 then datmp = 1
     elseif coeff[4] == 4 then datmp = 2
@@ -227,7 +240,9 @@ function es8311.set_sample_rate(i2c_id, sample_rate, mclk_div)
         reg = reg | (coeff[10])
     end
     write_reg(i2c_id, 0x06, reg)
-
+    if mclk_div == 500 then
+        write_reg(i2c_id, 0x16, 0x01)
+    end
     return true
 end
 
@@ -260,7 +275,9 @@ end
 -- @return true=初始化成功, false=芯片ID校验失败
 function es8311.init(i2c_id, voltage)
     if voltage == nil then voltage = 0x00 end   -- voltage = 0x00 3.3v, 0x01 1.8V
-
+	write_reg(i2c_id, 0x44, 0x08)
+	write_reg(i2c_id, 0x44, 0x08)
+	write_reg(i2c_id, 0x10, 0x61)
     -- 读取芯片 ID 进行校验 (寄存器 0xFD=CHIP_ID1, 0xFE=CHIP_ID2, 0xFF=CHIP_VER)
     local temp1 = read_reg(i2c_id, 0xFD)
     local temp2 = read_reg(i2c_id, 0xFE)
@@ -336,6 +353,7 @@ function es8311.resume(i2c_id)
     write_reg(i2c_id, 0x12, 0x00) -- 模拟系统控制 1 清零
     write_reg(i2c_id, 0x14, 0x18) -- 模拟系统控制 2 恢复
     write_reg(i2c_id, 0x0E, 0x00) -- 模拟输出选择清零
+
 end
 
 -- 进入待机模式 (低功耗，保留寄存器状态)
@@ -378,6 +396,12 @@ function es8311.power_down(i2c_id)
     write_reg(i2c_id, 0x45, 0x00) -- GPIO 输出关闭 (区别于 standby 的 0x01)
     write_reg(i2c_id, 0x0D, 0xFC) -- 进一步关闭时钟
     write_reg(i2c_id, 0x02, 0x00) -- 主时钟控制完全关闭
+end
+
+function es8311.print(i2c_id)
+    for reg = 0, 0x45, 1 do
+        log.info("reg", mcu.x32(reg), "val", mcu.x32(read_reg(i2c_id, reg)))
+    end
 end
 
 return es8311

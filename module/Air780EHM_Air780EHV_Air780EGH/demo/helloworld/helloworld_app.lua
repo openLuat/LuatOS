@@ -11,6 +11,7 @@
 本文件没有对外接口，直接在main.lua中require "helloworld_app"就可以加载运行；
 ]]
 
+require "exeasyui"
 
 local function helloworld_task_func()
     while true do

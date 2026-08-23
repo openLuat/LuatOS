@@ -31,7 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdlib.h>
 #include "main_FLP.h"
-#include "tuning_parameters.h"
+#include "silk/tuning_parameters.h"
 
 void silk_find_pitch_lags_FLP(
     silk_encoder_state_FLP          *psEnc,                             /* I/O  Encoder state FLP                           */

@@ -212,6 +212,7 @@ typedef luaL_Stream LStream;
 #undef feof
 #undef ferror
 #undef fwrite
+#undef fflush
 
 #define fopen   luat_fs_fopen
 #define fclose  luat_fs_fclose
@@ -221,6 +222,7 @@ typedef luaL_Stream LStream;
 #define feof    luat_fs_feof
 #define fwrite  luat_fs_fwrite
 #define ftell   luat_fs_ftell
+#define fflush  luat_fs_fflush
 
 
 static int io_type (lua_State *L) {
@@ -403,7 +405,7 @@ static int io_popen (lua_State *L) {
   p->closef = &io_pclose;
   #ifdef LUAT_USE_FS_VFS
   if (p->f) {
-    FILE* tmp = luat_vfs_add_fd(p->f, NULL);
+    FILE* tmp = luat_vfs_add_fd(p->f, NULL, NULL);
     if (tmp == NULL) {
       l_pclose(L, p->f);
       p->f = NULL;
@@ -1034,12 +1036,16 @@ static int f_fill(lua_State *L) {
   else {
     offset = 0;
   }
+  if (offset < 0 || offset > buff->len) {
+    return luaL_error(L, "offset %d is out of range", offset);
+  }
   if (lua_isinteger(L, 4)) {
     len = luaL_checkinteger(L, 4);
-    if (len > buff->len)
-      len = buff->len;
-    if (offset + len > buff->len)
-      len = len - offset;
+    if (len < 0) {
+      return luaL_error(L, "len %d is out of range", len);
+    }
+    if (len > buff->len - offset)
+      len = buff->len - offset;
   }
   else {
     len = buff->len - offset;

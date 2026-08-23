@@ -14,6 +14,7 @@
 #include "luat_lwiperf.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv.h"
+#include "luat_mem.h"
 #include "luat_msgbus.h"
 #include "lwip/ip.h"
 #include "lwip/tcpip.h"
@@ -23,6 +24,18 @@
 
 static void* iperf_session;
 
+/*
+@sys_pub iperf
+iperf测试的报告
+IPERF_REPORT
+@number 传输的总字节数
+@number 测试时长, 单位ms
+@number 带宽, 单位kbps
+@usage
+sys.subscribe("IPERF_REPORT", function(bytes, ms, kbps)
+    log.info("iperf", "report", bytes, ms, kbps)
+end)
+*/
 static int l_iperf_report_handle(lua_State*L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     uint32_t bytes_transferred, ms_duration, bandwidth;
@@ -244,4 +257,3 @@ LUAMOD_API int luaopen_iperf( lua_State *L ) {
     luat_newlib2(L, reg_iperf);
     return 1;
 }
-

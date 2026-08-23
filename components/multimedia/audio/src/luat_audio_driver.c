@@ -7,6 +7,9 @@
 #define LUAT_LOG_TAG "audio_drv"
 #include "luat_log.h"
 #include "luat_gpio.h"
+#ifdef LUAT_USE_DRV_GPIO
+#include "luat/drv_gpio.h"
+#endif
 
 #ifdef LUAT_CSDK_CONFIG_FILE
 #include LUAT_CSDK_CONFIG_FILE
@@ -27,7 +30,12 @@
 static __LUAT_C_CODE_IN_ISR__ LUAT_RT_RET_TYPE _audio_pa_power_on_delay_timer(LUAT_RT_CB_PARAM)
 {
 	struct luat_audio_driver_ctrl *ctrl = (struct luat_audio_driver_ctrl *)param;
+    #ifdef LUAT_USE_DRV_GPIO
+    luat_drv_gpio_set(ctrl->pa_power_pin, ctrl->pa_power_on_level);
+    #else
 	luat_gpio_set(ctrl->pa_power_pin, ctrl->pa_power_on_level);
+    #endif
+
     ctrl->pa_power_state = 1;
     LLOGC(luat_audio_debug_flag, "audio driver pa power on delay timer expire");
     if (ctrl->pa_power_state && ctrl->codec_power_state && ctrl->codec_ready_state) {
@@ -68,8 +76,13 @@ int luat_audio_driver_config_pa_power_ctrl(struct luat_audio_driver_ctrl *ctrl, 
         cfg.mode = LUAT_GPIO_OUTPUT;
         cfg.pull = LUAT_GPIO_DEFAULT;
         cfg.output_level = !pa_power_on_level; 
+        #ifdef LUAT_USE_DRV_GPIO
+        luat_drv_gpio_open(&cfg);
+        luat_drv_gpio_set(pa_power_pin, !pa_power_on_level);
+        #else
         luat_gpio_open(&cfg);
         luat_gpio_set(pa_power_pin, !pa_power_on_level);
+        #endif
     }
     return 0;
 }
@@ -96,8 +109,13 @@ int luat_audio_driver_config_codec_power_ctrl(struct luat_audio_driver_ctrl *ctr
         cfg.mode = LUAT_GPIO_OUTPUT;
         cfg.pull = LUAT_GPIO_DEFAULT;
         cfg.output_level = !codec_power_on_level; 
+        #ifdef LUAT_USE_DRV_GPIO
+        luat_drv_gpio_open(&cfg);
+        luat_drv_gpio_set(codec_power_pin, !codec_power_on_level);
+        #else
         luat_gpio_open(&cfg);
         luat_gpio_set(codec_power_pin, !codec_power_on_level);
+        #endif
     }
     return 0;
 }
@@ -116,7 +134,7 @@ int luat_audio_driver_config_private_param(struct luat_audio_driver_ctrl *ctrl, 
     return -LUAT_ERROR_DEVICE_BUSY;
 }
 
-int luat_audio_driver_config_audio_common_param(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums)
+int luat_audio_driver_config_audio_common_param(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t is_rx_dir)
 {
     if (!ctrl) {
         return -LUAT_ERROR_PARAM_INVALID;
@@ -125,12 +143,12 @@ int luat_audio_driver_config_audio_common_param(struct luat_audio_driver_ctrl *c
         return -LUAT_ERROR_NO_SUCH_ID;
     }
     if (LUAT_AUDIO_DRIVER_STATE_RUNNING > ctrl->state) {
-        return ctrl->opts->modify_audio_common_param(ctrl, sample_rate, data_align, channel_nums);
+        return ctrl->opts->modify_audio_common_param(ctrl, sample_rate, data_align, channel_nums, is_rx_dir);
     }
     return -LUAT_ERROR_DEVICE_BUSY;
 }
 
-int luat_audio_driver_change_sample_rate(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate)
+int luat_audio_driver_change_sample_rate(struct luat_audio_driver_ctrl *ctrl, uint32_t sample_rate, uint8_t is_rx_dir)
 {
     if (!ctrl) {
         return -LUAT_ERROR_PARAM_INVALID;
@@ -138,15 +156,20 @@ int luat_audio_driver_change_sample_rate(struct luat_audio_driver_ctrl *ctrl, ui
     if (LUAT_AUDIO_DRIVER_STATE_IDLE == ctrl->state) {
         return -LUAT_ERROR_NO_SUCH_ID;
     }
-    return ctrl->opts->modify_audio_common_param(ctrl, sample_rate, ctrl->common_param.data_align, ctrl->common_param.channel_nums);
+    if (is_rx_dir) {
+        return ctrl->opts->modify_audio_common_param(ctrl, sample_rate, ctrl->rx_param.data_align, ctrl->rx_param.channel_nums, is_rx_dir);
+    } else {
+        return ctrl->opts->modify_audio_common_param(ctrl, sample_rate, ctrl->tx_param.data_align, ctrl->tx_param.channel_nums, is_rx_dir);
+    }
+    
 }
 
-int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_common_param_t *common_param, uint32_t *play_buff, uint32_t one_block_len, uint8_t block_nums)
+int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_common_param_t *tx_param, luat_audio_common_param_t *rx_param, uint32_t *play_buff, uint32_t one_block_len, uint8_t block_nums)
 {
     if (!ctrl) {
         return -LUAT_ERROR_PARAM_INVALID;
     }
-    LLOGC(luat_audio_debug_flag, "audio driver start mode %d driver state %d", common_param->driver_work_mode, ctrl->state);
+    LLOGC(luat_audio_debug_flag, "audio driver request start mode %d now mode %d driver state %d", ctrl->request_work_mode, ctrl->driver_work_mode, ctrl->state);
     if (LUAT_AUDIO_DRIVER_STATE_IDLE == ctrl->state) {
         return -LUAT_ERROR_NO_SUCH_ID;
     }
@@ -159,22 +182,41 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
         }
         ctrl->state = LUAT_AUDIO_DRIVER_STATE_ACTIVE;
     }
-    LLOGC(luat_audio_debug_flag, "start check commom param old %u-%u-%u, mode %d, new %u-%u-%u, mode %d", 
-        ctrl->common_param.sample_rate, ctrl->common_param.data_align, ctrl->common_param.channel_nums, ctrl->common_param.driver_work_mode,
-        common_param->sample_rate, common_param->data_align, common_param->channel_nums, common_param->driver_work_mode);
+    if (tx_param) {
+        LLOGC(luat_audio_debug_flag, "start check tx param old %u-%u-%u, new %u-%u-%u", 
+            ctrl->tx_param.sample_rate, ctrl->tx_param.data_align, ctrl->tx_param.channel_nums,
+            tx_param->sample_rate, tx_param->data_align, tx_param->channel_nums);
+    }
+    if (rx_param) {
+        LLOGC(luat_audio_debug_flag, "start check rx param old %u-%u-%u, new %u-%u-%u", 
+            ctrl->rx_param.sample_rate, ctrl->rx_param.data_align, ctrl->rx_param.channel_nums,
+            rx_param->sample_rate, rx_param->data_align, rx_param->channel_nums);
+    }
 
-    if (ctrl->common_param.driver_work_mode != common_param->driver_work_mode) {
+
+    if (ctrl->request_work_mode != ctrl->driver_work_mode) {
         if (LUAT_AUDIO_DRIVER_STATE_RUNNING == ctrl->state) {
+            LLOGC(luat_audio_debug_flag, "mode change, stop driver");
             ctrl->opts->stop(ctrl);
             ctrl->state = LUAT_AUDIO_DRIVER_STATE_ACTIVE;
             ctrl->current_play_cnt = 0;
         }
     }
-        ret = ctrl->opts->modify_audio_common_param(ctrl, common_param->sample_rate, common_param->data_align, common_param->channel_nums);
+    if (tx_param) {
+        ret = ctrl->opts->modify_audio_common_param(ctrl, tx_param->sample_rate, tx_param->data_align, tx_param->channel_nums, 0);
         if (ret) {
             return -LUAT_ERROR_OPERATION_FAILED;
         }
-    if (common_param->driver_work_mode == LUAT_AUDIO_DRIVER_MODE_PLAY) {
+    }
+
+    if (rx_param) {
+        ret = ctrl->opts->modify_audio_common_param(ctrl, rx_param->sample_rate, rx_param->data_align, rx_param->channel_nums, 1);
+        if (ret) {
+            return -LUAT_ERROR_OPERATION_FAILED;
+        }
+    }
+
+    if (ctrl->request_work_mode == LUAT_AUDIO_DRIVER_MODE_PLAY) {
         if (!one_block_len) {
             one_block_len = ctrl->opts->tx_one_block_max_len;
         } else if (one_block_len > ctrl->opts->tx_one_block_max_len) {
@@ -182,25 +224,33 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
         }
     } else {
         if (!one_block_len) {
-            one_block_len = common_param->one_frame_bytes;
+            one_block_len = rx_param->one_frame_bytes_from_driver;
         }
         if (one_block_len > ctrl->opts->rx_one_block_max_len) {
-            one_block_len = ctrl->opts->rx_one_block_max_len;
+            one_block_len = rx_param->one_frame_bytes_from_driver;
         }
     }
     if (LUAT_AUDIO_DRIVER_STATE_ACTIVE == ctrl->state) {
         ctrl->one_play_block_len = 0;
         ctrl->one_record_block_len = 0;
         ctrl->current_play_cnt = 0;
-        switch (common_param->driver_work_mode) {
+        ctrl->static_play_buffer_cnt = 0;
+        switch (ctrl->request_work_mode) {
             case LUAT_AUDIO_DRIVER_MODE_PLAY:
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
                     ret = ctrl->opts->start_full_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
-                    ctrl->one_record_block_len = one_block_len;
+                    // ctrl->one_play_block_len和ctrl->one_record_block_len有可能被bsp驱动自行设置好
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
+                    if (!ctrl->one_record_block_len) {
+                        ctrl->one_record_block_len = one_block_len;
+                    }
                 } else if (ctrl->opts->support_tx_loop){  // 支持单向发送模式
                     ret = ctrl->opts->start_tx_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
                 } else {
                     ret = -LUAT_ERROR_PERMISSION_DENIED;
                 }
@@ -208,11 +258,17 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             case LUAT_AUDIO_DRIVER_MODE_RECORD:
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
                     ret = ctrl->opts->start_full_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
-                    ctrl->one_record_block_len = one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
+                    if (!ctrl->one_record_block_len) {
+                        ctrl->one_record_block_len = one_block_len;
+                    }
                 } else if (ctrl->opts->support_rx_loop){  // 支持单向接收模式
                     ret = ctrl->opts->start_rx_loop(ctrl, &ctrl->record_buff, one_block_len, block_nums);
-                    ctrl->one_record_block_len = one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
                 } else {
                     ret = -LUAT_ERROR_PERMISSION_DENIED;
                 }
@@ -220,14 +276,24 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             case LUAT_AUDIO_DRIVER_MODE_SPEECH:
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
                     ret = ctrl->opts->start_full_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
-                    ctrl->one_record_block_len = one_block_len;
-                } else if (ctrl->opts->support_tx_loop && ctrl->opts->support_rx_loop){  // 支持单向发送模式
-                    ret = ctrl->opts->start_tx_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
-                    if (!ret) {
-                        ret = ctrl->opts->start_rx_loop(ctrl, &ctrl->record_buff, one_block_len, block_nums);
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
+                    if (!ctrl->one_record_block_len) {
                         ctrl->one_record_block_len = one_block_len;
+                    }
+                } else if (ctrl->opts->support_tx_loop && ctrl->opts->support_rx_loop){  // 支持单向发送模式
+                    uint32_t tx_one_block_len = rx_param->one_frame_sample_cnt * ctrl->tx_param.data_align * ctrl->tx_param.channel_nums;
+                    ret = ctrl->opts->start_tx_loop(ctrl, &ctrl->play_buff, tx_one_block_len, block_nums);
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = tx_one_block_len;
+                    }
+                    if (!ret) {
+                        uint32_t rx_one_block_len = rx_param->one_frame_sample_cnt * ctrl->rx_param.data_align * ctrl->rx_param.channel_nums;
+                        ret = ctrl->opts->start_rx_loop(ctrl, &ctrl->record_buff, rx_one_block_len, block_nums);
+                        if (!ctrl->one_record_block_len) {
+                            ctrl->one_record_block_len = rx_one_block_len;
+                        }
                     }
                 } else {
                     ret = -LUAT_ERROR_PERMISSION_DENIED;
@@ -235,9 +301,32 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
                 break;
             case LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER:
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
+                    ctrl->play_buff = play_buff;
+                    if (!ctrl->opts->start_full_loop_with_play_buff) {
+                        ret = -LUAT_ERROR_PERMISSION_DENIED;
+                        break;
+                    }
                     ret = ctrl->opts->start_full_loop_with_play_buff(ctrl, play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
-                    ctrl->one_record_block_len = one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
+                    if (!ctrl->one_record_block_len) {
+                        ctrl->one_record_block_len = one_block_len;
+                    }
+                    ctrl->static_play_buffer_cnt = block_nums;
+                } else if (ctrl->opts->support_tx_loop && ctrl->opts->support_rx_loop) { // 不支持全双工时，用独立的 tx/rx loop 实现
+                    ctrl->play_buff = play_buff;
+                    ret = ctrl->opts->start_tx_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums);
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
+                    ctrl->static_play_buffer_cnt = block_nums;
+                    if (!ret) {
+                        ret = ctrl->opts->start_rx_loop(ctrl, &ctrl->record_buff, one_block_len, block_nums);
+                        if (!ctrl->one_record_block_len) {
+                            ctrl->one_record_block_len = one_block_len;
+                        }
+                    }
                 } else {
                     ret = -LUAT_ERROR_PERMISSION_DENIED;
                 }
@@ -249,17 +338,24 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             ctrl->state = LUAT_AUDIO_DRIVER_STATE_INITED;
             return -LUAT_ERROR_OPERATION_FAILED;
         }
+
         ctrl->state = LUAT_AUDIO_DRIVER_STATE_RUNNING;
+        
     }
+    ctrl->driver_work_mode = ctrl->request_work_mode;
     LLOGC(luat_audio_debug_flag, "start one play block len %u one record block len %u", ctrl->one_play_block_len, ctrl->one_record_block_len);
-    ctrl->common_param.driver_work_mode = common_param->driver_work_mode;
-    LLOGC(luat_audio_debug_flag, "start commom param now %u,%u,%u,%d", 
-        ctrl->common_param.sample_rate, ctrl->common_param.data_align, ctrl->common_param.channel_nums, ctrl->common_param.driver_work_mode);
+    LLOGC(luat_audio_debug_flag, "start tx param now %u,%u,%u rx param new %u,%u,%u", 
+        ctrl->tx_param.sample_rate, ctrl->tx_param.data_align, ctrl->tx_param.channel_nums,
+        ctrl->rx_param.sample_rate, ctrl->rx_param.data_align, ctrl->rx_param.channel_nums);
     LLOGC(luat_audio_debug_flag, "start check codec power %d , param %d %d %d", ctrl->codec_power_state,
         ctrl->codec_power_ctrl_enable, ctrl->codec_power_pin, ctrl->codec_power_on_level);
     if (!ctrl->codec_power_state) {
         if (ctrl->codec_power_ctrl_enable) {
+            #ifdef LUAT_USE_DRV_GPIO
+            luat_drv_gpio_set(ctrl->codec_power_pin, ctrl->codec_power_on_level);
+            #else
             luat_gpio_set(ctrl->codec_power_pin, ctrl->codec_power_on_level);
+            #endif
         }
         ctrl->codec_power_state = 1;
         ctrl->codec_ready_state = 0;
@@ -267,7 +363,7 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
     LLOGC(luat_audio_debug_flag, "start check codec ready %d , param %u", ctrl->codec_ready_state,
         ctrl->codec_ready_after_wakeup_time_ms);
     if (!ctrl->codec_ready_state) {
-        if (ctrl->codec_ready_after_wakeup_time_ms) {
+        if (ctrl->codec_ready_after_wakeup_time_ms && (ctrl->driver_work_mode < LUAT_AUDIO_DRIVER_MODE_SPEECH)) {
             luat_start_rtos_timer(ctrl->codec_ready_after_wakeup_timer, ctrl->codec_ready_after_wakeup_time_ms, 0);
         } else {
             ctrl->codec_ready_state = 1;
@@ -280,7 +376,11 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             if (ctrl->pa_power_on_delay_time_ms) {
                 luat_start_rtos_timer(ctrl->pa_power_on_delay_timer, ctrl->pa_power_on_delay_time_ms, 0);
             } else {
+                #ifdef LUAT_USE_DRV_GPIO
+                luat_drv_gpio_set(ctrl->pa_power_pin, ctrl->pa_power_on_level);
+                #else
                 luat_gpio_set(ctrl->pa_power_pin, ctrl->pa_power_on_level);
+                #endif
                 ctrl->pa_power_state = 1;
             }
         } else {
@@ -300,7 +400,11 @@ void luat_audio_driver_pa_power_off(struct luat_audio_driver_ctrl *ctrl)
         return;
     }
     if (ctrl->pa_power_ctrl_enable) {
+        #ifdef LUAT_USE_DRV_GPIO
+        luat_drv_gpio_set(ctrl->pa_power_pin, !ctrl->pa_power_on_level);
+        #else
         luat_gpio_set(ctrl->pa_power_pin, !ctrl->pa_power_on_level);
+        #endif
         ctrl->pa_power_state = 0;
     } else {
         ctrl->pa_power_state = 0;
@@ -317,7 +421,11 @@ void luat_audio_driver_codec_power_off(struct luat_audio_driver_ctrl *ctrl)
         if (ctrl->codec_power_off_delay_time_ms) {
             luat_rtos_task_sleep(ctrl->codec_power_off_delay_time_ms);
         }
+        #ifdef LUAT_USE_DRV_GPIO
+        luat_drv_gpio_set(ctrl->codec_power_pin, !ctrl->codec_power_on_level);
+        #else
         luat_gpio_set(ctrl->codec_power_pin, !ctrl->codec_power_on_level);
+        #endif
         ctrl->codec_power_state = 0;
         ctrl->codec_ready_state = 0;
     } else {

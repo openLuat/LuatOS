@@ -31,7 +31,7 @@
 
 #include <immintrin.h>
 #include "x86cpu.h"
-#include "pitch.h"
+#include "celt/pitch.h"
 
 #if defined(OPUS_X86_MAY_HAVE_AVX2) && !defined(FIXED_POINT)
 

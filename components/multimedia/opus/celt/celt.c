@@ -55,7 +55,7 @@
 #endif
 
 #if defined(FIXED_POINT) && defined(__mips)
-#include "mips/celt_mipsr1.h"
+#include "celt/mips/celt_mipsr1.h"
 #endif
 
 

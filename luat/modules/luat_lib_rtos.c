@@ -363,10 +363,31 @@ require("sd_user_main") -- 将搜索并加载 /sdcard/user/sd_user_main.luac 和
 static int l_rtos_set_paths(lua_State *L) {
     size_t len = 0;
     const char* str = NULL;
+    int s_count = 0;
     for (size_t i = 0; i < 4; i++)
     {
         if (lua_isstring(L, i +1)) {
             str = luaL_checklstring(L, i+1, &len);
+            if (len >= sizeof(custom_search_paths[i])) {
+                return luaL_error(L, "search path too long, max %d bytes", (int)sizeof(custom_search_paths[i]) - 1);
+            }
+            // 模板必须恰好包含一个%s, 只允许%%转义, 杜绝%n等格式串攻击
+            s_count = 0;
+            for (size_t j = 0; j < len; j++)
+            {
+                if (str[j] == '%') {
+                    j++;
+                    if (j >= len || (str[j] != 's' && str[j] != '%')) {
+                        return luaL_error(L, "search path must contain exactly one %%s");
+                    }
+                    if (str[j] == 's') {
+                        s_count++;
+                    }
+                }
+            }
+            if (s_count != 1) {
+                return luaL_error(L, "search path must contain exactly one %%s");
+            }
             memcpy(custom_search_paths[i], str, len + 1);
         }
         else {

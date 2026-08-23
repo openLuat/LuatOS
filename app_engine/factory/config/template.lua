@@ -195,7 +195,61 @@
     -- },
 
     -- ============================================================
-    -- 六、4G 连接方式 net_4g_config（条件: 仅 features 中 net_4g = true 时需要）
+    -- 六、统一网络配置 network（推荐，从 1.0 起替代零散的 net_4g/ethernet/wifi 字段）
+    -- ============================================================
+    -- 规则: 按优先级从高到低排列的数组，每条是一个网络接口
+    -- type 取值:
+    --   wifi_native         → 芯片自带 WiFi（Air8101/Air8000 等），无额外参数
+    --   wifi_airlink_spi    → Airlink SPI WiFi 外挂模组
+    --       spi_id = 1, cs_pin = 8, rdy_pin = 14, [speed = 20000000]
+    --   wifi_airlink_uart   → Airlink UART WiFi 外挂模组（6205）
+    --       uart_id = 3, baud = 2000000
+    --   4g_native           → 芯片自带 4G（Air8000/Air780E 等），注意：net_4g 需在 features 中开启
+    --   4g_airlink_spi      → Airlink SPI 4G 外挂模组（Air780EPM）
+    --       spi_id = 0, cs_pin = 15, rdy_pin = 48
+    --   4g_airlink_uart     → Airlink UART 4G 外挂模组
+    --       uart_id = 1, baud = 2000000, [adapter = socket.LWIP_GP_GW]
+    --   eth_spi             → SPI 以太网（非 Air8101 用 ETHERNET，Air8101 用 ETHUSER1）
+    --       chip = "CH390", spi_id = 0, cs_pin = 34, [irq_pin, pwr_pin]
+    --       chip 支持: CH390 / W5500 / ENC28J60（需底层支持）
+    --
+    -- 实际产品示例:
+
+    -- 例1: Air8101 EVB（自带 WiFi + SPI 以太网 CH390H 兜底）
+    -- network = {
+    --     { type = "wifi_native" },
+    --     { type = "eth_spi", chip = "CH390", spi_id = 0, cs_pin = 34, irq_pin = 9 },
+    -- },
+
+    -- 例2: Air8000W 引擎主机（自带 WiFi + 自带 4G 双网）
+    -- network = {
+    --     { type = "wifi_native" },
+    --     { type = "4g_native" },
+    -- },
+
+    -- 例3: Air1602 引擎主机（Airlink SPI WiFi 单网）
+    -- network = {
+    --     { type = "wifi_airlink_spi", spi_id = 1, cs_pin = 8, rdy_pin = 14 },
+    -- },
+
+    -- 例4: Air1601 EVB（Airlink UART WiFi + SPI 以太网兜底）
+    -- 注意：airlink_wifi 和 airlink_4G 都使用 UART3，二者只能开启一个
+    -- network = {
+    --     { type = "wifi_airlink_uart", uart_id = 3, baud = 2000000 },
+    --     -- { type = "4g_airlink_uart", uart_id = 3, baud = 2000000, adapter = socket.LWIP_GP_GW },
+    --     { type = "eth_spi", chip = "CH390", spi_id = 1, cs_pin = 14 },
+    -- },
+
+    -- 注意: network 配置 network 后，旧格式 features.net_4g/ethernet/wifi 仍保留供 UI 判断。
+    -- features 与 network 的对应关系:
+    --   features.wifi = true      ↔  network 中包含 wifi_native / wifi_airlink_*
+    --   features.ethernet = true  ↔  network 中包含 eth_spi
+    --   features.net_4g = true    ↔  network 中包含 4g_native / 4g_airlink_*
+    --   features.sd_card / nand_flash / battery 等不受 network 影响
+
+    -- ============================================================
+    -- （旧格式保留：以下字段用于向后兼容，新建配置请优先使用 network）
+    -- 六(旧)、4G 连接方式 net_4g_config（条件: 仅 features 中 net_4g = true 时需要）
     -- ============================================================
     -- 不配此字段或 type 不是 "airlink" → 使用芯片内置 4G
     -- type = "airlink" → 外挂 airlink 4G 模组（如 Air8101 外挂 Air780EPM）

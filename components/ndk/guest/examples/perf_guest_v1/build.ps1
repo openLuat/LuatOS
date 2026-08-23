@@ -11,7 +11,7 @@
 $ErrorActionPreference = "Stop"
 
 $exampleDir = $PSScriptRoot
-$root       = (Resolve-Path "$exampleDir\..\..").Path
+$root       = (Resolve-Path "$exampleDir\..\..\..").Path
 $outputDir  = (Resolve-Path "$root\..\..\testcase\ndk\ndk_perf_guest\scripts" -ErrorAction SilentlyContinue).Path
 if (-not $outputDir) {
     $outputDir = "$root\..\..\testcase\ndk\ndk_perf_guest\scripts"
@@ -62,7 +62,7 @@ Write-Host "[build] Compiling perf_guest_v1.elf (rv32ima_zicsr)..."
     -ffreestanding -nostdlib -fno-stack-protector `
     -fdata-sections -ffunction-sections `
     -Os -mno-relax `
-    -Wl,-T,$linker -Wl,-Map,$map -Wl,--gc-sections -Wl,--no-relax `
+    "-Wl,-T,$linker" "-Wl,-Map,$map" "-Wl,--gc-sections" "-Wl,--no-relax" `
     @includeArgs `
     -o $elf `
     @sources

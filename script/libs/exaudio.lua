@@ -1,10 +1,56 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 1.8
-@date    2026.5.11
+@version 3.0
+@date    2026.8.19
 @author  拓毅恒
 @updates
+    v3.0 2026.8.19
+        1. 修复PCM流式录音停止后不触发录音完成回调的问题
+        2. 修复exaudio.pm(exaudio.RESUME)恢复ES8311时未传递codec_voltage参数，
+           避免1.8V板型(Air8201H等)休眠恢复后ES8311电平被重置为3.3V。
+    v2.9 2026.8.14
+        1. 修复codec_voltage参数无效问题：setup时audio_setup_param.codec_voltage始终为默认值1(3.3V)，
+           现加入optional_params，外部设置codec_voltage=0(1.8V)可正确生效
+    v2.8 2026.8.11
+        1. 新增默认驱动切换支持：audio_setup_param新增tx_bus_type/tx_bus_id/rx_bus_type/rx_bus_id，
+           当板子上有多种音频驱动、需播放和录音使用不同驱动时设置（如Air1602_V1.2开发板DAC0输出+I2S2录音）。
+           默认nil不启用，不设置的客户使用BSP默认驱动，无需理解此功能。
+        2. 切换默认驱动成功后，对dac_ctrl引脚做一次"拉低→等待→拉高"复位脉冲重启ES8311
+           （驱动切换会重新配置I2S总线，dac_ctrl需从确定状态启动才能正常I2C通信）；
+           未切换驱动时dac_ctrl仅拉高保持供电，行为与原有逻辑一致
+        3. read_es8311_id()增加框架判断：audio_v2用i2c.readReg读取0xFD寄存器(0x83)校验，
+           audio旧框架用i2c.send+i2c.recv读取CHIP_ID_REG，保持原有逻辑
+        4. audio_v2_callback修复录音请求误报日志
+    v2.7 2026.8.7
+        1. 新增休眠控制宏exaudio.RESUME/exaudio.SHUTDOWN，解决Air1602等无audio库固件播放报错
+        2. 所有exaudio.pm()调用统一改为exaudio.pm(exaudio.RESUME)/exaudio.pm(exaudio.SHUTDOWN)
+    v2.6 2026.8.6
+        1. 新音频框架play_start()播放前主动exaudio.pm(audio.RESUME)恢复ES8311工作模式
+        2. 新音频框架play_stop()手动停止时exaudio.pm(audio.SHUTDOWN)下电ES8311省电
+        3. exaudio.vol()同步更新voice_vol变量，修复CC铃声无法设置问题
+        4. 通话自动唤醒：固件含cc库时自动订阅CC_IND事件，每次通话PLAY时自动RESUME唤醒，
+    v2.5 2026.8.3
+        1. play_start()文件播放新增文件头损坏预检：对mp3/amr/wav格式，播放前先解析文件头，
+           文件不存在或文件头损坏时停止播放并提示"播放文件损坏，请更换文件播放"
+    v2.4 2026.7.17
+        1. 重构exaudio.parse_audio_info()，支持文件路径和缓冲数据两种方式输入
+    v2.3 2026.7.16
+        1. 移除新音频框架初始化audio_v2_setup中的make_probe_id+set_default_driver操作
+           （各BSP有默认驱动，无需手动设置，特殊情况可通过exaudio.set_default_driver接口设置）
+    v2.2 2026.7.14
+        1. 新增codec_voltage参数控制ES8311电平 codec_voltage=1(默认3.3V)，codec_voltage=0(1.8V，适配Air8201等特殊板型)
+    v2.1 2026.7.8
+        1. 移除exaudio.shutdown()，合并到exaudio.pm()中
+        2. exaudio.pm()新增新音频框架支持
+        3. 新增exaudio.parse_audio_info()函数，用于从音频文件解析播放信息
+        4. 新增Air700/Air1780系列模组检测
+    v2.0 2026.7.3
+        1. 修复流式播放偶尔播放不完整的问题
+    v1.9 2026.7.1
+        1. 调整音频框架默认选择：780EXX系列、8000系列默认旧框架
+        2. 新增audio_mode参数，支持在setup中强制切换音频框架（"new"/"old"）
+        3. 默认使用新音频框架的型号：Air8101、Air1601、Air1602
     v1.8 2026.5.11
         1. 新增TM8211音频编解码器支持，支持"es8311"、"tm8211"(I2S+外部Codec)和"dac"(内置DAC)两种类型
     v1.7 2026.4.22
@@ -30,16 +76,101 @@
         4. exaudio.play_stream_write(data),流式音频数据,单次写入的长度修改为根据每秒播放数据量来确定
         5. 低功耗自动控制，exaudio.setup默认SHUTDOWN模式,exaudio.play_start和exaudio.record_start会自动切换到RESUME模式,播放完成或录音完成，会自动切换到SHUTDOWN模式
 @usage
+
+-- 版本更新说明
+-- 版本号：202608192010
+-- 1、更新时间：2026-08-19 20:10
+--    修复PCM流式录音手动停止后不触发录音完成回调的问题。
+--    修复exaudio.pm(exaudio.RESUME)恢复ES8311时未传递codec_voltage参数，避免1.8V板型(Air8201H等)休眠恢复后ES8311电平被重置为3.3V。
+-- 版本号：202608141949
+-- 1、更新时间：2026-08-14 19:49
+--    修复codec_voltage参数无效问题：setup时audio_setup_param.codec_voltage始终为默认值1(3.3V)，现加入optional_params，外部设置codec_voltage=0(1.8V)可正确生效
+-- 版本号：202608111818
+-- 1、更新时间：2026-08-11 18:18
+--    新增默认驱动切换支持：audio_setup_param新增tx_bus_type/tx_bus_id/rx_bus_type/rx_bus_id，当板子上有多种音频驱动、需播放和录音使用不同驱动时设置默认nil不启用
+--    切换默认驱动成功后，对dac_ctrl引脚做一次"拉低→等待→拉高"复位脉冲重启ES8311（驱动切换会重新配置I2S总线，dac_ctrl需从确定状态启动才能正常I2C通信）
+--    read_es8311_id()增加框架判断：audio_v2用i2c.readReg读取0xFD寄存器(0x83)校验，audio旧框架用i2c.send+i2c.recv读取CHIP_ID_REG，保持原有逻辑
+--    audio_v2_callback修复录音请求误报日志
+-- 版本号：202608071000
+-- 1、更新时间：2026-08-07 10:29
+--    新增休眠控制宏exaudio.RESUME/exaudio.SHUTDOWN，解决Air1602等无audio库固件报错
+--    所有exaudio.pm()调用统一改为exaudio.pm(exaudio.RESUME)/exaudio.pm(exaudio.SHUTDOWN)
+-- 版本号：202608061100
+-- 1、更新时间：2026-08-06 11:00
+--    新音频框架play_start()播放前主动exaudio.pm(audio.RESUME)恢复ES8311工作模式
+--    新音频框架play_stop()手动停止时exaudio.pm(audio.SHUTDOWN)下电ES8311省电
+--    同时exaudio.vol()同步更新voice_vol变量，修复CC铃声无法设置问题
+-- 版本号：202608031526
+-- 1、更新时间：2026-08-03 15:26
+--    play_start()文件播放新增文件头损坏预检功能
+--    对mp3/amr/wav格式，播放前先解析文件头，文件不存在或头损坏时停止播放并提示"播放文件损坏，请更换文件播放"
+-- 版本号：202607171800
+-- 1、更新时间：2026-07-17 18:00
+--    改造parse_audio_info，支持文件路径和缓冲数据两种方式输入
+-- 版本号：202607161030
+-- 1、更新时间：2026-07-16 10:30
+--    移除新音频框架初始化audio_v2_setup中的make_probe_id+set_default_driver操作
+--    各BSP有默认驱动，无需手动设置，特殊情况可通过exaudio.set_default_driver接口设置
+-- 版本号：202607141800
+-- 1、更新时间：2026-07-14 18:00
+--    新增codec_voltage参数控制ES8311电平
+--    codec_voltage=1(默认3.3V)，codec_voltage=0(1.8V，适配Air8201等特殊板型)
+-- 版本号：202607081647
+-- 1、更新时间：2026-07-08 16:47
+--    移除exaudio.shutdown()，统一合并到exaudio.pm()中
+--    exaudio.pm()新增新音频框架支持
+--    新增exaudio.make_probe_id()函数，用于合成音频驱动ID
+--    新增Air700/Air1780系列模组检测
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exaudio.version()接口
+--    支持exaudio库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 local exaudio = {}
 
--- 常量定义
+-- ==================== 模组检测 ====================
+-- 获取当前模组型号
+local function get_module_type()
+    local model = hmeta and hmeta.model and hmeta.model()
+    if model then
+        local model_lower = model:lower()
+        if model_lower:find("air1601") then
+            return "air1601"
+        elseif model_lower:find("air1602") then
+            return "air1602"
+        elseif model_lower:find("air8101") then
+            return "air8101"
+        elseif model_lower:find("air780e") then
+            return "air780e"       -- 780EXX系列
+        elseif model_lower:find("air8000") then
+            return "air8000"      -- 8000系列
+        elseif model_lower:find("air700") then
+            return "air700"       -- Air700系列
+        elseif model_lower:find("air1780") then
+            return "air1780"      -- Air1780系列
+        end
+    end
+    return "other"
+end
+
+-- 当前模组型号
+local MODULE_TYPE = get_module_type()
+
+-- 判断使用audio_v2还是audio
+-- 780EXX系列、8000系列、Air700系列、Air1780系列默认用audio，其余（8101、160X等）默认用audio_v2
+local USE_AUDIO_V2 = (MODULE_TYPE ~= "air780e" and MODULE_TYPE ~= "air8000" and MODULE_TYPE ~= "air700" and MODULE_TYPE ~= "air1780")
+
+-- ==================== 常量定义 ====================
 local I2S_ID = 0
 local MULTIMEDIA_ID = 0
 local EX_MSG_PLAY_DONE = "playDone"
 local ES8311_ADDR = 0x18    -- 7位地址
 local CHIP_ID_REG = 0x00    -- 芯片ID寄存器地址
 local PCM_BUFFER_DURATION_MS = 50  -- 每个缓冲区的时长（毫秒）
+
+-- audio_v2相关常量
+local AUDIO_V2_DRIVER_ID = nil  -- audio_v2驱动ID，初始化时设置
 
 -- 模块常量
 exaudio.PLAY_DONE = 1         --   音频播放完毕的事件之一
@@ -52,7 +183,11 @@ exaudio.PCM_24000 = 4
 exaudio.PCM_32000 = 5
 exaudio.PCM_48000 = 6
 
+-- 休眠控制模式宏
+exaudio.RESUME = 0      -- 工作模式
+exaudio.SHUTDOWN = 2    -- 关断模式
 
+-- ==================== 版本自适应 ====================
 -- 根据版本号自适应设置dac_delay
 local set_dac_delay = 0
 local version = rtos.version()
@@ -73,7 +208,7 @@ else
     set_dac_delay = 600
 end
 
--- 默认配置参数
+-- ==================== 配置参数 ====================
 local audio_setup_param = {
     model = "es8311",    -- 编解码器类型: "es8311"、"tm8211" 或 "dac"(内置DAC)
     i2c_id = 0,               -- i2c_id: 0,1
@@ -92,12 +227,23 @@ local audio_setup_param = {
     i2s_mode = 0,                -- I2S模式: 0:主机 1:从机
     i2s_sample = 16000,     -- I2S采样率
     bits_per_sample = 16,     -- I2S采样位深
-    i2s_comm_format = i2s.MODE_LSB, -- I2S通信格式: MODE_I2S, MODE_LSB, MODE_MSB
+    i2s_comm_format = i2s and i2s.MODE_LSB or 0, -- I2S通信格式: MODE_I2S, MODE_LSB, MODE_MSB
     i2s_framebit = 16,       -- I2S通道位宽
-    
+
+    -- 默认驱动切换参数（默认nil不启用，仅当板子上有多种音频驱动且需要播放和录音使用不同驱动时设置）
+    -- 设置后setup内部自动执行exaudio.make_probe_id + set_default_driver，
+    -- 并在切换成功后对dac_ctrl引脚做一次"拉低→等待→拉高"复位脉冲重启ES8311。
+    -- 不设置时使用BSP默认驱动
+    tx_bus_type = nil,        -- 发送(播放)总线类型，见audio_v2.DRIVER_TYPE_*常量，如DRIVER_TYPE_DAC
+    tx_bus_id = nil,          -- 发送总线ID
+    rx_bus_type = nil,        -- 接收(录音)总线类型，见audio_v2.DRIVER_TYPE_*常量，如DRIVER_TYPE_I2S
+    rx_bus_id = nil,          -- 接收总线ID
+
     -- DAC硬件配置参数
     dac_ch = 0,               -- DAC通道号
-    dac_chl = 0               -- DAC通道选择: 0=AUD_LN, 1=AUD_LP, 2=双通道
+    dac_chl = 0,              -- DAC通道选择: 0=AUD_LN, 1=AUD_LP, 2=双通道
+
+    codec_voltage = 1,        -- ES8311编解码器电平: 1=3.3V(默认), 0=1.8V(Air8201H等特殊板型)
 }
 
 local audio_play_param = {
@@ -119,10 +265,10 @@ local audio_record_param = {
     cbfnc = nil               -- 录音完毕回调
 }
 
--- 内部变量
+-- ==================== 内部变量 ====================
 local pcm_buff0 = nil
 local pcm_buff1 = nil
-local voice_vol = 65
+local voice_vol = 70
 local mic_vol = 80
 
 -- 定义全局队列表
@@ -137,7 +283,20 @@ local audio_stream_queue = {
     sequenceIndex = 1    -- 用于跟踪插入顺序的索引
 }
 
--- 工具函数：参数检查
+-- audio_v2相关变量
+local cc_auto_pm_enabled = false      -- 通话自动唤醒是否已开启（防止重复订阅CC_IND）
+local audio_v2_request_index = nil  -- 当前播放请求的索引
+local audio_v2_record_request_index = nil  -- 当前录音请求的索引
+local audio_v2_stream_file_fp = nil  -- 流式播放文件句柄(audio_v2模式)
+local audio_v2_stream_codec_id = nil  -- 流式播放codec_id(audio_v2模式)
+local audio_v2_stream_data_start = nil  -- 流式播放数据起始位置(audio_v2模式)
+local audio_v2_record_zbuff = nil  -- 录音zbuff（audio_v2回调模式）
+local sip_v2_request_index, sip_v2_source_index, sip_v2_record_zbuff, sip_v2_timer
+local audio_v2_stream_end_marked = false  -- 标记流式结束（队列模式）
+local audio_v2_es8311_drv = nil  -- ES8311驱动引用（audio_v2模式）
+
+-- ==================== 工具函数 ====================
+-- 参数检查
 local function check_param(param, expected_type, name)
     if type(param) ~= expected_type then
         log.error(string.format("参数错误: %s 应为 %s 类型", name, expected_type))
@@ -154,6 +313,7 @@ local function calculate_buffer_size(sampling_rate, sampling_depth, channels)
     return math.floor(bytes_per_buffer / 4) * 4  -- 对齐到4字节
 end
 
+-- ==================== 队列操作函数 ====================
 -- 向播放请求队列中添加请求（按优先级排序）
 local function audio_play_queue_push_request(request)
     if type(request) == "table" and request.priority then
@@ -211,8 +371,500 @@ local function audio_stream_queue_pop()
     return nil
 end
 
--- 开始播放下一个请求
-local function start_next_play()
+-- 清空所有队列数据
+local function audio_queue_clear()
+    -- 清空播放请求队列
+    audio_play_queue.requests = {}
+    audio_play_queue.current_priority = 0
+    
+    -- 清空流式数据队列
+    audio_stream_queue.data = {}
+    audio_stream_queue.sequenceIndex = 1
+    return true
+end
+
+-- ==================== audio_v2 回调处理 ====================
+local function audio_v2_callback(request_index, event, param)
+    if event == audio_v2.REQUEST_START then
+        -- REQUEST_START对播放和录音请求都会触发，需区分打印
+        if audio_v2_record_request_index == request_index then
+            log.info("exaudio", "录音开始", request_index)
+        else
+            audio_v2_request_index = request_index
+            log.info("exaudio", "播放开始", request_index)
+        end
+    elseif event == audio_v2.REQUEST_DRIVER_START then
+        -- ES8311 每次启动请求时恢复 DAC、音量和 PA。
+        if audio_setup_param.model == "es8311" and audio_v2_es8311_drv then
+            audio_v2_es8311_drv.resume(audio_setup_param.i2c_id)
+            audio_v2_es8311_drv.set_mute(audio_setup_param.i2c_id, false)
+            audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id, voice_vol)
+            audio_v2_es8311_drv.set_mic_vol(audio_setup_param.i2c_id, mic_vol)
+            if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
+                gpio.setup(audio_setup_param.pa_ctrl, audio_setup_param.pa_on_level)
+            end
+            log.info("exaudio", "audio_v2 driver start: ES8311 DAC/PA resumed")
+        end
+    elseif event == audio_v2.REQUEST_NEED_NEW_DATA then
+        -- 流式播放需要更多数据
+        -- 先调用input()检查FIFO剩余空间
+        -- 优先使用文件句柄方式
+        if audio_v2_stream_file_fp and request_index == audio_v2_request_index then
+            -- 文件流模式：先获取FIFO剩余空间，再循环写入
+            local result, write_len, free_len = audio_v2.input(request_index)
+            if result and free_len then
+                while free_len > 0 do
+                    -- 每次读取不超过FIFO剩余空间，避免partial write导致数据丢失
+                    local read_size = free_len > 4096 and 4096 or free_len
+                    local data = audio_v2_stream_file_fp:read(read_size)
+                    if data then
+                        local is_end = #data < read_size
+                        result, write_len, free_len = audio_v2.input(request_index, data, is_end)
+                        if not result then break end
+                        -- 处理partial write：把未写入部分回退到文件，下次NEED_NEW_DATA继续读取
+                        if write_len and write_len < #data then
+                            local current_pos = audio_v2_stream_file_fp:seek("cur", 0)
+                            audio_v2_stream_file_fp:seek("set", current_pos - (#data - write_len))
+                            break
+                        end
+                        if is_end then
+                            break
+                        end
+                    else
+                        audio_v2.input(request_index, nil, true)
+                        break
+                    end
+                end
+            end
+        else
+            -- 队列模式：用户通过play_stream_write写入数据，循环填充直到FIFO满或队列空
+            local result, write_len, free_len = audio_v2.input(request_index)
+            if result and free_len then
+                while free_len > 0 do
+                    local data = audio_stream_queue_pop()
+                    if data then
+                        result, write_len, free_len = audio_v2.input(request_index, data, false)
+                        if not result then break end
+                        -- 处理partial write：audio_v2.input()只写入free_len能容纳的部分，剩余放回队列
+                        if write_len and write_len < #data then
+                            local remaining = data:sub(write_len + 1)
+                            table.insert(audio_stream_queue.data, 1, {index = 0, value = remaining})
+                            break
+                        end
+                    else
+                        break
+                    end
+                end
+            end
+            -- while循环可能因partial write/FIFO满等原因退出而不走else分支，
+            -- 所以此处统一检查：只有队列真正空了才发结束标记
+            if audio_v2_stream_end_marked and #audio_stream_queue.data == 0 then
+                audio_v2.input(request_index, "", true)
+                audio_v2_stream_end_marked = false
+            end
+        end
+    elseif event == audio_v2.REQUEST_GET_NEW_DATA then
+        if request_index == sip_v2_request_index and sip_v2_record_zbuff and voip then
+            local used = sip_v2_record_zbuff:used()
+            if used > 0 then
+                voip.pcmIn(sip_v2_record_zbuff:query(0, used))
+                sip_v2_record_zbuff:del()
+            end
+            return
+        end
+        -- 录音数据
+        if type(audio_record_param.path) == "function" and audio_v2_record_zbuff then
+            local total = audio_v2_record_zbuff:used()
+            if total > 0 then
+                audio_record_param.path(audio_v2_record_zbuff, total)
+                audio_v2_record_zbuff:del()
+            end
+        end
+    elseif event == audio_v2.REQUEST_END then
+        -- 判断是录音结束还是播放结束
+        if audio_v2_record_request_index == request_index then
+            -- 录音结束
+            audio_v2_record_request_index = nil
+            audio_v2_record_zbuff = nil
+            log.info("exaudio", "录音完毕", request_index)
+            if type(audio_record_param.cbfnc) == "function" then
+                audio_record_param.cbfnc(exaudio.RECORD_DONE)
+            end
+            -- 录音不发布EX_MSG_PLAY_DONE
+        elseif audio_v2_request_index == request_index then
+            -- 播放结束
+            log.info("exaudio", "播放完毕", request_index)
+            -- 关闭文件句柄
+            if audio_v2_stream_file_fp then
+                audio_v2_stream_file_fp:close()
+                audio_v2_stream_file_fp = nil
+            end
+            
+            if type(audio_play_param.cbfnc) == "function" then
+                audio_play_param.cbfnc(exaudio.PLAY_DONE)
+            end
+            
+            -- audio_v2 自带优先级管理，下一个请求会自动播放
+            audio_v2_request_index = nil
+            audio_v2_stream_codec_id = nil
+            audio_v2_stream_data_start = nil
+            audio_v2_stream_end_marked = false
+            audio_play_queue.current_priority = 0
+            
+            sys.publish(EX_MSG_PLAY_DONE)
+        end
+    end
+end
+
+-- ==================== audio 回调处理 ====================
+local function audio_callback(id, event, point)
+    if event == audio.MORE_DATA then
+        -- 从队列取出数据并写入
+        local data = audio_stream_queue_pop()
+        if data then
+            audio.write(MULTIMEDIA_ID, data)
+        end
+    elseif event == audio.DONE then
+        if type(audio_play_param.cbfnc) == "function" then
+            audio_play_param.cbfnc(exaudio.PLAY_DONE)
+        end
+        
+        -- 检查是否有下一个播放请求
+        if #audio_play_queue.requests > 0 then
+            -- 播放下一个请求
+            start_next_play()
+        else
+            -- 没有更多请求，清空流式播放数据队列并进入休眠
+            audio_stream_queue.data = {}
+            audio_stream_queue.sequenceIndex = 1
+            audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN) -- 关断模式
+            audio_play_queue.current_priority = 0
+        end
+        
+        sys.publish(EX_MSG_PLAY_DONE)
+        
+    elseif event == audio.RECORD_DATA then
+        if type(audio_record_param.path) == "function" then
+            local buff, len = point == 0 and pcm_buff0 or pcm_buff1,
+                             point == 0 and pcm_buff0:used() or pcm_buff1:used()
+            audio_record_param.path(buff, len)
+            -- 清空缓冲区数据，释放内存
+            if buff and buff.del then
+                buff:del()
+            end
+        end
+        
+    elseif event == audio.RECORD_DONE then
+        if type(audio_record_param.cbfnc) == "function" then
+            audio_record_param.cbfnc(exaudio.RECORD_DONE)
+        end
+
+        audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN) -- 关断模式
+    end
+end
+
+-- ==================== 硬件初始化 ====================
+-- 读取ES8311芯片ID
+-- audio_v2框架：使用i2c.readReg读取寄存器
+-- audio旧框架：使用i2c.send+i2c.recv读取CHIP_ID_REG寄存器，保持原有逻辑
+local function read_es8311_id()
+    if USE_AUDIO_V2 then
+        local data = i2c.readReg(audio_setup_param.i2c_id, ES8311_ADDR, 0xFD, 1)
+        if data and #data == 1 and data:byte(1) == 0x83 then
+            return true
+        end
+    else
+        -- audio旧框架，读取芯片ID
+        local send_ok = i2c.send(audio_setup_param.i2c_id, ES8311_ADDR, CHIP_ID_REG)
+        if not send_ok then
+            log.error("发送芯片ID读取请求失败")
+            return false
+        end
+        local data = i2c.recv(audio_setup_param.i2c_id, ES8311_ADDR, 1)
+        if data and #data == 1 then
+            return true
+        end
+    end
+
+    log.error("读取ES8311芯片ID失败")
+    return false
+end
+
+-- audio_v2模式初始化
+local function audio_v2_setup()
+    -- 切换默认驱动
+    -- 仅当板子上有多种音频驱动、播放和录音需使用不同驱动时，才需设置tx_bus_type/rx_bus_type。
+    -- 例如DAC输出+I2S录音的板型，设置后本函数自动执行exaudio.make_probe_id+set_default_driver。
+    -- 不设置时使用BSP默认驱动。
+    local switch_default_driver = false
+    if audio_setup_param.tx_bus_type and audio_setup_param.rx_bus_type then
+        local pid = exaudio.make_probe_id(
+            audio_setup_param.tx_bus_type, audio_setup_param.tx_bus_id or 0,
+            audio_setup_param.rx_bus_type, audio_setup_param.rx_bus_id or 0)
+        if pid then
+            local ok = audio_v2.set_default_driver(pid)
+            if ok then
+                AUDIO_V2_DRIVER_ID = pid
+                switch_default_driver = true
+                log.info("exaudio.setup", "默认驱动已切换", "tx_bus_type:", audio_setup_param.tx_bus_type,
+                    "rx_bus_type:", audio_setup_param.rx_bus_type)
+            else
+                log.error("exaudio.setup", "set_default_driver失败，将使用BSP默认驱动")
+            end
+        else
+            log.error("exaudio.setup", "make_probe_id失败，将使用BSP默认驱动")
+        end
+    elseif audio_setup_param.tx_bus_type or audio_setup_param.rx_bus_type then
+        -- 只设置了其中一个，参数不完整，继续使用BSP默认驱动
+        log.warn("exaudio.setup", "tx_bus_type和rx_bus_type必须同时设置才能切换默认驱动，本次忽略，使用BSP默认驱动")
+    end
+
+    -- 根据model进行不同的初始化
+    if audio_setup_param.model == "dac" then
+        -- DAC模式（Air1601等使用内置DAC的模组）
+        log.info("exaudio.setup", "audio_v2 DAC模式初始化")
+    elseif audio_setup_param.model == "es8311" then
+        -- ES8311 I2S模式（Air780EHM等使用ES8311的模组）
+        log.info("exaudio.setup", "audio_v2 ES8311模式初始化")
+
+        -- I2C配置
+        if not i2c.setup(audio_setup_param.i2c_id) then
+            log.error("I2C初始化失败")
+            return false
+        end
+
+        -- 切换默认驱动后，对音频编解码芯片做复位重启（dac_ctrl引脚拉低→等待→拉高）
+        -- 仅切换驱动时需要：驱动切换会重新配置I2S总线，ES8311需从确定状态启动才能正常I2C通信。
+        -- 使用默认I2S无需此操作。
+        if switch_default_driver and audio_setup_param.dac_ctrl and audio_setup_param.dac_ctrl > 0 then
+            gpio.setup(audio_setup_param.dac_ctrl, 0)
+            sys.wait(100)
+            gpio.set(audio_setup_param.dac_ctrl, 1)
+            sys.wait(100)
+            log.info("exaudio.setup", "ES8311已重启", "dac_ctrl:", audio_setup_param.dac_ctrl)
+        end
+    else
+        log.error("audio_v2不支持的model:", audio_setup_param.model)
+        return false
+    end
+    
+    -- 注册audio_v2事件回调
+    audio_v2.on(audio_v2_callback)
+    
+    -- 配置PA电源控制
+    if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
+        audio_v2.config_pa_power_ctrl(
+            true,  -- 使能PA电源控制
+            audio_setup_param.pa_ctrl,  -- PA控制引脚
+            audio_setup_param.pa_on_level,  -- PA使能电平
+            audio_setup_param.pa_delay or 200  -- 延时
+        )
+    end
+    
+    -- ES8311模式下：Codec电源由手动GPIO控制，防止断电后ES8311寄存器丢失
+    if audio_setup_param.model == "es8311" then
+        -- 手动打开CODEC电源并保持常开
+        if audio_setup_param.dac_ctrl and audio_setup_param.dac_ctrl > 0 then
+            gpio.setup(audio_setup_param.dac_ctrl, 1)
+        end
+        
+        -- 配置audio_v2 I2S参数
+        -- 切换默认驱动后由BSP默认驱动提供I2S参数，无需在此配置
+        if not switch_default_driver then
+            audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
+            audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, audio_setup_param.i2s_framebit or 16, audio_setup_param.i2s_framebit or 16)
+            audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
+        else
+            log.info("exaudio.setup", "已切换默认驱动，I2S参数使用默认配置")
+        end
+        
+        -- 初始化ES8311编解码器
+        local es8311_ok
+        es8311_ok, audio_v2_es8311_drv = pcall(require, "es8311")
+        if es8311_ok and audio_v2_es8311_drv then
+            sys.wait(10)
+            
+            -- 检查ES8311芯片连接
+            if not read_es8311_id() then
+                log.error("ES8311通讯失败，请检查硬件")
+                return false
+            end
+            
+            local init_ok
+            if audio_setup_param.codec_voltage == 0 then
+                init_ok = audio_v2_es8311_drv.init(audio_setup_param.i2c_id, 0x01) -- 1.8V电平（Air8201H等特殊板型 ES8311电平为1.8V）
+            else
+                init_ok = audio_v2_es8311_drv.init(audio_setup_param.i2c_id) -- 默认3.3V
+            end
+
+            if init_ok then
+                audio_v2_es8311_drv.set_sample_rate(audio_setup_param.i2c_id, audio_setup_param.i2s_sample or 16000, 256)
+                audio_v2_es8311_drv.set_data_bits(audio_setup_param.i2c_id, audio_setup_param.bits_per_sample or 16)
+                audio_v2_es8311_drv.set_format(audio_setup_param.i2c_id)
+                audio_v2_es8311_drv.resume(audio_setup_param.i2c_id)
+                audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id, voice_vol)
+                audio_v2_es8311_drv.set_mic_vol(audio_setup_param.i2c_id, mic_vol)
+                log.info("exaudio.setup", "ES8311初始化完成")
+            else
+                log.error("ES8311芯片初始化失败")
+                return false
+            end
+        else
+            log.warn("exaudio.setup", "未找到es8311驱动模块")
+        end
+
+        -- ES8311模式下初始化完成后进入低功耗休眠（只关PA，不关Codec电源，防止配置丢失）
+        audio_v2.shutdown(false, false, true)
+    else
+        -- DAC等其他模式下初始化完成后进入低功耗休眠
+        audio_v2.shutdown(false, true, true)
+    end
+    log.info("exaudio.setup", "audio_v2初始化完成")
+    return true
+end
+
+-- audio模式初始化
+local function audio_setup()
+    -- 根据model选择初始化方式
+    if audio_setup_param.model == "dac" then
+        -- DAC模式初始化
+        log.info("exaudio.setup", "使用DAC模式初始化")
+        
+        -- 配置音频通道
+        audio.config(
+            MULTIMEDIA_ID, 
+            audio_setup_param.pa_ctrl,      -- PA控制引脚
+            audio_setup_param.pa_on_level,  -- PA打开电平
+            0,                              -- dac_delay: 固定为0
+            audio_setup_param.pa_delay      -- PA延时
+        )
+        
+        -- 设置总线为DAC模式
+        audio.setBus(
+            MULTIMEDIA_ID, 
+            audio.BUS_DAC,
+            {
+                dacid = audio_setup_param.dac_ch
+            }
+        )
+        
+        log.info("exaudio.setup", "DAC通道已设置为:"..audio_setup_param.dac_ch)
+    elseif audio_setup_param.model == "tm8211" then
+        -- TM8211模式初始化 (I2S，无需I2C)
+        log.info("exaudio.setup", "使用TM8211模式初始化")
+        
+        -- 初始化I2S
+        local I2S_channel_format = audio_setup_param.channels == 2 and i2s.STEREO or i2s.MONO_R
+
+        local result, data = i2s.setup(
+            I2S_ID,  -- I2S的通道号
+            audio_setup_param.i2s_mode,  -- I2S主从模式
+            audio_setup_param.i2s_sample,  -- I2S采样率
+            audio_setup_param.bits_per_sample,  -- I2S采样位深
+            I2S_channel_format, -- 声道
+            audio_setup_param.i2s_comm_format, -- I2S通讯格式
+            audio_setup_param.i2s_framebit  -- I2S通道位宽
+        )
+
+        if not result then
+            log.error("I2S设置失败")
+            return false
+        end
+        -- 配置音频通道
+        audio.config(
+            MULTIMEDIA_ID, 
+            audio_setup_param.pa_ctrl, 
+            audio_setup_param.pa_on_level, 
+            audio_setup_param.dac_delay, 
+            audio_setup_param.pa_delay, 
+            audio_setup_param.dac_ctrl, 
+            1,  -- power_on_level
+            audio_setup_param.dac_time_delay
+        )
+        -- 设置总线
+        audio.setBus(
+            MULTIMEDIA_ID, 
+            audio.BUS_I2S,
+            {
+                chip = audio_setup_param.model,
+                i2sid = I2S_ID
+                -- voltage = audio.VOLTAGE_1800
+            }
+        )
+        -- TM8211无需I2C芯片ID检查
+    else
+        -- ES8311 I2S模式初始化
+        log.info("exaudio.setup", "使用ES8311 I2S模式初始化")
+        
+        -- I2C配置
+        if not i2c.setup(audio_setup_param.i2c_id, i2c.FAST) then
+            log.error("I2C初始化失败")
+            return false
+        end
+        -- 初始化I2S
+        local I2S_channel_format = audio_setup_param.channels == 2 and i2s.STEREO or i2s.MONO_R
+
+        local result, data = i2s.setup(
+            I2S_ID,  -- I2S的通道号
+            audio_setup_param.i2s_mode,  -- I2S主从模式
+            audio_setup_param.i2s_sample,  -- I2S采样率
+            audio_setup_param.bits_per_sample,  -- I2S采样位深
+            I2S_channel_format, -- 声道
+            audio_setup_param.i2s_comm_format, -- I2S通讯格式
+            audio_setup_param.i2s_framebit  -- I2S通道位宽
+        )
+
+        if not result then
+            log.error("I2S设置失败")
+            return false
+        end
+        -- 配置音频通道
+        audio.config(
+            MULTIMEDIA_ID, 
+            audio_setup_param.pa_ctrl, 
+            audio_setup_param.pa_on_level, 
+            audio_setup_param.dac_delay, 
+            audio_setup_param.pa_delay, 
+            audio_setup_param.dac_ctrl, 
+            1,  -- power_on_level
+            audio_setup_param.dac_time_delay
+        )
+        -- 设置总线
+        audio.setBus(
+            MULTIMEDIA_ID, 
+            audio.BUS_I2S,
+            {
+                chip = audio_setup_param.model,
+                i2cid = audio_setup_param.i2c_id,
+                i2sid = I2S_ID
+                -- voltage = audio.VOLTAGE_1800
+            }
+        )
+
+        -- 检查芯片连接
+        if audio_setup_param.model == "es8311" and not read_es8311_id() then
+            log.error("ES8311通讯失败，请检查硬件")
+            return false
+        end
+    end
+
+    -- 设置音量
+    audio.vol(MULTIMEDIA_ID, voice_vol)
+    if audio.micVol then
+        audio.micVol(MULTIMEDIA_ID, mic_vol)
+    end
+
+    -- 注册回调
+    audio.on(MULTIMEDIA_ID, audio_callback)
+    
+    audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN) -- 关断模式
+    log.info("exaudio.setup", "声道数已设置为:"..audio_setup_param.channels.."(1=单声道,2=双声道)")
+    return true
+end
+
+-- ==================== 播放控制 ====================
+-- audio模式开始播放
+local function audio_legacy_start_next_play()
     local request = audio_play_queue_pop_request()
     if not request then
         return false
@@ -385,233 +1037,17 @@ local function start_next_play()
     return true
 end
 
--- 清空所有队列数据
-local function audio_queue_clear()
-    -- 清空播放请求队列
-    audio_play_queue.requests = {}
-    audio_play_queue.current_priority = 0
-    
-    -- 清空流式数据队列
-    audio_stream_queue.data = {}
-    audio_stream_queue.sequenceIndex = 1
-    return true
-end
-
--- 音频回调处理
-local function audio_callback(id, event, point)
-    -- log.info("audio_callback", "event:", event, 
-    --         "MORE_DATA:", audio.MORE_DATA, 
-    --         "DONE:", audio.DONE,
-    --         "RECORD_DATA:", audio.RECORD_DATA,
-    --         "RECORD_DONE:", audio.RECORD_DONE)
-
-    if event == audio.MORE_DATA then
-        -- 从队列取出数据并写入
-        local data = audio_stream_queue_pop()
-        if data then
-            audio.write(MULTIMEDIA_ID, data)
-        end
-    elseif event == audio.DONE then
-        if type(audio_play_param.cbfnc) == "function" then
-            audio_play_param.cbfnc(exaudio.PLAY_DONE)
-        end
-        
-        -- 检查是否有下一个播放请求
-        if #audio_play_queue.requests > 0 then
-            -- 播放下一个请求
-            start_next_play()
-        else
-            -- 没有更多请求，清空流式播放数据队列并进入休眠
-            audio_stream_queue.data = {}
-            audio_stream_queue.sequenceIndex = 1
-            audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
-            audio_play_queue.current_priority = 0
-        end
-        
-        sys.publish(EX_MSG_PLAY_DONE)
-        
-    elseif event == audio.RECORD_DATA then
-        if type(audio_record_param.path) == "function" then
-            local buff, len = point == 0 and pcm_buff0 or pcm_buff1,
-                             point == 0 and pcm_buff0:used() or pcm_buff1:used()
-            -- 添加调试信息：显示使用的缓冲区和大小
-            -- log.info("录音缓冲区", "使用:", point == 0 and "pcm_buff0" or "pcm_buff1", "大小:", len, "字节")
-            audio_record_param.path(buff, len)
-            -- 清空缓冲区数据，释放内存
-            if buff and buff.del then
-                buff:del()
-            end
-        end
-        
-    elseif event == audio.RECORD_DONE then
-        if type(audio_record_param.cbfnc) == "function" then
-            audio_record_param.cbfnc(exaudio.RECORD_DONE)
-        end
-
-        audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
-    end
-end
-
--- 读取ES8311芯片ID
-local function read_es8311_id()
-    -- 发送读取请求
-    local send_ok = i2c.send(audio_setup_param.i2c_id, ES8311_ADDR, CHIP_ID_REG)
-    if not send_ok then
-        log.error("发送芯片ID读取请求失败")
-        return false
-    end
-
-    -- 读取数据
-    local data = i2c.recv(audio_setup_param.i2c_id, ES8311_ADDR, 1)
-    if data and #data == 1 then
-        return true
-    end
-
-    log.error("读取ES8311芯片ID失败")
-    return false
-end
-
--- 音频硬件初始化
-local function audio_setup()
-    -- 根据model选择初始化方式
-    if audio_setup_param.model == "dac" then
-        -- DAC模式初始化
-        log.info("exaudio.setup", "使用DAC模式初始化")
-        
-        -- 配置音频通道
-        audio.config(
-            MULTIMEDIA_ID, 
-            audio_setup_param.pa_ctrl,      -- PA控制引脚
-            audio_setup_param.pa_on_level,  -- PA打开电平
-            0,                              -- dac_delay: 固定为0
-            audio_setup_param.pa_delay      -- PA延时
-        )
-        
-        -- 设置总线为DAC模式
-        audio.setBus(
-            MULTIMEDIA_ID, 
-            audio.BUS_DAC,
-            {
-                dacid = audio_setup_param.dac_ch
-            }
-        )
-        
-        log.info("exaudio.setup", "DAC通道已设置为:"..audio_setup_param.dac_ch)
-    elseif audio_setup_param.model == "tm8211" then
-        -- TM8211模式初始化 (I2S，无需I2C)
-        log.info("exaudio.setup", "使用TM8211模式初始化")
-        
-        -- 初始化I2S
-        local I2S_channel_format = audio_setup_param.channels == 2 and i2s.STEREO or i2s.MONO_R
-
-        local result, data = i2s.setup(
-            I2S_ID,  -- I2S的通道号
-            audio_setup_param.i2s_mode,  -- I2S主从模式
-            audio_setup_param.i2s_sample,  -- I2S采样率
-            audio_setup_param.bits_per_sample,  -- I2S采样位深
-            I2S_channel_format, -- 声道
-            audio_setup_param.i2s_comm_format, -- I2S通讯格式
-            audio_setup_param.i2s_framebit  -- I2S通道位宽
-        )
-
-        if not result then
-            log.error("I2S设置失败")
-            return false
-        end
-        -- 配置音频通道
-        audio.config(
-            MULTIMEDIA_ID, 
-            audio_setup_param.pa_ctrl, 
-            audio_setup_param.pa_on_level, 
-            audio_setup_param.dac_delay, 
-            audio_setup_param.pa_delay, 
-            audio_setup_param.dac_ctrl, 
-            1,  -- power_on_level
-            audio_setup_param.dac_time_delay
-        )
-        -- 设置总线
-        audio.setBus(
-            MULTIMEDIA_ID, 
-            audio.BUS_I2S,
-            {
-                chip = audio_setup_param.model,
-                i2sid = I2S_ID
-                -- voltage = audio.VOLTAGE_1800
-            }
-        )
-        -- TM8211无需I2C芯片ID检查
-    else
-        -- ES8311 I2S模式初始化
-        log.info("exaudio.setup", "使用ES8311 I2S模式初始化")
-        
-        -- I2C配置
-        if not i2c.setup(audio_setup_param.i2c_id, i2c.FAST) then
-            log.error("I2C初始化失败")
-            return false
-        end
-        -- 初始化I2S
-        local I2S_channel_format = audio_setup_param.channels == 2 and i2s.STEREO or i2s.MONO_R
-
-        local result, data = i2s.setup(
-            I2S_ID,  -- I2S的通道号
-            audio_setup_param.i2s_mode,  -- I2S主从模式
-            audio_setup_param.i2s_sample,  -- I2S采样率
-            audio_setup_param.bits_per_sample,  -- I2S采样位深
-            I2S_channel_format, -- 声道
-            audio_setup_param.i2s_comm_format, -- I2S通讯格式
-            audio_setup_param.i2s_framebit  -- I2S通道位宽
-        )
-
-        if not result then
-            log.error("I2S设置失败")
-            return false
-        end
-        -- 配置音频通道
-        audio.config(
-            MULTIMEDIA_ID, 
-            audio_setup_param.pa_ctrl, 
-            audio_setup_param.pa_on_level, 
-            audio_setup_param.dac_delay, 
-            audio_setup_param.pa_delay, 
-            audio_setup_param.dac_ctrl, 
-            1,  -- power_on_level
-            audio_setup_param.dac_time_delay
-        )
-        -- 设置总线
-        audio.setBus(
-            MULTIMEDIA_ID, 
-            audio.BUS_I2S,
-            {
-                chip = audio_setup_param.model,
-                i2cid = audio_setup_param.i2c_id,
-                i2sid = I2S_ID
-                -- voltage = audio.VOLTAGE_1800
-            }
-        )
-
-        -- 检查芯片连接
-        if audio_setup_param.model == "es8311" and not read_es8311_id() then
-            log.error("ES8311通讯失败，请检查硬件")
-            return false
-        end
-    end
-
-    -- 设置音量
-    audio.vol(MULTIMEDIA_ID, voice_vol)
-    if audio.micVol then
-        audio.micVol(MULTIMEDIA_ID, mic_vol)
-    end
-
-    -- 注册回调
-    audio.on(MULTIMEDIA_ID, audio_callback)
-    
-    audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
-    log.info("exaudio.setup", "声道数已设置为:"..audio_setup_param.channels.."(1=单声道,2=双声道)")
-    return true
-end
-
--- 模块接口：获取推荐的流式缓冲区大小
+-- ==================== 模块接口 ====================
+-- 获取推荐的流式缓冲区大小
 function exaudio.get_stream_buffer_size()
+    if USE_AUDIO_V2 then
+        -- audio_v2模式下返回推荐值
+        local default_channels = audio_setup_param.channels or 1 
+        local default_rate = audio_setup_param.i2s_sample 
+        local default_depth = audio_setup_param.bits_per_sample 
+        return calculate_buffer_size(default_rate, default_depth, default_channels)
+    end
+    
     if audio_play_param.stream_buffer_size > 0 then
         return audio_play_param.stream_buffer_size
     end
@@ -623,19 +1059,39 @@ function exaudio.get_stream_buffer_size()
     return calculate_buffer_size(default_rate, default_depth, default_channels)
 end
 
-
--- 模块接口：初始化
+-- 初始化
 function exaudio.setup(audioConfigs)
-    -- 检查必要参数
-    if not  audio  then
-        log.error("不支持audio 库,请选择支持audio 的core")
-        return false
-    end
     if not audioConfigs or type(audioConfigs) ~= "table" then
         log.error("配置参数必须为table类型")
         return false
     end
-    
+
+    -- audio_mode参数处理
+    -- 780EXX系列、8000系列可通过audio_mode="new"切换到新音频框架
+    -- 8101、160X系列只能用新框架，audio_mode参数无效
+    if audioConfigs.audio_mode == "new" and not USE_AUDIO_V2 then
+        USE_AUDIO_V2 = true
+        log.info("exaudio.setup", "audio_mode=new，切换到新音频框架")
+    end
+    if audioConfigs.audio_mode == "old" and USE_AUDIO_V2 then
+        log.warn("exaudio.setup", "当前模组仅支持新音频框架， audio_mode = old 不生效")
+    end
+
+    log.info("exaudio.setup", "当前使用" .. (USE_AUDIO_V2 and "新" or "旧") .. "音频框架")
+
+    -- 检查必要参数
+    if USE_AUDIO_V2 then
+        if not audio_v2 then
+            log.error("不支持audio_v2 库,请选择支持audio_v2 的core")
+            return false
+        end
+    else
+        if not audio then
+            log.error("不支持audio 库,请选择支持audio 的core")
+            return false
+        end
+    end
+
     -- 检查编解码器型号
     if audioConfigs.model then
         if audioConfigs.model ~= "es8311" and audioConfigs.model ~= "dac" and audioConfigs.model ~= "tm8211" then
@@ -661,7 +1117,7 @@ function exaudio.setup(audioConfigs)
         
         -- TM8211 默认使用 MODE_MSB 格式
         if audioConfigs.i2s_comm_format == nil then
-            audio_setup_param.i2s_comm_format = i2s.MODE_MSB
+            audio_setup_param.i2s_comm_format = i2s and i2s.MODE_MSB or 0
             log.info("exaudio.setup", "TM8211使用默认MODE_MSB格式")
         end
         
@@ -708,8 +1164,19 @@ function exaudio.setup(audioConfigs)
         {name = "i2s_mode", type = "number"},         -- I2S模式
         {name = "i2s_comm_format", type = "number"},  -- I2S通信格式
         {name = "dac_ch", type = "number"},           -- DAC通道
-        {name = "dac_chl", type = "number"}           -- DAC通道选择
+        {name = "dac_chl", type = "number"},          -- DAC通道选择
+        {name = "tx_bus_type", type = "number"},      -- 发送总线类型(默认驱动切换)
+        {name = "tx_bus_id", type = "number"},        -- 发送总线ID
+        {name = "rx_bus_type", type = "number"},      -- 接收总线类型(默认驱动切换)
+        {name = "rx_bus_id", type = "number"},        -- 接收总线ID
+        {name = "codec_voltage", type = "number"},    -- ES8311电平: 1=3.3V(默认), 0=1.8V(Air8201H等特殊板型)
     }
+
+    -- 校验默认驱动切换参数：tx/rx总线类型必须成对出现
+    if (audioConfigs.tx_bus_type ~= nil) ~= (audioConfigs.rx_bus_type ~= nil) then
+        log.error("tx_bus_type 和 rx_bus_type 必须同时设置")
+        return false
+    end
 
     for _, param in ipairs(optional_params) do
         if audioConfigs[param.name] ~= nil then
@@ -734,71 +1201,417 @@ function exaudio.setup(audioConfigs)
     -- 确保采样位数和声道数有默认值
     audio_setup_param.bits_per_sample = audio_setup_param.bits_per_sample or 16
     audio_setup_param.channels = audio_setup_param.channels or 1
-    return audio_setup()
+
+    -- 通话自动唤醒
+    -- 自动订阅CC_IND事件，每次通话PLAY（开始有音频输出）时自动exaudio.pm(exaudio.RESUME)唤醒ES8311，
+    -- 通话结束后的休眠由业务脚本控制（demo内exaudio.pm(exaudio.SHUTDOWN)）
+    if type(cc) == "userdata" and not cc_auto_pm_enabled then
+        cc_auto_pm_enabled = true
+        sys.subscribe("CC_IND", function(status)
+            if status == "PLAY" then
+                -- 通话建立/开始有音频输出：确保ES8311处于工作状态
+                exaudio.pm(exaudio.RESUME)
+            end
+        end)
+        log.info("exaudio.setup", "cc auto resume enabled")
+    end
+
+    -- 根据模式选择初始化方式
+    if USE_AUDIO_V2 then
+        return audio_v2_setup()
+    else
+        return audio_setup()
+    end
 end
 
--- 模块接口：开始播放
+-- 开始播放
 function exaudio.play_start(playConfigs)
-    -- 恢复audio.RESUME工作模式
-    audio.pm(MULTIMEDIA_ID, audio.RESUME)
-    if not playConfigs or type(playConfigs) ~= "table" then
-        log.error("播放配置必须为table类型")
-        return false
-    end
+    if USE_AUDIO_V2 then
+        -- audio_v2模式播放
+        if not playConfigs or type(playConfigs) ~= "table" then
+            log.error("播放配置必须为table类型")
+            return false
+        end
 
-    -- 检查播放类型
-    if not check_param(playConfigs.type, "number", "type") then
-        log.error("type必须为数值(0:文件,1:TTS,2:流式)")
-        return false
-    end
+        -- audio_v2 setup 后恢复 ES8311 与 PA，保证 TTS 有模拟输出。
+        if not exaudio.pm(exaudio.RESUME) then
+            log.error("audio_v2恢复播放设备失败")
+            return false
+        end
 
-    -- 设置默认优先级
-    playConfigs.priority = playConfigs.priority or 0
-    
-    -- 创建播放请求
-    local request = {
-        priority = playConfigs.priority,
-        configs = playConfigs
-    }
-    
-    -- 检查是否正在播放
-    if not audio.isEnd(MULTIMEDIA_ID) then
-        -- 如果新请求的优先级更高，则打断当前播放
-        if playConfigs.priority > audio_play_queue.current_priority then
-            -- 停止当前播放
-            if audio.play(MULTIMEDIA_ID) ~= true then
+        -- 检查播放类型
+        if not check_param(playConfigs.type, "number", "type") then
+            log.error("type必须为数值(0:文件,1:TTS,2:流式)")
+            return false
+        end
+
+        -- 设置默认优先级
+        playConfigs.priority = playConfigs.priority or 0
+        
+        -- 恢复RESUME工作模式
+        exaudio.pm(exaudio.RESUME)
+
+        -- audio_v2播放
+        local play_type = playConfigs.type
+        local ok, req_id = false, nil
+        
+        if play_type == 0 then  -- 文件播放
+            if not playConfigs.content then
+                log.error("文件播放需要指定content(文件路径或路径表)")
                 return false
             end
-            sys.waitUntil(EX_MSG_PLAY_DONE)
+
+            -- 文件头损坏预检：对 mp3/amr/wav 等带格式头的文件，播放前先解析文件头，
+            local check_content = playConfigs.content
+            if type(check_content) == "string" then
+                -- 扩展名 -> codec_id 映射
+                local ext = check_content:match("%.([^%.]+)$")
+                local ext_codec = nil
+                if ext then
+                    ext = ext:lower()
+                    if ext == "mp3" then
+                        ext_codec = 5
+                    elseif ext == "wav" then
+                        ext_codec = 1
+                    elseif ext == "amr" then
+                        ext_codec = 2
+                    end
+                end
+                local info_codec = playConfigs.codec_id or ext_codec
+                if info_codec then
+                    -- 先确认文件存在且可读
+                    local fp_check = io.open(check_content, "rb")
+                    if not fp_check then
+                        log.error("播放文件不存在或无法打开，请更换文件播放:", check_content)
+                        return false
+                    end
+                    fp_check:close()
+                    local info = exaudio.parse_audio_info(check_content, info_codec)
+                    if not info or not info.sample_rate or info.sample_rate == 0 then
+                        log.error("播放文件损坏，请更换文件播放:", check_content)
+                        return false
+                    end
+                end
+            end
+
+            -- 使用audio_v2.play播放文件
+            ok, req_id = audio_v2.play(
+                playConfigs.content, 
+                playConfigs.err_stop ~= false,  -- 默认true
+                playConfigs.priority,
+                playConfigs.driver_probe_id,
+                playConfigs.codec_id
+            )
+            if ok then
+                audio_v2_request_index = req_id
+                audio_play_param.cbfnc = playConfigs.cbfnc
+            end
+            return ok
             
-            -- 将新请求加入队列并立即播放
-            audio_play_queue_push_request(request)
-            return start_next_play()
-        else
-            -- 优先级不够高，将请求加入队列等待
-            audio_play_queue_push_request(request)
-            return true
+        elseif play_type == 1 then  -- TTS播放
+            if not check_param(playConfigs.content, "string", "content") then
+                log.error("TTS播放content必须为字符串")
+                return false
+            end
+            
+            ok, req_id = audio_v2.tts(
+                playConfigs.content, 
+                playConfigs.priority,
+                playConfigs.driver_probe_id
+            )
+            if ok then
+                audio_v2_request_index = req_id
+                audio_play_param.cbfnc = playConfigs.cbfnc
+            end
+            return ok
+            
+        elseif play_type == 2 then  -- 流式播放
+            -- audio_v2流式播放
+            -- 未指定codec_id时默认0(RAW/PCM)
+            if not playConfigs.codec_id then
+                --流式播放未指定codec_id时默认RAW/PCM
+                playConfigs.codec_id = 0
+            end
+            
+            -- 兼容旧版参数名
+            local sample_rate = playConfigs.sample_rate or playConfigs.sampling_rate
+            local data_bits = playConfigs.data_bits or playConfigs.sampling_depth or 16
+            local is_signed
+            if playConfigs.is_signed ~= nil then
+                is_signed = playConfigs.is_signed  -- 保持boolean不变，直接传给stream
+            elseif playConfigs.signed_or_unsigned ~= nil then
+                is_signed = playConfigs.signed_or_unsigned
+            else
+                is_signed = true  -- 默认有符号
+            end
+            local channel_nums = playConfigs.channel_nums or playConfigs.channels or 1
+            local priority = playConfigs.priority or 0
+            local driver_probe_id = playConfigs.driver_probe_id or AUDIO_V2_DRIVER_ID
+            
+            -- 对于MP3/AMR/WAV格式，从文件解析真实采样率
+            local file_path = playConfigs.file_path
+            if file_path and (playConfigs.codec_id == 5 or playConfigs.codec_id == 2 or playConfigs.codec_id == 3 or playConfigs.codec_id == 1) then
+                local fp = io.open(file_path, "rb")
+                if fp then
+                    local file_data = fp:read(12)
+                    if file_data and #file_data > 0 then
+                        local no_error, next_pos, need_len, parsed_sample_rate, parsed_data_bits, parsed_channel_nums, parsed_is_signed = 
+                            audio_v2.get_play_info(file_data, playConfigs.codec_id, 0)
+                        if no_error then
+                            if parsed_sample_rate and parsed_sample_rate > 0 then
+                                sample_rate = parsed_sample_rate
+                                data_bits = parsed_data_bits or data_bits
+                                channel_nums = parsed_channel_nums or channel_nums
+                                if parsed_is_signed ~= nil then
+                                    is_signed = parsed_is_signed  -- 保持boolean
+                                end
+                                log.info("exaudio", "从文件解析到采样率:", sample_rate, "bits:", data_bits, 
+                                         "ch:", channel_nums, "signed:", is_signed)
+                            else
+                                -- sample_rate为0，重试
+                                local retry_count = 0
+                                while retry_count < 6 and no_error and (not parsed_sample_rate or parsed_sample_rate == 0) do
+                                    log.info("exaudio", "seek", next_pos, "need", need_len)
+                                    fp:seek("set", next_pos)
+                                    file_data = fp:read(need_len)
+                                    if file_data then
+                                        no_error, next_pos, need_len, parsed_sample_rate, parsed_data_bits, parsed_channel_nums, parsed_is_signed = 
+                                            audio_v2.get_play_info(file_data, playConfigs.codec_id, next_pos)
+                                        retry_count = retry_count + 1
+                                    else
+                                        break
+                                    end
+                                end
+                                if no_error and parsed_sample_rate and parsed_sample_rate > 0 then
+                                    sample_rate = parsed_sample_rate
+                                    data_bits = parsed_data_bits or data_bits
+                                    channel_nums = parsed_channel_nums or channel_nums
+                                    if parsed_is_signed ~= nil then
+                                        is_signed = parsed_is_signed  -- 保持boolean
+                                    end
+                                    log.info("exaudio", "从文件解析到采样率:", sample_rate, "bits:", data_bits, 
+                                             "ch:", channel_nums, "signed:", is_signed, "retries:", retry_count)
+                                else
+                                    log.warn("exaudio", "无法从文件解析采样率，使用默认值", "retries:", retry_count)
+                                end
+                            end
+                        else
+                            log.warn("exaudio", "get_play_info解析失败，使用默认值")
+                        end
+                    end
+                    fp:close()
+                end
+            end
+            
+            -- 默认采样率
+            if not sample_rate or sample_rate <= 0 then
+                if playConfigs.codec_id == 0 then
+                    sample_rate = 16000
+                elseif playConfigs.codec_id == 1 then
+                    sample_rate = 44100
+                elseif playConfigs.codec_id == 2 then
+                    sample_rate = 8000
+                elseif playConfigs.codec_id == 3 then
+                    sample_rate = 16000
+                elseif playConfigs.codec_id == 5 then
+                    sample_rate = 44100
+                else
+                    sample_rate = 16000
+                end
+                log.info("exaudio", "codec_id", playConfigs.codec_id, "使用默认采样率:", sample_rate)
+            end
+            
+            log.info("exaudio", "调用stream: cid=", playConfigs.codec_id, "sr=", sample_rate, 
+                     "bits=", data_bits, "ch=", channel_nums, "sig=", is_signed, "pri=", priority)
+            ok, req_id = audio_v2.stream(
+                playConfigs.codec_id,
+                sample_rate,
+                data_bits,
+                channel_nums,
+                is_signed,
+                priority
+            )
+            log.info("exaudio", "stream返回: ok=", ok, "req_id=", req_id)
+            
+            if ok then
+                audio_v2_request_index = req_id
+                audio_v2_stream_codec_id = playConfigs.codec_id
+                audio_play_param.cbfnc = playConfigs.cbfnc
+                
+                -- 如果有file_path，打开文件用于回调中循环读取
+                if file_path then
+                    local fp = io.open(file_path, "rb")
+                    if fp then
+                        -- 跳转到数据起始位置
+                        local data_start = playConfigs.data_start or 0
+                        if data_start > 0 then
+                            fp:seek("set", data_start)
+                        end
+                        audio_v2_stream_file_fp = fp
+                        audio_v2_stream_data_start = data_start
+                        log.info("exaudio", "流式播放文件已打开:", file_path, "data_start:", data_start)
+                    else
+                        log.warn("exaudio", "无法打开流式播放文件:", file_path)
+                    end
+                end
+                
+                log.info("exaudio", "流式播放启动成功, request_index:", req_id, 
+                         "采样率:", sample_rate, "codec_id:", playConfigs.codec_id)
+            else
+                log.error("exaudio", "流式播放启动失败")
+            end
+            return ok
         end
+        
+        return false
     else
-        -- 没有正在播放，将请求加入队列并立即播放
-        audio_play_queue_push_request(request)
-        return start_next_play()
+        -- audio模式播放
+        -- 恢复RESUME工作模式
+        audio.pm(MULTIMEDIA_ID, exaudio.RESUME)
+        if not playConfigs or type(playConfigs) ~= "table" then
+            log.error("播放配置必须为table类型")
+            return false
+        end
+
+        -- 检查播放类型
+        if not check_param(playConfigs.type, "number", "type") then
+            log.error("type必须为数值(0:文件,1:TTS,2:流式)")
+            return false
+        end
+
+        -- 设置默认优先级
+        playConfigs.priority = playConfigs.priority or 0
+        
+        -- 创建播放请求
+        local request = {
+            priority = playConfigs.priority,
+            configs = playConfigs
+        }
+        
+        -- 检查是否正在播放
+        if not audio.isEnd(MULTIMEDIA_ID) then
+            -- 如果新请求的优先级更高，则打断当前播放
+            if playConfigs.priority > audio_play_queue.current_priority then
+                -- 停止当前播放
+                if audio.play(MULTIMEDIA_ID) ~= true then
+                    return false
+                end
+                sys.waitUntil(EX_MSG_PLAY_DONE)
+                
+                -- 将新请求加入队列并立即播放
+                audio_play_queue_push_request(request)
+                return audio_legacy_start_next_play()
+            else
+                -- 优先级不够高，将请求加入队列等待
+                audio_play_queue_push_request(request)
+                return true
+            end
+        else
+            -- 没有正在播放，将请求加入队列并立即播放
+            audio_play_queue_push_request(request)
+            return audio_legacy_start_next_play()
+        end
     end
 end
 
--- 模块接口：流式播放数据写入
-function exaudio.play_stream_write(data)
-    -- 插入队列，由audio.MORE_DATA回调处理
+function exaudio.is_audio_v2()
+    return USE_AUDIO_V2
+end
+
+function exaudio.sip_voip_start()
+    if not USE_AUDIO_V2 or not audio_v2 or not voip or not sys then return false end
+    local codec = audio_v2.DATA_CODEC_TYPE_VOIP_PCM
+    sip_v2_record_zbuff = zbuff.create(4096)
+    local ok, request_id = audio_v2.speech(codec, sip_v2_record_zbuff, 1,
+        codec, 8000, 16, 1)
+    if not ok then sip_v2_record_zbuff = nil return false end
+    local source_ok, source_id = audio_v2.extern_source(request_id, true, false,
+        codec, true, 8000, 16, 1, true)
+    if not source_ok then audio_v2.stop(request_id) sip_v2_record_zbuff = nil return false end
+    sip_v2_request_index, sip_v2_source_index = request_id, source_id
+    sip_v2_timer = sys.timerLoopStart(function()
+        if not sip_v2_source_index or not voip.isRunning() then return end
+        local pcm = voip.pcmOut(160) or string.rep("\0", 320)
+        audio_v2.input(sip_v2_source_index, pcm, false)
+    end, 20)
+    log.info("exaudio", "SIP audio_v2 bridge started", request_id)
+    return true
+end
+
+function exaudio.sip_voip_stop()
+    if sip_v2_timer then sys.timerStop(sip_v2_timer) sip_v2_timer = nil end
+    if sip_v2_request_index then audio_v2.stop(sip_v2_request_index) end
+    sip_v2_request_index, sip_v2_source_index, sip_v2_record_zbuff = nil, nil, nil
+end
+
+-- 流式播放数据写入
+-- @param data 音频数据(string/zbuff)
+-- @param is_end 是否为最后一帧数据，true表示播放结束(仅audio_v2模式支持)
+-- @return ok 是否成功
+-- @return written 实际写入的字节数(audio_v2)
+-- @return free_len FIFO剩余空间(audio_v2)
+function exaudio.play_stream_write(data, is_end)
+    if USE_AUDIO_V2 then
+        -- audio_v2模式：入队列，由NEED_NEW_DATA回调批量写入FIFO
+        if not audio_v2_request_index then
+            log.error("audio_v2流式播放未启动")
+            return false
+        end
+        
+        -- 如果有文件句柄，由回调自动处理，忽略用户的手动写入
+        if audio_v2_stream_file_fp then
+            log.info("exaudio", "文件流模式，忽略手动写入")
+            return true
+        end
+        
+        -- 数据入队列，由audio_v2回调（NEED_NEW_DATA）统一写入FIFO。
+        -- 注意：不在HTTP/网络回调里直接调用audio_v2.input()，避免总线错误/解码异常。
+        audio_stream_queue_push(data)
+        if is_end then
+            -- is_end=true标记在队列数据被回调消耗完后生效
+            audio_v2_stream_end_marked = true
+        end
+        
+        return true
+    end
+    
+    -- audio模式：插入队列，由audio.MORE_DATA回调处理
     audio_stream_queue_push(data)
     return true
 end
 
--- 模块接口：停止播放
+-- 停止播放
 function exaudio.play_stop(stopConfigs)
+    if USE_AUDIO_V2 then
+        -- audio_v2停止播放
+        if audio_v2_request_index then
+            -- 关闭文件句柄
+            if audio_v2_stream_file_fp then
+                audio_v2_stream_file_fp:close()
+                audio_v2_stream_file_fp = nil
+            end
+            
+            audio_v2.stop(audio_v2_request_index)
+            audio_v2_request_index = nil
+            audio_v2_stream_codec_id = nil
+            audio_v2_stream_data_start = nil
+            audio_play_queue.current_priority = 0
+            exaudio.pm(exaudio.SHUTDOWN)
+            return true
+        end
+        return false
+    end
+
     -- 强制要求传入配置表参数
     if not stopConfigs or type(stopConfigs) ~= "table" then
         log.error("停止播放必须传入配置表参数，格式: {type = 0|1|2}")
         log.error("type参数说明: 0=文件播放, 1=TTS播放, 2=流式播放")
+        return false
+    end
+
+    -- 检查播放类型参数
+    if not check_param(stopConfigs.type, "number", "type") then
+        log.error("停止播放需要指定type参数(0:文件,1:TTS,2:流式)")
         return false
     end
     
@@ -819,7 +1632,7 @@ function exaudio.play_stop(stopConfigs)
             audio_stream_queue.data = {}
             audio_stream_queue.sequenceIndex = 1
             audio_play_queue.current_priority = 0
-            audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN)
+            audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN)
         end
         return result
     else  -- 文件播放或TTS播放
@@ -828,26 +1641,43 @@ function exaudio.play_stop(stopConfigs)
         if result then
             -- 只有当停止的是当前播放类型时才清空状态
             audio_play_queue.current_priority = 0
-            audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN)
+            audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN)
         end
         return result
     end
 end
 
--- 模块接口：检查播放是否结束
+-- 检查播放是否结束
 function exaudio.is_end()
+    if USE_AUDIO_V2 then
+        -- audio_v2使用is_all_done判断是否所有请求结束
+        return audio_v2.is_all_done()
+    end
     return audio.isEnd(MULTIMEDIA_ID)
 end
 
--- 模块接口：获取错误信息
+-- 获取错误信息
 function exaudio.get_error()
+    if USE_AUDIO_V2 then
+        -- audio_v2暂无错误获取接口
+        return nil
+    end
     return audio.getError(MULTIMEDIA_ID)
 end
 
--- 模块接口：开始录音
+-- audio_v2录音格式转码表
+local audio_v2_record_codec_map = {
+    [exaudio.AMR_NB]   = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_AMR_NB or 2, sr = 8000,  bits = 16 },
+    [exaudio.AMR_WB]   = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_AMR_WB or 3, sr = 16000, bits = 16 },
+    [exaudio.PCM_8000]  = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW or 0,    sr = 8000,  bits = 16 },
+    [exaudio.PCM_16000] = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW or 0,    sr = 16000, bits = 16 },
+    [exaudio.PCM_24000] = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW or 0,    sr = 24000, bits = 16 },
+    [exaudio.PCM_32000] = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW or 0,    sr = 32000, bits = 16 },
+    [exaudio.PCM_48000] = { codec_id = audio_v2 and audio_v2.DATA_CODEC_TYPE_RAW or 0,    sr = 48000, bits = 16 },
+}
+
+-- 开始录音
 function exaudio.record_start(recodConfigs)
-    -- 恢复audio.RESUME工作模式
-    audio.pm(MULTIMEDIA_ID, audio.RESUME)
     if not recodConfigs or type(recodConfigs) ~= "table" then
         log.error("录音配置必须为table类型")
         return false
@@ -861,20 +1691,16 @@ function exaudio.record_start(recodConfigs)
 
     -- 处理录音时间
     if recodConfigs.time ~= nil then
-        if check_param(recodConfigs.time, "number", "time") then
-            if recodConfigs.time == 0 then
-                audio_record_param.time = 0
-                log.warn("exaudio.record_start", "录音时间设置为0，将无限录音")
-                log.warn("exaudio.record_start", "提示：请调用exaudio.record_stop()手动停止录音")
-            elseif recodConfigs.time < 0 then
-                log.error("录音时间不能为负数")
-                return false
-            else
-                audio_record_param.time = recodConfigs.time
-                log.info("exaudio.record_start", string.format("将录音%d秒", audio_record_param.time))
-            end
-        else
+        if recodConfigs.time == 0 then
+            audio_record_param.time = 0
+            log.warn("exaudio.record_start", "录音时间设置为0，将无限录音")
+            log.warn("exaudio.record_start", "提示：请调用exaudio.record_stop()手动停止录音")
+        elseif recodConfigs.time < 0 then
+            log.error("录音时间不能为负数")
             return false
+        else
+            audio_record_param.time = recodConfigs.time
+            log.info("exaudio.record_start", string.format("将录音%d秒", audio_record_param.time))
         end
     else
         audio_record_param.time = 0
@@ -888,6 +1714,68 @@ function exaudio.record_start(recodConfigs)
         return false
     end
     audio_record_param.path = recodConfigs.path
+
+    -- 处理回调函数
+    if recodConfigs.cbfnc ~= nil then
+        if type(recodConfigs.cbfnc) ~= "function" then
+            log.error("cbfnc必须为函数类型")
+            return false
+        end
+        audio_record_param.cbfnc = recodConfigs.cbfnc
+    else
+        audio_record_param.cbfnc = nil
+    end
+
+    if USE_AUDIO_V2 then
+        local fmt = audio_v2_record_codec_map[audio_record_param.format]
+        if not fmt then
+            log.error("不支持的录音格式")
+            return false
+        end
+        
+        local path_type = type(audio_record_param.path)
+        local ok, req_id
+        
+        if path_type == "string" then
+            ok, req_id = audio_v2.record(
+                audio_record_param.path,  -- 文件路径
+                audio_record_param.time,  -- 录制时长（秒）
+                fmt.codec_id,             -- 编解码器ID
+                0,                        -- priority
+                fmt.sr,                   -- 采样率
+                fmt.bits,                 -- 位深
+                audio_setup_param.channels or 1  -- 声道数
+            )
+        elseif path_type == "function" then
+            -- 创建录音zbuff
+            audio_v2_record_zbuff = zbuff.create(48000)
+            ok, req_id = audio_v2.record(
+                audio_v2_record_zbuff,    -- zbuff缓冲区
+                audio_record_param.time,  -- 录制时长（秒）
+                fmt.codec_id,             -- 编解码器ID
+                0,                        -- priority
+                fmt.sr,                   -- 采样率
+                fmt.bits,                 -- 位深
+                audio_setup_param.channels or 1  -- 声道数
+            )
+        else
+            log.error("录音路径必须为字符串或函数")
+            return false
+        end
+        
+        if ok then
+            audio_v2_record_request_index = req_id
+            log.info("exaudio", "录音已开始, req_id:", req_id)
+        else
+            audio_v2_record_zbuff = nil
+            log.error("exaudio", "录音启动失败")
+        end
+        return ok
+    end
+    
+    -- ========== audio模式录音 ==========
+    -- 恢复RESUME工作模式
+    audio.pm(MULTIMEDIA_ID, exaudio.RESUME)
 
     -- 转换录音格式
     local recod_format, amr_quailty
@@ -909,17 +1797,6 @@ function exaudio.record_start(recodConfigs)
         recod_format = 48000
     end
 
-    -- 处理回调函数
-    if recodConfigs.cbfnc ~= nil then
-        if check_param(recodConfigs.cbfnc, "function", "cbfnc") then
-            audio_record_param.cbfnc = recodConfigs.cbfnc
-        else
-            return false
-        end
-    else
-        audio_record_param.cbfnc = nil
-    end
-    -- 开始录音
     local path_type = type(audio_record_param.path)
     if path_type == "string" then
         return audio.record(
@@ -950,8 +1827,37 @@ function exaudio.record_start(recodConfigs)
     return false
 end
 
--- 模块接口：停止录音
+-- 停止录音
 function exaudio.record_stop()
+    if USE_AUDIO_V2 then
+        if audio_v2_record_request_index then
+            -- 停止录音前，如果有回调模式，处理zbuff中剩余数据
+            if type(audio_record_param.path) == "function" and audio_v2_record_zbuff then
+                local left = audio_v2_record_zbuff:used()
+                if left > 0 then
+                    audio_record_param.path(audio_v2_record_zbuff, left)
+                    audio_v2_record_zbuff:del()
+                end
+                -- zbuff模式必须调stop让C层停止
+                audio_v2.stop(audio_v2_record_request_index)
+                audio_v2_record_request_index = nil
+                audio_v2_record_zbuff = nil
+                -- audio_v2.stop()强制停止后，C层不会再触发REQUEST_END事件，
+                -- 且上面的request_index已清空，即使C层补发REQUEST_END也无法匹配到录音分支。
+                -- 因此这里必须手动触发录音完成回调，否则上层（如录音完成后自动播放）永远不会执行。
+                if type(audio_record_param.cbfnc) == "function" then
+                    audio_record_param.cbfnc(exaudio.RECORD_DONE)
+                end
+                return true
+            end
+            -- 文件录音：不调stop，让C层自然结束（timeout到期后自动回收REQUEST_END）。
+            -- 不清空audio_v2_record_request_index，等待REQUEST_END回调来清空。
+            -- 调stop会导致文件未保存/REQUEST_END不触发，只轮询is_all_done从不主动stop录音。
+            return true
+        end
+        return false
+    end
+    
     local result = audio.recordStop(MULTIMEDIA_ID)
     -- 处理剩余的录音数据
     if type(audio_record_param.path) == "function" then
@@ -967,16 +1873,60 @@ function exaudio.record_stop()
     return result
 end
 
--- 模块接口：设置音量
-function exaudio.vol(play_volume)
+-- 设置音量
+-- @param play_volume 音量值
+-- @param driver_probe_id 驱动ID(可选,audio_v2模式支持)
+-- @return 是否成功
+function exaudio.vol(play_volume, driver_probe_id)
+    if USE_AUDIO_V2 then
+        -- 仅ES8311模式下才加载es8311驱动（DAC/TM8211模式无ES8311芯片，i2c不存在）
+        if not audio_v2_es8311_drv and audio_setup_param.model == "es8311" then
+            local ok
+            ok, audio_v2_es8311_drv = pcall(require, "es8311")
+        end
+        if audio_v2_es8311_drv then
+            -- audio_v2音量设置使用soft_volume
+            if check_param(play_volume, "number", "音量值") then
+                audio_v2_es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, play_volume)
+                audio_v2.soft_volume(play_volume, driver_probe_id)
+                voice_vol = play_volume  -- 同步更新，exaudio.pm(RESUME)恢复ES8311时使用最新音量
+                return true
+            end
+        else
+            -- DAC/TM8211模式：无硬件音量寄存器，仅设置soft_volume
+            if check_param(play_volume, "number", "音量值") then
+                audio_v2.soft_volume(play_volume, driver_probe_id)
+                voice_vol = play_volume
+                return true
+            end
+        end
+        return false
+    end
+    
     if check_param(play_volume, "number", "音量值") then
         return audio.vol(MULTIMEDIA_ID, play_volume)
     end
     return false
 end
 
--- 模块接口：设置麦克风音量
+-- 设置麦克风音量
 function exaudio.mic_vol(record_volume)
+    if USE_AUDIO_V2 then
+        -- 仅ES8311模式下才加载es8311驱动（DAC/TM8211模式无ES8311芯片，i2c不存在）
+        if not audio_v2_es8311_drv and audio_setup_param.model == "es8311" then
+            local ok
+            ok, audio_v2_es8311_drv = pcall(require, "es8311")
+        end
+        if audio_v2_es8311_drv then
+            audio_v2_es8311_drv.set_mic_vol(audio_setup_param.i2c_id or 0, record_volume)
+            mic_vol = record_volume
+            return true
+        end
+        -- DAC/TM8211模式：无硬件MIC增益寄存器，仅记录数值
+        mic_vol = record_volume
+        return true
+    end
+    
     if check_param(record_volume, "number", "麦克风音量值") then
         return audio.micVol(MULTIMEDIA_ID, record_volume)  
     end
@@ -988,20 +1938,282 @@ function exaudio.get_channels()
     return audio_setup_param.channels
 end
 
--- 模块接口：写入最后一块数据后，通知多媒体通道已经没有更多数据需要播放了
-function exaudio.finish()
+-- 写入最后一块数据后，通知多媒体通道已经没有更多数据需要播放了
+-- audio_v2模式下，此函数用于标记流式播放结束
+-- @param data 最后一帧数据(可选,audio_v2流式播放)
+-- @return 是否成功
+function exaudio.finish(data)
+    if USE_AUDIO_V2 then
+        -- audio_v2流式播放结束
+        if audio_v2_request_index then
+            -- 如果有文件句柄，由回调自动处理结束，这里不干预
+            if audio_v2_stream_file_fp then
+                log.info("exaudio", "文件流模式，等待回调自动处理结束")
+                return true
+            end
+            
+            -- 队列模式：入队列后标记结束，由NEED_NEW_DATA回调在队列清空后发结束信号
+            if data then
+                audio_stream_queue_push(data)
+            end
+            audio_v2_stream_end_marked = true
+            return true
+        end
+        return false
+    end
+    
     if audio.finish then
         return audio.finish(MULTIMEDIA_ID)
     end
     return false
 end
 
--- 模块接口：休眠控制
+-- 休眠控制
+-- @param pm_mode 休眠模式: exaudio.SHUTDOWN/exaudio.RESUME
+-- @return 是否成功
+-- @usage
+-- exaudio.pm(exaudio.SHUTDOWN)
+-- exaudio.pm(exaudio.RESUME)
 function exaudio.pm(pm_mode)
-    if audio.pm then
-        return audio.pm(MULTIMEDIA_ID,pm_mode)
+    if USE_AUDIO_V2 then
+        -- 新框架：使用audio_v2.shutdown + es8311操作进入休眠
+        if not audio_v2 then
+            log.error("exaudio.pm", "audio_v2模块未加载")
+            return false
+        end
+        -- 仅ES8311模式下才操作es8311驱动（DAC/TM8211模式无ES8311芯片，i2c不存在）
+        local es8311_ok, es8311_drv = false, nil
+        if audio_setup_param.model == "es8311" then
+            es8311_ok, es8311_drv = pcall(require, "es8311")
+        end
+        if pm_mode == exaudio.SHUTDOWN then
+            -- SHUTDOWN：下电ES8311，关闭PA，保持驱动和CODEC以备快速恢复
+            if es8311_ok and es8311_drv then
+                es8311_drv.power_down(audio_setup_param.i2c_id or 0)
+            end
+            audio_v2.shutdown(true, false, true)
+            return true
+        elseif pm_mode == exaudio.RESUME then
+            -- RESUME：恢复ES8311，确保所有模块处于工作状态
+            if es8311_ok and es8311_drv then
+                -- codec_voltage=0时按1.8V电平初始化(0x01)，否则默认3.3V(0x00)
+                local voltage = audio_setup_param.codec_voltage == 0 and 0x01 or 0x00
+                es8311_drv.init(audio_setup_param.i2c_id or 0, voltage)
+                es8311_drv.resume(audio_setup_param.i2c_id or 0)
+                es8311_drv.set_mute(audio_setup_param.i2c_id or 0, false)
+                es8311_drv.set_voice_vol(audio_setup_param.i2c_id or 0, voice_vol)
+                es8311_drv.set_mic_vol(audio_setup_param.i2c_id or 0, mic_vol)
+            end
+            -- 恢复外部 PA。
+            if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
+                gpio.setup(audio_setup_param.pa_ctrl, audio_setup_param.pa_on_level)
+            end
+            audio_v2.shutdown(false, false, false)
+            return true
+        end
+        log.warn("exaudio.pm", "不支持的模式:", pm_mode)
+        return false
+    end
+
+    -- 旧框架：直接调用audio.pm（pm_mode为数值宏，与audio.RESUME/audio.SHUTDOWN一致）
+    if audio and audio.pm then
+        return audio.pm(MULTIMEDIA_ID, pm_mode)
     end
     return false
 end
+
+-- 获取当前使用的音频模式
+function exaudio.get_audio_mode()
+    return USE_AUDIO_V2 and "audio_v2" or "audio"
+end
+
+-- 合成音频驱动ID（仅audio_v2模式支持）
+-- 用于在不使用默认驱动时，指定driver_probe_id参数
+-- @api exaudio.make_probe_id(tx_bus_type, tx_bus_id, rx_bus_type, rx_bus_id)
+-- @int tx_bus_type 发送总线类型，见audio_v2.DRIVER_TYPE_xxx常量(DRIVER_TYPE_NONE/I2S/DAC/ADC/USB)
+-- @int tx_bus_id 发送总线id
+-- @int rx_bus_type 接收总线类型，见audio_v2.DRIVER_TYPE_xxx常量
+-- @int rx_bus_id 接收总线id
+-- @return int 驱动ID，传入其他audio_v2函数的driver_probe_id参数；audio模式下返回nil
+-- @usage
+-- -- I2S0双工驱动（可同时播放和录音）
+-- local pid = exaudio.make_probe_id(audio_v2.DRIVER_TYPE_I2S, 0, audio_v2.DRIVER_TYPE_I2S, 0)
+-- -- DAC0单工驱动（仅播放）
+-- local pid = exaudio.make_probe_id(audio_v2.DRIVER_TYPE_DAC, 0, audio_v2.DRIVER_TYPE_NONE, 0)
+-- -- 使用合成的驱动ID进行下电操作
+-- exaudio.shutdown(true, true, true, pid)
+function exaudio.make_probe_id(tx_bus_type, tx_bus_id, rx_bus_type, rx_bus_id)
+    if not USE_AUDIO_V2 then
+        log.warn("exaudio.make_probe_id", "仅新音频框架支持")
+        return nil
+    end
+
+    if not audio_v2 then
+        log.error("exaudio.make_probe_id", "新音频框架未加载")
+        return nil
+    end
+
+    return audio_v2.make_probe_id(tx_bus_type, tx_bus_id, rx_bus_type, rx_bus_id)
+end
+
+-- ==================== 流式播放辅助函数（仅audio_v2模式支持） ====================
+
+--[[
+@description 从音频文件或缓冲数据解析播放信息（采样率、位宽、声道数等）
+@api exaudio.parse_audio_info(input, codec_id[, pos])
+@string/zbuff input 音频文件路径（string）或二进制数据（string/zbuff）
+@number codec_id 编解码器ID (0=PCM, 1=WAV, 2=AMR_NB, 3=AMR_WB, 5=MP3)
+@number pos 可选，数据偏移位置（字节），仅传入二进制数据时有效，默认0
+@return table 成功返回包含音频信息的table，失败返回nil
+@usage
+-- 方式1：传入文件路径
+local info = exaudio.parse_audio_info("/luadb/test.mp3", 5)
+if info then
+    log.info("采样率:", info.sample_rate)
+    log.info("位宽:", info.data_bits)
+    log.info("声道数:", info.channel_nums)
+end
+
+-- 方式2：传入缓冲数据
+local info = exaudio.parse_audio_info(buff_data, 5)
+if info then
+    log.info("采样率:", info.sample_rate)
+end
+注意：此函数仅在audio_v2模式下可用
+]]
+function exaudio.parse_audio_info(input, codec_id, pos)
+    if not input then
+        log.error("parse_audio_info: input must not be nil")
+        return nil
+    end
+    
+    if not codec_id or type(codec_id) ~= "number" then
+        log.error("parse_audio_info: codec_id must be number")
+        return nil
+    end
+    
+    -- PCM格式是原始音频数据，没有文件头，直接返回默认值
+    if codec_id == 0 then
+        log.info("parse_audio_info: PCM format, use default values")
+        return {sample_rate = 16000, data_bits = 16, channel_nums = 1, is_signed = true, data_start = 0}
+    end
+    
+    local file_data
+    local need_close_fp = false
+    local fp
+    
+    -- 判断传入的是文件路径还是缓冲数据
+    if type(input) == "string" then
+        -- 尝试打开文件
+        fp = io.open(input, "rb")
+        if fp then
+            need_close_fp = true
+            -- 先读取12字节进行初始解析
+            file_data = fp:read(12)
+            if not file_data or #file_data == 0 then
+                log.error("parse_audio_info: file read failed", input)
+                fp:close()
+                return nil
+            end
+        else
+            -- 不是文件路径，当作二进制数据直接使用
+            file_data = input
+        end
+    else
+        -- zbuff或其他类型，直接作为数据使用
+        file_data = input
+    end
+    
+    local start_pos = pos or 0
+    
+    -- 使用audio_v2.get_play_info解析文件头
+    local no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed = 
+        audio_v2.get_play_info(file_data, codec_id, start_pos)
+    
+    log.info("parse_audio_info", "get_play_info result:", no_error, "sample_rate:", sample_rate, "next_pos:", next_pos, "need_len:", need_len)
+    
+    if no_error then
+        if sample_rate and sample_rate > 0 then
+            -- 解析成功
+            if need_close_fp then
+                log.info("exaudio.parse_audio_info", input, "sample_rate:", sample_rate, 
+                         "bits:", data_bits, "channels:", channel_nums)
+                fp:close()
+            end
+            return {
+                sample_rate = sample_rate,
+                data_bits = data_bits or 16,
+                channel_nums = channel_nums or 1,
+                is_signed = (is_signed ~= false),
+                data_start = next_pos
+            }
+        else
+            -- sample_rate为0或nil，需要读取更多数据重试
+            if need_close_fp then
+                -- 文件模式：从文件继续读取
+                log.info("parse_audio_info", "sample_rate is", sample_rate, "need retry")
+                local retry_count = 0
+                while retry_count < 6 and no_error and (not sample_rate or sample_rate == 0) do
+                    log.info("parse_audio_info", "seek", next_pos, "need", need_len)
+                    fp:seek("set", next_pos)
+                    file_data = fp:read(need_len)
+                    if file_data then
+                        log.info("parse_audio_info", "read", #file_data)
+                        no_error, next_pos, need_len, sample_rate, data_bits, channel_nums, is_signed = 
+                            audio_v2.get_play_info(file_data, codec_id, next_pos)
+                        retry_count = retry_count + 1
+                    else
+                        break
+                    end
+                end
+                
+                if no_error and sample_rate and sample_rate > 0 then
+                    log.info("exaudio.parse_audio_info", input, "sample_rate:", sample_rate, 
+                             "bits:", data_bits, "channels:", channel_nums, "retries:", retry_count)
+                    fp:close()
+                    return {
+                        sample_rate = sample_rate,
+                        data_bits = data_bits or 16,
+                        channel_nums = channel_nums or 1,
+                        is_signed = is_signed ~= false,
+                        data_start = next_pos
+                    }
+                else
+                    log.warn("parse_audio_info: retry failed", input, "retries:", retry_count)
+                end
+            else
+                -- 缓冲数据模式：返回当前解析结果，由调用方自行重试
+                log.info("parse_audio_info", "buffer mode, sample_rate is", sample_rate, "need more data, next_pos:", next_pos, "need_len:", need_len)
+                return {
+                    sample_rate = sample_rate or 0,
+                    data_bits = data_bits or 16,
+                    channel_nums = channel_nums or 1,
+                    is_signed = (is_signed ~= false),
+                    data_start = next_pos,
+                    need_len = need_len
+                }
+            end
+        end
+    else
+        log.warn("parse_audio_info: get_play_info error", input)
+    end
+    
+    if need_close_fp then
+        fp:close()
+    end
+    return nil
+end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exaudio.version()
+]]
+function exaudio.version()
+    return "202608211054"
+end
+
+log.debug("exaudio", "version -> " .. exaudio.version())
 
 return exaudio

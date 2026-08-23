@@ -30,19 +30,19 @@
 #endif
 
 #include "celt/x86/x86cpu.h"
-#include "structs.h"
-#include "SigProc_FIX.h"
+#include "silk/structs.h"
+#include "silk/SigProc_FIX.h"
 #ifndef FIXED_POINT
-#include "SigProc_FLP.h"
+#include "silk/float/SigProc_FLP.h"
 #endif
-#include "pitch.h"
-#include "main.h"
+#include "celt/pitch.h"
+#include "silk/main.h"
 
 #if defined(OPUS_HAVE_RTCD) && !defined(OPUS_X86_PRESUME_AVX2)
 
 #if defined(FIXED_POINT)
 
-#include "fixed/main_FIX.h"
+#include "silk/fixed/main_FIX.h"
 
 opus_int64 (*const SILK_INNER_PROD16_IMPL[ OPUS_ARCHMASK + 1 ] )(
     const opus_int16 *inVec1,

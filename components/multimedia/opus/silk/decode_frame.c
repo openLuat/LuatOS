@@ -30,11 +30,11 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "main.h"
-#include "stack_alloc.h"
+#include "celt/stack_alloc.h"
 #include "PLC.h"
 
 #ifdef ENABLE_OSCE
-#include "osce.h"
+#include "dnn/osce.h"
 #endif
 
 /****************/

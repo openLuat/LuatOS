@@ -29,12 +29,12 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SILK_MAIN_FLP_H
 
 #include "SigProc_FLP.h"
-#include "SigProc_FIX.h"
+#include "silk/SigProc_FIX.h"
 #include "structs_FLP.h"
-#include "main.h"
-#include "define.h"
-#include "debug.h"
-#include "entenc.h"
+#include "silk/main.h"
+#include "silk/define.h"
+#include "silk/debug.h"
+#include "celt/entenc.h"
 
 #ifdef __cplusplus
 extern "C"

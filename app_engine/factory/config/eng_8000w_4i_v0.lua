@@ -28,7 +28,7 @@ return {
             params = {
                 port = lcd.HWID_0,      -- SPI 端口 0
                 pin_rst = 36,            -- 复位引脚
-                pin_pwr = 28,            -- 背光供电 GPIO
+                -- pin_pwr = 28,            -- 背光供电 GPIO
                 direction = 0,           -- 0° 方向
                 w = 320,                 -- 水平分辨率
                 h = 480,                 -- 竖直分辨率
@@ -58,6 +58,12 @@ return {
         net_4g = true,                   -- 启用 4G 蜂窝网络（Air8000W 内置 4G）
         wifi = true,                     -- 启用 WiFi（exnetif 模式）
         buzzer = true,                   -- 启用蜂鸣器（触摸反馈音）
+    },
+
+    -- ===== 统一网络配置（优先级从高到低）=====
+    network = {
+        { type = "wifi_native" },        -- 自带 WiFi 优先
+        { type = "4g_native" },          -- 自带 4G 兜底
     },
 
     -- ===== UI 显示控制（只写 = true 的项）=====

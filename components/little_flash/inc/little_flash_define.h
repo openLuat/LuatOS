@@ -254,6 +254,7 @@ typedef struct {
     uint8_t addr_bytes;                          /**< address bytes */
     uint32_t prog_size;                          /**< page size (bytes) */
     uint32_t read_size;                          /**< read size (bytes) */
+    uint32_t spare_size;                         /**< NAND spare/OOB size per page (bytes), 0 for NOR */
     uint32_t retry_times;                        /**< retry times */
     uint32_t erase_times;                        /**< erase time (ms) */
 } little_flash_chipinfo_t;
@@ -265,6 +266,7 @@ typedef struct{
 
 struct little_flash{
     little_flash_chipinfo_t chip_info;
+    bool addr_in_4_byte;
     little_flash_spi_t spi;
     /* lock */
     void (*lock)(const little_flash_t *lf);
@@ -279,7 +281,7 @@ struct little_flash{
     void* (*malloc)(size_t size);
     /* free */
     void (*free)(void* ptr);
-    /* pre-allocated write buffer: 4+prog_size bytes, set by device_init */
+    /* pre-allocated write buffer: 4+prog_size(+spare_size for NAND OOB) bytes, set by device_init */
     uint8_t *prog_buf;
 #endif /* LF_USE_HEAP */
     /* user data */
@@ -300,6 +302,7 @@ struct little_flash{
 #define LF_NANDFLASH_PAGE_ZISE                      (2048)     /**< NAND flash page size (bytes) */
 
 #define LF_CMD_NORFLASH_WRITE_STATUS_REGISTER       (0x01)
+#define LF_NANDFLASH_SPARE_SIZE                     (64)       /**< NAND flash spare/OOB size (bytes) */
 #define LF_CMD_NORFLASH_READ_STATUS_REGISTER        (0x05)
 
 #define LF_CMD_NANDFLASH_WRITE_STATUS_REGISTER      (0x1F)
@@ -317,6 +320,9 @@ struct little_flash{
 #define LF_CMD_JEDEC_ID                             (0x9F)
 
 #define LF_CMD_ERASE_CHIP                           (0xC7)
+
+#define LF_CMD_ENTER_4B_ADDRESS_MODE                (0xB7)
+#define LF_CMD_EXIT_4B_ADDRESS_MODE                 (0xE9)
 
 #define LF_CMD_ENABLE_RESET                         (0x66)
 

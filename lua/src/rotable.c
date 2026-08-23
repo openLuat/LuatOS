@@ -208,7 +208,7 @@ static int rotable_udata_pairs( lua_State* L ) {
  * 与lua_newlib对应的函数, 用于生成一个库table,区别是lua_newlib生成普通table,这个函数生成rotable.
  */
 
-ROTABLE_EXPORT void rotable_newlib( lua_State* L, void const* v ) {
+void rotable_newlib( lua_State* L, void const* v ) {
   rotable_Reg const* reg = (rotable_Reg const*)v;
   rotable* t = (rotable*)lua_newuserdata( L, sizeof( *t ) );
   lua_pushlightuserdata( L, (void*)unique_address );
@@ -242,7 +242,7 @@ ROTABLE_EXPORT void rotable_newlib( lua_State* L, void const* v ) {
 /**
  * 为自定义对象也生成rotable形式的元表, 这个形式比rotable_newlib需要更多内存,但起码是一个解决办法.
  */
-ROTABLE_EXPORT void rotable_newidx( lua_State* L, void const* v ) {
+void rotable_newidx( lua_State* L, void const* v ) {
   lua_pushlightuserdata( L, (void*)v);
   lua_pushcclosure( L, rotable_func_index, 1 );
 }

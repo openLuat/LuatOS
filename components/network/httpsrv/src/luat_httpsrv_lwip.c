@@ -166,6 +166,11 @@ static void client_resp(void* arg) {
 
 //================================
 
+static void client_close_cb(void* arg) {
+    struct tcp_pcb* pcb = (struct tcp_pcb*)arg;
+    tcp_close(pcb);
+}
+
 static void client_cleanup(client_socket_ctx_t *client) {
     HTTPSRV_DBG("client cleanup!!! %p", client);
     if (client->pcb) {
@@ -173,7 +178,9 @@ static void client_cleanup(client_socket_ctx_t *client) {
         tcp_sent(client->pcb, NULL);
         tcp_recv(client->pcb, NULL);
         tcp_arg(client->pcb, NULL);
-        tcp_close(client->pcb);
+        if (tcpip_callback(client_close_cb, client->pcb) != ERR_OK) {
+            tcp_close(client->pcb);
+        }
         client->pcb = NULL;
     }
     if (client->uri) {

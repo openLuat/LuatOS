@@ -22,7 +22,7 @@ sys.taskInit(function()
         log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
         airlink.statistics()
         log.info("执行http请求")
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_GP_GW,timeout=3000}).wait()
+        local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {adapter=socket.LWIP_GP_GW,timeout=3000}).wait()
         log.info("http执行结果", code, code, headers, body)
     end
 end)

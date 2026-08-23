@@ -6,6 +6,14 @@
 @author  江访
 @usage
 本模块为显示与亮度业务逻辑层，管理PWM背光亮度调节。提供亮度增减、设置、查询接口。
+
+消息协议（订阅/发布）:
+订阅: DISPLAY_BRIGHTNESS_INCREASE    → 亮度 +10
+订阅: DISPLAY_BRIGHTNESS_DECREASE    → 亮度 -10
+订阅: DISPLAY_BRIGHTNESS_SET(level)  → 设置亮度值 (10-100)
+订阅: DISPLAY_BRIGHTNESS_GET         → 查询当前亮度
+发布: DISPLAY_BRIGHTNESS_CHANGED(level) → 亮度变化通知
+发布: DISPLAY_BRIGHTNESS_VALUE(level)   → 亮度查询返回值
 ]]
 -- ==================== 局部变量 ====================
 local pwm_initialized = false  -- PWM 初始化标志

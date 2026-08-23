@@ -6,12 +6,19 @@
 @author  wendal
 @usage
 -- 通过阿里DNS获取结果
-local ip = httpdns.ali("air32.cn")
-log.info("httpdns", "air32.cn", ip)
+local ip = httpdns.ali("luatos.com")
+log.info("httpdns", "luatos.com", ip)
 
 -- 通过腾讯DNS获取结果
-local ip = httpdns.tx("air32.cn")
-log.info("httpdns", "air32.cn", ip)
+local ip = httpdns.tx("luatos.com")
+log.info("httpdns", "luatos.com", ip)
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增httpdns.version()接口
+--    支持httpdns库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local httpdns = {}
@@ -23,11 +30,11 @@ local httpdns = {}
 @table opts 可选参数, 与http.request的opts参数一致
 @return string ip地址
 @usage
-local ip = httpdns.ali("air32.cn")
-log.info("httpdns", "air32.cn", ip)
+local ip = httpdns.ali("luatos.com")
+log.info("httpdns", "luatos.com", ip)
 -- 指定网络适配器
-local ip = httpdns.ali("air32.cn", {adapter=socket.LWIP_STA, timeout=3000})
-log.info("httpdns", "air32.cn", ip)
+local ip = httpdns.ali("luatos.com", {adapter=socket.LWIP_STA, timeout=3000})
+log.info("httpdns", "luatos.com", ip)
 ]]
 function httpdns.ali(n, opts)
     if n == nil then return end
@@ -53,12 +60,12 @@ end
 @table opts 可选参数, 与http.request的opts参数一致
 @return string ip地址
 @usage
-local ip = httpdns.tx("air32.cn")
-log.info("httpdns", "air32.cn", ip)
+local ip = httpdns.tx("luatos.com")
+log.info("httpdns", "luatos.com", ip)
 
 -- 指定网络适配器
-local ip = httpdns.tx("air32.cn", {adapter=socket.LWIP_STA, timeout=3000})
-log.info("httpdns", "air32.cn", ip)
+local ip = httpdns.tx("luatos.com", {adapter=socket.LWIP_STA, timeout=3000})
+log.info("httpdns", "luatos.com", ip)
 ]]
 function httpdns.tx(n, opts)
     if n == nil then return end
@@ -73,6 +80,18 @@ function httpdns.tx(n, opts)
         if tmp then return tmp[1] end
     end
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+httpdns.version()
+]]
+function httpdns.version()
+    return "202607021200"
+end
+
+log.debug("httpdns", "version -> " .. httpdns.version())
 
 return httpdns
 

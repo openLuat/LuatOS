@@ -1,0 +1,6 @@
+{
+  "name": "tfs_basic",
+  "summary": "TFS checkpoint, powercut, high occupancy and recovery selftests",
+  "platform": ["pc"],
+  "timeout": 600
+}

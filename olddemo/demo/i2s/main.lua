@@ -4,9 +4,6 @@ PROJECT = "i2sdemo"
 VERSION = "1.0.0"
 
 --[[
-本demo暂时只在air101/103/601测试过
-对于EC618系列的模块,例如Air780E/Air700E,请使用audio库进行快捷播放
-
 本demo需要外挂ES8311 codec芯片, 可使用海凌科的w800音频开发板进行测试
 
 https://detail.tmall.com/item.htm?abbucket=2&id=670202333872
@@ -72,7 +69,6 @@ sys.taskInit(function()
     -- mp3测试
     -- 推荐使用ffmpeg对mp3文件进行预处理, 必须转成单声道
     --  ffmpeg -i abc.mp3 -ac 1 -map_metadata -1 -y out.mp3
-    -- Air101/Air103/Air601支持采样率 8~44.1k, 深度8-16bit, 以下是转成16k采样率
     --  ffmpeg -i abc.mp3 -ac 1 -map_metadata -1 -ar 16000 -y out.mp3
     local path = "/luadb/out.mp3"
     local decoder = codec.create(codec.MP3)

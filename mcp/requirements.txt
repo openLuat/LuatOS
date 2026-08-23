@@ -1,3 +1,0 @@
-mcp>=1.26.0
-jieba
-chromadb>=0.5.0

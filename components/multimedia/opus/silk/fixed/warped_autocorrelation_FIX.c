@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "main_FIX.h"
 
 #if defined(__mips)
-#include "mips/warped_autocorrelation_FIX_mipsr1.h"
+#include "silk/fixed/mips/warped_autocorrelation_FIX_mipsr1.h"
 #endif
 
 

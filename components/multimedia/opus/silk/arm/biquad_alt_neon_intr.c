@@ -34,7 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 # include <string.h>
 # include "stack_alloc.h"
 #endif
-#include "SigProc_FIX.h"
+#include "silk/SigProc_FIX.h"
 
 static inline void silk_biquad_alt_stride2_kernel( const int32x4_t A_L_s32x4, const int32x4_t A_U_s32x4, const int32x4_t B_Q28_s32x4, const int32x2_t t_s32x2, const int32x4_t in_s32x4, int32x4_t *S_s32x4, int32x2_t *out32_Q14_s32x2 )
 {

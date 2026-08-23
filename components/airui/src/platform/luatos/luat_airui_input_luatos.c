@@ -422,32 +422,42 @@ static int luatos_input_suspend(airui_ctx_t *ctx, airui_sleep_mode_t mode)
 {
     luatos_platform_data_t *platform = airui_luatos_get_data(ctx);
     luat_tp_config_t *tp_cfg = platform ? platform->tp_config : NULL;
+    int ret = 0;
 
     if (mode != AIRUI_SLEEP_MODE_DEEP || tp_cfg == NULL || tp_cfg->opts == NULL) {
         return AIRUI_OK;
     }
 
+    // Only TP drivers that implement both sleep and wakeup participate in
+    // AirUI deep-sleep power saving. In the current tree, GT9XX is the only
+    // verified driver that satisfies this requirement.
+    if (tp_cfg->opts->sleep == NULL || tp_cfg->opts->wakeup == NULL) {
+        LLOGW("tp lowpower unsupported for driver %s", tp_cfg->opts->name ? tp_cfg->opts->name : "unknown");
+        return AIRUI_OK;
+    }
+
     if (tp_cfg->pin_int != LUAT_GPIO_NONE) {
-        luat_tp_irq_enable(tp_cfg, 0);
-    }
-
-    if (tp_cfg->opts->sleep != NULL) {
-        luat_tp_sleep(tp_cfg);
-        if (platform != NULL) {
-            platform->tp_resume_needs_init = 1;
+        ret = luat_tp_irq_enable(tp_cfg, 0);
+        if (ret != 0) {
+            LLOGE("tp sleep irq disable failed ret=%d", ret);
+            return AIRUI_ERR_PLATFORM_ERROR;
         }
     }
 
-    if (tp_cfg->opts->deinit != NULL) {
-        tp_cfg->opts->deinit(tp_cfg);
-        if (platform != NULL) {
-            platform->tp_resume_needs_init = 1;
+    ret = luat_tp_sleep(tp_cfg);
+    if (ret != 0) {
+        LLOGE("tp sleep failed ret=%d", ret);
+        if (tp_cfg->pin_int != LUAT_GPIO_NONE) {
+            luat_tp_irq_enable(tp_cfg, 1);
         }
+        return AIRUI_ERR_PLATFORM_ERROR;
     }
 
     memset(tp_cfg->tp_data, 0, sizeof(tp_cfg->tp_data));
     if (platform != NULL) {
         platform->tp_suspended = 1;
+        platform->tp_resume_needs_init = 0;
+        platform->tp_resume_use_wakeup = 1;
     }
     return AIRUI_OK;
 }
@@ -466,7 +476,13 @@ static int luatos_input_resume(airui_ctx_t *ctx, airui_sleep_mode_t mode)
         return AIRUI_OK;
     }
 
-    if (platform != NULL && platform->tp_resume_needs_init) {
+    if (platform != NULL && platform->tp_resume_use_wakeup) {
+        ret = luat_tp_wakeup(tp_cfg);
+        if (ret != 0) {
+            LLOGE("tp wakeup failed ret=%d", ret);
+            return AIRUI_ERR_PLATFORM_ERROR;
+        }
+    } else if (platform != NULL && platform->tp_resume_needs_init) {
         ret = luat_tp_init(tp_cfg);
         if (ret != 0) {
             LLOGE("tp resume init failed ret=%d", ret);
@@ -484,6 +500,7 @@ static int luatos_input_resume(airui_ctx_t *ctx, airui_sleep_mode_t mode)
     if (platform != NULL) {
         platform->tp_suspended = 0;
         platform->tp_resume_needs_init = 0;
+        platform->tp_resume_use_wakeup = 0;
     }
     return AIRUI_OK;
 }

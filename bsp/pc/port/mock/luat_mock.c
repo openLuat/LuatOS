@@ -91,9 +91,6 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_FS
   {"fs",      luaopen_fs},                // 文件系统库,在io库之外再提供一些方法
 #endif
-#ifdef LUAT_USE_MQTTCORE
-  {"mqttcore",luaopen_mqttcore},          // MQTT 协议封装
-#endif
   {NULL, NULL}
 };
 

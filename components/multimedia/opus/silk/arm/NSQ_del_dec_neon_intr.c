@@ -33,9 +33,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifdef OPUS_CHECK_ASM
 # include <string.h>
 #endif
-#include "main.h"
-#include "stack_alloc.h"
-#include "os_support.h"
+#include "silk/main.h"
+#include "celt/stack_alloc.h"
+#include "celt/os_support.h"
 
 /* NEON intrinsics optimization now can only parallelize up to 4 delay decision states.    */
 /* If there are more states, C function is called, and this optimization must be expanded. */

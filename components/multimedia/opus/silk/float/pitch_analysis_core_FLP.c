@@ -33,9 +33,9 @@ POSSIBILITY OF SUCH DAMAGE.
 * Pitch analyser function
 ******************************************************************************/
 #include "SigProc_FLP.h"
-#include "SigProc_FIX.h"
-#include "pitch_est_defines.h"
-#include "pitch.h"
+#include "silk/SigProc_FIX.h"
+#include "silk/pitch_est_defines.h"
+#include "celt/pitch.h"
 
 #define SCRATCH_SIZE        22
 

@@ -14,6 +14,8 @@
 #include "lvgl9/src/widgets/tabview/lv_tabview.h"
 #include "lvgl9/src/widgets/table/lv_table.h"
 #include "lvgl9/src/widgets/table/lv_table_private.h"
+#include "lvgl9/src/core/lv_obj_event.h"
+#include "lvgl9/src/indev/lv_indev.h"
 #include "lvgl9/src/misc/lv_event.h"
 #include "lvgl9/src/tick/lv_tick.h"
 #include "luat_malloc.h"
@@ -96,8 +98,55 @@ int airui_component_capture_callback(void *L, int idx, const char *key)
 // 按下计时、抬起判定短按/长按状态
 typedef struct {
     bool pressed;
+    bool moved;
+    bool scrolled;
+    lv_point_t press_point;
+    lv_point_t last_point;
     uint32_t press_tick;
 } airui_release_select_state_t;
+
+static void airui_release_select_state_reset_interaction(airui_release_select_state_t *state)
+{
+    if (state == NULL) {
+        return;
+    }
+
+    state->pressed = false;
+    state->moved = false;
+    state->scrolled = false;
+    state->press_point.x = 0;
+    state->press_point.y = 0;
+    state->last_point.x = 0;
+    state->last_point.y = 0;
+    state->press_tick = 0;
+}
+
+static lv_indev_t *airui_release_select_get_indev(lv_event_t *e)
+{
+    lv_indev_t *indev = lv_indev_active();
+    if (indev == NULL) {
+        indev = lv_event_get_indev(e);
+    }
+    return indev;
+}
+
+static void airui_release_select_sync_indev_state(airui_release_select_state_t *state, lv_indev_t *indev)
+{
+    if (state == NULL || indev == NULL) {
+        return;
+    }
+
+    lv_indev_get_point(indev, &state->last_point);
+
+    if (lv_indev_get_press_moved(indev)) {
+        state->moved = true;
+    }
+
+    if (lv_indev_get_scroll_obj(indev) != NULL || lv_indev_get_scroll_dir(indev) != LV_DIR_NONE) {
+        state->moved = true;
+        state->scrolled = true;
+    }
+}
 
 // 释放按下计时、抬起判定短按/长按状态
 static void airui_release_select_state_free(void *state_ptr)
@@ -126,27 +175,60 @@ static void airui_release_select_event_cb(lv_event_t *e)
     }
 
     switch (code) {
-        case LV_EVENT_PRESSED:
+        case LV_EVENT_PRESSED: {
+            lv_indev_t *indev = airui_release_select_get_indev(e);
+            airui_release_select_state_reset_interaction(state);
             state->pressed = true;
             state->press_tick = lv_tick_get();
+            if (indev != NULL) {
+                lv_indev_get_point(indev, &state->press_point);
+                state->last_point = state->press_point;
+            }
             break;
+        }
+        case LV_EVENT_PRESSING: {
+            if (!state->pressed) {
+                break;
+            }
+            lv_indev_t *indev = airui_release_select_get_indev(e);
+            airui_release_select_sync_indev_state(state, indev);
+            break;
+        }
+        case LV_EVENT_SCROLL_BEGIN:
+        case LV_EVENT_SCROLL:
+        case LV_EVENT_GESTURE: {
+            if (!state->pressed) {
+                break;
+            }
+            lv_indev_t *indev = airui_release_select_get_indev(e);
+            airui_release_select_sync_indev_state(state, indev);
+            state->moved = true;
+            if (code == LV_EVENT_SCROLL_BEGIN || code == LV_EVENT_SCROLL) {
+                state->scrolled = true;
+            }
+            break;
+        }
         case LV_EVENT_PRESS_LOST:
-            state->pressed = false;
+            airui_release_select_state_reset_interaction(state);
             break;
         case LV_EVENT_RELEASED: {
+            lv_indev_t *indev = airui_release_select_get_indev(e);
+            airui_release_select_sync_indev_state(state, indev);
             if (!state->pressed) {
                 break;
             }
 
-            state->pressed = false;
             uint32_t elapsed = lv_tick_elaps(state->press_tick);
+            bool moved = state->moved;
+            bool scrolled = state->scrolled;
             bool has_click = meta->callback_refs[AIRUI_EVENT_CLICKED] != LUA_NOREF;
             bool has_long_press = meta->callback_refs[AIRUI_EVENT_LONG_PRESSED] != LUA_NOREF;
+            airui_release_select_state_reset_interaction(state);
 
-            if (has_long_press && elapsed >= AIRUI_RELEASE_SELECT_LONG_PRESS_MS) {
+            if (!moved && !scrolled && has_long_press && elapsed >= AIRUI_RELEASE_SELECT_LONG_PRESS_MS) {
                 airui_component_call_callback(meta, AIRUI_EVENT_LONG_PRESSED, meta->ctx->L);
             }
-            else if (has_click) {
+            else if (!moved && !scrolled && has_click) {
                 airui_component_call_callback(meta, AIRUI_EVENT_CLICKED, meta->ctx->L);
             }
             break;

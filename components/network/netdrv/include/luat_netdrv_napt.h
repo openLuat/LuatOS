@@ -5,9 +5,10 @@
 #include "lwip/def.h"
 #include "lwip/ip.h"
 #include "lwip/etharp.h"
+#include "lwip/inet_chksum.h"
 #include "luat_netdrv.h"
+#include "luat_netdrv_pkg.h"
 #include <string.h>
-
 // NAPT公共类型别名
 #ifndef NAPT_TYPE_ALIASES
 #define NAPT_TYPE_ALIASES
@@ -34,6 +35,32 @@ static inline uint16_t napt_chksum_replace_u32(uint16_t sum_net, uint32_t old_ne
     sum_net = napt_chksum_replace_u16(sum_net, old16[0], new16[0]);
     sum_net = napt_chksum_replace_u16(sum_net, old16[1], new16[1]);
     return sum_net;
+}
+
+// NAPT全量重算L4 checksum(仅原始checksum为0时使用)
+// 只用inet_chksum(裸buffer)实现, 不依赖pbuf: 部分平台固件链接的lwIP没有pbuf_alloc_reference
+// 算法与lwIP inet_chksum_pseudo完全一致(单段连续buffer, 无需处理奇偶字节交换)
+// 注意: 调用前l4_hdr的chksum字段必须为0(调用点已满足)
+static inline uint16_t napt_inet_chksum_pseudo(struct ip_hdr *ip_hdr, uint8_t proto, void *l4_hdr, uint16_t l4_len)
+{
+    uint32_t addr = ip_hdr->src.addr;
+    uint32_t acc = (addr & 0xFFFFUL) + ((addr >> 16) & 0xFFFFUL);
+    addr = ip_hdr->dest.addr;
+    acc += (addr & 0xFFFFUL) + ((addr >> 16) & 0xFFFFUL);
+    acc = FOLD_U32T(acc);
+    acc = FOLD_U32T(acc);
+    // inet_chksum返回的是反码和, 取反还原为累加和后并入
+    acc += (uint16_t)~inet_chksum(l4_hdr, l4_len);
+    acc += (uint32_t)lwip_htons((uint16_t)proto);
+    acc += (uint32_t)lwip_htons(l4_len);
+    acc = FOLD_U32T(acc);
+    acc = FOLD_U32T(acc);
+    uint16_t sum = (uint16_t)~(acc & 0xFFFFUL);
+    // chksum计算结果为0时必须按0xFFFF发送, 0表示"无checksum"
+    if (sum == 0) {
+        sum = 0xFFFF;
+    }
+    return sum;
 }
 
 // 返回值定义（对齐LWIP期望：0=交给LWIP继续，非0=已消费）
@@ -155,17 +182,17 @@ static inline int napt_output_to_lan(napt_ctx_t* ctx,
         return 1;
     }
     if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
-        dst->dataout(dst, dst->userdata, ctx->eth, ctx->len);
+        luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ctx->eth, ctx->len);
     }
     else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
         memcpy(buff, mapping->inet_mac, 6);
         memcpy(buff + 6, dst->netif->hwaddr, 6);
         memcpy(buff + 12, "\x08\x00", 2);
         memcpy(buff + 14, ip_hdr, ctx->len);
-        dst->dataout(dst, dst->userdata, buff, ctx->len + 14);
+        luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, buff, ctx->len + 14);
     }
     else {
-        dst->dataout(dst, dst->userdata, ip_hdr, ctx->len);
+        luat_netdrv_pkg_output(dst->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len);
     }
     return 1;
 }
@@ -183,22 +210,22 @@ static inline int napt_output_to_wan(napt_ctx_t* ctx,
         if (ctx->eth) {
             memcpy(ctx->eth->dest.addr, gw->gw_mac, 6);
             memcpy(ctx->eth->src.addr, gw->netif->hwaddr, 6);
-            gw->dataout(gw, gw->userdata, ctx->eth, ctx->len);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ctx->eth, ctx->len);
         }
         else {
             memcpy(buff, gw->gw_mac, 6);
             memcpy(buff + 6, gw->netif->hwaddr, 6);
             memcpy(buff + 12, "\x08\x00", 2);
             memcpy(buff + 14, ip_hdr, ctx->len);
-            gw->dataout(gw, gw->userdata, buff, ctx->len + 14);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, buff, ctx->len + 14);
         }
     }
     else {
         if (ctx->eth) {
-            gw->dataout(gw, gw->userdata, ip_hdr, ctx->len - 14);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len - 14);
         }
         else {
-            gw->dataout(gw, gw->userdata, ip_hdr, ctx->len);
+            luat_netdrv_pkg_output(gw->id, LUAT_NETDRV_CH_HW, ip_hdr, ctx->len);
         }
     }
     return 1;
@@ -230,3 +257,7 @@ extern luat_netdrv_napt_ctx_t *g_napt_tcp_ctx;
 extern luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 
 #endif
+
+void luat_netdrv_napt_set_gw(int adapter_id);
+/* Air8000: get current NAPT gateway adapter_id, < 0 when disabled */
+int  luat_netdrv_napt_get_gw_adapter(void);

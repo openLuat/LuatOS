@@ -34,7 +34,7 @@
 #if !defined(FFT_ARM_H)
 #define FFT_ARM_H
 
-#include "kiss_fft.h"
+#include "celt/kiss_fft.h"
 
 #if defined(HAVE_ARM_NE10)
 

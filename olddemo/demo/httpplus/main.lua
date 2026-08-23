@@ -24,7 +24,7 @@ sys.taskInit(function()
     -- 统一联网函数, 可自行删减
     ----------------------------
     if wlan and wlan.connect then
-        -- wifi 联网, ESP32系列均支持
+        -- wifi 联网, 带 wlan 模块的模组均支持
         local ssid = "luatos1234"
         local password = "12341234"
         log.info("wifi", ssid, password)
@@ -36,14 +36,6 @@ sys.taskInit(function()
         local result, data = sys.waitUntil("IP_READY", 30000)
         log.info("wlan", "IP_READY", result, data)
         device_id = wlan.getMac()
-    elseif rtos.bsp() == "AIR105" then
-        -- w5500 以太网, 当前仅Air105支持
-        w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
-        w5500.config() --默认是DHCP模式
-        w5500.bind(socket.ETH0)
-        -- LED = gpio.setup(62, 0, gpio.PULLUP)
-        sys.wait(1000)
-        -- TODO 获取mac地址作为device_id
     elseif mobile then
         -- Air780E/Air600E系列
         --mobile.simid(2)
@@ -69,52 +61,46 @@ function test_httpplus()
     httpplus.debug = true
 
     -- socket.sslLog(3)
-    -- local code, resp =httpplus.request({method="POST", url="https://abc:qq@whoami.k8s.air32.cn/goupupup"})
+
+    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.luatos.com/post", files={abcd="/luadb/libfastlz.a"}})
     -- log.info("http", code, resp)
 
-    -- 预期返回302
-    -- local code, resp = httpplus.request({method="POST", url="https://air32.cn/goupupup"})
+    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.luatos.com/anything", forms={abcd="12345"}})
     -- log.info("http", code, resp)
 
-    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.air32.cn/post", files={abcd="/luadb/libfastlz.a"}})
-    -- log.info("http", code, resp)
-
-    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.air32.cn/anything", forms={abcd="12345"}})
-    -- log.info("http", code, resp)
-
-    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.air32.cn/post", files={abcd="/luadb/abc.txt"}})
+    -- local code, resp = httpplus.request({method="POST", url="https://httpbin.luatos.com/post", files={abcd="/luadb/abc.txt"}})
     -- log.info("http", code, resp)
 
     -- 简单GET请求
-    local code, resp = httpplus.request({url="https://httpbin.air32.cn/"})
+    local code, resp = httpplus.request({url="https://httpbin.luatos.com/"})
     log.info("http", code, resp)
     
     -- 简单POST请求
-    -- local code, resp = httpplus.request({url="https://httpbin.air32.cn/post", body="123456", method="POST"})
+    -- local code, resp = httpplus.request({url="https://httpbin.luatos.com/post", body="123456", method="POST"})
     -- log.info("http", code, resp)
     
     -- 文件上传
-    -- local code, resp = httpplus.request({url="https://httpbin.air32.cn/post", files={myfile="/luadb/abc.txt"}})
+    -- local code, resp = httpplus.request({url="https://httpbin.luatos.com/post", files={myfile="/luadb/abc.txt"}})
     -- log.info("http", code, resp)
     
     -- 自定义header的GET请求
-    -- local code, resp = httpplus.request({url="https://httpbin.air32.cn/get", headers={Auth="12312234"}})
+    -- local code, resp = httpplus.request({url="https://httpbin.luatos.com/get", headers={Auth="12312234"}})
     -- log.info("http", code, resp)
     
     -- 带鉴权信息的GET请求
-    -- local code, resp = httpplus.request({url="https://wendal:123@httpbin.air32.cn/get", headers={Auth="12312234"}})
+    -- local code, resp = httpplus.request({url="https://wendal:123@httpbin.luatos.com/get", headers={Auth="12312234"}})
     -- log.info("http", code, resp)
     
     -- PUT请求
-    -- local code, resp = httpplus.request({url="https://httpbin.air32.cn/put", method="PUT", body="123"})
+    -- local code, resp = httpplus.request({url="https://httpbin.luatos.com/put", method="PUT", body="123"})
     -- log.info("http", code, resp)
 
     -- 表单POST
-    -- local code, resp = httpplus.request({url="https://httpbin.air32.cn/post", forms={abc="123"}})
+    -- local code, resp = httpplus.request({url="https://httpbin.luatos.com/post", forms={abc="123"}})
     -- log.info("http", code, resp)
 
     -- 响应体chucked编码测试
-    local code, resp = httpplus.request({url="https://httpbin.air32.cn/stream/1"})
+    local code, resp = httpplus.request({url="https://httpbin.luatos.com/stream/1"})
     log.info("http", code, resp)
     if code == 200 then
         log.info("http", "headers", json.encode(resp.headers))

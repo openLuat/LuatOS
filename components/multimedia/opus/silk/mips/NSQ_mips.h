@@ -32,8 +32,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "config.h"
 #endif
 
-#include "main.h"
-#include "macros.h"
+#include "silk/main.h"
+#include "silk/macros.h"
 
 #if defined (__mips_dsp) && __mips == 32
 

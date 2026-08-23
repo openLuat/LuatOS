@@ -29,8 +29,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "config.h"
 #endif
 
-#include "SigProc_FIX.h"
-#include "celt_lpc.h"
+#include "silk/SigProc_FIX.h"
+#include "celt/celt_lpc.h"
 
 /* Compute autocorrelation */
 void silk_autocorr(

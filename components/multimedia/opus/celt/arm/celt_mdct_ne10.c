@@ -36,10 +36,10 @@
 #endif
 #endif
 
-#include "kiss_fft.h"
-#include "_kiss_fft_guts.h"
-#include "mdct.h"
-#include "stack_alloc.h"
+#include "celt/kiss_fft.h"
+#include "celt/_kiss_fft_guts.h"
+#include "celt/mdct.h"
+#include "celt/stack_alloc.h"
 
 void clt_mdct_forward_neon(const mdct_lookup *l,
                            kiss_fft_scalar *in,

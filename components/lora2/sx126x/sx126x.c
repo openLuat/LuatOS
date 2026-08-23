@@ -22,6 +22,7 @@
  */
 #include <math.h>
 #include <string.h>
+#include "luat_conf_bsp.h"
 #include "radio.h"
 #include "sx126x.h"
 #include "sx126x-board.h"
@@ -138,6 +139,7 @@ void SX126xSendPayload2(lora_device_t* lora_device, uint8_t *payload, uint8_t si
     SX126xSetTx2( lora_device,timeout );
 }
 
+#ifdef LUAT_USE_LORA2_FSK
 uint8_t SX126xSetSyncWord2( lora_device_t* lora_device,uint8_t *syncWord )
 {
     SX126xWriteRegister2s2(lora_device,REG_LR_SYNCWORDBASEADDRESS, syncWord, 8 );
@@ -197,6 +199,7 @@ void SX126xSetWhiteningSeed2( lora_device_t* lora_device,uint16_t seed )
             break;
     }
 }
+#endif
 
 uint32_t SX126xGetRandom2( lora_device_t* lora_device )
 {
@@ -505,6 +508,7 @@ void SX126xSetModulationParams2( lora_device_t* lora_device,ModulationParams_t *
 
     switch( modulationParams->PacketType )
     {
+#ifdef LUAT_USE_LORA2_FSK
     case PACKET_TYPE_GFSK:
         n = 8;
         tempVal = ( uint32_t )( 32 * ( ( double )XTAL_FREQ / ( double )modulationParams->Params.Gfsk.BitRate ) );
@@ -519,6 +523,7 @@ void SX126xSetModulationParams2( lora_device_t* lora_device,ModulationParams_t *
         buf[7] = ( tempVal& 0xFF );
         SX126xWriteCommand2( lora_device,RADIO_SET_MODULATIONPARAMS, buf, n );
         break;
+#endif
     case PACKET_TYPE_LORA:
         n = 4;
         buf[0] = modulationParams->Params.LoRa.SpreadingFactor;
@@ -550,6 +555,7 @@ void SX126xSetPacketParams2( lora_device_t* lora_device,PacketParams_t *packetPa
 
     switch( packetParams->PacketType )
     {
+#ifdef LUAT_USE_LORA2_FSK
     case PACKET_TYPE_GFSK:
         if( packetParams->Params.Gfsk.CrcLength == RADIO_CRC_2_BYTES_IBM )
         {
@@ -578,6 +584,7 @@ void SX126xSetPacketParams2( lora_device_t* lora_device,PacketParams_t *packetPa
         buf[7] = crcVal;
         buf[8] = packetParams->Params.Gfsk.DcFree;
         break;
+#endif
     case PACKET_TYPE_LORA:
         n = 6;
         buf[0] = ( packetParams->Params.LoRa.PreambleLength >> 8 ) & 0xFF;

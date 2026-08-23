@@ -1,17 +1,15 @@
 --[[
-@module  lcd_drv
-@summary LCD显示驱动模块，基于lcd核心库
+@module  lcd_inner_drv
+@summary LCD内置显示驱动模块，基于lcd核心库
 @version 1.0
-@date    2025.12.2
+@date    2025.12.1
 @author  江访
 @usage
 本模块为LCD显示驱动功能模块，主要功能包括：
-1、初始化ST7796 LCD控制器；
+1、初始化 LCD屏幕；
 2、配置LCD显示参数和显示缓冲区；
-3、支持多种屏幕方向和分辨率设置；
 
-对外接口：
-1、lcd_drv.init()：初始化LCD显示驱动
+对外接口：无
 ]]
 
 
@@ -20,13 +18,13 @@
 --[[
 初始化LCD显示驱动；
 
-@api lcd_drv.init()
-@summary 配置并初始化ST7796 LCD控制器
+@api lcd_drv_init()
+@summary 配置并初始化LCD屏幕
 @return boolean 初始化成功返回true，失败返回false
 
 @usage
 -- 初始化LCD显示
-local result = lcd_drv.init()
+local result = lcd_drv_init()
 if result then
     log.info("LCD初始化成功")
 else
@@ -34,36 +32,30 @@ else
 end
 ]]
 
+
 local function lcd_drv_init()
+    -- Air8000开发板上，使能lcd供电的ldo电源开关
+    -- 如果你使用的不是Air8000开发板，而是自己设计的硬件，需要根据实际情况来配置电源使能
+    gpio.setup(141, 1)
+
     local result = lcd.init("st7796",
         {
-            pin_rst = 2,                          -- 复位引脚
-            pin_pwr = 1,                           -- 背光控制引脚GPIO的ID号
-            port = lcd.HWID_0,                     -- 驱动端口
-            -- pin_dc = 0xFF,          -- lcd数据/命令选择引脚GPIO ID号，使用lcd 专用 SPI 接口 lcd.HWID_0不需要填此参数，使用通用SPI接口需要赋值
-            direction = 0,                         -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
-            w = 320,                               -- lcd 水平分辨率
-            h = 480,                               -- lcd 竖直分辨率
-            xoffset = 0,                           -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
-            yoffset = 0,                           -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
-            sleepcmd = 0X10,                       -- 睡眠命令，默认0X10
-            wakecmd = 0X11,                        -- 唤醒命令，默认0X11
-            -- bus_speed = 50*1000*1000,                            -- SPI总线速度,不填默认50M，若速率要求更高需要进行设置
-            -- interface_mode = lcd.WIRE_4_BIT_8_INTERFACE_I,       -- lcd模式，默认lcd.WIRE_4_BIT_8_INTERFACE_I
-            -- direction0 = {0x36,0x00},                            -- 0°方向的命令，(不同屏幕ic会有差异)
-            -- direction90 = {0x36,0x60},                           -- 90°方向的命令，(不同屏幕ic会有差异)
-            -- direction180 ={0x36,0xc0} ,                          -- 180°方向的命令，(不同屏幕ic会有差异)
-            -- direction270 = {0x36,0xA0},                          -- 270°方向的命令，(不同屏幕ic会有差异)
-            -- hbp = nil,                                           -- 水平后廊
-            -- hspw = nil,                                          -- 水平同步脉冲宽度
-            -- hfp = 0,                                             -- 水平前廊
-            -- vbp = 0,                                             -- 垂直后廊
-            -- vspw = 0,                                            -- 垂直同步脉冲宽度
-            -- vfp = 0,                                             -- 垂直前廊
-            -- initcmd = nil,                                       -- 自定义屏幕初始化命令表
-            -- flush_rate = nil,                                    -- 刷新率
-            -- spi_dev = nil,                                       -- spi设备,当port = "device"时有效，当port ≠ "device"时可不填或者填nil
-            -- init_in_service = false,                             -- 允许初始化在lcd service里运行，在后台初始化LCD，默认是false，Air8000/G/W/T/A、Air780EHM/EGH/EHV 支持填true，可加快初始化速度,默认SPI总线速度80M
+            -- 背光控制引脚GPIO端口号
+            -- 此处如果配置了背光控制引脚，在lcd初始化之后，就会立即点亮背光，会先白屏一小段时间，然后才会显示画面，这是正常现象
+            --
+            -- 如果你无法接受这种现象，可以在此处将pin_pwr配置为nil，在代码逻辑显示开机第一个画面之后，再手动通过gpio.setup接口去控制背光引脚
+            -- 如果采用手动控制背光的方式，需要注意的是，在低功耗场景：
+            -- 使用lcd.sleep接口休眠lcd前，需要手动通过gpio接口关闭背光；
+            -- 使用lcd.wakeup接口唤醒lcd后，需要手动控通过gpio接口打开背光；
+            pin_pwr = 1,
+            port = lcd.HWID_0, -- 驱动端口
+            pin_rst = 2,       -- lcd复位引脚
+            direction = 0,     -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
+            w = 320,           -- lcd 水平分辨率
+            h = 480,           -- lcd 竖直分辨率
+            xoffset = 0,       -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
+            yoffset = 0,       -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
+            bus_speed = 80000000
         })
 
     log.info("lcd.init", result)
@@ -73,7 +65,6 @@ local function lcd_drv_init()
         lcd.setupBuff(nil, true)
         lcd.autoFlush(false)
     end
-
 end
 
 lcd_drv_init()

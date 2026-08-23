@@ -5,6 +5,26 @@
 @date    2026.06.03
 @author  江访
 
+消息协议（订阅/发布）:
+订阅: OPEN_IDLE_WIN                         → 开机自启检测+启动
+订阅: AUTOSTART_REQUEST_EXIT_PASSWORD       → 退出自启APP时请求密码验证
+订阅: AUTOSTART_EXIT_SUBMIT_PASSWORD(pwd)   → 用户提交退出密码
+订阅: AUTOSTART_SETTINGS_GET                → 查询自启配置
+订阅: AUTOSTART_SET_ENABLED(enabled, pwd)   → 设置自启开关
+订阅: AUTOSTART_SET_TARGET(path, pwd)       → 设置自启目标APP
+订阅: AUTOSTART_SET_TARGET_AND_ENABLE(path, pwd) → 设置目标并启用
+订阅: AUTOSTART_SET_PASSWORD(old, new)      → 修改密码
+订阅: AUTOSTART_GET_INSTALLED_APPS          → 查询已安装APP列表
+订阅: NES_CTRL(key)                         → 拦截 RETURN 键退出
+订阅: APP_STORE_INSTALLED_UPDATED           → 监听卸载（解除锁定）
+
+发布: AUTOSTART_SETTINGS_VALUE({enabled, target, target_name, has_password}) → 自启配置
+发布: AUTOSTART_CONFIG_CHANGED              → 配置变更通知
+发布: AUTOSTART_PASSWORD_RESULT(success, msg) → 密码操作结果
+发布: AUTOSTART_INSTALLED_APPS_VALUE(apps)  → 已安装APP列表
+发布: AUTOSTART_REQUEST_EXIT_PASSWORD       → 触发退出密码弹窗
+发布: AUTOSTART_EXIT_SUBMIT_PASSWORD(pwd)   → 提交退出密码
+
 功能：
 1. fskv 持久化自启配置（开关、目标APP路径、密码）
 2. 密码验证（用于关闭设置中的自启/重新设置自启）

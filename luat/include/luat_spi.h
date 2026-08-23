@@ -268,5 +268,61 @@ int luat_spi_lock(int spi_id);
  * @return int 成功返回0，其他-1
  */
 int luat_spi_unlock(int spi_id);
+
+/**
+ * @brief SPI msg 片段类型
+ */
+typedef enum {
+    LUAT_SPI_MSG_SEND     = 0, /**< 仅发送 buff 中 len 字节 */
+    LUAT_SPI_MSG_RECV     = 1, /**< 仅接收 len 字节到 buff（半双工） */
+    LUAT_SPI_MSG_PAUSE_US = 2, /**< 不传输，busy-wait/sleep len 微秒 */
+    LUAT_SPI_MSG_PAUSE_MS = 3, /**< 不传输，sleep len 毫秒（线程友好） */
+    LUAT_SPI_MSG_XFER     = 4  /**< 全双工：buff(tx) 与 recv_buff(rx) 均长 len，仅当底层支持时允许 */
+} luat_spi_msg_mode_t;
+
+/**
+ * @brief 一段 SPI 传输描述
+ *
+ * 字段语义（按 mode 不同解释）:
+ * - SEND      : buff = tx 数据，len = 字节数，recv_buff 忽略
+ * - RECV      : buff = rx 缓冲，len = 字节数，recv_buff 忽略
+ * - PAUSE_US  : len = 微秒数，buff/recv_buff 忽略
+ * - PAUSE_MS  : len = 毫秒数，buff/recv_buff 忽略
+ * - XFER      : buff = tx，recv_buff = rx，等长 len，严格全双工
+ */
+typedef struct luat_spi_msg {
+    uint8_t  mode;        /**< luat_spi_msg_mode_t 取值之一 */
+    uint8_t  reserved[3]; /**< 对齐保留，必须置 0 */
+    uint8_t* buff;        /**< 发送 / 接收 / 全双工 tx 缓冲 */
+    uint8_t* recv_buff;   /**< 仅 XFER 使用的 rx 缓冲；其它模式置 NULL */
+    size_t   len;         /**< 字节数或暂停时长（按 mode 解释） */
+} luat_spi_msg_t;
+
+/**
+ * @brief 按 msg 列表执行一次 SPI 事务（不含 CS 控制）
+ *
+ * @param spi_id SPI 总线号
+ * @param msgs   msg 数组（count > 0 时不可为 NULL）
+ * @param count  数组元素个数
+ * @return 0 成功，<0 失败（含底层不支持 XFER 等情况）
+ */
+int luat_spi_trans_msgs(int spi_id, luat_spi_msg_t* msgs, size_t count);
+
+/**
+ * @brief 按 msg 列表执行一次 SPI 设备事务（自动加锁 + CS 翻转）
+ * @return 0 成功，<0 失败
+ */
+int luat_spi_device_trans_msgs(luat_spi_device_t* dev, luat_spi_msg_t* msgs, size_t count);
+
+/**
+ * @brief 严格全双工传输：等长 tx/rx 缓冲；半双工后端必须返回 -1
+ *
+ * @param spi_id SPI 总线号
+ * @param tx     发送缓冲区（不可为 NULL）
+ * @param rx     接收缓冲区（不可为 NULL）
+ * @param len    长度（字节，tx 与 rx 必须等长）
+ * @return >=0 实际传输字节数（== len），<0 失败
+ */
+int luat_spi_xfer2(int spi_id, const uint8_t* tx, uint8_t* rx, size_t len);
 /**@}*/
 #endif

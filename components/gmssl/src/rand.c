@@ -18,6 +18,9 @@ extern int luat_crypto_trng(char* buff, size_t len);
 
 int luat_gmssl_rand_bytes(uint8_t *buf, size_t len)
 {
-	luat_crypto_trng((char*)buf, len);
+	int ret = luat_crypto_trng((char*)buf, len);
+	if (ret != 0) {
+		return 0; /* 传播 TRNG 失败, 防止上层拿到全零"随机数"陷入死循环 */
+	}
 	return 1;
 }

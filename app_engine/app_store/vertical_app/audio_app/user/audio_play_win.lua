@@ -40,6 +40,11 @@ local COLOR_BUTTON_RED = 0xEF4444
 local COLOR_ITEM_SELECTED = 0x4A90E2
 local COLOR_ITEM_NORMAL = 0x2D3748
 
+-- 服务器音频下载配置
+local SERVER_AUDIO_URL = "https://appstoreoss.luatos.com/iot-apps/res/100617/music.amr"
+local SERVER_AUDIO_FILE = SERVER_AUDIO_URL:match("/([^/]+)$")  -- "music.amr"
+local SERVER_AUDIO_PATH = "/" .. SERVER_AUDIO_FILE  -- "/music.amr"
+
 -- 播放状态
 local is_playing = false
 local current_file = nil
@@ -60,7 +65,7 @@ local function scan_audio_files()
     file_list = {}
     
     -- 音频文件扩展名
-    local audio_extensions = {".mp3", ".amr", ".pcm", ".wav"}
+    local audio_extensions = {".mp3", ".amr", ".wav"}
     
     -- 根据存储位置确定扫描路径
     local scan_path, path_name
@@ -210,6 +215,16 @@ local function toggle_storage()
     
     -- 重新扫描文件并更新列表
     file_list = scan_audio_files()
+    -- 如果存在从服务器下载的音频文件且当前为内存模式，也加入列表
+    if storage_location == "memory" and io.exists(SERVER_AUDIO_PATH) then
+        local found = false
+        for _, f in ipairs(file_list) do
+            if f.path == SERVER_AUDIO_PATH then found = true; break end
+        end
+        if not found then
+            table.insert(file_list, {name = SERVER_AUDIO_FILE, path = SERVER_AUDIO_PATH})
+        end
+    end
     selected_index = 1
     
     -- 刷新文件列表显示
@@ -264,7 +279,8 @@ local function play_selected()
         -- 播放完成回调
         log.info("audio_play", "播放完成:", file.name)
         is_playing = false
-        update_play_status()
+        -- 在任务中更新UI（音频回调上下文可能无法直接刷新airui）
+        sys.taskInit(update_play_status)
     end)
     
     if ok then
@@ -403,6 +419,103 @@ function audio_play_win.on_create()
         toggle_storage()
     end)
     
+    -- ==================== 服务器获取音频按钮 ====================
+    local server_fetch_btn = airui.container({
+        parent = ui_controls.main_container,
+        x = SCREEN_W - 170,
+        y = 75,
+        w = 150,
+        h = 32,
+        color = COLOR_ACCENT,
+        radius = 6,
+    })
+    airui.label({
+        parent = server_fetch_btn,
+        x = 0,
+        y = 7,
+        w = 150,
+        h = 18,
+        text = "服务器获取音频",
+        font_size = 14,
+        color = 0xFFFFFF,
+        align = airui.TEXT_ALIGN_CENTER,
+    })
+    server_fetch_btn:set_on_click(function()
+        log.info("audio_play", "服务器获取音频点击")
+        sys.taskInit(function()
+            -- 创建下载进度标签
+            local dl_progress = airui.label({
+                parent = ui_controls.main_container,
+                x = 100,
+                y = 115,
+                w = 280,
+                h = 24,
+                text = "准备下载...",
+                font_size = 14,
+                color = COLOR_ACCENT,
+                align = "center",
+            })
+
+            -- 下载进度回调
+            local total_size = 0
+            local downloaded_size = 0
+            local function download_callback(content_len, body_len)
+                if content_len and content_len > 0 then
+                    total_size = content_len
+                end
+                if body_len then
+                    downloaded_size = body_len
+                end
+                if dl_progress and total_size > 0 then
+                    dl_progress:set_text(string.format("下载中: %d/%d KB (%d%%)",
+                        math.floor(downloaded_size / 1024),
+                        math.floor(total_size / 1024),
+                        math.floor(downloaded_size * 100 / total_size)))
+                elseif dl_progress then
+                    dl_progress:set_text(string.format("已下载: %d KB", math.floor(downloaded_size / 1024)))
+                end
+            end
+
+            -- 从服务器下载音频文件到本地
+            local url = SERVER_AUDIO_URL
+            local save_path = SERVER_AUDIO_PATH
+            local code, headers, body_size = http.request("GET", url, nil, nil,
+                {dst = save_path, timeout = 30000, callback = download_callback}).wait()
+
+            -- 移除进度标签
+            if dl_progress then dl_progress:destroy() end
+
+            if code == 200 then
+                log.info("audio_play", "音频下载成功:", save_path, "大小:", body_size)
+
+                -- 添加到文件列表
+                local file_info = {name = SERVER_AUDIO_FILE, path = save_path}
+                table.insert(file_list, file_info)
+                local new_index = #file_list
+
+                -- 创建新的列表项控件
+                local item_y = 10 + (new_index - 1) * 60
+                file_items[new_index] = create_file_item(ui_controls.list_container, item_y, new_index, file_info)
+
+                -- 选中并播放
+                selected_index = new_index
+                update_file_list()
+                play_selected()
+            else
+                log.error("audio_play", "音频下载失败, code:", code)
+                if ui_controls.status_label then
+                    ui_controls.status_label:set_text("下载失败(" .. tostring(code or "超时") .. ")")
+                    ui_controls.status_label:set_color(COLOR_ERROR)
+                end
+                sys.wait(3000)
+                if ui_controls.status_label then
+                    ui_controls.status_label:set_text("已停止")
+                    ui_controls.status_label:set_color(COLOR_TEXT_SECONDARY)
+                end
+            end
+        end)
+    end)
+    
     -- ==================== 文件列表区域 ====================
     -- 先扫描音频文件
     scan_audio_files()
@@ -481,7 +594,9 @@ function audio_play_win.on_create()
         align = airui.TEXT_ALIGN_CENTER,
     })
     ui_controls.play_btn:set_on_click(function()
-        play_selected()
+        sys.taskInit(function()
+            play_selected()
+        end)
     end)
     
     -- 停止按钮
@@ -576,12 +691,19 @@ end
 打开窗口处理函数
 ]]
 local function open_handler()
+    if win_id then
+        log.warn("audio_play", "窗口已存在")
+        return
+    end
+    
     win_id = exwin.open({
         on_create = audio_play_win.on_create,
         on_destroy = audio_play_win.on_destroy,
         on_lose_focus = audio_play_win.on_lose_focus,
         on_get_focus = audio_play_win.on_get_focus,
     })
+    
+    log.info("audio_play", "窗口ID", win_id)
 end
 
 -- 订阅打开窗口事件

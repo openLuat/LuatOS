@@ -105,12 +105,10 @@ enum
 	NW_ADAPTER_INDEX_LWIP_USER6,
 	NW_ADAPTER_INDEX_LWIP_USER7,
 	NW_ADAPTER_INDEX_LWIP_GP_GW,
+	NW_ADAPTER_INDEX_LWIP_USB,		//LWIP-side USB netif (RNDIS/CDC-ECM)
 	NW_ADAPTER_INDEX_LWIP_NETIF_QTY,
 	NW_ADAPTER_INDEX_HW_PS_DEVICE = NW_ADAPTER_INDEX_LWIP_NETIF_QTY,
 	NW_ADAPTER_INDEX_ETH0 = NW_ADAPTER_INDEX_HW_PS_DEVICE,	//外挂以太网+硬件协议栈
-	NW_ADAPTER_INDEX_USB,			//USB网卡
-	NW_ADAPTER_INDEX_POSIX,         // 对接POSIX
-	NW_ADAPTER_INDEX_LUAPROXY,      // 代理到Lua层
 	NW_ADAPTER_INDEX_CUSTOM,        // 对接到自定义适配器
 	NW_ADAPTER_QTY,
 
@@ -170,6 +168,8 @@ typedef struct
     mbedtls_ssl_context *ssl;          /**< mbed TLS control context. */
     mbedtls_ssl_config *config;          /**< mbed TLS configuration context. */
     mbedtls_x509_crt *ca_cert;
+		mbedtls_x509_crt *client_cert; /* 客户端证书 */
+		mbedtls_pk_context *pkey;			 /* 客户端 private key */
 #endif
 
 	CBFuncEx_t user_callback;
@@ -827,5 +827,8 @@ int network_close_all_ctrl_by_adapter(uint8_t adapter_index, uint32_t timeout_ms
 typedef void (*nw_callback_fn)(void *ctx);
 int network_tcpip_callback(nw_callback_fn function, void *ctx, int block);
 
+
+void network_set_lwip_rx_cache_nums(uint32_t nums);
+uint32_t network_get_lwip_rx_cache_nums(void);
 #endif
 // #endif

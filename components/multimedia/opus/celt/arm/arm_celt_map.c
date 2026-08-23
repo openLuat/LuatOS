@@ -30,10 +30,10 @@
 #include "config.h"
 #endif
 
-#include "kiss_fft.h"
-#include "mathops.h"
-#include "mdct.h"
-#include "pitch.h"
+#include "celt/kiss_fft.h"
+#include "celt/mathops.h"
+#include "celt/mdct.h"
+#include "celt/pitch.h"
 
 #if defined(OPUS_HAVE_RTCD)
 

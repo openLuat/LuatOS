@@ -8,7 +8,7 @@
 @usage
 local wsc = nil
 if websocket then
-	wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
+	wsc = websocket.create(nil, "ws://wstest.luatos.com/ws/echo")
     wsc:autoreconn(true, 3000) -- 自动重连机制
     wsc:on(function(wsc, event, data)
         log.info("wsc", event, data)
@@ -105,6 +105,16 @@ int l_websocket_callback(lua_State *L, void *ptr)
 		luat_heap_free((char *)msg->arg2);
 		break;
 	}
+/*
+@sys_pub websocket
+websocket连接建立成功
+WEBSOCKET_CONNACK
+@userdata websocket对象
+@usage
+sys.subscribe("WEBSOCKET_CONNACK", function(wsc)
+    log.info("websocket", "connected")
+end)
+*/
 	case WEBSOCKET_MSG_CONNACK:
 	{
 		if (websocket_ctrl->websocket_cb_id)
@@ -233,9 +243,9 @@ websocket客户端创建
 @return userdata 若成功会返回websocket客户端实例,否则返回nil
 @usage
 -- 普通TCP链接
-wsc = websocket.create(nil,"ws://air32.cn/abc")
+wsc = websocket.create(nil,"ws://wstest.luatos.com/echo")
 -- 加密TCP链接
-wsc = websocket.create(nil,"wss://air32.cn/abc")
+wsc = websocket.create(nil,"wss://wstest.luatos.com/echo")
 */
 static int l_websocket_create(lua_State *L)
 {
@@ -288,20 +298,20 @@ static int l_websocket_create(lua_State *L)
 /*
 注册websocket回调
 @api wsc:on(cb)
-@function cb websocket回调,参数包括websocket_client, event, data, payload
+@function cb websocket回调,参数包括websocket_client, event, data, FIN, OPT_CODE
 @return nil 无返回值
 @usage
-wsc:on(function(websocket_client, event, data, payload)
+wsc:on(function(websocket_client, event, data, FIN, OPT_CODE)
 	-- 打印各种事件
-	log.info("websocket", "event", event, data, payload)
+	log.info("websocket", "event", event, data, FIN, OPT_CODE)
 end)
 --[[
 event的值有:
 	conack 连接服务器成功,已经收到websocket协议头部信息,通信已建立
-	recv   收到服务器下发的信息, data, payload 不为nil
+	recv   收到服务器下发的信息, data不为nil, FIN和OPT_CODE为websocket协议帧头信息
 	sent   send函数发送的消息,服务器在TCP协议层已确认收到
 	disconnect 服务器连接已断开
-	error  发生错误, data为错误类型, payload为错误码
+	error  发生错误, data为错误类型, FIN为错误码
 
 其中 sent/disconnect 事件在 2023.04.01 新增
 ]]

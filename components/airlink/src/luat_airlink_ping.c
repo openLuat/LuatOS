@@ -82,7 +82,7 @@ int luat_airlink_ping_raw(uint8_t mode, uint64_t pkgid,
     ctx->echo_buf_size = echo_buf_size;
     ctx->ret_code = -1;
 
-    if (luat_rtos_semaphore_create(&ctx->sem, 1) != 0) {
+    if (luat_rtos_semaphore_create(&ctx->sem, 0) != 0) {
         LLOGE("ping: semaphore create failed");
         luat_heap_free(ctx);
         return -2;

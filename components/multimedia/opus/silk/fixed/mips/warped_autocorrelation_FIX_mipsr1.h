@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "config.h"
 #endif
 
-#include "main_FIX.h"
+#include "silk/fixed/main_FIX.h"
 
 #if defined (__mips_dsp) && __mips == 32
 

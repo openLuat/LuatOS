@@ -32,6 +32,7 @@ typedef struct {
     uint8_t  eeprom_scl;
     uint8_t  eeprom_sda;
     uint8_t  eeprom_out;
+    uint8_t  eeprom_type;
 } nes_mapper16_t;
 
 enum {
@@ -40,6 +41,12 @@ enum {
     MAPPER16_EEPROM_WORD,
     MAPPER16_EEPROM_WRITE,
     MAPPER16_EEPROM_READ
+};
+
+enum {
+    MAPPER16_EEPROM_AUTO = 0,
+    MAPPER16_EEPROM_24C01,
+    MAPPER16_EEPROM_24C02
 };
 
 static void nes_mapper_deinit(nes_t* nes) {
@@ -56,10 +63,10 @@ static void mapper16_update_prg(nes_t* nes) {
 
 static void mapper16_update_chr(nes_t* nes) {
     nes_mapper16_t* m = (nes_mapper16_t*)nes->nes_mapper.mapper_register;
-    if (nes->nes_rom.chr_rom_size == 0) return;
-    uint8_t chr_count = (uint8_t)(nes->nes_rom.chr_rom_size * 8);
+    uint16_t chr_count = (uint16_t)(nes->nes_rom.chr_rom_size * 8u);
+    if (chr_count == 0u) return;
     for (int i = 0; i < 8; i++) {
-        nes_load_chrrom_1k(nes, (uint8_t)i, m->chr[i] % chr_count);
+        nes_load_chrrom_1k(nes, (uint8_t)i, (uint16_t)(m->chr[i] % chr_count));
     }
 }
 
@@ -70,6 +77,7 @@ static void nes_mapper_init(nes_t* nes) {
     }
     nes_mapper16_t* m = (nes_mapper16_t*)nes->nes_mapper.mapper_register;
     nes_memset(m, 0, sizeof(nes_mapper16_t));
+    nes_memset(m->eeprom, 0xFF, sizeof(m->eeprom));  /* erased 24C02 = all 0xFF */
     for (int i = 0; i < 8; i++) m->chr[i] = (uint8_t)i;
 
     mapper16_update_prg(nes);
@@ -86,72 +94,106 @@ static void mapper16_eeprom_start(nes_mapper16_t* m) {
     m->eeprom_state = MAPPER16_EEPROM_DEVICE;
     m->eeprom_shift = 0;
     m->eeprom_bit_count = 0;
-    m->eeprom_out = 1;
 }
 
 static void mapper16_eeprom_write(nes_mapper16_t* m, uint8_t data) {
-    const uint8_t scl = (data >> 5) & 0x01u;
-    const uint8_t sda = (data >> 6) & 0x01u;
+    const uint8_t scl = (data >> 5u) & 0x01u;
+    const uint8_t sda = (data >> 6u) & 0x01u;
 
     if (m->eeprom_scl && scl) {
+        /* SCL held high: SDA transition is a bus condition */
         if (m->eeprom_sda && !sda) {
+            /* START (or repeated START) */
             mapper16_eeprom_start(m);
         } else if (!m->eeprom_sda && sda) {
+            /* STOP */
             m->eeprom_state = MAPPER16_EEPROM_STANDBY;
-            m->eeprom_out = 1;
         }
     } else if (!m->eeprom_scl && scl) {
+        /* Rising SCL edge: sample SDA */
         switch (m->eeprom_state) {
         case MAPPER16_EEPROM_DEVICE:
-            m->eeprom_shift = (uint8_t)((m->eeprom_shift << 1) | sda);
+            /* Shift in 8-bit device address (MSB first). */
+            m->eeprom_shift = (uint8_t)((m->eeprom_shift << 1u) | sda);
             if (++m->eeprom_bit_count == 8u) {
-                if ((m->eeprom_shift & 0xF0u) == 0xA0u) {
-                    m->eeprom_out = 0;
-                    if (m->eeprom_shift & 0x01u) {
+                /* Auto-detect EEPROM type on first transaction. */
+                if (m->eeprom_type == MAPPER16_EEPROM_AUTO) {
+                    m->eeprom_type = ((m->eeprom_shift & 0xF0u) == 0xA0u) ?
+                        MAPPER16_EEPROM_24C02 : MAPPER16_EEPROM_24C01;
+                }
+                if (m->eeprom_type == MAPPER16_EEPROM_24C02) {
+                    if ((m->eeprom_shift & 0xF0u) != 0xA0u) {
+                        m->eeprom_out = 1u; /* NACK: wrong device address */
+                        m->eeprom_state = MAPPER16_EEPROM_STANDBY;
+                    } else if (m->eeprom_shift & 0x01u) {
+                        /* Read direction: bit_count stays 8 so READ
+                         * outputs slave ACK on the 9th clock. */
                         m->eeprom_state = MAPPER16_EEPROM_READ;
-                        m->eeprom_shift = m->eeprom[m->eeprom_word];
-                        m->eeprom_bit_count = 0;
                     } else {
+                        /* Write direction: move to word-address phase.
+                         * bit_count stays 8 so WORD ACKs on 9th clock. */
                         m->eeprom_state = MAPPER16_EEPROM_WORD;
-                        m->eeprom_shift = 0;
-                        m->eeprom_bit_count = 0;
+                        m->eeprom_shift = 0u;
                     }
                 } else {
-                    m->eeprom_out = 1;
-                    m->eeprom_state = MAPPER16_EEPROM_STANDBY;
+                    /* 24C01: bits[7:1] = word address, bit[0] = R/W. */
+                    m->eeprom_word = m->eeprom_shift >> 1u;
+                    if (m->eeprom_shift & 0x01u) {
+                        m->eeprom_state = MAPPER16_EEPROM_READ;
+                    } else {
+                        m->eeprom_state = MAPPER16_EEPROM_WRITE;
+                        m->eeprom_shift = 0u;
+                    }
+                    /* bit_count stays 8 → new state ACKs on 9th clock. */
                 }
             }
             break;
+
         case MAPPER16_EEPROM_WORD:
-            m->eeprom_shift = (uint8_t)((m->eeprom_shift << 1) | sda);
-            if (++m->eeprom_bit_count == 8u) {
-                m->eeprom_word = m->eeprom_shift;
-                m->eeprom_shift = 0;
-                m->eeprom_bit_count = 0;
-                m->eeprom_out = 0;
-                m->eeprom_state = MAPPER16_EEPROM_WRITE;
-            }
-            break;
-        case MAPPER16_EEPROM_WRITE:
-            m->eeprom_shift = (uint8_t)((m->eeprom_shift << 1) | sda);
-            if (++m->eeprom_bit_count == 8u) {
-                m->eeprom[m->eeprom_word++] = m->eeprom_shift;
-                m->eeprom_shift = 0;
-                m->eeprom_bit_count = 0;
-                m->eeprom_out = 0;
-            }
-            break;
-        case MAPPER16_EEPROM_READ:
+            /* bit_count==8 on entry: 9th clock = slave ACK for device byte. */
             if (m->eeprom_bit_count == 8u) {
-                m->eeprom_out = 0;
-                m->eeprom_shift = m->eeprom[m->eeprom_word++];
-                m->eeprom_bit_count = 0;
+                m->eeprom_out = 0u;
+                m->eeprom_shift = 0u;
+                m->eeprom_bit_count = 0u;
             } else {
-                m->eeprom_out = (m->eeprom_shift >> 7) & 0x01u;
-                m->eeprom_shift <<= 1;
+                m->eeprom_shift = (uint8_t)((m->eeprom_shift << 1u) | sda);
+                if (++m->eeprom_bit_count == 8u) {
+                    m->eeprom_word = m->eeprom_shift;
+                    m->eeprom_state = MAPPER16_EEPROM_WRITE;
+                    /* bit_count stays 8 → WRITE ACKs on 9th clock. */
+                }
+            }
+            break;
+
+        case MAPPER16_EEPROM_WRITE:
+            /* bit_count==8: 9th clock → slave ACK, reset for next data byte. */
+            if (m->eeprom_bit_count == 8u) {
+                m->eeprom_out = 0u;
+                m->eeprom_shift = 0u;
+                m->eeprom_bit_count = 0u;
+            } else {
+                m->eeprom_shift = (uint8_t)((m->eeprom_shift << 1u) | sda);
+                if (++m->eeprom_bit_count == 8u) {
+                    m->eeprom[m->eeprom_word++] = m->eeprom_shift;
+                    /* bit_count stays 8 → WRITE ACKs on next clock. */
+                }
+            }
+            break;
+
+        case MAPPER16_EEPROM_READ:
+            /* bit_count==8: 9th clock (master ACK/NACK) → load next byte. */
+            if (m->eeprom_bit_count == 8u) {
+                m->eeprom_out = 0u;
+                m->eeprom_shift = m->eeprom[m->eeprom_word++];
+                m->eeprom_bit_count = 0u;
+            } else {
+                /* Output current bit MSB-first. */
+                m->eeprom_out = (m->eeprom_shift >> 7u) & 0x01u;
+                m->eeprom_shift <<= 1u;
                 m->eeprom_bit_count++;
             }
             break;
+
         default:
             break;
         }
@@ -214,7 +256,7 @@ static void mapper16_do_write(nes_t* nes, uint16_t address, uint8_t data) {
 static uint8_t nes_mapper_read_sram(nes_t* nes, uint16_t address) {
     (void)address;
     nes_mapper16_t* m = (nes_mapper16_t*)nes->nes_mapper.mapper_register;
-    return (uint8_t)(m->eeprom_out << 4);
+    return (uint8_t)(0xE7u | (m->eeprom_out << 4u));
 }
 
 static void nes_mapper_sram(nes_t* nes, uint16_t address, uint8_t data) {

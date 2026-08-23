@@ -1,10 +1,12 @@
 ## 功能模块介绍
 
-1、main.lua：主程序入口，负责初始化系统环境和加载移动网络测试模块；
+1、main.lua：主程序入口，负责初始化系统环境和加载对应的移动网络测试模块（三选一）；
 
 2、mobile_test.lua：移动网络功能测试模块，演示Air780EHM/Air780EHV/Air780EGH的移动网络相关功能；
 
 3、sim_switch_test.lua：SIM卡自动切换功能测试模块，实现卡1/卡2网络异常自动切换；
+
+4、mobile_apn_test.lua：APN配置演示模块，演示使用时如何正确配置APN实现联网；
 
 ## 演示功能概述
 
@@ -21,6 +23,12 @@
 - 轮询主动指定simid切换sim卡：定期检查网络状态，网络异常时主动切换到指定SIM卡
 - 轮询自适应切换sim卡：系统自动选择最优SIM卡，无需手动指定（注：自适应模式需要设备使用V2022及以上固件才可以使用）
 - 中断方式主动指定simid切换sim卡：按键触发（WAKEUP0引脚）中断切换SIM卡
+
+3、mobile_apn_test：演示使用时APN的配置方式：
+
+- 说明国内与海外使用时的APN配置区别
+- 演示两种APN配置方式：APN列表自动匹配 和 直接设置APN
+- 实时监控网络状态和APN信息
 
 ## 演示硬件环境
 
@@ -293,4 +301,43 @@ sys.taskInit(sim_switch_task)
 [2026-01-14 14:16:14.334][000000097.031] D/mobile TIME_SYNC 0
 [2026-01-14 14:16:17.519][000000100.226] I/user.sim_switch 当前SIM卡: 1 网络状态: 1
 [2026-01-14 14:16:27.527][000000110.226] I/user.sim_switch 当前SIM卡: 1 网络状态: 1
+```
+
+### 5.3 mobile_apn_test 演示步骤
+
+1、硬件准备：Air780EHM/Air780EHV/Air780EGH核心板一块 + SIM卡一张 + 4G天线一根
+
+2、确保SIM卡已正确插入开发板
+
+3、修改main.lua，启用mobile_apn_test模块：
+
+```lua
+-- 加载 mobile_test 功能模块
+-- require "mobile_test"
+
+-- 加载 sim_switch_test 功能模块（双卡切换功能）
+-- require "sim_switch_test"
+
+-- 加载 mobile_apn_test 功能模块（APN配置演示）
+require "mobile_apn_test"
+```
+
+4、（可选）配置APN信息：编辑mobile_apn_test.lua，根据SIM卡供应商提供的APN信息，取消注释对应的 `mobile.apnTableAdd()` 行，或使用 `mobile.apn()` 直接设置
+
+5、Luatools烧录内核固件和demo脚本代码
+
+6、烧录成功后，自动开机运行
+
+7、观察日志确认APN配置和网络注册情况：
+
+``` lua
+[2026-07-23 12:00:00.001][000000002.000] I/user.mobile_apn_test APN配置演示模块加载完成
+[2026-07-23 12:00:00.002][000000003.000] I/user.mobile_apn_test ==================== 网络状态 ====================
+[2026-07-23 12:00:00.003][000000003.000] I/user.mobile_apn_test IMEI: 864793080175404
+[2026-07-23 12:00:00.004][000000003.001] I/user.mobile_apn_test IMSI: 310410123456789
+[2026-07-23 12:00:00.005][000000003.001] I/user.mobile_apn_test 当前APN: isp.att.com
+[2026-07-23 12:00:00.006][000000003.001] I/user.mobile_apn_test 网络状态: 1 (0=未注册,1=已注册,2=搜索中)
+[2026-07-23 12:00:00.007][000000003.002] I/user.mobile_apn_test 信号强度 CSQ: 21 RSSI: -72 dBm
+[2026-07-23 12:00:00.008][000000003.002] I/user.mobile_apn_test 网络注册成功，APN: isp.att.com
+[2026-07-23 12:00:00.009][000000003.002] I/user.mobile_apn_test ==================================================
 ```

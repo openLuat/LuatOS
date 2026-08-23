@@ -500,6 +500,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
         res = airlink_wait_for_slave_reply(g_airlink_last_cmd_timestamp ? 1000 : 20);
         if (res != 0 && g_airlink_last_cmd_timestamp) {
             LLOGD("slave timeout");
+            luat_airlink_check_link_timeout();
         }
         // LLOGD("spi master task loop");
     }

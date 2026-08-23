@@ -4,6 +4,14 @@
 @version 1.1
 @date    2026.04.16
 @author  江访
+
+消息协议（订阅/发布）:
+订阅: OPEN_WIFI_DETAIL_WIN           → 创建详情窗口
+订阅: WIFI_STATUS_UPDATED(status)    → 实时状态更新
+订阅: WIFI_CONFIG_RSP({config})      → 配置返回
+发布: WIFI_GET_STATUS_REQ            → 获取当前状态
+发布: WIFI_GET_CONFIG_REQ            → 获取配置
+发布: WIFI_DISCONNECT_REQ            → 断开连接
 ]]
 
 local SCREEN_W, SCREEN_H = 480, 800

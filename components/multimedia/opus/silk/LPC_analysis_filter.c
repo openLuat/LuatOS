@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "SigProc_FIX.h"
-#include "celt_lpc.h"
+#include "celt/celt_lpc.h"
 
 /*******************************************/
 /* LPC analysis filter                     */

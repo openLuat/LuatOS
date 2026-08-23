@@ -33,7 +33,6 @@ typedef struct {
     uint8_t channel_nums;           /**< 声道数 (1=mono, 2=stereo) */
     uint8_t data_align;         /**< 数据对齐方式 */
     uint8_t is_signed;          /**< 是否有符号数据 */
-    uint8_t driver_work_mode;          /**< 工作模式 */
 } luat_audio_common_param_t;
 
 /**
@@ -190,7 +189,7 @@ typedef struct luat_audio_data_codec_opts {
     uint8_t support_encode_with_sync_output_ref:1;  /**< 是否支持编码参考同一时刻的播放数据同步输出数据 */
     uint8_t is_tts_asynchronous:1;                  /**< 是否异步TTS */
     uint8_t encode_raw_mode:1;                      /**< 是否支持编码原始模式，直接copy原始数据，不进行任何处理 */
-
+    uint8_t decode_raw_mode:1;                      /**< 是否支持解码原始模式，直接copy原始数据，不进行任何处理 */
 } luat_audio_data_codec_opts_t;
 
 /**
@@ -205,6 +204,7 @@ struct luat_audio_data_codec {
     luat_audio_data_codec_param_u param;        /**< 编解码器参数联合体 */
     uint8_t *input_buffer;                      /**< 输入数据缓冲区 */
     uint8_t *ref_buffer;                        /**< 参考数据缓冲区 */
+    uint8_t tx_no_callback:1;                   /**< 发送时是否不使用回调函数 */
 };
 
 
@@ -301,17 +301,6 @@ int luat_audio_codec_amr_nb_make_head(luat_audio_data_codec_t* codec, uint32_t t
 void luat_audio_codec_amr_nb_pre_decode(luat_audio_data_codec_t* codec, const uint8_t *input, uint32_t input_size, uint32_t *frame_size_bytes);
 void luat_audio_codec_amr_wb_pre_decode(luat_audio_data_codec_t* codec, const uint8_t *input, uint32_t input_size, uint32_t *frame_size_bytes);
 
-int luat_audio_codec_wav_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
-                  const uint8_t *input, uint32_t input_size,
-                  uint8_t *output, 
-                  uint32_t *decoded_output_size, uint32_t *decoded_used_size);
-int luat_audio_codec_wav_codec_encode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
-                    const uint8_t *input, uint32_t input_size,
-                    uint8_t *output, 
-                    uint32_t *encoded_output_size, uint32_t *encoded_used_size);
-
-
-
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_nb_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_amr_wb_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_mp3_opts;       
@@ -319,6 +308,12 @@ extern const luat_audio_data_codec_opts_t luat_audio_data_codec_wav_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_raw_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_ulaw_opts;
 extern const luat_audio_data_codec_opts_t luat_audio_data_codec_g711_alaw_opts;
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_no_op_opts;
+#ifdef LUAT_SUPPORT_SPEEX
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_speex_nb_opts;
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_speex_wb_opts;
+extern const luat_audio_data_codec_opts_t luat_audio_data_codec_speex_uwb_opts;
+#endif
 #endif
 
 /** @} */

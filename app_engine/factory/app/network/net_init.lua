@@ -14,6 +14,13 @@
   3. WLAN STA 状态日志：WiFi 连接/断开/认证等中间状态的追踪日志
   4. 多网融合状态日志：exnetif 发布的当前活跃网络类型和适配器编号
 
+  消息协议（纯订阅，无发布）:
+  订阅: IP_READY(ip, adapter)                          → DNS 配置 + 日志
+  订阅: IP_LOSE(adapter)                               → 日志
+  订阅: WLAN_STA_INC(evt, data)                        → 日志
+  订阅: EXLIB_NETDRV_NETWORK_STATUS(net_type, adapter) → 日志
+  发布: 无
+
 === 历史背景 ===
 
 原先分散在三个独立模块中：
@@ -50,6 +57,9 @@ local function adapter_name(adapter)
     else return tostring(adapter) end
 end
 
+-- DNS 设置标志（避免每次 IP_READY 重复设置）
+local dns_configured = {}
+
 --[[
 IP_READY 事件：某网卡获得 IP 地址
 做两件事：1) 为该网卡设置两个 DNS 服务器  2) 记录日志
@@ -58,10 +68,12 @@ IP_READY 事件：某网卡获得 IP 地址
 ]]
 sys.subscribe("IP_READY", function(ip, adapter)
     if not adapter then return end
-    -- 设置 DNS：优先阿里 DNS (223.5.5.5)，备用 114 DNS
-    -- 这是系统级 DNS 配置，所有后续 socket 连接都会使用
-    socket.setDNS(adapter, 1, "223.5.5.5")
-    socket.setDNS(adapter, 2, "114.114.114.114")
+    if not dns_configured[adapter] then
+        socket.setDNS(adapter, 1, "223.5.5.5")
+        socket.setDNS(adapter, 2, "114.114.114.114")
+        dns_configured[adapter] = true
+        log.info("net_init", adapter_name(adapter), "DNS配置完成", ip)
+    end
     log.info("net_init", adapter_name(adapter), "IP_READY", ip)
 end)
 

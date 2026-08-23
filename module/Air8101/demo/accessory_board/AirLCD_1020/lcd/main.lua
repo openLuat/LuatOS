@@ -38,6 +38,10 @@ log.info("ui_demo", PROJECT, VERSION)
 -- 设置日志输出风格为样式2（建议调试时开启）
 -- log.style(2)
 
+
+pins.setup(11,"I2C1_SDA")
+pins.setup(12,"I2C1_SCL")
+
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
 -- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
 if wdt then

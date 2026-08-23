@@ -2,7 +2,25 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-LUATOS_EXE="$SCRIPT_DIR/../../bsp/pc/build/out/luatos-lua.exe"
+
+# Suffix for the output file, e.g. "32" or "64". Empty means the legacy name.
+SUFFIX="${LUAT_EMS_LUAC_SUFFIX:-}"
+export LUAT_EMS_LUAC_SUFFIX="$SUFFIX"
+
+# Lua interpreter to use. Defaults depend on the requested suffix:
+# - 32-bit (or legacy) output uses the 32-bit PC simulator build.
+# - 64-bit output uses the 64-bit PC simulator build if present,
+#   otherwise falls back to a system lua5.3 (which must be 64-bit).
+if [ -z "${LUATOS_LUA_EXE:-}" ]; then
+    if [ "$SUFFIX" == "64" ]; then
+        LUATOS_EXE="$SCRIPT_DIR/../../bsp/pc/build/out64/luatos-lua.exe"
+    else
+        LUATOS_EXE="$SCRIPT_DIR/../../bsp/pc/build/out/luatos-lua.exe"
+    fi
+else
+    LUATOS_EXE="$LUATOS_LUA_EXE"
+fi
+
 TMP_DIR="/tmp/gen_luac_$$"
 
 cleanup() {
@@ -14,14 +32,21 @@ mkdir -p "$TMP_DIR"
 cp "$SCRIPT_DIR/ems.lua" "$TMP_DIR/ems.lua"
 cp "$SCRIPT_DIR/gen_luac.lua" "$TMP_DIR/main.lua"
 
+# Build the output file name
+OUT_NAME="luat_ems_server_luac"
+if [ -n "$SUFFIX" ]; then
+    OUT_NAME="${OUT_NAME}_${SUFFIX}"
+fi
+OUT_FILE="$SCRIPT_DIR/src/${OUT_NAME}.c"
+
 run_with_luatos() {
     if [ ! -f "$LUATOS_EXE" ]; then
         return 1
     fi
-    echo "Using luatos-lua.exe to generate luac..." >&2
+    echo "Using $LUATOS_EXE to generate luac..." >&2
     cd "$SCRIPT_DIR"
-    OUTPUT=$("$LUATOS_EXE" "$TMP_DIR" 2>&1 || true)
-    return 0
+    env LUATOS_EMS_DIR="$TMP_DIR" "$LUATOS_EXE" "$TMP_DIR" >"$TMP_DIR/output.txt" 2>&1
+    grep -q "SUCCESS" "$TMP_DIR/output.txt"
 }
 
 run_with_lua53() {
@@ -29,9 +54,9 @@ run_with_lua53() {
         return 1
     fi
     echo "Using lua5.3 to generate luac..." >&2
-    cd "$SCRIPT_DIR"
-    OUTPUT=$(cd "$TMP_DIR" && lua5.3 main.lua 2>&1 || true)
-    return 0
+    cd "$TMP_DIR"
+    env LUATOS_EMS_DIR="$TMP_DIR" lua5.3 main.lua >"$TMP_DIR/output.txt" 2>&1
+    grep -q "SUCCESS" "$TMP_DIR/output.txt"
 }
 
 run_with_lua() {
@@ -44,43 +69,46 @@ run_with_lua() {
         return 1
     fi
     echo "Using lua to generate luac..." >&2
-    cd "$SCRIPT_DIR"
-    OUTPUT=$(cd "$TMP_DIR" && lua main.lua 2>&1 || true)
-    return 0
+    cd "$TMP_DIR"
+    env LUATOS_EMS_DIR="$TMP_DIR" lua main.lua >"$TMP_DIR/output.txt" 2>&1
+    grep -q "SUCCESS" "$TMP_DIR/output.txt"
 }
 
-if run_with_luatos || run_with_lua53 || run_with_lua; then
-    :
-else
-    echo "WARNING: No suitable Lua interpreter found (luatos-lua.exe, lua5.3, lua 5.3)" >&2
-    echo "Skipping luac generation. Using pre-generated file if exists." >&2
-    if [ -f "$SCRIPT_DIR/src/luat_ems_server_luac.c" ]; then
-        echo "Pre-generated file exists: src/luat_ems_server_luac.c" >&2
-        exit 0
+if [ "$SUFFIX" == "64" ]; then
+    if run_with_luatos || run_with_lua53 || run_with_lua; then
+        :
     else
-        echo "ERROR: No pre-generated file found at src/luat_ems_server_luac.c" >&2
-        exit 1
+        echo "WARNING: No suitable Lua interpreter found (luatos-lua.exe, lua5.3, lua 5.3)" >&2
+        echo "Skipping luac generation. Using pre-generated file if exists." >&2
+        if [ -f "$OUT_FILE" ]; then
+            echo "Pre-generated file exists: $OUT_FILE" >&2
+            exit 0
+        else
+            echo "ERROR: No pre-generated file found at $OUT_FILE" >&2
+            exit 1
+        fi
+    fi
+else
+    if run_with_luatos; then
+        :
+    else
+        echo "WARNING: No suitable 32-bit Lua interpreter found (luatos-lua.exe)" >&2
+        echo "Skipping luac generation. Using pre-generated file if exists." >&2
+        if [ -f "$OUT_FILE" ]; then
+            echo "Pre-generated file exists: $OUT_FILE" >&2
+            exit 0
+        else
+            echo "ERROR: No pre-generated file found at $OUT_FILE" >&2
+            exit 1
+        fi
     fi
 fi
 
-# Verify SUCCESS marker
-if ! echo "$OUTPUT" | grep -q "SUCCESS"; then
-    echo "ERROR: luac generation failed" >&2
-    echo "$OUTPUT" >&2
-    exit 1
-fi
-
-# Filter log prefixes: first two fields are [timestamp] [id]
-C_ARRAY=$(echo "$OUTPUT" | awk 'NF>=3 {for(i=3;i<=NF;i++) printf "%s ", $i; print ""}')
-
-# Extract lines between Auto-generated and SUCCESS
-C_ARRAY=$(echo "$C_ARRAY" | sed -n '/\/\/ Auto-generated/,/SUCCESS/p' | sed '/SUCCESS/d')
-
-if [ -z "$C_ARRAY" ]; then
-    echo "ERROR: failed to extract C array from output" >&2
+if [ ! -f "$TMP_DIR/src/${OUT_NAME}.c" ]; then
+    echo "ERROR: expected output file not created: $TMP_DIR/src/${OUT_NAME}.c" >&2
     exit 1
 fi
 
 mkdir -p "$SCRIPT_DIR/src"
-echo "$C_ARRAY" > "$SCRIPT_DIR/src/luat_ems_server_luac.c"
-echo "Generated: $SCRIPT_DIR/src/luat_ems_server_luac.c" >&2
+cp "$TMP_DIR/src/${OUT_NAME}.c" "$OUT_FILE"
+echo "Generated: $OUT_FILE" >&2

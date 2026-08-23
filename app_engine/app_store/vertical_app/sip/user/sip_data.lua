@@ -13,38 +13,38 @@ local CONTACTS_KEY = "sip_contacts_v1"
 local RECORDS_KEY = "sip_records_v1"
 local CHATS_KEY = "sip_chats_v1"
 
--- 默认联系人
-local default_contacts = {
-    { num = "1002", name = "运动馆前台" },
-    { num = "1003", name = "仓储网关" },
-    { num = "1005", name = "值班终端" }
-}
+-- 当前登录用户，用于数据隔离
+local current_user = nil
 
--- 默认通话记录
-local default_records = {
-    { day = "今天", type = "missed", num = "1008", time = "09:26", name = "" },
-    { day = "今天", type = "answered", num = "1002", time = "08:41", name = "运动馆前台" },
-    { day = "昨天", type = "dialed", num = "1005", time = "18:10", name = "值班终端" },
-    { day = "昨天", type = "missed", num = "1009", time = "16:22", name = "" }
-}
+--[[
+设置当前用户，切换账户数据隔离空间
+@param username string 用户名，nil 表示未登录
+]]
+function sip_data.set_user(username)
+    current_user = username
+end
 
--- 默认聊天记录
-local default_chats = {
-    {
-        day = "今天", num = "1002", time = "09:18", latest = "请确认网关在线状态。",
-        messages = {
-            { dir = "in", time = "09:12", text = "设备已恢复连接。" },
-            { dir = "out", time = "09:15", text = "收到，我会检查 SIP 注册。" },
-            { dir = "in", time = "09:18", text = "请确认网关在线状态。" }
-        }
-    },
-    {
-        day = "昨天", num = "1005", time = "17:40", latest = "巡检完成，语音链路正常。",
-        messages = {
-            { dir = "out", time = "17:30", text = "开始链路巡检。" },
-            { dir = "in", time = "17:40", text = "巡检完成，语音链路正常。" }
-        }
-    }
+-- 根据当前用户生成动态 key
+local function user_key(base)
+    if current_user and current_user ~= "" then
+        return base .. "_" .. tostring(current_user)
+    end
+    return base
+end
+
+-- 默认联系人（已清空，不再提供演示数据）
+local default_contacts = {}
+
+-- 默认通话记录（已清空，不再提供演示数据）
+local default_records = {}
+
+-- 默认聊天记录（已清空，不再提供演示数据）
+local default_chats = {}
+
+-- 遗留演示号码，用于自动清理旧 fskv 数据
+local LEGACY_DEFAULT_NUMS = {
+    ["1002"] = true, ["1003"] = true, ["1005"] = true,
+    ["1008"] = true, ["1009"] = true
 }
 
 local function deep_copy(t)
@@ -61,13 +61,37 @@ end
 @return table 联系人数组
 ]]
 function sip_data.get_contacts()
+    local contacts = nil
     if fskv then
-        local data = fskv.get(CONTACTS_KEY)
+        local data = fskv.get(user_key(CONTACTS_KEY))
         if data and type(data) == "table" and #data > 0 then
-            return deep_copy(data)
+            contacts = deep_copy(data)
         end
     end
-    return deep_copy(default_contacts)
+    if not contacts then
+        contacts = deep_copy(default_contacts)
+    end
+    -- 自动清理遗留演示联系人
+    local filtered = {}
+    local dirty = false
+    for _, c in ipairs(contacts) do
+        if not LEGACY_DEFAULT_NUMS[c.num] then
+            table.insert(filtered, c)
+        else
+            dirty = true
+        end
+    end
+    if dirty then
+        sip_data.save_contacts(filtered)
+    end
+    -- 补全缺少 online_status 的联系人
+    for _, c in ipairs(filtered) do
+        if c.online_status == nil then
+            c.online_status = 0
+            -- c.online_status = 1
+        end
+    end
+    return filtered
 end
 
 --[[
@@ -76,7 +100,7 @@ end
 ]]
 function sip_data.save_contacts(contacts)
     if fskv and contacts then
-        fskv.set(CONTACTS_KEY, deep_copy(contacts))
+        fskv.set(user_key(CONTACTS_KEY), deep_copy(contacts))
     end
 end
 
@@ -84,20 +108,25 @@ end
 添加联系人
 @param num string 号码
 @param name string 名称
+@param online_status int 在线状态，0=离线 1=在线 2=异常，默认1
 @return boolean 成功返回 true
 ]]
-function sip_data.add_contact(num, name)
+function sip_data.add_contact(num, name, online_status)
     if not num or num == "" then return false end
     local contacts = sip_data.get_contacts()
-    -- 如果已存在则更新名称
+    -- 如果已存在则更新名称和状态
     for _, c in ipairs(contacts) do
         if c.num == num then
             c.name = name or c.name
+            if online_status ~= nil then
+                c.online_status = online_status
+            end
             sip_data.save_contacts(contacts)
             return true
         end
     end
-    table.insert(contacts, 1, { num = num, name = name or ("联系人 " .. num) })
+    -- table.insert(contacts, 1, { num = num, name = name or ("联系人 " .. num), online_status = online_status or 1 })
+    table.insert(contacts, 1, { num = num, name = name or ("联系人 " .. num), online_status = online_status or 0 })
     sip_data.save_contacts(contacts)
     return true
 end
@@ -140,13 +169,36 @@ end
 @return table 通话记录数组
 ]]
 function sip_data.get_records()
+    local records_data = nil
     if fskv then
-        local data = fskv.get(RECORDS_KEY)
+        local data = fskv.get(user_key(RECORDS_KEY))
         if data and type(data) == "table" and #data > 0 then
-            return deep_copy(data)
+            records_data = deep_copy(data)
         end
     end
-    return deep_copy(default_records)
+    if not records_data then
+        records_data = deep_copy(default_records)
+    end
+    -- 补全旧数据可能缺失的字段，并过滤无效/遗留演示记录
+    local valid_records = {}
+    local dirty = false
+    for _, r in ipairs(records_data) do
+        if r.name == nil then r.name = "" end
+        if r.num == nil then r.num = "" end
+        if r.type == nil then r.type = "dialed" end
+        if r.day == nil then r.day = "今天" end
+        if r.time == nil then r.time = "" end
+        -- 过滤掉号码为空或属于遗留演示号码的记录
+        if r.num ~= "" and not LEGACY_DEFAULT_NUMS[r.num] then
+            table.insert(valid_records, r)
+        else
+            dirty = true
+        end
+    end
+    if dirty then
+        sip_data.save_records(valid_records)
+    end
+    return valid_records
 end
 
 --[[
@@ -155,7 +207,7 @@ end
 ]]
 function sip_data.save_records(records)
     if fskv and records then
-        fskv.set(RECORDS_KEY, deep_copy(records))
+        fskv.set(user_key(RECORDS_KEY), deep_copy(records))
     end
 end
 
@@ -167,9 +219,12 @@ end
 @param time string 时间
 ]]
 function sip_data.add_record(day, rtype, num, time)
+    if not num or num == "" then
+        return false
+    end
     local records = sip_data.get_records()
     local name = sip_data.get_contact_name(num) or ""
-    table.insert(records, 1, { day = day, type = rtype, num = num, time = time, name = name })
+    table.insert(records, 1, { day = day or "今天", type = rtype or "dialed", num = num, time = time or "", name = name or "" })
     -- 限制最大记录数
     if #records > 200 then
         for i = 201, #records do
@@ -184,13 +239,30 @@ end
 @return table 聊天数组
 ]]
 function sip_data.get_chats()
+    local chats = nil
     if fskv then
-        local data = fskv.get(CHATS_KEY)
+        local data = fskv.get(user_key(CHATS_KEY))
         if data and type(data) == "table" and #data > 0 then
-            return deep_copy(data)
+            chats = deep_copy(data)
         end
     end
-    return deep_copy(default_chats)
+    if not chats then
+        chats = deep_copy(default_chats)
+    end
+    -- 自动清理遗留演示聊天记录
+    local filtered = {}
+    local dirty = false
+    for _, c in ipairs(chats) do
+        if not LEGACY_DEFAULT_NUMS[c.num] then
+            table.insert(filtered, c)
+        else
+            dirty = true
+        end
+    end
+    if dirty then
+        sip_data.save_chats(filtered)
+    end
+    return filtered
 end
 
 --[[
@@ -199,7 +271,7 @@ end
 ]]
 function sip_data.save_chats(chats)
     if fskv and chats then
-        fskv.set(CHATS_KEY, deep_copy(chats))
+        fskv.set(user_key(CHATS_KEY), deep_copy(chats))
     end
 end
 
@@ -257,9 +329,9 @@ end
 ]]
 function sip_data.clear_all()
     if fskv then
-        fskv.set(CONTACTS_KEY, {})
-        fskv.set(RECORDS_KEY, {})
-        fskv.set(CHATS_KEY, {})
+        fskv.set(user_key(CONTACTS_KEY), {})
+        fskv.set(user_key(RECORDS_KEY), {})
+        fskv.set(user_key(CHATS_KEY), {})
     end
 end
 

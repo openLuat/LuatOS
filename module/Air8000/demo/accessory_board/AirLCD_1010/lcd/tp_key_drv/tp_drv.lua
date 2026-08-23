@@ -2,7 +2,7 @@
 @module  tp_drv
 @summary 触摸面板驱动模块，基于tp核心库
 @version 1.0
-@date    2025.12.2
+@date    2026.02.05
 @author  江访
 @usage
 本模块为触摸面板驱动功能模块，主要功能包括：
@@ -15,6 +15,7 @@
 ]]
 
 
+local exmux = require "exmux"
 
 --[[
 触摸事件回调函数；
@@ -50,20 +51,42 @@ else
 end
 ]]
 
+
 local function tp_drv_init()
-    -- 初始化I2C
-    local result = i2c.setup(1, i2c.SLOW)
+    -- 在Air8000A V2.0开发板上，i2c0同时外挂了tp，gsensor，camera，es8311设备；
+    -- 在开发调试时，需要把握一个原则：使用其中一个设备时，其余设备必须同时供电，否则i2c0工作不正常
+    -- 具体原因详见Air8000硬件部分I2C说明 https://docs.openluat.com/air8000/luatos/hardware/i2c/#i2c_2
+    -- 可以使用exmux扩展库来实现统一管理，详细用法参考：https://docs.openluat.com/osapi/ext/exmux/
+    -- 当您使用的不是合宙开发板，而是自己设计的板子，请根据自己板子的硬件设计，来决定是否需要exmux库来配置
+    --
+    -- 初始化外设分组开关状态
+    -- exmux.setup("DEV_BOARD_8000_V2.0")
+    -- 打开i2c0外设分组的电源
+    -- exmux.open("i2c0")
+    gpio.setup(147, 1, gpio.PULLUP)
+    gpio.setup(164, 1, gpio.PULLUP)
+    gpio.set(147, 1)
+    gpio.set(164, 1)
 
-    if result==0 then
-        log.error("tp_drv.init i2c.setup error")
-        return false
-    end
+    sys.wait(200)
+    -- 初始化硬件I2C
+    i2c.setup(0, i2c.SLOW) -- 初始化I2C 0，设置为低速模式
 
-    result = tp.init("gt911", {port = 1, pin_rst = 0xFF, pin_int = gpio.WAKEUP0, w = 320, h = 480}, tp_callback)
+    -- 此处触摸IC数据读取使用的是软件I2C接口
+    -- 参数说明：
+    -- "gt911": 触摸控制器型号
+    -- port: I2C接口对象
+    -- pin_rst: 复位引脚编号
+    -- pin_int: 中断引脚编号
+    -- w: 触摸面板宽度
+    -- h: 触摸面板高度
+    local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0}, tp_callback)
+
+    -- Air8000 核心板 触摸输出代码，包括低功耗模式1
+    -- local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = 2})
 
     log.info("tp.init", result)
 
-    return result
 end
 
-tp_drv_init()
+sys.taskInit(tp_drv_init)

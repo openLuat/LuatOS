@@ -33,7 +33,7 @@
 
 #if defined(OPUS_HAVE_RTCD) && \
   (defined(OPUS_ARM_ASM) || defined(OPUS_ARM_MAY_HAVE_NEON_INTR))
-#include "arm/armcpu.h"
+#include "celt/arm/armcpu.h"
 
 /* We currently support 5 ARM variants:
  * arch[0] -> ARMv4
@@ -50,7 +50,7 @@
   (defined(OPUS_X86_MAY_HAVE_SSE4_1) && !defined(OPUS_X86_PRESUME_SSE4_1)) || \
   (defined(OPUS_X86_MAY_HAVE_AVX2) && !defined(OPUS_X86_PRESUME_AVX2)))
 
-#include "x86/x86cpu.h"
+#include "celt/x86/x86cpu.h"
 /* We currently support 5 x86 variants:
  * arch[0] -> non-sse
  * arch[1] -> sse

@@ -27,8 +27,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef SILK_NSQ_NEON_H
 #define SILK_NSQ_NEON_H
 
-#include "cpu_support.h"
-#include "SigProc_FIX.h"
+#include "celt/cpu_support.h"
+#include "silk/SigProc_FIX.h"
 
 #undef silk_short_prediction_create_arch_coef
 /* For vectorized calc, reverse a_Q12 coefs, convert to 32-bit, and shift for vqdmulhq_s32. */

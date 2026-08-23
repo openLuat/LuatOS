@@ -28,9 +28,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef SILK_SIGPROC_FLP_H
 #define SILK_SIGPROC_FLP_H
 
-#include "SigProc_FIX.h"
-#include "float_cast.h"
-#include "main.h"
+#include "silk/SigProc_FIX.h"
+#include "celt/float_cast.h"
+#include "silk/main.h"
 #include <math.h>
 
 #ifdef  __cplusplus

@@ -92,7 +92,7 @@ function netif_app_task_func()
 
     -- 每5秒进行HTTPS连接测试，实时监测以太网网络连接状态, 仅供测试需要，量产不需要，用来判断当前网络是否可用，需要的话可以打开注释
     -- while 1 do
-    --     local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_ETH,timeout=5000,debug=false}).wait()
+    --     local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {adapter=socket.LWIP_ETH,timeout=5000,debug=false}).wait()
     --     log.info("http执行结果", code, headers, body and #body)
     --     sys.wait(5000)
     -- end

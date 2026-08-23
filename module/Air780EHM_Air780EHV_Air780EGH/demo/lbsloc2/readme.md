@@ -81,11 +81,11 @@
 lbsLoc2 031.1346219 121.5382010 {}
 
 ```
-[2025-08-18 15:50:04.995][000000006.372] D/user.lbsLoc2 free.bs.air32.cn 12411
+[2025-08-18 15:50:04.995][000000006.372] D/user.lbsLoc2 free.bs.luatos.com 12411
 
-[2025-08-18 15:50:05.001][000000006.372] D/socket connect to free.bs.air32.cn,12411
+[2025-08-18 15:50:05.001][000000006.372] D/socket connect to free.bs.luatos.com,12411
 
-[2025-08-18 15:50:05.005][000000006.373] dns_run 674:free.bs.air32.cn state 0 id 1 ipv6 0 use dns server2, try 0
+[2025-08-18 15:50:05.005][000000006.373] dns_run 674:free.bs.luatos.com state 0 id 1 ipv6 0 use dns server2, try 0
 
 [2025-08-18 15:50:05.011][000000006.413] D/mobile TIME_SYNC 0
 

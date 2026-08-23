@@ -45,6 +45,10 @@
 4. airui_switch_page.lua -多页面切换功能演示
 5. airui_all_component.lua - 所有组件演示页面
 
+### 2.5 多媒体组件演示
+1. airui_video.lua - 视频组件演示页面
+2. airui_camera_preview.lua - 摄像头预览演示页面（基于 excamera 扩展库）
+
 ## 三、演示效果
 ![](https://docs.openluat.com/air1601/luatos/app/multimedia/ui/airui/image/GmJgbSOURoLL9jxRgiBcjV2gnfg.jpg)
 ![](https://docs.openluat.com/air1601/luatos/app/multimedia/ui/airui/image/AyPDbVeGyoXQaaxq2lFcZjernwf.jpg)

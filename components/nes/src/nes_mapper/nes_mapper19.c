@@ -48,10 +48,16 @@ static void mapper19_update_prg(nes_t* nes) {
 
 static void mapper19_load_chr_bank(nes_t* nes, uint8_t slot, uint8_t bank) {
     nes_mapper19_t* m = (nes_mapper19_t*)nes->nes_mapper.mapper_register;
-    if (bank >= 0xE0u && ((m->chr_ram_enable >> (slot >> 2)) & 0x01u) == 0u) {
+    uint16_t chr_count = (uint16_t)(nes->nes_rom.chr_rom_size * 8u);
+    /* Banks >= 0xE0 are NT-RAM only when chr_ram_enable is clear for this slot group
+     * AND the bank lies outside the CHR-ROM capacity.
+     * Games with 256 CHR-ROM banks (e.g. NAMCOT-175) use banks 0xE0-0xFF as valid
+     * CHR-ROM pages; incorrectly routing them to VRAM causes tile corruption. */
+    if (bank >= 0xE0u && ((m->chr_ram_enable >> (slot >> 2)) & 0x01u) == 0u &&
+            (chr_count == 0u || (uint16_t)bank >= chr_count)) {
         nes->nes_ppu.pattern_table[slot] = nes->nes_ppu.ppu_vram[bank & 0x01u];
-    } else if (nes->nes_rom.chr_rom_size > 0) {
-        nes_load_chrrom_1k(nes, slot, bank);
+    } else if (chr_count > 0u) {
+        nes_load_chrrom_1k(nes, slot, (uint16_t)(bank % chr_count));
     }
 }
 

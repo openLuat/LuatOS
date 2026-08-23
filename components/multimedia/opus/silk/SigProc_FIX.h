@@ -41,15 +41,15 @@ extern "C"
 #include "typedef.h"
 #include "resampler_structs.h"
 #include "macros.h"
-#include "cpu_support.h"
+#include "celt/cpu_support.h"
 
 #if defined(OPUS_X86_MAY_HAVE_SSE4_1)
-#include "x86/SigProc_FIX_sse.h"
+#include "silk/x86/SigProc_FIX_sse.h"
 #endif
 
 #if (defined(OPUS_ARM_ASM) || defined(OPUS_ARM_MAY_HAVE_NEON_INTR))
-#include "arm/biquad_alt_arm.h"
-#include "arm/LPC_inv_pred_gain_arm.h"
+#include "silk/arm/biquad_alt_arm.h"
+#include "silk/arm/LPC_inv_pred_gain_arm.h"
 #endif
 
 /********************************************************************/
@@ -626,15 +626,15 @@ static OPUS_INLINE opus_int64 silk_max_64(opus_int64 a, opus_int64 b)
 #include "MacroDebug.h"
 
 #ifdef OPUS_ARM_INLINE_ASM
-#include "arm/SigProc_FIX_armv4.h"
+#include "silk/arm/SigProc_FIX_armv4.h"
 #endif
 
 #ifdef OPUS_ARM_INLINE_EDSP
-#include "arm/SigProc_FIX_armv5e.h"
+#include "silk/arm/SigProc_FIX_armv5e.h"
 #endif
 
 #if defined(FIXED_POINT) && defined(__mips_dsp) && __mips == 32
-#include "mips/sigproc_fix_mipsr1.h"
+#include "silk/mips/sigproc_fix_mipsr1.h"
 #endif
 
 #ifdef OPUS_XTENSA_LX7

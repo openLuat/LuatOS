@@ -6,6 +6,18 @@
 @author  江访
 @usage
 本模块为状态提供器应用模块，主要功能包括：
+
+消息协议（订阅/发布）:
+订阅: WIFI_CONNECTED(ssid)          → 开启 RSSI 轮询（由 wifi_app 发布）
+订阅: WIFI_DISCONNECTED(reason)    → 停止 RSSI 轮询，图标归零
+订阅: IP_READY                     → 开始 RSSI 定时轮询
+订阅: SIM_IND(st, vl)              → 更新 SIM 卡状态和 4G 信号
+订阅: REQUEST_STATUS_REFRESH       → 重新发布当前所有状态
+
+发布: STATUS_TIME_UPDATED(time, date, weekday)      → 时间更新（每秒）
+发布: STATUS_SIGNAL_UPDATED(level)                   → 4G 信号等级更新
+发布: STATUS_WIFI_SIGNAL_UPDATED(level)              → WiFi 信号等级更新 (0-5)
+
 1、管理时间信息，每秒更新当前时间、日期、星期；
 2、管理WiFi信号强度，通过监听WIFI_CONNECTED/DISCONNECTED事件控制RSSI轮询；
 3、提供状态查询接口供其他模块调用；
@@ -26,6 +38,8 @@ status_provider 只负责 RSSI 信号强度轮询，通过 WIFI_CONNECTED/DISCON
 
 local has_4g = _G.project_config and _G.project_config.features and _G.project_config.features.net_4g
 local has_wifi = _G.project_config and _G.project_config.features and _G.project_config.features.wifi
+
+local exnetif = require "exnetif"
 
 local current_time = "08:00"
 local current_date = "1970-01-01"
@@ -185,6 +199,16 @@ if has_4g then
 end
 
 local function update_mobile_signal()
+    -- airlink 4G（如 Air1601）不支持 CSQ 查询，跳过
+    if _G.project_config and (_G.project_config.chip == "Air1601" or _G.project_config.chip == "Air1602") then
+        if _G.project_config.network then
+            for _, nc in ipairs(_G.project_config.network) do
+                if nc.type and nc.type:find("4g_airlink", 1, true) then
+                    return
+                end
+            end
+        end
+    end
     local old_level = mobile_signal_level
     if not sim_present then
         mobile_signal_level = -1
@@ -241,9 +265,34 @@ local function init_module()
     -- 订阅WiFi连接/断开事件（由wifi_app发布），替代直接监听WLAN_STA_INC
     -- 这样wifi_app是WLAN_STA_INC的唯一消费者，状态管理清晰
     if has_wifi then
+        -- 订阅 WiFi 连接/断开事件（由 wifi_app 发布），替代直接监听 WLAN_STA_INC
+        -- 这样 wifi_app 是 WLAN_STA_INC 的唯一消费者，状态管理清晰
         sys.subscribe("WIFI_CONNECTED", handle_wifi_connected)
         sys.subscribe("WIFI_DISCONNECTED", handle_wifi_disconnected)
         sys.subscribe("IP_READY", handle_ip_ready)
+        -- 保留 exnetif.notify_status 作为兜底
+        exnetif.notify_status(function(net_type, adapter)
+            if net_type and (net_type == "WiFi" or net_type == "WIFI") and adapter == socket.LWIP_STA then
+                -- WiFi 成为活跃网卡：启动 RSSI 轮询
+                wifi_connected = true
+                if not wifi_timer then
+                    update_wifi_signal()
+                    wifi_timer = sys.timerLoopStart(update_wifi_signal, 1000)
+                end
+            else
+                -- 非 WiFi 活跃或全部断开：停止 RSSI 轮询
+                if wifi_timer then
+                    sys.timerStop(wifi_timer)
+                    wifi_timer = nil
+                end
+                if not net_type then
+                    -- 所有网络断开
+                    wifi_connected = false
+                    wifi_signal_level = 0
+                    sys.publish("STATUS_WIFI_SIGNAL_UPDATED", 0)
+                end
+            end
+        end)
     end
 
     -- 有4G模块

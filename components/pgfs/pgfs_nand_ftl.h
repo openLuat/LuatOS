@@ -132,6 +132,13 @@ typedef struct {
 
     /* powercut injection (testing) — propagated from mount ctx at init time */
     uint8_t powercut_inject;
+
+    /* P1-1: dirty flag — set by every FTL state mutation (bitmaps, erase
+     * counts, live/dead accounting, write head refresh) and cleared on
+     * successful persist / load. pgfs_ftl_persist returns immediately
+     * (no flash erase/write) when the state is unchanged, eliminating
+     * redundant whole-block rewrites on umount / repeated CP commits. */
+    uint8_t dirty;
 } pgfs_nand_ftl_ctx_t;
 
 /* ── Public API ────────────────────────────────────────────────────────── */
@@ -148,6 +155,11 @@ int pgfs_ftl_init(pgfs_nand_ftl_ctx_t *ctx,
                   const pgfs_flash_opts_t *flash_opts,
                   uint32_t erase_size,
                   uint32_t total_blocks);
+
+/* P1-1: mark the FTL state dirty (persist is required). Called by the
+ * write-head refresh paths and any external mutator that bypasses the
+ * bitmap accessors. */
+void pgfs_ftl_mark_dirty(pgfs_nand_ftl_ctx_t *ctx);
 
 /*
  * pgfs_ftl_deinit — free heap allocations.

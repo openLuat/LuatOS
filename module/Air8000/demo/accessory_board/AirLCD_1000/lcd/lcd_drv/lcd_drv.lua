@@ -35,6 +35,10 @@ end
 ]]
 
 local function lcd_drv_init()
+    -- Air8000开发板上，使能lcd供电的ldo电源开关
+    -- 如果你使用的不是Air8000开发板，而是自己设计的硬件，需要根据实际情况来配置电源使能
+    gpio.setup(141, 1)
+    
     local result = lcd.init("st7796",
         {
             pin_rst = 36,                          -- 复位引脚

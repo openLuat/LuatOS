@@ -11,6 +11,7 @@
 
 3. **home_page.lua** - 主页模块，提供应用入口和导航功能
 4. **lcd_page.lua** - LCD图形绘制演示模块
+5. **camera_preview_page.lua** - 摄像头预览模块（GC032A SPI摄像头实时预览）
 6. **customer_font_page.lua** - 自定义字体演示模块
 
 ### 1.3 驱动模块

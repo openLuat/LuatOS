@@ -75,8 +75,8 @@ Air1601 部分日志打印：
 [2026-06-11 15:11:18.089][LTOS/N][000000009.071]:I/user.发送数据给对端设备 Air1601 Wed Jan  8 08:06:11 2020 当前airlink状态 true
 [2026-06-11 15:11:18.749][LTOS/N][000000009.749]:I/user.收到AIRLINK_SDATA!! Air780EX2 Thu Jun 11 15:11:19 2026
 [2026-06-11 15:11:19.060][LTOS/N][000000010.060]:I/user.网卡状态 true
-[2026-06-11 15:11:19.064][LTOS/N][000000010.060]:I/user.发起HTTP GET请求 https://httpbin.air32.cn/bytes/2048
-[2026-06-11 15:11:19.068][LTOS/N][000000010.061]:D/DNS httpbin.air32.cn state 0 id 1 ipv6 0 use dns server2, try 0
+[2026-06-11 15:11:19.064][LTOS/N][000000010.060]:I/user.发起HTTP GET请求 https://httpbin.luatos.com/bytes/2048
+[2026-06-11 15:11:19.068][LTOS/N][000000010.061]:D/DNS httpbin.luatos.com state 0 id 1 ipv6 0 use dns server2, try 0
 [2026-06-11 15:11:19.071][LTOS/N][000000010.061]:D/net adatper 15 dns server 192.168.111.2
 [2026-06-11 15:11:19.073][LTOS/N][000000010.061]:D/net dns udp sendto 192.168.111.2:53 from 192.168.111.1
 [2026-06-11 15:11:19.076][LTOS/N][000000010.071]:I/user.ticks 503 Air1601 Air1601 Air1601_A11

@@ -27,7 +27,16 @@ unsigned char r_dat_bat(unsigned long address,unsigned long DataLen,unsigned cha
         (uint8_t)((address)>>8),
         (uint8_t)(address)
     };
-    luat_spi_device_transfer(gt_spi_dev, send_buf, 4, (char *)pBuff, DataLen);
+    luat_spi_msg_t msgs[2] = {
+        { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)send_buf, .recv_buff = NULL, .len = 4 },
+        { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)pBuff,    .recv_buff = NULL, .len = DataLen },
+    };
+    // LLOGD("gt r_dat_bat trans_msgs addr=%08lX len=%lu", address, DataLen);
+    int r = luat_spi_device_trans_msgs(gt_spi_dev, msgs, 2);
+    if (r < 0) {
+        LLOGE("gt r_dat_bat device_trans_msgs failed rc=%d", r);
+        return 0;
+    }
     #if LUAT_GT_DEBUG
     LLOGD("r_dat_bat addr %08X len %d pBuff %X", address, DataLen,*pBuff);
     for(int i = 0; i < DataLen;i++){
@@ -49,7 +58,16 @@ unsigned char CheckID(unsigned char CMD, unsigned long address,unsigned long byt
         (uint8_t)((address)>>8),
         (uint8_t)(address)
     };
-    luat_spi_device_transfer(gt_spi_dev, send_buf, 4, (char *)p_arr, byte_long);
+    luat_spi_msg_t msgs[2] = {
+        { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)send_buf, .recv_buff = NULL, .len = 4 },
+        { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)p_arr,    .recv_buff = NULL, .len = byte_long },
+    };
+    // LLOGD("gt CheckID trans_msgs cmd=%02X addr=%08lX len=%lu", CMD, address, byte_long);
+    int r = luat_spi_device_trans_msgs(gt_spi_dev, msgs, 2);
+    if (r < 0) {
+        LLOGE("gt CheckID device_trans_msgs failed rc=%d", r);
+        return 0;
+    }
     // return p_arr[0];
     return 1;
 }
@@ -58,7 +76,16 @@ unsigned char gt_read_data(unsigned char* sendbuf , unsigned char sendlen , unsi
 {
     if (gt_spi_dev == NULL)
         return 0;
-    luat_spi_device_transfer(gt_spi_dev, (const char *)sendbuf, sendlen,(char *)receivebuf, receivelen);
+    luat_spi_msg_t msgs[2] = {
+        { .mode = LUAT_SPI_MSG_SEND, .buff = (uint8_t*)sendbuf,    .recv_buff = NULL, .len = sendlen },
+        { .mode = LUAT_SPI_MSG_RECV, .buff = (uint8_t*)receivebuf, .recv_buff = NULL, .len = receivelen },
+    };
+    // LLOGD("gt gt_read_data trans_msgs sendlen=%u recvlen=%u", (unsigned)sendlen, (unsigned)receivelen);
+    int r = luat_spi_device_trans_msgs(gt_spi_dev, msgs, 2);
+    if (r < 0) {
+        LLOGE("gt gt_read_data device_trans_msgs failed rc=%d", r);
+        return 0;
+    }
     #if LUAT_GT_DEBUG
     LLOGD("gt_read_data sendlen:%d receivelen:%d",sendlen,receivelen);
     for(int i = 0; i < sendlen;i++){

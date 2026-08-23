@@ -72,6 +72,26 @@ return {
     features = {
         wifi = true,                     -- 启用 WiFi（airlink 模式，6205 芯片 AIRLINK_UART3）
         sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
+        ethernet = true,                 -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
+    },
+
+    -- ===== 统一网络配置（优先级从高到低）=====
+    -- Air1601 的 Airlink WiFi 和 Airlink 4G 都使用 UART3，硬件上二者只能开启一个
+    -- 启用 WiFi 时注释 4G，启用 4G 时注释 WiFi
+    network = {
+        -- Airlink UART WiFi（6205 模组，占用 UART3）
+        { type = "wifi_airlink_uart",
+          uart_id = 3, baud = 2000000 },
+
+        -- Airlink UART 4G（外挂 Air780EPM，也使用 UART3，与 WiFi 互斥）
+        {
+            type = "4g_airlink_uart",
+            uart_id = 3, baud = 2000000,
+            adapter = socket.LWIP_GP_GW,
+        },
+
+        { type = "eth_spi", chip = "CH390",              -- SPI 以太网兜底
+          spi_id = 1, cs_pin = 14 },
     },
 
     -- ===== UI 显示控制（只写 = true 的项）=====

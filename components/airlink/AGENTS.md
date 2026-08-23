@@ -165,4 +165,4 @@ build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\airlink\a
 | `include/luat_airlink_rpc.h` | `luat_airlink_rpc_nb_reg_t` 结构定义 + API 声明 |
 | `binding/luat_lib_airlink.c` | Lua API 绑定，含 `luat_airlink_sdata_send()` |
 | `bsp/pc/include/luat_conf_bsp.h` | PC 功能宏开关（`LUAT_USE_AIRLINK_RPC_*`） |
-| `testcase/airlink/airlink_nanopb_basic/` | nanopb RPC 端到端测试（5 个 loopback 用例） |
+| `testcase/func/airlink/airlink_nanopb_basic/` | nanopb RPC 端到端测试（5 个 loopback 用例） |

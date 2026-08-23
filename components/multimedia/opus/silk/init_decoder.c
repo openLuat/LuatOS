@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "main.h"
 
 #ifdef ENABLE_OSCE
-#include "osce.h"
+#include "dnn/osce.h"
 #endif
 
 #include "structs.h"

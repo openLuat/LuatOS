@@ -6,6 +6,10 @@
 @author  江访
 @usage
 本模块为关于设备业务逻辑层，收集设备型号、唯一ID、固件版本、内核版本等信息并上报。
+
+消息协议（订阅/发布）:
+订阅: ABOUT_DEVICE_GET_INFO          → 查询设备信息
+发布: ABOUT_DEVICE_INFO({core, script, ...}) → 设备信息返回值
 ]]
 -- ==================== 设备信息 ====================
 local device_info = {

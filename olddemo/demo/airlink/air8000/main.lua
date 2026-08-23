@@ -55,7 +55,7 @@ sys.taskInit(function()
     --     sys.wait(1000)
     --     log.info("执行http请求")
     --     -- local code = http.request("GET", "http://192.168.1.15:8000/README.md", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
-    --     local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
+    --     local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
     --     log.info("http执行结果", code, code, headers, body)
     -- end
 end)

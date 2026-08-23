@@ -140,6 +140,40 @@ lf_err_t little_flash_erase_write(const little_flash_t *lf, uint32_t addr, const
 lf_err_t little_flash_read(const little_flash_t *lf, uint32_t addr, uint8_t *data, uint32_t len);
 
 /**
+ * @brief Read one NAND page plus optional spare/OOB bytes.
+ *
+ * This is a NAND-only page-cache API. It does not auto-cross page boundaries
+ * and it does not expose OOB through the normal byte address space used by
+ * `little_flash_read`.
+ *
+ * @param[in]  lf         Flash device handle, must be NAND
+ * @param[in]  page       Physical page number
+ * @param[in]  data_off   Offset in the main data area
+ * @param[out] data       Main data receive buffer, may be NULL when data_len is 0
+ * @param[in]  data_len   Main data bytes to read
+ * @param[in]  oob_off    Offset in the spare/OOB area
+ * @param[out] oob        OOB receive buffer, may be NULL when oob_len is 0
+ * @param[in]  oob_len    OOB bytes to read
+ * @param[out] status_out Optional NAND status register 3 after page read
+ * @return LF_ERR_OK on success, LF_ERR_BAD_ADDRESS for invalid bounds, LF_ERR_READ on read failure
+ */
+lf_err_t little_flash_nand_read_page_oob(const little_flash_t *lf, uint32_t page,
+                                         uint16_t data_off, uint8_t *data, uint32_t data_len,
+                                         uint16_t oob_off, uint8_t *oob, uint32_t oob_len,
+                                         uint8_t *status_out);
+
+/**
+ * @brief Program one NAND page with optional main data and spare/OOB bytes.
+ *
+ * The caller must ensure the target page is erased. This API writes one NAND
+ * page-cache program operation and never auto-crosses page boundaries.
+ */
+lf_err_t little_flash_nand_write_page_oob(const little_flash_t *lf, uint32_t page,
+                                          uint16_t data_off, const uint8_t *data, uint32_t data_len,
+                                          uint16_t oob_off, const uint8_t *oob, uint32_t oob_len,
+                                          uint8_t *status_out);
+
+/**
  * @brief 控制 Flash 进入或退出深度掉电模式（NOR 和 NAND flash 均支持）
  *
  * - @p status 为非零值（建议使用 `LF_ENABLE`）：发送 0xB9 命令，使芯片进入超低功耗

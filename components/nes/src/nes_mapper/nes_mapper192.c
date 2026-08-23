@@ -34,8 +34,8 @@ typedef struct {
     uint8_t irq_counter;
     uint8_t irq_reload;
     uint8_t irq_enabled;
-    uint8_t prg_bank_count; /* number of 8KB PRG banks */
-    uint8_t chr_bank_count; /* number of 1KB CHR-ROM banks */
+    uint16_t prg_bank_count; /* number of 8KB PRG banks */
+    uint16_t chr_bank_count; /* number of 1KB CHR-ROM banks */
     uint8_t chr_ram[MAPPER192_CHR_RAM_SIZE]; /* 4KB CHR-RAM for bank values 8-11 */
 } nes_mapper192_t;
 
@@ -48,7 +48,7 @@ static void nes_mapper_deinit(nes_t* nes) {
  * Load a single 1KB CHR slot.  Bank values 8-11 map to pages 0-3 of the
  * embedded chr_ram; all other values use CHR-ROM.
  */
-static void mapper192_load_chr1k(nes_t* nes, nes_mapper192_t* m, uint8_t slot, uint8_t bank) {
+static void mapper192_load_chr1k(nes_t* nes, nes_mapper192_t* m, uint8_t slot, uint16_t bank) {
     if (bank >= 8u && bank <= 11u) {
         nes->nes_ppu.pattern_table[slot] = m->chr_ram + (bank - 8u) * 1024u;
     } else if (m->chr_bank_count > 0) {
@@ -58,10 +58,10 @@ static void mapper192_load_chr1k(nes_t* nes, nes_mapper192_t* m, uint8_t slot, u
 
 static void mapper192_update_banks(nes_t* nes) {
     nes_mapper192_t* m = (nes_mapper192_t*)nes->nes_mapper.mapper_register;
-    uint8_t prg_mode = (m->bank_select >> 6) & 1u;
-    uint8_t chr_mode = (m->bank_select >> 7) & 1u;
-    uint8_t last     = m->prg_bank_count - 1u;
-    uint8_t slast    = m->prg_bank_count - 2u;
+    uint8_t prg_mode = (m->bank_select >> 6) & 1u;  /* bit 6 = PRG bank mode */
+    uint8_t chr_mode = (m->bank_select >> 7) & 1u;  /* bit 7 = CHR A12 inversion */
+    uint16_t last    = m->prg_bank_count - 1u;
+    uint16_t slast   = m->prg_bank_count - 2u;
 
     /* PRG banking (same as MMC3) */
     if (prg_mode == 0u) {
@@ -106,11 +106,19 @@ static void nes_mapper_init(nes_t* nes) {
     nes_mapper192_t* m = (nes_mapper192_t*)nes->nes_mapper.mapper_register;
     nes_memset(m, 0, sizeof(nes_mapper192_t));
 
-    m->prg_bank_count = (uint8_t)(nes->nes_rom.prg_rom_size * 2u);
-    m->chr_bank_count = (uint8_t)(nes->nes_rom.chr_rom_size * 8u);
+    m->prg_bank_count = (uint16_t)(nes->nes_rom.prg_rom_size * 2u);
+    m->chr_bank_count = (uint16_t)(nes->nes_rom.chr_rom_size * 8u);
 
     m->bank_values[6] = 0;
     m->bank_values[7] = 1;
+
+    /* Waixing RPGs (Dragon Ball Z series etc.) use $6000-$7FFF as WRAM. */
+    if (nes->nes_rom.sram == NULL) {
+        nes->nes_rom.sram = (uint8_t*)nes_malloc(SRAM_SIZE);
+        if (nes->nes_rom.sram != NULL) {
+            nes_memset(nes->nes_rom.sram, 0, SRAM_SIZE);
+        }
+    }
 
     mapper192_update_banks(nes);
 }
@@ -130,7 +138,16 @@ static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
         mapper192_update_banks(nes);
         break;
     case 0x8001u: {
-        uint8_t reg = m->bank_select & 0x07u;
+        /* Waixing mapper 192 extended register decode:
+         * bs=0x0A → R4, bs=0x0B → R5, bs=0x08 → R2, bs=0x09 → R3
+         * (bit3 of bank_select shifts target register +2) */
+        uint8_t bs4 = m->bank_select & 0x0Fu;
+        uint8_t reg;
+        if      (bs4 == 0x08u) reg = 2u;
+        else if (bs4 == 0x09u) reg = 3u;
+        else if (bs4 == 0x0Au) reg = 4u;
+        else if (bs4 == 0x0Bu) reg = 5u;
+        else                   reg = m->bank_select & 0x07u;
         m->bank_values[reg] = data;
         mapper192_update_banks(nes);
         break;
@@ -148,6 +165,7 @@ static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
         m->irq_latch = data;
         break;
     case 0xC001u:
+        m->irq_counter = 0u;
         m->irq_reload = 1u;
         break;
     case 0xE000u:
@@ -162,28 +180,31 @@ static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     }
 }
 
-/* Scanline IRQ — identical to MMC3. */
+/* Scanline IRQ — identical to MMC3.
+ * IRQ fires ONLY when the counter decrements to 0, not when it reloads to 0.
+ * https://www.nesdev.org/wiki/MMC3#IRQ_Specifics
+ */
 static void nes_mapper_hsync(nes_t* nes) {
     nes_mapper192_t* m = (nes_mapper192_t*)nes->nes_mapper.mapper_register;
     if (nes->nes_ppu.MASK_b == 0 && nes->nes_ppu.MASK_s == 0) return;
 
     if (m->irq_counter == 0 || m->irq_reload) {
         m->irq_counter = m->irq_latch;
+        m->irq_reload = 0;
+        /* reload to 0 does NOT fire IRQ */
     } else {
         m->irq_counter--;
+        if (m->irq_counter == 0 && m->irq_enabled) {
+            nes_cpu_irq(nes);
+        }
     }
-
-    if (m->irq_counter == 0 && m->irq_enabled) {
-        nes_cpu_irq(nes);
-    }
-
-    m->irq_reload = 0;
 }
 
+
 int nes_mapper192_init(nes_t* nes) {
-    nes->nes_mapper.mapper_init   = nes_mapper_init;
-    nes->nes_mapper.mapper_deinit = nes_mapper_deinit;
-    nes->nes_mapper.mapper_write  = nes_mapper_write;
-    nes->nes_mapper.mapper_hsync  = nes_mapper_hsync;
+    nes->nes_mapper.mapper_init      = nes_mapper_init;
+    nes->nes_mapper.mapper_deinit    = nes_mapper_deinit;
+    nes->nes_mapper.mapper_write     = nes_mapper_write;
+    nes->nes_mapper.mapper_hsync     = nes_mapper_hsync;
     return NES_OK;
 }

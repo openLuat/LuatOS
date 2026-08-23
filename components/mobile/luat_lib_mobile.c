@@ -31,6 +31,7 @@ log.info("simid", mobile.simid())
 
 #include "luat_mobile.h"
 #include "luat_network_adapter.h"
+#include <string.h>
 
 #define LUAT_LOG_TAG "mobile"
 #include "luat_log.h"
@@ -49,7 +50,7 @@ extern void net_lwip_check_switch(uint8_t onoff);
 @api mobile.imei(index)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @return string 当前的IMEI值,若失败返回nil
-@usgae
+@usage
 -- 注意, 当前所有模块只支持单待,所以IMEI总是同一个
  */
 #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
@@ -322,7 +323,7 @@ static int l_mobile_imei(lua_State* L) {
 @api mobile.imsi(index)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @return string 当前的IMSI值,若失败返回nil
-@usgae
+@usage
 -- 注意, 当前所有模块只支持单待,所以IMSI总是同一个
  */
 static int l_mobile_imsi(lua_State* L) {
@@ -414,6 +415,7 @@ static int l_mobile_muid(lua_State* L) {
     // size_t len = 0;
     // size_t wlen = 0;
     int ret = 0;
+    LLOGI("l_mobile_muid called");
 #if defined(LUAT_USE_AIRLINK_RPC) && defined(LUAT_USE_DRV_MOBILE) && !defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
     if (lua_isyieldable(L)) {
         ret = luat_airlink_drv_rpc_mobile_global_status_yield(
@@ -425,7 +427,8 @@ static int l_mobile_muid(lua_State* L) {
         return 0;
     }
 #endif
-    ret = luat_mobile_get_muid(buff, 32);
+    ret = luat_mobile_get_muid(buff, sizeof(buff));
+    LLOGI("l_mobile_muid ret=%d", ret);
     if (lua_isstring(L, 1)) {
         // const char* wbuff = luaL_checklstring(L, 1, &wlen);
         // if (wlen >= 15) {
@@ -441,6 +444,20 @@ static int l_mobile_muid(lua_State* L) {
     return 1;
 }
 
+#if 0
+/**
+设置MUID，已经废弃不要使用
+@api mobile.muidSet(muid)
+@string muid MUID字符串
+@return int 0成功, -1失败
+ */
+static int l_mobile_muid_set(lua_State* L) {
+    size_t len = 0;
+    const char *muid = luaL_checklstring(L, 1, &len);
+    lua_pushinteger(L, luat_mobile_set_muid(muid, len));
+    return 1;
+}
+#endif
 
 /**
 获取或设置ICCID
@@ -1337,6 +1354,14 @@ end)
 mobile.config(mobile.CONF_SIM_WC_MODE, 2)
 -- 清空统计值
 mobile.config(mobile.CONF_SIM_WC_MODE, 3)
+
+-- USB网卡设置为ECM模式，NAT开启
+pm.power(pm.USB ,false)
+mobile.config(mobile.CONF_USB_ETHERNET, 7)
+mobile.flymode(0, true)
+mobile.flymode(0, false)
+pm.power(pm.USB ,true)
+
  */
 static int l_mobile_config(lua_State* L) {
     uint8_t item = luaL_optinteger(L, 1, 0);
@@ -1410,46 +1435,6 @@ static int l_mobile_set_band(lua_State* L) {
 	int num = luaL_optinteger(L, 2, 1);
 	lua_pushboolean(L, !luat_mobile_set_band(buff->addr,  num));
 	return 1;
-}
-
-/**
-RF测试开关和配置
-@api mobile.nstOnOff(onoff, uart_id)
-@boolean true开启测试模式，false关闭
-@int 串口号
-@return nil 无返回值
-@usage
-mobile.nstOnOff(true, uart.VUART_0)	--打开测试模式，并且用虚拟串口发送结果
-mobile.nstOnOff(false) --关闭测试模式
- */
-static int l_mobile_nst_test_onoff(lua_State* L) {
-    luat_mobile_rf_test_mode(luaL_optinteger(L, 2, LUAT_VUART_ID_0), lua_toboolean(L, 1));
-    return 0;
-}
-/**
-RF测试数据输入
-@api mobile.nstInput(data)
-@string or zbuff 用户从串口获取的数据，注意，当获取完所有数据后，需要再传一个nil来作为传输结束
-@return nil 无返回值
-@usage
-mobile.nstInput(uart_data)
-mobile.nstInput(nil)
- */
-static int l_mobile_nst_data_input(lua_State* L) {
-    size_t len = 0;
-    const char *buf = NULL;
-    if(lua_isuserdata(L, 1))
-    {
-        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
-        len = buff->used;
-        buf = buff->addr;
-    }
-    else if (lua_isstring(L, 1))
-    {
-        buf = lua_tolstring(L, 1, &len);//取出字符串数据
-    }
-	luat_mobile_rf_test_input(buf, len);
-    return 0;
 }
 
 /**
@@ -1548,6 +1533,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"iccid",           ROREG_FUNC(l_mobile_iccid)},
 	{"number",          ROREG_FUNC(l_mobile_number)},
     {"muid",            ROREG_FUNC(l_mobile_muid)},
+
     {"apn",             ROREG_FUNC(l_mobile_apn)},
 	{"ipv6",            ROREG_FUNC(l_mobile_ipv6)},
     {"csq",             ROREG_FUNC(l_mobile_csq)},
@@ -1572,11 +1558,11 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"config",          ROREG_FUNC(l_mobile_config)},
 	{"getBand",          ROREG_FUNC(l_mobile_get_band)},
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
-	{"nstOnOff",          ROREG_FUNC(l_mobile_nst_test_onoff)},
-	{"nstInput",          ROREG_FUNC(l_mobile_nst_data_input)},
-	{"syncTime",          ROREG_FUNC(l_mobile_sync_time)},
+#ifdef LUAT_USE_VSIM
 	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},
 	{"vsimOnOff",          ROREG_FUNC(l_mobile_vsim_onoff)},
+#endif
+	{"syncTime",          ROREG_FUNC(l_mobile_sync_time)},
 	{"apnTableInit",          ROREG_FUNC(l_mobile_init_apn_table)},
 	{"apnTableAdd",          ROREG_FUNC(l_mobile_add_apn_table)},
 	{"apnTablePrint",          ROREG_FUNC(l_mobile_print_apn_table)},
@@ -1622,7 +1608,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CONF_FAKE_CELL_BARTIME",        ROREG_INT(MOBILE_CONF_FAKE_CELL_BARTIME)},
     //@const CONF_RESET_TO_FACTORY number 删除已保存的协议栈参数，重启后会使用默认配置
     {"CONF_RESET_TO_FACTORY",        ROREG_INT(MOBILE_CONF_RESET_TO_FACTORY)},
-    //@const CONF_USB_ETHERNET number 蜂窝网络模块的usb以太网卡控制，bit0开关，1开0关，bit1模式，1NAT0独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2协议1ECM,0RNDIS，飞行模式里设置
+    //@const CONF_USB_ETHERNET number 蜂窝网络模块的usb以太网卡控制，bit0：开关，1是开，0是关，bit1：模式，1是NAT，0是独立IP(在usb以太网卡开启前可以修改，开启过就不行)，bit2：协议，1是ECM，0是RNDIS，切换模式需要重新开关usb和重启协议栈（进出一次飞行模式）
     {"CONF_USB_ETHERNET",        ROREG_INT(MOBILE_CONF_USB_ETHERNET)},
 	//@const CONF_DISABLE_NCELL_MEAS number 关闭邻区测量 1关，0开，除了功耗测试外不建议使用
 	{"CONF_DISABLE_NCELL_MEAS",        ROREG_INT(MOBILE_CONF_DISABLE_NCELL_MEAS)},
@@ -1859,6 +1845,16 @@ end)
 	case LUAT_MOBILE_EVENT_SMS:
 		switch(status)
 		{
+/*
+@sys_pub mobile
+SMS就绪状态变化
+SMS_READY
+@usage
+-- id 为SIM卡的索引
+sys.subscribe("SMS_READY", function(id)
+	log.info("mobile", "SMS_READY", id)
+end)
+*/
 		case LUAT_MOBILE_SMS_READY:
 			LLOGI("sim%d sms ready", index);
             lua_pushstring(L, "SMS_READY");
@@ -1955,7 +1951,8 @@ end)
         case LUAT_MOBILE_CC_PLAY:// 最先 	
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "PLAY");
-            lua_call(L, 2, 0);
+            lua_pushinteger(L, index);
+            lua_call(L, 3, 0);
             break;
         }
         break;
@@ -2010,7 +2007,9 @@ void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t stat
     case LUAT_MOBILE_EVENT_CC:
         switch(status){
         case LUAT_MOBILE_CC_SPEECH_START:
+        #ifndef LUAT_USE_AUDIO_V2
         	luat_cc_start_speech(index+1);
+        #endif
             break;
         case LUAT_MOBILE_CC_PLAY:
         	luat_cc_play_tone(index);

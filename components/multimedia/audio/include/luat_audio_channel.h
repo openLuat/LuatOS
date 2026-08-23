@@ -119,6 +119,7 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, luat_buffer_t *
 /**
  * @brief 读取音频通道数据
  * @param channel 音频通道指针，必须指向有效的 luat_audio_channel_t 结构
+ * @param one_frame_bytes_from_driver 驱动里每帧数据字节数
  * @param out_buffer 输出缓冲区指针，指向存储读取的音频数据的缓冲区
  * @param temp_buffer 临时缓冲区指针，指向存储录音FIFO数据的临时缓冲区
  * @param data_align_buffer 数据位数对齐缓冲区指针
@@ -131,7 +132,7 @@ int luat_audio_channel_write_data(luat_audio_channel_t *channel, luat_buffer_t *
  * 此函数会从音频通道的录音FIFO缓冲区读取音频数据。
  * 调用前确保 channel 指针有效且已被初始化。
  */
-int luat_audio_channel_read_data(luat_audio_channel_t *channel, luat_buffer_t *out_buffer, luat_buffer_t *temp_buffer, luat_buffer_t *data_align_buffer, luat_buffer_t *channel_nums_buffer, uint32_t *read_bytes, luat_audio_common_param_t *codec_param, uint8_t is_ref_fifo);
+int luat_audio_channel_read_data(luat_audio_channel_t *channel, uint32_t one_frame_bytes_from_driver, luat_buffer_t *out_buffer, luat_buffer_t *temp_buffer, luat_buffer_t *data_align_buffer, luat_buffer_t *channel_nums_buffer, uint32_t *read_bytes, luat_audio_common_param_t *codec_param, uint8_t is_ref_fifo);
 /**
  * @brief 数据有无符号转换
  * @param data_union 数据联合体，包含要转换的音频数据

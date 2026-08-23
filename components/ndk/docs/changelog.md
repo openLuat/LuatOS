@@ -2,6 +2,34 @@
 
 > 本文是 NDK 文档集的一部分。完整索引见 [`../README.md`](../README.md)。
 
+## 2026-07 — guest helper 增加 mem/str freestanding libc 子集
+
+- **新功能**：`components/ndk/guest/include/luat_ndk_helper.h` 新增内存/字符串助手——`ndk_memcpy` / `ndk_memmove` / `ndk_memset` / `ndk_memcmp` 与 `ndk_strlen` / `ndk_strcmp` / `ndk_strncmp` / `ndk_strcpy` / `ndk_strncpy` / `ndk_strcat` / `ndk_strchr`，全部 `static inline`，语义与 libc 同名函数一致。另外新增可选宏 `NDK_GUEST_PROVIDE_LIBC`：在且仅在一个 TU 里 `#define` 后 include 本头，导出外部链接的 `memcpy` / `memmove` / `memset` / `memcmp`——解决 freestanding 下**结构体赋值 / 大聚合初始化**被编译器降级为外部 `memcpy` 调用导致的 `undefined reference to 'memcpy'` 链接失败。纯 guest RAM 计算，故意不走 Host CSR。
+- **新示例**：`components/ndk/guest/examples/mem_str_demo/`（16 项检查，全部通过写 `MEMSTR_OK` 到 exchange buffer），已加入 `bsp/pc/test/116.ndk_examples_smoke`（现 6 个 case）。
+- **链接顺序陷阱修复**：host 从 guest 镜像起始地址开始执行，`_start` 必须是 `.text` 的第一个字节；lld 按目标文件顺序排布 section（`ENTRY()` 不影响布局），一旦 TU 出现外部链接函数（如 `NDK_GUEST_PROVIDE_LIBC` 导出的 `memcpy`），它可能排到 `_start` 前面，症状是 `mcause=1, mtval=0, mepc=0`（在错误函数里跑飞）。所有示例的 `link.ld` 统一改为 `.text : { KEEP(*(.text._start)) *(.text .text.*) }`，`docs/examples.md` 模板同步更新。
+- **Bug 修复（顺手）**：`perf_guest_v1/build.ps1` 有两处 pre-existing 错误——`-Wl,-T,$linker` 等参数未加引号（PowerShell 解析直接 ParserError，脚本从未能跑通），以及 `$root` 算错一级导致 `-I` 找不到 `components/ndk/include`。已修复并验证构建通过。
+- **回归**：hostabi `39 passed, 0 failed`、ndk_basic `5 passed, 0 failed`、116 冒烟 6/6 全绿。
+
+---
+
+## 2026-07 — 移除 RV32F 浮点扩展支持
+
+- **破坏性变更**：NDK 不再支持 RV32F 浮点运算指令。模拟器核心、公共头文件、Lua 绑定均删除 FP 相关代码：
+  - `components/ndk/include/mini-rv32ima.h`：移除 `fregs[32]`、`FREG`/`FREGSET`、Load-FP/Store-FP 译码、所有 FP 算术/转换/比较指令处理；`MINIRV32_GET_MISA` 固定为 `0x40401105u`（仅 `IMA`）。
+  - `components/ndk/include/luat_ndk.h`：删除 `LUAT_NDK_ISA_RV32IMF` 宏与 `fcsr`/`flen` 字段。
+  - `components/ndk/src/luat_ndk.c`：删除 `#if 0` FP helper 块、`MINIRV32_*_S` 宏、`fenv.h`/`math.h` 引用；`ndk_set_isa` 仅接受 `rv32ima`；不再重置 `fcsr`/`flen`。
+  - `components/ndk/src/luat_ndk_host.c`：删除 `NDK_CSR_FFLAGS`/`FRM`/`FCSR`（0x001/0x002/0x003）的读写分发。
+  - `components/ndk/binding/luat_lib_ndk.c`：`ndk.info` 不再返回 `flen`/`fcsr`/`frm`/`fflags`。
+- **文档**：更新 `AGENTS.md`、`DESIGN.md`、`docs/{quickstart,build,examples,troubleshooting,lua-api,api-helper}.md`，移除所有 RV32F 相关描述与路径。
+- **测试**：
+  - 删除 `testcase/ndk/ndk_basic/scripts/ndk_fp_*.lua` 与全部 FP 二进制镜像。
+  - `testcase/ndk/ndk_basic/scripts/main.lua` 只保留 lifecycle 测试套件。
+  - 将非 FP guest 源 `main.c` / `link.ld` 移动到 `testcase/ndk/ndk_basic/guest/`，并提供自包含的 `build.ps1` / `build.bat`。
+  - 删除 `components/ndk/guest/fixtures/rv32f_regression/` 整个目录。
+  - `ndk_basic` 回归基线从 `42 passed, 0 failed` 调整为 `5 passed, 0 failed`；`ndk_hostabi_basic` 保持 `39 passed, 0 failed`。
+
+---
+
 ## 2026-06 — `perf_guest_v1` `_start` 缺 `naked` 修复
 
 - **Bug 修复**：`components/ndk/guest/examples/perf_guest_v1/main.c` 的 `_start` 只标了 `__attribute__((noreturn))`，没标 `naked`，所以编译器仍给它生成函数 prologue（`addi sp, sp, -0x10; sw ra, 0xc(sp)`）——而 host 的 `ndk_reset_core` 把 32 个 GPR 全部 `memset` 为 0，**入口 sp=0**。Prologue 第一步 `addi sp, sp, -0x10` → sp=`0xFFFFFFF0`，第二步 `sw ra, 0xc(sp)` 写到 `0xFFFFFFFC` → `mcause=7` (store access fault) `mtval=0xFFFFFFFC`。**注意**：`mtvec` 被设成 `0x80000000`（即 guest 镜像起点），trap 后 PC 被设回 `mtvec`，所以**同一次 `ndk.exec` 调用里 trap 后又从 `_start` 重新跑，每次重新 trap**，循环直到 step budget 用完。

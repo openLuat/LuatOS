@@ -30,8 +30,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include <arm_neon.h>
-#include "SigProc_FIX.h"
-#include "define.h"
+#include "silk/SigProc_FIX.h"
+#include "silk/define.h"
 
 #define QA                          24
 #define A_LIMIT                     SILK_FIX_CONST( 0.99975, QA )

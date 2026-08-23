@@ -109,12 +109,6 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_FSKV
   {"fskv",      luaopen_fskv},
 #endif
-#ifdef LUAT_USE_MQTTCORE
-  {"mqttcore",luaopen_mqttcore},          // MQTT 协议封装
-#endif
-#ifdef LUAT_USE_LIBCOAP
-  {"libcoap", luaopen_libcoap},           // 处理COAP消息
-#endif
 #ifdef LUAT_USE_YMODEM
   {"ymodem", luaopen_ymodem},
 #endif
@@ -138,6 +132,9 @@ static const luaL_Reg loadedlibs[] = {
   // {"ftp", luaopen_ftp},
   {"errDump", luaopen_errdump},
   {"httpsrv", luaopen_httpsrv},
+#endif
+#ifdef LUAT_USE_RTMP
+  {"rtmp", luaopen_rtmp},
 #endif
 #ifdef LUAT_USE_ERCOAP
   {"ercoap", luaopen_ercoap},
@@ -186,6 +183,12 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_AUDIO
   {"audio", luaopen_multimedia_audio},
 #endif
+#ifdef LUAT_USE_CAMERA
+  {"camera", luaopen_camera},
+#endif
+#ifdef LUAT_USE_AUDIO_V2
+  {"audio_v2", luaopen_audio_v2},
+#endif
 #ifdef LUAT_USE_SQLITE3
   {"sqlite3",    luaopen_sqlite3},
 #endif
@@ -197,9 +200,6 @@ static const luaL_Reg loadedlibs[] = {
 #endif
 #ifdef LUAT_USE_XXTEA
   {"xxtea", luaopen_xxtea},
-#endif
-#ifdef LUAT_USE_ULWIP
-  {"ulwip", luaopen_ulwip},
 #endif
 #ifdef LUAT_USE_PROFILER
   {"profiler", luaopen_profiler},
@@ -243,9 +243,6 @@ static const luaL_Reg loadedlibs[] = {
   {"wlan", luaopen_wlan},
 #endif
   {"codec", luaopen_multimedia_codec},
-#ifdef LUAT_USE_H264_DECODER
-  {"h264", luaopen_h264},
-#endif
 #ifdef LUAT_USE_VIDEOPLAYER
   {"videoplayer", luaopen_videoplayer},
 #endif
@@ -256,6 +253,9 @@ static const luaL_Reg loadedlibs[] = {
   {"nes", luaopen_nes},
 #endif
   {"pgfs", luaopen_pgfs},
+#ifdef LUAT_USE_UTEST
+  {"tfs", luaopen_tfs},
+#endif
 #ifdef LUAT_USE_LVGL
   // PC模拟器: LVGL timer 控制, 用于 sandbox_cleanup 前暂停, 防止 widget 销毁竞态
   {"lvgltimer", luaopen_lvgltimer},
@@ -263,6 +263,12 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_AIRUI
   // PC模拟器截图: pcscreenshot.capture(path) → BMP 文件
   {"pcscreenshot", luaopen_pcscreenshot},
+#endif
+#ifdef LUAT_USE_LORA2
+  {"lora2", luaopen_lora2},
+#endif
+#ifdef LUAT_USE_VOIP
+  {"voip", luaopen_voip},
 #endif
   {NULL, NULL}
 };

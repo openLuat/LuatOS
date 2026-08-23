@@ -37,6 +37,19 @@ typedef struct ping_result
 }ping_result_t;
 
 
+/*
+@sys_pub icmp
+ping的应答结果
+PING_RESULT
+@number 网络适配器id
+@number 往返耗时, 单位ms
+@string 目标IP地址
+@number TTL值
+@usage
+sys.subscribe("PING_RESULT", function(adapter, time_used, ip, ttl)
+    log.info("icmp", "ping", ip, time_used, ttl)
+end)
+*/
 static int l_icmp_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_icmp_ctx_t* ctx = (luat_icmp_ctx_t*)msg->ptr;

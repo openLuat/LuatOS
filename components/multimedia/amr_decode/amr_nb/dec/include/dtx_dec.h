@@ -56,7 +56,7 @@ terms listed above has been obtained from the copyright holder.
 #include "d_plsf.h"
 #include "gc_pred.h"
 #include "c_g_aver.h"
-#include "frame.h"
+#include "amr_frame.h"
 #include "dtx_common_def.h"
 /*--------------------------------------------------------------------------*/
 #ifdef __cplusplus

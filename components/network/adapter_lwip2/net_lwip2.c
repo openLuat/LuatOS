@@ -23,7 +23,6 @@
 #define SOCKET_BUF_LEN	(3 * TCP_MSS)
 #endif
 
-extern void luat_netdrv_etharp_tmr(void);
 static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 
 enum
@@ -46,7 +45,6 @@ enum
 	EV_LWIP_FAST_TIMER,
 	EV_LWIP_NETIF_SET_IP,
 	EV_LWIP_NETIF_IPV6_BY_MAC,
-	EV_LWIP_ARP_TIMER,
 };
 
 #define SOCKET_LOCK(ID)		platform_lock_mutex(prvlwip.socket[ID].mutex)
@@ -73,13 +71,9 @@ static LUAT_RT_RET_TYPE net_lwip2_timer_cb(LUAT_RT_CB_PARAM)
 	return LUAT_RT_RET;
 }
 
-#ifdef LUAT_USE_NETDRV_LWIP_ARP
-static LUAT_RT_RET_TYPE net_lwip_arp_timer_cb(LUAT_RT_CB_PARAM)
-{
-	platform_send_event(NULL, (uint32_t)EV_LWIP_ARP_TIMER, 0, 0, (uint32_t)param);
-	return LUAT_RT_RET;
-}
-#endif
+/* ARP 1000ms 周期定时器已被完全移除. etharp 表通过收包/SET_IP 路径维护即可短时间
+ * 保持网关 MAC 解析. 长时间运行可能导致 gw_mac 缓存过期, 仅用于功耗测试场景.
+ * 如需恢复定时器, 回滚到 commit b4de806e0. */
 
 void net_lwip2_init(uint8_t adapter_index)
 {
@@ -100,10 +94,6 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 	if (0 == prvlwip_inited) {
 		prvlwip_inited = 1;
 		net_lwip2_init(adapter_index);
-		#ifdef LUAT_USE_NETDRV_LWIP_ARP
-		prvlwip.arp_timer = platform_create_timer(net_lwip_arp_timer_cb, (void *)NULL, NULL);
-		platform_start_timer(prvlwip.arp_timer, 1000, 1);
-		#endif
 	}
 	if (NULL == prvlwip.dns_client[adapter_index]) {
 		prvlwip.dns_client[adapter_index] = luat_heap_zalloc(sizeof(dns_client_t));
@@ -114,9 +104,10 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		prvlwip.dns_udp[adapter_index] = udp_new();
 		prvlwip.dns_udp[adapter_index]->recv = net_lwip2_dns_recv_cb;
 		prvlwip.dns_udp[adapter_index]->recv_arg = adapter_index;
-		#if LWIP_VERSION_MAJOR == 2 && LWIP_VERSION_MINOR >= 1
-		//udp_bind_netif(prvlwip.dns_udp[adapter_index], netif);
-		#endif
+		// #if LWIP_VERSION_MAJOR == 2 && LWIP_VERSION_MINOR >= 1
+		extern void udp_bind_netif(struct udp_pcb *pcb, const struct netif* netif);
+		udp_bind_netif(prvlwip.dns_udp[adapter_index], netif);
+		// #endif
 		int tmp = adapter_index;
 		prvlwip.dns_timer[adapter_index] = platform_create_timer(net_lwip2_timer_cb, (void *)tmp, NULL);
 	}
@@ -300,7 +291,7 @@ static err_t net_lwip2_tcp_recv_cb(void *arg, struct tcp_pcb *tpcb,
 		len = p->tot_len;
 		if (net_lwip2_rx_data(socket_id, p, NULL, 0))
 		{
-			NET_DBG("no memory! le=%d", len);
+			NET_DBG("no memory for rx data len=%d", len);
 			// 立即释放收到的数据缓冲，避免后续路径重复释放或遗留
 			pbuf_free(p);
 			net_lwip2_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
@@ -830,6 +821,13 @@ static void net_lwip2_task(void *param)
 		}
 		else
 		{
+			// Air8000 multi-net: pin Lua/socket UDP PCB to current adapter's netif
+			// so udp_input_local_match's netif_idx filter prevents cross-netif
+			// (e.g. RNDIS broadcast) hijack of AP/ETH dhcpsrv.lua UDP PCB.
+			if (prvlwip.lwip_netif[adapter_index]) {
+				extern void udp_bind_netif(struct udp_pcb *pcb, const struct netif *netif);
+				udp_bind_netif(prvlwip.socket[socket_id].pcb.udp, prvlwip.lwip_netif[adapter_index]);
+			}
 			// NET_DBG("udp bind %d", prvlwip.socket[socket_id].local_port);
 			error = udp_bind(prvlwip.socket[socket_id].pcb.udp, local_ip, prvlwip.socket[socket_id].local_port);
 			if (error) {
@@ -947,7 +945,10 @@ static void net_lwip2_task(void *param)
 		// LLOGD("event EV_LWIP_SOCKET_CLOSE DONE");
 		break;
 	case EV_LWIP_NETIF_LINK_STATE:
-		net_lwip2_check_network_ready(event.Param3);
+		{
+			uint8_t idx = event.Param3;
+			net_lwip2_check_network_ready(idx);
+		}
 		break;
 	case EV_LWIP_NETIF_SET_IP:
 		ips = (ip_addr_t*)event.Param1;
@@ -970,11 +971,6 @@ static void net_lwip2_task(void *param)
 		luat_heap_free(ips);
 		net_lwip2_check_network_ready(adapter_index);
 		break;
-	#ifdef LUAT_USE_NETDRV_LWIP_ARP
-	case EV_LWIP_ARP_TIMER:
-		luat_netdrv_etharp_tmr();
-		break;
-	#endif
 	default:
 		NET_DBG("unknow event %x,%x", event.ID, event.Param1);
 		break;
@@ -1207,6 +1203,11 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 		prvlwip.socket[socket_id].pcb.udp = udp_new();
 		if (prvlwip.socket[socket_id].pcb.udp)
 		{
+			// Air8000 multi-net: pin Lua/socket UDP PCB early to current adapter netif
+			if (prvlwip.lwip_netif[adapter_index]) {
+				extern void udp_bind_netif(struct udp_pcb *pcb, const struct netif *netif);
+				udp_bind_netif(prvlwip.socket[socket_id].pcb.udp, prvlwip.lwip_netif[adapter_index]);
+			}
 			prvlwip.socket[socket_id].pcb.udp->recv_arg = uPV.p;
 			prvlwip.socket[socket_id].pcb.udp->recv = net_lwip2_udp_recv_cb;
 			prvlwip.socket[socket_id].pcb.udp->so_options |= SOF_BROADCAST|SOF_REUSEADDR;
@@ -1691,6 +1692,10 @@ static int32_t net_lwip2_dummy_callback(void *pData, void *pParam)
 {
 	return 0;
 }
+
+/* ARP 1000ms 定时器及其所有公共 API (sleep_prepare/wakeup_resume/
+ * request_start/request_stop/notify_gw_mac_state) 已被完全移除.
+ * 历史实现见 commit b4de806e0. */
 
 static void net_lwip2_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *user_data)
 {

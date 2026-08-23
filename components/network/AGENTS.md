@@ -16,11 +16,13 @@ network/
 ├── libemqtt/         # MQTT client
 ├── websocket/        # WebSocket client/server
 ├── lwip22/           # LwIP 2.2 source
-├── ulwip/            # Micro LwIP variant
 ├── libhttp/          # HTTP protocol
 ├── libsntp/          # SNTP time sync
 ├── netdrv/           # Network drivers
 ├── errdump/          # Error dumping
+├── l2tp/             # L2TPv2 client (RFC 2661, netdrv submodule)
+├── ipsec/            # IKEv2/IPsec client (netdrv submodule)
+├── openvpn/          # OpenVPN client (netdrv submodule)
 ├── wireguard/        # VPN support
 └── httpsrv/          # HTTP server
 ```
@@ -36,6 +38,9 @@ network/
 | Socket Lua API | `adapter/` | `luat_lib_socket.c` |
 | SNTP | `libsntp/` | `libsntp.c` |
 | HTTP server | `httpsrv/` | `httpsrv.c` |
+| L2TP | `l2tp/` | `src/l2tp_client.c` (control plane) + `src/l2tp_ppp.c` |
+| IPsec | `ipsec/` | `src/ipsec_ike.c` (IKEv2 state machine) |
+| OpenVPN | `openvpn/` | `src/ovpn_client.c` + `src/ovpn_tls.c` |
 
 ## THREE-LAYER ARCHITECTURE
 

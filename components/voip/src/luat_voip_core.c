@@ -19,16 +19,21 @@
 #include "luat_network_adapter.h"
 #include "luat_audio.h"
 
+#ifdef LUAT_USE_VOIP_AUDIO_V2
+#include "luat_audio_driver.h"
+#include "luat_audio_core.h"
+#endif
+
 #include "luat_rtp.h"
 #include "luat_conf_bsp.h"
 #include "g711_codec/g711_codec.h"
 #include "luat_crypto.h"
 
-#ifdef LUAT_USE_DAC
+#ifdef LUAT_USE_VOIP_AUDIO_DAC
 #include "luat_dac.h"
 #endif
 
-#ifdef LUAT_USE_I2S
+#ifdef LUAT_USE_VOIP_AUDIO_I2S
 #include "luat_i2s.h"
 #endif
 
@@ -58,8 +63,8 @@ static void voip_task_entry(void *param);
 static int  voip_lua_cb_handler(lua_State *L, void *ptr);
 static void voip_do_rx(voip_ctx_t *ctx);
 static void voip_fill_play_slot(voip_ctx_t *ctx, uint8_t slot_idx);
-static int  voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate);
-static void voip_stop_audio(voip_ctx_t *ctx);
+int voip_audio_backend_start(voip_ctx_t *ctx, uint32_t sample_rate);
+void voip_audio_backend_stop(voip_ctx_t *ctx);
 static void voip_cleanup(voip_ctx_t *ctx);
 static void voip_reset_session_state(voip_ctx_t *ctx);
 static int  voip_session_start(voip_ctx_t *ctx);
@@ -99,6 +104,17 @@ static LUAT_RT_RET_TYPE voip_stats_timer_cb(LUAT_RT_CB_PARAM)
     }
 }
 
+#ifdef LUAT_USE_VOIP_BRIDGE
+static LUAT_RT_RET_TYPE voip_bridge_tone_timer_cb(LUAT_RT_CB_PARAM)
+{
+    (void)param;
+    voip_ctx_t *ctx = &g_voip_ctx;
+    if (ctx->state == VOIP_STATE_RUNNING && ctx->bridge_tone_on && ctx->task_handle) {
+        luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_BRIDGE_TONE, 0, 0, 0, 0);
+    }
+}
+#endif
+
 /* ======================== 网络回调 ======================== */
 
 /*
@@ -121,7 +137,8 @@ static int32_t voip_net_cb(void *pdata, void *pparam)
     return 0;
 }
 
-#if defined(LUAT_USE_I2S)
+#if 0 /* moved to luat_voip_audio_backend.c */
+#if defined(LUAT_USE_VOIP_AUDIO_I2S) || defined(LUAT_USE_VOIP_AUDIO_DAC)
 static int voip_i2s_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
 {
     voip_ctx_t *ctx = &g_voip_ctx;
@@ -148,13 +165,15 @@ static int voip_i2s_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx_data, uin
             luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_MIC_DATA, mic_idx, ctx->last_completed_slot, generation, 0);
             ctx->mic_write_idx = (ctx->mic_write_idx + 1) % VOIP_MIC_SLOT_COUNT;
         }
+    } else if (event == LUAT_I2S_EVENT_RX_DONE) {
+        LLOGI("voip_i2s_cb: RX_DONE but state=%d (expected RUNNING=%d), dropping", ctx->state, VOIP_STATE_RUNNING);
     }
 
     return 0;
 }
 #endif
 
-#if defined(LUAT_USE_DAC)
+#if defined(LUAT_USE_VOIP_AUDIO_DAC)
 static int voip_dac_play_cb(uint8_t id, luat_dac_event_t event, uint32_t tx_len, void *param)
 {
     if (event == LUAT_DAC_EVENT_TX_ONE_BLOCK_DONE) {
@@ -167,6 +186,19 @@ static int voip_dac_play_cb(uint8_t id, luat_dac_event_t event, uint32_t tx_len,
     return 0;
 }
 #endif
+
+#ifdef LUAT_USE_VOIP_AUDIO_V2
+/* audio_v2 全双工模式下 DAC 完成一帧的 weak 回调实现 */
+void luat_audio_voip_dac_done_cb(void)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    if (ctx->state == VOIP_STATE_RUNNING && ctx->task_handle) {
+        luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_SPK_DONE, 0, 0, 0, 0);
+    }
+}
+#endif
+#endif /* moved callbacks */
+
 static int voip_pop_play_frame(voip_ctx_t *ctx, int16_t *out)
 {
     int got = voip_jb_pop(ctx->jb, out);
@@ -190,7 +222,7 @@ static void voip_fill_play_slot(voip_ctx_t *ctx, uint8_t slot_idx)
     }
 #endif
     if (ctx->trace_on) {
-        LLOGD("fill play slot %u", slot_idx);
+        LLOGE("fill play slot %u", slot_idx);
     }
 }
 
@@ -200,7 +232,8 @@ static int voip_aec_init(voip_ctx_t *ctx)
     int sample_rate;
     int tail_samples;
     int denoise = 1;
-    int agc = 0;
+    int agc = 1;
+    float agc_level = 6000.0f;
     int noise_suppress = -20;
     int echo_suppress = -40;
     int echo_suppress_active = -15;
@@ -233,6 +266,7 @@ static int voip_aec_init(voip_ctx_t *ctx)
         speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_ECHO_STATE, ctx->aec_echo);
         speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_DENOISE, &denoise);
         speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_AGC, &agc);
+        speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_AGC_LEVEL, &agc_level);
         speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noise_suppress);
         speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_ECHO_SUPPRESS, &echo_suppress);
         speex_preprocess_ctl((SpeexPreprocessState *)ctx->aec_preprocess, SPEEX_PREPROCESS_SET_ECHO_SUPPRESS_ACTIVE, &echo_suppress_active);
@@ -395,36 +429,77 @@ static void voip_do_tx(voip_ctx_t *ctx, const int16_t *mic_pcm)
     const int16_t *tx_pcm;
 
     if (!mic_pcm) {
+        LLOGE("voip_do_tx: mic_pcm is NULL, aborting");
         return;
     }
 
     tx_pcm = voip_prepare_tx_pcm(ctx, mic_pcm);
     memcpy(pcm, tx_pcm, ctx->frame_bytes);
 
-    /* G.711 编码 */
+    /* 计算PCM能量用于调试 */
+    int32_t energy = 0;
+    for (uint32_t i = 0; i < ctx->frame_samples; i++) {
+        energy += abs(pcm[i]);
+    }
+    energy /= ctx->frame_samples;
+
+    /* 编码 */
     uint32_t out_len = 0;
-    int ret = g711_encoder_get_data(ctx->encoder, pcm, ctx->frame_samples,
-                                    ctx->tx_g711_buf, &out_len);
-    if (ret != 1 || out_len == 0) {
-        LLOGW("g711 encode failed");
+    uint32_t used = 0;
+    int ret = LUAT_ERROR_NONE;
+    ret = ctx->codec_encoder.opts->encode(&ctx->codec_encoder,  (const uint8_t *)pcm,  ctx->frame_bytes, ctx->tx_g711_buf, &used, &out_len);
+    if (ret != LUAT_ERROR_NONE || out_len == 0) {
+        LLOGW("encode failed ret=%d used=%u out_len=%u", ret, used, out_len);
         return;
     }
     /* RTP 打包 */
     uint16_t rtp_len = 0;
-    ret = voip_pack_rtp_packet(&ctx->rtp_tx, ctx->tx_g711_buf, (uint16_t)out_len,
-                               ctx->rtp_packet_buf, (uint16_t)(VOIP_RTP_HEADER_LEN + ctx->frame_samples), &rtp_len);
+    ret = voip_pack_rtp_packet(&ctx->rtp_tx, ctx->tx_g711_buf, (uint16_t)out_len, ctx->rtp_packet_buf, (uint16_t)(VOIP_RTP_HEADER_LEN + ctx->frame_samples), &rtp_len);
     if (ret < 0) return;
 
     /* UDP 发送 */
     network_ctrl_t *netc = (network_ctrl_t *)ctx->netc;
     /* 已在 connect 时设置好 remote，直接发 */
-    uint8_t tx_len = 0;
+    uint32_t tx_len = 0;
     network_tx(netc, ctx->rtp_packet_buf, rtp_len, 0, NULL, 0, &tx_len, 0);
     ctx->stats.tx_packets++;
     ctx->stats.tx_bytes += rtp_len;
+
+    /* 调试日志：每100帧输出一次能量信息 */
+    if (ctx->stats.tx_packets % 100 == 1) {
+        LLOGI("voip_do_tx: tx_packets=%u energy=%ld", ctx->stats.tx_packets, energy);
+    }
 }
 
-/* RX: 从 UDP socket 读取所有待处理数据 → RTP 解析 → G.711 解码 → JB push */
+#ifdef LUAT_USE_VOIP_BRIDGE
+static void voip_do_bridge_tone(voip_ctx_t *ctx)
+{
+    static const int16_t tone400_table[20] = {
+        0, 2472, 4702, 6472, 7608, 8000, 7608, 6472, 4702, 2472,
+        0, -2472, -4702, -6472, -7608, -8000, -7608, -6472, -4702, -2472
+    };
+    uint32_t cadence_frame;
+
+    if (!ctx || ctx->state != VOIP_STATE_RUNNING || ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE ||
+        !ctx->bridge_tone_on || !ctx->rx_pcm_buf) {
+        return;
+    }
+
+    cadence_frame = (ctx->bridge_tone_pos / ctx->frame_samples) % 150;
+    for (uint16_t i = 0; i < ctx->frame_samples; i++) {
+        if (cadence_frame < 50) {
+            ctx->rx_pcm_buf[i] = tone400_table[ctx->bridge_tone_pos % 20];
+        } else {
+            ctx->rx_pcm_buf[i] = 0;
+        }
+        ctx->bridge_tone_pos++;
+    }
+    voip_do_tx(ctx, ctx->rx_pcm_buf);
+}
+#endif
+/* callbacks moved to luat_voip_audio_backend.c */
+
+/* RX: 从 UDP socket 读取所有待处理数据 → RTP 解析 → 解码 → JB push */
 static void voip_do_rx(voip_ctx_t *ctx)
 {
     if (!ctx->netc) return;
@@ -435,9 +510,7 @@ static void voip_do_rx(voip_ctx_t *ctx)
 
     while (1) {
 
-        int rd = network_socket_receive(netc, ctx->udp_rx_buf, ctx->udp_rx_buf_size,
-                                        0, &remote_ip, &remote_port);
-        // LLOGE("voip_do_rx: got udp packet, len=%d", rd);
+        int rd = network_socket_receive(netc, ctx->udp_rx_buf, ctx->udp_rx_buf_size, 0, &remote_ip, &remote_port);
         if (rd <= 0) 
         {
             break;
@@ -474,17 +547,35 @@ static void voip_do_rx(voip_ctx_t *ctx)
         ctx->stats.last_rx_seq = parsed.sequence;
         ctx->stats.last_rx_seq_valid = 1;
 
-        /* G.711 解码 */
         uint32_t pcm_len = 0;
         uint32_t used = 0;
-        ret = g711_decoder_get_data(ctx->decoder, parsed.payload, parsed.payload_len,
-                                    ctx->rx_pcm_buf, &pcm_len, &used);
-        if (ret == 1 && pcm_len > 0) {
+
+        ret = ctx->codec_decoder.opts->decode(&ctx->codec_decoder, NULL, parsed.payload, parsed.payload_len, (uint8_t *)ctx->rx_pcm_buf, &pcm_len, &used);
+
+        if (ret == LUAT_ERROR_NONE && pcm_len > 0) {
+#ifdef LUAT_USE_VOIP_BRIDGE
+            if (ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE) {
+                uint16_t samples = (uint16_t)(pcm_len / sizeof(int16_t));
+                if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+                for (uint16_t i = 0; i < samples; i++) {
+                    if (ctx->bridge_rx_count >= VOIP_BRIDGE_BUF_SAMPLES) {
+                        ctx->bridge_rx_read_idx = (ctx->bridge_rx_read_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+                        ctx->bridge_rx_count--;
+                    }
+                    ctx->bridge_rx_buf[ctx->bridge_rx_write_idx] = ctx->rx_pcm_buf[i];
+                    ctx->bridge_rx_write_idx = (ctx->bridge_rx_write_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+                    ctx->bridge_rx_count++;
+                }
+                if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
+            } else {
+                voip_jb_push(ctx->jb, parsed.sequence, ctx->rx_pcm_buf);
+            }
+#else
             voip_jb_push(ctx->jb, parsed.sequence, ctx->rx_pcm_buf);
+#endif
         }
         else {
-            // ctx->stats.rx_bad_payload++;
-            LLOGE("g711 decode failed, ret=%d pcm_len=%u used=%u", ret, pcm_len, used);
+            LLOGE("decode failed, ret=%d pcm_len=%u used=%u", ret, pcm_len, used);
         }
     }
 }
@@ -522,22 +613,37 @@ static int voip_alloc_buffers(voip_ctx_t *ctx)
         }
     }
 
+#ifdef LUAT_USE_VOIP_BRIDGE
+    if (ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE) {
+        ctx->bridge_tx_buf = (int16_t *)luat_heap_calloc(1, VOIP_BRIDGE_BUF_BYTES);
+        ctx->bridge_rx_buf = (int16_t *)luat_heap_calloc(1, VOIP_BRIDGE_BUF_BYTES);
+        if (!ctx->bridge_tx_buf || !ctx->bridge_rx_buf) {
+            return -1;
+        }
+    }
+#endif
+
     return 0;
 }
 
+#if 0 /* moved to luat_voip_audio_backend.c */
 static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
 {
     luat_audio_conf_t *audio_conf = luat_audio_get_config(ctx->config.multimedia_id);
     if (!audio_conf) {
-        LLOGE("audio config not found");
+        LLOGE("audio config not found for multimedia_id=%u", ctx->config.multimedia_id);
         return -1;
     }
+    LLOGI("voip_start_audio: multimedia_id=%u bus_type=%s i2s_id=%u", 
+          ctx->config.multimedia_id, 
+          audio_conf->bus_type == LUAT_AUDIO_BUS_I2S ? "I2S" : (audio_conf->bus_type == LUAT_AUDIO_BUS_DAC ? "DAC" : "OTHER"),
+          audio_conf->codec_conf.i2s_id);
     memset(ctx->duplex_play_buf, 0, ctx->frame_bytes * ctx->play_slot_count);
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
-#if defined(LUAT_USE_I2S)
+#if defined(LUAT_USE_VOIP_AUDIO_I2S)
         luat_i2s_conf_t *i2s = luat_i2s_get_config((uint8_t)audio_conf->codec_conf.i2s_id);
         if (!i2s) {
-            LLOGE("i2s config not found");
+            LLOGE("i2s config not found for id=%u", audio_conf->codec_conf.i2s_id);
             return -1;
         }
 
@@ -548,6 +654,7 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
         i2s->is_full_duplex = 1;
         i2s->cb_rx_len = ctx->frame_bytes;
         i2s->luat_i2s_event_callback = voip_i2s_cb;
+        LLOGI("voip_start_audio: I2S callback set, frame_bytes=%u", ctx->frame_bytes);
 
         /* 预填充静音，不从 JB pop，避免在 JB 未就绪时推进 expected_seq */
         ctx->audio_backend = VOIP_AUDIO_BACKEND_DUPLEX;
@@ -563,22 +670,58 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
         return -1;
 #endif
     } else if (audio_conf->bus_type == LUAT_AUDIO_BUS_DAC) {
-#if defined(LUAT_USE_DAC)
+#if defined(LUAT_USE_VOIP_AUDIO_DAC)
         ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
         luat_audio_record_set_callback(voip_i2s_cb);
+#if defined(LUAT_USE_VOIP_AUDIO_V2)
+        {
+            luat_audio_driver_ctrl_t *ctrl = luat_audio_driver_probe(NULL);
+            if (!ctrl) {
+                LLOGE("no audio_v2 driver found");
+                return -1;
+            }
+
+            if (LUAT_AUDIO_DRIVER_STATE_INITED == ctrl->state) {
+                int ret = ctrl->opts->activate(ctrl);
+                if (ret) {
+                    LLOGE("audio_v2 activate failed %d", ret);
+                    return -1;
+                }
+                ctrl->state = LUAT_AUDIO_DRIVER_STATE_ACTIVE;
+            }
+
+            if (ctrl->opts->modify_audio_common_param(ctrl, sample_rate, 2, 1, 0) != LUAT_ERROR_NONE) {
+                LLOGE("audio_v2 modify tx param failed");
+                return -1;
+            }
+            if (ctrl->opts->modify_audio_common_param(ctrl, sample_rate, 2, 1, 1) != LUAT_ERROR_NONE) {
+                LLOGE("audio_v2 modify rx param failed");
+                return -1;
+            }
+
+            ctrl->request_work_mode = LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER;
+            if (luat_audio_driver_start(ctrl, &ctrl->tx_param, &ctrl->rx_param,
+                                        (uint32_t *)ctx->duplex_play_buf, ctx->frame_bytes, ctx->play_slot_count) != 0) {
+                LLOGE("audio_v2 speech with buffer start failed");
+                return -1;
+            }
+            ctx->audio_v2_ctrl = ctrl;
+        }
+#else
         if (luat_audio_record_and_play(ctx->config.multimedia_id, sample_rate, (const uint8_t *)ctx->duplex_play_buf, ctx->frame_bytes, ctx->play_slot_count) != 0) {
             LLOGE("start duplex audio failed");
             return -1;
         }
-         luat_dac_config_t config = {
+        luat_dac_config_t config = {
             .dac_chl = LUAT_DAC_CHL_L,
             .bits = LUAT_DAC_BITS_16,
             .samp_rate = sample_rate,
             .luat_dac_event_callback = voip_dac_play_cb,
             .userdata = ctx
-         };
+        };
         luat_dac_setup(0, &config);
         luat_dac_buffer_loop(ctx->config.multimedia_id, ctx->duplex_play_buf, ctx->frame_bytes, ctx->play_slot_count);
+#endif
 #else
         LLOGE("DAC bus type not supported in this build");
         return -1;
@@ -605,21 +748,36 @@ static void voip_stop_audio(voip_ctx_t *ctx)
         return;
     }
 
-    luat_audio_record_stop(ctx->config.multimedia_id);
+    /* 先清空播放缓冲区，避免挂断后播放残留数据产生噪音 */
+    if (ctx->duplex_play_buf) {
+        memset(ctx->duplex_play_buf, 0, ctx->frame_bytes * ctx->play_slot_count);
+    }
 
-    if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
-#if defined(LUAT_USE_I2S)
-        luat_i2s_load_old_config(audio_conf->codec_conf.i2s_id);
-        ctx->i2s_config_saved = 0;
+#if defined(LUAT_USE_VOIP_AUDIO_V2)
+    if (ctx->audio_v2_ctrl) {
+        luat_audio_driver_deactivate((luat_audio_driver_ctrl_t *)ctx->audio_v2_ctrl);
+        ctx->audio_v2_ctrl = NULL;
+    } else
 #endif
-    } else {
-#if defined(LUAT_USE_DAC)
-        luat_dac_close(0);
+    {
+        luat_audio_record_stop(ctx->config.multimedia_id);
+
+        if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
+#if defined(LUAT_USE_VOIP_AUDIO_I2S)
+            luat_i2s_load_old_config(audio_conf->codec_conf.i2s_id);
+            ctx->i2s_config_saved = 0;
 #endif
+        } else {
+#if defined(LUAT_USE_VOIP_AUDIO_DAC)
+            luat_dac_close(0);
+#endif
+        }
     }
     ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
     ctx->audio_started = 0;
 }
+
+#endif /* moved audio backend */
 
 static void voip_free_buffers(voip_ctx_t *ctx)
 {
@@ -636,15 +794,23 @@ static void voip_free_buffers(voip_ctx_t *ctx)
             ctx->mic_buf[index] = NULL;
         }
     }
+#ifdef LUAT_USE_VOIP_BRIDGE
+    if (ctx->bridge_tx_buf)   { luat_heap_free(ctx->bridge_tx_buf);   ctx->bridge_tx_buf = NULL; }
+    if (ctx->bridge_rx_buf)   { luat_heap_free(ctx->bridge_rx_buf);   ctx->bridge_rx_buf = NULL; }
+#endif
 }
 
 static void voip_cleanup(voip_ctx_t *ctx)
 {
     /* 停止定时器 */
     if (ctx->stats_timer) { luat_rtos_timer_stop(ctx->stats_timer); }
+#ifdef LUAT_USE_VOIP_BRIDGE
+    if (ctx->bridge_tone_timer) { luat_rtos_timer_stop(ctx->bridge_tone_timer); }
+    ctx->bridge_tone_on = 0;
+#endif
     
     /* 停止音频 */
-    voip_stop_audio(ctx);
+    voip_audio_backend_stop(ctx);
 
     /* 关闭网络 */
     if (ctx->netc) {
@@ -655,8 +821,12 @@ static void voip_cleanup(voip_ctx_t *ctx)
 
 
     /* 释放 codec */
-    if (ctx->encoder) { g711_encoder_destroy(ctx->encoder); ctx->encoder = NULL; }
-    if (ctx->decoder) { g711_decoder_destroy(ctx->decoder); ctx->decoder = NULL; }
+    // if (ctx->encoder) { g711_encoder_destroy(ctx->encoder); ctx->encoder = NULL; }
+    // if (ctx->decoder) { g711_decoder_destroy(ctx->decoder); ctx->decoder = NULL; }
+
+        /* 释放 codec */
+    luat_audio_data_codec_unbind(&ctx->codec_encoder);
+    luat_audio_data_codec_unbind(&ctx->codec_decoder);
 
     /* 释放 AEC */
     voip_aec_cleanup(ctx);
@@ -673,12 +843,25 @@ static void voip_reset_session_state(voip_ctx_t *ctx)
     ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
     ctx->audio_started = 0;
     ctx->i2s_config_saved = 0;
+#ifdef LUAT_USE_AUDIO_V2
+    ctx->audio_v2_ctrl = NULL;
+#endif
     ctx->play_slot_count = VOIP_DUPLEX_SLOT_COUNT;
     ctx->mic_write_idx = 0;
     ctx->last_completed_slot = ctx->play_slot_count - 1;
     ctx->trace_on = 0;
     ctx->dropped_mic_events = 0;
     ctx->aec_ready = 0;
+#ifdef LUAT_USE_VOIP_BRIDGE
+    ctx->bridge_tx_write_idx = 0;
+    ctx->bridge_tx_read_idx = 0;
+    ctx->bridge_rx_write_idx = 0;
+    ctx->bridge_rx_read_idx = 0;
+    ctx->bridge_tx_count = 0;
+    ctx->bridge_rx_count = 0;
+    ctx->bridge_tone_on = 0;
+    ctx->bridge_tone_pos = 0;
+#endif
     memset(ctx->mic_generation, 0, sizeof(ctx->mic_generation));
     memset(&ctx->stats, 0, sizeof(ctx->stats));
 }
@@ -689,6 +872,9 @@ static int voip_session_start(voip_ctx_t *ctx)
     uint32_t sample_rate = ctx->config.sample_rate ? ctx->config.sample_rate : VOIP_SAMPLE_RATE_DEFAULT;
 
     voip_reset_session_state(ctx);
+#ifdef __WIN32__
+    ctx->trace_on = 1;  /* PC 模拟器调试：开启 RTP 数据包跟踪 */
+#endif
     ctx->frame_samples = (uint16_t)(sample_rate * ptime / 1000);
     ctx->frame_bytes = ctx->frame_samples * 2;
     LLOGE("voip config: remote=%s:%d codec=%d ptime=%d",
@@ -696,97 +882,124 @@ static int voip_session_start(voip_ctx_t *ctx)
           ptime);
     LLOGE("voio origin: samples=%d", ctx->config.sample_rate);
     LLOGE("voio frame: samples=%d bytes=%d", ctx->frame_samples, ctx->frame_bytes);
+    // const luat_audio_data_codec_opts_t *codec_opts = NULL;
 
+    uint8_t codec_type = VOIP_CODEC_PCMA;
     if (ctx->config.codec == VOIP_CODEC_PCMA) {
-        ctx->g711_type = LUAT_MULTIMEDIA_DATA_TYPE_ALAW;
         ctx->rtp_payload_type = VOIP_RTP_PT_PCMA;
+        codec_type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ALAW;
     } else {
-        ctx->g711_type = LUAT_MULTIMEDIA_DATA_TYPE_ULAW;
         ctx->rtp_payload_type = VOIP_RTP_PT_PCMU;
+        codec_type = LUAT_AUDIO_DATA_CODEC_TYPE_G711_ULAW;
     }
+
+    int ret = luat_audio_data_codec_bind(&ctx->codec_encoder, luat_audio_data_codec_find(codec_type), NULL);
+    if (ret != LUAT_ERROR_NONE) {
+        LLOGE("codec encoder bind failed type=%u ret=%d", codec_type, ret);
+        goto start_failed;
+    }
+    LLOGE("codec encoder bind success type=%u", codec_type);
+    ret = luat_audio_data_codec_bind(&ctx->codec_decoder, luat_audio_data_codec_find(codec_type), NULL);
+    if (ret != LUAT_ERROR_NONE) {
+        LLOGE("codec decoder bind failed type=%u ret=%d", codec_type, ret);
+        luat_audio_data_codec_unbind(&ctx->codec_encoder);
+        goto start_failed;
+    }
+
+    ret = ctx->codec_encoder.opts->init(&ctx->codec_encoder, 1);
+    if (ret != LUAT_ERROR_NONE) {
+        LLOGE("codec encoder init failed type=%u ret=%d", codec_type, ret);
+        luat_audio_data_codec_unbind(&ctx->codec_encoder);
+        luat_audio_data_codec_unbind(&ctx->codec_decoder);
+        goto start_failed;
+    }
+
+    ret = ctx->codec_decoder.opts->init(&ctx->codec_decoder, 0);
+    if (ret != LUAT_ERROR_NONE) {
+        LLOGE("codec decoder init failed type=%u ret=%d", codec_type, ret);
+        luat_audio_data_codec_unbind(&ctx->codec_encoder);
+        luat_audio_data_codec_unbind(&ctx->codec_decoder);
+        goto start_failed;
+    }
+
 
     if (voip_alloc_buffers(ctx) < 0) {
         LLOGE("voip buffer alloc failed");
         goto start_failed;
     }
 
-    ctx->encoder = g711_encoder_create(ctx->g711_type);
-    ctx->decoder = g711_decoder_create(ctx->g711_type);
-    if (!ctx->encoder || !ctx->decoder) {
-        LLOGE("g711 codec create failed");
+
+    uint16_t jb_depth = ctx->config.jitter_depth ? ctx->config.jitter_depth : VOIP_JB_DEPTH_DEFAULT;
+    ctx->jb = voip_jb_create(jb_depth, VOIP_JB_DEFAULT_MAX_PENDING, ctx->frame_samples);
+    if (!ctx->jb) {
+        LLOGE("jitter buffer create failed");
         goto start_failed;
     }
 
-    {
-        uint16_t jb_depth = ctx->config.jitter_depth ? ctx->config.jitter_depth : VOIP_JB_DEPTH_DEFAULT;
-        ctx->jb = voip_jb_create(jb_depth, VOIP_JB_DEFAULT_MAX_PENDING, ctx->frame_samples);
-        if (!ctx->jb) {
-            LLOGE("jitter buffer create failed");
-            goto start_failed;
-        }
+    /* Disable AEC in bridge mode - pure digital relay needs no echo cancellation */
+#ifdef LUAT_USE_VOIP_BRIDGE
+    if (ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE) {
+        ctx->config.aec_enable = 0;
+        ctx->config.aec_denoise = 0;
+        LLOGI("Bridge mode: AEC disabled");
     }
+#endif
 
     if (voip_aec_init(ctx) != 0) {
         goto start_failed;
     }
-
+    
     voip_rtp_tx_state_init(&ctx->rtp_tx, ctx->rtp_payload_type, sample_rate, ptime);
 
-    {
 
-
-        int adapter_index = ctx->config.adapter;
-        luat_ip_addr_t remote_ip = {0};
-        network_ctrl_t *netc;
-        int ret;
-
-        if (adapter_index < 0) adapter_index = NW_ADAPTER_INDEX_LWIP_GPRS;
-
-        netc = network_alloc_ctrl((uint8_t)adapter_index);
-        if (!netc) {
-            LLOGE("network alloc ctrl failed");
-            goto start_failed;
-        }
-        ctx->netc = netc;
-
-        network_init_ctrl(netc, NULL, voip_net_cb, ctx);
-        network_set_base_mode(netc, 0 /* UDP */, 0, 0, 0, 0, 0);
-
-        if (ctx->config.local_port) {
-            network_set_local_port(netc, ctx->config.local_port);
-        }
-
-        ipaddr_aton(ctx->config.remote_ip, &remote_ip);
-        if (!network_ip_is_vaild(&remote_ip)) {
-            LLOGE("invalid remote ip: %s", ctx->config.remote_ip);
-            goto start_failed;
-        }
-
-        ret = network_connect(netc, NULL, 0, &remote_ip, ctx->config.remote_port, 5000);
-        if (ret < 0) {
-            LLOGE("udp connect failed: %d", ret);
-            goto start_failed;
-        }
-    }
-
-    LLOGE("udp socket created and connected to %s:%d",ctx->config.remote_ip, ctx->config.remote_port);
-    if (voip_start_audio(ctx, sample_rate) != 0) {
+    int adapter_index = ctx->config.adapter;
+    luat_ip_addr_t remote_ip = {0};
+    network_ctrl_t *netc;
+    if (adapter_index < 0) adapter_index = NW_ADAPTER_INDEX_LWIP_GPRS;
+    netc = network_alloc_ctrl((uint8_t)adapter_index);
+    if (!netc) {
+        LLOGE("network alloc ctrl failed");
         goto start_failed;
     }
-    LLOGE("audio started: multimedia_id=%d sample_rate=%d backend=%d", ctx->config.multimedia_id, sample_rate, ctx->audio_backend);
+    ctx->netc = netc;
+    network_init_ctrl(netc, NULL, voip_net_cb, ctx);
+    network_set_base_mode(netc, 0 /* UDP */, 0, 0, 0, 0, 0);
+    if (ctx->config.local_port) {
+        network_set_local_port(netc, ctx->config.local_port);
+    }
+    ipaddr_aton(ctx->config.remote_ip, &remote_ip);
+    if (!network_ip_is_vaild(&remote_ip)) {
+        LLOGE("invalid remote ip: %s", ctx->config.remote_ip);
+        goto start_failed;
+    }
+    ret = network_connect(netc, NULL, 0, &remote_ip, ctx->config.remote_port, 5000);
+    if (ret < 0) {
+        LLOGE("udp connect failed: %d", ret);
+        goto start_failed;
+    }
+    
 
-    {
-        uint32_t stats_ms = ctx->config.stats_interval_ms ? ctx->config.stats_interval_ms : VOIP_STATS_INTERVAL_DEFAULT;
-        if (stats_ms > 0) {
-            luat_rtos_timer_start(ctx->stats_timer, stats_ms, 1, voip_stats_timer_cb, NULL);
+    if (
+#ifdef LUAT_USE_VOIP_BRIDGE
+        ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE
+#else
+        1
+#endif
+    ) {
+        if (voip_audio_backend_start(ctx, sample_rate) != 0) {
+            goto start_failed;
         }
     }
+
+
+    uint32_t stats_ms = ctx->config.stats_interval_ms ? ctx->config.stats_interval_ms : VOIP_STATS_INTERVAL_DEFAULT;
+    if (stats_ms > 0) {
+        luat_rtos_timer_start(ctx->stats_timer, stats_ms, 1, voip_stats_timer_cb, NULL);
+    }
+
 
     ctx->state = VOIP_STATE_RUNNING;
     voip_notify_lua(VOIP_CB_STATE, VOIP_STATE_RUNNING);
-    LLOGI("voip running: %s:%d codec=%d ptime=%d",
-          ctx->config.remote_ip, ctx->config.remote_port,
-          ctx->config.codec, ptime);
     return 0;
 
 start_failed:
@@ -822,12 +1035,19 @@ static int voip_runtime_init(voip_ctx_t *ctx)
 
     ctx->state = VOIP_STATE_IDLE;
     luat_rtos_timer_create(&ctx->stats_timer);
+#ifdef LUAT_USE_VOIP_BRIDGE
+    luat_rtos_timer_create(&ctx->bridge_tone_timer);
+    luat_rtos_mutex_create(&ctx->bridge_mutex);
+#endif
 
-    ret = luat_rtos_task_create(&ctx->task_handle, 4096, 50, "voip", voip_task_entry, ctx, 32);
+    ret = luat_rtos_task_create(&ctx->task_handle, 8 * 1024, 50, "voip", voip_task_entry, ctx, 32);
     if (ret != 0) {
         LLOGE("voip task create failed: %d", ret);
         ctx->state = VOIP_STATE_IDLE;
         if (ctx->stats_timer) { luat_rtos_timer_delete(ctx->stats_timer); ctx->stats_timer = NULL; }
+#ifdef LUAT_USE_VOIP_BRIDGE
+        if (ctx->bridge_tone_timer) { luat_rtos_timer_delete(ctx->bridge_tone_timer); ctx->bridge_tone_timer = NULL; }
+#endif
         return -2;
     }
 
@@ -845,7 +1065,6 @@ static void voip_task_entry(void *param)
     while (1) {
         int ret = luat_rtos_event_recv(ctx->task_handle, 0, &event, NULL, (uint32_t)LUAT_WAIT_FOREVER);
         if (ret != 0) continue;
-
         switch (event.id) {
         case VOIP_EVENT_START:
             if (ctx->state == VOIP_STATE_IDLE || ctx->state == VOIP_STATE_STARTING) {
@@ -856,7 +1075,6 @@ static void voip_task_entry(void *param)
 
         case VOIP_EVENT_STOP:
             if (ctx->state == VOIP_STATE_RUNNING || ctx->state == VOIP_STATE_STARTING || ctx->state == VOIP_STATE_ERROR) {
-                LLOGD("voip stop event");
                 voip_session_stop(ctx, 1);
             }
             break;
@@ -896,6 +1114,34 @@ static void voip_task_entry(void *param)
                 voip_notify_lua(VOIP_CB_STATS, 0);
             }
             break;
+
+#ifdef LUAT_USE_VOIP_BRIDGE
+        case VOIP_EVENT_BRIDGE_TX:
+            if (ctx->state != VOIP_STATE_RUNNING) {
+                break;
+            }
+            if (ctx->audio_mode == VOIP_AUDIO_MODE_BRIDGE && ctx->bridge_tx_buf) {
+                while (1) {
+                    if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+                    if (ctx->bridge_tx_count < ctx->frame_samples) {
+                        if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
+                        break;
+                    }
+                    for (uint16_t i = 0; i < ctx->frame_samples; i++) {
+                        ctx->rx_pcm_buf[i] = ctx->bridge_tx_buf[ctx->bridge_tx_read_idx];
+                        ctx->bridge_tx_read_idx = (ctx->bridge_tx_read_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+                    }
+                    ctx->bridge_tx_count -= ctx->frame_samples;
+                    if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
+                    voip_do_tx(ctx, ctx->rx_pcm_buf);
+                }
+            }
+            break;
+
+        case VOIP_EVENT_BRIDGE_TONE:
+            voip_do_bridge_tone(ctx);
+            break;
+#endif
 
         default:
             break;
@@ -1023,3 +1269,107 @@ int voip_is_running(void)
 {
     return g_voip_ctx.state == VOIP_STATE_RUNNING ? 1 : 0;
 }
+
+
+#ifdef LUAT_USE_VOIP_BRIDGE
+int voip_set_audio_mode(voip_audio_mode_t mode)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    if (ctx->state != VOIP_STATE_IDLE) {
+        LLOGW("voip_set_audio_mode: must be called in IDLE state");
+        return -1;
+    }
+    if (mode != VOIP_AUDIO_MODE_I2S && mode != VOIP_AUDIO_MODE_BRIDGE) {
+        return -2;
+    }
+    ctx->audio_mode = mode;
+    return 0;
+}
+
+int voip_bridge_tone(int on)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    uint32_t interval;
+
+    if (!on) {
+        if (ctx->bridge_tone_timer) {
+            luat_rtos_timer_stop(ctx->bridge_tone_timer);
+        }
+        if (ctx->bridge_tone_on) {
+            LLOGI("voip bridge tone stopped");
+        }
+        ctx->bridge_tone_on = 0;
+        ctx->bridge_tone_pos = 0;
+        return 0;
+    }
+
+    if (ctx->state != VOIP_STATE_RUNNING || ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE) {
+        return -1;
+    }
+    if (!ctx->bridge_tone_timer) {
+        if (luat_rtos_timer_create(&ctx->bridge_tone_timer) != 0) {
+            return -2;
+        }
+    }
+    interval = ctx->config.ptime ? ctx->config.ptime : VOIP_FRAME_MS_DEFAULT;
+    ctx->bridge_tone_pos = 0;
+    ctx->bridge_tone_on = 1;
+    if (luat_rtos_timer_start(ctx->bridge_tone_timer, interval, 1, voip_bridge_tone_timer_cb, NULL) != 0) {
+        ctx->bridge_tone_on = 0;
+        return -3;
+    }
+    LLOGI("voip bridge tone started interval=%u", (unsigned)interval);
+    luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_BRIDGE_TONE, 0, 0, 0, 0);
+    return 0;
+}
+
+int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    uint16_t consumed = 0;
+
+    if (!pcm || samples == 0) {
+        return 0;
+    }
+    if (ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !ctx->bridge_tx_buf) {
+        return -1;
+    }
+    if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    for (uint16_t i = 0; i < samples; i++) {
+        if (ctx->bridge_tx_count >= VOIP_BRIDGE_BUF_SAMPLES) {
+            break;
+        }
+        ctx->bridge_tx_buf[ctx->bridge_tx_write_idx] = pcm[i];
+        ctx->bridge_tx_write_idx = (ctx->bridge_tx_write_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+        ctx->bridge_tx_count++;
+        consumed++;
+    }
+    if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
+    if (consumed > 0 && ctx->task_handle) {
+        luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_BRIDGE_TX, 0, 0, 0, 0);
+    }
+    return (int)consumed;
+}
+
+int voip_bridge_pcm_out(int16_t *pcm, uint16_t max_samples)
+{
+    voip_ctx_t *ctx = &g_voip_ctx;
+    uint16_t to_read = 0;
+
+    if (!pcm || max_samples == 0) {
+        return 0;
+    }
+    if (ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !ctx->bridge_rx_buf) {
+        return -1;
+    }
+    if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    to_read = (ctx->bridge_rx_count < max_samples) ? ctx->bridge_rx_count : max_samples;
+    for (uint16_t i = 0; i < to_read; i++) {
+        pcm[i] = ctx->bridge_rx_buf[ctx->bridge_rx_read_idx];
+        ctx->bridge_rx_read_idx = (ctx->bridge_rx_read_idx + 1) % VOIP_BRIDGE_BUF_SAMPLES;
+        ctx->bridge_rx_count--;
+    }
+    if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
+    return (int)to_read;
+}
+#endif

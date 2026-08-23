@@ -4,6 +4,14 @@
 @version 1.1
 @date    2026.04.16
 @author  江访
+
+消息协议（订阅/发布）:
+订阅: OPEN_WIFI_CONNECT_WIN({ssid, password, ...}) → 创建连接窗口
+订阅: WIFI_CONNECTED(ssid)           → 连接成功
+订阅: WIFI_DISCONNECTED(reason)      → 连接断开
+订阅: WIFI_CONFIG_RSP({config})      → 配置返回
+发布: WIFI_CONNECT_REQ({ssid, password, ...}) → 请求连接
+发布: WIFI_GET_CONFIG_REQ            → 获取配置
 ]]
 
 

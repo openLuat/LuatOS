@@ -147,6 +147,10 @@ extern int airui_checkbox_create(lua_State *L);
 extern void airui_register_nes_meta(lua_State *L);
 extern int airui_nes_create(lua_State *L);
 
+// GBC 模块声明
+extern void airui_register_gbc_meta(lua_State *L);
+extern int airui_gbc_create(lua_State *L);
+
 // Camera 模块声明
 #ifdef LUAT_USE_AIRUI_CAMERA
 extern void airui_register_camera_meta(lua_State *L);
@@ -201,6 +205,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"shape", ROREG_FUNC(airui_shape_create)},
     {"checkbox", ROREG_FUNC(airui_checkbox_create)},
     {"nes", ROREG_FUNC(airui_nes_create)},
+    {"gbc", ROREG_FUNC(airui_gbc_create)},
 #ifdef LUAT_USE_AIRUI_CAMERA
     {"camera", ROREG_FUNC(airui_camera_create)},
 #endif
@@ -220,6 +225,15 @@ static const rotable_Reg_t reg_airui[] = {
     {"NES_KEY_B",      ROREG_INT(AIRUI_NES_KEY_B)},
     {"NES_KEY_START",  ROREG_INT(AIRUI_NES_KEY_START)},
     {"NES_KEY_SELECT", ROREG_INT(AIRUI_NES_KEY_SELECT)},
+    // GBC 按键常量
+    {"GBC_KEY_UP",     ROREG_INT(AIRUI_GBC_KEY_UP)},
+    {"GBC_KEY_DOWN",   ROREG_INT(AIRUI_GBC_KEY_DOWN)},
+    {"GBC_KEY_LEFT",   ROREG_INT(AIRUI_GBC_KEY_LEFT)},
+    {"GBC_KEY_RIGHT",  ROREG_INT(AIRUI_GBC_KEY_RIGHT)},
+    {"GBC_KEY_A",      ROREG_INT(AIRUI_GBC_KEY_A)},
+    {"GBC_KEY_B",      ROREG_INT(AIRUI_GBC_KEY_B)},
+    {"GBC_KEY_START",  ROREG_INT(AIRUI_GBC_KEY_START)},
+    {"GBC_KEY_SELECT", ROREG_INT(AIRUI_GBC_KEY_SELECT)},
     // 文本对齐常量 (和 lvgl 一致)
     {"TEXT_ALIGN_LEFT", ROREG_INT(LV_TEXT_ALIGN_LEFT)},
     {"TEXT_ALIGN_CENTER", ROREG_INT(LV_TEXT_ALIGN_CENTER)},
@@ -289,6 +303,7 @@ LUAMOD_API int luaopen_airui(lua_State *L) {
     airui_register_shape_meta(L);
     airui_register_checkbox_meta(L);
     airui_register_nes_meta(L);
+    airui_register_gbc_meta(L);
 #ifdef LUAT_USE_AIRUI_CAMERA
     airui_register_camera_meta(L);
 #endif

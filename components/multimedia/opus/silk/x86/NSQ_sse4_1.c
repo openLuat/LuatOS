@@ -32,9 +32,9 @@
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #include <smmintrin.h>
-#include "main.h"
+#include "silk/main.h"
 #include "celt/x86/x86cpu.h"
-#include "stack_alloc.h"
+#include "celt/stack_alloc.h"
 
 static OPUS_INLINE void silk_nsq_scale_states_sse4_1(
     const silk_encoder_state *psEncC,              /* I    Encoder State                   */

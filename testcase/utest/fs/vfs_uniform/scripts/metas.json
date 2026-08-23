@@ -1,0 +1,7 @@
+{
+  "name": "vfs_uniform",
+  "summary": "VFS 统一接口跨 FS 回归测试 (ram/posix/lfs2/fatfs/tfs/pgfs)",
+  "platform": ["pc"],
+  "timeout": 300,
+  "fs_list": ["ram", "posix", "lfs2", "fatfs", "tfs", "pgfs"]
+}

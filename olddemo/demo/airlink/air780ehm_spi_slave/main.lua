@@ -65,8 +65,8 @@ local function spi_slave_task()
         -- log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
         -- airlink.statistics()
         -- log.info("执行http请求")
-        -- local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_GP,timeout=3000}).wait()
-        -- local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_USER0,timeout=3000}).wait()
+        -- local code, headers, body = http.request("GET", "http://httpbin.luatos.com/bytes/2048", nil, nil, {adapter=socket.LWIP_GP,timeout=3000}).wait()
+        -- local code, headers, body = http.request("GET", "http://httpbin.luatos.com/bytes/2048", nil, nil, {adapter=socket.LWIP_USER0,timeout=3000}).wait()
         -- log.info("http执行结果", code, code, headers, body)
         -- if code == 200 then
         --     suc_request_num = suc_request_num + 1
@@ -100,7 +100,7 @@ local function spi_master_task()
         -- log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
         -- airlink.statistics()
         log.info("执行http请求")
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_GP_GW,timeout=3000}).wait()
+        local code, headers, body = http.request("GET", "https://httpbin.luatos.com/bytes/2048", nil, nil, {adapter=socket.LWIP_GP_GW,timeout=3000}).wait()
         -- log.info("http执行结果", code, code, headers, body)
     end
 end

@@ -53,12 +53,12 @@ local SIP_EVENT = {
     CALL = "call",
     MEDIA = "media",
     MESSAGE = "message",
+    DTMF = "dtmf",
     ERROR = "error"
 }
 
 -- 统一事件回调分发。
 local function emit_event(event, action, payload)
-    log.info("JQsip", "emit_event", event, action, type(g_callback))
     if type(g_callback) ~= "function" then
         return
     end
@@ -90,6 +90,10 @@ end
 
 local function emit_message(action, payload)
     emit_domain_event(SIP_EVENT.MESSAGE, action, payload)
+end
+
+local function emit_dtmf(action, payload)
+    emit_domain_event(SIP_EVENT.DTMF, action, payload)
 end
 
 
@@ -457,6 +461,44 @@ local function build_message(state, msg, auth)
     })
 end
 
+-- 构造已建立 dialog 内的 INFO 请求。INFO 与 BYE 一样必须沿用 dialog
+-- 的路由集、Call-ID 和本地/远端 tag，但使用新的 branch 和递增的 CSeq。
+local function build_info(state, dialog, tx, auth)
+    local info_from = dialog.bye_from or dialog.from
+    local info_to = dialog.bye_to or dialog.to
+    local headers = {}
+    if dialog.route_set and #dialog.route_set > 0 then
+        for _, uri in ipairs(dialog.route_set) do
+            headers[#headers + 1] = {"Route", "<" .. uri .. ">"}
+        end
+    end
+    headers[#headers + 1] = {"From", info_from}
+    headers[#headers + 1] = {"To", info_to}
+    headers[#headers + 1] = {"Call-ID", dialog.call_id}
+    headers[#headers + 1] = {"CSeq", string.format("%d INFO", tx.cseq)}
+    return build_request({
+        method = "INFO",
+        uri = dialog.remote_uri,
+        via_ctx = {
+            transport = state.sip_transport,
+            local_ip = state.local_ip,
+            local_port = state.local_port,
+            branch = tx.branch
+        },
+        headers = headers,
+        contact_ctx = {
+            user = state.sip_username,
+            local_ip = state.local_ip,
+            local_port = state.local_port,
+            transport = state.sip_transport
+        },
+        user_agent = "LuatOS-SIP",
+        auth_header = auth and build_auth_header(auth) or nil,
+        body = proto.build_dtmf_relay_body(tx.digit, tx.duration),
+        content_type = "application/dtmf-relay"
+    })
+end
+
 -- 构造 OPTIONS 请求，用于 UDP NAT 保活 Ping。
 -- 每次发送使用独立 Call-ID 和独立 options_cseq，不与 REGISTER 事务混淆。
 local function build_options(state)
@@ -478,7 +520,7 @@ local function build_options(state)
             {"Call-ID", gen_token("opt") .. "@luatos"},
             {"CSeq", string.format("%d OPTIONS", state.options_cseq)},
             {"Accept", "application/sdp"},
-            {"Allow", "INVITE, ACK, CANCEL, BYE, OPTIONS, MESSAGE"}
+            {"Allow", "INVITE, ACK, CANCEL, BYE, OPTIONS, MESSAGE, INFO"}
         },
         contact_ctx = {
             user = state.sip_username,
@@ -499,7 +541,6 @@ end
 -- 4. 在正确时机把媒体协商结果通过回调抛给外部媒体层
 local function sip_task(opts)
     local rxbuf = zbuff.create(2048)
-    log.info("JQsip", "sip_task start")
     opts = opts or {}
 
     -- `state` 是 SIP 主任务的唯一运行时状态容器。
@@ -545,6 +586,14 @@ local function sip_task(opts)
         -- 当前正在进行的 MESSAGE 事务。
         msg_tx = nil, -- 正在发送的 MESSAGE
 
+        -- 当前 SIP INFO DTMF 序列。一次序列仅允许一个在途 INFO，避免
+        -- 交换平台按错误顺序接收号码。
+        dtmf_tx = nil,
+        dtmf_queue = {},
+        dtmf_sequence = nil,
+        dtmf_timer = nil,
+        dtmf_timeout = tonumber(opts.dtmf_timeout) or 5000,
+
         -- UDP NAT 保活（OPTIONS Ping），TCP 模式下不使用。
         options_cseq = 0,
         options_timer = nil,
@@ -553,6 +602,9 @@ local function sip_task(opts)
         options_interval = tonumber(opts.options_interval) or 25000,
         options_max_fail = tonumber(opts.options_max_fail) or 3,
         call_timeout = tonumber(opts.call_timeout) or CALL_TIMEOUT,
+        debug_sip_response = opts.debug_sip_response == true,
+        early_media = opts.early_media ~= false,
+        early_media_response = tonumber(opts.early_media_response) or 183,
 
         -- 媒体协商结果缓存。
         -- SIP 层不会直接收发 RTP，但会把最终协商好的参数保存于此，
@@ -628,7 +680,7 @@ local function sip_task(opts)
             state.media.session = session
             return
         end
-        log.info("JQsip", "media session ready", session)
+
         -- 通知外部媒体层启动当前会话。
 
         state.media.active = true
@@ -657,6 +709,113 @@ local function sip_task(opts)
         end
         socket.tx(netc, data)
         socket.wait(netc)
+    end
+
+    local function incoming_route_set(inv)
+        local inv_rr = parse_route_set(inv.headers["record-route"])
+        local uas_route_set = {}
+        for i = #inv_rr, 1, -1 do uas_route_set[#uas_route_set + 1] = inv_rr[i] end
+        return uas_route_set
+    end
+
+    local function ensure_incoming_dialog(inv)
+        if not inv then
+            return nil
+        end
+        if state.dialog and state.dialog.direction == "in" and state.dialog.call_id == inv.headers["call-id"] then
+            return state.dialog
+        end
+
+        local dialog = {
+            direction = "in",
+            call_id = inv.headers["call-id"],
+            from = inv.headers["from"],
+            to = ensure_to_has_tag(inv.headers["to"], inv.local_tag),
+            bye_from = ensure_to_has_tag(inv.headers["to"], inv.local_tag),
+            bye_to = inv.headers["from"],
+            remote_uri = contact_uri(inv.headers["contact"]) or inv.uri,
+            remote_ip = inv.remote_ip,
+            invite_cseq = cseq_number(inv.headers["cseq"]) or 1,
+            established = false,
+            final_response_sent = false,
+            early_media_sent = false,
+            cseq = cseq_number(inv.headers["cseq"]) or 1,
+            remote_sdp = inv.remote_sdp,
+            remote_sdp_raw = inv.body,
+            route_set = incoming_route_set(inv)
+        }
+        state.dialog = dialog
+        return dialog
+    end
+
+    local function copy_incoming_headers(inv, dialog)
+        local req_headers = {}
+        for k, v in pairs(inv.headers) do
+            req_headers[k] = v
+        end
+        req_headers["to"] = dialog.to
+        return req_headers
+    end
+
+    local function progress_incoming()
+        local inv = state.incoming_invite
+        if not inv or not state.netc then
+            log.warn("sip", "no incoming for progress")
+            return
+        end
+        if not state.early_media then
+            log.warn("sip", "early media disabled")
+            return
+        end
+        local dialog = ensure_incoming_dialog(inv)
+        if not dialog or dialog.established or dialog.final_response_sent then
+            return
+        end
+
+        local body = dialog.local_sdp or build_sdp(state, "sendrecv")
+        dialog.local_sdp = body
+        local code = state.early_media_response == 180 and 180 or 183
+        local reason = (code == 180) and "Ringing" or "Session Progress"
+        local resp_body = (code == 183) and body or ""
+        local extra_headers = (code == 183) and {{"P-Early-Media", "sendrecv"}} or nil
+        log.info("sip", "send early media", code)
+        net_send_on(state.netc, build_response(state, copy_incoming_headers(inv, dialog), code, reason, extra_headers, resp_body))
+        dialog.early_media_sent = true
+        if code == 183 then
+            maybe_start_media(dialog, "incoming_early_media")
+        end
+        emit_call("progress", {
+            dialog = dialog,
+            code = code,
+            reason = reason
+        })
+    end
+
+    local function fail_incoming(code, reason)
+        local inv = state.incoming_invite
+        local dialog = state.dialog
+        if not inv or not state.netc then
+            return false
+        end
+        if dialog and (dialog.established or dialog.final_response_sent) then
+            return false
+        end
+
+        dialog = dialog or ensure_incoming_dialog(inv)
+        code = tonumber(code) or 486
+        reason = reason or ((code == 480) and "Temporarily Unavailable" or "Busy Here")
+        log.info("sip", "fail incoming", code, reason)
+        net_send_on(state.netc, build_response(state, copy_incoming_headers(inv, dialog), code, reason, nil, ""))
+        stop_media("incoming_failed")
+        local ended_dialog = dialog
+        state.dialog = nil
+        state.incoming_invite = nil
+        emit_call("ended", {
+            reason = "incoming_failed",
+            code = code,
+            dialog = ended_dialog
+        })
+        return true
     end
 
     local function net_send(data)
@@ -799,7 +958,7 @@ local function sip_task(opts)
 
     -- 发起外呼。
     -- 这里只发送 INVITE + SDP offer，媒体要等 200 OK 后再启动。
-    local function start_outgoing_call(target)
+    local function start_outgoing_call(target, from_number)
         if not state.online or not state.netc then
             log.warn("sip", "not online")
             return
@@ -818,7 +977,15 @@ local function sip_task(opts)
 
         -- 外呼时会立即创建一个“待建立”的 dialog。
         -- 只有当收到 200 OK 并完成 ACK 后，该 dialog 才算真正 established。
-        local from_to = string.format("<sip:%s@%s>", state.sip_username, state.sip_domain)
+        -- 非透传模式：From URI 始终保持注册账号，仅用显示名携带来电号码。
+        -- 不传 from_number 时仍生成原有 From 格式。
+        local from_to
+        if type(from_number) == "string" and from_number:match("^[%d%+%-%._]+$") then
+            from_to = string.format("\"%s\" <sip:%s@%s>",
+                from_number, state.sip_username, state.sip_domain)
+        else
+            from_to = string.format("<sip:%s@%s>", state.sip_username, state.sip_domain)
+        end
         local local_tag = gen_token("tag")
         local call_id = gen_token("call") .. "@luatos"
 
@@ -856,48 +1023,22 @@ local function sip_task(opts)
             return
         end
 
-        -- UAS 路由集 = INVITE 中 Record-Route 的逆序（RFC 3261 §12.1.1）
-        local inv_rr = parse_route_set(inv.headers["record-route"])
-        local uas_route_set = {}
-        for i = #inv_rr, 1, -1 do uas_route_set[#uas_route_set + 1] = inv_rr[i] end
-
-        local dialog = {
-            direction = "in",
-            call_id = inv.headers["call-id"],
-            -- 保留原始 From/To 供 build_response 和 handle_bye_request 使用
-            from = inv.headers["from"],
-            to = ensure_to_has_tag(inv.headers["to"], inv.local_tag),
-            -- UAS 发送 BYE 时，From/To 需交换（RFC 3261 §12.2.2）：
-            -- bye_from = 本端身份 = INVITE 的 To + local_tag
-            -- bye_to   = 对端身份 = INVITE 的 From
-            bye_from = ensure_to_has_tag(inv.headers["to"], inv.local_tag),
-            bye_to = inv.headers["from"],
-            -- Remote target = 主叫的 Contact URI（非 INVITE 的 Request-URI）
-            remote_uri = contact_uri(inv.headers["contact"]) or inv.uri,
-            remote_ip = inv.remote_ip,
-            invite_cseq = cseq_number(inv.headers["cseq"]) or 1,
-            established = false,
-            cseq = cseq_number(inv.headers["cseq"]) or 1,
-            remote_sdp = inv.remote_sdp,
-            remote_sdp_raw = inv.body,
-            route_set = uas_route_set
-        }
-        state.dialog = dialog
-
-        local headers = {}
-        local req_headers = {}
-        for k, v in pairs(inv.headers) do
-            req_headers[k] = v
+        local dialog = ensure_incoming_dialog(inv)
+        if not dialog then
+            return
         end
-        req_headers["to"] = dialog.to
 
         -- 来电接听时，本端在 200 OK 中带回自己的 SDP answer。
-        local body = build_sdp(state, "sendrecv")
+        local body = dialog.local_sdp or build_sdp(state, "sendrecv")
         dialog.local_sdp = body
-        local resp = build_response(state, req_headers, 200, "OK", headers, body)
+        dialog.final_response_sent = true
+        local resp = build_response(state, copy_incoming_headers(inv, dialog), 200, "OK", nil, body)
         log.info("sip", "answer 200 OK")
         net_send(resp)
     end
+
+    -- INFO 队列清理函数在后面定义；提前声明，使挂断路径绑定到同一局部函数。
+    local fail_dtmf
 
     -- 挂断统一入口：
     -- - 来电未接：486 Busy Here
@@ -907,25 +1048,13 @@ local function sip_task(opts)
         if not state.netc then
             return
         end
-        if state.incoming_invite and not state.dialog then
+        if state.dtmf_tx or state.dtmf_sequence then
+            fail_dtmf("local_hangup")
+        end
+        if state.incoming_invite and (not state.dialog or
+            (state.dialog.direction == "in" and not state.dialog.established and not state.dialog.final_response_sent)) then
             -- 来电未接，直接拒绝
-            local inv = state.incoming_invite
-            local req_headers = {}
-            for k, v in pairs(inv.headers) do
-                req_headers[k] = v
-            end
-            req_headers["to"] = ensure_to_has_tag(inv.headers["to"], inv.local_tag)
-            local resp = build_response(state, req_headers, 486, "Busy Here", nil, "")
-            log.info("sip", "reject incoming")
-            net_send(resp)
-            stop_media("local_reject")
-            state.incoming_invite = nil
-            emit_call("ended", {
-                reason = "local_reject",
-                call_id = inv.headers["call-id"],
-                from = inv.headers["from"],
-                to = inv.headers["to"]
-            })
+            fail_incoming(486, "Busy Here")
             return
         end
 
@@ -943,6 +1072,12 @@ local function sip_task(opts)
             local cancel = build_cancel(state, dialog)
             log.info("sip", "send CANCEL")
             net_send(cancel)
+            return
+        end
+
+        if dialog.direction == "in" and not dialog.established and dialog.final_response_sent then
+            dialog.pending_bye_after_ack = true
+            log.info("sip", "incoming final response sent, delay BYE until ACK")
             return
         end
 
@@ -987,18 +1122,164 @@ local function sip_task(opts)
         net_send(req)
     end
 
-    -- 订阅外部命令（call/answer/hangup/message）。
+    local function stop_dtmf_timer(tx)
+        if tx and tx.timeout_timer then
+            sys.timerStop(tx.timeout_timer)
+            tx.timeout_timer = nil
+        end
+        if state.dtmf_timer then
+            sys.timerStop(state.dtmf_timer)
+            state.dtmf_timer = nil
+        end
+    end
+
+    fail_dtmf = function(reason, code)
+        local sequence = state.dtmf_sequence
+        local tx = state.dtmf_tx
+        stop_dtmf_timer(tx)
+        state.dtmf_tx = nil
+        state.dtmf_queue = {}
+        state.dtmf_sequence = nil
+        if sequence then
+            emit_dtmf("failed", {
+                digits = sequence.digits,
+                digit = tx and tx.digit or nil,
+                index = sequence.index,
+                code = code,
+                reason = reason
+            })
+        end
+    end
+
+    local function complete_dtmf()
+        local sequence = state.dtmf_sequence
+        stop_dtmf_timer(state.dtmf_tx)
+        state.dtmf_tx = nil
+        state.dtmf_queue = {}
+        state.dtmf_sequence = nil
+        if sequence then
+            emit_dtmf("completed", { digits = sequence.digits, code = sequence.last_code or 200 })
+        end
+    end
+
+    local send_next_dtmf
+
+    local function start_dtmf_timeout(tx)
+        if tx.timeout_timer then
+            sys.timerStop(tx.timeout_timer)
+        end
+        tx.timeout_timer = sys.timerStart(function()
+            if state.dtmf_tx == tx then
+                log.warn("sip", "INFO DTMF timeout", tx.digit)
+                fail_dtmf("timeout", 408)
+            end
+        end, state.dtmf_timeout)
+    end
+
+    local function schedule_next_dtmf(interval)
+        if interval <= 0 then
+            send_next_dtmf()
+            return
+        end
+        state.dtmf_timer = sys.timerStart(function()
+            state.dtmf_timer = nil
+            send_next_dtmf()
+        end, interval)
+    end
+
+    send_next_dtmf = function()
+        if state.dtmf_tx then
+            return
+        end
+        local sequence = state.dtmf_sequence
+        local dialog = state.dialog
+        if not sequence then
+            return
+        end
+        if not state.online or not state.netc or not dialog or not dialog.established then
+            fail_dtmf("dialog_not_established")
+            return
+        end
+        local digit = table.remove(state.dtmf_queue, 1)
+        if not digit then
+            complete_dtmf()
+            return
+        end
+        sequence.index = sequence.index + 1
+        dialog.cseq = (dialog.cseq or dialog.invite_cseq or 1) + 1
+        local tx = {
+            digit = digit,
+            duration = sequence.duration,
+            cseq = dialog.cseq,
+            branch = gen_token("br"),
+            call_id = dialog.call_id,
+            auth_tried = 0
+        }
+        state.dtmf_tx = tx
+        start_dtmf_timeout(tx)
+        log.info("sip", "send INFO DTMF", digit, "index", sequence.index)
+        net_send(build_info(state, dialog, tx))
+    end
+
+    -- 发送一串 dialog 内 DTMF。接口调用在 SIP task 中串行执行。
+    local function start_dtmf(digits, duration, interval)
+        digits = type(digits) == "string" and digits:upper() or ""
+        if #digits == 0 or #digits > 32 or not digits:match("^[0-9A-D%*#]+$") then
+            emit_dtmf("failed", { digits = digits, reason = "invalid_digits" })
+            return
+        end
+        if state.dtmf_tx or state.dtmf_sequence then
+            emit_dtmf("failed", { digits = digits, reason = "busy" })
+            return
+        end
+        if not state.online or not state.netc or not state.dialog or not state.dialog.established then
+            emit_dtmf("failed", { digits = digits, reason = "dialog_not_established" })
+            return
+        end
+        duration = tonumber(duration) or 160
+        interval = tonumber(interval) or 100
+        if duration < 50 then duration = 50 end
+        if duration > 2000 then duration = 2000 end
+        if interval < 0 then interval = 0 end
+        if interval > 5000 then interval = 5000 end
+        state.dtmf_queue = {}
+        for i = 1, #digits do
+            state.dtmf_queue[#state.dtmf_queue + 1] = digits:sub(i, i)
+        end
+        state.dtmf_sequence = {
+            digits = digits,
+            duration = duration,
+            interval = interval,
+            index = 0
+        }
+        emit_dtmf("queued", { digits = digits, duration = duration, interval = interval })
+        send_next_dtmf()
+    end
+
+    -- 订阅外部命令（call/progress/answer/fail/hangup/message/dtmf）。
     -- 外部 API 只负责 `sys.publish()`，真正执行统一留在 SIP task 内。
     sys.subscribe(TOPIC_CMD, function(action, arg)
         log.info("sip", "cmd", action, arg or "")
         if action == "call" then
-            start_outgoing_call(arg)
+            if type(arg) == "table" then
+                start_outgoing_call(arg.target, arg.from_number)
+            else
+                -- 兼容旧的内部命令格式。
+                start_outgoing_call(arg)
+            end
+        elseif action == "progress" then
+            progress_incoming()
         elseif action == "answer" then
             answer_incoming()
+        elseif action == "fail" then
+            arg = type(arg) == "table" and arg or {}
+            fail_incoming(arg.code, arg.reason)
         elseif action == "hangup" then
             hangup_call()
         elseif action == "message" and type(arg) == "table" then
             start_send_message(arg.target, arg.text)
+        elseif action == "dtmf" and type(arg) == "table" then
+            start_dtmf(arg.digits, arg.duration, arg.interval)
         end
     end)
 
@@ -1029,9 +1310,11 @@ local function sip_task(opts)
                 state.local_ip = ip
             end
 
-            -- 每次重新连上 SIP 服务器，都把 REGISTER 事务状态重置到首发状态。
+            -- 每次重新连上SIP服务器，创建新的REGISTER事务并清理认证状态。
             state.branch = gen_token("br")
-            state.cseq = 1
+            -- 同一个注册实例必须保持CSeq单调递增；如果保留Call-ID和From tag却把
+            -- CSeq重置为1，网络切换后服务器可能将新REGISTER判为合并请求并返回482。
+            state.cseq = state.cseq + 1
             state.auth_tried = 0
             state.last_www = nil
 
@@ -1098,11 +1381,18 @@ local function sip_task(opts)
                     local resp_headers = copy_headers(req_headers)
                     resp_headers["to"] = dialog.to
 
-                    -- 已答但尚未收到 ACK 时，同 CSeq 的 INVITE 视为 UDP 重传，直接重发 200 OK。
+                    -- 同 CSeq 的 INVITE 视为 UDP 重传：已最终应答则重发 200，
+                    -- 仅发过早期媒体时重发 183，不能把 early media 误推进为接听。
                     if not dialog.established and invite_cseq == dialog.invite_cseq then
                         local resp_body = dialog.local_sdp or build_sdp(state, "sendrecv")
                         dialog.local_sdp = resp_body
-                        net_send_on(netc, build_response(state, resp_headers, 200, "OK", nil, resp_body))
+                        if dialog.final_response_sent then
+                            net_send_on(netc, build_response(state, resp_headers, 200, "OK", nil, resp_body))
+                        elseif dialog.early_media_sent then
+                            net_send_on(netc, build_response(state, resp_headers, 183, "Session Progress", {{"P-Early-Media", "sendrecv"}}, resp_body))
+                        else
+                            net_send_on(netc, build_response(state, resp_headers, 100, "Trying", nil, ""))
+                        end
                         return
                     end
 
@@ -1135,7 +1425,9 @@ local function sip_task(opts)
                     local_tag = local_tag
                 }
                 net_send_on(netc, build_response(state, req_headers, 100, "Trying", nil, ""))
-                net_send_on(netc, build_response(state, req_headers, 180, "Ringing", nil, ""))
+                if not state.early_media then
+                    net_send_on(netc, build_response(state, req_headers, 180, "Ringing", nil, ""))
+                end
                 emit_call("incoming", {
                     from = req_headers["from"],
                     call_id = req_headers["call-id"],
@@ -1148,7 +1440,8 @@ local function sip_task(opts)
                     call_id = req_headers["call-id"],
                     from = req_headers["from"],
                     to = req_headers["to"],
-                    headers = req_headers
+                    headers = req_headers,
+                    early_media = state.early_media
                 })
                 emit_media("offer", {
                     call_id = req_headers["call-id"],
@@ -1180,6 +1473,10 @@ local function sip_task(opts)
                     emit_call("established", {
                         dialog = state.dialog
                     })
+                    if state.dialog.pending_bye_after_ack then
+                        state.dialog.pending_bye_after_ack = nil
+                        net_send_on(netc, build_bye(state, state.dialog))
+                    end
                 end
             end
 
@@ -1192,6 +1489,7 @@ local function sip_task(opts)
                 net_send_on(netc, build_response(state, req_headers, 200, "OK", nil, ""))
                 local ended_dialog = state.dialog
                 stop_media("peer_hangup")
+                fail_dtmf("peer_hangup")
                 state.dialog = nil
                 state.incoming_invite = nil
                 log.info("sip", "peer hung up")
@@ -1217,6 +1515,7 @@ local function sip_task(opts)
                 end
                 state.incoming_invite = nil
                 stop_media("peer_cancel")
+                fail_dtmf("peer_cancel")
                 state.dialog = nil
                 log.info("sip", "incoming canceled")
                 emit_call("ended", {
@@ -1252,7 +1551,7 @@ local function sip_task(opts)
                 elseif method == "OPTIONS" then
                     -- 回应服务端发来的 OPTIONS 探活，避免被标记为不可达。
                     net_send_on(netc, build_response(state, req_headers, 200, "OK", {
-                        {"Allow", "INVITE, ACK, CANCEL, BYE, OPTIONS, MESSAGE"},
+                        {"Allow", "INVITE, ACK, CANCEL, BYE, OPTIONS, MESSAGE, INFO"},
                         {"Accept", "application/sdp"}
                     }, ""))
                 else
@@ -1425,6 +1724,7 @@ local function sip_task(opts)
                 if code == 200 then
                     stop_media("local_hangup")
                     local ended_dialog = state.dialog
+                    fail_dtmf("local_hangup")
                     state.dialog = nil
                     state.incoming_invite = nil
                     log.info("sip", "call cleared")
@@ -1489,6 +1789,63 @@ local function sip_task(opts)
                 end
             end
 
+            local function handle_dtmf_response(code, reason, headers)
+                local tx = state.dtmf_tx
+                if not tx then
+                    return
+                end
+                if code and code >= 200 and code < 300 then
+                    stop_dtmf_timer(tx)
+                    state.dtmf_tx = nil
+                    local sequence = state.dtmf_sequence
+                    if sequence then sequence.last_code = code end
+                    emit_dtmf("sent", {
+                        digits = sequence and sequence.digits or "",
+                        digit = tx.digit,
+                        index = sequence and sequence.index or 0,
+                        duration = tx.duration,
+                        code = code
+                    })
+                    if sequence then
+                        schedule_next_dtmf(sequence.interval)
+                    end
+                    return
+                end
+                if code == 401 or code == 407 then
+                    retry_transaction_auth(code, headers, {
+                        tx = tx,
+                        method = "INFO",
+                        auth_failed_log = "INFO DTMF auth failed",
+                        no_challenge_log = "INFO DTMF no digest challenge",
+                        digest_failed_log = "INFO DTMF digest failed",
+                        before_digest = function(info_tx)
+                            local dialog = state.dialog
+                            if not dialog or not dialog.established then
+                                fail_dtmf("dialog_not_established")
+                                return
+                            end
+                            dialog.cseq = (dialog.cseq or info_tx.cseq) + 1
+                            info_tx.cseq = dialog.cseq
+                            info_tx.branch = gen_token("br")
+                            start_dtmf_timeout(info_tx)
+                        end,
+                        send = function(digest)
+                            if state.dtmf_tx and state.dialog then
+                                net_send_on(netc, build_info(state, state.dialog, state.dtmf_tx, digest))
+                            end
+                        end,
+                        on_failed = function()
+                            fail_dtmf("auth_failed", code)
+                        end
+                    })
+                    return
+                end
+                if code and code >= 300 then
+                    log.warn("sip", "INFO DTMF failed", code, reason)
+                    fail_dtmf(reason or "sip_error", code)
+                end
+            end
+
             local function handle_response_packet(code, reason, headers, body, rip)
                 local call_id = headers["call-id"]
                 local cseq = headers["cseq"]
@@ -1506,6 +1863,9 @@ local function sip_task(opts)
                     handle_dialog_teardown_response(code)
                 elseif state.msg_tx and call_id == state.msg_tx.call_id and cseq_m == "MESSAGE" then
                     handle_message_response(code, reason, headers)
+                elseif state.dtmf_tx and call_id == state.dtmf_tx.call_id and cseq_m == "INFO" and
+                    cseq_number(cseq) == state.dtmf_tx.cseq then
+                    handle_dtmf_response(code, reason, headers)
                 end
             end
 
@@ -1521,6 +1881,9 @@ local function sip_task(opts)
 
                 local code, reason = parse_status(head)
                 log.info("sip", "resp", code or "?", reason or "?", "from", rip, remote_port or 0)
+                if state.debug_sip_response then
+                    log.info("sip", "response raw\r\n" .. head .. "\r\n\r\n" .. (body or ""))
+                end
                 local headers = parse_headers(head)
                 handle_response_packet(code, reason, headers, body, rip)
             end
@@ -1587,6 +1950,7 @@ local function sip_task(opts)
             state.dialog = nil
             state.incoming_invite = nil
             state.msg_tx = nil
+            fail_dtmf("socket_closed")
             sys.publish(TOPIC_DISCONNECT)
             emit_lifecycle("offline", {
                 reason = "socket_closed"
@@ -1660,6 +2024,11 @@ local function sip_task(opts)
                 break
             end
         else
+            -- 非通话状态下重新注册时，让后续RTP媒体与新的SIP信令网卡保持一致。
+            -- 通话中仍保持原来的locked_adapter，避免切换承载中的媒体网卡。
+            if not state.dialog and not state.incoming_invite then
+                state.locked_adapter = adapter_to_use
+            end
             log.info("sip", "creating socket with adapter:", adapter_to_use, "locked_adapter:", state.locked_adapter)
             local netc = socket.create(adapter_to_use, netCB)
             state.netc = netc
@@ -1715,6 +2084,7 @@ exsipclient.start({
     codecs = {"PCMU", "PCMA"},
     ptime = 20,
     call_timeout = 30,
+    debug_sip_response = false,
     event_callback = function(event, action, payload)
         -- event 可取 lifecycle、register、call、media、message、error
         -- lifecycle: online、offline、stopped
@@ -1728,35 +2098,29 @@ exsipclient.start({
 ]]
 function M.start(opts)
     
-    log.info("JQsip", "starting with opts!!!!!!!!!!!!!!!!!!!!")
     if g_started then
         return true
     end
     
-    log.info("JQsip", "starting with opts",g_started)
     -- 在这里要判断基础的参数合法性，如果不合法就直接返回 false，不启动后台 task。
     if not opts or type(opts) ~= "table" then
         return false
     end
 
-    log.info("JQsip", "starting with opts", type(opts))
-
     if (not opts.sip_server_addr) or (not opts.sip_server_port) or (not opts.sip_domain) or (not opts.sip_username) then
         return false
     end
     
-    log.info("JQsip", "starting with opts", opts.sip_server_addr, opts.sip_server_port, opts.sip_domain, opts.sip_username)
 
     if not opts.sip_transport  or (opts.sip_transport ~= "udp" and opts.sip_transport ~= "tcp" and opts.sip_transport ~= "tls") then
         return false
     end
 
-    log.info("JQsip", "starting with opts", opts.sip_transport)
 
     if type(opts.event_callback) == "function" then
         g_callback = opts.event_callback
     end
-    log.info("JQsip", "event callback set", type(g_callback))
+
     g_stop = false
     g_started = true
 
@@ -1802,15 +2166,19 @@ end
 
 --[[
 发起外呼。
-@api exsipclient.call(target)
+@api exsipclient.call(target, from_number)
 @string target 目标号码或 sip URI，例如 "1002" 或 "sip:1002@example.com"
+@string from_number 可选，本次外呼写入 From 显示名的主叫号码
 @return nil 无返回值
 @usage
-exsipclient.call("1002")
+exsipclient.call("1002", "13800138000")
 ]]
-function M.call(target)
+function M.call(target, from_number)
     -- 通过 topic 把命令投递到 SIP 主任务中串行执行，避免跨 task 直接操作内部状态。
-    sys.publish(TOPIC_CMD, "call", target)
+    sys.publish(TOPIC_CMD, "call", {
+        target = target,
+        from_number = from_number
+    })
 end
 
 --[[
@@ -1826,6 +2194,17 @@ function M.answer()
 end
 
 --[[
+发送 183 Session Progress + SDP，启动来电早期媒体。
+@api exsipclient.progress()
+@return nil 无返回值
+@usage
+exsipclient.progress()
+]]
+function M.progress()
+    sys.publish(TOPIC_CMD, "progress")
+end
+
+--[[
 挂断当前通话，或拒绝当前未接来电。
 @api exsipclient.hangup()
 @return nil 无返回值
@@ -1835,6 +2214,22 @@ exsipclient.hangup()
 function M.hangup()
     -- 挂断当前通话，或拒绝当前未接来电。
     sys.publish(TOPIC_CMD, "hangup")
+end
+
+--[[
+使用指定 SIP 失败码结束尚未最终接听的来电。
+@api exsipclient.fail(code, reason)
+@number code SIP 状态码，默认 486
+@string reason 原因短语
+@return nil 无返回值
+@usage
+exsipclient.fail(480, "Temporarily Unavailable")
+]]
+function M.fail(code, reason)
+    sys.publish(TOPIC_CMD, "fail", {
+        code = code,
+        reason = reason
+    })
 end
 
 --[[
@@ -1853,4 +2248,21 @@ function M.message(target, text)
         text = text
     })
 end
+
+--[[
+发送一串 SIP INFO DTMF。命令会投递到 SIP task 中，在当前已建立 dialog
+内逐位发送；每一位必须收到 2xx 后才会发送下一位。
+@api exsipclient.dtmf(digits[, duration_ms[, interval_ms] ])
+@string digits DTMF 字符串
+@number duration_ms 单位毫秒，默认 160
+@number interval_ms 位间隔，单位毫秒，默认 100
+]]
+function M.dtmf(digits, duration_ms, interval_ms)
+    sys.publish(TOPIC_CMD, "dtmf", {
+        digits = digits,
+        duration = duration_ms,
+        interval = interval_ms
+    })
+end
+
 return M

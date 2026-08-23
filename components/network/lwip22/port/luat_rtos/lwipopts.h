@@ -11,10 +11,6 @@
 #include "c_common.h"
 #endif
 
-#ifdef LUAT_LWIP_CONFIG_H_FILE
-#include LUAT_LWIP_CONFIG_H_FILE
-#endif
-
 #define LUAT_LWIP_USE_EVENT				1
 
 #define NO_SYS                          1	//是否不带OS，1不带
@@ -117,7 +113,7 @@
 #define TCP_TTL                         (IP_DEFAULT_TTL)
 
 #define TCP_QUEUE_OOSEQ                 (LWIP_TCP)
-#define LWIP_TCP_SACK_OUT               0
+#define LWIP_TCP_SACK_OUT               (LWIP_TCP)
 #define LWIP_TCP_MAX_SACK_NUM           4
 #ifndef TCP_MSS
 #define TCP_MSS                         1340
@@ -126,9 +122,9 @@
 #define TCP_SND_QUEUELEN                ((4 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
 #define TCP_SNDLOWAT                    LWIP_MIN(LWIP_MAX(((TCP_SND_BUF)/2), (2 * TCP_MSS) + 1), (TCP_SND_BUF) - 1)
 #define TCP_SNDQUEUELOWAT               LWIP_MAX(((TCP_SND_QUEUELEN)/2), 5)
-#define TCP_OOSEQ_MAX_BYTES             0
+#define TCP_OOSEQ_MAX_BYTES             10U * TCP_MSS
 #define TCP_OOSEQ_BYTES_LIMIT(pcb)      TCP_OOSEQ_MAX_BYTES
-#define TCP_OOSEQ_MAX_PBUFS             0
+#define TCP_OOSEQ_MAX_PBUFS             10
 #define TCP_OOSEQ_PBUFS_LIMIT(pcb)      TCP_OOSEQ_MAX_PBUFS
 #define TCP_LISTEN_BACKLOG              0
 #define TCP_DEFAULT_LISTEN_BACKLOG      0xff
@@ -306,7 +302,8 @@
 #define TCP_SND_BUF                     (32 * TCP_MSS)
 #endif
 #ifndef TCP_WND
-#define TCP_WND                         (32 * TCP_MSS)
+#define TCP_WND                         (soc_tcpip_rx_cache())
+#define TCP_WND_DYNAMIC				1
 #endif
 #define MEM_SIZE 						8192 * 3
 
@@ -317,6 +314,10 @@ int8_t  tcpip_try_callback(tcpip_callback_fn function, void *ctx);
 int8_t  tcpip_callback(tcpip_callback_fn function, void *ctx);
 #define tcpip_callback_with_block(function, ctx, block) ((block != 0)? tcpip_callback(function, ctx) : tcpip_try_callback(function, ctx))
 
+#endif
+
+#ifdef LUAT_LWIP_CONFIG_H_FILE
+#include LUAT_LWIP_CONFIG_H_FILE
 #endif
 
 #endif /* LWIP_HDR_LWIPOPTS_H */

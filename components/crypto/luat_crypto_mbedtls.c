@@ -16,6 +16,10 @@
 #include "mbedtls/md.h"
 #include "mbedtls/ssl_ciphersuites.h"
 #include "mbedtls/base64.h"
+#include "mbedtls/version.h"
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+#include "psa/crypto.h"
+#endif
 
 
 static void add_pkcs_padding( unsigned char *output, size_t output_len,
@@ -52,6 +56,116 @@ static int get_pkcs_padding( unsigned char *input, size_t input_len,
 
     return( MBEDTLS_ERR_CIPHER_INVALID_PADDING * ( bad != 0 ) );
 }
+
+static int luat_cipher_is_manual_padding(int cipher_mode, const char *pad)
+{
+    if (cipher_mode != MBEDTLS_MODE_ECB && cipher_mode != MBEDTLS_MODE_CBC) {
+        return 0;
+    }
+    if (!strcmp("PKCS7", pad)) {
+        return cipher_mode == MBEDTLS_MODE_ECB;
+    }
+    if (!strcmp("ZERO", pad) || !strcmp("ZEROS", pad) ||
+        !strcmp("ZEROS_AND_LEN", pad) || !strcmp("ONE_AND_ZEROS", pad)) {
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+        return 1;
+#else
+        return cipher_mode == MBEDTLS_MODE_ECB;
+#endif
+    }
+    return 0;
+}
+
+static int luat_mbedtls4_psa_init(void)
+{
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    psa_status_t status = psa_crypto_init();
+    if (status != PSA_SUCCESS) {
+        LLOGE("psa_crypto_init fail %d", (int)status);
+        return -1;
+    }
+#endif
+    return 0;
+}
+
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+typedef struct luat_mbedtls4_hmac_ctx {
+    mbedtls_md_context_t md_ctx;
+    const mbedtls_md_info_t *info;
+    size_t block_size;
+    unsigned char opad[128];
+} luat_mbedtls4_hmac_ctx_t;
+
+static size_t luat_mbedtls4_md_block_size(const mbedtls_md_info_t *info)
+{
+    switch (mbedtls_md_get_type(info)) {
+    case MBEDTLS_MD_SHA384:
+    case MBEDTLS_MD_SHA512:
+        return 128;
+    default:
+        return 64;
+    }
+}
+
+static int luat_mbedtls4_hmac_init(const mbedtls_md_info_t *info,
+                                   const unsigned char *key, size_t key_len,
+                                   luat_crypt_stream_t *stream)
+{
+    unsigned char key_block[128] = {0};
+    unsigned char ipad[128];
+    unsigned char hashed_key[MBEDTLS_MD_MAX_SIZE];
+    luat_mbedtls4_hmac_ctx_t *hctx = NULL;
+    int ret = 0;
+    size_t block_size = luat_mbedtls4_md_block_size(info);
+    size_t digest_size = mbedtls_md_get_size(info);
+
+    hctx = (luat_mbedtls4_hmac_ctx_t *)luat_heap_malloc(sizeof(luat_mbedtls4_hmac_ctx_t));
+    if (hctx == NULL) {
+        return -1;
+    }
+    memset(hctx, 0, sizeof(luat_mbedtls4_hmac_ctx_t));
+    mbedtls_md_init(&hctx->md_ctx);
+    hctx->info = info;
+    hctx->block_size = block_size;
+
+    if (key_len > block_size) {
+        ret = mbedtls_md(info, key, key_len, hashed_key);
+        if (ret != 0) {
+            goto failed;
+        }
+        memcpy(key_block, hashed_key, digest_size);
+    } else if (key_len > 0) {
+        memcpy(key_block, key, key_len);
+    }
+
+    for (size_t i = 0; i < block_size; i++) {
+        ipad[i] = key_block[i] ^ 0x36;
+        hctx->opad[i] = key_block[i] ^ 0x5c;
+    }
+
+    ret = mbedtls_md_setup(&hctx->md_ctx, info, 0);
+    if (ret != 0) {
+        goto failed;
+    }
+    ret = mbedtls_md_starts(&hctx->md_ctx);
+    if (ret != 0) {
+        goto failed;
+    }
+    ret = mbedtls_md_update(&hctx->md_ctx, ipad, block_size);
+    if (ret != 0) {
+        goto failed;
+    }
+
+    stream->ctx = hctx;
+    stream->result_size = digest_size;
+    return 0;
+
+failed:
+    mbedtls_md_free(&hctx->md_ctx);
+    luat_heap_free(hctx);
+    return ret ? ret : -1;
+}
+#endif
 
 
 int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
@@ -114,6 +228,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     if (!strcmp("PKCS7", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_PKCS7);
     }
+#if MBEDTLS_VERSION_NUMBER < 0x04000000
     else if (!strcmp("ZERO", cctx->pad) || !strcmp("ZEROS", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_ZEROS);
     }
@@ -123,6 +238,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     else if (!strcmp("ZEROS_AND_LEN", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_ZEROS_AND_LEN);
     }
+#endif
     else {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_NONE);
     }
@@ -132,9 +248,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     // 开始注入数据
     block_size = mbedtls_cipher_get_block_size(&ctx);
 
-    if ((cipher_mode == MBEDTLS_MODE_ECB) && (cctx->flags & 0x1) &&
-        (!strcmp("PKCS7", cctx->pad) || !strcmp("ZERO", cctx->pad) ||
-         !strcmp("ZEROS_AND_LEN", cctx->pad) || !strcmp("ONE_AND_ZEROS", cctx->pad))) {
+    if (luat_cipher_is_manual_padding(cipher_mode, cctx->pad) && (cctx->flags & 0x1)) {
     	uint32_t new_len  = ((cctx->str_size / block_size) + 1) * block_size;
     	temp = luat_heap_malloc(new_len);
         if (temp == NULL) {
@@ -169,8 +283,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
             input_size = block_size;
             ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(cctx->str+i), input_size, output, &output_size);
         }
-        else if ((cipher_mode == MBEDTLS_MODE_ECB) && !cctx->flags &&
-                 (!strcmp("PKCS7", cctx->pad) || !strcmp("ZEROS_AND_LEN", cctx->pad) || !strcmp("ONE_AND_ZEROS", cctx->pad)))
+        else if (luat_cipher_is_manual_padding(cipher_mode, cctx->pad) && !cctx->flags)
         {
         	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(cctx->str+i), input_size, output, &output_size);
             if (ret == 0) {
@@ -196,6 +309,10 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
                         if (j > 0 && output[j - 1] == 0x80) {
                             output_size = j - 1;
                         }
+                    }
+                } else if (!strcmp("ZERO", cctx->pad) || !strcmp("ZEROS", cctx->pad)) {
+                    while (output_size > 0 && output[output_size - 1] == 0x00) {
+                        output_size--;
                     }
                 }
             }
@@ -262,6 +379,9 @@ _error_exit:
 }
 
 int luat_crypto_md(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
+    if (luat_mbedtls4_psa_init()) {
+        return -1;
+    }
     const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
     if (info == NULL) {
         LLOGW("no such message digest %s", md);
@@ -277,6 +397,9 @@ int luat_crypto_md(const char* md, const char* str, size_t str_size, void* out_p
 }
 
 int luat_crypto_md_v2(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
+    if (luat_mbedtls4_psa_init()) {
+        return -1;
+    }
     const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
     if (info == NULL) {
         LLOGW("no such message digest %s", md);
@@ -292,6 +415,9 @@ int luat_crypto_md_v2(const char* md, const char* str, size_t str_size, void* ou
 }
 
 int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t key_len, const char* path) {
+    if (luat_mbedtls4_psa_init()) {
+        return -1;
+    }
     const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
     if (info == NULL) {
         LLOGI("no such message digest %s", md);
@@ -302,6 +428,24 @@ int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t k
         LLOGI("no such file %s", path);
         return -1;
     }
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    luat_crypt_stream_t stream = {0};
+    stream.key_len = key_len;
+    if (luat_crypto_md_init(md, key, &stream) != 0) {
+        luat_fs_fclose(fd);
+        return -1;
+    }
+    uint8_t buff[512];
+    int len = 0;
+    while (1) {
+        len = luat_fs_fread(buff, 1, 512, fd);
+        if (len < 1)
+            break;
+        luat_crypto_md_update((const char *)buff, len, &stream);
+    }
+    luat_fs_fclose(fd);
+    return luat_crypto_md_finish(out_ptr, &stream);
+#else
     mbedtls_md_context_t ctx;
 
     mbedtls_md_init(&ctx);
@@ -343,16 +487,30 @@ int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t k
     }
     LLOGI("md finish ret %d", ret);
     return ret;
+#endif
 }
 
 int luat_crypto_md_init(const char* md, const char* key, luat_crypt_stream_t *stream) {
+    if (luat_mbedtls4_psa_init()) {
+        return -1;
+    }
     const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
     if (info == NULL) {
         return -1;
     }
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    if (stream->key_len > 0) {
+        return luat_mbedtls4_hmac_init(info, (const unsigned char *)key, stream->key_len, stream);
+    }
+#endif
     stream->ctx = luat_heap_malloc(sizeof(mbedtls_md_context_t));
     mbedtls_md_init((mbedtls_md_context_t *)stream->ctx);
-    mbedtls_md_setup((mbedtls_md_context_t *)stream->ctx, info, stream->key_len > 0 ? 1 : 0);
+    if (mbedtls_md_setup((mbedtls_md_context_t *)stream->ctx, info, stream->key_len > 0 ? 1 : 0) != 0) {
+        mbedtls_md_free((mbedtls_md_context_t *)stream->ctx);
+        luat_heap_free((mbedtls_md_context_t *)stream->ctx);
+        stream->ctx = NULL;
+        return -1;
+    }
     stream->result_size = mbedtls_md_get_size(info);
     if (stream->key_len > 0){
         mbedtls_md_hmac_starts((mbedtls_md_context_t *)stream->ctx, (const unsigned char*)key, stream->key_len);
@@ -364,6 +522,12 @@ int luat_crypto_md_init(const char* md, const char* key, luat_crypt_stream_t *st
 }
 
 int luat_crypto_md_update(const char* str, size_t str_size, luat_crypt_stream_t *stream) {
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    if (stream->key_len > 0) {
+        luat_mbedtls4_hmac_ctx_t *hctx = (luat_mbedtls4_hmac_ctx_t *)stream->ctx;
+        return mbedtls_md_update(&hctx->md_ctx, (const unsigned char*)str, str_size);
+    }
+#endif
     if (stream->key_len > 0){
         mbedtls_md_hmac_update((mbedtls_md_context_t *)stream->ctx, (const unsigned char*)str, str_size);
     }
@@ -375,6 +539,33 @@ int luat_crypto_md_update(const char* str, size_t str_size, luat_crypt_stream_t 
 
 int luat_crypto_md_finish(void* out_ptr, luat_crypt_stream_t *stream) {
     int ret = 0;
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    if (stream->key_len > 0) {
+        luat_mbedtls4_hmac_ctx_t *hctx = (luat_mbedtls4_hmac_ctx_t *)stream->ctx;
+        unsigned char inner[MBEDTLS_MD_MAX_SIZE];
+        ret = mbedtls_md_finish(&hctx->md_ctx, inner);
+        if (ret == 0) {
+            ret = mbedtls_md_starts(&hctx->md_ctx);
+        }
+        if (ret == 0) {
+            ret = mbedtls_md_update(&hctx->md_ctx, hctx->opad, hctx->block_size);
+        }
+        if (ret == 0) {
+            ret = mbedtls_md_update(&hctx->md_ctx, inner, stream->result_size);
+        }
+        if (ret == 0) {
+            ret = mbedtls_md_finish(&hctx->md_ctx, out_ptr);
+        }
+        mbedtls_md_free(&hctx->md_ctx);
+        luat_heap_free(hctx);
+        stream->ctx = NULL;
+        if (ret == 0) {
+            return stream->result_size;
+        }
+        LLOGI("md finish ret %d", ret);
+        return ret;
+    }
+#endif
     if (stream->key_len > 0) {
         ret = mbedtls_md_hmac_finish((mbedtls_md_context_t *)stream->ctx, out_ptr);
     }
@@ -539,7 +730,10 @@ int luat_crypto_pk_sign(int md_type,
     if (luat_pk_is_pem(privkey, privkey_len)) {
         pem_buf = luat_pk_dup_pem(privkey, privkey_len);
         if (!pem_buf) goto cleanup;
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+        ret = mbedtls_pk_parse_key(&pk, pem_buf, privkey_len + 1,
+                                   (const uint8_t *)password, pwd_len);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
         ret = mbedtls_pk_parse_key(&pk, pem_buf, privkey_len + 1,
                                    (const uint8_t *)password, pwd_len,
                                    luat_pk_rng_cb, NULL);
@@ -551,7 +745,10 @@ int luat_crypto_pk_sign(int md_type,
         pem_buf = NULL;
     } else {
         /* DER 格式 */
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+        ret = mbedtls_pk_parse_key(&pk, privkey, privkey_len,
+                                   (const uint8_t *)password, pwd_len);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
         ret = mbedtls_pk_parse_key(&pk, privkey, privkey_len,
                                    (const uint8_t *)password, pwd_len,
                                    luat_pk_rng_cb, NULL);
@@ -576,7 +773,10 @@ int luat_crypto_pk_sign(int md_type,
 
     /* 执行签名 */
     size_t sig_len = 0;
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+    ret = mbedtls_pk_sign(&pk, luat_md_to_mbedtls(md_type), hash, hash_len,
+                          *sig_out, sig_max, &sig_len);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
     ret = mbedtls_pk_sign(&pk, luat_md_to_mbedtls(md_type), hash, hash_len,
                           *sig_out, sig_max, &sig_len,
                           luat_pk_rng_cb, NULL);
@@ -649,7 +849,10 @@ const char *luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_priva
         pem_buf = luat_pk_dup_pem(key, key_len);
         if (!pem_buf) goto done;
         if (is_private) {
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+            ret = mbedtls_pk_parse_key(&pk, pem_buf, key_len + 1,
+                                       NULL, 0);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
             ret = mbedtls_pk_parse_key(&pk, pem_buf, key_len + 1,
                                        NULL, 0, luat_pk_rng_cb, NULL);
 #else
@@ -662,7 +865,9 @@ const char *luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_priva
         pem_buf = NULL;
     } else {
         if (is_private) {
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+            ret = mbedtls_pk_parse_key(&pk, key, key_len, NULL, 0);
+#elif MBEDTLS_VERSION_NUMBER >= 0x03000000
             ret = mbedtls_pk_parse_key(&pk, key, key_len,
                                        NULL, 0, luat_pk_rng_cb, NULL);
 #else
@@ -674,6 +879,16 @@ const char *luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_priva
     }
 
     if (ret == 0) {
+#if MBEDTLS_VERSION_NUMBER >= 0x04000000
+        psa_key_type_t psa_type = mbedtls_pk_get_key_type(&pk);
+        if (PSA_KEY_TYPE_IS_RSA(psa_type)) {
+            type_str = "rsa";
+        } else if (PSA_KEY_TYPE_IS_ECC(psa_type)) {
+            type_str = "ec";
+        } else {
+            type_str = "unknown";
+        }
+#else
         switch (mbedtls_pk_get_type(&pk)) {
             case MBEDTLS_PK_RSA:      type_str = "rsa";     break;
             case MBEDTLS_PK_ECKEY:    type_str = "ec";      break;
@@ -682,6 +897,7 @@ const char *luat_crypto_pk_type(const uint8_t *key, size_t key_len, int is_priva
             case MBEDTLS_PK_OPAQUE:   type_str = "opaque";  break;
             default:                  type_str = "unknown";  break;
         }
+#endif
     }
 
 done:
@@ -689,7 +905,7 @@ done:
     return type_str;
 }
 
-#if defined(MBEDTLS_PK_WRITE_C) && defined(MBEDTLS_GENPRIME)
+#if defined(MBEDTLS_PK_WRITE_C) && defined(MBEDTLS_GENPRIME) && MBEDTLS_VERSION_NUMBER < 0x04000000
 #include "mbedtls/rsa.h"
 #include "mbedtls/ecp.h"
 

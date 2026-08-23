@@ -41,7 +41,7 @@ terms listed above has been obtained from the copyright holder.
 #include "amrdecode.h"
 #include "cnst.h"
 #include "typedef.h"
-#include "frame.h"
+#include "amr_frame.h"
 #include "sp_dec.h"
 #include "wmf_to_ets.h"
 #include "if2_to_ets.h"

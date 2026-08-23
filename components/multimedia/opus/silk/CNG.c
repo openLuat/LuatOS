@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "main.h"
-#include "stack_alloc.h"
+#include "celt/stack_alloc.h"
 
 /* Generates excitation for CNG LPC synthesis */
 static OPUS_INLINE void silk_CNG_exc(

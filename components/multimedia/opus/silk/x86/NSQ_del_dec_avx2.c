@@ -36,9 +36,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "opus_defines.h"
 #include <immintrin.h>
 
-#include "main.h"
-#include "stack_alloc.h"
-#include "NSQ.h"
+#include "silk/main.h"
+#include "celt/stack_alloc.h"
+#include "silk/NSQ.h"
 #include "celt/x86/x86cpu.h"
 
 /* Returns TRUE if all assumptions met */

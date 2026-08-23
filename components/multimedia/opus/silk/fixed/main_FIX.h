@@ -28,17 +28,17 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef SILK_MAIN_FIX_H
 #define SILK_MAIN_FIX_H
 
-#include "SigProc_FIX.h"
+#include "silk/SigProc_FIX.h"
 #include "structs_FIX.h"
-#include "control.h"
-#include "main.h"
-#include "PLC.h"
-#include "debug.h"
-#include "entenc.h"
+#include "silk/control.h"
+#include "silk/main.h"
+#include "silk/PLC.h"
+#include "silk/debug.h"
+#include "celt/entenc.h"
 
 #if ((defined(OPUS_ARM_ASM) && defined(FIXED_POINT)) \
    || defined(OPUS_ARM_MAY_HAVE_NEON_INTR))
-#include "fixed/arm/warped_autocorrelation_FIX_arm.h"
+#include "silk/fixed/arm/warped_autocorrelation_FIX_arm.h"
 #endif
 
 #ifndef FORCE_CPP_BUILD

@@ -367,22 +367,34 @@ int luat_ch347_spi_transfer(int spi_id, const char* send_buf, size_t send_length
 
 		if (send_length > 0 && recv_length > 0) {
 			if(s_SPIMode) {
-				// 全双工
+				// 全双工: send_length 必须等于 recv_length
 				memcpy(recv_buf, send_buf, send_length);
 				RetVal = pfn_CH347StreamSPI4(g_ch3470_SpiI2cGpioDevIndex, ChipSelect, send_length, recv_buf);
 				return RetVal ? (int)recv_length : 0;
 			} else {
-				// 半双工
-				if (send_length > 0) {
-					RetVal = pfn_CH347SPI_Write(g_ch3470_SpiI2cGpioDevIndex, ChipSelect, send_length, 512, (PVOID)send_buf);
+				/* 半双工 SPI flash: 必须用 CH347SPI_WriteRead 在同一次 CS 拉低
+				 * 周期内完成"发命令字节 + 读数据字节". 之前用 Write+Read 两次
+				 * 调用会让 CS 在中间被释放, flash 会丢失命令上下文, 导致 RDID
+				 * 等命令读出 FF FF FF.
+				 * CH347SPI_WriteRead 用 in-place 缓冲: 总长=send+recv,
+				 * 前 send_length 字节是命令(out), 后 recv_length 字节调用后是
+				 * 读到的数据(in).
+				 */
+				size_t total = send_length + recv_length;
+				char* iobuf = (char*)malloc(total);
+				if (!iobuf) return 0;
+				memcpy(iobuf, send_buf, send_length);
+				memset(iobuf + send_length, 0xFF, recv_length);
+				RetVal = pfn_CH347SPI_WriteRead(g_ch3470_SpiI2cGpioDevIndex, ChipSelect, (ULONG)total, iobuf);
+				if (RetVal) {
+					memcpy(recv_buf, iobuf + send_length, recv_length);
 				}
-				if (recv_length > 0) {
-					ULONG actual_length = recv_length;
-					RetVal = pfn_CH347SPI_Read(g_ch3470_SpiI2cGpioDevIndex, ChipSelect, 0, &actual_length, recv_buf);
-					return RetVal ? (int)actual_length : 0;
-				}
+				free(iobuf);
+				return RetVal ? (int)recv_length : 0;
 			}
 		} else if (send_length > 0) {
+			// 单向写 (WREN/SE/PP cmd 等). iWriteStep=512 是 CH347 推荐的 USB 块大小,
+			// 不是 CS 控制位; 写完 CS 自动拉高.
 			RetVal = pfn_CH347SPI_Write(g_ch3470_SpiI2cGpioDevIndex, ChipSelect, send_length, 512, (PVOID)send_buf);
 			return RetVal ? (int)send_length : 0;
 		} else if (recv_length > 0) {
@@ -420,7 +432,8 @@ int luat_ch347_spi_send(int spi_id, const char* send_buf, size_t length) {
 		BOOL RetVal = FALSE;
 		UCHAR ChipSelect = 0x80;
 
-		RetVal = pfn_CH347SPI_Write(g_ch3470_SpiI2cGpioDevIndex, ChipSelect, length, 0, (PVOID)send_buf);
+		// iWriteStep 是 CH347 内部 USB 块大小, 不是 CS 控制位; 不能为 0 否则会卡死
+		RetVal = pfn_CH347SPI_Write(g_ch3470_SpiI2cGpioDevIndex, ChipSelect, length, 512, (PVOID)send_buf);
 		return RetVal ? (int)length : 0;
 	}
 	return 0;

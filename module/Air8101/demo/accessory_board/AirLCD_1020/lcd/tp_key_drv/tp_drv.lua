@@ -52,14 +52,12 @@ end
 
 local function tp_drv_init()
     -- 初始化软件I2C，接口i2c.createSoft(scl, sda, delay)
-    local result = i2c.createSoft(0, 1)
+    -- local result = i2c.createSoft(0, 1)
+    -- 初始化I2C
+    local result = i2c.setup(1, i2c.SLOW)
 
-    if type(result) ~= "userdata" then
-        log.error("tp_drv.init i2c.createSoft error")
-        return false
-    end
-    -- 此处触摸IC数据读取使用的是软件I2C接口
-    result = tp.init("gt911", { port = result, pin_rst = 28, pin_int = 7, w = 800, h = 480 }, tp_callback)
+    -- 此处触摸IC数据读取使用的是硬件I2C接口
+    result = tp.init("gt911", { port = 1, pin_rst = 28, pin_int = 7, w = 800, h = 480 }, tp_callback)
 
     log.info("tp.init", result)
 

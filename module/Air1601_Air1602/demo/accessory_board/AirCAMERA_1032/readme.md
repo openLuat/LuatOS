@@ -2,23 +2,25 @@
 
 ## 演示功能概述
 
-本示例主要是展示 Air1601 + AirCAMERA_1032 USB摄像头的使用，支持实时预览到LCD屏幕、拍照后上传到电脑(UART)、拍照后上传到合宙IOT云平台。
+本示例主要是展示 Air1601 + AirCAMERA_1032 USB摄像头的使用，支持实时预览到LCD屏幕、拍照后上传到电脑(UART)、拍照后上传到合宙IOT云平台、H.264编码与上传。
 
 1、main.lua：主程序入口
 
-2、camera_preview.lua：摄像头实时预览到LCD屏幕
+2、preview.lua：摄像头实时预览到LCD屏幕，支持四种fit模式实时切换（center / contain / cover / stretch）
 
 3、photo_uart_post.lua：执行拍照后，LCD显示图片，同时通过UART上传照片到电脑
 
 4、photo_to_aircloud.lua：执行拍照后，LCD显示图片，同时上传到合宙IOT云平台
 
-5、lcd_drv.lua：LCD屏幕驱动（1024x600分辨率）
+5、h264_power_test.lua：H.264编码与上传（支持仅编码、编码+本地保存、编码+串口上传、编码+AirCloud上传四种模式）
 
-6、netdrv/：网络驱动目录（支持WIFI、以太网、4G、多网卡等）
+6、lcd_drv.lua：LCD屏幕驱动（1024x600分辨率）
 
-7、netdrv_device.lua：网络驱动选择器
+7、netdrv/：网络驱动目录（支持WIFI、以太网、4G、多网卡等）
 
-注意：camera_preview.lua、photo_uart_post.lua、photo_to_aircloud.lua 只能打开一个不能同时打开
+8、netdrv_device.lua：网络驱动选择器
+
+注意：preview.lua、photo_uart_post.lua、photo_to_aircloud.lua、h264_power_test.lua 只能打开一个不能同时打开
 
 ## 演示功能概述
 
@@ -26,7 +28,7 @@
 - 初始化项目信息和版本号
 - 初始化看门狗，并定时喂狗
 - 加载 netdrv_device.lua（可选，云平台业务需要）
-- 根据需要注释/取消注释，选择加载 camera_preview.lua 或 photo_uart_post.lua 或 photo_to_aircloud.lua
+- 默认已启用 photo_uart_post.lua（拍照+LCD显示+UART上传），如需其他业务模块请注释/取消注释切换
 
 ### 2、网络驱动模块（netdrv/netdrv_device.lua）
 - netdrv_wifi.lua：WIFI连接
@@ -36,12 +38,12 @@
 - netdrv_pc.lua：PC模拟
 - netdrv_device.lua：网络驱动选择器，在这里选择需要加载的网络驱动
 
-### 3、摄像头实时预览模块（camera_preview.lua）
-- 初始化LCD屏幕
-- 监听USB摄像头连接事件
-- 枚举摄像头支持的格式和分辨率，选择MJPEG格式、1024x576分辨率
-- 配置摄像头帧回调，实时显示到LCD
-- 启动摄像头数据流
+### 3、摄像头实时预览模块（preview.lua）
+- 初始化LCD屏幕，创建 AIRUI camera 组件
+- 监听 USB 摄像头连接事件，枚举并选择 MJPEG 格式、1280×720 分辨
+- 点击“开始预览”/“停止预览”控制画面显示
+- 状态栏实时显示当前源分辨率、视口大小和 fit 模式
+- 右侧面板提供“开始/停止预览”按钮和四种 fit 画面适配模式（center / contain / cover / stretch）实时切换按钮
 
 ### 4、拍照+LCD显示+UART上传模块（photo_uart_post.lua）
 - 初始化LCD屏幕
@@ -63,6 +65,19 @@
 - LCD显示图片
 - 调用excloud.upload_image上传图片到合宙IOT云平台
 - 支持多种网络（WIFI/4G/以太网），自动通过socket.dft()判断当前默认网卡
+
+### 6、H.264编码与上传模块（h264_power_test.lua）
+- 初始化USB主机模式连接UVC摄像头
+- 枚举摄像头支持的格式和分辨率，选择H.264格式、1280x720分辨率
+- 配置双缓冲帧数据区，缓冲区大小按分辨率自适应
+- 支持四种工作模式：
+  - 模式1：仅编码（不保存、不上传）
+  - 模式2：编码+本地保存（保存到SD卡，文件保留）
+  - 模式3：编码+保存+串口上传（文件保留）
+  - 模式4：编码+保存+AirCloud上传（使用excloud上传到合宙云平台）
+- 支持SPI SD卡挂载（片选GPIO8），挂载失败自动回退到/ram路径
+- 模式3使用UART3（2Mbps波特率）上传文件
+- 模式4自动初始化excloud，支持网络自动检测和重连
 
 ## 演示硬件环境
 
@@ -103,34 +118,42 @@ Air1601开发板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另�
 
 5、等待USB摄像头连接，LCD屏幕会实时显示摄像头画面，LUATOOLS会有如下打印;
 ```lua
-[2026-06-08 13:29:28.791][LTOS/N][000000002.595]:I/user.camera_preview usb摄像头已连接，app id 0 hub地址 1 端口 1 地址 2
-[2026-06-08 13:29:28.793][LTOS/N][000000002.595]:I/user.camera_preview usb摄像头已连接，app id 0
-[2026-06-08 13:29:28.794][LTOS/N][000000002.595]:I/user.camera_preview 创建frame_buff，每个缓冲区大小 589824 字节
-[2026-06-08 13:29:28.797][LTOS/N][000000002.596]:I/zbuff create large size: 576 kbyte, trigger force GC
-[2026-06-08 13:29:28.798][LTOS/N][000000002.602]:I/zbuff create large size: 576 kbyte, trigger force GC
-[2026-06-08 13:29:28.799][LTOS/N][000000002.607]:I/user.camera_preview 总共有 2 种数据流格式
-[2026-06-08 13:29:28.801][LTOS/N][000000002.607]:I/user.camera_preview 数据流序号 1 格式 2 图像数 4
-[2026-06-08 13:29:28.802][LTOS/N][000000002.607]:I/user.camera_preview   分辨率 1280 x 720 fps 15 格式 2
-[2026-06-08 13:29:28.804][LTOS/N][000000002.608]:I/user.camera_preview   分辨率 1024 x 576 fps 15 格式 2
-[2026-06-08 13:29:28.805][LTOS/N][000000002.608]:I/user.camera_preview   分辨率 640 x 480 fps 15 格式 2
-[2026-06-08 13:29:28.806][LTOS/N][000000002.608]:I/user.camera_preview   分辨率 640 x 360 fps 15 格式 2
-[2026-06-08 13:29:28.807][LTOS/N][000000002.608]:I/user.camera_preview 数据流序号 2 格式 1 图像数 4
-[2026-06-08 13:29:28.809][LTOS/N][000000002.608]:I/user.camera_preview   分辨率 1280 x 720 fps 15 格式 1
-[2026-06-08 13:29:28.811][LTOS/N][000000002.608]:I/user.camera_preview   分辨率 1024 x 576 fps 15 格式 1
-[2026-06-08 13:29:28.813][LTOS/N][000000002.609]:I/user.camera_preview 找到匹配分辨率 1024 x 576 (MJPEG)
-[2026-06-08 13:29:28.814][CAPP/N][000000002.609]:_usb_host_enumerate 632:Loading driver on interface 1
-[2026-06-08 13:29:28.816][CAPP/N][000000002.609]:_usb_host_enumerate 639:final availd interface 2
-[2026-06-08 13:29:28.817][CAPP/N][000000002.609]:soc_usb_host_video_config_fast 493:format 2 frame 2, mjpeg w 1024 h 576 interval 666666
-[2026-06-08 13:29:28.818][CAPP/N][000000002.625]:soc_usb_host_video_config_fast 576:Open video and select formatidx:2, frameidx:2, altsetting:4, format_type:1
-[2026-06-08 13:29:28.819][CAPP/N][000000002.625]:luat_camera_task 182:camera image 1024 X 576
-[2026-06-08 13:29:33.414][LTOS/N][000000007.235]:I/user.camera_preview 新帧数据，buff0长度 64548
-[2026-06-08 13:29:33.461][LTOS/N][000000007.273]:I/user.camera_preview 新帧数据，buff1长度 63535
-[2026-06-08 13:29:33.523][LTOS/N][000000007.339]:I/user.camera_preview 新帧数据，buff0长度 61171
-[2026-06-08 13:29:33.585][LTOS/N][000000007.408]:I/user.camera_preview 新帧数据，buff1长度 59913
-[2026-06-08 13:29:33.663][LTOS/N][000000007.472]:I/user.camera_preview 新帧数据，buff0长度 58981
-[2026-06-08 13:29:33.727][LTOS/N][000000007.539]:I/user.camera_preview 新帧数据，buff1长度 57516
-[2026-06-08 13:29:33.790][LTOS/N][000000007.607]:I/user.camera_preview 新帧数据，buff0长度 56088
-[2026-06-08 13:29:33.853][LTOS/N][000000007.672]:I/user.camera_preview 新帧数据，buff1长度 55190
+[2026-07-15 20:19:03.412][LTOS/N][000000001.411]:I/user.excamera.preview usb摄像头已连接，app_id 0
+[2026-07-15 20:19:03.414][LTOS/N][000000001.411]:I/user.preview USB摄像头已连接, app_id: 0
+[2026-07-15 20:19:03.417][LTOS/N][000000001.411]:I/user.preview UVC格式数量: 1
+[2026-07-15 20:19:03.418][LTOS/N][000000001.411]:I/user.preview   格式索引 1, 类型: 1, 帧数: 4
+[2026-07-15 20:19:03.420][LTOS/N][000000001.411]:I/user.preview     分辨率 1280x720, 帧率: 20 fps
+[2026-07-15 20:19:03.421][LTOS/N][000000001.412]:I/user.preview     分辨率 864x480, 帧率: 20 fps
+[2026-07-15 20:19:03.422][LTOS/N][000000001.412]:I/user.preview     分辨率 800x480, 帧率: 20 fps
+[2026-07-15 20:19:03.424][LTOS/N][000000001.412]:I/user.preview     分辨率 640x480, 帧率: 20 fps
+[2026-07-15 20:19:03.430][LTOS/N][000000001.427]:I/user.preview 摄像头已连接，点击“开始预览”显示画面
+[2026-07-15 20:19:03.431][LTOS/N][000000001.427]:I/zbuff create large size: 900 kbyte, trigger force GC
+[2026-07-15 20:19:03.432][LTOS/N][000000001.438]:I/zbuff create large size: 900 kbyte, trigger force GC
+[2026-07-15 20:19:03.460][LTOS/N][000000001.448]:I/user.excamera.preview UVC格式数量 1
+[2026-07-15 20:19:03.461][LTOS/N][000000001.448]:I/user.excamera.preview 匹配分辨率 1280 x 720 MJPEG
+[2026-07-15 20:19:03.462][LTOS/N][000000001.448]:I/user.excamera.preview 推流已启动 1280 x 720
+[2026-07-15 20:19:03.463][CAPP/N][000000001.456]:_usb_host_enumerate 632:find UVC Class:0x0e, Subclass:0x02, Protocl:0x00 on interface 1
+[2026-07-15 20:19:03.464][CAPP/N][000000001.456]:_usb_host_enumerate 641:Loading driver on interface 1
+[2026-07-15 20:19:03.466][CAPP/N][000000001.456]:_usb_host_enumerate 625:Do not support Class:0x01, Subclass:0x01, Protocl:0x00 on interface 2
+[2026-07-15 20:19:03.467][CAPP/N][000000001.456]:_usb_host_enumerate 625:Do not support Class:0x01, Subclass:0x02, Protocl:0x00 on interface 3
+[2026-07-15 20:19:03.468][CAPP/N][000000001.456]:_usb_host_enumerate 625:Do not support Class:0x01, Subclass:0x02, Protocl:0x00 on interface 4
+[2026-07-15 20:19:03.469][CAPP/N][000000001.456]:_usb_host_enumerate 648:final availd interface 2
+[2026-07-15 20:19:03.470][CAPP/N][000000001.456]:soc_usb_host_video_config_fast 493:format 1 frame 1, mjpeg w 1280 h 720 interval 500000
+[2026-07-15 20:19:03.472][CAPP/N][000000001.472]:soc_usb_host_video_config_fast 576:Open video and select formatidx:1, frameidx:1, altsetting:1, format_type:1
+[2026-07-15 20:19:03.473][CAPP/N][000000001.472]:luat_camera_task 291:camera image 1280 X 720
+[2026-07-15 20:19:03.474][CAPP/N][000000001.472]:_usb_uvc_callback 177:0,0,0,0,921600,1,1024
+[2026-07-15 20:19:03.753][CAPP/N][000000001.751]:_camera_decode_jpg_and_show 185:image 1280 X 720
+[2026-07-15 20:19:03.755][CAPP/N][000000001.751]:_camera_decode_jpg_and_show 186:in buffer 1caf33f0 len 230400 out buffer 1cb2b800 len 1843200
+[2026-07-15 20:19:03.756][CAPP/N][000000001.751]:_camera_decode_jpg_and_show 220:preview 1024 X 600, start 0, 0, cut 128, 60
+[2026-07-15 20:19:40.306][CAPP/N][000000038.292]:i2c_master_xfer 395:i2c1 wait free CR 1, SR 68
+[2026-07-15 20:19:40.506][LTOS/N][000000038.501]:I/user.preview 预览中 源1280×720→视口680×600 fit=cover
+[2026-07-15 20:19:40.674][LTOS/N][000000038.661]:W/airui.camera camera: viewport 680x600, frame 1280x720, fit=2 (software)
+[2026-07-15 20:19:48.668][LTOS/N][000000046.663]:I/user.preview 预览中 源1280×720→视口680×600 fit=center
+[2026-07-15 20:19:51.701][LTOS/N][000000049.699]:I/user.preview 预览中 源1280×720→视口680×600 fit=contain
+[2026-07-15 20:19:54.268][LTOS/N][000000052.272]:I/user.preview 预览中 源1280×720→视口680×600 fit=cover
+[2026-07-15 20:19:56.124][LTOS/N][000000054.115]:I/user.preview 预览中 源1280×720→视口680×600 fit=stretch
+[2026-07-15 20:19:57.910][LTOS/N][000000055.904]:I/user.preview 预览已停止 fit=stretch
+[2026-07-15 20:20:00.707][LTOS/N][000000058.707]:I/user.preview 预览中 源1280×720→视口680×600 fit=stretch
 ……
 ```
 
@@ -329,10 +352,52 @@ Air1601开发板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另�
 ![](https://docs.openLuat.com/cdn/image/Air1601/aiecloud.png)
 
 
+### **使用h264_power_test H.264编码与上传的核心步骤**
+
+1、搭建硬件环境：
+   - 模式1/2：仅需Air1601开发板+AirCAMERA_1032摄像头
+   - 模式3：需额外连接USB转TTL模块到UART3
+   - 模式4：需根据选择的网络模块连接WIFI/4G/以太网
+
+2、打开main.lua文件中 require "h264_power_test"，注释掉其他业务模块
+
+3、修改h264_power_test.lua中的配置：
+   - TEST_MODE：选择工作模式（1/2/3/4）
+   - RECORD_SECONDS：录制时长（秒），仅模式2/3/4
+   - LOOP_INTERVAL：循环间隔（秒），仅模式2/3/4
+   - PROJECT_AUTH_KEY：合宙IOT平台项目密钥，仅模式4
+
+4、模式2/3/4确保SD卡已插入（格式为FAT32），否则自动回退到/ram路径
+
+5、电脑端打开串口工具（如SSCOM串口助手），选择对应串口，配置好波特率（3000000），勾选"接收数据到文件"（仅模式3）
+
+6、烧录DEMO代码
+
+7、等待USB摄像头连接，根据TEST_MODE执行对应操作：
+   - 模式1：持续编码，不上传不保存
+   - 模式2：循环录制并保存到SD卡/ram，文件保留（video_时间戳.h264）
+   - 模式3：录制+保存+UART上传文件
+   - 模式4：录制+保存+AirCloud上传文件
+
+8、操作完成后断电或复位即可，录制文件需定期手动清理
+
+9、LUATOOLS会有如下打印;
+```lua
+[2026-07-09 10:00:00.000][LTOS/N][000000001.000]:I/user.h264_test 启动，工作模式 1
+[2026-07-09 10:00:00.200][LTOS/N][000000001.200]:I/user.h264_test USB 摄像头已连接，app id 0
+[2026-07-09 10:00:00.500][LTOS/N][000000001.500]:I/user.h264_test 摄像头已就绪
+[2026-07-09 10:00:00.501][LTOS/N][000000001.501]:I/user.h264_test 模式1：仅编码（不保存不上传），持续运行...
+[2026-07-09 10:00:02.501][LTOS/N][000000003.501]:I/user.h264_test 模式1 运行中... 帧数 100
+```
+
 ## 注意事项
 
 1、netdrv_device.lua中只能打开一个网络驱动，不能同时打开多个
 
-2、photo_uart_post.lua和photo_to_aircloud.lua和camera_preview.lua只能打开一个，不能同时打开
+2、preview.lua、photo_uart_post.lua、photo_to_aircloud.lua、h264_power_test.lua只能打开一个，不能同时打开
 
 3、本示例不使用excamera库，而是直接使用camera库的原始API，Air1601当前版本不支持camera.capture()接口
+
+4、h264_power_test.lua的模式2/3/4会保留录制文件（video_时间戳.h264），需定期手动清理SD卡/ram空间
+
+5、h264_power_test.lua的模式4会自动初始化excloud，无需额外加载netdrv_device

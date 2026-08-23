@@ -1,5 +1,6 @@
 #include "luat_base.h"
 #include "luat_fs.h"
+#include "luat_mcu.h"
 #include "luat_mem.h"
 
 #define LUAT_LOG_TAG "little_flash"
@@ -8,18 +9,29 @@
 #ifdef LUAT_USE_LITTLE_FLASH
 
 #include "little_flash.h"
+#include "luat_little_flash_tfs.h"
 #include "../tfs/inc/tfs.h"
 #include "../tfs/inc/tfs_config.h"
 #include "../tfs/inc/tfs_port.h"
 #include "../tfs/inc/tfs_types.h"
 #include "../tfs/src/tfs_core.h"
+#include "../tfs/src/tfs_tags.h"
 
 #include <string.h>
 
 #define LF_TFS_BLANK_PROBE_BLOCKS 2U
-#define LF_TFS_NAME_MARKER        ".tfs_fullname_tnode2_cache1_ckpt2"
-#define LF_TFS_NAME_MARKER_TEXT   "TFS_FULL_NAME=1;TNODE_LEVEL_FIX=2;CACHE_DROP_CLEAN=1;CHECKPOINT_LATEST=2\n"
-#define LF_TFS_RAW_MARKER_TEXT    "LFTFS1;TFS_FULL_NAME=1;TNODE_LEVEL_FIX=2;CACHE_DROP_CLEAN=1;CHECKPOINT_LATEST=2\n"
+#define LF_TFS_OOB_TAGS_OFFSET    2U
+#define LF_TFS_OOB_TAGS_OFFSET_TEXT "2"
+#define LF_TFS_FEATURE_MARKER_TEXT "TFS_FULL_NAME=1;TNODE_LEVEL_FIX=2;CACHE_DROP_CLEAN=1;CHECKPOINT_LATEST=2;"
+#define LF_TFS_NAME_MARKER_INBAND ".tfs_fullname_tnode2_cache1_ckpt2_inband"
+#define LF_TFS_NAME_MARKER_HWOOB  ".tfs_fullname_tnode2_cache1_ckpt2_hwoob"
+#define LF_TFS_NAME_MARKER_TEXT_INBAND LF_TFS_FEATURE_MARKER_TEXT "TAG_INBAND=1\n"
+#define LF_TFS_NAME_MARKER_TEXT_HWOOB  LF_TFS_FEATURE_MARKER_TEXT "TAG_HW_OOB=1;OOB_OFF=" LF_TFS_OOB_TAGS_OFFSET_TEXT "\n"
+#define LF_TFS_RAW_MARKER_TEXT_INBAND  "LFTFS1;" LF_TFS_FEATURE_MARKER_TEXT "TAG_INBAND=1\n"
+#define LF_TFS_RAW_MARKER_TEXT_HWOOB   "LFTFS1;" LF_TFS_FEATURE_MARKER_TEXT "TAG_HW_OOB=1;OOB_OFF=" LF_TFS_OOB_TAGS_OFFSET_TEXT "\n"
+#ifndef LF_TFS_DEFAULT_INBAND_TAGS
+#define LF_TFS_DEFAULT_INBAND_TAGS 0
+#endif
 #define LF_TFS_MARKER_BUF_SIZE    128U
 #define LF_TFS_RAW_MARKER_MISSING 0
 #define LF_TFS_RAW_MARKER_CURRENT 2
@@ -29,9 +41,23 @@
 #define LF_TFS_BAD_TABLE_MAGIC    0x31444242U
 #define LF_TFS_BAD_TABLE_VERSION  1U
 #define LF_TFS_READ_RETRY_COUNT   3U
-#define LF_TFS_BAD_MAX_BLOCKS     256U
 #define LF_TFS_READ_RETRY_10US    20U
 #define LF_TFS_READ_WAIT_10US     1000U
+#define LF_TFS_HW_OOB_TEST_LEN    16U
+
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+#define LF_TFS_DIAG_MAX_BLOCKS 4096U
+#define LF_TFS_MOUNT_PATH_UNKNOWN    0U
+#define LF_TFS_MOUNT_PATH_FORMAT     1U
+#define LF_TFS_MOUNT_PATH_CHECKPOINT 2U
+#define LF_TFS_MOUNT_PATH_DELTA      3U
+#define LF_TFS_MOUNT_PATH_FULL_SCAN  4U
+
+static uint16_t s_tfs_diag_erase_counts[LF_TFS_DIAG_MAX_BLOCKS];
+static uint16_t s_tfs_diag_ecc_counts[LF_TFS_DIAG_MAX_BLOCKS];
+static uint32_t s_tfs_diag_seed_bad[LF_TFS_BAD_MAX_BLOCKS];
+static uint32_t s_tfs_diag_seed_bad_count;
+#endif
 
 typedef struct {
     uint32_t magic;
@@ -47,32 +73,31 @@ typedef struct {
     uint32_t check;
 } lf_tfs_bad_table_hdr_t;
 
-typedef struct {
-    little_flash_t *flash;
-    uint32_t        offset;
-    uint32_t        maxsize;
-    char            dev_name[16];
-    int             is_mounted;
-    int             is_nand;
-    uint8_t        *oob_ram;
-    uint32_t        oob_per_chunk;
-    uint32_t        total_chunks;
-    uint32_t        marker_addr;
-    uint32_t        read_error_count;
-    uint32_t        read_ecc_corrected_count;
-    uint32_t        read_ecc_refresh_count;
-    uint32_t        anchor_log_count;
-    uint32_t        write_verify_error_count;
-    uint32_t        bad_blocks[LF_TFS_BAD_MAX_BLOCKS];
-    uint32_t        bad_block_count;
-} luat_lf_tfs_ctx_t;
-
 static luat_lf_tfs_ctx_t s_tfs_ctx;
 static int               s_tfs_inited = 0;
+
+static const char *lf_tfs_name_marker(luat_lf_tfs_ctx_t *ctx)
+{
+    return (ctx && ctx->use_hw_oob) ? LF_TFS_NAME_MARKER_HWOOB
+                                    : LF_TFS_NAME_MARKER_INBAND;
+}
+
+static const char *lf_tfs_name_marker_text(luat_lf_tfs_ctx_t *ctx)
+{
+    return (ctx && ctx->use_hw_oob) ? LF_TFS_NAME_MARKER_TEXT_HWOOB
+                                    : LF_TFS_NAME_MARKER_TEXT_INBAND;
+}
+
+static const char *lf_tfs_raw_marker_text(luat_lf_tfs_ctx_t *ctx)
+{
+    return (ctx && ctx->use_hw_oob) ? LF_TFS_RAW_MARKER_TEXT_HWOOB
+                                    : LF_TFS_RAW_MARKER_TEXT_INBAND;
+}
 
 static lf_err_t lf_tfs_read_flash(luat_lf_tfs_ctx_t *ctx, uint32_t addr,
                                   uint8_t *data, uint32_t len,
                                   uint8_t *last_status);
+static int lf_tfs_bad_table_add_ram(luat_lf_tfs_ctx_t *ctx, uint32_t block);
 
 static uint32_t lf_tfs_region_size(const luat_lf_tfs_ctx_t *ctx)
 {
@@ -137,6 +162,77 @@ static int lf_tfs_bad_block_index(const luat_lf_tfs_ctx_t *ctx, uint32_t block)
     }
     return -1;
 }
+
+static void lf_tfs_counter_inc(uint32_t *value)
+{
+    if (value && *value != UINT32_MAX) {
+        (*value)++;
+    }
+}
+
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+static int lf_tfs_diag_list_index(const uint32_t *list, uint32_t count,
+                                  uint32_t block)
+{
+    uint32_t i;
+
+    for (i = 0; i < count; i++) {
+        if (list[i] == block) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+static int lf_tfs_diag_seed_add(uint32_t block)
+{
+    if (lf_tfs_diag_list_index(s_tfs_diag_seed_bad,
+                               s_tfs_diag_seed_bad_count, block) >= 0) {
+        return 0;
+    }
+    if (s_tfs_diag_seed_bad_count >= LF_TFS_BAD_MAX_BLOCKS) {
+        return -1;
+    }
+    s_tfs_diag_seed_bad[s_tfs_diag_seed_bad_count++] = block;
+    return 1;
+}
+
+static void lf_tfs_diag_apply_seed(luat_lf_tfs_ctx_t *ctx)
+{
+    uint32_t i;
+
+    for (i = 0; i < s_tfs_diag_seed_bad_count; i++) {
+        (void)lf_tfs_bad_table_add_ram(ctx, s_tfs_diag_seed_bad[i]);
+    }
+}
+
+static void lf_tfs_diag_note_erase(uint32_t block)
+{
+    if (block < LF_TFS_DIAG_MAX_BLOCKS &&
+        s_tfs_diag_erase_counts[block] != UINT16_MAX) {
+        s_tfs_diag_erase_counts[block]++;
+    }
+}
+
+static void lf_tfs_diag_note_ecc(luat_lf_tfs_ctx_t *ctx, uint32_t page)
+{
+    uint32_t page_size;
+    uint32_t pages_per_block;
+    uint32_t block;
+
+    if (!ctx || !ctx->flash) {
+        return;
+    }
+    page_size = ctx->flash->chip_info.prog_size;
+    pages_per_block = page_size ?
+        (ctx->flash->chip_info.erase_size / page_size) : 0;
+    block = pages_per_block ? (page / pages_per_block) : UINT32_MAX;
+    if (block < LF_TFS_DIAG_MAX_BLOCKS &&
+        s_tfs_diag_ecc_counts[block] != UINT16_MAX) {
+        s_tfs_diag_ecc_counts[block]++;
+    }
+}
+#endif
 
 static uint32_t lf_tfs_bad_table_check_values(const uint32_t *blocks,
                                               uint32_t count)
@@ -282,6 +378,128 @@ static void lf_tfs_bad_table_load(luat_lf_tfs_ctx_t *ctx)
     luat_heap_free(page);
 }
 
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+static int lf_tfs_diag_prepare_ctx(luat_lf_tfs_ctx_t *ctx,
+                                   little_flash_t *flash,
+                                   uint32_t offset, uint32_t maxsize,
+                                   uint32_t *region_blocks,
+                                   uint32_t *pages_per_block)
+{
+    uint32_t total_size;
+    uint32_t page_size;
+    uint32_t erase_size;
+
+    if (!ctx || !flash || flash->chip_info.type != LF_DRIVER_NAND_FLASH) {
+        return 0;
+    }
+    page_size = flash->chip_info.prog_size;
+    erase_size = flash->chip_info.erase_size;
+    if (page_size == 0 || erase_size == 0 || offset >= flash->chip_info.capacity ||
+        maxsize > (uint32_t)((uint64_t)flash->chip_info.capacity -
+                             (uint64_t)offset)) {
+        return 0;
+    }
+    total_size = maxsize ? maxsize :
+        (uint32_t)((uint64_t)flash->chip_info.capacity - (uint64_t)offset);
+    if (
+        (offset % erase_size) != 0 || total_size < erase_size * 2U ||
+        (total_size % erase_size) != 0) {
+        return 0;
+    }
+
+    memset(ctx, 0, sizeof(*ctx));
+    ctx->flash = flash;
+    ctx->offset = offset;
+    ctx->maxsize = maxsize;
+    ctx->is_nand = 1;
+    *region_blocks = total_size / erase_size;
+    *pages_per_block = erase_size / page_size;
+    ctx->total_chunks = (*region_blocks - 1U) * *pages_per_block;
+    ctx->marker_addr = offset + (*region_blocks - 1U) * erase_size;
+    snprintf(ctx->dev_name, sizeof(ctx->dev_name), "tfs0");
+    return *pages_per_block > 0;
+}
+
+static int lf_tfs_diag_scan_factory(little_flash_t *flash,
+                                    uint32_t offset, uint32_t maxsize,
+                                    uint32_t *bad, uint32_t *bad_count,
+                                    uint32_t *read_failures)
+{
+    luat_lf_tfs_ctx_t temp;
+    uint32_t region_blocks;
+    uint32_t pages_per_block;
+    uint32_t page_base;
+    uint32_t block;
+
+    if (!bad || !bad_count || !read_failures ||
+        !lf_tfs_diag_prepare_ctx(&temp, flash, offset, maxsize,
+                                 &region_blocks, &pages_per_block)) {
+        return 0;
+    }
+    *bad_count = 0;
+    *read_failures = 0;
+    page_base = offset / flash->chip_info.prog_size;
+    for (block = 0; block < region_blocks; block++) {
+        uint8_t marker = 0xFF;
+        uint8_t status = 0;
+        lf_err_t ret = little_flash_nand_read_page_oob(
+            flash, page_base + block * pages_per_block,
+            0, NULL, 0, 0, &marker, 1, &status);
+
+        if (ret != LF_ERR_OK) {
+            uint8_t ecc = (uint8_t)((status & 0x30U) >> 4);
+            if (marker == 0xFF || ecc < 2U) {
+                (*read_failures)++;
+                continue;
+            }
+        }
+        if (marker != 0xFF && *bad_count < LF_TFS_BAD_MAX_BLOCKS) {
+            bad[(*bad_count)++] = block;
+        }
+    }
+    return 1;
+}
+
+static int lf_tfs_diag_scan_persisted(little_flash_t *flash,
+                                      uint32_t offset, uint32_t maxsize,
+                                      uint32_t *bad, uint32_t *bad_count)
+{
+    luat_lf_tfs_ctx_t temp;
+    uint32_t region_blocks;
+    uint32_t pages_per_block;
+    uint32_t page_size;
+    uint8_t *page;
+    uint8_t status = 0;
+    int ok;
+
+    if (!bad || !bad_count ||
+        !lf_tfs_diag_prepare_ctx(&temp, flash, offset, maxsize,
+                                 &region_blocks, &pages_per_block)) {
+        return 0;
+    }
+    page_size = flash->chip_info.prog_size;
+    page = (uint8_t *)luat_heap_malloc(page_size);
+    if (!page) {
+        return 0;
+    }
+    ok = lf_tfs_read_flash(&temp, temp.marker_addr, page, page_size, &status) == LF_ERR_OK &&
+         lf_tfs_bad_table_load_page(&temp, page, page_size);
+    if (ok) {
+        memcpy(bad, temp.bad_blocks,
+               temp.bad_block_count * sizeof(temp.bad_blocks[0]));
+        *bad_count = temp.bad_block_count;
+    } else {
+        *bad_count = 0;
+    }
+    luat_heap_free(page);
+    return 1;
+}
+#endif
+
+static uint32_t lf_tfs_phys_page(luat_lf_tfs_ctx_t *ctx, uint32_t page)
+{
+    return ctx->offset / ctx->flash->chip_info.prog_size + page;
+}
 static int lf_tfs_looks_blank(luat_lf_tfs_ctx_t *ctx)
 {
     uint32_t page_size;
@@ -318,7 +536,16 @@ static int lf_tfs_looks_blank(luat_lf_tfs_ctx_t *ctx)
 
     blank = 1;
     for (offset = 0; offset < probe_size; offset += page_size) {
-        if (little_flash_read(ctx->flash, ctx->offset + offset, page_buf, page_size) != LF_ERR_OK) {
+        uint8_t status = 0;
+
+        if (lf_tfs_read_flash(ctx,
+                              ctx->offset + offset,
+                              page_buf,
+                              page_size,
+                              &status) != LF_ERR_OK) {
+            LLOGW("tfs: blank probe read failed offset=%u status=0x%02X",
+                  (unsigned int)offset,
+                  (unsigned int)status);
             blank = 0;
             break;
         }
@@ -335,6 +562,7 @@ static int lf_tfs_looks_blank(luat_lf_tfs_ctx_t *ctx)
 static int lf_tfs_raw_marker_state(luat_lf_tfs_ctx_t *ctx)
 {
     uint8_t marker[LF_TFS_MARKER_BUF_SIZE];
+    const char *raw_marker;
     uint8_t status = 0;
     size_t len;
 
@@ -350,19 +578,99 @@ static int lf_tfs_raw_marker_state(luat_lf_tfs_ctx_t *ctx)
                           &status) != LF_ERR_OK) {
         return LF_TFS_RAW_MARKER_MISSING;
     }
-    len = strlen(LF_TFS_RAW_MARKER_TEXT);
-    if (memcmp(marker, LF_TFS_RAW_MARKER_TEXT, len) == 0) {
+    raw_marker = lf_tfs_raw_marker_text(ctx);
+    len = strlen(raw_marker);
+    if (memcmp(marker, raw_marker, len) == 0) {
         return LF_TFS_RAW_MARKER_CURRENT;
     }
     return LF_TFS_RAW_MARKER_MISSING;
 }
 
+static int lf_tfs_hw_oob_selftest(luat_lf_tfs_ctx_t *ctx)
+{
+    uint8_t data[LF_TFS_HW_OOB_TEST_LEN];
+    uint8_t data_read[LF_TFS_HW_OOB_TEST_LEN];
+    uint8_t oob[sizeof(tfs_packed_tags2_t)];
+    uint8_t oob_read[sizeof(tfs_packed_tags2_t)];
+    uint32_t page_size;
+    uint32_t erase_size;
+    uint32_t phys_page;
+    uint32_t i;
+    uint8_t status = 0;
+    lf_err_t ret;
+
+    if (!ctx || !ctx->flash || !ctx->use_hw_oob || ctx->hw_oob_selftest_done) {
+        return 1;
+    }
+
+    page_size = ctx->flash->chip_info.prog_size;
+    erase_size = ctx->flash->chip_info.erase_size;
+    if (ctx->marker_addr == 0 || page_size == 0 || erase_size < page_size * 2) {
+        LLOGW("tfs: hw oob selftest no marker spare page");
+        return 0;
+    }
+
+    phys_page = ctx->marker_addr / page_size + 1;
+    for (i = 0; i < sizeof(data); i++) {
+        data[i] = (uint8_t)(0xA5U ^ i);
+    }
+    for (i = 0; i < sizeof(oob); i++) {
+        oob[i] = (uint8_t)(0x5AU ^ (i * 3U));
+    }
+    memset(data_read, 0, sizeof(data_read));
+    memset(oob_read, 0, sizeof(oob_read));
+
+    ret = little_flash_nand_write_page_oob(ctx->flash,
+                                           phys_page,
+                                           0,
+                                           data,
+                                           (uint32_t)sizeof(data),
+                                           LF_TFS_OOB_TAGS_OFFSET,
+                                           oob,
+                                           (uint32_t)sizeof(oob),
+                                           &status);
+    if (ret != LF_ERR_OK) {
+        LLOGW("tfs: hw oob selftest write failed page=%u status=0x%02X ret=%d",
+              (unsigned int)phys_page,
+              (unsigned int)status,
+              ret);
+        return 0;
+    }
+
+    ret = little_flash_nand_read_page_oob(ctx->flash,
+                                          phys_page,
+                                          0,
+                                          data_read,
+                                          (uint32_t)sizeof(data_read),
+                                          LF_TFS_OOB_TAGS_OFFSET,
+                                          oob_read,
+                                          (uint32_t)sizeof(oob_read),
+                                          &status);
+    if (ret != LF_ERR_OK ||
+        memcmp(data, data_read, sizeof(data)) != 0 ||
+        memcmp(oob, oob_read, sizeof(oob)) != 0) {
+        LLOGW("tfs: hw oob selftest verify failed page=%u status=0x%02X ret=%d",
+              (unsigned int)phys_page,
+              (unsigned int)status,
+              ret);
+        return 0;
+    }
+
+    ctx->hw_oob_selftest_done = 1;
+    LLOGD("tfs: hw oob selftest ok page=%u oob_off=%u oob_len=%u",
+          (unsigned int)phys_page,
+          (unsigned int)LF_TFS_OOB_TAGS_OFFSET,
+          (unsigned int)sizeof(oob));
+    return 1;
+}
 static int lf_tfs_write_marker_page(luat_lf_tfs_ctx_t *ctx,
                                     const lf_tfs_anchor_slot_t *anchor)
 {
     uint32_t erase_size;
     uint32_t page_size;
     uint8_t *page;
+    const char *raw_marker;
+    size_t raw_marker_len;
     int ok = 0;
 
     if (!ctx || !ctx->flash || ctx->marker_addr == 0) {
@@ -371,7 +679,9 @@ static int lf_tfs_write_marker_page(luat_lf_tfs_ctx_t *ctx,
 
     erase_size = ctx->flash->chip_info.erase_size;
     page_size = ctx->flash->chip_info.prog_size;
-    if (erase_size == 0 || page_size < strlen(LF_TFS_RAW_MARKER_TEXT)) {
+    raw_marker = lf_tfs_raw_marker_text(ctx);
+    raw_marker_len = strlen(raw_marker);
+    if (erase_size == 0 || page_size < raw_marker_len) {
         return 0;
     }
     if (anchor && page_size < LF_TFS_ANCHOR_OFFSET + sizeof(*anchor)) {
@@ -384,7 +694,7 @@ static int lf_tfs_write_marker_page(luat_lf_tfs_ctx_t *ctx,
         return 0;
     }
     memset(page, 0xFF, page_size);
-    memcpy(page, LF_TFS_RAW_MARKER_TEXT, strlen(LF_TFS_RAW_MARKER_TEXT));
+    memcpy(page, raw_marker, raw_marker_len);
     if (anchor) {
         memcpy(page + LF_TFS_ANCHOR_OFFSET, anchor, sizeof(*anchor));
     }
@@ -421,6 +731,9 @@ static int lf_tfs_write_marker_page(luat_lf_tfs_ctx_t *ctx,
             goto done;
         }
         luat_heap_free(verify);
+    }
+    if (!lf_tfs_hw_oob_selftest(ctx)) {
+        goto done;
     }
     ok = 1;
 
@@ -459,13 +772,15 @@ static int lf_tfs_marker_path(luat_lf_tfs_ctx_t *ctx, char *path, size_t size)
         return 0;
     }
 
-    ret = snprintf(path, size, "/%s/%s", ctx->dev_name, LF_TFS_NAME_MARKER);
+    ret = snprintf(path, size, "/%s/%s", ctx->dev_name, lf_tfs_name_marker(ctx));
     return ret > 0 && (size_t)ret < size;
 }
 
 static int lf_tfs_write_name_marker(luat_lf_tfs_ctx_t *ctx)
 {
     char path[64];
+    const char *marker_text;
+    int marker_len;
     int fd;
     int ok;
 
@@ -473,16 +788,16 @@ static int lf_tfs_write_name_marker(luat_lf_tfs_ctx_t *ctx)
         return 0;
     }
 
+    marker_text = lf_tfs_name_marker_text(ctx);
+    marker_len = (int)strlen(marker_text);
+
     fd = tfs_open(path, TFS_O_CREAT | TFS_O_RDWR | TFS_O_TRUNC, 0644);
     if (fd < 0) {
         LLOGW("tfs: open name marker failed");
         return 0;
     }
 
-    ok = (tfs_write(fd,
-                    LF_TFS_NAME_MARKER_TEXT,
-                    (int)(sizeof(LF_TFS_NAME_MARKER_TEXT) - 1)) ==
-          (int)(sizeof(LF_TFS_NAME_MARKER_TEXT) - 1));
+    ok = (tfs_write(fd, marker_text, marker_len) == marker_len);
     if (tfs_close(fd) != 0) {
         ok = 0;
     }
@@ -514,9 +829,231 @@ static int lf_tfs_name_marker_ok(luat_lf_tfs_ctx_t *ctx)
         return 0;
     }
     marker[sizeof(marker) - 1] = '\0';
-    return strcmp(marker, LF_TFS_NAME_MARKER_TEXT) == 0;
+    return strcmp(marker, lf_tfs_name_marker_text(ctx)) == 0;
 }
 
+static int lf_tfs_hw_oob_bounds_ok(luat_lf_tfs_ctx_t *ctx, uint32_t oob_len)
+{
+    if (oob_len == 0) {
+        return 1;
+    }
+    if (!ctx || ctx->oob_per_chunk <= LF_TFS_OOB_TAGS_OFFSET) {
+        return 0;
+    }
+    return oob_len <= ctx->oob_per_chunk - LF_TFS_OOB_TAGS_OFFSET;
+}
+
+static int lf_tfs_hw_oob_error(lf_err_t ret, int program_op)
+{
+    if (ret == LF_ERR_BAD_ADDRESS) {
+        return TFS_EINVAL;
+    }
+    if (ret == LF_ERR_NO_MEM) {
+        return TFS_ENOMEM;
+    }
+    if (program_op && ret == LF_ERR_WRITE) {
+        return TFS_EFLASH;
+    }
+    return TFS_EIO;
+}
+
+static int lf_tfs_hw_oob_write_page(luat_lf_tfs_ctx_t *c, uint32_t page,
+                                    const uint8_t *data, uint32_t data_len,
+                                    const uint8_t *oob, uint32_t oob_len)
+{
+    uint32_t phys_page;
+    uint8_t *verify = NULL;
+    uint8_t *verify_oob = NULL;
+    uint8_t status = 0;
+    lf_err_t ret;
+
+    if (!c || !c->flash) {
+        return TFS_FAIL;
+    }
+    if (data_len == 0 && oob_len == 0) {
+        return TFS_OK;
+    }
+    if (page >= c->total_chunks ||
+        data_len > c->flash->chip_info.prog_size ||
+        (data_len > 0 && !data) ||
+        (oob_len > 0 && !oob) ||
+        !lf_tfs_hw_oob_bounds_ok(c, oob_len)) {
+        LLOGW("tfs: hw oob invalid write args page=%u total=%u data_len=%u page_size=%u oob_len=%u spare=%u",
+              (unsigned int)page,
+              (unsigned int)c->total_chunks,
+              (unsigned int)data_len,
+              (unsigned int)c->flash->chip_info.prog_size,
+              (unsigned int)oob_len,
+              (unsigned int)c->oob_per_chunk);
+        return TFS_EINVAL;
+    }
+
+    phys_page = lf_tfs_phys_page(c, page);
+    if (data && data_len > 0) {
+        verify = (uint8_t *)luat_heap_malloc(data_len);
+        if (!verify) {
+            return TFS_ENOMEM;
+        }
+    }
+    if (oob && oob_len > 0) {
+        verify_oob = (uint8_t *)luat_heap_malloc(oob_len);
+        if (!verify_oob) {
+            if (verify) {
+                luat_heap_free(verify);
+            }
+            return TFS_ENOMEM;
+        }
+    }
+
+    ret = little_flash_nand_read_page_oob(c->flash, phys_page,
+                                          0, verify, verify ? data_len : 0,
+                                          LF_TFS_OOB_TAGS_OFFSET,
+                                          verify_oob, verify_oob ? oob_len : 0,
+                                          &status);
+    if (ret != LF_ERR_OK) {
+        int tfs_ret = lf_tfs_hw_oob_error(ret, 0);
+        LLOGW("tfs: hw oob write precheck failed page=%u phys=%u data_len=%u oob_len=%u status=0x%02X ret=%d",
+              (unsigned int)page,
+              (unsigned int)phys_page,
+              (unsigned int)data_len,
+              (unsigned int)oob_len,
+              (unsigned int)status,
+              ret);
+        if (verify) {
+            luat_heap_free(verify);
+        }
+        if (verify_oob) {
+            luat_heap_free(verify_oob);
+        }
+        return tfs_ret;
+    }
+    if ((verify && !lf_tfs_is_all_ff(verify, data_len)) ||
+        (verify_oob && !lf_tfs_is_all_ff(verify_oob, oob_len))) {
+        LLOGW("tfs: hw oob write target not blank page=%u phys=%u data_len=%u oob_len=%u",
+              (unsigned int)page,
+              (unsigned int)phys_page,
+              (unsigned int)data_len,
+              (unsigned int)oob_len);
+        if (verify) {
+            luat_heap_free(verify);
+        }
+        if (verify_oob) {
+            luat_heap_free(verify_oob);
+        }
+        return TFS_EINVAL;
+    }
+
+    ret = little_flash_nand_write_page_oob(c->flash, phys_page,
+                                           0, data, data ? data_len : 0,
+                                           LF_TFS_OOB_TAGS_OFFSET,
+                                           oob, oob ? oob_len : 0,
+                                           &status);
+    if (ret != LF_ERR_OK) {
+        int tfs_ret = lf_tfs_hw_oob_error(ret, 1);
+        LLOGE("tfs: hw oob write_page failed page=%u phys=%u status=0x%02X ret=%d",
+              (unsigned int)page,
+              (unsigned int)phys_page,
+              (unsigned int)status,
+              ret);
+        if (verify) {
+            luat_heap_free(verify);
+        }
+        if (verify_oob) {
+            luat_heap_free(verify_oob);
+        }
+        return tfs_ret;
+    }
+
+    ret = little_flash_nand_read_page_oob(c->flash, phys_page,
+                                          0, verify, verify ? data_len : 0,
+                                          LF_TFS_OOB_TAGS_OFFSET,
+                                          verify_oob, verify_oob ? oob_len : 0,
+                                          &status);
+    if (ret != LF_ERR_OK) {
+        int tfs_ret = lf_tfs_hw_oob_error(ret, 0);
+        LLOGW("tfs: hw oob write verify read failed page=%u phys=%u status=0x%02X ret=%d",
+              (unsigned int)page,
+              (unsigned int)phys_page,
+              (unsigned int)status,
+              ret);
+        if (verify) {
+            luat_heap_free(verify);
+        }
+        if (verify_oob) {
+            luat_heap_free(verify_oob);
+        }
+        return tfs_ret;
+    }
+    if ((verify && memcmp(verify, data, data_len) != 0) ||
+        (verify_oob && memcmp(verify_oob, oob, oob_len) != 0)) {
+        LLOGW("tfs: hw oob write verify mismatch page=%u phys=%u data_len=%u oob_len=%u status=0x%02X",
+              (unsigned int)page,
+              (unsigned int)phys_page,
+              (unsigned int)data_len,
+              (unsigned int)oob_len,
+              (unsigned int)status);
+        if (verify) {
+            luat_heap_free(verify);
+        }
+        if (verify_oob) {
+            luat_heap_free(verify_oob);
+        }
+        return TFS_EFLASH;
+    }
+
+    if (verify) {
+        luat_heap_free(verify);
+    }
+    if (verify_oob) {
+        luat_heap_free(verify_oob);
+    }
+    return TFS_OK;
+}
+
+static int lf_tfs_hw_oob_read_page(luat_lf_tfs_ctx_t *c, uint32_t page,
+                                   uint8_t *data, uint32_t data_len,
+                                   uint8_t *oob, uint32_t oob_len)
+{
+    uint32_t phys_page;
+    uint32_t attempt;
+    uint8_t status = 0;
+    lf_err_t ret = LF_ERR_READ;
+
+    if (!c || !c->flash) {
+        return TFS_FAIL;
+    }
+    if (oob && !lf_tfs_hw_oob_bounds_ok(c, oob_len)) {
+        return TFS_EINVAL;
+    }
+
+    phys_page = lf_tfs_phys_page(c, page);
+    for (attempt = 0; attempt <= LF_TFS_READ_RETRY_COUNT; attempt++) {
+        ret = little_flash_nand_read_page_oob(c->flash, phys_page,
+                                              0, data, data ? data_len : 0,
+                                              LF_TFS_OOB_TAGS_OFFSET,
+                                              oob, oob ? oob_len : 0,
+                                              &status);
+        if (ret == LF_ERR_OK) {
+            return TFS_OK;
+        }
+        if (attempt < LF_TFS_READ_RETRY_COUNT && c->flash->wait_10us) {
+            c->flash->wait_10us(LF_TFS_READ_RETRY_10US);
+        }
+    }
+
+    c->read_error_count++;
+    if (c->read_error_count <= 8) {
+        LLOGW("tfs: hw oob read_page failed page=%u phys=%u data_len=%u oob_len=%u status=0x%02X ret=%d retries=%u",
+              (unsigned int)page,
+              (unsigned int)phys_page,
+              (unsigned int)data_len,
+              (unsigned int)oob_len,
+              (unsigned int)status,
+              ret,
+              (unsigned int)LF_TFS_READ_RETRY_COUNT);
+    }
+    return TFS_EFLASH;
+}
 static int lf_tfs_write_page(void *ctx, uint32_t page,
                              const uint8_t *data, uint32_t data_len,
                              const uint8_t *oob, uint32_t oob_len)
@@ -528,26 +1065,72 @@ static int lf_tfs_write_page(void *ctx, uint32_t page,
         return TFS_FAIL;
     }
 
+    if (c->use_hw_oob) {
+        return lf_tfs_hw_oob_write_page(c, page, data, data_len, oob, oob_len);
+    }
+
     addr = c->offset + page * c->flash->chip_info.prog_size;
     if (data && data_len > 0) {
-        if (little_flash_write(c->flash, addr, data, data_len) != LF_ERR_OK) {
-            LLOGE("tfs: write_page failed page=%u", (unsigned int)page);
-            return TFS_EFLASH;
-        }
+        uint8_t *verify = NULL;
+        uint8_t status = 0;
 
         if (c->is_nand) {
-            uint8_t *verify = (uint8_t *)luat_heap_malloc(data_len);
-            uint8_t status = 0;
-            int verify_ok = 0;
             uint32_t mismatch = data_len;
             uint32_t i;
 
+            verify = (uint8_t *)luat_heap_malloc(data_len);
             if (!verify) {
                 LLOGE("tfs: write verify alloc failed page=%u len=%u",
                       (unsigned int)page,
                       (unsigned int)data_len);
                 return TFS_ENOMEM;
             }
+
+            if (lf_tfs_read_flash(c, addr, verify, data_len, &status) != LF_ERR_OK) {
+                c->write_verify_error_count++;
+                if (c->write_verify_error_count <= 8) {
+                    LLOGW("tfs: write precheck read error page=%u status=0x%02X count=%u",
+                          (unsigned int)page,
+                          (unsigned int)status,
+                          (unsigned int)c->write_verify_error_count);
+                }
+                luat_heap_free(verify);
+                return TFS_EFLASH;
+            }
+
+            for (i = 0; i < data_len; i++) {
+                if (verify[i] != 0xff) {
+                    mismatch = i;
+                    break;
+                }
+            }
+
+            if (mismatch < data_len) {
+                c->write_verify_error_count++;
+                if (c->write_verify_error_count <= 8) {
+                    LLOGW("tfs: write target not blank page=%u off=%u val=%02X count=%u",
+                          (unsigned int)page,
+                          (unsigned int)mismatch,
+                          (unsigned int)verify[mismatch],
+                          (unsigned int)c->write_verify_error_count);
+                }
+                luat_heap_free(verify);
+                return TFS_EFLASH;
+            }
+        }
+
+        if (little_flash_write(c->flash, addr, data, data_len) != LF_ERR_OK) {
+            LLOGE("tfs: write_page failed page=%u", (unsigned int)page);
+            if (verify) {
+                luat_heap_free(verify);
+            }
+            return TFS_EFLASH;
+        }
+
+        if (c->is_nand) {
+            int verify_ok = 0;
+            uint32_t mismatch = data_len;
+            uint32_t i;
 
             if (lf_tfs_read_flash(c, addr, verify, data_len, &status) == LF_ERR_OK &&
                 memcmp(verify, data, data_len) == 0) {
@@ -565,7 +1148,7 @@ static int lf_tfs_write_page(void *ctx, uint32_t page,
                 c->write_verify_error_count++;
                 if (c->write_verify_error_count <= 8) {
                     if (mismatch < data_len) {
-                        LLOGE("tfs: write verify failed page=%u status=0x%02X off=%u exp=%02X got=%02X count=%u",
+                        LLOGW("tfs: write verify mismatch page=%u status=0x%02X off=%u exp=%02X got=%02X count=%u",
                               (unsigned int)page,
                               (unsigned int)status,
                               (unsigned int)mismatch,
@@ -573,7 +1156,7 @@ static int lf_tfs_write_page(void *ctx, uint32_t page,
                               (unsigned int)verify[mismatch],
                               (unsigned int)c->write_verify_error_count);
                     } else {
-                        LLOGE("tfs: write verify failed page=%u status=0x%02X count=%u",
+                        LLOGW("tfs: write verify mismatch page=%u status=0x%02X count=%u",
                               (unsigned int)page,
                               (unsigned int)status,
                               (unsigned int)c->write_verify_error_count);
@@ -623,8 +1206,12 @@ static int lf_tfs_nand_ecc_ok(luat_lf_tfs_ctx_t *ctx, uint32_t page, uint8_t sta
         return 1;  /* No errors */
     }
     if (ecc == 1) {
-        if (ctx->read_ecc_corrected_count < 8) {
-            ctx->read_ecc_corrected_count++;
+        uint32_t before = ctx->read_ecc_corrected_count;
+        lf_tfs_counter_inc(&ctx->read_ecc_corrected_count);
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+        lf_tfs_diag_note_ecc(ctx, page);
+#endif
+        if (before < 8) {
             LLOGW("tfs: nand ecc corrected page=%u status=0x%02X",
                   (unsigned int)page,
                   (unsigned int)status);
@@ -634,11 +1221,17 @@ static int lf_tfs_nand_ecc_ok(luat_lf_tfs_ctx_t *ctx, uint32_t page, uint8_t sta
     if (ecc == 2) {
         return 0;  /* Multiple bit flips were not corrected. */
     }
-    if (ctx->read_ecc_refresh_count < 8) {
-        ctx->read_ecc_refresh_count++;
+    {
+        uint32_t before = ctx->read_ecc_refresh_count;
+        lf_tfs_counter_inc(&ctx->read_ecc_refresh_count);
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+        lf_tfs_diag_note_ecc(ctx, page);
+#endif
+        if (before < 8) {
         LLOGW("tfs: nand ecc corrected over threshold page=%u status=0x%02X",
               (unsigned int)page,
               (unsigned int)status);
+        }
     }
     return 1;
 }
@@ -873,6 +1466,10 @@ static int lf_tfs_read_page(void *ctx, uint32_t page,
         return TFS_FAIL;
     }
 
+    if (c->use_hw_oob) {
+        return lf_tfs_hw_oob_read_page(c, page, data, data_len, oob, oob_len);
+    }
+
     addr = c->offset + page * c->flash->chip_info.prog_size;
     if (data && data_len > 0) {
         uint32_t attempt;
@@ -946,6 +1543,53 @@ static int lf_tfs_erase_block(void *ctx, uint32_t block)
     if (little_flash_erase(c->flash, addr, block_size) != LF_ERR_OK) {
         LLOGE("tfs: erase_block failed block=%u", (unsigned int)block);
         return TFS_EFLASH;
+    }
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+    lf_tfs_diag_note_erase(block);
+#endif
+
+    if (c->is_nand) {
+        uint32_t page_size = c->flash->chip_info.prog_size;
+        uint32_t cpb = page_size ? (block_size / page_size) : 0;
+        uint8_t *page_buf;
+        uint32_t i;
+
+        if (page_size == 0 || cpb == 0) {
+            return TFS_EFLASH;
+        }
+
+        page_buf = (uint8_t *)luat_heap_malloc(page_size);
+        if (!page_buf) {
+            LLOGE("tfs: erase verify alloc failed block=%u",
+                  (unsigned int)block);
+            return TFS_ENOMEM;
+        }
+
+        for (i = 0; i < cpb; i++) {
+            uint32_t page_addr = addr + i * page_size;
+            uint8_t status = 0;
+
+            memset(page_buf, 0x00, page_size);
+            if (lf_tfs_read_flash(c,
+                                  page_addr,
+                                  page_buf,
+                                  page_size,
+                                  &status) != LF_ERR_OK ||
+                !lf_tfs_is_all_ff(page_buf, page_size)) {
+                LLOGE("tfs: erase verify failed block=%u page=%u status=0x%02X first=%02X%02X%02X%02X",
+                      (unsigned int)block,
+                      (unsigned int)i,
+                      (unsigned int)status,
+                      (unsigned int)page_buf[0],
+                      (unsigned int)page_buf[1],
+                      (unsigned int)page_buf[2],
+                      (unsigned int)page_buf[3]);
+                luat_heap_free(page_buf);
+                return TFS_EFLASH;
+            }
+        }
+
+        luat_heap_free(page_buf);
     }
 
     if (c->oob_ram && c->oob_per_chunk > 0) {
@@ -1068,8 +1712,20 @@ static void lf_tfs_fill_geo(tfs_geo_t *geo, luat_lf_tfs_ctx_t *ctx)
     uint32_t erase_size = flash->chip_info.erase_size;
     uint32_t total_size = lf_tfs_region_size(ctx);
     uint32_t block_count;
-    uint32_t inband_tags = 1;
-    uint32_t spare_size = inband_tags ? 0 : 64;
+    uint32_t inband_tags = LF_TFS_DEFAULT_INBAND_TAGS ? 1U : 0U;
+    uint32_t spare_size = 0;
+
+    ctx->use_hw_oob = 0;
+    if (!ctx->is_nand ||
+        page_size == 0 ||
+        (ctx->offset % page_size) != 0 ||
+        flash->chip_info.spare_size < LF_TFS_OOB_TAGS_OFFSET + sizeof(tfs_packed_tags2_t)) {
+        inband_tags = 1;
+    }
+    if (!inband_tags) {
+        spare_size = flash->chip_info.spare_size;
+        ctx->use_hw_oob = 1;
+    }
 
     memset(geo, 0, sizeof(*geo));
 
@@ -1093,13 +1749,14 @@ static void lf_tfs_fill_geo(tfs_geo_t *geo, luat_lf_tfs_ctx_t *ctx)
     geo->inband_tags = (int)inband_tags;
     geo->stored_endian = 0;
 
-    LLOGD("tfs geo: chunksize=%u spare=%u inband=%u cpb=%u blocks=%u oob_ram=%u",
+    LLOGD("tfs geo: chunksize=%u spare=%u inband=%u hw_oob=%u cpb=%u blocks=%u oob_ram=%u",
           (unsigned int)page_size,
           (unsigned int)spare_size,
           (unsigned int)inband_tags,
+          (unsigned int)ctx->use_hw_oob,
           (unsigned int)(erase_size / page_size),
           (unsigned int)block_count,
-          (unsigned int)(ctx->total_chunks * spare_size));
+          (unsigned int)(ctx->use_hw_oob ? 0 : ctx->total_chunks * spare_size));
 }
 
 static int lf_tfs_probe_write(luat_lf_tfs_ctx_t *ctx)
@@ -1163,6 +1820,9 @@ void *flash_tfs_lf(little_flash_t *flash, size_t offset, size_t maxsize)
     tfs_geo_t geo;
     int ret;
     int marker_state;
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+    uint64_t mount_start_ms = luat_mcu_tick64_ms();
+#endif
 
     if (!flash) {
         LLOGE("tfs: flash is null");
@@ -1185,7 +1845,30 @@ void *flash_tfs_lf(little_flash_t *flash, size_t offset, size_t maxsize)
     lf_tfs_fill_drv(&drv, ctx);
     lf_tfs_fill_geo(&geo, ctx);
 
-    if (ctx->oob_per_chunk > 0 && ctx->total_chunks > 0) {
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+    ctx->last_mount_path = LF_TFS_MOUNT_PATH_UNKNOWN;
+    lf_tfs_diag_apply_seed(ctx);
+    if (ctx->bad_block_count == 0 && ctx->is_nand) {
+        uint32_t factory_bad[LF_TFS_BAD_MAX_BLOCKS];
+        uint32_t factory_count = 0;
+        uint32_t read_failures = 0;
+        uint32_t i;
+
+        if (lf_tfs_diag_scan_factory(flash, (uint32_t)offset, (uint32_t)maxsize,
+                                     factory_bad, &factory_count,
+                                     &read_failures)) {
+            for (i = 0; i < factory_count; i++) {
+                (void)lf_tfs_bad_table_add_ram(ctx, factory_bad[i]);
+            }
+        }
+        if (read_failures > 0) {
+            LLOGW("tfs diag: factory marker read failures=%u",
+                  (unsigned int)read_failures);
+        }
+    }
+#endif
+
+    if (!ctx->use_hw_oob && ctx->oob_per_chunk > 0 && ctx->total_chunks > 0) {
         size_t size = (size_t)ctx->total_chunks * ctx->oob_per_chunk;
 
         ctx->oob_ram = (uint8_t *)luat_heap_malloc(size);
@@ -1222,6 +1905,9 @@ void *flash_tfs_lf(little_flash_t *flash, size_t offset, size_t maxsize)
             LLOGW("tfs: raw marker mismatch, format before scan");
         }
         ret = lf_tfs_format_and_mount(ctx);
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+        ctx->last_mount_path = LF_TFS_MOUNT_PATH_FORMAT;
+#endif
         if (ret != TFS_OK) {
             LLOGE("tfs: format mount failed");
             goto fail;
@@ -1246,9 +1932,28 @@ void *flash_tfs_lf(little_flash_t *flash, size_t offset, size_t maxsize)
         }
         if (ret == TFS_OK) {
             tfs_dev_t *dev = tfs_core_find_dev(ctx->dev_name);
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+            if (dev) {
+                ctx->last_mount_delta_chunks =
+                    dev->checkpt_delta_chunks > 0 ?
+                    (uint32_t)dev->checkpt_delta_chunks : 0;
+                if (dev->is_checkpointed) {
+                    ctx->last_mount_path = LF_TFS_MOUNT_PATH_CHECKPOINT;
+                } else if (dev->checkpt_delta_chunks > 0) {
+                    ctx->last_mount_path = LF_TFS_MOUNT_PATH_DELTA;
+                } else {
+                    ctx->last_mount_path = LF_TFS_MOUNT_PATH_FULL_SCAN;
+                }
+            }
+#endif
             if (dev && !dev->is_checkpointed) {
-                LLOGD("tfs: checkpoint missing or old, sync after full scan");
-                need_sync = 1;
+                if (dev->checkpt_delta_chunks > 0) {
+                    LLOGD("tfs: checkpoint delta replayed chunks=%d, defer replacement",
+                          dev->checkpt_delta_chunks);
+                } else {
+                    LLOGD("tfs: checkpoint missing or old, sync after scan");
+                    need_sync = 1;
+                }
             }
         }
         if (ret == TFS_OK && !lf_tfs_name_marker_ok(ctx)) {
@@ -1271,6 +1976,9 @@ void *flash_tfs_lf(little_flash_t *flash, size_t offset, size_t maxsize)
                     LLOGD("tfs: probe failed, reformatting");
                     tfs_unmount(ctx->dev_name);
                     ret = lf_tfs_format_and_mount(ctx);
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+                    ctx->last_mount_path = LF_TFS_MOUNT_PATH_FORMAT;
+#endif
                     if (ret != TFS_OK) {
                         LLOGE("tfs: format or mount failed");
                         goto fail;
@@ -1284,6 +1992,9 @@ void *flash_tfs_lf(little_flash_t *flash, size_t offset, size_t maxsize)
             }
         } else {
             ret = lf_tfs_format_and_mount(ctx);
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+            ctx->last_mount_path = LF_TFS_MOUNT_PATH_FORMAT;
+#endif
             if (ret != TFS_OK) {
                 LLOGE("tfs: format or mount failed");
                 goto fail;
@@ -1292,6 +2003,9 @@ void *flash_tfs_lf(little_flash_t *flash, size_t offset, size_t maxsize)
     }
 
     ctx->is_mounted = 1;
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+    ctx->last_mount_ms = (uint32_t)(luat_mcu_tick64_ms() - mount_start_ms);
+#endif
     LLOGD("tfs: device '%s' ready", ctx->dev_name);
     return ctx;
 
@@ -1303,5 +2017,346 @@ fail:
     }
     return NULL;
 }
+
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+static uint32_t lf_tfs_diag_lua_opt_u32(lua_State *L, int index,
+                                        const char *name, uint32_t fallback)
+{
+    uint32_t value = fallback;
+
+    if (lua_istable(L, index)) {
+        lua_getfield(L, index, name);
+        if (lua_isinteger(L, -1)) {
+            lua_Integer raw = lua_tointeger(L, -1);
+            if (raw >= 0 && (uint64_t)raw <= UINT32_MAX) {
+                value = (uint32_t)raw;
+            }
+        }
+        lua_pop(L, 1);
+    }
+    return value;
+}
+
+static int lf_tfs_diag_lua_opt_bool(lua_State *L, int index,
+                                    const char *name, int fallback)
+{
+    int value = fallback;
+
+    if (lua_istable(L, index)) {
+        lua_getfield(L, index, name);
+        if (!lua_isnil(L, -1)) {
+            value = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
+    }
+    return value;
+}
+
+static void lf_tfs_diag_push_u32_array(lua_State *L,
+                                       const uint32_t *values,
+                                       uint32_t count)
+{
+    uint32_t i;
+
+    lua_createtable(L, (int)count, 0);
+    for (i = 0; i < count; i++) {
+        lua_pushinteger(L, (lua_Integer)values[i]);
+        lua_rawseti(L, -2, (lua_Integer)i + 1);
+    }
+}
+
+static const char *lf_tfs_diag_mount_path(uint8_t path)
+{
+    switch (path) {
+    case LF_TFS_MOUNT_PATH_FORMAT:
+        return "format";
+    case LF_TFS_MOUNT_PATH_CHECKPOINT:
+        return "checkpoint";
+    case LF_TFS_MOUNT_PATH_DELTA:
+        return "delta";
+    case LF_TFS_MOUNT_PATH_FULL_SCAN:
+        return "full_scan";
+    default:
+        return "unknown";
+    }
+}
+
+static void lf_tfs_diag_set_integer(lua_State *L, const char *name,
+                                    lua_Integer value)
+{
+    lua_pushinteger(L, value);
+    lua_setfield(L, -2, name);
+}
+
+static void lf_tfs_diag_push_sparse_counts(lua_State *L,
+                                           const uint16_t *counts,
+                                           uint32_t count)
+{
+    uint32_t block;
+    int out = 1;
+
+    lua_newtable(L);
+    for (block = 0; block < count && block < LF_TFS_DIAG_MAX_BLOCKS; block++) {
+        if (counts[block] == 0) {
+            continue;
+        }
+        lua_createtable(L, 0, 2);
+        lf_tfs_diag_set_integer(L, "block", (lua_Integer)block);
+        lf_tfs_diag_set_integer(L, "count", (lua_Integer)counts[block]);
+        lua_rawseti(L, -2, out++);
+    }
+}
+
+static int lf_tfs_diag_push_stats(lua_State *L, little_flash_t *flash,
+                                  int detail)
+{
+    luat_lf_tfs_ctx_t *ctx = &s_tfs_ctx;
+    tfs_dev_t *dev = NULL;
+    uint32_t block_count = 0;
+
+    if (!flash || ctx->flash != flash || !ctx->is_mounted) {
+        return 0;
+    }
+    dev = tfs_core_find_dev(ctx->dev_name);
+    if (!dev) {
+        return 0;
+    }
+
+    lua_createtable(L, 0, 40);
+    lua_pushboolean(L, ctx->is_mounted);
+    lua_setfield(L, -2, "mounted");
+    lua_pushboolean(L, ctx->use_hw_oob);
+    lua_setfield(L, -2, "hw_oob");
+    lua_pushstring(L, lf_tfs_diag_mount_path(ctx->last_mount_path));
+    lua_setfield(L, -2, "mount_path");
+    lf_tfs_diag_set_integer(L, "mount_ms", ctx->last_mount_ms);
+    lf_tfs_diag_set_integer(L, "mount_delta_chunks", ctx->last_mount_delta_chunks);
+    lf_tfs_diag_set_integer(L, "read_errors", ctx->read_error_count);
+    lf_tfs_diag_set_integer(L, "ecc_corrected", ctx->read_ecc_corrected_count);
+    lf_tfs_diag_set_integer(L, "ecc_refresh", ctx->read_ecc_refresh_count);
+    lf_tfs_diag_set_integer(L, "write_verify_errors", ctx->write_verify_error_count);
+    lf_tfs_diag_set_integer(L, "bad_block_count", ctx->bad_block_count);
+    lf_tfs_diag_push_u32_array(L, ctx->bad_blocks, ctx->bad_block_count);
+    lua_setfield(L, -2, "bad_blocks");
+
+    lf_tfs_diag_set_integer(L, "page_writes", dev->n_page_writes);
+    lf_tfs_diag_set_integer(L, "page_reads", dev->n_page_reads);
+    lf_tfs_diag_set_integer(L, "erasures", dev->n_erasures);
+    lf_tfs_diag_set_integer(L, "erase_failures", dev->n_erase_failures);
+    lf_tfs_diag_set_integer(L, "ecc_fixed", dev->n_ecc_fixed);
+    lf_tfs_diag_set_integer(L, "ecc_unfixed", dev->n_ecc_unfixed);
+    lf_tfs_diag_set_integer(L, "tags_ecc_fixed", dev->n_tags_ecc_fixed);
+    lf_tfs_diag_set_integer(L, "tags_ecc_unfixed", dev->n_tags_ecc_unfixed);
+    lf_tfs_diag_set_integer(L, "gc_copies", dev->n_gc_copies);
+    lf_tfs_diag_set_integer(L, "gc_blocks", dev->n_gc_blocks);
+    lf_tfs_diag_set_integer(L, "retried_writes", dev->n_retried_writes);
+    lf_tfs_diag_set_integer(L, "retired_blocks", dev->n_retired_blocks);
+    lf_tfs_diag_set_integer(L, "objects_created", dev->n_obj_created);
+    lf_tfs_diag_set_integer(L, "objects_deleted", dev->n_obj_deleted);
+    lf_tfs_diag_set_integer(L, "erased_blocks", dev->n_erased_blocks);
+    lf_tfs_diag_set_integer(L, "free_chunks", dev->n_free_chunks);
+    lf_tfs_diag_set_integer(L, "checkpoint_blocks", dev->blocks_in_checkpt);
+    lf_tfs_diag_set_integer(L, "checkpoint_required", dev->checkpoint_blocks_required);
+    lf_tfs_diag_set_integer(L, "checkpoint_delta_chunks", dev->checkpt_delta_chunks);
+    lf_tfs_diag_set_integer(L, "checkpoint_dirty_chunks", dev->checkpt_dirty_chunks);
+    lf_tfs_diag_set_integer(L, "checkpoint_dirty_closes", dev->checkpt_dirty_closes);
+    lua_pushboolean(L, dev->is_checkpointed);
+    lua_setfield(L, -2, "checkpointed");
+
+    if (flash->chip_info.erase_size > 0) {
+        uint32_t region = ctx->maxsize ? ctx->maxsize :
+            flash->chip_info.capacity - ctx->offset;
+        block_count = region / flash->chip_info.erase_size;
+    }
+    if (detail) {
+        lf_tfs_diag_push_sparse_counts(L, s_tfs_diag_erase_counts, block_count);
+        lua_setfield(L, -2, "erase_counts");
+        lf_tfs_diag_push_sparse_counts(L, s_tfs_diag_ecc_counts, block_count);
+        lua_setfield(L, -2, "ecc_counts");
+    }
+    return 1;
+}
+
+static void lf_tfs_diag_push_scan_result(lua_State *L,
+                                         const uint32_t *factory_bad,
+                                         uint32_t factory_count,
+                                         const uint32_t *persisted_bad,
+                                         uint32_t persisted_count,
+                                         uint32_t read_failures)
+{
+    lua_createtable(L, 0, 5);
+    lf_tfs_diag_set_integer(L, "factory_bad_count", factory_count);
+    lf_tfs_diag_push_u32_array(L, factory_bad, factory_count);
+    lua_setfield(L, -2, "factory_bad");
+    lf_tfs_diag_set_integer(L, "persisted_bad_count", persisted_count);
+    lf_tfs_diag_push_u32_array(L, persisted_bad, persisted_count);
+    lua_setfield(L, -2, "persisted_bad");
+    lf_tfs_diag_set_integer(L, "read_failures", read_failures);
+}
+
+int luat_little_flash_tfs_test_ctl(lua_State *L)
+{
+    little_flash_t *flash = (little_flash_t *)lua_touserdata(L, 1);
+    const char *command = luaL_checkstring(L, 2);
+    uint32_t offset = lf_tfs_diag_lua_opt_u32(L, 3, "offset", 0);
+    uint32_t maxsize = lf_tfs_diag_lua_opt_u32(L, 3, "maxsize", 0);
+
+    if (!flash) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "flash is nil");
+        return 2;
+    }
+
+    if (strcmp(command, "reset_stats") == 0) {
+        memset(s_tfs_diag_erase_counts, 0, sizeof(s_tfs_diag_erase_counts));
+        memset(s_tfs_diag_ecc_counts, 0, sizeof(s_tfs_diag_ecc_counts));
+        lua_pushboolean(L, 1);
+        lua_createtable(L, 0, 0);
+        return 2;
+    }
+
+    if (strcmp(command, "scan_bad") == 0) {
+        uint32_t factory_bad[LF_TFS_BAD_MAX_BLOCKS];
+        uint32_t persisted_bad[LF_TFS_BAD_MAX_BLOCKS];
+        uint32_t factory_count = 0;
+        uint32_t persisted_count = 0;
+        uint32_t read_failures = 0;
+        int ok = lf_tfs_diag_scan_factory(flash, offset, maxsize,
+                                           factory_bad, &factory_count,
+                                           &read_failures) &&
+                 lf_tfs_diag_scan_persisted(flash, offset, maxsize,
+                                             persisted_bad, &persisted_count);
+
+        lua_pushboolean(L, ok && read_failures == 0);
+        lf_tfs_diag_push_scan_result(L, factory_bad, factory_count,
+                                     persisted_bad, persisted_count,
+                                     read_failures);
+        return 2;
+    }
+
+    if (strcmp(command, "erase_all") == 0) {
+        luat_lf_tfs_ctx_t temp;
+        uint32_t factory_bad[LF_TFS_BAD_MAX_BLOCKS];
+        uint32_t persisted_bad[LF_TFS_BAD_MAX_BLOCKS];
+        uint32_t new_bad[LF_TFS_BAD_MAX_BLOCKS];
+        uint32_t factory_count = 0;
+        uint32_t persisted_count = 0;
+        uint32_t new_count = 0;
+        uint32_t read_failures = 0;
+        uint32_t region_blocks = 0;
+        uint32_t pages_per_block = 0;
+        uint32_t erased = 0;
+        uint32_t skipped = 0;
+        uint32_t block;
+        int marker_failed = 0;
+        int ok;
+
+        ok = lf_tfs_diag_prepare_ctx(&temp, flash, offset, maxsize,
+                                      &region_blocks, &pages_per_block) &&
+             lf_tfs_diag_scan_factory(flash, offset, maxsize,
+                                       factory_bad, &factory_count,
+                                       &read_failures) &&
+             lf_tfs_diag_scan_persisted(flash, offset, maxsize,
+                                         persisted_bad, &persisted_count);
+        s_tfs_diag_seed_bad_count = 0;
+        if (ok) {
+            uint32_t i;
+            for (i = 0; i < factory_count; i++) {
+                (void)lf_tfs_diag_seed_add(factory_bad[i]);
+            }
+            for (i = 0; i < persisted_count; i++) {
+                (void)lf_tfs_diag_seed_add(persisted_bad[i]);
+            }
+            for (block = 0; block < region_blocks; block++) {
+                uint32_t addr = offset + block * flash->chip_info.erase_size;
+                if (lf_tfs_diag_list_index(s_tfs_diag_seed_bad,
+                                           s_tfs_diag_seed_bad_count,
+                                           block) >= 0) {
+                    skipped++;
+                    continue;
+                }
+                if (little_flash_erase(flash, addr,
+                                       flash->chip_info.erase_size) == LF_ERR_OK) {
+                    erased++;
+                    lf_tfs_diag_note_erase(block);
+                    continue;
+                }
+                if (block + 1U == region_blocks) {
+                    marker_failed = 1;
+                } else if (new_count < LF_TFS_BAD_MAX_BLOCKS) {
+                    new_bad[new_count++] = block;
+                    (void)lf_tfs_diag_seed_add(block);
+                }
+            }
+        }
+
+        lua_pushboolean(L, ok && read_failures == 0 && !marker_failed);
+        lf_tfs_diag_push_scan_result(L, factory_bad, factory_count,
+                                     persisted_bad, persisted_count,
+                                     read_failures);
+        lf_tfs_diag_set_integer(L, "erased_blocks", erased);
+        lf_tfs_diag_set_integer(L, "skipped_blocks", skipped);
+        lf_tfs_diag_set_integer(L, "new_bad_count", new_count);
+        lf_tfs_diag_push_u32_array(L, new_bad, new_count);
+        lua_setfield(L, -2, "new_bad");
+        lua_pushboolean(L, marker_failed);
+        lua_setfield(L, -2, "marker_block_failed");
+        return 2;
+    }
+
+    if (strcmp(command, "format") == 0) {
+        luat_lf_tfs_ctx_t *ctx;
+        int rc = TFS_FAIL;
+
+        if (s_tfs_ctx.is_mounted) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "device is mounted");
+            return 2;
+        }
+        ctx = (luat_lf_tfs_ctx_t *)flash_tfs_lf(flash, offset, maxsize);
+        if (ctx) {
+            rc = tfs_unmount(ctx->dev_name);
+            if (rc == TFS_OK) {
+                rc = tfs_remove_device(ctx->dev_name);
+            }
+            ctx->is_mounted = 0;
+            if (ctx->oob_ram) {
+                luat_heap_free(ctx->oob_ram);
+                ctx->oob_ram = NULL;
+            }
+        }
+        lua_pushboolean(L, ctx != NULL && rc == TFS_OK);
+        lua_createtable(L, 0, 2);
+        lf_tfs_diag_set_integer(L, "ret", rc);
+        lf_tfs_diag_set_integer(L, "seed_bad_count", s_tfs_diag_seed_bad_count);
+        return 2;
+    }
+
+    if (strcmp(command, "sync") == 0) {
+        int rc = (s_tfs_ctx.flash == flash && s_tfs_ctx.is_mounted) ?
+            lf_tfs_sync(&s_tfs_ctx) : TFS_EINVAL;
+        lua_pushboolean(L, rc == TFS_OK);
+        if (!lf_tfs_diag_push_stats(L, flash, 0)) {
+            lua_createtable(L, 0, 1);
+            lf_tfs_diag_set_integer(L, "ret", rc);
+        }
+        return 2;
+    }
+
+    if (strcmp(command, "stats") == 0) {
+        int detail = lf_tfs_diag_lua_opt_bool(L, 3, "detail", 0);
+        int ok = s_tfs_ctx.flash == flash && s_tfs_ctx.is_mounted;
+        lua_pushboolean(L, ok);
+        if (!lf_tfs_diag_push_stats(L, flash, detail)) {
+            lua_createtable(L, 0, 0);
+        }
+        return 2;
+    }
+
+    lua_pushboolean(L, 0);
+    lua_pushfstring(L, "unknown command: %s", command);
+    return 2;
+}
+#endif
 
 #endif

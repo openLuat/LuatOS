@@ -54,16 +54,54 @@
 4.  **`airui_video.lua`** - 视频组件演示（MJPG播放）
 
 ### 2.6 字体渲染演示
-1.  **`airui_hzfont.lua`** - HzFont 矢量字体特性演示
+1.  **`airui_hzfont.lua`** - HzFont 内置矢量字体特性演示（支持12-255号无级缩放、抗锯齿）
+2.  **`airui_custom_hzfont.lua`** - 自定义TTF矢量字体全貌展示（需配套TTF字体文件烧录至文件系统）
 
 ### 2.7 系统管理演示
-1.  **`airui_sleep.lua`** - AirUI 休眠管理演示
-    *   UI 界面配置休眠开关、超时时间、休眠类型、唤醒类型、LCD 休眠开关
-    *   休眠流程：AirUI 休眠 → LCD 休眠 → TP 休眠 → 模组休眠
-    *   唤醒流程：模组唤醒 → TP 恢复 → LCD 唤醒 → AirUI 恢复
-    *   支持触摸唤醒（WAKEUP0 中断）、定时唤醒（sys.timerStart / pm.dtimerStart）、按键唤醒（内置 BOOT/PWR_KEY 中断 + KEY_EVENT 消息）
-    *   支持模组常规低功耗（pm.WORK_MODE=1）和 PSM+ 极致低功耗（pm.WORK_MODE=3）
-    *   注意：PSM+ 与触摸唤醒互斥；按键驱动已内置，无需外部 `key_drv.lua`
+1.  **`airui_sleep.lua`** - AirUI 深度休眠管理演示
+    *   空闲 30 秒后自动进入深度休眠：AirUI → LCD → TP → 模组四级联动
+    *   倒计时期间触摸可重置倒计时，延迟进入休眠
+    *   TP 深度休眠：拉低 INT >50ms，GT911 停止扫描（功耗 <30μA）
+    *   深度休眠后仅按电源键（PWR_KEY）可唤醒
+    *   唤醒流程：模组供电 → TP 恢复 → LCD 唤醒 → AirUI 恢复
+
+### 2.8 低功耗说明
+
+模组低功耗模式1下，AirLCD_1010 屏幕使用注意事项：
+
+1. **LCD 初始化** 
+   - `lcd.init()` 只在首次执行时生效，重复调用没有效果。
+
+2. **屏幕供电（VCC）** —
+   - ❌ 禁止使用模组的 `VDD-EXT` 引脚为屏幕供电。低功耗模式1下 `VDD-EXT` 会间歇性上下电，而休眠期间屏幕需要稳定供电。
+   - ✅ 必须使用外部独立电源为屏幕供电，确保休眠状态下供电稳定。
+
+3. **屏幕复位引脚（RST）** 
+   - ❌ 不能使用 `VDD-EXT` 上拉，也不能用普通 GPIO 直接控制。低功耗模式1下普通 GPIO 会掉电，而休眠时 RST 需保持高电平。
+   - ✅ 增加外部供电和 100kΩ 上拉电阻将 RST 固定在高电平，但需保证初始化时能拉低 RST 引脚。
+
+4. **LCD 背光引脚** 
+   - ✅ 推荐使用可以复用为 PWM 功能的普通 GPIO 驱动背光亮度，例如 Air780EHM 的 GPIO1 可以复用为 PWM0。
+   - ⚠️ AGPIO 驱动能力较弱，不建议直接用于背光控制。
+
+5. **触摸屏中断引脚（INT）**
+
+   - **情况一：需要触摸唤醒**（以 GT911 为例，触摸 IC 浅睡眠功耗约 3mA，支持触摸唤醒）
+     ❌ 禁止使用 AGPIO 直接接到屏幕 INT 引脚，也不能使用普通 GPIO。
+     ✅ AGPIO 支持在模组进入低功耗模式1下触发中断唤醒程序，普通 GPIO 不支持。但由于 AGPIO 驱动能力弱，触摸IC INT 引脚对外扫描每 40ms 的波动无法抵消，容易出现触摸异常，甚至一直被此波动触发 INT 中断让主控去读取触摸 I2C 数据，以及休眠唤醒时 I2C 总线读写异常。
+     ✅ 解决方案：使用 AGPIO 接 INT，增加3.3V 100kΩ 上拉电阻确保能抵消 AirLCD_1010 屏幕对外扫描时每 40ms 的电平波动，使 INT 不对 I2C 读写数据产生干扰。
+
+   - **情况二：触摸完全休眠，使用按键唤醒**（功耗约 200μA）
+     ✅ 可以直接使用普通 GPIO 接 INT。
+
+   - **情况三：阶段性休眠**（30 秒黑屏，支持触摸唤醒 → XX 分钟进入深度休眠，仅支持按键唤醒）
+     ✅ 使用 AGPIO 接 INT，增加3.3V 100kΩ 上拉电阻。
+
+6. **AirLCD_1010 屏幕特殊硬件修改** 
+   - 该屏幕上拉较强，使用 AGPIO 控制背光会导致休眠时无法完全黑屏，且亮度调节异常。✅ 需修改屏幕 PCB 上的电阻：
+   - `R5` 从 1kΩ 改为 10kΩ
+   - `R6` 从 10kΩ 改为 100kΩ
+   - 背光控制方式：改用复用为 PWM 功能的普通 GPIO 驱动背光亮度，或使用外部上拉三极管（高电平导通）进行驱动。
 
 ## 三、演示效果
 
@@ -168,7 +206,7 @@
 <tr>
 <td>66/I2C1_SDA<br/></td><td>SDA<br/></td></tr>
 <tr>
-<td>101/WAKEUP0<br/></td><td>INT<br/></td></tr>
+<td>23/GPIO2<br/></td><td>INT<br/></td></tr>
 </table>
 
 #### 5.3 接线图
@@ -183,6 +221,12 @@
 ### 6.2 内核固件
 
 - [点击下载Air780EHM最新版本内核固件](https://docs.openluat.com/air780ehm/luatos/firmware/version/)，demo所使用的是LuatOS-SoC_V2024_Air780EHM 14/114号固件
+
+### 6.3 自定义字体使用
+- [字体制作和烧录说明](https://docs.openluat.com/common/luatos_font_guide/#_3)
+
+- 在main.lua种选择 require("airui_custom_hzfont")  -- 自定义矢量字体演示（需配套TTF字体文件）
+- lcd初始化代码中选择 path = "/luadb/NotoSansSC_subset.ttf", -- 展示NotoSansSC_subset自定义字体
 
 
 ## 七、快速开始
@@ -226,7 +270,7 @@ require("tp_drv")
 require("airui_all_component") --所有组件综合演示
 -- require("airui_switch_page")  --页面切换演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
--- require("airui_chart")  --图表组件演示
+-- require("airui_custom_hzfont")  --自定义矢量字体演示（需配套TTF字体文件烧录至文件系统）
 -- require("airui_qrcode") --二维码组件演示
 -- require("airui_animimg")  -- 动画图像组件演示
 -- require("airui_shape")  -- 形状组件演示

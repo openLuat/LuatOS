@@ -18,6 +18,10 @@ require 即执行，以下按顺序发生：
      d. sys.wait(100)     → 等待 100ms 让欢迎页渲染完成，避免白屏闪烁
      e. lcd_drv.backlight_on() → 开启背光 PWM，屏幕正常显示
 
+  消息协议:
+  发布: OPEN_WELCOME_WIN  → 触发 welcome_win 创建
+  订阅: 无（本模块是发布者，不订阅消息）
+
 === 关键设计决策 ===
 
 1. 页面模块与窗口注册分离：require 只注册窗口（subscribe），不创建窗口（open）。
@@ -40,6 +44,7 @@ require "settings_auto_win"  -- 后装APP自启设置页（开关/APP选择/密�
 require "app_store_win"     -- 应用商店页（浏览/搜索/下载 exapp 应用）
 require "speedtest_win"     -- 测速页（延迟/下载/上传结果显示）
 require "file_manager_win"  -- 文件管理页（浏览 /app_store 目录、新建/删除文件）
+require "factory_win"       -- 应用工厂-语音生成APP窗口（录音→生成→安装）
 
 -- ==================== 硬件初始化协程（LCD → TP → 欢迎页 → 背光） ====================
 local function init_ui_task()

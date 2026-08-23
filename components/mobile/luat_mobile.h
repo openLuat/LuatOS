@@ -65,6 +65,15 @@ int luat_mobile_set_sn(char* buff, uint8_t buf_len);
 int luat_mobile_get_muid(char* buff, size_t buf_len);
 
 /**
+ * @brief 设置MUID
+ *
+ * @param muid MUID字符串
+ * @param len MUID长度
+ * @return int = 0成功， = -1失败
+ */
+int luat_mobile_set_muid(const char* muid, size_t len);
+
+/**
  * @brief 获取SIM卡的ICCID
  * 
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
@@ -834,19 +843,122 @@ int luat_mobile_set_band(uint8_t *band,  uint8_t total_num);
 int luat_mobile_config(uint8_t item, uint32_t value);
 
 /**
- * @brief RF测试模式
+ * @brief RF测试模式 (实化版, 原本是空桩, 现在接入 byte 透传层)
  * @param uart_id 测试结果输出的串口ID
- * @param on_off 进出测试模式，0退出 其他进入
+ * @param on_off 进出测试模式, 0 退出, 其他进入
  * @return 无
+ * @note  保留 void 签名是为了 ABI 兼容 (luatos-soc-2024 已有 void 实现)
+ *        PC 仿真: 记录 uart_id, 注册 Rx 钩子 (luat_mobile_rf_test_set_rx_cb)
+ *        真机  : power on + PWRKEY + 绑 UART 到 AT 任务
  */
 void luat_mobile_rf_test_mode(uint8_t uart_id, uint8_t on_off);
 /**
- * @brief RF测试的指令或者数据输入
- * @param data 数据，可以为空，只有为空的时候才会真正开始处理指令
- * @param data_len 数据长度，可以为0，只有为0的时候才会真正开始处理指令
+ * @brief RF测试的指令或者数据输入 (实化版)
+ * @param data 数据, 可以为空 (NULL), 只有为空的时候才会真正开始处理指令
+ * @param data_len 数据长度, 可以为 0, 只有为 0 的时候才会真正开始处理指令
  * @return 无
+ * @note  保留 void 签名 + 双语义 (data!=NULL 入队, NULL/0 触发 flush)
+ *        PC 仿真: 不做解析, 通过 rfa_rx_cb 通知 Lua (流式)
+ *        真机  : 不做 toupper, 不做解析, 直接 push 到 RIL 队列
+ *               (toupper 应在 PLAT atcReply 内部处理)
  */
 void luat_mobile_rf_test_input(char *data, uint32_t data_len);
+
+/**
+ * @brief 查询/设置 RF Test 参数 (NPI 位 / 状态机 / 错误注入)
+ *        PC 仿真: 由 s_rf_test 后端完整实现 NPI 位与状态机读写
+ *        真机   : 工厂测试固件可直接实现 NPI NV 读写; 其他 BSP 若不想
+ *                 暴露 NPI 口, 可返回 -1, 由 Lua 通过 mobile.nv/pm 处理
+ * @param key   见 LUAT_MOBILE_RF_TEST_KEY_*
+ * @param value [in/out] 读时返值, 写时给值
+ * @param is_set 0=读, 1=写
+ * @return 0 成功, -1 不支持
+ * @note  真机批量写入优化: 可先用本函数设置若干 NPI 位 (不落 flash),
+ *        再用 key="save" 调用一次以触发统一保存
+ */
+int luat_mobile_rf_test_param(const char *key, int *value, int is_set);
+
+/**
+ * @brief 读 IMEI 字符串 (15 位 ASCII)
+ * @param out 输出缓冲
+ * @param len 缓冲长度 (>= 16)
+ * @return 0 成功, -1 失败
+ */
+int luat_mobile_rf_test_imei_get(char *out, uint32_t len);
+
+/**
+ * @brief 写 IMEI 字符串 (15 位 ASCII)
+ * @param imei 15 位 ASCII
+ * @return 0 成功, -1 长度错误
+ */
+int luat_mobile_rf_test_imei_set(const char *imei);
+
+/**
+ * @brief 读 Golden Unit 数据
+ * @param out 输出缓冲
+ * @param len 缓冲长度
+ * @return 实际读取长度, <=0 失败
+ */
+int luat_mobile_rf_test_gmdata_get(char *out, uint32_t len);
+
+/**
+ * @brief 写 Golden Unit 数据
+ * @param data 数据指针
+ * @param len 数据长度
+ * @return 0 成功, -1 失败
+ */
+int luat_mobile_rf_test_gmdata_set(const char *data, uint32_t len);
+
+/* key 字符串 (只 PC 仿真有意义) */
+#define LUAT_MOBILE_RF_TEST_KEY_IMEI       "imei"      // 通过 imei_get/set 走字符串
+#define LUAT_MOBILE_RF_TEST_KEY_NPI_CALI   "rfCaliDone"
+#define LUAT_MOBILE_RF_TEST_KEY_NPI_NST    "rfNSTDone"
+#define LUAT_MOBILE_RF_TEST_KEY_NPI_CT     "rfCTDone"
+#define LUAT_MOBILE_RF_TEST_KEY_STATE      "state"     // 0=IDLE..6=DONE
+#define LUAT_MOBILE_RF_TEST_KEY_ERF_MODE   "erfMode"   // 错误注入, 单测用
+
+/* Rx 回调 (PC 仿真用, 真机无需实现) */
+typedef struct {
+    void (*on_rx)(const uint8_t *data, uint32_t len, void *ud);
+    void *userdata;
+} luat_mobile_rf_test_rx_cb_t;
+
+/**
+ * @brief RF NST 校准/非信令指令同步处理 (真机调用 RfAtNstCmdPreHandle)
+ * @param data_hex 输入的 hex 字符串, 如 "02040900..."
+ * @param hex_len  hex 字符串长度
+ * @param out      输出缓冲区 (ASCII 响应, 如 "MT0204...")
+ * @param out_len  [in/out] 缓冲区大小 / 实际输出长度
+ * @return  0 成功, -2 CRC 错误, -3 数据块索引错误, 其他错误
+ */
+int luat_mobile_rf_test_nst(const char *data_hex, uint32_t hex_len, char *out, uint32_t *out_len);
+
+/**
+ * @brief 注册/注销 Rx 回调 (PC 仿真用, 真机无需)
+ *        调 NULL 表示注销
+ * @return 0 成功, -1 失败
+ */
+int luat_mobile_rf_test_set_rx_cb(const luat_mobile_rf_test_rx_cb_t *cb);
+
+/**
+ * @brief 读取 RF/CP 版本及模块信息，用于 AT+ECVERSION?
+ *        输出为 AT 响应体多行字符串（不含首尾的 \r\n 和 OK），例如：
+ *        +CP VER: 0x20250207 \n+RfTable VER: v4.2 \n+Customer Moduler: Air780EPM_A11\n...
+ * @param out    输出缓冲区
+ * @param out_len 缓冲区大小，建议 >= 256
+ * @return  0 成功, -1 失败
+ */
+int luat_mobile_rf_test_version(char *out, size_t out_len);
+
+/**
+ * @brief 读取支持的频段列表，用于 AT+ECBAND? / AT+ECBAND=?
+ *        输出为逗号分隔的频段号字符串，例如 "1,3,5,8,34,38,39,40,41"
+ * @param out    输出缓冲区
+ * @param out_len 缓冲区大小，建议 >= 64
+ * @return  0 成功, -1 失败
+ */
+int luat_mobile_rf_test_band_list(char *out, size_t out_len);
+
 
 enum
 {

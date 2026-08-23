@@ -200,7 +200,7 @@ local function status_monitor()
         -- WAN口网络通信测试
         if wan_ready then
             log.info("网络测试", "开始WAN口网络通信测试")
-            local code, headers, body = http.request("GET", "http://httpbin.air32.cn/get", nil, nil, {adapter=socket.LWIP_ETH}).wait()
+            local code, headers, body = http.request("GET", "http://httpbin.luatos.com/get", nil, nil, {adapter=socket.LWIP_ETH}).wait()
             if code == 200 then
                 -- 将网络测试结果写入TF卡
                 if tf_status == "正常" then

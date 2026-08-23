@@ -329,6 +329,7 @@ end
 -- ==================== 窗口生命周期 ====================
 
 local function on_create()
+    _G._fota_settings_open = true
     sys.subscribe("FOTA_STATUS", on_fota_status)
     sys.subscribe("FOTA_PROMPT_REBOOT", on_fota_reboot_prompt)
     sys.subscribe("FOTA_PROMPT_DOWNLOAD", on_fota_download_prompt)
@@ -337,6 +338,7 @@ local function on_create()
 end
 
 local function on_destroy()
+    _G._fota_settings_open = nil
     sys.unsubscribe("FOTA_STATUS", on_fota_status)
     sys.unsubscribe("FOTA_PROMPT_REBOOT", on_fota_reboot_prompt)
     sys.unsubscribe("FOTA_PROMPT_DOWNLOAD", on_fota_download_prompt)

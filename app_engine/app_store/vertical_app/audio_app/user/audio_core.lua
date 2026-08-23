@@ -22,7 +22,6 @@ local is_recording = false
 local play_callback = nil
 local record_callback = nil
 local progress_callback = nil
-local stream_task = nil
 
 -- SD卡配置参数 (Air1601/Air1602)
 local sd_spi_id = 1
@@ -46,7 +45,6 @@ local tts_voice_map = {
 
 --[[
 根据版本号自适应设置dac_delay
-参考: play_file.lua, record_amr_file.lua, record_pcm_file.lua
 ]]
 local function get_dac_delay()
     local version = rtos.version()
@@ -80,6 +78,11 @@ local function get_module_type()
             return "air1601"
         elseif model_lower:find("air8000") then
             return "air8000"
+        elseif model_lower:find("air780e") then
+            -- 细分780EXX系列：通过精确匹配区分具体型号
+            if model == "Air780EHV" then
+                return "air780ehv"      -- Air780EHV（内置音频Codec）
+            end
         end
     end
     return "other"
@@ -134,7 +137,6 @@ end
 
 --[[
 播放完成回调（通用）
-参考: play_file.lua, record_amr_file.lua
 ]]
 local function play_end_callback(event)
     if not exaudio then return end
@@ -151,63 +153,11 @@ local function play_end_callback(event)
 end
 
 --[[
-流式播放数据读取任务
-参考: record_pcm_file.lua
-]]
-local function stream_playback_task(file_path)
-    log.info("audio_core", "开始流式读取音频数据:", file_path)
-    if not exaudio then
-        is_playing = false
-        return
-    end
-
-    local file = io.open(file_path, "rb")
-    
-    if not file then
-        log.error("audio_core", "无法打开音频文件:", file_path)
-        is_playing = false
-        return
-    end
-    
-    -- 获取推荐的缓冲区大小
-    local buffer_size = exaudio.get_stream_buffer_size() or 4096
-    log.info("audio_core", "流式播放缓冲区大小:", buffer_size)
-    
-    while is_playing do
-        local read_data = file:read(buffer_size)
-        if read_data == nil then
-            -- 文件读取完毕
-            file:close()
-            file = nil
-            -- 通知多媒体通道没有更多数据
-            exaudio.finish()
-            log.info("audio_core", "流式数据读取完成")
-            break
-        end
-        
-        -- 如果读取的数据小于缓冲区大小，补充静音数据
-        if #read_data < buffer_size then
-            read_data = read_data .. string.rep("\0", buffer_size - #read_data)
-        end
-        
-        exaudio.play_stream_write(read_data)
-        sys.wait(20)  -- 留出时间给其他task运行
-    end
-    
-    -- 如果播放被提前停止，确保文件被关闭
-    if file then
-        file:close()
-        log.info("audio_core", "播放被停止，文件已关闭")
-    end
-end
-
---[[
 初始化音频系统
 
 @api audio_core.init(callback)
 @param callback function 进度回调函数，参数为(percent, message)
 @return boolean 初始化成功返回true，失败返回false
-参考: play_file.lua, record_amr_file.lua
 ]]
 function audio_core.init(callback)
     if initialized then
@@ -243,9 +193,7 @@ function audio_core.init(callback)
     end
     
     -- 根据模组型号设置音频初始化参数
-    local module_type = get_module_type()
     local audio_setup_param = {}
-    
     if module_type == "air1601" then
         -- Air1601使用内置DAC
         log.info("audio_core", "检测到Air1601模组，使用DAC模式")
@@ -264,6 +212,16 @@ function audio_core.init(callback)
             pa_on_level = 1,          -- PA打开电平，0=低电平使能，1=高电平使能
             pa_delay = 10,            -- PA延时(ms)，DAC启动后延迟打开PA的时间
         }
+    elseif module_type == "air780ehv" then
+        -- Air780EHV使用ES8311，I2S直连内置音频Codec
+        log.info("audio_core", "检测到Air780EHV模组，使用ES8311模式")
+        audio_setup_param = {
+            model = "es8311",         -- 音频编解码类型
+            i2c_id = 0,               -- i2c_id
+            dac_delay = get_dac_delay(), -- 根据版本自适应设置
+            pa_ctrl = gpio.AUDIOPA_EN, -- 音频放大器电源控制管脚（EHV专用引脚）
+            dac_ctrl = 20,            -- 音频编解码芯片电源控制管脚
+        }
     elseif module_type == "air8000" then
         -- Air8000系列使用ES8311
         log.info("audio_core", "检测到Air8000模组，使用ES8311模式")
@@ -276,7 +234,7 @@ function audio_core.init(callback)
         }
     else
         -- 其他模组，使用默认配置（ES8311）
-        log.info("audio_core", "未识别模组型号，或当前型号还不支持，请使用8000W/1601/1602畅玩版进行测试")
+        log.info("audio_core", "未识别模组型号，或当前型号还不支持，请使用1601/1602畅玩版或780EHV/8000Turnkey开发板进行测试")
         return false
     end
 
@@ -298,7 +256,7 @@ function audio_core.init(callback)
 end
 
 --[[
-播放音频文件（支持MP3/AMR/PCM自动切换）
+播放音频文件（支持MP3/AMR/WAV格式）
 
 @api audio_core.play_file(file_path, callback)
 @param file_path string 音频文件路径
@@ -322,58 +280,125 @@ function audio_core.play_file(file_path, callback)
     local ext = get_file_ext(file_path)
     log.info("audio_core", "播放文件:", file_path, "格式:", ext)
     
+    -- 检查格式支持
+    if ext ~= "mp3" and ext ~= "amr" and ext ~= "wav" then
+        log.error("audio_core", "不支持的音频格式:", ext)
+        return false
+    end
+    
     play_callback = callback
     current_play_path = file_path
     current_play_format = ext
     
     local play_result = false
     
-    if ext == "mp3" or ext == "amr" then
-        -- MP3/AMR格式：使用文件播放模式 (type=0)
-        local audio_play_param = {
-            type = 0,
-            content = file_path,
-            cbfnc = play_end_callback,
-            priority = 1
-        }
-        
+    -- MP3/AMR/WAV格式：使用文件播放模式 (type=0)
+    local audio_play_param = {
+        type = 0,
+        content = file_path,
+        cbfnc = play_end_callback,
+        priority = 1
+    }
+    
+    local play_result = exaudio.play_start(audio_play_param)
+    
+    if not play_result then
+        log.error("audio_core", "播放启动失败")
+        current_play_path = nil
+        current_play_format = nil
+        return false
+    else
         is_playing = true
-        play_result = exaudio.play_start(audio_play_param)
-        
-    elseif ext == "pcm" then
-        -- PCM格式：使用流式播放模式 (type=2)
-        local audio_play_param = {
-            type = 2,
-            cbfnc = play_end_callback,
-            priority = 1,
-            sampling_rate = 16000,  -- 采样率
-            sampling_depth = 16,    -- 采样位深
-            signed_or_unsigned = true,  -- PCM数据是否有符号
-            codec_id = 0            -- 编解码器ID：0表示RAW/PCM直通模式
-        }
-        
-        is_playing = true
-        play_result = exaudio.play_start(audio_play_param)
-        
-        if play_result then
-            -- 启动流式数据读取任务
-            stream_task = sys.taskInit(stream_playback_task, file_path)
-        end
-        
+        log.info("audio_core", "开始播放:", file_path)
+        return true
+    end
+end
+
+--[[
+流式播放音频文件（支持MP3/AMR/WAV/PCM格式）
+通过手动读取文件并写入流式缓冲区实现播放
+
+@api audio_core.play_stream(file_path, callback)
+@param file_path string 音频文件路径
+@param callback function 播放完成回调函数（可选）
+@return boolean 播放启动成功返回true，失败返回false
+]]
+function audio_core.play_stream(file_path, callback)
+    if is_playing then
+        log.warn("audio_core", "正在播放中，先停止当前播放")
+        audio_core.stop_play()
+        sys.wait(100)
+    end
+    
+    if not io.exists(file_path) then
+        log.error("audio_core", "文件不存在:", file_path)
+        return false
+    end
+    
+    local ext = get_file_ext(file_path)
+    log.info("audio_core", "流式播放文件:", file_path, "格式:", ext)
+    
+    local codec_id
+    
+    if ext == "pcm" then
+        codec_id = 0
+    elseif ext == "wav" then
+        codec_id = 1
+    elseif ext == "amr" then
+        codec_id = 2
+    elseif ext == "mp3" then
+        codec_id = 5
     else
         log.error("audio_core", "不支持的音频格式:", ext)
         return false
     end
     
-    if not play_result then
-        log.error("audio_core", "播放启动失败")
-        is_playing = false
+    -- 解析文件头信息（采样率、位宽、声道数、数据起始偏移等）
+    local audio_info = exaudio.parse_audio_info(file_path, codec_id)
+    local audio_play_param = {
+        type = 2,
+        cbfnc = play_end_callback,
+        priority = 1,
+        codec_id = codec_id,
+    }
+    if audio_info then
+        log.info("audio_core", "解析文件头: 采样率=", audio_info.sample_rate,
+                 "位宽=", audio_info.data_bits, "声道=", audio_info.channel_nums,
+                 "数据起始=", audio_info.data_start)
+        audio_play_param.sample_rate = audio_info.sample_rate
+        audio_play_param.data_bits = audio_info.data_bits
+        audio_play_param.channel_nums = audio_info.channel_nums
+        audio_play_param.is_signed = audio_info.is_signed
+        audio_play_param.data_start = audio_info.data_start
+    else
+        log.warn("audio_core", "无法解析文件头，使用格式默认参数")
+        if ext == "pcm" then
+            audio_play_param.sample_rate = 16000
+        elseif ext == "wav" then
+            audio_play_param.sample_rate = 22050
+        elseif ext == "amr" then
+            audio_play_param.sample_rate = 8000
+        elseif ext == "mp3" then
+            audio_play_param.sample_rate = 44100
+        end
+        audio_play_param.data_bits = 16
+        audio_play_param.channel_nums = 1
+        audio_play_param.is_signed = true
+        audio_play_param.data_start = 0
+    end
+    audio_play_param.file_path = file_path
+
+    local play_result = exaudio.play_start(audio_play_param)
+
+    if play_result then
+        is_playing = true
+        log.info("audio_core", "流式播放启动成功:", file_path)
+        return true
+    else
+        log.error("audio_core", "流式播放启动失败")
         current_play_path = nil
         current_play_format = nil
         return false
-    else
-        log.info("audio_core", "开始播放:", file_path)
-        return true
     end
 end
 
@@ -389,25 +414,25 @@ function audio_core.stop_play()
     
     log.info("audio_core", "停止播放")
     
-    -- 标记停止状态，让流式任务退出
-    is_playing = false
-    
-    -- 停止播放
-    if current_play_format == "pcm" then
-        -- PCM流式播放需要特殊处理
-        exaudio.play_stop({type = 2})
-    elseif current_play_format == "tts" then
-        -- TTS播放
-        exaudio.play_stop({type = 1})
-    else
-        -- MP3/AMR文件播放
-        exaudio.play_stop({type = 0})
+    -- 检查是否确实在播放中，避免在play_start返回前误调用
+    if exaudio.is_end() then
+        log.warn("audio_core", "播放已结束，忽略停止请求")
+        is_playing = false
+        current_play_path = nil
+        current_play_format = nil
+        play_callback = nil
+        return
     end
     
-    -- 等待流式任务结束
-    if stream_task then
-        -- 不阻塞，让任务自然结束
-        stream_task = nil
+    -- 标记停止状态
+    is_playing = false
+    
+    -- 根据当前播放格式停止播放
+    if current_play_format == "tts" then
+        exaudio.play_stop({type = 1})
+    else
+        -- MP3/AMR/WAV/PCM均使用type=2(流式播放)停止
+        exaudio.play_stop({type = 2})
     end
     
     current_play_path = nil
@@ -518,7 +543,6 @@ end
 @param duration number 录音时长（秒），范围3-180
 @param callback function 录音完成回调函数（可选）
 @return boolean 录音启动成功返回true，失败返回false
-参考: record_amr_file.lua, record_pcm_file.lua
 ]]
 function audio_core.start_record(format, duration, callback)
     if not initialized or not exaudio then
@@ -556,7 +580,7 @@ function audio_core.start_record(format, duration, callback)
     
     local audio_record_param
     if format == "amr" then
-        -- AMR格式录音（参考record_amr_file.lua）
+        -- AMR格式录音
         audio_record_param = {
             format = exaudio.AMR_NB,
             time = duration,
@@ -564,7 +588,7 @@ function audio_core.start_record(format, duration, callback)
             cbfnc = record_end_callback
         }
     else
-        -- PCM格式录音（参考record_pcm_file.lua）
+        -- PCM格式录音
         -- 删除旧文件
         if io.exists(record_path) then
             os.remove(record_path)

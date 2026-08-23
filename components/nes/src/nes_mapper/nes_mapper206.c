@@ -19,7 +19,8 @@
 /* https://www.nesdev.org/wiki/INES_Mapper_206
  * Mapper 206 — DxROM (simplified Namco 118 / MMC3 subset).
  * Only $8000/$8001 are decoded (bank select + bank data).
- * R0/R1: 2KB CHR banks at PPU $0000/$0800.
+ * R0/R1: 2KB CHR banks at PPU $0000/$0800; data is a 1KB bank number
+ *        with bit 0 ignored, like MMC3.
  * R2-R5: 1KB CHR banks at PPU $1000-$1C00.
  * R6/R7: 8KB PRG banks at $8000/$A000; $C000-$FFFF fixed to last two banks.
  * No IRQ, no mirroring control.
@@ -57,6 +58,12 @@ static void nes_mapper_init(nes_t* nes) {
     }
 }
 
+static inline void mapper206_load_chr_2k(nes_t* nes, uint8_t slot, uint8_t bank) {
+    uint16_t base = (uint16_t)(bank & 0xFEu);
+    nes_load_chrrom_1k(nes, slot, base);
+    nes_load_chrrom_1k(nes, (uint8_t)(slot + 1u), (uint16_t)(base + 1u));
+}
+
 static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     mapper206_t* r = (mapper206_t*)nes->nes_mapper.mapper_register;
     if (address & 1u) {
@@ -64,13 +71,11 @@ static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
         switch (r->reg_select) {
         case 0:
             r->chr[0] = bank;
-            nes_load_chrrom_1k(nes, 0, (uint8_t)(bank * 2u));
-            nes_load_chrrom_1k(nes, 1, (uint8_t)(bank * 2u + 1u));
+            mapper206_load_chr_2k(nes, 0, bank);
             break;
         case 1:
             r->chr[1] = bank;
-            nes_load_chrrom_1k(nes, 2, (uint8_t)(bank * 2u));
-            nes_load_chrrom_1k(nes, 3, (uint8_t)(bank * 2u + 1u));
+            mapper206_load_chr_2k(nes, 2, bank);
             break;
         case 2: r->chr[2] = bank; nes_load_chrrom_1k(nes, 4, bank); break;
         case 3: r->chr[3] = bank; nes_load_chrrom_1k(nes, 5, bank); break;

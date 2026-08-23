@@ -1,0 +1,6 @@
+{
+  "name": "vfs_uniform_lfs2",
+  "summary": "VFS 统一接口在 lfs2 上的回归测试",
+  "platform": ["pc"],
+  "timeout": 300
+}

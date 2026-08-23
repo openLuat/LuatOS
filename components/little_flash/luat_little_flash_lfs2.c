@@ -12,44 +12,43 @@
 #include "lfs.h"
 #include "little_flash.h"
 
-static size_t lf_offset = 0;
+#define LFS_BLOCK_DEVICE_LOOK_AHEAD (16)
+
+typedef struct LFS2 {
+    lfs_t lfs;
+    struct lfs_config cfg;
+    little_flash_t* flash;
+    size_t offset;
+    uint8_t* lookahead_buffer[LFS_BLOCK_DEVICE_LOOK_AHEAD];
+    uint8_t* read_buffer;
+    uint8_t* prog_buffer;
+}LFS2_t;
 
 // Read a block
 static int lf_block_device_read(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
-    little_flash_t* flash = (little_flash_t*)cfg->context;
-    // LLOGD("lf_block_device_read block:%d off:%d size:%d", block, off, size);
-    return little_flash_read(flash, lf_offset + block * flash->chip_info.erase_size + off, buffer, size);
-    // LLOGD("lf_block_device_read ret:%d", ret);
-    // return LFS_ERR_OK;
+    LFS2_t* lfs2 = (LFS2_t*)cfg->context;
+    little_flash_t* flash = lfs2->flash;
+    size_t offset = lfs2->offset;
+    return little_flash_read(flash, offset + block * flash->chip_info.erase_size + off, buffer, size);
 }
 
 static int lf_block_device_prog(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
-    little_flash_t* flash = (little_flash_t*)cfg->context;
-    // LLOGD("lf_block_device_prog block:%d off:%d size:%d", block, off, size);
-    return little_flash_write(flash, lf_offset + block * flash->chip_info.erase_size + off, buffer, size);
-    // LLOGD("lf_block_device_prog ret:%d", ret);
-    // return LFS_ERR_OK;
+    LFS2_t* lfs2 = (LFS2_t*)cfg->context;
+    little_flash_t* flash = lfs2->flash;
+    size_t offset = lfs2->offset;
+    return little_flash_write(flash, offset + block * flash->chip_info.erase_size + off, buffer, size);
 }
 
 static int lf_block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    little_flash_t* flash = (little_flash_t*)cfg->context;
-    return little_flash_erase(flash, lf_offset + block * flash->chip_info.erase_size, flash->chip_info.erase_size);
-    // LLOGD("lf_block_device_erase ret:%d block:%d", ret, block);
-    // return LFS_ERR_OK;
+    LFS2_t* lfs2 = (LFS2_t*)cfg->context;
+    little_flash_t* flash = lfs2->flash;
+    size_t offset = lfs2->offset;
+    return little_flash_erase(flash, offset + block * flash->chip_info.erase_size, flash->chip_info.erase_size);
 }
 
 static int lf_block_device_sync(const struct lfs_config *cfg) {
     return LFS_ERR_OK;
 }
-
-#define LFS_BLOCK_DEVICE_LOOK_AHEAD (16)
-typedef struct LFS2 {
-    lfs_t lfs;
-    struct lfs_config cfg;
-    uint8_t* lookahead_buffer[LFS_BLOCK_DEVICE_LOOK_AHEAD];
-    uint8_t* read_buffer;
-    uint8_t* prog_buffer;
-}LFS2_t;
 
 lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
     if (flash==NULL){
@@ -61,11 +60,12 @@ lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
         return NULL;
     memset(_lfs, 0, sizeof(LFS2_t));
 
-    lf_offset = offset;
+    _lfs->flash = flash;
+    _lfs->offset = offset;
     lfs_t *lfs = &_lfs->lfs;
     struct lfs_config *lfs_cfg = &_lfs->cfg;
 
-    lfs_cfg->context = flash,
+    lfs_cfg->context = _lfs,
     // block device operations
     lfs_cfg->read = lf_block_device_read;
     lfs_cfg->prog = lf_block_device_prog;

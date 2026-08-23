@@ -25,6 +25,9 @@
 
 #define LUAT_LOG_TAG "sm"
 #include "luat_log.h"
+
+extern const SM2_BN SM2_N;  /* SM2 曲线阶, 用于私钥范围校验 */
+
 #define SM3_DIGEST_LENGTH    32
 #define SM4_BLOCK_LEN 16
 #define SM2_STR_LEN 300
@@ -804,37 +807,300 @@ end
 static int l_sm2_keygen(lua_State *L)
 {
     int ret = 0;
-    SM2_SIGN_CTX ctx = {0};
-    ret = sm2_key_generate(&ctx.key);
+    SM2_KEY key = {0};
+    ret = sm2_key_generate(&key);
     if (ret != 1) {
         LLOGW("sm2_keygen %d", ret);
         return 0;
     }
     char tmp[128] = {0};
-    luat_str_tohex((const char*)ctx.key.public_key.x, 32, tmp);
+    luat_str_tohex((const char*)key.public_key.x, 32, tmp);
     lua_pushlstring(L, tmp, 64);
-    luat_str_tohex((const char*)ctx.key.public_key.y, 32, tmp);
+    luat_str_tohex((const char*)key.public_key.y, 32, tmp);
     lua_pushlstring(L, tmp, 64);
-    luat_str_tohex((const char*)ctx.key.private_key, 32, tmp);
+    luat_str_tohex((const char*)key.private_key, 32, tmp);
     lua_pushlstring(L, tmp, 64);
     return 3;
+}
+
+/*
+SM2标量点乘: R = k * P
+@api gmssl.sm2pointmul(k, px, py)
+@string 标量k, HEX字符串(64字符)
+@string 点P的x坐标, HEX字符串(64字符)
+@string 点P的y坐标, HEX字符串(64字符)
+@return string 结果点R的x坐标, HEX字符串(64字符)
+@return string 结果点R的y坐标, HEX字符串(64字符)
+@usage
+-- 计算 R = k * P (核心用于 GBT 32918.3-2016 SM2密钥交换)
+local rx, ry = gmssl.sm2pointmul(kHex, pxHex, pyHex)
+-- 本函数于2026.02.02新增,用于支持SM2密钥交换协议
+*/
+static int l_sm2_point_mul(lua_State *L)
+{
+    size_t kLen = 0, pxLen = 0, pyLen = 0;
+    const char *kHex  = luaL_checklstring(L, 1, &kLen);
+    const char *pxHex = luaL_checklstring(L, 2, &pxLen);
+    const char *pyHex = luaL_checklstring(L, 3, &pyLen);
+
+    if (kLen != 64 || pxLen != 64 || pyLen != 64) {
+        LLOGE("sm2pointmul: k/px/py must be 64-char HEX strings, got %d/%d/%d", kLen, pxLen, pyLen);
+        return 0;
+    }
+
+    SM2_POINT P = {0};
+    SM2_POINT R = {0};
+    uint8_t k[32];
+
+    luat_str_fromhex(kHex,  64, (char*)k);
+    luat_str_fromhex(pxHex, 64, (char*)P.x);
+    luat_str_fromhex(pyHex, 64, (char*)P.y);
+
+    if (sm2_point_mul(&R, k, &P) != 1) {
+        LLOGE("sm2pointmul: sm2_point_mul failed");
+        return 0;
+    }
+
+    char tmp[128];
+    luat_str_tohex((const char*)R.x, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    luat_str_tohex((const char*)R.y, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 2;
+}
+
+/*
+SM2 ECDH密钥协商: S = d * P
+@api gmssl.sm2ecdh(private, peerPx, peerPy)
+@string 己方私钥, HEX字符串(64字符)
+@string 对方公钥X, HEX字符串(64字符)
+@string 对方公钥Y, HEX字符串(64字符)
+@return string 协商结果点的x坐标, HEX字符串(64字符)
+@return string 协商结果点的y坐标, HEX字符串(64字符)
+@usage
+-- ECDH协商: 己方私钥 * 对方公钥
+local sx, sy = gmssl.sm2ecdh(privateKey, peerPkx, peerPky)
+-- 用于 GBT 32918.3-2016 SM2密钥交换协议
+-- 本函数于2026.02.02新增
+*/
+static int l_sm2_ecdh(lua_State *L)
+{
+    size_t privLen = 0, pxLen = 0, pyLen = 0;
+    const char *privHex = luaL_checklstring(L, 1, &privLen);
+    const char *pxHex   = luaL_checklstring(L, 2, &pxLen);
+    const char *pyHex   = luaL_checklstring(L, 3, &pyLen);
+
+    if (privLen != 64 || pxLen != 64 || pyLen != 64) {
+        LLOGE("sm2ecdh: priv/px/py must be 64-char HEX strings, got %d/%d/%d", privLen, pxLen, pyLen);
+        return 0;
+    }
+
+    SM2_KEY key = {0};
+    SM2_POINT peer = {0};
+    SM2_POINT out = {0};
+
+    luat_str_fromhex(privHex, 64, (char*)key.private_key);
+    luat_str_fromhex(pxHex,   64, (char*)peer.x);
+    luat_str_fromhex(pyHex,   64, (char*)peer.y);
+
+    // 直接校验私钥范围并做 ECDH, 跳过 sm2_key_set_private_key 里的公钥推导
+    // sm2_key_set_private_key 内部会调用 sm2_point_mul_generator 计算公钥,
+    // 但在 ECDH 中并不需要这个公钥, 多算一次完整的点乘(~256次倍点)纯属浪费
+    {
+        SM2_BN d;
+        sm2_bn_from_bytes(d, key.private_key);
+        if (sm2_bn_is_zero(d) || sm2_bn_cmp(d, SM2_N) >= 0) {
+            LLOGE("sm2ecdh: private key out of range [1, n-1]");
+            return 0;
+        }
+    }
+
+    int ret = sm2_point_mul(&out, key.private_key, &peer);
+    if (ret != 1) {
+        LLOGE("sm2ecdh: sm2_point_mul failed");
+        return 0;
+    }
+
+    char tmp[128];
+    luat_str_tohex((const char*)out.x, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    luat_str_tohex((const char*)out.y, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 2;
+}
+
+/*
+SM2椭圆曲线点加运算: R = P + Q
+@api gmssl.sm2pointadd(px1, py1, px2, py2)
+@string 点P的x坐标, HEX字符串(64字符)
+@string 点P的y坐标, HEX字符串(64字符)
+@string 点Q的x坐标, HEX字符串(64字符)
+@string 点Q的y坐标, HEX字符串(64字符)
+@return string 结果点R的x坐标, HEX字符串(64字符), 失败返回nil
+@return string 结果点R的y坐标, HEX字符串(64字符), 失败返回nil
+@usage
+-- 计算 R = P + Q (用于 GBT 32918.3-2016 SM2密钥交换协议的 [h*t]*(P+Q) 步骤)
+local rx, ry = gmssl.sm2pointadd(px1, py1, px2, py2)
+-- 本函数用于 SM2 密钥交换协议 GB/T 32918.3-2016
+*/
+static int l_sm2_point_add(lua_State *L)
+{
+    size_t px1Len = 0, py1Len = 0, px2Len = 0, py2Len = 0;
+    const char *px1Hex = luaL_checklstring(L, 1, &px1Len);
+    const char *py1Hex = luaL_checklstring(L, 2, &py1Len);
+    const char *px2Hex = luaL_checklstring(L, 3, &px2Len);
+    const char *py2Hex = luaL_checklstring(L, 4, &py2Len);
+
+    if (px1Len != 64 || py1Len != 64 || px2Len != 64 || py2Len != 64) {
+        LLOGE("sm2pointadd: all params must be 64-char HEX strings, got %d/%d/%d/%d",
+              px1Len, py1Len, px2Len, py2Len);
+        return 0;
+    }
+
+    SM2_POINT P = {0};
+    SM2_POINT Q = {0};
+    SM2_POINT R = {0};
+
+    luat_str_fromhex(px1Hex, 64, (char*)P.x);
+    luat_str_fromhex(py1Hex, 64, (char*)P.y);
+    luat_str_fromhex(px2Hex, 64, (char*)Q.x);
+    luat_str_fromhex(py2Hex, 64, (char*)Q.y);
+
+    if (sm2_point_add(&R, &P, &Q) != 1) {
+        LLOGE("sm2pointadd: sm2_point_add failed");
+        return 0;
+    }
+
+    char tmp[128];
+    luat_str_tohex((const char*)R.x, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    luat_str_tohex((const char*)R.y, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 2;
+}
+
+/*
+SM2判断点是否在椭圆曲线上
+@api gmssl.sm2pointisoncurve(px, py)
+@string 点P的x坐标, HEX字符串(64字符)
+@string 点P的y坐标, HEX字符串(64字符)
+@return boolean 点在曲线上返回true, 否则返回false
+@usage
+-- 用于 GBT 32918.3-2016 SM2密钥交换协议的公钥合法性校验
+local ok = gmssl.sm2pointisoncurve(px, py)
+-- 本函数用于 SM2 密钥交换协议, 协议要求校验对方临时公钥是否在曲线上
+*/
+static int l_sm2_point_is_on_curve(lua_State *L)
+{
+    size_t pxLen = 0, pyLen = 0;
+    const char *pxHex = luaL_checklstring(L, 1, &pxLen);
+    const char *pyHex = luaL_checklstring(L, 2, &pyLen);
+
+    if (pxLen != 64 || pyLen != 64) {
+        LLOGE("sm2pointisoncurve: px/py must be 64-char HEX strings, got %d/%d",
+              pxLen, pyLen);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    SM2_POINT P = {0};
+    luat_str_fromhex(pxHex, 64, (char*)P.x);
+    luat_str_fromhex(pyHex, 64, (char*)P.y);
+
+    int ret = sm2_point_is_on_curve(&P);
+    lua_pushboolean(L, ret == 1 ? 1 : 0);
+    return 1;
+}
+
+/*
+SM2 GF(n)模加: r = (a + b) mod n
+@api gmssl.sm2bnadd(a, b)
+@string 操作数a, HEX字符串(64字符), 256-bit大整数
+@string 操作数b, HEX字符串(64字符), 256-bit大整数
+@return string 结果r, HEX字符串(64字符), (a+b) mod SM2曲线阶n
+@usage
+-- GBT 32918.3-2016 SM2密钥交换协议中的模n大数运算
+local r = gmssl.sm2bnadd(aHex, bHex)
+*/
+static int l_sm2_fn_add(lua_State *L)
+{
+    size_t aLen = 0, bLen = 0;
+    const char *aHex = luaL_checklstring(L, 1, &aLen);
+    const char *bHex = luaL_checklstring(L, 2, &bLen);
+
+    if (aLen != 64 || bLen != 64) {
+        LLOGE("sm2bnadd: a/b must be 64-char HEX strings, got %d/%d", aLen, bLen);
+        return 0;
+    }
+
+    SM2_Fn a, b, r;
+    sm2_bn_from_hex(a, aHex);
+    sm2_bn_from_hex(b, bHex);
+    sm2_fn_add(r, a, b);
+
+    uint8_t buf[32];
+    char tmp[128];
+    sm2_bn_to_bytes(r, buf);
+    luat_str_tohex((const char*)buf, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 1;
+}
+
+/*
+SM2 GF(n)模乘: r = (a * b) mod n
+@api gmssl.sm2bnmul(a, b)
+@string 操作数a, HEX字符串(64字符), 256-bit大整数
+@string 操作数b, HEX字符串(64字符), 256-bit大整数
+@return string 结果r, HEX字符串(64字符), (a*b) mod SM2曲线阶n
+@usage
+-- GBT 32918.3-2016 SM2密钥交换协议中的模n大数运算
+local r = gmssl.sm2bnmul(aHex, bHex)
+*/
+static int l_sm2_fn_mul(lua_State *L)
+{
+    size_t aLen = 0, bLen = 0;
+    const char *aHex = luaL_checklstring(L, 1, &aLen);
+    const char *bHex = luaL_checklstring(L, 2, &bLen);
+
+    if (aLen != 64 || bLen != 64) {
+        LLOGE("sm2bnmul: a/b must be 64-char HEX strings, got %d/%d", aLen, bLen);
+        return 0;
+    }
+
+    SM2_Fn a, b, r;
+    sm2_bn_from_hex(a, aHex);
+    sm2_bn_from_hex(b, bHex);
+    sm2_fn_mul(r, a, b);
+
+    uint8_t buf[32];
+    char tmp[128];
+    sm2_bn_to_bytes(r, buf);
+    luat_str_tohex((const char*)buf, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 1;
 }
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_gmssl[] =
 {
-    { "sm2encrypt",      ROREG_FUNC(l_sm2_encrypt)},
-    { "sm2decrypt",      ROREG_FUNC(l_sm2_decrypt)},
-    { "sm3update",       ROREG_FUNC(l_sm3_update)},
-    { "sm3",             ROREG_FUNC(l_sm3_update)},
-    { "sm3hmac",         ROREG_FUNC(l_sm3hmac_update)},
-    { "sm4encrypt",      ROREG_FUNC(l_sm4_encrypt)},
-    { "sm4decrypt",      ROREG_FUNC(l_sm4_decrypt)},
-    { "sm2sign",         ROREG_FUNC(l_sm2_sign)},
-    { "sm2verify",       ROREG_FUNC(l_sm2_verify)},
-    { "sm2keygen",       ROREG_FUNC(l_sm2_keygen)},
+    { "sm2encrypt",        ROREG_FUNC(l_sm2_encrypt)},
+    { "sm2decrypt",        ROREG_FUNC(l_sm2_decrypt)},
+    { "sm3update",         ROREG_FUNC(l_sm3_update)},
+    { "sm3",               ROREG_FUNC(l_sm3_update)},
+    { "sm3hmac",           ROREG_FUNC(l_sm3hmac_update)},
+    { "sm4encrypt",        ROREG_FUNC(l_sm4_encrypt)},
+    { "sm4decrypt",        ROREG_FUNC(l_sm4_decrypt)},
+    { "sm2sign",           ROREG_FUNC(l_sm2_sign)},
+    { "sm2verify",         ROREG_FUNC(l_sm2_verify)},
+    { "sm2keygen",         ROREG_FUNC(l_sm2_keygen)},
+    { "sm2pointmul",       ROREG_FUNC(l_sm2_point_mul)},
+    { "sm2ecdh",           ROREG_FUNC(l_sm2_ecdh)},
+    { "sm2pointadd",       ROREG_FUNC(l_sm2_point_add)},
+    { "sm2pointisoncurve", ROREG_FUNC(l_sm2_point_is_on_curve)},
+    { "sm2bnadd",          ROREG_FUNC(l_sm2_fn_add)},
+    { "sm2bnmul",          ROREG_FUNC(l_sm2_fn_mul)},
 #ifdef LUAT_USE_UTEST
-    { "utest",           ROREG_FUNC(l_gmssl_utest)},
+    { "utest",             ROREG_FUNC(l_gmssl_utest)},
 #endif
 
 	{ NULL,             ROREG_INT(0) }

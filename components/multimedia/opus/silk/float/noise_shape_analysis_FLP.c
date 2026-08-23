@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "main_FLP.h"
-#include "tuning_parameters.h"
+#include "silk/tuning_parameters.h"
 
 /* Compute gain to make warped filter coefficients have a zero mean log frequency response on a   */
 /* non-warped frequency scale. (So that it can be implemented with a minimum-phase monic filter.) */

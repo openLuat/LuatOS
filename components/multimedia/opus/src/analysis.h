@@ -28,7 +28,7 @@
 #ifndef ANALYSIS_H
 #define ANALYSIS_H
 
-#include "celt.h"
+#include "celt/celt.h"
 #include "opus_private.h"
 #include "mlp.h"
 

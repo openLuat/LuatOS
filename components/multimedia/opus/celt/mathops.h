@@ -41,7 +41,7 @@
 
 
 #if defined(OPUS_ARM_MAY_HAVE_NEON_INTR)
-#include "arm/mathops_arm.h"
+#include "celt/arm/mathops_arm.h"
 #endif
 
 #define PI 3.1415926535897931

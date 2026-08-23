@@ -1,0 +1,578 @@
+/*
+ * IKEv2/IPsec crypto helpers for LuatOS netdrv.
+ *
+ * Implements RFC 7296 §2.13/§2.14/§2.15/§2.17 building blocks on top of
+ * mbedTLS, plus X.509 chain/SAN verification for server authentication.
+ */
+
+#include "ipsec/ipsec_crypto.h"
+
+#include <string.h>
+#include <stdio.h>
+
+#include "luat_crypto.h"
+#include "mbedtls/ecp.h"
+#include "mbedtls/platform_util.h"
+
+#define LUAT_LOG_TAG "ipsec_crypto"
+#include "luat_log.h"
+
+/* ========== PRF / prf+ ========== */
+
+int ipsec_prf(uint8_t prf, const uint8_t *key, size_t key_len,
+              const uint8_t *in, size_t in_len, uint8_t *out)
+{
+    const mbedtls_md_info_t *info = mbedtls_md_info_from_type(ipsec_prf_md(prf));
+    if (info == NULL)
+        return -1;
+    return mbedtls_md_hmac(info, key, key_len, in, in_len, out);
+}
+
+int ipsec_prf_plus(uint8_t prf, const uint8_t *key, size_t key_len,
+                   const uint8_t *seed, size_t seed_len,
+                   uint8_t *out, size_t out_len)
+{
+    const mbedtls_md_info_t *info = mbedtls_md_info_from_type(ipsec_prf_md(prf));
+    mbedtls_md_context_t md_ctx;
+    uint8_t t[IPSEC_SHA256_KEY_LEN];
+    uint16_t hlen = ipsec_prf_len(prf);
+    uint8_t counter = 1;
+    size_t off = 0;
+    int first = 1;
+    int ret = -1;
+
+    if (info == NULL || out_len > 255 * (size_t)hlen)
+        return -1;
+
+    mbedtls_md_init(&md_ctx);
+    if (mbedtls_md_setup(&md_ctx, info, 1) != 0)
+        return -1;
+
+    while (off < out_len) {
+        size_t take = out_len - off;
+        if (take > hlen)
+            take = hlen;
+        if (first) {
+            if (mbedtls_md_hmac_starts(&md_ctx, key, key_len) != 0)
+                goto out;
+            if (mbedtls_md_hmac_update(&md_ctx, seed, seed_len) != 0)
+                goto out;
+            if (mbedtls_md_hmac_update(&md_ctx, &counter, 1) != 0)
+                goto out;
+            first = 0;
+        } else {
+            if (mbedtls_md_hmac_reset(&md_ctx) != 0)
+                goto out;
+            if (mbedtls_md_hmac_update(&md_ctx, t, hlen) != 0)
+                goto out;
+            if (mbedtls_md_hmac_update(&md_ctx, seed, seed_len) != 0)
+                goto out;
+            if (mbedtls_md_hmac_update(&md_ctx, &counter, 1) != 0)
+                goto out;
+        }
+        if (mbedtls_md_hmac_finish(&md_ctx, t) != 0)
+            goto out;
+        memcpy(out + off, t, take);
+        off += take;
+        counter++;
+    }
+    ret = 0;
+
+out:
+    mbedtls_md_free(&md_ctx);
+    memset(t, 0, sizeof(t));
+    return ret;
+}
+
+/* ========== RNG ========== */
+
+int ipsec_rng_cb(void *ctx, unsigned char *output, size_t len)
+{
+    (void)ctx;
+    return luat_crypto_trng((char *)output, len);
+}
+
+/* ========== DH group 14 ========== */
+
+/*
+ * RFC 3526 MODP-2048 (group 14) prime and generator 2.
+ */
+static const char ipsec_modp2048_p[] =
+    "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
+    "29024E088A67CC74020BBEA63B139B22514A08798E3404DD"
+    "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"
+    "E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED"
+    "EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D"
+    "C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F"
+    "83655D23DCA3AD961C62F356208552BB9ED529077096966D"
+    "670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B"
+    "E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9"
+    "DE2BCBF6955817183995497CEA956AE515D2261898FA0510"
+    "15728E5A8AACAA68FFFFFFFFFFFFFFFF";
+static const char ipsec_modp2048_g[] = "02";
+
+int ipsec_dh_set_group14(mbedtls_dhm_context *dhm)
+{
+    mbedtls_mpi P, G;
+    int ret;
+
+    mbedtls_mpi_init(&P);
+    mbedtls_mpi_init(&G);
+    if (mbedtls_mpi_read_string(&P, 16, ipsec_modp2048_p) != 0 ||
+        mbedtls_mpi_read_string(&G, 16, ipsec_modp2048_g) != 0) {
+        mbedtls_mpi_free(&P);
+        mbedtls_mpi_free(&G);
+        return -1;
+    }
+    ret = mbedtls_dhm_set_group(dhm, &P, &G);
+    mbedtls_mpi_free(&P);
+    mbedtls_mpi_free(&G);
+    return ret;
+}
+
+/* Map an IKE DH group number to an mbedTLS ECP group id */
+static mbedtls_ecp_group_id ipsec_dh_ecp_group(uint16_t group)
+{
+    switch (group) {
+    case IPSEC_DH_ECP_256:
+        return MBEDTLS_ECP_DP_SECP256R1;
+    case IPSEC_DH_ECP_384:
+        return MBEDTLS_ECP_DP_SECP384R1;
+    case IPSEC_DH_ECP_521:
+        return MBEDTLS_ECP_DP_SECP521R1;
+    default:
+        return MBEDTLS_ECP_DP_NONE;
+    }
+}
+
+int ipsec_dh_init(ipsec_dh_ctx_t *ctx, uint16_t group)
+{
+    if (ctx == NULL)
+        return -1;
+    if (ctx->group != 0)
+        ipsec_dh_free(ctx);
+    memset(ctx, 0, sizeof(*ctx));
+
+    switch (group) {
+    case IPSEC_DH_MODP_2048:
+        mbedtls_dhm_init(&ctx->u.dhm);
+        if (ipsec_dh_set_group14(&ctx->u.dhm) != 0) {
+            mbedtls_dhm_free(&ctx->u.dhm);
+            return -1;
+        }
+        break;
+    case IPSEC_DH_ECP_256:
+    case IPSEC_DH_ECP_384:
+    case IPSEC_DH_ECP_521:
+        mbedtls_ecdh_init(&ctx->u.ecdh);
+        if (mbedtls_ecdh_setup(&ctx->u.ecdh, ipsec_dh_ecp_group(group)) != 0) {
+            mbedtls_ecdh_free(&ctx->u.ecdh);
+            return -1;
+        }
+        break;
+    default:
+        return -1;
+    }
+    ctx->group = group;
+    return 0;
+}
+
+void ipsec_dh_free(ipsec_dh_ctx_t *ctx)
+{
+    if (ctx == NULL || ctx->group == 0)
+        return;
+    if (ctx->group == IPSEC_DH_MODP_2048)
+        mbedtls_dhm_free(&ctx->u.dhm);
+    else
+        mbedtls_ecdh_free(&ctx->u.ecdh);
+    ctx->group = 0;
+}
+
+int ipsec_dh_make_public(ipsec_dh_ctx_t *ctx, uint8_t *pub, size_t *pub_len)
+{
+    size_t olen;
+    size_t cap;
+
+    if (ctx == NULL || pub == NULL || pub_len == NULL)
+        return -1;
+    cap = *pub_len;
+    if (ctx->group == IPSEC_DH_MODP_2048) {
+        olen = cap;
+        if (mbedtls_dhm_make_public(&ctx->u.dhm, IPSEC_DH_MODP2048_LEN,
+                                    pub, olen, ipsec_rng_cb, NULL) != 0)
+            return -1;
+        *pub_len = olen;
+        return 0;
+    }
+    /* mbedtls writes a TLS opaque ECPoint (length | 0x04 | x | y); IKEv2 KE
+     * bodies carry the bare x || y (RFC 5903), so strip the length byte and
+     * the leading 0x04. */
+    if (cap < (size_t)ipsec_dh_pub_len(ctx->group) + 2)
+        return -1;
+    olen = cap;
+    if (mbedtls_ecdh_make_public(&ctx->u.ecdh, &olen, pub, olen,
+                                 ipsec_rng_cb, NULL) != 0)
+        return -1;
+    if (olen != (size_t)ipsec_dh_pub_len(ctx->group) + 2 ||
+        pub[0] != (uint8_t)(olen - 1) || pub[1] != 0x04)
+        return -1;
+    memmove(pub, pub + 2, olen - 2);
+    *pub_len = (size_t)(olen - 2);
+    return 0;
+}
+
+int ipsec_dh_read_public(ipsec_dh_ctx_t *ctx, const uint8_t *pub, size_t pub_len)
+{
+    uint8_t point[136]; /* length | 0x04 | x | y for P-521 */
+
+    if (ctx == NULL || pub == NULL)
+        return -1;
+    if (ctx->group == IPSEC_DH_MODP_2048)
+        return mbedtls_dhm_read_public(&ctx->u.dhm, pub, pub_len);
+    if (pub_len != (size_t)ipsec_dh_pub_len(ctx->group))
+        return -1;
+    point[0] = (uint8_t)(pub_len + 1);
+    point[1] = 0x04;
+    memcpy(point + 2, pub, pub_len);
+    return mbedtls_ecdh_read_public(&ctx->u.ecdh, point, pub_len + 2);
+}
+
+int ipsec_dh_calc_secret(ipsec_dh_ctx_t *ctx, uint8_t *secret, size_t *secret_len)
+{
+    size_t len;
+    size_t cap;
+
+    if (ctx == NULL || secret == NULL || secret_len == NULL)
+        return -1;
+    cap = *secret_len;
+    if (ctx->group == IPSEC_DH_MODP_2048) {
+        len = IPSEC_DH_MODP2048_LEN;
+        if (mbedtls_dhm_calc_secret(&ctx->u.dhm, secret, len, &len,
+                                    ipsec_rng_cb, NULL) != 0)
+            return -1;
+        *secret_len = len;
+        return 0;
+    }
+    /* The ECDH shared secret is the full-size big-endian x coordinate
+     * (RFC 5903): 32/48/66 bytes for P-256/384/521. */
+    len = (size_t)ipsec_dh_pub_len(ctx->group) / 2;
+    if (cap < len)
+        return -1;
+    if (mbedtls_ecdh_calc_secret(&ctx->u.ecdh, &len, secret, len,
+                                 ipsec_rng_cb, NULL) != 0)
+        return -1;
+    *secret_len = len;
+    return 0;
+}
+
+/* ========== Key derivation ========== */
+
+int ipsec_derive_ike_keys(const ipsec_ike_algs_t *algs,
+                          const uint8_t *ni, uint16_t ni_len,
+                          const uint8_t *nr, uint16_t nr_len,
+                          const uint8_t *g_ir, uint16_t g_ir_len,
+                          const uint8_t *spii, const uint8_t *spir,
+                          uint8_t *out)
+{
+    uint8_t seed[64 + 16];
+    uint8_t skeyseed[IPSEC_SHA256_KEY_LEN];
+    uint16_t plen = ipsec_prf_len(algs->prf);
+    uint16_t enc_len = ipsec_enc_len(algs->enc);
+    uint16_t total;
+    uint16_t seed_len = 0;
+    int ret = -1;
+
+    /* SKEYSEED = prf(Ni | Nr, g^ir) */
+    memcpy(seed, ni, ni_len);
+    memcpy(seed + ni_len, nr, nr_len);
+    if (ipsec_prf(algs->prf, seed, (size_t)ni_len + nr_len,
+                  g_ir, g_ir_len, skeyseed) != 0)
+        return -1;
+
+    /* {SK_d..SK_pr} = prf+(SKEYSEED, Ni | Nr | SPIi | SPIr) */
+    memcpy(seed, ni, ni_len);
+    memcpy(seed + ni_len, nr, nr_len);
+    seed_len = (uint16_t)(ni_len + nr_len);
+    memcpy(seed + seed_len, spii, 8);
+    memcpy(seed + seed_len + 8, spir, 8);
+    seed_len = (uint16_t)(seed_len + 16);
+    /* SK_d|SK_ai|SK_ar|SK_ei|SK_er|SK_pi|SK_pr = 5*prf_len + 2*enc_len. */
+    total = (uint16_t)(5u * plen + 2u * enc_len);
+    ret = ipsec_prf_plus(algs->prf, skeyseed, plen,
+                         seed, seed_len, out, total);
+
+    mbedtls_platform_zeroize(skeyseed, sizeof(skeyseed));
+    return ret;
+}
+
+int ipsec_derive_child_keymat(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_len,
+                              const uint8_t *ni, uint16_t ni_len,
+                              const uint8_t *nr, uint16_t nr_len,
+                              uint8_t enc_len, uint8_t extra_len,
+                              uint8_t *out)
+{
+    uint8_t seed[64];
+
+    memcpy(seed, ni, ni_len);
+    memcpy(seed + ni_len, nr, nr_len);
+    return ipsec_derive_child_keymat_seed(prf, sk_d, sk_d_len,
+                                          seed, (uint16_t)(ni_len + nr_len),
+                                          enc_len, extra_len, out);
+}
+
+int ipsec_derive_child_keymat_seed(uint8_t prf, const uint8_t *sk_d, uint16_t sk_d_len,
+                                   const uint8_t *seed, uint16_t seed_len,
+                                   uint8_t enc_len, uint8_t extra_len,
+                                   uint8_t *out)
+{
+    uint16_t total = (uint16_t)(2 * ((uint16_t)enc_len + (uint16_t)extra_len));
+
+    return ipsec_prf_plus(prf, sk_d, sk_d_len, seed, seed_len, out, total);
+}
+
+/* ========== AUTH ========== */
+
+int ipsec_compute_auth_shared(uint8_t prf,
+                              const uint8_t *shared, size_t shared_len,
+                              const uint8_t *signed_octets, size_t signed_len,
+                              uint8_t *auth_out, size_t auth_out_len)
+{
+    static const char pad[] = "Key Pad for IKEv2"; /* 17 ASCII chars, no NUL */
+    uint8_t k[IPSEC_SHA256_KEY_LEN];
+    uint16_t plen = ipsec_prf_len(prf);
+
+    if (auth_out_len < plen)
+        return -1;
+    if (ipsec_prf(prf, shared, shared_len,
+                  (const uint8_t *)pad, sizeof(pad) - 1, k) != 0)
+        return -1;
+    if (ipsec_prf(prf, k, plen, signed_octets, signed_len, auth_out) != 0) {
+        memset(k, 0, sizeof(k));
+        return -1;
+    }
+    memset(k, 0, sizeof(k));
+    return 0;
+}
+
+/* Convert raw ECDSA r||s to DER SEQUENCE { INTEGER r, INTEGER s } */
+static int ecdsa_raw_to_der(const uint8_t *raw, size_t raw_len,
+                            uint8_t *der, size_t *der_len)
+{
+    size_t half = raw_len / 2;
+    const uint8_t *r = raw;
+    const uint8_t *s = raw + half;
+    size_t r_len = half, s_len = half;
+    size_t total, rpad, spad;
+    uint8_t *p = der;
+
+    /* Skip leading zero bytes in each integer */
+    while (r_len > 1 && *r == 0) {
+        r++;
+        r_len--;
+    }
+    while (s_len > 1 && *s == 0) {
+        s++;
+        s_len--;
+    }
+
+    rpad = (*r & 0x80) ? 1 : 0;
+    spad = (*s & 0x80) ? 1 : 0;
+    /* SEQUENCE(2) + INTEGER r(2 + r_len + rpad) + INTEGER s(2 + s_len + spad) */
+    total = 6 + r_len + s_len + rpad + spad;
+
+    if (total > 140)
+        return -1;
+
+    *p++ = 0x30;
+    *p++ = (uint8_t)(total - 2);
+    *p++ = 0x02;
+    *p++ = (uint8_t)(r_len + rpad);
+    if (rpad) *p++ = 0x00;
+    memcpy(p, r, r_len);
+    p += r_len;
+    *p++ = 0x02;
+    *p++ = (uint8_t)(s_len + spad);
+    if (spad) *p++ = 0x00;
+    memcpy(p, s, s_len);
+    p += s_len;
+
+    *der_len = (size_t)(p - der);
+    return 0;
+}
+
+int ipsec_verify_auth_signature(const mbedtls_pk_context *pk,
+                                mbedtls_md_type_t sig_md,
+                                const uint8_t *signed_octets, size_t signed_len,
+                                const uint8_t *auth, size_t auth_len)
+{
+    uint8_t hash[64];
+    uint8_t der[140];
+    size_t der_len;
+    const uint8_t *sig;
+    size_t sig_len;
+    const mbedtls_md_info_t *info;
+    size_t hlen;
+    int vret;
+    mbedtls_pk_type_t pk_type = mbedtls_pk_get_type(pk);
+
+    if (pk_type == MBEDTLS_PK_ECKEY || pk_type == MBEDTLS_PK_ECKEY_DH) {
+        /* IKEv2 ECDSA AUTH data is raw r||s */
+        if (auth_len != 132 && auth_len != 96 && auth_len != 64) {
+            LLOGE("auth sig len %u not ECDSA-sized", (unsigned)auth_len);
+            return -1;
+        }
+        if (ecdsa_raw_to_der(auth, auth_len, der, &der_len) != 0) {
+            LLOGE("ecdsa raw->der conversion failed");
+            return -1;
+        }
+        LLOGD("pk type=ECKEY sig_der_len=%u", (unsigned)der_len);
+        sig = der;
+        sig_len = der_len;
+    } else {
+        /* RSA (and other) signatures are verified as-is */
+        sig = auth;
+        sig_len = auth_len;
+    }
+
+    info = mbedtls_md_info_from_type(sig_md);
+    if (info == NULL)
+        return -1;
+    hlen = mbedtls_md_get_size(info);
+    if (hlen > sizeof(hash))
+        return -1;
+    if (mbedtls_md(info, signed_octets, signed_len, hash) != 0)
+        return -1;
+
+    vret = mbedtls_pk_verify((mbedtls_pk_context *)pk, sig_md,
+                             hash, hlen, sig, sig_len);
+    if (vret == 0)
+        return 0;
+    LLOGD("pk_verify md=%d ret=-0x%04X", (int)sig_md,
+          (unsigned)(vret > 0 ? vret : -vret));
+    mbedtls_platform_zeroize(hash, sizeof(hash));
+    return -1;
+}
+
+/* ========== Certificate verification ========== */
+
+/* Parse a dotted-quad IPv4 literal into four bytes. */
+static int ipsec_parse_ipv4(const char *text, uint8_t ip[4])
+{
+    unsigned int a, b, c, d;
+    char extra;
+
+    if (text == NULL || sscanf(text, "%u.%u.%u.%u%c", &a, &b, &c, &d, &extra) != 4)
+        return -1;
+    if (a > 255 || b > 255 || c > 255 || d > 255)
+        return -1;
+    ip[0] = (uint8_t)a;
+    ip[1] = (uint8_t)b;
+    ip[2] = (uint8_t)c;
+    ip[3] = (uint8_t)d;
+    return 0;
+}
+
+/* Check the leaf certificate's SAN list for \p san (DNS name or IPv4). */
+static int ipsec_check_san(mbedtls_x509_crt *crt, const char *san)
+{
+    mbedtls_x509_sequence *cur;
+    size_t san_len;
+    uint8_t want_ip[4];
+    int want_is_ip;
+
+    if (san == NULL)
+        return -1;
+    san_len = strlen(san);
+    want_is_ip = (ipsec_parse_ipv4(san, want_ip) == 0);
+
+    for (cur = &crt->subject_alt_names; cur != NULL; cur = cur->next) {
+        mbedtls_x509_subject_alternative_name alt;
+        if (mbedtls_x509_parse_subject_alt_name(&cur->buf, &alt) != 0)
+            continue;
+        if (alt.type == MBEDTLS_X509_SAN_DNS_NAME &&
+            alt.san.unstructured_name.len == san_len &&
+            memcmp(alt.san.unstructured_name.p, san, san_len) == 0)
+            return 0;
+        if (want_is_ip && alt.type == MBEDTLS_X509_SAN_IP_ADDRESS &&
+            alt.san.unstructured_name.len == 4 &&
+            memcmp(alt.san.unstructured_name.p, want_ip, 4) == 0)
+            return 0;
+    }
+    return -1;
+}
+
+int ipsec_verify_cert_chain(mbedtls_x509_crt *chain,
+                            const char *ca_pem, size_t ca_pem_len,
+                            const char *san,
+                            int insecure_cert_ok,
+                            mbedtls_x509_crt *cacert)
+{
+    mbedtls_x509_crt local_cacert;
+    mbedtls_x509_crt *store;
+    uint32_t flags = 0;
+    int ret;
+    int use_local;
+
+    if (chain == NULL)
+        return -1;
+
+    /* No trust anchor configured: fail closed unless the caller explicitly
+     * opts into the insecure mode. Even then the SAN must still match. */
+    if (ca_pem == NULL || ca_pem_len == 0) {
+        if (!insecure_cert_ok) {
+            LLOGE("no ca_cert configured and insecure certificate mode is disabled");
+            return -1;
+        }
+        if (ipsec_check_san(chain, san) != 0) {
+            LLOGE("insecure mode: server SAN does not match %s", san ? san : "(null)");
+            return -1;
+        }
+        LLOGW("no ca_cert configured, accepting server certificate after SAN check");
+        return 0;
+    }
+    if (san == NULL)
+        return -1;
+
+    use_local = (cacert == NULL);
+    if (use_local) {
+        mbedtls_x509_crt_init(&local_cacert);
+        store = &local_cacert;
+    } else {
+        mbedtls_x509_crt_init(cacert);
+        store = cacert;
+    }
+
+    ret = mbedtls_x509_crt_parse(store, (const unsigned char *)ca_pem, ca_pem_len);
+    if (ret != 0) {
+        LLOGE("trust anchor parse failed: -0x%04X", (unsigned)(-ret));
+        ret = -1;
+        goto out;
+    }
+
+    ret = mbedtls_x509_crt_verify_with_profile(chain, store, NULL,
+                                               &mbedtls_x509_crt_profile_default,
+                                               NULL, &flags, NULL, NULL);
+    LLOGD("cert verify: ret=-0x%04X flags=0x%lX", (unsigned)(ret > 0 ? ret : -ret),
+          (unsigned long)flags);
+    if (ret != 0 || flags != 0) {
+        LLOGE("cert chain verify failed: ret=-0x%04X flags=0x%lX",
+              (unsigned)(ret > 0 ? ret : -ret), (unsigned long)flags);
+        ret = -1;
+        goto out;
+    }
+    {
+        int san_ret = ipsec_check_san(chain, san);
+        LLOGD("cert SAN check: %d", san_ret);
+        if (san_ret != 0) {
+            LLOGE("cert SAN does not match %s", san);
+            ret = -1;
+            goto out;
+        }
+    }
+    ret = 0;
+
+out:
+    if (use_local)
+        mbedtls_x509_crt_free(&local_cacert);
+    return ret;
+}

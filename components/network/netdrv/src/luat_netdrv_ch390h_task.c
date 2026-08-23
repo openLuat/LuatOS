@@ -8,7 +8,6 @@
 // #include "luat_spi.h"
 #include "luat_gpio.h"
 #include "net_lwip2.h"
-#include "luat_ulwip.h"
 #include "lwip/tcp.h"
 #include "lwip/sys.h"
 #include "lwip/tcpip.h"
@@ -18,10 +17,14 @@
 #include "luat_wdt.h"
 
 #include "luat_rtos.h"
-#include "luat_netdrv_event.h"
+#include "luat_netdrv_pkg.h"
 
 #define LUAT_LOG_TAG "netdrv.ch390x"
 #include "luat_log.h"
+
+#ifndef LUAT_CONF_CH390H_LOOP_TIMEOUT
+#define LUAT_CONF_CH390H_LOOP_TIMEOUT 5
+#endif
 
 typedef struct pkg_evt
 {
@@ -30,13 +33,8 @@ typedef struct pkg_evt
     ch390h_t *ch;
 }pkg_evt_t;
 
-#ifdef LUAT_USE_NETDRV_LWIP_ARP
 extern err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp);
 extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
-#else
-#define luat_netdrv_netif_input_main netif_input
-#define luat_netdrv_etharp_output ulwip_etharp_output
-#endif
 
 extern ch390h_t* ch390h_drvs[MAX_CH390H_NUM];
 
@@ -45,6 +43,12 @@ static luat_rtos_queue_t qt;
 
 static uint64_t warn_vid_pid_tm;
 static uint64_t warn_msg_tm;
+static uint64_t warn_rxov_tm;
+
+// 批量收包缓冲: 先把芯片RX内存快速读空(纯SPI读), 再统一处理, 防止13K RX缓冲溢出
+#define CH390H_RX_BATCH_NUM 16
+static uint8_t* s_rx_batch;                         // CH390H_RX_BATCH_NUM x 1600B, PSRAM
+static uint16_t s_rx_batch_len[CH390H_RX_BATCH_NUM];
 
 static uint32_t s_ch390h_mode; // 0 -- PULL 模式, 1 == IRQ 模式
 
@@ -111,7 +115,7 @@ static luat_ch390h_cstring_t* new_cstring(ch390h_t* ch, uint16_t len) {
         }
         return cs;
     }
-    LLOGE("剩余内存不多了,抛弃数据包 total %d used %d max_used %d len %d", total, used, max_used, len);
+    LLOGW("剩余内存不多了,抛弃数据包 total %d used %d max_used %d len %d", total, used, max_used, len);
     return NULL;
 }
 
@@ -131,7 +135,7 @@ static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         tm = luat_mcu_tick64_ms();
         if (tm - warn_msg_tm > 1000) {
             warn_msg_tm = tm;
-            LLOGE("队列已满，丢弃数据包 len=%d", len);
+            LLOGW("队列已满，丢弃数据包 len=%d", len);
         }
         ch->total_tx_drop++;
         luat_heap_opt_free(ch->pkg_mem_type, cs);
@@ -179,7 +183,6 @@ static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
     // LLOGI("lwip待发送到硬件层 %p %d", p, p->tot_len);
     luat_ch390h_cstring_t* cs = new_cstring(ch, p->tot_len);
     if (cs == NULL) {
-        LLOGE("分配cstring失败，丢弃数据包 %d", p->tot_len);
         return;
     }
     cs->len = p->tot_len;
@@ -204,28 +207,21 @@ err_t ch390_netif_output(struct netif *netif, struct pbuf *p) {
         if (ch->status == CH390H_STATUS_STOPPED) {
             return ERR_IF;
         }
+        // LWIP 层拦截: 用户已声明拦截 (layer="lwip") 则原 dataout 流程被吞掉.
+        // 注意: pbuf 可能是多片链表, 仅当单片 (p->next == NULL) 且
+        // 首片 payload 长度 >= tot_len 时才能直接传 payload 指针.
+        // 返回 0 = 未拦截, 1 = 已拦截 (跳过 ch390h_dataout_pbuf).
+        if (p != NULL && p->tot_len > 0 && p->next == NULL && p->len >= p->tot_len) {
+            int intercepted = luat_netdrv_pkg_input(ch->netdrv->id, LUAT_NETDRV_CH_LWIP, p->payload, p->tot_len);
+            if (intercepted != 0) {
+                // Lua 已拿走控制权, 原 TX 包不入 spi 队列 (Lua 自己 send_raw)
+                break;
+            }
+        }
         ch390h_dataout_pbuf(ch, p);
         break;
     }
     return 0;
-}
-
-
-static void netdrv_netif_input(void* args) {
-    netdrv_pkg_msg_t* ptr = (netdrv_pkg_msg_t*)args;
-    struct pbuf* p = pbuf_alloc(PBUF_RAW, ptr->len, PBUF_RAM);
-    if (p == NULL) {
-        LLOGD("分配pbuf失败!!! %d", ptr->len);
-        luat_heap_free(ptr);
-        return;
-    }
-    pbuf_take(p, ptr->buff, ptr->len);
-    LLOGI("数据注入到netif " MACFMT, MAC_ARG(p->payload));
-    int ret = ptr->netif->input(p, ptr->netif);
-    if (ret) {
-        pbuf_free(p);
-    }
-    luat_heap_free(ptr);
 }
 
 static int check_vid_pid(ch390h_t* ch) {
@@ -252,9 +248,25 @@ static int check_vid_pid(ch390h_t* ch) {
             warn_vid_pid_tm = tnow;
         }
         // 连续多次失败后回退到初始状态
-        if (ch->vid_pid_error_count >= 20 && ch->status >= 2) {
+        // 注意: STOPPED (=4) 也满足 status >= 2, 必须排除, 否则休眠时 SPI 读不到 VID/PID
+        // 会把人为设的 STOPPED 错误回退成 0, 引发 ch390_task_main 退出 FOREVER 等待.
+        if (ch->vid_pid_error_count >= 20 && ch->status >= 2 && ch->status != CH390H_STATUS_STOPPED) {
             LLOGE("VID/PID检查连续失败超过阈值，回退到初始状态");
             ch->status = 0;
+            ch->init_done = 0;
+            ch->vid_pid_error_count = 0;
+        }
+        /* 仅当业务侧通过 CTRL_UPDOWN=0 显式请求了休眠 (sleep_requested=1) 时,
+         * 才允许在 VID/PID 持续失败后自杀转 STOPPED. 这样:
+         *  - 正常运行期间瞬时干扰 / 网线意外抖动 / SPI 偶发失败 ->
+         *    走 status=2->0->2 自愈循环, 不会卡 STOPPED;
+         *  - 业务侧主动请求休眠后, 若 SPI 已停 / PHY 已下电导致读不到 VID/PID ->
+         *    转 STOPPED 让 task 进 FOREVER, 不再贡献 1Hz 唤醒. */
+        if (ch->vid_pid_error_count >= 50 && ch->status == 0 && ch->sleep_requested) {
+            LLOGW("VID/PID 持续失败 %d 次 (休眠请求中), 进入 STOPPED 节能态. "
+                  "spi=%d cs=%d. 唤醒后会通过 netdrv.ctrl(CTRL_UPDOWN,1) 重新拉起.",
+                  ch->vid_pid_error_count, ch->spiid, ch->cspin);
+            ch->status = CH390H_STATUS_STOPPED;
             ch->init_done = 0;
             ch->vid_pid_error_count = 0;
         }
@@ -264,106 +276,70 @@ static int check_vid_pid(ch390h_t* ch) {
     return 0;
 }
 
-
-static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
+static int ch390_status_on_0(ch390h_t* ch) {
     uint8_t buff[32] = {0};
-    int ret = 0;
-    uint16_t len = 0;
-
-    if (ch->status == CH390H_STATUS_STOPPED) {
+    // 状态0, 代表刚加入, 还没成功通信过!!
+    ch390h_bootup(ch);
+    luat_ch390h_software_reset(ch);
+    if (check_vid_pid(ch)) {
+        return 0;
+    }
+    luat_rtos_task_sleep(10);
+    // 读取MAC地址, 开始初始化
+    luat_ch390h_read_mac(ch, buff);
+    size_t tmpc = 0;
+    for (size_t i = 0; i < 6; i++)
+    {
+        if (buff[i] == 0) {
+            tmpc ++;
+            if (tmpc == 2) {
+                LLOGD("非法MAC地址 %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+                return 0;
+            }
+        }
+    }
+    luat_ch390h_read_mac(ch, buff + 6);
+    luat_ch390h_read_mac(ch, buff + 12);
+    if (memcmp(buff, buff+6, 6) || memcmp(buff, buff+12, 6)) {
+        LLOGE("读取3次mac地址不匹配!!! %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
         return 0;
     }
     
-    // LLOGD("状态 spi %d cs %d stat %d", ch->spiid, ch->cspin, ch->status);
-    // 首先, 判断设备状态
-    if (ch->status == 0) {
-        // 状态0, 代表刚加入, 还没成功通信过!!
-        ch390h_bootup(ch);
-        luat_ch390h_software_reset(ch);
-        if (check_vid_pid(ch)) {
-            return 0;
-        }
-        luat_rtos_task_sleep(10);
-        // 读取MAC地址, 开始初始化
-        luat_ch390h_read_mac(ch, buff);
-        size_t tmpc = 0;
-        for (size_t i = 0; i < 6; i++)
-        {
-            if (buff[i] == 0) {
-                tmpc ++;
-                if (tmpc == 2) {
-                    LLOGD("非法MAC地址 %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
-                    return 0;
-                }
-            }
-        }
-        luat_ch390h_read_mac(ch, buff + 6);
-        luat_ch390h_read_mac(ch, buff + 12);
-        if (memcmp(buff, buff+6, 6) || memcmp(buff, buff+12, 6)) {
-            LLOGE("读取3次mac地址不匹配!!! %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
-            return 0;
-        }
-        
-        LLOGD("初始化MAC %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
-        // TODO 判断mac是否合法
-        memcpy(ch->netdrv->netif->hwaddr, buff, 6);
-        ch->status = 2;
-        ch->netdrv->dataout = ch390h_dataout;
-        luat_ch390h_basic_config(ch);
-        luat_ch390h_set_phy(ch, 1);
-        luat_ch390h_set_rx(ch, 1);
-        if (ch->intpin != 255) {
-            luat_ch390h_write_reg(ch, CH390H_REG_IMR, 1); // 开启接收中断
-        }
-        return 0; // 等待下一个周期
+    LLOGD("初始化MAC %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+    // TODO 判断mac是否合法
+    memcpy(ch->netdrv->netif->hwaddr, buff, 6);
+    ch->status = 2;
+    ch->netdrv->dataout = ch390h_dataout;
+    luat_ch390h_basic_config(ch);
+    luat_ch390h_set_phy(ch, 1);
+    luat_ch390h_set_rx(ch, 1);
+    if (ch->intpin != 255) {
+        luat_ch390h_write_reg(ch, CH390H_REG_IMR, 1); // 开启接收中断
     }
-    if (check_vid_pid(ch)) {
-        // TODO 是不是应该恢复到状态0
-        return 0;
-    }
-    if (ch->status == 3) {
-        LLOGD("request ch390 reset spi%d cs%d", ch->spiid, ch->cspin);
-        luat_ch390h_software_reset(ch);
-        ch->status = 2;
-        luat_rtos_task_sleep(10);
-        return 0;
-    }
-    if (ch->status != 2) {
-        // 处于中间状态, 暂不管它
-        LLOGI("wait for netif init %d %d", ch->spiid, ch->cspin);
-        return 0;
-    }
+    return 0; // 等待下一个周期
+}
 
-    // 然后判断link的状态
-    luat_ch390h_read(ch, CH390H_REG_NSR, 1, buff);
-    uint8_t NSR = buff[0];
-    // LLOGD("网络状态寄存器 %02X %d", buff[0], (NSR & (1 << 6)) != 0);
-    if (0 == (NSR & (1 << 6))) {
-        // 网线没插, 或者phy没有上电
-        // 首先, 确保phy上电
-        // luat_ch390h_read(ch, CH390H_REG_GPR, 1, buff);
-        // LLOGD("PHY状态 %02X", buff[0]);
-        luat_ch390h_set_phy(ch, 1);
-        luat_ch390h_set_rx(ch, 1);
-        if (netif_is_link_up(ch->netdrv->netif)) {
-            LLOGI("link is down %d %d %p", ch->spiid, ch->cspin, ch->netdrv->netif);
-            luat_netdrv_set_link_updown(ch->netdrv, 0);
+// 处理一帧: 统计/注入lwIP (单帧与批量模式共用)
+static void ch390_process_rx_frame(ch390h_t* ch, uint8_t* buf, uint16_t len) {
+    NETDRV_STAT_IN(ch->netdrv, len);
+    // 替换原 napt_pkg_input 调用为 pkg_input (内含 EVT_PKG 截获检查)
+    int ret = luat_netdrv_pkg_input(ch->adapter_id, LUAT_NETDRV_CH_HW, buf, (uint16_t)(len - 4));
+    if (ret == 0) {
+        // napt 未消费, 继续注入 netif (原逻辑)
+        ret = luat_netdrv_netif_input_proxy(ch->netdrv->netif, buf, len - 4);
+        if (ret) {
+            LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);
+            return;
         }
-        return 0; // 网络断了, 没那么快恢复的, 等吧
     }
+}
 
-    if (!netif_is_link_up(ch->netdrv->netif)) {
-        LLOGI("link is up %d %d %s", ch->spiid, ch->cspin, (NSR & (1<<7)) ? "10M" : "100M");
-        luat_netdrv_set_link_updown(ch->netdrv, 1);
-    }
+static int ch390_on_rx_wait_for_read(ch390h_t* ch) {
+    int ret = 0;
+    uint16_t len = 0;
 
-    if (cs) {
-        // LLOGD("数据写入 %p %d", cs->buff, cs->len);
-        luat_ch390h_write_pkg(ch, cs->buff, cs->len);
-    }
-
-    // 有没有数据待读取
-    if (NSR & 0x01) {
+    if (s_rx_batch == NULL) {
+        // 批量缓冲未分配, 回退到单帧处理
         ret = luat_ch390h_read_pkg(ch, ch->rxbuff, &len);
         if (ret) {
             ch->rx_error_count++;
@@ -388,30 +364,140 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             }
             return 0;
         }
-        // 读取成功，清除错误计数
         ch->rx_error_count = 0;
         if (len > 0) {
-            NETDRV_STAT_IN(ch->netdrv, len);
-            // 收到数据, 开始后续处理
-            //print_erp_pkg(ch->rxbuff, len);
-            // 先经过netdrv过滤器
-            // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
-            ret = luat_netdrv_napt_pkg_input(ch->adapter_id, ch->rxbuff, len - 4);
-            // LLOGD("napt ret %d", ret);
-            if (ret != 0) {
-                // 不需要输入到LWIP了
-                // LLOGD("napt说不需要注入lwip了");
-            }
-            else {
-                // 如果返回值是0, 那就是继续处理, 输入到netif
-                ret = luat_netdrv_netif_input_proxy(ch->netdrv->netif, ch->rxbuff, len - 4);
-                if (ret) {
-                    LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);
-                    return 1;
-                }
-            }
+            ch390_process_rx_frame(ch, ch->rxbuff, len);
         }
-        // 很好, RX数据处理完成了
+        return 2;
+    }
+
+    // 批量模式: 阶段1, 快速把芯片RX内存里的帧全部读出(纯SPI读, 不做处理), 防止13K RX缓冲溢出
+    int n = 0;
+    while (n < CH390H_RX_BATCH_NUM) {
+        len = 0;
+        ret = luat_ch390h_read_pkg(ch, s_rx_batch + (size_t)n * 1600, &len);
+        if (ret) {
+            ch->rx_error_count++;
+            LLOGW("读数据包报错 ret=%d spi=%d cs=%d, error_count=%d", ret, ch->spiid, ch->cspin, ch->rx_error_count);
+            uint32_t now = (uint32_t)luat_mcu_tick64_ms();
+            if (ch->rx_error_count >= 5 && (now - ch->last_reset_time > 3000)) {
+                LLOGE("连续读包错误超过阈值，执行复位");
+                luat_ch390h_write_reg(ch, CH390H_REG_RCR, 0);
+                luat_ch390h_write_reg(ch, CH390H_REG_TP_PTR, 1);
+                luat_ch390h_write_reg(ch, CH390H_REG_RX_LEN, 0);
+                luat_rtos_task_sleep(1);
+                luat_ch390h_basic_config(ch);
+                luat_ch390h_set_phy(ch, 1);
+                luat_ch390h_set_rx(ch, 1);
+                if (ch->intpin != 255) {
+                    luat_ch390h_write_reg(ch, CH390H_REG_IMR, 1);
+                }
+                ch->rx_error_count = 0;
+                ch->last_reset_time = now;
+                ch->total_reset_count++;
+            }
+            break; // 出错后停止批量读取, 已读出的帧仍处理
+        }
+        if (len == 0) {
+            break; // RX内存已清空
+        }
+        s_rx_batch_len[n] = len;
+        n++;
+    }
+    if (n > 0) {
+        ch->rx_error_count = 0;
+    }
+    // 阶段2: 逐个处理已读出的帧
+    for (int i = 0; i < n; i++) {
+        ch390_process_rx_frame(ch, s_rx_batch + (size_t)i * 1600, s_rx_batch_len[i]);
+    }
+    return 2;
+}
+
+
+static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
+    uint8_t buff[32] = {0};
+    int ret = 0;
+    // uint16_t len = 0;
+
+    if (ch->status == CH390H_STATUS_STOPPED) {
+        return 0;
+    }
+    
+    // LLOGD("状态 spi %d cs %d stat %d", ch->spiid, ch->cspin, ch->status);
+    // 首先, 判断设备状态
+    if (ch->status == 0) {
+        return ch390_status_on_0(ch);
+    }
+    if (check_vid_pid(ch)) {
+        // TODO 是不是应该恢复到状态0
+        return 0;
+    }
+    if (ch->status == 3) {
+        LLOGD("request ch390 reset spi%d cs%d", ch->spiid, ch->cspin);
+        luat_ch390h_software_reset(ch);
+        ch->status = 2;
+        luat_rtos_task_sleep(10);
+        return 0;
+    }
+    if (ch->status != 2) {
+        // 处于中间状态, 暂不管它
+        LLOGI("wait for netif init %d %d", ch->spiid, ch->cspin);
+        return 0;
+    }
+
+    // 然后判断link的状态
+    luat_ch390h_read(ch, CH390H_REG_NSR, 1, buff);
+    uint8_t NSR = buff[0];
+    // LLOGD("网络状态寄存器 %02X %d", buff[0], (NSR & (1 << 6)) != 0);
+    // NSR bit1 = RXOV: RX内存溢出标志(手册5.2节)
+    if (NSR & 0x02) {
+        uint64_t tnow = luat_mcu_tick64_ms();
+        if (tnow - warn_rxov_tm > 1000) {
+            uint8_t rsr = 0, rocr = 0;
+            luat_ch390h_read(ch, CH390H_REG_RSR, 1, &rsr);
+            luat_ch390h_read(ch, CH390H_REG_ROCR, 1, &rocr); // R/C: 读后清除
+            warn_rxov_tm = tnow;
+            ch->rx_ov_cnt++;
+            // LLOGD("CH390 RX内存溢出! NSR=0x%02X RSR=0x%02X ROCR=0x%02X 累计=%u fifo_reset_drop=%u",
+            //       NSR, rsr, rocr, ch->rx_ov_cnt, ch->total_rx_drop);
+        }
+    }
+    if (0 == (NSR & (1 << 6))) {
+        // 网线没插, 或者phy没有上电
+        // 首先, 确保phy上电
+        // luat_ch390h_read(ch, CH390H_REG_GPR, 1, buff);
+        // LLOGD("PHY状态 %02X", buff[0]);
+        luat_ch390h_set_phy(ch, 1);
+        luat_ch390h_set_rx(ch, 1);
+        if (netif_is_link_up(ch->netdrv->netif)) {
+            LLOGI("link is down %d %d %p", ch->spiid, ch->cspin, ch->netdrv->netif);
+            luat_netdrv_set_link_updown(ch->netdrv, 0);
+        }
+        return 0; // 网络断了, 没那么快恢复的, 等吧
+    }
+
+    if (!netif_is_link_up(ch->netdrv->netif)) {
+        LLOGI("link is up %d %d %s", ch->spiid, ch->cspin, (NSR & (1<<7)) ? "10M" : "100M");
+        // 链路UP时清零统计, 保证每次测试从干净计数开始
+        luat_netdrv_rx_stat_reset();
+        ch->total_rx_drop = 0;
+        ch->rx_ov_cnt = 0;
+        ch->rx_status_err_cnt = 0;
+        luat_netdrv_set_link_updown(ch->netdrv, 1);
+    }
+
+    if (cs) {
+        // LLOGD("数据写入 %p %d", cs->buff, cs->len);
+        luat_ch390h_write_pkg(ch, cs->buff, cs->len);
+    }
+
+    // 有没有数据待读取
+    if (NSR & 0x01) {
+        ret = ch390_on_rx_wait_for_read(ch);
+        if (ret != 2) {
+            return ret;
+        }
     }
     else {
         // LLOGD("没有数据待读取");
@@ -424,6 +510,21 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     // 这一轮处理完成了
     // 如果rx有数据, 那就不要等待, 立即开始下一轮
     if (NSR & 0x01 || cs) {
+        // 加快处理速度, 避免数据包堆积, 但也要避免死循环
+        #if 1
+        for (size_t i = 0; i < 10; i++)
+        {
+            luat_ch390h_read(ch, CH390H_REG_NSR, 1, buff);
+            NSR = buff[0];
+            if ((NSR & 0x01) == 0) {
+                break;
+            }
+            ret = ch390_on_rx_wait_for_read(ch);
+            if (ret != 2) {
+                return ret;
+            }
+        }
+        #endif
         return 1;
     }
 
@@ -434,7 +535,13 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
     int ret = 0;
     for (size_t i = 0; i < MAX_CH390H_NUM; i++)
     {
-        if (ch390h_drvs[i] != NULL && ch390h_drvs[i]->init_step) {
+        /* 修复: 进入 task_loop_one 之前必须排除 STOPPED 设备.
+         * 否则 task_loop_one 会执行 check_vid_pid -> 失败累加 vid_pid_error_count
+         * -> >=20 次时把 status 从 STOPPED 错误回退成 0 -> any_active 永远为 1
+         * -> ch390_task_main 永远不进 LUAT_WAIT_FOREVER, 1Hz 唤醒回不去低功耗. */
+        if (ch390h_drvs[i] != NULL
+            && ch390h_drvs[i]->init_step
+            && ch390h_drvs[i]->status != CH390H_STATUS_STOPPED) {
             ret += task_loop_one(ch390h_drvs[i], ch == ch390h_drvs[i] ? cs : NULL);
         }
     }
@@ -444,6 +551,9 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
         luat_rtos_queue_get_cnt(qt, &t);
         if (t < 4) {
             luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
+        }
+        else {
+            // LLOGE("队列已满(%d), 不再发送空消息唤醒 task_loop", t);
         }
     }
     return ret;
@@ -496,13 +606,40 @@ static void ch390_task_main(void* args) {
             }
             count = 0;
         }
-        if (s_ch390h_mode == 0) {
-            ret = task_wait_msg(5);
+        // 进入低功耗前会通过 netdrv.ctrl(LWIP_ETH, CTRL_UPDOWN, 0) 把所有 CH390 设备置为 STOPPED
+        // 此时既无需 5ms 轮询，也无需 1Hz 心跳，直接 FOREVER 等待新消息（CTRL_UPDOWN=1 重新启动时会派发新事件）
+        int any_active = 0;
+        for (size_t i = 0; i < MAX_CH390H_NUM; i++) {
+            if (ch390h_drvs[i] != NULL && ch390h_drvs[i]->status != CH390H_STATUS_STOPPED) {
+                any_active = 1;
+                break;
+            }
+        }
+        if (!any_active) {
+            ret = task_wait_msg(LUAT_WAIT_FOREVER);
+        }
+        else if (s_ch390h_mode == 0) {
+            ret = task_wait_msg(LUAT_CONF_CH390H_LOOP_TIMEOUT);
         }
         else {
             ret = task_wait_msg(1000);
         }
     }
+}
+
+void luat_ch390h_task_wakeup(void) {
+    if (qt == NULL) {
+        return;
+    }
+    uint32_t len = 0;
+    luat_rtos_queue_get_cnt(qt, &len);
+    if (len > 4) {
+        return;
+    }
+    pkg_evt_t evt = {
+        .id = 2
+    };
+    luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
 }
 
 void luat_ch390h_task_start(void) {
@@ -517,6 +654,16 @@ void luat_ch390h_task_start(void) {
         for (size_t i = 0; i < MAX_CH390H_NUM; i++) {
             if (ch390h_drvs[i] != NULL) {
                 ch390h_drvs[i]->pkg_mem_type = default_mem_type;
+            }
+        }
+        // 分配批量收包缓冲(PSRAM), 用于快速清空芯片RX内存, 防止13K RX缓冲溢出
+        if (s_rx_batch == NULL) {
+            s_rx_batch = (uint8_t*)luat_heap_opt_malloc(default_mem_type, 1600 * CH390H_RX_BATCH_NUM);
+            if (s_rx_batch == NULL) {
+                LLOGW("RX批量缓冲分配失败, 回退到单帧模式!");
+            }
+            else {
+                LLOGI("RX批量缓冲 %d x 1600B 分配成功", CH390H_RX_BATCH_NUM);
             }
         }
         ret = luat_rtos_queue_create(&qt, 1024, sizeof(pkg_evt_t));

@@ -1,8 +1,8 @@
 --[[
 @module  config.evb_8101_7i_v0
-@summary Air8101 EVB 7寸1024x600 RGB屏(HX8282) + AirLCD_1090 配置文件
+@summary Air8101 EVB 7寸1024x600 RGB屏(HX8282) + AirLCD_1070 配置文件
 @version 1.0
-@date    2026.06.09
+@date    2026.07.21
 @author  江访
 @usage
 所有 boolean 字段只写 = true 表示开启，不写即视为关闭（无需写 = false）
@@ -10,7 +10,7 @@
 ]]
 return {
     -- ===== 顶层信息 =====
-    name = "EVB_Air8101_AirLCD_1090_000_V020",    -- 项目命名: {类型}_{芯片}_{型号}_{版本}
+    name = "EVB_Air8101_AirLCD_1070_000_V020",    -- 项目命名: {类型}_{芯片}_{型号}_{版本}
     chip = "Air8101",                                 -- 主控芯片: WiFi(exnetif) + RGB屏
     baseboard = "EVB_Air8101 开发板 V2.0", -- 底板型号
 
@@ -37,19 +37,30 @@ return {
         { pin = 32, dir = 0, level = 1 },  -- SPI0_CS1 = GPIO32 拉高（SD 卡片选）
         { pin = 49, dir = 0, level = 1 },  -- SPI0_CS2 = GPIO49 拉高（NAND Flash 片选）
         { pin = 34, dir = 0, level = 1 },  -- SPI0_CS0 = GPIO34 拉高（以太网 CH390H 片选）
+        { pin = 52, dir = 0, level = 1 },  -- MODBUS_EN
     },
 
     -- ===== 硬件配置 =====
     hw = {
-        -- 屏幕: HX8282 RGB 7寸 1024×600（AirLCD_1090 模组，四合一芯片无需 SPI 初始化引脚）
+        -- 屏幕: HX8282 RGB 7寸 1024×600（AirLCD_1070 模组，四合一芯片无需 SPI 初始化引脚）
         lcd = {
-            model = "lcd_hx8282_10in",
+            model = "lcd_hx8282_cust",
             params = {
                 port = lcd.RGB,          -- RGB 接口
                 pin_rst = 38,            -- 复位引脚 GPIO38
                 direction = 0,           -- 0° 方向
                 w = 1024,                -- 水平分辨率
                 h = 600,                 -- 竖直分辨率
+                -- AirLCD_1070 屏专属 RGB 时序参数
+                hbp       = 50,
+                hspw      = 7,
+                hfp       = 7,
+                vbp       = 2,
+                vspw      = 2,
+                vfp       = 12,
+                bus_speed = 52000000,
+                pclk      = lcd.PCLK_FALLING,
+                rb_swap   = true,
             },
             need_buffer = true,          -- RGB 屏必须启用帧缓冲防撕裂
             screen_size = 7.0,           -- 7寸屏
@@ -78,10 +89,17 @@ return {
 
     -- ===== 功能开关（只写 = true 的项）=====
     features = {
-        -- wifi = true,                     -- 启用 WiFi（exnetif 模式）
+        wifi = true,                     -- 启用 WiFi（exnetif 模式）
         ethernet = true,                 -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
         -- sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
         -- nand_flash = true,               -- 启用 NAND Flash（需配 storage.nand_flash）
+    },
+
+    -- ===== 统一网络配置（优先级从高到低）=====
+    network = {
+        { type = "wifi_native" },                        -- 自带 WiFi 优先
+        { type = "eth_spi", chip = "CH390",              -- SPI 以太网兜底
+          spi_id = 0, cs_pin = 34, irq_pin = 9 },
     },
 
     -- ===== UI 显示控制（只写 = true 的项）=====

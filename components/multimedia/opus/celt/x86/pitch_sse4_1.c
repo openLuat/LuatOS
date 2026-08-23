@@ -32,11 +32,11 @@
 #include <xmmintrin.h>
 #include <emmintrin.h>
 
-#include "macros.h"
-#include "celt_lpc.h"
-#include "stack_alloc.h"
-#include "mathops.h"
-#include "pitch.h"
+#include "silk/macros.h"
+#include "celt/celt_lpc.h"
+#include "celt/stack_alloc.h"
+#include "celt/mathops.h"
+#include "celt/pitch.h"
 
 #if defined(OPUS_X86_MAY_HAVE_SSE4_1) && defined(FIXED_POINT)
 #include <smmintrin.h>

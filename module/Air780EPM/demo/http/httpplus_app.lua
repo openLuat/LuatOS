@@ -31,9 +31,9 @@ local httpplus = require "httpplus"
 -- timeout可以设置超时时间
 local function httpplus_app_get()
     local body
-    -- https get请求https://httpbin.air32.cn/get网页内容
+    -- https get请求https://httpbin.luatos.com/get网页内容
     -- 如果请求成功，请求的数据保存到response.body中
-    local code, response = httpplus.request({url="https://httpbin.air32.cn/get"})
+    local code, response = httpplus.request({url="https://httpbin.luatos.com/get"})
     log.info("httpplus_app_get1", code==200 and "success" or "error", code)
     if code==200 then
         log.info("httpplus_app_get1 headers", json.encode(response.headers or {}))
@@ -42,10 +42,10 @@ local function httpplus_app_get()
     end
 
 
-    -- http get请求http://httpbin.air32.cn/get网页内容，超时时间为3秒
+    -- http get请求http://httpbin.luatos.com/get网页内容，超时时间为3秒
     -- 请求超时时间为3秒，用户自己写代码时，不要照抄3秒，根据自己业务逻辑的需要设置合适的超时时间
     -- 如果请求成功，请求的数据保存到body中
-    code, response = httpplus.request({url="http://httpbin.air32.cn/get", timeout=3})
+    code, response = httpplus.request({url="http://httpbin.luatos.com/get", timeout=3})
     log.info("httpplus_app_get2", code==200 and "success" or "error", code)
     if code==200 then
         log.info("httpplus_app_get2 headers", json.encode(response.headers or {}))
@@ -96,11 +96,11 @@ end
 -- http post提交表单数据功能演示
 local function httpplus_app_post_form()
     -- http post提交表单数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的表单数据后，还会下发同样的表单数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的表单数据后，还会下发同样的表单数据给设备
     -- 如果请求成功，服务器应答的数据会保存到response.body中
     local code, response = httpplus.request(
     {
-        url = "http://httpbin.air32.cn/post",
+        url = "http://httpbin.luatos.com/post",
         forms = {username="LuatOS", password="123456"}
     })
     log.info("httpplus_app_post_form", code==200 and "success" or "error", code)
@@ -120,13 +120,13 @@ local function httpplus_app_post_json()
     }
 
     -- http post提交json数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的json数据后，还会下发同样的json数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的json数据后，还会下发同样的json数据给设备
     -- ["Content-Type"] = "application/json" 表示post提交的body数据格式为json格式的数据
     -- 如果请求成功，服务器应答的数据会保存到response.body中
     local code, response = httpplus.request(
     {
         method = "POST",
-        url = "http://httpbin.air32.cn/post",
+        url = "http://httpbin.luatos.com/post",
         headers = {["Content-Type"] = "application/json"},
         body = json.encode(params)
     })
@@ -142,13 +142,13 @@ end
 -- http post提交纯文本数据功能演示
 local function httpplus_app_post_text()
     -- http post提交纯文本数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的纯文本数据后，还会下发同样的纯文本数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的纯文本数据后，还会下发同样的纯文本数据给设备
     -- ["Content-Type"] = "text/plain" 表示post提交的body数据格式为纯文本格式的数据
     -- 如果请求成功，服务器应答的数据会保存到response.body中
     local code, response = httpplus.request(
     {
         method = "POST",
-        url = "http://httpbin.air32.cn/post",
+        url = "http://httpbin.luatos.com/post",
         headers = {["Content-Type"] = "text/plain"},
         body = "This is a raw text message from LuatOS device"
     })
@@ -173,13 +173,13 @@ local function httpplus_app_post_xml()
     ]=]
 
     -- http post提交xml数据
-    -- http://httpbin.air32.cn/post为回环测试服务器，服务器收到post提交的xml数据后，还会下发同样的xml数据给设备
+    -- http://httpbin.luatos.com/post为回环测试服务器，服务器收到post提交的xml数据后，还会下发同样的xml数据给设备
     -- ["Content-Type"] = "text/xml" 表示post提交的body数据格式为xml格式的数据
     -- 如果请求成功，服务器应答的数据会保存到response.body中
     local code, response = httpplus.request(
     {
         method = "POST",
-        url = "http://httpbin.air32.cn/post",
+        url = "http://httpbin.luatos.com/post",
         headers = {["Content-Type"] = "text/xml"},
         body = body
     })
@@ -197,15 +197,17 @@ local function httpplus_app_post_binary()
     local body = io.readFile("/luadb/logo.jpg")
 
     -- http post提交原始二进制数据
-    -- http://upload.air32.cn/api/upload/jpg为jpg图片上传测试服务器
+    -- http://uploadtest.luatos.com/api/upload/jpg为jpg图片上传测试服务器
     -- 此处将logo.jpg的原始二进制数据做为body上传到服务器
-    -- 上传成功后，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
+    -- 上传成功后，电脑上浏览器打开https://uploadtest.luatos.com/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
     -- ["Content-Type"] = "application/octet-stream" 表示post提交的body数据格式为原始二进制格式的数据
     -- 如果请求成功，服务器应答的数据会保存到response.body中
+    -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+    -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com
     local code, response = httpplus.request(
     {
         method = "POST",
-        url = "http://upload.air32.cn/api/upload/jpg",
+        url = "http://uploadtest.luatos.com/api/upload/jpg",
         headers = {["Content-Type"] = "application/octet-stream"},
         body = body
     })

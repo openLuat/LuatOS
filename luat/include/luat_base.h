@@ -101,4 +101,6 @@ const char* luat_version_str(void);
 
 void luat_os_print_heapinfo(const char* tag);
 
+void luat_ota_reboot(int timeout_ms);
+
 #endif

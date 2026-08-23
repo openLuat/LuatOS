@@ -62,6 +62,7 @@ int luat_airlink_cmd_exec_wlan_scan(luat_airlink_cmd_t* cmd, void* userdata) {
 extern uint8_t drv_scan_result_size;
 extern uint8_t *drv_scan_result;
 
+/* 本函数发布的 WLAN_SCAN_DONE 消息, 文档见 drv_rpc/luat_airlink_drv_rpc_wlan.c 中的 @sys_pub wlan 注释块 */
 static int scan_result_handler(lua_State* L, void* ptr) {
     lua_getglobal(L, "sys_pub");
     lua_pushstring(L, "WLAN_SCAN_DONE");

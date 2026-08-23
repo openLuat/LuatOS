@@ -47,7 +47,9 @@ local function lcd_drv_init()
         gpio.setup(28, 1) -- GPIO28打开给LCD电源供电，无需控制背光
     elseif HARDWARE_ENV == "DEV_BOARD_V1.3" then
         gpio.setup(29, 1) -- GPIO29打开给LCD电源供电
+        gpio.set(29,1)
         gpio.setup(30, 0) -- GPIO30拉低开启背光（拉高灭屏，拉低亮屏），不通过lcd库控制
+        gpio.set(30,0)
     else
         pin_pwr = 1       -- 核心板使用GPIO1控制背光，通过lcd库控制
     end

@@ -13,6 +13,9 @@ sys.taskInit(function()
         -- regression: non-inline call from main() + natural return (no ndk_exit_ok)
         -- before the NDK_GUEST_START ra-fix this would trap with mcause=1, mtval=0
         { path = "/luadb/nonleaf_call_demo.bin",  marker = nil,                len = 16 },
+        -- mem/str freestanding libc subset (ndk_memcpy/... + NDK_GUEST_PROVIDE_LIBC);
+        -- guest writes "MEMSTR_OK" when all 16 checks pass, "MEMSTR_Fxx" on failure
+        { path = "/luadb/mem_str_demo.bin",       marker = "MEMSTR_OK",        len = 9 },
     }
     for i, c in ipairs(cases) do
         log.info("ndk_examples_smoke", "case", i, "path", c.path)

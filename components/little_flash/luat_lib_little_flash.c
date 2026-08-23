@@ -219,6 +219,9 @@ static int luat_little_flash_get_info(lua_State *L){
 #ifdef LUAT_USE_TFS_COMPONENT
 extern void* flash_tfs_lf(little_flash_t* flash, size_t offset, size_t maxsize);
 extern void tfs_vfs_init(void);
+#ifdef LUAT_USE_TFS_STRESS_DIAG
+extern int luat_little_flash_tfs_test_ctl(lua_State *L);
+#endif
 #endif
 
 extern lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize);
@@ -323,6 +326,26 @@ static int luat_little_flash_mount(lua_State *L) {
     return 1;
 }
 
+/*
+取消挂载 little_flash 文件系统
+@api  lf.unmount(mount_point)
+@string mount_point 挂载目录名
+@return bool 成功返回true
+@usage
+log.info("lf.unmount", lf.unmount("/little_flash"))
+*/
+static int luat_little_flash_unmount(lua_State *L) {
+    const char* mount_point = luaL_checkstring(L, 1);
+    luat_fs_conf_t conf = {
+        .mount_point = mount_point,
+    };
+    int ret = luat_fs_umount(&conf);
+    LLOGD("vfs unmount %s ret %d", mount_point, ret);
+    lua_pushboolean(L, ret == 0);
+    lua_pushinteger(L, ret);
+    return 2;
+}
+
 #ifdef LUAT_USE_PGFS_COMPONENT
 /*
 PGFS runtime control helper
@@ -372,8 +395,12 @@ static const rotable_Reg_t reg_little_flash[] =
     { "getInfo",        ROREG_FUNC(luat_little_flash_get_info)},
 #ifdef LUAT_USE_FS_VFS
     { "mount",          ROREG_FUNC(luat_little_flash_mount)},
+    { "unmount",        ROREG_FUNC(luat_little_flash_unmount)},
 #ifdef LUAT_USE_PGFS_COMPONENT
     { "pgfsctl",        ROREG_FUNC(luat_little_flash_pgfsctl)},
+#endif
+#if defined(LUAT_USE_TFS_COMPONENT) && defined(LUAT_USE_TFS_STRESS_DIAG)
+    { "tfsTestCtl",     ROREG_FUNC(luat_little_flash_tfs_test_ctl)},
 #endif
 #endif
 #ifdef LUAT_USE_UTEST

@@ -213,7 +213,6 @@ int nes_audio_init(void) {
         NULL);
     if (ret != 0) {
         LLOGE("nes: luat_audio_request_play_stream failed: %d", ret);
-        luat_heap_free(g_nes_request);
         g_nes_request = NULL;
         return ret;
     }
@@ -225,7 +224,6 @@ void nes_audio_deinit(void) {
     if (g_nes_request->org_input_data_fifo) {
         luat_audio_request_cancel(g_nes_request);
     }
-    luat_heap_free(g_nes_request);
     g_nes_request = NULL;
 }
 

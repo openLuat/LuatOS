@@ -36,9 +36,16 @@ the VFS adapter and the FTL state probe only).
 1. **Durability boundary**
    - Writes may stay in cache before close.
    - `fclose` success is the durability point.
+   - **P0-3 (strict)**: a `fclose`/`fflush` that appended a record returns
+     an error if the post-append FTL write-head persist fails twice (one
+     transient-failure retry). A close that also triggers a successful CP
+     commit still succeeds, because the CP's `log_tail` covers the record.
    - Any injected failure before checkpoint commit must make `fclose` fail.
-   - `pgfs_cache_flush_to_log` is intentionally a no-op; callers that need
-     explicit durability should use `fclose()` rather than `fflush()`.
+   - **P2-1**: `fflush` is a real durability point — it appends the cache
+     to the data log and persists the FTL write head (same strictness as
+     `fclose`), then applies the cache to the in-memory entry. Writes after
+     a successful `fflush` re-seed the cache from the entry, so a later
+     `fclose` appends the full content.
 
 2. **Flash backend ABI (4 ops only)**
    - `read/write/erase/control`
@@ -211,17 +218,43 @@ and run of algorithm tests (12/12 passing).
 - Fixes the old formula `(dead+free)/(ec+1)` that deprioritised high-EC blocks
 - Test: `pgfs_test_gc_wear_leveling_score` verifies high-EC block picked first
 
-### Known remaining issues (P1-P3 from review)
-- Replay per-record malloc (path_buf/data_buf/crc_buf) — cleanup added but
-  still allocates per-iteration; pre-allocation would be more robust
-- Batch system has no timeout/cleanup for orphaned batches
-- O(n) linear file/dir lookup (acceptable for 512-entry bound)
-- Emergency compaction (`pgfs_compact_live_entries`) erases entire data log
-- `fflush` is documented no-op (durability boundary is fclose)
-- Weak blocks marked but never proactively migrated by GC
-- No read-only mount support
-- Path buffer fixed at 96 bytes
-- Single global `s_pgfs_ctx` prevents multi-partition
+### Known remaining issues (2026-08-04 update)
+
+**Fixed since review:**
+- ✅ Replay per-record malloc → pre-allocated path_buf (96B) + growable data_buf (P2-7)
+- ✅ Batch system no timeout → auto-abort on umount (P2-11)
+- ✅ Emergency compaction → `pgfs_compact_live_entries` removed; GC data-move covers this (P2-11a)
+- ✅ Weak block GC → score bonus in `pgfs_gc_pick_victim` (P3-14)
+- ✅ Read-only mount → `luat_pgfs_mount_ro()` + guards on write/remove/mkdir/rmdir (P2-11c)
+- ✅ Path buffer fixed → `PGFS_MAX_PATH` macro (96, overridable) (P3-15)
+- ✅ Write cache growth → power-of-2 under 4KB, fixed +4KB above, capped 256KB (P2-11b)
+- ✅ FTL init → single contiguous allocation instead of 7 separate mallocs (P3-13)
+- ✅ lsdir 73KB allocation → O(n²) dedup scan, zero heap (P2-9)
+- ✅ VFS fexist/fsize → implemented (P4-16)
+- ✅ Duplicate test registration → removed (P4-18)
+
+**Still open:**
+- ✅ O(n) file/dir lookup → per-mount FNV-1a hash index (P1-2); lsdir
+  dedup intentionally stays O(n²) zero-alloc
+- ✅ `fflush` no-op → real flush, now a durability point (P2-1)
+- ✅ Single global file/dir/batch tables → per-mount heap tables (P0-1);
+  `pgfs_file_reset(ctx)` == `pgfs_tables_deinit(ctx)` (re-ensured lazily)
+- ✅ ECC first-8-bytes only → two groups (bytes 0..7 + 8..15; BATCH_DATA
+  additionally protects crc32 via a masked 16..23 window) (P2-4)
+- ✅ Replay shadow dead attribution → symmetric live/dead accounting
+  (P0-2): overwrite/remove/batch-apply/replay all release the shadowed
+  record's live credit
+
+**Known design limits (documented, unchanged):**
+- Single-file size cap = `PGFS_CACHE_MAX` (256KB default, configurable)
+- Per-mount tables cost ~87KB heap per mounted partition (512 files /
+  256 dirs / 32 batch entries default); mount fails if the allocation fails
+- `pgfs_test_fill_delete_rewrite_recovers_capacity` stays out of the
+  default dispatch: it uses a legacy overlapping layout (data log base
+  == FTL state block) with a 2-block data log, which cannot be serviced
+  without GC headroom; the P0-2 accounting is covered by
+  `pgfs_test_overwrite_live_dead_symmetric` and
+  `pgfs_test_replay_shadow_live_dead_symmetric`
 
 ## Powercut injection stages (testing)
 
@@ -257,7 +290,7 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
 
 | 维度 | PC 验证(主战场) | 真机验证 |
 |---|---|---|
-| 套件 | `pgfs_basic`(17+ C-utest 用例) + `pgfs_regression_basic`(11 Lua 用例) | `air1601_pgfs_regression_basic`(8 Lua 用例) |
+| 套件 | `utest/fs/pgfs_basic`(17+ C-utest 用例) + `unit/fs/pgfs_regression/pgfs_regression_basic`(11 Lua 用例) | `platform/air1601/pgfs_regression/air1601_pgfs_regression_basic`(8 Lua 用例) |
 | 覆盖范围 | FTL/GC/recovery/contract/powercut 矩阵的**全部** | NOR/NAND mount + IO 不崩 + `lf.pgfsctl` 控制 API 不崩 |
 | 跑法 | `LUAT_USE_UTEST=y` env + `pc_utest_coverage.ps1 -Suite pgfs_basic` | `luatos-cli flash test`,见 `/luatos-hw-test` skill |
 | 入口 | `pgfs.utest("case")` | production API + `lf.pgfsctl(...)` 注入 |
@@ -316,14 +349,29 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
   - Phase 6 multi-mount: `pgfs_test_multi_mount_cycle_reads_via_replay`,
     `pgfs_test_multi_mount_counters_advance`
   - Phase 6 replay shadow: `pgfs_test_replay_shadow_detection_marks_dead_bytes`
+  - **P0-1 per-mount tables**: `pgfs_test_multi_mount_same_path_isolation`,
+    `pgfs_test_mount_b_after_a_keeps_a_readable`
+  - **P0-2 symmetric live/dead**: `pgfs_test_overwrite_live_dead_symmetric`,
+    `pgfs_test_replay_shadow_live_dead_symmetric`
+  - **P0-3 strict persist**: `pgfs_test_ftl_persist_failure_fails_close`
+  - **P1-1 dirty flag**: `pgfs_test_ftl_dirty_skip_no_redundant_persist`
+  - **P1-2 hash index**: `pgfs_test_hash_lookup_roundtrip`
+  - **P2-1 real fflush**: `pgfs_test_fflush_durability_after_remount`,
+    `pgfs_test_fflush_then_write_then_close_preserves_all`,
+    `pgfs_test_empty_write_close_succeeds`
+  - **P2-3 geometry gate**: `pgfs_test_min_partition_geometry_gate`
+  - **P2-4 ECC two-group**: `pgfs_test_ecc_two_group_roundtrip`,
+    `pgfs_test_batch_ecc_mismatch_continues_to_crc`
   - Pre-existing: wear-levelling alloc, CP-erase powercut recovery, FTL
     state skip, single-block retirement, FTL persist snapshot, FTL
     persist readback failure.
   - `pgfs_test_fill_delete_rewrite_recovers_capacity` is intentionally not in
-    the default `c_layer_selftests` dispatch — it depends on data-log
-    compaction after file deletion, which is not yet implemented. Run it
-    explicitly via `pgfs.utest("fill_delete_rewrite_recovers_capacity")` if
-    needed.
+    the default `c_layer_selftests` dispatch — it uses a legacy overlapping
+    layout (data log base == FTL state block) with a 2-block data log that
+    cannot be serviced without GC headroom. The P0-2 accounting is covered
+    by `pgfs_test_overwrite_live_dead_symmetric` /
+    `pgfs_test_replay_shadow_live_dead_symmetric`. Run it explicitly via
+    `pgfs.utest("fill_delete_rewrite_recovers_capacity")` if needed.
 - `pgfs_regression_basic`: lock toggle, GC churn, bad-block-once hook,
   write+close performance trace.
 - Performance trace log key:
@@ -357,11 +405,12 @@ powershell -File pc_utest_coverage.ps1 -Suite pgfs_basic -SkipBuild
   `pgfs_alloc_segment` with a context that already has the FTL
   initialised, or exercise the code paths that don't go through the
   allocator.
-- The CP commit calls `pgfs_ftl_on_checkpoint_commit` which always invokes
+- The CP commit calls `pgfs_ftl_on_checkpoint_commit` which invokes
   `pgfs_ftl_persist`. With the FTL initialised this writes to the FTL
   state region on flash, consuming space in the data log area on the
-  small 32KB test flash. Tests should account for this when sizing data
-  log writes.
+  small 32KB test flash. Since P1-1, an unchanged FTL state skips the
+  persist (dirty flag), so tests should mutate state or account for the
+  single write when sizing data log writes.
 - The reserved bitmap default-marks blocks 0..4 reserved on
   `pgfs_ftl_init`. Tests that depend on the pre-Phase-1 contract (e.g.
   `pgfs_test_alloc_prefers_low_erase_count`) must call

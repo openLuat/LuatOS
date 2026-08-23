@@ -44,10 +44,11 @@
  */
 #include "luat_base.h"
 #include "lwip/opt.h"
+#include "lwip/init.h"
 
-#if LWIP_IPV4 && LWIP_ARP && defined(LUAT_USE_NETDRV_LWIP_ARP) /* don't build if not configured for use in lwipopts.h */
+#if LWIP_IPV4 && LWIP_ARP /* build whenever IPv4 ARP is enabled */
 
-// #include "lwip/etharp.h"
+#include "lwip/etharp.h"
 #include "lwip/stats.h"
 #include "lwip/snmp.h"
 #include "lwip/dhcp.h"
@@ -57,19 +58,11 @@
 #include "luat_netdrv_lwip_etharp.h"
 #include "luat_netdrv_lwip_netif_ethernet.h"
 
+#ifdef LUAT_USE_NETDRV_LWIP_ARP
+
 #ifndef LWIP_IANA_HWTYPE_ETHERNET
 #define LWIP_IANA_HWTYPE_ETHERNET 1
 #endif
-
-// 使用本地的定义, 不受LWIP配置的影响
-#undef ARP_TABLE_SIZE
-#define ARP_TABLE_SIZE 127
-#undef ARP_QUEUEING
-#define ARP_QUEUEING 1
-#undef ARP_QUEUE_LEN
-#define ARP_QUEUE_LEN 3
-#undef ARP_MAXAGE
-#define ARP_MAXAGE 300
 
 #ifndef netif_addr_idx_t
 #define netif_addr_idx_t u8_t
@@ -83,6 +76,11 @@
 #ifdef LWIP_HOOK_FILENAME
 #include LWIP_HOOK_FILENAME
 #endif
+
+/* 历史: 网关 MAC 解析状态变化时通知 adapter 层启停 ARP 1000ms 定时器.
+ * ARP 定时器已被完全移除, 通知调用一并删除. */
+#define LUAT_LOG_TAG "net"
+#include "luat_log.h"
 
 /** Re-request a used ARP entry 1 minute before it would expire to prevent
  *  breaking a steadily used connection because the ARP entry timed out. */
@@ -211,48 +209,13 @@ etharp_free_entry(int i)
 }
 
 /**
- * Clears expired entries in the ARP table.
+ * (removed) luat_netdrv_etharp_tmr
  *
- * This function should be called every ARP_TMR_INTERVAL milliseconds (1 second),
- * in order to expire entries in the ARP table.
+ * ARP 1000ms 周期定时器已被完全移除. 该函数原本承担 ARP 表项老化 (ctime++ /
+ * ARP_MAXAGE)、PENDING 表项重发、STABLE_REREQUESTING_1/2 状态推进等职责.
+ * 移除后 etharp 表项不再老化, 仅依赖收包/SET_IP 路径维护, 仅用于功耗测试场景.
+ * 如需恢复, 回滚到 commit b4de806e0.
  */
-void
-luat_netdrv_etharp_tmr(void)
-{
-  int i;
-
-  LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_timer\n"));
-  /* remove expired entries from the ARP table */
-  for (i = 0; i < ARP_TABLE_SIZE; ++i) {
-    u8_t state = arp_table[i].state;
-    if (state != ETHARP_STATE_EMPTY
-#if ETHARP_SUPPORT_STATIC_ENTRIES
-        && (state != ETHARP_STATE_STATIC)
-#endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
-       ) {
-      arp_table[i].ctime++;
-      if ((arp_table[i].ctime >= ARP_MAXAGE) ||
-          ((arp_table[i].state == ETHARP_STATE_PENDING)  &&
-           (arp_table[i].ctime >= ARP_MAXPENDING))) {
-        /* pending or stable entry has become old! */
-        LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_timer: expired %s entry %d.\n",
-                                   arp_table[i].state >= ETHARP_STATE_STABLE ? "stable" : "pending", i));
-        /* clean up entries that have just been expired */
-        etharp_free_entry(i);
-      } else if (arp_table[i].state == ETHARP_STATE_STABLE_REREQUESTING_1) {
-        /* Don't send more than one request every 2 seconds. */
-        arp_table[i].state = ETHARP_STATE_STABLE_REREQUESTING_2;
-      } else if (arp_table[i].state == ETHARP_STATE_STABLE_REREQUESTING_2) {
-        /* Reset state to stable, so that the next transmitted packet will
-           re-send an ARP request. */
-        arp_table[i].state = ETHARP_STATE_STABLE;
-      } else if (arp_table[i].state == ETHARP_STATE_PENDING) {
-        /* still pending, resend an ARP query */
-        luat_netdrv_etharp_request(arp_table[i].netif, &arp_table[i].ipaddr);
-      }
-    }
-  }
-}
 
 /**
  * Search the ARP table for a matching or new entry.
@@ -571,7 +534,19 @@ luat_netdrv_etharp_remove_static_entry(const ip4_addr_t *ipaddr)
   etharp_free_entry(i);
   return ERR_OK;
 }
+
 #endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
+
+// 带 netif 参数的 ARP 添加，用于 HSPI 桥接模式下跳过 ARP 排队
+err_t
+luat_netdrv_etharp_add_static_entry_on_netif(struct netif *netif, const ip4_addr_t *ipaddr, struct eth_addr *ethaddr)
+{
+  if (netif == NULL) {
+    return ERR_RTE;
+  }
+  LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_add_static_entry_on_netif: %p\n", netif));
+  return etharp_update_arp_entry(netif, ipaddr, ethaddr, ETHARP_FLAG_TRY_HARD);
+}
 
 /**
  * Remove all ARP table entries of the specified netif.
@@ -747,13 +722,6 @@ luat_netdrv_etharp_input(struct pbuf *p, struct netif *netif)
     case PP_HTONS(ARP_REPLY):
       /* ARP reply. We already updated the ARP cache earlier. */
       LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP reply\n"));
-#if (LWIP_DHCP && DHCP_DOES_ARP_CHECK)
-      /* DHCP wants to know about ARP replies from any host with an
-       * IP address also offered to us by the DHCP server. We do not
-       * want to take a duplicate IP address on a single network.
-       * @todo How should we handle redundant (fail-over) interfaces? */
-      dhcp_arp_reply(netif, &sipaddr);
-#endif /* (LWIP_DHCP && DHCP_DOES_ARP_CHECK) */
       break;
     default:
       LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP unknown opcode type %"S16_F"\n", lwip_htons(hdr->opcode)));
@@ -810,8 +778,7 @@ etharp_output_to_arp_index(struct netif *netif, struct pbuf *q, netif_addr_idx_t
  * - ERR_RTE No route to destination (no gateway to external networks),
  * or the return type of either etharp_query() or ethernet_output().
  */
-err_t
-luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr)
+err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr)
 {
   const struct eth_addr *dest;
   struct eth_addr mcastaddr;
@@ -1238,5 +1205,11 @@ luat_netdrv_etharp_request(struct netif *netif, const ip4_addr_t *ipaddr)
   LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_request: sending ARP request.\n"));
   return etharp_request_dst(netif, ipaddr, &ethbroadcast);
 }
+
+#else
+err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr) {
+  return etharp_output(netif, q, ipaddr); // 走原生的就行
+}
+#endif
 
 #endif /* LWIP_IPV4 && LWIP_ARP */

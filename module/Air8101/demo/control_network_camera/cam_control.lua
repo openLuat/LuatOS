@@ -11,7 +11,7 @@
 
 特性：
 - 支持大华摄像头OSD文字显示
-- 智能路径选择：SD卡挂载时保存到/sd/，未挂载时保存到/luadb/
+- 智能路径选择：SD卡挂载时保存到/sd/，未挂载时保存到/ram/
 - 自动照片上传到air32.cn测试服务器
 
 本文件没有对外接口，直接在main.lua中require "cam_control"就可以加载运行。
@@ -44,9 +44,11 @@ local function upload_photo_task()
             end
             
             -- 将拍摄到的照片数据上传到服务器air32.cn
-            -- 如果上传成功，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
+            -- 如果上传成功，电脑上浏览器打开https://uploadtest.luatos.com/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
+            -- 因为Air32.com平台已经不开放使用了，所以该DEMO仅作上传照片至服务器的演示作用，使用时请将上传URL修改为您自己的服务器地址
+            -- 或者通过excloud扩展库上传到合宙IOT平台uploadtest.luatos.com，详见：photo_to_aircloud.lua  
             local code = httpplus.request({
-                url = "http://upload.air32.cn/api/upload/jpg",
+                url = "http://uploadtest.luatos.com/api/upload/jpg",
                 method = "POST",
                 body = photo_data
             })
@@ -56,7 +58,7 @@ local function upload_photo_task()
             
             -- 根据状态码判断上传结果
             if code == 200 then
-                log.info("照片上传成功", "可在 https://www.air32.cn/upload/jpg/ 查看")
+                log.info("照片上传成功", "可在 https://uploadtest.luatos.com/upload/jpg/ 查看")
             else
                 log.warn("照片上传失败", "状态码:", code)
             end
@@ -72,7 +74,7 @@ local function camera_start()
     log.info("开始运行OSD操作")
     
     -- 配置大华摄像头OSD，分六行依次显示 1111 2222 3333 4444 5555 6666
-    exremotecam.osd({brand = "dhcam", host = "192.168.1.108", channel = 0, text = "1111|2222|3333|4444|5555|6666", x = 0, y = 2000})
+    exremotecam.osd({brand = "dhcam", host = "192.168.1.108", channel = 0, text = "1111|2222|3333|4444|5555|6666", x = 0, y = 2000, username = "admin", password = "Air123456"})
 
     log.info("开始运行抓图操作")
     -- 判断SD卡状态，选择保存路径
@@ -81,12 +83,12 @@ local function camera_start()
         save_path = "/sd/" .. photo_save_addr
         log.info("SD卡已挂载", "照片将保存到:", save_path)
     else
-        save_path = "/luadb/" .. photo_save_addr
+        save_path = "/ram/" .. photo_save_addr
         log.info("SD卡未挂载", "照片将保存到:", save_path)
     end
     
     -- 执行拍照操作
-    local result = exremotecam.get_photo({brand = "dhcam", host = "192.168.1.108", channel = 1, save_path = save_path})
+    local result = exremotecam.get_photo({brand = "dhcam", host = "192.168.1.108", channel = 1, save_path = save_path, username = "admin", password = "Air123456"})
     
     if result == 1 then
         log.info("拍照成功", "照片已保存到:", save_path)

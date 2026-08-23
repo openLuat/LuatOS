@@ -9,6 +9,7 @@
 注意：
 1. 如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
 2. 使用 AirAUDIO_1020 时，仅需在`audio_setup_param`修改 `model="tm8211"` 并移除 `i2c_id` 配置即可支持播放功能
+3. 新音频框架需要版本号≥2048 的13/113号固件才能使用
 
 本文件为流式播放应用功能模块，核心业务逻辑为：
 1、创建一个播放流式音频task（task_audio）
@@ -55,6 +56,8 @@ local audio_setup_param ={
     -- Air8000核心板配置pa_ctrl 和dac_ctrl 
     -- pa_ctrl = 17,            -- 音频放大器电源控制管脚
     -- dac_ctrl = 16,           -- 音频编解码芯片电源控制管脚
+
+    audio_mode = "auto"  -- 音频框架版本选择: "auto"用默认, "new"新框架, "old"旧框架
 }
 
 -- 播放完成回调
@@ -69,7 +72,7 @@ end
 local audio_play_param ={
     type= 2,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
-                            -- 如果是tts,内容格式见:https://wiki.luatos.com/chips/air780e/tts.html?highlight=tts
+                            -- 如果是tts,内容格式见:https://docs.openluat.com/osapi/ext/exaudio/#tts_2
                             -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
     cbfnc = play_end,            -- 播放完毕回调函数
     sampling_rate = 16000,  -- 采样率,仅为流式播放起作用

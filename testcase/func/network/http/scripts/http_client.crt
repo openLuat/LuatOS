@@ -1,0 +1,69 @@
+Certificate:
+    Data:
+        Version: 1 (0x0)
+        Serial Number: 6 (0x6)
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C=wq, ST=wq, L=wq, O=wq, OU=wq, CN=zetil.net/emailAddress=my@wj
+        Validity
+            Not Before: Jan  8 09:15:15 2021 GMT
+            Not After : Jan  6 09:15:15 2031 GMT
+        Subject: C=wq, ST=wq, L=w, O=qwq, OU=w, CN=qw/emailAddress=qw
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                RSA Public-Key: (2048 bit)
+                Modulus:
+                    00:ba:22:33:6d:db:f4:81:7a:2d:27:bc:fb:1b:7f:
+                    b9:db:1b:eb:8a:11:ab:a1:26:0b:90:3d:4c:42:3b:
+                    90:1b:98:5a:00:1a:3a:98:c3:1f:1d:32:ce:f6:26:
+                    07:31:10:3b:07:e7:92:05:5f:94:b2:30:f6:f8:cd:
+                    99:88:f2:db:35:da:40:60:fa:90:b4:e2:15:34:36:
+                    3e:43:f6:90:10:cb:bf:86:25:5e:c9:0d:d9:66:3e:
+                    5f:ef:cf:91:d1:92:b5:60:d8:26:14:3c:fa:5d:b7:
+                    8b:5c:00:e7:ef:cb:d1:4b:af:53:17:d9:a5:5f:85:
+                    19:f3:5b:fa:6e:74:f1:0b:be:b1:2d:fe:ed:e8:e4:
+                    15:19:a2:42:7c:9e:68:bb:37:10:f9:71:27:87:18:
+                    e4:5c:32:9d:9a:da:20:8d:50:d6:31:aa:56:bd:c3:
+                    2d:a6:4c:c5:72:14:6b:4e:18:81:42:af:2b:37:64:
+                    a9:44:6f:39:49:86:5e:c4:c5:98:7c:8e:72:58:5b:
+                    f9:2b:22:13:de:3f:a3:a2:b7:31:4c:48:2b:4c:29:
+                    52:5b:84:ae:85:a0:ff:6a:bb:90:ac:73:e5:f3:79:
+                    9f:fb:25:f1:91:17:6c:a6:18:c6:7e:a6:f0:b2:ef:
+                    8e:18:17:fa:0a:4b:20:1f:62:c4:05:46:92:b2:72:
+                    82:c3
+                Exponent: 65537 (0x10001)
+    Signature Algorithm: sha256WithRSAEncryption
+         70:95:e0:27:f5:66:fa:61:2a:17:89:74:de:52:5e:00:81:3b:
+         a4:5e:20:fc:c9:ba:fa:2b:b7:07:e4:4c:74:55:14:88:4d:a8:
+         94:4e:38:79:38:0d:1f:d5:d5:74:f8:db:22:e2:71:c7:25:a3:
+         3b:de:48:b8:31:a9:34:a8:11:a1:d2:3d:87:48:a1:26:70:93:
+         23:ec:fd:4a:14:1b:87:d6:af:34:a6:58:02:e5:48:b0:5a:5a:
+         98:05:1d:04:69:01:76:27:8e:dc:08:dd:81:94:08:97:9b:2d:
+         f5:c1:99:a1:a1:8b:78:af:dd:73:3b:94:01:96:cb:4c:99:bf:
+         a9:d7:95:3b:5b:f5:d8:6e:f5:d8:74:11:87:2f:b6:44:aa:6a:
+         87:c7:5f:96:a0:78:8d:47:d1:28:b1:15:ea:32:46:76:ef:b1:
+         ed:2a:39:df:35:64:d3:2c:bd:66:78:97:50:5a:4d:9b:3e:47:
+         d5:44:80:82:cb:cc:e7:1e:23:c3:4e:e4:7e:09:c9:1e:21:b2:
+         3e:7b:e7:b9:48:08:ab:af:a2:63:4f:8b:a4:b7:3e:54:62:a0:
+         75:89:25:b2:51:2c:3b:3d:74:dc:b3:5b:2e:fb:59:82:0b:e5:
+         37:b4:7f:d2:8d:bd:8f:a2:47:33:79:d0:39:ee:ac:3b:56:d7:
+         dd:e0:5d:25
+-----BEGIN CERTIFICATE-----
+MIIDPzCCAicCAQYwDQYJKoZIhvcNAQELBQAwazELMAkGA1UEBhMCd3ExCzAJBgNV
+BAgMAndxMQswCQYDVQQHDAJ3cTELMAkGA1UECgwCd3ExCzAJBgNVBAsMAndxMRIw
+EAYDVQQDDAl6ZXRpbC5uZXQxFDASBgkqhkiG9w0BCQEWBW15QHdqMB4XDTIxMDEw
+ODA5MTUxNVoXDTMxMDEwNjA5MTUxNVowYDELMAkGA1UEBhMCd3ExCzAJBgNVBAgM
+AndxMQowCAYDVQQHDAF3MQwwCgYDVQQKDANxd3ExCjAIBgNVBAsMAXcxCzAJBgNV
+BAMMAnF3MREwDwYJKoZIhvcNAQkBFgJxdzCCASIwDQYJKoZIhvcNAQEBBQADggEP
+ADCCAQoCggEBALoiM23b9IF6LSe8+xt/udsb64oRq6EmC5A9TEI7kBuYWgAaOpjD
+Hx0yzvYmBzEQOwfnkgVflLIw9vjNmYjy2zXaQGD6kLTiFTQ2PkP2kBDLv4YlXskN
+2WY+X+/PkdGStWDYJhQ8+l23i1wA5+/L0UuvUxfZpV+FGfNb+m508Qu+sS3+7ejk
+FRmiQnyeaLs3EPlxJ4cY5FwynZraII1Q1jGqVr3DLaZMxXIUa04YgUKvKzdkqURv
+OUmGXsTFmHyOclhb+SsiE94/o6K3MUxIK0wpUluEroWg/2q7kKxz5fN5n/sl8ZEX
+bKYYxn6m8LLvjhgX+gpLIB9ixAVGkrJygsMCAwEAATANBgkqhkiG9w0BAQsFAAOC
+AQEAcJXgJ/Vm+mEqF4l03lJeAIE7pF4g/Mm6+iu3B+RMdFUUiE2olE44eTgNH9XV
+dPjbIuJxxyWjO95IuDGpNKgRodI9h0ihJnCTI+z9ShQbh9avNKZYAuVIsFpamAUd
+BGkBdieO3AjdgZQIl5st9cGZoaGLeK/dczuUAZbLTJm/qdeVO1v12G712HQRhy+2
+RKpqh8dflqB4jUfRKLEV6jJGdu+x7So53zVk0yy9ZniXUFpNmz5H1USAgsvM5x4j
+w07kfgnJHiGyPnvnuUgIq6+iY0+LpLc+VGKgdYklslEsOz103LNbLvtZggvlN7R/
+0o29j6JHM3nQOe6sO1bX3eBdJQ==
+-----END CERTIFICATE-----

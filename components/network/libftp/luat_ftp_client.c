@@ -819,28 +819,11 @@ int luat_ftp_command(const char * command){
 		LLOGE("please login first");
 		return -1;
 	}
-	if (memcmp(command, "NOOP", 4)==0){
-		LLOGD("command: NOOP");
-	}else if(memcmp(command, "SYST", 4)==0){
-		LLOGD("command: SYST");
-	}else if(memcmp(command, "MKD", 3)==0){
-		LLOGD("command: MKD");
-	}else if(memcmp(command, "CWD", 3)==0){
-		LLOGD("command: CWD");
-	}else if(memcmp(command, "CDUP", 4)==0){
-		LLOGD("command: CDUP");
-	}else if(memcmp(command, "RMD", 3)==0){
-		LLOGD("command: RMD");
-	}else if(memcmp(command, "PWD", 3)==0){
-		LLOGD("command: RMD");
-	}else if(memcmp(command, "DELE", 4)==0){
-		LLOGD("command: DELE");
-	}else if(memcmp(command, "TYPE", 4)==0){
-		LLOGD("command: TYPE");
-    }else if(memcmp(command, "SIZE", 4)==0){
-		LLOGD("command: SIZE");
-	}else if(memcmp(command, "LIST", 4)==0){
-		LLOGD("command: LIST");
+	if (memcmp(command, "NOOP", 4)==0 || memcmp(command, "SYST", 4)==0 || memcmp(command, "MKD", 3)==0 
+		|| memcmp(command, "CWD", 3)==0 ||memcmp(command, "CDUP", 4)==0 || memcmp(command, "RMD", 3)==0 
+		|| memcmp(command, "PWD", 3)==0 || memcmp(command, "DELE", 4)==0 || memcmp(command, "TYPE", 4)==0 
+		|| memcmp(command, "SIZE", 4)==0 || memcmp(command, "LIST", 4)==0){
+		LLOGD("command: %s", command);
 	}else{
 		LLOGE("not support cmd:%s",command);
 		return -1;

@@ -61,7 +61,7 @@ sys.taskInit(function()
 
     while 1 do
         sys.wait(6000)
-        -- local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait()
+        -- local code, headers, body = http.request("GET", "http://httpbin.luatos.com/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait()
         local code, headers, body = http.request("GET", "http://www.baidu.com/", nil, nil, {adapter=socket.LWIP_ETH}).wait()
         log.info("http", code, headers, body and #body)
         log.info("lua", rtos.meminfo())

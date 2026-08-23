@@ -50,7 +50,9 @@ typedef struct {
      * @data_len: bytes to write from data (may be < data_bytes_per_chunk)
      * @oob:      OOB buffer (spare_bytes_per_chunk bytes), may be NULL
      * @oob_len:  bytes to write from oob
-     * Return:    0 on success, <0 on failure
+     * Return:    TFS_OK on success, TFS_EFLASH only for a confirmed NAND
+     *            program failure, or another TFS error for invalid arguments
+     *            and non-media failures. Only TFS_EFLASH may retire a block.
      */
     int (*write_page)(void *ctx, uint32_t page,
                       const uint8_t *data, uint32_t data_len,

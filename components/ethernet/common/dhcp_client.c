@@ -102,6 +102,7 @@ void make_ip4_dhcp_discover_msg(dhcp_client_info_t *dhcp, Buffer_Struct *out)
 			  DHCP_OPTION_BROADCAST,
 			  DHCP_OPTION_SERVER_ID,
 			  DHCP_OPTION_LEASE_TIME,
+			  DHCP_OPTION_DNS_SERVER,
 			  DHCP_OPTION_IP_TTL,
 	};
 	out->Pos = 0;
@@ -198,6 +199,8 @@ int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in)
 {
 	int ack = 0;
 	uint64_t lease_time;
+	// 本次报文解析到的租约相关值, 0=未携带; 先存局部变量, 不受option 53出现顺序影响, 循环结束后统一应用
+	uint32_t new_lease = 0, new_t1 = 0, new_t2 = 0;
 	if (in->Data[0] != DHCP_BOOTREPLY)
 	{
 		LLOGD("head error");
@@ -251,7 +254,7 @@ __CHECK:
 		}
 		if (opt == DHCP_OPTION_END)
 		{
-			return ack;
+			break;
 		}
 		if (in->Pos + 2 + len > in->MaxLen)
 		{
@@ -267,20 +270,9 @@ __CHECK:
 			dhcp->server_ip = BytesGetLe32(&in->Data[in->Pos + 2]);
 			break;
 		case DHCP_OPTION_LEASE_TIME:
-			if (DHCP_ACK == ack)
+			if (len == 4)
 			{
-				dhcp->lease_time = BytesGetBe32(&in->Data[in->Pos + 2]);
-				if (dhcp->lease_time < DHCP_MIN_LEASE_SEC)
-				{
-					LLOGW("lease time too short %d, set to %d", dhcp->lease_time, DHCP_MIN_LEASE_SEC);
-					dhcp->lease_time = DHCP_MIN_LEASE_SEC;
-				}
-				lease_time = dhcp->lease_time;
-				lease_time *= 1000;
-				dhcp->lease_end_time = luat_mcu_tick64_ms() + lease_time;
-				// 默认按比例，若后续解析到T1/T2会覆盖
-				dhcp->lease_p1_time = dhcp->lease_end_time - (lease_time >> 1);
-				dhcp->lease_p2_time = dhcp->lease_end_time - (lease_time >> 3);
+				new_lease = BytesGetBe32(&in->Data[in->Pos + 2]);
 			}
 			break;
 
@@ -302,22 +294,16 @@ __CHECK:
 				for (uint8_t i = count; i < 2; i++) dhcp->dns_server[i] = 0;
 			}
 			break;
-		case 58: // Renewal Time (T1)
-			if (DHCP_ACK == ack && len == 4)
+		case DHCP_OPTION_T1: // Renewal Time (T1)
+			if (len == 4)
 			{
-				uint64_t t1 = BytesGetBe32(&in->Data[in->Pos + 2]);
-				if (t1 < DHCP_MIN_LEASE_SEC) t1 = DHCP_MIN_LEASE_SEC;
-				dhcp->lease_p1_time = luat_mcu_tick64_ms() + t1 * 1000;
-				LLOGD("T1(Renew)=%llu sec", t1);
+				new_t1 = BytesGetBe32(&in->Data[in->Pos + 2]);
 			}
 			break;
-		case 59: // Rebinding Time (T2)
-			if (DHCP_ACK == ack && len == 4)
+		case DHCP_OPTION_T2: // Rebinding Time (T2)
+			if (len == 4)
 			{
-				uint64_t t2 = BytesGetBe32(&in->Data[in->Pos + 2]);
-				if (t2 < DHCP_MIN_LEASE_SEC) t2 = DHCP_MIN_LEASE_SEC;
-				dhcp->lease_p2_time = luat_mcu_tick64_ms() + t2 * 1000;
-				LLOGD("T2(Rebind)=%llu sec", t2);
+				new_t2 = BytesGetBe32(&in->Data[in->Pos + 2]);
 			}
 			break;
 		default:
@@ -325,6 +311,52 @@ __CHECK:
 			break;
 		}
 		in->Pos += 2 + len;
+	}
+	// 仅在ACK时应用租约参数
+	if (DHCP_ACK == ack)
+	{
+		if (new_lease && (new_lease != 0xFFFFFFFF))
+		{
+			// 有限租约
+			dhcp->lease_time = new_lease;
+			if (dhcp->lease_time < DHCP_MIN_LEASE_SEC)
+			{
+				LLOGW("lease time too short %d, set to %d", dhcp->lease_time, DHCP_MIN_LEASE_SEC);
+				dhcp->lease_time = DHCP_MIN_LEASE_SEC;
+			}
+			lease_time = dhcp->lease_time;
+			lease_time *= 1000;
+			dhcp->lease_end_time = luat_mcu_tick64_ms() + lease_time;
+			// 默认按比例，若报文携带T1/T2则覆盖
+			dhcp->lease_p1_time = dhcp->lease_end_time - (lease_time >> 1);
+			dhcp->lease_p2_time = dhcp->lease_end_time - (lease_time >> 3);
+			if (new_t1)
+			{
+				uint64_t t1 = new_t1;
+				if (t1 < DHCP_MIN_LEASE_SEC) t1 = DHCP_MIN_LEASE_SEC;
+				dhcp->lease_p1_time = luat_mcu_tick64_ms() + t1 * 1000;
+				LLOGD("T1(Renew)=%llu sec", t1);
+			}
+			if (new_t2)
+			{
+				uint64_t t2 = new_t2;
+				if (t2 < DHCP_MIN_LEASE_SEC) t2 = DHCP_MIN_LEASE_SEC;
+				dhcp->lease_p2_time = luat_mcu_tick64_ms() + t2 * 1000;
+				LLOGD("T2(Rebind)=%llu sec", t2);
+			}
+		}
+		else
+		{
+			// 租约0xFFFFFFFF或ACK未携带option 51, 视为无限租约, 永不续租
+			if (!new_lease)
+			{
+				LLOGW("ACK without lease time option, treat as infinite lease");
+			}
+			dhcp->lease_time = 0xFFFFFFFF;
+			dhcp->lease_end_time = UINT64_MAX;
+			dhcp->lease_p1_time = UINT64_MAX;
+			dhcp->lease_p2_time = UINT64_MAX;
+		}
 	}
 	return ack;
 }

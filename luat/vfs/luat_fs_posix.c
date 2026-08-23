@@ -19,6 +19,10 @@ FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mod
     (void)userdata;
     char tmp[16] = {0};
     int flag = 0;
+    if (strlen(mode) >= sizeof(tmp)) {
+        LLOGE("fopen mode too long %s", mode);
+        return NULL;
+    }
     for (size_t i = 0; i < strlen(mode); i++)
     {
         if (mode[i] == 'b') {
@@ -26,7 +30,7 @@ FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mod
             break;
         }
     }
-    memcpy(tmp, mode, strlen(mode));
+    memcpy(tmp, mode, strlen(mode) + 1);
     if (!flag)
         tmp[strlen(mode)] = 'b';
     mode = tmp;
@@ -78,7 +82,9 @@ int luat_vfs_posix_ferror(void* userdata, FILE *stream) {
 }
 size_t luat_vfs_posix_fread(void* userdata, void *ptr, size_t size, size_t nmemb, FILE *stream) {
     (void)userdata;
-    int ret = fread(ptr, size, nmemb, stream);
+    // 统一以 size=1、nmemb=总字节数 调用平台 fread,返回值即实际读取字节数,
+    // 避免文件尾部不足一个 element(size>1)时被标准 fread 丢弃的问题
+    int ret = fread(ptr, 1, size * nmemb, stream);
     // LLOGD("fread %p %d %d", stream, size * nmemb, ret);
     if (ret <= 0)
         return 0;
@@ -86,12 +92,14 @@ size_t luat_vfs_posix_fread(void* userdata, void *ptr, size_t size, size_t nmemb
 }
 size_t luat_vfs_posix_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     (void)userdata;
-    int ret = fwrite(ptr, size, nmemb, stream);
+    // 统一以 size=1、nmemb=总字节数 调用平台 fwrite,返回值即实际写入字节数,
+    // 避免部分写入(如磁盘满、EINTR)时返回虚假的完整写入数量
+    size_t ret = fwrite(ptr, 1, size * nmemb, stream);
     // LLOGD("fwrite %p %d %d", stream, size * nmemb, ret);
     if (ret <= 0)
         return 0;
     fflush(stream);
-    return size * nmemb;
+    return ret;
 }
 
 int luat_vfs_posix_fflush(void* userdata, FILE *stream) {
@@ -200,9 +208,43 @@ static int luat_vfs_posix_dir_path(const char* dir_name, char* buff, size_t buff
 int luat_vfs_posix_mkdir(void* userdata, char const* filename) {
     (void)userdata;
 #if defined(LUA_USE_WINDOWS)
-    return mkdir(filename + FILENAME_OFFSET);
+    char tmp[256];
+    const char *p = filename + FILENAME_OFFSET;
+    size_t len = strlen(p);
+    if (len == 0 || len >= sizeof(tmp)) {
+        return -1;
+    }
+    memcpy(tmp, p, len + 1);
+    /* Convert to backslash for Windows */
+    for (size_t i = 0; tmp[i]; i++) {
+        if (tmp[i] == '/') tmp[i] = '\\';
+    }
+    /* Recursively create parent directories */
+    for (char *s = tmp + 1; *s; s++) {
+        if (*s == '\\') {
+            *s = '\0';
+            mkdir(tmp); /* ignore error if already exists */
+            *s = '\\';
+        }
+    }
+    return mkdir(tmp);
 #elif defined(LUA_USE_LINUX) || defined(LUA_USE_MACOSX)
-    return mkdir(filename + FILENAME_OFFSET, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    char tmp[256];
+    const char *p = filename + FILENAME_OFFSET;
+    size_t len = strlen(p);
+    if (len == 0 || len >= sizeof(tmp)) {
+        return -1;
+    }
+    memcpy(tmp, p, len + 1);
+    /* Recursively create parent directories */
+    for (char *s = tmp + 1; *s; s++) {
+        if (*s == '/') {
+            *s = '\0';
+            mkdir(tmp, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH); /* ignore error if already exists */
+            *s = '/';
+        }
+    }
+    return mkdir(tmp, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 #else
     return -1;
 #endif

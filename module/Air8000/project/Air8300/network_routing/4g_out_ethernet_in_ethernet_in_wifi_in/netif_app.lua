@@ -54,8 +54,51 @@ end
 sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
+-- 网口1: 独立task，失败后自动重试
+local eth1_task = function()
+    while 1 do
+        local res = exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, {
+            ethpower_en = 16,                -- 以太网模块的pwrpin引脚(gpio编号)
+            tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+            opts = { spi = 1, cs = 21, irq = gpio.WAKEUP0 },     -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+            -- adapter_addr = "192.168.2.1",   -- 自定义LWIP_ETH网卡的ip地址(选填),需要自定义ip和网关ip时填写
+            -- adapter_gw = { 192, 168, 2, 1 } -- 自定义LWIP_ETH网卡的网关地址(选填),需要自定义ip和网关ip时填写
+        })
+        if res then
+            log.info("exnetif", "网口1 setproxy 成功")
+            break
+        else
+            log.info("网口1 初始化失败，5秒后重试...")
+            -- setproxy失败后内部会gpio.close(16)，双CH390必须同时供电，重新拉高
+            gpio.setup(16, 1, gpio.PULLUP)
+            sys.wait(5000)
+        end
+    end
+end
+
+-- 网口2: 独立task，失败后自动重试
+local eth2_task = function()
+    while 1 do
+        local res = exnetif.setproxy(socket.LWIP_USER1, socket.LWIP_GP, {
+            ethpower_en = 17,                -- 以太网模块的pwrpin引脚(gpio编号)
+            tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+            opts = { spi = 1, cs = 20 , irq = gpio.WAKEUP6 },     -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+            -- adapter_addr = "192.168.2.3",   -- 自定义LWIP_USER1网卡的ip地址(选填),需要自定义ip和网关ip时填写
+            -- adapter_gw = { 192, 168, 2, 1 } -- 自定义LWIP_USER1网卡的网关地址(选填),需要自定义ip和网关ip时填写
+        })
+        if res then
+            log.info("exnetif", "网口2 setproxy 成功")
+            break
+        else
+            log.info("网口2 初始化失败，5秒后重试...")
+            -- 同样需要保持双供电
+            gpio.setup(17, 1, gpio.PULLUP)
+            sys.wait(5000)
+        end
+    end
+end
+
 function netif_app_task_func()
-    local res, res1
     -- 等待4G网络连接成功
     while not socket.adapter() do
         -- 在此处阻塞等待4G网卡连接成功的消息"IP_READY"
@@ -83,47 +126,12 @@ function netif_app_task_func()
         log.info("开启失败，请检查配置项是否正确，日志中是否打印了错误信息")
     end
 
-
-
-    -- 设置多网融合功能，4G提供网络供以太网设备(网口1)上网
-    res = exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, {
-        ethpower_en = 16,                -- 以太网模块的pwrpin引脚(gpio编号)
-        tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-        opts = { spi = 1, cs = 21 },     -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
-        -- adapter_addr = "192.168.2.1",   -- 自定义LWIP_ETH网卡的ip地址(选填),需要自定义ip和网关ip时填写
-        -- adapter_gw = { 192, 168, 2, 1 } -- 自定义LWIP_ETH网卡的网关地址(选填),需要自定义ip和网关ip时填写
-    })
-
-    if res then
-        log.info("exnetif", "setproxy success1")
-    else
-        log.info("开启失败，请检查配置项是否正确，日志中是否打印了错误信息")
-    end
-
-    sys.wait(2000)
-
-    -- 设置多网融合功能，4G提供网络供以太网设备(网口2)上网
-    res1 = exnetif.setproxy(socket.LWIP_USER1, socket.LWIP_GP, {
-        ethpower_en = 17,                -- 以太网模块的pwrpin引脚(gpio编号)
-        tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-        opts = { spi = 1, cs = 20 },     -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
-        -- adapter_addr = "192.168.2.3",   -- 自定义LWIP_USER1网卡的ip地址(选填),需要自定义ip和网关ip时填写
-        -- adapter_gw = { 192, 168, 2, 1 } -- 自定义LWIP_USER1网卡的网关地址(选填),需要自定义ip和网关ip时填写
-    })
-
-    if res1 then
-        log.info("exnetif", "setproxy success2")
-    else
-        log.info("开启失败，请检查配置项是否正确，日志中是否打印了错误信息")
-    end
-
-    -- 每5秒进行HTTPS连接测试，实时监测4G网络连接状态, 仅供测试需要，量产不需要，用来判断当前网络是否可用，需要的话可以打开注释
-    -- while 1 do
-    --     local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil,
-    --         { adapter = socket.LWIP_GP, timeout = 5000, debug = false }).wait()
-    --     log.info("http执行结果", code, headers, body and #body)
-    --     sys.wait(5000)
-    -- end
+    -- 启动两个独立task分别管理网口1和网口2
+    sys.taskInit(eth1_task)
+    sys.taskInit(eth2_task)
 end
 
+
 sys.taskInit(netif_app_task_func)
+
+

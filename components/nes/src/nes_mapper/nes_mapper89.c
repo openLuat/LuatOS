@@ -19,9 +19,9 @@
 /* https://www.nesdev.org/wiki/INES_Mapper_089
  * Sunsoft-2 — 16KB PRG switchable + CHR 8KB switchable + single-screen mirror.
  * Write $8000-$FFFF:
- *   bit[7]   = mirroring (0=NT0 single-screen, 1=NT1 single-screen)
+ *   bit[7]   = CHR bank bit 3
  *   bits[6:4]= 16KB PRG bank for $8000-$BFFF
- *   bit[3]   = CHR bank bit 3
+ *   bit[3]   = mirroring (0=NT0 single-screen, 1=NT1 single-screen)
  *   bits[2:0]= CHR bank bits 2:0
  */
 
@@ -31,17 +31,17 @@ static void nes_mapper_init(nes_t* nes) {
     if (nes->nes_rom.chr_rom_size > 0) {
         nes_load_chrrom_8k(nes, 0, 0);
     }
+    nes_ppu_screen_mirrors(nes, NES_MIRROR_ONE_SCREEN0);
 }
 
 static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     (void)address;
     nes_load_prgrom_16k(nes, 0, (uint16_t)((data >> 4) & 0x07u));
     if (nes->nes_rom.chr_rom_size > 0) {
-        nes_load_chrrom_8k(nes, 0, (uint8_t)(data & 0x0Fu));
+        uint16_t chr_bank = (uint16_t)((data & 0x07u) | ((data & 0x80u) >> 4u));
+        nes_load_chrrom_8k(nes, 0, chr_bank);
     }
-    if (nes->nes_rom.four_screen == 0) {
-        nes_ppu_screen_mirrors(nes, (data & 0x80u) ? NES_MIRROR_ONE_SCREEN1 : NES_MIRROR_ONE_SCREEN0);
-    }
+    nes_ppu_screen_mirrors(nes, (data & 0x08u) ? NES_MIRROR_ONE_SCREEN1 : NES_MIRROR_ONE_SCREEN0);
 }
 
 int nes_mapper89_init(nes_t* nes) {

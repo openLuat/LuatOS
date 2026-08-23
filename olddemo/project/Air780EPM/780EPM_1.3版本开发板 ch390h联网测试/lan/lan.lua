@@ -43,7 +43,7 @@ sys.taskInit(function()
     -- sys.waitUntil("IP_READY")
     while 1 do
         sys.wait(300000)
-        -- log.info("http", http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait())
+        -- log.info("http", http.request("GET", "http://httpbin.luatos.com/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait())
         log.info("lua", rtos.meminfo())
         log.info("sys", rtos.meminfo("sys"))
         -- log.info("psram", rtos.meminfo("psram"))

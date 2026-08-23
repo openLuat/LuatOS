@@ -24,7 +24,6 @@ script/
 |------|----------|----------|
 | Core system | `corelib/` | `sys.lua`, `log.lua` |
 | Peripheral driver | `libs/` | `exmodbus_tcp.lua` |
-| Complete project | `turnkey/` | `scanner_air105/` |
 | UI components | `libs/` | `exeasyui.lua` |
 
 ## CONVENTIONS

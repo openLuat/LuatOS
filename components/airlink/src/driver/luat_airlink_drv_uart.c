@@ -158,3 +158,13 @@ int luat_airlink_drv_uart_sent_cb(int uart_id, void* buffer, size_t length) {
     luat_msgbus_put(&msg, 0);
     return 0;
 }
+
+int luat_airlink_drv_uart_rx_clear(int uart_id) {
+    if (uart_id >= 10 && uart_id <= 19) {
+        uint8_t realy_id = uart_id - 10;
+        if (uart_rx_buffs[realy_id] != NULL) {
+            uart_rx_buffs[realy_id]->remain = 0;
+        }
+    }
+    return 0;
+}

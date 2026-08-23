@@ -225,7 +225,7 @@ static int l_pm_dtimer_wakeup_id(lua_State *L) {
 /**
 开机原因,用于判断是从休眠模块开机,还是电源/复位开机
 @api pm.lastReson()
-@return int 0-上电/复位开机, 1-RTC开机, 2-WakeupIn/Pad/IO开机, 3-未知原因(Wakeup/RTC皆有可能)开机,目前只有air101,air103会有这个返回值
+@return int 0-上电/复位开机, 1-RTC开机, 2-WakeupIn/Pad/IO开机, 3-未知原因(Wakeup/RTC皆有可能)开机
 @return int 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机
 @return int 复位开机详细原因：0-powerkey或者上电开机 1-充电或者AT指令下载完成后开机 2-闹钟开机 3-软件重启 4-未知原因 5-RESET键 6-异常重启 7-工具控制重启 8-内部看门狗重启 9-外部重启 10-充电开机
 @return int WakeupPad唤醒情况下，具体是哪些pad唤醒，每个bit代表1个引脚，目前只有移芯平台有用，2026.1.15启用
@@ -253,7 +253,7 @@ static int l_pm_last_reson(lua_State *L) {
 强制进入指定的休眠模式，忽略某些外设的影响，比如USB
 @api pm.force(mode)
 @int 休眠模式
-@return boolean 处理结果,若返回成功,大概率会马上进入该休眠模式
+@return int 底层返回值,若返回0,大概率会马上进入该休眠模式
 @usage
 -- 请求进入休眠模式
 pm.force(pm.HIB)
@@ -428,7 +428,7 @@ LUAT_WEAK int luat_pm_iovolt_ctrl(int id, int val) {
 
 /**
 配置唤醒引脚
-@api pm.wakeupPin(pin,level)
+@api pm.wakeupPin(pin, level, chip)
 @int gpio引脚
 @int 唤醒方式, 例如gpio.RISING (上升沿), gpio.FALLING (下降沿)
 @int 芯片的ID, 默认是0, 大部分型号都只有0

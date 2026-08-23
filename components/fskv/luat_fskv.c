@@ -175,7 +175,10 @@ int luat_fskv_clear(void) {
 }
 
 int luat_fskv_stat(size_t *using_sz, size_t *total, size_t *kv_count) {
-    *using_sz = lfs_fs_size(&fskv_lfs->lfs) * LFS_BLOCK_DEVICE_ERASE_SIZE;
+    lfs_ssize_t used = lfs_fs_size(&fskv_lfs->lfs);
+    if (used < 0) // 注意, lfs_fs_size 出错的时候返回是负数的
+        used = fskv_lfs->total_len / LFS_BLOCK_DEVICE_ERASE_SIZE;
+    *using_sz = (size_t)used * LFS_BLOCK_DEVICE_ERASE_SIZE;
     *total = fskv_lfs->total_len;
     lfs_dir_t dir = {0};
     int ret = lfs_dir_open(&fskv_lfs->lfs, &dir, "");

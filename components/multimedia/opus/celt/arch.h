@@ -239,11 +239,11 @@ static OPUS_INLINE opus_int16 SAT16(opus_int32 x) {
 #include "fixed_generic.h"
 
 #ifdef OPUS_ARM_PRESUME_AARCH64_NEON_INTR
-#include "arm/fixed_arm64.h"
+#include "celt/arm/fixed_arm64.h"
 #elif defined (OPUS_ARM_INLINE_EDSP)
-#include "arm/fixed_armv5e.h"
+#include "celt/arm/fixed_armv5e.h"
 #elif defined (OPUS_ARM_INLINE_ASM)
-#include "arm/fixed_armv4.h"
+#include "celt/arm/fixed_armv4.h"
 #elif defined (BFIN_ASM)
 #include "fixed_bfin.h"
 #elif defined (TI_C5X_ASM)

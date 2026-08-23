@@ -6,10 +6,18 @@ sysplus = require("sysplus")
 dhcps = require "dhcpsrv"
 dnsproxy = require "dnsproxy"
 
+local ch390_spi_id = 0
+local ch390_spi_cs = 8
+
+if rtos.bsp() == "Air1601" or rtos.bsp() == "Air1602" then
+    ch390_spi_id = 1
+    ch390_spi_cs = 14
+end
+
 sys.taskInit(function ()
     -- sys.wait(3000)
     local result = spi.setup(
-        0,--spi id
+        ch390_spi_id,--spi id
         nil,
         0,--CPHA
         0,--CPOL
@@ -25,7 +33,7 @@ sys.taskInit(function ()
         return
     end
 
-    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8})
+    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=ch390_spi_id,cs=ch390_spi_cs})
     sys.wait(3000)
     local ipv4,mark, gw = netdrv.ipv4(socket.LWIP_ETH, "192.168.4.1", "255.255.255.0", "192.168.4.1")
     log.info("ipv4", ipv4,mark, gw)
@@ -58,7 +66,7 @@ sys.taskInit(function()
     -- sys.waitUntil("IP_READY")
     while 1 do
         sys.wait(300000)
-        -- log.info("http", http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait())
+        -- log.info("http", http.request("GET", "http://httpbin.luatos.com/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait())
         log.info("lua", rtos.meminfo())
         log.info("sys", rtos.meminfo("sys"))
         -- log.info("psram", rtos.meminfo("psram"))

@@ -1,0 +1,6 @@
+{
+  "name": "vfs_uniform_tfs",
+  "summary": "VFS 统一接口在 tfs 上的回归测试",
+  "platform": ["pc"],
+  "timeout": 300
+}

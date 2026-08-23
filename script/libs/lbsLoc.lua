@@ -49,6 +49,13 @@ sys.taskInit(function()
         sys.wait(60000)
     end
 end)
+
+-- 版本更新说明
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增lbsLoc.version()接口
+--    支持lbsLoc库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local libnet = require("libnet")
@@ -268,7 +275,7 @@ end
 @bool reqAddr 是否请求服务器返回具体的位置字符串信息，已经不支持,填false或者nil
 @number timeout 请求超时时间，单位毫秒，默认20000毫秒
 @string productKey IOT网站上的产品KEY，如果在main.lua中定义了PRODUCT_KEY变量，则此参数可以传nil
-@string host 服务器域名, 默认 "bs.openluat.com" ,可选备用服务器(不保证可用) "bs.air32.cn"
+@string host 服务器域名, 默认 "bs.openluat.com"
 @string port 服务器端口，默认"12411",一般不需要设置
 @return nil 无返回值
 @usage
@@ -277,5 +284,17 @@ end
 function lbsLoc.request(cbFnc,reqAddr,timeout,productKey,host,port,reqTime,reqWifi)
     sysplus.taskInitEx(taskClient, d1Name, netCB, cbFnc, reqAddr,timeout or 20000,productKey or _G.PRODUCT_KEY,host or "bs.openluat.com",port or "12411", reqTime == nil and true or reqTime,reqWifi)
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+lbsLoc.version()
+]]
+function lbsLoc.version()
+    return "202607021200"
+end
+
+log.debug("lbsLoc", "version -> " .. lbsLoc.version())
 
 return lbsLoc

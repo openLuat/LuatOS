@@ -46,6 +46,22 @@ static lora_device_t * get_lora_device(lua_State *L){
 	}
 }
 
+static uint8_t lora_get_int(lua_State *L, int idx, const char *key, uint8_t def){
+    if (LUA_TNUMBER == lua_getfield(L, idx, key)) {
+        def = luaL_optinteger(L, -1, def);
+    }
+    lua_pop(L, 1);
+    return def;
+}
+
+static bool lora_get_bool(lua_State *L, int idx, const char *key, bool def){
+    if (LUA_TBOOLEAN == lua_getfield(L, idx, key)) {
+        def = lua_toboolean(L, -1);
+    }
+    lua_pop(L, 1);
+    return def;
+}
+
 static int l_lora_handler(lua_State* L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lora_device_t *lora_device =(lora_device_t *)msg->ptr;
@@ -164,36 +180,12 @@ static int luat_lora_init(lua_State *L){
         uint8_t id = 0,cs = 0,res = 0,busy = 0,dio1 = 0;
         lora_device->lora_init = true;
         if (lua_istable(L, 2)) {
-            lua_pushstring(L, "id");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                id = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "cs");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                cs = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "res");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                res = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "busy");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                busy = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "dio1");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                dio1 = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "lora_init");
-            if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-                lora_device->lora_init = lua_toboolean(L, -1);
-            }
-            lua_pop(L, 1);
+            id   = lora_get_int(L, 2, "id", 0);
+            cs   = lora_get_int(L, 2, "cs", 0);
+            res  = lora_get_int(L, 2, "res", 0);
+            busy = lora_get_int(L, 2, "busy", 0);
+            dio1 = lora_get_int(L, 2, "dio1", 0);
+            lora_device->lora_init = lora_get_bool(L, 2, "lora_init", true);
         }
 
         if (luaL_testudata(L, 3, META_SPI)){
@@ -279,78 +271,31 @@ static int luat_lora_set_txconfig(lua_State *L){
     lora_device_t  * lora_device = get_lora_device(L);
 
     if (lua_istable(L, 2)) {
-        lua_pushstring(L, "mode");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            mode = luaL_optinteger(L, -1,1);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "power");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            power = luaL_optinteger(L, -1,22);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "fdev");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            fdev = luaL_optinteger(L, -1,0);
-        }
-        lua_pop(L, 1);
-
-        lua_pushstring(L, "bandwidth");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            bandwidth = luaL_optinteger(L, -1,0);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "datarate");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            datarate = luaL_optinteger(L, -1,9);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "coderate");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            coderate = luaL_optinteger(L, -1,4);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "preambleLen");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            preambleLen = luaL_optinteger(L, -1,8);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "fixLen");
-        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-            fixLen = lua_toboolean(L, -1);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "crcOn");
-        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-            crcOn = lua_toboolean(L, -1);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "freqHopOn");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            freqHopOn = luaL_optinteger(L, -1,0);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "hopPeriod");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            hopPeriod = luaL_optinteger(L, -1,0);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "iqInverted");
-        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-            iqInverted = lua_toboolean(L, -1);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "timeout");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            timeout = luaL_optinteger(L, -1,3000);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "rateOptimize");
-        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-            rateOptimize = lua_toboolean(L, -1);
+        mode         = lora_get_int(L, 2, "mode", 1);
+        power        = lora_get_int(L, 2, "power", 22);
+        fdev         = lora_get_int(L, 2, "fdev", 0);
+        bandwidth    = lora_get_int(L, 2, "bandwidth", 0);
+        datarate     = lora_get_int(L, 2, "datarate", 9);
+        coderate     = lora_get_int(L, 2, "coderate", 4);
+        preambleLen  = lora_get_int(L, 2, "preambleLen", 8);
+        freqHopOn    = lora_get_int(L, 2, "freqHopOn", 0);
+        hopPeriod    = lora_get_int(L, 2, "hopPeriod", 0);
+        fixLen       = lora_get_bool(L, 2, "fixLen", false);
+        crcOn        = lora_get_bool(L, 2, "crcOn", true);
+        iqInverted   = lora_get_bool(L, 2, "iqInverted", false);
+        rateOptimize = lora_get_bool(L, 2, "rateOptimize", false);
+        if (LUA_TNUMBER == lua_getfield(L, 2, "timeout")) {
+            timeout = luaL_optinteger(L, -1, 3000);
         }
         lua_pop(L, 1);
     }
+
+#ifndef LUAT_USE_LORA2_FSK
+    if (mode == 0) {
+        LLOGW("lora2 FSK/GFSK is disabled by LUAT_USE_LORA2_FSK");
+        mode = 1;
+    }
+#endif
     
     Radio2.SetTxConfig( lora_device,mode, power, fdev, bandwidth,
                         datarate, coderate,
@@ -386,86 +331,32 @@ lora_device:set_rxconfig(
 */
 static int luat_lora_set_rxconfig(lua_State *L){
     uint8_t mode = 1,bandwidth = 0,datarate = 9,coderate = 4,bandwidthAfc = 0,preambleLen = 8,symbTimeout = 0,payloadLen = 0,freqHopOn = 0,hopPeriod = 0;
-    // uint32_t frequency = 433000000,timeout = 0;
     bool fixLen = false,crcOn = true,iqInverted = false,rxContinuous = false,rateOptimize = false;
     lora_device_t  * lora_device = get_lora_device(L);
     if (lua_istable(L, 2)) {
-        lua_pushstring(L, "mode");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            mode = luaL_optinteger(L, -1,1);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "bandwidth");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            bandwidth = luaL_optinteger(L, -1,0);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "datarate");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            datarate = luaL_optinteger(L, -1,9);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "coderate");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            coderate = luaL_optinteger(L, -1,4);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "bandwidthAfc");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            bandwidthAfc = luaL_optinteger(L, -1,0);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "preambleLen");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            preambleLen = luaL_optinteger(L, -1,8);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "symbTimeout");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            symbTimeout = luaL_optinteger(L, -1,0);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "fixLen");
-        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-            fixLen = lua_toboolean(L, -1);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "payloadLen");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            payloadLen = luaL_optinteger(L, -1,0);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "crcOn");
-        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-            crcOn = lua_toboolean(L, -1);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "freqHopOn");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            freqHopOn = luaL_optinteger(L, -1,0);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "hopPeriod");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            hopPeriod = luaL_optinteger(L, -1,0);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "iqInverted");
-        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-            iqInverted = lua_toboolean(L, -1);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "rxContinuous");
-        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-            rxContinuous = lua_toboolean(L, -1);
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "rateOptimize");
-        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-            rateOptimize = lua_toboolean(L, -1);
-        }
-        lua_pop(L, 1);
+        mode         = lora_get_int(L, 2, "mode", 1);
+        bandwidth    = lora_get_int(L, 2, "bandwidth", 0);
+        datarate     = lora_get_int(L, 2, "datarate", 9);
+        coderate     = lora_get_int(L, 2, "coderate", 4);
+        bandwidthAfc = lora_get_int(L, 2, "bandwidthAfc", 0);
+        preambleLen  = lora_get_int(L, 2, "preambleLen", 8);
+        symbTimeout  = lora_get_int(L, 2, "symbTimeout", 0);
+        payloadLen   = lora_get_int(L, 2, "payloadLen", 0);
+        freqHopOn    = lora_get_int(L, 2, "freqHopOn", 0);
+        hopPeriod    = lora_get_int(L, 2, "hopPeriod", 0);
+        fixLen       = lora_get_bool(L, 2, "fixLen", false);
+        crcOn        = lora_get_bool(L, 2, "crcOn", true);
+        iqInverted   = lora_get_bool(L, 2, "iqInverted", false);
+        rxContinuous = lora_get_bool(L, 2, "rxContinuous", false);
+        rateOptimize = lora_get_bool(L, 2, "rateOptimize", false);
     }
+
+#ifndef LUAT_USE_LORA2_FSK
+    if (mode == 0) {
+        LLOGW("lora2 FSK/GFSK is disabled by LUAT_USE_LORA2_FSK");
+        mode = 1;
+    }
+#endif
 
     Radio2.SetRxConfig( lora_device,mode, bandwidth, datarate,
                         coderate, bandwidthAfc, preambleLen,

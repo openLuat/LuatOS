@@ -10,6 +10,14 @@ int luat_pc_dtls_utest_server_start(luat_pc_dtls_utest_server_t **out_server,
                                     const char *psk_id,
                                     const uint8_t *psk,
                                     size_t psk_len);
+int luat_pc_dtls_utest_server_start_cert(luat_pc_dtls_utest_server_t **out_server,
+                                         const uint8_t *ca_pem,
+                                         size_t ca_pem_len,
+                                         const uint8_t *srv_cert_pem,
+                                         size_t srv_cert_pem_len,
+                                         const uint8_t *srv_key_pem,
+                                         size_t srv_key_pem_len,
+                                         int require_client_cert);
 int luat_pc_dtls_utest_server_wait_ready(luat_pc_dtls_utest_server_t *server,
                                          uint32_t timeout_ms,
                                          uint16_t *out_port);

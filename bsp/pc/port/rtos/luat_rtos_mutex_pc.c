@@ -72,11 +72,13 @@ LUAT_RET luat_mutex_unlock(void *mutex) {
         return -1;
     pc_mutex_t* m = (pc_mutex_t*)mutex;
     LLOGD("mutex unlock1 %p %d", m, m->lock);
+    /* 先在锁内递减再 unlock, 否则 lock-- 与其他线程的 lock++ 形成 data race.
+     * lock == 0 的判断也必须在锁内, 否则其他线程可能正在持锁并已让 lock 变非零. */
     if (m->lock == 0) {
         return -2;
     }
-    pthread_mutex_unlock(&m->m);
     m->lock --;
+    pthread_mutex_unlock(&m->m);
     LLOGD("mutex unlock2 %p %d", m, m->lock);
     return 0;
 }
@@ -129,21 +131,16 @@ int luat_rtos_mutex_lock(luat_rtos_mutex_t mutex_handle, uint32_t timeout) {
         return 0;
     }
 
-    uint32_t wait_time = timeout;
-    while (1) {
-        int ret = pthread_mutex_trylock(&m->m);
-        if (ret == 0) {
-            m->lock++;
-            return 0;
-        }
-        if (ret != EBUSY) {
+    /* 有限等待: 优先使用 pthread_mutex_timedlock (POSIX.1-2001 可选, pthreads4w 也支持) */
+    {
+        struct timespec abs;
+        luat_calc_abs_timeout(&abs, timeout);
+        int ret = pthread_mutex_timedlock(&m->m, &abs);
+        if (ret != 0) {
             return -1;
         }
-        if (wait_time == 0) {
-            return -1;
-        }
-        wait_time--;
-        luat_sleep_ms(1);
+        m->lock++;
+        return 0;
     }
 }
 
@@ -155,8 +152,9 @@ int luat_rtos_mutex_unlock(luat_rtos_mutex_t mutex_handle) {
     if (m->lock == 0) {
         return -2;
     }
-    pthread_mutex_unlock(&m->m);
+    /* 与 luat_mutex_unlock 同样, 在锁释放前递减计数. */
     m->lock--;
+    pthread_mutex_unlock(&m->m);
     return 0;
 }
 

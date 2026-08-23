@@ -8,6 +8,7 @@
 #include "luat_netdrv.h"
 #include "luat_netdrv_whale.h"
 #include "luat_netdrv_drv.h"
+#include "luat_netdrv_event.h"
 #include "luat_mcu.h"
 #include "luat_hmeta.h"
 
@@ -38,6 +39,7 @@ static uint8_t g_adapter_binding_inited = 0;
 extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
 extern int luat_airlink_start_uart(void);
+extern int luat_airlink_start_hspi_master(void);
 extern int luat_airlink_stop_slave(void);
 extern int luat_airlink_stop_master(void);
 extern int luat_airlink_stop_uart(void);
@@ -211,10 +213,12 @@ void luat_airlink_peer_flags_update(const airlink_flags_t* flags) {
     if (flags) {
         static uint8_t peer_flags_logged = 0;
         g_airlink_peer_flags = *flags;
-        if (!peer_flags_logged) {
+        if (!peer_flags_logged || luat_mcu_tick64_ms() - g_airlink_last_cmd_timestamp > 2500) {
             LLOGI("peer flags: rpc=%u frag=%u raw=0x%08lX",
                   flags->rpc_supported, flags->frag_supported, *(uint32_t*)flags);
             peer_flags_logged = 1;
+            // 对端重连后重新发送本端设备信息，确保对端能拿到最新状态
+            luat_airlink_self_dev_info_notify();
         }
     }
 }
@@ -238,6 +242,8 @@ uint16_t luat_airlink_transport_max_data_len(uint8_t mode) {
             return AIRLINK_FRAG_MAX_DATA_LEN;
         case LUAT_AIRLINK_MODE_LOOPBACK:
             return 0xFFFF;
+        case LUAT_AIRLINK_MODE_HSPI_MASTER:
+            return AIRLINK_FRAG_MAX_DATA_LEN;
         default:
             return 0;
     }
@@ -363,6 +369,13 @@ int luat_airlink_start(int id)
         ret = luat_airlink_start_loopback();
         #else
         LLOGE("当前固件不支持 LOOPBACK模式");
+        #endif
+    }
+    else if (id == 4) {
+        #ifdef LUAT_USE_AIRLINK_HSPI_MASTER
+        ret = luat_airlink_start_hspi_master();
+        #else
+        LLOGE("当前固件不支持 HSPI_MASTER模式");
         #endif
     }
     if (ret != 0 || airlink_cmd_queue == NULL || airlink_ippkg_queue == NULL) {
@@ -1207,6 +1220,29 @@ void luat_airlink_current_mode_set(int mode) {
     if (s_airlink_main_mode == -1) {
         s_airlink_main_mode = mode;
         // LLOGI("当前AirLink主模式设定为 %d", mode);
+        // HSPI 模式：注册虚拟 WiFi 网卡（只注册网卡，不启动 SPI 任务）
+        if (mode == LUAT_AIRLINK_MODE_HSPI_MASTER) {
+            luat_netdrv_conf_t conf = {0};
+            conf.impl = LUAT_NETDRV_IMPL_WHALE;
+            conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
+            luat_netdrv_setup(&conf);
+            conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
+            luat_netdrv_setup(&conf);
+            // AP网卡：设默认MAC并强制link UP，不依赖devinfo同步
+            // 解决1601单独重启后XT804不重发devinfo导致DHCP无法工作的问题
+            // 仅 HSPI master 平台编译（1601），其他平台不包含此逻辑
+            #ifdef LUAT_USE_AIRLINK_HSPI_MASTER
+            {
+                luat_netdrv_t* ap_drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_AP);
+                if (ap_drv && ap_drv->netif && ap_drv->netif->hwaddr[0] == 0) {
+                    uint8_t default_mac[6] = {0x0C, 0x14, 0x56, 0x00, 0x00, 0x01};
+                    memcpy(ap_drv->netif->hwaddr, default_mac, 6);
+                    ap_drv->netif->hwaddr_len = 6;
+                }
+                luat_netdrv_set_link_updown(ap_drv, 1);
+            }
+            #endif
+        }
     }
     else {
         if (s_airlink_main_mode != mode) {

@@ -19,9 +19,9 @@
 #include "luat_log.h"
 
 #define AIRLINK_UART_RAW_FRAME_MAX (4096)
-#define TEST_BUFF_SIZE (4096)             // s_txbuff / s_rxbuff 大小 (临时缓冲)
+#define UART_BUFF_SIZE (4096)             // s_txbuff / s_rxbuff 大小 (临时缓冲)
 #define UNPACK_BUFF_SIZE (8 * 1024)       // rxbuf 环形缓冲区大小
-#define UART_ESC_FRAME_MAX   (TEST_BUFF_SIZE)  // 单帧转义后最大长度, 与 s_txbuff/s_rxbuff 一致
+#define UART_ESC_FRAME_MAX   (UART_BUFF_SIZE)  // 单帧转义后最大长度, 与 s_txbuff/s_rxbuff 一致
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"
@@ -36,7 +36,7 @@
 #ifdef LUAT_CONF_AIRLINK_MODE_WAIT
 #define AIRLINK_MODE_WAIT_TIMEOUT 100
 #else
-#define AIRLINK_MODE_WAIT_TIMEOUT 15*1000
+#define AIRLINK_MODE_WAIT_TIMEOUT 500
 #endif
 
 extern airlink_statistic_t g_airlink_statistic;
@@ -62,6 +62,7 @@ static luat_airlink_uart_ctrl_t g_airlink_uart = {0};
 
 static void luat_airlink_uart_transfer_task(void);
 static void luat_airlink_uart_receive_task(void);
+static void luat_airlink_uart_fota_task_create(void);
 
 static int luat_airlink_uart_ensure_buffers(void)
 {
@@ -70,14 +71,14 @@ static int luat_airlink_uart_ensure_buffers(void)
     uint8_t *new_rxbuf = NULL;
 
     if (g_airlink_uart.s_txbuff == NULL) {
-        new_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+        new_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, UART_BUFF_SIZE);
         if (new_txbuff == NULL) {
             goto alloc_failed;
         }
         g_airlink_uart.s_txbuff = new_txbuff;
     }
     if (g_airlink_uart.s_rxbuff == NULL) {
-        new_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+        new_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, UART_BUFF_SIZE);
         if (new_rxbuff == NULL) {
             goto alloc_failed;
         }
@@ -106,7 +107,7 @@ alloc_failed:
         luat_heap_opt_free(AIRLINK_MEM_TYPE, new_rxbuf);
         g_airlink_uart.rxbuf = NULL;
     }
-    LLOGE("uart buffer alloc failed tx=%u rx=%u unpack=%u", (unsigned)TEST_BUFF_SIZE, (unsigned)TEST_BUFF_SIZE, (unsigned)UNPACK_BUFF_SIZE);
+    LLOGE("uart buffer alloc failed tx=%u rx=%u unpack=%u", (unsigned)UART_BUFF_SIZE, (unsigned)UART_BUFF_SIZE, (unsigned)UNPACK_BUFF_SIZE);
     return -1;
 }
 
@@ -349,6 +350,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
     int uart_id;
     uint8_t *pbuff = luat_heap_malloc(AIRLINK_UART_RAW_FRAME_MAX);
     event.id = 0;
+    uint64_t last_heartbeat_ms = 0;
 
     while(g_airlink_uart.uart_running)
     {
@@ -362,7 +364,20 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             break; // 如果当前模式已经确定了, 并且不是UART模式, 那么就退出这个任务
         }
         if (ret < 0) {
-            continue; // 等待事件超时了, 继续等待
+            // 空闲超时: 发送心跳帧（间隔 2s），保持对端 g_airlink_last_cmd_timestamp 刷新
+            if (luat_mcu_tick64_ms() - last_heartbeat_ms > 2000) {
+                last_heartbeat_ms = luat_mcu_tick64_ms();
+                send_devinfo_update_evt();
+            }
+            continue;
+        }
+        #else
+        if (ret != 0) {
+            // 空闲超时: 发送心跳帧（间隔 2s），保持对端 g_airlink_last_cmd_timestamp 刷新
+            if (luat_mcu_tick64_ms() - last_heartbeat_ms > 2000) {
+                last_heartbeat_ms = luat_mcu_tick64_ms();
+                send_devinfo_update_evt();
+            }
         }
         #endif
         while (1) {
@@ -381,7 +396,9 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
                 if (airlink_uart_pack_frame_or_log(pbuff, AIRLINK_UART_RAW_FRAME_MAX, basic_info, 128, &packed_len, "uart basic info") != 0) {
                     continue;
                 }
-                LLOGD("uart_transfer_task send basic info %d", sizeof(basic_info));
+                if (g_airlink_debug) {
+                    LLOGD("send basic info %d", sizeof(basic_info));
+                }
             } else {
                 if (airlink_uart_pack_frame_or_log(pbuff, AIRLINK_UART_RAW_FRAME_MAX, (uint8_t*)item.cmd, item.len, &packed_len, "uart tx") != 0) {
                     luat_airlink_cmd_free(item.cmd);
@@ -389,9 +406,9 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
                 }
                 luat_airlink_cmd_free(item.cmd);
             }
-            if ((packed_len * 2 + 2) > TEST_BUFF_SIZE) {
+            if ((packed_len * 2 + 2) > UART_BUFF_SIZE) {
                 LLOGE("uart tx: escaped frame too large raw=%u worst=%u limit=%u — dropping (consider enabling frag)",
-                      (unsigned)packed_len, (unsigned)(packed_len * 2 + 2), (unsigned)TEST_BUFF_SIZE);
+                      (unsigned)packed_len, (unsigned)(packed_len * 2 + 2), (unsigned)UART_BUFF_SIZE);
                 g_airlink_statistic.tx_pkg.drop++;
                 continue;
             }
@@ -444,6 +461,8 @@ __USER_FUNC_IN_RAM__ static void uart_receive_task(void *param)
             break; // 如果当前模式已经确定了, 并且不是UART模式, 那么就退出这个任务
         }
         #endif
+
+        luat_airlink_check_link_timeout();
 
         while (1) {
             static uint64_t uart_read_last_log = 0;
@@ -504,6 +523,7 @@ int luat_airlink_start_uart(void)
 
     luat_airlink_uart_transfer_task();
     luat_airlink_uart_receive_task();
+    luat_airlink_uart_fota_task_create();
 
     return ret;
 }
@@ -550,3 +570,89 @@ static void luat_airlink_uart_receive_task(void)
         LLOGW("创建uart_receive_task ret:%d", ret);
     }
 }
+
+/* UART 版 FOTA 执行器 — 命令走标准 airlink 帧 (0x04/0x05/0x06/0x07, 对端需已注册)
+ * 发送用 send_cmd_simple 入队 → uart_transfer_task 发送, 避免在 transport 任务内自锁
+ * 节奏保守: XT804 XIP 写 flash 时 CPU stall 会丢 UART 字节, 慢节奏兼容各从机 */
+static void uart_fota_exec(void) {
+    extern luat_airlink_fota_t *g_airlink_fota;
+    FILE *fd = luat_fs_fopen(g_airlink_fota->path, "rb");
+    if (fd == NULL) {
+        LLOGE("UART FOTA: open file fail %s", g_airlink_fota->path);
+        g_airlink_fota->state = 0;
+        return;
+    }
+    g_airlink_fota->total_size = luat_fs_fsize(g_airlink_fota->path);
+    LLOGI("UART FOTA start, size=%ld", g_airlink_fota->total_size);
+
+    // 1. fota_init — 从机同步擦除 OTA 区 (376KB, ~4.2秒)
+    luat_airlink_send_cmd_simple(0x04, NULL, 0);
+    LLOGI("UART FOTA init sent, waiting for erase (~4.2s)...");
+    luat_rtos_task_sleep(5000);
+
+    // 2. fota_write chunks (1KB/帧, 走标准命令帧)
+    // 节奏: XT804 XIP 架构, 从机写 flash 时 CPU stall → UART RX 丢字节
+    // 必须给从机充足时间写完再收下一帧: 每帧 40ms + 每 4KB 额外 200ms (页擦除余量)
+    uint8_t *chunk = luat_heap_malloc(1050);
+    size_t sent = 0;
+    while (g_airlink_fota->state) {
+        int ret = (int)luat_fs_fread(chunk, 1, 1024, fd);
+        if (ret < 1) break;
+        luat_airlink_send_cmd_simple(0x05, chunk, ret);
+        sent += ret;
+        if (sent == 8 * 1024) {
+            LLOGI("UART FOTA 8KB, waiting for flash erase...");
+            luat_rtos_task_sleep(8000);
+        } else if (sent == 16 * 1024) {
+            luat_rtos_task_sleep(3000);
+        } else if ((sent & 0xFFF) == 0) {
+            // 每 4KB 额外等待, 覆盖从机页擦除 (Sector Erase ~45ms × N)
+            luat_rtos_task_sleep(200);
+        } else {
+            luat_rtos_task_sleep(40);
+        }
+    }
+    luat_heap_free(chunk);
+    luat_fs_fclose(fd);
+    LLOGI("UART FOTA sent %zu bytes", sent);
+
+    // 3. fota_done — 发前多等 3s, 让从机消化完 RX 缓冲里的数据帧
+    LLOGI("UART FOTA drain 3s before done...");
+    luat_rtos_task_sleep(3000);
+    luat_airlink_send_cmd_simple(0x06, NULL, 0);
+    luat_rtos_task_sleep(1000);
+
+    // 4. fota_end
+    luat_airlink_send_cmd_simple(0x07, NULL, 0);
+    luat_rtos_task_sleep(1000);
+
+    // 5. 复位指令 (CMD 0x03) → 从机重启加载新固件
+    LLOGI("UART FOTA done, sending reset...");
+    luat_airlink_send_cmd_simple_nodata(0x03);
+    luat_rtos_task_sleep(3000);
+
+    g_airlink_fota->state = 0;
+    LLOGI("UART FOTA done");
+}
+
+static void uart_fota_task(void *param) {
+    (void)param;
+    while (g_airlink_uart.uart_running) {
+        extern luat_airlink_fota_t *g_airlink_fota;
+        if (g_airlink_fota && g_airlink_fota->state) {
+            uart_fota_exec();
+        }
+        luat_rtos_task_sleep(100);
+    }
+    luat_rtos_task_delete(NULL);
+}
+
+static void luat_airlink_uart_fota_task_create(void) {
+    static luat_rtos_task_handle fota_task = NULL;
+    if (fota_task != NULL) return;
+    int ret = luat_rtos_task_create(&fota_task, 4 * 1024, 51, "uart_fota", uart_fota_task, NULL, 0);
+    if (ret) {
+        LLOGW("创建uart_fota_task ret:%d", ret);
+    }
+}
+

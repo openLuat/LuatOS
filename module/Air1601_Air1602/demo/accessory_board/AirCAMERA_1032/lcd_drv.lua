@@ -1,6 +1,43 @@
-local port, pin_reset, bl = lcd.RGB, 15, 2
+--[[
+@module  lcd_drv
+@summary LCD显示驱动模块，基于lcd核心库
+@version 1.0
+@date    2025.12.1
+@author  江访
+@usage
+本模块为LCD显示驱动功能模块，主要功能包括：
+1、初始化 LCD屏幕；
+2、配置LCD显示参数和显示缓冲区；
+3、初始化AirUI;
+4、支持多种屏幕方向和分辨率设置；
+
+对外接口：
+1、lcd_drv.init()：初始化LCD显示驱动
+]]
+
+
+
+
+--[[
+初始化LCD显示驱动；
+
+@api lcd_drv.init()
+@summary 配置并初始化LCD屏幕
+@return boolean 初始化成功返回true，失败返回false
+
+@usage
+-- 初始化LCD显示
+local result = lcd_drv.init()
+if result then
+    log.info("LCD初始化成功")
+else
+    log.error("LCD初始化失败")
+end
+]]
 
 local function lcd_drv_init()
+    local port, pin_reset, bl = lcd.RGB, 15, 2
+
     local result = lcd.init("custom", {
         port = port,
         hbp = 140,
@@ -21,19 +58,36 @@ local function lcd_drv_init()
     log.info("lcd.init", result)
 
     if result then
+        -- 开启缓冲区, 刷屏速度会加快, 但也消耗2倍屏幕分辨率的内存
         lcd.setupBuff(nil, true)
         lcd.autoFlush(false)
-        
-        lcd.clear(0x001F)
-        lcd.drawStr(250, 250, "LCD初始化成功", 0xFFFF)
-        lcd.flush()
 
-        return result
-    else
-        log.error("lcd_drv", "LCD初始化失败")
+        -- 初始化AirUI
+        local width, height = lcd.getSize()
+        local result = airui.init(width, height)
+        if not result then
+            log.error("airui", "init failed")
+            return result
+        end
+
+        -- 加载中文字体
+
+        -- Air8101使用104号固件将字体文件烧录到文件系统，从文件系统中加载hzfont字库，从而支持12-255号中文显示
+        airui.font_load({
+            type = "hzfont",       -- 字体类型，可选 "hzfont" 或 "bin"
+            path = nil,            -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+            size = 20,             -- 字体大小，默认 16
+            cache_size = 1024,     -- 缓存字数大小，默认 2048
+            antialias = 1,         -- 抗锯齿等级1-3，默认 1
+            -- load_to_psram= true,
+            global = true
+        })
+
+        -- 查询当前固件内AirUI核心库版本，V1.0.3新增接口
+        log.info("airui", "version -> " .. airui.version())
+
         return result
     end
 end
 
-local init_result = lcd_drv_init()
-log.info("lcd_drv", "初始化结果", init_result)
+lcd_drv_init()

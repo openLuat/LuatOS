@@ -1,0 +1,2 @@
+HTTPPLUS UPLOAD FIXTURE
+This file is used by httpplus multipart and bodyfile tests.

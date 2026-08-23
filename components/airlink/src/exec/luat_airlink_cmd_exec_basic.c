@@ -97,6 +97,16 @@ int luat_airlink_cmd_exec_fota_end(luat_airlink_cmd_t *cmd, void *userdata)
 #ifdef __LUATOS__
 #include "luat_msgbus.h"
 
+/*
+@sys_pub airlink
+收到airlink对端设备发来的自定义数据(sdata)
+AIRLINK_SDATA
+@string 数据内容
+@usage
+sys.subscribe("AIRLINK_SDATA", function(data)
+    log.info("airlink", "sdata", data)
+end)
+*/
 static int sdata_cb(lua_State *L, void *ptr)
 {
     rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
@@ -199,6 +209,7 @@ static int push_args(lua_State *L, uint8_t* ptr, uint32_t* limit) {
     return len + 2;
 }
 
+// RPC透传: topic 由对端设备发来的序列化数据决定, 并非框架固定的系统消息, 故不进 sys_pub 文档
 static int l_airlink_sys_pub(lua_State *L, void* ptr) {
     int ret = 0;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);

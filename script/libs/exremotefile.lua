@@ -1,10 +1,12 @@
 --[[
 @module exremotefile
 @summary exremotefile 远程文件管理系统扩展库，提供AP热点创建、SD卡挂载、SERVER文件管理服务器等功能，支持文件浏览、上传、下载和删除操作。
-@version 1.2
-@date    2026.4.27
+@version 1.3
+@date    2026.7.16
 @author  拓毅恒
 @usage
+V1.3：
+新增780EXX系列模组外挂Air6205 WiFi配件板的自动适配，在create_ap中自动检测模组型号并初始化airlink UART通道
 V1.2：
 修改sdcard_opts参数为可选参数，如果为nil则不挂载SD卡
 修改close()函数，不再强制卸载SD卡，避免影响其他SD卡业务
@@ -24,6 +26,18 @@ V1.0：
 -- 如果使用自定义配置，则需要根据配置中的server_addr和server_port参数来访问文件管理服务器。
 
 2、exremotefile.close()：关闭远程文件管理系统，停止AP热点和关闭HTTP服务器（不卸载SD卡）
+
+-- 版本更新说明
+-- 版本号：202607161630
+-- 1、更新时间：2026-07-16 16:30
+-- 2、更新内容
+--    新增780EXX系列模组外挂Air6205 WiFi配件板的自动适配
+--    在create_ap中自动检测模组型号，先通过airlink UART初始化Air6205，再创建AP热点
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exremotefile.version()接口
+--    支持exremotefile库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 -- 导入必要的模块
@@ -65,8 +79,38 @@ local modules = {
     http_server = nil
 }
 
+-- 检测780EXX系列（外挂Air6205，需要airlink初始化）
+local function is_780exx()
+    local model = hmeta and hmeta.model and hmeta.model() or ""
+    local model_lower = model:lower()
+    return model_lower:find("air780e") == 1
+end
+
+-- 初始化Air6205 airlink UART通道（780EXX系列外挂Air6205时需要）
+-- 仅建立UART通信通道，不连接任何WiFi，后续由wlan.createAP开AP
+local function init_air6205_airlink()
+    log.info("WIFI", "初始化Air6205 airlink UART通道")
+    gpio.setup(12, nil, gpio.PULLDOWN)
+    gpio.setup(13, nil, gpio.PULLDOWN)
+    sys.wait(2000)
+    gpio.close(12)
+    gpio.close(13)
+    uart.setup(2, 2000000, 8, 1)
+    sys.wait(100)
+    airlink.config(airlink.CONF_UART_ID, 2)
+    airlink.init()
+    netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
+    airlink.start(airlink.MODE_UART)
+    sys.wait(2000)
+    log.info("WIFI", "Air6205 airlink通道已建立")
+end
+
 -- 创建AP热点
 local function create_ap(ap_opts, server_opts)
+    -- 780EXX系列外挂Air6205，需要先初始化airlink UART通道
+    if is_780exx() then
+        init_air6205_airlink()
+    end
     log.info("WIFI", "创建AP热点: " .. ap_opts.ap_ssid)
     log.info("WIFI", "AP密码: " .. ap_opts.ap_pwd)
     
@@ -90,6 +134,9 @@ local function create_ap(ap_opts, server_opts)
     
     -- 创建DHCP服务器
     dhcpsrv.create({adapter=socket.LWIP_AP})
+    
+    -- 额外等待AP网卡完全就绪（airlink外挂Air6205需要更多时间）
+    sys.wait(2000)
     
     -- 发布AP创建完成事件
     sys.publish("AP_CREATE_OK")
@@ -116,19 +163,24 @@ local function init_sdcard(sdcard_opts)
         end
     end
 
+    local mount_result = nil
+
     if sdcard_opts.is_8101 then
         -- gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
         gpio.setup(13, 1)
+        -- Air8101 使用 SDIO 挂载
+        mount_result = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
+    else
+        -- 设置片选引脚同一spi总线上的所有从设备在初始化时必须要先拉高CS脚，防止从设备之间互相干扰。
+        gpio.setup(sdcard_opts.spi_cs, 1)
+        -- 配置SPI，设置spi_id，波特率为400000，用于SD卡初始化
+        local result = spi.setup(sdcard_opts.spi_id, nil, 0, 0, 8, 400 * 1000)
+        log.info("sdcard_init", "open spi", result)
+        -- 配置SD卡片选引脚，设置为输出模式，并启用上拉电阻
+        gpio.setup(sdcard_opts.spi_cs, 1, gpio.PULLUP)
+        -- 挂载SD卡到文件系统，指定挂载点为"/sd"
+        mount_result = fatfs.mount(fatfs.SPI, "/sd", sdcard_opts.spi_id, sdcard_opts.spi_cs, 24 * 1000 * 1000)
     end
-
-    local mount_result = nil
-    -- 配置SPI，设置spi_id，波特率为400000，用于SD卡初始化
-    local result = spi.setup(sdcard_opts.spi_id, nil, 0, 0, 8, 400 * 1000)
-    log.info("sdcard_init", "open spi", result)
-    -- 配置SD卡片选引脚，设置为输出模式，并启用上拉电阻
-    gpio.setup(sdcard_opts.spi_cs, 1, gpio.PULLUP)
-    -- 挂载SD卡到文件系统，指定挂载点为"/sd"
-    mount_result = fatfs.mount(fatfs.SPI, "/sd", sdcard_opts.spi_id, sdcard_opts.spi_cs, 24 * 1000 * 1000)
     
     log.info("SDCARD", "挂载SD卡结果:", mount_result)
     
@@ -1595,6 +1647,11 @@ function exremotefile.close()
     -- 停止AP热点
     wlan.stopAP()
 
+    -- 780EXX系列外挂Air6205，需要关闭airlink
+    if is_780exx() then
+        airlink.stop()
+    end
+
     -- 仅在open时初始化了SD卡的情况下，才关闭相关资源
     if user_sdcard_opts then
         -- 关闭所用SPI
@@ -1611,5 +1668,17 @@ function exremotefile.close()
     is_initialized = false
     log.info("exremotefile", "文件管理系统已关闭")
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exremotefile.version()
+]]
+function exremotefile.version()
+    return "202607161630"
+end
+
+log.debug("exremotefile", "version -> " .. exremotefile.version())
 
 return exremotefile

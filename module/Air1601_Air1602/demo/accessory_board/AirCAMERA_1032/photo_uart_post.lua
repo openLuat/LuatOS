@@ -1,8 +1,8 @@
 --[[
 @module  photo_uart_post
 @summary AirCAMERA_1032 USB摄像头单次拍照+LCD显示+UART上传应用模块
-@version 1.0
-@date    2026.06.08
+@version 1.3
+@date    2026.07.21
 @author  江访
 @usage
 本demo主要使用Air1601 + AirCAMERA_1032 USB摄像头完成以下功能：
@@ -22,6 +22,10 @@
 -- 12号GPIO配置（AirCAMERA_1032摄像头供电控制引脚），需要拉高使能
 gpio.setup(12, 1, gpio.PULLUP)
 
+-- 屏幕尺寸（用于 airui.image 适配）
+local LCD_W = 1024
+local LCD_H = 600
+
 -- UART配置（用于上传照片到电脑）
 local uartid = 3                              -- 使用UART3
 local uart_baud = 2000000                     -- 波特率2Mbps
@@ -33,11 +37,15 @@ log.info("photo_uart_post", "UART初始化结果", uart_result)
 
 -- 摄像头参数
 local frame_type = camera.FORMAT_MJPG         -- 使用MJPEG格式
-local sensor_w = 1024                         -- 目标分辨率宽度
-local sensor_h = 576                          -- 目标分辨率高度
+local sensor_w = 1280                         -- 目标分辨率宽度
+local sensor_h = 720                          -- 目标分辨率高度
 local usb_app_id = nil                        -- USB摄像头应用ID
 local captured = false                        -- 是否已拍照标志位（用于保证只拍一张）
+local frame_count = 0                         -- 帧计数器，跳过前5帧，用第6帧拍照
 local save_path = "/ram/photo.jpg"            -- 照片保存路径
+
+-- 用于 airui.image 显示的组件对象
+local photo_display = nil
 
 -- 双缓冲帧数据区，按分辨率自适应大小
 -- 公式：宽 × 高（足够容纳任意质量的MJPEG压缩帧，留有充足余量）
@@ -61,6 +69,7 @@ local function usb_cb(usb_id, class, app_id, event, param1, param2, param3)
                 "hub地址", param1, "端口", param2, "地址", param3)
             usb_app_id = nil
             captured = false
+            frame_count = 0
         end
     end
 end
@@ -70,6 +79,11 @@ end
 local function camera_cb(app_id, event, param)
     -- 接收到一帧图像数据
     if event == usb.EV_NEW_RX then
+        frame_count = frame_count + 1
+        if frame_count < 6 then
+            log.info("photo_uart_post", "丢弃第", frame_count, "帧")
+            return
+        end
         -- 只拍一次，避免重复处理
         if not captured then
             -- 根据param判断使用哪个缓冲区
@@ -99,12 +113,23 @@ local function camera_cb(app_id, event, param)
                 uart.tx(uartid, send_buff)
                 log.info("photo_uart_post", "照片已通过UART发送，大小", data_len)
 
-                -- 在LCD上显示照片
-                lcd.clear(0x0000)
-                local result = lcd.showImage(0, 0, save_path)
-                log.info("photo_uart_post", "lcd.showImage返回值", result)
-                lcd.flush()
-                log.info("photo_uart_post", "照片显示完成")
+                -- 在LCD上显示照片（使用airui.image适配屏幕）
+                if photo_display then
+                    photo_display:destroy()
+                    photo_display = nil
+                end
+                photo_display = airui.image({
+                    parent = airui.screen,
+                    x = 0, y = 0,
+                    w = LCD_W, h = LCD_H,
+                    src = save_path,
+                    fit = "cover",
+                })
+                if photo_display then
+                    log.info("photo_uart_post", "照片已通过 airui.image 显示 (fit=cover)")
+                else
+                    log.warn("photo_uart_post", "airui.image 创建失败")
+                end
             else
                 log.error("photo_uart_post", "无法打开文件", save_path)
             end
@@ -168,6 +193,7 @@ local function camera_cb(app_id, event, param)
         log.info("photo_uart_post", "usb摄像头 app id", app_id, "已断开")
         usb_app_id = nil
         captured = false
+        frame_count = 0
         return
     end
 

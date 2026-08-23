@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include <arm_neon.h>
-#include "pitch.h"
+#include "celt/pitch.h"
 
 #ifdef FIXED_POINT
 

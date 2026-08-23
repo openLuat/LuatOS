@@ -61,14 +61,39 @@ Examples:
 |--------|-------------|
 | `build_linux_32bit.sh` | 32-bit i386 |
 | `build_linux_32bit_armv6.sh` | 32-bit ARMv6 |
-| `build_linux_64bit.sh` | 64-bit |
-| `build_linux_64bit_gui.sh` | 64-bit, GUI |
+| `build_linux_64bit.sh` | 64-bit x86_64 (requires gcc multilib) |
+| `build_linux_64bit_gui.sh` | 64-bit x86_64 GUI (requires gcc multilib) |
+| `build_linux_aarch64.sh` | 64-bit ARM/AArch64 native |
+| `build_linux_aarch64_gui.sh` | 64-bit ARM/AArch64 native GUI |
 
 Recommended:
-- Non-GUI verification: `./build_linux_64bit.sh`
-- GUI / AirUI verification: `./build_linux_64bit_gui.sh`
+- Non-GUI verification: `./build_linux_64bit.sh` (x86_64) or `./build_linux_aarch64.sh` (ARM64)
+- GUI / AirUI verification: `./build_linux_64bit_gui.sh` (x86_64) or `./build_linux_aarch64_gui.sh` (ARM64)
 - Full output: append `full`
 - Clean rebuild: append `clean`
+
+#### AArch64 / ARM64 native build
+
+On AArch64 hosts (e.g. Raspberry Pi 4/5, ARM cloud instances, Apple Silicon Linux VMs), the x86_64 helper scripts will fail because the toolchain does not support `-m32`/`-m64`. Use the `build_linux_aarch64*.sh` scripts instead.
+
+Required system packages (Ubuntu/Debian example):
+
+```bash
+sudo apt-get install -y libsdl2-dev libx11-dev libxau-dev libxdmcp-dev \
+    xorg-dev libssl-dev libasound2-dev libpulse-dev libwayland-dev \
+    libxkbcommon-dev libudev-dev libdbus-1-dev libibus-1.0-dev libdecor-0-dev
+```
+
+Then build:
+
+```bash
+cd bsp/pc
+./build_linux_aarch64.sh
+```
+
+Notes:
+- The AArch64 build defines `LUAT_CONF_USE_LIBSYS_SOURCE` so that the inline `sys.lua` / `sysplus.lua` are loaded as source rather than precompiled 32-bit luac, avoiding `size_t size mismatch` errors on 64-bit platforms.
+- `xmake` refuses to run as root by default; set `XMAKE_ROOT=y` or pass `--root` if you are building as root.
 
 ### macOS
 
@@ -95,7 +120,7 @@ Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/ma
   - `cd bsp\pc && .\pc_utest_coverage.ps1 -Suite https_basic -SkipBuild`
 - After the first suite build, reuse the same binary for more suites with `-SkipBuild`
 - `-Suite` and `-TestcaseScripts` are mutually exclusive; pass only one of them
-- `-Suite <name>` is resolved by scanning `testcase/utest/{net,lib,sys,fs}/<name>/` first, then `testcase/unit_testcase_tools/<name>/` as a fallback
+- `-Suite <name>` is resolved by scanning `testcase/utest/{net,lib,sys,fs}/<name>/` first, then `testcase/unit/<domain>/<name>/` and `testcase/func/<domain>/<name>/` as fallbacks
 - Coverage HTML is written to `build\coverage\<suite>\html\index.html`
 - C-layer utest suites (under `testcase\utest\`):
   - `net/dtls_basic`: PC-only DTLS-PSK loopback against `127.0.0.1`
@@ -103,7 +128,7 @@ Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/ma
   - `net/http_basic`: HTTP reachability against `http://www.qq.com`
   - `net/https_basic`: HTTPS reachability against `https://www.qq.com`
   - `lib/core_basic`, `lib/crypto_basic`, `lib/miniz_basic`, `sys/ndk_basic`
-  - `fs/pgfs_basic`: PGFS filesystem replay/FTL/gc selftests (note: one selftest `pgfs_test_replay_failure_cleans_up` is known-fail)
+  - `fs/pgfs_basic`: PGFS filesystem replay/FTL/gc selftests (all 17 tests are fully passing)
 - Additional PC socket regression:
   - `socket_udp_limit_basic`: verifies `socket.rx(..., limit)` truncates UDP data and discards the unread datagram tail
 - DTLS loopback depends on the PC mbedTLS3 config in `include\mbedtls_config_pc_mbedtls3.h` enabling DTLS server/PSK support
@@ -166,6 +191,19 @@ SC_IDLE → SC_USED → SC_CONNECTING → SC_CONNECTED → SC_CLOSING → SC_CLO
 | **Async close lifecycle** | Close callbacks fire later; keep handles valid until close callback runs. |
 | **Accept target readiness** | The target handle must be initialized but not connected. |
 | **Thread safety** | Async callbacks may run on a different thread; be careful with Lua state access. |
+
+## PC 模拟器测试脚本
+
+独立 PC 脚本存放在 `bsp/pc/test/<编号>.<名称>/main.lua`，不依赖 `testcase/common` 的 `testrunner`/`testsuite` 框架。新增脚本时从当前最大编号续编。
+
+这些脚本用于验证 PC 模拟器特有功能或需要真实 PC 外设（摄像头、CH347、网卡模拟等）的场景，与 `testcase/` 中正式测试框架分离。
+
+示例运行方式：
+
+```powershell
+cd bsp/pc/build/out
+./luatos-lua.exe ../../../test/131.camera_pc/
+```
 
 ## WHERE TO LOOK
 

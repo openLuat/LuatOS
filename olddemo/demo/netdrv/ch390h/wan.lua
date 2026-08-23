@@ -12,17 +12,23 @@ local spi_cpha = 0
 -- CPOL
 local spi_cpol = 0
 -- 时钟速率
-local spi_speed = 25600000
+local spi_speed = 30*1000*1000
 -- 高低位顺序，可选，默认高位在前
-local spi_bit_order = spi.MSB
+-- local spi_bit_order = spi.MSB
 -- 模式，可选，默认主模式
-local spi_mode = spi.master
+-- local spi_mode = spi.master
 -- 通信方式，可选，默认全双工
-local spi_communication = spi.full
+-- local spi_communication = spi.full
+
+local spi_irq = nil
 
 log.info("bsp", rtos.bsp())
-if rtos.bsp() == "Air1601" then
+if rtos.bsp() == "Air1601" or rtos.bsp() == "Air1602" then
     spi_id = 1
+    spi_cs = 14
+    spi_irq = 51
+else
+    gpio.setup(20, 1, gpio.PULLUP) -- 打开CH390H LDO供电
 end
 
 
@@ -34,11 +40,12 @@ local function ch390_init()
         return
     end
 
-    netdrv.setup(socket.LWIP_USER0, netdrv.CH390, {
+    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {
         spi = spi_id,
-        cs = spi_cs
+        cs = spi_cs,
+        -- irq = spi_irq
     })
-    netdrv.dhcp(socket.LWIP_USER0, true)
+    netdrv.dhcp(socket.LWIP_ETH, true)
 end
 
 local function http_srv_test()
@@ -54,10 +61,10 @@ local function http_srv_test()
             return 200, {}, "ok"
         end
         return 404, {}, "Not Found" .. uri
-    end, socket.LWIP_USER0)
-    iperf.server(socket.LWIP_USER0)
+    end, socket.LWIP_ETH)
+    iperf.server(socket.LWIP_ETH)
     if netdrv.on then
-        netdrv.on(socket.LWIP_USER0, netdrv.EVT_SOCKET, function(id, event, params)
+        netdrv.on(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, params)
             log.info("netdrv", "socket event", id, event, json.encode(params or {}))
         end)
     else
@@ -67,20 +74,26 @@ end
 
 local function http_request_test()
     while 1 do
-        sys.wait(5000)
+        sys.wait(1000)
         -- 正常请求
-        local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {
-            adapter = socket.LWIP_USER0
+        local url = "http://www.air32.cn/upload/mp4/2026/03/20/20260320_140642694956_14.mp4"
+        -- url = "http://192.168.1.4:8000/20260320_140642694956_14.mp4"
+        -- url = "http://192.168.1.4:8000/air1601_test_16k.mp4"
+        log.info("http", "requesting...")
+        local code, headers, body = http.request("GET", url, nil, nil, {
+            adapter = socket.LWIP_ETH,
+            dst = "/ram/abc.bin"
         }).wait()
-        log.info("http", code, headers, body and #body)
+        log.info("http", code, headers, body)
         -- 故意失败1
-        -- local code, headers, body = http.request("GET", "http://httpbin.air323.cn/status/404", nil, nil, {adapter=socket.LWIP_USER0, timeout=5000}).wait()
+        -- local code, headers, body = http.request("GET", "http://httpbin.air323.cn/status/404", nil, nil, {adapter=socket.LWIP_ETH, timeout=5000}).wait()
         -- log.info("http", code, headers, body and #body)
         -- -- 故意失败2
-        -- local code, headers, body = http.request("GET", "http://112.125.89.8:40000/status/404", nil, nil, {adapter=socket.LWIP_USER0, timeout=5000}).wait()
+        -- local code, headers, body = http.request("GET", "http://112.125.89.8:40000/status/404", nil, nil, {adapter=socket.LWIP_ETH, timeout=5000}).wait()
         -- log.info("http", code, headers, body and #body)
         -- log.info("lua", rtos.meminfo())
         -- log.info("sys", rtos.meminfo("sys"))
+        sys.wait(10000000)
     end
 end
 
@@ -121,8 +134,8 @@ local function mqtt_test()
     -------------------------------------
     -------- MQTT 演示代码 --------------
     -------------------------------------
-    -- socket.dft(socket.LWIP_USER0)
-    mqttc = mqtt.create(socket.LWIP_USER0, mqtt_host, mqtt_port, mqtt_isssl)
+    -- socket.dft(socket.LWIP_ETH)
+    mqttc = mqtt.create(socket.LWIP_ETH, mqtt_host, mqtt_port, mqtt_isssl)
 
     mqttc:auth(client_id,user_name,password) -- client_id必填,其余选填
     -- mqttc:keepalive(240) -- 默认值240s
@@ -166,19 +179,20 @@ local function mqtt_test()
 end
 
 sys.taskInit(function()
+    socket.rx_cache(9)
     -- 初始化以太网
     ch390_init()
     -- 等以太网就绪
     while 1 do
         local result, ip, adapter = sys.waitUntil("IP_READY", 3000)
         log.info("ready?", result, ip, adapter)
-        if adapter and adapter == socket.LWIP_USER0 then
+        if adapter and adapter == socket.LWIP_ETH then
             break
         end
     end
     sys.wait(200)
     -- http请求测试
-    http_request_test()
+    sys.taskInit(http_request_test)
 
     -- httpsrv测试
     -- http_srv_test()

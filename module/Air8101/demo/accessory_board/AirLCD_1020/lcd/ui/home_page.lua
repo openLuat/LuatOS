@@ -7,7 +7,7 @@
 @usage
 本模块为主页面功能模块，主要功能包括：
 1、绘制主页面UI界面，显示应用标题和功能介绍；
-2、提供三个功能按钮：LCD演示、矢量字体演示、自定义字体演示；
+2、提供功能按钮：LCD演示、矢量字体演示、自定义字体演示、DVP拍照、USB预览；
 3、处理主页面的触摸事件，实现页面导航；
 
 对外接口：
@@ -24,8 +24,10 @@ local center_x
 
 -- 按钮区域定义（适配800x480）
 local buttons = {
-    lcd_page = { x1 = 100, y1 = 350, x2 = 340, y2 = 430 },
-    customer_font_page = { x1 = 410, y1 = 350, x2 = 650, y2 = 430 }
+    lcd_page = { x1 = 80, y1 = 330, x2 = 340, y2 = 380 },
+    customer_font_page = { x1 = 420, y1 = 330, x2 = 700, y2 = 380 },
+    dvp_camera = { x1 = 80, y1 = 395, x2 = 340, y2 = 445 },
+    usb_camera = { x1 = 420, y1 = 395, x2 = 700, y2 = 445 },
 }
 
 local title = "合宙LCD演示系统"
@@ -47,8 +49,6 @@ function home_page.draw()
     center_x = math.floor(width / 2)
 
     -- 显示标题（居中）
-    -- 后续V2020版本以上支持lcd核心库的固件会新增lcd.getStrWidth(title)接口获取文本宽度，对齐、居中、换行可使用
-    -- lcd.drawStr(center_x - lcd.getStrWidth(title) / 2, 50, title, 0x0000) -- 自动居中
     log.info("center_x", width, height, center_x)
     lcd.drawStr(center_x - 70, 50, title, 0x0000)
 
@@ -62,12 +62,22 @@ function home_page.draw()
     lcd.fill(buttons.lcd_page.x1, buttons.lcd_page.y1,
         buttons.lcd_page.x2, buttons.lcd_page.y2, 0x001F)
     lcd.setColor(0xFFFF, 0x0000)
-    lcd.drawStr(buttons.lcd_page.x1 + 85, buttons.lcd_page.y1 + 45, "LCD演示", 0xFFFF)
+    lcd.drawStr(buttons.lcd_page.x1 + 85, buttons.lcd_page.y1 + 30, "LCD演示", 0xFFFF)
 
     -- 绘制自定义字体演示按钮
     lcd.fill(buttons.customer_font_page.x1, buttons.customer_font_page.y1,
         buttons.customer_font_page.x2, buttons.customer_font_page.y2, 0x07E0)
-    lcd.drawStr(buttons.customer_font_page.x1 + 75, buttons.customer_font_page.y1 + 45, "自定义字体演示", 0xFFFF)
+    lcd.drawStr(buttons.customer_font_page.x1 + 75, buttons.customer_font_page.y1 + 30, "自定义字体演示", 0xFFFF)
+
+    -- 绘制DVP拍照按钮
+    lcd.fill(buttons.dvp_camera.x1, buttons.dvp_camera.y1,
+        buttons.dvp_camera.x2, buttons.dvp_camera.y2, 0xF800)
+    lcd.drawStr(buttons.dvp_camera.x1 + 65, buttons.dvp_camera.y1 + 30, "DVP拍照", 0xFFFF)
+
+    -- 绘制USB预览按钮
+    lcd.fill(buttons.usb_camera.x1, buttons.usb_camera.y1,
+        buttons.usb_camera.x2, buttons.usb_camera.y2, 0xF800)
+    lcd.drawStr(buttons.usb_camera.x1 + 65, buttons.usb_camera.y1 + 30, "USB预览", 0xFFFF)
 end
 
 --[[
@@ -91,6 +101,20 @@ function home_page.handle_touch(x, y, switch_page)
     if x >= buttons.customer_font_page.x1 and x <= buttons.customer_font_page.x2 and
         y >= buttons.customer_font_page.y1 and y <= buttons.customer_font_page.y2 then
         switch_page("customer_font_page")
+        return true
+    end
+
+    -- 检查DVP拍照按钮
+    if x >= buttons.dvp_camera.x1 and x <= buttons.dvp_camera.x2 and
+        y >= buttons.dvp_camera.y1 and y <= buttons.dvp_camera.y2 then
+        switch_page("dvp_camera")
+        return true
+    end
+
+    -- 检查USB预览按钮
+    if x >= buttons.usb_camera.x1 and x <= buttons.usb_camera.x2 and
+        y >= buttons.usb_camera.y1 and y <= buttons.usb_camera.y2 then
+        switch_page("usb_camera")
         return true
     end
 

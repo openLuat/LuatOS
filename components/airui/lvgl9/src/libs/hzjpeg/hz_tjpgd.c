@@ -28,11 +28,19 @@
 
 #if LV_USE_HZJPEG
 
+#ifdef __LUATOS__
+    #define LUAT_LOG_TAG "airui.jpg"
+    #include "luat_log.h"
+#endif
+
 #if JD_FASTDECODE == 2
     #define HUFF_BIT    10  /* Bit length to apply fast huffman decode */
     #define HUFF_LEN    (1 << HUFF_BIT)
     #define HUFF_MASK   (HUFF_LEN - 1)
 #endif
+
+/** Max extraneous bytes to scan when resyncing to the next JPEG marker (libjpeg-like). */
+#define JD_MARKER_RESYNC_MAX 65536U
 
 
 /*-----------------------------------------------*/
@@ -937,6 +945,121 @@ JRESULT jd_mcu_output(
 
 #define LDB_WORD(ptr)       (uint16_t)(((uint16_t)*((uint8_t*)(ptr))<<8)|(uint16_t)*(uint8_t*)((ptr)+1))
 
+/**
+ * Pull one byte, preferring bytes already buffered in pending[].
+ * @param pending  bytes already consumed from the stream but not yet scanned
+ * @param np       in/out count of pending bytes
+ * @param ofs      running stream offset (only advanced for fresh infunc reads)
+ */
+static int jd_pull_byte(JDEC * jd, uint8_t * pending, unsigned int * np, unsigned int * ofs, uint8_t * out)
+{
+    if(*np > 0U) {
+        *out = pending[0];
+        (*np)--;
+        if(*np > 0U) {
+            memmove(pending, pending + 1, (size_t)(*np));
+        }
+        return 0;
+    }
+    if(jd->infunc(jd, out, 1) != 1) {
+        return -1;
+    }
+    (*ofs)++;
+    return 0;
+}
+
+/**
+ * Read next JPEG marker+length with libjpeg-like tolerance for extraneous
+ * bytes before the marker (e.g. Dahua snapshot.cgi COM length gaps).
+ *
+ * On success:
+ *   - seg[0..3] holds FF mt lh ll
+ *   - *out_marker / *out_len (content size = segment length - 2) are set
+ *   - *ofs includes skipped bytes + the 4 marker/length bytes
+ */
+static JRESULT jd_read_marker(JDEC * jd, uint8_t * seg, uint16_t * out_marker, size_t * out_len, unsigned int * ofs)
+{
+    uint8_t pending[4];
+    unsigned int np;
+    unsigned int skipped = 0;
+    uint8_t b;
+
+    if(jd->infunc(jd, seg, 4) != 4) {
+        return JDR_INP;
+    }
+    *ofs += 4;
+
+    if(seg[0] == 0xFF && LDB_WORD(seg + 2) > 2) {
+        *out_marker = LDB_WORD(seg);
+        *out_len = (size_t)(LDB_WORD(seg + 2) - 2);
+        return JDR_OK;
+    }
+
+    /* Expected marker start was wrong: resync by scanning for next FF xx. */
+    memcpy(pending, seg, 4);
+    np = 4;
+
+    for(;;) {
+        if(jd_pull_byte(jd, pending, &np, ofs, &b) < 0) {
+            return JDR_INP;
+        }
+
+        while(b != 0xFF) {
+            skipped++;
+            if(skipped > JD_MARKER_RESYNC_MAX) {
+                return JDR_FMT1;
+            }
+            if(jd_pull_byte(jd, pending, &np, ofs, &b) < 0) {
+                return JDR_INP;
+            }
+        }
+
+        /* Skip fill bytes FF FF ... */
+        do {
+            if(jd_pull_byte(jd, pending, &np, ofs, &b) < 0) {
+                return JDR_INP;
+            }
+        } while(b == 0xFF);
+
+        /* FF 00 is byte stuffing, keep scanning */
+        if(b == 0x00) {
+            skipped++;
+            if(skipped > JD_MARKER_RESYNC_MAX) {
+                return JDR_FMT1;
+            }
+            continue;
+        }
+
+        /* Candidate marker 0xFF b — require a plausible length field */
+        seg[0] = 0xFF;
+        seg[1] = b;
+        if(jd_pull_byte(jd, pending, &np, ofs, &seg[2]) < 0) {
+            return JDR_INP;
+        }
+        if(jd_pull_byte(jd, pending, &np, ofs, &seg[3]) < 0) {
+            return JDR_INP;
+        }
+
+        if(LDB_WORD(seg + 2) > 2) {
+            *out_marker = LDB_WORD(seg);
+            *out_len = (size_t)(LDB_WORD(seg + 2) - 2);
+#ifdef __LUATOS__
+            if(skipped > 0U) {
+                LLOGW("JPEG: %u extraneous bytes before marker 0x%02X",
+                      skipped, (unsigned)(b));
+            }
+#endif
+            return JDR_OK;
+        }
+
+        /* Length too small — treat as false sync and continue */
+        skipped += 4;
+        if(skipped > JD_MARKER_RESYNC_MAX) {
+            return JDR_FMT1;
+        }
+    }
+}
+
 
 JRESULT jd_prepare(
     JDEC * jd,              /* Blank decompressor object */
@@ -972,13 +1095,12 @@ JRESULT jd_prepare(
     } while(marker != 0xFFD8);
 
     for(;;) {               /* Parse JPEG segments */
-        /* Get a JPEG marker */
-        if(jd->infunc(jd, seg, 4) != 4) return JDR_INP;
-        marker = LDB_WORD(seg);     /* Marker */
-        len = LDB_WORD(seg + 2);    /* Length field */
-        if(len <= 2 || (marker >> 8) != 0xFF) return JDR_FMT1;
-        len -= 2;           /* Segment content size */
-        ofs += 4 + len;     /* Number of bytes loaded */
+        /* Get a JPEG marker (tolerant of extraneous bytes before marker) */
+        rc = jd_read_marker(jd, seg, &marker, &len, &ofs);
+        if(rc != JDR_OK) {
+            return rc;
+        }
+        ofs += (unsigned int)len;     /* Account for segment payload (loaded/skipped below) */
 
         switch(marker & 0xFF) {
             case 0xC0:  /* SOF0 (baseline JPEG) */

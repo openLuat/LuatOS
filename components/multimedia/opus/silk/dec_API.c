@@ -30,14 +30,14 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 #include "API.h"
 #include "main.h"
-#include "stack_alloc.h"
-#include "os_support.h"
+#include "celt/stack_alloc.h"
+#include "celt/os_support.h"
 
 #ifdef ENABLE_OSCE
-#include "osce.h"
-#include "osce_structs.h"
+#include "dnn/osce.h"
+#include "dnn/osce_structs.h"
 #ifdef ENABLE_OSCE_BWE
-#include "osce_features.h"
+#include "dnn/osce_features.h"
 #endif
 #endif
 

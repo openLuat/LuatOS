@@ -136,7 +136,7 @@ static int32_t l_socket_callback(lua_State *L, void* ptr)
     	{
     	    lua_getglobal(L, "sys_pub");
     	    if (lua_isfunction(L, -1)) {
-    	        lua_pushstring(L, LUAT_NW_CTRL_TYPE);
+    	        lua_pushstring(L, LUAT_NW_CTRL_TYPE); // 内部消息: 无回调也无任务名时的兜底事件, 框架内部使用, 不进 sys_pub 文档
     	        lua_pushinteger(L, l_ctrl->netc->adapter_index);
     	        lua_pushinteger(L, l_ctrl->netc->socket_id);
     	        lua_pushinteger(L, msg->arg1);
@@ -374,18 +374,28 @@ static int l_socket_config(lua_State *L)
 		network_init_tls(l_ctrl->netc, (server_cert)?2:0);
 		if (is_udp)
 		{
-			if (client_key)
+			if (client_key || (server_cert && !client_cert))
 			{
-				// UDP(DTLS) 证书模式：CA + 客户端证书 + 私钥
+				// UDP(DTLS) 证书模式:client_key 非空 = mTLS;或 server_cert 非空且 client_cert 空 = 单向 CA 校验
 				if (server_cert)
 				{
-					network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len + 1);
+					if (network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len + 1) != 0)
+					{
+						LLOGE("network_set_server_cert failed (DTLS)");
+						lua_pushboolean(L, 0);
+						return 1;
+					}
 				}
 				if (client_cert)
 				{
-					network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len + 1,
+					if (network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len + 1,
 							(const unsigned char *)client_key, client_key_len + 1,
-							(const unsigned char *)client_password, client_password_len + 1);
+							(const unsigned char *)client_password, client_password_len + 1) != 0)
+					{
+						LLOGE("network_set_client_cert failed (DTLS)");
+						lua_pushboolean(L, 0);
+						return 1;
+					}
 				}
 			}
 			else
@@ -1424,6 +1434,24 @@ static int l_socket_close_all(lua_State *L) {
 	return 1;
 }
 
+/*
+设置/获取基于lwip协议栈的接收缓存块数量
+@api socket.rx_cache(set_nums)
+@int 设置缓存块的数量，范围6~48
+@return int 当前接收缓存块数量
+-- 本函数于 2026.8.3 新增
+*/
+static int l_socket_rx_cache(lua_State *L) {
+	if (lua_type(L, 1) == LUA_TNUMBER) {
+		uint32_t nums = (uint8_t)luaL_checkinteger(L, 1);
+		if (nums >= 6 && nums <= 48) {
+			network_set_lwip_rx_cache_nums(nums);
+		}
+	}
+	lua_pushinteger(L, network_get_lwip_rx_cache_nums());
+	return 1;
+}
+
 #ifdef LUAT_USE_UTEST
 static int l_socket_utest(lua_State *L)
 {
@@ -1457,6 +1485,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{"adapter",				ROREG_FUNC(l_socket_adapter)},
 	{"dft",                 ROREG_FUNC(l_socket_default)},
 	{"close_all",           ROREG_FUNC(l_socket_close_all)},
+	{"rx_cache", 			ROREG_FUNC(l_socket_rx_cache)},
 #ifdef LUAT_USE_UTEST
 	{"utest",				ROREG_FUNC(l_socket_utest)},
 #endif
@@ -1475,8 +1504,6 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{ "LWIP_AP",     		ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_AP)},
 	//@const LWIP_GP number 使用LWIP协议栈的移动蜂窝模块，值为1
 	{ "LWIP_GP",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_GPRS)},
-	//@const USB number 使用LWIP协议栈的USB网卡，值为6
-	{ "USB",     			ROREG_INT(NW_ADAPTER_INDEX_USB)},
 	//@const LINK number LINK事件
     { "LINK",           	ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
     //@const ON_LINE number ON_LINE事件
@@ -1511,6 +1538,8 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	
 	//@const LWIP_GP_GW number 4G代理网关
 	{ "LWIP_GP_GW",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_GP_GW)},
+	//@const LWIP_USB number LWIP-side USB netif (RNDIS/CDC-ECM)
+	{ "LWIP_USB",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USB)},
 
 	{ NULL,            		ROREG_INT(0)}
 };

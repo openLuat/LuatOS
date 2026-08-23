@@ -35,15 +35,15 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "PLC.h"
 #include "control.h"
 #include "debug.h"
-#include "entenc.h"
-#include "entdec.h"
+#include "celt/entenc.h"
+#include "celt/entdec.h"
 
 #if defined(OPUS_X86_MAY_HAVE_SSE4_1)
-#include "x86/main_sse.h"
+#include "silk/x86/main_sse.h"
 #endif
 
 #if (defined(OPUS_ARM_ASM) || defined(OPUS_ARM_MAY_HAVE_NEON_INTR))
-#include "arm/NSQ_del_dec_arm.h"
+#include "silk/arm/NSQ_del_dec_arm.h"
 #endif
 
 /* Convert Left/Right stereo signal to adaptive Mid/Side representation */

@@ -9,7 +9,7 @@
 本demo演示如何通过HTTPDNS功能，在LuatOS环境下实现域名解析，从而绕过运营商DNS污染或劫持，提高网络访问稳定性。
 HTTPDNS通过直接向指定DNS服务器发起HTTP/HTTPS请求获取域名解析结果，不依赖本地UDP 53端口，适用于4G蜂窝、WiFi、以太网等网络场景。
 功能使用说明
-本demo以解析“air32.cn” 与 “openluat.com”为例，展示完整流程：初始化、发起查询、获取结果。
+本demo以解析“luatos.com” 与 “openluat.com”为例，展示完整流程：初始化、发起查询、获取结果。
 
 更多说明参考本目录下的readme.md文件
 ]]

@@ -38,7 +38,7 @@
 #include "modes.h"
 
 #if (defined(OPUS_X86_MAY_HAVE_SSE2) && !defined(FIXED_POINT))
-#include "x86/vq_sse.h"
+#include "celt/x86/vq_sse.h"
 #endif
 
 #if defined(FIXED_POINT)

@@ -22,8 +22,8 @@
  * Mapper 85 - VRC7 (Konami VRC7).
  * PRG: three 8KB switchable banks ($8000, $A000, $C000) + fixed last 8KB at $E000.
  * CHR: 8x1KB banks at $A000-$D010 (address bit4 selects high/low bank-in-pair).
- * Mirroring: $E000 bits[3:2] (0=V, 1=H, 2=1scr0, 3=1scr1).
- * Scanline IRQ: $E010 latch, $F000 control, $F010 acknowledge.
+ * Mirroring: $E000 bits[1:0] (0=V, 1=H, 2=1scr0, 3=1scr1).
+ * IRQ: $E010 latch, $F000 control, $F010 acknowledge.
  * Audio ($9010/$9030): not emulated.
  */
 
@@ -32,14 +32,29 @@ typedef struct {
     uint8_t chr[8];         /* 1KB CHR banks */
     uint8_t mirror;
     uint8_t irq_latch;
-    uint8_t irq_counter;
+    uint16_t irq_counter;
     uint8_t irq_enable;
-    uint8_t irq_reload;     /* bit0 of $F000: re-enable after acknowledge */
+    uint8_t irq_enable_ack; /* bit0 of $F000: re-enable after acknowledge */
+    uint8_t irq_cycle_mode;
+    uint16_t irq_cycle_accum;
 } mapper85_register_t;
 
 static void nes_mapper_deinit(nes_t* nes) {
     nes_free(nes->nes_mapper.mapper_register);
     nes->nes_mapper.mapper_register = NULL;
+}
+
+/* Direct CHR bank select for both CHR-ROM and CHR-RAM.
+ * nes_load_chrrom_1k() forces identity mapping (src=des) when chr_rom_size==0,
+ * so for CHR-RAM we must set pattern_table pointers directly. */
+static void mapper85_set_chr_bank(nes_t* nes, uint8_t slot, uint8_t bank) {
+    if (nes->nes_rom.chr_rom_size > 0) {
+        nes_load_chrrom_1k(nes, slot, bank);
+    } else {
+        /* CHR-RAM: 8KB = 8 × 1KB banks; mask to valid range */
+        nes->nes_ppu.pattern_table[slot] =
+            nes->nes_rom.chr_rom + (uint32_t)(bank & 7u) * 1024u;
+    }
 }
 
 static void nes_mapper_init(nes_t* nes) {
@@ -54,12 +69,23 @@ static void nes_mapper_init(nes_t* nes) {
     nes_load_prgrom_8k(nes, 0, 0);
     nes_load_prgrom_8k(nes, 1, 0);
     nes_load_prgrom_8k(nes, 2, 0);
-    nes_load_prgrom_8k(nes, 3, (uint8_t)(prg_banks - 1));
+    nes_load_prgrom_8k(nes, 3, (uint16_t)(prg_banks - 1u));
 
-    if (nes->nes_rom.chr_rom_size > 0) {
-        for (int i = 0; i < 8; i++) {
-            nes_load_chrrom_1k(nes, (uint8_t)i, 0);
+    for (int i = 0; i < 8; i++) {
+        mapper85_set_chr_bank(nes, (uint8_t)i, 0);
+    }
+
+    if (nes->nes_rom.sram == NULL) {
+        nes->nes_rom.sram = (uint8_t*)nes_malloc(SRAM_SIZE);
+        if (nes->nes_rom.sram != NULL) {
+            nes_memset(nes->nes_rom.sram, 0, SRAM_SIZE);
+        } else {
+            NES_LOG_ERROR("mapper85: failed to allocate WRAM\n");
         }
+    }
+
+    if (nes->nes_rom.four_screen == 0) {
+        nes_ppu_screen_mirrors(nes, NES_MIRROR_VERTICAL);
     }
 }
 
@@ -85,71 +111,40 @@ static const nes_mirror_type_t vrc7_mirror_table[4] = {
  *   $C010        : CHR bank 5 (PPU $1400)
  *   $D000        : CHR bank 6 (PPU $1800)
  *   $D010        : CHR bank 7 (PPU $1C00)
- *   $E000        : mirroring bits[3:2]
+ *   $E000        : mirroring bits[1:0]
  *   $E010        : IRQ latch
- *   $F000        : IRQ control (bit0=reload-on-ack, bit1=enable, bit2=mode ignored)
+ *   $F000        : IRQ control (bit0=enable-after-ack, bit1=enable, bit2=cycle mode)
  *   $F010        : IRQ acknowledge
  */
 static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     mapper85_register_t* r = (mapper85_register_t*)nes->nes_mapper.mapper_register;
 
-    /* Use upper nibble + bit4 to decode register */
+    /* VRC7 register decode: bit4 (A4) selects secondary register within each pair.
+     * Bit3 is ignored (masked away by & 0xF010), so $x008 aliases to $x000. */
+    if (address >= 0xA000u && address <= 0xDFFFu) {
+        uint16_t reg = (uint16_t)(address & 0xF010u);
+        uint8_t idx = (uint8_t)(((reg >> 4u) & 1u) | ((reg - 0xA000u) >> 11u));
+        r->chr[idx] = data;
+        mapper85_set_chr_bank(nes, idx, r->chr[idx]);
+        return;
+    }
+
     switch (address & 0xF010u) {
     case 0x8000u:
-        r->prg[0] = data & 0x3Fu;
+        r->prg[0] = data;
         nes_load_prgrom_8k(nes, 0, r->prg[0]);
         break;
     case 0x8010u:
-        r->prg[1] = data & 0x3Fu;
+        r->prg[1] = data;
         nes_load_prgrom_8k(nes, 1, r->prg[1]);
         break;
     case 0x9000u:
-        r->prg[2] = data & 0x3Fu;
+        r->prg[2] = data;
         nes_load_prgrom_8k(nes, 2, r->prg[2]);
         break;
     /* $9010 / $9030: FM audio - skip */
-    case 0xA000u:
-        if (nes->nes_rom.chr_rom_size == 0) break;
-        r->chr[0] = data;
-        nes_load_chrrom_1k(nes, 0, r->chr[0]);
-        break;
-    case 0xA010u:
-        if (nes->nes_rom.chr_rom_size == 0) break;
-        r->chr[1] = data;
-        nes_load_chrrom_1k(nes, 1, r->chr[1]);
-        break;
-    case 0xB000u:
-        if (nes->nes_rom.chr_rom_size == 0) break;
-        r->chr[2] = data;
-        nes_load_chrrom_1k(nes, 2, r->chr[2]);
-        break;
-    case 0xB010u:
-        if (nes->nes_rom.chr_rom_size == 0) break;
-        r->chr[3] = data;
-        nes_load_chrrom_1k(nes, 3, r->chr[3]);
-        break;
-    case 0xC000u:
-        if (nes->nes_rom.chr_rom_size == 0) break;
-        r->chr[4] = data;
-        nes_load_chrrom_1k(nes, 4, r->chr[4]);
-        break;
-    case 0xC010u:
-        if (nes->nes_rom.chr_rom_size == 0) break;
-        r->chr[5] = data;
-        nes_load_chrrom_1k(nes, 5, r->chr[5]);
-        break;
-    case 0xD000u:
-        if (nes->nes_rom.chr_rom_size == 0) break;
-        r->chr[6] = data;
-        nes_load_chrrom_1k(nes, 6, r->chr[6]);
-        break;
-    case 0xD010u:
-        if (nes->nes_rom.chr_rom_size == 0) break;
-        r->chr[7] = data;
-        nes_load_chrrom_1k(nes, 7, r->chr[7]);
-        break;
     case 0xE000u:
-        r->mirror = (data >> 2) & 0x03u;
+        r->mirror = data & 0x03u;
         if (nes->nes_rom.four_screen == 0) {
             nes_ppu_screen_mirrors(nes, vrc7_mirror_table[r->mirror]);
         }
@@ -158,46 +153,55 @@ static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
         r->irq_latch = data;
         break;
     case 0xF000u:
-        r->irq_reload = data & 0x01u;
+        r->irq_cycle_accum = 0;
+        r->irq_cycle_mode = data & 0x04u;
+        r->irq_enable = data & 0x02u;
+        r->irq_enable_ack = data & 0x01u;
         if (data & 0x02u) {
-            r->irq_enable  = 1;
             r->irq_counter = r->irq_latch;
-        } else {
-            r->irq_enable = 0;
         }
         nes->nes_cpu.irq_pending = 0;
         break;
     case 0xF010u:
         nes->nes_cpu.irq_pending = 0;
-        if (r->irq_reload) {
-            r->irq_enable  = 1;
-            r->irq_counter = r->irq_latch;
-        } else {
-            r->irq_enable = 0;
-        }
+        r->irq_enable = r->irq_enable_ack;
         break;
     default:
         break;
     }
 }
 
-/* Decrement scanline IRQ counter; fire when it wraps through zero. */
-static void nes_mapper_hsync(nes_t* nes) {
+static void mapper85_irq_tick(nes_t* nes) {
     mapper85_register_t* r = (mapper85_register_t*)nes->nes_mapper.mapper_register;
-    if (!r->irq_enable) return;
-    if (nes->nes_ppu.MASK_b == 0 && nes->nes_ppu.MASK_s == 0) return;
-    if (r->irq_counter == 0) {
+    r->irq_counter++;
+    if (r->irq_counter & 0x100u) {
         r->irq_counter = r->irq_latch;
         nes_cpu_irq(nes);
-    } else {
-        r->irq_counter--;
+    }
+}
+
+static void nes_mapper_cpu_clock(nes_t* nes, uint16_t cycles) {
+    mapper85_register_t* r = (mapper85_register_t*)nes->nes_mapper.mapper_register;
+    if (!r->irq_enable) return;
+
+    if (r->irq_cycle_mode) {
+        while (cycles--) {
+            mapper85_irq_tick(nes);
+        }
+        return;
+    }
+
+    r->irq_cycle_accum = (uint16_t)(r->irq_cycle_accum + cycles * 3u);
+    while (r->irq_cycle_accum >= 341u) {
+        r->irq_cycle_accum = (uint16_t)(r->irq_cycle_accum - 341u);
+        mapper85_irq_tick(nes);
     }
 }
 
 int nes_mapper85_init(nes_t* nes) {
-    nes->nes_mapper.mapper_init   = nes_mapper_init;
-    nes->nes_mapper.mapper_deinit = nes_mapper_deinit;
-    nes->nes_mapper.mapper_write  = nes_mapper_write;
-    nes->nes_mapper.mapper_hsync  = nes_mapper_hsync;
+    nes->nes_mapper.mapper_init      = nes_mapper_init;
+    nes->nes_mapper.mapper_deinit    = nes_mapper_deinit;
+    nes->nes_mapper.mapper_write     = nes_mapper_write;
+    nes->nes_mapper.mapper_cpu_clock = nes_mapper_cpu_clock;
     return NES_OK;
 }

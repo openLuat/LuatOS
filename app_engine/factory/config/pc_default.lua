@@ -54,6 +54,10 @@ return {
         ethernet = true,                 -- 启用以太网
     },
 
+    -- ===== 统一网络配置（优先级从高到低）=====
+    -- PC 模拟器没有真实网络，由 platform_loader 自行设置 ETH0 网卡
+    -- network 段留空，表示无 exnetif 初始化需求
+
     -- ===== UI 显示控制（只写 = true 的项）=====
     ui = {
         show_ethernet_settings = true,   -- 设置页以太网入口（PC 有虚拟以太网）

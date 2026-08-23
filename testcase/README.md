@@ -13,13 +13,42 @@ testcase/
 │       ├── testreport.lua          # 测试结果上报模块
 │       └── netready.lua            # 网络连接初始化
 │
-├── gmssl/                           # GMSSL 加密测试用例
-│   └── gmssl_basic/
-│       ├── metas.json              # 测试用例元数据
-│       └── scripts/
-│           ├── main.lua            # 测试入口
-│           └── gmssl_sm2.lua       # SM2 算法单元测试
+├── utest/                           # C 层 utest 套件
+│   └── net/
+│       └── tcp_basic/
+│           ├── metas.json
+│           └── scripts/
+│               └── main.lua
+│
+├── unit/                            # Lua 单元测试（按功能域分组）
+│   └── crypto/
+│       └── gmssl/                   # GMSSL 加密测试用例
+│           ├── metas.json
+│           └── scripts/
+│               ├── main.lua
+│               └── gmssl_sm2.lua    # SM2 算法单元测试
+│
+├── func/                            # 功能/集成测试
+│   └── network/
+│       └── http/
+│           ├── metas.json
+│           └── scripts/
+│               └── main.lua
+│
+└── platform/                        # 平台/芯片专属测试
+    └── air1601/
+        └── pgfs_regression/
+            └── air1601_pgfs_regression_basic/
+                ├── metas.json
+                └── scripts/
+                    └── main.lua
 ```
+
+新增测试时，先判断测试类型，再选择父目录：
+- C 层 `xxx.utest()` 入口 → `testcase/utest/<group>/<suite>/`
+- Lua 单元测试 → `testcase/unit/<domain>/<feature>/`
+- 功能/集成/场景测试 → `testcase/func/<domain>/<feature>/`
+- 平台/芯片专属测试 → `testcase/platform/<chip>/<feature>/`
 
 ## 执行方式（PC 模拟器）
 
@@ -29,7 +58,7 @@ testcase/
 2. 单个目标测试用例的 `scripts/` 目录
 
 ```powershell
-build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\unit_testcase_tools\mreport\scripts\
+build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\unit\tools\mreport\scripts\
 ```
 
 注意：该运行方式不支持在同一条命令中传入多个目标测试用例目录。
@@ -52,7 +81,7 @@ cd bsp\pc
   - `tcp_basic`:`www.qq.com:80` TCP 连通性
   - `http_basic`:`http://www.qq.com` HTTP 连通性
   - `https_basic`:`https://www.qq.com` HTTPS 连通性
-  - `socket_udp_limit_basic`(未迁移,仍在 `unit_testcase_tools/`):PC 本地 UDP `socket.rx(limit)` 读截断后丢弃剩余 datagram
+  - `socket_udp_limit_basic`:PC 本地 UDP `socket.rx(limit)` 读截断后丢弃剩余 datagram，位于 `testcase/utest/net/socket_udp_limit_basic/`
 - 其它组:`lib/core_basic`、`lib/crypto_basic`、`sys/ndk_basic`
 - 也可以继续直接运行模拟器:
 
@@ -66,16 +95,17 @@ build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\utest\net
 
 ### 1. 创建新的测试用例目录
 
-假设要创建一个名为 `myfeature` 的测试用例：
+假设要在 `unit/<domain>/` 下创建一个名为 `myfeature` 的测试用例：
 
 ```bash
 testcase/
-└── myfeature/
-    └── myfeature_basic/
-        ├── metas.json              # 元数据配置
-        └── scripts/
-            ├── main.lua            # 测试入口脚本
-            └── myfeature_test.lua   # 单元测试模块
+└── unit/
+    └── <domain>/
+        └── myfeature/
+            ├── metas.json              # 元数据配置
+            └── scripts/
+                ├── main.lua            # 测试入口脚本
+                └── myfeature_test.lua   # 单元测试模块
 ```
 
 ### 2. 编写 `metas.json` 文件
@@ -196,7 +226,7 @@ return myfeature
 
 ### 目录结构
 ```
-testcase/gmssl/gmssl_basic/
+testcase/unit/crypto/gmssl/
 ├── metas.json
 └── scripts/
     ├── main.lua

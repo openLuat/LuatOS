@@ -23,7 +23,7 @@
 
 所需工具及相关压缩包可从下面地址下载:
 
-地址: https://cdn18.air32.cn:19443/files/public/pc-xmake/
+地址: https://cdn18.luatos.com/files/public/pc-xmake/
 
 准备步骤:
 

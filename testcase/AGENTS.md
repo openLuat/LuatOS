@@ -15,18 +15,43 @@ testcase/
 │   ├── testsuite.lua
 │   └── testreport.lua
 ├── utest/            # C-layer utest suites (xxx.utest(case) bridges)
-│   ├── net/          #   tcp_basic, http_basic, https_basic, dtls_basic
+│   ├── net/          #   tcp_basic, http_basic, https_basic, dtls_basic, socket_udp_limit_basic
 │   ├── lib/          #   core_basic, crypto_basic
-│   └── sys/          #   ndk_basic
-└── <feature>/        # Feature tests
-    └── <feature>_basic/
-        ├── metas.json
-        └── scripts/
-            ├── main.lua
-            └── <feature>_test.lua
+│   ├── sys/          #   ndk_basic
+│   ├── fs/           #   pgfs_basic
+│   └── drv/          #   uart_basic, mobile_rfa_basic
+├── unit/             # Lua unit tests, grouped by functional domain
+│   ├── driver/       #   adc, uart, spi, i2c, webp (PC-only camera demo 见 bsp/pc/test/)
+│   ├── fs/           #   fs, ramfs, lf_fs_matrix, pgfs_regression (PC-only PGFS 手动/探测脚本 见 bsp/pc/test/)
+│   ├── crypto/       #   crypto, gmssl, rsa, xxtea
+│   ├── net/          #   canself, sntp, netdrv_*
+│   ├── io/
+│   ├── json/
+│   ├── system/       #   bit64, core_check, mcu, os, zbuff
+│   ├── middleware/   #   libgnss, protobuf, sqlite3
+│   ├── media/        #   audio_*, hzfont
+│   ├── perf/         #   fastlz, fft, miniz, pack, perf_basic
+│   └── tools/        #   mreport, pcconf (memprof 验证脚本 见 bsp/pc/test/)
+├── func/             # Functional / integration / scenario tests
+│   ├── network/      #   TCP, UDP, http, mqtt, websocket, ...
+│   ├── airlink/
+│   ├── appstore/
+│   └── eink/
+├── platform/         # Platform/chip-specific tests
+│   └── air1601/
+│       ├── ndk_helloworld/
+│       └── pgfs_regression/
+├── ndk/              # NDK common regression suites
+│   ├── ndk_basic/
+│   ├── ndk_hostabi_basic/
+│   └── ndk_perf_guest/
+└── tools/            # Standalone tooling / analysis tests
+    └── memprof/
 ```
 
-C-layer utest 套件统一住在 `testcase/utest/<group>/<suite>_basic/`,共享 `pc_utest_coverage.ps1 -Suite <suite>` 入口(详见 `testcase/README.md` 的"C层 utest"一节)。普通 Lua 单元测试仍按 `testcase/<feature>/<feature>_basic/` 摆放。
+C-layer utest 套件统一住在 `testcase/utest/<group>/<suite>_basic/`,共享 `pc_utest_coverage.ps1 -Suite <suite>` 入口(详见 `testcase/README.md` 的"C层 utest"一节)。普通 Lua 单元测试按 `testcase/unit/<domain>/<feature>/` 摆放,功能/集成测试按 `testcase/func/<domain>/<feature>/` 摆放,平台专属测试按 `testcase/platform/<chip>/<feature>/` 摆放。
+
+**PC-only / demo 脚本归属**：仅能在 PC 模拟器运行、且不依赖 `testrunner`/`testsuite` 标准测试框架的独立脚本（如摄像头 demo、AirLink loopback、memprof 验证、CH347+SD 卡验证、PGFS 手动/探测脚本等），应放在 `bsp/pc/test/<编号>.<名称>/main.lua`，而不是 `testcase/`。详见 `bsp/pc/AGENTS.md` 的 "PC 模拟器测试脚本" 章节。
 
 ## RUNNING TESTS
 
@@ -51,6 +76,41 @@ build/out/luatos-lua.exe \
   ```
 - `metas.json` 的 `platform` 字段当前没有任何 runner 消费,只是文档;但请按实际填(`["pc"]` / `["air1601"]` / `["air1601","air8000"]`),给人读。
 - ⚠️ **testrunner 的"虚绿"陷阱**:`testsuite.lua` 用 `pcall` 包测试函数,**返回 `false` 不算 FAIL**,只有抛 lua 错误才算。要让失败可见,用 `assert(ok, "...")`,不要 `if not ok then return false`。
+
+### RF 校准套件 (mobile_rfa_basic)
+
+PC 模拟器侧的 RF 校准仿真测试,4 个 suite 共 13 个 case:
+
+| Suite | 数量 | 覆盖 |
+|-------|------|------|
+| `c_suite` | 5 | `mobile.rfTestParam` NPI/State rw / IMEI 注入 / Mode/Input 不崩 |
+| `lua_suite` | 6 | `mobile.rfTest*` 5 个绑定注册 + `mobile.nst*` 已删除反向验证 |
+| `at_suite` | 12 | `rfa.dispatch` 内建 AT 派发表 (`AT` / `ATE0` / `AT+CGSN=1` / `AT+ECNPICFG` / `AT+CFUN` / `AT+CPIN?` / `AT+ECCHIPVER?` / `AT+ECGMDATA?` / `AT+ECRFNST`) |
+| `rfa_suite` | 13 | `script/libs/rfa.lua` 状态机 / reset / IMEI / RFNST 模板 / 错误注入 / 扩展注册 / 行切分 |
+
+跑法 (注意需要带上 `script/libs/`, 否则 `require("rfa")` 找不到模块):
+
+```bash
+cd bsp/pc/build/out
+./luatos-lua.exe ../../../../testcase/common/scripts/ \
+                ../../../../testcase/utest/drv/mobile_rfa_basic/scripts/ \
+                ../../../../script/libs/
+```
+
+**端到端 com0com 回归** (需先 `setup_com0com_pair.ps1` 配对 COM5<->COM6):
+
+```bash
+# 终端 1: 启动 LuatOS AT server
+cd bsp/pc/build/out
+./luatos-lua.exe ../../../../testcase/common/scripts/ \
+                ../../../../tools/rfa_com0com/at_server_main/ \
+                ../../../../script/libs/
+
+# 终端 2: Python 驱动
+python tools/rfa_com0com/test_rfa_com0com.py --port COM5 --suite basic
+```
+
+详细 API、状态机说明、真机对接指南见 `components/mobile/README_rfa.md`。
 
 ## CREATING TESTS
 
@@ -78,7 +138,7 @@ end
 
 ### Testcase File Style (Recommended)
 
-- Follow the same structure used by `unit_testcase_tools/fastlz`:
+- Follow the same structure used by `unit/perf/fastlz`:
     - `scripts/main.lua`: only does runner wiring (`PROJECT/VERSION`, `testrunner`, `runBatch`, `sys.run()`)
     - `scripts/<feature>_test.lua`: contains actual `test_` functions and assertions
 - Avoid putting full test logic directly in `main.lua`.
@@ -113,4 +173,4 @@ end
 
 This is more reliable than callback-based testing because the 2-hop async chain (network adapter → framework → Lua) may not deliver callbacks during `sys.wait()` polling.
 
-**Example**: See `testcase/function_testcase_network/tcp_server/tcp_server_basic/` for a complete TCP server test with state polling + PING/PONG validation.
+**Example**: See `testcase/func/network/tcp_server/tcp_server_basic/` for a complete TCP server test with state polling + PING/PONG validation.

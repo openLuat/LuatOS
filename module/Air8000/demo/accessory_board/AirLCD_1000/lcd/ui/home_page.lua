@@ -20,11 +20,11 @@
 
 local home_page = {}
 
-
--- 按钮区域定义
+-- 按钮区域定义（竖排三等宽居中）
 local buttons = {
-    {name = "lcd", text = "lcd核心库演示", x1 = 10, y1 = 350, x2 = 150, y2 = 420, color = 0x001F},
-    {name = "customer_font", text = "自定义字体", x1 = 170, y1 = 350, x2 = 310, y2 = 420, color = 0x07E0}
+    {name = "lcd",              text = "lcd核心库演示", x1 = 60, y1 = 100, x2 = 260, y2 = 180, color = 0x001F},
+    {name = "camera_preview",   text = "摄像头:点击拍照", x1 = 60, y1 = 200, x2 = 260, y2 = 280, color = 0xFCC0},
+    {name = "customer_font",    text = "自定义字体",    x1 = 60, y1 = 300, x2 = 260, y2 = 380, color = 0x07E0}
 }
 
 -- 当前选中项索引
@@ -32,7 +32,7 @@ local selected_index = 1
 
 local title = "合宙lcd演示系统"
 local content1 = "本页面使用的是系统内置的12号中文点阵字体"
-local hint = "boot键:选择 pwr键:确认"
+
 
 --[[
 绘制光标指示
@@ -41,7 +41,7 @@ local hint = "boot键:选择 pwr键:确认"
 ]]
 local function draw_cursor()
     local btn = buttons[selected_index]
-    
+
     -- 在选中按钮周围绘制矩形光标
     lcd.drawRectangle(btn.x1 - 2, btn.y1 - 2, btn.x2 + 2, btn.y2 + 2, 0x3186)  -- 蓝色外框
     lcd.drawRectangle(btn.x1 - 1, btn.y1 - 1, btn.x2 + 1, btn.y2 + 1, 0x0000)  -- 黑色内框
@@ -68,8 +68,7 @@ function home_page.draw()
     lcd.drawStr(106, 30, title, 0x0000)
 
     -- 显示说明文字
-    lcd.drawStr(46, 48, content1, 0x0000)
-    lcd.drawStr(86, 66, hint, 0x0000)
+    lcd.drawStr(46, 50, content1, 0x0000)
 
     -- 绘制所有按钮
     for i, btn in ipairs(buttons) do
@@ -78,14 +77,16 @@ function home_page.draw()
             -- 选中状态：颜色稍微变亮
             color = color + 0x0842
         end
-        
+
         lcd.fill(btn.x1, btn.y1, btn.x2, btn.y2, color)
-        
-        -- 根据按钮调整文字位置
+
+        -- 绘制按钮文字
         if btn.name == "lcd" then
-            lcd.drawStr(btn.x1 + 25, btn.y1 + 30, "lcd核心库演示", 0xFFFF)
+            lcd.drawStr(130, 138, "lcd核心库演示", 0xFFFF)
+        elseif btn.name == "camera_preview" then
+            lcd.drawStr(120, 238, "摄像头:点击拍照", 0xFFFF)
         elseif btn.name == "customer_font" then
-            lcd.drawStr(btn.x1 + 35, btn.y1 + 30, "自定义字体", 0xFFFF)
+            lcd.drawStr(125, 338, "自定义字体", 0xFFFF)
         end
     end
 
@@ -110,7 +111,7 @@ local handled = home_page.handle_key("next", switch_page)
 ]]
 function home_page.handle_key(key_type, switch_page)
     log.info("home_page.handle_key", "key_type:", key_type, "selected_index:", selected_index)
-    
+
     if key_type == "confirm" then
         -- 确认键：切换到选中的页面
         local btn = buttons[selected_index]
@@ -145,31 +146,6 @@ home_page.on_enter()
 ]]
 function home_page.on_enter()
     selected_index = 1  -- 默认选中第一个
-end
-
---[[
-获取当前选中项信息；
-用于调试或状态查询；
-
-@api home_page.get_selected_info()
-@summary 获取当前选中项信息
-@return table 包含选中项信息的表
-@field index number 当前选中项的索引
-@field name string 当前选中项的名称
-@field text string 当前选中项的显示文本
-
-@usage
--- 获取当前选中项信息
-local info = home_page.get_selected_info()
-log.info("当前选中", info.name, info.text)
-]]
-function home_page.get_selected_info()
-    local btn = buttons[selected_index]
-    return {
-        index = selected_index,
-        name = btn.name,
-        text = btn.text
-    }
 end
 
 return home_page

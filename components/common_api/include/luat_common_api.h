@@ -60,6 +60,11 @@ typedef union {
 	const void *p;
 }luat_data_union_t;
 
+#define LUAT_IS_ALPHA(c)      (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')))
+#define LUAT_IS_HEX(c)      (((c >= 'a') && (c <= 'f')) || ((c >= 'A') && (c <= 'F')))
+#define LUAT_IS_DIGIT(c)        ((c >= '0') && (c <= '9'))
+#define LUAT_IS_ISALPHADIGIT(c)    (LUAT_IS_ALPHA(c) || LUAT_IS_DIGIT(c))
+
 typedef int(*luat_llist_traversal_fun)(void *node, void *param);
 /**
  * @brief 双向链表节点结构
@@ -340,6 +345,14 @@ static inline uint32_t luat_fifo_check_free_space(luat_fifo_t *fifo)
 	return (fifo->size - ((uint32_t)(fifo->wpoint - fifo->rpoint)));
 }
 
+/**
+ * @brief 检查 FIFO 队列剩余可已用空间
+ *
+ * 查询 FIFO 队列中已使用多少数据。
+ * @param fifo FIFO 队列指针
+ * @return 已用空间大小（字节）
+ *
+ */
 static inline uint32_t luat_fifo_check_used_space(luat_fifo_t *fifo)
 {
 	return ((uint32_t)(fifo->wpoint - fifo->rpoint));
@@ -357,6 +370,16 @@ static inline uint32_t luat_fifo_check_used_space(luat_fifo_t *fifo)
  */
 void luat_fifo_delete(luat_fifo_t *fifo, uint32_t size);
 
+/**
+ * @brief 删除 FIFO 队列中的所有数据（仅移动读指针）
+ * @param fifo FIFO 队列指针
+ */
+static inline void luat_fifo_delete_all(luat_fifo_t *fifo) 
+{
+	if (fifo) {
+		fifo->rpoint = fifo->wpoint;
+	}
+}
 /**
  * @brief 清空 FIFO 队列
  *
@@ -384,6 +407,120 @@ static inline void luat_fifo_clear(luat_fifo_t *fifo)
  * @note 在程序结束或不再需要 FIFO 时调用
  */
 void luat_fifo_destroy(luat_fifo_t *fifo);
+
+/**
+ * @brief 无数据FIFO 队列结构
+ * 
+ */
+typedef struct
+{
+	uint64_t wpoint;    		///< 写指针位置
+	uint64_t rpoint;    		///< 读指针位置
+	uint64_t mask;      		///< 掩码，用于计算索引
+	uint32_t size;      		///< 缓冲区实际大小（2的幂）
+}luat_no_data_fifo_t;
+/**
+ * @brief 初始化无数据FIFO队列
+ *
+ * @param fifo FIFO 队列指针
+ * @param size_power 队列大小（2^size_power）
+ * @return
+ */
+static inline void luat_no_data_fifo_init(luat_no_data_fifo_t *fifo, uint32_t size_power)
+{
+	fifo->size = (1 << size_power);
+	fifo->mask = fifo->size - 1;
+	fifo->wpoint = 0;
+	fifo->rpoint = 0;
+}
+
+/**
+ * @brief 获取无数据FIFO 队列下一个写入索引位置
+ * @param fifo FIFO 队列指针
+ * @return 下一个写入索引位置
+ */
+static inline uint32_t luat_no_data_fifo_next_write_index(luat_no_data_fifo_t *fifo)
+{
+	return fifo->wpoint & fifo->mask;
+}
+/**
+ * @brief 向 无数据FIFO 队列写入1个数据
+ * @param fifo FIFO 队列指针
+ * @return
+ */
+static inline void luat_no_data_fifo_put(luat_no_data_fifo_t *fifo)
+{
+	fifo->wpoint++;
+}
+
+/**
+ * @brief 从 无数据FIFO 队列读取1个数据
+ * @param fifo FIFO 队列指针
+ * @return LUAT_ERROR_NONE 成功，其他错误码失败
+ */
+static inline uint32_t luat_no_data_fifo_get(luat_no_data_fifo_t *fifo)
+{
+	return (uint32_t)(fifo->rpoint & fifo->mask);
+}
+/**
+ * @brief 删除 无数据FIFO 队列中的1个数据
+ * @param fifo FIFO 队列指针
+ * @return
+ */
+static inline void luat_no_data_fifo_delete(luat_no_data_fifo_t *fifo)
+{
+	fifo->rpoint++;
+}
+/**
+ * @brief 检查 无数据FIFO 队列剩余可用空间
+ *
+ * 查询 FIFO 队列还可以写入多少数据。
+ * @param fifo FIFO 队列指针
+ * @return 剩余可用空间大小（字节）
+ *
+ */
+static inline uint32_t luat_no_data_fifo_check_free_space(luat_no_data_fifo_t *fifo)
+{
+	return (fifo->size - ((uint32_t)(fifo->wpoint - fifo->rpoint)));
+}
+
+/**
+ * @brief 检查 无数据FIFO 队列剩余可已用空间
+ *
+ * 查询 FIFO 队列中已使用多少数据。
+ * @param fifo FIFO 队列指针
+ * @return 已用空间大小（字节）
+ *
+ */
+static inline uint32_t luat_no_data_fifo_check_used_space(luat_no_data_fifo_t *fifo)
+{
+	return ((uint32_t)(fifo->wpoint - fifo->rpoint));
+}
+
+
+
+/**
+ * @brief 删除 无数据FIFO 队列中的所有数据（仅移动读指针）
+ * @param fifo FIFO 队列指针
+ */
+static inline void luat_no_data_fifo_delete_all(luat_no_data_fifo_t *fifo) 
+{
+	fifo->rpoint = fifo->wpoint;
+}
+/**
+ * @brief 清空 无数据FIFO 队列
+ *
+ * 重置读写指针，丢弃队列中的所有数据。
+ * @param fifo FIFO 队列指针
+ *
+ * @note 清空后读写指针都回到起点，但数据内容仍然存在
+ * @note 如果需要释放内存，使用 luat_fifo_destroy
+ */
+static inline void luat_no_data_fifo_clear(luat_no_data_fifo_t *fifo)
+{
+	fifo->rpoint = 0;
+	fifo->wpoint = 0;
+}
 
 /**
  * @brief 动态缓冲区结构
@@ -480,4 +617,195 @@ int luat_buffer_write(luat_buffer_t *buffer, const void *data, uint32_t len);
  * @note 如果 len >= pos，则清空整个缓冲区
  */
 void luat_buffer_remove_data(luat_buffer_t *buffer, uint32_t len);
+/**
+ * @brief 十六进制字符串转换为字节数据
+ *
+ * @param src 十六进制字符串源
+ * @param dst 目标字节数据缓冲区
+ * @param src_len 源字符串长度
+ * @param dst_max_len 目标缓冲区最大容量
+ * @return 实际转换的字节数
+ */
+uint32_t luat_hex_string_to_hex_byte(const uint8_t *src, uint8_t *dst, uint32_t src_len, uint32_t dst_max_len);
+
+/**
+ * @brief 十六进制字节数据转换为十六进制字符串，剩余空间存在时会结尾补一个0x00
+ *
+ * @param src 字节数据源
+ * @param dst 十六进制字符串缓冲区
+ * @param src_len 源数据长度
+ * @param dst_max_len 目标缓冲区最大容量
+ * @return 实际转换出来字符串长度，不包括补的0x00
+ */
+uint32_t luat_hex_byte_to_hex_string(const uint8_t *src, uint8_t *dst, uint32_t src_len, uint32_t dst_max_len);
+/**
+ * @brief 将字符串转换为大写
+ *
+ * @param src 源字符串
+ * @param length 字符串长度
+ */
+void luat_string_upper(uint8_t *src, uint32_t length);
+/**
+ * @brief 将字符串转换为小写
+ * 
+ * @param src 
+ * @param length 
+ */
+void luat_string_lower(uint8_t *src, uint32_t length);
+
+/**
+ * @brief 从内存地址读取一个无符号 8 位整数
+ *
+ * @param ptr 数据地址
+ * @return 读取到的无符号 8 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 1 字节
+ */
+uint8_t luat_bytes_get_u8(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个无符号 8 位整数
+ *
+ * @param ptr 数据地址
+ * @param value 要写入的无符号 8 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 1 字节
+ */
+void luat_bytes_put_u8(void *ptr, uint8_t value);
+
+/**
+ * @brief 从内存地址读取一个大端序无符号 16 位整数
+ *
+ * @param ptr 数据地址，可以不按 16 位对齐
+ * @return 读取到的无符号 16 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 2 字节
+ */
+uint16_t luat_bytes_get_be16(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个大端序无符号 16 位整数
+ *
+ * @param ptr 数据地址，可以不按 16 位对齐
+ * @param value 要写入的无符号 16 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 2 字节
+ */
+void luat_bytes_put_be16(void *ptr, uint16_t value);
+
+/**
+ * @brief 从内存地址读取一个大端序无符号 32 位整数
+ *
+ * @param ptr 数据地址，可以不按 32 位对齐
+ * @return 读取到的无符号 32 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 4 字节
+ */
+uint32_t luat_bytes_get_be32(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个大端序无符号 32 位整数
+ *
+ * @param ptr 数据地址，可以不按 32 位对齐
+ * @param value 要写入的无符号 32 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 4 字节
+ */
+void luat_bytes_put_be32(void *ptr, uint32_t value);
+
+/**
+ * @brief 从内存地址读取一个小端序无符号 16 位整数
+ *
+ * @param ptr 数据地址，可以不按 16 位对齐
+ * @return 读取到的无符号 16 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 2 字节
+ */
+uint16_t luat_bytes_get_le16(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个小端序无符号 16 位整数
+ *
+ * @param ptr 数据地址，可以不按 16 位对齐
+ * @param value 要写入的无符号 16 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 2 字节
+ */
+void luat_bytes_put_le16(void *ptr, uint16_t value);
+
+/**
+ * @brief 从内存地址读取一个小端序无符号 32 位整数
+ *
+ * @param ptr 数据地址，可以不按 32 位对齐
+ * @return 读取到的无符号 32 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 4 字节
+ */
+uint32_t luat_bytes_get_le32(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个小端序无符号 32 位整数
+ *
+ * @param ptr 数据地址，可以不按 32 位对齐
+ * @param value 要写入的无符号 32 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 4 字节
+ */
+void luat_bytes_put_le32(void *ptr, uint32_t value);
+
+/**
+ * @brief 从内存地址读取一个小端序无符号 64 位整数
+ *
+ * @param ptr 数据地址，可以不按 64 位对齐
+ * @return 读取到的无符号 64 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可读 8 字节
+ */
+uint64_t luat_bytes_get_le64(const void *ptr);
+
+/**
+ * @brief 向内存地址写入一个小端序无符号 64 位整数
+ *
+ * @param ptr 数据地址，可以不按 64 位对齐
+ * @param value 要写入的无符号 64 位整数
+ *
+ * @note 调用者应确保 ptr 有效且至少可写 8 字节
+ */
+void luat_bytes_put_le64(void *ptr, uint64_t value);
+
+/**
+ * @brief 图像裁剪函数
+ *
+ * 从原始图像中裁剪出指定矩形区域，支持任意像素深度（如 RGB565、RGB888、RGBA8888 等）。
+ * 原始图像数据按行优先（row-major）顺序存储。
+ *
+ * @param src_data 原始图像数据地址
+ * @param bytes_per_pixel 每个像素的字节数（如 RGB565 为 2，RGB888 为 3，RGBA8888 为 4）
+ * @param src_width 原始图像宽度（像素）
+ * @param src_height 原始图像高度（像素）
+ * @param dst_data 输出缓存地址，需预先分配 dst_width * dst_height * bytes_per_pixel 字节的空间
+ * @param dst_width 裁剪区域宽度（像素）
+ * @param dst_height 裁剪区域高度（像素）
+ * @param crop_x 裁剪起始 X 坐标（像素），相对于原始图像左上角
+ * @param crop_y 裁剪起始 Y 坐标（像素），相对于原始图像左上角
+ * @return 0 成功，-1 参数错误（空指针、尺寸为零或裁剪区域越界）
+ *
+ * @par 使用示例:
+ * @code
+ * // 从 320x240 的 RGB565 图像中裁剪出 (10, 20) 到 (100, 120) 区域
+ * uint8_t dst[91 * 101 * 2];
+ * int ret = luat_image_crop(src, 2, 320, 240, dst, 91, 101, 10, 20);
+ * if (ret == LUAT_ERROR_NONE) {
+ *     // dst 包含裁剪后的图像数据
+ * }
+ * else {
+ *     // 裁剪失败，一般是参数输入错误
+ * }
+ * @endcode
+ */
+int luat_image_crop(const uint8_t *src_data, uint32_t bytes_per_pixel,
+                    uint32_t src_width, uint32_t src_height,
+                    uint8_t *dst_data,
+                    uint32_t dst_width, uint32_t dst_height,
+                    uint32_t crop_x, uint32_t crop_y);
 #endif

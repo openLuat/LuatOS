@@ -8,7 +8,11 @@
 #include "luat_timer.h"
 #include "luat_rtos.h"
 #include "luat_gpio.h"
-#include "luat_ota.h"
+
+// bsp 可在 luat_conf_bsp.h 里覆盖该值, 未覆盖时默认 15s
+#ifndef LUAT_EXIT_REBOOT_DELAY
+#define LUAT_EXIT_REBOOT_DELAY 15000
+#endif
 #ifdef LUAT_USE_EMS_SERVER
 #include "luat_ems_server.h"
 #endif
@@ -79,7 +83,14 @@ int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机
 
 #ifdef LUAT_USE_EMS_SERVER
 int luat_restore_main(void) {
-  int ret = luaL_loadbuffer(L, (const char*)ems_server_luac, ems_server_luac_len, "ems");
+#ifdef LUAT_CONF_VM_64bit
+  const unsigned char* ems_luac = ems_server_luac_64;
+  size_t ems_luac_len = ems_server_luac_64_len;
+#else
+  const unsigned char* ems_luac = ems_server_luac_32;
+  size_t ems_luac_len = ems_server_luac_32_len;
+#endif
+  int ret = luaL_loadbuffer(L, (const char*)ems_luac, ems_luac_len, "ems");
   if (ret == LUA_OK) {
     ret = lua_pcall(L, 0, LUA_MULTRET, 0);
   }
@@ -90,7 +101,7 @@ int luat_restore_main(void) {
 static int pmain(lua_State *L) {
     int re = -2;
     #ifndef LUAT_MAIN_DEMO
-    char filename[32] = {0};
+    char filename[64] = {0};
     #endif
 
     // 加载内置库
@@ -334,12 +345,6 @@ int luat_main (void) {
 
   // 1. 初始化文件系统
   luat_fs_init();
-#ifdef LUAT_USE_OTA
-  if (luat_ota_exec() == 0) {
-    luat_os_reboot(5);
-  }
-#endif
-
 
   luat_main_call();
   LLOGE("Lua VM exit!! reboot in %dms", LUAT_EXIT_REBOOT_DELAY);
@@ -349,10 +354,11 @@ int luat_main (void) {
     luat_wdt_feed();
     luat_timer_mdelay(1000);
   }
-  luat_ota_reboot(1000);
+  luat_timer_mdelay(1000);
 #else
-  luat_ota_reboot(LUAT_EXIT_REBOOT_DELAY);
+  luat_timer_mdelay(LUAT_EXIT_REBOOT_DELAY);
 #endif
+  luat_os_reboot(1);
   // 往下是肯定不会被执行的
   return 0;
 }

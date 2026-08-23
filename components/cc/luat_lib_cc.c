@@ -11,6 +11,7 @@
 */
 
 #include "luat_base.h"
+#ifndef LUAT_USE_AUDIO_V2
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
@@ -1086,13 +1087,13 @@ static int l_cc_answer_call(lua_State* L) {
 @return bool 成功与否
  */
 static int l_cc_speech_init(lua_State* L) {
-    uint8_t multimedia_id = luaL_optinteger(L, 1, 0);
+    uint32_t multimedia_id = luaL_optinteger(L, 1, 0);
     if (luat_mobile_speech_init(multimedia_id,mobile_voice_data_input)){
         lua_pushboolean(L, 0);
         return 1;
     }
     luat_cc.record_timer = luat_create_rtos_timer(download_data_callback, NULL, NULL);
-    luat_rtos_task_create(&luat_cc.task_handle, 4*1024, 100, "volte", luat_volte_task, multimedia_id, 64);
+    luat_rtos_task_create(&luat_cc.task_handle, 4*1024, 100, "volte", luat_volte_task, (void *)multimedia_id, 64);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -1211,4 +1212,4 @@ void luat_cc_play_tone(uint32_t param)
 	if (!param) luat_cc.upload_need_stop = 1;
 	luat_rtos_event_send(luat_cc.task_handle, VOLTE_EVENT_PLAY_TONE, param, 0, 0, 0);
 }
-
+#endif

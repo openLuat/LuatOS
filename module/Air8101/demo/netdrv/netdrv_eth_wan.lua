@@ -82,7 +82,7 @@ local function http_test()
     -- sys.waitUntil("IP_READY")
     while 1 do
         sys.wait(6000)
-        log.info("http", http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {
+        log.info("http", http.request("GET", "http://httpbin.luatos.com/bytes/4096", nil, nil, {
             adapter = eth_adapter
         }).wait()) -- adapter指定为以太网联网方式
         log.info("lua", rtos.meminfo())

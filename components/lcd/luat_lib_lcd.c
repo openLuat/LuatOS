@@ -156,6 +156,9 @@ static int l_lcd_init(lua_State* L) {
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
     conf->acc_hw = 0xFF;
     conf->bpp = 16;
+    conf->luat_lcd_mipi_conf.mipi_lane_num = 2;
+    conf->luat_lcd_mipi_conf.mipi_cmd_type = 0;
+    conf->luat_lcd_mipi_conf.mipi_continue_mode = 0;
     conf->lcd_clk_pin = LUAT_GPIO_NONE;
     conf->lcd_sda_pin = LUAT_GPIO_NONE;
     conf->lcd_cs_pin = LUAT_GPIO_NONE;
@@ -319,6 +322,30 @@ static int l_lcd_init(lua_State* L) {
             }
             lua_pop(L, 1);
 
+            lua_pushstring(L, "bpp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->bpp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "mipi_lane_num");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->luat_lcd_mipi_conf.mipi_lane_num = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "mipi_cmd_type");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->luat_lcd_mipi_conf.mipi_cmd_type = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "mipi_continue_mode");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->luat_lcd_mipi_conf.mipi_continue_mode = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
             lua_pushstring(L, "flush_rate");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->flush_rate = luaL_checkinteger(L, -1);
@@ -380,6 +407,9 @@ static int l_lcd_init(lua_State* L) {
                 conf->lcd_cs_pin = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
+        }
+        if (conf->port == LUAT_LCD_PORT_MIPI && conf->bus_speed == 0) {
+            conf->bus_speed = 200000000;
         }
         if (s_index == 0){
             unsigned int cmd = 0;
@@ -443,7 +473,7 @@ static int l_lcd_init(lua_State* L) {
         extern const luat_lcd_opts_t lcd_opts_sdl2;
         conf->opts = &lcd_opts_sdl2;
 #endif
-        if (conf->port == LUAT_LCD_HW_ID_0) {
+        if (conf->port == LUAT_LCD_HW_ID_0 || conf->port == LUAT_LCD_PORT_MIPI) {
             luat_lcd_IF_init(conf);
         }
 #if defined LUAT_USE_LCD_SERVICE
@@ -589,15 +619,32 @@ static int l_lcd_write_cmd(lua_State* L) {
 		param_len = 1;
 		data = &param;
 	}
-	else if (lua_isuserdata(L, 2)) {
+    else if (lua_isuserdata(L, 2)) {
         // zbuff
         luat_zbuff_t* buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         data = (const uint8_t*)buff->addr;
-        param_len = luaL_optinteger(L, 3, buff->used);
+        lua_Integer requested_len = luaL_optinteger(L, 3, buff->used);
+        if (requested_len < 0 || (size_t)requested_len > buff->used) {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        param_len = (size_t)requested_len;
     }else if(lua_isstring(L, 2)){
-        data = (const uint8_t*)luaL_checklstring(L, 2, &param_len);
+        size_t string_len = 0;
+        data = (const uint8_t*)luaL_checklstring(L, 2, &string_len);
+        lua_Integer requested_len = luaL_optinteger(L, 3, string_len);
+        if (requested_len < 0 || (size_t)requested_len > string_len) {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        param_len = (size_t)requested_len;
     }
-    int ret = lcd_write_cmd_data(lcd_dft_conf,(uint8_t)luaL_checkinteger(L, 1), data, param_len);
+    if (param_len > UINT8_MAX) {
+        LLOGE("lcd command parameter length exceeds %u", UINT8_MAX);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    int ret = lcd_write_cmd_data(lcd_dft_conf,(uint8_t)luaL_checkinteger(L, 1), data, (uint8_t)param_len);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -1736,7 +1783,7 @@ static int l_lcd_drawxbm(lua_State *L){
     return 1;
 }
 
-#if defined(LUAT_USE_TJPGD) || defined(LUAT_USE_WEBP)
+#if defined(LUAT_USE_TJPGD) || defined(LUAT_USE_WEBP) || defined(LUAT_USE_JPG)
 /*
 显示图片,支持jpg,jpeg,webp
 @api lcd.showImage(x, y, file)
@@ -1874,7 +1921,8 @@ static int l_lcd_setup_buff(lua_State* L) {
     }
     if (conf->buff != NULL && conf->buff_ex != NULL) {
         LLOGI("lcd buff is aready exist");
-        return 0;
+        lua_pushboolean(L, 1);
+        return 1;
     }
     if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
         luat_lcd_setup_buff(conf);
@@ -1981,125 +2029,6 @@ static int l_lcd_rgb565(lua_State* L) {
     lua_pushinteger(L, dst);
     return 1;
 }
-#ifdef LUAT_USE_UFONT
-#include "luat_ufont.h"
-static const int l_lcd_draw_utf8(lua_State *L) {
-    size_t sz = 0;
-    uint32_t letter = 0;
-    uint32_t str_offset;
-    int ret = 0;
-    uint16_t draw_offset = 0;
-
-    int draw_x = 0;
-    int draw_y = 0;
-    luat_font_char_desc_t desc = {0};
-    // 左上角坐标x,y
-    int x = luaL_checkinteger(L, 1);
-    int y = luaL_checkinteger(L, 2);
-    // 待绘制的字符串
-    const char* data = (const char*)luaL_checklstring(L, 3, &sz);
-    // 字体指针
-    lv_font_t* lfont = (lv_font_t*)lua_touserdata(L, 4);
-    if (lfont == NULL) {
-        LLOGW("draw without font");
-        return 0;
-    }
-    luat_font_header_t* font = (luat_font_header_t*)lfont->dsc;
-    // 是否填充背景
-    bool draw_bg = lua_isboolean(L, 5) ? lua_toboolean(L, 5) : true;
-
-    // 没内容, 不需要画了
-    if (sz == 0) {
-        // 直接返回原坐标
-        lua_pushinteger(L, x);
-        return 1;
-    }
-
-    // 没字体, 不需要画了
-    if (font == NULL) {
-        LLOGD("NULL font, skip draw");
-        // 直接返回原坐标
-        lua_pushinteger(L, x);
-        return 1;
-    }
-    // 超边界了没? 超了就没必要绘制了
-    if (lcd_dft_conf->h < y || lcd_dft_conf->w < x) {
-        //LLOGD("draw y %d h % font->line_height %d", y, lcd_dft_conf->h, font->line_height);
-        // 直接返回原坐标
-        lua_pushinteger(L, x);
-        return 1;
-    }
-
-    luat_color_t* buff = NULL;
-    if (draw_bg)
-      buff = luat_heap_malloc(font->line_height * font->line_height * 2);
-    // if (buff == NULL)
-    //   return 0;
-    int offset = 0;
-    uint8_t *data_ptr = data;
-    uint8_t utf8_state = 0;
-    uint16_t utf8_tmp = 0;
-    uint16_t utf8_out = 0;
-    luat_color_t color = FORE_COLOR;
-    for (size_t i = 0; i < sz; i++)
-    {
-        utf8_out = luat_utf8_next(data[i], &utf8_state, &utf8_tmp);
-        if (utf8_out == 0x0ffff)
-          break; // 结束了
-        if (utf8_out == 0x0fffe)
-          continue; // 没读完一个字符,继续下一个循环
-        letter = (uint32_t)utf8_out;
-
-        //LLOGD("draw letter %04X", letter);
-        int ret = luat_font_get_bitmap(font, &desc, letter);
-        if (ret != 0) {
-            LLOGD("not such char in font");
-            draw_offset += font->line_height / 2; // 找不到字符, 默认跳过半个字
-            continue;
-        }
-        offset = 0;
-        // desc.data = tmp;
-        memset(buff, 0, font->line_height * font->line_height * 2);
-        draw_x = x + draw_offset;
-        draw_offset += desc.char_w;
-        if (draw_x >= 0 &&  draw_x + desc.char_w <= lcd_dft_conf->w) {
-            //if (lcd_dft_conf->buff == NULL) {
-            for (size_t j = 0; j < font->line_height; j++)
-            {
-              //LLOGD("draw char pix line %d", i);
-                for (size_t k = 0; k < desc.char_w; k++)
-                {
-                    if ((desc.data[offset / 8] >> (7 - (offset % 8))) & 0x01) {
-                        color = FORE_COLOR;
-                        if (buff)
-                            buff[offset] = FORE_COLOR;
-                        else
-                            luat_lcd_draw_point(lcd_dft_conf, draw_x + k, y + j, FORE_COLOR);
-                        //LLOGD("draw char pix mark %d", offset);
-                    }else {
-                        if (buff)
-                            buff[offset] = BACK_COLOR;
-                        //LLOGD("draw char pix offset %d color %04X", offset, FORE_COLOR);
-                    }
-                    offset ++;
-                }
-            }
-            //LLOGD("luat_lcd_draw %d %d %d %d", draw_x, y, draw_x + desc.char_w, y + font->line_height);
-            luat_lcd_draw(lcd_dft_conf, draw_x, y, draw_x + desc.char_w - 1, y + font->line_height - 1, buff);
-          //}
-          //else {
-          //
-          //}
-        }
-    }
-    if (buff)
-        luat_heap_free(buff);
-
-    lcd_auto_flush(lcd_dft_conf);
-    lua_pushinteger(L, draw_x + desc.char_w);
-    return 1;
-}
-#endif
 
 /*
 硬件lcd qspi接口配置，需要在lcd.init前配置好
@@ -2137,6 +2066,13 @@ static int l_lcd_qspi_config(lua_State* L){
 @return nil 无返回值
 */
 static int l_lcd_user_ctrl_done(lua_State* L){
+	if (lcd_dft_conf == NULL) {
+		return 0;
+	}
+	if (luat_lcd_user_ctrl_done(lcd_dft_conf)) {
+		LLOGE("lcd user init finalize failed");
+		return 0;
+	}
 	lcd_dft_conf->is_init_done = 1;
 	if (LUAT_LCD_IM_QSPI_MODE == lcd_dft_conf->interface_mode) {
 		if (luat_lcd_qspi_is_no_ram(lcd_dft_conf)) {
@@ -2217,10 +2153,7 @@ static const rotable_Reg_t reg_lcd[] =
 	{ "qspi",		ROREG_FUNC(l_lcd_qspi_config)},
 	{ "user_done",		ROREG_FUNC(l_lcd_user_ctrl_done)},
     { "setAcchw",    ROREG_FUNC(l_lcd_set_acc_hw)},
-#ifdef LUAT_USE_UFONT
-    { "drawUTF8",   ROREG_FUNC(l_lcd_draw_utf8)},
-#endif
-#ifdef LUAT_USE_TJPGD
+#if defined(LUAT_USE_TJPGD) || defined(LUAT_USE_WEBP) || defined(LUAT_USE_JPG)
     { "image2raw",    ROREG_FUNC(l_lcd_image2raw)},
     { "showImage",    ROREG_FUNC(l_lcd_showimage)},
 #endif
@@ -2357,11 +2290,8 @@ static const rotable_Reg_t reg_lcd[] =
     { "HWID_0",         ROREG_INT(LUAT_LCD_HW_ID_0)},
     //@const RGB 硬件RGB lcd驱动 (根据芯片支持选择)
     { "RGB",            ROREG_INT(LUAT_LCD_PORT_RGB)},
-
-    // //@const ARM2D 硬件ARM2D lcd驱动 (根据芯片支持选择)
-    // { "ARM2D",         ROREG_INT(LUAT_LCD_PORT_ARM2D)},
-    // //@const DMA2D 硬件DMA2D lcd驱动 (根据芯片支持选择)
-    // { "DMA2D",         ROREG_INT(LUAT_LCD_PORT_DMA2D)},
+    //@const MIPI 硬件MIPI lcd驱动 (根据芯片支持选择)
+    { "MIPI",            ROREG_INT(LUAT_LCD_PORT_MIPI)},
 
 
     //@const WIRE_3_BIT_9_INTERFACE_I 三线spi 9bit 模式I

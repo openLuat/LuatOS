@@ -9,8 +9,12 @@
   1、通过 ADC7 读取电池电压（分压比 1:2），映射为电量百分比
   2、通过 GPIO52 检测 USB 插入状态
   3、根据 USB 状态和电池电压推断 充电中 / 放电中 / 无电池 状态
-  4、每 3 秒定时采集，状态变化时发布 BATTERY_STATUS 事件
+  4、每 10 秒定时采集，状态变化时发布 BATTERY_STATUS 事件
   5、响应 REQUEST_STATUS_REFRESH 重新发布当前状态
+
+  消息协议（订阅/发布）:
+  订阅: REQUEST_STATUS_REFRESH → 重新发布当前 BATTERY_STATUS
+  发布: BATTERY_STATUS → {present, level, voltage, charging, usb}
 
   电池状态判定逻辑：
   - VBAT < 1.5V 且 USB 未插入 → 无电池

@@ -59,17 +59,6 @@ int nes_deinit(nes_t *nes){
     return NES_OK;
 }
 
-void nes_rom_free(nes_t *nes){
-    if (!nes) return;
-#if (NES_USE_FS == 1)
-    nes_unload_file(nes);
-#else
-    nes_unload_rom(nes);
-#endif
-    nes_deinitex(nes);
-    nes_free(nes);
-}
-
 static inline void nes_palette_generate(nes_t* nes){
     for (uint8_t i = 0; i < 32; i++) {
         nes->nes_ppu.palette[i] = nes_palette[nes->nes_ppu.palette_indexes[i]];
@@ -132,6 +121,9 @@ static void nes_render_background_line(nes_t* nes,uint16_t scanline,nes_color_t*
             const uint8_t* tile_p = pattern_table[bg_base + (pattern_id >> 6)] + ((pattern_id & 0x3F) << 4);
             const uint8_t attribute = name_table[attr_y_offset + (tile_x >> 2)];
             nes_mapper_ppu_tile_fetch(nes, pattern_id, (uint16_t)(pattern_address + 8u), &pattern_table);
+            if (nes->nes_mapper.mapper_ppu) {
+                name_table = nes->nes_ppu.name_table[nametable_id];
+            }
             bit0_p = tile_p;
             high_bit = ((attribute >> (attr_y_shift | (tile_x & 2))) & 3) << 2;
         }
@@ -161,6 +153,9 @@ static void nes_render_background_line(nes_t* nes,uint16_t scanline,nes_color_t*
             const uint8_t* tile_p = pattern_table[bg_base + (pattern_id >> 6)] + ((pattern_id & 0x3F) << 4);
             const uint8_t attribute = name_table[attr_y_offset + (tile_x >> 2)];
             nes_mapper_ppu_tile_fetch(nes, pattern_id, (uint16_t)(pattern_address + 8u), &pattern_table);
+            if (nes->nes_mapper.mapper_ppu) {
+                name_table = nes->nes_ppu.name_table[nametable_id];
+            }
             bit0_p = tile_p;
             high_bit = ((attribute >> (attr_y_shift | (tile_x & 2))) & 3) << 2;
         }

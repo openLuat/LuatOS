@@ -65,16 +65,20 @@ void *luaM_growaux_ (lua_State *L, void *block, int *size, size_t size_elems,
 }
 
 
-l_noret luaM_toobig (lua_State *L) {
-  luaG_runerror(L, "memory allocation error: block too big");
-}
-
-
 #include "bget.h"
 #include "luat_base.h"
 
 #define LUAT_LOG_TAG "mem"
 #include "luat_log.h"
+
+
+l_noret luaM_toobig (lua_State *L, size_t n, size_t e, const char *what) {
+  LLOGE("memory allocation error: block too big %s n=%lu e=%lu",
+        what, (unsigned long)n, (unsigned long)e);
+  luaG_runerror(L, "memory allocation error: block too big (%s)", what);
+}
+
+
 /*
 ** generic allocation routine.
 */

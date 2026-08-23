@@ -8,6 +8,18 @@
 @tag LUAT_USE_NETWORK
 @usage
 -- 具体用法请查阅demo
+
+-- 版本更新说明
+-- 版本号：202607100900
+-- 1、更新时间：2026-07-10 09:00
+-- 2、更新内容
+--    新增 dnsproxy.close() 接口，关闭所有 socket 并清空 DNS 请求映射表
+
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增dnsproxy.version()接口
+--    支持dnsproxy库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local dnsproxy = {
@@ -118,6 +130,38 @@ function dnsproxy.on_ip_ready()
     socket.connect(dnsproxy.main_sc, dnsproxy.server or "223.5.5.5", 53)
 end
 
+--[[
+关闭 DNS 代理服务，清理所有 socket 和映射表。
+用于多网融合关闭时释放资源。
+@api dnsproxy.close()
+@usage
+dnsproxy.close()
+]]
+function dnsproxy.close()
+    if dnsproxy.main_sc then
+        socket.close(dnsproxy.main_sc)
+        dnsproxy.main_sc = nil
+    end
+    for adapter, sc in pairs(dnsproxy.srvs) do
+        socket.close(sc)
+        dnsproxy.srvs[adapter] = nil
+    end
+    dnsproxy.map = {}
+    dnsproxy.txid = 0x123
+end
+
 sys.subscribe("IP_READY", dnsproxy.on_ip_ready)
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+dnsproxy.version()
+]]
+function dnsproxy.version()
+    return "202607100900"
+end
+
+log.debug("dnsproxy", "version -> " .. dnsproxy.version())
 
 return dnsproxy

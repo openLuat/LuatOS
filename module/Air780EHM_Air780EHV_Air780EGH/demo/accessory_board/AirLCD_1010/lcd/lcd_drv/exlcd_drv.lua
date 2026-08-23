@@ -10,24 +10,23 @@
 2、配置显示缓冲区和自动刷新设置；
 
 对外接口：
-1、exlcd_drv.init()：初始化扩展LCD显示驱动
+1、exlcd_drv_init()：初始化扩展LCD显示驱动
 如果需要实现背光亮度调节，参考exlcd扩展库中的exlcd.set_bl(level)进行设置
 ]]
 
 local exlcd = require "exlcd"
 
-local exlcd_drv = {}
 
 --[[
 初始化扩展LCD显示驱动；
 
-@api exlcd_drv.init()
+@api exlcd_drv_init()
 @summary 配置并初始化AirLCD_1010扩展LCD显示
 @return boolean 初始化成功返回true，失败返回false
 
 @usage
 -- 初始化扩展LCD显示
-local result = exlcd_drv.init({})
+local result = exlcd_drv_init({})
 if result then
     log.info("扩展LCD初始化成功")
 else
@@ -35,8 +34,8 @@ else
 end
 ]]
 
-function exlcd_drv.init()
-    local result = exlcd.init({lcd_model = "AirLCD_1010", pin_vcc = 0xFF})
+local function exlcd_drv_init()
+    local result = exlcd.init({ lcd_model = "AirLCD_1010", pin_vcc = 0xFF })
 
     log.info("exlcd.init", result)
 
@@ -46,7 +45,12 @@ function exlcd_drv.init()
         lcd.autoFlush(false)
     end
 
-    return result
+    local result = exlcd_drv_init({})
+    if result then
+        log.info("扩展LCD初始化成功")
+    else
+        log.error("扩展LCD初始化失败")
+    end
 end
 
-return exlcd_drv
+exlcd_drv_init()

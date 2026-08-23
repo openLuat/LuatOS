@@ -15,22 +15,7 @@ function M.init(params)
         gpio.set(params.pin_pwr, 1)
     end
 
-    local r = lcd.init("hx8282", {
-        port      = params.port or lcd.RGB,
-        pin_rst   = params.pin_rst,
-        direction = params.direction or 0,
-        w         = params.w or 1024,
-        h         = params.h or 600,
-        xoffset   = params.xoffset or 0,
-        yoffset   = params.yoffset or 0,
-        hbp       = params.hbp or 120,
-        hspw      = params.hspw or 40,
-        hfp       = params.hfp or 150,
-        vbp       = params.vbp or 23,
-        vspw      = params.vspw or 10,
-        vfp       = params.vfp or 12,
-        bus_speed = params.bus_speed or (51 * 1000 * 1000),
-    })
+    local r = lcd.init("hx8282", params)
     return r
 end
 

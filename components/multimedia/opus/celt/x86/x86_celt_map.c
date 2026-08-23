@@ -29,11 +29,11 @@
 #include "config.h"
 #endif
 
-#include "x86/x86cpu.h"
-#include "celt_lpc.h"
-#include "pitch.h"
+#include "celt/x86/x86cpu.h"
+#include "celt/celt_lpc.h"
+#include "celt/pitch.h"
 #include "pitch_sse.h"
-#include "vq.h"
+#include "celt/vq.h"
 
 #if defined(OPUS_HAVE_RTCD)
 

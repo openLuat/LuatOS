@@ -1,11 +1,22 @@
 --[[
 @module  settings_config_app
-@summary 设置配置管理模块
+@summary 设置配置管理模块（fskv 持久化）
 @version 1.0
 @date    2026.04.02
 @author  江访
 @usage
 本模块管理应用配置参数，使用fskv进行持久化存储。
+
+消息协议（订阅/发布）:
+订阅: CONFIG_GET_DEVICE_NAME          → 查询设备名称
+订阅: CONFIG_SET_DEVICE_NAME(name)    → 设置设备名称
+订阅: STORAGE_PRIORITY_GET            → 查询存储优先级
+订阅: STORAGE_PRIORITY_SET(list)      → 设置存储优先级
+发布: CONFIG_DEVICE_NAME_VALUE(name)  → 设备名称返回值
+发布: CONFIG_CHANGED(key, value)      → 配置项变更通知
+发布: STORAGE_PRIORITY_VALUE(list)    → 存储优先级返回值
+发布: STORAGE_PRIORITY_CHANGED(list)  → 存储优先级变更通知
+
 功能：
 1. 开机自动初始化fskv
 2. 管理设备名称等配置参数

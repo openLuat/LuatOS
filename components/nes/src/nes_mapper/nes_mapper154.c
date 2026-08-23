@@ -18,8 +18,8 @@
 
 /* https://www.nesdev.org/wiki/INES_Mapper_154
  * Mapper 154 — Namco 118 with single-screen mirroring.
- * Same as mapper 88 (Namco 118) but bit 6 of CHR register 0 or 1 writes
- * selects single-screen nametable page (0=NT0, 1=NT1).
+ * Same CHR/PRG banking as mapper 88. Bits 6-7 of the bank-select write select
+ * the single-screen nametable page.
  */
 
 typedef struct {
@@ -44,50 +44,48 @@ static void nes_mapper_init(nes_t* nes) {
 
     uint8_t last = (uint8_t)(nes->nes_rom.prg_rom_size * 2u - 1u);
     nes_load_prgrom_8k(nes, 0, 0);
-    nes_load_prgrom_8k(nes, 1, 1);
+    nes_load_prgrom_8k(nes, 1, 0);
     nes_load_prgrom_8k(nes, 2, (uint8_t)(last - 1u));
     nes_load_prgrom_8k(nes, 3, last);
 
     if (nes->nes_rom.chr_rom_size == 0) {
         nes_load_chrrom_8k(nes, 0, 0);
     } else {
-        for (int i = 0; i < 8; i++) nes_load_chrrom_1k(nes, (uint8_t)i, 0);
+        nes_load_chrrom_1k(nes, 0, 0);
+        nes_load_chrrom_1k(nes, 1, 1);
+        nes_load_chrrom_1k(nes, 2, 0);
+        nes_load_chrrom_1k(nes, 3, 1);
+        for (int i = 4; i < 8; i++) nes_load_chrrom_1k(nes, (uint8_t)i, 0x40u);
     }
-    if (nes->nes_rom.four_screen == 0)
-        nes_ppu_screen_mirrors(nes, NES_MIRROR_ONE_SCREEN0);
+    nes_ppu_screen_mirrors(nes, NES_MIRROR_ONE_SCREEN0);
 }
 
 static void nes_mapper_write(nes_t* nes, uint16_t address, uint8_t data) {
     mapper154_t* r = (mapper154_t*)nes->nes_mapper.mapper_register;
     if (address & 1u) {
-        uint8_t bank = data & 0x3Fu;
-        if (r->reg_select <= 1u) {
-            /* bit 6 selects single-screen NT page */
-            r->mirror = (data >> 6) & 1u;
-            if (nes->nes_rom.four_screen == 0)
-                nes_ppu_screen_mirrors(nes, r->mirror ? NES_MIRROR_ONE_SCREEN1 : NES_MIRROR_ONE_SCREEN0);
-        }
         switch (r->reg_select) {
         case 0:
-            r->chr[0] = bank;
-            nes_load_chrrom_1k(nes, 0, (uint8_t)(bank * 2u));
-            nes_load_chrrom_1k(nes, 1, (uint8_t)(bank * 2u + 1u));
+            r->chr[0] = data;
+            nes_load_chrrom_1k(nes, 0, (uint16_t)(r->chr[0] & 0xFEu));
+            nes_load_chrrom_1k(nes, 1, (uint16_t)((r->chr[0] & 0xFEu) + 1u));
             break;
         case 1:
-            r->chr[1] = bank;
-            nes_load_chrrom_1k(nes, 2, (uint8_t)(bank * 2u));
-            nes_load_chrrom_1k(nes, 3, (uint8_t)(bank * 2u + 1u));
+            r->chr[1] = data;
+            nes_load_chrrom_1k(nes, 2, (uint16_t)(r->chr[1] & 0xFEu));
+            nes_load_chrrom_1k(nes, 3, (uint16_t)((r->chr[1] & 0xFEu) + 1u));
             break;
-        case 2: r->chr[2] = bank; nes_load_chrrom_1k(nes, 4, bank); break;
-        case 3: r->chr[3] = bank; nes_load_chrrom_1k(nes, 5, bank); break;
-        case 4: r->chr[4] = bank; nes_load_chrrom_1k(nes, 6, bank); break;
-        case 5: r->chr[5] = bank; nes_load_chrrom_1k(nes, 7, bank); break;
-        case 6: r->prg[0] = bank; nes_load_prgrom_8k(nes, 0, bank); break;
-        case 7: r->prg[1] = bank; nes_load_prgrom_8k(nes, 1, bank); break;
+        case 2: r->chr[2] = data; nes_load_chrrom_1k(nes, 4, (uint16_t)(r->chr[2] | 0x40u)); break;
+        case 3: r->chr[3] = data; nes_load_chrrom_1k(nes, 5, (uint16_t)(r->chr[3] | 0x40u)); break;
+        case 4: r->chr[4] = data; nes_load_chrrom_1k(nes, 6, (uint16_t)(r->chr[4] | 0x40u)); break;
+        case 5: r->chr[5] = data; nes_load_chrrom_1k(nes, 7, (uint16_t)(r->chr[5] | 0x40u)); break;
+        case 6: r->prg[0] = data; nes_load_prgrom_8k(nes, 0, r->prg[0]); break;
+        case 7: r->prg[1] = data; nes_load_prgrom_8k(nes, 1, r->prg[1]); break;
         default: break;
         }
     } else {
         r->reg_select = data & 0x07u;
+        r->mirror = (data >> 6) & 1u;
+        nes_ppu_screen_mirrors(nes, r->mirror ? NES_MIRROR_ONE_SCREEN1 : NES_MIRROR_ONE_SCREEN0);
     }
 }
 

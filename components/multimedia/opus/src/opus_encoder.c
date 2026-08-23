@@ -30,30 +30,30 @@
 #endif
 
 #include <stdarg.h>
-#include "celt.h"
-#include "entenc.h"
-#include "modes.h"
-#include "API.h"
-#include "stack_alloc.h"
-#include "float_cast.h"
+#include "celt/celt.h"
+#include "celt/entenc.h"
+#include "celt/modes.h"
+#include "silk/API.h"
+#include "celt/stack_alloc.h"
+#include "celt/float_cast.h"
 #include "opus.h"
-#include "arch.h"
-#include "pitch.h"
+#include "celt/arch.h"
+#include "celt/pitch.h"
 #include "opus_private.h"
-#include "os_support.h"
-#include "cpu_support.h"
+#include "celt/os_support.h"
+#include "celt/cpu_support.h"
 #include "analysis.h"
-#include "mathops.h"
-#include "tuning_parameters.h"
+#include "celt/mathops.h"
+#include "silk/tuning_parameters.h"
 
 #ifdef ENABLE_DRED
-#include "dred_coding.h"
+#include "dnn/dred_coding.h"
 #endif
 
 #ifdef FIXED_POINT
-#include "fixed/structs_FIX.h"
+#include "silk/fixed/structs_FIX.h"
 #else
-#include "float/structs_FLP.h"
+#include "silk/float/structs_FLP.h"
 #endif
 #ifdef ENABLE_OSCE_TRAINING_DATA
 #include <stdio.h>

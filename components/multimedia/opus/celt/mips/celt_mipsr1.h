@@ -46,22 +46,22 @@
 #define OVERRIDE_comb_filter
 #endif
 
-#include "os_support.h"
-#include "mdct.h"
+#include "celt/os_support.h"
+#include "celt/mdct.h"
 #include <math.h>
-#include "celt.h"
-#include "pitch.h"
-#include "bands.h"
-#include "modes.h"
-#include "entcode.h"
-#include "quant_bands.h"
-#include "rate.h"
-#include "stack_alloc.h"
-#include "mathops.h"
-#include "float_cast.h"
+#include "celt/celt.h"
+#include "celt/pitch.h"
+#include "celt/bands.h"
+#include "celt/modes.h"
+#include "celt/entcode.h"
+#include "celt/quant_bands.h"
+#include "celt/rate.h"
+#include "celt/stack_alloc.h"
+#include "celt/mathops.h"
+#include "celt/float_cast.h"
 #include <stdarg.h>
-#include "celt_lpc.h"
-#include "vq.h"
+#include "celt/celt_lpc.h"
+#include "celt/vq.h"
 
 #if defined (__mips_dsp) && __mips == 32
 

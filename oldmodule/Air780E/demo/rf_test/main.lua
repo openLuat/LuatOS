@@ -1,5 +1,11 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 
+--[[
+DEPRECATED 2026-06-13: 本 demo 使用 mobile.nst* 旧 API, 已在 mobile-rf-test-rewrite
+分支被 mobile.rfTest* 替代, AT 协议解析整体迁到 script/libs/rfa.lua.
+后续 RF 校准工具 demo 请参考 rfa.lua 的 rfa.start.
+]]
+
 PROJECT = "rf_test"
 
 VERSION = "1.0.0"

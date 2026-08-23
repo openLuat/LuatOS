@@ -9,15 +9,35 @@ static lf_err_t little_flash_spi_transfer(const little_flash_t *lf,uint8_t *tx_b
     lf_err_t result = LF_ERR_OK;
     luat_spi_device_t *spi_dev = (luat_spi_device_t*)lf->spi.user_data;
     if (tx_len && rx_len) {
-        if (luat_spi_device_transfer(spi_dev , (const char*)tx_buf, tx_len, (char*)rx_buf, rx_len) <= 0) {
+        /* msg-only 路径：[SEND, RECV] 半双工事务 */
+        luat_spi_msg_t msgs[2] = {
+            { .mode = LUAT_SPI_MSG_SEND, .buff = tx_buf, .recv_buff = NULL, .len = tx_len },
+            { .mode = LUAT_SPI_MSG_RECV, .buff = rx_buf, .recv_buff = NULL, .len = rx_len },
+        };
+        // LLOGD("lflash device_trans_msgs SEND+RECV tx=%u rx=%u", (unsigned)tx_len, (unsigned)rx_len);
+        int r = luat_spi_device_trans_msgs(spi_dev, msgs, 2);
+        if (r < 0) {
+            LLOGE("lflash device_trans_msgs SEND+RECV failed rc=%d", r);
             result = LF_ERR_TRANSFER;
         }
     } else if (tx_buf) {
-        if (luat_spi_device_send(spi_dev ,  (const char*)tx_buf, tx_len) <= 0) {
+        luat_spi_msg_t msgs[1] = {
+            { .mode = LUAT_SPI_MSG_SEND, .buff = tx_buf, .recv_buff = NULL, .len = tx_len },
+        };
+        // LLOGD("lflash device_trans_msgs SEND tx=%u", (unsigned)tx_len);
+        int r = luat_spi_device_trans_msgs(spi_dev, msgs, 1);
+        if (r < 0) {
+            LLOGE("lflash device_trans_msgs SEND failed rc=%d", r);
             result = LF_ERR_WRITE;
         }
     } else {
-        if (luat_spi_device_recv(spi_dev , (char*)rx_buf, rx_len) <= 0) {
+        luat_spi_msg_t msgs[1] = {
+            { .mode = LUAT_SPI_MSG_RECV, .buff = rx_buf, .recv_buff = NULL, .len = rx_len },
+        };
+        // LLOGD("lflash device_trans_msgs RECV rx=%u", (unsigned)rx_len);
+        int r = luat_spi_device_trans_msgs(spi_dev, msgs, 1);
+        if (r < 0) {
+            LLOGE("lflash device_trans_msgs RECV failed rc=%d", r);
             result = LF_ERR_READ;
         }
     }

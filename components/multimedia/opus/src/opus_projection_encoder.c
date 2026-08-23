@@ -29,13 +29,13 @@
 #include "config.h"
 #endif
 
-#include "mathops.h"
-#include "os_support.h"
+#include "celt/mathops.h"
+#include "celt/os_support.h"
 #include "opus_private.h"
 #include "opus_defines.h"
 #include "opus_projection.h"
 #include "opus_multistream.h"
-#include "stack_alloc.h"
+#include "celt/stack_alloc.h"
 #include "mapping_matrix.h"
 
 struct OpusProjectionEncoder

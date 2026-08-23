@@ -419,7 +419,10 @@ static int fskv_clear_raw(fskv_file_ctx_t *ctx, void *userdata)
 static int fskv_stat_cb(lfs_t *lfs, void *userdata)
 {
     fskv_stat_args_t *args = (fskv_stat_args_t *)userdata;
-    *args->using_sz = lfs_fs_size(lfs) * LFS_BLOCK_DEVICE_ERASE_SIZE;
+    lfs_ssize_t used = lfs_fs_size(lfs);
+    if (used < 0) // 注意, lfs_fs_size 出错的时候返回是负数的
+        used = LFS_BLOCK_DEVICE_TOTOAL_SIZE / LFS_BLOCK_DEVICE_ERASE_SIZE;
+    *args->using_sz = (size_t)used * LFS_BLOCK_DEVICE_ERASE_SIZE;
     *args->total = LFS_BLOCK_DEVICE_TOTOAL_SIZE;
 
     lfs_dir_t dir = {0};

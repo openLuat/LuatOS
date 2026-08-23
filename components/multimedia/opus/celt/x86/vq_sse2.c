@@ -32,10 +32,10 @@
 
 #include <xmmintrin.h>
 #include <emmintrin.h>
-#include "celt_lpc.h"
-#include "stack_alloc.h"
-#include "mathops.h"
-#include "vq.h"
+#include "celt/celt_lpc.h"
+#include "celt/stack_alloc.h"
+#include "celt/mathops.h"
+#include "celt/vq.h"
 #include "x86cpu.h"
 
 

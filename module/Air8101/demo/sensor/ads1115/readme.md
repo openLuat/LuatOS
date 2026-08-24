@@ -53,7 +53,7 @@
 <tr>
 <td>12/U1TX<br/></td><td>SCL<br/></td></tr>
 <tr>
-<td>11/U1TX<br/></td><td>SDA<br/></td></tr>
+<td>11/U1RX<br/></td><td>SDA<br/></td></tr>
 <tr>
 <td>GND<br/></td><td>ADDR（设备地址 0x48）<br/></td></tr>
 <tr>

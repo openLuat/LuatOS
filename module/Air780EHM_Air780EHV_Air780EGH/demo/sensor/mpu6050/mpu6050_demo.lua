@@ -9,10 +9,10 @@
 
 本文件通过 exs_mpu6050 扩展库的 API 逐一演示 MPU6050 的以下功能：
 
-1.  I2C 初始化与芯片自检      -- i2c.setup + mpu.init, 自动检测地址 0x68/0x69, 自动校准
-2.  芯片温度读取              -- mpu.get_temp(), 单位 ℃
-3.  三轴加速度读取            -- mpu.get_accel(), 单位 g, 静止水平时 Z≈1.0g
-4.  三轴角速度读取            -- mpu.get_gyro(), 单位 °/s, 静止时应接近 0
+1.  I2C 初始化与芯片自检      -- i2c.setup + mpu.setup, 自动检测地址 0x68/0x69, 自动加载校准
+2.  芯片温度读取              -- mpu.get_data().temp, 单位 ℃
+3.  三轴加速度读取            -- mpu.get_data().accel, 单位 g, 静止水平时 Z≈1.0g
+4.  三轴角速度读取            -- mpu.get_data().gyro, 单位 °/s, 静止时应接近 0
 5.  静态倾角测量              -- mpu.get_tilt(), 通过加速度计直接推算俯仰/横滚角
 6.  碰撞/敲击检测             -- mpu.detect_tap(阈值, 去抖时间), 检测瞬时加速度冲击
 7.  自由落体/失重检测         -- mpu.detect_freefall(阈值), 三轴合加速度低于阈值时触发
@@ -20,7 +20,7 @@
 9.  手动重新校准(注释)        -- mpu.calibrate(), 设备需水平静止, 200次采样取平均
 10. 持续读取(加速度+互补滤波+碰撞) -- 循环 10 秒, 演示 get_attitude() 动态姿态融合
 
-附加: DMP 数字运动处理器     -- mpu.dmp_init() + mpu.dmp_get_euler(), 需 dmp_firmware.lua
+附加: DMP 数字运动处理器     -- mpu.dmp_init() + mpu.dmp_get_euler(), 固件已内置
 ]]
 
 -- 加载 exs_mpu6050 扩展库
@@ -41,14 +41,14 @@ local function mpu6050_task()
     ------------------------------------------------------------
     -- [1/10] 初始化 I2C + MPU6050
     -- - i2c.setup 配置 I2C 总线为快速模式(400kHz)
-    -- - mpu.init 自动检测芯片地址(先试0x68, 再试0x69), 验证 WHO_AM_I 寄存器(应为0x68)
-    -- - 首次上电会自动触发校准: 设备需水平静止, 采样200次, 需要50次以上有效静止采样
+    -- - mpu.setup 自动检测芯片地址(先试0x68, 再试0x69), 验证 WHO_AM_I 寄存器(应为0x68)
+    -- - 无校准数据时建议调用 calibrate(): 设备需水平静止, 采样200次, 需要50次以上有效静止采样
     -- - 校准数据会保存到文件 /mpu6050_calib.txt, 后续启动自动加载
     ------------------------------------------------------------
     log.info("TEST", "=== [1/10] 初始化 ===")
     i2c.setup(i2c_hwid, i2c.FAST)
 
-    if not mpu.init(i2c_hwid) then
+    if not mpu.setup({ i2c_id = i2c_hwid }) then
         log.error("TEST", "初始化失败! 检查接线: VCC=3.3V GND SCL SDA")
         while true do sys.wait(1000) end
     end
@@ -59,7 +59,7 @@ local function mpu6050_task()
     -- - 正常工作时芯片温度约 30~45℃, 随运行时间缓慢上升
     ------------------------------------------------------------
     log.info("TEST", "=== [2/10] 温度 ===")
-    local temp = mpu.get_temp()
+    local temp = mpu.get_data().temp
     log.info("TEST", string.format("芯片温度: %.1f°C", temp))
 
     ------------------------------------------------------------
@@ -70,7 +70,7 @@ local function mpu6050_task()
     -- - 量程默认 ±2g, 分辨率 16384 LSB/g
     ------------------------------------------------------------
     log.info("TEST", "=== [3/10] 加速度 (单位g) ===")
-    local a = mpu.get_accel()
+    local a = mpu.get_data().accel
     log.info("TEST", string.format("accel  x=%.3f  y=%.3f  z=%.3f", a.x, a.y, a.z))
     -- 如果 Z 轴偏差超过 0.15g, 提示检查放置或校准
     if math.abs(a.z - 1.0) > 0.15 then
@@ -84,7 +84,7 @@ local function mpu6050_task()
     -- - 量程默认 ±250°/s, 分辨率 131 LSB/(°/s)
     ------------------------------------------------------------
     log.info("TEST", "=== [4/10] 陀螺仪 (单位°/s) ===")
-    local g = mpu.get_gyro()
+    local g = mpu.get_data().gyro
     log.info("TEST", string.format("gyro   x=%.1f  y=%.1f  z=%.1f", g.x, g.y, g.z))
     if math.abs(g.x) > 5 or math.abs(g.y) > 5 or math.abs(g.z) > 5 then
         log.warn("TEST", "陀螺零偏较大(期望≈0), 重新校准试试")
@@ -135,7 +135,7 @@ local function mpu6050_task()
     -- - is_calibrated() 返回校准数据是否就绪
     -- - 校准数据来自: 首次自动校准 或 手动 calibrate() 调用
     -- - 数据保存在 /mpu6050_calib.txt (6个值: gx,gy,gz,ax,ay,az)
-    -- - 无校准时 get_accel/get_gyro 返回原始值, 精度降低
+    -- - 无校准时 get_data() 返回原始值, 精度降低
     ------------------------------------------------------------
     log.info("TEST", "=== [8/10] 校准状态 ===")
     log.info("TEST", "已校准:", mpu.is_calibrated())
@@ -163,7 +163,7 @@ local function mpu6050_task()
     local start = os.clock()
     local tap_count = 0
     while os.clock() - start < 10 do
-        local a = mpu.get_accel()
+        local a = mpu.get_data().accel
         local p, r = mpu.get_attitude()
         if mpu.detect_tap(2.0, 500) then
             tap_count = tap_count + 1
@@ -187,9 +187,8 @@ end
 -- DMP 数字运动处理器测试 (可选)
 -- - DMP 是 MPU6050 内置的运动处理引擎, 直接输出融合后的四元数/欧拉角
 -- - 相比互补滤波, DMP 精度更高、CPU 负载更低
--- - 前提: 需要 dmp_firmware.lua 固件文件 (将 DMP 固件数组转为 Lua table)
+-- - DMP 固件已内置在 exs_mpu6050.lua 中 (MotionApps v20), 无需额外文件
 --   固件来源: GitHub i2cdevlib → Arduino/MPU6050/MPU6050_6Axis_MotionApps20.h
---   将 dmpMemory[3062] 数组复制为 Lua 格式: return {0x00, 0x01, ...}
 -- - DMP 输出: Roll(横滚), Pitch(俯仰), Yaw(偏航, 无磁力计会漂移)
 ----------------------------------------------------------------
 local function mpu6050_dmp()
@@ -209,5 +208,5 @@ end
 -- 启动基础测试任务 (协程运行, 通过命名函数指定)
 sys.taskInit(mpu6050_task)
 
--- 启动 DMP 测试任务 (可选, 无 dmp_firmware.lua 时 dmp_init 会返回 false)
+-- 启动 DMP 测试任务 (可选)
 sys.taskInit(mpu6050_dmp)

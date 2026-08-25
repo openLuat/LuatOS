@@ -29,6 +29,11 @@ exair153x_wdt.feed()
 exair153x_wdt.trigger_reset()
 
 -- 版本更新说明
+-- 版本号：202608260000
+-- 1、更新时间：2026-08-26 00:00
+-- 2、更新内容
+--    将 auto_feed_period_s 的最小限制从 150 秒改为 0（不能为负数）
+--
 -- 版本号：202608030000
 -- 1、更新时间：2026-08-03 00:00
 -- 2、更新内容
@@ -51,7 +56,7 @@ local PIN_ACTIVE_LEVEL  = 0
 
 local PULSE_MS                  = 250   -- 喂狗脉冲固定宽度（ms），库内常量，用户不可配置
 local DEFAULT_AUTO_FEED_PERIOD  = 180   -- 自动喂狗默认周期（s）
-local MIN_AUTO_FEED_PERIOD      = 150   -- 自动喂狗最小周期（s）
+local MIN_AUTO_FEED_PERIOD      = 0     -- 自动喂狗最小周期（s）
 local FEED_COOLDOWN_MS          = 1000  -- 手动喂狗防误触发最小间隔（ms）
 
 -- 事件名：用于手动喂狗 / trigger_reset 唤醒主循环并重置计时
@@ -146,10 +151,10 @@ local function validate_params(cfg)
         return false
     end
 
-    -- 校验 auto_feed_period_s（可选，小于最小值直接失败）
+    -- 校验 auto_feed_period_s（可选，不能为负数）
     if cfg.auto_feed_period_s ~= nil then
         if type(cfg.auto_feed_period_s) ~= "number" or cfg.auto_feed_period_s < MIN_AUTO_FEED_PERIOD then
-            log.error("exair153x_wdt", string.format("auto_feed_period_s 必须 >= %d 秒", MIN_AUTO_FEED_PERIOD))
+            log.error("exair153x_wdt", "auto_feed_period_s 不能为负数")
             return false
         end
     end
@@ -300,7 +305,7 @@ end
 exair153x_wdt.version()
 ]]
 function M.version()
-    return "202608030000"
+    return "202608260000"
 end
 
 log.debug("exair153x_wdt", "version -> " .. M.version())

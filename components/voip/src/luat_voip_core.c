@@ -19,7 +19,7 @@
 #include "luat_network_adapter.h"
 #include "luat_audio.h"
 
-#ifdef LUAT_USE_VOIP_AUDIO_V2
+#ifdef LUAT_USE_AUDIO_V2
 #include "luat_audio_driver.h"
 #include "luat_audio_core.h"
 #endif
@@ -187,7 +187,7 @@ static int voip_dac_play_cb(uint8_t id, luat_dac_event_t event, uint32_t tx_len,
 }
 #endif
 
-#ifdef LUAT_USE_VOIP_AUDIO_V2
+#ifdef LUAT_USE_AUDIO_V2
 /* audio_v2 全双工模式下 DAC 完成一帧的 weak 回调实现 */
 void luat_audio_voip_dac_done_cb(void)
 {
@@ -673,7 +673,7 @@ static int voip_start_audio(voip_ctx_t *ctx, uint32_t sample_rate)
 #if defined(LUAT_USE_VOIP_AUDIO_DAC)
         ctx->audio_backend = VOIP_AUDIO_BACKEND_NONE;
         luat_audio_record_set_callback(voip_i2s_cb);
-#if defined(LUAT_USE_VOIP_AUDIO_V2)
+#if defined(LUAT_USE_AUDIO_V2)
         {
             luat_audio_driver_ctrl_t *ctrl = luat_audio_driver_probe(NULL);
             if (!ctrl) {
@@ -753,7 +753,7 @@ static void voip_stop_audio(voip_ctx_t *ctx)
         memset(ctx->duplex_play_buf, 0, ctx->frame_bytes * ctx->play_slot_count);
     }
 
-#if defined(LUAT_USE_VOIP_AUDIO_V2)
+#if defined(LUAT_USE_AUDIO_V2)
     if (ctx->audio_v2_ctrl) {
         luat_audio_driver_deactivate((luat_audio_driver_ctrl_t *)ctx->audio_v2_ctrl);
         ctx->audio_v2_ctrl = NULL;

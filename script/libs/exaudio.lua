@@ -7,6 +7,7 @@
 @updates
     v3.1 2026.8.25
         1. 修复旧音频框架多音频连续播放报错的问题，同步更新 exaudio.play 两处调用，旧框架多音频播放恢复正常。
+        2. 修复部分固件跑sip功能时，会出现死机或通话无声的问题。
     v3.0 2026.8.19
         1. 修复PCM流式录音停止后不触发录音完成回调的问题
         2. 修复exaudio.pm(exaudio.RESUME)恢复ES8311时未传递codec_voltage参数，
@@ -80,10 +81,10 @@
 @usage
 
 -- 版本更新说明
--- 版本号：202608251631
--- 1、更新时间：2026-08-25 16:31
---    修复旧音频框架多音频连续播放报错的问题，
---    同步更新 exaudio.play 两处调用，旧框架多音频播放恢复正常。
+-- 版本号：202608251813
+-- 1、更新时间：2026-08-25 18:13
+--    修复旧音频框架多音频连续播放报错的问题，同步更新 exaudio.play 两处调用，旧框架多音频播放恢复正常。
+--    修复部分固件跑sip功能时，会出现死机或通话无声的问题。
 -- 版本号：202608192010
 -- 1、更新时间：2026-08-19 20:10
 --    修复PCM流式录音手动停止后不触发录音完成回调的问题。
@@ -472,7 +473,7 @@ local function audio_v2_callback(request_index, event, param)
     elseif event == audio_v2.REQUEST_GET_NEW_DATA then
         if request_index == sip_v2_request_index and sip_v2_record_zbuff and voip then
             local used = sip_v2_record_zbuff:used()
-            if used > 0 then
+            if used > 0 and type(voip.pcmIn) == "function" then
                 voip.pcmIn(sip_v2_record_zbuff:query(0, used))
                 sip_v2_record_zbuff:del()
             end
@@ -899,6 +900,14 @@ local function audio_v2_setup()
     else
         -- DAC等其他模式下初始化完成后进入低功耗休眠
         audio_v2.shutdown(false, true, true)
+    end
+    -- 同步旧音频框架的 bus_type，确保 voip 能正确识别音频后端为 I2S
+    if audio_setup_param.model == "es8311" and audio and audio.setBus then
+        pcall(audio.setBus, MULTIMEDIA_ID, audio.BUS_I2S, {
+            chip = "es8311",
+            i2cid = audio_setup_param.i2c_id,
+            i2sid = I2S_ID
+        })
     end
     log.info("exaudio.setup", "audio_v2初始化完成")
     return true
@@ -1526,6 +1535,10 @@ end
 
 function exaudio.sip_voip_start()
     if not USE_AUDIO_V2 or not audio_v2 or not voip or not sys then return false end
+    if type(voip.pcmOut) ~= "function" or type(voip.pcmIn) ~= "function" then
+        log.warn("exaudio", "voip bridge not supported in this firmware")
+        return false
+    end
     local codec = audio_v2.DATA_CODEC_TYPE_VOIP_PCM
     sip_v2_record_zbuff = zbuff.create(4096)
     local ok, request_id = audio_v2.speech(codec, sip_v2_record_zbuff, 1,
@@ -1537,6 +1550,7 @@ function exaudio.sip_voip_start()
     sip_v2_request_index, sip_v2_source_index = request_id, source_id
     sip_v2_timer = sys.timerLoopStart(function()
         if not sip_v2_source_index or not voip.isRunning() then return end
+        if type(voip.pcmOut) ~= "function" then return end
         local pcm = voip.pcmOut(160) or string.rep("\0", 320)
         audio_v2.input(sip_v2_source_index, pcm, false)
     end, 20)
@@ -2217,7 +2231,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608251631"
+    return "202608251813"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

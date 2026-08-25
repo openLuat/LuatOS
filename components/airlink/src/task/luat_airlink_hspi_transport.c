@@ -94,8 +94,8 @@ static void hspi_fota_exec(void) {
 }
 
 // ==================== HSPI INT 引脚（XT804 PB_07 → 1601 GPIO12）====================
-
-#define HSPI_INT_PIN      12
+// 由 airlink.config(airlink.CONF_SPI_IRQ, <pin>) 配置, 未配置则不初始化 INT 中断
+// (传输任务本身有 20ms 轮询兜底, 无 INT 引脚时退化为轮询模式)
 
 static TaskHandle_t g_hspi_task_handle = NULL;  // 传输任务句柄 (ISR→定向通知)
 static int hspi_int_irq_cb(int pin, void* args) {
@@ -108,18 +108,22 @@ static int hspi_int_irq_cb(int pin, void* args) {
 }
 
 static void hspi_int_gpio_init(void) {
+    if (g_airlink_spi_conf.irq_pin == 0) {
+        LLOGW("HSPI INT pin not configured, skip INT GPIO init (polling mode)");
+        return;
+    }
     luat_gpio_cfg_t cfg = {0};
     luat_gpio_set_default_cfg(&cfg);
-    cfg.pin = HSPI_INT_PIN;
+    cfg.pin = g_airlink_spi_conf.irq_pin;
     cfg.mode = Luat_GPIO_IRQ;
     cfg.pull = Luat_GPIO_PULLUP;
     cfg.irq_type = Luat_GPIO_FALLING;
     cfg.irq_cb = hspi_int_irq_cb;
     int ret = luat_gpio_open(&cfg);
     if (ret == 0) {
-        LLOGI("HSPI INT GPIO%d configured, falling edge", HSPI_INT_PIN);
+        LLOGI("HSPI INT GPIO%d configured, falling edge", g_airlink_spi_conf.irq_pin);
     } else {
-        LLOGE("HSPI INT GPIO%d open failed %d", HSPI_INT_PIN, ret);
+        LLOGE("HSPI INT GPIO%d open failed %d", g_airlink_spi_conf.irq_pin, ret);
     }
 }
 
@@ -228,7 +232,7 @@ static void hspi_transport_task(void *param) {
     // （SPI 在 xt804_hspi_spi_xfer 第一次调用时懒初始化）
     xt804_hspi_enable_host_int();
 
-    // 配置 GPIO12 下降沿中断，接收 XT804 的 INT 信号
+    // 配置 INT 下降沿中断接收 XT804 信号（引脚由 airlink.config(CONF_SPI_IRQ) 指定）
     hspi_int_gpio_init();
 
     // 设置当前模式，使命令能路由到 HSPI 队列

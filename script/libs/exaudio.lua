@@ -1,10 +1,12 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.0
-@date    2026.8.19
+@version 3.1
+@date    2026.8.25
 @author  拓毅恒
 @updates
+    v3.1 2026.8.25
+        1. 修复旧音频框架多音频连续播放报错的问题，同步更新 exaudio.play 两处调用，旧框架多音频播放恢复正常。
     v3.0 2026.8.19
         1. 修复PCM流式录音停止后不触发录音完成回调的问题
         2. 修复exaudio.pm(exaudio.RESUME)恢复ES8311时未传递codec_voltage参数，
@@ -78,6 +80,10 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202608251631
+-- 1、更新时间：2026-08-25 16:31
+--    修复旧音频框架多音频连续播放报错的问题，
+--    同步更新 exaudio.play 两处调用，旧框架多音频播放恢复正常。
 -- 版本号：202608192010
 -- 1、更新时间：2026-08-19 20:10
 --    修复PCM流式录音手动停止后不触发录音完成回调的问题。
@@ -516,6 +522,181 @@ local function audio_v2_callback(request_index, event, param)
     end
 end
 
+-- ==================== 播放控制 ====================
+-- audio模式开始播放
+local function start_next_play()
+    local request = audio_play_queue_pop_request()
+    if not request then
+        return false
+    end
+    
+    local playConfigs = request.configs
+    audio_play_param.priority = request.priority
+    
+    -- 处理不同播放类型
+    local play_type = playConfigs.type
+    if play_type == 0 then  -- 文件播放
+        if not playConfigs.content then
+            log.error("文件播放需要指定content(文件路径或路径表)")
+            return false
+        end
+
+        local content_type = type(playConfigs.content)
+        if content_type == "table" then
+            for _, path in ipairs(playConfigs.content) do
+                if type(path) ~= "string" then
+                    log.error("播放列表元素必须为字符串路径")
+                    return false
+                end
+            end
+            -- 多文件播放时检查音频参数一致性
+            if #playConfigs.content > 1 then
+                -- 根据文件扩展名获取codec类型
+                local function get_codec_type(file_path)
+                    local ext = file_path:match("%.([^.]+)$")
+                    if ext then
+                        ext = ext:lower()
+                        if ext == "mp3" then
+                            return codec.MP3
+                        elseif ext == "amr" then
+                            return codec.AMR
+                        end
+                    end
+                    return nil
+                end
+                
+                local codec_type = get_codec_type(playConfigs.content[1])
+                if not codec_type then
+                    log.error("无法识别第一个音频文件格式:", playConfigs.content[1])
+                    return false
+                end
+                
+                -- 创建临时decoder用于获取音频信息
+                local coder = codec.create(codec_type, true)
+                if not coder then
+                    log.error("无法创建codec decoder, 类型:", codec_type)
+                    return false
+                end
+                local result, audio_format, num_channels, sample_rate, bits_per_sample, is_signed = codec.info(coder, playConfigs.content[1])
+                if not result then
+                    log.error("无法获取第一个音频文件信息:", playConfigs.content[1])
+                    codec.release(coder)
+                    return false
+                end
+                for i = 2, #playConfigs.content do
+                    local codec_type2 = get_codec_type(playConfigs.content[i])
+                    if codec_type2 ~= codec_type then
+                        log.error("多文件播放要求格式一致，文件", playConfigs.content[i], 
+                            "格式与第一个文件格式不同")
+                        codec.release(coder)
+                        return false
+                    end
+                    local result2, audio_format2, num_channels2, sample_rate2, bits_per_sample2, is_signed2 = codec.info(coder, playConfigs.content[i])
+                    if not result2 then
+                        log.error("无法获取音频文件信息:", playConfigs.content[i])
+                        codec.release(coder)
+                        return false
+                    end
+                    if sample_rate2 ~= sample_rate then
+                        log.error("多文件播放要求采样率一致，文件", playConfigs.content[i], 
+                            "采样率", sample_rate2, "与第一个文件采样率", sample_rate, "不同")
+                        codec.release(coder)
+                        return false
+                    end
+                    if num_channels2 ~= num_channels then
+                        log.error("多文件播放要求声道数一致，文件", playConfigs.content[i],
+                            "声道数", num_channels2, "与第一个文件声道数", num_channels, "不同")
+                        codec.release(coder)
+                        return false
+                    end
+                    if bits_per_sample2 ~= bits_per_sample then
+                        log.error("多文件播放要求采样位深一致，文件", playConfigs.content[i],
+                            "位深", bits_per_sample2, "与第一个文件位深", bits_per_sample, "不同")
+                        codec.release(coder)
+                        return false
+                    end
+                end
+                codec.release(coder)
+                log.info("多文件播放参数检查通过，采样率:", sample_rate,
+                    "声道数:", num_channels, "位深:", bits_per_sample)
+            end
+        elseif content_type ~= "string" then
+            log.error("文件播放content必须为字符串或路径表")
+            return false
+        end
+
+        audio_play_param.content = playConfigs.content
+        if audio.play(MULTIMEDIA_ID, audio_play_param.content) ~= true then
+            return false
+        end
+
+    elseif play_type == 1 then  -- TTS播放
+        if not audio.tts then
+            log.error("本固件不支持TTS,请更换支持TTS 的固件")
+            return false
+        end
+        if not check_param(playConfigs.content, "string", "content") then
+            log.error("TTS播放content必须为字符串")
+            return false
+        end
+        audio_play_param.content = playConfigs.content
+        if audio.tts(MULTIMEDIA_ID, audio_play_param.content)  ~= true  then
+            return false
+        end
+
+    elseif play_type == 2 then  -- 流式播放
+        if not check_param(playConfigs.sampling_rate, "number", "sampling_rate") then
+            return false
+        end
+        if not check_param(playConfigs.sampling_depth, "number", "sampling_depth") then
+            return false
+        end
+
+        audio_play_param.content = playConfigs.content
+        audio_play_param.sampling_rate = playConfigs.sampling_rate
+        audio_play_param.sampling_depth = playConfigs.sampling_depth
+        audio_play_param.channels = audio_setup_param.channels or 1
+
+        -- 计算每个缓冲区的大小（字节数）
+        audio_play_param.stream_buffer_size = calculate_buffer_size(
+            audio_play_param.sampling_rate,
+            audio_play_param.sampling_depth,
+            audio_play_param.channels
+        )
+
+        if playConfigs.signed_or_unsigned ~= nil then
+            audio_play_param.signed_or_unsigned = playConfigs.signed_or_unsigned
+        end
+
+        audio.start(
+            MULTIMEDIA_ID, 
+            audio.PCM, 
+            audio_play_param.channels, 
+            playConfigs.sampling_rate, 
+            playConfigs.sampling_depth, 
+            audio_play_param.signed_or_unsigned
+        )
+
+        -- 发送初始数据（使用计算出的缓冲区大小）
+        if audio.write(MULTIMEDIA_ID, string.rep("\0", audio_play_param.stream_buffer_size)) ~= true then
+            return false
+        end
+    end                        
+
+    -- 处理回调函数
+    if playConfigs.cbfnc ~= nil then
+        if check_param(playConfigs.cbfnc, "function", "cbfnc") then
+            audio_play_param.cbfnc = playConfigs.cbfnc
+        else
+            return false
+        end
+    else
+        audio_play_param.cbfnc = nil
+    end
+    
+    return true
+end
+
 -- ==================== audio 回调处理 ====================
 local function audio_callback(id, event, point)
     if event == audio.MORE_DATA then
@@ -859,181 +1040,6 @@ local function audio_setup()
     
     audio.pm(MULTIMEDIA_ID, exaudio.SHUTDOWN) -- 关断模式
     log.info("exaudio.setup", "声道数已设置为:"..audio_setup_param.channels.."(1=单声道,2=双声道)")
-    return true
-end
-
--- ==================== 播放控制 ====================
--- audio模式开始播放
-local function audio_legacy_start_next_play()
-    local request = audio_play_queue_pop_request()
-    if not request then
-        return false
-    end
-    
-    local playConfigs = request.configs
-    audio_play_param.priority = request.priority
-    
-    -- 处理不同播放类型
-    local play_type = playConfigs.type
-    if play_type == 0 then  -- 文件播放
-        if not playConfigs.content then
-            log.error("文件播放需要指定content(文件路径或路径表)")
-            return false
-        end
-
-        local content_type = type(playConfigs.content)
-        if content_type == "table" then
-            for _, path in ipairs(playConfigs.content) do
-                if type(path) ~= "string" then
-                    log.error("播放列表元素必须为字符串路径")
-                    return false
-                end
-            end
-            -- 多文件播放时检查音频参数一致性
-            if #playConfigs.content > 1 then
-                -- 根据文件扩展名获取codec类型
-                local function get_codec_type(file_path)
-                    local ext = file_path:match("%.([^.]+)$")
-                    if ext then
-                        ext = ext:lower()
-                        if ext == "mp3" then
-                            return codec.MP3
-                        elseif ext == "amr" then
-                            return codec.AMR
-                        end
-                    end
-                    return nil
-                end
-                
-                local codec_type = get_codec_type(playConfigs.content[1])
-                if not codec_type then
-                    log.error("无法识别第一个音频文件格式:", playConfigs.content[1])
-                    return false
-                end
-                
-                -- 创建临时decoder用于获取音频信息
-                local coder = codec.create(codec_type, true)
-                if not coder then
-                    log.error("无法创建codec decoder, 类型:", codec_type)
-                    return false
-                end
-                local result, audio_format, num_channels, sample_rate, bits_per_sample, is_signed = codec.info(coder, playConfigs.content[1])
-                if not result then
-                    log.error("无法获取第一个音频文件信息:", playConfigs.content[1])
-                    codec.release(coder)
-                    return false
-                end
-                for i = 2, #playConfigs.content do
-                    local codec_type2 = get_codec_type(playConfigs.content[i])
-                    if codec_type2 ~= codec_type then
-                        log.error("多文件播放要求格式一致，文件", playConfigs.content[i], 
-                            "格式与第一个文件格式不同")
-                        codec.release(coder)
-                        return false
-                    end
-                    local result2, audio_format2, num_channels2, sample_rate2, bits_per_sample2, is_signed2 = codec.info(coder, playConfigs.content[i])
-                    if not result2 then
-                        log.error("无法获取音频文件信息:", playConfigs.content[i])
-                        codec.release(coder)
-                        return false
-                    end
-                    if sample_rate2 ~= sample_rate then
-                        log.error("多文件播放要求采样率一致，文件", playConfigs.content[i], 
-                            "采样率", sample_rate2, "与第一个文件采样率", sample_rate, "不同")
-                        codec.release(coder)
-                        return false
-                    end
-                    if num_channels2 ~= num_channels then
-                        log.error("多文件播放要求声道数一致，文件", playConfigs.content[i],
-                            "声道数", num_channels2, "与第一个文件声道数", num_channels, "不同")
-                        codec.release(coder)
-                        return false
-                    end
-                    if bits_per_sample2 ~= bits_per_sample then
-                        log.error("多文件播放要求采样位深一致，文件", playConfigs.content[i],
-                            "位深", bits_per_sample2, "与第一个文件位深", bits_per_sample, "不同")
-                        codec.release(coder)
-                        return false
-                    end
-                end
-                codec.release(coder)
-                log.info("多文件播放参数检查通过，采样率:", sample_rate,
-                    "声道数:", num_channels, "位深:", bits_per_sample)
-            end
-        elseif content_type ~= "string" then
-            log.error("文件播放content必须为字符串或路径表")
-            return false
-        end
-
-        audio_play_param.content = playConfigs.content
-        if audio.play(MULTIMEDIA_ID, audio_play_param.content) ~= true then
-            return false
-        end
-
-    elseif play_type == 1 then  -- TTS播放
-        if not audio.tts then
-            log.error("本固件不支持TTS,请更换支持TTS 的固件")
-            return false
-        end
-        if not check_param(playConfigs.content, "string", "content") then
-            log.error("TTS播放content必须为字符串")
-            return false
-        end
-        audio_play_param.content = playConfigs.content
-        if audio.tts(MULTIMEDIA_ID, audio_play_param.content)  ~= true  then
-            return false
-        end
-
-    elseif play_type == 2 then  -- 流式播放
-        if not check_param(playConfigs.sampling_rate, "number", "sampling_rate") then
-            return false
-        end
-        if not check_param(playConfigs.sampling_depth, "number", "sampling_depth") then
-            return false
-        end
-
-        audio_play_param.content = playConfigs.content
-        audio_play_param.sampling_rate = playConfigs.sampling_rate
-        audio_play_param.sampling_depth = playConfigs.sampling_depth
-        audio_play_param.channels = audio_setup_param.channels or 1
-
-        -- 计算每个缓冲区的大小（字节数）
-        audio_play_param.stream_buffer_size = calculate_buffer_size(
-            audio_play_param.sampling_rate,
-            audio_play_param.sampling_depth,
-            audio_play_param.channels
-        )
-
-        if playConfigs.signed_or_unsigned ~= nil then
-            audio_play_param.signed_or_unsigned = playConfigs.signed_or_unsigned
-        end
-
-        audio.start(
-            MULTIMEDIA_ID, 
-            audio.PCM, 
-            audio_play_param.channels, 
-            playConfigs.sampling_rate, 
-            playConfigs.sampling_depth, 
-            audio_play_param.signed_or_unsigned
-        )
-
-        -- 发送初始数据（使用计算出的缓冲区大小）
-        if audio.write(MULTIMEDIA_ID, string.rep("\0", audio_play_param.stream_buffer_size)) ~= true then
-            return false
-        end
-    end                        
-
-    -- 处理回调函数
-    if playConfigs.cbfnc ~= nil then
-        if check_param(playConfigs.cbfnc, "function", "cbfnc") then
-            audio_play_param.cbfnc = playConfigs.cbfnc
-        else
-            return false
-        end
-    else
-        audio_play_param.cbfnc = nil
-    end
-    
     return true
 end
 
@@ -1500,7 +1506,7 @@ function exaudio.play_start(playConfigs)
                 
                 -- 将新请求加入队列并立即播放
                 audio_play_queue_push_request(request)
-                return audio_legacy_start_next_play()
+                return start_next_play()
             else
                 -- 优先级不够高，将请求加入队列等待
                 audio_play_queue_push_request(request)
@@ -1509,7 +1515,7 @@ function exaudio.play_start(playConfigs)
         else
             -- 没有正在播放，将请求加入队列并立即播放
             audio_play_queue_push_request(request)
-            return audio_legacy_start_next_play()
+            return start_next_play()
         end
     end
 end
@@ -2211,7 +2217,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608211054"
+    return "202608251631"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

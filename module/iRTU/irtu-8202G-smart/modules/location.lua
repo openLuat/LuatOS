@@ -188,33 +188,47 @@ local function get_lbs_status()
     return airlbs_mode == 1 and 5 or 4
 end
 
--- GPS定位模式定位（GPS常开）
--- 优先 GPS：有缓存直接用；无缓存则等待 GPS 定位成功（GPS_TIMEOUT 秒），超时才降级基站
--- 开机即寻宠模式场景：首报必须给足 GPS 搜星时间，避免误用基站
-function location.get_find_mode_location()
-    -- 确保GPS正在运行（常开，无超时）
+-- 寻宠模式：主动打开 GPS（DEFAULT 常开，无超时）
+-- 开机进入寻宠模式时立即调用，GPS 后台持续定位；
+-- 定位成功后由 GPS 定位成功事件（LOCATION_SUCCESS/GNSS_STATE FIXED）驱动 5s 高频上报
+function location.start_find_gps()
     if not location_state._gps_started then
         location_state._gps_started = true
         exgnss.open(exgnss.DEFAULT, {tag = "gps_find"})
-        log.info("location", "GPS定位模式GPS已常开")
+        log.info("location", "寻宠模式 GPS 已开启（常开）")
+    end
+end
+
+-- GPS定位模式定位（GPS常开，不阻塞）
+-- 到点上报告时直接判断 GPS 是否已定位成功（is_fix）：
+--   - 已定位成功 → 直接 exgnss.rmc(2) 取坐标发送（gps_status=2）
+--   - 未定位成功 → 不使用缓存 GPS 数据，立即降级基站（不等待，GPS 后台继续定位）
+-- GPS 常开持续在后台定位，定位成功后由定位成功事件驱动 5s 高频上报
+function location.get_find_mode_location()
+    -- 确保GPS正在运行（常开，无超时）
+    location.start_find_gps()
+
+    -- 1. 直接判断 GPS 是否已定位成功（不阻塞等待）
+    local fix = false
+    if exgnss.is_fix then
+        fix = exgnss.is_fix()
+    end
+    log.info("location", "GPS定位模式 is_fix=", tostring(fix))
+
+    if fix then
+        -- 已定位成功：直接取 RMC 坐标
+        local rmc_data = exgnss.rmc(2)
+        if rmc_data and rmc_data.valid and rmc_data.lat and rmc_data.lng then
+            location_state.last_gps_time = os.time()
+            location_state.last_gps_data = rmc_data
+            log.info("location", "GPS定位成功:", rmc_data.lat, rmc_data.lng)
+            return {lat = rmc_data.lat, lng = rmc_data.lng}, 2
+        end
     end
 
-    -- 检查GPS缓存（GPS_TIMEOUT 秒内有效）
-    if location_state.last_gps_data and (os.time() - location_state.last_gps_time) < config.LOCATION_CONFIG.GPS_TIMEOUT then
-        log.info("location", "GPS定位模式GPS使用缓存数据")
-        return {lat = location_state.last_gps_data.lat, lng = location_state.last_gps_data.lng}, 2
-    end
-
-    -- GPS无有效数据：等待 GPS 定位成功（GPS_TIMEOUT 秒），GPS常开期间 FIXED 事件会发布 LOCATION_SUCCESS
-    log.info("location", "GPS定位模式等待GPS定位，超时", config.LOCATION_CONFIG.GPS_TIMEOUT, "秒后降级基站")
-    local ok = sys.waitUntil("LOCATION_SUCCESS", config.LOCATION_CONFIG.GPS_TIMEOUT * 1000)
-    if ok and location_state.last_gps_data then
-        log.info("location", "GPS定位成功:", location_state.last_gps_data.lat, location_state.last_gps_data.lng)
-        return {lat = location_state.last_gps_data.lat, lng = location_state.last_gps_data.lng}, 2
-    end
-
-    -- GPS超时，降级基站
-    log.info("location", "GPS定位超时，使用AirLBS备选定位")
+    -- 2. 未定位成功（掉星/搜星中）：不使用缓存 GPS 数据，立即降级基站（不等待，GPS 后台继续定位）
+    --    30s 保底定时器检测到 GPS 未定位成功时走这里，上报 LBS 数据
+    log.info("location", "GPS未定位成功，不使用缓存，直接使用基站备选定位")
     local lbs_data = location.get_lbs_location()
     if lbs_data then
         return lbs_data, get_lbs_status()

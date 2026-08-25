@@ -24,6 +24,10 @@ local excloud = require("excloud")
 -- 由 collect_data_and_report 计算一次，避免 get_smart_mode_interval 被重复调用导致无运动次数重复累加
 local last_calc_interval = 0
 
+-- 寻宠模式 GPS 定位成功标志：本次上报 gps_status==2 时为 true，否则 false
+-- 主循环据此决定寻宠模式的下一次上报间隔：GPS成功→5s高频，失败→30s LBS保底
+local find_gps_ok = false
+
 -- ====== 方案B：震动触发立即上报 + 冷却期防抖 ======
 -- 震动事件名（gsensor 震动回调发布，主循环 waitUntil 监听）
 local MOTION_EVENT = "MOTION_EVENT"
@@ -274,13 +278,11 @@ local function collect_data_and_report()
     log.info("active_mode", "网络已就绪")
 
     local work_mode = get_work_mode()
-    log.info("active_mode", "DEBUG1 work_mode=" .. tostring(work_mode))
 
     -- 更新电源状态和 LED
     -- 黄灯 GPIO27：插入充电器常亮（充满或拔电灭）
     -- 绿灯 GPIO26：充电完成(充满)常亮；GPS定位模式慢闪(由上报完成处触发，10秒自动灭)
     local vbus_state, is_charge = tools.update_power_state()
-    log.info("active_mode", "DEBUG2 vbus=" .. tostring(vbus_state) .. " charge=" .. tostring(is_charge))
     local battery_data_led = battery.get_data()
     local is_full = battery_data_led and battery_data_led.level and battery_data_led.level >= 99
     if vbus_state == 1 then
@@ -311,8 +313,6 @@ local function collect_data_and_report()
     end
 
     -- 采集定位数据
-    log.info("active_mode", "DEBUG3 开始定位, is_low_power=" .. tostring(is_low_power))
-
     local is_moving = config.SENSOR_CONFIG and config.SENSOR_CONFIG.MOTION_DETECT_ON and gsensor.is_moving() or false
     -- 震动唤醒触发的上报：强制走 GPS（不依赖 is_moving 超时时序）
     -- 两个来源：
@@ -326,7 +326,6 @@ local function collect_data_and_report()
         log.info("active_mode", "震动唤醒上报，强制 GPS 定位")
     end
     local loc_data = location.get_location(work_mode, is_low_power, is_moving)
-    log.info("active_mode", "DEBUG4 定位完成, gps=" .. tostring(loc_data and loc_data.gps))
 
     -- 信号强度
     local signal = mobile.rsrp() or 0
@@ -400,6 +399,12 @@ local function collect_data_and_report()
         tools.greenLed_blink(10)
     end
 
+    -- 记录寻宠模式 GPS 定位成功标志（供主循环决定下次上报间隔）
+    if work_mode == config.DEVICE_MODE.FIND then
+        find_gps_ok = (gps_status == 2)
+        log.info("active_mode", "寻宠模式 GPS 定位成功标志:", tostring(find_gps_ok))
+    end
+
     log.info("active_mode", "数据上报完成")
 end
 
@@ -442,24 +447,114 @@ local function main_loop()
 
     -- 加载云平台连接模块（触发连接，由 create.lua 统一管理）
     -- 等待云平台连接成功后再上报开机
-    uart.write(0, "\r\n[BEFORE_WAIT]\r\n")
     sys.waitUntil("CLOUD_CONNECTED", 30000)
-    uart.write(0, "[AFTER_WAIT]\r\n")
-    log.info("active_mode", "DEBUG0 CLOUD_CONNECTED wait done")
+    log.info("active_mode", "云平台连接成功")
     report_startup()
-    uart.write(0, "[STARTUP_DONE]\r\n")
-    log.info("active_mode", "DEBUG0 startup done, entering main loop")
+    log.info("active_mode", "开机上报完成，进入主循环")
+
+    -- ====== 寻宠模式：GPS 定位成功事件驱动 5s 高频上报 + 30s LBS 保底 ======
+    -- 5s 定时器：GPS 定位成功后每 5 秒上报一次（高频追踪）
+    -- 用 sys.timerLoopStart（循环型），由 LOCATION_SUCCESS / GNSS_STATE FIXED 事件启动/重启，
+    -- GNSS_STATE LOSE 时停止，回退 30s LBS 保底
+    local find_5s_timer = nil
+    -- 上报进行中标志：防止 5s 高频与 30s 保底在上一轮上报未完成时重复触发任务堆积
+    -- （网络等待最长 30s，可能超过 5s 定时周期）
+    local find_reporting = false
+
+    -- 5s 循环定时器回调：GPS 已定位成功则上报，否则跳过（30s LBS 保底负责兜底）
+    local function find_timer_5s()
+        if get_work_mode() ~= config.DEVICE_MODE.FIND then return end
+        if not find_gps_ok then return end
+        if find_reporting then return end
+        find_reporting = true
+        log.info("active_mode", "寻宠5s定时器：GPS已定位成功，高频上报")
+        sys.taskInit(function()
+            local ok, err = pcall(collect_data_and_report)
+            find_reporting = false
+            if not ok then log.error("active_mode", "寻宠5s上报异常:", err) end
+        end)
+    end
+
+    -- GPS 定位成功事件触发：置成功标志 + 启动/重启 5s 高频循环定时器
+    -- 双事件源（LOCATION_SUCCESS + GNSS_STATE FIXED）保证触发可靠：
+    --   LOCATION_SUCCESS 是业务级事件（需 exgnss.rmc 就绪），GNSS_STATE FIXED 是底层事件
+    -- 重复触发无副作用：先停止旧循环再启新循环，等价于重置 5s 计时起点
+    local function find_on_gps_success()
+        if get_work_mode() ~= config.DEVICE_MODE.FIND then return end
+        log.info("active_mode", "收到GPS定位成功事件，启动5s高频上报")
+        find_gps_ok = true
+        if find_5s_timer then
+            sys.timerStop(find_5s_timer)
+        end
+        find_5s_timer = sys.timerLoopStart(find_timer_5s, 5000)
+    end
+
+    -- GPS 信号丢失（GNSS_STATE LOSE）：停止 5s 高频，回退 30s LBS 保底
+    local function find_on_gps_lose()
+        if get_work_mode() ~= config.DEVICE_MODE.FIND then return end
+        log.info("active_mode", "GPS信号丢失，停止5s高频，回退30s LBS保底")
+        find_gps_ok = false
+        if find_5s_timer then
+            sys.timerStop(find_5s_timer)
+            find_5s_timer = nil
+        end
+    end
+
+    -- 30s 定时器：每 30 秒检测 GPS；未定位成功则上报 LBS 保底，成功则不操作
+    local function find_timer_30s()
+        if get_work_mode() ~= config.DEVICE_MODE.FIND then return end
+        local fix = exgnss.is_fix and exgnss.is_fix() or false
+        if fix then
+            log.info("active_mode", "寻宠30s定时器：GPS已定位成功，不操作（由5s定时器上报）")
+            return
+        end
+        if find_reporting then return end
+        find_reporting = true
+        log.info("active_mode", "寻宠30s定时器：GPS未定位成功，上报LBS保底")
+        sys.taskInit(function()
+            local ok, err = pcall(collect_data_and_report)
+            find_reporting = false
+            if not ok then log.error("active_mode", "寻宠30s上报异常:", err) end
+        end)
+    end
+
+    -- 订阅 GPS 定位成功 / 丢失事件（驱动寻宠模式上报节奏）
+    sys.subscribe("LOCATION_SUCCESS", find_on_gps_success)
+    -- GNSS_STATE 事件（location.gnss_state_callback 处理后再分发到这里）：
+    -- FIXED → 启动/重启 5s 高频（与 LOCATION_SUCCESS 双保险）；LOSE → 停止 5s 高频
+    sys.subscribe("GNSS_STATE", function(event)
+        if event == "FIXED" then
+            find_on_gps_success()
+        elseif event == "LOSE" then
+            find_on_gps_lose()
+        end
+    end)
+
+    -- 启动 30s LBS 保底循环定时器（5s 高频由 GPS 定位成功事件触发启动）
+    sys.timerLoopStart(find_timer_30s, 30000)
+
+    -- 寻宠模式：开机立即打开 GPS 常开（不等第一次 30s 检测）。
+    -- GPS 后台持续定位，定位成功后由 GPS 定位成功事件驱动 5s 高频上报
+    if get_work_mode() == config.DEVICE_MODE.FIND then
+        location.start_find_gps()
+    end
+
+    log.info("active_mode", "寻宠模式GPS事件驱动已启用：定位成功→5s高频，未成功→30s LBS保底")
+    -- ==============================================================
 
     while true do
-        uart.write(0, "[CYCLE]\r\n")
-        log.info("active_mode", "DEBUG0 cycle start")
-        collect_data_and_report()
-
-        -- 本次上报间隔已在 collect_data_and_report 中计算并存入 last_calc_interval
+        -- 寻宠模式：上报由 5s/30s 双循环定时器驱动，主循环只等待，不重复上报
         local work_mode = get_work_mode()
         local interval = last_calc_interval
+        if work_mode == config.DEVICE_MODE.FIND then
+            sys.wait(1000)
+        else
+            collect_data_and_report()
 
-        log.info("active_mode", "等待下一次上报，间隔:", interval, "秒")
+            -- 本次上报间隔已在 collect_data_and_report 中计算并存入 last_calc_interval
+            interval = last_calc_interval
+            log.info("active_mode", "等待下一次上报，间隔:", interval, "秒")
+        end
 
         -- 非 GPS定位模式：上报完成后进入低功耗省电
         if work_mode ~= config.DEVICE_MODE.FIND then
@@ -468,6 +563,7 @@ local function main_loop()
 
         -- 等待下一次上报触发：
         --   智能模式：等待 MOTION_EVENT（震动唤醒立即上报）或定时到点
+        --   寻宠模式：GPS定位成功→5s高频上报；GPS未成功→30s LBS保底上报
         --   其他模式：等待 FORCE_REPORT（服务端指令）或定时到点
         local motion_wake = false
         if work_mode == config.DEVICE_MODE.SMART then
@@ -483,6 +579,9 @@ local function main_loop()
                     sys.waitUntil(MOTION_EVENT, 1000)
                 end
             end
+        elseif work_mode == config.DEVICE_MODE.FIND then
+            -- 寻宠模式主循环只等待（定时器驱动上报），不进低功耗以保持 GPS 常开
+            sys.wait(1000)
         else
             sys.waitUntil("FORCE_REPORT", interval * 1000)
         end

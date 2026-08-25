@@ -6,14 +6,14 @@ VERSION = "1.0.0"
 PRODUCT_KEY = "xxx" -- 到 iot.openluat.com 创建项目,获取正确的项目id
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
-sysplus = require("sysplus")
+-- sys = require("sys")
+-- sysplus = require("sysplus")
 
-log.info("ch390", "打开LDO供电")
-gpio.setup(20, 1)  --打开lan供电
+-- log.info("ch390", "打开LDO供电")
+-- gpio.setup(20, 1)  --打开lan供电
 
-require "lan"
--- require "wan"
+-- require "lan"
+require "wan"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

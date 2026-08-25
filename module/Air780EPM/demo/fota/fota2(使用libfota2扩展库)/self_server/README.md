@@ -87,7 +87,7 @@
 
 2、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)，点击 打开TCP 按钮，会创建一个TCP server，将server的地址和端口赋值给tcp_client_self_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
 
-详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
+详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://iot.luatos.com/#/p8000/netlab) 。
 
 3、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
 

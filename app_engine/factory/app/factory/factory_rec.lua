@@ -1,7 +1,7 @@
 --[[
 @module  factory_rec
 @summary 应用工厂-录音与应用生成业务层（exaudio + AI 生成 APP）
-@version 4.1
+@version 1.1
 @date    2026.08.15
 @author  江访
 @usage

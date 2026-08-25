@@ -165,7 +165,7 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
             LLOGE("extern source decode once failed, ret %d", ret);
             goto ERROR;
         }
-        // LLOGC(luat_audio_debug_flag, "decode once after, output pos %u, is_input_end %d, is_file_end %d, input_fifo %u", before_pos, source->is_input_end, is_file_end, luat_fifo_check_used_space(source->decode_input_fifo));
+        //LLOGC(luat_audio_debug_flag, "decode once after, temp output pos %u, is_input_end %d, is_file_end %d, input_fifo %u", source->decode_output_temp_buffer.pos, source->is_input_end, is_file_end, luat_fifo_check_used_space(source->decode_input_fifo));
         if (source->decode_output_temp_buffer.pos) {
             if (source->resample_ctx){
                 ret = source->request->dsp.opts->resample(&source->request->dsp, 
@@ -182,7 +182,7 @@ int luat_audio_extern_source_decode(luat_audio_extern_source_t *source)
                 luat_buffer_write(&source->decode_output_buffer, source->decode_output_temp_buffer.data, source->decode_output_temp_buffer.pos);
                 luat_rtos_task_resume_all();
             }
-
+            //LLOGC(luat_audio_debug_flag, "decode once after, output pos %u", source->decode_output_buffer.pos);
         } else {
             if (source->is_input_end && !luat_fifo_check_used_space(source->decode_input_fifo) && !source->decode_output_buffer.pos) {
                 source->is_decode_finish = 1;

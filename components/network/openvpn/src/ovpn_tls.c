@@ -149,9 +149,7 @@ void ovpn_tls_free(ovpn_client_t *cli) {
 
 /* Manual HMAC-MD5 using raw mbedtls_md5 API (avoids mbedtls_md PSA glue).
  * HMAC(K,m) = H((K^opad) || H((K^ipad) || m)), block size 64.
-/* ========== TLS application data processing ========== */
-
-/* Drive the TLS handshake and process post-handshake application data
+ * Drive the TLS handshake and process post-handshake application data
  * (key_method_2 exchange, PUSH_REQUEST/PUSH_REPLY).
  *
  * Reference: openvpn/src/openvpn/ssl.c tls_process_state, tls_multi_process

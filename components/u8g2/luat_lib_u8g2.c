@@ -34,7 +34,7 @@
 
 static luat_u8g2_conf_t* conf = NULL;
 
-uint8_t pinType = 255; // I2C_SW = 1, I2C_HW = 2, SPI_SW_3PIN = 3, SPI_SW_4PIN = 4, SPI_HW_4PIN=5, P8080 = 6
+static uint8_t pinType = 255; // I2C_SW = 1, I2C_HW = 2, SPI_SW_3PIN = 3, SPI_SW_4PIN = 4, SPI_HW_4PIN=5, P8080 = 6
 static uint8_t i2c_id;
 static uint8_t i2c_speed;
 static uint8_t i2c_scl;

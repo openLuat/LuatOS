@@ -1,5 +1,5 @@
-#include "luat_audio_define.h"
 #include "luat_base.h"
+#include "luat_audio_define.h"
 #include "luat_common_api.h"
 #include "luat_malloc.h"
 #include "luat_mem.h"

@@ -372,6 +372,8 @@ static const rotable_Reg_t reg_usb[] =
     { "MSC",       			ROREG_INT(LUAT_USB_CLASS_MSC)},
 	//@const CDC_ECM number 虚拟网卡类
     { "CDC_ECM",		ROREG_INT(LUAT_USB_CLASS_CDC_ECM)},
+	//@const RNDIS number 虚拟网卡类
+    { "RNDIS",			ROREG_INT(LUAT_USB_CLASS_RNDIS)},
 	//@const AUDIO number audio音频类
     { "AUDIO",       		ROREG_INT(LUAT_USB_CLASS_AUDIO)},
 	//@const HID_CM number HID设备类，自定义类型，用于透传数据，不能和标准键盘同时使用

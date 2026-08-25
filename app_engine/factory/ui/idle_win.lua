@@ -191,8 +191,20 @@ local function calc_layout()
         date_label_y = big_time_label_y + big_time_font_size + math.floor(15 * _G.density_scale)
         qrcode_size = math.max(math.floor(60 * _G.density_scale), math.min(math.floor(150 * _G.density_scale), math.floor(screen_w * 0.25 * _G.density_scale)))
         qrcode_y = date_label_y + date_font_size + math.floor(18 * _G.density_scale)
-        builtin_button_width = math.max(math.floor(60 * _G.density_scale), math.min(math.floor(90 * _G.density_scale), math.floor(screen_w * 0.16 * _G.density_scale)))
+        -- 按钮宽度按数量自适应：窄屏（如320宽）5个按钮约51px，宽屏约60-90px
+        local btn_count_n = math.max(1, #builtin_apps)
+        local btn_margin_n = math.floor(12 * _G.density_scale)
         builtin_button_spacing = math.max(math.floor(8 * _G.density_scale), math.min(math.floor(30 * _G.density_scale), math.floor(screen_w * 0.035 * _G.density_scale)))
+        builtin_button_width = math.floor((screen_w - 2 * btn_margin_n - (btn_count_n - 1) * builtin_button_spacing) / btn_count_n)
+        builtin_button_width = math.max(math.floor(48 * _G.density_scale), math.min(math.floor(90 * _G.density_scale), builtin_button_width))
+        -- 按钮文字字号与高度自适应（与 compact 分支一致，保证窄屏文字放得下）
+        local max_name_len_n = 4
+        builtin_button_font_size = math.floor((builtin_button_width - math.floor(8 * _G.density_scale)) / max_name_len_n)
+        builtin_button_font_size = math.max(16, math.min(18, builtin_button_font_size))
+        builtin_button_label_h = (builtin_button_font_size + 8) * 2
+        local bis_n = math.min(math.floor(40 * _G.density_scale), builtin_button_width - math.floor(10 * _G.density_scale))
+        local icon_top_n = math.floor(8 * _G.density_scale)
+        builtin_button_height = icon_top_n + bis_n + math.floor(6 * _G.density_scale) + builtin_button_label_h + math.floor(6 * _G.density_scale)
     end
 
     -- compact 分支已在上面按紧凑间距计算 buttons_y；其余分支用默认间距

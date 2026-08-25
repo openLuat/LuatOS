@@ -57,7 +57,7 @@ enum {
     LUAT_AUDIO_DRIVER_MODE_PLAY,           /**< 播放模式 */
     LUAT_AUDIO_DRIVER_MODE_RECORD,         /**< 录音模式 */
     LUAT_AUDIO_DRIVER_MODE_SPEECH,           /**< 通话模式 */
-    LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER,/**< 通话带缓冲区模式 */
+    LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER,/**< 通话带缓冲区模式，此时发送缓存数据填充由用户自行控制，不再由core处理 */
     LUAT_AUDIO_DRIVER_MODE_MAX,        /**< 最大驱动模式数量 */
 
     LUAT_AUDIO_DATA_CODEC_TYPE_RAW = 0,    /**< 原始音频数据编解码器 */
@@ -74,6 +74,8 @@ enum {
     LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_NB,  /**< Speex 窄带 8kHz 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_WB,  /**< Speex 宽带 16kHz 编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_SPEEX_UWB, /**< Speex 超宽带 32kHz 编解码器 */
+    LUAT_AUDIO_DATA_CODEC_TYPE_CC_BRIDGE_PCM, /**< CC-SIP桥接专用PCM直通编解码器，非Lua公共codec */
+    LUAT_AUDIO_DATA_CODEC_TYPE_VOIP_PCM,  /**< VOIP专用PCM直通编解码器 */
     LUAT_AUDIO_DATA_CODEC_TYPE_MAX,        /**< 最大编解码器类型 */
     LUAT_AUDIO_DATA_CODEC_TYPE_HW = 0x80, /**< 编解码器类型-硬件编解码器优先模式 */
 

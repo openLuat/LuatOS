@@ -26,7 +26,7 @@
 
 ### 3.1 硬件清单
 
-- Air780EHV 核心板 
+- Air780EHV 核心板 × 1
 
 - MCP23S17 GPIO 扩展模块 × 1，购买链接：[https://e.tb.cn/h.8454O6wnpxKLXEF?tk=x69VgwEa5H8](https://e.tb.cn/h.8454O6wnpxKLXEF?tk=x69VgwEa5H8)
 

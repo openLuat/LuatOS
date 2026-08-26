@@ -235,6 +235,10 @@ int luat_airlink_drv_wlan_scan_result_cb(void) {
 
     /* 原始 raw cmd 0x206 回退 */
     {
+        // 传输未激活(从未收到主机命令)时不发送结果帧, 避免 CMD 队列无消费者积压
+        if (g_airlink_last_cmd_timestamp == 0) {
+            return 0;
+        }
         size_t fulllen = sizeof(luat_airlink_cmd_t) + 1 + MAX_SCAN_RESULT_BUFF_SIZE;
         uint8_t* ptr = luat_heap_opt_zalloc(AIRLINK_MEM_TYPE, fulllen);
         if (ptr == NULL) {

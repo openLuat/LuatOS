@@ -19,6 +19,9 @@
 #include "luat_rtos.h"
 #include "luat_voip_jitterbuf.h"
 #include "luat_audio_data_codec.h"
+#ifdef LUAT_USE_VOIP_RECORD
+#include "luat_voip_record.h"
+#endif
 /* ======================== 配置 ======================== */
 
 #define VOIP_MAX_IP_LEN         48
@@ -145,6 +148,9 @@ enum {
     VOIP_CB_STATE = 0,      /* 状态变化 */
     VOIP_CB_STATS = 1,      /* 统计数据 */
     VOIP_CB_ERROR = 2,      /* 错误 */
+#ifdef LUAT_USE_VOIP_RECORD
+    VOIP_CB_RECORD = 3,     /* 本地通话录音 */
+#endif
 };
 
 typedef struct {
@@ -229,6 +235,9 @@ typedef struct {
     int cb_state_ref;   /* LUA_REGISTRYINDEX ref for state callback */
     int cb_stats_ref;   /* LUA_REGISTRYINDEX ref for stats callback */
     int cb_error_ref;   /* LUA_REGISTRYINDEX ref for error callback */
+#ifdef LUAT_USE_VOIP_RECORD
+    int cb_record_ref;  /* LUA_REGISTRYINDEX ref for record callback */
+#endif
 } voip_ctx_t;
 
 /* ======================== API ======================== */
@@ -271,6 +280,17 @@ void voip_get_stats(voip_stats_t *out);
  * 是否正在运行
  */
 int voip_is_running(void);
+
+#ifdef LUAT_USE_VOIP_RECORD
+/** Start/arm a local stereo WAV recording. */
+int voip_record_start(const char *path, uint32_t max_seconds);
+
+/** Asynchronously drain and close the current recording. */
+int voip_record_stop(void);
+
+/** Get a point-in-time recording status snapshot. */
+void voip_record_get_status(voip_record_status_t *status);
+#endif
 
 /* ======================== 桥接模式 API ======================== */
 

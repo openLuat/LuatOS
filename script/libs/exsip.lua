@@ -93,6 +93,11 @@ local g_current_call = nil
 -- 本次 VoIP 是否由 exaudio 建立本地 audio_v2 收发链路。
 local g_voip_uses_exaudio = false
 local g_netdrv_subscribed = false
+-- 自动录音只在 call connected 后尝试一次；媒体晚于通话建立时允许延后重试。
+local g_call_connected = false
+local g_auto_record_attempted = false
+local g_auto_record_pending = false
+local g_record_sequence = 0
 
 -- SIP 当前实际使用的网卡（由 exsipclient 启动时确定）
 local g_current_adapter = nil
@@ -118,7 +123,13 @@ local default_config = {
     adapter = nil,  -- nil = 使用系统默认网卡
     audio_mode = nil,  -- nil = 使用系统默认音频模式；voip.AUDIO_MODE_BRIDGE, -- 使用桥接模式
     -- true: CC 独占音频硬件，SIP 仅提供 RTP/PCM 桥接，不启动本地 audio_v2 speech。
-    cc_sip_bridge = false
+    cc_sip_bridge = false,
+    record = {
+        auto = false,
+        dir = "/sd/record",
+        prefix = "sip",
+        max_seconds = 7200
+    }
 }
 
 
@@ -150,6 +161,123 @@ local function emit_callback(event, ...)
     end
 end
 
+local function validate_record_config(config)
+    if config == nil then
+        config = {}
+    elseif type(config) ~= "table" then
+        return nil, "record must be a table"
+    end
+
+    local record = {
+        auto = config.auto == nil and false or config.auto,
+        dir = config.dir == nil and "/sd/record" or config.dir,
+        prefix = config.prefix == nil and "sip" or config.prefix,
+        max_seconds = config.max_seconds == nil and 7200 or config.max_seconds
+    }
+    if type(record.auto) ~= "boolean" then
+        return nil, "record.auto must be a boolean"
+    end
+    if type(record.dir) ~= "string" or #record.dir == 0 or record.dir:sub(1, 1) ~= "/" then
+        return nil, "record.dir must be an absolute path"
+    end
+    if type(record.prefix) ~= "string" or #record.prefix == 0 or not record.prefix:match("^[%w_%-]+$") then
+        return nil, "record.prefix may only contain letters, digits, '_' and '-'"
+    end
+    if type(record.max_seconds) ~= "number" or record.max_seconds < 1 or record.max_seconds % 1 ~= 0 then
+        return nil, "record.max_seconds must be a positive integer"
+    end
+    return record
+end
+
+local function record_state()
+    if not voip or type(voip.recordStatus) ~= "function" then
+        return nil
+    end
+    local ok, status = pcall(voip.recordStatus)
+    if ok and type(status) == "table" then
+        return status.state
+    end
+    return nil
+end
+
+local function make_record_path()
+    g_record_sequence = g_record_sequence + 1
+    local suffix
+    local ok, date = pcall(os.date, "*t")
+    if ok and type(date) == "table" and tonumber(date.year) and date.year >= 2020 then
+        suffix = string.format("%04d%02d%02d_%02d%02d%02d", date.year, date.month, date.day,
+            date.hour, date.min, date.sec)
+    else
+        local ticks = 0
+        if mcu and type(mcu.ticks) == "function" then
+            local ticks_ok, value = pcall(mcu.ticks)
+            if ticks_ok then
+                ticks = tonumber(value) or 0
+            end
+        end
+        suffix = tostring(ticks)
+    end
+    local dir = g_config.record.dir:gsub("/+$", "")
+    return string.format("%s/%s_%s_%d.wav", dir, g_config.record.prefix, suffix, g_record_sequence)
+end
+
+local function start_auto_record()
+    if not g_call_connected or g_auto_record_attempted or not g_config or
+        not g_config.record.auto or g_config.cc_sip_bridge then
+        return
+    end
+    if not voip or type(voip.recordStart) ~= "function" then
+        g_auto_record_attempted = true
+        log_warn("voip recording not supported")
+        return
+    end
+
+    local state = record_state()
+    if state and state ~= "idle" then
+        -- 业务已手动启动录音，本次通话不再由 exsip 接管。
+        g_auto_record_attempted = true
+        g_auto_record_pending = false
+        log_info("recording already active, skip automatic recording")
+        return
+    end
+
+    local path = make_record_path()
+    local ok, err = voip.recordStart(path, {max_seconds = g_config.record.max_seconds})
+    if ok then
+        g_auto_record_attempted = true
+        g_auto_record_pending = false
+        log_info("automatic recording requested", path)
+    elseif err == "invalid_state" then
+        -- connected 可能早于 media ready；只允许在 media ready 后重试。
+        g_auto_record_pending = true
+        log_info("automatic recording waiting for media")
+    else
+        g_auto_record_attempted = true
+        g_auto_record_pending = false
+        log_warn("automatic recording failed", err)
+    end
+end
+
+local function stop_call_record()
+    g_auto_record_pending = false
+    if not voip or type(voip.recordStop) ~= "function" then
+        return
+    end
+    local state = record_state()
+    if state and state ~= "idle" and state ~= "stopping" then
+        local ok, err = voip.recordStop()
+        if not ok then
+            log_warn("stop recording failed", err)
+        end
+    end
+end
+
+local function reset_call_record_state()
+    g_call_connected = false
+    g_auto_record_attempted = false
+    g_auto_record_pending = false
+end
+
 local function start_voip_engine(session)
     if not voip then
         log_error("voip core not support")
@@ -160,6 +288,11 @@ local function start_voip_engine(session)
     pcall(exaudio.play_stop, {type = 1}) 
     pcall(exaudio.play_stop, {type = 2}) 
 
+    -- 唤醒音频硬件（audio_v2 框架下 ES8311 可能处于 shutdown，需先恢复）
+    if exaudio.pm then
+        pcall(exaudio.pm, exaudio.RESUME)
+    end
+
     local codec_map = {
         [exsip.CODEC_PCMU] = voip.PCMU,
         [exsip.CODEC_PCMA] = voip.PCMA
@@ -169,12 +302,16 @@ local function start_voip_engine(session)
     -- 普通 SIP/audio_v2 使用 Lua 管理的本地 PCM 收发；CC-SIP 桥接则由 CC C 层
     -- 直接交换 PCM，必须避免第二个 audio_v2 speech 请求占用 I2S 并重复上行。
     local is_cc_sip_bridge = g_config and g_config.cc_sip_bridge == true
-    local use_sip_audio_v2 = not is_cc_sip_bridge and exaudio.is_audio_v2 and exaudio.is_audio_v2()
+    local use_sip_audio_v2 = not is_cc_sip_bridge and exaudio.is_audio_v2 and exaudio.is_audio_v2() and type(voip.setAudioMode) == "function" and voip.AUDIO_MODE_BRIDGE ~= nil
     g_voip_uses_exaudio = false
     if is_cc_sip_bridge then
         log_info("CC-SIP bridge: skip local audio_v2 speech")
     elseif voip.setAudioMode and use_sip_audio_v2 then
-        pcall(voip.setAudioMode, voip.AUDIO_MODE_BRIDGE)
+        if voip.AUDIO_MODE_BRIDGE then
+            pcall(voip.setAudioMode, voip.AUDIO_MODE_BRIDGE)
+        elseif voip.AUDIO_MODE_I2S then
+            pcall(voip.setAudioMode, voip.AUDIO_MODE_I2S)
+        end
     elseif voip.setAudioMode and voip.AUDIO_MODE_I2S then
         pcall(voip.setAudioMode, voip.AUDIO_MODE_I2S)
     end
@@ -211,6 +348,9 @@ local function start_voip_engine(session)
         g_voip_uses_exaudio = use_sip_audio_v2
         log_info("voip engine started", session.remote_ip .. ":" .. session.remote_port,
             "codec=" .. tostring(session.codec), "adapter", g_config and g_config.adapter)
+        if g_auto_record_pending or g_call_connected then
+            start_auto_record()
+        end
     else
         log_error("voip engine start failed")
     end
@@ -220,6 +360,7 @@ local function stop_voip_engine()
     if not voip then
         return
     end
+    stop_call_record()
     if voip.isRunning() then
         if g_voip_uses_exaudio and exaudio.sip_voip_stop then exaudio.sip_voip_stop() end
         g_voip_uses_exaudio = false
@@ -293,8 +434,12 @@ local function sip_event_handler(event, action, payload)
         elseif action == "ringing" then
             emit_callback("call", "ringing", payload)
         elseif action == "connected" or action == "established" then
+            g_call_connected = true
+            start_auto_record()
             emit_callback("call", "connected", payload)
         elseif action == "ended" or action == "failed" then
+            stop_call_record()
+            reset_call_record_state()
             emit_callback("call", "ended", payload)
             g_current_call = nil
         end
@@ -305,6 +450,7 @@ local function sip_event_handler(event, action, payload)
             start_voip_engine(session)
             emit_callback("media", "ready", session)
         elseif action == "stop" then
+            stop_call_record()
             stop_voip_engine()
             emit_callback("media", "stop", payload)
         end
@@ -326,9 +472,11 @@ local function sip_event_handler(event, action, payload)
         if action == "offline" then
             -- SIP 离线时，停止 voip 引擎，让下次重连时使用新网卡
             stop_voip_engine()
+            reset_call_record_state()
             g_registered = false
         elseif action == "stopped" then
             stop_voip_engine()
+            reset_call_record_state()
             g_registered = false
         end
         emit_callback("lifecycle", action, payload)
@@ -344,6 +492,10 @@ local function setup_voip_callbacks()
     if voip then
         voip.on("state", function(state)
             log_info("voip state:", state)
+            if state == "stopped" or state == "error" or state == "idle" then
+                stop_call_record()
+                reset_call_record_state()
+            end
             emit_callback("voip", "state", state)
         end)
 
@@ -355,6 +507,14 @@ local function setup_voip_callbacks()
             log_error("voip error:", err)
             emit_callback("voip", "error", err)
         end)
+
+        -- 未编入 LUAT_USE_VOIP_RECORD 的固件没有录音 API，也不注册未知事件。
+        if type(voip.recordStatus) == "function" then
+            voip.on("record", function(event, info)
+                emit_callback("record", event, info)
+                emit_callback("voip", "record", event, info)
+            end)
+        end
     end
 end
 
@@ -378,6 +538,7 @@ end
 @number config.call_timeout 拨号超时时间（秒），默认 30
 @boolean config.debug_sip_response 是否打印完整 SIP 服务器响应，默认 false
 @number config.adapter 网络适配器，nil=使用系统默认，socket.LWIP_GP=4G，socket.LWIP_STA=WiFi，socket.LWIP_ETH=以太网
+@table config.record 通话录音配置，默认关闭；支持 auto、dir、prefix、max_seconds
 @return boolean 成功返回 true，失败返回 false
 @usage
 exsip.init({
@@ -402,12 +563,23 @@ function exsip.init(config)
         return false
     end
 
+    local record_config, record_err = validate_record_config(config.record)
+    if not record_config then
+        log_error("invalid record config:", record_err)
+        return false
+    end
+
     g_config = {}
     for k, v in pairs(default_config) do
         g_config[k] = v
     end
     for k, v in pairs(config) do
         g_config[k] = v
+    end
+    g_config.record = record_config
+
+    if g_config.cc_sip_bridge and g_config.record.auto then
+        log_warn("automatic recording is disabled for CC-SIP bridge mode")
     end
 
     if not g_config.sip_domain then
@@ -546,6 +718,7 @@ function exsip.stop()
     g_current_call = nil
     g_current_adapter = nil
     g_ready_adapters = {}
+    reset_call_record_state()
     log_info("stopped")
 end
 
@@ -728,7 +901,7 @@ end)
 ]]
 function exsip.on(callback)
     if type(callback) == "function" then
-        local events = {"register", "ready", "call", "media", "message", "dtmf", "voip", "lifecycle", "error"}
+        local events = {"register", "ready", "call", "media", "message", "dtmf", "voip", "record", "lifecycle", "error"}
         for _, event in ipairs(events) do
             g_callbacks[event] = function(...)
                 callback(event, ...)

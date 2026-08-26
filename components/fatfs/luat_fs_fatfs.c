@@ -122,6 +122,14 @@ size_t luat_vfs_fatfs_fwrite(void* userdata, const void *ptr, size_t size, size_
     }
     return 0;
 }
+int luat_vfs_fatfs_fflush(void* userdata, FILE *stream) {
+    (void)userdata;
+    FIL* fp = (FIL*)stream;
+    if (fp == NULL) {
+        return -1;
+    }
+    return f_sync(fp) == FR_OK ? 0 : -1;
+}
 int luat_vfs_fatfs_remove(void* userdata, const char *filename) {
     return f_unlink(filename);
 }
@@ -294,7 +302,8 @@ const struct luat_vfs_filesystem vfs_fs_fatfs = {
         T(feof),
         T(ferror),
         T(fread),
-        T(fwrite)
+        T(fwrite),
+        T(fflush)
     }
 };
 

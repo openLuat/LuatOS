@@ -143,28 +143,31 @@ require "pca9685_demo"
 使用 Luatools 烧录脚本后，模组自动运行，日志输出如下：
 
 ```
-I/main.        PCA9685_Demo 001.999.000
-I/pca9685_demo PCA9685 Demo 启动
-I/exs_pca9685.init 从设备地址识别成功: 64
-I/exs_pca9685.set_pwm_freq 频率设置成功: 50 Hz, prescale=0x79
-I/exs_pca9685.init 初始化完成, i2c= 1 addr=0x40 freq= 50
-I/pca9685_demo PCA9685 初始化成功, 版本: 202608252000
-I/pca9685_demo [1/4] PWM 频率设置演示开始（CH0 固定 50% 占空比）
-I/exs_pca9685.set_pwm_freq 频率设置成功: 24 Hz, prescale=0xFF
-I/exs_pca9685.set_pwm_freq 频率设置成功: 50 Hz, prescale=0x79
-I/exs_pca9685.set_pwm_freq 频率设置成功: 200 Hz, prescale=0x1E
-I/exs_pca9685.set_pwm_freq 频率设置成功: 50 Hz, prescale=0x79
-I/pca9685_demo [1/4] PWM 频率设置演示结束
-I/pca9685_demo [2/4] 呼吸灯演示开始（CH0，需外接 LED）
-I/pca9685_demo [2/4] 呼吸灯演示结束
-I/pca9685_demo [3/4] 舵机角度演示开始（CH1，需外接舵机，频率 50Hz）
-I/pca9685_demo [3/4] 舵机角度演示结束
-I/pca9685_demo [4/4] 全通道控制演示开始（需外接 LED）
-I/exs_pca9685.set_all_pwm 所有通道占空比设置成功: 2048
-I/exs_pca9685.set_all_pwm 所有通道占空比设置成功: 0
-I/exs_pca9685.set_output_mode 输出模式配置成功, mode2=0x04
-I/pca9685_demo [4/4] 全通道控制演示结束
-I/pca9685_demo PCA9685 Demo 全部演示结束
+[2026-08-25 18:16:19.500][000000000.252] I/user.main PCA9685_Demo 001.999.000
+[2026-08-25 18:16:19.510][000000000.269] I/user.pca9685_demo PCA9685 Demo 启动
+[2026-08-25 18:16:19.513][000000000.269] I2C_MasterSetup 426:I2C1, Total 65 HCNT 22 LCNT 40
+[2026-08-25 18:16:19.517][000000000.270] I/user.exs_pca9685.init 从设备地址识别成功: 64
+[2026-08-25 18:16:19.527][000000000.274] I/user.exs_pca9685.set_pwm_freq 频率设置成功: 50 Hz, prescale=0x 79
+[2026-08-25 18:16:19.531][000000000.274] I/user.exs_pca9685.init 初始化完成, i2c= 1 addr=0x40 freq= 50
+[2026-08-25 18:16:19.534][000000000.275] I/user.pca9685_demo PCA9685 初始化成功, 版本: 202608252000
+[2026-08-25 18:16:19.586][000000000.775] I/user.pca9685_demo [1/4] PWM 频率设置演示开始（CH0 固定 50% 占空比）
+[2026-08-25 18:16:19.589][000000000.778] I/user.exs_pca9685.set_pwm_freq 频率设置成功: 24 Hz, prescale=0x FD
+[2026-08-25 18:16:20.589][000000002.780] I/user.exs_pca9685.set_pwm_freq 频率设置成功: 50 Hz, prescale=0x 79
+[2026-08-25 18:16:22.601][000000004.783] I/user.exs_pca9685.set_pwm_freq 频率设置成功: 200 Hz, prescale=0x 1E
+[2026-08-25 18:16:24.608][000000006.785] I/user.exs_pca9685.set_pwm_freq 频率设置成功: 50 Hz, prescale=0x 79
+[2026-08-25 18:16:26.596][000000008.786] I/user.pca9685_demo [1/4] PWM 频率设置演示结束
+[2026-08-25 18:16:26.600][000000008.786] I/user.pca9685_demo [2/4] 呼吸灯演示开始（CH0，需外接 LED）
+[2026-08-25 18:16:34.662][000000016.852] I/user.pca9685_demo [2/4] 呼吸灯演示结束
+[2026-08-25 18:16:34.665][000000016.852] I/user.pca9685_demo [3/4] 舵机角度演示开始（CH1，需外接舵机，频率 50Hz）
+[2026-08-25 18:16:57.587][000000039.729] I/user.pca9685_demo [3/4] 舵机角度演示结束
+[2026-08-25 18:16:57.590][000000039.729] I/user.pca9685_demo [4/4] 全通道控制演示开始（需外接 LED）
+[2026-08-25 18:16:57.594][000000039.731] I/user.exs_pca9685.set_all_pwm 所有通道占空比设置成功: 2048
+[2026-08-25 18:16:59.546][000000041.732] I/user.exs_pca9685.set_all_pwm 所有通道占空比设置成功: 0
+[2026-08-25 18:17:01.550][000000043.733] I/user.exs_pca9685.set_output_mode 输出模式配置成功, mode2=0x 04
+[2026-08-25 18:17:02.556][000000044.734] I/user.exs_pca9685.set_output_mode 输出模式配置成功, mode2=0x 00
+[2026-08-25 18:17:03.548][000000045.735] I/user.exs_pca9685.set_output_mode 输出模式配置成功, mode2=0x 04
+[2026-08-25 18:17:03.551][000000045.735] I/user.pca9685_demo [4/4] 全通道控制演示结束
+[2026-08-25 18:17:03.555][000000045.735] I/user.pca9685_demo PCA9685 Demo 全部演示结束
 ```
 
 ### 5.4 演示效果观察

@@ -117,7 +117,7 @@ local function get_device_id()
         -- 使用 pcall 包装：防止 API 不可用或调用失败导致程序崩溃
         local ok, uid = pcall(mcu.unique_id)
         if ok and uid then
-            return "uid", tostring(uid)
+            return "mac", uid:toHex()
         end
     end
 

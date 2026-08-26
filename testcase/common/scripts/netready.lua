@@ -30,7 +30,7 @@ end
 function netready.exec(ctx, timeout)
     local model = hmeta.model()
     log.info("hmeta.model()", model)
-    local no_sim = not mobile or (mobile.simPin and mobile.simPin() == false)
+    local no_sim = mobile == nil or mobile.simPin == nil
     if no_sim and (model == "Air780EPM" or model == "Air780EHM") then
         pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
         gpio.setup(20, 1)

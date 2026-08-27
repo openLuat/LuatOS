@@ -1,3 +1,4 @@
+#include "luat_base.h"
 #include "luat_audio_driver.h"
 #include "luat_common_api.h"
 #include "luat_audio_channel.h"

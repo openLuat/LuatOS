@@ -180,8 +180,7 @@ static int block_cipher_df( unsigned char *output,
 
         while( use_len > 0 )
         {
-            for( i = 0; i < MBEDTLS_CTR_DRBG_BLOCKSIZE; i++ )
-                chain[i] ^= p[i];
+            mbedtls_xor( chain, chain, p, MBEDTLS_CTR_DRBG_BLOCKSIZE );
             p += MBEDTLS_CTR_DRBG_BLOCKSIZE;
             use_len -= ( use_len >= MBEDTLS_CTR_DRBG_BLOCKSIZE ) ?
                        MBEDTLS_CTR_DRBG_BLOCKSIZE : use_len;
@@ -285,8 +284,7 @@ static int ctr_drbg_update_internal( mbedtls_ctr_drbg_context *ctx,
         p += MBEDTLS_CTR_DRBG_BLOCKSIZE;
     }
 
-    for( i = 0; i < MBEDTLS_CTR_DRBG_SEEDLEN; i++ )
-        tmp[i] ^= data[i];
+    mbedtls_xor( tmp, tmp, data, MBEDTLS_CTR_DRBG_SEEDLEN );
 
     /*
      * Update key and counter

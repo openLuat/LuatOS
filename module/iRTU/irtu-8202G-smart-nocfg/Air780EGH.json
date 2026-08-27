@@ -1,0 +1,49 @@
+{
+  "name": "Air780EGP",
+  "description": "Air8201 - Air780EGP定位板（无音频/蓝牙/压力传感器）",
+  "pins": {
+    "UART2": {
+      "tx": 13,
+      "rx": 14
+    },
+    "I2C": {
+      "scl": 19,
+      "sda": 20
+    },
+    "GPIO": {
+      "led_red": 35,
+      "led_blue": 36,
+      "led_green": 37,
+      "key": 39
+    },
+    "ADC": {
+      "battery": 2
+    }
+  },
+  "modules": {
+    "gnss": {
+      "uart": 2,
+      "baud": 115200
+    },
+    "gsensor": {
+      "i2c_id": 1,
+      "addr": 0x27
+    }
+  },
+  "config": {
+    "power": {
+      "sleep_current": 5,
+      "normal_current": 100,
+      "max_current": 500
+    },
+    "network": {
+      "apn": "cmnbiot",
+      "timeout": 30
+    },
+    "location": {
+      "gps_timeout": 60,
+      "lbs_timeout": 30,
+      "wifi_timeout": 45
+    }
+  }
+}

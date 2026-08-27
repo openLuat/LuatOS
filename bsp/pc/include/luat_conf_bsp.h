@@ -9,7 +9,7 @@
 
 #define LUAT_BSP_PC 1 // 定义平台标识符，供代码中使用
 
-#define LUAT_BSP_VERSION "V2035"
+#define LUAT_BSP_VERSION "V2038"
 // PC模拟器: Lua VM退出后1秒重启, 无需等15秒
 #define LUAT_EXIT_REBOOT_DELAY 1000
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
@@ -42,6 +42,8 @@
 #define LUAT_USE_NETDRV_CH390H 1
 #define LUAT_USE_NETDRV_OPENVPN 1
 #define LUAT_USE_NETDRV_WG 1
+#define LUAT_USE_NETDRV_L2TP 1
+#define LUAT_USE_NETDRV_IPSEC 1
 #define LUAT_USE_NETDRV_LWIP_ARP 1
 
 // ICMP (用于 netdrv.ping 联调 LWIP 层拦截的测试)

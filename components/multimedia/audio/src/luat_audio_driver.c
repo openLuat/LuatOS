@@ -1,3 +1,4 @@
+#include "luat_base.h"
 #include "luat_audio_driver.h"
 #include "luat_common_api.h"
 #include "luat_audio_channel.h"
@@ -239,11 +240,18 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             case LUAT_AUDIO_DRIVER_MODE_PLAY:
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
                     ret = ctrl->opts->start_full_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
-                    ctrl->one_record_block_len = one_block_len;
+                    // ctrl->one_play_block_len和ctrl->one_record_block_len有可能被bsp驱动自行设置好
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
+                    if (!ctrl->one_record_block_len) {
+                        ctrl->one_record_block_len = one_block_len;
+                    }
                 } else if (ctrl->opts->support_tx_loop){  // 支持单向发送模式
                     ret = ctrl->opts->start_tx_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
                 } else {
                     ret = -LUAT_ERROR_PERMISSION_DENIED;
                 }
@@ -251,11 +259,17 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             case LUAT_AUDIO_DRIVER_MODE_RECORD:
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
                     ret = ctrl->opts->start_full_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
-                    ctrl->one_record_block_len = one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
+                    if (!ctrl->one_record_block_len) {
+                        ctrl->one_record_block_len = one_block_len;
+                    }
                 } else if (ctrl->opts->support_rx_loop){  // 支持单向接收模式
                     ret = ctrl->opts->start_rx_loop(ctrl, &ctrl->record_buff, one_block_len, block_nums);
-                    ctrl->one_record_block_len = one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
                 } else {
                     ret = -LUAT_ERROR_PERMISSION_DENIED;
                 }
@@ -263,16 +277,24 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             case LUAT_AUDIO_DRIVER_MODE_SPEECH:
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
                     ret = ctrl->opts->start_full_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
-                    ctrl->one_record_block_len = one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
+                    if (!ctrl->one_record_block_len) {
+                        ctrl->one_record_block_len = one_block_len;
+                    }
                 } else if (ctrl->opts->support_tx_loop && ctrl->opts->support_rx_loop){  // 支持单向发送模式
                     uint32_t tx_one_block_len = rx_param->one_frame_sample_cnt * ctrl->tx_param.data_align * ctrl->tx_param.channel_nums;
                     ret = ctrl->opts->start_tx_loop(ctrl, &ctrl->play_buff, tx_one_block_len, block_nums);
-                    ctrl->one_play_block_len = tx_one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = tx_one_block_len;
+                    }
                     if (!ret) {
                         uint32_t rx_one_block_len = rx_param->one_frame_sample_cnt * ctrl->rx_param.data_align * ctrl->rx_param.channel_nums;
                         ret = ctrl->opts->start_rx_loop(ctrl, &ctrl->record_buff, rx_one_block_len, block_nums);
-                        ctrl->one_record_block_len = rx_one_block_len;
+                        if (!ctrl->one_record_block_len) {
+                            ctrl->one_record_block_len = rx_one_block_len;
+                        }
                     }
                 } else {
                     ret = -LUAT_ERROR_PERMISSION_DENIED;
@@ -281,18 +303,30 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             case LUAT_AUDIO_DRIVER_MODE_SPEECH_WITH_BUFFER:
                 if (ctrl->opts->support_full_loop) { // 支持全双工模式
                     ctrl->play_buff = play_buff;
+                    if (!ctrl->opts->start_full_loop_with_play_buff) {
+                        ret = -LUAT_ERROR_PERMISSION_DENIED;
+                        break;
+                    }
                     ret = ctrl->opts->start_full_loop_with_play_buff(ctrl, play_buff, one_block_len, block_nums, &ctrl->record_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
-                    ctrl->one_record_block_len = one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
+                    if (!ctrl->one_record_block_len) {
+                        ctrl->one_record_block_len = one_block_len;
+                    }
                     ctrl->static_play_buffer_cnt = block_nums;
                 } else if (ctrl->opts->support_tx_loop && ctrl->opts->support_rx_loop) { // 不支持全双工时，用独立的 tx/rx loop 实现
                     ctrl->play_buff = play_buff;
                     ret = ctrl->opts->start_tx_loop(ctrl, &ctrl->play_buff, one_block_len, block_nums);
-                    ctrl->one_play_block_len = one_block_len;
+                    if (!ctrl->one_play_block_len) {
+                        ctrl->one_play_block_len = one_block_len;
+                    }
                     ctrl->static_play_buffer_cnt = block_nums;
                     if (!ret) {
                         ret = ctrl->opts->start_rx_loop(ctrl, &ctrl->record_buff, one_block_len, block_nums);
-                        ctrl->one_record_block_len = one_block_len;
+                        if (!ctrl->one_record_block_len) {
+                            ctrl->one_record_block_len = one_block_len;
+                        }
                     }
                 } else {
                     ret = -LUAT_ERROR_PERMISSION_DENIED;
@@ -305,6 +339,7 @@ int luat_audio_driver_start(struct luat_audio_driver_ctrl *ctrl, luat_audio_comm
             ctrl->state = LUAT_AUDIO_DRIVER_STATE_INITED;
             return -LUAT_ERROR_OPERATION_FAILED;
         }
+
         ctrl->state = LUAT_AUDIO_DRIVER_STATE_RUNNING;
         
     }

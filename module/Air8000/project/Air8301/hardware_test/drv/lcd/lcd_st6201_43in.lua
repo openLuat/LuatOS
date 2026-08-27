@@ -1,8 +1,8 @@
 --[[
 @module  lcd_st6201_43in
 @summary ST6201 4.3寸 480×272 SPI LCD 驱动（Air8301 硬件测试）
-@version 2.0
-@date    2026.08.04
+@version 3.0
+@date    2026.08.14
 @author  江访
 @usage
 require "lcd_st6201_43in" 即完成 LCD + AirUI 引擎 + 字体初始化（含 sys.wait，在任务中执行）。
@@ -11,23 +11,75 @@ require "lcd_st6201_43in" 即完成 LCD + AirUI 引擎 + 字体初始化（含 s
 
 --[[
 LCD 初始化协程（require 后自动启动，含多个 sys.wait 延时）：
-1. 以 custom 模式初始化 ST6201 寄存器序列（含 Gamma 校正、180° 旋转）
-2. lcd.user_done() 结束自定义初始化并清屏
-3. 初始化 AirUI 渲染引擎 + 内置汉字字库
-4. 注册背光 PWM0（仅 pwm.setup，不开启）
-5. 发布 DISPLAY_READY 消息（TP 初始化、首页打开依赖此消息）
+1. 以 custom 模式初始化 ST6201，写入厂商初始化寄存器序列
+   （0xFF=0xA5 解锁扩展命令 + GIP 时序 + 正负 Gamma）
+2. MADCTL 旋转/镜像 + CASET/RASET 显示窗口（与参考工程方向 0 一致）
+3. 0xFF=0x00 退出扩展命令模式 → Sleep Out → Display On
+4. lcd.user_done() 结束自定义初始化并清屏
+5. 初始化 AirUI 渲染引擎 + 内置汉字字库
+6. 注册背光 PWM0（仅 pwm.setup，不开启），收到 BACKLIGHT_ON 后点亮
+7. 发布 DISPLAY_READY 消息（TP 初始化、首页打开依赖此消息）
 
 @local
 @function lcd_init_task
 ]]
+
+--[[
+厂商初始化寄存器表：{命令, 数据字节}
+来源：中景_ST6201 参考工程（ZJY4309N-D 厂商 bsp_spi.c/lcd_init.c），
+已验证显示正常，Air8301 硬件测试板沿用同一套参数。
+注意：以 0xFF=0xA5 开头的扩展命令区，结束后需以 0xFF=0x00 退出扩展命令模式。
+]]
+local init_regs = {
+    { 0xFF, 0xA5 }, { 0xE7, 0x10 }, { 0x35, 0x00 }, { 0x3A, 0x01 },
+    { 0x40, 0x01 }, { 0x41, 0x01 }, { 0x55, 0x01 }, { 0x44, 0x15 },
+    { 0x45, 0x15 }, { 0x7D, 0x03 }, { 0xC1, 0xBB }, { 0xC2, 0x13 },
+    { 0xC3, 0x10 }, { 0xC6, 0x3E }, { 0xC7, 0x25 }, { 0xC8, 0x11 },
+    { 0x7A, 0x66 }, { 0x6F, 0x49 }, { 0x78, 0x57 }, { 0x73, 0x08 },
+    { 0x74, 0x13 }, { 0xC9, 0x00 }, { 0x67, 0x33 }, { 0x51, 0x4B },
+    { 0x52, 0x7C }, { 0x53, 0x45 }, { 0x54, 0x77 }, { 0x46, 0x0A },
+    { 0x47, 0x2A }, { 0x48, 0x0A }, { 0x49, 0x1A }, { 0x56, 0x43 },
+    { 0x57, 0x42 }, { 0x58, 0x3C }, { 0x59, 0x64 }, { 0x5A, 0x41 },
+    { 0x5B, 0x3C }, { 0x5C, 0x02 }, { 0x5D, 0x3C }, { 0x5E, 0x1F },
+    { 0x60, 0x80 }, { 0x61, 0x3F }, { 0x62, 0x21 }, { 0x63, 0x07 },
+    { 0x64, 0xE0 }, { 0x65, 0x01 }, { 0x6E, 0x14 }, { 0xCA, 0x20 },
+    { 0xCB, 0x52 }, { 0xCC, 0x10 }, { 0xCD, 0x42 }, { 0xD0, 0x20 },
+    { 0xD1, 0x52 }, { 0xD2, 0x10 }, { 0xD3, 0x42 }, { 0xD4, 0x0A },
+    { 0xD5, 0x32 }, { 0xE5, 0x06 }, { 0xE6, 0x00 }, { 0xF8, 0x06 },
+    { 0xF9, 0x00 },
+
+    { 0x80, 0x00 }, { 0xA0, 0x00 }, { 0x81, 0x05 }, { 0xA1, 0x03 },
+    { 0x82, 0x02 }, { 0xA2, 0x02 }, { 0x86, 0x2D }, { 0xA6, 0x1A },
+    { 0x87, 0x40 }, { 0xA7, 0x3F }, { 0x83, 0x38 }, { 0xA3, 0x37 },
+    { 0x84, 0x37 }, { 0xA4, 0x36 }, { 0x85, 0x28 }, { 0xA5, 0x28 },
+    { 0x88, 0x09 }, { 0xA8, 0x05 }, { 0x89, 0x0F }, { 0xA9, 0x0C },
+    { 0x8A, 0x18 }, { 0xAA, 0x14 }, { 0x8B, 0x12 }, { 0xAB, 0x0E },
+    { 0x8C, 0x15 }, { 0xAC, 0x15 }, { 0x8D, 0x11 }, { 0xAD, 0x15 },
+    { 0x8E, 0x12 }, { 0xAE, 0x11 }, { 0x8F, 0x19 }, { 0xAF, 0x0F },
+    { 0x90, 0x0A }, { 0xB0, 0x01 }, { 0x91, 0x11 }, { 0xB1, 0x0D },
+    { 0x92, 0x19 }, { 0xB2, 0x12 },
+}
+
+-- MADCTL(0x36) 值：方向 0/1/2/3 对应 0x00/0xA0/0xC0/0x60（与参考工程一致）
+local madctl = { 0x00, 0xA0, 0xC0, 0x60 }
+
+--[[
+LCD 初始化协程（require 后自动启动）：
+@local
+@function lcd_init_task
+]]
 local function lcd_init_task()
-    -- direction=0：框架不做旋转，旋转完全由自定义 MADCTL 序列（0x36=0xC0）控制
+    -- direction=0：框架不做旋转，旋转/镜像完全由自定义 MADCTL（0x36=0x00）控制
+    local direction = 0
+
     local result = lcd.init("custom", {
         port            = lcd.HWID_0,
         w               = 480,
         h               = 272,
         pin_rst         = 36,
-        direction       = 0,
+        direction       = direction,
+        xoffset         = 0,
+        yoffset         = 0,
         bus_speed       = 80 * 1000 * 1000,
         sleepcmd        = 0x10,
         wakecmd         = 0x11,
@@ -41,67 +93,38 @@ local function lcd_init_task()
         return
     end
 
-    -- Sleep Out 退出休眠
-    lcd.cmd(0x11); sys.wait(120)
+    -- 厂商初始化寄存器序列（0xFF=0xA5 解锁扩展命令 + GIP 时序 + 正负 Gamma）
+    for _, item in ipairs(init_regs) do
+        lcd.cmd(item[1], string.char(item[2]))
+    end
 
-    -- 关闭8色低彩闲置模式
-    lcd.cmd(0x38); sys.wait(120) -- IDMOFF
+    -- MADCTL: direction=0 → 0x00（正常 480×272 排列，与参考工程显示方向一致）
+    lcd.cmd(0x36, string.char(madctl[direction + 1]))
+
+    -- 设置显示窗口，按实际分辨率计算（与参考工程一致）
+    local x_max = 480 - 1                                                        -- 479 = 0x01DF
+    local y_max = 272 - 1                                                        -- 271 = 0x010F
+    lcd.cmd(0x2A, string.char(0x00, 0x00, math.floor(x_max / 256), x_max % 256)) -- CASET
+    lcd.cmd(0x2B, string.char(0x00, 0x00, math.floor(y_max / 256), y_max % 256)) -- RASET
 
     -- MADCTL: 180度旋转 RGB正常排列 0xC0
     lcd.cmd(0x36, string.char(0xC0)); sys.wait(1)
+    lcd.cmd(0x20); sys.wait(120)     -- INVOFF 关闭色彩反转
+    lcd.cmd(0x21); sys.wait(120)     -- INVON
+    -- 退出扩展命令模式
+    lcd.cmd(0xFF, string.char(0x00))
 
-    lcd.cmd(0x20); sys.wait(120) -- INVOFF 关闭色彩反转
-    lcd.cmd(0x21); sys.wait(120) -- INVON
-
-    -- 正极性 Gamma P
-    lcd.cmd(0x80, string.char(0x0C))
-    lcd.cmd(0x81, string.char(0x1A))
-    lcd.cmd(0x82, string.char(0x2E))
-    lcd.cmd(0x83, string.char(0x42))
-    lcd.cmd(0x84, string.char(0x56))
-    lcd.cmd(0x85, string.char(0x6A))
-    lcd.cmd(0x86, string.char(0x10))
-    lcd.cmd(0x87, string.char(0x20))
-    lcd.cmd(0x88, string.char(0x08))
-    lcd.cmd(0x89, string.char(0x10))
-    lcd.cmd(0x8A, string.char(0x18))
-    lcd.cmd(0x8B, string.char(0x20))
-    lcd.cmd(0x8C, string.char(0x2A))
-    lcd.cmd(0x8D, string.char(0x34))
-    lcd.cmd(0x8E, string.char(0x3E))
-    lcd.cmd(0x8F, string.char(0x48))
-    lcd.cmd(0x90, string.char(0x52))
-    lcd.cmd(0x91, string.char(0x5C))
-    lcd.cmd(0x92, string.char(0x66))
-
-    -- 负极性 Gamma N
-    lcd.cmd(0xA0, string.char(0x0C))
-    lcd.cmd(0xA1, string.char(0x1A))
-    lcd.cmd(0xA2, string.char(0x2E))
-    lcd.cmd(0xA3, string.char(0x42))
-    lcd.cmd(0xA4, string.char(0x56))
-    lcd.cmd(0xA5, string.char(0x6A))
-    lcd.cmd(0xA6, string.char(0x10))
-    lcd.cmd(0xA7, string.char(0x20))
-    lcd.cmd(0xA8, string.char(0x08))
-    lcd.cmd(0xA9, string.char(0x10))
-    lcd.cmd(0xAA, string.char(0x18))
-    lcd.cmd(0xAB, string.char(0x20))
-    lcd.cmd(0xAC, string.char(0x2A))
-    lcd.cmd(0xAD, string.char(0x34))
-    lcd.cmd(0xAE, string.char(0x3E))
-    lcd.cmd(0xAF, string.char(0x48))
-    lcd.cmd(0xB0, string.char(0x52))
-    lcd.cmd(0xB1, string.char(0x5C))
-    lcd.cmd(0xB2, string.char(0x66))
+    -- Sleep Out 退出休眠
+    lcd.cmd(0x11); sys.wait(120)
 
     -- 开启显示
-    lcd.cmd(0x29); sys.wait(20) -- Display On
+    lcd.cmd(0x29); sys.wait(20)
+
     -- 结束自定义初始化
     lcd.user_done()
 
-    -- 清屏
-    lcd.clear()
+    -- 清屏（白屏，与参考工程一致）
+    lcd.clear(0xFFFF)
 
     -- 初始化 AirUI 渲染引擎 + 内置字库
     local w, h = lcd.getSize()

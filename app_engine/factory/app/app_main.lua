@@ -73,5 +73,10 @@ if _G.project_config and _G.project_config.features and _G.project_config.featur
     require "nes_key_app"
 end
 
+-- 应用工厂模块（按 features.app_factory 配置开关，含录音 + AI 生成 APP）
+if _G.project_config and _G.project_config.features and _G.project_config.features.app_factory then
+    require "factory_app"
+end
+
 -- 文件管理模块（浏览各挂载点 /app_store 目录，支持展开/折叠、新建/删除）
 require "file_manager_app"

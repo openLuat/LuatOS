@@ -7,12 +7,13 @@
 @demo multimedia
 @tag LUAT_USE_AUDIO_V2
 */
-#include "lauxlib.h"
-#include "lua.h"
+
+
+#include "luat_base.h"
+#ifdef LUAT_USE_AUDIO_V2
 #include "luat_audio_data_codec.h"
 #include "luat_audio_define.h"
 #include "luat_audio_request.h"
-#include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
 #include "luat_zbuff.h"
@@ -21,7 +22,6 @@
 #include <stdlib.h>
 #define LUAT_LOG_TAG "audio_v2"
 #include "luat_log.h"
-#ifdef LUAT_USE_AUDIO_V2
 //#if 1
 #include "luat_common_api.h"
 #include "luat_audio_core.h"
@@ -557,8 +557,12 @@ static int l_audio_input(lua_State *L) {
     }
     const char *data = NULL;
     uint8_t is_end = 0;
+    if (lua_isboolean(L, 3)) {
+        is_end = lua_toboolean(L, 3);
+    } else {
+        is_end = 0;
+    }
 
-    luat_rtos_task_suspend_all();
     if (LUA_TSTRING == (lua_type(L, 2))) {
         size_t len = 0;
         data = lua_tolstring(L, 2, &len);//取出字符串数据
@@ -567,11 +571,7 @@ static int l_audio_input(lua_State *L) {
         } else {
             input_len = len;
         }
-        if (l_req) {
-            luat_fifo_write(l_req->request.org_input_data_fifo, data, input_len);
-        } else {
-            luat_fifo_write(l_extern_source->extern_source.decode_input_fifo, data, input_len);
-        }
+
     } else if(lua_isuserdata(L, 2)) {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         if (buff->used > rest_len) {
@@ -579,21 +579,14 @@ static int l_audio_input(lua_State *L) {
         } else {
             input_len = buff->used;
         }
-        if (l_req) {
-            luat_fifo_write(l_req->request.org_input_data_fifo, data, input_len);
-        } else {
-            luat_fifo_write(l_extern_source->extern_source.decode_input_fifo, data, input_len);
-        }
     }
     result = 0;
-    if (lua_isboolean(L, 3)) {
-        is_end = lua_toboolean(L, 3);
-    } else {
-        is_end = 0;
-    }
+    luat_rtos_task_suspend_all();
     if (l_req) {
-        l_req->request.is_input_end = is_end;
+        luat_fifo_write(l_req->request.org_input_data_fifo, data, input_len);
+         l_req->request.is_input_end = is_end;
     } else {
+        luat_fifo_write(l_extern_source->extern_source.decode_input_fifo, data, input_len);
         l_extern_source->extern_source.is_input_end = is_end;
     }
     luat_rtos_task_resume_all();
@@ -1531,6 +1524,8 @@ static const rotable_Reg_t reg_audio_v2[] =
     { "DRIVER_TYPE_USB",			ROREG_INT(LUAT_AUDIO_DRIVER_TYPE_USB)},
     //@const DATA_CODEC_TYPE_RAW number 编解码器类型RAW, 用于直接播放PCM数据流
     { "DATA_CODEC_TYPE_RAW",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_RAW)},
+    //@const DATA_CODEC_TYPE_VOIP_PCM number SIP/VoIP专用PCM直通编解码器
+    { "DATA_CODEC_TYPE_VOIP_PCM",	ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_VOIP_PCM)},
     //@const DATA_CODEC_TYPE_WAV number 编解码器类型WAV
     { "DATA_CODEC_TYPE_WAV",			ROREG_INT(LUAT_AUDIO_DATA_CODEC_TYPE_WAV)},
     //@const DATA_CODEC_TYPE_AMR_NB number 编解码器类型AMR_NB

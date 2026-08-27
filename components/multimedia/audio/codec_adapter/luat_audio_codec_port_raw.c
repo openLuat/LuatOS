@@ -21,7 +21,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_raw_opts = {
     .get_play_info = NULL,
     .set_record_info = luat_audio_codec_wav_set_record_info,
     .pre_decode = NULL,
-    .decode = luat_audio_codec_wav_codec_decode,
+    .decode = NULL,
     .make_head = NULL,
     .encode = NULL,
     .decode_min_input_len = LUAT_AUDIO_DATA_CACHE_LEN,
@@ -32,4 +32,5 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_raw_opts = {
     .is_hardware = 0,
     .support_detect = 0,
     .encode_raw_mode = 1,
+    .decode_raw_mode = 1,
 };

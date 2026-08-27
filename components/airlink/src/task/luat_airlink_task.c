@@ -47,6 +47,10 @@ __AIRLINK_CODE_IN_RAM__ static void exec_cmd(luat_airlink_cmd_t* ptr) {
 
 __AIRLINK_CODE_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
     luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)data;
+    // 空轮询帧(无命令)直接丢弃, 避免每帧malloc+入队造成积压
+    if (cmd->cmd == 0x0000) {
+        return;
+    }
     if (cmd->cmd == 0x100) {
         // IP数据直接处理,不走线程
         luat_airlink_cmd_exec_ip_pkg(cmd, NULL);

@@ -1,13 +1,15 @@
 --[[
 @module  main
-@summary LuatOS看门狗应用主入口，负责加载功能模块
+@summary 看门狗(WDT)功能演示主入口
 @version 1.0
 @date    2025.10.25
 @author  陈媛媛
 @usage
 本demo演示的核心功能为：
 1、内部看门狗正常和异常场景演示
-2、外部硬件看门狗Air153C正常和异常场景演示
+2、外部硬件看门狗Air153C/Air153D三种模式演示（自动喂狗/强制复位/超时复位）
+3、AirLink UART 方式看门狗演示
+4、AirLink SPI 方式看门狗演示
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -55,7 +57,7 @@ log.info("main", PROJECT, VERSION)
 
 -- 仅加载必要的功能模块
 require "internal_wdt"  -- 内部看门狗演示模块
--- require "air153c_wdt"    -- 外部看门狗演示模块
+-- require "air153x_wdt"    -- 外部看门狗演示模块
 
 -- AirLink 模式看门狗演示模块, 分别演示UART和SPI模式的看门狗功能, 不要同时加载
 -- require "airlink_uart_wdt" -- AirLink UART模式看门狗演示模块

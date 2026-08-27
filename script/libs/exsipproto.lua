@@ -253,6 +253,17 @@ end
 M.sip_digest_auth = M.digest_auth
 
 --[[
+构造 application/dtmf-relay 消息体。
+@api exsipproto.build_dtmf_relay_body(digit, duration)
+@string digit DTMF 数字
+@number duration 持续时间（毫秒）
+@return string SIP INFO 消息体
+]]
+function M.build_dtmf_relay_body(digit, duration)
+    return string.format("Signal=%s\r\nDuration=%d\r\n", tostring(digit), tonumber(duration) or 160)
+end
+
+--[[
 构造 Authorization 或 Proxy-Authorization 头。
 @api exsipproto.build_auth_header(auth)
 @table auth Digest 参数表，通常由 digest_auth 返回

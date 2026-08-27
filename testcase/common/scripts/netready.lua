@@ -28,7 +28,41 @@ local function uart_setup()
 end
 
 function netready.exec(ctx, timeout)
-    log.info("hmeta.model()", hmeta.model())
+    local model = hmeta.model()
+    log.info("hmeta.model()", model)
+    local no_sim = mobile == nil or mobile.simPin == nil
+    if no_sim and (model == "Air780EPM" or model == "Air780EHM") then
+        pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
+        gpio.setup(20, 1)
+        log.info("netready_1780", "使用以太网，开始初始化")
+        local result = spi.setup(0, -- spi_id
+        nil, 0, -- CPHA
+        0, -- CPOL
+        8, -- 数据宽度
+        25600000 -- ,--频率
+        -- spi.MSB,--高低位顺序    可选，默认高位在前
+        -- spi.master,--主模式     可选，默认主
+        -- spi.full--全双工       可选，默认全双工
+        )
+        log.info("main", "open", result)
+        if result ~= 0 then -- 返回值为0，表示打开成功
+            log.info("main", "spi open error", result)
+            return
+        end
+        -- 初始化指定netdrv设备,
+        -- socket.LWIP_ETH 网络适配器编号
+        -- netdrv.CH390外挂CH390
+        -- SPI ID 1, 片选 GPIO12
+        netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {
+            spi = 0,
+            cs = 8
+        })
+        sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
+        netdrv.dhcp(socket.LWIP_ETH, true)
+        log.info("LWIP_ETH", "mac addr", netdrv.mac(socket.LWIP_ETH))
+        socket.dft(socket.LWIP_ETH)
+        return
+    end
     -- -- 1602使用airlink连接wifi
     if hmeta.model() == "Air1602" then
         -- wifi_en(1) 
@@ -108,7 +142,6 @@ function netready.exec(ctx, timeout)
         end
     end
 end
-
 
 function netready.deinit()
     if mobile then

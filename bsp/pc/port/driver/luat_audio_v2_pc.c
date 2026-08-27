@@ -130,6 +130,7 @@ static void SDLCALL pc_audio_rx_callback(void *userdata, Uint8 *stream, int len)
 {
     pc_audio_v2_driver_t *driver = (pc_audio_v2_driver_t *)userdata;
     int rest = len;
+    static uint32_t rx_callback_count = 0;
 
     if (!driver || !driver->ctrl || !driver->rx_buffer ||
         !driver->rx_block_len || !driver->rx_block_num) {
@@ -139,6 +140,19 @@ static void SDLCALL pc_audio_rx_callback(void *userdata, Uint8 *stream, int len)
     /* If device is being closed, don't process */
     if (!driver->rx_device) {
         return;
+    }
+
+    /* 计算输入数据的PCM能量（用于调试） */
+    rx_callback_count++;
+    if (rx_callback_count % 100 == 1 && len >= 2) {
+        int32_t energy = 0;
+        int16_t *samples = (int16_t *)stream;
+        int sample_count = len / 2;
+        for (int i = 0; i < sample_count; i++) {
+            energy += abs(samples[i]);
+        }
+        energy /= sample_count;
+        LLOGI("pc_audio_rx_callback: callback #%u len=%d energy=%ld", rx_callback_count, len, energy);
     }
 
     while (rest > 0) {
@@ -161,6 +175,10 @@ static void SDLCALL pc_audio_rx_callback(void *userdata, Uint8 *stream, int len)
             luat_i2s_conf_t *i2s = luat_i2s_get_config(0);
             if (i2s && i2s->luat_i2s_event_callback) {
                 i2s->luat_i2s_event_callback(0, LUAT_I2S_EVENT_RX_DONE, block, driver->rx_block_len, i2s->userdata);
+            } else if (i2s) {
+                LLOGI("pc_audio_rx_callback: i2s config found but callback is NULL");
+            } else {
+                LLOGI("pc_audio_rx_callback: i2s config not found for id=0");
             }
         }
     }
@@ -418,6 +436,14 @@ static int pc_audio_start_rx(luat_audio_driver_ctrl_t *ctrl, uint32_t **record_b
           SDL_GetAudioDeviceName(0, 1) ? SDL_GetAudioDeviceName(0, 1) : "default",
            ctrl->rx_param.sample_rate, ctrl->tx_param.channel_nums,
            ctrl->tx_param.data_align * 8U, one_block_len, block_num);
+    
+    /* 检查录音设备实际参数 */
+    SDL_AudioSpec obtained;
+    if (SDL_GetAudioDeviceSpec(driver->rx_device, 1, &obtained) == 0) {
+        LLOGI("input actual spec: %uHz %uch %ubit samples=%u",
+              obtained.freq, obtained.channels, SDL_AUDIO_BITSIZE(obtained.format), obtained.samples);
+    }
+    
     SDL_PauseAudioDevice(driver->rx_device, 0);
     return LUAT_ERROR_NONE;
 }
@@ -490,6 +516,14 @@ static int pc_audio_start_full_loop_with_play_buff(luat_audio_driver_ctrl_t *ctr
           ctrl->tx_param.sample_rate, ctrl->tx_param.channel_nums,
           ctrl->tx_param.data_align * 8U, one_play_block_len, play_block_num,
           one_record_block_len, record_block_num);
+    
+    /* 检查录音设备实际参数 */
+    SDL_AudioSpec obtained_rx;
+    if (SDL_GetAudioDeviceSpec(driver->rx_device, 1, &obtained_rx) == 0) {
+        LLOGI("input actual spec: %uHz %uch %ubit samples=%u",
+              obtained_rx.freq, obtained_rx.channels, SDL_AUDIO_BITSIZE(obtained_rx.format), obtained_rx.samples);
+    }
+    
     SDL_PauseAudioDevice(driver->rx_device, 0);
     return LUAT_ERROR_NONE;
 }

@@ -1,3 +1,4 @@
+#include "luat_base.h"
 #include "luat_audio_core.h"
 #define LUAT_LOG_TAG "audio_dsp"
 #include "luat_log.h"

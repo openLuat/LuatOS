@@ -55,6 +55,7 @@ static uint8_t ref_idx = 254;
 static uint64_t long_sms_send_idp = 0;
 static uint8_t g_sms_msg_refs[LONG_SMS_CMAX];  // 每段的 MR (Message Reference)
 static uint8_t g_sms_msg_ref_count = 0;         // 已确认的段数
+static uint8_t s_sms_vp = 0;                        // 全局默认vp, sms.setVp设置, 0=不设置
 
 
 static int l_long_sms_send_callback(lua_State *L, void* ptr){
@@ -342,7 +343,7 @@ end)
     return 0;
 }
 
-void luat_sms_recv_cb(uint32_t event, void *param)
+void luat_sms_recv_cb(uint8_t event, void *param)
 {
     luat_sms_recv_msg_t* sms = ((luat_sms_recv_msg_t*)param);
     rtos_msg_t msg = {0};
@@ -536,11 +537,12 @@ static int sms_encode_and_pack(const char *payload, size_t payload_len)
 
 /*
 异步发送短信
-@api sms.send(phone, msg, auto_phone_fix, need_report)
+@api sms.send(phone, msg, auto_phone_fix, need_report, vp)
 @string 电话号码,必填
 @string 短信内容,必填
 @bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
 @bool   是否请求短信回执(状态报告),默认false不请求,设为true时接收方成功接收后会收到SMS_REPORT消息
+@int    vp有效期(相对格式,0=本次不设置VP): 5=30分钟, 11=1小时, 143=12小时, 167=24小时, 169=72小时(3天), 196=30天, 最大255; 不传则使用sms.setVp设置的全局值
 @return bool 成功返回true,否则返回false或nil
 @usage
 -- 短信号码支持2种形式
@@ -553,6 +555,15 @@ log.info("sms", sms.send("85513416121234", "Hi, LuatOS - " .. os.date()), false)
 
 -- 请求短信回执, 接收方成功接收后会收到 SMS_REPORT 消息
 sms.send("+8613416121234", "Hi, LuatOS", true, true)
+
+-- 单次设置有效期72小时(3天)
+sms.send("+8613416121234", "Hi, LuatOS", true, false, 169)
+
+-- 全局设置有效期72小时, 之后所有send/sendLong都生效
+sms.setVp(169)
+sms.send("+8613416121234", "Hi, LuatOS")
+-- 单次覆盖: 显式传0则本次不带VP
+sms.send("+8613416121234", "Hi, LuatOS", true, false, 0)
 */
 static int l_sms_send(lua_State *L) {
     size_t phone_len = 0;
@@ -567,6 +578,8 @@ static int l_sms_send(lua_State *L) {
     if (lua_isboolean(L, 4) && lua_toboolean(L, 4)) {
         need_report = 1;
     }
+    // -1 = 未传参(用全局sms.setVp); 显式传0 = 本次禁用VP
+    int vp = luaL_optinteger(L, 5, -1);
 
     // 当前有其他地方在发送短信
     if (g_s_sms_pdu_packet.maxNum) {
@@ -592,8 +605,14 @@ static int l_sms_send(lua_State *L) {
     g_s_sms_pdu_packet.phone = phone;
     g_s_sms_pdu_packet.seqNum = 1;
     g_s_sms_pdu_packet.srr = need_report;
-    if (need_report)
+    if (vp >= 0)
+        g_s_sms_pdu_packet.vp = (uint8_t)(vp > 255 ? 255 : vp); // 单次显式传参, 完全覆盖(含传0禁用)
+    else if (s_sms_vp > 0)
+        g_s_sms_pdu_packet.vp = s_sms_vp;               // 未传参 -> 用全局sms.setVp
+    else if (need_report)
         g_s_sms_pdu_packet.vp = 5; // 30分钟有效期, 超时后SMSC返回EXPIRED
+    else
+        g_s_sms_pdu_packet.vp = 0; // 显式清零, 避免残留上一次发送的值
 
     int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
     LLOGD("pdu len %d", len);
@@ -614,17 +633,23 @@ static int l_sms_send(lua_State *L) {
 
 /*
 同步发送短信
-@api sms.sendLong(phone, msg, auto_phone_fix, need_report).wait()
+@api sms.sendLong(phone, msg, auto_phone_fix, need_report, vp).wait()
 @string 电话号码,必填
 @string 短信内容,必填
 @bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
 @bool   是否请求短信回执(状态报告),默认false不请求,设为true时接收方成功接收后会收到SMS_REPORT消息
+@int    vp有效期(相对格式,0=本次不设置VP): 5=30分钟, 11=1小时, 143=12小时, 167=24小时, 169=72小时(3天), 196=30天, 最大255; 不传则使用sms.setVp设置的全局值
 @return bool 异步等待结果 成功返回true, 否则返回false或nil
 @usage
 sys.taskInit(function()
     local str = string.rep("1234567890", 50)
     sys.waitUntil("IP_READY")
     -- 发送500bytes的短信
+    sms.sendLong("+8613416121234", str).wait()
+    -- 单次设置有效期72小时(3天)
+    sms.sendLong("+8613416121234", str, true, false, 169).wait()
+    -- 全局设置有效期72小时, 之后所有send/sendLong都生效
+    sms.setVp(169)
     sms.sendLong("+8613416121234", str).wait()
 end)
 */
@@ -641,6 +666,8 @@ static int l_long_sms_send(lua_State *L) {
     if (lua_isboolean(L, 4) && lua_toboolean(L, 4)) {
         need_report = 1;
     }
+    // -1 = 未传参(用全局sms.setVp); 显式传0 = 本次禁用VP
+    int vp = luaL_optinteger(L, 5, -1);
 
     // 当前有其他地方在发送短信
     if (g_s_sms_pdu_packet.maxNum) {
@@ -675,8 +702,14 @@ static int l_long_sms_send(lua_State *L) {
     g_s_sms_pdu_packet.phone = phone;
     g_s_sms_pdu_packet.seqNum = 1;
     g_s_sms_pdu_packet.srr = need_report;
-    if (need_report)
+    if (vp >= 0)
+        g_s_sms_pdu_packet.vp = (uint8_t)(vp > 255 ? 255 : vp); // 单次显式传参, 完全覆盖(含传0禁用)
+    else if (s_sms_vp > 0)
+        g_s_sms_pdu_packet.vp = s_sms_vp;               // 未传参 -> 用全局sms.setVp
+    else if (need_report)
         g_s_sms_pdu_packet.vp = 5; // 30分钟有效期, 超时后SMSC返回EXPIRED
+    else
+        g_s_sms_pdu_packet.vp = 0; // 显式清零, 避免残留上一次发送的值
 
     {
         int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
@@ -742,6 +775,24 @@ static int l_sms_auto_long(lua_State *L) {
         lua_sms_recv_long = lua_toboolean(L, 1);
     }
     lua_pushboolean(L, lua_sms_recv_long == 0 ? 0 : 1);
+    return 1;
+}
+
+/**
+设置默认有效期vp, 全局生效
+@api sms.setVp(vp)
+@int  vp有效期(相对格式,0=不设置): 5=30分钟, 11=1小时, 143=12小时, 167=24小时, 169=72小时(3天), 196=30天, 最大255
+@return int 设置后的值
+@usage
+-- 全局设置72小时有效期, 之后所有 send/sendLong 都生效
+sms.setVp(169)
+-- 单次覆盖: send/sendLong 第5参数显式传0则本次不带VP
+sms.send("+8613416121234", "hi", true, false, 0)
+ */
+static int l_sms_set_vp(lua_State *L) {
+    int vp = luaL_optinteger(L, 1, 0);
+    s_sms_vp = (uint8_t)(vp > 255 ? 255 : (vp < 0 ? 0 : vp));
+    lua_pushinteger(L, s_sms_vp);
     return 1;
 }
 
@@ -927,6 +978,7 @@ static const rotable_Reg_t reg_sms[] =
     { "sendLong",       ROREG_FUNC(l_long_sms_send)},
     { "setNewSmsCb",    ROREG_FUNC(l_sms_cb)},
     { "autoLong",       ROREG_FUNC(l_sms_auto_long)},
+    { "setVp",          ROREG_FUNC(l_sms_set_vp)},
     { "clearLong",      ROREG_FUNC(l_sms_clear_long)},
     { "setReportCb",    ROREG_FUNC(l_sms_set_report_cb)},
     { "debug",          ROREG_FUNC(l_sms_set_debug)},

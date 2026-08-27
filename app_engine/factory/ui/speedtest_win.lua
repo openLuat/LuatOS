@@ -31,6 +31,11 @@ local screen_w, screen_h = 480, 800
 local margin = 15
 local top_h = 60
 
+-- 是否为低分辨率横屏（如 480x272）：改用紧凑布局
+local is_compact = false
+
+local titlebar = require "settings_titlebar"
+
 local COLOR_PRIMARY        = 0x007AFF
 local COLOR_PRIMARY_DARK   = 0x0056B3
 local COLOR_BG             = 0xF5F5F5
@@ -49,8 +54,9 @@ local function update_screen_size()
     else
         screen_w, screen_h = phys_h, phys_w
     end
-    margin = math.floor(screen_w * 0.03)
-    top_h = 60
+    is_compact = (screen_h > 0 and screen_h < 320) and (screen_w > screen_h)
+    margin = is_compact and 6 or math.floor(screen_w * 0.03)
+    top_h = is_compact and 48 or 60
 end
 
 local function format_speed(value)
@@ -81,8 +87,8 @@ end
 local function reset_display()
     if download_label then download_label:set_text("--") end
     if upload_label then upload_label:set_text("--") end
-    if ping_label then ping_label:set_text("--") end
-    if jitter_label then jitter_label:set_text("--") end
+    if ping_label then ping_label:set_text(is_compact and "--ms" or "--") end
+    if jitter_label then jitter_label:set_text(is_compact and "--ms" or "--") end
     if status_label then status_label:set_text("就绪") end
 end
 
@@ -96,54 +102,36 @@ local function build_ui()
         scrollable = true,
     })
 
-    local tb = airui.container({
-        parent = main_container,
-        x = 0, y = 0,
-        w = screen_w, h = math.floor(top_h * _G.density_scale),
-        color = COLOR_PRIMARY
-    })
-    local bb = airui.container({
-        parent = tb,
-        x = math.floor(10 * _G.density_scale), y = math.floor(10 * _G.density_scale),
-        w = math.floor(50 * _G.density_scale), h = math.floor(40 * _G.density_scale),
-        color = COLOR_PRIMARY,
-        on_click = function()
-            if window_id then exwin.close(window_id) end
-        end
-    })
-    airui.label({
-        parent = bb,
-        x = 0, y = math.floor(5 * _G.density_scale),
-        w = math.floor(50 * _G.density_scale), h = math.floor(30 * _G.density_scale),
-        text = "<",
-        font_size = math.floor(28 * _G.density_scale),
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-    airui.label({
-        parent = tb,
-        x = math.floor(60 * _G.density_scale), y = math.floor(10 * _G.density_scale),
-        w = math.floor(140 * _G.density_scale), h = math.floor(40 * _G.density_scale),
-        text = "网络测速",
-        font_size = math.floor(32 * _G.density_scale),
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    -- 标题栏（复用共享组件，兼容低分辨率横屏紧凑模式）
+    local _, th = titlebar.create(main_container, "网络测速", screen_w, function()
+        if window_id then exwin.close(window_id) end
+    end)
+    top_h = th or top_h
 
-    local cy = math.floor((top_h + 10) * _G.density_scale)
+    local cy = math.floor((top_h + 4) * _G.density_scale)
     local ch = screen_h - cy
 
     local cw = math.floor((screen_w - margin * 3) / 2)
-    local cah = math.min(math.floor(ch * 0.35), math.floor(250 * _G.density_scale))
+    -- 紧凑模式：卡片高度按 16 号字高度(24px)布局需求计算
+    local cah, ah, cg, bh
+    if is_compact then
+        -- 速度卡：标题24 + 数值28 + 单位24 + 上下留白 ≈ 88
+        cah = 88
+        -- ping卡：标题24 + 数值24 + 留白 ≈ 56
+        ah = 56
+        cg = 4
+        bh = 34
+    else
+        cah = math.min(math.floor(ch * 0.35), math.floor(250 * _G.density_scale))
+        ah = math.floor(cah * 0.65)
+        cg = margin
+        bh = math.floor(math.min(math.floor(60 * _G.density_scale), math.floor(screen_h * 0.075 * _G.density_scale)))
+    end
 
     local aw = cw
-    local ah = math.floor(cah * 0.65)
-
     local bw = math.floor(screen_w * 0.65)
-    local bh = math.floor(math.min(math.floor(60 * _G.density_scale), math.floor(screen_h * 0.075 * _G.density_scale)))
 
     local cay = cy
-    local cg = margin
 
     local dc = airui.container({
         parent = main_container,
@@ -155,40 +143,71 @@ local function build_ui()
         radius = 48
     })
     local isz = math.floor(math.min(math.floor(40 * _G.density_scale), math.floor(cw * 0.19 * _G.density_scale)))
-    local iy = math.floor(cah * 0.08)
-    airui.label({
-        parent = dc,
-        x = 0,
-        y = iy + isz + math.floor(5 * _G.density_scale),
-        w = cw,
-        h = math.floor(cah * 0.12),
-        text = "下载速度",
-        font_size = math.floor(cah * 0.09 * _G.density_scale),
-        color = COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-    download_label = airui.label({
-        parent = dc,
-        x = 0,
-        y = math.floor(cah * 0.45),
-        w = cw,
-        h = math.floor(cah * 0.28),
-        text = "--",
-        font_size = math.min(math.floor(cah * 0.3), math.floor(60 * _G.density_scale)),
-        color = COLOR_PRIMARY,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-    download_unit_label = airui.label({
-        parent = dc,
-        x = 0,
-        y = math.floor(cah * 0.78),
-        w = cw,
-        h = math.floor(cah * 0.12),
-        text = "Kbps",
-        font_size = math.min(math.floor(cah * 0.09), math.floor(20 * _G.density_scale)),
-        color = COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    -- 文字字号最少 16 号；文字区高度按实际字号+8 余量预留（16 号字=24px）
+    local dl_font = is_compact and math.floor(cah * 0.24) or math.min(math.floor(cah * 0.3), math.floor(60 * _G.density_scale))
+    dl_font = math.max(16, dl_font)
+    local dl_unit_font = math.max(16, math.floor(cah * 0.09 * _G.density_scale))
+    local dl_title_font = math.max(16, math.floor(cah * 0.09 * _G.density_scale))
+    local dl_label_h = dl_font + 8
+    local dl_title_h = dl_title_font + 8
+    local dl_unit_h = dl_unit_font + 8
+    local iy = math.floor(cah * 0.06)
+
+    if is_compact then
+        -- 紧凑：标题在上(24px)，数值居中(28px)，单位在下(24px)，共约88px
+        airui.label({
+            parent = dc, x = 0, y = 4,
+            w = cw, h = dl_title_h,
+            text = "下载速度", font_size = dl_title_font,
+            color = COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_CENTER
+        })
+        download_label = airui.label({
+            parent = dc, x = 0, y = 4 + dl_title_h + 2,
+            w = cw, h = dl_label_h,
+            text = "--", font_size = dl_font,
+            color = COLOR_PRIMARY, align = airui.TEXT_ALIGN_CENTER
+        })
+        download_unit_label = airui.label({
+            parent = dc, x = 0, y = cah - dl_unit_h - 4,
+            w = cw, h = dl_unit_h,
+            text = "Kbps", font_size = dl_unit_font,
+            color = COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_CENTER
+        })
+    else
+        airui.label({
+            parent = dc,
+            x = 0,
+            y = iy + isz + math.floor(5 * _G.density_scale),
+            w = cw,
+            h = math.max(24, math.floor(cah * 0.12)),
+            text = "下载速度",
+            font_size = math.floor(cah * 0.09 * _G.density_scale),
+            color = COLOR_TEXT_SECONDARY,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+        download_label = airui.label({
+            parent = dc,
+            x = 0,
+            y = math.floor(cah * 0.45),
+            w = cw,
+            h = math.max(24, math.floor(cah * 0.28)),
+            text = "--",
+            font_size = math.min(math.floor(cah * 0.3), math.floor(60 * _G.density_scale)),
+            color = COLOR_PRIMARY,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+        download_unit_label = airui.label({
+            parent = dc,
+            x = 0,
+            y = math.floor(cah * 0.78),
+            w = cw,
+            h = math.max(24, math.floor(cah * 0.12)),
+            text = "Kbps",
+            font_size = math.min(math.floor(cah * 0.09), math.floor(20 * _G.density_scale)),
+            color = COLOR_TEXT_SECONDARY,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+    end
 
     local uc = airui.container({
         parent = main_container,
@@ -199,41 +218,67 @@ local function build_ui()
         color = COLOR_CARD,
         radius = 48
     })
-    airui.label({
-        parent = uc,
-        x = 0,
-        y = iy + isz + math.floor(5 * _G.density_scale),
-        w = cw,
-        h = math.floor(cah * 0.12),
-        text = "上传速度",
-        font_size = math.floor(cah * 0.09 * _G.density_scale),
-        color = COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-    upload_label = airui.label({
-        parent = uc,
-        x = 0,
-        y = math.floor(cah * 0.45),
-        w = cw,
-        h = math.floor(cah * 0.28),
-        text = "--",
-        font_size = math.min(math.floor(cah * 0.3), math.floor(60 * _G.density_scale)),
-        color = COLOR_DANGER,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-    upload_unit_label = airui.label({
-        parent = uc,
-        x = 0,
-        y = math.floor(cah * 0.78),
-        w = cw,
-        h = math.floor(cah * 0.12),
-        text = "Kbps",
-        font_size = math.min(math.floor(cah * 0.09), math.floor(20 * _G.density_scale)),
-        color = COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    if is_compact then
+        airui.label({
+            parent = uc, x = 0, y = 4,
+            w = cw, h = dl_title_h,
+            text = "上传速度", font_size = dl_title_font,
+            color = COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_CENTER
+        })
+        upload_label = airui.label({
+            parent = uc, x = 0, y = 4 + dl_title_h + 2,
+            w = cw, h = dl_label_h,
+            text = "--", font_size = dl_font,
+            color = COLOR_DANGER, align = airui.TEXT_ALIGN_CENTER
+        })
+        upload_unit_label = airui.label({
+            parent = uc, x = 0, y = cah - dl_unit_h - 4,
+            w = cw, h = dl_unit_h,
+            text = "Kbps", font_size = dl_unit_font,
+            color = COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_CENTER
+        })
+    else
+        airui.label({
+            parent = uc,
+            x = 0,
+            y = iy + isz + math.floor(5 * _G.density_scale),
+            w = cw,
+            h = math.max(24, math.floor(cah * 0.12)),
+            text = "上传速度",
+            font_size = math.floor(cah * 0.09 * _G.density_scale),
+            color = COLOR_TEXT_SECONDARY,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+        upload_label = airui.label({
+            parent = uc,
+            x = 0,
+            y = math.floor(cah * 0.45),
+            w = cw,
+            h = math.max(24, math.floor(cah * 0.28)),
+            text = "--",
+            font_size = math.min(math.floor(cah * 0.3), math.floor(60 * _G.density_scale)),
+            color = COLOR_DANGER,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+        upload_unit_label = airui.label({
+            parent = uc,
+            x = 0,
+            y = math.floor(cah * 0.78),
+            w = cw,
+            h = math.max(24, math.floor(cah * 0.12)),
+            text = "Kbps",
+            font_size = math.min(math.floor(cah * 0.09), math.floor(20 * _G.density_scale)),
+            color = COLOR_TEXT_SECONDARY,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+    end
 
     local ay = cay + cah + margin
+    -- ping/jitter 卡片文字字号：最少 16 号，文字区高度按实际字号+8 预留（16 号=24px）
+    local p_title_font = math.max(16, math.floor(ah * 0.11 * _G.density_scale))
+    local p_val_font = math.max(16, math.floor(ah * 0.24 * _G.density_scale))
+    local p_title_h = p_title_font + 8
+    local p_val_h = p_val_font + 8
     local pc = airui.container({
         parent = main_container,
         x = margin,
@@ -243,39 +288,55 @@ local function build_ui()
         color = COLOR_CARD,
         radius = 36
     })
-    airui.label({
-        parent = pc,
-        x = 0,
-        y = math.floor(ah * 0.12),
-        w = aw,
-        h = math.floor(ah * 0.16),
-        text = "延迟 (Ping)",
-        font_size = math.floor(ah * 0.11 * _G.density_scale),
-        color = COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-    ping_label = airui.label({
-        parent = pc,
-        x = 0,
-        y = math.floor(ah * 0.34),
-        w = aw,
-        h = math.floor(ah * 0.32),
-        text = "--",
-        font_size = math.floor(ah * 0.24 * _G.density_scale),
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-    airui.label({
-        parent = pc,
-        x = 0,
-        y = math.floor(ah * 0.76),
-        w = aw,
-        h = math.floor(ah * 0.16),
-        text = "ms",
-        font_size = math.floor(ah * 0.12 * _G.density_scale),
-        color = COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    if is_compact then
+        -- 紧凑：两行（标题 + 数值），单位并入数值，文字区高=字号+8
+        airui.label({
+            parent = pc, x = 0, y = 4,
+            w = aw, h = p_title_h,
+            text = "延迟 (Ping)", font_size = p_title_font,
+            color = COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_CENTER
+        })
+        ping_label = airui.label({
+            parent = pc, x = 0, y = 4 + p_title_h + 2,
+            w = aw, h = p_val_h,
+            text = "--ms", font_size = p_val_font,
+            color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER
+        })
+    else
+        airui.label({
+            parent = pc,
+            x = 0,
+            y = math.floor(ah * 0.12),
+            w = aw,
+            h = p_title_h,
+            text = "延迟 (Ping)",
+            font_size = p_title_font,
+            color = COLOR_TEXT_SECONDARY,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+        ping_label = airui.label({
+            parent = pc,
+            x = 0,
+            y = math.floor(ah * 0.36),
+            w = aw,
+            h = p_val_h,
+            text = "--",
+            font_size = p_val_font,
+            color = COLOR_TEXT,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+        airui.label({
+            parent = pc,
+            x = 0,
+            y = math.floor(ah * 0.72),
+            w = aw,
+            h = math.max(24, math.floor(ah * 0.16)),
+            text = "ms",
+            font_size = math.max(16, math.floor(ah * 0.12 * _G.density_scale)),
+            color = COLOR_TEXT_SECONDARY,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+    end
 
     local jc = airui.container({
         parent = main_container,
@@ -286,39 +347,54 @@ local function build_ui()
         color = COLOR_CARD,
         radius = 36
     })
-    airui.label({
-        parent = jc,
-        x = 0,
-        y = math.floor(ah * 0.12),
-        w = aw,
-        h = math.floor(ah * 0.16),
-        text = "抖动 (Jitter)",
-        font_size = math.floor(ah * 0.11 * _G.density_scale),
-        color = COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-    jitter_label = airui.label({
-        parent = jc,
-        x = 0,
-        y = math.floor(ah * 0.34),
-        w = aw,
-        h = math.floor(ah * 0.32),
-        text = "--",
-        font_size = math.floor(ah * 0.24 * _G.density_scale),
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-    airui.label({
-        parent = jc,
-        x = 0,
-        y = math.floor(ah * 0.76),
-        w = aw,
-        h = math.floor(ah * 0.16),
-        text = "ms",
-        font_size = math.floor(ah * 0.12 * _G.density_scale),
-        color = COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    if is_compact then
+        airui.label({
+            parent = jc, x = 0, y = 4,
+            w = aw, h = p_title_h,
+            text = "抖动 (Jitter)", font_size = p_title_font,
+            color = COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_CENTER
+        })
+        jitter_label = airui.label({
+            parent = jc, x = 0, y = 4 + p_title_h + 2,
+            w = aw, h = p_val_h,
+            text = "--ms", font_size = p_val_font,
+            color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER
+        })
+    else
+        airui.label({
+            parent = jc,
+            x = 0,
+            y = math.floor(ah * 0.12),
+            w = aw,
+            h = p_title_h,
+            text = "抖动 (Jitter)",
+            font_size = p_title_font,
+            color = COLOR_TEXT_SECONDARY,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+        jitter_label = airui.label({
+            parent = jc,
+            x = 0,
+            y = math.floor(ah * 0.36),
+            w = aw,
+            h = p_val_h,
+            text = "--",
+            font_size = p_val_font,
+            color = COLOR_TEXT,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+        airui.label({
+            parent = jc,
+            x = 0,
+            y = math.floor(ah * 0.72),
+            w = aw,
+            h = math.max(24, math.floor(ah * 0.16)),
+            text = "ms",
+            font_size = math.max(16, math.floor(ah * 0.12 * _G.density_scale)),
+            color = COLOR_TEXT_SECONDARY,
+            align = airui.TEXT_ALIGN_CENTER
+        })
+    end
 
     local by = ay + ah + margin
     start_btn = airui.button({
@@ -328,7 +404,7 @@ local function build_ui()
         w = bw,
         h = bh,
         text = "开始测速",
-        font_size = math.floor(bh * 0.35 * _G.density_scale),
+        font_size = math.max(16, math.floor(bh * 0.35 * _G.density_scale)),
         font_color = COLOR_WHITE,
         bg_color = COLOR_PRIMARY,
         radius = bh / 2,
@@ -337,15 +413,15 @@ local function build_ui()
         end
     })
 
-    local sy = by + bh + math.floor(margin * 1.5)
+    local sy = by + bh + math.floor((is_compact and 4 or margin * 1.5))
     status_label = airui.label({
         parent = main_container,
         x = 0,
         y = sy,
         w = screen_w,
-        h = math.floor(screen_h * 0.04),
+        h = math.floor((16 + 8) * _G.density_scale),
         text = "就绪",
-        font_size = math.floor(screen_h * 0.022 * _G.density_scale),
+        font_size = 16,
         color = COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_CENTER
     })
@@ -360,13 +436,15 @@ local function on_test_started()
 end
 
 local function on_test_result(result)
+    -- 紧凑模式下 ping/jitter 数值与单位合在一行（如 "--ms"）
+    local p_suffix = is_compact and "ms" or ""
     if result.ping then
-        if ping_label then ping_label:set_text(format_latency(result.ping)) end
+        if ping_label then ping_label:set_text(format_latency(result.ping) .. p_suffix) end
     else
         if ping_label then ping_label:set_text("ERR") end
     end
     if result.jitter then
-        if jitter_label then jitter_label:set_text(string.format("%.1f", result.jitter)) end
+        if jitter_label then jitter_label:set_text(string.format("%.1f", result.jitter) .. p_suffix) end
     else
         if jitter_label then jitter_label:set_text("ERR") end
     end

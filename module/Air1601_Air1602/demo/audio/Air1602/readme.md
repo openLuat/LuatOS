@@ -12,9 +12,13 @@
 
 6、http_stream_play: HTTP音频流式播放（边下边播），支持PCM/AMR/MP3/WAV格式，自动连接WiFi
 
-7、sample-6s.mp3、10.amr：用于测试本地音频文件播放；
+7、record_amr_file: 录音到文件（AMR格式），开机自动录音5秒，录音完成后自动播放
 
-8、test.pcm：用于测试PCM流式播放的示例音频文件；
+8、record_pcm_file: 录音到文件（PCM格式），开机自动录音5秒（16kHz/16bit/单声道），录音完成后自动播放
+
+9、sample-6s.mp3、10.amr：用于测试本地音频文件播放；
+
+10、test.pcm：用于测试PCM流式播放的示例音频文件；
 
 **注意：目前不支持录音和放音同时进行**
 
@@ -57,6 +61,18 @@
 3. 将代码下载到开发板并运行
 4. 自动连接WiFi，使用httpplus进行HTTP边下边播，支持PCM/AMR/MP3/WAV格式
 
+### 6、录音到文件功能（record_amr_file.lua）
+
+- 开机自动挂载SD卡（Air160X_V1.2开发板需先拉高SD_EN=GPIO56使能SD供电），挂载失败自动回退内部存储
+- 自动开始5秒录音（AMR_NB格式），录音完成后自动播放录音文件
+- 使用ES8311编解码芯片：录音走I2S2，播放走内置DAC
+
+### 7、录音到文件功能（record_pcm_file.lua）
+
+- 开机自动挂载SD卡（Air160X_V1.2开发板需先拉高SD_EN=GPIO56使能SD供电），挂载失败自动回退内部存储
+- 自动开始5秒录音（PCM格式，16kHz/16bit/单声道），录音完成后自动播放录音文件
+- 使用ES8311编解码芯片：录音走I2S2，播放走内置DAC
+
 ## 演示硬件环境
 
 1、Air1602开发板+喇叭
@@ -96,6 +112,8 @@
 ├── play_stream.lua       # 流式音频播放功能模块，支持PCM/MP3/AMR/WAV格式流式播放
 ├── http_download_play.lua # HTTP下载音频文件播放功能模块
 ├── http_stream_play.lua  # HTTP音频流式播放功能模块（边下边播）
+├── record_amr_file.lua   # 录音到文件功能模块（AMR格式，开机自动录音5秒并自动播放）
+├── record_pcm_file.lua   # 录音到文件功能模块（PCM格式，开机自动录音5秒并自动播放）
 ├── sample-6s.mp3         # 示例音频文件，用于播放测试
 ├── 10.amr                # 示例AMR音频文件，用于播放测试
 ├── test.pcm              # 示例PCM音频文件，用于流式播放测试
@@ -236,4 +254,95 @@ I/user.stat_summary http_total: 51635 http_chunks: 13 http_time_ms: 1 http_speed
 I/user.exaudio 播放完毕 0
 I/user.播放完成
 I/user.stat_summary ========== 播放完全结束 ==========
+```
+
+### 6、录音到文件功能（record_amr_file.lua）
+
+1. 搭建好硬件环境
+2. 打开main.lua，取消注释`require "record_amr_file"`，注释掉其他require
+3. 将代码下载到开发板并运行
+4. **演示效果**：开机自动挂载SD卡（挂载失败自动回退内部存储），自动开始5秒录音（AMR格式），录音完成后自动播放录音文件
+
+**运行结果示例：**
+
+```lua
+I/user.音频系统初始化
+I/user.开始挂载SD卡
+I/user.SD卡挂载成功 挂载路径: /sd
+I/user.SD卡空间信息 {"free_sectors":31107456,"total_kb":15554016,"free_kb":15553728,"total_sectors":31108032}
+I/user.录音文件将保存到SD卡: /sd/record.amr
+I/user.exaudio.setup 当前使用新音频框架
+I/user.exaudio.setup 默认驱动已切换 tx_bus_type: 2 rx_bus_type: 1
+I/user.exaudio.setup audio_v2 ES8311模式初始化
+I/user.exaudio.setup ES8311已重启 dac_ctrl: 43
+I/user.exaudio.setup ES8311初始化完成
+I/user.exaudio.setup audio_v2初始化完成
+I/user.音量设置 播放: 75 录音: 80
+I/user.无录音文件 路径: /sd/record.amr
+I/user.音频系统初始化完成，准备开始录音
+I/user.录音时长:  5 秒
+I/user.录音完成后自动播放
+I/user.录音文件保存到: /sd/record.amr
+I/user.开始录音 时长: 5 秒
+I/user.删除旧录音文件
+I/user.exaudio 录音开始 0
+I/user.录音已开始
+I/user.录音中... 1 秒
+...（录音中，每秒打印一次）...
+I/user.录音中... 5 秒
+I/user.录音时长已达 5 秒，自动停止录音
+I/user.停止录音 已录制: 5 秒
+I/user.录音完成 大小: 5425 字节
+I/user.录音文件路径 /sd/record.amr
+I/user.播放录音文件 大小: 5425 字节
+I/user.播放已开始
+I/user.exaudio 播放开始 1
+...（播放中，等待约5秒）...
+I/user.exaudio 播放完毕 1
+I/user.播放完成
+```
+
+### 7、录音到文件功能（record_pcm_file.lua）
+
+1. 搭建好硬件环境
+2. 打开main.lua，取消注释`require "record_pcm_file"`，注释其他require
+3. 将代码下载到开发板并运行
+4. **演示效果**：开机自动挂载SD卡（挂载失败自动回退内部存储），自动开始5秒录音（PCM格式，16kHz/16bit/单声道），录音完成后自动播放录音文件
+
+**运行结果示例：**
+
+```lua
+I/user.音频系统初始化
+I/user.开始挂载SD卡
+I/user.SD卡挂载失败 format error
+I/user.TF卡挂载失败，录音文件将无法保存到TF卡
+I/user.exaudio.setup 当前使用新音频框架
+I/user.exaudio.setup 默认驱动已切换 tx_bus_type: 2 rx_bus_type: 1
+I/user.exaudio.setup audio_v2 ES8311模式初始化
+I/user.exaudio.setup ES8311已重启 dac_ctrl: 43
+I/user.exaudio.setup ES8311初始化完成
+I/user.exaudio.setup audio_v2初始化完成
+I/user.音量设置 播放: 70 录音: 70
+I/user.无录音文件 路径: /record.pcm
+I/user.音频系统初始化完成，准备开始录音
+I/user.录音时长:  5 秒
+I/user.录音完成后自动播放
+I/user.录音文件保存到: /record.pcm
+I/user.开始录音 时长: 5 秒
+I/user.删除旧录音文件
+I/user.exaudio 录音开始 0
+I/user.录音已开始
+I/user.录音中... 1 秒
+...（录音中，每秒打印一次；PCM按3200字节/帧实时写入存储）...
+I/user.录音中... 5 秒
+I/user.停止录音 已录制: 5 秒
+I/user.录音完成 大小: 108800 字节
+I/user.录音文件路径 /record.pcm
+I/user.流式播放录音文件 大小: 108800 字节
+I/user.exaudio 流式播放启动成功, request_index: 1 采样率: 16000 codec_id: 0
+I/user.流式播放已开始
+I/user.exaudio 播放开始 1
+...（播放中，约7秒后播放完毕）...
+I/user.exaudio 播放完毕 1
+I/user.播放完成
 ```

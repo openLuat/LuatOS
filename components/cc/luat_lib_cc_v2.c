@@ -10,14 +10,18 @@
 -- 选型手册上支持VoLTE通话功能的模组支持
 */
 
-#include "lua.h"
+#include "luat_base.h"
+#ifdef LUAT_USE_AUDIO_V2
 #include "luat_audio_data_codec.h"
 #include "luat_audio_define.h"
 #include "luat_audio_driver.h"
 #include "luat_audio_dsp.h"
 #include "luat_audio_request.h"
-#include "luat_base.h"
-#ifdef LUAT_USE_AUDIO_V2
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+#include "luat_cc_bridge.h"
+#endif
+
+
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
@@ -33,6 +37,9 @@
 enum{
 	CC_EVENT_HANGUP,
 	CC_EVENT_CALL_READY,
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+	CC_EVENT_BRIDGE_SOURCE_START,
+#endif
 
     CC_MSG_AUDIO_START = 0,
     CC_MSG_EXTERNAL_SOURCE_DECODE_DONE,
@@ -44,10 +51,13 @@ typedef struct
     luat_audio_request_block_t ring_request;
     luat_audio_request_block_t cc_request;
     luat_audio_extern_source_t extern_source;  // 外部音频源
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+    luat_audio_extern_source_t bridge_source;  // SIP -> CC 流式上行音源
+#endif
     luat_audio_common_param_t cc_param;
     luat_fifo_t *record_save_fifo;  // 录音数据FIFO
     luat_fifo_t *play_save_fifo;  // 播放数据FIFO
-	luat_rtos_task_handle task_handle;
+    luat_rtos_task_handle task_handle;
 	luat_zbuff_t *up_buff[2];
 	luat_zbuff_t *down_buff[2];
 	int record_cb;
@@ -57,6 +67,7 @@ typedef struct
 	volatile uint8_t record_down_zbuff_point;
 	volatile uint8_t record_up_zbuff_point;
     uint8_t record_callback_cnt_level;
+    uint8_t multimedia_id;  //cc.init传入的多媒体id，用于板级codec控制
     uint8_t is_audio_start:1;   //是否开始音频操作
 	uint8_t is_play_ring:1;     //是否播放振铃，0:否，可能是在通话中，1:是
     uint8_t is_play_user_ring:1;     //是否播放用户振铃
@@ -64,6 +75,9 @@ typedef struct
 	uint8_t record_on_off:1;
 	uint8_t upload_enable:1;
     uint8_t is_play_extern_source:1;     //是否播放第三方数据源
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+    uint8_t is_bridge_source_active:1;
+#endif
     uint8_t is_true_start:1;
 }luat_cc_ctrl_t;
 
@@ -141,10 +155,24 @@ static void _l_cc_audio_ring_request_callback(uint32_t event, uint8_t *data, uin
 
 }
 
+static void _l_cc_notify_audio_start(void)
+{
+    rtos_msg_t msg = {0};
+    msg.handler = _l_cc_audio_start;
+    msg.arg1 = CC_MSG_AUDIO_START;
+    luat_msgbus_put(&msg, 0);
+}
+
 static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, uint32_t param, struct luat_audio_request_block *request_block) {
 	luat_zbuff_t *buff;
     rtos_msg_t msg;
     switch (event) {
+    case LUAT_AUDIO_REQUEST_EVENT_NEED_NEW_DATA: {
+        // In bridge mode, VoIP data is consumed in _cc_codec_encode for CP DSP uplink.
+        // Do NOT write VoIP data to play FIFO here.
+        // CP DSP downlink data flows to I2S via play_buff_byte.
+        break;
+    }
     case LUAT_AUDIO_REQUEST_EVENT_GET_NEW_DATA:
         if (_l_cc.upload_enable && _l_cc.is_true_start) {    //在通话状态中
             if (_l_cc.record_on_off) { //通话录音中
@@ -163,25 +191,40 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
                     _l_cc.record_up_zbuff_point = !_l_cc.record_up_zbuff_point;
                     _l_cc.up_buff[_l_cc.record_up_zbuff_point]->used = 0;
                 }
-                // 放音数据写入用户zbuff
-                buff = _l_cc.down_buff[_l_cc.record_down_zbuff_point];
-                zbuff_rest_data_len = buff->len - buff->used;
-                fifo_read_len = luat_fifo_read(_l_cc.play_save_fifo, buff->addr + buff->used, zbuff_rest_data_len);
-                buff->used += fifo_read_len;
-                if (buff->used >= buff->len) {  //zbuff满了，需要上传了
-                    msg.handler = _l_cc_handler;
-                    msg.arg2 = _l_cc.record_down_zbuff_point;
-                    msg.arg1 = 1;
-                    luat_msgbus_put(&msg, 0);
-                    _l_cc.record_down_zbuff_point = !_l_cc.record_down_zbuff_point;
-                    _l_cc.down_buff[_l_cc.record_down_zbuff_point]->used = 0;
+                /* In bridge mode play_save_fifo has one consumer: the RTP
+                 * drain timer.  A recording callback must not steal blocks. */
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+                if (!luat_cc_bridge_mode_on()) {
+#else
+                {
+#endif
+                    buff = _l_cc.down_buff[_l_cc.record_down_zbuff_point];
+                    zbuff_rest_data_len = buff->len - buff->used;
+                    fifo_read_len = luat_fifo_read(_l_cc.play_save_fifo, buff->addr + buff->used, zbuff_rest_data_len);
+                    /* These are bridge diagnostics; keep standard CC entirely
+                     * on its own record/play path. */
+                    buff->used += fifo_read_len;
+                    if (buff->used >= buff->len) {  //zbuff满了，需要上传了
+                        msg.handler = _l_cc_handler;
+                        msg.arg2 = _l_cc.record_down_zbuff_point;
+                        msg.arg1 = 1;
+                        luat_msgbus_put(&msg, 0);
+                        _l_cc.record_down_zbuff_point = !_l_cc.record_down_zbuff_point;
+                        _l_cc.down_buff[_l_cc.record_down_zbuff_point]->used = 0;
+                    }
                 }
                 
             } else {
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+                luat_cc_bridge_drain_downlink();
+#endif
                 luat_fifo_delete_all(_l_cc.record_save_fifo);
                 luat_fifo_delete_all(_l_cc.play_save_fifo);
             }
         } else {
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+            luat_cc_bridge_drain_downlink();
+#endif
             luat_fifo_delete_all(_l_cc.record_save_fifo);
             luat_fifo_delete_all(_l_cc.play_save_fifo);
         }
@@ -191,6 +234,14 @@ static void _l_cc_audio_voice_request_callback(uint32_t event, uint8_t *data, ui
             _l_cc.cc_request.play_save_fifo = _l_cc.play_save_fifo;
             _l_cc.cc_request.is_save_play_data = 1;
         }
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+        if (luat_cc_bridge_mode_on()) {
+            _l_cc.cc_request.play_save_fifo = _l_cc.play_save_fifo;
+            _l_cc.cc_request.is_save_play_data = 1;
+            luat_cc_bridge_drain_start();
+            luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_BRIDGE_SOURCE_START, 0, 0, 0, 0);
+        }
+#endif
         break;
     case LUAT_AUDIO_REQUEST_EVENT_EXTERNAL_SOURCE_DECODE_DONE:
         msg.handler = _l_cc_audio_start;
@@ -220,6 +271,16 @@ static void _l_cc_volte_task(void *param){
 		case CC_EVENT_HANGUP:
 			luat_mobile_hangup_call(event.param1);
 			break;
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+        case CC_EVENT_BRIDGE_SOURCE_START:
+            if (!_l_cc.is_bridge_source_active && _l_cc.is_true_start && luat_cc_bridge_mode_on()) {
+                _l_cc.bridge_source.request = &_l_cc.cc_request;
+                if (!luat_cc_bridge_uplink_source_start(&_l_cc.bridge_source, &_l_cc.cc_param)) {
+                    _l_cc.is_bridge_source_active = 1;
+                }
+            }
+            break;
+#endif
         }
 	}
 }
@@ -281,6 +342,7 @@ static int l_cc_answer_call(lua_State* L) {
 @return bool 成功与否
  */
 static int l_cc_speech_init(lua_State* L) {
+    _l_cc.multimedia_id = luaL_optinteger(L, 1, 0);
     _l_cc.record_save_fifo = luat_fifo_create(13);
     _l_cc.play_save_fifo = luat_fifo_create(13);
     if (!_l_cc.record_save_fifo || !_l_cc.play_save_fifo)
@@ -297,6 +359,25 @@ static int l_cc_speech_init(lua_State* L) {
     lua_pushboolean(L, 1);
     return 1;
 }
+
+/**
+控制桥接模式早期彩铃，只向VoIP RTP侧送音，不占用本地音频播放请求。
+@api cc.bridgeTone(on)
+@boolean on true启动，false停止
+@return bool 成功与否
+ */
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+static int l_cc_bridge_tone(lua_State* L) {
+    if (lua_toboolean(L, 1)) {
+        luat_cc_bridge_tone_start();
+        lua_pushboolean(L, luat_cc_bridge_tone_is_on());
+    } else {
+        luat_cc_bridge_tone_stop();
+        lua_pushboolean(L, 1);
+    }
+    return 1;
+}
+#endif
 
 /**
 录音通话
@@ -542,8 +623,13 @@ static int l_cc_input(lua_State *L) {
         LLOGE("cc extern source is not start");
         goto DONE;
     }
+    if (lua_isboolean(L, 3)) {
+        is_end = lua_toboolean(L, 3);
+    } else {
+        is_end = 0;
+    }
     rest_len = luat_fifo_check_free_space(_l_cc.extern_source.decode_input_fifo);
-    luat_rtos_task_suspend_all();
+    
     if (LUA_TSTRING == (lua_type(L, 2))) {
         size_t len = 0;
         data = lua_tolstring(L, 2, &len);//取出字符串数据
@@ -552,7 +638,6 @@ static int l_cc_input(lua_State *L) {
         } else {
             input_len = len;
         }
-        luat_fifo_write(_l_cc.extern_source.decode_input_fifo, data, input_len);
     } else if(lua_isuserdata(L, 2)) {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         if (buff->used > rest_len) {
@@ -560,16 +645,10 @@ static int l_cc_input(lua_State *L) {
         } else {
             input_len = buff->used;
         }
-
-        luat_fifo_write(_l_cc.extern_source.decode_input_fifo, data, input_len);
-        
     }
     result = 0;
-    if (lua_isboolean(L, 3)) {
-        is_end = lua_toboolean(L, 3);
-    } else {
-        is_end = 0;
-    }
+    luat_rtos_task_suspend_all();
+    luat_fifo_write(_l_cc.extern_source.decode_input_fifo, data, input_len);
     _l_cc.extern_source.is_input_end = is_end;
     luat_rtos_task_resume_all();
 DONE:
@@ -593,6 +672,9 @@ static const rotable_Reg_t reg_cc[] =
     { "hangUp" ,    ROREG_FUNC(l_cc_hangup_call)},
     { "lastNum" ,   ROREG_FUNC(l_cc_get_last_call_num)},
 	{ "quality" ,   ROREG_FUNC(l_cc_get_quality)},
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+    { "bridgeTone", ROREG_FUNC(l_cc_bridge_tone)},
+#endif
     { "on" ,        ROREG_FUNC(l_cc_on)},
     { "record", 	ROREG_FUNC(l_cc_record_call)},
     { "extern_source", ROREG_FUNC(l_cc_extern_source)},
@@ -605,22 +687,90 @@ LUAMOD_API int luaopen_cc( lua_State *L ) {
     return 1;
 }
 
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+uint8_t luat_cc_call_running(void)
+{
+    return (_l_cc.upload_enable && _l_cc.is_true_start) ? 1 : 0;
+}
+
+uint16_t luat_cc_get_sample_rate(void)
+{
+    return _l_cc.cc_param.sample_rate;
+}
+
+luat_fifo_t *luat_cc_get_play_fifo(void)
+{
+    return _l_cc.play_save_fifo;
+}
+#endif
+
 void luat_cc_start_upload(void)
 {
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+    if (luat_cc_bridge_mode_on()) {
+        luat_cc_bridge_tone_stop();
+        luat_cc_bridge_flush_sip_uplink();
+    }
+#endif
     _l_cc.upload_enable = 1;
     luat_audio_request_record_pause(&_l_cc.cc_request, 0);
 }
 
 void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, uint32_t play_block_cnt, uint32_t sample_rate, uint8_t data_align, uint8_t channel_nums, uint8_t record_callback_cnt_level, uint8_t need_upload, uint8_t true_start)
 {
+    if (_l_cc.is_audio_start) {
+        uint8_t was_upload = _l_cc.upload_enable;
+        _l_cc.is_true_start = true_start;
+        _l_cc.upload_enable = need_upload;
+        if (_l_cc.upload_enable && _l_cc.is_true_start) {
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+            if (luat_cc_bridge_mode_on()) {
+                luat_cc_bridge_tone_stop();
+            }
+            if (!was_upload && luat_cc_bridge_mode_on()) {
+                luat_cc_bridge_flush_sip_uplink();
+            }
+            luat_audio_request_record_pause(&_l_cc.cc_request, 0);
+            /* The CC request can have started earlier for ring/early media,
+             * when is_true_start was still false.  Its original bridge-source
+             * start event is then deliberately ignored by the CC task.  Start
+             * the extern-record source again now, otherwise CP keeps encoding
+             * the physical I2S MIC instead of SIP RTP PCM. */
+            if (luat_cc_bridge_mode_on() && !_l_cc.is_bridge_source_active) {
+                luat_rtos_event_send(_l_cc.task_handle, CC_EVENT_BRIDGE_SOURCE_START, 0, 0, 0, 0);
+            }
+#endif
+            _l_cc_notify_audio_start();
+        } else {
+            luat_audio_request_record_pause(&_l_cc.cc_request, 1);
+        }
+        LLOGD("CC audio already started, update upload_enable=%d true_start=%d", need_upload, true_start);
+        return;
+    }
     _l_cc.is_true_start = true_start;
 	_l_cc.upload_enable = need_upload;
     _l_cc.record_callback_cnt_level = record_callback_cnt_level;
     _l_cc.cc_param.sample_rate = sample_rate;
     _l_cc.cc_param.data_align = data_align;
     _l_cc.cc_param.channel_nums = channel_nums;
+    if (_l_cc.record_save_fifo) {
+        luat_fifo_delete_all(_l_cc.record_save_fifo);
+    }
+    if (_l_cc.play_save_fifo) {
+        luat_fifo_delete_all(_l_cc.play_save_fifo);
+    }
+    LLOGI("CC audio start params sample_rate=%u block_len=%u block_cnt=%u align=%u ch=%u upload=%u true_start=%u",
+        (unsigned)sample_rate, (unsigned)one_play_block_len, (unsigned)play_block_cnt,
+        (unsigned)data_align, (unsigned)channel_nums, (unsigned)need_upload, (unsigned)true_start);
     int ret;
-    const luat_audio_data_codec_opts_t* codec_opts = luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_CC);
+    const luat_audio_data_codec_opts_t* codec_opts = NULL;
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+    if (luat_cc_bridge_mode_on()) {
+        LLOGI("CC audio in bridge mode, using CC codec for SIP-VoLTE bridge");
+    }
+#endif
+    // CC codec is the standard mobile-speech codec for every audio_v2 CC call.
+    codec_opts = luat_audio_data_codec_find(LUAT_AUDIO_DATA_CODEC_TYPE_CC);
     if (!codec_opts) {
         LLOGE("CC_EVENT_VOICE_START codec_opts is NULL");
         return;
@@ -628,10 +778,12 @@ void luat_cc_start_audio(uint8_t *play_buff_byte, uint32_t one_play_block_len, u
     ret = luat_audio_request_speech(&_l_cc.cc_request, NULL, codec_opts, codec_opts, &_l_cc.cc_param, _l_cc.record_save_fifo, _l_cc.record_callback_cnt_level, (uint32_t *)play_buff_byte, one_play_block_len, play_block_cnt, _l_cc_audio_voice_request_callback, &_l_cc.cc_request, luat_audio_dsp_get_opts(LUAT_AUDIO_DSP_DEFAULT_TYPE));
     if (!ret) {
         if (_l_cc.upload_enable) {
-            rtos_msg_t msg;
-            msg.handler = _l_cc_audio_start;
-            msg.arg1 = CC_MSG_AUDIO_START;
-            luat_msgbus_put(&msg, 0);
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+            if (luat_cc_bridge_mode_on()) {
+                luat_cc_bridge_tone_stop();
+            }
+#endif
+            _l_cc_notify_audio_start();
         } else {
             luat_audio_request_record_pause(&_l_cc.cc_request, 1);
         }
@@ -648,11 +800,16 @@ void luat_cc_play_tone(uint32_t param)
     switch (param)
     {
     case LUAT_MOBILE_CC_PLAY_STOP:
+#ifdef LUAT_USE_CC_VOIP_BRIDGE
+        luat_cc_bridge_drain_stop();
+        luat_cc_bridge_uplink_source_stop();
+        _l_cc.is_bridge_source_active = 0;
+        luat_cc_bridge_tone_stop();
+#endif
         _l_cc.upload_enable = 0;
         luat_audio_request_record_pause(&_l_cc.cc_request, 1);
         _l_cc.tone_data_cnt = 0;
         _l_cc.is_true_start = 0;
-
 
         if (_l_cc.ring_request.org_input_data_fifo) {
             LLOGD("VOLTE_EVENT_PLAY_STOP stop play ring");
@@ -665,7 +822,7 @@ void luat_cc_play_tone(uint32_t param)
 
         _l_cc.is_audio_start = 0;
         _l_cc.is_play_ring = 0;
-        luat_audio_driver_stop(luat_audio_driver_probe(NULL));
+        luat_audio_driver_deactivate(luat_audio_driver_probe(NULL));
         break;
     case LUAT_MOBILE_CC_PLAY_DIAL_TONE:
         if (!_l_cc.is_play_user_ring) {

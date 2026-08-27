@@ -76,17 +76,6 @@ void luat_audio_codec_wav_set_record_info(struct luat_audio_data_codec *codec, l
         codec->common_param.sample_rate, codec->common_param.data_align, codec->common_param.channel_nums, codec->common_param.is_signed);
 }
 
-int luat_audio_codec_wav_codec_decode(luat_audio_data_codec_t* codec, luat_audio_common_param_t *info,
-                  const uint8_t *input, uint32_t input_size,
-                  uint8_t *output, 
-                  uint32_t *decoded_output_size, uint32_t *decoded_used_size) 
-{
-    memcpy(output, input, input_size);
-    *decoded_output_size = input_size;
-    *decoded_used_size = input_size;
-    return LUAT_ERROR_NONE;
-}
-
 static int _wav_codec_init(luat_audio_data_codec_t* codec, uint8_t is_encode) {
     return LUAT_ERROR_NONE;
 }
@@ -134,7 +123,7 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_wav_opts = {
     .get_play_info = luat_audio_wav_get_play_info,
     .set_record_info = luat_audio_codec_wav_set_record_info,
     .pre_decode = NULL,
-    .decode = luat_audio_codec_wav_codec_decode,
+    .decode = NULL,
     .make_head = _wav_codec_make_head,
     .encode = NULL,
     .decode_min_input_len = LUAT_AUDIO_DATA_CACHE_LEN,
@@ -145,4 +134,5 @@ const luat_audio_data_codec_opts_t luat_audio_data_codec_wav_opts = {
     .is_hardware = 0,
     .support_detect = 1,
     .encode_raw_mode = 1,
+    .decode_raw_mode = 1,
 };

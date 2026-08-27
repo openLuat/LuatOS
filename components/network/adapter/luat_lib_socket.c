@@ -910,8 +910,11 @@ static int l_socket_read(lua_State *L) {
 	}
 	else
 	{
-		lua_pushboolean(L, 1);
+		/* 先push数据结果再push boolean: luaL_Buffer的box清理假定box位于栈-2,
+		 * 读取超过LUAL_BUFFERSIZE(256)时大包会建box, 先前置boolean会导致resizebox操作到布尔值上 */
 		luaL_pushresultsize(&bf, rx_len);
+		lua_pushboolean(L, 1);
+		lua_insert(L, -2);
 		if (l_ctrl->netc->is_tcp)
 		{
 			return 2;

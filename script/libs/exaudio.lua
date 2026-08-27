@@ -1,10 +1,14 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.1
-@date    2026.8.25
+@version 3.2
+@date    2026.8.27
 @author  拓毅恒
 @updates
+    v3.2 2026.8.27
+        1. 音频框架选择同时依据模组默认偏好和固件实际提供的audio/audio_v2库，
+           修复未启用LUAT_USE_AUDIO_V2时仍误选新音频框架的问题。
+        2. 显式audio_mode选择增加库能力校验，并保持Air8101、Air160X等模组优先使用Audio V2的原有约束。
     v3.1 2026.8.25
         1. 修复旧音频框架多音频连续播放报错的问题，同步更新 exaudio.play 两处调用，旧框架多音频播放恢复正常。
         2. 修复部分固件跑sip功能时，会出现死机或通话无声的问题。
@@ -81,6 +85,10 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202608272002
+-- 1、更新时间：2026-08-27 20:02
+--    音频框架选择同时依据模组默认偏好和固件实际提供的audio/audio_v2库，修复未启用LUAT_USE_AUDIO_V2时仍误选新音频框架的问题。
+--    显式audio_mode选择增加库能力校验，并保持Air8101、Air160X等模组优先使用Audio V2的原有约束。
 -- 版本号：202608251813
 -- 1、更新时间：2026-08-25 18:13
 --    修复旧音频框架多音频连续播放报错的问题，同步更新 exaudio.play 两处调用，旧框架多音频播放恢复正常。
@@ -164,9 +172,13 @@ end
 -- 当前模组型号
 local MODULE_TYPE = get_module_type()
 
--- 判断使用audio_v2还是audio
--- 780EXX系列、8000系列、Air700系列、Air1780系列默认用audio，其余（8101、160X等）默认用audio_v2
-local USE_AUDIO_V2 = (MODULE_TYPE ~= "air780e" and MODULE_TYPE ~= "air8000" and MODULE_TYPE ~= "air700" and MODULE_TYPE ~= "air1780")
+-- 判断使用audio_v2还是audio。模组型号只决定默认偏好，实际选择必须受固件
+-- 已编译的Lua库约束，避免无LUAT_USE_AUDIO_V2的固件误报为新音频框架。
+local AUDIO_V2_AVAILABLE = audio_v2 ~= nil
+local AUDIO_LEGACY_AVAILABLE = audio ~= nil
+local PREFER_AUDIO_V2 = (MODULE_TYPE ~= "air780e" and MODULE_TYPE ~= "air8000" and
+    MODULE_TYPE ~= "air700" and MODULE_TYPE ~= "air1780")
+local USE_AUDIO_V2 = AUDIO_V2_AVAILABLE and (PREFER_AUDIO_V2 or not AUDIO_LEGACY_AVAILABLE)
 
 -- ==================== 常量定义 ====================
 local I2S_ID = 0
@@ -1081,15 +1093,27 @@ function exaudio.setup(audioConfigs)
         return false
     end
 
-    -- audio_mode参数处理
-    -- 780EXX系列、8000系列可通过audio_mode="new"切换到新音频框架
-    -- 8101、160X系列只能用新框架，audio_mode参数无效
-    if audioConfigs.audio_mode == "new" and not USE_AUDIO_V2 then
+    -- audio_mode参数处理。显式选择必须以对应Lua库实际存在为前提；
+    -- auto/nil沿用基于模组偏好和固件能力计算出的默认值。
+    if audioConfigs.audio_mode == "new" then
+        if not AUDIO_V2_AVAILABLE then
+            log.error("audio_mode=new，但固件未启用audio_v2库")
+            return false
+        end
         USE_AUDIO_V2 = true
         log.info("exaudio.setup", "audio_mode=new，切换到新音频框架")
-    end
-    if audioConfigs.audio_mode == "old" and USE_AUDIO_V2 then
-        log.warn("exaudio.setup", "当前模组仅支持新音频框架， audio_mode = old 不生效")
+    elseif audioConfigs.audio_mode == "old" then
+        if not AUDIO_LEGACY_AVAILABLE then
+            log.error("audio_mode=old，但固件未启用audio库")
+            return false
+        end
+        if PREFER_AUDIO_V2 and AUDIO_V2_AVAILABLE then
+            -- 保持8101、160X等原有约束：新框架可用时不允许强制切到旧框架。
+            log.warn("exaudio.setup", "当前模组仅支持新音频框架，audio_mode=old不生效")
+        else
+            USE_AUDIO_V2 = false
+            log.info("exaudio.setup", "audio_mode=old，切换到旧音频框架")
+        end
     end
 
     log.info("exaudio.setup", "当前使用" .. (USE_AUDIO_V2 and "新" or "旧") .. "音频框架")
@@ -2231,7 +2255,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608251813"
+    return "202608272002"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

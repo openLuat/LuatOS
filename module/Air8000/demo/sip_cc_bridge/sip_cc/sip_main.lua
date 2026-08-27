@@ -236,6 +236,7 @@ function sip_main.init()
         sip_transport = config.sip_transport,
         rtp_port = config.rtp_port,
         audio_mode = voip.AUDIO_MODE_BRIDGE, -- 桥接模式
+        cc_sip_bridge = true, -- CC独占Audio V2，exsip仅保留RTP/PCM桥接
         codecs = {config.codec},
         ptime = config.ptime,
         auto_answer = false,  -- 由 bridge 控制

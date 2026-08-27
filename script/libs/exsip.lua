@@ -13,29 +13,30 @@ local exsip = require "exsip"
 
 -- 配置 SIP 账号
 local config = {
-    server = "192.168.1.100",
-    port = 5060,
-    domain = "192.168.1.100",
-    user = "1001",
-    password = "123456"
+    sip_server_addr = "192.168.1.100",
+    sip_server_port = 5060,
+    sip_domain = "192.168.1.100",
+    sip_username = "1001",
+    sip_password = "123456"
 }
 
--- 设置事件回调
-exsip.on("register", function(status)
-    log.info("sip", "注册状态:", status)
-end)
-
-exsip.on("call", function(event, data)
-    if event == "incoming" then
-        log.info("sip", "来电:", data.from)
-        exsip.accept()
-    elseif event == "connected" then
-        log.info("sip", "通话已建立")
-    elseif event == "ended" then
-        log.info("sip", "通话已结束")
+-- 设置统一事件回调
+exsip.on(function(event_type, action, data)
+    if event_type == "register" then
+        log.info("sip", "注册状态:", action)
+    elseif event_type == "call" then
+        if action == "incoming" then
+            log.info("sip", "来电:", data.from)
+            exsip.accept()
+        elseif action == "connected" then
+            log.info("sip", "通话已建立")
+        elseif action == "ended" then
+            log.info("sip", "通话已结束")
+        end
     end
 end)
 
+-- 启动前需要先通过exaudio.setup()或BSP等价接口初始化音频硬件。
 -- 启动 SIP 服务
 exsip.init(config)
 exsip.start()
@@ -50,6 +51,14 @@ exsip.start()
 -- exsip.hangUp()
 
 -- 版本更新说明
+-- 版本号：202608271848
+-- 1、更新时间：2026-08-27 18:48
+-- 2、更新内容
+--    统一普通SIP与CC-SIP桥接模式选择，修复启动失败传播和Audio V2 bridge清理。
+-- 版本号：202608271100
+-- 1、更新时间：2026-08-27 11:00
+-- 2、更新内容
+--    Air8101/Air8101B 使用 Audio V2 DAC 直连 VoIP，禁止误入 PCM bridge。
 -- 版本号：202607021200
 -- 1、更新时间：2026-07-02 12:00
 -- 2、更新内容
@@ -109,7 +118,7 @@ local g_ip_event_subscribed = false
 -- 默认配置
 local default_config = {
     sip_transport = exsip.TRANSPORT_TCP,
-    port = exsip.DEFAULT_SIP_PORT,
+    sip_server_port = exsip.DEFAULT_SIP_PORT,
     rtp_port = exsip.DEFAULT_RTP_PORT,
     expires = exsip.DEFAULT_EXPIRES,
     codecs = { exsip.CODEC_PCMU, exsip.CODEC_PCMA },
@@ -168,8 +177,13 @@ local function validate_record_config(config)
         return nil, "record must be a table"
     end
 
+    local auto = config.auto
+    if auto == nil then
+        auto = false
+    end
+
     local record = {
-        auto = config.auto == nil and false or config.auto,
+        auto = auto,
         dir = config.dir == nil and "/sd/record" or config.dir,
         prefix = config.prefix == nil and "sip" or config.prefix,
         max_seconds = config.max_seconds == nil and 7200 or config.max_seconds
@@ -278,6 +292,45 @@ local function reset_call_record_state()
     g_auto_record_pending = false
 end
 
+local function has_voip_pcm_bridge()
+    return voip and type(voip.setAudioMode) == "function" and
+        voip.AUDIO_MODE_BRIDGE ~= nil and type(voip.pcmIn) == "function" and
+        type(voip.pcmOut) == "function"
+end
+
+local function set_voip_audio_mode(mode)
+    if mode == nil then return true end
+    if not voip then
+        log_error("voip core not support")
+        return false
+    end
+    if type(voip.setAudioMode) ~= "function" then
+        -- 未编入bridge的固件只有直接硬件模式，AUDIO_MODE_I2S即默认模式。
+        if voip.AUDIO_MODE_I2S ~= nil and mode == voip.AUDIO_MODE_I2S then
+            return true
+        end
+        log_error("voip.setAudioMode not supported for mode", mode)
+        return false
+    end
+    local call_ok, mode_ok = pcall(voip.setAudioMode, mode)
+    if not call_ok or not mode_ok then
+        log_error("set voip audio mode failed:", mode, mode_ok)
+        return false
+    end
+    return true
+end
+
+local function stop_exaudio_voip_bridge()
+    if not g_voip_uses_exaudio then return end
+    g_voip_uses_exaudio = false
+    if type(exaudio.sip_voip_stop) == "function" then
+        local ok, err = pcall(exaudio.sip_voip_stop)
+        if not ok then
+            log_warn("stop audio_v2 SIP bridge failed", err)
+        end
+    end
+end
+
 local function start_voip_engine(session)
     if not voip then
         log_error("voip core not support")
@@ -299,21 +352,52 @@ local function start_voip_engine(session)
     }
     local codec = codec_map[session.codec] or voip.PCMU
 
-    -- 普通 SIP/audio_v2 使用 Lua 管理的本地 PCM 收发；CC-SIP 桥接则由 CC C 层
-    -- 直接交换 PCM，必须避免第二个 audio_v2 speech 请求占用 I2S 并重复上行。
+    -- 普通SIP可自动选择C层直接硬件或Lua Audio V2 PCM bridge；CC-SIP桥接
+    -- 必须由CC C层独占音频硬件，不能再启动本地SIP speech。
     local is_cc_sip_bridge = g_config and g_config.cc_sip_bridge == true
-    local use_sip_audio_v2 = not is_cc_sip_bridge and exaudio.is_audio_v2 and exaudio.is_audio_v2() and type(voip.setAudioMode) == "function" and voip.AUDIO_MODE_BRIDGE ~= nil
-    g_voip_uses_exaudio = false
+    local bsp = rtos and rtos.bsp and rtos.bsp()
+    local model = hmeta and hmeta.model and hmeta.model()
+    local platform = type(bsp) == "string" and bsp or model
+    local is_air8101 = type(platform) == "string" and
+        platform:lower():find("air8101", 1, true) ~= nil
+    local has_pcm_bridge = has_voip_pcm_bridge()
+    local audio_v2_enabled = type(exaudio.is_audio_v2) == "function" and exaudio.is_audio_v2()
+    local configured_mode = g_config and g_config.audio_mode
+    local use_sip_audio_v2 = false
+
+    stop_exaudio_voip_bridge()
     if is_cc_sip_bridge then
-        log_info("CC-SIP bridge: skip local audio_v2 speech")
-    elseif voip.setAudioMode and use_sip_audio_v2 then
-        if voip.AUDIO_MODE_BRIDGE then
-            pcall(voip.setAudioMode, voip.AUDIO_MODE_BRIDGE)
-        elseif voip.AUDIO_MODE_I2S then
-            pcall(voip.setAudioMode, voip.AUDIO_MODE_I2S)
+        if not has_pcm_bridge or configured_mode ~= voip.AUDIO_MODE_BRIDGE then
+            log_error("CC-SIP bridge requires AUDIO_MODE_BRIDGE and PCM bridge APIs")
+            return
         end
-    elseif voip.setAudioMode and voip.AUDIO_MODE_I2S then
-        pcall(voip.setAudioMode, voip.AUDIO_MODE_I2S)
+        log_info("CC-SIP bridge: skip local audio_v2 speech")
+    elseif configured_mode ~= nil then
+        if has_pcm_bridge and configured_mode == voip.AUDIO_MODE_BRIDGE then
+            if is_air8101 then
+                log_error("Air8101 does not support local PCM bridge mode")
+                return
+            end
+            if not audio_v2_enabled then
+                log_error("AUDIO_MODE_BRIDGE requires the active Audio V2 framework")
+                return
+            end
+            use_sip_audio_v2 = true
+            log_info("configured Audio V2 PCM bridge mode", platform)
+        else
+            log_info("configured direct hardware audio mode", configured_mode, platform)
+        end
+    else
+        use_sip_audio_v2 = not is_air8101 and audio_v2_enabled and has_pcm_bridge
+        local auto_mode = use_sip_audio_v2 and voip.AUDIO_MODE_BRIDGE or voip.AUDIO_MODE_I2S
+        if not set_voip_audio_mode(auto_mode) then return end
+        if is_air8101 and audio_v2_enabled then
+            log_info("Air8101 Audio V2 DAC direct mode", platform)
+        elseif use_sip_audio_v2 then
+            log_info("automatic Audio V2 PCM bridge mode", platform)
+        else
+            log_info("automatic direct hardware audio mode", platform)
+        end
     end
 
     log_info("start voip engine with adapter:", g_current_adapter, "remote:", session.remote_ip .. ":" .. session.remote_port)
@@ -361,9 +445,8 @@ local function stop_voip_engine()
         return
     end
     stop_call_record()
+    stop_exaudio_voip_bridge()
     if voip.isRunning() then
-        if g_voip_uses_exaudio and exaudio.sip_voip_stop then exaudio.sip_voip_stop() end
-        g_voip_uses_exaudio = false
         voip.stop()
         log_info("voip engine stopping")
     end
@@ -493,6 +576,7 @@ local function setup_voip_callbacks()
         voip.on("state", function(state)
             log_info("voip state:", state)
             if state == "stopped" or state == "error" or state == "idle" then
+                stop_exaudio_voip_bridge()
                 stop_call_record()
                 reset_call_record_state()
             end
@@ -528,7 +612,7 @@ end
 @string config.sip_domain SIP 域
 @string config.sip_username SIP 用户名
 @string config.sip_password SIP 密码
-@string config.sip_transport RTP 传输协议，"UDP" 或 "TCP"，默认 "TCP"
+@string config.sip_transport SIP 传输协议，"UDP" 或 "TCP"，默认 "TCP"
 @number config.rtp_port 本地 RTP 端口，默认 40000
 @number config.expires 注册有效期（秒），默认 600
 @table config.codecs 编解码器列表，默认 {"PCMU", "PCMA"}
@@ -566,6 +650,10 @@ function exsip.init(config)
     local record_config, record_err = validate_record_config(config.record)
     if not record_config then
         log_error("invalid record config:", record_err)
+        return false
+    end
+    if config.cc_sip_bridge ~= nil and type(config.cc_sip_bridge) ~= "boolean" then
+        log_error("cc_sip_bridge must be a boolean")
         return false
     end
 
@@ -617,29 +705,22 @@ function exsip.start()
         return false
     end
 
-    -- 根据调用方配置设置 VoIP 音频模式
+    -- CC桥接配置是一个完整契约：强制VoIP进入bridge模式，并禁止本地SIP speech。
+    if g_config.cc_sip_bridge then
+        if not has_voip_pcm_bridge() then
+            log_error("CC-SIP bridge is not supported in this firmware")
+            return false
+        end
+        if g_config.audio_mode ~= nil and g_config.audio_mode ~= voip.AUDIO_MODE_BRIDGE then
+            log_error("cc_sip_bridge conflicts with configured audio_mode")
+            return false
+        end
+        g_config.audio_mode = voip.AUDIO_MODE_BRIDGE
+    end
+    if not set_voip_audio_mode(g_config.audio_mode) then
+        return false
+    end
     if g_config.audio_mode ~= nil then
-        if not voip or type(voip.setAudioMode) ~= "function" then
-            log_error("voip.setAudioMode not supported")
-            return false
-        end
-
-        local mode_ok = voip.setAudioMode(g_config.audio_mode)
-
-        if not mode_ok and voip.stop then
-            log_warn("set audio mode failed, stop voip and retry")
-            voip.stop()
-
-            -- 不建议在 exsip 库内部使用 sys.wait(500)
-            -- voip.stop 如果是同步完成，可以直接重试
-            mode_ok = voip.setAudioMode(g_config.audio_mode)
-        end
-
-        if not mode_ok then
-            log_error("set voip audio mode failed:", g_config.audio_mode)
-            return false
-        end
-
         log_info("voip audio mode configured:", g_config.audio_mode)
     end
 
@@ -657,7 +738,7 @@ function exsip.start()
     g_current_adapter = g_config.adapter or socket.dft()
     log_info("current adapter set:", g_current_adapter)
 
-    sipclient.start({
+    local start_call_ok, sip_started = pcall(sipclient.start, {
         sip_server_addr = g_config.sip_server_addr,
         sip_server_port = g_config.sip_server_port,
         sip_domain = g_config.sip_domain,
@@ -675,6 +756,16 @@ function exsip.start()
         early_media_response = g_config.early_media_response,
         event_callback = sip_event_handler
     })
+    if not start_call_ok or not sip_started then
+        if g_ip_event_subscribed then
+            sys.unsubscribe("IP_READY", ip_ready_handler)
+            sys.unsubscribe("IP_LOSE", ip_lose_handler)
+            g_ip_event_subscribed = false
+        end
+        g_current_adapter = nil
+        log_error("sipclient.start failed:", sip_started)
+        return false
+    end
 
     g_started = true
     -- exnetif.lock_network()
@@ -932,7 +1023,7 @@ end
 @return table 当前配置表
 @usage
 local config = exsip.get_config()
-log.info("当前用户:", config.user)
+log.info("当前用户:", config.sip_username)
 ]]
 function exsip.get_config()
     if not g_config then
@@ -940,7 +1031,7 @@ function exsip.get_config()
     end
     local config_copy = {}
     for k, v in pairs(g_config) do
-        if k ~= "password" then
+        if k ~= "password" and k ~= "sip_password" then
             config_copy[k] = v
         end
     end
@@ -950,19 +1041,16 @@ end
 --[[
 获取当前通话信息。
 @api exsip.get_current_call()
-@return table 通话信息表，无通话时返回 nil
+@return string 来电号码，无通话或无法解析时返回 nil
 @usage
-local call = exsip.get_current_call()
-if call then
-    log.info("来电号码:", call.from)
+local incoming_number = exsip.get_current_call()
+if incoming_number then
+    log.info("来电号码:", incoming_number)
 end
 ]]
 function exsip.get_current_call()
-    local incoming_number
-    if g_current_call.from then
-        incoming_number = string.match(g_current_call.from, ':([^:@]+)@')
-    end
-    return incoming_number
+    if not g_current_call or type(g_current_call.from) ~= "string" then return nil end
+    return string.match(g_current_call.from, ':([^:@]+)@')
 end
 
 --[[
@@ -1053,7 +1141,7 @@ end
 exsip.version()
 ]]
 function exsip.version()
-    return "202607021200"
+    return "202608271848"
 end
 
 log.debug("exsip", "version -> " .. exsip.version())

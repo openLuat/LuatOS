@@ -24,21 +24,33 @@
 1. excloud.setup(params) - 设置配置参数
 2. excloud.on(cbfunc) - 注册回调函数
 3. excloud.open() - 开启excloud服务
-4. excloud.send(data, need_reply, is_auth_msg) - 发送数据
-5. excloud.close() - 关闭excloud服务
+4. excloud.close() - 关闭excloud服务
+5. excloud.send(data, need_reply) - 发送数据
 6. excloud.status() - 获取当前状态
-7. excloud.start_heartbeat(interval, custom_data) - 启动自动心跳机制
-8. excloud.stop_heartbeat() - 停止自动心跳机制
-9. excloud.upload_image(file_path, file_name) - 上传图片文件（支持ZBUFF）
-10. excloud.upload_audio(file_path, file_name) - 上传音频文件（支持ZBUFF）
-11. excloud.get_server_info() - 获取getip获取的服务器信息
-12. excloud.mtn_log(tag, ...) - 记录运维日志
-13. excloud.upload_mtnlog(file_path, file_name) - 上传运维日志文件
+7. excloud.heartbeat(custom_data, need_reply) - 发送心跳数据
+8. excloud.start_heartbeat(interval, custom_data) - 启动自动心跳机制
+9. excloud.stop_heartbeat() - 停止自动心跳机制
+10. excloud.upload_image(file_data, file_name) - 上传图片文件（支持ZBUFF）
+11. excloud.upload_audio(file_data, file_name) - 上传音频文件（支持ZBUFF）
+12. excloud.upload_mtnlog(file_data, file_name) - 上传运维日志文件
+13. excloud.upload_mtnlogs() - 批量上传运维日志文件
 14. excloud.set_upload_callback(cb) - 设置文件上传回调函数
-15. excloud.get_qrinfo() - 获取二维码信息
-16. excloud.get_mtn_log_status() - 获取运维日志状态
+15. excloud.get_server_info() - 获取服务器信息
+16. excloud.mtn_log(tag, ...) - 记录运维日志
+17. excloud.build_tlv(field_meaning, data_type, value) - 构建TLV数据
+18. excloud.parse_tlv(data, startPos) - 解析TLV数据
+19. excloud.get_qrinfo() - 获取二维码信息
+20. excloud.get_mtn_log_status() - 获取运维日志状态
+21. excloud.version() - 获取库版本号
 
 -- 版本更新说明
+-
+-- 版本号：202608271800
+-- 1、更新时间：2026-08-27 18:00
+-- 2、更新内容
+--    getip和getip_with_retry改为内部函数，不再对外暴露
+--    protocol_version不允许用户配置，setup()中拦截并忽略
+--    完善对外接口列表
 -
 -- 版本号：202608262000
 -- 1、更新时间：2026-08-26 20:00
@@ -930,7 +942,7 @@ local function _apply_info_field(response, field, label)
 end
 
 -- 合并版本的getip函数（HH的key验证 + QD的内存释放）
-function excloud.getip(getip_type)
+local function getip(getip_type)
     getip_type = getip_type or 3
 
     -- 添加参数验证
@@ -1104,13 +1116,13 @@ function excloud.getip(getip_type)
 end
 
 -- 带重试的getip请求
-function excloud.getip_with_retry(getip_type)
+local function getip_with_retry(getip_type)
     local retry_count = 0
     local max_retry = config.max_getip_retry or 3
     local success, result
 
     while retry_count < max_retry do
-        success, result = excloud.getip(getip_type)
+        success, result = getip(getip_type)
         if success then
             log.info("[excloud]getip", "成功:", success)
             config.getip_retry_count = 0
@@ -1411,7 +1423,7 @@ local function _upload_with_config(file_type, file_data, file_name, label, confi
     file_name = file_name or label:gsub("^upload_", "") .. "_" .. os.time() .. default_ext
     if not config[config_field] then
         log.info("[excloud]" .. label, "获取上传配置...")
-        local get_ok, get_err = excloud.getip_with_retry(transport_to_getip_type())
+        local get_ok, get_err = getip_with_retry(transport_to_getip_type())
         if not get_ok then
             log.error("[excloud]" .. label, "获取上传配置失败", get_err)
             return false, "获取上传配置失败: " .. get_err
@@ -1499,7 +1511,7 @@ schedule_reconnect = function()
             if config.use_getip then
                 log.info("[excloud]连接多次失败，重新获取服务器信息...")
                 config.current_conninfo = nil
-                local ok, result = excloud.getip_with_retry(transport_to_getip_type())
+                local ok, result = getip_with_retry(transport_to_getip_type())
                 if ok then
                     log.info("[excloud]重连获取服务器成功，对于用户已手动配置的字段，不会被getip覆盖")
 
@@ -1782,6 +1794,8 @@ function excloud.setup(params)
     for k, v in pairs(params) do
         if k == "auth_key" then
             log.warn("excloud.setup", "不再需要主动配置auth_key")
+        elseif k == "protocol_version" then
+            log.warn("excloud.setup", "不再需要主动配置protocol_version")
         elseif k == "use_getip" then
             config.use_getip = v
         elseif k == "imginfo" then
@@ -1903,7 +1917,7 @@ function excloud.open()
         if not config.current_conninfo or (config.transport ~= "mqtt" and not config.current_conninfo.ipv4) or
             (config.transport == "mqtt" and not config.current_conninfo.ssl) then
             log.info("[excloud]首次连接，获取服务器信息...")
-            local ok, result = excloud.getip_with_retry(getip_type)
+            local ok, result = getip_with_retry(getip_type)
             if not ok then
                 return false, "获取服务器信息失败: " .. result
             end
@@ -2282,7 +2296,7 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 excloud.version()
 ]]
 function excloud.version()
-    return "202608262000"
+    return "202608271800"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

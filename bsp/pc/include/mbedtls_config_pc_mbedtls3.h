@@ -1811,7 +1811,8 @@
  * This module enables the AES-CCM ciphersuites, if other requisites are
  * enabled as well.
  */
-#define MBEDTLS_CCM_C
+// 新固件不再开启 CCM,PC 模拟器同步禁用
+//#define MBEDTLS_CCM_C
 
 /**
  * \def MBEDTLS_CERTS_C

@@ -191,7 +191,8 @@ static void get_next_conn_id(char *conn_id){
     size_t i;
     luat_crypto_trng(conn_id, 5);
     for (i = 0; i < MAX_CONN_ID_LEN - 1; i++) {
-        conn_id[i] = (conn_id[i] % 26) + 'a';
+        /* conn_id[i] 是 signed char, TRNG 字节 >= 0x80 时为负, 负值 % 26 会得到非字母字符 */
+        conn_id[i] = (char) ( ( (unsigned char) conn_id[i] ) % 26 + 'a' );
     }
     conn_id[MAX_CONN_ID_LEN - 1] = '\0';
 }

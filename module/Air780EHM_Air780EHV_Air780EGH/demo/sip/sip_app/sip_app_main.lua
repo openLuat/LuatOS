@@ -29,8 +29,8 @@ local SIP_CONFIG = {
     sip_server_addr = "180.152.6.34",
     sip_server_port = 8910,
     sip_domain = "180.152.6.34",
-    sip_username = "100000",
-    sip_password = "Mm123.",
+    sip_username = "12345670",
+    sip_password = "Air.234567",
     sip_transport = exsip.TRANSPORT_UDP,
     auto_answer = false,
 }
@@ -57,6 +57,7 @@ local g_sip_status = "STATE_IDLE"
 -- "MSG_ERROR"：出现异常
 
 local g_audio_inited = false
+local g_accept_pending = false
 
 local function start()
     log.info("start", "开始初始化 SIP，当前状态:", g_sip_status)
@@ -165,9 +166,13 @@ local function sip_callback(event, arg1, arg2, arg3)
         local sub_event, data = arg1, arg2
         if sub_event == "state" then
             log.info("sip_callback", "VoIP状态:", data)
-        if data == "started" then
-            sys.publish("SIP_APP_MAIN_VOIP_STARTED")
-        end
+            if data == "started" then
+                sys.publish("SIP_APP_MAIN_VOIP_STARTED")
+            elseif data == "stopped" then
+                -- VoIP stop is asynchronous.  Consumers that start playback
+                -- must wait until its I2S/DMA teardown has completed.
+                sys.publish("SIP_APP_MAIN_VOIP_STOPPED")
+            end
         elseif sub_event == "stats" then
             log.info("sip_callback", "VoIP统计 - 发送:", data.tx_packets, "接收:", data.rx_packets, "丢失:", data.rx_lost)
         elseif sub_event == "error" then
@@ -267,6 +272,14 @@ local function sip_app_main_task_func()
                 end
             elseif event == "MSG_ACCEPT" then
                 if g_sip_status == "STATE_INCOMING" then
+                    g_accept_pending = true
+                    sys.publish("SIP_APP_MAIN_ACCEPT_AUDIO_PREPARE")
+                else
+                    log.warn("sip_app_main_task_func", g_sip_status, tag, "invalid event", event)
+                end
+            elseif event == "MSG_ACCEPT_AUDIO_READY" then
+                if g_sip_status == "STATE_INCOMING" and g_accept_pending then
+                    g_accept_pending = false
                     if not exsip.accept() then
                         log.error("sip_app_main_task_func", "accept error")
                     end
@@ -290,6 +303,7 @@ local function sip_app_main_task_func()
                 end
             elseif event == "MSG_DISCONNECTED" then
                 if g_sip_status == "STATE_DIALING" or g_sip_status == "STATE_INCOMING" or g_sip_status == "STATE_CONNECTED" or g_sip_status == "STATE_DISCONNECTING" then
+                    g_accept_pending = false
                     g_sip_status = "STATE_READY"
                     sys.publish("SIP_APP_MAIN_DISCONNECTED",para)
                 elseif g_sip_status == "STATE_READY" then
@@ -362,4 +376,7 @@ sys.subscribe("SIP_APP_MAIN_STOP_REQ", stop_req)
 sys.subscribe("SIP_APP_MAIN_DIAL_REQ", dial_req)
 sys.subscribe("SIP_APP_MAIN_ACCEPT_REQ", accept_req)
 sys.subscribe("SIP_APP_MAIN_HANGUP_REQ", hangup_req)
+sys.subscribe("SIP_APP_TTS_ACCEPT_AUDIO_READY", function()
+    sys.sendMsg(TASK_NAME, "tts_speaker", "MSG_ACCEPT_AUDIO_READY")
+end)
 

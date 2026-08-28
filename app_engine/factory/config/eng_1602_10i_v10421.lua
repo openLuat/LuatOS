@@ -103,6 +103,7 @@ return {
         nes = true,                      -- 启用 NES 游戏按键（需配 nes_keys）
         battery = true,                  -- 启用电池管理（需配 hw.battery + ui.show_battery_icon）
         app_factory = true,              -- 启用"应用工厂"内置应用
+        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
         speaker = true,                  -- 启用喇叭（DAC0 播放）
         mic = true,                      -- 启用麦克风（I2S2 + ES8311 录音）
     },
@@ -136,6 +137,8 @@ return {
         show_storage_settings = true,    -- 设置页存储空间入口
         show_battery_icon = true,        -- 桌面顶栏电池图标 ← 配 battery 时打开
         show_app_factory = true,         -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_ai_chat = true,             -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
     },
 
     -- ===== 存储设备: NAND Flash =====

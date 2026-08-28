@@ -118,7 +118,8 @@ return {
         buzzer = true,                   -- 启用蜂鸣器（触摸反馈音，PWM4=PIN16）
         sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
         nand_flash = true,               -- 启用 NAND Flash（需配 storage.nand_flash）
-        app_factory = true,              -- 启用"应用工厂"内置应用（录音→AI 生成 APP）
+        app_factory = true,              -- 启用"应用工厂"内置应用
+        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
         speaker = true,                  -- 启用喇叭（ES8311 播放）
         mic = true,                      -- 启用麦克风（ES8311 录音）
         battery = true,                  -- 启用电池管理（ADC 检测 + 充电检测）
@@ -141,6 +142,8 @@ return {
         show_brightness_slider = true,   -- 设置页亮度滑块
         show_storage_settings = true,    -- 设置页存储空间入口
         show_app_factory = true,         -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_ai_chat = true,             -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
         show_buzzer_settings = true,     -- 设置页蜂鸣器开关 ← 配 buzzer 时打开
         show_battery_icon = true,        -- 桌面顶栏电池图标 ← 配 battery 时打开
     },

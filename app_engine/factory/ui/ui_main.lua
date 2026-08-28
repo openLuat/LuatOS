@@ -45,6 +45,7 @@ require "app_store_win"     -- 应用商店页（浏览/搜索/下载 exapp 应�
 require "speedtest_win"     -- 测速页（延迟/下载/上传结果显示）
 require "file_manager_win"  -- 文件管理页（浏览 /app_store 目录、新建/删除文件）
 require "factory_win"       -- 应用工厂-语音生成APP窗口（录音→生成→安装）
+require "llm_chat_win"      -- AI 聊天助手窗口（SSE 流式对话 + TTS）
 
 -- ==================== 硬件初始化协程（LCD → TP → 欢迎页 → 背光） ====================
 local function init_ui_task()

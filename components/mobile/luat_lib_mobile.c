@@ -1439,25 +1439,19 @@ static int l_mobile_set_band(lua_State* L) {
 
 #ifdef LUAT_USE_MOBILE_ECNPICFG
 /**
-获取射频校准状态，返回完整的 AT+ECNPICFG? 响应
+获取射频校准流程是否通过
 @api mobile.ecnpicfg()
-@return string ECNPICFG完整响应，失败返回nil
+@return boolean true表示rfCaliDone和rfNSTDone均为1，否则返回false
 @usage
-local response = mobile.ecnpicfg()
--- \r\n+ECNPICFG: "rfCaliDone":1,"rfNSTDone":1,"rfCTDone":0\r\n\r\nOK\r\n
+local passed = mobile.ecnpicfg()
+-- true: rfCaliDone == 1 且 rfNSTDone == 1
  */
 static int l_mobile_ecnpicfg(lua_State* L) {
-    char buff[128] = {0};
-    char response[160] = {0};
-    int len = luat_mobile_get_ecnpicfg(buff, sizeof(buff));
-    if (len > 0) {
-        int response_len = snprintf(response, sizeof(response), "\r\n%.*s\r\n\r\nOK\r\n", len, buff);
-        if (response_len > 0 && (size_t)response_len < sizeof(response)) {
-            lua_pushlstring(L, response, response_len);
-            return 1;
-        }
-    }
-    lua_pushnil(L);
+    uint8_t rf_cali_done = 0;
+    uint8_t rf_nst_done = 0;
+    uint8_t rf_ct_done = 0;
+    int result = luat_mobile_get_ecnpicfg_status(&rf_cali_done, &rf_nst_done, &rf_ct_done);
+    lua_pushboolean(L, result == 0 && rf_cali_done && rf_nst_done);
     return 1;
 }
 #endif

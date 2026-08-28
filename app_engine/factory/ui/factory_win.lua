@@ -52,6 +52,9 @@ local init_row = nil        -- "正在初始化音频..."提示所在行（就�
 local timer_label = nil
 local rec_btn = nil
 local send_btn = nil
+local textarea = nil
+local keyboard = nil
+local input_text = ""  -- STT 识别结果缓存
 
 local current_state = "idle"     -- idle/recording
 local generating = false         -- 是否正在生成应用（轮询中）
@@ -105,7 +108,7 @@ local function update_controls()
     -- 生成成功有链接时，右侧按钮变为「安装」
     if make_link then
         rec_btn:set_disabled(false)
-        rec_btn:set_text("开始录音")
+        rec_btn:set_text("录音")
         set_btn_style(rec_btn, COLOR_PRIMARY, COLOR_WHITE)
         send_btn:set_disabled(false)
         send_btn:set_text("安装")
@@ -115,12 +118,12 @@ local function update_controls()
     rec_btn:set_disabled(false)
     if current_state == "recording" then
         -- 录音中：按钮可点击停止，最长 30 秒自动停止
-        rec_btn:set_text("停止录音")
+        rec_btn:set_text("停止")
         rec_btn:set_disabled(false)
         set_btn_style(rec_btn, COLOR_DANGER, COLOR_WHITE)
         send_btn:set_disabled(true)
     else
-        rec_btn:set_text("开始录音")
+        rec_btn:set_text("录音")
         set_btn_style(rec_btn, COLOR_PRIMARY, COLOR_WHITE)
         if has_record then
             send_btn:set_disabled(false)
@@ -239,8 +242,43 @@ local function on_record_done(data)
     if data then
         local sec = data.seconds or 0
         append_msg(string.format("[录音 %d 秒]", sec), true)
-        if has_record then
-            append_msg("点击「生成」制作 APP", true)
+        if has_record and data.path then
+            -- 录音完成，自动 STT
+            sys.taskInit(function()
+                append_msg("语音识别中...", true)
+                local ASR_URL = "https://api.luatos.com/engine/asr/v1/audio/transcriptions"
+                local pub_key = io.readFile("/luadb/public.pem")
+                if not pub_key then append_msg("鉴权失败(缺公钥)", true); return end
+                local model = rtos.bsp()
+                local devid = ""
+                if model:find("Air1601") or model:find("Air1602") or model:find("PC") then devid = mcu.unique_id() or "PC"
+                elseif model:find("Air8101") or model:find("Air6205") then devid = wlan.getMac() or ""
+                elseif model:find("Air780E") or model:find("Air8000") then devid = mobile.imei() or "0"
+                else devid = mcu.unique_id() or "unknown" end
+                local ts = tostring(os.time())
+                local ok, cipher = pcall(rsa.encrypt, pub_key, ts .. "," .. ts .. "," .. devid)
+                if not ok or not cipher then append_msg("鉴权失败(rsa)", true); return end
+                local ak = string.toBase64(cipher) or ""
+                if ak == "" then append_msg("鉴权失败(Base64)", true); return end
+                local headers = { ["app-key"] = ak }
+                local bd = "----WebKitFormBoundary" .. tostring(os.time())
+                headers["Content-Type"] = "multipart/form-data; boundary=" .. bd
+                local body = { "--" .. bd .. "\r\n", "Content-Disposition: form-data; name=\"file\"; filename=\"record.amr\"\r\n", "Content-Type: audio/amr\r\n\r\n" }
+                local fdata = io.readFile(data.path)
+                if not fdata then append_msg("读取录音失败", true); return end
+                body[#body + 1] = fdata; body[#body + 1] = "\r\n--" .. bd .. "--\r\n"
+                local code, _, rb = http.request("POST", ASR_URL, headers, table.concat(body), { timeout = 30000 }).wait()
+                if code ~= 200 then append_msg("识别失败(" .. tostring(code) .. ")", true); return end
+                local rok, resp = pcall(json.decode, rb)
+                if not rok or type(resp) ~= "table" or resp.code ~= 0 then append_msg("识别结果解析失败", true); return end
+                local text = (type(resp.value) == "table" and resp.value.text) or ""
+                if text ~= "" then
+                    if textarea then textarea:set_text(text) end
+                    append_msg("识别完成，请编辑后点击生成", true)
+                else
+                    append_msg("未识别到文字", true)
+                end
+            end)
         end
     end
     update_controls()
@@ -350,7 +388,7 @@ local function build_ui()
     end)
 
     -- ===== 消息区（中间可滚动聊天区）=====
-    local bottom_h = math.floor(120 * _G.density_scale)
+    local bottom_h = math.floor(90 * _G.density_scale)
     local msg_area_h = screen_h - th - bottom_h
     -- ⚠️ airui.table 默认 pad_all=6、border_width=1，若 col_width 设为全屏宽，
     -- 列宽+padding+border 会超过容器宽度导致内容溢出屏幕。故列宽内缩 margin 并去边框。
@@ -374,7 +412,7 @@ local function build_ui()
     })
     msg_rows = 0
 
-    -- ===== 底部操作栏 =====
+    -- ===== 底部操作栏（录音 | 输入框 | 生成）=====
     local bar = airui.container({
         parent = main_container,
         x = 0, y = screen_h - bottom_h,
@@ -382,36 +420,31 @@ local function build_ui()
         color = COLOR_CARD,
     })
 
-    -- 计时显示
+    local d = _G.density_scale
+    -- 计时（录音中显示）
     timer_label = airui.label({
-        parent = bar,
-        x = 0, y = math.floor(8 * _G.density_scale),
-        w = screen_w, h = math.floor(28 * _G.density_scale),
-        text = "00:00",
-        font_size = math.floor(22 * _G.density_scale),
-        color = COLOR_TEXT_SECONDARY,
-        align = airui.TEXT_ALIGN_CENTER,
+        parent = bar, x = 0, y = math.floor(2 * d),
+        w = screen_w, h = math.floor(18 * d),
+        text = "", font_size = math.floor(12 * d),
+        color = COLOR_DANGER, align = airui.TEXT_ALIGN_CENTER,
     })
 
-    -- 录音 / 停止 按钮
-    -- ⚠️ airui.button 构造函数只读 style 子表字段（顶层 bg_color/font_color 不生效）；
-    -- 默认样式带蓝色边框(border_color=0x1e90ff, border_width=2)，需在 style 里 border_width=0 去除
-    local btn_w = math.floor((screen_w - 3 * margin) / 2)
-    local btn_h = math.floor(56 * _G.density_scale)
-    local btn_y = math.floor(44 * _G.density_scale)
+    pcall(function()
+        keyboard = airui.keyboard({ x = 0, y = -math.floor(20 * d), w = screen_w, h = math.floor(180 * d),
+            mode = "text", auto_hide = true, preview = true, on_commit = function(self) self:hide() end })
+    end)
+
+    local rec_w = math.floor(48 * d)
+    local gen_w = math.floor(48 * d)
+    local gap = math.floor(4 * d)
+    local ta_w = screen_w - 2 * margin - rec_w - gen_w - 2 * gap
+    local ta_h = math.floor(36 * d)
+    local row_y = math.floor(22 * d)
 
     rec_btn = airui.button({
-        parent = bar,
-        x = margin, y = btn_y,
-        w = btn_w, h = btn_h,
-        text = "开始录音",
-        font_size = math.floor(24 * _G.density_scale),
-        style = {
-            bg_color = COLOR_PRIMARY,
-            text_color = COLOR_WHITE,
-            border_width = 0,
-            radius = 12,
-        },
+        parent = bar, x = margin, y = row_y, w = rec_w, h = ta_h,
+        text = "录音", font_size = math.floor(13 * d),
+        style = { bg_color = COLOR_PRIMARY, text_color = COLOR_WHITE, border_width = 0, radius = 8 },
         on_click = function()
             if generating or installing then return end
             if current_state == "recording" then
@@ -422,46 +455,46 @@ local function build_ui()
         end,
     })
 
-    -- 生成/安装按钮（有录音时生成 APP，生成成功后变为安装）
-    -- ⚠️ airui.button 构造函数只读 style 子表字段（顶层 bg_color/font_color 不生效）；
-    -- 默认样式带蓝色边框(border_color=0x1e90ff, border_width=2)，需在 style 里 border_width=0 去除
+    textarea = airui.textarea({
+        parent = bar, x = margin + rec_w + gap, y = row_y, w = ta_w, h = ta_h,
+        text = "", placeholder = "录音后文字出现在这里...",
+        font_size = math.floor(16 * d), max_len = 500, keyboard = keyboard,
+    })
+
     send_btn = airui.button({
-        parent = bar,
-        x = margin + btn_w + margin, y = btn_y,
-        w = btn_w, h = btn_h,
-        text = "生成",
-        font_size = math.floor(24 * _G.density_scale),
-        style = {
-            bg_color = COLOR_DIVIDER,
-            text_color = COLOR_TEXT_SECONDARY,
-            border_width = 0,
-            radius = 12,
-        },
+        parent = bar, x = margin + rec_w + gap + ta_w + gap, y = row_y, w = gen_w, h = ta_h,
+        text = "生成", font_size = math.floor(13 * d),
+        style = { bg_color = COLOR_GREEN, text_color = COLOR_WHITE, border_width = 0, radius = 8 },
         on_click = function()
             if generating or installing then return end
-            -- 已有安装链接：点击安装生成的 APP（生成成功后自动安装，此处为手动兜底）
+            if keyboard then keyboard:hide() end
+            -- 已有安装链接：点击安装
             if make_link then
                 local link_txt = ""
-                if type(make_link) == "table" then
-                    link_txt = make_link[1] or ""
-                else
-                    link_txt = tostring(make_link or "")
-                end
-                if link_txt == "" then
-                    append_msg("安装链接为空", true)
-                    return
-                end
-                installing = true
-                update_controls()
+                if type(make_link) == "table" then link_txt = make_link[1] or ""
+                else link_txt = tostring(make_link or "") end
+                if link_txt == "" then append_msg("安装链接为空", true); return end
+                installing = true; update_controls()
                 append_msg("开始安装生成的 APP...", true)
                 sys.publish("FACTORY_MAKE_INSTALL", link_txt)
                 return
             end
-            -- 正常生成流程
-            if not has_record then return end
-            generating = true
-            history_shown = 0
-            make_link = nil
+            -- 有输入框文字 → 走文字描述生成
+            local txt = textarea and textarea:get_text() or ""
+            txt = txt:gsub("^%s+", ""):gsub("%s+$", "")
+            if txt ~= "" then
+                generating = true; history_shown = 0; make_link = nil
+                update_controls()
+                append_msg("正在用文字描述生成APP...", true)
+                sys.publish("FACTORY_MAKE_SEND_TEXT", txt)
+                return
+            end
+            -- 有录音 → 走录音文件生成
+            if not has_record then
+                append_msg("请先录音或输入文字描述", true)
+                return
+            end
+            generating = true; history_shown = 0; make_link = nil
             update_controls()
             append_msg("正在上传录音，创建生成任务...", true)
             sys.publish("FACTORY_MAKE_SEND")
@@ -512,11 +545,12 @@ local function on_destroy()
     sys.unsubscribe("FACTORY_MAKE_INSTALL_ERROR", on_make_install_error)
     -- 退出时停止录音 + 下电 + 删临时文件
     sys.publish("FACTORY_REC_RESET")
+    if keyboard then pcall(keyboard.destroy, keyboard); keyboard = nil end
     if main_container then
         main_container:destroy()
         main_container = nil
     end
-    msg_table = nil
+    msg_table = nil; textarea = nil
     init_row = nil
     timer_label = nil
     rec_btn = nil

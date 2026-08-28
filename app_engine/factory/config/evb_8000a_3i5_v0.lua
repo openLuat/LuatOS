@@ -92,6 +92,7 @@ return {
         wifi = true,                     -- 启用 WiFi
         sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
         app_factory = true,              -- 启用"应用工厂"内置应用
+        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
         speaker = true,                  -- 启用喇叭（ES8311 播放）
         mic = true,                      -- 启用麦克风（ES8311 录音）
     },
@@ -109,6 +110,7 @@ return {
         show_brightness_slider = true,   -- 设置页亮度滑块
         show_storage_settings = true,    -- 设置页存储空间入口
         show_app_factory = true,         -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_ai_chat = true,             -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
     },
 
     -- ===== 存储设备: SD/TF 卡 =====

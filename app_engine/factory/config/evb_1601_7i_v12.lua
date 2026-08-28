@@ -138,7 +138,8 @@ return {
         net_4g = true,      -- 启用 4G（AirLink UART2，Air780ER 模组）
         ethernet = true,    -- 启用 SPI 以太网（CH390，SPI1）
         sd_card = true,     -- 启用 SD/TF 卡（SPI1，CS=GPIO8）
-        app_factory = true, -- 启用"应用工厂"内置应用（录音→AI 生成 APP）
+        app_factory = true,              -- 启用"应用工厂"内置应用
+        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
         speaker = true,     -- 启用喇叭（DAC0 播放）
         mic = true,         -- 启用麦克风（I2S2 + ES8311 录音）
     },
@@ -183,7 +184,9 @@ return {
         show_4g_icon = true,           -- 桌面顶栏 4G 信号图标
         show_ethernet_settings = true, -- 设置页以太网设置入口
         show_storage_settings = true,  -- 设置页存储空间入口
-        show_app_factory = true,       -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_app_factory = true,         -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_ai_chat = true,             -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
     },
 
     -- ===== 存储设备: SD/TF 卡（SPI1, CS=GPIO8）=====

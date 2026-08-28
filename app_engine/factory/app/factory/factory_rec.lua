@@ -922,6 +922,88 @@ local function on_app_error(msg)
     sys.publish("FACTORY_MAKE_INSTALL_ERROR", tostring(msg or "安装失败"))
 end
 
+-- ==================== 文字描述生成 APP ====================
+
+--[[
+通过文字描述生成应用（不走录音文件，走 description 字段）
+POST https://api.luatos.com/engine/appstore/make_app
+multipart/form-data：字段 description（文字描述）+ device_info（设备信息 JSON 对象）
+]]
+local function make_send_text(text)
+    make_appid = nil
+    if not text or text == "" then
+        sys.publish("FACTORY_MAKE_ERROR", "文字描述为空")
+        return
+    end
+    if not socket.localIP() then
+        sys.publish("FACTORY_MAKE_ERROR", "网络未连接")
+        return
+    end
+    local headers = make_auth_headers()
+    if not headers then
+        sys.publish("FACTORY_MAKE_ERROR", "鉴权失败(固件缺rsa库或公钥缺失)")
+        return
+    end
+    local boundary = "----WebKitFormBoundary" .. os.time()
+    headers["Content-Type"] = "multipart/form-data; boundary=" .. boundary
+    local device_info = make_device_info()
+    local body = {}
+    -- 1. description 字段（文字描述）
+    table.insert(body, "--" .. boundary .. "\r\n")
+    table.insert(body, "Content-Disposition: form-data; name=\"description\"\r\n")
+    table.insert(body, "Content-Type: text/plain\r\n\r\n")
+    table.insert(body, text)
+    table.insert(body, "\r\n")
+    -- 2. device_info 字段
+    table.insert(body, "--" .. boundary .. "\r\n")
+    table.insert(body, "Content-Disposition: form-data; name=\"device_info\"\r\n")
+    table.insert(body, "Content-Type: application/json\r\n\r\n")
+    table.insert(body, device_info)
+    table.insert(body, "\r\n")
+    table.insert(body, "--" .. boundary .. "--\r\n")
+    local body_str = table.concat(body)
+    local code, _, resp_body = http.request("POST", MAKE_APP_URL, headers, body_str, { timeout = 30000 }).wait()
+    log.info("factory_rec", "make_app(文字) 上传完成 code:", code)
+    if code < 0 or code ~= 200 then
+        sys.publish("FACTORY_MAKE_ERROR", "服务器连接失败(" .. tostring(code) .. ")")
+        return
+    end
+    local ok, resp = pcall(json.decode, resp_body)
+    if not ok or type(resp) ~= "table" then
+        sys.publish("FACTORY_MAKE_ERROR", "响应解析失败")
+        return
+    end
+    if resp.code ~= 0 then
+        local err = ""
+        if type(resp.value) == "table" then
+            err = resp.value.msg or resp.value.error or ""
+        else
+            err = tostring(resp.value or "")
+        end
+        if err == "" then err = tostring(resp.msg or "创建任务失败") end
+        sys.publish("FACTORY_MAKE_ERROR", err)
+        return
+    end
+    local value = resp.value
+    if type(value) ~= "table" then
+        sys.publish("FACTORY_MAKE_ERROR", "任务创建异常")
+        return
+    end
+    local task_id = value.task_id
+    local interval = 10
+    if not task_id then
+        sys.publish("FACTORY_MAKE_ERROR", "任务ID缺失")
+        return
+    end
+    sys.publish("FACTORY_MAKE_STATUS", {
+        status = 1,
+        history = { value.msg or "任务已创建" },
+        task_id = task_id,
+        interval = interval,
+    })
+    sys.taskInit(make_poll, task_id, interval)
+end
+
 -- ==================== 事件订阅 ====================
 
 sys.subscribe("FACTORY_REC_SETUP", function()
@@ -942,6 +1024,10 @@ end)
 
 sys.subscribe("FACTORY_MAKE_SEND", function()
     sys.taskInit(make_send)
+end)
+
+sys.subscribe("FACTORY_MAKE_SEND_TEXT", function(text)
+    sys.taskInit(make_send_text, text)
 end)
 
 sys.subscribe("FACTORY_MAKE_INSTALL", function(link)

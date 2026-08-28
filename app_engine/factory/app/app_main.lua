@@ -78,5 +78,10 @@ if _G.project_config and _G.project_config.features and _G.project_config.featur
     require "factory_app"
 end
 
+-- AI 聊天助手模块（按 features.ai_chat 配置开关，含 SSE 流式对话 + TTS）
+if _G.project_config and _G.project_config.features and _G.project_config.features.ai_chat then
+    require "llm_chat"
+end
+
 -- 文件管理模块（浏览各挂载点 /app_store 目录，支持展开/折叠、新建/删除）
 require "file_manager_app"

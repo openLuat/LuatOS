@@ -58,6 +58,13 @@ if _G.project_config and _G.project_config.features and _G.project_config.featur
     has_app_factory = true
 end
 
+-- AI 聊天助手桌面入口（按 features.ai_chat + ui.show_ai_chat 配置开关）
+local has_ai_chat = false
+if _G.project_config and _G.project_config.features and _G.project_config.features.ai_chat
+    and _G.project_config.ui and _G.project_config.ui.show_ai_chat then
+    has_ai_chat = true
+end
+
 local builtin_apps = {
     { name = "设置", win = "SETTINGS", icon = "/luadb/settings.png" },
     { name = "应用市场", win = "APP_STORE", icon = "/luadb/app_store_icon.png" },
@@ -67,6 +74,10 @@ local builtin_apps = {
 
 if has_app_factory then
     table.insert(builtin_apps, { name = "应用工厂", win = "APP_FACTORY", icon = "/luadb/app_factory.png" })
+end
+
+if has_ai_chat then
+    table.insert(builtin_apps, { name = "AI助手", win = "AI_CHAT", icon = "/luadb/ai_chat.png" })
 end
 
 local top_height = 60
@@ -79,6 +90,11 @@ local grid_top_padding = 16
 -- 应用网格文字字号与文字区高度（calc_layout 计算，build_app_grid_page 复用；最少 16 号字）
 local grid_text_font_size = 16
 local grid_text_label_h = 24
+local grid_icon_size = 32  -- 卡片图标尺寸（像素）
+-- 卡片内部间距（calc_layout 可覆盖，build_app_grid_page 复用）
+local card_in_top = 8
+local card_in_gap = 4
+local card_in_bot = 4
 
 local density_scale_val = _G.density_scale or 1.0
 local big_time_font_size = math.floor(100 * density_scale_val)
@@ -171,7 +187,7 @@ local function calc_layout()
         -- 文字区高度按实际字号预留 2 行（(字号+8 行高)×2），最少不低于 16 号字(48px)
         builtin_button_label_h = (builtin_button_font_size + 8) * 2
         -- 按钮高度：图标 + 文字区 + 上下留白
-        local bis = math.min(math.floor(40 * _G.density_scale), builtin_button_width - math.floor(10 * _G.density_scale))
+        local bis = math.min(math.floor(28 * _G.density_scale), builtin_button_width - math.floor(6 * _G.density_scale))
         local icon_top = math.floor(8 * _G.density_scale)
         builtin_button_height = icon_top + bis + math.floor(6 * _G.density_scale) + builtin_button_label_h + math.floor(6 * _G.density_scale)
         buttons_y = qrcode_y + qrcode_size + math.floor(6 * _G.density_scale)
@@ -185,34 +201,50 @@ local function calc_layout()
         builtin_button_width = math.max(math.floor(55 * _G.density_scale), math.min(math.floor(75 * _G.density_scale), math.floor(screen_w * 0.065 * _G.density_scale)))
         builtin_button_spacing = math.max(math.floor(6 * _G.density_scale), math.min(math.floor(16 * _G.density_scale), math.floor(screen_w * 0.012 * _G.density_scale)))
     else
-        big_time_font_size = math.max(math.floor(48 * _G.density_scale), math.min(math.floor(130 * _G.density_scale), math.floor(screen_h * 0.10 * _G.density_scale)))
-        big_time_label_y = math.floor(screen_h * 0.025)
-        date_font_size = math.max(math.floor(14 * _G.density_scale), math.min(math.floor(22 * _G.density_scale), math.floor(screen_h * 0.028 * _G.density_scale)))
-        date_label_y = big_time_label_y + big_time_font_size + math.floor(15 * _G.density_scale)
-        qrcode_size = math.max(math.floor(60 * _G.density_scale), math.min(math.floor(150 * _G.density_scale), math.floor(screen_w * 0.25 * _G.density_scale)))
-        qrcode_y = date_label_y + date_font_size + math.floor(18 * _G.density_scale)
-        -- 按钮宽度按数量自适应：窄屏（如320宽）5个按钮约51px，宽屏约60-90px
-        local btn_count_n = math.max(1, #builtin_apps)
-        local btn_margin_n = math.floor(12 * _G.density_scale)
-        builtin_button_spacing = math.max(math.floor(8 * _G.density_scale), math.min(math.floor(30 * _G.density_scale), math.floor(screen_w * 0.035 * _G.density_scale)))
-        builtin_button_width = math.floor((screen_w - 2 * btn_margin_n - (btn_count_n - 1) * builtin_button_spacing) / btn_count_n)
+        big_time_font_size = math.max(math.floor(40 * _G.density_scale), math.min(math.floor(80 * _G.density_scale), math.floor(screen_h * 0.08 * _G.density_scale)))
+        big_time_label_y = math.floor(screen_h * 0.015)
+        date_font_size = math.max(math.floor(12 * _G.density_scale), math.min(math.floor(16 * _G.density_scale), math.floor(screen_h * 0.022 * _G.density_scale)))
+        date_label_y = big_time_label_y + big_time_font_size + math.floor(8 * _G.density_scale)
+        qrcode_size = math.floor(40 * _G.density_scale)  -- 窄竖屏小二维码
+        qrcode_y = date_label_y + date_font_size + math.floor(4 * _G.density_scale)
+        -- 按钮2排：每排3个，紧凑高度
+        local btn_cols_n = 3
+        local btn_margin_n = math.floor(4 * _G.density_scale)
+        builtin_button_spacing = math.floor(3 * _G.density_scale)
+        builtin_button_width = math.floor((screen_w - 2 * btn_margin_n - (btn_cols_n - 1) * builtin_button_spacing) / btn_cols_n)
         builtin_button_width = math.max(math.floor(48 * _G.density_scale), math.min(math.floor(90 * _G.density_scale), builtin_button_width))
-        -- 按钮文字字号与高度自适应（与 compact 分支一致，保证窄屏文字放得下）
-        local max_name_len_n = 4
-        builtin_button_font_size = math.floor((builtin_button_width - math.floor(8 * _G.density_scale)) / max_name_len_n)
-        builtin_button_font_size = math.max(16, math.min(18, builtin_button_font_size))
-        builtin_button_label_h = (builtin_button_font_size + 8) * 2
-        local bis_n = math.min(math.floor(40 * _G.density_scale), builtin_button_width - math.floor(10 * _G.density_scale))
-        local icon_top_n = math.floor(8 * _G.density_scale)
-        builtin_button_height = icon_top_n + bis_n + math.floor(6 * _G.density_scale) + builtin_button_label_h + math.floor(6 * _G.density_scale)
+        builtin_button_font_size = math.max(11, math.min(13, math.floor(builtin_button_width / 5)))
+        builtin_button_label_h = (builtin_button_font_size + 2) * 2
+        local bis_n = math.min(math.floor(20 * _G.density_scale), builtin_button_width - math.floor(4 * _G.density_scale))
+        local icon_top_n = math.floor(3 * _G.density_scale)
+        builtin_button_height = icon_top_n + bis_n + math.floor(2 * _G.density_scale) + builtin_button_label_h + math.floor(2 * _G.density_scale)
+        -- 按钮紧跟日期下方
+        local btn_rows_n = math.ceil(math.max(1, #builtin_apps) / btn_cols_n)
+        local total_btn_h = btn_rows_n * builtin_button_height + (btn_rows_n - 1) * builtin_button_spacing
+        buttons_y = date_label_y + date_font_size + math.floor(6 * _G.density_scale)
+        -- 网格紧跟按钮下方
+        grid_top_padding = buttons_y + total_btn_h + math.floor(6 * _G.density_scale)
     end
 
-    -- compact 分支已在上面按紧凑间距计算 buttons_y；其余分支用默认间距
-    if not cm then
+    -- compact 分支已在上面按紧凑间距计算 buttons_y；其余分支用默认间距（有二维码时）
+    if not cm and qrcode_size > 0 then
         buttons_y = qrcode_y + qrcode_size + math.floor(55 * _G.density_scale)
     end
 
-    local grid_icon_size = math.floor(32 * _G.density_scale)
+    -- 窄竖屏：压缩卡片间距，让2行应用能放下
+    if not is_landscape and screen_h <= 480 and screen_w <= 320 then
+        card_in_top = 3
+        card_in_gap = 2
+        card_in_bot = 3
+        grid_text_label_h = (grid_text_font_size + 4) * 2
+    else
+        card_in_top = 8
+        card_in_gap = 4
+        card_in_bot = 4
+        grid_text_label_h = (grid_text_font_size + 8) * 2
+    end
+
+    grid_icon_size = math.floor(32 * _G.density_scale)
     local bf = math.floor(screen_h / 32 * _G.density_scale)
     -- 网格文字字号最少 16 号，更大则按更大的自适应值
     grid_text_font_size = math.max(16, math.min(math.floor(18 * _G.density_scale), bf))
@@ -233,10 +265,7 @@ local function calc_layout()
 
     card_width = math.floor((gaw - (grid_columns + 1) * grid_margin) / grid_columns)
 
-    -- 卡片内部布局：图标顶部 8px，图标 32px，间距 4px，文字区 grid_text_label_h，底部 4px
-    local card_in_top = 8
-    local card_in_gap = 4
-    local card_in_bot = 4
+    -- 卡片内部布局：图标顶部 card_in_top，图标 32px，间距 card_in_gap，文字区 grid_text_label_h，底部 card_in_bot
     card_height = card_in_top + grid_icon_size + card_in_gap + grid_text_label_h + card_in_bot
     if card_height < math.floor(70 * _G.density_scale) then card_height = math.floor(70 * _G.density_scale) end
 
@@ -653,36 +682,45 @@ local function build_home_page(page_container)
         color = COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_CENTER
     })
 
-    local qcx = (screen_w - qrcode_size) / 2
-    qrcode_widget = airui.qrcode({
-        parent = home_container, x = qcx, y = qrcode_y, size = qrcode_size,
-        data = "https://docs.openluat.com/",
-        dark_color = 0x000000, light_color = COLOR_WHITE, quiet_zone = true
-    })
-    -- 紧凑模式不显示二维码说明文字，避免与下方按钮区重叠
-    if not compact then
-        airui.label({
-            parent = home_container,
-            x = 0, y = qrcode_y + qrcode_size + math.floor(5 * _G.density_scale),
-            w = screen_w, h = math.floor((16 + 8) * _G.density_scale),
-            text = "资料中心", font_size = 16,
-            color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER
+    if qrcode_size > 0 then
+        local qcx = (screen_w - qrcode_size) / 2
+        qrcode_widget = airui.qrcode({
+            parent = home_container, x = qcx, y = qrcode_y, size = qrcode_size,
+            data = "https://docs.openluat.com/",
+            dark_color = 0x000000, light_color = COLOR_WHITE, quiet_zone = true
         })
+        if not compact then
+            airui.label({
+                parent = home_container,
+                x = 0, y = qrcode_y + qrcode_size + math.floor(5 * _G.density_scale),
+                w = screen_w, h = math.floor((16 + 8) * _G.density_scale),
+                text = "资料中心", font_size = 16,
+                color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER
+            })
+        end
     end
 
-    local bsx = (screen_w - (builtin_button_width * #builtin_apps + builtin_button_spacing * (#builtin_apps - 1))) / 2
+    -- 按钮渲染：支持多排（窄竖屏 qrcode_size==0 时 2 排）
+    local btn_cols = math.max(1, math.floor(screen_w / (builtin_button_width + builtin_button_spacing)))
+    local btn_rows = math.ceil(#builtin_apps / btn_cols)
     for i, app in ipairs(builtin_apps) do
-        local x = bsx + (i - 1) * (builtin_button_width + builtin_button_spacing)
+        local row = math.floor((i - 1) / btn_cols)
+        local col = (i - 1) % btn_cols
+        local row_btn_count = math.min(btn_cols, #builtin_apps - row * btn_cols)
+        local row_w = row_btn_count * builtin_button_width + (row_btn_count - 1) * builtin_button_spacing
+        local row_sx = (screen_w - row_w) / 2
+        local x = row_sx + col * (builtin_button_width + builtin_button_spacing)
+        local y = buttons_y + row * (builtin_button_height + builtin_button_spacing)
         local c = airui.container({
-            parent = home_container, x = x, y = buttons_y, w = builtin_button_width,
-            h = builtin_button_height, color = COLOR_BG,
+            parent = home_container, x = x, y = y, w = builtin_button_width,
+            h = builtin_button_height, color = COLOR_BG, border_width = 0,
             on_click = function() sys.publish("OPEN_" .. app.win .. "_WIN") end
         })
-        local bis = math.min(math.floor(40 * _G.density_scale), builtin_button_width - math.floor(10 * _G.density_scale))
+        local btn_icon_size = (screen_w <= 320 and screen_h <= 480) and math.floor(20 * _G.density_scale) or math.floor(32 * _G.density_scale)
+        local bis = math.min(btn_icon_size, builtin_button_width - math.floor(4 * _G.density_scale))
         local bix = (builtin_button_width - bis) / 2
         local bity = math.floor(8 * _G.density_scale)
         airui.image({ parent = c, x = bix, y = bity, w = bis, h = bis, src = app.icon })
-        -- 文字区高度按实际字号预留（最少 16 号字），字号更大则按更大的预留
         airui.label({
             parent = c, x = 0, y = bity + bis + math.floor(6 * _G.density_scale),
             w = builtin_button_width, h = builtin_button_label_h,
@@ -700,8 +738,6 @@ local function build_app_grid_page(page_container, start_idx, apps)
         x = 0, y = 0, w = screen_w, h = screen_h - top_height - page_indicator_height,
         color = COLOR_BG
     })
-
-    local grid_icon_size = math.floor(32 * _G.density_scale)
 
     for i = 1, apps_per_page do
         local idx = start_idx + i - 1
@@ -739,10 +775,10 @@ local function build_app_grid_page(page_container, start_idx, apps)
 
         local icon_src = _app.icon
         local ix = math.floor((card_width - grid_icon_size) / 2 + 0.5)
-        airui.image({ parent = card_widget, x = ix, y = 8, w = grid_icon_size, h = grid_icon_size, src = icon_src })
+        airui.image({ parent = card_widget, x = ix, y = 4, w = grid_icon_size, h = grid_icon_size, src = icon_src })
 
         airui.label({
-            parent = card_widget, x = 4, y = 8 + grid_icon_size + 4,
+            parent = card_widget, x = 4, y = 4 + grid_icon_size + 3,
             w = card_width - 8, h = grid_text_label_h,
             text = app.name or "未知", font_size = grid_text_font_size,
             color = COLOR_TEXT, align = airui.TEXT_ALIGN_CENTER

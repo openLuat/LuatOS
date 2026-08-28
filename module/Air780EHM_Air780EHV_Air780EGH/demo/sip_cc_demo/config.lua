@@ -16,14 +16,14 @@ local config = {
     sip_transport = "udp",
 
     -- 4G 模组 SIP 账号
-    sip_username = "11234561",
-    sip_password = "Air.123456",
+    sip_username = "12345670",
+    sip_password = "Air.234567",
 
     -- 远程 SIP 客户端（控制端 / 被叫端）
-    remote_sip_uri = "sip:11234560@180.152.6.34",
+    remote_sip_uri = "sip:12345671@180.152.6.34",
 
     -- 默认桥接目标手机号（呼出场景）
-    target_phone_number = "19228137508",
+    target_phone_number = "1xxxxxxxxxx",
 
     -- 音频参数
     rtp_port = 40000,

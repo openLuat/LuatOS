@@ -1437,6 +1437,31 @@ static int l_mobile_set_band(lua_State* L) {
 	return 1;
 }
 
+#ifdef LUAT_USE_MOBILE_ECNPICFG
+/**
+获取射频校准状态，返回完整的 AT+ECNPICFG? 响应
+@api mobile.ecnpicfg()
+@return string ECNPICFG完整响应，失败返回nil
+@usage
+local response = mobile.ecnpicfg()
+-- \r\n+ECNPICFG: "rfCaliDone":1,"rfNSTDone":1,"rfCTDone":0\r\n\r\nOK\r\n
+ */
+static int l_mobile_ecnpicfg(lua_State* L) {
+    char buff[128] = {0};
+    char response[160] = {0};
+    int len = luat_mobile_get_ecnpicfg(buff, sizeof(buff));
+    if (len > 0) {
+        int response_len = snprintf(response, sizeof(response), "\r\n%.*s\r\n\r\nOK\r\n", len, buff);
+        if (response_len > 0 && (size_t)response_len < sizeof(response)) {
+            lua_pushlstring(L, response, response_len);
+            return 1;
+        }
+    }
+    lua_pushnil(L);
+    return 1;
+}
+#endif
+
 /**
 初始化内置默认虚拟卡功能(不可用)
 @api mobile.vsimInit()
@@ -1558,6 +1583,9 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"config",          ROREG_FUNC(l_mobile_config)},
 	{"getBand",          ROREG_FUNC(l_mobile_get_band)},
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
+#ifdef LUAT_USE_MOBILE_ECNPICFG
+	{"ecnpicfg",         ROREG_FUNC(l_mobile_ecnpicfg)},
+#endif
 #ifdef LUAT_USE_VSIM
 	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},
 	{"vsimOnOff",          ROREG_FUNC(l_mobile_vsim_onoff)},

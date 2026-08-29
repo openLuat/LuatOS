@@ -4,6 +4,12 @@
 --   gsensor.on_vibration(cb,i)  - 注册震动回调（主循环用于发布 MOTION_EVENT）
 --   gsensor.is_moving()         - 查询是否运动中（震动后 10s 内返回 true，超时恢复静止）
 --   gsensor.set_motion_state(b) - 强制设置运动状态（低功耗震动唤醒时用）
+--   gsensor.read_xyz()          - 主动读取三轴加速度（单位 g）
+--   gsensor.read_raw_xyz()      - 主动读取三轴原始计数值（12 位有符号，-2048~2047）
+--   gsensor.get_last_xyz()      - 获取最近一次震动中断采集的三轴快照（表或 nil）
+--   gsensor.is_xyz_fresh(ms)    - 快照是否在指定毫秒数内（默认 1000ms），用于判断"刚刚震过"
+-- 说明：中断回调内不直接做 I2C 读写（中断上下文禁止耗时/阻塞操作），
+--       仅发布 GSENSOR_XYZ_CAPTURE 事件，由 xyz_capture_task 协程执行读取并存快照。
 local gsensor = {}
 
 -- DA221 中断脚：WAKEUP2（需与硬件一致）
@@ -20,6 +26,10 @@ local state = {
     last_motion_time = 0,      -- 上次运动时间戳（用于超时恢复）
     motion_timeout = 10,       -- 运动超时(秒)：超过此时间无震动自动恢复静止
     pending_gps = false,       -- 震动唤醒待处理标志：置位后下一次上报强制走 GPS
+
+    exvib = nil,               -- DA221 驱动库句柄（init 时缓存）
+    last_xyz = nil,            -- 最近一次中断采集的三轴快照 {x,y,z,raw_x,raw_y,raw_z,ts}
+    xyz_capture_on = false,    -- 采集任务运行标志
 }
 
 local function interrupt_handler()
@@ -46,9 +56,41 @@ local function interrupt_handler()
             -- 震动触发：标记待处理 GPS，确保本次上报走 GPS（不依赖 is_moving 时序）
             state.pending_gps = true
 
+            -- 请求采集三轴快照：中断上下文不做 I2C，仅发布事件，由采集任务读取
+            -- （跟随限流：2s 内连续震动只采集一次，避免频繁读 I2C）
+            sys.publish("GSENSOR_XYZ_CAPTURE")
+
             state.vibration_callback()
         end
     end
+end
+
+-- 三轴快照采集任务：订阅 GSENSOR_XYZ_CAPTURE 事件（由中断回调发布），
+-- 在协程上下文中执行 I2C 读取（中断上下文不允许 I2C），结果存 state.last_xyz。
+-- 200ms 超时轮询，close() 时随 initialized=false 退出。
+local function xyz_capture_task()
+    log.info("gsensor", "三轴快照采集任务启动")
+    while state.initialized do
+        local got = sys.waitUntil("GSENSOR_XYZ_CAPTURE", 200)
+        if got and state.initialized and state.exvib then
+            -- 中断触发后稍作延时，等传感器数据稳定再读
+            sys.wait(50)
+            local ok, x, y, z, rx, ry, rz = pcall(state.exvib.read_xyz, state.exvib)
+            if ok and x then
+                state.last_xyz = {
+                    x = x, y = y, z = z,
+                    raw_x = rx, raw_y = ry, raw_z = rz,
+                    ts = os.time(),
+                }
+                log.info("gsensor", "XYZ快照 x", string.format("%.3f", x), "y", string.format("%.3f", y),
+                    "z", string.format("%.3f", z), "raw", rx, ry, rz)
+            else
+                log.warn("gsensor", "三轴读取失败:", ok, x)
+            end
+        end
+    end
+    state.xyz_capture_on = false
+    log.info("gsensor", "三轴快照采集任务退出")
 end
 
 function gsensor.init()
@@ -62,6 +104,7 @@ function gsensor.init()
         log.error("gsensor", "加载 exvib 库失败")
         return false
     end
+    state.exvib = exvib
 
     -- open 内部为异步初始化（供电+I2C+寄存器），等待其完成后再配中断
     exvib.open(3)
@@ -74,6 +117,12 @@ function gsensor.init()
     state.initialized = true
     state.last_vibration_time = os.time()
     log.info("gsensor", "DA221 运动检测初始化成功")
+
+    -- 启动三轴快照采集任务（订阅 GSENSOR_XYZ_CAPTURE，读到数据存 state.last_xyz）
+    if not state.xyz_capture_on then
+        state.xyz_capture_on = true
+        sys.taskInit(xyz_capture_task)
+    end
     return true
 end
 
@@ -88,13 +137,16 @@ end
 function gsensor.close()
     if not state.initialized then return end
 
+    -- 先清标志让采集任务退出（waitUntil 200ms 超时后检测到退出）
+    state.initialized = false
+    state.last_xyz = nil
+
     gpio.setup(INT_PIN, 0)
     local ok, exvib = pcall(require, "exvib")
     if ok and exvib and exvib.close then
         exvib.close()
     end
 
-    state.initialized = false
     log.info("gsensor", "已关闭")
 end
 
@@ -146,6 +198,39 @@ function gsensor.consume_pending_gps()
     local pending = state.pending_gps
     state.pending_gps = false
     return pending
+end
+
+-- 主动读取三轴加速度（单位 g）。注意：此接口直接读 I2C，只能在协程上下文调用
+-- （如在 sys.taskInit 任务或主循环 waitUntil 分支中调用，不能在 gpio 中断回调中调用）。
+-- 返回 x, y, z；未初始化返回 nil。
+function gsensor.read_xyz()
+    if not state.initialized or not state.exvib then return nil end
+    local x, y, z = state.exvib.read_xyz()
+    return x, y, z
+end
+
+-- 主动读取三轴原始计数值（12 位有符号，-2048~2047）。同样只能在协程上下文调用。
+-- 返回 raw_x, raw_y, raw_z；未初始化返回 nil。
+function gsensor.read_raw_xyz()
+    if not state.initialized or not state.exvib then return nil end
+    local _, _, _, rx, ry, rz = state.exvib.read_xyz()
+    return rx, ry, rz
+end
+
+-- 获取最近一次震动中断采集的三轴快照（由 xyz_capture_task 写入）。
+-- 返回表 {x,y,z, raw_x,raw_y,raw_z, ts}（ts 为 os.time() 秒级时间戳），无快照返回 nil。
+-- 适用于跌倒检测/姿态判断：震动瞬间的数据由中断自动采集，此处随时可取。
+function gsensor.get_last_xyz()
+    return state.last_xyz
+end
+
+-- 判断最近一次快照是否在 fresh_ms 毫秒内（默认 1000ms）。
+-- 返回 true 表示"刚刚发生过有效震动并采集到了三轴数据"。
+function gsensor.is_xyz_fresh(fresh_ms)
+    local snap = state.last_xyz
+    if not snap then return false end
+    local age_ms = (os.time() - snap.ts) * 1000
+    return age_ms <= (fresh_ms or 1000)
 end
 
 function gsensor.get_status()

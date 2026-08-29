@@ -199,6 +199,16 @@ function location.start_find_gps()
     end
 end
 
+-- 关闭常开 GPS（与 start_find_gps 对应，GNSS 开关策略关闭时调用）
+-- exgnss.close 只是注销本"gnss应用"，所有 gnss 应用都关闭后才会真正断电 GNSS
+function location.stop_find_gps()
+    if location_state._gps_started then
+        location_state._gps_started = false
+        exgnss.close(exgnss.DEFAULT, {tag = "gps_find"})
+        log.info("location", "常开 GPS 已关闭")
+    end
+end
+
 -- GPS定位模式定位（GPS常开，不阻塞）
 -- 到点上报告时直接判断 GPS 是否已定位成功（is_fix）：
 --   - 已定位成功 → 直接 exgnss.rmc(2) 取坐标发送（gps_status=2）

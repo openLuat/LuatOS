@@ -1,10 +1,13 @@
 --[[
 @module active_mode
 @summary 已激活模式（通过 create.lua 通道上报）
-@version 3.0
-@date    2026.07.17
+@version 4.0
+@date    2026.08.28
 @usage
-已激活模式，适用于常规模式、智能模式和 GPS定位模式。
+已激活模式（004.000.009 起由 GNSS 开关策略驱动，不再按 work_mode 区分上报节奏）：
+- GNSS 开启条件（满足任一）：开机后 300 秒内；gsensor 正在震动；当前未震动但最近 10 秒内震过
+- GNSS 开：每 5 秒上报一次，功耗 mode0（全功率）
+- GNSS 关：每 300 秒上报一次，功耗 mode1（低功耗）
 通过 create.lua 的 NET_SENT_RDY 通道上报数据。
 ]]
 
@@ -20,38 +23,44 @@ local lowpower = require("lowpower_app")
 local exgnss = require("exgnss")
 local excloud = require("excloud")
 
--- 本次上报计算出的上报间隔（秒），供 779 上报与主循环等待共用
--- 由 collect_data_and_report 计算一次，避免 get_smart_mode_interval 被重复调用导致无运动次数重复累加
+-- 本次上报的上报间隔（秒），供 779(wake_interval) 上报：GNSS 开→5 秒，GNSS 关→300 秒
 local last_calc_interval = 0
 
--- 寻宠模式 GPS 定位成功标志：本次上报 gps_status==2 时为 true，否则 false
--- 主循环据此决定寻宠模式的下一次上报间隔：GPS成功→5s高频，失败→30s LBS保底
-local find_gps_ok = false
+-- ====== GNSS 开关策略（004.000.009 重构） ======
+-- GNSS 开启条件（满足任一即开，全部不成立则关）：
+--   1) 开机后 300 秒内
+--   2) gsensor 正在震动
+--   3) 当前未震动，但最近 10 秒内有过震动
+-- 上报节奏：GNSS 开→每 5 秒上报一次（功耗 mode0）；GNSS 关→每 300 秒上报一次（功耗 mode1）
 
--- ====== 方案B：震动触发立即上报 + 冷却期防抖 ======
--- 震动事件名（gsensor 震动回调发布，主循环 waitUntil 监听）
+-- 震动事件名（gsensor 震动回调发布，主循环 waitUntil 监听，用于提前唤醒重新评估 GNSS 状态）
 local MOTION_EVENT = "MOTION_EVENT"
--- 震动上报冷却期（秒）：从 config.SENSOR_CONFIG.MOTION_COOLDOWN 读取（网页可配置，默认600秒=10分钟）
-local function get_motion_cooldown()
-    return (config.SENSOR_CONFIG and config.SENSOR_CONFIG.MOTION_COOLDOWN) or 600
-end
--- 冷却期截止时间戳（秒）：震动立即上报时设为 now+cooldown，0=不在冷却期
-local cooldown_until = 0
--- ==============================================
 
--- 判断当前是否处于震动上报冷却期
-local function in_motion_cooldown()
-    if cooldown_until <= 0 then
-        return false
+local GNSS_BOOT_WINDOW = 300   -- 条件1：开机后 GNSS 常开时长（秒）
+local GNSS_MOTION_KEEP = 10    -- 条件2/3：震动后 GNSS 保持开启的时长（秒）
+local REPORT_GNSS_ON  = 5      -- GNSS 开启期间上报间隔（秒）
+local REPORT_GNSS_OFF = 300    -- GNSS 关闭期间上报间隔（秒）
+
+local boot_ticks = 0           -- 主循环启动时的 mcu.ticks()（开机窗口基准，毫秒级不受 NTP 校时影响）
+local gnss_active = false      -- GNSS 当前开关状态
+local last_report_time = 0     -- 上次上报时间戳（上报节流）
+
+-- 评估当前是否需要开启 GNSS
+local function is_gnss_required()
+    -- 条件1：开机 300 秒内（mcu.ticks 返回毫秒 tick）
+    if (mcu.ticks() - boot_ticks) / 1000 < GNSS_BOOT_WINDOW then
+        return true
     end
-    local now_sec = os.time()
-    if now_sec >= cooldown_until then
-        -- 冷却期已到点，自动解除
-        cooldown_until = 0
-        return false
+    -- 条件2+3：正在震动，或最近 10 秒内有过震动
+    -- （last_motion_time 每次震动都会刷新，以 10 秒窗口统一判定，同时涵盖两种情况）
+    local st = gsensor.get_status()
+    if st and st.last_motion_time and st.last_motion_time > 0
+        and (os.time() - st.last_motion_time) <= GNSS_MOTION_KEEP then
+        return true
     end
-    return true
+    return false
 end
+-- ================================================
 
 -- 获取当前工作模式
 local function get_work_mode()
@@ -168,6 +177,10 @@ local function build_aircloud_tlv(d)
     -- 字符串字段非空才上报，避免空串编码失败
     if d.band and d.band ~= "" then
         table.insert(data, { field_meaning = FM.SERVING_CELL, data_type = DT.ASCII, value = d.band })            -- 驻留频段
+    end
+    -- DA221 三轴加速度：格式 "x,y,z"（单位 g，3位小数），自定义编号 1292
+    if d.gsensor_xyz and d.gsensor_xyz ~= "" then
+        table.insert(data, { field_meaning = 1292, data_type = DT.ASCII, value = d.gsensor_xyz })
     end
     if d.chip_model and d.chip_model ~= "" then
         table.insert(data, { field_meaning = FM.COMPONENT_MODEL, data_type = DT.ASCII, value = d.chip_model })   -- 元器件型号
@@ -324,10 +337,33 @@ local function collect_data_and_report()
         is_low_power = false
         log.info("active_mode", "震动唤醒上报，强制 GPS 定位")
     end
-    local loc_data = location.get_location(work_mode, is_low_power, is_moving)
+    -- 定位采集由 GNSS 开关状态决定（不再按 work_mode 区分）
+    local loc_data
+    if gnss_active then
+        -- GNSS 开：GPS 优先（FIND 路径，未定位成功则基站保底）
+        loc_data = location.get_location(config.DEVICE_MODE.FIND, is_low_power, true)
+    else
+        -- GNSS 关：直接基站定位（不走 get_location 的 FIND 分支，避免重开 GPS）
+        local lbs_data = location.get_lbs_location()
+        loc_data = { gps = nil, gps_status = 3 }
+        if lbs_data then
+            loc_data.gps = string.format("%.5f,%.5f", lbs_data.lat, lbs_data.lng)
+            loc_data.gps_status = (config.AIRLBS_CONFIG and config.AIRLBS_CONFIG.MODE == 1) and 5 or 4
+        end
+    end
 
     -- 信号强度（CSQ，范围 0-31，值越大信号越好；99=无信号）
     local signal = mobile.csq() or 0
+
+    -- DA221 三轴加速度（单位 g，协程上下文可直接读 I2C）
+    -- 格式化为 "x,y,z" 逗号分隔字符串，作为 TLV 1292 的 V 字段上报
+    local x_acc, y_acc, z_acc = gsensor.read_xyz()
+    local gsensor_xyz = ""
+    if x_acc then
+        gsensor_xyz = string.format("%.3f,%.3f,%.3f", x_acc, y_acc, z_acc)
+    else
+        log.warn("active_mode", "gsensor 未初始化，三轴数据不上报")
+    end
 
     -- 额外上报字段
     local gsv = get_gsv_report()
@@ -336,8 +372,8 @@ local function collect_data_and_report()
     -- 驻留频段格式化为 "LTE B{n}"
     local band_str = cur_band and ("LTE B" .. cur_band) or ""
     -- 779(wake_interval)：上报本次实际使用的上报间隔（秒）
-    -- 存入 last_calc_interval 供主循环等待复用，避免重复调用 get_smart_mode_interval
-    last_calc_interval = calc_report_interval()
+    -- 由 GNSS 开关状态决定：开→5 秒，关→300 秒（不再按模式/服务端配置计算）
+    last_calc_interval = gnss_active and REPORT_GNSS_ON or REPORT_GNSS_OFF
     local wake_interval = last_calc_interval
 
     -- 构建 property/report 消息
@@ -360,7 +396,8 @@ local function collect_data_and_report()
         wake_interval = wake_interval,
         top4_cn = gsv.top4_cn,
         sat_total = gsv.sat_total,
-        sat_visible = gsv.sat_visible
+        sat_visible = gsv.sat_visible,
+        gsensor_xyz = gsensor_xyz
     }
 
     local payload = json.encode(msg)
@@ -373,6 +410,7 @@ local function collect_data_and_report()
     log.info("active_mode", "signal:", msg.data.signal)
     log.info("active_mode", "gps:", msg.data.gps ~= "" and msg.data.gps or "nil")
     log.info("active_mode", "gps_status:", msg.data.gps_status, "(2=GPS 3=失败 4=免费基站 5=付费基站)")
+    log.info("active_mode", "gsensor_xyz:", msg.data.gsensor_xyz ~= "" and msg.data.gsensor_xyz or "nil")
     log.info("active_mode", "iccid:", msg.data.iccid)
     log.info("active_mode", "chip_model:", msg.data.chip_model)
     log.info("active_mode", "boot_reason:", msg.data.boot_reason)
@@ -390,18 +428,12 @@ local function collect_data_and_report()
     -- 记录上报时间
     kvstore.set_last_report_time(os.time())
 
-    -- GPS定位模式（GNSS开启）：绿灯慢闪10秒（1Hz），10秒后自动灭；
+    -- GNSS 开启期间：绿灯慢闪10秒（1Hz），10秒后自动灭；
     -- 期间若再次上报则自动重新计时10秒（本函数每次上报都会调用 greenLed_blink 重启计时）
     -- 充满状态优先（绿灯常亮），不触发慢闪
     local is_full_now = battery_data and battery_data.level and battery_data.level >= 99
-    if work_mode == config.DEVICE_MODE.FIND and not is_full_now then
+    if gnss_active and not is_full_now then
         tools.greenLed_blink(10)
-    end
-
-    -- 记录寻宠模式 GPS 定位成功标志（供主循环决定下次上报间隔）
-    if work_mode == config.DEVICE_MODE.FIND then
-        find_gps_ok = (gps_status == 2)
-        log.info("active_mode", "寻宠模式 GPS 定位成功标志:", tostring(find_gps_ok))
     end
 
     log.info("active_mode", "数据上报完成")
@@ -430,11 +462,18 @@ local function main_loop()
     kvstore.set_no_motion_count(0)
 
     -- 注册震动回调：DA221 震动（过2000ms限流）时发布 MOTION_EVENT，
-    -- 主循环 waitUntil 收到后立即上报（震动触发定位）
+    -- 主循环收到后重新评估 GNSS 开关状态（震动→开 GNSS→立即上报）
     gsensor.on_vibration(function()
         log.info("active_mode", "检测到震动，发布 MOTION_EVENT")
         sys.publish(MOTION_EVENT)
     end, 2000)
+
+    -- 常驻订阅震动事件置标志：上报阻塞期间（网络等待最长30秒）发布的 MOTION_EVENT
+    -- 无人 waitUntil 会丢失，用标志兜底，等待前先查标志
+    local motion_event_flag = false
+    sys.subscribe(MOTION_EVENT, function()
+        motion_event_flag = true
+    end)
 
     -- 初始化 LED
     if tools and tools.init_led then
@@ -451,147 +490,52 @@ local function main_loop()
     report_startup()
     log.info("active_mode", "开机上报完成，进入主循环")
 
-    -- ====== 寻宠模式：GPS 定位成功事件驱动 5s 高频上报 + 30s LBS 保底 ======
-    -- 5s 定时器：GPS 定位成功后每 5 秒上报一次（高频追踪）
-    -- 用 sys.timerLoopStart（循环型），由 LOCATION_SUCCESS / GNSS_STATE FIXED 事件启动/重启，
-    -- GNSS_STATE LOSE 时停止，回退 30s LBS 保底
-    local find_5s_timer = nil
-    -- 上报进行中标志：防止 5s 高频与 30s 保底在上一轮上报未完成时重复触发任务堆积
-    -- （网络等待最长 30s，可能超过 5s 定时周期）
-    local find_reporting = false
+    -- 开机窗口基准：开机 300 秒内 GNSS 常开（mcu.ticks 为毫秒级 tick，不受 NTP 校时影响）
+    boot_ticks = mcu.ticks()
+    last_report_time = 0
 
-    -- 5s 循环定时器回调：GPS 已定位成功则上报，否则跳过（30s LBS 保底负责兜底）
-    local function find_timer_5s()
-        if get_work_mode() ~= config.DEVICE_MODE.FIND then return end
-        if not find_gps_ok then return end
-        if find_reporting then return end
-        find_reporting = true
-        log.info("active_mode", "寻宠5s定时器：GPS已定位成功，高频上报")
-        sys.taskInit(function()
-            local ok, err = pcall(collect_data_and_report)
-            find_reporting = false
-            if not ok then log.error("active_mode", "寻宠5s上报异常:", err) end
-        end)
-    end
-
-    -- GPS 定位成功事件触发：置成功标志 + 启动/重启 5s 高频循环定时器
-    -- 双事件源（LOCATION_SUCCESS + GNSS_STATE FIXED）保证触发可靠：
-    --   LOCATION_SUCCESS 是业务级事件（需 exgnss.rmc 就绪），GNSS_STATE FIXED 是底层事件
-    -- 重复触发无副作用：先停止旧循环再启新循环，等价于重置 5s 计时起点
-    local function find_on_gps_success()
-        if get_work_mode() ~= config.DEVICE_MODE.FIND then return end
-        log.info("active_mode", "收到GPS定位成功事件，启动5s高频上报")
-        find_gps_ok = true
-        if find_5s_timer then
-            sys.timerStop(find_5s_timer)
-        end
-        find_5s_timer = sys.timerLoopStart(find_timer_5s, 5000)
-    end
-
-    -- GPS 信号丢失（GNSS_STATE LOSE）：停止 5s 高频，回退 30s LBS 保底
-    local function find_on_gps_lose()
-        if get_work_mode() ~= config.DEVICE_MODE.FIND then return end
-        log.info("active_mode", "GPS信号丢失，停止5s高频，回退30s LBS保底")
-        find_gps_ok = false
-        if find_5s_timer then
-            sys.timerStop(find_5s_timer)
-            find_5s_timer = nil
-        end
-    end
-
-    -- 30s 定时器：每 30 秒检测 GPS；未定位成功则上报 LBS 保底，成功则不操作
-    local function find_timer_30s()
-        if get_work_mode() ~= config.DEVICE_MODE.FIND then return end
-        local fix = exgnss.is_fix and exgnss.is_fix() or false
-        if fix then
-            log.info("active_mode", "寻宠30s定时器：GPS已定位成功，不操作（由5s定时器上报）")
-            return
-        end
-        if find_reporting then return end
-        find_reporting = true
-        log.info("active_mode", "寻宠30s定时器：GPS未定位成功，上报LBS保底")
-        sys.taskInit(function()
-            local ok, err = pcall(collect_data_and_report)
-            find_reporting = false
-            if not ok then log.error("active_mode", "寻宠30s上报异常:", err) end
-        end)
-    end
-
-    -- 订阅 GPS 定位成功 / 丢失事件（驱动寻宠模式上报节奏）
-    sys.subscribe("LOCATION_SUCCESS", find_on_gps_success)
-    -- GNSS_STATE 事件（location.gnss_state_callback 处理后再分发到这里）：
-    -- FIXED → 启动/重启 5s 高频（与 LOCATION_SUCCESS 双保险）；LOSE → 停止 5s 高频
-    sys.subscribe("GNSS_STATE", function(event)
-        if event == "FIXED" then
-            find_on_gps_success()
-        elseif event == "LOSE" then
-            find_on_gps_lose()
-        end
-    end)
-
-    -- 启动 30s LBS 保底循环定时器（5s 高频由 GPS 定位成功事件触发启动）
-    sys.timerLoopStart(find_timer_30s, 30000)
-
-    -- 寻宠模式：开机立即打开 GPS 常开（不等第一次 30s 检测）。
-    -- GPS 后台持续定位，定位成功后由 GPS 定位成功事件驱动 5s 高频上报
-    if get_work_mode() == config.DEVICE_MODE.FIND then
-        location.start_find_gps()
-    end
-
-    log.info("active_mode", "寻宠模式GPS事件驱动已启用：定位成功→5s高频，未成功→30s LBS保底")
-    -- ==============================================================
+    log.info("active_mode", "GNSS 开关策略已启用：开机300s/震动10s内→GNSS开+5s上报，否则→GNSS关+300s上报+mode1")
 
     while true do
-        -- 寻宠模式：上报由 5s/30s 双循环定时器驱动，主循环只等待，不重复上报
-        local work_mode = get_work_mode()
-        local interval = last_calc_interval
-        if work_mode == config.DEVICE_MODE.FIND then
-            sys.wait(1000)
-        else
-            collect_data_and_report()
+        -- 1) 评估 GNSS 开关需求（开机窗口 / 正在震动 / 10 秒内震过）
+        local gnss_needed = is_gnss_required()
 
-            -- 本次上报间隔已在 collect_data_and_report 中计算并存入 last_calc_interval
-            interval = last_calc_interval
-            log.info("active_mode", "等待下一次上报，间隔:", interval, "秒")
+        -- 2) GNSS 状态机：仅在状态切换时执行开关动作
+        if gnss_needed and not gnss_active then
+            gnss_active = true
+            location.start_find_gps()                       -- 打开 GNSS（DEFAULT 常开应用）
+            lowpower.set_mode(config.POWER_MODE.NORMAL)     -- 功耗 mode0（GNSS 需全功率）
+            last_report_time = 0                            -- 立即触发一次上报
+            log.info("active_mode", "GNSS 开启（开机窗口/震动），功耗 mode0，每 5 秒上报")
+        elseif not gnss_needed and gnss_active then
+            gnss_active = false
+            location.stop_find_gps()                        -- 关闭 GNSS
+            lowpower.set_mode(config.POWER_MODE.POWER_SAVE) -- 功耗 mode1（低功耗）
+            log.info("active_mode", "GNSS 关闭（无震动超时），功耗 mode1，每 300 秒上报")
         end
 
-        -- 非 GPS定位模式：上报完成后进入低功耗省电
-        if work_mode ~= config.DEVICE_MODE.FIND then
-            lowpower.set_mode_by_device_mode(work_mode)
-        end
-
-        -- 等待下一次上报触发：
-        --   智能模式：等待 MOTION_EVENT（震动唤醒立即上报）或定时到点
-        --   寻宠模式：GPS定位成功→5s高频上报；GPS未成功→30s LBS保底上报
-        --   其他模式：等待 FORCE_REPORT（服务端指令）或定时到点
-        local motion_wake = false
-        if work_mode == config.DEVICE_MODE.SMART then
-            motion_wake = sys.waitUntil(MOTION_EVENT, interval * 1000)
-            if not motion_wake then
-                motion_wake = false
+        -- 3) 上报节流：GNSS 开→5 秒一次；GNSS 关→300 秒一次
+        local interval = gnss_active and REPORT_GNSS_ON or REPORT_GNSS_OFF
+        if os.time() - last_report_time >= interval then
+            local ok, err = pcall(collect_data_and_report)
+            if not ok then
+                log.error("active_mode", "上报异常:", err)
             end
-            -- 震动立即上报后进入冷却期（防抖），冷却期内震动不触发立即上报
-            if motion_wake and in_motion_cooldown() then
-                log.info("active_mode", "震动但处于冷却期内，忽略立即上报，等待冷却期结束（叠加计数不变）")
-                motion_wake = false
-                while in_motion_cooldown() do
-                    sys.waitUntil(MOTION_EVENT, 1000)
-                end
+            last_report_time = os.time()
+
+            -- GNSS 关闭期间：上报内部会临时切全功率，上报完恢复功耗 mode1
+            if not gnss_active then
+                lowpower.set_mode(config.POWER_MODE.POWER_SAVE)
             end
-        elseif work_mode == config.DEVICE_MODE.FIND then
-            -- 寻宠模式主循环只等待（定时器驱动上报），不进低功耗以保持 GPS 常开
-            sys.wait(1000)
-        else
-            sys.waitUntil("FORCE_REPORT", interval * 1000)
         end
 
-        -- 震动唤醒：进入冷却期（震动不清零静止叠加计数，方案B）
-        if motion_wake then
-            log.info("active_mode", "震动事件唤醒，立即触发上报 + 进入冷却期（叠加计数不变）")
-            -- 强制下一次上报走 GPS：即使 is_moving 因超时已恢复静止，震动触发也要精确定位
-            force_gps_next_report = true
-            cooldown_until = os.time() + get_motion_cooldown()
+        -- 4) 等待：震动事件（含上报阻塞期间丢失的）立即进入下一轮评估；否则等到下一上报周期
+        if not motion_event_flag then
+            local remain = interval - (os.time() - last_report_time)
+            if remain < 1 then remain = 1 end
+            sys.waitUntil(MOTION_EVENT, remain * 1000)
         end
+        motion_event_flag = false
     end
 end
 

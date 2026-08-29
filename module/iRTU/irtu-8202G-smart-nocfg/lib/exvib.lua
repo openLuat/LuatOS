@@ -161,10 +161,13 @@ local z_accel
 --[[
     获取da221的xyz轴数据
 @api exvib.read_xyz()
-@return number x轴数据，number y轴数据，number z轴数据
+@return number x轴数据(单位g)，number y轴数据(单位g)，number z轴数据(单位g)
+@return number x轴原始计数值(12位有符号)，number y轴原始计数值，number z轴原始计数值
 @usage
     local x,y,z =  exvib.read_xyz()      --读取x，y，z轴的数据
         log.info("x", x..'g', "y", y..'g', "z", z..'g')
+    -- 需要原始计数值时：
+    local x,y,z, rx,ry,rz = exvib.read_xyz()
 ]]
 function exvib.read_xyz()
     -- da221是LSB在前，MSB在后，每个寄存器都是1字节数据，每次读取都是6个寄存器数据一起获取
@@ -218,8 +221,8 @@ function exvib.read_xyz()
         z_accel = z_data / 1024
     end
 
-    -- 输出加速度值（单位：g）
-    return x_accel, y_accel, z_accel
+    -- 输出加速度值（单位：g），额外返回原始12位有符号计数值（-2048~2047），供上层自行处理
+    return x_accel, y_accel, z_accel, x_data, y_data, z_data
 end
 
 --初始化da221

@@ -238,8 +238,8 @@ int luat_display_flush(struct luat_display *disp)
     struct luat_display_rect rect = {
         .x = 0,
         .y = 0,
-        .w = info->width,
-        .h = info->height,
+        .w = info->draw_buf.width,
+        .h = info->draw_buf.height,
     };
 
     info->fb_index = (info->fb_index + 1) % info->fb_count;
@@ -281,15 +281,23 @@ int luat_display_off(struct luat_display *disp)
     return 0;
 }
 
-/*设置旋转方向*/
+/*设置旋转方向
+ * fb_info 保留物理尺寸（LCDC/显存布局权威，不随旋转改变）；
+ * draw_buf 跟随旋转，保存当前旋转状态的逻辑布局（宽高互换、stride 重算）——
+ * 注意：这只是逻辑元数据，draw_buf 的像素数据仍按物理布局紧排（LVGL 按物理
+ * 分辨率渲染，旋转由驱动层 flush 时完成），访问像素数据必须用 info->stride。*/
 int luat_display_set_rotation(struct luat_display *disp, enum disp_rotate rotation) 
 {
+    if (disp == NULL || disp->fb_info == NULL) {
+        return -1;
+    }
+
     if(rotation == disp->rotation) {
         return 0;
     }
 
     if(rotation == LUAT_DISPLAY_ROTATE_90 || rotation == LUAT_DISPLAY_ROTATE_270) {
-        /*swap width and height*/
+        /*旋转 90/270：draw_buf 宽高互换，stride 按旋转后行宽重算*/
         int w = disp->fb_info->width;
         int h = disp->fb_info->height;
 
@@ -297,7 +305,7 @@ int luat_display_set_rotation(struct luat_display *disp, enum disp_rotate rotati
         disp->fb_info->draw_buf.height = w;
         disp->fb_info->draw_buf.stride = h * disp->fb_info->bits_per_pixel / 8;
     }else{
-        /*swap width and height*/
+        /*旋转 0/180：draw_buf 恢复物理布局*/
         int w = disp->fb_info->width;
         int h = disp->fb_info->height;
 

@@ -15,10 +15,10 @@ int luat_display_fill(struct luat_display *disp, struct luat_display_area area, 
     }
 
     struct luat_display_fb_info *info = disp->fb_info;
-    uint32_t width = info->width;
-    uint32_t height = info->height;
-    uint32_t stride = info->stride;
 
+    uint32_t width = info->draw_buf.width;
+    uint32_t height = info->draw_buf.height;
+    uint32_t stride = info->draw_buf.stride;
     void *buf = (info->draw_buf.buffer) ? info->draw_buf.buffer : info->fb_start;
 
     int x1 = area.x1;
@@ -85,6 +85,6 @@ int luat_display_fill(struct luat_display *disp, struct luat_display_area area, 
           info->format, info->bits_per_pixel, buf,
           (info->bits_per_pixel == 16) ? ((uint16_t *)buf)[0] : (uint16_t)(((uint32_t *)buf)[0] & 0xFFFF));
     */
-   
+
     return 1;
 }

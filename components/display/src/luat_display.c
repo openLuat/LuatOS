@@ -210,7 +210,7 @@ int luat_display_init(struct luat_display *disp)
         return ret;
     }
 
-    /*设置默认层*/
+    /*这里设置图层，让图层指向fb_start*/
     ret = luat_display_layer_setup(disp);
 
     if (ret) {
@@ -221,7 +221,7 @@ int luat_display_init(struct luat_display *disp)
     return 0;
 }
 
-/*刷新显示缓冲区*/
+/*刷新显示缓冲区，全屏刷新*/
 int luat_display_flush(struct luat_display *disp) 
 {
     if (disp == NULL || disp->display_funcs == NULL || disp->display_funcs->fb_flush == NULL || disp->fb_info == NULL) {
@@ -230,6 +230,7 @@ int luat_display_flush(struct luat_display *disp)
 
     struct luat_display_fb_info *info = disp->fb_info;
     const void *data = info->draw_buf.buffer ? info->draw_buf.buffer : info->fb_start;
+
     if (data == NULL) {
         return 0;
     }
@@ -240,6 +241,8 @@ int luat_display_flush(struct luat_display *disp)
         .w = info->width,
         .h = info->height,
     };
+
+    info->fb_index = (info->fb_index + 1) % info->fb_count;
 
     return disp->display_funcs->fb_flush(disp, &rect, data, disp->rotation);
 }
@@ -274,6 +277,36 @@ int luat_display_off(struct luat_display *disp)
         disp->panel->panel_funcs->panel_ctrl != NULL) {
         disp->panel->panel_funcs->panel_ctrl(disp->panel, LUAT_DISPLAY_POWER_OFF, NULL);
     }
+
+    return 0;
+}
+
+/*设置旋转方向*/
+int luat_display_set_rotation(struct luat_display *disp, enum disp_rotate rotation) 
+{
+    if(rotation == disp->rotation) {
+        return 0;
+    }
+
+    if(rotation == LUAT_DISPLAY_ROTATE_90 || rotation == LUAT_DISPLAY_ROTATE_270) {
+        /*swap width and height*/
+        int w = disp->fb_info->width;
+        int h = disp->fb_info->height;
+
+        disp->fb_info->draw_buf.width = h;
+        disp->fb_info->draw_buf.height = w;
+        disp->fb_info->draw_buf.stride = h * disp->fb_info->bits_per_pixel / 8;
+    }else{
+        /*swap width and height*/
+        int w = disp->fb_info->width;
+        int h = disp->fb_info->height;
+
+        disp->fb_info->draw_buf.width = w;
+        disp->fb_info->draw_buf.height = h;
+        disp->fb_info->draw_buf.stride = w * disp->fb_info->bits_per_pixel / 8;
+    }
+
+    disp->rotation = rotation;
 
     return 0;
 }
@@ -317,25 +350,6 @@ int luat_display_wakeup(struct luat_display *disp)
     return 0;
 }
 
-int luat_display_set_rotation(struct luat_display *disp, enum disp_rotate rotation) 
-{
-    // if (disp->panel_ops->set_rotation) {
-    //     return disp->panel_ops->set_rotation(disp, rotation);
-    // }
-    // uint8_t madctl = 0;
-    // switch (rotation) {
-    //     case LUAT_DISPLAY_ROTATE_0:   madctl = disp->panel_ops->madctl_0;   break;
-    //     case LUAT_DISPLAY_ROTATE_90:  madctl = disp->panel_ops->madctl_90;  break;
-    //     case LUAT_DISPLAY_ROTATE_180: madctl = disp->panel_ops->madctl_180; break;
-    //     case LUAT_DISPLAY_ROTATE_270: madctl = disp->panel_ops->madctl_270; break;
-    //     default: return -1;
-    // }
-    // luat_display_write_cmd_data(disp, 0x36, &madctl, 1);
-
-    disp->rotation = rotation;
-
-    return 0;
-}
 
 
 

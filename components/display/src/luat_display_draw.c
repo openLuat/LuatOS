@@ -19,17 +19,7 @@ int luat_display_fill(struct luat_display *disp, struct luat_display_area area, 
     uint32_t height = info->height;
     uint32_t stride = info->stride;
 
-#ifdef LUAT_USE_LCD_SDL2
-    void *buf = info->draw_buf.buffer;
-#else
-    /*真机优先使用全屏 第二缓冲区，暂时不支持PFB绘画*/
-    void *buf;
-    if (info->fb_count >= 2) {
-        buf = (uint8_t *)info->fb_start + info->stride * info->height;
-    } else {
-        buf = info->fb_start;   /* 单缓冲：直接画到屏幕上 */
-    }
-#endif
+    void *buf = (info->draw_buf.buffer) ? info->draw_buf.buffer : info->fb_start;
 
     int x1 = area.x1;
     int y1 = area.y1;
@@ -90,16 +80,11 @@ int luat_display_fill(struct luat_display *disp, struct luat_display_area area, 
     default:
         return 0;
     }
-
+    /*
     LLOGI("fill done fmt=%d bpp=%u buf=%p first=0x%04x",
           info->format, info->bits_per_pixel, buf,
           (info->bits_per_pixel == 16) ? ((uint16_t *)buf)[0] : (uint16_t)(((uint32_t *)buf)[0] & 0xFFFF));
-
-    LUAT_DISPLAY_DSB();
-
-#ifdef LUAT_USE_LCD_SDL2
-    luat_display_flush(disp);       //这里是一个临时解决方案，后续需要优化
-#endif
-
+    */
+   
     return 1;
 }

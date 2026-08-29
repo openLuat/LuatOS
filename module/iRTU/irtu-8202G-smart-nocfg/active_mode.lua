@@ -286,30 +286,8 @@ local function collect_data_and_report()
 
     local work_mode = get_work_mode()
 
-    -- 更新电源状态和 LED
-    -- 黄灯 GPIO27：插入充电器常亮（充满或拔电灭）
-    -- 绿灯 GPIO26：充电完成(充满)常亮；GPS定位模式慢闪(由上报完成处触发，10秒自动灭)
-    local vbus_state, is_charge = tools.update_power_state()
-    local battery_data_led = battery.get_data()
-    local is_full = battery_data_led and battery_data_led.level and battery_data_led.level >= 99
-    if vbus_state == 1 then
-        if is_full then
-            tools.yellowLed_OFF()
-            tools.greenLed_ON()   -- 充满：绿灯常亮，黄灯灭
-        else
-            tools.yellowLed_ON()  -- 充电中：黄灯常亮
-            -- 未充满：绿灯保持 GPS 定位模式慢闪或关闭
-            if not tools.greenLed_is_blinking() then
-                tools.greenLed_OFF()
-            end
-        end
-    else
-        tools.yellowLed_OFF()     -- 拔电：黄灯灭
-        -- 拔电：绿灯充满常亮解除；若 GPS 定位模式慢闪中则保留
-        if not tools.greenLed_is_blinking() then
-            tools.greenLed_OFF()
-        end
-    end
+    -- LED 已由 tools.lua 状态机自动控制（开机60s / GNSS切换10s / 充电常亮；
+    -- 通信正常常亮，否则闪烁；充电红 / 充满绿），此处不再手动控灯
 
     -- 低电量检测
     local is_low_power = false
@@ -400,14 +378,6 @@ local function collect_data_and_report()
     -- 记录上报时间
     kvstore.set_last_report_time(os.time())
 
-    -- GNSS 开启期间：绿灯慢闪10秒（1Hz），10秒后自动灭；
-    -- 期间若再次上报则自动重新计时10秒（本函数每次上报都会调用 greenLed_blink 重启计时）
-    -- 充满状态优先（绿灯常亮），不触发慢闪
-    local is_full_now = battery_data and battery_data.level and battery_data.level >= 99
-    if gnss_active and not is_full_now then
-        tools.greenLed_blink(10)
-    end
-
     log.info("active_mode", "数据上报完成")
 end
 
@@ -478,6 +448,7 @@ local function main_loop()
             location.start_find_gps()                       -- 打开 GNSS（DEFAULT 常开应用）
             lowpower.set_mode(config.POWER_MODE.NORMAL)     -- 功耗 mode0（GNSS 需全功率）
             last_report_time = 0                            -- 立即触发一次上报
+            tools.led_gnss_switched_on()                    -- LED 亮 10 秒（关→开切换提示）
             log.info("active_mode", "GNSS 开启（开机窗口/震动），功耗 mode0，每 5 秒上报")
         elseif not gnss_needed and gnss_active then
             gnss_active = false

@@ -92,7 +92,7 @@ function command_handlers.play_sound(msg, cmd_msg)
     send_reply(cmd_msg.msg_id, "play_sound", 4, "音频不支持（无音频硬件）")
 end
 
--- 5. open_light - 控制灯光
+-- 5. open_light - 控制灯光（手动覆盖：1=强制亮（红色，充电充满时绿色），0=恢复自动状态机）
 function command_handlers.open_light(msg, cmd_msg)
     local params = cmd_msg.data and cmd_msg.data.params or {}
     local status = tonumber(params.status)
@@ -101,9 +101,9 @@ function command_handlers.open_light(msg, cmd_msg)
 
     local tools = require("tools")
     if status == 1 then
-        if tools.greenLed_ON then tools.greenLed_ON() end
+        if tools.led_set_manual then tools.led_set_manual(true) end
     elseif status == 0 then
-        if tools.allLed_OFF then tools.allLed_OFF() end
+        if tools.led_set_manual then tools.led_set_manual(false) end
     else
         send_reply(cmd_msg.msg_id, "open_light", 2, "参数错误: status=" .. tostring(status))
         return

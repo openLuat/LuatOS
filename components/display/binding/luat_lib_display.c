@@ -93,9 +93,11 @@ static struct luat_display_panel* get_panel(const char *name, const char *interf
         if (strcmp(panel_regs[i].name, name) == 0 && 
             strcmp(panel_regs[i].interface, interface) == 0) 
         {
+            LLOGI("Find panel: %s interface: %s", name, interface);
             return panel_regs[i].panel;
         }
     }
+    LLOGI("Not find panel");
     return NULL;
 }
 

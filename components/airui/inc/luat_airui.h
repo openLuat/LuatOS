@@ -37,7 +37,6 @@ extern "C" {
 
 /** 前向声明 */
 typedef struct airui_ctx airui_ctx_t;
-typedef struct airui_buffer airui_buffer_t;
 typedef struct airui_component_meta airui_component_meta_t;
 
 /**
@@ -49,14 +48,6 @@ typedef enum {
     AIRUI_BUFFER_MODE_LCD_SHARED,    /**< LCD 共享缓冲 */
     AIRUI_BUFFER_MODE_EXTERNAL       /**< 外部缓冲 */
 } airui_buffer_mode_t;
-
-/**
- * 缓冲所有权
- */
-typedef enum {
-    AIRUI_BUFFER_OWNER_SYSTEM,       /**< 系统 heap */
-    AIRUI_BUFFER_OWNER_LUA           /**< Lua heap */
-} airui_buffer_owner_t;
 
 /**
  * 错误码
@@ -150,9 +141,10 @@ typedef struct {
  */
 typedef struct {
     int (*init)(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_format_t fmt);
-    /**< 获取平台提供的显示缓冲（可选，NULL 则 core 自行分配）：
-         返回 0 且 buf1/buf_size 有效时，core 直接使用该缓冲作为 LVGL 绘制缓冲 */
-    int (*get_buffers)(airui_ctx_t *ctx, void **buf1, void **buf2, uint32_t *buf_size);
+    /**< 获取平台提供的连续显示缓冲（可选，NULL 则 core 自行分配）：
+         返回 0 且 fb_addr/buf_size 有效时，core 按 count（1/2/3 缓冲）派生各绘制缓冲：
+         buf1 = fb_addr, buf2 = fb_addr + buf_size, buf3 = fb_addr + 2*buf_size */
+    int (*get_buffers)(airui_ctx_t *ctx, void **fb_addr, uint32_t *buf_size, uint32_t *count);
     void (*flush)(airui_ctx_t *ctx, const lv_area_t *area, const uint8_t *px_map);
     void (*wait_vsync)(airui_ctx_t *ctx);
     int (*suspend)(airui_ctx_t *ctx);
@@ -224,8 +216,10 @@ struct airui_ctx {
     uint8_t indev_ptr_count;         /**< 实际创建的指针设备数量 */
     airui_indev_udata_t indev_udata[AIRUI_POINTER_INDEV_MAX]; /**< 指针设备用户数据 */
     
-    // 缓冲管理
-    airui_buffer_t *buffer;       /**< 缓冲管理器 */
+    // 显示缓冲所有权（仅 AirUI 自分配时登记，deinit 时释放；平台提供缓冲时不登记）
+    void *draw_buf1;              /**< AirUI 自分配显示缓冲1 */
+    void *draw_buf2;              /**< AirUI 自分配显示缓冲2 */
+    lv_draw_buf_t draw_buf3;      /**< 平台三缓冲包装（仅 count>=3 时初始化，借用平台缓冲不释放数据） */
     
     // 平台操作接口
     const airui_platform_ops_t *ops;  /**< 平台驱动 ops */
@@ -374,36 +368,6 @@ void airui_deinit(airui_ctx_t *ctx);
  * @return 错误描述字符串
  */
 const char *airui_strerror(airui_err_t err);
-
-/**
- * 创建缓冲管理器
- * @return 缓冲管理器指针，失败返回 NULL
- */
-airui_buffer_t *airui_buffer_create(void);
-
-/**
- * 分配缓冲
- * @param ctx 上下文指针
- * @param size 缓冲大小（字节）
- * @param owner 缓冲所有权
- * @return 缓冲指针，失败返回 NULL
- */
-void *airui_buffer_alloc(airui_ctx_t *ctx, size_t size, airui_buffer_owner_t owner);
-
-/**
- * 释放单个缓冲
- * @param ctx 上下文指针
- * @param buffer 缓冲指针
- */
-void airui_buffer_free(airui_ctx_t *ctx, void *buffer);
-
-/**
- * 释放所有缓冲
- * @param ctx 上下文指针
- * @pre-condition ctx 必须非空
- * @post-condition 所有缓冲已按所有权释放
- */
-void airui_buffer_free_all(airui_ctx_t *ctx);
 
 /**
  * 创建 HZFont（TTF）字体，用于 AIRUI

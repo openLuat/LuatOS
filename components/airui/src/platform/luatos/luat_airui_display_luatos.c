@@ -138,7 +138,7 @@ static int luatos_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_colo
  * 获取平台提供的绘制缓冲（STM32N6 的 g_draw_framebuffer）
  * 供 core airui_init 作为 LVGL 绘制缓冲使用
  */
-static int luatos_display_get_buffers(airui_ctx_t *ctx, void **buf1, void **buf2, uint32_t *buf_size)
+static int luatos_display_get_buffers(airui_ctx_t *ctx, void **fb_addr, uint32_t *buf_size, uint32_t *count)
 {
     luatos_platform_data_t *data = airui_luatos_get_data(ctx);
     if (data == NULL || data->display_conf == NULL || data->display_conf->fb_info == NULL) {
@@ -147,19 +147,20 @@ static int luatos_display_get_buffers(airui_ctx_t *ctx, void **buf1, void **buf2
 
     struct luat_display_fb_info *fb_info = data->display_conf->fb_info;
     struct luat_display_buf *dbuf = &fb_info->draw_buf;
-    if (dbuf->buffer == NULL || dbuf->size == 0U || dbuf->count < 2U) {
+    if (dbuf->buffer == NULL || dbuf->size == 0U || dbuf->count == 0U) {
         return -1;
     }
 
-    if (buf1 != NULL) {
-        *buf1 = dbuf->buffer;
-    }
-    if (buf2 != NULL) {
-        *buf2 = (uint8_t *)dbuf->buffer + dbuf->size;
+    if (fb_addr != NULL) {
+        *fb_addr = (fb_info->fb_start) ? fb_info->fb_start : dbuf->buffer;
     }
     if (buf_size != NULL) {
-        *buf_size = dbuf->size;
+        *buf_size = (fb_info->fb_start) ? fb_info->fb_size : dbuf->size;
     }
+    if (count != NULL) {
+        *count = (fb_info->fb_start) ? fb_info->fb_count : dbuf->count;
+    }
+    
     return 0;
 }
 

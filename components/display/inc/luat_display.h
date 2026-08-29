@@ -191,6 +191,7 @@ struct luat_display_fb_info {
     void *fb_start;          // FB基地址，有多块FB 往后追加
     uint32_t fb_size;        // 单个 buf 大小 (bytes)
     uint32_t fb_count;       // FB数量
+    volatile uint32_t fb_index;  // 当前FB序号
     uint32_t width;          // 宽度
     uint32_t height;         // 高度
     struct luat_display_buf draw_buf;   // 绘制缓冲区
@@ -253,12 +254,12 @@ struct luat_display_panel_funcs {
 /*显示面板*/
 struct luat_display_panel
 {
-    const char *name;  //显示面板名称
-    const char *desc;  //显示面板描述
+    const char *name;       //显示面板名称
+    const char *desc;       //显示面板描述
 
     struct luat_display_panel_funcs *panel_funcs;
-    struct luat_display_timing *timing;             // 显示时序参数
-    struct luat_display_rect *screen_win;            // 屏幕窗口
+    struct luat_display_timing *timing;                 // 显示时序参数
+    struct luat_display_rect *screen_win;               // 屏幕窗口
 
     union {
         struct panel_rgb  *rgb;
@@ -327,7 +328,7 @@ struct luat_display {
 
     /*lua显示格式，没用，占位*/
     int bpp;
-
+    
     /*显示旋转角度*/
     enum disp_rotate rotation;
 
@@ -355,18 +356,6 @@ int luat_display_init_pin(struct panel_pin_device *pin);
 int luat_display_power_on(struct luat_display *disp);
 int luat_display_power_off(struct luat_display *disp);
 int luat_display_panel_reset(struct luat_display_panel *panel);
-
-/* 数据同步屏障：保证 CPU 显存写入在下一次硬件扫描前落地 */
-#if defined(__arm__) || defined(__aarch64__) || defined(__ARM_ARCH)
-#if defined(_MSC_VER)
-#include <intrin.h>
-#define LUAT_DISPLAY_DSB() __dsb(0xF)
-#else
-#define LUAT_DISPLAY_DSB() __asm volatile("dsb" ::: "memory")
-#endif
-#else
-#define LUAT_DISPLAY_DSB() do { } while (0)
-#endif
 
 /* 显示图形绘制接口 */
 int luat_display_fill(struct luat_display *disp, struct luat_display_area area, uint32_t color);

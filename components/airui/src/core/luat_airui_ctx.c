@@ -12,6 +12,7 @@
 #include <assert.h>
 #include "luat_conf_bsp.h"
 #include "luat_airui_conf.h"
+#include "luat_mem.h"
 
 #include "luat_msgbus.h"
 #include "luat_rtos.h"
@@ -403,12 +404,6 @@ int airui_ctx_create(airui_ctx_t *ctx, const airui_platform_ops_t *ops)
     // 存储平台 ops
     ctx->ops = ops;
     
-    // 创建缓冲管理器
-    ctx->buffer = airui_buffer_create();
-    if (ctx->buffer == NULL) {
-        return AIRUI_ERR_NO_MEM;
-    }
-    
     return AIRUI_OK;
 }
 
@@ -494,30 +489,51 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
         lv_timer_set_period(refr_timer, AIRUI_REFRESH_PERIOD_MS);
     }
     
-    // 分配显示缓冲（双缓冲模式）
-    // 优先使用平台提供的绘制缓冲（如 STM32N6 的 g_draw_framebuffer），拿不到再自分配
+    // 分配显示缓冲（单/双/三缓冲由平台 count 决定）
+    // 优先使用平台提供的连续绘制缓冲（如 STM32N6 的 g_draw_framebuffer），拿不到再自分配
+    void *fb_base = NULL;
     void *buf1 = NULL;
     void *buf2 = NULL;
     uint32_t buf_size = 0;
+    uint32_t buf_count = 0;
 
     if (ctx->ops->display_ops->get_buffers != NULL &&
-        ctx->ops->display_ops->get_buffers(ctx, &buf1, &buf2, &buf_size) == 0 &&
-        buf1 != NULL && buf2 != NULL && buf_size > 0) {
-        LLOGI("airui_init: use platform draw buffers buf1=%p buf2=%p size=%u", buf1, buf2, (unsigned)buf_size);
+        ctx->ops->display_ops->get_buffers(ctx, &fb_base, &buf_size, &buf_count) == 0 &&
+        fb_base != NULL && buf_size > 0 && buf_count >= 1) {
+        buf1 = fb_base;
+        if (buf_count >= 2) {
+            buf2 = (uint8_t *)fb_base + buf_size;
+        }
+        LLOGI("airui_init: use platform draw buffers base=%p size=%u count=%u",
+              fb_base, (unsigned)buf_size, (unsigned)buf_count);
     } else {
         buf_size = width * height * lv_color_format_get_size(color_format) / AIRUI_DISPLAY_BUFFER_SIZE_DIVISOR;
-        buf1 = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
-        buf2 = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
+        buf1 = luat_heap_opt_calloc(LUAT_HEAP_PSRAM, 1, buf_size);
+        // 立即登记到 ctx，供 deinit 兜底释放（分配失败时仅登记成功的一方）
+        ctx->draw_buf1 = buf1;
+        buf2 = luat_heap_opt_calloc(LUAT_HEAP_PSRAM, 1, buf_size);
+        ctx->draw_buf2 = buf2;
+        buf_count = (buf2 != NULL) ? 2U : 1U;
     }
 
-    if (buf1 == NULL || buf2 == NULL) {
+    if (buf1 == NULL) {
         LLOGE("airui_init failed: buffer allocation failed, size=%u", buf_size);
         airui_deinit(ctx);
         return AIRUI_ERR_INIT_FAILED;
     }
     
-    // 设置缓冲
-    airui_display_set_buffers(ctx, buf1, buf2, buf_size, AIRUI_BUFFER_MODE_DOUBLE);
+    // 设置缓冲（单/双缓冲由 buf2 是否有效决定）
+    lv_display_set_buffers(ctx->display, buf1, buf2, buf_size, LV_DISPLAY_RENDER_MODE_DIRECT);
+    
+    // 平台提供三缓冲时，把第三块挂到 LVGL（借用平台缓冲，数据不释放）
+    if (buf_count >= 3) {
+        lv_draw_buf_init(&ctx->draw_buf3,
+                         width, buf_size / lv_draw_buf_width_to_stride(width, color_format),
+                         color_format, 0,
+                         (uint8_t *)fb_base + 2U * buf_size, buf_size);
+        lv_display_set_3rd_draw_buffer(ctx->display, &ctx->draw_buf3);
+        LLOGI("airui_init: wire 3rd draw buffer %p", (void *)ctx->draw_buf3.data);
+    }
     
     // 创建多个指针输入设备（多点触控支持）
     // 默认创建 2 个；SDL 平台仅需 1 个
@@ -846,8 +862,15 @@ void airui_deinit(airui_ctx_t *ctx)
         ctx->display = NULL;
     }
     
-    // 释放所有缓冲
-    airui_buffer_free_all(ctx);
+    // 释放 AirUI 自分配的显示缓冲（平台提供的缓冲不由 AirUI 释放）
+    if (ctx->draw_buf1 != NULL) {
+        luat_heap_opt_free(LUAT_HEAP_PSRAM, ctx->draw_buf1);
+        ctx->draw_buf1 = NULL;
+    }
+    if (ctx->draw_buf2 != NULL) {
+        luat_heap_opt_free(LUAT_HEAP_PSRAM, ctx->draw_buf2);
+        ctx->draw_buf2 = NULL;
+    }
     
     // 清零上下文
     memset(ctx, 0, sizeof(airui_ctx_t));

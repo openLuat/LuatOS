@@ -247,6 +247,61 @@ function location.get_find_mode_location()
     return nil, 3
 end
 
+-- 上报定位采集入口（GNSS 优先锁定策略）
+-- 规则：开机以来只要 GNSS 定位成功过一次，之后所有上报不再使用 LBS：
+--   - GNSS 开且当前定位成功 → 用当前实时坐标
+--   - 当前未定位成功（GNSS 关或掉星）→ 用最近一次 GNSS 定位成功坐标
+--   - gps_status 恒为 2
+-- 开机以来从未 GNSS 定位成功 → 走 LBS 定位（gps_status 为 4/5，失败为 3）
+-- @param boolean gnss_on 当前 GNSS 开关状态（是否尝试读实时定位）
+-- @return table {gps="lat,lng"或nil, gps_status=2/3/4/5}
+function location.get_report_location(gnss_on)
+    -- 判定依据：last_gps_data 只有在定位成功时才会被写入（FIXED 回调 / 定位成功路径），
+    -- 非 nil 即代表开机以来 GNSS 至少成功过一次
+    local last = location_state.last_gps_data
+    if last and last.lat and last.lng then
+        -- 曾定位成功：先尝试当前实时定位
+        if gnss_on then
+            local fix = false
+            if exgnss.is_fix then
+                fix = exgnss.is_fix()
+            end
+            if fix then
+                local rmc_data = exgnss.rmc(2)
+                if rmc_data and rmc_data.valid and rmc_data.lat and rmc_data.lng then
+                    local lat = tonumber(rmc_data.lat)
+                    local lng = tonumber(rmc_data.lng)
+                    if lat and lng then
+                        -- 刷新缓存（作为下一次"最近一次成功"的坐标）
+                        location_state.last_gps_time = os.time()
+                        location_state.last_gps_data = rmc_data
+                        log.info("location", "GNSS当前定位成功:", lat, lng)
+                        return { gps = string.format("%.5f,%.5f", lat, lng), gps_status = 2 }
+                    end
+                end
+            end
+        end
+        -- 当前未定位成功：沿用最近一次 GNSS 成功坐标，状态仍报 2
+        local lat = tonumber(last.lat)
+        local lng = tonumber(last.lng)
+        if lat and lng then
+            log.info("location", "GNSS当前未定位成功，沿用最近一次成功坐标:", lat, lng,
+                "(距今", os.time() - (location_state.last_gps_time or 0), "秒)")
+            return { gps = string.format("%.5f,%.5f", lat, lng), gps_status = 2 }
+        end
+    end
+
+    -- 开机以来从未 GNSS 定位成功：走 LBS
+    log.info("location", "开机以来 GNSS 从未定位成功，使用 LBS 定位")
+    local result = { gps = nil, gps_status = 3 }
+    local lbs_data = location.get_lbs_location()
+    if lbs_data then
+        result.gps = string.format("%.5f,%.5f", lbs_data.lat, lbs_data.lng)
+        result.gps_status = get_lbs_status()
+    end
+    return result
+end
+
 -- 主入口：根据工作模式采集定位信息
 -- @param number work_mode 设备模式
 -- @param boolean is_low_power 是否低电量

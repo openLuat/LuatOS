@@ -263,11 +263,6 @@ local function calc_report_interval()
     return interval
 end
 
--- 震动唤醒后强制下一次上报走 GPS（不依赖 is_moving 超时时序）
--- 震动唤醒 → MOTION_EVENT → motion_wake=true → 置位 → collect 读取后清除
--- 注意：必须在 collect_data_and_report 之前声明（Lua local 需先声明后引用）
-local force_gps_next_report = false
-
 -- 数据收集与上报
 local function collect_data_and_report()
     log.info("active_mode", "开始收集数据")
@@ -324,33 +319,10 @@ local function collect_data_and_report()
         kvstore.set_low_power_mode(is_low_power)
     end
 
-    -- 采集定位数据
-    local is_moving = config.SENSOR_CONFIG and config.SENSOR_CONFIG.MOTION_DETECT_ON and gsensor.is_moving() or false
-    -- 震动唤醒触发的上报：强制走 GPS（不依赖 is_moving 超时时序）
-    -- 两个来源：
-    --   1. force_gps_next_report：主循环 motion_wake=true 置位（正常模式路径）
-    --   2. gsensor.consume_pending_gps()：interrupt_handler/set_motion_state 置位（含低功耗唤醒路径）
-    -- 同时临时忽略低电量省电限制：震动定位是用户主动行为，应优先 GPS
-    if force_gps_next_report or gsensor.consume_pending_gps() then
-        force_gps_next_report = false
-        is_moving = true
-        is_low_power = false
-        log.info("active_mode", "震动唤醒上报，强制 GPS 定位")
-    end
-    -- 定位采集由 GNSS 开关状态决定（不再按 work_mode 区分）
-    local loc_data
-    if gnss_active then
-        -- GNSS 开：GPS 优先（FIND 路径，未定位成功则基站保底）
-        loc_data = location.get_location(config.DEVICE_MODE.FIND, is_low_power, true)
-    else
-        -- GNSS 关：直接基站定位（不走 get_location 的 FIND 分支，避免重开 GPS）
-        local lbs_data = location.get_lbs_location()
-        loc_data = { gps = nil, gps_status = 3 }
-        if lbs_data then
-            loc_data.gps = string.format("%.5f,%.5f", lbs_data.lat, lbs_data.lng)
-            loc_data.gps_status = (config.AIRLBS_CONFIG and config.AIRLBS_CONFIG.MODE == 1) and 5 or 4
-        end
-    end
+    -- 定位采集（GNSS 优先锁定策略）：
+    -- 开机以来 GNSS 定位成功过一次 → 永远用 GNSS 数据（当前成功用当前值，否则用最近一次成功值），gps_status 恒 2，不再用 LBS
+    -- 从未成功 → 走 LBS（gps_status 为 4/5，失败 3）
+    local loc_data = location.get_report_location(gnss_active)
 
     -- 信号强度（CSQ，范围 0-31，值越大信号越好；99=无信号）
     local signal = mobile.csq() or 0

@@ -5,7 +5,7 @@
 @date    2026.08.28
 @usage
 已激活模式（004.000.009 起由 GNSS 开关策略驱动，不再按 work_mode 区分上报节奏）：
-- GNSS 开启条件（满足任一）：开机后 300 秒内；gsensor 正在震动；当前未震动但最近 10 秒内震过
+- GNSS 开启条件（满足任一）：开机后 300 秒内；gsensor 正在震动；当前未震动但最近 30 秒内震过
 - GNSS 开：每 5 秒上报一次，功耗 mode0（全功率）
 - GNSS 关：每 300 秒上报一次，功耗 mode1（低功耗）
 通过 create.lua 的 NET_SENT_RDY 通道上报数据。
@@ -30,14 +30,14 @@ local last_calc_interval = 0
 -- GNSS 开启条件（满足任一即开，全部不成立则关）：
 --   1) 开机后 300 秒内
 --   2) gsensor 正在震动
---   3) 当前未震动，但最近 10 秒内有过震动
+--   3) 当前未震动，但最近 30 秒内有过震动
 -- 上报节奏：GNSS 开→每 5 秒上报一次（功耗 mode0）；GNSS 关→每 300 秒上报一次（功耗 mode1）
 
 -- 震动事件名（gsensor 震动回调发布，主循环 waitUntil 监听，用于提前唤醒重新评估 GNSS 状态）
 local MOTION_EVENT = "MOTION_EVENT"
 
 local GNSS_BOOT_WINDOW = 300   -- 条件1：开机后 GNSS 常开时长（秒）
-local GNSS_MOTION_KEEP = 10    -- 条件2/3：震动后 GNSS 保持开启的时长（秒）
+local GNSS_MOTION_KEEP = 30    -- 条件2/3：震动后 GNSS 保持开启的时长（秒）
 local REPORT_GNSS_ON  = 5      -- GNSS 开启期间上报间隔（秒）
 local REPORT_GNSS_OFF = 300    -- GNSS 关闭期间上报间隔（秒）
 
@@ -51,8 +51,8 @@ local function is_gnss_required()
     if (mcu.ticks() - boot_ticks) / 1000 < GNSS_BOOT_WINDOW then
         return true
     end
-    -- 条件2+3：正在震动，或最近 10 秒内有过震动
-    -- （last_motion_time 每次震动都会刷新，以 10 秒窗口统一判定，同时涵盖两种情况）
+    -- 条件2+3：正在震动，或最近 30 秒内有过震动
+    -- （last_motion_time 每次震动都会刷新，以 30 秒窗口统一判定，同时涵盖两种情况）
     local st = gsensor.get_status()
     if st and st.last_motion_time and st.last_motion_time > 0
         and (os.time() - st.last_motion_time) <= GNSS_MOTION_KEEP then
@@ -466,10 +466,10 @@ local function main_loop()
     boot_ticks = mcu.ticks()
     last_report_time = 0
 
-    log.info("active_mode", "GNSS 开关策略已启用：开机300s/震动10s内→GNSS开+5s上报，否则→GNSS关+300s上报+mode1")
+    log.info("active_mode", "GNSS 开关策略已启用：开机300s/震动30s内→GNSS开+5s上报，否则→GNSS关+300s上报+mode1")
 
     while true do
-        -- 1) 评估 GNSS 开关需求（开机窗口 / 正在震动 / 10 秒内震过）
+        -- 1) 评估 GNSS 开关需求（开机窗口 / 正在震动 / 30 秒内震过）
         local gnss_needed = is_gnss_required()
 
         -- 2) GNSS 状态机：仅在状态切换时执行开关动作

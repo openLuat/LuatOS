@@ -45,6 +45,12 @@
 
 -- 版本更新说明
 -
+-- 版本号：202608281700
+-- 1、更新时间：2026-08-28 17:00
+-- 2、更新内容
+--    setup()精简特殊参数处理，删除use_getip/imginfo/audinfo/mtninfo的特殊分支
+--    文件上传支持指定使用合宙平台参数，新增imginfo_from_luat/audinfo_from_luat/mtninfo_from_luat配置
+-
 -- 版本号：202608271800
 -- 1、更新时间：2026-08-27 18:00
 -- 2、更新内容
@@ -134,6 +140,9 @@ local config = {
     current_audinfo = nil,                -- 当前音频上传配置
     current_mtninfo = nil,                -- 当前运维日志上传配置
     current_qrinfo = nil,                 -- 当前二维码信息
+    imginfo_from_luat = false,            -- 图片上传使用合宙平台参数
+    audinfo_from_luat = false,            -- 音频上传使用合宙平台参数
+    mtninfo_from_luat = false,            -- 运维日志上传使用合宙平台参数
     getip_retry_count = 0,                -- getip当前重试次数
     max_getip_retry = 3,                  -- getip最大重试次数
     -- 虚拟设备
@@ -1141,6 +1150,60 @@ local function getip_with_retry(getip_type)
     return false, "getip请求失败，已达最大重试次数"
 end
 
+-- 请求合宙平台获取文件上传参数（不修改config的host/port/auth_key等字段）
+local function get_luat_upload_info(getip_type)
+    if not config.device_id then
+        return nil, "缺少device_id"
+    end
+
+    local key = config.device_id
+    if config.device_type == 1 then
+        key = key .. "-" .. mobile.muid()
+    end
+
+    local code, response = httpplus.request({
+        method = "POST",
+        url = "https://api.luatos.com/iot/getip",
+        forms = {
+            key = key,
+            type = getip_type
+        }
+    })
+
+    if not response or not response.body then
+        return nil, "HTTP响应为空"
+    end
+
+    local response_body = response.body:toStr()
+    response = nil
+
+    if not response_body or response_body == "" then
+        return nil, "响应体为空"
+    end
+
+    if code ~= 200 then
+        response_body = nil
+        return nil, "HTTP请求失败: " .. tostring(code)
+    end
+
+    local response_json = json.decode(response_body)
+    response_body = nil
+
+    if not response_json then
+        return nil, "JSON解析失败"
+    end
+
+    if response_json.msg ~= "ok" then
+        return nil, "服务器返回错误: " .. tostring(response_json.msg)
+    end
+
+    return {
+        current_imginfo = response_json.imginfo,
+        current_audinfo = response_json.audinfo,
+        current_mtninfo = response_json.mtninfo,
+    }
+end
+
 -- 文件上传通知(start/finish统一)
 local function send_file_upload_notify(notify_field, file_type, file_name, file_size, upload_ok)
     local tlvs = { {
@@ -1415,13 +1478,23 @@ function excloud.set_upload_callback(cb)
 end
 
 -- 通用上传函数（合并upload_mtnlog/upload_image/upload_audio）
-local function _upload_with_config(file_type, file_data, file_name, label, config_field, default_ext)
+local function _upload_with_config(file_type, file_data, file_name, label, config_field, default_ext, from_luat)
     local ok, err = prepare_upload(file_data, file_name, label)
     if not ok then
         return false, err
     end
     file_name = file_name or label:gsub("^upload_", "") .. "_" .. os.time() .. default_ext
-    if not config[config_field] then
+    if from_luat then
+        -- 使用合宙平台上传参数
+        local getip_type = transport_to_getip_type()
+        local luat_info, luat_err = get_luat_upload_info(getip_type)
+        if luat_info and luat_info[config_field] then
+            config[config_field] = luat_info[config_field]
+        else
+            log.error("[excloud]" .. label, "从合宙平台获取上传参数失败", luat_err)
+            return false, "从合宙平台获取上传参数失败"
+        end
+    elseif not config[config_field] then
         log.info("[excloud]" .. label, "获取上传配置...")
         local get_ok, get_err = getip_with_retry(transport_to_getip_type())
         if not get_ok then
@@ -1434,17 +1507,17 @@ end
 
 -- 上传运维日志文件
 function excloud.upload_mtnlog(file_data, file_name)
-    return _upload_with_config(3, file_data, file_name, "upload_mtnlog", "current_mtninfo", ".trc")
+    return _upload_with_config(3, file_data, file_name, "upload_mtnlog", "current_mtninfo", ".trc", config.mtninfo_from_luat)
 end
 
 -- 图片上传接口
 function excloud.upload_image(file_data, file_name)
-    return _upload_with_config(1, file_data, file_name, "upload_image", "current_imginfo", ".jpg")
+    return _upload_with_config(1, file_data, file_name, "upload_image", "current_imginfo", ".jpg", config.imginfo_from_luat)
 end
 
 -- 音频上传接口
 function excloud.upload_audio(file_data, file_name)
-    return _upload_with_config(2, file_data, file_name, "upload_audio", "current_audinfo", ".mp3")
+    return _upload_with_config(2, file_data, file_name, "upload_audio", "current_audinfo", ".mp3", config.audinfo_from_luat)
 end
 
 -- 记录运维日志
@@ -1796,14 +1869,6 @@ function excloud.setup(params)
             log.warn("excloud.setup", "不再需要主动配置auth_key")
         elseif k == "protocol_version" then
             log.warn("excloud.setup", "不再需要主动配置protocol_version")
-        elseif k == "use_getip" then
-            config.use_getip = v
-        elseif k == "imginfo" then
-            config.current_imginfo = v
-        elseif k == "audinfo" then
-            config.current_audinfo = v
-        elseif k == "mtninfo" then
-            config.current_mtninfo = v
         elseif k == "device_type" then
             log.warn("excloud.setup", "不再需要主动配置device_type")
         else
@@ -2296,7 +2361,7 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 excloud.version()
 ]]
 function excloud.version()
-    return "202608271800"
+    return "202608281700"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

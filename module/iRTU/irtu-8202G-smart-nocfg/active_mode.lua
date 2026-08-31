@@ -153,7 +153,8 @@ end
 -- 将 data 字段转换为 AirCloud TLV 字段数组（供 create.send_aircloud 发送）
 -- 无标准 field_meaning 的字段从 1290 起自定义编号
 -- 注意：excloud 编码 ASCII 空字符串会失败导致整包发送失败，因此空值字段一律跳过
-local function build_aircloud_tlv(d)
+-- xyz_stream：GNSS 开启期间 25Hz 流式采样的三轴原始数据（二进制，仅走 TLV 通道）
+local function build_aircloud_tlv(d, xyz_stream)
     local FM = excloud.FIELD_MEANINGS
     local DT = excloud.DATA_TYPES
     local data = {}
@@ -181,6 +182,12 @@ local function build_aircloud_tlv(d)
     -- DA221 三轴加速度：格式 "x,y,z"（单位 g，3位小数），自定义编号 1292
     if d.gsensor_xyz and d.gsensor_xyz ~= "" then
         table.insert(data, { field_meaning = 1292, data_type = DT.ASCII, value = d.gsensor_xyz })
+    end
+    -- DA221 25Hz 三轴原始数据流（仅 GNSS 开启期间采集）：最近 5 秒 125 个样本，
+    -- 每样本 6 字节（x/y/z 各 2 字节有符号 int16 大端，时间正序），共 750 字节，
+    -- 二进制字段，自定义编号 1293。注意：二进制只走本 TLV 通道，不进 JSON 报文。
+    if xyz_stream and xyz_stream ~= "" then
+        table.insert(data, { field_meaning = 1293, data_type = DT.BINARY, value = xyz_stream })
     end
     if d.chip_model and d.chip_model ~= "" then
         table.insert(data, { field_meaning = FM.COMPONENT_MODEL, data_type = DT.ASCII, value = d.chip_model })   -- 元器件型号
@@ -315,6 +322,20 @@ local function collect_data_and_report()
         log.warn("active_mode", "gsensor 未初始化，三轴数据不上报")
     end
 
+    -- GNSS 开启期间：取 25Hz 流式采样的最近 125 个样本
+    -- （5 秒 × 25Hz × 6 字节 = 750 字节），作为 TLV 1293 二进制字段随本次报文上报。
+    -- 注意：二进制数据只走 AirCloud TLV 通道，不进 JSON 报文（避免 json.encode 产生非法 JSON）；
+    -- 采样由 gsensor 常驻任务后台进行，本协程阻塞（等网络/发数据）期间采样不中断。
+    local gsensor_stream, stream_count = "", 0
+    if gnss_active then
+        gsensor_stream, stream_count = gsensor.get_stream_data(125)
+        if stream_count > 0 then
+            log.info("active_mode", "gsensor_stream:", stream_count, "样本", #gsensor_stream, "字节")
+        else
+            log.info("active_mode", "gsensor_stream: 无数据（刚开启采样，本次报文不带 1293 字段）")
+        end
+    end
+
     -- 额外上报字段
     local gsv = get_gsv_report()
     local boot_reason = get_boot_reason()
@@ -371,8 +392,9 @@ local function collect_data_and_report()
     create.send(payload)
     log.info("active_mode", "数据已通过云通道发送(json)")
 
-    -- AirCloud 通道：以 TLV 形式上报（其余字段不含 msg_id/type/ts/imei）
-    create.send_aircloud(build_aircloud_tlv(msg.data))
+    -- AirCloud 通道：以 TLV 形式上报（其余字段不含 msg_id/type/ts/imei；
+    -- 1293 为 GNSS 开启期间的 25Hz 三轴原始数据流，二进制，仅走此通道）
+    create.send_aircloud(build_aircloud_tlv(msg.data, gsensor_stream))
     log.info("active_mode", "数据已通过 AirCloud TLV 发送")
 
     -- 记录上报时间
@@ -447,6 +469,7 @@ local function main_loop()
             gnss_active = true
             location.start_find_gps()                       -- 打开 GNSS（DEFAULT 常开应用）
             lowpower.set_mode(config.POWER_MODE.NORMAL)     -- 功耗 mode0（GNSS 需全功率）
+            gsensor.stream_start()                          -- 开启 25Hz 三轴流式采样（TLV 1293 数据源）
             last_report_time = 0                            -- 立即触发一次上报
             tools.led_gnss_switched_on()                    -- LED 亮 10 秒（关→开切换提示）
             log.info("active_mode", "GNSS 开启（开机窗口/震动），功耗 mode0，每 5 秒上报")
@@ -454,6 +477,7 @@ local function main_loop()
             gnss_active = false
             location.stop_find_gps()                        -- 关闭 GNSS
             lowpower.set_mode(config.POWER_MODE.POWER_SAVE) -- 功耗 mode1（低功耗）
+            gsensor.stream_stop()                           -- 停止 25Hz 流式采样并清空缓冲
             log.info("active_mode", "GNSS 关闭（无震动超时），功耗 mode1，每 300 秒上报")
         end
 

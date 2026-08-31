@@ -8,12 +8,21 @@
 --   gsensor.read_raw_xyz()      - 主动读取三轴原始计数值（12 位有符号，-2048~2047）
 --   gsensor.get_last_xyz()      - 获取最近一次震动中断采集的三轴快照（表或 nil）
 --   gsensor.is_xyz_fresh(ms)    - 快照是否在指定毫秒数内（默认 1000ms），用于判断"刚刚震过"
+--   gsensor.stream_start()      - 开启 25Hz 三轴原始数据流式采样（GNSS 开启期间调用）
+--   gsensor.stream_stop()       - 停止流式采样并清空缓冲（GNSS 关闭时调用）
+--   gsensor.get_stream_data(n)  - 取最近 n 个样本（默认125=5秒）拼好的字节串与实际样本数
 -- 说明：中断回调内不直接做 I2C 读写（中断上下文禁止耗时/阻塞操作），
 --       仅发布 GSENSOR_XYZ_CAPTURE 事件，由 xyz_capture_task 协程执行读取并存快照。
 local gsensor = {}
 
 -- DA221 中断脚：WAKEUP2（需与硬件一致）
 local INT_PIN = gpio.WAKEUP2
+
+-- ====== 25Hz 流式采样（GNSS 开启期间采集，供 TLV 1293 上报） ======
+local STREAM_HZ = 25              -- 采样率（每秒 25 次）
+local STREAM_INTERVAL_MS = 40     -- 采样间隔(ms) = 1000/25
+local STREAM_BUFFER_MAX = 130     -- 缓冲容量：5 秒=125 样本 + 少量余量
+-- 每样本 6 字节：x/y/z 各 2 字节有符号 int16 大端（网络字节序），样本按时间正序排列
 
 -- 模块状态
 local state = {
@@ -30,6 +39,10 @@ local state = {
     exvib = nil,               -- DA221 驱动库句柄（init 时缓存）
     last_xyz = nil,            -- 最近一次中断采集的三轴快照 {x,y,z,raw_x,raw_y,raw_z,ts}
     xyz_capture_on = false,    -- 采集任务运行标志
+
+    stream_on = false,         -- 25Hz 流式采样开关（GNSS 开启期间为 true）
+    stream_buffer = {},        -- 流式采样滚动缓冲：每个元素为 6 字节打包样本（x/y/z int16 大端）
+    stream_task_on = false,    -- 流式采样任务运行标志
 }
 
 local function interrupt_handler()
@@ -97,6 +110,42 @@ local function xyz_capture_task()
     log.info("gsensor", "三轴快照采集任务退出")
 end
 
+-- 25Hz 流式采样任务：GNSS 开启期间（stream_on=true）持续读取 DA221 原始三轴，
+-- 每个样本打包 6 字节（x/y/z 各 2 字节有符号 int16 大端）存入滚动缓冲，
+-- 上报时通过 get_stream_data 取最近 125 个样本（5 秒）。
+-- 用 mcu.ticks 做时间片调度，自动补偿 I2C 读取耗时，保证实际采样率贴近 25Hz。
+local function stream_task()
+    log.info("gsensor", "25Hz 流式采样任务启动")
+    local next_tick = mcu.ticks()
+    while true do
+        if state.stream_on and state.initialized and state.exvib then
+            local ok, _, _, _, rx, ry, rz = pcall(state.exvib.read_xyz, state.exvib)
+            if ok and rx ~= nil then
+                table.insert(state.stream_buffer, string.pack(">i2i2i2", rx, ry, rz))
+                if #state.stream_buffer > STREAM_BUFFER_MAX then
+                    table.remove(state.stream_buffer, 1)
+                end
+            end
+            -- 时间片调度：固定 40ms 节拍；I2C 耗时自动补偿；
+            -- 落后超过 1 秒（如刚从待机恢复）重新对齐节拍，避免连发追赶
+            next_tick = next_tick + STREAM_INTERVAL_MS
+            local wait_ms = next_tick - mcu.ticks()
+            if wait_ms > STREAM_INTERVAL_MS then
+                wait_ms = STREAM_INTERVAL_MS
+            elseif wait_ms < -1000 then
+                next_tick = mcu.ticks()
+                wait_ms = 0
+            elseif wait_ms < 0 then
+                wait_ms = 0
+            end
+            sys.wait(wait_ms)
+        else
+            sys.wait(200)
+            next_tick = mcu.ticks()
+        end
+    end
+end
+
 function gsensor.init()
     if state.initialized then
         return true
@@ -126,6 +175,12 @@ function gsensor.init()
     if not state.xyz_capture_on then
         state.xyz_capture_on = true
         sys.taskInit(xyz_capture_task)
+    end
+
+    -- 启动 25Hz 流式采样任务（常驻协程，由 stream_on 控制采样/待机）
+    if not state.stream_task_on then
+        state.stream_task_on = true
+        sys.taskInit(stream_task)
     end
     return true
 end
@@ -219,6 +274,39 @@ function gsensor.read_raw_xyz()
     if not state.initialized or not state.exvib then return nil end
     local _, _, _, rx, ry, rz = state.exvib.read_xyz()
     return rx, ry, rz
+end
+
+-- ====== 25Hz 流式采样接口（GNSS 开启期间采集，作为 TLV 1293 上报） ======
+
+-- 开启流式采样（清空缓冲从头采）。GNSS 开启时调用。
+function gsensor.stream_start()
+    state.stream_buffer = {}
+    state.stream_on = true
+    log.info("gsensor", "流式采样开启: 25Hz, 缓冲上限", STREAM_BUFFER_MAX, "样本")
+end
+
+-- 停止流式采样并清空缓冲。GNSS 关闭时调用。
+function gsensor.stream_stop()
+    state.stream_on = false
+    state.stream_buffer = {}
+    log.info("gsensor", "流式采样停止, 缓冲已清空")
+end
+
+-- 取最近 count 个样本（默认 125 = 5 秒）拼接为字节串。
+-- 数据格式：每样本 6 字节，按 x,y,z 顺序各 2 字节有符号 int16 大端（网络字节序），
+-- 样本按时间正序排列；125 个样本共 750 字节。
+-- 采样数不足 count 时返回实际数量（如刚开启采样的首次上报）。
+-- 返回 (data, actual_count)；未开启或无数据返回 ("", 0)。
+function gsensor.get_stream_data(count)
+    count = count or 125
+    local buf = state.stream_buffer
+    local n = math.min(count, #buf)
+    if n <= 0 then return "", 0 end
+    local out = {}
+    for i = #buf - n + 1, #buf do
+        out[#out + 1] = buf[i]
+    end
+    return table.concat(out), n
 end
 
 -- 获取最近一次震动中断采集的三轴快照（由 xyz_capture_task 写入）。

@@ -45,6 +45,11 @@
 
 -- 版本更新说明
 -
+-- 版本号：202608311500
+-- 1、更新时间：2026-08-31 15:00
+-- 2、更新内容
+--    auth_key改为支持用户配置，不再被setup()拦截
+-
 -- 版本号：202608281700
 -- 1、更新时间：2026-08-28 17:00
 -- 2、更新内容
@@ -1865,9 +1870,7 @@ function excloud.setup(params)
     end
 
     for k, v in pairs(params) do
-        if k == "auth_key" then
-            log.warn("excloud.setup", "不再需要主动配置auth_key")
-        elseif k == "protocol_version" then
+        if k == "protocol_version" then
             log.warn("excloud.setup", "不再需要主动配置protocol_version")
         elseif k == "device_type" then
             log.warn("excloud.setup", "不再需要主动配置device_type")
@@ -2361,7 +2364,7 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 excloud.version()
 ]]
 function excloud.version()
-    return "202608281700"
+    return "202608311500"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

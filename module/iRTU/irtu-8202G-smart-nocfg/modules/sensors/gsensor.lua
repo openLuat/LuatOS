@@ -37,6 +37,10 @@ local function interrupt_handler()
 
     local now = os.time()
 
+    -- 【测试日志】每次硬件中断触发都打印（含被 2s 限流挡掉的），
+    -- 用于标定震动灵敏度：马路上实测看此日志出现频率即可判断是否触发
+    log.info("gsensor", "INT触发 距上次震动", (now - state.last_vibration_time), "s")
+
     if state.vibration_callback then
         local last_time = state.last_vibration_time
         local interval = state.vibration_interval
@@ -98,7 +102,7 @@ function gsensor.init()
         return true
     end
 
-    -- 加载 DA221 驱动库（exvib），open(3)=高动态检测（8g量程，跌倒/剧烈震动检测）
+    -- 加载 DA221 驱动库（exvib），open(1)=微小震动检测（2g量程，车辆行驶/路面振动检测，已定制 ODR 250Hz + 阈值0x20）
     local ok, exvib = pcall(require, "exvib")
     if not ok or not exvib then
         log.error("gsensor", "加载 exvib 库失败")
@@ -107,7 +111,7 @@ function gsensor.init()
     state.exvib = exvib
 
     -- open 内部为异步初始化（供电+I2C+寄存器），等待其完成后再配中断
-    exvib.open(3)
+    exvib.open(1)
     sys.wait(300)
 
     -- 配置 WAKEUP2 中断：震动时 DA221 INT 脚产生中断，进入 interrupt_handler

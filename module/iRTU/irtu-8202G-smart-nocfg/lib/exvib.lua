@@ -271,11 +271,11 @@ end
 function exvib.open(mode)
     rangemode=mode
     if mode==1 or tonumber(mode)==1 then
-        --轻微检测
+        --轻微检测（本工程定制：适配车载场景，柏油路平稳行驶/发动机怠速振动）
         log.info("轻微检测")
         rangeaddr = {0x0f, 0x00}          -- 设置加速度量程，默认2g
-        active_ths_addr = {0x28, 0x33}    -- 设置激活阈值
-        odr_addr = {0x10, 0x04}           -- 设置采样率 15.63Hz
+        active_ths_addr = {0x28, 0x20}    -- 设置激活阈值 ≈0.13g（原0x33≈0.2g，降灵敏提升路面振动触发率）
+        odr_addr = {0x10, 0x08}           -- 设置采样率 250Hz（原15.63Hz，避免10~30Hz路面振动混叠）
         active_dur_addr = {0x27, 0x01}    -- 设置激活时间
     elseif mode==2 or tonumber(mode)==2 then
         --常规检测

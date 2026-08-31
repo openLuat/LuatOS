@@ -5,8 +5,11 @@
 #include "lundump.h"
 #include "luat_mock.h"
 #include "luat_luadb2.h"
+#include "luat_pcsim_host.h"
+#include "luat_pc_log.h"
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 
 #define LUAT_LOG_TAG "fs"
 #include "luat_log.h"
@@ -1171,6 +1174,72 @@ int luat_cmd_parse(int argc, char **argv)
 				return -1;
 			}
 			cfg_webc_port = port;
+			continue;
+		}
+
+		if (!strcmp("--pixel-perfect", arg) || !strcmp("--pixel-perfect=1", arg))
+		{
+			luat_pcsim_host_set_pixel_perfect(1);
+			continue;
+		}
+
+		if (is_opts("--parent-hwnd=", arg))
+		{
+			const char *hwnd_str = arg + strlen("--parent-hwnd=");
+			char *endptr = NULL;
+			unsigned long long hwnd = strtoull(hwnd_str, &endptr, 0);
+			if (hwnd_str[0] == 0 || endptr == hwnd_str || *endptr != 0)
+			{
+				LLOGE("无效的 --parent-hwnd: %s", hwnd_str);
+				return -1;
+			}
+			luat_pcsim_host_set_parent_hwnd((uint64_t)hwnd);
+			continue;
+		}
+
+		if (is_opts("--parent-offset=", arg))
+		{
+			const char *off_str = arg + strlen("--parent-offset=");
+			char *endptr = NULL;
+			long off_x = strtol(off_str, &endptr, 10);
+			long off_y = 0;
+			if (off_str[0] == 0 || endptr == off_str || *endptr != ',')
+			{
+				LLOGE("无效的 --parent-offset: %s", off_str);
+				return -1;
+			}
+			off_y = strtol(endptr + 1, &endptr, 10);
+			if (endptr == NULL || *endptr != 0 || off_x < 0 || off_x > 10000 || off_y < 0 || off_y > 10000)
+			{
+				LLOGE("无效的 --parent-offset: %s", off_str);
+				return -1;
+			}
+			luat_pcsim_host_set_parent_offset((int)off_x, (int)off_y);
+			continue;
+		}
+
+		if (!strcmp("--headless", arg) || !strcmp("--headless=1", arg))
+		{
+			luat_pcsim_host_set_headless(1);
+			continue;
+		}
+
+		if (is_opts("--agent-ctl=", arg))
+		{
+			if (luat_pcsim_host_parse_agent_ctl(arg + strlen("--agent-ctl=")))
+			{
+				return -1;
+			}
+			continue;
+		}
+
+		if (is_opts("--log-dir=", arg) || !strcmp("--log-dir", arg))
+		{
+			if (!strcmp("--log-dir", arg) || luat_log_set_dir(arg + strlen("--log-dir=")))
+			{
+				LLOGE("无效的 --log-dir, 需要 --log-dir=<path>");
+				return -1;
+			}
 			continue;
 		}
 

@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <time.h>
 
@@ -16,6 +17,7 @@
 #endif
 
 #include "luat_posix_compat.h"
+#include "luat_pc_log.h"
 
 typedef struct log_msg {
     char* buff;
@@ -29,9 +31,11 @@ extern int cmdline_argc;
 extern char** cmdline_argv;
 
 #define LOGLOG_SIZE 4096
-#define LUAT_PC_LOG_DIR "pclogs"
-#define LUAT_PC_LOG_PATH_MAX 256
+#define LUAT_PC_LOG_DIR_DEFAULT "pclogs"
+#define LUAT_PC_LOG_DIR_MAX 768
+#define LUAT_PC_LOG_PATH_MAX 1024
 #define LUAT_PC_LOG_CWD_MAX 512
+#define LUAT_PC_LOG_DIR_OPT "--log-dir="
 
 static FILE* luat_log_file_fd = NULL;
 static time_t luat_log_startup_time = 0;
@@ -42,9 +46,11 @@ static uint8_t luat_log_header_written = 0;
 static uint8_t luat_log_file_disabled = 0;
 static uint8_t luat_log_file_warning_reported = 0;
 static char luat_log_file_path[LUAT_PC_LOG_PATH_MAX] = {0};
+static char luat_log_dir[LUAT_PC_LOG_DIR_MAX] = LUAT_PC_LOG_DIR_DEFAULT;
 
 void luat_log_deinit_win32(void);
 static void luat_log_write_startup_header(void);
+static int luat_log_mkdir_p(const char* path);
 
 static int luat_log_host_dir_exists(const char* path) {
     struct stat st;
@@ -64,6 +70,141 @@ static int luat_log_host_mkdir(const char* path) {
 #else
     return mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 #endif
+}
+
+static int luat_log_is_drive_root(const char* path) {
+    /* "C:" or "C:/" or "C:\\" */
+    if (path == NULL || path[0] == 0 || path[1] != ':') {
+        return 0;
+    }
+    if (path[2] == 0) {
+        return 1;
+    }
+    if ((path[2] == '/' || path[2] == '\\') && path[3] == 0) {
+        return 1;
+    }
+    return 0;
+}
+
+static int luat_log_mkdir_p(const char* path) {
+    char tmp[LUAT_PC_LOG_DIR_MAX];
+    size_t len;
+    size_t i;
+    char saved;
+
+    if (path == NULL || path[0] == 0) {
+        return -1;
+    }
+    if (luat_log_host_dir_exists(path)) {
+        return 0;
+    }
+    len = strlen(path);
+    if (len >= sizeof(tmp)) {
+        return -1;
+    }
+    memcpy(tmp, path, len + 1);
+    while (len > 1 && (tmp[len - 1] == '/' || tmp[len - 1] == '\\')) {
+        if (luat_log_is_drive_root(tmp)) {
+            break;
+        }
+        tmp[--len] = 0;
+    }
+    for (i = 1; i <= len; i++) {
+        if (tmp[i] != '/' && tmp[i] != '\\' && tmp[i] != 0) {
+            continue;
+        }
+        saved = tmp[i];
+        tmp[i] = 0;
+        if (!luat_log_is_drive_root(tmp) && strcmp(tmp, "/") != 0 && strcmp(tmp, "\\") != 0) {
+            if (luat_log_host_mkdir(tmp) != 0 && !luat_log_host_dir_exists(tmp)) {
+                return -1;
+            }
+        }
+        tmp[i] = saved;
+        if (saved == 0) {
+            break;
+        }
+    }
+    if (!luat_log_host_dir_exists(path)) {
+        return -1;
+    }
+    return 0;
+}
+
+static void luat_log_strip_quotes_and_slash(char* path) {
+    size_t len;
+    char q;
+
+    if (path == NULL) {
+        return;
+    }
+    len = strlen(path);
+    if (len >= 2) {
+        q = path[0];
+        if ((q == '"' || q == '\'') && path[len - 1] == q) {
+            memmove(path, path + 1, len - 2);
+            path[len - 2] = 0;
+            len -= 2;
+        }
+    }
+    while (len > 1 && (path[len - 1] == '/' || path[len - 1] == '\\')) {
+        if (luat_log_is_drive_root(path)) {
+            break;
+        }
+        path[--len] = 0;
+    }
+}
+
+int luat_log_set_dir(const char* dir) {
+    char tmp[LUAT_PC_LOG_DIR_MAX];
+    size_t len;
+
+    if (dir == NULL) {
+        return -1;
+    }
+    while (*dir == ' ' || *dir == '\t') {
+        dir++;
+    }
+    len = strlen(dir);
+    if (len == 0 || len >= sizeof(tmp)) {
+        return -1;
+    }
+    memcpy(tmp, dir, len + 1);
+    luat_log_strip_quotes_and_slash(tmp);
+    if (tmp[0] == 0) {
+        return -1;
+    }
+    if (luat_log_file_fd != NULL) {
+        return 0;
+    }
+    strncpy(luat_log_dir, tmp, sizeof(luat_log_dir) - 1);
+    luat_log_dir[sizeof(luat_log_dir) - 1] = 0;
+    return 0;
+}
+
+int luat_log_parse_cli(int argc, char** argv) {
+    int i;
+
+    if (argc <= 0 || argv == NULL) {
+        return 0;
+    }
+    for (i = 1; i < argc; i++) {
+        const char* arg = argv[i];
+        if (arg == NULL) {
+            continue;
+        }
+        if (strcmp(arg, "--log-dir") == 0) {
+            fprintf(stderr, "[luat-log] --log-dir requires --log-dir=<path>\n");
+            return -1;
+        }
+        if (strncmp(arg, LUAT_PC_LOG_DIR_OPT, strlen(LUAT_PC_LOG_DIR_OPT)) == 0) {
+            if (luat_log_set_dir(arg + strlen(LUAT_PC_LOG_DIR_OPT)) != 0) {
+                fprintf(stderr, "[luat-log] invalid --log-dir: %s\n", arg + strlen(LUAT_PC_LOG_DIR_OPT));
+                return -1;
+            }
+        }
+    }
+    return 0;
 }
 
 static int luat_log_host_file_exists(const char* path) {
@@ -179,7 +320,8 @@ static int luat_log_build_file_path(char* buff, size_t buff_size) {
     }
 
     len = snprintf(buff, buff_size,
-        LUAT_PC_LOG_DIR "/luatos_pc_%04d%02d%02d_%02d%02d%02d_%03u.log",
+        "%s/luatos_pc_%04d%02d%02d_%02d%02d%02d_%03u.log",
+        luat_log_dir,
         local_time->tm_year + 1900, local_time->tm_mon + 1, local_time->tm_mday,
         local_time->tm_hour, local_time->tm_min, local_time->tm_sec,
         (unsigned int)luat_log_startup_ms);
@@ -192,7 +334,8 @@ static int luat_log_build_file_path(char* buff, size_t buff_size) {
 
     for (suffix = 1; suffix < 100; suffix++) {
         len = snprintf(buff, buff_size,
-            LUAT_PC_LOG_DIR "/luatos_pc_%04d%02d%02d_%02d%02d%02d_%03u_%02d.log",
+            "%s/luatos_pc_%04d%02d%02d_%02d%02d%02d_%03u_%02d.log",
+            luat_log_dir,
             local_time->tm_year + 1900, local_time->tm_mon + 1, local_time->tm_mday,
             local_time->tm_hour, local_time->tm_min, local_time->tm_sec,
             (unsigned int)luat_log_startup_ms, suffix);
@@ -214,10 +357,10 @@ static int luat_log_open_file_if_needed(void) {
     if (luat_log_file_disabled) {
         return -1;
     }
-    if (luat_log_host_mkdir(LUAT_PC_LOG_DIR) != 0 && !luat_log_host_dir_exists(LUAT_PC_LOG_DIR)) {
-        strncpy(luat_log_file_path, LUAT_PC_LOG_DIR, sizeof(luat_log_file_path) - 1);
+    if (luat_log_mkdir_p(luat_log_dir) != 0) {
+        strncpy(luat_log_file_path, luat_log_dir, sizeof(luat_log_file_path) - 1);
         luat_log_file_disabled = 1;
-        luat_log_report_file_warning("failed to create pclogs directory");
+        luat_log_report_file_warning("failed to create log directory");
         return -1;
     }
     if (luat_log_build_file_path(luat_log_file_path, sizeof(luat_log_file_path)) != 0) {

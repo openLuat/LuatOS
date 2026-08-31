@@ -12,6 +12,7 @@
 #include "luat_airui_conf.h"
 #include "luat_lcd.h"
 #include "luat_sdl2.h"
+#include "luat_pcsim_host.h"
 #include "lvgl9/src/draw/lv_draw_buf.h"
 #include "lvgl9/src/draw/sw/lv_draw_sw_utils.h"
 #include "luat_log.h"
@@ -54,6 +55,7 @@ typedef struct {
 
 static void sdl_display_present_current_frame(sdl_display_data_t *data);
 static void sdl_display_blackout(sdl_display_data_t *data);
+static void sdl_display_deinit(airui_ctx_t *ctx);
 
 static bool sdl_display_use_upright_preview(void)
 {
@@ -264,6 +266,12 @@ static void sdl_display_calc_fitted_size(int container_w, int container_h,
 static void sdl_display_get_target_window_size(SDL_Window *window, int content_w, int content_h,
                                                int *target_w, int *target_h)
 {
+    if (luat_pcsim_host_force_native_size()) {
+        *target_w = content_w;
+        *target_h = content_h;
+        return;
+    }
+
     SDL_Rect usable_bounds;
     sdl_display_get_usable_bounds(window, &usable_bounds);
     if (usable_bounds.w <= 0 || usable_bounds.h <= 0) {
@@ -410,13 +418,15 @@ static int sdl_display_ensure_preview_target(airui_ctx_t *ctx, sdl_display_data_
         int target_w = 0;
         int target_h = 0;
         sdl_display_get_target_window_size(data->window, preview_w, preview_h, &target_w, &target_h);
-        if (target_w > 0 && target_h > 0) {
+        if (target_w > 0 && target_h > 0 && !luat_pcsim_host_force_native_size()) {
             SDL_SetWindowSize(data->window, target_w, target_h);
             data->last_window_w = target_w;
             data->last_window_h = target_h;
         }
         sdl_display_update_native_aspect(data);
-        sdl_display_center_window(data->window);
+        if (!luat_pcsim_host_force_native_size()) {
+            sdl_display_center_window(data->window);
+        }
     }
 
     data->width = preview_w;
@@ -511,7 +521,7 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
         SDL_WINDOWPOS_UNDEFINED,
         window_w,
         window_h,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
+        luat_pcsim_host_window_flags(SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI)
     );
     
     if (data->window == NULL) {
@@ -519,12 +529,16 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
         return AIRUI_ERR_INIT_FAILED;
     }
 
-    // 将窗口居中显示
-    sdl_display_center_window(data->window);
-    data->last_window_w = window_w;
-    data->last_window_h = window_h;
-    sdl_display_install_native_resize_hook(data);
-    sdl_display_update_native_aspect(data);
+    if (!luat_pcsim_host_force_native_size()) {
+        sdl_display_center_window(data->window);
+        data->last_window_w = window_w;
+        data->last_window_h = window_h;
+        sdl_display_install_native_resize_hook(data);
+        sdl_display_update_native_aspect(data);
+    } else {
+        data->last_window_w = window_w;
+        data->last_window_h = window_h;
+    }
     
     // 创建 SDL 渲染器
     data->renderer = SDL_CreateRenderer(data->window, -1, SDL_RENDERER_ACCELERATED);
@@ -564,6 +578,10 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
     data->width = preview_w;
     data->height = preview_h;
     ctx->platform_data = data;
+    if (luat_pcsim_host_bind(data->window, data->renderer, data->texture, preview_w, preview_h) != 0) {
+        sdl_display_deinit(ctx);
+        return AIRUI_ERR_INIT_FAILED;
+    }
     return AIRUI_OK;
 }
 
@@ -777,6 +795,7 @@ static void sdl_display_deinit(airui_ctx_t *ctx)
     }
     
     sdl_display_data_t *data = (sdl_display_data_t *)ctx->platform_data;
+    luat_pcsim_host_unbind();
 
     if (data->reuse_lcd) {
         luat_sdl2_set_upright_preview(0, 0, 0, 0);

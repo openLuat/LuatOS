@@ -13,6 +13,7 @@
 #include "luat_airui_conf.h"
 #include "luat_lcd.h"
 #include "luat_sdl2.h"
+#include "luat_pcsim_host.h"
 #include "luat_msgbus.h"
 #include "luat_rtos.h"
 #include "lvgl9/src/display/lv_display.h"
@@ -576,6 +577,7 @@ static int sdl_input_pump_events_passive_msg_handler(lua_State *L, void *ptr)
         return 0;
     }
 
+    luat_pcsim_host_poll();
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             LLOGI("SDL_QUIT received during sleep, shutting down");
@@ -650,6 +652,7 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev
     bool mouse_up_event = false;
     int32_t sdl_x = 0, sdl_y = 0;
     
+    luat_pcsim_host_poll();
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_MOUSEMOTION) {
             sdl_x = event.motion.x;

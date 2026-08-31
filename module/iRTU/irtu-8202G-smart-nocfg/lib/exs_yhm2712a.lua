@@ -55,7 +55,7 @@
 local setup_ok = exs_yhm2712a.setup({
     pin = 25,
     v_battery = 4200,
-    cap_battery = 400,
+    cap_battery = 2000,
     i_charge = exs_yhm2712a.CCMIN
 })
 if setup_ok then
@@ -286,7 +286,7 @@ end
 local setup_ok = exs_yhm2712a.setup({
     pin = 152,
     v_battery = 4200,
-    cap_battery = 400,
+    cap_battery = 2000,
     i_charge = exs_yhm2712a.CCMIN
 })
 if setup_ok then

@@ -23,7 +23,7 @@ function charge.init()
         local setup_ok = exs_yhm2712a.setup({
             pin = cfg.CMD_PIN,
             v_battery = cfg.FLOAT_VOLTAGE_MV or 4200,
-            cap_battery = cfg.CAP_BATTERY_MAH or 400,
+            cap_battery = cfg.CAP_BATTERY_MAH or 2000,
             i_charge = cfg.I_CHARGE or exs_yhm2712a.CCDEFAULT,
         })
         if setup_ok then

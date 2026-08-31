@@ -125,13 +125,14 @@ config.BATTERY_CONFIG = {
 -- 充电管理配置（YHM2712A）
 -- 注意：CMD(STACMD)引脚不能持续拉低超过14.4s，否则芯片触发硬件复位（关闭SYS电源200ms导致主控重启）。
 --       扩展库已内置 CMD 空闲保持高电平处理（cmd_idle），每次通信后自动恢复，正常使用无风险。
--- 默认配置参考官方示例（osapi/ext/charger/exs_yhm2712a/ 2.1 + 同事示例 yhm2712a_app）：CMD=GPIO25，电池4.2V，容量400mAh，充电电流DEFAULT(=225mA)
+-- 默认配置参考官方示例（osapi/ext/charger/exs_yhm2712a/ 2.1 + 同事示例 yhm2712a_app）：CMD=GPIO25，电池4.2V
+-- 容量2000mAh：芯片库电流表最高只到1000mAh档（math.min 钳制），取 DEFAULT 档=500mA（0.25C，约5h充满，保守稳妥）
 config.CHARGE_CONFIG = {
     ENABLE = true,                 -- 是否启用充电管理（默认开启）
     CMD_PIN = 25,                  -- YHM2712A CMD 引脚（STACMD 单线通信）
     FLOAT_VOLTAGE_MV = 4200,       -- 浮充电压(mV)：4200=4.2V / 4350=4.35V
-    CAP_BATTERY_MAH = 400,         -- 电池容量(mAh)：400（同事示例值）
-    I_CHARGE = "DEFAULT",          -- 充电电流档位：MIN / DEFAULT / MAX（同事示例用 CCDEFAULT）
+    CAP_BATTERY_MAH = 2000,        -- 电池容量(mAh)：2000（实际装机容量）
+    I_CHARGE = "DEFAULT",          -- 充电电流档位：MIN / DEFAULT / MAX（2000mAh 实际取 1000 档 DEFAULT=500mA）
 }
 
 -- 看门狗配置（Air153C 硬件看门狗）
@@ -250,11 +251,11 @@ function config.load_from_server(gnss_cfg, project_key)
         end
         if ch.v_battery and ch.v_battery > 0 then config.CHARGE_CONFIG.FLOAT_VOLTAGE_MV = ch.v_battery end
         if ch.cap_battery and ch.cap_battery > 0 then
-            -- 电池容量校验：与固件默认保持一致（400mAh），避免网页端下发其他容量导致电流档异常
+            -- 电池容量校验：与固件默认保持一致（2000mAh），避免网页端下发其他容量导致电流档异常
             local cap = tonumber(ch.cap_battery)
-            if cap ~= 400 then
-                log.warn("config", "充电容量", cap, "mAh 与固件默认(400mAh)不一致，已按固件默认处理")
-                cap = 400
+            if cap ~= 2000 then
+                log.warn("config", "充电容量", cap, "mAh 与固件默认(2000mAh)不一致，已按固件默认处理")
+                cap = 2000
             end
             config.CHARGE_CONFIG.CAP_BATTERY_MAH = cap
         end

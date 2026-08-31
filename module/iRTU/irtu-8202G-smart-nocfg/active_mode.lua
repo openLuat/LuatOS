@@ -37,7 +37,7 @@ local last_calc_interval = 0
 local MOTION_EVENT = "MOTION_EVENT"
 
 local GNSS_BOOT_WINDOW = 300   -- 条件1：开机后 GNSS 常开时长（秒）
-local GNSS_MOTION_KEEP = 30    -- 条件2/3：震动后 GNSS 保持开启的时长（秒）
+local GNSS_MOTION_KEEP = 180   -- 条件2/3：震动后 GNSS 保持开启的时长（秒）
 local REPORT_GNSS_ON  = 5      -- GNSS 开启期间上报间隔（秒）
 local REPORT_GNSS_OFF = 300    -- GNSS 关闭期间上报间隔（秒）
 
@@ -51,8 +51,8 @@ local function is_gnss_required()
     if (mcu.ticks() - boot_ticks) / 1000 < GNSS_BOOT_WINDOW then
         return true
     end
-    -- 条件2+3：正在震动，或最近 30 秒内有过震动
-    -- （last_motion_time 每次震动都会刷新，以 30 秒窗口统一判定，同时涵盖两种情况）
+    -- 条件2+3：正在震动，或最近 180 秒内有过震动
+    -- （last_motion_time 每次震动都会刷新，以 180 秒窗口统一判定，同时涵盖两种情况）
     local st = gsensor.get_status()
     if st and st.last_motion_time and st.last_motion_time > 0
         and (os.time() - st.last_motion_time) <= GNSS_MOTION_KEEP then

@@ -112,14 +112,17 @@ config.AIRLBS_CONFIG = {
 }
 
 -- 电池配置
+-- 电压/电量数据源：YHM2712A 充电IC（exs_yhm2712a.status()），由 battery 模块后台轮询
 config.BATTERY_CONFIG = {
-    FULL_VOLTAGE = 4200,           -- 满电电压(mV)
-    LOW_VOLTAGE = 3300,            -- 低电电压(mV)
-    COMPENSATE = 140,              -- 补偿电压(mV)
-    DIVIDER_R1 = 1000,             -- 分压R1(kΩ)
-    DIVIDER_R2 = 300,              -- 分压R2(kΩ)
-    ADC_SAMPLE_COUNT = 5,          -- ADC采样次数
-    ADC_SAMPLE_INTERVAL = 10,      -- ADC采样间隔(ms)
+    FULL_VOLTAGE = 4200,           -- 满电电压(mV)，电量线性折算上限
+    LOW_VOLTAGE = 3300,            -- 低电电压(mV)，电量线性折算下限
+    STATUS_POLL_MS = 30000,        -- 充电IC状态轮询间隔(ms)，充电器插拔检测延迟上限
+    -- 以下为旧 ADC 直采方案的参数，现已停用，仅保留兼容
+    COMPENSATE = 140,              -- 补偿电压(mV)，已停用
+    DIVIDER_R1 = 1000,             -- 分压R1(kΩ)，已停用
+    DIVIDER_R2 = 300,              -- 分压R2(kΩ)，已停用
+    ADC_SAMPLE_COUNT = 5,          -- ADC采样次数，已停用
+    ADC_SAMPLE_INTERVAL = 10,      -- ADC采样间隔(ms)，已停用
 }
 
 -- 充电管理配置（YHM2712A）

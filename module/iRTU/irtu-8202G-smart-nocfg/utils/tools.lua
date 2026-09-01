@@ -64,15 +64,18 @@ local device_state = {
 
 -- LED 状态机核心：每 500ms 由定时器调用，各事件也触发立即刷新
 -- 规则（用户确认）：
---   亮：开机60s内 / GNSS关→开切换后10s内 / 充电(USB插入，含充满未拔)；其余灭
+--   亮：开机60s内 / GNSS关→开切换后10s内 / 充电(充电器在位，含充满未拔)；其余灭
 --   常亮/闪烁：600s内收到过服务器下行→常亮；否则500ms亮/500ms灭（充电不影响闪烁逻辑）
 --   颜色：充电中未充满→红；充满未拔→绿；其余亮灯场景→红
+-- 充电判定：本硬件无 VBUS 检测脚（GPIO 直读已失效），充电器在位状态由
+--   battery 模块轮询 YHM2712A 充电IC（exs_yhm2712a.status）得出，
+--   经 CHARGING_START/CHARGING_STOP 事件更新 device_state.vbus_state
 local function led_refresh()
     if not led_inited then return end
     local now = os.time()
 
-    -- 1) 亮/灭判定（USB 直接读 VBUS 引脚，开机即插着充电器也能正确判定）
-    local vbus = gpio.get(device_state.vbus_pin) or 0
+    -- 1) 亮/灭判定（充电状态来自 battery 轮询缓存，开机即插着充电器时首次轮询后即点亮）
+    local vbus = device_state.vbus_state
     local lit = led.manual_on
         or (led.boot_time and (now - led.boot_time) < LED_BOOT_ON_SEC)  -- 开机60s
         or (now < led.gnss_on_until)                                    -- GNSS切换10s
@@ -172,17 +175,15 @@ function tools.set_charging(state)
     device_state.is_charge = state
 end
 
--- 更新VBUS和充电状态（从硬件读取）
+-- 更新VBUS和充电状态（数据源：battery 模块轮询 YHM2712A 充电IC 的缓存）
+-- 本硬件无 VBUS 检测脚，GPIO 直读已失效；充电器在位由 exs_yhm2712a.status() 的
+-- FSM_MODE 判定，battery 后台任务刷新缓存并在状态变化时发布 CHARGING_START/STOP
 function tools.update_power_state()
-    device_state.vbus_state = gpio.get(device_state.vbus_pin) or 0
+    local ok, battery = pcall(require, "battery")
+    local charging = (ok and battery and battery.is_charging) and battery.is_charging() or false
 
-    if device_state.vbus_state == 0 then
-        device_state.is_charge = 0
-    elseif device_state.vbus_state == 1 then
-        device_state.is_charge = 1
-    else
-        device_state.is_charge = 0
-    end
+    device_state.vbus_state = charging and 1 or 0
+    device_state.is_charge = charging and 1 or 0
 
     return device_state.vbus_state, device_state.is_charge
 end
@@ -244,8 +245,8 @@ sys.subscribe("REMOTE_COMMAND", function()
     tools.led_server_rx()
 end)
 
--- 订阅充电状态变化事件（由 battery 模块发布）：更新内部缓存并立即刷新 LED
--- （状态机本身 500ms 轮询 VBUS 引脚兜底，这里只是让切换瞬间立即生效）
+-- 订阅充电状态变化事件（由 battery 模块轮询 YHM2712A 充电IC 后发布）：更新内部缓存并立即刷新 LED
+-- （充电器在位状态由 battery 后台任务默认 30s 轮询一次，插拔检测延迟上限即为此值）
 sys.subscribe("CHARGING_START", function()
     device_state.vbus_state = 1
     device_state.is_charge = 1

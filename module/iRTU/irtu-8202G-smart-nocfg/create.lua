@@ -339,6 +339,7 @@ local function aircloudTask(cid, prot, keepAlive, timeout, uid, ssl, qos)
         max_reconnect = 5,
         timeout = 30,
         mtn_log_enabled = true,
+        aircloud_mtn_log_enabled = true,   -- excloud 内部连接/断开/MQTT错误等事件写入运维日志
         mtn_log_blocks = 2,
         mtn_log_write_way = excloud.MTN_LOG_CACHE_WRITE
     }
@@ -363,8 +364,8 @@ local function aircloudTask(cid, prot, keepAlive, timeout, uid, ssl, qos)
         local now = mcu.ticks()
         -- 如果上次有数据上报的时间在心跳间隔内，说明数据上报已保活，跳过心跳
         if now - last_send_time >= keepAlive * 1000 then
-            -- 确实长时间没发数据了，发送心跳保活
-            excloud.send({{field_meaning = excloud.FIELD_MEANINGS.RANDOM_DATA, data_type = excloud.DATA_TYPES.ASCII, value = aircloud_heart()}}, false)
+            -- 确实长时间没发数据了，发送心跳保活（silent=true：心跳成功不写运维日志，失败仍会记录）
+            excloud.send({{field_meaning = excloud.FIELD_MEANINGS.RANDOM_DATA, data_type = excloud.DATA_TYPES.ASCII, value = aircloud_heart()}}, false, false, true)
             last_send_time = now
         end
     end

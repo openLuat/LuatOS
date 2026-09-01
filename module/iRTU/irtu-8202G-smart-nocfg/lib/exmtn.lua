@@ -761,6 +761,21 @@ function exmtn.log(level, tag, ...)
 end
 
 --[[
+立即刷新缓存到文件
+@api exmtn.flush()
+@return boolean 成功返回true，失败返回false
+@usage
+-- CACHE_WRITE 模式下日志先驻留内存缓存，复位/关机前调用本接口确保已写日志落盘
+local ok = exmtn.flush()
+]]
+function exmtn.flush()
+    if not ctx.inited then
+        return true
+    end
+    return flush_cache()
+end
+
+--[[
 获取当前配置
 @api exmtn.get_config()
 @return table|nil 配置信息，失败返回nil

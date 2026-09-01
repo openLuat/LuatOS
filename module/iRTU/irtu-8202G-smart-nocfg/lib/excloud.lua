@@ -36,7 +36,7 @@
 13. excloud.upload_mtnlogs() - 批量上传运维日志文件
 14. excloud.set_upload_callback(cb) - 设置文件上传回调函数
 15. excloud.get_server_info() - 获取服务器信息
-16. excloud.mtn_log(tag, ...) - 记录运维日志
+16. excloud.mtn_log(level, tag, ...) - 记录运维日志（level 为 "info"/"warn"/"error"）
 17. excloud.build_tlv(field_meaning, data_type, value) - 构建TLV数据
 18. excloud.parse_tlv(data, startPos) - 解析TLV数据
 19. excloud.get_qrinfo() - 获取二维码信息
@@ -950,6 +950,9 @@ local function parse_data(data)
         field_list[#field_list + 1] = tlv.field
     end
     log.info("[excloud]收到下行消息", #data, "字节", "TLV字段:", table.concat(field_list, ","))
+    -- 下行报文写入运维日志（如实记录：字节数 + 字段编号列表，不记录字段内容避免日志膨胀）
+    excloud.mtn_log("info", "recv", "收到下行报文", "字节数", #data,
+        "TLV字段", #field_list > 0 and table.concat(field_list, ",") or "无")
 
     -- 处理运维日志上传请求和鉴权回复
     for _, tlv in ipairs(message.tlvs) do
@@ -1556,12 +1559,17 @@ function excloud.upload_audio(file_data, file_name)
     return _upload_with_config(2, file_data, file_name, "upload_audio", "current_audinfo", ".mp3", config.audinfo_from_luat)
 end
 
--- 记录运维日志
-function excloud.mtn_log(tag, ...)
+-- 记录运维日志（业务侧埋点统一入口，写入 /hzmtn*.trc 循环文件，服务器下发运维日志上传请求可拉取）
+-- @param level string 日志级别 "info"/"warn"/"error"；为兼容旧调用习惯，首参不是合法级别时整体右移一级按 info 处理
+-- @param tag string 日志标识
+function excloud.mtn_log(level, tag, ...)
     if not config.mtn_log_enabled then
         return false, "运维日志功能已禁用"
     end
-    return exmtn.log("info", tag, ...)
+    if level ~= "info" and level ~= "warn" and level ~= "error" then
+        return exmtn.log("info", level, tag, ...)
+    end
+    return exmtn.log(level, tag, ...)
 end
 
 -- 获取二维码信息
@@ -1642,6 +1650,9 @@ local function execute_watchdog_reboot()
     count = count + 1
     fskv.set(WATCHDOG.count_key, tostring(count))
     fskv.set(WATCHDOG.date_key, today)
+    -- 写入运维日志（复位是跨重启事件，必须落盘才能被服务器拉到；CACHE_WRITE 模式日志驻留内存，需显式 flush）
+    excloud.mtn_log("error", "watchdog", "看门狗复位触发", "当日第", count, "次", "原因", "重连失败超时")
+    if exmtn.flush then exmtn.flush() end
     log.error("[excloud]重连失败看门狗触发，执行设备复位（当日第 " .. count .. " 次）")
     sys.timerStart(rtos.reboot, 300)
 end
@@ -1789,6 +1800,7 @@ local function _socket_callback(label, netc, event, param)
     elseif event == socket.ON_LINE then
         if param ~= 0 then
             log.info("[excloud]" .. label .. " socket", "连接失败，param=" .. param)
+            excloud.mtn_log("error", "socket", label .. "连接失败", "param", param)
             is_connected = false;
             is_authenticated = false
             if callback_func then
@@ -1822,6 +1834,7 @@ local function _socket_callback(label, netc, event, param)
         local ok = socket.rx(netc, rxbuff)
         if type(ok) == "boolean" and not ok then
             log.info("[excloud]" .. label .. " socket", "服务器断开了连接")
+            excloud.mtn_log("error", "socket", label .. "服务器断开连接")
             is_connected = false;
             is_authenticated = false
             if callback_func then
@@ -2228,8 +2241,13 @@ function excloud.open()
     return true
 end
 
-function excloud.send(data, need_reply, is_auth_msg)
+-- @param data table TLV 字段数组
+-- @param need_reply boolean 是否需要回复
+-- @param is_auth_msg boolean 是否鉴权报文（仅 MQTT 用于选择发布主题）
+-- @param silent boolean 静默模式：发送成功不写运维日志（心跳等高频保活报文使用，失败仍记录）
+function excloud.send(data, need_reply, is_auth_msg, silent)
     if not is_open then
+        excloud.mtn_log("error", "send", "上报失败", "原因", "excloud服务未开启")
         if callback_func then
             callback_func("send_result", {
                 success = false,
@@ -2240,6 +2258,7 @@ function excloud.send(data, need_reply, is_auth_msg)
     end
 
     if not is_connected then
+        excloud.mtn_log("error", "send", "上报失败", "原因", "未连接到服务器")
         if callback_func then
             callback_func("send_result", {
                 success = false,
@@ -2353,6 +2372,14 @@ function excloud.send(data, need_reply, is_auth_msg)
         end
     end
 
+    -- 上报结果写入运维日志：只记字节数与结果，不记录报文内容（避免长报文撑爆循环日志文件）
+    if success then
+        if not silent then
+            excloud.mtn_log("info", "send", "上报成功", "字节数", #full_message, "方式", config.transport)
+        end
+    else
+        excloud.mtn_log("error", "send", "上报失败", "原因", err_msg, "字节数", #full_message, "方式", config.transport)
+    end
     if callback_func then
         callback_func("send_result", {
             success = success,
@@ -2430,7 +2457,7 @@ function excloud.heartbeat(custom_data, need_reply)
         need_reply = false
     end
 
-    return excloud.send(data, need_reply, false)
+    return excloud.send(data, need_reply, false, true)
 end
 
 function excloud.start_heartbeat(interval, custom_data)

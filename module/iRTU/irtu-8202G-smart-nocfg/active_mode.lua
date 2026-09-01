@@ -347,6 +347,8 @@ local function collect_data_and_report()
             log.info("active_mode", "gsensor_stream:", stream_count, "样本", #gsensor_stream, "字节")
         else
             log.info("active_mode", "gsensor_stream: 无数据（刚开启采样，本次报文不带 1293 字段）")
+            -- GNSS 开启期间 1293 流无样本属于采样异常（刚切换后首包除外），写入运维日志便于远程排查
+            excloud.mtn_log("warn", "gsensor", "1293上报异常", "GNSS开启但流式采样0样本")
         end
     end
 
@@ -511,6 +513,7 @@ local function main_loop()
             last_report_time = 0                            -- 立即触发一次上报
             tools.led_gnss_switched_on()                    -- LED 亮 10 秒（关→开切换提示）
             log.info("active_mode", "GNSS 开启（开机窗口/震动），功耗 mode0，每 10 秒上报")
+            excloud.mtn_log("info", "gnss", "GNSS开启", "触发", "开机窗口/震动", "上报间隔", REPORT_GNSS_ON .. "s")
         elseif not gnss_needed and gnss_active then
             gnss_active = false
             location.stop_find_gps()                        -- 关闭 GNSS
@@ -518,6 +521,7 @@ local function main_loop()
             gsensor.stream_stop()                           -- 停止 20Hz 流式采样并清空缓冲
             location.nmea_stream_stop()                     -- 停止 1Hz NMEA 采样并清空缓冲
             log.info("active_mode", "GNSS 关闭（无震动超时），功耗 mode1，每 300 秒上报")
+            excloud.mtn_log("info", "gnss", "GNSS关闭", "触发", "无震动超时", "上报间隔", REPORT_GNSS_OFF .. "s")
         end
 
         -- 3) 上报节流：GNSS 开→10 秒一次；GNSS 关→300 秒一次

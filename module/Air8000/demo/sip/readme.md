@@ -68,7 +68,7 @@ sip/
 - Air8000 开发板通过 TYPE-C USB 口供电；
 - TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
-![](https://docs.openluat.com/air8000/luatos/app/multimedia/sip/image/sip_img1.jpg)
+![](https://docs.openluat.com/air8000/luatos/app/multimedia/sip/image/sip_img1.png)
 
 ## **四、准备软件环境**
 

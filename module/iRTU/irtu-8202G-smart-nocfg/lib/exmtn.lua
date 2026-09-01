@@ -7,6 +7,19 @@
 @usage
 exmtn.init(1, 0)  -- 初始化，1个块，缓存写入
 exmtn.log("info", "tag", "message", 123)  -- 输出运维日志
+
+-- 版本更新说明
+-
+-- 版本号：202608262000
+-- 1、更新时间：2026-08-26 20:00
+-- 2、更新内容
+--    在初始化流程中添加自动采集开机原因以及读取上次脚本异常日志的逻辑，方便排查设备启动异常和脚本运行错误问题
+-
+-- 版本号：202607021200
+-- 1、更新时间：2026-07-02 12:00
+-- 2、更新内容
+--    新增exmtn.version()接口
+--    支持exmtn库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
 ]]
 
 local exmtn = {}
@@ -655,7 +668,29 @@ function exmtn.init(blocks, write_way)
     
     ctx.enabled = true
     ctx.inited = true
-    
+
+    -- ===== 自动捕获开始 =====
+    -- 1. 记录开机原因
+    if pm and pm.lastReson then
+        local ok, reason, reason2, reason3, reason4 = pcall(pm.lastReson)
+        if ok and reason then
+            exmtn.log("info", "exmtn", "开机原因:", reason, reason2, reason3, reason4)
+        end
+    end
+
+    -- 2. 读取上次脚本异常日志
+    if errDump then
+        errDump.config(true, 0)
+        local err_buff = zbuff.create(4096)
+        local has_new = errDump.dump(err_buff, errDump.TYPE_SYS, true)
+        if has_new and err_buff:used() > 0 then
+            local err_msg = err_buff:toStr(0, err_buff:used())
+            exmtn.log("error", "exmtn", "脚本异常:\n" .. err_msg)
+        end
+        err_buff:free()
+    end
+    -- ===== 自动捕获结束 =====
+
     -- 打印初始化信息
     if blocks > 0 then
         local total_size = ctx.file_limit * LOG_MTN_FILE_COUNT
@@ -784,6 +819,18 @@ function exmtn.clear()
     log.info("exmtn", "运维日志文件已清除")
     return true
 end
+
+--[[
+获取库版本信息
+@return string 年月日时分，例如： "202606300102"
+@usage
+exmtn.version()
+]]
+function exmtn.version()
+    return "202608262000"
+end
+
+log.debug("exmtn", "version -> " .. exmtn.version())
 
 return exmtn
 

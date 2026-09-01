@@ -45,6 +45,12 @@
 
 -- 版本更新说明
 -
+-- 版本号：202609011645
+-- 1、更新时间：2026-09-01 16:45
+-- 2、更新内容
+--    getip请求key构造不再覆盖用户配置的auth_key
+--    socket.config参数简化，直接从config读取证书和keepalive参数
+-
 -- 版本号：202609010914
 -- 1、更新时间：2026-09-01 09:14
 -- 2、更新内容
@@ -972,8 +978,7 @@ local function getip(getip_type)
 
     -- 构建key（HH版本的key验证逻辑）
     -- 最新版本，key已经没用，在getip的应答报文中，会返回真正的key，但是getip请求时必须存在key这个字段，所以随便填写一个，后台不会去判断这个key
-    config.auth_key = "unusedkey"
-    local key = config.auth_key and (config.auth_key .. "-" .. config.device_id) or config.device_id
+    local key = "unusedkey" .. "-" .. config.device_id
     if config.device_type == 1 then
         key = key .. "-" .. mobile.muid()
     end
@@ -1167,10 +1172,13 @@ local function get_luat_upload_info(getip_type)
         return nil, "缺少device_id"
     end
 
-    local key = config.device_id
+    -- 构建key（HH版本的key验证逻辑）
+    -- 最新版本，key已经没用，在getip的应答报文中，会返回真正的key，但是getip请求时必须存在key这个字段，所以随便填写一个，后台不会去判断这个key
+    local key = "unusedkey" .. "-" .. config.device_id
     if config.device_type == 1 then
         key = key .. "-" .. mobile.muid()
     end
+    log.info("[excloud]getip", "类型:", getip_type, "key:", key)
 
     local code, response = httpplus.request({
         method = "POST",
@@ -1927,11 +1935,7 @@ local function _connect_socket(is_udp, label, ssl_config, callback)
         return false, "Failed to create socket"
     end
     local config_ok = socket.config(connection, config.local_port, is_udp, ssl_config and true or false,
-        ssl_config and ssl_config.keep_idle or config.keep_idle,
-        ssl_config and ssl_config.keep_interval or config.keep_interval,
-        ssl_config and ssl_config.keep_cnt or config.keep_cnt, ssl_config and ssl_config.server_cert or nil,
-        ssl_config and ssl_config.client_cert or nil, ssl_config and ssl_config.client_key or nil,
-        ssl_config and ssl_config.client_password or nil)
+        config.keep_idle, config.keep_interval, config.keep_cnt, config.server_cert, config.client_cert, config.client_key, config.client_password)
     if not config_ok then
         socket.release(connection);
         connection = nil;
@@ -2374,7 +2378,7 @@ excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 excloud.version()
 ]]
 function excloud.version()
-    return "202609010914"
+    return "202609011645"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

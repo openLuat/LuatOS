@@ -23,7 +23,7 @@ sys.taskInit(function()
     log.info("display", "pwm backlight", ok)
 
     -- 验证 90° 旋转：DMA2D ROT_ANT 旋转通道（flush 时整帧走旋转分支）
-    -- log.info("display", "setRotation 1", display.setRotation(1))
+    log.info("display", "setRotation 1", display.setRotation(1))
 
     local colors = {
         { name = "red",    color = 0xF800 },
@@ -35,7 +35,7 @@ sys.taskInit(function()
 
     while true do
         for _, c in ipairs(colors) do
-            display.fill(0, 0, 480, 854, c.color)
+            display.fill(0, 0, 480, 480, c.color)
             display.flush()
             log.info("display", "fill", c.name)
             sys.wait(500)

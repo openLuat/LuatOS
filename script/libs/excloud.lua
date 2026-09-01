@@ -25,7 +25,7 @@
 2. excloud.on(cbfunc) - 注册回调函数
 3. excloud.open() - 开启excloud服务
 4. excloud.close() - 关闭excloud服务
-5. excloud.send(data, need_reply) - 发送数据
+5. excloud.send(data, need_reply, is_auth_msg) - 发送数据
 6. excloud.status() - 获取当前状态
 7. excloud.heartbeat(custom_data, need_reply) - 发送心跳数据
 8. excloud.start_heartbeat(interval, custom_data) - 启动自动心跳机制
@@ -44,6 +44,12 @@
 21. excloud.version() - 获取库版本号
 
 -- 版本更新说明
+-
+-- 版本号：202609010914
+-- 1、更新时间：2026-09-01 09:14
+-- 2、更新内容
+--    ssl默认值改为false，不再默认开启加密
+--    收发HEX日志增加config.debug限制，默认不打印
 -
 -- 版本号：202608311500
 -- 1、更新时间：2026-08-31 15:00
@@ -117,7 +123,7 @@ local config = {
     qos = 0,                 -- MQTT QoS等级
     retain = 0,              -- MQTT retain标志
     clean_session = true,    -- MQTT clean session
-    ssl = true,              -- SSL/TLS配置
+    ssl = false,             -- SSL/TLS配置
     client_id = nil,         -- MQTT客户端标识（可选，不填则自动获取）
     username = nil,          -- MQTT用户名（可选，不填则自动获取）
     password = nil,          -- MQTT密码（可选，不填则自动获取）
@@ -1725,7 +1731,9 @@ local function _socket_callback(label, netc, event, param)
         else
             if rxbuff:used() > 0 then
                 local data = rxbuff:query()
-                log.info("[excloud]" .. label .. " socket", "收到数据", #data, "字节", data:toHex())
+                if config.debug then
+                    log.info("[excloud]" .. label .. " socket", "收到数据", #data, "字节", data:toHex())
+                end
                 parse_data(data)
             end
             rxbuff:del()
@@ -2208,7 +2216,9 @@ function excloud.send(data, need_reply, is_auth_msg)
             else
                 topic = config.mqtt_pub_data_topic or ("/AirCloud/up/" .. device_id_hex .. "/all")
             end
-            log.info("[excloud]发布主题", topic, #full_message, full_message:toHex())
+            if config.debug then
+                log.info("[excloud]发布主题", topic, #full_message, full_message:toHex())
+            end
             local message_id = connection:publish(topic, full_message, config.qos, config.retain)
             if message_id then
                 success = true
@@ -2358,13 +2368,13 @@ excloud.MTN_LOG_CACHE_WRITE = exmtn.CACHE_WRITE
 excloud.MTN_LOG_ADD_WRITE = exmtn.ADD_WRITE
 
 --[[
-获取库版本信息
+获取库版本信息900943
 @return string 年月日时分，例如： "202607021900"
 @usage
 excloud.version()
 ]]
 function excloud.version()
-    return "202608311500"
+    return "202609010914"
 end
 
 log.debug("excloud", "version -> " .. excloud.version())

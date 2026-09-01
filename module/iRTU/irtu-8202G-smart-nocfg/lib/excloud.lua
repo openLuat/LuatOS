@@ -1879,8 +1879,16 @@ function excloud.send(data, need_reply, is_auth_msg)
     local message_body = ""
     local parts = {}
     for _, item in ipairs(data) do
+        -- BINARY 字段（如 1293 三轴流 750 字节）不打原值，只打长度，避免二进制刷串口日志
+        local value_log
+        if (item.data_type == DATA_TYPES.BINARY or item.data_type == "BINARY")
+                and type(item.value) == "string" then
+            value_log = string.format("<binary %d bytes>", #item.value)
+        else
+            value_log = item.value
+        end
         log.info("[excloud]构建发送数据", "field:", item.field_meaning, "type:", item.data_type, "value:",
-            item.value)
+            value_log)
         local success, tlv = build_tlv(item.field_meaning, item.data_type, item.value)
         if not success then
             return false, "excloud.send data is failed"
@@ -1959,20 +1967,39 @@ function excloud.send(data, need_reply, is_auth_msg)
         end
     end
 
+    if success then
+        if callback_func then
+            callback_func("send_result", {
+                success = true,
+                error_msg = "Send successful",
+                sequence_num = current_sequence
+            })
+        end
+        log.info("[excloud]数据发送成功", #full_message, "字节")
+        return true
+    end
+
     if callback_func then
         callback_func("send_result", {
-            success = success,
-            error_msg = success and "Send successful" or err_msg,
+            success = false,
+            error_msg = err_msg,
             sequence_num = current_sequence
         })
     end
-    if success then
-        log.info("[excloud]数据发送成功", #full_message, "字节")
-        return true
-    else
-        log.error("数据发送失败", err_msg)
-        return false, err_msg
+
+    -- 发送失败恢复：按 LuatOS socket.tx 规范，succ=false 说明连接已异常或内核发送缓冲满，
+    -- 必须 close 连接并走重连，否则连接会一直卡在"发一次失败一次"的空转状态。
+    -- 仅对 TCP/UDP 生效（MQTT publish 失败属 QoS 语义，不强制重连）。
+    log.error("数据发送失败", err_msg, "准备断开并重连")
+    if config.transport == "tcp" or config.transport == "udp" then
+        cleanup_connection()   -- 幂等：内部 socket.close 触发的 CLOSED 回调只做清理，不会双重重连
+        is_connected = false
+        is_authenticated = false
+        if config.auto_reconnect and is_open then
+            schedule_reconnect()
+        end
     end
+    return false, err_msg
 end
 
 function excloud.close()

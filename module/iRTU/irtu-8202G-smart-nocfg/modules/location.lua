@@ -36,6 +36,9 @@ function location.init()
     exgnss.setup(gnssotps)
     sys.subscribe("GNSS_STATE", location.gnss_state_callback)
 
+    -- 启动 NMEA 1Hz 采样常驻任务（默认待机，nmea_stream_start 后才开始采样）
+    sys.taskInit(nmea_stream_task)
+
     -- 初始化 WiFi（只需一次）
     wlan.init()
     log.info("location", "WiFi初始化完成")
@@ -207,6 +210,97 @@ function location.stop_find_gps()
         exgnss.close(exgnss.DEFAULT, {tag = "gps_find"})
         log.info("location", "常开 GPS 已关闭")
     end
+end
+
+-- ====== NMEA 1Hz 流式采样（TLV 1294 数据源，004.000.019 新增） ======
+-- GNSS 开启期间每秒采样一次定位五元组（经度/纬度/速度/航向/海拔），
+-- 滚动保留最近 10 个有效样本（对应 10 秒），供 active_mode 组装 TLV 1294 二进制字段上报。
+local NMEA_STREAM_KEEP = 10   -- 滚动缓冲容量（样本数）
+
+local nmea_stream = {
+    on = false,     -- 采样任务运行标志
+    buf = {},       -- 最近 N 个有效样本 {lat, lng, speed, course, altitude}
+}
+
+-- 数值舍入到最近整数并钳位到 int16 范围（防 string.pack 溢出报错）
+local function to_i16(v)
+    v = math.floor(v + 0.5)
+    if v > 32767 then return 32767 end
+    if v < -32768 then return -32768 end
+    return v
+end
+
+-- 1Hz 采样任务（常驻协程）：nmea_stream.on 为 true 时每秒读一次 RMC/GGA，
+-- 仅定位有效（rmc.valid）时入缓冲；缓冲超容量丢弃最旧样本。
+-- 采样期间上报协程阻塞（等网络/发数据）不影响本任务继续采样。
+local function nmea_stream_task()
+    while true do
+        if nmea_stream.on then
+            local rmc = exgnss.rmc(2)
+            if rmc and rmc.valid and rmc.lat and rmc.lng then
+                local alt = 0
+                local gga = exgnss.gga(2)
+                if gga and gga.altitude then alt = gga.altitude end
+                table.insert(nmea_stream.buf, {
+                    lat      = tonumber(rmc.lat) or 0,
+                    lng      = tonumber(rmc.lng) or 0,
+                    speed    = tonumber(rmc.speed) or 0,   -- 单位：节(knots)
+                    course   = tonumber(rmc.course) or 0,  -- 单位：度（北向起顺时针）
+                    altitude = alt,                        -- 单位：米（GGA）
+                })
+                if #nmea_stream.buf > NMEA_STREAM_KEEP then
+                    table.remove(nmea_stream.buf, 1)
+                end
+            end
+            sys.wait(1000)
+        else
+            sys.wait(500)
+        end
+    end
+end
+
+-- 开启 1Hz NMEA 采样（GNSS 开启时调用）
+function location.nmea_stream_start()
+    if not nmea_stream.on then
+        nmea_stream.on = true
+        log.info("location", "NMEA 1Hz 采样开启")
+    end
+end
+
+-- 停止采样并清空缓冲（GNSS 关闭时调用）
+function location.nmea_stream_stop()
+    if nmea_stream.on then
+        nmea_stream.on = false
+        nmea_stream.buf = {}
+        log.info("location", "NMEA 1Hz 采样停止，缓冲已清空")
+    end
+end
+
+-- 取最近 10 个有效样本，编码为 TLV 1294 二进制载荷
+-- 每样本 10 字节 = 经度差/纬度差/速度/航向/海拔 各 2 字节有符号 int16 大端，时间正序（最早在前）：
+--   经度差 = (样本经度 - ref_lng) × 100000，1LSB ≈ 1.1m，范围 ±0.33°
+--   纬度差 = (样本纬度 - ref_lat) × 100000，同上
+--   速度   = km/h × 10（RMC 节值 × 1.852 换算），1LSB = 0.1km/h
+--   航向   = 度 × 10，1LSB = 0.1°（静止时航向不可信）
+--   海拔   = 米，1LSB = 1m
+-- ref_lat/ref_lng 为本次报文 512/513 字段坐标（服务端用它加差值还原每秒绝对坐标）。
+-- @return string 二进制载荷（样本数 × 10 字节），无数据返回 ""
+-- @return number 实际样本数
+function location.get_nmea_stream(ref_lat, ref_lng)
+    if not ref_lat or not ref_lng then return "", 0 end
+    local n = math.min(#nmea_stream.buf, NMEA_STREAM_KEEP)
+    if n == 0 then return "", 0 end
+    local parts = {}
+    for i = 1, n do
+        local s = nmea_stream.buf[i]
+        parts[i] = string.pack(">i2i2i2i2i2",
+            to_i16((s.lng - ref_lng) * 100000),
+            to_i16((s.lat - ref_lat) * 100000),
+            to_i16(s.speed * 1.852 * 10),
+            to_i16(s.course * 10),
+            to_i16(s.altitude))
+    end
+    return table.concat(parts), n
 end
 
 -- GPS定位模式定位（GPS常开，不阻塞）

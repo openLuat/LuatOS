@@ -5,8 +5,8 @@
 @date    2026.08.28
 @usage
 已激活模式（004.000.009 起由 GNSS 开关策略驱动，不再按 work_mode 区分上报节奏）：
-- GNSS 开启条件（满足任一）：开机后 300 秒内；gsensor 正在震动；当前未震动但最近 30 秒内震过
-- GNSS 开：每 5 秒上报一次，功耗 mode0（全功率）
+- GNSS 开启条件（满足任一）：开机后 300 秒内；gsensor 正在震动；当前未震动但最近 180 秒内震过
+- GNSS 开：每 10 秒上报一次，功耗 mode0（全功率）
 - GNSS 关：每 300 秒上报一次，功耗 mode1（低功耗）
 通过 create.lua 的 NET_SENT_RDY 通道上报数据。
 ]]
@@ -23,22 +23,22 @@ local lowpower = require("lowpower_app")
 local exgnss = require("exgnss")
 local excloud = require("excloud")
 
--- 本次上报的上报间隔（秒），供 779(wake_interval) 上报：GNSS 开→5 秒，GNSS 关→300 秒
+-- 本次上报的上报间隔（秒），供 779(wake_interval) 上报：GNSS 开→10 秒，GNSS 关→300 秒
 local last_calc_interval = 0
 
 -- ====== GNSS 开关策略（004.000.009 重构） ======
 -- GNSS 开启条件（满足任一即开，全部不成立则关）：
 --   1) 开机后 300 秒内
 --   2) gsensor 正在震动
---   3) 当前未震动，但最近 30 秒内有过震动
--- 上报节奏：GNSS 开→每 5 秒上报一次（功耗 mode0）；GNSS 关→每 300 秒上报一次（功耗 mode1）
+--   3) 当前未震动，但最近 180 秒内有过震动
+-- 上报节奏：GNSS 开→每 10 秒上报一次（功耗 mode0）；GNSS 关→每 300 秒上报一次（功耗 mode1）
 
 -- 震动事件名（gsensor 震动回调发布，主循环 waitUntil 监听，用于提前唤醒重新评估 GNSS 状态）
 local MOTION_EVENT = "MOTION_EVENT"
 
 local GNSS_BOOT_WINDOW = 300   -- 条件1：开机后 GNSS 常开时长（秒）
 local GNSS_MOTION_KEEP = 180   -- 条件2/3：震动后 GNSS 保持开启的时长（秒）
-local REPORT_GNSS_ON  = 5      -- GNSS 开启期间上报间隔（秒）
+local REPORT_GNSS_ON  = 10     -- GNSS 开启期间上报间隔（秒）
 local REPORT_GNSS_OFF = 300    -- GNSS 关闭期间上报间隔（秒）
 
 local boot_ticks = 0           -- 主循环启动时的 mcu.ticks()（开机窗口基准，毫秒级不受 NTP 校时影响）
@@ -154,7 +154,8 @@ end
 -- 无标准 field_meaning 的字段从 1290 起自定义编号
 -- 注意：excloud 编码 ASCII 空字符串会失败导致整包发送失败，因此空值字段一律跳过
 -- xyz_stream：GNSS 开启期间 25Hz 流式采样的三轴原始数据（二进制，仅走 TLV 通道）
-local function build_aircloud_tlv(d, xyz_stream)
+-- nmea_stream：GNSS 开启期间 1Hz 采样的定位五元组数据流（二进制，仅走 TLV 通道）
+local function build_aircloud_tlv(d, xyz_stream, nmea_stream)
     local FM = excloud.FIELD_MEANINGS
     local DT = excloud.DATA_TYPES
     local data = {}
@@ -188,6 +189,15 @@ local function build_aircloud_tlv(d, xyz_stream)
     -- 二进制字段，自定义编号 1293。注意：二进制只走本 TLV 通道，不进 JSON 报文。
     if xyz_stream and xyz_stream ~= "" then
         table.insert(data, { field_meaning = 1293, data_type = DT.BINARY, value = xyz_stream })
+    end
+    -- GNSS 1Hz 定位五元组数据流（仅 GNSS 开启期间采集）：最近 10 个有效样本（10 秒），
+    -- 每样本 10 字节 = 经度差/纬度差/速度/航向/海拔 各 2 字节有符号 int16 大端，时间正序，
+    -- 共 100 字节，二进制字段，自定义编号 1294。
+    -- 编码约定：经纬度为相对本报文 512/513 坐标的差值 ×100000（1LSB≈1.1m，范围±0.33°）；
+    -- 速度 0.1km/h/LSB（RMC 节值×1.852）；航向 0.1°/LSB；海拔 1m/LSB。
+    -- 注意：二进制只走本 TLV 通道，不进 JSON 报文。
+    if nmea_stream and nmea_stream ~= "" then
+        table.insert(data, { field_meaning = 1294, data_type = DT.BINARY, value = nmea_stream })
     end
     if d.chip_model and d.chip_model ~= "" then
         table.insert(data, { field_meaning = FM.COMPONENT_MODEL, data_type = DT.ASCII, value = d.chip_model })   -- 元器件型号
@@ -343,14 +353,35 @@ local function collect_data_and_report()
     -- 驻留频段格式化为 "LTE B{n}"
     local band_str = cur_band and ("LTE B" .. cur_band) or ""
     -- 779(wake_interval)：上报本次实际使用的上报间隔（秒）
-    -- 由 GNSS 开关状态决定：开→5 秒，关→300 秒（不再按模式/服务端配置计算）
+    -- 由 GNSS 开关状态决定：开→10 秒，关→300 秒（不再按模式/服务端配置计算）
     last_calc_interval = gnss_active and REPORT_GNSS_ON or REPORT_GNSS_OFF
     local wake_interval = last_calc_interval
 
-    -- 构建 property/report 消息
+    -- 构建属性上报消息
     local msg = build_msg("property_report")
     local gps_str = loc_data and loc_data.gps or ""
     local gps_status = loc_data and loc_data.gps_status or 0
+
+    -- GNSS 开启期间：取 1Hz NMEA 采样的最近 10 个样本（10 秒 × 10 字节 = 100 字节），
+    -- 作为 TLV 1294 二进制字段随本次报文上报。
+    -- 经纬度以本次报文坐标（512/513 字段，即 loc_data.gps）为参考做差值编码，
+    -- 服务端用报文经纬度 + 差值即可还原每秒的绝对坐标。
+    -- 注意：二进制数据只走 AirCloud TLV 通道，不进 JSON 报文；
+    -- 采样由 location 常驻任务后台进行，本协程阻塞（等网络/发数据）期间采样不中断。
+    local nmea_stream_bin, nmea_count = "", 0
+    if gnss_active then
+        local ref_lat, ref_lng = nil, nil
+        if gps_str ~= "" then
+            local la, ln = gps_str:match("^([%d%.%-]+),([%d%.%-]+)$")
+            if la and ln then ref_lat, ref_lng = tonumber(la), tonumber(ln) end
+        end
+        nmea_stream_bin, nmea_count = location.get_nmea_stream(ref_lat, ref_lng)
+        if nmea_count > 0 then
+            log.info("active_mode", "nmea_stream:", nmea_count, "样本", #nmea_stream_bin, "字节")
+        else
+            log.info("active_mode", "nmea_stream: 无数据（未定位成功，本次报文不带 1294 字段）")
+        end
+    end
 
     msg.data = {
         bat_change = battery.is_charging() and 1 or 0,
@@ -393,8 +424,9 @@ local function collect_data_and_report()
     log.info("active_mode", "数据已通过云通道发送(json)")
 
     -- AirCloud 通道：以 TLV 形式上报（其余字段不含 msg_id/type/ts/imei；
-    -- 1293 为 GNSS 开启期间的 25Hz 三轴原始数据流，二进制，仅走此通道）
-    create.send_aircloud(build_aircloud_tlv(msg.data, gsensor_stream))
+    -- 1293 为 GNSS 开启期间的 25Hz 三轴原始数据流，
+    -- 1294 为 GNSS 开启期间的 1Hz 定位五元组数据流，均为二进制，仅走此通道）
+    create.send_aircloud(build_aircloud_tlv(msg.data, gsensor_stream, nmea_stream_bin))
     log.info("active_mode", "数据已通过 AirCloud TLV 发送")
 
     -- 记录上报时间
@@ -458,10 +490,10 @@ local function main_loop()
     boot_ticks = mcu.ticks()
     last_report_time = 0
 
-    log.info("active_mode", "GNSS 开关策略已启用：开机300s/震动30s内→GNSS开+5s上报，否则→GNSS关+300s上报+mode1")
+    log.info("active_mode", "GNSS 开关策略已启用：开机300s/震动180s内→GNSS开+10s上报，否则→GNSS关+300s上报+mode1")
 
     while true do
-        -- 1) 评估 GNSS 开关需求（开机窗口 / 正在震动 / 30 秒内震过）
+        -- 1) 评估 GNSS 开关需求（开机窗口 / 正在震动 / 180 秒内震过）
         local gnss_needed = is_gnss_required()
 
         -- 2) GNSS 状态机：仅在状态切换时执行开关动作
@@ -470,18 +502,20 @@ local function main_loop()
             location.start_find_gps()                       -- 打开 GNSS（DEFAULT 常开应用）
             lowpower.set_mode(config.POWER_MODE.NORMAL)     -- 功耗 mode0（GNSS 需全功率）
             gsensor.stream_start()                          -- 开启 25Hz 三轴流式采样（TLV 1293 数据源）
+            location.nmea_stream_start()                    -- 开启 1Hz NMEA 采样（TLV 1294 数据源）
             last_report_time = 0                            -- 立即触发一次上报
             tools.led_gnss_switched_on()                    -- LED 亮 10 秒（关→开切换提示）
-            log.info("active_mode", "GNSS 开启（开机窗口/震动），功耗 mode0，每 5 秒上报")
+            log.info("active_mode", "GNSS 开启（开机窗口/震动），功耗 mode0，每 10 秒上报")
         elseif not gnss_needed and gnss_active then
             gnss_active = false
             location.stop_find_gps()                        -- 关闭 GNSS
             lowpower.set_mode(config.POWER_MODE.POWER_SAVE) -- 功耗 mode1（低功耗）
             gsensor.stream_stop()                           -- 停止 25Hz 流式采样并清空缓冲
+            location.nmea_stream_stop()                     -- 停止 1Hz NMEA 采样并清空缓冲
             log.info("active_mode", "GNSS 关闭（无震动超时），功耗 mode1，每 300 秒上报")
         end
 
-        -- 3) 上报节流：GNSS 开→5 秒一次；GNSS 关→300 秒一次
+        -- 3) 上报节流：GNSS 开→10 秒一次；GNSS 关→300 秒一次
         local interval = gnss_active and REPORT_GNSS_ON or REPORT_GNSS_OFF
         if os.time() - last_report_time >= interval then
             local ok, err = pcall(collect_data_and_report)

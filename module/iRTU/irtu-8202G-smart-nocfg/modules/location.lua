@@ -37,7 +37,7 @@ function location.init()
     sys.subscribe("GNSS_STATE", location.gnss_state_callback)
 
     -- 启动 NMEA 1Hz 采样常驻任务（默认待机，nmea_stream_start 后才开始采样）
-    sys.taskInit(nmea_stream_task)
+    sys.taskInit(location.nmea_stream_task)
 
     -- 初始化 WiFi（只需一次）
     wlan.init()
@@ -233,7 +233,8 @@ end
 -- 1Hz 采样任务（常驻协程）：nmea_stream.on 为 true 时每秒读一次 RMC/GGA，
 -- 仅定位有效（rmc.valid）时入缓冲；缓冲超容量丢弃最旧样本。
 -- 采样期间上报协程阻塞（等网络/发数据）不影响本任务继续采样。
-local function nmea_stream_task()
+-- 注意：定义为 location 表字段而非 local function，避免 init（上方）编译时前向引用解析为全局 nil
+function location.nmea_stream_task()
     while true do
         if nmea_stream.on then
             local rmc = exgnss.rmc(2)

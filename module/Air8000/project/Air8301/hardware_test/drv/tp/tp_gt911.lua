@@ -26,14 +26,15 @@ local function tp_init_task()
     i2c.setup(0, i2c.SLOW)
     sys.wait(100)
 
-    -- direction=0：触摸不需要旋转，GT911原始坐标与MADCTL校正后的LCD一致
+    -- direction=2(180°)：Air8301 TP 原点在右下角，LCD 原点在左上角，需翻转 X/Y
+    -- C 层变换：x_new = w - x_raw, y_new = h - y_raw
     local tp_device = tp.init("gt911", {
         port = 0,
         pin_rst = 26,
         pin_int = gpio.WAKEUP0,
-        w = _G.screen_w or 480,
-        h = _G.screen_h or 272,
-        direction = 0,
+        w = 480,
+        h = 272,
+        direction = 2,
         int_type = 1,
     })
     if not tp_device then

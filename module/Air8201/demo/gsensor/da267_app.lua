@@ -46,7 +46,7 @@ end
 local DA267_CONFIG = {
     i2c_id = 1,                     -- I2C 总线
     addr = 0x26,                    -- I2C 从设备地址，DA267 默认地址为 0x26
-    int_pin = 39,                   -- 中断引脚，连接到 Air8201H 的 GPIO39
+    int_pin = (HARDWARE_ENV == "G") and 20 or 39, -- 中断引脚: G=GPIO20 / H=GPIO39
     motion_enable = true,           -- 是否启用运动检测功能
     step_counter_enable = true      -- 是否启用计步器功能
 }
@@ -74,7 +74,11 @@ end
 -- 主任务函数
 local function main_task()
     -- 传感器供电
-    gpio.setup(POWER_PIN, 1)
+    gpio.setup(POWER_PIN, 1) -- GPIO24: DA267供电
+    if HARDWARE_ENV == "G" then
+        gpio.setup(28, 1) -- Air8201G: 开启I2C1总线上拉
+        gpio.setup(26, 1) -- Air8201G: 开启I2C1外围供电
+    end
     
     -- 初始化 DA267 传感器
     log.info("da267", "初始化DA267传感器...")

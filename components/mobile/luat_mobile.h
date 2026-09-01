@@ -865,6 +865,25 @@ void luat_mobile_rf_test_mode(uint8_t uart_id, uint8_t on_off);
 void luat_mobile_rf_test_input(char *data, uint32_t data_len);
 
 /**
+ * @brief 读取 ECNPICFG 射频校准状态响应行
+ * @param out 输出缓冲区
+ * @param out_len 输出缓冲区大小
+ * @return >0 实际输出长度, <0 失败或缓冲区不足
+ * @note 输出格式为 +ECNPICFG: "rfCaliDone":x,"rfNSTDone":x,"rfCTDone":x
+ *       不包含首尾换行和最终 OK
+ */
+int luat_mobile_get_ecnpicfg(char *out, size_t out_len);
+
+/**
+ * @brief 读取 ECNPICFG 射频校准标志位
+ * @param rf_cali_done RFCALI 标志位，输出值规范化为 0/1
+ * @param rf_nst_done RFNST 标志位，输出值规范化为 0/1
+ * @param rf_ct_done RFCT 标志位，输出值规范化为 0/1
+ * @return 0 成功, <0 失败
+ */
+int luat_mobile_get_ecnpicfg_status(uint8_t *rf_cali_done, uint8_t *rf_nst_done, uint8_t *rf_ct_done);
+
+/**
  * @brief 查询/设置 RF Test 参数 (NPI 位 / 状态机 / 错误注入)
  *        PC 仿真: 由 s_rf_test 后端完整实现 NPI 位与状态机读写
  *        真机   : 工厂测试固件可直接实现 NPI NV 读写; 其他 BSP 若不想

@@ -24,7 +24,7 @@ local SERVER_IP = "192.168.1.3"  -- 这里需要修改为实际的服务器IP地
 -- iperf测试报告处理函数
 local function iperf_report_handler(bytes, ms_duration, bandwidth)
     -- 转换为Mbps显示
-    local bandwidth_mbps = bandwidth / 1024 / 1024 * 8
+    local bandwidth_mbps = bandwidth / 1000
     log.info("iperf报告", string.format("数据量: %d bytes, 持续时间: %d ms, 带宽: %.2f Mbps", bytes, ms_duration, bandwidth_mbps))
 end
 

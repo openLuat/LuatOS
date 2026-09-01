@@ -383,7 +383,13 @@ static void luat_audio_tts_task(void *param)
 	luat_audio_extern_source_t *extern_source;
 	for(;;)
 	{
+	#ifdef LUAT_BSP_PC
+		if (luat_rtos_event_recv(_luat_audio.tts_task_handle, 0, &out_event, NULL, LUAT_WAIT_FOREVER)) {
+			continue;
+		}
+	#else
 		luat_rtos_event_recv(_luat_audio.tts_task_handle, 0, &out_event, NULL, 0);
+	#endif
 		switch (out_event.id) {
 		case LUAT_AUDIO_EV_TTS_RUN:
 			tts_request_block = (luat_audio_request_block_t *)out_event.param1;
@@ -822,7 +828,13 @@ static void luat_audio_common_task(void *param)
 	void *done_sem;
 	uint8_t request_change;
 	for(;;) {
+	#ifdef LUAT_BSP_PC
+		if (luat_rtos_event_recv(_luat_audio.common_task_handle, 0, &out_event, NULL, LUAT_WAIT_FOREVER)) {
+			continue;
+		}
+	#else
 		luat_rtos_event_recv(_luat_audio.common_task_handle, 0, &out_event, NULL, 0);
+	#endif
 		//LLOGC(luat_audio_debug_flag, "common task recv event %d", out_event.id);
 		switch (out_event.id) {
 		case LUAT_AUDIO_EV_TX_NEED_DATA:
@@ -1680,8 +1692,12 @@ void luat_audio_base_init(void)
 	luat_rtos_task_create(&_luat_audio.common_task_handle, LUAT_AUDIO_TASK_STACK, LUAT_AUDIO_TASK_PRIORITY, "luat_audio", luat_audio_common_task, NULL, 64);
 	luat_rtos_task_create(&_luat_audio.tts_task_handle, LUAT_AUDIO_TASK_STACK, LUAT_AUDIO_TTS_TASK_PRIORITY, "luat_tts", luat_audio_tts_task, NULL, 0);
 	_luat_audio.request_lock = luat_mutex_create();
+#ifdef LUAT_BSP_PC
+	luat_rtos_semaphore_create(&_luat_audio.tts_or_extern_source_wait_sem, 0);
+#else
 	_luat_audio.tts_or_extern_source_wait_sem = luat_mutex_create();
 	luat_rtos_semaphore_take(_luat_audio.tts_or_extern_source_wait_sem, LUAT_WAIT_FOREVER);
+#endif
 	LUAT_INIT_LLIST_HEAD(&_luat_audio.request_block_list);
 #ifdef __LUATOS__
 	l_audio_init();

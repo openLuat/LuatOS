@@ -334,6 +334,7 @@ static const mbedtls_ssl_ciphersuite_t ciphersuite_definitions[] =
       MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3,
       0 },
 #endif
+#if 0
 #if defined(MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED)
     { MBEDTLS_TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
       "TLS-DHE-RSA-WITH-CHACHA20-POLY1305-SHA256",
@@ -378,6 +379,7 @@ static const mbedtls_ssl_ciphersuite_t ciphersuite_definitions[] =
       MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3,
       MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3,
       0 },
+#endif
 #endif
 #endif /* MBEDTLS_CHACHAPOLY_C &&
           MBEDTLS_SHA256_C &&

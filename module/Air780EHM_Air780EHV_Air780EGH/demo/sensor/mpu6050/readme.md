@@ -26,10 +26,10 @@
 
 ### 3.1 硬件清单
 
-- Air780EGH 核心板 
+- Air780EXX 核心板 
 
 - MPU6050 六轴姿态传感器模块 × 1
-   
+  
 - 母对母杜邦线 × 4
 
 - TYPE-C 数据线 × 1
@@ -42,7 +42,7 @@
 
 <table>
 <tr>
-<td>Air780EGH 核心板<br/></td><td>MPU6050 模块（GY-521）<br/></td></tr>
+<td>Air780EXX 核心板<br/></td><td>MPU6050 模块（GY-521）<br/></td></tr>
 <tr>
 <td>67 / I2C1_SCL<br/></td><td>SCL<br/></td></tr>
 <tr>
@@ -52,6 +52,7 @@
 <tr>
 <td>GND<br/></td><td>GND<br/></td></tr>
 </table>
+
 
 > 说明：接线时注意杜邦线不宜过长，以免通信不稳定。MPU6050 模块（GY-521）通常包含 3.3V 稳压器，可直接使用 VDD_EXT 供电。
 
@@ -63,7 +64,9 @@
 
 ### 4.2 内核固件
 
-- [点击下载Air780EGH系列最新版本内核固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)，demo 使用 LuatOS-SoC_V2046_Air780EGH 1号固件
+- [点击下载Air780EHM系列最新版本内核固件](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780epm%2Fluatos%2Ffirmware%2F780ehm_version%2F)，demo所使用的是 LuatOS-SoC_V2046_Air780EHM 1号固件
+- [点击下载Air780EHV系列最新版本内核固件](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780ehv%2Fluatos%2Ffirmware%2Fversion%2F)，demo所使用的是 LuatOS-SoC_V2046_Air780EHV 1号固件
+- [点击下载Air780EGH系列最新版本内核固件](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780egh%2Fluatos%2Ffirmware%2Fversion%2F)，demo所使用的是 LuatOS-SoC_V2046_Air780EGH 1号固件
 
 ### 4.3 脚本文件
 

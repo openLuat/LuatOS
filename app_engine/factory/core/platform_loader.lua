@@ -51,6 +51,7 @@ require ("evb_8101_7i_v0")     -- Air8101 EVB 7寸 (AirLCD_1070)
 require ("evb_8000a_3i5_v0")  -- Air8000A trunkey 3.5寸
 require ("eng_1780h_4i_v0")  -- Air1780H 引擎主机 4.3寸 (ST6201 + airlink WiFi + ES8311 + SD + NAND)
 require ("eng_1780h_4i_v1")  -- Air1780H 引擎主机 4寸 (ST7796 + airlink WiFi + ES8311 + SD + NAND + 电池)
+require ("eng_8301_4i_v0")   -- Air8301 引擎主机 4.3寸 (ST6201 + WiFi + 4G + 双以太网 + NAND)
 require ("evb_1601_10i_v11")  -- Air1601 EVB 10.1寸
 require ("evb_1601_7i_v11")   -- Air1601 EVB 7寸
 require ("evb_1601_7i_v12")   -- Air1601 EVB 7寸 V012 (+4G+以太网+WiFi AirLink SPI2+应用工厂/ES8311录音)
@@ -78,6 +79,10 @@ require ("factory_app")              -- 应用工厂业务入口（功能容器�
 require ("factory_rec")              -- 录音识别业务层（exaudio + ASR）
 require ("factory_win")              -- 应用工厂-语音聊天窗口（微信式聊天框 UI）
 
+-- AI 聊天助手模块（业务层 + UI 层）
+require ("llm_chat")                 -- AI 聊天业务层（SSE 流式 + 对话管理 + TTS）
+require ("llm_chat_win")             -- AI 聊天助手窗口（消息列表 + 输入框）
+
 -- ==================== 1. 平台检测 ====================
 -- hmeta.model() 返回芯片型号字符串（如 "Air1602_A10"），不可用则回退到 rtos.bsp()
 local ok, _model = pcall(hmeta.model)
@@ -103,6 +108,7 @@ local PROJECT_MAP = {
     ["Engine_Air1602_AirLCD_1100_10421_V000"]     = "eng_1602_10i_v10421",
     ["Engine_Air1780H_4inch_480x272_000_V000"]    = "eng_1780h_4i_v0",
     ["Engine_Air1780H_4inch_320x480_000_V001"]    = "eng_1780h_4i_v1",
+    ["Engine_Air8301_4inch_480x272_000_V000"]     = "eng_8301_4i_v0",
     -- EVB turnkey 开发板系列（已实现）
     ["EVB_Air8101_AirLCD_1020_000_V020"]            = "evb_8101_5i_v0",
     ["EVB_Air8101_AirLCD_1090_000_V020"]            = "evb_8101_9i_v0",

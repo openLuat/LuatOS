@@ -18,6 +18,7 @@ local sip_main = {}
 
 local STATE_IDLE = "sip_idle"
 local STATE_INCOMING = "sip_incoming"
+local STATE_PROGRESSING = "sip_progressing"
 local STATE_DIALING = "sip_dialing"
 local STATE_CONNECTED = "sip_connected"
 local STATE_DISCONNECTING = "sip_disconnecting"
@@ -54,7 +55,7 @@ local function on_sip_dial_req(uri)
 end
 
 local function on_sip_accept_req()
-    if g_state ~= STATE_INCOMING then
+    if g_state ~= STATE_INCOMING and g_state ~= STATE_PROGRESSING then
         log.warn("sip_main", "当前不是来电状态", g_state)
         return
     end
@@ -65,6 +66,21 @@ local function on_sip_accept_req()
         set_state(STATE_IDLE)
         sys.publish("SIP_FAILED", "accept_failed")
     end
+end
+
+local function on_sip_progress_req()
+    if g_state ~= STATE_INCOMING then
+        log.warn("sip_main", "当前不能启动早期媒体", g_state)
+        return
+    end
+    if not exsip.progress or not exsip.progress() then
+        log.error("sip_main", "exsip.progress 失败")
+        set_state(STATE_IDLE)
+        sys.publish("SIP_FAILED", "progress_failed")
+        return
+    end
+    set_state(STATE_PROGRESSING)
+    sys.publish("SIP_PROGRESSING")
 end
 
 local function on_sip_hangup_req()
@@ -82,6 +98,7 @@ end
 
 sys.subscribe("SIP_DIAL_REQ", on_sip_dial_req)
 sys.subscribe("SIP_ACCEPT_REQ", on_sip_accept_req)
+sys.subscribe("SIP_PROGRESS_REQ", on_sip_progress_req)
 sys.subscribe("SIP_HANGUP_REQ", on_sip_hangup_req)
 
 -- ==================== SIP 事件处理 ====================
@@ -105,7 +122,8 @@ local function on_sip_event(event, action, data)
         if action == "incoming" then
             set_state(STATE_INCOMING)
             logi("SIP 来电", data and data.from or "unknown")
-            sys.publish("SIP_INCOMING", data and data.from or "", data and data.uri or "", data and data.headers["to"] or "")
+            local headers = data and data.headers or {}
+            sys.publish("SIP_INCOMING", data and data.from or "", data and data.uri or "", headers["to"] or "")
 
         elseif action == "ringing" then
             logi("SIP 响铃中")
@@ -128,17 +146,19 @@ local function on_sip_event(event, action, data)
 
     elseif event == "media" then
         if action == "ready" then
+            data = data or {}
             local ip = data.remote_ip or (data.session and data.session.remote_ip) or ""
             local port = data.remote_port or (data.session and data.session.remote_port) or 0
             logi("SIP 媒体就绪", ip, port, data.codec)
         elseif action == "stop" then
-            logi("SIP 媒体停止", data.reason)
+            logi("SIP 媒体停止", data and data.reason or "")
         end
 
     elseif event == "voip" then
         if action == "state" then
             logi("VoIP 状态", data)
         elseif action == "stats" then
+            data = data or {}
             logi("VoIP 统计", data.tx_packets, data.rx_packets, data.rx_lost)
         elseif action == "error" then
             log.error("sip_main", "VoIP 错误", data)
@@ -146,7 +166,7 @@ local function on_sip_event(event, action, data)
 
     elseif event == "lifecycle" then
         if action == "online" then
-            logi("SIP 在线", data.local_ip)
+            logi("SIP 在线", data and data.local_ip or "")
         elseif action == "stopped" then
             g_registered = false
             logi("SIP 已停止")
@@ -157,7 +177,7 @@ local function on_sip_event(event, action, data)
 
     elseif event == "message" then
         if action == "rx" then
-            logi("收到 SIP MESSAGE", data.from, data.body)
+            logi("收到 SIP MESSAGE", data and data.from or "", data and data.body or "")
         end
     end
 end
@@ -166,8 +186,6 @@ end
 
 function sip_main.init()
     logi("SIP 初始化开始")
-    exsip.on(on_sip_event)
-
     local sip_ok = exsip.init({
         sip_server_addr = config.sip_server_addr,
         sip_server_port = config.sip_server_port,
@@ -178,13 +196,18 @@ function sip_main.init()
         rtp_port = config.rtp_port,
         codecs = {config.codec},
         ptime = config.ptime,
+        cc_sip_bridge = true,
         auto_answer = false,  -- 由 bridge 控制
+        early_media = true,
+        early_media_response = 183,
         adapter = config.adapter,
     })
     if not sip_ok then
         log.error("sip_main", "exsip.init 失败")
         return false
     end
+
+    exsip.on(on_sip_event)
 
     -- 设置为桥接模式：voip 不控制 I2S，PCM 与 cc 交换
     if voip and voip.setAudioMode then

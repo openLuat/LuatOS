@@ -15,6 +15,7 @@
 
 #include "luat_base.h"
 #include "luat_mem.h"
+#include "luat_conf_bsp.h"
 #include "luat_voip_core.h"
 #include "rotable2.h"
 #include "luat_network_adapter.h"
@@ -157,7 +158,7 @@ static int l_voip_stop(lua_State *L)
 /*
 注册voip回调函数
 @api voip.on(event, callback)
-@string event 事件名: "state", "stats", "error"
+@string event 事件名: "state", "stats", "error", "record"
 @function callback 回调函数
 @return nil
 @usage
@@ -189,6 +190,10 @@ static int l_voip_on(lua_State *L)
         ref_ptr = &ctx->cb_stats_ref;
     } else if (strcmp(event, "error") == 0) {
         ref_ptr = &ctx->cb_error_ref;
+#ifdef LUAT_USE_VOIP_RECORD
+    } else if (strcmp(event, "record") == 0) {
+        ref_ptr = &ctx->cb_record_ref;
+#endif
     } else {
         LLOGW("voip.on: unknown event '%s'", event);
         return 0;
@@ -273,6 +278,79 @@ static int l_voip_get_state(lua_State *L)
     return 1;
 }
 
+#ifdef LUAT_USE_VOIP_RECORD
+static const char *voip_record_error_name(int ret)
+{
+    switch (ret) {
+    case -1: return "invalid_path";
+    case -2: return "invalid_state";
+    case -3: return "already_recording";
+    default: return "no_memory";
+    }
+}
+
+/*
+开始本地双声道WAV录音。
+@api voip.recordStart(path, opts)
+@string path 以.wav结尾的文件路径
+@table opts 可选配置，max_seconds默认7200
+@return boolean 成功返回true
+@return string 失败原因，成功时为nil
+*/
+static int l_voip_record_start(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    uint32_t max_seconds = 7200;
+    int ret;
+    if (lua_istable(L, 2)) {
+        lua_Integer value;
+        lua_getfield(L, 2, "max_seconds");
+        value = luaL_optinteger(L, -1, 7200);
+        if (value > 0) max_seconds = (uint32_t)value;
+        lua_pop(L, 1);
+    }
+    ret = voip_record_start(path, max_seconds);
+    lua_pushboolean(L, ret == 0);
+    if (ret == 0) lua_pushnil(L); else lua_pushstring(L, voip_record_error_name(ret));
+    return 2;
+}
+
+/*
+异步停止并收尾当前录音。
+@api voip.recordStop()
+@return boolean 成功返回true
+@return string 失败原因，成功时为nil
+*/
+static int l_voip_record_stop(lua_State *L)
+{
+    int ret = voip_record_stop();
+    lua_pushboolean(L, ret == 0);
+    if (ret == 0) lua_pushnil(L); else lua_pushstring(L, "invalid_state");
+    return 2;
+}
+
+/*
+获取本地录音状态。
+@api voip.recordStatus()
+@return table 当前录音状态
+*/
+static int l_voip_record_status(lua_State *L)
+{
+    voip_record_status_t status;
+    voip_record_get_status(&status);
+    lua_newtable(L);
+    lua_pushstring(L, luat_voip_record_state_name(status.state)); lua_setfield(L, -2, "state");
+    lua_pushstring(L, status.path); lua_setfield(L, -2, "path");
+    lua_pushinteger(L, status.bytes); lua_setfield(L, -2, "bytes");
+    lua_pushinteger(L, status.duration_ms); lua_setfield(L, -2, "duration_ms");
+    lua_pushinteger(L, status.queued_frames); lua_setfield(L, -2, "queued_frames");
+    lua_pushinteger(L, status.dropped_frames); lua_setfield(L, -2, "dropped_frames");
+    if (status.reason[0]) lua_pushstring(L, status.reason); else lua_pushnil(L);
+    lua_setfield(L, -2, "reason");
+    return 1;
+}
+#endif
+
 /*
 设置音频工作模式
 @api voip.setAudioMode(mode)
@@ -281,6 +359,7 @@ static int l_voip_get_state(lua_State *L)
 @usage
 voip.setAudioMode(voip.AUDIO_MODE_BRIDGE)
 */
+#ifdef LUAT_USE_VOIP_BRIDGE
 static int l_voip_set_audio_mode(lua_State *L)
 {
     int mode = luaL_checkinteger(L, 1);
@@ -357,6 +436,7 @@ static int l_voip_bridge_tone(lua_State *L)
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
+#endif
 
 #include "rotable2.h"
 
@@ -368,17 +448,26 @@ static const rotable_Reg_t reg_voip[] =
     { "stats",      ROREG_FUNC(l_voip_stats)},
     { "isRunning",  ROREG_FUNC(l_voip_is_running)},
     { "getState",   ROREG_FUNC(l_voip_get_state)},
+#ifdef LUAT_USE_VOIP_RECORD
+    { "recordStart", ROREG_FUNC(l_voip_record_start)},
+    { "recordStop",  ROREG_FUNC(l_voip_record_stop)},
+    { "recordStatus", ROREG_FUNC(l_voip_record_status)},
+#endif
 
+#ifdef LUAT_USE_VOIP_BRIDGE
     { "setAudioMode", ROREG_FUNC(l_voip_set_audio_mode)},
     { "pcmIn",      ROREG_FUNC(l_voip_pcm_in)},
     { "pcmOut",     ROREG_FUNC(l_voip_pcm_out)},
     { "bridgeTone", ROREG_FUNC(l_voip_bridge_tone)},
+#endif
 
     /* 常量 */
     { "PCMU",       ROREG_INT(VOIP_CODEC_PCMU)},
     { "PCMA",       ROREG_INT(VOIP_CODEC_PCMA)},
     { "AUDIO_MODE_I2S",   ROREG_INT(VOIP_AUDIO_MODE_I2S)},
+#ifdef LUAT_USE_VOIP_BRIDGE
     { "AUDIO_MODE_BRIDGE", ROREG_INT(VOIP_AUDIO_MODE_BRIDGE)},
+#endif
 
     { NULL,         ROREG_INT(0)}
 };

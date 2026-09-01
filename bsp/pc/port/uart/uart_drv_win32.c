@@ -60,7 +60,7 @@ int luat_uart_initial_win32()
     luat_uart_close_extern = (int (*)(int))GetProcAddress(module, "luat_uart_close_extern");
     luat_uart_read_extern = (int (*)(int,void*,size_t))GetProcAddress(module, "luat_uart_read_extern");
     luat_uart_send_extern = (int (*)(int,void*,size_t))GetProcAddress(module, "luat_uart_send_extern");
-    luat_uart_recv_cb_extern = (int (*)(int,void (*)(int, const char *, int)))GetProcAddress(module, "luat_uart_recv_cb_extern");
+    luat_uart_recv_cb_extern = (int (*)(int,void (*)(int, int)))GetProcAddress(module, "luat_uart_recv_cb_extern");
     luat_uart_sent_cb_extern = (int (*)(int,void (*)(int, int)))GetProcAddress(module, "luat_uart_sent_cb_extern");
     luat_uart_get_list_extern = (int (*)(uint8_t*,size_t))GetProcAddress(module, "luat_uart_get_list_extern");
     //FreeLibrary(module);//感觉用不到

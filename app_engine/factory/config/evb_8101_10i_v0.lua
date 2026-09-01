@@ -96,7 +96,8 @@ return {
     features = {
         wifi = true,                     -- 启用 WiFi（exnetif 模式）
         ethernet = true,                 -- 启用 SPI 以太网（CH390H，SPI0_CS0=GPIO34）
-        app_factory = true,              -- 启用"应用工厂"内置应用（语音生成 APP）
+        app_factory = true,              -- 启用"应用工厂"内置应用
+        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
         speaker = true,                  -- 启用喇叭（内置 DAC 播放）
         mic = true,                      -- 启用麦克风（板载 ADC 录音）
         -- sd_card = true,                  -- 启用 SD/TF 卡（需配 storage.sd_card）
@@ -117,6 +118,8 @@ return {
         show_storage_settings = true,    -- 设置页存储空间入口
         show_ethernet_settings = true,   -- 设置页以太网设置入口
         show_app_factory = true,         -- 桌面显示"应用工厂"入口 ← 配 app_factory 时打开
+        show_ai_chat = true,             -- 桌面显示"AI助手"入口 ← 配 ai_chat 时打开
+        ai_chat = true,                  -- 启用"AI聊天助手"内置应用
     },
 
     -- ===== 存储设备: SD/TF 卡 + NAND Flash =====

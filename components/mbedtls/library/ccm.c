@@ -111,8 +111,7 @@ void mbedtls_ccm_free( mbedtls_ccm_context *ctx )
  * (Always using b as the source helps the compiler optimise a bit better.)
  */
 #define UPDATE_CBC_MAC                                                      \
-    for( i = 0; i < 16; i++ )                                               \
-        y[i] ^= b[i];                                                       \
+    mbedtls_xor( y, y, b, 16 );                                             \
                                                                             \
     if( ( ret = mbedtls_cipher_update( &ctx->cipher_ctx, y, 16, y, &olen ) ) != 0 ) \
         return( ret );
@@ -131,8 +130,7 @@ void mbedtls_ccm_free( mbedtls_ccm_context *ctx )
             return( ret );                                              \
         }                                                               \
                                                                         \
-        for( i = 0; i < (len); i++ )                                    \
-            (dst)[i] = (src)[i] ^ b[i];                                 \
+        mbedtls_xor( (dst), (src), b, (len) );                         \
     } while( 0 )
 
 /*

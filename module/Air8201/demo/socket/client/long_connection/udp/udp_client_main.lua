@@ -22,7 +22,7 @@ local udp_client_receiver = require "udp_client_receiver"
 local udp_client_sender = require "udp_client_sender"
 
 -- 电脑访问：https://iot.luatos.com/#/page6/netlab
--- 详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
+-- 详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://iot.luatos.com/#/p8000/netlab) 。
 -- 登陆成功后，先点击"工具类" 再点击"Netlab测试工具" 最后在弹出的界面中点击 "打开UDP" 按钮，会创建一个UDP server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "115.120.239.161"

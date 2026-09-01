@@ -73,18 +73,23 @@ local function on_sip_incoming(from, uri, to)
     g_sip_state = "sip_incoming"
     g_call_direction = "outgoing"
     if config.auto_answer_sip then
-        logi("自动接听 SIP")
-        sys.publish("SIP_ACCEPT_REQ")
+        logi("启动 SIP 183 早期媒体")
+        sys.publish("SIP_PROGRESS_REQ")
+    end
+end
+
+local function on_sip_progressing()
+    g_sip_state = "sip_progressing"
+    if g_call_direction == "outgoing" and g_cc_state == STATE_CC_IDLE then
+        logi("早期媒体已建立，拨打手机", config.target_phone_number)
+        sys.publish("CC_DIAL_REQ", config.target_phone_number)
     end
 end
 
 local function on_sip_connected()
     logi("SIP 已连接")
     g_sip_state = "sip_connected"
-    if g_call_direction == "outgoing" and g_cc_state == STATE_CC_IDLE then
-        logi("呼出场景：拨打手机", config.target_phone_number)
-        sys.publish("CC_DIAL_REQ", config.target_phone_number)
-    elseif g_call_direction == "incoming" and g_cc_state == "cc_ringing" then
+    if g_call_direction == "incoming" and g_cc_state == "cc_ringing" then
         logi("呼入场景：接听手机")
         sys.publish("CC_ACCEPT_REQ")
     end
@@ -114,6 +119,7 @@ local function on_sip_failed(reason)
 end
 
 sys.subscribe("SIP_INCOMING", on_sip_incoming)
+sys.subscribe("SIP_PROGRESSING", on_sip_progressing)
 sys.subscribe("SIP_CONNECTED", on_sip_connected)
 sys.subscribe("SIP_DISCONNECTED", on_sip_disconnected)
 sys.subscribe("SIP_FAILED", on_sip_failed)
@@ -133,6 +139,10 @@ end
 local function on_cc_connected()
     logi("CC 已连接")
     g_cc_state = "cc_connected"
+    if g_call_direction == "outgoing" and g_sip_state == "sip_progressing" then
+        logi("CC 已接通，现在接听 SIP")
+        sys.publish("SIP_ACCEPT_REQ")
+    end
     if g_sip_state == "sip_connected" then
         on_both_connected()
     end

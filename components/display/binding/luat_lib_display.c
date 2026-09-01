@@ -79,6 +79,7 @@ static const display_panel_reg_t panel_regs[] =
     {"ili9341", "spi", &spi_panel_ili9341},
     {"st7701s", "rgb", &rgb_panel_st7701s},
     {"st7701s", "dsi", &dsi_panel_st7701s},
+    {"nv3052c", "rgb", &rgb_panel_nv3052c},
     {"", NULL, NULL}
 };
 

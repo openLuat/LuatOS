@@ -523,7 +523,7 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     }
     
     // 设置缓冲（单/双缓冲由 buf2 是否有效决定）
-    lv_display_set_buffers(ctx->display, buf1, buf2, buf_size, LV_DISPLAY_RENDER_MODE_DIRECT);
+    lv_display_set_buffers(ctx->display, buf1, buf2, buf_size, LV_DISPLAY_RENDER_MODE_FULL);
     
     // 平台提供三缓冲时，把第三块挂到 LVGL（借用平台缓冲，数据不释放）
     if (buf_count >= 3) {

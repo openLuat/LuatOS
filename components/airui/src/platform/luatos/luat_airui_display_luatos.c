@@ -152,13 +152,13 @@ static int luatos_display_get_buffers(airui_ctx_t *ctx, void **fb_addr, uint32_t
     }
 
     if (fb_addr != NULL) {
-        *fb_addr = (fb_info->fb_start) ? fb_info->fb_start : dbuf->buffer;
+        *fb_addr = dbuf->buffer;
     }
     if (buf_size != NULL) {
-        *buf_size = (fb_info->fb_start) ? fb_info->fb_size : dbuf->size;
+        *buf_size = dbuf->size;
     }
     if (count != NULL) {
-        *count = (fb_info->fb_start) ? fb_info->fb_count : dbuf->count;
+        *count = dbuf->count;
     }
     
     return 0;

@@ -77,9 +77,85 @@ static int l_hzfont_debug(lua_State* L) {
     return 1;
 }
 
+/**
+获取字符灰度位图
+@api hzfont.getBitmap(char[, font_size])
+@string char 单个 UTF-8 字符（中文/英文均可）
+@int font_size 字号（像素高度），默认 12
+@return int 宽度
+@return int 高度
+@return string 灰度像素数据（width×height 字节，每字节 0-255）
+@usage
+local w, h, data = hzfont.getBitmap("中", 16)
+-- data 是灰度字符串，每字节一个像素，0=透明 255=不透明
+*/
+static int l_hzfont_getBitmap(lua_State* L) {
+    size_t len = 0;
+    const char* utf8 = luaL_checklstring(L, 1, &len);
+    if (utf8 == NULL || len == 0) {
+        lua_pushinteger(L, 0);
+        lua_pushinteger(L, 0);
+        lua_pushstring(L, "");
+        return 3;
+    }
+
+    int font_size = 12;
+    if (!lua_isnoneornil(L, 2)) {
+        font_size = (int)luaL_checkinteger(L, 2);
+    }
+
+    // UTF-8 解码，获取 Unicode 码点
+    uint32_t codepoint = 0;
+    unsigned char c = (unsigned char)utf8[0];
+    if (c < 0x80) {
+        codepoint = c;
+    } else if ((c & 0xE0) == 0xC0) {
+        codepoint = (c & 0x1F) << 6;
+        if (len > 1) codepoint |= ((unsigned char)utf8[1] & 0x3F);
+    } else if ((c & 0xF0) == 0xE0) {
+        codepoint = (c & 0x0F) << 12;
+        if (len > 1) codepoint |= ((unsigned char)utf8[1] & 0x3F) << 6;
+        if (len > 2) codepoint |= ((unsigned char)utf8[2] & 0x3F);
+    } else if ((c & 0xF8) == 0xF0) {
+        codepoint = (c & 0x07) << 18;
+        if (len > 1) codepoint |= ((unsigned char)utf8[1] & 0x3F) << 12;
+        if (len > 2) codepoint |= ((unsigned char)utf8[2] & 0x3F) << 6;
+        if (len > 3) codepoint |= ((unsigned char)utf8[3] & 0x3F);
+    }
+
+    // 查找 glyph 索引
+    uint16_t glyph_index = 0;
+    int ret = luat_hzfont_lookup_glyph_index(codepoint, &glyph_index);
+    if (ret != 0 || glyph_index == 0) {
+        lua_pushinteger(L, 0);
+        lua_pushinteger(L, 0);
+        lua_pushstring(L, "");
+        return 3;
+    }
+
+    // 获取灰度位图
+    const TtfBitmap* bitmap = luat_hzfont_get_bitmap(glyph_index, font_size, 0);
+    if (bitmap == NULL || bitmap->width == 0 || bitmap->height == 0) {
+        lua_pushinteger(L, 0);
+        lua_pushinteger(L, 0);
+        lua_pushstring(L, "");
+        return 3;
+    }
+
+    uint32_t w = bitmap->width;
+    uint32_t h = bitmap->height;
+
+    // 返回宽高和灰度数据（每字节一个像素，0-255）
+    lua_pushinteger(L, w);
+    lua_pushinteger(L, h);
+    lua_pushlstring(L, (const char*)bitmap->pixels, w * h);
+    return 3;
+}
+
 static const rotable_Reg_t reg_hzfont[] = {
     { "init",        ROREG_FUNC(l_hzfont_init)},
     { "debug",       ROREG_FUNC(l_hzfont_debug)},
+    { "getBitmap",   ROREG_FUNC(l_hzfont_getBitmap)},
     { "HZFONT_CACHE_128", ROREG_INT(128)},
     { "HZFONT_CACHE_256", ROREG_INT(256)},
     { "HZFONT_CACHE_512", ROREG_INT(512)},

@@ -1,11 +1,16 @@
 --[[
 @module active_mode
 @summary 已激活模式（通过 create.lua 通道上报）
-@version 4.0
-@date    2026.08.28
+@version 4.2
+@date    2026.09.02
 @usage
 已激活模式（004.000.009 起由 GNSS 开关策略驱动，不再按 work_mode 区分上报节奏）：
-- GNSS 开启条件（满足任一）：开机后 300 秒内；gsensor 正在震动；当前未震动但最近 180 秒内震过
+- 三个上报模式并存：实时上报 / GNSS 开启 / GNSS 关闭
+- GNSS 开启条件（满足任一）：开机后 300 秒内；gsensor 正在震动；当前未震动但最近 180 秒内震过；
+  实时上报模式结束后 180 秒内（强制进入 GNSS 开启模式）
+- 实时上报（fast_report 下行命令触发）：每 1 秒上报一次，除 1293/1294 外其余 TLV 都上报，
+  持续 1 分钟，期间暂停 GNSS 开关评估；进入时必须开启 GNSS（若未开立即强制开）；
+  重复收到命令重置倒计时；结束强制进入 GNSS 开启模式
 - GNSS 开：每 10 秒上报一次，功耗 mode0（全功率）
 - GNSS 关：每 300 秒上报一次，功耗 mode1（低功耗）
 通过 create.lua 的 NET_SENT_RDY 通道上报数据。
@@ -41,12 +46,28 @@ local GNSS_MOTION_KEEP = 180   -- 条件2/3：震动后 GNSS 保持开启的时�
 local REPORT_GNSS_ON  = 10     -- GNSS 开启期间上报间隔（秒）
 local REPORT_GNSS_OFF = 300    -- GNSS 关闭期间上报间隔（秒）
 
+-- ====== 实时上报模式（fast_report，004.000.028 新增） ======
+-- 服务器下发 fast_report 命令后进入：每秒上报一次，除 1293/1294 外其余 TLV 都上报，
+-- 持续 FAST_REPORT_DURATION 秒后结束；进行中重复收到命令重置倒计时（续期）；
+-- 结束后强制进入 GNSS 开启模式，并在 FAST_REPORT_GNSS_HOLD 秒内视为需要 GNSS
+-- （之后恢复按 gsensor 条件正常评估）。
+local FAST_REPORT_DURATION = 60    -- 实时上报持续时长（秒）= 1 分钟（每秒 1 次约 60 次上报）
+local REPORT_FAST = 1              -- 实时上报期间上报间隔（秒）
+local FAST_REPORT_GNSS_HOLD = 180  -- 实时上报结束后 GNSS 强制保持开启时长（秒）
+
 local boot_ticks = 0           -- 主循环启动时的 mcu.ticks()（开机窗口基准，毫秒级不受 NTP 校时影响）
 local gnss_active = false      -- GNSS 当前开关状态
 local last_report_time = 0     -- 上次上报时间戳（上报节流）
+local fast_report_active = false  -- 是否处于实时上报模式
+local fast_report_deadline = 0    -- 实时上报模式结束时间戳（os.time，秒）
+local fast_report_hold_until = 0  -- 实时上报结束后 GNSS 强制开启保持窗口截止时间戳
 
 -- 评估当前是否需要开启 GNSS
 local function is_gnss_required()
+    -- 条件0：实时上报模式结束后 GNSS 强制保持窗口内（先进入 GNSS 开启模式，再按 gsensor 条件评估）
+    if fast_report_hold_until > 0 and os.time() < fast_report_hold_until then
+        return true
+    end
     -- 条件1：开机 300 秒内（mcu.ticks 返回毫秒 tick）
     if (mcu.ticks() - boot_ticks) / 1000 < GNSS_BOOT_WINDOW then
         return true
@@ -59,6 +80,20 @@ local function is_gnss_required()
         return true
     end
     return false
+end
+
+-- 执行 GNSS 开启动作（三处复用：实时上报进入 / 实时上报结束强制 / 主循环按条件评估命中）
+-- reason 为触发原因，写入日志与运维日志便于远程排查
+local function switch_gnss_on(reason)
+    gnss_active = true
+    location.start_find_gps()                       -- 打开 GNSS（DEFAULT 常开应用）
+    lowpower.set_mode(config.POWER_MODE.NORMAL)     -- 功耗 mode0（GNSS 需全功率）
+    gsensor.stream_start()                          -- 开启 20Hz 三轴流式采样（TLV 1293 数据源）
+    location.nmea_stream_start()                    -- 开启 1Hz NMEA 采样（TLV 1294 数据源）
+    last_report_time = 0                            -- 立即触发一次上报
+    tools.led_gnss_switched_on()                    -- LED 亮 10 秒（关→开切换提示）
+    log.info("active_mode", "GNSS 开启（" .. reason .. "），功耗 mode0，每 10 秒上报")
+    excloud.mtn_log("info", "gnss", "GNSS开启", "触发", reason, "上报间隔", REPORT_GNSS_ON .. "s")
 end
 -- ================================================
 
@@ -155,7 +190,8 @@ end
 -- 注意：excloud 编码 ASCII 空字符串会失败导致整包发送失败，因此空值字段一律跳过
 -- xyz_stream：GNSS 开启期间 20Hz 流式采样的三轴原始数据（二进制，仅走 TLV 通道）
 -- nmea_stream：GNSS 开启期间 1Hz 采样的定位五元组数据流（二进制，仅走 TLV 通道）
--- gnss_active：GNSS 是否开启；开启时不上报 1292（单点三轴），缩短整包报文长度
+-- gnss_active：GNSS 是否开启；开启且非实时上报时不上报 1292（单点三轴），缩短整包报文长度
+-- fast_report_active（模块级）：实时上报模式下 1292 单点三轴照常上报（此时 1293/1294 流不带）
 local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active)
     local FM = excloud.FIELD_MEANINGS
     local DT = excloud.DATA_TYPES
@@ -182,8 +218,10 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active)
         table.insert(data, { field_meaning = FM.SERVING_CELL, data_type = DT.ASCII, value = d.band })            -- 驻留频段
     end
     -- DA221 三轴加速度：格式 "x,y,z"（单位 g，3位小数），自定义编号 1292
-    -- 仅 GNSS 关闭时上报（GNSS 开启期间整包已带 1293 三轴原始流，单点三轴冗余，不上报以缩短报文）
-    if not gnss_active and d.gsensor_xyz and d.gsensor_xyz ~= "" then
+    -- 上报条件：GNSS 关闭时（开启期间整包已带 1293 三轴原始流，单点三轴冗余，不上报以缩短报文），
+    -- 或实时上报模式下（1293/1294 流不上报，单点三轴作为 gsensor 状态随每秒报文上报）
+    if (not gnss_active or fast_report_active)
+        and d.gsensor_xyz and d.gsensor_xyz ~= "" then
         table.insert(data, { field_meaning = 1292, data_type = DT.ASCII, value = d.gsensor_xyz })
     end
     -- DA221 20Hz 三轴原始数据流（仅 GNSS 开启期间采集）：最近 10 秒 200 个样本，
@@ -327,7 +365,7 @@ local function collect_data_and_report()
 
     -- DA221 三轴加速度（单位 g，协程上下文可直接读 I2C）
     -- 格式化为 "x,y,z" 逗号分隔字符串；JSON 报文始终携带，
-    -- TLV 1292 字段仅 GNSS 关闭时上报（开启期间由 1293 原始流替代，见 build_aircloud_tlv）
+    -- TLV 1292 字段：GNSS 关闭或实时上报模式下上报（开启且非实时上报时由 1293 原始流替代，见 build_aircloud_tlv）
     local x_acc, y_acc, z_acc = gsensor.read_xyz()
     local gsensor_xyz = ""
     if x_acc then
@@ -336,12 +374,13 @@ local function collect_data_and_report()
         log.warn("active_mode", "gsensor 未初始化，三轴数据不上报")
     end
 
-    -- GNSS 开启期间：取 20Hz 流式采样的最近 200 个样本
+    -- GNSS 开启且非实时上报期间：取 20Hz 流式采样的最近 200 个样本
     -- （10 秒 × 20Hz，12bit 紧凑编码 = 100 组 × 9 字节 = 900 字节），作为 TLV 1293 二进制字段
     -- 随本次报文上报。注意：二进制数据只走 AirCloud TLV 通道，不进 JSON 报文（避免 json.encode
     -- 产生非法 JSON）；采样由 gsensor 常驻任务后台进行，本协程阻塞（等网络/发数据）期间采样不中断。
+    -- 实时上报模式下不上报 1293（用户要求每秒报文只带常规字段），故不取流也不判异常。
     local gsensor_stream, stream_count = "", 0
-    if gnss_active then
+    if gnss_active and not fast_report_active then
         gsensor_stream, stream_count = gsensor.get_stream_data(200)
         if stream_count > 0 then
             log.info("active_mode", "gsensor_stream:", stream_count, "样本", #gsensor_stream, "字节")
@@ -359,8 +398,12 @@ local function collect_data_and_report()
     -- 驻留频段格式化为 "LTE B{n}"
     local band_str = cur_band and ("LTE B" .. cur_band) or ""
     -- 779(wake_interval)：上报本次实际使用的上报间隔（秒）
-    -- 由 GNSS 开关状态决定：开→10 秒，关→300 秒（不再按模式/服务端配置计算）
-    last_calc_interval = gnss_active and REPORT_GNSS_ON or REPORT_GNSS_OFF
+    -- 三态：实时上报→1 秒，GNSS 开→10 秒，GNSS 关→300 秒
+    if fast_report_active then
+        last_calc_interval = REPORT_FAST
+    else
+        last_calc_interval = gnss_active and REPORT_GNSS_ON or REPORT_GNSS_OFF
+    end
     local wake_interval = last_calc_interval
 
     -- 构建属性上报消息
@@ -368,14 +411,15 @@ local function collect_data_and_report()
     local gps_str = loc_data and loc_data.gps or ""
     local gps_status = loc_data and loc_data.gps_status or 0
 
-    -- GNSS 开启期间：取 1Hz NMEA 采样的最近 10 个样本（10 秒 × 10 字节 = 100 字节），
+    -- GNSS 开启且非实时上报期间：取 1Hz NMEA 采样的最近 10 个样本（10 秒 × 10 字节 = 100 字节），
     -- 作为 TLV 1294 二进制字段随本次报文上报。
     -- 经纬度以本次报文坐标（512/513 字段，即 loc_data.gps）为参考做差值编码，
     -- 服务端用报文经纬度 + 差值即可还原每秒的绝对坐标。
     -- 注意：二进制数据只走 AirCloud TLV 通道，不进 JSON 报文；
     -- 采样由 location 常驻任务后台进行，本协程阻塞（等网络/发数据）期间采样不中断。
+    -- 实时上报模式下不上报 1294（与 1293 同理），故不取流。
     local nmea_stream_bin, nmea_count = "", 0
-    if gnss_active then
+    if gnss_active and not fast_report_active then
         local ref_lat, ref_lng = nil, nil
         if gps_str ~= "" then
             local la, ln = gps_str:match("^([%d%.%-]+),([%d%.%-]+)$")
@@ -432,7 +476,7 @@ local function collect_data_and_report()
     -- AirCloud 通道：以 TLV 形式上报（其余字段不含 msg_id/type/ts/imei；
     -- 1293 为 GNSS 开启期间的 20Hz 三轴原始数据流（12bit 紧凑编码），
     -- 1294 为 GNSS 开启期间的 1Hz 定位五元组数据流，均为二进制，仅走此通道；
-    -- 1292 单点三轴仅 GNSS 关闭时上报）
+    -- 1292 单点三轴：GNSS 关闭或实时上报模式下上报）
     create.send_aircloud(build_aircloud_tlv(msg.data, gsensor_stream, nmea_stream_bin, gnss_active))
     log.info("active_mode", "数据已通过 AirCloud TLV 发送")
 
@@ -478,6 +522,22 @@ local function main_loop()
         motion_event_flag = true
     end)
 
+    -- 订阅实时上报命令（remote.fast_report 发布）：无论当前 GNSS 开启/关闭，立即进入实时上报模式。
+    -- 持续 FAST_REPORT_DURATION 秒后由主循环统一结束；进行中重复收到命令则重置倒计时（续期 1 分钟）。
+    -- 进入实时上报模式必须开启 GNSS（实时上报要带实时位置），若当前关闭则立即执行开启动作；
+    -- 实时上报期间主循环暂停 GNSS 评估，不会与之冲突。
+    sys.subscribe("FAST_REPORT_START", function()
+        if not gnss_active then
+            switch_gnss_on("fast_report进入实时上报强制")
+        end
+        fast_report_active = true
+        fast_report_deadline = os.time() + FAST_REPORT_DURATION
+        log.info("active_mode", "收到 fast_report：进入实时上报模式，每", REPORT_FAST,
+            "秒上报（不带1293/1294），持续", FAST_REPORT_DURATION, "秒")
+        excloud.mtn_log("info", "fast_report", "进入实时上报模式",
+            "持续", FAST_REPORT_DURATION .. "s", "间隔", REPORT_FAST .. "s")
+    end)
+
     -- 初始化 LED
     if tools and tools.init_led then
         tools.init_led()
@@ -497,35 +557,48 @@ local function main_loop()
     boot_ticks = mcu.ticks()
     last_report_time = 0
 
-    log.info("active_mode", "GNSS 开关策略已启用：开机300s/震动180s内→GNSS开+10s上报，否则→GNSS关+300s上报+mode1")
+    log.info("active_mode", "上报模式：实时上报(1s,fast_report) / GNSS开(10s) / GNSS关(300s)，实时上报结束强制进GNSS开")
 
     while true do
-        -- 1) 评估 GNSS 开关需求（开机窗口 / 正在震动 / 180 秒内震过）
-        local gnss_needed = is_gnss_required()
-
-        -- 2) GNSS 状态机：仅在状态切换时执行开关动作
-        if gnss_needed and not gnss_active then
-            gnss_active = true
-            location.start_find_gps()                       -- 打开 GNSS（DEFAULT 常开应用）
-            lowpower.set_mode(config.POWER_MODE.NORMAL)     -- 功耗 mode0（GNSS 需全功率）
-            gsensor.stream_start()                          -- 开启 20Hz 三轴流式采样（TLV 1293 数据源）
-            location.nmea_stream_start()                    -- 开启 1Hz NMEA 采样（TLV 1294 数据源）
-            last_report_time = 0                            -- 立即触发一次上报
-            tools.led_gnss_switched_on()                    -- LED 亮 10 秒（关→开切换提示）
-            log.info("active_mode", "GNSS 开启（开机窗口/震动），功耗 mode0，每 10 秒上报")
-            excloud.mtn_log("info", "gnss", "GNSS开启", "触发", "开机窗口/震动", "上报间隔", REPORT_GNSS_ON .. "s")
-        elseif not gnss_needed and gnss_active then
-            gnss_active = false
-            location.stop_find_gps()                        -- 关闭 GNSS
-            lowpower.set_mode(config.POWER_MODE.POWER_SAVE) -- 功耗 mode1（低功耗）
-            gsensor.stream_stop()                           -- 停止 20Hz 流式采样并清空缓冲
-            location.nmea_stream_stop()                     -- 停止 1Hz NMEA 采样并清空缓冲
-            log.info("active_mode", "GNSS 关闭（无震动超时），功耗 mode1，每 300 秒上报")
-            excloud.mtn_log("info", "gnss", "GNSS关闭", "触发", "无震动超时", "上报间隔", REPORT_GNSS_OFF .. "s")
+        -- 0) 实时上报模式到期检查：持续 FAST_REPORT_DURATION 秒后结束，
+        --    结束后必须先进入 GNSS 开启模式（若当前未开则强制打开，并给一个保持窗口），
+        --    之后由 is_gnss_required 按 gsensor 条件正常评估进入其他模式
+        if fast_report_active and os.time() >= fast_report_deadline then
+            fast_report_active = false
+            fast_report_hold_until = os.time() + FAST_REPORT_GNSS_HOLD
+            log.info("active_mode", "实时上报模式结束（已持续", FAST_REPORT_DURATION, "秒），强制进入 GNSS 开启模式")
+            excloud.mtn_log("info", "fast_report", "实时上报模式结束", "强制进入GNSS开启模式")
+            if not gnss_active then
+                switch_gnss_on("实时上报结束强制")
+            end
         end
 
-        -- 3) 上报节流：GNSS 开→10 秒一次；GNSS 关→300 秒一次
-        local interval = gnss_active and REPORT_GNSS_ON or REPORT_GNSS_OFF
+        -- 1) 评估 GNSS 开关需求（开机窗口 / 正在震动 / 180 秒内震过 / 实时上报结束保持窗口）
+        --    实时上报模式期间暂停评估（期间不切换 GNSS 开关，结束后统一处理）
+        if not fast_report_active then
+            local gnss_needed = is_gnss_required()
+
+            -- 2) GNSS 状态机：仅在状态切换时执行开关动作
+            if gnss_needed and not gnss_active then
+                switch_gnss_on("开机窗口/震动")
+            elseif not gnss_needed and gnss_active then
+                gnss_active = false
+                location.stop_find_gps()                        -- 关闭 GNSS
+                lowpower.set_mode(config.POWER_MODE.POWER_SAVE) -- 功耗 mode1（低功耗）
+                gsensor.stream_stop()                           -- 停止 20Hz 流式采样并清空缓冲
+                location.nmea_stream_stop()                     -- 停止 1Hz NMEA 采样并清空缓冲
+                log.info("active_mode", "GNSS 关闭（无震动超时），功耗 mode1，每 300 秒上报")
+                excloud.mtn_log("info", "gnss", "GNSS关闭", "触发", "无震动超时", "上报间隔", REPORT_GNSS_OFF .. "s")
+            end
+        end
+
+        -- 3) 上报节流：实时上报→1 秒一次；GNSS 开→10 秒一次；GNSS 关→300 秒一次
+        local interval = REPORT_GNSS_ON
+        if fast_report_active then
+            interval = REPORT_FAST
+        elseif not gnss_active then
+            interval = REPORT_GNSS_OFF
+        end
         if os.time() - last_report_time >= interval then
             local ok, err = pcall(collect_data_and_report)
             if not ok then
@@ -533,8 +606,9 @@ local function main_loop()
             end
             last_report_time = os.time()
 
-            -- GNSS 关闭期间：上报内部会临时切全功率，上报完恢复功耗 mode1
-            if not gnss_active then
+            -- GNSS 关闭且非实时上报期间：上报内部会临时切全功率，上报完恢复功耗 mode1
+            -- （实时上报模式每秒上报一次，且结束后会强制进入 GNSS 开启，保持 mode0 避免功耗模式震荡）
+            if not gnss_active and not fast_report_active then
                 lowpower.set_mode(config.POWER_MODE.POWER_SAVE)
             end
         end

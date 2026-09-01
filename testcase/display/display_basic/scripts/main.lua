@@ -35,10 +35,10 @@ sys.taskInit(function()
 
     while true do
         for _, c in ipairs(colors) do
-            display.fill(0, 0, 480, 480, c.color)
+            display.fill(0, 0, 854, 480, c.color)   -- 旋转后，填充区域为 854x480
             display.flush()
             log.info("display", "fill", c.name)
-            sys.wait(500)
+            sys.wait(200)
         end
     end
 end)

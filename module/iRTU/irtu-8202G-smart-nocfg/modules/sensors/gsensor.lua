@@ -8,9 +8,9 @@
 --   gsensor.read_raw_xyz()      - 主动读取三轴原始计数值（12 位有符号，-2048~2047）
 --   gsensor.get_last_xyz()      - 获取最近一次震动中断采集的三轴快照（表或 nil）
 --   gsensor.is_xyz_fresh(ms)    - 快照是否在指定毫秒数内（默认 1000ms），用于判断"刚刚震过"
---   gsensor.stream_start()      - 开启 25Hz 三轴原始数据流式采样（GNSS 开启期间调用）
+--   gsensor.stream_start()      - 开启 20Hz 三轴原始数据流式采样（GNSS 开启期间调用）
 --   gsensor.stream_stop()       - 停止流式采样并清空缓冲（GNSS 关闭时调用）
---   gsensor.get_stream_data(n)  - 取最近 n 个样本（默认125=5秒）拼好的字节串与实际样本数
+--   gsensor.get_stream_data(n)  - 取最近 n 个样本（默认200=10秒）按 12bit 紧凑编码拼成字节串
 -- 说明：中断回调内不直接做 I2C 读写（中断上下文禁止耗时/阻塞操作），
 --       仅发布 GSENSOR_XYZ_CAPTURE 事件，由 xyz_capture_task 协程执行读取并存快照。
 local gsensor = {}
@@ -18,11 +18,16 @@ local gsensor = {}
 -- DA221 中断脚：WAKEUP2（需与硬件一致）
 local INT_PIN = gpio.WAKEUP2
 
--- ====== 25Hz 流式采样（GNSS 开启期间采集，供 TLV 1293 上报） ======
-local STREAM_HZ = 25              -- 采样率（每秒 25 次）
-local STREAM_INTERVAL_MS = 40     -- 采样间隔(ms) = 1000/25
-local STREAM_BUFFER_MAX = 130     -- 缓冲容量：5 秒=125 样本 + 少量余量
--- 每样本 6 字节：x/y/z 各 2 字节有符号 int16 大端（网络字节序），样本按时间正序排列
+-- ====== 20Hz 流式采样（GNSS 开启期间采集，供 TLV 1293 上报） ======
+-- 采样率 20Hz：10 秒窗口 200 样本；输出 12bit 紧凑编码（DA221 原始值即 12 位，无损）：
+-- 每 2 个样本 6 个 12bit 值 = 72bit = 9 字节，200 样本 = 100 组 × 9 字节 = 900 字节，
+-- TLV 总长 4+900=904，为整包 1400 字节上限留足余量
+-- （AirCloud 约束：单条数据包内全部 TLV 总字节 ≤ 1400）
+local STREAM_HZ = 20              -- 采样率（每秒 20 次）
+local STREAM_INTERVAL_MS = 50     -- 采样间隔(ms) = 1000/20
+local STREAM_BUFFER_MAX = 205     -- 缓冲容量：10 秒=200 样本 + 少量余量
+-- 缓冲内每样本 6 字节：x/y/z 各 2 字节有符号 int16 大端（网络字节序），样本按时间正序排列；
+-- 输出时由 get_stream_data 压缩为 12bit 紧凑位流
 
 -- 模块状态
 local state = {
@@ -40,7 +45,7 @@ local state = {
     last_xyz = nil,            -- 最近一次中断采集的三轴快照 {x,y,z,raw_x,raw_y,raw_z,ts}
     xyz_capture_on = false,    -- 采集任务运行标志
 
-    stream_on = false,         -- 25Hz 流式采样开关（GNSS 开启期间为 true）
+    stream_on = false,         -- 20Hz 流式采样开关（GNSS 开启期间为 true）
     stream_buffer = {},        -- 流式采样滚动缓冲：每个元素为 6 字节打包样本（x/y/z int16 大端）
     stream_task_on = false,    -- 流式采样任务运行标志
 }
@@ -110,12 +115,12 @@ local function xyz_capture_task()
     log.info("gsensor", "三轴快照采集任务退出")
 end
 
--- 25Hz 流式采样任务：GNSS 开启期间（stream_on=true）持续读取 DA221 原始三轴，
--- 每个样本打包 6 字节（x/y/z 各 2 字节有符号 int16 大端）存入滚动缓冲，
--- 上报时通过 get_stream_data 取最近 125 个样本（5 秒）。
--- 用 mcu.ticks 做时间片调度，自动补偿 I2C 读取耗时，保证实际采样率贴近 25Hz。
+-- 20Hz 流式采样任务：GNSS 开启期间（stream_on=true）持续读取 DA221 原始三轴，
+-- 每个样本以 6 字节（x/y/z 各 2 字节有符号 int16 大端）存入滚动缓冲，
+-- 上报时通过 get_stream_data 取最近 200 个样本（10 秒），压缩为 12bit 紧凑位流输出。
+-- 用 mcu.ticks 做时间片调度，自动补偿 I2C 读取耗时，保证实际采样率贴近 20Hz。
 local function stream_task()
-    log.info("gsensor", "25Hz 流式采样任务启动")
+    log.info("gsensor", "20Hz 流式采样任务启动")
     local next_tick = mcu.ticks()
     while true do
         if state.stream_on and state.initialized and state.exvib then
@@ -126,7 +131,7 @@ local function stream_task()
                     table.remove(state.stream_buffer, 1)
                 end
             end
-            -- 时间片调度：固定 40ms 节拍；I2C 耗时自动补偿；
+            -- 时间片调度：固定 50ms 节拍；I2C 耗时自动补偿；
             -- 落后超过 1 秒（如刚从待机恢复）重新对齐节拍，避免连发追赶
             next_tick = next_tick + STREAM_INTERVAL_MS
             local wait_ms = next_tick - mcu.ticks()
@@ -177,7 +182,7 @@ function gsensor.init()
         sys.taskInit(xyz_capture_task)
     end
 
-    -- 启动 25Hz 流式采样任务（常驻协程，由 stream_on 控制采样/待机）
+    -- 启动 20Hz 流式采样任务（常驻协程，由 stream_on 控制采样/待机）
     if not state.stream_task_on then
         state.stream_task_on = true
         sys.taskInit(stream_task)
@@ -276,13 +281,13 @@ function gsensor.read_raw_xyz()
     return rx, ry, rz
 end
 
--- ====== 25Hz 流式采样接口（GNSS 开启期间采集，作为 TLV 1293 上报） ======
+-- ====== 20Hz 流式采样接口（GNSS 开启期间采集，作为 TLV 1293 上报） ======
 
 -- 开启流式采样（清空缓冲从头采）。GNSS 开启时调用。
 function gsensor.stream_start()
     state.stream_buffer = {}
     state.stream_on = true
-    log.info("gsensor", "流式采样开启: 25Hz, 缓冲上限", STREAM_BUFFER_MAX, "样本")
+    log.info("gsensor", "流式采样开启: 20Hz, 缓冲上限", STREAM_BUFFER_MAX, "样本")
 end
 
 -- 停止流式采样并清空缓冲。GNSS 关闭时调用。
@@ -292,19 +297,32 @@ function gsensor.stream_stop()
     log.info("gsensor", "流式采样停止, 缓冲已清空")
 end
 
--- 取最近 count 个样本（默认 125 = 5 秒）拼接为字节串。
--- 数据格式：每样本 6 字节，按 x,y,z 顺序各 2 字节有符号 int16 大端（网络字节序），
--- 样本按时间正序排列；125 个样本共 750 字节。
--- 采样数不足 count 时返回实际数量（如刚开启采样的首次上报）。
--- 返回 (data, actual_count)；未开启或无数据返回 ("", 0)。
+-- 两个 12bit 值打包为 3 字节（大端位流：a 占高 12bit，b 占低 12bit）。
+-- DA221 原始计数值范围 -2048~2047，两补码截取低 12bit 无损。
+local function pack12(a, b)
+    a, b = a & 0xFFF, b & 0xFFF
+    return string.char((a >> 4) & 0xFF, ((a & 0xF) << 4) | ((b >> 8) & 0xF), b & 0xFF)
+end
+
+-- 取最近 count 个样本（默认 200 = 10 秒），以 12bit 紧凑编码拼接为字节串。
+-- 编码格式：每 2 个样本一组共 9 字节，bit 流顺序为 x1,y1,z1,x2,y2,z2（各 12bit，MSB 在前），
+-- 即把 72bit 大端位流按 12bit 切成 6 段，前 3 段为第 1 个样本的 x/y/z，后 3 段为第 2 个样本。
+-- 服务端解码：每 9 字节一组还原 6 个 12bit 值，最高位为符号位，符号扩展后即原始计数。
+-- 200 样本 = 100 组 × 9 字节 = 900 字节，1293 TLV 总长 4+900=904。
+-- 样本数为奇数时丢弃最旧 1 个样本（保证 2 个一组）；采样数不足 count 时返回实际数量
+-- （如刚开启采样的首次上报）。返回 (data, actual_count)；未开启或无数据返回 ("", 0)。
 function gsensor.get_stream_data(count)
-    count = count or 125
+    count = count or 200
     local buf = state.stream_buffer
     local n = math.min(count, #buf)
-    if n <= 0 then return "", 0 end
+    if n <= 1 then return "", 0 end
+    n = n - (n % 2)  -- 奇数时丢弃最旧 1 个样本，保证 2 个一组
     local out = {}
-    for i = #buf - n + 1, #buf do
-        out[#out + 1] = buf[i]
+    for i = #buf - n + 1, #buf - 1, 2 do
+        local x1, y1, z1 = string.unpack(">i2i2i2", buf[i])
+        local x2, y2, z2 = string.unpack(">i2i2i2", buf[i + 1])
+        -- 9 字节 = 3 个 3 字节组：x1y1 | z1x2 | y2z2，拼接后即 x1,y1,z1,x2,y2,z2 顺序的 72bit 位流
+        out[#out + 1] = pack12(x1, y1) .. pack12(z1, x2) .. pack12(y2, z2)
     end
     return table.concat(out), n
 end

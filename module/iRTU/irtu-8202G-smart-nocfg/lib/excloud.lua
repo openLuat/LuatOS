@@ -44,6 +44,12 @@
 -- 2、更新内容
 --    新增excloud.version()接口
 --    支持excloud库文件版本号管理功能，版本号的格式为：yyyymmddhhmm，表示yyyy年mm月dd日hh时mm分发布的版本
+--
+-- 版本号：202609011200
+-- 1、更新时间：2026-09-01 12:00
+-- 2、更新内容
+--    新增复位看门狗：重连多次失败且 getip 也失败时，10 分钟后复位设备自愈（协议栈死锁兜底）
+--    安全保险：可取消（重连成功/主动关闭即解除）+ 每日限次（fskv 持久化，超 5 次降级为 1 小时慢速重试）
 ]] local excloud = {}
 local httpplus = require "httpplus"
 local exmtn = require "exmtn"
@@ -113,6 +119,17 @@ local is_heartbeat_running, heartbeat_was_running = false, false
 local is_mtn_log_uploading = false
 local upload_mtn_log_files = nil -- 前向声明，handle_mtn_log_upload_request 内部会启动该上传任务
 local ip_ready_subscribed, mqtt_auth_pending = false, false
+
+-- 复位看门狗配置（重连失败兜底自愈）
+local WATCHDOG = {
+    delay_ms = 10 * 60 * 1000, -- 武装后 10 分钟触发复位
+    daily_limit = 5, -- 每日最大复位次数
+    fallback_delay_ms = 60 * 60 * 1000, -- 超限后降级为 1 小时慢速重试
+    count_key = "wdt_reboot_count", -- fskv 键：当日复位计数
+    date_key = "wdt_reboot_date" -- fskv 键：最后复位日期（YYYYMMDD）
+}
+local reboot_watchdog_timer = nil -- 复位定时器
+local fallback_retry_timer = nil -- 超限后的慢速重试循环定时器
 
 -- 根据传输协议转换为getip_type（消除4处重复）
 local function transport_to_getip_type()
@@ -1306,6 +1323,81 @@ function excloud.get_mtn_log_status()
     }
 end
 
+-- 取消复位看门狗（幂等，可重复调用）
+local function cancel_reboot_watchdog()
+    if reboot_watchdog_timer then
+        sys.timerStop(reboot_watchdog_timer)
+        reboot_watchdog_timer = nil
+        log.info("[excloud]复位看门狗已取消")
+    end
+    if fallback_retry_timer then
+        sys.timerStop(fallback_retry_timer)
+        fallback_retry_timer = nil
+        log.info("[excloud]慢速重试定时器已取消")
+    end
+end
+
+-- 读取当日复位计数（fskv 跨复位持久化，按自然日重置）
+local function get_today_reboot_count()
+    local today = os.date("%Y%m%d") or ""
+    local last_date = fskv.get(WATCHDOG.date_key) or ""
+    local count = 0
+    if last_date == today then
+        count = tonumber(fskv.get(WATCHDOG.count_key)) or 0
+    else
+        fskv.set(WATCHDOG.date_key, today)
+        fskv.set(WATCHDOG.count_key, "0")
+    end
+    return count
+end
+
+-- 执行复位（复位前自增计数并落盘，延迟 300ms 确保日志与 fskv 刷出）
+local function execute_watchdog_reboot()
+    reboot_watchdog_timer = nil
+    local today = os.date("%Y%m%d") or ""
+    local count = tonumber(fskv.get(WATCHDOG.count_key)) or 0
+    -- 跨天保护：若武装期间跨天，从 1 重新计数
+    if (fskv.get(WATCHDOG.date_key) or "") ~= today then
+        count = 0
+    end
+    count = count + 1
+    fskv.set(WATCHDOG.count_key, tostring(count))
+    fskv.set(WATCHDOG.date_key, today)
+    log.error("[excloud]重连失败看门狗触发，执行设备复位（当日第 " .. count .. " 次）")
+    sys.timerStart(rtos.reboot, 300)
+end
+
+-- 武装复位看门狗：delay_ms 内无法重连则复位设备；每日限次，超限降级为 1 小时慢速重试
+local function arm_reboot_watchdog()
+    cancel_reboot_watchdog()
+    local count = get_today_reboot_count()
+    if count >= WATCHDOG.daily_limit then
+        log.warn("[excloud]复位看门狗已达当日上限 " .. count .. "/" .. WATCHDOG.daily_limit ..
+                     "，降级为 " .. (WATCHDOG.fallback_delay_ms / 60000) .. " 分钟慢速重试")
+        fallback_retry_timer = sys.timerLoopStart(function()
+            if is_open and not is_connected then
+                log.warn("[excloud]慢速重试：重新获取服务器信息并重连")
+                config.current_conninfo = nil
+                sys.taskInit(function()
+                    local ok, result = excloud.getip_with_retry(transport_to_getip_type())
+                    if ok then
+                        reconnect_count = 0
+                        excloud.close()
+                        sys.wait(200)
+                        excloud.open()
+                    else
+                        log.error("[excloud]慢速重试 getip 仍失败，等待下一轮")
+                    end
+                end)
+            end
+        end, WATCHDOG.fallback_delay_ms)
+        return
+    end
+    reboot_watchdog_timer = sys.timerStart(execute_watchdog_reboot, WATCHDOG.delay_ms)
+    log.warn("[excloud]复位看门狗已武装：若 " .. (WATCHDOG.delay_ms / 60000) ..
+                 " 分钟内无法重连，将复位设备（当日第 " .. (count + 1) .. " 次）")
+end
+
 -- 重连逻辑
 schedule_reconnect = function()
     if not is_open then
@@ -1330,6 +1422,7 @@ schedule_reconnect = function()
                     log.info("[excloud]重连获取服务器成功", "host:", config.host, "port:", config.port,
                         "transport:", config.transport)
 
+                    cancel_reboot_watchdog() -- getip 成功说明服务端可达，解除看门狗
                     reconnect_count = 0
 
                     excloud.close()
@@ -1337,6 +1430,7 @@ schedule_reconnect = function()
                     excloud.open()
                 else
                     log.error("[excloud]重新获取服务器信息失败，将在网络恢复后重试")
+                    arm_reboot_watchdog() -- getip 持续失败，武装 10 分钟复位看门狗兜底
                     if callback_func then
                         callback_func("reconnect_failed", {
                             count = reconnect_count,
@@ -1431,6 +1525,7 @@ local function _socket_callback(label, netc, event, param)
         log.info("[excloud]" .. label .. " socket", label .. "连接成功")
         is_connected = true;
         reconnect_count = 0
+        cancel_reboot_watchdog() -- 连接成功，解除复位看门狗
         if callback_func then
             callback_func("connect_result", {
                 success = true
@@ -1499,6 +1594,7 @@ local function mqtt_client_event_cbfunc(connected, event, data, payload, metas)
         is_connected = true
         log.info("[excloud]MQTT connected")
         reconnect_count = 0
+        cancel_reboot_watchdog() -- MQTT 连接成功，解除复位看门狗
         local device_id_hex = string.toHex(device_id_binary)
         local auth_topic = "/AirCloud/down/" .. device_id_hex .. "/auth"
         local all_topic = "/AirCloud/down/" .. device_id_hex .. "/all"
@@ -2007,6 +2103,7 @@ function excloud.close()
         return false, "excloud not open"
     end
 
+    cancel_reboot_watchdog() -- 主动关闭，解除复位看门狗与慢速重试
     if reconnect_timer then
         sys.timerStop(reconnect_timer)
         reconnect_timer = nil

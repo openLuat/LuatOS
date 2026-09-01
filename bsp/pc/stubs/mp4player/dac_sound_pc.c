@@ -59,7 +59,7 @@ int dac_sound_fill_txfifo(unsigned char per, unsigned char *data, unsigned int s
     return 0;
 }
 
-int dac_sound_set_volume(unsigned char volume)
+int dac_sound_set_volume(int volume)
 {
     (void)volume;
     return 0;

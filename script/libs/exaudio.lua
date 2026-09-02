@@ -1,10 +1,15 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.2
-@date    2026.8.27
+@version 3.3
+@date    2026.9.1
 @author  拓毅恒
 @updates
+    v3.3 2026.9.1
+        1. 修复Air1602开发板调用exaudio.play_stop()后exaudio.pm(exaudio.SHUTDOWN)会关闭I2C1、导致LCD触摸失效的问题。
+        2. 新增 exair4017 支持：audio_setup_param 设置 model="exair4017" 后，通过 UART1(可选) 驱动 Air4017 播放与录音。
+           播放：exaudio.play_start({type=2, ...}) 启动后，用 exaudio.play_stream_write() 流式喂入 16kHz/16bit/单声道 PCM；
+           录音：exaudio.record_start() 接收 Air4017 MIC 上行(16kHz/16bit/单声道, 512B/帧)，通过 path 回调逐段落盘。
     v3.2 2026.8.27
         1. 音频框架选择同时依据模组默认偏好和固件实际提供的audio/audio_v2库，
            修复未启用LUAT_USE_AUDIO_V2时仍误选新音频框架的问题。
@@ -85,6 +90,9 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202609011550
+-- 1、更新时间：2026-09-01 15:50
+--    修复Air1602开发板exaudio.pm(exaudio.SHUTDOWN)会关闭I2C1导致LCD触摸失效的问题。
 -- 版本号：202608272002
 -- 1、更新时间：2026-08-27 20:02
 --    音频框架选择同时依据模组默认偏好和固件实际提供的audio/audio_v2库，修复未启用LUAT_USE_AUDIO_V2时仍误选新音频框架的问题。
@@ -1067,6 +1075,9 @@ end
 -- ==================== 模块接口 ====================
 -- 获取推荐的流式缓冲区大小
 function exaudio.get_stream_buffer_size()
+    if audio_setup_param.model == "exair4017" then
+        return 3200
+    end
     if USE_AUDIO_V2 then
         -- audio_v2模式下返回推荐值
         local default_channels = audio_setup_param.channels or 1 
@@ -1084,6 +1095,161 @@ function exaudio.get_stream_buffer_size()
     local default_rate = audio_setup_param.i2s_sample 
     local default_depth = audio_setup_param.bits_per_sample 
     return calculate_buffer_size(default_rate, default_depth, default_channels)
+end
+
+-- ==================== exair4017 (Air4017 语音芯片) 支持 ====================
+-- 通过 UART 驱动 Air4017 播放 PCM 流式音频。
+local exair4017             = nil     -- require 得到的 exair4017 模块引用，setup 时赋值
+local exair4017_playing     = false   -- exair4017 是否正在播放
+local exair4017_vol         = 31      -- exair4017 当前音量(0~31)
+local exair4017_end_marked  = false   -- 已收到"结束"标记(数据喂完)，等待缓冲排空
+local exair4017_drain_timer = nil     -- 缓冲排空轮询定时器
+local exair4017_recording    = false -- exair4017 是否正在录音(MIC上行)
+local exair4017_record_param = nil   -- exair4017 录音配置(含 path/cbfnc/time)
+local exair4017_record_timer = nil   -- exair4017 录音自动停止定时器
+local exair4017_record_queue = {}    -- exair4017 录音帧队列(512B string), UART回调入队/写任务出队
+local exair4017_record_wtask = nil   -- exair4017 录音写文件任务
+local exair4017_record_out   = nil   -- exair4017 录音攒批输出 zbuff
+local exair4017_mic_vol      = 31    -- exair4017 麦克风音量(协议暂不支持调节, 仅记录)
+
+-- exair4017 播放结束统一处理：停流 + 置状态 + 触发播放完成回调
+local function exair4017_audio_done()
+    if not exair4017 then return end
+    exair4017_end_marked = false
+    if exair4017_drain_timer then
+        sys.timerStop(exair4017_drain_timer)
+        exair4017_drain_timer = nil
+    end
+    exair4017.play_stream_stop()
+    exair4017_playing = false
+    if audio_play_param and audio_play_param.cbfnc then
+        audio_play_param.cbfnc(exaudio.PLAY_DONE)
+    end
+    sys.publish(EX_MSG_PLAY_DONE)
+end
+
+-- 缓冲排空轮询：收到结束标记后，待全部 PCM 发到 Air4017 再真正停止，避免尾音被清空截断
+local function exair4017_check_drain()
+    if not exair4017_end_marked then
+        if exair4017_drain_timer then
+            sys.timerStop(exair4017_drain_timer)
+            exair4017_drain_timer = nil
+        end
+        return
+    end
+    if not exair4017 or not exair4017.is_running() or exair4017.get_pending() <= 0 then
+        exair4017_audio_done()
+    end
+end
+
+-- 标记结束并启动排空：若已无待发数据则立即结束，否则轮询至缓冲排空后再停止
+local function exair4017_mark_end()
+    if not exair4017 or not exair4017_playing then return end
+    exair4017_end_marked = true
+    if not exair4017.is_running() or exair4017.get_pending() <= 0 then
+        exair4017_audio_done()
+    elseif not exair4017_drain_timer then
+        exair4017_drain_timer = sys.timerLoopStart(exair4017_check_drain, 10)
+    end
+end
+
+-- exair4017 上行 MIC 为 16kHz/16bit/单声道(512B/帧, 32KB/s, 见芯片资料 XLS),
+-- 原样写入文件即可, 不需要任何降采样/下混处理。
+-- exair4017 上行 MIC 数据回调：仅把每帧 512B PCM 入队
+-- 队列上限: 防止写任务跟不上时无限积压(内存与停止后排空时间都不可控)
+local Air4017_RECORD_QUEUE_MAX = 512   -- 帧数上限
+local function exair4017_audio_data_cb(data)
+    if not exair4017_recording or not exair4017_record_param then return end
+    if not data or #data == 0 then return end
+    if #exair4017_record_queue >= Air4017_RECORD_QUEUE_MAX then
+        table.remove(exair4017_record_queue, 1)  -- 丢最旧帧, 保持队列有界
+    end
+    exair4017_record_queue[#exair4017_record_queue + 1] = data
+end
+
+-- exair4017 录音写文件任务：从队列取帧攒批(4KB)后投递给上层 path
+local function exair4017_record_writer()
+    local drain_budget = nil  -- 停止录音后的剩余排空批次数
+    while true do
+        if #exair4017_record_queue == 0 then
+            if not exair4017_recording then
+                -- 触发完成回调
+                if exair4017_record_param and type(exair4017_record_param.cbfnc) == "function" then
+                    exair4017_record_param.cbfnc(exaudio.RECORD_DONE)
+                end
+                log.info("exaudio", "exair4017录音已停止")
+                break
+            end
+            sys.wait(5)
+        else
+            local path = exair4017_record_param and exair4017_record_param.path
+            if type(path) == "function" then
+                if not exair4017_record_out then
+                    exair4017_record_out = zbuff.create(8192)
+                end
+                exair4017_record_out:clear(0)
+                -- 关键: zbuff clear() 只 memset 不重置 used(), 必须手动 used(0);
+                -- 否则 used 从上一批累积, 批次越攒越大, 之后 used>=4096 不再消费新帧, 反复写同一段数据
+                exair4017_record_out:used(0)
+                while #exair4017_record_queue > 0 and exair4017_record_out:used() < 4096 do
+                    local frame = table.remove(exair4017_record_queue, 1)
+                    if frame and #frame > 0 then
+                        exair4017_record_out:copy(nil, frame)  -- 16kHz/16bit/单声道, 原样写入
+                    end
+                end
+                if exair4017_record_out:used() > 0 then
+                    path(exair4017_record_out, exair4017_record_out:used())
+                end
+            elseif type(path) == "string" then
+                local f = io.open(path, "ab")
+                if f then
+                    while #exair4017_record_queue > 0 do
+                        local frame = table.remove(exair4017_record_queue, 1)
+                        if frame and #frame > 0 then f:write(frame) end
+                    end
+                    f:close()
+                else
+                    exair4017_record_queue = {}
+                end
+            else
+                exair4017_record_queue = {}
+            end
+            -- 停止录音后限批排空: 最多再落盘 N 批, 之后丢弃剩余队列, 保证必触发 RECORD_DONE
+            if not exair4017_recording then
+                if not drain_budget then
+                    drain_budget = 40  -- 最多再落盘 40 批(≈160KB), 避免停止后还倒很久
+                elseif drain_budget <= 0 then
+                    log.warn("exaudio", "exair4017录音停止后排空超时, 丢弃剩余队列")
+                    exair4017_record_queue = {}
+                else
+                    drain_budget = drain_budget - 1
+                end
+            end
+            sys.wait(2)
+        end
+    end
+    exair4017_record_wtask = nil
+end
+
+-- exair4017 停止录音：停 MIC 上行
+local function exair4017_record_stop()
+    if not exair4017 or not exair4017_recording then return false end
+    exair4017_recording = false
+    if exair4017_record_timer then
+        sys.timerStop(exair4017_record_timer)
+        exair4017_record_timer = nil
+    end
+    exair4017.stop_audio()          -- 02 01 停止上行 MIC 音频
+    exair4017.set_rx_enable(false)  -- 从源头丢弃 Air4017 上行数据, 彻底切断 cb 入队
+    -- RECORD_DONE 由 exair4017_record_writer 在队列后触发;
+    -- 若写任务未运行(异常), 此处兜底触发, 避免回调丢失
+    if not exair4017_record_wtask then
+        if exair4017_record_param and type(exair4017_record_param.cbfnc) == "function" then
+            exair4017_record_param.cbfnc(exaudio.RECORD_DONE)
+        end
+        log.info("exaudio", "exair4017录音已停止")
+    end
+    return true
 end
 
 -- 初始化
@@ -1118,23 +1284,25 @@ function exaudio.setup(audioConfigs)
 
     log.info("exaudio.setup", "当前使用" .. (USE_AUDIO_V2 and "新" or "旧") .. "音频框架")
 
-    -- 检查必要参数
-    if USE_AUDIO_V2 then
-        if not audio_v2 then
-            log.error("不支持audio_v2 库,请选择支持audio_v2 的core")
-            return false
-        end
-    else
-        if not audio then
-            log.error("不支持audio 库,请选择支持audio 的core")
-            return false
+    -- 检查必要参数（exair4017 走 UART，跳过此检查）
+    if audioConfigs.model ~= "exair4017" then
+        if USE_AUDIO_V2 then
+            if not audio_v2 then
+                log.error("不支持audio_v2 库,请选择支持audio_v2 的core")
+                return false
+            end
+        else
+            if not audio then
+                log.error("不支持audio 库,请选择支持audio 的core")
+                return false
+            end
         end
     end
 
     -- 检查编解码器型号
     if audioConfigs.model then
-        if audioConfigs.model ~= "es8311" and audioConfigs.model ~= "dac" and audioConfigs.model ~= "tm8211" then
-            log.error("请指定正确的model: es8311、tm8211 或 dac")
+        if audioConfigs.model ~= "es8311" and audioConfigs.model ~= "dac" and audioConfigs.model ~= "tm8211" and audioConfigs.model ~= "exair4017" then
+            log.error("请指定正确的model: es8311、tm8211、dac 或 exair4017")
             return false
         end
         audio_setup_param.model = audioConfigs.model
@@ -1165,6 +1333,12 @@ function exaudio.setup(audioConfigs)
             log.warn("dac_ctrl(音频编解码控制管脚)是控制pop 音的重要管脚,建议硬件设计加上")
         end
         audio_setup_param.dac_ctrl = audioConfigs.dac_ctrl
+    elseif audio_setup_param.model == "exair4017" then
+        -- Air4017 模式: 通过 UART 驱动 Air4017 播放 PCM 流式音频
+        audio_setup_param.uart_id = audioConfigs.uart_id or 1
+        exair4017 = require "exair4017"
+        exair4017.init(audio_setup_param.uart_id, 2000000)
+        return true
     else
         -- ES8311 I2S模式
         if not audio_setup_param.model or (audio_setup_param.model ~= "es8311") then
@@ -1265,6 +1439,31 @@ end
 
 -- 开始播放
 function exaudio.play_start(playConfigs)
+    -- Air4017 模式: 仅支持 PCM 流式播放(type=2)
+    if audio_setup_param.model == "exair4017" then
+        if not exair4017 then
+            log.error("exair4017未初始化，请先调用exaudio.setup")
+            return false
+        end
+        if not playConfigs or type(playConfigs) ~= "table" then
+            log.error("播放配置必须为table类型")
+            return false
+        end
+        if not check_param(playConfigs.type, "number", "type") then
+            log.error("type必须为数值(0:文件,1:TTS,2:流式)")
+            return false
+        end
+        if playConfigs.type ~= 2 then
+            log.error("exair4017仅支持播放pcm流式音频，请更换播放的音频文件")
+            return false
+        end
+        audio_play_param = playConfigs
+        exair4017.play_stream_start(exair4017_vol)
+        exair4017_playing = true
+        exair4017_end_marked = false
+        log.info("exaudio", "exair4017流式播放已启动，等待play_stream_write喂数据")
+        return true
+    end
     if USE_AUDIO_V2 then
         -- audio_v2模式播放
         if not playConfigs or type(playConfigs) ~= "table" then
@@ -1595,6 +1794,15 @@ end
 -- @return written 实际写入的字节数(audio_v2)
 -- @return free_len FIFO剩余空间(audio_v2)
 function exaudio.play_stream_write(data, is_end)
+    if audio_setup_param.model == "exair4017" then
+        if not exair4017 then return false end
+        if not data or #data == 0 then return false end
+        exair4017.play_stream_write(data)
+        if is_end then
+            exair4017_mark_end()
+        end
+        return true
+    end
     if USE_AUDIO_V2 then
         -- audio_v2模式：入队列，由NEED_NEW_DATA回调批量写入FIFO
         if not audio_v2_request_index then
@@ -1626,6 +1834,13 @@ end
 
 -- 停止播放
 function exaudio.play_stop(stopConfigs)
+    if audio_setup_param.model == "exair4017" then
+        if not exair4017 then return false end
+        if exair4017_playing then
+            exair4017_audio_done()
+        end
+        return true
+    end
     if USE_AUDIO_V2 then
         -- audio_v2停止播放
         if audio_v2_request_index then
@@ -1693,6 +1908,9 @@ end
 
 -- 检查播放是否结束
 function exaudio.is_end()
+    if audio_setup_param.model == "exair4017" then
+        return not exair4017_playing
+    end
     if USE_AUDIO_V2 then
         -- audio_v2使用is_all_done判断是否所有请求结束
         return audio_v2.is_all_done()
@@ -1768,6 +1986,40 @@ function exaudio.record_start(recodConfigs)
         audio_record_param.cbfnc = recodConfigs.cbfnc
     else
         audio_record_param.cbfnc = nil
+    end
+
+    -- exair4017: 通过 UART MIC 上行录音(16kHz/16bit/单声道, 512B/帧)
+    if audio_setup_param.model == "exair4017" then
+        if not exair4017 then
+            log.error("exair4017未初始化，请先调用exaudio.setup")
+            return false
+        end
+        if audio_record_param.format ~= exaudio.PCM_16000 then
+            log.warn("exair4017仅支持16kHz/16bit/单声道PCM录音，已按16k处理")
+        end
+        if type(audio_record_param.path) ~= "function" and type(audio_record_param.path) ~= "string" then
+            log.error("exair4017录音必须指定流式回调或文件路径")
+            return false
+        end
+        exair4017_record_param = audio_record_param
+        exair4017_recording = true
+        exair4017_record_queue = {}
+        exair4017.set_rx_enable(true)  -- 恢复解析 Air4017 上行数据(上一次停止时已关闭)
+        exair4017.on_audio_data(exair4017_audio_data_cb)
+        if not exair4017_record_wtask then
+            exair4017_record_wtask = sys.taskInit(exair4017_record_writer)
+        end
+        if exair4017_record_timer then sys.timerStop(exair4017_record_timer); exair4017_record_timer = nil end
+        if audio_record_param.time and audio_record_param.time > 0 then
+            exair4017_record_timer = sys.timerStart(function()
+                exair4017_record_timer = nil
+                exair4017_record_stop()
+            end, audio_record_param.time * 1000)
+        end
+        -- 复位 Air4017 以(重新)启动 MIC 上行(复位后自动恢复上行音频)
+        exair4017.reset()
+        log.info("exaudio", "exair4017录音已开始(MIC上行)")
+        return true
     end
 
     if USE_AUDIO_V2 then
@@ -1873,6 +2125,9 @@ end
 
 -- 停止录音
 function exaudio.record_stop()
+    if audio_setup_param.model == "exair4017" then
+        return exair4017_record_stop()
+    end
     if USE_AUDIO_V2 then
         if audio_v2_record_request_index then
             -- 停止录音前，如果有回调模式，处理zbuff中剩余数据
@@ -1922,6 +2177,17 @@ end
 -- @param driver_probe_id 驱动ID(可选,audio_v2模式支持)
 -- @return 是否成功
 function exaudio.vol(play_volume, driver_probe_id)
+    if audio_setup_param.model == "exair4017" then
+        if not exair4017 then return false end
+        if check_param(play_volume, "number", "音量值") then
+            local v = math.floor(play_volume * 31 / 100)
+            if v > 31 then v = 31 elseif v < 0 then v = 0 end
+            exair4017.set_volume(v)
+            exair4017_vol = v
+            return true
+        end
+        return false
+    end
     if USE_AUDIO_V2 then
         -- 仅ES8311模式下才加载es8311驱动（DAC/TM8211模式无ES8311芯片，i2c不存在）
         if not audio_v2_es8311_drv and audio_setup_param.model == "es8311" then
@@ -1955,6 +2221,10 @@ end
 
 -- 设置麦克风音量
 function exaudio.mic_vol(record_volume)
+    if audio_setup_param.model == "exair4017" then
+        log.info("exaudio", "exair4017不支持调节麦克风音量")
+        return false
+    end
     if USE_AUDIO_V2 then
         -- 仅ES8311模式下才加载es8311驱动（DAC/TM8211模式无ES8311芯片，i2c不存在）
         if not audio_v2_es8311_drv and audio_setup_param.model == "es8311" then
@@ -1987,6 +2257,16 @@ end
 -- @param data 最后一帧数据(可选,audio_v2流式播放)
 -- @return 是否成功
 function exaudio.finish(data)
+    if audio_setup_param.model == "exair4017" then
+        if not exair4017 then return false end
+        if data then
+            exair4017.play_stream_write(data)
+        end
+        if exair4017_playing then
+            exair4017_mark_end()
+        end
+        return true
+    end
     if USE_AUDIO_V2 then
         -- audio_v2流式播放结束
         if audio_v2_request_index then
@@ -2031,11 +2311,21 @@ function exaudio.pm(pm_mode)
             es8311_ok, es8311_drv = pcall(require, "es8311")
         end
         if pm_mode == exaudio.SHUTDOWN then
-            -- SHUTDOWN：下电ES8311，关闭PA，保持驱动和CODEC以备快速恢复
-            if es8311_ok and es8311_drv then
-                es8311_drv.power_down(audio_setup_param.i2c_id or 0)
+            -- 1602开发板I2C1同时被audio(ES8311)与LCD触摸共用：
+            -- audio_v2.shutdown(driver_power_off, codec_power_off, pa_power_off) 的
+            -- driver_power_off=true 会停驱动并 deactivate，副作用是关闭其管理的 I2C1，导致 LCD 触摸失效。
+            -- 故 1602 下电时保留 audio 驱动(driver_power_off=false)，I2C 保持打开供触摸使用；
+            -- 非 1602 保持原逻辑彻底下电(driver_power_off=true)。
+            if get_module_type() == "air1602" then
+                audio_v2.shutdown(false, false, true)
+            else
+                -- SHUTDOWN：下电ES8311，关闭PA，保持驱动和CODEC以备快速恢复
+                if es8311_ok and es8311_drv then
+                    es8311_drv.power_down(audio_setup_param.i2c_id or 0)
+                end
+
+                audio_v2.shutdown(true, false, true)
             end
-            audio_v2.shutdown(true, false, true)
             return true
         elseif pm_mode == exaudio.RESUME then
             -- RESUME：恢复ES8311，确保所有模块处于工作状态
@@ -2255,7 +2545,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202608272002"
+    return "202609011550"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

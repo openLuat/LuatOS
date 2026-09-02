@@ -58,6 +58,7 @@ struct luat_audio_driver_ctrl
         uint32_t *static_play_buff;  /**< 静态播放缓冲区指针，仅用于通话 */
         uint8_t *static_play_buff_byte;  /**< 静态播放缓冲区指针，8位对齐，仅用于通话 */
     };
+    uint8_t *next_play_buff;
     volatile uint32_t current_play_cnt;  /**< 当前播放计数 */
     volatile uint32_t static_play_buffer_cnt;
     volatile uint32_t one_play_block_len;  /**< 1个block播放的音频数据长度 */
@@ -83,7 +84,8 @@ struct luat_audio_driver_ctrl
     uint8_t codec_ready_state:1;                        /**< CODEC是否稳定 */
     uint8_t audio_output_enable:1;                      /**< 是否使能音频输出 */
     uint8_t cache_sync_enable:1;                        /**< 是否使能缓存同步 */
-    uint8_t is_call_mode:1;                            /**< 是否为通话模式，展锐的audio驱动对通话模式有特殊控制 */
+    uint8_t is_call_mode:1;                             /**< 是否为通话模式，展锐的audio驱动对通话模式有特殊控制 */
+    uint8_t call_extern_source_notify:1;                /**< 是否通话模式下往对方播放额外数据，展锐的audio驱动对通话模式有特殊控制 */
     /** 状态参数 */
     volatile uint8_t state;                             /**< 驱动状态 */
 };

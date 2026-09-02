@@ -1,20 +1,20 @@
 --[[
 @module  record_pcm_to_4017
-@summary Air780EHM/Air780EGH 通过 UART1 连接 Air4017 语音芯片的录音与播放演示（PCM 流式）
+@summary Air780EHV 通过 UART1 连接 Air4017 语音芯片的录音与播放演示（PCM 流式）
 @version 1.0
 @date    2026.09.02
 @author  拓毅恒
 @usage
 
 功能说明：
-  本 demo 演示 Air780EHM / Air780EGH 通过 UART1（波特率固定 2M）连接合宙 Air4017 语音芯片，
+  本 demo 演示 Air780EHV 通过 UART1（波特率固定 2M）连接合宙 Air4017 语音芯片，
   完成 PCM 流式音频录音和播放。Air4017 为串口语音芯片，无需 I2C / PA / CODEC 硬件初始化。
 
 录音：
   - Air4017 MIC 上行，固定 16kHz / 16bit / 单声道、512B/帧
   - 通过 exaudio.record_start 接收上行 PCM 流式数据，录音文件路径可保存到：
       · SD 卡：/sd/record.pcm（挂载 SD 卡成功时）
-      · EHM/EGH 内存：/record.pcm（SD 卡挂载失败自动回退）
+      · Air780EHV 内存：/record.pcm（SD 卡挂载失败自动回退）
   - 默认录音 5 秒，按任意键可提前结束
 
 播放：
@@ -32,7 +32,7 @@
      - 录音中按 Boot 键提前结束录音
 
 硬件连接：
-  - Air780EHM/Air780EGH 的 UART1 对接 Air4017 串口，波特率 2M
+  - Air780EHV 的 UART1 对接 Air4017 串口，波特率 2M
   - 使用 SD 卡需按实际硬件配置 sd_spi_id / sd_cs_pin 并打开供电脚
 
 工作流程：

@@ -197,6 +197,13 @@ local WATCHDOG = {
 local reboot_watchdog_timer = nil -- 复位定时器
 local fallback_retry_timer = nil -- 超限后的慢速重试循环定时器
 
+-- 鉴权失败态：收到服务器失败应答（鉴权回复/上报回应非 ok/success）后置真。
+-- 为 true 时，连接层成功事件（ON_LINE/MQTT conack/getip 成功）不得解除复位看门狗，
+-- 防止"服务器断开→重连成功→看门狗被取消→反复收到失败应答"的死循环；只有服务器明确回成功应答才解除。
+local auth_failed_armed = false
+local arm_watchdog_on_auth_fail = nil -- 前向声明（实现位于看门狗区，parse_data 在更早处引用）
+local clear_auth_failed_state = nil -- 前向声明（同上）
+
 -- 根据传输协议转换为getip_type（消除4处重复）
 local function transport_to_getip_type()
     if config.transport == "tcp" then
@@ -936,6 +943,16 @@ upload_mtn_log_files = function()
     return uploaded_count > 0, uploaded_count > 0 and nil or "all mtn log upload failed"
 end
 
+-- 下行应答 value 是否为"成功"（AirCloud 协议：鉴权回复/上报回应的成功值为 ok/success，其余为失败错误文本）
+-- 用前缀匹配容忍大小写/空白/尾部标点（如 "OK"、"success."），避免把成功应答误判为失败而误触发复位
+local function is_success_reply(v)
+    if v == nil then
+        return false
+    end
+    local s = tostring(v):lower():gsub("%s", "")
+    return s:match("^ok") ~= nil or s:match("^success") ~= nil
+end
+
 -- 接收消息解析处理
 local function parse_data(data)
     local message, err = parse_message(data)
@@ -954,21 +971,43 @@ local function parse_data(data)
     excloud.mtn_log("info", "recv", "收到下行报文", "字节数", #data,
         "TLV字段", #field_list > 0 and table.concat(field_list, ",") or "无")
 
-    -- 处理运维日志上传请求和鉴权回复
+    -- 处理运维日志上传请求、鉴权回复与上报回应
+    -- 鉴权回复(17)/上报回应(18)是服务器对设备上行报文的应答：成功=ok/success；
+    -- 非成功内容视为服务器拒绝设备（典型为鉴权失败），触发复位看门狗（10 分钟复位，当日 ≤5 次）
     for _, tlv in ipairs(message.tlvs) do
         if tlv.field == FIELD_MEANINGS.MTN_LOG_UPLOAD_REQ_SIGNAL then
             log.info("[excloud]收到运维日志上传请求")
             handle_mtn_log_upload_request()
             return
-        elseif tlv.field == FIELD_MEANINGS.AUTH_RESPONSE then
-            is_authenticated = true
-            log.info("[excloud]鉴权成功", tlv.value)
-            if callback_func then
-                callback_func("auth_result", {
-                    success = true,
-                    message = tlv.value,
-                    sequence_num = message.header and message.header.sequence_num or nil
-                })
+        elseif tlv.field == FIELD_MEANINGS.AUTH_RESPONSE or tlv.field == FIELD_MEANINGS.REPORT_RESPONSE then
+            if is_success_reply(tlv.value) then
+                -- 应答成功：链路与鉴权正常，解除鉴权失败态（若有）并取消看门狗
+                is_authenticated = true
+                if auth_failed_armed then
+                    clear_auth_failed_state()
+                end
+                log.info("[excloud]服务器应答成功", "field", tlv.field, "value", tlv.value)
+                if tlv.field == FIELD_MEANINGS.AUTH_RESPONSE and callback_func then
+                    callback_func("auth_result", {
+                        success = true,
+                        message = tlv.value,
+                        sequence_num = message.header and message.header.sequence_num or nil
+                    })
+                end
+            else
+                -- 应答失败（鉴权失败/上报被拒）：武装复位看门狗
+                is_authenticated = false
+                log.error("[excloud]服务器应答失败（判定鉴权失败）", "field", tlv.field, "value", tlv.value)
+                if tlv.field == FIELD_MEANINGS.AUTH_RESPONSE and callback_func then
+                    callback_func("auth_result", {
+                        success = false,
+                        message = tlv.value,
+                        sequence_num = message.header and message.header.sequence_num or nil
+                    })
+                end
+                if arm_watchdog_on_auth_fail then
+                    arm_watchdog_on_auth_fail("field=" .. tostring(tlv.field) .. " value=" .. tostring(tlv.value))
+                end
             end
         end
     end
@@ -1639,8 +1678,10 @@ local function get_today_reboot_count()
 end
 
 -- 执行复位（复位前自增计数并落盘，延迟 300ms 确保日志与 fskv 刷出）
-local function execute_watchdog_reboot()
+-- reason：触发原因（重连失败超时 / 服务器鉴权失败等），写入运维日志便于远程区分
+local function execute_watchdog_reboot(reason)
     reboot_watchdog_timer = nil
+    reason = reason or "重连失败超时"
     local today = os.date("%Y%m%d") or ""
     local count = tonumber(fskv.get(WATCHDOG.count_key)) or 0
     -- 跨天保护：若武装期间跨天，从 1 重新计数
@@ -1651,14 +1692,15 @@ local function execute_watchdog_reboot()
     fskv.set(WATCHDOG.count_key, tostring(count))
     fskv.set(WATCHDOG.date_key, today)
     -- 写入运维日志（复位是跨重启事件，必须落盘才能被服务器拉到；CACHE_WRITE 模式日志驻留内存，需显式 flush）
-    excloud.mtn_log("error", "watchdog", "看门狗复位触发", "当日第", count, "次", "原因", "重连失败超时")
+    excloud.mtn_log("error", "watchdog", "看门狗复位触发", "当日第", count, "次", "原因", reason)
     if exmtn.flush then exmtn.flush() end
-    log.error("[excloud]重连失败看门狗触发，执行设备复位（当日第 " .. count .. " 次）")
+    log.error("[excloud]看门狗触发，执行设备复位（当日第 " .. count .. " 次，原因: " .. reason .. "）")
     sys.timerStart(rtos.reboot, 300)
 end
 
--- 武装复位看门狗：delay_ms 内无法重连则复位设备；每日限次，超限降级为 1 小时慢速重试
-local function arm_reboot_watchdog()
+-- 武装复位看门狗：delay_ms 内无法恢复则复位设备；每日限次，超限降级为 1 小时慢速重试
+local function arm_reboot_watchdog(reason)
+    reason = reason or "重连失败超时"
     cancel_reboot_watchdog()
     local count = get_today_reboot_count()
     if count >= WATCHDOG.daily_limit then
@@ -1683,9 +1725,31 @@ local function arm_reboot_watchdog()
         end, WATCHDOG.fallback_delay_ms)
         return
     end
-    reboot_watchdog_timer = sys.timerStart(execute_watchdog_reboot, WATCHDOG.delay_ms)
+    reboot_watchdog_timer = sys.timerStart(execute_watchdog_reboot, WATCHDOG.delay_ms, reason)
     log.warn("[excloud]复位看门狗已武装：若 " .. (WATCHDOG.delay_ms / 60000) ..
-                 " 分钟内无法重连，将复位设备（当日第 " .. (count + 1) .. " 次）")
+                 " 分钟内无法恢复（原因: " .. reason .. "），将复位设备（当日第 " .. (count + 1) .. " 次）")
+end
+
+-- 解除鉴权失败态（服务器回成功应答 / 主动关闭时调用）：清状态并取消看门狗
+clear_auth_failed_state = function()
+    auth_failed_armed = false
+    cancel_reboot_watchdog()
+    log.info("[excloud]鉴权失败态已解除，复位看门狗取消")
+end
+
+-- 鉴权失败武装：与重连失败共用复位看门狗（10 分钟复位，当日 ≤5 次，超限降级 1 小时慢速重试）。
+-- 关键：持续收到失败应答时不重置 10 分钟倒计时（从首次失败起算），
+-- 避免设备每 10 秒一次上报、每次都被回失败导致倒计时无限顺延、永不复位。
+arm_watchdog_on_auth_fail = function(detail)
+    if auth_failed_armed then
+        log.warn("[excloud]鉴权失败持续中（", tostring(detail), "），复位看门狗已武装，不重置倒计时")
+        excloud.mtn_log("warn", "auth", "鉴权失败持续", "不重置倒计时", "detail", tostring(detail))
+        return
+    end
+    auth_failed_armed = true
+    excloud.mtn_log("error", "auth", "鉴权失败触发复位看门狗", "detail", tostring(detail),
+        "10分钟后复位", "当日限次", WATCHDOG.daily_limit)
+    arm_reboot_watchdog("服务器鉴权失败")
 end
 
 schedule_reconnect = function()
@@ -1710,7 +1774,9 @@ schedule_reconnect = function()
                 if ok then
                     log.info("[excloud]重连获取服务器成功，对于用户已手动配置的字段，不会被getip覆盖")
 
-                    cancel_reboot_watchdog() -- getip 成功说明服务端可达，解除看门狗
+                    if not auth_failed_armed then
+                        cancel_reboot_watchdog() -- getip 成功说明服务端可达，解除看门狗（鉴权失败态除外，防止死循环）
+                    end
                     reconnect_count = 0
 
                     cleanup_connection()
@@ -1817,7 +1883,9 @@ local function _socket_callback(label, netc, event, param)
         end
         log.info("[excloud]" .. label .. " socket", label .. "连接成功")
         is_connected = true;
-        cancel_reboot_watchdog() -- 连接成功即解除看门狗，正常恢复时绝不误复位
+        if not auth_failed_armed then
+            cancel_reboot_watchdog() -- 连接成功即解除看门狗（鉴权失败态除外：TCP 通不代表鉴权恢复）
+        end
         reconnect_count = 0
         if callback_func then
             callback_func("connect_result", {
@@ -1889,7 +1957,9 @@ local function mqtt_client_event_cbfunc(connected, event, data, payload, metas)
     if event == "conack" then
         is_connected = true
         log.info("[excloud]MQTT connected")
-        cancel_reboot_watchdog() -- MQTT 连接成功即解除看门狗
+        if not auth_failed_armed then
+            cancel_reboot_watchdog() -- MQTT 连接成功即解除看门狗（鉴权失败态除外）
+        end
         reconnect_count = 0
         local device_id_hex = string.toHex(device_id_binary)
         local auth_topic = config.mqtt_sub_auth_topic or ("/AirCloud/down/" .. device_id_hex .. "/auth")
@@ -2411,6 +2481,7 @@ function excloud.close()
         return false, "excloud not open"
     end
 
+    auth_failed_armed = false -- 主动关闭：清除鉴权失败态
     cancel_reboot_watchdog() -- 主动关闭时解除看门狗，避免后台定时器泄漏/误复位
     if reconnect_timer then
         sys.timerStop(reconnect_timer)

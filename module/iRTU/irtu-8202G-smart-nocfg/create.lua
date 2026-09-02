@@ -314,7 +314,7 @@ local function aircloudTask(cid, prot, keepAlive, timeout, uid, ssl, qos)
                 log.info("create", "AirCloud连接失败", data.error)
             end
         elseif event == "auth_result" then
-            log.info("create", "认证结果", data.success and "成功" or "失败")
+            log.info("create", "认证结果", data.success and "成功" or ("失败: " .. tostring(data.message)))
         elseif event == "message" then
             for _, tlv in ipairs(data.tlvs) do
                 -- 所有数据统一以 JSON 格式通过 REMOTE_COMMAND 分发

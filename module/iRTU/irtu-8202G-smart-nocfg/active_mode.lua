@@ -47,6 +47,7 @@ local GNSS_BOOT_WINDOW = 300   -- 条件1：开机后 GNSS 常开时长（秒）
 local GNSS_MOTION_KEEP = 180   -- 条件2/3：震动后 GNSS 保持开启的时长（秒）
 local REPORT_GNSS_ON  = 10     -- GNSS 开启期间上报间隔（秒）
 local REPORT_GNSS_OFF = 300    -- GNSS 关闭期间上报间隔（秒）
+local GNSS_NO_FIX_LBS_INTERVAL = 1800  -- LBS 兜底：GNSS 开启且运动中连续无 fix 的时长阈值（秒 = 30 分钟）
 
 -- ====== 实时上报模式（fast_report，004.000.028 新增） ======
 -- 服务器下发 fast_report 命令后进入：每秒上报一次，除 1293/1294 外其余 TLV 都上报，
@@ -63,6 +64,8 @@ local last_report_time = 0     -- 上次上报时间戳（上报节流）
 local fast_report_active = false  -- 是否处于实时上报模式
 local fast_report_deadline = 0    -- 实时上报模式结束时间戳（os.time，秒）
 local fast_report_hold_until = 0  -- 实时上报结束后 GNSS 强制开启保持窗口截止时间戳
+local lbs_fallback_time = 0       -- 上次 LBS 兜底真实请求成功时间戳（0=尚未触发；同时充当 30 分钟请求频率门控）
+local lbs_fallback_loc = nil      -- 最近一次 LBS 兜底成功位置缓存 {gps,gps_status}：兜底生效期间每帧复用，避免位置跳回旧 GNSS 点
 
 -- 评估当前是否需要开启 GNSS
 local function is_gnss_required()
@@ -306,9 +309,57 @@ local function collect_data_and_report()
     end
 
     -- 定位采集（GNSS 优先锁定策略）：
-    -- 开机以来 GNSS 定位成功过一次 → 永远用 GNSS 数据（当前成功用当前值，否则用最近一次成功值），gps_status 恒 2，不再用 LBS
+    -- 开机以来 GNSS 定位成功过一次 → 优先用 GNSS 数据（当前成功用当前值，否则用最近一次成功值），gps_status 恒 2，不再用 LBS
     -- 从未成功 → 走 LBS（gps_status 为 4/5，失败 3）
-    local loc_data = location.get_report_location(gnss_active)
+    -- 【LBS 兜底】GNSS 开启 + 运动中（180s 内震过）+ 连续 30 分钟无 fix：
+    --   长期掉星场景（如铁皮车）位置会停留在最后一次成功点，改用 LBS 上报大概位置；
+    --   该位置触发后持续生效（见下），恢复 fix 或静止后自动退出。
+    local loc_data
+    local last_fix_age = location.get_last_fix_age()
+    local gs_st = gsensor.get_status()
+    local moving = gs_st and gs_st.last_motion_time and gs_st.last_motion_time > 0
+        and (os.time() - gs_st.last_motion_time) <= GNSS_MOTION_KEEP
+    -- 是否处于 LBS 兜底窗口：GNSS 开启 + 运动中 + 已连续 30 分钟无 fix
+    -- （last_fix_age 仅在收到新 fix 时复位，掉星期间持续增长，天然累计"连续无 fix 时长"）
+    local in_lbs_fallback = gnss_active and last_fix_age
+        and last_fix_age >= GNSS_NO_FIX_LBS_INTERVAL and moving
+    if in_lbs_fallback then
+        -- 距上次 LBS 真实请求已满 30 分钟（或从未触发，lbs_fallback_time=0）→ 请求一次并刷新缓存
+        if (os.time() - lbs_fallback_time) >= GNSS_NO_FIX_LBS_INTERVAL then
+            loc_data = location.get_lbs_report()
+            if loc_data and loc_data.gps then
+                lbs_fallback_time = os.time()
+                lbs_fallback_loc = { gps = loc_data.gps, gps_status = loc_data.gps_status }
+                log.info("active_mode", "GNSS 无 fix 超", GNSS_NO_FIX_LBS_INTERVAL,
+                    "秒且运动中，LBS 兜底上报:", loc_data.gps, "gps_status:", loc_data.gps_status)
+                excloud.mtn_log("info", "lbs", "LBS兜底上报", "无GNSS fix超",
+                    GNSS_NO_FIX_LBS_INTERVAL .. "s", "运动中")
+            elseif lbs_fallback_loc then
+                -- 刷新失败但有历史 LBS 位置：继续沿用，下帧再试刷新（位置不回跳旧 GNSS 点）
+                loc_data = lbs_fallback_loc
+                log.warn("active_mode", "LBS 兜底刷新失败，沿用上次 LBS 位置")
+            else
+                log.warn("active_mode", "LBS 兜底定位失败，本次沿用原 GNSS 策略")
+                loc_data = location.get_report_location(gnss_active)
+            end
+        elseif lbs_fallback_loc then
+            -- 30 分钟内已成功触发过：每帧直接复用最近一次 LBS 位置，不再真实请求
+            -- （CACHE_DURATION=0，LBS 每次调用都是真实网络请求，频率门控必须严格；
+            --   位置源固定为缓存的 LBS 点，即"铁皮车内的大概位置"，不会跳回几十公里外的旧 GNSS 点）
+            loc_data = lbs_fallback_loc
+        else
+            -- 理论不可达（窗口首次成立必走首分支请求并写入缓存），双保险回退原策略
+            loc_data = location.get_report_location(gnss_active)
+        end
+    else
+        -- 不在兜底窗口（恢复 fix / 静止 / GNSS 关闭 / 从未 fix）：
+        -- 清除 LBS 兜底状态，位置回到 GNSS 优先策略（有当前 fix 用当前值，否则沿用最近一次成功值）
+        if lbs_fallback_loc then
+            lbs_fallback_loc = nil
+            lbs_fallback_time = 0
+        end
+        loc_data = location.get_report_location(gnss_active)
+    end
 
     -- 信号强度（CSQ，范围 0-31，值越大信号越好；99=无信号）
     local signal = mobile.csq() or 0

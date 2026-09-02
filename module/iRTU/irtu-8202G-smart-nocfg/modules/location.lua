@@ -318,8 +318,14 @@ function location.get_report_location(gnss_on)
         end
     end
 
-    -- 开机以来从未 GNSS 定位成功：走 LBS
+    -- 开机以来从未 GNSS 定位成功：走 LBS（组包逻辑抽到 location.get_lbs_report，供 LBS 兜底复用）
     log.info("location", "开机以来 GNSS 从未定位成功，使用 LBS 定位")
+    return location.get_lbs_report()
+end
+
+-- 获取 LBS 定位上报数据（两个入口复用：开机以来从未 GNSS 定位成功、GNSS 长时间无 fix 的 LBS 兜底）
+-- @return table {gps="lat,lng"或nil, gps_status=4/5，定位失败为3}
+function location.get_lbs_report()
     local result = { gps = nil, gps_status = 3 }
     local lbs_data = location.get_lbs_location()
     if lbs_data then
@@ -327,6 +333,17 @@ function location.get_report_location(gnss_on)
         result.gps_status = get_lbs_status()
     end
     return result
+end
+
+-- 距最近一次 GNSS 定位成功经过的秒数（active_mode 的 LBS 兜底判定使用）
+-- 与 last_gps_data 同源：FIXED 回调 / 实时 fix 成功路径刷新；掉星期间不刷新，返回值持续增长。
+-- 开机以来从未定位成功返回 nil（此时原定位策略本就走 LBS，无需兜底）。
+-- @return number|nil 曾定位成功返回秒数，否则 nil
+function location.get_last_fix_age()
+    if location_state.last_gps_data then
+        return os.time() - (location_state.last_gps_time or 0)
+    end
+    return nil
 end
 
 -- 关闭定位

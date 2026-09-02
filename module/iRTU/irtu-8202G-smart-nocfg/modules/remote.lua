@@ -176,6 +176,21 @@ function command_handlers.fota_mode(msg, cmd_msg)
     send_reply(cmd_msg.msg_id, "fota_mode", 0, "ok, fota mode set to " .. mode)
 end
 
+-- 11. fast_report - 进入实时上报模式
+-- 兼容两种格式（无其他参数）：
+-- 标准：{"command":"fast_report"}
+-- 扁平：{"cmd":"fast_report"}
+-- 行为（由 active_mode 状态机执行）：
+--   无论当前 GNSS 开启/关闭，立即进入实时上报模式：每秒上报一次报文，
+--   除 1293/1294 外其余 TLV 都上报，持续 1 分钟；
+--   进行中重复收到本命令则重置 1 分钟倒计时（续期）；
+--   结束时强制先进入 GNSS 开启模式，再按 gsensor 条件正常评估。
+function command_handlers.fast_report(msg, cmd_msg)
+    log.info("remote", "[MQTT] 收到 fast_report，进入实时上报模式")
+    sys.publish("FAST_REPORT_START")
+    send_reply(cmd_msg.msg_id, "fast_report", 0, "ok, fast report started (1min)")
+end
+
 -- ========== 命令分发 ==========
 
 -- 解析并执行命令

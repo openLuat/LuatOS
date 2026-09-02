@@ -260,6 +260,13 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active)
         table.insert(data, { field_meaning = FM.SATELLITES_TOTAL, data_type = DT.INTEGER, value = d.sat_total or 0 }) -- 搜星总数
         table.insert(data, { field_meaning = FM.SATELLITES_VISIBLE, data_type = DT.INTEGER, value = d.sat_visible or 0 }) -- 可见卫星数
     end
+    -- 固件版本号（1027 FIRMWARE_VERSION）：仅 GNSS 关闭状态下上报。
+    -- 目的：GNSS 关闭期间节流到 300s 一帧，此时 1293/1294 流与 1292 均可能缺席，
+    -- 附加版本字段让服务端在静默期仍能感知设备固件版本（如判断升级是否生效）；
+    -- GNSS 开启（10s 帧）/ 实时上报（1s 帧）高频上报期间不加，避免版本信息重复浪费流量。
+    if not gnss_active then
+        table.insert(data, { field_meaning = FM.FIRMWARE_VERSION, data_type = DT.ASCII, value = VERSION or "unknown" })
+    end
 
     return data
 end

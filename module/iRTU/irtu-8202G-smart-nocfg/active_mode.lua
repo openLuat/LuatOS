@@ -11,9 +11,12 @@
 - 实时上报（fast_report 下行命令触发）：每 1 秒上报一次，除 1293/1294 外其余 TLV 都上报，
   持续 1 分钟，期间暂停 GNSS 开关评估；进入时必须开启 GNSS（若未开立即强制开）；
   重复收到命令重置倒计时；结束强制进入 GNSS 开启模式
+- 立即上报一次（get_device_data 下行命令触发，FORCE_REPORT 事件）：清零上报节流基准，
+  立即按当前 GNSS 状态上报一帧（不切换 GNSS 开关），恢复原节流节奏
 - GNSS 开：每 10 秒上报一次，功耗 mode0（全功率）
 - GNSS 关：每 300 秒上报一次，功耗 mode1（低功耗）
-通过 create.lua 的 NET_SENT_RDY 通道上报数据。
+通过 create.lua 上报：结构化数据走 TLV 直发（AIRCLOUD_SEND），JSON 报文由 create.lua
+封装为 RANDOM_DATA 字段 TLV 后同样走 AirCloud 通道。
 ]]
 
 local config = require("config")
@@ -22,7 +25,6 @@ local tools = require("tools")
 local location = require("location")
 local gsensor = require("gsensor")
 local battery = require("battery")
-local remote = require("remote")
 local create = require("create")
 local lowpower = require("lowpower_app")
 local exgnss = require("exgnss")
@@ -262,65 +264,6 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active)
     return data
 end
 
--- 智能模式上报间隔计算（方案B）
--- 震动不清零叠加计数，叠加一直向上递增（开机清零），封顶 SMART_AWAY_STATIC_MAX
--- 震动只触发"立即上报 + 冷却期防抖"，由主循环 MOTION_EVENT 处理
-local function get_smart_mode_interval()
-    local motion_detect_on = config.SENSOR_CONFIG and config.SENSOR_CONFIG.MOTION_DETECT_ON
-    local is_moving = motion_detect_on and gsensor.is_moving() or false
-    local no_motion_count = kvstore.get_no_motion_count() or 0
-    local interval = 0
-
-    -- 方案B：不再因运动状态清零叠加，统一走叠加逻辑
-    -- 运动中基础间隔用 MOVING，静止用 STATIC（服务端 smart_interval 同时覆盖两者）
-    if is_moving then
-        interval = config.REPORT_INTERVAL.SMART_AWAY_MOVING
-    else
-        interval = config.REPORT_INTERVAL.SMART_AWAY_STATIC
-    end
-    no_motion_count = no_motion_count + 1
-    local inc = no_motion_count * config.REPORT_INTERVAL.SMART_AWAY_STATIC_INCREMENT
-    interval = math.min(interval + inc, config.REPORT_INTERVAL.SMART_AWAY_STATIC_MAX)
-
-    kvstore.set_smart_interval(interval)
-    kvstore.set_no_motion_count(no_motion_count)
-    return interval
-end
-
--- 计算本次上报间隔（秒）：供 779(wake_interval) 上报与主循环等待共用
--- 优先级：充电60s > 服务端自定义间隔 > 低电量 > 各模式间隔
-local function calc_report_interval()
-    local work_mode = get_work_mode()
-    local is_low_power = kvstore.get_low_power_mode() or false
-    local interval = config.REPORT_INTERVAL.PERFORMANCE
-
-    local vbus_state = tools.get_vbus_state()
-    if vbus_state == 1 then
-        interval = config.REPORT_INTERVAL.CHARGING or 60
-    else
-        if is_low_power and work_mode ~= config.DEVICE_MODE.FIND then
-            interval = config.REPORT_INTERVAL.LOW_POWER
-        else
-            if work_mode == config.DEVICE_MODE.PERFORMANCE then
-                interval = config.REPORT_INTERVAL.PERFORMANCE
-            elseif work_mode == config.DEVICE_MODE.SMART then
-                interval = get_smart_mode_interval()
-            elseif work_mode == config.DEVICE_MODE.FIND then
-                interval = config.FIND_MODE_CONFIG.REPORT_INTERVAL
-            end
-        end
-    end
-
-    -- 服务端下发的自定义上报间隔优先（vbus充电60s除外）
-    local custom_interval = kvstore.get_report_interval()
-    if custom_interval and vbus_state ~= 1 then
-        interval = custom_interval
-        log.info("active_mode", "使用自定义上报间隔:", interval, "秒")
-    end
-
-    return interval
-end
-
 -- 数据收集与上报
 local function collect_data_and_report()
     log.info("active_mode", "开始收集数据")
@@ -480,9 +423,6 @@ local function collect_data_and_report()
     create.send_aircloud(build_aircloud_tlv(msg.data, gsensor_stream, nmea_stream_bin, gnss_active))
     log.info("active_mode", "数据已通过 AirCloud TLV 发送")
 
-    -- 记录上报时间
-    kvstore.set_last_report_time(os.time())
-
     log.info("active_mode", "数据上报完成")
 end
 
@@ -505,9 +445,6 @@ end
 local function main_loop()
     log.info("active_mode", "进入主循环")
 
-    -- 开机清零静止累加计数，确保智能模式每次开机从基础间隔起步
-    kvstore.set_no_motion_count(0)
-
     -- 注册震动回调：DA221 震动（过2000ms限流）时发布 MOTION_EVENT，
     -- 主循环收到后重新评估 GNSS 开关状态（震动→开 GNSS→立即上报）
     gsensor.on_vibration(function()
@@ -526,16 +463,31 @@ local function main_loop()
     -- 持续 FAST_REPORT_DURATION 秒后由主循环统一结束；进行中重复收到命令则重置倒计时（续期 1 分钟）。
     -- 进入实时上报模式必须开启 GNSS（实时上报要带实时位置），若当前关闭则立即执行开启动作；
     -- 实时上报期间主循环暂停 GNSS 评估，不会与之冲突。
+    -- 置位后必须发布 MOTION_EVENT 唤醒主循环：主循环在 GNSS 关稳态会睡在
+    -- waitUntil(MOTION_EVENT, ~300s) 上（最长 300s），若不唤醒则 60s 实时窗口可能在
+    -- 睡眠中整段耗尽、醒来即被清除，实时上报等效未发生（与 FORCE_REPORT 唤醒机制一致）。
     sys.subscribe("FAST_REPORT_START", function()
         if not gnss_active then
             switch_gnss_on("fast_report进入实时上报强制")
         end
         fast_report_active = true
         fast_report_deadline = os.time() + FAST_REPORT_DURATION
+        sys.publish(MOTION_EVENT)  -- 唤醒主循环：立即脱离 waitUntil，按 1s 节流进入实时上报
         log.info("active_mode", "收到 fast_report：进入实时上报模式，每", REPORT_FAST,
             "秒上报（不带1293/1294），持续", FAST_REPORT_DURATION, "秒")
         excloud.mtn_log("info", "fast_report", "进入实时上报模式",
             "持续", FAST_REPORT_DURATION .. "s", "间隔", REPORT_FAST .. "s")
+    end)
+
+    -- 订阅 FORCE_REPORT（remote.get_device_data 下行命令）：请求立即上报一次当前数据。
+    -- 置标志 + 发布 MOTION_EVENT 唤醒主循环（主循环空闲在 waitUntil 时立即返回，
+    -- 标志在主循环步骤 3.1 清零节流基准触发立即上报；若主循环正阻塞在上报/等网络中，
+    -- 则由标志兜底，本轮结束后下一轮循环立即生效）
+    local force_report_pending = false
+    sys.subscribe("FORCE_REPORT", function()
+        log.info("active_mode", "收到 FORCE_REPORT（get_device_data），请求立即上报一次")
+        force_report_pending = true
+        sys.publish(MOTION_EVENT)
     end)
 
     -- 初始化 LED
@@ -599,6 +551,15 @@ local function main_loop()
         elseif not gnss_active then
             interval = REPORT_GNSS_OFF
         end
+
+        -- 3.1) FORCE_REPORT（get_device_data 下行命令）：清零节流基准触发立即上报；
+        --      上报完成后 last_report_time 更新为当前时刻，下一轮循环自动恢复原节流节奏
+        if force_report_pending then
+            force_report_pending = false
+            last_report_time = 0
+            log.info("active_mode", "FORCE_REPORT 生效，立即上报当前数据")
+        end
+
         if os.time() - last_report_time >= interval then
             local ok, err = pcall(collect_data_and_report)
             if not ok then

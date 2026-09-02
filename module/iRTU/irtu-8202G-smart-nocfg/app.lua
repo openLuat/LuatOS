@@ -5,10 +5,9 @@
 @date    2026.07.17
 @usage
 1. 初始化设备硬件和各功能模块
-2. 获取工作模式并选择连接方式
-3. 未激活模式：进入绑定窗口流程（云命令绑定，上报bind_ready）
-4. 已激活模式：进入常规工作循环
-5. 配置由 main.lua 在启动前通过 config.load_from_server() 加载
+2. 获取工作模式：旧设备若存储为未激活(-1)，强制转为寻宠模式(2)（绑定流程已废弃）
+3. 统一进入已激活模式（active_mode：GNSS 三态策略主循环）
+4. 配置由 main.lua 在启动前通过 config.load_from_server() 加载
 ]]
 
 local app = {}
@@ -85,9 +84,8 @@ local function app_task()
     elseif a == 6 then wakeup_reason = "chg_det"
     end
     log.info("app", "唤醒原因:", a, b, c, d, "描述:", wakeup_reason)
-    config.DEVICE_RESTART = wakeup_reason
 
-    -- Power键监听（仅记录日志，绑定流程由 unactive_mode 处理）
+    -- Power键监听（仅记录日志）
     if gpio.PWR_KEY then
         gpio.debounce(gpio.PWR_KEY, 200)
         gpio.setup(gpio.PWR_KEY, function()
@@ -105,19 +103,9 @@ local function app_task()
     log.info("app", "当前工作模式:", work_mode)
 
     -- ============================================
-    -- 手动测试模式开关（与 active_mode.lua 同步设置）
-    -- nil = 使用 kvstore 存储的模式（正常绑定流程）
-    -- 0/1/2 = 跳过绑定，直接进入已激活模式
-    -- ============================================
-    local TEST_MODE = nil
-    if TEST_MODE ~= nil then
-        kvstore.set_work_mode(TEST_MODE)
-        work_mode = TEST_MODE
-    end
-
-    -- ============================================
-    -- 默认开机进入寻宠模式(GPS定位，mode=2)，不进入未激活模式
-    -- 若当前为未激活（-1，如旧版本设备升级），强制转为寻宠模式(2)
+    -- 未激活绑定窗口已废弃（unactive_mode.lua 已删除）。
+    -- 默认开机即进入寻宠模式(GPS定位，mode=2)；
+    -- 若旧版本设备存储的为未激活(-1，如云命令 change_mode 误设)，强制转为寻宠模式(2)
     -- ============================================
     if work_mode == config.DEVICE_MODE.UNACTIVATED then
         log.info("app", "未激活模式已禁用，强制进入寻宠模式(GPS定位)")
@@ -125,14 +113,9 @@ local function app_task()
         work_mode = config.DEVICE_MODE.FIND
     end
 
-    -- 根据工作模式选择
-    if work_mode == config.DEVICE_MODE.UNACTIVATED then
-        log.info("app", "进入未激活模式")
-        require("unactive_mode")
-    else
-        log.info("app", "进入已激活模式")
-        require("active_mode")
-    end
+    -- 统一进入已激活模式（active_mode：GNSS 三态策略主循环）
+    log.info("app", "进入已激活模式, work_mode:", work_mode)
+    require("active_mode")
 end
 
 -- 启动应用

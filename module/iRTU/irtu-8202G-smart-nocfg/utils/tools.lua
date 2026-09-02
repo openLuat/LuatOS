@@ -1,11 +1,18 @@
 --[[
 @module tools
 @summary 工具模块
-@version 2.0
-@date    2026.04.13
+@version 2.1
+@date    2026.09.02
 @author  孟伟
 @usage
-工具模块，提供功耗模式切换、网络检查、文件操作、电源状态管理等功能
+工具模块，当前职责为 LED 状态机：
+- 开机60s常亮 / GNSS关→开切换亮10s / 充电常亮（红，充满绿）
+- 600s内收到过服务器下行（REMOTE_COMMAND）→ 常亮，否则500ms闪烁
+- 充电器在位状态由 battery 模块轮询 YHM2712A 充电IC 后经 CHARGING_START/STOP 事件驱动
+
+004.000.030 清理：删除旧 LED 兼容接口（greenLed_* 等）、电源状态管理（get_vbus_state/
+update_power_state 等）、业务状态（device_mode/position_active_report）、调试接口
+get_all_state、计步编码 encode_step —— 均随 unactive_mode 删除与 GNSS 三态上报重构后无调用者。
 ]]
 
 local tools = {}
@@ -47,19 +54,9 @@ local function led_battery_level()
     return 0
 end
 
--- 设备状态管理
+-- 电源状态（充电器在位状态由 battery 模块轮询 YHM2712A 充电IC 后，经 CHARGING_START/STOP 事件更新）
 local device_state = {
-    -- 硬件引脚
-    vbus_pin = config.HARDWARE_PINS.VBUS_PIN,
-
-    -- 电源状态
-    vbus_state = 0,
-    is_charge = 0,
-
-    -- 业务状态
-    device_mode = 0,
-    position_active_report = 0,
-    device_restart = ""
+    vbus_state = 0,    -- 1=充电器在位（含充满未拔），0=不在位
 }
 
 -- LED 状态机核心：每 500ms 由定时器调用，各事件也触发立即刷新
@@ -146,99 +143,6 @@ function tools.led_set_manual(on)
     led_refresh()
 end
 
--- ---- 以下为旧接口兼容（unactive_mode 等旧路径引用，已废弃但保留签名）----
-function tools.greenLed_ON()    tools.led_set_manual(true)  end
-function tools.greenLed_OFF()   tools.led_set_manual(false) end
-function tools.yellowLed_ON()   end  -- 红灯由充电逻辑自动控制，忽略
-function tools.yellowLed_OFF()  end
-function tools.allLed_OFF()     tools.led_set_manual(false) end
-function tools.greenLed_blink(sec) tools.led_set_manual(true) end
-function tools.greenLed_is_blinking() return false end
-function tools.greenLed_stop_blink() end
-
--- ============================================
--- 电源状态管理
--- ============================================
-
--- 获取VBUS状态
-function tools.get_vbus_state()
-    return device_state.vbus_state
-end
-
--- 获取充电状态
-function tools.is_charging()
-    return device_state.is_charge
-end
-
--- 设置充电状态
-function tools.set_charging(state)
-    device_state.is_charge = state
-end
-
--- 更新VBUS和充电状态（数据源：battery 模块轮询 YHM2712A 充电IC 的缓存）
--- 本硬件无 VBUS 检测脚，GPIO 直读已失效；充电器在位由 exs_yhm2712a.status() 的
--- FSM_MODE 判定，battery 后台任务刷新缓存并在状态变化时发布 CHARGING_START/STOP
-function tools.update_power_state()
-    local ok, battery = pcall(require, "battery")
-    local charging = (ok and battery and battery.is_charging) and battery.is_charging() or false
-
-    device_state.vbus_state = charging and 1 or 0
-    device_state.is_charge = charging and 1 or 0
-
-    return device_state.vbus_state, device_state.is_charge
-end
-
--- ============================================
--- 业务状态管理
--- ============================================
-
--- 获取设备模式
-function tools.get_device_mode()
-    return device_state.device_mode
-end
-
--- 设置设备模式
-function tools.set_device_mode(mode)
-    device_state.device_mode = mode
-end
-
--- 获取定位激活上报标志
-function tools.get_position_active_report()
-    return device_state.position_active_report
-end
-
--- 设置定位激活上报标志
-function tools.set_position_active_report(value)
-    device_state.position_active_report = value
-end
-
--- ============================================
--- 调试接口
--- ============================================
-
--- 获取所有状态（用于调试）
-function tools.get_all_state()
-    return {
-        vbus_pin = device_state.vbus_pin,
-        vbus_state = device_state.vbus_state,
-        is_charge = device_state.is_charge,
-        device_mode = device_state.device_mode,
-        position_active_report = device_state.position_active_report,
-    }
-end
-
--- 步数编码字符集（60个字符，对应数字1~60）
-local STEP_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz12345678"
-
--- 编码步数为 MQTT 上报格式：时+分+步数
--- 例如：13:34 80步 → "Mh80"
-function tools.encode_step(step_count)
-    local dt = os.date("*t")
-    local hour_char = STEP_CHARS:sub(dt.hour, dt.hour)
-    local min_char = STEP_CHARS:sub(dt.min + 1, dt.min + 1)
-    return hour_char .. min_char .. tostring(step_count or 0)
-end
-
 -- 订阅服务器下行：任何 REMOTE_COMMAND（上报回应/远程指令等一切下行）都视为通信正常的证据
 -- 600 秒内收到过 → LED 常亮；超时 → 闪烁
 sys.subscribe("REMOTE_COMMAND", function()
@@ -249,12 +153,10 @@ end)
 -- （充电器在位状态由 battery 后台任务默认 30s 轮询一次，插拔检测延迟上限即为此值）
 sys.subscribe("CHARGING_START", function()
     device_state.vbus_state = 1
-    device_state.is_charge = 1
     led_refresh()
 end)
 sys.subscribe("CHARGING_STOP", function()
     device_state.vbus_state = 0
-    device_state.is_charge = 0
     led_refresh()
 end)
 

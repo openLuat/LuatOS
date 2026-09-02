@@ -119,7 +119,9 @@ function command_handlers.close_device(msg, cmd_msg)
     pm.shutdown()
 end
 
--- 7. set_report_interval - 设置上报间隔
+-- 7. set_report_interval - 设置上报间隔（当前固件不支持）
+-- 上报节奏已固定为 GNSS 三态策略（实时上报1s / GNSS开10s / GNSS关300s，常量在 active_mode 内），
+-- 无自定义间隔入口，命令保留仅为协议兼容，回执明确告知不支持
 function command_handlers.set_report_interval(msg, cmd_msg)
     local params = cmd_msg.data and cmd_msg.data.params or {}
     local interval = tonumber(params.interval_seconds)
@@ -130,9 +132,8 @@ function command_handlers.set_report_interval(msg, cmd_msg)
         return
     end
 
-    log.info("remote", "[MQTT] set_report_interval:", interval, "秒")
-    kvstore.set_report_interval(interval)
-    send_reply(cmd_msg.msg_id, "set_report_interval", 0, "ok, interval=" .. interval)
+    log.info("remote", "[MQTT] 收到 set_report_interval:", interval, "秒，但当前固件不支持自定义上报间隔")
+    send_reply(cmd_msg.msg_id, "set_report_interval", 4, "当前固件为GNSS三态固定上报节奏(实时1s/GNSS开10s/GNSS关300s)，不支持自定义间隔")
 end
 
 -- 8. set_volume - 设置音量（本硬件无音频，仅保存音量值，返回不支持）

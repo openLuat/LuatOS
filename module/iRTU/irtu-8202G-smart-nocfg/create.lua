@@ -1,8 +1,8 @@
 --[[
 @module  create
 @summary 云平台连接模块（AirCloud + MQTT + TCP/UDP）
-@version 6.0
-@date    2026.07.17
+@version 6.1
+@date    2026.09.02
 @usage
 协议支持：
 1. AIRCLOUD - 合宙 AirCloud 云平台
@@ -10,7 +10,10 @@
 3. SOCKET  - TCP/UDP 直连
 
 配置从 db 持久化存储的 gnss.network 中读取。
-外部模块通过 create.send(payload) 发送数据。
+外部模块通过 create.send(payload) 发送数据（JSON 报文），create.send_aircloud(tlv) 发送 TLV。
+
+004.000.030：aircloudTask 增加 NET_SENT_RDY_ 订阅，将 JSON 报文封装为 RANDOM_DATA
+字段 TLV 直发（默认仅 AirCloud 通道时，原 NET_SENT_RDY_1 无消费者的问题）。
 ]]
 create = {}
 
@@ -298,6 +301,30 @@ local function aircloudTask(cid, prot, keepAlive, timeout, uid, ssl, qos)
         end
     end)
 
+    -- JSON 报文转发订阅（create.send 发布 NET_SENT_RDY_1）：
+    -- 当前默认配置仅启用 AirCloud 通道，tcpTask/mqttTask 未运行导致该事件原无消费者，
+    -- active_mode/remote/boot_lbs_report 的 JSON 报文（property_report/command_reply/
+    -- boot_lbs_report 等）实际发不出去。此处订阅后封装为 RANDOM_DATA 字段以 TLV 直发合宙云，
+    -- 服务器按 JSON 体解析（与心跳 aircloud_heart 同机制）。
+    -- 注：若未来同时启用 MQTT/TCP 通道，JSON 报文会走对应通道原样上送 + 本通道 RANDOM_DATA 两份。
+    sys.subscribe("NET_SENT_RDY_" .. cid, function(topic, payload)
+        if topic == "mqttrecv" or topic == "disconnect" then return end
+        local is_cid = (type(topic) == "string") and (topic == "CID_" .. cid or not topic:match("CID_"))
+        if is_cid and type(payload) == "string" and payload ~= "" then
+            log.info("create", "JSON报文转TLV(RANDOM_DATA)上报, 长度:", #payload)
+            local ok, err = excloud.send({
+                { field_meaning = excloud.FIELD_MEANINGS.RANDOM_DATA,
+                  data_type = excloud.DATA_TYPES.ASCII,
+                  value = payload }
+            }, false)
+            if ok then
+                last_send_time = mcu.ticks()
+            else
+                log.warn("create", "JSON转TLV发送失败:", err)
+            end
+        end
+    end)
+
     -- 等待网络
     while not socket.adapter(socket.dft()) do
         sys.waitUntil("IP_READY", 1000)
@@ -357,8 +384,9 @@ local function aircloudTask(cid, prot, keepAlive, timeout, uid, ssl, qos)
     end
     log.info("create", "AirCloud服务已开启")
 
-    -- AirCloud 通道仅走 TLV 直发（AIRCLOUD_SEND），业务数据不再通过 RANDOM_DATA(json) 上报
-    -- 主循环仅负责心跳保活
+    -- 主循环仅负责心跳保活：
+    -- 结构化 TLV 由 AIRCLOUD_SEND_ 订阅直发；JSON 报文（create.send）由上方 NET_SENT_RDY_
+    -- 订阅封装为 RANDOM_DATA TLV 上送；两者发送成功都会刷新 last_send_time 供心跳节流判断
     while true do
         sys.wait(keepAlive * 1000)
         local now = mcu.ticks()

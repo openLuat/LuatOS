@@ -10,7 +10,6 @@ Air8202G 项目定位模块。
 
 local location = {}
 local config = require("config")
-local tools = require("tools")
 local airlbs = require("airlbs")
 local lbsLoc2 = require("lbsLoc2")
 local exgnss = require("exgnss")
@@ -51,9 +50,10 @@ function location.gnss_state_callback(event)
     if event == "FIXED" then
         local rmc_data = exgnss.rmc(2)
         if rmc_data then
+            -- 刷新"最近一次定位成功"缓存（get_report_location 的 GNSS 优先锁定策略依赖：
+            -- last_gps_data 非 nil 即代表开机以来 GNSS 至少成功过一次，掉星时沿用最近坐标）
             location_state.last_gps_time = os.time()
             location_state.last_gps_data = rmc_data
-            sys.publish("LOCATION_SUCCESS", "gps", rmc_data)
         end
     elseif event == "LOSE" then
         log.warn("location", "GPS信号丢失")
@@ -155,36 +155,6 @@ function location.get_lbs_location()
     return nil
 end
 
--- 获取 GPS 定位数据（带超时）
-function location.get_gnss_location(timeout)
-    if location_state.last_gps_data and (os.time() - location_state.last_gps_time) < config.LOCATION_CONFIG.CACHE_DURATION then
-        return location_state.last_gps_data, 2  -- gps_status=2 定位成功
-    end
-
-    exgnss.open(exgnss.TIMERORSUC, {
-        tag = "gps_location",
-        val = timeout or config.LOCATION_CONFIG.GPS_TIMEOUT,
-        cb = location.gps_callback
-    })
-
-    local result = sys.waitUntil("LOCATION_SUCCESS", (timeout or config.LOCATION_CONFIG.GPS_TIMEOUT) * 1000)
-    if result and location_state.last_gps_data then
-        return location_state.last_gps_data, 2
-    end
-
-    log.warn("location", "GPS定位超时")
-    return nil, 3  -- gps_status=3 定位失败
-end
-
-function location.gps_callback(tag)
-    local rmc_data = exgnss.rmc(2)
-    if rmc_data then
-        location_state.last_gps_time = os.time()
-        location_state.last_gps_data = rmc_data
-        sys.publish("LOCATION_SUCCESS", "gps", rmc_data)
-    end
-end
-
 -- 获取基站定位状态码（4=免费, 5=付费）
 local function get_lbs_status()
     local airlbs_mode = config.AIRLBS_CONFIG and config.AIRLBS_CONFIG.MODE or 0
@@ -193,7 +163,7 @@ end
 
 -- 寻宠模式：主动打开 GPS（DEFAULT 常开，无超时）
 -- 开机进入寻宠模式时立即调用，GPS 后台持续定位；
--- 定位成功后由 GPS 定位成功事件（LOCATION_SUCCESS/GNSS_STATE FIXED）驱动 5s 高频上报
+-- 定位成功后由 GNSS_STATE FIXED 回调刷新 last_gps_data 缓存（get_report_location 使用）
 function location.start_find_gps()
     if not location_state._gps_started then
         location_state._gps_started = true
@@ -304,44 +274,6 @@ function location.get_nmea_stream(ref_lat, ref_lng)
     return table.concat(parts), n
 end
 
--- GPS定位模式定位（GPS常开，不阻塞）
--- 到点上报告时直接判断 GPS 是否已定位成功（is_fix）：
---   - 已定位成功 → 直接 exgnss.rmc(2) 取坐标发送（gps_status=2）
---   - 未定位成功 → 不使用缓存 GPS 数据，立即降级基站（不等待，GPS 后台继续定位）
--- GPS 常开持续在后台定位，定位成功后由定位成功事件驱动 5s 高频上报
-function location.get_find_mode_location()
-    -- 确保GPS正在运行（常开，无超时）
-    location.start_find_gps()
-
-    -- 1. 直接判断 GPS 是否已定位成功（不阻塞等待）
-    local fix = false
-    if exgnss.is_fix then
-        fix = exgnss.is_fix()
-    end
-    log.info("location", "GPS定位模式 is_fix=", tostring(fix))
-
-    if fix then
-        -- 已定位成功：直接取 RMC 坐标
-        local rmc_data = exgnss.rmc(2)
-        if rmc_data and rmc_data.valid and rmc_data.lat and rmc_data.lng then
-            location_state.last_gps_time = os.time()
-            location_state.last_gps_data = rmc_data
-            log.info("location", "GPS定位成功:", rmc_data.lat, rmc_data.lng)
-            return {lat = rmc_data.lat, lng = rmc_data.lng}, 2
-        end
-    end
-
-    -- 2. 未定位成功（掉星/搜星中）：不使用缓存 GPS 数据，立即降级基站（不等待，GPS 后台继续定位）
-    --    30s 保底定时器检测到 GPS 未定位成功时走这里，上报 LBS 数据
-    log.info("location", "GPS未定位成功，不使用缓存，直接使用基站备选定位")
-    local lbs_data = location.get_lbs_location()
-    if lbs_data then
-        return lbs_data, get_lbs_status()
-    end
-
-    return nil, 3
-end
-
 -- 上报定位采集入口（GNSS 优先锁定策略）
 -- 规则：开机以来只要 GNSS 定位成功过一次，之后所有上报不再使用 LBS：
 --   - GNSS 开且当前定位成功 → 用当前实时坐标
@@ -395,99 +327,6 @@ function location.get_report_location(gnss_on)
         result.gps_status = get_lbs_status()
     end
     return result
-end
-
--- 主入口：根据工作模式采集定位信息
--- @param number work_mode 设备模式
--- @param boolean is_low_power 是否低电量
--- @param boolean is_moving 是否运动中（智能模式使用）
--- @return table 包含 gps/gps_status 数据
-function location.get_location(work_mode, is_low_power, is_moving)
-log.info("location", "获取定位, work_mode:", work_mode, "低电量:", is_low_power, "运动中:", is_moving)
-
-    local result = {
-        gps = nil,        -- 经纬度字符串 "lat,lng" 或 nil
-        gps_status = 0    -- 0=未开启, 1=定位中, 2=GPS定位成功, 3=定位失败, 4=免费基站成功, 5=付费基站成功
-    }
-
-    -- 低电量：仅使用基站定位
-    if is_low_power then
-        log.info("location", "低电量模式，使用基站定位")
-        local lbs_data = location.get_lbs_location()
-        if lbs_data then
-            result.gps = string.format("%.5f,%.5f", lbs_data.lat, lbs_data.lng)
-            result.gps_status = get_lbs_status()
-        end
-        return result
-    end
-
-    -- 根据模式选择定位方式
-    if work_mode == config.DEVICE_MODE.FIND then
-        -- GPS定位模式：GPS优先，基站备选
-        local gps_data, gps_status = location.get_find_mode_location()
-        if gps_data and gps_data.lat and gps_data.lng then
-            result.gps = string.format("%.5f,%.5f", gps_data.lat, gps_data.lng)
-            result.gps_status = gps_status
-        else
-            -- GPS失败，尝试基站
-            local lbs_data = location.get_lbs_location()
-            if lbs_data then
-                result.gps = string.format("%.5f,%.5f", lbs_data.lat, lbs_data.lng)
-                result.gps_status = get_lbs_status()
-            else
-                result.gps_status = 3
-            end
-        end
-    elseif work_mode == config.DEVICE_MODE.SMART then
-        -- 智能模式：运动中 GPS 优先（失败降级基站），静止只用基站
-        log.info("location", "智能模式定位, is_moving=", tostring(is_moving))
-        if is_moving then
-            log.info("location", "智能模式运动中，GPS优先定位")
-            local gps_data, gps_status = location.get_gnss_location(config.LOCATION_CONFIG.GPS_TIMEOUT)
-            if gps_data and gps_data.lat and gps_data.lng then
-                result.gps = string.format("%.5f,%.5f", gps_data.lat, gps_data.lng)
-                result.gps_status = 2
-            else
-                log.info("location", "智能模式GPS失败，降级基站")
-                local lbs_data = location.get_lbs_location()
-                if lbs_data then
-                    result.gps = string.format("%.5f,%.5f", lbs_data.lat, lbs_data.lng)
-                    result.gps_status = get_lbs_status()
-                else
-                    result.gps_status = 3
-                end
-            end
-        else
-            log.info("location", "智能模式静止中，基站定位")
-            local lbs_data = location.get_lbs_location()
-            if lbs_data then
-                result.gps = string.format("%.5f,%.5f", lbs_data.lat, lbs_data.lng)
-                result.gps_status = get_lbs_status()
-            else
-                result.gps_status = 3
-            end
-        end
-    else
-        -- 常规模式：基站定位
-        local lbs_data = location.get_lbs_location()
-        if lbs_data then
-            result.gps = string.format("%.5f,%.5f", lbs_data.lat, lbs_data.lng)
-            result.gps_status = get_lbs_status()
-        else
-            result.gps_status = 3
-        end
-    end
-
-    log.info("location", "定位采集完成, gps:", result.gps, "gps_status:", result.gps_status)
-    return result
-end
-
--- 消息处理
-function location.handle_locate_request(params)
-    local work_mode = params.work_mode or -1
-    local is_low_power = params.is_low_power or false
-    local data = location.get_location(work_mode, is_low_power)
-    sys.publish("LOCATE_RESPONSE", data)
 end
 
 -- 关闭定位

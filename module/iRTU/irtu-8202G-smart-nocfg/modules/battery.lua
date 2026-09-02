@@ -21,7 +21,6 @@
 
 local battery = {}
 local config = require "config"
-local kvstore = require "kvstore"
 
 -- 惰性加载充电IC驱动（require 有缓存，与 charge.lua 拿到同一实例）
 local exs_yhm2712a_ok, exs_yhm2712a = pcall(require, "exs_yhm2712a")
@@ -87,7 +86,6 @@ local function refresh_from_charger_ic()
     if type(v) == "number" and v >= 2200 and v <= 4800 then
         battery_state.voltage = v
         battery_state.level = calculate_level(v)
-        kvstore.set_vbat(v)
     end
     battery_state.last_check_time = os.time()
 

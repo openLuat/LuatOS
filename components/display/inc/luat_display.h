@@ -33,6 +33,7 @@ enum display_ctrl_cmd {
     LUAT_DISPLAY_POWER_OFF   = 0,
     LUAT_DISPLAY_POWER_SLEEP = 1,
     LUAT_DISPLAY_POWER_ON    = 2,
+    LUAT_DISPLAY_SEND_SEQ    = 3,
 };
 
 enum display_flags {
@@ -251,6 +252,13 @@ struct luat_display_panel_funcs {
 
 };
 
+/*自定义命令序列条目：首字节为命令，其余为数据*/
+struct luat_display_seq_cmd {
+    const uint8_t *data;    // 命令数据，首字节=命令
+    uint32_t len;           // data 长度
+    uint32_t delay_ms;      // 发送完本条后的延时(ms)
+};
+
 /*显示面板*/
 struct luat_display_panel
 {
@@ -272,6 +280,9 @@ struct luat_display_panel
     struct panel_pin_device *pin;
 
     unsigned int connector_type; // 连接器类型 RGB/LVDS/DSI/DBI
+    
+    struct luat_display_seq_cmd *custom_cmds;    // 自定义命令序列
+    uint32_t custom_cmd_count;                    // 自定义命令序列条目数量
 };
 
 /*显示操作接口*/
@@ -359,6 +370,7 @@ int luat_display_panel_reset(struct luat_display_panel *panel);
 
 /* 显示图形绘制接口 */
 int luat_display_fill(struct luat_display *disp, struct luat_display_area area, uint32_t color);
+int luat_display_draw_line(struct luat_display *disp, struct luat_display_area area, uint32_t color);
 
 #endif
 

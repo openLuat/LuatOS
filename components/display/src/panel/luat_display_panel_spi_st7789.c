@@ -46,7 +46,7 @@ static int panel_deinit(struct luat_display_panel *panel)
 /*控制面板*/
 static int panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg)
 {
-    return 0;
+    return luat_display_panel_ctrl(panel, cmd, arg);
 }
 
 /*SPI面板操作接口*/

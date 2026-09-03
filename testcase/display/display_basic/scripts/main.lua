@@ -22,7 +22,7 @@ sys.taskInit(function()
     local ok = pwm.open(3, 1000, 100)
     log.info("display", "pwm backlight", ok)
 
-    -- 验证 90° 旋转：DMA2D ROT_ANT 旋转通道（flush 时整帧走旋转分支）
+    -- 验证 90° 
     log.info("display", "setRotation 1", display.setRotation(1))
 
     local colors = {

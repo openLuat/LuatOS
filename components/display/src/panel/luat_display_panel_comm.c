@@ -35,7 +35,24 @@ struct luat_display_panel *luat_display_find_panel(unsigned int connector_type)
     return panels[i];
 }
 
+/*通用函数，内部按照连接器类型发送一条命令序列，data 首字节为命令*/
+int luat_display_send_sequence(struct luat_display_panel *panel, const void *data, uint32_t len)
+{
+    if (panel == NULL || data == NULL || len == 0) {
+        return -1;
+    }
 
+    switch (panel->connector_type) {
+    case LUAT_DISPLAY_CONNECTOR_RGB:
+        return rgb_spi_panel_send_sequence(panel, data, len);
+    case LUAT_DISPLAY_CONNECTOR_DBI:
+        return spi_panel_send_sequence(panel, data, len);
+    case LUAT_DISPLAY_CONNECTOR_MIPI:
+        return dsi_panel_send_sequence(panel, data, len);
+    default:
+        return 0;
+    }
+}
 
 /*默认复位显示面板*/
 int luat_display_panel_reset(struct luat_display_panel *panel) 
@@ -83,6 +100,44 @@ int luat_display_power_off(struct luat_display *disp)
     }
     if (pin->pwr != LUAT_GPIO_NONE) {
         luat_gpio_set(pin->pwr, Luat_GPIO_LOW);
+    }
+    return 0;
+}
+
+/*发送面板自定义命令序列（Lua 传入的 custom_cmds）*/
+int luat_display_panel_send_custom_cmds(struct luat_display_panel *panel)
+{
+    int ret = 0;
+    uint32_t i;
+
+    if (panel == NULL || panel->custom_cmds == NULL || panel->custom_cmd_count == 0) {
+        return 0;
+    }
+
+    for (i = 0; i < panel->custom_cmd_count; i++) {
+        const struct luat_display_seq_cmd *cmd = &panel->custom_cmds[i];
+
+        ret = luat_display_send_sequence(panel, cmd->data, cmd->len);
+        if (ret < 0) {
+            LLOGE("send custom cmd[%u] failed, ret=%d", i, ret);
+            return ret;
+        }
+
+        if (cmd->delay_ms > 0) {
+            luat_rtos_task_sleep(cmd->delay_ms);
+        }
+    }
+
+    return 0;
+}
+
+/*各面板 panel_ctrl 的通用实现：
+  - LUAT_DISPLAY_SEND_SEQ：下发一条命令序列（arg 指向 struct luat_display_init_cmd）*/
+int luat_display_panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg)
+{
+    if (cmd == LUAT_DISPLAY_SEND_SEQ && arg != NULL) {
+        struct luat_display_seq_cmd *c = (struct luat_display_seq_cmd *)arg;
+        return luat_display_send_sequence(panel, c->data, c->len);
     }
     return 0;
 }

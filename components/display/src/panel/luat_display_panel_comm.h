@@ -35,4 +35,13 @@ struct luat_display_panel *luat_display_find_panel(unsigned int connector_type);
 /*默认复位显示面板*/
 int luat_display_panel_reset(struct luat_display_panel *panel);
 
+/*按连接器类型发送一条命令序列，data 首字节为命令，返回 0 表示成功*/
+int luat_display_send_sequence(struct luat_display_panel *panel, const void *data, uint32_t len);
+
+/*发送 Lua 自定义初始化命令序列（custom_cmds，无则不发送）*/
+int luat_display_panel_send_custom_cmds(struct luat_display_panel *panel);
+
+/*各面板 panel_ctrl 的通用实现（含 LUAT_DISPLAY_SEND_SEQ 命令序列下发）*/
+int luat_display_panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg);
+
 #endif

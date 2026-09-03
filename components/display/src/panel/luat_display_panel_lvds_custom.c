@@ -5,6 +5,13 @@
 #define LUAT_LOG_TAG "rgb_custom"
 #include "luat_log.h"
 
+#define panel_spi_send_seq(panel, ...) do {                         \
+        static const unsigned char d[] = { __VA_ARGS__ };           \
+        int ret;                                                    \
+        ret = lvds_panel_send_sequence(panel, d, ARRAY_SIZE(d));     \
+        if (ret < 0)                                                \
+            return ret;                                             \
+    } while (0)
 
 /*初始化面板*/
 static int panel_init(struct luat_display_panel *panel) 
@@ -24,7 +31,8 @@ static int panel_deinit(struct luat_display_panel *panel)
 /*控制面板*/
 static int panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg)
 {
-    return 0;
+    /**/
+    return luat_display_panel_ctrl(panel, cmd, arg);
 }
 
 /*RGB面板操作接口*/

@@ -1,5 +1,6 @@
 #include "luat_base.h"
 #include "luat_display.h"
+#include "luat_display_if_comm.h"
 #include "luat_gpio.h"
 #include "luat_mem.h"
 #include "luat_rtos.h"
@@ -193,8 +194,11 @@ int luat_display_init(struct luat_display *disp)
     disp->fb_info = luat_heap_zalloc(sizeof(struct luat_display_fb_info));
 
     /*初始化面板*/
-    disp->panel->panel_funcs->panel_init(disp->panel);
-
+    ret = disp->panel->panel_funcs->panel_init(disp->panel);
+    if (ret) {
+        LLOGW("panel_init failed, ret = %d", ret);
+    }
+    
     /*根据面板信息探测FB信息*/
     ret = disp->display_funcs->fb_probe(disp->panel, disp->fb_info);
 

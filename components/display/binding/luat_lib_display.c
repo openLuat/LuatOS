@@ -68,6 +68,142 @@ typedef struct {
     struct luat_display_panel *panel;
 } display_panel_reg_t;
 
+/*释放面板的 Lua 自定义初始化命令序列（重复 init 或 init 失败时调用）*/
+static void panel_init_cmds_free(struct luat_display_panel *panel)
+{
+    if (panel == NULL || panel->custom_cmds == NULL) {
+        return;
+    }
+    if (panel->custom_cmd_count > 0 && panel->custom_cmds[0].data != NULL) {
+        luat_heap_free((void *)panel->custom_cmds[0].data);
+    }
+    luat_heap_free(panel->custom_cmds);
+    panel->custom_cmds = NULL;
+    panel->custom_cmd_count = 0;
+}
+
+/*解析 Lua 的 custom_cmds 表并挂到面板上：
+   每行 {cmd, data..., delay = ms}，首元素为命令。
+   只支持在预置面板名上使用；未传或空表则保持 C 内置序列不变。*/
+static int panel_custom_cmds_setup(struct luat_display_panel *panel, lua_State *L)
+{
+    struct luat_display_seq_cmd *cmds = NULL;
+    unsigned char *data_buf = NULL;
+    size_t total = 0;
+    size_t count = 0;
+
+    lua_getfield(L, 2, "custom_cmds");
+    if (lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        return 0;
+    }
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        return -1;
+    }
+    int t = lua_gettop(L);
+    luaL_checktype(L, t, LUA_TTABLE);
+
+    /*重复 init 时先释放旧序列，避免泄漏*/
+    panel_init_cmds_free(panel);
+
+    size_t nrows = luaL_len(L, t);
+    if (nrows == 0) {
+        lua_pop(L, 1);
+        return 0;
+    }
+
+    /*第一遍：统计命令条数与总数据字节数*/
+    for (size_t r = 1; r <= nrows; r++) {
+        lua_rawgeti(L, t, (lua_Integer)r);
+        if (lua_istable(L, -1)) {
+            int n = 0;
+            lua_rawgeti(L, -1, 1);
+            while (!lua_isnil(L, -1)) {
+                lua_pop(L, 1);
+                n++;
+                lua_rawgeti(L, -1, n + 1);
+            }
+            lua_pop(L, 1); /* nil 结束符 */
+            if (n > 0) {
+                count++;
+                total += (size_t)n;
+            }
+        }
+        lua_pop(L, 1);
+    }
+
+    if (count == 0) {
+        lua_pop(L, 1);
+        return 0;
+    }
+
+    cmds = luat_heap_malloc(sizeof(struct luat_display_seq_cmd) * count);
+    if (cmds == NULL) {
+        LLOGE("alloc custom_cmds struct fail");
+        lua_pop(L, 1);
+        return -1;
+    }
+    memset(cmds, 0, sizeof(struct luat_display_seq_cmd) * count);
+
+    if (total > 0) {
+        data_buf = luat_heap_malloc(total);
+        if (data_buf == NULL) {
+            LLOGE("alloc custom_cmds data fail");
+            luat_heap_free(cmds);
+            lua_pop(L, 1);
+            return -1;
+        }
+    }
+
+    /*第二遍：填充每个命令的数据与延时*/
+    {
+        struct luat_display_seq_cmd *cmd = cmds;
+        unsigned char *p = data_buf;
+
+        for (size_t r = 1; r <= nrows; r++) {
+            lua_rawgeti(L, t, (lua_Integer)r);
+            if (lua_istable(L, -1)) {
+                int n = 0;
+                lua_rawgeti(L, -1, 1);
+                while (!lua_isnil(L, -1)) {
+                    lua_pop(L, 1);
+                    n++;
+                    lua_rawgeti(L, -1, n + 1);
+                }
+                lua_pop(L, 1); /* nil 结束符 */
+
+                if (n > 0) {
+                    cmd->data = p;
+                    cmd->len = (uint32_t)n;
+                    cmd->delay_ms = 0;
+
+                    for (int j = 1; j <= n; j++) {
+                        lua_rawgeti(L, -1, j);
+                        p[j - 1] = (unsigned char)(lua_tointeger(L, -1) & 0xFF);
+                        lua_pop(L, 1);
+                    }
+                    p += n;
+
+                    lua_getfield(L, -1, "delay");
+                    if (lua_isinteger(L, -1)) {
+                        cmd->delay_ms = (uint32_t)lua_tointeger(L, -1);
+                    }
+                    lua_pop(L, 1);
+
+                    cmd++;
+                }
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1); /* init_cmds 表 */
+
+    panel->custom_cmds = cmds;
+    panel->custom_cmd_count = (uint32_t)count;
+    return 0;
+}
+
 /*显示面板列表*/
 static const display_panel_reg_t panel_regs[] = 
 {
@@ -261,31 +397,37 @@ static int custom_pin_setup(struct panel_pin_device *pin, lua_State *L)
 
 /**
  * @api display.init(panel_name, config)
- * @string panel_name 面板型号，如 "st7789"
+ * @string panel_name 面板型号：custom(自定义) / st7789 / ili9341 / st7701s / nv3052c
  * @table config 配置表
- * @int config.w 屏幕宽度，默认 240
- * @int config.h 屏幕高度，默认 320
- * @int config.crop_x 窗口X坐标，默认 0
- * @int config.crop_y 窗口Y坐标，默认 0
- * @int config.crop_w 窗口宽度，默认 240
- * @int config.crop_h 窗口高度，默认 320
- * @int config.bpp 每像素位数，默认 16 (RGB565)
+ * @string config.interface 接口类型（必填）："rgb" / "dsi" / "spi" / "lvds" / "sdl"(PC模拟)
  * @int config.id 显示组件 ID (0~4)，省略则自动分配
- * @string config.interface 接口类型，"rgb"(默认) 或 "sdl"(PC模拟)
+ * @int config.w 屏幕宽度，默认 240（仅 custom 面板生效）
+ * @int config.h 屏幕高度，默认 320（仅 custom 面板生效）
+ * @int config.bpp 每像素位数，默认 16 (RGB565)，当前为占位参数
+ * @int config.crop_x 裁剪窗口X坐标，默认 0
+ * @int config.crop_y 裁剪窗口Y坐标，默认 0
+ * @int config.crop_w 裁剪窗口宽度，默认屏宽
+ * @int config.crop_h 裁剪窗口高度，默认屏高
+ * @int config.hbp 水平后廊，默认 0（仅 custom 面板生效）
+ * @int config.hfp 水平前廊，默认 0（仅 custom 面板生效）
+ * @int config.hspw 水平同步脉宽，默认 0（仅 custom 面板生效）
+ * @int config.vbp 垂直后廊，默认 0（仅 custom 面板生效）
+ * @int config.vfp 垂直前廊，默认 0（仅 custom 面板生效）
+ * @int config.vspw 垂直同步脉宽，默认 0（仅 custom 面板生效）
+ * @int config.pclk_hz 像素时钟频率，默认 0（仅 custom 面板生效）
+ * @int config.hs_polarity HSYNC 极性，默认 0(低有效)
+ * @int config.vs_polarity VSYNC 极性，默认 0(低有效)
+ * @int config.de_polarity DE 极性，默认 0(低有效)
+ * @int config.pclk_polarity PCLK 极性，默认 0(低有效)
  * @int config.pin_rst 复位引脚，默认 0xFF(无)
  * @int config.pin_bl 背光引脚，默认 0xFF(无)
  * @int config.pin_pwr 电源引脚，默认 0xFF(无)
- * @int config.hbp 水平后廊 (RGB接口)
- * @int config.hfp 水平前廊 (RGB接口)
- * @int config.hspw 水平同步脉宽 (RGB接口)
- * @int config.vbp 垂直后廊 (RGB接口)
- * @int config.vfp 垂直前廊 (RGB接口)
- * @int config.vspw 垂直同步脉宽 (RGB接口)
- * @int config.pclk_hz 像素时钟频率 (RGB接口)
- * @int config.hs_polarity HSYNC 极性，默认 1(高有效)
- * @int config.vs_polarity VSYNC 极性，默认 1(高有效)
- * @int config.de_polarity DE 极性，默认 1(高有效)
- * @int config.pclk_polarity PCLK 极性，默认 0(下降沿)
+ * @int config.pin_cs 片选引脚，默认 0xFF(无，SPI 接口)
+ * @int config.pin_scl 时钟引脚，默认 0xFF(无，SPI 接口)
+ * @int config.pin_sdi 数据引脚，默认 0xFF(无，SPI 接口)
+ * @int config.pin_dc 数据/命令引脚，默认 0xFF(无，SPI 接口)
+ * @table config.custom_cmds 自定义初始化命令序列，每行 {cmd, data..., delay = ms}；
+ *        面板初始化期间发送后可释放节省 RAM
  * @return bool 成功返回 true，失败返回 false 和错误信息
  */
 static int l_display_init(lua_State *L) 
@@ -357,6 +499,16 @@ static int l_display_init(lua_State *L)
         }
     }
 
+    /*Lua 自定义初始化命令序列（所有面板通用：RGB/DBI/DSI）*/
+    {
+        int cmds_ret = panel_custom_cmds_setup(L_disp->panel, L);
+        if (cmds_ret) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "custom_cmds setup fail");
+            goto init_fail;
+        }
+    }
+
 #ifdef LUAT_USE_LCD_SDL2
     strncpy(iface_buf, "sdl", 3);   //对于PC平台强制使用SDL接口
 #endif
@@ -370,6 +522,13 @@ static int l_display_init(lua_State *L)
     }
 
     L_disp->display_funcs = funcs;
+
+    /*重复 init 时先释放上一份 pin（panel 为全局模板，pin 由本函数分配维护；
+       init 失败路径再由 luat_display_destroy 释放新分配的 pin）*/
+    if (L_disp->panel->pin != NULL) {
+        luat_heap_free(L_disp->panel->pin);
+        L_disp->panel->pin = NULL;
+    }
 
     /*获取引脚配置参数*/
     struct panel_pin_device *pin = luat_heap_zalloc(sizeof(struct panel_pin_device));
@@ -391,6 +550,9 @@ static int l_display_init(lua_State *L)
         lua_pushstring(L, "init fail");
         goto init_fail;
     }
+
+    /*初始化已完成，custom_cmds 仅面板初始化期间使用，释放以节省 RAM*/
+    panel_init_cmds_free(L_disp->panel);
 
     /*注册显示器*/
     lua_getfield(L, 2, "id");
@@ -416,7 +578,7 @@ static int l_display_init(lua_State *L)
     }
     lua_pop(L, 1);
 
-    luat_display_on(L_disp);
+    luat_display_on(L_disp);        //默认开启显示
 
     lua_pushboolean(L, 1);
     return 1;
@@ -424,6 +586,7 @@ static int l_display_init(lua_State *L)
 init_fail:
     /*screen_win 是本函数分配的，且 panel 是全局模板，
       因此先释放 screen_win，再由 luat_display_destroy 释放其余资源*/
+    panel_init_cmds_free(L_disp->panel);
     if (screen_win_allocated && L_disp->panel != NULL && L_disp->panel->screen_win != NULL) {
         luat_heap_free(L_disp->panel->screen_win);
         L_disp->panel->screen_win = NULL;
@@ -628,6 +791,66 @@ static int l_display_fill(lua_State *L) {
     return 1;
 }
 
+/**
+ * @api display.sendSeq([id], cmd_table)
+ * @int [id] 显示组件 ID，省略则操作默认 display
+ * @table cmd_table 命令序列表，首元素为命令，其余为数据，如 {0x36, 0x08}
+ * @return bool 成功返回 true
+ * @usage
+ * display.sendSeq({0x36, 0x08})          -- 默认屏
+ * display.sendSeq(1, {0x29, 0x11})       -- 指定 ID=1 的屏
+ */
+static int l_display_send_seq(lua_State *L)
+{
+    int id_index = 1;
+    int seq_index = 2;
+    if (lua_gettop(L) == 1) {
+        id_index = 0;
+        seq_index = 1;
+    }
+
+    struct luat_display *disp = (id_index > 0) ? l_get_display_opt(L, id_index) : luat_display_get_default();
+    if (disp == NULL || disp->panel == NULL) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    luaL_checktype(L, seq_index, LUA_TTABLE);
+    size_t n = luaL_len(L, seq_index);
+    if (n == 0) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    unsigned char *buf = luat_heap_malloc(n);
+    if (buf == NULL) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    for (size_t j = 0; j < n; j++) {
+        lua_rawgeti(L, seq_index, (lua_Integer)(j + 1));
+        buf[j] = (unsigned char)(lua_tointeger(L, -1) & 0xFF);
+        lua_pop(L, 1);
+    }
+
+    /*通过面板控制接口发送命令序列（由面板实现按连接器类型下发）*/
+    int ret = -1;
+    if (disp->panel->panel_funcs != NULL &&
+        disp->panel->panel_funcs->panel_ctrl != NULL) {
+        struct luat_display_seq_cmd cmd = {
+            .data = buf,
+            .len = (uint32_t)n,
+            .delay_ms = 0,
+        };
+        ret = disp->panel->panel_funcs->panel_ctrl(disp->panel, LUAT_DISPLAY_SEND_SEQ, &cmd);
+    }
+    luat_heap_free(buf);
+
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_display[] = {
     {"init",        ROREG_FUNC(l_display_init)},
@@ -637,6 +860,7 @@ static const rotable_Reg_t reg_display[] = {
     {"wakeup",      ROREG_FUNC(l_display_wakeup)},
     {"flush",       ROREG_FUNC(l_display_flush)},
     {"fill",        ROREG_FUNC(l_display_fill)},
+    {"sendSeq",     ROREG_FUNC(l_display_send_seq)},
     {"setRotation", ROREG_FUNC(l_display_set_rotation)},
     {"getSize",     ROREG_FUNC(l_display_get_size)},
     {"getFbInfo",   ROREG_FUNC(l_display_get_fb)},

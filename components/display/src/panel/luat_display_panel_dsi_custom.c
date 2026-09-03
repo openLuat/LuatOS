@@ -32,7 +32,7 @@ static int panel_deinit(struct luat_display_panel *panel)
 /*控制面板*/
 static int panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg)
 {
-    return 0;
+    return luat_display_panel_ctrl(panel, cmd, arg);
 }
 
 /*RGB面板操作接口*/
@@ -44,14 +44,14 @@ static struct luat_display_panel_funcs panel_funcs_dsi = {
 
 /*RGB面板时序参数*/
 static struct luat_display_timing dsi_timing = {
-    .pclk_hz = 20000000,
+    .pclk_hz = 9000000,
 
     .hactive = 480,
     .hfp = 30,
     .hbp = 30,
     .hspw = 10,
 
-    .vactive = 854,
+    .vactive = 272,
     .vfp = 8,
     .vbp = 16,
     .vspw = 2,

@@ -1,8 +1,8 @@
 --[[
 @module  wifi_win
 @summary WiFi页面，显示当前连接状态 + 扫描结果
-@version 1.1.0
-@date    2026.07.31
+@version 2.0.0
+@date    2026.08.14
 @author  江访
 @usage
 本页面提供WiFi信息展示功能：
@@ -18,16 +18,6 @@ local main_container, content
 local wifi_status_label = nil
 local scan_list_label = nil
 local scan_count_label = nil
-
--- 颜色常量
-local COLOR_PRIMARY = 0x1A5276
-local COLOR_BG = 0xD0D0D0
-local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x000000
-local COLOR_SECONDARY = 0x000000
-local COLOR_WHITE = 0xFFFFFF
-local COLOR_GREEN = 0x4CAF50
-local COLOR_RED = 0xF44336
 
 --[[
 导航栏返回按钮点击
@@ -54,16 +44,16 @@ local function on_status_wifi_updated(connected, ssid, level, rssi)
     if not exwin.is_active(win_id) then return end
     if not wifi_status_label then return end
     local text = ""
-    local color = COLOR_TEXT
+    local color = T.COLOR_TEXT
     if connected then
         text = "已连接：" .. tostring(ssid or "")
         if rssi and rssi ~= 0 then
             text = text .. "  " .. tostring(rssi) .. "dBm"
         end
-        color = COLOR_GREEN
+        color = T.COLOR_GREEN
     else
         text = "未连接"
-        color = COLOR_RED
+        color = T.COLOR_DANGER
     end
     wifi_status_label:set_text(text)
     wifi_status_label:set_color(color)
@@ -82,7 +72,7 @@ local function on_scan_result(results)
     if results and type(results) == "table" and #results > 0 then
         local lines = {}
         local count = #results
-        if count > 8 then count = 8 end  -- 每行2列显示8个SSID，可滚动区域有限
+        if count > 8 then count = 8 end
         for i = 1, count do
             local entry = results[i]
             if type(entry) == "table" then
@@ -131,36 +121,27 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = 480, h = 272, color = COLOR_BG, parent = airui.screen })
+    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
 
-    -- 顶部导航栏
-    local header = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 44, color = COLOR_PRIMARY })
-
-    -- 返回按钮
-    local back_btn = airui.container({ parent = header, x = 0, y = 0, w = 60, h = 44, on_click = on_back_click })
-    airui.label({ parent = back_btn, x = 5, y = 10, w = 50, h = 24, text = "< 返回", font_size = 16, color = COLOR_WHITE, align = airui.TEXT_ALIGN_CENTER })
-
-    -- 标题
-    airui.label({ parent = header, x = 60, y = 8, w = 360, h = 28, text = "WiFi", font_size = 20, color = COLOR_WHITE, align = airui.TEXT_ALIGN_CENTER })
+    -- 顶部标题栏
+    T.titlebar(main_container, "WiFi", on_back_click)
 
     -- 内容区域
-    content = airui.container({ parent = main_container, x = 0, y = 44, w = 480, h = 228, color = COLOR_BG })
+    content = airui.container({ parent = main_container, x = 0, y = T.CONTENT_Y, w = T.SCREEN_W, h = T.CONTENT_H, color = T.COLOR_BG })
 
     -- WiFi连接状态卡片
-    local status_card = airui.container({ parent = content, x = 10, y = 6, w = 460, h = 44, color = COLOR_CARD, radius = 4 })
-    airui.label({ parent = status_card, x = 10, y = 6, w = 80, h = 18, text = "连接状态", font_size = 13, color = COLOR_SECONDARY, align = airui.TEXT_ALIGN_LEFT })
-    wifi_status_label = airui.label({ parent = status_card, x = 10, y = 22, w = 440, h = 20, text = "未连接", font_size = 16, color = COLOR_TEXT, align = airui.TEXT_ALIGN_LEFT })
+    local _, _, status_content = T.info_card(content, 6, 44, "连接状态", "未连接")
+    wifi_status_label = status_content
 
     -- 扫描区域标题 + 刷新按钮
-    airui.label({ parent = content, x = 10, y = 58, w = 100, h = 18, text = "可用WiFi", font_size = 13, color = COLOR_SECONDARY, align = airui.TEXT_ALIGN_LEFT })
-    scan_count_label = airui.label({ parent = content, x = 110, y = 58, w = 180, h = 18, text = "", font_size = 12, color = COLOR_SECONDARY, align = airui.TEXT_ALIGN_LEFT })
+    airui.label({ parent = content, x = T.MARGIN, y = 58, w = 100, h = 20, text = "可用WiFi", font_size = T.FONT_CARD_TITLE, color = T.COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_LEFT })
+    scan_count_label = airui.label({ parent = content, x = 110, y = 58, w = 180, h = 20, text = "", font_size = T.FONT_SMALL, color = T.COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_LEFT })
 
-    local refresh_btn = airui.container({ parent = content, x = 380, y = 52, w = 90, h = 30, color = COLOR_PRIMARY, radius = 4, on_click = on_refresh_click })
-    airui.label({ parent = refresh_btn, x = 0, y = 3, w = 90, h = 24, text = "刷新扫描", font_size = 15, color = COLOR_WHITE, align = airui.TEXT_ALIGN_CENTER })
+    T.btn_primary(content, 380, 52, 90, 30, "刷新扫描", on_refresh_click)
 
-    -- 扫描结果区域（两列布局：每行2个SSID，共4行）
-    local list_card = airui.container({ parent = content, x = 10, y = 86, w = 460, h = 136, color = COLOR_CARD, radius = 4 })
-    scan_list_label = airui.label({ parent = list_card, x = 10, y = 6, w = 440, h = 124, text = "点击\"刷新扫描\"开始", font_size = 14, color = COLOR_TEXT, align = airui.TEXT_ALIGN_LEFT })
+    -- 扫描结果区域
+    local list_card = airui.container({ parent = content, x = T.MARGIN, y = 86, w = T.CARD_W, h = 136, color = T.COLOR_CARD, radius = T.CARD_RADIUS })
+    scan_list_label = airui.label({ parent = list_card, x = 10, y = 6, w = T.CARD_W - 20, h = 124, text = "点击\"刷新扫描\"开始", font_size = T.FONT_SMALL, color = T.COLOR_TEXT, align = airui.TEXT_ALIGN_LEFT })
 end
 
 local function on_create()

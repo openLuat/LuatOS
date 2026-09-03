@@ -211,7 +211,16 @@ local function sip_callback(event, arg1, arg2)
         elseif arg1 == "stats" then
             local stats = arg2 or {}
             log.info("sip_record.voip", "tx=" .. tostring(stats.tx_packets),
-                "rx=" .. tostring(stats.rx_packets), "lost=" .. tostring(stats.rx_lost))
+                "rx=" .. tostring(stats.rx_packets), "lost=" .. tostring(stats.rx_lost),
+                "bad=" .. tostring(stats.rx_bad_payload), "parse=" .. tostring(stats.rx_parse_fail),
+                "aec=" .. tostring(stats.aec_mode),
+                "skew=" .. tostring(stats.aec_seq_skew),
+                "ref_under=" .. tostring(stats.aec_ref_underflow),
+                "ref_over=" .. tostring(stats.aec_ref_overflow),
+                "resets=" .. tostring(stats.aec_sync_resets),
+                "mic_clip=" .. tostring(stats.aec_mic_clipped),
+                "out_clip=" .. tostring(stats.aec_out_clipped),
+                "max_us=" .. tostring(stats.aec_max_process_us))
         end
     elseif event == "error" then
         log.error("sip_record.sip", "error", arg1)
@@ -339,7 +348,7 @@ function app.start(config)
                 "max_seconds=" .. tostring(cfg.record.max_seconds))
         end
 
-        if not audio_drv.init() then return end
+        if not audio_drv.init(cfg.audio) then return end
 
         while not socket.adapter(socket.LWIP_STA) do
             log.warn("sip_record.net", "等待 Wi-Fi 网络")

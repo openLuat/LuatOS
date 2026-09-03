@@ -105,7 +105,7 @@ tts_play_text = function(text)
         if not ok then log.warn("llm_chat", "audio.tts 调用失败") end
         sys.wait(200)
     else
-        -- 新框架：走 exaudio.play_start + 回调（Air1602 audio_v2 不发 playDone 事件）
+        -- 新框架：走 exaudio.play_start + 回调
         local done = false
         local ok = exaudio.play_start({
             type = 1, content = tts_voice .. text,
@@ -118,6 +118,11 @@ tts_play_text = function(text)
             while not done and tts_playing and t < 30000 do
                 sys.wait(100); t = t + 100
             end
+            -- 被用户中断：静音让播放自然结束，避免 I2C 死锁
+            if not done and not tts_playing then
+                log.info("llm_chat", "TTS 被用户中断，静音等待播放结束")
+                pcall(exaudio.vol, 0)  -- 静音（不走 I2C，立即生效）
+            end
         end
     end
     tts_playing = false
@@ -125,9 +130,15 @@ tts_play_text = function(text)
 end
 
 tts_stop = function()
-    pcall(exaudio.play_stop, { type = 1 })
-    if audio and audio.tts then pcall(audio.tts, 0) end
-    pcall(exaudio.pm, exaudio.SUSPEND)  -- 挂起音频，停止底层 timer 事件
+    log.info("llm_chat", "tts_stop 调用, playing=", tts_playing)
+    local r1 = pcall(exaudio.play_stop, { type = 1 })
+    log.info("llm_chat", "play_stop 结果:", r1)
+    if audio and audio.tts then
+        local r2 = pcall(audio.tts, 0)
+        log.info("llm_chat", "audio.tts(0) 结果:", r2)
+    end
+    local r3 = pcall(exaudio.pm, exaudio.SHUTDOWN)
+    log.info("llm_chat", "pm SHUTDOWN 结果:", r3)
     tts_playing = false
     tts_queue = {}
 end
@@ -260,13 +271,6 @@ local function ws_callback(wsc, event, data, fin, opcode)
         else
             cmd = json.encode({ cmd = "create", uid = uid, sid = WS_SID, dev_id = dev_id, system = SYSTEM_PROMPT })
         end
-        log.info("llm_chat", "=== Postman 测试用 ===")
-        log.info("llm_chat", "URL:", WS_URL)
-        log.info("llm_chat", "uid:", uid)
-        log.info("llm_chat", "dev_id:", dev_id)
-        log.info("llm_chat", "session_id:", session_id or "nil")
-        log.info("llm_chat", "发送内容:", cmd)
-        log.info("llm_chat", "=== Postman 测试用 END ===")
         wsc:send(cmd)
 
     elseif event == "recv" then
@@ -320,7 +324,6 @@ do_connect = function()
         return
     end
 
-    log.info("llm_chat", "uid:", uid, "连接:", WS_URL)
     sys.publish("AI_CHAT_STATUS", "连接中...")
 
     local wsc = websocket.create(nil, WS_URL)
@@ -428,12 +431,9 @@ sys.subscribe("AI_CHAT_CLEAR", function()
 end)
 sys.subscribe("AI_CHAT_TTS_TOGGLE", function()
     sys.taskInit(function()
+        log.info("llm_chat", "TTS_TOGGLE: tts_enabled=", tts_enabled, "→", not tts_enabled)
         tts_enabled = not tts_enabled
-        if not tts_enabled then
-            tts_playing = false  -- 立即让播放循环退出，释放协程
-            -- 异步执行 I2C 停止操作，避免阻塞 UI 触摸
-            sys.taskInit(function() tts_stop() end)
-        end
+        tts_playing = false  -- 让 tts_play_text 的循环自行退出并停止音频
         sys.publish("AI_CHAT_TTS_STATUS", tts_enabled)
     end)
 end)
@@ -452,14 +452,12 @@ sys.subscribe("AI_CHAT_STT", function(fp) sys.taskInit(function() request_stt(fp
 pcall(fskv.init)
 init_device_info()
 load_session()
-log.info("llm_chat", "已加载 dev_id:", dev_id)
 
 -- 用户打开 AI 助手时连接
 sys.subscribe("AI_CHAT_OPEN", function()
     log.info("llm_chat", "收到 AI_CHAT_OPEN")
     sys.taskInit(function()
         load_iot_uid()
-        log.info("llm_chat", "uid:", uid or "nil")
         if not uid or uid == "" then
             sys.publish("AI_CHAT_STATUS", "请先登录IoT账号")
             return
@@ -498,6 +496,6 @@ end)
 sys.subscribe("IOT_LOGIN_RESULT", function(result)
     if result and result.success and result.uid then
         uid = result.uid
-        log.info("llm_chat", "IoT 登录成功 uid:", uid)
+        log.info("llm_chat", "IoT 登录成功")
     end
 end)

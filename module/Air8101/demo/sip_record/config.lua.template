@@ -1,0 +1,55 @@
+-- 复制本文件为 config.lua，再填写实际测试参数。
+-- 请勿将包含真实 Wi-Fi/SIP 密码的 config.lua 提交到代码仓库。
+return {
+    wifi = {
+        ssid = "replace-with-your-2.4g-ssid",
+        password = "replace-with-your-wifi-password",
+        dns1 = nil,
+        dns2 = nil
+    },
+
+    sip_server_addr = "sip.example.com",
+    sip_server_port = 5060,
+    sip_domain = "sip.example.com",
+    sip_username = "1001",
+    sip_password = "replace-with-your-sip-password",
+    sip_transport = "udp",
+    adapter = socket.LWIP_STA,
+    codecs = {"PCMU", "PCMA"},
+    ptime = 20,
+    aec = true,
+    aec_mode = "speex",       -- "speex" 或 "bk"
+    aec_denoise = true,
+    aec_agc = false,           -- 默认关闭，避免静音段噪声抽吸
+    aec_delay_samples = 160,   -- 8kHz: 80/160/240/320 = 10/20/30/40ms
+    aec_tail = 120,
+    auto_answer = true,
+    delay_auto_answer = 5,
+    dial_target = "1002",
+
+    audio = {
+        mic_adc_dig_gain = 0x2d, -- 若 mic_clip 继续增长，依次尝试 0x29、0x25
+        mic_adc_ana_gain = 0x03,
+        dac_play_vol = 40
+    },
+
+    record = {
+        auto = true,
+        dir = "/sd/record",
+        prefix = "sip",
+        max_seconds = 7200
+    },
+
+    sd = {
+        mount_point = "/sd",
+        power_pin = 13,
+        sdio_arg = 24 * 1000 * 1000,
+        fallback_dir = "/record",
+        fallback_max_seconds = 60
+    },
+
+    keys = {
+        action_gpio = 37,
+        hangup_gpio = nil
+    }
+}

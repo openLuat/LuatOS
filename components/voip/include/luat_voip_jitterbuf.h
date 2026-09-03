@@ -14,6 +14,7 @@
 #ifndef LUAT_VOIP_JITTERBUF_H
 #define LUAT_VOIP_JITTERBUF_H
 
+#include "luat_conf_bsp.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -31,6 +32,9 @@ typedef struct {
 /* Jitter Buffer 上下文 */
 typedef struct {
     voip_jb_slot_t *slots;
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+    int16_t *pcm_pool;          /* 连续 PCM 池，避免逐槽分配/释放 */
+#endif
     uint16_t max_pending;   /* slots 数组大小 */
     uint16_t depth;         /* 启动深度 */
     uint16_t frame_samples; /* 每帧 PCM 采样点数 (e.g. 160 for 20ms@8kHz) */

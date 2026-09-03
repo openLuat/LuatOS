@@ -1,8 +1,8 @@
 --[[
 @module  rs232_win
 @summary RS232双端口终端页面，双端口同屏显示，无选项卡
-@version 1.1.0
-@date    2026.07.31
+@version 2.0.0
+@date    2026.08.14
 @author  合宙 Air8301
 @usage
 双端口(Port1=UART2, Port2=UART12)同屏上下排列，各自有接收历史、输入框和发送按钮。
@@ -19,14 +19,6 @@ local history_label_port1, history_label_port2
 
 -- 历史条数上限
 local HISTORY_MAX = 8
-
--- 颜色常量
-local COLOR_PRIMARY = 0x1A5276
-local COLOR_BG = 0xD0D0D0
-local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x000000
-local COLOR_SECONDARY = 0x000000
-local COLOR_WHITE = 0xFFFFFF
 
 --[[
 导航栏返回按钮点击
@@ -153,17 +145,17 @@ local function create_port_block(parent, x, y, w, h, title, send_click)
     local card = airui.container({
         parent = parent,
         x = x, y = y, w = w, h = h,
-        color = COLOR_CARD,
-        radius = 4
+        color = T.COLOR_CARD,
+        radius = T.CARD_RADIUS
     })
 
     -- 端口标题
     airui.label({
         parent = card,
-        x = 8, y = 3, w = 220, h = 16,
+        x = 8, y = 3, w = 220, h = 20,
         text = title,
-        font_size = 12,
-        color = COLOR_SECONDARY,
+        font_size = T.FONT_SMALL,
+        color = T.COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
 
@@ -172,8 +164,8 @@ local function create_port_block(parent, x, y, w, h, title, send_click)
         parent = card,
         x = 8, y = 21, w = w - 16, h = 46,
         text = "暂无数据",
-        font_size = 13,
-        color = COLOR_TEXT,
+        font_size = T.FONT_CARD_TITLE,
+        color = T.COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
 
@@ -182,11 +174,11 @@ local function create_port_block(parent, x, y, w, h, title, send_click)
         parent = card,
         x = 8, y = 70, w = w - 16 - 104, h = 30,
         placeholder = "输入要发送的数据...",
-        font_size = 14,
+        font_size = T.FONT_SMALL,
         keyboard = airui.keyboard({
             x = 0,
             y = 0,
-            w = 480,
+            w = T.SCREEN_W,
             h = 100,
             mode = "text",
             preview = true,
@@ -195,21 +187,7 @@ local function create_port_block(parent, x, y, w, h, title, send_click)
     })
 
     -- 发送按钮
-    airui.container({
-        parent = card,
-        x = w - 104, y = 70, w = 96, h = 30,
-        color = COLOR_PRIMARY,
-        radius = 4,
-        on_click = send_click
-    })
-    airui.label({
-        parent = card,
-        x = w - 104, y = 74, w = 96, h = 22,
-        text = "发送",
-        font_size = 15,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    T.btn_primary(card, w - 104, 70, 96, 30, "发送", send_click)
 
     return history_label, input_area
 end
@@ -221,41 +199,16 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = 480, h = 272, color = COLOR_BG, parent = airui.screen })
+    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
 
-    -- 顶部导航栏
-    local header = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 44, color = COLOR_PRIMARY })
-
-    -- 返回按钮
-    local back_btn = airui.container({
-        parent = header,
-        x = 0, y = 0, w = 60, h = 44,
-        on_click = on_back_click
-    })
-    airui.label({
-        parent = back_btn,
-        x = 5, y = 10, w = 50, h = 24,
-        text = "< 返回",
-        font_size = 16,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-
-    -- 标题
-    airui.label({
-        parent = header,
-        x = 60, y = 8, w = 360, h = 28,
-        text = "RS232",
-        font_size = 20,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    -- 顶部标题栏
+    T.titlebar(main_container, "RS232", on_back_click)
 
     -- 内容区域
     content = airui.container({
         parent = main_container,
-        x = 0, y = 44, w = 480, h = 228,
-        color = COLOR_BG
+        x = 0, y = T.CONTENT_Y, w = T.SCREEN_W, h = T.CONTENT_H,
+        color = T.COLOR_BG
     })
 
     -- Port1 块 (UART2)

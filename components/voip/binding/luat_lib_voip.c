@@ -41,7 +41,10 @@ voip.start({
     multimedia_id = 0,
     stats_interval = 5000,      -- 统计回调间隔 ms, 0=不回调
     aec = true,
+    aec_mode = "speex",       -- "speex" 或 "bk"
     aec_denoise = true,
+    aec_agc = false,
+    aec_delay_samples = 160,
     aec_tail = 120,
 })
 */
@@ -118,9 +121,46 @@ static int l_voip_start(lua_State *L)
     cfg.aec_denoise = lua_isboolean(L, -1) ? (lua_toboolean(L, -1) ? 1 : 0) : cfg.aec_enable;
     lua_pop(L, 1);
 
+    /* aec_mode */
+    cfg.aec_mode = VOIP_AEC_MODE_SPEEX;
+    lua_getfield(L, 1, "aec_mode");
+    if (lua_isstring(L, -1)) {
+        const char *mode = lua_tostring(L, -1);
+        if (!strcmp(mode, "speex")) {
+            cfg.aec_mode = VOIP_AEC_MODE_SPEEX;
+        } else if (!strcmp(mode, "bk")) {
+            cfg.aec_mode = VOIP_AEC_MODE_BK;
+        } else {
+            LLOGE("voip.start: aec_mode must be 'speex' or 'bk'");
+            lua_pop(L, 1);
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+    }
+    lua_pop(L, 1);
+
+    /* aec_agc */
+    lua_getfield(L, 1, "aec_agc");
+    if (lua_isboolean(L, -1)) {
+        cfg.aec_agc = lua_toboolean(L, -1) ? 1 : 0;
+    } else {
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+        cfg.aec_agc = 0;
+#else
+        /* Preserve the legacy Speex behavior on existing BSPs. */
+        cfg.aec_agc = cfg.aec_denoise;
+#endif
+    }
+    lua_pop(L, 1);
+
     /* aec_tail */
     lua_getfield(L, 1, "aec_tail");
     cfg.aec_tail_ms = (uint16_t)luaL_optinteger(L, -1, 120);
+    lua_pop(L, 1);
+
+    /* aec_delay_samples */
+    lua_getfield(L, 1, "aec_delay_samples");
+    cfg.aec_delay_samples = (uint16_t)luaL_optinteger(L, -1, 160);
     lua_pop(L, 1);
 
     /* adapter */

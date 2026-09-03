@@ -16,6 +16,14 @@
 2. 填写2.4GHz Wi-Fi、SIP账号和 `dial_target`；不要提交真实密码。
 3. 用 LuaTools 将本目录全部文件下载到 Air8101。
 
+本 Air8101 示例在 `config.lua.template` 中显式开启 AEC，配置为同步 Speex、降噪开启、AGC 关闭和 160 点（20ms）声学延迟。公共 `exsip` 默认不启用 AEC。真机先保持其它参数不变，依次比较：
+
+- `aec=false`：无 AEC 基线。
+- `aec=true, aec_mode="speex"`：依次试听 `aec_delay_samples=80/160/240/320`。
+- 固定最佳延迟后改为 `aec_mode="bk"`，在相同音量和增益下与 Speex 对比。
+
+BK 模式的 `aec_denoise=true` 使用 EC+NS+BPF（`flags=0x07`），DRC/CNI 默认关闭，避免收敛后的金属音和噪声泵动。通话统计中的 `ref_under/ref_over/resets` 在稳定通话时应保持为0，`max_us` 应小于20000。若 `mic_clip` 持续增加，逐级降低 `audio.mic_adc_dig_gain`（默认 `0x2d`，可试 `0x29`、`0x25`）；若仅 `out_clip` 增加，则是 AEC 输出失真。不要用 AGC 掩盖削顶。
+
 默认挂载 `/sd`，自动创建 `/sd/record`。挂载失败不会自动格式化TF卡，而是自动创建内部文件系统目录 `/record`，录音文件保存为 `/record/sip_*.wav`，SIP仍会继续启动。
 
 双声道PCM约占32KB/s。为避免写满内部文件系统，回退模式默认将单次录音限制为60秒；可在 `sd` 配置中增加 `fallback_max_seconds` 调整。内部文件不会自动删除，测试后请及时清理；TF卡正常时仍使用 `record.max_seconds` 配置。

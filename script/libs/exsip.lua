@@ -51,6 +51,10 @@ exsip.start()
 -- exsip.hangUp()
 
 -- 版本更新说明
+-- 版本号：202608311130
+-- 1、更新时间：2026-08-31 11:30
+-- 2、更新内容
+--    透传同步 AEC 后端、延迟、降噪和 AGC 配置，并默认使用 Speex/20ms 延迟。
 -- 版本号：202608271848
 -- 1、更新时间：2026-08-27 18:48
 -- 2、更新内容
@@ -128,6 +132,12 @@ local default_config = {
     call_timeout = 30,
     debug_sip_response = false,
     early_media = true,
+    aec = false,
+    aec_mode = "speex",
+    aec_denoise = true,
+    aec_agc = false,
+    aec_delay_samples = 160,
+    aec_tail = 200,
     early_media_response = 183,
     adapter = nil,  -- nil = 使用系统默认网卡
     audio_mode = nil,  -- nil = 使用系统默认音频模式；voip.AUDIO_MODE_BRIDGE, -- 使用桥接模式
@@ -414,9 +424,12 @@ local function start_voip_engine(session)
         -- 使用 SIP 层锁定的网卡适配器，确保媒体和 SIP 使用同一个网卡
         adapter = g_current_adapter,
         -- adapter = session.adapter or (g_config and g_config.adapter) or socket.dft(),
-        aec = true,
-        aec_denoise =true,
-        aec_tail = 200
+        aec = g_config.aec == true,
+        aec_mode = g_config.aec_mode,
+        aec_denoise = g_config.aec_denoise == true,
+        aec_agc = g_config.aec_agc == true,
+        aec_delay_samples = tonumber(g_config.aec_delay_samples) or 160,
+        aec_tail = tonumber(g_config.aec_tail) or 200
     })
 
     if ok then
@@ -623,6 +636,12 @@ end
 @boolean config.debug_sip_response 是否打印完整 SIP 服务器响应，默认 false
 @number config.adapter 网络适配器，nil=使用系统默认，socket.LWIP_GP=4G，socket.LWIP_STA=WiFi，socket.LWIP_ETH=以太网
 @table config.record 通话录音配置，默认关闭；支持 auto、dir、prefix、max_seconds
+@boolean config.aec 是否启用回声消除，默认 false；需要时由应用显式开启
+@string config.aec_mode AEC 后端，"speex" 或 "bk"，默认 "speex"
+@boolean config.aec_denoise 是否启用后端降噪，默认 true
+@boolean config.aec_agc 是否启用 Speex AGC，默认 false
+@number config.aec_delay_samples 声学延迟采样点数，默认 160
+@number config.aec_tail Speex 回声尾长（毫秒），默认 200
 @return boolean 成功返回 true，失败返回 false
 @usage
 exsip.init({
@@ -644,6 +663,23 @@ function exsip.init(config)
 
     if not config.sip_server_addr or not config.sip_username or not config.sip_password then
         log_error("server, user and password are required")
+        return false
+    end
+
+    if config.aec ~= nil and type(config.aec) ~= "boolean" then
+        log_error("aec must be a boolean")
+        return false
+    end
+    if config.aec_mode ~= nil and config.aec_mode ~= "speex" and config.aec_mode ~= "bk" then
+        log_error("aec_mode must be 'speex' or 'bk'")
+        return false
+    end
+    if config.aec_denoise ~= nil and type(config.aec_denoise) ~= "boolean" then
+        log_error("aec_denoise must be a boolean")
+        return false
+    end
+    if config.aec_agc ~= nil and type(config.aec_agc) ~= "boolean" then
+        log_error("aec_agc must be a boolean")
         return false
     end
 
@@ -1141,7 +1177,7 @@ end
 exsip.version()
 ]]
 function exsip.version()
-    return "202608271848"
+    return "202608311130"
 end
 
 log.debug("exsip", "version -> " .. exsip.version())

@@ -3,6 +3,9 @@
 #include "luat_voip_core.h"
 #include "luat_audio.h"
 #include "luat_mem.h"
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+#include "luat_mcu.h"
+#endif
 #include <string.h>
 
 #if defined(LUAT_USE_VOIP_AUDIO_I2S) || defined(LUAT_USE_AUDIO_V2)
@@ -23,6 +26,28 @@
 #define LUAT_LOG_TAG "voip"
 #include "luat_log.h"
 
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+static void voip_audio_render_done(voip_ctx_t *ctx)
+{
+    uint32_t render_seq;
+    uint8_t slot;
+    int16_t *render_frame;
+    if (!ctx || ctx->state != VOIP_STATE_RUNNING || !ctx->task_handle ||
+        !ctx->duplex_play_buf || !ctx->play_slot_count) {
+        return;
+    }
+    render_seq = ctx->render_done_seq + 1;
+    slot = (uint8_t)((render_seq - 1) % ctx->play_slot_count);
+    render_frame = ctx->duplex_play_buf + slot * ctx->frame_samples;
+    voip_aec_render_push(ctx, render_frame, render_seq, luat_mcu_tick64_ms());
+    __sync_synchronize();
+    ctx->render_done_seq = render_seq;
+    if (luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_SPK_DONE, slot, render_seq, 0, 0) != 0) {
+        ctx->aec_sync_fault = 1;
+    }
+}
+#endif
+
 #if defined(LUAT_USE_VOIP_AUDIO_I2S) || defined(LUAT_USE_VOIP_AUDIO_DAC) || defined(LUAT_USE_AUDIO_V2)
 static int voip_audio_capture_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
 {
@@ -32,6 +57,13 @@ static int voip_audio_capture_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx
     if (event != LUAT_I2S_EVENT_RX_DONE || ctx->state != VOIP_STATE_RUNNING || !ctx->task_handle) {
         return 0;
     }
+    if (ctx->audio_backend == VOIP_AUDIO_BACKEND_DUPLEX) {
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+        voip_audio_render_done(ctx);
+#else
+        ctx->last_completed_slot = (ctx->last_completed_slot + 1) % ctx->play_slot_count;
+#endif
+    }
     uint8_t mic_idx = ctx->mic_write_idx;
     uint32_t copy_len = rx_len > ctx->frame_bytes ? ctx->frame_bytes : rx_len;
     if (ctx->mic_buf[mic_idx]) {
@@ -40,11 +72,26 @@ static int voip_audio_capture_cb(uint8_t id, luat_i2s_event_t event, uint8_t *rx
             memset(((uint8_t *)ctx->mic_buf[mic_idx]) + copy_len, 0, ctx->frame_bytes - copy_len);
         }
     }
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+    uint32_t capture_seq = ++ctx->capture_seq;
+    ctx->mic_capture_seq[mic_idx] = capture_seq;
+    ctx->mic_render_seq[mic_idx] = ctx->render_done_seq;
+    ctx->mic_capture_tick_ms[mic_idx] = luat_mcu_tick64_ms();
+    __sync_synchronize();
+#endif
     uint32_t generation = ++ctx->mic_generation[mic_idx];
-    if (ctx->audio_backend == VOIP_AUDIO_BACKEND_DUPLEX) {
-        ctx->last_completed_slot = (ctx->last_completed_slot + 1) % ctx->play_slot_count;
+    if (luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_MIC_DATA, mic_idx,
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+            0,
+#else
+            ctx->last_completed_slot,
+#endif
+            generation, 0) != 0) {
+        ctx->dropped_mic_events++;
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+        ctx->aec_sync_fault = 1;
+#endif
     }
-    luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_MIC_DATA, mic_idx, ctx->last_completed_slot, generation, 0);
     ctx->mic_write_idx = (ctx->mic_write_idx + 1) % VOIP_MIC_SLOT_COUNT;
     return 0;
 }
@@ -57,7 +104,11 @@ static int voip_dac_play_cb(uint8_t id, luat_dac_event_t event, uint32_t tx_len,
     (void)id;
     (void)tx_len;
     if (event == LUAT_DAC_EVENT_TX_ONE_BLOCK_DONE && ctx->state == VOIP_STATE_RUNNING) {
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+        voip_audio_render_done(ctx);
+#else
         luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_SPK_DONE, 0, 0, 0, 0);
+#endif
     }
     return 0;
 }
@@ -75,16 +126,26 @@ int luat_audio_voip_driver_event(uint32_t event, uint8_t *rx_data, uint32_t para
     }
     switch (event) {
     case LUAT_AUDIO_DRIVER_EVENT_RX_ONE_BLOCK_DONE:
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+        if (ctrl->opts->support_full_loop && ctx->task_handle) {
+            voip_audio_render_done(ctx);
+        }
         /* 一块 mic PCM 就绪，复用采集回调完成拷贝与 MIC_DATA 事件投递 */
         voip_audio_capture_cb(0, LUAT_I2S_EVENT_RX_DONE, rx_data, param, NULL);
+#else
+        voip_audio_capture_cb(0, LUAT_I2S_EVENT_RX_DONE, rx_data, param, NULL);
         if (ctrl->opts->support_full_loop && ctx->task_handle) {
-            /* 全双工：RX block 完成同时意味着一个播放 block 已被消耗，推进播放回填 */
             luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_SPK_DONE, 0, 0, 0, 0);
         }
+#endif
         break;
     case LUAT_AUDIO_DRIVER_EVENT_TX_ONE_BLOCK_DONE:
         if (!ctrl->opts->support_full_loop && ctx->task_handle) {
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+            voip_audio_render_done(ctx);
+#else
             luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_SPK_DONE, 0, 0, 0, 0);
+#endif
         }
         break;
     default:
@@ -99,9 +160,13 @@ int luat_audio_voip_driver_event(uint32_t event, uint8_t *rx_data, uint32_t para
 void luat_audio_voip_dac_done_cb(void)
 {
     voip_ctx_t *ctx = voip_get_ctx();
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+    voip_audio_render_done(ctx);
+#else
     if (ctx->state == VOIP_STATE_RUNNING && ctx->task_handle) {
         luat_rtos_event_send(ctx->task_handle, VOIP_EVENT_SPK_DONE, 0, 0, 0, 0);
     }
+#endif
 }
 #endif
 #endif
@@ -181,6 +246,12 @@ int voip_audio_backend_start(voip_ctx_t *ctx, uint32_t sample_rate)
         return 0;
     }
     /* audio_v2 不可用（如 legacy 音频框架占用 DMA），回退 legacy 后端 */
+#endif
+#ifdef LUAT_USE_VOIP_AEC_SYNC_AUDIO_V2_DAC
+    if (audio_conf->bus_type == LUAT_AUDIO_BUS_DAC && ctx->config.aec_enable) {
+        LLOGE("AEC requires the Audio V2 DAC backend; legacy DAC fallback refused");
+        return -1;
+    }
 #endif
     if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S) {
 #ifdef LUAT_USE_VOIP_AUDIO_I2S

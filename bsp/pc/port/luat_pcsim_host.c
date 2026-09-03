@@ -38,6 +38,10 @@ static size_t s_frame_cap = 0;
 static size_t s_frame_len = 0;
 static uint32_t s_frame_seq = 0;
 static uint32_t s_frame_last_ticks = 0;
+static Uint32 s_synth_buttons = 0;
+
+#define PCSIM_CLICK_HOLD_MS 20
+#define PCSIM_CLICK_GAP_MS 60
 
 void luat_pcsim_host_set_pixel_perfect(int enable)
 {
@@ -279,6 +283,7 @@ void luat_pcsim_host_unbind(void)
     s_texture = NULL;
     s_native_w = 0;
     s_native_h = 0;
+    s_synth_buttons = 0;
 }
 
 int luat_pcsim_host_ready(void)
@@ -331,7 +336,7 @@ static void push_motion(int x, int y)
     e.motion.y = y;
     e.motion.xrel = 0;
     e.motion.yrel = 0;
-    e.motion.state = SDL_GetMouseState(NULL, NULL);
+    e.motion.state = s_synth_buttons;
     SDL_PushEvent(&e);
 }
 
@@ -346,6 +351,11 @@ static void push_button(int x, int y, Uint32 button, Uint8 state, int clicks)
     e.button.clicks = (Uint8)(clicks > 0 ? clicks : 1);
     e.button.x = x;
     e.button.y = y;
+    if (state == SDL_PRESSED) {
+        s_synth_buttons |= SDL_BUTTON(button);
+    } else {
+        s_synth_buttons &= ~SDL_BUTTON(button);
+    }
     SDL_PushEvent(&e);
 }
 
@@ -353,8 +363,12 @@ static void click_n(int x, int y, Uint32 button, int n)
 {
     int i;
     for (i = 0; i < n; i++) {
+        if (i > 0) {
+            SDL_Delay(PCSIM_CLICK_GAP_MS);
+        }
         push_motion(x, y);
         push_button(x, y, button, SDL_PRESSED, i + 1);
+        SDL_Delay(PCSIM_CLICK_HOLD_MS);
         push_button(x, y, button, SDL_RELEASED, i + 1);
     }
 }
@@ -390,6 +404,7 @@ int luat_pcsim_host_inject_pointer(const char *type, int x, int y, const char *b
     } else if (strcmp(type, "drag") == 0) {
         push_motion(from_x, from_y);
         push_button(from_x, from_y, btn, SDL_PRESSED, 1);
+        SDL_Delay(PCSIM_CLICK_HOLD_MS);
         push_motion(x, y);
         push_button(x, y, btn, SDL_RELEASED, 1);
     } else if (strcmp(type, "scroll") == 0 || strcmp(type, "hscroll") == 0) {

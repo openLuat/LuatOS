@@ -37,6 +37,7 @@ typedef struct {
     int16_t last_x;
     int16_t last_y;
     bool left_button_down;
+    bool pending_release;
 } sdl_input_data_t;
 
 /** 按键队列大小 */
@@ -652,6 +653,18 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev
     bool mouse_up_event = false;
     int32_t sdl_x = 0, sdl_y = 0;
     
+    if (input_data.pending_release) {
+        input_data.left_button_down = false;
+        input_data.pending_release = false;
+        mouse_up_event = true;
+        has_event = true;
+        data->point.x = input_data.last_x;
+        data->point.y = input_data.last_y;
+        data->state = LV_INDEV_STATE_RELEASED;
+        airui_sdl_notify_touch_state(ctx, false, false, true, data->point.x, data->point.y);
+        return true;
+    }
+
     luat_pcsim_host_poll();
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_MOUSEMOTION) {
@@ -763,6 +776,12 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev
         
         input_data.last_x = (int16_t)lvgl_x;
         input_data.last_y = (int16_t)lvgl_y;
+    }
+
+    if (mouse_down_event && mouse_up_event) {
+        input_data.left_button_down = true;
+        input_data.pending_release = true;
+        mouse_up_event = false;
     }
     
     // 填充输入数据

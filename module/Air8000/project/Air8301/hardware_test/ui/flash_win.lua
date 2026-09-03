@@ -1,8 +1,8 @@
 --[[
 @module  flash_win
 @summary Flash存储页面，显示芯片容量与文件系统使用情况
-@version 1.0.0
-@date    2026.08.04
+@version 2.0.0
+@date    2026.08.14
 @author  合宙 Air8301
 @usage
 本页面只读展示外部 SPI Flash 存储信息：
@@ -15,16 +15,6 @@
 local win_id = nil
 local main_container, content
 local chip_label, fs_label, status_label
-
--- 颜色常量
-local COLOR_PRIMARY = 0x1A5276
-local COLOR_BG = 0xD0D0D0
-local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x000000
-local COLOR_SECONDARY = 0x000000
-local COLOR_WHITE = 0xFFFFFF
-local COLOR_GREEN = 0x4CAF50
-local COLOR_RED = 0xF44336
 
 --[[
 导航栏返回按钮点击
@@ -54,10 +44,10 @@ local function on_flash_mount_status(mounted, total_kb, used_kb, capacity_kb)
     if status_label then
         if mounted then
             status_label:set_text("已挂载")
-            status_label:set_color(COLOR_GREEN)
+            status_label:set_color(T.COLOR_GREEN)
         else
             status_label:set_text("未挂载")
-            status_label:set_color(COLOR_RED)
+            status_label:set_color(T.COLOR_DANGER)
         end
     end
 
@@ -70,10 +60,10 @@ local function on_flash_mount_status(mounted, total_kb, used_kb, capacity_kb)
             else
                 chip_label:set_text(string.format("芯片容量: %.0f MB", cap_mb))
             end
-            chip_label:set_color(COLOR_TEXT)
+            chip_label:set_color(T.COLOR_TEXT)
         else
             chip_label:set_text("芯片容量: 未知")
-            chip_label:set_color(COLOR_SECONDARY)
+            chip_label:set_color(T.COLOR_TEXT_SECONDARY)
         end
     end
 
@@ -85,10 +75,10 @@ local function on_flash_mount_status(mounted, total_kb, used_kb, capacity_kb)
             local free_mb = total_mb - used_mb
             fs_label:set_text(string.format("总 %.1f MB  已用 %.1f MB  可用 %.1f MB",
                 total_mb, used_mb, free_mb))
-            fs_label:set_color(COLOR_TEXT)
+            fs_label:set_color(T.COLOR_TEXT)
         else
             fs_label:set_text("--")
-            fs_label:set_color(COLOR_SECONDARY)
+            fs_label:set_color(T.COLOR_TEXT_SECONDARY)
         end
     end
 end
@@ -100,153 +90,32 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = 480, h = 272, color = COLOR_BG, parent = airui.screen })
+    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
 
-    -- 顶部导航栏
-    local header = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 44, color = COLOR_PRIMARY })
-
-    -- 返回按钮
-    local back_btn = airui.container({
-        parent = header,
-        x = 0,
-        y = 0,
-        w = 60,
-        h = 44,
-        on_click = on_back_click
-    })
-    airui.label({
-        parent = back_btn,
-        x = 5,
-        y = 10,
-        w = 50,
-        h = 24,
-        text = "< 返回",
-        font_size = 16,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-
-    -- 标题
-    airui.label({
-        parent = header,
-        x = 60,
-        y = 8,
-        w = 360,
-        h = 28,
-        text = "Flash存储",
-        font_size = 20,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    -- 顶部标题栏
+    T.titlebar(main_container, "Flash存储", on_back_click)
 
     -- 内容区域
     content = airui.container({
         parent = main_container,
         x = 0,
-        y = 44,
-        w = 480,
-        h = 228,
-        color = COLOR_BG
+        y = T.CONTENT_Y,
+        w = T.SCREEN_W,
+        h = T.CONTENT_H,
+        color = T.COLOR_BG
     })
 
     -- 挂载状态卡片
-    local status_card = airui.container({
-        parent = content,
-        x = 10,
-        y = 10,
-        w = 460,
-        h = 60,
-        color = COLOR_CARD,
-        radius = 6
-    })
-    airui.label({
-        parent = status_card,
-        x = 10,
-        y = 4,
-        w = 100,
-        h = 20,
-        text = "挂载状态",
-        font_size = 14,
-        color = COLOR_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    status_label = airui.label({
-        parent = status_card,
-        x = 10,
-        y = 28,
-        w = 200,
-        h = 24,
-        text = "获取中...",
-        font_size = 18,
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    local _, _, status_content = T.info_card(content, 10, 60, "挂载状态", "获取中...")
+    status_label = status_content
 
     -- 芯片容量卡片
-    local chip_card = airui.container({
-        parent = content,
-        x = 10,
-        y = 80,
-        w = 460,
-        h = 60,
-        color = COLOR_CARD,
-        radius = 6
-    })
-    airui.label({
-        parent = chip_card,
-        x = 10,
-        y = 4,
-        w = 100,
-        h = 20,
-        text = "芯片容量",
-        font_size = 14,
-        color = COLOR_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    chip_label = airui.label({
-        parent = chip_card,
-        x = 10,
-        y = 28,
-        w = 300,
-        h = 24,
-        text = "获取中...",
-        font_size = 18,
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    local _, _, chip_content = T.info_card(content, 80, 60, "芯片容量", "获取中...")
+    chip_label = chip_content
 
     -- 文件系统卡片
-    local fs_card = airui.container({
-        parent = content,
-        x = 10,
-        y = 150,
-        w = 460,
-        h = 60,
-        color = COLOR_CARD,
-        radius = 6
-    })
-    airui.label({
-        parent = fs_card,
-        x = 10,
-        y = 4,
-        w = 100,
-        h = 20,
-        text = "文件系统",
-        font_size = 14,
-        color = COLOR_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    fs_label = airui.label({
-        parent = fs_card,
-        x = 10,
-        y = 28,
-        w = 440,
-        h = 24,
-        text = "获取中...",
-        font_size = 16,
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    local _, _, fs_content = T.info_card(content, 150, 60, "文件系统", "获取中...")
+    fs_label = fs_content
 end
 
 --[[

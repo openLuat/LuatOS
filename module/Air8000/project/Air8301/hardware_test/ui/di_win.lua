@@ -1,9 +1,9 @@
 --[[
 @module  di_win
 @summary DI状态页面，显示DI1/DI2输入状态及历史记录
-@version 1.0.0
-@date    2026.07.30
-@author  合宙 Air8301
+@version 2.0.0
+@date    2026.08.14
+@author  江访
 @usage
 本页面以圆形指示器和文字显示DI1和DI2的当前状态（ON/OFF），
 下方显示状态变更历史记录。
@@ -15,16 +15,6 @@ local main_container, content
 local di1_circle, di1_label, di2_circle, di2_label
 local history_text_list = {}
 local history_label
-
--- 颜色常量
-local COLOR_PRIMARY = 0x1A5276
-local COLOR_BG = 0xD0D0D0
-local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x000000
-local COLOR_SECONDARY = 0x000000
-local COLOR_WHITE = 0xFFFFFF
-local COLOR_GREEN = 0x4CAF50
-local COLOR_GRAY = 0x000000
 
 --[[
 导航栏返回按钮点击
@@ -49,24 +39,24 @@ local function on_di_status_changed(di1, di2)
     if not exwin.is_active(win_id) then return end
     if di1_circle and di1_label then
         if di1 then
-            di1_circle:set_color(COLOR_GREEN)
+            di1_circle:set_color(T.COLOR_GREEN)
             di1_label:set_text("ON")
-            di1_label:set_color(COLOR_GREEN)
+            di1_label:set_color(T.COLOR_GREEN)
         else
-            di1_circle:set_color(COLOR_GRAY)
+            di1_circle:set_color(T.COLOR_DIVIDER)
             di1_label:set_text("OFF")
-            di1_label:set_color(COLOR_SECONDARY)
+            di1_label:set_color(T.COLOR_TEXT_SECONDARY)
         end
     end
     if di2_circle and di2_label then
         if di2 then
-            di2_circle:set_color(COLOR_GREEN)
+            di2_circle:set_color(T.COLOR_GREEN)
             di2_label:set_text("ON")
-            di2_label:set_color(COLOR_GREEN)
+            di2_label:set_color(T.COLOR_GREEN)
         else
-            di2_circle:set_color(COLOR_GRAY)
+            di2_circle:set_color(T.COLOR_DIVIDER)
             di2_label:set_text("OFF")
-            di2_label:set_color(COLOR_SECONDARY)
+            di2_label:set_color(T.COLOR_TEXT_SECONDARY)
         end
     end
 
@@ -89,64 +79,30 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = 480, h = 272, color = COLOR_BG, parent = airui.screen })
+    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
 
-    -- 顶部导航栏
-    local header = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 44, color = COLOR_PRIMARY })
-
-    -- 返回按钮
-    local back_btn = airui.container({
-        parent = header,
-        x = 0,
-        y = 0,
-        w = 60,
-        h = 44,
-        on_click = on_back_click
-    })
-    airui.label({
-        parent = back_btn,
-        x = 5,
-        y = 10,
-        w = 50,
-        h = 24,
-        text = "< 返回",
-        font_size = 16,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-
-    -- 标题
-    airui.label({
-        parent = header,
-        x = 60,
-        y = 8,
-        w = 360,
-        h = 28,
-        text = "DI输入",
-        font_size = 20,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    -- 顶部标题栏
+    T.titlebar(main_container, "DI输入", on_back_click)
 
     -- 内容区域
     content = airui.container({
         parent = main_container,
         x = 0,
-        y = 44,
-        w = 480,
-        h = 228,
-        color = COLOR_BG
+        y = T.CONTENT_Y,
+        w = T.SCREEN_W,
+        h = T.CONTENT_H,
+        color = T.COLOR_BG
     })
 
     -- DI1 和 DI2 卡片
     local di_card = airui.container({
         parent = content,
-        x = 10,
-        y = 10,
-        w = 460,
+        x = T.MARGIN,
+        y = T.MARGIN,
+        w = T.CARD_W,
         h = 80,
-        color = COLOR_CARD,
-        radius = 6
+        color = T.COLOR_CARD,
+        radius = T.CARD_RADIUS
     })
 
     -- DI1
@@ -157,8 +113,8 @@ local function create_ui()
         w = 60,
         h = 20,
         text = "DI1",
-        font_size = 14,
-        color = COLOR_SECONDARY,
+        font_size = T.FONT_CARD_TITLE,
+        color = T.COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
     -- DI1圆形指示器（用container模拟圆形）
@@ -168,7 +124,7 @@ local function create_ui()
         y = 34,
         w = 24,
         h = 24,
-        color = COLOR_GRAY,
+        color = T.COLOR_DIVIDER,
         radius = 12
     })
     di1_label = airui.label({
@@ -178,8 +134,8 @@ local function create_ui()
         w = 60,
         h = 24,
         text = "OFF",
-        font_size = 18,
-        color = COLOR_SECONDARY,
+        font_size = T.FONT_TITLE,
+        color = T.COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
 
@@ -191,8 +147,8 @@ local function create_ui()
         w = 60,
         h = 20,
         text = "DI2",
-        font_size = 14,
-        color = COLOR_SECONDARY,
+        font_size = T.FONT_CARD_TITLE,
+        color = T.COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
     -- DI2圆形指示器
@@ -202,7 +158,7 @@ local function create_ui()
         y = 34,
         w = 24,
         h = 24,
-        color = COLOR_GRAY,
+        color = T.COLOR_DIVIDER,
         radius = 12
     })
     di2_label = airui.label({
@@ -212,41 +168,41 @@ local function create_ui()
         w = 60,
         h = 24,
         text = "OFF",
-        font_size = 18,
-        color = COLOR_SECONDARY,
+        font_size = T.FONT_TITLE,
+        color = T.COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
 
     -- 历史记录卡片
     local history_card = airui.container({
         parent = content,
-        x = 10,
+        x = T.MARGIN,
         y = 100,
-        w = 460,
-        h = 118,
-        color = COLOR_CARD,
-        radius = 6
+        w = T.CARD_W,
+        h = 114,
+        color = T.COLOR_CARD,
+        radius = T.CARD_RADIUS
     })
     airui.label({
         parent = history_card,
         x = 10,
         y = 4,
         w = 120,
-        h = 18,
+        h = 20,
         text = "历史记录",
-        font_size = 14,
-        color = COLOR_SECONDARY,
+        font_size = T.FONT_CARD_TITLE,
+        color = T.COLOR_TEXT_SECONDARY,
         align = airui.TEXT_ALIGN_LEFT
     })
     history_label = airui.label({
         parent = history_card,
         x = 10,
         y = 24,
-        w = 440,
-        h = 90,
+        w = T.CARD_W - 20,
+        h = 86,
         text = "暂无记录",
-        font_size = 12,
-        color = COLOR_TEXT,
+        font_size = T.FONT_SMALL,
+        color = T.COLOR_TEXT,
         align = airui.TEXT_ALIGN_LEFT
     })
 end

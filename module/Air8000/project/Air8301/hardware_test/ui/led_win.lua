@@ -1,8 +1,8 @@
 --[[
 @module  led_win
 @summary 状态灯控制页面，仅手动开关
-@version 1.0.0
-@date    2026.07.30
+@version 2.0.0
+@date    2026.08.14
 @author  江访
 @usage
 4G灯(GPIO21)和WiFi灯(GPIO141)的ON/OFF开关控制。
@@ -13,14 +13,6 @@ local main_container, content
 local led4g_status_label, ledwifi_status_label
 local led4g_state = 0
 local ledwifi_state = 0
-
-local COLOR_PRIMARY = 0x1A5276
-local COLOR_BG = 0xD0D0D0
-local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x000000
-local COLOR_SECONDARY = 0x000000
-local COLOR_WHITE = 0xFFFFFF
-local COLOR_RED = 0xF44336
 
 local function on_back_click()
     if not exwin.is_active(win_id) then return end
@@ -33,6 +25,7 @@ local function on_led4g_click()
     led4g_state = led4g_state == 0 and 1 or 0
     if led4g_status_label then
         led4g_status_label:set_text(led4g_state == 1 and "已开启" or "已关闭")
+        led4g_status_label:set_color(led4g_state == 1 and T.COLOR_GREEN or T.COLOR_TEXT_SECONDARY)
     end
     sys.publish("LED_SET_REQUEST", 1, led4g_state)
 end
@@ -43,39 +36,35 @@ local function on_ledwifi_click()
     ledwifi_state = ledwifi_state == 0 and 1 or 0
     if ledwifi_status_label then
         ledwifi_status_label:set_text(ledwifi_state == 1 and "已开启" or "已关闭")
+        ledwifi_status_label:set_color(ledwifi_state == 1 and T.COLOR_GREEN or T.COLOR_TEXT_SECONDARY)
     end
     sys.publish("LED_SET_REQUEST", 2, ledwifi_state)
 end
 
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = 480, h = 272, color = COLOR_BG, parent = airui.screen })
+    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
 
-    -- 顶部导航栏
-    local header = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 44, color = COLOR_PRIMARY })
-    local back_btn = airui.container({ parent = header, x = 0, y = 0, w = 60, h = 44, on_click = on_back_click })
-    airui.label({ parent = back_btn, x = 5, y = 10, w = 50, h = 24, text = "< 返回", font_size = 16, color = COLOR_WHITE, align = airui.TEXT_ALIGN_CENTER })
-    airui.label({ parent = header, x = 60, y = 8, w = 360, h = 28, text = "状态灯", font_size = 20, color = COLOR_WHITE, align = airui.TEXT_ALIGN_CENTER })
+    -- 顶部标题栏
+    T.titlebar(main_container, "状态灯", on_back_click)
 
-    content = airui.container({ parent = main_container, x = 0, y = 44, w = 480, h = 228, color = COLOR_BG })
+    content = airui.container({ parent = main_container, x = 0, y = T.CONTENT_Y, w = T.SCREEN_W, h = T.CONTENT_H, color = T.COLOR_BG })
 
     -- 4G灯控制卡片
-    local card1 = airui.container({ parent = content, x = 10, y = 10, w = 460, h = 70, color = COLOR_CARD, radius = 6 })
-    airui.label({ parent = card1, x = 10, y = 6, w = 200, h = 22, text = "4G状态灯 (GPIO21)", font_size = 16, color = COLOR_TEXT, align = airui.TEXT_ALIGN_LEFT })
+    local card1 = airui.container({ parent = content, x = T.MARGIN, y = T.MARGIN, w = T.CARD_W, h = 70, color = T.COLOR_CARD, radius = T.CARD_RADIUS })
+    airui.label({ parent = card1, x = 10, y = 6, w = 200, h = 24, text = "4G状态灯 (GPIO21)", font_size = T.FONT_BODY, color = T.COLOR_TEXT, align = airui.TEXT_ALIGN_LEFT })
 
-    -- 开关按钮（整个按钮带 on_click）
-    local btn1 = airui.container({ parent = card1, x = 10, y = 36, w = 120, h = 28, color = COLOR_PRIMARY, radius = 4, on_click = on_led4g_click })
-    airui.label({ parent = btn1, x = 0, y = 2, w = 120, h = 24, text = "开关切换", font_size = 14, color = COLOR_WHITE, align = airui.TEXT_ALIGN_CENTER })
+    -- 开关按钮（蓝色主按钮）
+    T.btn_primary(card1, 10, 34, 140, 30, "开关切换", on_led4g_click)
 
-    led4g_status_label = airui.label({ parent = card1, x = 150, y = 38, w = 200, h = 24, text = "已关闭", font_size = 16, color = COLOR_RED, align = airui.TEXT_ALIGN_LEFT })
+    led4g_status_label = airui.label({ parent = card1, x = 150, y = 38, w = 200, h = 24, text = "已关闭", font_size = T.FONT_BODY, color = T.COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_LEFT })
 
     -- WiFi灯控制卡片
-    local card2 = airui.container({ parent = content, x = 10, y = 95, w = 460, h = 70, color = COLOR_CARD, radius = 6 })
-    airui.label({ parent = card2, x = 10, y = 6, w = 200, h = 22, text = "WiFi状态灯 (GPIO141)", font_size = 16, color = COLOR_TEXT, align = airui.TEXT_ALIGN_LEFT })
+    local card2 = airui.container({ parent = content, x = T.MARGIN, y = 95, w = T.CARD_W, h = 70, color = T.COLOR_CARD, radius = T.CARD_RADIUS })
+    airui.label({ parent = card2, x = 10, y = 6, w = 200, h = 24, text = "WiFi状态灯 (GPIO141)", font_size = T.FONT_BODY, color = T.COLOR_TEXT, align = airui.TEXT_ALIGN_LEFT })
 
-    local btn2 = airui.container({ parent = card2, x = 10, y = 36, w = 120, h = 28, color = COLOR_PRIMARY, radius = 4, on_click = on_ledwifi_click })
-    airui.label({ parent = btn2, x = 0, y = 2, w = 120, h = 24, text = "开关切换", font_size = 14, color = COLOR_WHITE, align = airui.TEXT_ALIGN_CENTER })
+    T.btn_primary(card2, 10, 34, 140, 30, "开关切换", on_ledwifi_click)
 
-    ledwifi_status_label = airui.label({ parent = card2, x = 150, y = 38, w = 200, h = 24, text = "已关闭", font_size = 16, color = COLOR_RED, align = airui.TEXT_ALIGN_LEFT })
+    ledwifi_status_label = airui.label({ parent = card2, x = 150, y = 38, w = 200, h = 24, text = "已关闭", font_size = T.FONT_BODY, color = T.COLOR_TEXT_SECONDARY, align = airui.TEXT_ALIGN_LEFT })
 end
 
 local function on_create()

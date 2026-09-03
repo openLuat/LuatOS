@@ -1,8 +1,8 @@
 --[[
 @module  watchdog_win
 @summary 看门狗状态页面，显示启用/禁用状态和喂狗时间
-@version 1.0.0
-@date    2026.07.30
+@version 2.0.0
+@date    2026.08.14
 @author  合宙 Air8301
 @usage
 本页面显示看门狗状态（启用/禁用）、上次喂狗时间。
@@ -14,16 +14,6 @@
 local win_id = nil
 local main_container, content
 local status_label, last_feed_label, timeout_label
-
--- 颜色常量
-local COLOR_PRIMARY = 0x1A5276
-local COLOR_BG = 0xD0D0D0
-local COLOR_CARD = 0xFFFFFF
-local COLOR_TEXT = 0x000000
-local COLOR_SECONDARY = 0x000000
-local COLOR_WHITE = 0xFFFFFF
-local COLOR_GREEN = 0x4CAF50
-local COLOR_RED = 0xF44336
 
 --[[
 导航栏返回按钮点击
@@ -62,7 +52,7 @@ local function on_enable_click()
     sys.publish("WATCHDOG_ENABLE_REQUEST", true)
     if status_label then
         status_label:set_text("已启用")
-        status_label:set_color(COLOR_GREEN)
+        status_label:set_color(T.COLOR_GREEN)
     end
 end
 
@@ -77,7 +67,7 @@ local function on_disable_click()
     sys.publish("WATCHDOG_ENABLE_REQUEST", false)
     if status_label then
         status_label:set_text("已禁用")
-        status_label:set_color(COLOR_RED)
+        status_label:set_color(T.COLOR_DANGER)
     end
 end
 
@@ -94,10 +84,10 @@ local function on_watchdog_status(enabled, timeout_sec)
     if status_label then
         if enabled then
             status_label:set_text("已启用")
-            status_label:set_color(COLOR_GREEN)
+            status_label:set_color(T.COLOR_GREEN)
         else
             status_label:set_text("已禁用")
-            status_label:set_color(COLOR_RED)
+            status_label:set_color(T.COLOR_DANGER)
         end
     end
     if timeout_label then
@@ -127,223 +117,41 @@ end
 @function create_ui
 ]]
 local function create_ui()
-    main_container = airui.container({ x = 0, y = 0, w = 480, h = 272, color = COLOR_BG, parent = airui.screen })
+    main_container = airui.container({ x = 0, y = 0, w = T.SCREEN_W, h = T.SCREEN_H, color = T.COLOR_BG, parent = airui.screen })
 
-    -- 顶部导航栏
-    local header = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 44, color = COLOR_PRIMARY })
-
-    -- 返回按钮
-    local back_btn = airui.container({
-        parent = header,
-        x = 0,
-        y = 0,
-        w = 60,
-        h = 44,
-        on_click = on_back_click
-    })
-    airui.label({
-        parent = back_btn,
-        x = 5,
-        y = 10,
-        w = 50,
-        h = 24,
-        text = "< 返回",
-        font_size = 16,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-
-    -- 标题
-    airui.label({
-        parent = header,
-        x = 60,
-        y = 8,
-        w = 360,
-        h = 28,
-        text = "看门狗",
-        font_size = 20,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    -- 顶部标题栏
+    T.titlebar(main_container, "看门狗", on_back_click)
 
     -- 内容区域
     content = airui.container({
         parent = main_container,
         x = 0,
-        y = 44,
-        w = 480,
-        h = 228,
-        color = COLOR_BG
+        y = T.CONTENT_Y,
+        w = T.SCREEN_W,
+        h = T.CONTENT_H,
+        color = T.COLOR_BG
     })
 
     -- 状态卡片
-    local status_card = airui.container({
-        parent = content,
-        x = 10,
-        y = 10,
-        w = 460,
-        h = 60,
-        color = COLOR_CARD,
-        radius = 6
-    })
-    airui.label({
-        parent = status_card,
-        x = 10,
-        y = 4,
-        w = 80,
-        h = 20,
-        text = "看门狗状态",
-        font_size = 14,
-        color = COLOR_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    status_label = airui.label({
-        parent = status_card,
-        x = 10,
-        y = 28,
-        w = 200,
-        h = 24,
-        text = "获取中...",
-        font_size = 18,
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    local _, _, status_content = T.info_card(content, 8, 60, "看门狗状态", "获取中...")
+    status_label = status_content
 
     -- 上次喂狗时间卡片
-    local feed_card = airui.container({
-        parent = content,
-        x = 10,
-        y = 80,
-        w = 460,
-        h = 60,
-        color = COLOR_CARD,
-        radius = 6
-    })
-    airui.label({
-        parent = feed_card,
-        x = 10,
-        y = 4,
-        w = 100,
-        h = 20,
-        text = "上次喂狗时间",
-        font_size = 14,
-        color = COLOR_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    last_feed_label = airui.label({
-        parent = feed_card,
-        x = 10,
-        y = 28,
-        w = 200,
-        h = 24,
-        text = "--:--:--",
-        font_size = 18,
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    local _, _, feed_content = T.info_card(content, 76, 60, "上次喂狗时间", "--:--:--")
+    last_feed_label = feed_content
 
     -- 超时时间卡片
-    local timeout_card = airui.container({
-        parent = content,
-        x = 10,
-        y = 150,
-        w = 460,
-        h = 50,
-        color = COLOR_CARD,
-        radius = 6
-    })
-    airui.label({
-        parent = timeout_card,
-        x = 10,
-        y = 4,
-        w = 100,
-        h = 20,
-        text = "超时时间",
-        font_size = 14,
-        color = COLOR_SECONDARY,
-        align = airui.TEXT_ALIGN_LEFT
-    })
-    timeout_label = airui.label({
-        parent = timeout_card,
-        x = 10,
-        y = 26,
-        w = 200,
-        h = 20,
-        text = "240 秒",
-        font_size = 16,
-        color = COLOR_TEXT,
-        align = airui.TEXT_ALIGN_LEFT
-    })
+    local _, _, timeout_content = T.info_card(content, 144, 42, "超时时间", "240 秒")
+    timeout_label = timeout_content
 
     -- 操作按钮区域
-    -- 手动喂狗
-    local feed_btn = airui.container({
-        parent = content,
-        x = 10,
-        y = 210,
-        w = 140,
-        h = 40,
-        color = COLOR_PRIMARY,
-        radius = 6,
-        on_click = on_feed_click
-    })
-    airui.label({
-        parent = feed_btn,
-        x = 0,
-        y = 8,
-        w = 140,
-        h = 24,
-        text = "手动喂狗",
-        font_size = 16,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-
-    -- 启用
-    local enable_btn = airui.container({
-        parent = content,
-        x = 170,
-        y = 210,
-        w = 140,
-        h = 40,
-        color = COLOR_GREEN,
-        radius = 6,
-        on_click = on_enable_click
-    })
-    airui.label({
-        parent = enable_btn,
-        x = 0,
-        y = 8,
-        w = 140,
-        h = 24,
-        text = "启用",
-        font_size = 16,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
-
-    -- 禁用
-    local disable_btn = airui.container({
-        parent = content,
-        x = 330,
-        y = 210,
-        w = 140,
-        h = 40,
-        color = COLOR_RED,
-        radius = 6,
-        on_click = on_disable_click
-    })
-    airui.label({
-        parent = disable_btn,
-        x = 0,
-        y = 8,
-        w = 140,
-        h = 24,
-        text = "禁用",
-        font_size = 16,
-        color = COLOR_WHITE,
-        align = airui.TEXT_ALIGN_CENTER
-    })
+    local btn_y = 192
+    local btn_w = 140
+    local btn_h = 30
+    local gap = 10
+    T.btn_primary(content, T.MARGIN, btn_y, btn_w, btn_h, "手动喂狗", on_feed_click)
+    T.btn_success(content, T.MARGIN + btn_w + gap, btn_y, btn_w, btn_h, "启用", on_enable_click)
+    T.btn_danger(content, T.MARGIN + 2 * (btn_w + gap), btn_y, btn_w, btn_h, "禁用", on_disable_click)
 end
 
 --[[

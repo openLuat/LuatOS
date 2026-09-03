@@ -43,6 +43,7 @@ require "watchdog_win"
 require "reload_win"
 require "flash_win"
 require "sysinfo_win"
+require "sht30_win"
 
 -- ==================== 硬件初始化协程（LCD → AirUI → TP → 首页 → 背光） ====================
 local function init_ui_task()

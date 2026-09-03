@@ -207,5 +207,96 @@ function T.btn_success(parent, x, y, w, h, text, on_click)
     return btn
 end
 
+--[[
+创建状态切换按钮（圆角容器 + 居中标签）
+返回 container 和 label，调用方可动态修改文字和背景色
+
+@param userdata parent  父容器
+@param number   x       X 坐标
+@param number   y       Y 坐标
+@param number   w       宽度
+@param number   h       高度
+@param string   text    初始文字
+@param number   bg_color 初始背景色
+@param number   text_color 初始文字色
+@return userdata btn    按钮容器
+@return userdata label  文字标签
+]]
+function T.toggle_btn(parent, x, y, w, h, text, bg_color, text_color, on_click)
+    local btn = airui.container({
+        parent = parent,
+        x = x, y = y, w = w, h = h,
+        color = bg_color, radius = T.BTN_RADIUS,
+        on_click = on_click,
+    })
+    local lbl = airui.label({
+        parent = btn,
+        x = 0, y = (h - T.FONT_BODY) / 2, w = w, h = T.FONT_BODY,
+        text = text,
+        font_size = T.FONT_BODY,
+        color = text_color,
+        align = airui.TEXT_ALIGN_CENTER,
+    })
+    return btn, lbl
+end
+
+--[[
+创建 iOS 风格切换开关（滑轨 + 圆形旋钮）
+
+@param userdata parent    父容器
+@param number   x         X 坐标
+@param number   y         Y 坐标
+@param boolean  state     初始状态（true=ON, false=OFF）
+@param function on_click  点击回调（无参数，调用方自行切换状态）
+@return userdata track    滑轨容器
+@return userdata knob     旋钮容器
+]]
+function T.toggle_switch(parent, x, y, state, on_click)
+    local track_w = 50
+    local track_h = 28
+    local knob_size = 24
+    local pad = 2  -- 旋钮距滑轨边缘间距
+
+    -- 滑轨（圆角矩形）
+    local track = airui.container({
+        parent = parent,
+        x = x, y = y, w = track_w, h = track_h,
+        color = state and T.COLOR_GREEN or 0xE5E5EA,
+        radius = track_h / 2,
+        on_click = on_click,
+    })
+
+    -- 圆形旋钮
+    local knob_x = state and (track_w - knob_size - pad) or pad
+    local knob = airui.container({
+        parent = track,
+        x = knob_x, y = pad, w = knob_size, h = knob_size,
+        color = T.COLOR_WHITE, radius = knob_size / 2,
+        on_click = on_click,
+    })
+
+    return track, knob
+end
+
+--[[
+更新切换开关的外观（调用方切换状态后调用）
+
+@param userdata track  滑轨容器
+@param userdata knob   旋钮容器
+@param boolean  state  新状态（true=ON, false=OFF）
+]]
+function T.toggle_switch_update(track, knob, state)
+    if track then
+        track:set_color(state and T.COLOR_GREEN or 0xE5E5EA)
+    end
+    if knob then
+        local knob_size = 24
+        local track_w = 50
+        local pad = 2
+        local knob_x = state and (track_w - knob_size - pad) or pad
+        knob:set_pos(knob_x, pad)
+    end
+end
+
 _G.T = T
 return T

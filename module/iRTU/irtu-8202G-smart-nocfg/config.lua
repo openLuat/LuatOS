@@ -8,7 +8,7 @@
 1. 定义设备工作模式 / 功耗模式 / 报警阈值配置
 2. 定义定位（GPS/LBS/AirLBS）与超时配置
 3. 定义充电管理（YHM2712A）/ 看门狗（Air153C）配置
-4. 定义硬件引脚（仅保留 LED：GPIO26 绿 / GPIO27 红）
+4. 定义硬件引脚（仅保留 LED：GPIO26 绿 / GPIO27 黄）
 5. load_from_server() 处理服务端下发配置（已停用功能字段直接忽略）
 004.000.030 清理：删除上报间隔表（GNSS 三态固定节奏替代）、定位优先级（旧按模式
 定位链遗留）、FIND_MODE/SIP/传感器/DEVICE_RESTART 等无读取方配置。
@@ -86,8 +86,8 @@ config.WDT_CONFIG = {
 
 -- 硬件引脚定义（仅保留存活项：LED；其余引脚配置由各驱动/库内部自行管理）
 config.HARDWARE_PINS = {
-    GREEN_LED = 26,      -- 绿灯 GPIO26（充满常亮 / 其余亮灯场景）
-    YELLOW_LED = 27,     -- 黄灯 GPIO27（硬件原黄灯位，本版本起作红灯使用）
+    GREEN_LED = 26,      -- 绿灯 GPIO26（不充电亮灯场景）
+    YELLOW_LED = 27,     -- 黄灯 GPIO27（充电中亮灯场景）
 }
 
 -- 默认网络通道配置（无服务端持久化配置时使用，见 main.lua）

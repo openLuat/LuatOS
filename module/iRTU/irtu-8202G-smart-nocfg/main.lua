@@ -11,7 +11,7 @@
 3. 本版本默认开机进入寻宠模式（GPS定位，mode=2），不进入未激活模式（见 app.lua）
 ]]
 PROJECT = "Air8202"
-VERSION = "004.000.033"
+VERSION = "004.000.034"
 FOTA_MODE = 3  -- 3=libfota3(默认,只能合宙人员根据客户提供的IMEI升级,客户无法自行操作), 2=libfota2(IoT平台,客户自行管理)
 
 -- ====== 项目密钥（FOTA升级使用，libfota3 和 libfota2 统一从此读取） ======

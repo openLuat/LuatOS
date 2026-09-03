@@ -298,7 +298,7 @@ local function collect_data_and_report()
     local work_mode = get_work_mode()
 
     -- LED 已由 tools.lua 状态机自动控制（开机60s / GNSS切换10s / 充电常亮；
-    -- 通信正常常亮，否则闪烁；充电红 / 充满绿），此处不再手动控灯
+    -- 通信正常常亮，否则闪烁；充电黄 / 不充电绿），此处不再手动控灯
 
     -- 低电量检测
     local is_low_power = false

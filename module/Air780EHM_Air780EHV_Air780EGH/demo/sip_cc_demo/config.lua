@@ -10,6 +10,7 @@
 
 local config = {
     -- SIP 服务器
+
     sip_server_addr = "180.152.6.34",
     sip_server_port = 8910,
     sip_domain = "180.152.6.34",
@@ -35,8 +36,11 @@ local config = {
     adapter = socket.LWIP_GP,
 
     -- 自动行为
-    auto_answer_sip = true,            -- SIP 来电时自动接听
-    auto_handle_mobile_incoming = true,  -- 手机来电时自动拨打 SIP
+    auto_answer_sip = true,               -- SIP 来电时自动接听
+    auto_handle_mobile_incoming = true,   -- 手机来电时自动拨打 SIP
+    auto_answer_mobile_incoming = true,   -- 手机来电且不转 SIP 时自动接听 CC
+    outgoing_early_timeout = 90,          -- SIP->CC 呼出早期媒体阶段最大等待秒数
+    outgoing_failure_prompt_grace = 6,    -- SIP->CC 未接通失败时保留运营商失败播报秒数
 
     -- 默认本地音频开关：false 表示仅桥接，true 表示本地也能听到/说话
     local_audio_default = false,

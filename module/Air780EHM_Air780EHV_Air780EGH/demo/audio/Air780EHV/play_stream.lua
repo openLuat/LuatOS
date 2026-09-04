@@ -42,7 +42,7 @@ end
 
 -- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
-    model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211"
+    model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211","air4017"
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
     
     -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
@@ -117,6 +117,11 @@ local function audio_get_data()
     log.info("开始流式获取音频数据")
     local file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
 
+    if not file then
+        log.error("play_stream", "test.pcm 不存在: 请烧录 test.pcm 音频文件, 否则无法流式播放")
+        return
+    end
+    
     -- 获取推荐的缓冲区大小
     local buffer_size = exaudio.get_stream_buffer_size() or 4096
     log.info("流式播放缓冲区大小", buffer_size)

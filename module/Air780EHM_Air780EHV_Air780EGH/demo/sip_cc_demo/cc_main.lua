@@ -1,7 +1,7 @@
 --[[
 @module  cc_main
 @summary VoLTE 通话模块
-@version 1.0
+@version 1.0.1
 @date    2026.07.17
 @author  蒋骞
 @usage
@@ -10,6 +10,15 @@
 ]]
 
 local cc_main = {}
+
+-- 音频驱动（可选）：用于 SPEECH_START 时恢复外置编解码器输出通路
+local audio_drv
+do
+    local aok, aresult = pcall(require, "audio_drv")
+    if aok then
+        audio_drv = aresult
+    end
+end
 
 local STATE_IDLE = "cc_idle"
 local STATE_DIALING = "cc_dialing"
@@ -36,6 +45,7 @@ end
 local function on_cc_dial_req(number)
     if g_state ~= STATE_IDLE then
         log.warn("cc_main", "CC 忙，无法拨号", g_state)
+        sys.publish("CC_FAILED", "cc_busy")
         return
     end
     set_state(STATE_DIALING)
@@ -96,6 +106,7 @@ local function on_cc_event(status, value, extra)
     if status == "READY" then
         g_ready = true
         logi("CC 系统已就绪")
+        sys.publish("CC_READY")
 
     elseif status == "INCOMINGCALL" then
         local number = cc and cc.lastNum and cc.lastNum() or ""
@@ -126,6 +137,7 @@ local function on_cc_event(status, value, extra)
 
     elseif status == "MAKE_CALL_OK" then
         logi("CC 拨号请求已发送")
+        sys.publish("CC_MAKE_CALL_OK")
 
     elseif status == "MAKE_CALL_FAILED" then
         log.error("cc_main", "CC 拨号失败")
@@ -138,6 +150,23 @@ local function on_cc_event(status, value, extra)
     elseif status == "HANGUP_CALL_DONE" then
         logi("CC 挂断完成")
         set_state(STATE_IDLE)
+        -- 通知 bridge：CC 已回到空闲。若不发布，bridge 的 g_cc_state
+        -- 会停留在 cc_connected，导致后续 SIP 来电被误判为“CC 忙”而回 486。
+        sys.publish("CC_DISCONNECTED", "hangup_done")
+
+    elseif status == "SPEECH_START" then
+        logi("CC 语音开始")
+        -- audio_v2 接管 I2S 后，需恢复外置 ES8311 的 DAC/PA；
+        -- 仅是硬件输出通路恢复，不会启用本地音频或改变桥接开关。
+        if audio_drv and audio_drv.enable_cc_codec then
+            audio_drv.enable_cc_codec(16000)
+        end
+
+    elseif status == "PLAY" then
+        logi("CC 音频输出开始（早期媒体/彩铃）", value)
+        -- PLAY=通话音频通道开始出声(含未接听阶段回铃/彩铃/提示音)。
+        -- 通知 bridge 及时停掉本地占位回铃音，避免与 CC 真实下行在 TX FIFO 叠加。
+        sys.publish("CC_MEDIA_START", value)
     end
 end
 
@@ -145,10 +174,7 @@ end
 
 function cc_main.init()
     logi("CC 初始化开始")
-    if rtos.bsp() == "PC" then
-        log.warn("cc_main", "PC 模拟器，CC 库不可用")
-        g_ready = false
-    elseif cc then
+    if cc then
         g_ready = true
         logi("CC 库已可用")
     else
@@ -160,6 +186,7 @@ function cc_main.init()
         local ok = cc.init(0)
         if ok then
             logi("CC 初始化成功")
+            sys.publish("CC_READY")
         else
             log.error("cc_main", "CC 初始化失败")
         end

@@ -2,8 +2,8 @@
     @module  air4017
     @summary Air4017 语音芯片 PCM+PCM 串口协议驱动（exaudio 内部驱动）
     @remark 内部模块：仅供 exaudio 扩展库调用，业务代码请勿直接 require；使用 Air4017 请走 exaudio.setup({model="air4017"})。
-    @version 1.0.0
-    @date    2026.08.31
+    @version 1.1
+    @date    2026.09.03
     @author  拓毅恒
     @usage
         local air4017 = require "air4017"
@@ -132,6 +132,34 @@ function air4017.init(id, baud)
     uart.on(UART_ID, "receive", on_uart_receive)
     is_inited = true
     log.info("air4017", "初始化完成", UART_ID, BAUD)
+    return true
+end
+
+-- 取消初始化: 停止流式播放并关闭串口, 释放底层驱动与回调。
+-- 换串口用法: 先 air4017.uninit() 再 air4017.init(新id, 2000000);
+-- 注意：不 uninit 直接使用 air4017.init 换 id 不会生效。
+-- @return boolean
+function air4017.uninit()
+    -- 1) 若流式播放仍在运行先停止(此时串口仍开着, 内部 stop_audio 的 02 01 停止命令可送达 Air4017)
+    if stream_running or stream_timer then
+        air4017.play_stream_stop()
+    end
+    -- 2) 解绑 receive 回调并关闭串口(顺序不可反: uart.close 后该 uart 在 dispatch 层已不存在,
+    --    uart.on 会因 luat_uart_dispatch_exist 检查失败而报 "no such uart id")
+    if is_inited then
+        uart.on(UART_ID, "receive", nil)
+        uart.close(UART_ID)
+        is_inited = false
+    end
+    -- 3) 清回调/接收缓冲/播放缓冲, 防止换串口重 init 后残留脏数据
+    cb_identify = nil
+    cb_audio_data = nil
+    rx_enabled = true
+    rxstr = ""
+    stream_buff = nil
+    stream_wr = 0
+    stream_rd = 0
+    log.info("air4017", "已取消初始化")
     return true
 end
 

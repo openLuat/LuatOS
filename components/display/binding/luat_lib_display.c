@@ -95,7 +95,7 @@ static int panel_custom_cmds_setup(struct luat_display_panel *panel, lua_State *
     lua_getfield(L, 2, "custom_cmds");
     if (lua_isnil(L, -1)) {
         lua_pop(L, 1);
-        return 0;
+        return 0;   // 未传 custom_cmds 表，保持默认序列
     }
     if (!lua_istable(L, -1)) {
         lua_pop(L, 1);
@@ -287,76 +287,77 @@ static void panel_crop_win_setup(struct luat_display_panel *panel,lua_State *L)
     lua_pop(L, 1);
 }
 
-/*自定义面板初始化*/
-static int custom_panel_setup(struct luat_display_panel *panel,lua_State *L) 
+/*读取 config 里的整型字段；未提供（nil/非整数）时返回 dflt*/
+static long panel_timing_get_field(lua_State *L, const char *key, long dflt)
 {
-    int polarity = 0;
+    long v = dflt;
+    lua_getfield(L, 2, key);
+    if (lua_isinteger(L, -1)) {
+        v = lua_tointeger(L, -1);
+    }
+    lua_pop(L, 1);
+    return v;
+}
 
-    /*检查面板是否为自定义面板*/
-    if (strcmp(panel->name, "custom") != 0) {
-        return 2;
+/*覆盖面板 timing：
+  - custom 面板：固定默认 w=240/h=320/时序 0，极性默认低有效（保持旧行为）
+  - 内置面板：以模板当前 timing 为默认，dflt 用 -1 哨兵表示「未提供」，
+    只有 Lua 显式传入的字段才会覆盖；极性用位掩码覆盖对应位，保留模板其它位
+*/
+static int panel_timing_setup(struct luat_display_panel *panel, lua_State *L, int is_custom)
+{
+    struct luat_display_timing *tg = panel->timing;
+    long v;
+
+    if (tg == NULL) {
+        return -1;
     }
 
-    /*设置新的时序参数*/
-    lua_getfield(L, 2, "w");
-    panel->timing->hactive = luaL_optinteger(L, -1, 240);
-    lua_pop(L, 1);
+    /*常规整型时序字段：custom 固定默认，内置以当前值为默认（未传保持不变）*/
+    tg->hactive = (uint32_t)panel_timing_get_field(L, "w",
+                      is_custom ? 240 : (long)tg->hactive);
+    tg->vactive = (uint32_t)panel_timing_get_field(L, "h",
+                      is_custom ? 320 : (long)tg->vactive);
+    tg->hbp     = (uint32_t)panel_timing_get_field(L, "hbp",
+                      is_custom ? 0 : (long)tg->hbp);
+    tg->hfp     = (uint32_t)panel_timing_get_field(L, "hfp",
+                      is_custom ? 0 : (long)tg->hfp);
+    tg->hspw    = (uint32_t)panel_timing_get_field(L, "hspw",
+                      is_custom ? 0 : (long)tg->hspw);
+    tg->vbp     = (uint32_t)panel_timing_get_field(L, "vbp",
+                      is_custom ? 0 : (long)tg->vbp);
+    tg->vfp     = (uint32_t)panel_timing_get_field(L, "vfp",
+                      is_custom ? 0 : (long)tg->vfp);
+    tg->vspw    = (uint32_t)panel_timing_get_field(L, "vspw",
+                      is_custom ? 0 : (long)tg->vspw);
+    tg->pclk_hz = (uint32_t)panel_timing_get_field(L, "pclk_hz",
+                      is_custom ? 0 : (long)tg->pclk_hz);
 
-    lua_getfield(L, 2, "h");
-    panel->timing->vactive = luaL_optinteger(L, -1, 320);
-    lua_pop(L, 1);
+    /*极性：custom 统一清零后重建；内置用位掩码覆盖，未提供时保留当前位*/
+    if (is_custom) {
+        tg->flags = 0;
+    }
+    v = panel_timing_get_field(L, "hs_polarity", -1);
+    if (is_custom || v >= 0) {
+        tg->flags = (tg->flags & ~((long)DISPLAY_FLAGS_HSYNC_LOW | (long)DISPLAY_FLAGS_HSYNC_HIGH)) |
+                    ((v < 0 ? 0L : v) ? DISPLAY_FLAGS_HSYNC_HIGH : DISPLAY_FLAGS_HSYNC_LOW);
+    }
+    v = panel_timing_get_field(L, "vs_polarity", -1);
+    if (is_custom || v >= 0) {
+        tg->flags = (tg->flags & ~((long)DISPLAY_FLAGS_VSYNC_LOW | (long)DISPLAY_FLAGS_VSYNC_HIGH)) |
+                    ((v < 0 ? 0L : v) ? DISPLAY_FLAGS_VSYNC_HIGH : DISPLAY_FLAGS_VSYNC_LOW);
+    }
+    v = panel_timing_get_field(L, "de_polarity", -1);
+    if (is_custom || v >= 0) {
+        tg->flags = (tg->flags & ~((long)DISPLAY_FLAGS_DE_LOW | (long)DISPLAY_FLAGS_DE_HIGH)) |
+                    ((v < 0 ? 0L : v) ? DISPLAY_FLAGS_DE_HIGH : DISPLAY_FLAGS_DE_LOW);
+    }
+    v = panel_timing_get_field(L, "pclk_polarity", -1);
+    if (is_custom || v >= 0) {
+        tg->flags = (tg->flags & ~((long)DISPLAY_FLAGS_PCLK_LOW | (long)DISPLAY_FLAGS_PCLK_HIGH)) |
+                    ((v < 0 ? 0L : v) ? DISPLAY_FLAGS_PCLK_HIGH : DISPLAY_FLAGS_PCLK_LOW);
+    }
 
-    lua_getfield(L, 2, "hbp");
-    panel->timing->hbp = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "hfp");
-    panel->timing->hfp = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "hspw");
-    panel->timing->hspw = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "vbp");
-    panel->timing->vbp = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "vfp");
-    panel->timing->vfp = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "vspw");
-    panel->timing->vspw = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "pclk_hz");
-    panel->timing->pclk_hz = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-
-    /*设置极性*/
-    panel->timing->flags = 0;
-
-    lua_getfield(L, 2, "hs_polarity");
-    polarity = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-    panel->timing->flags |= (polarity) ? DISPLAY_FLAGS_HSYNC_HIGH : DISPLAY_FLAGS_HSYNC_LOW;
-    
-    lua_getfield(L, 2, "vs_polarity");
-    polarity = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-    panel->timing->flags |= (polarity) ? DISPLAY_FLAGS_VSYNC_HIGH : DISPLAY_FLAGS_VSYNC_LOW;
-    
-    lua_getfield(L, 2, "de_polarity");
-    polarity = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-    panel->timing->flags |= (polarity) ? DISPLAY_FLAGS_DE_HIGH : DISPLAY_FLAGS_DE_LOW;
-    
-    lua_getfield(L, 2, "pclk_polarity");
-    polarity = luaL_optinteger(L, -1, 0);
-    lua_pop(L, 1);
-    panel->timing->flags |= (polarity) ? DISPLAY_FLAGS_PCLK_HIGH : DISPLAY_FLAGS_PCLK_LOW;
-    
     return 0;
 }
 
@@ -401,24 +402,24 @@ static int custom_pin_setup(struct panel_pin_device *pin, lua_State *L)
  * @table config 配置表
  * @string config.interface 接口类型（必填）："rgb" / "dsi" / "spi" / "lvds" / "sdl"(PC模拟)
  * @int config.id 显示组件 ID (0~4)，省略则自动分配
- * @int config.w 屏幕宽度，默认 240（仅 custom 面板生效）
- * @int config.h 屏幕高度，默认 320（仅 custom 面板生效）
+ * @int config.w 屏幕宽度：custom 面板默认 240；内置面板不传则保持模板
+ * @int config.h 屏幕高度：custom 面板默认 320；内置面板不传则保持模板
  * @int config.bpp 每像素位数，默认 16 (RGB565)，当前为占位参数
  * @int config.crop_x 裁剪窗口X坐标，默认 0
  * @int config.crop_y 裁剪窗口Y坐标，默认 0
  * @int config.crop_w 裁剪窗口宽度，默认屏宽
  * @int config.crop_h 裁剪窗口高度，默认屏高
- * @int config.hbp 水平后廊，默认 0（仅 custom 面板生效）
- * @int config.hfp 水平前廊，默认 0（仅 custom 面板生效）
- * @int config.hspw 水平同步脉宽，默认 0（仅 custom 面板生效）
- * @int config.vbp 垂直后廊，默认 0（仅 custom 面板生效）
- * @int config.vfp 垂直前廊，默认 0（仅 custom 面板生效）
- * @int config.vspw 垂直同步脉宽，默认 0（仅 custom 面板生效）
- * @int config.pclk_hz 像素时钟频率，默认 0（仅 custom 面板生效）
- * @int config.hs_polarity HSYNC 极性，默认 0(低有效)
- * @int config.vs_polarity VSYNC 极性，默认 0(低有效)
- * @int config.de_polarity DE 极性，默认 0(低有效)
- * @int config.pclk_polarity PCLK 极性，默认 0(低有效)
+ * @int config.hbp 水平后廊：custom 默认 0；内置面板仅显式传入才覆盖模板
+ * @int config.hfp 水平前廊：custom 默认 0；内置面板仅显式传入才覆盖模板
+ * @int config.hspw 水平同步脉宽：custom 默认 0；内置面板仅显式传入才覆盖模板
+ * @int config.vbp 垂直后廊：custom 默认 0；内置面板仅显式传入才覆盖模板
+ * @int config.vfp 垂直前廊：custom 默认 0；内置面板仅显式传入才覆盖模板
+ * @int config.vspw 垂直同步脉宽：custom 默认 0；内置面板仅显式传入才覆盖模板
+ * @int config.pclk_hz 像素时钟频率：custom 默认 0；内置面板仅显式传入才覆盖模板
+ * @int config.hs_polarity HSYNC 极性，默认 0(低有效)；内置面板仅显式传入才覆盖模板
+ * @int config.vs_polarity VSYNC 极性，默认 0(低有效)；内置面板仅显式传入才覆盖模板
+ * @int config.de_polarity DE 极性，默认 0(低有效)；内置面板仅显式传入才覆盖模板
+ * @int config.pclk_polarity PCLK 极性，默认 0(低有效)；内置面板仅显式传入才覆盖模板
  * @int config.pin_rst 复位引脚，默认 0xFF(无)
  * @int config.pin_bl 背光引脚，默认 0xFF(无)
  * @int config.pin_pwr 电源引脚，默认 0xFF(无)
@@ -488,26 +489,24 @@ static int l_display_init(lua_State *L)
         panel_crop_win_setup(L_disp->panel, L);
     }
 
-    /*自定义面板*/
-    if(strcmp(panel_name, "custom") == 0) {
-        /*设置时序参数*/
-        int ret = custom_panel_setup(L_disp->panel, L);
-        if(ret) {
-            lua_pushboolean(L, 0);
-            lua_pushstring(L, "panel setup fail");
-            goto init_fail;
-        }
+    /*覆盖面板时序参数（custom 与内置面板通用）：
+        - custom 面板：按 config.w/h/… 重建 timing（未传用固定默认）
+        - 内置面板：仅当 config 显式给出对应字段时才覆盖模板 timing*/
+    int tret = panel_timing_setup(L_disp->panel, L, strcmp(panel_name, "custom") == 0);
+    if (tret) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "panel timing setup fail");
+        goto init_fail;
     }
 
     /*Lua 自定义初始化命令序列（所有面板通用：RGB/DBI/DSI）*/
-    {
-        int cmds_ret = panel_custom_cmds_setup(L_disp->panel, L);
-        if (cmds_ret) {
-            lua_pushboolean(L, 0);
-            lua_pushstring(L, "custom_cmds setup fail");
-            goto init_fail;
-        }
+    int cmds_ret = panel_custom_cmds_setup(L_disp->panel, L);
+    if (cmds_ret) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "custom_cmds setup fail");
+        goto init_fail;
     }
+    
 
 #ifdef LUAT_USE_LCD_SDL2
     strncpy(iface_buf, "sdl", 3);   //对于PC平台强制使用SDL接口

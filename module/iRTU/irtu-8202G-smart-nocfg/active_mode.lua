@@ -196,8 +196,9 @@ end
 -- xyz_stream：GNSS 开启期间 20Hz 流式采样的三轴原始数据（二进制，仅走 TLV 通道）
 -- nmea_stream：GNSS 开启期间 1Hz 采样的定位五元组数据流（二进制，仅走 TLV 通道）
 -- gnss_active：GNSS 是否开启；开启且非实时上报时不上报 1292（单点三轴），缩短整包报文长度
--- fast_report_active（模块级）：实时上报模式下 1292 单点三轴照常上报（此时 1293/1294 流不带）
-local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active)
+-- fast_report_active（模块级）：实时上报模式下 1292 单点三轴照常上报（此时 1293/1294 流不带，
+--   改由 1295 上报最近 1 秒的 20 个样本，组包格式与 1293 完全相同）
+local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active, xyz_fast_stream)
     local FM = excloud.FIELD_MEANINGS
     local DT = excloud.DATA_TYPES
     local data = {}
@@ -244,6 +245,15 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active)
     -- 注意：二进制只走本 TLV 通道，不进 JSON 报文。
     if nmea_stream and nmea_stream ~= "" then
         table.insert(data, { field_meaning = 1294, data_type = DT.BINARY, value = nmea_stream })
+    end
+    -- DA221 最近 1 秒三轴原始数据流（仅实时上报模式携带）：20Hz × 1 秒 = 20 个样本，
+    -- 组包格式与 1293 完全相同（12bit 紧凑编码，每 2 样本 9 字节）：
+    -- 12bit × 3 轴 × 20 样本 = 720bit = 90 字节，二进制字段，自定义编号 1295。
+    -- 上报条件：fast_report_active 时取缓冲最近 20 个样本（这一秒的采样）；
+    -- GNSS 常规 10s 帧由 1293（200 样本）覆盖，1295 只属于实时 1s 帧。
+    -- 注意：二进制只走本 TLV 通道，不进 JSON 报文。
+    if xyz_fast_stream and xyz_fast_stream ~= "" then
+        table.insert(data, { field_meaning = 1295, data_type = DT.BINARY, value = xyz_fast_stream })
     end
     if d.chip_model and d.chip_model ~= "" then
         table.insert(data, { field_meaning = FM.COMPONENT_MODEL, data_type = DT.ASCII, value = d.chip_model })   -- 元器件型号
@@ -392,6 +402,22 @@ local function collect_data_and_report()
         end
     end
 
+    -- 实时上报模式（fast_report_active，每秒 1 帧）：取最近 1 秒的 20 个三轴样本，
+    -- 以与 1293 相同的 12bit 紧凑编码打包（12bit×3×20 = 720bit = 90 字节），作为 TLV 1295
+    -- 二进制字段随本帧上报，供平台还原这一秒内的高频振动波形。
+    -- 采样由 gsensor 常驻任务后台进行（GNSS 开启期间 stream_on=true 持续入滚动缓冲），
+    -- 本协程阻塞（等网络/发数据）期间采样不中断，取流即"这一秒"的最新 20 个样本。
+    -- 刚进入实时上报时缓冲可能不足 20 个样本：与 1293 同语义，携带实际样本数（偶数）。
+    local fast_xyz_stream, fast_stream_count = "", 0
+    if fast_report_active then
+        fast_xyz_stream, fast_stream_count = gsensor.get_stream_data(20)
+        if fast_stream_count > 0 then
+            log.info("active_mode", "fast_xyz_stream:", fast_stream_count, "样本", #fast_xyz_stream, "字节")
+        else
+            log.info("active_mode", "fast_xyz_stream: 无数据（刚进入实时上报，本次报文不带 1295 字段）")
+        end
+    end
+
     -- 额外上报字段
     local gsv = get_gsv_report()
     local boot_reason = get_boot_reason()
@@ -477,8 +503,9 @@ local function collect_data_and_report()
     -- AirCloud 通道：以 TLV 形式上报（其余字段不含 msg_id/type/ts/imei；
     -- 1293 为 GNSS 开启期间的 20Hz 三轴原始数据流（12bit 紧凑编码），
     -- 1294 为 GNSS 开启期间的 1Hz 定位五元组数据流，均为二进制，仅走此通道；
+    -- 1295 为实时上报模式最近 1 秒（20 样本）的三轴原始数据流，格式同 1293；
     -- 1292 单点三轴：GNSS 关闭或实时上报模式下上报）
-    create.send_aircloud(build_aircloud_tlv(msg.data, gsensor_stream, nmea_stream_bin, gnss_active))
+    create.send_aircloud(build_aircloud_tlv(msg.data, gsensor_stream, nmea_stream_bin, gnss_active, fast_xyz_stream))
     log.info("active_mode", "数据已通过 AirCloud TLV 发送")
 
     log.info("active_mode", "数据上报完成")

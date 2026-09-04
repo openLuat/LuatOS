@@ -1,5 +1,7 @@
 PROJECT = "usb_demo"
-VERSION = "1.0.0"
+VERSION = "1.0.3"
+
+sys = require("sys")
 
 log.style(1)
 
@@ -34,13 +36,20 @@ local function usb_cb(usb_id, class, app_id, event, param1, param2, param3)
 end
 
 usb.on(0, usb_cb)
---usb.debug(0, true)
-pm.power(pm.USB, false)		--确保USB外设是掉电状态
-usb.mode(0, usb.HOST)		--usb设置成主机模式
-pm.power(pm.USB, true)		--USB上电初始化开始工作
-
--- 1601开发板需要这么操作
-air1601_evb_init()
+sys.taskInit(function()
+    pm.power(pm.USB, false)
+    sys.wait(100) -- USB电源操作由C任务异步执行，等待关闭后再切换模式
+    air1601_evb_init()
+    sys.wait(100) -- 等待开发板VBUS供电稳定
+    usb.debug(0, false) -- 保留 C HID/input 日志，关闭底层控制传输刷屏
+    assert(usb.mode(0, usb.HOST), "USB Host mode failed")
+    pm.power(pm.USB, true)
+    log.info("usb_hid", "HID_C_HOST_READY", VERSION)
+    while true do
+        sys.wait(10000)
+        log.info("usb_hid", "HID_C_HOST_STABLE", VERSION)
+    end
+end)
 
 local function u_disk_test_task()
     while true do
@@ -130,7 +139,8 @@ local function u_disk_test_task()
         end
     end
 end
-sys.taskInit(u_disk_test_task)
+-- HID调试期间只观察C层日志；需要U盘读写测试时再启用此任务。
+-- sys.taskInit(u_disk_test_task)
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

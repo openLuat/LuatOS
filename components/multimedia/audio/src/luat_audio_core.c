@@ -1551,7 +1551,7 @@ int luat_audio_request_speech(luat_audio_request_block_t *request_block, luat_au
 		luat_audio_request_deinit(request_block);
 		return -LUAT_ERROR_OPERATION_FAILED;
 	}
-	if (play_codec_opts->type == LUAT_AUDIO_DATA_CODEC_TYPE_CC || play_codec_opts->type == LUAT_AUDIO_DATA_CODEC_TYPE_CC) {
+	if (play_codec_opts->type == LUAT_AUDIO_DATA_CODEC_TYPE_CC || record_codec_opts->type == LUAT_AUDIO_DATA_CODEC_TYPE_CC) {
 		request_block->data_channel->driver_ctrl->is_call_mode = 1;
 	} else {
 		request_block->data_channel->driver_ctrl->is_call_mode = 0;

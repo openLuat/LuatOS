@@ -1,10 +1,12 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 3.3
-@date    2026.9.1
+@version 3.4
+@date    2026.9.4
 @author  拓毅恒
 @updates
+    v3.4 2026.9.4
+        1. 修复 air4017 使用新框架进行VOLTE通话时无声问题。
     v3.3 2026.9.1
         1. 修复Air1602开发板调用exaudio.play_stop()后exaudio.pm(exaudio.SHUTDOWN)会关闭I2C1、导致LCD触摸失效的问题。
         2. 新增 air4017 支持：audio_setup_param 设置 model="air4017" 后，通过 UART1(可选) 驱动 Air4017 播放与录音。
@@ -90,9 +92,17 @@
 @usage
 
 -- 版本更新说明
+-- 版本号：202609041030
+-- 1、更新时间：2026-09-04 10:30
+--    修复 air4017 使用新框架进行VOLTE通话时无声问题。
 -- 版本号：202609011550
 -- 1、更新时间：2026-09-01 15:50
 --    修复Air1602开发板exaudio.pm(exaudio.SHUTDOWN)会关闭I2C1导致LCD触摸失效的问题。
+-- 2、修复 air4017 模式(exaudio.setup({model="air4017"}))：原 air4017 分支在初始化 Air4017 芯片后
+--    直接 return true，导致跳过 audio_v2_setup()，audio_v2.config(I2S参数) 从未执行，cc 通话下行
+--    record 数据源节奏异常→下行数据断流、喇叭仅静音帧杂音。现已补上 audio_v2_setup 的 air4017 分支
+--    (配置I2S 16k/16bit/LSB/RIGHT 并跳过 audio_v2.shutdown 低功耗休眠)，与 vb7014f 模式行为一致；
+--    exaudio.pm 对 air4017/vb7014f 直接跳过电源控制。
 -- 版本号：202608272002
 -- 1、更新时间：2026-08-27 20:02
 --    音频框架选择同时依据模组默认偏好和固件实际提供的audio/audio_v2库，修复未启用LUAT_USE_AUDIO_V2时仍误选新音频框架的问题。
@@ -845,6 +855,10 @@ local function audio_v2_setup()
             sys.wait(100)
             log.info("exaudio.setup", "ES8311已重启", "dac_ctrl:", audio_setup_param.dac_ctrl)
         end
+    elseif audio_setup_param.model == "air4017" then
+        -- Air4017外置语音芯片模式(780EHM等无本地音频硬件): 只初始化新音频框架,
+        -- 不做I2C/PA/CODEC任何硬件操作, 后续在I2S参数段统一配置audio_v2并跳过低功耗休眠
+        log.info("exaudio.setup", "audio_v2 Air4017模式初始化")
     else
         log.error("audio_v2不支持的model:", audio_setup_param.model)
         return false
@@ -854,7 +868,7 @@ local function audio_v2_setup()
     audio_v2.on(audio_v2_callback)
     
     -- 配置PA电源控制
-    if audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
+    if audio_setup_param.model ~= "air4017" and audio_setup_param.pa_ctrl and audio_setup_param.pa_ctrl > 0 then
         audio_v2.config_pa_power_ctrl(
             true,  -- 使能PA电源控制
             audio_setup_param.pa_ctrl,  -- PA控制引脚
@@ -917,6 +931,11 @@ local function audio_v2_setup()
 
         -- ES8311模式下初始化完成后进入低功耗休眠（只关PA，不关Codec电源，防止配置丢失）
         audio_v2.shutdown(false, false, true)
+    elseif audio_setup_param.model == "air4017" then
+        audio_v2.config(audio_v2.CFG_PARAM_I2S_MODE, audio_v2.CFG_VALUE_I2S_MODE_LSB)
+        audio_v2.config(audio_v2.CFG_PARAM_I2S_FRAME_BITS, 16, 16)
+        audio_v2.config(audio_v2.CFG_PARAM_I2S_CHANNEL_TYPE, audio_v2.CFG_VALUE_I2S_CHANNEL_TYPE_RIGHT)
+        log.info("exaudio.setup", "audio_v2 Air4017模式初始化")
     else
         -- DAC等其他模式下初始化完成后进入低功耗休眠
         audio_v2.shutdown(false, true, true)
@@ -935,6 +954,12 @@ end
 
 -- audio模式初始化
 local function audio_setup()
+    -- Air4017走UART串口, 旧音频框架无需硬件初始化。
+    if audio_setup_param.model == "air4017" then
+        log.info("exaudio.setup", "audio旧框架 Air4017模式: 无需本地音频硬件初始化")
+        return true
+    end
+
     -- 根据model选择初始化方式
     if audio_setup_param.model == "dac" then
         -- DAC模式初始化
@@ -1334,11 +1359,10 @@ function exaudio.setup(audioConfigs)
         end
         audio_setup_param.dac_ctrl = audioConfigs.dac_ctrl
     elseif audio_setup_param.model == "air4017" then
-        -- Air4017 模式: 通过 UART 驱动 Air4017 播放 PCM 流式音频
         audio_setup_param.uart_id = audioConfigs.uart_id or 1
         air4017 = require "air4017"
         air4017.init(audio_setup_param.uart_id, 2000000)
-        return true
+        log.info("exaudio.setup", "Air4017 芯片初始化完成")
     else
         -- ES8311 I2S模式
         if not audio_setup_param.model or (audio_setup_param.model ~= "es8311") then
@@ -2299,6 +2323,11 @@ end
 -- exaudio.pm(exaudio.SHUTDOWN)
 -- exaudio.pm(exaudio.RESUME)
 function exaudio.pm(pm_mode)
+    -- air4017无需通过音频休眠控制
+    if audio_setup_param.model == "air4017" then
+        return true
+    end
+
     if USE_AUDIO_V2 then
         -- 新框架：使用audio_v2.shutdown + es8311操作进入休眠
         if not audio_v2 then
@@ -2545,7 +2574,7 @@ end
 exaudio.version()
 ]]
 function exaudio.version()
-    return "202609011550"
+    return "202609041030"
 end
 
 log.debug("exaudio", "version -> " .. exaudio.version())

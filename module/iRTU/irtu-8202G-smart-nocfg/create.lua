@@ -1,8 +1,8 @@
 --[[
 @module  create
 @summary 云平台连接模块（AirCloud + MQTT + TCP/UDP）
-@version 6.1
-@date    2026.09.02
+@version 6.2
+@date    2026.09.05
 @usage
 协议支持：
 1. AIRCLOUD - 合宙 AirCloud 云平台
@@ -10,10 +10,12 @@
 3. SOCKET  - TCP/UDP 直连
 
 配置从 db 持久化存储的 gnss.network 中读取。
-外部模块通过 create.send(payload) 发送数据（JSON 报文），create.send_aircloud(tlv) 发送 TLV。
+外部模块通过 create.send_aircloud(tlv) 发送结构化 TLV（唯一上行通道）。
 
 004.000.030：aircloudTask 增加 NET_SENT_RDY_ 订阅，将 JSON 报文封装为 RANDOM_DATA
 字段 TLV 直发（默认仅 AirCloud 通道时，原 NET_SENT_RDY_1 无消费者的问题）。
+004.000.037：移除 JSON 报文通道（NET_SENT_RDY_ 订阅与 1281 RANDOM_DATA 心跳），
+改为链路兜底状态帧（799/782/1290/1027）；远程指令应答由 remote.lua 以 1296~1299 组帧直发。
 ]]
 create = {}
 
@@ -38,6 +40,8 @@ function create.is_connected()
 end
 
 -- 发送数据到云平台（默认通道1，json 字符串，供 TCP/MQTT 通道使用）
+-- 004.000.037 起当前 AirCloud 专用配置下无消费者（NET_SENT_RDY_ JSON 转发订阅已移除），
+-- 仅为未来启用 TCP/MQTT 通道预留；AirCloud 通道请使用 create.send_aircloud
 function create.send(payload)
     sys.publish("NET_SENT_RDY_1", "CID_1", payload)
 end
@@ -262,23 +266,24 @@ local function mqttTask(cid, keepAlive, timeout, addr, port, usr, pwd, cleansess
 end
 
 ---------------------------------------------------------- AirCloud ----------------------------------------------------------
-local function aircloud_heart()
-    local scell = mobile.scell()
-    local band
-    if scell and scell.earfcn then
-        local e = scell.earfcn
-        if e <= 599 then band = 1
-        elseif e <= 1949 then band = 3
-        elseif e <= 2649 then band = 5
-        elseif e <= 3449 then band = 7
-        elseif e <= 3799 then band = 8
-        elseif e <= 6449 then band = 20
-        elseif e <= 38249 then band = 38
-        elseif e <= 38649 then band = 39
-        elseif e <= 39649 then band = 40
-        elseif e <= 41589 then band = 41 end
-    end
-    return json.encode({csq=mobile.csq(), eci=mobile.eci(), rsrp=mobile.rsrp(), band=band})
+-- 链路兜底状态帧（004.000.037 新增，替代原 JSON 心跳 aircloud_heart 与 1281 RANDOM_DATA 通道）：
+-- 由 4 个 TLV 字段组成：799 电池电压 / 782 4G信号强度(CSQ) / 1290 上报模式状态 / 1027 固件版本号。
+-- 发送时机：距上次成功上行（TLV 报文或应答帧）≥ keepAlive(300s) 时兜底发送，兼具链路保活作用。
+local function aircloud_status_frame()
+    local FM = excloud.FIELD_MEANINGS
+    local DT = excloud.DATA_TYPES
+    -- 电池电压：battery 模块 30s 轮询缓存（惰性加载，未初始化时 0=尚未获取）
+    local ok_bat, bat = pcall(require, "battery")
+    local vbat = (ok_bat and bat and bat.get_voltage and bat.get_voltage()) or 0
+    -- 上报模式状态：active_mode 模块级状态（惰性加载，主循环未启动时 0=GNSS 关闭）
+    local ok_am, am = pcall(require, "active_mode")
+    local report_mode = (ok_am and am and am.get_report_mode and am.get_report_mode()) or 0
+    return {
+        { field_meaning = FM.VOLTAGE,           data_type = DT.INTEGER, value = vbat or 0 },
+        { field_meaning = FM.SIGNAL_STRENGTH_4G, data_type = DT.INTEGER, value = mobile.csq() or 0 },
+        { field_meaning = 1290,                 data_type = DT.INTEGER, value = report_mode },
+        { field_meaning = FM.FIRMWARE_VERSION,  data_type = DT.ASCII,   value = _G.VERSION or "unknown" },
+    }
 end
 
 local function aircloudTask(cid, prot, keepAlive, timeout, uid, ssl, qos)
@@ -297,30 +302,6 @@ local function aircloudTask(cid, prot, keepAlive, timeout, uid, ssl, qos)
             log.info("create", "TLV发送结果", ok, err)
             if ok then
                 last_send_time = mcu.ticks()
-            end
-        end
-    end)
-
-    -- JSON 报文转发订阅（create.send 发布 NET_SENT_RDY_1）：
-    -- 当前默认配置仅启用 AirCloud 通道，tcpTask/mqttTask 未运行导致该事件原无消费者，
-    -- active_mode/remote/boot_lbs_report 的 JSON 报文（property_report/command_reply/
-    -- boot_lbs_report 等）实际发不出去。此处订阅后封装为 RANDOM_DATA 字段以 TLV 直发合宙云，
-    -- 服务器按 JSON 体解析（与心跳 aircloud_heart 同机制）。
-    -- 注：若未来同时启用 MQTT/TCP 通道，JSON 报文会走对应通道原样上送 + 本通道 RANDOM_DATA 两份。
-    sys.subscribe("NET_SENT_RDY_" .. cid, function(topic, payload)
-        if topic == "mqttrecv" or topic == "disconnect" then return end
-        local is_cid = (type(topic) == "string") and (topic == "CID_" .. cid or not topic:match("CID_"))
-        if is_cid and type(payload) == "string" and payload ~= "" then
-            log.info("create", "JSON报文转TLV(RANDOM_DATA)上报, 长度:", #payload)
-            local ok, err = excloud.send({
-                { field_meaning = excloud.FIELD_MEANINGS.RANDOM_DATA,
-                  data_type = excloud.DATA_TYPES.ASCII,
-                  value = payload }
-            }, false)
-            if ok then
-                last_send_time = mcu.ticks()
-            else
-                log.warn("create", "JSON转TLV发送失败:", err)
             end
         end
     end)
@@ -384,16 +365,16 @@ local function aircloudTask(cid, prot, keepAlive, timeout, uid, ssl, qos)
     end
     log.info("create", "AirCloud服务已开启")
 
-    -- 主循环仅负责心跳保活：
-    -- 结构化 TLV 由 AIRCLOUD_SEND_ 订阅直发；JSON 报文（create.send）由上方 NET_SENT_RDY_
-    -- 订阅封装为 RANDOM_DATA TLV 上送；两者发送成功都会刷新 last_send_time 供心跳节流判断
+    -- 主循环仅负责链路兜底状态帧保活：
+    -- 结构化 TLV 由 AIRCLOUD_SEND_ 订阅直发（定位帧/应答帧等），发送成功刷新 last_send_time；
+    -- 距上次成功上行 ≥ keepAlive(300s) 时发送兜底状态帧（799/782/1290/1027），兼具保活作用
     while true do
         sys.wait(keepAlive * 1000)
         local now = mcu.ticks()
-        -- 如果上次有数据上报的时间在心跳间隔内，说明数据上报已保活，跳过心跳
+        -- 如果上次有数据上报的时间在心跳间隔内，说明数据上报已保活，跳过状态帧
         if now - last_send_time >= keepAlive * 1000 then
-            -- 确实长时间没发数据了，发送心跳保活（silent=true：心跳成功不写运维日志，失败仍会记录）
-            excloud.send({{field_meaning = excloud.FIELD_MEANINGS.RANDOM_DATA, data_type = excloud.DATA_TYPES.ASCII, value = aircloud_heart()}}, false, false, true)
+            -- 确实长时间没发数据了，发送兜底状态帧（silent=true：成功不写运维日志，失败仍会记录）
+            excloud.send(aircloud_status_frame(), false, false, true)
             last_send_time = now
         end
     end

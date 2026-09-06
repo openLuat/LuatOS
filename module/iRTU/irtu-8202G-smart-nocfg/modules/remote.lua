@@ -1,45 +1,45 @@
 --[[
 @module remote
 @summary 远程控制模块 - 处理云平台命令
-@version 3.1
-@date    2026.07.17
+@version 3.2
+@date    2026.09.05
 @usage
-处理云平台下发的标准命令，通过 create.send() 发送回复。
+处理云平台下发的标准命令，应答以 TLV 自定义字段组帧（1296~1299）经 AirCloud 通道直发
+（004.000.037 起 JSON 应答通道已移除）。
 ]]
 
 local remote = {}
 local config = require("config")
 local kvstore = require("kvstore")
 local create = require("create")
+local excloud = require("excloud")
+
+-- 自定义应答字段号（1280~1535 协议预留区，沿用 1290 起的固件自定义编号）
+local FIELD_REPLY_MSG_ID   = 1296  -- ASCII：原样带回服务器下行命令的 msg_id（关联应答）
+local FIELD_REPLY_COMMAND  = 1297  -- ASCII：命令名
+local FIELD_REPLY_RESULT   = 1298  -- INTEGER：0=成功，非 0=失败
+local FIELD_REPLY_MESSAGE  = 1299  -- ASCII：结果描述
 
 -- 命令处理表
 local command_handlers = {}
 
--- 构建通用消息框架
-local function build_msg(msg_type, reply_to)
-    local imei = mobile.imei() or "000000000000000"
-    local ts = os.time()
-    return {
-        msg_id = imei .. "-" .. ts,
-        reply_to = reply_to,
-        imei = imei,
-        ts = ts,
-        type = msg_type,
-        data = {}
-    }
-end
-
--- 发送命令应答（通过 create.lua 通道）
+-- 发送命令应答（TLV 自定义字段组帧，经 AirCloud 通道直发）
+-- reply_to 为服务器下行命令携带的 msg_id（可能为 nil，缺失时该字段省略）
 local function send_reply(reply_to, command, result, message)
-    local msg = build_msg("command_reply", reply_to)
-    msg.data = {
-        command = command,
-        result = result,
-        message = message
-    }
-    local payload = json.encode(msg)
-    create.send(payload)
-    log.info("remote", "发送命令应答:", payload)
+    local DT = excloud.DATA_TYPES
+    local fields = {}
+    if reply_to and tostring(reply_to) ~= "" then
+        table.insert(fields, { field_meaning = FIELD_REPLY_MSG_ID, data_type = DT.ASCII, value = tostring(reply_to) })
+    end
+    if command and tostring(command) ~= "" then
+        table.insert(fields, { field_meaning = FIELD_REPLY_COMMAND, data_type = DT.ASCII, value = tostring(command) })
+    end
+    table.insert(fields, { field_meaning = FIELD_REPLY_RESULT, data_type = DT.INTEGER, value = result or 0 })
+    if message and tostring(message) ~= "" then
+        table.insert(fields, { field_meaning = FIELD_REPLY_MESSAGE, data_type = DT.ASCII, value = tostring(message) })
+    end
+    create.send_aircloud(fields)
+    log.info("remote", "发送命令应答(TLV):", command, result, message)
 end
 
 -- ========== MQTT 9 种标准命令处理 ==========

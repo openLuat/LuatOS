@@ -114,8 +114,11 @@ local function app_task()
     end
 
     -- 统一进入已激活模式（active_mode：GNSS 三态策略主循环）
+    -- 004.000.037 起 require 不再自动启动（create.lua 惰性加载查询 1290 时不应拉起主循环），
+    -- 改为显式调用 active_mode.start()
     log.info("app", "进入已激活模式, work_mode:", work_mode)
-    require("active_mode")
+    local am = require("active_mode")
+    am.start()
 end
 
 -- 启动应用

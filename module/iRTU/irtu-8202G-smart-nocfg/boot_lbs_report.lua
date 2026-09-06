@@ -1,14 +1,14 @@
 --[[
 @module  boot_lbs_report
 @summary 开机联网后单独执行一次 LBS 定位并上报（独立运行，不与其他逻辑冲突）
-@version 1.0
-@date    2026.08.25
+@version 1.1
+@date    2026.09.05
 @usage
 在 main.lua 启动云连接后调用 boot_lbs_report.start()：
 1. 等待网络就绪（IP_READY）
 2. 等待云平台连接成功（CLOUD_CONNECTED）
 3. 执行一次 LBS 定位（lbsLoc2/AirLBS）
-4. 通过 JSON 通道 + AirCloud TLV 双通道上报
+4. 通过 AirCloud TLV 通道上报（004.000.037 起 JSON 通道已移除）
 5. 只运行一次即结束，不参与主循环、不影响上报频率
 ]]
 
@@ -23,19 +23,6 @@ local function get_lbs_status()
     return mode == 1 and 5 or 4
 end
 
--- 构建消息框架（JSON 通道）
-local function build_msg(msg_type)
-    local imei = mobile.imei() or "000000000000000"
-    local ts = os.time()
-    return {
-        msg_id = imei .. "-" .. ts,
-        imei = imei,
-        ts = ts,
-        type = msg_type,
-        data = {}
-    }
-end
-
 -- 构建 AirCloud TLV 字段数组（与 active_mode.build_aircloud_tlv 一致）
 -- 字符串字段非空才上报，避免空串编码失败
 local function build_aircloud_tlv(d)
@@ -44,7 +31,8 @@ local function build_aircloud_tlv(d)
     local DT = excloud.DATA_TYPES
     local data = {}
 
-    table.insert(data, { field_meaning = 1290, data_type = DT.INTEGER, value = d.work_mode or 0 })          -- 工作模式
+    -- 1290 工作模式：GNSS 关闭=0，GNSS 开启=1，实时上报=2；开机 LBS 上报时 GNSS 尚未启动，恒为 0
+    table.insert(data, { field_meaning = 1290, data_type = DT.INTEGER, value = 0 })                        -- 工作模式
     table.insert(data, { field_meaning = FM.VOLTAGE, data_type = DT.INTEGER, value = d.vbat or 0 })         -- 电池电压(mV)
     table.insert(data, { field_meaning = 1291, data_type = DT.INTEGER, value = d.bat_change or 0 })         -- 充电状态
     -- 信号强度（CSQ，0-31 正整数，直接上报）
@@ -121,13 +109,7 @@ local function do_lbs_report()
         wake_interval = 0,
     }
 
-    -- 5. JSON 通道上报
-    local msg = build_msg("boot_lbs_report")
-    msg.data = d
-    create.send(json.encode(msg))
-    log.info("boot_lbs_report", "JSON 通道上报完成")
-
-    -- 6. AirCloud TLV 通道上报
+    -- 5. AirCloud TLV 通道上报
     create.send_aircloud(build_aircloud_tlv(d))
     log.info("boot_lbs_report", "AirCloud TLV 通道上报完成")
 

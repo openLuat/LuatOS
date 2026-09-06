@@ -15,9 +15,12 @@
   立即按当前 GNSS 状态上报一帧（不切换 GNSS 开关），恢复原节流节奏
 - GNSS 开：每 10 秒上报一次，功耗 mode0（全功率）
 - GNSS 关：每 300 秒上报一次，功耗 mode1（低功耗）
-通过 create.lua 上报：结构化数据走 TLV 直发（AIRCLOUD_SEND），JSON 报文由 create.lua
-封装为 RANDOM_DATA 字段 TLV 后同样走 AirCloud 通道。
+通过 create.lua 上报：004.000.037 起仅走结构化 TLV 直发（AIRCLOUD_SEND），
+JSON 报文通道（RANDOM_DATA 封装）已整体移除；远程指令应答改由 remote.lua 以
+1296~1299 自定义 TLV 字段组帧应答，链路兜底状态帧（799/782/1290/1027）由 create.lua 发送。
 ]]
+
+local active_mode = {}
 
 local config = require("config")
 local kvstore = require("kvstore")
@@ -107,33 +110,9 @@ local function get_work_mode()
     return kvstore.get_work_mode()
 end
 
--- 构建消息框架
-local function build_msg(msg_type)
-    local imei = mobile.imei() or "000000000000000"
-    local ts = os.time()
-    return {
-        msg_id = imei .. "-" .. ts,
-        imei = imei,
-        ts = ts,
-        type = msg_type,
-        data = {}
-    }
-end
+-- ================================================
 
--- 上报开机信息
-local function report_startup()
-    local msg = build_msg("startup")
-    msg.data = {
-        imei = mobile.imei() or "000000000000000",
-        iccid = mobile.iccid(),
-        version = VERSION or "unknown",
-        start_time = os.time()
-    }
-    create.send(json.encode(msg))
-    log.info("active_mode", "已上报 startup")
-end
-
--- 计算当前驻留频段（参考 aircloud_heart，通过 EARFCN 判断）
+-- 计算当前驻留频段（通过 EARFCN 区间判断，供 772 驻留频段字段组包）
 local function get_current_band()
     local scell = mobile.scell()
     if not scell or not scell.earfcn then return nil end
@@ -204,7 +183,14 @@ local function build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active, xyz_f
     local data = {}
 
     -- 通用字段（所有定位方式都上报）
-    table.insert(data, { field_meaning = 1290, data_type = DT.INTEGER, value = d.work_mode or 0 })               -- 工作模式
+    -- 1290 上报当前工作模式：GNSS 关闭=0，GNSS 开启=1，实时上报模式=2
+    local work_mode_val = 0
+    if fast_report_active then
+        work_mode_val = 2
+    elseif gnss_active then
+        work_mode_val = 1
+    end
+    table.insert(data, { field_meaning = 1290, data_type = DT.INTEGER, value = work_mode_val })  -- 工作模式
     table.insert(data, { field_meaning = FM.VOLTAGE, data_type = DT.INTEGER, value = d.vbat or 0 })              -- 电池电压(mV)
     table.insert(data, { field_meaning = 1291, data_type = DT.INTEGER, value = d.bat_change or 0 })              -- 充电状态
     -- 信号强度（CSQ，0-31 正整数，直接上报）
@@ -433,8 +419,7 @@ local function collect_data_and_report()
     end
     local wake_interval = last_calc_interval
 
-    -- 构建属性上报消息
-    local msg = build_msg("property_report")
+    -- 构建上报数据表（作为 TLV 组包输入；004.000.037 起 JSON 通道已移除，仅走结构化 TLV）
     local gps_str = loc_data and loc_data.gps or ""
     local gps_status = loc_data and loc_data.gps_status or 0
 
@@ -460,7 +445,7 @@ local function collect_data_and_report()
         end
     end
 
-    msg.data = {
+    local d = {
         bat_change = battery.is_charging() and 1 or 0,
         vbat = battery_data and battery_data.voltage or 0,
         gps = gps_str,
@@ -479,33 +464,27 @@ local function collect_data_and_report()
         gsensor_xyz = gsensor_xyz
     }
 
-    local payload = json.encode(msg)
     log.info("active_mode", "========== 上报数据 ==========")
-    log.info("active_mode", "msg_id:", msg.msg_id)
-    log.info("active_mode", "type:", msg.type)
     log.info("active_mode", "work_mode:", work_mode, "(0=常规 1=智能 2=GPS定位)")
-    log.info("active_mode", "vbat:", msg.data.vbat, "mV")
-    log.info("active_mode", "bat_change:", msg.data.bat_change, "(1=充电)")
-    log.info("active_mode", "signal:", msg.data.signal)
-    log.info("active_mode", "gps:", msg.data.gps ~= "" and msg.data.gps or "nil")
-    log.info("active_mode", "gps_status:", msg.data.gps_status, "(2=GPS 3=失败 4=免费基站 5=付费基站)")
-    log.info("active_mode", "gsensor_xyz:", msg.data.gsensor_xyz ~= "" and msg.data.gsensor_xyz or "nil")
-    log.info("active_mode", "iccid:", msg.data.iccid)
-    log.info("active_mode", "chip_model:", msg.data.chip_model)
-    log.info("active_mode", "boot_reason:", msg.data.boot_reason)
-    log.info("active_mode", "band:", msg.data.band)
-    log.info("active_mode", "top4_cn:", msg.data.top4_cn, "sat_total:", msg.data.sat_total, "sat_visible:", msg.data.sat_visible)
-    log.info("active_mode", "payload:", payload)
+    log.info("active_mode", "vbat:", d.vbat, "mV")
+    log.info("active_mode", "bat_change:", d.bat_change, "(1=充电)")
+    log.info("active_mode", "signal:", d.signal)
+    log.info("active_mode", "gps:", d.gps ~= "" and d.gps or "nil")
+    log.info("active_mode", "gps_status:", d.gps_status, "(2=GPS 3=失败 4=免费基站 5=付费基站)")
+    log.info("active_mode", "gsensor_xyz:", d.gsensor_xyz ~= "" and d.gsensor_xyz or "nil")
+    log.info("active_mode", "iccid:", d.iccid)
+    log.info("active_mode", "chip_model:", d.chip_model)
+    log.info("active_mode", "boot_reason:", d.boot_reason)
+    log.info("active_mode", "band:", d.band)
+    log.info("active_mode", "top4_cn:", d.top4_cn, "sat_total:", d.sat_total, "sat_visible:", d.sat_visible)
     log.info("active_mode", "==============================")
-    create.send(payload)
-    log.info("active_mode", "数据已通过云通道发送(json)")
 
     -- AirCloud 通道：以 TLV 形式上报（其余字段不含 msg_id/type/ts/imei；
     -- 1293 为 GNSS 开启期间的 20Hz 三轴原始数据流（12bit 紧凑编码），
     -- 1294 为 GNSS 开启期间的 1Hz 定位五元组数据流，均为二进制，仅走此通道；
     -- 1295 为实时上报模式最近 1 秒（20 样本）的三轴原始数据流，格式同 1293；
     -- 1292 单点三轴：GNSS 关闭或实时上报模式下上报）
-    create.send_aircloud(build_aircloud_tlv(msg.data, gsensor_stream, nmea_stream_bin, gnss_active, fast_xyz_stream))
+    create.send_aircloud(build_aircloud_tlv(d, gsensor_stream, nmea_stream_bin, gnss_active, fast_xyz_stream))
     log.info("active_mode", "数据已通过 AirCloud TLV 发送")
 
     log.info("active_mode", "数据上报完成")
@@ -584,11 +563,9 @@ local function main_loop()
     sys.taskInit(battery_monitor_task)
 
     -- 加载云平台连接模块（触发连接，由 create.lua 统一管理）
-    -- 等待云平台连接成功后再上报开机
+    -- 004.000.037 起无 startup JSON 上报，等待云连接成功后直接进入主循环
     sys.waitUntil("CLOUD_CONNECTED", 30000)
-    log.info("active_mode", "云平台连接成功")
-    report_startup()
-    log.info("active_mode", "开机上报完成，进入主循环")
+    log.info("active_mode", "云平台连接成功，进入主循环")
 
     -- 开机窗口基准：开机 300 秒内 GNSS 常开（mcu.ticks 为毫秒级 tick，不受 NTP 校时影响）
     boot_ticks = mcu.ticks()
@@ -669,6 +646,22 @@ local function main_loop()
     end
 end
 
--- 启动已激活模式
-log.info("active_mode", "启动已激活模式")
-sys.taskInit(main_loop)
+-- 查询当前上报模式状态（供 create.lua 兜底状态帧的 1290 字段使用）
+-- 返回：2=实时上报模式，1=GNSS 开启，0=GNSS 关闭（与定位帧 1290 语义一致）
+function active_mode.get_report_mode()
+    if fast_report_active then
+        return 2
+    elseif gnss_active then
+        return 1
+    end
+    return 0
+end
+
+-- 启动已激活模式（由 app.lua 显式调用；004.000.037 起 require 不再自动启动，
+-- 避免 create.lua 惰性加载本模块查询 1290 时提前拉起主循环）
+function active_mode.start()
+    log.info("active_mode", "启动已激活模式")
+    sys.taskInit(main_loop)
+end
+
+return active_mode

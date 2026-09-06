@@ -15,6 +15,7 @@
 #include "mbedtls/debug.h"
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/base64.h"
+#include "luat_mbedtls.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/sha1.h"
@@ -170,6 +171,7 @@ typedef struct
     mbedtls_x509_crt *ca_cert;
 		mbedtls_x509_crt *client_cert; /* 客户端证书 */
 		mbedtls_pk_context *pkey;			 /* 客户端 private key */
+		luat_mbedtls_rng_t *tls_rng;  /* 每 socket 独立 RNG(CTR_DRBG), 实现见 luat_mbedtls.h */
 #endif
 
 	CBFuncEx_t user_callback;

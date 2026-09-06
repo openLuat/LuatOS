@@ -46,7 +46,7 @@ int luat_display_send_sequence(struct luat_display_panel *panel, const void *dat
     case LUAT_DISPLAY_CONNECTOR_RGB:
         return rgb_spi_panel_send_sequence(panel, data, len);
     case LUAT_DISPLAY_CONNECTOR_DBI:
-        return spi_panel_send_sequence(panel, data, len);
+        return spilcd_panel_send_sequence(panel, data, len);
     case LUAT_DISPLAY_CONNECTOR_MIPI:
         return dsi_panel_send_sequence(panel, data, len);
     default:

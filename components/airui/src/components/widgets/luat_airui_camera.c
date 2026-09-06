@@ -1,6 +1,5 @@
 #include "luat_airui_component.h"
 #include "luat_malloc.h"
-#include "luat_camera.h"
 #include "luat_common_api.h"
 #include "lua.h"
 #include "lauxlib.h"
@@ -14,6 +13,7 @@
 #include "luat_log.h"
 
 #if AIRUI_USE_CAMERA
+#include "luat_camera.h"
 
 /*
  * fit 在 ingest 路径用软件完成，输出视口大小 RGB565；

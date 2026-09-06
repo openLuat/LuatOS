@@ -26,7 +26,7 @@ int dsi_panel_send_sequence(struct luat_display_panel *panel, const unsigned cha
 /*****************************************************
  * SPI面板操作接口
  ******************************************************/
-int spi_panel_send_sequence(struct luat_display_panel *panel, const unsigned char *data, uint32_t len);
+int spilcd_panel_send_sequence(struct luat_display_panel *panel, const unsigned char *data, uint32_t len);
 
 
 

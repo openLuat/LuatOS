@@ -9,7 +9,7 @@
 #define panel_spi_send_seq(panel, ...) do {                         \
         static const unsigned char d[] = { __VA_ARGS__ };           \
         int ret;                                                    \
-        ret = spi_panel_send_sequence(panel, d, ARRAY_SIZE(d));     \
+        ret = spilcd_panel_send_sequence(panel, d, ARRAY_SIZE(d));  \
         if (ret < 0)                                                \
             return ret;                                             \
     } while (0)
@@ -46,6 +46,7 @@ static int panel_deinit(struct luat_display_panel *panel)
 /*控制面板*/
 static int panel_ctrl(struct luat_display_panel *panel, enum display_ctrl_cmd cmd, void *arg)
 {
+    /*如果有特殊命令请放在这里处理*/
     return luat_display_panel_ctrl(panel, cmd, arg);
 }
 

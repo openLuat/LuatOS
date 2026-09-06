@@ -1,0 +1,2479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>LuatOS iRTU-8202G 车辆/宠物定位器固件代码分析文档</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+  font-size: 11pt; line-height: 1.75; color: #26323b;
+  background: #ffffff; margin: 0 auto; max-width: 960px; padding: 32px 40px;
+}
+h1 { font-size: 21pt; color: #0f3550; border-bottom: 3px solid #d9a441;
+     padding-bottom: 8px; margin: 36px 0 18px; page-break-after: avoid; }
+h2 { font-size: 16pt; color: #0f3550; border-left: 6px solid #d9a441;
+     padding-left: 10px; margin: 30px 0 12px; page-break-after: avoid; }
+h3 { font-size: 13pt; color: #17506e; margin: 24px 0 8px; page-break-after: avoid; }
+h4 { font-size: 11.5pt; color: #17506e; margin: 18px 0 6px; page-break-after: avoid; }
+p { margin: 8px 0; }
+a { color: #1565c0; text-decoration: none; }
+blockquote { margin: 12px 8px; padding: 8px 14px; background: #fdf6e3;
+             border-left: 5px solid #d9a441; color: #5a5343; }
+blockquote p { margin: 2px 0; }
+hr { border: none; border-top: 1px dashed #b9c4cc; margin: 26px 0; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt;
+        page-break-inside: auto; }
+th { background: #0f3550; color: #fff; font-weight: 600; }
+th, td { border: 1px solid #b9c4cc; padding: 5px 9px; text-align: left; vertical-align: top; }
+tr:nth-child(even) td { background: #f4f7f9; }
+pre { background: #f2f4f6; border: 1px solid #d4dae0; border-radius: 4px;
+      padding: 10px 14px; font-size: 9.5pt; line-height: 1.55; overflow-x: auto;
+      font-family: Consolas, "Courier New", monospace; page-break-inside: avoid; }
+code { font-family: Consolas, "Courier New", monospace; background: #eef1f4;
+       padding: 1px 4px; border-radius: 3px; font-size: 9.5pt; }
+pre code { background: none; padding: 0; }
+img { max-width: 100%; height: auto; display: block; margin: 10px auto; }
+strong { color: #0f3550; }
+</style>
+</head>
+<body>
+<h1 id="luatos-irtu-8202g">LuatOS iRTU-8202G 车辆/宠物定位器固件代码分析文档</h1>
+<blockquote>
+<p><strong>项目</strong>：Air8202（Air780EGP 模组，G 版无 H 版）
+<strong>固件版本</strong>：004.000.030（本分析基于 004.000.030 冗余清理后的代码，2026-09-02）
+<strong>工程目录</strong>：<code>D:\dev\LuatOS\module\iRTU\irtu-8202G-smart-nocfg</code>
+<strong>运行环境</strong>：LuatOS（Air780EGP 模组 / Air780E 系列；DA221 三轴加速度计、YHM2712A 充电 IC、Air153C 硬件看门狗、双 SIM 卡槽——固件固定使用 SIM1）
+<strong>文档目的</strong>：让不熟悉本工程的人能够快速理解整体工作逻辑、通信流程与模块划分</p>
+</blockquote>
+<hr>
+<h2 id="_1">目录</h2>
+<ol>
+<li><a href="#1-功能概述与模块划分">功能概述与模块划分</a></li>
+<li><a href="#2-目录与文件介绍">目录与文件介绍</a></li>
+<li><a href="#3-设备通信流程">设备通信流程</a></li>
+<li><a href="#4-设备工作模式">设备工作模式</a></li>
+<li><a href="#5-aircloud-通信协议详解">AirCloud 通信协议详解</a></li>
+<li><a href="#6-函数调用--事件订阅--数据表逻辑关系">函数调用 / 事件订阅 / 数据表逻辑关系</a></li>
+<li><a href="#7-本工程-tlv-字段详细格式">本工程 TLV 字段详细格式</a></li>
+</ol>
+<hr>
+<h1 id="1">1. 功能概述与模块划分</h1>
+<h2 id="11">1.1 产品定位</h2>
+<p>本工程是合宙 <strong>Air780EGP（8202G）</strong> 模组上的定位追踪器固件，典型应用为<strong>宠物定位</strong>与<strong>车辆追踪</strong>。设备以低功耗方式长期佩戴/安装在移动目标上，通过内置 <strong>GNSS（GPS/北斗）+ LBS 基站 + WiFi</strong> 混合定位获得位置，经 <strong>合宙 AirCloud 云平台</strong>（TLV 二进制协议）或通用 TCP/MQTT 通道周期性上报；同时接收云平台下行命令（如实时上报、开关机、OTA 等），实现远程管理与轨迹监控。</p>
+<p><strong>主要功能清单：</strong></p>
+<table>
+<thead>
+<tr>
+<th>功能域</th>
+<th>说明</th>
+<th>承载模块</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>定位</td>
+<td>GNSS（GPS/北斗）优先，LBS（免费 lbsLoc2 / 付费 AirLBS+WiFi）兜底</td>
+<td><code>location</code>、<code>modules/exgnss</code>、<code>lib/airlbs</code>、<code>lib/lbsLoc2</code></td>
+</tr>
+<tr>
+<td>运动感知</td>
+<td>DA221 三轴加速度计：震动中断唤醒、运动中/静止判定、20Hz 原始数据流</td>
+<td><code>gsensor</code>、<code>lib/exvib</code></td>
+</tr>
+<tr>
+<td>上报</td>
+<td>JSON 报文 + AirCloud TLV 双通道上报；三态节流（实时 1s / GNSS 开 10s / GNSS 关 300s）</td>
+<td><code>active_mode</code>、<code>create</code>、<code>lib/excloud</code></td>
+</tr>
+<tr>
+<td>远程控制</td>
+<td>get_device_data / change_mode / fast_report / update 等 11 种下行命令</td>
+<td><code>remote</code></td>
+</tr>
+<tr>
+<td>功耗管理</td>
+<td>三种功耗模式：normal(全功率) / power_save(低功耗) / psm_sleep(深度休眠)</td>
+<td><code>lowpower_app</code> + <code>drv_normal/lovpower/psm</code></td>
+</tr>
+<tr>
+<td>充电管理</td>
+<td>YHM2712A 充电 IC：电压/电量/充电阶段/充满检测（30s 轮询）</td>
+<td><code>battery</code>、<code>charge</code>、<code>lib/exs_yhm2712a</code></td>
+</tr>
+<tr>
+<td>硬件看门狗</td>
+<td>Air153C 硬件看门狗（喂狗 GPIO24，180s 周期）；另 excloud 内置软件复位看门狗（10 分钟自愈，每日 ≤5 次）</td>
+<td><code>air153c_wdt</code>、<code>lib/exair153x_wdt</code>、<code>lib/excloud</code></td>
+</tr>
+<tr>
+<td>LED 指示</td>
+<td>GPIO26 绿灯 / GPIO27 红灯：开机 60s 亮、GNSS 切换亮 10s、充电红/充满绿、600s 无下行闪烁</td>
+<td><code>tools</code></td>
+</tr>
+<tr>
+<td>OTA 升级</td>
+<td>libfota3（默认，仅合宙按 IMEI 升级）与 libfota2（客户自管）双模式</td>
+<td><code>update</code>、<code>lib/libfota2</code>、<code>lib/libfota3</code></td>
+</tr>
+<tr>
+<td>开机 LBS 上报</td>
+<td>开机联网后先补一次 LBS 定位（快定位），不等 GNSS 冷启动</td>
+<td><code>boot_lbs_report</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="12">1.2 总体架构与模块划分</h2>
+<p>整个固件按"<strong>应用入口 → 业务核心 → 底层驱动库</strong>"三层组织，外加一条全局<strong>事件总线</strong>贯穿各层。</p>
+<p><img alt="软件模块架构" src="./images/fig1_arch.png"></p>
+<p><strong>分层说明：</strong></p>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>职责</th>
+<th>文件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>L0 入口层</strong></td>
+<td>开机模式分发、硬件/功能模块启动顺序控制、系统运行</td>
+<td><code>main.lua</code>、<code>app.lua</code>、<code>lowpower/*</code></td>
+</tr>
+<tr>
+<td><strong>L1 业务核心层</strong></td>
+<td>工作循环、上报策略、数据采集组装、命令处理</td>
+<td><code>active_mode.lua</code>、<code>create.lua</code>、<code>modules/remote.lua</code>、<code>modules/location.lua</code>、<code>modules/battery.lua</code>、<code>modules/sensors/gsensor.lua</code></td>
+</tr>
+<tr>
+<td><strong>L2 支撑服务层</strong></td>
+<td>配置加载/持久化、键值存储、工具、开机 LBS、OTA、充电/看门狗使能</td>
+<td><code>config.lua</code>、<code>cfg_fetch.lua</code>、<code>utils/kvstore.lua</code>、<code>utils/tools.lua</code>、<code>boot_lbs_report.lua</code>、<code>update.lua</code>、<code>charge.lua</code>、<code>air153c_wdt.lua</code></td>
+</tr>
+<tr>
+<td><strong>L3 底层库 lib</strong></td>
+<td>合宙扩展库：AirCloud 协议（TLV）、MQTT/TCP、基站定位、传感器驱动、FOTA 等（<strong>视为黑盒驱动，本工程不改</strong>）</td>
+<td><code>lib/*.lua</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>注意</strong>：<code>modules/exgnss.lua</code> 虽位于业务目录，其本质是 LuatOS <code>libgnss</code> 内置库的<strong>包装层</strong>（提供"GNSS 应用"开/关计数管理与 NMEA 读取），可视作 L2/L3 边界组件。</p>
+</blockquote>
+<h2 id="13-4">1.3 核心设计思想（先理解这 4 条，再看代码会非常快）</h2>
+<ol>
+<li><strong>GNSS 三态上报策略（004.000.009 起）</strong>：不再按 work_mode 区分上报节奏，而由"是否需要 GNSS"动态决定——GNSS 开时 10s 一报（全功率），GNSS 关时 300s 一报（低功耗），实时上报命令可临时进入 1s 一报。<strong>GNSS 是否开启 = 开机窗口 300s ∨ 正在震动 ∨ 180s 内震过 ∨ 实时上报结束保持窗口 180s</strong>。</li>
+<li><strong>运动传感驱动 GNSS</strong>：设备"动"才需要高频定位——DA221 震动中断 → 发布 <code>MOTION_EVENT</code> → 主循环提前醒来评估并开 GNSS → 立即上报；静止超过 180s 自动关 GNSS 省电。</li>
+<li><strong>双通道上报</strong>：同一帧数据既组 JSON 报文（<code>create.send</code>，内含 msg_id/type 便于服务器判重），又组 AirCloud TLV 二进制报文（<code>create.send_aircloud</code>，含 1293/1294 二进制流等 JSON 装不下的数据）。在默认"仅 AirCloud 通道"配置下，JSON 报文被 create 封装为 TLV <code>RANDOM_DATA</code>(1281) 字段同走 AirCloud（004.000.030 修复）。</li>
+<li><strong>事件驱动 + 协程</strong>：全工程基于 LuatOS <code>sys</code> 事件总线（<code>sys.publish</code>/<code>sys.subscribe</code>/<code>sys.waitUntil</code>）与协程调度，模块间尽量不直接 require 调用，避免环形依赖，也便于解耦。</li>
+</ol>
+<hr>
+<h1 id="2">2. 目录与文件介绍</h1>
+<h2 id="21">2.1 目录总览</h2>
+<pre><code>irtu-8202G-smart-nocfg/
+├── main.lua                    L0 入口：模式分发 / FOTA / 固定 SIM1 / 启动云连接与 app
+├── app.lua                     L0 应用装配：初始化硬件与各模块，强制进入&quot;寻宠模式&quot;
+├── active_mode.lua             L1 核心：GNSS 三态上报主循环 + 数据采集与 TLV/JSON 组装
+├── create.lua                  L1 核心：云平台连接管理（AirCloud / MQTT / TCP 三通道）
+├── config.lua                  静态配置 + 服务端配置装载（load_from_server）
+├── cfg_fetch.lua               本地持久化配置加载（db）；远程配置拉取（已禁用入口）
+├── boot_lbs_report.lua         开机联网后的一次性 LBS 定位与双通道上报
+├── charge.lua                  YHM2712A 充电管理使能
+├── air153c_wdt.lua             Air153C 硬件看门狗使能
+├── update.lua                  FOTA 升级管理（libfota2/3）
+├── modules/
+│   ├── location.lua            定位业务：GNSS 状态缓存、LBS 请求、NMEA 1Hz 流采样(1294 数据源)
+│   ├── remote.lua              下行命令分发与应答（11 种命令）
+│   ├── battery.lua             YHM2712A 状态轮询与电量换算
+│   ├── exgnss.lua              libgnss 的&quot;GNSS 应用&quot;包装（开/关引用计数、NMEA 读取）
+│   └── sensors/
+│       └── gsensor.lua         DA221 震动检测 + 中断快照 + 20Hz 流采样(1293 数据源)
+├── lowpower/
+│   ├── lowpower_app.lua        功耗模式高层管理（normal/power_save/psm 分发）
+│   ├── drv_normal.lua          订阅 DRV_SET_NORMAL → pm.power(WORK_MODE,0)
+│   ├── drv_lowpower.lua        订阅 DRV_SET_LOWPOWER → 低功耗配置+震动唤醒
+│   └── drv_psm.lua             订阅 DRV_SET_PSM → PSM 深度休眠
+├── utils/
+│   ├── kvstore.lua             fskv 键值存储（work_mode/low_power_mode/audio_volume）
+│   └── tools.lua               LED 状态机（当前唯一职责）
+└── lib/                        【底层库，本项目一律不改】AirCloud 协议栈等
+    ├── excloud.lua            ★ AirCloud 客户端：TCP/MQTT 连接、TLV 编解码、鉴权、重连、复位看门狗
+    ├── exmtn.lua               运维日志（/hzmtn1-4.trc 循环文件、缓存/直写两种方式）
+    ├── libnet.lua              阻塞式 socket 连接/收发辅助
+    ├── libfota2.lua / libfota3.lua   FOTA 升级库
+    ├── exs_yhm2712a.lua        YHM2712A 充电 IC 驱动（单线 CMD 通信）
+    ├── exair153x_wdt.lua       Air153C 硬件看门狗驱动
+    ├── exvib.lua               DA221 三轴加速度驱动（运动检测 + read_xyz）
+    ├── airlbs.lua / lbsLoc2.lua   付费多基站+WiFi / 免费单基站定位
+    ├── httpplus.lua            文件上传 HTTP 客户端（zbuff 流式）
+    ├── db.lua                  配置以 Lua 表序列化持久化到 /luadb/air8201.cfg
+    ├── dtulib.lua              十六进制转换等小工具
+    ├── factory.lua             G 版产测模式（BOOT_MODE=1/0 分支进入）
+    └── ...
+</code></pre>
+<h2 id="22">2.2 关键文件逐一口径</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>版本</th>
+<th>角色一句话概括</th>
+<th>关键对外接口</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>main.lua</code></td>
+<td>4.5</td>
+<td>开机入口：固定 SIM1 → FOTA → 加载本地配置 → 启动 create 云连接 → 启动 app → 启动 boot_lbs_report</td>
+<td>全局 <code>VERSION="004.000.030"</code>、<code>BOOT_MODE</code></td>
+</tr>
+<tr>
+<td><code>app.lua</code></td>
+<td>3.2</td>
+<td>应用装配：读取唤醒原因、初始化全部功能模块、旧设备未激活(-1) 强制转寻宠(2)、进入 active_mode</td>
+<td><code>app.start()</code></td>
+</tr>
+<tr>
+<td><code>active_mode.lua</code></td>
+<td>4.2</td>
+<td><strong>全工程大脑</strong>：GNSS 开关状态机 + 上报节流 + 数据采集组装（TLV/JSON）</td>
+<td><code>sys.taskInit(main_loop)</code>（模块加载即启动）</td>
+</tr>
+<tr>
+<td><code>create.lua</code></td>
+<td>6.1</td>
+<td>云通道管家：三种通道 task 启动/重连/断线复位；AirCloud 下双订阅直发（AIRCLOUD_SEND_ TLV / NET_SENT_RDY_ JSON 转 RANDOM_DATA）</td>
+<td><code>create.start(sheet)</code>、<code>create.send(json)</code>、<code>create.send_aircloud(tlvs)</code></td>
+</tr>
+<tr>
+<td><code>config.lua</code></td>
+<td>2.1</td>
+<td>集中配置 + <code>load_from_server</code> 覆盖</td>
+<td><code>config.DEFAULT_NETWORK</code> 等</td>
+</tr>
+<tr>
+<td><code>modules/remote.lua</code></td>
+<td>3.1</td>
+<td>订阅 <code>REMOTE_COMMAND</code> 执行 11 种命令并回执</td>
+<td><code>remote.init()</code></td>
+</tr>
+<tr>
+<td><code>modules/location.lua</code></td>
+<td>2.0</td>
+<td>GPS/LBS 采集与缓存、NMEA 流采样</td>
+<td><code>location.get_report_location(gnss_on)</code>、<code>get_lbs_location()</code>、<code>get_nmea_stream()</code></td>
+</tr>
+<tr>
+<td><code>modules/sensors/gsensor.lua</code></td>
+<td>—</td>
+<td>DA221 运动检测 / 快照 / 流采样</td>
+<td><code>gsensor.get_stream_data(200)</code>、<code>on_vibration()</code>、<code>get_status()</code></td>
+</tr>
+<tr>
+<td><code>utils/tools.lua</code></td>
+<td>2.1</td>
+<td>LED 状态机（500ms 定时刷新）</td>
+<td><code>tools.init_led()</code>、<code>led_gnss_switched_on()</code></td>
+</tr>
+<tr>
+<td><code>lib/excloud.lua</code></td>
+<td>20260901</td>
+<td>AirCloud 协议栈：16B 消息头 + TLV；鉴权/心跳/重连/复位看门狗</td>
+<td><code>excloud.setup/open/send/on/mtn_log</code>，<code>FIELD_MEANINGS</code>、<code>DATA_TYPES</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>阅读建议：<code>main.lua → app.lua → active_mode.lua → create.lua → excloud.lua</code> 是主干；<code>remote/location/gsensor/battery</code> 是枝叶；<code>config/kvstore/tools/lowpower</code> 是支撑。</p>
+</blockquote>
+<h1 id="3">3. 设备通信流程</h1>
+<h2 id="31">3.1 开机启动流程（时序）</h2>
+<p><img alt="开机启动流程" src="./images/fig2_boot_flow.png"></p>
+<p><strong>逐步说明：</strong></p>
+<table>
+<thead>
+<tr>
+<th>步</th>
+<th>动作</th>
+<th>代码位置</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>fskv.init()</code>；<code>mobile.simid(1)</code></td>
+<td>main.lua</td>
+<td>固定使用卡槽 SIM1（双卡槽硬件，SIM0 不用）</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>update.init()</code></td>
+<td>main.lua</td>
+<td>libfota3：开机检测一次 + 每 8h 自动检测；不阻塞启动</td>
+</tr>
+<tr>
+<td>3</td>
+<td>BOOT_MODE=2 分发</td>
+<td>main.lua L104</td>
+<td>默认强制正常模式，跳过产测（产测分支仅 0/1 时可达）</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>cfg_fetch.init()</code> 加载本地配置</td>
+<td>main.lua L53</td>
+<td>读取 <code>/luadb/air8201.cfg</code>，判定是否有"有效定位版配置"（gnss.network.conf 非空）</td>
+</tr>
+<tr>
+<td>5</td>
+<td>有有效配置 → <code>config.load_from_server</code> + <code>remote.init()</code> + <code>create.start(sheet)</code>；无 → <code>create.start({gnss={network=config.DEFAULT_NETWORK}})</code></td>
+<td>main.lua L67-85</td>
+<td>云通道启动；DEFAULT_NETWORK = 通道1 AIRCLOUD/TCP</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>app.start()</code>（延迟 2s）</td>
+<td>main.lua L93-95</td>
+<td>进入 app_task</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>boot_lbs_report.start()</code></td>
+<td>main.lua L98</td>
+<td>独立任务：联网后先做一次 LBS 定位并双通道上报（不等 GNSS）</td>
+</tr>
+<tr>
+<td>8</td>
+<td>app_task：读唤醒原因、监听 Power 键、<code>init_all_modules()</code></td>
+<td>app.lua</td>
+<td>初始化顺序：kvstore → battery → location → gsensor → charge → air153c_wdt → remote → lowpower_app</td>
+</tr>
+<tr>
+<td>9</td>
+<td>work_mode 校验</td>
+<td>app.lua L110</td>
+<td>若旧设备存 -1（未激活），强制 <code>set_work_mode(2)</code> 进寻宠模式</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>require("active_mode")</code></td>
+<td>app.lua L118</td>
+<td>模块加载即 <code>sys.taskInit(main_loop)</code>，进入 GNSS 三态主循环</td>
+</tr>
+</tbody>
+</table>
+<h2 id="32-aircloud">3.2 网络连接与鉴权流程（AirCloud 通道）</h2>
+<p><img alt="网络连接鉴权流程" src="./images/fig3_comm_flow.png"></p>
+<p><strong>连接链路（create.aircloudTask → excloud）：</strong></p>
+<ol>
+<li><code>create.start</code> 筛选 <code>conf_on[i]==1</code> 的通道 → <code>sys.taskInit(connect, active_conf)</code>；</li>
+<li><code>connect()</code> 分发：<code>AIRCLOUD</code> 类型 → <code>sys.taskInitEx(aircloudTask, "DTU_k", ...)</code>（默认通道 k=1）；</li>
+<li><code>aircloudTask</code>：
+   - <strong>先注册两个发送订阅</strong>（连接前注册避免丢消息）：<ul>
+<li><code>AIRCLOUD_SEND_1</code> ← <code>create.send_aircloud(TLV数组)</code> → 直接 <code>excloud.send(tlvs)</code></li>
+<li><code>NET_SENT_RDY_1</code> ← <code>create.send(JSON串)</code> → 封装为 <code>RANDOM_DATA(1281)</code> ASCII 字段 <code>excloud.send</code></li>
+<li>等待 <code>IP_READY</code>；</li>
+<li><code>excloud.on(cb)</code> 注册回调（connect_result / auth_result / message / disconnect / send_result）；</li>
+<li><code>excloud.setup()</code>（transport=tcp、use_getip=true、auto_reconnect、mtn_log 开启）→ <code>excloud.open()</code>；</li>
+</ul>
+</li>
+<li><code>excloud.open()</code> 内部：getip（POST api.luatos.com/iot/getip 拿 host/port/auth_key，重试 3 次）→ TCP connect → 发鉴权请求（字段16 <code>AUTH_REQUEST</code>，ASCII 值 <code>auth_key-IMEI-MUID</code>）；</li>
+<li>服务器回字段 17 <code>AUTH_RESPONSE</code>：<code>ok/success</code> → <code>is_authenticated=true</code>、回调 <code>auth_result(success)</code>；<strong>非 ok/success → 判鉴权失败，武装复位看门狗</strong>（10 分钟复位，当日 ≤5 次，超限降级 1 小时慢速重试）；</li>
+<li><code>create</code> 侧收到 <code>connect_result.success</code> → <code>datalink[cid]=true</code> + 发布 <code>CLOUD_CONNECTED</code>；<code>active_mode</code> 主循环 <code>waitUntil("CLOUD_CONNECTED",30000)</code> 后执行开机上报。</li>
+</ol>
+<p><strong>心跳保活</strong>：aircloudTask 主循环 <code>keepAlive(300s)</code> 轮询——若距上次成功发送 ≥300s 则发心跳（RANDOM_DATA 字段内容为 <code>{csq,eci,rsrp,band}</code> JSON），有数据上报则自动跳过（数据即保活）。</p>
+<h2 id="33">3.3 上行数据上报流程</h2>
+<p><strong>一条典型周期上报（GNSS 开启期间，10s 节奏）的数据流：</strong></p>
+<pre><code>collect_data_and_report()  [active_mode.lua]
+   │
+   ├─ pm.power(WORK_MODE,0)        恢复全功率
+   ├─ 等 IP_READY（≤30s）
+   ├─ battery.force_check()         读电池缓存（YHM2712A 后台轮询刷新）
+   ├─ location.get_report_location(gnss_active)  → {gps=&quot;lat,lng&quot;, gps_status}
+   │      GNSS 优先锁定：开机以来成功过一次 → 恒走 GNSS（当前成功用当前值，否则用最近成功值）
+   │      从未成功 → LBS（lbsLoc2/AirLBS），gps_status=3/4/5
+   ├─ mobile.csq() / iccid() / scell()         信号/ICCID/频段
+   ├─ gsensor.read_xyz()                        &quot;x,y,z&quot;（g 值，3 位小数）
+   ├─ gsensor.get_stream_data(200)  ← GNSS开&amp;非实时上报时：20Hz×10s=200 样本 12bit 紧凑编码 ≈900B
+   ├─ exgnss.gsv() → top4 CN / 搜星数
+   ├─ location.get_nmea_stream()    ← GNSS开&amp;非实时上报时：1Hz×10 样本 ×10B =100B 差值编码
+   │
+   ├─ 组装 JSON 报文 {msg_id,imei,ts,type:&quot;property_report&quot;,data:{...}}
+   │      → create.send(json)  ──► publish NET_SENT_RDY_1
+   │                               └─► aircloudTask 订阅 → RANDOM_DATA TLV → excloud.send
+   │
+   └─ 组装 TLV 数组 build_aircloud_tlv(d, xyz_stream, nmea_stream, gnss_active)
+          → create.send_aircloud(tlvs) ──► publish AIRCLOUD_SEND_1
+                                          └─► excloud.send(tlvs)  ★二进制数据只走此通道
+</code></pre>
+<p><strong>JSON 报文格式（示例，type=property_report）：</strong></p>
+<pre><code class="language-json">{
+  &quot;msg_id&quot;: &quot;861234567890123-1767300000&quot;,   // IMEI-时间戳，服务器判重用
+  &quot;imei&quot;: &quot;861234567890123&quot;,
+  &quot;ts&quot;: 1767300000,
+  &quot;type&quot;: &quot;property_report&quot;,                // startup / property_report / command_reply / boot_lbs_report
+  &quot;data&quot;: {
+    &quot;work_mode&quot;: 2,              // 0常规 1智能 2寻宠
+    &quot;vbat&quot;: 3980,                // 电池电压 mV
+    &quot;bat_change&quot;: 0,             // 1=充电器在位
+    &quot;gps&quot;: &quot;23.12845,113.32187&quot;, // WGS84 坐标（lat,lng）
+    &quot;gps_status&quot;: 2,             // 2=GPS 3=失败 4=免费LBS 5=付费LBS
+    &quot;signal&quot;: 18,                // CSQ
+    &quot;iccid&quot;: &quot;8986000000000000000&quot;,
+    &quot;chip_model&quot;: &quot;Air8202&quot;,
+    &quot;boot_reason&quot;: &quot;power_on&quot;,
+    &quot;band&quot;: &quot;LTE B3&quot;,
+    &quot;wake_interval&quot;: 10,         // 本次上报周期（1/10/300）
+    &quot;top4_cn&quot;: &quot;31,29,28,27&quot;,    // 最强 4 星 CN
+    &quot;sat_total&quot;: 24, &quot;sat_visible&quot;: 9,
+    &quot;gsensor_xyz&quot;: &quot;0.021,-0.015,0.998&quot;
+  }
+}
+</code></pre>
+<h2 id="34">3.4 下行命令流程</h2>
+<p><img alt="下行命令处理流程" src="./images/fig3_comm_flow.png"></p>
+<pre><code>服务器下行 TLV 报文
+   └─ excloud socket 回调 → parse_data() → 字段 17/18 走鉴权/回应判定；其余 → callback(&quot;message&quot;, msg)
+        └─ create.lua on() 回调：message → 逐 TLV → publish REMOTE_COMMAND {command=tlv.value, raw=tlv}
+             └─ remote.handle_command → execute_command（独立协程）
+                  ├─ json.decode 失败 → 忽略
+                  ├─ 命中 command_handlers 表 → 执行 handler
+                  └─ 未知命令 → send_reply(result=1, &quot;未知命令&quot;)
+</code></pre>
+<p><strong>11 种命令一览（command_handlers）：</strong></p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>命令</th>
+<th>行为</th>
+<th>回执 result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>get_device_data</code></td>
+<td>publish <code>FORCE_REPORT</code> → active_mode 立即上报一次</td>
+<td>0 ok</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>change_mode</code></td>
+<td>校验 mode ∈{-1,0,1,2} → kvstore 写 work_mode → 按设备模式设功耗 → 3s 后 reboot</td>
+<td>0/2 参数错</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>call</code></td>
+<td>无 SIP 硬件，拒绝</td>
+<td>4 不支持</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>play_sound</code></td>
+<td>无音频硬件，拒绝</td>
+<td>4 不支持</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>open_light</code></td>
+<td>LED 手动开(1)/恢复自动(0)</td>
+<td>0/2 参数错</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>close_device</code></td>
+<td>回执后 3s <code>pm.shutdown()</code></td>
+<td>0 ok</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>set_report_interval</code></td>
+<td>校验范围后<strong>回执不支持</strong>（GNSS 三态固定节奏）</td>
+<td>4 不支持</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>set_volume</code></td>
+<td>保存音量到 kvstore，回执不支持</td>
+<td>4 不支持</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>update</code></td>
+<td>触发 OTA 检查</td>
+<td>0 ok</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>fota_mode</code></td>
+<td>切换 libfota2/3</td>
+<td>0 ok / 1 缺参</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>fast_report</code></td>
+<td>publish <code>FAST_REPORT_START</code> → 进入 1s 实时上报 1 分钟</td>
+<td>0 ok</td>
+</tr>
+</tbody>
+</table>
+<p><strong>命令触发的三个关键事件：</strong></p>
+<table>
+<thead>
+<tr>
+<th>事件</th>
+<th>发布方</th>
+<th>订阅方/效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FORCE_REPORT</code></td>
+<td>remote.get_device_data</td>
+<td>active_mode 置 force_report_pending → 清零节流基准 → 立即上报一帧</td>
+</tr>
+<tr>
+<td><code>FAST_REPORT_START</code></td>
+<td>remote.fast_report</td>
+<td>active_mode 进入实时上报：未开 GNSS 先强制开；60s 倒计时（重复下发续期）</td>
+</tr>
+<tr>
+<td><code>REMOTE_COMMAND</code></td>
+<td>create（一切下行）</td>
+<td>remote 命令分发 + tools 记 last_rx_time（LED 通信正常证据）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>回执（command_reply）经 JSON 通道返回</strong>：<code>{msg_id, reply_to, type:"command_reply", data:{command,result,message}}</code> → <code>create.send</code> → RANDOM_DATA TLV 上送。</p>
+<h1 id="4">4. 设备工作模式</h1>
+<h2 id="41">4.1 模式体系总览：三条独立的模式轴</h2>
+<p>阅读本工程代码时最容易混淆的是"模式"一词——代码里实际存在<strong>三条互相独立的模式轴</strong>，分别回答三个问题：</p>
+<table>
+<thead>
+<tr>
+<th>模式轴</th>
+<th>取值</th>
+<th>回答的问题</th>
+<th>管理位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>设备工作模式</strong> <code>work_mode</code></td>
+<td>-1 未激活 / 0 常规 / 1 智能 / 2 寻宠(GPS定位)</td>
+<td>"设备被用来做什么场景"</td>
+<td><code>kvstore</code> 持久化，<code>app.lua</code> 启动分发，<code>remote.change_mode</code> 云命令切换</td>
+</tr>
+<tr>
+<td><strong>上报运行模式</strong>（GNSS 三态）</td>
+<td>实时上报(1s) / GNSS 开启(10s) / GNSS 关闭(300s)</td>
+<td>"现在该不该用 GNSS、多久报一次"</td>
+<td><code>active_mode.lua</code> 主循环状态机（<strong>全工程核心</strong>）</td>
+</tr>
+<tr>
+<td><strong>功耗模式</strong> <code>power_mode</code></td>
+<td>normal / power_save / psm_sleep</td>
+<td>"整机功耗调到哪一档"</td>
+<td><code>lowpower_app.lua</code> 高层 → <code>drv_normal/lowpower/psm</code> 驱动</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>关键认知（004.000.009 重构后）</strong>：设备工作模式 <code>work_mode</code> <strong>不再直接决定上报节奏</strong>。真正决定上报节奏的是"是否需要 GNSS"这一动态状态；<code>work_mode</code> 目前只影响低电量策略的兜底判断（见 4.4），且由于绑定流程废弃，固件在 <code>app.lua</code> 中强制收敛为寻宠模式(2)。三条轴之间的联动链见 4.6。</p>
+</blockquote>
+<h2 id="42-work_modefskv">4.2 设备工作模式 work_mode（fskv 持久化）</h2>
+<h3 id="421-configdevice_mode">4.2.1 取值定义（config.DEVICE_MODE）</h3>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>名称</th>
+<th>历史含义</th>
+<th>当前实际行为（004.000.030）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-1</td>
+<td>UNACTIVATED 未激活</td>
+<td>出厂未绑定 App，进入待绑定模式</td>
+<td><strong>已废弃</strong>：<code>app.lua</code> 检测到旧设备存 -1 时强制 <code>set_work_mode(2)</code> 进寻宠模式</td>
+</tr>
+<tr>
+<td>0</td>
+<td>PERFORMANCE 常规</td>
+<td>常规模式</td>
+<td>保留取值，云命令可切；<code>set_mode_by_device_mode</code> 映射到 POWER_SAVE 功耗</td>
+</tr>
+<tr>
+<td>1</td>
+<td>SMART 智能</td>
+<td>智能省电模式</td>
+<td>同上，映射到 POWER_SAVE</td>
+</tr>
+<tr>
+<td>2</td>
+<td>FIND 寻宠/GPS定位</td>
+<td>宠物查找，GPS 常开</td>
+<td><strong>出厂默认值</strong>，开机即进入；映射到 NORMAL(全功率)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="422">4.2.2 生命周期与写入路径</h3>
+<pre><code>首次上电（kvstore.init）             云命令 change_mode（remote.lua）
+   └─ fskv.set(&quot;work_mode&quot;,&quot;2&quot;)          └─ 校验 mode∈{-1,0,1,2}
+                                             ├─ kvstore.set_work_mode(mode)   # 立即持久化
+                                             ├─ lowpower_app.set_mode_by_device_mode(mode)
+                                             └─ 3 秒后 pm.reboot()            # 重启生效
+                                                    │
+                                                    ▼
+                                    app.lua: 若读到 -1 → 强制改为 2（寻宠）
+                                                    │
+                                                    ▼
+                                    require(&quot;active_mode&quot;) → GNSS 三态主循环
+</code></pre>
+<ul>
+<li>存储键：<code>work_mode</code>（<code>fskv</code>），默认值 <code>"2"</code>；</li>
+<li><strong>读取方</strong>：<code>app.lua</code>（启动分发）、<code>active_mode.collect_data_and_report</code>（随 1290/JSON 上报）、<code>boot_lbs_report</code>（随开机 LBS 上报）、<code>lowpower_app.handle_low_battery</code>（低电量策略判断）、<code>remote.change_mode</code>；</li>
+<li>写入方：<code>kvstore.init</code>（首启默认）、<code>remote.change_mode</code>（云命令）、<code>app.lua</code>（-1 强制修正）。</li>
+</ul>
+<blockquote>
+<p>结论：对本固件而言 work_mode 是一个"名义模式"。除低电量兜底与 1290 字段上报外，业务行为完全由 4.3 的 GNSS 三态状态机决定。</p>
+</blockquote>
+<h2 id="43-gnss">4.3 上报运行模式：GNSS 三态状态机（全工程核心）</h2>
+<h3 id="431">4.3.1 三种运行态</h3>
+<table>
+<thead>
+<tr>
+<th>运行态</th>
+<th>上报间隔</th>
+<th>功耗</th>
+<th>触发方式</th>
+<th>是否上报流数据(1293/1294)</th>
+<th>是否上报 1292 单点三轴</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>实时上报</strong> <code>fast_report_active=true</code></td>
+<td>1s（<code>REPORT_FAST</code>）</td>
+<td>mode0（GNSS 必开）</td>
+<td>云命令 <code>fast_report</code>，持续 60s，可续期</td>
+<td>否（每秒报文只带常规字段）</td>
+<td>是</td>
+</tr>
+<tr>
+<td><strong>GNSS 开启</strong> <code>gnss_active=true</code></td>
+<td>10s（<code>REPORT_GNSS_ON</code>）</td>
+<td>mode0 NORMAL</td>
+<td><code>is_gnss_required()</code> 命中</td>
+<td>是（20Hz×10s 200样本 1293 + 1Hz×10样本 1294）</td>
+<td>否（由 1293 原始流替代）</td>
+</tr>
+<tr>
+<td><strong>GNSS 关闭</strong> <code>gnss_active=false</code></td>
+<td>300s（<code>REPORT_GNSS_OFF</code>）</td>
+<td>mode1 POWER_SAVE</td>
+<td><code>is_gnss_required()</code> 全部不命中</td>
+<td>否</td>
+<td>是</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="上报运行模式状态机" src="./images/fig4_mode_state.png"></p>
+<h3 id="432-gnss-is_gnss_required">4.3.2 GNSS 开启条件（is_gnss_required，满足任一即开）</h3>
+<pre><code class="language-lua">-- active_mode.lua is_gnss_required()
+return true 当且仅当任一成立：
+   条件0: fast_report_hold_until &gt; 0 且 os.time() &lt; fast_report_hold_until
+          （实时上报结束后 180s 强制保持 GNSS 开启窗口）
+   条件1: (mcu.ticks() - boot_ticks) / 1000 &lt; GNSS_BOOT_WINDOW (300s)
+          （开机后 300 秒内 GNSS 常开；用 mcu.ticks 毫秒 tick，不受 NTP 校时影响）
+   条件2+3: gsensor.get_status().last_motion_time &gt; 0
+          且 (os.time() - last_motion_time) &lt;= GNSS_MOTION_KEEP (180s)
+          （正在震动，或最近 180 秒内震动过——统一用 180s 窗口判定）
+</code></pre>
+<p><strong>四个常量</strong>（均可按产品调优）：</p>
+<table>
+<thead>
+<tr>
+<th>常量</th>
+<th>值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GNSS_BOOT_WINDOW</code></td>
+<td>300s</td>
+<td>开机 GNSS 常开窗口（保证开机即有轨迹）</td>
+</tr>
+<tr>
+<td><code>GNSS_MOTION_KEEP</code></td>
+<td>180s</td>
+<td>震动后 GNSS 保持开启时长（004.000.021 由 30s 调大：震动后用户大概率会继续移动）</td>
+</tr>
+<tr>
+<td><code>REPORT_GNSS_ON</code></td>
+<td>10s</td>
+<td>GNSS 开启期上报间隔</td>
+</tr>
+<tr>
+<td><code>REPORT_GNSS_OFF</code></td>
+<td>300s</td>
+<td>GNSS 关闭期上报间隔</td>
+</tr>
+</tbody>
+</table>
+<h3 id="433">4.3.3 状态切换动作</h3>
+<p><strong>开 GNSS（switch_gnss_on，三处复用）</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>动作</th>
+<th>目的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>location.start_find_gps()</code></td>
+<td>打开 GNSS（exgnss DEFAULT 常开应用）</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>lowpower.set_mode(NORMAL)</code></td>
+<td>功耗 mode0，GNSS 需全功率</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>gsensor.stream_start()</code></td>
+<td>开启 20Hz 三轴流采样（1293 数据源）</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>location.nmea_stream_start()</code></td>
+<td>开启 1Hz NMEA 采样（1294 数据源）</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>last_report_time = 0</code></td>
+<td>立即触发一次上报（不等下一节流周期）</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>tools.led_gnss_switched_on()</code></td>
+<td>红灯亮 10s（关→开切换视觉提示）</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>excloud.mtn_log(...)</code></td>
+<td>写运维日志（触发原因、上报间隔）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关 GNSS（主循环 elseif 分支）</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>动作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>gnss_active=false</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>location.stop_find_gps()</code>（exgnss.close 仅注销本应用，所有应用关闭后 GNSS 才真正断电）</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>lowpower.set_mode(POWER_SAVE)</code> → 功耗 mode1</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>gsensor.stream_stop()</code>（停采样 + 清空缓冲）</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>location.nmea_stream_stop()</code>（同上）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="434-fast_report004000028">4.3.4 实时上报模式（fast_report，004.000.028 新增）时序</h3>
+<pre><code>云命令 fast_report
+   └─ publish FAST_REPORT_START
+        └─ active_mode 订阅回调：
+             ├─ 若当前 GNSS 关 → switch_gnss_on(&quot;fast_report进入实时上报强制&quot;)   # 实时上报必须带实时坐标
+             ├─ fast_report_active = true
+             └─ fast_report_deadline = os.time() + 60
+主循环每轮：
+   ├─ 步骤0: 若 fast_report_active 且 os.time() &gt;= deadline
+   │      → 结束实时上报：fast_report_hold_until = now + 180（强制 GNSS 保持窗口）
+   │      → 若 GNSS 关 → switch_gnss_on(&quot;实时上报结束强制&quot;)
+   ├─ 期间暂停 is_gnss_required() 评估（不自相冲突）
+   └─ 上报节流 interval = 1s；上报时跳过 1293/1294 取流
+特点：
+   - 重复下发命令 → 重置 60s 倒计时（续期）
+   - 1 分钟内约上报 60 帧（每秒 1 次）
+   - 结束后强制进入 GNSS 开启态，180s 后才恢复按震动条件评估
+</code></pre>
+<h3 id="435">4.3.5 震动唤醒主循环（事件闭环）</h3>
+<pre><code>DA221 硬件中断(WAKEUP2) → gpio 回调 interrupt_handler（gsensor.lua）
+   ├─ 2s 限流过滤（state.vibration_interval=2000ms）
+   ├─ is_moving=true、motion_timeout=60（震动后网络恢复需时间，运动有效期临时延长到60s）
+   ├─ pending_gps=true（强制本次上报走 GPS，不依赖 is_moving 时序）
+   ├─ publish GSENSOR_XYZ_CAPTURE（由 xyz_capture_task 协程读 I2C 存快照——中断上下文禁止 I2C）
+   └─ 调 vibration_callback → active_mode 里发布 MOTION_EVENT
+        ├─ main_loop 的 waitUntil(MOTION_EVENT) 立即返回 → 步骤1 重新评估 GNSS
+        └─ 若正阻塞在上报/等网络（≤30s），由常驻订阅的 motion_event_flag 兜底，本轮结束立即生效
+</code></pre>
+<h2 id="44-power_mode">4.4 功耗模式 power_mode</h2>
+<h3 id="441-configpower_mode">4.4.1 三档定义（config.POWER_MODE）</h3>
+<table>
+<thead>
+<tr>
+<th>档位</th>
+<th>底层动作</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>normal</code></td>
+<td><code>DRV_SET_NORMAL</code> → <code>pm.power(pm.WORK_MODE, 0)</code></td>
+<td>GNSS 开启期/实时上报期：需全功率 + 网络长连接</td>
+</tr>
+<tr>
+<td><code>power_save</code></td>
+<td><code>DRV_SET_LOWPOWER</code> → 配置 PWR_KEY/WAKEUP2 中断唤醒、<code>location.close()</code> 关 GPS、<code>pm.power(pm.WORK_MODE, 1)</code>，唤醒后恢复 gsensor 中断</td>
+<td>GNSS 关闭期：300s 才报一次，传感器低功耗待命，震动唤醒</td>
+</tr>
+<tr>
+<td><code>psm_sleep</code></td>
+<td><code>DRV_SET_PSM</code> → 配置唤醒源、<code>pm.power(pm.WORK_MODE, 3)</code></td>
+<td>深度休眠：当前仅在低电量(&lt;10%)且未激活模式下进入；<strong>激活后基本不触发</strong>（驱动内功能项已注释留空）</td>
+</tr>
+</tbody>
+</table>
+<p>调用链：<code>lowpower.set_mode(mode)</code> → 校验 mode → <code>sys.publish("DRV_SET_NORMAL/LOWPOWER/PSM")</code> → <code>drv_*.lua</code> 模块加载时 <code>sys.subscribe</code> 注册的回调 → 各自 task 执行。</p>
+<h3 id="442-gnss-active_mode">4.4.2 功耗与 GNSS 三态联动（active_mode 驱动）</h3>
+<table>
+<thead>
+<tr>
+<th>事件</th>
+<th>功耗切换</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GNSS 关 → 开</td>
+<td><code>set_mode(NORMAL)</code> mode0</td>
+</tr>
+<tr>
+<td>GNSS 开 → 关</td>
+<td><code>set_mode(POWER_SAVE)</code> mode1</td>
+</tr>
+<tr>
+<td>GNSS 关闭期每次上报</td>
+<td>上报开始时 <code>pm.power(pm.WORK_MODE, 0)</code> 临时唤醒全功率，上报完成后再 <code>set_mode(POWER_SAVE)</code> 回低功耗</td>
+</tr>
+<tr>
+<td>实时上报期</td>
+<td>全程 mode0（结束后强制进 GNSS 开，避免功耗模式震荡）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="443-lowpower_apphandle_low_battery">4.4.3 低电量降级策略（lowpower_app.handle_low_battery）</h3>
+<p><code>active_mode.battery_monitor_task</code> 每 60s 检测：电量 &lt; <code>BATTERY_LOW</code>(20%) → <code>publish BATTERY_LOW</code>；<code>kvstore.set_low_power_mode(true)</code>。lowpower_app 订阅后按 work_mode 分流：</p>
+<table>
+<thead>
+<tr>
+<th>work_mode</th>
+<th>电量 &lt;20%</th>
+<th>电量 &lt;10%(BATTERY_CRITICAL)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>未激活 -1（理论可达）</td>
+<td>→ POWER_SAVE</td>
+<td>→ PSM_SLEEP 深度休眠</td>
+</tr>
+<tr>
+<td>寻宠 2（实际默认）</td>
+<td>→ POWER_SAVE（降级，放弃全功率持续定位）</td>
+<td>沿用 POWER_SAVE（无更低档处理）</td>
+</tr>
+<tr>
+<td>常规/智能 0/1</td>
+<td>保持 POWER_SAVE</td>
+<td>保持 POWER_SAVE</td>
+</tr>
+</tbody>
+</table>
+<h2 id="45">4.5 四条联动链小结（把三条轴串起来）</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>场景</th>
+<th>决策链</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>开机</td>
+<td>work_mode(默认2 寻宠) → app 强制 active_mode → <strong>开机 300s GNSS 常开窗口</strong> → 每 10s 全功率上报</td>
+</tr>
+<tr>
+<td>2</td>
+<td>行驶中</td>
+<td>DA221 震动 → MOTION_EVENT → GNSS 保持开（180s 滚动续期）→ 10s 一报 + 1293/1294 流</td>
+</tr>
+<tr>
+<td>3</td>
+<td>静止超 180s</td>
+<td>is_gnss_required 全不命中 → 关 GNSS → POWER_SAVE → 300s 一报（1292 单点三轴替代流）</td>
+</tr>
+<tr>
+<td>4</td>
+<td>云命令介入</td>
+<td><code>fast_report</code> → 1s 实时上报 60s；<code>get_device_data</code> → FORCE_REPORT 立即补一帧；<code>change_mode</code> → 改 work_mode + 3s 后重启</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="5-aircloud">5. AirCloud 通信协议详解</h1>
+<blockquote>
+<p>本协议为<strong>合宙 IOT 通用报文协议 - AirCloud</strong>（官方文档：<a href="https://docs.openluat.com/protocols/aircloud/">https://docs.openluat.com/protocols/aircloud/</a>）在 8202G 上的落地实现，代码集中在 <code>lib/excloud.lua</code>。本工程在<strong>标准字段之外自定义了 1290~1294 五个字段</strong>（见第 7 节），属于协议允许的扩展区（1280-1535 为通用测试数据区）。</p>
+</blockquote>
+<h2 id="51">5.1 协议总体格式</h2>
+<p>一条 AirCloud 报文 = <strong>16 字节消息头</strong> + <strong>TLV 序列体</strong>，承载于 TCP（默认）/ UDP / MQTT 之上：</p>
+<pre><code>┌──────────────────────────────┬──────────────────────────────┐
+│  16 字节消息头 (header)      │  N 个 TLV 单元拼接 (body)     │
+└──────────────────────────────┴──────────────────────────────┘
+         每个 TLV = 4 字节头 + 变长 value
+</code></pre>
+<h2 id="52-16">5.2 消息头字段表（16 字节）</h2>
+<p>发送侧 <code>build_header()</code> / 接收侧 <code>parse_message()</code> 完全对应：</p>
+<table>
+<thead>
+<tr>
+<th>偏移</th>
+<th>长度</th>
+<th>字段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>8B</td>
+<td>设备 ID</td>
+<td>二进制编码的设备标识。4G 设备(type=1)：<strong>14 位 IMEI 压缩成 8 字节 BCD</strong>（每字节两个十进制位，<code>string.toHex</code> 后可还原）；WiFi/MCU(type=2/3)：MAC 地址 6B 左补零到 7B 再处理；虚拟设备(type=9)：11 位手机号+3 位序列号</td>
+</tr>
+<tr>
+<td>8</td>
+<td>2B</td>
+<td>序列号 sequence_num</td>
+<td>大端；发送侧每包自增 1，1~65535 循环（发送前自增，回调返回最新值）</td>
+</tr>
+<tr>
+<td>10</td>
+<td>2B</td>
+<td>消息长度 msg_length</td>
+<td>大端；<strong>仅 body（TLV 序列）的长度，不含 16B 头</strong></td>
+</tr>
+<tr>
+<td>12</td>
+<td>4B</td>
+<td>flags</td>
+<td>见下表位定义；大端存储</td>
+</tr>
+</tbody>
+</table>
+<h3 id="flags">flags 位定义</h3>
+<table>
+<thead>
+<tr>
+<th>位</th>
+<th>掩码</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bit0-3</td>
+<td>0x0F</td>
+<td>协议版本号 <code>protocol_version</code></td>
+</tr>
+<tr>
+<td>bit4</td>
+<td>0x10</td>
+<td>need_reply：1=需要服务器回复（鉴权报文置 1）</td>
+</tr>
+<tr>
+<td>bit5</td>
+<td>0x20</td>
+<td>is_udp：1=UDP 承载</td>
+</tr>
+<tr>
+<td>bit6</td>
+<td>0x40</td>
+<td>has_auth_key（接收解析用；UDP 模式下 auth_key 直接附加在 body 之后发送）</td>
+</tr>
+<tr>
+<td>bit7-31</td>
+<td>—</td>
+<td>保留</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>UDP 特殊：TCP/MQTT 下报文 = header + body；UDP 下 = header + <code>udp_auth_key</code> + body。</p>
+</blockquote>
+<h2 id="53-tlv">5.3 TLV 单元格式</h2>
+<pre><code>┌───────────────────┬───────────────────┬────────────────────────┐
+│ field_type  2B    │ length  2B       │ value  length 字节     │
+└───────────────────┴───────────────────┴────────────────────────┘
+   bit15-12 = 数据类型   value 字节数(大端)
+   bit11-0  = 字段含义
+</code></pre>
+<ul>
+<li><code>field_type = (data_type &lt;&lt; 12) | (field_meaning &amp; 0xFFF)</code>；</li>
+<li>值编码由 <code>encode_value()</code> 完成：INTEGER=4B 大端；FLOAT=×1000 后 4B 大端整数（非 IEEE754）；BOOLEAN=1B；ASCII/BINARY/UNICODE=原字节；</li>
+<li><strong>解码注意</strong>：FLOAT 解码时 ÷1000 还原；ASCII 空字符串编码会失败（<code>encode_value</code> 返回空串即 build_tlv 失败、整包发送失败）——因此业务侧约定<strong>空值字符串字段一律跳过不组装</strong>（见 active_mode/build_aircloud_tlv 注释）。</li>
+</ul>
+<p><strong>示例（INTEGER 类型字段 1290=工作模式，值 2）</strong>：</p>
+<pre><code>field_type = (0x0 &lt;&lt; 12) | 1290 = 0x050A
+长度       = 4
+value      = 00 00 00 02
+整条 TLV   = 05 0A 00 04 00 00 00 02   (8 字节)
+</code></pre>
+<h2 id="54-data_types">5.4 数据类型表（DATA_TYPES）</h2>
+<table>
+<thead>
+<tr>
+<th>常量</th>
+<th>值</th>
+<th>value 编码</th>
+<th>解码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INTEGER</td>
+<td>0x0</td>
+<td>4B 有符号大端（溢出告警但不失败）</td>
+<td>大端还原</td>
+</tr>
+<tr>
+<td>FLOAT</td>
+<td>0x1</td>
+<td>4B 大端整数 = 实际值 ×1000</td>
+<td>÷1000</td>
+</tr>
+<tr>
+<td>BOOLEAN</td>
+<td>0x2</td>
+<td>1B：<code>\1</code>/<code>\0</code></td>
+<td>首字节非 0 即 true</td>
+</tr>
+<tr>
+<td>ASCII</td>
+<td>0x3</td>
+<td>原样字符串</td>
+<td>原样</td>
+</tr>
+<tr>
+<td>BINARY</td>
+<td>0x4</td>
+<td>原样二进制</td>
+<td>原样（日志只打长度不打内容）</td>
+</tr>
+<tr>
+<td>UNICODE</td>
+<td>0x5</td>
+<td>原样</td>
+<td>原样</td>
+</tr>
+</tbody>
+</table>
+<h2 id="55-field_meanings">5.5 字段含义表（FIELD_MEANINGS）</h2>
+<p>excloud.lua 按官方协议定义了四大区段的标准字段（本工程实际使用项加 ★）：</p>
+<h3 id="551-16-255">5.5.1 控制信令（16-255）</h3>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>常量</th>
+<th>方向</th>
+<th>说明</th>
+<th>本工程使用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>16</td>
+<td>AUTH_REQUEST</td>
+<td>上行</td>
+<td>鉴权请求</td>
+<td>★ 值=<code>auth_key-IMEI-MUID</code>(ASCII)</td>
+</tr>
+<tr>
+<td>17</td>
+<td>AUTH_RESPONSE</td>
+<td>下行</td>
+<td>鉴权回复</td>
+<td>★ ok/success=成功，否则武装复位看门狗</td>
+</tr>
+<tr>
+<td>18</td>
+<td>REPORT_RESPONSE</td>
+<td>下行</td>
+<td>上报回应</td>
+<td>★ 同上（ok/success 解除鉴权失败态）</td>
+</tr>
+<tr>
+<td>19</td>
+<td>CONTROL_COMMAND</td>
+<td>下行</td>
+<td>控制命令</td>
+<td>—</td>
+</tr>
+<tr>
+<td>20</td>
+<td>CONTROL_RESPONSE</td>
+<td>上行</td>
+<td>控制回应</td>
+<td>—</td>
+</tr>
+<tr>
+<td>21</td>
+<td>IRTU_DOWN</td>
+<td>下行</td>
+<td>iRTU 下行命令</td>
+<td>—</td>
+</tr>
+<tr>
+<td>22</td>
+<td>IRTU_UP</td>
+<td>上行</td>
+<td>iRTU 上行回复</td>
+<td>—</td>
+</tr>
+<tr>
+<td>23/24</td>
+<td>FILE_UPLOAD_START/FINISH</td>
+<td>上行</td>
+<td>文件上传开始/完成通知</td>
+<td>库内部文件上传用</td>
+</tr>
+<tr>
+<td>25</td>
+<td>MTN_LOG_UPLOAD_REQ_SIGNAL</td>
+<td>下行</td>
+<td>运维日志上传请求</td>
+<td>★ 收到即上传 /hzmtn*.trc</td>
+</tr>
+<tr>
+<td>26</td>
+<td>MTN_LOG_UPLOAD_RESP_SIGNAL</td>
+<td>上行</td>
+<td>运维日志上传响应</td>
+<td>库内部</td>
+</tr>
+<tr>
+<td>27</td>
+<td>MTN_LOG_UPLOAD_STATUS_SIGNAL</td>
+<td>上行</td>
+<td>运维日志上传状态</td>
+<td>库内部</td>
+</tr>
+<tr>
+<td>28-31</td>
+<td>SMS_SEND / SMS_SEND_RSP / SMS_REPORT / SMS_REPORT_RSP</td>
+<td>双向</td>
+<td>短信收发/状态</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="552-256-511">5.5.2 传感采集类（256-511）</h3>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>常量</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>256-265</td>
+<td>TEMPERATURE/HUMIDITY/PARTICULATE/ACIDITY/ALKALINITY/ALTITUDE/WATER_LEVEL/ENV_TEMPERATURE/POWER_METERING/WORK_STATUS</td>
+<td>温湿度/颗粒/酸碱度/海拔/水位/电量计量/工作状态等</td>
+</tr>
+</tbody>
+</table>
+<h3 id="553-gnss-512-767">5.5.3 GNSS 资产管理类（512-767）</h3>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>常量</th>
+<th>说明</th>
+<th>本工程使用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>512</td>
+<td>GNSS_LONGITUDE</td>
+<td>经度</td>
+<td>★ ASCII 字符串（从 "lat,lng" 拆分）</td>
+</tr>
+<tr>
+<td>513</td>
+<td>GNSS_LATITUDE</td>
+<td>纬度</td>
+<td>★ ASCII 字符串</td>
+</tr>
+<tr>
+<td>514</td>
+<td>SPEED</td>
+<td>行驶速度</td>
+<td>—（速度走 1294 流）</td>
+</tr>
+<tr>
+<td>515</td>
+<td>GNSS_CN</td>
+<td>最强 4 颗卫星 CN</td>
+<td>★ 仅 gps_status=2 时</td>
+</tr>
+<tr>
+<td>516</td>
+<td>SATELLITES_TOTAL</td>
+<td>搜星总数</td>
+<td>★</td>
+</tr>
+<tr>
+<td>517</td>
+<td>SATELLITES_VISIBLE</td>
+<td>可见卫星数</td>
+<td>★</td>
+</tr>
+<tr>
+<td>518</td>
+<td>HEADING</td>
+<td>航向角</td>
+<td>—</td>
+</tr>
+<tr>
+<td>519</td>
+<td>LOCATION_METHOD</td>
+<td>定位方式标识</td>
+<td>★ ASCII "2/3/4/5"</td>
+</tr>
+<tr>
+<td>520</td>
+<td>GNSS_INFO</td>
+<td>GNSS 芯片型号固件</td>
+<td>—</td>
+</tr>
+<tr>
+<td>521</td>
+<td>DIRECTION</td>
+<td>方向</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="554-768-1023">5.5.4 设备参数类（768-1023）</h3>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>常量</th>
+<th>说明</th>
+<th>本工程使用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>771</td>
+<td>BATTERY_LEVEL</td>
+<td>电量(mV)</td>
+<td>—（电池电压用 799）</td>
+</tr>
+<tr>
+<td>772</td>
+<td>SERVING_CELL</td>
+<td>驻留频段</td>
+<td>★ ASCII "LTE B3"</td>
+</tr>
+<tr>
+<td>774</td>
+<td>COMPONENT_MODEL</td>
+<td>元器件型号</td>
+<td>★ ASCII "Air8202"</td>
+</tr>
+<tr>
+<td>776</td>
+<td>BOOT_REASON</td>
+<td>开机原因</td>
+<td>★ ASCII</td>
+</tr>
+<tr>
+<td>779</td>
+<td>WAKE_INTERVAL</td>
+<td>定时唤醒间隔</td>
+<td>★ INTEGER（1/10/300）</td>
+</tr>
+<tr>
+<td>782</td>
+<td>SIGNAL_STRENGTH_4G</td>
+<td>4G 信号强度 CSQ</td>
+<td>★ INTEGER</td>
+</tr>
+<tr>
+<td>783</td>
+<td>SIM_ICCID</td>
+<td>SIM 卡 ICCID</td>
+<td>★ ASCII</td>
+</tr>
+<tr>
+<td>784-787</td>
+<td>FILE_UPLOAD_TYPE/NAME/SIZE/UPLOAD_RESULT_STATUS</td>
+<td>文件上传元数据</td>
+<td>库内部</td>
+</tr>
+<tr>
+<td>788-792</td>
+<td>MTN_LOG_FILE_INDEX/TOTAL/SIZE/STATUS/NAME</td>
+<td>运维日志文件信息</td>
+<td>库内部</td>
+</tr>
+<tr>
+<td>799</td>
+<td>VOLTAGE</td>
+<td>实际电压</td>
+<td>★ INTEGER（电池电压 mV）</td>
+</tr>
+<tr>
+<td>800</td>
+<td>SET_VOLTAGE</td>
+<td>设置电压</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="555-1024-1279">5.5.5 软件与短信日志类（1024-1279）</h3>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>常量</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1024-1026</td>
+<td>LUA_CORE/EXT/APP_ERROR</td>
+<td>Lua 错误上报</td>
+</tr>
+<tr>
+<td>1027</td>
+<td>FIRMWARE_VERSION</td>
+<td>固件版本号</td>
+</tr>
+<tr>
+<td>1028-1029</td>
+<td>SMS_FORWARD / CALL_FORWARD</td>
+<td>短信/来电转发</td>
+</tr>
+<tr>
+<td>1030-1038</td>
+<td>SYSTEM_MEM_<em> / LUA_MEM_</em> / PSRANM_MEM_*</td>
+<td>内存统计</td>
+</tr>
+<tr>
+<td>1039-1048</td>
+<td>SMS_SEQ/CALLEE/CONTENT/STATUS/CALLER/...</td>
+<td>短信业务字段</td>
+</tr>
+</tbody>
+</table>
+<h3 id="556-1280-1535">5.5.6 通用测试数据类（1280-1535）★ 自定义字段区</h3>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>常量/名称</th>
+<th>说明</th>
+<th>本工程使用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1280</td>
+<td>TIMESTAMP</td>
+<td>时间戳</td>
+<td>—</td>
+</tr>
+<tr>
+<td>1281</td>
+<td>RANDOM_DATA</td>
+<td>无意义数据</td>
+<td>★★ <strong>JSON 报文与心跳的封装字段</strong>（ASCII）</td>
+</tr>
+<tr>
+<td>1282</td>
+<td>BUSINESS_SN</td>
+<td>业务 SN</td>
+<td>—</td>
+</tr>
+<tr>
+<td>1283</td>
+<td>HEARTBEAT_COUNT</td>
+<td>心跳次数</td>
+<td>—</td>
+</tr>
+<tr>
+<td>1284</td>
+<td>ONLINE_DURATION</td>
+<td>在线时长</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>1290</strong></td>
+<td>—（自定义）</td>
+<td>工作模式 work_mode</td>
+<td>★ INTEGER</td>
+</tr>
+<tr>
+<td><strong>1291</strong></td>
+<td>—（自定义）</td>
+<td>充电状态 bat_change</td>
+<td>★ INTEGER</td>
+</tr>
+<tr>
+<td><strong>1292</strong></td>
+<td>—（自定义）</td>
+<td>单点三轴 ASCII "x,y,z"(g)</td>
+<td>★ ASCII</td>
+</tr>
+<tr>
+<td><strong>1293</strong></td>
+<td>—（自定义）</td>
+<td>20Hz 三轴原始流（12bit 紧凑）</td>
+<td>★ BINARY ≤900B</td>
+</tr>
+<tr>
+<td><strong>1294</strong></td>
+<td>—（自定义）</td>
+<td>1Hz 定位五元组流（int16 差值）</td>
+<td>★ BINARY ≤100B</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>1290~1294 的<strong>逐字节格式</strong>见第 7 节。</p>
+</blockquote>
+<h2 id="56-tcp">5.6 连接与鉴权协议流程（TCP 默认路径）</h2>
+<pre><code>设备                                AirCloud 服务器
+ │  1) POST https://api.luatos.com/iot/getip
+ │     forms: key=&quot;unusedkey-IMEI-MUID&quot;(auth_key 现仅为占位), type=3
+ │ ◄── 返回 JSON：host / port / auth_key / udp_auth_key 等
+ │
+ │  2) TCP connect(host, port)
+ │
+ │  3) 鉴权报文（msg_length 只含 body）：
+ │     header(16B, need_reply=1) + TLV{field=16 AUTH_REQUEST, type=ASCII,
+ │     value=&quot;&lt;auth_key&gt;-&lt;IMEI&gt;-&lt;MUID&gt;&quot;}
+ │ ──►
+ │ ◄── 4) 下行 TLV{field=17 AUTH_RESPONSE, value=&quot;ok&quot;/&quot;success&quot;(或失败文本)}
+ │       ├─ ok/success 前缀匹配(is_success_reply) → is_authenticated=true，
+ │       │   若有鉴权失败武装状态则解除 → 回调 auth_result(success=true)
+ │       └─ 否则 → is_authenticated=false → 回调 auth_result(success=false)
+ │            + arm_watchdog_on_auth_fail(&quot;field=17 value=...&quot;)   # 武装复位看门狗
+ │
+ │  5) 鉴权通过后自由收发数据报文（18 上报回应同按 ok/success 判定）
+</code></pre>
+<p><strong>鉴权失败看门狗（004.000.020+）</strong>：鉴权回复非 ok/success（或上报被拒）→ 武装 10 分钟复位定时器；当日复位 ≤5 次（fskv 持久化计数），超限降级为 1 小时慢速重试，避免死循环。</p>
+<p><strong>MQTT 承载差异</strong>：TCP 改为 MQTT 后连接不变，但发送走发布主题——
+- 鉴权报文：<code>/AirCloud/up/&lt;device_id_hex&gt;/auth</code>
+- 数据报文：<code>/AirCloud/up/&lt;device_id_hex&gt;/all</code></p>
+<h2 id="57-parse_data">5.7 收包解析流程（parse_data）</h2>
+<pre><code>socket 收包 → parse_message()（16B 头 + 逐 TLV 切分）
+   ├─ 摘要日志：下行字节数 + 字段号列表（不打内容，防日志膨胀）
+   └─ 逐 TLV 特殊字段拦截：
+        ├─ field=25 MTN_LOG_UPLOAD_REQ_SIGNAL → handle_mtn_log_upload_request() 上传后 return
+        ├─ field=17 AUTH_RESPONSE 或 18 REPORT_RESPONSE → ok/success 判定鉴权状态
+        │     （成功→解除失败态；失败→武装看门狗），不转发给业务回调
+        └─ 其余字段 → callback_func(&quot;message&quot;, message)
+             └─ create.lua on() 回调 → 逐 TLV publish REMOTE_COMMAND
+                  └─ remote.lua / tools.lua（LED 通信正常证据）双订阅
+</code></pre>
+<h2 id="58">5.8 上行发送路径与心跳保活</h2>
+<p>三条发送入口（create.lua 中转）：</p>
+<table>
+<thead>
+<tr>
+<th>入口</th>
+<th>触发</th>
+<th>内容</th>
+<th>excloud.send 参数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AIRCLOUD_SEND_1</code> 订阅</td>
+<td><code>create.send_aircloud(tlvs)</code>（active_mode/boot_lbs_report 组装的结构化 TLV）</td>
+<td>直接按 TLV 数组打包</td>
+<td><code>send(tlvs, false)</code></td>
+</tr>
+<tr>
+<td><code>NET_SENT_RDY_1</code> 订阅</td>
+<td><code>create.send(json)</code>（JSON 报文：startup/property_report/command_reply/boot_lbs_report）</td>
+<td>封装为 <code>RANDOM_DATA(1281)</code> ASCII 字段</td>
+<td><code>send({1281 字段}, false)</code></td>
+</tr>
+<tr>
+<td>心跳</td>
+<td>aircloudTask 主循环 keepAlive=300s</td>
+<td><code>RANDOM_DATA(1281)</code> ASCII=<code>{csq,eci,rsrp,band}</code> JSON（aircloud_heart）</td>
+<td><code>send(..., false, false, true)</code> silent=true</td>
+</tr>
+</tbody>
+</table>
+<p><strong>心跳节流逻辑</strong>：aircloudTask 记录 <code>last_send_time</code>（mcu.ticks），主循环每 300s 检查：距上次成功发送 &lt;300s → 数据上报已保活，跳过；否则发一次心跳（静默模式：成功不写运维日志，失败仍记录）。</p>
+<p><strong>失败自愈</strong>：<code>excloud.send</code> 发送失败（TCP/UDP）→ 记录错误 → <code>cleanup_connection()</code> + 标记断开 → 走统一重连逻辑（指数退避，重连成功后若断连前心跳在跑则自动恢复）。MQTT publish 失败属 QoS 语义，不强制重连。</p>
+<h2 id="59">5.9 单包长度约束（重要）</h2>
+<ul>
+<li>AirCloud 约束：<strong>单条数据包内全部 TLV 总字节 ≤ 1400</strong>；</li>
+<li>本工程最大的 1293 字段（900B）+ 4B TLV 头 = 904B，为整包 1400 上限留足余量；</li>
+<li>发送侧不强制拆分，业务组装时已按此上限设计（见 gsensor.lua 注释：200 样本 × 12bit = 900B 的选取即考虑此约束）。</li>
+</ul>
+<h2 id="510-mtn_log252627">5.10 运维日志上传（mtn_log，25/26/27）</h2>
+<ul>
+<li>日志来源：<code>exmtn</code> 循环写 <code>/hzmtn1.trc</code> ~ <code>/hzmtn4.trc</code>（blocks=2）；</li>
+<li>埋点：GNSS 开关、实时上报进出、1293 流异常、收发字节数与结果、连接/断开/MQTT 错误等（aircloud_mtn_log_enabled=true 时 excloud 内部事件也写）；</li>
+<li>触发：服务器下发 field=25 → 上传全部日志文件（响应字段 26、状态字段 27）；缓存写方式(CACHE_WRITE)；</li>
+<li>作用：远程排查不上报/GNSS 异常等，是本工程"可观测性"的主要通道。</li>
+</ul>
+<h1 id="6">6. 函数调用 / 事件订阅 / 数据表逻辑关系</h1>
+<h2 id="61-systaskinit">6.1 运行时协程全景（sys.taskInit 常驻任务）</h2>
+<p>LuatOS 是"协程 + 事件驱动"模型：<code>sys.taskInit(func)</code> 生成一个独立协程，协程内部通过 <code>sys.wait/sys.waitUntil</code> 挂起等待事件。本工程运行期的常驻协程如下（按启动顺序）：</p>
+<table>
+<thead>
+<tr>
+<th>协程</th>
+<th>创建处</th>
+<th>职责</th>
+<th>生命周期</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>start_app</td>
+<td>main.lua L106</td>
+<td>开机主流程：加载配置→云连接→app→boot_lbs_report</td>
+<td>执行完即退</td>
+</tr>
+<tr>
+<td>cfg_fetch 后台配置任务</td>
+<td>cfg_fetch.lua L58</td>
+<td>HTTP 拉远端配置（当前 main.lua 已禁用入口）</td>
+<td>执行完即退</td>
+</tr>
+<tr>
+<td>app_task</td>
+<td>app.lua L124</td>
+<td>读唤醒原因、初始化全部模块、require active_mode</td>
+<td>执行完即退</td>
+</tr>
+<tr>
+<td>connect → 通道 task</td>
+<td>create.lua L458/L416</td>
+<td>按激活通道 taskInitEx 启动 tcpTask/mqttTask/aircloudTask（<strong>常驻</strong>）</td>
+<td>断线自愈循环，永不退</td>
+</tr>
+<tr>
+<td>aircloudTask</td>
+<td>create.lua L427</td>
+<td>AirCloud 心跳保活 + 双订阅转发（AIRCLOUD_SEND_/NET_SENT_RDY_）</td>
+<td>常驻</td>
+</tr>
+<tr>
+<td>main_loop</td>
+<td>active_mode.lua L585（模块加载即启动）</td>
+<td><strong>核心状态机</strong>：GNSS 开关评估 + 上报节流 + 数据采集上报</td>
+<td>常驻</td>
+</tr>
+<tr>
+<td>battery_monitor_task</td>
+<td>active_mode.lua L495</td>
+<td>每 60s 低电量检测，&lt;20% 发 BATTERY_LOW</td>
+<td>常驻</td>
+</tr>
+<tr>
+<td>do_lbs_report</td>
+<td>boot_lbs_report.lua L141</td>
+<td>开机一次性 LBS 双通道上报</td>
+<td>执行完即退</td>
+</tr>
+<tr>
+<td>battery_poll_task</td>
+<td>battery.lua L136</td>
+<td>每 30s 轮询 YHM2712A，刷新电池缓存 + 充电事件</td>
+<td>常驻</td>
+</tr>
+<tr>
+<td>charge setup task</td>
+<td>charge.lua L22</td>
+<td>YHM2712A setup + start</td>
+<td>执行完即退</td>
+</tr>
+<tr>
+<td>xyz_capture_task</td>
+<td>gsensor.lua L182</td>
+<td>订阅 GSENSOR_XYZ_CAPTURE，读 I2C 存三轴快照</td>
+<td>随 close 退出</td>
+</tr>
+<tr>
+<td>stream_task</td>
+<td>gsensor.lua L188</td>
+<td>20Hz 三轴流采样（stream_on 门控）</td>
+<td>常驻</td>
+</tr>
+<tr>
+<td>nmea_stream_task</td>
+<td>location.lua L39</td>
+<td>1Hz NMEA 五元组采样（on 门控）</td>
+<td>常驻</td>
+</tr>
+<tr>
+<td>execute_command 协程</td>
+<td>remote.lua L203</td>
+<td>每个下行命令一个一次性协程（处理函数内可 sys.wait）</td>
+<td>执行完即退</td>
+</tr>
+<tr>
+<td>lowpower 驱动任务</td>
+<td>drv_normal/lowpower/psm L35/L99/L95</td>
+<td>各功耗档配置（每次切换 taskInit）</td>
+<td>执行完即退</td>
+</tr>
+<tr>
+<td>看门狗喂狗循环</td>
+<td>lib/exair153x_wdt L235</td>
+<td>Air153C 自动喂狗</td>
+<td>常驻</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>关键技巧：active_mode 主循环阻塞在上报/等网络期间，gsensor/location 的<strong>采样协程独立运行不中断</strong>——这保证 1293/1294 的 10 秒窗口内采样连续（代码注释明确说明这一设计）。</p>
+</blockquote>
+<h2 id="62">6.2 全局事件总线：订阅/发布关系总表</h2>
+<p>事件名（业务侧；库内部事件用"—"标注）：</p>
+<table>
+<thead>
+<tr>
+<th>事件</th>
+<th>发布方（时机）</th>
+<th>订阅方（作用）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MOTION_EVENT</code></td>
+<td>① gsensor 震动回调（active_mode 注册，2s 限流后）；② FORCE_REPORT 订阅回调（顺带唤醒）；③ drv_lowpower WAKEUP2 唤醒</td>
+<td>① main_loop <code>waitUntil(MOTION_EVENT, 剩余ms)</code>（提前醒评估 GNSS）；② main_loop 常驻订阅置 motion_event_flag（兜底阻塞期丢失）</td>
+</tr>
+<tr>
+<td><code>FAST_REPORT_START</code></td>
+<td>remote.fast_report（云命令）</td>
+<td>active_mode 订阅：进实时上报态（开 GNSS、置 60s 倒计时、续期）</td>
+</tr>
+<tr>
+<td><code>FORCE_REPORT</code></td>
+<td>remote.get_device_data（云命令）</td>
+<td>active_mode 订阅：置 force_report_pending → 步骤 3.1 清零节流立即上报一帧</td>
+</tr>
+<tr>
+<td><code>REMOTE_COMMAND</code></td>
+<td>create 三通道收包（TCP 原样 / MQTT payload / AirCloud 逐 TLV）</td>
+<td>① remote.handle_command（命令分发）；② tools 订阅（刷新 last_rx_time，LED 通信正常证据）</td>
+</tr>
+<tr>
+<td><code>CLOUD_CONNECTED</code></td>
+<td>create 各通道 task 连接成功（tcp/mqtt/aircloud）</td>
+<td>active_mode main_loop <code>waitUntil(...,30000)</code> 后做 startup 上报；boot_lbs_report <code>waitUntil(...,60000)</code></td>
+</tr>
+<tr>
+<td><code>IP_READY</code></td>
+<td>系统网络注册成功</td>
+<td>各 task 等待联网；create 模块级订阅打日志</td>
+</tr>
+<tr>
+<td><code>IP_LOSE</code></td>
+<td>系统网络掉线</td>
+<td>create 模块级订阅打日志</td>
+</tr>
+<tr>
+<td><code>BATTERY_LOW</code></td>
+<td>active_mode.battery_monitor_task（&lt;20%）</td>
+<td>lowpower_app.handle_low_battery（低电量降级）</td>
+</tr>
+<tr>
+<td><code>CHARGING_START/STOP</code></td>
+<td>battery 轮询任务（YHM2712A 充电器插拔变化）</td>
+<td>tools 订阅：更新 vbus_state + 刷 LED</td>
+</tr>
+<tr>
+<td><code>DRV_SET_NORMAL</code></td>
+<td>lowpower.set_mode(normal)</td>
+<td>drv_normal（pm.power WORK_MODE 0）</td>
+</tr>
+<tr>
+<td><code>DRV_SET_LOWPOWER</code></td>
+<td>lowpower.set_mode(power_save)</td>
+<td>drv_lowpower（中断唤醒 + 关 GPS + WORK_MODE 1）</td>
+</tr>
+<tr>
+<td><code>DRV_SET_PSM</code></td>
+<td>lowpower.set_mode(psm_sleep)</td>
+<td>drv_psm（WORK_MODE 3）</td>
+</tr>
+<tr>
+<td><code>NET_SENT_RDY_1</code></td>
+<td>create.send(JSON 串)</td>
+<td>默认：aircloudTask 订阅→封装 RANDOM_DATA TLV；若启用 MQTT/TCP 通道则由对应 task 原样上送（两路并存）</td>
+</tr>
+<tr>
+<td><code>AIRCLOUD_SEND_1</code></td>
+<td>create.send_aircloud(TLV 数组)</td>
+<td>aircloudTask 订阅→excloud.send 直发</td>
+</tr>
+<tr>
+<td><code>GSENSOR_XYZ_CAPTURE</code></td>
+<td>gsensor 中断回调（限流后）</td>
+<td>xyz_capture_task <code>waitUntil</code>（协程读 I2C 存快照）</td>
+</tr>
+<tr>
+<td><code>GNSS_STATE</code></td>
+<td>exgnss（OPEN/CLOSE/FIXED/LOSE 等）</td>
+<td>location.gnss_state_callback（FIXED→写 last_gps_data 缓存）；exgnss 内部多处</td>
+</tr>
+<tr>
+<td><code>BOOT_LBS_REPORT_DONE</code></td>
+<td>boot_lbs_report（完成后）</td>
+<td>可选监听（当前无订阅方）</td>
+</tr>
+<tr>
+<td><code>CFG_FETCH_READY</code></td>
+<td>cfg_fetch（配置拉取完成）</td>
+<td>可选（当前无订阅方）</td>
+</tr>
+<tr>
+<td><code>FOTA_CHECK_DONE</code></td>
+<td>update/libfota2 回调</td>
+<td>可选</td>
+</tr>
+<tr>
+<td>— <code>mqtt_conack&lt;cid&gt;</code></td>
+<td>mqttTask mqtt.on conack</td>
+<td>mqttTask 等待连接成功</td>
+</tr>
+<tr>
+<td>— <code>YHM27XX_REG</code></td>
+<td>exs_yhm2712a 单线通信响应</td>
+<td>充电 IC 驱动内部</td>
+</tr>
+<tr>
+<td>— <code>NTP_UPDATE</code></td>
+<td>exgnss（GNSS 校时成功）</td>
+<td>location/airlbs/libfota3 等等待时间同步</td>
+</tr>
+<tr>
+<td>— <code>WLAN_SCAN_DONE</code></td>
+<td>wlan 扫描完成</td>
+<td>location（付费 AirLBS WiFi 辅助）</td>
+</tr>
+<tr>
+<td>— <code>CELL_INFO_UPDATE</code> / <code>LBS_*</code> / <code>SIM_IND</code></td>
+<td>各库内部</td>
+<td>库内部</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_2">事件流图（简化版）</h3>
+<p><img alt="事件订阅关系图" src="./images/fig5_event_bus.png"></p>
+<h2 id="63">6.3 主要函数调用链</h2>
+<h3 id="631-main-app">6.3.1 开机装配链（main → app）</h3>
+<pre><code>main.lua(模块加载)
+ ├─ fskv.init() → mobile.simid(1) → update.init()(FOTA)
+ └─ BOOT_MODE=2 → sys.taskInit(start_app)
+       └─ start_app
+            ├─ cfg_fetch.init()            → db.new(&quot;/luadb/air8201.cfg&quot;):export() → sheet
+            ├─ has_valid_gnss(sheet) ? 
+            │    ├─ 是 → config.load_from_server(sheet.gnss) → remote.init() → create.start(sheet)
+            │    └─ 否 → create.start({gnss={network=config.DEFAULT_NETWORK}})
+            ├─ app.start() (延迟2s)
+            │     └─ app_task
+            │          ├─ pm.lastReson() 唤醒原因解析
+            │          └─ init_all_modules():
+            │               kvstore.init → battery.init(轮询任务)
+            │               → location.init(exgnss.setup + GNSS_STATE订阅 + nmea_stream_task + wlan.init)
+            │               → gsensor.init(exvib.open + WAKEUP2中断 + 两采样任务)
+            │               → charge.init(YHM setup task)
+            │               → air153c_wdt.init(喂狗循环)
+            │               → remote.init(订阅 REMOTE_COMMAND)
+            │               → lowpower_app.init(订阅 BATTERY_LOW；require drv_* 三驱动)
+            │          └─ work_mode==-1 → 强制 set_work_mode(2)
+            │          └─ require(&quot;active_mode&quot;)   ← 模块加载即 taskInit(main_loop)
+            └─ boot_lbs_report.start() → taskInit(do_lbs_report)
+</code></pre>
+<h3 id="632">6.3.2 上报数据组装链（每帧执行一次）</h3>
+<pre><code>main_loop（节流到点 / FORCE_REPORT / MOTION_EVENT 提前醒）
+ └─ collect_data_and_report()
+      ├─ pm.power(WORK_MODE,0)                     # 临时全功率
+      ├─ 等 IP_READY ≤30s（socket.adapter 轮询 + waitUntil）
+      ├─ battery.force_check() → {voltage,level,charging,...}  # 读缓存（非阻塞）
+      ├─ location.get_report_location(gnss_active) → {gps,gps_status}   # GNSS 优先锁定（见 6.4.3）
+      ├─ mobile.csq()/iccid()/scell() → 信号/ICCID/EARFCN
+      ├─ gsensor.read_xyz() → &quot;x,y,z&quot; 字符串
+      ├─ [GNSS开&amp;非实时] gsensor.get_stream_data(200) → 1293 载荷
+      ├─ exgnss.gsv() → top4_cn/sat_total/sat_visible
+      ├─ [GNSS开&amp;非实时] location.get_nmea_stream(ref) → 1294 载荷
+      ├─ build_msg(&quot;property_report&quot;) → json.encode → create.send(payload)
+      │     └─ publish NET_SENT_RDY_1 → aircloudTask → RANDOM_DATA(1281) → excloud.send
+      └─ create.send_aircloud(build_aircloud_tlv(...))
+            └─ publish AIRCLOUD_SEND_1 → aircloudTask → excloud.send(tlvs)
+                  └─ build_tlv 逐个 → build_header → socket.tx / mqtt publish
+</code></pre>
+<h3 id="633-remote_command">6.3.3 下行命令链（REMOTE_COMMAND 消费顺序）</h3>
+<pre><code>服务器 → excloud.parse_data
+   ├─ 17/18/25 字段 → excloud 内部处理（鉴权/日志上传），不转发
+   └─ 其余 → callback(&quot;message&quot;) → create.on 回调 → 逐 TLV publish REMOTE_COMMAND
+        ├─ tools（模块加载即订阅，先于 remote.init？不——tools 由 active_mode require 链加载，remote 由 app 初始化）
+        │    └─ led_server_rx(): last_rx_time=now（LED 常亮证据）
+        └─ remote.handle_command（remote.init 订阅）
+             └─ execute_command(raw)：sys.taskInit 协程内
+                  ├─ pcall(json.decode) 失败→忽略
+                  ├─ command_handlers[cmd] 命中 → handler(parsed, parsed)
+                  └─ 未命中 → send_reply(result=1,&quot;未知命令&quot;)
+</code></pre>
+<h3 id="634">6.3.4 功耗切换链</h3>
+<pre><code>active_mode（GNSS 状态切换/上报完成）
+ └─ lowpower.set_mode(POWER_SAVE/NORMAL)
+      ├─ 校验 mode ∈ config.POWER_MODE
+      ├─ publish DRV_SET_LOWPOWER / DRV_SET_NORMAL / DRV_SET_PSM
+      └─ drv_lowpower 订阅回调 → taskInit(lowpower_task)
+           ├─ set_lowpower_interrupt_wakeup()   # PWR_KEY + WAKEUP2 中断唤醒
+           ├─ location.close()                  # 关 GPS（减少功耗）
+           ├─ pm.power(pm.WORK_MODE, 1)         # 真正切低功耗
+           └─ gsensor._restore_interrupt()      # 唤醒后恢复 DA221 中断
+</code></pre>
+<h2 id="64">6.4 数据表 / 状态表及其逻辑关系</h2>
+<h3 id="641-fskv-kvstore">6.4.1 fskv 键值表（kvstore 封装，掉电不丢）</h3>
+<table>
+<thead>
+<tr>
+<th>键</th>
+<th>初值</th>
+<th>写入方</th>
+<th>读取方</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>initialized</code></td>
+<td>"true"（首启写）</td>
+<td>kvstore.init</td>
+<td>kvstore.init</td>
+<td>首启标记</td>
+</tr>
+<tr>
+<td><code>work_mode</code></td>
+<td>"2"</td>
+<td>kvstore.init / remote.change_mode / app.lua(-1修正)</td>
+<td>app / active_mode / boot_lbs_report / lowpower_app / remote</td>
+<td>设备工作模式</td>
+</tr>
+<tr>
+<td><code>low_power_mode</code></td>
+<td>"false"</td>
+<td>active_mode（低电检测）</td>
+<td>lowpower_app（set_mode_by_device_mode 等）</td>
+<td>低电量状态</td>
+</tr>
+<tr>
+<td><code>audio_volume</code></td>
+<td>"80"</td>
+<td>remote.set_volume</td>
+<td>remote（预留）</td>
+<td>音量（无音频硬件）</td>
+</tr>
+<tr>
+<td><code>test_done</code></td>
+<td>—</td>
+<td>产测</td>
+<td>main.lua（BOOT_MODE=0 分支）</td>
+<td>产测完成标记</td>
+</tr>
+<tr>
+<td><code>auth_fail_count</code>（约）</td>
+<td>—</td>
+<td>excloud（复位看门狗计数）</td>
+<td>excloud</td>
+<td>当日鉴权失败复位次数</td>
+</tr>
+</tbody>
+</table>
+<h3 id="642-luadbair8201cfgdblua">6.4.2 持久化配置文件 /luadb/air8201.cfg（db.lua 表序列化）</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+<th>生产方</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>uconf</code></td>
+<td>true（有本地配置标记）</td>
+<td>cfg_fetch（云端拉取后 import）</td>
+</tr>
+<tr>
+<td><code>param_ver</code></td>
+<td>服务端参数版本号</td>
+<td>cfg_fetch</td>
+</tr>
+<tr>
+<td><code>project_key</code></td>
+<td>云项目密钥</td>
+<td>cfg_fetch</td>
+</tr>
+<tr>
+<td><code>gnss</code></td>
+<td><code>{network={conf,conf_on}, loc_strategy, battery, charge, wdt, alarm...}</code></td>
+<td>服务端下发的定位版配置（parameter_gnss）</td>
+</tr>
+</tbody>
+</table>
+<p>读取链：<code>main.lua → cfg_fetch.init() → db:export() → sheet</code>；有有效 <code>gnss.network.conf</code> → <code>config.load_from_server(sheet.gnss)</code> 覆盖 config 默认值 → <code>create.start(sheet)</code> 按 <code>network.conf</code> + <code>conf_on</code> 启通道。</p>
+<h3 id="643">6.4.3 核心内存状态表（模块内缓存，只读接口导出）</h3>
+<table>
+<thead>
+<tr>
+<th>状态表</th>
+<th>位置</th>
+<th>关键字段</th>
+<th>维护方 → 消费方</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>location.location_state</code></td>
+<td>location.lua</td>
+<td><code>last_gps_data</code>（最近定位成功 RMC）、<code>last_gps_time</code>、<code>last_lbs_data/time</code>、<code>_gps_started</code>、<code>first_wifi_scan</code></td>
+<td><strong>GNSS 优先锁定</strong>：FIXED 回调写 last_gps_data；<code>get_report_location</code> 读：非 nil → 恒走 GNSS（当前 fix 用当前值，否则用最近值，status 恒 2）；nil → LBS(4/5)/失败(3)</td>
+</tr>
+<tr>
+<td><code>nmea_stream</code></td>
+<td>location.lua</td>
+<td><code>on</code>、<code>buf</code>（≤10 样本 {lat,lng,speed,course,altitude}）</td>
+<td>nmea_stream_start/stop；get_nmea_stream 消费（1294）</td>
+</tr>
+<tr>
+<td><code>battery.battery_state</code></td>
+<td>battery.lua</td>
+<td>voltage/level/charging/charge_stage/charger_present/...</td>
+<td>battery_poll_task 30s 刷新 → 业务只读缓存（<strong>禁止同步调 IC</strong>：status() 单次可阻塞 20s）</td>
+</tr>
+<tr>
+<td><code>gsensor.state</code></td>
+<td>gsensor.lua</td>
+<td>initialized/is_moving/last_motion_time/motion_timeout/pending_gps/last_xyz/stream_on/stream_buffer(≤205 样本 6B 编码)</td>
+<td>中断回调写运动态；active_mode 读 get_status() 判 GNSS 需求</td>
+</tr>
+<tr>
+<td><code>active_mode</code> 模块级变量</td>
+<td>active_mode.lua</td>
+<td>gnss_active/last_report_time/fast_report_active/fast_report_deadline/fast_report_hold_until/force_report_pending/motion_event_flag/boot_ticks</td>
+<td>main_loop 状态机自维护</td>
+</tr>
+<tr>
+<td><code>lowpower.power_state</code></td>
+<td>lowpower_app.lua</td>
+<td><code>mode</code>（当前功耗档）</td>
+<td>set_mode/set_mode_by_device_mode 维护</td>
+</tr>
+<tr>
+<td><code>create.datalink</code></td>
+<td>create.lua</td>
+<td><code>datalink[cid]</code>（通道连接态）</td>
+<td>各通道 task 维护；<code>create.is_connected()</code> 读</td>
+</tr>
+<tr>
+<td><code>tools.led</code> / <code>device_state</code></td>
+<td>tools.lua</td>
+<td>boot_time/gnss_on_until/last_rx_time/manual_on/blink_phase、vbus_state</td>
+<td>LED 状态机（500ms 定时器 + 事件触发刷新）</td>
+</tr>
+<tr>
+<td><code>kvstore</code> → fskv</td>
+<td>文件系统</td>
+<td>见 6.4.1</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="644-gnss-locationlua">6.4.4 GNSS 优先锁定策略（location.lua 核心决策表）</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>判断</th>
+<th>输出 gps / gps_status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>曾 GNSS 成功 + 当前 GNSS 开 + 实时 fix</td>
+<td><code>last_gps_data</code> 非 nil 且 exgnss.is_fix() 且 rmc valid</td>
+<td>当前坐标 / <strong>2</strong></td>
+</tr>
+<tr>
+<td>曾 GNSS 成功 + 当前未 fix（掉星/GNSS 关）</td>
+<td>last 非 nil</td>
+<td><strong>最近一次成功坐标</strong> / <strong>2</strong>（位置随报文"滞后"，换取一致性）</td>
+</tr>
+<tr>
+<td>从未成功（last 为 nil）</td>
+<td>免费模式(AIRLBS.MODE=0) → lbsLoc2</td>
+<td>LBS 坐标 / <strong>4</strong>；失败 / 3</td>
+</tr>
+<tr>
+<td>从未成功 + 付费模式(MODE=1)</td>
+<td>AirLBS（多基站+WiFi）</td>
+<td>LBS 坐标 / <strong>5</strong>；失败 / 3</td>
+</tr>
+</tbody>
+</table>
+<h3 id="645-json-tlv">6.4.5 上报字段映射表（JSON 通道 ↔ TLV 通道）</h3>
+<p>一份 <code>msg.data</code> 同时驱动两条通道，映射关系如下（★=仅在特定运行态携带）：</p>
+<table>
+<thead>
+<tr>
+<th>msg.data 键（active_mode 组装）</th>
+<th>JSON 报文</th>
+<th>TLV 字段</th>
+<th>编码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>work_mode</td>
+<td>✓</td>
+<td><strong>1290</strong> 工作模式</td>
+<td>INTEGER 4B</td>
+</tr>
+<tr>
+<td>vbat (mV)</td>
+<td>✓</td>
+<td><strong>799</strong> VOLTAGE</td>
+<td>INTEGER 4B</td>
+</tr>
+<tr>
+<td>bat_change (0/1)</td>
+<td>✓</td>
+<td><strong>1291</strong> 充电状态</td>
+<td>INTEGER 4B</td>
+</tr>
+<tr>
+<td>signal (CSQ)</td>
+<td>✓</td>
+<td><strong>782</strong> SIGNAL_STRENGTH_4G</td>
+<td>INTEGER 4B</td>
+</tr>
+<tr>
+<td>gps "lat,lng"</td>
+<td>✓</td>
+<td><strong>513</strong> GNSS_LATITUDE + <strong>512</strong> GNSS_LONGITUDE（拆分）</td>
+<td>ASCII</td>
+</tr>
+<tr>
+<td>gps_status</td>
+<td>✓</td>
+<td><strong>519</strong> LOCATION_METHOD（tostring）</td>
+<td>ASCII</td>
+</tr>
+<tr>
+<td>band "LTE B3"</td>
+<td>✓</td>
+<td><strong>772</strong> SERVING_CELL</td>
+<td>ASCII</td>
+</tr>
+<tr>
+<td>gsensor_xyz</td>
+<td>✓</td>
+<td><strong>1292</strong> 单点三轴 ★GNSS关/实时上报</td>
+<td>ASCII</td>
+</tr>
+<tr>
+<td>gsensor_stream（二进制）</td>
+<td>✗ 不进 JSON</td>
+<td><strong>1293</strong> 20Hz 流 ★GNSS开且非实时</td>
+<td>BINARY</td>
+</tr>
+<tr>
+<td>nmea_stream（二进制）</td>
+<td>✗ 不进 JSON</td>
+<td><strong>1294</strong> 1Hz 五元组流 ★GNSS开且非实时</td>
+<td>BINARY</td>
+</tr>
+<tr>
+<td>chip_model</td>
+<td>✓</td>
+<td><strong>774</strong> COMPONENT_MODEL</td>
+<td>ASCII</td>
+</tr>
+<tr>
+<td>boot_reason</td>
+<td>✓</td>
+<td><strong>776</strong> BOOT_REASON</td>
+<td>ASCII</td>
+</tr>
+<tr>
+<td>wake_interval (1/10/300)</td>
+<td>✓</td>
+<td><strong>779</strong> WAKE_INTERVAL</td>
+<td>INTEGER 4B</td>
+</tr>
+<tr>
+<td>iccid</td>
+<td>✓</td>
+<td><strong>783</strong> SIM_ICCID</td>
+<td>ASCII</td>
+</tr>
+<tr>
+<td>top4_cn</td>
+<td>✓</td>
+<td><strong>515</strong> GNSS_CN ★gps_status==2</td>
+<td>ASCII</td>
+</tr>
+<tr>
+<td>sat_total / sat_visible</td>
+<td>✓</td>
+<td><strong>516</strong> SATELLITES_TOTAL / <strong>517</strong> SATELLITES_VISIBLE ★gps_status==2</td>
+<td>INTEGER</td>
+</tr>
+<tr>
+<td>position_active_report</td>
+<td>✓</td>
+<td>✗ 无 TLV 映射</td>
+<td>—</td>
+</tr>
+<tr>
+<td>msg_id/imei/ts/type（框架字段）</td>
+<td>✓</td>
+<td>✗（TLV 通道靠消息头 seq + 字段语义识别；512/513 同时作 1294 差值基准）</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="7-tlv">7. 本工程 TLV 字段详细格式</h1>
+<h2 id="70-12901294">7.0 自定义字段总览（1290~1294）</h2>
+<table>
+<thead>
+<tr>
+<th>字段号</th>
+<th>名称</th>
+<th>类型</th>
+<th>典型长度</th>
+<th>携带时机</th>
+<th>数据源</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1290</td>
+<td>work_mode 工作模式</td>
+<td>INTEGER</td>
+<td>4B</td>
+<td>每帧</td>
+<td>kvstore</td>
+</tr>
+<tr>
+<td>1291</td>
+<td>bat_change 充电状态</td>
+<td>INTEGER</td>
+<td>4B</td>
+<td>每帧</td>
+<td>battery.is_charging()</td>
+</tr>
+<tr>
+<td>1292</td>
+<td>单点三轴（ASCII "x,y,z"）</td>
+<td>ASCII</td>
+<td>~20B</td>
+<td>GNSS 关 / 实时上报</td>
+<td>gsensor.read_xyz()</td>
+</tr>
+<tr>
+<td>1293</td>
+<td>20Hz 三轴原始流（12bit 紧凑）</td>
+<td>BINARY</td>
+<td>4B+900B=904B</td>
+<td>GNSS 开且非实时上报</td>
+<td>gsensor 流采样缓冲</td>
+</tr>
+<tr>
+<td>1294</td>
+<td>1Hz 定位五元组流（int16 差值）</td>
+<td>BINARY</td>
+<td>4B+100B=104B</td>
+<td>同上</td>
+<td>location NMEA 采样缓冲</td>
+</tr>
+</tbody>
+</table>
+<h2 id="71-1290integer">7.1 字段 1290：工作模式（INTEGER）</h2>
+<pre><code>TLV 头部：field_type = 0x0000 | 1290 = 0x050A；length = 0x0004
+value    ：00 00 00 02          ← work_mode（大端 4B）
+编码源   ：active_mode msg.data.work_mode / boot_lbs_report d.work_mode
+取值     ：0=常规 1=智能 2=寻宠(GPS定位)（-1 未激活已废弃）
+</code></pre>
+<h2 id="72-1291integer">7.2 字段 1291：充电状态（INTEGER）</h2>
+<pre><code>value：00 00 00 00  → 充电器不在位（未充电）
+       00 00 00 01  → 充电器在位（含充满未拔，charging 语义）
+编码源：battery.is_charging() 返回 true/false → 1/0
+</code></pre>
+<h2 id="73-1292ascii">7.3 字段 1292：单点三轴加速度（ASCII）</h2>
+<pre><code>value：&quot;0.021,-0.015,0.998&quot;
+         └─ x ─┘  └─ y ─┘  └─ z ─┘
+格式  ：x,y,z 逗号分隔，各 3 位小数，单位 g（重力加速度）
+编码源：string.format(&quot;%.3f,%.3f,%.3f&quot;, x_acc, y_acc, z_acc)
+读取  ：gsensor.read_xyz() → exvib.read_xyz（I2C 主动读，g 值）
+携带策略：GNSS 关闭（整包无 1293 原始流，用单点代替）或 实时上报（每秒报文只带常规字段）时携带；
+         GNSS 开启且非实时上报时不带（1293 流已含完整运动信息，避免冗余撑长报文）
+</code></pre>
+<h2 id="74-129320hz-binary12bit">7.4 字段 1293：20Hz 三轴原始数据流（BINARY，12bit 紧凑编码）</h2>
+<h3 id="741-gsensorlua">7.4.1 采集侧（gsensor.lua）</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>采样率</td>
+<td>20Hz（STREAM_INTERVAL_MS=50ms）</td>
+<td>流采样协程用 mcu.ticks 时间片调度，自动补偿 I2C 耗时</td>
+</tr>
+<tr>
+<td>缓冲</td>
+<td>≤205 样本</td>
+<td>10s=200 + 少量余量；超出丢最旧</td>
+</tr>
+<tr>
+<td>内存格式</td>
+<td>每样本 <strong>6B</strong>：<code>string.pack("&gt;i2i2i2", rx, ry, rz)</code></td>
+<td>x/y/z 各 2B 有符号 int16 大端，样本时间正序</td>
+</tr>
+<tr>
+<td>数据源</td>
+<td>DA221 原始 12 位计数值（-2048~2047，2g 量程）</td>
+<td><code>exvib.read_xyz()</code> 的 raw 返回值</td>
+</tr>
+<tr>
+<td>开关</td>
+<td><code>stream_start()</code>（GNSS 开）/ <code>stream_stop()</code>（GNSS 关，清空缓冲）</td>
+<td>active_mode 状态机驱动</td>
+</tr>
+</tbody>
+</table>
+<h3 id="742-get_stream_data">7.4.2 编码规则（get_stream_data 输出）</h3>
+<ul>
+<li>取最近 N=min(count=200, #buf) 个样本；N 为奇数时<strong>丢弃最旧 1 个</strong>（保证两两成组）；</li>
+<li>每 <strong>2 个样本</strong> = 6 个 12bit 值 = 72bit → 压成 <strong>9 字节</strong>；</li>
+<li>字节内位序：<strong>x1,y1,z1,x2,y2,z2</strong>（12bit 值 MSB 在前），即 72bit 大端位流按 12bit 切成 6 段；</li>
+<li>实现：<code>pack12(a,b)</code> 把两个 12bit 值装入 3 字节：
+  <code>byte1 = (a &gt;&gt; 4) &amp; 0xFF
+  byte2 = ((a &amp; 0x0F) &lt;&lt; 4) | ((b &gt;&gt; 8) &amp; 0x0F)
+  byte3 = b &amp; 0xFF
+  每样本组拼接：pack12(x1,y1) .. pack12(z1,x2) .. pack12(y2,z2)</code></li>
+<li>200 样本 → 100 组 × 9B = <strong>900 字节</strong>；加 TLV 4B 头 = <strong>904B</strong>（≤ AirCloud 单包 1400B 约束）；</li>
+<li>DA221 原始值 12 位有符号 → <code>a &amp; 0xFFF</code> 两补码截断<strong>无损</strong>。</li>
+</ul>
+<h3 id="743">7.4.3 编码示例</h3>
+<p>样本1：(x1=0x000, y1=0x001, z1=0x002)　样本2：(x2=0x003, y2=0x004, z2=0x005)</p>
+<pre><code>组内 9 字节 = pack12(0x000,0x001) .. pack12(0x002,0x003) .. pack12(0x004,0x005)
+            = 00 00 01 | 00 20 03 | 00 40 05
+整段（16 进制）：
+  样本1   样本2
+  x1 y1 z1 x2 y2 z2        （每值 12bit）
+  000 001 002 003 004 005
+  └──00 00 01──┘└──00 20 03──┘└──00 40 05──┘
+  解码：9B → 连续 72bit 位流 → 每 12bit 一切：
+  0x000 0x001 0x002 0x003 0x004 0x005（最高位为符号位，&gt;0x7FF 则减 4096 还原负数）
+</code></pre>
+<h3 id="744">7.4.4 解码方法（服务端）</h3>
+<ol>
+<li>每 9 字节一组；</li>
+<li>读成 72bit 连续位流，按 12bit 切出 6 个值；</li>
+<li>符号扩展：值 &gt; 0x7FF(2047) → 值 - 4096；</li>
+<li>得原始计数 (raw_x1, raw_y1, raw_z1, raw_x2, raw_y2, raw_z2)；如需 g 值：raw / 满量程 × 量程（2g 配置下 LSB≈0.00098g，具体量程需与 exvib 配置核对）。</li>
+</ol>
+<h2 id="75-12941hz-binaryint16">7.5 字段 1294：1Hz 定位五元组数据流（BINARY，int16 差值编码）</h2>
+<h3 id="751-locationlua">7.5.1 采集侧（location.lua）</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>采样率</td>
+<td>1Hz（每秒一次）</td>
+<td>nmea_stream_task：读 <code>exgnss.rmc(2)</code> + <code>exgnss.gga(2)</code></td>
+</tr>
+<tr>
+<td>入缓冲条件</td>
+<td><code>rmc.valid=true</code> 且 lat/lng 非空</td>
+<td>无效定位不入缓冲</td>
+</tr>
+<tr>
+<td>缓冲</td>
+<td>≤10 样本（NMEA_STREAM_KEEP）</td>
+<td>对应 10 秒（GNSS 开 10s 一报）</td>
+</tr>
+<tr>
+<td>样本字段</td>
+<td>{lat, lng, speed(节), course(度), altitude(米, GGA)}</td>
+<td>speed 单位节，编码时换算 km/h</td>
+</tr>
+</tbody>
+</table>
+<h3 id="752-get_nmea_streamref_lat-ref_lng">7.5.2 编码规则（get_nmea_stream(ref_lat, ref_lng)）</h3>
+<p>每样本 <strong>10 字节</strong> = 5 个有符号 int16 大端（<code>string.pack("&gt;i2i2i2i2i2")</code>），时间正序（最早在前）：</p>
+<table>
+<thead>
+<tr>
+<th>偏移</th>
+<th>内容</th>
+<th>编码</th>
+<th>分辨率/范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0-1</td>
+<td>经度差 dLng</td>
+<td>(s.lng − ref_lng) × 100000</td>
+<td>1LSB≈0.00001°≈1.1m；范围 ±0.33°</td>
+</tr>
+<tr>
+<td>2-3</td>
+<td>纬度差 dLat</td>
+<td>(s.lat − ref_lat) × 100000</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>4-5</td>
+<td>速度</td>
+<td>s.speed(节) × 1.852 × 10</td>
+<td>1LSB=0.1km/h；上限 3276.7km/h</td>
+</tr>
+<tr>
+<td>6-7</td>
+<td>航向</td>
+<td>s.course × 10</td>
+<td>1LSB=0.1°；0~3599（静止时不可信）</td>
+</tr>
+<tr>
+<td>8-9</td>
+<td>海拔</td>
+<td>s.altitude(米)</td>
+<td>1LSB=1m</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>差值基准</strong>：ref_lat/ref_lng = 同包 TLV 512/513 字段坐标（服务端用"报文坐标 + 差值"还原每秒绝对坐标）；</li>
+<li>舍入钳位：<code>to_i16</code> = floor(v+0.5)，超 ±32767 钳位（防 string.pack 溢出报错）；</li>
+<li>10 样本 × 10B = <strong>100 字节</strong>；TLV 4B 头 = 104B。</li>
+</ul>
+<h3 id="753">7.5.3 编码示例</h3>
+<p>ref = (23.12845, 113.32187)，样本 = (23.13000, 113.32200)、速度 0.5 节、航向 90.0°、海拔 15m：</p>
+<pre><code>dLat = (23.13000 − 23.12845) × 100000 = 155  → 0x009B
+dLng = (113.32200 − 113.32187) × 100000 = 13  → 0x000D
+speed = 0.5 × 1.852 × 10 = 9.26 → 9         → 0x0009
+course = 90.0 × 10 = 900                     → 0x0384
+alt = 15                                      → 0x000F
+样本 10 字节：00 9B | 00 0D | 00 09 | 03 84 | 00 0F
+</code></pre>
+<h3 id="754">7.5.4 服务端还原公式</h3>
+<pre><code>绝对经度 = TLV 512 字段(经度) + dLng / 100000
+绝对纬度 = TLV 513 字段(纬度) + dLat / 100000
+速度(km/h) = speed_raw × 0.1
+航向(°) = course_raw × 0.1
+</code></pre>
+<h2 id="76">7.6 整包大小与携带矩阵</h2>
+<table>
+<thead>
+<tr>
+<th>运行态</th>
+<th>携带的二进制流</th>
+<th>整包 body 估算</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GNSS 开（10s 周期）</td>
+<td>1293(904B) + 1294(104B) + 常规字段(≈80B)</td>
+<td>≈1100B（上限内）</td>
+</tr>
+<tr>
+<td>GNSS 关（300s 周期）</td>
+<td>无 1293/1294；1292 单点三轴(≈25B) + 常规字段</td>
+<td>≈100B</td>
+</tr>
+<tr>
+<td>实时上报（1s 周期）</td>
+<td>无流；1292 单点三轴每帧 + 常规字段</td>
+<td>≈100B × 60 帧</td>
+</tr>
+<tr>
+<td>开机 LBS（boot_lbs_report）</td>
+<td>无流</td>
+<td>≈80B</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

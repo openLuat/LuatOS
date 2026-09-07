@@ -341,10 +341,10 @@ local procTable = {
         return "OK"
     end,
     ["ECNPICFG"] = function(id, findCom, data)
-        local rfa = require("rfa")
-        local resp = rfa.dispatch("AT+ECNPICFG?")
-        resp = resp:gsub(',%s*"rfCTDone":%d+', '')
-        resp = resp:gsub('%s*$', '\r\n')
+        local passed, status = mobile.ecnpicfg()
+        local resp = string.format(
+            '\r\n+ECNPICFG: "rfCaliDone":%d,"rfNSTDone":%d\r\n\r\nOK\r\n',
+            status.rfCaliDone, status.rfNSTDone)
         table.insert(cacheTable, { transId = id, data = resp })
         sys.publish("DATA_SEND")
         return

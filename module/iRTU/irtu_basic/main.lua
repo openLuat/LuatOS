@@ -42,18 +42,8 @@ if rfa and atc then
     -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致
     rfa.start(uart.VUART_0, 115200)
     sys.taskInit(function()
-        local in_buff = zbuff.create(20)
-        -- 清除上一次查询结果，避免把旧状态当成本次 ATC 响应。
-        rfa.rfCaliDone, rfa.rfNSTDone = nil, nil
-        in_buff:write("AT+ECNPICFG?\r\n")
-        atc.input(0, in_buff)
-        -- atc.input 可能很快返回响应；先检查状态，避免错过已发布的事件。
-        local ready = rfa.rfCaliDone ~= nil and rfa.rfNSTDone ~= nil
-        if not ready then
-            ready = sys.waitUntil("RFA_ECNPI_CFG_READY", 3000)
-        end
-        log.info("main", "rfCaliDone", rfa.rfCaliDone, "rfNSTDone", rfa.rfNSTDone)
-        if ready and rfa.rfCaliDone == 1 and rfa.rfNSTDone == 1 then
+        local passed, status = mobile.ecnpicfg()
+        if passed then
             -- 校准已完成: 允许加载irtu脚本, 再通过 AT+SETCFG? 查询是否处于rfa模式
             -- 只有 rfa_mode 明确为(false)才退出rfa模式, VUART_0归irtu, 正常处理irtu数据
             -- 读不到配置或rfa_mode为(true): 处于rfa模式, VUART_0归rfa的AT服务器, 禁用irtu的VUART_0数据回调

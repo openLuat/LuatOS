@@ -761,8 +761,18 @@ static void voip_free_buffers(voip_ctx_t *ctx)
         }
     }
 #ifdef LUAT_USE_VOIP_BRIDGE
-    if (ctx->bridge_tx_buf)   { luat_heap_free(ctx->bridge_tx_buf);   ctx->bridge_tx_buf = NULL; }
-    if (ctx->bridge_rx_buf)   { luat_heap_free(ctx->bridge_rx_buf);   ctx->bridge_rx_buf = NULL; }
+    /* PCM callers can still be finishing a CC timer callback. Detach under
+     * their lock, then free without holding the lock across heap operations. */
+    if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    int16_t *bridge_tx = ctx->bridge_tx_buf;
+    int16_t *bridge_rx = ctx->bridge_rx_buf;
+    ctx->bridge_tx_buf = NULL;
+    ctx->bridge_rx_buf = NULL;
+    ctx->bridge_tx_count = 0;
+    ctx->bridge_rx_count = 0;
+    if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
+    if (bridge_tx) luat_heap_free(bridge_tx);
+    if (bridge_rx) luat_heap_free(bridge_rx);
 #endif
 }
 static void voip_cleanup(voip_ctx_t *ctx)
@@ -979,7 +989,13 @@ static int voip_session_start(voip_ctx_t *ctx)
     }
 
 
+#ifdef LUAT_USE_VOIP_BRIDGE
+    if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+#endif
     ctx->state = VOIP_STATE_RUNNING;
+#ifdef LUAT_USE_VOIP_BRIDGE
+    if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
+#endif
 #ifdef LUAT_USE_VOIP_RECORD
     luat_voip_record_media_started();
 #endif
@@ -1004,7 +1020,13 @@ static void voip_session_stop(voip_ctx_t *ctx, int notify_idle)
         return;
     }
 
+#ifdef LUAT_USE_VOIP_BRIDGE
+    if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+#endif
     ctx->state = VOIP_STATE_STOPPING;
+#ifdef LUAT_USE_VOIP_BRIDGE
+    if (ctx->bridge_mutex) luat_rtos_mutex_unlock(ctx->bridge_mutex);
+#endif
 #ifdef LUAT_USE_VOIP_RECORD
     luat_voip_record_stop("voip_stopped");
 #endif
@@ -1027,7 +1049,12 @@ static int voip_runtime_init(voip_ctx_t *ctx)
     luat_rtos_timer_create(&ctx->stats_timer);
 #ifdef LUAT_USE_VOIP_BRIDGE
     luat_rtos_timer_create(&ctx->bridge_tone_timer);
-    luat_rtos_mutex_create(&ctx->bridge_mutex);
+    if (!ctx->bridge_mutex && luat_rtos_mutex_create(&ctx->bridge_mutex) != 0) {
+        LLOGE("bridge mutex create failed");
+        if (ctx->stats_timer) { luat_rtos_timer_delete(ctx->stats_timer); ctx->stats_timer = NULL; }
+        if (ctx->bridge_tone_timer) { luat_rtos_timer_delete(ctx->bridge_tone_timer); ctx->bridge_tone_timer = NULL; }
+        return -2;
+    }
 #endif
 
     ret = luat_rtos_task_create(&ctx->task_handle, 8 * 1024, 50, "voip", voip_task_entry, ctx, 32);
@@ -1413,10 +1440,14 @@ int voip_bridge_pcm_in(const int16_t *pcm, uint16_t samples)
     if (!pcm || samples == 0) {
         return 0;
     }
-    if (ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !ctx->bridge_tx_buf) {
+    if (!ctx->bridge_mutex) {
         return -1;
     }
-    if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    if (ctx->state != VOIP_STATE_RUNNING || ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !ctx->bridge_tx_buf) {
+        luat_rtos_mutex_unlock(ctx->bridge_mutex);
+        return -1;
+    }
     for (uint16_t i = 0; i < samples; i++) {
         if (ctx->bridge_tx_count >= VOIP_BRIDGE_BUF_SAMPLES) {
             break;
@@ -1441,10 +1472,14 @@ int voip_bridge_pcm_out(int16_t *pcm, uint16_t max_samples)
     if (!pcm || max_samples == 0) {
         return 0;
     }
-    if (ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !ctx->bridge_rx_buf) {
+    if (!ctx->bridge_mutex) {
         return -1;
     }
-    if (ctx->bridge_mutex) luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    luat_rtos_mutex_lock(ctx->bridge_mutex, LUAT_WAIT_FOREVER);
+    if (ctx->state != VOIP_STATE_RUNNING || ctx->audio_mode != VOIP_AUDIO_MODE_BRIDGE || !ctx->bridge_rx_buf) {
+        luat_rtos_mutex_unlock(ctx->bridge_mutex);
+        return -1;
+    }
     to_read = (ctx->bridge_rx_count < max_samples) ? ctx->bridge_rx_count : max_samples;
     for (uint16_t i = 0; i < to_read; i++) {
         pcm[i] = ctx->bridge_rx_buf[ctx->bridge_rx_read_idx];

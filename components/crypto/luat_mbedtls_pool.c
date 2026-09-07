@@ -31,16 +31,8 @@
 #ifdef TYPE_EC718M
 #include "platform_def.h"
 #endif
-
-#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
-#define LUAT_MB_POOL_ARM 1
-#else
-#define LUAT_MB_POOL_ARM 0
-#endif
-
-#if !LUAT_MB_POOL_ARM
 #include "luat_rtos.h"
-#endif
+
 
 #if defined(_MSC_VER)
 #include <intrin.h>          /* _BitScanForward (MSVC 无 __builtin_ctz) */
@@ -62,40 +54,17 @@ static luat_mb_pool_mem_t *s_pool = NULL;
 /* 建立失败置 1: 池永久禁用, 避免每次 calloc 都重试 22KB 分配 */
 static int s_pool_off = 0;
 
-#if LUAT_MB_POOL_ARM
-/* ARM 路径: PRIMASK 关中断临界区, 兼容多任务/多 TLS 会话并发 */
 typedef uint32_t luat_mb_pool_lock_t;
 
 static inline luat_mb_pool_lock_t luat_mb_pool_enter( void )
 {
-    uint32_t primask;
-    __asm volatile ( "mrs %0, primask\n cpsid i" : "=r"( primask ) :: "memory" );
-    return( primask );
+    return luat_rtos_entry_critical();
 }
 
 static inline void luat_mb_pool_exit( luat_mb_pool_lock_t primask )
 {
-    __asm volatile ( "msr primask, %0" :: "r"( primask ) : "memory" );
+    luat_rtos_exit_critical( primask );
 }
-#else
-/* 非 ARM 路径: luat_rtos 递归互斥锁 */
-typedef int luat_mb_pool_lock_t;
-static luat_rtos_mutex_t s_pool_mtx = NULL;
-
-static inline luat_mb_pool_lock_t luat_mb_pool_enter( void )
-{
-    if( s_pool_mtx != NULL )
-        luat_rtos_mutex_lock( s_pool_mtx, LUAT_WAIT_FOREVER );
-    return( 0 );
-}
-
-static inline void luat_mb_pool_exit( luat_mb_pool_lock_t st )
-{
-    (void) st;
-    if( s_pool_mtx != NULL )
-        luat_rtos_mutex_unlock( s_pool_mtx );
-}
-#endif
 
 static inline uint32_t luat_mb_pool_ctz( uint32_t v )
 {
@@ -123,24 +92,6 @@ int luat_mbedtls_pool_init( void )
         return( 0 );
     if( s_pool_off )                           /* 上次建立失败, 已永久禁用 */
         return( -1 );
-
-#if !LUAT_MB_POOL_ARM
-    /* 引导期先建递归互斥锁: RTOS 临界在 FreeRTOS 上等于关中断, 单核内
-     * 串行化, 不会双创建; PC 上 entry_critical 为空实现, 但 mbedtls 调用
-     * 发生在主线程/消息回调(单线程语义), 并发建锁场景不存在. */
-    if( s_pool_mtx == NULL )
-    {
-        uint32_t cri = luat_rtos_entry_critical();
-        if( s_pool_mtx == NULL )
-            luat_rtos_mutex_create( &s_pool_mtx );
-        luat_rtos_exit_critical( cri );
-        if( s_pool_mtx == NULL )               /* 建锁失败, 池禁用 */
-        {
-            s_pool_off = 1;
-            return( -1 );
-        }
-    }
-#endif
 
     mem = (luat_mb_pool_mem_t *) luat_heap_opt_calloc(
               LUAT_HEAP_PSRAM, 1, sizeof( luat_mb_pool_mem_t ) );

@@ -18,7 +18,7 @@ M.rfCaliDone, M.rfNSTDone = 0, 0
 
 --解析AT指令，执行不同的操作; id 为收到数据的 uart 端口, 应答回写到同一端口
 local function builtin_dispatch(line, id)
-    log.info("rfa", "builtin_dispatch", line, line:toHex())
+    -- log.info("rfa", "builtin_dispatch", line, line:toHex())
     local in_buff = in_buffs[id]
     -- AT+ES8311: detect ES8311 codec via I2C
     if line == "AT+ES8311\r\n" then
@@ -62,26 +62,25 @@ local function builtin_dispatch(line, id)
     -- AT+SETCFG="rfa_mode","true"  // set rfa_mode to true
     -- AT+SETCFG="rfa_mode","false" // set rfa_mode to false
     -- 引号可省略: AT+SETCFG=rfa_mode,true / AT+SETCFG=rfa_mode,false (也兼容单边带引号)
-    local cfg, val = line:match('^AT%+SETCFG="?([^",]+)"?%s*,%s*"?([^",%s]+)"?%s*$')
-    log.info("rfa", "builtin_dispatch", "AT+SETCFG", cfg, val)
-    if cfg and val then
-        in_buff:del()
-        val = val:lower()
-        log.info("val", val, val == "true", val == "false")
-        if val == "true" or val == "false" then
-            M.setRfOn(val == "true")
-            log.info('true')
-            return uart.write(id, string.format("\r\n+SETCFG: \"%s\",\"%s\"\r\n\r\nOK\r\n", cfg, val))
-        else
-            log.info('false')
-            return uart.write(id, "\r\nERROR\r\n")
+    -- 先做前缀比较, 只有 SETCFG 命令才进 pattern match, 避免每条消息(尤其是 ECRFNST 长报文)都跑一遍匹配
+    if line:sub(1, 9) == "AT+SETCFG" then
+        -- AT+SETCFG?: get config (placeholder until C backend ready)
+        if line == "AT+SETCFG?\r\n" then
+            in_buff:del()
+            return uart.write(id, string.format("\r\n+SETCFG: \"rfa_mode\",\"%s\"\r\n\r\nOK\r\n", M.getRFAOnStatus() and "true" or "false"))
         end
-    end
-
-    -- AT+SETCFG?: get config (placeholder until C backend ready)
-    if line == "AT+SETCFG?\r\n" then
-        in_buff:del()
-        return uart.write(id, string.format("\r\n+SETCFG: \"rfa_mode\",\"%s\"\r\n\r\nOK\r\n", M.getRFAOnStatus() and "true" or "false"))
+        local cfg, val = line:match('^AT%+SETCFG="?([^",]+)"?%s*,%s*"?([^",%s]+)"?%s*$')
+        -- log.info("rfa", "builtin_dispatch", "AT+SETCFG", cfg, val)
+        if cfg and val then
+            in_buff:del()
+            val = val:lower()
+            if val == "true" or val == "false" then
+                M.setRfOn(val == "true")
+                return uart.write(id, string.format("\r\n+SETCFG: \"%s\",\"%s\"\r\n\r\nOK\r\n", cfg, val))
+            else
+                return uart.write(id, "\r\nERROR\r\n")
+            end
+        end
     end
 
     atc_src_id = id

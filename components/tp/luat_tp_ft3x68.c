@@ -26,7 +26,10 @@
 #define FT3X68_ID_G_THGROUP			  0x80   	//触摸有效值
 #define FT3X68_ID_G_PERIODACTIVE	0x88   	//激活状态周期
 
-#define FTS_CHIP_IDH    0x64
+#define FTS_CHIP_IDH    0x64	// FT3x68 家族芯片ID
+// FT5x06 家族芯片ID: FT5206=0x52, FT5306=0x53, FT5406/FT5426/FT5446=0x54
+#define FTS_CHIP_IDH_FT5X06_MIN  0x52
+#define FTS_CHIP_IDH_FT5X06_MAX  0x54
 #define FTS_CHIP_IDL    0x56
 
 #define FTS_FW_VER       0x02
@@ -101,6 +104,12 @@ static int luat_tp_irq_cb(int pin, void *args){
     return 0;
 }
 
+static inline int ft3x68_chip_id_ok(uint8_t chip_id)
+{
+    return chip_id == FTS_CHIP_IDH
+        || (chip_id >= FTS_CHIP_IDH_FT5X06_MIN && chip_id <= FTS_CHIP_IDH_FT5X06_MAX);
+}
+
 static int tp_ft3x68_init(luat_tp_config_t* luat_tp_config)
 {
     if (luat_tp_config->pin_rst != LUAT_GPIO_NONE){
@@ -120,10 +129,20 @@ static int tp_ft3x68_init(luat_tp_config_t* luat_tp_config)
     }
     luat_tp_config->address = FT3X68_I2C_ADDRESS;
     uint8_t id[4] = {FT3X68_CHIP_VENDOR_ID, 0, 0, 0};
-    tp_i2c_read(luat_tp_config, id, 1, id, 4, 1);
-    if (id[0] == FTS_CHIP_IDH)
+    uint8_t retry = 5;  // FT5x06复位后启动较慢(可达200ms), 多次重读等待芯片就绪
+    while (retry--)
     {
-    	LLOGD("find ft3x68");
+        id[0] = FT3X68_CHIP_VENDOR_ID;
+        tp_i2c_read(luat_tp_config, id, 1, id, 4, 1);
+        if (ft3x68_chip_id_ok(id[0]))
+        {
+            break;
+        }
+        luat_rtos_task_sleep(50);
+    }
+    if (ft3x68_chip_id_ok(id[0]))
+    {
+    	LLOGI("find ft3x68/ft5x06 family, chip id=0x%02X", id[0]);
         if (luat_tp_config->pin_int != LUAT_GPIO_NONE)
         {
             luat_gpio_t gpio = {0};
@@ -136,6 +155,10 @@ static int tp_ft3x68_init(luat_tp_config_t* luat_tp_config)
             luat_gpio_setup(&gpio);
         }
         ft3x68_tp.is_inited = 1;
+    }
+    else
+    {
+        LLOGW("ft3x68/ft5x06 not found, chip id=0x%02X", id[0]);
     }
     return 0;
 }

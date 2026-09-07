@@ -39,6 +39,8 @@ static const tp_reg_t tp_regs[] = {
     {"jd9261t",  &tp_config_jd9261t},
 	{"jd9261t_inited",  &tp_config_jd9261t_inited},
 	{"ft3x68", &tp_config_ft3x68},
+	{"ft5446", &tp_config_ft3x68},
+	{"ft5x06", &tp_config_ft3x68},
     {"cst816d", &tp_config_cst816d},
     {"cst820", &tp_config_cst820},
     {"cst9220", &tp_config_cst92xx},

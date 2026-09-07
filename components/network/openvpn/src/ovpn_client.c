@@ -34,8 +34,7 @@
 #include "luat_log.h"
 #include "luat_network_adapter.h"
 
-/* Forward declarations (client-local; cross-file entries come from the
- * ovpn/*.h internal headers) */
+/* Forward declarations (client-local; cross-file entries come from the internal headers) */
 static int32_t ovpn_netc_callback(void *pData, void *pParam);
 static void ovpn_attach_netif(ovpn_client_t *cli);
 static void ovpn_client_stop_internal(ovpn_client_t *cli, int free_buffers);

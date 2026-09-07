@@ -31,6 +31,11 @@ extern "C" {
 
 /* ================= 由 luat_cc_bridge.c 提供 ================= */
 
+/** Open gates for a new CC media session, before starting the audio request.
+ * Call from the serialized media task. Stop APIs join PCM access and close
+ * the gates; never call them while holding the VoIP bridge or CC driver lock. */
+int luat_cc_bridge_session_start(void);
+
 /** voip 是否处于桥接模式(只判断 audio_mode, 不要求 RUNNING 状态) */
 uint8_t luat_cc_bridge_mode_on(void);
 
@@ -51,11 +56,12 @@ void    luat_cc_bridge_flush_sip_uplink(void);
 void    luat_cc_bridge_real_downlink_seen(uint32_t bytes);
 
 /** Route SIP RTP PCM into CC through the audio extern-record source. */
-int     luat_cc_bridge_uplink_source_start(luat_audio_extern_source_t *source, const luat_audio_common_param_t *cc_param);
+int     luat_cc_bridge_uplink_source_start(luat_audio_extern_source_t *source, const luat_audio_common_param_t *cc_param, uint32_t request_id);
 void    luat_cc_bridge_uplink_source_stop(void);
 
 #else
 
+static inline int luat_cc_bridge_session_start(void) { return 0; }
 static inline uint8_t luat_cc_bridge_mode_on(void) { return 0; }
 static inline void luat_cc_bridge_tone_start(void) {}
 static inline void luat_cc_bridge_tone_stop(void) {}
@@ -65,8 +71,8 @@ static inline void luat_cc_bridge_drain_stop(void) {}
 static inline void luat_cc_bridge_drain_downlink(void) {}
 static inline void luat_cc_bridge_flush_sip_uplink(void) {}
 static inline void luat_cc_bridge_real_downlink_seen(uint32_t bytes) { (void)bytes; }
-static inline int luat_cc_bridge_uplink_source_start(luat_audio_extern_source_t *source, const luat_audio_common_param_t *param) {
-    (void)source; (void)param; return -1;
+static inline int luat_cc_bridge_uplink_source_start(luat_audio_extern_source_t *source, const luat_audio_common_param_t *param, uint32_t request_id) {
+    (void)source; (void)param; (void)request_id; return -1;
 }
 static inline void luat_cc_bridge_uplink_source_stop(void) {}
 

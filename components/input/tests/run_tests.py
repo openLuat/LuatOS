@@ -32,8 +32,13 @@ with tempfile.TemporaryDirectory(prefix='luat-input-') as folder:
                     str(component / 'luat_input_hid.c'), str(component / 'tests/hid_test.c'),
                     '-o', str(hid)], check=True)
     subprocess.run([str(hid)], check=True, timeout=30)
+    touch = build / ('touch_test.exe' if os.name == 'nt' else 'touch_test')
+    subprocess.run([cc, *flags, '-DLUAT_USE_INPUT_TOUCH', str(sources[0]),
+                    str(component / 'luat_input_touch.c'), str(component / 'tests/touch_test.c'),
+                    '-o', str(touch)], check=True)
+    subprocess.run([str(touch)], check=True, timeout=30)
     # Both feature-off and core-only builds must stay independent of queue/RTOS.
-    for source in [*sources, component / 'luat_input_hid.c']:
+    for source in [*sources, component / 'luat_input_hid.c', component / 'luat_input_touch.c']:
         subprocess.run([cc, '-std=c11', '-Wall', '-Wextra', '-Werror', '-Wpedantic',
                         '-I' + str(root / 'luat/include'), '-c', str(source),
                         '-o', str(build / (source.stem + '_off.o'))], check=True)
@@ -42,9 +47,9 @@ with tempfile.TemporaryDirectory(prefix='luat-input-') as folder:
         if not arm:
             raise SystemExit('ARM compiler not found')
         objects = []
-        for source in [*sources, component / 'luat_input_hid.c']:
+        for source in [*sources, component / 'luat_input_hid.c', component / 'luat_input_touch.c']:
             obj = build / (source.stem + '_arm.o')
-            subprocess.run([arm, *flags, '-DLUAT_USE_INPUT_HID', '-Os', '-mcpu=cortex-m4', '-mthumb',
+            subprocess.run([arm, *flags, '-DLUAT_USE_INPUT_HID', '-DLUAT_USE_INPUT_TOUCH', '-Os', '-mcpu=cortex-m4', '-mthumb',
                             '-ffunction-sections', '-fdata-sections', '-fstack-usage',
                             '-c', str(source), '-o', str(obj)], check=True)
             objects.append(obj)

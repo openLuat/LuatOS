@@ -122,6 +122,20 @@ static void test_core(void)
     luat_input_handle_t list[1];
     assert(luat_input_enumerate(&core, NULL, 0, &count) == LUAT_INPUT_ENOSPC && count == 1);
     assert(luat_input_enumerate(&core, list, 1, &count) == 0 && list[0].id == h.id);
+    luat_input_handle_t found = {0};
+    const luat_input_device_desc_t *found_desc = NULL;
+    const luat_input_axis_t *axis = NULL;
+    assert(!luat_input_lookup(&core, h.id, &found) && found.id == h.id);
+    assert(!luat_input_get_desc(found, &found_desc) && found_desc == &desc);
+    assert(!luat_input_get_capability(found, LUAT_INPUT_EV_KEY, 30, &axis) && !axis);
+    assert(!luat_input_get_capability(found, LUAT_INPUT_EV_REL, LUAT_INPUT_REL_X, &axis) && !axis);
+    assert(!luat_input_get_capability(found, LUAT_INPUT_EV_ABS, LUAT_INPUT_ABS_X, &axis));
+    assert(axis == &abs_axes[0] && axis->minimum == 0 && axis->maximum == 799);
+    assert(!luat_input_get_capability(found, LUAT_INPUT_EV_ABS, LUAT_INPUT_ABS_MT_SLOT, &axis) && !axis);
+    assert(luat_input_get_capability(found, LUAT_INPUT_EV_KEY, 31, NULL) == LUAT_INPUT_ENOTSUP);
+    assert(luat_input_get_capability(found, 0xffff, 0, NULL) == LUAT_INPUT_ENOTSUP);
+    assert(luat_input_lookup(&core, 0, &found) == LUAT_INPUT_EINVAL);
+    assert(luat_input_lookup(&core, h.id + 1, &found) == LUAT_INPUT_ESTALE && !found.device);
     uint32_t prior_sequence = device.sequence;
     assert(luat_input_unbind(&link) == 0 && o.last.flags == LUAT_INPUT_FRAME_REMOVE);
     assert(luat_input_sequence_after(o.last.sequence, prior_sequence));
@@ -130,6 +144,7 @@ static void test_core(void)
     assert(luat_input_unregister(h, 102) == 0);
     assert(o.last.flags == (LUAT_INPUT_FRAME_REMOVE | LUAT_INPUT_FRAME_RESET));
     assert(!link.device && !core.devices && !device.core);
+    assert(luat_input_get_desc(h, &found_desc) == LUAT_INPUT_ESTALE);
     assert(luat_input_submit(h, 0, NULL, 0) == LUAT_INPUT_ESTALE);
     luat_input_handle_t fresh;
     assert(luat_input_register(&core, &device, &desc, state, 17, &fresh) == 0);
@@ -167,6 +182,23 @@ static void test_caps(void)
     assert(luat_input_register(&core, &device, &d, NULL, 0, &h) == 0);
     assert(luat_input_reset(h, 0) == 0);
     assert(luat_input_unregister(h, 0) == 0);
+}
+
+static void test_bind_id(void)
+{
+    luat_input_core_t core;
+    luat_input_device_t device = {0};
+    luat_input_link_t link = {0}, missing = {0};
+    luat_input_handle_t h = {0}, bound = {0};
+    uint32_t state[17];
+    observer_t o = {0};
+    luat_input_init(&core);
+    assert(!luat_input_register(&core, &device, &desc, state, 17, &h));
+    assert(!luat_input_bind_id(&core, h.id, &link, observe, &o, &bound));
+    assert(bound.id == h.id && o.calls == 1 && o.last.flags == LUAT_INPUT_FRAME_ATTACH);
+    assert(luat_input_bind_id(&core, h.id + 1, &missing, observe, &o, NULL) == LUAT_INPUT_ESTALE);
+    assert(!missing.device);
+    assert(!luat_input_unregister(h, 0));
 }
 
 typedef struct { int depth; int wakes; } lock_check_t;
@@ -340,7 +372,7 @@ static void benchmark(void)
 
 int main(void)
 {
-    test_caps(); test_core(); test_queue(); test_threads(); benchmark();
+    test_caps(); test_core(); test_bind_id(); test_queue(); test_threads(); benchmark();
     puts("PASS: frame atomicity, capabilities, key/MT state, snapshot, reentry, hotplug/stale IDs, wrap, queue loss/wrap, 20000 concurrent frames");
     return 0;
 }

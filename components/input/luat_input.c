@@ -329,6 +329,70 @@ int luat_input_enumerate(luat_input_core_t *core, luat_input_handle_t *handles,
     return n > capacity ? LUAT_INPUT_ENOSPC : LUAT_INPUT_OK;
 }
 
+int luat_input_lookup(luat_input_core_t *core, uint32_t device_id,
+    luat_input_handle_t *handle)
+{
+    if (!core || !device_id || !handle) return LUAT_INPUT_EINVAL;
+    for (luat_input_device_t *dev = core->devices; dev; dev = dev->next) {
+        if (dev->id != device_id) continue;
+        *handle = (luat_input_handle_t){dev, dev->id};
+        return LUAT_INPUT_OK;
+    }
+    memset(handle, 0, sizeof(*handle));
+    return LUAT_INPUT_ESTALE;
+}
+
+int luat_input_get_desc(luat_input_handle_t handle,
+    const luat_input_device_desc_t **desc)
+{
+    if (!live(handle)) return LUAT_INPUT_ESTALE;
+    if (!desc) return LUAT_INPUT_EINVAL;
+    *desc = handle.device->desc;
+    return LUAT_INPUT_OK;
+}
+
+int luat_input_get_capability(luat_input_handle_t handle, uint16_t type,
+    uint16_t code, const luat_input_axis_t **axis)
+{
+    if (!live(handle)) return LUAT_INPUT_ESTALE;
+    if (axis) *axis = NULL;
+    const luat_input_caps_t *caps = &handle.device->desc->caps;
+    int index;
+    switch (type) {
+    case LUAT_INPUT_EV_KEY:
+        return key_supported(caps, code) ? LUAT_INPUT_OK : LUAT_INPUT_ENOTSUP;
+    case LUAT_INPUT_EV_REL:
+    case LUAT_INPUT_EV_MSC:
+        if (code >= 32) return LUAT_INPUT_ENOTSUP;
+        return ((type == LUAT_INPUT_EV_REL ? caps->rel_bits : caps->msc_bits) &
+                (UINT32_C(1) << code)) ? LUAT_INPUT_OK : LUAT_INPUT_ENOTSUP;
+    case LUAT_INPUT_EV_ABS:
+        if (code == LUAT_INPUT_ABS_MT_SLOT)
+            return caps->mt_slots ? LUAT_INPUT_OK : LUAT_INPUT_ENOTSUP;
+        index = is_mt(code) ? axis_index(caps->mt, caps->mt_count, code) :
+                              axis_index(caps->abs, caps->abs_count, code);
+        if (index < 0) return LUAT_INPUT_ENOTSUP;
+        if (axis) *axis = (is_mt(code) ? caps->mt : caps->abs) + index;
+        return LUAT_INPUT_OK;
+    case LUAT_INPUT_EV_SYN:
+        return code == LUAT_INPUT_SYN_REPORT ? LUAT_INPUT_OK : LUAT_INPUT_ENOTSUP;
+    default:
+        return LUAT_INPUT_ENOTSUP;
+    }
+}
+
+int luat_input_bind_id(luat_input_core_t *core, uint32_t device_id,
+    luat_input_link_t *link, luat_input_receive_t receive, void *userdata,
+    luat_input_handle_t *handle)
+{
+    luat_input_handle_t resolved = {0};
+    int ret = luat_input_lookup(core, device_id, &resolved);
+    if (ret) return ret;
+    ret = luat_input_bind(resolved, link, receive, userdata);
+    if (!ret && handle) *handle = resolved;
+    return ret;
+}
+
 int luat_input_enumerate_bound(luat_input_core_t *core,
     luat_input_receive_t receive, void *userdata, luat_input_handle_t *handles,
     size_t capacity, size_t *count)

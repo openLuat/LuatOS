@@ -207,6 +207,23 @@ int luat_input_snapshot(luat_input_handle_t handle, luat_input_snapshot_t *snaps
 /** Enumerate one core's active instances, for configuration/loss recovery only. */
 int luat_input_enumerate(luat_input_core_t *core, luat_input_handle_t *handles,
     size_t capacity, size_t *count);
+/** Resolve one active instance ID. Configuration path only. */
+int luat_input_lookup(luat_input_core_t *core, uint32_t device_id,
+    luat_input_handle_t *handle);
+/** Return the immutable descriptor borrowed for this device's registered life. */
+int luat_input_get_desc(luat_input_handle_t handle,
+    const luat_input_device_desc_t **desc);
+/** Query one event code. ABS returns its immutable axis metadata when axis is not
+ * NULL; other supported types set axis to NULL. Returns ENOTSUP when absent.
+ */
+int luat_input_get_capability(luat_input_handle_t handle, uint16_t type,
+    uint16_t code, const luat_input_axis_t **axis);
+/** Resolve and bind by instance ID. Returns the resolved handle when requested.
+ * This remains a configuration operation; events still dispatch through link.
+ */
+int luat_input_bind_id(luat_input_core_t *core, uint32_t device_id,
+    luat_input_link_t *link, luat_input_receive_t receive, void *userdata,
+    luat_input_handle_t *handle);
 /** Resolve current bindings for a consumer, including loss recovery after unbind.
  * Queued consumers match receive=luat_input_queue_receive, userdata=queue.
  * Configuration path only; a queue with core bindings belongs to one core.

@@ -10,6 +10,7 @@
 ]]
 
 local cc_main = {}
+local config = require "config"
 
 local STATE_IDLE = "cc_idle"
 local STATE_DIALING = "cc_dialing"
@@ -19,6 +20,8 @@ local STATE_DISCONNECTING = "cc_disconnecting"
 
 local g_state = STATE_IDLE
 local g_ready = false
+local g_audio_start_timer = nil
+local g_call_generation = 0
 
 local function logi(...)
     log.info("cc_main", ...)
@@ -26,9 +29,40 @@ end
 
 local function set_state(new_state)
     if g_state ~= new_state then
+        local old_state = g_state
         logi("状态切换", g_state, "->", new_state)
         g_state = new_state
+        sys.publish("CC_STATE_CHANGED", new_state, old_state)
     end
+end
+
+local function stop_audio_start_timeout()
+    if g_audio_start_timer then
+        sys.timerStop(g_audio_start_timer)
+        g_audio_start_timer = nil
+    end
+end
+
+local function start_audio_start_timeout()
+    stop_audio_start_timeout()
+    local timeout = tonumber(config.cc_audio_start_timeout_ms) or 0
+    if timeout <= 0 then return end
+
+    local generation = g_call_generation
+    g_audio_start_timer = sys.timerStart(function()
+        g_audio_start_timer = nil
+        if generation ~= g_call_generation or
+            (g_state ~= STATE_DIALING and g_state ~= STATE_RINGING) then
+            return
+        end
+
+        log.error("cc_main", "CC 语音已开始但音频通道启动超时", timeout)
+        set_state(STATE_DISCONNECTING)
+        if cc and cc.hangUp then
+            cc.hangUp(0)
+        end
+        sys.publish("CC_FAILED", "audio_start_timeout")
+    end, timeout)
 end
 
 -- ==================== 请求处理 ====================
@@ -36,8 +70,11 @@ end
 local function on_cc_dial_req(number)
     if g_state ~= STATE_IDLE then
         log.warn("cc_main", "CC 忙，无法拨号", g_state)
+        sys.publish("CC_DIAL_REJECTED", "busy")
         return
     end
+    stop_audio_start_timeout()
+    g_call_generation = g_call_generation + 1
     set_state(STATE_DIALING)
     logi("执行拨号", number)
     if not cc or not cc.dial then
@@ -77,6 +114,11 @@ local function on_cc_hangup_req()
         log.warn("cc_main", "CC 已空闲")
         return
     end
+    if g_state == STATE_DISCONNECTING then
+        logi("CC 正在挂断")
+        return
+    end
+    stop_audio_start_timeout()
     set_state(STATE_DISCONNECTING)
     logi("执行挂断")
     if cc and cc.hangUp then
@@ -108,11 +150,14 @@ local function on_cc_event(status, value, extra)
             if cc and cc.hangUp then cc.hangUp(0) end
             return
         end
+        stop_audio_start_timeout()
+        g_call_generation = g_call_generation + 1
         set_state(STATE_RINGING)
         logi("手机来电", number)
         sys.publish("CC_INCOMING", number)
 
     elseif status == "CONNECTED" or status == "AUDIO_START" then
+        stop_audio_start_timeout()
         if g_state ~= STATE_CONNECTED then
             set_state(STATE_CONNECTED)
             logi("CC 通话已建立")
@@ -120,15 +165,26 @@ local function on_cc_event(status, value, extra)
         end
 
     elseif status == "DISCONNECTED" then
+        local was_active = g_state ~= STATE_IDLE
+        stop_audio_start_timeout()
         set_state(STATE_IDLE)
         logi("CC 通话已断开")
-        sys.publish("CC_DISCONNECTED")
+        if was_active then
+            sys.publish("CC_DISCONNECTED")
+        end
+
+    elseif status == "SPEECH_START" then
+        if g_state == STATE_DIALING or g_state == STATE_RINGING then
+            logi("CC 语音开始，等待音频通道启动")
+            start_audio_start_timeout()
+        end
 
     elseif status == "MAKE_CALL_OK" then
         logi("CC 拨号请求已发送")
 
     elseif status == "MAKE_CALL_FAILED" then
         log.error("cc_main", "CC 拨号失败")
+        stop_audio_start_timeout()
         set_state(STATE_IDLE)
         sys.publish("CC_FAILED", "make_call_failed")
 
@@ -136,8 +192,13 @@ local function on_cc_event(status, value, extra)
         logi("CC 接听完成")
 
     elseif status == "HANGUP_CALL_DONE" then
+        local was_active = g_state ~= STATE_IDLE
         logi("CC 挂断完成")
+        stop_audio_start_timeout()
         set_state(STATE_IDLE)
+        if was_active then
+            sys.publish("CC_DISCONNECTED", "local_hangup")
+        end
     end
 end
 

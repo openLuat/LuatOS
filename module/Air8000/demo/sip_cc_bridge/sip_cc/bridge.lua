@@ -19,7 +19,10 @@ if ok then exaudio = result end
 local bridge = {}
 
 local STATE_SIP_IDLE = "sip_idle"
+local STATE_SIP_DISCONNECTING = "sip_disconnecting"
 local STATE_CC_IDLE = "cc_idle"
+local STATE_CC_DIALING = "cc_dialing"
+local STATE_CC_DISCONNECTING = "cc_disconnecting"
 
 local g_sip_state = STATE_SIP_IDLE
 local g_cc_state = STATE_CC_IDLE
@@ -70,6 +73,11 @@ end
 
 local function on_sip_incoming(from, uri, to)
     logi("SIP 来电", from, uri, to)
+    if g_sip_state ~= STATE_SIP_IDLE or g_cc_state ~= STATE_CC_IDLE then
+        log.warn("bridge", "桥接忙，拒绝新的 SIP 来电", g_sip_state, g_cc_state)
+        sys.publish("SIP_HANGUP_REQ")
+        return
+    end
     g_sip_state = "sip_incoming"
     g_call_direction = "outgoing"
     if config.auto_answer_sip then
@@ -82,7 +90,12 @@ local function on_sip_progressing()
     g_sip_state = "sip_progressing"
     if g_call_direction == "outgoing" and g_cc_state == STATE_CC_IDLE then
         logi("早期媒体已建立，拨打手机", config.target_phone_number)
+        g_cc_state = STATE_CC_DIALING
         sys.publish("CC_DIAL_REQ", config.target_phone_number)
+    elseif g_call_direction == "outgoing" then
+        log.warn("bridge", "CC 非空闲，终止当前 SIP 来电", g_cc_state)
+        g_sip_state = STATE_SIP_DISCONNECTING
+        sys.publish("SIP_HANGUP_REQ")
     end
 end
 
@@ -101,8 +114,9 @@ end
 local function on_sip_disconnected(reason)
     logi("SIP 断开", reason or "")
     g_sip_state = STATE_SIP_IDLE
-    if g_cc_state ~= STATE_CC_IDLE then
+    if g_cc_state ~= STATE_CC_IDLE and g_cc_state ~= STATE_CC_DISCONNECTING then
         logi("同步挂断 CC")
+        g_cc_state = STATE_CC_DISCONNECTING
         sys.publish("CC_HANGUP_REQ")
     end
     reset_call()
@@ -111,8 +125,9 @@ end
 local function on_sip_failed(reason)
     log.warn("bridge", "SIP 失败", reason or "")
     g_sip_state = STATE_SIP_IDLE
-    if g_cc_state ~= STATE_CC_IDLE then
+    if g_cc_state ~= STATE_CC_IDLE and g_cc_state ~= STATE_CC_DISCONNECTING then
         logi("同步挂断 CC")
+        g_cc_state = STATE_CC_DISCONNECTING
         sys.publish("CC_HANGUP_REQ")
     end
     reset_call()
@@ -129,6 +144,12 @@ sys.subscribe("SIP_FAILED", on_sip_failed)
 local function on_cc_incoming(number)
     logi("CC 来电", number)
     g_cc_state = "cc_ringing"
+    if g_sip_state ~= STATE_SIP_IDLE then
+        log.warn("bridge", "SIP 非空闲，拒绝新的 CC 来电", g_sip_state)
+        g_cc_state = STATE_CC_DISCONNECTING
+        sys.publish("CC_HANGUP_REQ")
+        return
+    end
     if config.auto_handle_mobile_incoming then
         g_call_direction = "incoming"
         logi("呼入场景：拨打 SIP", config.remote_sip_uri)
@@ -151,8 +172,9 @@ end
 local function on_cc_disconnected(reason)
     logi("CC 断开", reason or "")
     g_cc_state = STATE_CC_IDLE
-    if g_sip_state ~= STATE_SIP_IDLE then
+    if g_sip_state ~= STATE_SIP_IDLE and g_sip_state ~= STATE_SIP_DISCONNECTING then
         logi("同步挂断 SIP")
+        g_sip_state = STATE_SIP_DISCONNECTING
         sys.publish("SIP_HANGUP_REQ")
     end
     reset_call()
@@ -160,18 +182,33 @@ end
 
 local function on_cc_failed(reason)
     log.warn("bridge", "CC 失败", reason or "")
-    g_cc_state = STATE_CC_IDLE
-    if g_sip_state ~= STATE_SIP_IDLE then
+    if g_sip_state ~= STATE_SIP_IDLE and g_sip_state ~= STATE_SIP_DISCONNECTING then
         logi("同步挂断 SIP")
+        g_sip_state = STATE_SIP_DISCONNECTING
         sys.publish("SIP_HANGUP_REQ")
     end
     reset_call()
+end
+
+local function on_cc_dial_rejected(reason)
+    log.warn("bridge", "CC 拒绝拨号", reason or "")
+    if g_sip_state ~= STATE_SIP_IDLE and g_sip_state ~= STATE_SIP_DISCONNECTING then
+        g_sip_state = STATE_SIP_DISCONNECTING
+        sys.publish("SIP_HANGUP_REQ")
+    end
+    reset_call()
+end
+
+local function on_cc_state_changed(new_state)
+    g_cc_state = new_state
 end
 
 sys.subscribe("CC_INCOMING", on_cc_incoming)
 sys.subscribe("CC_CONNECTED", on_cc_connected)
 sys.subscribe("CC_DISCONNECTED", on_cc_disconnected)
 sys.subscribe("CC_FAILED", on_cc_failed)
+sys.subscribe("CC_DIAL_REJECTED", on_cc_dial_rejected)
+sys.subscribe("CC_STATE_CHANGED", on_cc_state_changed)
 
 -- ==================== 公共 API ====================
 

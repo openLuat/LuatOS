@@ -88,6 +88,10 @@ local function on_sip_hangup_req()
         log.warn("sip_main", "SIP 已空闲")
         return
     end
+    if g_state == STATE_DISCONNECTING then
+        logi("SIP 正在挂断")
+        return
+    end
     set_state(STATE_DISCONNECTING)
     logi("执行挂断")
     local ok = exsip.hangUp()

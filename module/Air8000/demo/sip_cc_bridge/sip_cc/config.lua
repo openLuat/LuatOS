@@ -38,6 +38,10 @@ local config = {
     auto_answer_sip = true,            -- SIP 来电时自动接听
     auto_handle_mobile_incoming = true,  -- 手机来电时自动拨打 SIP
 
+    -- CC 已进入语音阶段后，等待真实音频通道启动的最长时间。
+    -- 超时会主动释放两侧，避免 SIP 卡在 183、CC 继续保持通话。
+    cc_audio_start_timeout_ms = 1500,
+
     -- 默认本地音频开关：false 表示仅桥接，true 表示本地也能听到/说话
     local_audio_default = false,
 

@@ -8,14 +8,18 @@ local M = { _VERSION = "1.0.2" }
 M._CFG_FILE_PATH = "/factory.cfg"
 local rf_mode_ = true -- 默认处于 rfa 校准模式, 只有显式配置为false才表示退出rfa模式
 local out_buff = zbuff.create(8000)
-local in_buff = zbuff.create(8000)
-local uart_id = uart.VUART_0
+-- 支持多端口同时响应 (如 VUART_0 + UART1), 每个端口独立接收缓冲
+local uart_ids = {}     -- 已启动的 uart id 列表
+local in_buffs = {}     -- uart id -> zbuff
+local atc_on_ = false   -- atc 回调只注册一次
+local atc_src_id = nil  -- 最近一次向 atc 投喂数据的端口, atc 应答回写到该端口
 M.rfCaliDone, M.rfNSTDone = 0, 0
 
 
---解析AT指令，执行不同的操作
-local function builtin_dispatch(line)
+--解析AT指令，执行不同的操作; id 为收到数据的 uart 端口, 应答回写到同一端口
+local function builtin_dispatch(line, id)
     log.info("rfa", "builtin_dispatch", line, line:toHex())
+    local in_buff = in_buffs[id]
     -- AT+ES8311: detect ES8311 codec via I2C
     if line == "AT+ES8311\r\n" then
         in_buff:del()
@@ -47,9 +51,9 @@ local function builtin_dispatch(line)
             log.warn("rfa", "AT+ES8311 not supported on this platform")
         end
         if present then
-            uart.write(uart_id, "\r\n+ES8311: OK\r\n\r\nOK\r\n")
+            uart.write(id, "\r\n+ES8311: OK\r\n\r\nOK\r\n")
         else
-            uart.write(uart_id, "\r\n+ES8311: ERROR\r\n\r\nOK\r\n")
+            uart.write(id, "\r\n+ES8311: ERROR\r\n\r\nOK\r\n")
         end
         return
     end
@@ -67,26 +71,30 @@ local function builtin_dispatch(line)
         if val == "true" or val == "false" then
             M.setRfOn(val == "true")
             log.info('true')
-            return uart.write(uart_id, string.format("\r\n+SETCFG: \"%s\",\"%s\"\r\n\r\nOK\r\n", cfg, val))
+            return uart.write(id, string.format("\r\n+SETCFG: \"%s\",\"%s\"\r\n\r\nOK\r\n", cfg, val))
         else
             log.info('false')
-            return uart.write(uart_id, "\r\nERROR\r\n")
+            return uart.write(id, "\r\nERROR\r\n")
         end
     end
 
     -- AT+SETCFG?: get config (placeholder until C backend ready)
     if line == "AT+SETCFG?\r\n" then
         in_buff:del()
-        return uart.write(uart_id, string.format("\r\n+SETCFG: \"rfa_mode\",\"%s\"\r\n\r\nOK\r\n", M.getRFAOnStatus() and "true" or "false"))
+        return uart.write(id, string.format("\r\n+SETCFG: \"rfa_mode\",\"%s\"\r\n\r\nOK\r\n", M.getRFAOnStatus() and "true" or "false"))
     end
 
+    atc_src_id = id
     atc.input(0, in_buff)
     in_buff:del()
 end
 
---ATC 输出回调, 处理 ATC 模块的输出数据
+--ATC 输出回调, 处理 ATC 模块的输出数据; 应答回写到发起该命令的端口
 local function atc_out(id, event, param)
-    uart.tx(uart_id, out_buff)
+    local tx_id = atc_src_id or uart_ids[1]
+    if tx_id then
+        uart.tx(tx_id, out_buff)
+    end
     local out_resp = out_buff:toStr(0, out_buff:used())
     if out_resp and out_resp:match("%+ECNPICFG:") then
         -- 解析 AT+ECNPICFG? 响应, 更新 rfCaliDone 和 rfNSTDone 状态
@@ -100,20 +108,54 @@ local function atc_out(id, event, param)
     end
 end
 
-function M.start(uart_id, baud)
-    uart_id = uart_id or uart.VUART_0
+--启动指定端口的 RFA AT 服务; 可多次调用, 让多个端口同时响应
+function M.start(id, baud)
+    id = id or uart.VUART_0
     baud = baud or 115200
-    uart.setup(uart_id, baud, 8, 1)
-    uart.on(uart_id, "receive", function(id, len)
-        uart.rx(id, in_buff)
-        builtin_dispatch(in_buff:toStr(0, in_buff:used()))  -- 处理内置 AT 指令
+    if in_buffs[id] then
+        log.warn("rfa", "start: 端口已启动, 忽略重复调用", id)
+        return
+    end
+    uart.setup(id, baud, 8, 1)
+    in_buffs[id] = zbuff.create(8000)
+    table.insert(uart_ids, id)
+    uart.on(id, "receive", function(rxid, len)
+        local buff = in_buffs[rxid]
+        if not buff then return end
+        uart.rx(rxid, buff)
+        builtin_dispatch(buff:toStr(0, buff:used()), rxid)  -- 处理内置 AT 指令
     end)
-    atc.on(0, atc_out, out_buff)
+    if not atc_on_ then
+        atc.on(0, atc_out, out_buff)
+        atc_on_ = true
+    end
 end
 
-function M.close()
-    uart.on(uart_id, "receive", nil)
-    atc.on(0, nil)
+--关闭 RFA AT 服务; 传 id 只关闭指定端口, 不传则关闭全部端口
+function M.close(id)
+    if id then
+        if not in_buffs[id] then return end
+        uart.on(id, "receive", nil)
+        in_buffs[id] = nil
+        for i, v in ipairs(uart_ids) do
+            if v == id then
+                table.remove(uart_ids, i)
+                break
+            end
+        end
+        if atc_src_id == id then atc_src_id = nil end
+    else
+        for _, v in ipairs(uart_ids) do
+            uart.on(v, "receive", nil)
+        end
+        uart_ids = {}
+        in_buffs = {}
+        atc_src_id = nil
+    end
+    if #uart_ids == 0 and atc_on_ then
+        atc.on(0, nil)
+        atc_on_ = false
+    end
 end
 
 -- 设置 RF 校准模式功能开关 (true=on, false=off)

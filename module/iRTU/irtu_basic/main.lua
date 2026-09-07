@@ -38,9 +38,10 @@ if wdt then
 end
 
 if rfa and atc then
-    -- 启动 RFA AT 服务器，绑定到 USB 虚拟串口 VUART_0
+    -- 启动 RFA AT 服务器，同时绑定 USB 虚拟串口 VUART_0 和 UART1，两个端口都能响应 RFA AT 指令
     -- 波特率对虚拟串口无实际意义，但保持 115200 与产线工具一致
     rfa.start(uart.VUART_0, 115200)
+    rfa.start(1, 115200)
     sys.taskInit(function()
         local passed, status = mobile.ecnpicfg()
         if passed then
@@ -50,9 +51,10 @@ if rfa and atc then
             local rfa_mode = rfa.getRFAOnStatus()
             log.info("main", "rfa_mode", rfa_mode)
             if rfa_mode then
-                log.info("main", "当前处于rfa模式, 禁用irtu的VUART_0数据回调")
-                -- 置位全局标志, 通知irtu的driver不要注册VUART_0的数据回调
+                log.info("main", "当前处于rfa模式, 禁用irtu的VUART_0和UART1数据回调")
+                -- 置位全局标志, 通知irtu的driver不要注册VUART_0和UART1的数据回调
                 _G.IRTU_DISABLE_VUART = true
+                _G.IRTU_DISABLE_UART1 = true
             else
                 log.info("main", "已退出rfa模式, 进入iRTU模式")
                 rfa.close()

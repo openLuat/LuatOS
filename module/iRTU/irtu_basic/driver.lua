@@ -634,8 +634,10 @@ function driver.init()
     dtu = default.get()
     cfg = default.cfg_get()
     -- 初始化配置UART1和UART2
+    -- 处于rfa模式时(main.lua会置位IRTU_DISABLE_UART1), UART1由rfa的AT服务器独占
+    -- irtu不再初始化UART1, 避免注册数据回调抢占rfa的串口数据
     local uidgps = dtu.gps and dtu.gps.fun and tonumber(dtu.gps.fun[1])
-    if uidgps ~= 1 and dtu.uconf and dtu.uconf[1] and tonumber(dtu.uconf[1][1]) == 1 then
+    if not _G.IRTU_DISABLE_UART1 and uidgps ~= 1 and dtu.uconf and dtu.uconf[1] and tonumber(dtu.uconf[1][1]) == 1 then
         uart_INIT(1, dtu.uconf) end
     if uidgps ~= 2 and dtu.uconf and dtu.uconf[2] and tonumber(dtu.uconf[2][1]) == 2 then uart_INIT(2, dtu.uconf) end
     if uidgps ~= 3 and dtu.uconf and dtu.uconf[3] and tonumber(dtu.uconf[3][1]) == 3 then 

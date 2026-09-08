@@ -370,17 +370,19 @@ static void luat_sdl2_apply_preview_window_size(void) {
 }
 
 // 定时调用此函数以保持 SDL2 事件泵活跃，避免窗口无响应
+// 只抽 QUIT / 窗口事件，保持消息泵；鼠标键盘留给 AirUI indev。
+// flush 里若 PollEvent 抽空队列，注入的 UP 会在 indev 读到之前被丢掉，按钮会卡住。
 void luat_sdl2_pump_events(void) {
     SDL_Event e;
     luat_pcsim_host_poll();
-    // 循环处理所有等待的事件
-    while (SDL_PollEvent(&e)) {
-        if (e.type == SDL_QUIT) {
-            // 设置标志位, 让 main 循环自行退出, 避免 exit(0) 绕过 SDL2 清理
-            sdl2_exit_requested = 1;
-        }
+    SDL_PumpEvents();
+    while (SDL_PeepEvents(&e, 1, SDL_GETEVENT, SDL_QUIT, SDL_QUIT) > 0) {
+        sdl2_exit_requested = 1;
+    }
 #if !defined(_WIN32)
-        else if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED && window != NULL && e.window.windowID == SDL_GetWindowID(window)) {
+    while (SDL_PeepEvents(&e, 1, SDL_GETEVENT, SDL_WINDOWEVENT, SDL_WINDOWEVENT) > 0) {
+        if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED && window != NULL &&
+            e.window.windowID == SDL_GetWindowID(window)) {
             if (aspect_adjusting_window) {
                 aspect_adjusting_window = 0;
                 aspect_last_window_w = e.window.data1;
@@ -388,14 +390,12 @@ void luat_sdl2_pump_events(void) {
             } else {
                 luat_sdl2_update_aspect_window_size(e.window.data1, e.window.data2);
             }
-        }
-        else if (e.type == SDL_WINDOWEVENT && (e.window.event == SDL_WINDOWEVENT_EXPOSED || e.window.event == SDL_WINDOWEVENT_RESIZED) &&
-                 window != NULL && e.window.windowID == SDL_GetWindowID(window)) {
+        } else if ((e.window.event == SDL_WINDOWEVENT_EXPOSED || e.window.event == SDL_WINDOWEVENT_RESIZED) &&
+                   window != NULL && e.window.windowID == SDL_GetWindowID(window)) {
             luat_sdl2_present_current_frame();
         }
-#endif
-        // 其他事件不做处理，关键作用是让事件泵持续运行，防止界面假死
     }
+#endif
 }
 
 static void luat_sdl2_present_current_frame(void) {

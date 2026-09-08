@@ -783,8 +783,7 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_t *indev, lv_indev
         input_data.pending_release = true;
         mouse_up_event = false;
     }
-    
-    // 填充输入数据
+
     data->point.x = input_data.last_x;
     data->point.y = input_data.last_y;
     data->state = input_data.left_button_down ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;

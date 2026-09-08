@@ -1,6 +1,8 @@
 #include "luat_base.h"
 #include <string.h>
 
+extern int luat_crypto_p256_utest(lua_State *L);
+
 static int run_lua_bool_expr(lua_State *L, const char *code) {
     int top = lua_gettop(L);
     int ok = 0;
@@ -12,6 +14,9 @@ static int run_lua_bool_expr(lua_State *L, const char *code) {
 }
 
 int luat_crypto_utest(lua_State *L, const char *case_name) {
+    if (case_name && strcmp(case_name, "p256_fast") == 0) {
+        return luat_crypto_p256_utest(L);
+    }
     if (!case_name || strcmp(case_name, "sha1_known_vector") == 0) {
         return run_lua_bool_expr(
             L,

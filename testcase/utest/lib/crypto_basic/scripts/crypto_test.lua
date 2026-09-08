@@ -21,8 +21,16 @@ function gmssl_suite.test_gmssl_utest_sm3_known_vector()
     assert(ok == true, "gmssl.utest(sm3_known_vector) 应返回 true")
 end
 
+local p256_suite = {}
+function p256_suite.test_crypto_utest_p256_fast()
+    assert(crypto and type(crypto.utest) == "function", "crypto.utest 不存在")
+    local ok = crypto.utest("p256_fast")
+    assert(ok == true, "crypto.utest(p256_fast) 应返回 true")
+end
+
 crypto_test.cjson_suite = cjson_suite
 crypto_test.rsa_suite = rsa_suite
 crypto_test.gmssl_suite = gmssl_suite
+crypto_test.p256_suite = p256_suite
 
 return crypto_test

@@ -298,6 +298,8 @@ target("luatos-lua")
         if os.isdir(luatos.."components/utest/include") then
             add_includedirs(luatos.."components/utest/include", {public = true})
         end
+        -- crypto/p256 utest 需要 luat_p256.h
+        add_includedirs(luatos.."components/crypto/p256", {public = true})
         add_files(luatos.."components/utest/**.c")
         add_files("stubs/uart_dll_utest/luat_uart_dll_utest.c")
     end

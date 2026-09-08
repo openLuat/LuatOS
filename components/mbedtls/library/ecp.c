@@ -102,6 +102,13 @@
 #include "luat_mbedtls.h"
 #endif /* LUAT_CONF_MBEDTLS_ECP_CACHE */
 
+#if defined(LUAT_CONF_MBEDTLS_ECP_P256_FAST) && !defined(LUAT_CONF_MBEDTLS_ECP_CACHE)
+/* P-256 常数时间快速路径 hook: 声明见 luat/include/luat_mbedtls.h,
+ * 实现见 components/crypto/p256/(算法结构参考 BearSSL ec_p256_m31.c, MIT).
+ * 开关 LUAT_CONF_MBEDTLS_ECP_P256_FAST 在目标 mbedtls 配置头中定义. */
+#include "luat_mbedtls.h"
+#endif /* LUAT_CONF_MBEDTLS_ECP_P256_FAST */
+
 #if !defined(MBEDTLS_ECP_NO_INTERNAL_RNG)
 #if defined(MBEDTLS_HMAC_DRBG_C)
 #include "mbedtls/hmac_drbg.h"
@@ -2764,7 +2771,18 @@ int mbedtls_ecp_mul_restartable( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
 #endif
 #if defined(MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED)
     if( mbedtls_ecp_get_type( grp ) == MBEDTLS_ECP_TYPE_SHORT_WEIERSTRASS )
+    {
+#if defined(LUAT_CONF_MBEDTLS_ECP_P256_FAST)
+        if( grp->id == MBEDTLS_ECP_DP_SECP256R1 && rs_ctx == NULL &&
+            ( ret = luat_mbedtls_p256_mul( grp, R, m, P ) ) != 1 )
+        {
+            /* 快速路径已处理(成功或真实错误); 返回 1 表示不适用, 落回 comb */
+            MBEDTLS_MPI_CHK( ret );
+        }
+        else
+#endif
         MBEDTLS_MPI_CHK( ecp_mul_comb( grp, R, m, P, f_rng, p_rng, rs_ctx ) );
+    }
 #endif
 
 cleanup:

@@ -73,4 +73,21 @@ int luat_ecp_cache_owns( const mbedtls_ecp_point *t );
 
 #endif /* LUAT_CONF_MBEDTLS_ECP_CACHE */
 
+/* =====================================================================
+ * P-256 常数时间快速路径(mbedtls_ecp_mul_restartable 的 hook)
+ * ---------------------------------------------------------------------
+ * 实现: components/crypto/p256/(算法结构参考 BearSSL ec_p256_m31.c, MIT).
+ * 仅在目标 mbedtls 配置头定义 LUAT_CONF_MBEDTLS_ECP_P256_FAST 时启用.
+ * 返回值约定: 0 = R 已写入(与 ecp_mul_comb 结果一致);
+ *             1 = 本路径不适用, 调用方落回原 comb 路径;
+ *             <0 = mbedtls 错误码.
+ * ===================================================================== */
+#if defined(LUAT_CONF_MBEDTLS_ECP_P256_FAST)
+#include "mbedtls/ecp.h"
+
+int luat_mbedtls_p256_mul( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
+                           const mbedtls_mpi *m, const mbedtls_ecp_point *P );
+
+#endif /* LUAT_CONF_MBEDTLS_ECP_P256_FAST */
+
 #endif /* LUAT_MBEDTLS_H */

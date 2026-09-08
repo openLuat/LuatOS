@@ -16,6 +16,16 @@
 #include "luat_p256.h"
 #include <string.h>
 
+/*
+ * 设备构建里 MBEDTLS_CONFIG_FILE 是全局 -D, 由此拿到产品 mbedtls 配置头,
+ * 其中定义 LUAT_CONF_MBEDTLS_ECP_P256_FAST / _ASM 开关.
+ * PC 模拟器 / 独立测试环境没有该宏时, 域运算自动使用纯 C 实现.
+ * 必须在下面的条件编译之前包含.
+ */
+#if defined(MBEDTLS_CONFIG_FILE)
+#include MBEDTLS_CONFIG_FILE
+#endif
+
 /* ------------------------------------------------------------------ */
 /* 基础类型与常数                                                      */
 /* ------------------------------------------------------------------ */

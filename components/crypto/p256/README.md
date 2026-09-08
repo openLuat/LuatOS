@@ -13,7 +13,7 @@ ECDHE 密钥协商、ECDSA 签名/验签等所有 `mbedtls_ecp_mul*()` 路径。
 - G 基点窗口表 (`p256_g_table.c`) 由 `tools/gen_p256_gwin.py` 离线生成,
   并与独立纯 python P-256 实现交叉校验。
 
-## 宏开关(在目标 mbedtls 配置头中定义,如 mbedtls_ec7xx_config.h)
+## 宏开关(在目标 mbedtls 产品配置头中定义,如 mbedtls_ec7xx_config.h)
 
 | 宏 | 作用 |
 |---|---|
@@ -21,6 +21,21 @@ ECDHE 密钥协商、ECDSA 签名/验签等所有 `mbedtls_ecp_mul*()` 路径。
 | `LUAT_CONF_MBEDTLS_ECP_P256_ASM` | 在 FAST 基础上启用 Thumb-2 汇编域内核(仅 `__ARM_ARCH_7M__` 生效,其他平台自动回退 C) |
 
 两个宏都不定义时,行为与原生 mbedtls 完全一致(本目录代码不参与挂钩)。
+
+开关只在 **C 侧**读取(`p256_ct.c` 用 `MBEDTLS_CONFIG_FILE` 拿到产品配置头;
+`ecp.c`/胶水层同样)。`p256_field_armm3.S` 本身**不依赖任何配置宏**,只按
+`__ARM_ARCH_7M__` 守卫编译 —— 因为汇编器无法预处理含 C 头文件的产品配置头。
+关闭 `_ASM` 时该目标文件无人引用,链接期被丢弃,**不占 flash**。
+
+### Air1780P/101 (ec718pm) 实测 flash 占用
+
+`python build_luatos_types.py Air1780P 101`,固件剩余空间:
+
+| 配置 | 剩余空间 | 相对基线 |
+|---|---|---|
+| 关闭快速路径(基线) | 20664 B | — |
+| FAST=1, ASM 关(纯 C) | 16232 B | −4432 B |
+| FAST=1, ASM=1(全开) | 15008 B | −5656 B |
 
 ## 文件
 
@@ -66,6 +81,9 @@ ASM 内核只实现 fe_add/fe_sub 与 512-bit 原始乘积;Solinas 约减与
   执行 KAT + 与 PC mbedtls 原生 ECP 的 32 轮随机交叉比对 + 非法输入拒绝。
 - 设备端:ec718pm 上用 DWT cycle 计数对比宏开/关的 `mbedtls_ecp_mul` 耗时
   (探针临时加入,测完移除),并做实际 https/mqtts 握手计时。
+- 固件集成:`python build_luatos_types.py Air1780P 101` 三种配置均构建通过;
+  开启后已用 `arm-none-eabi-nm` 确认 `p256_fe_add_m3`/`p256_mul256_m3`/
+  `luat_mbedtls_p256_mul` 进入固件,并确认 C 侧有 32 处调用汇编内核。
 
 ## 内存与栈
 

@@ -9,9 +9,14 @@
  * 指令约束: 仅用 umull/umlal (Cortex-M3 无 umaal/DSP), 全程无分支.
  * 注意: 进位链(adds/adcs/subs/sbcs)中间不得插入影响 C 标志的指令,
  * 常量一律在链前预载或用 adcs/sbcs 的立即数形式.
+ *
+ * 开关策略: 本文件只按架构守卫 (__ARM_ARCH_7M__), 不依赖任何配置宏 ——
+ * 汇编器无法包含 mbedtls 产品配置头 (内含 C 头文件). 是否真正调用这些
+ * 内核由 p256_ct.c 依据 LUAT_CONF_MBEDTLS_ECP_P256_ASM 决定;
+ * 关闭时本目标文件无人引用, 链接期被丢弃, 不占 flash.
  */
 
-#if defined(LUAT_CONF_MBEDTLS_ECP_P256_ASM) && defined(__ARM_ARCH_7M__)
+#if defined(__ARM_ARCH_7M__)
 
     .syntax unified
     .thumb

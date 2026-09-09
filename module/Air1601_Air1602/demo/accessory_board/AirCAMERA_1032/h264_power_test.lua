@@ -51,8 +51,13 @@ local excloud_initialized = false   -- 标记 excloud 是否已初始化
 local excloud_init_lock = false     -- 防止并发初始化
 
 -- ==================== 硬件初始化 ====================
--- 拉高摄像头供电（GPIO12）
-gpio.setup(12, 1, gpio.PULLUP)
+-- AirCAMERA_1032摄像头供电控制引脚，高电平有效（客户按实际开发板切换）
+-- Air1601_V1.1开发板：GPIO12 = USB主机模式/摄像头总供电
+-- gpio.setup(12, 1, gpio.PULLUP)
+-- Air160X_V1.2开发板：GPIO58 = USB主机模式/摄像头总供电
+gpio.setup(58, 1, gpio.PULLUP)
+-- Air160X_V1.2开发板：拉高 GPIO56（SD_EN）；Air1601_V1.1开发板无 SD_EN 引脚
+gpio.setup(56, 1)
 -- 关闭 LCD 背光（背光控制 GPIO2，如不需要可注释）
 -- gpio.setup(2, 0)  -- 拉低关闭背光
 -- 关闭 4G 模块（避免射频干扰功耗测量）

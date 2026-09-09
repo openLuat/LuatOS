@@ -14,13 +14,17 @@
 
 5、h264_power_test.lua：H.264编码与上传（支持仅编码、编码+本地保存、编码+串口上传、编码+AirCloud上传四种模式）
 
-6、lcd_drv.lua：LCD屏幕驱动（1024x600分辨率）
+6、video_http_post.lua：采集 H.264 裸流 → 保存文件 → HTTP/合宙云上传（视频上传）
 
-7、netdrv/：网络驱动目录（支持WIFI、以太网、4G、多网卡等）
+7、rtmp_app.lua：采集 H.264 → 合宙音视频平台 RTMP 实时推流
 
-8、netdrv_device.lua：网络驱动选择器
+8、lcd_drv.lua：LCD屏幕驱动（1024x600分辨率）
 
-注意：preview.lua、photo_uart_post.lua、photo_to_aircloud.lua、h264_power_test.lua 只能打开一个不能同时打开
+9、netdrv/：网络驱动目录（支持WIFI、以太网、4G、多网卡等）
+
+10、netdrv_device.lua：网络驱动选择器
+
+注意：preview.lua、photo_uart_post.lua、photo_to_aircloud.lua、h264_power_test.lua、video_http_post.lua、rtmp_app.lua 只能打开一个，不能同时打开
 
 ## 演示功能概述
 
@@ -78,6 +82,27 @@
 - 支持SPI SD卡挂载（片选GPIO8），挂载失败自动回退到/ram路径
 - 模式3使用UART3（2Mbps波特率）上传文件
 - 模式4自动初始化excloud，支持网络自动检测和重连
+
+### 7、视频上传模块（video_http_post.lua）
+- 初始化 USB 主机模式 + 摄像头供电（GPIO58）
+- 枚举摄像头，检测并选择 H.264 格式 + 1280×720 分辨率
+- 配置双缓冲帧数据区，连续录制 RECORD_SECONDS 秒
+- 将 H.264 裸流保存到 /ram 或 /sd（video.h264）
+- 上传方式二选一（顶部 UPLOAD_VIA_EXCLOUD 开关）：
+  - true：通过 excloud.upload_image 上传到合宙云平台
+  - false：通过 httpplus 上传到自定义 UPLOAD_URL
+- 需联网（main.lua 打开 require "netdrv_device"）
+- 顶部可配置：录制时长、保存路径、上传地址、excloud 项目密钥等
+
+### 8、RTMP 推流模块（rtmp_app.lua）
+- 初始化 USB 主机模式 + 摄像头供电（GPIO58）
+- 枚举摄像头，检测并选择 H.264 格式 + 1280×720 分辨率
+- 通过 camera 原始 API（on/cache/stream）采集 H.264 裸流，并用 rtmp 库实时推流
+- 推流地址：从合宙音视频平台 video.luatos.com 动态获取（需先按官方说明在后台创建录像机）
+- 断线自动重连（rtmp_try_reconnect）
+- 需联网（main.lua 打开 require "netdrv_device"）
+- 顶部可配置：后台录像机的设备用户/密码/接入ID、摄像头供电引脚、分辨率
+- 说明：Air1601 使用 camera 原始 API（不使用 excamera）；RTMP 推流地址由 video.luatos.com 下发
 
 ## 演示硬件环境
 
@@ -394,9 +419,9 @@ Air1601开发板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另�
 
 1、netdrv_device.lua中只能打开一个网络驱动，不能同时打开多个
 
-2、preview.lua、photo_uart_post.lua、photo_to_aircloud.lua、h264_power_test.lua只能打开一个，不能同时打开
+2、preview.lua、photo_uart_post.lua、photo_to_aircloud.lua、h264_power_test.lua、video_http_post.lua、rtmp_app.lua 只能打开一个，不能同时打开
 
-3、本示例不使用excamera库，而是直接使用camera库的原始API，Air1601当前版本不支持camera.capture()接口
+3、本示例不使用 excamera 库，而是直接使用 camera 库的原始 API（on/cache/stream）采集帧；Air1601 未实现 camera.capture()（拍照接口），但 UVC 采集、视频上传、RTMP 推流均使用原始 API 可行。
 
 4、h264_power_test.lua的模式2/3/4会保留录制文件（video_时间戳.h264），需定期手动清理SD卡/ram空间
 

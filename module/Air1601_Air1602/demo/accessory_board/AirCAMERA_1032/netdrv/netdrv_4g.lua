@@ -59,6 +59,15 @@ sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
 local function netdrv_4g_task_func()
+    -- Air160x_v1.2开发板，4G模组(Air780ER2)上电复位
+    -- EN=GPIO42，低电平有效；RST=GPIO65，低电平复位
+    sys.wait(100)
+    gpio.setup(42, 0)   -- 拉低 EN 使能
+    sys.wait(50)
+    gpio.setup(65, 0)   -- 拉低 RST 复位
+    sys.wait(100)
+    log.info("netdrv_4g", "4G模组上电复位完成")
+
     -- 配置UART外接的4G单网卡
     -- 本demo使用Air1601核心板+Air780EPM核心板/开发板测试，Air1601核心板上的硬件配置为：
     -- 工作在UART模式
